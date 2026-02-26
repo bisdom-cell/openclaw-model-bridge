@@ -16,6 +16,8 @@ curl http://localhost:5002/health
 ```
 
 ## Architecture
+
+![Architecture Diagram](docs/architecture.svg)
 ```
 WhatsApp <-> OpenClaw Gateway (18789) <-> Tool Proxy (5002) <-> Adapter (5001) <-> Qwen3 API
 ```
