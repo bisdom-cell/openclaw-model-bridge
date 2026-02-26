@@ -1,0 +1,19 @@
+# OpenClaw 敏感配置（绝对不能上传）
+openclaw.json
+jobs.json
+*.env
+.env*
+config.local.*
+
+# 运行时文件
+*.log
+*.jsonl
+sessions/
+
+# 个人知识库
+.kb/
+
+# macOS
+.DS_Store
+__pycache__/
+*.pyc
