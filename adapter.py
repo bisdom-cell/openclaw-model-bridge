@@ -3,7 +3,7 @@ import http.server, socketserver, json, ssl, sys
 from urllib.request import Request, urlopen
 
 TARGET_BASE = "https://hkagentx.hkopenlab.com/v1"
-API_KEY = "sk-X83HqE8MT0jbACVvGJWJfVo7ejihQUI18SpHiVXp5UB943Fv"
+API_KEY = os.environ.get("REMOTE_API_KEY", "sk-REPLACE-ME")
 REAL_MODEL_ID = "Qwen3-235B-A22B-Instruct-2507-W8A8"
 PORT = 5001
 ctx = ssl.create_default_context()
