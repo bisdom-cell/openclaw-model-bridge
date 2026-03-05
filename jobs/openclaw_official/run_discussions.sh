@@ -69,7 +69,7 @@ while IFS='|' read -r title url date; do
 原标题：${title}
 链接：${url}"
 
-    ENRICH="$(openclaw agent --to "$TO" --message "$PROMPT" --thinking minimal 2>/dev/null || true)"
+    ENRICH="$(openclaw agent --to "$TO" --session-id "$(date +%s%N)" --message "$PROMPT" --thinking minimal 2>/dev/null || true)"
 
     # fallback：LLM失败时用原标题
     if [ -z "${ENRICH// }" ]; then
