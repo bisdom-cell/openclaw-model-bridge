@@ -69,7 +69,7 @@ TO="+85256190187"
       "https://openclaw.ai/blog/introducing-openclaw")   TITLE_CN="OpenClaw 项目介绍" ;;
     esac
     PROMPT="你是OpenClaw官方博客的技术编辑。请输出三行：\n1) 贡献：<=40字\n2) 价值：⭐⭐⭐⭐⭐（只输出星号）\n3) 价值说明：<=40字\n\n标题：${title}\n日期：${date}\n链接：${url}\n摘要：${summary}\n"
-    ENRICH="$(openclaw agent --to "$TO" --message "$PROMPT" --thinking minimal 2>/dev/null || true)"
+    ENRICH="$(openclaw agent --to "$TO" --session-id "$(date +%s%N)" --message "$PROMPT" --thinking minimal 2>/dev/null || true)"
     if [ -z "${ENRICH// }" ]; then
       ENRICH="贡献：${summary}\n价值：⭐⭐⭐\n价值说明：官方更新，建议关注。"
     fi
