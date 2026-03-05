@@ -9,7 +9,7 @@ CACHE="$JOB/cache"
 FEED_URL="https://github.com/openclaw/openclaw/discussions.atom"
 FEED_FILE="$CACHE/discussions.atom"
 NEW_FILE="$CACHE/discussions_new.txt"
-TO="$WA_PHONE"
+TO="+85200000000"
 
 mkdir -p "$CACHE" "$HOME/.kb/sources"
 test -f "$KB_SRC"   || echo "# OpenClaw Official Watcher" > "$KB_SRC"
@@ -93,3 +93,4 @@ done < "$CACHE/discussions_send.txt"
 
 openclaw message send --target "$TO" --message "$(cat "$MSG")" --json >/dev/null 2>&1 || true
 echo "openclaw_official/discussions: 已推送 ${cnt} 条新讨论（含LLM富摘要）。"
+rsync -a --quiet "$HOME/.kb/" "/Volumes/MOVESPEED/KB/" 2>/dev/null || true
