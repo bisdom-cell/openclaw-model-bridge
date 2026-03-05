@@ -56,7 +56,7 @@ done < "$BLOG_NEW"
 
 # 生成WhatsApp消息
 MSG="$CACHE/system_message_blog.txt"
-TO="$WA_PHONE"
+TO="+85256190187"
 {
   while IFS= read -r ev; do
     date="$(printf "%s\n" "$ev" | jq -r ".ts // empty" | cut -dT -f1)"
@@ -82,3 +82,4 @@ TO="$WA_PHONE"
 
 openclaw message send --target "$TO" --message "$(cat "$MSG")" --json 2>&1 || echo "⚠️ 发送失败 $(date)" >>~/.openclaw/logs/jobs/openclaw_blog.log
 echo "openclaw_official/blog: sent ${cnt} new post(s). msg=${MSG}"
+rsync -a --quiet "$HOME/.kb/" "/Volumes/MOVESPEED/KB/" 2>/dev/null || true
