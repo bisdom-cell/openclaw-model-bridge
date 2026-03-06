@@ -1,210 +1,23 @@
 #!/usr/bin/env python3
+"""
+tool_proxy.py — V27 HTTP 层
+策略逻辑已提取到 proxy_filters.py，本文件只负责 HTTP 收发和日志。
+"""
 import http.server, socketserver, json, sys
 from urllib.request import Request, urlopen
+
+from proxy_filters import (
+    ALLOWED_TOOLS, ALLOWED_PREFIXES,
+    is_allowed, filter_tools, truncate_messages,
+    fix_tool_args, build_sse_response,
+)
 
 BACKEND = "http://127.0.0.1:5001"
 PORT = 5002
 
-# Expanded allowed tools
-ALLOWED_TOOLS = {
-    # Web
-    "web_search", "web_fetch",
-    # File operations
-    "read", "write", "edit",
-    # Command execution
-    "exec",
-    # Memory
-    "memory_search", "memory_get",
-    # Scheduling & messaging
-    "cron", "message", "tts",
-}
-
-# Prefix match for browser tools
-ALLOWED_PREFIXES = ["browser"]
-
-# Simplified schemas for tools Qwen3 tends to mess up
-CLEAN_SCHEMAS = {
-    "web_search": {
-        "type": "object",
-        "properties": {"query": {"type": "string", "description": "Search query string"}},
-        "required": ["query"],
-        "additionalProperties": False
-    },
-    "web_fetch": {
-        "type": "object",
-        "properties": {"url": {"type": "string", "description": "URL to fetch"}},
-        "required": ["url"],
-        "additionalProperties": False
-    },
-    "read": {
-        "type": "object",
-        "properties": {"path": {"type": "string", "description": "Absolute file path to read"}},
-        "required": ["path"],
-        "additionalProperties": False
-    },
-    "write": {
-        "type": "object",
-        "properties": {
-            "path": {"type": "string", "description": "Absolute file path to write"},
-            "content": {"type": "string", "description": "Content to write to file"}
-        },
-        "required": ["path", "content"],
-        "additionalProperties": False
-    },
-    "edit": {
-        "type": "object",
-        "properties": {
-            "path": {"type": "string", "description": "Absolute file path to edit"},
-            "old_text": {"type": "string", "description": "Existing text to find and replace"},
-            "new_text": {"type": "string", "description": "New text to replace with"}
-        },
-        "required": ["path", "old_text", "new_text"],
-        "additionalProperties": False
-    },
-    "exec": {
-        "type": "object",
-        "properties": {"command": {"type": "string", "description": "Shell command to execute"}},
-        "required": ["command"],
-        "additionalProperties": False
-    },
-    "memory_search": {
-        "type": "object",
-        "properties": {"query": {"type": "string", "description": "Search query for memory"}},
-        "required": ["query"],
-        "additionalProperties": False
-    },
-    "memory_get": {
-        "type": "object",
-        "properties": {"key": {"type": "string", "description": "Memory key to retrieve"}},
-        "required": ["key"],
-        "additionalProperties": False
-    },
-    "cron": {
-        "type": "object",
-        "properties": {
-            "action": {"type": "string", "description": "Action: add, list, remove"},
-            "name": {"type": "string", "description": "Name of the cron job"},
-            "schedule": {"type": "object", "description": "Schedule object with kind, expr, tz fields. Example: {kind: cron, expr: 0 9 * * *, tz: Asia/Hong_Kong}"},
-            "sessionTarget": {"type": "string", "description": "Session target, use 'current' for current session"},
-            "payload": {"type": "string", "description": "The message/instruction to execute when triggered"},
-            "id": {"type": "string", "description": "Cron job ID for remove action"}
-        },
-        "required": ["action"]
-    },
-    "message": {
-        "type": "object",
-        "properties": {
-            "to": {"type": "string", "description": "Recipient phone number or contact"},
-            "text": {"type": "string", "description": "Message text to send"}
-        },
-        "required": ["to", "text"]
-    },
-    "tts": {
-        "type": "object",
-        "properties": {"text": {"type": "string", "description": "Text to convert to speech"}},
-        "required": ["text"],
-        "additionalProperties": False
-    }
-}
-
-# Known required params for response cleanup
-TOOL_PARAMS = {
-    "web_search": {"query"},
-    "web_fetch": {"url"},
-    "read": {"path"},
-    "write": {"path", "content"},
-    "edit": {"path", "old_text", "new_text"},
-    "exec": {"command"},
-    "memory_search": {"query"},
-    "memory_get": {"key"},
-    "cron": {"action", "schedule", "command", "id", "name", "sessionTarget", "payload", "job"},
-    "message": {"to", "text"},
-    "tts": {"text"},
-}
-
 def log(msg):
     print(f"[proxy] {msg}", flush=True)
 
-def is_allowed(name):
-    if name in ALLOWED_TOOLS:
-        return True
-    for prefix in ALLOWED_PREFIXES:
-        if name.startswith(prefix):
-            return True
-    return False
-
-def fix_tool_args(rj):
-    modified = False
-    for choice in rj.get("choices", []):
-        msg = choice.get("message", {})
-        tcs = msg.get("tool_calls")
-        if tcs:
-            for tc in tcs:
-                fn = tc.get("function", {})
-                name = fn.get("name", "")
-                args_str = fn.get("arguments", "{}")
-                try:
-                    args = json.loads(args_str) if isinstance(args_str, str) else args_str
-                except (json.JSONDecodeError, ValueError) as e:
-                    log(f"FIX: failed to parse args for {name}: {e}")
-                    args = {}
-                
-                # Fix browser profile: replace invalid profiles with "chrome"
-                VALID_BROWSER_PROFILES = {"openclaw", "chrome"}
-                if name.startswith("browser"):
-                    if "profile" in args and args["profile"] not in VALID_BROWSER_PROFILES:
-                        log(f"FIX: browser profile '{args['profile']}' -> 'openclaw'")
-                        args["profile"] = "openclaw"
-                        fn["arguments"] = json.dumps(args)
-                        modified = True
-                    elif "target" in args and args["target"] not in VALID_BROWSER_PROFILES:
-                        log(f"FIX: browser target '{args['target']}' -> 'openclaw'")
-                        args["target"] = "openclaw"
-                        fn["arguments"] = json.dumps(args)
-                        modified = True
-                    # If no profile specified, inject default
-                    if "profile" not in args and "target" not in args:
-                        args["profile"] = "openclaw"
-                        log(f"FIX: browser missing profile, set to 'openclaw'")
-                        fn["arguments"] = json.dumps(args)
-                        modified = True
-
-                allowed = TOOL_PARAMS.get(name)
-                if allowed:
-                    # Handle common param name aliases
-                    # Track whether any alias substitution happened so we always write back
-                    alias_changed = False
-                    if name == "read" and "path" not in args:
-                        for alt in ["file_path", "file", "filepath", "filename"]:
-                            if alt in args:
-                                args["path"] = args.pop(alt)
-                                alias_changed = True
-                                break
-                    if name == "exec" and "command" not in args:
-                        for alt in ["cmd", "shell", "bash", "script"]:
-                            if alt in args:
-                                args["command"] = args.pop(alt)
-                                alias_changed = True
-                                break
-                    if name == "write" and "content" not in args:
-                        for alt in ["text", "data", "body", "file_content"]:
-                            if alt in args:
-                                args["content"] = args.pop(alt)
-                                alias_changed = True
-                                break
-                    if name == "web_search" and "query" not in args:
-                        for alt in ["search_query", "q", "keyword", "search"]:
-                            if alt in args:
-                                args["query"] = args.pop(alt)
-                                alias_changed = True
-                                break
-
-                    clean = {k: v for k, v in args.items() if k in allowed}
-                    if clean != args or alias_changed:
-                        log(f"FIX: {name} {list(args.keys())} -> {list(clean.keys())}")
-                        fn["arguments"] = json.dumps(clean)
-                        modified = True
-    return modified
 
 class ProxyHandler(http.server.BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
@@ -227,7 +40,7 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
     def do_POST(self):
         length = int(self.headers.get("Content-Length", 0))
         raw = self.rfile.read(length)
-        
+
         was_streaming = False
         if "/chat/completions" in self.path:
             try:
@@ -235,40 +48,19 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                 was_streaming = body.get("stream", False)
                 body["stream"] = False
 
-                # Limit request size to prevent 500 errors
-                MAX_BYTES = 200000  # 200KB safe limit
+                # Truncate old messages
                 msgs = body.get("messages", [])
-                system = [m for m in msgs if m.get("role") == "system"]
-                others = [m for m in msgs if m.get("role") != "system"]
-                total = len(json.dumps(system))
-                keep = []
-                for m in reversed(others):
-                    ms = len(json.dumps(m))
-                    if total + ms > MAX_BYTES:
-                        break
-                    keep.insert(0, m)
-                    total += ms
-                if len(keep) < len(others):
-                    dropped = len(others) - len(keep)
-                    body["messages"] = system + keep
-                    log(f"WARN: Truncated {dropped} old messages ({len(msgs)} -> {len(body['messages'])} msgs, ~{total//1024}KB). Oldest context may be lost.")
+                truncated, dropped = truncate_messages(msgs)
+                if dropped:
+                    body["messages"] = truncated
+                    log(f"WARN: Truncated {dropped} old messages ({len(msgs)} -> {len(truncated)} msgs)")
 
+                # Filter tools
                 if "tools" in body:
                     orig = len(body["tools"])
-                    # Log all tool names on first request
-                    all_names = [t.get("function", {}).get("name", "?") for t in body["tools"]]
+                    body["tools"], all_names, kept_names = filter_tools(body["tools"])
                     log(f"ALL tools ({orig}): {all_names}")
-                    
-                    new_tools = []
-                    for t in body["tools"]:
-                        name = t.get("function", {}).get("name", "")
-                        if is_allowed(name):
-                            if name in CLEAN_SCHEMAS:
-                                t["function"]["parameters"] = CLEAN_SCHEMAS[name]
-                            new_tools.append(t)
-                    body["tools"] = new_tools
-                    kept = [t.get("function", {}).get("name") for t in new_tools]
-                    log(f"Kept tools ({len(new_tools)}): {kept}")
+                    log(f"Kept tools ({len(body['tools'])}): {kept_names}")
                     if not body["tools"]:
                         del body["tools"]
                         if "tool_choice" in body:
@@ -290,8 +82,8 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                     try:
                         rj = json.loads(resp_body)
                         fix_tool_args(rj)
-                        
-                        # Log what model decided
+
+                        # Log model decision
                         for c in rj.get("choices", []):
                             m = c.get("message", {})
                             if m.get("tool_calls"):
@@ -301,32 +93,9 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                                     log(f"CALL: {fn_name} ({len(fn_args)} bytes)")
                             elif m.get("content"):
                                 log(f"TEXT: {len(str(m['content']))} chars")
-                        
+
                         if was_streaming:
-                            chunks_out = []
-                            for choice in rj.get("choices", []):
-                                msg = choice.get("message", {})
-                                delta = {}
-                                if msg.get("role"):
-                                    delta["role"] = msg["role"]
-                                if msg.get("content"):
-                                    delta["content"] = msg["content"]
-                                if msg.get("tool_calls"):
-                                    delta["tool_calls"] = msg["tool_calls"]
-                                chunk = {
-                                    "id": rj.get("id", ""),
-                                    "object": "chat.completion.chunk",
-                                    "created": rj.get("created", 0),
-                                    "model": rj.get("model", ""),
-                                    "choices": [{
-                                        "index": choice.get("index", 0),
-                                        "delta": delta,
-                                        "finish_reason": choice.get("finish_reason")
-                                    }]
-                                }
-                                chunks_out.append(f"data: {json.dumps(chunk)}\n\n")
-                            chunks_out.append("data: [DONE]\n\n")
-                            sse_body = "".join(chunks_out).encode()
+                            sse_body = build_sse_response(rj)
                             self.send_response(200)
                             self.send_header("Content-Type", "text/event-stream")
                             self.send_header("Cache-Control", "no-cache")
@@ -352,6 +121,7 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
             self.send_header("Content-Length", str(len(err)))
             self.end_headers()
             self.wfile.write(err)
+
 
 log(f"Starting on :{PORT} -> {BACKEND}")
 log(f"Allowed: {ALLOWED_TOOLS} + prefix: {ALLOWED_PREFIXES}")

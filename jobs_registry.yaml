@@ -1,0 +1,101 @@
+# jobs_registry.yaml — V27 统一任务注册表
+# 所有定时任务（system crontab + openclaw cron）在此登记。
+# 校验脚本：python3 check_registry.py
+version: 1
+
+jobs:
+  # ---- system crontab 任务（不经过 LLM 链路） ----
+
+  - id: health_check
+    scheduler: system
+    entry: health_check.sh
+    interval: "0 9 * * 1"           # 每周一 09:00
+    log: ~/health_check.log
+    needs_api_key: true
+    enabled: true
+    description: 每周健康周报，推送到 WhatsApp
+
+  - id: kb_save_arxiv
+    scheduler: system
+    entry: kb_save_arxiv.sh
+    interval: "30 8 * * *"          # 每天 08:30
+    log: ~/kb_save_arxiv.log
+    needs_api_key: false
+    enabled: true
+    description: ArXiv 监控结果写入 KB + rsync 备份
+
+  - id: kb_evening
+    scheduler: system
+    entry: kb_evening.sh
+    interval: "0 22 * * *"          # 每天 22:00
+    log: ~/kb_evening.log
+    needs_api_key: false
+    enabled: true
+    description: 晚间 KB 整理
+
+  # ---- openclaw cron 任务（经过 LLM 链路） ----
+
+  - id: freight_watcher
+    scheduler: openclaw
+    entry: jobs/freight_watcher/run_freight.sh
+    interval: "0 8,14,20 * * *"     # 每天 08:00/14:00/20:00
+    log: ~/freight_watcher.log
+    needs_api_key: true
+    enabled: true
+    description: 货代 Watcher，抓取航运动态
+
+  - id: openclaw_run
+    scheduler: openclaw
+    entry: jobs/openclaw_official/run.sh
+    interval: ""                     # 由 openclaw cron 管理
+    log: ~/openclaw_run.log
+    needs_api_key: true
+    enabled: true
+    description: OpenClaw 官方任务入口
+
+  - id: openclaw_blog
+    scheduler: openclaw
+    entry: jobs/openclaw_official/run_blog.sh
+    interval: ""
+    log: ~/openclaw_blog.log
+    needs_api_key: true
+    enabled: true
+    description: Blog 自动发布
+
+  - id: openclaw_discussions
+    scheduler: openclaw
+    entry: jobs/openclaw_official/run_discussions.sh
+    interval: ""
+    log: ~/openclaw_discussions.log
+    needs_api_key: true
+    enabled: true
+    description: GitHub Discussions 监控
+
+  - id: kb_review
+    scheduler: openclaw
+    entry: kb_review.sh
+    interval: "0 21 * * 5"          # 每周五 21:00
+    log: ~/kb_review.log
+    needs_api_key: true
+    enabled: true
+    description: KB 跨笔记回顾
+
+  # ---- HN 讨论抓取（独立脚本） ----
+
+  - id: run_hn_fixed
+    scheduler: system
+    entry: run_hn_fixed.sh
+    interval: "0 7 * * *"           # 每天 07:00
+    log: ~/run_hn_fixed.log
+    needs_api_key: false
+    enabled: true
+    description: HackerNews 热帖抓取
+
+  - id: run_discussions
+    scheduler: system
+    entry: run_discussions.sh
+    interval: "0 9 * * *"           # 每天 09:00
+    log: ~/run_discussions.log
+    needs_api_key: false
+    enabled: true
+    description: 社区讨论抓取

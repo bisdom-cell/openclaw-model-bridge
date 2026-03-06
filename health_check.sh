@@ -96,5 +96,30 @@ ${TASK_STATS}
 
 echo "$REPORT"
 
+# === V27: 输出机器可读 JSON（供自动化消费） ===
+HEALTH_JSON="${HEALTH_JSON_PATH:-$HOME/health_status.json}"
+python3 << JSONEOF > "$HEALTH_JSON"
+import json, datetime
+data = {
+    "timestamp": datetime.datetime.now().isoformat(),
+    "version": "v27",
+    "services": {
+        "gateway":  {"port": 18789, "status": "ok" if "$gw".startswith("\U0001f7e2") else "down"},
+        "adapter":  {"port": 5001,  "status": "ok" if "$ad".startswith("\U0001f7e2") else "down"},
+        "proxy":    {"port": 5002,  "status": "ok" if "$px".startswith("\U0001f7e2") else "down"},
+    },
+    "model": {
+        "remote": "$CURRENT_MODEL",
+        "local": "$LOCAL_MODEL",
+        "match": "$CURRENT_MODEL" == "$LOCAL_MODEL",
+    },
+    "kb": {"new_this_week": int("$KB_COUNT" or "0"), "total": int("$TOTAL_KB" or "0")},
+    "ssd": "$ssd_status",
+    "session_size": "$SESSION_SIZE",
+}
+print(json.dumps(data, indent=2, ensure_ascii=False))
+JSONEOF
+echo "[health] JSON written to $HEALTH_JSON"
+
 # === 推送到WhatsApp ===
 $OPENCLAW message send --channel whatsapp -t "$PHONE" -m "$REPORT"
