@@ -531,7 +531,7 @@ tail -30 ~/.kb/sources/freight_daily.md
 cd ~/openclaw-model-bridge
 echo "=== API Key (sk-) ===" && grep -r "sk-[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*.md" --include="*.json" | grep -v ".git"
 echo "=== Brave Key (BSA) ===" && grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*.md" --include="*.json" | grep -v ".git"
-echo "=== 真实手机号 ===" && grep -r "85256190187" . --include="*.py" --include="*.sh" --include="*.md" --include="*.json" | grep -v ".git"
+echo "=== 真实手机号 ===" && grep -r "85200000000" . --include="*.py" --include="*.sh" --include="*.md" --include="*.json" | grep -v ".git"
 echo "=== 扫描完成，全部为空才允许push ==="
 ```
 ### 32.2 五条强制规则
