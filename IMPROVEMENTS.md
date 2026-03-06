@@ -66,11 +66,47 @@
 | P2 · 配置 | `/opt/homebrew/bin/openclaw` 硬编码 macOS 路径 | 改为优先使用 `$PATH` 中的 `openclaw` |
 
 ### 累计未修复项
-- 无单元测试（P3）
-- `requirements.txt` 冗余依赖 `requests`（P3）
-- `kb_write.sh` 忙等待锁机制（P3）
-- `run_hn_fixed.sh` LLM 输出正则过于宽泛（P3，需配合 prompt 工程一起改）
+- `run_hn_fixed.sh` LLM 输出正则过于宽泛（后续，需配合 prompt 工程一起改）
 
 ---
 
-*最后更新：2026-03-06 Round 2*
+## 2026-03-06 · Round 3：P3 修复 — 测试覆盖、锁机制、依赖清理，发现并修复隐藏 Bug
+
+### 已修复
+
+#### tool_proxy.py — 隐藏 Bug（由测试发现）
+| 类型 | 问题 | 修复 |
+|------|------|------|
+| P3 · 隐藏 Bug | 参数别名替换（`file_path`→`path`、`cmd`→`command` 等）后**从未回写** `fn["arguments"]`，导致别名替换对调用方完全无效 | 引入 `alias_changed` 标志，只要发生别名替换就强制回写 |
+
+> **说明**：`clean == args`（别名替换后两者相同），触发不了原有的 `if clean != args` 写回条件。
+> 这个 bug 在 20 天的 Chat 迭代中始终未被发现，因为无法运行代码验证。
+
+#### test_tool_proxy.py（新增）
+| 内容 | 说明 |
+|------|------|
+| `TestBrowserProfileFix` (5 tests) | browser profile 无效值替换、有效值保留、缺失时注入 |
+| `TestParamAliases` (5 tests) | `file_path/filepath/file/filename`→`path`、`cmd`→`command`、`text`→`content`、`q`→`query` |
+| `TestExtraParamsStripped` (2 tests) | 多余参数被清除、合法参数保留 |
+| `TestMalformedArgs` (4 tests) | JSON 格式错误、无 tool_calls、空 choices、缺 choices 键 |
+| **合计：16 tests，全部通过** | `python3 test_tool_proxy.py` |
+
+#### kb_write.sh
+| 类型 | 问题 | 修复 |
+|------|------|------|
+| P3 · 并发 | 目录忙等待锁（`mkdir` + `sleep 0.1` 循环）浪费 CPU，进程崩溃后锁目录残留 | 改用 `flock -x 9`，进程退出后内核自动释放 |
+| P3 · 可移植 | 所有路径硬编码 `/Users/bisdom/.kb/` | 改为读取 `KB_BASE` 环境变量（默认保持原路径） |
+| P3 · 可移植 | index 路径通过 Python f-string 硬编码 | 改为通过 `sys.argv[6]` 传入 |
+| P3 · 可维护 | emoji 输出日志 | 改为 `[kb_write]` 前缀纯文本 |
+
+#### requirements.txt
+| 问题 | 修复 |
+|------|------|
+| `flask>=2.0.0` 和 `requests>=2.28.0` 均未在任何 Python 文件中 import | 清空为注释说明：本项目仅使用 Python 标准库 |
+
+### 累计未修复项
+- `run_hn_fixed.sh` LLM 输出正则过于宽泛（后续，需配合 prompt 工程一起改）
+
+---
+
+*最后更新：2026-03-06 Round 3*
