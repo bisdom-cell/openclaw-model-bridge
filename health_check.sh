@@ -1,8 +1,9 @@
 #!/bin/bash
-# OpenClaw 每周健康检查脚本 v1.0
+# OpenClaw 每周健康检查脚本 v1.1
 
-PHONE="+85200000000"
-OPENCLAW="/opt/homebrew/bin/openclaw"
+# 配置：优先读取环境变量，保留默认值
+PHONE="${OPENCLAW_PHONE:-+85200000000}"
+OPENCLAW="$(command -v openclaw 2>/dev/null || echo /opt/homebrew/bin/openclaw)"
 
 # === 服务状态 ===
 gw=$(lsof -ti :18789 >/dev/null 2>&1 && echo "🟢 正常" || echo "🔴 异常")
@@ -32,8 +33,8 @@ import json, time, subprocess, sys
 try:
     with open('/Users/bisdom/.openclaw/cron/jobs.json') as f:
         jobs = json.load(f).get('jobs', [])
-except:
-    print("无法读取任务配置")
+except (OSError, json.JSONDecodeError, KeyError) as e:
+    print(f"无法读取任务配置: {e}")
     sys.exit(0)
 
 lines = []
@@ -51,8 +52,8 @@ for j in jobs:
         total = len(entries)
         success = sum(1 for e in entries if e.get('status') in ('ok', 'success'))
         lines.append(f"  {name}：{success}/{total} 成功")
-    except:
-        lines.append(f"  {name}：无法获取记录")
+    except (json.JSONDecodeError, KeyError, subprocess.TimeoutExpired, OSError) as e:
+        lines.append(f"  {name}：无法获取记录 ({e})")
 
 print('\n'.join(lines))
 PYEOF
