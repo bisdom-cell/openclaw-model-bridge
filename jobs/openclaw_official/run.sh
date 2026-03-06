@@ -210,4 +210,4 @@ cat "$MSG"
 
 # OPTIONAL: announce hook (adapt to your environment)
 # "$ROOT/bin/announce.sh" < "$MSG"
-openclaw message send --target +85256190187 --message "$(cat "$MSG")" --json >/dev/null 2>&1 || true
+openclaw message send --target +85200000000 --message "$(cat "$MSG")" --json >/dev/null 2>&1 || true

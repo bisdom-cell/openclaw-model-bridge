@@ -1,7 +1,7 @@
 #!/bin/bash
 DATE=$(date +%Y%m%d)
 KB_DIR="/Users/bisdom/.kb"
-PHONE="+85256190187"
+PHONE="+85200000000"
 
 TODAY_FILES=$(ls "$KB_DIR/notes/" 2>/dev/null | grep "^$DATE")
 

@@ -17,7 +17,7 @@ MSG_FILE="$CACHE_DIR/hn_message.txt"
 NEW_FILE="$CACHE_DIR/hn_new.jsonl"
 RSS_FILE="$CACHE_DIR/hn_frontpage.xml"
 LLM_RAW_LOG="$CACHE_DIR/llm_raw_last.txt"
-TO="+85256190187"
+TO="+85200000000"
 
 mkdir -p "$CACHE_DIR"
 touch "$INBOX"
@@ -150,7 +150,7 @@ prompt = f"""将以下{len(items)}条英文标题翻译成中文，每条给出�
 
 # 单次LLM调用
 result = subprocess.run(
-    ["openclaw", "agent", "--to", "+85256190187",
+    ["openclaw", "agent", "--to", "+85200000000",
      "--session-id", str(int(__import__("time").time()*1000)),
      "--message", prompt, "--thinking", "minimal", "--timeout", "180"],
     capture_output=True, text=True, timeout=200

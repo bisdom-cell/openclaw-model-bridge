@@ -56,7 +56,7 @@ done < "$BLOG_NEW"
 
 # 生成WhatsApp消息
 MSG="$CACHE/system_message_blog.txt"
-TO="+85256190187"
+TO="+85200000000"
 {
   while IFS= read -r ev; do
     date="$(printf "%s\n" "$ev" | jq -r ".ts // empty" | cut -dT -f1)"

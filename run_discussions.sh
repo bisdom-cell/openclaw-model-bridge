@@ -9,7 +9,7 @@ CACHE="$JOB/cache"
 FEED_URL="https://github.com/openclaw/openclaw/discussions.atom"
 FEED_FILE="$CACHE/discussions.atom"
 NEW_FILE="$CACHE/discussions_new.txt"
-TO="+85256190187"
+TO="+85200000000"
 
 mkdir -p "$CACHE" "$HOME/.kb/sources"
 test -f "$KB_SRC"   || echo "# OpenClaw Official Watcher" > "$KB_SRC"

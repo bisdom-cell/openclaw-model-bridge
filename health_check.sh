@@ -1,7 +1,7 @@
 #!/bin/bash
 # OpenClaw 每周健康检查脚本 v1.0
 
-PHONE="+85256190187"
+PHONE="+85200000000"
 OPENCLAW="/opt/homebrew/bin/openclaw"
 
 # === 服务状态 ===
