@@ -17,3 +17,4 @@ sessions/
 .DS_Store
 __pycache__/
 *.pyc
+OpenClaw配置文档*.md
