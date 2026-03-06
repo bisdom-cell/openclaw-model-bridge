@@ -127,8 +127,8 @@ launchctl load ~/Library/LaunchAgents/com.openclaw.proxy.plist
 ## 四、环境变量配置（v16新增）
 **路径**：`~/.zshrc`
 ```bash
-export REMOTE_API_KEY="sk-X83HqE8MT0jbACVvGJWJfVo7ejihQUI18SpHiVXp5UB943Fv"
-export WA_PHONE="+85256190187"
+export REMOTE_API_KEY="sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+export WA_PHONE="+85200000000"
 ```
 > ⚠️ GitHub仓库中的 adapter.py 已脱敏，使用 `os.environ.get("REMOTE_API_KEY")` 读取。
 > 本地运行文件 `~/adapter.py` 仍为明文，属于正常运行配置。
@@ -136,7 +136,7 @@ export WA_PHONE="+85256190187"
 ## 五、Brave Search API
 | 项目 | 值 |
 |------|------|
-| API Key | BSAZRqaR6oF3tCkiv75PRuNBkQQUeeb |
+| API Key | BSAxxxxxxxxxxxxxxxxxxxxxxxxxxxxx |
 | 用途 | web_search 工具的搜索引擎 |
 ---
 ## 六、已开通工具 (12个)
@@ -197,7 +197,7 @@ openclaw cron add \
   --tz "Asia/Hong_Kong" \
   --session isolated \
   --announce \
-  --to "+85256190187" \
+  --to "+85200000000" \
   --timeout-seconds 300 \
   --message "用web_fetch抓取以下URL（只抓一次）：
 https://export.arxiv.org/api/query?search_query=ti:DeepSeek+OR+ti:Gemini+OR+ti:ChatGPT+OR+ti:GPT-4+OR+ti:GPT-5+OR+ti:Llama+OR+ti:Mistral+OR+ti:Qwen&sortBy=submittedDate&sortOrder=descending&max_results=50
@@ -240,7 +240,7 @@ openclaw cron add \
 ```bash
 #!/bin/bash
 # OpenClaw 每周健康检查脚本 v1.0
-PHONE="+85256190187"
+PHONE="+85200000000"
 OPENCLAW="/opt/homebrew/bin/openclaw"
 # === 服务状态 ===
 gw=$(lsof -ti :18789 >/dev/null 2>&1 && echo "🟢 正常" || echo "🔴 异常")
@@ -391,7 +391,7 @@ FORCE_SYSTEM = """你是Wei，一个专业AI助手。身份已完全确认，onb
       "enabled": true,
       "dmPolicy": "allowlist",
       "selfChatMode": true,
-      "allowFrom": ["+85256190187"],
+      "allowFrom": ["+85200000000"],
       "debounceMs": 0
     }
   }
