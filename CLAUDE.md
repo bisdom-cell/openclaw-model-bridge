@@ -38,7 +38,7 @@ WhatsApp <-> OpenClaw Gateway (18789) <-> Tool Proxy (5002) <-> Adapter (5001) <
 | `kb_review.sh` | KB跨笔记回顾脚本 |
 | `kb_save_arxiv.sh` | ArXiv监控结果写入KB + rsync备份 |
 | `test_tool_proxy.py` | proxy_filters 单测（28个用例） |
-| `docs/config_v27.md` | 完整系统配置文档（含所有历史变更） |
+| `docs/config.md` | 完整系统配置文档（含所有历史变更） |
 | `docs/GUIDE.md` | 完整中英文集成指南 |
 
 ## V27 变更摘要
@@ -110,7 +110,7 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 
 ## 工作原则（精简版）
 
-1. **每次开始先读 `docs/config_v27.md`** — 获取完整系统状态和历史踩坑
+1. **每次开始先读 `docs/config.md`** — 获取完整系统状态和历史踩坑
 2. **测试先于注册** — 新脚本必须手动验证后才能注册cron
 3. **任务先登记** — 新增定时任务必须先写入 `jobs_registry.yaml` 并校验通过
 4. **根因定位** — 多任务同时失败 → 第一反应检查远端模型ID
