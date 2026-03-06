@@ -1,104 +1,19 @@
 #!/usr/bin/env python3
 """
-Unit tests for tool_proxy.py core logic.
+Unit tests for proxy_filters.py (V27).
 Run: python3 -m pytest test_tool_proxy.py -v
   or: python3 test_tool_proxy.py
 """
 import json
-import sys
 import unittest
 
-# Inline the functions under test so we don't import the running server
-# (tool_proxy.py calls socketserver.TCPServer at module level)
-
-TOOL_PARAMS = {
-    "web_search": {"query"},
-    "web_fetch": {"url"},
-    "read": {"path"},
-    "write": {"path", "content"},
-    "edit": {"path", "old_text", "new_text"},
-    "exec": {"command"},
-    "memory_search": {"query"},
-    "memory_get": {"key"},
-    "cron": {"action", "schedule", "command", "id", "name", "sessionTarget", "payload", "job"},
-    "message": {"to", "text"},
-    "tts": {"text"},
-}
-
-VALID_BROWSER_PROFILES = {"openclaw", "chrome"}
-
-_log_messages = []
-
-def log(msg):
-    _log_messages.append(msg)
-
-def fix_tool_args(rj):
-    modified = False
-    for choice in rj.get("choices", []):
-        msg = choice.get("message", {})
-        tcs = msg.get("tool_calls")
-        if tcs:
-            for tc in tcs:
-                fn = tc.get("function", {})
-                name = fn.get("name", "")
-                args_str = fn.get("arguments", "{}")
-                try:
-                    args = json.loads(args_str) if isinstance(args_str, str) else args_str
-                except (json.JSONDecodeError, ValueError) as e:
-                    log(f"FIX: failed to parse args for {name}: {e}")
-                    args = {}
-
-                if name.startswith("browser"):
-                    if "profile" in args and args["profile"] not in VALID_BROWSER_PROFILES:
-                        log(f"FIX: browser profile '{args['profile']}' -> 'openclaw'")
-                        args["profile"] = "openclaw"
-                        fn["arguments"] = json.dumps(args)
-                        modified = True
-                    elif "target" in args and args["target"] not in VALID_BROWSER_PROFILES:
-                        log(f"FIX: browser target '{args['target']}' -> 'openclaw'")
-                        args["target"] = "openclaw"
-                        fn["arguments"] = json.dumps(args)
-                        modified = True
-                    if "profile" not in args and "target" not in args:
-                        args["profile"] = "openclaw"
-                        log(f"FIX: browser missing profile, set to 'openclaw'")
-                        fn["arguments"] = json.dumps(args)
-                        modified = True
-
-                allowed = TOOL_PARAMS.get(name)
-                if allowed:
-                    alias_changed = False
-                    if name == "read" and "path" not in args:
-                        for alt in ["file_path", "file", "filepath", "filename"]:
-                            if alt in args:
-                                args["path"] = args.pop(alt)
-                                alias_changed = True
-                                break
-                    if name == "exec" and "command" not in args:
-                        for alt in ["cmd", "shell", "bash", "script"]:
-                            if alt in args:
-                                args["command"] = args.pop(alt)
-                                alias_changed = True
-                                break
-                    if name == "write" and "content" not in args:
-                        for alt in ["text", "data", "body", "file_content"]:
-                            if alt in args:
-                                args["content"] = args.pop(alt)
-                                alias_changed = True
-                                break
-                    if name == "web_search" and "query" not in args:
-                        for alt in ["search_query", "q", "keyword", "search"]:
-                            if alt in args:
-                                args["query"] = args.pop(alt)
-                                alias_changed = True
-                                break
-
-                    clean = {k: v for k, v in args.items() if k in allowed}
-                    if clean != args or alias_changed:
-                        log(f"FIX: {name} {list(args.keys())} -> {list(clean.keys())}")
-                        fn["arguments"] = json.dumps(clean)
-                        modified = True
-    return modified
+# V27: import directly from the filters module (no more inline copy)
+from proxy_filters import (
+    fix_tool_args, is_allowed, filter_tools,
+    truncate_messages, build_sse_response,
+    TOOL_PARAMS, VALID_BROWSER_PROFILES,
+    ALLOWED_TOOLS, ALLOWED_PREFIXES,
+)
 
 
 def make_response(name, args_dict):
@@ -125,10 +40,9 @@ def get_args(rj):
     )
 
 
-class TestBrowserProfileFix(unittest.TestCase):
+# ---- fix_tool_args tests (preserved from V26) ----
 
-    def setUp(self):
-        _log_messages.clear()
+class TestBrowserProfileFix(unittest.TestCase):
 
     def test_invalid_profile_replaced(self):
         rj = make_response("browser_navigate", {"url": "https://example.com", "profile": "default"})
@@ -156,15 +70,11 @@ class TestBrowserProfileFix(unittest.TestCase):
 
     def test_valid_target_unchanged(self):
         rj = make_response("browser_click", {"selector": "#btn", "target": "openclaw"})
-        # target is valid, no profile either so profile gets injected
         fix_tool_args(rj)
         self.assertEqual(get_args(rj)["target"], "openclaw")
 
 
 class TestParamAliases(unittest.TestCase):
-
-    def setUp(self):
-        _log_messages.clear()
 
     def test_read_file_path_alias(self):
         rj = make_response("read", {"file_path": "/tmp/foo.txt"})
@@ -203,9 +113,6 @@ class TestParamAliases(unittest.TestCase):
 
 class TestExtraParamsStripped(unittest.TestCase):
 
-    def setUp(self):
-        _log_messages.clear()
-
     def test_extra_params_removed(self):
         rj = make_response("web_search", {"query": "test", "extra_field": "noise", "another": 42})
         fix_tool_args(rj)
@@ -225,10 +132,7 @@ class TestExtraParamsStripped(unittest.TestCase):
 
 class TestMalformedArgs(unittest.TestCase):
 
-    def setUp(self):
-        _log_messages.clear()
-
-    def test_invalid_json_args_become_empty(self):
+    def test_invalid_json_args_handled(self):
         rj = {
             "choices": [{
                 "message": {
@@ -239,9 +143,8 @@ class TestMalformedArgs(unittest.TestCase):
                 }
             }]
         }
+        # Should not raise
         fix_tool_args(rj)
-        # Should not raise; log should contain parse error
-        self.assertTrue(any("failed to parse args" in m for m in _log_messages))
 
     def test_no_tool_calls_no_crash(self):
         rj = {"choices": [{"message": {"role": "assistant", "content": "Hello"}}]}
@@ -255,6 +158,122 @@ class TestMalformedArgs(unittest.TestCase):
     def test_missing_choices_key(self):
         modified = fix_tool_args({})
         self.assertFalse(modified)
+
+
+# ---- V27 new tests: is_allowed, filter_tools, truncate_messages, build_sse ----
+
+class TestIsAllowed(unittest.TestCase):
+
+    def test_exact_match(self):
+        self.assertTrue(is_allowed("web_search"))
+        self.assertTrue(is_allowed("exec"))
+        self.assertTrue(is_allowed("tts"))
+
+    def test_prefix_match(self):
+        self.assertTrue(is_allowed("browser_navigate"))
+        self.assertTrue(is_allowed("browser_click"))
+
+    def test_rejected(self):
+        self.assertFalse(is_allowed("dangerous_tool"))
+        self.assertFalse(is_allowed("shell"))
+        self.assertFalse(is_allowed(""))
+
+
+class TestFilterTools(unittest.TestCase):
+
+    def test_filters_and_keeps(self):
+        tools = [
+            {"function": {"name": "web_search", "parameters": {"old": True}}},
+            {"function": {"name": "dangerous_tool", "parameters": {}}},
+            {"function": {"name": "browser_click", "parameters": {}}},
+        ]
+        filtered, all_names, kept = filter_tools(tools)
+        self.assertEqual(len(filtered), 2)
+        self.assertIn("web_search", kept)
+        self.assertIn("browser_click", kept)
+        self.assertNotIn("dangerous_tool", kept)
+        self.assertEqual(len(all_names), 3)
+
+    def test_schema_replaced(self):
+        tools = [{"function": {"name": "exec", "parameters": {"bloated": True}}}]
+        filtered, _, _ = filter_tools(tools)
+        self.assertIn("command", filtered[0]["function"]["parameters"]["properties"])
+
+    def test_empty_input(self):
+        filtered, all_names, kept = filter_tools([])
+        self.assertEqual(filtered, [])
+
+
+class TestTruncateMessages(unittest.TestCase):
+
+    def test_no_truncation_needed(self):
+        msgs = [
+            {"role": "system", "content": "You are helpful."},
+            {"role": "user", "content": "Hi"},
+        ]
+        result, dropped = truncate_messages(msgs, max_bytes=100000)
+        self.assertEqual(dropped, 0)
+        self.assertEqual(len(result), 2)
+
+    def test_truncation_drops_old(self):
+        msgs = [
+            {"role": "system", "content": "sys"},
+            {"role": "user", "content": "A" * 1000},
+            {"role": "assistant", "content": "B" * 1000},
+            {"role": "user", "content": "C" * 1000},
+        ]
+        result, dropped = truncate_messages(msgs, max_bytes=2000)
+        self.assertGreater(dropped, 0)
+        # System message always kept
+        self.assertEqual(result[0]["role"], "system")
+
+    def test_system_always_kept(self):
+        msgs = [
+            {"role": "system", "content": "important"},
+            {"role": "user", "content": "X" * 500000},
+        ]
+        result, dropped = truncate_messages(msgs, max_bytes=1000)
+        self.assertEqual(result[0]["role"], "system")
+
+
+class TestBuildSSE(unittest.TestCase):
+
+    def test_basic_sse(self):
+        rj = {
+            "id": "abc",
+            "created": 123,
+            "model": "test",
+            "choices": [{
+                "index": 0,
+                "message": {"role": "assistant", "content": "hello"},
+                "finish_reason": "stop"
+            }]
+        }
+        sse = build_sse_response(rj)
+        text = sse.decode()
+        self.assertIn("data:", text)
+        self.assertIn('"content": "hello"', text)
+        self.assertTrue(text.endswith("data: [DONE]\n\n"))
+
+    def test_tool_calls_in_sse(self):
+        rj = {
+            "id": "abc", "created": 123, "model": "test",
+            "choices": [{
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "tool_calls": [{"function": {"name": "exec", "arguments": "{}"}}]
+                },
+                "finish_reason": "tool_calls"
+            }]
+        }
+        sse = build_sse_response(rj)
+        text = sse.decode()
+        self.assertIn("tool_calls", text)
+
+    def test_empty_choices(self):
+        sse = build_sse_response({"choices": []})
+        self.assertEqual(sse, b"data: [DONE]\n\n")
 
 
 if __name__ == "__main__":
