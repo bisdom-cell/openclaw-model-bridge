@@ -1,2 +1,2 @@
-flask>=2.0.0
-requests>=2.28.0
+# 本项目仅使用 Python 标准库 (http.server, json, ssl, os, subprocess 等)
+# 无第三方依赖

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -eo pipefail
+set -euo pipefail
 ROOT="${ROOT:-$HOME/.openclaw}"
 JOB="$ROOT/jobs/openclaw_official"
 KB_SRC="$HOME/.kb/sources/openclaw_official.md"
@@ -56,7 +56,7 @@ done < "$BLOG_NEW"
 
 # 生成WhatsApp消息
 MSG="$CACHE/system_message_blog.txt"
-TO="+85200000000"
+TO="${OPENCLAW_PHONE:-+85200000000}"
 {
   while IFS= read -r ev; do
     date="$(printf "%s\n" "$ev" | jq -r ".ts // empty" | cut -dT -f1)"
@@ -70,7 +70,8 @@ TO="+85200000000"
     esac
     PROMPT="你是OpenClaw官方博客的技术编辑。请输出三行：\n1) 贡献：<=40字\n2) 价值：⭐⭐⭐⭐⭐（只输出星号）\n3) 价值说明：<=40字\n\n标题：${title}\n日期：${date}\n链接：${url}\n摘要：${summary}\n"
     ENRICH="$(openclaw agent --to "$TO" --session-id "$(date +%s%N)" --message "$PROMPT" --thinking minimal 2>/dev/null || true)"
-    if [ -z "${ENRICH// }" ]; then
+    # 429限流检测 + 空输出均fallback，防止错误文案写入消息
+    if [ -z "${ENRICH// }" ] || echo "$ENRICH" | grep -q "429"; then
       ENRICH="贡献：${summary}\n价值：⭐⭐⭐\n价值说明：官方更新，建议关注。"
     fi
     echo "[${TITLE_CN}] | ${date}"

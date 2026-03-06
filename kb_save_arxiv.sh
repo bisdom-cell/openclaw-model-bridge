@@ -1,32 +1,53 @@
 #!/bin/bash
+set -euo pipefail
 # 动态查找arxiv监控任务ID，无需硬编码，任务重建后自动适配
-ARXIV_JOB_ID=$(python3 -c "
-import json
-with open('/Users/bisdom/.openclaw/cron/jobs.json') as f: d=json.load(f)
-for j in d.get('jobs',[]):
-    if 'monitor-arxiv' in j['name']:
-        print(j['id'])
-        break
-")
+OPENCLAW_CFG="${OPENCLAW_CFG:-$HOME/.openclaw}"
+KB_WRITE_SCRIPT="${KB_WRITE_SCRIPT:-$(dirname "$0")/kb_write.sh}"
+OPENCLAW="$(command -v openclaw 2>/dev/null || echo /opt/homebrew/bin/openclaw)"
+
+ARXIV_JOB_ID=$(python3 - "$OPENCLAW_CFG/cron/jobs.json" << 'PYEOF'
+import json, sys
+try:
+    with open(sys.argv[1]) as f:
+        d = json.load(f)
+    for j in d.get('jobs', []):
+        if 'monitor-arxiv' in j.get('name', ''):
+            print(j['id'])
+            break
+except (OSError, json.JSONDecodeError) as e:
+    print(f"[kb_save_arxiv] ERROR reading jobs.json: {e}", file=sys.stderr)
+PYEOF
+)
 
 if [ -z "$ARXIV_JOB_ID" ]; then
-  echo "❌ 找不到monitor-arxiv任务，退出"
+  echo "[kb_save_arxiv] ERROR: 找不到monitor-arxiv任务，退出"
   exit 1
 fi
 
-SUMMARY=$(/opt/homebrew/bin/openclaw cron runs --id "$ARXIV_JOB_ID" --limit 1 2>/dev/null \
+SUMMARY=$("$OPENCLAW" cron runs --id "$ARXIV_JOB_ID" --limit 1 2>/dev/null \
   | python3 -c "
-import json,sys
-data=json.load(sys.stdin)
-entries=data.get('entries',[])
-if not entries: sys.exit(0)
-s=entries[0].get('summary','')
-if not s or '暂无' in s: sys.exit(0)
-print(s)
-")
+import json, sys
+try:
+    data = json.load(sys.stdin)
+    entries = data.get('entries', [])
+    if not entries:
+        sys.exit(0)
+    s = entries[0].get('summary', '')
+    if not s or '暂无' in s:
+        sys.exit(0)
+    print(s)
+except (json.JSONDecodeError, KeyError) as e:
+    print(f'[kb_save_arxiv] WARN: 解析runs结果失败: {e}', file=sys.stderr)
+" || true)
 
 if [ -z "$SUMMARY" ]; then
-  echo "无新内容，跳过KB写入"
+  echo "[kb_save_arxiv] 无新内容，跳过KB写入"
+  exit 0
+fi
+
+# v25 #90: 429限流拦截，避免把错误文案写入KB造成脏数据
+if echo "$SUMMARY" | grep -q "429"; then
+  echo "[kb_save_arxiv] ⚠️ 检测到429限流响应，跳过KB写入，避免脏数据持久化"
   exit 0
 fi
 
@@ -35,13 +56,13 @@ CONTENT="# ArXiv AI论文监控 ${DATE}
 
 ${SUMMARY}"
 
-bash /Users/bisdom/kb_write.sh "$CONTENT" "arxiv-ai-models" "note"
-echo "✅ KB写入完成 ${DATE}"
+bash "$KB_WRITE_SCRIPT" "$CONTENT" "arxiv-ai-models" "note"
+echo "[kb_save_arxiv] KB写入完成 ${DATE}"
 
 # 同步备份到外挂SSD
 if [ -d "/Volumes/MOVESPEED" ]; then
   rsync -a --delete ~/.kb/ /Volumes/MOVESPEED/KB/
-  echo "✅ 已同步备份到 /Volumes/MOVESPEED/KB/"
+  echo "[kb_save_arxiv] 已同步备份到 /Volumes/MOVESPEED/KB/"
 else
-  echo "⚠️ 外挂SSD未挂载，跳过备份"
+  echo "[kb_save_arxiv] 外挂SSD未挂载，跳过备份"
 fi

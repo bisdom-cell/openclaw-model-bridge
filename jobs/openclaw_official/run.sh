@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
+set -euo pipefail
 blog_new_count=0
 blog_new_events_file=""
 day="$(TZ=Asia/Tokyo date "+%Y-%m-%d")"
-set -euo pipefail
 
 ROOT="${ROOT:-$HOME/.openclaw}"
 JOB_DIR="$ROOT/jobs/openclaw_official"
@@ -16,8 +16,8 @@ STATE="$JOB_DIR/state.json"
 CACHE_DIR="$JOB_DIR/cache"
 MSG="$CACHE_DIR/system_message.txt"
 
-KB_SRC="$HOME/.kb/sources/openclaw_official.md"
-KB_INBOX="$HOME/.kb/inbox.md"
+KB_SRC="${KB_BASE:-$HOME/.kb}/sources/openclaw_official.md"
+KB_INBOX="${KB_BASE:-$HOME/.kb}/inbox.md"
 
 mkdir -p "$CACHE_DIR" "$HOME/.kb/sources" "$ROOT/logs/jobs"
 
@@ -96,7 +96,7 @@ while IFS= read -r ev; do
   fi
 done < "$blog_all_file"
 rm -f "$blog_all_file"
-echo "DEBUG blog_new_count=$blog_new_count"
+echo "[run.sh] blog_new_count=$blog_new_count"
 now_jst="$(TZ=Asia/Tokyo date "+%Y-%m-%d %H:%M JST")"
 {
   echo "[System Message][SOURCE=openclaw-official][PRIORITY=P0]"
@@ -109,18 +109,6 @@ now_jst="$(TZ=Asia/Tokyo date "+%Y-%m-%d %H:%M JST")"
     echo "- ${ts} | ${title}"
     echo "  ${url}"
   done < "$new_events_file"
-
-# Blog -> INBOX (de-dup by URL)
-if [ "$blog_new_count" -gt 0 ]; then
-  while IFS= read -r ev; do
-    title="$(printf "%s\n" "$ev" | jq -r ".title")"
-    url="$(printf "%s\n" "$ev" | jq -r ".url")"
-    line="- [ ] (${day}) openclaw blog | ${title} | ${url}"
-    if ! grep -Fq "$url" "$KB_INBOX" 2>/dev/null; then
-      printf "\n%s\n" "$line" >> "$KB_INBOX"
-    fi
-  done < "$blog_new_events_file"
-fi
 
   if [ "$blog_new_count" -gt 0 ]; then
     echo ""
@@ -151,18 +139,6 @@ day="$(TZ=Asia/Tokyo date "+%Y-%m-%d")"
     echo "  - ID: ${id}"
     echo "  - Fingerprint: ${fp}"
   done < "$new_events_file"
-
-# Blog -> INBOX (de-dup by URL)
-if [ "$blog_new_count" -gt 0 ]; then
-  while IFS= read -r ev; do
-    title="$(printf "%s\n" "$ev" | jq -r ".title")"
-    url="$(printf "%s\n" "$ev" | jq -r ".url")"
-    line="- [ ] (${day}) openclaw blog | ${title} | ${url}"
-    if ! grep -Fq "$url" "$KB_INBOX" 2>/dev/null; then
-      printf "\n%s\n" "$line" >> "$KB_INBOX"
-    fi
-  done < "$blog_new_events_file"
-fi
 } >> "$KB_SRC"
 
 # INBOX append with de-dup by URL
@@ -210,4 +186,4 @@ cat "$MSG"
 
 # OPTIONAL: announce hook (adapt to your environment)
 # "$ROOT/bin/announce.sh" < "$MSG"
-openclaw message send --target +85200000000 --message "$(cat "$MSG")" --json >/dev/null 2>&1 || true
+openclaw message send --target "${OPENCLAW_PHONE:-+85200000000}" --message "$(cat "$MSG")" --json >/dev/null 2>&1 || true

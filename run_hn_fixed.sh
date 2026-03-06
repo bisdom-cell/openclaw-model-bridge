@@ -17,7 +17,7 @@ MSG_FILE="$CACHE_DIR/hn_message.txt"
 NEW_FILE="$CACHE_DIR/hn_new.jsonl"
 RSS_FILE="$CACHE_DIR/hn_frontpage.xml"
 LLM_RAW_LOG="$CACHE_DIR/llm_raw_last.txt"
-TO="+85200000000"
+TO="${OPENCLAW_PHONE:-+85200000000}"
 
 mkdir -p "$CACHE_DIR"
 touch "$INBOX"
@@ -125,28 +125,33 @@ with open(new_file) as f:
             continue
         try:
             items.append(json.loads(line))
-        except:
+        except (json.JSONDecodeError, ValueError):
             continue
 
 if not items:
     sys.exit(0)
 
-# 构建批量Prompt
+# 构建批量Prompt — 严格纯文本格式，禁止Markdown以减少解析变体
 titles_text = "\n".join(f"{i}. {item['title']}" for i, item in enumerate(items))
-prompt = f"""将以下{len(items)}条英文标题翻译成中文，每条给出简短要点和价值评级。
+prompt = f"""将以下{len(items)}条英文标题翻译成中文，逐条输出。
 
 {titles_text}
 
-严格按以下格式输出，不要任何其他内容：
-0.中文标题：[翻译]
-0.要点：[≤25字要点]
-0.价值：[⭐到⭐⭐⭐⭐⭐]
+【输出规则】
+- 严格按下方格式，每条恰好3行，条目间空一行
+- 不要加任何多余文字、标点装饰、Markdown符号（*、#、[]等）
+- 数字序号与字段名之间不加空格
 
-1.中文标题：[翻译]
-1.要点：[≤25字要点]
-1.价值：[⭐到⭐⭐⭐⭐⭐]
+格式（每条3行）：
+0.中文标题：翻译文字
+0.要点：不超过25字的核心要点
+0.价值：⭐到⭐⭐⭐⭐⭐
 
-以此类推，共{len(items)}条。"""
+1.中文标题：翻译文字
+1.要点：不超过25字的核心要点
+1.价值：⭐到⭐⭐⭐⭐⭐
+
+共{len(items)}条，依次输出，序号从0开始。"""
 
 # 单次LLM调用
 result = subprocess.run(
@@ -167,8 +172,8 @@ try:
         f.write(llm_out[:3000])
         f.write("\n--- stderr ---\n")
         f.write((result.stderr or "")[:500])
-except:
-    pass
+except OSError as e:
+    print(f"[hn_watcher] WARN: 无法写入 llm_raw_log: {e}", file=sys.stderr)
 
 # 去除ANSI转义码
 llm_out = re.sub(r'\x1b\[[0-9;]*[a-zA-Z]', '', llm_out)
@@ -199,8 +204,8 @@ try:
         f.write(f"\n--- parsed ---\n")
         f.write(f"success: {success_count}/{len(items)}\n")
         f.write(json.dumps(parsed, ensure_ascii=False, indent=2)[:1000])
-except:
-    pass
+except OSError as e:
+    print(f"[hn_watcher] WARN: 无法追加解析日志: {e}", file=sys.stderr)
 
 # 输出结果供shell使用
 for i, item in enumerate(items):
@@ -218,34 +223,49 @@ PYEOF
 )
 
 if [ -z "$RESULT" ]; then
-    echo "$(date '+%Y-%m-%d %H:%M:%S') hn_watcher: LLM调用失败（URL已记录inbox，不会重复处理）。"
+    ERR_MSG="⚠️ HN Watcher LLM调用失败（$(date '+%Y-%m-%d %H:%M')），请检查 $LLM_RAW_LOG"
+    echo "$ERR_MSG"
+    openclaw message send --target "$TO" --message "$ERR_MSG" --json >/dev/null 2>&1 || true
     exit 1
 fi
 
+# 429限流检测：防止把错误文案推送到WhatsApp
+if echo "$RESULT" | grep -q "429"; then
+    echo "$(date '+%Y-%m-%d %H:%M:%S') hn_watcher: ⚠️ 检测到429限流，跳过本轮推送。"
+    exit 0
+fi
+
 printf "💻 HN 头版精选 (%s)\n\n" "$TODAY" > "$MSG_FILE"
-SENT_COUNT=0
 
-while IFS= read -r LINE; do
-    [ -z "$LINE" ] && continue
+# 单次 Python 调用处理全部结果，避免每条数据重复启动 5 个子进程
+SENT_COUNT=$(python3 - "$TODAY" "$MSG_FILE" "$KB_SOURCE" << 'PYEOF'
+import json, sys
 
-    ZH_TITLE=$(echo "$LINE" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['zh_title'])" 2>/dev/null)
-    POINT=$(echo "$LINE"    | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['point'])"    2>/dev/null)
-    STARS=$(echo "$LINE"    | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['stars'])"    2>/dev/null)
-    TITLE=$(echo "$LINE"    | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['title'])"    2>/dev/null)
-    HN_URL=$(echo "$LINE"   | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['hn_url'])"   2>/dev/null)
-
-    # ★ Fix3：HN_URL空值保护，防止空URL写入KB和消息
-    [ -z "$HN_URL" ] && continue
-
-    [ -z "$ZH_TITLE" ] && ZH_TITLE="$TITLE"
-    [ -z "$POINT"    ] && POINT="技术内容，详见原文"
-    [ -z "$STARS"    ] && STARS="⭐⭐⭐"
-
-    printf "%s\n链接：%s\n要点：%s\n价值：%s\n\n" "$ZH_TITLE" "$HN_URL" "$POINT" "$STARS" >> "$MSG_FILE"
-    # ★ Fix1：inbox已在Python阶段写入，此处不重复写
-    printf -- "- **[%s](%s)** | %s | 要点：%s | %s\n" "$TITLE" "$HN_URL" "$TODAY" "$POINT" "$STARS" >> "$KB_SOURCE"
-    SENT_COUNT=$((SENT_COUNT + 1))
-done <<< "$RESULT"
+today, msg_file, kb_source = sys.argv[1], sys.argv[2], sys.argv[3]
+sent = 0
+for line in sys.stdin:
+    line = line.strip()
+    if not line:
+        continue
+    try:
+        d = json.loads(line)
+    except (json.JSONDecodeError, ValueError):
+        continue
+    hn_url   = d.get('hn_url', '').strip()
+    if not hn_url:           # ★ Fix3：HN_URL空值保护
+        continue
+    zh_title = d.get('zh_title') or d.get('title', '')
+    point    = d.get('point')    or '技术内容，详见原文'
+    stars    = d.get('stars')    or '⭐⭐⭐'
+    title    = d.get('title', zh_title)
+    with open(msg_file, 'a') as f:
+        f.write(f"{zh_title}\n链接：{hn_url}\n要点：{point}\n价值：{stars}\n\n")
+    with open(kb_source, 'a') as f:
+        f.write(f"- **[{title}]({hn_url})** | {today} | 要点：{point} | {stars}\n")
+    sent += 1
+print(sent)
+PYEOF
+<<< "$RESULT")
 
 if [ "$SENT_COUNT" -gt 0 ]; then
     openclaw message send --target "$TO" --message "$(cat "$MSG_FILE")" --json >/dev/null 2>&1 || true

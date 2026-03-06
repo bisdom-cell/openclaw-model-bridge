@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
-set -eo pipefail
+set -euo pipefail
 
 ROOT="${ROOT:-$HOME/.openclaw}"
 JOB="$ROOT/jobs/openclaw_official"
-KB_SRC="$HOME/.kb/sources/openclaw_official.md"
-KB_INBOX="$HOME/.kb/inbox.md"
+KB_SRC="${KB_BASE:-$HOME/.kb}/sources/openclaw_official.md"
+KB_INBOX="${KB_BASE:-$HOME/.kb}/inbox.md"
 CACHE="$JOB/cache"
 FEED_URL="https://github.com/openclaw/openclaw/discussions.atom"
 FEED_FILE="$CACHE/discussions.atom"
 NEW_FILE="$CACHE/discussions_new.txt"
-TO="+85200000000"
+TO="${OPENCLAW_PHONE:-+85200000000}"
 
 mkdir -p "$CACHE" "$HOME/.kb/sources"
 test -f "$KB_SRC"   || echo "# OpenClaw Official Watcher" > "$KB_SRC"
@@ -71,8 +71,8 @@ while IFS='|' read -r title url date; do
 
     ENRICH="$(openclaw agent --to "$TO" --session-id "$(date +%s%N)" --message "$PROMPT" --thinking minimal 2>/dev/null || true)"
 
-    # fallback：LLM失败时用原标题
-    if [ -z "${ENRICH// }" ]; then
+    # fallback：LLM失败或429限流时用原标题
+    if [ -z "${ENRICH// }" ] || echo "$ENRICH" | grep -q "429"; then
         ENRICH="[${title}]
 贡献：社区讨论，建议关注。
 价值：⭐⭐⭐"
