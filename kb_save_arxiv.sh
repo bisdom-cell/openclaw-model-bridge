@@ -45,6 +45,12 @@ if [ -z "$SUMMARY" ]; then
   exit 0
 fi
 
+# v25 #90: 429限流拦截，避免把错误文案写入KB造成脏数据
+if echo "$SUMMARY" | grep -q "429"; then
+  echo "[kb_save_arxiv] ⚠️ 检测到429限流响应，跳过KB写入，避免脏数据持久化"
+  exit 0
+fi
+
 DATE=$(date '+%Y-%m-%d %H:%M')
 CONTENT="# ArXiv AI论文监控 ${DATE}
 
