@@ -145,19 +145,20 @@ def fix_tool_args(rj):
                 args_str = fn.get("arguments", "{}")
                 try:
                     args = json.loads(args_str) if isinstance(args_str, str) else args_str
-                except:
+                except (json.JSONDecodeError, ValueError) as e:
+                    log(f"FIX: failed to parse args for {name}: {e}")
                     args = {}
                 
                 # Fix browser profile: replace invalid profiles with "chrome"
                 VALID_BROWSER_PROFILES = {"openclaw", "chrome"}
                 if name.startswith("browser"):
                     if "profile" in args and args["profile"] not in VALID_BROWSER_PROFILES:
-                        log(f"FIX: browser profile '{args['profile']}' -> 'chrome'")
+                        log(f"FIX: browser profile '{args['profile']}' -> 'openclaw'")
                         args["profile"] = "openclaw"
                         fn["arguments"] = json.dumps(args)
                         modified = True
                     elif "target" in args and args["target"] not in VALID_BROWSER_PROFILES:
-                        log(f"FIX: browser target '{args['target']}' -> 'chrome'")
+                        log(f"FIX: browser target '{args['target']}' -> 'openclaw'")
                         args["target"] = "openclaw"
                         fn["arguments"] = json.dumps(args)
                         modified = True
@@ -242,8 +243,9 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                     keep.insert(0, m)
                     total += ms
                 if len(keep) < len(others):
+                    dropped = len(others) - len(keep)
                     body["messages"] = system + keep
-                    log(f"Truncated: {len(msgs)} -> {len(body['messages'])} msgs, ~{total//1024}KB")
+                    log(f"WARN: Truncated {dropped} old messages ({len(msgs)} -> {len(body['messages'])} msgs, ~{total//1024}KB). Oldest context may be lost.")
 
                 if "tools" in body:
                     orig = len(body["tools"])
@@ -267,8 +269,8 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                             del body["tool_choice"]
 
                 raw = json.dumps(body).encode()
-            except:
-                pass
+            except (json.JSONDecodeError, ValueError, KeyError) as e:
+                log(f"Request preprocessing error: {e}")
 
         url = f"{BACKEND}{self.path}"
         req = Request(url, data=raw, method="POST")
@@ -288,9 +290,11 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                             m = c.get("message", {})
                             if m.get("tool_calls"):
                                 for tc in m["tool_calls"]:
-                                    log(f"CALL: {tc.get('function',{}).get('name')} -> {tc.get('function',{}).get('arguments','')[:200]}")
+                                    fn_name = tc.get('function', {}).get('name', '?')
+                                    fn_args = tc.get('function', {}).get('arguments', '')
+                                    log(f"CALL: {fn_name} ({len(fn_args)} bytes)")
                             elif m.get("content"):
-                                log(f"TEXT: {str(m['content'])[:100]}")
+                                log(f"TEXT: {len(str(m['content']))} chars")
                         
                         if was_streaming:
                             chunks_out = []
