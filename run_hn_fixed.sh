@@ -17,7 +17,7 @@ MSG_FILE="$CACHE_DIR/hn_message.txt"
 NEW_FILE="$CACHE_DIR/hn_new.jsonl"
 RSS_FILE="$CACHE_DIR/hn_frontpage.xml"
 LLM_RAW_LOG="$CACHE_DIR/llm_raw_last.txt"
-TO="+85200000000"
+TO="${OPENCLAW_PHONE:-+85200000000}"
 
 mkdir -p "$CACHE_DIR"
 touch "$INBOX"
@@ -131,22 +131,27 @@ with open(new_file) as f:
 if not items:
     sys.exit(0)
 
-# 构建批量Prompt
+# 构建批量Prompt — 严格纯文本格式，禁止Markdown以减少解析变体
 titles_text = "\n".join(f"{i}. {item['title']}" for i, item in enumerate(items))
-prompt = f"""将以下{len(items)}条英文标题翻译成中文，每条给出简短要点和价值评级。
+prompt = f"""将以下{len(items)}条英文标题翻译成中文，逐条输出。
 
 {titles_text}
 
-严格按以下格式输出，不要任何其他内容：
-0.中文标题：[翻译]
-0.要点：[≤25字要点]
-0.价值：[⭐到⭐⭐⭐⭐⭐]
+【输出规则】
+- 严格按下方格式，每条恰好3行，条目间空一行
+- 不要加任何多余文字、标点装饰、Markdown符号（*、#、[]等）
+- 数字序号与字段名之间不加空格
 
-1.中文标题：[翻译]
-1.要点：[≤25字要点]
-1.价值：[⭐到⭐⭐⭐⭐⭐]
+格式（每条3行）：
+0.中文标题：翻译文字
+0.要点：不超过25字的核心要点
+0.价值：⭐到⭐⭐⭐⭐⭐
 
-以此类推，共{len(items)}条。"""
+1.中文标题：翻译文字
+1.要点：不超过25字的核心要点
+1.价值：⭐到⭐⭐⭐⭐⭐
+
+共{len(items)}条，依次输出，序号从0开始。"""
 
 # 单次LLM调用
 result = subprocess.run(
