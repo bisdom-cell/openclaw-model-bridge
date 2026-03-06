@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import http.server, socketserver, json, ssl, sys
+import http.server, socketserver, json, ssl, sys, os
 from urllib.request import Request, urlopen
 
 TARGET_BASE = "https://hkagentx.hkopenlab.com/v1"
@@ -50,7 +50,8 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
         if "/chat/completions" in self.path:
             try:
                 body = json.loads(raw)
-            except:
+            except (json.JSONDecodeError, ValueError) as e:
+                log(f"Bad JSON: {e}")
                 self.send_error(400, "Bad JSON")
                 return
 
