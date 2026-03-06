@@ -71,8 +71,8 @@ while IFS='|' read -r title url date; do
 
     ENRICH="$(openclaw agent --to "$TO" --session-id "$(date +%s%N)" --message "$PROMPT" --thinking minimal 2>/dev/null || true)"
 
-    # fallback：LLM失败时用原标题
-    if [ -z "${ENRICH// }" ]; then
+    # fallback：LLM失败或429限流时用原标题
+    if [ -z "${ENRICH// }" ] || echo "$ENRICH" | grep -q "429"; then
         ENRICH="[${title}]
 贡献：社区讨论，建议关注。
 价值：⭐⭐⭐"
