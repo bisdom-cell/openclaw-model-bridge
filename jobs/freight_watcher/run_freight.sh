@@ -129,7 +129,7 @@ LLM_OUT="$(
         --to "$TO" \
         --session-id "freight-$(date +%s)" \
         --message "$PROMPT" \
-        --thinking none \
+        --thinking off \
         2>"$LLM_RAW.stderr" || true
 )"
 echo "returncode=$?" > "$LLM_RAW"
