@@ -33,9 +33,9 @@ fi
 
 echo "$(date) 检测到新 commit: $LOCAL -> $REMOTE，开始部署..." >> "$LOG"
 
-git pull --rebase origin "$BRANCH" >> "$LOG" 2>&1
+git reset --hard "origin/$BRANCH" >> "$LOG" 2>&1
 if [ $? -ne 0 ]; then
-    echo "$(date) ERROR: git pull 失败" >> "$LOG"
+    echo "$(date) ERROR: git reset 失败" >> "$LOG"
     exit 1
 fi
 
