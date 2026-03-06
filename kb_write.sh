@@ -1,7 +1,9 @@
 #!/bin/bash
-LOCKDIR="/Users/bisdom/.kb/.write.lock.d"
-while ! mkdir "$LOCKDIR" 2>/dev/null; do sleep 0.1; done
-trap "rmdir '$LOCKDIR'" EXIT
+# 使用 flock 文件锁替代目录忙等待锁，避免 CPU 空转且在进程异常退出后自动释放
+KB_BASE="${KB_BASE:-/Users/bisdom/.kb}"
+LOCKFILE="$KB_BASE/.write.lock"
+exec 9>"$LOCKFILE"
+flock -x 9
 
 CONTENT="$1"
 TAGS="${2:-技术/AI}"
@@ -9,8 +11,8 @@ TYPE="${3:-note}"
 DATE=$(date +%Y%m%d)
 TS=$(date +%Y%m%d%H%M%S)
 
-FILEPATH="/Users/bisdom/.kb/notes/${TS}.md"
-mkdir -p /Users/bisdom/.kb/notes /Users/bisdom/.kb/topics
+FILEPATH="$KB_BASE/notes/${TS}.md"
+mkdir -p "$KB_BASE/notes" "$KB_BASE/topics"
 
 cat > "$FILEPATH" << MDEOF
 ---
@@ -29,15 +31,14 @@ type: $TYPE
 $TS
 MDEOF
 
-[ ! -f "$FILEPATH" ] && echo "❌ 写入失败" && exit 1
+[ ! -f "$FILEPATH" ] && echo "[kb_write] ERROR: 写入失败" && exit 1
 
-INDEX="/Users/bisdom/.kb/index.json"
+INDEX="$KB_BASE/index.json"
 [ ! -f "$INDEX" ] && echo '{"entries":[]}' > "$INDEX"
 
-python3 - "$CONTENT" "$DATE" "$TS" "$TAGS" "$TYPE" << 'PYEOF'
+python3 - "$CONTENT" "$DATE" "$TS" "$TAGS" "$TYPE" "$INDEX" << 'PYEOF'
 import json, sys
-content, date, ts, tags, typ = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5]
-index = f"/Users/bisdom/.kb/index.json"
+content, date, ts, tags, typ, index = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6]
 with open(index, "r") as f:
     data = json.load(f)
 data.setdefault("entries", []).insert(0, {
@@ -54,10 +55,8 @@ import os; os.replace(tmpfile, index)
 PYEOF
 
 TOPIC=$(echo "$TAGS" | cut -d'/' -f1)
-echo "- [$DATE] $CONTENT → [notes/${TS}.md]" >> "/Users/bisdom/.kb/topics/${TOPIC}.md"
+echo "- [$DATE] $CONTENT → [notes/${TS}.md]" >> "$KB_BASE/topics/${TOPIC}.md"
 
-echo "✅ 已记录到知识库"
-echo "📁 文件：$FILEPATH"
-echo "🏷️ 标签：$TAGS"
-echo "📝 类型：$TYPE"
-echo "💡 摘要：${CONTENT:0:50}"
+echo "[kb_write] OK: 已记录到知识库"
+echo "[kb_write] 文件：$FILEPATH"
+echo "[kb_write] 标签：$TAGS | 类型：$TYPE | 摘要：${CONTENT:0:50}"

@@ -172,29 +172,35 @@ def fix_tool_args(rj):
                 allowed = TOOL_PARAMS.get(name)
                 if allowed:
                     # Handle common param name aliases
+                    # Track whether any alias substitution happened so we always write back
+                    alias_changed = False
                     if name == "read" and "path" not in args:
                         for alt in ["file_path", "file", "filepath", "filename"]:
                             if alt in args:
                                 args["path"] = args.pop(alt)
+                                alias_changed = True
                                 break
                     if name == "exec" and "command" not in args:
                         for alt in ["cmd", "shell", "bash", "script"]:
                             if alt in args:
                                 args["command"] = args.pop(alt)
+                                alias_changed = True
                                 break
                     if name == "write" and "content" not in args:
                         for alt in ["text", "data", "body", "file_content"]:
                             if alt in args:
                                 args["content"] = args.pop(alt)
+                                alias_changed = True
                                 break
                     if name == "web_search" and "query" not in args:
                         for alt in ["search_query", "q", "keyword", "search"]:
                             if alt in args:
                                 args["query"] = args.pop(alt)
+                                alias_changed = True
                                 break
-                    
+
                     clean = {k: v for k, v in args.items() if k in allowed}
-                    if clean != args:
+                    if clean != args or alias_changed:
                         log(f"FIX: {name} {list(args.keys())} -> {list(clean.keys())}")
                         fn["arguments"] = json.dumps(clean)
                         modified = True
