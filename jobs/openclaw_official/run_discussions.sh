@@ -62,7 +62,7 @@ echo "" >> "$MSG"
 
 while IFS='|' read -r title url date; do
     PROMPT="你是OpenClaw社区的技术编辑。请严格输出三行，不要输出其他内容：
-第一行：[中文标题]（翻译或意译原标题，≤20字）
+第一行：直接输出中文标题（翻译或意译原标题，≤20字，不要加任何前缀标签）
 第二行：贡献：[1句话≤40字，说明这个讨论的核心价值或问题]
 第三行：价值：⭐（1到5个星，评估对OpenClaw用户的参考价值）
 
@@ -71,8 +71,8 @@ while IFS='|' read -r title url date; do
 
     ENRICH="$(openclaw agent --to "$TO" --session-id "$(date +%s%N)" --message "$PROMPT" --thinking minimal 2>/dev/null || true)"
 
-    # fallback：LLM失败时用原标题
-    if [ -z "${ENRICH// }" ]; then
+    # fallback：LLM失败或429限流时用原标题
+    if [ -z "${ENRICH// }" ] || echo "$ENRICH" | grep -q "429"; then
         ENRICH="[${title}]
 贡献：社区讨论，建议关注。
 价值：⭐⭐⭐"

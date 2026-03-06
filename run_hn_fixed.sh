@@ -223,8 +223,16 @@ PYEOF
 )
 
 if [ -z "$RESULT" ]; then
-    echo "$(date '+%Y-%m-%d %H:%M:%S') hn_watcher: LLM调用失败（URL已记录inbox，不会重复处理）。"
+    ERR_MSG="⚠️ HN Watcher LLM调用失败（$(date '+%Y-%m-%d %H:%M')），请检查 $LLM_RAW_LOG"
+    echo "$ERR_MSG"
+    openclaw message send --target "$TO" --message "$ERR_MSG" --json >/dev/null 2>&1 || true
     exit 1
+fi
+
+# 429限流检测：防止把错误文案推送到WhatsApp
+if echo "$RESULT" | grep -q "429"; then
+    echo "$(date '+%Y-%m-%d %H:%M:%S') hn_watcher: ⚠️ 检测到429限流，跳过本轮推送。"
+    exit 0
 fi
 
 printf "💻 HN 头版精选 (%s)\n\n" "$TODAY" > "$MSG_FILE"
