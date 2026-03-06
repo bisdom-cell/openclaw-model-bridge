@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -eo pipefail
+set -euo pipefail
 ROOT="${ROOT:-$HOME/.openclaw}"
 JOB="$ROOT/jobs/openclaw_official"
 KB_SRC="$HOME/.kb/sources/openclaw_official.md"
@@ -56,7 +56,7 @@ done < "$BLOG_NEW"
 
 # 生成WhatsApp消息
 MSG="$CACHE/system_message_blog.txt"
-TO="+85200000000"
+TO="${OPENCLAW_PHONE:-+85200000000}"
 {
   while IFS= read -r ev; do
     date="$(printf "%s\n" "$ev" | jq -r ".ts // empty" | cut -dT -f1)"

@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
-set -eo pipefail
+set -euo pipefail
 
 ROOT="${ROOT:-$HOME/.openclaw}"
 JOB="$ROOT/jobs/openclaw_official"
-KB_SRC="$HOME/.kb/sources/openclaw_official.md"
-KB_INBOX="$HOME/.kb/inbox.md"
+KB_SRC="${KB_BASE:-$HOME/.kb}/sources/openclaw_official.md"
+KB_INBOX="${KB_BASE:-$HOME/.kb}/inbox.md"
 CACHE="$JOB/cache"
 FEED_URL="https://github.com/openclaw/openclaw/discussions.atom"
 FEED_FILE="$CACHE/discussions.atom"
 NEW_FILE="$CACHE/discussions_new.txt"
-TO="+85200000000"
+TO="${OPENCLAW_PHONE:-+85200000000}"
 
 mkdir -p "$CACHE" "$HOME/.kb/sources"
 test -f "$KB_SRC"   || echo "# OpenClaw Official Watcher" > "$KB_SRC"

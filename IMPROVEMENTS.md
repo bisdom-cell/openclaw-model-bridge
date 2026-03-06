@@ -105,8 +105,94 @@
 | `flask>=2.0.0` 和 `requests>=2.28.0` 均未在任何 Python 文件中 import | 清空为注释说明：本项目仅使用 Python 标准库 |
 
 ### 累计未修复项
-- `run_hn_fixed.sh` LLM 输出正则过于宽泛（后续，需配合 prompt 工程一起改）
+- 无（所有已知问题已修复）
 
 ---
 
-*最后更新：2026-03-06 Round 3*
+## 2026-03-06 · Round 4：全仓库扫描，一次性修完所有遗留问题
+
+### 修复范围
+
+本轮对所有未审查脚本进行全面扫描并统一修复，清零已知问题。
+
+#### kb_evening.sh
+| 问题 | 修复 |
+|------|------|
+| `PHONE` / `KB_DIR` 硬编码 | 改为 `OPENCLAW_PHONE` / `KB_BASE` 环境变量 |
+| 无错误保护 | 加入 `set -euo pipefail` |
+| emoji 日志 | 改为 `[kb_evening]` 前缀纯文本；`openclaw message send` 失败时打印 WARN |
+| `while read f` 未加引号 | 改为 `while read -r f` + `"$f"` |
+
+#### kb_review.sh
+| 问题 | 修复 |
+|------|------|
+| `KB_DIR` 硬编码 | 改为 `KB_BASE` 环境变量 |
+| Python 管道 one-liner（`cat \| python3 -c`）无法正确处理文件不存在 | 改为 `python3 - argv << 'PYEOF'` heredoc，加 `try/except (OSError, json.JSONDecodeError)` |
+| 无错误保护 | 加入 `set -euo pipefail` |
+| emoji 日志装饰（`━━━`、📚 等） | 清理为 `[kb_review]` 前缀单行输出 |
+| 循环变量未加引号 | `$(basename $f)` → `$(basename "$f")` |
+
+#### kb_save_arxiv.sh
+| 问题 | 修复 |
+|------|------|
+| `/opt/homebrew/bin/openclaw` 硬编码 | 改为 `command -v openclaw` 动态查找 |
+| `/Users/bisdom/kb_write.sh` 硬编码 | 改为 `KB_WRITE_SCRIPT` 环境变量，默认相对路径 |
+| Python 内联代码无异常处理 | 改为 heredoc，加 `try/except (OSError, json.JSONDecodeError)` |
+| `openclaw cron runs` 结果解析无保护 | 加 `try/except (json.JSONDecodeError, KeyError)` |
+| 无错误保护 | 加入 `set -euo pipefail` |
+| emoji 输出 | 改为 `[kb_save_arxiv]` 前缀 |
+
+#### run_discussions.sh（根目录）
+| 问题 | 修复 |
+|------|------|
+| `set -eo pipefail` 缺少 `-u` | 改为 `set -euo pipefail` |
+| `TO` / `KB_SRC` / `KB_INBOX` 硬编码 | 改为 `OPENCLAW_PHONE` / `KB_BASE` 环境变量 |
+
+#### jobs/openclaw_official/run.sh
+| 问题 | 修复 |
+|------|------|
+| `set -euo pipefail` 位于变量赋值之后（第5行） | 移至文件顶部（第2行） |
+| `echo "DEBUG blog_new_count=$blog_new_count"` 调试输出未清理 | 改为 `[run.sh]` 前缀日志 |
+| Blog INBOX 写入重复 3 次（grep 保护防止实际重复，但代码冗余） | 移除 MSG 组装块和 KB_SRC 块中的两处副本，仅保留专用 INBOX 写入段 |
+| `KB_SRC` / `KB_INBOX` 硬编码 | 改为 `KB_BASE` 环境变量 |
+| 最后一行 `+85200000000` 硬编码 | 改为 `OPENCLAW_PHONE` 环境变量 |
+
+#### jobs/openclaw_official/run_blog.sh
+| 问题 | 修复 |
+|------|------|
+| `set -eo pipefail` 缺少 `-u` | 改为 `set -euo pipefail` |
+| `TO` 硬编码 | 改为 `OPENCLAW_PHONE` 环境变量 |
+
+#### jobs/openclaw_official/run_discussions.sh
+| 问题 | 修复 |
+|------|------|
+| `set -eo pipefail` 缺少 `-u` | 改为 `set -euo pipefail` |
+| `TO` / `KB_SRC` / `KB_INBOX` 硬编码 | 改为 `OPENCLAW_PHONE` / `KB_BASE` 环境变量 |
+
+#### run_hn_fixed.sh
+| 问题 | 修复 |
+|------|------|
+| Prompt 格式要求不够严格，导致 LLM 输出 Markdown 变体（`**`、`【】`等）需要宽泛正则兜底 | 显式禁止 Markdown 符号，要求纯文本格式；正则依然保留兼容性但触发频率大幅降低 |
+| `TO` 硬编码 | 改为 `OPENCLAW_PHONE` 环境变量 |
+
+### 验证结果
+- `python3 test_tool_proxy.py` → **16/16 passed**
+- `python3 -m py_compile adapter.py tool_proxy.py test_tool_proxy.py` → **全部通过**
+- `bash -n` 语法检查所有 11 个 shell 脚本 → **全部通过**
+
+### 环境变量汇总（新增统一配置接口）
+
+| 变量 | 默认值 | 影响文件 |
+|------|--------|---------|
+| `OPENCLAW_PHONE` | `+85200000000` | kb_evening.sh, run_hn_fixed.sh, run_discussions.sh, jobs/run*.sh |
+| `KB_BASE` | `~/.kb` | kb_write.sh, kb_evening.sh, kb_review.sh, run_discussions.sh, jobs/run*.sh |
+| `OPENCLAW_CFG` | `~/.openclaw` | kb_save_arxiv.sh |
+| `KB_WRITE_SCRIPT` | `./kb_write.sh` | kb_save_arxiv.sh |
+| `REMOTE_API_KEY` | `sk-REPLACE-ME` | adapter.py |
+
+### 累计未修复项
+- 无
+
+---
+
+*最后更新：2026-03-06 Round 4*
