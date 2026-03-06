@@ -2,8 +2,10 @@
 set -euo pipefail
 # restart.sh - 一键重启所有服务 / One-command restart all services
 
+OPENCLAW=$(command -v openclaw 2>/dev/null || echo "/opt/homebrew/bin/openclaw")
+
 echo "[restart] Stopping all services..."
-openclaw gateway stop 2>/dev/null || true
+$OPENCLAW gateway stop 2>/dev/null || true
 # Kill any process on port 18789; ignore error if none running
 lsof -ti :18789 2>/dev/null | xargs kill 2>/dev/null || true
 sleep 1
@@ -21,5 +23,5 @@ if ! lsof -ti :5002 > /dev/null 2>&1; then
 fi
 
 echo "[restart] Starting Gateway..."
-openclaw gateway --verbose &
+$OPENCLAW gateway --verbose &
 echo "[restart] Done!"
