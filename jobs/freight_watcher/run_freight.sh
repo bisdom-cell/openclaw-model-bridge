@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# 货代商机 Watcher v2 (v23新增, v25修复, v27: ImportYeti自动查询链接)
+# 货代商机 Watcher v3 (v23新增, v25修复, v27: ImportYeti, v3: 客户画像)
 # 每天 08:00/14:00/20:00 HKT 由系统crontab触发
 # 调试记录：#84(信号源切换), #91(--session-id修复), 第31章(脚本设计宪法)
 # V2变更：⭐⭐⭐⭐+ 条目自动附加 ImportYeti 企业查询链接
+# V3变更：三层情报漏斗 — 信号捕获→ImportYeti深挖→客户画像生成
 set -eo pipefail
 
 OPENCLAW="${OPENCLAW:-/opt/homebrew/bin/openclaw}"
@@ -50,10 +51,14 @@ SOURCES = [
     ("https://www.chinadaily.com.cn/rss/bizchina_rss.xml", EXPANSION_KW),
     ("https://www.scmp.com/rss/91/feed",          EXPANSION_KW),
     ("https://www.prnewswire.com/rss/news-releases-list.rss", EXPANSION_KW),
-    # Google News
+    # Google News — 原有
     ("https://news.google.com/rss/search?q=freight+forwarder+china&hl=en-US&gl=US&ceid=US:en", FREIGHT_KW),
     ("https://news.google.com/rss/search?q=importing+from+china+logistics&hl=en-US&gl=US&ceid=US:en", FREIGHT_KW),
     ("https://news.google.com/rss/search?q=supply+chain+china+expansion&hl=en-US&gl=US&ceid=US:en", EXPANSION_KW),
+    # V3新增 — 聚焦真实货运需求信号
+    ("https://news.google.com/rss/search?q=%22looking+for+freight+forwarder%22+OR+%22logistics+partner%22+OR+%22shipping+partner%22&hl=en-US&gl=US&ceid=US:en", FREIGHT_KW),
+    ("https://news.google.com/rss/search?q=%22new+warehouse%22+OR+%22fulfillment+center%22+china&hl=en-US&gl=US&ceid=US:en", EXPANSION_KW),
+    ("https://news.google.com/rss/search?q=%22FBA%22+%22freight+forwarder%22+OR+%22ocean+freight%22+rate&hl=en-US&gl=US&ceid=US:en", FREIGHT_KW),
 ]
 
 results = []
@@ -237,3 +242,144 @@ echo "[freight] 已推送 ${NEW_COUNT} 条商机（${DAY}）"
 
 # ── 7. rsync备份 ────────────────────────────────────────────────────────
 rsync -a --quiet "$HOME/.kb/" "/Volumes/MOVESPEED/KB/" 2>/dev/null || true
+
+# ══════════════════════════════════════════════════════════════════════════
+# V3: 三层情报漏斗 — 第2层 ImportYeti 深挖 + 第3层 客户画像
+# ══════════════════════════════════════════════════════════════════════════
+
+# ── 8. 提取高星企业名（≥4星 + 非行业信号）─────────────────────────────
+HIGH_STARS="$CACHE/high_star_companies.txt"
+: > "$HIGH_STARS"
+
+python3 -c "
+import re
+raw = open('$LLM_RAW').read()
+stdout = raw.split('--- stdout ---')[-1] if '--- stdout ---' in raw else raw
+for block in re.split(r'\n(?=\d+\.)', stdout.strip()):
+    if not block.strip():
+        continue
+    if len(re.findall(r'⭐', block)) >= 4:
+        m = re.search(r'企业信号：(.+?)[\s]*[—–\-]', block)
+        if m:
+            name = m.group(1).strip()
+            if name != '行业信号' and 2 <= len(name) <= 30:
+                print(name)
+" > "$HIGH_STARS" 2>/dev/null || true
+
+COMPANY_COUNT=$(wc -l < "$HIGH_STARS" | tr -d ' ')
+echo "[freight] 发现 ${COMPANY_COUNT} 个高星企业待深挖"
+
+# ── 9. ImportYeti 自动化深挖（每公司1次 web_fetch）───────────────────
+if [ "$COMPANY_COUNT" -gt 0 ] && [ "$COMPANY_COUNT" -le 5 ]; then
+    ENRICHED_FILE="$CACHE/enriched_data.txt"
+    : > "$ENRICHED_FILE"
+
+    while IFS= read -r company; do
+        echo "[freight] 深挖: $company"
+        SLUG=$(python3 -c "import urllib.parse; print(urllib.parse.quote('$company'))")
+
+        ENRICH_OUT="$("$OPENCLAW" agent \
+            --to "$TO" \
+            --session-id "enrich-$(date +%s)" \
+            --message "请用 web_fetch 访问 https://www.importyeti.com/search?q=${SLUG}
+从页面中提取以下信息并严格按格式输出：
+
+公司：${company}
+总发货次数：[数字，如无数据写 N/A]
+月均发货量：[数字，如无数据写 N/A]
+前3大供应商：[供应商名(国家), ...]
+主要航线：[起运港→目的港, ...]
+最近发货日期：[YYYY-MM-DD，如无数据写 N/A]
+趋势：[增长/平稳/下降/无数据]
+
+注意：如果页面显示无结果或被阻止，所有字段写 N/A。不要编造数据。" \
+            --thinking off 2>/dev/null || true)"
+
+        {
+            echo "--- ${company} ---"
+            echo "$ENRICH_OUT"
+            echo ""
+        } >> "$ENRICHED_FILE"
+
+        # 避免触发反爬，间隔5秒
+        sleep 5
+    done < "$HIGH_STARS"
+
+    # ── 10. 客户画像生成（LLM综合推理）──────────────────────────────
+    ENRICHED_DATA="$(cat "$ENRICHED_FILE" 2>/dev/null || true)"
+
+    # 只在有有效深挖数据时才生成画像（至少一个公司有非N/A数据）
+    HAS_DATA=$(echo "$ENRICHED_DATA" | grep -c "总发货次数" || true)
+    ALL_NA=$(echo "$ENRICHED_DATA" | grep "总发货次数：N/A" | wc -l | tr -d ' ')
+
+    if [ "$HAS_DATA" -gt 0 ] && [ "$HAS_DATA" -gt "$ALL_NA" ]; then
+        echo "[freight] 生成客户画像..."
+
+        PROFILE_OUT="$("$OPENCLAW" agent \
+            --to "$TO" \
+            --session-id "profile-$(date +%s)" \
+            --message "你是资深货代销售顾问。基于以下企业新闻信号和 ImportYeti 美国海关提单数据，为每个企业生成完整客户画像。
+
+== 今日新闻信号 ==
+$(cat "$MSG_FILE")
+
+== ImportYeti 海关数据 ==
+${ENRICHED_DATA}
+
+== 当前市场运价参考 ==
+中国→美西整柜: USD 2,500-4,000/TEU
+中国→美东整柜: USD 3,500-5,500/TEU
+中国→欧洲整柜: USD 1,800-3,000/TEU
+中国→东南亚整柜: USD 800-1,500/TEU
+空运中国→美国: USD 4-6/kg
+
+请为每个有数据的企业输出客户画像卡片，严格使用以下格式：
+
+📋 客户：[企业名]
+├ 📦 需求量：[月均TEU或重量，标注数据来源]
+├ 🕐 运输周期：[基于航线的海运/空运天数]
+├ 💰 月物流预算：[货量×运价推算，给出USD范围]
+├ 🚢 主要路径：[起运港→目的港，可多条]
+├ 📈 趋势：[增长/平稳/下降 + 依据]
+├ 🏭 主要供应商：[前3个，含国家]
+└ 🎯 开发建议：[≤60字，联系哪个部门、什么切入点]
+
+规则：
+1. ImportYeti数据全部N/A的公司→跳过不输出
+2. 部分N/A→基于新闻信号保守估算，标注'⚠估算'
+3. 预算 = 月均TEU × 对应航线运价，给出USD范围
+4. 开发建议要具体可执行" \
+            --thinking off 2>/dev/null || true)"
+
+        # 推送客户画像
+        if [ -n "${PROFILE_OUT// }" ]; then
+            "$OPENCLAW" message send --target "$TO" \
+                --message "📊 货代客户画像 (${DAY})
+
+${PROFILE_OUT}
+
+💡 数据来源：ImportYeti美国海关提单 + 行业新闻
+⚠ 预算为运价推算值，仅供参考" --json >/dev/null 2>&1 || true
+
+            echo "[freight] 已推送客户画像"
+
+            # KB归档
+            {
+                echo ""
+                echo "## 📊 客户画像 ${DAY}"
+                echo "$PROFILE_OUT"
+            } >> "$KB_SRC"
+
+            # 再次备份
+            rsync -a --quiet "$HOME/.kb/" "/Volumes/MOVESPEED/KB/" 2>/dev/null || true
+        else
+            echo "[freight] 客户画像LLM调用无输出，跳过"
+        fi
+    else
+        echo "[freight] 深挖数据不足（${HAS_DATA}条中${ALL_NA}条全N/A），跳过画像生成"
+    fi
+else
+    if [ "$COMPANY_COUNT" -gt 5 ]; then
+        echo "[freight] 高星企业过多（${COMPANY_COUNT}），跳过深挖避免超时"
+    fi
+fi
