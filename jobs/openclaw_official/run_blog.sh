@@ -63,18 +63,30 @@ TO="${OPENCLAW_PHONE:-+85200000000}"
     title="$(printf "%s\n" "$ev" | jq -r ".title // empty")"
     url="$(printf "%s\n" "$ev" | jq -r ".url // empty")"
     summary="$(printf "%s\n" "$ev" | jq -r ".summary // empty")"
-    TITLE_CN="$title"
-    case "$url" in
-      "https://openclaw.ai/blog/virustotal-partnership") TITLE_CN="OpenClaw 与 VirusTotal 合作：提升技能安全" ;;
-      "https://openclaw.ai/blog/introducing-openclaw")   TITLE_CN="OpenClaw 项目介绍" ;;
-    esac
-    PROMPT="你是OpenClaw官方博客的技术编辑。请输出三行：\n1) 贡献：<=40字\n2) 价值：⭐⭐⭐⭐⭐（只输出星号）\n3) 价值说明：<=40字\n\n标题：${title}\n日期：${date}\n链接：${url}\n摘要：${summary}\n"
+    PROMPT="你是OpenClaw官方博客的技术编辑。请严格输出四行，不要输出其他内容：
+第一行：直接输出中文标题（翻译或意译原标题，≤20字，不要加任何前缀标签）
+第二行：贡献：[1句话≤40字]
+第三行：价值：⭐（1到5个星）
+第四行：价值说明：[1句话≤40字]
+
+原标题：${title}
+日期：${date}
+链接：${url}
+摘要：${summary}"
     ENRICH="$(openclaw agent --to "$TO" --session-id "$(date +%s%N)" --message "$PROMPT" --thinking minimal 2>/dev/null || true)"
-    # 429限流检测 + 空输出均fallback，防止错误文案写入消息
+    # 429限流检测 + 空输出均fallback
     if [ -z "${ENRICH// }" ] || echo "$ENRICH" | grep -q "429"; then
-      ENRICH="贡献：${summary}\n价值：⭐⭐⭐\n价值说明：官方更新，建议关注。"
+      TITLE_CN="$title"
+      ENRICH="贡献：${summary}
+价值：⭐⭐⭐
+价值说明：官方更新，建议关注。"
+    else
+      # 从LLM输出提取中文标题（第一行）
+      TITLE_CN="$(echo "$ENRICH" | sed -n '1p' | tr -d '[]')"
+      # 去掉第一行，保留贡献+价值+说明
+      ENRICH="$(echo "$ENRICH" | tail -n +2)"
     fi
-    echo "[${TITLE_CN}] | ${date}"
+    echo "${TITLE_CN} | ${date}"
     echo "链接：${url}"
     echo "$ENRICH"
     echo ""

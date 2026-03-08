@@ -1,7 +1,8 @@
 # OpenClaw 完整配置文档
-> 最后更新：2026-03-07 (HKT)
+> 最后更新：2026-03-08 (HKT)
 > 系统：Mac Mini (macOS) | 用户：bisdom
 > 版本：v27（Proxy拆层；任务注册表；Health JSON输出；回滚机制）
+> OpenClaw Gateway：2026.3.7（2026-03-08升级）
 ---
 ## 一、系统架构
 ```
@@ -208,12 +209,13 @@ https://export.arxiv.org/api/query?search_query=ti:DeepSeek+OR+ti:Gemini+OR+ti:C
 过滤规则：
 1. 只保留14天内的论文（检查<published>字段）
 2. 最多输出10篇，按日期从新到旧排列
-每篇格式（严格遵守）：
-*[中文标题]* | 作者 | 日期
-链接：https://arxiv.org/abs/[ID不加v1后缀]
-贡献：[1句话≤50字]
-价值：⭐[1-5]
-无符合条件论文时输出：过去14天暂无相关论文。
+每篇严格按以下5行输出（不可省略任何一行，不可合并）：
+第1行：*[中文标题]*
+第2行：作者：[第一作者] 等 | 日期：[YYYY-MM-DD]
+第3行：链接：https://arxiv.org/abs/[ID不加v1后缀]
+第4行：贡献：[1句话≤50字]
+第5行：价值：⭐[1-5]
+每篇之间空一行。无符合条件论文时输出：过去14天暂无相关论文。
 总输出严格不超过2000字。"
 ```
 
@@ -483,7 +485,7 @@ GitHub SSH Key：`~/.ssh/id_ed25519`（2026-02-28添加到 github.com/settings/s
 > 参见 v25 文档对应章节。v26无变更。
 
 ---
-## 三十、货代商机Watcher（v26：首次验证成功）
+## 三十、货代商机Watcher（v27: V2 ImportYeti自动查询）
 ### 30.1 v26验证记录（2026-03-06 21:30 HKT）
 首次手动触发结果：
 - 抓取新条目：10条
@@ -503,7 +505,13 @@ GitHub SSH Key：`~/.ssh/id_ed25519`（2026-02-28添加到 github.com/settings/s
 | KB归档 | `~/.kb/sources/freight_daily.md` |
 | 日志 | `~/.openclaw/logs/jobs/freight_watcher.log` |
 
-### 30.3 快速验收命令
+### 30.3 V2变更（2026-03-08）
+- LLM prompt 格式改为 `企业信号：[企业名] — [描述]`，用 `—` 分隔企业名和描述
+- ⭐⭐⭐⭐+ 条目自动附加 ImportYeti 查询链接：`importyeti.com/search?q=企业名`
+- 行业信号（无明确企业）和 3星以下条目不附加链接
+- ImportYeti 是免费的美国海关进出口记录查询平台，可查看企业的供应商和进口量
+
+### 30.4 快速验收命令
 ```bash
 # 强制重跑（清除今日去重）
 sed -i '' '/freightwaves\|theloadstar\|aircargo\|dcvelocity\|chinadaily\|scmp\|prnewswire\|sec.gov\|google.com\/rss/d' ~/.kb/inbox.md
@@ -561,6 +569,7 @@ echo "=== 扫描完成，全部为空才允许push ==="
 | 编号 | 场景 | 陷阱 | 正确做法 |
 |------|------|------|----------|
 | **92** | **run_freight.sh `--thinking` 参数错误** | **首次运行LLM调用失败，stderr报`Invalid thinking level. Use one of: off, minimal, low, medium, high, adaptive`，根因是脚本写了`--thinking none`，该值不在合法列表中。`subprocess capture_output=True`未能完全暴露错误，依靠`llm_raw_last.txt`中的stderr定位** | **所有`openclaw agent`调用统一用`--thinking off`（关闭thinking）或`--thinking minimal`（最小thinking）。`--thinking none`为非法值，永远不使用。已更新第31.4新脚本上线检查清单** |
+| **93** | **通过WhatsApp让AI自我升级OpenClaw Gateway** | **用户在WhatsApp中指示AI执行`npm install -g openclaw@latest`升级Gateway。升级过程中Gateway进程被替换/中断，导致：①升级命令无法返回结果（自杀悖论）②Gateway DOWN后WhatsApp断连，后续指令无法送达③用户等待2小时无回应。** | **OpenClaw Gateway升级必须通过SSH直接在Mac Mini上执行，禁止通过WhatsApp让AI自我升级。已创建`upgrade_openclaw.sh`升级SOP脚本。** |
 ---
 ## 三十三、V27 任务注册表（v27新增）
 ### 33.1 设计目的
@@ -610,6 +619,25 @@ nohup python3 ~/adapter.py > ~/adapter.log 2>&1 &
 详见 `ROLLBACK.md`。
 
 ---
+## 三十五、Gateway 升级 SOP（v27新增）
+### 35.1 升级脚本
+**路径**：`~/openclaw-model-bridge/upgrade_openclaw.sh`
+**用法**：`bash ~/openclaw-model-bridge/upgrade_openclaw.sh`
+
+### 35.2 升级规则
+| 规则 | 说明 |
+|------|------|
+| ①必须SSH直连 | 禁止通过WhatsApp/AI执行升级（自杀悖论：Gateway升级会中断自身进程） |
+| ②Adapter/Proxy不受影响 | 升级只涉及npm全局包，Python服务无需重启 |
+| ③升级前记录旧版本 | 便于回滚 |
+| ④升级后验证三端口 | Gateway(18789) + Adapter(5001) + Proxy(5002) |
+
+### 35.3 历史升级记录
+| 日期 | 旧版本 | 新版本 | 备注 |
+|------|--------|--------|------|
+| 2026-03-08 | 2026.3.1 | 2026.3.7 | 首次通过WhatsApp升级失败，改SSH手动完成。新增feishu插件重复警告（非关键）|
+
+---
 ## 二十一、待办事项（v27更新）
 | 优先级 | 任务 | 状态 |
 |--------|------|------|
@@ -630,11 +658,11 @@ nohup python3 ~/adapter.py > ~/adapter.log 2>&1 &
 | ✅ | V27 Health JSON输出（health_check.sh） | 完成 |
 | ✅ | V27 回滚机制（v26-snapshot tag + ROLLBACK.md） | 完成 |
 | ✅ | V27 测试直接import（test_tool_proxy.py 28用例全通过） | 完成 |
-| 低 | 货代Watcher V2：ImportYeti手动查询SOP配套 | ⏳ |
+| ✅ | 货代Watcher V2：ImportYeti自动查询链接（⭐⭐⭐⭐+） | 完成 |
 | 低 | 货代Watcher V3：Bing News API替代GoogleNews | ⏳ |
 | 低 | 货代Watcher V4：ExportGenius API（业务收入后） | ⏳ |
-| 低 | Blog中文标题从URL映射升级为LLM动态生成+缓存 | ⏳ |
-| 低 | Releases增加LLM富摘要（对齐ArXiv模板） | ⏳ |
+| ✅ | Blog中文标题从URL硬编码映射升级为LLM动态生成 | 完成 |
+| ✅ | Releases增加LLM中文富摘要（对齐discussions/blog风格） | 完成 |
 | 低 | WhatsApp target号码提取为环境变量 | ⏳ |
 | 低 | 探索Claude/GPT-4o替换Qwen3 | ⏳ |
 ---

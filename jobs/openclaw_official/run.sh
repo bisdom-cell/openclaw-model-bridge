@@ -2,7 +2,7 @@
 set -euo pipefail
 blog_new_count=0
 blog_new_events_file=""
-day="$(TZ=Asia/Tokyo date "+%Y-%m-%d")"
+day="$(TZ=Asia/Hong_Kong date "+%Y-%m-%d")"
 
 ROOT="${ROOT:-$HOME/.openclaw}"
 JOB_DIR="$ROOT/jobs/openclaw_official"
@@ -97,33 +97,59 @@ while IFS= read -r ev; do
 done < "$blog_all_file"
 rm -f "$blog_all_file"
 echo "[run.sh] blog_new_count=$blog_new_count"
-now_jst="$(TZ=Asia/Tokyo date "+%Y-%m-%d %H:%M JST")"
+TO="${OPENCLAW_PHONE:-+85200000000}"
+now_hkt="$(TZ=Asia/Hong_Kong date "+%Y-%m-%d %H:%M HKT")"
 {
-  echo "[System Message][SOURCE=openclaw-official][PRIORITY=P0]"
-  echo "OpenClaw GitHub Releases Digest (${now_jst})"
+  echo "🦞 OpenClaw 版本更新 (${now_hkt})"
   echo ""
   while IFS= read -r ev; do
     title="$(printf "%s\n" "$ev" | jq -r ".title")"
     url="$(printf "%s\n" "$ev" | jq -r ".url")"
-    ts="$(printf "%s\n" "$ev" | jq -r ".ts")"
-    echo "- ${ts} | ${title}"
-    echo "  ${url}"
+    ts="$(printf "%s\n" "$ev" | jq -r ".ts" | cut -dT -f1)"
+
+    # LLM 富摘要（对齐 discussions/blog watcher 风格）
+    PROMPT="你是OpenClaw项目的技术编辑。请严格输出三行，不要输出其他内容：
+第一行：直接输出中文标题（翻译或意译原标题，≤20字，不要加任何前缀标签）
+第二行：贡献：[1句话≤40字，说明这个版本的核心变更或价值]
+第三行：价值：⭐（1到5个星，评估对用户的升级紧迫度）
+
+原标题：${title}
+链接：${url}"
+
+    ENRICH="$(openclaw agent --to "$TO" --session-id "$(date +%s%N)" --message "$PROMPT" --thinking minimal 2>/dev/null || true)"
+
+    # fallback：LLM失败或429限流时用原标题
+    if [ -z "${ENRICH// }" ] || echo "$ENRICH" | grep -q "429"; then
+      ENRICH="${title}
+贡献：新版本发布，建议关注。
+价值：⭐⭐⭐"
+    fi
+
+    CN_TITLE="$(echo "$ENRICH" | sed -n '1p' | tr -d '[]')"
+    CONTRIB="$(echo "$ENRICH" | grep '贡献：' | head -1)"
+    STARS="$(echo "$ENRICH" | grep '价值：' | head -1)"
+
+    echo "${CN_TITLE} | ${ts}"
+    echo "链接：${url}"
+    echo "${CONTRIB}"
+    echo "${STARS}"
+    echo ""
   done < "$new_events_file"
 
   if [ "$blog_new_count" -gt 0 ]; then
+    echo "📝 官方博客"
     echo ""
-    echo "P0 Blog"
     while IFS= read -r ev; do
-      ts="$(printf "%s\n" "$ev" | jq -r ".ts")"
+      ts="$(printf "%s\n" "$ev" | jq -r ".ts" | cut -dT -f1)"
       title="$(printf "%s\n" "$ev" | jq -r ".title")"
       url="$(printf "%s\n" "$ev" | jq -r ".url")"
-      echo "- ${ts} | ${title}"
-      echo "  ${url}"
+      echo "- ${title} | ${ts}"
+      echo "  链接：${url}"
     done < "$blog_new_events_file"
   fi
 } > "$MSG"
 
-day="$(TZ=Asia/Tokyo date "+%Y-%m-%d")"
+day="$(TZ=Asia/Hong_Kong date "+%Y-%m-%d")"
 {
   echo ""
   echo "## ${day}"
@@ -134,8 +160,8 @@ day="$(TZ=Asia/Tokyo date "+%Y-%m-%d")"
     id="$(printf "%s\n" "$ev" | jq -r ".id")"
     fp="$(printf "%s\n" "$ev" | jq -r ".fingerprint")"
     echo "- **${title}**"
-    echo "  - Time: ${ts}"
-    echo "  - URL: ${url}"
+    echo "  - 时间: ${ts}"
+    echo "  - 链接: ${url}"
     echo "  - ID: ${id}"
     echo "  - Fingerprint: ${fp}"
   done < "$new_events_file"

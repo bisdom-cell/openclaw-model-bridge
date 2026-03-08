@@ -45,13 +45,13 @@ jobs:
     description: 货代 Watcher，抓取航运动态
 
   - id: openclaw_run
-    scheduler: openclaw
+    scheduler: system
     entry: jobs/openclaw_official/run.sh
-    interval: ""                     # 由 openclaw cron 管理
-    log: ~/openclaw_run.log
+    interval: "0 8 * * *"           # 每天 08:00 HKT
+    log: ~/.openclaw/logs/jobs/openclaw_official.log
     needs_api_key: true
     enabled: true
-    description: OpenClaw 官方任务入口
+    description: OpenClaw Releases Watcher（版本更新+LLM中文摘要）
 
   - id: openclaw_blog
     scheduler: openclaw

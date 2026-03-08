@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# 货代商机 Watcher v1 (v23新增, v25修复--session-id + L1/L2主动告警)
+# 货代商机 Watcher v2 (v23新增, v25修复, v27: ImportYeti自动查询链接)
 # 每天 08:00/14:00/20:00 HKT 由系统crontab触发
 # 调试记录：#84(信号源切换), #91(--session-id修复), 第31章(脚本设计宪法)
+# V2变更：⭐⭐⭐⭐+ 条目自动附加 ImportYeti 企业查询链接
 set -eo pipefail
 
 OPENCLAW="${OPENCLAW:-/opt/homebrew/bin/openclaw}"
@@ -120,7 +121,7 @@ for i, l in enumerate(lines, 1):
 " 2>/dev/null)
 
 请严格按以下格式输出，每条之间空一行：
-序号. 企业信号：[企业名+≤25字需求描述，无则写'行业信号']
+序号. 企业信号：[企业名] — [≤25字需求描述]（无明确企业时写'行业信号 — 描述'）
 行动：[≤30字可执行行动建议]
 评级：⭐（1-5个星）"
 
@@ -162,7 +163,7 @@ MSG_FILE="$CACHE/system_message_freight.txt"
     echo ""
     # 将LLM输出与原始条目对应，追加链接
     python3 - "$NEW_FILE" "$LLM_RAW" << 'PYEOF2'
-import sys, json, re
+import sys, json, re, urllib.parse
 
 lines_file = open(sys.argv[1]).readlines()
 urls = []
@@ -176,6 +177,31 @@ for l in lines_file:
         urls.append("")
         titles.append("")
 
+def extract_company(block):
+    """从'企业信号：XX — 描述'提取企业名"""
+    m = re.search(r'企业信号：(.+)', block)
+    if not m:
+        return None
+    signal = m.group(1).strip()
+    if signal.startswith("行业信号"):
+        return None
+    # 按 — 或 - 分隔，取企业名部分
+    parts = re.split(r'\s*[—–-]\s*', signal, maxsplit=1)
+    company = parts[0].strip()
+    if len(company) < 2 or len(company) > 30:
+        return None
+    return company
+
+def count_stars(block):
+    """统计评级星数"""
+    m = re.search(r'评级：(⭐+)', block)
+    return len(m.group(1)) if m else 0
+
+def importyeti_url(company):
+    """生成 ImportYeti 查询链接"""
+    q = urllib.parse.quote(company)
+    return f"https://www.importyeti.com/search?q={q}"
+
 # 读LLM原始输出（从stdout部分）
 raw = open(sys.argv[2]).read()
 stdout_part = raw.split("--- stdout ---")[-1] if "--- stdout ---" in raw else raw
@@ -185,10 +211,15 @@ for i, block in enumerate(blocks):
     if not block.strip():
         continue
     url = urls[i] if i < len(urls) else ""
-    source = titles[i][:40] if i < len(titles) else ""
     print(block.strip())
     if url:
         print(f"链接：{url}")
+    # V2: 4星+条目自动附加 ImportYeti 查询链接
+    stars = count_stars(block)
+    if stars >= 4:
+        company = extract_company(block)
+        if company:
+            print(f"📦 ImportYeti：{importyeti_url(company)}")
     print("")
 PYEOF2
 } > "$MSG_FILE"
