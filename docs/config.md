@@ -663,7 +663,7 @@ nohup python3 ~/adapter.py > ~/adapter.log 2>&1 &
 | 低 | 货代Watcher V4：ExportGenius API（业务收入后） | ⏳ |
 | ✅ | Blog中文标题从URL硬编码映射升级为LLM动态生成 | 完成 |
 | ✅ | Releases增加LLM中文富摘要（对齐discussions/blog风格） | 完成 |
-| 低 | WhatsApp target号码提取为环境变量 | ⏳ |
+| ✅ | WhatsApp target号码统一为 OPENCLAW_PHONE 环境变量 | 完成 |
 | 低 | 探索Claude/GPT-4o替换Qwen3 | ⏳ |
 ---
 ## 十九、工作原则（工作宪法）

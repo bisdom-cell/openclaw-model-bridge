@@ -125,8 +125,8 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 |--------|------|
 | 低 | 货代Watcher V2：ImportYeti手动查询SOP |
 | 低 | 货代Watcher V3：Bing News API替代GoogleNews |
-| 低 | Blog中文标题升级为LLM动态生成+缓存 |
-| 低 | WhatsApp target号码提取为环境变量 |
+| ✅ | Blog中文标题升级为LLM动态生成 |
+| ✅ | WhatsApp target号码统一为 OPENCLAW_PHONE |
 | 低 | 探索Claude/GPT-4o替换Qwen3 |
 
 ## 远程连接（本机）
