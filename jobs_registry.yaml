@@ -91,6 +91,15 @@ jobs:
     enabled: true
     description: HackerNews 热帖抓取
 
+  - id: auto_deploy
+    scheduler: system
+    entry: auto_deploy.sh
+    interval: "*/2 * * * *"          # 每 2 分钟轮询 GitHub
+    log: ~/.openclaw/logs/auto_deploy.log
+    needs_api_key: false
+    enabled: true
+    description: 自动部署 — git pull + 文件同步 + 按需 restart
+
   - id: run_discussions
     scheduler: system
     entry: run_discussions.sh
