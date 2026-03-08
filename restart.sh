@@ -7,21 +7,19 @@ OPENCLAW="${OPENCLAW:-$(command -v openclaw 2>/dev/null || echo /opt/homebrew/bi
 
 echo "[restart] Stopping all services..."
 "$OPENCLAW" gateway stop 2>/dev/null || true
-# Kill any process on port 18789; ignore error if none running
+# Kill any process on ports; ignore error if none running
 lsof -ti :18789 2>/dev/null | xargs kill 2>/dev/null || true
+lsof -ti :5001 2>/dev/null | xargs kill 2>/dev/null || true
+lsof -ti :5002 2>/dev/null | xargs kill 2>/dev/null || true
+sleep 2
+
+echo "[restart] Starting Adapter on :5001..."
+nohup python3 "$SCRIPT_DIR/adapter.py" > ~/adapter.log 2>&1 &
 sleep 1
 
-if ! lsof -ti :5001 > /dev/null 2>&1; then
-    echo "[restart] Starting Adapter on :5001..."
-    nohup python3 "$SCRIPT_DIR/adapter.py" > ~/adapter.log 2>&1 &
-    sleep 1
-fi
-
-if ! lsof -ti :5002 > /dev/null 2>&1; then
-    echo "[restart] Starting Tool Proxy on :5002..."
-    nohup python3 "$SCRIPT_DIR/tool_proxy.py" > ~/tool_proxy.log 2>&1 &
-    sleep 1
-fi
+echo "[restart] Starting Tool Proxy on :5002..."
+nohup python3 "$SCRIPT_DIR/tool_proxy.py" > ~/tool_proxy.log 2>&1 &
+sleep 1
 
 echo "[restart] Starting Gateway..."
 "$OPENCLAW" gateway --verbose &
