@@ -11,7 +11,7 @@ JOB="$ROOT/jobs/freight_watcher"
 CACHE="$JOB/cache"
 KB_SRC="${KB_BASE:-$HOME/.kb}/sources/freight_daily.md"
 KB_INBOX="${KB_BASE:-$HOME/.kb}/inbox.md"
-TO="${WA_PHONE:-+85200000000}"
+TO="${OPENCLAW_PHONE:-+85200000000}"
 LLM_RAW="$CACHE/llm_raw_last.txt"
 
 mkdir -p "$CACHE" "${KB_BASE:-$HOME/.kb}/sources"

@@ -4,7 +4,7 @@ set -euo pipefail
 # 用法：bash ~/openclaw-model-bridge/upgrade_openclaw.sh
 # ⚠️ 必须通过 SSH 直接执行，禁止通过 WhatsApp 让 AI 自我升级
 
-PHONE="${WA_PHONE:-+85200000000}"
+PHONE="${OPENCLAW_PHONE:-+85200000000}"
 OPENCLAW="/opt/homebrew/bin/openclaw"
 
 echo "=== OpenClaw 升级脚本 ==="
