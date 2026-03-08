@@ -255,6 +255,7 @@ python3 -c "
 import re
 raw = open('$LLM_RAW').read()
 stdout = raw.split('--- stdout ---')[-1] if '--- stdout ---' in raw else raw
+seen = set()
 for block in re.split(r'\n(?=\d+\.)', stdout.strip()):
     if not block.strip():
         continue
@@ -262,7 +263,8 @@ for block in re.split(r'\n(?=\d+\.)', stdout.strip()):
         m = re.search(r'企业信号：(.+?)[\s]*[—–\-]', block)
         if m:
             name = m.group(1).strip()
-            if name != '行业信号' and 2 <= len(name) <= 30:
+            if name != '行业信号' and 2 <= len(name) <= 30 and name not in seen:
+                seen.add(name)
                 print(name)
 " > "$HIGH_STARS" 2>/dev/null || true
 
@@ -276,7 +278,7 @@ if [ "$COMPANY_COUNT" -gt 5 ]; then
     echo "[freight] 截取前5个企业进行深挖"
 fi
 
-# ── 9. ImportYeti 自动化深挖（每公司1次 web_fetch）───────────────────
+# ── 9. ImportYeti 自动化深挖（browser绕过Cloudflare）─────────────────
 if [ "$COMPANY_COUNT" -gt 0 ]; then
     ENRICHED_FILE="$CACHE/enriched_data.txt"
     : > "$ENRICHED_FILE"
@@ -288,8 +290,11 @@ if [ "$COMPANY_COUNT" -gt 0 ]; then
         ENRICH_OUT="$("$OPENCLAW" agent \
             --to "$TO" \
             --session-id "enrich-$(date +%s)" \
-            --message "请用 web_fetch 访问 https://www.importyeti.com/search?q=${SLUG}
-从页面中提取以下信息并严格按格式输出：
+            --message "请执行以下步骤查询 ${company} 的海关数据：
+
+1. 用 browser_navigate 访问 https://www.importyeti.com/search?q=${SLUG}
+2. 等待页面加载完成后，用 browser_snapshot 截取页面内容
+3. 从页面中提取以下信息并严格按格式输出：
 
 公司：${company}
 总发货次数：[数字，如无数据写 N/A]
@@ -308,8 +313,8 @@ if [ "$COMPANY_COUNT" -gt 0 ]; then
             echo ""
         } >> "$ENRICHED_FILE"
 
-        # 避免触发反爬，间隔5秒
-        sleep 5
+        # 浏览器操作较慢，间隔8秒
+        sleep 8
     done < "$HIGH_STARS"
 
     # ── 10. 客户画像生成（LLM综合推理）──────────────────────────────
