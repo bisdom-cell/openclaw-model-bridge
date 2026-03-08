@@ -285,7 +285,24 @@ if [ "$COMPANY_COUNT" -gt 0 ]; then
 
     while IFS= read -r company; do
         echo "[freight] 深挖: $company"
-        SLUG=$(python3 -c "import urllib.parse; print(urllib.parse.quote('$company'))")
+        # V3: 清洗企业名 — 去除地理/法律后缀，提高 ImportYeti 命中率
+        CLEAN_NAME=$(python3 -c "
+import re, urllib.parse
+name = '$company'
+# 去除常见法律/地理后缀
+for suffix in [' China', ' USA', ' US', ' Europe', ' Asia', ' Japan', ' Korea',
+               ' International', ' Global', ' Worldwide',
+               ' Corporation', ' Corp\\.', ' Corp', ' Incorporated', ' Inc\\.', ' Inc',
+               ' Limited', ' Ltd\\.', ' Ltd', ' Company', ' Co\\.', ' Co',
+               ' Group', ' Holdings', ' Holding',
+               ' AG', ' GmbH', ' S\\.A\\.', ' SA', ' SE', ' PLC', ' NV', ' BV',
+               ' LLC', ' LLP', ' LP']:
+    name = re.sub(re.escape(suffix) + r'$', '', name, flags=re.IGNORECASE)
+name = re.sub(r'[®™©]', '', name).strip()
+print(name)
+")
+        echo "[freight] 清洗后企业名: $CLEAN_NAME"
+        SLUG=$(python3 -c "import urllib.parse; print(urllib.parse.quote('$CLEAN_NAME'))")
 
         ENRICH_OUT="$("$OPENCLAW" agent \
             --to "$TO" \
