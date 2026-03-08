@@ -39,7 +39,9 @@ if [ "$TEST_MODE" -eq 1 ]; then
     fi
     COMPANY_COUNT=$(wc -l < "$HIGH_STARS" | tr -d ' ')
     echo "[freight] 测试模式：从缓存读取 ${COMPANY_COUNT} 个企业"
-    # 跳到 Step 9 标记处（下方会检测 TEST_MODE）
+    # 测试模式下设置 MSG_FILE（Step 10 画像生成需要引用）
+    MSG_FILE="$CACHE/system_message_freight.txt"
+    test -f "$MSG_FILE" || echo "(测试模式 — 无新闻信号数据)" > "$MSG_FILE"
 fi
 
 : > "$NEW_FILE"
