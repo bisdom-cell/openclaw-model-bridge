@@ -365,7 +365,7 @@ print(name)
 
     # 只在有有效深挖数据时才生成画像（至少一个公司有非N/A数据）
     HAS_DATA=$(echo "$ENRICHED_DATA" | grep -c "总发货次数" || true)
-    ALL_NA=$(echo "$ENRICHED_DATA" | grep "总发货次数：N/A" | wc -l | tr -d ' ')
+    ALL_NA=$(echo "$ENRICHED_DATA" | { grep "总发货次数：N/A" || true; } | wc -l | tr -d ' ')
 
     if [ "$HAS_DATA" -gt 0 ] && [ "$HAS_DATA" -gt "$ALL_NA" ]; then
         echo "[freight] 生成客户画像..."
