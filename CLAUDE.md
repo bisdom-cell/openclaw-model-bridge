@@ -32,6 +32,7 @@ WhatsApp <-> OpenClaw Gateway (18789) <-> Tool Proxy (5002) <-> Adapter (5001) <
 | `jobs_registry.yaml` | **V27新增** 统一任务注册表（system + openclaw 双 cron） |
 | `check_registry.py` | **V27新增** 注册表校验脚本 |
 | `ROLLBACK.md` | **V27新增** 回滚指南（30秒恢复到V26） |
+| `upgrade_openclaw.sh` | Gateway升级SOP脚本（必须SSH直连执行，禁止WhatsApp触发） |
 | `restart.sh` | 一键重启 Proxy + Adapter |
 | `health_check.sh` | 每周健康周报脚本（V27: +JSON输出） |
 | `kb_write.sh` | KB写入脚本（含目录锁+原子写） |

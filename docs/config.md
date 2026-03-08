@@ -1,7 +1,8 @@
 # OpenClaw 完整配置文档
-> 最后更新：2026-03-07 (HKT)
+> 最后更新：2026-03-08 (HKT)
 > 系统：Mac Mini (macOS) | 用户：bisdom
 > 版本：v27（Proxy拆层；任务注册表；Health JSON输出；回滚机制）
+> OpenClaw Gateway：2026.3.7（2026-03-08升级）
 ---
 ## 一、系统架构
 ```
@@ -561,6 +562,7 @@ echo "=== 扫描完成，全部为空才允许push ==="
 | 编号 | 场景 | 陷阱 | 正确做法 |
 |------|------|------|----------|
 | **92** | **run_freight.sh `--thinking` 参数错误** | **首次运行LLM调用失败，stderr报`Invalid thinking level. Use one of: off, minimal, low, medium, high, adaptive`，根因是脚本写了`--thinking none`，该值不在合法列表中。`subprocess capture_output=True`未能完全暴露错误，依靠`llm_raw_last.txt`中的stderr定位** | **所有`openclaw agent`调用统一用`--thinking off`（关闭thinking）或`--thinking minimal`（最小thinking）。`--thinking none`为非法值，永远不使用。已更新第31.4新脚本上线检查清单** |
+| **93** | **通过WhatsApp让AI自我升级OpenClaw Gateway** | **用户在WhatsApp中指示AI执行`npm install -g openclaw@latest`升级Gateway。升级过程中Gateway进程被替换/中断，导致：①升级命令无法返回结果（自杀悖论）②Gateway DOWN后WhatsApp断连，后续指令无法送达③用户等待2小时无回应。** | **OpenClaw Gateway升级必须通过SSH直接在Mac Mini上执行，禁止通过WhatsApp让AI自我升级。已创建`upgrade_openclaw.sh`升级SOP脚本。** |
 ---
 ## 三十三、V27 任务注册表（v27新增）
 ### 33.1 设计目的
@@ -608,6 +610,25 @@ nohup python3 ~/tool_proxy.py > ~/tool_proxy.log 2>&1 &
 nohup python3 ~/adapter.py > ~/adapter.log 2>&1 &
 ```
 详见 `ROLLBACK.md`。
+
+---
+## 三十五、Gateway 升级 SOP（v27新增）
+### 35.1 升级脚本
+**路径**：`~/openclaw-model-bridge/upgrade_openclaw.sh`
+**用法**：`bash ~/openclaw-model-bridge/upgrade_openclaw.sh`
+
+### 35.2 升级规则
+| 规则 | 说明 |
+|------|------|
+| ①必须SSH直连 | 禁止通过WhatsApp/AI执行升级（自杀悖论：Gateway升级会中断自身进程） |
+| ②Adapter/Proxy不受影响 | 升级只涉及npm全局包，Python服务无需重启 |
+| ③升级前记录旧版本 | 便于回滚 |
+| ④升级后验证三端口 | Gateway(18789) + Adapter(5001) + Proxy(5002) |
+
+### 35.3 历史升级记录
+| 日期 | 旧版本 | 新版本 | 备注 |
+|------|--------|--------|------|
+| 2026-03-08 | 2026.3.1 | 2026.3.7 | 首次通过WhatsApp升级失败，改SSH手动完成。新增feishu插件重复警告（非关键）|
 
 ---
 ## 二十一、待办事项（v27更新）
