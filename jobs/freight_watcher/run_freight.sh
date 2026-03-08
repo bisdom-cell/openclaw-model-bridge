@@ -269,8 +269,15 @@ for block in re.split(r'\n(?=\d+\.)', stdout.strip()):
 COMPANY_COUNT=$(wc -l < "$HIGH_STARS" | tr -d ' ')
 echo "[freight] 发现 ${COMPANY_COUNT} 个高星企业待深挖"
 
+# 限制最多深挖5个，取前5条（LLM输出越靠前通常评级越高）
+if [ "$COMPANY_COUNT" -gt 5 ]; then
+    head -5 "$HIGH_STARS" > "$HIGH_STARS.tmp" && mv "$HIGH_STARS.tmp" "$HIGH_STARS"
+    COMPANY_COUNT=5
+    echo "[freight] 截取前5个企业进行深挖"
+fi
+
 # ── 9. ImportYeti 自动化深挖（每公司1次 web_fetch）───────────────────
-if [ "$COMPANY_COUNT" -gt 0 ] && [ "$COMPANY_COUNT" -le 5 ]; then
+if [ "$COMPANY_COUNT" -gt 0 ]; then
     ENRICHED_FILE="$CACHE/enriched_data.txt"
     : > "$ENRICHED_FILE"
 
@@ -377,9 +384,5 @@ ${PROFILE_OUT}
         fi
     else
         echo "[freight] 深挖数据不足（${HAS_DATA}条中${ALL_NA}条全N/A），跳过画像生成"
-    fi
-else
-    if [ "$COMPANY_COUNT" -gt 5 ]; then
-        echo "[freight] 高星企业过多（${COMPANY_COUNT}），跳过深挖避免超时"
     fi
 fi
