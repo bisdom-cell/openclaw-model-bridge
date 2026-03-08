@@ -661,8 +661,8 @@ nohup python3 ~/adapter.py > ~/adapter.log 2>&1 &
 | ✅ | 货代Watcher V2：ImportYeti自动查询链接（⭐⭐⭐⭐+） | 完成 |
 | 低 | 货代Watcher V3：Bing News API替代GoogleNews | ⏳ |
 | 低 | 货代Watcher V4：ExportGenius API（业务收入后） | ⏳ |
-| 低 | Blog中文标题从URL映射升级为LLM动态生成+缓存 | ⏳ |
-| 低 | Releases增加LLM富摘要（对齐ArXiv模板） | ⏳ |
+| ✅ | Blog中文标题从URL硬编码映射升级为LLM动态生成 | 完成 |
+| ✅ | Releases增加LLM中文富摘要（对齐discussions/blog风格） | 完成 |
 | 低 | WhatsApp target号码提取为环境变量 | ⏳ |
 | 低 | 探索Claude/GPT-4o替换Qwen3 | ⏳ |
 ---
