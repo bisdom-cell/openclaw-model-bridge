@@ -6,6 +6,9 @@
 
 set -euo pipefail
 
+# crontab 环境 PATH 不含 homebrew，手动补充
+export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+
 REPO_DIR="$HOME/openclaw-model-bridge"
 LOG="$HOME/.openclaw/logs/auto_deploy.log"
 LOCK="/tmp/auto_deploy.lock"
