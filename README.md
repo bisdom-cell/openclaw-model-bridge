@@ -13,12 +13,22 @@
 
 ```
 WhatsApp <-> OpenClaw Gateway (:18789) <-> Tool Proxy (:5002) <-> Adapter (:5001) <-> Remote GPU API
+                                              │
+                                     ┌────────┴────────┐
+                                     │  HTTP Layer      │  tool_proxy.py
+                                     │  (routing, log)  │
+                                     ├─────────────────┤
+                                     │  Policy Layer    │  proxy_filters.py
+                                     │  (filter, trunc, │
+                                     │   SSE, fix_args) │
+                                     └─────────────────┘
 ```
 
 | Component | Port | Files | Role |
 |-----------|------|-------|------|
 | OpenClaw Gateway | 18789 | npm global install | WhatsApp integration, tool execution |
-| Tool Proxy | 5002 | `tool_proxy.py` + `proxy_filters.py` | Tool filtering (24→12), schema simplification, SSE conversion, truncation |
+| Tool Proxy — HTTP Layer | 5002 | `tool_proxy.py` | Request/response routing, logging, error handling |
+| Tool Proxy — Policy Layer | ↑ | `proxy_filters.py` | Tool filtering (24→12), message truncation, SSE conversion, param alias mapping (pure functions, no network) |
 | Adapter | 5001 | `adapter.py` | API forwarding, auth (`$REMOTE_API_KEY`), param filtering |
 | Remote GPU | — | hkagentx.hkopenlab.com | Qwen3-235B inference |
 
