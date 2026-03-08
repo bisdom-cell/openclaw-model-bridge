@@ -119,6 +119,10 @@ TOOL_PARAMS = {
     "cron": {"action", "schedule", "command", "id", "name", "sessionTarget", "payload", "job"},
     "message": {"to", "text"},
     "tts": {"text"},
+    "browser_navigate": {"url", "profile", "target"},
+    "browser_click": {"selector", "profile", "target"},
+    "browser_type": {"selector", "text", "profile", "target"},
+    "browser_snapshot": {"profile", "target"},
 }
 
 # 浏览器合法 profile
@@ -163,6 +167,12 @@ def truncate_messages(messages, max_bytes=MAX_REQUEST_BYTES):
     """
     system = [m for m in messages if m.get("role") == "system"]
     others = [m for m in messages if m.get("role") != "system"]
+    # 截断超大 system 消息（保留前 max_bytes/2 字符）
+    sys_limit = max_bytes // 2
+    for m in system:
+        content = m.get("content", "")
+        if isinstance(content, str) and len(content.encode()) > sys_limit:
+            m["content"] = content[:sys_limit // 2] + "\n...[truncated]..."
     total = len(json.dumps(system))
     keep = []
     for m in reversed(others):
@@ -184,7 +194,7 @@ def fix_tool_args(rj):
     """
     modified = False
     for choice in rj.get("choices", []):
-        msg = choice.get("message", {})
+        msg = choice.get("message") or {}
         tcs = msg.get("tool_calls")
         if tcs:
             for tc in tcs:
@@ -251,7 +261,7 @@ def build_sse_response(rj):
     """将标准 chat completion 响应转换为 SSE 格式字节流。"""
     chunks_out = []
     for choice in rj.get("choices", []):
-        msg = choice.get("message", {})
+        msg = choice.get("message") or {}
         delta = {}
         if msg.get("role"):
             delta["role"] = msg["role"]

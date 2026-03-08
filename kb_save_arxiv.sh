@@ -61,7 +61,7 @@ echo "[kb_save_arxiv] KB写入完成 ${DATE}"
 
 # 同步备份到外挂SSD
 if [ -d "/Volumes/MOVESPEED" ]; then
-  rsync -a --delete ~/.kb/ /Volumes/MOVESPEED/KB/
+  rsync -a ~/.kb/ /Volumes/MOVESPEED/KB/
   echo "[kb_save_arxiv] 已同步备份到 /Volumes/MOVESPEED/KB/"
 else
   echo "[kb_save_arxiv] 外挂SSD未挂载，跳过备份"

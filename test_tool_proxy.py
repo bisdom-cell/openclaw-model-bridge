@@ -276,5 +276,76 @@ class TestBuildSSE(unittest.TestCase):
         self.assertEqual(sse, b"data: [DONE]\n\n")
 
 
+class TestNullMessageHandling(unittest.TestCase):
+    """P0 fix: null message in choices should not crash."""
+
+    def test_fix_tool_args_null_message(self):
+        rj = {"choices": [{"message": None}]}
+        modified = fix_tool_args(rj)
+        self.assertFalse(modified)
+
+    def test_fix_tool_args_missing_message(self):
+        rj = {"choices": [{"finish_reason": "stop"}]}
+        modified = fix_tool_args(rj)
+        self.assertFalse(modified)
+
+    def test_build_sse_null_message(self):
+        rj = {"id": "x", "created": 0, "model": "m",
+              "choices": [{"index": 0, "message": None, "finish_reason": "stop"}]}
+        sse = build_sse_response(rj)
+        self.assertIn(b"data:", sse)
+        self.assertIn(b"[DONE]", sse)
+
+    def test_build_sse_missing_message(self):
+        rj = {"id": "x", "created": 0, "model": "m",
+              "choices": [{"index": 0, "finish_reason": "stop"}]}
+        sse = build_sse_response(rj)
+        self.assertIn(b"[DONE]", sse)
+
+
+class TestBrowserParamStripping(unittest.TestCase):
+    """P0 fix: browser_* tools should strip extra params."""
+
+    def test_browser_navigate_extra_params_stripped(self):
+        rj = make_response("browser_navigate",
+                           {"url": "https://example.com", "profile": "openclaw",
+                            "width": 1024, "headless": True})
+        fix_tool_args(rj)
+        args = get_args(rj)
+        self.assertIn("url", args)
+        self.assertIn("profile", args)
+        self.assertNotIn("width", args)
+        self.assertNotIn("headless", args)
+
+    def test_browser_click_extra_params_stripped(self):
+        rj = make_response("browser_click",
+                           {"selector": "#btn", "profile": "openclaw", "delay": 100})
+        fix_tool_args(rj)
+        args = get_args(rj)
+        self.assertIn("selector", args)
+        self.assertNotIn("delay", args)
+
+    def test_browser_snapshot_minimal(self):
+        rj = make_response("browser_snapshot", {"profile": "openclaw", "format": "png"})
+        fix_tool_args(rj)
+        args = get_args(rj)
+        self.assertIn("profile", args)
+        self.assertNotIn("format", args)
+
+
+class TestTruncateSystemMessage(unittest.TestCase):
+    """P1 fix: oversized system message should be truncated."""
+
+    def test_large_system_message_truncated(self):
+        msgs = [
+            {"role": "system", "content": "X" * 200000},
+            {"role": "user", "content": "Hi"},
+        ]
+        result, dropped = truncate_messages(msgs, max_bytes=50000)
+        sys_content = result[0]["content"]
+        self.assertLess(len(sys_content), 200000)
+        self.assertIn("[truncated]", sys_content)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
