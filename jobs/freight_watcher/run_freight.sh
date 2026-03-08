@@ -6,6 +6,13 @@
 # V3变更：三层情报漏斗 — 信号捕获→ImportYeti深挖→客户画像生成
 set -eo pipefail
 
+# ── --test 模式：跳过 RSS 抓取和 LLM 分析，直接从 Step 9 (ImportYeti) 开始 ──
+TEST_MODE=0
+if [ "${1:-}" = "--test" ]; then
+    TEST_MODE=1
+    echo "[freight] ⚡ 测试模式：跳过 RSS + LLM，直接执行 ImportYeti 深挖"
+fi
+
 OPENCLAW="${OPENCLAW:-/opt/homebrew/bin/openclaw}"
 ROOT="${HOME}/.openclaw"
 JOB="$ROOT/jobs/freight_watcher"
@@ -21,8 +28,23 @@ test -f "$KB_INBOX" || echo "# INBOX" > "$KB_INBOX"
 
 DAY="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M')"
 NEW_FILE="$CACHE/freight_new.jsonl"
+
+# 测试模式跳过 RSS（Step 1-7），直接跳到 Step 8
+if [ "$TEST_MODE" -eq 1 ]; then
+    HIGH_STARS="$CACHE/high_star_companies.txt"
+    if [ ! -s "$HIGH_STARS" ]; then
+        echo "[freight] ⚠️ 测试模式需要 $HIGH_STARS 有内容"
+        echo "[freight] 用法: echo 'Volkswagen China' > $HIGH_STARS && bash $0 --test"
+        exit 1
+    fi
+    COMPANY_COUNT=$(wc -l < "$HIGH_STARS" | tr -d ' ')
+    echo "[freight] 测试模式：从缓存读取 ${COMPANY_COUNT} 个企业"
+    # 跳到 Step 9 标记处（下方会检测 TEST_MODE）
+fi
+
 : > "$NEW_FILE"
 
+if [ "$TEST_MODE" -eq 0 ]; then
 # ── 1. 抓取多源RSS + Google News ────────────────────────────────────────
 python3 - "$KB_INBOX" "$NEW_FILE" << 'PYEOF'
 import sys, json, re, urllib.request, xml.etree.ElementTree as ET
@@ -277,6 +299,8 @@ if [ "$COMPANY_COUNT" -gt 5 ]; then
     COMPANY_COUNT=5
     echo "[freight] 截取前5个企业进行深挖"
 fi
+
+fi  # END TEST_MODE guard (Steps 1-8)
 
 # ── 9. ImportYeti 自动化深挖（browser绕过Cloudflare）─────────────────
 if [ "$COMPANY_COUNT" -gt 0 ]; then
