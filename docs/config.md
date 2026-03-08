@@ -485,7 +485,7 @@ GitHub SSH Key：`~/.ssh/id_ed25519`（2026-02-28添加到 github.com/settings/s
 > 参见 v25 文档对应章节。v26无变更。
 
 ---
-## 三十、货代商机Watcher（v26：首次验证成功）
+## 三十、货代商机Watcher（v27: V2 ImportYeti自动查询）
 ### 30.1 v26验证记录（2026-03-06 21:30 HKT）
 首次手动触发结果：
 - 抓取新条目：10条
@@ -505,7 +505,13 @@ GitHub SSH Key：`~/.ssh/id_ed25519`（2026-02-28添加到 github.com/settings/s
 | KB归档 | `~/.kb/sources/freight_daily.md` |
 | 日志 | `~/.openclaw/logs/jobs/freight_watcher.log` |
 
-### 30.3 快速验收命令
+### 30.3 V2变更（2026-03-08）
+- LLM prompt 格式改为 `企业信号：[企业名] — [描述]`，用 `—` 分隔企业名和描述
+- ⭐⭐⭐⭐+ 条目自动附加 ImportYeti 查询链接：`importyeti.com/search?q=企业名`
+- 行业信号（无明确企业）和 3星以下条目不附加链接
+- ImportYeti 是免费的美国海关进出口记录查询平台，可查看企业的供应商和进口量
+
+### 30.4 快速验收命令
 ```bash
 # 强制重跑（清除今日去重）
 sed -i '' '/freightwaves\|theloadstar\|aircargo\|dcvelocity\|chinadaily\|scmp\|prnewswire\|sec.gov\|google.com\/rss/d' ~/.kb/inbox.md
@@ -652,7 +658,7 @@ nohup python3 ~/adapter.py > ~/adapter.log 2>&1 &
 | ✅ | V27 Health JSON输出（health_check.sh） | 完成 |
 | ✅ | V27 回滚机制（v26-snapshot tag + ROLLBACK.md） | 完成 |
 | ✅ | V27 测试直接import（test_tool_proxy.py 28用例全通过） | 完成 |
-| 低 | 货代Watcher V2：ImportYeti手动查询SOP配套 | ⏳ |
+| ✅ | 货代Watcher V2：ImportYeti自动查询链接（⭐⭐⭐⭐+） | 完成 |
 | 低 | 货代Watcher V3：Bing News API替代GoogleNews | ⏳ |
 | 低 | 货代Watcher V4：ExportGenius API（业务收入后） | ⏳ |
 | 低 | Blog中文标题从URL映射升级为LLM动态生成+缓存 | ⏳ |
