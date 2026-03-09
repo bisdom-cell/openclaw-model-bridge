@@ -14,7 +14,7 @@
 - [Configuration / 配置说明](#configuration--配置说明)
 - [Quick Start / 快速开始](#quick-start--快速开始)
 - [Validation / 验证测试](#validation--验证测试)
-- [24 Hard-Won Lessons / 24条踩坑经验](#24-hard-won-lessons--24条踩坑经验)
+- [26 Hard-Won Lessons / 26条踩坑经验](#26-hard-won-lessons--26条踩坑经验)
 
 ---
 
