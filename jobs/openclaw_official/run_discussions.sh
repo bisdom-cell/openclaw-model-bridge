@@ -83,7 +83,7 @@ while IFS='|' read -r title url date; do
     CONTRIB="$(echo "$ENRICH" | grep '贡献：' | head -1)"
     STARS="$(echo "$ENRICH" | grep '价值：' | head -1)"
 
-    echo "${CN_TITLE} | ${date}" >> "$MSG"
+    echo "*${CN_TITLE}* | ${date}" >> "$MSG"
     echo "链接：${url}" >> "$MSG"
     echo "${CONTRIB}" >> "$MSG"
     echo "${STARS}" >> "$MSG"
