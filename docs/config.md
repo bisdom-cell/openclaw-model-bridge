@@ -709,3 +709,5 @@ nohup python3 ~/adapter.py > ~/adapter.log 2>&1 &
 26. **【回滚优先】** 线上故障 → 先 `git checkout v26-snapshot` 恢复服务，再排查根因。← v27新增
 27. **【纯推理任务绕过Gateway】** 不需要工具调用的LLM任务（如文本生成、画像生成），必须直接curl调`proxy:5002/v1/chat/completions`（不含tools字段），禁止用`openclaw agent`（Gateway会注入工具导致模型失控循环调用）。← #94修复经验
 28. **【收工强制指令】** 每次 vibe coding 交互结束时，用户输入"今天工作结束"，系统必须：① 扫描仓库内全部文档（CLAUDE.md、docs/*.md、README.md、IMPROVEMENTS.md 等），将当日所有变更同步到相关文档；② 确保文档间信息一致（工作原则、踩坑经验、检查清单、待办状态）；③ 安全扫描 → 提交 → 推送。无例外。
+29. **【禁用交互式编辑器】** 所有 git 命令必须避免触发 vim/nano 等交互式编辑器。merge 用 `--no-edit`，commit 用 `-m`，rebase 禁用 `-i`。用户环境无法正确操作 vim。← v28新增
+30. **【分支合并由用户在GitHub操作】** 开发完成后推送到 `claude/xxx` 分支，必须提醒用户去 GitHub 创建 PR 合并到 main。用户在 Mac Mini 用 `git pull origin main --no-rebase --no-edit` 拉取。禁止在终端执行本地 merge。← v28新增

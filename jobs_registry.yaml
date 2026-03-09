@@ -21,8 +21,17 @@ jobs:
     interval: "30 8 * * *"          # 每天 08:30
     log: ~/kb_save_arxiv.log
     needs_api_key: false
+    enabled: false                   # V28: 功能已合并到 arxiv_monitor
+    description: ArXiv 监控结果写入 KB + rsync 备份（已废弃）
+
+  - id: arxiv_monitor
+    scheduler: system
+    entry: jobs/arxiv_monitor/run_arxiv.sh
+    interval: "0 */3 * * *"         # 每3小时整点
+    log: ~/.openclaw/logs/jobs/arxiv_monitor.log
+    needs_api_key: true
     enabled: true
-    description: ArXiv 监控结果写入 KB + rsync 备份
+    description: ArXiv AI论文监控（脚本控制格式，替代 --announce 模式）
 
   - id: kb_evening
     scheduler: system
