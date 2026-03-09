@@ -179,14 +179,14 @@ export WA_PHONE="+85200000000"
 | hn-watcher | 每3小时:45分 | `~/.openclaw/jobs/hn_watcher/run_hn.sh` | `~/.openclaw/logs/jobs/hn_watcher.log` | ✅ |
 | freight-watcher | 每天08:00/14:00/20:00 | `~/.openclaw/jobs/freight_watcher/run_freight.sh` | `~/.openclaw/logs/jobs/freight_watcher.log` | ✅ v26验证成功 |
 | session-cleanup | 每6小时 04/10/16/22:00 | 直接rm命令（无脚本） | `~/.openclaw/logs/session_cleanup.log` | ✅ v24变更：从每天1次→每6小时1次 |
-| gateway-watchdog | 每30分钟 | `~/restart.sh` | `~/.openclaw/logs/gateway_watchdog.log` | ✅ |
+| gateway-watchdog | ~~每30分钟~~ | `~/restart.sh` | `~/.openclaw/logs/gateway_watchdog.log` | ❌ **已移除**（#95：与launchd KeepAlive双主控冲突，导致误杀gateway） |
 
 当前 `crontab -l` 核心条目：
 ```bash
 0 * * * * mkdir -p $HOME/.openclaw/logs/jobs; bash -lc '$HOME/.openclaw/jobs/openclaw_official/run_blog.sh >> $HOME/.openclaw/logs/jobs/openclaw_blog.log 2>&1'
 15 * * * * mkdir -p $HOME/.openclaw/logs/jobs; bash -lc '$HOME/.openclaw/jobs/openclaw_official/run_discussions.sh >> $HOME/.openclaw/logs/jobs/openclaw_discussions.log 2>&1'
 30 * * * * mkdir -p $HOME/.openclaw/logs/jobs; bash -lc '$HOME/.openclaw/jobs/openclaw_official/run.sh >> $HOME/.openclaw/logs/jobs/openclaw_official.log 2>&1'
-*/30 * * * * mkdir -p $HOME/.openclaw/logs; bash -lc 'openclaw agent --message ping --thinking none' >/dev/null 2>&1 || (bash $HOME/restart.sh >> $HOME/.openclaw/logs/gateway_watchdog.log 2>&1 && echo "$(date) Gateway自愈重启" >> $HOME/.openclaw/logs/gateway_watchdog.log)
+# gateway-watchdog 已移除（#95：与launchd KeepAlive双主控冲突）— Gateway 由 launchd 全权管理
 0 4,10,16,22 * * * rm -f /Users/bisdom/.openclaw/agents/main/sessions/*.jsonl /Users/bisdom/.openclaw/agents/main/sessions/sessions.json && echo "$(date) session已清理" >> /Users/bisdom/.openclaw/logs/session_cleanup.log
 45 */3 * * * mkdir -p $HOME/.openclaw/logs/jobs; bash -lc '$HOME/.openclaw/jobs/hn_watcher/run_hn.sh >> $HOME/.openclaw/logs/jobs/hn_watcher.log 2>&1'
 0 8,14,20 * * * bash -lc '$HOME/.openclaw/jobs/freight_watcher/run_freight.sh >> $HOME/.openclaw/logs/jobs/freight_watcher.log 2>&1'
@@ -578,6 +578,7 @@ echo "=== 扫描完成，全部为空才允许push ==="
 |------|------|------|----------|
 | **92** | **run_freight.sh `--thinking` 参数错误** | **首次运行LLM调用失败，stderr报`Invalid thinking level. Use one of: off, minimal, low, medium, high, adaptive`，根因是脚本写了`--thinking none`，该值不在合法列表中。`subprocess capture_output=True`未能完全暴露错误，依靠`llm_raw_last.txt`中的stderr定位** | **所有`openclaw agent`调用统一用`--thinking off`（关闭thinking）或`--thinking minimal`（最小thinking）。`--thinking none`为非法值，永远不使用。已更新第31.4新脚本上线检查清单** |
 | **93** | **通过WhatsApp让AI自我升级OpenClaw Gateway** | **用户在WhatsApp中指示AI执行`npm install -g openclaw@latest`升级Gateway。升级过程中Gateway进程被替换/中断，导致：①升级命令无法返回结果（自杀悖论）②Gateway DOWN后WhatsApp断连，后续指令无法送达③用户等待2小时无回应。** | **OpenClaw Gateway升级必须通过SSH直接在Mac Mini上执行，禁止通过WhatsApp让AI自我升级。已创建`upgrade_openclaw.sh`升级SOP脚本。** |
+| **95** | **Gateway watchdog 误杀导致 WhatsApp 推送间歇中断（2026-03-09）** | **cron watchdog 每30分钟执行 `openclaw agent --message ping`，cron 环境 PATH 缺失导致命令失败→误判 gateway 挂了→restart.sh 杀掉正常 gateway→重启也失败（`env: node: No such file or directory`）→每30分钟循环误杀。根因：Gateway 同时被 launchd (KeepAlive=true) 和 cron watchdog 两套机制管理（"双主控制"反模式），且 watchdog 健康检查走完整 LLM 链路而非只检 gateway 端口。** | **①移除 cron watchdog，Gateway 由 launchd 单一管理；②restart.sh 加 `export PATH="/opt/homebrew/bin:..."` 确保 cron 环境可用；③新增工作原则：进程管理单一主控、cron 脚本显式声明 PATH、健康检查只检目标组件、AI 生成的"保险机制"需审查。** |
 | **94** | **货代画像生成web_search无限循环（600秒超时）** | **`run_freight.sh`画像生成步骤用`openclaw agent`调用LLM，Gateway自动注入tools（含web_search）。Qwen3完全无视prompt中的`[NO_TOOLS]`文本标记，疯狂调用web_search 29次直到600秒超时。proxy_filters.py的`should_strip_tools()`虽然实现了`[NO_TOOLS]`检测，但Gateway可能绕过proxy直连adapter:5001，且原实现不支持数组格式content。** | **画像生成改为直接curl调proxy:5002的`/v1/chat/completions`，请求payload中不含tools字段，彻底避免Gateway注入工具。同时修复`should_strip_tools()`支持数组格式content blocks。结果：600秒超时→20秒完成。纯推理任务（不需要工具）应绕过`openclaw agent`直接调API。** |
 ---
 ## 三十三、V27 任务注册表（v27新增）
@@ -711,3 +712,7 @@ nohup python3 ~/adapter.py > ~/adapter.log 2>&1 &
 28. **【收工强制指令】** 每次 vibe coding 交互结束时，用户输入"今天工作结束"，系统必须：① 扫描仓库内全部文档（CLAUDE.md、docs/*.md、README.md、IMPROVEMENTS.md 等），将当日所有变更同步到相关文档；② 确保文档间信息一致（工作原则、踩坑经验、检查清单、待办状态）；③ 安全扫描 → 提交 → 推送。无例外。
 29. **【禁用交互式编辑器】** 禁止触发 vim/nano 等交互式编辑器。git merge 用 `--no-edit`，commit 用 `-m`，rebase 禁用 `-i`。crontab 禁用 `crontab -e`，改用管道 `(crontab -l; echo '新行') | crontab -`。← v28新增
 30. **【分支合并由用户在GitHub操作】** 开发完成后推送到 `claude/xxx` 分支，必须提醒用户去 GitHub 创建 PR 合并到 main。用户在 Mac Mini 用 `git pull origin main --no-rebase --no-edit` 拉取。禁止在终端执行本地 merge。← v28新增
+31. **【进程管理单一主控】** 每个进程只能有一个生命周期管理者。Gateway 由 launchd (KeepAlive=true) 管理，禁止再加 cron watchdog 或其他自愈机制。双主控制必然互相干扰。← #95教训
+32. **【cron脚本显式声明PATH】** 所有 cron 调用的脚本首行必须 `export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"`。cron 环境与用户 shell 完全不同，禁止假设 PATH 已正确设置。← #95教训
+33. **【健康检查只检目标组件】** 健康检查应只检查目标组件本身（如 `curl localhost:18789`），不应走完整 LLM 链路。链路中任何一环超时都会误判为目标组件故障。← #95教训
+34. **【AI生成的保险机制需审查】** AI 倾向于叠加防护层（watchdog、自愈、重试），但每加一层都可能与现有机制冲突。新增任何自愈/监控脚本前，必须先确认"谁已经在管这件事"。← #95教训

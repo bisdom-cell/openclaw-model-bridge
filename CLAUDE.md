@@ -33,7 +33,7 @@ WhatsApp <-> OpenClaw Gateway (18789) <-> Tool Proxy (5002) <-> Adapter (5001) <
 | `check_registry.py` | **V27新增** 注册表校验脚本 |
 | `ROLLBACK.md` | **V27新增** 回滚指南（30秒恢复到V26） |
 | `upgrade_openclaw.sh` | Gateway升级SOP脚本（必须SSH直连执行，禁止WhatsApp触发） |
-| `restart.sh` | 一键重启 Proxy + Adapter |
+| `restart.sh` | 一键重启 Proxy + Adapter + Gateway（含 PATH 修复，可在 cron 环境使用） |
 | `health_check.sh` | 每周健康周报脚本（V27: +JSON输出） |
 | `kb_write.sh` | KB写入脚本（含目录锁+原子写） |
 | `kb_review.sh` | KB跨笔记回顾脚本 |
@@ -122,6 +122,10 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 9. **收工全量同步** — 用户说"今天工作结束"时，扫描全部文档（CLAUDE.md、docs/*.md、README.md等），同步当日变更，确保信息一致 → 安全扫描 → 提交推送
 10. **禁用交互式编辑器** — 禁止触发 vim/nano 等交互式编辑器。git merge 用 `--no-edit`，commit 用 `-m`，rebase 禁用 `-i`。crontab 禁用 `crontab -e`，改用管道 `(crontab -l; echo '新行') | crontab -`。
 11. **分支合并由用户在GitHub操作** — 开发完成后推送到 `claude/xxx` 分支，**必须提醒用户去 GitHub 创建 PR 合并到 main**，用户在 Mac Mini 用 `git pull origin main --no-rebase --no-edit` 拉取。禁止在终端执行本地 merge。
+12. **进程管理单一主控** — 每个进程只能有一个生命周期管理者。Gateway 由 launchd (KeepAlive=true) 管理，禁止再加 cron watchdog 或其他自愈机制。双主控制必然导致互相干扰（#95教训）。
+13. **cron 脚本显式声明 PATH** — 所有 cron 调用的脚本首行必须 `export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"`。cron 环境与用户 shell 环境完全不同，禁止假设 PATH 已正确设置。
+14. **健康检查只检目标组件** — 健康检查应只检查目标组件本身（如 `curl localhost:18789`），不应走完整 LLM 链路。链路中任何一环超时都会误判为目标组件故障。
+15. **AI 生成的"保险机制"需审查** — AI 倾向于叠加防护层（watchdog、自愈、重试），但每加一层都可能与现有机制冲突。新增任何自愈/监控脚本前，必须先确认"谁已经在管这件事"。
 
 ## 当前待办（v27遗留）
 
