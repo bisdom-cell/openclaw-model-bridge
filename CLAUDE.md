@@ -121,6 +121,7 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 8. **纯推理绕过Gateway** — 不需要工具的LLM任务直接curl调API，禁止用`openclaw agent`（会注入工具导致循环调用，#94）
 9. **收工全量同步** — 用户说"今天工作结束"时，扫描全部文档（CLAUDE.md、docs/*.md、README.md等），同步当日变更，确保信息一致 → 安全扫描 → 提交推送
 10. **禁用交互式编辑器** — 所有 git 命令必须避免触发 vim/nano 等交互式编辑器。merge 用 `--no-edit`，commit 用 `-m`，rebase 禁用 `-i`。用户环境无法正确操作 vim。
+11. **分支合并由用户在GitHub操作** — 开发完成后推送到 `claude/xxx` 分支，**必须提醒用户去 GitHub 创建 PR 合并到 main**，用户在 Mac Mini 用 `git pull origin main --no-rebase --no-edit` 拉取。禁止在终端执行本地 merge。
 
 ## 当前待办（v27遗留）
 
