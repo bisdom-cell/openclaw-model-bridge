@@ -119,6 +119,7 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 6. **macOS sed禁用OR语法** — 用Python替代（`\|` 在BSD sed不支持）
 7. **回滚优先** — 线上故障 → 先 `git checkout v26-snapshot` 恢复，再排查
 8. **纯推理绕过Gateway** — 不需要工具的LLM任务直接curl调API，禁止用`openclaw agent`（会注入工具导致循环调用，#94）
+9. **收工全量同步** — 用户说"今天工作结束"时，扫描全部文档（CLAUDE.md、docs/*.md、README.md等），同步当日变更，确保信息一致 → 安全扫描 → 提交推送
 
 ## 当前待办（v27遗留）
 
