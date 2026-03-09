@@ -166,11 +166,20 @@ NO_TOOLS_MARKER = "[NO_TOOLS]"
 
 
 def should_strip_tools(messages):
-    """检查消息中是否包含 [NO_TOOLS] 标记，用于纯推理任务（如客户画像生成）。"""
+    """检查消息中是否包含 [NO_TOOLS] 标记，用于纯推理任务（如客户画像生成）。
+    支持 content 为字符串或数组格式（OpenAI content blocks）。
+    """
     for m in messages:
         content = m.get("content", "")
-        if isinstance(content, str) and NO_TOOLS_MARKER in content:
-            return True
+        if isinstance(content, str):
+            if NO_TOOLS_MARKER in content:
+                return True
+        elif isinstance(content, list):
+            for block in content:
+                if isinstance(block, dict):
+                    text = block.get("text", "")
+                    if isinstance(text, str) and NO_TOOLS_MARKER in text:
+                        return True
     return False
 
 

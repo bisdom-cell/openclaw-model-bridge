@@ -365,9 +365,24 @@ class TestShouldStripTools(unittest.TestCase):
     def test_empty_messages(self):
         self.assertFalse(should_strip_tools([]))
 
-    def test_non_string_content(self):
+    def test_non_string_content_without_marker(self):
         msgs = [{"role": "user", "content": [{"type": "text", "text": "hello"}]}]
         self.assertFalse(should_strip_tools(msgs))
+
+    def test_marker_in_content_blocks(self):
+        """[NO_TOOLS] in array-format content (OpenAI content blocks)."""
+        msgs = [{"role": "user", "content": [
+            {"type": "text", "text": "规则：5. [NO_TOOLS] 直接推理"}
+        ]}]
+        self.assertTrue(should_strip_tools(msgs))
+
+    def test_marker_in_mixed_content_blocks(self):
+        """[NO_TOOLS] in one of multiple content blocks."""
+        msgs = [{"role": "user", "content": [
+            {"type": "text", "text": "请生成客户画像"},
+            {"type": "text", "text": "[NO_TOOLS] 禁止搜索"}
+        ]}]
+        self.assertTrue(should_strip_tools(msgs))
 
 
 if __name__ == "__main__":
