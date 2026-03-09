@@ -1,10 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
+
+TS="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')"
+
 ROOT="${ROOT:-$HOME/.openclaw}"
 JOB="$ROOT/jobs/openclaw_official"
 KB_SRC="$HOME/.kb/sources/openclaw_official.md"
 KB_INBOX="$HOME/.kb/inbox.md"
 CACHE="$JOB/cache"
+STATUS_FILE="$CACHE/last_run_blog.json"
+
+log() { echo "[$TS] openclaw_blog: $1"; }
+
 mkdir -p "$CACHE" "$HOME/.kb/sources"
 test -f "$KB_SRC" || echo "# OpenClaw Official Watcher" > "$KB_SRC"
 test -f "$KB_INBOX" || echo "# INBOX" > "$KB_INBOX"
@@ -27,7 +34,8 @@ done < "$PARSE_TMP"
 
 cnt="$(wc -l < "$BLOG_NEW" | tr -d " ")"
 if [ "$cnt" -eq 0 ]; then
-  echo "openclaw_official/blog: no new posts."
+  log "no new posts."
+  printf '{"time":"%s","status":"ok","new":0}\n' "$TS" > "$STATUS_FILE"
   exit 0
 fi
 
@@ -93,6 +101,11 @@ TO="${OPENCLAW_PHONE:-+85200000000}"
   done < "$BLOG_NEW"
 } > "$MSG"
 
-openclaw message send --target "$TO" --message "$(cat "$MSG")" --json 2>&1 || echo "⚠️ 发送失败 $(date)" >>~/.openclaw/logs/jobs/openclaw_blog.log
-echo "openclaw_official/blog: sent ${cnt} new post(s). msg=${MSG}"
+if openclaw message send --target "$TO" --message "$(cat "$MSG")" --json >/dev/null 2>&1; then
+    log "已推送 ${cnt} 篇博客。"
+    printf '{"time":"%s","status":"ok","new":%d,"sent":true}\n' "$TS" "$cnt" > "$STATUS_FILE"
+else
+    log "ERROR: 推送失败（${cnt} 篇待发），请检查 gateway。"
+    printf '{"time":"%s","status":"send_failed","new":%d,"sent":false}\n' "$TS" "$cnt" > "$STATUS_FILE"
+fi
 rsync -a --quiet "$HOME/.kb/" "/Volumes/MOVESPEED/KB/" 2>/dev/null || true

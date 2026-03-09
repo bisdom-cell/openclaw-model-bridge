@@ -18,6 +18,10 @@ NEW_FILE="$CACHE_DIR/hn_new.jsonl"
 RSS_FILE="$CACHE_DIR/hn_frontpage.xml"
 LLM_RAW_LOG="$CACHE_DIR/llm_raw_last.txt"
 TO="${OPENCLAW_PHONE:-+85200000000}"
+TS="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')"
+STATUS_FILE="$CACHE_DIR/last_run.json"
+
+log() { echo "[$TS] hn_watcher: $1"; }
 
 mkdir -p "$CACHE_DIR"
 touch "$INBOX"
@@ -105,7 +109,8 @@ PYEOF
 
 NEW_COUNT=$(wc -l < "$NEW_FILE" 2>/dev/null || echo 0)
 if [ "$NEW_COUNT" -eq 0 ]; then
-    echo "$(date '+%Y-%m-%d %H:%M:%S') hn_watcher: 暂无新AI/Tech内容。"
+    log "暂无新AI/Tech内容。"
+    printf '{"time":"%s","status":"ok","new":0}\n' "$TS" > "$STATUS_FILE"
     exit 0
 fi
 
@@ -268,8 +273,16 @@ PYEOF
 <<< "$RESULT")
 
 if [ "$SENT_COUNT" -gt 0 ]; then
-    openclaw message send --target "$TO" --message "$(cat "$MSG_FILE")" --json >/dev/null 2>&1 || true
+    if openclaw message send --target "$TO" --message "$(cat "$MSG_FILE")" --json >/dev/null 2>&1; then
+        log "已推送 ${SENT_COUNT} 条AI/Tech精选（单次批量LLM）。"
+        printf '{"time":"%s","status":"ok","new":%d,"sent":true}\n' "$TS" "$SENT_COUNT" > "$STATUS_FILE"
+    else
+        log "ERROR: 推送失败（${SENT_COUNT} 条待发），请检查 gateway。"
+        printf '{"time":"%s","status":"send_failed","new":%d,"sent":false}\n' "$TS" "$SENT_COUNT" > "$STATUS_FILE"
+    fi
+else
+    log "LLM解析完成但无有效条目。"
+    printf '{"time":"%s","status":"ok","new":0}\n' "$TS" > "$STATUS_FILE"
 fi
 
 rsync -a --quiet "$KB_DIR/" "$SSD_BACKUP" 2>/dev/null || true
-echo "$(date '+%Y-%m-%d %H:%M:%S') hn_watcher: 已推送 ${SENT_COUNT} 条AI/Tech精选（单次批量LLM）。"

@@ -3,6 +3,10 @@ set -euo pipefail
 DATE=$(date +%Y%m%d)
 KB_DIR="${KB_BASE:-/Users/bisdom/.kb}"
 PHONE="${OPENCLAW_PHONE:-+85200000000}"
+TS="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')"
+STATUS_FILE="$KB_DIR/last_run_evening.json"
+
+log() { echo "[$TS] kb_evening: $1"; }
 
 TODAY_FILES=$(ls "$KB_DIR/notes/" 2>/dev/null | grep "^$DATE" || true)
 
@@ -20,5 +24,10 @@ else
 $FILE_LIST"
 fi
 
-openclaw message send --channel whatsapp -t "$PHONE" -m "$MSG" || echo "[kb_evening] WARN: 消息发送失败"
-echo "[kb_evening] 发送完成: $DATE"
+if openclaw message send --channel whatsapp -t "$PHONE" -m "$MSG" >/dev/null 2>&1; then
+    log "发送完成: $DATE"
+    printf '{"time":"%s","status":"ok","sent":true}\n' "$TS" > "$STATUS_FILE"
+else
+    log "ERROR: 消息发送失败，请检查 gateway。"
+    printf '{"time":"%s","status":"send_failed","sent":false}\n' "$TS" > "$STATUS_FILE"
+fi
