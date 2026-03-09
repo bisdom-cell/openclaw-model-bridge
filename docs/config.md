@@ -553,6 +553,7 @@ tail -30 ~/.kb/sources/freight_daily.md
 - [ ] 禁止 `|| true` 吞掉LLM调用错误
 - [ ] 上线前用最小化prompt验证 openclaw agent 调用本身成功
 - [ ] **openclaw agent 参数必须用 `--thinking off`（非 `--thinking none`）** ← v26新增
+- [ ] **纯推理任务（不需要工具）必须直接curl调API，禁止用 `openclaw agent`** ← #94修复
 ---
 ## 三十二、GitHub开源安全规则（v25新增，永久有效）
 ### 32.1 每次push前强制执行的安全扫描
@@ -706,3 +707,4 @@ nohup python3 ~/adapter.py > ~/adapter.log 2>&1 &
 24. **【`--thinking`参数规则】** openclaw agent的`--thinking`参数合法值为：`off, minimal, low, medium, high, adaptive`。禁止使用`--thinking none`。← v26新增
 25. **【任务先登记】** 新增定时任务必须先写入 `jobs_registry.yaml` 并运行 `python3 check_registry.py` 通过，才能注册cron。← v27新增
 26. **【回滚优先】** 线上故障 → 先 `git checkout v26-snapshot` 恢复服务，再排查根因。← v27新增
+27. **【纯推理任务绕过Gateway】** 不需要工具调用的LLM任务（如文本生成、画像生成），必须直接curl调`proxy:5002/v1/chat/completions`（不含tools字段），禁止用`openclaw agent`（Gateway会注入工具导致模型失控循环调用）。← #94修复经验

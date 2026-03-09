@@ -369,6 +369,7 @@ Lessons learned from production operation. Read these before debugging.
 | 22 | **API keys in environment variables, never in source** — Even "private" repos get leaked. Use `os.environ.get("KEY")`. / API Key必须用环境变量，即使是私有仓库也会泄露。 |
 | 23 | **Phone numbers in public repos → use placeholders** — Scan for real numbers before every push. / 公开仓库中手机号必须用占位符，每次push前扫描。 |
 | 24 | **Context window size is the least important model metric** — A 262K context model that can't reliably call 3 tools is worse than a 8K model that can. / 上下文窗口大小是最不重要的模型指标，工具调用可靠性才是关键。 |
+| 25 | **Pure inference tasks must bypass Gateway** — Use direct `curl` to `proxy:5002/v1/chat/completions` without `tools` in the payload. `openclaw agent` injects tools via Gateway, causing models like Qwen3 to enter infinite tool-call loops (e.g., 29× `web_search` until 600s timeout). / 纯推理任务（不需要工具）必须绕过Gateway直接调API，`openclaw agent`会注入工具导致模型失控循环调用（如29次web_search直到超时）。← #94 |
 
 ---
 
