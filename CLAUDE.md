@@ -118,6 +118,7 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 5. **push前必扫描** — 见上方安全扫描命令
 6. **macOS sed禁用OR语法** — 用Python替代（`\|` 在BSD sed不支持）
 7. **回滚优先** — 线上故障 → 先 `git checkout v26-snapshot` 恢复，再排查
+8. **纯推理绕过Gateway** — 不需要工具的LLM任务直接curl调API，禁止用`openclaw agent`（会注入工具导致循环调用，#94）
 
 ## 当前待办（v27遗留）
 

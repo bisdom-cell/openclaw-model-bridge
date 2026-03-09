@@ -161,6 +161,28 @@ def filter_tools(tools, log_fn=None):
     return new_tools, all_names, kept_names
 
 
+# [NO_TOOLS] 标记：消息中包含此标记时，proxy 强制清空工具列表
+NO_TOOLS_MARKER = "[NO_TOOLS]"
+
+
+def should_strip_tools(messages):
+    """检查消息中是否包含 [NO_TOOLS] 标记，用于纯推理任务（如客户画像生成）。
+    支持 content 为字符串或数组格式（OpenAI content blocks）。
+    """
+    for m in messages:
+        content = m.get("content", "")
+        if isinstance(content, str):
+            if NO_TOOLS_MARKER in content:
+                return True
+        elif isinstance(content, list):
+            for block in content:
+                if isinstance(block, dict):
+                    text = block.get("text", "")
+                    if isinstance(text, str) and NO_TOOLS_MARKER in text:
+                        return True
+    return False
+
+
 def truncate_messages(messages, max_bytes=MAX_REQUEST_BYTES):
     """截断旧消息以控制请求体大小。保留所有 system 消息 + 最近的非 system 消息。
     返回 (truncated_messages, dropped_count)。

@@ -9,7 +9,7 @@ from urllib.request import Request, urlopen
 from proxy_filters import (
     ALLOWED_TOOLS, ALLOWED_PREFIXES,
     is_allowed, filter_tools, truncate_messages,
-    fix_tool_args, build_sse_response,
+    fix_tool_args, build_sse_response, should_strip_tools,
 )
 
 BACKEND = "http://127.0.0.1:5001"
@@ -55,8 +55,15 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                     body["messages"] = truncated
                     log(f"WARN: Truncated {dropped} old messages ({len(msgs)} -> {len(truncated)} msgs)")
 
+                # [NO_TOOLS] 标记：强制清空工具（纯推理模式）
+                if should_strip_tools(body.get("messages", [])):
+                    if "tools" in body:
+                        log(f"[NO_TOOLS] Stripping all {len(body['tools'])} tools (pure inference mode)")
+                        del body["tools"]
+                    if "tool_choice" in body:
+                        del body["tool_choice"]
                 # Filter tools
-                if "tools" in body:
+                elif "tools" in body:
                     orig = len(body["tools"])
                     body["tools"], all_names, kept_names = filter_tools(body["tools"])
                     log(f"ALL tools ({orig}): {all_names}")
@@ -74,7 +81,7 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
         req = Request(url, data=raw, method="POST")
         req.add_header("Content-Type", "application/json")
         try:
-            with urlopen(req, timeout=180) as resp:
+            with urlopen(req, timeout=300) as resp:
                 resp_body = resp.read()
                 log(f"Backend: {resp.status} {len(resp_body)}b stream={was_streaming}")
 

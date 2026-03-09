@@ -10,7 +10,7 @@ import unittest
 # V27: import directly from the filters module (no more inline copy)
 from proxy_filters import (
     fix_tool_args, is_allowed, filter_tools,
-    truncate_messages, build_sse_response,
+    truncate_messages, build_sse_response, should_strip_tools,
     TOOL_PARAMS, VALID_BROWSER_PROFILES,
     ALLOWED_TOOLS, ALLOWED_PREFIXES,
 )
@@ -345,6 +345,44 @@ class TestTruncateSystemMessage(unittest.TestCase):
         sys_content = result[0]["content"]
         self.assertLess(len(sys_content), 200000)
         self.assertIn("[truncated]", sys_content)
+
+
+class TestShouldStripTools(unittest.TestCase):
+    """[NO_TOOLS] marker detection tests."""
+
+    def test_marker_in_user_message(self):
+        msgs = [{"role": "user", "content": "规则：5. [NO_TOOLS] 直接推理"}]
+        self.assertTrue(should_strip_tools(msgs))
+
+    def test_marker_in_system_message(self):
+        msgs = [{"role": "system", "content": "[NO_TOOLS] pure inference"}]
+        self.assertTrue(should_strip_tools(msgs))
+
+    def test_no_marker(self):
+        msgs = [{"role": "user", "content": "请帮我查一下天气"}]
+        self.assertFalse(should_strip_tools(msgs))
+
+    def test_empty_messages(self):
+        self.assertFalse(should_strip_tools([]))
+
+    def test_non_string_content_without_marker(self):
+        msgs = [{"role": "user", "content": [{"type": "text", "text": "hello"}]}]
+        self.assertFalse(should_strip_tools(msgs))
+
+    def test_marker_in_content_blocks(self):
+        """[NO_TOOLS] in array-format content (OpenAI content blocks)."""
+        msgs = [{"role": "user", "content": [
+            {"type": "text", "text": "规则：5. [NO_TOOLS] 直接推理"}
+        ]}]
+        self.assertTrue(should_strip_tools(msgs))
+
+    def test_marker_in_mixed_content_blocks(self):
+        """[NO_TOOLS] in one of multiple content blocks."""
+        msgs = [{"role": "user", "content": [
+            {"type": "text", "text": "请生成客户画像"},
+            {"type": "text", "text": "[NO_TOOLS] 禁止搜索"}
+        ]}]
+        self.assertTrue(should_strip_tools(msgs))
 
 
 if __name__ == "__main__":

@@ -346,10 +346,8 @@ print(name)
     if [ "$HAS_DATA" -gt 0 ] && [ "$HAS_DATA" -gt "$ALL_NA" ]; then
         echo "[freight] 生成客户画像..."
 
-        PROFILE_OUT="$("$OPENCLAW" agent \
-            --to "$TO" \
-            --session-id "profile-$(date +%s)" \
-            --message "你是资深货代销售顾问。基于以下企业新闻信号和 ImportYeti 美国海关提单数据，为每个企业生成完整客户画像。
+        # 直接调用 LLM API（不走 openclaw agent），彻底避免 Gateway 注入工具
+        PROFILE_PROMPT="你是资深货代销售顾问。基于以下企业新闻信号和 ImportYeti 美国海关提单数据，为每个企业生成完整客户画像。
 
 == 今日新闻信号 ==
 $(cat "$MSG_FILE")
@@ -379,8 +377,32 @@ ${ENRICHED_DATA}
 1. ImportYeti数据全部N/A的公司→跳过不输出
 2. 部分N/A→基于新闻信号保守估算，标注'⚠估算'
 3. 预算 = 月均TEU × 对应航线运价，给出USD范围
-4. 开发建议要具体可执行" \
-            --thinking off 2>/dev/null || true)"
+4. 开发建议要具体可执行"
+
+        PROFILE_PAYLOAD=$(python3 -c "
+import json, sys
+prompt = sys.stdin.read()
+print(json.dumps({
+    'model': 'Qwen3-235B-A22B-Instruct-2507-W8A8',
+    'messages': [{'role': 'user', 'content': prompt}],
+    'max_tokens': 4096,
+    'temperature': 0.7
+}))
+" <<< "$PROFILE_PROMPT")
+
+        PROFILE_RESP=$(curl -s --max-time 120 \
+            -H "Content-Type: application/json" \
+            -d "$PROFILE_PAYLOAD" \
+            http://127.0.0.1:5002/v1/chat/completions 2>/dev/null || true)
+
+        PROFILE_OUT=$(echo "$PROFILE_RESP" | python3 -c "
+import json, sys
+try:
+    r = json.load(sys.stdin)
+    print(r['choices'][0]['message']['content'])
+except Exception:
+    pass
+" 2>/dev/null || true)
 
         # 推送客户画像
         if [ -n "${PROFILE_OUT// }" ]; then
