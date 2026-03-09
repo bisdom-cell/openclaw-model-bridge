@@ -17,6 +17,11 @@ MAX_AGE_DAYS=14
 
 ARXIV_URL="https://export.arxiv.org/api/query?search_query=ti:LLM+OR+ti:%22Large+Language+Model%22+OR+ti:%22AI+Agent%22+OR+ti:RAG+OR+ti:RLHF+OR+ti:Multimodal+OR+ti:DeepSeek+OR+ti:Gemini+OR+ti:ChatGPT+OR+ti:GPT-4+OR+ti:GPT-5+OR+ti:Claude+OR+ti:Llama+OR+ti:Mistral+OR+ti:Qwen&sortBy=submittedDate&sortOrder=descending&max_results=50"
 
+TS="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')"
+STATUS_FILE="$CACHE/last_run.json"
+
+log() { echo "[$TS] arxiv: $1"; }
+
 mkdir -p "$CACHE" "${KB_BASE:-$HOME/.kb}/sources"
 test -f "$KB_SRC" || echo "# ArXiv AI论文监控" > "$KB_SRC"
 DAY="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d')"
@@ -107,7 +112,8 @@ PYEOF
 
 PAPER_COUNT="$(wc -l < "$PAPERS_FILE" | tr -d ' ')"
 if [ "$PAPER_COUNT" -eq 0 ]; then
-    echo "[arxiv] 无新论文（全部已发送或过去${MAX_AGE_DAYS}天无结果），跳过推送。"
+    log "无新论文（全部已发送或过去${MAX_AGE_DAYS}天无结果），跳过推送。"
+    printf '{"time":"%s","status":"ok","new":0}\n' "$TS" > "$STATUS_FILE"
     exit 0
 fi
 echo "[arxiv] 新论文: ${PAPER_COUNT} 篇"
@@ -245,8 +251,13 @@ print(f"[arxiv] 消息组装完成: {len(papers)} 篇", file=sys.stderr)
 PYEOF
 
 # ── 6. 推送WhatsApp ─────────────────────────────────────────────────────
-"$OPENCLAW" message send --target "$TO" --message "$(cat "$MSG_FILE")" --json >/dev/null 2>&1 || true
-echo "[arxiv] 已推送 ${PAPER_COUNT} 篇论文"
+if "$OPENCLAW" message send --target "$TO" --message "$(cat "$MSG_FILE")" --json >/dev/null 2>&1; then
+    log "已推送 ${PAPER_COUNT} 篇论文"
+    printf '{"time":"%s","status":"ok","new":%d,"sent":true}\n' "$TS" "$PAPER_COUNT" > "$STATUS_FILE"
+else
+    log "ERROR: 推送失败（${PAPER_COUNT} 篇待发），请检查 gateway。"
+    printf '{"time":"%s","status":"send_failed","new":%d,"sent":false}\n' "$TS" "$PAPER_COUNT" > "$STATUS_FILE"
+fi
 
 # ── 7. KB归档（合并原 kb-save-arxiv 功能）──────────────────────────────
 SUMMARY="$(cat "$MSG_FILE")"
@@ -274,4 +285,4 @@ fi
 
 # ── 10. rsync备份 ───────────────────────────────────────────────────────
 rsync -a --quiet "$HOME/.kb/" "/Volumes/MOVESPEED/KB/" 2>/dev/null || true
-echo "[arxiv] 完成"
+log "完成"

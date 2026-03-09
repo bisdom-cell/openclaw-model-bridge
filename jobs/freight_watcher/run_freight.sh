@@ -21,6 +21,10 @@ KB_SRC="${KB_BASE:-$HOME/.kb}/sources/freight_daily.md"
 KB_INBOX="${KB_BASE:-$HOME/.kb}/inbox.md"
 TO="${OPENCLAW_PHONE:-+85200000000}"
 LLM_RAW="$CACHE/llm_raw_last.txt"
+TS="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')"
+STATUS_FILE="$CACHE/last_run.json"
+
+log() { echo "[$TS] freight: $1"; }
 
 mkdir -p "$CACHE" "${KB_BASE:-$HOME/.kb}/sources"
 test -f "$KB_SRC"   || echo "# 货代商机 Watcher" > "$KB_SRC"
@@ -127,7 +131,8 @@ PYEOF
 # ── 2. 计算新条目数 ──────────────────────────────────────────────────────
 NEW_COUNT="$(wc -l < "$NEW_FILE" | tr -d ' ')"
 if [ "$NEW_COUNT" -eq 0 ]; then
-    echo "[freight] 暂无新商机，本轮跳过。"
+    log "暂无新商机，本轮跳过。"
+    printf '{"time":"%s","status":"ok","new":0}\n' "$TS" > "$STATUS_FILE"
     exit 0
 fi
 
@@ -254,8 +259,13 @@ PYEOF2
 } > "$MSG_FILE"
 
 # ── 5. 推送WhatsApp ─────────────────────────────────────────────────────
-"$OPENCLAW" message send --target "$TO" --message "$(cat "$MSG_FILE")" --json >/dev/null 2>&1 || true
-echo "[freight] 已推送 ${NEW_COUNT} 条商机（${DAY}）"
+if "$OPENCLAW" message send --target "$TO" --message "$(cat "$MSG_FILE")" --json >/dev/null 2>&1; then
+    log "已推送 ${NEW_COUNT} 条商机（${DAY}）"
+    printf '{"time":"%s","status":"ok","new":%d,"sent":true}\n' "$TS" "$NEW_COUNT" > "$STATUS_FILE"
+else
+    log "ERROR: 推送失败（${NEW_COUNT} 条待发），请检查 gateway。"
+    printf '{"time":"%s","status":"send_failed","new":%d,"sent":false}\n' "$TS" "$NEW_COUNT" > "$STATUS_FILE"
+fi
 
 # ── 6. KB归档 ───────────────────────────────────────────────────────────
 {
@@ -406,15 +416,17 @@ except Exception:
 
         # 推送客户画像
         if [ -n "${PROFILE_OUT// }" ]; then
-            "$OPENCLAW" message send --target "$TO" \
+            if "$OPENCLAW" message send --target "$TO" \
                 --message "📊 货代客户画像 (${DAY})
 
 ${PROFILE_OUT}
 
 💡 数据来源：ImportYeti美国海关提单 + 行业新闻
-⚠ 预算为运价推算值，仅供参考" --json >/dev/null 2>&1 || true
-
-            echo "[freight] 已推送客户画像"
+⚠ 预算为运价推算值，仅供参考" --json >/dev/null 2>&1; then
+                log "已推送客户画像"
+            else
+                log "ERROR: 客户画像推送失败，请检查 gateway。"
+            fi
 
             # KB归档
             {

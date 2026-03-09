@@ -19,6 +19,11 @@ MSG="$CACHE_DIR/system_message.txt"
 KB_SRC="${KB_BASE:-$HOME/.kb}/sources/openclaw_official.md"
 KB_INBOX="${KB_BASE:-$HOME/.kb}/inbox.md"
 
+TS="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')"
+STATUS_FILE="$CACHE_DIR/last_run.json"
+
+log() { echo "[$TS] openclaw_releases: $1"; }
+
 mkdir -p "$CACHE_DIR" "$HOME/.kb/sources" "$ROOT/logs/jobs"
 
 # init files if absent
@@ -77,7 +82,8 @@ done < "$JSONL_FILE"
 rm -f "$JSONL_FILE"
 
 if [ "$new_count" -eq 0 ] && [ "$blog_new_count" -eq 0 ]; then
-  echo "openclaw_official/github_releases: no new releases."
+  log "no new releases."
+  printf '{"time":"%s","status":"ok","new":0}\n' "$TS" > "$STATUS_FILE"
   rm -f "$new_ids_file" "$new_events_file" "$blog_new_events_file"
   exit 0
 fi
@@ -212,4 +218,11 @@ cat "$MSG"
 
 # OPTIONAL: announce hook (adapt to your environment)
 # "$ROOT/bin/announce.sh" < "$MSG"
-openclaw message send --target "${OPENCLAW_PHONE:-+85200000000}" --message "$(cat "$MSG")" --json >/dev/null 2>&1 || true
+total_new=$((new_count + blog_new_count))
+if openclaw message send --target "${OPENCLAW_PHONE:-+85200000000}" --message "$(cat "$MSG")" --json >/dev/null 2>&1; then
+    log "已推送 ${total_new} 条更新（releases=${new_count}, blog=${blog_new_count}）"
+    printf '{"time":"%s","status":"ok","new":%d,"sent":true}\n' "$TS" "$total_new" > "$STATUS_FILE"
+else
+    log "ERROR: 推送失败（${total_new} 条待发），请检查 gateway。"
+    printf '{"time":"%s","status":"send_failed","new":%d,"sent":false}\n' "$TS" "$total_new" > "$STATUS_FILE"
+fi
