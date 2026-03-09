@@ -74,7 +74,7 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
         req = Request(url, data=raw, method="POST")
         req.add_header("Content-Type", "application/json")
         try:
-            with urlopen(req, timeout=180) as resp:
+            with urlopen(req, timeout=300) as resp:
                 resp_body = resp.read()
                 log(f"Backend: {resp.status} {len(resp_body)}b stream={was_streaming}")
 

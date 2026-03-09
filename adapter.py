@@ -160,7 +160,7 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
         add_auth(req)
         req.add_header("User-Agent", "curl/8.0")
         try:
-            with urlopen(req, timeout=180, context=ctx) as resp:
+            with urlopen(req, timeout=300, context=ctx) as resp:
                 resp_body = resp.read()
                 log(f"RESPONSE: {resp.status} ({len(resp_body)} bytes)")
                 self.send_response(resp.status)
