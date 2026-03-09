@@ -337,7 +337,7 @@ Send to your WhatsApp number: `你好` — model should reply directly without o
 
 ---
 
-## 24 Hard-Won Lessons / 24条踩坑经验
+## 26 Hard-Won Lessons / 26条踩坑经验
 
 Lessons learned from production operation. Read these before debugging.
 
@@ -370,6 +370,7 @@ Lessons learned from production operation. Read these before debugging.
 | 23 | **Phone numbers in public repos → use placeholders** — Scan for real numbers before every push. / 公开仓库中手机号必须用占位符，每次push前扫描。 |
 | 24 | **Context window size is the least important model metric** — A 262K context model that can't reliably call 3 tools is worse than a 8K model that can. / 上下文窗口大小是最不重要的模型指标，工具调用可靠性才是关键。 |
 | 25 | **Pure inference tasks must bypass Gateway** — Use direct `curl` to `proxy:5002/v1/chat/completions` without `tools` in the payload. `openclaw agent` injects tools via Gateway, causing models like Qwen3 to enter infinite tool-call loops (e.g., 29× `web_search` until 600s timeout). / 纯推理任务（不需要工具）必须绕过Gateway直接调API，`openclaw agent`会注入工具导致模型失控循环调用（如29次web_search直到超时）。← #94 |
+| 26 | **End-of-day full doc sync is mandatory** — When user says "今天工作结束", scan ALL docs (CLAUDE.md, docs/*.md, README.md, IMPROVEMENTS.md, etc.) and sync every change made during the session. Ensure consistency across work principles, lessons, checklists, and todo status. Security scan → commit → push. / 每日收工时必须扫描全部文档同步当日变更，确保工作原则、经验、清单、待办状态跨文档一致。 |
 
 ---
 
