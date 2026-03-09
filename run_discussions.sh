@@ -10,6 +10,10 @@ FEED_URL="https://github.com/openclaw/openclaw/discussions.atom"
 FEED_FILE="$CACHE/discussions.atom"
 NEW_FILE="$CACHE/discussions_new.txt"
 TO="${OPENCLAW_PHONE:-+85200000000}"
+TS="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')"
+STATUS_FILE="$CACHE/last_run.json"
+
+log() { echo "[$TS] openclaw_official/discussions: $1"; }
 
 mkdir -p "$CACHE" "$HOME/.kb/sources"
 test -f "$KB_SRC"   || echo "# OpenClaw Official Watcher" > "$KB_SRC"
@@ -49,7 +53,8 @@ done < "$NEW_FILE"
 
 cnt="$(wc -l < "$CACHE/discussions_send.txt" | tr -d ' ')"
 if [ "$cnt" -eq 0 ]; then
-    echo "openclaw_official/discussions: 暂无新讨论。"
+    log "暂无新讨论。"
+    printf '{"time":"%s","status":"ok","new":0}\n' "$TS" > "$STATUS_FILE"
     exit 0
 fi
 
@@ -91,6 +96,11 @@ while IFS='|' read -r title url date; do
 
 done < "$CACHE/discussions_send.txt"
 
-openclaw message send --target "$TO" --message "$(cat "$MSG")" --json >/dev/null 2>&1 || true
-echo "openclaw_official/discussions: 已推送 ${cnt} 条新讨论（含LLM富摘要）。"
+if openclaw message send --target "$TO" --message "$(cat "$MSG")" --json >/dev/null 2>&1; then
+    log "已推送 ${cnt} 条新讨论（含LLM富摘要）。"
+    printf '{"time":"%s","status":"ok","new":%d,"sent":true}\n' "$TS" "$cnt" > "$STATUS_FILE"
+else
+    log "ERROR: 推送失败（${cnt} 条待发），请检查 gateway。"
+    printf '{"time":"%s","status":"send_failed","new":%d,"sent":false}\n' "$TS" "$cnt" > "$STATUS_FILE"
+fi
 rsync -a --quiet "$HOME/.kb/" "/Volumes/MOVESPEED/KB/" 2>/dev/null || true
