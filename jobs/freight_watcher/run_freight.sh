@@ -304,18 +304,18 @@ fi
 
 fi  # END TEST_MODE guard (Steps 1-8)
 
-# ── 9. ImportYeti 自动化深挖（browser绕过Cloudflare）─────────────────
+# ── 9. ImportYeti 自动化深挖（Playwright + stealth，替代 openclaw agent）──
 if [ "$COMPANY_COUNT" -gt 0 ]; then
     ENRICHED_FILE="$CACHE/enriched_data.txt"
     : > "$ENRICHED_FILE"
+    SCRAPER="$(dirname "$0")/importyeti_scraper.py"
 
+    # 清洗企业名列表
+    CLEAN_NAMES=()
     while IFS= read -r company; do
-        echo "[freight] 深挖: $company"
-        # V3: 清洗企业名 — 去除地理/法律后缀，提高 ImportYeti 命中率
         CLEAN_NAME=$(python3 -c "
-import re, urllib.parse
-name = '$company'
-# 去除常见法律/地理后缀
+import re
+name = '''$company'''
 for suffix in [' China', ' USA', ' US', ' Europe', ' Asia', ' Japan', ' Korea',
                ' International', ' Global', ' Worldwide',
                ' Corporation', ' Corp\\.', ' Corp', ' Incorporated', ' Inc\\.', ' Inc',
@@ -327,38 +327,14 @@ for suffix in [' China', ' USA', ' US', ' Europe', ' Asia', ' Japan', ' Korea',
 name = re.sub(r'[®™©]', '', name).strip()
 print(name)
 ")
-        echo "[freight] 清洗后企业名: $CLEAN_NAME"
-        SLUG=$(python3 -c "import urllib.parse; print(urllib.parse.quote('$CLEAN_NAME'))")
-
-        ENRICH_OUT="$("$OPENCLAW" agent \
-            --to "$TO" \
-            --session-id "enrich-$(date +%s)" \
-            --message "请执行以下步骤查询 ${company} 的海关数据：
-
-1. 用 browser_navigate 访问 https://www.importyeti.com/search?q=${SLUG}
-2. 等待页面加载完成后，用 browser_snapshot 截取页面内容
-3. 从页面中提取以下信息并严格按格式输出：
-
-公司：${company}
-总发货次数：[数字，如无数据写 N/A]
-月均发货量：[数字，如无数据写 N/A]
-前3大供应商：[供应商名(国家), ...]
-主要航线：[起运港→目的港, ...]
-最近发货日期：[YYYY-MM-DD，如无数据写 N/A]
-趋势：[增长/平稳/下降/无数据]
-
-注意：如果页面显示无结果或被阻止，所有字段写 N/A。不要编造数据。" \
-            --thinking off 2>/dev/null || true)"
-
-        {
-            echo "--- ${company} ---"
-            echo "$ENRICH_OUT"
-            echo ""
-        } >> "$ENRICHED_FILE"
-
-        # 浏览器操作较慢，间隔8秒
-        sleep 8
+        echo "[freight] 深挖: $company → 清洗后: $CLEAN_NAME"
+        CLEAN_NAMES+=("$CLEAN_NAME")
     done < "$HIGH_STARS"
+
+    # 一次启动 Playwright 批量查询所有企业（避免重复启动浏览器）
+    python3 "$SCRAPER" "${CLEAN_NAMES[@]}" > "$ENRICHED_FILE" 2>"$CACHE/scraper.log" || true
+    cat "$CACHE/scraper.log" >&2
+    echo "[freight] ImportYeti 深挖完成"
 
     # ── 10. 客户画像生成（LLM综合推理）──────────────────────────────
     ENRICHED_DATA="$(cat "$ENRICHED_FILE" 2>/dev/null || true)"
