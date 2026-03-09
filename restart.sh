@@ -2,6 +2,9 @@
 set -euo pipefail
 # restart.sh - 一键重启所有服务 / One-command restart all services
 
+# Ensure Homebrew binaries are in PATH (needed when called from cron)
+export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 OPENCLAW="${OPENCLAW:-$(command -v openclaw 2>/dev/null || echo /opt/homebrew/bin/openclaw)}"
 
