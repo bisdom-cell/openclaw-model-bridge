@@ -28,20 +28,28 @@ echo "[arxiv] XML抓取完成"
 
 # ── 2. 解析XML → 结构化JSONL（标题/作者/日期/ID/摘要）─────────────────
 PAPERS_FILE="$CACHE/papers.jsonl"
-python3 - "$FEED_FILE" "$MAX_AGE_DAYS" "$MAX_PAPERS" << 'PYEOF' > "$PAPERS_FILE"
+SEEN_FILE="$CACHE/seen_ids.txt"
+touch "$SEEN_FILE"
+python3 - "$FEED_FILE" "$MAX_AGE_DAYS" "$MAX_PAPERS" "$SEEN_FILE" << 'PYEOF' > "$PAPERS_FILE"
 import sys, json, re, xml.etree.ElementTree as ET
 from datetime import datetime, timedelta, timezone
 
 feed_file = sys.argv[1]
 max_age = int(sys.argv[2])
 max_papers = int(sys.argv[3])
+seen_file = sys.argv[4]
 cutoff = datetime.now(timezone.utc) - timedelta(days=max_age)
+
+# Load previously sent paper IDs
+with open(seen_file) as f:
+    seen_ids = set(line.strip() for line in f if line.strip())
 
 NS = {"a": "http://www.w3.org/2005/Atom"}
 tree = ET.parse(feed_file)
 root = tree.getroot()
 
 count = 0
+new_ids = []
 for entry in root.findall("a:entry", NS):
     published = entry.findtext("a:published", "", NS)
     if not published:
@@ -62,6 +70,10 @@ for entry in root.findall("a:entry", NS):
     arxiv_id = entry_id.split("/abs/")[-1] if "/abs/" in entry_id else ""
     arxiv_id = re.sub(r'v\d+$', '', arxiv_id)
 
+    # Skip already sent papers
+    if arxiv_id in seen_ids:
+        continue
+
     # First author
     authors = entry.findall("a:author", NS)
     first_author = authors[0].findtext("a:name", "", NS) if authors else "Unknown"
@@ -79,19 +91,26 @@ for entry in root.findall("a:entry", NS):
         "abstract": abstract
     }, ensure_ascii=False))
 
+    new_ids.append(arxiv_id)
     count += 1
     if count >= max_papers:
         break
 
-print(f"[arxiv] 解析完成: {count} 篇符合条件", file=sys.stderr)
+# Append new IDs to seen file
+if new_ids:
+    with open(seen_file, 'a') as f:
+        for aid in new_ids:
+            f.write(aid + '\n')
+
+print(f"[arxiv] 解析完成: {count} 篇新论文（跳过 {len(seen_ids)} 篇已发送）", file=sys.stderr)
 PYEOF
 
 PAPER_COUNT="$(wc -l < "$PAPERS_FILE" | tr -d ' ')"
 if [ "$PAPER_COUNT" -eq 0 ]; then
-    echo "[arxiv] 过去${MAX_AGE_DAYS}天暂无相关论文。"
+    echo "[arxiv] 无新论文（全部已发送或过去${MAX_AGE_DAYS}天无结果），跳过推送。"
     exit 0
 fi
-echo "[arxiv] 符合条件论文: ${PAPER_COUNT} 篇"
+echo "[arxiv] 新论文: ${PAPER_COUNT} 篇"
 
 # ── 3. 构建LLM prompt（只要求翻译+贡献+评级，结构化数据由脚本填充）───
 PROMPT_FILE="$CACHE/llm_prompt.txt"
@@ -247,6 +266,12 @@ fi
     cat "$MSG_FILE"
 } >> "$KB_SRC"
 
-# ── 9. rsync备份 ────────────────────────────────────────────────────────
+# ── 9. 清理seen缓存（保留最近500条，防无限增长）────────────────────────
+if [ "$(wc -l < "$SEEN_FILE" | tr -d ' ')" -gt 500 ]; then
+    tail -300 "$SEEN_FILE" > "$SEEN_FILE.tmp" && mv "$SEEN_FILE.tmp" "$SEEN_FILE"
+    echo "[arxiv] seen缓存已裁剪至300条"
+fi
+
+# ── 10. rsync备份 ───────────────────────────────────────────────────────
 rsync -a --quiet "$HOME/.kb/" "/Volumes/MOVESPEED/KB/" 2>/dev/null || true
 echo "[arxiv] 完成"
