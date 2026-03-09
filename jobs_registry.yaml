@@ -100,6 +100,15 @@ jobs:
     enabled: true
     description: HackerNews 热帖抓取
 
+  - id: gateway_watchdog
+    scheduler: system
+    entry: restart.sh
+    interval: "*/30 * * * *"
+    log: ~/.openclaw/logs/gateway_watchdog.log
+    needs_api_key: false
+    enabled: false                   # #95: 与 launchd KeepAlive 双主控冲突，已从 crontab 移除（2026-03-09）
+    description: Gateway 自愈 watchdog（已废弃 — Gateway 由 launchd 单一管理）
+
   - id: auto_deploy
     scheduler: system
     entry: auto_deploy.sh
