@@ -80,10 +80,11 @@ while IFS='|' read -r title url date; do
     ENRICH="$(curl -sS --max-time 30 http://localhost:5001/v1/chat/completions \
       -H 'Content-Type: application/json' \
       -d "$(jq -nc --arg p "$PROMPT" '{model:"any",messages:[{role:"user",content:$p}],max_tokens:200}')" \
-      2>/dev/null | jq -r '.choices[0].message.content // empty' 2>/dev/null || true)"
+      2>"$CACHE/curl_discussions.err" | jq -r '.choices[0].message.content // empty' 2>/dev/null || true)"
 
     # fallback：LLM失败或429限流时用原标题
     if [ -z "${ENRICH// }" ] || echo "$ENRICH" | grep -q "429"; then
+        log "WARN: LLM enrichment failed for: $title (err: $(cat "$CACHE/curl_discussions.err" 2>/dev/null | head -1))"
         ENRICH="[${title}]
 贡献：社区讨论，建议关注。
 价值：⭐⭐⭐"
