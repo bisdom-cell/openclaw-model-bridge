@@ -239,7 +239,7 @@ rsync -a --quiet "$HOME/.kb/" "/Volumes/MOVESPEED/KB/" 2>/dev/null || true
 # OPTIONAL: announce hook (adapt to your environment)
 # "$ROOT/bin/announce.sh" < "$MSG"
 total_new=$((new_count + blog_new_count))
-if openclaw message send --target "${OPENCLAW_PHONE:-+85200000000}" --message "$(cat "$MSG")" --json >/dev/null 2>&1; then
+if openclaw message send --target "$TO" --message "$(cat "$MSG")" --json >/dev/null 2>&1; then
     log "已推送 ${total_new} 条更新（releases=${new_count}, blog=${blog_new_count}）"
     printf '{"time":"%s","status":"ok","new":%d,"sent":true}\n' "$TS" "$total_new" > "$STATUS_FILE"
 else
