@@ -120,7 +120,7 @@ jobs:
 
   - id: run_discussions
     scheduler: system
-    entry: run_discussions.sh
+    entry: jobs/openclaw_official/run_discussions.sh
     interval: "15 * * * *"          # 每小时第15分钟
     log: ~/.openclaw/logs/jobs/openclaw_discussions.log
     needs_api_key: false
