@@ -77,8 +77,8 @@ jobs:
     interval: ""
     log: ~/openclaw_discussions.log
     needs_api_key: true
-    enabled: true
-    description: GitHub Discussions 监控
+    enabled: false                   # 已由 run_discussions (system cron, 每时15分) 统一处理
+    description: GitHub Discussions 监控（冗余条目，实际由 run_discussions 执行）
 
   - id: kb_review
     scheduler: openclaw

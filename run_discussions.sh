@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# cron 环境 PATH 极简，必须显式声明（规则 #13）
+export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
 set -euo pipefail
 
 ROOT="${ROOT:-$HOME/.openclaw}"
@@ -74,7 +76,11 @@ while IFS='|' read -r title url date; do
 原标题：${title}
 链接：${url}"
 
-    ENRICH="$(openclaw agent --to "$TO" --session-id "$(date +%s%N)" --message "$PROMPT" --thinking minimal 2>/dev/null || true)"
+    # 规则 #8: 纯推理直接 curl adapter，禁止用 openclaw agent（#94教训）
+    ENRICH="$(curl -sS --max-time 30 http://localhost:5001/v1/chat/completions \
+      -H 'Content-Type: application/json' \
+      -d "$(jq -nc --arg p "$PROMPT" '{model:"any",messages:[{role:"user",content:$p}],max_tokens:200}')" \
+      2>/dev/null | jq -r '.choices[0].message.content // empty' 2>/dev/null || true)"
 
     # fallback：LLM失败或429限流时用原标题
     if [ -z "${ENRICH// }" ] || echo "$ENRICH" | grep -q "429"; then
