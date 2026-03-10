@@ -2,8 +2,6 @@
 # cron 环境 PATH 极简，必须显式声明（规则 #13）
 export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
 set -euo pipefail
-blog_new_count=0
-blog_new_events_file=""
 day="$(TZ=Asia/Hong_Kong date "+%Y-%m-%d")"
 
 ROOT="${ROOT:-$HOME/.openclaw}"
@@ -39,12 +37,21 @@ if [ ! -f "$KB_INBOX" ]; then
   echo "# INBOX" > "$KB_INBOX"
 fi
 
-ATOM_PATH="$("$FETCH")"
-BLOG_HTML="$("$FETCH_BLOG")"
+# fetch 脚本失败时记录日志而非静默退出
+ATOM_PATH=""
+BLOG_HTML=""
+if ! ATOM_PATH="$("$FETCH" 2>"$CACHE_DIR/fetch_releases.err")"; then
+  log "WARN: fetch_github_releases failed: $(head -1 "$CACHE_DIR/fetch_releases.err" 2>/dev/null)"
+fi
+if ! BLOG_HTML="$("$FETCH_BLOG" 2>"$CACHE_DIR/fetch_blog.err")"; then
+  log "WARN: fetch_official_blog failed: $(head -1 "$CACHE_DIR/fetch_blog.err" 2>/dev/null)"
+fi
 
 # JSONL stream (string) -> write to temp file to avoid pipe subshell issues
 JSONL_FILE="$(mktemp)"
-"$FORMAT_PY" "$ATOM_PATH" > "$JSONL_FILE"
+if [ -n "$ATOM_PATH" ] && [ -f "$ATOM_PATH" ]; then
+  "$FORMAT_PY" "$ATOM_PATH" > "$JSONL_FILE" 2>/dev/null || true
+fi
 
 last_updated="$(jq -r ".github_releases.last_updated" "$STATE")"
 seen_ids="$(jq -c ".github_releases.seen_ids" "$STATE")"
@@ -83,28 +90,31 @@ done < "$JSONL_FILE"
 
 rm -f "$JSONL_FILE"
 
+# ── Blog 解析（必须在早退判断之前，否则 blog 更新永远被跳过）──
+blog_new_count=0
+blog_new_events_file="$(mktemp)"
+blog_all_file="$(mktemp)"
+if [ -n "$BLOG_HTML" ] && [ -f "$BLOG_HTML" ] && python3 "$PARSE_BLOG" "$BLOG_HTML" > "$blog_all_file" 2>"$CACHE_DIR/parse_blog.err"; then
+  while IFS= read -r ev; do
+    url="$(printf "%s\n" "$ev" | jq -r ".url // empty")"
+    [ -z "$url" ] && continue
+    if ! grep -Fq "$url" "$KB_INBOX" 2>/dev/null; then
+      printf "%s\n" "$ev" >> "$blog_new_events_file"
+      blog_new_count=$((blog_new_count+1))
+    fi
+  done < "$blog_all_file"
+else
+  log "WARN: parse_official_blog.py failed: $(head -1 "$CACHE_DIR/parse_blog.err" 2>/dev/null)"
+fi
+rm -f "$blog_all_file"
+log "releases_new=${new_count}, blog_new=${blog_new_count}"
+
 if [ "$new_count" -eq 0 ] && [ "$blog_new_count" -eq 0 ]; then
-  log "no new releases."
+  log "no new updates."
   printf '{"time":"%s","status":"ok","new":0}\n' "$TS" > "$STATUS_FILE"
   rm -f "$new_ids_file" "$new_events_file" "$blog_new_events_file"
   exit 0
 fi
-
-blog_new_count=0
-blog_new_events_file="$(mktemp)"
-blog_all_file="$(mktemp)"
-python3 "$PARSE_BLOG" "$BLOG_HTML" > "$blog_all_file"
-while IFS= read -r ev; do
-  url="$(printf "%s
-" "$ev" | jq -r ".url")"
-  if ! grep -Fq "$url" "$KB_INBOX" 2>/dev/null; then
-    printf "%s
-" "$ev" >> "$blog_new_events_file"
-    blog_new_count=$((blog_new_count+1))
-  fi
-done < "$blog_all_file"
-rm -f "$blog_all_file"
-echo "[run.sh] blog_new_count=$blog_new_count"
 TO="${OPENCLAW_PHONE:-+85200000000}"
 now_hkt="$(TZ=Asia/Hong_Kong date "+%Y-%m-%d %H:%M HKT")"
 {
