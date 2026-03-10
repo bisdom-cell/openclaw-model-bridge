@@ -1,4 +1,6 @@
 #!/bin/bash
+# cron 环境 PATH 极简，必须显式声明（规则 #13）
+export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
 # run_hn.sh - Hacker News AI/Tech精选 Watcher
 # 触发时间：每3小时:45分（系统crontab）
 # v23fix2：

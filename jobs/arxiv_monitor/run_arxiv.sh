@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# cron 环境 PATH 极简，必须显式声明（规则 #13）
+export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
 # ArXiv AI论文监控 v1 — 脚本控制格式，替代 --announce 模式
 # 每3小时整点 HKT 由系统crontab触发
 # 合并原 monitor-arxiv-ai-models + kb-save-arxiv 两个 openclaw cron 任务

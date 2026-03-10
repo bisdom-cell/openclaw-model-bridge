@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# cron 环境 PATH 极简，必须显式声明（规则 #13）
+export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
 set -euo pipefail
 
 TS="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')"
@@ -81,7 +83,11 @@ TO="${OPENCLAW_PHONE:-+85200000000}"
 日期：${date}
 链接：${url}
 摘要：${summary}"
-    ENRICH="$(openclaw agent --to "$TO" --session-id "$(date +%s%N)" --message "$PROMPT" --thinking minimal 2>/dev/null || true)"
+    # 规则 #8: 纯推理直接 curl adapter，禁止用 openclaw agent（#94教训）
+    ENRICH="$(curl -sS --max-time 30 http://localhost:5001/v1/chat/completions \
+      -H 'Content-Type: application/json' \
+      -d "$(jq -nc --arg p "$PROMPT" '{model:"any",messages:[{role:"user",content:$p}],max_tokens:200}')" \
+      2>/dev/null | jq -r '.choices[0].message.content // empty' 2>/dev/null || true)"
     # 429限流检测 + 空输出均fallback
     if [ -z "${ENRICH// }" ] || echo "$ENRICH" | grep -q "429"; then
       TITLE_CN="$title"
