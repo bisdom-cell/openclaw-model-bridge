@@ -179,6 +179,9 @@ if [ "$MINUTE" -lt 2 ]; then
 
     if [ "$DRIFT" -gt 0 ]; then
         echo "$(date) ⚠️ 漂移检测: 修复 ${DRIFT} 个文件" >> "$LOG"
+        # 漂移发现时推送 WhatsApp 告警
+        DRIFT_MSG="⚠️ 漂移检测: 修复 ${DRIFT} 个部署文件不一致，已自动覆盖。详见 auto_deploy.log"
+        openclaw message send --target "${OPENCLAW_PHONE:-+85200000000}" --message "$DRIFT_MSG" --json >/dev/null 2>&1 || true
     fi
 fi
 
