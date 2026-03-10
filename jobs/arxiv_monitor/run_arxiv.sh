@@ -30,14 +30,19 @@ DAY="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d')"
 
 # ── 1. 抓取 ArXiv API XML ────────────────────────────────────────────────
 FEED_FILE="$CACHE/arxiv_feed.xml"
-curl -fsSL --max-time 30 "$ARXIV_URL" > "$FEED_FILE"
+# 去掉 -f：HTTP 错误不再触发 set -e 静默退出，改为手动检测
+if ! curl -sSL --max-time 30 "$ARXIV_URL" -o "$FEED_FILE" 2>"$CACHE/curl_feed.err"; then
+  log "ERROR: ArXiv API 抓取失败: $(head -1 "$CACHE/curl_feed.err" 2>/dev/null)"
+  printf '{"time":"%s","status":"fetch_failed","new":0}\n' "$TS" > "$STATUS_FILE"
+  exit 1
+fi
 echo "[arxiv] XML抓取完成"
 
 # ── 2. 解析XML → 结构化JSONL（标题/作者/日期/ID/摘要）─────────────────
 PAPERS_FILE="$CACHE/papers.jsonl"
 SEEN_FILE="$CACHE/seen_ids.txt"
 touch "$SEEN_FILE"
-python3 - "$FEED_FILE" "$MAX_AGE_DAYS" "$MAX_PAPERS" "$SEEN_FILE" << 'PYEOF' > "$PAPERS_FILE"
+if ! python3 - "$FEED_FILE" "$MAX_AGE_DAYS" "$MAX_PAPERS" "$SEEN_FILE" << 'PYEOF' > "$PAPERS_FILE"
 import sys, json, re, xml.etree.ElementTree as ET
 from datetime import datetime, timedelta, timezone
 
@@ -111,6 +116,11 @@ if new_ids:
 
 print(f"[arxiv] 解析完成: {count} 篇新论文（跳过 {len(seen_ids)} 篇已发送）", file=sys.stderr)
 PYEOF
+then
+  log "WARN: XML解析失败"
+  printf '{"time":"%s","status":"parse_failed","new":0}\n' "$TS" > "$STATUS_FILE"
+  exit 1
+fi
 
 PAPER_COUNT="$(wc -l < "$PAPERS_FILE" | tr -d ' ')"
 if [ "$PAPER_COUNT" -eq 0 ]; then

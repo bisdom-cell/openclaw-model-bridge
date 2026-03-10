@@ -54,7 +54,7 @@ fi
 
 if [ "$TEST_MODE" -eq 0 ]; then
 # ── 1. 抓取多源RSS + Google News ────────────────────────────────────────
-python3 - "$KB_INBOX" "$NEW_FILE" << 'PYEOF'
+if ! python3 - "$KB_INBOX" "$NEW_FILE" << 'PYEOF'
 import sys, json, re, urllib.request, xml.etree.ElementTree as ET
 from datetime import datetime, timezone, timedelta
 
@@ -129,6 +129,9 @@ with open(OUT_FILE, "w") as f:
             count += 1
 print(f"[freight] 抓取完成，新条目: {count}", file=sys.stderr)
 PYEOF
+then
+  log "WARN: RSS抓取Python脚本失败"
+fi
 
 # ── 2. 计算新条目数 ──────────────────────────────────────────────────────
 NEW_COUNT="$(wc -l < "$NEW_FILE" | tr -d ' ')"

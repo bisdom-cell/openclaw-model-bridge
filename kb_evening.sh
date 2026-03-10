@@ -17,7 +17,7 @@ if [ -z "$TODAY_FILES" ]; then
 else
     TOTAL=$(echo "$TODAY_FILES" | wc -l | tr -d ' ')
     FIRST_FILE=$(echo "$TODAY_FILES" | head -1)
-    CONTENT=$(head -20 "$KB_DIR/notes/$FIRST_FILE" | grep -v '^---' | grep -v '^#' | grep -v '^$' | head -3 | tr '\n' ' ')
+    CONTENT=$(head -20 "$KB_DIR/notes/$FIRST_FILE" | { grep -v '^---' || true; } | { grep -v '^#' || true; } | { grep -v '^$' || true; } | head -3 | tr '\n' ' ')
     FILE_LIST=$(echo "$TODAY_FILES" | head -5 | while read -r f; do echo "  · $f"; done)
     MSG="[kb_evening] 今日知识摘要 $DATE
 新增笔记：$TOTAL 条
