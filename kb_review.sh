@@ -6,7 +6,7 @@ KB_DIR="${KB_BASE:-/Users/bisdom/.kb}"
 REVIEW_FILE="$KB_DIR/daily/review_${DATE}.md"
 mkdir -p "$KB_DIR/daily"
 
-NOTE_COUNT=$(ls "$KB_DIR/notes/"*.md 2>/dev/null | wc -l | tr -d ' ' || echo "0")
+NOTE_COUNT=$(ls "$KB_DIR/notes/"*.md 2>/dev/null | wc -l | tr -d ' ' || echo 0)
 INDEX_TOTAL=$(python3 - "$KB_DIR/index.json" << 'PYEOF'
 import json, sys
 try:
@@ -33,7 +33,7 @@ PYEOF
 )
 
 NOTES_TEXT=$(for f in $(ls -t "$KB_DIR/notes/"*.md 2>/dev/null | head -5); do
-    echo "- $(basename "$f"): $(head -5 "$f" | grep -v '^---' | grep -v '^#' | head -1)"
+    echo "- $(basename "$f"): $(head -5 "$f" | { grep -v '^---' || true; } | { grep -v '^#' || true; } | head -1)"
 done || true)
 
 cat > "$REVIEW_FILE" << MDEOF

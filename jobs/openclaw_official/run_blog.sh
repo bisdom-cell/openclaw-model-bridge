@@ -18,7 +18,13 @@ mkdir -p "$CACHE" "$HOME/.kb/sources"
 test -f "$KB_SRC" || echo "# OpenClaw Official Watcher" > "$KB_SRC"
 test -f "$KB_INBOX" || echo "# INBOX" > "$KB_INBOX"
 
-BLOG_HTML="$("$JOB/fetch_official_blog.sh")"
+# fetch 失败时记录日志而非静默退出
+BLOG_HTML=""
+if ! BLOG_HTML="$("$JOB/fetch_official_blog.sh" 2>"$CACHE/fetch_blog.err")"; then
+  log "ERROR: fetch_official_blog.sh 失败: $(head -1 "$CACHE/fetch_blog.err" 2>/dev/null)"
+  printf '{"time":"%s","status":"fetch_failed","new":0}\n' "$TS" > "$STATUS_FILE"
+  exit 1
+fi
 BLOG_NEW="$CACHE/blog_new.jsonl"
 PARSE_TMP="$CACHE/blog_parse.jsonl"
 : > "$BLOG_NEW"

@@ -32,6 +32,7 @@ touch "$KB_SOURCE"
 curl -s --max-time 30 "https://hnrss.org/frontpage" -o "$RSS_FILE" 2>/dev/null
 if [ ! -s "$RSS_FILE" ]; then
     echo "$(date '+%Y-%m-%d %H:%M:%S') hn_watcher: curl失败，跳过。"
+    printf '{"time":"%s","status":"fetch_failed","new":0}\n' "$TS" > "$STATUS_FILE"
     exit 0
 fi
 
