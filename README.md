@@ -62,7 +62,7 @@ curl http://localhost:5002/health
 | File | Description |
 |------|-------------|
 | `restart.sh` | One-command restart all services (kills ports 18789/5001/5002, then restarts) |
-| `auto_deploy.sh` | Auto-deployment — git pull + file sync + smart restart (crontab every 2 min) |
+| `auto_deploy.sh` | Auto-deployment — git pull + file sync + smart restart + drift detection (md5 compare + WhatsApp alert) |
 | `upgrade_openclaw.sh` | Gateway upgrade SOP (must run via SSH, never via WhatsApp) |
 | `health_check.sh` | Weekly health report + JSON output for automation |
 
@@ -129,7 +129,7 @@ Vibe coding → git push → main branch → Mac Mini auto_deploy (every 2 min)
                                     git pull → test → file sync → smart restart
 ```
 
-The `auto_deploy.sh` script maps 16 repo files to their runtime locations and only restarts services when core files (`proxy_filters.py`, `tool_proxy.py`, `adapter.py`) change.
+The `auto_deploy.sh` script maps 16 repo files to their runtime locations and only restarts services when core files (`proxy_filters.py`, `tool_proxy.py`, `adapter.py`) change. It also performs hourly drift detection via md5 checksums, sending WhatsApp alerts if deployed files diverge from the repo.
 
 ## Testing
 
