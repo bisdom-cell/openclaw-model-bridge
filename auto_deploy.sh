@@ -92,7 +92,6 @@ declare -a FILE_MAP=(
 
     # 独立 Watcher 脚本
     "run_hn_fixed.sh|$HOME/.openclaw/jobs/hn_watcher/run_hn_fixed.sh"
-    "run_discussions.sh|$HOME/run_discussions.sh"
 
     # OpenClaw 官方 Watcher
     "jobs/openclaw_official/run.sh|$HOME/.openclaw/jobs/openclaw_official/run.sh"
@@ -104,6 +103,9 @@ declare -a FILE_MAP=(
 
     # ArXiv 监控
     "jobs/arxiv_monitor/run_arxiv.sh|$HOME/.openclaw/jobs/arxiv_monitor/run_arxiv.sh"
+
+    # 自部署（bootstrapping）
+    "auto_deploy.sh|$HOME/openclaw-model-bridge/auto_deploy.sh"
 )
 
 SYNCED=0

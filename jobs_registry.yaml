@@ -65,8 +65,8 @@ jobs:
   - id: openclaw_blog
     scheduler: openclaw
     entry: jobs/openclaw_official/run_blog.sh
-    interval: ""
-    log: ~/openclaw_blog.log
+    interval: "0 * * * *"             # 每小时整点
+    log: ~/.openclaw/logs/jobs/openclaw_blog.log
     needs_api_key: true
     enabled: true
     description: Blog 自动发布
@@ -75,7 +75,7 @@ jobs:
     scheduler: openclaw
     entry: jobs/openclaw_official/run_discussions.sh
     interval: ""
-    log: ~/openclaw_discussions.log
+    log: ~/.openclaw/logs/jobs/openclaw_discussions.log
     needs_api_key: true
     enabled: false                   # 已由 run_discussions (system cron, 每时15分) 统一处理
     description: GitHub Discussions 监控（冗余条目，实际由 run_discussions 执行）
@@ -120,9 +120,9 @@ jobs:
 
   - id: run_discussions
     scheduler: system
-    entry: run_discussions.sh
+    entry: jobs/openclaw_official/run_discussions.sh
     interval: "15 * * * *"          # 每小时第15分钟
-    log: ~/run_discussions.log
+    log: ~/.openclaw/logs/jobs/openclaw_discussions.log
     needs_api_key: false
     enabled: true
     description: 社区讨论抓取（每小时轮询 GitHub Discussions Atom feed）
