@@ -4,6 +4,8 @@
 # 调试记录：#84(信号源切换), #91(--session-id修复), 第31章(脚本设计宪法)
 # V2变更：⭐⭐⭐⭐+ 条目自动附加 ImportYeti 企业查询链接
 # V3变更：三层情报漏斗 — 信号捕获→ImportYeti深挖→客户画像生成
+# cron 环境 PATH 极简，必须显式声明（规则 #13）
+export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
 set -eo pipefail
 
 # ── --test 模式：跳过 RSS 抓取和 LLM 分析，直接从 Step 9 (ImportYeti) 开始 ──
@@ -159,14 +161,32 @@ for i, l in enumerate(lines, 1):
 行动：[≤30字可执行行动建议]
 评级：⭐（1-5个星）"
 
-LLM_OUT="$(
-    "$OPENCLAW" agent \
-        --to "$TO" \
-        --session-id "freight-$(date +%s)" \
-        --message "$PROMPT" \
-        --thinking off \
-        2>"$LLM_RAW.stderr" || true
-)"
+# 规则 #27: 纯推理直接 curl proxy:5002，禁止用 openclaw agent（#94教训）
+LLM_PAYLOAD=$(python3 -c "
+import json, sys
+prompt = sys.stdin.read()
+print(json.dumps({
+    'model': 'Qwen3-235B-A22B-Instruct-2507-W8A8',
+    'messages': [{'role': 'user', 'content': prompt}],
+    'max_tokens': 4096,
+    'temperature': 0.3
+}))
+" <<< "$PROMPT")
+
+LLM_RESP=$(curl -s --max-time 120 \
+    -H "Content-Type: application/json" \
+    -d "$LLM_PAYLOAD" \
+    http://127.0.0.1:5002/v1/chat/completions 2>"$LLM_RAW.stderr" || true)
+
+LLM_OUT=$(echo "$LLM_RESP" | python3 -c "
+import json, sys
+try:
+    d = json.load(sys.stdin)
+    print(d['choices'][0]['message']['content'])
+except Exception:
+    pass
+" 2>/dev/null || true)
+
 echo "returncode=$?" > "$LLM_RAW"
 echo "--- stderr ---" >> "$LLM_RAW"
 cat "$LLM_RAW.stderr" >> "$LLM_RAW" 2>/dev/null || true

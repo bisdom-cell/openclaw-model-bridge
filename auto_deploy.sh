@@ -101,6 +101,9 @@ declare -a FILE_MAP=(
 
     # 货代 Watcher
     "jobs/freight_watcher/run_freight.sh|$HOME/.openclaw/jobs/freight_watcher/run_freight.sh"
+
+    # ArXiv 监控
+    "jobs/arxiv_monitor/run_arxiv.sh|$HOME/.openclaw/jobs/arxiv_monitor/run_arxiv.sh"
 )
 
 SYNCED=0
