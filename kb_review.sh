@@ -63,6 +63,9 @@ ${NOTES_TEXT}
 - 待人工补充深度洞见
 MDEOF
 
+# ── rsync备份 ────────────────────────────────────────────────────────
+rsync -a --quiet "$KB_DIR/" "/Volumes/MOVESPEED/KB/" 2>/dev/null || true
+
 echo "[kb_review] 知识回顾 ${DATE} | 主题：${THEMES}"
 echo "[kb_review] 知识库共 ${INDEX_TOTAL} 条，最新 ${NOTE_COUNT} 篇已归档"
 echo "[kb_review] 回顾文件：${REVIEW_FILE}"
