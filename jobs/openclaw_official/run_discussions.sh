@@ -21,7 +21,12 @@ mkdir -p "$CACHE" "$HOME/.kb/sources"
 test -f "$KB_SRC"   || echo "# OpenClaw Official Watcher" > "$KB_SRC"
 test -f "$KB_INBOX" || echo "# INBOX" > "$KB_INBOX"
 
-curl -fsSL "$FEED_URL" > "$FEED_FILE"
+# 去掉 -f：HTTP 错误不再触发 set -e 静默退出，改为手动检测
+if ! curl -sSL --max-time 30 "$FEED_URL" -o "$FEED_FILE" 2>"$CACHE/curl_feed.err"; then
+  log "ERROR: curl 抓取 discussions.atom 失败: $(head -1 "$CACHE/curl_feed.err" 2>/dev/null)"
+  printf '{"time":"%s","status":"fetch_failed","new":0}\n' "$TS" > "$STATUS_FILE"
+  exit 1
+fi
 
 python3 - "$FEED_FILE" << 'PYEOF' > "$NEW_FILE"
 import sys, xml.etree.ElementTree as ET
