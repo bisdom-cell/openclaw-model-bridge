@@ -24,7 +24,9 @@ PARSE_TMP="$CACHE/blog_parse.jsonl"
 : > "$BLOG_NEW"
 
 # 先落盘，避免pipe子进程变量丢失（bug #76）
-python3 "$JOB/parse_official_blog.py" "$BLOG_HTML" > "$PARSE_TMP" 2>/dev/null || true
+if ! python3 "$JOB/parse_official_blog.py" "$BLOG_HTML" > "$PARSE_TMP" 2>"$CACHE/parse_blog.err"; then
+    log "⚠️ parse_official_blog.py 失败: $(cat "$CACHE/parse_blog.err" | head -3)"
+fi
 
 while IFS= read -r ev; do
   url="$(printf "%s\n" "$ev" | jq -r ".url // empty")"
@@ -87,9 +89,10 @@ TO="${OPENCLAW_PHONE:-+85200000000}"
     ENRICH="$(curl -sS --max-time 30 http://localhost:5001/v1/chat/completions \
       -H 'Content-Type: application/json' \
       -d "$(jq -nc --arg p "$PROMPT" '{model:"any",messages:[{role:"user",content:$p}],max_tokens:200}')" \
-      2>/dev/null | jq -r '.choices[0].message.content // empty' 2>/dev/null || true)"
+      2>"$CACHE/curl_blog.err" | jq -r '.choices[0].message.content // empty' 2>/dev/null || true)"
     # 429限流检测 + 空输出均fallback
     if [ -z "${ENRICH// }" ] || echo "$ENRICH" | grep -q "429"; then
+      log "WARN: LLM enrichment failed for: $title (err: $(cat "$CACHE/curl_blog.err" 2>/dev/null | head -1))"
       TITLE_CN="$title"
       ENRICH="贡献：${summary}
 价值：⭐⭐⭐
