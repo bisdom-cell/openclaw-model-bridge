@@ -38,7 +38,7 @@ WhatsApp <-> OpenClaw Gateway (18789) <-> Tool Proxy (5002) <-> Adapter (5001) <
 | `kb_write.sh` | KB写入脚本（含目录锁+原子写） |
 | `kb_review.sh` | KB跨笔记回顾脚本 |
 | `kb_save_arxiv.sh` | ArXiv监控结果写入KB + rsync备份 |
-| `test_tool_proxy.py` | proxy_filters 单测（28个用例） |
+| `test_tool_proxy.py` | proxy_filters 单测（43个用例） |
 | `docs/config.md` | 完整系统配置文档（含所有历史变更） |
 | `docs/GUIDE.md` | 完整中英文集成指南 |
 
