@@ -43,35 +43,40 @@ git fetch origin "$BRANCH" --quiet 2>&1 || {
 LOCAL=$(git rev-parse HEAD)
 REMOTE=$(git rev-parse "origin/$BRANCH")
 
+HAS_NEW_COMMITS=true
 if [ "$LOCAL" = "$REMOTE" ]; then
-    exit 0  # 无更新，静默退出
+    HAS_NEW_COMMITS=false
 fi
 
-echo "$(date) 检测到新 commit: ${LOCAL:0:8} -> ${REMOTE:0:8}" >> "$LOG"
+CHANGED_FILES=""
 
-# 检查是否有未提交的本地改动
-if ! git diff --quiet || ! git diff --cached --quiet; then
-    echo "$(date) WARN: 本地有未提交改动，stash 后再 pull" >> "$LOG"
-    git stash push -m "auto_deploy_$(date +%s)" >> "$LOG" 2>&1
-fi
+if $HAS_NEW_COMMITS; then
+    echo "$(date) 检测到新 commit: ${LOCAL:0:8} -> ${REMOTE:0:8}" >> "$LOG"
 
-git pull origin "$BRANCH" --ff-only >> "$LOG" 2>&1 || {
-    echo "$(date) ERROR: git pull 失败（可能有冲突）" >> "$LOG"
-    exit 1
-}
-
-# 获取变更的文件列表
-CHANGED_FILES=$(git diff --name-only "$LOCAL" "$REMOTE")
-echo "$(date) 变更文件: $(echo "$CHANGED_FILES" | tr '\n' ' ')" >> "$LOG"
-
-# ── 2. 运行测试（仅当 proxy_filters.py 变更时）─────────────────────
-if echo "$CHANGED_FILES" | grep -q "proxy_filters.py\|test_tool_proxy.py"; then
-    echo "$(date) 运行单测..." >> "$LOG"
-    if ! python3 "$REPO_DIR/test_tool_proxy.py" >> "$LOG" 2>&1; then
-        echo "$(date) ❌ 测试失败，跳过部署！请检查。" >> "$LOG"
-        exit 1
+    # 检查是否有未提交的本地改动
+    if ! git diff --quiet || ! git diff --cached --quiet; then
+        echo "$(date) WARN: 本地有未提交改动，stash 后再 pull" >> "$LOG"
+        git stash push -m "auto_deploy_$(date +%s)" >> "$LOG" 2>&1
     fi
-    echo "$(date) ✅ 测试通过" >> "$LOG"
+
+    git pull origin "$BRANCH" --ff-only >> "$LOG" 2>&1 || {
+        echo "$(date) ERROR: git pull 失败（可能有冲突）" >> "$LOG"
+        exit 1
+    }
+
+    # 获取变更的文件列表
+    CHANGED_FILES=$(git diff --name-only "$LOCAL" "$REMOTE")
+    echo "$(date) 变更文件: $(echo "$CHANGED_FILES" | tr '\n' ' ')" >> "$LOG"
+
+    # ── 2. 运行测试（仅当 proxy_filters.py 变更时）─────────────────────
+    if echo "$CHANGED_FILES" | grep -q "proxy_filters.py\|test_tool_proxy.py"; then
+        echo "$(date) 运行单测..." >> "$LOG"
+        if ! python3 "$REPO_DIR/test_tool_proxy.py" >> "$LOG" 2>&1; then
+            echo "$(date) ❌ 测试失败，跳过部署！请检查。" >> "$LOG"
+            exit 1
+        fi
+        echo "$(date) ✅ 测试通过" >> "$LOG"
+    fi
 fi
 
 # ── 3. 文件同步映射表 ────────────────────────────────────────────────
@@ -111,28 +116,71 @@ declare -a FILE_MAP=(
 SYNCED=0
 NEED_RESTART=false
 
-for mapping in "${FILE_MAP[@]}"; do
-    SRC="${mapping%%|*}"
-    DST="${mapping##*|}"
+if $HAS_NEW_COMMITS; then
+    for mapping in "${FILE_MAP[@]}"; do
+        SRC="${mapping%%|*}"
+        DST="${mapping##*|}"
 
-    # 只同步本次变更的文件
-    if echo "$CHANGED_FILES" | grep -q "^${SRC}$"; then
-        DST_DIR="$(dirname "$DST")"
-        mkdir -p "$DST_DIR"
-        cp "$REPO_DIR/$SRC" "$DST"
-        echo "$(date)   同步: $SRC -> $DST" >> "$LOG"
-        SYNCED=$((SYNCED + 1))
+        # 只同步本次变更的文件
+        if echo "$CHANGED_FILES" | grep -q "^${SRC}$"; then
+            DST_DIR="$(dirname "$DST")"
+            mkdir -p "$DST_DIR"
+            cp "$REPO_DIR/$SRC" "$DST"
+            echo "$(date)   同步: $SRC -> $DST" >> "$LOG"
+            SYNCED=$((SYNCED + 1))
 
-        # 核心服务文件变更 → 需要 restart
-        case "$SRC" in
-            proxy_filters.py|tool_proxy.py|adapter.py)
-                NEED_RESTART=true
-                ;;
-        esac
+            # 核心服务文件变更 → 需要 restart
+            case "$SRC" in
+                proxy_filters.py|tool_proxy.py|adapter.py)
+                    NEED_RESTART=true
+                    ;;
+            esac
+        fi
+    done
+
+    echo "$(date) 同步完成: ${SYNCED} 个文件" >> "$LOG"
+fi
+
+# ── 3b. 漂移检测（每小时整点执行一次全量比对）────────────────────────
+# 解决盲区：新加入 FILE_MAP 的文件、初始手动部署的旧版不会被增量同步覆盖
+MINUTE=$(date +%M)
+if [ "$MINUTE" -lt 2 ]; then
+    DRIFT=0
+    for mapping in "${FILE_MAP[@]}"; do
+        SRC="${mapping%%|*}"
+        DST="${mapping##*|}"
+
+        [ ! -f "$REPO_DIR/$SRC" ] && continue
+        [ ! -f "$DST" ] && {
+            # 目标不存在，直接部署
+            mkdir -p "$(dirname "$DST")"
+            cp "$REPO_DIR/$SRC" "$DST"
+            echo "$(date)   漂移修复(缺失): $SRC -> $DST" >> "$LOG"
+            DRIFT=$((DRIFT + 1))
+            continue
+        }
+
+        # 比对 md5 哈希
+        HASH_SRC=$(md5 -q "$REPO_DIR/$SRC" 2>/dev/null || md5sum "$REPO_DIR/$SRC" | cut -d' ' -f1)
+        HASH_DST=$(md5 -q "$DST" 2>/dev/null || md5sum "$DST" | cut -d' ' -f1)
+
+        if [ "$HASH_SRC" != "$HASH_DST" ]; then
+            cp "$REPO_DIR/$SRC" "$DST"
+            echo "$(date)   漂移修复(不一致): $SRC -> $DST" >> "$LOG"
+            DRIFT=$((DRIFT + 1))
+
+            case "$SRC" in
+                proxy_filters.py|tool_proxy.py|adapter.py)
+                    NEED_RESTART=true
+                    ;;
+            esac
+        fi
+    done
+
+    if [ "$DRIFT" -gt 0 ]; then
+        echo "$(date) ⚠️ 漂移检测: 修复 ${DRIFT} 个文件" >> "$LOG"
     fi
-done
-
-echo "$(date) 同步完成: ${SYNCED} 个文件" >> "$LOG"
+fi
 
 # ── 4. 按需重启服务 ──────────────────────────────────────────────────
 if $NEED_RESTART; then
@@ -144,5 +192,7 @@ if $NEED_RESTART; then
     echo "$(date) ✅ 服务重启完成" >> "$LOG"
 fi
 
-NEW_COMMIT=$(git rev-parse --short HEAD)
-echo "$(date) ✅ 部署完成 (branch: $BRANCH, commit: $NEW_COMMIT, synced: $SYNCED files, restart: $NEED_RESTART)" >> "$LOG"
+if $HAS_NEW_COMMITS; then
+    NEW_COMMIT=$(git rev-parse --short HEAD)
+    echo "$(date) ✅ 部署完成 (branch: $BRANCH, commit: $NEW_COMMIT, synced: $SYNCED files, restart: $NEED_RESTART)" >> "$LOG"
+fi
