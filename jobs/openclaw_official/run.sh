@@ -233,6 +233,9 @@ echo "kb_inbox_saved=${KB_INBOX}"
 echo "---- SYSTEM MESSAGE ----"
 cat "$MSG"
 
+# ── rsync备份 ────────────────────────────────────────────────────────
+rsync -a --quiet "$HOME/.kb/" "/Volumes/MOVESPEED/KB/" 2>/dev/null || true
+
 # OPTIONAL: announce hook (adapt to your environment)
 # "$ROOT/bin/announce.sh" < "$MSG"
 total_new=$((new_count + blog_new_count))

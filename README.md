@@ -5,7 +5,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-36%20passed-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-43%20passed-brightgreen.svg)]()
 
 ## Architecture
 
@@ -70,16 +70,17 @@ curl http://localhost:5002/health
 
 | File | Schedule | Description |
 |------|----------|-------------|
-| `kb_save_arxiv.sh` | Daily 08:30 | ArXiv monitoring → KB write + rsync backup |
-| `kb_evening.sh` | Daily 22:00 | Evening KB cleanup |
+| `jobs/arxiv_monitor/run_arxiv.sh` | Daily 09:00 | ArXiv AI paper monitoring + KB write + rsync (replaces kb_save_arxiv.sh) |
+| `kb_evening.sh` | Daily 22:00 | Evening KB summary + WhatsApp push |
 | `kb_review.sh` | Fri 21:00 | Cross-note KB review |
 | `kb_write.sh` | — | KB write utility (directory lock + atomic write) |
-| `run_hn_fixed.sh` | Daily 07:00 | HackerNews hot posts scraper |
-| `run_discussions.sh` | Daily 09:00 | Community discussions scraper |
-| `jobs/freight_watcher/run_freight.sh` | 08/14/20:00 | Freight watcher — shipping dynamics |
-| `jobs/openclaw_official/run.sh` | Daily 08:00 | OpenClaw releases watcher |
-| `jobs/openclaw_official/run_blog.sh` | On demand | Blog auto-publish (LLM-generated Chinese titles) |
-| `jobs/openclaw_official/run_discussions.sh` | On demand | GitHub Discussions monitor |
+| `run_hn_fixed.sh` | Every 3h:45 | HackerNews AI/Tech hot posts scraper |
+| `run_discussions.sh` | Hourly:15 | Community discussions scraper |
+| `jobs/freight_watcher/run_freight.sh` | 08/14/20:00 | Freight watcher — 3-layer intelligence funnel |
+| `jobs/openclaw_official/run.sh` | Hourly:30 | OpenClaw releases watcher |
+| `jobs/openclaw_official/run_blog.sh` | Hourly:00 | Blog monitor (LLM-generated Chinese titles) |
+| `jobs/openclaw_official/run_discussions.sh` | Hourly:15 | GitHub Discussions monitor |
+| ~~`kb_save_arxiv.sh`~~ | ~~Daily 08:30~~ | ~~Deprecated (V28: merged into arxiv_monitor)~~ |
 
 ### Configuration & Testing
 
@@ -87,7 +88,7 @@ curl http://localhost:5002/health
 |------|-------------|
 | `jobs_registry.yaml` | Unified job registry — all system + openclaw cron jobs |
 | `check_registry.py` | Registry validator — checks ID uniqueness, file paths, field completeness |
-| `test_tool_proxy.py` | Unit tests for proxy_filters (36 test cases) |
+| `test_tool_proxy.py` | Unit tests for proxy_filters (43 test cases) |
 | `CLAUDE.md` | Project context for AI-assisted development |
 
 ### Documentation
@@ -133,7 +134,7 @@ The `auto_deploy.sh` script maps 16 repo files to their runtime locations and on
 ## Testing
 
 ```bash
-# Run all 36 unit tests
+# Run all 43 unit tests
 python3 -m pytest test_tool_proxy.py -v
 
 # Or without pytest
