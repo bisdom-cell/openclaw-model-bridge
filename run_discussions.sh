@@ -13,7 +13,7 @@ FEED_FILE="$CACHE/discussions.atom"
 NEW_FILE="$CACHE/discussions_new.txt"
 TO="${OPENCLAW_PHONE:-+85200000000}"
 TS="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')"
-STATUS_FILE="$CACHE/last_run.json"
+STATUS_FILE="$CACHE/last_run_discussions.json"
 
 log() { echo "[$TS] openclaw_official/discussions: $1"; }
 
