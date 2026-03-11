@@ -185,7 +185,7 @@ echo "  目标: $PHONE"
 
 if command -v openclaw >/dev/null 2>&1 || [ -x "$OPENCLAW" ]; then
     echo "  正在发送测试消息..."
-    SEND_RESULT=$("$OPENCLAW" message send --channel whatsapp -t "$PHONE" -m "🔧 诊断测试消息 ($TS)" --json 2>&1 || true)
+    SEND_RESULT=$("$OPENCLAW" message send --target "$PHONE" --message "🔧 诊断测试消息 ($TS)" --json 2>&1 || true)
     echo "  发送结果: $SEND_RESULT" | head -5 | sed 's/^/    /'
 else
     echo "  🔴 openclaw 命令未找到！"

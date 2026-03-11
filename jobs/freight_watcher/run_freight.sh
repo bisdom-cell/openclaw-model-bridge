@@ -282,11 +282,12 @@ PYEOF2
 } > "$MSG_FILE"
 
 # ── 5. 推送WhatsApp ─────────────────────────────────────────────────────
-if "$OPENCLAW" message send --target "$TO" --message "$(cat "$MSG_FILE")" --json >/dev/null 2>&1; then
+SEND_ERR=$(mktemp)
+if "$OPENCLAW" message send --target "$TO" --message "$(cat "$MSG_FILE")" --json >/dev/null 2>"$SEND_ERR"; then
     log "已推送 ${NEW_COUNT} 条商机（${DAY}）"
     printf '{"time":"%s","status":"ok","new":%d,"sent":true}\n' "$TS" "$NEW_COUNT" > "$STATUS_FILE"
 else
-    log "ERROR: 推送失败（${NEW_COUNT} 条待发），请检查 gateway。"
+    log "ERROR: 推送失败（${NEW_COUNT} 条待发）: $(cat "$SEND_ERR" | head -3)"
     printf '{"time":"%s","status":"send_failed","new":%d,"sent":false}\n' "$TS" "$NEW_COUNT" > "$STATUS_FILE"
 fi
 
