@@ -48,7 +48,7 @@ jobs:
     scheduler: system
     entry: jobs/freight_watcher/run_freight.sh
     interval: "0 8,14,20 * * *"     # 每天 08:00/14:00/20:00
-    log: ~/freight_watcher.log
+    log: ~/.openclaw/logs/jobs/freight_watcher.log
     needs_api_key: true
     enabled: true
     description: 货代 Watcher，抓取航运动态（系统crontab触发，脚本内直接curl LLM）
@@ -79,7 +79,7 @@ jobs:
     scheduler: system
     entry: run_hn_fixed.sh
     interval: "45 */3 * * *"        # 每3小时:45分（与 ArXiv 错开45分钟）
-    log: ~/run_hn_fixed.log
+    log: ~/.openclaw/logs/jobs/hn_watcher.log
     needs_api_key: false
     enabled: true
     description: HackerNews 热帖抓取
