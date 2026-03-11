@@ -75,11 +75,11 @@ curl http://localhost:5002/health
 | `kb_review.sh` | Fri 21:00 | Cross-note KB review |
 | `kb_write.sh` | — | KB write utility (directory lock + atomic write) |
 | `run_hn_fixed.sh` | Every 3h:45 | HackerNews AI/Tech hot posts scraper |
-| `run_discussions.sh` | Hourly:15 | Community discussions scraper |
+| `run_discussions.sh` | Hourly:15 | Community issues scraper |
 | `jobs/freight_watcher/run_freight.sh` | 08/14/20:00 | Freight watcher — 3-layer intelligence funnel |
 | `jobs/openclaw_official/run.sh` | Hourly:30 | OpenClaw releases watcher |
 | `jobs/openclaw_official/run_blog.sh` | Hourly:00 | Blog monitor (LLM-generated Chinese titles) |
-| `jobs/openclaw_official/run_discussions.sh` | Hourly:15 | GitHub Discussions monitor |
+| `jobs/openclaw_official/run_discussions.sh` | Hourly:15 | GitHub Issues monitor (REST API) |
 | ~~`kb_save_arxiv.sh`~~ | ~~Daily 08:30~~ | ~~Deprecated (V28: merged into arxiv_monitor)~~ |
 
 ### Configuration & Testing
