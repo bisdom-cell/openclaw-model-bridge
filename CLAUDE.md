@@ -142,7 +142,7 @@
 1. **adapter.py /health 端点**：新增本地健康检查拦截，不再转发到远程GPU（修复502误报）
 2. **tool_proxy.py /health 端点**：新增级联健康检查（proxy自身 + adapter连通性），返回 `{"ok":true,"proxy":true,"adapter":true}`
 3. **job_watchdog.sh 日志扫描**：新增最近1小时推送失败检测（不依赖status_file），覆盖之前的监控盲区
-4. **wa_keepalive.sh 真实发送**：从无效的 `--dry-run` 改为发送零宽字符消息，真正验证WhatsApp通道可用性
+4. **wa_keepalive.sh 回退为纯HTTP探测**：零宽字符在WhatsApp仍显示为空消息气泡（打扰用户），移除真实发送，仅保留Gateway HTTP健康检查；端到端推送失败由 job_watchdog 日志扫描覆盖
 5. **preflight_check.sh 全面体检**：9项自动化检查（单测+注册表+语法+部署一致性+环境变量+连通性+安全扫描）
 6. **auto_deploy.sh 部署后体检**：每次部署后自动运行 `preflight_check.sh --full`，失败推 WhatsApp 告警
 7. **环境变量修复**：`OPENCLAW_PHONE` + `REMOTE_API_KEY` 同步到 `~/.bash_profile`（修复 cron 环境缺失）
@@ -222,7 +222,7 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 
 ## 工作原则
 
-### 🔴 每次必查（5条，优先级最高）
+### 🔴 每次必查（6条，优先级最高）
 
 | # | 原则 | 一句话 |
 |---|------|--------|
@@ -231,6 +231,7 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 | 3 | **push前必扫描** | 安全扫描（见上方命令）全部为空才允许 push |
 | 4 | **故障先回滚** | 线上故障 → `git checkout v26-snapshot` 恢复服务 → 再排查根因；多任务同时挂 → 先查远端模型ID |
 | 5 | **做减法不做加法** | 新增防护/监控前先问"谁已经在管这件事"；每加一层保险 = 多一个故障源（#95教训） |
+| 6 | **收工提醒 preflight** | "结束今天的工作"时，提醒用户在 Mac Mini 上运行 `bash preflight_check.sh --full`（用户自行执行，Claude 负责提醒） |
 
 ### 🟡 按需查阅（操作 & 架构参考）
 
