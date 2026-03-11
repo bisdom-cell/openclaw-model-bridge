@@ -45,7 +45,11 @@ except ImportError:
             elif current and ":" in stripped:
                 key, val = stripped.split(":", 1)
                 key = key.strip()
-                val = val.strip().strip('"').strip("'")
+                val = val.strip()
+                # 移除行内注释（# 后面的内容）
+                if "#" in val:
+                    val = val[:val.index("#")].strip()
+                val = val.strip('"').strip("'")
                 if val.lower() == "true":
                     val = True
                 elif val.lower() == "false":
