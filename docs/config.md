@@ -171,22 +171,25 @@ export WA_PHONE="+85200000000"
 ### v19新增 + v22扩充 + v26确认：系统crontab任务（`crontab -e`管理，独立于openclaw cron）
 | 任务名 | 触发时间 | 脚本路径 | 日志路径 | 状态 |
 |--------|----------|----------|----------|------|
-| openclaw-releases-watcher | 每小时:30分 | `~/.openclaw/jobs/openclaw_official/run.sh` | `~/.openclaw/logs/jobs/openclaw_official.log` | ✅ |
+| openclaw-releases-watcher | 每天08:00 | `~/.openclaw/jobs/openclaw_official/run.sh` | `~/.openclaw/logs/jobs/openclaw_official.log` | ✅ V28变更：从每小时→每天1次 |
 | openclaw-issues-watcher | 每小时:15分 | `~/.openclaw/jobs/openclaw_official/run_discussions.sh` | `~/.openclaw/logs/jobs/openclaw_discussions.log` | ✅ |
 | hn-watcher | 每3小时:45分 | `~/.openclaw/jobs/hn_watcher/run_hn.sh` | `~/.openclaw/logs/jobs/hn_watcher.log` | ✅ |
 | freight-watcher | 每天08:00/14:00/20:00 | `~/.openclaw/jobs/freight_watcher/run_freight.sh` | `~/.openclaw/logs/jobs/freight_watcher.log` | ✅ v26验证成功 |
-| arxiv-monitor | 每天09:00 | `~/.openclaw/jobs/arxiv_monitor/run_arxiv.sh` | `~/.openclaw/logs/jobs/arxiv_monitor.log` | ✅ V28新增（替代 monitor-arxiv-ai-models + kb-save-arxiv） |
+| arxiv-monitor | 每3小时整点 | `~/.openclaw/jobs/arxiv_monitor/run_arxiv.sh` | `~/.openclaw/logs/jobs/arxiv_monitor.log` | ✅ V28新增（替代 monitor-arxiv-ai-models + kb-save-arxiv） |
+| job-watchdog | 每小时:30分 | `~/openclaw-model-bridge/job_watchdog.sh` | `~/job_watchdog.log` | ✅ V28新增：元监控，检查各job是否按时执行 |
 | session-cleanup | 每6小时 04/10/16/22:00 | 直接rm命令（无脚本） | `~/.openclaw/logs/session_cleanup.log` | ✅ v24变更：从每天1次→每6小时1次 |
 | gateway-watchdog | ~~每30分钟~~ | `~/restart.sh` | `~/.openclaw/logs/gateway_watchdog.log` | ❌ **已移除**（#95：与launchd KeepAlive双主控冲突，导致误杀gateway） |
 
 当前 `crontab -l` 核心条目：
 ```bash
 15 * * * * mkdir -p $HOME/.openclaw/logs/jobs; bash -lc '$HOME/.openclaw/jobs/openclaw_official/run_discussions.sh >> $HOME/.openclaw/logs/jobs/openclaw_discussions.log 2>&1'
-30 * * * * mkdir -p $HOME/.openclaw/logs/jobs; bash -lc '$HOME/.openclaw/jobs/openclaw_official/run.sh >> $HOME/.openclaw/logs/jobs/openclaw_official.log 2>&1'
+0 8 * * * mkdir -p $HOME/.openclaw/logs/jobs; bash -lc '$HOME/.openclaw/jobs/openclaw_official/run.sh >> $HOME/.openclaw/logs/jobs/openclaw_official.log 2>&1'
 # gateway-watchdog 已移除（#95：与launchd KeepAlive双主控冲突）— Gateway 由 launchd 全权管理
 0 4,10,16,22 * * * rm -f /Users/bisdom/.openclaw/agents/main/sessions/*.jsonl /Users/bisdom/.openclaw/agents/main/sessions/sessions.json && echo "$(date) session已清理" >> /Users/bisdom/.openclaw/logs/session_cleanup.log
 45 */3 * * * mkdir -p $HOME/.openclaw/logs/jobs; bash -lc '$HOME/.openclaw/jobs/hn_watcher/run_hn.sh >> $HOME/.openclaw/logs/jobs/hn_watcher.log 2>&1'
 0 8,14,20 * * * bash -lc '$HOME/.openclaw/jobs/freight_watcher/run_freight.sh >> $HOME/.openclaw/logs/jobs/freight_watcher.log 2>&1'
+0 */3 * * * mkdir -p $HOME/.openclaw/logs/jobs; bash -lc '$HOME/.openclaw/jobs/arxiv_monitor/run_arxiv.sh >> $HOME/.openclaw/logs/jobs/arxiv_monitor.log 2>&1'
+30 * * * * bash -lc '$HOME/openclaw-model-bridge/job_watchdog.sh >> $HOME/job_watchdog.log 2>&1'
 ```
 > 💡 **架构说明**：系统crontab用`bash -lc`加载完整登录环境（含`$HOME`、`$PATH`等环境变量），避免cron空环境导致命令找不到。创建日志目录前置在`mkdir -p`确保首次运行不失败。
 
