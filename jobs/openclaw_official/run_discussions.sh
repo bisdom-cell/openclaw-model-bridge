@@ -124,11 +124,12 @@ while IFS='|' read -r title url date; do
 
 done < "$CACHE/discussions_send.txt"
 
-if openclaw message send --target "$TO" --message "$(cat "$MSG")" --json >/dev/null 2>&1; then
+SEND_ERR=$(mktemp)
+if openclaw message send --target "$TO" --message "$(cat "$MSG")" --json >/dev/null 2>"$SEND_ERR"; then
     log "已推送 ${cnt} 条新 issue（含LLM富摘要）。"
     printf '{"time":"%s","status":"ok","new":%d,"sent":true}\n' "$TS" "$cnt" > "$STATUS_FILE"
 else
-    log "ERROR: 推送失败（${cnt} 条待发），请检查 gateway。"
+    log "ERROR: 推送失败（${cnt} 条待发）: $(cat "$SEND_ERR" | head -3)"
     printf '{"time":"%s","status":"send_failed","new":%d,"sent":false}\n' "$TS" "$cnt" > "$STATUS_FILE"
 fi
 rsync -a --quiet "$HOME/.kb/" "/Volumes/MOVESPEED/KB/" 2>/dev/null || true

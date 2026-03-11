@@ -194,10 +194,11 @@ rsync -a --quiet "$HOME/.kb/" "/Volumes/MOVESPEED/KB/" 2>/dev/null || true
 
 # OPTIONAL: announce hook (adapt to your environment)
 # "$ROOT/bin/announce.sh" < "$MSG"
-if openclaw message send --target "$TO" --message "$(cat "$MSG")" --json >/dev/null 2>&1; then
+SEND_ERR=$(mktemp)
+if openclaw message send --target "$TO" --message "$(cat "$MSG")" --json >/dev/null 2>"$SEND_ERR"; then
     log "已推送 ${new_count} 条 releases 更新。"
     printf '{"time":"%s","status":"ok","new":%d,"sent":true}\n' "$TS" "$new_count" > "$STATUS_FILE"
 else
-    log "ERROR: 推送失败（${new_count} 条待发），请检查 gateway。"
+    log "ERROR: 推送失败（${new_count} 条待发）: $(cat "$SEND_ERR" | head -3)"
     printf '{"time":"%s","status":"send_failed","new":%d,"sent":false}\n' "$TS" "$new_count" > "$STATUS_FILE"
 fi
