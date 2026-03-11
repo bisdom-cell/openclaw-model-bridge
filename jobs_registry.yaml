@@ -119,3 +119,12 @@ jobs:
     needs_api_key: false
     enabled: true
     description: 社区 Issues 监控（每小时轮询 GitHub REST API，Discussions 已禁用）
+
+  - id: wa_keepalive
+    scheduler: system
+    entry: wa_keepalive.sh
+    interval: "*/30 * * * *"        # 每30分钟
+    log: ~/wa_keepalive.log
+    needs_api_key: false
+    enabled: true
+    description: WhatsApp session 保活（dry-run 探测，防止手机休眠导致断连）

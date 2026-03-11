@@ -43,6 +43,7 @@ WhatsApp <-> OpenClaw Gateway (18789) <-> Tool Proxy (5002) <-> Adapter (5001) <
 | `test_check_registry.py` | **V28新增** check_registry.py 单测（18个用例） |
 | `gen_jobs_doc.py` | **V28新增** 从 registry 自动生成任务文档 + 漂移检测 |
 | `smoke_test.sh` | **V28新增** 端到端 smoke test（单测+注册表+连通性） |
+| `wa_keepalive.sh` | **V28新增** WhatsApp session 保活（每30分钟 dry-run 探测） |
 | `docs/config.md` | 完整系统配置文档（含所有历史变更） |
 | `docs/GUIDE.md` | 完整中英文集成指南 |
 
@@ -71,6 +72,9 @@ WhatsApp <-> OpenClaw Gateway (18789) <-> Tool Proxy (5002) <-> Adapter (5001) <
 3. **文档自动生成**：`gen_jobs_doc.py` 从 `jobs_registry.yaml` 自动生成任务表格 + `--check` 漂移检测模式
 4. **端到端 smoke test**：`smoke_test.sh` 一键验证单测 + 注册表 + 文档漂移 + 5002/5001 连通性
 5. **开发流程明确化**：Claude Code 只推 `claude/` 分支，Mac Mini 只从 main 拉取，写入 CLAUDE.md 原则
+6. **WhatsApp CLI 语法修复**：3个脚本从废弃的 `--channel whatsapp -t -m` 改为 `--target --message --json`
+7. **stderr 可观测性**：8个 job 脚本从 `2>&1` 改为 `2>"$SEND_ERR"`，失败时记录具体错误
+8. **WhatsApp session 保活**：`wa_keepalive.sh` 每30分钟 dry-run 探测，防止手机休眠导致 session 断连
 
 ## 常用命令
 
