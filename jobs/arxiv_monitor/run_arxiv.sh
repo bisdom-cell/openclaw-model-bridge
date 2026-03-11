@@ -31,7 +31,7 @@ DAY="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d')"
 # ── 1. 抓取 ArXiv API XML ────────────────────────────────────────────────
 FEED_FILE="$CACHE/arxiv_feed.xml"
 # 去掉 -f：HTTP 错误不再触发 set -e 静默退出，改为手动检测
-if ! curl -sSL --max-time 30 "$ARXIV_URL" -o "$FEED_FILE" 2>"$CACHE/curl_feed.err"; then
+if ! curl -sSL --max-time 30 -H "User-Agent: openclaw-arxiv-monitor/1.0 (mailto:bisdom@example.com)" "$ARXIV_URL" -o "$FEED_FILE" 2>"$CACHE/curl_feed.err"; then
   log "ERROR: ArXiv API 抓取失败: $(head -1 "$CACHE/curl_feed.err" 2>/dev/null)"
   printf '{"time":"%s","status":"fetch_failed","new":0}\n' "$TS" > "$STATUS_FILE"
   exit 1

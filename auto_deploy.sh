@@ -105,6 +105,7 @@ declare -a FILE_MAP=(
 
     # 货代 Watcher
     "jobs/freight_watcher/run_freight.sh|$HOME/.openclaw/jobs/freight_watcher/run_freight.sh"
+    "jobs/freight_watcher/importyeti_scraper.py|$HOME/.openclaw/jobs/freight_watcher/importyeti_scraper.py"
 
     # ArXiv 监控
     "jobs/arxiv_monitor/run_arxiv.sh|$HOME/.openclaw/jobs/arxiv_monitor/run_arxiv.sh"
