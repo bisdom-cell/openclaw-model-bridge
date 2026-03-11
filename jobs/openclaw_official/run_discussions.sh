@@ -8,9 +8,9 @@ JOB="$ROOT/jobs/openclaw_official"
 KB_SRC="${KB_BASE:-$HOME/.kb}/sources/openclaw_official.md"
 KB_INBOX="${KB_BASE:-$HOME/.kb}/inbox.md"
 CACHE="$JOB/cache"
-# V28: discussions.atom 已返回404，改用 GitHub GraphQL API
-GH="${GH:-/opt/homebrew/bin/gh}"
-REPO="openclaw/openclaw"
+# V28: discussions.atom 已返回404，改用 HTML 抓取 + Python 解析（无需 gh auth）
+DISC_URL="https://github.com/openclaw/openclaw/discussions"
+DISC_HTML="$CACHE/discussions.html"
 NEW_FILE="$CACHE/discussions_new.txt"
 TO="${OPENCLAW_PHONE:-+85200000000}"
 TS="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')"
@@ -22,13 +22,78 @@ mkdir -p "$CACHE" "$HOME/.kb/sources"
 test -f "$KB_SRC"   || echo "# OpenClaw Official Watcher" > "$KB_SRC"
 test -f "$KB_INBOX" || echo "# INBOX" > "$KB_INBOX"
 
-# V28: 使用 GitHub GraphQL API 获取最近 20 条 discussions（替代已废弃的 .atom feed）
-QUERY='query { repository(owner: "openclaw", name: "openclaw") { discussions(first: 20, orderBy: {field: CREATED_AT, direction: DESC}) { nodes { title url createdAt } } } }'
-if ! "$GH" api graphql -f query="$QUERY" --jq '.data.repository.discussions.nodes[] | "\(.title)|\(.url)|\(.createdAt[:10])"' > "$CACHE/discussions_raw.txt" 2>"$CACHE/gh_discussions.err"; then
-  ERR_MSG="⚠️ Discussions Watcher 抓取失败（$(TZ=Asia/Hong_Kong date '+%H:%M')）: $(head -1 "$CACHE/gh_discussions.err" 2>/dev/null)"
+# V28: 抓取 discussions 页面 HTML（公开仓库无需认证）
+if ! curl -sSL --max-time 30 \
+    -H "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)" \
+    "$DISC_URL" -o "$DISC_HTML" 2>"$CACHE/curl_discussions_page.err"; then
+  ERR_MSG="⚠️ Discussions Watcher 抓取失败（$(TZ=Asia/Hong_Kong date '+%H:%M')）: $(head -1 "$CACHE/curl_discussions_page.err" 2>/dev/null)"
   log "ERROR: $ERR_MSG"
   openclaw message send --target "$TO" --message "$ERR_MSG" --json >/dev/null 2>&1 || true
   printf '{"time":"%s","status":"fetch_failed","new":0}\n' "$TS" > "$STATUS_FILE"
+  exit 1
+fi
+
+# 检查 HTML 是否有效（非空且不是错误页）
+if [ ! -s "$DISC_HTML" ] || grep -q '"not-found"' "$DISC_HTML" 2>/dev/null; then
+  ERR_MSG="⚠️ Discussions Watcher: 页面返回空或 404（$(TZ=Asia/Hong_Kong date '+%H:%M')）"
+  log "ERROR: $ERR_MSG"
+  openclaw message send --target "$TO" --message "$ERR_MSG" --json >/dev/null 2>&1 || true
+  printf '{"time":"%s","status":"fetch_failed","new":0}\n' "$TS" > "$STATUS_FILE"
+  exit 1
+fi
+
+# V28: Python 解析 HTML 提取 discussions（标题、URL、日期）
+if ! python3 - "$DISC_HTML" << 'PYEOF' > "$CACHE/discussions_raw.txt" 2>"$CACHE/parse_discussions.err"
+import sys, re, html
+
+html_file = sys.argv[1]
+with open(html_file, encoding="utf-8", errors="replace") as f:
+    content = f.read()
+
+# GitHub discussions 页面的链接格式：/openclaw/openclaw/discussions/数字
+# 标题在 data-hovercard-type="discussion" 附近的 <a> 标签中
+results = []
+seen = set()
+
+# 方法1: 匹配 discussion 链接 + 标题
+for m in re.finditer(
+    r'<a[^>]*href="(/openclaw/openclaw/discussions/\d+)"[^>]*>([^<]+)</a>',
+    content
+):
+    path, title = m.group(1), html.unescape(m.group(2).strip())
+    if path not in seen and title and len(title) > 3:
+        seen.add(path)
+        url = f"https://github.com{path}"
+        results.append((title, url))
+
+# 方法2: 备用 — 从 JSON-LD 或 data 属性中提取
+if not results:
+    for m in re.finditer(
+        r'discussions/(\d+)["\s][^>]*?(?:title|aria-label)="([^"]+)"',
+        content
+    ):
+        num, title = m.group(1), html.unescape(m.group(2).strip())
+        path = f"/openclaw/openclaw/discussions/{num}"
+        if path not in seen and title and len(title) > 3:
+            seen.add(path)
+            url = f"https://github.com{path}"
+            results.append((title, url))
+
+# 提取日期（如果有 relative-time 或 datetime 属性，提取最近的）
+# 简化处理：使用今天的日期（discussions 页面默认按最近活跃排序）
+from datetime import datetime, timezone, timedelta
+today = datetime.now(timezone(timedelta(hours=8))).strftime("%Y-%m-%d")
+
+for title, url in results[:20]:
+    print(f"{title}|{url}|{today}")
+
+print(f"[discussions] 解析完成: {len(results[:20])} 条", file=sys.stderr)
+PYEOF
+then
+  ERR_MSG="⚠️ Discussions Watcher 解析失败（$(TZ=Asia/Hong_Kong date '+%H:%M')）: $(head -1 "$CACHE/parse_discussions.err" 2>/dev/null)"
+  log "ERROR: $ERR_MSG"
+  openclaw message send --target "$TO" --message "$ERR_MSG" --json >/dev/null 2>&1 || true
+  printf '{"time":"%s","status":"parse_failed","new":0}\n' "$TS" > "$STATUS_FILE"
   exit 1
 fi
 
