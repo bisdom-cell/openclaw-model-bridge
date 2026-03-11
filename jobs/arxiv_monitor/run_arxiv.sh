@@ -2,7 +2,7 @@
 # cron 环境 PATH 极简，必须显式声明（规则 #13）
 export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
 # ArXiv AI论文监控 v1 — 脚本控制格式，替代 --announce 模式
-# 每天 09:00 HKT 由系统crontab触发
+# 每3小时整点 HKT 由系统crontab触发（与 HN 错开45分钟）
 # 合并原 monitor-arxiv-ai-models + kb-save-arxiv 两个 openclaw cron 任务
 # 设计原则：结构化数据(作者/链接/日期)由XML提取，LLM只负责翻译+评价
 set -eo pipefail

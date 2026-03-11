@@ -27,7 +27,7 @@ jobs:
   - id: arxiv_monitor
     scheduler: system
     entry: jobs/arxiv_monitor/run_arxiv.sh
-    interval: "0 9 * * *"           # 每天 09:00 HKT
+    interval: "0 */3 * * *"         # 每3小时整点（与 HN 错开45分钟）
     log: ~/.openclaw/logs/jobs/arxiv_monitor.log
     needs_api_key: true
     enabled: true
@@ -78,7 +78,7 @@ jobs:
   - id: run_hn_fixed
     scheduler: system
     entry: run_hn_fixed.sh
-    interval: "0 7 * * *"           # 每天 07:00
+    interval: "45 */3 * * *"        # 每3小时:45分（与 ArXiv 错开45分钟）
     log: ~/run_hn_fixed.log
     needs_api_key: false
     enabled: true
