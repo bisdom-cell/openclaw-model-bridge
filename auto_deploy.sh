@@ -100,7 +100,6 @@ declare -a FILE_MAP=(
 
     # OpenClaw 官方 Watcher
     "jobs/openclaw_official/run.sh|$HOME/.openclaw/jobs/openclaw_official/run.sh"
-    "jobs/openclaw_official/run_blog.sh|$HOME/.openclaw/jobs/openclaw_official/run_blog.sh"
     "jobs/openclaw_official/run_discussions.sh|$HOME/.openclaw/jobs/openclaw_official/run_discussions.sh"
 
     # 货代 Watcher
