@@ -8,8 +8,9 @@ JOB="$ROOT/jobs/openclaw_official"
 KB_SRC="${KB_BASE:-$HOME/.kb}/sources/openclaw_official.md"
 KB_INBOX="${KB_BASE:-$HOME/.kb}/inbox.md"
 CACHE="$JOB/cache"
-FEED_URL="https://github.com/openclaw/openclaw/discussions.atom"
-FEED_FILE="$CACHE/discussions.atom"
+# V28: discussions.atom 已返回404，改用 GitHub GraphQL API
+GH="${GH:-/opt/homebrew/bin/gh}"
+REPO="openclaw/openclaw"
 NEW_FILE="$CACHE/discussions_new.txt"
 TO="${OPENCLAW_PHONE:-+85200000000}"
 TS="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')"
@@ -21,32 +22,15 @@ mkdir -p "$CACHE" "$HOME/.kb/sources"
 test -f "$KB_SRC"   || echo "# OpenClaw Official Watcher" > "$KB_SRC"
 test -f "$KB_INBOX" || echo "# INBOX" > "$KB_INBOX"
 
-# 去掉 -f：HTTP 错误不再触发 set -e 静默退出，改为手动检测
-if ! curl -sSL --max-time 30 "$FEED_URL" -o "$FEED_FILE" 2>"$CACHE/curl_feed.err"; then
-  ERR_MSG="⚠️ Discussions Watcher 抓取失败（$(TZ=Asia/Hong_Kong date '+%H:%M')）: $(head -1 "$CACHE/curl_feed.err" 2>/dev/null)"
+# V28: 使用 GitHub GraphQL API 获取最近 20 条 discussions（替代已废弃的 .atom feed）
+QUERY='query { repository(owner: "openclaw", name: "openclaw") { discussions(first: 20, orderBy: {field: CREATED_AT, direction: DESC}) { nodes { title url createdAt } } } }'
+if ! "$GH" api graphql -f query="$QUERY" --jq '.data.repository.discussions.nodes[] | "\(.title)|\(.url)|\(.createdAt[:10])"' > "$CACHE/discussions_raw.txt" 2>"$CACHE/gh_discussions.err"; then
+  ERR_MSG="⚠️ Discussions Watcher 抓取失败（$(TZ=Asia/Hong_Kong date '+%H:%M')）: $(head -1 "$CACHE/gh_discussions.err" 2>/dev/null)"
   log "ERROR: $ERR_MSG"
   openclaw message send --target "$TO" --message "$ERR_MSG" --json >/dev/null 2>&1 || true
   printf '{"time":"%s","status":"fetch_failed","new":0}\n' "$TS" > "$STATUS_FILE"
   exit 1
 fi
-
-python3 - "$FEED_FILE" << 'PYEOF' > "$NEW_FILE"
-import sys, xml.etree.ElementTree as ET
-
-NS = {"a": "http://www.w3.org/2005/Atom"}
-tree = ET.parse(sys.argv[1])
-root = tree.getroot()
-
-for entry in root.findall("a:entry", NS):
-    title = (entry.findtext("a:title", "", NS) or "").strip()
-    url   = ""
-    for link in entry.findall("a:link", NS):
-        if link.get("type") == "text/html":
-            url = link.get("href", "")
-    date  = (entry.findtext("a:updated", "", NS) or "")[:10]
-    if title and url:
-        print(f"{title}|{url}|{date}")
-PYEOF
 
 : > "$CACHE/discussions_send.txt"
 day="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d')"
@@ -58,7 +42,7 @@ while IFS='|' read -r title url date; do
         echo "- **[$title]($url)** | $date" >> "$KB_SRC"
         echo "$title|$url|$date" >> "$CACHE/discussions_send.txt"
     fi
-done < "$NEW_FILE"
+done < "$CACHE/discussions_raw.txt"
 
 cnt="$(wc -l < "$CACHE/discussions_send.txt" | tr -d ' ')"
 if [ "$cnt" -eq 0 ]; then
