@@ -184,6 +184,28 @@ if [ "$MINUTE" -lt 2 ]; then
         DRIFT_MSG="⚠️ 漂移检测: 修复 ${DRIFT} 个部署文件不一致，已自动覆盖。详见 auto_deploy.log"
         openclaw message send --target "${OPENCLAW_PHONE:-+85200000000}" --message "$DRIFT_MSG" --json >/dev/null 2>&1 || true
     fi
+
+    # ── 3c. Crontab 引号完整性检查（每小时整点，与漂移检测同步）──────────
+    CRONTAB_ISSUES=""
+    while IFS= read -r cline; do
+        [ -z "$cline" ] && continue
+        echo "$cline" | grep -q '^#' && continue
+        if echo "$cline" | grep -q "bash -lc"; then
+            QUOTE_COUNT=$(echo "$cline" | tr -cd "'" | wc -c | tr -d ' ')
+            if [ $((QUOTE_COUNT % 2)) -ne 0 ]; then
+                CRONTAB_ISSUES="${CRONTAB_ISSUES}• 引号未闭合: ${cline:0:60}...\n"
+            fi
+        fi
+    done < <(crontab -l 2>/dev/null)
+
+    if [ -n "$CRONTAB_ISSUES" ]; then
+        echo "$(date) 🔴 crontab 语法异常:" >> "$LOG"
+        echo -e "$CRONTAB_ISSUES" >> "$LOG"
+        CRON_MSG="🔴 Crontab 语法异常（自动检测）：
+${CRONTAB_ISSUES}
+请立即检查: crontab -l"
+        openclaw message send --target "${OPENCLAW_PHONE:-+85200000000}" --message "$CRON_MSG" --json >/dev/null 2>&1 || true
+    fi
 fi
 
 # ── 4. 按需重启服务 ──────────────────────────────────────────────────
