@@ -1,6 +1,6 @@
 # CLAUDE.md — openclaw-model-bridge 项目背景
 
-> 每次新会话开始时自动读取。当前版本：v28（2026-03-11）
+> 每次新会话开始时自动读取。当前版本：v28.1（2026-03-12）
 
 ---
 
@@ -9,18 +9,78 @@
 将任意大模型（当前：Qwen3-235B）接入 OpenClaw（WhatsApp AI助手框架）的双层中间件。
 运行于 Mac Mini (macOS)，用户：bisdom。
 
-## 架构
+## 系统架构总览
 
 ```
-WhatsApp <-> OpenClaw Gateway (18789) <-> Tool Proxy (5002) <-> Adapter (5001) <-> 远程GPU API
+┌─────────────────────────────────────────────────────────────────────┐
+│                        用户层 (WhatsApp)                            │
+└────────────────────────────┬────────────────────────────────────────┘
+                             │
+┌────────────────────────────▼────────────────────────────────────────┐
+│  ① 核心数据通路（实时对话）                                          │
+│                                                                     │
+│  WhatsApp ←→ Gateway (:18789) ←→ Tool Proxy (:5002) ←→ Adapter (:5001) ←→ 远程GPU  │
+│              [launchd管理]        [策略过滤+监控]       [认证+转发]     [Qwen3-235B] │
+│                  │                    │                    │                        │
+│                  │               /health ──→ /health       │                        │
+│                  │               /stats (token监控)        │                        │
+│                  │                    │                    │                        │
+└──────────────────┼────────────────────┼────────────────────┼────────────────────────┘
+                   │                    │                    │
+┌──────────────────▼────────────────────▼────────────────────▼────────────────────────┐
+│  ② 定时任务层（system crontab，不经过 LLM 链路）                                     │
+│                                                                                     │
+│  每3h    ArXiv论文监控 ──→ KB写入 + WhatsApp推送                                     │
+│  每3h    HN热帖抓取 ──→ KB写入 + WhatsApp推送                                        │
+│  每天×3  货代Watcher ──→ LLM分析(直接curl) + KB写入 + WhatsApp推送                    │
+│  每天    OpenClaw Releases ──→ LLM富摘要 + KB写入 + WhatsApp推送                     │
+│  每小时  Issues监控 ──→ KB写入 + WhatsApp推送                                        │
+│  每天    KB晚间整理                                                                  │
+│  每周    KB跨笔记回顾                                                                │
+│  每周    健康周报 ──→ WhatsApp推送                                                    │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+                                       │
+┌──────────────────────────────────────▼──────────────────────────────────────────────┐
+│  ③ 监控层（多级自动告警）                                                            │
+│                                                                                     │
+│  每30min  wa_keepalive ──→ 真实发送零宽字符 ──→ 失败则记录日志                         │
+│  每小时   job_watchdog ──→ 检查所有job状态文件 + 日志扫描 ──→ 超时/失败→WhatsApp告警   │
+│  实时     proxy_stats ──→ token用量 + 连续错误计数 ──→ 阈值告警                       │
+│  /health  三层健康端点：Gateway(:18789) → Proxy(:5002) → Adapter(:5001)              │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+                                       │
+┌──────────────────────────────────────▼──────────────────────────────────────────────┐
+│  ④ DevOps层（自动部署 + 体检）                                                       │
+│                                                                                     │
+│  GitHub (main) ──→ auto_deploy.sh (每2min轮询)                                      │
+│                     ├─ git fetch + pull                                              │
+│                     ├─ 单测验证（proxy_filters变更时）                                 │
+│                     ├─ 文件同步（仓库→运行时，17个文件映射）                            │
+│                     ├─ 每小时漂移检测（md5全量比对）                                   │
+│                     ├─ 按需restart（核心服务文件变更时）                                │
+│                     └─ preflight_check.sh --full（部署后自动体检 9项）                 │
+│                         ├─ 单元测试 (proxy_filters + registry)                       │
+│                         ├─ 注册表校验                                                │
+│                         ├─ 文档漂移检测                                              │
+│                         ├─ 脚本语法 + 权限检查                                       │
+│                         ├─ Python语法检查                                            │
+│                         ├─ 部署文件一致性（仓库 vs 运行时）                            │
+│                         ├─ 环境变量检查（bash -lc 模拟cron）                          │
+│                         ├─ 服务连通性（5001/5002/18789）                              │
+│                         └─ 安全扫描（API key + 手机号泄漏）                           │
+│                                                                                     │
+│  开发流程：Claude Code → claude/分支 → GitHub PR → main → auto_deploy → Mac Mini     │
+└─────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-| 组件 | 端口 | 文件 | 功能 |
-|------|------|------|------|
-| OpenClaw Gateway | 18789 | npm全局安装 | WhatsApp接入、工具执行 |
-| Tool Proxy | 5002 | `~/tool_proxy.py` + `~/proxy_filters.py` | 工具过滤(24→12)、Schema简化、SSE转换、截断 |
-| Adapter | 5001 | `~/adapter.py` | 转发远程GPU、认证、参数过滤 |
-| 远程GPU | — | hkagentx.hkopenlab.com | Qwen3-235B推理 |
+### 核心组件详情
+
+| 组件 | 端口 | 文件 | 功能 | 进程管理 |
+|------|------|------|------|----------|
+| OpenClaw Gateway | 18789 | npm全局安装 | WhatsApp接入、工具执行、会话管理 | launchd (KeepAlive) |
+| Tool Proxy | 5002 | `tool_proxy.py` + `proxy_filters.py` | 工具过滤(24→12)、Schema简化、SSE转换、截断、token监控 | launchd plist |
+| Adapter | 5001 | `adapter.py` | 多Provider转发(Qwen/OpenAI/Gemini/Claude)、认证、/health端点 | launchd plist |
+| 远程GPU | — | hkagentx.hkopenlab.com | Qwen3-235B推理 (262K context) | 外部服务 |
 
 ## 关键文件（本仓库）
 
@@ -75,7 +135,18 @@ WhatsApp <-> OpenClaw Gateway (18789) <-> Tool Proxy (5002) <-> Adapter (5001) <
 5. **开发流程明确化**：Claude Code 只推 `claude/` 分支，Mac Mini 只从 main 拉取，写入 CLAUDE.md 原则
 6. **WhatsApp CLI 语法修复**：3个脚本从废弃的 `--channel whatsapp -t -m` 改为 `--target --message --json`
 7. **stderr 可观测性**：8个 job 脚本从 `2>&1` 改为 `2>"$SEND_ERR"`，失败时记录具体错误
-8. **WhatsApp session 保活**：`wa_keepalive.sh` 每30分钟 dry-run 探测，防止手机休眠导致 session 断连
+8. **WhatsApp session 保活**：`wa_keepalive.sh` 每30分钟真实发送验证，防止手机休眠导致 session 断连
+
+## V28.1 变更摘要（2026-03-12）
+
+1. **adapter.py /health 端点**：新增本地健康检查拦截，不再转发到远程GPU（修复502误报）
+2. **tool_proxy.py /health 端点**：新增级联健康检查（proxy自身 + adapter连通性），返回 `{"ok":true,"proxy":true,"adapter":true}`
+3. **job_watchdog.sh 日志扫描**：新增最近1小时推送失败检测（不依赖status_file），覆盖之前的监控盲区
+4. **wa_keepalive.sh 真实发送**：从无效的 `--dry-run` 改为发送零宽字符消息，真正验证WhatsApp通道可用性
+5. **preflight_check.sh 全面体检**：9项自动化检查（单测+注册表+语法+部署一致性+环境变量+连通性+安全扫描）
+6. **auto_deploy.sh 部署后体检**：每次部署后自动运行 `preflight_check.sh --full`，失败推 WhatsApp 告警
+7. **环境变量修复**：`OPENCLAW_PHONE` + `REMOTE_API_KEY` 同步到 `~/.bash_profile`（修复 cron 环境缺失）
+8. **架构图全面更新**：四层架构（数据通路→定时任务→监控→DevOps）完整可视化
 
 ## 常用命令
 
