@@ -45,13 +45,13 @@ jobs:
   # ---- openclaw cron 任务（经过 LLM 链路） ----
 
   - id: freight_watcher
-    scheduler: openclaw
+    scheduler: system
     entry: jobs/freight_watcher/run_freight.sh
     interval: "0 8,14,20 * * *"     # 每天 08:00/14:00/20:00
     log: ~/freight_watcher.log
     needs_api_key: true
     enabled: true
-    description: 货代 Watcher，抓取航运动态
+    description: 货代 Watcher，抓取航运动态（系统crontab触发，脚本内直接curl LLM）
 
   - id: openclaw_run
     scheduler: system
@@ -62,14 +62,7 @@ jobs:
     enabled: true
     description: OpenClaw Releases Watcher（版本更新+LLM中文摘要）
 
-  - id: openclaw_discussions
-    scheduler: openclaw
-    entry: jobs/openclaw_official/run_discussions.sh
-    interval: ""
-    log: ~/.openclaw/logs/jobs/openclaw_discussions.log
-    needs_api_key: true
-    enabled: false                   # 已由 run_discussions (system cron, 每时15分) 统一处理
-    description: GitHub Issues 监控（冗余条目，实际由 run_discussions system cron 执行）
+  # openclaw_discussions 已删除 — 与 run_discussions (id: run_discussions) 完全重复
 
   - id: kb_review
     scheduler: openclaw
