@@ -23,7 +23,9 @@ test -f "$KB_INBOX" || echo "# INBOX" > "$KB_INBOX"
 
 # 去掉 -f：HTTP 错误不再触发 set -e 静默退出，改为手动检测
 if ! curl -sSL --max-time 30 "$FEED_URL" -o "$FEED_FILE" 2>"$CACHE/curl_feed.err"; then
-  log "ERROR: curl 抓取 discussions.atom 失败: $(head -1 "$CACHE/curl_feed.err" 2>/dev/null)"
+  ERR_MSG="⚠️ Discussions Watcher 抓取失败（$(TZ=Asia/Hong_Kong date '+%H:%M')）: $(head -1 "$CACHE/curl_feed.err" 2>/dev/null)"
+  log "ERROR: $ERR_MSG"
+  openclaw message send --target "$TO" --message "$ERR_MSG" --json >/dev/null 2>&1 || true
   printf '{"time":"%s","status":"fetch_failed","new":0}\n' "$TS" > "$STATUS_FILE"
   exit 1
 fi
@@ -81,8 +83,8 @@ while IFS='|' read -r title url date; do
 原标题：${title}
 链接：${url}"
 
-    # 规则 #8: 纯推理直接 curl adapter，禁止用 openclaw agent（#94教训）
-    ENRICH="$(curl -sS --max-time 30 http://localhost:5001/v1/chat/completions \
+    # 规则 #27: 纯推理直接 curl proxy:5002，禁止用 openclaw agent（#94教训）
+    ENRICH="$(curl -sS --max-time 30 http://localhost:5002/v1/chat/completions \
       -H 'Content-Type: application/json' \
       -d "$(jq -nc --arg p "$PROMPT" '{model:"any",messages:[{role:"user",content:$p}],max_tokens:200}')" \
       2>"$CACHE/curl_discussions.err" | jq -r '.choices[0].message.content // empty' 2>/dev/null || true)"
