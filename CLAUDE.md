@@ -43,7 +43,8 @@ WhatsApp <-> OpenClaw Gateway (18789) <-> Tool Proxy (5002) <-> Adapter (5001) <
 | `test_check_registry.py` | **V28新增** check_registry.py 单测（18个用例） |
 | `gen_jobs_doc.py` | **V28新增** 从 registry 自动生成任务文档 + 漂移检测 |
 | `smoke_test.sh` | **V28新增** 端到端 smoke test（单测+注册表+连通性） |
-| `wa_keepalive.sh` | **V28新增** WhatsApp session 保活（每30分钟 dry-run 探测） |
+| `wa_keepalive.sh` | **V28新增** WhatsApp session 保活（每30分钟真实发送验证） |
+| `preflight_check.sh` | **V28新增** 收工前全面体检（9项检查：单测+注册表+语法+部署一致性+环境变量+连通性+安全扫描） |
 | `docs/config.md` | 完整系统配置文档（含所有历史变更） |
 | `docs/GUIDE.md` | 完整中英文集成指南 |
 
@@ -98,6 +99,11 @@ python3 check_registry.py
 
 # 一键 smoke test（单测+注册表+连通性）
 bash smoke_test.sh
+
+# 收工前全面体检（dev 环境）
+bash preflight_check.sh
+# 收工前全面体检（Mac Mini，含部署一致性+环境变量+连通性）
+bash preflight_check.sh --full
 
 # 生成任务文档 / 检测文档漂移
 python3 gen_jobs_doc.py           # 输出 markdown 表格
@@ -161,7 +167,7 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 <summary>展开查看完整原则列表（13条）</summary>
 
 **操作类**
-- **收工全量同步** — "今天工作结束" → 扫描全部文档同步当日变更 → 安全扫描 → 提交推送
+- **收工全量同步** — "今天工作结束" → `bash preflight_check.sh` 全面体检 → 扫描全部文档同步当日变更 → 提交推送
 - **每日文档刷新** — `CLAUDE.md` + `docs/config.md` 在开工/收工时强制 read → write
 - **纯推理绕过Gateway** — 不需要工具的LLM任务直接 curl 调 API，禁止用 `openclaw agent`（#94）
 - **macOS sed禁用OR语法** — `\|` 在 BSD sed 不支持，用 Python 替代

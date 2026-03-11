@@ -1,0 +1,300 @@
+#!/bin/bash
+# preflight_check.sh — 收工前全面体检（V28新增）
+# 在"结束今天的工作"前运行，系统性验证所有 job、配置、环境变量、部署一致性
+# 用法：bash preflight_check.sh           （本地 dev 环境，跳过网络检查）
+#       bash preflight_check.sh --full     （Mac Mini 上运行，含连通性+WhatsApp验证）
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+cd "$SCRIPT_DIR"
+
+FULL_MODE=false
+[ "${1:-}" = "--full" ] && FULL_MODE=true
+
+PASS=0
+FAIL=0
+WARN=0
+SKIP=0
+
+pass() { echo "  ✅ $1"; PASS=$((PASS + 1)); }
+fail() { echo "  ❌ $1"; FAIL=$((FAIL + 1)); }
+warn() { echo "  ⚠️  $1"; WARN=$((WARN + 1)); }
+skip() { echo "  ⏭  $1 (skipped, use --full)"; SKIP=$((SKIP + 1)); }
+
+echo "=== Preflight Check $(date '+%Y-%m-%d %H:%M:%S') ==="
+echo "Mode: $([ "$FULL_MODE" = true ] && echo 'FULL (Mac Mini)' || echo 'DEV (repo only)')"
+echo ""
+
+# ── 1. 单元测试 ──────────────────────────────────────────────────────
+echo "📋 1/9 单元测试"
+
+if python3 test_tool_proxy.py > /dev/null 2>&1; then
+    pass "proxy_filters 单测 (test_tool_proxy.py)"
+else
+    fail "proxy_filters 单测失败"
+fi
+
+if python3 test_check_registry.py > /dev/null 2>&1; then
+    pass "registry 校验器单测 (test_check_registry.py)"
+else
+    fail "registry 校验器单测失败"
+fi
+
+# ── 2. 注册表校验 ─────────────────────────────────────────────────────
+echo ""
+echo "📋 2/9 注册表校验"
+
+if python3 check_registry.py > /dev/null 2>&1; then
+    pass "jobs_registry.yaml 校验通过"
+else
+    fail "jobs_registry.yaml 校验失败（运行 python3 check_registry.py 查看详情）"
+fi
+
+# ── 3. 文档漂移检测 ───────────────────────────────────────────────────
+echo ""
+echo "📋 3/9 文档漂移检测"
+
+if python3 gen_jobs_doc.py --check > /dev/null 2>&1; then
+    pass "docs/config.md 与 registry 一致"
+else
+    warn "docs/config.md 与 registry 不一致（运行 python3 gen_jobs_doc.py --check 查看）"
+fi
+
+# ── 4. 脚本语法检查 + 权限检查 ────────────────────────────────────────
+echo ""
+echo "📋 4/9 脚本语法 & 权限"
+
+# 从 registry 提取所有 enabled 的 entry 文件
+SCRIPT_FILES=$(python3 -c "
+import yaml
+with open('jobs_registry.yaml') as f:
+    data = yaml.safe_load(f)
+for j in data.get('jobs', []):
+    if j.get('enabled', False):
+        print(j['entry'])
+" 2>/dev/null || echo "")
+
+if [ -z "$SCRIPT_FILES" ]; then
+    warn "无法解析 jobs_registry.yaml（缺少 PyYAML？）"
+else
+    while IFS= read -r script; do
+        [ -z "$script" ] && continue
+        script_path="$SCRIPT_DIR/$script"
+
+        if [ ! -f "$script_path" ]; then
+            fail "$script: 文件不存在"
+            continue
+        fi
+
+        # 语法检查（bash -n 只解析不执行）
+        if bash -n "$script_path" 2>/dev/null; then
+            pass "$script: 语法正确"
+        else
+            fail "$script: bash 语法错误"
+        fi
+
+        # 可执行权限（仅在 --full 模式下 warn，因为 cron 通常用 bash xxx.sh 调用）
+        if [ ! -x "$script_path" ]; then
+            warn "$script: 缺少可执行权限（chmod +x 修复）"
+        fi
+    done <<< "$SCRIPT_FILES"
+fi
+
+# 额外检查非 registry 管理但重要的脚本（排除已在 registry 中检查过的）
+for extra in restart.sh smoke_test.sh preflight_check.sh; do
+    if [ -f "$SCRIPT_DIR/$extra" ]; then
+        if bash -n "$SCRIPT_DIR/$extra" 2>/dev/null; then
+            pass "$extra: 语法正确"
+        else
+            fail "$extra: bash 语法错误"
+        fi
+    fi
+done
+
+# ── 5. Python 文件语法检查 ────────────────────────────────────────────
+echo ""
+echo "📋 5/9 Python 语法检查"
+
+for pyfile in adapter.py tool_proxy.py proxy_filters.py check_registry.py gen_jobs_doc.py; do
+    if [ -f "$SCRIPT_DIR/$pyfile" ]; then
+        if python3 -c "import ast; ast.parse(open('$pyfile').read())" 2>/dev/null; then
+            pass "$pyfile: 语法正确"
+        else
+            fail "$pyfile: Python 语法错误"
+        fi
+    fi
+done
+
+# ── 6. 部署文件一致性检查（仓库 vs 运行时副本）────────────────────────
+echo ""
+echo "📋 6/9 部署文件一致性"
+
+if $FULL_MODE; then
+    # FILE_MAP from auto_deploy.sh
+    declare -a FILE_MAP=(
+        "proxy_filters.py|$HOME/proxy_filters.py"
+        "tool_proxy.py|$HOME/tool_proxy.py"
+        "adapter.py|$HOME/adapter.py"
+        "restart.sh|$HOME/restart.sh"
+        "health_check.sh|$HOME/health_check.sh"
+        "kb_write.sh|$HOME/kb_write.sh"
+        "kb_review.sh|$HOME/kb_review.sh"
+        "kb_evening.sh|$HOME/kb_evening.sh"
+        "kb_save_arxiv.sh|$HOME/kb_save_arxiv.sh"
+        "job_watchdog.sh|$HOME/job_watchdog.sh"
+        "wa_keepalive.sh|$HOME/wa_keepalive.sh"
+        "run_hn_fixed.sh|$HOME/.openclaw/jobs/hn_watcher/run_hn_fixed.sh"
+        "jobs/openclaw_official/run.sh|$HOME/.openclaw/jobs/openclaw_official/run.sh"
+        "jobs/openclaw_official/run_discussions.sh|$HOME/.openclaw/jobs/openclaw_official/run_discussions.sh"
+        "jobs/freight_watcher/run_freight.sh|$HOME/.openclaw/jobs/freight_watcher/run_freight.sh"
+        "jobs/arxiv_monitor/run_arxiv.sh|$HOME/.openclaw/jobs/arxiv_monitor/run_arxiv.sh"
+    )
+
+    DRIFT_COUNT=0
+    for mapping in "${FILE_MAP[@]}"; do
+        SRC="${mapping%%|*}"
+        DST="${mapping##*|}"
+
+        if [ ! -f "$SCRIPT_DIR/$SRC" ]; then
+            continue
+        fi
+
+        if [ ! -f "$DST" ]; then
+            fail "$SRC: 运行时副本不存在 ($DST)"
+            DRIFT_COUNT=$((DRIFT_COUNT + 1))
+            continue
+        fi
+
+        # md5 比对（兼容 macOS 和 Linux）
+        HASH_SRC=$(md5 -q "$SCRIPT_DIR/$SRC" 2>/dev/null || md5sum "$SCRIPT_DIR/$SRC" | cut -d' ' -f1)
+        HASH_DST=$(md5 -q "$DST" 2>/dev/null || md5sum "$DST" | cut -d' ' -f1)
+
+        if [ "$HASH_SRC" != "$HASH_DST" ]; then
+            fail "$SRC: 仓库与运行时不一致（需运行 auto_deploy 或手动 cp）"
+            DRIFT_COUNT=$((DRIFT_COUNT + 1))
+        fi
+    done
+
+    if [ "$DRIFT_COUNT" -eq 0 ]; then
+        pass "所有部署文件与仓库一致"
+    fi
+else
+    skip "部署文件一致性（需在 Mac Mini 上验证）"
+fi
+
+# ── 7. 环境变量检查（bash -lc 模拟 cron 环境）────────────────────────
+echo ""
+echo "📋 7/9 环境变量检查（cron 环境模拟）"
+
+if $FULL_MODE; then
+    # 模拟 cron 调用方式：bash -lc 读取 ~/.bash_profile
+    REQUIRED_VARS=(
+        "REMOTE_API_KEY|adapter.py 远程 GPU 认证"
+        "OPENCLAW_PHONE|WhatsApp 推送目标号码"
+    )
+
+    for entry in "${REQUIRED_VARS[@]}"; do
+        VAR_NAME="${entry%%|*}"
+        VAR_DESC="${entry##*|}"
+
+        VAL=$(bash -lc "echo \${$VAR_NAME:-}" 2>/dev/null)
+        if [ -n "$VAL" ]; then
+            # 只显示前4位和后4位，保护敏感信息
+            if [ ${#VAL} -gt 8 ]; then
+                MASKED="${VAL:0:4}...${VAL: -4}"
+            else
+                MASKED="***"
+            fi
+            pass "$VAR_NAME ($VAR_DESC) = $MASKED"
+        else
+            fail "$VAR_NAME ($VAR_DESC) 在 bash -lc 环境中未设置（检查 ~/.bash_profile）"
+        fi
+    done
+
+    # 检查 PATH 包含 homebrew
+    HAS_BREW=$(bash -lc 'command -v brew >/dev/null 2>&1 && echo yes || echo no' 2>/dev/null)
+    if [ "$HAS_BREW" = "yes" ]; then
+        pass "bash -lc PATH 包含 Homebrew"
+    else
+        warn "bash -lc PATH 不包含 Homebrew（某些工具可能找不到）"
+    fi
+else
+    skip "环境变量检查（需在 Mac Mini 上验证）"
+fi
+
+# ── 8. 服务连通性检查 ─────────────────────────────────────────────────
+echo ""
+echo "📋 8/9 服务连通性"
+
+if $FULL_MODE; then
+    # Adapter :5001
+    ADAPTER_RESP=$(curl -s --max-time 5 http://localhost:5001/health 2>/dev/null) && RC=0 || RC=$?
+    if [ $RC -eq 0 ] && echo "$ADAPTER_RESP" | python3 -c "import json,sys; d=json.load(sys.stdin); assert d.get('ok')" 2>/dev/null; then
+        pass "Adapter :5001 /health OK"
+    else
+        fail "Adapter :5001 /health 异常 (response: ${ADAPTER_RESP:-timeout})"
+    fi
+
+    # Tool Proxy :5002
+    PROXY_RESP=$(curl -s --max-time 5 http://localhost:5002/health 2>/dev/null) && RC=0 || RC=$?
+    if [ $RC -eq 0 ] && echo "$PROXY_RESP" | python3 -c "import json,sys; d=json.load(sys.stdin); assert d.get('ok')" 2>/dev/null; then
+        pass "Tool Proxy :5002 /health OK"
+    else
+        fail "Tool Proxy :5002 /health 异常 (response: ${PROXY_RESP:-timeout})"
+    fi
+
+    # Gateway :18789
+    GW_CODE=$(curl -s --max-time 5 -o /dev/null -w '%{http_code}' http://localhost:18789 2>/dev/null) || true
+    if [ "$GW_CODE" -ge 200 ] 2>/dev/null && [ "$GW_CODE" -lt 400 ] 2>/dev/null; then
+        pass "Gateway :18789 可达 (HTTP $GW_CODE)"
+    else
+        fail "Gateway :18789 不可达 (HTTP ${GW_CODE:-000})"
+    fi
+else
+    skip "服务连通性（需在 Mac Mini 上验证）"
+fi
+
+# ── 9. 安全扫描（push 前必扫）────────────────────────────────────────
+echo ""
+echo "📋 9/9 安全扫描"
+
+# API Key 泄漏检查
+LEAK_SK=$(grep -r "sk-[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*.md" 2>/dev/null | grep -v ".git" | grep -v "sk-REPLACE-ME" | grep -v "sk-xxxx" | grep -v "sk-X83H" || true)
+LEAK_BSA=$(grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*.md" 2>/dev/null | grep -v ".git" | grep -v "BSAxxx" || true)
+
+if [ -z "$LEAK_SK" ] && [ -z "$LEAK_BSA" ]; then
+    pass "无 API Key 泄漏"
+else
+    fail "检测到可能的 API Key 泄漏！"
+    [ -n "$LEAK_SK" ] && echo "      sk-* 匹配: $LEAK_SK"
+    [ -n "$LEAK_BSA" ] && echo "      BSA* 匹配: $LEAK_BSA"
+fi
+
+# 真实手机号检查（排除占位号）
+LEAK_PHONE=$(grep -rn "+852[0-9]\{8\}" . --include="*.py" --include="*.sh" --include="*.md" 2>/dev/null | grep -v ".git" | grep -v "+85200000000" || true)
+if [ -z "$LEAK_PHONE" ]; then
+    pass "无真实手机号泄漏"
+else
+    fail "检测到真实手机号！"
+    echo "      $LEAK_PHONE"
+fi
+
+# ── 汇总 ──────────────────────────────────────────────────────────────
+echo ""
+echo "═══════════════════════════════════════"
+echo "  通过: $PASS | 失败: $FAIL | 警告: $WARN | 跳过: $SKIP"
+echo "═══════════════════════════════════════"
+
+if [ $FAIL -gt 0 ]; then
+    echo ""
+    echo "❌ PREFLIGHT FAILED: $FAIL 项检查未通过，请修复后再提交"
+    exit 1
+elif [ $WARN -gt 0 ]; then
+    echo ""
+    echo "⚠️  PASSED WITH WARNINGS: 建议处理 $WARN 条警告"
+    exit 0
+else
+    echo ""
+    echo "✅ ALL CLEAR — 可以安全提交"
+    exit 0
+fi
