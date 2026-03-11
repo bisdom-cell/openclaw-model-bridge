@@ -95,6 +95,7 @@ declare -a FILE_MAP=(
     "kb_evening.sh|$HOME/kb_evening.sh"
     "kb_save_arxiv.sh|$HOME/kb_save_arxiv.sh"
     "job_watchdog.sh|$HOME/job_watchdog.sh"
+    "wa_keepalive.sh|$HOME/wa_keepalive.sh"
 
     # 独立 Watcher 脚本
     "run_hn_fixed.sh|$HOME/.openclaw/jobs/hn_watcher/run_hn_fixed.sh"
@@ -221,4 +222,25 @@ fi
 if $HAS_NEW_COMMITS; then
     NEW_COMMIT=$(git rev-parse --short HEAD)
     echo "$(date) ✅ 部署完成 (branch: $BRANCH, commit: $NEW_COMMIT, synced: $SYNCED files, restart: $NEED_RESTART)" >> "$LOG"
+
+    # ── 5. 部署后自动体检 ──────────────────────────────────────────────
+    PREFLIGHT="$REPO_DIR/preflight_check.sh"
+    if [ -f "$PREFLIGHT" ]; then
+        echo "$(date) 运行 preflight_check..." >> "$LOG"
+        PREFLIGHT_OUT=$(bash "$PREFLIGHT" --full 2>&1) && PREFLIGHT_RC=0 || PREFLIGHT_RC=$?
+        if [ $PREFLIGHT_RC -ne 0 ]; then
+            # 提取失败项（只保留 ❌ 行）
+            FAIL_LINES=$(echo "$PREFLIGHT_OUT" | grep "❌" | head -10)
+            ALERT_MSG="🔴 部署后体检失败 (commit: $NEW_COMMIT)
+
+$FAIL_LINES
+
+详情：auto_deploy.log"
+            echo "$(date) ❌ preflight_check 失败:" >> "$LOG"
+            echo "$PREFLIGHT_OUT" >> "$LOG"
+            openclaw message send --target "${OPENCLAW_PHONE:-+85200000000}" --message "$ALERT_MSG" --json >/dev/null 2>&1 || true
+        else
+            echo "$(date) ✅ preflight_check 通过" >> "$LOG"
+        fi
+    fi
 fi
