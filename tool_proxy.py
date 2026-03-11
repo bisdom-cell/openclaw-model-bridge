@@ -49,6 +49,24 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
             self.wfile.write(stats)
             return
 
+        # /health 端点：检查 proxy 自身 + adapter 连通性
+        if self.path == "/health":
+            adapter_ok = False
+            try:
+                with urlopen(f"{BACKEND}/health", timeout=5) as resp:
+                    adapter_ok = resp.status == 200
+            except Exception:
+                pass
+            status = {"ok": adapter_ok, "proxy": True, "adapter": adapter_ok}
+            code = 200 if adapter_ok else 503
+            body = json.dumps(status).encode()
+            self.send_response(code)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+
         url = f"{BACKEND}{self.path}"
         req = Request(url)
         try:

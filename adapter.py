@@ -69,6 +69,16 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
         log(fmt % args)
 
     def do_GET(self):
+        # Local health check — never forward to remote
+        if self.path in ("/health", "/v1/health"):
+            resp = json.dumps({"ok": True, "provider": PROVIDER_NAME, "model": REAL_MODEL_ID}).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(resp)))
+            self.end_headers()
+            self.wfile.write(resp)
+            return
+
         path = self.path.replace("/v1", "", 1) if self.path.startswith("/v1") else self.path
         url = f"{TARGET_BASE}{path}"
         log(f"GET {url}")
