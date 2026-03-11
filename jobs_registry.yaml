@@ -62,15 +62,6 @@ jobs:
     enabled: true
     description: OpenClaw Releases Watcher（版本更新+LLM中文摘要）
 
-  - id: openclaw_blog
-    scheduler: openclaw
-    entry: jobs/openclaw_official/run_blog.sh
-    interval: "0 * * * *"             # 每小时整点
-    log: ~/.openclaw/logs/jobs/openclaw_blog.log
-    needs_api_key: true
-    enabled: true
-    description: Blog 自动发布
-
   - id: openclaw_discussions
     scheduler: openclaw
     entry: jobs/openclaw_official/run_discussions.sh

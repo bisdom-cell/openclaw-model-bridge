@@ -9,9 +9,6 @@ JOB_DIR="$ROOT/jobs/openclaw_official"
 
 FETCH="$JOB_DIR/fetch_github_releases.sh"
 FORMAT_PY="$JOB_DIR/format_github_releases.py"
-FETCH_BLOG="$JOB_DIR/fetch_official_blog.sh"
-PARSE_BLOG="$JOB_DIR/parse_official_blog.py"
-
 STATE="$JOB_DIR/state.json"
 CACHE_DIR="$JOB_DIR/cache"
 MSG="$CACHE_DIR/system_message.txt"
@@ -37,22 +34,8 @@ if [ ! -f "$KB_INBOX" ]; then
   echo "# INBOX" > "$KB_INBOX"
 fi
 
-# fetch 脚本失败时告警（修复静默失败：两个 fetch 都失败时应报错而非假装成功）
-ATOM_PATH=""
-BLOG_HTML=""
-FETCH_RELEASES_OK=true
-FETCH_BLOG_OK=true
 if ! ATOM_PATH="$("$FETCH" 2>"$CACHE_DIR/fetch_releases.err")"; then
-  log "WARN: fetch_github_releases failed: $(head -1 "$CACHE_DIR/fetch_releases.err" 2>/dev/null)"
-  FETCH_RELEASES_OK=false
-fi
-if ! BLOG_HTML="$("$FETCH_BLOG" 2>"$CACHE_DIR/fetch_blog.err")"; then
-  log "WARN: fetch_official_blog failed: $(head -1 "$CACHE_DIR/fetch_blog.err" 2>/dev/null)"
-  FETCH_BLOG_OK=false
-fi
-# 两个数据源都失败 → 推送 WhatsApp 告警（防止静默失败无人知）
-if ! $FETCH_RELEASES_OK && ! $FETCH_BLOG_OK; then
-  ERR_MSG="⚠️ OpenClaw Releases+Blog 双源抓取失败（$(TZ=Asia/Hong_Kong date '+%H:%M')）。Releases: $(head -1 "$CACHE_DIR/fetch_releases.err" 2>/dev/null). Blog: $(head -1 "$CACHE_DIR/fetch_blog.err" 2>/dev/null)"
+  ERR_MSG="⚠️ OpenClaw Releases 抓取失败（$(TZ=Asia/Hong_Kong date '+%H:%M')）: $(head -1 "$CACHE_DIR/fetch_releases.err" 2>/dev/null)"
   log "ERROR: $ERR_MSG"
   TO="${OPENCLAW_PHONE:-+85200000000}"
   openclaw message send --target "$TO" --message "$ERR_MSG" --json >/dev/null 2>&1 || true
@@ -103,29 +86,12 @@ done < "$JSONL_FILE"
 
 rm -f "$JSONL_FILE"
 
-# ── Blog 解析（必须在早退判断之前，否则 blog 更新永远被跳过）──
-blog_new_count=0
-blog_new_events_file="$(mktemp)"
-blog_all_file="$(mktemp)"
-if [ -n "$BLOG_HTML" ] && [ -f "$BLOG_HTML" ] && python3 "$PARSE_BLOG" "$BLOG_HTML" > "$blog_all_file" 2>"$CACHE_DIR/parse_blog.err"; then
-  while IFS= read -r ev; do
-    url="$(printf "%s\n" "$ev" | jq -r ".url // empty")"
-    [ -z "$url" ] && continue
-    if ! grep -Fq "$url" "$KB_INBOX" 2>/dev/null; then
-      printf "%s\n" "$ev" >> "$blog_new_events_file"
-      blog_new_count=$((blog_new_count+1))
-    fi
-  done < "$blog_all_file"
-else
-  log "WARN: parse_official_blog.py failed: $(head -1 "$CACHE_DIR/parse_blog.err" 2>/dev/null)"
-fi
-rm -f "$blog_all_file"
-log "releases_new=${new_count}, blog_new=${blog_new_count}"
+log "releases_new=${new_count}"
 
-if [ "$new_count" -eq 0 ] && [ "$blog_new_count" -eq 0 ]; then
+if [ "$new_count" -eq 0 ]; then
   log "no new updates."
   printf '{"time":"%s","status":"ok","new":0}\n' "$TS" > "$STATUS_FILE"
-  rm -f "$new_ids_file" "$new_events_file" "$blog_new_events_file"
+  rm -f "$new_ids_file" "$new_events_file"
   exit 0
 fi
 TO="${OPENCLAW_PHONE:-+85200000000}"
@@ -172,17 +138,6 @@ now_hkt="$(TZ=Asia/Hong_Kong date "+%Y-%m-%d %H:%M HKT")"
     echo ""
   done < "$new_events_file"
 
-  if [ "$blog_new_count" -gt 0 ]; then
-    echo "📝 官方博客"
-    echo ""
-    while IFS= read -r ev; do
-      ts="$(printf "%s\n" "$ev" | jq -r ".ts" | cut -dT -f1)"
-      title="$(printf "%s\n" "$ev" | jq -r ".title")"
-      url="$(printf "%s\n" "$ev" | jq -r ".url")"
-      echo "- ${title} | ${ts}"
-      echo "  链接：${url}"
-    done < "$blog_new_events_file"
-  fi
 } > "$MSG"
 
 day="$(TZ=Asia/Hong_Kong date "+%Y-%m-%d")"
@@ -217,18 +172,6 @@ while IFS= read -r ev; do
   fi
 done < "$new_events_file"
 
-# Blog -> INBOX (de-dup by URL)
-if [ "$blog_new_count" -gt 0 ]; then
-  while IFS= read -r ev; do
-    title="$(printf "%s\n" "$ev" | jq -r ".title")"
-    url="$(printf "%s\n" "$ev" | jq -r ".url")"
-    line="- [ ] (${day}) openclaw blog | ${title} | ${url}"
-    if ! grep -Fq "$url" "$KB_INBOX" 2>/dev/null; then
-      printf "\n%s\n" "$line" >> "$KB_INBOX"
-    fi
-  done < "$blog_new_events_file"
-fi
-
 add_json="$(jq -R . < "$new_ids_file" | jq -s .)"
 updated_seen="$(jq -c --argjson add "$add_json" --argjson seen "$seen_ids" "(\$add + \$seen)[:200]" <<< "{}")"
 
@@ -237,7 +180,7 @@ jq --arg last "$new_last_updated" --argjson seen "$updated_seen" \
   ".github_releases.last_updated=\$last | .github_releases.seen_ids=\$seen" "$STATE" > "$tmp"
 mv "$tmp" "$STATE"
 
-rm -f "$new_ids_file" "$new_events_file" "$blog_new_events_file"
+rm -f "$new_ids_file" "$new_events_file"
 
 echo "openclaw_official/github_releases: new=${new_count}, last_updated=${new_last_updated}"
 echo "system_message_saved=${MSG}"
@@ -251,11 +194,10 @@ rsync -a --quiet "$HOME/.kb/" "/Volumes/MOVESPEED/KB/" 2>/dev/null || true
 
 # OPTIONAL: announce hook (adapt to your environment)
 # "$ROOT/bin/announce.sh" < "$MSG"
-total_new=$((new_count + blog_new_count))
 if openclaw message send --target "$TO" --message "$(cat "$MSG")" --json >/dev/null 2>&1; then
-    log "已推送 ${total_new} 条更新（releases=${new_count}, blog=${blog_new_count}）"
-    printf '{"time":"%s","status":"ok","new":%d,"sent":true}\n' "$TS" "$total_new" > "$STATUS_FILE"
+    log "已推送 ${new_count} 条 releases 更新。"
+    printf '{"time":"%s","status":"ok","new":%d,"sent":true}\n' "$TS" "$new_count" > "$STATUS_FILE"
 else
-    log "ERROR: 推送失败（${total_new} 条待发），请检查 gateway。"
-    printf '{"time":"%s","status":"send_failed","new":%d,"sent":false}\n' "$TS" "$total_new" > "$STATUS_FILE"
+    log "ERROR: 推送失败（${new_count} 条待发），请检查 gateway。"
+    printf '{"time":"%s","status":"send_failed","new":%d,"sent":false}\n' "$TS" "$new_count" > "$STATUS_FILE"
 fi
