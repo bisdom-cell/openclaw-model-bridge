@@ -85,9 +85,50 @@ except Exception:
     esac
 done
 
+# ── Proxy 监控：token 用量 + 错误率 ──────────────────────────────────
+PROXY_STATS="$HOME/proxy_stats.json"
+if [ -f "$PROXY_STATS" ]; then
+    PROXY_CHECK=$(python3 -c "
+import json, time
+try:
+    with open('$PROXY_STATS') as f:
+        s = json.load(f)
+    alerts = []
+    # 连续错误检查
+    ce = s.get('consecutive_errors', 0)
+    if ce >= 3:
+        last_err = s.get('last_error', {})
+        alerts.append(f'Proxy 连续 {ce} 次错误 (HTTP {last_err.get(\"code\",\"?\")}: {last_err.get(\"msg\",\"\")[:60]})')
+    # Context 用量检查
+    pct = s.get('context_usage_pct', 0)
+    pt = s.get('last_prompt_tokens', 0)
+    if pct >= 90:
+        alerts.append(f'Qwen context 临界: {pt:,} tokens ({pct}% of 260K)')
+    elif pct >= 75:
+        alerts.append(f'Qwen context 预警: {pt:,} tokens ({pct}% of 260K)')
+    # stats 文件本身过期（proxy 可能挂了）
+    updated = s.get('updated', '')
+    if updated:
+        from datetime import datetime, timedelta
+        try:
+            ut = datetime.strptime(updated, '%Y-%m-%d %H:%M:%S')
+            if datetime.now() - ut > timedelta(hours=2):
+                alerts.append(f'proxy_stats.json 超过2小时未更新（proxy可能已停止）')
+        except ValueError:
+            pass
+    print('\\n'.join(alerts))
+except Exception as e:
+    print(f'proxy_stats.json 读取失败: {e}')
+" 2>/dev/null)
+
+    while IFS= read -r line; do
+        [ -n "$line" ] && ALERTS+=("$line")
+    done <<< "$PROXY_CHECK"
+fi
+
 # ── 汇总告警 ────────────────────────────────────────────────────────
 if [ ${#ALERTS[@]} -eq 0 ]; then
-    echo "[$TS] watchdog: 全部 ${#JOBS[@]} 个任务正常"
+    echo "[$TS] watchdog: 全部 ${#JOBS[@]} 个任务 + Proxy 监控正常"
     exit 0
 fi
 

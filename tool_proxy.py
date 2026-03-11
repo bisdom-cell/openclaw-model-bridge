@@ -2,14 +2,16 @@
 """
 tool_proxy.py — V27 HTTP 层
 策略逻辑已提取到 proxy_filters.py，本文件只负责 HTTP 收发和日志。
+V28: + token/error 监控（proxy_stats）
 """
-import http.server, socketserver, json, sys
+import http.server, socketserver, json, sys, subprocess, os
 from urllib.request import Request, urlopen
 
 from proxy_filters import (
     ALLOWED_TOOLS, ALLOWED_PREFIXES,
     is_allowed, filter_tools, truncate_messages,
     fix_tool_args, build_sse_response, should_strip_tools,
+    proxy_stats,
 )
 
 BACKEND = "http://127.0.0.1:5001"
@@ -19,11 +21,34 @@ def log(msg):
     print(f"[proxy] {msg}", flush=True)
 
 
+def _send_alert(msg):
+    """后台发送 WhatsApp 告警（不阻塞请求处理）。"""
+    try:
+        openclaw = os.environ.get("OPENCLAW", "/opt/homebrew/bin/openclaw")
+        phone = os.environ.get("OPENCLAW_PHONE", "+85200000000")
+        subprocess.Popen(
+            [openclaw, "message", "send", "--target", phone, "--message", msg, "--json"],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        )
+    except OSError:
+        log(f"WARN: Failed to send alert: {msg[:80]}")
+
+
 class ProxyHandler(http.server.BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
         log(fmt % args)
 
     def do_GET(self):
+        # /stats 端点：返回 proxy 监控数据
+        if self.path == "/stats":
+            stats = json.dumps(proxy_stats.get_stats_dict(), indent=2, ensure_ascii=False).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(stats)))
+            self.end_headers()
+            self.wfile.write(stats)
+            return
+
         url = f"{BACKEND}{self.path}"
         req = Request(url)
         try:
@@ -101,6 +126,21 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                             elif m.get("content"):
                                 log(f"TEXT: {len(str(m['content']))} chars")
 
+                        # Token 监控：记录 usage
+                        usage = rj.get("usage", {})
+                        if usage:
+                            pt = usage.get("prompt_tokens", 0)
+                            tt = usage.get("total_tokens", 0)
+                            log(f"TOKENS: prompt={pt:,} total={tt:,} ({pt*100//260000}% of 260K)")
+                            proxy_stats.record_success(usage)
+                        else:
+                            proxy_stats.record_success({})
+
+                        # 发送待处理告警
+                        for alert in proxy_stats.pop_alerts():
+                            log(f"ALERT: {alert}")
+                            _send_alert(alert)
+
                         if was_streaming:
                             sse_body = build_sse_response(rj)
                             self.send_response(200)
@@ -122,7 +162,17 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                 self.wfile.write(resp_body)
         except Exception as e:
             log(f"Backend error: {e}")
-            err = json.dumps({"error": str(e)}).encode()
+            # 记录错误到监控
+            error_code = 502
+            error_str = str(e)
+            if "403" in error_str:
+                error_code = 403
+            proxy_stats.record_error(error_code, error_str)
+            for alert in proxy_stats.pop_alerts():
+                log(f"ALERT: {alert}")
+                _send_alert(alert)
+
+            err = json.dumps({"error": error_str}).encode()
             self.send_response(502)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(err)))
