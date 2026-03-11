@@ -94,6 +94,7 @@ declare -a FILE_MAP=(
     "kb_review.sh|$HOME/kb_review.sh"
     "kb_evening.sh|$HOME/kb_evening.sh"
     "kb_save_arxiv.sh|$HOME/kb_save_arxiv.sh"
+    "job_watchdog.sh|$HOME/job_watchdog.sh"
 
     # 独立 Watcher 脚本
     "run_hn_fixed.sh|$HOME/.openclaw/jobs/hn_watcher/run_hn_fixed.sh"

@@ -84,6 +84,15 @@ jobs:
     enabled: true
     description: HackerNews 热帖抓取
 
+  - id: job_watchdog
+    scheduler: system
+    entry: job_watchdog.sh
+    interval: "30 * * * *"           # 每小时:30分
+    log: ~/job_watchdog.log
+    needs_api_key: false
+    enabled: true
+    description: 元监控 — 检查所有定时任务是否按时执行，超时则 WhatsApp 告警
+
   - id: gateway_watchdog
     scheduler: system
     entry: restart.sh
