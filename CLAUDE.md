@@ -1,6 +1,6 @@
 # CLAUDE.md — openclaw-model-bridge 项目背景
 
-> 每次新会话开始时自动读取。当前版本：v27.1（2026-03-10）
+> 每次新会话开始时自动读取。当前版本：v28（2026-03-11）
 
 ---
 
@@ -40,6 +40,9 @@ WhatsApp <-> OpenClaw Gateway (18789) <-> Tool Proxy (5002) <-> Adapter (5001) <
 | `kb_save_arxiv.sh` | ArXiv监控结果写入KB + rsync备份 |
 | `auto_deploy.sh` | **V27.1新增** 仓库→部署自动同步 + 漂移检测（md5全量比对+WhatsApp告警） |
 | `test_tool_proxy.py` | proxy_filters 单测（43个用例） |
+| `test_check_registry.py` | **V28新增** check_registry.py 单测（18个用例） |
+| `gen_jobs_doc.py` | **V28新增** 从 registry 自动生成任务文档 + 漂移检测 |
+| `smoke_test.sh` | **V28新增** 端到端 smoke test（单测+注册表+连通性） |
 | `docs/config.md` | 完整系统配置文档（含所有历史变更） |
 | `docs/GUIDE.md` | 完整中英文集成指南 |
 
@@ -61,6 +64,14 @@ WhatsApp <-> OpenClaw Gateway (18789) <-> Tool Proxy (5002) <-> Adapter (5001) <
 6. **漂移检测**：`auto_deploy.sh` 新增每小时全量 md5 比对 + WhatsApp 告警
 7. **每日文档刷新宪法**：CLAUDE.md 和 config.md 在"开始/结束今天的工作"时强制 read+write
 
+## V28 变更摘要（2026-03-11）
+
+1. **check_registry.py 单测**：`test_check_registry.py` 新增 18 个用例，覆盖 YAML 解析（含 inline comment、boolean、空文件）、validate()、FILE_MAP 完整性检查
+2. **原则精简分级**：34 条工作原则 → 5 条"每次必查" + 13 条"按需查阅"（折叠），降低认知负担
+3. **文档自动生成**：`gen_jobs_doc.py` 从 `jobs_registry.yaml` 自动生成任务表格 + `--check` 漂移检测模式
+4. **端到端 smoke test**：`smoke_test.sh` 一键验证单测 + 注册表 + 文档漂移 + 5002/5001 连通性
+5. **开发流程明确化**：Claude Code 只推 `claude/` 分支，Mac Mini 只从 main 拉取，写入 CLAUDE.md 原则
+
 ## 常用命令
 
 ```bash
@@ -76,9 +87,17 @@ bash ~/restart.sh
 
 # 运行单测
 python3 test_tool_proxy.py
+python3 test_check_registry.py
 
 # 校验任务注册表
 python3 check_registry.py
+
+# 一键 smoke test（单测+注册表+连通性）
+bash smoke_test.sh
+
+# 生成任务文档 / 检测文档漂移
+python3 gen_jobs_doc.py           # 输出 markdown 表格
+python3 gen_jobs_doc.py --check   # 对比 docs/config.md 检测漂移
 
 # 查询远端当前模型ID
 curl -s https://hkagentx.hkopenlab.com/v1/models \
@@ -120,29 +139,41 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 - 配置文档（含真实手机号/密钥）永不入库（已在 .gitignore）
 - 公开仓库手机号统一用 `+85200000000` 占位
 
-## 工作原则（精简版）
+## 工作原则
 
-### 🔴 宪法级（每日必做，无例外）
-0. **每日文档刷新** — `CLAUDE.md` + `docs/config.md` 在"开始今天的工作"和"结束今天的工作"时强制 read → 同步当日变更 → write。其他文档按需刷新。**此为工作宪法，每日必做。**
-1. **每次开始先读 `docs/config.md`** — 获取完整系统状态和历史踩坑
-2. **收工全量同步** — 用户说"今天工作结束"时，扫描全部文档（CLAUDE.md、docs/*.md、README.md等），同步当日变更，确保信息一致 → 安全扫描 → 提交推送
+### 🔴 每次必查（5条，优先级最高）
 
-### 🟡 操作原则
-3. **测试先于注册** — 新脚本必须手动验证后才能注册cron
-4. **任务先登记** — 新增定时任务必须先写入 `jobs_registry.yaml` 并校验通过
-5. **根因定位** — 多任务同时失败 → 第一反应检查远端模型ID
-6. **push前必扫描** — 见上方安全扫描命令
-7. **macOS sed禁用OR语法** — 用Python替代（`\|` 在BSD sed不支持）
-8. **回滚优先** — 线上故障 → 先 `git checkout v26-snapshot` 恢复，再排查
-9. **纯推理绕过Gateway** — 不需要工具的LLM任务直接curl调API，禁止用`openclaw agent`（会注入工具导致循环调用，#94）
-10. **禁用交互式编辑器** — 禁止触发 vim/nano 等交互式编辑器。git merge 用 `--no-edit`，commit 用 `-m`，rebase 禁用 `-i`。crontab 禁用 `crontab -e`，改用管道 `(crontab -l; echo '新行') | crontab -`。
-11. **分支合并由用户在GitHub操作** — 开发完成后推送到 `claude/xxx` 分支，**必须提醒用户去 GitHub 创建 PR 合并到 main**，用户在 Mac Mini 用 `git pull origin main --no-rebase --no-edit` 拉取。禁止在终端执行本地 merge。
+| # | 原则 | 一句话 |
+|---|------|--------|
+| 1 | **开工先读 config** | 读 `docs/config.md` 获取系统状态 + 踩坑记录，避免重复犯错 |
+| 2 | **改完先测** | 新脚本手动验证 → 新任务先写 `jobs_registry.yaml` 并 `python3 check_registry.py` 通过 → 才能注册 cron |
+| 3 | **push前必扫描** | 安全扫描（见上方命令）全部为空才允许 push |
+| 4 | **故障先回滚** | 线上故障 → `git checkout v26-snapshot` 恢复服务 → 再排查根因；多任务同时挂 → 先查远端模型ID |
+| 5 | **做减法不做加法** | 新增防护/监控前先问"谁已经在管这件事"；每加一层保险 = 多一个故障源（#95教训） |
 
-### 🟢 架构原则
-12. **进程管理单一主控** — 每个进程只能有一个生命周期管理者。Gateway 由 launchd (KeepAlive=true) 管理，禁止再加 cron watchdog 或其他自愈机制。双主控制必然导致互相干扰（#95教训）。
-13. **cron 脚本显式声明 PATH** — 所有 cron 调用的脚本首行必须 `export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"`。cron 环境与用户 shell 环境完全不同，禁止假设 PATH 已正确设置。
-14. **健康检查只检目标组件** — 健康检查应只检查目标组件本身（如 `curl localhost:18789`），不应走完整 LLM 链路。链路中任何一环超时都会误判为目标组件故障。
-15. **AI 生成的"保险机制"需审查** — AI 倾向于叠加防护层（watchdog、自愈、重试），但每加一层都可能与现有机制冲突。新增任何自愈/监控脚本前，必须先确认"谁已经在管这件事"。
+### 🟡 按需查阅（操作 & 架构参考）
+
+<details>
+<summary>展开查看完整原则列表（13条）</summary>
+
+**操作类**
+- **收工全量同步** — "今天工作结束" → 扫描全部文档同步当日变更 → 安全扫描 → 提交推送
+- **每日文档刷新** — `CLAUDE.md` + `docs/config.md` 在开工/收工时强制 read → write
+- **纯推理绕过Gateway** — 不需要工具的LLM任务直接 curl 调 API，禁止用 `openclaw agent`（#94）
+- **macOS sed禁用OR语法** — `\|` 在 BSD sed 不支持，用 Python 替代
+- **禁用交互式编辑器** — git merge 用 `--no-edit`，commit 用 `-m`，crontab 用管道
+- **分支合并由用户在GitHub操作** — 推送到 `claude/xxx` 分支 → 提醒用户创建 PR → 用户 `git pull origin main`
+
+**架构类**
+- **进程管理单一主控** — Gateway 由 launchd 管理，禁止再加 cron watchdog（#95）
+- **cron 脚本显式声明 PATH** — 首行 `export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"`
+- **健康检查只检目标组件** — `curl localhost:18789`，不走完整 LLM 链路
+- **`--thinking` 参数** — 合法值：`off, minimal, low, medium, high, adaptive`（禁止 `none`，#92）
+- **工具数量 <= 12** — 超出导致模型混乱；每任务工具调用 <= 2次
+- **双 cron 职责分工** — 确定性脚本用 system crontab；需 LLM 参与的用 openclaw cron
+- **开发流程** — Claude Code 只推 `claude/` 分支，Mac Mini 只从 main 拉取，避免双向提交同一分支
+
+</details>
 
 ## 当前待办（v27遗留）
 
