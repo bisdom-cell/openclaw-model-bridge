@@ -263,12 +263,15 @@ print(f"[arxiv] 消息组装完成: {len(papers)} 篇", file=sys.stderr)
 PYEOF
 
 # ── 6. 推送WhatsApp ─────────────────────────────────────────────────────
+# 消息过长时截断（WhatsApp 单条上限约 65000 字符，留 buffer 取 4000）
+MSG_CONTENT="$(head -c 4000 "$MSG_FILE")"
 SEND_ERR=$(mktemp)
-if "$OPENCLAW" message send --target "$TO" --message "$(cat "$MSG_FILE")" --json >/dev/null 2>"$SEND_ERR"; then
+if "$OPENCLAW" message send --target "$TO" --message "$MSG_CONTENT" --json >/dev/null 2>"$SEND_ERR"; then
     log "已推送 ${PAPER_COUNT} 篇论文"
     printf '{"time":"%s","status":"ok","new":%d,"sent":true}\n' "$TS" "$PAPER_COUNT" > "$STATUS_FILE"
 else
     log "ERROR: 推送失败（${PAPER_COUNT} 篇待发）: $(cat "$SEND_ERR" | head -3)"
+    log "MSG_FILE size: $(wc -c < "$MSG_FILE") bytes"
     printf '{"time":"%s","status":"send_failed","new":%d,"sent":false}\n' "$TS" "$PAPER_COUNT" > "$STATUS_FILE"
 fi
 
