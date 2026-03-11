@@ -64,13 +64,20 @@ fi
 echo ""
 echo "📋 4/9 脚本语法 & 权限"
 
-# 从 registry 提取所有 enabled 的 entry 文件
+# 从 registry 提取所有 enabled 的 entry 文件（兼容无 PyYAML 环境）
 SCRIPT_FILES=$(python3 -c "
-import yaml
-with open('jobs_registry.yaml') as f:
-    data = yaml.safe_load(f)
+import sys, os
+sys.path.insert(0, os.path.dirname(os.path.abspath('$SCRIPT_DIR/check_registry.py')))
+try:
+    import yaml
+    with open('jobs_registry.yaml') as f:
+        data = yaml.safe_load(f)
+except ImportError:
+    # 回退：用 check_registry 的 load_yaml
+    from check_registry import load_yaml
+    data = load_yaml('jobs_registry.yaml')
 for j in data.get('jobs', []):
-    if j.get('enabled', False):
+    if j.get('enabled', False) or j.get('enabled') == 'true':
         print(j['entry'])
 " 2>/dev/null || echo "")
 
@@ -258,9 +265,9 @@ fi
 echo ""
 echo "📋 9/9 安全扫描"
 
-# API Key 泄漏检查
-LEAK_SK=$(grep -r "sk-[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*.md" 2>/dev/null | grep -v ".git" | grep -v "sk-REPLACE-ME" | grep -v "sk-xxxx" | grep -v "sk-X83H" || true)
-LEAK_BSA=$(grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*.md" 2>/dev/null | grep -v ".git" | grep -v "BSAxxx" || true)
+# API Key 泄漏检查（只扫描 git 跟踪的文件，忽略 .gitignore 排除的本地配置）
+LEAK_SK=$(git grep -n "sk-[A-Za-z0-9]\{15,\}" -- "*.py" "*.sh" "*.md" 2>/dev/null | grep -v "sk-REPLACE-ME" | grep -v "sk-xxxx" | grep -v "sk-X83H" || true)
+LEAK_BSA=$(git grep -n "BSA[A-Za-z0-9]\{15,\}" -- "*.py" "*.sh" "*.md" 2>/dev/null | grep -v "BSAxxx" || true)
 
 if [ -z "$LEAK_SK" ] && [ -z "$LEAK_BSA" ]; then
     pass "无 API Key 泄漏"
@@ -270,8 +277,8 @@ else
     [ -n "$LEAK_BSA" ] && echo "      BSA* 匹配: $LEAK_BSA"
 fi
 
-# 真实手机号检查（排除占位号）
-LEAK_PHONE=$(grep -rn "+852[0-9]\{8\}" . --include="*.py" --include="*.sh" --include="*.md" 2>/dev/null | grep -v ".git" | grep -v "+85200000000" || true)
+# 真实手机号检查（排除占位号，只扫描 git 跟踪的文件）
+LEAK_PHONE=$(git grep -n "+852[0-9]\{8\}" -- "*.py" "*.sh" "*.md" 2>/dev/null | grep -v "+85200000000" || true)
 if [ -z "$LEAK_PHONE" ]; then
     pass "无真实手机号泄漏"
 else
