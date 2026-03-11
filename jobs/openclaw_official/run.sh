@@ -37,14 +37,27 @@ if [ ! -f "$KB_INBOX" ]; then
   echo "# INBOX" > "$KB_INBOX"
 fi
 
-# fetch 脚本失败时记录日志而非静默退出
+# fetch 脚本失败时告警（修复静默失败：两个 fetch 都失败时应报错而非假装成功）
 ATOM_PATH=""
 BLOG_HTML=""
+FETCH_RELEASES_OK=true
+FETCH_BLOG_OK=true
 if ! ATOM_PATH="$("$FETCH" 2>"$CACHE_DIR/fetch_releases.err")"; then
   log "WARN: fetch_github_releases failed: $(head -1 "$CACHE_DIR/fetch_releases.err" 2>/dev/null)"
+  FETCH_RELEASES_OK=false
 fi
 if ! BLOG_HTML="$("$FETCH_BLOG" 2>"$CACHE_DIR/fetch_blog.err")"; then
   log "WARN: fetch_official_blog failed: $(head -1 "$CACHE_DIR/fetch_blog.err" 2>/dev/null)"
+  FETCH_BLOG_OK=false
+fi
+# 两个数据源都失败 → 推送 WhatsApp 告警（防止静默失败无人知）
+if ! $FETCH_RELEASES_OK && ! $FETCH_BLOG_OK; then
+  ERR_MSG="⚠️ OpenClaw Releases+Blog 双源抓取失败（$(TZ=Asia/Hong_Kong date '+%H:%M')）。Releases: $(head -1 "$CACHE_DIR/fetch_releases.err" 2>/dev/null). Blog: $(head -1 "$CACHE_DIR/fetch_blog.err" 2>/dev/null)"
+  log "ERROR: $ERR_MSG"
+  TO="${OPENCLAW_PHONE:-+85200000000}"
+  openclaw message send --target "$TO" --message "$ERR_MSG" --json >/dev/null 2>&1 || true
+  printf '{"time":"%s","status":"fetch_failed","new":0}\n' "$TS" > "$STATUS_FILE"
+  exit 1
 fi
 
 # JSONL stream (string) -> write to temp file to avoid pipe subshell issues
@@ -134,8 +147,8 @@ now_hkt="$(TZ=Asia/Hong_Kong date "+%Y-%m-%d %H:%M HKT")"
 原标题：${title}
 链接：${url}"
 
-    # 规则 #8: 纯推理直接 curl adapter，禁止用 openclaw agent（#94教训）
-    ENRICH="$(curl -sS --max-time 30 http://localhost:5001/v1/chat/completions \
+    # 规则 #27: 纯推理直接 curl proxy:5002，禁止用 openclaw agent（#94教训）
+    ENRICH="$(curl -sS --max-time 30 http://localhost:5002/v1/chat/completions \
       -H 'Content-Type: application/json' \
       -d "$(jq -nc --arg p "$PROMPT" '{model:"any",messages:[{role:"user",content:$p}],max_tokens:200}')" \
       2>"$CACHE_DIR/curl_releases.err" | jq -r '.choices[0].message.content // empty' 2>/dev/null || true)"

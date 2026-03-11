@@ -18,10 +18,13 @@ mkdir -p "$CACHE" "$HOME/.kb/sources"
 test -f "$KB_SRC" || echo "# OpenClaw Official Watcher" > "$KB_SRC"
 test -f "$KB_INBOX" || echo "# INBOX" > "$KB_INBOX"
 
-# fetch 失败时记录日志而非静默退出
+# fetch 失败时推送 WhatsApp 告警（不再静默退出）
 BLOG_HTML=""
 if ! BLOG_HTML="$("$JOB/fetch_official_blog.sh" 2>"$CACHE/fetch_blog.err")"; then
-  log "ERROR: fetch_official_blog.sh 失败: $(head -1 "$CACHE/fetch_blog.err" 2>/dev/null)"
+  ERR_MSG="⚠️ Blog Watcher 抓取失败（$(TZ=Asia/Hong_Kong date '+%H:%M')）: $(head -1 "$CACHE/fetch_blog.err" 2>/dev/null)"
+  log "ERROR: $ERR_MSG"
+  TO="${OPENCLAW_PHONE:-+85200000000}"
+  openclaw message send --target "$TO" --message "$ERR_MSG" --json >/dev/null 2>&1 || true
   printf '{"time":"%s","status":"fetch_failed","new":0}\n' "$TS" > "$STATUS_FILE"
   exit 1
 fi
@@ -91,8 +94,8 @@ TO="${OPENCLAW_PHONE:-+85200000000}"
 日期：${date}
 链接：${url}
 摘要：${summary}"
-    # 规则 #8: 纯推理直接 curl adapter，禁止用 openclaw agent（#94教训）
-    ENRICH="$(curl -sS --max-time 30 http://localhost:5001/v1/chat/completions \
+    # 规则 #27: 纯推理直接 curl proxy:5002，禁止用 openclaw agent（#94教训）
+    ENRICH="$(curl -sS --max-time 30 http://localhost:5002/v1/chat/completions \
       -H 'Content-Type: application/json' \
       -d "$(jq -nc --arg p "$PROMPT" '{model:"any",messages:[{role:"user",content:$p}],max_tokens:200}')" \
       2>"$CACHE/curl_blog.err" | jq -r '.choices[0].message.content // empty' 2>/dev/null || true)"
