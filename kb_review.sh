@@ -1,4 +1,6 @@
 #!/bin/bash
+# cron 环境 PATH 极简，必须显式声明（规则 #13）
+export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
 set -euo pipefail
 DATE=$(date +%Y%m%d)
 DAYS="${1:-7}"

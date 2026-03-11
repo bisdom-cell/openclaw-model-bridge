@@ -2,7 +2,7 @@
 # cron 环境 PATH 极简，必须显式声明（规则 #13）
 export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
 # run_hn.sh - Hacker News AI/Tech精选 Watcher
-# 触发时间：每3小时:45分（系统crontab）
+# 触发时间：每3小时:45分 HKT（系统crontab，与 ArXiv 错开45分钟）
 # v23fix2：
 #   - Bug修复：inbox写入提前到Python dedup阶段，防止LLM失败时重复处理同批URL
 #   - Bug修复：正则宽容度提升，兼容LLM输出【】格式及多余空格

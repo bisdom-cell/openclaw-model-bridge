@@ -1,4 +1,6 @@
 #!/bin/bash
+# cron 环境 PATH 极简，必须显式声明（规则 #13）
+export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
 # OpenClaw 每周健康检查脚本 v1.1
 
 # 配置：优先读取环境变量，保留默认值
