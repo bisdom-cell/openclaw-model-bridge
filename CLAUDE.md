@@ -142,7 +142,7 @@
 1. **adapter.py /health 端点**：新增本地健康检查拦截，不再转发到远程GPU（修复502误报）
 2. **tool_proxy.py /health 端点**：新增级联健康检查（proxy自身 + adapter连通性），返回 `{"ok":true,"proxy":true,"adapter":true}`
 3. **job_watchdog.sh 日志扫描**：新增最近1小时推送失败检测（不依赖status_file），覆盖之前的监控盲区
-4. **wa_keepalive.sh 真实发送**：从无效的 `--dry-run` 改为发送零宽字符消息，真正验证WhatsApp通道可用性
+4. **wa_keepalive.sh 回退为纯HTTP探测**：零宽字符在WhatsApp仍显示为空消息气泡（打扰用户），移除真实发送，仅保留Gateway HTTP健康检查；端到端推送失败由 job_watchdog 日志扫描覆盖
 5. **preflight_check.sh 全面体检**：9项自动化检查（单测+注册表+语法+部署一致性+环境变量+连通性+安全扫描）
 6. **auto_deploy.sh 部署后体检**：每次部署后自动运行 `preflight_check.sh --full`，失败推 WhatsApp 告警
 7. **环境变量修复**：`OPENCLAW_PHONE` + `REMOTE_API_KEY` 同步到 `~/.bash_profile`（修复 cron 环境缺失）
