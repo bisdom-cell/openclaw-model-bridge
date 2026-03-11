@@ -85,6 +85,26 @@ except Exception:
     esac
 done
 
+# ── 日志扫描：检查最近1小时内的推送失败（不依赖 status_file）─────────
+LOG_DIR="$HOME/.openclaw/logs/jobs"
+if [ -d "$LOG_DIR" ]; then
+    ONE_HOUR_AGO=$(date -v-1H '+%Y-%m-%d %H' 2>/dev/null || date -d '1 hour ago' '+%Y-%m-%d %H' 2>/dev/null || echo "")
+    if [ -n "$ONE_HOUR_AGO" ]; then
+        for logfile in "$LOG_DIR"/*.log; do
+            [ -f "$logfile" ] || continue
+            job_name=$(basename "$logfile" .log)
+            # 查找最近1小时内的推送失败记录
+            fail_count=$(grep -c "推送失败\|send_failed\|ERROR.*推送" "$logfile" 2>/dev/null | tail -1)
+            # 只看最近修改的文件中的最后几行（避免重复告警历史错误）
+            recent_fails=$(tail -20 "$logfile" 2>/dev/null | grep -c "推送失败\|send_failed" || true)
+            if [ "$recent_fails" -gt 0 ]; then
+                last_err=$(tail -20 "$logfile" 2>/dev/null | grep "推送失败\|send_failed" | tail -1)
+                ALERTS+=("$job_name: 最近有推送失败 → $last_err")
+            fi
+        done
+    fi
+fi
+
 # ── Proxy 监控：token 用量 + 错误率 ──────────────────────────────────
 PROXY_STATS="$HOME/proxy_stats.json"
 if [ -f "$PROXY_STATS" ]; then

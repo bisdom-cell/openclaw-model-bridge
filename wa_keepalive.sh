@@ -17,26 +17,32 @@ if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 400 ]; then
     exit 0  # 不报错，Gateway 由 launchd 管理
 fi
 
-# 2. 发送一个空的 status 查询保持 WhatsApp session 活跃
-# 使用 openclaw 的 health/status 接口（如果有），否则用最轻量的 message dry-run
+# 2. 真实发送测试消息验证 WhatsApp 通道可用性
+# dry-run 无法检测 session 断连，必须做真实发送才能验证
 OPENCLAW="${OPENCLAW:-/opt/homebrew/bin/openclaw}"
-if command -v "$OPENCLAW" >/dev/null 2>&1; then
-    # dry-run 模式：不实际发送消息，但会触发 Gateway 检查 WhatsApp 连接状态
-    RESULT=$("$OPENCLAW" message send \
-        --target "${OPENCLAW_PHONE:-+85200000000}" \
-        --message "keepalive" \
-        --dry-run \
-        --json 2>/dev/null || true)
+TO="${OPENCLAW_PHONE:-+85200000000}"
+SEND_ERR=$(mktemp)
 
-    if echo "$RESULT" | grep -q '"dryRun": true' 2>/dev/null; then
-        # dry-run 成功，session 活跃
-        echo "[$TS] OK: session active" >> "$LOG"
-    else
-        echo "[$TS] WARN: dry-run 响应异常: $(echo "$RESULT" | head -1)" >> "$LOG"
-    fi
-else
+if ! command -v "$OPENCLAW" >/dev/null 2>&1; then
     echo "[$TS] WARN: openclaw 未找到，跳过" >> "$LOG"
+    rm -f "$SEND_ERR"
+    exit 0
 fi
+
+# 静默 keepalive：发送不可见的零宽字符消息（不打扰用户）
+if "$OPENCLAW" message send --target "$TO" --message "​" --json >/dev/null 2>"$SEND_ERR"; then
+    echo "[$TS] OK: send verified" >> "$LOG"
+else
+    ERR_DETAIL=$(head -3 "$SEND_ERR" 2>/dev/null)
+    echo "[$TS] FAIL: WhatsApp 发送失败: $ERR_DETAIL" >> "$LOG"
+    # 尝试通过 Gateway 日志获取更多信息
+    GATEWAY_LOG="/tmp/openclaw/openclaw-$(TZ=Asia/Hong_Kong date +%Y-%m-%d).log"
+    if [ -f "$GATEWAY_LOG" ]; then
+        WA_ERR=$(tail -20 "$GATEWAY_LOG" 2>/dev/null | grep -i "whatsapp\|session\|disconnect" | tail -3)
+        [ -n "$WA_ERR" ] && echo "[$TS] Gateway日志: $WA_ERR" >> "$LOG"
+    fi
+fi
+rm -f "$SEND_ERR"
 
 # 日志保留最近 200 行
 if [ -f "$LOG" ] && [ "$(wc -l < "$LOG" | tr -d ' ')" -gt 200 ]; then
