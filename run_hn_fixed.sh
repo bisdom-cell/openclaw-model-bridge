@@ -261,7 +261,8 @@ fi
 printf "💻 HN 头版精选 (%s)\n\n" "$TODAY" > "$MSG_FILE"
 
 # 单次 Python 调用处理全部结果，避免每条数据重复启动 5 个子进程
-SENT_COUNT=$(python3 - "$TODAY" "$MSG_FILE" "$KB_SOURCE" << 'PYEOF'
+# 注意：不能用 python3 - <<heredoc <<<data，heredoc 会耗尽 stdin 导致 data 丢失
+SENT_COUNT=$(echo "$RESULT" | python3 -c '
 import json, sys
 
 today, msg_file, kb_source = sys.argv[1], sys.argv[2], sys.argv[3]
@@ -274,21 +275,20 @@ for line in sys.stdin:
         d = json.loads(line)
     except (json.JSONDecodeError, ValueError):
         continue
-    hn_url   = d.get('hn_url', '').strip()
-    if not hn_url:           # ★ Fix3：HN_URL空值保护
+    hn_url   = d.get("hn_url", "").strip()
+    if not hn_url:           # Fix3：HN_URL空值保护
         continue
-    zh_title = d.get('zh_title') or d.get('title', '')
-    point    = d.get('point')    or '技术内容，详见原文'
-    stars    = d.get('stars')    or '⭐⭐⭐'
-    title    = d.get('title', zh_title)
-    with open(msg_file, 'a') as f:
+    zh_title = d.get("zh_title") or d.get("title", "")
+    point    = d.get("point")    or "技术内容，详见原文"
+    stars    = d.get("stars")    or "⭐⭐⭐"
+    title    = d.get("title", zh_title)
+    with open(msg_file, "a") as f:
         f.write(f"{zh_title}\n链接：{hn_url}\n要点：{point}\n价值：{stars}\n\n")
-    with open(kb_source, 'a') as f:
+    with open(kb_source, "a") as f:
         f.write(f"- **[{title}]({hn_url})** | {today} | 要点：{point} | {stars}\n")
     sent += 1
 print(sent)
-PYEOF
-<<< "$RESULT")
+' "$TODAY" "$MSG_FILE" "$KB_SOURCE")
 
 if [ "$SENT_COUNT" -gt 0 ]; then
     SEND_ERR=$(mktemp)
