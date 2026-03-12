@@ -26,7 +26,7 @@ echo "Mode: $([ "$FULL_MODE" = true ] && echo 'FULL (Mac Mini)' || echo 'DEV (re
 echo ""
 
 # ── 1. 单元测试 ──────────────────────────────────────────────────────
-echo "📋 1/10 单元测试"
+echo "📋 1/11 单元测试"
 
 if python3 test_tool_proxy.py > /dev/null 2>&1; then
     pass "proxy_filters 单测 (test_tool_proxy.py)"
@@ -42,7 +42,7 @@ fi
 
 # ── 2. 注册表校验 ─────────────────────────────────────────────────────
 echo ""
-echo "📋 2/10注册表校验"
+echo "📋 2/11 注册表校验"
 
 if python3 check_registry.py > /dev/null 2>&1; then
     pass "jobs_registry.yaml 校验通过"
@@ -52,7 +52,7 @@ fi
 
 # ── 3. 文档漂移检测 ───────────────────────────────────────────────────
 echo ""
-echo "📋 3/10文档漂移检测"
+echo "📋 3/11 文档漂移检测"
 
 if python3 gen_jobs_doc.py --check > /dev/null 2>&1; then
     pass "docs/config.md 与 registry 一致"
@@ -62,7 +62,7 @@ fi
 
 # ── 4. 脚本语法检查 + 权限检查 ────────────────────────────────────────
 echo ""
-echo "📋 4/10脚本语法 & 权限"
+echo "📋 4/11 脚本语法 & 权限"
 
 # 从 registry 提取所有 enabled 的 entry 文件（兼容无 PyYAML 环境）
 SCRIPT_FILES=$(python3 -c "
@@ -120,7 +120,7 @@ done
 
 # ── 5. Python 文件语法检查 ────────────────────────────────────────────
 echo ""
-echo "📋 5/10Python 语法检查"
+echo "📋 5/11 Python 语法检查"
 
 for pyfile in adapter.py tool_proxy.py proxy_filters.py check_registry.py gen_jobs_doc.py; do
     if [ -f "$SCRIPT_DIR/$pyfile" ]; then
@@ -134,7 +134,7 @@ done
 
 # ── 6. 部署文件一致性检查（仓库 vs 运行时副本）────────────────────────
 echo ""
-echo "📋 6/10部署文件一致性"
+echo "📋 6/11 部署文件一致性"
 
 if $FULL_MODE; then
     # FILE_MAP from auto_deploy.sh
@@ -191,7 +191,7 @@ fi
 
 # ── 7. 环境变量检查（bash -lc 模拟 cron 环境）────────────────────────
 echo ""
-echo "📋 7/10环境变量检查（cron 环境模拟）"
+echo "📋 7/11 环境变量检查（cron 环境模拟）"
 
 if $FULL_MODE; then
     # 模拟 cron 调用方式：bash -lc 读取 ~/.bash_profile
@@ -231,7 +231,7 @@ fi
 
 # ── 8. 服务连通性检查 ─────────────────────────────────────────────────
 echo ""
-echo "📋 8/10服务连通性"
+echo "📋 8/11 服务连通性"
 
 if $FULL_MODE; then
     # Adapter :5001
@@ -263,7 +263,7 @@ fi
 
 # ── 9. 安全扫描（push 前必扫）────────────────────────────────────────
 echo ""
-echo "📋 9/10安全扫描"
+echo "📋 9/11 安全扫描"
 
 # API Key 泄漏检查（只扫描 git 跟踪的文件，忽略 .gitignore 排除的本地配置）
 LEAK_SK=$(git grep -n "sk-[A-Za-z0-9]\{15,\}" -- "*.py" "*.sh" "*.md" 2>/dev/null | grep -v "sk-REPLACE-ME" | grep -v "sk-xxxx" | grep -v "sk-X83H" || true)
@@ -289,7 +289,7 @@ fi
 # ── 10. Job 数据流 smoke test ──────────────────────────────────────────
 # 用合成数据验证 job 脚本的 shell→Python 数据传递，零接触生产状态
 echo ""
-echo "📋 10/10 Job 数据流 smoke test"
+echo "📋 10/11 Job 数据流 smoke test"
 
 # 10a. 反模式扫描：heredoc 结束符后紧跟 <<< 会导致 stdin 被 heredoc 耗尽
 #      python3 - <<'PYEOF' ... PYEOF; <<< "$DATA" → DATA 永远读不到
@@ -340,6 +340,65 @@ else
     fail "run_hn_fixed.sh: 数据流异常 (expected count=1, got ${SMOKE_COUNT:-empty}; msg=$(wc -c < "$SMOKE_MSG" 2>/dev/null)B, kb=$(wc -c < "$SMOKE_KB" 2>/dev/null)B)"
 fi
 rm -rf "$SMOKE_DIR"
+
+# ── 11. 货代 deep_dive 静默失败检测 ─────────────────────────────────────
+echo ""
+echo "📋 11/11 货代 deep_dive 静默失败检测"
+
+if $FULL_MODE; then
+    # 检查 last_run.json 中 deep_dive 字段
+    FREIGHT_STATUS="$HOME/.openclaw/jobs/freight_watcher/last_run.json"
+    if [ -f "$FREIGHT_STATUS" ]; then
+        DEEP_DIVE=$(python3 -c "
+import json, sys
+try:
+    d = json.load(open('$FREIGHT_STATUS'))
+    print(d.get('deep_dive', 'missing'))
+except Exception:
+    print('error')
+" 2>/dev/null || echo "error")
+
+        case "$DEEP_DIVE" in
+            ok)
+                pass "货代 deep_dive 状态正常"
+                ;;
+            no_data)
+                warn "货代 deep_dive: ImportYeti 无数据返回（可能被 Cloudflare 拦截）"
+                ;;
+            skipped)
+                warn "货代 deep_dive: 被跳过（检查 run_freight.sh 日志）"
+                ;;
+            missing)
+                warn "货代 deep_dive: last_run.json 无 deep_dive 字段（旧版本脚本？）"
+                ;;
+            *)
+                fail "货代 deep_dive: 状态异常 ($DEEP_DIVE)"
+                ;;
+        esac
+    else
+        warn "货代 last_run.json 不存在（任务未运行过？）"
+    fi
+
+    # 检查 scraper.log 最近是否有错误
+    SCRAPER_LOG="$HOME/.openclaw/jobs/freight_watcher/cache/scraper.log"
+    if [ -f "$SCRAPER_LOG" ]; then
+        SCRAPER_ERRORS=$(grep -ci "error\|traceback\|exception" "$SCRAPER_LOG" 2>/dev/null || echo "0")
+        if [ "$SCRAPER_ERRORS" -gt 0 ]; then
+            warn "ImportYeti scraper.log 有 $SCRAPER_ERRORS 处错误记录"
+        else
+            pass "ImportYeti scraper.log 无错误"
+        fi
+    fi
+
+    # 检查 playwright 在 /usr/bin/python3 下可用
+    if /usr/bin/python3 -c "import playwright" 2>/dev/null; then
+        pass "playwright 在 /usr/bin/python3 下可用"
+    else
+        fail "playwright 在 /usr/bin/python3 下不可用（pip3 install playwright）"
+    fi
+else
+    skip "货代 deep_dive 检测（需在 Mac Mini 上验证）"
+fi
 
 # ── 汇总 ──────────────────────────────────────────────────────────────
 echo ""
