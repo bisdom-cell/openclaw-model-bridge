@@ -352,10 +352,10 @@ import re
 name = '''$company'''
 for suffix in [' China', ' USA', ' US', ' Europe', ' Asia', ' Japan', ' Korea',
                ' International', ' Global', ' Worldwide',
-               ' Corporation', ' Corp\\.', ' Corp', ' Incorporated', ' Inc\\.', ' Inc',
-               ' Limited', ' Ltd\\.', ' Ltd', ' Company', ' Co\\.', ' Co',
+               ' Corporation', r' Corp\.', ' Corp', ' Incorporated', r' Inc\.', ' Inc',
+               ' Limited', r' Ltd\.', ' Ltd', ' Company', r' Co\.', ' Co',
                ' Group', ' Holdings', ' Holding',
-               ' AG', ' GmbH', ' S\\.A\\.', ' SA', ' SE', ' PLC', ' NV', ' BV',
+               ' AG', ' GmbH', r' S\.A\.', ' SA', ' SE', ' PLC', ' NV', ' BV',
                ' LLC', ' LLP', ' LP']:
     name = re.sub(re.escape(suffix) + r'$', '', name, flags=re.IGNORECASE)
 name = re.sub(r'[®™©]', '', name).strip()
@@ -366,7 +366,8 @@ print(name)
     done < "$HIGH_STARS"
 
     # 一次启动 Playwright 批量查询所有企业（避免重复启动浏览器）
-    python3 "$SCRAPER" "${CLEAN_NAMES[@]}" > "$ENRICHED_FILE" 2>"$CACHE/scraper.log" || true
+    # 注意：playwright 装在系统 Python 3.9 下，homebrew Python 3.14 没有
+    /usr/bin/python3 "$SCRAPER" "${CLEAN_NAMES[@]}" > "$ENRICHED_FILE" 2>"$CACHE/scraper.log" || true
     cat "$CACHE/scraper.log" >&2
     echo "[freight] ImportYeti 深挖完成"
 
