@@ -1,6 +1,6 @@
 # CLAUDE.md — openclaw-model-bridge 项目背景
 
-> 每次新会话开始时自动读取。当前版本：v28.1（2026-03-12）
+> 每次新会话开始时自动读取。当前版本：v28.2（2026-03-13）
 
 ---
 
@@ -104,7 +104,7 @@
 | `gen_jobs_doc.py` | **V28新增** 从 registry 自动生成任务文档 + 漂移检测 |
 | `smoke_test.sh` | **V28新增** 端到端 smoke test（单测+注册表+连通性） |
 | `wa_keepalive.sh` | **V28新增** WhatsApp session 保活（每30分钟真实发送验证） |
-| `preflight_check.sh` | **V28新增** 收工前全面体检（9项检查：单测+注册表+语法+部署一致性+环境变量+连通性+安全扫描） |
+| `preflight_check.sh` | **V28新增** 收工前全面体检（11项检查：单测+注册表+语法+部署一致性+环境变量+连通性+安全扫描+数据流+货代监控） |
 | `docs/config.md` | 完整系统配置文档（含所有历史变更） |
 | `docs/GUIDE.md` | 完整中英文集成指南 |
 
@@ -147,6 +147,16 @@
 6. **auto_deploy.sh 部署后体检**：每次部署后自动运行 `preflight_check.sh --full`，失败推 WhatsApp 告警
 7. **环境变量修复**：`OPENCLAW_PHONE` + `REMOTE_API_KEY` 同步到 `~/.bash_profile`（修复 cron 环境缺失）
 8. **架构图全面更新**：四层架构（数据通路→定时任务→监控→DevOps）完整可视化
+
+## V28.2 变更摘要（2026-03-13）
+
+1. **单线程阻塞修复**：`tool_proxy.py` + `adapter.py` 从 `TCPServer` 改为 `ThreadingMixIn`（`daemon_threads=True`），解决单请求挂起阻塞所有后续请求的问题
+2. **日志时间戳**：proxy/adapter 所有日志行加 `%Y-%m-%d %H:%M:%S` 前缀，支持事后排查
+3. **货代 ImportYeti 修复三连**：Python PATH 冲突（`/usr/bin/python3` 硬编码）、中文企业名 LLM 翻译、Cloudflare 反爬重试
+4. **货代静默降级监控**：`run_freight.sh` 新增 `deep_dive` 状态写入 `last_run.json`（ok/no_data/skipped），scraper 失败捕获退出码
+5. **preflight 扩展至 11 项**：新增第 10 项 Job 数据流 smoke test + 第 11 项货代 deep_dive 静默失败检测（含 scraper.log 错误扫描、playwright 可用性）
+6. **macOS BSD grep 兼容**：`grep -ci "\|"` → `grep -ciE "|"` + `|| true` 修复（`grep -c` 返回 0 行时退出码 1 导致双行输出）
+7. **docs/config.md 漂移修复**：补齐 `kb_evening`、修正 `run_hn_fixed.sh` 路径
 
 ## 常用命令
 
