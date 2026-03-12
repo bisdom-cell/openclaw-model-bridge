@@ -185,6 +185,9 @@ curl -s https://hkagentx.hkopenlab.com/v1/models \
   -H "Authorization: Bearer $REMOTE_API_KEY" \
   | python3 -c "import json,sys; [print(m['id']) for m in json.load(sys.stdin)['data'] if 'Qwen3' in m['id']]"
 
+# Mac Mini 同步仓库（禁止用 git pull，会因历史 merge commit 分叉失败）
+cd ~/openclaw-model-bridge && git fetch origin main && git reset --hard origin/main
+
 # GitHub push前安全扫描（必须全部为空才允许push）
 grep -r "sk-[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*.md" | grep -v ".git"
 grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*.md" | grep -v ".git"
@@ -244,7 +247,8 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 - **纯推理绕过Gateway** — 不需要工具的LLM任务直接 curl 调 API，禁止用 `openclaw agent`（#94）
 - **macOS sed禁用OR语法** — `\|` 在 BSD sed 不支持，用 Python 替代
 - **禁用交互式编辑器** — git merge 用 `--no-edit`，commit 用 `-m`，crontab 用管道
-- **分支合并由用户在GitHub操作** — 推送到 `claude/xxx` 分支 → 提醒用户创建 PR → 用户 `git pull origin main`
+- **分支合并由用户在GitHub操作** — 推送到 `claude/xxx` 分支 → 提醒用户创建 PR → 用户在 Mac Mini 同步
+- **Mac Mini 同步用 reset 不用 pull** — `git fetch origin main && git reset --hard origin/main`（Mac Mini 是纯消费端，无本地 commit；`git pull` 会因历史 merge commit 导致分叉失败）
 
 **架构类**
 - **进程管理单一主控** — Gateway 由 launchd 管理，禁止再加 cron watchdog（#95）

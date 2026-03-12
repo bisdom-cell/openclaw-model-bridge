@@ -4,7 +4,8 @@ tool_proxy.py — V27 HTTP 层
 策略逻辑已提取到 proxy_filters.py，本文件只负责 HTTP 收发和日志。
 V28: + token/error 监控（proxy_stats）
 """
-import http.server, socketserver, json, sys, subprocess, os
+import http.server, socketserver, json, sys, subprocess, os, threading
+from datetime import datetime
 from urllib.request import Request, urlopen
 
 from proxy_filters import (
@@ -18,7 +19,8 @@ BACKEND = "http://127.0.0.1:5001"
 PORT = 5002
 
 def log(msg):
-    print(f"[proxy] {msg}", flush=True)
+    ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    print(f"[proxy] {ts} {msg}", flush=True)
 
 
 def _send_alert(msg):
@@ -201,5 +203,9 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
 log(f"Starting on :{PORT} -> {BACKEND}")
 log(f"Allowed: {ALLOWED_TOOLS} + prefix: {ALLOWED_PREFIXES}")
 sys.stdout.flush()
-with socketserver.TCPServer(("", PORT), ProxyHandler) as httpd:
+class ThreadedServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
+    daemon_threads = True
+    allow_reuse_address = True
+
+with ThreadedServer(("", PORT), ProxyHandler) as httpd:
     httpd.serve_forever()
