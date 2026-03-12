@@ -391,8 +391,12 @@ except Exception:
 
     # 一次启动 Playwright 批量查询所有企业（避免重复启动浏览器）
     # 注意：playwright 装在系统 Python 3.9 下，homebrew Python 3.14 没有
-    /usr/bin/python3 "$SCRAPER" "${CLEAN_NAMES[@]}" > "$ENRICHED_FILE" 2>"$CACHE/scraper.log" || true
+    /usr/bin/python3 "$SCRAPER" "${CLEAN_NAMES[@]}" > "$ENRICHED_FILE" 2>"$CACHE/scraper.log"
+    SCRAPER_RC=$?
     cat "$CACHE/scraper.log" >&2
+    if [ "$SCRAPER_RC" -ne 0 ]; then
+        echo "[freight] ERROR: ImportYeti scraper 失败 (exit=$SCRAPER_RC)"
+    fi
     echo "[freight] ImportYeti 深挖完成"
 
     # ── 10. 客户画像生成（LLM综合推理）──────────────────────────────
@@ -489,7 +493,25 @@ ${PROFILE_OUT}
         else
             echo "[freight] 客户画像LLM调用无输出，跳过"
         fi
+        DEEP_DIVE_STATUS="ok"
     else
         echo "[freight] 深挖数据不足（${HAS_DATA}条中${ALL_NA}条全N/A），跳过画像生成"
+        DEEP_DIVE_STATUS="no_data"
     fi
+else
+    DEEP_DIVE_STATUS="skipped"
+fi
+
+# 更新 status_file 追加 deep_dive 状态（覆盖 Step 5 写入的版本）
+if [ -f "$STATUS_FILE" ] && [ -n "$DEEP_DIVE_STATUS" ]; then
+    python3 -c "
+import json, sys
+try:
+    d = json.load(open('$STATUS_FILE'))
+    d['deep_dive'] = '$DEEP_DIVE_STATUS'
+    json.dump(d, sys.stdout)
+    print()
+except Exception:
+    pass
+" > "$STATUS_FILE.tmp" 2>/dev/null && mv "$STATUS_FILE.tmp" "$STATUS_FILE"
 fi
