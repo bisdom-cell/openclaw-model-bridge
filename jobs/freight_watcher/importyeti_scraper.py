@@ -27,7 +27,7 @@ window.chrome = {runtime: {}};
 """
 
 
-def scrape_company(page, company_name):
+def scrape_company(page, company_name, retry=1):
     """抓取单个公司的 ImportYeti 搜索结果，返回结构化字典。"""
     import urllib.parse
 
@@ -42,6 +42,10 @@ def scrape_company(page, company_name):
 
     title = page.title()
     if "Just a moment" in title or "challenge" in title.lower():
+        if retry > 0:
+            print(f"[importyeti] Cloudflare 拦截，等待10秒重试...", file=sys.stderr)
+            time.sleep(10)
+            return scrape_company(page, company_name, retry=retry - 1)
         return _empty_result(company_name, "Cloudflare 拦截")
 
     body = page.inner_text("body")
@@ -133,11 +137,12 @@ def main():
 
     with sync_playwright() as p:
         browser = p.chromium.launch(
-            headless=False,
+            headless=True,
             args=[
                 "--disable-blink-features=AutomationControlled",
                 "--no-first-run",
                 "--no-default-browser-check",
+                "--disable-gpu",
             ],
         )
         context = browser.new_context(
