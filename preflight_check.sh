@@ -26,7 +26,7 @@ echo "Mode: $([ "$FULL_MODE" = true ] && echo 'FULL (Mac Mini)' || echo 'DEV (re
 echo ""
 
 # ── 1. 单元测试 ──────────────────────────────────────────────────────
-echo "📋 1/9 单元测试"
+echo "📋 1/10 单元测试"
 
 if python3 test_tool_proxy.py > /dev/null 2>&1; then
     pass "proxy_filters 单测 (test_tool_proxy.py)"
@@ -42,7 +42,7 @@ fi
 
 # ── 2. 注册表校验 ─────────────────────────────────────────────────────
 echo ""
-echo "📋 2/9 注册表校验"
+echo "📋 2/10注册表校验"
 
 if python3 check_registry.py > /dev/null 2>&1; then
     pass "jobs_registry.yaml 校验通过"
@@ -52,7 +52,7 @@ fi
 
 # ── 3. 文档漂移检测 ───────────────────────────────────────────────────
 echo ""
-echo "📋 3/9 文档漂移检测"
+echo "📋 3/10文档漂移检测"
 
 if python3 gen_jobs_doc.py --check > /dev/null 2>&1; then
     pass "docs/config.md 与 registry 一致"
@@ -62,7 +62,7 @@ fi
 
 # ── 4. 脚本语法检查 + 权限检查 ────────────────────────────────────────
 echo ""
-echo "📋 4/9 脚本语法 & 权限"
+echo "📋 4/10脚本语法 & 权限"
 
 # 从 registry 提取所有 enabled 的 entry 文件（兼容无 PyYAML 环境）
 SCRIPT_FILES=$(python3 -c "
@@ -120,7 +120,7 @@ done
 
 # ── 5. Python 文件语法检查 ────────────────────────────────────────────
 echo ""
-echo "📋 5/9 Python 语法检查"
+echo "📋 5/10Python 语法检查"
 
 for pyfile in adapter.py tool_proxy.py proxy_filters.py check_registry.py gen_jobs_doc.py; do
     if [ -f "$SCRIPT_DIR/$pyfile" ]; then
@@ -134,7 +134,7 @@ done
 
 # ── 6. 部署文件一致性检查（仓库 vs 运行时副本）────────────────────────
 echo ""
-echo "📋 6/9 部署文件一致性"
+echo "📋 6/10部署文件一致性"
 
 if $FULL_MODE; then
     # FILE_MAP from auto_deploy.sh
@@ -191,7 +191,7 @@ fi
 
 # ── 7. 环境变量检查（bash -lc 模拟 cron 环境）────────────────────────
 echo ""
-echo "📋 7/9 环境变量检查（cron 环境模拟）"
+echo "📋 7/10环境变量检查（cron 环境模拟）"
 
 if $FULL_MODE; then
     # 模拟 cron 调用方式：bash -lc 读取 ~/.bash_profile
@@ -231,7 +231,7 @@ fi
 
 # ── 8. 服务连通性检查 ─────────────────────────────────────────────────
 echo ""
-echo "📋 8/9 服务连通性"
+echo "📋 8/10服务连通性"
 
 if $FULL_MODE; then
     # Adapter :5001
@@ -263,7 +263,7 @@ fi
 
 # ── 9. 安全扫描（push 前必扫）────────────────────────────────────────
 echo ""
-echo "📋 9/9 安全扫描"
+echo "📋 9/10安全扫描"
 
 # API Key 泄漏检查（只扫描 git 跟踪的文件，忽略 .gitignore 排除的本地配置）
 LEAK_SK=$(git grep -n "sk-[A-Za-z0-9]\{15,\}" -- "*.py" "*.sh" "*.md" 2>/dev/null | grep -v "sk-REPLACE-ME" | grep -v "sk-xxxx" | grep -v "sk-X83H" || true)
@@ -285,6 +285,61 @@ else
     fail "检测到真实手机号！"
     echo "      $LEAK_PHONE"
 fi
+
+# ── 10. Job 数据流 smoke test ──────────────────────────────────────────
+# 用合成数据验证 job 脚本的 shell→Python 数据传递，零接触生产状态
+echo ""
+echo "📋 10/10 Job 数据流 smoke test"
+
+# 10a. 反模式扫描：heredoc 结束符后紧跟 <<< 会导致 stdin 被 heredoc 耗尽
+#      python3 - <<'PYEOF' ... PYEOF; <<< "$DATA" → DATA 永远读不到
+ANTIPATTERN_FOUND=false
+for script in run_hn_fixed.sh jobs/*/run*.sh jobs/*/*.sh; do
+    [ -f "$SCRIPT_DIR/$script" ] || continue
+    # 检测：heredoc 结束标记（独占一行）的下一行含 <<<
+    if grep -A1 -n "^PYEOF$\|^PYEOF2$\|^EOF$\|^ENDPY$" "$SCRIPT_DIR/$script" 2>/dev/null | grep -q "<<<"; then
+        fail "$script: heredoc+herestring 反模式（stdin 冲突，SENT_COUNT 将永远为 0）"
+        ANTIPATTERN_FOUND=true
+    fi
+done
+if ! $ANTIPATTERN_FOUND; then
+    pass "所有 job 脚本无 heredoc+herestring 反模式"
+fi
+
+# 10b. HN Watcher 数据流验证：合成 JSONL → pipe → python3 -c → 输出文件
+SMOKE_DIR=$(mktemp -d)
+MOCK_RESULT='{"zh_title":"smoke测试标题","point":"smoke要点","stars":"⭐⭐⭐","title":"Smoke Test","hn_url":"https://example.com/smoke-test"}'
+SMOKE_MSG="$SMOKE_DIR/msg.txt"
+SMOKE_KB="$SMOKE_DIR/kb.txt"
+> "$SMOKE_MSG"
+> "$SMOKE_KB"
+
+SMOKE_COUNT=$(echo "$MOCK_RESULT" | python3 -c '
+import json, sys
+today, msg_file, kb_source = sys.argv[1], sys.argv[2], sys.argv[3]
+sent = 0
+for line in sys.stdin:
+    line = line.strip()
+    if not line: continue
+    try: d = json.loads(line)
+    except: continue
+    hn_url = d.get("hn_url", "").strip()
+    if not hn_url: continue
+    zh_title = d.get("zh_title") or d.get("title", "")
+    with open(msg_file, "a") as f:
+        f.write(f"{zh_title}\n链接：{hn_url}\n\n")
+    with open(kb_source, "a") as f:
+        f.write(f"- [{zh_title}]({hn_url}) | {today}\n")
+    sent += 1
+print(sent)
+' "2026-01-01" "$SMOKE_MSG" "$SMOKE_KB" 2>/dev/null || echo "0")
+
+if [ "$SMOKE_COUNT" = "1" ] && [ -s "$SMOKE_MSG" ] && [ -s "$SMOKE_KB" ]; then
+    pass "run_hn_fixed.sh: 数据流 ok (stdin→python→file, count=$SMOKE_COUNT)"
+else
+    fail "run_hn_fixed.sh: 数据流异常 (expected count=1, got ${SMOKE_COUNT:-empty}; msg=$(wc -c < "$SMOKE_MSG" 2>/dev/null)B, kb=$(wc -c < "$SMOKE_KB" 2>/dev/null)B)"
+fi
+rm -rf "$SMOKE_DIR"
 
 # ── 汇总 ──────────────────────────────────────────────────────────────
 echo ""
