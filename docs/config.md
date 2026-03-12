@@ -234,10 +234,11 @@ export OPENCLAW_PHONE="+85200000000"
 |--------|----------|----------|----------|------|
 | openclaw-releases-watcher | 每天08:00 | `~/.openclaw/jobs/openclaw_official/run.sh` | `~/.openclaw/logs/jobs/openclaw_official.log` | ✅ V28变更：从每小时→每天1次 |
 | openclaw-issues-watcher | 每小时:15分 | `~/.openclaw/jobs/openclaw_official/run_discussions.sh` | `~/.openclaw/logs/jobs/openclaw_discussions.log` | ✅ |
-| hn-watcher | 每3小时:45分 | `~/.openclaw/jobs/hn_watcher/run_hn.sh` | `~/.openclaw/logs/jobs/hn_watcher.log` | ✅ |
+| hn-watcher | 每3小时:45分 | `run_hn_fixed.sh` | `~/.openclaw/logs/jobs/hn_watcher.log` | ✅ |
 | freight-watcher | 每天08:00/14:00/20:00 | `~/.openclaw/jobs/freight_watcher/run_freight.sh` | `~/.openclaw/logs/jobs/freight_watcher.log` | ✅ v26验证成功 |
 | arxiv-monitor | 每3小时整点 | `~/.openclaw/jobs/arxiv_monitor/run_arxiv.sh` | `~/.openclaw/logs/jobs/arxiv_monitor.log` | ✅ V28新增（替代 monitor-arxiv-ai-models + kb-save-arxiv） |
 | job-watchdog | 每小时:30分 | `~/openclaw-model-bridge/job_watchdog.sh` | `~/job_watchdog.log` | ✅ V28新增：元监控，检查各job是否按时执行 |
+| kb-evening | 每天22:00 | `kb_evening.sh` | `~/kb_evening.log` | ✅ 晚间 KB 整理 |
 | session-cleanup | 每6小时 04/10/16/22:00 | 直接rm命令（无脚本） | `~/.openclaw/logs/session_cleanup.log` | ✅ v24变更：从每天1次→每6小时1次 |
 | wa-keepalive | 每30分钟 | `~/wa_keepalive.sh` | `~/wa_keepalive.log` | ✅ V28.1新增：真实发送零宽字符验证WhatsApp通道 |
 | auto-deploy | 每2分钟 | `~/openclaw-model-bridge/auto_deploy.sh` | `~/.openclaw/logs/auto_deploy.log` | ✅ V27.1新增+V28.1：部署后自动体检 |
