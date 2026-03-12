@@ -382,7 +382,8 @@ except Exception:
     # 检查 scraper.log 最近是否有错误
     SCRAPER_LOG="$HOME/.openclaw/jobs/freight_watcher/cache/scraper.log"
     if [ -f "$SCRAPER_LOG" ]; then
-        SCRAPER_ERRORS=$(grep -ciE "error|traceback|exception" "$SCRAPER_LOG" 2>/dev/null || echo "0")
+        SCRAPER_ERRORS=$(grep -ciE "error|traceback|exception" "$SCRAPER_LOG" 2>/dev/null || true)
+        SCRAPER_ERRORS=${SCRAPER_ERRORS:-0}
         if [ "$SCRAPER_ERRORS" -gt 0 ]; then
             warn "ImportYeti scraper.log 有 $SCRAPER_ERRORS 处错误记录"
         else
