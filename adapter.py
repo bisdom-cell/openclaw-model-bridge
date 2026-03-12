@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-import http.server, socketserver, json, ssl, sys, os
+import http.server, socketserver, json, ssl, sys, os, threading
+from datetime import datetime
 from urllib.request import Request, urlopen
 
 # ---------------------------------------------------------------------------
@@ -55,7 +56,8 @@ ALLOWED_PARAMS = {
 }
 
 def log(msg):
-    print(f"[adapter:{PROVIDER_NAME}] {msg}", flush=True)
+    ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    print(f"[adapter:{PROVIDER_NAME}] {ts} {msg}", flush=True)
 
 def add_auth(req):
     if AUTH_STYLE == "x-api-key":
@@ -189,5 +191,9 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
 
 log(f"Starting on :{PORT} -> {TARGET_BASE} (model: {REAL_MODEL_ID})")
 sys.stdout.flush()
-with socketserver.TCPServer(("", PORT), ProxyHandler) as httpd:
+class ThreadedServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
+    daemon_threads = True
+    allow_reuse_address = True
+
+with ThreadedServer(("", PORT), ProxyHandler) as httpd:
     httpd.serve_forever()
