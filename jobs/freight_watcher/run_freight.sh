@@ -344,26 +344,50 @@ if [ "$COMPANY_COUNT" -gt 0 ]; then
     : > "$ENRICHED_FILE"
     SCRAPER="$(dirname "$0")/importyeti_scraper.py"
 
-    # 清洗企业名列表
+    # 企业名翻译（中文→英文，ImportYeti 是美国海关数据库，只认英文）
+    COMPANIES_LIST=$(cat "$HIGH_STARS" | tr '\n' '、')
+    TRANS_PROMPT="将以下企业/机构名翻译为英文（ImportYeti搜索用），每行一个，只输出英文名，不要序号不要解释：
+${COMPANIES_LIST}"
+    TRANS_PAYLOAD=$(python3 -c "
+import json, sys
+prompt = sys.stdin.read()
+print(json.dumps({
+    'model': 'Qwen3-235B-A22B-Instruct-2507-W8A8',
+    'messages': [{'role': 'user', 'content': prompt}],
+    'max_tokens': 512,
+    'temperature': 0.1
+}))
+" <<< "$TRANS_PROMPT")
+    TRANS_RESP=$(curl -s --max-time 30 \
+        -H "Content-Type: application/json" \
+        -d "$TRANS_PAYLOAD" \
+        http://127.0.0.1:5002/v1/chat/completions 2>/dev/null || true)
+    TRANS_OUT=$(echo "$TRANS_RESP" | python3 -c "
+import json, sys
+try:
+    d = json.load(sys.stdin)
+    print(d['choices'][0]['message']['content'].strip())
+except Exception:
+    pass
+" 2>/dev/null || true)
+
+    # 组装英文企业名列表
     CLEAN_NAMES=()
-    while IFS= read -r company; do
-        CLEAN_NAME=$(python3 -c "
-import re
-name = '''$company'''
-for suffix in [' China', ' USA', ' US', ' Europe', ' Asia', ' Japan', ' Korea',
-               ' International', ' Global', ' Worldwide',
-               ' Corporation', r' Corp\.', ' Corp', ' Incorporated', r' Inc\.', ' Inc',
-               ' Limited', r' Ltd\.', ' Ltd', ' Company', r' Co\.', ' Co',
-               ' Group', ' Holdings', ' Holding',
-               ' AG', ' GmbH', r' S\.A\.', ' SA', ' SE', ' PLC', ' NV', ' BV',
-               ' LLC', ' LLP', ' LP']:
-    name = re.sub(re.escape(suffix) + r'$', '', name, flags=re.IGNORECASE)
-name = re.sub(r'[®™©]', '', name).strip()
-print(name)
-")
-        echo "[freight] 深挖: $company → 清洗后: $CLEAN_NAME"
-        CLEAN_NAMES+=("$CLEAN_NAME")
-    done < "$HIGH_STARS"
+    if [ -n "$TRANS_OUT" ]; then
+        while IFS= read -r en_name; do
+            en_name=$(echo "$en_name" | sed 's/^[0-9]*[.、) ]*//' | tr -d '\r')
+            [ -n "$en_name" ] && CLEAN_NAMES+=("$en_name")
+        done <<< "$TRANS_OUT"
+        echo "[freight] 翻译结果: ${CLEAN_NAMES[*]}"
+    fi
+
+    # 翻译失败时回退到原始中文名
+    if [ "${#CLEAN_NAMES[@]}" -eq 0 ]; then
+        echo "[freight] 翻译失败，使用原始名称"
+        while IFS= read -r company; do
+            CLEAN_NAMES+=("$company")
+        done < "$HIGH_STARS"
+    fi
 
     # 一次启动 Playwright 批量查询所有企业（避免重复启动浏览器）
     # 注意：playwright 装在系统 Python 3.9 下，homebrew Python 3.14 没有
