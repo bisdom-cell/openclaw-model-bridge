@@ -13,11 +13,13 @@ JOB="$ROOT/jobs/openclaw_official"
 KB_SRC="${KB_BASE:-$HOME/.kb}/sources/openclaw_official.md"
 KB_INBOX="${KB_BASE:-$HOME/.kb}/inbox.md"
 CACHE="$JOB/cache"
-# V28.1: Discussions 已禁用(404)，改用 GitHub REST API 监控 Issues（无需认证）
+# V28.1: Discussions 已禁用(404)，改用 GitHub REST API 监控 Issues
+# V28.3: 加 GITHUB_TOKEN 认证(5000 req/hr) + ETag 缓存避免限流
 API_URL="https://api.github.com/repos/openclaw/openclaw/issues?state=open&sort=created&direction=desc&per_page=20"
 TO="${OPENCLAW_PHONE:-+85200000000}"
 TS="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')"
 STATUS_FILE="$CACHE/last_run_discussions.json"
+ETAG_FILE="$CACHE/issues_etag.txt"
 
 log() { echo "[$TS] openclaw_issues: $1"; }
 
@@ -25,12 +27,27 @@ mkdir -p "$CACHE" "$HOME/.kb/sources"
 test -f "$KB_SRC"   || echo "# OpenClaw Official Watcher" > "$KB_SRC"
 test -f "$KB_INBOX" || echo "# INBOX" > "$KB_INBOX"
 
-# V28.1: 使用 GitHub REST API 获取最近 20 条 issues（公开仓库无需认证）
+# V28.3: 构建认证 + ETag 请求头
+AUTH_HEADERS=(-H "Accept: application/vnd.github+json" -H "User-Agent: openclaw-watcher/1.0")
+if [ -n "${GITHUB_TOKEN:-}" ]; then
+  AUTH_HEADERS+=(-H "Authorization: Bearer $GITHUB_TOKEN")
+fi
+if [ -f "$ETAG_FILE" ]; then
+  AUTH_HEADERS+=(-H "If-None-Match: $(cat "$ETAG_FILE")")
+fi
+
 API_JSON="$CACHE/issues_api.json"
 HTTP_CODE="$(curl -sSL --max-time 30 -w '%{http_code}' \
-    -H "Accept: application/vnd.github+json" \
-    -H "User-Agent: openclaw-watcher/1.0" \
-    "$API_URL" -o "$API_JSON" 2>"$CACHE/curl_issues_api.err")"
+    -D "$CACHE/issues_headers.txt" \
+    "${AUTH_HEADERS[@]}" \
+    "$API_URL" -o "$CACHE/issues_api_new.json" 2>"$CACHE/curl_issues_api.err")"
+
+# 304 Not Modified → 无新数据，直接复用缓存（不消耗限额）
+if [ "$HTTP_CODE" -eq 304 ]; then
+  log "304 Not Modified, 无新 issue。"
+  printf '{"time":"%s","status":"ok","new":0,"cached":true}\n' "$TS" > "$STATUS_FILE"
+  exit 0
+fi
 
 if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
   ERR_MSG="⚠️ Issues Watcher API 请求失败 HTTP ${HTTP_CODE}（$(TZ=Asia/Hong_Kong date '+%H:%M')）: $(head -1 "$CACHE/curl_issues_api.err" 2>/dev/null)"
@@ -39,6 +56,10 @@ if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
   printf '{"time":"%s","status":"fetch_failed","http":%s,"new":0}\n' "$TS" "$HTTP_CODE" > "$STATUS_FILE"
   exit 1
 fi
+
+# 成功：保存 ETag + 更新缓存
+mv "$CACHE/issues_api_new.json" "$API_JSON"
+grep -i '^etag:' "$CACHE/issues_headers.txt" 2>/dev/null | sed 's/^[Ee][Tt][Aa][Gg]: *//' | tr -d '\r' > "$ETAG_FILE" || true
 
 # 解析 JSON → 标题|URL|日期（过滤掉 pull_request 条目，只保留纯 issue）
 if ! python3 -c "

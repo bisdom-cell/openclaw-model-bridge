@@ -118,7 +118,7 @@ jobs:
     log: ~/.openclaw/logs/jobs/openclaw_discussions.log
     needs_api_key: false
     enabled: true
-    description: 社区 Issues 监控（每小时轮询 GitHub REST API，Discussions 已禁用）
+    description: 社区 Issues 监控（GitHub REST API + ETag 缓存，支持 GITHUB_TOKEN 认证提升限额）
 
   - id: wa_keepalive
     scheduler: system
