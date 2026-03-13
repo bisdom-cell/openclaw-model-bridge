@@ -6,6 +6,11 @@
 
 set -euo pipefail
 
+# 防重叠执行（flock）
+LOCK="/tmp/auto_deploy.lock"
+exec 200>"$LOCK"
+flock -n 200 || { echo "[auto_deploy] Already running, skip"; exit 0; }
+
 # crontab 环境 PATH 不含 homebrew，手动补充
 export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 

@@ -4,7 +4,7 @@ tool_proxy.py — V27 HTTP 层
 策略逻辑已提取到 proxy_filters.py，本文件只负责 HTTP 收发和日志。
 V28: + token/error 监控（proxy_stats）
 """
-import http.server, socketserver, json, sys, subprocess, os, threading
+import http.server, socketserver, json, sys, subprocess, os, threading, uuid, time
 from datetime import datetime
 from urllib.request import Request, urlopen
 
@@ -83,6 +83,8 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
             self.send_error(502, str(e))
 
     def do_POST(self):
+        rid = uuid.uuid4().hex[:8]
+        t0 = time.monotonic()
         length = int(self.headers.get("Content-Length", 0))
         raw = self.rfile.read(length)
 
@@ -98,12 +100,12 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                 truncated, dropped = truncate_messages(msgs)
                 if dropped:
                     body["messages"] = truncated
-                    log(f"WARN: Truncated {dropped} old messages ({len(msgs)} -> {len(truncated)} msgs)")
+                    log(f"[{rid}] WARN: Truncated {dropped} old messages ({len(msgs)} -> {len(truncated)} msgs)")
 
                 # [NO_TOOLS] 标记：强制清空工具（纯推理模式）
                 if should_strip_tools(body.get("messages", [])):
                     if "tools" in body:
-                        log(f"[NO_TOOLS] Stripping all {len(body['tools'])} tools (pure inference mode)")
+                        log(f"[{rid}] [NO_TOOLS] Stripping all {len(body['tools'])} tools (pure inference mode)")
                         del body["tools"]
                     if "tool_choice" in body:
                         del body["tool_choice"]
@@ -111,8 +113,8 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                 elif "tools" in body:
                     orig = len(body["tools"])
                     body["tools"], all_names, kept_names = filter_tools(body["tools"])
-                    log(f"ALL tools ({orig}): {all_names}")
-                    log(f"Kept tools ({len(body['tools'])}): {kept_names}")
+                    log(f"[{rid}] ALL tools ({orig}): {all_names}")
+                    log(f"[{rid}] Kept tools ({len(body['tools'])}): {kept_names}")
                     if not body["tools"]:
                         del body["tools"]
                         if "tool_choice" in body:
@@ -125,10 +127,12 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
         url = f"{BACKEND}{self.path}"
         req = Request(url, data=raw, method="POST")
         req.add_header("Content-Type", "application/json")
+        req.add_header("X-Request-ID", rid)
         try:
             with urlopen(req, timeout=300) as resp:
                 resp_body = resp.read()
-                log(f"Backend: {resp.status} {len(resp_body)}b stream={was_streaming}")
+                elapsed = int((time.monotonic() - t0) * 1000)
+                log(f"[{rid}] Backend: {resp.status} {len(resp_body)}b {elapsed}ms stream={was_streaming}")
 
                 if "/chat/completions" in self.path and resp_body:
                     try:
@@ -142,16 +146,16 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                                 for tc in m["tool_calls"]:
                                     fn_name = tc.get('function', {}).get('name', '?')
                                     fn_args = tc.get('function', {}).get('arguments', '')
-                                    log(f"CALL: {fn_name} ({len(fn_args)} bytes)")
+                                    log(f"[{rid}] CALL: {fn_name} ({len(fn_args)} bytes)")
                             elif m.get("content"):
-                                log(f"TEXT: {len(str(m['content']))} chars")
+                                log(f"[{rid}] TEXT: {len(str(m['content']))} chars")
 
                         # Token 监控：记录 usage
                         usage = rj.get("usage", {})
                         if usage:
                             pt = usage.get("prompt_tokens", 0)
                             tt = usage.get("total_tokens", 0)
-                            log(f"TOKENS: prompt={pt:,} total={tt:,} ({pt*100//260000}% of 260K)")
+                            log(f"[{rid}] TOKENS: prompt={pt:,} total={tt:,} ({pt*100//260000}% of 260K)")
                             proxy_stats.record_success(usage)
                         else:
                             proxy_stats.record_success({})
@@ -173,7 +177,7 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                         else:
                             resp_body = json.dumps(rj).encode()
                     except Exception as e:
-                        log(f"Parse error: {e}")
+                        log(f"[{rid}] Parse error: {e}")
 
                 self.send_response(resp.status)
                 self.send_header("Content-Type", "application/json")
@@ -181,7 +185,8 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(resp_body)
         except Exception as e:
-            log(f"Backend error: {e}")
+            elapsed = int((time.monotonic() - t0) * 1000)
+            log(f"[{rid}] Backend error ({elapsed}ms): {e}")
             # 记录错误到监控
             error_code = 502
             error_str = str(e)

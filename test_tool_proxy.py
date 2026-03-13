@@ -385,5 +385,175 @@ class TestShouldStripTools(unittest.TestCase):
         self.assertTrue(should_strip_tools(msgs))
 
 
+# ---- Abnormal response handling tests (contract-style) ----
+
+class TestAbnormalResponses(unittest.TestCase):
+    """异常响应处理：模拟 provider 返回各种非正常响应。"""
+
+    def test_fix_tool_args_empty_arguments_string(self):
+        """工具调用 arguments 为空字符串"""
+        rj = {"choices": [{"message": {"role": "assistant", "tool_calls": [
+            {"function": {"name": "exec", "arguments": ""}}
+        ]}}]}
+        modified = fix_tool_args(rj)
+        # 应不崩溃，空字符串解析为空 dict
+        self.assertFalse(modified)
+
+    def test_fix_tool_args_arguments_is_dict(self):
+        """部分 provider 返回 arguments 为 dict 而非 JSON string"""
+        rj = {"choices": [{"message": {"role": "assistant", "tool_calls": [
+            {"function": {"name": "exec", "arguments": {"command": "ls"}}}
+        ]}}]}
+        modified = fix_tool_args(rj)
+        self.assertFalse(modified)
+
+    def test_fix_tool_args_nested_null_fields(self):
+        """tool_calls 列表中包含残缺的 function 字段"""
+        rj = {"choices": [{"message": {"role": "assistant", "tool_calls": [
+            {"function": None},
+            {"function": {"name": "exec", "arguments": '{"command": "pwd"}'}},
+        ]}}]}
+        # Should handle None function gracefully
+        fix_tool_args(rj)
+
+    def test_build_sse_with_usage(self):
+        """SSE 转换应忽略 usage 字段（只输出 choices）"""
+        rj = {
+            "id": "x", "created": 0, "model": "m",
+            "usage": {"prompt_tokens": 100, "total_tokens": 200},
+            "choices": [{"index": 0, "message": {"role": "assistant", "content": "ok"}, "finish_reason": "stop"}]
+        }
+        sse = build_sse_response(rj)
+        text = sse.decode()
+        self.assertIn('"content": "ok"', text)
+        self.assertIn("[DONE]", text)
+
+    def test_build_sse_multiple_choices(self):
+        """多个 choices（n>1 场景）"""
+        rj = {
+            "id": "x", "created": 0, "model": "m",
+            "choices": [
+                {"index": 0, "message": {"role": "assistant", "content": "a"}, "finish_reason": "stop"},
+                {"index": 1, "message": {"role": "assistant", "content": "b"}, "finish_reason": "stop"},
+            ]
+        }
+        sse = build_sse_response(rj)
+        text = sse.decode()
+        # 应有两个 data: 事件 + [DONE]
+        data_lines = [l for l in text.split('\n') if l.startswith('data:') and '[DONE]' not in l]
+        self.assertEqual(len(data_lines), 2)
+
+    def test_build_sse_content_with_special_chars(self):
+        """SSE 内容含换行、引号、unicode"""
+        rj = {
+            "id": "x", "created": 0, "model": "m",
+            "choices": [{"index": 0,
+                         "message": {"role": "assistant", "content": '你好\n"世界"\t🌍'},
+                         "finish_reason": "stop"}]
+        }
+        sse = build_sse_response(rj)
+        # 应该能正确 JSON 序列化
+        text = sse.decode()
+        self.assertIn("data:", text)
+        self.assertIn("[DONE]", text)
+
+    def test_truncate_tool_messages_preserved(self):
+        """截断时 tool role 消息不应被拆散（orphan tool_call_id）"""
+        msgs = [
+            {"role": "system", "content": "sys"},
+            {"role": "user", "content": "A" * 1000},
+            {"role": "assistant", "content": "", "tool_calls": [{"id": "tc1", "function": {"name": "exec", "arguments": "{}"}}]},
+            {"role": "tool", "content": "result", "tool_call_id": "tc1"},
+            {"role": "user", "content": "B" * 1000},
+        ]
+        result, dropped = truncate_messages(msgs, max_bytes=5000)
+        # system 始终保留
+        self.assertEqual(result[0]["role"], "system")
+
+    def test_truncate_all_dropped_except_system(self):
+        """极端截断：system 消息占满预算"""
+        msgs = [
+            {"role": "system", "content": "S" * 100000},
+            {"role": "user", "content": "Hi"},
+            {"role": "assistant", "content": "Hello"},
+        ]
+        result, dropped = truncate_messages(msgs, max_bytes=60000)
+        # system 被截断但保留，其他消息尽量保留
+        self.assertEqual(result[0]["role"], "system")
+        self.assertIn("[truncated]", result[0]["content"])
+
+    def test_fix_tool_args_unknown_tool_passthrough(self):
+        """未知工具名（不在 TOOL_PARAMS 中）不应被修改"""
+        rj = make_response("custom_unknown_tool", {"foo": "bar", "baz": 42})
+        modified = fix_tool_args(rj)
+        args = get_args(rj)
+        self.assertFalse(modified)
+        self.assertEqual(args["foo"], "bar")
+        self.assertEqual(args["baz"], 42)
+
+    def test_filter_tools_malformed_entries(self):
+        """工具列表中包含残缺条目"""
+        tools = [
+            {"function": {"name": "exec", "parameters": {}}},
+            {"function": {}},  # 缺 name
+            {},  # 缺 function
+            {"function": {"name": "web_search", "parameters": {}}},
+        ]
+        filtered, all_names, kept = filter_tools(tools)
+        self.assertEqual(len(filtered), 2)
+        self.assertIn("exec", kept)
+        self.assertIn("web_search", kept)
+
+
+class TestProxyStats(unittest.TestCase):
+    """ProxyStats 监控状态机测试。"""
+
+    def test_consecutive_errors_alert(self):
+        """连续错误达到阈值应产生告警"""
+        from proxy_filters import ProxyStats, CONSECUTIVE_ERROR_ALERT
+        stats = ProxyStats()
+        for i in range(CONSECUTIVE_ERROR_ALERT):
+            stats.record_error(502, "timeout")
+        alerts = stats.pop_alerts()
+        self.assertTrue(len(alerts) > 0)
+        self.assertIn("连续", alerts[0])
+
+    def test_success_resets_consecutive(self):
+        """成功请求应重置连续错误计数"""
+        from proxy_filters import ProxyStats
+        stats = ProxyStats()
+        stats.record_error(502, "timeout")
+        stats.record_error(502, "timeout")
+        stats.record_success({"prompt_tokens": 100, "total_tokens": 200})
+        self.assertEqual(stats.consecutive_errors, 0)
+
+    def test_token_critical_alert(self):
+        """prompt_tokens 超过临界阈值应触发告警"""
+        from proxy_filters import ProxyStats, TOKEN_CRITICAL_THRESHOLD
+        stats = ProxyStats()
+        stats.record_success({"prompt_tokens": TOKEN_CRITICAL_THRESHOLD + 1, "total_tokens": TOKEN_CRITICAL_THRESHOLD + 100})
+        alerts = stats.pop_alerts()
+        self.assertTrue(len(alerts) > 0)
+        self.assertIn("临界", alerts[0])
+
+    def test_no_alert_below_threshold(self):
+        """正常 token 用量不应触发告警"""
+        from proxy_filters import ProxyStats
+        stats = ProxyStats()
+        stats.record_success({"prompt_tokens": 1000, "total_tokens": 2000})
+        alerts = stats.pop_alerts()
+        self.assertEqual(len(alerts), 0)
+
+    def test_pop_alerts_clears(self):
+        """pop_alerts 后告警列表应清空"""
+        from proxy_filters import ProxyStats
+        stats = ProxyStats()
+        stats.record_success({"prompt_tokens": 250000, "total_tokens": 260000})
+        alerts1 = stats.pop_alerts()
+        alerts2 = stats.pop_alerts()
+        self.assertTrue(len(alerts1) > 0)
+        self.assertEqual(len(alerts2), 0)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

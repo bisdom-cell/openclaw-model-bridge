@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import http.server, socketserver, json, ssl, sys, os, threading
+import http.server, socketserver, json, ssl, sys, os, threading, time
 from datetime import datetime
 from urllib.request import Request, urlopen
 
@@ -100,21 +100,24 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
             self.send_error(502, str(e))
 
     def do_POST(self):
+        rid = self.headers.get("X-Request-ID", "")
+        tag = f"[{rid}] " if rid else ""
+        t0 = time.monotonic()
         length = int(self.headers.get("Content-Length", 0))
         raw = self.rfile.read(length)
         path = self.path.replace("/v1", "", 1) if self.path.startswith("/v1") else self.path
         url = f"{TARGET_BASE}{path}"
-        log(f"POST {url} ({length} bytes)")
+        log(f"{tag}POST {url} ({length} bytes)")
 
         if "/chat/completions" in self.path:
             try:
                 body = json.loads(raw)
             except (json.JSONDecodeError, ValueError) as e:
-                log(f"Bad JSON: {e}")
+                log(f"{tag}Bad JSON: {e}")
                 self.send_error(400, "Bad JSON")
                 return
 
-            log(f"INCOMING KEYS: {list(body.keys())}")
+            log(f"{tag}INCOMING KEYS: {list(body.keys())}")
 
             # Clean messages - remove unsupported content types
             msgs = body.get("messages", [])
@@ -160,10 +163,10 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
             if "stream" in body:
                 clean["stream"] = body["stream"]
 
-            log(f"CLEAN KEYS: {list(clean.keys())}")
-            log(f"MSG COUNT: {len(clean_msgs)}, ROLES: {[m['role'] for m in clean_msgs]}")
+            log(f"{tag}CLEAN KEYS: {list(clean.keys())}")
+            log(f"{tag}MSG COUNT: {len(clean_msgs)}, ROLES: {[m['role'] for m in clean_msgs]}")
             data = json.dumps(clean).encode()
-            log(f"FORWARDING: {len(data)} bytes")
+            log(f"{tag}FORWARDING: {len(data)} bytes")
         else:
             data = raw
 
@@ -174,14 +177,16 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
         try:
             with urlopen(req, timeout=300, context=ctx) as resp:
                 resp_body = resp.read()
-                log(f"RESPONSE: {resp.status} ({len(resp_body)} bytes)")
+                elapsed = int((time.monotonic() - t0) * 1000)
+                log(f"{tag}RESPONSE: {resp.status} ({len(resp_body)} bytes) {elapsed}ms")
                 self.send_response(resp.status)
                 self.send_header("Content-Type", "application/json")
                 self.send_header("Content-Length", str(len(resp_body)))
                 self.end_headers()
                 self.wfile.write(resp_body)
         except Exception as e:
-            log(f"FORWARD ERROR: {e}")
+            elapsed = int((time.monotonic() - t0) * 1000)
+            log(f"{tag}FORWARD ERROR ({elapsed}ms): {e}")
             err = json.dumps({"error": str(e)}).encode()
             self.send_response(502)
             self.send_header("Content-Type", "application/json")

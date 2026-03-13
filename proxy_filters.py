@@ -222,7 +222,7 @@ def fix_tool_args(rj):
         tcs = msg.get("tool_calls")
         if tcs:
             for tc in tcs:
-                fn = tc.get("function", {})
+                fn = tc.get("function") or {}
                 name = fn.get("name", "")
                 args_str = fn.get("arguments", "{}")
                 try:

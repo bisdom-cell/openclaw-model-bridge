@@ -8,6 +8,11 @@
 export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
 set -eo pipefail
 
+# 防重叠执行（flock）
+LOCK="/tmp/freight_watcher.lock"
+exec 200>"$LOCK"
+flock -n 200 || { echo "[freight] Already running, skip"; exit 0; }
+
 # ── --test 模式：跳过 RSS 抓取和 LLM 分析，直接从 Step 9 (ImportYeti) 开始 ──
 TEST_MODE=0
 if [ "${1:-}" = "--test" ]; then

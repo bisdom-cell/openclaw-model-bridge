@@ -2,6 +2,12 @@
 # cron 环境 PATH 极简，必须显式声明（规则 #13）
 export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
 set -euo pipefail
+
+# 防重叠执行（flock）
+LOCK="/tmp/openclaw_releases.lock"
+exec 200>"$LOCK"
+flock -n 200 || { echo "[releases] Already running, skip"; exit 0; }
+
 day="$(TZ=Asia/Hong_Kong date "+%Y-%m-%d")"
 
 ROOT="${ROOT:-$HOME/.openclaw}"
