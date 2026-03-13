@@ -398,11 +398,29 @@ WhatsApp → Gateway (:18789) → Tool Proxy (:5002) → Adapter (:5001) → 远
 
 ### 2026.3.x 版本亮点
 
-- **Queue 可靠性增强**: lane draining 保证 flag 重置、restart 期间拒绝新入队、stale message 跳过
-- **diffs 插件工具**: 只读 diff 渲染
-- **ACP runtime**: sessions_spawn 支持 `resumeSessionId` 恢复会话
-- **工具升级**: browser/canvas/nodes/cron 从旧 skills 升级为 first-class agent tools
-- **Loop detection**: 内置循环检测防护
+**v2026.3.12（最新，我们当前使用版本）**:
+- 具体 changelog 待发布
+
+**v2026.3.11（2026-03-12）**:
+- **安全**: Browser origin validation 强制应用于所有 WebSocket 连接（GHSA-5wcw-8jjv-m286）
+- **Breaking Change**: Cron job delivery 收紧 — 不再通过 ad hoc agent sends 或 fallback summaries 发送通知
+- 剥离 leaked model control tokens from assistant text
+- Kimi Coding tool call 格式修正为 native Anthropic format
+- iOS: bundled welcome screen, docked toolbar
+- macOS: chat model picker, persistent thinking-level selections
+- Ollama: first-class local/cloud+local setup
+- Memory: optional multimodal image/audio indexing via Gemini embedding
+
+**v2026.3.8**:
+- ACP provenance metadata, CLI version hash
+- xAI web_search collision guard (v2026.3.7)
+
+**早期 2026.3.x**:
+- Queue 可靠性增强: lane draining 保证 flag 重置、restart 期间拒绝新入队、stale message 跳过
+- diffs 插件工具: 只读 diff 渲染
+- ACP runtime: sessions_spawn 支持 `resumeSessionId` 恢复会话
+- 工具升级: browser/canvas/nodes/cron 从旧 skills 升级为 first-class agent tools
+- Loop detection: 内置循环检测防护
 
 ### 值得关注的 Open Issues
 

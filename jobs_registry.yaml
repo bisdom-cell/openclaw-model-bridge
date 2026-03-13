@@ -137,3 +137,12 @@ jobs:
     needs_api_key: false
     enabled: true
     description: WhatsApp session 保活（Gateway HTTP 探测，不发送消息）
+
+  - id: openclaw_backup
+    scheduler: system
+    entry: openclaw_backup.sh
+    interval: "0 3 * * *"           # 每天 03:00（低峰时段）
+    log: ~/openclaw_backup.log
+    needs_api_key: false
+    enabled: true
+    description: 每日备份 OpenClaw state（config/sessions/memory）到外挂 SSD，保留7天

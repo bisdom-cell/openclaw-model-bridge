@@ -105,6 +105,9 @@ declare -a FILE_MAP=(
     # ArXiv 监控
     "jobs/arxiv_monitor/run_arxiv.sh|$HOME/.openclaw/jobs/arxiv_monitor/run_arxiv.sh"
 
+    # 备份脚本
+    "openclaw_backup.sh|$HOME/openclaw_backup.sh"
+
     # 自部署（bootstrapping）
     "auto_deploy.sh|$HOME/openclaw-model-bridge/auto_deploy.sh"
 )
