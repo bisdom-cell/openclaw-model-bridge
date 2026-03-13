@@ -1,6 +1,6 @@
 # CLAUDE.md — openclaw-model-bridge 项目背景
 
-> 每次新会话开始时自动读取。当前版本：v28.3（2026-03-13）
+> 每次新会话开始时自动读取。当前版本：v29（2026-03-13）
 
 ---
 
@@ -36,7 +36,8 @@
 │  每天    OpenClaw Releases ──→ LLM富摘要 + KB写入 + WhatsApp推送                     │
 │  每小时  Issues监控 ──→ KB写入 + WhatsApp推送                                        │
 │  每天    KB晚间整理                                                                  │
-│  每周    KB跨笔记回顾                                                                │
+│  每天    KB每日摘要 ──→ ~/.kb/daily_digest.md（LLM对话时可查）                          │
+│  每周    KB跨笔记回顾 ──→ LLM深度分析 + WhatsApp推送                                   │
 │  每周    健康周报 ──→ WhatsApp推送                                                    │
 └─────────────────────────────────────────────────────────────────────────────────────┘
                                        │
@@ -55,7 +56,7 @@
 │  GitHub (main) ──→ auto_deploy.sh (每2min轮询)                                      │
 │                     ├─ git fetch + pull                                              │
 │                     ├─ 单测验证（proxy_filters变更时）                                 │
-│                     ├─ 文件同步（仓库→运行时，17个文件映射）                            │
+│                     ├─ 文件同步（仓库→运行时，19个文件映射）                            │
 │                     ├─ 每小时漂移检测（md5全量比对）                                   │
 │                     ├─ 按需restart（核心服务文件变更时）                                │
 │                     └─ preflight_check.sh --full（部署后自动体检 11项）                │
@@ -96,7 +97,9 @@
 | `restart.sh` | 一键重启 Proxy + Adapter + Gateway（含 PATH 修复，可在 cron 环境使用） |
 | `health_check.sh` | 每周健康周报脚本（V27: +JSON输出） |
 | `kb_write.sh` | KB写入脚本（含目录锁+原子写） |
-| `kb_review.sh` | KB跨笔记回顾脚本 |
+| `kb_review.sh` | **V29升级** KB跨笔记回顾（LLM深度分析+WhatsApp推送） |
+| `kb_search.sh` | **V29新增** KB按需查询工具（关键词/标签/来源/统计概览） |
+| `kb_inject.sh` | **V29新增** 每日KB摘要生成（~/.kb/daily_digest.md，供LLM对话查阅） |
 | `kb_save_arxiv.sh` | ArXiv监控结果写入KB + rsync备份 |
 | `auto_deploy.sh` | **V27.1新增** 仓库→部署自动同步 + 漂移检测（md5全量比对+WhatsApp告警） |
 | `test_tool_proxy.py` | proxy_filters 单测（43个用例） |
@@ -165,6 +168,15 @@
 2. **每次必查原则扩展至 7 条**：新增第 1 条"开工刷新 OpenClaw 架构"，原 1-6 顺延为 2-7
 3. **每日文档刷新范围扩展**：`docs/openclaw_architecture.md` 加入开工/收工强制 read→write 循环
 
+## V29 变更摘要（2026-03-13）
+
+1. **KB 搜索工具**：`kb_search.sh` 支持全文搜索（关键词/标签/天数/来源组合）、`--summary` 统计概览（条目数/来源大小/热门标签/7天活跃度）、`--source` 来源归档搜索
+2. **KB 回顾升级为 LLM 深度分析**：`kb_review.sh` 收集最近N天的 notes + sources 完整内容 → curl proxy:5002 调 LLM 跨领域分析（亮点/关联/行动建议/知识空白） → 推送 WhatsApp + 写入 review 文件；LLM 失败时 graceful fallback
+3. **KB 每日摘要**：`kb_inject.sh` 每天 07:00 生成 `~/.kb/daily_digest.md`（notes 精华 + sources 关键段），LLM 对话时通过 read 工具查阅
+4. **WhatsApp LLM 自动查 KB**：workspace CLAUDE.md 添加知识库查询指引，用户问"最近有什么新论文"等问题时 LLM 自动读取 daily_digest.md 回答
+5. **kb_review.sh 从 openclaw cron 改为 system cron**：直接 curl 调 LLM 分析，不再依赖 openclaw agent
+6. **auto_deploy.sh FILE_MAP 扩展至 19 个文件**：新增 kb_search.sh + kb_inject.sh
+
 ## 常用命令
 
 ```bash
@@ -192,6 +204,12 @@ bash smoke_test.sh
 bash preflight_check.sh
 # 收工前全面体检（Mac Mini，含部署一致性+环境变量+连通性）
 bash preflight_check.sh --full
+
+# KB 搜索 / 摘要
+bash kb_search.sh "关键词"         # 全文搜索
+bash kb_search.sh --summary        # 统计概览
+bash kb_search.sh --source arxiv   # 搜索来源归档
+bash kb_inject.sh                  # 手动生成每日摘要
 
 # 生成任务文档 / 检测文档漂移
 python3 gen_jobs_doc.py           # 输出 markdown 表格
@@ -289,6 +307,7 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 | ✅ | Blog中文标题升级为LLM动态生成 |
 | ✅ | WhatsApp target号码统一为 OPENCLAW_PHONE |
 | 低 | 探索Claude/GPT-4o替换Qwen3 |
+| ✅ | KB三件套：搜索/LLM深度回顾/每日摘要注入（V29） |
 
 ## 远程连接（本机）
 

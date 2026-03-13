@@ -1,7 +1,7 @@
 # OpenClaw 完整配置文档
 > 最后更新：2026-03-12 (HKT)
 > 系统：Mac Mini (macOS) | 用户：bisdom
-> 版本：v28.3（V28基础上：健康端点修复、全面体检系统、自动部署后体检、架构重构、OpenClaw架构文档、开工流程扩展）
+> 版本：v29（V28基础上：健康端点修复、全面体检系统、自动部署后体检、架构重构、OpenClaw架构文档、KB三件套）
 > OpenClaw Gateway：2026.3.7（2026-03-08升级）
 ---
 ## 一、系统架构（V28.1 四层架构）
@@ -31,7 +31,8 @@
 │  每天    OpenClaw Releases ──→ LLM富摘要 + KB写入 + WhatsApp推送                     │
 │  每小时  Issues监控 ──→ KB写入 + WhatsApp推送                                        │
 │  每天    KB晚间整理                                                                  │
-│  每周    KB跨笔记回顾                                                                │
+│  每天    KB每日摘要 ──→ ~/.kb/daily_digest.md（LLM对话时可查）                          │
+│  每周    KB跨笔记回顾 ──→ LLM深度分析 + WhatsApp推送                                   │
 │  每周    健康周报 ──→ WhatsApp推送                                                    │
 └─────────────────────────────────────────────────────────────────────────────────────┘
                                        │
@@ -106,7 +107,9 @@
 | 注册表校验器 | ~/openclaw-model-bridge/check_registry.py | **V27新增** 校验ID唯一/路径存在/字段完整 |
 | 回滚指南 | ~/openclaw-model-bridge/ROLLBACK.md | **V27新增** 30秒恢复到V26 |
 | KB写入脚本 | ~/kb_write.sh | KB记录执行脚本（v18已加目录锁+原子写） |
-| KB回顾脚本 | ~/kb_review.sh | KB跨笔记回顾脚本 |
+| KB回顾脚本 | ~/kb_review.sh | **V29升级：LLM深度分析+WhatsApp推送** |
+| **KB搜索工具** | **~/kb_search.sh** | **V29新增：按需查询（关键词/标签/来源/统计概览）** |
+| **KB每日摘要** | **~/kb_inject.sh** | **V29新增：每日07:00生成~/.kb/daily_digest.md，供LLM对话查阅** |
 | ~~ArXiv KB归档脚本~~ | ~~~/kb_save_arxiv.sh~~ | ~~已废弃（V28: 功能合并到 arxiv_monitor）~~ |
 | **ArXiv AI论文监控** | **~/.openclaw/jobs/arxiv_monitor/run_arxiv.sh** | **V28新增：ArXiv论文监控 + KB写入 + rsync备份（合并原 monitor-arxiv-ai-models + kb-save-arxiv）** |
 | **每周健康检查脚本** | **~/health_check.sh** | **系统健康周报脚本（v16新增）** |
@@ -241,6 +244,7 @@ export OPENCLAW_PHONE="+85200000000"
 | kb-evening | 每天22:00 | `kb_evening.sh` | `~/kb_evening.log` | ✅ 晚间 KB 整理 |
 | session-cleanup | 每6小时 04/10/16/22:00 | 直接rm命令（无脚本） | `~/.openclaw/logs/session_cleanup.log` | ✅ v24变更：从每天1次→每6小时1次 |
 | wa-keepalive | 每30分钟 | `~/wa_keepalive.sh` | `~/wa_keepalive.log` | ✅ V28.1新增：真实发送零宽字符验证WhatsApp通道 |
+| kb-inject | 每天07:00 | `~/kb_inject.sh` | `~/kb_inject.log` | ✅ V29新增：每日KB摘要生成，供LLM对话查阅 |
 | auto-deploy | 每2分钟 | `~/openclaw-model-bridge/auto_deploy.sh` | `~/.openclaw/logs/auto_deploy.log` | ✅ V27.1新增+V28.1：部署后自动体检 |
 | gateway-watchdog | ~~每30分钟~~ | `~/restart.sh` | `~/.openclaw/logs/gateway_watchdog.log` | ❌ **已移除**（#95：与launchd KeepAlive双主控冲突，导致误杀gateway） |
 
@@ -255,6 +259,7 @@ export OPENCLAW_PHONE="+85200000000"
 0 */3 * * * mkdir -p $HOME/.openclaw/logs/jobs; bash -lc '$HOME/.openclaw/jobs/arxiv_monitor/run_arxiv.sh >> $HOME/.openclaw/logs/jobs/arxiv_monitor.log 2>&1'
 30 * * * * bash -lc '$HOME/openclaw-model-bridge/job_watchdog.sh >> $HOME/job_watchdog.log 2>&1'
 */30 * * * * bash -lc '$HOME/wa_keepalive.sh >> $HOME/wa_keepalive.log 2>&1'
+0 7 * * * bash ~/kb_inject.sh >> ~/kb_inject.log 2>&1
 */2 * * * * bash -lc 'bash $HOME/openclaw-model-bridge/auto_deploy.sh >> $HOME/.openclaw/logs/auto_deploy.log 2>&1'
 ```
 > 💡 **架构说明**：系统crontab用`bash -lc`加载完整登录环境（含`$HOME`、`$PATH`等环境变量），避免cron空环境导致命令找不到。创建日志目录前置在`mkdir -p`确保首次运行不失败。
@@ -536,6 +541,7 @@ GitHub SSH Key：`~/.ssh/id_ed25519`（2026-02-28添加到 github.com/settings/s
 │   ├── openclaw_official.md                               ← Releases+Blog永久归档
 │   ├── hn_daily.md                                        ← HN Watcher归档
 │   └── freight_daily.md                                   ← 货代Watcher归档（v26新增）
+├── daily_digest.md  每日KB摘要（V29新增）                   ← kb_inject.sh 每日07:00生成，LLM对话查阅
 ├── inbox.md     Watcher去重列表（v20新增，URL为唯一键）      ← Official Watcher写入
 └── index.json   主索引                                     ← kb_write.sh维护
 备份（外挂SSD，每次kb-save-arxiv执行后自动同步）：
@@ -757,6 +763,10 @@ nohup python3 ~/adapter.py > ~/adapter.log 2>&1 &
 | ✅ | V28.1 auto_deploy.sh 部署后自动体检 + WhatsApp告警 | 完成 |
 | ✅ | V28.1 环境变量同步到 ~/.bash_profile（cron环境修复） | 完成 |
 | ✅ | V28.1 四层架构图文档化 | 完成 |
+| ✅ | V29 KB搜索工具（kb_search.sh） | 完成 |
+| ✅ | V29 KB回顾升级为LLM深度分析（kb_review.sh） | 完成 |
+| ✅ | V29 KB每日摘要生成（kb_inject.sh） | 完成 |
+| ✅ | V29 WhatsApp LLM自动查KB（workspace CLAUDE.md指引） | 完成 |
 | 低 | 探索Claude/GPT-4o替换Qwen3 | ⏳ |
 ---
 ## 十九、工作原则（工作宪法）
