@@ -222,13 +222,13 @@ export OPENCLAW_PHONE="+85200000000"
 | cron | 定时任务 | ✅ |
 | message | 发送消息 | ✅ |
 ---
-## 七、定时任务（v22：3个openclaw内建启用；session-cleanup迁移至系统crontab）
+## 七、定时任务（V29.1：所有openclaw内建cron已废弃/移除，统一为系统crontab）
 | 任务名 | 触发时间 | Job ID | 状态 |
 |--------|----------|--------|------|
 | monitor-arxiv-ai-models | 每3小时整点 HKT (00/03/06/09/12/15/18/21) | dbfdd5e4-155b-4c0d-b56f-bee0a50166be | ❌ 已废弃（V28: 替换为系统crontab的 arxiv_monitor） |
 | kb-save-arxiv | 每3小时整点后5分钟 | b2e344f7-61df-4088-b355-e3925a4f4025 | ❌ 已废弃（V28: 功能合并到 arxiv_monitor） |
 | session-cleanup-daily | 每天 22:00 HKT | 4ae231a4-70e3-4b22-883f-4f4a2192ac00 | ❌ 已禁用（v22迁移至系统crontab） |
-| weekly-health-check | 每周日 20:00 HKT | 1c5022c9-7bf7-4288-bbd1-971569835b3f | ✅ |
+| weekly-health-check | 每周日 20:00 HKT | 1c5022c9-7bf7-4288-bbd1-971569835b3f | ❌ 已移除（V29.1：迁移至系统crontab，周一09:00直接执行，不经LLM） |
 > ⚠️ 以上为 **openclaw内建cron**（`openclaw cron add`管理）
 > ⚠️ **v22重要变更**：session-cleanup-daily 已禁用，改由系统crontab直接执行rm命令，解决Gateway 502时cleanup死锁问题
 
@@ -246,6 +246,7 @@ export OPENCLAW_PHONE="+85200000000"
 | wa-keepalive | 每30分钟 | `~/wa_keepalive.sh` | `~/wa_keepalive.log` | ✅ V28.1新增：真实发送零宽字符验证WhatsApp通道 |
 | kb-inject | 每天07:00 | `~/kb_inject.sh` | `~/kb_inject.log` | ✅ V29新增：每日KB摘要生成，供LLM对话查阅 |
 | auto-deploy | 每2分钟 | `~/openclaw-model-bridge/auto_deploy.sh` | `~/.openclaw/logs/auto_deploy.log` | ✅ V27.1新增+V28.1：部署后自动体检 |
+| weekly-health-check | 每周一09:00 | `~/health_check.sh` | `~/health_check.log` | ✅ V29.1：从openclaw cron迁移至系统crontab，直接执行不经LLM |
 | gateway-watchdog | ~~每30分钟~~ | `~/restart.sh` | `~/.openclaw/logs/gateway_watchdog.log` | ❌ **已移除**（#95：与launchd KeepAlive双主控冲突，导致误杀gateway） |
 
 当前 `crontab -l` 核心条目：
@@ -259,6 +260,7 @@ export OPENCLAW_PHONE="+85200000000"
 0 */3 * * * mkdir -p $HOME/.openclaw/logs/jobs; bash -lc '$HOME/.openclaw/jobs/arxiv_monitor/run_arxiv.sh >> $HOME/.openclaw/logs/jobs/arxiv_monitor.log 2>&1'
 30 * * * * bash -lc '$HOME/openclaw-model-bridge/job_watchdog.sh >> $HOME/job_watchdog.log 2>&1'
 */30 * * * * bash -lc '$HOME/wa_keepalive.sh >> $HOME/wa_keepalive.log 2>&1'
+0 9 * * 1 bash -lc '$HOME/health_check.sh >> $HOME/health_check.log 2>&1'
 0 7 * * * bash ~/kb_inject.sh >> ~/kb_inject.log 2>&1
 */2 * * * * bash -lc 'bash $HOME/openclaw-model-bridge/auto_deploy.sh >> $HOME/.openclaw/logs/auto_deploy.log 2>&1'
 ```
