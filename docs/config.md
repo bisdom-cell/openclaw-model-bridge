@@ -501,6 +501,37 @@ FORCE_SYSTEM = """你是Wei，一个专业AI助手。身份已完全确认，onb
 > ⚠️ `agents.defaults.model.primary` 必须带 `qwen-local/` 前缀。
 > ⚠️ `contextPruning` 合法 key：`mode`(`cache-ttl`/`off`)、`ttl`(duration字符串如`6h`)、`keepLastAssistants`(复数带s)。
 
+### 11.2 Multi-Agent 配置（V29.1新增）
+```json
+{
+  "agents": {
+    "list": [
+      {
+        "id": "research", "name": "research",
+        "model": {"primary": "qwen-local/Qwen3-235B-A22B-Instruct-2507-W8A8"},
+        "workspace": "/Users/bisdom/.openclaw/workspace",
+        "tools": {
+          "allow": ["web_search", "web_fetch", "read", "write", "memory_search", "memory_get"],
+          "deny": ["exec", "browser"]
+        }
+      },
+      {
+        "id": "ops", "name": "ops",
+        "model": {"primary": "qwen-local/Qwen3-235B-A22B-Instruct-2507-W8A8"},
+        "workspace": "/Users/bisdom",
+        "tools": {
+          "allow": ["exec", "read", "write", "message"],
+          "deny": ["browser", "web_search"]
+        }
+      }
+    ]
+  }
+}
+```
+> **使用方式**：`openclaw agent --agent research --message "..."` 或 `--agent ops`
+> **Session 隔离**：每个 agent 独立 session 目录（`~/.openclaw/agents/{name}/sessions/`），互不污染
+> **默认 agent**：WhatsApp DM 仍走 `agents.defaults`（main），不受影响
+
 ### 11.1 V29.1 新增功能
 
 **Model Fallback 降级链**
