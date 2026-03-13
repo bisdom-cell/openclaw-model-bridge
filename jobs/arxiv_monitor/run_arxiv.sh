@@ -196,7 +196,8 @@ echo "[arxiv] LLM调用成功"
 
 # ── 5. 组装消息（脚本控制格式，结构化数据从XML，翻译从LLM）──────────
 MSG_FILE="$CACHE/arxiv_message.txt"
-python3 - "$PAPERS_FILE" "$CACHE/llm_content.txt" "$DAY" "$MSG_FILE" << 'PYEOF'
+ASSEMBLE_ERR="$CACHE/assemble.stderr"
+python3 - "$PAPERS_FILE" "$CACHE/llm_content.txt" "$DAY" "$MSG_FILE" 2>"$ASSEMBLE_ERR" << 'PYEOF'
 import sys, json, re
 
 papers_file, llm_file, day, msg_file = sys.argv[1:5]
@@ -211,42 +212,88 @@ with open(papers_file) as f:
 with open(llm_file) as f:
     llm_content = f.read()
 
-# 按 --- 分隔 LLM 输出
-sections = [s.strip() for s in re.split(r'^---+$', llm_content, flags=re.MULTILINE) if s.strip()]
+# ── 按行模式匹配解析 LLM 输出（不依赖 --- 分隔符）──────────────────
+# 策略：逐行扫描，用"贡献："和"价值：⭐"前缀识别行类型，
+#   三行为一组（标题→贡献→价值），自动忽略分隔符/空行/序号行。
+def clean_prefix(line, prefixes):
+    """去除 LLM 可能添加的格式前缀"""
+    for p in prefixes:
+        if line.startswith(p):
+            return line[len(p):].strip()
+    return line
 
+TITLE_PREFIXES = ['第一行：', '第1行：', '标题：', '中文标题：']
+CONTRIB_PREFIXES = ['第二行：', '第2行：']
+STARS_PREFIXES = ['第三行：', '第3行：']
+
+# 分类所有非空行
+parsed_blocks = []  # list of (cn_title, contrib, stars)
+pending_title = None
+pending_contrib = None
+
+for raw_line in llm_content.split('\n'):
+    line = raw_line.strip()
+    if not line:
+        continue
+    # 跳过分隔符行（---、===、***等）
+    if re.match(r'^[-=*]{3,}$', line):
+        continue
+    # 跳过纯序号行（如 "论文1："、"1."、"Paper 1:"）
+    if re.match(r'^(论文\d+[：:]?\s*$|\d+[.、)]\s*$|Paper\s+\d+[：:]?\s*$)', line):
+        continue
+
+    # 检测"价值："行 → 结束一个 block
+    if '价值' in line and '⭐' in line:
+        stars_line = clean_prefix(line, STARS_PREFIXES)
+        if not stars_line.startswith('价值：') and not stars_line.startswith('价值:'):
+            stars_line = '价值：' + stars_line.lstrip('价值：').lstrip('价值:')
+        # 确保格式统一
+        if not stars_line.startswith('价值：'):
+            stars_line = '价值：' + stars_line
+        parsed_blocks.append((
+            pending_title or '',
+            pending_contrib or '贡献：AI领域相关研究',
+            stars_line
+        ))
+        pending_title = None
+        pending_contrib = None
+        continue
+
+    # 检测"贡献："行
+    if line.startswith('贡献：') or line.startswith('贡献:'):
+        pending_contrib = clean_prefix(line, CONTRIB_PREFIXES)
+        if not pending_contrib.startswith('贡献：'):
+            pending_contrib = '贡献：' + pending_contrib
+        continue
+    # 带前缀的贡献行
+    stripped = clean_prefix(line, CONTRIB_PREFIXES)
+    if stripped != line and ('贡献' in stripped[:3]):
+        pending_contrib = stripped if stripped.startswith('贡献：') else '贡献：' + stripped
+        continue
+
+    # 其余非空行视为标题（取每个 block 的第一个标题行）
+    if pending_title is None:
+        title = clean_prefix(line, TITLE_PREFIXES)
+        # 去除序号前缀（如 "1. xxx"、"1、xxx"）
+        title = re.sub(r'^\d+[.、)\]]\s*', '', title)
+        title = title.strip('*').strip()
+        pending_title = title
+
+# 匹配 LLM 解析结果到论文
+llm_ok = 0
 msg_lines = [f"\U0001F4DA 今日arXiv精选 ({day})", ""]
 
 for i, paper in enumerate(papers):
-    # 提取 LLM 的三行输出
-    if i < len(sections):
-        lines = [l.strip() for l in sections[i].strip().split('\n') if l.strip()]
-        cn_title = lines[0] if lines else paper['title']
-        contrib = lines[1] if len(lines) > 1 else "贡献：AI领域相关研究"
-        stars = lines[2] if len(lines) > 2 else "价值：⭐⭐⭐"
+    if i < len(parsed_blocks):
+        cn_title, contrib, stars = parsed_blocks[i]
+        if cn_title:
+            llm_ok += 1
+        else:
+            cn_title = paper['title']
     else:
         cn_title = paper['title']
         contrib = "贡献：AI领域相关研究"
         stars = "价值：⭐⭐⭐"
-
-    # 清理 LLM 可能添加的前缀
-    for prefix in ['第一行：', '第1行：', '1.', '1、', '标题：', '中文标题：']:
-        if cn_title.startswith(prefix):
-            cn_title = cn_title[len(prefix):].strip()
-    cn_title = cn_title.strip('*').strip()
-
-    if not contrib.startswith('贡献：'):
-        for prefix in ['第二行：', '第2行：', '2.', '2、']:
-            if contrib.startswith(prefix):
-                contrib = contrib[len(prefix):].strip()
-        if not contrib.startswith('贡献：'):
-            contrib = '贡献：' + contrib
-
-    if not stars.startswith('价值：'):
-        for prefix in ['第三行：', '第3行：', '3.', '3、']:
-            if stars.startswith(prefix):
-                stars = stars[len(prefix):].strip()
-        if not stars.startswith('价值：'):
-            stars = '价值：' + stars
 
     # 脚本控制的严格 5 行格式
     msg_lines.append(f"*{cn_title}*")
@@ -259,8 +306,24 @@ for i, paper in enumerate(papers):
 with open(msg_file, 'w') as f:
     f.write('\n'.join(msg_lines))
 
-print(f"[arxiv] 消息组装完成: {len(papers)} 篇", file=sys.stderr)
+# L2检查：解析成功率
+total = len(papers)
+rate = llm_ok / total if total else 0
+if total > 0 and rate < 0.5:
+    print(f"[arxiv] WARNING: LLM解析成功率过低 {llm_ok}/{total} ({rate:.0%})，可能格式异常", file=sys.stderr)
+else:
+    print(f"[arxiv] 消息组装完成: {total} 篇，LLM解析成功 {llm_ok}/{total}", file=sys.stderr)
 PYEOF
+ASSEMBLE_EXIT=$?
+
+# L2检查：Python脚本检测到解析成功率过低时输出WARNING到stderr
+if [ -f "$ASSEMBLE_ERR" ] && grep -q "WARNING.*解析成功率过低" "$ASSEMBLE_ERR" 2>/dev/null; then
+    L2_MSG="⚠️ ArXiv监控 LLM解析异常（${DAY}）: $(grep 'WARNING' "$ASSEMBLE_ERR" | head -1)，请检查 $CACHE/llm_content.txt"
+    log "$L2_MSG"
+    "$OPENCLAW" message send --target "$TO" --message "$L2_MSG" --json >/dev/null 2>&1 || true
+    printf '{"time":"%s","status":"parse_quality_low","new":%d}\n' "$TS" "$PAPER_COUNT" > "$STATUS_FILE"
+    exit 2
+fi
 
 # ── 6. 推送WhatsApp ─────────────────────────────────────────────────────
 # 消息过长时截断（WhatsApp 单条上限约 65000 字符，留 buffer 取 4000）
