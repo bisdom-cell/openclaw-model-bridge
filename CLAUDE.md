@@ -250,7 +250,7 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 | 2 | **开工先读 config** | 读 `docs/config.md` 获取系统状态 + 踩坑记录，避免重复犯错 |
 | 3 | **改完先测** | 新脚本手动验证 → 新任务先写 `jobs_registry.yaml` 并 `python3 check_registry.py` 通过 → 才能注册 cron |
 | 4 | **push前必扫描** | 安全扫描（见上方命令）全部为空才允许 push |
-| 5 | **故障先回滚** | 线上故障 → `git checkout v26-snapshot` 恢复服务 → 再排查根因；多任务同时挂 → 先查远端模型ID |
+| 5 | **故障先查自身代码** | 排查问题时默认从我们自己的代码和架构中找 bug（shell 数据传递、cron 环境、进程管理等），不归因于上游服务不稳定（#97教训） |
 | 6 | **做减法不做加法** | 新增防护/监控前先问"谁已经在管这件事"；每加一层保险 = 多一个故障源（#95教训） |
 | 7 | **收工提醒 preflight** | "结束今天的工作"时，提醒用户在 Mac Mini 上运行 `bash preflight_check.sh --full`（用户自行执行，Claude 负责提醒） |
 
@@ -260,6 +260,7 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 <summary>展开查看完整原则列表（13条）</summary>
 
 **操作类**
+- **故障先回滚** — 线上故障 → `git checkout v26-snapshot` 恢复服务 → 再排查根因
 - **收工全量同步** — "今天工作结束" → `bash preflight_check.sh` 全面体检 → 扫描全部文档同步当日变更 → 提交推送
 - **每日文档刷新** — `CLAUDE.md` + `docs/config.md` + `docs/openclaw_architecture.md` 在开工/收工时强制 read → write
 - **纯推理绕过Gateway** — 不需要工具的LLM任务直接 curl 调 API，禁止用 `openclaw agent`（#94）
