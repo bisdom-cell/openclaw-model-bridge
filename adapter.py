@@ -2,6 +2,7 @@
 import http.server, socketserver, json, ssl, sys, os, threading, time
 from datetime import datetime
 from urllib.request import Request, urlopen
+from urllib.error import URLError, HTTPError
 
 # ---------------------------------------------------------------------------
 # Provider registry — add new providers here, no other code changes needed
@@ -22,7 +23,7 @@ PROVIDERS = {
     "gemini": {
         "base_url":    "https://generativelanguage.googleapis.com/v1beta/openai",
         "api_key_env": "GEMINI_API_KEY",
-        "model_id":    "gemini-2.0-flash",
+        "model_id":    "gemini-2.5-flash",
         "auth_style":  "bearer",
     },
     "claude": {
@@ -49,6 +50,26 @@ AUTH_STYLE  = provider["auth_style"]
 PORT        = int(os.environ.get("PORT", 5001))
 ctx         = ssl.create_default_context()
 
+# ---------------------------------------------------------------------------
+# Fallback provider (optional, for chat/completions only)
+# ---------------------------------------------------------------------------
+FALLBACK_NAME = os.environ.get("FALLBACK_PROVIDER", "gemini")
+_fb = PROVIDERS.get(FALLBACK_NAME)
+if _fb and FALLBACK_NAME != PROVIDER_NAME:
+    _fb_key = os.environ.get(_fb["api_key_env"], "")
+    if _fb_key:
+        FALLBACK = {
+            "name":       FALLBACK_NAME,
+            "base_url":   _fb["base_url"],
+            "api_key":    _fb_key,
+            "model_id":   os.environ.get("FALLBACK_MODEL_ID", _fb["model_id"]),
+            "auth_style": _fb["auth_style"],
+        }
+    else:
+        FALLBACK = None
+else:
+    FALLBACK = None
+
 ALLOWED_PARAMS = {
     "model", "messages", "max_tokens", "temperature", "top_p",
     "stream", "stop", "tools", "tool_choice", "n",
@@ -59,12 +80,25 @@ def log(msg):
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     print(f"[adapter:{PROVIDER_NAME}] {ts} {msg}", flush=True)
 
+def _make_auth_headers(auth_style, api_key):
+    """Return auth headers dict for a given style and key."""
+    if auth_style == "x-api-key":
+        return {"x-api-key": api_key, "anthropic-version": "2023-06-01"}
+    return {"Authorization": f"Bearer {api_key}"}
+
 def add_auth(req):
-    if AUTH_STYLE == "x-api-key":
-        req.add_header("x-api-key", API_KEY)
-        req.add_header("anthropic-version", "2023-06-01")
-    else:
-        req.add_header("Authorization", f"Bearer {API_KEY}")
+    for k, v in _make_auth_headers(AUTH_STYLE, API_KEY).items():
+        req.add_header(k, v)
+
+def _forward_request(url, data, auth_headers, timeout=300):
+    """Send POST request and return (status, body). Raises on failure."""
+    req = Request(url, data=data, method="POST")
+    req.add_header("Content-Type", "application/json")
+    req.add_header("User-Agent", "curl/8.0")
+    for k, v in auth_headers.items():
+        req.add_header(k, v)
+    with urlopen(req, timeout=timeout, context=ctx) as resp:
+        return resp.status, resp.read()
 
 class ProxyHandler(http.server.BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
@@ -73,7 +107,10 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
         # Local health check — never forward to remote
         if self.path in ("/health", "/v1/health"):
-            resp = json.dumps({"ok": True, "provider": PROVIDER_NAME, "model": REAL_MODEL_ID}).encode()
+            info = {"ok": True, "provider": PROVIDER_NAME, "model": REAL_MODEL_ID}
+            if FALLBACK:
+                info["fallback"] = FALLBACK["name"]
+            resp = json.dumps(info).encode()
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(resp)))
@@ -167,10 +204,47 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
             log(f"{tag}MSG COUNT: {len(clean_msgs)}, ROLES: {[m['role'] for m in clean_msgs]}")
             data = json.dumps(clean).encode()
             log(f"{tag}FORWARDING: {len(data)} bytes")
-        else:
-            data = raw
 
-        req = Request(url, data=data, method="POST")
+            # --- Primary request with fallback ---
+            primary_auth = _make_auth_headers(AUTH_STYLE, API_KEY)
+            try:
+                status, resp_body = _forward_request(url, data, primary_auth)
+                elapsed = int((time.monotonic() - t0) * 1000)
+                log(f"{tag}RESPONSE: {status} ({len(resp_body)} bytes) {elapsed}ms")
+                self._send_json(status, resp_body)
+            except Exception as primary_err:
+                elapsed = int((time.monotonic() - t0) * 1000)
+                log(f"{tag}PRIMARY FAILED ({elapsed}ms): {primary_err}")
+
+                if not FALLBACK:
+                    log(f"{tag}NO FALLBACK configured, returning 502")
+                    self._send_json(502, json.dumps({"error": str(primary_err)}).encode())
+                    return
+
+                # --- Fallback attempt ---
+                fb = FALLBACK
+                fb_url = f"{fb['base_url']}{path}"
+                fb_clean = dict(clean)
+                fb_clean["model"] = fb["model_id"]
+                fb_data = json.dumps(fb_clean).encode()
+                fb_auth = _make_auth_headers(fb["auth_style"], fb["api_key"])
+
+                log(f"{tag}FALLBACK -> {fb['name']} ({fb['model_id']}) {fb_url}")
+                try:
+                    fb_status, fb_body = _forward_request(fb_url, fb_data, fb_auth)
+                    fb_elapsed = int((time.monotonic() - t0) * 1000)
+                    log(f"{tag}FALLBACK OK: {fb_status} ({len(fb_body)} bytes) {fb_elapsed}ms")
+                    self._send_json(fb_status, fb_body)
+                except Exception as fb_err:
+                    fb_elapsed = int((time.monotonic() - t0) * 1000)
+                    log(f"{tag}FALLBACK ALSO FAILED ({fb_elapsed}ms): {fb_err}")
+                    self._send_json(502, json.dumps({
+                        "error": f"primary: {primary_err}; fallback({fb['name']}): {fb_err}"
+                    }).encode())
+            return
+
+        # --- Non-chat endpoints: no fallback ---
+        req = Request(url, data=raw, method="POST")
         req.add_header("Content-Type", "application/json")
         add_auth(req)
         req.add_header("User-Agent", "curl/8.0")
@@ -194,7 +268,16 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(err)
 
-log(f"Starting on :{PORT} -> {TARGET_BASE} (model: {REAL_MODEL_ID})")
+    def _send_json(self, status, body):
+        """Helper to send a JSON response."""
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+fb_info = f" (fallback: {FALLBACK['name']}/{FALLBACK['model_id']})" if FALLBACK else " (no fallback)"
+log(f"Starting on :{PORT} -> {TARGET_BASE} (model: {REAL_MODEL_ID}){fb_info}")
 sys.stdout.flush()
 class ThreadedServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
     daemon_threads = True
