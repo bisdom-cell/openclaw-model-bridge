@@ -1,8 +1,8 @@
 # OpenClaw 完整配置文档
-> 最后更新：2026-03-12 (HKT)
+> 最后更新：2026-03-14 (HKT)
 > 系统：Mac Mini (macOS) | 用户：bisdom
 > 版本：v29（V28基础上：健康端点修复、全面体检系统、自动部署后体检、架构重构、OpenClaw架构文档、KB三件套）
-> OpenClaw Gateway：2026.3.7（2026-03-08升级）
+> OpenClaw Gateway：2026.3.12（2026-03-14升级，含WebSocket安全修复+cron delivery收紧）
 ---
 ## 一、系统架构（V28.1 四层架构）
 
@@ -721,6 +721,7 @@ nohup python3 ~/adapter.py > ~/adapter.log 2>&1 &
 | 日期 | 旧版本 | 新版本 | 备注 |
 |------|--------|--------|------|
 | 2026-03-08 | 2026.3.1 | 2026.3.7 | 首次通过WhatsApp升级失败，改SSH手动完成。新增feishu插件重复警告（非关键）|
+| 2026-03-14 | 2026.3.8 | 2026.3.12 | SSH执行upgrade_openclaw.sh。含WebSocket安全修复(GHSA-5wcw-8jjv-m286)、cron delivery收紧、model control token剥离 |
 
 ---
 ## 二十一、待办事项（v27.1更新）

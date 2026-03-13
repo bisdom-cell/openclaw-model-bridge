@@ -398,7 +398,10 @@ WhatsApp → Gateway (:18789) → Tool Proxy (:5002) → Adapter (:5001) → 远
 
 ### 2026.3.x 版本亮点
 
-**v2026.3.11（2026-03-12，最新）**:
+**v2026.3.12（最新，我们当前使用版本）**:
+- 具体 changelog 待发布
+
+**v2026.3.11（2026-03-12）**:
 - **安全**: Browser origin validation 强制应用于所有 WebSocket 连接（GHSA-5wcw-8jjv-m286）
 - **Breaking Change**: Cron job delivery 收紧 — 不再通过 ad hoc agent sends 或 fallback summaries 发送通知
 - 剥离 leaked model control tokens from assistant text
