@@ -1,6 +1,6 @@
 # CLAUDE.md — openclaw-model-bridge 项目背景
 
-> 每次新会话开始时自动读取。当前版本：v28.2（2026-03-13）
+> 每次新会话开始时自动读取。当前版本：v28.3（2026-03-13）
 
 ---
 
@@ -107,6 +107,7 @@
 | `preflight_check.sh` | **V28新增** 收工前全面体检（11项检查：单测+注册表+语法+部署一致性+环境变量+连通性+安全扫描+数据流+货代监控） |
 | `docs/config.md` | 完整系统配置文档（含所有历史变更） |
 | `docs/GUIDE.md` | 完整中英文集成指南 |
+| `docs/openclaw_architecture.md` | **V28.2新增** OpenClaw 开源架构完整参考（每日开工自动刷新） |
 
 ## V27 变更摘要
 
@@ -157,6 +158,12 @@
 5. **preflight 扩展至 11 项**：新增第 10 项 Job 数据流 smoke test + 第 11 项货代 deep_dive 静默失败检测（含 scraper.log 错误扫描、playwright 可用性）
 6. **macOS BSD grep 兼容**：`grep -ci "\|"` → `grep -ciE "|"` + `|| true` 修复（`grep -c` 返回 0 行时退出码 1 导致双行输出）
 7. **docs/config.md 漂移修复**：补齐 `kb_evening`、修正 `run_hn_fixed.sh` 路径
+
+## V28.3 变更摘要（2026-03-13）
+
+1. **开工流程新增 OpenClaw 架构同步**：每次"开始今天的工作"时，查 OpenClaw 最新 release → 对比 `docs/openclaw_architecture.md` 记录的版本 → 有变更则研读源码并更新文档，确保中间件始终与上游架构同步
+2. **每次必查原则扩展至 7 条**：新增第 1 条"开工刷新 OpenClaw 架构"，原 1-6 顺延为 2-7
+3. **每日文档刷新范围扩展**：`docs/openclaw_architecture.md` 加入开工/收工强制 read→write 循环
 
 ## 常用命令
 
@@ -235,16 +242,17 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 
 ## 工作原则
 
-### 🔴 每次必查（6条，优先级最高）
+### 🔴 每次必查（7条，优先级最高）
 
 | # | 原则 | 一句话 |
 |---|------|--------|
-| 1 | **开工先读 config** | 读 `docs/config.md` 获取系统状态 + 踩坑记录，避免重复犯错 |
-| 2 | **改完先测** | 新脚本手动验证 → 新任务先写 `jobs_registry.yaml` 并 `python3 check_registry.py` 通过 → 才能注册 cron |
-| 3 | **push前必扫描** | 安全扫描（见上方命令）全部为空才允许 push |
-| 4 | **故障先回滚** | 线上故障 → `git checkout v26-snapshot` 恢复服务 → 再排查根因；多任务同时挂 → 先查远端模型ID |
-| 5 | **做减法不做加法** | 新增防护/监控前先问"谁已经在管这件事"；每加一层保险 = 多一个故障源（#95教训） |
-| 6 | **收工提醒 preflight** | "结束今天的工作"时，提醒用户在 Mac Mini 上运行 `bash preflight_check.sh --full`（用户自行执行，Claude 负责提醒） |
+| 1 | **开工刷新 OpenClaw 架构** | 查 OpenClaw 最新 release，对比 `docs/openclaw_architecture.md` 中记录的版本，有变更则研读源码并更新文档，保持我们的中间件与上游架构同步 |
+| 2 | **开工先读 config** | 读 `docs/config.md` 获取系统状态 + 踩坑记录，避免重复犯错 |
+| 3 | **改完先测** | 新脚本手动验证 → 新任务先写 `jobs_registry.yaml` 并 `python3 check_registry.py` 通过 → 才能注册 cron |
+| 4 | **push前必扫描** | 安全扫描（见上方命令）全部为空才允许 push |
+| 5 | **故障先回滚** | 线上故障 → `git checkout v26-snapshot` 恢复服务 → 再排查根因；多任务同时挂 → 先查远端模型ID |
+| 6 | **做减法不做加法** | 新增防护/监控前先问"谁已经在管这件事"；每加一层保险 = 多一个故障源（#95教训） |
+| 7 | **收工提醒 preflight** | "结束今天的工作"时，提醒用户在 Mac Mini 上运行 `bash preflight_check.sh --full`（用户自行执行，Claude 负责提醒） |
 
 ### 🟡 按需查阅（操作 & 架构参考）
 
@@ -253,7 +261,7 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 
 **操作类**
 - **收工全量同步** — "今天工作结束" → `bash preflight_check.sh` 全面体检 → 扫描全部文档同步当日变更 → 提交推送
-- **每日文档刷新** — `CLAUDE.md` + `docs/config.md` 在开工/收工时强制 read → write
+- **每日文档刷新** — `CLAUDE.md` + `docs/config.md` + `docs/openclaw_architecture.md` 在开工/收工时强制 read → write
 - **纯推理绕过Gateway** — 不需要工具的LLM任务直接 curl 调 API，禁止用 `openclaw agent`（#94）
 - **macOS sed禁用OR语法** — `\|` 在 BSD sed 不支持，用 Python 替代
 - **禁用交互式编辑器** — git merge 用 `--no-edit`，commit 用 `-m`，crontab 用管道
