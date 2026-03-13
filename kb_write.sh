@@ -1,9 +1,9 @@
 #!/bin/bash
-# 使用 flock 文件锁替代目录忙等待锁，避免 CPU 空转且在进程异常退出后自动释放
+# 使用 mkdir 原子锁（macOS 兼容），进程退出后 trap 自动释放
 KB_BASE="${KB_BASE:-/Users/bisdom/.kb}"
-LOCKFILE="$KB_BASE/.write.lock"
-exec 9>"$LOCKFILE"
-flock -x 9
+LOCKDIR="$KB_BASE/.write.lockdir"
+while ! mkdir "$LOCKDIR" 2>/dev/null; do sleep 0.1; done
+trap 'rmdir "$LOCKDIR" 2>/dev/null' EXIT
 
 CONTENT="$1"
 TAGS="${2:-技术/AI}"
