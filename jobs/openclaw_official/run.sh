@@ -3,10 +3,10 @@
 export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
 set -euo pipefail
 
-# 防重叠执行（flock）
-LOCK="/tmp/openclaw_releases.lock"
-exec 200>"$LOCK"
-flock -n 200 || { echo "[releases] Already running, skip"; exit 0; }
+# 防重叠执行（mkdir 原子锁，macOS 兼容）
+LOCK="/tmp/openclaw_releases.lockdir"
+mkdir "$LOCK" 2>/dev/null || { echo "[releases] Already running, skip"; exit 0; }
+trap 'rmdir "$LOCK" 2>/dev/null' EXIT
 
 day="$(TZ=Asia/Hong_Kong date "+%Y-%m-%d")"
 

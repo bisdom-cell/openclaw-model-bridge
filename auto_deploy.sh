@@ -6,30 +6,17 @@
 
 set -euo pipefail
 
-# 防重叠执行（flock）
-LOCK="/tmp/auto_deploy.lock"
-exec 200>"$LOCK"
-flock -n 200 || { echo "[auto_deploy] Already running, skip"; exit 0; }
+# 防重叠执行（mkdir 原子锁，macOS 兼容）
+LOCK="/tmp/auto_deploy.lockdir"
+mkdir "$LOCK" 2>/dev/null || { echo "[auto_deploy] Already running, skip"; exit 0; }
+trap 'rmdir "$LOCK" 2>/dev/null' EXIT
 
 # crontab 环境 PATH 不含 homebrew，手动补充
 export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 
 REPO_DIR="$HOME/openclaw-model-bridge"
 LOG="$HOME/.openclaw/logs/auto_deploy.log"
-LOCK="/tmp/auto_deploy.lock"
-
 mkdir -p "$(dirname "$LOG")"
-
-# 防止并发执行
-if [ -f "$LOCK" ]; then
-    LOCK_PID=$(cat "$LOCK" 2>/dev/null || true)
-    if [ -n "$LOCK_PID" ] && kill -0 "$LOCK_PID" 2>/dev/null; then
-        exit 0
-    fi
-    rm -f "$LOCK"
-fi
-echo $$ > "$LOCK"
-trap 'rm -f "$LOCK"' EXIT
 
 cd "$REPO_DIR" || { echo "$(date) ERROR: cannot cd to $REPO_DIR" >> "$LOG"; exit 1; }
 

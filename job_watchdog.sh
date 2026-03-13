@@ -6,10 +6,10 @@
 export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
 set -eo pipefail
 
-# 防重叠执行（flock）
-LOCK="/tmp/job_watchdog.lock"
-exec 200>"$LOCK"
-flock -n 200 || { echo "[watchdog] Already running, skip"; exit 0; }
+# 防重叠执行（mkdir 原子锁，macOS 兼容）
+LOCK="/tmp/job_watchdog.lockdir"
+mkdir "$LOCK" 2>/dev/null || { echo "[watchdog] Already running, skip"; exit 0; }
+trap 'rmdir "$LOCK" 2>/dev/null' EXIT
 
 OPENCLAW="${OPENCLAW:-/opt/homebrew/bin/openclaw}"
 TO="${OPENCLAW_PHONE:-+85200000000}"
