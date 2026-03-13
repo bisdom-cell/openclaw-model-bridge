@@ -1,7 +1,7 @@
 # OpenClaw 完整配置文档
 > 最后更新：2026-03-12 (HKT)
 > 系统：Mac Mini (macOS) | 用户：bisdom
-> 版本：v28.1（V28基础上：健康端点修复、全面体检系统、自动部署后体检、架构重构）
+> 版本：v28.3（V28基础上：健康端点修复、全面体检系统、自动部署后体检、架构重构、OpenClaw架构文档、开工流程扩展）
 > OpenClaw Gateway：2026.3.7（2026-03-08升级）
 ---
 ## 一、系统架构（V28.1 四层架构）
@@ -53,7 +53,7 @@
 │                     ├─ 文件同步（仓库→运行时，17个文件映射）                            │
 │                     ├─ 每小时漂移检测（md5全量比对）                                   │
 │                     ├─ 按需restart（核心服务文件变更时）                                │
-│                     └─ preflight_check.sh --full（部署后自动体检 9项）                 │
+│                     └─ preflight_check.sh --full（部署后自动体检 11项）                │
 │                         ├─ 单元测试 (proxy_filters + registry)                       │
 │                         ├─ 注册表校验                                                │
 │                         ├─ 文档漂移检测                                              │
@@ -125,7 +125,7 @@
 | **货代Watcher脚本** | **~/.openclaw/jobs/freight_watcher/run_freight.sh** | **货代商机Watcher（v23新增，v26首次验证）** |
 | **货代Watcher日志** | **~/.openclaw/logs/jobs/freight_watcher.log** | **货代Watcher cron日志** |
 | **自动部署+漂移检测+体检** | **~/openclaw-model-bridge/auto_deploy.sh** | **V27.1新增：仓库→部署自动同步 + 每小时md5全量比对 + WhatsApp漂移告警；V28.1：部署后自动运行preflight_check** |
-| **收工全面体检** | **~/openclaw-model-bridge/preflight_check.sh** | **V28.1新增：9项自动化检查（单测+注册表+语法+部署一致性+环境变量+连通性+安全扫描），auto_deploy部署后自动触发** |
+| **收工全面体检** | **~/openclaw-model-bridge/preflight_check.sh** | **V28.1新增：11项自动化检查（单测+注册表+语法+部署一致性+环境变量+连通性+安全扫描+数据流+货代监控），auto_deploy部署后自动触发** |
 | **WhatsApp保活** | **~/wa_keepalive.sh** | **V28.1新增：每30分钟真实发送零宽字符验证WhatsApp通道可用性** |
 | **元监控** | **~/job_watchdog.sh** | **V28新增：检查所有job状态文件 + 日志推送失败扫描 + proxy_stats + WhatsApp告警** |
 | **端到端smoke test** | **~/openclaw-model-bridge/smoke_test.sh** | **V28新增：单测+注册表+文档漂移+连通性快速验证** |

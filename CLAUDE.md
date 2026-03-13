@@ -58,7 +58,7 @@
 │                     ├─ 文件同步（仓库→运行时，17个文件映射）                            │
 │                     ├─ 每小时漂移检测（md5全量比对）                                   │
 │                     ├─ 按需restart（核心服务文件变更时）                                │
-│                     └─ preflight_check.sh --full（部署后自动体检 9项）                 │
+│                     └─ preflight_check.sh --full（部署后自动体检 11项）                │
 │                         ├─ 单元测试 (proxy_filters + registry)                       │
 │                         ├─ 注册表校验                                                │
 │                         ├─ 文档漂移检测                                              │
