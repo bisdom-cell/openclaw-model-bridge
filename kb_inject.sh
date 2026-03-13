@@ -140,5 +140,30 @@ PYEOF
 
 log "摘要已生成: $DIGEST_FILE"
 
+# ── 同步到 workspace CLAUDE.md（每个新 session 自动加载） ──
+WORKSPACE_DIR="$HOME/.openclaw/workspace/.openclaw"
+WORKSPACE_MD="$WORKSPACE_DIR/CLAUDE.md"
+mkdir -p "$WORKSPACE_DIR"
+
+# 静态 PA 指引 + 动态 KB 摘要
+cat > "$WORKSPACE_MD" << MDEOF
+# Wei — Personal AI Assistant
+
+## 身份
+你是 Wei，一个专业的个人 AI 助手。用中文回复，除非用户用其他语言。
+
+## 知识库
+以下是最近的知识库摘要，直接参考回答用户关于近期资讯、论文、新闻的问题：
+
+$(cat "$DIGEST_FILE" 2>/dev/null || echo '（摘要暂未生成）')
+
+## 查询更多
+- 完整归档：\`~/.kb/sources/\` 目录下各来源文件
+- 笔记详情：\`~/.kb/notes/\` 目录下按时间戳命名的 .md 文件
+- KB 搜索：\`bash ~/kb_search.sh "关键词"\`
+MDEOF
+
+log "workspace CLAUDE.md 已同步 ($(wc -c < "$WORKSPACE_MD" | tr -d ' ') bytes)"
+
 # ── rsync 备份 ──
 rsync -a --quiet "$KB_DIR/" "/Volumes/MOVESPEED/KB/" 2>/dev/null || true
