@@ -86,6 +86,8 @@ declare -a FILE_MAP=(
     "kb_review.sh|$HOME/kb_review.sh"
     "kb_evening.sh|$HOME/kb_evening.sh"
     "kb_save_arxiv.sh|$HOME/kb_save_arxiv.sh"
+    "kb_search.sh|$HOME/kb_search.sh"
+    "kb_inject.sh|$HOME/kb_inject.sh"
     "job_watchdog.sh|$HOME/job_watchdog.sh"
     "wa_keepalive.sh|$HOME/wa_keepalive.sh"
 
