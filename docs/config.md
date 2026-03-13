@@ -250,7 +250,7 @@ export OPENCLAW_PHONE="+85200000000"
 0 8 * * * mkdir -p $HOME/.openclaw/logs/jobs; bash -lc '$HOME/.openclaw/jobs/openclaw_official/run.sh >> $HOME/.openclaw/logs/jobs/openclaw_official.log 2>&1'
 # gateway-watchdog 已移除（#95：与launchd KeepAlive双主控冲突）— Gateway 由 launchd 全权管理
 0 4,10,16,22 * * * rm -f /Users/bisdom/.openclaw/agents/main/sessions/*.jsonl /Users/bisdom/.openclaw/agents/main/sessions/sessions.json && echo "$(date) session已清理" >> /Users/bisdom/.openclaw/logs/session_cleanup.log
-45 */3 * * * mkdir -p $HOME/.openclaw/logs/jobs; bash -lc '$HOME/.openclaw/jobs/hn_watcher/run_hn.sh >> $HOME/.openclaw/logs/jobs/hn_watcher.log 2>&1'
+45 */3 * * * mkdir -p $HOME/.openclaw/logs/jobs; bash -lc '$HOME/.openclaw/jobs/hn_watcher/run_hn_fixed.sh >> $HOME/.openclaw/logs/jobs/hn_watcher.log 2>&1'
 0 8,14,20 * * * bash -lc '$HOME/.openclaw/jobs/freight_watcher/run_freight.sh >> $HOME/.openclaw/logs/jobs/freight_watcher.log 2>&1'
 0 */3 * * * mkdir -p $HOME/.openclaw/logs/jobs; bash -lc '$HOME/.openclaw/jobs/arxiv_monitor/run_arxiv.sh >> $HOME/.openclaw/logs/jobs/arxiv_monitor.log 2>&1'
 30 * * * * bash -lc '$HOME/openclaw-model-bridge/job_watchdog.sh >> $HOME/job_watchdog.log 2>&1'
@@ -609,7 +609,7 @@ tail -30 ~/.kb/sources/freight_daily.md
 | 脚本 | L1调用层 | L2解析层 | llm_raw_last.txt | 验证状态 |
 |------|---------|---------|-----------------|---------|
 | run_freight.sh | ✅ | ✅ | ✅ | ✅ v26首次验证通过 |
-| run_hn.sh | ✅ | ✅ | ✅ | ✅ |
+| run_hn_fixed.sh | ✅ | ✅ | ✅ | ✅ |
 | run_blog.sh | ✅（逐条告警+continue） | ✅ | — | ✅ |
 | run_discussions.sh | ✅（逐条告警+continue） | ✅ | — | ✅ |
 
