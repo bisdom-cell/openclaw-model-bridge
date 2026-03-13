@@ -7,6 +7,11 @@ export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
 # 设计原则：结构化数据(作者/链接/日期)由XML提取，LLM只负责翻译+评价
 set -eo pipefail
 
+# 防重叠执行（flock）
+LOCK="/tmp/arxiv_monitor.lock"
+exec 200>"$LOCK"
+flock -n 200 || { echo "[arxiv] Already running, skip"; exit 0; }
+
 OPENCLAW="${OPENCLAW:-/opt/homebrew/bin/openclaw}"
 JOB_DIR="${HOME}/.openclaw/jobs/arxiv_monitor"
 CACHE="$JOB_DIR/cache"

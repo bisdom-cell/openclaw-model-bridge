@@ -1,6 +1,12 @@
 #!/bin/bash
 # cron 环境 PATH 极简，必须显式声明（规则 #13）
 export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
+
+# 防重叠执行（flock）
+LOCK="/tmp/hn_watcher.lock"
+exec 200>"$LOCK"
+flock -n 200 || { echo "[hn] Already running, skip"; exit 0; }
+
 # run_hn.sh - Hacker News AI/Tech精选 Watcher
 # 触发时间：每3小时:45分 HKT（系统crontab，与 ArXiv 错开45分钟）
 # v23fix2：

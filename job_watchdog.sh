@@ -6,6 +6,11 @@
 export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
 set -eo pipefail
 
+# 防重叠执行（flock）
+LOCK="/tmp/job_watchdog.lock"
+exec 200>"$LOCK"
+flock -n 200 || { echo "[watchdog] Already running, skip"; exit 0; }
+
 OPENCLAW="${OPENCLAW:-/opt/homebrew/bin/openclaw}"
 TO="${OPENCLAW_PHONE:-+85200000000}"
 TS="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')"

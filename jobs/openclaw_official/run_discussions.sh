@@ -3,6 +3,11 @@
 export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
 set -euo pipefail
 
+# 防重叠执行（flock）
+LOCK="/tmp/openclaw_discussions.lock"
+exec 200>"$LOCK"
+flock -n 200 || { echo "[discussions] Already running, skip"; exit 0; }
+
 ROOT="${ROOT:-$HOME/.openclaw}"
 JOB="$ROOT/jobs/openclaw_official"
 KB_SRC="${KB_BASE:-$HOME/.kb}/sources/openclaw_official.md"
