@@ -51,7 +51,7 @@
 │  GitHub (main) ──→ auto_deploy.sh (每2min轮询)                                      │
 │                     ├─ git fetch + pull                                              │
 │                     ├─ 单测验证（proxy_filters变更时）                                 │
-│                     ├─ 文件同步（仓库→运行时，17个文件映射）                            │
+│                     ├─ 文件同步（仓库→运行时，20个文件映射）                            │
 │                     ├─ 每小时漂移检测（md5全量比对）                                   │
 │                     ├─ 按需restart（核心服务文件变更时）                                │
 │                     └─ preflight_check.sh --full（部署后自动体检 11项）                │
@@ -92,7 +92,7 @@
 |------|------|----------|------|----------|
 | OpenClaw Gateway | 18789 | 全局安装 (npm) | WhatsApp接入、工具执行、会话管理 | launchd (KeepAlive) |
 | Tool Proxy | 5002 | ~/tool_proxy.py + ~/proxy_filters.py | HTTP层 + 策略层：工具过滤、Schema简化、参数修复、SSE转换、截断、token监控、/health级联检查 | launchd plist |
-| Adapter | 5001 | ~/adapter.py | 多Provider转发(Qwen/OpenAI/Gemini/Claude)、认证、/health本地端点 | launchd plist |
+| Adapter | 5001 | ~/adapter.py | 多Provider转发(Qwen/OpenAI/Gemini/Claude)、认证、/health端点、**Fallback降级** | launchd plist |
 | 远程GPU | - | hkagentx.hkopenlab.com | Qwen3-235B推理 + 原生tool calling (262K context) | 外部服务 |
 ---
 ## 二、关键文件清单
@@ -101,6 +101,7 @@
 | 主配置 | ~/.openclaw/openclaw.json | OpenClaw核心配置（**不可含identity字段**） |
 | cron任务 | ~/.openclaw/cron/jobs.json | 定时任务（4个启用） |
 | workspace state | ~/.openclaw/workspace/.openclaw/workspace-state.json | onboardingCompletedAt标记 |
+| **workspace CLAUDE.md** | **~/.openclaw/workspace/.openclaw/CLAUDE.md** | **V29.1新增：PA身份+每日KB摘要，每个session自动加载（kb_inject.sh生成）** |
 | 工具代理（HTTP层） | ~/tool_proxy.py | 请求/响应中间层（V27：HTTP收发+日志） |
 | 工具代理（策略层） | ~/proxy_filters.py | **V27新增** 过滤/修复/截断/SSE转换，纯函数无网络依赖 |
 | 任务注册表 | ~/openclaw-model-bridge/jobs_registry.yaml | **V27新增** 统一登记system+openclaw双cron任务 |
@@ -192,10 +193,12 @@ launchctl load ~/Library/LaunchAgents/com.openclaw.proxy.plist
 # ~/.zshrc（交互式shell）
 export REMOTE_API_KEY="sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 export OPENCLAW_PHONE="+85200000000"
+export GEMINI_API_KEY="AIzaXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"   # V29.1新增：Fallback降级用
 
 # ~/.bash_profile（cron环境，V28.1新增）
 export REMOTE_API_KEY="sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 export OPENCLAW_PHONE="+85200000000"
+export GEMINI_API_KEY="AIzaXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"   # V29.1新增：Fallback降级用
 ```
 > ⚠️ GitHub仓库中的 adapter.py 已脱敏，使用 `os.environ.get("REMOTE_API_KEY")` 读取。
 > ⚠️ `WA_PHONE` 已废弃，统一使用 `OPENCLAW_PHONE`。
@@ -245,6 +248,7 @@ export OPENCLAW_PHONE="+85200000000"
 | session-cleanup | 每6小时 04/10/16/22:00 | 直接rm命令（无脚本） | `~/.openclaw/logs/session_cleanup.log` | ✅ v24变更：从每天1次→每6小时1次 |
 | wa-keepalive | 每30分钟 | `~/wa_keepalive.sh` | `~/wa_keepalive.log` | ✅ V28.1新增：真实发送零宽字符验证WhatsApp通道 |
 | kb-inject | 每天07:00 | `~/kb_inject.sh` | `~/kb_inject.log` | ✅ V29新增：每日KB摘要生成，供LLM对话查阅 |
+| openclaw-backup | 每天03:00 | `~/openclaw_backup.sh` | `~/openclaw_backup.log` | ✅ V29.1新增：每日备份Gateway state到SSD，保留7天 |
 | auto-deploy | 每2分钟 | `~/openclaw-model-bridge/auto_deploy.sh` | `~/.openclaw/logs/auto_deploy.log` | ✅ V27.1新增+V28.1：部署后自动体检 |
 | weekly-health-check | 每周一09:00 | `~/health_check.sh` | `~/health_check.log` | ✅ V29.1：从openclaw cron迁移至系统crontab，直接执行不经LLM |
 | gateway-watchdog | ~~每30分钟~~ | `~/restart.sh` | `~/.openclaw/logs/gateway_watchdog.log` | ❌ **已移除**（#95：与launchd KeepAlive双主控冲突，导致误杀gateway） |
@@ -262,6 +266,7 @@ export OPENCLAW_PHONE="+85200000000"
 */30 * * * * bash -lc '$HOME/wa_keepalive.sh >> $HOME/wa_keepalive.log 2>&1'
 0 9 * * 1 bash -lc '$HOME/health_check.sh >> $HOME/health_check.log 2>&1'
 0 7 * * * bash ~/kb_inject.sh >> ~/kb_inject.log 2>&1
+0 3 * * * bash -lc "$HOME/openclaw_backup.sh >> $HOME/openclaw_backup.log 2>&1"
 */2 * * * * bash -lc 'bash $HOME/openclaw-model-bridge/auto_deploy.sh >> $HOME/.openclaw/logs/auto_deploy.log 2>&1'
 ```
 > 💡 **架构说明**：系统crontab用`bash -lc`加载完整登录环境（含`$HOME`、`$PATH`等环境变量），避免cron空环境导致命令找不到。创建日志目录前置在`mkdir -p`确保首次运行不失败。
@@ -472,6 +477,11 @@ FORCE_SYSTEM = """你是Wei，一个专业AI助手。身份已完全确认，onb
       "model": { "primary": "qwen-local/Qwen3-235B-A22B-Instruct-2507-W8A8" },
       "workspace": "/Users/bisdom/.openclaw/workspace",
       "compaction": { "mode": "safeguard" },
+      "contextPruning": {
+        "mode": "cache-ttl",
+        "ttl": "6h",
+        "keepLastAssistants": 3
+      },
       "timeoutSeconds": 600,
       "maxConcurrent": 4
     }
@@ -489,6 +499,32 @@ FORCE_SYSTEM = """你是Wei，一个专业AI助手。身份已完全确认，onb
 ```
 > ⚠️ `agents.defaults.identity` 已废弃，禁止写入。
 > ⚠️ `agents.defaults.model.primary` 必须带 `qwen-local/` 前缀。
+> ⚠️ `contextPruning` 合法 key：`mode`(`cache-ttl`/`off`)、`ttl`(duration字符串如`6h`)、`keepLastAssistants`(复数带s)。
+
+### 11.1 V29.1 新增功能
+
+**Model Fallback 降级链**
+- adapter.py 主请求（Qwen3）失败时自动 fallback 到 Gemini 2.5 Flash
+- 通过 `FALLBACK_PROVIDER` + `GEMINI_API_KEY` 环境变量启用
+- GEMINI_API_KEY 同时配置在 adapter plist + ~/.zshrc + ~/.bash_profile
+- /health 端点显示 `"fallback": "gemini"` 确认已激活
+- Gemini 免费额度 1500请求/天，足够 fallback 场景
+
+**每日自动备份**
+- `openclaw_backup.sh` 每天 03:00 执行 `openclaw backup create`
+- 备份到 `/Volumes/MOVESPEED/openclaw_backup/`，保留最近 7 天
+- 包含 config、credentials、sessions、memory（不含 workspace）
+
+**Bootstrap 自动注入 KB 摘要**
+- `kb_inject.sh` 每日 07:00 生成 `~/.kb/daily_digest.md` 后，同步写入 `~/.openclaw/workspace/.openclaw/CLAUDE.md`
+- 每个新 WhatsApp session 自动携带 PA 身份 + 最近 3 天 KB 精华
+- LLM 无需主动 read 文件即可回答"最近有什么新论文"等问题
+
+**Context Pruning**
+- 启用 `cache-ttl` 模式：6 小时前的对话自动剪枝，保留最近 3 轮 assistant 回复
+- 降低 token 消耗，提高长对话响应速度
+- Gateway 自动热加载，无需重启
+
 ---
 ## 十二、workspace-state.json
 **路径**：`~/.openclaw/workspace/.openclaw/workspace-state.json`
