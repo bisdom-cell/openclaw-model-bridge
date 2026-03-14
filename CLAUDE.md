@@ -283,7 +283,7 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 
 ## 工作原则
 
-### 🔴 每次必查（7条，优先级最高）
+### 🔴 每次必查（8条，优先级最高）
 
 | # | 原则 | 一句话 |
 |---|------|--------|
@@ -294,6 +294,7 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 | 5 | **故障先查自身代码** | 排查问题时默认从我们自己的代码和架构中找 bug（shell 数据传递、cron 环境、进程管理等），不归因于上游服务不稳定（#97教训） |
 | 6 | **做减法不做加法** | 新增防护/监控前先问"谁已经在管这件事"；每加一层保险 = 多一个故障源（#95教训） |
 | 7 | **收工提醒 preflight** | "结束今天的工作"时，提醒用户在 Mac Mini 上运行 `bash preflight_check.sh --full`（用户自行执行，Claude 负责提醒） |
+| 8 | **相信 OpenClaw，用好 OpenClaw** | 优先利用 OpenClaw 已有能力（Multi-Agent、contextPruning、workspace CLAUDE.md、tools 等），而非重新造轮子；遇到新需求先查 OpenClaw 文档和 release notes，充分发挥其潜力来提升效率和创新 |
 
 ### 🟡 按需查阅（操作 & 架构参考）
 
