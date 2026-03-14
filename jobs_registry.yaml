@@ -146,3 +146,12 @@ jobs:
     needs_api_key: false
     enabled: true
     description: 每日备份 OpenClaw state（config/sessions/memory）到外挂 SSD，保留7天
+
+  - id: mm_index
+    scheduler: system
+    entry: mm_index_cron.sh
+    interval: "0 */2 * * *"         # 每2小时增量索引
+    log: ~/.openclaw/logs/jobs/mm_index.log
+    needs_api_key: true              # GEMINI_API_KEY
+    enabled: true
+    description: Multimodal Memory 索引 — 扫描媒体文件 → Gemini Embedding 2 → 本地向量索引

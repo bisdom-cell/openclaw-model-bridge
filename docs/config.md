@@ -1,7 +1,7 @@
 # OpenClaw 完整配置文档
 > 最后更新：2026-03-14 (HKT)
 > 系统：Mac Mini (macOS) | 用户：bisdom
-> 版本：v29（V28基础上：健康端点修复、全面体检系统、自动部署后体检、架构重构、OpenClaw架构文档、KB三件套）
+> 版本：v29.1（V29基础上：Fallback降级、自动备份、Multi-Agent、Bootstrap注入、Context Pruning、Multimodal Memory）
 > OpenClaw Gateway：2026.3.12（2026-03-14升级，含WebSocket安全修复+cron delivery收紧）
 ---
 ## 一、系统架构（V28.1 四层架构）
@@ -249,6 +249,7 @@ export GEMINI_API_KEY="AIzaXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"   # V29.1新增
 | wa-keepalive | 每30分钟 | `~/wa_keepalive.sh` | `~/wa_keepalive.log` | ✅ V28.1新增：真实发送零宽字符验证WhatsApp通道 |
 | kb-inject | 每天07:00 | `~/kb_inject.sh` | `~/kb_inject.log` | ✅ V29新增：每日KB摘要生成，供LLM对话查阅 |
 | openclaw-backup | 每天03:00 | `~/openclaw_backup.sh` | `~/openclaw_backup.log` | ✅ V29.1新增：每日备份Gateway state到SSD，保留7天 |
+| mm-index | 每2小时 | `~/openclaw-model-bridge/mm_index_cron.sh` | `~/.openclaw/logs/jobs/mm_index.log` | ✅ V29.1新增：Multimodal Memory索引（Gemini Embedding 2） |
 | auto-deploy | 每2分钟 | `~/openclaw-model-bridge/auto_deploy.sh` | `~/.openclaw/logs/auto_deploy.log` | ✅ V27.1新增+V28.1：部署后自动体检 |
 | weekly-health-check | 每周一09:00 | `~/health_check.sh` | `~/health_check.log` | ✅ V29.1：从openclaw cron迁移至系统crontab，直接执行不经LLM |
 | gateway-watchdog | ~~每30分钟~~ | `~/restart.sh` | `~/.openclaw/logs/gateway_watchdog.log` | ❌ **已移除**（#95：与launchd KeepAlive双主控冲突，导致误杀gateway） |
@@ -555,6 +556,15 @@ FORCE_SYSTEM = """你是Wei，一个专业AI助手。身份已完全确认，onb
 - 启用 `cache-ttl` 模式：6 小时前的对话自动剪枝，保留最近 3 轮 assistant 回复
 - 降低 token 消耗，提高长对话响应速度
 - Gateway 自动热加载，无需重启
+
+**Multimodal Memory（V29.1新增）**
+- `mm_index.py` — 扫描 Gateway 媒体目录（`~/.openclaw/workspace/media/inbound/`），调用 Gemini Embedding 2 (`gemini-embedding-2-preview`) 生成 768 维向量，增量写入 `~/.kb/mm_index/`
+- `mm_search.py` — 文本语义搜索：输入自然语言查询 → Gemini 文本 embedding → cosine similarity → 返回 top-K 匹配媒体文件
+- `mm_index_cron.sh` — 定时任务包装，每 2 小时增量索引
+- 支持格式：PNG/JPEG/GIF/WebP（图片）、MP3/WAV/OGG（音频）、MP4/MOV（视频）、PDF
+- 依赖：`pip3 install google-genai numpy`
+- 索引存储：`~/.kb/mm_index/meta.json`（元数据） + `vectors.bin`（float32 二进制向量）
+- 用法：`python3 mm_search.py "会议录音"` / `python3 mm_search.py --stats`
 
 ---
 ## 十二、workspace-state.json

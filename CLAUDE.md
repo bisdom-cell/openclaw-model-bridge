@@ -57,7 +57,7 @@
 │  GitHub (main) ──→ auto_deploy.sh (每2min轮询)                                      │
 │                     ├─ git fetch + pull                                              │
 │                     ├─ 单测验证（proxy_filters变更时）                                 │
-│                     ├─ 文件同步（仓库→运行时，20个文件映射）                            │
+│                     ├─ 文件同步（仓库→运行时，23个文件映射）                            │
 │                     ├─ 每小时漂移检测（md5全量比对）                                   │
 │                     ├─ 按需restart（核心服务文件变更时）                                │
 │                     └─ preflight_check.sh --full（部署后自动体检 11项）                │
@@ -102,6 +102,9 @@
 | `kb_review.sh` | **V29升级** KB跨笔记回顾（LLM深度分析+WhatsApp推送） |
 | `kb_search.sh` | **V29新增** KB按需查询工具（关键词/标签/来源/统计概览） |
 | `kb_inject.sh` | **V29新增** 每日KB摘要生成（~/.kb/daily_digest.md，供LLM对话查阅） |
+| `mm_index.py` | **V29.1新增** Multimodal Memory 索引器（Gemini Embedding 2，支持图片/音频/视频/PDF） |
+| `mm_search.py` | **V29.1新增** Multimodal Memory 语义搜索（文本查询→cosine similarity→匹配媒体） |
+| `mm_index_cron.sh` | **V29.1新增** MM 索引定时任务包装脚本（每2小时） |
 | `kb_save_arxiv.sh` | ArXiv监控结果写入KB + rsync备份 |
 | `auto_deploy.sh` | **V27.1新增** 仓库→部署自动同步 + 漂移检测（md5全量比对+WhatsApp告警） |
 | `test_tool_proxy.py` | proxy_filters 单测（43个用例） |
@@ -187,8 +190,9 @@
 4. **Context Pruning 配置**：Gateway 启用 `cache-ttl` 模式（`ttl: "6h"`，`keepLastAssistants: 3`），自动清理过期上下文
 5. **Multi-Agent 专业化**：配置 research（研究助手）+ ops（运维助手）独立 agent，session 隔离避免上下文污染
 6. **Gateway 升级至 v2026.3.12**：cron delivery isolation breaking change，所有 openclaw cron 任务已迁移至 system crontab
-7. **auto_deploy.sh FILE_MAP 扩展至 20 个文件**：新增 openclaw_backup.sh
-8. **jobs_registry.yaml 新增 openclaw_backup**：每天 03:00 低峰时段执行
+7. **Multimodal Memory**：`mm_index.py` + `mm_search.py` — Gemini Embedding 2 多模态索引（图片/音频/视频/PDF），文本语义搜索已索引媒体
+8. **auto_deploy.sh FILE_MAP 扩展至 23 个文件**：新增 openclaw_backup.sh + mm_index.py + mm_search.py + mm_index_cron.sh
+9. **jobs_registry.yaml 新增 2 个任务**：openclaw_backup（03:00）+ mm_index（每2小时）
 
 ## 常用命令
 
@@ -223,6 +227,12 @@ bash kb_search.sh "关键词"         # 全文搜索
 bash kb_search.sh --summary        # 统计概览
 bash kb_search.sh --source arxiv   # 搜索来源归档
 bash kb_inject.sh                  # 手动生成每日摘要
+
+# Multimodal Memory（需要 pip3 install google-genai numpy）
+python3 mm_index.py                # 增量索引媒体文件
+python3 mm_index.py --reindex      # 重建全部索引
+python3 mm_search.py "猫的照片"    # 语义搜索媒体
+python3 mm_search.py --stats       # 索引统计
 
 # 生成任务文档 / 检测文档漂移
 python3 gen_jobs_doc.py           # 输出 markdown 表格
@@ -316,7 +326,7 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 | 优先级 | 任务 |
 |--------|------|
 | 低 | 货代Watcher V3：Bing News API替代GoogleNews |
-| 低 | Multimodal Memory：Gemini embedding 索引图片/音频 |
+| ✅ | Multimodal Memory：Gemini Embedding 2 索引图片/音频/视频/PDF（V29.1） |
 | ✅ | Model Fallback 降级链（V29.1） |
 | ✅ | 每日自动备份（V29.1） |
 | ✅ | Multi-Agent 专业化（V29.1） |

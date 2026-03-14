@@ -108,6 +108,11 @@ declare -a FILE_MAP=(
     # 备份脚本
     "openclaw_backup.sh|$HOME/openclaw_backup.sh"
 
+    # Multimodal Memory
+    "mm_index.py|$HOME/openclaw-model-bridge/mm_index.py"
+    "mm_search.py|$HOME/openclaw-model-bridge/mm_search.py"
+    "mm_index_cron.sh|$HOME/openclaw-model-bridge/mm_index_cron.sh"
+
     # 自部署（bootstrapping）
     "auto_deploy.sh|$HOME/openclaw-model-bridge/auto_deploy.sh"
 )
