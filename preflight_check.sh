@@ -347,7 +347,7 @@ echo "📋 11/11 货代 deep_dive 静默失败检测"
 
 if $FULL_MODE; then
     # 检查 last_run.json 中 deep_dive 字段
-    FREIGHT_STATUS="$HOME/.openclaw/jobs/freight_watcher/last_run.json"
+    FREIGHT_STATUS="$HOME/.openclaw/jobs/freight_watcher/cache/last_run.json"
     if [ -f "$FREIGHT_STATUS" ]; then
         DEEP_DIVE=$(python3 -c "
 import json, sys
