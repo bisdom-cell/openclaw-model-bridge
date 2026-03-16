@@ -398,10 +398,24 @@ WhatsApp → Gateway (:18789) → Tool Proxy (:5002) → Adapter (:5001) → 远
 
 ### 2026.3.x 版本亮点
 
-**v2026.3.12（最新，我们当前使用版本）**:
-- 具体 changelog 待发布
+**v2026.3.13-1（最新，我们当前使用版本 2026.3.13）**:
+- **安全**: `/pair` 和 `openclaw qr` 配对码改为短效 bootstrap tokens（不再在聊天/QR 中暴露 gateway credentials）
+- **安全**: 禁用 workspace 插件自动加载（克隆仓库不能在未显式信任的情况下执行插件代码）
+- **安全**: 防止 Docker 构建上下文中泄露 gateway token
+- **模型**: Kimi Coding 恢复原生 Anthropic 格式 tool calls（修复 XML/纯文本退化）
+- **模型**: Replay 时丢弃 Anthropic thinking blocks
+- **模型**: google-vertex provider 应用 Gemini model-ID 标准化
+- **Session**: 修复 compaction 后的 full-session token count 校验
+- **Session**: session reset/compaction 时保留 `lastAccountId`、`lastThreadId`、persona、language
+- **Cron**: 修复 isolated cron nested lane 死锁
+- **Telegram**: threaded media transport policy, IPv4 download retry
+- **Discord**: 处理 gateway metadata fetch 失败
+- **Slack**: opt-in interactive reply directives
+- **基建**: Docker 时区支持 (`OPENCLAW_TZ`)
+- **基建**: 去重 plugin-SDK chunks（修复约 2x 内存回归）
+- **基建**: macOS 最低 Node.js 版本对齐至 22.16.0
 
-**v2026.3.11（2026-03-12）**:
+**v2026.3.12（我们当前使用版本）**:
 - **安全**: Browser origin validation 强制应用于所有 WebSocket 连接（GHSA-5wcw-8jjv-m286）
 - **Breaking Change**: Cron job delivery 收紧 — 不再通过 ad hoc agent sends 或 fallback summaries 发送通知
 - 剥离 leaked model control tokens from assistant text
