@@ -398,7 +398,7 @@ WhatsApp → Gateway (:18789) → Tool Proxy (:5002) → Adapter (:5001) → 远
 
 ### 2026.3.x 版本亮点
 
-**v2026.3.13-1（最新，建议升级版本）**:
+**v2026.3.13-1（最新，我们当前使用版本 2026.3.13）**:
 - **安全**: `/pair` 和 `openclaw qr` 配对码改为短效 bootstrap tokens（不再在聊天/QR 中暴露 gateway credentials）
 - **安全**: 禁用 workspace 插件自动加载（克隆仓库不能在未显式信任的情况下执行插件代码）
 - **安全**: 防止 Docker 构建上下文中泄露 gateway token
