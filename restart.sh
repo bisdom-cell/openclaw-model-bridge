@@ -25,5 +25,7 @@ nohup python3 "$SCRIPT_DIR/tool_proxy.py" > ~/tool_proxy.log 2>&1 &
 sleep 1
 
 echo "[restart] Starting Gateway..."
-"$OPENCLAW" gateway --verbose &
+nohup "$OPENCLAW" gateway --verbose >> ~/gateway.log 2>&1 &
+disown
+sleep 3
 echo "[restart] Done!"
