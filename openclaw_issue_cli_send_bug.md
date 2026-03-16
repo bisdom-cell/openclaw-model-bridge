@@ -1,15 +1,3 @@
-# Bug Report: `openclaw message send` CLI fails with "No active WhatsApp Web listener" (v2026.3.13)
-
-## Title (for GitHub issue)
-
-`message send` CLI always fails with UNAVAILABLE / "No active WhatsApp Web listener" while auto-reply outbound works fine
-
-## Labels
-
-`bug`, `whatsapp`, `gateway`
-
-## Body
-
 ### Environment
 
 - **OpenClaw version**: 2026.3.13
@@ -95,17 +83,3 @@ This may have introduced a stricter listener check or broken the listener regist
 
 `openclaw message send` should work when the daemon has an active WhatsApp connection (as evidenced by working auto-replies).
 
----
-
-## How to file this issue
-
-On Mac Mini (with authenticated `gh` CLI):
-
-```bash
-gh issue create --repo openclaw/openclaw \
-  --title "message send CLI always fails with UNAVAILABLE / No active WhatsApp Web listener (v2026.3.13)" \
-  --label "bug" \
-  --body-file ~/openclaw-model-bridge/openclaw_issue_cli_send_bug.md
-```
-
-Or manually at: https://github.com/openclaw/openclaw/issues/new
