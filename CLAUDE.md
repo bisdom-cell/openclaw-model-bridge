@@ -189,7 +189,7 @@
 3. **Bootstrap KB 自动注入**：`kb_inject.sh` 生成摘要后同步写入 `~/.openclaw/workspace/.openclaw/CLAUDE.md`，每个新 WhatsApp session 自动加载知识库上下文
 4. **Context Pruning 配置**：Gateway 启用 `cache-ttl` 模式（`ttl: "6h"`，`keepLastAssistants: 3`），自动清理过期上下文
 5. **Multi-Agent 专业化**：配置 research（研究助手）+ ops（运维助手）独立 agent，session 隔离避免上下文污染
-6. **Gateway 升级至 v2026.3.12**：cron delivery isolation breaking change，所有 openclaw cron 任务已迁移至 system crontab
+6. **Gateway 升级至 v2026.3.13**：cron delivery isolation breaking change（v2026.3.12 引入），所有 openclaw cron 任务已迁移至 system crontab；v2026.3.13 修复 compaction token count 校验、session reset 状态保留
 7. **Multimodal Memory**：`mm_index.py` + `mm_search.py` — Gemini Embedding 2 多模态索引（图片/音频/视频/PDF），文本语义搜索已索引媒体
 8. **auto_deploy.sh FILE_MAP 扩展至 23 个文件**：新增 openclaw_backup.sh + mm_index.py + mm_search.py + mm_index_cron.sh
 9. **jobs_registry.yaml 新增 2 个任务**：openclaw_backup（03:00）+ mm_index（每2小时）
