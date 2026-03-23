@@ -1,6 +1,6 @@
 # CLAUDE.md — openclaw-model-bridge 项目背景
 
-> 每次新会话开始时自动读取。当前版本：v29.1（2026-03-14）
+> 每次新会话开始时自动读取。当前版本：v29.2（2026-03-23）
 
 ---
 
@@ -181,6 +181,12 @@
 4. **WhatsApp LLM 自动查 KB**：workspace CLAUDE.md 添加知识库查询指引，用户问"最近有什么新论文"等问题时 LLM 自动读取 daily_digest.md 回答
 5. **kb_review.sh 从 openclaw cron 改为 system cron**：直接 curl 调 LLM 分析，不再依赖 openclaw agent
 6. **auto_deploy.sh FILE_MAP 扩展至 19 个文件**：新增 kb_search.sh + kb_inject.sh
+
+## V29.2 变更摘要（2026-03-23）
+
+1. **OpenClaw 架构文档同步至 v2026.3.22**：`docs/openclaw_architecture.md` 全面更新，覆盖 6 项 Breaking Change（Plugin SDK 路径、Legacy 环境变量/目录移除、Chrome relay 废弃等）、Provider 架构重构（bundled plugins）、WhatsApp #48703 修复、Health monitor 可配置阈值
+2. **WhatsApp #48703 确认已修复**：listener Map 被 bundler code-splitting 拆成多实例导致 outbound send 失败 → v2026.3.22 通过 `globalThis` singleton 修复
+3. **中间件无需变更**：我们的代码已使用 `OPENCLAW_*` 环境变量和 `~/.openclaw` 路径，不受 Breaking Changes 影响
 
 ## V29.1 变更摘要（2026-03-14）
 

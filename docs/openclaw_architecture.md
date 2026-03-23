@@ -1,7 +1,7 @@
 # OpenClaw 架构参考文档
 
 > 基于 OpenClaw 开源仓库（github.com/openclaw/openclaw）整理
-> 最后更新：2026-03-17 | 适用版本：2026.3.x
+> 最后更新：2026-03-23 | 适用版本：v2026.3.22
 
 ---
 
@@ -9,7 +9,7 @@
 
 OpenClaw 是一个**自托管、多通道网关**，将消息平台（WhatsApp、Telegram、Discord、iMessage 等 20+ 平台）与 AI Agent 连接起来。
 
-- **GitHub**: github.com/openclaw/openclaw（191K+ stars，MIT 协议）
+- **GitHub**: github.com/openclaw/openclaw（250K+ stars，MIT 协议）
 - **前身**: Clawdbot → Moltbot → OpenClaw（2026-01-30 更名）
 - **运行环境**: Node.js 22+，单进程 Gateway
 - **默认端口**: 18789
@@ -398,49 +398,74 @@ WhatsApp → Gateway (:18789) → Tool Proxy (:5002) → Adapter (:5001) → 远
 
 ### 2026.3.x 版本亮点
 
-**v2026.3.13-1（最新稳定版，我们当前部署 v2026.3.13）**:
-- **安全**: `/pair` 和 `openclaw qr` 配对码改为短效 bootstrap tokens（不再在聊天/QR 中暴露 gateway credentials）
-- **安全**: 禁用 workspace 插件自动加载（克隆仓库不能在未显式信任的情况下执行插件代码）
-- **安全**: 防止 Docker 构建上下文中泄露 gateway token
-- **模型**: Kimi Coding 恢复原生 Anthropic 格式 tool calls（修复 XML/纯文本退化）
-- **模型**: Replay 时丢弃 Anthropic thinking blocks
-- **模型**: google-vertex provider 应用 Gemini model-ID 标准化
-- **Session**: 修复 compaction 后的 full-session token count 校验
-- **Session**: session reset/compaction 时保留 `lastAccountId`、`lastThreadId`、persona、language
-- **Cron**: 修复 isolated cron nested lane 死锁
-- **Telegram**: threaded media transport policy, IPv4 download retry
-- **Discord**: 处理 gateway metadata fetch 失败
-- **Slack**: opt-in interactive reply directives
-- **基建**: Docker 时区支持 (`OPENCLAW_TZ`)
-- **基建**: 去重 plugin-SDK chunks（修复约 2x 内存回归）
-- **基建**: macOS 最低 Node.js 版本对齐至 22.16.0
+**v2026.3.22（最新稳定版，2026-03-23 发布）**:
 
-**v2026.3.12（前一版本）**:
-- **安全**: Browser origin validation 强制应用于所有 WebSocket 连接（GHSA-5wcw-8jjv-m286）
-- **Breaking Change**: Cron job delivery 收紧 — 不再通过 ad hoc agent sends 或 fallback summaries 发送通知
-- 剥离 leaked model control tokens from assistant text
-- Kimi Coding tool call 格式修正为 native Anthropic format
-- iOS: bundled welcome screen, docked toolbar
-- macOS: chat model picker, persistent thinking-level selections
-- Ollama: first-class local/cloud+local setup
+⚠️ Breaking Changes（升级前必读）:
+- **Plugin SDK 路径变更**: `openclaw/extension-api` 移除，改用 `openclaw/plugin-sdk/*` 子路径
+- **Legacy 环境变量移除**: `CLAWDBOT_*` / `MOLTBOT_*` 废弃，必须用 `OPENCLAW_*`
+- **Legacy 目录移除**: `.moltbot` 自动检测/迁移移除，必须已迁移到 `~/.openclaw`
+- **Chrome 扩展 relay 移除**: `driver: "extension"` 废弃，需运行 `openclaw doctor --fix` 迁移到 `existing-session`/`user` 模式
+- **Plugin 安装优先级**: `openclaw plugins install <pkg>` 优先从 ClawHub 查找，再 fallback npm
+- **Image generation**: `nano-banana-pro` skill 移除，改用 `agents.defaults.imageGenerationModel`
+- **Sandbox**: JVM/glibc/dotnet 注入环境变量被阻断
+
+Provider 架构重构:
+- OpenRouter / GitHub Copilot / OpenAI Codex 逻辑重构为 bundled plugins（动态 fallback + runtime auth + cache-TTL）
+- 新增 bundled providers: Anthropic Vertex (GCP auth)、Exa / Tavily / Firecrawl (web-search)
+- 新增模型: OpenAI `gpt-5.4` 为默认，前向兼容 `gpt-5.4-mini` / `gpt-5.4-nano`
+- Provider 兼容修复: 去重重复 tool-call ID、非 OpenAI 后端自动 strip `prompt_cache_key` 和 `strict` 字段
+- Per-agent model overrides with fallback auto-revert
+
+WhatsApp 修复:
+- **#48703 已修复**: Active listener registry 改为 `globalThis` singleton，修复 bundler code-splitting 导致的 outbound send 失败
+- Append recency filter 恢复 + protobuf `Long` timestamp 处理
+- Pre-reconnect credential writes（Baileys pairing restart 前先写凭证）
+
+Multi-Agent & Context:
+- Per-agent thinking/reasoning/fast defaults（不支持的 override 自动 revert）
+- Context engine transcript maintenance 保留 active-branch metadata
+- Post-compaction session JSONL truncation（opt-in）
+- `/btw` side questions — 工具无关的快速回答，不修改 session context
+
+Health & 监控:
+- 可配置 stale-event 阈值和 restart 上限
+- Per-channel/account `healthMonitor.enabled` 开关
+
+性能优化:
+- Gateway 懒加载 channel plugins + 从 compiled `dist/extensions` 加载 bundled plugins（冷启动大幅加速）
+- 配置的 primary model 在 channel startup 前 prewarm
+- Token usage 可见性恢复（不再强制 `supportsUsageInStreaming: false`）
+
+安全加固:
+- Exec sandbox 阻断 JVM injection + glibc exploitable tunables
+- 阻断远程 `file://` media URLs 和 Windows UNC paths
+- Telegram pinned-IP SSRF 防护
+- Nostr inbound DM policy 在 decrypt 前强制执行
+
+**v2026.3.13-1（前一版本）**:
+- **安全**: 配对码改为短效 bootstrap tokens、禁用 workspace 插件自动加载、防止 Docker token 泄露
+- **模型**: Kimi Coding 恢复原生 Anthropic tool calls、Replay 丢弃 thinking blocks、Vertex model-ID 标准化
+- **Session**: compaction token count 校验修复、reset/compaction 保留 persona/language
+- **Cron**: isolated cron nested lane 死锁修复
+- **基建**: Docker 时区支持、plugin-SDK chunks 去重（修复 2x 内存回归）、macOS 最低 Node.js 22.16.0
+
+**v2026.3.12**:
+- **Breaking**: Cron job delivery 收紧（不再通过 ad hoc agent sends 发送通知）
+- Browser origin validation 强制（GHSA-5wcw-8jjv-m286）
+- Ollama first-class local/cloud+local setup
 - Memory: optional multimodal image/audio indexing via Gemini embedding
 
-**v2026.3.8**:
-- ACP provenance metadata, CLI version hash
-- xAI web_search collision guard (v2026.3.7)
-
 **早期 2026.3.x**:
-- Queue 可靠性增强: lane draining 保证 flag 重置、restart 期间拒绝新入队、stale message 跳过
-- diffs 插件工具: 只读 diff 渲染
-- ACP runtime: sessions_spawn 支持 `resumeSessionId` 恢复会话
-- 工具升级: browser/canvas/nodes/cron 从旧 skills 升级为 first-class agent tools
-- Loop detection: 内置循环检测防护
+- Queue 可靠性: lane draining flag 重置、restart 拒绝入队、stale message 跳过
+- 工具升级: browser/canvas/nodes/cron 从 skills 升级为 first-class agent tools
+- ACP runtime: sessions_spawn 支持 `resumeSessionId`
+- Loop detection 内置防护
 
 ### 值得关注的 Open Issues
 
 | Issue | 状态 | 影响 |
 |-------|------|------|
-| **#48703 等 10+ issues** | **Open（回归）** | **WhatsApp listener Map 被 bundler code-splitting 拆成多实例，导致 proactive/CLI send 失败（auto-reply 不受影响）。v2026.3.12 引入，v2026.3.13 未修复。上游有 6 个修复 PR（#48431 进度最快 4/6）** |
+| ~~#48703~~ | **✅ Fixed (v2026.3.22)** | ~~WhatsApp listener Map 被 bundler code-splitting 拆成多实例~~ → `globalThis` singleton 修复 |
 | #24749 | Open | Hook session 独立 lane（防止饿死用户消息） |
 | #16055 | Open | 多 agent 共享 main lane cap |
 | #27407 | Open | restart 后 drainLane 卡住 |
