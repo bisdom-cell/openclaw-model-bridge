@@ -24,6 +24,20 @@ echo "[restart] Starting Tool Proxy on :5002..."
 nohup python3 "$SCRIPT_DIR/tool_proxy.py" > ~/tool_proxy.log 2>&1 &
 sleep 1
 
+# ── #48703 hotfix: auto-patch listeners Map if needed ──
+OPENCLAW_DIST="/opt/homebrew/lib/node_modules/openclaw/dist"
+if [ -d "$OPENCLAW_DIST" ]; then
+    UNPATCHED=$(grep -rl 'const listeners = /\* @__PURE__ \*/ new Map()' \
+        "$OPENCLAW_DIST" --include="*.js" 2>/dev/null | grep -v ".bak" | wc -l | tr -d ' ')
+    if [ "$UNPATCHED" -gt 0 ]; then
+        echo "[restart] Applying #48703 hotfix ($UNPATCHED files)..."
+        sudo sed -i.bak \
+            's|const listeners = /\* @__PURE__ \*/ new Map()|const listeners = globalThis.__openclaw_web_listeners__ ??= /* @__PURE__ */ new Map()|g' \
+            "$OPENCLAW_DIST"/*.js "$OPENCLAW_DIST"/plugin-sdk/*.js 2>/dev/null || true
+        echo "[restart] #48703 hotfix applied"
+    fi
+fi
+
 echo "[restart] Starting Gateway..."
 nohup "$OPENCLAW" gateway --verbose >> ~/gateway.log 2>&1 &
 disown
