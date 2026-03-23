@@ -26,7 +26,7 @@ echo "Mode: $([ "$FULL_MODE" = true ] && echo 'FULL (Mac Mini)' || echo 'DEV (re
 echo ""
 
 # ── 1. 单元测试 ──────────────────────────────────────────────────────
-echo "📋 1/11 单元测试"
+echo "📋 1/12 单元测试"
 
 if python3 test_tool_proxy.py > /dev/null 2>&1; then
     pass "proxy_filters 单测 (test_tool_proxy.py)"
@@ -42,7 +42,7 @@ fi
 
 # ── 2. 注册表校验 ─────────────────────────────────────────────────────
 echo ""
-echo "📋 2/11 注册表校验"
+echo "📋 2/12 注册表校验"
 
 if python3 check_registry.py > /dev/null 2>&1; then
     pass "jobs_registry.yaml 校验通过"
@@ -52,7 +52,7 @@ fi
 
 # ── 3. 文档漂移检测 ───────────────────────────────────────────────────
 echo ""
-echo "📋 3/11 文档漂移检测"
+echo "📋 3/12 文档漂移检测"
 
 if python3 gen_jobs_doc.py --check > /dev/null 2>&1; then
     pass "docs/config.md 与 registry 一致"
@@ -62,7 +62,7 @@ fi
 
 # ── 4. 脚本语法检查 + 权限检查 ────────────────────────────────────────
 echo ""
-echo "📋 4/11 脚本语法 & 权限"
+echo "📋 4/12 脚本语法 & 权限"
 
 # 从 registry 提取所有 enabled 的 entry 文件（兼容无 PyYAML 环境）
 SCRIPT_FILES=$(python3 -c "
@@ -120,7 +120,7 @@ done
 
 # ── 5. Python 文件语法检查 ────────────────────────────────────────────
 echo ""
-echo "📋 5/11 Python 语法检查"
+echo "📋 5/12 Python 语法检查"
 
 for pyfile in adapter.py tool_proxy.py proxy_filters.py check_registry.py gen_jobs_doc.py; do
     if [ -f "$SCRIPT_DIR/$pyfile" ]; then
@@ -134,7 +134,7 @@ done
 
 # ── 6. 部署文件一致性检查（仓库 vs 运行时副本）────────────────────────
 echo ""
-echo "📋 6/11 部署文件一致性"
+echo "📋 6/12 部署文件一致性"
 
 if $FULL_MODE; then
     # FILE_MAP from auto_deploy.sh
@@ -191,7 +191,7 @@ fi
 
 # ── 7. 环境变量检查（bash -lc 模拟 cron 环境）────────────────────────
 echo ""
-echo "📋 7/11 环境变量检查（cron 环境模拟）"
+echo "📋 7/12 环境变量检查（cron 环境模拟）"
 
 if $FULL_MODE; then
     # 模拟 cron 调用方式：bash -lc 读取 ~/.bash_profile
@@ -231,7 +231,7 @@ fi
 
 # ── 8. 服务连通性检查 ─────────────────────────────────────────────────
 echo ""
-echo "📋 8/11 服务连通性"
+echo "📋 8/12 服务连通性"
 
 if $FULL_MODE; then
     # Adapter :5001
@@ -263,7 +263,7 @@ fi
 
 # ── 9. 安全扫描（push 前必扫）────────────────────────────────────────
 echo ""
-echo "📋 9/11 安全扫描"
+echo "📋 9/12 安全扫描"
 
 # API Key 泄漏检查（只扫描 git 跟踪的文件，忽略 .gitignore 排除的本地配置）
 LEAK_SK=$(git grep -n "sk-[A-Za-z0-9]\{15,\}" -- "*.py" "*.sh" "*.md" 2>/dev/null | grep -v "sk-REPLACE-ME" | grep -v "sk-xxxx" | grep -v "sk-X83H" || true)
@@ -289,7 +289,7 @@ fi
 # ── 10. Job 数据流 smoke test ──────────────────────────────────────────
 # 用合成数据验证 job 脚本的 shell→Python 数据传递，零接触生产状态
 echo ""
-echo "📋 10/11 Job 数据流 smoke test"
+echo "📋 10/12 Job 数据流 smoke test"
 
 # 10a. 反模式扫描：heredoc 结束符后紧跟 <<< 会导致 stdin 被 heredoc 耗尽
 #      python3 - <<'PYEOF' ... PYEOF; <<< "$DATA" → DATA 永远读不到
@@ -343,7 +343,7 @@ rm -rf "$SMOKE_DIR"
 
 # ── 11. 货代 deep_dive 静默失败检测 ─────────────────────────────────────
 echo ""
-echo "📋 11/11 货代 deep_dive 静默失败检测"
+echo "📋 11/12 货代 deep_dive 静默失败检测"
 
 if $FULL_MODE; then
     # 检查 last_run.json 中 deep_dive 字段
@@ -399,6 +399,26 @@ except Exception:
     fi
 else
     skip "货代 deep_dive 检测（需在 Mac Mini 上验证）"
+fi
+
+# ── 12. #48703 WhatsApp listeners Map 补丁检测 ────────────────────────
+echo "📋 12/12 #48703 WhatsApp listeners Map 补丁"
+
+if $FULL_MODE; then
+    OPENCLAW_DIST="/opt/homebrew/lib/node_modules/openclaw/dist"
+    if [ -d "$OPENCLAW_DIST" ]; then
+        UNPATCHED=$(grep -rl 'const listeners = /\* @__PURE__ \*/ new Map()' \
+            "$OPENCLAW_DIST" --include="*.js" 2>/dev/null | grep -v ".bak" | wc -l | tr -d ' ')
+        if [ "$UNPATCHED" -gt 0 ]; then
+            fail "#48703 未修复: $UNPATCHED 个文件有 listeners Map 副本（运行 bash ~/patch_48703.sh 或 bash restart.sh 自动修复）"
+        else
+            pass "#48703 已修复（listeners Map 使用 globalThis singleton）"
+        fi
+    else
+        warn "OpenClaw dist 目录不存在（未安装？）"
+    fi
+else
+    skip "#48703 补丁检测（需在 Mac Mini 上验证）"
 fi
 
 # ── 汇总 ──────────────────────────────────────────────────────────────
