@@ -442,7 +442,7 @@ Health & 监控:
 - Telegram pinned-IP SSRF 防护
 - Nostr inbound DM policy 在 decrypt 前强制执行
 
-**v2026.3.13-1（前一版本）**:
+**v2026.3.13-1（⭐ 当前部署版本）**:
 - **安全**: 配对码改为短效 bootstrap tokens、禁用 workspace 插件自动加载、防止 Docker token 泄露
 - **模型**: Kimi Coding 恢复原生 Anthropic tool calls、Replay 丢弃 thinking blocks、Vertex model-ID 标准化
 - **Session**: compaction token count 校验修复、reset/compaction 保留 persona/language
@@ -466,6 +466,7 @@ Health & 监控:
 | Issue | 状态 | 影响 |
 |-------|------|------|
 | ~~#48703~~ | **✅ Fixed (v2026.3.22)** | ~~WhatsApp listener Map 被 bundler code-splitting 拆成多实例~~ → `globalThis` singleton 修复 |
+| **v2026.3.22 WhatsApp 缺失** | **Blocker** | **WhatsApp bundled plugin 未包含在 `dist/extensions/` 中，`channels list` 无 chat channels。已回滚至 v2026.3.13。等上游修复后再升级** |
 | #24749 | Open | Hook session 独立 lane（防止饿死用户消息） |
 | #16055 | Open | 多 agent 共享 main lane cap |
 | #27407 | Open | restart 后 drainLane 卡住 |
