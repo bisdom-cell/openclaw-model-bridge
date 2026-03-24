@@ -6,8 +6,15 @@ while ! mkdir "$LOCKDIR" 2>/dev/null; do sleep 0.1; done
 trap 'rmdir "$LOCKDIR" 2>/dev/null' EXIT
 
 CONTENT="$1"
-TAGS="${2:-技术/AI}"
 TYPE="${3:-note}"
+
+# 标签自动推断：有显式传入则用传入值，否则调用 kb_autotag.py
+if [ -n "$2" ]; then
+    TAGS="$2"
+else
+    SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+    TAGS=$(python3 "$SCRIPT_DIR/kb_autotag.py" "$CONTENT" 2>/dev/null || echo "技术/AI")
+fi
 DATE=$(date +%Y%m%d)
 TS=$(date +%Y%m%d%H%M%S)
 
