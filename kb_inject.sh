@@ -161,6 +161,16 @@ $(cat "$DIGEST_FILE" 2>/dev/null || echo '（摘要暂未生成）')
 - 完整归档：\`~/.kb/sources/\` 目录下各来源文件
 - 笔记详情：\`~/.kb/notes/\` 目录下按时间戳命名的 .md 文件
 - KB 搜索：\`bash ~/kb_search.sh "关键词"\`
+
+## 多媒体搜索
+当用户询问照片、图片、录音、视频等媒体文件时，使用 exec 工具执行：
+\`python3 ~/mm_search.py "用户描述的内容"\`
+支持自然语言查询，例如：
+- "找一下猫的照片" → \`python3 ~/mm_search.py "猫的照片"\`
+- "最近的会议录音" → \`python3 ~/mm_search.py "会议录音"\`
+- "上周的PDF文档" → \`python3 ~/mm_search.py "PDF文档"\`
+返回结果包含文件路径，可用 read 工具查看或告知用户路径。
+查看索引统计：\`python3 ~/mm_search.py --stats\`
 MDEOF
 
 log "workspace CLAUDE.md 已同步 ($(wc -c < "$WORKSPACE_MD" | tr -d ' ') bytes)"

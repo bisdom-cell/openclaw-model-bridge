@@ -117,6 +117,7 @@ declare -a FILE_MAP=(
     "conv_quality.py|$HOME/conv_quality.py"
     "token_report.py|$HOME/token_report.py"
     "kb_dedup.py|$HOME/kb_dedup.py"
+    "kb_autotag.py|$HOME/kb_autotag.py"
 
     # 自部署（bootstrapping）
     "auto_deploy.sh|$HOME/openclaw-model-bridge/auto_deploy.sh"
