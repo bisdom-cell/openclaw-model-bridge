@@ -164,3 +164,21 @@ jobs:
     needs_api_key: false
     enabled: true
     description: 对话质量日报 — 解析 proxy/adapter 日志，生成响应时间/成功率/工具分布/Token用量报告
+
+  - id: token_report
+    scheduler: system
+    entry: token_report.py
+    interval: "20 8 * * *"          # 每天 08:20（conv_quality 之后5分钟）
+    log: ~/token_report.log
+    needs_api_key: false
+    enabled: true
+    description: Token 用量日报 — 每日消耗总量/逐小时分布/上下文压力/多日趋势
+
+  - id: kb_dedup
+    scheduler: system
+    entry: kb_dedup.py
+    interval: "0 23 * * *"          # 每天 23:00（晚间整理后）
+    log: ~/kb_dedup.log
+    needs_api_key: false
+    enabled: true
+    description: KB 智能去重 — Notes 精确/模糊去重 + Sources 行去重（dry-run 模式，仅报告）
