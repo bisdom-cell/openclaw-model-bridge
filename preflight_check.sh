@@ -274,7 +274,7 @@ echo ""
 echo "📋 9/12 安全扫描"
 
 # API Key 泄漏检查（只扫描 git 跟踪的文件，忽略 .gitignore 排除的本地配置）
-LEAK_SK=$(git grep -n "sk-[A-Za-z0-9]\{15,\}" -- "*.py" "*.sh" "*.md" 2>/dev/null | grep -v "sk-REPLACE-ME" | grep -v "sk-xxxx" | grep -v "sk-X83H" || true)
+LEAK_SK=$(git grep -n "sk-[A-Za-z0-9]\{15,\}" -- "*.py" "*.sh" "*.md" 2>/dev/null | grep -v "sk-REPLACE-ME" | grep -v "sk-xxxx" || true)
 LEAK_BSA=$(git grep -n "BSA[A-Za-z0-9]\{15,\}" -- "*.py" "*.sh" "*.md" 2>/dev/null | grep -v "BSAxxx" || true)
 
 if [ -z "$LEAK_SK" ] && [ -z "$LEAK_BSA" ]; then
