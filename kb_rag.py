@@ -103,8 +103,12 @@ def search(query, top_k, output_mode="text"):
 
     query_vec = embed_text(query)
 
-    # cosine similarity（向量已归一化）
-    scores = vectors @ query_vec
+    # cosine similarity（向量已归一化，但防御零向量和NaN）
+    norms = np.linalg.norm(vectors, axis=1, keepdims=True)
+    norms = np.where(norms < 1e-10, 1.0, norms)
+    safe_vectors = vectors / norms
+    scores = safe_vectors @ query_vec
+    scores = np.nan_to_num(scores, nan=0.0, posinf=0.0, neginf=0.0)
     top_indices = np.argsort(scores)[::-1][:top_k]
 
     results = []
