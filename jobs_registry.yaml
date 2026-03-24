@@ -155,3 +155,12 @@ jobs:
     needs_api_key: true              # GEMINI_API_KEY
     enabled: true
     description: Multimodal Memory 索引 — 扫描媒体文件 → Gemini Embedding 2 → 本地向量索引
+
+  - id: conv_quality
+    scheduler: system
+    entry: conv_quality.py
+    interval: "15 8 * * *"          # 每天 08:15（报告前一天数据）
+    log: ~/conv_quality.log
+    needs_api_key: false
+    enabled: true
+    description: 对话质量日报 — 解析 proxy/adapter 日志，生成响应时间/成功率/工具分布/Token用量报告
