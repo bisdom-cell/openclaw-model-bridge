@@ -113,6 +113,9 @@ declare -a FILE_MAP=(
     "mm_search.py|$HOME/openclaw-model-bridge/mm_search.py"
     "mm_index_cron.sh|$HOME/openclaw-model-bridge/mm_index_cron.sh"
 
+    # 对话质量监控
+    "conv_quality.py|$HOME/conv_quality.py"
+
     # 自部署（bootstrapping）
     "auto_deploy.sh|$HOME/openclaw-model-bridge/auto_deploy.sh"
 )
