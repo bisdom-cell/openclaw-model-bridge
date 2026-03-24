@@ -162,6 +162,15 @@ $(cat "$DIGEST_FILE" 2>/dev/null || echo '（摘要暂未生成）')
 - 笔记详情：\`~/.kb/notes/\` 目录下按时间戳命名的 .md 文件
 - KB 搜索：\`bash ~/kb_search.sh "关键词"\`
 
+## RAG 语义搜索
+当用户询问知识库中的内容时，优先使用 RAG 语义搜索获取精准上下文：
+\`python3 ~/kb_rag.py --context "用户的问题"\`
+返回与问题最相关的 KB 片段，可直接参考回答。
+示例：
+- "Qwen3 有什么特点" → \`python3 ~/kb_rag.py --context "Qwen3 模型特点"\`
+- "最近有什么AI论文" → \`python3 ~/kb_rag.py --context "recent AI papers"\`
+- "货代运费趋势" → \`python3 ~/kb_rag.py --context "shipping freight rates"\`
+
 ## 多媒体搜索
 当用户询问照片、图片、录音、视频等媒体文件时，使用 exec 工具执行：
 \`python3 ~/mm_search.py "用户描述的内容"\`
