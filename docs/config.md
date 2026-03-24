@@ -111,6 +111,10 @@
 | KB回顾脚本 | ~/kb_review.sh | **V29升级：LLM深度分析+WhatsApp推送** |
 | **KB搜索工具** | **~/kb_search.sh** | **V29新增：按需查询（关键词/标签/来源/统计概览）** |
 | **KB每日摘要** | **~/kb_inject.sh** | **V29新增：每日07:00生成~/.kb/daily_digest.md，供LLM对话查阅** |
+| **对话质量日报** | **~/conv_quality.py** | **V29.2新增：解析proxy/adapter日志，生成成功率/延迟/工具/错误报告** |
+| **Token用量日报** | **~/token_report.py** | **V29.2新增：每日token消耗总量/逐小时分布/上下文压力/多日趋势** |
+| **KB智能去重** | **~/kb_dedup.py** | **V29.2新增：Notes精确/模糊去重 + Sources行去重（默认dry-run）** |
+| **KB标签自动化** | **~/kb_autotag.py** | **V29.2新增：9类关键词推断标签，集成到kb_write.sh，支持批量retag** |
 | ~~ArXiv KB归档脚本~~ | ~~~/kb_save_arxiv.sh~~ | ~~已废弃（V28: 功能合并到 arxiv_monitor）~~ |
 | **ArXiv AI论文监控** | **~/.openclaw/jobs/arxiv_monitor/run_arxiv.sh** | **V28新增：ArXiv论文监控 + KB写入 + rsync备份（合并原 monitor-arxiv-ai-models + kb-save-arxiv）** |
 | **每周健康检查脚本** | **~/health_check.sh** | **系统健康周报脚本（v16新增）** |
@@ -250,6 +254,9 @@ export GEMINI_API_KEY="AIzaXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"   # V29.1新增
 | kb-inject | 每天07:00 | `~/kb_inject.sh` | `~/kb_inject.log` | ✅ V29新增：每日KB摘要生成，供LLM对话查阅 |
 | openclaw-backup | 每天03:00 | `~/openclaw_backup.sh` | `~/openclaw_backup.log` | ✅ V29.1新增：每日备份Gateway state到SSD，保留7天 |
 | mm-index | 每2小时 | `~/openclaw-model-bridge/mm_index_cron.sh` | `~/.openclaw/logs/jobs/mm_index.log` | ✅ V29.1新增：Multimodal Memory索引（Gemini Embedding 2） |
+| conv-quality | 每天08:15 | `~/conv_quality.py` | `~/conv_quality.log` | ✅ V29.2新增：对话质量日报（成功率/延迟/工具/错误/Fallback） |
+| token-report | 每天08:20 | `~/token_report.py` | `~/token_report.log` | ✅ V29.2新增：Token用量日报（总量/逐小时/趋势/环比） |
+| kb-dedup | 每天23:00 | `~/kb_dedup.py` | `~/kb_dedup.log` | ✅ V29.2新增：KB智能去重（dry-run模式，精确+模糊+source行去重） |
 | auto-deploy | 每2分钟 | `~/openclaw-model-bridge/auto_deploy.sh` | `~/.openclaw/logs/auto_deploy.log` | ✅ V27.1新增+V28.1：部署后自动体检 |
 | weekly-health-check | 每周一09:00 | `~/health_check.sh` | `~/health_check.log` | ✅ V29.1：从openclaw cron迁移至系统crontab，直接执行不经LLM |
 | gateway-watchdog | ~~每30分钟~~ | `~/restart.sh` | `~/.openclaw/logs/gateway_watchdog.log` | ❌ **已移除**（#95：与launchd KeepAlive双主控冲突，导致误杀gateway） |

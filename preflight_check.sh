@@ -93,11 +93,19 @@ else
             continue
         fi
 
-        # 语法检查（bash -n 只解析不执行）
-        if bash -n "$script_path" 2>/dev/null; then
-            pass "$script: 语法正确"
+        # 语法检查：.py 用 Python ast，.sh 用 bash -n
+        if [[ "$script" == *.py ]]; then
+            if python3 -c "import ast; ast.parse(open('$script_path').read())" 2>/dev/null; then
+                pass "$script: 语法正确"
+            else
+                fail "$script: Python 语法错误"
+            fi
         else
-            fail "$script: bash 语法错误"
+            if bash -n "$script_path" 2>/dev/null; then
+                pass "$script: 语法正确"
+            else
+                fail "$script: bash 语法错误"
+            fi
         fi
 
         # 可执行权限（仅在 --full 模式下 warn，因为 cron 通常用 bash xxx.sh 调用）
