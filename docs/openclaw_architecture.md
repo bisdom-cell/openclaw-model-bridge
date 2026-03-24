@@ -442,8 +442,8 @@ Health & 监控:
 - Telegram pinned-IP SSRF 防护
 - Nostr inbound DM policy 在 decrypt 前强制执行
 
-**v2026.3.23（最新）**:
-- **基建**: 保留已发布 bundled plugins（修复 v2026.3.22 WhatsApp 缺失问题）、release 检查缺失 plugin 时失败
+**v2026.3.23（最新，⚠️ 暂不升级）**:
+- **基建**: 保留已发布 bundled plugins、release 检查缺失 plugin 时失败
 - **Browser/CDP**: 修复 existing-session attach 超时、慢速 headless Linux 复用已运行浏览器
 - **ClawHub**: macOS auth 路径修复、browse-all 改为 search 防 429
 - **Plugins**: Discord `components`/Slack `blocks` 可选、stale `plugins.allow` ids 降级为 warning
@@ -452,6 +452,7 @@ Health & 监控:
 - **Agents**: thinking/redacted-thinking block 排序修复、runtime snapshot 注入改进
 - **安全**: shell-wrapper argv allowlist 匹配加固、canvas/agent-reset 需 auth
 - **launchd**: 锁冲突导致 crash-loop 修复（与我们部署相关）
+- ⚠️ **不升级原因**：WhatsApp plugin 从 v2026.3.22 起 unbundled，ClawHub 上仅 0.0.5-Alpha + 限流 429。"Keep previously released bundled plugins" 是否重新 bundle WhatsApp 尚不确定，生产风险不可接受。等 WhatsApp plugin >= 1.0.0 再评估
 
 **v2026.3.13-1（⭐ 当前部署版本）**:
 - **安全**: 配对码改为短效 bootstrap tokens、禁用 workspace 插件自动加载、防止 Docker token 泄露
@@ -477,7 +478,7 @@ Health & 监控:
 | Issue | 状态 | 影响 |
 |-------|------|------|
 | ~~#48703~~ | **✅ Fixed (v2026.3.22)** | ~~WhatsApp listener Map 被 bundler code-splitting 拆成多实例~~ → `globalThis` singleton 修复 |
-| ~~v2026.3.22 WhatsApp 缺失~~ | **🔍 可能已修复 (v2026.3.23)** | ~~WhatsApp bundled plugin 未包含在 `dist/extensions/` 中~~ → v2026.3.23 "Keep previously released bundled plugins in npm installs and fail release checks when missing" 应修复此问题。**需在 Mac Mini 上验证后再升级** |
+| **WhatsApp plugin unbundled** | **🔴 Blocker — 暂不升级** | v2026.3.22 起 WhatsApp plugin 从 Gateway 拆出，需从 ClawHub 单独安装。**两个阻断因素**：① ClawHub 限流（429），安装不稳定；② ClawHub 上 WhatsApp plugin 仅 **0.0.5-Alpha**（预发布），生产风险不可接受。v2026.3.23 的 "Keep previously released bundled plugins" 修复**不确定**是否重新 bundle WhatsApp。**决策：维持 v2026.3.13-1，等 WhatsApp plugin >= 1.0.0 稳定版再升级** |
 | #24749 | Open | Hook session 独立 lane（防止饿死用户消息） |
 | #16055 | Open | 多 agent 共享 main lane cap |
 | #27407 | Open | restart 后 drainLane 卡住 |

@@ -2,7 +2,7 @@
 > 最后更新：2026-03-24 (HKT)
 > 系统：Mac Mini (macOS) | 用户：bisdom
 > 版本：v29.2（V29.1基础上：OpenClaw架构文档同步至v2026.3.22）
-> OpenClaw Gateway：2026.3.13-1（当前部署）| 上游最新：v2026.3.23（bundled plugin 修复，可考虑升级）
+> OpenClaw Gateway：2026.3.13-1（当前部署，暂不升级）| 上游最新：v2026.3.23（WhatsApp plugin 仅 0.0.5-Alpha + ClawHub 429，等稳定版再升级）
 ---
 ## 一、系统架构（V28.1 四层架构）
 

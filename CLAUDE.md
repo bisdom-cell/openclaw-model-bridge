@@ -184,9 +184,10 @@
 
 ## V29.2 变更摘要（2026-03-23）
 
-1. **OpenClaw 架构文档同步至 v2026.3.22**：`docs/openclaw_architecture.md` 全面更新，覆盖 6 项 Breaking Change（Plugin SDK 路径、Legacy 环境变量/目录移除、Chrome relay 废弃等）、Provider 架构重构（bundled plugins）、WhatsApp #48703 修复、Health monitor 可配置阈值
+1. **OpenClaw 架构文档同步至 v2026.3.23**：`docs/openclaw_architecture.md` 全面更新，覆盖 6 项 Breaking Change（Plugin SDK 路径、Legacy 环境变量/目录移除、Chrome relay 废弃等）、Provider 架构重构（bundled plugins）、WhatsApp #48703 修复、Health monitor 可配置阈值
 2. **WhatsApp #48703 确认已修复**：listener Map 被 bundler code-splitting 拆成多实例导致 outbound send 失败 → v2026.3.22 通过 `globalThis` singleton 修复
-3. **中间件无需变更**：我们的代码已使用 `OPENCLAW_*` 环境变量和 `~/.openclaw` 路径，不受 Breaking Changes 影响
+3. **升级决策：维持 v2026.3.13-1，暂不升级**：v2026.3.22 起 WhatsApp plugin unbundled，需从 ClawHub 安装；ClawHub 限流（429）且 WhatsApp plugin 仅 0.0.5-Alpha，生产风险不可接受。v2026.3.23 的 launchd 锁冲突修复虽有价值，但不值得冒 WhatsApp 通道中断风险。等 WhatsApp plugin >= 1.0.0 稳定版再评估
+4. **中间件无需变更**：我们的代码已使用 `OPENCLAW_*` 环境变量和 `~/.openclaw` 路径，不受 Breaking Changes 影响
 
 ## V29.1 变更摘要（2026-03-14）
 
