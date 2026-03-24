@@ -294,7 +294,7 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 
 | # | 原则 | 一句话 |
 |---|------|--------|
-| 1 | **开工刷新 OpenClaw 架构** | 查 OpenClaw 最新 release，对比 `docs/openclaw_architecture.md` 中记录的版本，有变更则研读源码并更新文档，保持我们的中间件与上游架构同步 |
+| 1 | **开工刷新 OpenClaw 架构（先读决策再评估）** | 先读 `docs/config.md` 中现有的升级 hold 决策和版本状态，再查 OpenClaw 最新 release；如已有明确 hold 决策且上游无新版本，跳过重复评估；有新版本时对比决策条件是否变化，变化则重新评估，否则沿用。**禁止"上游已修复"就改代码——必须确认本地已部署该版本**（#48703教训） |
 | 2 | **开工先读 config** | 读 `docs/config.md` 获取系统状态 + 踩坑记录，避免重复犯错 |
 | 3 | **改完先测** | 新脚本手动验证 → 新任务先写 `jobs_registry.yaml` 并 `python3 check_registry.py` 通过 → 才能注册 cron |
 | 4 | **push前必扫描** | 安全扫描（见上方命令）全部为空才允许 push |
