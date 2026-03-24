@@ -81,25 +81,20 @@
 ## Quick Start
 
 ```bash
-# Install dependencies
-pip3 install flask requests sentence-transformers
-
-# Set API keys
+# Core services — no third-party dependencies (stdlib only)
 export REMOTE_API_KEY="your-key-here"
-export GEMINI_API_KEY="your-gemini-key"    # For multimodal memory (optional)
-
-# Start core services
 bash restart.sh
-
-# Verify
 curl http://localhost:5002/health
 # → {"ok":true,"proxy":true,"adapter":true}
 
-# Build KB search index (first time)
-python3 kb_embed.py
+# Optional: KB RAG semantic search
+pip3 install -r requirements-rag.txt
+python3 kb_embed.py && python3 kb_rag.py "AI papers"
 
-# Test RAG search
-python3 kb_rag.py "AI papers"
+# Optional: Multimodal memory (images/audio/video)
+export GEMINI_API_KEY="your-gemini-key"
+pip3 install -r requirements-mm.txt
+python3 mm_index.py && python3 mm_search.py "cat photos"
 ```
 
 ## Project Structure

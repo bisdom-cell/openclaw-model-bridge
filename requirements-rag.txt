@@ -1,0 +1,3 @@
+# KB RAG 语义搜索依赖 (kb_embed.py, kb_rag.py, local_embed.py)
+# Install: pip3 install -r requirements-rag.txt
+sentence-transformers>=2.2.0

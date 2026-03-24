@@ -1,2 +1,11 @@
-# 本项目仅使用 Python 标准库 (http.server, json, ssl, os, subprocess 等)
-# 无第三方依赖
+# Core services (tool_proxy.py, proxy_filters.py, adapter.py)
+# 核心服务仅使用 Python 标准库，无第三方依赖
+
+# --- Optional: KB RAG (kb_embed.py, kb_rag.py, local_embed.py) ---
+# pip3 install -r requirements-rag.txt
+# sentence-transformers>=2.2.0
+
+# --- Optional: Multimodal Memory (mm_index.py, mm_search.py) ---
+# pip3 install -r requirements-mm.txt
+# google-genai>=0.3.0
+# numpy>=1.24.0
