@@ -86,7 +86,7 @@
   <!-- TITLE -->
   <!-- ═══════════════════════════════════ -->
   <text x="480" y="35" text-anchor="middle" font-size="13" fill="#8b949e" letter-spacing="4">OPENCLAW MODEL BRIDGE</text>
-  <text x="480" y="55" text-anchor="middle" font-size="11" fill="#484f58" letter-spacing="2">Four-Layer Architecture  v28.1</text>
+  <text x="480" y="55" text-anchor="middle" font-size="11" fill="#484f58" letter-spacing="2">Four-Layer Architecture  v29.3</text>
 
   <!-- ═══════════════════════════════════ -->
   <!-- LAYER 1: CORE DATA PATH -->
@@ -135,8 +135,8 @@
   <!-- Adapter Box -->
   <rect x="660" y="100" width="145" height="70" rx="8" fill="url(#adapterGrad)" stroke="#bc8cff" stroke-width="1"/>
   <text x="732" y="123" text-anchor="middle" font-size="11" fill="#bc8cff" font-weight="bold">Adapter</text>
-  <text x="732" y="138" text-anchor="middle" font-size="8" fill="#8b949e">Multi-Provider Auth</text>
-  <text x="732" y="151" text-anchor="middle" font-size="8" fill="#484f58">Qwen/OpenAI/Gemini/Claude</text>
+  <text x="732" y="138" text-anchor="middle" font-size="8" fill="#8b949e">Auth + Fallback</text>
+  <text x="732" y="151" text-anchor="middle" font-size="8" fill="#484f58">Qwen3 → Gemini 降级</text>
   <rect x="701" y="155" width="60" height="14" rx="3" fill="#bc8cff" opacity="0.2"/>
   <text x="731" y="166" text-anchor="middle" font-size="9" fill="#bc8cff" font-weight="bold">:5001</text>
 
@@ -210,11 +210,15 @@
   <text x="457" y="368" text-anchor="middle" font-size="8" fill="#484f58">Mon 09:00 -> WhatsApp</text>
 
   <rect x="545" y="334" width="155" height="42" rx="6" fill="#0d1117" opacity="0.6" stroke="#f0883e" stroke-width="0.5" stroke-opacity="0.3"/>
-  <text x="622" y="352" text-anchor="middle" font-size="9" fill="#f0883e">Session Cleanup</text>
-  <text x="622" y="368" text-anchor="middle" font-size="8" fill="#484f58">every 6h (rm)</text>
+  <text x="622" y="352" text-anchor="middle" font-size="9" fill="#f0883e">KB Embed (Local)</text>
+  <text x="622" y="368" text-anchor="middle" font-size="8" fill="#484f58">every 4h -> RAG index</text>
+
+  <rect x="710" y="334" width="205" height="42" rx="6" fill="#0d1117" opacity="0.6" stroke="#f0883e" stroke-width="0.5" stroke-opacity="0.3"/>
+  <text x="812" y="352" text-anchor="middle" font-size="9" fill="#f0883e">MM Index + Daily Reports</text>
+  <text x="812" y="368" text-anchor="middle" font-size="8" fill="#484f58">every 2h / daily 08:15-08:20</text>
 
   <!-- Output flow -->
-  <text x="50" y="405" font-size="8" fill="#484f58">Output: ~/.kb/sources/ + ~/.kb/inbox.md + WhatsApp push + /Volumes/MOVESPEED/KB/ (rsync)</text>
+  <text x="50" y="405" font-size="8" fill="#484f58">Output: ~/.kb/ (sources + text_index + mm_index + daily_digest) + WhatsApp push + SSD backup</text>
 
   <!-- ═══════════════════════════════════ -->
   <!-- LAYER 3: MONITORING -->
@@ -293,7 +297,7 @@
 
   <rect x="320" y="710" width="115" height="40" rx="5" fill="#0d1117" opacity="0.6" stroke="#3fb950" stroke-width="0.5" stroke-opacity="0.4"/>
   <text x="377" y="729" text-anchor="middle" font-size="9" fill="#3fb950">file sync</text>
-  <text x="377" y="742" text-anchor="middle" font-size="8" fill="#484f58">17 file mappings</text>
+  <text x="377" y="742" text-anchor="middle" font-size="8" fill="#484f58">23 file mappings</text>
 
   <line x1="435" y1="730" x2="455" y2="730" stroke="#3fb950" stroke-width="1" marker-end="url(#arrowGreen)" opacity="0.6"/>
 
@@ -305,7 +309,7 @@
 
   <rect x="590" y="704" width="330" height="52" rx="6" fill="#0d1117" opacity="0.6" stroke="#3fb950" stroke-width="1" stroke-opacity="0.6"/>
   <text x="755" y="722" text-anchor="middle" font-size="10" fill="#3fb950" font-weight="bold">preflight_check.sh --full</text>
-  <text x="755" y="736" text-anchor="middle" font-size="8" fill="#8b949e">9 automated checks (fail -> WhatsApp alert)</text>
+  <text x="755" y="736" text-anchor="middle" font-size="8" fill="#8b949e">11 automated checks (fail -> WhatsApp alert)</text>
   <text x="755" y="748" text-anchor="middle" font-size="8" fill="#484f58">tests / registry / syntax / deploy / env / health / security</text>
 
   <!-- Drift detection -->
