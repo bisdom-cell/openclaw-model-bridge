@@ -10,6 +10,11 @@
 
 ## Architecture / 系统架构
 
+![Architecture Diagram](docs/architecture.svg)
+
+<details>
+<summary>Text version / 文本版本</summary>
+
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                     用户层 (WhatsApp)                            │
@@ -62,6 +67,8 @@
 │       preflight: 单测 + 注册表 + 语法 + 部署一致性 + 安全扫描     │
 └──────────────────────────────────────────────────────────────────┘
 ```
+
+</details>
 
 | Component | Port | Files | Role |
 |-----------|------|-------|------|
