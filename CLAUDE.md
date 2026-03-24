@@ -105,6 +105,9 @@
 | `mm_index.py` | **V29.1新增** Multimodal Memory 索引器（Gemini Embedding 2，支持图片/音频/视频/PDF） |
 | `mm_search.py` | **V29.1新增** Multimodal Memory 语义搜索（文本查询→cosine similarity→匹配媒体） |
 | `mm_index_cron.sh` | **V29.1新增** MM 索引定时任务包装脚本（每2小时） |
+| `local_embed.py` | **V29.3新增** 本地 Embedding 引擎（sentence-transformers，中英双语，零API调用） |
+| `kb_embed.py` | **V29.3新增** KB 文本向量索引器（notes+sources 分块→本地 embedding→~/.kb/text_index/） |
+| `kb_rag.py` | **V29.3新增** KB RAG 语义搜索（--context LLM注入 / --json 脚本调用） |
 | `kb_save_arxiv.sh` | ArXiv监控结果写入KB + rsync备份 |
 | `auto_deploy.sh` | **V27.1新增** 仓库→部署自动同步 + 漂移检测（md5全量比对+WhatsApp告警） |
 | `test_tool_proxy.py` | proxy_filters 单测（43个用例） |
@@ -182,6 +185,15 @@
 5. **kb_review.sh 从 openclaw cron 改为 system cron**：直接 curl 调 LLM 分析，不再依赖 openclaw agent
 6. **auto_deploy.sh FILE_MAP 扩展至 19 个文件**：新增 kb_search.sh + kb_inject.sh
 
+## V29.3 变更摘要（2026-03-24）
+
+1. **本地 Embedding 引擎**：`local_embed.py` 基于 sentence-transformers（paraphrase-multilingual-MiniLM-L12-v2，384维，50+语言），零API调用/零限速/零成本；Mac Mini Apple Silicon 单条~10ms，批量100条~500ms
+2. **KB 文本向量索引**：`kb_embed.py` 扫描 notes+sources → 分块（400字/块，80字重叠）→ 本地 embedding → `~/.kb/text_index/`（meta.json + vectors.bin）；增量索引（文件hash去重），模型变更自动重建
+3. **KB RAG 语义搜索**：`kb_rag.py` 自然语言查询KB知识库 → cosine similarity → top-K相关片段；支持 `--context`（LLM可直接注入的格式）、`--json`（脚本调用）、`--top N`
+4. **算力本地化**：KB文本搜索完全本地化，不再依赖外部API；Multimodal Memory（图片/音频/视频）仍使用 Gemini Embedding 2（本地文本模型无法处理多模态）
+5. **preflight Python语法检查修复**：`.py` entry文件改用 `ast.parse()` 检查（之前误用 `bash -n`）
+6. **jobs_registry.yaml 新增 kb_embed 任务**：每4小时增量索引，无需API Key
+
 ## V29.2 变更摘要（2026-03-23）
 
 1. **OpenClaw 架构文档同步至 v2026.3.23**：`docs/openclaw_architecture.md` 全面更新，覆盖 6 项 Breaking Change（Plugin SDK 路径、Legacy 环境变量/目录移除、Chrome relay 废弃等）、Provider 架构重构（bundled plugins）、WhatsApp #48703 修复、Health monitor 可配置阈值
@@ -240,6 +252,15 @@ python3 mm_index.py                # 增量索引媒体文件
 python3 mm_index.py --reindex      # 重建全部索引
 python3 mm_search.py "猫的照片"    # 语义搜索媒体
 python3 mm_search.py --stats       # 索引统计
+
+# KB 本地 Embedding + RAG（需要 pip3 install sentence-transformers）
+python3 local_embed.py --bench     # 性能基准测试
+python3 kb_embed.py                # 增量索引 KB 文本
+python3 kb_embed.py --reindex      # 重建全部索引
+python3 kb_embed.py --stats        # 索引统计
+python3 kb_rag.py "Qwen3 模型"     # 语义搜索 KB
+python3 kb_rag.py --context "AI论文" # LLM 可直接注入的上下文格式
+python3 kb_rag.py --json "shipping" # JSON 输出（供脚本调用）
 
 # 生成任务文档 / 检测文档漂移
 python3 gen_jobs_doc.py           # 输出 markdown 表格

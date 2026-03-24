@@ -182,3 +182,12 @@ jobs:
     needs_api_key: false
     enabled: true
     description: KB 智能去重 — Notes 精确/模糊去重 + Sources 行去重（dry-run 模式，仅报告）
+
+  - id: kb_embed
+    scheduler: system
+    entry: kb_embed.py
+    interval: "30 */4 * * *"        # 每4小时:30分（kb_inject 之后，错开其他 job）
+    log: ~/kb_embed.log
+    needs_api_key: false
+    enabled: true
+    description: KB 文本向量索引 — 本地 embedding（sentence-transformers），增量分块索引 notes+sources，供 RAG 语义搜索
