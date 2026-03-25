@@ -207,6 +207,18 @@ bash ~/openclaw-model-bridge/preflight_check.sh      # 全面体检（dev）
 bash ~/openclaw-model-bridge/preflight_check.sh --full  # 全面体检（含连通性）
 ```
 
+## 项目状态（三方共享）
+用 exec 工具查看当前项目状态：
+\`python3 ~/status_update.py --read --human\`
+
+当用户提到优先级变更、新任务、完成任务时，更新状态：
+- 新增任务：\`python3 ~/status_update.py --add priorities '{"task":"任务名","status":"active","note":"说明"}' --by pa\`
+- 完成任务：\`python3 ~/status_update.py --update-priority "任务名" status done --by pa\`
+- 记录反馈：\`python3 ~/status_update.py --add feedback "反馈内容" --by pa\`
+- 设置焦点：\`python3 ~/status_update.py --focus "本周重点" --by pa\`
+
+当用户问"最近在做什么"、"项目状态"、"进展如何"时，先读取 status.json 再回答。
+
 ## 反馈捕获（重要！）
 当用户对推送内容（趋势报告、ArXiv、HN、周报等）给出反馈时，**必须**用 exec 工具保存到 KB：
 ```
