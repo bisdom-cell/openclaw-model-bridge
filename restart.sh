@@ -9,8 +9,9 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 OPENCLAW="${OPENCLAW:-$(command -v openclaw 2>/dev/null || echo /opt/homebrew/bin/openclaw)}"
 
 echo "[restart] Stopping all services..."
-"$OPENCLAW" gateway stop 2>/dev/null || true
-# Kill any process on ports; ignore error if none running
+# Stop Gateway via launchctl (preserves plist registration knowledge for restart)
+launchctl bootout "gui/$(id -u)/ai.openclaw.gateway" 2>/dev/null || true
+# Kill any stray process on gateway port
 lsof -ti :18789 2>/dev/null | xargs kill 2>/dev/null || true
 lsof -ti :5001 2>/dev/null | xargs kill 2>/dev/null || true
 lsof -ti :5002 2>/dev/null | xargs kill 2>/dev/null || true
@@ -38,8 +39,18 @@ if [ -d "$OPENCLAW_DIST" ]; then
     fi
 fi
 
-echo "[restart] Starting Gateway..."
-nohup "$OPENCLAW" gateway --verbose >> ~/gateway.log 2>&1 &
-disown
+echo "[restart] Starting Gateway via launchd..."
+GATEWAY_PLIST="$HOME/Library/LaunchAgents/ai.openclaw.gateway.plist"
+if [ -f "$GATEWAY_PLIST" ]; then
+    # bootout first (ignore error if not loaded)
+    launchctl bootout "gui/$(id -u)/ai.openclaw.gateway" 2>/dev/null || true
+    sleep 1
+    launchctl bootstrap "gui/$(id -u)" "$GATEWAY_PLIST"
+    echo "[restart] Gateway loaded via launchd (KeepAlive enabled)"
+else
+    echo "[restart] WARNING: launchd plist not found, falling back to nohup (no auto-restart)"
+    nohup "$OPENCLAW" gateway --verbose >> ~/gateway.log 2>&1 &
+    disown
+fi
 sleep 3
 echo "[restart] Done!"
