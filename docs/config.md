@@ -1,7 +1,7 @@
 # OpenClaw 完整配置文档
-> 最后更新：2026-03-24 (HKT)
+> 最后更新：2026-03-25 (HKT)
 > 系统：Mac Mini (macOS) | 用户：bisdom
-> 版本：v29.2（V29.1基础上：OpenClaw架构文档同步至v2026.3.22）
+> 版本：v29.4（V29.3基础上：多模态图片理解 — Qwen2.5-VL-72B 自动路由）
 > OpenClaw Gateway：2026.3.13-1（当前部署，暂不升级）| 上游最新：v2026.3.23（WhatsApp plugin 仅 0.0.5-Alpha + ClawHub 429，等稳定版再升级）
 ---
 ## 一、系统架构（V28.1 四层架构）
@@ -13,13 +13,17 @@
 └────────────────────────────┬────────────────────────────────────────┘
                              │
 ┌────────────────────────────▼────────────────────────────────────────┐
-│  ① 核心数据通路（实时对话）                                          │
+│  ① 核心数据通路（实时对话 + 多模态）                                  │
 │                                                                     │
-│  WhatsApp ←→ Gateway (:18789) ←→ Tool Proxy (:5002) ←→ Adapter (:5001) ←→ 远程GPU  │
-│              [launchd管理]        [策略过滤+监控]       [认证+转发]     [Qwen3-235B] │
-│                  │                    │                    │                        │
-│                  │               /health ──→ /health       │                        │
-│                  │               /stats (token监控)        │                        │
+│  WhatsApp ←→ Gateway (:18789) ←→ Tool Proxy (:5002) ←→ Adapter (:5001) ←→ 远程GPU        │
+│              [launchd管理]        [策略过滤+监控]       [认证+VL路由]     [Qwen3-235B]      │
+│              [媒体存储]           [图片base64注入]      [Fallback降级]    [Qwen2.5-VL-72B]  │
+│                  │                    │                    │                               │
+│                  │               /health ──→ /health       │                               │
+│                  │               /stats (token监控)        │                               │
+│                                                                     │
+│  图片流程：Gateway存储jpg → Proxy检测<media:image> → base64注入       │
+│           → Adapter检测image_url → 路由到Qwen2.5-VL → 图片理解回复    │
 └──────────────────┼────────────────────┼────────────────────┼────────────────────────┘
                    │                    │                    │
 ┌──────────────────▼────────────────────▼────────────────────▼────────────────────────┐
@@ -90,10 +94,10 @@
 ### 1.3 核心组件详情
 | 组件 | 端口 | 文件位置 | 功能 | 进程管理 |
 |------|------|----------|------|----------|
-| OpenClaw Gateway | 18789 | 全局安装 (npm) | WhatsApp接入、工具执行、会话管理 | launchd (KeepAlive) |
-| Tool Proxy | 5002 | ~/tool_proxy.py + ~/proxy_filters.py | HTTP层 + 策略层：工具过滤、Schema简化、参数修复、SSE转换、截断、token监控、/health级联检查 | launchd plist |
-| Adapter | 5001 | ~/adapter.py | 多Provider转发(Qwen/OpenAI/Gemini/Claude)、认证、/health端点、**Fallback降级** | launchd plist |
-| 远程GPU | - | hkagentx.hkopenlab.com | Qwen3-235B推理 + 原生tool calling (262K context) | 外部服务 |
+| OpenClaw Gateway | 18789 | 全局安装 (npm) | WhatsApp接入、**媒体存储**、工具执行、会话管理 | launchd (KeepAlive) |
+| Tool Proxy | 5002 | ~/tool_proxy.py + ~/proxy_filters.py | HTTP层 + 策略层：工具过滤、**图片base64注入**、Schema简化、参数修复、SSE转换、截断、token监控 | launchd plist |
+| Adapter | 5001 | ~/adapter.py | 多Provider转发、认证、**多模态路由**（文本→Qwen3，图片→Qwen2.5-VL）、Fallback降级 | launchd plist |
+| 远程GPU | - | hkagentx.hkopenlab.com | **Qwen3-235B**（文本，262K context）+ **Qwen2.5-VL-72B**（视觉理解） | 外部服务 |
 ---
 ## 二、关键文件清单
 | 文件 | 路径 | 用途 |
@@ -149,10 +153,10 @@
 |------|------|
 | Endpoint | https://hkagentx.hkopenlab.com/v1/chat/completions |
 | API Key | 通过环境变量 `$REMOTE_API_KEY` 读取（~/.zshrc） |
-| Model ID | Qwen3-235B-A22B-Instruct-2507-W8A8 |
-| 参数量 | 235B (W8A8量化) |
-| 上下文窗口 | 262K tokens |
+| 文本模型 | Qwen3-235B-A22B-Instruct-2507-W8A8（235B, W8A8量化, 262K context） |
+| **视觉模型** | **Qwen2.5-VL-72B-Instruct（72B, 同endpoint同API Key，V29.4新增）** |
 | 请求体限制 | ~280KB |
+| **多模态路由** | **Adapter自动检测image_url内容 → 切换到VL模型；纯文本 → 继续用Qwen3** |
 ### ⚠️ 模型ID使用规则
 | 文件 | 使用哪种ID |
 |------|-----------|

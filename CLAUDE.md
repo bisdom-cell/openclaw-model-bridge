@@ -1,12 +1,12 @@
 # CLAUDE.md — openclaw-model-bridge 项目背景
 
-> 每次新会话开始时自动读取。当前版本：v29.2（2026-03-23）
+> 每次新会话开始时自动读取。当前版本：v29.4（2026-03-25）
 
 ---
 
 ## 项目简介
 
-将任意大模型（当前：Qwen3-235B）接入 OpenClaw（WhatsApp AI助手框架）的双层中间件。
+将任意大模型（当前：Qwen3-235B + Qwen2.5-VL-72B）接入 OpenClaw（WhatsApp AI助手框架）的双层中间件，支持多模态（图片理解）。
 运行于 Mac Mini (macOS)，用户：bisdom。
 
 ## 系统架构总览
@@ -17,15 +17,17 @@
 └────────────────────────────┬────────────────────────────────────────┘
                              │
 ┌────────────────────────────▼────────────────────────────────────────┐
-│  ① 核心数据通路（实时对话）                                          │
+│  ① 核心数据通路（实时对话 + 多模态）                                  │
 │                                                                     │
-│  WhatsApp ←→ Gateway (:18789) ←→ Tool Proxy (:5002) ←→ Adapter (:5001) ←→ 远程GPU  │
-│              [launchd管理]        [策略过滤+监控]       [认证+Fallback]  [Qwen3-235B] │
-│                                                         [Qwen3→Gemini]              │
-│                  │                    │                    │                        │
-│                  │               /health ──→ /health       │                        │
-│                  │               /stats (token监控)        │                        │
-│                  │                    │                    │                        │
+│  WhatsApp ←→ Gateway (:18789) ←→ Tool Proxy (:5002) ←→ Adapter (:5001) ←→ 远程GPU        │
+│              [launchd管理]        [策略过滤+监控]       [认证+VL路由]     [Qwen3-235B]      │
+│              [媒体存储]           [图片base64注入]      [Fallback降级]    [Qwen2.5-VL-72B]  │
+│                  │                    │                    │                               │
+│                  │               /health ──→ /health       │                               │
+│                  │               /stats (token监控)        │                               │
+│                                                                     │
+│  图片流程：Gateway存储jpg → Proxy检测<media:image> → base64注入       │
+│           → Adapter检测image_url → 路由到Qwen2.5-VL → 图片理解回复    │
 └──────────────────┼────────────────────┼────────────────────┼────────────────────────┘
                    │                    │                    │
 ┌──────────────────▼────────────────────▼────────────────────▼────────────────────────┐
@@ -79,10 +81,10 @@
 
 | 组件 | 端口 | 文件 | 功能 | 进程管理 |
 |------|------|------|------|----------|
-| OpenClaw Gateway | 18789 | npm全局安装 | WhatsApp接入、工具执行、会话管理 | launchd (KeepAlive) |
-| Tool Proxy | 5002 | `tool_proxy.py` + `proxy_filters.py` | 工具过滤(24→12)、Schema简化、SSE转换、截断、token监控 | launchd plist |
-| Adapter | 5001 | `adapter.py` | 多Provider转发(Qwen/OpenAI/Gemini/Claude)、认证、Fallback降级、/health端点 | launchd plist |
-| 远程GPU | — | hkagentx.hkopenlab.com | Qwen3-235B推理 (262K context) | 外部服务 |
+| OpenClaw Gateway | 18789 | npm全局安装 | WhatsApp接入、**媒体存储**、工具执行、会话管理 | launchd (KeepAlive) |
+| Tool Proxy | 5002 | `tool_proxy.py` + `proxy_filters.py` | 工具过滤(24→12)、**图片base64注入**、Schema简化、SSE转换、截断、token监控 | launchd plist |
+| Adapter | 5001 | `adapter.py` | 多Provider转发、认证、**多模态路由**（文本→Qwen3，图片→Qwen2.5-VL）、Fallback降级 | launchd plist |
+| 远程GPU | — | hkagentx.hkopenlab.com | **Qwen3-235B**（文本, 262K context）+ **Qwen2.5-VL-72B**（视觉理解） | 外部服务 |
 
 ## 关键文件（本仓库）
 
@@ -184,6 +186,14 @@
 4. **WhatsApp LLM 自动查 KB**：workspace CLAUDE.md 添加知识库查询指引，用户问"最近有什么新论文"等问题时 LLM 自动读取 daily_digest.md 回答
 5. **kb_review.sh 从 openclaw cron 改为 system cron**：直接 curl 调 LLM 分析，不再依赖 openclaw agent
 6. **auto_deploy.sh FILE_MAP 扩展至 19 个文件**：新增 kb_search.sh + kb_inject.sh
+
+## V29.4 变更摘要（2026-03-25）
+
+1. **多模态图片理解**：WhatsApp 发送图片 → Gateway 存储到 `~/.openclaw/media/inbound/` → Proxy 检测 `<media:image>` 标记并读取图片 base64 编码注入 `image_url` → Adapter 检测多模态内容自动路由到 Qwen2.5-VL-72B-Instruct → 返回图片描述/理解
+2. **Adapter VL 模型路由**：`adapter.py` 新增 `vl_model_id` 配置，检测 `image_url`/`image`/`audio`/`video` content 类型时自动切换模型，纯文本继续用 Qwen3-235B；`/health` 端点暴露 VL 模型信息
+3. **Proxy 图片注入**：`proxy_filters.py` 新增 `inject_media_into_messages()` — 检测 `<media:image>` 标记 → 查找最近5分钟内的图片 → base64 编码（10MB上限）→ 转为 OpenAI 多模态消息格式；支持图片和文字分开发送的场景
+4. **restart.sh 修复**：`#48703 hotfix` 中的 grep 管道在无匹配时返回非零退出码，被 `set -e` 捕获导致脚本在 Gateway 启动前中断
+5. **openclaw.json 更新**：模型声明 `input` 从 `["text"]` 改为 `["text", "image"]`；research agent 工具白名单新增 `image`
 
 ## V29.3 变更摘要（2026-03-24）
 
@@ -355,6 +365,9 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 | 优先级 | 任务 |
 |--------|------|
 | 低 | 货代Watcher V3：Bing News API替代GoogleNews |
+| 低 | 语音消息支持：WhatsApp语音→STT→LLM回复 |
+| 低 | MM搜索接入对话：mm_search.py 注册为 OpenClaw tool |
+| ✅ | **多模态图片理解：Qwen2.5-VL-72B 自动路由（V29.4）** |
 | ✅ | Multimodal Memory：Gemini Embedding 2 索引图片/音频/视频/PDF（V29.1） |
 | ✅ | Model Fallback 降级链（V29.1） |
 | ✅ | 每日自动备份（V29.1） |
