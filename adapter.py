@@ -72,6 +72,33 @@ if _fb and FALLBACK_NAME != PROVIDER_NAME:
 else:
     FALLBACK = None
 
+# ---------------------------------------------------------------------------
+# Smart routing: fast model for simple queries (optional)
+# Set FAST_PROVIDER env to enable (e.g., "gemini" for short/simple queries)
+# ---------------------------------------------------------------------------
+FAST_PROVIDER_NAME = os.environ.get("FAST_PROVIDER", "")
+if FAST_PROVIDER_NAME and FAST_PROVIDER_NAME in PROVIDERS and FAST_PROVIDER_NAME != PROVIDER_NAME:
+    _fp = PROVIDERS[FAST_PROVIDER_NAME]
+    _fp_key = os.environ.get(_fp["api_key_env"], "")
+    if _fp_key:
+        FAST_ROUTE = {
+            "name":       FAST_PROVIDER_NAME,
+            "base_url":   _fp["base_url"],
+            "api_key":    _fp_key,
+            "model_id":   os.environ.get("FAST_MODEL_ID", _fp["model_id"]),
+            "auth_style": _fp["auth_style"],
+        }
+    else:
+        FAST_ROUTE = None
+else:
+    FAST_ROUTE = None
+
+# Try to import classify_complexity from proxy_filters (co-located on Mac Mini)
+try:
+    from proxy_filters import classify_complexity
+except ImportError:
+    classify_complexity = None
+
 ALLOWED_PARAMS = {
     "model", "messages", "max_tokens", "temperature", "top_p",
     "stream", "stop", "tools", "tool_choice", "n",
@@ -114,6 +141,8 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                 info["vl_model"] = VL_MODEL_ID
             if FALLBACK:
                 info["fallback"] = FALLBACK["name"]
+            if FAST_ROUTE:
+                info["fast_route"] = f"{FAST_ROUTE['name']}/{FAST_ROUTE['model_id']}"
             resp = json.dumps(info).encode()
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
@@ -219,11 +248,32 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
 
             log(f"{tag}CLEAN KEYS: {list(clean.keys())}")
             log(f"{tag}MSG COUNT: {len(clean_msgs)}, ROLES: {[m['role'] for m in clean_msgs]}")
+
+            # --- Smart routing: simple queries → fast model ---
+            use_fast = False
+            if (FAST_ROUTE and classify_complexity
+                    and not has_multimodal
+                    and use_model == REAL_MODEL_ID):
+                complexity = classify_complexity(clean_msgs, has_tools="tools" in clean)
+                if complexity == "simple":
+                    use_fast = True
+                    log(f"{tag}SMART ROUTE: simple -> {FAST_ROUTE['name']}/{FAST_ROUTE['model_id']}")
+
             data = json.dumps(clean).encode()
             log(f"{tag}FORWARDING: {len(data)} bytes")
 
             # --- Primary request with fallback ---
-            primary_auth = _make_auth_headers(AUTH_STYLE, API_KEY)
+            if use_fast:
+                fr = FAST_ROUTE
+                fast_clean = dict(clean)
+                fast_clean["model"] = fr["model_id"]
+                fast_data = json.dumps(fast_clean).encode()
+                fast_url = f"{fr['base_url']}{path}"
+                primary_auth = _make_auth_headers(fr["auth_style"], fr["api_key"])
+                url = fast_url
+                data = fast_data
+            else:
+                primary_auth = _make_auth_headers(AUTH_STYLE, API_KEY)
             try:
                 status, resp_body = _forward_request(url, data, primary_auth)
                 elapsed = int((time.monotonic() - t0) * 1000)
@@ -295,7 +345,8 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
 
 fb_info = f" (fallback: {FALLBACK['name']}/{FALLBACK['model_id']})" if FALLBACK else " (no fallback)"
 vl_info = f" (VL: {VL_MODEL_ID})" if VL_MODEL_ID else ""
-log(f"Starting on :{PORT} -> {TARGET_BASE} (model: {REAL_MODEL_ID}){vl_info}{fb_info}")
+fast_info = f" (fast: {FAST_ROUTE['name']}/{FAST_ROUTE['model_id']})" if FAST_ROUTE else ""
+log(f"Starting on :{PORT} -> {TARGET_BASE} (model: {REAL_MODEL_ID}){vl_info}{fb_info}{fast_info}")
 sys.stdout.flush()
 class ThreadedServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
     daemon_threads = True
