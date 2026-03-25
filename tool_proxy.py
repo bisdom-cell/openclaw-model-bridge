@@ -12,6 +12,7 @@ from proxy_filters import (
     ALLOWED_TOOLS, ALLOWED_PREFIXES,
     is_allowed, filter_tools, truncate_messages,
     fix_tool_args, build_sse_response, should_strip_tools,
+    inject_media_into_messages,
     proxy_stats,
 )
 
@@ -101,6 +102,12 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                 if dropped:
                     body["messages"] = truncated
                     log(f"[{rid}] WARN: Truncated {dropped} old messages ({len(msgs)} -> {len(truncated)} msgs)")
+
+                # 多模态媒体注入：检测 <media:image> 并注入 base64 图片
+                msgs = body.get("messages", [])
+                msgs, media_injected = inject_media_into_messages(msgs, log_fn=lambda m: log(f"[{rid}] {m}"))
+                if media_injected:
+                    body["messages"] = msgs
 
                 # [NO_TOOLS] 标记：强制清空工具（纯推理模式）
                 if should_strip_tools(body.get("messages", [])):

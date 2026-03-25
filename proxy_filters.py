@@ -3,6 +3,8 @@
 proxy_filters.py — V27 提取自 tool_proxy.py
 所有过滤、修复、截断、SSE转换逻辑。纯函数 + 配置数据，无 HTTP/网络依赖。
 """
+import base64
+import glob
 import json
 import os
 import threading
@@ -209,6 +211,118 @@ def truncate_messages(messages, max_bytes=MAX_REQUEST_BYTES):
         total += ms
     dropped = len(others) - len(keep)
     return system + keep, dropped
+
+
+# ---------------------------------------------------------------------------
+# 多模态媒体注入
+# ---------------------------------------------------------------------------
+
+MEDIA_DIR = os.path.expanduser("~/.openclaw/media/inbound")
+MEDIA_TAG = "<media:image>"
+# 图片过期时间：5分钟内的图片才注入（避免注入很久以前的图片）
+MEDIA_MAX_AGE_SECONDS = 300
+
+def _find_recent_image():
+    """找到 MEDIA_DIR 中最近修改的图片文件，返回路径或 None。"""
+    if not os.path.isdir(MEDIA_DIR):
+        return None
+    candidates = []
+    for ext in ("*.jpg", "*.jpeg", "*.png", "*.gif", "*.webp"):
+        candidates.extend(glob.glob(os.path.join(MEDIA_DIR, ext)))
+    if not candidates:
+        return None
+    newest = max(candidates, key=os.path.getmtime)
+    age = time.time() - os.path.getmtime(newest)
+    if age > MEDIA_MAX_AGE_SECONDS:
+        return None
+    return newest
+
+
+def inject_media_into_messages(messages, log_fn=None):
+    """检测用户消息中的 <media:image> 标记，注入 base64 图片数据。
+    返回 (messages, injected: bool)。
+    """
+    # 找到包含 <media:image> 的最后一条用户消息的索引
+    target_idx = None
+    for i in range(len(messages) - 1, -1, -1):
+        m = messages[i]
+        if m.get("role") != "user":
+            continue
+        content = m.get("content", "")
+        if isinstance(content, str) and MEDIA_TAG in content:
+            target_idx = i
+            break
+        elif isinstance(content, list):
+            for part in content:
+                if isinstance(part, dict) and MEDIA_TAG in part.get("text", ""):
+                    target_idx = i
+                    break
+                elif isinstance(part, str) and MEDIA_TAG in part:
+                    target_idx = i
+                    break
+            if target_idx is not None:
+                break
+
+    if target_idx is None:
+        return messages, False
+
+    img_path = _find_recent_image()
+    if not img_path:
+        if log_fn:
+            log_fn("MEDIA: <media:image> found but no recent image file")
+        return messages, False
+
+    # 读取并 base64 编码
+    try:
+        with open(img_path, "rb") as f:
+            img_data = f.read()
+        if len(img_data) > 10 * 1024 * 1024:  # 10MB 上限
+            if log_fn:
+                log_fn(f"MEDIA: Image too large ({len(img_data)} bytes), skipping")
+            return messages, False
+        b64 = base64.b64encode(img_data).decode("ascii")
+    except OSError as e:
+        if log_fn:
+            log_fn(f"MEDIA: Failed to read {img_path}: {e}")
+        return messages, False
+
+    # 判断 MIME 类型
+    ext = os.path.splitext(img_path)[1].lower()
+    mime = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png",
+            "gif": "image/gif", "webp": "image/webp"}.get(ext.lstrip("."), "image/jpeg")
+
+    # 替换目标消息的 content 为多模态格式
+    m = messages[target_idx]
+    old_content = m.get("content", "")
+    if isinstance(old_content, str):
+        text_part = old_content.replace(MEDIA_TAG, "").strip()
+    else:
+        text_part = ""
+
+    # 同时查找后续紧邻的纯文本用户消息（用户先发图片，再发文字提问）
+    if not text_part:
+        for j in range(target_idx + 1, min(target_idx + 3, len(messages))):
+            nxt = messages[j]
+            if nxt.get("role") == "user":
+                nxt_content = nxt.get("content", "")
+                if isinstance(nxt_content, str) and nxt_content.strip() and MEDIA_TAG not in nxt_content:
+                    text_part = nxt_content.strip()
+                    break
+
+    new_content = [
+        {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{b64}"}},
+    ]
+    if text_part:
+        new_content.append({"type": "text", "text": text_part})
+    else:
+        new_content.append({"type": "text", "text": "请描述这张图片的内容。"})
+
+    messages[target_idx]["content"] = new_content
+
+    if log_fn:
+        log_fn(f"MEDIA: Injected {os.path.basename(img_path)} ({len(img_data)} bytes, {mime}) into msg[{target_idx}]")
+
+    return messages, True
 
 
 def fix_tool_args(rj):
