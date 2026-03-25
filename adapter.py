@@ -12,6 +12,7 @@ PROVIDERS = {
         "base_url":    "https://hkagentx.hkopenlab.com/v1",
         "api_key_env": "REMOTE_API_KEY",
         "model_id":    "Qwen3-235B-A22B-Instruct-2507-W8A8",
+        "vl_model_id": "Qwen2.5-VL-72B-Instruct",   # Vision-Language model on same endpoint
         "auth_style":  "bearer",      # Authorization: Bearer <key>
     },
     "openai": {
@@ -45,6 +46,7 @@ if PROVIDER_NAME not in PROVIDERS:
 provider    = PROVIDERS[PROVIDER_NAME]
 TARGET_BASE = provider["base_url"]
 REAL_MODEL_ID = os.environ.get("MODEL_ID", provider["model_id"])
+VL_MODEL_ID   = os.environ.get("VL_MODEL_ID", provider.get("vl_model_id", ""))
 API_KEY     = os.environ.get(provider["api_key_env"], "sk-REPLACE-ME")
 AUTH_STYLE  = provider["auth_style"]
 PORT        = int(os.environ.get("PORT", 5001))
@@ -108,6 +110,8 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
         # Local health check — never forward to remote
         if self.path in ("/health", "/v1/health"):
             info = {"ok": True, "provider": PROVIDER_NAME, "model": REAL_MODEL_ID}
+            if VL_MODEL_ID:
+                info["vl_model"] = VL_MODEL_ID
             if FALLBACK:
                 info["fallback"] = FALLBACK["name"]
             resp = json.dumps(info).encode()
@@ -156,23 +160,33 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
 
             log(f"{tag}INCOMING KEYS: {list(body.keys())}")
 
-            # Clean messages - remove unsupported content types
+            # Clean messages - detect multimodal content for VL routing
             msgs = body.get("messages", [])
             clean_msgs = []
+            has_multimodal = False
             for m in msgs:
                 role = m.get("role", "")
                 content = m.get("content", "")
-                # If content is a list (multimodal), extract text only
                 if isinstance(content, list):
-                    text_parts = []
+                    # Check if any part is non-text (image_url, audio, etc.)
                     for part in content:
-                        if isinstance(part, dict) and part.get("type") == "text":
-                            text_parts.append(part.get("text", ""))
-                        elif isinstance(part, str):
-                            text_parts.append(part)
-                    content = "\n".join(text_parts) if text_parts else ""
-
-                clean_msg = {"role": role, "content": content}
+                        if isinstance(part, dict) and part.get("type") in ("image_url", "image", "audio", "video"):
+                            has_multimodal = True
+                            break
+                    if has_multimodal and VL_MODEL_ID:
+                        # Keep multimodal content as-is for VL model
+                        clean_msg = {"role": role, "content": content}
+                    else:
+                        # No VL model available — fallback to text extraction
+                        text_parts = []
+                        for part in content:
+                            if isinstance(part, dict) and part.get("type") == "text":
+                                text_parts.append(part.get("text", ""))
+                            elif isinstance(part, str):
+                                text_parts.append(part)
+                        clean_msg = {"role": role, "content": "\n".join(text_parts) if text_parts else ""}
+                else:
+                    clean_msg = {"role": role, "content": content}
 
                 # Preserve tool_calls for assistant messages
                 if "tool_calls" in m:
@@ -185,8 +199,11 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
 
                 clean_msgs.append(clean_msg)
 
-            # Build clean request
-            clean = {"model": REAL_MODEL_ID, "messages": clean_msgs}
+            # Build clean request — route to VL model if multimodal content detected
+            use_model = VL_MODEL_ID if (has_multimodal and VL_MODEL_ID) else REAL_MODEL_ID
+            if has_multimodal:
+                log(f"{tag}MULTIMODAL detected -> model: {use_model}")
+            clean = {"model": use_model, "messages": clean_msgs}
             if "max_tokens" in body:
                 clean["max_tokens"] = body["max_tokens"]
             else:
@@ -277,7 +294,8 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
         self.wfile.write(body)
 
 fb_info = f" (fallback: {FALLBACK['name']}/{FALLBACK['model_id']})" if FALLBACK else " (no fallback)"
-log(f"Starting on :{PORT} -> {TARGET_BASE} (model: {REAL_MODEL_ID}){fb_info}")
+vl_info = f" (VL: {VL_MODEL_ID})" if VL_MODEL_ID else ""
+log(f"Starting on :{PORT} -> {TARGET_BASE} (model: {REAL_MODEL_ID}){vl_info}{fb_info}")
 sys.stdout.flush()
 class ThreadedServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
     daemon_threads = True
