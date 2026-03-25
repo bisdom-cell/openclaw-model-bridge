@@ -119,6 +119,9 @@ declare -a FILE_MAP=(
     "kb_dedup.py|$HOME/kb_dedup.py"
     "kb_autotag.py|$HOME/kb_autotag.py"
 
+    # KB 趋势报告
+    "kb_trend.py|$HOME/kb_trend.py"
+
     # 自部署（bootstrapping）
     "auto_deploy.sh|$HOME/openclaw-model-bridge/auto_deploy.sh"
 
