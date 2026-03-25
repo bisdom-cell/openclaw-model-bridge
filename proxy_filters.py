@@ -578,5 +578,62 @@ class ProxyStats:
             }
 
 
+# ---------------------------------------------------------------------------
+# 智能路由：消息复杂度分类
+# ---------------------------------------------------------------------------
+
+# 复杂度阈值
+_SIMPLE_MAX_MSGS = 4        # 对话轮数 ≤ 4
+_SIMPLE_MAX_USER_LEN = 200  # 最后一条用户消息 ≤ 200 字符
+_COMPLEX_MIN_MSGS = 10      # 对话轮数 ≥ 10 视为复杂
+
+
+def classify_complexity(messages, has_tools=False):
+    """根据消息内容判断请求复杂度。
+
+    返回:
+        "simple"  — 短问答、闲聊、简单查询（可路由到快速模型）
+        "complex" — 长对话、需要工具、多步推理（使用主模型）
+
+    判断依据（纯函数，无副作用）：
+    - 有工具 → complex（需要 tool calling 能力）
+    - 对话轮数多 → complex
+    - 最后一条用户消息很长 → complex（通常是复杂问题）
+    - 系统消息包含 NO_TOOLS 标记 → simple（纯推理）
+    """
+    # 有工具注入 → 需要强模型的 tool calling
+    if has_tools:
+        return "complex"
+
+    # [NO_TOOLS] 标记明确表示纯推理
+    if should_strip_tools(messages):
+        return "simple"
+
+    # 非 system 消息数量
+    non_sys = [m for m in messages if m.get("role") != "system"]
+    if len(non_sys) >= _COMPLEX_MIN_MSGS:
+        return "complex"
+
+    # 最后一条用户消息长度
+    last_user = ""
+    for m in reversed(messages):
+        if m.get("role") == "user":
+            content = m.get("content", "")
+            if isinstance(content, str):
+                last_user = content
+            elif isinstance(content, list):
+                # 多模态消息 → complex
+                return "complex"
+            break
+
+    if len(last_user) > _SIMPLE_MAX_USER_LEN:
+        return "complex"
+
+    if len(non_sys) <= _SIMPLE_MAX_MSGS and len(last_user) <= _SIMPLE_MAX_USER_LEN:
+        return "simple"
+
+    return "complex"
+
+
 # 进程级单例
 proxy_stats = ProxyStats()

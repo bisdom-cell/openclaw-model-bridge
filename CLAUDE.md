@@ -110,6 +110,7 @@
 | `local_embed.py` | **V29.3新增** 本地 Embedding 引擎（sentence-transformers，中英双语，零API调用） |
 | `kb_embed.py` | **V29.3新增** KB 文本向量索引器（notes+sources 分块→本地 embedding→~/.kb/text_index/） |
 | `kb_rag.py` | **V29.3新增** KB RAG 语义搜索（--context LLM注入 / --json 脚本调用） |
+| `kb_trend.py` | **V29.5新增** KB周趋势报告（本周vs上周关键词+LLM分析+WhatsApp推送） |
 | `kb_save_arxiv.sh` | ArXiv监控结果写入KB + rsync备份 |
 | `auto_deploy.sh` | **V27.1新增** 仓库→部署自动同步 + 漂移检测（md5全量比对+WhatsApp告警） |
 | `test_tool_proxy.py` | proxy_filters 单测（43个用例） |
@@ -186,6 +187,13 @@
 4. **WhatsApp LLM 自动查 KB**：workspace CLAUDE.md 添加知识库查询指引，用户问"最近有什么新论文"等问题时 LLM 自动读取 daily_digest.md 回答
 5. **kb_review.sh 从 openclaw cron 改为 system cron**：直接 curl 调 LLM 分析，不再依赖 openclaw agent
 6. **auto_deploy.sh FILE_MAP 扩展至 19 个文件**：新增 kb_search.sh + kb_inject.sh
+
+## V29.5 变更摘要（2026-03-25）
+
+1. **KB 周趋势报告**：`kb_trend.py` 新增 — 每周六 09:00 自动运行，对比本周 vs 上周的 ArXiv/HN/笔记关键词频率变化（TF + 领域关键词加权），识别上升趋势/新出现热词/消退话题，调用 LLM 生成趋势解读+下周预测，推送 WhatsApp；支持 `--json` 脚本调用、`--no-llm` 纯统计模式
+2. **模型智能路由**：`proxy_filters.py` 新增 `classify_complexity()` 纯函数，根据对话轮数、用户消息长度、是否有工具/多模态判断请求复杂度（simple/complex）；`adapter.py` 新增 `FAST_PROVIDER` + `FAST_MODEL_ID` 环境变量，simple 请求可路由到快速模型（如 Gemini Flash），降低延迟和成本，complex 请求继续用 Qwen3-235B
+3. **单测扩展至 67 个**：新增 9 个 `classify_complexity` 测试用例（短问答/多轮/工具/多模态/NO_TOOLS/空消息等边界场景）
+4. **jobs_registry 新增 kb_trend**：每周六 09:00，通过 proxy:5002 调 LLM，无需独立 API Key
 
 ## V29.4 变更摘要（2026-03-25）
 
@@ -365,9 +373,11 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 
 | 优先级 | 任务 |
 |--------|------|
+| 低 | 知识图谱：AI大模型领域知识图谱构建（需6-12个月数据积累，暂缓） |
 | 低 | 货代Watcher V3：Bing News API替代GoogleNews |
 | 低 | 语音消息支持：WhatsApp语音→STT→LLM回复 |
 | 低 | MM搜索接入对话：mm_search.py 注册为 OpenClaw tool |
+| ✅ | **KB 周趋势报告 + 模型智能路由（V29.5）** |
 | ✅ | **多模态图片理解：Qwen2.5-VL-72B 自动路由（V29.4）** |
 | ✅ | Multimodal Memory：Gemini Embedding 2 索引图片/音频/视频/PDF（V29.1） |
 | ✅ | Model Fallback 降级链（V29.1） |

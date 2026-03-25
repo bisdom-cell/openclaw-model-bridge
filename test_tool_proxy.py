@@ -11,6 +11,7 @@ import unittest
 from proxy_filters import (
     fix_tool_args, is_allowed, filter_tools,
     truncate_messages, build_sse_response, should_strip_tools,
+    classify_complexity,
     TOOL_PARAMS, VALID_BROWSER_PROFILES,
     ALLOWED_TOOLS, ALLOWED_PREFIXES,
 )
@@ -553,6 +554,77 @@ class TestProxyStats(unittest.TestCase):
         alerts2 = stats.pop_alerts()
         self.assertTrue(len(alerts1) > 0)
         self.assertEqual(len(alerts2), 0)
+
+
+class TestClassifyComplexity(unittest.TestCase):
+    """classify_complexity 智能路由测试"""
+
+    def test_simple_short_query(self):
+        """短问答应该被分类为 simple"""
+        msgs = [
+            {"role": "user", "content": "今天天气怎么样？"}
+        ]
+        self.assertEqual(classify_complexity(msgs, has_tools=False), "simple")
+
+    def test_simple_few_turns(self):
+        """少轮对话应该被分类为 simple"""
+        msgs = [
+            {"role": "user", "content": "你好"},
+            {"role": "assistant", "content": "你好！有什么可以帮你？"},
+            {"role": "user", "content": "谢谢"},
+        ]
+        self.assertEqual(classify_complexity(msgs, has_tools=False), "simple")
+
+    def test_complex_with_tools(self):
+        """有工具时应该被分类为 complex"""
+        msgs = [{"role": "user", "content": "hi"}]
+        self.assertEqual(classify_complexity(msgs, has_tools=True), "complex")
+
+    def test_complex_long_message(self):
+        """长用户消息应该被分类为 complex"""
+        msgs = [
+            {"role": "user", "content": "请帮我分析以下代码的性能问题：" + "x" * 300}
+        ]
+        self.assertEqual(classify_complexity(msgs, has_tools=False), "complex")
+
+    def test_complex_many_turns(self):
+        """多轮对话应该被分类为 complex"""
+        msgs = []
+        for i in range(12):
+            msgs.append({"role": "user", "content": f"问题{i}"})
+            msgs.append({"role": "assistant", "content": f"回答{i}"})
+        self.assertEqual(classify_complexity(msgs, has_tools=False), "complex")
+
+    def test_complex_multimodal(self):
+        """多模态消息应该被分类为 complex"""
+        msgs = [
+            {"role": "user", "content": [
+                {"type": "image_url", "image_url": {"url": "data:image/png;base64,abc"}},
+                {"type": "text", "text": "这是什么？"}
+            ]}
+        ]
+        self.assertEqual(classify_complexity(msgs, has_tools=False), "complex")
+
+    def test_simple_no_tools_marker(self):
+        """[NO_TOOLS] 标记应该被分类为 simple"""
+        msgs = [
+            {"role": "system", "content": "[NO_TOOLS] 你是一个助手"},
+            {"role": "user", "content": "x" * 500},  # 长消息但有 NO_TOOLS
+        ]
+        self.assertEqual(classify_complexity(msgs, has_tools=False), "simple")
+
+    def test_system_messages_excluded_from_count(self):
+        """system 消息不应计入对话轮数"""
+        msgs = [
+            {"role": "system", "content": "你是助手"},
+            {"role": "system", "content": "工具说明"},
+            {"role": "user", "content": "你好"},
+        ]
+        self.assertEqual(classify_complexity(msgs, has_tools=False), "simple")
+
+    def test_empty_messages(self):
+        """空消息列表应该是 simple"""
+        self.assertEqual(classify_complexity([], has_tools=False), "simple")
 
 
 if __name__ == "__main__":

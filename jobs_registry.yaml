@@ -191,3 +191,12 @@ jobs:
     needs_api_key: false
     enabled: true
     description: KB 文本向量索引 — 本地 embedding（sentence-transformers），增量分块索引 notes+sources，供 RAG 语义搜索
+
+  - id: kb_trend
+    scheduler: system
+    entry: kb_trend.py
+    interval: "0 9 * * 6"           # 每周六 09:00
+    log: ~/kb_trend.log
+    needs_api_key: false             # 通过 proxy:5002 调 LLM，不需要独立 key
+    enabled: true
+    description: KB 周趋势报告 — 本周 vs 上周关键词频率变化 + LLM 趋势分析 + WhatsApp 推送
