@@ -59,7 +59,7 @@
 │  GitHub (main) ──→ auto_deploy.sh (每2min轮询)                                      │
 │                     ├─ git fetch + pull                                              │
 │                     ├─ 单测验证（proxy_filters变更时）                                 │
-│                     ├─ 文件同步（仓库→运行时，23个文件映射）                            │
+│                     ├─ 文件同步（仓库→运行时，31个文件映射）                            │
 │                     ├─ 每小时漂移检测（md5全量比对）                                   │
 │                     ├─ 按需restart（核心服务文件变更时）                                │
 │                     └─ preflight_check.sh --full（部署后自动体检 11项）                │
@@ -103,7 +103,7 @@
 | `kb_write.sh` | KB写入脚本（含目录锁+原子写） |
 | `kb_review.sh` | **V29升级** KB跨笔记回顾（LLM深度分析+WhatsApp推送） |
 | `kb_search.sh` | **V29新增** KB按需查询工具（关键词/标签/来源/统计概览） |
-| `kb_inject.sh` | **V29新增** 每日KB摘要生成（~/.kb/daily_digest.md，供LLM对话查阅） |
+| `kb_inject.sh` | **V29新增→V29.4升级** 每日KB摘要+运维知识精华注入workspace CLAUDE.md；文档按需查阅路径 `~/.kb/docs/` |
 | `mm_index.py` | **V29.1新增** Multimodal Memory 索引器（Gemini Embedding 2，支持图片/音频/视频/PDF） |
 | `mm_search.py` | **V29.1新增** Multimodal Memory 语义搜索（文本查询→cosine similarity→匹配媒体） |
 | `mm_index_cron.sh` | **V29.1新增** MM 索引定时任务包装脚本（每2小时） |
@@ -194,6 +194,7 @@
 3. **Proxy 图片注入**：`proxy_filters.py` 新增 `inject_media_into_messages()` — 检测 `<media:image>` 标记 → 查找最近5分钟内的图片 → base64 编码（10MB上限）→ 转为 OpenAI 多模态消息格式；支持图片和文字分开发送的场景
 4. **restart.sh 修复**：`#48703 hotfix` 中的 grep 管道在无匹配时返回非零退出码，被 `set -e` 捕获导致脚本在 Gateway 启动前中断
 5. **openclaw.json 更新**：模型声明 `input` 从 `["text"]` 改为 `["text", "image"]`；research agent 工具白名单新增 `image`
+6. **WhatsApp PA 运维知识注入**：`kb_inject.sh` 升级 — workspace CLAUDE.md 新增系统架构简版、9条核心运维原则、常用运维命令、深度文档按需查阅路径（`~/.kb/docs/`）；`auto_deploy.sh` FILE_MAP 新增 3 个文档文件（GUIDE.md/config.md/CLAUDE.md → `~/.kb/docs/`），PA 遇架构/故障问题时可用 read 工具查阅完整文档
 
 ## V29.3 变更摘要（2026-03-24）
 

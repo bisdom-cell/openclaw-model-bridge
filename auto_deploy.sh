@@ -121,6 +121,11 @@ declare -a FILE_MAP=(
 
     # 自部署（bootstrapping）
     "auto_deploy.sh|$HOME/openclaw-model-bridge/auto_deploy.sh"
+
+    # 文档同步到 KB（供 WhatsApp PA 按需查阅）
+    "docs/GUIDE.md|$HOME/.kb/docs/GUIDE.md"
+    "docs/config.md|$HOME/.kb/docs/config.md"
+    "CLAUDE.md|$HOME/.kb/docs/CLAUDE.md"
 )
 
 SYNCED=0
