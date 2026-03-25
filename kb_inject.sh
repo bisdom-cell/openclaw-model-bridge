@@ -124,6 +124,33 @@ for filename, (label, max_chars) in sources_map.items():
         text = '\n'.join(relevant)[:max_chars]
         sections.append(f"## {label}\n{text}")
 
+# ── 用户反馈（闭环进化的关键数据） ──
+feedback_items = []
+for f in sorted(glob.glob(os.path.join(notes_dir, '*.md')), reverse=True):
+    basename = os.path.basename(f)
+    file_date = basename[:8]
+    if file_date < cutoff:
+        break
+    try:
+        with open(f) as fh:
+            content = fh.read()
+        # 识别 feedback 类型的笔记
+        if 'type: feedback' in content[:200] or 'tags: [feedback]' in content[:200]:
+            # 提取正文
+            body = content
+            if body.startswith('---'):
+                parts = body.split('---', 2)
+                if len(parts) >= 3:
+                    body = parts[2].strip()
+            lines = [l.strip() for l in body.split('\n') if l.strip() and not l.startswith('#') and not l.startswith('20')]
+            if lines:
+                feedback_items.append(f"- [{file_date}] {lines[0][:150]}")
+    except OSError:
+        continue
+
+if feedback_items:
+    sections.append("## 用户反馈\n以下是用户最近的反馈，Claude Code 开工时请参考并采取行动：\n" + '\n'.join(feedback_items[:10]))
+
 # ── 使用提示 ──
 sections.append("""---
 > 此文件由 kb_inject.sh 每日自动生成。
@@ -179,6 +206,19 @@ python3 ~/openclaw-model-bridge/check_registry.py    # 校验任务注册表
 bash ~/openclaw-model-bridge/preflight_check.sh      # 全面体检（dev）
 bash ~/openclaw-model-bridge/preflight_check.sh --full  # 全面体检（含连通性）
 ```
+
+## 反馈捕获（重要！）
+当用户对推送内容（趋势报告、ArXiv、HN、周报等）给出反馈时，**必须**用 exec 工具保存到 KB：
+```
+bash ~/kb_write.sh "用户的反馈内容" "feedback" "feedback"
+```
+反馈示例：
+- "趋势报告里 npm 是噪音" → `bash ~/kb_write.sh "趋势报告噪音词：npm，应加入停用词" "feedback" "feedback"`
+- "这篇论文很有用" → `bash ~/kb_write.sh "用户认为有价值：[论文标题]" "feedback" "feedback"`
+- "以后少推货代的" → `bash ~/kb_write.sh "用户偏好：减少货代动态推送频率" "feedback" "feedback"`
+
+判断规则：用户回复中包含评价（好/不好/没用/太多/太少/噪音/有用/关注/不关注）时触发保存。
+不确定时宁可多存，反馈数据是系统进化的燃料。
 
 ## 深度文档（按需查阅）
 遇到架构/配置/故障排查问题时，用 read 工具查阅：
