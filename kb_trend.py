@@ -649,6 +649,17 @@ def main():
         f.write(report)
     log(f"报告已写入: {report_file}")
 
+    # 更新三方共享状态
+    try:
+        import subprocess
+        subprocess.run([
+            sys.executable, os.path.expanduser("~/status_update.py"),
+            "--set", "health.last_trend_report", now.strftime("%Y-%m-%d"),
+            "--by", "cron"
+        ], capture_output=True, timeout=5)
+    except Exception:
+        pass
+
     # 推送 WhatsApp
     if not args.no_push:
         push_whatsapp(report, rising, emerging)

@@ -119,8 +119,9 @@ declare -a FILE_MAP=(
     "kb_dedup.py|$HOME/kb_dedup.py"
     "kb_autotag.py|$HOME/kb_autotag.py"
 
-    # KB 趋势报告
+    # KB 趋势报告 + 状态共享
     "kb_trend.py|$HOME/kb_trend.py"
+    "status_update.py|$HOME/status_update.py"
 
     # 自部署（bootstrapping）
     "auto_deploy.sh|$HOME/openclaw-model-bridge/auto_deploy.sh"
@@ -257,6 +258,13 @@ $FAIL_LINES
             openclaw message send --target "${OPENCLAW_PHONE:-+85200000000}" --message "$ALERT_MSG" --json >/dev/null 2>&1 || true
         else
             echo "$(date) ✅ preflight_check 通过" >> "$LOG"
+            # 更新三方共享状态
+            python3 "$HOME/status_update.py" --set health.last_preflight pass --by cron 2>/dev/null || true
+            python3 "$HOME/status_update.py" --set health.last_preflight_time "$(date '+%Y-%m-%d %H:%M')" --by cron 2>/dev/null || true
         fi
     fi
+
+    # 更新三方共享状态 — 部署信息
+    python3 "$HOME/status_update.py" --set health.last_deploy "$NEW_COMMIT" --by cron 2>/dev/null || true
+    python3 "$HOME/status_update.py" --set health.last_deploy_time "$(date '+%Y-%m-%d %H:%M')" --by cron 2>/dev/null || true
 fi

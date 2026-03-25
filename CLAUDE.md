@@ -111,6 +111,7 @@
 | `kb_embed.py` | **V29.3新增** KB 文本向量索引器（notes+sources 分块→本地 embedding→~/.kb/text_index/） |
 | `kb_rag.py` | **V29.3新增** KB RAG 语义搜索（--context LLM注入 / --json 脚本调用） |
 | `kb_trend.py` | **V29.5新增** KB周趋势报告（本周vs上周关键词+LLM分析+WhatsApp推送） |
+| `status_update.py` | **V29.5新增** 三方共享项目状态工具（原子读写 ~/.kb/status.json，Claude Code + PA + cron 共用） |
 | `kb_save_arxiv.sh` | ArXiv监控结果写入KB + rsync备份 |
 | `auto_deploy.sh` | **V27.1新增** 仓库→部署自动同步 + 漂移检测（md5全量比对+WhatsApp告警） |
 | `test_tool_proxy.py` | proxy_filters 单测（43个用例） |
@@ -192,8 +193,9 @@
 
 1. **KB 周趋势报告**：`kb_trend.py` 新增 — 每周六 09:00 自动运行，对比本周 vs 上周的 ArXiv/HN/笔记关键词频率变化（TF + 领域关键词加权），识别上升趋势/新出现热词/消退话题，调用 LLM 生成趋势解读+下周预测，推送 WhatsApp；支持 `--json` 脚本调用、`--no-llm` 纯统计模式
 2. **模型智能路由**：`proxy_filters.py` 新增 `classify_complexity()` 纯函数，根据对话轮数、用户消息长度、是否有工具/多模态判断请求复杂度（simple/complex）；`adapter.py` 新增 `FAST_PROVIDER` + `FAST_MODEL_ID` 环境变量，simple 请求可路由到快速模型（如 Gemini Flash），降低延迟和成本，complex 请求继续用 Qwen3-235B
-3. **单测扩展至 67 个**：新增 9 个 `classify_complexity` 测试用例（短问答/多轮/工具/多模态/NO_TOOLS/空消息等边界场景）
-4. **jobs_registry 新增 kb_trend**：每周六 09:00，通过 proxy:5002 调 LLM，无需独立 API Key
+3. **三方共享状态**：`status_update.py` + `~/.kb/status.json` — Claude Code（开工读/收工写）、PA（用户反馈写/状态查询读）、cron（部署/体检/趋势报告自动更新）三方通过同一个 JSON 文件实时同步项目状态（优先级、反馈、系统健康、本周焦点）
+4. **单测扩展至 67 个**：新增 9 个 `classify_complexity` 测试用例（短问答/多轮/工具/多模态/NO_TOOLS/空消息等边界场景）
+5. **jobs_registry 新增 kb_trend**：每周六 09:00，通过 proxy:5002 调 LLM，无需独立 API Key
 
 ## V29.4 变更摘要（2026-03-25）
 
@@ -330,18 +332,19 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 
 ## 工作原则
 
-### 🔴 每次必查（8条，优先级最高）
+### 🔴 每次必查（9条，优先级最高）
 
 | # | 原则 | 一句话 |
 |---|------|--------|
 | 1 | **开工刷新 OpenClaw 架构（先读决策再评估）** | 先读 `docs/config.md` 中现有的升级 hold 决策和版本状态，再查 OpenClaw 最新 release；如已有明确 hold 决策且上游无新版本，跳过重复评估；有新版本时对比决策条件是否变化，变化则重新评估，否则沿用。**禁止"上游已修复"就改代码——必须确认本地已部署该版本**（#48703教训） |
 | 2 | **开工先读 config** | 读 `docs/config.md` 获取系统状态 + 踩坑记录，避免重复犯错 |
-| 3 | **改完先测** | 新脚本手动验证 → 新任务先写 `jobs_registry.yaml` 并 `python3 check_registry.py` 通过 → 才能注册 cron |
-| 4 | **push前必扫描** | 安全扫描（见上方命令）全部为空才允许 push |
-| 5 | **故障先查自身代码** | 排查问题时默认从我们自己的代码和架构中找 bug（shell 数据传递、cron 环境、进程管理等），不归因于上游服务不稳定（#97教训） |
-| 6 | **做减法不做加法** | 新增防护/监控前先问"谁已经在管这件事"；每加一层保险 = 多一个故障源（#95教训） |
-| 7 | **收工提醒 preflight** | "结束今天的工作"时，提醒用户在 Mac Mini 上运行 `bash preflight_check.sh --full`（用户自行执行，Claude 负责提醒） |
-| 8 | **相信 OpenClaw，用好 OpenClaw** | 优先利用 OpenClaw 已有能力（Multi-Agent、contextPruning、workspace CLAUDE.md、tools 等），而非重新造轮子；遇到新需求先查 OpenClaw 文档和 release notes，充分发挥其潜力来提升效率和创新 |
+| 3 | **开工先读/收工必写 status.json** | `python3 status_update.py --read --human` 查看三方共享状态（优先级、反馈、系统健康）；收工时更新 priorities + recent_changes：`python3 status_update.py --add recent_changes '{"date":"...","what":"...","by":"claude_code"}' --by claude_code` |
+| 4 | **改完先测** | 新脚本手动验证 → 新任务先写 `jobs_registry.yaml` 并 `python3 check_registry.py` 通过 → 才能注册 cron |
+| 5 | **push前必扫描** | 安全扫描（见上方命令）全部为空才允许 push |
+| 6 | **故障先查自身代码** | 排查问题时默认从我们自己的代码和架构中找 bug（shell 数据传递、cron 环境、进程管理等），不归因于上游服务不稳定（#97教训） |
+| 7 | **做减法不做加法** | 新增防护/监控前先问"谁已经在管这件事"；每加一层保险 = 多一个故障源（#95教训） |
+| 8 | **收工提醒 preflight + 更新 status.json** | "结束今天的工作"时，提醒用户在 Mac Mini 上运行 `bash preflight_check.sh --full`；同时用 `status_update.py` 写入今天的变更摘要和优先级更新 |
+| 9 | **相信 OpenClaw，用好 OpenClaw** | 优先利用 OpenClaw 已有能力（Multi-Agent、contextPruning、workspace CLAUDE.md、tools 等），而非重新造轮子；遇到新需求先查 OpenClaw 文档和 release notes，充分发挥其潜力来提升效率和创新 |
 
 ### 🟡 按需查阅（操作 & 架构参考）
 
