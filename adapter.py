@@ -346,11 +346,12 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
 fb_info = f" (fallback: {FALLBACK['name']}/{FALLBACK['model_id']})" if FALLBACK else " (no fallback)"
 vl_info = f" (VL: {VL_MODEL_ID})" if VL_MODEL_ID else ""
 fast_info = f" (fast: {FAST_ROUTE['name']}/{FAST_ROUTE['model_id']})" if FAST_ROUTE else ""
-log(f"Starting on :{PORT} -> {TARGET_BASE} (model: {REAL_MODEL_ID}){vl_info}{fb_info}{fast_info}")
+BIND_ADDR = os.environ.get("BIND_ADDR", "127.0.0.1")
+log(f"Starting on {BIND_ADDR}:{PORT} -> {TARGET_BASE} (model: {REAL_MODEL_ID}){vl_info}{fb_info}{fast_info}")
 sys.stdout.flush()
 class ThreadedServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
     daemon_threads = True
     allow_reuse_address = True
 
-with ThreadedServer(("", PORT), ProxyHandler) as httpd:
+with ThreadedServer((BIND_ADDR, PORT), ProxyHandler) as httpd:
     httpd.serve_forever()

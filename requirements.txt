@@ -1,11 +1,15 @@
 # Core services (tool_proxy.py, proxy_filters.py, adapter.py)
 # 核心服务仅使用 Python 标准库，无第三方依赖
 
-# --- Optional: KB RAG (kb_embed.py, kb_rag.py, local_embed.py) ---
-# pip3 install -r requirements-rag.txt
-# sentence-transformers>=2.2.0
+# --- Optional modules (install as needed) ---
+# KB RAG (kb_embed.py, kb_rag.py, local_embed.py):
+#   pip3 install -r requirements-rag.txt
+#
+# Multimodal Memory (mm_index.py, mm_search.py):
+#   pip3 install -r requirements-mm.txt
+#
+# Freight Watcher (importyeti_scraper.py):
+#   pip3 install playwright && python3 -m playwright install chromium
 
-# --- Optional: Multimodal Memory (mm_index.py, mm_search.py) ---
-# pip3 install -r requirements-mm.txt
-# google-genai>=0.3.0
-# numpy>=1.24.0
+# Version policy: pin exact versions in requirements-*.txt for reproducibility.
+# Review and update quarterly or when upstream releases critical fixes.
