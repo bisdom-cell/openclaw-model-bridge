@@ -5,8 +5,8 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-58%20passed-brightgreen.svg)]()
-[![Jobs](https://img.shields.io/badge/cron%20jobs-20-blue.svg)]()
+[![Tests](https://img.shields.io/badge/tests-67%20passed-brightgreen.svg)]()
+[![Jobs](https://img.shields.io/badge/cron%20jobs-21-blue.svg)]()
 
 ## Architecture / 系统架构
 
@@ -48,7 +48,7 @@
 └──────────────────────────────────────────────────────────────────┘
                    │
 ┌──────────────────▼──────────────────────────────────────────────┐
-│  ③ 定时任务层（20 个 system cron jobs）                           │
+│  ③ 定时任务层（21 个 system cron jobs）                           │
 │                                                                  │
 │  每3h   ArXiv论文监控 ──→ KB + WhatsApp推送                      │
 │  每3h   HN热帖抓取 ──→ KB + WhatsApp推送                         │
@@ -59,7 +59,7 @@
 │  每4h   KB 向量索引（本地 embedding）                             │
 │  每2h   多媒体索引（Gemini Embedding 2）                          │
 │  每天   对话质量日报 / Token用量日报                              │
-│  每周   KB深度回顾 / 健康周报                                    │
+│  每周   KB深度回顾 / 健康周报 / AI趋势报告                        │
 │  每天   Gateway state 备份（外挂 SSD）                            │
 │  每30m  WhatsApp 保活 / Job Watchdog                             │
 │  每2m   auto_deploy（Git→运行时自动同步）                         │
@@ -69,8 +69,19 @@
 │  ④ DevOps（自动部署 + 11项体检）                                  │
 │                                                                  │
 │  Claude Code → claude/分支 → PR → main → auto_deploy → Mac Mini  │
-│       auto_deploy: 文件同步(23个) + 漂移检测 + 按需restart        │
+│       auto_deploy: 文件同步(31个) + 漂移检测 + 按需restart        │
 │       preflight: 单测 + 注册表 + 语法 + 部署一致性 + 安全扫描     │
+└──────────────────────────────────────────────────────────────────┘
+                   │
+┌──────────────────▼──────────────────────────────────────────────┐
+│  ⑤ 三方共享状态（~/.kb/status.json 实时同步）                     │
+│                                                                  │
+│  用户(WhatsApp) ←→ PA ←→ status.json ←→ Claude Code ←→ Cron    │
+│  反馈+决策          写入    优先级/反馈    读/写       自动更新    │
+│                             健康/焦点                             │
+│                                                                  │
+│  宪法：用户专业深度 + Claude Code设计部署 + OpenClaw数据复利       │
+│        三者合一 = 有生命的闭环系统                                 │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
@@ -127,6 +138,8 @@ python3 mm_index.py && python3 mm_search.py "cat photos"
 | `kb_review.sh` | **V29** Weekly KB deep review — LLM cross-note analysis + WhatsApp push |
 | `kb_write.sh` | KB write utility — directory lock + atomic write |
 | `kb_dedup.py` | **V29.2** KB deduplication — exact/fuzzy note dedup + source line dedup |
+| `kb_trend.py` | **V29.5** Weekly AI trend report — this week vs last week keywords + LLM analysis + prediction backtest |
+| `status_update.py` | **V29.5** Three-party shared status — atomic read/write of `~/.kb/status.json` (Claude Code + PA + cron) |
 
 ### Monitoring & Quality
 
