@@ -19,6 +19,7 @@ ALLOWED_TOOLS = {
     "exec",
     "memory_search", "memory_get",
     "cron", "message", "tts",
+    "image",
 }
 
 # 前缀匹配的工具（browser_navigate, browser_click 等）
