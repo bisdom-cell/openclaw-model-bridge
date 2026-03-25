@@ -1,11 +1,11 @@
 # openclaw-model-bridge
 
-> Connect any LLM to [OpenClaw](https://github.com/openclaw/openclaw) — production-tested middleware for Qwen3-235B on Mac Mini.
-> 将任意大模型接入 OpenClaw — 基于 Qwen3-235B 生产验证的中间件，运行于 Mac Mini。
+> Connect any LLM to [OpenClaw](https://github.com/openclaw/openclaw) — production-tested middleware with multimodal support on Mac Mini.
+> 将任意大模型接入 OpenClaw — 支持多模态（图片理解）的生产中间件，运行于 Mac Mini。
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-61%20passed-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-58%20passed-brightgreen.svg)]()
 [![Jobs](https://img.shields.io/badge/cron%20jobs-20-blue.svg)]()
 
 ## Architecture / 系统架构
@@ -18,14 +18,20 @@
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                     用户层 (WhatsApp)                            │
+│                 文本 / 图片 / 语音消息                            │
 └────────────────────────┬────────────────────────────────────────┘
                          │
 ┌────────────────────────▼────────────────────────────────────────┐
-│  ① 核心数据通路（实时对话）                                       │
+│  ① 核心数据通路（实时对话 + 多模态）                               │
 │                                                                  │
-│  WhatsApp ←→ Gateway (:18789) ←→ Proxy (:5002) ←→ Adapter (:5001) ←→ Remote GPU  │
-│              [launchd]           [策略过滤+监控]    [认证+Fallback]    [Qwen3-235B] │
-│                                                    [→Gemini降级]                   │
+│  WhatsApp ←→ Gateway (:18789) ←→ Proxy (:5002) ←→ Adapter (:5001) ←→ Remote GPU       │
+│              [launchd]           [策略过滤+监控]    [认证+Fallback]    [Qwen3-235B]      │
+│              [媒体存储]          [图片base64注入]   [VL模型路由]       [Qwen2.5-VL-72B]  │
+│                                                    [→Gemini降级]                        │
+│                                                                  │
+│  图片流程：Gateway存储jpg → Proxy检测<media:image>                │
+│           → 读取图片base64编码 → 注入image_url                    │
+│           → Adapter检测多模态 → 路由到Qwen2.5-VL → 图片理解回复    │
 └──────────────────┬──────────────────┬───────────────────────────┘
                    │                  │
 ┌──────────────────▼──────────────────▼───────────────────────────┐
@@ -72,11 +78,11 @@
 
 | Component | Port | Files | Role |
 |-----------|------|-------|------|
-| OpenClaw Gateway | 18789 | npm global | WhatsApp integration, tool execution, session management |
-| Tool Proxy | 5002 | `tool_proxy.py` + `proxy_filters.py` | Tool filtering (24→12), schema simplification, SSE conversion, truncation, token monitoring |
-| Adapter | 5001 | `adapter.py` | Multi-provider forwarding (Qwen/Gemini), auth, fallback degradation, /health |
+| OpenClaw Gateway | 18789 | npm global | WhatsApp integration, media storage, tool execution, session management |
+| Tool Proxy | 5002 | `tool_proxy.py` + `proxy_filters.py` | Tool filtering (24→12), schema simplification, **image base64 injection**, SSE conversion, truncation, token monitoring |
+| Adapter | 5001 | `adapter.py` | Multi-provider forwarding, auth, **multimodal routing** (text→Qwen3, image→Qwen2.5-VL), fallback degradation |
 | Local Embedding | — | `local_embed.py` | sentence-transformers (384-dim, 50+ languages), zero API calls |
-| Remote GPU | — | hkagentx.hkopenlab.com | Qwen3-235B inference (262K context) |
+| Remote GPU | — | hkagentx.hkopenlab.com | Qwen3-235B (text, 262K context) + **Qwen2.5-VL-72B** (vision) |
 
 ## Quick Start
 
@@ -103,9 +109,9 @@ python3 mm_index.py && python3 mm_search.py "cat photos"
 
 | File | Description |
 |------|-------------|
-| `tool_proxy.py` | HTTP layer — request/response routing, logging, health cascade |
-| `proxy_filters.py` | Policy layer — tool filtering, param fixing, truncation, SSE conversion (pure functions) |
-| `adapter.py` | API adapter — multi-provider (Qwen/Gemini) forwarding, auth, fallback degradation |
+| `tool_proxy.py` | HTTP layer — request/response routing, **media injection**, logging, health cascade |
+| `proxy_filters.py` | Policy layer — tool filtering, **image base64 injection** (`<media:image>` → `image_url`), param fixing, truncation, SSE conversion |
+| `adapter.py` | API adapter — multi-provider forwarding, auth, **multimodal routing** (text→Qwen3, image→Qwen2.5-VL), fallback degradation |
 
 ### Knowledge Base & Local AI
 
