@@ -55,7 +55,7 @@
 │  GitHub (main) ──→ auto_deploy.sh (每2min轮询)                                      │
 │                     ├─ git fetch + pull                                              │
 │                     ├─ 单测验证（proxy_filters变更时）                                 │
-│                     ├─ 文件同步（仓库→运行时，20个文件映射）                            │
+│                     ├─ 文件同步（仓库→运行时，31个文件映射）                            │
 │                     ├─ 每小时漂移检测（md5全量比对）                                   │
 │                     ├─ 按需restart（核心服务文件变更时）                                │
 │                     └─ preflight_check.sh --full（部署后自动体检 11项）                │

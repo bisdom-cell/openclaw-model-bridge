@@ -301,7 +301,7 @@
 
   <rect x="320" y="730" width="115" height="40" rx="5" fill="#0d1117" opacity="0.6" stroke="#3fb950" stroke-width="0.5" stroke-opacity="0.4"/>
   <text x="377" y="749" text-anchor="middle" font-size="9" fill="#3fb950">file sync</text>
-  <text x="377" y="762" text-anchor="middle" font-size="8" fill="#484f58">23 file mappings</text>
+  <text x="377" y="762" text-anchor="middle" font-size="8" fill="#484f58">31 file mappings</text>
 
   <line x1="435" y1="750" x2="455" y2="750" stroke="#3fb950" stroke-width="1" marker-end="url(#arrowGreen)" opacity="0.6"/>
 

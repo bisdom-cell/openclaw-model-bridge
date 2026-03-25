@@ -142,7 +142,7 @@ python3 mm_index.py && python3 mm_search.py "cat photos"
 | File | Description |
 |------|-------------|
 | `restart.sh` | One-command restart all services (with PATH fix for cron) |
-| `auto_deploy.sh` | Auto-deployment — git pull + file sync (23 files) + drift detection + smart restart + post-deploy preflight |
+| `auto_deploy.sh` | Auto-deployment — git pull + file sync (31 files) + drift detection + smart restart + post-deploy preflight |
 | `preflight_check.sh` | Pre-flight check — 11 automated checks (tests, registry, syntax, deploy consistency, env vars, connectivity, security scan) |
 | `health_check.sh` | Weekly health report + JSON output |
 | `openclaw_backup.sh` | **V29.1** Daily Gateway state backup to external SSD (7-day retention) |
@@ -238,12 +238,12 @@ python3 mm_search.py --stats           # Index stats
 ```
 Claude Code → claude/branch → PR → main → auto_deploy (2 min) → Mac Mini
                                                 ↓
-                               git pull → test → file sync (23 files) → smart restart
+                               git pull → test → file sync (31 files) → smart restart
                                                 ↓
                                preflight_check.sh --full (11 checks)
 ```
 
-The `auto_deploy.sh` script maps 23 repo files to runtime locations and only restarts services when core files change. Hourly drift detection via md5 checksums with WhatsApp alerts.
+The `auto_deploy.sh` script maps 31 repo files to runtime locations and only restarts services when core files change. Hourly drift detection via md5 checksums with WhatsApp alerts.
 
 ## Testing
 
