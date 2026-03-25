@@ -212,12 +212,13 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
             self.wfile.write(err)
 
 
-log(f"Starting on :{PORT} -> {BACKEND}")
+BIND_ADDR = os.environ.get("BIND_ADDR", "127.0.0.1")
+log(f"Starting on {BIND_ADDR}:{PORT} -> {BACKEND}")
 log(f"Allowed: {ALLOWED_TOOLS} + prefix: {ALLOWED_PREFIXES}")
 sys.stdout.flush()
 class ThreadedServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
     daemon_threads = True
     allow_reuse_address = True
 
-with ThreadedServer(("", PORT), ProxyHandler) as httpd:
+with ThreadedServer((BIND_ADDR, PORT), ProxyHandler) as httpd:
     httpd.serve_forever()

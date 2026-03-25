@@ -19,7 +19,7 @@
 - [Knowledge Base System / 知识库系统](#knowledge-base-system--知识库系统v29)
 - [Local AI / 本地 AI](#local-ai--本地-aiv293)
 - [Monitoring / 监控](#monitoring--监控)
-- [26 Hard-Won Lessons / 26条踩坑经验](#26-hard-won-lessons--26条踩坑经验)
+- [27 Hard-Won Lessons / 27条踩坑经验](#26-hard-won-lessons--26条踩坑经验)
 
 ---
 
@@ -470,7 +470,7 @@ curl http://localhost:18789/health  # Gateway
 
 ---
 
-## 26 Hard-Won Lessons / 26条踩坑经验
+## 27 Hard-Won Lessons / 27条踩坑经验
 
 Lessons learned from production operation. Read these before debugging.
 

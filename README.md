@@ -162,7 +162,7 @@ python3 mm_index.py && python3 mm_search.py "cat photos"
 | `upgrade_openclaw.sh` | Gateway upgrade SOP (must run via SSH, never via WhatsApp) |
 | `smoke_test.sh` | End-to-end smoke test (unit tests + registry + doc drift + connectivity) |
 
-### Scheduled Jobs (20 active)
+### Scheduled Jobs (21 registered, 19 active)
 
 All jobs registered in `jobs_registry.yaml`. Validate: `python3 check_registry.py`
 
@@ -186,12 +186,13 @@ All jobs registered in `jobs_registry.yaml`. Validate: `python3 check_registry.p
 | `auto_deploy.sh` | Every 2 min | Git → runtime auto-sync |
 | `job_watchdog.sh` | Hourly:30 | Job health monitoring |
 | `wa_keepalive.sh` | Every 30 min | WhatsApp session probe |
+| `kb_trend.py` | Sat 09:00 | Weekly AI trend report (keyword trends + LLM analysis) |
 
 ### Configuration & Testing
 
 | File | Description |
 |------|-------------|
-| `jobs_registry.yaml` | Unified job registry — 20 jobs, system cron |
+| `jobs_registry.yaml` | Unified job registry — 21 jobs (19 active, 2 disabled), system cron |
 | `check_registry.py` | Registry validator — ID uniqueness, paths, fields |
 | `gen_jobs_doc.py` | Auto-generate job docs from registry + drift detection |
 | `test_tool_proxy.py` | Unit tests for proxy_filters (43 cases) |
@@ -266,7 +267,7 @@ python3 test_tool_proxy.py              # 43 proxy_filters tests
 python3 test_check_registry.py          # 18 registry tests
 
 # Registry validation
-python3 check_registry.py               # Validate all 20 jobs
+python3 check_registry.py               # Validate all 21 jobs
 
 # Doc drift detection
 python3 gen_jobs_doc.py --check          # Compare registry vs docs
