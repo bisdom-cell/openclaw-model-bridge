@@ -518,16 +518,26 @@ def load_feedback(kb_dir, days=14):
 def apply_feedback_stopwords(feedback_items):
     """从反馈中提取应该加入停用词的词。返回额外停用词集合。"""
     extra_stops = set()
-    noise_patterns = re.compile(r"噪音[词：:]\s*(.+)|noise\s*(?:word)?[：:]\s*(.+)|停用词[：:]\s*(.+)", re.I)
+    # 匹配"噪音词：X, Y, Z"格式，捕获词列表部分
+    noise_patterns = re.compile(
+        r"噪音[词]?[：:]\s*(.+)|noise\s*(?:word)?s?[：:]\s*(.+)|停用词[：:]\s*(.+)",
+        re.I
+    )
     for fb in feedback_items:
         m = noise_patterns.search(fb)
         if m:
             words_str = m.group(1) or m.group(2) or m.group(3)
-            # 支持逗号、顿号、空格分隔
-            for w in re.split(r"[,，、\s]+", words_str):
-                w = w.strip().lower()
-                if w and len(w) > 1:
-                    extra_stops.add(w)
+            # 分割：支持中英文逗号、顿号、空格；剥离中文标点和描述性后缀
+            for w in re.split(r"[,，、；;\s]+", words_str):
+                # 去掉前后标点和中文字符（只保留英文词）
+                w = re.sub(r"[^\w-]", "", w).strip().lower()
+                # 只保留英文词（2字符以上）或中文词（2字符以上）
+                if not w or len(w) <= 1:
+                    continue
+                # 过滤掉明显是描述语而非关键词的部分
+                if re.search(r"[\u4e00-\u9fff]{3,}", w):
+                    continue  # 3个以上中文字 = 描述句，不是关键词
+                extra_stops.add(w)
     return extra_stops
 
 
