@@ -45,10 +45,28 @@ STOP_WORDS = {
     "two", "using", "based", "via", "show", "use", "used", "paper",
     "results", "approach", "method", "propose", "proposed", "model",
     "data", "performance", "task", "tasks", "learning", "training",
-    # 中文
+    # GitHub Issues / 运维噪音词（高频但无趋势分析价值）
+    "bug", "fix", "fixed", "fail", "failed", "error", "issue", "issues",
+    "missing", "wrong", "broken", "crash", "hang", "stuck",
+    "message", "send", "sent", "receive", "reply", "replies",
+    "run", "running", "start", "stop", "restart", "kill",
+    "file", "path", "dir", "log", "config", "setting", "settings",
+    "add", "added", "remove", "removed", "update", "updated", "change",
+    "check", "test", "tests", "debug", "version", "release",
+    "work", "working", "doesn", "didn", "isn", "won", "don",
+    "want", "like", "get", "got", "set", "try", "make", "made",
+    "still", "seem", "seems", "since", "already", "even",
+    "would", "think", "know", "see", "look", "way", "well",
+    "windows", "linux", "macos", "mac", "ubuntu",
+    "http", "https", "www", "com", "org", "html", "json", "yaml",
+    "github.com", "news.ycombinator.com", "arxiv.org",
+    "outbound", "inbound", "webhook", "endpoint", "request", "response",
+    "item", "abs", "id",
+    # 中文通用词（无AI领域特殊含义）
     "的", "了", "在", "是", "和", "与", "对", "为", "从", "到",
     "可以", "通过", "进行", "使用", "一个", "我们", "提出", "方法",
     "基于", "实现", "研究", "问题", "系统", "模型", "数据",
+    "链接", "作者", "日期", "贡献", "价值",
 }
 
 # 有意义的 AI/Tech 领域关键词模式（优先匹配）
@@ -148,10 +166,12 @@ def extract_period_text(kb_dir, start_date, end_date):
 
 def tokenize(text):
     """简单分词：英文按空格 + 中文按字符组。"""
-    # 提取英文词（2字符以上）
-    en_words = re.findall(r"[a-zA-Z][a-zA-Z0-9._-]{1,30}", text.lower())
+    # 先移除 URL（避免 URL 碎片污染关键词）
+    text_clean = re.sub(r"https?://\S+", " ", text)
+    # 提取英文词（2字符以上，排除纯数字和短碎片）
+    en_words = re.findall(r"[a-zA-Z][a-zA-Z0-9]{1,30}", text_clean.lower())
     # 提取中文词组（2-4字）
-    zh_words = re.findall(r"[\u4e00-\u9fff]{2,4}", text)
+    zh_words = re.findall(r"[\u4e00-\u9fff]{2,4}", text_clean)
     return en_words + zh_words
 
 
