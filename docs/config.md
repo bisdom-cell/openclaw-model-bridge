@@ -1,7 +1,7 @@
 # OpenClaw 完整配置文档
-> 最后更新：2026-03-25 (HKT)
+> 最后更新：2026-03-26 (HKT)
 > 系统：Mac Mini (macOS) | 用户：bisdom
-> 版本：v29.4（V29.3基础上：多模态图片理解 — Qwen2.5-VL-72B 自动路由）
+> 版本：v30（V29.5基础上：crontab安全加固 + 原子写入 + 心跳监控 + 诊断工具）
 > OpenClaw Gateway：2026.3.13-1（当前部署，暂不升级）| 上游最新：v2026.3.23（WhatsApp plugin 仅 0.0.5-Alpha + ClawHub 429，等稳定版再升级）
 ---
 ## 一、系统架构（V28.1 四层架构）
@@ -265,6 +265,8 @@ export GEMINI_API_KEY="AIzaXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"   # V29.1新增
 | token-report | 每天08:20 | `~/token_report.py` | `~/token_report.log` | ✅ V29.2新增：Token用量日报（总量/逐小时/趋势/环比） |
 | kb-dedup | 每天23:00 | `~/kb_dedup.py` | `~/kb_dedup.log` | ✅ V29.2新增：KB智能去重（dry-run模式，精确+模糊+source行去重） |
 | kb-embed | 每4小时:30分 | `~/kb_embed.py` | `~/kb_embed.log` | ✅ V29.3新增：KB文本向量索引（本地sentence-transformers，增量分块，供RAG搜索） |
+| kb-trend | 每周六09:00 | `~/kb_trend.py` | `~/kb_trend.log` | ✅ V29.5新增：KB周趋势报告（本周vs上周关键词+LLM分析+WhatsApp推送） |
+| cron-canary | 每10分钟 | `~/cron_canary.sh` | 无（写 `~/.cron_canary`） | ✅ V30新增：Cron心跳金丝雀（零依赖、零锁文件、原子写入），供watchdog/doctor检测cron daemon存活 |
 | auto-deploy | 每2分钟 | `~/openclaw-model-bridge/auto_deploy.sh` | `~/.openclaw/logs/auto_deploy.log` | ✅ V27.1新增+V28.1：部署后自动体检 |
 | weekly-health-check | 每周一09:00 | `~/health_check.sh` | `~/health_check.log` | ✅ V29.1：从openclaw cron迁移至系统crontab，直接执行不经LLM |
 | gateway-watchdog | ~~每30分钟~~ | `~/restart.sh` | `~/.openclaw/logs/gateway_watchdog.log` | ❌ **已移除**（#95：与launchd KeepAlive双主控冲突，导致误杀gateway） |
@@ -283,6 +285,8 @@ export GEMINI_API_KEY="AIzaXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"   # V29.1新增
 0 9 * * 1 bash -lc '$HOME/health_check.sh >> $HOME/health_check.log 2>&1'
 0 7 * * * bash ~/kb_inject.sh >> ~/kb_inject.log 2>&1
 0 3 * * * bash -lc "$HOME/openclaw_backup.sh >> $HOME/openclaw_backup.log 2>&1"
+0 9 * * 6 bash -lc '$HOME/kb_trend.py >> $HOME/kb_trend.log 2>&1'
+*/10 * * * * bash -lc 'bash $HOME/cron_canary.sh'
 */2 * * * * bash -lc 'bash $HOME/openclaw-model-bridge/auto_deploy.sh >> $HOME/.openclaw/logs/auto_deploy.log 2>&1'
 ```
 > 💡 **架构说明**：系统crontab用`bash -lc`加载完整登录环境（含`$HOME`、`$PATH`等环境变量），避免cron空环境导致命令找不到。创建日志目录前置在`mkdir -p`确保首次运行不失败。
