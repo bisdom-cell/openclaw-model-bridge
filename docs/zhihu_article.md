@@ -2,6 +2,9 @@
 
 **— 一个人如何用开源工具搭建 98 分安全评分的 WhatsApp AI 助手**
 
+![封面图1：安全评分 98/100 — 7 维度全量化](images/security_score.png)
+![封面图2：393 个测试用例全部通过](images/full_regression.png)
+
 ---
 
 > 这不是一篇教程，而是一份真实的工程日记。
