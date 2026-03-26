@@ -224,6 +224,43 @@ ${CRONTAB_ISSUES}
 请立即检查: crontab -l"
         openclaw message send --target "${OPENCLAW_PHONE:-+85200000000}" --message "$CRON_MSG" --json >/dev/null 2>&1 || true
     fi
+
+    # ── 3d. Crontab 条目数监控（V30新增：防止意外清空）─────────────────
+    CRON_COUNT=$(crontab -l 2>/dev/null | grep -v '^#' | grep -v '^$' | wc -l | tr -d ' ')
+    CRON_COUNT_FILE="$HOME/.crontab_entry_count"
+    CRON_MIN_ENTRIES=10  # 正常应有 ~20 条，低于 10 条说明出了问题
+
+    if [ "$CRON_COUNT" -lt "$CRON_MIN_ENTRIES" ]; then
+        # 检查是否已经告警过（避免每小时重复推送）
+        LAST_ALERT=$(cat "$CRON_COUNT_FILE.alert" 2>/dev/null || echo "0")
+        ALERT_AGE=$(( $(date +%s) - LAST_ALERT ))
+        if [ "$ALERT_AGE" -gt 3600 ]; then
+            echo "$(date) 🚨 crontab 条目异常减少: $CRON_COUNT 条（预期 >= $CRON_MIN_ENTRIES）" >> "$LOG"
+            CRON_ALERT="🚨 Crontab 条目异常减少！
+
+当前只有 $CRON_COUNT 条（正常应 >= $CRON_MIN_ENTRIES 条）
+可能被意外清空！
+
+修复：
+1. bash ~/crontab_safe.sh restore
+2. 或: bash ~/cron_doctor.sh"
+            openclaw message send --target "${OPENCLAW_PHONE:-+85200000000}" --message "$CRON_ALERT" --json >/dev/null 2>&1 || true
+            date +%s > "$CRON_COUNT_FILE.alert"
+        fi
+    else
+        # 条目数正常时，记录当前数量（供后续对比）
+        echo "$CRON_COUNT" > "$CRON_COUNT_FILE"
+        rm -f "$CRON_COUNT_FILE.alert" 2>/dev/null
+    fi
+
+    # 每日自动备份 crontab（每天首次运行时）
+    CRON_BACKUP_FLAG="$HOME/.crontab_backups/.today_$(date +%Y%m%d)"
+    if [ ! -f "$CRON_BACKUP_FLAG" ]; then
+        bash "$HOME/crontab_safe.sh" backup 2>/dev/null || bash "$REPO_DIR/crontab_safe.sh" backup 2>/dev/null || true
+        touch "$CRON_BACKUP_FLAG"
+        # 清理旧标记
+        find "$HOME/.crontab_backups" -name ".today_*" -mtime +7 -delete 2>/dev/null || true
+    fi
 fi
 
 # ── 4. 按需重启服务 ──────────────────────────────────────────────────

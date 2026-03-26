@@ -498,5 +498,142 @@ class TestRegistryCompleteness(unittest.TestCase):
         pass
 
 
+class TestCrontabSafe(unittest.TestCase):
+    """测试 crontab_safe.sh 安全操作工具"""
+
+    def test_script_syntax(self):
+        """crontab_safe.sh bash 语法正确"""
+        result = subprocess.run(
+            ["bash", "-n", "crontab_safe.sh"],
+            capture_output=True, text=True
+        )
+        self.assertEqual(result.returncode, 0, f"Syntax error: {result.stderr}")
+
+    def test_has_backup_mechanism(self):
+        """crontab_safe.sh 包含备份机制"""
+        with open("crontab_safe.sh") as f:
+            content = f.read()
+        self.assertIn(".crontab_backups", content)
+        self.assertIn("do_backup", content)
+
+    def test_has_rollback_on_count_decrease(self):
+        """crontab_safe.sh 条目数减少时自动回滚"""
+        with open("crontab_safe.sh") as f:
+            content = f.read()
+        self.assertIn("count_before", content)
+        self.assertIn("count_after", content)
+        self.assertIn("自动回滚", content)
+
+    def test_has_verify_command(self):
+        """crontab_safe.sh 包含 verify 子命令"""
+        with open("crontab_safe.sh") as f:
+            content = f.read()
+        self.assertIn("cmd_verify", content)
+        self.assertIn("verify)", content)
+
+    def test_has_restore_command(self):
+        """crontab_safe.sh 包含 restore 子命令"""
+        with open("crontab_safe.sh") as f:
+            content = f.read()
+        self.assertIn("cmd_restore", content)
+        self.assertIn("restore)", content)
+
+    def test_has_duplicate_check(self):
+        """crontab_safe.sh add 时检查重复"""
+        with open("crontab_safe.sh") as f:
+            content = f.read()
+        self.assertIn("已存在，跳过添加", content)
+
+    def test_uses_temp_file_not_pipe(self):
+        """crontab_safe.sh 使用临时文件而非管道（避免管道失败清空 crontab）"""
+        with open("crontab_safe.sh") as f:
+            lines = f.readlines()
+        # 检查实际代码行（非注释/echo）中不使用管道模式
+        for i, line in enumerate(lines, 1):
+            stripped = line.strip()
+            if stripped.startswith("#") or stripped.startswith("echo") or stripped.startswith('"'):
+                continue
+            self.assertNotIn("| crontab -", line,
+                f"Line {i}: dangerous pipe pattern in executable code")
+        # 应该用 crontab <文件> 模式
+        content = "".join(lines)
+        self.assertIn('crontab "$tmp_file"', content)
+
+    def test_min_entries_threshold(self):
+        """crontab_safe.sh 有最小条目数阈值"""
+        with open("crontab_safe.sh") as f:
+            content = f.read()
+        self.assertIn("MIN_ENTRIES", content)
+
+    def test_old_backup_cleanup(self):
+        """crontab_safe.sh 清理过期备份"""
+        with open("crontab_safe.sh") as f:
+            content = f.read()
+        self.assertIn("cleanup_old_backups", content)
+        self.assertIn("-mtime +30", content)
+
+
+class TestDangerousPatternBanned(unittest.TestCase):
+    """测试危险的 crontab 模式已被文档禁止"""
+
+    def test_claude_md_bans_pipe_pattern(self):
+        """CLAUDE.md 明确禁止 echo | crontab - 模式"""
+        with open("CLAUDE.md") as f:
+            content = f.read()
+        self.assertIn("严禁", content)
+        self.assertIn("crontab_safe.sh", content)
+
+    def test_config_md_bans_pipe_pattern(self):
+        """docs/config.md 明确禁止 echo | crontab - 模式"""
+        with open("docs/config.md") as f:
+            content = f.read()
+        self.assertIn("严禁", content)
+        self.assertIn("crontab_safe.sh", content)
+
+    def test_no_script_uses_pipe_crontab(self):
+        """所有 .sh 脚本都不使用 '| crontab -' 模式"""
+        import glob
+        dangerous_files = []
+        for sh_file in glob.glob("**/*.sh", recursive=True):
+            if sh_file.startswith(".git"):
+                continue
+            with open(sh_file) as f:
+                for i, line in enumerate(f, 1):
+                    # 跳过注释和文档字符串
+                    stripped = line.strip()
+                    if stripped.startswith("#") or stripped.startswith("echo"):
+                        continue
+                    if "| crontab -" in line and "crontab_safe" not in sh_file:
+                        dangerous_files.append(f"{sh_file}:{i}")
+        self.assertEqual(
+            dangerous_files, [],
+            f"Dangerous '| crontab -' pattern found: {dangerous_files}"
+        )
+
+
+class TestAutoDeployCrontabMonitor(unittest.TestCase):
+    """测试 auto_deploy.sh 的 crontab 监控"""
+
+    def test_has_entry_count_check(self):
+        """auto_deploy.sh 包含 crontab 条目数检查"""
+        with open("auto_deploy.sh") as f:
+            content = f.read()
+        self.assertIn("CRON_COUNT", content)
+        self.assertIn("CRON_MIN_ENTRIES", content)
+
+    def test_has_daily_backup(self):
+        """auto_deploy.sh 包含每日 crontab 备份"""
+        with open("auto_deploy.sh") as f:
+            content = f.read()
+        self.assertIn("crontab_safe.sh", content)
+        self.assertIn("CRON_BACKUP_FLAG", content)
+
+    def test_alerts_on_low_count(self):
+        """auto_deploy.sh 条目过少时发送告警"""
+        with open("auto_deploy.sh") as f:
+            content = f.read()
+        self.assertIn("条目异常减少", content)
+
+
 if __name__ == "__main__":
     unittest.main()
