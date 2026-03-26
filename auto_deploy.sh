@@ -124,6 +124,8 @@ declare -a FILE_MAP=(
     "status_update.py|$HOME/status_update.py"
     "kb_status_refresh.sh|$HOME/kb_status_refresh.sh"
     "kb_integrity.py|$HOME/kb_integrity.py"
+    "audit_log.py|$HOME/audit_log.py"
+    "security_score.py|$HOME/security_score.py"
 
     # 自部署（bootstrapping）
     "auto_deploy.sh|$HOME/openclaw-model-bridge/auto_deploy.sh"
