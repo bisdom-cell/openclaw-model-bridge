@@ -554,8 +554,10 @@ class ProxyStats:
                 },
                 "last_success_time": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(self.last_success_time)) if self.last_success_time else "",
             }
-            with open(STATS_FILE, "w") as f:
+            tmp = STATS_FILE + ".tmp"
+            with open(tmp, "w") as f:
                 json.dump(data, f, indent=2, ensure_ascii=False)
+            os.replace(tmp, STATS_FILE)
         except OSError:
             pass
 

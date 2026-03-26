@@ -149,7 +149,7 @@
 | `cron_doctor.sh` | **V30新增** 定时任务全面诊断工具（7项检查：crontab/锁文件/心跳/服务/环境/时效/系统） |
 | `cron_canary.sh` | **V30新增** Cron 心跳金丝雀（每10分钟，零依赖，原子写入） |
 | `crontab_safe.sh` | **V30新增** 安全 crontab 操作（自动备份+条目数验证+回滚保护） |
-| `test_cron_health.py` | **V30新增** 定时任务健康检测单测（41个用例） |
+| `test_cron_health.py` | **V30新增** 定时任务健康检测单测（72个用例：锁/心跳/告警/原子写入/损坏恢复/daemon检测） |
 
 ## V30 变更摘要（2026-03-26）
 
@@ -160,7 +160,29 @@
 5. **Watchdog 陈旧锁自愈**：`job_watchdog.sh` 新增陈旧锁自动清理（>1h 的 lockdir 自动 rmdir）、自身锁恢复（>30min 强制清理）、cron 心跳监控；watchdog 不再能被自身锁文件锁死
 6. **auto_deploy.sh crontab 监控**：每小时检查 crontab 条目数，低于 10 条立即 WhatsApp 告警 + 每日自动备份 crontab
 7. **preflight_check.sh 扩展至 14 项**：新增第 13 项陈旧锁文件检测 + 第 14 项 cron 心跳检测
-8. **单测扩展至 167 个**：新增 41 个 cron_health 测试用例（锁检测/心跳解析/告警逻辑/路径一致性/边界条件/脚本语法）
+8. **单测扩展至 157 个**：新增 72 个 cron_health 测试用例（锁检测/心跳解析/告警逻辑/路径一致性/边界条件/脚本语法/原子写入/损坏恢复/告警回退/daemon检测）
+9. **原子写入加固**：`proxy_filters.py` `_write_stats()` 和 `mm_index.py` `save_meta()` 均改为 `tmp + os.replace()` 模式，crash 时不损坏目标文件；`mm_index.py` `load_meta()` 新增 `JSONDecodeError` 恢复（备份损坏文件 → 自动重建索引）
+10. **本地告警回退**：`job_watchdog.sh` WhatsApp 推送失败时写入 `~/.openclaw_alerts.log`（打破 WhatsApp↔Gateway 循环依赖）；无论推送成功与否都写本地日志；自动截断超过 500 行
+11. **Cron daemon 直接检测**：`cron_doctor.sh` 新增 launchctl（macOS）/ pgrep（Linux）直接检测 cron daemon 进程，不依赖心跳文件
+
+### V30 事故反思与系统性缺陷分析
+
+> **核心教训**：系统中的"不可见"风险比"可见"错误更危险。crontab 被清空后所有 job 静默退出（exit 0），无异常日志、无告警、无 crash — 这种"安静的死亡"是最难排查的。
+
+**5 类系统性缺陷已识别并修复：**
+
+| 类别 | 问题 | 修复 |
+|------|------|------|
+| 1. 静默失败 | `mkdir` 锁获取失败时 `exit 0`（无日志/告警）；`echo \| crontab -` 无验证直接替换 | watchdog 陈旧锁自愈 + crontab_safe.sh 条目数验证 |
+| 2. 非原子写入 | `proxy_stats.json`、`mm_index/meta.json` 直接 `open("w")` + `json.dump`，crash 时半写损坏 | 全部改为 `tmp + os.replace()` 原子模式 |
+| 3. 监控循环依赖 | 所有告警通过 WhatsApp 推送，但 WhatsApp 依赖 Gateway — Gateway 故障时告警系统失聪 | 新增 `~/.openclaw_alerts.log` 本地回退 + `cron_doctor.sh` 扫描未送达告警 |
+| 4. 心跳盲区 | cron daemon 本身停止时无人知道（之前只检查 job 状态文件时效） | `cron_canary.sh` 心跳 + `cron_doctor.sh` daemon 进程直检（launchctl/pgrep） |
+| 5. 单点保护不足 | crontab 是所有定时任务的唯一调度源，无备份/无监控/无验证 | 三层保护：预防（crontab_safe.sh）、检测（auto_deploy 条目数监控）、恢复（自动备份+restore） |
+
+**设计原则强化：**
+- **任何 `exit 0` 的代码路径都应有日志** — 静默成功和静默失败外观相同
+- **共享状态文件必须原子写入** — 被多进程读写的文件（stats/meta/status）一律 `tmp + replace`
+- **监控不能依赖被监控对象** — 告警通道必须有独立于被告警服务的回退
 
 ## V27 变更摘要
 
