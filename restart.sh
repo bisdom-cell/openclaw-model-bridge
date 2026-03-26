@@ -29,7 +29,8 @@ sleep 1
 OPENCLAW_DIST="/opt/homebrew/lib/node_modules/openclaw/dist"
 if [ -d "$OPENCLAW_DIST" ]; then
     UNPATCHED=$(grep -rl 'const listeners = /\* @__PURE__ \*/ new Map()' \
-        "$OPENCLAW_DIST" --include="*.js" 2>/dev/null | grep -v ".bak" | wc -l | tr -d ' ' || echo 0)
+        "$OPENCLAW_DIST" --include="*.js" 2>/dev/null | grep -vc ".bak" || true)
+    UNPATCHED="${UNPATCHED:-0}"
     if [ "$UNPATCHED" -gt 0 ]; then
         echo "[restart] Applying #48703 hotfix ($UNPATCHED files)..."
         sudo sed -i.bak \
