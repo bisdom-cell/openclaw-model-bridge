@@ -200,3 +200,12 @@ jobs:
     needs_api_key: false             # 通过 proxy:5002 调 LLM，不需要独立 key
     enabled: true
     description: KB 周趋势报告 — 本周 vs 上周关键词频率变化 + LLM 趋势分析 + WhatsApp 推送
+
+  - id: cron_canary
+    scheduler: system
+    entry: cron_canary.sh
+    interval: "*/10 * * * *"        # 每10分钟心跳
+    log: ~/.cron_canary_log
+    needs_api_key: false
+    enabled: true
+    description: Cron 心跳金丝雀 — 写 epoch 到 ~/.cron_canary，供 watchdog/doctor 验证 cron daemon 存活
