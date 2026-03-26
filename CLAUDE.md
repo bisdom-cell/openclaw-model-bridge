@@ -155,7 +155,31 @@
 | `test_status_update.py` | **V30.1新增** status_update.py 全量单测（33个用例：原子读写/嵌套字段/数组操作/优先级CRUD/CLI接口） |
 | `test_adapter.py` | **V30.1新增** adapter.py 全量单测（36个用例：Provider注册表/认证头/多模态路由/Fallback/智能路由/健康端点） |
 | `test_kb_business.py` | **V30.1新增** KB全业务逻辑单测（44个用例：kb_embed/kb_rag/kb_trend/mm_index/mm_search/kb_integrity/安全模式） |
-| `full_regression.sh` | **V30.1新增** 全量回归测试一键运行器（三层：单元测试+注册表文档+安全扫描，374个用例，100%通过才允许推送） |
+| `full_regression.sh` | **V30.1新增** 全量回归测试一键运行器（四层：单元测试+注册表文档+安全扫描+代码质量，393个用例，100%通过才允许推送） |
+| `audit_log.py` | **V30.2新增** 链式哈希审计日志（JSONL append-only，SHA256 链式校验，篡改/删除可检测） |
+| `test_audit_log.py` | **V30.2新增** 审计日志单测（19个用例：写入/链式哈希/篡改检测/删除检测/统计） |
+| `security_score.py` | **V30.2新增** 系统安全评分（7维度100分：密钥/测试/完整性/部署/传输/审计/可用性） |
+
+## V30.2 变更摘要（2026-03-26）
+
+> 安全评分体系 + 审计日志 + 持续安全机制
+
+1. **链式哈希审计日志**：`audit_log.py` — 每次状态变更自动记录（JSONL append-only），每条包含操作者/动作/目标/摘要/前一条SHA256哈希；篡改或删除中间记录可被 `--verify` 检测；`status_update.py` 写入路径自动触发审计
+2. **安全评分体系**：`security_score.py` — 7 维度量化评分（密钥管理/测试门禁/数据完整性/部署安全/传输安全/审计追踪/可用性），满分 100；支持 `--json` 脚本调用和 `--update` 写入 status.json
+3. **full_regression 扩展至四层**：新增第四层代码质量（代码覆盖率统计 + bandit 静态安全分析 + 审计日志完整性校验），总计 393 个测试用例
+4. **单测新增 19 个**：`test_audit_log.py` 覆盖写入/链式哈希/篡改检测/删除检测/尾查/统计/语法/CLI
+5. **持续安全提升机制**：每次收工 `security_score.py --update` 写入评分 → 评分趋势可追踪；每次新功能发布 `full_regression.sh` 含 bandit + 审计校验 → 安全不退化
+
+### 持续安全提升机制
+
+| 机制 | 触发时机 | 保障内容 |
+|------|----------|----------|
+| **发布门禁** | 每次 push 前 `full_regression.sh` | 393 用例 100% 通过 + 安全扫描 + 审计完整性 |
+| **安全评分** | 每次收工 `security_score.py --update` | 7 维度量化，分数不允许下降 |
+| **审计日志** | 每次 status.json 写入自动触发 | 操作不可否认，链式哈希防篡改 |
+| **bandit 静态分析** | 每次 `full_regression.sh` | Python 代码中高危漏洞扫描 |
+| **代码覆盖率** | 每次 `full_regression.sh` | 覆盖率趋势监控 |
+| **preflight 体检** | 收工前 Mac Mini 运行 | 14 项全面检查（含部署一致性+环境+连通性） |
 
 ## V30 变更摘要（2026-03-26）
 
@@ -336,8 +360,17 @@ python3 check_registry.py
 # 一键 smoke test（单测+注册表+连通性）
 bash smoke_test.sh
 
-# 全量回归测试（374个用例，发布前必须100%通过）
+# 全量回归测试（393个用例，发布前必须100%通过）
 bash full_regression.sh
+
+# 安全评分（7维度100分）
+python3 security_score.py
+python3 security_score.py --update  # 写入 status.json
+
+# 审计日志
+python3 audit_log.py --tail 20      # 查看最近操作
+python3 audit_log.py --verify       # 校验链式哈希
+python3 audit_log.py --stats        # 统计概览
 
 # 收工前全面体检（dev 环境）
 bash preflight_check.sh
@@ -431,7 +464,7 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 | 5 | **push前必扫描** | 安全扫描（见上方命令）全部为空才允许 push |
 | 6 | **故障先查自身代码** | 排查问题时默认从我们自己的代码和架构中找 bug（shell 数据传递、cron 环境、进程管理等），不归因于上游服务不稳定（#97教训） |
 | 7 | **做减法不做加法** | 新增防护/监控前先问"谁已经在管这件事"；每加一层保险 = 多一个故障源（#95教训） |
-| 8 | **收工提醒 preflight + 更新 status.json** | "结束今天的工作"时，提醒用户在 Mac Mini 上运行 `bash preflight_check.sh --full`；同时用 `status_update.py` 写入今天的变更摘要和优先级更新 |
+| 8 | **收工提醒 preflight + 安全评分 + 更新 status.json** | "结束今天的工作"时：① `security_score.py --update` 写入安全评分 ② 提醒用户在 Mac Mini 上运行 `bash preflight_check.sh --full` ③ `status_update.py` 写入变更摘要和优先级 |
 | 9 | **相信 OpenClaw，用好 OpenClaw** | 优先利用 OpenClaw 已有能力（Multi-Agent、contextPruning、workspace CLAUDE.md、tools 等），而非重新造轮子；遇到新需求先查 OpenClaw 文档和 release notes，充分发挥其潜力来提升效率和创新 |
 
 ### 🟡 按需查阅（操作 & 架构参考）
@@ -469,6 +502,10 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 | 低 | 货代Watcher V3：Bing News API替代GoogleNews |
 | 低 | 语音消息支持：WhatsApp语音→STT→LLM回复 |
 | 低 | MM搜索接入对话：mm_search.py 注册为 OpenClaw tool |
+| 低 | KB 静态加密：status.json / index.json 使用 age/gpg 加密存盘 |
+| 低 | 依赖漏洞扫描：pip-audit 集成到 full_regression.sh |
+| ✅ | **安全评分体系 + 审计日志 + 持续安全机制（V30.2）** |
+| ✅ | **全量回归测试框架 393 用例（V30.1）** |
 | ✅ | **KB 周趋势报告 + 模型智能路由（V29.5）** |
 | ✅ | **多模态图片理解：Qwen2.5-VL-72B 自动路由（V29.4）** |
 | ✅ | Multimodal Memory：Gemini Embedding 2 索引图片/音频/视频/PDF（V29.1） |

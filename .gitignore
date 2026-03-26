@@ -17,4 +17,6 @@ sessions/
 .DS_Store
 __pycache__/
 *.pyc
+.coverage
+htmlcov/
 OpenClaw配置文档*.md

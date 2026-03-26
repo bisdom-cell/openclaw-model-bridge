@@ -47,6 +47,7 @@ run_suite "cron_health (锁/心跳/告警/完整性)" "python3 test_cron_health.
 run_suite "status_update (三方状态CRUD)" "python3 test_status_update.py"
 run_suite "adapter (路由/Fallback/认证)" "python3 test_adapter.py"
 run_suite "kb_business (KB全业务逻辑)" "python3 test_kb_business.py"
+run_suite "audit_log (审计日志/链式哈希)" "python3 test_audit_log.py"
 
 # 条件性测试（仅当文件存在时运行）
 for tf in test_conv_quality.py test_kb_autotag.py test_kb_dedup.py test_token_report.py test_arxiv_parser.py test_shell_antipatterns.py; do
@@ -121,6 +122,50 @@ else
     echo "$DANGEROUS"
     FAIL=$((FAIL + 1))
     FAILED_SUITES+=("dangerous crontab pattern")
+fi
+
+echo -n "  🔒 审计日志完整性 ... "
+if python3 audit_log.py --verify --json 2>/dev/null | python3 -c "import sys,json; sys.exit(0 if json.load(sys.stdin).get('ok') else 1)" 2>/dev/null; then
+    AUDIT_COUNT=$(python3 audit_log.py --verify --json 2>/dev/null | python3 -c "import sys,json; print(json.load(sys.stdin).get('total',0))" 2>/dev/null || echo 0)
+    echo "✅ ($AUDIT_COUNT records)"
+    PASS=$((PASS + 1))
+else
+    echo "❌ 链式哈希校验失败"
+    FAIL=$((FAIL + 1))
+    FAILED_SUITES+=("audit integrity")
+fi
+echo ""
+
+# ═══════════════════════════════════════════════════════════════
+# 第四层：代码质量（非阻塞，仅报告）
+# ═══════════════════════════════════════════════════════════════
+echo "📋 第四层：代码质量（参考项）"
+
+# 代码覆盖率
+echo -n "  📊 代码覆盖率 ... "
+if command -v coverage &>/dev/null || python3 -c "import coverage" 2>/dev/null; then
+    COV_OUTPUT=$(python3 -m coverage run --source=. --omit="test_*,*/site-packages/*" -m pytest test_tool_proxy.py test_check_registry.py test_status_update.py test_adapter.py -q 2>&1 || \
+                 python3 -m coverage run --source=proxy_filters,status_update,adapter,audit_log --omit="test_*" -m unittest test_tool_proxy test_status_update test_adapter 2>&1)
+    COV_REPORT=$(python3 -m coverage report --format=total 2>/dev/null || python3 -m coverage report 2>/dev/null | tail -1 | awk '{print $NF}')
+    echo "📈 $COV_REPORT"
+else
+    echo "⚠️ coverage 未安装（pip3 install coverage）"
+fi
+
+# Bandit 安全扫描
+echo -n "  🛡️  bandit 静态安全分析 ... "
+if command -v bandit &>/dev/null; then
+    BANDIT_OUT=$(bandit -r proxy_filters.py adapter.py tool_proxy.py status_update.py audit_log.py -q -ll 2>&1 || true)
+    BANDIT_ISSUES=$(echo "$BANDIT_OUT" | grep -c "Issue:" 2>/dev/null || echo "0")
+    if [ "$BANDIT_ISSUES" -eq 0 ] || [ -z "$BANDIT_OUT" ]; then
+        echo "✅ 无中高危漏洞"
+        PASS=$((PASS + 1))
+    else
+        echo "⚠️ $BANDIT_ISSUES 个问题（详见下方）"
+        echo "$BANDIT_OUT" | head -20
+    fi
+else
+    echo "⚠️ bandit 未安装（pip3 install bandit）"
 fi
 echo ""
 

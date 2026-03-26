@@ -84,8 +84,8 @@ def load_status():
         return dict(DEFAULT_STATUS)
 
 
-def save_status(data, updated_by="unknown"):
-    """原子写入 status.json。"""
+def save_status(data, updated_by="unknown", audit_action="", audit_target="", audit_summary=""):
+    """原子写入 status.json，同时写入审计日志。"""
     data["updated"] = time.strftime("%Y-%m-%d %H:%M:%S")
     data["updated_by"] = updated_by
     os.makedirs(os.path.dirname(STATUS_FILE), exist_ok=True)
@@ -93,6 +93,13 @@ def save_status(data, updated_by="unknown"):
     with open(tmp, "w") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
     os.replace(tmp, STATUS_FILE)
+    # 审计日志（静默失败，不影响主流程）
+    if audit_action:
+        try:
+            from audit_log import audit
+            audit(updated_by, audit_action, audit_target or "status.json", audit_summary)
+        except Exception:
+            pass
 
 
 def format_human(data):
@@ -240,7 +247,38 @@ def main():
         changed = True
 
     if changed:
-        save_status(data, updated_by=args.by)
+        # 构造审计信息
+        _audit_action = ""
+        _audit_target = "status.json"
+        _audit_summary = ""
+        if args.set:
+            _audit_action = "set"
+            _audit_target = args.set[0]
+            _audit_summary = f"{args.set[0]}={args.set[1]}"
+        elif args.add:
+            _audit_action = "add"
+            _audit_target = args.add[0]
+            _audit_summary = args.add[1][:200]
+        elif args.pop:
+            _audit_action = "pop"
+            _audit_target = args.pop[0]
+            _audit_summary = f"index={args.pop[1]}"
+        elif args.clear:
+            _audit_action = "clear"
+            _audit_target = args.clear
+        elif args.update_priority:
+            _audit_action = "update_priority"
+            _audit_target = args.update_priority[0]
+            _audit_summary = f"{args.update_priority[1]}={args.update_priority[2]}"
+        elif args.focus:
+            _audit_action = "set_focus"
+            _audit_summary = args.focus[:200]
+        elif args.note:
+            _audit_action = "set_note"
+            _audit_summary = args.note[:200]
+        save_status(data, updated_by=args.by,
+                    audit_action=_audit_action, audit_target=_audit_target,
+                    audit_summary=_audit_summary)
         print("OK", file=sys.stderr)
     elif not args.read:
         parser.print_help()
