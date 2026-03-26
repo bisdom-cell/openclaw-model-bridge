@@ -442,17 +442,18 @@ Health & 监控:
 - Telegram pinned-IP SSRF 防护
 - Nostr inbound DM policy 在 decrypt 前强制执行
 
-**v2026.3.23（最新，⚠️ 暂不升级）**:
+**v2026.3.23-2（最新，⚠️ 暂不升级）**:
+- **WhatsApp sidecar 重新打包**: v2026.3.22 regression 修复，bundled runtime sidecar 恢复到 npm tarball（`dist/extensions/`），全局安装不再缺失 WhatsApp 运行时
 - **基建**: 保留已发布 bundled plugins、release 检查缺失 plugin 时失败
 - **Browser/CDP**: 修复 existing-session attach 超时、慢速 headless Linux 复用已运行浏览器
-- **ClawHub**: macOS auth 路径修复、browse-all 改为 search 防 429
+- **ClawHub**: macOS auth 路径修复、browse-all 改为 search 防 429；兼容性检查修复
 - **Plugins**: Discord `components`/Slack `blocks` 可选、stale `plugins.allow` ids 降级为 warning
-- **Gateway**: openrouter/auto pricing 无限递归修复、Mistral max-token 默认值调低
+- **Gateway**: openrouter/auto pricing 无限递归修复、Mistral max-token 默认值调低；Qwen 端点支持扩展
 - **Telegram**: 同 chat 消息去抖排序修复、`asDocument` 别名
 - **Agents**: thinking/redacted-thinking block 排序修复、runtime snapshot 注入改进
-- **安全**: shell-wrapper argv allowlist 匹配加固、canvas/agent-reset 需 auth
+- **安全**: shell-wrapper argv allowlist 匹配加固、canvas/agent-reset 需 auth；Channel auth 改进
 - **launchd**: 锁冲突导致 crash-loop 修复（与我们部署相关）
-- ⚠️ **不升级原因**：WhatsApp plugin 从 v2026.3.22 起 unbundled，ClawHub 上仅 0.0.5-Alpha + 限流 429。"Keep previously released bundled plugins" 是否重新 bundle WhatsApp 尚不确定，生产风险不可接受。等 WhatsApp plugin >= 1.0.0 再评估
+- ⚠️ **不升级原因**：WhatsApp sidecar 虽重新打包，但 `@openclaw/whatsapp` 独立包在 npm 仍 404；ClawHub 上仍为 0.0.5-Alpha（社区残缺包）；ClawHub 429 限流仍未修复（#54446，2026-03-25 新报）。Plugin 架构过渡未完成，生产风险不可接受。等 `@openclaw/whatsapp` 正式发布到 npm 或 ClawHub >= 1.0.0 再升级
 
 **v2026.3.13-1（⭐ 当前部署版本）**:
 - **安全**: 配对码改为短效 bootstrap tokens、禁用 workspace 插件自动加载、防止 Docker token 泄露
