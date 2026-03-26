@@ -52,4 +52,20 @@ if [ "$DELETED" -gt 0 ]; then
     echo "[$TIMESTAMP] Cleaned $DELETED old backup(s)" >> "$LOG"
 fi
 
+# ── status.json 独立版本备份（三方共享状态是核心，单独保留 30 天历史）──
+STATUS_SRC="$HOME/.kb/status.json"
+STATUS_BACKUP_DIR="$BACKUP_DIR/status_history"
+if [ -f "$STATUS_SRC" ]; then
+    mkdir -p "$STATUS_BACKUP_DIR"
+    cp "$STATUS_SRC" "$STATUS_BACKUP_DIR/status_${DATE}.json"
+    # 清理超过 30 天的历史
+    find "$STATUS_BACKUP_DIR" -name "status_*.json" -mtime +30 -delete 2>/dev/null || true
+    echo "[$TIMESTAMP] status.json backed up to $STATUS_BACKUP_DIR/" >> "$LOG"
+fi
+
+# ── KB 完整性指纹更新（每日备份后自动刷新基线）──
+if [ -f "$HOME/kb_integrity.py" ]; then
+    python3 "$HOME/kb_integrity.py" --update >> "$LOG" 2>&1 || true
+fi
+
 echo "[$TIMESTAMP] === Backup done ===" >> "$LOG"

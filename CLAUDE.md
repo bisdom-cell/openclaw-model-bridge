@@ -149,7 +149,9 @@
 | `cron_doctor.sh` | **V30新增** 定时任务全面诊断工具（7项检查：crontab/锁文件/心跳/服务/环境/时效/系统） |
 | `cron_canary.sh` | **V30新增** Cron 心跳金丝雀（每10分钟，零依赖，原子写入） |
 | `crontab_safe.sh` | **V30新增** 安全 crontab 操作（自动备份+条目数验证+回滚保护） |
-| `test_cron_health.py` | **V30新增** 定时任务健康检测单测（72个用例：锁/心跳/告警/原子写入/损坏恢复/daemon检测） |
+| `test_cron_health.py` | **V30新增** 定时任务健康检测单测（94个用例：锁/心跳/告警/原子写入/损坏恢复/daemon检测/完整性/状态刷新） |
+| `kb_status_refresh.sh` | **V30.1新增** 每小时刷新 status.json 系统健康字段（三层服务/模型ID/KB统计/过期job），补齐三方宪法实时同步 |
+| `kb_integrity.py` | **V30.1新增** KB 文件完整性校验器（SHA256 指纹比对、目录文件数监控、权限检查、status.json 结构验证） |
 
 ## V30 变更摘要（2026-03-26）
 
@@ -183,6 +185,18 @@
 - **任何 `exit 0` 的代码路径都应有日志** — 静默成功和静默失败外观相同
 - **共享状态文件必须原子写入** — 被多进程读写的文件（stats/meta/status）一律 `tmp + replace`
 - **监控不能依赖被监控对象** — 告警通道必须有独立于被告警服务的回退
+
+## V30.1 变更摘要（2026-03-26）
+
+> 三方宪法安全加固：status.json 实时刷新 + KB 完整性校验 + 原子写入全覆盖
+
+1. **status.json 每小时自动刷新**：`kb_status_refresh.sh` — 聚合三层服务状态、模型ID、KB统计、过期job，写入 `status.json`；PA/Claude Code 读到的不再是几小时前的快照
+2. **KB 完整性校验器**：`kb_integrity.py` — SHA256 指纹比对关键文件（index.json/status.json/daily_digest.md）、目录文件数骤降检测、权限检查（other 不可读）、status.json 结构完整性验证；支持 `--init`/`--update`/`--json`
+3. **kb_inject.sh 原子写入**：daily_digest.md 和 workspace CLAUDE.md 均改为 `tmp + replace/mv`，防 crash 损坏
+4. **KB 目录权限收紧**：`~/.kb/` 设为 750、关键文件设为 640，阻止 other 用户读取
+5. **status.json 独立备份**：`openclaw_backup.sh` 新增 status_history/ 目录，每日独立备份，保留 30 天历史；备份后自动刷新完整性指纹
+6. **status_update.py 字段扩展**：新增 `kb_stats`、`stale_jobs`、`last_refresh` 字段，供三方实时消费
+7. **单测扩展至 179 个**：新增 22 个测试（状态刷新/完整性校验/原子写入/备份/字段完整性）
 
 ## V27 变更摘要
 

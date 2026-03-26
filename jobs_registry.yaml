@@ -209,3 +209,12 @@ jobs:
     needs_api_key: false
     enabled: true
     description: Cron 心跳金丝雀 — 写 epoch 到 ~/.cron_canary，供 watchdog/doctor 验证 cron daemon 存活
+
+  - id: kb_status_refresh
+    scheduler: system
+    entry: kb_status_refresh.sh
+    interval: "0 * * * *"           # 每小时整点
+    log: ~/kb_status_refresh.log
+    needs_api_key: false
+    enabled: true
+    description: 每小时刷新 status.json 系统健康字段（三层服务/模型ID/KB统计/过期job），补齐三方宪法实时同步需求

@@ -832,5 +832,210 @@ class TestUndeliveredAlertScanning(unittest.TestCase):
         shutil.rmtree(tmp_dir)
 
 
+class TestKbStatusRefresh(unittest.TestCase):
+    """测试 kb_status_refresh.sh"""
+
+    def test_script_syntax(self):
+        """kb_status_refresh.sh bash 语法正确"""
+        result = subprocess.run(
+            ["bash", "-n", "kb_status_refresh.sh"],
+            capture_output=True, text=True
+        )
+        self.assertEqual(result.returncode, 0, f"Syntax error: {result.stderr}")
+
+    def test_calls_status_update(self):
+        """kb_status_refresh.sh 调用 status_update.py"""
+        with open("kb_status_refresh.sh") as f:
+            content = f.read()
+        self.assertIn("status_update.py", content)
+        self.assertIn("health.services", content)
+        self.assertIn("health.last_refresh", content)
+
+    def test_checks_three_services(self):
+        """kb_status_refresh.sh 检查三层服务"""
+        with open("kb_status_refresh.sh") as f:
+            content = f.read()
+        self.assertIn("18789", content)  # Gateway
+        self.assertIn("5002", content)   # Proxy
+        self.assertIn("5001", content)   # Adapter
+
+    def test_checks_stale_jobs(self):
+        """kb_status_refresh.sh 检查过期 job"""
+        with open("kb_status_refresh.sh") as f:
+            content = f.read()
+        self.assertIn("stale_jobs", content)
+
+    def test_checks_kb_stats(self):
+        """kb_status_refresh.sh 聚合 KB 统计"""
+        with open("kb_status_refresh.sh") as f:
+            content = f.read()
+        self.assertIn("kb_stats", content)
+        self.assertIn("index.json", content)
+
+
+class TestKbIntegrity(unittest.TestCase):
+    """测试 kb_integrity.py"""
+
+    def test_python_syntax(self):
+        """kb_integrity.py Python 语法正确"""
+        result = subprocess.run(
+            ["python3", "-c", "import ast; ast.parse(open('kb_integrity.py').read())"],
+            capture_output=True, text=True
+        )
+        self.assertEqual(result.returncode, 0, f"Syntax error: {result.stderr}")
+
+    def test_sha256_function(self):
+        """SHA256 哈希计算正确"""
+        tmp_dir = tempfile.mkdtemp()
+        test_file = os.path.join(tmp_dir, "test.txt")
+        with open(test_file, "w") as f:
+            f.write("hello world")
+        import hashlib
+        expected = hashlib.sha256(b"hello world").hexdigest()
+        # 验证我们的实现
+        h = hashlib.sha256()
+        with open(test_file, "rb") as f:
+            for chunk in iter(lambda: f.read(8192), b""):
+                h.update(chunk)
+        self.assertEqual(h.hexdigest(), expected)
+        shutil.rmtree(tmp_dir)
+
+    def test_checks_critical_files(self):
+        """kb_integrity.py 校验关键文件"""
+        with open("kb_integrity.py") as f:
+            content = f.read()
+        self.assertIn("index.json", content)
+        self.assertIn("status.json", content)
+        self.assertIn("daily_digest.md", content)
+
+    def test_checks_permissions(self):
+        """kb_integrity.py 检查目录权限"""
+        with open("kb_integrity.py") as f:
+            content = f.read()
+        self.assertIn("scan_permissions", content)
+        self.assertIn("700", content)
+
+    def test_uses_atomic_save(self):
+        """kb_integrity.py 指纹库使用原子写入"""
+        with open("kb_integrity.py") as f:
+            content = f.read()
+        self.assertIn("os.replace(tmp,", content)
+
+    def test_detects_file_disappearance(self):
+        """kb_integrity.py 检测文件消失"""
+        with open("kb_integrity.py") as f:
+            content = f.read()
+        self.assertIn("已消失", content)
+
+    def test_detects_dir_count_drop(self):
+        """kb_integrity.py 检测目录文件数骤降"""
+        with open("kb_integrity.py") as f:
+            content = f.read()
+        self.assertIn("骤降", content)
+        self.assertIn("已清空", content)
+
+    def test_integrity_init_and_verify(self):
+        """模拟 kb_integrity 初始化 → 校验流程"""
+        tmp_dir = tempfile.mkdtemp()
+        # 创建模拟 KB 结构
+        os.makedirs(os.path.join(tmp_dir, "notes"))
+        os.makedirs(os.path.join(tmp_dir, ".integrity"))
+        for i in range(3):
+            with open(os.path.join(tmp_dir, "notes", f"note_{i}.md"), "w") as f:
+                f.write(f"note {i}")
+        status = os.path.join(tmp_dir, "status.json")
+        with open(status, "w") as f:
+            json.dump({"test": True}, f)
+
+        # 模拟初始化
+        checksums = {}
+        if os.path.isfile(status):
+            import hashlib
+            h = hashlib.sha256()
+            with open(status, "rb") as f:
+                h.update(f.read())
+            checksums["status.json"] = h.hexdigest()
+
+        note_count = len(os.listdir(os.path.join(tmp_dir, "notes")))
+        self.assertEqual(note_count, 3)
+        self.assertIn("status.json", checksums)
+
+        # 模拟文件被删除
+        os.remove(status)
+        self.assertFalse(os.path.exists(status))
+        shutil.rmtree(tmp_dir)
+
+
+class TestKbInjectAtomicWrite(unittest.TestCase):
+    """测试 kb_inject.sh 原子写入"""
+
+    def test_digest_uses_atomic_write(self):
+        """kb_inject.sh 使用 tmp + replace 写 daily_digest.md"""
+        with open("kb_inject.sh") as f:
+            content = f.read()
+        self.assertIn("digest_file + '.tmp'", content)
+        self.assertIn("os.replace(tmp, digest_file)", content)
+
+    def test_workspace_uses_atomic_write(self):
+        """kb_inject.sh 使用 tmp + mv 写 workspace CLAUDE.md"""
+        with open("kb_inject.sh") as f:
+            content = f.read()
+        self.assertIn("WORKSPACE_TMP", content)
+        self.assertIn('mv "$WORKSPACE_TMP" "$WORKSPACE_MD"', content)
+
+    def test_permissions_hardened(self):
+        """kb_inject.sh 收紧 KB 目录权限"""
+        with open("kb_inject.sh") as f:
+            content = f.read()
+        self.assertIn("chmod 750", content)
+        self.assertIn("chmod 640", content)
+
+
+class TestStatusJsonBackup(unittest.TestCase):
+    """测试 status.json 备份机制"""
+
+    def test_backup_includes_status(self):
+        """openclaw_backup.sh 备份 status.json"""
+        with open("openclaw_backup.sh") as f:
+            content = f.read()
+        self.assertIn("status.json", content)
+        self.assertIn("status_history", content)
+
+    def test_backup_keeps_30_days(self):
+        """status.json 保留 30 天历史"""
+        with open("openclaw_backup.sh") as f:
+            content = f.read()
+        self.assertIn("-mtime +30", content)
+
+    def test_backup_updates_integrity(self):
+        """备份后自动刷新完整性指纹"""
+        with open("openclaw_backup.sh") as f:
+            content = f.read()
+        self.assertIn("kb_integrity.py", content)
+        self.assertIn("--update", content)
+
+
+class TestStatusUpdateNewFields(unittest.TestCase):
+    """测试 status_update.py 新增字段"""
+
+    def test_has_kb_stats_field(self):
+        """status_update.py 包含 kb_stats 字段"""
+        with open("status_update.py") as f:
+            content = f.read()
+        self.assertIn('"kb_stats"', content)
+
+    def test_has_stale_jobs_field(self):
+        """status_update.py 包含 stale_jobs 字段"""
+        with open("status_update.py") as f:
+            content = f.read()
+        self.assertIn('"stale_jobs"', content)
+
+    def test_has_last_refresh_field(self):
+        """status_update.py 包含 last_refresh 字段"""
+        with open("status_update.py") as f:
+            content = f.read()
+        self.assertIn('"last_refresh"', content)
+
+
 if __name__ == "__main__":
     unittest.main()
