@@ -29,7 +29,7 @@ do_backup() {
     if crontab -l > "$backup_file" 2>/dev/null; then
         local count
         count=$(grep -v '^#' "$backup_file" | grep -v '^$' | wc -l | tr -d ' ')
-        echo "[crontab_safe] 已备份到 $backup_file（$count 条活跃条目）"
+        echo "[crontab_safe] 已备份到 ${backup_file} (${count} 条活跃条目)"
         # 同时维护一个 latest 软链接
         ln -sf "$backup_file" "$BACKUP_DIR/latest.bak"
         return 0
@@ -85,7 +85,7 @@ cmd_add() {
     count_after=$(count_entries)
 
     if [ "$count_after" -lt "$count_before" ]; then
-        echo "❌ 严重错误：添加后条目数减少（$count_before → $count_after），自动回滚！"
+        echo "❌ 严重错误：添加后条目数减少 (${count_before} -> ${count_after})，自动回滚！"
         cmd_restore
         exit 1
     fi
@@ -102,7 +102,7 @@ cmd_backup() {
     local count
     count=$(count_entries)
     if [ "$count" -lt "$MIN_ENTRIES" ]; then
-        echo "⚠️  警告：当前只有 $count 条活跃条目（预期 >= $MIN_ENTRIES）"
+        echo "⚠️  警告：当前只有 ${count} 条活跃条目 (预期 >= ${MIN_ENTRIES})"
     fi
 }
 
@@ -149,7 +149,7 @@ cmd_verify() {
         echo "恢复：bash crontab_safe.sh restore"
         exit 1
     elif [ "$count" -lt "$MIN_ENTRIES" ]; then
-        echo "⚠️  条目数过少（预期 >= $MIN_ENTRIES），可能被意外清空"
+        echo "⚠️  条目数过少 (预期 >= ${MIN_ENTRIES})，可能被意外清空"
         echo "最新备份："
         ls -lt "$BACKUP_DIR"/*.bak 2>/dev/null | head -3 | awk '{print "  " $NF}'
         exit 1

@@ -235,7 +235,7 @@ ${CRONTAB_ISSUES}
         LAST_ALERT=$(cat "$CRON_COUNT_FILE.alert" 2>/dev/null || echo "0")
         ALERT_AGE=$(( $(date +%s) - LAST_ALERT ))
         if [ "$ALERT_AGE" -gt 3600 ]; then
-            echo "$(date) 🚨 crontab 条目异常减少: $CRON_COUNT 条（预期 >= $CRON_MIN_ENTRIES）" >> "$LOG"
+            echo "$(date) 🚨 crontab 条目异常减少: ${CRON_COUNT} 条 (预期 >= ${CRON_MIN_ENTRIES})" >> "$LOG"
             CRON_ALERT="🚨 Crontab 条目异常减少！
 
 当前只有 $CRON_COUNT 条（正常应 >= $CRON_MIN_ENTRIES 条）
