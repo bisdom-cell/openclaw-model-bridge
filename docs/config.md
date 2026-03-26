@@ -900,7 +900,7 @@ nohup python3 ~/adapter.py > ~/adapter.log 2>&1 &
 26. **【回滚优先】** 线上故障 → 先 `git checkout v26-snapshot` 恢复服务，再排查根因。← v27新增
 27. **【纯推理任务绕过Gateway】** 不需要工具调用的LLM任务（如文本生成、画像生成），必须直接curl调`proxy:5002/v1/chat/completions`（不含tools字段），禁止用`openclaw agent`（Gateway会注入工具导致模型失控循环调用）。← #94修复经验
 28. **【收工强制指令】** 每次 vibe coding 交互结束时，用户输入"今天工作结束"，系统必须：① 扫描仓库内全部文档（CLAUDE.md、docs/*.md、README.md、IMPROVEMENTS.md 等），将当日所有变更同步到相关文档；② 确保文档间信息一致（工作原则、踩坑经验、检查清单、待办状态）；③ 安全扫描 → 提交 → 推送。无例外。
-29. **【禁用交互式编辑器】** 禁止触发 vim/nano 等交互式编辑器。git merge 用 `--no-edit`，commit 用 `-m`，rebase 禁用 `-i`。crontab 禁用 `crontab -e`，改用管道 `(crontab -l; echo '新行') | crontab -`。← v28新增
+29. **【禁用交互式编辑器 + crontab安全】** 禁止触发 vim/nano 等交互式编辑器。git merge 用 `--no-edit`，commit 用 `-m`，rebase 禁用 `-i`。**crontab 操作必须使用 `bash crontab_safe.sh add '<行>'`**（自动备份+条目数验证+回滚保护）。**严禁 `echo ... | crontab -`**（会清空所有条目，2026-03-25事故根因）。← v28新增，v30修正
 30. **【分支合并由用户在GitHub操作】** 开发完成后推送到 `claude/xxx` 分支，必须提醒用户去 GitHub 创建 PR 合并到 main。用户在 Mac Mini 用 `git pull origin main --no-rebase --no-edit` 拉取。禁止在终端执行本地 merge。← v28新增
 31. **【进程管理单一主控】** 每个进程只能有一个生命周期管理者。Gateway 由 launchd (KeepAlive=true) 管理，禁止再加 cron watchdog 或其他自愈机制。双主控制必然互相干扰。← #95教训
 32. **【cron脚本显式声明PATH】** 所有 cron 调用的脚本首行必须 `export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"`。cron 环境与用户 shell 完全不同，禁止假设 PATH 已正确设置。← #95教训

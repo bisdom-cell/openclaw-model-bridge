@@ -1,6 +1,6 @@
 # CLAUDE.md — openclaw-model-bridge 项目背景
 
-> 每次新会话开始时自动读取。当前版本：v29.4（2026-03-25）
+> 每次新会话开始时自动读取。当前版本：v30（2026-03-26）
 
 ---
 
@@ -146,6 +146,21 @@
 | `docs/config.md` | 完整系统配置文档（含所有历史变更） |
 | `docs/GUIDE.md` | 完整中英文集成指南 |
 | `docs/openclaw_architecture.md` | **V28.2新增** OpenClaw 开源架构完整参考（每日开工自动刷新） |
+| `cron_doctor.sh` | **V30新增** 定时任务全面诊断工具（7项检查：crontab/锁文件/心跳/服务/环境/时效/系统） |
+| `cron_canary.sh` | **V30新增** Cron 心跳金丝雀（每10分钟，零依赖，原子写入） |
+| `crontab_safe.sh` | **V30新增** 安全 crontab 操作（自动备份+条目数验证+回滚保护） |
+| `test_cron_health.py` | **V30新增** 定时任务健康检测单测（41个用例） |
+
+## V30 变更摘要（2026-03-26）
+
+1. **事故根因：crontab 意外清空**：2026-03-25 添加 `kb_trend.py` 时使用 `echo ... | crontab -`（无 `crontab -l` 前缀），导致 crontab 被替换为只有 1 条条目，其余 18 条全部丢失，所有定时任务停止推送
+2. **Crontab 安全操作工具**：`crontab_safe.sh` — `add`（自动备份+条目数验证+回滚保护）、`backup`（手动备份到 `~/.crontab_backups/`）、`restore`（从备份恢复）、`verify`（条目数检查）；**严禁 `echo ... | crontab -`**
+3. **Cron 心跳金丝雀**：`cron_canary.sh` 每10分钟写 epoch 到 `~/.cron_canary`（零依赖、零锁文件、原子写入），供 watchdog/doctor 验证 cron daemon 存活
+4. **Cron 全面诊断**：`cron_doctor.sh` 7 项检查 — crontab 完整性、陈旧锁文件、cron 心跳、三层服务状态、环境变量(cron模拟)、job 执行时效、系统状态(磁盘/重启/日志)；每项给出修复命令
+5. **Watchdog 陈旧锁自愈**：`job_watchdog.sh` 新增陈旧锁自动清理（>1h 的 lockdir 自动 rmdir）、自身锁恢复（>30min 强制清理）、cron 心跳监控；watchdog 不再能被自身锁文件锁死
+6. **auto_deploy.sh crontab 监控**：每小时检查 crontab 条目数，低于 10 条立即 WhatsApp 告警 + 每日自动备份 crontab
+7. **preflight_check.sh 扩展至 14 项**：新增第 13 项陈旧锁文件检测 + 第 14 项 cron 心跳检测
+8. **单测扩展至 167 个**：新增 41 个 cron_health 测试用例（锁检测/心跳解析/告警逻辑/路径一致性/边界条件/脚本语法）
 
 ## V27 变更摘要
 
@@ -386,7 +401,8 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 - **每日文档刷新** — `CLAUDE.md` + `docs/config.md` + `docs/openclaw_architecture.md` 在开工/收工时强制 read → write
 - **纯推理绕过Gateway** — 不需要工具的LLM任务直接 curl 调 API，禁止用 `openclaw agent`（#94）
 - **macOS sed禁用OR语法** — `\|` 在 BSD sed 不支持，用 Python 替代
-- **禁用交互式编辑器** — git merge 用 `--no-edit`，commit 用 `-m`，crontab 用管道
+- **禁用交互式编辑器** — git merge 用 `--no-edit`，commit 用 `-m`
+- **crontab 安全操作** — **严禁 `echo ... | crontab -`**（2026-03-25事故：清空全部 cron），必须用 `bash crontab_safe.sh add '<行>'`
 - **分支合并由用户在GitHub操作** — 推送到 `claude/xxx` 分支 → 提醒用户创建 PR → 用户在 Mac Mini 同步
 - **Mac Mini 同步用 reset 不用 pull** — `git fetch origin main && git reset --hard origin/main`（Mac Mini 是纯消费端，无本地 commit；`git pull` 会因历史 merge commit 导致分叉失败）
 
