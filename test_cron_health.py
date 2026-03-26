@@ -635,5 +635,202 @@ class TestAutoDeployCrontabMonitor(unittest.TestCase):
         self.assertIn("条目异常减少", content)
 
 
+class TestProxyFiltersAtomicWrite(unittest.TestCase):
+    """测试 proxy_filters.py _write_stats 原子写入"""
+
+    def test_write_stats_uses_atomic_pattern(self):
+        """_write_stats 使用 tmp + os.replace 原子写入"""
+        with open("proxy_filters.py") as f:
+            content = f.read()
+        # 必须包含 tmp + os.replace 模式
+        self.assertIn('STATS_FILE + ".tmp"', content)
+        self.assertIn("os.replace(tmp, STATS_FILE)", content)
+
+    def test_write_stats_no_direct_open_w(self):
+        """_write_stats 不直接 open(STATS_FILE, 'w')"""
+        with open("proxy_filters.py") as f:
+            content = f.read()
+        # 在 _write_stats 方法中查找——提取该方法的内容
+        start = content.index("def _write_stats(self)")
+        end = content.index("\n    def ", start + 1)
+        method_body = content[start:end]
+        # 不应直接打开 STATS_FILE 写入
+        self.assertNotIn("open(STATS_FILE", method_body)
+
+    def test_atomic_write_pattern_simulation(self):
+        """模拟原子写入：crash 时不会损坏目标文件"""
+        tmp_dir = tempfile.mkdtemp()
+        target = os.path.join(tmp_dir, "stats.json")
+        tmp = target + ".tmp"
+
+        # 先写入一个正常文件
+        with open(target, "w") as f:
+            json.dump({"status": "original"}, f)
+
+        # 模拟原子写入
+        with open(tmp, "w") as f:
+            json.dump({"status": "updated"}, f)
+        os.replace(tmp, target)
+
+        # 验证更新成功
+        with open(target) as f:
+            data = json.load(f)
+        self.assertEqual(data["status"], "updated")
+        # tmp 文件不存在
+        self.assertFalse(os.path.exists(tmp))
+        shutil.rmtree(tmp_dir)
+
+    def test_atomic_write_crash_before_replace(self):
+        """模拟 crash：tmp 已写但 replace 未执行 → 原文件完好"""
+        tmp_dir = tempfile.mkdtemp()
+        target = os.path.join(tmp_dir, "stats.json")
+        tmp = target + ".tmp"
+
+        # 原文件
+        with open(target, "w") as f:
+            json.dump({"status": "original"}, f)
+
+        # 写 tmp 但不执行 replace（模拟 crash）
+        with open(tmp, "w") as f:
+            json.dump({"status": "new_but_crashed"}, f)
+
+        # 原文件完好
+        with open(target) as f:
+            data = json.load(f)
+        self.assertEqual(data["status"], "original")
+        shutil.rmtree(tmp_dir)
+
+
+class TestMmIndexCorruptionRecovery(unittest.TestCase):
+    """测试 mm_index.py 元数据损坏恢复"""
+
+    def test_load_meta_uses_corruption_recovery(self):
+        """load_meta 包含 JSONDecodeError 恢复"""
+        with open("mm_index.py") as f:
+            content = f.read()
+        self.assertIn("json.JSONDecodeError", content)
+        self.assertIn(".corrupted", content)
+
+    def test_save_meta_uses_atomic_write(self):
+        """save_meta 使用 tmp + os.replace"""
+        with open("mm_index.py") as f:
+            content = f.read()
+        self.assertIn('META_FILE + ".tmp"', content)
+        self.assertIn("os.replace(tmp, META_FILE)", content)
+
+    def test_corrupted_json_recovery_simulation(self):
+        """模拟损坏的 JSON 文件恢复"""
+        tmp_dir = tempfile.mkdtemp()
+        meta_file = os.path.join(tmp_dir, "meta.json")
+
+        # 写入损坏的 JSON
+        with open(meta_file, "w") as f:
+            f.write("{truncated...")
+
+        # 读取时应该捕获异常
+        try:
+            with open(meta_file) as f:
+                json.load(f)
+            recovered = False
+        except json.JSONDecodeError:
+            # 备份损坏文件
+            backup = meta_file + ".corrupted"
+            os.replace(meta_file, backup)
+            recovered = True
+
+        self.assertTrue(recovered)
+        self.assertTrue(os.path.exists(meta_file + ".corrupted"))
+        self.assertFalse(os.path.exists(meta_file))
+        shutil.rmtree(tmp_dir)
+
+
+class TestLocalAlertFallback(unittest.TestCase):
+    """测试 job_watchdog 本地告警回退"""
+
+    def test_watchdog_has_alert_log(self):
+        """job_watchdog.sh 定义了本地告警文件"""
+        with open("job_watchdog.sh") as f:
+            content = f.read()
+        self.assertIn("ALERT_LOG", content)
+        self.assertIn(".openclaw_alerts.log", content)
+
+    def test_watchdog_writes_on_whatsapp_failure(self):
+        """WhatsApp 推送失败时写入本地告警"""
+        with open("job_watchdog.sh") as f:
+            content = f.read()
+        self.assertIn("UNDELIVERED ALERT", content)
+        self.assertIn("WhatsApp 推送失败", content)
+
+    def test_watchdog_always_writes_local(self):
+        """无论 WhatsApp 成功与否都写本地日志"""
+        with open("job_watchdog.sh") as f:
+            content = f.read()
+        # 在 WhatsApp 推送块之外还有一次 ALERT_LOG 写入
+        self.assertIn('echo "[$TS] ALERT: ${#ALERTS[@]} issues" >> "$ALERT_LOG"', content)
+
+    def test_alert_log_rotation(self):
+        """本地告警文件有自动截断（防止无限增长）"""
+        with open("job_watchdog.sh") as f:
+            content = f.read()
+        self.assertIn("tail -300", content)
+        self.assertIn("500", content)  # 阈值 500 行
+
+
+class TestCronDaemonDirectCheck(unittest.TestCase):
+    """测试 cron_doctor.sh cron daemon 直接检测"""
+
+    def test_doctor_checks_cron_daemon(self):
+        """cron_doctor.sh 直接检测 cron daemon 进程"""
+        with open("cron_doctor.sh") as f:
+            content = f.read()
+        self.assertIn("Cron daemon", content)
+        # macOS 用 launchctl
+        self.assertIn("launchctl list", content)
+        # Linux 用 pgrep
+        self.assertIn("pgrep", content)
+
+    def test_doctor_has_daemon_fix_command(self):
+        """cron daemon 不存在时给出修复命令"""
+        with open("cron_doctor.sh") as f:
+            content = f.read()
+        # macOS 修复命令
+        self.assertIn("launchctl load", content)
+        # 或 Linux 修复命令
+        self.assertIn("systemctl", content)
+
+    def test_doctor_daemon_check_both_platforms(self):
+        """cron_doctor.sh 同时支持 macOS 和 Linux"""
+        with open("cron_doctor.sh") as f:
+            content = f.read()
+        self.assertIn('$(uname)', content)
+        self.assertIn("Darwin", content)
+
+
+class TestUndeliveredAlertScanning(unittest.TestCase):
+    """测试 cron_doctor.sh 扫描未送达告警"""
+
+    def test_doctor_scans_undelivered_alerts(self):
+        """cron_doctor.sh 检查 .openclaw_alerts.log 中的未送达告警"""
+        with open("cron_doctor.sh") as f:
+            content = f.read()
+        self.assertIn("openclaw_alerts.log", content)
+
+    def test_alert_log_format(self):
+        """模拟告警日志格式正确"""
+        tmp_dir = tempfile.mkdtemp()
+        alert_log = os.path.join(tmp_dir, ".openclaw_alerts.log")
+
+        # 写入模拟告警
+        with open(alert_log, "w") as f:
+            f.write("=== UNDELIVERED ALERT [2026-03-26 10:00:00] ===\n")
+            f.write("Test alert message\n")
+            f.write("================================\n")
+
+        with open(alert_log) as f:
+            content = f.read()
+        self.assertIn("UNDELIVERED ALERT", content)
+        shutil.rmtree(tmp_dir)
+
+
 if __name__ == "__main__":
     unittest.main()

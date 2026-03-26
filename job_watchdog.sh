@@ -240,7 +240,18 @@ ALERT_MSG+="
 
 echo "$ALERT_MSG"
 
-# 推送 WhatsApp
+# 推送 WhatsApp（V30: 失败时写本地告警文件，打破 WhatsApp↔Gateway 循环依赖）
+ALERT_LOG="$HOME/.openclaw_alerts.log"
 "$OPENCLAW" message send --target "$TO" --message "$ALERT_MSG" --json >/dev/null 2>&1 || {
-    echo "[$TS] watchdog: ⚠️ WhatsApp 推送失败"
+    echo "[$TS] watchdog: ⚠️ WhatsApp 推送失败，写入本地告警文件"
+    echo "=== UNDELIVERED ALERT [$TS] ===" >> "$ALERT_LOG"
+    echo "$ALERT_MSG" >> "$ALERT_LOG"
+    echo "================================" >> "$ALERT_LOG"
 }
+
+# 本地告警文件始终写入（供 cron_doctor / SSH 检查时查看）
+echo "[$TS] ALERT: ${#ALERTS[@]} issues" >> "$ALERT_LOG"
+# 保留最近 500 行
+if [ -f "$ALERT_LOG" ] && [ "$(wc -l < "$ALERT_LOG" | tr -d ' ')" -gt 500 ]; then
+    tail -300 "$ALERT_LOG" > "$ALERT_LOG.tmp" && mv "$ALERT_LOG.tmp" "$ALERT_LOG"
+fi

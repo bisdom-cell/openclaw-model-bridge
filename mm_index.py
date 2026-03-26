@@ -65,17 +65,29 @@ def file_hash(path):
 
 
 def load_meta():
-    """加载已索引文件的元数据"""
+    """加载已索引文件的元数据（含损坏恢复）"""
     if os.path.isfile(META_FILE):
-        with open(META_FILE) as f:
-            return json.load(f)
+        try:
+            with open(META_FILE) as f:
+                return json.load(f)
+        except (json.JSONDecodeError, ValueError):
+            # meta.json 损坏（可能是 crash 导致的半写文件），重建索引
+            print(f"WARNING: {META_FILE} 损坏，将重建索引")
+            backup = META_FILE + ".corrupted"
+            try:
+                os.replace(META_FILE, backup)
+            except OSError:
+                pass
     return {"version": 1, "dim": EMBED_DIM, "entries": []}
 
 
 def save_meta(meta):
+    """原子写入 meta.json（tmp + replace，防 crash 损坏）"""
     os.makedirs(INDEX_DIR, exist_ok=True)
-    with open(META_FILE, "w") as f:
+    tmp = META_FILE + ".tmp"
+    with open(tmp, "w") as f:
         json.dump(meta, f, ensure_ascii=False, indent=2)
+    os.replace(tmp, META_FILE)
 
 
 def append_vector(vec):

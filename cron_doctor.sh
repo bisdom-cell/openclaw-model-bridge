@@ -154,7 +154,36 @@ if [ -f "$CANARY_FILE" ]; then
     fi
 else
     warn "心跳文件 $CANARY_FILE 不存在（cron_canary.sh 可能未注册到 crontab）"
-    info "注册：将 '*/10 * * * * bash $HOME/openclaw-model-bridge/cron_canary.sh' 加入 crontab"
+    info "注册：bash ~/crontab_safe.sh add '*/10 * * * * bash ~/cron_canary.sh'"
+fi
+
+# Cron daemon 进程直接检测（不依赖心跳文件）
+if [ "$(uname)" = "Darwin" ]; then
+    # macOS: 检查 cron daemon 是否被 launchd 管理且在运行
+    if launchctl list 2>/dev/null | grep -qi cron; then
+        pass "Cron daemon 进程存活 (launchd)"
+    else
+        fail "Cron daemon 未在 launchd 中！所有定时任务将不会执行"
+        info "修复：sudo launchctl load /System/Library/LaunchDaemons/com.vix.cron.plist"
+    fi
+else
+    # Linux: 检查 cron/crond 进程
+    if pgrep -x "cron\|crond" >/dev/null 2>&1; then
+        pass "Cron daemon 进程存活"
+    else
+        fail "Cron daemon 未运行！"
+        info "修复：sudo systemctl start cron"
+    fi
+fi
+
+# 未送达告警检查
+ALERT_LOG="$HOME/.openclaw_alerts.log"
+if [ -f "$ALERT_LOG" ]; then
+    UNDELIVERED=$(grep -c "UNDELIVERED ALERT" "$ALERT_LOG" 2>/dev/null || true)
+    if [ "${UNDELIVERED:-0}" -gt 0 ]; then
+        warn "有 ${UNDELIVERED} 条未送达的 WhatsApp 告警（Gateway 可能曾宕机）"
+        info "查看：tail -50 $ALERT_LOG"
+    fi
 fi
 
 # ═══════════════════════════════════════════════════════════════════
