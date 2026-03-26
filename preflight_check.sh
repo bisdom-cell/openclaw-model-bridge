@@ -26,7 +26,7 @@ echo "Mode: $([ "$FULL_MODE" = true ] && echo 'FULL (Mac Mini)' || echo 'DEV (re
 echo ""
 
 # ── 1. 单元测试 ──────────────────────────────────────────────────────
-echo "📋 1/12 单元测试"
+echo "📋 1/14 单元测试"
 
 if python3 test_tool_proxy.py > /dev/null 2>&1; then
     pass "proxy_filters 单测 (test_tool_proxy.py)"
@@ -42,7 +42,7 @@ fi
 
 # ── 2. 注册表校验 ─────────────────────────────────────────────────────
 echo ""
-echo "📋 2/12 注册表校验"
+echo "📋 2/14 注册表校验"
 
 if python3 check_registry.py > /dev/null 2>&1; then
     pass "jobs_registry.yaml 校验通过"
@@ -52,7 +52,7 @@ fi
 
 # ── 3. 文档漂移检测 ───────────────────────────────────────────────────
 echo ""
-echo "📋 3/12 文档漂移检测"
+echo "📋 3/14 文档漂移检测"
 
 if python3 gen_jobs_doc.py --check > /dev/null 2>&1; then
     pass "docs/config.md 与 registry 一致"
@@ -62,7 +62,7 @@ fi
 
 # ── 4. 脚本语法检查 + 权限检查 ────────────────────────────────────────
 echo ""
-echo "📋 4/12 脚本语法 & 权限"
+echo "📋 4/14 脚本语法 & 权限"
 
 # 从 registry 提取所有 enabled 的 entry 文件（兼容无 PyYAML 环境）
 SCRIPT_FILES=$(python3 -c "
@@ -128,7 +128,7 @@ done
 
 # ── 5. Python 文件语法检查 ────────────────────────────────────────────
 echo ""
-echo "📋 5/12 Python 语法检查"
+echo "📋 5/14 Python 语法检查"
 
 for pyfile in adapter.py tool_proxy.py proxy_filters.py check_registry.py gen_jobs_doc.py; do
     if [ -f "$SCRIPT_DIR/$pyfile" ]; then
@@ -142,7 +142,7 @@ done
 
 # ── 6. 部署文件一致性检查（仓库 vs 运行时副本）────────────────────────
 echo ""
-echo "📋 6/12 部署文件一致性"
+echo "📋 6/14 部署文件一致性"
 
 if $FULL_MODE; then
     # FILE_MAP from auto_deploy.sh
@@ -199,7 +199,7 @@ fi
 
 # ── 7. 环境变量检查（bash -lc 模拟 cron 环境）────────────────────────
 echo ""
-echo "📋 7/12 环境变量检查（cron 环境模拟）"
+echo "📋 7/14 环境变量检查（cron 环境模拟）"
 
 if $FULL_MODE; then
     # 模拟 cron 调用方式：bash -lc 读取 ~/.bash_profile
@@ -239,7 +239,7 @@ fi
 
 # ── 8. 服务连通性检查 ─────────────────────────────────────────────────
 echo ""
-echo "📋 8/12 服务连通性"
+echo "📋 8/14 服务连通性"
 
 if $FULL_MODE; then
     # Adapter :5001
@@ -271,7 +271,7 @@ fi
 
 # ── 9. 安全扫描（push 前必扫）────────────────────────────────────────
 echo ""
-echo "📋 9/12 安全扫描"
+echo "📋 9/14 安全扫描"
 
 # API Key 泄漏检查（只扫描 git 跟踪的文件，忽略 .gitignore 排除的本地配置）
 LEAK_SK=$(git grep -n "sk-[A-Za-z0-9]\{15,\}" -- "*.py" "*.sh" "*.md" 2>/dev/null | grep -v "sk-REPLACE-ME" | grep -v "sk-xxxx" || true)
@@ -297,7 +297,7 @@ fi
 # ── 10. Job 数据流 smoke test ──────────────────────────────────────────
 # 用合成数据验证 job 脚本的 shell→Python 数据传递，零接触生产状态
 echo ""
-echo "📋 10/12 Job 数据流 smoke test"
+echo "📋 10/14 Job 数据流 smoke test"
 
 # 10a. 反模式扫描：heredoc 结束符后紧跟 <<< 会导致 stdin 被 heredoc 耗尽
 #      python3 - <<'PYEOF' ... PYEOF; <<< "$DATA" → DATA 永远读不到
@@ -351,7 +351,7 @@ rm -rf "$SMOKE_DIR"
 
 # ── 11. 货代 deep_dive 静默失败检测 ─────────────────────────────────────
 echo ""
-echo "📋 11/12 货代 deep_dive 静默失败检测"
+echo "📋 11/14 货代 deep_dive 静默失败检测"
 
 if $FULL_MODE; then
     # 检查 last_run.json 中 deep_dive 字段
@@ -410,7 +410,7 @@ else
 fi
 
 # ── 12. #48703 WhatsApp listeners Map 补丁检测 ────────────────────────
-echo "📋 12/12 #48703 WhatsApp listeners Map 补丁"
+echo "📋 12/14 #48703 WhatsApp listeners Map 补丁"
 
 if $FULL_MODE; then
     OPENCLAW_DIST="/opt/homebrew/lib/node_modules/openclaw/dist"
@@ -427,6 +427,78 @@ if $FULL_MODE; then
     fi
 else
     skip "#48703 补丁检测（需在 Mac Mini 上验证）"
+fi
+
+# ── 13. 陈旧锁文件检测（V30新增）─────────────────────────────────────
+echo ""
+echo "📋 13/14 陈旧锁文件检测"
+
+if $FULL_MODE; then
+    STALE_LOCK_DIRS=(
+        "/tmp/arxiv_monitor.lockdir|ArXiv监控"
+        "/tmp/hn_watcher.lockdir|HN抓取"
+        "/tmp/freight_watcher.lockdir|货代Watcher"
+        "/tmp/job_watchdog.lockdir|元监控"
+        "/tmp/auto_deploy.lockdir|自动部署"
+        "/tmp/openclaw_run.lockdir|OpenClaw版本"
+        "/tmp/run_discussions.lockdir|Issues监控"
+        "/tmp/kb_review.lockdir|KB回顾"
+        "/tmp/kb_evening.lockdir|KB晚间"
+    )
+
+    STALE_COUNT=0
+    CHECK_EPOCH=$(date +%s)
+    for entry in "${STALE_LOCK_DIRS[@]}"; do
+        IFS='|' read -r lock_path name <<< "$entry"
+        if [ -d "$lock_path" ]; then
+            if [ "$(uname)" = "Darwin" ]; then
+                LOCK_EPOCH=$(stat -f %m "$lock_path" 2>/dev/null || echo "0")
+            else
+                LOCK_EPOCH=$(stat -c %Y "$lock_path" 2>/dev/null || echo "0")
+            fi
+            LOCK_AGE=$(( CHECK_EPOCH - LOCK_EPOCH ))
+            if [ "$LOCK_AGE" -gt 3600 ]; then
+                LOCK_HOURS=$(( LOCK_AGE / 3600 ))
+                fail "$name: 陈旧锁 $lock_path （${LOCK_HOURS}h）— 该 job 无法执行！"
+                STALE_COUNT=$((STALE_COUNT + 1))
+            fi
+        fi
+    done
+
+    if [ "$STALE_COUNT" -eq 0 ]; then
+        pass "无陈旧锁文件"
+    else
+        echo "      修复：rmdir /tmp/*.lockdir"
+    fi
+else
+    skip "陈旧锁文件检测（需在 Mac Mini 上验证）"
+fi
+
+# ── 14. Cron 心跳检测（V30新增）──────────────────────────────────────
+echo ""
+echo "📋 14/14 Cron 心跳检测"
+
+if $FULL_MODE; then
+    CANARY_FILE="$HOME/.cron_canary"
+    if [ -f "$CANARY_FILE" ]; then
+        CANARY_EPOCH=$(head -1 "$CANARY_FILE" 2>/dev/null | tr -d '[:space:]')
+        CHECK_NOW=$(date +%s)
+        if [[ "$CANARY_EPOCH" =~ ^[0-9]+$ ]]; then
+            CANARY_AGE=$(( CHECK_NOW - CANARY_EPOCH ))
+            CANARY_MINS=$(( CANARY_AGE / 60 ))
+            if [ "$CANARY_AGE" -gt 1800 ]; then
+                fail "Cron 心跳已 ${CANARY_MINS}m 未更新（cron daemon 可能已停止）"
+            else
+                pass "Cron 心跳正常（${CANARY_MINS}m 前更新）"
+            fi
+        else
+            warn "Cron 心跳文件格式异常"
+        fi
+    else
+        warn "Cron 心跳文件不存在（cron_canary.sh 未注册到 crontab？）"
+    fi
+else
+    skip "Cron 心跳检测（需在 Mac Mini 上验证）"
 fi
 
 # ── 汇总 ──────────────────────────────────────────────────────────────

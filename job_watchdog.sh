@@ -2,19 +2,33 @@
 # job_watchdog.sh — 元监控：检查所有定时任务是否按时执行
 # 每小时由系统 crontab 触发，检查各 job 的 last_run.json 时间戳
 # 如果任何 job 超过预期间隔的 2 倍仍未更新，发送 WhatsApp 告警
+# V30: + 陈旧锁文件自动清理 + cron 心跳检测
 # cron 环境 PATH 极简，必须显式声明（规则 #13）
 export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
 set -eo pipefail
 
 # 防重叠执行（mkdir 原子锁，macOS 兼容）
+# V30: 自身锁文件也加陈旧检测——超过30分钟则强制清理（防止 watchdog 自身被锁死）
 LOCK="/tmp/job_watchdog.lockdir"
+NOW_EPOCH=$(date +%s)
+if [ -d "$LOCK" ]; then
+    if [ "$(uname)" = "Darwin" ]; then
+        LOCK_EPOCH=$(stat -f %m "$LOCK" 2>/dev/null || echo "0")
+    else
+        LOCK_EPOCH=$(stat -c %Y "$LOCK" 2>/dev/null || echo "0")
+    fi
+    LOCK_AGE=$(( NOW_EPOCH - LOCK_EPOCH ))
+    if [ "$LOCK_AGE" -gt 1800 ]; then
+        echo "[watchdog] Stale self-lock detected (${LOCK_AGE}s old), force clearing"
+        rmdir "$LOCK" 2>/dev/null || rm -rf "$LOCK" 2>/dev/null
+    fi
+fi
 mkdir "$LOCK" 2>/dev/null || { echo "[watchdog] Already running, skip"; exit 0; }
 trap 'rmdir "$LOCK" 2>/dev/null' EXIT
 
 OPENCLAW="${OPENCLAW:-/opt/homebrew/bin/openclaw}"
 TO="${OPENCLAW_PHONE:-+85200000000}"
 TS="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')"
-NOW_EPOCH=$(date +%s)
 
 # ── 监控列表：job_id | status_file 路径 | 最大允许静默时间(秒) | 显示名 ──
 # 静默时间 = interval × 2 + 缓冲，确保不会因为单次正常跳过就误报
@@ -110,6 +124,57 @@ if [ -d "$LOG_DIR" ]; then
     fi
 fi
 
+# ── 陈旧锁文件检测 + 自动清理（V30新增）──────────────────────────────
+# 锁文件超过1小时 = 对应 job 进程已死但锁未释放（kill -9/系统崩溃）
+# 自动清理后下次 cron 触发时 job 才能正常执行
+STALE_LOCK_DIRS=(
+    "/tmp/arxiv_monitor.lockdir|ArXiv监控"
+    "/tmp/hn_watcher.lockdir|HN抓取"
+    "/tmp/freight_watcher.lockdir|货代Watcher"
+    "/tmp/auto_deploy.lockdir|自动部署"
+    "/tmp/openclaw_run.lockdir|OpenClaw版本"
+    "/tmp/run_discussions.lockdir|Issues监控"
+    "/tmp/kb_review.lockdir|KB回顾"
+    "/tmp/kb_evening.lockdir|KB晚间"
+)
+
+STALE_CLEANED=0
+for entry in "${STALE_LOCK_DIRS[@]}"; do
+    IFS='|' read -r lock_path name <<< "$entry"
+    if [ -d "$lock_path" ]; then
+        if [ "$(uname)" = "Darwin" ]; then
+            LOCK_EPOCH=$(stat -f %m "$lock_path" 2>/dev/null || echo "0")
+        else
+            LOCK_EPOCH=$(stat -c %Y "$lock_path" 2>/dev/null || echo "0")
+        fi
+        LOCK_AGE=$(( NOW_EPOCH - LOCK_EPOCH ))
+        if [ "$LOCK_AGE" -gt 3600 ]; then
+            LOCK_HOURS=$(( LOCK_AGE / 3600 ))
+            rmdir "$lock_path" 2>/dev/null || rm -rf "$lock_path" 2>/dev/null
+            ALERTS+=("$name: 陈旧锁文件已清理（存在 ${LOCK_HOURS}h，进程已死）")
+            STALE_CLEANED=$((STALE_CLEANED + 1))
+        fi
+    fi
+done
+
+if [ "$STALE_CLEANED" -gt 0 ]; then
+    ALERTS+=("🔧 共清理 $STALE_CLEANED 个陈旧锁文件，对应 job 将在下次 cron 触发时恢复")
+fi
+
+# ── Cron 心跳检测（V30新增）───────────────────────────────────────────
+# cron_canary.sh 每10分钟写一次心跳；超过30分钟 = cron daemon 可能停止
+CANARY_FILE="$HOME/.cron_canary"
+if [ -f "$CANARY_FILE" ]; then
+    CANARY_EPOCH=$(head -1 "$CANARY_FILE" 2>/dev/null | tr -d '[:space:]')
+    if [[ "$CANARY_EPOCH" =~ ^[0-9]+$ ]]; then
+        CANARY_AGE=$(( NOW_EPOCH - CANARY_EPOCH ))
+        if [ "$CANARY_AGE" -gt 1800 ]; then
+            CANARY_MINS=$(( CANARY_AGE / 60 ))
+            ALERTS+=("⚠️ Cron 心跳已 ${CANARY_MINS}m 未更新（cron daemon 可能已停止！）")
+        fi
+    fi
+fi
+
 # ── Proxy 监控：token 用量 + 错误率 ──────────────────────────────────
 PROXY_STATS="$HOME/proxy_stats.json"
 if [ -f "$PROXY_STATS" ]; then
@@ -168,9 +233,10 @@ for a in "${ALERTS[@]}"; do
 done
 ALERT_MSG+="
 排查建议：
-1. 检查对应日志文件
-2. 手动执行脚本验证
-3. crontab -l 确认调度条目正确"
+1. bash cron_doctor.sh  # 全面诊断
+2. rmdir /tmp/*.lockdir  # 清除残留锁
+3. crontab -l  # 确认调度条目
+4. 检查对应日志文件"
 
 echo "$ALERT_MSG"
 
