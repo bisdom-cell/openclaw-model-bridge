@@ -53,6 +53,9 @@ DEFAULT_STATUS = {
         "last_preflight_time": "",
         "last_trend_report": "",
         "model_id": "",
+        "kb_stats": "",
+        "stale_jobs": "",
+        "last_refresh": "",
     },
 
     # 本周焦点（开工时 Claude Code 设置，PA 可引用）

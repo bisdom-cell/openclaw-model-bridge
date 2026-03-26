@@ -157,10 +157,12 @@ sections.append("""---
 > 用户询问最近资讯/论文/新闻时，请参考以上内容回答。
 > 需要更详细信息，可用 read 工具读取 ~/.kb/sources/ 下的完整归档。""")
 
-# ── 写入 ──
+# ── 原子写入（tmp + replace，防 crash 损坏）──
 output = '\n\n'.join(sections) + '\n'
-with open(digest_file, 'w') as f:
+tmp = digest_file + '.tmp'
+with open(tmp, 'w') as f:
     f.write(output)
+import os; os.replace(tmp, digest_file)
 
 print(f"OK: {digest_file} ({len(output)} chars, {len(note_items)} notes)")
 PYEOF
@@ -172,8 +174,9 @@ WORKSPACE_DIR="$HOME/.openclaw/workspace/.openclaw"
 WORKSPACE_MD="$WORKSPACE_DIR/CLAUDE.md"
 mkdir -p "$WORKSPACE_DIR"
 
-# 静态 PA 指引 + 运维知识精华 + 动态 KB 摘要
-cat > "$WORKSPACE_MD" << 'MDEOF'
+# 静态 PA 指引 + 运维知识精华 + 动态 KB 摘要（原子写入）
+WORKSPACE_TMP="$WORKSPACE_MD.tmp"
+cat > "$WORKSPACE_TMP" << 'MDEOF'
 # Wei — Personal AI Assistant
 
 ## 身份
@@ -241,7 +244,7 @@ bash ~/kb_write.sh "用户的反馈内容" "feedback" "feedback"
 MDEOF
 
 # 追加动态 KB 摘要
-cat >> "$WORKSPACE_MD" << MDEOF
+cat >> "$WORKSPACE_TMP" << MDEOF
 ## 知识库
 以下是最近的知识库摘要，直接参考回答用户关于近期资讯、论文、新闻的问题：
 
@@ -272,7 +275,13 @@ $(cat "$DIGEST_FILE" 2>/dev/null || echo '（摘要暂未生成）')
 查看索引统计：\`python3 ~/mm_search.py --stats\`
 MDEOF
 
+mv "$WORKSPACE_TMP" "$WORKSPACE_MD"
 log "workspace CLAUDE.md 已同步 ($(wc -c < "$WORKSPACE_MD" | tr -d ' ') bytes)"
+
+# ── 权限收紧（防止 other 用户读取 KB 数据）──
+chmod 750 "$KB_DIR" 2>/dev/null || true
+chmod 640 "$KB_DIR/status.json" 2>/dev/null || true
+chmod 640 "$KB_DIR/index.json" 2>/dev/null || true
 
 # ── rsync 备份 ──
 rsync -a --quiet "$KB_DIR/" "/Volumes/MOVESPEED/KB/" 2>/dev/null || true
