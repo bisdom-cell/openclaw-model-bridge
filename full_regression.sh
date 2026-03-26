@@ -1,0 +1,147 @@
+#!/bin/bash
+# full_regression.sh — 全量全业务回归测试
+# 每次发布新功能/新任务前必须运行，100% 通过才允许推送
+# 用法：bash full_regression.sh
+set -uo pipefail
+
+PASS=0
+FAIL=0
+TOTAL_TESTS=0
+FAILED_SUITES=()
+
+TS="$(date '+%Y-%m-%d %H:%M:%S')"
+echo "╔══════════════════════════════════════════════════════╗"
+echo "║     Full Regression Test — 全量全业务回归测试         ║"
+echo "║     $TS                            ║"
+echo "╚══════════════════════════════════════════════════════╝"
+echo ""
+
+run_suite() {
+    local name="$1"
+    local cmd="$2"
+    echo -n "  🧪 $name ... "
+    output=$(eval "$cmd" 2>&1)
+    rc=$?
+    # 提取测试数量
+    count=$(echo "$output" | grep -oE 'Ran [0-9]+ test' | grep -oE '[0-9]+' || echo "0")
+    TOTAL_TESTS=$((TOTAL_TESTS + count))
+    if [ "$rc" -eq 0 ]; then
+        echo "✅ ($count tests)"
+        PASS=$((PASS + 1))
+    else
+        echo "❌ FAILED"
+        echo "$output" | tail -10
+        echo ""
+        FAIL=$((FAIL + 1))
+        FAILED_SUITES+=("$name")
+    fi
+}
+
+# ═══════════════════════════════════════════════════════════════
+# 第一层：单元测试（纯逻辑，无外部依赖）
+# ═══════════════════════════════════════════════════════════════
+echo "📋 第一层：单元测试"
+run_suite "proxy_filters (工具过滤/截断/SSE)" "python3 test_tool_proxy.py"
+run_suite "check_registry (注册表校验器)" "python3 test_check_registry.py"
+run_suite "cron_health (锁/心跳/告警/完整性)" "python3 test_cron_health.py"
+run_suite "status_update (三方状态CRUD)" "python3 test_status_update.py"
+run_suite "adapter (路由/Fallback/认证)" "python3 test_adapter.py"
+run_suite "kb_business (KB全业务逻辑)" "python3 test_kb_business.py"
+
+# 条件性测试（仅当文件存在时运行）
+for tf in test_conv_quality.py test_kb_autotag.py test_kb_dedup.py test_token_report.py test_arxiv_parser.py test_shell_antipatterns.py; do
+    if [ -f "$tf" ]; then
+        suite_name=$(echo "$tf" | sed 's/test_//' | sed 's/.py//')
+        run_suite "$suite_name" "python3 $tf"
+    fi
+done
+echo ""
+
+# ═══════════════════════════════════════════════════════════════
+# 第二层：注册表 + 文档一致性
+# ═══════════════════════════════════════════════════════════════
+echo "📋 第二层：注册表与文档"
+echo -n "  📑 jobs_registry.yaml 校验 ... "
+if python3 check_registry.py 2>&1 | grep -q "OK"; then
+    echo "✅"
+    PASS=$((PASS + 1))
+else
+    echo "❌"
+    FAIL=$((FAIL + 1))
+    FAILED_SUITES+=("registry validation")
+fi
+
+echo -n "  📑 docs/config.md 漂移检测 ... "
+if python3 gen_jobs_doc.py --check 2>&1 | grep -q "OK"; then
+    echo "✅"
+    PASS=$((PASS + 1))
+else
+    echo "❌"
+    python3 gen_jobs_doc.py --check 2>&1
+    FAIL=$((FAIL + 1))
+    FAILED_SUITES+=("config drift")
+fi
+echo ""
+
+# ═══════════════════════════════════════════════════════════════
+# 第三层：安全扫描
+# ═══════════════════════════════════════════════════════════════
+echo "📋 第三层：安全扫描"
+echo -n "  🔒 API Key 泄漏扫描 ... "
+LEAKED=$(grep -r "sk-[A-Za-z0-9]\{20,\}" . --include="*.py" --include="*.sh" 2>/dev/null | grep -v ".git" | grep -v "sk-xx" | grep -v "sk-REPLACE" | grep -v "sk-X\.\.\." | grep -v "test_" || true)
+if [ -z "$LEAKED" ]; then
+    echo "✅"
+    PASS=$((PASS + 1))
+else
+    echo "❌"
+    echo "$LEAKED"
+    FAIL=$((FAIL + 1))
+    FAILED_SUITES+=("API key leak")
+fi
+
+echo -n "  🔒 手机号泄漏扫描 ... "
+PHONE_LEAKED=$(grep -r "+852[0-9]\{8\}" . --include="*.py" --include="*.sh" 2>/dev/null | grep -v ".git" | grep -v "+85200000000" | grep -v "test_" || true)
+if [ -z "$PHONE_LEAKED" ]; then
+    echo "✅"
+    PASS=$((PASS + 1))
+else
+    echo "❌"
+    echo "$PHONE_LEAKED"
+    FAIL=$((FAIL + 1))
+    FAILED_SUITES+=("phone leak")
+fi
+
+echo -n "  🔒 危险 crontab 模式扫描 ... "
+DANGEROUS=$(grep -rn "| crontab -" . --include="*.sh" 2>/dev/null | grep -v ".git" | grep -v "^.*:#" | grep -v "echo" | grep -v "crontab_safe" | grep -v "full_regression" || true)
+if [ -z "$DANGEROUS" ]; then
+    echo "✅"
+    PASS=$((PASS + 1))
+else
+    echo "❌"
+    echo "$DANGEROUS"
+    FAIL=$((FAIL + 1))
+    FAILED_SUITES+=("dangerous crontab pattern")
+fi
+echo ""
+
+# ═══════════════════════════════════════════════════════════════
+# 汇总
+# ═══════════════════════════════════════════════════════════════
+echo "══════════════════════════════════════════════════════"
+echo "  结果: $PASS 通过 / $FAIL 失败 / 共 $TOTAL_TESTS 个测试用例"
+echo "══════════════════════════════════════════════════════"
+
+if [ "$FAIL" -gt 0 ]; then
+    echo ""
+    echo "❌ 失败项:"
+    for s in "${FAILED_SUITES[@]}"; do
+        echo "  • $s"
+    done
+    echo ""
+    echo "⛔ 回归测试未通过，禁止推送！"
+    exit 1
+else
+    echo ""
+    echo "✅ 全量回归测试通过，可以安全推送"
+    exit 0
+fi

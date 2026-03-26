@@ -152,6 +152,10 @@
 | `test_cron_health.py` | **V30新增** 定时任务健康检测单测（94个用例：锁/心跳/告警/原子写入/损坏恢复/daemon检测/完整性/状态刷新） |
 | `kb_status_refresh.sh` | **V30.1新增** 每小时刷新 status.json 系统健康字段（三层服务/模型ID/KB统计/过期job），补齐三方宪法实时同步 |
 | `kb_integrity.py` | **V30.1新增** KB 文件完整性校验器（SHA256 指纹比对、目录文件数监控、权限检查、status.json 结构验证） |
+| `test_status_update.py` | **V30.1新增** status_update.py 全量单测（33个用例：原子读写/嵌套字段/数组操作/优先级CRUD/CLI接口） |
+| `test_adapter.py` | **V30.1新增** adapter.py 全量单测（36个用例：Provider注册表/认证头/多模态路由/Fallback/智能路由/健康端点） |
+| `test_kb_business.py` | **V30.1新增** KB全业务逻辑单测（44个用例：kb_embed/kb_rag/kb_trend/mm_index/mm_search/kb_integrity/安全模式） |
+| `full_regression.sh` | **V30.1新增** 全量回归测试一键运行器（三层：单元测试+注册表文档+安全扫描，374个用例，100%通过才允许推送） |
 
 ## V30 变更摘要（2026-03-26）
 
@@ -196,7 +200,8 @@
 4. **KB 目录权限收紧**：`~/.kb/` 设为 750、关键文件设为 640，阻止 other 用户读取
 5. **status.json 独立备份**：`openclaw_backup.sh` 新增 status_history/ 目录，每日独立备份，保留 30 天历史；备份后自动刷新完整性指纹
 6. **status_update.py 字段扩展**：新增 `kb_stats`、`stale_jobs`、`last_refresh` 字段，供三方实时消费
-7. **单测扩展至 179 个**：新增 22 个测试（状态刷新/完整性校验/原子写入/备份/字段完整性）
+7. **单测扩展至 179→374 个**：新增 22 个测试（状态刷新/完整性校验/原子写入/备份/字段完整性）+ 全量回归测试框架
+8. **全量回归测试框架**：`full_regression.sh` 一键运行 374 个测试用例（12个测试套件+注册表校验+文档漂移+安全扫描），100% 通过才允许推送；新增 `test_status_update.py`（33用例）、`test_adapter.py`（36用例）、`test_kb_business.py`（44用例）
 
 ## V27 变更摘要
 
@@ -330,6 +335,9 @@ python3 check_registry.py
 
 # 一键 smoke test（单测+注册表+连通性）
 bash smoke_test.sh
+
+# 全量回归测试（374个用例，发布前必须100%通过）
+bash full_regression.sh
 
 # 收工前全面体检（dev 环境）
 bash preflight_check.sh

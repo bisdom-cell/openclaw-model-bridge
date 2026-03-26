@@ -603,7 +603,7 @@ class TestDangerousPatternBanned(unittest.TestCase):
                     stripped = line.strip()
                     if stripped.startswith("#") or stripped.startswith("echo"):
                         continue
-                    if "| crontab -" in line and "crontab_safe" not in sh_file:
+                    if "| crontab -" in line and "crontab_safe" not in sh_file and "full_regression" not in sh_file:
                         dangerous_files.append(f"{sh_file}:{i}")
         self.assertEqual(
             dangerous_files, [],
