@@ -127,6 +127,9 @@ declare -a FILE_MAP=(
     "audit_log.py|$HOME/audit_log.py"
     "security_score.py|$HOME/security_score.py"
 
+    # 数据清洗工具
+    "data_clean.py|$HOME/data_clean.py"
+
     # 自部署（bootstrapping）
     "auto_deploy.sh|$HOME/openclaw-model-bridge/auto_deploy.sh"
 
