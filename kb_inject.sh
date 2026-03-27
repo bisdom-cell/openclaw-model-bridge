@@ -169,6 +169,78 @@ PYEOF
 
 log "摘要已生成: $DIGEST_FILE"
 
+# ── 推送 WhatsApp 每日摘要 ──
+PHONE="${OPENCLAW_PHONE:-+85200000000}"
+
+# 提取摘要关键信息作为推送内容（WhatsApp 消息不宜过长）
+WA_MSG=$(python3 - "$DIGEST_FILE" << 'PYEOF'
+import sys
+
+try:
+    with open(sys.argv[1]) as f:
+        content = f.read()
+except OSError:
+    print("（摘要文件读取失败）")
+    sys.exit(0)
+
+lines = content.split('\n')
+parts = []
+
+# 提取头部统计
+for line in lines[:5]:
+    if line.startswith('>'):
+        parts.append(line.lstrip('> ').strip())
+
+# 提取近期笔记（最多5条）
+in_notes = False
+note_lines = []
+for line in lines:
+    if line.startswith('## 近期笔记'):
+        in_notes = True
+        continue
+    if in_notes:
+        if line.startswith('## ') or not line.strip():
+            if note_lines:
+                break
+            continue
+        note_lines.append(line.strip())
+        if len(note_lines) >= 5:
+            break
+
+# 提取各来源标题
+source_titles = []
+for line in lines:
+    if line.startswith('## ') and line[3:].strip() not in ('近期笔记', '用户反馈'):
+        title = line[3:].strip()
+        if title and not title.startswith('---'):
+            source_titles.append(title)
+
+header = parts[0] if parts else '每日摘要'
+stats = ' | '.join(parts[1:3]) if len(parts) >= 3 else ''
+
+msg = f"📰 KB {header}\n"
+if stats:
+    msg += f"📊 {stats}\n"
+if source_titles:
+    msg += f"📁 来源: {', '.join(source_titles)}\n"
+if note_lines:
+    msg += "\n📝 近期笔记:\n" + '\n'.join(note_lines[:5]) + "\n"
+
+msg += "\n💡 详细内容可在对话中直接提问"
+print(msg[:800])
+PYEOF
+)
+
+SEND_ERR=$(mktemp)
+if openclaw message send --target "$PHONE" --message "$WA_MSG" --json >/dev/null 2>"$SEND_ERR"; then
+    log "每日摘要已推送 WhatsApp"
+else
+    log "WARNING: WhatsApp 推送失败: $(head -3 "$SEND_ERR" 2>/dev/null)"
+    # 本地告警回退（V30: 监控不依赖被监控对象）
+    echo "[$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')] kb_inject: WhatsApp 推送失败" >> ~/.openclaw_alerts.log 2>/dev/null || true
+fi
+rm -f "$SEND_ERR"
+
 # ── 同步到 workspace CLAUDE.md（每个新 session 自动加载） ──
 WORKSPACE_DIR="$HOME/.openclaw/workspace/.openclaw"
 WORKSPACE_MD="$WORKSPACE_DIR/CLAUDE.md"
