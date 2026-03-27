@@ -375,6 +375,394 @@ class TestEndToEnd(unittest.TestCase):
         self.assertEqual(result, 1)
 
 
+class TestFormatDetection(unittest.TestCase):
+    """格式检测测试"""
+
+    def test_detect_csv(self):
+        with tempfile.NamedTemporaryFile(suffix=".csv", delete=False) as f:
+            f.write(b"a,b\n1,2\n")
+            self.addCleanup(os.unlink, f.name)
+            self.assertEqual(dc.detect_format(f.name), "csv")
+
+    def test_detect_tsv(self):
+        with tempfile.NamedTemporaryFile(suffix=".tsv", delete=False) as f:
+            f.write(b"a\tb\n1\t2\n")
+            self.addCleanup(os.unlink, f.name)
+            self.assertEqual(dc.detect_format(f.name), "tsv")
+
+    def test_detect_json(self):
+        with tempfile.NamedTemporaryFile(suffix=".json", delete=False, mode="w") as f:
+            json.dump([{"a": 1}], f)
+            self.addCleanup(os.unlink, f.name)
+            self.assertEqual(dc.detect_format(f.name), "json")
+
+    def test_detect_jsonl(self):
+        with tempfile.NamedTemporaryFile(suffix=".jsonl", delete=False, mode="w") as f:
+            f.write('{"a":1}\n{"a":2}\n')
+            self.addCleanup(os.unlink, f.name)
+            self.assertEqual(dc.detect_format(f.name), "jsonl")
+
+    def test_detect_xlsx(self):
+        with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as f:
+            self.addCleanup(os.unlink, f.name)
+            self.assertEqual(dc.detect_format(f.name), "xlsx")
+
+    def test_detect_tab_as_tsv(self):
+        with tempfile.NamedTemporaryFile(suffix=".tab", delete=False) as f:
+            f.write(b"a\tb\n")
+            self.addCleanup(os.unlink, f.name)
+            self.assertEqual(dc.detect_format(f.name), "tsv")
+
+
+class TestStringify(unittest.TestCase):
+    """值转字符串测试"""
+
+    def test_none(self):
+        self.assertEqual(dc._stringify(None), "")
+
+    def test_bool(self):
+        self.assertEqual(dc._stringify(True), "true")
+        self.assertEqual(dc._stringify(False), "false")
+
+    def test_int(self):
+        self.assertEqual(dc._stringify(42), "42")
+
+    def test_float(self):
+        self.assertEqual(dc._stringify(3.14), "3.14")
+
+    def test_dict(self):
+        result = dc._stringify({"key": "val"})
+        self.assertIn("key", result)
+
+    def test_list(self):
+        result = dc._stringify([1, 2, 3])
+        self.assertIn("1", result)
+
+    def test_string_passthrough(self):
+        self.assertEqual(dc._stringify("hello"), "hello")
+
+
+class TestTSV(unittest.TestCase):
+    """TSV 读写测试"""
+
+    def test_read_tsv(self):
+        with tempfile.NamedTemporaryFile(suffix=".tsv", delete=False, mode="w") as f:
+            f.write("id\tname\tdate\n1\tAlice\t2026-01-01\n2\tBob\t2026-02-01\n")
+            self.addCleanup(os.unlink, f.name)
+
+        headers, rows = dc.read_data(f.name)
+        self.assertEqual(headers, ["id", "name", "date"])
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(rows[0]["name"], "Alice")
+
+    def test_write_tsv(self):
+        path = tempfile.mktemp(suffix=".tsv")
+        self.addCleanup(lambda: os.unlink(path) if os.path.exists(path) else None)
+
+        dc.write_data(path, ["a", "b"], [{"a": "1", "b": "2"}], "tsv")
+        headers, rows = dc.read_data(path)
+        self.assertEqual(headers, ["a", "b"])
+        self.assertEqual(rows[0]["a"], "1")
+
+    def test_tsv_roundtrip(self):
+        path = tempfile.mktemp(suffix=".tsv")
+        self.addCleanup(lambda: os.unlink(path) if os.path.exists(path) else None)
+
+        original = [{"id": "1", "name": "Alice"}, {"id": "2", "name": "Bob"}]
+        dc.write_data(path, ["id", "name"], original, "tsv")
+        headers, rows = dc.read_data(path)
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(rows[1]["name"], "Bob")
+
+
+class TestJSON(unittest.TestCase):
+    """JSON 读写测试"""
+
+    def test_read_json_array(self):
+        path = tempfile.mktemp(suffix=".json")
+        self.addCleanup(lambda: os.unlink(path) if os.path.exists(path) else None)
+        with open(path, "w") as f:
+            json.dump([{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}], f)
+
+        headers, rows = dc.read_data(path)
+        self.assertEqual(headers, ["id", "name"])
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(rows[0]["id"], "1")  # 转为字符串
+
+    def test_read_json_wrapped(self):
+        """支持 {"data": [...]} 格式"""
+        path = tempfile.mktemp(suffix=".json")
+        self.addCleanup(lambda: os.unlink(path) if os.path.exists(path) else None)
+        with open(path, "w") as f:
+            json.dump({"data": [{"id": 1}, {"id": 2}]}, f)
+
+        headers, rows = dc.read_data(path)
+        self.assertEqual(len(rows), 2)
+
+    def test_read_json_records_key(self):
+        """支持 {"records": [...]} 格式"""
+        path = tempfile.mktemp(suffix=".json")
+        self.addCleanup(lambda: os.unlink(path) if os.path.exists(path) else None)
+        with open(path, "w") as f:
+            json.dump({"records": [{"a": 1}]}, f)
+
+        headers, rows = dc.read_data(path)
+        self.assertEqual(len(rows), 1)
+
+    def test_read_json_single_object(self):
+        """单个对象当作一行"""
+        path = tempfile.mktemp(suffix=".json")
+        self.addCleanup(lambda: os.unlink(path) if os.path.exists(path) else None)
+        with open(path, "w") as f:
+            json.dump({"id": 1, "name": "Alice"}, f)
+
+        headers, rows = dc.read_data(path)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["name"], "Alice")
+
+    def test_json_null_to_empty(self):
+        """JSON null → 空字符串"""
+        path = tempfile.mktemp(suffix=".json")
+        self.addCleanup(lambda: os.unlink(path) if os.path.exists(path) else None)
+        with open(path, "w") as f:
+            json.dump([{"id": 1, "name": None}], f)
+
+        _, rows = dc.read_data(path)
+        self.assertEqual(rows[0]["name"], "")
+
+    def test_json_bool_to_string(self):
+        """JSON bool → "true"/"false" """
+        path = tempfile.mktemp(suffix=".json")
+        self.addCleanup(lambda: os.unlink(path) if os.path.exists(path) else None)
+        with open(path, "w") as f:
+            json.dump([{"active": True, "deleted": False}], f)
+
+        _, rows = dc.read_data(path)
+        self.assertEqual(rows[0]["active"], "true")
+        self.assertEqual(rows[0]["deleted"], "false")
+
+    def test_json_heterogeneous_keys(self):
+        """不同行有不同 key"""
+        path = tempfile.mktemp(suffix=".json")
+        self.addCleanup(lambda: os.unlink(path) if os.path.exists(path) else None)
+        with open(path, "w") as f:
+            json.dump([{"a": 1}, {"a": 2, "b": 3}], f)
+
+        headers, rows = dc.read_data(path)
+        self.assertIn("b", headers)
+        self.assertEqual(rows[0]["b"], "")  # 第一行缺少 b
+
+    def test_write_json(self):
+        path = tempfile.mktemp(suffix=".json")
+        self.addCleanup(lambda: os.unlink(path) if os.path.exists(path) else None)
+
+        dc.write_data(path, ["id", "name"], [{"id": "1", "name": "Alice"}], "json")
+        with open(path) as f:
+            data = json.load(f)
+        self.assertEqual(len(data), 1)
+        self.assertEqual(data[0]["name"], "Alice")
+
+
+class TestJSONL(unittest.TestCase):
+    """JSONL 读写测试"""
+
+    def test_read_jsonl(self):
+        path = tempfile.mktemp(suffix=".jsonl")
+        self.addCleanup(lambda: os.unlink(path) if os.path.exists(path) else None)
+        with open(path, "w") as f:
+            f.write('{"id":1,"name":"Alice"}\n{"id":2,"name":"Bob"}\n')
+
+        headers, rows = dc.read_data(path)
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(rows[1]["name"], "Bob")
+
+    def test_read_jsonl_with_blank_lines(self):
+        path = tempfile.mktemp(suffix=".jsonl")
+        self.addCleanup(lambda: os.unlink(path) if os.path.exists(path) else None)
+        with open(path, "w") as f:
+            f.write('{"a":1}\n\n{"a":2}\n\n')
+
+        _, rows = dc.read_data(path)
+        self.assertEqual(len(rows), 2)
+
+    def test_read_jsonl_with_bad_lines(self):
+        """跳过无法解析的行"""
+        path = tempfile.mktemp(suffix=".jsonl")
+        self.addCleanup(lambda: os.unlink(path) if os.path.exists(path) else None)
+        with open(path, "w") as f:
+            f.write('{"a":1}\nINVALID\n{"a":2}\n')
+
+        _, rows = dc.read_data(path)
+        self.assertEqual(len(rows), 2)
+
+    def test_write_jsonl(self):
+        path = tempfile.mktemp(suffix=".jsonl")
+        self.addCleanup(lambda: os.unlink(path) if os.path.exists(path) else None)
+
+        dc.write_data(path, ["x"], [{"x": "1"}, {"x": "2"}], "jsonl")
+        _, rows = dc.read_data(path)
+        self.assertEqual(len(rows), 2)
+
+
+class TestExcel(unittest.TestCase):
+    """Excel (.xlsx) 读写测试"""
+
+    @classmethod
+    def setUpClass(cls):
+        try:
+            import openpyxl
+            cls.has_openpyxl = True
+        except ImportError:
+            cls.has_openpyxl = False
+
+    def _create_xlsx(self, path, headers, data_rows):
+        import openpyxl
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.append(headers)
+        for row in data_rows:
+            ws.append(row)
+        wb.save(path)
+        wb.close()
+
+    def test_read_xlsx(self):
+        if not self.has_openpyxl:
+            self.skipTest("openpyxl not installed")
+        path = tempfile.mktemp(suffix=".xlsx")
+        self.addCleanup(lambda: os.unlink(path) if os.path.exists(path) else None)
+        self._create_xlsx(path, ["id", "name"], [[1, "Alice"], [2, "Bob"]])
+
+        headers, rows = dc.read_data(path)
+        self.assertEqual(headers, ["id", "name"])
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(rows[0]["id"], "1")
+        self.assertEqual(rows[1]["name"], "Bob")
+
+    def test_write_xlsx(self):
+        if not self.has_openpyxl:
+            self.skipTest("openpyxl not installed")
+        path = tempfile.mktemp(suffix=".xlsx")
+        self.addCleanup(lambda: os.unlink(path) if os.path.exists(path) else None)
+
+        dc.write_data(path, ["a", "b"], [{"a": "1", "b": "2"}], "xlsx")
+        headers, rows = dc.read_data(path)
+        self.assertEqual(rows[0]["a"], "1")
+
+    def test_xlsx_with_none(self):
+        """Excel 空单元格 → 空字符串"""
+        if not self.has_openpyxl:
+            self.skipTest("openpyxl not installed")
+        path = tempfile.mktemp(suffix=".xlsx")
+        self.addCleanup(lambda: os.unlink(path) if os.path.exists(path) else None)
+        self._create_xlsx(path, ["id", "name"], [[1, None], [2, "Bob"]])
+
+        _, rows = dc.read_data(path)
+        self.assertEqual(rows[0]["name"], "")
+
+    def test_xlsx_roundtrip(self):
+        if not self.has_openpyxl:
+            self.skipTest("openpyxl not installed")
+        path = tempfile.mktemp(suffix=".xlsx")
+        self.addCleanup(lambda: os.unlink(path) if os.path.exists(path) else None)
+
+        original = [{"id": "1", "name": "Alice"}, {"id": "2", "name": "Bob"}]
+        dc.write_data(path, ["id", "name"], original, "xlsx")
+        _, rows = dc.read_data(path)
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(rows[0]["name"], "Alice")
+
+
+class TestMultiFormatEndToEnd(unittest.TestCase):
+    """多格式端到端测试"""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.orig_workspace = dc.WORKSPACE
+        self.orig_version_dir = dc.VERSION_DIR
+        self.orig_log_file = dc.LOG_FILE
+        dc.WORKSPACE = self.tmpdir
+        dc.VERSION_DIR = os.path.join(self.tmpdir, "versions")
+        dc.LOG_FILE = os.path.join(self.tmpdir, "audit.jsonl")
+        os.makedirs(dc.VERSION_DIR, exist_ok=True)
+
+    def tearDown(self):
+        dc.WORKSPACE = self.orig_workspace
+        dc.VERSION_DIR = self.orig_version_dir
+        dc.LOG_FILE = self.orig_log_file
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+    def test_tsv_execute(self):
+        """TSV 清洗：输出也是 .tsv"""
+        path = os.path.join(self.tmpdir, "data.tsv")
+        with open(path, "w") as f:
+            f.write("id\tname\n1\t  Alice \n2\tBob\n1\t  Alice \n")
+
+        rc = dc.cmd_execute(path, ["trim", "dedup"], {})
+        self.assertEqual(rc, 0)
+        output = os.path.join(self.tmpdir, "data_cleaned.tsv")
+        self.assertTrue(os.path.exists(output))
+        _, rows = dc.read_data(output)
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(rows[0]["name"], "Alice")
+
+    def test_json_execute(self):
+        """JSON 清洗：输出也是 .json"""
+        path = os.path.join(self.tmpdir, "data.json")
+        with open(path, "w") as f:
+            json.dump([
+                {"id": 1, "name": "  Alice "},
+                {"id": 2, "name": "Bob"},
+                {"id": 1, "name": "  Alice "},
+            ], f)
+
+        rc = dc.cmd_execute(path, ["trim", "dedup"], {})
+        self.assertEqual(rc, 0)
+        output = os.path.join(self.tmpdir, "data_cleaned.json")
+        self.assertTrue(os.path.exists(output))
+        _, rows = dc.read_data(output)
+        self.assertEqual(len(rows), 2)
+
+    def test_jsonl_execute(self):
+        """JSONL 清洗：输出也是 .jsonl"""
+        path = os.path.join(self.tmpdir, "data.jsonl")
+        with open(path, "w") as f:
+            f.write('{"id":"1","name":"Active"}\n')
+            f.write('{"id":"2","name":"active"}\n')
+
+        rc = dc.cmd_execute(path, ["fix_case"], {"fix_case": ["name"]})
+        self.assertEqual(rc, 0)
+        output = os.path.join(self.tmpdir, "data_cleaned.jsonl")
+        self.assertTrue(os.path.exists(output))
+        _, rows = dc.read_data(output)
+        self.assertEqual(rows[0]["name"], "active")
+        self.assertEqual(rows[1]["name"], "active")
+
+    def test_xlsx_execute(self):
+        """Excel 清洗：输出也是 .xlsx"""
+        try:
+            import openpyxl
+        except ImportError:
+            self.skipTest("openpyxl not installed")
+
+        path = os.path.join(self.tmpdir, "data.xlsx")
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.append(["id", "name", "date"])
+        ws.append([1, "  Alice ", "2026-01-01"])
+        ws.append([2, "Bob", "15/03/2026"])
+        ws.append([1, "  Alice ", "2026-01-01"])
+        wb.save(path)
+        wb.close()
+
+        rc = dc.cmd_execute(path, ["trim", "dedup", "fix_dates"], {})
+        self.assertEqual(rc, 0)
+        output = os.path.join(self.tmpdir, "data_cleaned.xlsx")
+        self.assertTrue(os.path.exists(output))
+        _, rows = dc.read_data(output)
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(rows[1]["date"], "2026-03-15")
+
+
 class TestSampleFiles(unittest.TestCase):
     """用 Phase 0 样本文件测试"""
 
