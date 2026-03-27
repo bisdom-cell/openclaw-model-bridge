@@ -26,7 +26,7 @@ echo "Mode: $([ "$FULL_MODE" = true ] && echo 'FULL (Mac Mini)' || echo 'DEV (re
 echo ""
 
 # ── 1. 单元测试 ──────────────────────────────────────────────────────
-echo "📋 1/14 单元测试"
+echo "📋 1/16 单元测试"
 
 if python3 test_tool_proxy.py > /dev/null 2>&1; then
     pass "proxy_filters 单测 (test_tool_proxy.py)"
@@ -42,7 +42,7 @@ fi
 
 # ── 2. 注册表校验 ─────────────────────────────────────────────────────
 echo ""
-echo "📋 2/14 注册表校验"
+echo "📋 2/16 注册表校验"
 
 if python3 check_registry.py > /dev/null 2>&1; then
     pass "jobs_registry.yaml 校验通过"
@@ -52,7 +52,7 @@ fi
 
 # ── 3. 文档漂移检测 ───────────────────────────────────────────────────
 echo ""
-echo "📋 3/14 文档漂移检测"
+echo "📋 3/16 文档漂移检测"
 
 if python3 gen_jobs_doc.py --check > /dev/null 2>&1; then
     pass "docs/config.md 与 registry 一致"
@@ -62,7 +62,7 @@ fi
 
 # ── 4. 脚本语法检查 + 权限检查 ────────────────────────────────────────
 echo ""
-echo "📋 4/14 脚本语法 & 权限"
+echo "📋 4/16 脚本语法 & 权限"
 
 # 从 registry 提取所有 enabled 的 entry 文件（兼容无 PyYAML 环境）
 SCRIPT_FILES=$(python3 -c "
@@ -128,7 +128,7 @@ done
 
 # ── 5. Python 文件语法检查 ────────────────────────────────────────────
 echo ""
-echo "📋 5/14 Python 语法检查"
+echo "📋 5/16 Python 语法检查"
 
 for pyfile in adapter.py tool_proxy.py proxy_filters.py check_registry.py gen_jobs_doc.py; do
     if [ -f "$SCRIPT_DIR/$pyfile" ]; then
@@ -142,7 +142,7 @@ done
 
 # ── 6. 部署文件一致性检查（仓库 vs 运行时副本）────────────────────────
 echo ""
-echo "📋 6/14 部署文件一致性"
+echo "📋 6/16 部署文件一致性"
 
 if $FULL_MODE; then
     # FILE_MAP from auto_deploy.sh
@@ -199,7 +199,7 @@ fi
 
 # ── 7. 环境变量检查（bash -lc 模拟 cron 环境）────────────────────────
 echo ""
-echo "📋 7/14 环境变量检查（cron 环境模拟）"
+echo "📋 7/16 环境变量检查（cron 环境模拟）"
 
 if $FULL_MODE; then
     # 模拟 cron 调用方式：bash -lc 读取 ~/.bash_profile
@@ -239,7 +239,7 @@ fi
 
 # ── 8. 服务连通性检查 ─────────────────────────────────────────────────
 echo ""
-echo "📋 8/14 服务连通性"
+echo "📋 8/16 服务连通性"
 
 if $FULL_MODE; then
     # Adapter :5001
@@ -271,7 +271,7 @@ fi
 
 # ── 9. 安全扫描（push 前必扫）────────────────────────────────────────
 echo ""
-echo "📋 9/14 安全扫描"
+echo "📋 9/16 安全扫描"
 
 # API Key 泄漏检查（只扫描 git 跟踪的文件，忽略 .gitignore 排除的本地配置）
 LEAK_SK=$(git grep -n "sk-[A-Za-z0-9]\{15,\}" -- "*.py" "*.sh" "*.md" 2>/dev/null | grep -v "sk-REPLACE-ME" | grep -v "sk-xxxx" || true)
@@ -297,7 +297,7 @@ fi
 # ── 10. Job 数据流 smoke test ──────────────────────────────────────────
 # 用合成数据验证 job 脚本的 shell→Python 数据传递，零接触生产状态
 echo ""
-echo "📋 10/14 Job 数据流 smoke test"
+echo "📋 10/16 Job 数据流 smoke test"
 
 # 10a. 反模式扫描：heredoc 结束符后紧跟 <<< 会导致 stdin 被 heredoc 耗尽
 #      python3 - <<'PYEOF' ... PYEOF; <<< "$DATA" → DATA 永远读不到
@@ -351,7 +351,7 @@ rm -rf "$SMOKE_DIR"
 
 # ── 11. 货代 deep_dive 静默失败检测 ─────────────────────────────────────
 echo ""
-echo "📋 11/14 货代 deep_dive 静默失败检测"
+echo "📋 11/16 货代 deep_dive 静默失败检测"
 
 if $FULL_MODE; then
     # 检查 last_run.json 中 deep_dive 字段
@@ -410,7 +410,7 @@ else
 fi
 
 # ── 12. #48703 WhatsApp listeners Map 补丁检测 ────────────────────────
-echo "📋 12/14 #48703 WhatsApp listeners Map 补丁"
+echo "📋 12/16 #48703 WhatsApp listeners Map 补丁"
 
 if $FULL_MODE; then
     OPENCLAW_DIST="/opt/homebrew/lib/node_modules/openclaw/dist"
@@ -431,7 +431,7 @@ fi
 
 # ── 13. 陈旧锁文件检测（V30新增）─────────────────────────────────────
 echo ""
-echo "📋 13/14 陈旧锁文件检测"
+echo "📋 13/16 陈旧锁文件检测"
 
 if $FULL_MODE; then
     STALE_LOCK_DIRS=(
@@ -476,7 +476,7 @@ fi
 
 # ── 14. Cron 心跳检测（V30新增）──────────────────────────────────────
 echo ""
-echo "📋 14/14 Cron 心跳检测"
+echo "📋 14/16 Cron 心跳检测"
 
 if $FULL_MODE; then
     CANARY_FILE="$HOME/.cron_canary"
@@ -499,6 +499,106 @@ if $FULL_MODE; then
     fi
 else
     skip "Cron 心跳检测（需在 Mac Mini 上验证）"
+fi
+
+# ── 15. Crontab 路径 vs FILE_MAP 一致性（V30.3 系统联调）──────────────
+echo ""
+echo "📋 15/16 Crontab 路径 vs FILE_MAP 一致性"
+
+if $FULL_MODE; then
+    CRON_PATH_ERRORS=0
+
+    # 解析 Python 输出
+    while IFS= read -r result_line; do
+        case "$result_line" in
+            PASS\|*) pass "${result_line#PASS|}" ;;
+            FAIL\|*) fail "${result_line#FAIL|}"; CRON_PATH_ERRORS=$((CRON_PATH_ERRORS + 1)) ;;
+            WARN\|*) warn "${result_line#WARN|}" ;;
+        esac
+    done < <(python3 - "$SCRIPT_DIR/auto_deploy.sh" << 'PYEOF'
+import sys, os, re, subprocess
+
+deploy_script = sys.argv[1]
+
+file_map = {}
+with open(deploy_script) as f:
+    in_map = False
+    for line in f:
+        if 'declare -a FILE_MAP' in line:
+            in_map = True
+            continue
+        if in_map and line.strip() == ')':
+            break
+        if in_map and '|' in line:
+            m = re.search(r'"([^"]+)"', line)
+            if m:
+                parts = m.group(1).split('|', 1)
+                if len(parts) == 2:
+                    src = os.path.basename(parts[0])
+                    dst = parts[1].replace('$HOME', os.path.expanduser('~'))
+                    file_map[src] = dst
+
+try:
+    result = subprocess.run(['crontab', '-l'], capture_output=True, text=True, timeout=5)
+    crontab_lines = result.stdout.strip().split('\n')
+except Exception:
+    print("WARN|无法读取 crontab")
+    sys.exit(0)
+
+errors = []
+checked = 0
+for line in crontab_lines:
+    line = line.strip()
+    if not line or line.startswith('#'):
+        continue
+    m = re.search(r'bash\s+([^\s>|]+\.sh)', line)
+    if not m:
+        continue
+    cron_path = m.group(1).replace('~/', os.path.expanduser('~/'))
+    script_name = os.path.basename(cron_path)
+    if script_name in file_map:
+        expected = file_map[script_name]
+        if os.path.normpath(cron_path) != os.path.normpath(expected):
+            errors.append(f"FAIL|{script_name}: crontab 路径 {cron_path} ≠ FILE_MAP 目标 {expected}")
+        checked += 1
+
+for e in errors:
+    print(e)
+
+if not errors and checked > 0:
+    print(f"PASS|{checked} 个 crontab 脚本路径均与 FILE_MAP 一致")
+elif checked == 0:
+    print("WARN|未找到可验证的 crontab 条目")
+PYEOF
+)
+else
+    skip "Crontab 路径一致性（需在 Mac Mini 上验证）"
+fi
+
+# ── 16. 推送通道 smoke test（V30.3 E2E 功能测试）──────────────────────
+echo ""
+echo "📋 16/16 推送通道 smoke test"
+
+if $FULL_MODE; then
+    # 验证 openclaw message send 命令可用且无配置错误
+    PUSH_ERR=$(mktemp)
+    PUSH_TEST=$(openclaw message send --target "${OPENCLAW_PHONE:-+85200000000}" --message "🔧 preflight push test $(date '+%H:%M')" --json 2>"$PUSH_ERR") && PUSH_RC=0 || PUSH_RC=$?
+
+    PUSH_STDERR=$(cat "$PUSH_ERR" 2>/dev/null)
+    rm -f "$PUSH_ERR"
+
+    if [ $PUSH_RC -eq 0 ]; then
+        # 检查 stderr 是否有插件警告（即使退出码为 0）
+        if echo "$PUSH_STDERR" | grep -qi "duplicate plugin\|plugin.*error" 2>/dev/null; then
+            warn "推送成功但有插件警告: $(echo "$PUSH_STDERR" | head -1)"
+        else
+            pass "WhatsApp 推送通道正常（openclaw message send 退出码 0）"
+        fi
+    else
+        fail "WhatsApp 推送失败（退出码 $PUSH_RC）: $(echo "$PUSH_STDERR" | head -2)"
+    fi
+else
+    skip "推送通道 smoke test（需在 Mac Mini 上验证）"
 fi
 
 # ── 汇总 ──────────────────────────────────────────────────────────────
