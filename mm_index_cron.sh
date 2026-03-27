@@ -12,9 +12,10 @@ mkdir -p "$(dirname "$LOG")"
 TS=$(date '+%Y-%m-%d %H:%M:%S')
 echo "[$TS] === mm_index start ===" >> "$LOG"
 
-# 检查依赖
-if ! python3 -c "from google import genai" 2>/dev/null; then
-    echo "[$TS] ERROR: google-genai not installed, run: pip3 install google-genai" >> "$LOG"
+# google-genai 安装在 /usr/bin/python3 (3.9) 下，Homebrew python3 (3.14) 无法 pip install
+MM_PYTHON="/usr/bin/python3"
+if ! $MM_PYTHON -c "from google import genai" 2>/dev/null; then
+    echo "[$TS] ERROR: google-genai not installed for $MM_PYTHON, run: $MM_PYTHON -m pip install google-genai" >> "$LOG"
     exit 1
 fi
 
@@ -26,8 +27,8 @@ if [ -z "${GEMINI_API_KEY:-}" ]; then
 fi
 export GEMINI_API_KEY
 
-# 运行索引
-python3 "$SCRIPT_DIR/mm_index.py" >> "$LOG" 2>&1
+# 运行索引（使用与 google-genai 匹配的 Python）
+$MM_PYTHON "$SCRIPT_DIR/mm_index.py" >> "$LOG" 2>&1
 RC=$?
 
 TS2=$(date '+%Y-%m-%d %H:%M:%S')
