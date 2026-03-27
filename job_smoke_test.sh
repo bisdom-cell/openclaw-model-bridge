@@ -75,8 +75,14 @@ while IFS='|' read -r job_id entry log_path interval needs_key description; do
     fi
 
     # ── 3. 运行时脚本存在性（crontab 实际指向的路径）──
+    CRON_LINE=""
+    if echo "$CRONTAB" | grep -q "$entry_basename"; then
+        CRON_LINE=$(echo "$CRONTAB" | grep "$entry_basename" | head -1)
+    fi
     if [ -n "$CRON_LINE" ]; then
-        RUNTIME_PATH=$(echo "$CRON_LINE" | grep -oE 'bash [^>|]+\.sh' | head -1 | sed 's/^bash //' | sed "s|~/|$HOME/|g" | sed "s|\$HOME/|$HOME/|g")
+        # crontab 格式: ... bash -lc 'bash ~/path/script.sh >> log'
+        # 提取最后一个 bash 后面的脚本路径（跳过 bash -lc）
+        RUNTIME_PATH=$(echo "$CRON_LINE" | grep -oE "bash [^'\"]+\.sh" | tail -1 | sed 's/^bash //' | sed "s|~/|$HOME/|g" | sed "s|\\\$HOME/|$HOME/|g")
         if [ -n "$RUNTIME_PATH" ] && [ -f "$RUNTIME_PATH" ]; then
             pass "运行时文件存在: $RUNTIME_PATH"
         elif [ -n "$RUNTIME_PATH" ]; then
@@ -119,7 +125,9 @@ while IFS='|' read -r job_id entry log_path interval needs_key description; do
 
         # 检查最近日志中的错误
         RECENT_ERRORS=$(tail -50 "$LOG_EXPANDED" 2>/dev/null | grep -ciE "ERROR|FAIL|traceback" 2>/dev/null || echo "0")
-        if [ "$RECENT_ERRORS" -gt 0 ]; then
+        RECENT_ERRORS=$(echo "$RECENT_ERRORS" | tr -d '[:space:]')
+        RECENT_ERRORS=${RECENT_ERRORS:-0}
+        if [ "$RECENT_ERRORS" -gt 0 ] 2>/dev/null; then
             warn "最近日志有 $RECENT_ERRORS 处错误"
             tail -50 "$LOG_EXPANDED" 2>/dev/null | grep -iE "ERROR|FAIL" | tail -2 | while read -r err_line; do
                 echo "      $(echo "$err_line" | cut -c1-120)"
