@@ -208,17 +208,32 @@ current_source = None
 for line in lines:
     if line.startswith('## '):
         title = line[3:].strip()
-        current_source = title if title in known_sources else None
+        if title in known_sources:
+            current_source = title
+        # 不在白名单的 ## 行（如 ## 2026-03-26）不切换章节，继续当前来源
         continue
     if current_source and line.strip():
         stripped = line.strip()
-        # 跳过纯日期行、空行、元数据行
-        if re.match(r'^(20\d{2}-\d{2}-\d{2}\s*$|📊|>|---)', stripped):
+        # 跳过纯日期行、统计行、引用行、分隔线
+        if re.match(r'^(20\d{2}[-/]\d{2}[-/]\d{2}\s*$|📊|>|---|#)', stripped):
             continue
+        # 近期笔记：只保留近期日期的条目
+        if current_source == '近期笔记':
+            m = re.match(r'- \[(\d{8})\]', stripped)
+            if m:
+                note_date = m.group(1)
+                if note_date < today_short:
+                    # 允许昨天的（3天范围内），但跳过太旧的
+                    from datetime import timedelta
+                    cutoff = (datetime.now() - timedelta(days=3)).strftime('%Y%m%d')
+                    if note_date < cutoff:
+                        continue
+            elif not stripped.startswith('- [20'):
+                continue  # 跳过非日期格式的笔记（如 [openclaw]）
         if current_source not in source_highlights:
             source_highlights[current_source] = []
         # 去重
-        if stripped not in [x for x in source_highlights[current_source]]:
+        if stripped not in source_highlights[current_source]:
             source_highlights[current_source].append(stripped)
 
 # 组装消息
