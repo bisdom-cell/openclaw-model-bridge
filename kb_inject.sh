@@ -438,6 +438,27 @@ $(cat "$DIGEST_FILE" 2>/dev/null || echo '（摘要暂未生成）')
 - "上周的PDF文档" → \`python3 ~/mm_search.py "PDF文档"\`
 返回结果包含文件路径，可用 read 工具查看或告知用户路径。
 查看索引统计：\`python3 ~/mm_search.py --stats\`
+
+## 数据清洗
+当用户发送 CSV/Excel/JSON/TSV 文件并要求清洗数据时，按以下步骤操作：
+
+**第1步：诊断**
+\`python3 ~/data_clean.py profile <文件路径> --format text\`
+→ 向用户解释发现的问题（重复行、日期混乱、缺失值、大小写不一致等）
+
+**第2步：确认清洗方案**
+根据 profile 结果，向用户建议清洗操作并等待确认。
+
+**第3步：执行清洗**
+\`python3 ~/data_clean.py execute <文件路径> --ops trim dedup fix_dates fix_case --fix-case-cols <列名>\`
+可用操作: dedup(去重) dedup_near(近似去重) trim(去空格) fix_dates(统一日期) fix_case(统一大小写) fill_missing(标记缺失) remove_test(去测试数据)
+
+**第4步：展示报告**
+用 read 工具读取 \`~/.data_clean/workspace/report.md\` 向用户展示清洗结果。
+清洗后文件在 \`~/.data_clean/workspace/\` 目录下，格式与原始文件相同（Excel进→Excel出）。
+
+**推荐操作顺序**: trim → dedup → fix_dates → fix_case → fill_missing → remove_test
+**注意**: 先 profile 诊断再建议操作，不要盲目执行所有操作。
 MDEOF
 
 mv "$WORKSPACE_TMP" "$WORKSPACE_MD"
