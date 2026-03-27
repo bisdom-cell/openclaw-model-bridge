@@ -346,12 +346,12 @@ class TestCronDoctorDiagnostics(unittest.TestCase):
         self.assertIn("rmdir", content)
         self.assertIn("crontab", content)
 
-    def test_preflight_covers_14_checks(self):
-        """preflight_check.sh 包含 14 项检查"""
+    def test_preflight_covers_16_checks(self):
+        """preflight_check.sh 包含 16 项检查"""
         with open("preflight_check.sh") as f:
             content = f.read()
-        for i in range(1, 15):
-            self.assertIn(f"{i}/14", content, f"Missing check {i}/14")
+        for i in range(1, 17):
+            self.assertIn(f"{i}/16", content, f"Missing check {i}/16")
 
 
 class TestLockFilePaths(unittest.TestCase):
