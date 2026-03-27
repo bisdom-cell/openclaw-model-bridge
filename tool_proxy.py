@@ -7,6 +7,7 @@ V28: + token/error 监控（proxy_stats）
 import http.server, socketserver, json, sys, subprocess, os, threading, uuid, time
 from datetime import datetime
 from urllib.request import Request, urlopen
+from urllib.parse import urlparse, parse_qs
 
 from proxy_filters import (
     ALLOWED_TOOLS, ALLOWED_PREFIXES,
@@ -70,6 +71,11 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
             self.wfile.write(body)
             return
 
+        # /data_clean/* 端点：数据清洗服务
+        if self.path.startswith("/data_clean/"):
+            self._handle_data_clean()
+            return
+
         url = f"{BACKEND}{self.path}"
         req = Request(url)
         try:
@@ -82,6 +88,129 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                 self.wfile.write(body)
         except Exception as e:
             self.send_error(502, str(e))
+
+    def _json_response(self, code, data):
+        """返回 JSON 响应"""
+        body = json.dumps(data, ensure_ascii=False, indent=2).encode("utf-8")
+        self.send_response(code)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _handle_data_clean(self):
+        """处理 /data_clean/* 请求，内部调用 data_clean.py"""
+        parsed = urlparse(self.path)
+        params = parse_qs(parsed.query)
+        action = parsed.path.replace("/data_clean/", "").strip("/")
+
+        # 获取参数
+        file_path = params.get("file", [None])[0]
+
+        if action == "help":
+            self._json_response(200, {
+                "endpoints": {
+                    "/data_clean/profile?file=<path>": "数据画像（质量报告）",
+                    "/data_clean/execute?file=<path>&ops=trim,dedup,fix_dates": "执行清洗",
+                    "/data_clean/execute?file=<path>&ops=fix_case&fix_case_cols=status,email": "执行清洗（带列参数）",
+                    "/data_clean/validate?original=<path>&cleaned=<path>": "清洗前后验证",
+                    "/data_clean/list-ops": "列出可用操作",
+                    "/data_clean/report": "读取最近的清洗报告",
+                },
+                "supported_formats": "CSV, TSV, JSON, JSONL, Excel (.xlsx)",
+            })
+            return
+
+        if action == "list-ops":
+            result = subprocess.run(
+                [sys.executable, self._data_clean_path(), "list-ops"],
+                capture_output=True, text=True, timeout=10,
+            )
+            try:
+                self._json_response(200, json.loads(result.stdout))
+            except json.JSONDecodeError:
+                self._json_response(500, {"error": result.stderr or result.stdout})
+            return
+
+        if action == "report":
+            report_path = os.path.expanduser("~/.data_clean/workspace/report.md")
+            if os.path.exists(report_path):
+                with open(report_path, "r", encoding="utf-8") as f:
+                    content = f.read()
+                self._json_response(200, {"report": content})
+            else:
+                self._json_response(404, {"error": "尚无清洗报告"})
+            return
+
+        if not file_path:
+            self._json_response(400, {"error": "缺少 file 参数"})
+            return
+
+        # 展开 ~ 路径
+        file_path = os.path.expanduser(file_path)
+
+        if not os.path.exists(file_path):
+            self._json_response(404, {"error": f"文件不存在: {file_path}"})
+            return
+
+        if action == "profile":
+            cmd = [sys.executable, self._data_clean_path(), "profile", file_path]
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+            try:
+                self._json_response(200, json.loads(result.stdout))
+            except json.JSONDecodeError:
+                self._json_response(500, {"error": result.stderr or result.stdout or "profile 解析失败"})
+            return
+
+        if action == "execute":
+            ops = params.get("ops", [""])[0].split(",")
+            ops = [o.strip() for o in ops if o.strip()]
+            if not ops:
+                self._json_response(400, {"error": "缺少 ops 参数（如 ops=trim,dedup,fix_dates）"})
+                return
+
+            cmd = [sys.executable, self._data_clean_path(), "execute", file_path, "--ops"] + ops
+
+            # 可选列参数
+            fix_case_cols = params.get("fix_case_cols", [""])[0]
+            if fix_case_cols:
+                cmd += ["--fix-case-cols"] + fix_case_cols.split(",")
+            fix_date_cols = params.get("fix_date_cols", [""])[0]
+            if fix_date_cols:
+                cmd += ["--fix-date-cols"] + fix_date_cols.split(",")
+
+            log(f"[data_clean] execute: {' '.join(cmd)}")
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+            try:
+                self._json_response(200, json.loads(result.stdout))
+            except json.JSONDecodeError:
+                self._json_response(500, {"error": result.stderr or result.stdout or "execute 解析失败"})
+            return
+
+        if action == "validate":
+            cleaned = params.get("cleaned", [None])[0]
+            if not cleaned:
+                self._json_response(400, {"error": "缺少 cleaned 参数"})
+                return
+            cleaned = os.path.expanduser(cleaned)
+            cmd = [sys.executable, self._data_clean_path(), "validate", file_path, cleaned]
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+            try:
+                self._json_response(200, json.loads(result.stdout))
+            except json.JSONDecodeError:
+                self._json_response(500, {"error": result.stderr or result.stdout or "validate 解析失败"})
+            return
+
+        self._json_response(404, {"error": f"未知操作: {action}，访问 /data_clean/help 查看可用端点"})
+
+    @staticmethod
+    def _data_clean_path():
+        """返回 data_clean.py 路径"""
+        # 优先 HOME 目录（auto_deploy 同步），回退到仓库目录
+        home_path = os.path.expanduser("~/data_clean.py")
+        if os.path.exists(home_path):
+            return home_path
+        return os.path.join(os.path.dirname(os.path.abspath(__file__)), "data_clean.py")
 
     def do_POST(self):
         rid = uuid.uuid4().hex[:8]
