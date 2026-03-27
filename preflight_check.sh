@@ -418,7 +418,8 @@ if $FULL_MODE; then
     if [ -d "$OPENCLAW_DIST" ]; then
         # 只扫描顶层 chunks（避免 821 个文件全量 grep 卡住）
         UNPATCHED=$(grep -l 'const listeners = /\* @__PURE__ \*/ new Map()' \
-            "$OPENCLAW_DIST"/*.js "$OPENCLAW_DIST"/chunks/*.js 2>/dev/null | grep -v ".bak" | wc -l | tr -d ' ' || echo "0")
+            "$OPENCLAW_DIST"/*.js "$OPENCLAW_DIST"/chunks/*.js 2>/dev/null | grep -vc ".bak" 2>/dev/null || echo "0")
+        UNPATCHED=$(echo "$UNPATCHED" | tr -d '[:space:]')
         if [ "$UNPATCHED" -gt 0 ]; then
             fail "#48703 未修复: $UNPATCHED 个文件有 listeners Map 副本"
         else
@@ -556,7 +557,7 @@ for line in crontab_lines:
     m = re.search(r'bash\s+([^\s>|]+\.sh)', line)
     if not m:
         continue
-    cron_path = m.group(1).replace('~/', os.path.expanduser('~/'))
+    cron_path = m.group(1).replace('~/', os.path.expanduser('~/')).replace('$HOME/', os.path.expanduser('~/'))
     script_name = os.path.basename(cron_path)
     if script_name in file_map:
         expected = file_map[script_name]
