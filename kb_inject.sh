@@ -191,8 +191,9 @@ for line in lines[:6]:
     if line.startswith('>'):
         stats_lines.append(line.lstrip('> ').strip())
 
-# 提取近期笔记（- [日期] 格式，只取8位数字日期开头的）
+# 提取近期笔记（- [日期] 格式，只取8位数字日期开头的，去重）
 note_lines = []
+seen_notes = set()
 in_notes = False
 for line in lines:
     if line.startswith('## 近期笔记'):
@@ -203,9 +204,11 @@ for line in lines:
             break
         stripped = line.strip()
         if stripped.startswith('- [') and re.match(r'- \[20\d{6}\]', stripped):
-            note_lines.append(stripped)
-            if len(note_lines) >= 5:
-                break
+            if stripped not in seen_notes:
+                seen_notes.add(stripped)
+                note_lines.append(stripped)
+                if len(note_lines) >= 5:
+                    break
 
 # 来源：只取四大来源的 ## 标题（固定白名单，避免抓到内容行）
 known_sources = {'ArXiv 论文', 'HackerNews 热帖', '货代动态', 'OpenClaw 更新'}
