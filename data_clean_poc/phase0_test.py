@@ -280,7 +280,7 @@ def main():
     parser.add_argument("--sample", type=int, choices=[1, 2, 3], help="只测试指定样本")
     parser.add_argument("--dry-run", action="store_true", help="只生成 prompt，不调 LLM")
     parser.add_argument("--endpoint", default="http://localhost:5002", help="LLM 端点")
-    parser.add_argument("--timeout", type=int, default=90, help="LLM 调用超时（秒）")
+    parser.add_argument("--timeout", type=int, default=180, help="LLM 调用超时（秒）")
     args = parser.parse_args()
 
     sample_dir = os.path.dirname(os.path.abspath(__file__))
