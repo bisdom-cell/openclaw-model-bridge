@@ -283,22 +283,55 @@ def _read_xlsx(filepath):
 
     wb = openpyxl.load_workbook(filepath, read_only=True, data_only=True)
     ws = wb.active
-    if ws is None or ws.max_row is None or ws.max_row < 2:
+    if ws is None or ws.max_row is None or ws.max_row < 1:
         wb.close()
         return [], []
 
-    row_iter = ws.iter_rows(values_only=True)
-    headers = [_stringify(h) for h in next(row_iter)]
+    # 读取所有行
+    all_rows = list(ws.iter_rows(values_only=True))
+    wb.close()
 
+    if not all_rows:
+        return [], []
+
+    # 寻找表头行：第一个至少有 2 个非空单元格的行
+    header_idx = 0
+    for i, row in enumerate(all_rows):
+        non_empty = sum(1 for v in row if v is not None and str(v).strip())
+        if non_empty >= 2:
+            header_idx = i
+            break
+
+    raw_headers = all_rows[header_idx]
+    # 生成列名：有值用原值，空的自动命名
+    headers = []
+    for i, h in enumerate(raw_headers):
+        name = _stringify(h).strip()
+        if not name:
+            name = f"col_{i+1}"
+        headers.append(name)
+
+    # 去重列名（Excel 可能有同名列）
+    seen_names = {}
+    for i, h in enumerate(headers):
+        if h in seen_names:
+            seen_names[h] += 1
+            headers[i] = f"{h}_{seen_names[h]}"
+        else:
+            seen_names[h] = 0
+
+    # 读取数据行（跳过表头行及之前的行）
     rows = []
-    for raw_row in row_iter:
+    for raw_row in all_rows[header_idx + 1:]:
+        # 跳过全空行
+        if all(v is None or str(v).strip() == "" for v in raw_row):
+            continue
         row = {}
         for i, h in enumerate(headers):
             val = raw_row[i] if i < len(raw_row) else None
             row[h] = _stringify(val)
         rows.append(row)
 
-    wb.close()
     return headers, rows
 
 
