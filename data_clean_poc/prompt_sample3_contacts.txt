@@ -1,0 +1,585 @@
+=== SYSTEM ===
+你是一个专业的数据质量分析师。你的任务是：
+1. 分析数据概况，识别所有数据质量问题
+2. 对每个问题评估严重程度（high/medium/low）
+3. 为每个问题提出具体的清洗策略
+4. 标记哪些决策需要人工确认
+
+请用以下 JSON 格式输出（不要输出其他内容）：
+{
+  "quality_score": 0-100的整数,
+  "issues": [
+    {
+      "type": "问题类型（如 duplicate_rows, mixed_formats, missing_values 等）",
+      "severity": "high/medium/low",
+      "column": "受影响的列名（如适用）",
+      "description": "问题描述（中文）",
+      "affected_rows": "受影响的行数或行号",
+      "cleaning_strategy": "具体清洗策略",
+      "needs_human_review": true/false,
+      "reason_for_review": "为什么需要人工确认（如适用）"
+    }
+  ],
+  "cleaning_plan": [
+    {
+      "order": 1,
+      "action": "操作名称",
+      "description": "操作描述",
+      "risk": "high/medium/low"
+    }
+  ]
+}
+
+=== USER ===
+请分析以下数据概况，识别所有数据质量问题并给出清洗方案。
+
+## 数据概况
+
+```json
+{
+  "file": "sample3_contacts.csv",
+  "row_count": 15,
+  "column_count": 8,
+  "columns": {
+    "id": {
+      "total": 15,
+      "non_empty": 15,
+      "missing_rate": "0.0%",
+      "unique_count": 15,
+      "likely_type": "numeric",
+      "sample_values": [
+        "8",
+        "6",
+        "9",
+        "3",
+        "2",
+        "1",
+        "4",
+        "15",
+        "7",
+        "10",
+        "13",
+        "14",
+        "5",
+        "11",
+        "12"
+      ],
+      "top_values": [
+        [
+          "1",
+          1
+        ],
+        [
+          "2",
+          1
+        ],
+        [
+          "3",
+          1
+        ],
+        [
+          "4",
+          1
+        ],
+        [
+          "5",
+          1
+        ],
+        [
+          "6",
+          1
+        ],
+        [
+          "7",
+          1
+        ],
+        [
+          "8",
+          1
+        ],
+        [
+          "9",
+          1
+        ],
+        [
+          "10",
+          1
+        ]
+      ]
+    },
+    "name": {
+      "total": 15,
+      "non_empty": 15,
+      "missing_rate": "0.0%",
+      "unique_count": 13,
+      "likely_type": "text",
+      "sample_values": [
+        "林志颖",
+        "张伟",
+        "NULL",
+        "undefined",
+        "赵丽颖",
+        "马云",
+        "刘德华",
+        "孙悟空",
+        "陈晓明",
+        "李美丽",
+        "王建国",
+        "周杰伦",
+        "Zhang Wei"
+      ],
+      "top_values": [
+        [
+          "王建国",
+          2
+        ],
+        [
+          "赵丽颖",
+          2
+        ],
+        [
+          "李美丽",
+          1
+        ],
+        [
+          "张伟",
+          1
+        ],
+        [
+          "Zhang Wei",
+          1
+        ],
+        [
+          "陈晓明",
+          1
+        ],
+        [
+          "NULL",
+          1
+        ],
+        [
+          "刘德华",
+          1
+        ],
+        [
+          "周杰伦",
+          1
+        ],
+        [
+          "林志颖",
+          1
+        ]
+      ]
+    },
+    "phone": {
+      "total": 15,
+      "non_empty": 15,
+      "missing_rate": "0.0%",
+      "unique_count": 13,
+      "likely_type": "text",
+      "sample_values": [
+        "+86-13800138001",
+        "+86-13600136006",
+        "+86-13400134008",
+        "phone_unknown",
+        "13900139002",
+        "+86-13500135007",
+        "1380013800",
+        "+86-13100131013",
+        "+86-13000130014",
+        "+86-13200132010",
+        "+86-00000000000",
+        "+86-13700137003",
+        "+86 13800138001"
+      ],
+      "top_values": [
+        [
+          "+86-13700137003",
+          2
+        ],
+        [
+          "+86-13600136006",
+          2
+        ],
+        [
+          "+86-13800138001",
+          1
+        ],
+        [
+          "+86 13800138001",
+          1
+        ],
+        [
+          "13900139002",
+          1
+        ],
+        [
+          "1380013800",
+          1
+        ],
+        [
+          "+86-13500135007",
+          1
+        ],
+        [
+          "+86-13400134008",
+          1
+        ],
+        [
+          "phone_unknown",
+          1
+        ],
+        [
+          "+86-13200132010",
+          1
+        ]
+      ]
+    },
+    "company": {
+      "total": 15,
+      "non_empty": 14,
+      "missing_rate": "6.7%",
+      "unique_count": 13,
+      "likely_type": "text",
+      "sample_values": [
+        "字节跳动",
+        "腾讯科技（深圳）",
+        "美团",
+        "腾讯科技",
+        "花果山集团",
+        "华为技术有限公司",
+        "阿里巴巴集团",
+        "杰威尔音乐",
+        "京东",
+        "阿里巴巴",
+        "Huawei",
+        "N/A",
+        "百度"
+      ],
+      "top_values": [
+        [
+          "字节跳动",
+          2
+        ],
+        [
+          "腾讯科技",
+          1
+        ],
+        [
+          "腾讯科技（深圳）",
+          1
+        ],
+        [
+          "阿里巴巴",
+          1
+        ],
+        [
+          "华为技术有限公司",
+          1
+        ],
+        [
+          "Huawei",
+          1
+        ],
+        [
+          "百度",
+          1
+        ],
+        [
+          "美团",
+          1
+        ],
+        [
+          "杰威尔音乐",
+          1
+        ],
+        [
+          "N/A",
+          1
+        ]
+      ]
+    },
+    "city": {
+      "total": 15,
+      "non_empty": 15,
+      "missing_rate": "0.0%",
+      "unique_count": 9,
+      "likely_type": "text",
+      "sample_values": [
+        "Beijing",
+        "Shenzhen",
+        "北京",
+        "香港",
+        "深圳",
+        "杭州",
+        "花果山",
+        "台北",
+        "上海"
+      ],
+      "top_values": [
+        [
+          "北京",
+          4
+        ],
+        [
+          "深圳",
+          2
+        ],
+        [
+          "Shenzhen",
+          2
+        ],
+        [
+          "杭州",
+          2
+        ],
+        [
+          "Beijing",
+          1
+        ],
+        [
+          "香港",
+          1
+        ],
+        [
+          "台北",
+          1
+        ],
+        [
+          "上海",
+          1
+        ],
+        [
+          "花果山",
+          1
+        ]
+      ]
+    },
+    "registered_date": {
+      "total": 15,
+      "non_empty": 15,
+      "missing_rate": "0.0%",
+      "unique_count": 12,
+      "likely_type": "text",
+      "sample_values": [
+        "Jan 15 2025",
+        "2025-06-20",
+        "2025-10-15",
+        "2025-01-15",
+        "2025-03-10",
+        "2025-05-15",
+        "not_a_date",
+        "2025-07-25",
+        "2025-08-01",
+        "2025-09-10",
+        "2025/02/20",
+        "2025-04-01"
+      ],
+      "top_values": [
+        [
+          "2025-01-15",
+          3
+        ],
+        [
+          "2025-04-01",
+          2
+        ],
+        [
+          "2025/02/20",
+          1
+        ],
+        [
+          "Jan 15 2025",
+          1
+        ],
+        [
+          "2025-03-10",
+          1
+        ],
+        [
+          "2025-05-15",
+          1
+        ],
+        [
+          "2025-06-20",
+          1
+        ],
+        [
+          "2025-07-25",
+          1
+        ],
+        [
+          "not_a_date",
+          1
+        ],
+        [
+          "2025-08-01",
+          1
+        ]
+      ]
+    },
+    "vip_level": {
+      "total": 15,
+      "non_empty": 15,
+      "missing_rate": "0.0%",
+      "unique_count": 8,
+      "likely_type": "text",
+      "sample_values": [
+        "PLATINUM",
+        "platinum",
+        "Gold",
+        "diamond",
+        "silver",
+        "Silver",
+        "bronze",
+        "gold"
+      ],
+      "top_values": [
+        [
+          "gold",
+          5
+        ],
+        [
+          "silver",
+          3
+        ],
+        [
+          "diamond",
+          2
+        ],
+        [
+          "Gold",
+          1
+        ],
+        [
+          "PLATINUM",
+          1
+        ],
+        [
+          "platinum",
+          1
+        ],
+        [
+          "bronze",
+          1
+        ],
+        [
+          "Silver",
+          1
+        ]
+      ]
+    },
+    "notes": {
+      "total": 15,
+      "non_empty": 9,
+      "missing_rate": "40.0%",
+      "unique_count": 9,
+      "likely_type": "text",
+      "sample_values": [
+        "注册日期异常",
+        "疑似测试数据",
+        "可能是前端bug",
+        "老客户",
+        "VIP客户",
+        "重复记录",
+        "无公司信息",
+        "手机号少一位",
+        "same as #4"
+      ],
+      "top_values": [
+        [
+          "老客户",
+          1
+        ],
+        [
+          "VIP客户",
+          1
+        ],
+        [
+          "same as #4",
+          1
+        ],
+        [
+          "手机号少一位",
+          1
+        ],
+        [
+          "无公司信息",
+          1
+        ],
+        [
+          "注册日期异常",
+          1
+        ],
+        [
+          "重复记录",
+          1
+        ],
+        [
+          "疑似测试数据",
+          1
+        ],
+        [
+          "可能是前端bug",
+          1
+        ]
+      ]
+    }
+  },
+  "duplicate_rows": 0,
+  "sample_rows": [
+    {
+      "id": "1",
+      "name": "王建国",
+      "phone": "+86-13800138001",
+      "company": "腾讯科技",
+      "city": "深圳",
+      "registered_date": "2025-01-15",
+      "vip_level": "gold",
+      "notes": "老客户"
+    },
+    {
+      "id": "2",
+      "name": "王建国",
+      "phone": "+86 13800138001",
+      "company": "腾讯科技（深圳）",
+      "city": "Shenzhen",
+      "registered_date": "2025-01-15",
+      "vip_level": "Gold",
+      "notes": ""
+    },
+    {
+      "id": "3",
+      "name": "李美丽",
+      "phone": "13900139002",
+      "company": "阿里巴巴",
+      "city": "杭州",
+      "registered_date": "2025/02/20",
+      "vip_level": "silver",
+      "notes": ""
+    },
+    {
+      "id": "4",
+      "name": "张伟",
+      "phone": "+86-13700137003",
+      "company": "华为技术有限公司",
+      "city": "深圳",
+      "registered_date": "Jan 15 2025",
+      "vip_level": "PLATINUM",
+      "notes": "VIP客户"
+    },
+    {
+      "id": "5",
+      "name": "Zhang Wei",
+      "phone": "+86-13700137003",
+      "company": "Huawei",
+      "city": "Shenzhen",
+      "registered_date": "2025-01-15",
+      "vip_level": "platinum",
+      "notes": "same as #4"
+    }
+  ]
+}
+```
+
+请按照系统提示中的 JSON 格式输出分析结果。
