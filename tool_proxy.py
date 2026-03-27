@@ -223,6 +223,42 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
             action = args.get("action", "")
             file_path = args.get("file", "")
 
+            # LLM 可能用 "clean" 代替 "execute"
+            if action in ("clean", "cleaning"):
+                action = "execute"
+
+            # LLM 可能把操作信息放在 config 参数里
+            config = args.get("config", {})
+            if isinstance(config, str):
+                try:
+                    config = json.loads(config)
+                except json.JSONDecodeError:
+                    config = {}
+
+            # 如果没有 ops 参数，从 config 推断
+            if action == "execute" and not args.get("ops"):
+                inferred_ops = []
+                if config.get("handle_duplicates"):
+                    inferred_ops.append("dedup")
+                if config.get("date_columns") or config.get("standard_date_format"):
+                    inferred_ops.append("fix_dates")
+                if config.get("standardize_case") or config.get("text_columns"):
+                    inferred_ops.append("fix_case")
+                if config.get("missing_value_strategy"):
+                    inferred_ops.append("fill_missing")
+                # 默认先 trim
+                if inferred_ops:
+                    inferred_ops = ["trim"] + inferred_ops
+                else:
+                    inferred_ops = ["trim", "dedup", "fix_dates"]
+                args["ops"] = ",".join(inferred_ops)
+
+                # 从 config 提取 fix_case_cols
+                if config.get("text_columns") and not args.get("fix_case_cols"):
+                    cols = config["text_columns"]
+                    if isinstance(cols, list):
+                        args["fix_case_cols"] = ",".join(cols)
+
             if action == "list_ops":
                 cmd = [sys.executable, self._data_clean_path(), "list-ops"]
             elif action == "profile":
