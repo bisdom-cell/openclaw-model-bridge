@@ -294,14 +294,22 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
         return json.dumps({"error": f"未知自定义工具: {name}"})
 
     def _handle_custom_tool_calls(self, rj, original_body, rid):
-        """检查 LLM 响应中是否有自定义工具调用，如有则本地执行并重新查询 LLM。
-        返回最终的 LLM 响应 JSON，或 None（无自定义工具调用时）。
+        """检查 LLM 响应中是否有自定义工具调用，如有则本地执行。
+        直接将结果格式化为文本返回（跳过 followup LLM 调用，更可靠）。
+        返回修改后的响应 JSON，或 None（无自定义工具调用时）。
         """
         for choice in rj.get("choices", []):
             msg = choice.get("message", {})
             tool_calls = msg.get("tool_calls", [])
             if not tool_calls:
-                continue
+                # Qwen3 可能把 tool_call 嵌在文本中作为 XML
+                content = msg.get("content", "")
+                if isinstance(content, str) and "<tool_call>" in content:
+                    tool_calls = self._extract_tool_calls_from_text(content)
+                    if tool_calls:
+                        msg["tool_calls"] = tool_calls
+                if not tool_calls:
+                    continue
 
             # 分离自定义工具和 Gateway 工具
             custom_calls = [tc for tc in tool_calls
@@ -311,64 +319,118 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                 return None  # 没有自定义工具，正常流转给 Gateway
 
             # 执行自定义工具
-            tool_results = []
+            results_text = []
             for tc in custom_calls:
                 fn_name = tc["function"]["name"]
                 fn_args = tc["function"].get("arguments", "{}")
-                tc_id = tc.get("id", f"call_{uuid.uuid4().hex[:8]}")
 
                 log(f"[{rid}] CUSTOM_TOOL: {fn_name} args={fn_args[:200]}")
                 result = self._execute_custom_tool(fn_name, fn_args)
                 log(f"[{rid}] CUSTOM_TOOL result: {len(result)} chars")
 
-                tool_results.append({
-                    "role": "tool",
-                    "tool_call_id": tc_id,
-                    "content": result,
-                })
+                # 格式化结果为可读文本
+                results_text.append(self._format_tool_result(fn_name, fn_args, result))
 
-            # 构建跟进请求：原始消息 + 助手的 tool_call + 工具结果
-            followup_msgs = list(original_body.get("messages", []))
-            # 添加助手消息（包含 tool_calls）
-            followup_msgs.append({
+            # 直接返回格式化结果（不做 followup LLM 调用）
+            formatted = "\n\n".join(results_text)
+            choice["message"] = {
                 "role": "assistant",
-                "content": msg.get("content") or None,
-                "tool_calls": custom_calls,
-            })
-            # 添加工具结果
-            followup_msgs.extend(tool_results)
-
-            # 重新查询 LLM（不带工具，让它生成最终文本回复）
-            followup_body = {
-                "model": original_body.get("model", "any"),
-                "messages": followup_msgs,
-                "stream": False,
+                "content": formatted,
             }
-
-            log(f"[{rid}] CUSTOM_TOOL followup: sending {len(followup_msgs)} messages to LLM")
-
-            try:
-                followup_raw = json.dumps(followup_body).encode()
-                followup_req = Request(
-                    f"{BACKEND}/v1/chat/completions",
-                    data=followup_raw, method="POST",
-                )
-                followup_req.add_header("Content-Type", "application/json")
-                with urlopen(followup_req, timeout=300) as followup_resp:
-                    followup_body = json.loads(followup_resp.read())
-                    log(f"[{rid}] CUSTOM_TOOL followup: got response")
-                    return followup_body
-            except Exception as e:
-                log(f"[{rid}] CUSTOM_TOOL followup error: {e}")
-                # 回退：直接返回工具结果作为文本
-                choice["message"] = {
-                    "role": "assistant",
-                    "content": f"数据清洗结果：\n{tool_results[0]['content'][:3000]}",
-                }
-                choice["message"].pop("tool_calls", None)
-                return rj
+            choice["finish_reason"] = "stop"
+            log(f"[{rid}] CUSTOM_TOOL response: {len(formatted)} chars")
+            return rj
 
         return None
+
+    def _extract_tool_calls_from_text(self, content):
+        """从文本中提取 <tool_call> XML 格式的工具调用"""
+        import re
+        tool_calls = []
+        pattern = r'<tool_call>\s*(\{.*?\})\s*</tool_call>'
+        for match in re.finditer(pattern, content, re.DOTALL):
+            try:
+                call_data = json.loads(match.group(1))
+                tool_calls.append({
+                    "id": f"call_{uuid.uuid4().hex[:8]}",
+                    "type": "function",
+                    "function": {
+                        "name": call_data.get("name", ""),
+                        "arguments": json.dumps(call_data.get("arguments", {})),
+                    }
+                })
+            except json.JSONDecodeError:
+                continue
+        return tool_calls
+
+    @staticmethod
+    def _format_tool_result(fn_name, fn_args_str, result):
+        """将工具执行结果格式化为用户可读的文本"""
+        try:
+            args = json.loads(fn_args_str) if isinstance(fn_args_str, str) else fn_args_str
+            action = args.get("action", "")
+        except (json.JSONDecodeError, AttributeError):
+            action = ""
+
+        try:
+            data = json.loads(result)
+        except (json.JSONDecodeError, TypeError):
+            return f"工具执行结果:\n{result[:3000]}"
+
+        if "error" in data:
+            return f"❌ 错误: {data['error']}"
+
+        if action == "profile":
+            # 格式化 profile 结果
+            lines = [f"📊 数据质量报告: {data.get('file', '?')}"]
+            lines.append(f"行数: {data.get('rows', '?')} | 列数: {data.get('columns', '?')} | 质量评分: {data.get('quality_score', '?')}/100")
+            lines.append("")
+
+            issues = data.get("issues", [])
+            if issues:
+                lines.append("发现的问题:")
+                for issue in issues:
+                    sev = {"high": "🔴", "medium": "🟡", "low": "🟢"}.get(issue.get("severity", ""), "⚪")
+                    col = issue.get("column", "")
+                    lines.append(f"  {sev} [{col}] {issue.get('type', '?')}: {issue.get('detail', '')}")
+            else:
+                lines.append("✅ 未发现问题")
+
+            lines.append("")
+            lines.append("可用清洗操作: trim(去空格) dedup(去重) fix_dates(统一日期) fix_case(统一大小写) fill_missing(标记缺失) remove_test(去测试数据)")
+            lines.append("请告诉我要执行哪些操作。")
+            return "\n".join(lines)
+
+        if action in ("execute", "clean"):
+            lines = [f"✅ 数据清洗完成: {data.get('input', '?')}"]
+            lines.append(f"行数变化: {data.get('original_rows', '?')} → {data.get('final_rows', '?')}")
+            lines.append("")
+            for step in data.get("steps", []):
+                op = step.get("operation", "?")
+                detail = ""
+                if "rows_removed" in step:
+                    detail = f"（删除 {step['rows_removed']} 行）"
+                elif "cells_trimmed" in step:
+                    detail = f"（修改 {step['cells_trimmed']} 个单元格）"
+                elif "dates_fixed" in step:
+                    detail = f"（修正 {step['dates_fixed']} 个日期）"
+                elif "cells_changed" in step:
+                    detail = f"（修改 {step['cells_changed']} 个单元格）"
+                elif "cells_marked" in step:
+                    detail = f"（标记 {step['cells_marked']} 个单元格）"
+                lines.append(f"  ✓ {op} {detail}")
+            lines.append("")
+            lines.append(f"清洗后文件: {data.get('output', '?')}")
+            return "\n".join(lines)
+
+        if action == "list_ops":
+            lines = ["可用的清洗操作:"]
+            for op in data.get("operations", []):
+                lines.append(f"  • {op['name']}: {op['description']} (风险: {op['risk']})")
+            return "\n".join(lines)
+
+        # 默认: 返回 JSON 摘要
+        return json.dumps(data, ensure_ascii=False, indent=2)[:3000]
 
     def do_POST(self):
         rid = uuid.uuid4().hex[:8]
