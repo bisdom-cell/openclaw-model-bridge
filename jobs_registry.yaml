@@ -49,7 +49,7 @@ jobs:
     log: ~/kb_inject.log
     needs_api_key: false
     enabled: true
-    description: 每日 KB 摘要生成（~/.kb/daily_digest.md），供 LLM 对话时 read 查阅
+    description: 每日 KB 摘要生成 + WhatsApp 推送精华摘要，供 LLM 对话时 read 查阅
 
   # ---- openclaw cron 任务（经过 LLM 链路） ----
 
