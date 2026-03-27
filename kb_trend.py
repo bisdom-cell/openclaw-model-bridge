@@ -342,18 +342,31 @@ period: {weeks}w
 # WhatsApp 推送
 # ---------------------------------------------------------------------------
 
-def push_whatsapp(report_text, rising, emerging):
-    """截取报告精华推送到 WhatsApp。"""
-    rising_short = ", ".join(w for w, *_ in rising[:5]) or "无"
-    emerging_short = ", ".join(w for w, _ in emerging[:5]) or "无"
+def push_whatsapp(report_text, rising, emerging, fading):
+    """截取报告精华推送到 WhatsApp — 内容优先于数字。"""
+    date_str = datetime.now().strftime('%Y-%m-%d')
 
-    msg = f"""📊 AI 周趋势报告 {datetime.now().strftime('%Y-%m-%d')}
+    parts = [f"📊 AI 周趋势报告 {date_str}\n"]
 
-📈 上升: {rising_short}
-🆕 新词: {emerging_short}
-📉 消退: {len([1 for _ in []])}个话题"""
+    # 上升趋势：显示关键词 + 具体数据
+    if rising:
+        parts.append("📈 上升趋势:")
+        for w, tc, lc, r in rising[:5]:
+            parts.append(f"  • {w}: {lc}→{tc}次 (+{r:.0%})")
 
-    # 截取 LLM 分析的前几行
+    # 新出现热词
+    if emerging:
+        parts.append("\n🆕 新出现热词:")
+        for w, c in emerging[:5]:
+            parts.append(f"  • {w} ({c}次)")
+
+    # 消退话题
+    if fading:
+        parts.append(f"\n📉 消退话题:")
+        for w, c in fading[:3]:
+            parts.append(f"  • {w} (上周{c}次)")
+
+    # 截取 LLM 分析的实质内容（跳过标题行和空行）
     lines = report_text.split("\n")
     llm_start = None
     for i, line in enumerate(lines):
@@ -361,8 +374,25 @@ def push_whatsapp(report_text, rising, emerging):
             llm_start = i + 1
             break
     if llm_start:
-        llm_snippet = "\n".join(lines[llm_start:llm_start + 15])[:400]
-        msg += f"\n\n{llm_snippet}"
+        llm_lines = []
+        for line in lines[llm_start:llm_start + 25]:
+            stripped = line.strip()
+            if stripped and not stripped.startswith("（LLM"):
+                llm_lines.append(stripped)
+        if llm_lines:
+            parts.append("\n🤖 分析:")
+            parts.append("\n".join(llm_lines[:15]))
+
+    # 回测结果
+    for line in lines:
+        if "命中率" in line:
+            parts.append(f"\n{line.strip()}")
+            break
+
+    parts.append("\n💡 回复任何话题可深入讨论")
+
+    msg = "\n".join(parts)
+    msg = msg[:1500]
 
     try:
         os.system(
@@ -662,7 +692,7 @@ def main():
 
     # 推送 WhatsApp
     if not args.no_push:
-        push_whatsapp(report, rising, emerging)
+        push_whatsapp(report, rising, emerging, fading)
 
     # 打印摘要
     if not args.json:
