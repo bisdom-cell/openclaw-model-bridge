@@ -142,7 +142,8 @@
 | `gen_jobs_doc.py` | **V28新增** 从 registry 自动生成任务文档 + 漂移检测 |
 | `smoke_test.sh` | **V28新增** 端到端 smoke test（单测+注册表+连通性） |
 | `wa_keepalive.sh` | **V28新增** WhatsApp session 保活（每30分钟真实发送验证） |
-| `preflight_check.sh` | **V28新增** 收工前全面体检（11项检查：单测+注册表+语法+部署一致性+环境变量+连通性+安全扫描+数据流+货代监控） |
+| `preflight_check.sh` | **V28新增→V30.3升级** 收工前全面体检（16项检查：单测+注册表+语法+部署一致性+环境变量+连通性+安全扫描+数据流+货代监控+crontab路径一致性+推送通道E2E） |
+| `job_smoke_test.sh` | **V30.3新增** 全量 job smoke test（20个启用任务×6维度：脚本存在/crontab注册/运行时路径/日志活跃/状态文件/锁文件+KB完整性+crontab条目数） |
 | `docs/config.md` | 完整系统配置文档（含所有历史变更） |
 | `docs/GUIDE.md` | 完整中英文集成指南 |
 | `docs/openclaw_architecture.md` | **V28.2新增** OpenClaw 开源架构完整参考（每日开工自动刷新） |
@@ -453,7 +454,7 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 >
 > 共享状态：`~/.kb/status.json`（三方实时同步优先级、反馈、系统健康）
 
-### 🔴 每次必查（9条，优先级最高）
+### 🔴 每次必查（10条，优先级最高）
 
 | # | 原则 | 一句话 |
 |---|------|--------|
@@ -462,10 +463,11 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 | 3 | **开工先读/收工必写 status.json** | `python3 status_update.py --read --human` 查看三方共享状态（优先级、反馈、系统健康）；收工时更新 priorities + recent_changes：`python3 status_update.py --add recent_changes '{"date":"...","what":"...","by":"claude_code"}' --by claude_code` |
 | 4 | **改完先测** | 新脚本手动验证 → 新任务先写 `jobs_registry.yaml` 并 `python3 check_registry.py` 通过 → 才能注册 cron |
 | 5 | **push前必扫描** | 安全扫描（见上方命令）全部为空才允许 push |
-| 6 | **故障先查自身代码** | 排查问题时默认从我们自己的代码和架构中找 bug（shell 数据传递、cron 环境、进程管理等），不归因于上游服务不稳定（#97教训） |
-| 7 | **做减法不做加法** | 新增防护/监控前先问"谁已经在管这件事"；每加一层保险 = 多一个故障源（#95教训） |
-| 8 | **收工提醒 preflight + 安全评分 + 更新 status.json** | "结束今天的工作"时：① `security_score.py --update` 写入安全评分 ② 提醒用户在 Mac Mini 上运行 `bash preflight_check.sh --full` ③ `status_update.py` 写入变更摘要和优先级 |
-| 9 | **相信 OpenClaw，用好 OpenClaw** | 优先利用 OpenClaw 已有能力（Multi-Agent、contextPruning、workspace CLAUDE.md、tools 等），而非重新造轮子；遇到新需求先查 OpenClaw 文档和 release notes，充分发挥其潜力来提升效率和创新 |
+| 6 | **新功能必须 Mac Mini E2E 验证** | dev 环境单测通过不算完成；**必须提醒用户在 Mac Mini 上运行 `bash preflight_check.sh --full` + `bash job_smoke_test.sh` + 手动触发目标 job**，确认端到端有效果（消息到达 WhatsApp / 文件生成 / 日志正常）。dev 通过 ≠ 生产工作。（2026-03-27 教训：HN/watchdog/mm_index 三个 job 静默失败数天至数周，393 个单元测试全部通过却未发现，因为单测只验证组件内部逻辑，不验证组件之间的接缝——crontab 路径 vs FILE_MAP、cron 环境的 python3 版本、openclaw message send 是否真能发送） |
+| 7 | **故障先查自身代码** | 排查问题时默认从我们自己的代码和架构中找 bug（shell 数据传递、cron 环境、进程管理等），不归因于上游服务不稳定（#97教训） |
+| 8 | **做减法不做加法** | 新增防护/监控前先问"谁已经在管这件事"；每加一层保险 = 多一个故障源（#95教训） |
+| 9 | **收工提醒 preflight + 安全评分 + job smoke test + 更新 status.json** | "结束今天的工作"时：① `security_score.py --update` 写入安全评分 ② 提醒用户在 Mac Mini 上运行 `bash preflight_check.sh --full` + `bash job_smoke_test.sh` ③ `status_update.py` 写入变更摘要和优先级 |
+| 10 | **相信 OpenClaw，用好 OpenClaw** | 优先利用 OpenClaw 已有能力（Multi-Agent、contextPruning、workspace CLAUDE.md、tools 等），而非重新造轮子；遇到新需求先查 OpenClaw 文档和 release notes，充分发挥其潜力来提升效率和创新 |
 
 ### 🟡 按需查阅（操作 & 架构参考）
 
