@@ -174,7 +174,7 @@ PHONE="${OPENCLAW_PHONE:-+85200000000}"
 
 # 提取摘要关键信息作为推送内容（WhatsApp 消息不宜过长）
 WA_MSG=$(python3 - "$DIGEST_FILE" << 'PYEOF'
-import sys
+import sys, re
 
 try:
     with open(sys.argv[1]) as f:
@@ -184,45 +184,44 @@ except OSError:
     sys.exit(0)
 
 lines = content.split('\n')
-parts = []
 
-# 提取头部统计
-for line in lines[:5]:
+# 提取头部统计（> 开头的行）
+stats_lines = []
+for line in lines[:6]:
     if line.startswith('>'):
-        parts.append(line.lstrip('> ').strip())
+        stats_lines.append(line.lstrip('> ').strip())
 
-# 提取近期笔记（最多5条）
-in_notes = False
+# 提取近期笔记（- [日期] 格式，只取8位数字日期开头的）
 note_lines = []
+in_notes = False
 for line in lines:
     if line.startswith('## 近期笔记'):
         in_notes = True
         continue
     if in_notes:
-        if line.startswith('## ') or not line.strip():
-            if note_lines:
-                break
-            continue
-        note_lines.append(line.strip())
-        if len(note_lines) >= 5:
+        if line.startswith('## '):
             break
+        stripped = line.strip()
+        if stripped.startswith('- [') and re.match(r'- \[20\d{6}\]', stripped):
+            note_lines.append(stripped)
+            if len(note_lines) >= 5:
+                break
 
-# 提取各来源标题
-source_titles = []
+# 来源：只取四大来源的 ## 标题（固定白名单，避免抓到内容行）
+known_sources = {'ArXiv 论文', 'HackerNews 热帖', '货代动态', 'OpenClaw 更新'}
+active_sources = []
 for line in lines:
-    if line.startswith('## ') and line[3:].strip() not in ('近期笔记', '用户反馈'):
+    if line.startswith('## '):
         title = line[3:].strip()
-        if title and not title.startswith('---'):
-            source_titles.append(title)
+        if title in known_sources:
+            active_sources.append(title)
 
-header = parts[0] if parts else '每日摘要'
-stats = ' | '.join(parts[1:3]) if len(parts) >= 3 else ''
-
-msg = f"📰 KB {header}\n"
-if stats:
-    msg += f"📊 {stats}\n"
-if source_titles:
-    msg += f"📁 来源: {', '.join(source_titles)}\n"
+# 组装消息
+msg = "📰 KB 每日摘要\n"
+for s in stats_lines:
+    msg += f"  {s}\n"
+if active_sources:
+    msg += f"📁 今日来源: {' / '.join(active_sources)}\n"
 if note_lines:
     msg += "\n📝 近期笔记:\n" + '\n'.join(note_lines[:5]) + "\n"
 
