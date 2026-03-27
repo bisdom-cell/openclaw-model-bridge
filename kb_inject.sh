@@ -175,6 +175,7 @@ PHONE="${OPENCLAW_PHONE:-+85200000000}"
 # 提取摘要关键信息作为推送内容（WhatsApp 消息不宜过长）
 WA_MSG=$(python3 - "$DIGEST_FILE" << 'PYEOF'
 import sys, re
+from datetime import datetime
 
 try:
     with open(sys.argv[1]) as f:
@@ -184,52 +185,68 @@ except OSError:
     sys.exit(0)
 
 lines = content.split('\n')
+today = datetime.now().strftime('%Y-%m-%d')
+today_short = datetime.now().strftime('%Y%m%d')
 
-# 提取头部统计（> 开头的行）
-stats_lines = []
+# 提取头部统计（> 开头的行，合并为一行）
+stats_parts = []
 for line in lines[:6]:
     if line.startswith('>'):
-        stats_lines.append(line.lstrip('> ').strip())
+        stats_parts.append(line.lstrip('> ').strip())
+stats_line = ' | '.join(stats_parts[:2]) if stats_parts else ''
 
-# 提取近期笔记（- [日期] 格式，只取8位数字日期开头的，去重）
-note_lines = []
-seen_notes = set()
-in_notes = False
-for line in lines:
-    if line.startswith('## 近期笔记'):
-        in_notes = True
-        continue
-    if in_notes:
-        if line.startswith('## '):
-            break
-        stripped = line.strip()
-        if stripped.startswith('- [') and re.match(r'- \[20\d{6}\]', stripped):
-            if stripped not in seen_notes:
-                seen_notes.add(stripped)
-                note_lines.append(stripped)
-                if len(note_lines) >= 5:
-                    break
-
-# 来源：只取四大来源的 ## 标题（固定白名单，避免抓到内容行）
-known_sources = {'ArXiv 论文', 'HackerNews 热帖', '货代动态', 'OpenClaw 更新'}
-active_sources = []
+# 按 ## 标题分割各来源章节，提取有意义的内容行
+known_sources = {
+    'ArXiv 论文': '📄',
+    'HackerNews 热帖': '🔥',
+    '货代动态': '🚢',
+    'OpenClaw 更新': '⚙️',
+    '近期笔记': '📝',
+}
+source_highlights = {}
+current_source = None
 for line in lines:
     if line.startswith('## '):
         title = line[3:].strip()
-        if title in known_sources:
-            active_sources.append(title)
+        current_source = title if title in known_sources else None
+        continue
+    if current_source and line.strip():
+        stripped = line.strip()
+        # 跳过纯日期行、空行、元数据行
+        if re.match(r'^(20\d{2}-\d{2}-\d{2}\s*$|📊|>|---)', stripped):
+            continue
+        if current_source not in source_highlights:
+            source_highlights[current_source] = []
+        # 去重
+        if stripped not in [x for x in source_highlights[current_source]]:
+            source_highlights[current_source].append(stripped)
 
 # 组装消息
-msg = "📰 KB 每日摘要\n"
-for s in stats_lines:
-    msg += f"  {s}\n"
-if active_sources:
-    msg += f"📁 今日来源: {' / '.join(active_sources)}\n"
-if note_lines:
-    msg += "\n📝 近期笔记:\n" + '\n'.join(note_lines[:5]) + "\n"
+msg = f"📰 KB 每日摘要 ({today})\n"
+if stats_line:
+    msg += f"{stats_line}\n"
+msg += "\n"
 
-msg += "\n💡 详细内容可在对话中直接提问"
-print(msg[:800])
+for source, emoji in known_sources.items():
+    items = source_highlights.get(source, [])
+    if not items:
+        continue
+    msg += f"{emoji} {source}:\n"
+    # 每个来源取前3条有意义的内容
+    count = 0
+    for item in items:
+        if len(item) < 5:  # 跳过太短的行
+            continue
+        # 截断过长的行
+        display = item[:100] + '...' if len(item) > 100 else item
+        msg += f"  {display}\n"
+        count += 1
+        if count >= 3:
+            break
+    msg += "\n"
+
+msg += "💡 详细内容可在对话中直接提问"
+print(msg[:1200])
 PYEOF
 )
 
