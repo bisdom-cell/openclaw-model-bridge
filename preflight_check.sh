@@ -410,15 +410,17 @@ else
 fi
 
 # ── 12. #48703 WhatsApp listeners Map 补丁检测 ────────────────────────
+echo ""
 echo "📋 12/16 #48703 WhatsApp listeners Map 补丁"
 
 if $FULL_MODE; then
     OPENCLAW_DIST="/opt/homebrew/lib/node_modules/openclaw/dist"
     if [ -d "$OPENCLAW_DIST" ]; then
-        UNPATCHED=$(grep -rl 'const listeners = /\* @__PURE__ \*/ new Map()' \
-            "$OPENCLAW_DIST" --include="*.js" 2>/dev/null | grep -v ".bak" | wc -l | tr -d ' ')
+        # 只扫描顶层 chunks（避免 821 个文件全量 grep 卡住）
+        UNPATCHED=$(grep -l 'const listeners = /\* @__PURE__ \*/ new Map()' \
+            "$OPENCLAW_DIST"/*.js "$OPENCLAW_DIST"/chunks/*.js 2>/dev/null | grep -v ".bak" | wc -l | tr -d ' ')
         if [ "$UNPATCHED" -gt 0 ]; then
-            fail "#48703 未修复: $UNPATCHED 个文件有 listeners Map 副本（运行 bash ~/patch_48703.sh 或 bash restart.sh 自动修复）"
+            fail "#48703 未修复: $UNPATCHED 个文件有 listeners Map 副本"
         else
             pass "#48703 已修复（listeners Map 使用 globalThis singleton）"
         fi
