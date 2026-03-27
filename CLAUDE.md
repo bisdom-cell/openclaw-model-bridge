@@ -1,6 +1,6 @@
 # CLAUDE.md — openclaw-model-bridge 项目背景
 
-> 每次新会话开始时自动读取。当前版本：v30（2026-03-26）
+> 每次新会话开始时自动读取。当前版本：v30.3（2026-03-27）
 
 ---
 
@@ -22,12 +22,16 @@
 │  WhatsApp ←→ Gateway (:18789) ←→ Tool Proxy (:5002) ←→ Adapter (:5001) ←→ 远程GPU        │
 │              [launchd管理]        [策略过滤+监控]       [认证+VL路由]     [Qwen3-235B]      │
 │              [媒体存储]           [图片base64注入]      [Fallback降级]    [Qwen2.5-VL-72B]  │
+│                  │                [自定义工具注入]          │                               │
 │                  │                    │                    │                               │
 │                  │               /health ──→ /health       │                               │
 │                  │               /stats (token监控)        │                               │
+│                  │               /data_clean/* (REST)      │                               │
 │                                                                     │
 │  图片流程：Gateway存储jpg → Proxy检测<media:image> → base64注入       │
 │           → Adapter检测image_url → 路由到Qwen2.5-VL → 图片理解回复    │
+│  数据清洗：Gateway存储文件 → LLM调用data_clean工具 → Proxy拦截执行     │
+│           → data_clean.py本地处理 → 格式化结果返回 → WhatsApp展示      │
 └──────────────────┼────────────────────┼────────────────────┼────────────────────────┘
                    │                    │                    │
 ┌──────────────────▼────────────────────▼────────────────────▼────────────────────────┐
@@ -105,7 +109,7 @@
 | 组件 | 端口 | 文件 | 功能 | 进程管理 |
 |------|------|------|------|----------|
 | OpenClaw Gateway | 18789 | npm全局安装 | WhatsApp接入、**媒体存储**、工具执行、会话管理 | launchd (KeepAlive) |
-| Tool Proxy | 5002 | `tool_proxy.py` + `proxy_filters.py` | 工具过滤(24→12)、**图片base64注入**、Schema简化、SSE转换、截断、token监控 | launchd plist |
+| Tool Proxy | 5002 | `tool_proxy.py` + `proxy_filters.py` | 工具过滤(24→12)、**图片base64注入**、**自定义工具注入+拦截执行**（data_clean）、Schema简化、SSE转换、截断、token监控、`/data_clean/*` REST端点 | launchd plist |
 | Adapter | 5001 | `adapter.py` | 多Provider转发、认证、**多模态路由**（文本→Qwen3，图片→Qwen2.5-VL）、Fallback降级 | launchd plist |
 | 远程GPU | — | hkagentx.hkopenlab.com | **Qwen3-235B**（文本, 262K context）+ **Qwen2.5-VL-72B**（视觉理解） | 外部服务 |
 
@@ -113,8 +117,11 @@
 
 | 文件 | 用途 |
 |------|------|
-| `tool_proxy.py` | HTTP 层（收发请求、日志） |
-| `proxy_filters.py` | **V27新增** 策略层（过滤、修复、截断、SSE转换），纯函数无网络依赖 |
+| `tool_proxy.py` | HTTP 层（收发请求、日志、**自定义工具拦截执行**、`/data_clean/*` REST端点） |
+| `proxy_filters.py` | **V27新增** 策略层（过滤、修复、截断、SSE转换、**自定义工具注入**），纯函数无网络依赖 |
+| `data_clean.py` | **V30.3新增** 数据清洗 CLI 工具（profile/execute/validate/history，7种操作，支持CSV/TSV/JSON/JSONL/Excel） |
+| `test_data_clean.py` | **V30.3新增** 数据清洗单测（80个用例：格式检测/读写/操作/端到端/多格式） |
+| `data_clean_poc/` | **V30.3新增** Phase 0 验证材料（3个脏数据样本+LLM判断力测试脚本） |
 | `adapter.py` | API适配层（认证 `$REMOTE_API_KEY`，Fallback降级 `$FALLBACK_PROVIDER`） |
 | `openclaw_backup.sh` | **V29.1新增** 每日Gateway state备份到外挂SSD（保留7天） |
 | `jobs_registry.yaml` | **V27新增** 统一任务注册表（system + openclaw 双 cron） |
@@ -137,7 +144,7 @@
 | `status_update.py` | **V29.5新增** 三方共享项目状态工具（原子读写 ~/.kb/status.json，Claude Code + PA + cron 共用） |
 | `kb_save_arxiv.sh` | ArXiv监控结果写入KB + rsync备份 |
 | `auto_deploy.sh` | **V27.1新增** 仓库→部署自动同步 + 漂移检测（md5全量比对+WhatsApp告警） |
-| `test_tool_proxy.py` | proxy_filters 单测（43个用例） |
+| `test_tool_proxy.py` | proxy_filters 单测（67个用例，含自定义工具注入） |
 | `test_check_registry.py` | **V28新增** check_registry.py 单测（18个用例） |
 | `gen_jobs_doc.py` | **V28新增** 从 registry 自动生成任务文档 + 漂移检测 |
 | `smoke_test.sh` | **V28新增** 端到端 smoke test（单测+注册表+连通性） |
@@ -160,6 +167,35 @@
 | `audit_log.py` | **V30.2新增** 链式哈希审计日志（JSONL append-only，SHA256 链式校验，篡改/删除可检测） |
 | `test_audit_log.py` | **V30.2新增** 审计日志单测（19个用例：写入/链式哈希/篡改检测/删除检测/统计） |
 | `security_score.py` | **V30.2新增** 系统安全评分（7维度100分：密钥/测试/完整性/部署/传输/审计/可用性） |
+
+## V30.3 变更摘要（2026-03-27）
+
+> 数据清洗工具 + 自定义工具注入机制 + WhatsApp E2E 验证
+
+1. **数据清洗 CLI 工具**：`data_clean.py` — 5 子命令（profile/execute/validate/history/list-ops）+ 7 清洗操作（dedup/dedup_near/trim/fix_dates/fix_case/fill_missing/remove_test）；支持 CSV/TSV/JSON/JSONL/Excel 5 种格式自动检测；版本链 + 原子写入 + 审计日志
+2. **自定义工具注入机制**：`proxy_filters.py` 新增 `CUSTOM_TOOLS` 列表，`filter_tools()` 自动注入到 LLM 工具列表中；LLM 像调用 `read`/`write` 一样调用自定义工具，Proxy 拦截执行，Gateway 无感知
+3. **自定义工具拦截执行**：`tool_proxy.py` 检测 LLM 响应中的自定义工具调用 → 本地执行 `data_clean.py` → 格式化结果为可读文本 → 直接返回给 Gateway（跳过 followup LLM 调用，更可靠）
+4. **Qwen3 `<tool_call>` XML 解析**：Qwen3 可能将 tool_call 嵌入文本内容中作为 XML 标签，新增 `_extract_tool_calls_from_text()` 从文本中提取
+5. **LLM 参数容错**：接受 `action:"clean"` 作为 `"execute"` 别名；从 LLM 生成的 `config` 对象中推断清洗操作和目标列
+6. **Phase 0 LLM 判断力验证**：3 个脏数据样本（订单/商品/联系人，30 个已知问题）验证 Qwen3 数据质量判断力，覆盖率 90-100%
+7. **REST 端点**：`/data_clean/profile`、`/data_clean/execute`、`/data_clean/validate`、`/data_clean/list-ops`、`/data_clean/report`、`/data_clean/help`
+8. **WhatsApp E2E 验证通过**：用户发 Excel → PA 调用 data_clean 工具 → Proxy 拦截执行 → 真实清洗结果展示在 WhatsApp
+9. **单测 80 个**：格式检测（6）+ 值转换（7）+ TSV 读写（3）+ JSON 读写（8）+ JSONL 读写（4）+ Excel 读写（4）+ 多格式端到端（4）+ 操作逻辑（12）+ 列画像（7）+ 重复检测（3）+ CSV 读写（2）+ 端到端（5）+ 样本文件（4）+ 辅助函数（11）
+10. **auto_deploy.sh FILE_MAP 扩展**：新增 `data_clean.py` → `~/data_clean.py`
+
+### 自定义工具注入架构
+
+```
+Gateway 发送 6 个工具 → Proxy filter_tools() 注入 data_clean → LLM 看到 7 个工具
+LLM 调用 data_clean → 响应回到 Proxy → Proxy 拦截检测
+→ 执行 data_clean.py（subprocess） → 格式化结果
+→ 替换 tool_call 为文本回复 → 返回 Gateway → WhatsApp 展示
+
+特点：
+- Gateway 无感知（不需要修改 Gateway 配置）
+- LLM 无抵触（与 read/write 同级的正规工具，不需要 web_fetch localhost）
+- 可扩展（CUSTOM_TOOLS 列表可添加更多自定义工具）
+```
 
 ## V30.2 变更摘要（2026-03-26）
 
@@ -399,6 +435,14 @@ python3 kb_rag.py "Qwen3 模型"     # 语义搜索 KB
 python3 kb_rag.py --context "AI论文" # LLM 可直接注入的上下文格式
 python3 kb_rag.py --json "shipping" # JSON 输出（供脚本调用）
 
+# 数据清洗（支持 CSV/TSV/JSON/JSONL/Excel）
+python3 data_clean.py profile data.xlsx --format text   # 数据画像
+python3 data_clean.py execute data.xlsx --ops trim,dedup,fix_dates  # 执行清洗
+python3 data_clean.py validate original.csv cleaned.csv  # 验证结果
+python3 data_clean.py list-ops                           # 可用操作
+python3 data_clean.py history data.xlsx                  # 版本历史
+curl http://localhost:5002/data_clean/help               # REST 端点帮助
+
 # 生成任务文档 / 检测文档漂移
 python3 gen_jobs_doc.py           # 输出 markdown 表格
 python3 gen_jobs_doc.py --check   # 对比 docs/config.md 检测漂移
@@ -500,12 +544,14 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 
 | 优先级 | 任务 |
 |--------|------|
+| 中高 | **数据清洗 Phase 2**：三 Agent 架构（Profiler/Planner/Executor）、语义去重（"张伟"="Zhang Wei"）、自定义清洗规则（正则/映射表）、清洗模板积累到 KB、清洗后文件回传 WhatsApp |
 | 低 | 知识图谱：AI大模型领域知识图谱构建（需6-12个月数据积累，暂缓） |
 | 低 | 货代Watcher V3：Bing News API替代GoogleNews |
 | 低 | 语音消息支持：WhatsApp语音→STT→LLM回复 |
 | 低 | MM搜索接入对话：mm_search.py 注册为 OpenClaw tool |
 | 低 | KB 静态加密：status.json / index.json 使用 age/gpg 加密存盘 |
 | 低 | 依赖漏洞扫描：pip-audit 集成到 full_regression.sh |
+| ✅ | **数据清洗 Phase 1：CLI + 自定义工具注入 + WhatsApp E2E（V30.3）** |
 | ✅ | **安全评分体系 + 审计日志 + 持续安全机制（V30.2）** |
 | ✅ | **全量回归测试框架 393 用例（V30.1）** |
 | ✅ | **KB 周趋势报告 + 模型智能路由（V29.5）** |
