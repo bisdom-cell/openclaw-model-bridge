@@ -211,6 +211,153 @@ done
 
 echo ""
 
+# ── KB 来源新鲜度检查 ──
+echo "━━━ KB 来源新鲜度 ━━━"
+for src_entry in \
+    "arxiv_daily.md|48|ArXiv 论文" \
+    "hn_daily.md|48|HN 热帖" \
+    "freight_daily.md|48|货代动态" \
+    "openclaw_official.md|168|OpenClaw 更新"; do
+    IFS='|' read -r src_file max_hours src_label <<< "$src_entry"
+    src_path="$HOME/.kb/sources/$src_file"
+    if [ -f "$src_path" ]; then
+        if [ "$(uname)" = "Darwin" ]; then
+            SRC_EPOCH=$(stat -f %m "$src_path" 2>/dev/null || echo "0")
+        else
+            SRC_EPOCH=$(stat -c %Y "$src_path" 2>/dev/null || echo "0")
+        fi
+        SRC_AGE_H=$(( (NOW_EPOCH - SRC_EPOCH) / 3600 ))
+        if [ "$SRC_AGE_H" -le "$max_hours" ]; then
+            pass "$src_label: ${SRC_AGE_H}h 前更新"
+        else
+            warn "$src_label: ${SRC_AGE_H}h 未更新（预期 <${max_hours}h）"
+        fi
+    else
+        warn "$src_label: 来源文件不存在"
+    fi
+done
+
+echo ""
+
+# ── KB JSON 结构验证 ──
+echo "━━━ KB JSON 结构验证 ━━━"
+# index.json 解析 + 条目数
+if [ -f "$HOME/.kb/index.json" ]; then
+    IDX_CHECK=$(python3 -c "
+import json
+try:
+    with open('$HOME/.kb/index.json') as f:
+        d = json.load(f)
+    entries = d.get('entries', [])
+    if len(entries) > 0:
+        # 抽检最新条目有必要字段
+        latest = entries[-1]
+        has_fields = all(k in latest for k in ['date', 'tags'])
+        print(f'OK|{len(entries)} 条，结构正常' if has_fields else f'WARN|{len(entries)} 条，最新条目缺少字段')
+    else:
+        print('WARN|entries 为空')
+except json.JSONDecodeError as e:
+    print(f'FAIL|JSON 解析失败: {e}')
+except Exception as e:
+    print(f'FAIL|{e}')
+" 2>/dev/null || echo "FAIL|Python 执行失败")
+    case "${IDX_CHECK%%|*}" in
+        OK) pass "index.json: ${IDX_CHECK#*|}" ;;
+        WARN) warn "index.json: ${IDX_CHECK#*|}" ;;
+        FAIL) fail "index.json: ${IDX_CHECK#*|}" ;;
+    esac
+fi
+
+# status.json 解析 + 必要字段
+if [ -f "$HOME/.kb/status.json" ]; then
+    STS_CHECK=$(python3 -c "
+import json
+try:
+    with open('$HOME/.kb/status.json') as f:
+        d = json.load(f)
+    required = ['priorities', 'recent_changes', 'feedback', 'health']
+    missing = [k for k in required if k not in d]
+    if missing:
+        print(f'WARN|缺少字段: {\", \".join(missing)}')
+    else:
+        print(f'OK|{len(required)} 个必要字段完整')
+except json.JSONDecodeError as e:
+    print(f'FAIL|JSON 损坏: {e}')
+except Exception as e:
+    print(f'FAIL|{e}')
+" 2>/dev/null || echo "FAIL|Python 执行失败")
+    case "${STS_CHECK%%|*}" in
+        OK) pass "status.json: ${STS_CHECK#*|}" ;;
+        WARN) warn "status.json: ${STS_CHECK#*|}" ;;
+        FAIL) fail "status.json: ${STS_CHECK#*|}" ;;
+    esac
+fi
+
+echo ""
+
+# ── 备份健康检查 ──
+echo "━━━ 备份健康检查 ━━━"
+SSD_BACKUP="/Volumes/MOVESPEED/openclaw_backup"
+KB_BACKUP="/Volumes/MOVESPEED/KB"
+
+# SSD 挂载检查
+if [ -d "/Volumes/MOVESPEED" ]; then
+    pass "外挂 SSD 已挂载"
+
+    # SSD 可用空间
+    SSD_AVAIL=$(df -h /Volumes/MOVESPEED 2>/dev/null | tail -1 | awk '{print $4}')
+    SSD_USAGE=$(df /Volumes/MOVESPEED 2>/dev/null | tail -1 | awk '{print $5}' | tr -d '%')
+    if [ -n "$SSD_USAGE" ] && [ "$SSD_USAGE" -lt 90 ] 2>/dev/null; then
+        pass "SSD 可用空间: ${SSD_AVAIL}（使用 ${SSD_USAGE}%）"
+    elif [ -n "$SSD_USAGE" ]; then
+        warn "SSD 空间紧张: ${SSD_AVAIL}（使用 ${SSD_USAGE}%）"
+    fi
+
+    # Gateway state 备份新鲜度
+    if [ -d "$SSD_BACKUP" ]; then
+        LATEST_BK=$(ls -t "$SSD_BACKUP"/*.tar.gz 2>/dev/null | head -1)
+        if [ -n "$LATEST_BK" ]; then
+            if [ "$(uname)" = "Darwin" ]; then
+                BK_EPOCH=$(stat -f %m "$LATEST_BK" 2>/dev/null || echo "0")
+            else
+                BK_EPOCH=$(stat -c %Y "$LATEST_BK" 2>/dev/null || echo "0")
+            fi
+            BK_AGE_H=$(( (NOW_EPOCH - BK_EPOCH) / 3600 ))
+            BK_SIZE=$(du -h "$LATEST_BK" 2>/dev/null | cut -f1)
+            if [ "$BK_AGE_H" -le 26 ]; then
+                pass "Gateway 备份: ${BK_AGE_H}h 前（${BK_SIZE}）"
+            else
+                warn "Gateway 备份过期: ${BK_AGE_H}h 前（预期 <26h）"
+            fi
+        else
+            warn "无 Gateway 备份文件"
+        fi
+    else
+        warn "Gateway 备份目录不存在: $SSD_BACKUP"
+    fi
+
+    # KB 备份新鲜度
+    if [ -d "$KB_BACKUP" ]; then
+        if [ "$(uname)" = "Darwin" ]; then
+            KB_BK_EPOCH=$(stat -f %m "$KB_BACKUP/index.json" 2>/dev/null || echo "0")
+        else
+            KB_BK_EPOCH=$(stat -c %Y "$KB_BACKUP/index.json" 2>/dev/null || echo "0")
+        fi
+        KB_BK_AGE_H=$(( (NOW_EPOCH - KB_BK_EPOCH) / 3600 ))
+        if [ "$KB_BK_AGE_H" -le 26 ]; then
+            pass "KB 备份: ${KB_BK_AGE_H}h 前"
+        else
+            warn "KB 备份过期: ${KB_BK_AGE_H}h 前（预期 <26h）"
+        fi
+    else
+        warn "KB 备份目录不存在: $KB_BACKUP"
+    fi
+else
+    warn "外挂 SSD 未挂载（/Volumes/MOVESPEED）"
+fi
+
+echo ""
+
 # ── 额外检查：crontab 条目数 ──
 echo "━━━ Crontab 完整性 ━━━"
 CRON_COUNT=$(echo "$CRONTAB" | grep -c '[^ ]' || echo "0")
