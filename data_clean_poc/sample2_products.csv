@@ -1,0 +1,16 @@
+sku,product_name,category,price,stock,weight_kg,supplier
+SKU-001,iPhone 16 Pro Max,Electronics,8999.00,150,0.221,Apple Inc.
+SKU-002,iphone 16 pro max,electronics,8999.00,150,0.221,Apple Inc.
+SKU-003,MacBook Pro 14寸,Electronics,14999.00,-5,1.6,Apple Inc.
+SKU-004,无线蓝牙耳机,Electronics,299.00,5000,0.05,深圳市某某科技有限公司
+SKU-005,无线蓝牙耳机,电子产品,299.00,5000,0.05,深圳市某某科技有限公司
+SKU-006,纯棉T恤（白色）,Clothing,79.00,800,0.2,广州服饰
+SKU-007,纯棉T恤(白色),服装,79.00,0,0.2,广州服饰
+SKU-008,有机牛奶 1L,Food,25.50,200,1.05,蒙牛
+SKU-009,有机牛奶 1L,食品,25.5,200,1.050,mengniu
+SKU-010,,Electronics,0.00,0,0.0,
+SKU-011,测试商品请忽略,Test,1.00,0,0.0,test
+SKU-012,iPhone 16 Pro,Electronics,7999.00,80,0.199,Apple Inc.
+SKU-013,运动鞋 42码,Clothing,599.00,thirty,0.8,Nike
+SKU-014,咖啡豆 500g,Food,128.00,450,0.52,星巴克
+SKU-015,咖啡豆 500g,Food,128.00,450,0.52,Starbucks
