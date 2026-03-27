@@ -186,82 +186,141 @@ except OSError:
 
 lines = content.split('\n')
 today = datetime.now().strftime('%Y-%m-%d')
-today_short = datetime.now().strftime('%Y%m%d')
 
-# 提取头部统计（> 开头的行，合并为一行）
+# 提取头部统计
 stats_parts = []
 for line in lines[:6]:
     if line.startswith('>'):
         stats_parts.append(line.lstrip('> ').strip())
 stats_line = ' | '.join(stats_parts[:2]) if stats_parts else ''
 
-# 按 ## 标题分割各来源章节，提取有意义的内容行
-known_sources = {
-    'ArXiv 论文': '📄',
-    'HackerNews 热帖': '🔥',
-    '货代动态': '🚢',
-    'OpenClaw 更新': '⚙️',
-    '近期笔记': '📝',
-}
-source_highlights = {}
+# 按 ## 标题分割各来源章节
+known_sources = ['ArXiv 论文', 'HackerNews 热帖', '货代动态', 'OpenClaw 更新']
+source_content = {}
 current_source = None
 for line in lines:
     if line.startswith('## '):
         title = line[3:].strip()
         if title in known_sources:
             current_source = title
-        # 不在白名单的 ## 行（如 ## 2026-03-26）不切换章节，继续当前来源
         continue
     if current_source and line.strip():
-        stripped = line.strip()
-        # 跳过纯日期行、统计行、引用行、分隔线
-        if re.match(r'^(20\d{2}[-/]\d{2}[-/]\d{2}\s*$|📊|>|---|#)', stripped):
-            continue
-        # 近期笔记：只保留近期日期的条目
-        if current_source == '近期笔记':
-            m = re.match(r'- \[(\d{8})\]', stripped)
-            if m:
-                note_date = m.group(1)
-                if note_date < today_short:
-                    # 允许昨天的（3天范围内），但跳过太旧的
-                    from datetime import timedelta
-                    cutoff = (datetime.now() - timedelta(days=3)).strftime('%Y%m%d')
-                    if note_date < cutoff:
-                        continue
-            elif not stripped.startswith('- [20'):
-                continue  # 跳过非日期格式的笔记（如 [openclaw]）
-        if current_source not in source_highlights:
-            source_highlights[current_source] = []
-        # 去重
-        if stripped not in source_highlights[current_source]:
-            source_highlights[current_source].append(stripped)
+        if current_source not in source_content:
+            source_content[current_source] = []
+        source_content[current_source].append(line.strip())
 
-# 组装消息
+# ── 提取结构化条目（中英文 + URL） ──
+
+def extract_arxiv(lines):
+    """ArXiv 格式: *中文标题* / 作者 / 链接：url / 贡献 / 价值"""
+    items = []
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        if line.startswith('*') and line.endswith('*'):
+            cn_title = line.strip('*').strip()
+            url = ''
+            author = ''
+            # 扫描后续行找链接和作者
+            for j in range(i+1, min(i+5, len(lines))):
+                if lines[j].startswith('链接：'):
+                    url = lines[j].replace('链接：', '').strip()
+                elif lines[j].startswith('作者：'):
+                    author = lines[j]
+            if cn_title:
+                items.append({'cn': cn_title, 'url': url, 'meta': author})
+        i += 1
+    return items
+
+def extract_hn(lines):
+    """HN 格式: - **[Title](url)** | date | 要点：中文 | stars"""
+    items = []
+    for line in lines:
+        m = re.match(r'-\s*\*\*\[([^\]]+)\]\(([^)]+)\)\*\*\s*\|[^|]*\|\s*要点：([^|]+)', line)
+        if m:
+            en_title, url, point = m.group(1), m.group(2), m.group(3).strip()
+            items.append({'en': en_title, 'cn': point, 'url': url})
+    return items
+
+def extract_freight(lines):
+    """货代格式: 自由文本，提取有意义的行"""
+    items = []
+    for line in lines:
+        if re.match(r'^(20\d{2}[-/]\d{2}|📊|🚢\s*货代商机)', line):
+            continue
+        if len(line) > 10 and not line.startswith('行动：'):
+            items.append({'cn': line})
+    return items
+
+def extract_openclaw(lines):
+    """OpenClaw 格式: 版本号 + 链接"""
+    version = ''
+    url = ''
+    for line in lines:
+        if line.startswith('- *v'):
+            version = line.strip('- *').strip()
+        if '链接:' in line or '链接：' in line:
+            url = re.sub(r'^.*链接[：:]\s*', '', line).strip()
+    if version:
+        return [{'cn': f'新版本 {version}', 'url': url}]
+    return []
+
+# 提取各来源的结构化数据
+arxiv_items = extract_arxiv(source_content.get('ArXiv 论文', []))
+hn_items = extract_hn(source_content.get('HackerNews 热帖', []))
+freight_items = extract_freight(source_content.get('货代动态', []))
+oc_items = extract_openclaw(source_content.get('OpenClaw 更新', []))
+
+# ── 选取今日重点 ──
+top_item = None
+if hn_items:
+    top_item = f"{hn_items[0]['en']} — {hn_items[0]['cn']}"
+elif arxiv_items:
+    top_item = arxiv_items[0]['cn']
+
+# ── 组装消息 ──
 msg = f"📰 KB 每日摘要 ({today})\n"
 if stats_line:
     msg += f"{stats_line}\n"
-msg += "\n"
 
-for source, emoji in known_sources.items():
-    items = source_highlights.get(source, [])
-    if not items:
-        continue
-    msg += f"{emoji} {source}:\n"
-    # 每个来源取前3条有意义的内容
-    count = 0
-    for item in items:
-        if len(item) < 5:  # 跳过太短的行
-            continue
-        # 截断过长的行
-        display = item[:100] + '...' if len(item) > 100 else item
-        msg += f"  {display}\n"
-        count += 1
-        if count >= 3:
-            break
-    msg += "\n"
+if top_item:
+    msg += f"\n🔑 今日重点: {top_item}\n"
 
-msg += "💡 详细内容可在对话中直接提问"
-print(msg[:1200])
+# ArXiv（中英对照 + URL）
+if arxiv_items:
+    msg += "\n📄 ArXiv 论文:\n"
+    for item in arxiv_items[:3]:
+        msg += f"  {item['cn']}\n"
+        if item.get('meta'):
+            msg += f"  {item['meta']}\n"
+        if item.get('url'):
+            msg += f"  {item['url']}\n"
+
+# HN（英文标题 + 中文要点 + URL）
+if hn_items:
+    msg += "\n🔥 HackerNews:\n"
+    for item in hn_items[:3]:
+        msg += f"  {item['en']}\n"
+        msg += f"  → {item['cn']}\n"
+        if item.get('url'):
+            msg += f"  {item['url']}\n"
+
+# 货代
+if freight_items:
+    msg += "\n🚢 货代动态:\n"
+    for item in freight_items[:2]:
+        msg += f"  {item['cn']}\n"
+
+# OpenClaw
+if oc_items:
+    msg += "\n⚙️ OpenClaw:\n"
+    for item in oc_items[:1]:
+        msg += f"  {item['cn']}\n"
+        if item.get('url'):
+            msg += f"  {item['url']}\n"
+
+msg += "\n💡 回复任何话题可深入讨论"
+print(msg[:1500])
 PYEOF
 )
 
