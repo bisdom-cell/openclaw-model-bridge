@@ -2,6 +2,8 @@
 """
 data_clean.py — 数据清洗 CLI 工具（Phase 1 MVP）
 
+支持格式: CSV, TSV, JSON, JSONL, Excel (.xlsx)
+
 子命令:
   profile <file>                  数据画像（质量报告）
   execute <file> [--operations]   执行清洗操作
@@ -45,6 +47,9 @@ DATE_PATTERNS = [
 
 PLACEHOLDER_VALUES = {"n/a", "na", "null", "none", "undefined", "tbd", "-", "--", ""}
 
+# 支持的文件格式
+SUPPORTED_FORMATS = {"csv", "tsv", "json", "jsonl", "xlsx"}
+
 
 # ── 工具函数 ─────────────────────────────────────────────
 
@@ -53,8 +58,94 @@ def ensure_workspace():
     os.makedirs(VERSION_DIR, exist_ok=True)
 
 
-def read_csv(filepath):
-    """读取 CSV，返回 (headers, rows)"""
+# ── 格式检测与统一 I/O ──────────────────────────────────
+
+def detect_format(filepath):
+    """从文件扩展名推断格式"""
+    ext = os.path.splitext(filepath)[1].lower().lstrip(".")
+    if ext in ("tsv", "tab"):
+        return "tsv"
+    if ext == "jsonl":
+        return "jsonl"
+    if ext == "json":
+        # 自动区分 JSON 和 JSONL：JSONL 每行一个 JSON 对象
+        try:
+            with open(filepath, "r", encoding="utf-8-sig") as f:
+                first_char = f.read(1).strip()
+                if first_char == "[" or first_char == "{":
+                    f.seek(0)
+                    lines = [l.strip() for l in f if l.strip()]
+                    if len(lines) > 1 and all(_is_json_obj(l) for l in lines[:3]):
+                        return "jsonl"
+            return "json"
+        except Exception:
+            return "json"
+    if ext in ("xlsx", "xls"):
+        return "xlsx"
+    return "csv"
+
+
+def _is_json_obj(line):
+    """检查一行是否是独立的 JSON 对象"""
+    try:
+        obj = json.loads(line)
+        return isinstance(obj, dict)
+    except (json.JSONDecodeError, ValueError):
+        return False
+
+
+def _stringify(value):
+    """将任意值转为字符串（统一内部处理格式）"""
+    if value is None:
+        return ""
+    if isinstance(value, bool):
+        return str(value).lower()
+    if isinstance(value, (dict, list)):
+        return json.dumps(value, ensure_ascii=False)
+    return str(value)
+
+
+def read_data(filepath, fmt=None):
+    """统一读取入口，返回 (headers, rows)，rows 为 list[dict[str,str]]"""
+    if fmt is None:
+        fmt = detect_format(filepath)
+
+    if fmt == "csv":
+        return _read_csv(filepath)
+    elif fmt == "tsv":
+        return _read_tsv(filepath)
+    elif fmt == "json":
+        return _read_json(filepath)
+    elif fmt == "jsonl":
+        return _read_jsonl(filepath)
+    elif fmt == "xlsx":
+        return _read_xlsx(filepath)
+    else:
+        raise ValueError(f"不支持的格式: {fmt}")
+
+
+def write_data(filepath, headers, rows, fmt=None):
+    """统一写入入口（原子写入）"""
+    if fmt is None:
+        fmt = detect_format(filepath)
+
+    if fmt == "csv":
+        _write_csv(filepath, headers, rows)
+    elif fmt == "tsv":
+        _write_tsv(filepath, headers, rows)
+    elif fmt == "json":
+        _write_json(filepath, headers, rows)
+    elif fmt == "jsonl":
+        _write_jsonl(filepath, headers, rows)
+    elif fmt == "xlsx":
+        _write_xlsx(filepath, headers, rows)
+    else:
+        raise ValueError(f"不支持的格式: {fmt}")
+
+
+# ── CSV ──────────────────────────────────────────────────
+
+def _read_csv(filepath):
     with open(filepath, "r", encoding="utf-8-sig") as f:
         reader = csv.DictReader(f)
         rows = list(reader)
@@ -63,14 +154,184 @@ def read_csv(filepath):
     return list(rows[0].keys()), rows
 
 
-def write_csv(filepath, headers, rows):
-    """写入 CSV（原子写入）"""
+def _write_csv(filepath, headers, rows):
     tmp = filepath + ".tmp"
     with open(tmp, "w", encoding="utf-8", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=headers)
         writer.writeheader()
         writer.writerows(rows)
     os.replace(tmp, filepath)
+
+
+# ── TSV ──────────────────────────────────────────────────
+
+def _read_tsv(filepath):
+    with open(filepath, "r", encoding="utf-8-sig") as f:
+        reader = csv.DictReader(f, delimiter="\t")
+        rows = list(reader)
+    if not rows:
+        return [], []
+    return list(rows[0].keys()), rows
+
+
+def _write_tsv(filepath, headers, rows):
+    tmp = filepath + ".tmp"
+    with open(tmp, "w", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=headers, delimiter="\t")
+        writer.writeheader()
+        writer.writerows(rows)
+    os.replace(tmp, filepath)
+
+
+# ── JSON ─────────────────────────────────────────────────
+
+def _read_json(filepath):
+    with open(filepath, "r", encoding="utf-8-sig") as f:
+        data = json.load(f)
+
+    # 支持: [{...}, {...}] 或 {"data": [{...}, {...}]} 或 {"records": [...]}
+    if isinstance(data, list):
+        records = data
+    elif isinstance(data, dict):
+        # 尝试常见的包装键
+        for key in ("data", "records", "rows", "items", "results"):
+            if key in data and isinstance(data[key], list):
+                records = data[key]
+                break
+        else:
+            # 单个对象当作一行
+            records = [data]
+    else:
+        return [], []
+
+    if not records:
+        return [], []
+
+    # 提取所有键作为 headers（保持第一条记录的键序）
+    headers = list(records[0].keys())
+    seen = set(headers)
+    for r in records[1:]:
+        for k in r.keys():
+            if k not in seen:
+                headers.append(k)
+                seen.add(k)
+
+    # 统一转字符串
+    rows = []
+    for r in records:
+        rows.append({h: _stringify(r.get(h, "")) for h in headers})
+
+    return headers, rows
+
+
+def _write_json(filepath, headers, rows):
+    tmp = filepath + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(rows, f, ensure_ascii=False, indent=2)
+    os.replace(tmp, filepath)
+
+
+# ── JSONL ────────────────────────────────────────────────
+
+def _read_jsonl(filepath):
+    records = []
+    with open(filepath, "r", encoding="utf-8-sig") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                records.append(json.loads(line))
+            except json.JSONDecodeError:
+                continue
+
+    if not records:
+        return [], []
+
+    headers = list(records[0].keys())
+    seen = set(headers)
+    for r in records[1:]:
+        for k in r.keys():
+            if k not in seen:
+                headers.append(k)
+                seen.add(k)
+
+    rows = []
+    for r in records:
+        rows.append({h: _stringify(r.get(h, "")) for h in headers})
+
+    return headers, rows
+
+
+def _write_jsonl(filepath, headers, rows):
+    tmp = filepath + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        for r in rows:
+            f.write(json.dumps(r, ensure_ascii=False) + "\n")
+    os.replace(tmp, filepath)
+
+
+# ── Excel (.xlsx) ────────────────────────────────────────
+
+def _read_xlsx(filepath):
+    try:
+        import openpyxl
+    except ImportError:
+        raise ImportError(
+            "读取 Excel 需要 openpyxl: pip3 install openpyxl"
+        )
+
+    wb = openpyxl.load_workbook(filepath, read_only=True, data_only=True)
+    ws = wb.active
+    if ws is None or ws.max_row is None or ws.max_row < 2:
+        wb.close()
+        return [], []
+
+    row_iter = ws.iter_rows(values_only=True)
+    headers = [_stringify(h) for h in next(row_iter)]
+
+    rows = []
+    for raw_row in row_iter:
+        row = {}
+        for i, h in enumerate(headers):
+            val = raw_row[i] if i < len(raw_row) else None
+            row[h] = _stringify(val)
+        rows.append(row)
+
+    wb.close()
+    return headers, rows
+
+
+def _write_xlsx(filepath, headers, rows):
+    try:
+        import openpyxl
+    except ImportError:
+        raise ImportError(
+            "写入 Excel 需要 openpyxl: pip3 install openpyxl"
+        )
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.append(headers)
+    for r in rows:
+        ws.append([r.get(h, "") for h in headers])
+
+    tmp = filepath + ".tmp.xlsx"
+    wb.save(tmp)
+    wb.close()
+    os.replace(tmp, filepath)
+
+
+# ── 兼容旧接口（内部使用） ────────────────────────────────
+
+def read_csv(filepath):
+    """兼容旧接口：读取 CSV"""
+    return _read_csv(filepath)
+
+
+def write_csv(filepath, headers, rows):
+    """兼容旧接口：写入 CSV"""
+    _write_csv(filepath, headers, rows)
 
 
 def file_hash(filepath):
@@ -95,12 +356,12 @@ def audit_log(action, details):
 
 
 def save_version(filepath, headers, rows, label):
-    """保存数据版本快照"""
+    """保存数据版本快照（版本链统一用 CSV，体积小且可读）"""
     ensure_workspace()
     basename = os.path.splitext(os.path.basename(filepath))[0]
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     version_file = os.path.join(VERSION_DIR, f"{basename}_{label}_{ts}.csv")
-    write_csv(version_file, headers, rows)
+    _write_csv(version_file, headers, rows)
     return version_file
 
 
@@ -301,7 +562,11 @@ def cmd_profile(filepath, output_format="json"):
         print(json.dumps({"error": f"文件不存在: {filepath}"}))
         return 1
 
-    headers, rows = read_csv(filepath)
+    try:
+        headers, rows = read_data(filepath)
+    except ImportError as e:
+        print(json.dumps({"error": str(e)}))
+        return 1
     if not rows:
         print(json.dumps({"error": "文件为空或无有效数据"}))
         return 1
@@ -562,7 +827,12 @@ def cmd_execute(filepath, operations, op_args=None):
         print(json.dumps({"error": f"文件不存在: {filepath}"}))
         return 1
 
-    headers, rows = read_csv(filepath)
+    try:
+        input_fmt = detect_format(filepath)
+        headers, rows = read_data(filepath, input_fmt)
+    except ImportError as e:
+        print(json.dumps({"error": str(e)}))
+        return 1
     if not rows:
         print(json.dumps({"error": "文件为空"}))
         return 1
@@ -592,10 +862,12 @@ def cmd_execute(filepath, operations, op_args=None):
 
         results.append(op_result)
 
-    # 保存最终结果
+    # 保存最终结果（保持原始格式输出）
     output_basename = os.path.splitext(os.path.basename(filepath))[0]
-    output_file = os.path.join(WORKSPACE, f"{output_basename}_cleaned.csv")
-    write_csv(output_file, headers, current_rows)
+    ext_map = {"csv": ".csv", "tsv": ".tsv", "json": ".json", "jsonl": ".jsonl", "xlsx": ".xlsx"}
+    output_ext = ext_map.get(input_fmt, ".csv")
+    output_file = os.path.join(WORKSPACE, f"{output_basename}_cleaned{output_ext}")
+    write_data(output_file, headers, current_rows, input_fmt)
 
     # 生成报告
     report = {
@@ -668,11 +940,12 @@ def cmd_validate(original_path, cleaned_path):
         print(json.dumps({"error": "文件不存在"}))
         return 1
 
-    _, orig_rows = read_csv(original_path)
-    _, clean_rows = read_csv(cleaned_path)
-
-    # 重新 profile 清洗后的数据
-    clean_headers, _ = read_csv(cleaned_path)
+    try:
+        orig_headers, orig_rows = read_data(original_path)
+        clean_headers, clean_rows = read_data(cleaned_path)
+    except ImportError as e:
+        print(json.dumps({"error": str(e)}))
+        return 1
 
     report = {
         "original": {"rows": len(orig_rows), "hash": file_hash(original_path)},
@@ -696,8 +969,7 @@ def cmd_validate(original_path, cleaned_path):
         })
 
     # 检查: 列数应不变
-    orig_headers, _ = read_csv(original_path)
-    clean_headers_list, _ = read_csv(cleaned_path)
+    clean_headers_list = clean_headers
     if set(orig_headers) != set(clean_headers_list):
         report["checks"].append({
             "check": "column_integrity",
@@ -776,17 +1048,19 @@ def cmd_list_ops():
 # ── 主入口 ───────────────────────────────────────────────
 
 def main():
-    parser = argparse.ArgumentParser(description="数据清洗 CLI 工具")
+    parser = argparse.ArgumentParser(
+        description="数据清洗 CLI 工具（支持 CSV/TSV/JSON/JSONL/Excel）"
+    )
     subparsers = parser.add_subparsers(dest="command", help="子命令")
 
     # profile
     p_profile = subparsers.add_parser("profile", help="数据画像（质量报告）")
-    p_profile.add_argument("file", help="CSV 文件路径")
+    p_profile.add_argument("file", help="数据文件路径（CSV/TSV/JSON/JSONL/XLSX）")
     p_profile.add_argument("--format", choices=["json", "text"], default="json")
 
     # execute
     p_exec = subparsers.add_parser("execute", help="执行清洗操作")
-    p_exec.add_argument("file", help="CSV 文件路径")
+    p_exec.add_argument("file", help="数据文件路径（CSV/TSV/JSON/JSONL/XLSX）")
     p_exec.add_argument("--ops", nargs="+", required=True,
                         help=f"操作列表: {', '.join(OPERATIONS.keys())}")
     p_exec.add_argument("--fix-case-cols", nargs="+", default=[],
