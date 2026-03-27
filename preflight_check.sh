@@ -418,7 +418,7 @@ if $FULL_MODE; then
     if [ -d "$OPENCLAW_DIST" ]; then
         # 只扫描顶层 chunks（避免 821 个文件全量 grep 卡住）
         UNPATCHED=$(grep -l 'const listeners = /\* @__PURE__ \*/ new Map()' \
-            "$OPENCLAW_DIST"/*.js "$OPENCLAW_DIST"/chunks/*.js 2>/dev/null | grep -v ".bak" | wc -l | tr -d ' ')
+            "$OPENCLAW_DIST"/*.js "$OPENCLAW_DIST"/chunks/*.js 2>/dev/null | grep -v ".bak" | wc -l | tr -d ' ' || echo "0")
         if [ "$UNPATCHED" -gt 0 ]; then
             fail "#48703 未修复: $UNPATCHED 个文件有 listeners Map 副本"
         else
