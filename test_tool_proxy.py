@@ -14,7 +14,10 @@ from proxy_filters import (
     classify_complexity,
     TOOL_PARAMS, VALID_BROWSER_PROFILES,
     ALLOWED_TOOLS, ALLOWED_PREFIXES,
+    CUSTOM_TOOLS, CUSTOM_TOOL_NAMES,
 )
+
+NUM_CUSTOM_TOOLS = len(CUSTOM_TOOLS)
 
 
 def make_response(name, args_dict):
@@ -189,7 +192,7 @@ class TestFilterTools(unittest.TestCase):
             {"function": {"name": "browser_click", "parameters": {}}},
         ]
         filtered, all_names, kept = filter_tools(tools)
-        self.assertEqual(len(filtered), 2)
+        self.assertEqual(len(filtered), 2 + NUM_CUSTOM_TOOLS)
         self.assertIn("web_search", kept)
         self.assertIn("browser_click", kept)
         self.assertNotIn("dangerous_tool", kept)
@@ -202,7 +205,7 @@ class TestFilterTools(unittest.TestCase):
 
     def test_empty_input(self):
         filtered, all_names, kept = filter_tools([])
-        self.assertEqual(filtered, [])
+        self.assertEqual(len(filtered), NUM_CUSTOM_TOOLS)  # 自定义工具仍注入
 
 
 class TestTruncateMessages(unittest.TestCase):
@@ -501,7 +504,7 @@ class TestAbnormalResponses(unittest.TestCase):
             {"function": {"name": "web_search", "parameters": {}}},
         ]
         filtered, all_names, kept = filter_tools(tools)
-        self.assertEqual(len(filtered), 2)
+        self.assertEqual(len(filtered), 2 + NUM_CUSTOM_TOOLS)
         self.assertIn("exec", kept)
         self.assertIn("web_search", kept)
 
