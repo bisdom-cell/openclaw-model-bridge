@@ -153,38 +153,154 @@ ${SOURCES_CONTENT}
 log "开始 LLM 深度分析（${DAYS} 天回顾）..."
 
 # 规则 #27: 纯推理直接 curl proxy:5002
-LLM_RESULT=$(curl -sS --max-time 60 http://localhost:5002/v1/chat/completions \
-    -H 'Content-Type: application/json' \
-    -d "$(python3 -c "
-import json, sys
-prompt = sys.stdin.read()
-print(json.dumps({
+# 用 Python 构造完整请求体（避免 heredoc/herestring 传递 prompt 时特殊字符问题）
+LLM_RESULT=$(python3 - "$DAYS" "$INDEX_TOTAL" "$NOTE_COUNT" "$THEMES" << 'PYEOF'
+import json, sys, urllib.request, os
+
+days, index_total, note_count, themes = sys.argv[1:5]
+
+# 读取已收集的内容
+notes = os.environ.get('NOTES_CONTENT', '')[:3000]
+sources = os.environ.get('SOURCES_CONTENT', '')[:3000]
+
+prompt = f"""你是一位知识管理专家和技术趋势分析师。以下是用户知识库中最近 {days} 天的内容。
+请完成以下分析（用中文回答，总字数控制在 600 字以内）：
+
+1. **本期亮点**（3-5个要点）：最值得关注的信息，说明为什么重要
+2. **跨领域关联**（2-3条）：不同来源之间的联系（如 ArXiv 论文趋势 + HN 讨论热点 = 行业信号）
+3. **行动建议**（2-3条）：基于这些信息，用户应该关注或尝试什么
+4. **知识空白**（1-2条）：这些信息没有覆盖到但可能重要的领域
+
+═══ 笔记内容 ═══
+{notes}
+
+═══ 来源归档 ═══
+{sources}
+
+═══ 统计信息 ═══
+知识库总条目: {index_total} 条
+本期笔记: {note_count} 篇
+活跃标签: {themes}"""
+
+payload = json.dumps({
     'model': 'any',
     'messages': [{'role': 'user', 'content': prompt}],
     'max_tokens': 1000
-}))
-" <<< "$PROMPT")" 2>/dev/null \
-    | python3 -c "
-import json, sys
+}).encode()
+
 try:
-    data = json.load(sys.stdin)
-    print(data['choices'][0]['message']['content'])
-except:
-    print('')
-" 2>/dev/null || true)
+    req = urllib.request.Request(
+        'http://127.0.0.1:5002/v1/chat/completions',
+        data=payload,
+        headers={'Content-Type': 'application/json'}
+    )
+    with urllib.request.urlopen(req, timeout=60) as resp:
+        data = json.loads(resp.read())
+        print(data['choices'][0]['message']['content'])
+except Exception as e:
+    print('', file=sys.stderr)
+    print(f'LLM error: {e}', file=sys.stderr)
+PYEOF
+)
 
-# Fallback：LLM 失败时用基础统计
+# 传递内容给 Python
+export NOTES_CONTENT
+export SOURCES_CONTENT
+
+# Fallback：LLM 失败时从实际内容中提取关键信息
 if [ -z "${LLM_RESULT// }" ]; then
-    log "WARN: LLM 分析失败，使用基础统计模式"
-    LLM_RESULT="（LLM 分析不可用，以下为基础统计）
+    log "WARN: LLM 分析失败，使用内容提取模式"
+    LLM_RESULT=$(python3 - "$KB_DIR" "$DAYS" "$THEMES" << 'PYEOF'
+import os, sys, glob, re
+from datetime import datetime, timedelta
+from collections import Counter
 
-## 本期亮点
-- 知识库共 ${INDEX_TOTAL} 条记录，最新 ${NOTE_COUNT} 篇
-- 活跃标签：${THEMES}
+kb_dir, days_str, themes = sys.argv[1:4]
+days = int(days_str)
+cutoff = (datetime.now() - timedelta(days=days)).strftime('%Y%m%d')
 
-## 行动建议
-- 建议手动查阅来源归档，关注跨领域信息
-- 使用 \`bash kb_search.sh --days ${DAYS}\` 浏览近期内容"
+sections = []
+sections.append("## 本期亮点")
+
+# 提取近期笔记标题
+notes_dir = os.path.join(kb_dir, 'notes')
+note_titles = []
+for f in sorted(glob.glob(os.path.join(notes_dir, '*.md')), reverse=True):
+    basename = os.path.basename(f)
+    if basename[:8] < cutoff:
+        break
+    try:
+        with open(f) as fh:
+            content = fh.read().strip()
+        if content.startswith('---'):
+            parts = content.split('---', 2)
+            if len(parts) >= 3:
+                content = parts[2].strip()
+        lines = [l.strip() for l in content.split('\n') if l.strip() and not l.startswith('#')]
+        if lines:
+            note_titles.append(lines[0][:100])
+    except OSError:
+        continue
+
+# 提取各来源的关键内容
+sources_map = {
+    'arxiv_daily.md': ('📄 ArXiv', 3),
+    'hn_daily.md': ('🔥 HN', 3),
+    'freight_daily.md': ('🚢 货代', 2),
+    'openclaw_official.md': ('⚙️ OpenClaw', 1),
+}
+
+date_patterns = []
+for i in range(days):
+    d = datetime.now() - timedelta(days=i)
+    date_patterns.append(d.strftime('%Y-%m-%d'))
+    date_patterns.append(d.strftime('%Y%m%d'))
+
+for filename, (label, max_items) in sources_map.items():
+    path = os.path.join(kb_dir, 'sources', filename)
+    if not os.path.isfile(path):
+        continue
+    try:
+        with open(path) as f:
+            all_lines = f.readlines()
+    except OSError:
+        continue
+
+    # 提取有意义的内容行（标题/要点，跳过纯日期和元数据）
+    items = []
+    for line in all_lines:
+        line = line.strip()
+        if not any(dp in line for dp in date_patterns):
+            continue
+        # 跳过纯日期行
+        if re.match(r'^(20\d{2}[-/]\d{2}[-/]\d{2}\s*$|##\s*20|📊)', line):
+            continue
+        if len(line) > 15:
+            # 清理 markdown
+            clean = re.sub(r'\*\*?\[?|\]\([^)]*\)\*?\*?', '', line).strip('- *')
+            if clean and clean not in items:
+                items.append(clean[:100])
+                if len(items) >= max_items:
+                    break
+
+    if items:
+        sections.append(f"\n{label}:")
+        for item in items:
+            sections.append(f"  • {item}")
+
+# 笔记亮点
+if note_titles:
+    sections.append(f"\n📝 近期笔记:")
+    for t in note_titles[:5]:
+        sections.append(f"  • {t}")
+
+sections.append(f"\n## 行动建议")
+sections.append(f"- 活跃领域：{themes}")
+sections.append(f"- 建议关注以上各来源中标记的关键内容")
+
+print('\n'.join(sections))
+PYEOF
+)
 fi
 
 # ── 5. 生成回顾文件 ──
@@ -217,15 +333,15 @@ MDEOF
 log "回顾文件已生成: $REVIEW_FILE"
 
 # ── 6. 推送 WhatsApp ──
-# 截取 LLM 分析的前 500 字作为推送（WhatsApp 消息不宜过长）
-LLM_SHORT=$(echo "$LLM_RESULT" | head -30 | cut -c1-500)
-WA_MSG="📚 知识回顾 ${DATE}（${DAYS}天）
-📊 总条目: ${INDEX_TOTAL} | 本期: ${NOTE_COUNT} 篇
-🏷️ 热门: ${THEMES}
+# 截取分析结果（WhatsApp 消息不宜过长，保留实质内容）
+LLM_SHORT=$(echo "$LLM_RESULT" | head -40)
+# 限制总长度
+LLM_SHORT="${LLM_SHORT:0:1200}"
+WA_MSG="📚 知识回顾 ${DATE}（${DAYS}天 | ${INDEX_TOTAL}条 | ${NOTE_COUNT}篇）
 
 ${LLM_SHORT}
 
-📄 详见: ${REVIEW_FILE}"
+💡 回复任何话题可深入讨论"
 
 SEND_ERR=$(mktemp)
 if openclaw message send --target "$PHONE" --message "$WA_MSG" --json >/dev/null 2>"$SEND_ERR"; then
