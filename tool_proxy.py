@@ -10,7 +10,7 @@ from urllib.request import Request, urlopen
 from urllib.parse import urlparse, parse_qs
 
 from proxy_filters import (
-    ALLOWED_TOOLS, ALLOWED_PREFIXES,
+    ALLOWED_TOOLS, ALLOWED_PREFIXES, CUSTOM_TOOL_NAMES,
     is_allowed, filter_tools, truncate_messages,
     fix_tool_args, build_sse_response, should_strip_tools,
     inject_media_into_messages,
@@ -212,6 +212,128 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
             return home_path
         return os.path.join(os.path.dirname(os.path.abspath(__file__)), "data_clean.py")
 
+    def _execute_custom_tool(self, name, arguments):
+        """执行 proxy 自定义工具，返回结果字符串"""
+        if name == "data_clean":
+            try:
+                args = json.loads(arguments) if isinstance(arguments, str) else arguments
+            except json.JSONDecodeError:
+                return json.dumps({"error": f"参数解析失败: {arguments}"})
+
+            action = args.get("action", "")
+            file_path = args.get("file", "")
+
+            if action == "list_ops":
+                cmd = [sys.executable, self._data_clean_path(), "list-ops"]
+            elif action == "profile":
+                if not file_path:
+                    return json.dumps({"error": "缺少 file 参数"})
+                file_path = os.path.expanduser(file_path)
+                if not os.path.exists(file_path):
+                    return json.dumps({"error": f"文件不存在: {file_path}"})
+                cmd = [sys.executable, self._data_clean_path(), "profile", file_path]
+            elif action == "execute":
+                if not file_path:
+                    return json.dumps({"error": "缺少 file 参数"})
+                file_path = os.path.expanduser(file_path)
+                if not os.path.exists(file_path):
+                    return json.dumps({"error": f"文件不存在: {file_path}"})
+                ops = args.get("ops", "trim,dedup")
+                cmd = [sys.executable, self._data_clean_path(), "execute", file_path,
+                       "--ops"] + [o.strip() for o in ops.split(",") if o.strip()]
+                fix_case_cols = args.get("fix_case_cols", "")
+                if fix_case_cols:
+                    cmd += ["--fix-case-cols"] + [c.strip() for c in fix_case_cols.split(",")]
+            else:
+                return json.dumps({"error": f"未知操作: {action}"})
+
+            try:
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+                return result.stdout or result.stderr or "（无输出）"
+            except subprocess.TimeoutExpired:
+                return json.dumps({"error": "执行超时（60秒）"})
+            except Exception as e:
+                return json.dumps({"error": str(e)})
+
+        return json.dumps({"error": f"未知自定义工具: {name}"})
+
+    def _handle_custom_tool_calls(self, rj, original_body, rid):
+        """检查 LLM 响应中是否有自定义工具调用，如有则本地执行并重新查询 LLM。
+        返回最终的 LLM 响应 JSON，或 None（无自定义工具调用时）。
+        """
+        for choice in rj.get("choices", []):
+            msg = choice.get("message", {})
+            tool_calls = msg.get("tool_calls", [])
+            if not tool_calls:
+                continue
+
+            # 分离自定义工具和 Gateway 工具
+            custom_calls = [tc for tc in tool_calls
+                           if tc.get("function", {}).get("name") in CUSTOM_TOOL_NAMES]
+
+            if not custom_calls:
+                return None  # 没有自定义工具，正常流转给 Gateway
+
+            # 执行自定义工具
+            tool_results = []
+            for tc in custom_calls:
+                fn_name = tc["function"]["name"]
+                fn_args = tc["function"].get("arguments", "{}")
+                tc_id = tc.get("id", f"call_{uuid.uuid4().hex[:8]}")
+
+                log(f"[{rid}] CUSTOM_TOOL: {fn_name} args={fn_args[:200]}")
+                result = self._execute_custom_tool(fn_name, fn_args)
+                log(f"[{rid}] CUSTOM_TOOL result: {len(result)} chars")
+
+                tool_results.append({
+                    "role": "tool",
+                    "tool_call_id": tc_id,
+                    "content": result,
+                })
+
+            # 构建跟进请求：原始消息 + 助手的 tool_call + 工具结果
+            followup_msgs = list(original_body.get("messages", []))
+            # 添加助手消息（包含 tool_calls）
+            followup_msgs.append({
+                "role": "assistant",
+                "content": msg.get("content") or None,
+                "tool_calls": custom_calls,
+            })
+            # 添加工具结果
+            followup_msgs.extend(tool_results)
+
+            # 重新查询 LLM（不带工具，让它生成最终文本回复）
+            followup_body = {
+                "model": original_body.get("model", "any"),
+                "messages": followup_msgs,
+                "stream": False,
+            }
+
+            log(f"[{rid}] CUSTOM_TOOL followup: sending {len(followup_msgs)} messages to LLM")
+
+            try:
+                followup_raw = json.dumps(followup_body).encode()
+                followup_req = Request(
+                    f"{BACKEND}/v1/chat/completions",
+                    data=followup_raw, method="POST",
+                )
+                followup_req.add_header("Content-Type", "application/json")
+                with urlopen(followup_req, timeout=300) as followup_resp:
+                    followup_body = json.loads(followup_resp.read())
+                    log(f"[{rid}] CUSTOM_TOOL followup: got response")
+                    return followup_body
+            except Exception as e:
+                log(f"[{rid}] CUSTOM_TOOL followup error: {e}")
+                # 回退：直接返回工具结果作为文本
+                choice["message"] = {
+                    "role": "assistant",
+                    "content": f"数据清洗结果：\n{tool_results[0]['content'][:3000]}",
+                }
+                choice["message"].pop("tool_calls", None)
+                return rj
+
+        return None
+
     def do_POST(self):
         rid = uuid.uuid4().hex[:8]
         t0 = time.monotonic()
@@ -274,6 +396,12 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                     try:
                         rj = json.loads(resp_body)
                         fix_tool_args(rj)
+
+                        # 自定义工具拦截：LLM 调用 data_clean 等自定义工具时，
+                        # proxy 本地执行并将结果喂回 LLM 获取最终回复
+                        custom_result = self._handle_custom_tool_calls(rj, body, rid)
+                        if custom_result is not None:
+                            rj = custom_result
 
                         # Log model decision
                         for c in rj.get("choices", []):

@@ -153,6 +153,7 @@ def is_allowed(name):
 
 def filter_tools(tools, log_fn=None):
     """过滤工具列表，只保留白名单内的工具，并替换为简化 schema。
+    注入 proxy 自定义工具（如 data_clean）。
     返回 (filtered_tools, all_names, kept_names)。
     """
     all_names = [t.get("function", {}).get("name", "?") for t in tools]
@@ -163,8 +164,56 @@ def filter_tools(tools, log_fn=None):
             if name in CLEAN_SCHEMAS:
                 t["function"]["parameters"] = CLEAN_SCHEMAS[name]
             new_tools.append(t)
+
+    # 注入 proxy 自定义工具
+    for custom_tool in CUSTOM_TOOLS:
+        new_tools.append(custom_tool)
+
     kept_names = [t.get("function", {}).get("name") for t in new_tools]
     return new_tools, all_names, kept_names
+
+
+# ---------------------------------------------------------------------------
+# Proxy 自定义工具（由 proxy 拦截执行，不经过 Gateway）
+# ---------------------------------------------------------------------------
+
+CUSTOM_TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "data_clean",
+            "description": "分析和清洗数据文件。支持 CSV/TSV/JSON/JSONL/Excel。"
+                           "用户上传的文件在 ~/.openclaw/media/inbound/ 目录下。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": ["profile", "execute", "list_ops"],
+                        "description": "profile=数据质量诊断, execute=执行清洗, list_ops=可用操作列表"
+                    },
+                    "file": {
+                        "type": "string",
+                        "description": "数据文件的完整路径（如 ~/.openclaw/media/inbound/xxx.xlsx）"
+                    },
+                    "ops": {
+                        "type": "string",
+                        "description": "execute时的清洗操作，逗号分隔: trim,dedup,dedup_near,fix_dates,fix_case,fill_missing,remove_test"
+                    },
+                    "fix_case_cols": {
+                        "type": "string",
+                        "description": "fix_case操作的目标列名，逗号分隔"
+                    },
+                },
+                "required": ["action"],
+                "additionalProperties": False,
+            }
+        }
+    },
+]
+
+# 自定义工具名称集合（用于 proxy 拦截判断）
+CUSTOM_TOOL_NAMES = {t["function"]["name"] for t in CUSTOM_TOOLS}
 
 
 # [NO_TOOLS] 标记：消息中包含此标记时，proxy 强制清空工具列表
