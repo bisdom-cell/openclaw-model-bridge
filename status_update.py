@@ -26,7 +26,12 @@ import os
 import sys
 import time
 
-STATUS_FILE = os.path.expanduser("~/.kb/status.json")
+# 状态文件路径解析：优先 ~/.kb/status.json（Mac Mini 生产环境），
+# 不存在则回退到仓库根目录 status.json（Claude Code dev 环境）。
+# 三方宪法要求此文件是唯一实时锚点，git 仓库作为跨环境同步通道。
+_KB_STATUS = os.path.expanduser("~/.kb/status.json")
+_REPO_STATUS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "status.json")
+STATUS_FILE = _KB_STATUS if os.path.exists(_KB_STATUS) else _REPO_STATUS
 
 # ---------------------------------------------------------------------------
 # 默认状态结构

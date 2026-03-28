@@ -95,3 +95,18 @@ python3 "$STATUS_UPDATE" --set health.stale_jobs "${STALE_JOBS:-unknown}" --by c
 python3 "$STATUS_UPDATE" --set health.last_refresh "$TS" --by cron 2>/dev/null || true
 
 echo "[$TS] kb_status_refresh: services=$SVC_STATUS stale_jobs=${STALE_JOBS:-unknown}"
+
+# ── 5. 同步 status.json 到 git 仓库（三方宪法跨环境锚点）─────────
+# Claude Code dev 通过 git 读取此文件，因此每次刷新后推送到仓库
+REPO_DIR="$HOME/openclaw-model-bridge"
+REPO_STATUS="$REPO_DIR/status.json"
+if [ -d "$REPO_DIR/.git" ] && [ -f "$HOME/.kb/status.json" ]; then
+    cp "$HOME/.kb/status.json" "$REPO_STATUS"
+    cd "$REPO_DIR"
+    # 仅在内容有变化时才提交（避免空commit噪音）
+    if ! git diff --quiet "$REPO_STATUS" 2>/dev/null; then
+        git add status.json
+        git commit -m "auto: sync status.json from kb_status_refresh" --no-gpg-sign 2>/dev/null || true
+        git push origin main 2>/dev/null || echo "[$TS] WARN: status.json push failed (will retry next hour)"
+    fi
+fi
