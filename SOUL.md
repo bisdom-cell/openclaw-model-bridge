@@ -62,22 +62,20 @@
 - [auto] 常用工具：memory_search(4次)、write(1次)
 - [auto] 关注领域：技术/AI、学术/论文、技术/编程、arxiv-ai-models、技术/OpenClaw
 
-**本周焦点**：V30.4完成：三方宪法闭环 + 方法论进化 → 下一步：PA长期记忆 + ops agent激活
+**本周焦点**：数据清洗Phase2 + PA子Agent委派 + ops agent激活（PA memory/偏好读取等Qwen模型升级后再验证）
 
 **进行中的任务：**
 - 数据清洗 Phase 2（三Agent架构（用sessions_spawn）、语义去重、自定义规则、模板积累、文件回传）
-- PA长期记忆（启用memory_search/memory_get，跨session记住用户偏好）
 - PA子Agent委派（sessions_spawn+sessions_send，PA自主创建子任务）
 - ops agent激活（独立工具白名单+SOUL.md运维身份，处理系统健康查询）
 - 趋势报告优化（反馈闭环已上线）
-- 模型智能路由（待启用FAST_PROVIDER）
 
 **待规划：** 安全加固、紧急告警中断、知识图谱
 
 **最近完成：**
+- 2026-03-28: preference_learner.py上线+SOUL.md偏好嵌入+proxy_filters开放sessions工具+确认Qwen3 memory/偏好读取限制
 - 2026-03-28: V30.4方法论进化：结果验证优先+上下文工程一等公民+定期像用户一样使用系统
 - 2026-03-28: SOUL.md激活：PA首次正确回答项目进展（之前说没有项目）
-- 2026-03-28: 三方宪法闭环验证通过：status.json跨环境同步+PA主动感知
 
 **当前约束：**
 - Gateway维持v2026.3.13-1，等@openclaw/whatsapp正式发布再升级
@@ -87,7 +85,7 @@
 - SOUL.md放宪法级信息（身份+状态），CLAUDE.md放操作手册（工具+详情）（V30.4教训）
 - 功能完成标准=用户视角验证通过，非单测通过（V30.4教训）
 
-**系统健康：** 服务正常 | 模型: Qwen3-235B-A22B-Instruct-2507-W8A8 | KB: 142 notes, 5 today, 1101KB sources | 全部Job运行正常
+**系统健康：** 服务正常 | 模型: Qwen3-235B-A22B-Instruct-2507-W8A8 | KB: 142 notes, 2 today, 1102KB sources | 全部Job运行正常
 
 > 用户问项目、进展、任务、系统状态时，**必须参考以上信息回答**，不要说"没有项目"。
 > 用户偏好我必须严格遵守。
