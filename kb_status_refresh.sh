@@ -176,6 +176,13 @@ job_str = "全部Job运行正常" if jobs == "all_ok" else f"过期Job: {jobs}"
 lines.append("")
 lines.append(f"**系统健康：** 服务{'正常' if svc == 'ok' else svc} | 模型: {model} | KB: {kb} | {job_str}")
 
+prefs = s.get("preferences", [])
+if prefs:
+    lines.append("")
+    lines.append("**用户偏好：**")
+    for p in prefs:
+        lines.append(f"- {p}")
+
 print("\n".join(lines))
 PYEOF
     )

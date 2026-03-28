@@ -55,6 +55,9 @@ DEFAULT_STATUS = {
     # 待处理反馈（PA 写入，Claude Code 消费）
     "feedback": [],
 
+    # 用户偏好（PA 写入，SOUL.md 展示，跨 session 持久化）
+    "preferences": [],
+
     # 系统健康（cron 脚本更新）
     "health": {
         "services": "unknown",
@@ -214,6 +217,13 @@ def format_human(data):
         lines.append("⚠️ 当前约束:")
         for r in rules:
             lines.append(f"  - {r}")
+
+    prefs = data.get("preferences", [])
+    if prefs:
+        lines.append("")
+        lines.append("👤 用户偏好:")
+        for p in prefs:
+            lines.append(f"  - {p}")
 
     if data.get("notes"):
         lines.append(f"\n📎 备注: {data['notes']}")

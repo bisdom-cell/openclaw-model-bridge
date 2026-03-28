@@ -130,6 +130,9 @@ declare -a FILE_MAP=(
     # 数据清洗工具
     "data_clean.py|$HOME/data_clean.py"
 
+    # 用户偏好自动学习
+    "preference_learner.py|$HOME/preference_learner.py"
+
     # 三方宪法状态锚点（repo → ~/.kb/，Claude Code 收工写入的变更同步到 PA）
     "status.json|$HOME/.kb/status.json"
 

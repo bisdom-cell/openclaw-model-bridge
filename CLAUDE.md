@@ -206,7 +206,7 @@
 
 | 能力 | 当前状态 | 三方协作潜力 |
 |------|----------|-------------|
-| **memory_search / memory_get** | 未使用 | PA 可搜索自身会话记忆，跨 session 保持长期记忆 |
+| **memory_search / memory_get** | ⚠️ 已配置但不生效 | Qwen3 不主动调用 memory 工具（V30.4验证），等模型升级后重新验证 |
 | **sessions_spawn + sessions_send** | 未使用 | PA 可自主生成子 agent 处理复杂任务（如数据清洗 Phase 2 的三 Agent 架构）|
 | **sessions_history** | 未使用 | PA 可回溯过去的对话，实现"你上次说过..."的连续性体验 |
 | **session compaction memory** | 被动使用 | 可定制 compaction 策略，确保关键信息（项目状态、用户偏好）在压缩后保留 |
@@ -599,7 +599,7 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 | 优先级 | 任务 |
 |--------|------|
 | 中高 | **数据清洗 Phase 2**：三 Agent 架构（Profiler/Planner/Executor，可用 `sessions_spawn` 实现）、语义去重、自定义清洗规则、清洗模板积累到 KB、清洗后文件回传 WhatsApp |
-| 中 | **PA 长期记忆**：启用 `memory_search`/`memory_get` 工具，让 PA 跨 session 记住用户偏好和历史对话关键点 |
+| 中 | **PA 长期记忆**：启用 `memory_search`/`memory_get` 工具，让 PA 跨 session 记住用户偏好。⚠️ V30.4验证：Qwen3不主动调用memory工具（基础设施已就绪，等模型升级后重新验证） |
 | 中 | **PA 子 Agent 委派**：利用 `sessions_spawn` + `sessions_send` 让 PA 自主创建子任务（如 research agent 查资料→返回主 agent 汇总） |
 | 中 | **ops agent 激活**：配置独立工具白名单（exec/read/web_fetch），SOUL.md 注入运维身份，处理系统健康查询和故障排查 |
 | 中低 | **安全加固**：配置 `sandbox.mode: restricted` + `redactSensitive: "tools"` 限制 PA 文件系统写入范围和日志脱敏 |
