@@ -47,7 +47,8 @@ echo "[arxiv] XML抓取完成"
 PAPERS_FILE="$CACHE/papers.jsonl"
 SEEN_FILE="$CACHE/seen_ids.txt"
 touch "$SEEN_FILE"
-if ! python3 - "$FEED_FILE" "$MAX_AGE_DAYS" "$MAX_PAPERS" "$SEEN_FILE" << 'PYEOF' > "$PAPERS_FILE"
+NEW_IDS_FILE="$CACHE/new_ids.txt"
+if ! python3 - "$FEED_FILE" "$MAX_AGE_DAYS" "$MAX_PAPERS" "$SEEN_FILE" "$NEW_IDS_FILE" << 'PYEOF' > "$PAPERS_FILE"
 import sys, json, re, xml.etree.ElementTree as ET
 from datetime import datetime, timedelta, timezone
 
@@ -55,6 +56,7 @@ feed_file = sys.argv[1]
 max_age = int(sys.argv[2])
 max_papers = int(sys.argv[3])
 seen_file = sys.argv[4]
+new_ids_file = sys.argv[5]
 cutoff = datetime.now(timezone.utc) - timedelta(days=max_age)
 
 # Load previously sent paper IDs
@@ -113,11 +115,10 @@ for entry in root.findall("a:entry", NS):
     if count >= max_papers:
         break
 
-# Append new IDs to seen file
-if new_ids:
-    with open(seen_file, 'a') as f:
-        for aid in new_ids:
-            f.write(aid + '\n')
+# Write new IDs to separate file (NOT seen_file — only mark seen after successful push)
+with open(new_ids_file, 'w') as f:
+    for aid in new_ids:
+        f.write(aid + '\n')
 
 print(f"[arxiv] 解析完成: {count} 篇新论文（跳过 {len(seen_ids)} 篇已发送）", file=sys.stderr)
 PYEOF
@@ -336,10 +337,16 @@ MSG_CONTENT="$(head -c 4000 "$MSG_FILE")"
 SEND_ERR=$(mktemp)
 if "$OPENCLAW" message send --target "$TO" --message "$MSG_CONTENT" --json >/dev/null 2>"$SEND_ERR"; then
     log "已推送 ${PAPER_COUNT} 篇论文"
+    # 推送成功后才标记为已发送（防止推送失败后论文被跳过）
+    if [ -f "$NEW_IDS_FILE" ]; then
+        cat "$NEW_IDS_FILE" >> "$SEEN_FILE"
+        log "已标记 ${PAPER_COUNT} 篇为已发送"
+    fi
     printf '{"time":"%s","status":"ok","new":%d,"sent":true}\n' "$TS" "$PAPER_COUNT" > "$STATUS_FILE"
 else
     log "ERROR: 推送失败（${PAPER_COUNT} 篇待发）: $(cat "$SEND_ERR" | head -3)"
     log "MSG_FILE size: $(wc -c < "$MSG_FILE") bytes"
+    log "NOTE: 未标记已发送，下次运行将重试这 ${PAPER_COUNT} 篇论文"
     printf '{"time":"%s","status":"send_failed","new":%d,"sent":false}\n' "$TS" "$PAPER_COUNT" > "$STATUS_FILE"
 fi
 
