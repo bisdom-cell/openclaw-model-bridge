@@ -1,5 +1,5 @@
 {
-  "updated": "2026-03-28 19:00:01",
+  "updated": "2026-03-28 19:59:28",
   "updated_by": "cron",
   "priorities": [
     {
@@ -28,9 +28,9 @@
     "last_preflight_time": "2026-03-27 14:34",
     "last_trend_report": "2026-03-28",
     "model_id": "Qwen3-235B-A22B-Instruct-2507-W8A8",
-    "kb_stats": "142 notes, 5 today, 1095KB sources",
+    "kb_stats": "142 notes, 5 today, 1096KB sources",
     "stale_jobs": "all_ok",
-    "last_refresh": "2026-03-28 19:00"
+    "last_refresh": "2026-03-28 19:59"
   },
   "focus": "V29.5: 趋势报告+智能路由+三方状态共享",
   "notes": ""
