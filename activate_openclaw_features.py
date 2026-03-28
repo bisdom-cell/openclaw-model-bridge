@@ -79,12 +79,13 @@ def main():
     # sandbox (defaults 级别)
     defaults = config.setdefault("agents", {}).setdefault("defaults", {})
     sandbox = defaults.setdefault("sandbox", {})
-    if sandbox.get("mode") != "readonly":
-        sandbox["mode"] = "readonly"
-        changes.append("sandbox.mode = readonly")
-    if sandbox.get("workspaceAccess") != "full":
-        sandbox["workspaceAccess"] = "full"
-        changes.append("sandbox.workspaceAccess = full")
+    # 合法值: mode=off|non-main|all, workspaceAccess=none|ro|rw
+    if sandbox.get("mode") != "non-main":
+        sandbox["mode"] = "non-main"
+        changes.append("sandbox.mode = non-main")
+    if sandbox.get("workspaceAccess") != "ro":
+        sandbox["workspaceAccess"] = "ro"
+        changes.append("sandbox.workspaceAccess = ro")
 
     if not changes:
         print("⚠️  无需变更，配置已是最新")
