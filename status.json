@@ -9,8 +9,8 @@
     },
     {
       "task": "PA长期记忆",
-      "status": "active",
-      "note": "启用memory_search/memory_get，跨session记住用户偏好"
+      "status": "deferred",
+      "note": "Qwen3不主动调用memory工具+无法读取SOUL.md偏好数据，等模型升级后重新验证；基础设施已就绪"
     },
     {
       "task": "PA子Agent委派",
@@ -29,8 +29,8 @@
     },
     {
       "task": "模型智能路由",
-      "status": "active",
-      "note": "待启用FAST_PROVIDER"
+      "status": "deferred",
+      "note": "Gemini Flash临时免费API有额度限制，暂不启用FAST_PROVIDER；等有稳定的快速模型再评估"
     },
     {
       "task": "安全加固",
@@ -49,6 +49,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-03-28",
+      "what": "preference_learner.py上线+SOUL.md偏好嵌入+proxy_filters开放sessions工具+确认Qwen3 memory/偏好读取限制",
+      "by": "claude_code"
+    },
     {
       "date": "2026-03-28",
       "what": "V30.4方法论进化：结果验证优先+上下文工程一等公民+定期像用户一样使用系统",
@@ -90,7 +95,7 @@
   },
   "session_context": {
     "last_session": "2026-03-28",
-    "unfinished": "SOUL.md每小时自动刷新待验证（下次kb_status_refresh运行时）",
+    "unfinished": "preference_learner crontab待注册到Mac Mini",
     "open_prs": [],
     "blocked_on": ""
   },
@@ -151,7 +156,7 @@
     ],
     "evolved_from": "2026-03-28 status.json共享了个寂寞+SOUL.md空置数月的反思"
   },
-  "focus": "V30.4完成：三方宪法闭环 + 方法论进化 → 下一步：PA长期记忆 + ops agent激活",
+  "focus": "数据清洗Phase2 + PA子Agent委派 + ops agent激活（PA memory/偏好读取等Qwen模型升级后再验证）",
   "notes": "",
   "preferences": [
     "[auto] 用户偏好简洁回复（平均响应 <200 字）",
