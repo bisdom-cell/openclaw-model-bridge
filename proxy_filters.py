@@ -20,6 +20,7 @@ ALLOWED_TOOLS = {
     "read", "write", "edit",
     "exec",
     "memory_search", "memory_get",
+    "sessions_spawn", "sessions_send", "sessions_history", "agents_list",
     "cron", "message", "tts",
     "image",
 }
