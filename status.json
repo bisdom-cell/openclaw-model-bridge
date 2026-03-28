@@ -51,6 +51,11 @@
   "recent_changes": [
     {
       "date": "2026-03-28",
+      "what": "preference_learner.py上线+SOUL.md偏好嵌入+proxy_filters开放sessions工具+确认Qwen3 memory/偏好读取限制",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-03-28",
       "what": "V30.4方法论进化：结果验证优先+上下文工程一等公民+定期像用户一样使用系统",
       "by": "claude_code"
     },
@@ -90,9 +95,9 @@
   },
   "session_context": {
     "last_session": "2026-03-28",
-    "unfinished": "SOUL.md每小时自动刷新待验证（下次kb_status_refresh运行时）",
+    "unfinished": "Gemini Flash对比测试（429限流待重试）：验证Flash能否正确读取SOUL.md偏好数据；preference_learner crontab待注册到Mac Mini",
     "open_prs": [],
-    "blocked_on": ""
+    "blocked_on": "Gemini API 429限流"
   },
   "quality": {
     "security_score": 0,
@@ -151,7 +156,7 @@
     ],
     "evolved_from": "2026-03-28 status.json共享了个寂寞+SOUL.md空置数月的反思"
   },
-  "focus": "V30.4完成：三方宪法闭环 + 方法论进化 → 下一步：PA长期记忆 + ops agent激活",
+  "focus": "下一步：Gemini Flash对比测试（偏好读取+工具调用）→ 决定是否切换主模型或启用智能路由",
   "notes": "",
   "preferences": [
     "[auto] 用户偏好简洁回复（平均响应 <200 字）",
