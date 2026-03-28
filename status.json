@@ -103,6 +103,13 @@
   "incidents": [
     {
       "date": "2026-03-28",
+      "what": "Qwen3不主动调用memory工具——PA口头说'已记录'但实际未调用memory_search/memory_get",
+      "status": "deferred",
+      "resolution": "基础设施已就绪（proxy+openclaw.json+SOUL.md），等模型升级后重新验证",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-03-28",
       "what": "PA说'没有项目'——SOUL.md空置+status.json信息未被PA消费",
       "status": "resolved",
       "resolution": "SOUL.md激活+直接嵌入状态+session重建",
