@@ -1,11 +1,11 @@
 {
-  "updated": "2026-03-28 19:59:28",
-  "updated_by": "cron",
+  "updated": "2026-03-28 20:00:00",
+  "updated_by": "claude_code",
   "priorities": [
     {
-      "task": "知识图谱",
-      "status": "backlog",
-      "note": "需6-12个月数据积累"
+      "task": "数据清洗 Phase 2",
+      "status": "active",
+      "note": "三Agent架构、语义去重、自定义规则、模板积累、文件回传"
     },
     {
       "task": "趋势报告优化",
@@ -16,9 +16,35 @@
       "task": "模型智能路由",
       "status": "active",
       "note": "待启用FAST_PROVIDER"
+    },
+    {
+      "task": "知识图谱",
+      "status": "backlog",
+      "note": "需6-12个月数据积累"
     }
   ],
-  "recent_changes": [],
+  "recent_changes": [
+    {
+      "date": "2026-03-28",
+      "what": "三方宪法status.json同步闭环：git仓库作为跨环境锚点，Mac Mini每小时push，PA主动读取",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-03-28",
+      "what": "status.json扩展4类字段：session_context/quality/incidents/operating_rules",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-03-28",
+      "what": "ArXiv seen_ids写入时机修复：推送成功后才标记已发送",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-03-27",
+      "what": "V30.3: 数据清洗CLI + 自定义工具注入 + WhatsApp E2E验证",
+      "by": "claude_code"
+    }
+  ],
   "feedback": [],
   "health": {
     "services": "ok",
@@ -32,6 +58,37 @@
     "stale_jobs": "all_ok",
     "last_refresh": "2026-03-28 19:59"
   },
-  "focus": "V29.5: 趋势报告+智能路由+三方状态共享",
+  "session_context": {
+    "last_session": "2026-03-28",
+    "unfinished": "status.json扩展已完成，待Mac Mini验证PA主动读取行为",
+    "open_prs": [],
+    "blocked_on": ""
+  },
+  "quality": {
+    "security_score": 0,
+    "test_count": 393,
+    "last_regression": "2026-03-27 pass",
+    "coverage_pct": 0
+  },
+  "incidents": [
+    {
+      "date": "2026-03-28",
+      "what": "ArXiv全天无推送（周六正常，非故障）",
+      "status": "resolved",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-03-28",
+      "what": "Claude Code dev环境status.json始终为空（三方宪法断裂）",
+      "status": "resolved",
+      "by": "claude_code"
+    }
+  ],
+  "operating_rules": [
+    "Gateway维持v2026.3.13-1，等@openclaw/whatsapp正式发布再升级",
+    "数据清洗Phase2优先于新功能开发",
+    "Mac Mini同步用git reset不用git pull"
+  ],
+  "focus": "V30.4: 三方宪法闭环 — status.json实时同步 + PA主动感知",
   "notes": ""
 }
