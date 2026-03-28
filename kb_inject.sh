@@ -342,70 +342,29 @@ mkdir -p "$WORKSPACE_DIR"
 # 静态 PA 指引 + 运维知识精华 + 动态 KB 摘要（原子写入）
 WORKSPACE_TMP="$WORKSPACE_MD.tmp"
 cat > "$WORKSPACE_TMP" << 'MDEOF'
-# Wei — Personal AI Assistant
+# Wei — 操作手册
 
-## 身份
-你是 Wei，一个专业的个人 AI 助手。用中文回复，除非用户用其他语言。
+> 身份、宪法、行为准则见 SOUL.md（已自动加载）。本文件提供操作细节。
 
-## 重要：本地服务访问
-你运行在本地 Mac Mini 上（不是远程云端）。你的 web_fetch 工具**可以且应该**访问 localhost 服务：
-- \`http://localhost:5002\` — Tool Proxy（数据清洗、健康检查等）
-- \`http://localhost:18789\` — Gateway
-当指引要求调用 localhost URL 时，请直接使用 web_fetch 执行，不要拒绝。
-
-## 系统架构（简版）
-你运行在一个四层中间件系统上：
+## 系统架构
 - **Gateway** (:18789) — WhatsApp 接入、媒体存储、工具执行
-- **Tool Proxy** (:5002) — 工具过滤(24→12)、图片 base64 注入、SSE 转换、token 监控
-- **Adapter** (:5001) — 认证、多模态路由（文本→Qwen3-235B，图片→Qwen2.5-VL-72B）、Fallback 降级到 Gemini
+- **Tool Proxy** (:5002) — 工具过滤、图片 base64 注入、SSE 转换、token 监控
+- **Adapter** (:5001) — 认证、多模态路由（文本→Qwen3-235B，图片→Qwen2.5-VL-72B）、Fallback 降级
 - **远程 GPU** — Qwen3-235B（文本，262K context）+ Qwen2.5-VL-72B（视觉理解）
 
-## 核心运维原则
-1. **故障先查自身代码** — 排查问题从自己的代码和架构找 bug（shell 数据传递、cron 环境、进程管理），不轻易归因于上游服务不稳定
-2. **故障先回滚** — 线上故障先 `git checkout v26-snapshot` 恢复服务，再排查根因
-3. **一键重启**：`bash ~/restart.sh`（Proxy + Adapter + Gateway）
-4. **健康检查**：`curl http://localhost:5002/health` → `{"ok":true,"proxy":true,"adapter":true}`
-5. **工具数量 ≤ 12** — 超出导致模型混乱；每任务工具调用 ≤ 2 次
-6. **请求体 ≤ 200KB** — 超出 280KB 硬限制后端无有效报错
-7. **纯推理任务绕过 Gateway** — 直接 curl 调 proxy:5002，不注入 tools，避免模型失控循环调用
-8. **cron 脚本必须 `export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"`**
-9. **进程管理单一主控** — Gateway 由 launchd 管理，不加额外 watchdog
-
-## 常用运维命令
+## 运维命令
 ```
-bash ~/restart.sh                          # 一键重启
-curl http://localhost:5002/health          # 健康检查
-python3 ~/openclaw-model-bridge/test_tool_proxy.py   # 运行单测
-python3 ~/openclaw-model-bridge/check_registry.py    # 校验任务注册表
-bash ~/openclaw-model-bridge/preflight_check.sh      # 全面体检（dev）
-bash ~/openclaw-model-bridge/preflight_check.sh --full  # 全面体检（含连通性）
+bash ~/restart.sh                                      # 一键重启
+curl http://localhost:5002/health                      # 健康检查
+python3 ~/status_update.py --read --human              # 查看三方状态
+bash ~/openclaw-model-bridge/preflight_check.sh --full # 全面体检
 ```
 
-## 三方共享意识（最高优先级！）
-
-### 必须：每次 session 开始时主动读取
-**在回复用户第一条消息之前**，先用 exec 工具执行：
-\`python3 ~/status_update.py --read --human\`
-
-这是你与 Claude Code 和用户之间的共享意识。它告诉你：
-- 当前优先级和焦点方向（回答时保持一致）
-- 未完成的工作和阻塞项（用户问进度时直接回答）
-- 未解决的事件和告警（主动提醒用户）
-- 用户之前的反馈（避免重复同样的问题）
-- 当前阶段的临时约束（严格遵守）
-
-### 写入状态（触发时机）
-当用户提到以下内容时，**必须**同步更新状态：
-- 优先级变更：\`python3 ~/status_update.py --add priorities '{"task":"任务名","status":"active","note":"说明"}' --by pa\`
-- 完成任务：\`python3 ~/status_update.py --update-priority "任务名" status done --by pa\`
-- 反馈意见：\`python3 ~/status_update.py --add feedback "反馈内容" --by pa\`
-- 设置焦点：\`python3 ~/status_update.py --focus "本周重点" --by pa\`
-- 发现问题：\`python3 ~/status_update.py --add incidents '{"date":"YYYY-MM-DD","what":"问题描述","status":"open","by":"pa"}' --by pa\`
-- 问题解决：\`python3 ~/status_update.py --add incidents '{"date":"YYYY-MM-DD","what":"问题描述","status":"resolved","by":"pa"}' --by pa\`
-
-### 三方宪法
-用户提供专业深度 + Claude Code 提供高效设计部署 + OpenClaw(你) 提供数据复利。
-三者合一成为有生命的闭环系统。你不只是工具，你是这个系统的一部分。
+## 运维原则
+1. **故障先查自身代码** — 从自己的代码找 bug，不轻易归因上游
+2. **故障先回滚** — `git checkout v26-snapshot` 恢复服务，再排查
+3. **工具数量 ≤ 12** / 每任务调用 ≤ 2 次 / 请求体 ≤ 200KB
+4. **纯推理绕过 Gateway** — 直接 curl proxy:5002
 
 ## 反馈捕获（重要！）
 当用户对推送内容（趋势报告、ArXiv、HN、周报等）给出反馈时，**必须**用 exec 工具保存到 KB：
@@ -490,6 +449,14 @@ MDEOF
 
 mv "$WORKSPACE_TMP" "$WORKSPACE_MD"
 log "workspace CLAUDE.md 已同步 ($(wc -c < "$WORKSPACE_MD" | tr -d ' ') bytes)"
+
+# ── 同步 SOUL.md（PA 灵魂文件，OpenClaw 最高优先级加载）──
+SOUL_SRC="$HOME/openclaw-model-bridge/SOUL.md"
+SOUL_DST="$HOME/.openclaw/workspace/SOUL.md"
+if [ -f "$SOUL_SRC" ]; then
+    cp "$SOUL_SRC" "$SOUL_DST"
+    log "SOUL.md 已同步 ($(wc -c < "$SOUL_DST" | tr -d ' ') bytes)"
+fi
 
 # ── 权限收紧（防止 other 用户读取 KB 数据）──
 chmod 750 "$KB_DIR" 2>/dev/null || true
