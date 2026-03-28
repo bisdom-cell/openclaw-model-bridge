@@ -428,6 +428,18 @@ bash ~/kb_write.sh "用户的反馈内容" "feedback" "feedback"
 
 MDEOF
 
+# 追加三方共享意识快照（status.json 直接注入，PA 无需调用工具即可感知）
+STATUS_SNAPSHOT=$(python3 "$HOME/status_update.py" --read --human 2>/dev/null || echo "（状态暂不可用）")
+cat >> "$WORKSPACE_TMP" << MDEOF
+## 三方共享意识（实时快照）
+以下是当前系统状态，每次 kb_inject 运行时自动刷新。
+回答用户关于项目进展、系统状态、优先级等问题时，直接参考此快照。
+如需最新数据，用 exec 工具执行：\`python3 ~/status_update.py --read --human\`
+
+$STATUS_SNAPSHOT
+
+MDEOF
+
 # 追加动态 KB 摘要
 cat >> "$WORKSPACE_TMP" << MDEOF
 ## 知识库
