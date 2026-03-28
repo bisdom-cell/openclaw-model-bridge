@@ -33,15 +33,38 @@ mkdir -p "$CACHE" "${KB_BASE:-$HOME/.kb}/sources"
 test -f "$KB_SRC" || echo "# ArXiv AI论文监控" > "$KB_SRC"
 DAY="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d')"
 
-# ── 1. 抓取 ArXiv API XML ────────────────────────────────────────────────
+# ── 1. 抓取 ArXiv API XML（含重试 + 内容验证）──────────────────────────
 FEED_FILE="$CACHE/arxiv_feed.xml"
-# 去掉 -f：HTTP 错误不再触发 set -e 静默退出，改为手动检测
-if ! curl -sSL --max-time 30 -H "User-Agent: openclaw-arxiv-monitor/1.0 (mailto:bisdom@example.com)" "$ARXIV_URL" -o "$FEED_FILE" 2>"$CACHE/curl_feed.err"; then
-  log "ERROR: ArXiv API 抓取失败: $(head -1 "$CACHE/curl_feed.err" 2>/dev/null)"
-  printf '{"time":"%s","status":"fetch_failed","new":0}\n' "$TS" > "$STATUS_FILE"
+FETCH_OK=false
+for attempt in 1 2 3; do
+  HTTP_CODE=$(curl -sSL --max-time 30 -w '%{http_code}' \
+    -H "User-Agent: openclaw-arxiv-monitor/1.0 (mailto:bisdom@example.com)" \
+    "$ARXIV_URL" -o "$FEED_FILE" 2>"$CACHE/curl_feed.err") || HTTP_CODE="000"
+
+  # 检查 HTTP 状态码
+  if [ "$HTTP_CODE" != "200" ]; then
+    log "WARN: ArXiv API 返回 HTTP $HTTP_CODE（第${attempt}次）"
+    sleep "$((attempt * 5))"
+    continue
+  fi
+
+  # 验证内容是 XML（ArXiv 限流时返回 HTML 错误页）
+  if head -5 "$FEED_FILE" | grep -q '<feed\|<?xml'; then
+    FETCH_OK=true
+    break
+  else
+    log "WARN: ArXiv API 返回非XML内容（第${attempt}次）: $(head -1 "$FEED_FILE" | cut -c1-80)"
+    sleep "$((attempt * 5))"
+    continue
+  fi
+done
+
+if [ "$FETCH_OK" != "true" ]; then
+  log "ERROR: ArXiv API 3次重试均失败（最后HTTP=$HTTP_CODE）"
+  printf '{"time":"%s","status":"fetch_failed","new":0,"http_code":"%s"}\n' "$TS" "$HTTP_CODE" > "$STATUS_FILE"
   exit 1
 fi
-echo "[arxiv] XML抓取完成"
+echo "[arxiv] XML抓取完成（HTTP $HTTP_CODE）"
 
 # ── 2. 解析XML → 结构化JSONL（标题/作者/日期/ID/摘要）─────────────────
 PAPERS_FILE="$CACHE/papers.jsonl"
