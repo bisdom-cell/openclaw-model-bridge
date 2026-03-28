@@ -85,7 +85,7 @@
 - SOUL.md放宪法级信息（身份+状态），CLAUDE.md放操作手册（工具+详情）（V30.4教训）
 - 功能完成标准=用户视角验证通过，非单测通过（V30.4教训）
 
-**系统健康：** 服务正常 | 模型: Qwen3-235B-A22B-Instruct-2507-W8A8 | KB: 142 notes, 2 today, 1108KB sources | 过期Job: freight
+**系统健康：** 服务正常 | 模型: Qwen3-235B-A22B-Instruct-2507-W8A8 | KB: 142 notes, 2 today, 1110KB sources | 过期Job: freight
 
 > 用户问项目、进展、任务、系统状态时，**必须参考以上信息回答**，不要说"没有项目"。
 > 用户偏好我必须严格遵守。
