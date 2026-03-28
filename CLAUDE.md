@@ -1,6 +1,6 @@
 # CLAUDE.md — openclaw-model-bridge 项目背景
 
-> 每次新会话开始时自动读取。当前版本：v30.3（2026-03-27）
+> 每次新会话开始时自动读取。当前版本：v30.4（2026-03-28）
 
 ---
 
@@ -122,6 +122,8 @@
 | `data_clean.py` | **V30.3新增** 数据清洗 CLI 工具（profile/execute/validate/history，7种操作，支持CSV/TSV/JSON/JSONL/Excel） |
 | `test_data_clean.py` | **V30.3新增** 数据清洗单测（80个用例：格式检测/读写/操作/端到端/多格式） |
 | `data_clean_poc/` | **V30.3新增** Phase 0 验证材料（3个脏数据样本+LLM判断力测试脚本） |
+| `SOUL.md` | **V30.4新增** OpenClaw 最高优先级 system prompt（PA身份Wei、三方宪法、行为指令、项目状态实时快照，每小时自动刷新） |
+| `status.json` | **V30.4新增（仓库副本）** 三方共享意识锚点（priorities/feedback/incidents/quality/operating_rules/session_context），Mac Mini 每小时 git push 同步 |
 | `adapter.py` | API适配层（认证 `$REMOTE_API_KEY`，Fallback降级 `$FALLBACK_PROVIDER`） |
 | `openclaw_backup.sh` | **V29.1新增** 每日Gateway state备份到外挂SSD（保留7天） |
 | `jobs_registry.yaml` | **V27新增** 统一任务注册表（system + openclaw 双 cron） |
@@ -167,6 +169,55 @@
 | `audit_log.py` | **V30.2新增** 链式哈希审计日志（JSONL append-only，SHA256 链式校验，篡改/删除可检测） |
 | `test_audit_log.py` | **V30.2新增** 审计日志单测（19个用例：写入/链式哈希/篡改检测/删除检测/统计） |
 | `security_score.py` | **V30.2新增** 系统安全评分（7维度100分：密钥/测试/完整性/部署/传输/审计/可用性） |
+
+## V30.4 变更摘要（2026-03-28）
+
+> 三方宪法闭环验证 + 方法论进化 + SOUL.md 激活 + OpenClaw 能力深挖
+
+### 功能变更
+
+1. **SOUL.md 激活**：OpenClaw 最高优先级 system prompt，首次写入 PA 身份（Wei）、三方宪法、5 条行为指令、性格定义；部署后 PA 首次正确回答"项目进展如何"（之前说"没有项目"）
+2. **SOUL.md 嵌入项目状态**：直接在 SOUL.md 中嵌入任务优先级、最近完成、当前约束、系统健康——PA 无法忽略（之前放在 CLAUDE.md 中被"lost in the middle"）
+3. **status.json 扩展为三方共享意识锚点**：新增 `session_context`（开发连续性）、`quality`（安全评分/测试数/覆盖率）、`incidents`（未解决事件，最新在前，上限30条）、`operating_rules`（当前约束/决策）
+4. **status.json 跨环境同步**：Mac Mini `kb_status_refresh.sh` 每小时 → git push → Claude Code dev 读取仓库副本；解决 dev 环境 status.json 始终为空的问题
+5. **kb_status_refresh.sh 扩展**：新增第6步刷新 SOUL.md 状态区段 + git 同步 SOUL.md
+6. **kb_inject.sh 瘦身**：workspace CLAUDE.md 从 17KB → 14KB，身份/宪法/localhost 信息移至 SOUL.md；新增 status snapshot 注入和 SOUL.md 同步
+7. **ArXiv seen_ids 修复**：write-after-success 模式，推送失败不标记已发送，下次运行自动重试
+8. **Session 重建验证流程**：发现 workspace 文件更新后需清空 session 才能生效（`sessions.json → {}`），已记录为标准操作
+
+### 🔴 V30.4 方法论进化：从 Vibe Coding 到 Outcome-Driven Development
+
+> **2026-03-28 反思**：393 个单测全部通过，但 status.json"共享了个寂寞"——PA 从不引用；SOUL.md 空置数月——最高价值的 LLM 注入点被忽视。根因：我们验证了代码能跑，但没验证系统价值是否实现。
+
+**三个系统性盲区：**
+
+| 盲区 | 具体表现 | 根因 |
+|------|----------|------|
+| **建设者偏见** | 测了 status.json 能写入，没测 PA 会不会引用 | 验证写入侧，忘了消费侧 |
+| **上下文工程缺失** | 17KB CLAUDE.md 塞满细节，SOUL.md 空置 | 没把 LLM 注意力当设计约束 |
+| **功能堆积 ≠ 系统进化** | V27→V30.3 加了 40 个文件，但三方宪法核心承诺是断的 | 只做加法，不验证核心价值主张 |
+
+**进化后的三条原则（已写入每次必查）：**
+1. **结果验证优先于功能建设** — 先定义"从用户视角，成功长什么样"，再写代码
+2. **上下文工程是一等公民** — SOUL.md = 宪法级（身份+状态），CLAUDE.md = 手册级（工具+详情）；信息放哪里、占多少 token、LLM 能否注意到——都是架构决策
+3. **定期像用户一样使用系统** — 不是跑单测，而是在 WhatsApp 上实际测试 PA 行为；每次大变更后必须 E2E 验证 PA 的表现
+
+### OpenClaw 未充分利用的能力（三方协作机会）
+
+| 能力 | 当前状态 | 三方协作潜力 |
+|------|----------|-------------|
+| **memory_search / memory_get** | 未使用 | PA 可搜索自身会话记忆，跨 session 保持长期记忆 |
+| **sessions_spawn + sessions_send** | 未使用 | PA 可自主生成子 agent 处理复杂任务（如数据清洗 Phase 2 的三 Agent 架构）|
+| **sessions_history** | 未使用 | PA 可回溯过去的对话，实现"你上次说过..."的连续性体验 |
+| **session compaction memory** | 被动使用 | 可定制 compaction 策略，确保关键信息（项目状态、用户偏好）在压缩后保留 |
+| **queue steer/interrupt 模式** | 未使用 | 紧急告警可中断当前对话直接推送，而非排队等待 |
+| **FORCE_SYSTEM injection** | 未使用 | 比 SOUL.md 更高优先级的系统消息覆盖，可用于紧急约束注入 |
+| **per-agent tool allow/deny** | 基础使用 | ops agent 可限制为只有运维工具，research agent 只有研究工具，更精准 |
+| **sandbox.mode** | 未配置 | 可限制 PA 的文件系统写入范围，防止误操作 |
+| **redactSensitive** | 未配置 | 日志中自动脱敏工具调用参数，提升安全性 |
+| **healthMonitor per-channel** | 未配置 | 可为 WhatsApp 通道配置独立的健康监控阈值 |
+| **agents_list tool** | 未使用 | PA 可查看可用 agent 列表，按需委派任务给不同专业 agent |
+| **hot config reload** | 被动 | 可动态调整 agent 配置（如临时切换模型）无需重启 |
 
 ## V30.3 变更摘要（2026-03-27）
 
@@ -498,7 +549,7 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 >
 > 共享状态：`~/.kb/status.json`（三方实时同步优先级、反馈、系统健康）
 
-### 🔴 每次必查（10条，优先级最高）
+### 🔴 每次必查（13条，优先级最高）
 
 | # | 原则 | 一句话 |
 |---|------|--------|
@@ -507,11 +558,14 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 | 3 | **开工先读/收工必写 status.json** | `python3 status_update.py --read --human` 查看三方共享状态（优先级、反馈、系统健康）；收工时更新 priorities + recent_changes：`python3 status_update.py --add recent_changes '{"date":"...","what":"...","by":"claude_code"}' --by claude_code` |
 | 4 | **改完先测** | 新脚本手动验证 → 新任务先写 `jobs_registry.yaml` 并 `python3 check_registry.py` 通过 → 才能注册 cron |
 | 5 | **push前必扫描** | 安全扫描（见上方命令）全部为空才允许 push |
-| 6 | **新功能必须 Mac Mini E2E 验证** | dev 环境单测通过不算完成；**必须提醒用户在 Mac Mini 上运行 `bash preflight_check.sh --full` + `bash job_smoke_test.sh` + 手动触发目标 job**，确认端到端有效果（消息到达 WhatsApp / 文件生成 / 日志正常）。dev 通过 ≠ 生产工作。（2026-03-27 教训：HN/watchdog/mm_index 三个 job 静默失败数天至数周，393 个单元测试全部通过却未发现，因为单测只验证组件内部逻辑，不验证组件之间的接缝——crontab 路径 vs FILE_MAP、cron 环境的 python3 版本、openclaw message send 是否真能发送） |
+| 6 | **新功能必须 Mac Mini E2E 验证** | dev 环境单测通过不算完成；**必须提醒用户在 Mac Mini 上运行 `bash preflight_check.sh --full` + `bash job_smoke_test.sh` + 手动触发目标 job**，确认端到端有效果（消息到达 WhatsApp / 文件生成 / 日志正常）。dev 通过 ≠ 生产工作。 |
 | 7 | **故障先查自身代码** | 排查问题时默认从我们自己的代码和架构中找 bug（shell 数据传递、cron 环境、进程管理等），不归因于上游服务不稳定（#97教训） |
 | 8 | **做减法不做加法** | 新增防护/监控前先问"谁已经在管这件事"；每加一层保险 = 多一个故障源（#95教训） |
 | 9 | **收工提醒 preflight + 安全评分 + job smoke test + 更新 status.json** | "结束今天的工作"时：① `security_score.py --update` 写入安全评分 ② 提醒用户在 Mac Mini 上运行 `bash preflight_check.sh --full` + `bash job_smoke_test.sh` ③ `status_update.py` 写入变更摘要和优先级 |
-| 10 | **相信 OpenClaw，用好 OpenClaw** | 优先利用 OpenClaw 已有能力（Multi-Agent、contextPruning、workspace CLAUDE.md、tools 等），而非重新造轮子；遇到新需求先查 OpenClaw 文档和 release notes，充分发挥其潜力来提升效率和创新 |
+| 10 | **相信 OpenClaw，用好 OpenClaw** | 优先利用 OpenClaw 已有能力（Multi-Agent、contextPruning、workspace SOUL.md/CLAUDE.md、memory、sessions_spawn 等），而非重新造轮子；遇到新需求先查 OpenClaw 文档和 release notes |
+| 11 | **🆕 结果验证优先于功能建设** | 先定义"从用户视角，成功长什么样"，再写代码。status.json 的成功标准不是"能写入"，而是"PA 能正确回答项目进展"。（2026-03-28教训：393个单测通过但 PA 说"没有项目"） |
+| 12 | **🆕 上下文工程是一等公民** | SOUL.md = 宪法级（身份+关键状态，LLM 注意力最高），CLAUDE.md = 手册级（工具+详情）；信息放哪里、占多少 token、LLM 能否注意到——都是架构决策，和 API 设计同等严肃。（2026-03-28教训：SOUL.md 空置数月，17KB CLAUDE.md 信息被"lost in the middle"） |
+| 13 | **🆕 定期像用户一样使用系统** | 不是跑单测，而是在 WhatsApp 上实际问 PA 问题。每次涉及 PA 行为的变更后，必须清空 session（`echo '{"sessions":[]}' > sessions.json`）+ 重启 Gateway + WhatsApp 实测。单测验证组件内部，系统价值在组件之间的接缝处。 |
 
 ### 🟡 按需查阅（操作 & 架构参考）
 
@@ -544,13 +598,19 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 
 | 优先级 | 任务 |
 |--------|------|
-| 中高 | **数据清洗 Phase 2**：三 Agent 架构（Profiler/Planner/Executor）、语义去重（"张伟"="Zhang Wei"）、自定义清洗规则（正则/映射表）、清洗模板积累到 KB、清洗后文件回传 WhatsApp |
+| 中高 | **数据清洗 Phase 2**：三 Agent 架构（Profiler/Planner/Executor，可用 `sessions_spawn` 实现）、语义去重、自定义清洗规则、清洗模板积累到 KB、清洗后文件回传 WhatsApp |
+| 中 | **PA 长期记忆**：启用 `memory_search`/`memory_get` 工具，让 PA 跨 session 记住用户偏好和历史对话关键点 |
+| 中 | **PA 子 Agent 委派**：利用 `sessions_spawn` + `sessions_send` 让 PA 自主创建子任务（如 research agent 查资料→返回主 agent 汇总） |
+| 中 | **ops agent 激活**：配置独立工具白名单（exec/read/web_fetch），SOUL.md 注入运维身份，处理系统健康查询和故障排查 |
+| 中低 | **安全加固**：配置 `sandbox.mode: restricted` + `redactSensitive: "tools"` 限制 PA 文件系统写入范围和日志脱敏 |
+| 中低 | **紧急告警中断**：配置 queue `interrupt` 模式，watchdog 告警可中断当前对话直接推送用户 |
 | 低 | 知识图谱：AI大模型领域知识图谱构建（需6-12个月数据积累，暂缓） |
 | 低 | 货代Watcher V3：Bing News API替代GoogleNews |
 | 低 | 语音消息支持：WhatsApp语音→STT→LLM回复 |
 | 低 | MM搜索接入对话：mm_search.py 注册为 OpenClaw tool |
 | 低 | KB 静态加密：status.json / index.json 使用 age/gpg 加密存盘 |
 | 低 | 依赖漏洞扫描：pip-audit 集成到 full_regression.sh |
+| ✅ | **三方宪法闭环验证：SOUL.md + status.json 实时同步 + PA 主动感知（V30.4）** |
 | ✅ | **数据清洗 Phase 1：CLI + 自定义工具注入 + WhatsApp E2E（V30.3）** |
 | ✅ | **安全评分体系 + 审计日志 + 持续安全机制（V30.2）** |
 | ✅ | **全量回归测试框架 393 用例（V30.1）** |

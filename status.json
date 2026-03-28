@@ -1,11 +1,26 @@
 {
-  "updated": "2026-03-28 20:00:00",
+  "updated": "2026-03-28 21:30:00",
   "updated_by": "claude_code",
   "priorities": [
     {
       "task": "数据清洗 Phase 2",
       "status": "active",
-      "note": "三Agent架构、语义去重、自定义规则、模板积累、文件回传"
+      "note": "三Agent架构（用sessions_spawn）、语义去重、自定义规则、模板积累、文件回传"
+    },
+    {
+      "task": "PA长期记忆",
+      "status": "active",
+      "note": "启用memory_search/memory_get，跨session记住用户偏好"
+    },
+    {
+      "task": "PA子Agent委派",
+      "status": "active",
+      "note": "sessions_spawn+sessions_send，PA自主创建子任务"
+    },
+    {
+      "task": "ops agent激活",
+      "status": "active",
+      "note": "独立工具白名单+SOUL.md运维身份，处理系统健康查询"
     },
     {
       "task": "趋势报告优化",
@@ -18,6 +33,16 @@
       "note": "待启用FAST_PROVIDER"
     },
     {
+      "task": "安全加固",
+      "status": "backlog",
+      "note": "sandbox.mode+redactSensitive限制PA写入范围和日志脱敏"
+    },
+    {
+      "task": "紧急告警中断",
+      "status": "backlog",
+      "note": "queue interrupt模式，watchdog告警可中断当前对话"
+    },
+    {
       "task": "知识图谱",
       "status": "backlog",
       "note": "需6-12个月数据积累"
@@ -26,17 +51,22 @@
   "recent_changes": [
     {
       "date": "2026-03-28",
-      "what": "三方宪法status.json同步闭环：git仓库作为跨环境锚点，Mac Mini每小时push，PA主动读取",
+      "what": "V30.4方法论进化：结果验证优先+上下文工程一等公民+定期像用户一样使用系统",
       "by": "claude_code"
     },
     {
       "date": "2026-03-28",
-      "what": "status.json扩展4类字段：session_context/quality/incidents/operating_rules",
+      "what": "SOUL.md激活：PA首次正确回答项目进展（之前说没有项目）",
       "by": "claude_code"
     },
     {
       "date": "2026-03-28",
-      "what": "ArXiv seen_ids写入时机修复：推送成功后才标记已发送",
+      "what": "三方宪法闭环验证通过：status.json跨环境同步+PA主动感知",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-03-28",
+      "what": "OpenClaw能力深挖：识别12项未充分利用的功能，4项列入active优先级",
       "by": "claude_code"
     },
     {
@@ -60,7 +90,7 @@
   },
   "session_context": {
     "last_session": "2026-03-28",
-    "unfinished": "status.json扩展已完成，待Mac Mini验证PA主动读取行为",
+    "unfinished": "SOUL.md每小时自动刷新待验证（下次kb_status_refresh运行时）",
     "open_prs": [],
     "blocked_on": ""
   },
@@ -73,22 +103,47 @@
   "incidents": [
     {
       "date": "2026-03-28",
+      "what": "PA说'没有项目'——SOUL.md空置+status.json信息未被PA消费",
+      "status": "resolved",
+      "resolution": "SOUL.md激活+直接嵌入状态+session重建",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-03-28",
       "what": "ArXiv全天无推送（周六正常，非故障）",
       "status": "resolved",
       "by": "claude_code"
     },
     {
       "date": "2026-03-28",
-      "what": "Claude Code dev环境status.json始终为空（三方宪法断裂）",
+      "what": "Claude Code dev环境status.json始终为空",
       "status": "resolved",
+      "resolution": "git仓库副本+kb_status_refresh每小时push",
       "by": "claude_code"
     }
   ],
   "operating_rules": [
     "Gateway维持v2026.3.13-1，等@openclaw/whatsapp正式发布再升级",
     "数据清洗Phase2优先于新功能开发",
-    "Mac Mini同步用git reset不用git pull"
+    "Mac Mini同步用git reset不用git pull",
+    "PA行为变更后必须清空session+重启Gateway+WhatsApp实测（V30.4教训）",
+    "SOUL.md放宪法级信息（身份+状态），CLAUDE.md放操作手册（工具+详情）（V30.4教训）",
+    "功能完成标准=用户视角验证通过，非单测通过（V30.4教训）"
   ],
-  "focus": "V30.4: 三方宪法闭环 — status.json实时同步 + PA主动感知",
+  "methodology": {
+    "version": "V30.4 Outcome-Driven Development",
+    "principles": [
+      "结果验证优先于功能建设——先定义用户视角的成功标准",
+      "上下文工程是一等公民——LLM注意力是稀缺设计约束",
+      "定期像用户一样使用系统——单测验证组件内部，价值在接缝处"
+    ],
+    "anti_patterns": [
+      "393个单测通过≠系统正常工作",
+      "建了写入通路未验证读取通路",
+      "功能堆积≠系统进化"
+    ],
+    "evolved_from": "2026-03-28 status.json共享了个寂寞+SOUL.md空置数月的反思"
+  },
+  "focus": "V30.4完成：三方宪法闭环 + 方法论进化 → 下一步：PA长期记忆 + ops agent激活",
   "notes": ""
 }
