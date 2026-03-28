@@ -142,6 +142,14 @@ except Exception:
     sys.exit(0)
 
 lines = []
+
+prefs = s.get("preferences", [])
+if prefs:
+    lines.append("**用户偏好（必须遵守）：**")
+    for p in prefs:
+        lines.append(f"- {p}")
+    lines.append("")
+
 lines.append(f"**本周焦点**：{s.get('focus', '未设定')}")
 lines.append("")
 lines.append("**进行中的任务：**")
@@ -176,47 +184,23 @@ job_str = "全部Job运行正常" if jobs == "all_ok" else f"过期Job: {jobs}"
 lines.append("")
 lines.append(f"**系统健康：** 服务{'正常' if svc == 'ok' else svc} | 模型: {model} | KB: {kb} | {job_str}")
 
-prefs = s.get("preferences", [])
-if prefs:
-    lines.append("")
-    lines.append("**用户偏好：**")
-    for p in prefs:
-        lines.append(f"- {p}")
-
 print("\n".join(lines))
 PYEOF
     )
 
     if [ -n "$SOUL_STATUS" ]; then
-        python3 - "$SOUL_MD" "$SOUL_STATUS" "$HOME/.kb/status.json" << 'PYEOF'
-import sys, re, json
+        python3 - "$SOUL_MD" "$SOUL_STATUS" << 'PYEOF'
+import sys, re
 
-soul_file, status_block, status_json_path = sys.argv[1], sys.argv[2], sys.argv[3]
+soul_file, status_block = sys.argv[1], sys.argv[2]
 with open(soul_file) as f:
     content = f.read()
 
-# 1. 替换项目状态区段
+# 替换项目状态区段（偏好已包含在 status_block 的最前面）
 pattern = r'(## 当前项目状态（每小时自动刷新）\n).*?(> 用户问项目)'
 header = "## 当前项目状态（每小时自动刷新）\n\n"
 header += status_block + "\n\n"
 new_content = re.sub(pattern, header + r'\2', content, count=1, flags=re.DOTALL)
-
-# 2. 替换用户偏好区段（SOUL.md 顶部，紧跟身份定义之后）
-try:
-    with open(status_json_path) as f:
-        prefs = json.load(f).get("preferences", [])
-except Exception:
-    prefs = []
-
-if prefs:
-    pref_lines = "\n".join(f"- {p}" for p in prefs)
-else:
-    pref_lines = "（暂无，系统每天自动分析行为数据生成偏好）"
-
-pref_pattern = r'(## 用户偏好（必须遵守）\n).*?(> 以上偏好)'
-pref_header = "## 用户偏好（必须遵守）\n\n"
-pref_header += pref_lines + "\n\n"
-new_content = re.sub(pref_pattern, pref_header + r'\2', new_content, count=1, flags=re.DOTALL)
 
 if new_content != content:
     tmp = soul_file + '.tmp'
