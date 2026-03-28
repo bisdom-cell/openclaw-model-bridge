@@ -1,5 +1,5 @@
 {
-  "updated": "2026-03-28 22:00:01",
+  "updated": "2026-03-28 22:49:36",
   "updated_by": "cron",
   "priorities": [
     {
@@ -84,9 +84,9 @@
     "last_preflight_time": "2026-03-28 21:56",
     "last_trend_report": "2026-03-28",
     "model_id": "Qwen3-235B-A22B-Instruct-2507-W8A8",
-    "kb_stats": "142 notes, 5 today, 1099KB sources",
+    "kb_stats": "142 notes, 5 today, 1101KB sources",
     "stale_jobs": "all_ok",
-    "last_refresh": "2026-03-28 22:00"
+    "last_refresh": "2026-03-28 22:49"
   },
   "session_context": {
     "last_session": "2026-03-28",
@@ -152,5 +152,10 @@
     "evolved_from": "2026-03-28 status.json共享了个寂寞+SOUL.md空置数月的反思"
   },
   "focus": "V30.4完成：三方宪法闭环 + 方法论进化 → 下一步：PA长期记忆 + ops agent激活",
-  "notes": ""
+  "notes": "",
+  "preferences": [
+    "[auto] 用户偏好简洁回复（平均响应 <200 字）",
+    "[auto] 常用工具：memory_search(4次)、write(1次)",
+    "[auto] 关注领域：技术/AI、学术/论文、技术/编程、arxiv-ai-models、技术/OpenClaw"
+  ]
 }
