@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 """
-status_update.py — 三方共享项目状态（原子读写）
+status_update.py — 三方共享意识锚点（原子读写）
 所有写入使用 tmpfile + os.replace 原子操作，支持并发安全。
 
+三方宪法：用户提供专业深度 + Claude Code 提供高效设计部署 + OpenClaw 提供数据复利
+status.json 是三方的共享意识——"我们现在在哪、要去哪、学到了什么"。
+
 三方协议：
-  - Claude Code：开工读 → 收工写 priorities / recent_changes
-  - OpenClaw PA：用户反馈时写 feedback / 回答时读全部
-  - Cron 脚本：health_check / auto_deploy / kb_trend 更新对应字段
+  - Claude Code：开工读全部 → 收工写 session_context / recent_changes / quality
+  - OpenClaw PA：每次 session 首先读 → 用户反馈写 feedback → 事件写 incidents
+  - Cron 脚本：health / quality 自动更新
 
 用法：
   python3 status_update.py --read                          # 读取完整状态（JSON）
@@ -16,6 +19,9 @@ status_update.py — 三方共享项目状态（原子读写）
   python3 status_update.py --add priorities '{"task":"X","status":"active"}'
   python3 status_update.py --add recent_changes '{"date":"2026-03-25","what":"V29.5","by":"claude_code"}'
   python3 status_update.py --add feedback "趋势报告噪音词需优化"
+  python3 status_update.py --add incidents '{"date":"2026-03-28","what":"ArXiv周末无推送","status":"resolved","by":"claude_code"}'
+  python3 status_update.py --set session_context.unfinished "数据清洗Phase2设计中"
+  python3 status_update.py --set quality.security_score 92
   python3 status_update.py --pop feedback 0                # 取出并删除第N条
   python3 status_update.py --clear feedback                # 清空数组字段
   python3 status_update.py --update-priority "知识图谱" status backlog
@@ -62,6 +68,30 @@ DEFAULT_STATUS = {
         "stale_jobs": "",
         "last_refresh": "",
     },
+
+    # 开发连续性（Claude Code session 间的上下文传递）
+    "session_context": {
+        "last_session": "",         # 上次 session 日期
+        "unfinished": "",           # 未完成的工作描述
+        "open_prs": [],             # 待合并的 PR
+        "blocked_on": "",           # 当前阻塞项
+    },
+
+    # 质量基线（防退化，每次收工写入）
+    "quality": {
+        "security_score": 0,        # security_score.py 评分（0-100）
+        "test_count": 0,            # 单测总数
+        "last_regression": "",      # 上次全量回归结果
+        "coverage_pct": 0,          # 代码覆盖率
+    },
+
+    # 事件与告警（三方都可写入/消费）
+    "incidents": [],
+    # 格式: {"date":"", "what":"", "status":"open|resolved|monitoring", "by":""}
+
+    # 当前阶段临时约束（区别于永久原则，会随阶段变化）
+    "operating_rules": [],
+    # 格式: "本周禁止升级Gateway" / "数据清洗优先于新功能"
 
     # 本周焦点（开工时 Claude Code 设置，PA 可引用）
     "focus": "",
@@ -140,11 +170,50 @@ def format_human(data):
             lines.append(f"  [{c.get('date','')}] {c.get('what','')} (by {c.get('by','')})")
         lines.append("")
 
+    # 开发连续性
+    ctx = data.get("session_context", {})
+    if ctx.get("unfinished") or ctx.get("blocked_on") or ctx.get("open_prs"):
+        lines.append("🔄 开发连续性:")
+        if ctx.get("last_session"):
+            lines.append(f"  上次 session: {ctx['last_session']}")
+        if ctx.get("unfinished"):
+            lines.append(f"  未完成: {ctx['unfinished']}")
+        if ctx.get("open_prs"):
+            for pr in ctx["open_prs"]:
+                lines.append(f"  PR: {pr}")
+        if ctx.get("blocked_on"):
+            lines.append(f"  阻塞: {ctx['blocked_on']}")
+        lines.append("")
+
+    # 事件与告警
+    incidents = data.get("incidents", [])
+    open_incidents = [i for i in incidents if i.get("status") != "resolved"]
+    if open_incidents:
+        lines.append(f"🚨 未解决事件 ({len(open_incidents)}):")
+        for inc in open_incidents[:5]:
+            lines.append(f"  [{inc.get('date','')}] {inc.get('what','')} ({inc.get('status','')}, by {inc.get('by','')})")
+        lines.append("")
+
     h = data.get("health", {})
     lines.append("🏥 系统健康:")
     lines.append(f"  服务: {h.get('services','?')} | 模型: {h.get('model_id','?')}")
     lines.append(f"  部署: {h.get('last_deploy','')} ({h.get('last_deploy_time','')})")
     lines.append(f"  体检: {h.get('last_preflight','?')} ({h.get('last_preflight_time','')})")
+
+    # 质量基线
+    q = data.get("quality", {})
+    if q.get("security_score") or q.get("test_count"):
+        lines.append(f"  安全评分: {q.get('security_score', '?')}/100 | 单测: {q.get('test_count', '?')} | 覆盖率: {q.get('coverage_pct', '?')}%")
+        if q.get("last_regression"):
+            lines.append(f"  回归测试: {q['last_regression']}")
+
+    # 临时约束
+    rules = data.get("operating_rules", [])
+    if rules:
+        lines.append("")
+        lines.append("⚠️ 当前约束:")
+        for r in rules:
+            lines.append(f"  - {r}")
 
     if data.get("notes"):
         lines.append(f"\n📎 备注: {data['notes']}")
@@ -206,10 +275,13 @@ def main():
             item = json.loads(item_str)
         except (json.JSONDecodeError, ValueError):
             item = item_str
-        # recent_changes 插入到开头，保留20条
+        # recent_changes / incidents 插入到开头，分别保留20/30条
         if array_name == "recent_changes":
             data[array_name].insert(0, item)
             data[array_name] = data[array_name][:20]
+        elif array_name == "incidents":
+            data[array_name].insert(0, item)
+            data[array_name] = data[array_name][:30]
         else:
             data[array_name].append(item)
         changed = True
