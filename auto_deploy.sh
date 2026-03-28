@@ -136,6 +136,9 @@ declare -a FILE_MAP=(
     # 自部署（bootstrapping）
     "auto_deploy.sh|$HOME/openclaw-model-bridge/auto_deploy.sh"
 
+    # PA 灵魂文件（最高优先级上下文）
+    "SOUL.md|$HOME/.openclaw/workspace/SOUL.md"
+
     # 文档同步到 KB（供 WhatsApp PA 按需查阅）
     "docs/GUIDE.md|$HOME/.kb/docs/GUIDE.md"
     "docs/config.md|$HOME/.kb/docs/config.md"
