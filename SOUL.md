@@ -61,8 +61,9 @@
 ## 当前项目状态（每小时自动刷新）
 
 **用户偏好（必须遵守）：**
+- [auto] 活跃时段 00:00-24:00（2天数据）
 - [auto] 用户偏好简洁回复（平均响应 <200 字）
-- [auto] 常用工具：memory_search(4次)、write(1次)
+- [auto] 常用工具：write(5次)、web_fetch(4次)、web_search(2次)
 - [auto] 关注领域：技术/AI、学术/论文、技术/编程、arxiv-ai-models、技术/OpenClaw
 
 **本周焦点**：数据清洗Phase2 + PA子Agent委派 + ops agent激活（PA memory/偏好读取等Qwen模型升级后再验证）
@@ -88,7 +89,7 @@
 - SOUL.md放宪法级信息（身份+状态），CLAUDE.md放操作手册（工具+详情）（V30.4教训）
 - 功能完成标准=用户视角验证通过，非单测通过（V30.4教训）
 
-**系统健康：** 服务正常 | 模型: Qwen3-235B-A22B-Instruct-2507-W8A8 | KB: 142 notes, 2 today, 1115KB sources | 过期Job: freight
+**系统健康：** 服务正常 | 模型: Qwen3-235B-A22B-Instruct-2507-W8A8 | KB: 142 notes, 2 today, 1124KB sources | 全部Job运行正常
 
 > 用户问项目、进展、任务、系统状态时，**必须参考以上信息回答**，不要说"没有项目"。
 > 用户偏好我必须严格遵守。
