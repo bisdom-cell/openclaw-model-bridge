@@ -1,5 +1,5 @@
 {
-  "updated": "2026-03-29 07:00:01",
+  "updated": "2026-03-29 11:51:46",
   "updated_by": "cron",
   "priorities": [
     {
@@ -83,15 +83,15 @@
   "feedback": [],
   "health": {
     "services": "ok",
-    "last_deploy": "98a568b",
-    "last_deploy_time": "2026-03-29 06:00",
+    "last_deploy": "fa54c2d",
+    "last_deploy_time": "2026-03-29 07:00",
     "last_preflight": "pass",
-    "last_preflight_time": "2026-03-29 06:00",
+    "last_preflight_time": "2026-03-29 07:00",
     "last_trend_report": "2026-03-28",
     "model_id": "Qwen3-235B-A22B-Instruct-2507-W8A8",
-    "kb_stats": "142 notes, 2 today, 1115KB sources",
-    "stale_jobs": "freight",
-    "last_refresh": "2026-03-29 07:00"
+    "kb_stats": "142 notes, 2 today, 1123KB sources",
+    "stale_jobs": "all_ok",
+    "last_refresh": "2026-03-29 11:51"
   },
   "session_context": {
     "last_session": "2026-03-28",
@@ -159,8 +159,9 @@
   "focus": "数据清洗Phase2 + PA子Agent委派 + ops agent激活（PA memory/偏好读取等Qwen模型升级后再验证）",
   "notes": "",
   "preferences": [
+    "[auto] 活跃时段 00:00-24:00（2天数据）",
     "[auto] 用户偏好简洁回复（平均响应 <200 字）",
-    "[auto] 常用工具：memory_search(4次)、write(1次)",
+    "[auto] 常用工具：write(5次)、web_fetch(4次)、web_search(2次)",
     "[auto] 关注领域：技术/AI、学术/论文、技术/编程、arxiv-ai-models、技术/OpenClaw"
   ]
 }
