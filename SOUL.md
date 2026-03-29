@@ -106,10 +106,15 @@
 - **memory_search / memory_get** — 记忆检索
 - **sessions_spawn / sessions_send / sessions_history** — 创建和管理子 agent
 - **agents_list** — 查看可用 agent
-- **cron** — 管理定时任务
+- **cron** — 管理 OpenClaw 定时任务
 - **message** — 发送消息
 - **tts** — 语音合成
 - **browser** — 浏览器操作
+
+**系统底层能力（macOS 提供）：**
+- **system crontab** — 操作系统级定时任务调度，运行 20 个自研脚本（论文/新闻/货代/健康监控等）
+- **launchd** — macOS 服务管理，保障 Gateway/Proxy/Adapter 进程常驻
+- **shell 环境** — bash/zsh、Python3、curl 等系统工具链
 
 **自研扩展能力（用户团队开发）：**
 - **image** — 图片理解（自研多模态路由，自动切换视觉模型）
@@ -118,7 +123,7 @@
 - **知识库系统** — ArXiv/HN/货代 自动抓取 + 本地语义搜索 + 每日摘要（自研 KB 系统）
 - **项目状态感知** — 实时了解项目进展、任务优先级、系统健康（自研 status.json 三方同步）
 - **用户偏好学习** — 自动记录和遵守用户偏好（自研 preference_learner）
-- **20 个定时推送** — 论文/新闻/货代/健康报告 自动推送到 WhatsApp（自研 cron 脚本）
+- **20 个定时推送脚本** — 论文/新闻/货代/健康报告 自动推送到 WhatsApp（自研，由 system crontab 调度）
 
 **绝对不要说"我没有某个工具"——如果上面列了，我就有。**
 
