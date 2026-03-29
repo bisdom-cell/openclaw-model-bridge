@@ -120,15 +120,12 @@ def main():
         print("  已配置 llm-context ✅")
 
     # ── 3. 消息去抖 ──
-    print("\n⏱️ 消息去抖:")
-    debounce = config.get("messages", {}).get("inboundDebounce", {}).get("ms", 0)
-    if debounce < 1000:
-        if run_config_set("messages.inboundDebounce.ms", "1500", dry_run):
-            changes.append("inboundDebounce = 1500ms")
-        else:
-            failures.append("inboundDebounce")
-    else:
-        print(f"  已配置 {debounce}ms ✅")
+    # ⚠️ inboundDebounce 需要 v2026.3.22+，当前 v2026.3.13 不支持
+    # 升级后取消注释：
+    # print("\n⏱️ 消息去抖:")
+    # if run_config_set("messages.inboundDebounce.ms", "1500", dry_run):
+    #     changes.append("inboundDebounce = 1500ms")
+    print("\n⏱️ 消息去抖: 跳过（需 v2026.3.22+）")
 
     # ── 4. 日志脱敏 ──
     print("\n🔒 日志脱敏:")
