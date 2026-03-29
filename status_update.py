@@ -285,15 +285,24 @@ def main():
             item = json.loads(item_str)
         except (json.JSONDecodeError, ValueError):
             item = item_str
-        # recent_changes / incidents 插入到开头，分别保留20/30条
-        if array_name == "recent_changes":
+        # 各数组的容量上限（防无限增长导致 SOUL.md 膨胀）
+        ARRAY_LIMITS = {
+            "recent_changes": 20,   # 最新在前
+            "incidents": 30,        # 最新在前
+            "operating_rules": 10,
+            "preferences": 15,
+            "priorities": 15,
+            "feedback": 20,
+        }
+        # recent_changes / incidents 插入到开头
+        if array_name in ("recent_changes", "incidents"):
             data[array_name].insert(0, item)
-            data[array_name] = data[array_name][:20]
-        elif array_name == "incidents":
-            data[array_name].insert(0, item)
-            data[array_name] = data[array_name][:30]
         else:
             data[array_name].append(item)
+        # 按上限截断
+        limit = ARRAY_LIMITS.get(array_name)
+        if limit:
+            data[array_name] = data[array_name][:limit]
         changed = True
 
     if args.pop:
