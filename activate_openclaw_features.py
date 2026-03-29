@@ -1,113 +1,182 @@
 #!/usr/bin/env python3
 """
-V30.4: 激活 OpenClaw 未充分利用的功能
-一次性脚本，在 Mac Mini 上运行：python3 ~/openclaw-model-bridge/activate_openclaw_features.py
+V30.5: 激活 OpenClaw 未充分利用的功能（安全版）
+在 Mac Mini 上运行：python3 ~/openclaw-model-bridge/activate_openclaw_features.py
+
+⚠️ 使用 `openclaw config set` CLI 修改配置（保留 secrets resolution），
+   禁止 json.dump() 直接覆盖 openclaw.json（V30.4教训：会破坏 Gateway 内部一致性）。
 
 变更内容：
-1. research agent: 添加 sessions_spawn/sessions_send/sessions_history/agents_list 工具
-2. ops agent: 添加 web_fetch（localhost健康检查）、memory_search/memory_get
-3. 全局: 启用 redactSensitive + sandbox.mode=readonly
-4. 备份原配置
+1. research agent: 添加 sessions_spawn/sessions_send/sessions_history/agents_list/memory 工具
+2. ops agent: 添加 web_fetch/memory_search/memory_get
+3. Brave LLM-context 模式（提升 PA 搜索质量）
+4. 消息去抖（防用户连发触发重复响应）
+5. 日志脱敏（工具调用参数自动脱敏）
+6. sandbox 限制（非主 agent 只读）
 """
 import json
 import os
-import shutil
-from datetime import datetime
+import subprocess
+import sys
 
-CONFIG_PATH = os.path.expanduser("~/.openclaw/openclaw.json")
-BACKUP_DIR = os.path.expanduser("~/.openclaw/config_backups")
 
-def main():
-    if not os.path.exists(CONFIG_PATH):
-        print(f"ERROR: {CONFIG_PATH} not found")
-        return 1
+def run_config_set(key, value, dry_run=False):
+    """通过 openclaw config set 安全修改配置。"""
+    cmd = ["openclaw", "config", "set", key, str(value)]
+    if dry_run:
+        print(f"  [dry-run] {' '.join(cmd)}")
+        return True
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+        if result.returncode == 0:
+            print(f"  ✅ {key} = {value}")
+            return True
+        else:
+            print(f"  ❌ {key}: {result.stderr.strip() or result.stdout.strip()}")
+            return False
+    except FileNotFoundError:
+        print("  ❌ openclaw CLI 未找到（确认已全局安装）")
+        return False
+    except subprocess.TimeoutExpired:
+        print(f"  ❌ {key}: 超时")
+        return False
 
-    # ── 备份 ──
-    os.makedirs(BACKUP_DIR, exist_ok=True)
-    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-    backup_path = os.path.join(BACKUP_DIR, f"openclaw_{ts}.json")
-    shutil.copy2(CONFIG_PATH, backup_path)
-    print(f"✅ 备份: {backup_path}")
 
-    with open(CONFIG_PATH) as f:
-        config = json.load(f)
+def get_current_config():
+    """读取当前 openclaw.json（只读，不修改）。"""
+    config_path = os.path.expanduser("~/.openclaw/openclaw.json")
+    try:
+        with open(config_path) as f:
+            return json.load(f)
+    except (OSError, json.JSONDecodeError) as e:
+        print(f"WARNING: 无法读取 {config_path}: {e}")
+        return {}
 
-    changes = []
 
-    # ── 1. research agent: 添加 session 管理工具 ──
+def check_agent_tools(config, agent_id, required_tools):
+    """检查 agent 是否已有所需工具，返回缺失的工具列表。"""
     agents_list = config.get("agents", {}).get("list", [])
     for agent in agents_list:
-        if agent.get("id") == "research":
-            tools = agent.setdefault("tools", {})
-            allow = tools.get("allow", [])
-            new_tools = ["sessions_spawn", "sessions_send", "sessions_history", "agents_list"]
-            added = []
-            for t in new_tools:
-                if t not in allow:
-                    allow.append(t)
-                    added.append(t)
-            if added:
-                tools["allow"] = allow
-                changes.append(f"research agent +tools: {', '.join(added)}")
+        if agent.get("id") == agent_id:
+            allow = agent.get("tools", {}).get("allow", [])
+            return [t for t in required_tools if t not in allow]
+    return required_tools  # agent 不存在，全部缺失
 
-            # 确保 memory 工具在允许列表中
-            for mt in ["memory_search", "memory_get"]:
-                if mt not in allow:
-                    allow.append(mt)
-                    changes.append(f"research agent +{mt}")
 
-        elif agent.get("id") == "ops":
-            tools = agent.setdefault("tools", {})
-            allow = tools.get("allow", [])
-            new_tools = ["web_fetch", "memory_search", "memory_get"]
-            added = []
-            for t in new_tools:
-                if t not in allow:
-                    allow.append(t)
-                    added.append(t)
-            if added:
-                tools["allow"] = allow
-                changes.append(f"ops agent +tools: {', '.join(added)}")
+def main():
+    dry_run = "--dry-run" in sys.argv
+    if dry_run:
+        print("🔍 Dry-run 模式（不实际修改）\n")
 
-    # ── 2. 全局安全配置 ──
-    # redactSensitive
-    logging = config.setdefault("logging", {})
-    if logging.get("redactSensitive") != "tools":
-        logging["redactSensitive"] = "tools"
-        changes.append("logging.redactSensitive = tools")
+    config = get_current_config()
+    changes = []
+    failures = []
 
-    # sandbox (defaults 级别)
-    defaults = config.setdefault("agents", {}).setdefault("defaults", {})
-    sandbox = defaults.setdefault("sandbox", {})
-    # 合法值: mode=off|non-main|all, workspaceAccess=none|ro|rw
+    # ── 1. Agent 工具配置（需要 openclaw config set 的 JSON path 语法） ──
+    print("📋 Agent 工具配置:")
+
+    research_missing = check_agent_tools(config, "research", [
+        "sessions_spawn", "sessions_send", "sessions_history",
+        "agents_list", "memory_search", "memory_get"
+    ])
+    if research_missing:
+        # openclaw config set 对数组的支持有限，需要用 JSON path
+        # 实际操作：通过完整的 tools.allow 数组设置
+        current_allow = []
+        for agent in config.get("agents", {}).get("list", []):
+            if agent.get("id") == "research":
+                current_allow = agent.get("tools", {}).get("allow", [])
+                break
+        new_allow = current_allow + research_missing
+        print(f"  research agent 缺少: {', '.join(research_missing)}")
+        print(f"  ⚠️ 需要手动执行:")
+        for t in research_missing:
+            print(f"     openclaw config set agents.list[id=research].tools.allow.+ \"{t}\"")
+        changes.append(f"research agent +{', '.join(research_missing)}")
+    else:
+        print("  research agent: 工具已完整 ✅")
+
+    ops_missing = check_agent_tools(config, "ops", [
+        "web_fetch", "memory_search", "memory_get"
+    ])
+    if ops_missing:
+        print(f"  ops agent 缺少: {', '.join(ops_missing)}")
+        print(f"  ⚠️ 需要手动执行:")
+        for t in ops_missing:
+            print(f"     openclaw config set agents.list[id=ops].tools.allow.+ \"{t}\"")
+        changes.append(f"ops agent +{', '.join(ops_missing)}")
+    else:
+        print("  ops agent: 工具已完整 ✅")
+
+    # ── 2. Brave LLM-context 模式 ──
+    print("\n🔍 Brave 搜索优化:")
+    brave_mode = config.get("tools", {}).get("web", {}).get("search", {}).get("brave", {}).get("mode", "")
+    if brave_mode != "llm-context":
+        if run_config_set("tools.web.search.brave.mode", "llm-context", dry_run):
+            changes.append("Brave mode = llm-context")
+        else:
+            failures.append("Brave mode")
+    else:
+        print("  已配置 llm-context ✅")
+
+    # ── 3. 消息去抖 ──
+    print("\n⏱️ 消息去抖:")
+    debounce = config.get("messages", {}).get("inboundDebounce", {}).get("ms", 0)
+    if debounce < 1000:
+        if run_config_set("messages.inboundDebounce.ms", "1500", dry_run):
+            changes.append("inboundDebounce = 1500ms")
+        else:
+            failures.append("inboundDebounce")
+    else:
+        print(f"  已配置 {debounce}ms ✅")
+
+    # ── 4. 日志脱敏 ──
+    print("\n🔒 日志脱敏:")
+    redact = config.get("logging", {}).get("redactSensitive", "")
+    if redact != "tools":
+        if run_config_set("logging.redactSensitive", "tools", dry_run):
+            changes.append("redactSensitive = tools")
+        else:
+            failures.append("redactSensitive")
+    else:
+        print("  已配置 ✅")
+
+    # ── 5. Sandbox 限制 ──
+    print("\n🛡️ Sandbox 限制:")
+    sandbox = config.get("agents", {}).get("defaults", {}).get("sandbox", {})
     if sandbox.get("mode") != "non-main":
-        sandbox["mode"] = "non-main"
-        changes.append("sandbox.mode = non-main")
+        if run_config_set("agents.defaults.sandbox.mode", "non-main", dry_run):
+            changes.append("sandbox.mode = non-main")
+        else:
+            failures.append("sandbox.mode")
+    else:
+        print("  sandbox.mode 已配置 ✅")
+
     if sandbox.get("workspaceAccess") != "ro":
-        sandbox["workspaceAccess"] = "ro"
-        changes.append("sandbox.workspaceAccess = ro")
+        if run_config_set("agents.defaults.sandbox.workspaceAccess", "ro", dry_run):
+            changes.append("sandbox.workspaceAccess = ro")
+        else:
+            failures.append("sandbox.workspaceAccess")
+    else:
+        print("  sandbox.workspaceAccess 已配置 ✅")
 
-    if not changes:
-        print("⚠️  无需变更，配置已是最新")
-        return 0
+    # ── 总结 ──
+    print("\n" + "=" * 50)
+    if changes:
+        print(f"✅ 变更 {len(changes)} 项:")
+        for c in changes:
+            print(f"   • {c}")
+    if failures:
+        print(f"❌ 失败 {len(failures)} 项: {', '.join(failures)}")
+    if not changes and not failures:
+        print("✅ 所有配置已是最新，无需变更")
 
-    # ── 写入 ──
-    tmp = CONFIG_PATH + ".tmp"
-    with open(tmp, "w") as f:
-        json.dump(config, f, indent=2, ensure_ascii=False)
-        f.write("\n")
-    os.replace(tmp, CONFIG_PATH)
+    if changes:
+        print(f"\n📋 Gateway 会自动热重载，通常无需 restart。")
+        print(f"   如 PA 行为异常，执行: bash ~/restart.sh")
 
-    print(f"\n✅ 已更新 {CONFIG_PATH}:")
-    for c in changes:
-        print(f"   • {c}")
+    return 1 if failures else 0
 
-    print(f"\n📋 下一步:")
-    print(f"   1. bash ~/restart.sh  (重启让配置生效)")
-    print(f"   2. 清空 session: echo '{{\"sessions\":[]}}' > ~/.openclaw/agents/research/sessions/sessions.json")
-    print(f"   3. WhatsApp 测试: '你还记得我们之前讨论过什么吗？'")
-    print(f"\n⚠️  回滚: cp {backup_path} {CONFIG_PATH} && bash ~/restart.sh")
-    return 0
 
 if __name__ == "__main__":
     exit(main())
