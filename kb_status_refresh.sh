@@ -219,17 +219,19 @@ REPO_STATUS="$REPO_DIR/status.json"
 if [ -d "$REPO_DIR/.git" ] && [ -f "$HOME/.kb/status.json" ]; then
     cp "$HOME/.kb/status.json" "$REPO_STATUS"
     cd "$REPO_DIR"
-    # 同步 SOUL.md 到仓库（仅当运行时版本比仓库版本新时）
-    SOUL_RT="$HOME/.openclaw/workspace/SOUL.md"
-    SOUL_REPO="$REPO_DIR/SOUL.md"
-    if [ -f "$SOUL_RT" ]; then
-        cp "$SOUL_RT" "$SOUL_REPO"
+    # 同步 SOUL.md：仓库→workspace（仓库是 source of truth）
+    # 然后刷新 workspace 版本的状态区段
+    # ⚠️ 禁止反向覆盖（workspace→仓库），否则会丢失仓库中的新改动（V30.5教训）
+    SOUL_SRC="$REPO_DIR/SOUL.md"
+    SOUL_DST="$HOME/.openclaw/workspace/SOUL.md"
+    if [ -f "$SOUL_SRC" ]; then
+        cp "$SOUL_SRC" "$SOUL_DST"
     fi
 
-    # 仅在内容有变化时才提交（避免空commit噪音）
-    if ! git diff --quiet "$REPO_STATUS" 2>/dev/null || ! git diff --quiet "$SOUL_REPO" 2>/dev/null; then
-        git add status.json SOUL.md
-        git commit -m "auto: sync status.json + SOUL.md from kb_status_refresh" --no-gpg-sign 2>/dev/null || true
+    # 仅在 status.json 有变化时才提交（SOUL.md 由 Claude Code 管理，不自动提交）
+    if ! git diff --quiet "$REPO_STATUS" 2>/dev/null; then
+        git add status.json
+        git commit -m "auto: sync status.json from kb_status_refresh" --no-gpg-sign 2>/dev/null || true
         git push origin main 2>/dev/null || echo "[$TS] WARN: push failed (will retry next hour)"
     fi
 fi
