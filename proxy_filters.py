@@ -211,6 +211,30 @@ CUSTOM_TOOLS = [
             }
         }
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "search_kb",
+            "description": "搜索用户的知识库。当用户提到论文、文档、文章、最近的XX、找一下、有没有关于XX时，必须调用此工具。"
+                           "知识库包含：ArXiv/HuggingFace/SemanticScholar/DBLP/ACL论文、HackerNews热帖、货代动态、用户笔记。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "搜索关键词（如 'DeepSeek'、'大模型'、'RAG'）"
+                    },
+                    "source": {
+                        "type": "string",
+                        "enum": ["all", "arxiv", "hf", "semantic_scholar", "dblp", "acl", "hn", "notes"],
+                        "description": "搜索范围。默认 all 搜索全部来源"
+                    },
+                },
+                "required": ["query"],
+                "additionalProperties": False,
+            }
+        }
+    },
 ]
 
 # 自定义工具名称集合（用于 proxy 拦截判断）
