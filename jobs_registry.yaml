@@ -57,8 +57,8 @@ jobs:
     interval: "30 9 * * 1"           # 每周一 09:30 HKT（顶会论文按 deadline 周期更新）
     log: ~/.openclaw/logs/jobs/openreview.log
     needs_api_key: true
-    enabled: true
-    description: OpenReview 顶会高分论文监控（ICLR/NeurIPS/ICML）
+    enabled: false                   # V30.4: OpenReview API 全面 403（2025-11安全事件后锁定），S2 已覆盖顶会论文
+    description: OpenReview 顶会高分论文监控（ICLR/NeurIPS/ICML）（已停用：API 403）
 
   - id: acl_anthology
     scheduler: system
