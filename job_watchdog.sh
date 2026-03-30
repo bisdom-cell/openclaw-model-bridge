@@ -115,12 +115,12 @@ if [ -d "$LOG_DIR" ]; then
         for logfile in "$LOG_DIR"/*.log; do
             [ -f "$logfile" ] || continue
             job_name=$(basename "$logfile" .log)
-            # 查找最近1小时内的推送失败记录
-            fail_count=$(grep -c "推送失败\|send_failed\|ERROR.*推送" "$logfile" 2>/dev/null | tail -1)
+            # 查找最近日志中的错误记录（推送失败 + 一般性 ERROR）
+            fail_count=$(grep -ciE "推送失败|send_failed|fetch_failed|ERROR" "$logfile" 2>/dev/null | tail -1)
             # 只看最近修改的文件中的最后几行（避免重复告警历史错误）
-            recent_fails=$(tail -20 "$logfile" 2>/dev/null | grep -c "推送失败\|send_failed" || true)
+            recent_fails=$(tail -20 "$logfile" 2>/dev/null | grep -ciE "推送失败|send_failed|fetch_failed|ERROR" || true)
             if [ "$recent_fails" -gt 0 ]; then
-                last_err=$(tail -20 "$logfile" 2>/dev/null | grep "推送失败\|send_failed" | tail -1)
+                last_err=$(tail -20 "$logfile" 2>/dev/null | grep -iE "推送失败|send_failed|fetch_failed|ERROR" | tail -1)
                 ALERTS+=("$job_name: 最近有推送失败 → $last_err")
             fi
         done
