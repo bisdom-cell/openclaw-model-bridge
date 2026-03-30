@@ -442,6 +442,7 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
 
             # 执行自定义工具
             results_text = []
+            needs_llm_followup = False
             for tc in custom_calls:
                 fn_name = tc["function"]["name"]
                 fn_args = tc["function"].get("arguments", "{}")
@@ -450,10 +451,19 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                 result = self._execute_custom_tool(fn_name, fn_args)
                 log(f"[{rid}] CUSTOM_TOOL result: {len(result)} chars")
 
-                # 格式化结果为可读文本
-                results_text.append(self._format_tool_result(fn_name, fn_args, result))
+                # search_kb 需要 LLM 解读结果，其他工具直接返回
+                if fn_name == "search_kb":
+                    needs_llm_followup = True
+                    results_text.append(result)
+                else:
+                    results_text.append(self._format_tool_result(fn_name, fn_args, result))
 
-            # 直接返回格式化结果（不做 followup LLM 调用）
+            # search_kb: 将搜索结果注入对话，让 LLM 生成自然语言回答
+            if needs_llm_followup and original_body:
+                kb_results = "\n\n".join(results_text)
+                return self._followup_llm_call(original_body, kb_results, rid)
+
+            # 其他自定义工具: 直接返回格式化结果
             formatted = "\n\n".join(results_text)
             choice["message"] = {
                 "role": "assistant",
@@ -464,6 +474,51 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
             return rj
 
         return None
+
+    def _followup_llm_call(self, original_body, kb_results, rid):
+        """将 KB 搜索结果注入对话，发起第二次 LLM 调用让模型解读结果"""
+        followup_body = dict(original_body)
+        msgs = list(followup_body.get("messages", []))
+
+        # 注入 KB 搜索结果作为系统消息
+        kb_msg = {
+            "role": "system",
+            "content": (
+                "以下是从用户知识库中搜索到的结果。请基于这些结果回答用户的问题。"
+                "如果结果中没有相关内容，如实告知用户。不要编造信息。\n\n"
+                f"═══ 知识库搜索结果 ═══\n{kb_results[:3000]}"
+            ),
+        }
+        msgs.append(kb_msg)
+        followup_body["messages"] = msgs
+        # 第二次调用不需要工具
+        followup_body.pop("tools", None)
+        followup_body.pop("tool_choice", None)
+        followup_body["stream"] = False
+
+        log(f"[{rid}] SEARCH_KB followup LLM call ({len(msgs)} msgs)")
+
+        url = f"{BACKEND}/v1/chat/completions"
+        try:
+            req = Request(url, data=json.dumps(followup_body).encode(), method="POST")
+            req.add_header("Content-Type", "application/json")
+            req.add_header("X-Request-ID", f"{rid}-kb")
+            with urlopen(req, timeout=120) as resp:
+                resp_body = resp.read()
+                rj = json.loads(resp_body)
+                content = rj.get("choices", [{}])[0].get("message", {}).get("content", "")
+                log(f"[{rid}] SEARCH_KB followup result: {len(content)} chars")
+                return rj
+        except Exception as e:
+            log(f"[{rid}] SEARCH_KB followup error: {e}")
+            # Fallback: 直接返回原始搜索结果
+            return {
+                "choices": [{
+                    "message": {"role": "assistant", "content": kb_results[:3000]},
+                    "finish_reason": "stop",
+                }],
+                "model": original_body.get("model", "unknown"),
+            }
 
     def _extract_tool_calls_from_text(self, content):
         """从文本中提取 <tool_call> XML 格式的工具调用"""
