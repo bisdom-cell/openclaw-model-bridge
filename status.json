@@ -46,9 +46,34 @@
       "task": "知识图谱",
       "status": "backlog",
       "note": "需6-12个月数据积累"
+    },
+    {
+      "task": "论文源扩展: Papers with Code",
+      "status": "backlog",
+      "note": "论文+代码实现关联，免费API"
+    },
+    {
+      "task": "论文源扩展: OpenReview",
+      "status": "backlog",
+      "note": "ICLR/NeurIPS/ICML顶会投稿+评审，可过滤高分论文"
+    },
+    {
+      "task": "论文源扩展: ACL Anthology",
+      "status": "backlog",
+      "note": "NLP顶会（ACL/EMNLP/NAACL）完整收录，按会议周期更新"
+    },
+    {
+      "task": "论文源扩展: DBLP",
+      "status": "backlog",
+      "note": "CS全领域索引，适合按作者/会议追踪，免费API"
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-03-30",
+      "what": "论文源扩展: HF Daily Papers + Semantic Scholar 监控上线; ArXiv 429修复（退避+降频）",
+      "by": "claude_code"
+    },
     {
       "date": "2026-03-29",
       "what": "OpenClaw内置功能分析+启用4项配置(Brave llm-context/日志脱敏/sandbox)+SOUL.md强化(反幻觉/项目定位/三类能力清单)+修复kb_status_refresh反向覆盖SOUL.md",
@@ -111,6 +136,13 @@
     "coverage_pct": 0
   },
   "incidents": [
+    {
+      "date": "2026-03-30",
+      "what": "ArXiv API持续429限速（03-29 15:00至03-30 17:00）",
+      "status": "resolved",
+      "resolution": "增加429退避(30/90/270s)+降频(每3h→每天4次)+尊重Retry-After头",
+      "by": "claude_code"
+    },
     {
       "date": "2026-03-28",
       "what": "Qwen3不主动调用memory工具——PA口头说'已记录'但实际未调用memory_search/memory_get",
