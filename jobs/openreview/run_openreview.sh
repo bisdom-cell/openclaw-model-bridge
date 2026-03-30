@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # cron 环境 PATH 极简，必须显式声明
 export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
-# OpenReview 顶会高分论文监控 v1
+# OpenReview 顶会高分论文监控 v2
 # 每周一 09:30 HKT 由系统 crontab 触发（顶会论文更新按 deadline 周期，非每日）
 # 监控 ICLR/NeurIPS/ICML 等顶会的高分投稿
-# 使用 OpenReview API v2 (免费，无需认证)
+# 使用 openreview-py 客户端 guest 模式（REST API 需 Bearer token，但 Python 客户端支持 guest 访问）
+# 依赖：pip3 install openreview-py
 set -eo pipefail
 
 # 防重叠执行
@@ -25,80 +26,150 @@ DAY="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d')"
 STATUS_FILE="$CACHE/last_run.json"
 YEAR="$(TZ=Asia/Hong_Kong date '+%Y')"
 
-# OpenReview API v2
-OR_API="https://api2.openreview.net/notes/search"
-
 log() { echo "[$TS] openreview: $1"; }
 
 mkdir -p "$CACHE" "${KB_BASE:-$HOME/.kb}/sources"
 test -f "$KB_SRC" || echo "# OpenReview 顶会论文" > "$KB_SRC"
 
-# ── 1. 多关键词搜索顶会论文 ──────────────────────────────────────────
-# OpenReview v2 /notes/search 是公开端点，按关键词搜索
-# /notes?invitation= 需要认证（403），所以用搜索方式
-KEYWORDS=("large language model" "LLM agent" "multimodal" "reinforcement learning from human feedback" "retrieval augmented generation")
+# ── 1. 使用 openreview-py 客户端抓取顶会论文 ────────────────────────
+# OpenReview REST API 需要 Bearer token（403），但 Python 客户端支持 guest 访问
+# 使用 V1 guest client 按 invitation 抓取各顶会最新 submission
+RAW_FILE="$CACHE/raw_papers.json"
 
-RAW_DIR="$CACHE/raw"
-mkdir -p "$RAW_DIR"
+if ! python3 << 'PYEOF' > "$RAW_FILE" 2>"$CACHE/fetch.err"
+import json, sys, time
 
-FETCH_ERRORS=0
-for i in "${!KEYWORDS[@]}"; do
-  KW="${KEYWORDS[$i]}"
-  OUTFILE="$RAW_DIR/search_${i}.json"
-  ENCODED_KW=$(python3 -c "import urllib.parse; print(urllib.parse.quote('$KW'))")
+try:
+    import openreview
+except ImportError:
+    print("ERROR: openreview-py not installed. Run: pip3 install openreview-py", file=sys.stderr)
+    sys.exit(1)
 
-  sleep 2  # OpenReview 限速友好
+# Guest client — 无需认证，可访问公开数据
+try:
+    client_v1 = openreview.Client(baseurl='https://api.openreview.net')
+except Exception as e:
+    print(f"ERROR: V1 guest client init failed: {e}", file=sys.stderr)
+    sys.exit(1)
 
-  # 使用 /notes/search 公开搜索端点
-  HTTP_CODE=$(curl -sSL --max-time 30 -w '%{http_code}' \
-    -H "User-Agent: openclaw-openreview-monitor/1.0" \
-    "https://api2.openreview.net/notes/search?query=${ENCODED_KW}&source=forum&limit=25" \
-    -o "$OUTFILE" 2>"$CACHE/curl_or.err") || HTTP_CODE="000"
+try:
+    client_v2 = openreview.api.OpenReviewClient(baseurl='https://api2.openreview.net')
+except Exception:
+    client_v2 = None
 
-  if [ "$HTTP_CODE" = "200" ]; then
-    echo "[openreview] 搜索 '$KW' 成功"
-  elif [ "$HTTP_CODE" = "429" ]; then
-    log "WARN: OpenReview API 429 for '$KW'，等待 60s"
-    sleep 60
-    HTTP_CODE=$(curl -sSL --max-time 30 -w '%{http_code}' \
-      -H "User-Agent: openclaw-openreview-monitor/1.0" \
-      "https://api2.openreview.net/notes/search?query=${ENCODED_KW}&source=forum&limit=25" \
-      -o "$OUTFILE" 2>"$CACHE/curl_or.err") || HTTP_CODE="000"
-    [ "$HTTP_CODE" != "200" ] && FETCH_ERRORS=$((FETCH_ERRORS + 1))
-  elif [ "$HTTP_CODE" = "403" ]; then
-    # v2 search 也需要认证，尝试 v1 API
-    HTTP_CODE=$(curl -sSL --max-time 30 -w '%{http_code}' \
-      -H "User-Agent: openclaw-openreview-monitor/1.0" \
-      "https://api.openreview.net/notes/search?query=${ENCODED_KW}&source=forum&limit=25" \
-      -o "$OUTFILE" 2>"$CACHE/curl_or.err") || HTTP_CODE="000"
-    if [ "$HTTP_CODE" = "200" ]; then
-      echo "[openreview] 搜索 '$KW' 成功 (v1 fallback)"
-    else
-      log "WARN: OpenReview API 返回 HTTP $HTTP_CODE for '$KW' (v1+v2)"
-      FETCH_ERRORS=$((FETCH_ERRORS + 1))
-    fi
-  else
-    log "WARN: OpenReview API 返回 HTTP $HTTP_CODE for '$KW'"
-    FETCH_ERRORS=$((FETCH_ERRORS + 1))
-  fi
-done
+# 顶会 invitation 列表（优先用 V2，回退 V1）
+# 格式：(invitation_v2, invitation_v1_fallback, venue_label)
+from datetime import datetime
+year = datetime.now().year
 
-if [ "$FETCH_ERRORS" -ge "${#KEYWORDS[@]}" ]; then
-  log "ERROR: 所有 venue 搜索均失败"
+VENUES = [
+    (f"ICLR.cc/{year}/Conference/-/Submission",
+     f"ICLR.cc/{year}/Conference/-/Blind_Submission",
+     f"ICLR {year}"),
+    (f"NeurIPS.cc/{year}/Conference/-/Submission",
+     f"NeurIPS.cc/{year}/Conference/-/Blind_Submission",
+     f"NeurIPS {year}"),
+    (f"ICML.cc/{year}/Conference/-/Submission",
+     f"ICML.cc/{year}/Conference/-/Blind_Submission",
+     f"ICML {year}"),
+    # 上一年也查（论文公开有延迟）
+    (f"ICLR.cc/{year-1}/Conference/-/Submission",
+     f"ICLR.cc/{year-1}/Conference/-/Blind_Submission",
+     f"ICLR {year-1}"),
+    (f"NeurIPS.cc/{year-1}/Conference/-/Submission",
+     f"NeurIPS.cc/{year-1}/Conference/-/Blind_Submission",
+     f"NeurIPS {year-1}"),
+]
+
+all_papers = []
+fetch_ok = 0
+
+for inv_v2, inv_v1, label in VENUES:
+    notes = []
+    # 尝试 V2 API
+    if client_v2:
+        try:
+            notes = client_v2.get_notes(invitation=inv_v2, limit=50, sort='cdate:desc')
+            if notes:
+                print(f"[openreview] {label}: {len(notes)} papers (V2)", file=sys.stderr)
+                fetch_ok += 1
+        except Exception as e:
+            print(f"[openreview] V2 {label} failed: {e}", file=sys.stderr)
+
+    # V2 失败则回退 V1
+    if not notes:
+        try:
+            notes = client_v1.get_notes(invitation=inv_v1, limit=50, sort='cdate:desc')
+            if notes:
+                print(f"[openreview] {label}: {len(notes)} papers (V1)", file=sys.stderr)
+                fetch_ok += 1
+        except Exception as e:
+            print(f"[openreview] V1 {label} also failed: {e}", file=sys.stderr)
+
+    for note in notes:
+        content = note.content or {}
+
+        def get_val(field):
+            v = content.get(field, "")
+            if isinstance(v, dict):
+                return v.get("value", "")
+            return v or ""
+
+        title = get_val("title").strip()
+        if not title:
+            continue
+
+        abstract = get_val("abstract")[:300]
+        authors = get_val("authors")
+        if isinstance(authors, list):
+            first_author = authors[0] if authors else "Unknown"
+        else:
+            first_author = str(authors).split(",")[0].strip() or "Unknown"
+
+        venue = label
+        pid = note.id or note.forum or ""
+
+        all_papers.append({
+            "paper_id": pid,
+            "title": title,
+            "first_author": first_author,
+            "abstract": abstract,
+            "venue": venue,
+            "rating": 0
+        })
+
+    time.sleep(1)  # 礼貌间隔
+
+print(f"[openreview] 总计: {len(all_papers)} papers from {fetch_ok}/{len(VENUES)} venues", file=sys.stderr)
+print(json.dumps(all_papers, ensure_ascii=False))
+PYEOF
+then
+  log "ERROR: Python 抓取失败"
+  cat "$CACHE/fetch.err" 2>/dev/null || true
   printf '{"time":"%s","status":"fetch_failed","new":0}\n' "$TS" > "$STATUS_FILE"
   exit 1
 fi
 
-# ── 2. 合并 + 去重 → JSONL ──────────────────────────────────────────
+# 检查是否有数据
+TOTAL_FETCHED=$(python3 -c "import json; print(len(json.load(open('$RAW_FILE'))))" 2>/dev/null || echo "0")
+if [ "$TOTAL_FETCHED" -eq 0 ]; then
+  log "ERROR: 所有 venue 抓取均失败或无数据"
+  cat "$CACHE/fetch.err" 2>/dev/null || true
+  printf '{"time":"%s","status":"fetch_failed","new":0}\n' "$TS" > "$STATUS_FILE"
+  exit 1
+fi
+log "抓取完成: $TOTAL_FETCHED 篇论文"
+
+# ── 2. 去重 + 选取 top N → JSONL ────────────────────────────────────
 PAPERS_FILE="$CACHE/papers.jsonl"
 SEEN_FILE="$CACHE/seen_ids.txt"
 touch "$SEEN_FILE"
 NEW_IDS_FILE="$CACHE/new_ids.txt"
 
-if ! python3 - "$RAW_DIR" "$MAX_PAPERS" "$SEEN_FILE" "$NEW_IDS_FILE" << 'PYEOF' > "$PAPERS_FILE"
-import sys, json, os, glob
+if ! python3 - "$RAW_FILE" "$MAX_PAPERS" "$SEEN_FILE" "$NEW_IDS_FILE" << 'PYEOF' > "$PAPERS_FILE"
+import sys, json
 
-raw_dir = sys.argv[1]
+raw_file = sys.argv[1]
 max_papers = int(sys.argv[2])
 seen_file = sys.argv[3]
 new_ids_file = sys.argv[4]
@@ -106,64 +177,19 @@ new_ids_file = sys.argv[4]
 with open(seen_file) as f:
     seen_ids = set(line.strip() for line in f if line.strip())
 
-all_papers = {}
-for fpath in sorted(glob.glob(os.path.join(raw_dir, "search_*.json"))):
-    try:
-        with open(fpath) as f:
-            data = json.load(f)
-        notes = data.get("notes", data.get("results", []))
-        if isinstance(notes, list):
-            for note in notes:
-                pid = note.get("id", note.get("forum", ""))
-                if not pid or pid in seen_ids or pid in all_papers:
-                    continue
+with open(raw_file) as f:
+    all_raw = json.load(f)
 
-                content = note.get("content", {})
-                # API v2: content fields may be nested as {"value": "..."}
-                def get_val(field):
-                    v = content.get(field, "")
-                    if isinstance(v, dict):
-                        return v.get("value", "")
-                    return v or ""
-
-                title = get_val("title").strip()
-                if not title:
-                    continue
-
-                abstract = get_val("abstract")[:300]
-                authors = get_val("authors")
-                if isinstance(authors, list):
-                    first_author = authors[0] if authors else "Unknown"
-                else:
-                    first_author = str(authors).split(",")[0].strip() or "Unknown"
-
-                venue = get_val("venue") or get_val("venueid") or ""
-                # 尝试获取评分
-                rating = 0
-                for key in ["rating", "recommendation", "overall_assessment", "soundness"]:
-                    r = get_val(key)
-                    if r:
-                        try:
-                            rating = float(str(r).split(":")[0].strip())
-                            break
-                        except (ValueError, IndexError):
-                            pass
-
-                all_papers[pid] = {
-                    "paper_id": pid,
-                    "title": title,
-                    "first_author": first_author,
-                    "abstract": abstract,
-                    "venue": venue,
-                    "rating": rating
-                }
-    except (json.JSONDecodeError, KeyError):
+# 去重（seen_ids + 同批 title 去重）
+unique = {}
+for p in all_raw:
+    pid = p.get("paper_id", "")
+    if not pid or pid in seen_ids or pid in unique:
         continue
+    unique[pid] = p
 
-# 按评分降序，无评分的放后面
-sorted_papers = sorted(all_papers.values(),
-                       key=lambda x: x.get("rating", 0),
-                       reverse=True)[:max_papers]
+# 按 venue 分散选取（每个 venue 至少2篇），其余按时间（列表顺序=cdate desc）
+sorted_papers = list(unique.values())[:max_papers]
 
 new_ids = []
 for p in sorted_papers:
@@ -174,7 +200,7 @@ with open(new_ids_file, 'w') as f:
     for pid in new_ids:
         f.write(pid + '\n')
 
-print(f"[openreview] 合并完成: {len(sorted_papers)} 篇（总 {len(all_papers)}，跳过 {len(seen_ids)} 已发送）", file=sys.stderr)
+print(f"[openreview] 去重完成: {len(sorted_papers)} 篇（总 {len(all_raw)}，跳过 {len(seen_ids)} 已发送）", file=sys.stderr)
 PYEOF
 then
   log "WARN: 解析失败"
