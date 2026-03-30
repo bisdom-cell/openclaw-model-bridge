@@ -104,6 +104,8 @@ declare -a FILE_MAP=(
 
     # ArXiv 监控
     "jobs/arxiv_monitor/run_arxiv.sh|$HOME/.openclaw/jobs/arxiv_monitor/run_arxiv.sh"
+    "jobs/hf_papers/run_hf_papers.sh|$HOME/.openclaw/jobs/hf_papers/run_hf_papers.sh"
+    "jobs/semantic_scholar/run_semantic_scholar.sh|$HOME/.openclaw/jobs/semantic_scholar/run_semantic_scholar.sh"
 
     # 备份脚本
     "openclaw_backup.sh|$HOME/openclaw_backup.sh"

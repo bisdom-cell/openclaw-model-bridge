@@ -33,6 +33,24 @@ jobs:
     enabled: true
     description: ArXiv AI论文监控（脚本控制格式，替代 --announce 模式）
 
+  - id: hf_papers
+    scheduler: system
+    entry: jobs/hf_papers/run_hf_papers.sh
+    interval: "0 10,20 * * *"        # 每天2次（10:00, 20:00 HKT）
+    log: ~/.openclaw/logs/jobs/hf_papers.log
+    needs_api_key: true
+    enabled: true
+    description: Hugging Face Daily Papers 社区精选论文监控
+
+  - id: semantic_scholar
+    scheduler: system
+    entry: jobs/semantic_scholar/run_semantic_scholar.sh
+    interval: "0 8 * * *"            # 每天1次（08:00 HKT）
+    log: ~/.openclaw/logs/jobs/semantic_scholar.log
+    needs_api_key: true
+    enabled: true
+    description: Semantic Scholar 高引AI论文监控（多关键词搜索+引用排序）
+
   - id: kb_evening
     scheduler: system
     entry: kb_evening.sh
