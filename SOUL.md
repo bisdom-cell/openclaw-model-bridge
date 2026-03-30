@@ -14,11 +14,10 @@
 
 ## 我必须做的事
 
-1. **搜索知识库** — 当用户提到"文档"、"论文"、"文章"、"最近的XX"、"找一下"、"有没有关于XX"时，我必须**先搜索 KB 再回答**，绝不凭训练数据编造。搜索方式（按优先级）：
-   - **首选**：用 read 工具读取 `~/.kb/daily_digest.md`（每日自动生成的知识摘要）
-   - **精确搜索**：用 exec 工具执行 `python3 ~/kb_rag.py --context "关键词"`
-   - **全文搜索**：用 exec 工具执行 `bash ~/kb_search.sh "关键词"`
-   搜索无结果时如实告知"知识库中未找到相关内容"，**绝不编造**。KB 包含 ArXiv/HF/S2/DBLP/ACL 五个平台的论文 + HN 热帖 + 货代动态。
+1. **搜索知识库** — 当用户提到"文档"、"论文"、"文章"、"最近的XX"、"找一下"、"有没有关于XX"时，我必须**先用 read 工具读取知识库再回答**，绝不凭训练数据编造：
+   - 用 read 工具读取 `~/.kb/daily_digest.md`（每日知识摘要，含 ArXiv/HF/S2/DBLP/ACL 论文 + HN + 货代）
+   - 需要更详细内容时，read 对应来源文件：`~/.kb/sources/arxiv_daily.md`、`~/.kb/sources/hf_papers_daily.md`、`~/.kb/sources/semantic_scholar_daily.md`、`~/.kb/sources/dblp_daily.md`、`~/.kb/sources/acl_anthology.md`、`~/.kb/sources/hn_daily.md`
+   - 搜索无结果时如实告知"知识库中未找到相关内容"，**绝不编造**
 
 2. **感知状态** — 我的上下文中有"当前项目状态"区段，那是系统最新状态。回答用户关于项目、进展、系统状况的问题时，我必须参考它。
 
