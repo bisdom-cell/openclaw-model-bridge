@@ -33,41 +33,38 @@ test -f "$KB_SRC" || echo "# ACL Anthology NLP论文" > "$KB_SRC"
 
 # ── 1. 抓取多个 NLP 顶会的最近 volume ────────────────────────────────
 # ACL Anthology volume ID 格式：{year}.{venue}-{type}
-# 主要会议及其 volume 前缀
-VOLUME_PREFIXES=(
-  "${YEAR}.acl-long"
-  "${YEAR}.acl-short"
-  "${YEAR}.emnlp-main"
-  "${YEAR}.naacl-long"
-  "${YEAR}.eacl-long"
-  "${PREV_YEAR}.acl-long"
-  "${PREV_YEAR}.emnlp-main"
-  "${PREV_YEAR}.naacl-long"
-  "${YEAR}.findings-acl"
-  "${YEAR}.findings-emnlp"
+# 主要会议 XML 文件名（GitHub acl-org/acl-anthology 仓库）
+# 每个文件包含该会议所有论文的结构化 XML
+XML_FILES=(
+  "${YEAR}.acl"
+  "${YEAR}.emnlp"
+  "${YEAR}.naacl"
+  "${YEAR}.eacl"
+  "${PREV_YEAR}.acl"
+  "${PREV_YEAR}.emnlp"
+  "${PREV_YEAR}.naacl"
 )
 
 RAW_DIR="$CACHE/raw"
 mkdir -p "$RAW_DIR"
 
 FETCH_OK=0
-for i in "${!VOLUME_PREFIXES[@]}"; do
-  VOL="${VOLUME_PREFIXES[$i]}"
+for i in "${!XML_FILES[@]}"; do
+  XMLF="${XML_FILES[$i]}"
   OUTFILE="$RAW_DIR/vol_${i}.xml"
 
-  sleep 1  # 友好限速
+  sleep 1  # GitHub 限速友好
 
-  # ACL Anthology 提供每个 volume 的 BibTeX/XML export
-  # 使用搜索 API 按 venue 过滤
+  # 从 GitHub 获取结构化 XML（比 HTML 抓取更可靠）
   HTTP_CODE=$(curl -sSL --max-time 30 -w '%{http_code}' \
     -H "User-Agent: openclaw-acl-monitor/1.0" \
-    "https://aclanthology.org/volumes/${VOL}/" \
+    "https://raw.githubusercontent.com/acl-org/acl-anthology/master/data/xml/${XMLF}.xml" \
     -o "$OUTFILE" 2>"$CACHE/curl_acl.err") || HTTP_CODE="000"
 
   if [ "$HTTP_CODE" = "200" ]; then
-    # 验证是否包含论文内容（非 404 页面）
-    if grep -q '<span class="d-block' "$OUTFILE" 2>/dev/null || grep -q 'class="align-middle"' "$OUTFILE" 2>/dev/null; then
-      echo "[acl] Volume '$VOL' 获取成功"
+    # 验证是否是有效 XML
+    if head -5 "$OUTFILE" | grep -q '<collection\|<volume\|<?xml'; then
+      echo "[acl] XML '$XMLF' 获取成功"
       FETCH_OK=$((FETCH_OK + 1))
     fi
   else
@@ -89,8 +86,8 @@ touch "$SEEN_FILE"
 NEW_IDS_FILE="$CACHE/new_ids.txt"
 
 if ! python3 - "$RAW_DIR" "$MAX_PAPERS" "$SEEN_FILE" "$NEW_IDS_FILE" << 'PYEOF' > "$PAPERS_FILE"
-import sys, os, glob, json, re
-from html.parser import HTMLParser
+import sys, os, glob, json
+import xml.etree.ElementTree as ET
 
 raw_dir = sys.argv[1]
 max_papers = int(sys.argv[2])
@@ -104,46 +101,52 @@ all_papers = {}
 
 for fpath in sorted(glob.glob(os.path.join(raw_dir, "vol_*.xml"))):
     try:
-        with open(fpath, encoding='utf-8', errors='replace') as f:
-            html = f.read()
+        tree = ET.parse(fpath)
+        root = tree.getroot()
 
-        if not html.strip():
-            continue
-
-        # 提取论文条目：查找 anthology ID 和标题
-        # ACL Anthology HTML 结构：<a> with href="/anthology_id/" containing title
-        # Pattern: href="/2024.acl-long.123/" class="align-middle">Title</a>
-        paper_pattern = re.compile(
-            r'href="(/(\d{4}\.[a-z]+-[a-z]+\.\d+)/)"[^>]*class="align-middle"[^>]*>\s*(.+?)\s*</a>',
-            re.DOTALL
-        )
-        # Also try alternative pattern
-        paper_pattern2 = re.compile(
-            r'<span class="d-block">\s*<a href="/([\w.-]+)/"[^>]*>\s*(.+?)\s*</a>',
-            re.DOTALL
-        )
-
-        for match in paper_pattern.finditer(html):
-            _, paper_id, title = match.groups()
-            title = re.sub(r'<[^>]+>', '', title).strip()
-            if not title or paper_id in seen_ids or paper_id in all_papers:
+        # ACL Anthology XML: <collection> → <volume id="2024.acl-long"> → <paper id="1">
+        for volume in root.iter("volume"):
+            vol_id = volume.get("id", "")
+            # 只取 long/main/findings，跳过 short/tutorial/demo
+            if vol_id and not any(t in vol_id for t in ["long", "main", "findings"]):
                 continue
-            all_papers[paper_id] = {
-                "paper_id": paper_id,
-                "title": title,
-                "venue": paper_id.rsplit('.', 1)[0] if '.' in paper_id else ""
-            }
 
-        for match in paper_pattern2.finditer(html):
-            paper_id, title = match.groups()
-            title = re.sub(r'<[^>]+>', '', title).strip()
-            if not title or paper_id in seen_ids or paper_id in all_papers:
-                continue
-            all_papers[paper_id] = {
-                "paper_id": paper_id,
-                "title": title,
-                "venue": paper_id.rsplit('.', 1)[0] if '.' in paper_id else ""
-            }
+            for paper in volume.iter("paper"):
+                paper_num = paper.get("id", "")
+                paper_id = f"{vol_id}.{paper_num}" if vol_id and paper_num else ""
+                if not paper_id or paper_id in seen_ids or paper_id in all_papers:
+                    continue
+
+                title_el = paper.find("title")
+                title = (title_el.text or "").strip() if title_el is not None else ""
+                # title 可能包含子元素（如 <fixed-case>）
+                if not title and title_el is not None:
+                    title = ET.tostring(title_el, encoding='unicode', method='text').strip()
+                if not title:
+                    continue
+
+                # 提取第一作者
+                authors = paper.findall("author")
+                first_author = "Unknown"
+                if authors:
+                    first = authors[0].find("first")
+                    last = authors[0].find("last")
+                    first_name = (first.text or "") if first is not None else ""
+                    last_name = (last.text or "") if last is not None else ""
+                    first_author = f"{first_name} {last_name}".strip() or "Unknown"
+
+                abstract_el = paper.find("abstract")
+                abstract = ""
+                if abstract_el is not None:
+                    abstract = ET.tostring(abstract_el, encoding='unicode', method='text').strip()[:300]
+
+                all_papers[paper_id] = {
+                    "paper_id": paper_id,
+                    "title": title,
+                    "first_author": first_author,
+                    "abstract": abstract,
+                    "venue": vol_id
+                }
     except Exception:
         continue
 
@@ -198,7 +201,11 @@ prompt = """你是NLP论文编辑。对以下每篇论文严格输出三行（�
 """
 for i, p in enumerate(papers, 1):
     venue = p.get('venue', '')
-    prompt += f"论文{i}（{venue}）：{p['title']}\n\n"
+    abstract = p.get('abstract', '')
+    if abstract:
+        prompt += f"论文{i}（{venue}）：{p['title']}\n摘要：{abstract}\n\n"
+    else:
+        prompt += f"论文{i}（{venue}）：{p['title']}\n\n"
 
 print(prompt)
 PYEOF
@@ -333,7 +340,8 @@ for i, paper in enumerate(papers):
         stars = "价值：⭐⭐⭐"
 
     msg_lines.append(f"*{cn_title}*")
-    msg_lines.append(f"会议：{venue}")
+    first_author = paper.get('first_author', '')
+    msg_lines.append(f"作者：{first_author} 等 | 会议：{venue}")
     msg_lines.append(f"链接：https://aclanthology.org/{paper.get('paper_id', '')}/")
     msg_lines.append(contrib)
     msg_lines.append(stars)

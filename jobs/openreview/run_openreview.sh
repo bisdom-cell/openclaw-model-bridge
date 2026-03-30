@@ -34,43 +34,44 @@ mkdir -p "$CACHE" "${KB_BASE:-$HOME/.kb}/sources"
 test -f "$KB_SRC" || echo "# OpenReview 顶会论文" > "$KB_SRC"
 
 # ── 1. 搜索多个顶会 venue ────────────────────────────────────────────
-# 顶会 venue ID 格式：{conference}/Year/Conference
-VENUES=(
-  "ICLR.cc/${YEAR}/Conference"
-  "NeurIPS.cc/$((YEAR-1))/Conference"
-  "ICML.cc/${YEAR}/Conference"
+# 顶会 invitation 格式：{conference}/Year/Conference/-/Submission
+# 用 invitation 参数是 OpenReview v2 API 最可靠的查询方式
+INVITATIONS=(
+  "ICLR.cc/${YEAR}/Conference/-/Submission"
+  "NeurIPS.cc/$((YEAR-1))/Conference/-/Submission"
+  "ICML.cc/${YEAR}/Conference/-/Submission"
 )
 
 RAW_DIR="$CACHE/raw"
 mkdir -p "$RAW_DIR"
 
 FETCH_ERRORS=0
-for i in "${!VENUES[@]}"; do
-  VENUE="${VENUES[$i]}"
+for i in "${!INVITATIONS[@]}"; do
+  INV="${INVITATIONS[$i]}"
   OUTFILE="$RAW_DIR/venue_${i}.json"
-  ENCODED_VENUE=$(python3 -c "import urllib.parse; print(urllib.parse.quote('$VENUE'))")
+  ENCODED_INV=$(python3 -c "import urllib.parse; print(urllib.parse.quote('$INV'))")
 
   sleep 2  # OpenReview 限速友好
 
-  # 使用 /notes/search 搜索特定 venue 的论文
+  # 使用 /notes 端点 + invitation 参数获取特定顶会的投稿
   HTTP_CODE=$(curl -sSL --max-time 30 -w '%{http_code}' \
     -H "User-Agent: openclaw-openreview-monitor/1.0" \
-    "https://api2.openreview.net/notes/search?query=AI+OR+LLM+OR+language+model&source=forum&group=${ENCODED_VENUE}&limit=25" \
+    "https://api2.openreview.net/notes?invitation=${ENCODED_INV}&limit=50&sort=cdate:desc" \
     -o "$OUTFILE" 2>"$CACHE/curl_or.err") || HTTP_CODE="000"
 
   if [ "$HTTP_CODE" = "200" ]; then
-    echo "[openreview] 搜索 '$VENUE' 成功"
+    echo "[openreview] 获取 '$INV' 成功"
   elif [ "$HTTP_CODE" = "429" ]; then
-    log "WARN: OpenReview API 429 for '$VENUE'，等待 60s"
+    log "WARN: OpenReview API 429 for '$INV'，等待 60s"
     sleep 60
     HTTP_CODE=$(curl -sSL --max-time 30 -w '%{http_code}' \
       -H "User-Agent: openclaw-openreview-monitor/1.0" \
-      "https://api2.openreview.net/notes/search?query=AI+OR+LLM+OR+language+model&source=forum&group=${ENCODED_VENUE}&limit=25" \
+      "https://api2.openreview.net/notes?invitation=${ENCODED_INV}&limit=50&sort=cdate:desc" \
       -o "$OUTFILE" 2>"$CACHE/curl_or.err") || HTTP_CODE="000"
     [ "$HTTP_CODE" != "200" ] && FETCH_ERRORS=$((FETCH_ERRORS + 1))
   else
-    log "WARN: OpenReview API 返回 HTTP $HTTP_CODE for '$VENUE'"
-    # 某些 venue 可能不存在（今年还没开放），不算错误
+    log "WARN: OpenReview API 返回 HTTP $HTTP_CODE for '$INV'"
+    # 某些 invitation 可能不存在（今年还没开放），不算错误
     FETCH_ERRORS=$((FETCH_ERRORS + 1))
   fi
 done
