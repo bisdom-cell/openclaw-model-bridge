@@ -199,20 +199,22 @@ print(prompt)
 PYEOF
 
 # ── 4. 调用LLM（纯推理，直接curl proxy:5002，原则#27）─────────────────
-PAYLOAD=$(python3 -c "
-import json, sys
+PAYLOAD_FILE="$CACHE/llm_payload.json"
+python3 -c "
+import json
 prompt = open('$CACHE/llm_prompt.txt').read()
-print(json.dumps({
-    'model': 'Qwen3-235B-A22B-Instruct-2507-W8A8',
-    'messages': [{'role': 'user', 'content': prompt}],
-    'max_tokens': 4096,
-    'temperature': 0.3
-}))
-")
+with open('$CACHE/llm_payload.json', 'w') as f:
+    json.dump({
+        'model': 'Qwen3-235B-A22B-Instruct-2507-W8A8',
+        'messages': [{'role': 'user', 'content': prompt}],
+        'max_tokens': 4096,
+        'temperature': 0.3
+    }, f)
+"
 
 LLM_RESP=$(curl -s --max-time 120 \
     -H "Content-Type: application/json" \
-    -d "$PAYLOAD" \
+    -d "@$PAYLOAD_FILE" \
     http://127.0.0.1:5002/v1/chat/completions 2>"$LLM_RAW.stderr" || true)
 
 echo "$LLM_RESP" > "$LLM_RAW"
