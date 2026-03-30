@@ -25,8 +25,10 @@ TS="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')"
 DAY="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d')"
 STATUS_FILE="$CACHE/last_run.json"
 S2_API="https://api.semanticscholar.org/graph/v1/paper/search"
-FIELDS="title,authors,abstract,url,citationCount,publicationDate,externalIds"
-YEAR="$(TZ=Asia/Hong_Kong date '+%Y')"
+FIELDS="title,authors,abstract,url,citationCount,publicationDate,externalIds,tldr"
+# 搜索最近 30 天的论文（引用量排序更有意义）
+DATE_FROM="$(TZ=Asia/Hong_Kong date -v-30d '+%Y-%m-%d' 2>/dev/null || date -d '30 days ago' '+%Y-%m-%d')"
+DATE_TO="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d')"
 
 log() { echo "[$TS] s2: $1"; }
 
@@ -50,7 +52,7 @@ for i in "${!KEYWORDS[@]}"; do
 
   HTTP_CODE=$(curl -sSL --max-time 30 -w '%{http_code}' \
     -H "User-Agent: openclaw-s2-monitor/1.0" \
-    "${S2_API}?query=${ENCODED_KW}&fields=${FIELDS}&limit=20&year=${YEAR}" \
+    "${S2_API}?query=${ENCODED_KW}&fields=${FIELDS}&limit=20&publicationDateOrYear=${DATE_FROM}:${DATE_TO}&fieldsOfStudy=Computer+Science" \
     -o "$OUTFILE" 2>"$CACHE/curl_s2.err") || HTTP_CODE="000"
 
   if [ "$HTTP_CODE" = "200" ]; then
@@ -60,7 +62,7 @@ for i in "${!KEYWORDS[@]}"; do
     sleep 60
     HTTP_CODE=$(curl -sSL --max-time 30 -w '%{http_code}' \
       -H "User-Agent: openclaw-s2-monitor/1.0" \
-      "${S2_API}?query=${ENCODED_KW}&fields=${FIELDS}&limit=20&year=${YEAR}" \
+      "${S2_API}?query=${ENCODED_KW}&fields=${FIELDS}&limit=20&publicationDateOrYear=${DATE_FROM}:${DATE_TO}&fieldsOfStudy=Computer+Science" \
       -o "$OUTFILE" 2>"$CACHE/curl_s2.err") || HTTP_CODE="000"
     if [ "$HTTP_CODE" != "200" ]; then
       log "WARN: S2 重试仍失败 ($HTTP_CODE) for '$KW'"
@@ -123,6 +125,9 @@ for paper in sorted_papers:
     authors = paper.get("authors", [])
     first_author = authors[0].get("name", "Unknown") if authors else "Unknown"
     abstract = ((paper.get("abstract") or "")[:300])
+    tldr = ""
+    if paper.get("tldr") and isinstance(paper["tldr"], dict):
+        tldr = paper["tldr"].get("text", "")
     citations = paper.get("citationCount", 0) or 0
     pub_date = paper.get("publicationDate", "") or ""
     ext_ids = paper.get("externalIds", {}) or {}
@@ -135,6 +140,7 @@ for paper in sorted_papers:
         "first_author": first_author,
         "date": pub_date,
         "abstract": abstract,
+        "tldr": tldr,
         "citations": citations,
         "arxiv_id": arxiv_id,
         "url": url
@@ -183,7 +189,11 @@ prompt = """你是AI论文编辑。对以下每篇论文严格输出三行（不
 """
 for i, p in enumerate(papers, 1):
     citations = p.get('citations', 0)
-    prompt += f"论文{i}（引用{citations}次）：{p['title']}\n摘要：{p['abstract']}\n\n"
+    tldr = p.get('tldr', '')
+    abstract = p['abstract']
+    # 优先用 S2 的 TLDR（更简洁），否则用摘要
+    summary = tldr if tldr else abstract
+    prompt += f"论文{i}（引用{citations}次）：{p['title']}\n摘要：{summary}\n\n"
 
 print(prompt)
 PYEOF

@@ -37,7 +37,7 @@ for attempt in 1 2 3; do
   HTTP_CODE=$(curl -sSL --max-time 30 -w '%{http_code}' \
     -H "User-Agent: openclaw-hf-monitor/1.0" \
     -D "$HEADER_FILE" \
-    "https://huggingface.co/api/daily_papers" \
+    "https://huggingface.co/api/daily_papers?limit=50&sort=trending" \
     -o "$FEED_FILE" 2>"$CACHE/curl_feed.err") || HTTP_CODE="000"
 
   if [ "$HTTP_CODE" = "200" ]; then
