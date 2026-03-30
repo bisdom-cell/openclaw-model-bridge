@@ -33,50 +33,57 @@ log() { echo "[$TS] openreview: $1"; }
 mkdir -p "$CACHE" "${KB_BASE:-$HOME/.kb}/sources"
 test -f "$KB_SRC" || echo "# OpenReview 顶会论文" > "$KB_SRC"
 
-# ── 1. 搜索多个顶会 venue ────────────────────────────────────────────
-# 顶会 invitation 格式：{conference}/Year/Conference/-/Submission
-# 用 invitation 参数是 OpenReview v2 API 最可靠的查询方式
-INVITATIONS=(
-  "ICLR.cc/${YEAR}/Conference/-/Submission"
-  "NeurIPS.cc/$((YEAR-1))/Conference/-/Submission"
-  "ICML.cc/${YEAR}/Conference/-/Submission"
-)
+# ── 1. 多关键词搜索顶会论文 ──────────────────────────────────────────
+# OpenReview v2 /notes/search 是公开端点，按关键词搜索
+# /notes?invitation= 需要认证（403），所以用搜索方式
+KEYWORDS=("large language model" "LLM agent" "multimodal" "reinforcement learning from human feedback" "retrieval augmented generation")
 
 RAW_DIR="$CACHE/raw"
 mkdir -p "$RAW_DIR"
 
 FETCH_ERRORS=0
-for i in "${!INVITATIONS[@]}"; do
-  INV="${INVITATIONS[$i]}"
-  OUTFILE="$RAW_DIR/venue_${i}.json"
-  ENCODED_INV=$(python3 -c "import urllib.parse; print(urllib.parse.quote('$INV'))")
+for i in "${!KEYWORDS[@]}"; do
+  KW="${KEYWORDS[$i]}"
+  OUTFILE="$RAW_DIR/search_${i}.json"
+  ENCODED_KW=$(python3 -c "import urllib.parse; print(urllib.parse.quote('$KW'))")
 
   sleep 2  # OpenReview 限速友好
 
-  # 使用 /notes 端点 + invitation 参数获取特定顶会的投稿
+  # 使用 /notes/search 公开搜索端点
   HTTP_CODE=$(curl -sSL --max-time 30 -w '%{http_code}' \
     -H "User-Agent: openclaw-openreview-monitor/1.0" \
-    "https://api2.openreview.net/notes?invitation=${ENCODED_INV}&limit=50&sort=cdate:desc" \
+    "https://api2.openreview.net/notes/search?query=${ENCODED_KW}&source=forum&limit=25" \
     -o "$OUTFILE" 2>"$CACHE/curl_or.err") || HTTP_CODE="000"
 
   if [ "$HTTP_CODE" = "200" ]; then
-    echo "[openreview] 获取 '$INV' 成功"
+    echo "[openreview] 搜索 '$KW' 成功"
   elif [ "$HTTP_CODE" = "429" ]; then
-    log "WARN: OpenReview API 429 for '$INV'，等待 60s"
+    log "WARN: OpenReview API 429 for '$KW'，等待 60s"
     sleep 60
     HTTP_CODE=$(curl -sSL --max-time 30 -w '%{http_code}' \
       -H "User-Agent: openclaw-openreview-monitor/1.0" \
-      "https://api2.openreview.net/notes?invitation=${ENCODED_INV}&limit=50&sort=cdate:desc" \
+      "https://api2.openreview.net/notes/search?query=${ENCODED_KW}&source=forum&limit=25" \
       -o "$OUTFILE" 2>"$CACHE/curl_or.err") || HTTP_CODE="000"
     [ "$HTTP_CODE" != "200" ] && FETCH_ERRORS=$((FETCH_ERRORS + 1))
+  elif [ "$HTTP_CODE" = "403" ]; then
+    # v2 search 也需要认证，尝试 v1 API
+    HTTP_CODE=$(curl -sSL --max-time 30 -w '%{http_code}' \
+      -H "User-Agent: openclaw-openreview-monitor/1.0" \
+      "https://api.openreview.net/notes/search?query=${ENCODED_KW}&source=forum&limit=25" \
+      -o "$OUTFILE" 2>"$CACHE/curl_or.err") || HTTP_CODE="000"
+    if [ "$HTTP_CODE" = "200" ]; then
+      echo "[openreview] 搜索 '$KW' 成功 (v1 fallback)"
+    else
+      log "WARN: OpenReview API 返回 HTTP $HTTP_CODE for '$KW' (v1+v2)"
+      FETCH_ERRORS=$((FETCH_ERRORS + 1))
+    fi
   else
-    log "WARN: OpenReview API 返回 HTTP $HTTP_CODE for '$INV'"
-    # 某些 invitation 可能不存在（今年还没开放），不算错误
+    log "WARN: OpenReview API 返回 HTTP $HTTP_CODE for '$KW'"
     FETCH_ERRORS=$((FETCH_ERRORS + 1))
   fi
 done
 
-if [ "$FETCH_ERRORS" -ge "${#VENUES[@]}" ]; then
+if [ "$FETCH_ERRORS" -ge "${#KEYWORDS[@]}" ]; then
   log "ERROR: 所有 venue 搜索均失败"
   printf '{"time":"%s","status":"fetch_failed","new":0}\n' "$TS" > "$STATUS_FILE"
   exit 1
@@ -100,7 +107,7 @@ with open(seen_file) as f:
     seen_ids = set(line.strip() for line in f if line.strip())
 
 all_papers = {}
-for fpath in sorted(glob.glob(os.path.join(raw_dir, "venue_*.json"))):
+for fpath in sorted(glob.glob(os.path.join(raw_dir, "search_*.json"))):
     try:
         with open(fpath) as f:
             data = json.load(f)
