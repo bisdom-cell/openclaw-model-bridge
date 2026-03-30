@@ -34,9 +34,12 @@ test -f "$KB_SRC" || echo "# OpenReview 顶会论文" > "$KB_SRC"
 # ── 1. 使用 openreview-py 客户端抓取顶会论文 ────────────────────────
 # OpenReview REST API 需要 Bearer token（403），但 Python 客户端支持 guest 访问
 # 使用 V1 guest client 按 invitation 抓取各顶会最新 submission
+# 注意：openreview-py 装在系统 Python 3.9 下，homebrew Python 3.14 无此包
+PYTHON_OR="/usr/bin/python3"
+command -v "$PYTHON_OR" >/dev/null || PYTHON_OR="python3"
 RAW_FILE="$CACHE/raw_papers.json"
 
-if ! python3 << 'PYEOF' > "$RAW_FILE" 2>"$CACHE/fetch.err"
+if ! "$PYTHON_OR" << 'PYEOF' > "$RAW_FILE" 2>"$CACHE/fetch.err"
 import json, sys, time
 
 try:
