@@ -227,7 +227,7 @@ def check_filemap_completeness(registry_path):
 
         entry_path = os.path.join(repo_root, entry)
         if os.path.exists(entry_path) and entry not in mapped_sources:
-            warnings.append(f"[{jid}] '{entry}' 存在于仓库但不在 auto_deploy FILE_MAP 中（不会自动部署）")
+            errors.append(f"[{jid}] '{entry}' 存在于仓库但不在 auto_deploy FILE_MAP 中（不会自动部署！）")
 
         # 检查 jobs/ 子目录下的关联文件（只检查子目录，跳过仓库根目录的开发工具）
         entry_dir = os.path.dirname(entry_path)

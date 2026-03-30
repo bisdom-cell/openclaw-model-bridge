@@ -145,25 +145,24 @@ echo ""
 echo "📋 6/16 部署文件一致性"
 
 if $FULL_MODE; then
-    # FILE_MAP from auto_deploy.sh
-    declare -a FILE_MAP=(
-        "proxy_filters.py|$HOME/proxy_filters.py"
-        "tool_proxy.py|$HOME/tool_proxy.py"
-        "adapter.py|$HOME/adapter.py"
-        "restart.sh|$HOME/restart.sh"
-        "health_check.sh|$HOME/health_check.sh"
-        "kb_write.sh|$HOME/kb_write.sh"
-        "kb_review.sh|$HOME/kb_review.sh"
-        "kb_evening.sh|$HOME/kb_evening.sh"
-        "kb_save_arxiv.sh|$HOME/kb_save_arxiv.sh"
-        "job_watchdog.sh|$HOME/job_watchdog.sh"
-        "wa_keepalive.sh|$HOME/wa_keepalive.sh"
-        "run_hn_fixed.sh|$HOME/.openclaw/jobs/hn_watcher/run_hn_fixed.sh"
-        "jobs/openclaw_official/run.sh|$HOME/.openclaw/jobs/openclaw_official/run.sh"
-        "jobs/openclaw_official/run_discussions.sh|$HOME/.openclaw/jobs/openclaw_official/run_discussions.sh"
-        "jobs/freight_watcher/run_freight.sh|$HOME/.openclaw/jobs/freight_watcher/run_freight.sh"
-        "jobs/arxiv_monitor/run_arxiv.sh|$HOME/.openclaw/jobs/arxiv_monitor/run_arxiv.sh"
-    )
+    # V31: 从 auto_deploy.sh 动态解析 FILE_MAP（不再硬编码，避免两处不同步）
+    declare -a FILE_MAP=()
+    while IFS= read -r map_line; do
+        [ -n "$map_line" ] && FILE_MAP+=("$map_line")
+    done < <(python3 -c "
+import re
+with open('$SCRIPT_DIR/auto_deploy.sh') as f:
+    in_map = False
+    for line in f:
+        if 'declare -a FILE_MAP' in line:
+            in_map = True; continue
+        if in_map and line.strip() == ')':
+            break
+        if in_map:
+            m = re.search(r'\"([^\"]+)\"', line)
+            if m and '|' in m.group(1):
+                print(m.group(1))
+" 2>/dev/null)
 
     DRIFT_COUNT=0
     for mapping in "${FILE_MAP[@]}"; do
@@ -504,9 +503,9 @@ else
     skip "Cron 心跳检测（需在 Mac Mini 上验证）"
 fi
 
-# ── 15. Crontab 路径 vs FILE_MAP 一致性（V30.3 系统联调）──────────────
+# ── 15. Crontab 路径 vs FILE_MAP 双向一致性（V31 加强）──────────────
 echo ""
-echo "📋 15/16 Crontab 路径 vs FILE_MAP 一致性"
+echo "📋 15/16 Crontab ↔ FILE_MAP 双向一致性"
 
 if $FULL_MODE; then
     CRON_PATH_ERRORS=0
@@ -518,12 +517,15 @@ if $FULL_MODE; then
             FAIL\|*) fail "${result_line#FAIL|}"; CRON_PATH_ERRORS=$((CRON_PATH_ERRORS + 1)) ;;
             WARN\|*) warn "${result_line#WARN|}" ;;
         esac
-    done < <(python3 - "$SCRIPT_DIR/auto_deploy.sh" << 'PYEOF'
-import sys, os, re, subprocess
+    done < <(python3 - "$SCRIPT_DIR/auto_deploy.sh" "$SCRIPT_DIR/jobs_registry.yaml" << 'PYEOF'
+import sys, os, re, subprocess, yaml
 
 deploy_script = sys.argv[1]
+registry_file = sys.argv[2] if len(sys.argv) > 2 else None
 
-file_map = {}
+# ── 解析 FILE_MAP ──
+file_map = {}  # basename → deploy target path
+file_map_srcs = set()  # full source paths
 with open(deploy_script) as f:
     in_map = False
     for line in f:
@@ -537,10 +539,10 @@ with open(deploy_script) as f:
             if m:
                 parts = m.group(1).split('|', 1)
                 if len(parts) == 2:
-                    src = os.path.basename(parts[0])
-                    dst = parts[1].replace('$HOME', os.path.expanduser('~'))
-                    file_map[src] = dst
+                    file_map[os.path.basename(parts[0])] = parts[1].replace('$HOME', os.path.expanduser('~'))
+                    file_map_srcs.add(parts[0])
 
+# ── 解析 crontab ──
 try:
     result = subprocess.run(['crontab', '-l'], capture_output=True, text=True, timeout=5)
     crontab_lines = result.stdout.strip().split('\n')
@@ -550,26 +552,59 @@ except Exception:
 
 errors = []
 checked = 0
+not_in_map = []
+
 for line in crontab_lines:
     line = line.strip()
     if not line or line.startswith('#'):
         continue
-    m = re.search(r'bash\s+([^\s>|]+\.sh)', line)
+    # 匹配 bash .sh 和 python3 .py 两种模式
+    m = re.search(r'(?:bash\s+(?:-\w+\s+)?[\'"]?|python3\s+)([^\s>|"\']+\.(?:sh|py))', line)
     if not m:
         continue
     cron_path = m.group(1).replace('~/', os.path.expanduser('~/')).replace('$HOME/', os.path.expanduser('~/'))
     script_name = os.path.basename(cron_path)
+
     if script_name in file_map:
+        # 正向检查：路径一致性
         expected = file_map[script_name]
         if os.path.normpath(cron_path) != os.path.normpath(expected):
             errors.append(f"FAIL|{script_name}: crontab 路径 {cron_path} ≠ FILE_MAP 目标 {expected}")
         checked += 1
+    else:
+        # 反向检查：crontab 引用了 FILE_MAP 中不存在的脚本
+        # 排除不需要部署的脚本（auto_deploy 自身等）
+        skip_names = {'auto_deploy.sh'}
+        if script_name not in skip_names:
+            not_in_map.append(script_name)
+
+# ── 反向检查输出 ──
+if not_in_map:
+    for name in not_in_map:
+        errors.append(f"FAIL|{name}: crontab 引用但不在 FILE_MAP 中（文件可能从未部署！）")
+
+# ── Registry vs FILE_MAP 交叉检查 ──
+if registry_file and os.path.exists(registry_file):
+    with open(registry_file) as f:
+        registry = yaml.safe_load(f)
+    reg_missing = []
+    for job in registry.get('jobs', []):
+        entry = job.get('entry', '')
+        enabled = job.get('enabled', True)
+        if not enabled:
+            continue
+        if entry not in file_map_srcs:
+            reg_missing.append(f"{job.get('id','?')}: {entry}")
+    if reg_missing:
+        for rm in reg_missing:
+            errors.append(f"FAIL|Registry job {rm} 不在 FILE_MAP 中")
 
 for e in errors:
     print(e)
 
 if not errors and checked > 0:
-    print(f"PASS|{checked} 个 crontab 脚本路径均与 FILE_MAP 一致")
+    total = checked + len(not_in_map)
+    print(f"PASS|{checked} 个 crontab 脚本路径均与 FILE_MAP 一致，无遗漏")
 elif checked == 0:
     print("WARN|未找到可验证的 crontab 条目")
 PYEOF
