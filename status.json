@@ -54,12 +54,12 @@
     },
     {
       "task": "论文源扩展: OpenReview",
-      "status": "backlog",
+      "status": "done",
       "note": "ICLR/NeurIPS/ICML顶会投稿+评审，可过滤高分论文"
     },
     {
       "task": "论文源扩展: ACL Anthology",
-      "status": "backlog",
+      "status": "done",
       "note": "NLP顶会（ACL/EMNLP/NAACL）完整收录，按会议周期更新"
     },
     {
@@ -71,7 +71,7 @@
   "recent_changes": [
     {
       "date": "2026-03-30",
-      "what": "论文源扩展: HF Daily Papers + Semantic Scholar 监控上线; ArXiv 429修复（退避+降频）",
+      "what": "论文源扩展: HF Daily Papers + Semantic Scholar + OpenReview + ACL Anthology 监控上线; ArXiv 429修复（退避+降频）",
       "by": "claude_code"
     },
     {

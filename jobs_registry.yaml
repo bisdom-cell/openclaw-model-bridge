@@ -51,6 +51,24 @@ jobs:
     enabled: true
     description: Semantic Scholar 高引AI论文监控（多关键词搜索+引用排序）
 
+  - id: openreview
+    scheduler: system
+    entry: jobs/openreview/run_openreview.sh
+    interval: "30 9 * * 1"           # 每周一 09:30 HKT（顶会论文按 deadline 周期更新）
+    log: ~/.openclaw/logs/jobs/openreview.log
+    needs_api_key: true
+    enabled: true
+    description: OpenReview 顶会高分论文监控（ICLR/NeurIPS/ICML）
+
+  - id: acl_anthology
+    scheduler: system
+    entry: jobs/acl_anthology/run_acl_anthology.sh
+    interval: "30 9 * * 3"           # 每周三 09:30 HKT（NLP 顶会按会议周期更新）
+    log: ~/.openclaw/logs/jobs/acl_anthology.log
+    needs_api_key: true
+    enabled: true
+    description: ACL Anthology NLP 顶会论文监控（ACL/EMNLP/NAACL）
+
   - id: kb_evening
     scheduler: system
     entry: kb_evening.sh
