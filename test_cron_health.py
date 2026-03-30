@@ -766,7 +766,8 @@ class TestLocalAlertFallback(unittest.TestCase):
         with open("job_watchdog.sh") as f:
             content = f.read()
         # 在 WhatsApp 推送块之外还有一次 ALERT_LOG 写入
-        self.assertIn('echo "[$TS] ALERT: ${#ALERTS[@]} issues" >> "$ALERT_LOG"', content)
+        self.assertIn('ALERT: ${#ALERTS[@]} issues', content)
+        self.assertIn('>> "$ALERT_LOG"', content)
 
     def test_alert_log_rotation(self):
         """本地告警文件有自动截断（防止无限增长）"""

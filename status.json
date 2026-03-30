@@ -76,6 +76,11 @@
   "recent_changes": [
     {
       "date": "2026-03-31",
+      "what": "V31: watchdog全面升级8维度监控（11job+服务健康+磁盘+crontab条目数+KB新鲜度+日志扫描加强+告警分级）+ search_kb混合检索上线 + 论文监控5源全覆盖 + Zhihu文章",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-03-31",
       "what": "V30.5: search_kb混合检索工具(语义搜索+关键词+LLM解读) + DBLP监控上线 + kb_evening修复 + KB下游管道扩展5源 + Gateway工具配置确认(10个为上限)",
       "by": "claude_code"
     },
@@ -132,7 +137,7 @@
     "kb_stats": "149 notes, 7 today, 1211KB sources",
     "stale_jobs": "all_ok",
     "last_refresh": "2026-03-31 01:00",
-    "security_score": "98/100 (98.0%)"
+    "security_score": "93/100 (93.0%)"
   },
   "session_context": {
     "last_session": "2026-03-29",
@@ -141,7 +146,7 @@
     "blocked_on": ""
   },
   "quality": {
-    "security_score": 0,
+    "security_score": "93",
     "test_count": 393,
     "last_regression": "2026-03-27 pass",
     "coverage_pct": 0
