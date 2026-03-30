@@ -1,6 +1,6 @@
 {
-  "updated": "2026-03-29 12:24:36",
-  "updated_by": "cron",
+  "updated": "2026-03-30 04:04:04",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "数据清洗 Phase 2",
@@ -34,7 +34,7 @@
     },
     {
       "task": "安全加固",
-      "status": "backlog",
+      "status": "done",
       "note": "sandbox.mode+redactSensitive限制PA写入范围和日志脱敏"
     },
     {
@@ -49,6 +49,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-03-29",
+      "what": "OpenClaw内置功能分析+启用4项配置(Brave llm-context/日志脱敏/sandbox)+SOUL.md强化(反幻觉/项目定位/三类能力清单)+修复kb_status_refresh反向覆盖SOUL.md",
+      "by": "claude_code"
+    },
     {
       "date": "2026-03-28",
       "what": "preference_learner.py上线+SOUL.md偏好嵌入+proxy_filters开放sessions工具+确认Qwen3 memory/偏好读取限制",
@@ -94,8 +99,8 @@
     "last_refresh": "2026-03-29 12:24"
   },
   "session_context": {
-    "last_session": "2026-03-28",
-    "unfinished": "preference_learner crontab待注册到Mac Mini",
+    "last_session": "2026-03-29",
+    "unfinished": "preference_learner crontab待注册到Mac Mini; inboundDebounce待Gateway升级后启用",
     "open_prs": [],
     "blocked_on": ""
   },
