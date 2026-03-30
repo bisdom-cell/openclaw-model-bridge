@@ -30,6 +30,9 @@ OPENCLAW="${OPENCLAW:-/opt/homebrew/bin/openclaw}"
 TO="${OPENCLAW_PHONE:-+85200000000}"
 TS="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')"
 
+# 心跳日志：每次运行都记录，防止"一切正常时日志不更新"导致误报陈旧
+echo "[watchdog] $TS heartbeat — checking jobs"
+
 # ── 监控列表：job_id | status_file 路径 | 最大允许静默时间(秒) | 显示名 ──
 # 静默时间 = interval × 2 + 缓冲，确保不会因为单次正常跳过就误报
 JOBS=(
