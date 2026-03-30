@@ -132,11 +132,24 @@ declare -a FILE_MAP=(
     "audit_log.py|$HOME/audit_log.py"
     "security_score.py|$HOME/security_score.py"
 
+    # KB Embedding + RAG（search_kb 依赖）
+    "local_embed.py|$HOME/local_embed.py"
+    "kb_embed.py|$HOME/kb_embed.py"
+    "kb_rag.py|$HOME/kb_rag.py"
+
+    # Cron 健康工具
+    "cron_doctor.sh|$HOME/cron_doctor.sh"
+    "cron_canary.sh|$HOME/cron_canary.sh"
+    "crontab_safe.sh|$HOME/crontab_safe.sh"
+
     # 数据清洗工具
     "data_clean.py|$HOME/data_clean.py"
 
     # 用户偏好自动学习
     "preference_learner.py|$HOME/preference_learner.py"
+
+    # 三方宪法 SOUL.md
+    "SOUL.md|$HOME/.openclaw/workspace/.openclaw/SOUL.md"
 
     # 三方宪法状态锚点（repo → ~/.kb/，Claude Code 收工写入的变更同步到 PA）
     "status.json|$HOME/.kb/status.json"
