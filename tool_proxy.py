@@ -213,10 +213,63 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
         return os.path.join(os.path.dirname(os.path.abspath(__file__)), "data_clean.py")
 
     def _search_kb(self, query, source="all"):
-        """搜索知识库，返回格式化的结果文本"""
-        kb_dir = os.path.expanduser("~/.kb")
+        """搜索知识库：语义搜索优先，关键词补充"""
+        max_total = 4000
         results = []
-        max_total = 4000  # 控制总返回长度
+        seen_files = set()
+
+        # ── 1. 语义搜索（kb_rag）──
+        semantic_results = self._semantic_search(query, top_k=8)
+        if semantic_results:
+            items = []
+            for r in semantic_results:
+                fname = r.get("filename", "?")
+                score = r.get("score", 0)
+                text = r.get("text", "").strip()
+                src = r.get("source_type", "")
+                seen_files.add(fname)
+                # 截取片段
+                snippet = text[:300] + ("..." if len(text) > 300 else "")
+                icon = "📄" if src == "source" else "📝"
+                items.append(f"{icon} [{fname}] (相关度:{score:.2f})\n{snippet}")
+            results.append("🔍 语义搜索结果:\n\n" + "\n\n".join(items))
+
+        # ── 2. 关键词补充（捕获精确匹配但语义搜索遗漏的）──
+        keyword_results = self._keyword_search(query, source, exclude_files=seen_files)
+        if keyword_results:
+            results.append("📎 关键词补充:\n\n" + keyword_results)
+
+        if not results:
+            return "知识库中未找到与「{}」相关的内容。\n\n知识库包含 ArXiv/HF/S2/DBLP/ACL 论文和 HN 热帖，每日自动更新。".format(query)
+
+        total = "\n\n".join(results)
+        if len(total) > max_total:
+            total = total[:max_total] + "\n\n...（结果已截断，可缩小搜索范围获取更多）"
+        return total
+
+    def _semantic_search(self, query, top_k=8):
+        """调用 kb_rag 进行语义搜索，失败时返回空列表"""
+        try:
+            # kb_rag.py 可能在 HOME 目录或仓库目录
+            rag_path = os.path.expanduser("~/kb_rag.py")
+            if not os.path.exists(rag_path):
+                rag_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "kb_rag.py")
+            if not os.path.exists(rag_path):
+                return []
+
+            cmd = [sys.executable, rag_path, "--json", "--top", str(top_k), query]
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+            if result.returncode != 0:
+                return []
+            return json.loads(result.stdout)
+        except (subprocess.TimeoutExpired, json.JSONDecodeError, Exception):
+            return []
+
+    def _keyword_search(self, query, source="all", exclude_files=None):
+        """关键词搜索：补充语义搜索可能遗漏的精确匹配"""
+        kb_dir = os.path.expanduser("~/.kb")
+        exclude_files = exclude_files or set()
+        items = []
 
         source_files = {
             "arxiv": ("sources/arxiv_daily.md", "ArXiv论文"),
@@ -227,22 +280,10 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
             "hn": ("sources/hn_daily.md", "HackerNews"),
         }
 
-        # 1. 先搜 daily_digest（最全面的每日摘要）
-        digest_path = os.path.join(kb_dir, "daily_digest.md")
-        if os.path.isfile(digest_path):
-            try:
-                with open(digest_path) as f:
-                    content = f.read()
-                matches = self._grep_content(content, query, context_lines=3)
-                if matches:
-                    results.append(f"📋 每日摘要匹配:\n{matches}")
-            except OSError:
-                pass
-
-        # 2. 搜索指定来源或全部来源
+        # 搜索来源文件
         targets = source_files if source == "all" else {source: source_files.get(source, (None, None))}
         for key, (path, label) in targets.items():
-            if not path:
+            if not path or os.path.basename(path) in exclude_files:
                 continue
             full_path = os.path.join(kb_dir, path)
             if not os.path.isfile(full_path):
@@ -252,39 +293,31 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                     content = f.read()
                 matches = self._grep_content(content, query, context_lines=2)
                 if matches:
-                    results.append(f"📄 {label}:\n{matches}")
+                    items.append(f"📄 {label}:\n{matches}")
             except OSError:
                 continue
 
-        # 3. 搜索笔记
+        # 搜索笔记
         if source in ("all", "notes"):
             notes_dir = os.path.join(kb_dir, "notes")
             if os.path.isdir(notes_dir):
                 import glob
-                note_matches = []
                 for f in sorted(glob.glob(os.path.join(notes_dir, "*.md")), reverse=True)[:50]:
+                    basename = os.path.basename(f)
+                    if basename in exclude_files:
+                        continue
                     try:
                         with open(f) as fh:
                             content = fh.read()
                         if query in content.lower():
-                            # 提取匹配片段
-                            basename = os.path.basename(f)
                             snippet = self._extract_snippet(content, query, max_len=200)
-                            note_matches.append(f"  [{basename}] {snippet}")
-                            if len(note_matches) >= 5:
+                            items.append(f"📝 [{basename}] {snippet}")
+                            if len(items) >= 8:
                                 break
                     except OSError:
                         continue
-                if note_matches:
-                    results.append(f"📝 笔记:\n" + "\n".join(note_matches))
 
-        if not results:
-            return "知识库中未找到与「{}」相关的内容。\n\n知识库包含 ArXiv/HF/S2/DBLP/ACL 论文和 HN 热帖，每日自动更新。".format(query)
-
-        total = "\n\n".join(results)
-        if len(total) > max_total:
-            total = total[:max_total] + "\n\n...（结果已截断，可缩小搜索范围获取更多）"
-        return total
+        return "\n\n".join(items) if items else ""
 
     @staticmethod
     def _grep_content(content, query, context_lines=2):
