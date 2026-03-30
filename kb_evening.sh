@@ -16,14 +16,39 @@ if [ -z "$TODAY_FILES" ]; then
     MSG="今日暂无新增知识记录"
 else
     TOTAL=$(echo "$TODAY_FILES" | wc -l | tr -d ' ')
-    FIRST_FILE=$(echo "$TODAY_FILES" | head -1)
-    CONTENT=$(head -20 "$KB_DIR/notes/$FIRST_FILE" | { grep -v '^---' || true; } | { grep -v '^#' || true; } | { grep -v '^$' || true; } | head -3 | tr '\n' ' ')
-    FILE_LIST=$(echo "$TODAY_FILES" | head -5 | while read -r f; do echo "  · $f"; done)
+    # 提取每个笔记的实际正文标题（跳过 YAML frontmatter）
+    SUMMARIES=$(python3 - "$KB_DIR/notes" "$DATE" << 'PYEOF'
+import os, sys, glob
+
+notes_dir = sys.argv[1]
+date_prefix = sys.argv[2]
+items = []
+for f in sorted(glob.glob(os.path.join(notes_dir, f"{date_prefix}*.md")), reverse=True):
+    try:
+        with open(f) as fh:
+            content = fh.read().strip()
+        # 跳过 YAML frontmatter
+        if content.startswith('---'):
+            parts = content.split('---', 2)
+            if len(parts) >= 3:
+                content = parts[2].strip()
+        # 提取第一个有意义的行
+        for line in content.split('\n'):
+            line = line.strip()
+            if line and not line.startswith('#'):
+                items.append(f"  · {line[:80]}")
+                break
+    except OSError:
+        continue
+    if len(items) >= 5:
+        break
+print('\n'.join(items) if items else '  （无可读摘要）')
+PYEOF
+)
     MSG="[kb_evening] 今日知识摘要 $DATE
 新增笔记：$TOTAL 条
-摘要：${CONTENT:0:100}
-文件列表：
-$FILE_LIST"
+内容概览：
+$SUMMARIES"
 fi
 
 if openclaw message send --target "$PHONE" --message "$MSG" --json 2>>"$HOME/kb_evening.log" >/dev/null; then
