@@ -199,7 +199,7 @@ for line in lines[:6]:
 stats_line = ' | '.join(stats_parts[:2]) if stats_parts else ''
 
 # 按 ## 标题分割各来源章节
-known_sources = ['ArXiv 论文', 'HackerNews 热帖', '货代动态', 'OpenClaw 更新']
+known_sources = ['ArXiv 论文', 'HackerNews 热帖', 'HuggingFace 论文', 'Semantic Scholar 论文', 'DBLP CS论文', 'ACL Anthology NLP论文', '货代动态', 'OpenClaw 更新']
 source_content = {}
 current_source = None
 for line in lines:
@@ -269,18 +269,23 @@ def extract_openclaw(lines):
         return [{'cn': f'新版本 {version}', 'url': url}]
     return []
 
-# 提取各来源的结构化数据
+# 提取各来源的结构化数据（HF/S2/DBLP/ACL 与 ArXiv 同格式：*标题* / 作者 / 链接 / 贡献 / 价值）
 arxiv_items = extract_arxiv(source_content.get('ArXiv 论文', []))
+hf_items = extract_arxiv(source_content.get('HuggingFace 论文', []))
+s2_items = extract_arxiv(source_content.get('Semantic Scholar 论文', []))
+dblp_items = extract_arxiv(source_content.get('DBLP CS论文', []))
+acl_items = extract_arxiv(source_content.get('ACL Anthology NLP论文', []))
 hn_items = extract_hn(source_content.get('HackerNews 热帖', []))
 freight_items = extract_freight(source_content.get('货代动态', []))
 oc_items = extract_openclaw(source_content.get('OpenClaw 更新', []))
 
 # ── 选取今日重点 ──
 top_item = None
+all_paper_items = arxiv_items + hf_items + s2_items + dblp_items + acl_items
 if hn_items:
     top_item = f"{hn_items[0]['en']} — {hn_items[0]['cn']}"
-elif arxiv_items:
-    top_item = arxiv_items[0]['cn']
+elif all_paper_items:
+    top_item = all_paper_items[0]['cn']
 
 # ── 组装消息 ──
 msg = f"📰 KB 每日摘要 ({today})\n"
@@ -290,15 +295,21 @@ if stats_line:
 if top_item:
     msg += f"\n🔑 今日重点: {top_item}\n"
 
-# ArXiv（中英对照 + URL）
-if arxiv_items:
-    msg += "\n📄 ArXiv 论文:\n"
-    for item in arxiv_items[:3]:
-        msg += f"  {item['cn']}\n"
-        if item.get('meta'):
-            msg += f"  {item['meta']}\n"
-        if item.get('url'):
-            msg += f"  {item['url']}\n"
+# 论文来源统一格式输出（每个来源最多2篇，控制总长度）
+paper_sources = [
+    ('📄 ArXiv', arxiv_items),
+    ('🤗 HF精选', hf_items),
+    ('📈 S2高引', s2_items),
+    ('📚 DBLP', dblp_items),
+    ('📝 ACL', acl_items),
+]
+for emoji_label, items in paper_sources:
+    if items:
+        msg += f"\n{emoji_label}:\n"
+        for item in items[:2]:
+            msg += f"  {item['cn']}\n"
+            if item.get('url'):
+                msg += f"  {item['url']}\n"
 
 # HN（英文标题 + 中文要点 + URL）
 if hn_items:
