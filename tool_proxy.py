@@ -212,6 +212,115 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
             return home_path
         return os.path.join(os.path.dirname(os.path.abspath(__file__)), "data_clean.py")
 
+    def _search_kb(self, query, source="all"):
+        """搜索知识库，返回格式化的结果文本"""
+        kb_dir = os.path.expanduser("~/.kb")
+        results = []
+        max_total = 4000  # 控制总返回长度
+
+        source_files = {
+            "arxiv": ("sources/arxiv_daily.md", "ArXiv论文"),
+            "hf": ("sources/hf_papers_daily.md", "HuggingFace论文"),
+            "semantic_scholar": ("sources/semantic_scholar_daily.md", "Semantic Scholar"),
+            "dblp": ("sources/dblp_daily.md", "DBLP CS论文"),
+            "acl": ("sources/acl_anthology.md", "ACL NLP论文"),
+            "hn": ("sources/hn_daily.md", "HackerNews"),
+        }
+
+        # 1. 先搜 daily_digest（最全面的每日摘要）
+        digest_path = os.path.join(kb_dir, "daily_digest.md")
+        if os.path.isfile(digest_path):
+            try:
+                with open(digest_path) as f:
+                    content = f.read()
+                matches = self._grep_content(content, query, context_lines=3)
+                if matches:
+                    results.append(f"📋 每日摘要匹配:\n{matches}")
+            except OSError:
+                pass
+
+        # 2. 搜索指定来源或全部来源
+        targets = source_files if source == "all" else {source: source_files.get(source, (None, None))}
+        for key, (path, label) in targets.items():
+            if not path:
+                continue
+            full_path = os.path.join(kb_dir, path)
+            if not os.path.isfile(full_path):
+                continue
+            try:
+                with open(full_path) as f:
+                    content = f.read()
+                matches = self._grep_content(content, query, context_lines=2)
+                if matches:
+                    results.append(f"📄 {label}:\n{matches}")
+            except OSError:
+                continue
+
+        # 3. 搜索笔记
+        if source in ("all", "notes"):
+            notes_dir = os.path.join(kb_dir, "notes")
+            if os.path.isdir(notes_dir):
+                import glob
+                note_matches = []
+                for f in sorted(glob.glob(os.path.join(notes_dir, "*.md")), reverse=True)[:50]:
+                    try:
+                        with open(f) as fh:
+                            content = fh.read()
+                        if query in content.lower():
+                            # 提取匹配片段
+                            basename = os.path.basename(f)
+                            snippet = self._extract_snippet(content, query, max_len=200)
+                            note_matches.append(f"  [{basename}] {snippet}")
+                            if len(note_matches) >= 5:
+                                break
+                    except OSError:
+                        continue
+                if note_matches:
+                    results.append(f"📝 笔记:\n" + "\n".join(note_matches))
+
+        if not results:
+            return "知识库中未找到与「{}」相关的内容。\n\n知识库包含 ArXiv/HF/S2/DBLP/ACL 论文和 HN 热帖，每日自动更新。".format(query)
+
+        total = "\n\n".join(results)
+        if len(total) > max_total:
+            total = total[:max_total] + "\n\n...（结果已截断，可缩小搜索范围获取更多）"
+        return total
+
+    @staticmethod
+    def _grep_content(content, query, context_lines=2):
+        """在文本中搜索关键词，返回匹配行及上下文"""
+        lines = content.split("\n")
+        matched = []
+        seen = set()
+        for i, line in enumerate(lines):
+            if query in line.lower():
+                start = max(0, i - context_lines)
+                end = min(len(lines), i + context_lines + 1)
+                for j in range(start, end):
+                    if j not in seen:
+                        seen.add(j)
+                        matched.append(lines[j])
+                matched.append("")  # separator
+                if len(matched) > 30:
+                    break
+        return "\n".join(matched).strip() if matched else ""
+
+    @staticmethod
+    def _extract_snippet(content, query, max_len=200):
+        """从内容中提取包含关键词的片段"""
+        lower = content.lower()
+        pos = lower.find(query)
+        if pos == -1:
+            return content[:max_len]
+        start = max(0, pos - 50)
+        end = min(len(content), pos + max_len - 50)
+        snippet = content[start:end].replace("\n", " ").strip()
+        if start > 0:
+            snippet = "..." + snippet
+        if end < len(content):
+            snippet = snippet + "..."
+        return snippet
+
     def _execute_custom_tool(self, name, arguments):
         """执行 proxy 自定义工具，返回结果字符串"""
         if name == "data_clean":
@@ -291,6 +400,19 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
             except Exception as e:
                 return json.dumps({"error": str(e)})
 
+        if name == "search_kb":
+            try:
+                args = json.loads(arguments) if isinstance(arguments, str) else arguments
+            except json.JSONDecodeError:
+                return json.dumps({"error": f"参数解析失败: {arguments}"})
+
+            query = args.get("query", "").lower()
+            source = args.get("source", "all")
+            if not query:
+                return json.dumps({"error": "缺少 query 参数"})
+
+            return self._search_kb(query, source)
+
         return json.dumps({"error": f"未知自定义工具: {name}"})
 
     def _handle_custom_tool_calls(self, rj, original_body, rid):
@@ -366,6 +488,10 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
     @staticmethod
     def _format_tool_result(fn_name, fn_args_str, result):
         """将工具执行结果格式化为用户可读的文本"""
+        # search_kb 结果已是格式化文本，直接返回
+        if fn_name == "search_kb":
+            return result[:4000]
+
         try:
             args = json.loads(fn_args_str) if isinstance(fn_args_str, str) else fn_args_str
             action = args.get("action", "")
