@@ -88,6 +88,10 @@ if note_items:
 sources_map = {
     'arxiv_daily.md': ('ArXiv 论文', 1500),
     'hn_daily.md': ('HackerNews 热帖', 1500),
+    'hf_papers_daily.md': ('HuggingFace 论文', 1500),
+    'semantic_scholar_daily.md': ('Semantic Scholar 论文', 1500),
+    'dblp_daily.md': ('DBLP CS论文', 1500),
+    'acl_anthology.md': ('ACL Anthology NLP论文', 1000),
     'freight_daily.md': ('货代动态', 800),
     'openclaw_official.md': ('OpenClaw 更新', 800),
 }

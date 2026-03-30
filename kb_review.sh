@@ -96,6 +96,10 @@ MAX_PER_SOURCE = 2000
 sources = {
     'arxiv_daily.md': 'ArXiv论文',
     'hn_daily.md': 'HackerNews',
+    'hf_papers_daily.md': 'HuggingFace论文',
+    'semantic_scholar_daily.md': 'Semantic Scholar论文',
+    'dblp_daily.md': 'DBLP CS论文',
+    'acl_anthology.md': 'ACL Anthology NLP论文',
     'freight_daily.md': '货代动态',
     'openclaw_official.md': 'OpenClaw更新',
 }
@@ -246,6 +250,10 @@ for f in sorted(glob.glob(os.path.join(notes_dir, '*.md')), reverse=True):
 sources_map = {
     'arxiv_daily.md': ('📄 ArXiv', 3),
     'hn_daily.md': ('🔥 HN', 3),
+    'hf_papers_daily.md': ('🤗 HF', 3),
+    'semantic_scholar_daily.md': ('📈 S2', 3),
+    'dblp_daily.md': ('📚 DBLP', 3),
+    'acl_anthology.md': ('📝 ACL', 2),
     'freight_daily.md': ('🚢 货代', 2),
     'openclaw_official.md': ('⚙️ OpenClaw', 1),
 }
