@@ -122,7 +122,7 @@
   <rect x="395" y="95" width="220" height="80" rx="8" fill="url(#proxyGrad)" stroke="#58a6ff" stroke-width="1.5" filter="url(#glowBlue)"/>
   <text x="505" y="118" text-anchor="middle" font-size="11" fill="#58a6ff" font-weight="bold">Tool Proxy</text>
   <text x="505" y="133" text-anchor="middle" font-size="8" fill="#8b949e">tool_proxy.py + proxy_filters.py</text>
-  <text x="505" y="146" text-anchor="middle" font-size="8" fill="#484f58">Filter 24->12 / Image b64 Inject / SSE</text>
+  <text x="505" y="146" text-anchor="middle" font-size="8" fill="#484f58">Filter 24→12 / Custom Tools / Hybrid Search</text>
   <rect x="542" y="154" width="60" height="14" rx="3" fill="#58a6ff" opacity="0.2"/>
   <text x="572" y="165" text-anchor="middle" font-size="9" fill="#58a6ff" font-weight="bold">:5002</text>
 
@@ -170,33 +170,41 @@
   <!-- Jobs container -->
   <rect x="30" y="250" width="900" height="195" rx="10" fill="url(#jobGrad)" stroke="#f0883e" stroke-width="1" stroke-opacity="0.5"/>
 
-  <!-- Row 1: Data watchers -->
-  <text x="50" y="274" font-size="9" fill="#f0883e" font-weight="bold" letter-spacing="1">DATA WATCHERS</text>
+  <!-- Row 1: Paper monitors (5 sources) -->
+  <text x="50" y="274" font-size="9" fill="#f0883e" font-weight="bold" letter-spacing="1">PAPER MONITORS (5 sources)</text>
 
   <!-- ArXiv -->
-  <rect x="50" y="282" width="165" height="42" rx="6" fill="#0d1117" opacity="0.6" stroke="#f0883e" stroke-width="0.5" stroke-opacity="0.3"/>
-  <text x="132" y="300" text-anchor="middle" font-size="9" fill="#f0883e">ArXiv AI Papers</text>
-  <text x="132" y="316" text-anchor="middle" font-size="8" fill="#484f58">every 3h -> KB + WhatsApp</text>
+  <rect x="50" y="282" width="130" height="42" rx="6" fill="#0d1117" opacity="0.6" stroke="#f0883e" stroke-width="0.5" stroke-opacity="0.3"/>
+  <text x="115" y="300" text-anchor="middle" font-size="9" fill="#f0883e">ArXiv</text>
+  <text x="115" y="316" text-anchor="middle" font-size="8" fill="#484f58">every 3h</text>
 
-  <!-- HN -->
-  <rect x="225" y="282" width="165" height="42" rx="6" fill="#0d1117" opacity="0.6" stroke="#f0883e" stroke-width="0.5" stroke-opacity="0.3"/>
-  <text x="307" y="300" text-anchor="middle" font-size="9" fill="#f0883e">HN Hot Posts</text>
-  <text x="307" y="316" text-anchor="middle" font-size="8" fill="#484f58">every 3h -> KB + WhatsApp</text>
+  <!-- HF Papers -->
+  <rect x="190" y="282" width="130" height="42" rx="6" fill="#0d1117" opacity="0.6" stroke="#f0883e" stroke-width="0.5" stroke-opacity="0.3"/>
+  <text x="255" y="300" text-anchor="middle" font-size="9" fill="#f0883e">HF Papers</text>
+  <text x="255" y="316" text-anchor="middle" font-size="8" fill="#484f58">daily 10:00</text>
 
-  <!-- Freight -->
-  <rect x="400" y="282" width="170" height="42" rx="6" fill="#0d1117" opacity="0.6" stroke="#f0883e" stroke-width="0.5" stroke-opacity="0.3"/>
-  <text x="485" y="300" text-anchor="middle" font-size="9" fill="#f0883e">Freight Watcher</text>
-  <text x="485" y="316" text-anchor="middle" font-size="8" fill="#484f58">3x/day -> LLM + KB + WA</text>
+  <!-- Semantic Scholar -->
+  <rect x="330" y="282" width="130" height="42" rx="6" fill="#0d1117" opacity="0.6" stroke="#f0883e" stroke-width="0.5" stroke-opacity="0.3"/>
+  <text x="395" y="300" text-anchor="middle" font-size="9" fill="#f0883e">S2 Scholar</text>
+  <text x="395" y="316" text-anchor="middle" font-size="8" fill="#484f58">daily 11:00</text>
 
-  <!-- Releases -->
-  <rect x="580" y="282" width="170" height="42" rx="6" fill="#0d1117" opacity="0.6" stroke="#f0883e" stroke-width="0.5" stroke-opacity="0.3"/>
-  <text x="665" y="300" text-anchor="middle" font-size="9" fill="#f0883e">OpenClaw Releases</text>
-  <text x="665" y="316" text-anchor="middle" font-size="8" fill="#484f58">daily -> LLM + KB + WA</text>
+  <!-- DBLP -->
+  <rect x="470" y="282" width="130" height="42" rx="6" fill="#0d1117" opacity="0.6" stroke="#f0883e" stroke-width="0.5" stroke-opacity="0.3"/>
+  <text x="535" y="300" text-anchor="middle" font-size="9" fill="#f0883e">DBLP CS</text>
+  <text x="535" y="316" text-anchor="middle" font-size="8" fill="#484f58">daily 12:00</text>
 
-  <!-- Issues -->
+  <!-- ACL -->
+  <rect x="610" y="282" width="130" height="42" rx="6" fill="#0d1117" opacity="0.6" stroke="#f0883e" stroke-width="0.5" stroke-opacity="0.3"/>
+  <text x="675" y="300" text-anchor="middle" font-size="9" fill="#f0883e">ACL NLP</text>
+  <text x="675" y="316" text-anchor="middle" font-size="8" fill="#484f58">daily 09:30</text>
+
+  <!-- Other watchers -->
+  <text x="760" y="274" font-size="9" fill="#f0883e" font-weight="bold" letter-spacing="1">OTHER</text>
+
   <rect x="760" y="282" width="155" height="42" rx="6" fill="#0d1117" opacity="0.6" stroke="#f0883e" stroke-width="0.5" stroke-opacity="0.3"/>
-  <text x="837" y="300" text-anchor="middle" font-size="9" fill="#f0883e">Issues Monitor</text>
-  <text x="837" y="316" text-anchor="middle" font-size="8" fill="#484f58">hourly -> KB + WhatsApp</text>
+  <text x="837" y="295" text-anchor="middle" font-size="8" fill="#f0883e">HN / Freight / Releases</text>
+  <text x="837" y="308" text-anchor="middle" font-size="8" fill="#f0883e">Issues / Trend Report</text>
+  <text x="837" y="320" text-anchor="middle" font-size="7" fill="#484f58">all → KB + WhatsApp</text>
 
   <!-- Row 2: KB + Maintenance -->
   <text x="50" y="346" font-size="9" fill="#f0883e" font-weight="bold" letter-spacing="1">KB &amp; MAINTENANCE</text>

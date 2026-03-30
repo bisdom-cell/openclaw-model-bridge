@@ -1,6 +1,6 @@
 # CLAUDE.md — openclaw-model-bridge 项目背景
 
-> 每次新会话开始时自动读取。当前版本：v30.4（2026-03-28）
+> 每次新会话开始时自动读取。当前版本：v30.5（2026-03-31）
 
 ---
 
@@ -109,7 +109,7 @@
 | 组件 | 端口 | 文件 | 功能 | 进程管理 |
 |------|------|------|------|----------|
 | OpenClaw Gateway | 18789 | npm全局安装 | WhatsApp接入、**媒体存储**、工具执行、会话管理 | launchd (KeepAlive) |
-| Tool Proxy | 5002 | `tool_proxy.py` + `proxy_filters.py` | 工具过滤(24→12)、**图片base64注入**、**自定义工具注入+拦截执行**（data_clean）、Schema简化、SSE转换、截断、token监控、`/data_clean/*` REST端点 | launchd plist |
+| Tool Proxy | 5002 | `tool_proxy.py` + `proxy_filters.py` | 工具过滤(24→12)、**图片base64注入**、**自定义工具注入+拦截执行**（data_clean、search_kb）、Schema简化、SSE转换、截断、token监控、`/data_clean/*` REST端点 | launchd plist |
 | Adapter | 5001 | `adapter.py` | 多Provider转发、认证、**多模态路由**（文本→Qwen3，图片→Qwen2.5-VL）、Fallback降级 | launchd plist |
 | 远程GPU | — | hkagentx.hkopenlab.com | **Qwen3-235B**（文本, 262K context）+ **Qwen2.5-VL-72B**（视觉理解） | 外部服务 |
 
@@ -117,8 +117,8 @@
 
 | 文件 | 用途 |
 |------|------|
-| `tool_proxy.py` | HTTP 层（收发请求、日志、**自定义工具拦截执行**、`/data_clean/*` REST端点） |
-| `proxy_filters.py` | **V27新增** 策略层（过滤、修复、截断、SSE转换、**自定义工具注入**），纯函数无网络依赖 |
+| `tool_proxy.py` | HTTP 层（收发请求、日志、**自定义工具拦截执行**（data_clean本地执行+search_kb混合检索+followup LLM调用）、`/data_clean/*` REST端点） |
+| `proxy_filters.py` | **V27新增** 策略层（过滤、修复、截断、SSE转换、**自定义工具注入**（data_clean+search_kb）），纯函数无网络依赖 |
 | `data_clean.py` | **V30.3新增** 数据清洗 CLI 工具（profile/execute/validate/history，7种操作，支持CSV/TSV/JSON/JSONL/Excel） |
 | `test_data_clean.py` | **V30.3新增** 数据清洗单测（80个用例：格式检测/读写/操作/端到端/多格式） |
 | `data_clean_poc/` | **V30.3新增** Phase 0 验证材料（3个脏数据样本+LLM判断力测试脚本） |
@@ -169,6 +169,51 @@
 | `audit_log.py` | **V30.2新增** 链式哈希审计日志（JSONL append-only，SHA256 链式校验，篡改/删除可检测） |
 | `test_audit_log.py` | **V30.2新增** 审计日志单测（19个用例：写入/链式哈希/篡改检测/删除检测/统计） |
 | `security_score.py` | **V30.2新增** 系统安全评分（7维度100分：密钥/测试/完整性/部署/传输/审计/可用性） |
+| `jobs/dblp/run_dblp.sh` | **V30.5新增** DBLP CS论文监控（多关键词搜索、免费API、每日12:00推送+KB写入） |
+| `jobs/hf_papers/run_hf_papers.sh` | **V30.5新增** HuggingFace Daily Papers 监控（热门AI论文、每日10:00推送+KB写入） |
+| `jobs/semantic_scholar/run_semantic_scholar.sh` | **V30.5新增** Semantic Scholar 论文监控（引用量排序、每日11:00推送+KB写入） |
+| `jobs/acl_anthology/run_acl_anthology.sh` | **V30.5新增** ACL Anthology NLP论文监控（顶会论文、每日09:30推送+KB写入） |
+| `jobs/openreview/run_openreview.sh` | **V30.5禁用** OpenReview 论文监控（API 403 post-security-incident，已停用） |
+| `preference_learner.py` | **V30.4新增** 用户偏好自动学习器（从对话历史推断偏好，写入 status.json） |
+| `activate_openclaw_features.py` | **V30.5新增** OpenClaw 功能激活脚本（检查+启用 agent 工具配置） |
+
+## V30.5 变更摘要（2026-03-31）
+
+> 论文监控矩阵扩展 + search_kb 混合检索工具 + 数据复利闭环
+
+### 功能变更
+
+1. **search_kb 自定义工具**：PA 搜索本地知识库的专用工具（和 data_clean 同架构的 proxy 拦截模式）。混合检索：语义搜索（kb_rag.py, sentence-transformers embedding + cosine similarity）优先 + 关键词补充（精确匹配）。搜索结果注入对话后 followup LLM 调用，PA 用自然语言解读结果回答用户。解决了 Qwen3 倾向用 web_search 而非 read 的工具选择偏好问题
+2. **DBLP CS论文监控上线**：`jobs/dblp/run_dblp.sh` — 多关键词搜索（LLM/RAG/多模态/对齐等5个领域）、DBLP Search API（免费、CC0、无需认证）、每日12:00 HKT、作者字段 dict/list 归一化
+3. **论文监控矩阵完成**：ArXiv + HuggingFace Daily Papers + Semantic Scholar + DBLP + ACL Anthology = 5个来源全覆盖；OpenReview 因 API 403（2025-11安全事件后锁定）已禁用
+4. **KB 下游管道扩展**：kb_inject.sh、kb_review.sh、kb_evening.sh 均已添加 5 个新论文来源到 sources_map，每日摘要和周回顾包含全部来源
+5. **kb_evening frontmatter 修复**：`grep -v '^---'` 只删除分隔线但保留 `date:`/`tags:` 等元数据行 → 改为完整 Python YAML frontmatter 解析器
+6. **SOUL.md search_kb 指令**：PA 行为指令 #1 从"用 read 工具读 KB 文件"改为"调用 search_kb 工具"，并明确禁止用 web_search 代替
+7. **ArXiv 429 根因分析**：Fastly CDN（Varnish-based）限速策略变化，非我们使用量问题（8次/天远低于1次/3秒限制）
+
+### search_kb 混合检索架构
+
+```
+用户 WhatsApp 问"找关于模型对齐的研究"
+  ↓
+Gateway → Proxy 注入 search_kb 到 LLM 工具列表（12个工具）
+  ↓
+LLM 调用 search_kb(query="模型对齐", source="all")
+  ↓
+Proxy 拦截，本地执行：
+  ① 语义搜索：kb_rag.py --json（sentence-transformers embedding → cosine similarity → top 8）
+     "模型对齐" → 能匹配 "RLHF alignment"、"preference optimization" 等语义相关内容
+  ② 关键词补充：grep sources/*.md + notes/*.md（精确匹配，补充语义搜索遗漏）
+  ③ 合并去重（按文件名去重）
+  ↓
+搜索结果注入对话 → followup LLM 调用（无工具，纯推理）
+  ↓
+LLM 自然语言解读 → 返回 WhatsApp
+
+两套数据并存：
+  ~/.kb/sources/*.md + notes/*.md = 原始文本（人可读，关键词搜索）
+  ~/.kb/text_index/vectors.bin    = 384维向量（机器可读，语义搜索）
+```
 
 ## V30.4 变更摘要（2026-03-28）
 
@@ -610,6 +655,8 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 | 低 | MM搜索接入对话：mm_search.py 注册为 OpenClaw tool |
 | 低 | KB 静态加密：status.json / index.json 使用 age/gpg 加密存盘 |
 | 低 | 依赖漏洞扫描：pip-audit 集成到 full_regression.sh |
+| ✅ | **search_kb 混合检索 + 数据复利闭环：语义搜索+关键词+LLM解读（V30.5）** |
+| ✅ | **论文监控矩阵：ArXiv+HF+S2+DBLP+ACL 5源全覆盖（V30.5）** |
 | ✅ | **三方宪法闭环验证：SOUL.md + status.json 实时同步 + PA 主动感知（V30.4）** |
 | ✅ | **数据清洗 Phase 1：CLI + 自定义工具注入 + WhatsApp E2E（V30.3）** |
 | ✅ | **安全评分体系 + 审计日志 + 持续安全机制（V30.2）** |

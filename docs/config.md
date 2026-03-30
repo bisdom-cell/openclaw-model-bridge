@@ -1,7 +1,7 @@
 # OpenClaw 完整配置文档
-> 最后更新：2026-03-26 (HKT)
+> 最后更新：2026-03-31 (HKT)
 > 系统：Mac Mini (macOS) | 用户：bisdom
-> 版本：v30（V29.5基础上：crontab安全加固 + 原子写入 + 心跳监控 + 诊断工具）
+> 版本：v30.5（论文监控矩阵5源全覆盖 + search_kb混合检索 + 数据复利闭环）
 > OpenClaw Gateway：2026.3.13-1（当前部署，暂不升级）| 上游最新：v2026.3.23-2（WhatsApp sidecar 重新打包但独立包仍 404 + ClawHub 429 #54446 未修复，等 @openclaw/whatsapp 正式发布再升级）
 ---
 ## 一、系统架构（V28.1 四层架构）
@@ -30,6 +30,10 @@
 │  ② 定时任务层（system crontab，不经过 LLM 链路）                                     │
 │                                                                                     │
 │  每3h    ArXiv论文监控 ──→ KB写入 + WhatsApp推送                                     │
+│  每天    HF Daily Papers ──→ KB写入 + WhatsApp推送（V30.5新增）                       │
+│  每天    Semantic Scholar ──→ KB写入 + WhatsApp推送（V30.5新增）                       │
+│  每天    DBLP CS论文 ──→ KB写入 + WhatsApp推送（V30.5新增）                            │
+│  每天    ACL Anthology NLP ──→ KB写入 + WhatsApp推送（V30.5新增）                      │
 │  每3h    HN热帖抓取 ──→ KB写入 + WhatsApp推送                                        │
 │  每天×3  货代Watcher ──→ LLM分析(直接curl) + KB写入 + WhatsApp推送                    │
 │  每天    OpenClaw Releases ──→ LLM富摘要 + KB写入 + WhatsApp推送                     │
@@ -84,6 +88,10 @@
     ├─ 拦截层1：KB Write → kb_write.sh
     ├─ 拦截层2：KB Review → kb_review.sh
     ├─ 工具过滤 (24→12) + Schema简化
+    ├─ 自定义工具注入 (data_clean + search_kb) [V30.3/V30.5]
+    ├─ 自定义工具拦截执行：
+    │   ├─ data_clean → subprocess data_clean.py → 直接返回格式化结果
+    │   └─ search_kb → 语义搜索(kb_rag.py) + 关键词补充 → followup LLM调用 → 自然语言回答
     ├─ 参数修复/别名映射
     ├─ 200KB消息截断
     ├─ 非流式→SSE转换
@@ -95,7 +103,7 @@
 | 组件 | 端口 | 文件位置 | 功能 | 进程管理 |
 |------|------|----------|------|----------|
 | OpenClaw Gateway | 18789 | 全局安装 (npm) | WhatsApp接入、**媒体存储**、工具执行、会话管理 | launchd (KeepAlive) |
-| Tool Proxy | 5002 | ~/tool_proxy.py + ~/proxy_filters.py | HTTP层 + 策略层：工具过滤、**图片base64注入**、Schema简化、参数修复、SSE转换、截断、token监控 | launchd plist |
+| Tool Proxy | 5002 | ~/tool_proxy.py + ~/proxy_filters.py | HTTP层 + 策略层：工具过滤、**图片base64注入**、**自定义工具注入+拦截**（data_clean+search_kb）、Schema简化、参数修复、SSE转换、截断、token监控 | launchd plist |
 | Adapter | 5001 | ~/adapter.py | 多Provider转发、认证、**多模态路由**（文本→Qwen3，图片→Qwen2.5-VL）、Fallback降级 | launchd plist |
 | 远程GPU | - | hkagentx.hkopenlab.com | **Qwen3-235B**（文本，262K context）+ **Qwen2.5-VL-72B**（视觉理解） | 外部服务 |
 ---
@@ -124,6 +132,11 @@
 | **KB RAG语义搜索** | **~/kb_rag.py** | **V29.3新增：自然语言查询KB，支持--context(LLM注入)/--json(脚本调用)** |
 | ~~ArXiv KB归档脚本~~ | ~~~/kb_save_arxiv.sh~~ | ~~已废弃（V28: 功能合并到 arxiv_monitor）~~ |
 | **ArXiv AI论文监控** | **~/.openclaw/jobs/arxiv_monitor/run_arxiv.sh** | **V28新增：ArXiv论文监控 + KB写入 + rsync备份（合并原 monitor-arxiv-ai-models + kb-save-arxiv）** |
+| **HF Daily Papers** | **~/.openclaw/jobs/hf_papers/run_hf_papers.sh** | **V30.5新增：HuggingFace热门AI论文监控，每日10:00 HKT推送+KB写入** |
+| **Semantic Scholar** | **~/.openclaw/jobs/semantic_scholar/run_semantic_scholar.sh** | **V30.5新增：S2论文监控（引用量排序），每日11:00 HKT推送+KB写入** |
+| **DBLP CS论文** | **~/.openclaw/jobs/dblp/run_dblp.sh** | **V30.5新增：DBLP多关键词搜索（LLM/RAG/多模态/对齐等），免费API，每日12:00 HKT推送+KB写入** |
+| **ACL Anthology NLP** | **~/.openclaw/jobs/acl_anthology/run_acl_anthology.sh** | **V30.5新增：ACL NLP顶会论文监控，每日09:30 HKT推送+KB写入** |
+| ~~OpenReview~~ | ~~~/.openclaw/jobs/openreview/run_openreview.sh~~ | ~~V30.5禁用：API 403（2025-11安全事件后锁定），S2已覆盖已发表论文~~ |
 | **每周健康检查脚本** | **~/health_check.sh** | **系统健康周报脚本（v16新增）** |
 | 后端适配 | ~/adapter.py | 远程API适配层（v16：API Key改为环境变量） |
 | 一键重启 | ~/restart.sh | 故障恢复脚本 |

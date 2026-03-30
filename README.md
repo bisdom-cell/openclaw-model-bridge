@@ -6,7 +6,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![Tests](https://img.shields.io/badge/tests-67%20passed-brightgreen.svg)]()
-[![Jobs](https://img.shields.io/badge/cron%20jobs-21-blue.svg)]()
+[![Jobs](https://img.shields.io/badge/cron%20jobs-29-blue.svg)]()
 
 ## Architecture / 系统架构
 
@@ -27,11 +27,13 @@
 │  WhatsApp ←→ Gateway (:18789) ←→ Proxy (:5002) ←→ Adapter (:5001) ←→ Remote GPU       │
 │              [launchd]           [策略过滤+监控]    [认证+Fallback]    [Qwen3-235B]      │
 │              [媒体存储]          [图片base64注入]   [VL模型路由]       [Qwen2.5-VL-72B]  │
-│                                                    [→Gemini降级]                        │
+│                                 [自定义工具注入]    [→Gemini降级]                        │
+│                                 data_clean(清洗)                                       │
+│                                 search_kb(混合检索)                                    │
 │                                                                  │
-│  图片流程：Gateway存储jpg → Proxy检测<media:image>                │
-│           → 读取图片base64编码 → 注入image_url                    │
-│           → Adapter检测多模态 → 路由到Qwen2.5-VL → 图片理解回复    │
+│  search_kb流程：用户问论文 → PA调search_kb → Proxy拦截           │
+│    → ①语义搜索(embedding cosine) + ②关键词补充                   │
+│    → 结果注入对话 → followup LLM调用 → 自然语言回答              │
 └──────────────────┬──────────────────┬───────────────────────────┘
                    │                  │
 ┌──────────────────▼──────────────────▼───────────────────────────┐
@@ -48,9 +50,11 @@
 └──────────────────────────────────────────────────────────────────┘
                    │
 ┌──────────────────▼──────────────────────────────────────────────┐
-│  ③ 定时任务层（21 个 system cron jobs）                           │
+│  ③ 定时任务层（29 个 system cron jobs）                           │
 │                                                                  │
-│  每3h   ArXiv论文监控 ──→ KB + WhatsApp推送                      │
+│  论文监控矩阵（5源）：                                            │
+│    ArXiv(每3h) + HF Papers(10:00) + S2(11:00)                   │
+│    + DBLP(12:00) + ACL(09:30) ──→ KB + WhatsApp推送             │
 │  每3h   HN热帖抓取 ──→ KB + WhatsApp推送                         │
 │  每天×3 货代Watcher ──→ LLM分析 + KB + WhatsApp推送              │
 │  每天   OpenClaw Releases ──→ LLM摘要 + KB + WhatsApp推送        │
@@ -90,7 +94,7 @@
 | Component | Port | Files | Role |
 |-----------|------|-------|------|
 | OpenClaw Gateway | 18789 | npm global | WhatsApp integration, media storage, tool execution, session management |
-| Tool Proxy | 5002 | `tool_proxy.py` + `proxy_filters.py` | Tool filtering (24→12), schema simplification, **image base64 injection**, SSE conversion, truncation, token monitoring |
+| Tool Proxy | 5002 | `tool_proxy.py` + `proxy_filters.py` | Tool filtering (24→12), **custom tools** (data_clean + search_kb hybrid search), **image base64 injection**, SSE conversion, truncation, token monitoring |
 | Adapter | 5001 | `adapter.py` | Multi-provider forwarding, auth, **multimodal routing** (text→Qwen3, image→Qwen2.5-VL), fallback degradation |
 | Local Embedding | — | `local_embed.py` | sentence-transformers (384-dim, 50+ languages), zero API calls |
 | Remote GPU | — | hkagentx.hkopenlab.com | Qwen3-235B (text, 262K context) + **Qwen2.5-VL-72B** (vision) |
@@ -120,8 +124,8 @@ python3 mm_index.py && python3 mm_search.py "cat photos"
 
 | File | Description |
 |------|-------------|
-| `tool_proxy.py` | HTTP layer — request/response routing, **media injection**, logging, health cascade |
-| `proxy_filters.py` | Policy layer — tool filtering, **image base64 injection** (`<media:image>` → `image_url`), param fixing, truncation, SSE conversion |
+| `tool_proxy.py` | HTTP layer — request/response routing, **custom tool execution** (data_clean + search_kb), **media injection**, followup LLM calls, logging, health cascade |
+| `proxy_filters.py` | Policy layer — tool filtering, **custom tool injection** (data_clean + search_kb), **image base64 injection** (`<media:image>` → `image_url`), param fixing, truncation, SSE conversion |
 | `adapter.py` | API adapter — multi-provider forwarding, auth, **multimodal routing** (text→Qwen3, image→Qwen2.5-VL), fallback degradation |
 
 ### Knowledge Base & Local AI
@@ -140,6 +144,8 @@ python3 mm_index.py && python3 mm_search.py "cat photos"
 | `kb_dedup.py` | **V29.2** KB deduplication — exact/fuzzy note dedup + source line dedup |
 | `kb_trend.py` | **V29.5** Weekly AI trend report — this week vs last week keywords + LLM analysis + prediction backtest |
 | `status_update.py` | **V29.5** Three-party shared status — atomic read/write of `~/.kb/status.json` (Claude Code + PA + cron) |
+| `data_clean.py` | **V30.3** Data cleaning CLI — 7 operations (dedup/trim/fix_dates/etc), 5 formats (CSV/TSV/JSON/JSONL/Excel), version chain + audit log |
+| `SOUL.md` | **V30.4** PA constitutional system prompt — identity (Wei), three-party constitution, behavior directives, live project status |
 
 ### Monitoring & Quality
 
@@ -162,13 +168,17 @@ python3 mm_index.py && python3 mm_search.py "cat photos"
 | `upgrade_openclaw.sh` | Gateway upgrade SOP (must run via SSH, never via WhatsApp) |
 | `smoke_test.sh` | End-to-end smoke test (unit tests + registry + doc drift + connectivity) |
 
-### Scheduled Jobs (21 registered, 19 active)
+### Scheduled Jobs (29 registered, 27 active)
 
 All jobs registered in `jobs_registry.yaml`. Validate: `python3 check_registry.py`
 
 | File | Schedule | Description |
 |------|----------|-------------|
 | `jobs/arxiv_monitor/run_arxiv.sh` | Every 3h | ArXiv AI paper monitoring + KB + WhatsApp |
+| `jobs/hf_papers/run_hf_papers.sh` | Daily 10:00 | **V30.5** HuggingFace Daily Papers + KB + WhatsApp |
+| `jobs/semantic_scholar/run_semantic_scholar.sh` | Daily 11:00 | **V30.5** Semantic Scholar papers (citation-ranked) + KB + WhatsApp |
+| `jobs/dblp/run_dblp.sh` | Daily 12:00 | **V30.5** DBLP CS papers (multi-keyword, free API) + KB + WhatsApp |
+| `jobs/acl_anthology/run_acl_anthology.sh` | Daily 09:30 | **V30.5** ACL Anthology NLP top-venue papers + KB + WhatsApp |
 | `run_hn_fixed.sh` | Every 3h:45 | HackerNews hot posts scraper |
 | `jobs/freight_watcher/run_freight.sh` | 08/14/20:00 | Freight intelligence — scraping + LLM analysis |
 | `jobs/openclaw_official/run.sh` | Daily 08:00 | OpenClaw releases watcher + LLM summary |
@@ -192,7 +202,7 @@ All jobs registered in `jobs_registry.yaml`. Validate: `python3 check_registry.p
 
 | File | Description |
 |------|-------------|
-| `jobs_registry.yaml` | Unified job registry — 21 jobs (19 active, 2 disabled), system cron |
+| `jobs_registry.yaml` | Unified job registry — 29 jobs (27 active, 2 disabled), system cron |
 | `check_registry.py` | Registry validator — ID uniqueness, paths, fields |
 | `gen_jobs_doc.py` | Auto-generate job docs from registry + drift detection |
 | `test_tool_proxy.py` | Unit tests for proxy_filters (43 cases) |
