@@ -64,11 +64,21 @@
     },
     {
       "task": "论文源扩展: DBLP",
-      "status": "backlog",
-      "note": "CS全领域索引，适合按作者/会议追踪，免费API"
+      "status": "done",
+      "note": "V30.5: DBLP CS论文监控上线，多关键词搜索，免费API，每日12:00推送"
+    },
+    {
+      "task": "search_kb 混合检索工具",
+      "status": "done",
+      "note": "V30.5: 语义搜索(embedding)+关键词补充+followup LLM解读，PA数据复利闭环"
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-03-31",
+      "what": "V30.5: search_kb混合检索工具(语义搜索+关键词+LLM解读) + DBLP监控上线 + kb_evening修复 + KB下游管道扩展5源 + Gateway工具配置确认(10个为上限)",
+      "by": "claude_code"
+    },
     {
       "date": "2026-03-30",
       "what": "论文源扩展: HF Daily Papers + Semantic Scholar + OpenReview + ACL Anthology 监控上线; ArXiv 429修复（退避+降频）",
