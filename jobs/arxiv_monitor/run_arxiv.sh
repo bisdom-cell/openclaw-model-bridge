@@ -33,18 +33,32 @@ mkdir -p "$CACHE" "${KB_BASE:-$HOME/.kb}/sources"
 test -f "$KB_SRC" || echo "# ArXiv AI论文监控" > "$KB_SRC"
 DAY="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d')"
 
-# ── 1. 抓取 ArXiv API XML（含重试 + 内容验证）──────────────────────────
+# ── 1. 抓取 ArXiv API XML（含重试 + 429退避 + 内容验证）─────────────────
 FEED_FILE="$CACHE/arxiv_feed.xml"
 FETCH_OK=false
+HEADER_FILE="$CACHE/curl_headers.txt"
 for attempt in 1 2 3; do
   HTTP_CODE=$(curl -sSL --max-time 30 -w '%{http_code}' \
     -H "User-Agent: openclaw-arxiv-monitor/1.0 (mailto:bisdom@example.com)" \
+    -D "$HEADER_FILE" \
     "$ARXIV_URL" -o "$FEED_FILE" 2>"$CACHE/curl_feed.err") || HTTP_CODE="000"
 
   # 检查 HTTP 状态码
   if [ "$HTTP_CODE" != "200" ]; then
     log "WARN: ArXiv API 返回 HTTP $HTTP_CODE（第${attempt}次）"
-    sleep "$((attempt * 5))"
+    # 429 专用退避：尊重 Retry-After 头，否则用指数退避（30s/90s/270s）
+    if [ "$HTTP_CODE" = "429" ]; then
+      RETRY_AFTER=$(grep -i '^Retry-After:' "$HEADER_FILE" 2>/dev/null | head -1 | tr -dc '0-9')
+      if [ -n "$RETRY_AFTER" ] && [ "$RETRY_AFTER" -gt 0 ] 2>/dev/null; then
+        WAIT="$RETRY_AFTER"
+      else
+        WAIT="$((30 * 3 ** (attempt - 1)))"  # 30s, 90s, 270s
+      fi
+      log "429 退避等待 ${WAIT}s（第${attempt}次）"
+      sleep "$WAIT"
+    else
+      sleep "$((attempt * 10))"
+    fi
     continue
   fi
 
@@ -54,7 +68,7 @@ for attempt in 1 2 3; do
     break
   else
     log "WARN: ArXiv API 返回非XML内容（第${attempt}次）: $(head -1 "$FEED_FILE" | cut -c1-80)"
-    sleep "$((attempt * 5))"
+    sleep "$((attempt * 10))"
     continue
   fi
 done
