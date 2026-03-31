@@ -150,7 +150,8 @@ if $FULL_MODE; then
     while IFS= read -r map_line; do
         [ -n "$map_line" ] && FILE_MAP+=("$map_line")
     done < <(python3 -c "
-import re
+import re, os
+home = os.path.expanduser('~')
 with open('$SCRIPT_DIR/auto_deploy.sh') as f:
     in_map = False
     for line in f:
@@ -161,7 +162,8 @@ with open('$SCRIPT_DIR/auto_deploy.sh') as f:
         if in_map:
             m = re.search(r'\"([^\"]+)\"', line)
             if m and '|' in m.group(1):
-                print(m.group(1))
+                # 展开 \$HOME 为实际路径
+                print(m.group(1).replace('\$HOME', home))
 " 2>/dev/null)
 
     DRIFT_COUNT=0
@@ -559,7 +561,7 @@ for line in crontab_lines:
     if not line or line.startswith('#'):
         continue
     # 匹配 bash .sh 和 python3 .py 两种模式
-    m = re.search(r'(?:bash\s+(?:-\w+\s+)?[\'"]?|python3\s+)([^\s>|"\']+\.(?:sh|py))', line)
+    m = re.search(r"(?:bash\s+(?:-\w+\s+)?['\"]?|python3\s+)([^\s>|\"']+\.(?:sh|py))", line)
     if not m:
         continue
     cron_path = m.group(1).replace('~/', os.path.expanduser('~/')).replace('$HOME/', os.path.expanduser('~/'))
