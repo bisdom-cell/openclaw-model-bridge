@@ -167,6 +167,9 @@ declare -a FILE_MAP=(
     # PA 灵魂文件（最高优先级上下文）
     "SOUL.md|$HOME/.openclaw/workspace/SOUL.md"
 
+    # Ops Agent SOUL.md（运维助手身份）
+    "ops_soul.md|$HOME/.openclaw/SOUL.md"
+
     # 文档同步到 KB（供 WhatsApp PA 按需查阅）
     "docs/GUIDE.md|$HOME/.kb/docs/GUIDE.md"
     "docs/config.md|$HOME/.kb/docs/config.md"

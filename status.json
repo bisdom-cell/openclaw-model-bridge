@@ -19,8 +19,8 @@
     },
     {
       "task": "ops agent激活",
-      "status": "active",
-      "note": "独立工具白名单+SOUL.md运维身份，处理系统健康查询"
+      "status": "done",
+      "note": "V31: ops_soul.md运维身份+工具白名单(exec/read/write/message/web_fetch)+auto_deploy部署"
     },
     {
       "task": "趋势报告优化",
@@ -74,6 +74,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-03-31",
+      "what": "V31: 遗留清理(chmod+x 5脚本+config漂移+OpenReview crontab+preference_learner注册+HN dlopen误报确认) + ops agent激活(ops_soul.md+工具白名单+auto_deploy)",
+      "by": "claude_code"
+    },
     {
       "date": "2026-03-31",
       "what": "V31: Watchdog 8维全面升级(11 jobs+服务健康+磁盘+crontab+KB新鲜度) + 动态context裁剪(70%/85%阈值) + FILE_MAP补齐7文件+双向preflight验证 + status.json JSON合并驱动(消除反复冲突) + preflight check#6/#15修复",
@@ -141,7 +146,7 @@
   },
   "session_context": {
     "last_session": "2026-03-31",
-    "unfinished": "5脚本缺chmod+x(hf_papers/semantic_scholar/dblp/acl_anthology/preference_learner); docs/config.md漂移待同步; HN Python3.14 dlopen cron环境问题; OpenReview crontab残留条目待清理; preference_learner crontab待注册",
+    "unfinished": "",
     "open_prs": [],
     "blocked_on": ""
   },
@@ -209,7 +214,7 @@
     ],
     "evolved_from": "2026-03-28 status.json共享了个寂寞+SOUL.md空置数月的反思"
   },
-  "focus": "数据清洗Phase2 + PA子Agent委派 + ops agent激活 + 遗留清理(chmod+x/config漂移/HN cron修复)",
+  "focus": "数据清洗Phase2 + PA子Agent委派",
   "notes": "",
   "preferences": [
     "[auto] 用户偏好简洁回复（平均响应 <200 字）",

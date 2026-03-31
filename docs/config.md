@@ -556,7 +556,7 @@ FORCE_SYSTEM = """你是Wei，一个专业AI助手。身份已完全确认，onb
         "model": {"primary": "qwen-local/Qwen3-235B-A22B-Instruct-2507-W8A8"},
         "workspace": "/Users/bisdom",
         "tools": {
-          "allow": ["exec", "read", "write", "message"],
+          "allow": ["exec", "read", "write", "message", "web_fetch"],
           "deny": ["browser", "web_search"]
         }
       }
@@ -567,6 +567,28 @@ FORCE_SYSTEM = """你是Wei，一个专业AI助手。身份已完全确认，onb
 > **使用方式**：`openclaw agent --agent research --message "..."` 或 `--agent ops`
 > **Session 隔离**：每个 agent 独立 session 目录（`~/.openclaw/agents/{name}/sessions/`），互不污染
 > **默认 agent**：WhatsApp DM 仍走 `agents.defaults`（main），不受影响
+
+### 11.3 Ops Agent 激活（V31新增）
+
+ops agent 已有独立 SOUL.md（`ops_soul.md`），通过 auto_deploy 部署到 `~/.openclaw/SOUL.md`（ops workspace 为 `$HOME`）。
+
+**职责**：系统健康检查、日志排查、cron 诊断、维护操作、告警通知
+**工具**：exec（运维命令）、read/write（日志/配置）、message（告警）、web_fetch（localhost 健康检查）
+**限制**：不做研究（无 web_search）、不改代码、只读优先
+
+**使用场景**：
+- PA（Wei）通过 `sessions_spawn` 委派运维任务给 ops agent
+- CLI 直接调用：`openclaw agent --agent ops --message "检查系统健康状态"`
+- Cron 脚本调用：异常时 spawn ops agent 自动诊断
+
+**激活步骤**（Mac Mini）：
+```bash
+# 1. 添加 web_fetch 到 ops agent 工具白名单
+openclaw config set agents.list[id=ops].tools.allow.+ "web_fetch"
+# 2. 同步仓库获取 ops_soul.md
+cd ~/openclaw-model-bridge && git fetch origin main && git reset --hard origin/main
+# 3. auto_deploy 会自动同步 ops_soul.md → ~/.openclaw/SOUL.md
+```
 
 ### 11.1 V29.1 新增功能
 
