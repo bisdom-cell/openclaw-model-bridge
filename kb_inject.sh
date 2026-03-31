@@ -93,6 +93,7 @@ sources_map = {
     'dblp_daily.md': ('DBLP CS论文', 1500),
     'acl_anthology.md': ('ACL Anthology NLP论文', 1000),
     'pwc_daily.md': ('Papers with Code 论文+代码', 1500),
+    'github_trending.md': ('GitHub Trending ML/AI', 1500),
     'freight_daily.md': ('货代动态', 800),
     'openclaw_official.md': ('OpenClaw 更新', 800),
 }

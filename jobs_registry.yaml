@@ -87,6 +87,15 @@ jobs:
     enabled: false                   # V31: API 302→HF，已合并到 HF Papers 增强
     description: Papers with Code 论文+代码监控（已停用：API 302重定向到HF，功能合并到 hf_papers）
 
+  - id: github_trending
+    scheduler: system
+    entry: jobs/github_trending/run_github_trending.sh
+    interval: "0 14 * * *"             # 每天 14:00 HKT
+    log: ~/.openclaw/logs/jobs/github_trending.log
+    needs_api_key: false
+    enabled: true
+    description: GitHub Trending ML/AI 仓库监控（GitHub Search API，从代码端发现趋势）
+
   - id: kb_evening
     scheduler: system
     entry: kb_evening.sh
