@@ -20,6 +20,13 @@ mkdir -p "$(dirname "$LOG")"
 
 cd "$REPO_DIR" || { echo "$(date) ERROR: cannot cd to $REPO_DIR" >> "$LOG"; exit 1; }
 
+# ── 0. 确保 JSON merge driver 已配置（status.json 冲突自动合并）──
+if ! git config --get merge.json-status.driver >/dev/null 2>&1; then
+    git config merge.json-status.driver "python3 $REPO_DIR/merge_status_json.py %O %A %B"
+    git config merge.json-status.name "JSON-aware merge for status.json"
+    echo "$(date) 配置 JSON merge driver for status.json" >> "$LOG"
+fi
+
 BRANCH=$(git symbolic-ref --short HEAD 2>/dev/null)
 if [ -z "$BRANCH" ]; then
     echo "$(date) ERROR: cannot determine branch" >> "$LOG"
