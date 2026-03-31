@@ -16,10 +16,7 @@
 
 ## 我的职责
 
-1. **健康检查** — 检查三层服务状态：
-   - `curl -s http://localhost:5001/health` — Adapter
-   - `curl -s http://localhost:5002/health` — Tool Proxy
-   - `curl -s http://localhost:18789/health` — Gateway
+1. **健康检查** — 用 exec 执行 `bash ~/ops_health.sh`，一次检查全部服务状态（Adapter/Proxy/Gateway/磁盘/Cron/心跳）
 
 2. **日志排查** — 读取日志定位问题：
    - `~/adapter.log` / `~/tool_proxy.log` — 核心服务
