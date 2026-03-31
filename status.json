@@ -76,7 +76,7 @@
   "recent_changes": [
     {
       "date": "2026-03-31",
-      "what": "V31: 遗留清理(chmod+x 5脚本+config漂移+OpenReview crontab+preference_learner注册+HN dlopen误报确认) + ops agent激活(ops_soul.md+工具白名单+auto_deploy)",
+      "what": "V31: 遗留清理(chmod+x 5脚本+config漂移+OpenReview crontab+preference_learner注册) + ops agent激活(ops_soul.md+全局exec+sandbox off+ops_health.sh包装脚本绕过Qwen3 localhost拒绝)",
       "by": "claude_code"
     },
     {
@@ -146,7 +146,7 @@
   },
   "session_context": {
     "last_session": "2026-03-31",
-    "unfinished": "",
+    "unfinished": "HN Python3.14 dlopen真实问题(Homebrew python3→3.14, cron PATH优先/opt/homebrew/bin, 需指定/usr/bin/python3或修复3.14); ops agent已激活(全局exec+sandbox off+ops_health.sh); 货代no_data和kb_evening发送失败为偶发/历史",
     "open_prs": [],
     "blocked_on": ""
   },
