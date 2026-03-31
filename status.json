@@ -1,6 +1,6 @@
 {
-  "updated": "2026-03-31 01:27:07",
-  "updated_by": "claude_code",
+  "updated": "2026-03-31 09:00:01",
+  "updated_by": "cron",
   "priorities": [
     {
       "task": "数据清洗 Phase 2",
@@ -76,16 +76,6 @@
   "recent_changes": [
     {
       "date": "2026-03-31",
-      "what": "V31续: FILE_MAP补齐7个遗漏文件+preflight双向校验(防止再遗漏)+动态context裁剪(70%/85%自动削减历史消息,防止260K溢出)+check_registry FILE_MAP缺失改为ERROR",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-03-31",
-      "what": "V31: watchdog全面升级8维度监控（11job+服务健康+磁盘+crontab条目数+KB新鲜度+日志扫描加强+告警分级）+ search_kb混合检索上线 + 论文监控5源全覆盖 + Zhihu文章",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-03-31",
       "what": "V30.5: search_kb混合检索工具(语义搜索+关键词+LLM解读) + DBLP监控上线 + kb_evening修复 + KB下游管道扩展5源 + Gateway工具配置确认(10个为上限)",
       "by": "claude_code"
     },
@@ -133,16 +123,16 @@
   "feedback": [],
   "health": {
     "services": "ok",
-    "last_deploy": "5258695",
-    "last_deploy_time": "2026-03-31 00:46",
+    "last_deploy": "f9ffbf9",
+    "last_deploy_time": "2026-03-31 08:00",
     "last_preflight": "pass",
-    "last_preflight_time": "2026-03-31 00:46",
+    "last_preflight_time": "2026-03-31 08:00",
     "last_trend_report": "2026-03-28",
     "model_id": "Qwen3-235B-A22B-Instruct-2507-W8A8",
-    "kb_stats": "149 notes, 7 today, 1211KB sources",
+    "kb_stats": "151 notes, 9 today, 1231KB sources",
     "stale_jobs": "all_ok",
-    "last_refresh": "2026-03-31 01:00",
-    "security_score": "93/100 (93.0%)"
+    "last_refresh": "2026-03-31 09:00",
+    "security_score": "98/100 (98.0%)"
   },
   "session_context": {
     "last_session": "2026-03-29",
@@ -151,7 +141,7 @@
     "blocked_on": ""
   },
   "quality": {
-    "security_score": "93",
+    "security_score": 0,
     "test_count": 393,
     "last_regression": "2026-03-27 pass",
     "coverage_pct": 0
@@ -217,8 +207,7 @@
   "focus": "数据清洗Phase2 + PA子Agent委派 + ops agent激活（PA memory/偏好读取等Qwen模型升级后再验证）",
   "notes": "",
   "preferences": [
-    "[auto] 活跃时段 02:00-24:00（2天数据）",
     "[auto] 用户偏好简洁回复（平均响应 <200 字）",
-    "[auto] 关注领域：技术/AI、学术/论文、技术/编程、arxiv-ai-models、技术/OpenClaw"
+    "[auto] 关注领域：技术/AI、学术/论文、arxiv-ai-models、技术/编程、技术/OpenClaw"
   ]
 }
