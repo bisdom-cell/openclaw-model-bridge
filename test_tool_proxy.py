@@ -239,6 +239,45 @@ class TestTruncateMessages(unittest.TestCase):
         result, dropped = truncate_messages(msgs, max_bytes=1000)
         self.assertEqual(result[0]["role"], "system")
 
+    def test_dynamic_trim_at_85pct(self):
+        """V31: 当 last_prompt_tokens >= 85% of context limit 时，动态缩减 max_bytes 到 50KB。"""
+        msgs = [
+            {"role": "system", "content": "sys"},
+        ] + [
+            {"role": "user" if i % 2 == 0 else "assistant", "content": "X" * 5000}
+            for i in range(40)  # ~200KB of messages
+        ]
+        # 不传 last_prompt_tokens → 使用默认 200KB，大部分保留
+        _, dropped_default = truncate_messages(msgs, max_bytes=200000)
+        # 传入 85% token 用量 → 动态缩减到 50KB，裁剪更多
+        _, dropped_85pct = truncate_messages(msgs, max_bytes=200000,
+                                             last_prompt_tokens=int(260000 * 0.86))
+        self.assertGreater(dropped_85pct, dropped_default)
+
+    def test_dynamic_trim_at_70pct(self):
+        """V31: 70-85% 区间，缩减到 100KB。"""
+        msgs = [
+            {"role": "system", "content": "sys"},
+        ] + [
+            {"role": "user" if i % 2 == 0 else "assistant", "content": "X" * 5000}
+            for i in range(40)
+        ]
+        _, dropped_default = truncate_messages(msgs, max_bytes=200000)
+        _, dropped_70pct = truncate_messages(msgs, max_bytes=200000,
+                                             last_prompt_tokens=int(260000 * 0.72))
+        self.assertGreater(dropped_70pct, dropped_default)
+
+    def test_dynamic_trim_below_70pct(self):
+        """V31: < 70% 时不额外裁剪。"""
+        msgs = [
+            {"role": "system", "content": "sys"},
+            {"role": "user", "content": "Hi"},
+        ]
+        _, dropped_normal = truncate_messages(msgs, max_bytes=200000)
+        _, dropped_low = truncate_messages(msgs, max_bytes=200000,
+                                           last_prompt_tokens=int(260000 * 0.5))
+        self.assertEqual(dropped_normal, dropped_low)  # 同样为 0
+
 
 class TestBuildSSE(unittest.TestCase):
 

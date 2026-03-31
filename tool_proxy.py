@@ -659,12 +659,13 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                 was_streaming = body.get("stream", False)
                 body["stream"] = False
 
-                # Truncate old messages
+                # Truncate old messages (V31: 动态裁剪，基于上次 prompt_tokens)
                 msgs = body.get("messages", [])
-                truncated, dropped = truncate_messages(msgs)
+                last_pt = proxy_stats.last_prompt_tokens
+                truncated, dropped = truncate_messages(msgs, last_prompt_tokens=last_pt)
                 if dropped:
                     body["messages"] = truncated
-                    log(f"[{rid}] WARN: Truncated {dropped} old messages ({len(msgs)} -> {len(truncated)} msgs)")
+                    log(f"[{rid}] WARN: Truncated {dropped} old messages ({len(msgs)} -> {len(truncated)} msgs, last_pt={last_pt:,})")
 
                 # 多模态媒体注入：检测 <media:image> 并注入 base64 图片
                 msgs = body.get("messages", [])
