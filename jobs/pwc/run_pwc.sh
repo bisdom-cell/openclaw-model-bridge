@@ -170,6 +170,60 @@ if [ "$PAPER_COUNT" -eq 0 ]; then
 fi
 echo "[pwc] 新论文: ${PAPER_COUNT} 篇"
 
+# ── 2.5 获取每篇论文的 GitHub 仓库详情 ────────────────────────────────
+ENRICHED_FILE="$CACHE/papers_enriched.jsonl"
+/usr/bin/python3 - "$PAPERS_FILE" "$ENRICHED_FILE" << 'PYEOF'
+import sys, json, urllib.request, urllib.error, time
+
+papers_file = sys.argv[1]
+enriched_file = sys.argv[2]
+
+papers = []
+with open(papers_file) as f:
+    for line in f:
+        line = line.strip()
+        if line:
+            papers.append(json.loads(line))
+
+for p in papers:
+    pid = p.get("paper_id", "")
+    if not pid:
+        continue
+    # 请求 /papers/{id}/repositories/ 获取代码仓库
+    url = f"https://paperswithcode.com/api/v1/papers/{pid}/repositories/"
+    try:
+        req = urllib.request.Request(url, headers={
+            "Accept": "application/json",
+            "User-Agent": "openclaw-pwc-monitor/1.0"
+        })
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            repo_data = json.loads(resp.read().decode())
+        results = repo_data.get("results", repo_data) if isinstance(repo_data, dict) else repo_data
+        if isinstance(results, list) and results:
+            # 按 stars 降序取最佳仓库
+            results.sort(key=lambda r: r.get("stars", 0), reverse=True)
+            best = results[0]
+            p["github_url"] = best.get("url", "")
+            p["github_stars"] = best.get("stars", 0)
+            p["framework"] = best.get("framework", "")
+            p["is_official"] = best.get("is_official", False)
+            p["repo_count"] = len(results)
+        time.sleep(0.5)  # 保守限速，每篇间隔 0.5s
+    except (urllib.error.URLError, urllib.error.HTTPError, Exception) as e:
+        print(f"[pwc] WARN: 获取 {pid} 仓库失败: {e}", file=sys.stderr)
+
+with open(enriched_file, 'w') as f:
+    for p in papers:
+        f.write(json.dumps(p, ensure_ascii=False) + '\n')
+
+has_code = sum(1 for p in papers if p.get("github_url"))
+print(f"[pwc] 仓库详情获取完成: {has_code}/{len(papers)} 篇有代码", file=sys.stderr)
+PYEOF
+# 用 enriched 版本替换原始文件
+if [ -f "$ENRICHED_FILE" ]; then
+    mv "$ENRICHED_FILE" "$PAPERS_FILE"
+fi
+
 # ── 3. 构建LLM prompt ────────────────────────────────────────────────
 PROMPT_FILE="$CACHE/llm_prompt.txt"
 /usr/bin/python3 - "$PAPERS_FILE" << 'PYEOF' > "$PROMPT_FILE"
@@ -313,8 +367,11 @@ llm_ok = 0
 msg_lines = [f"\U0001F4BB Papers with Code 精选 ({day})", ""]
 
 for i, paper in enumerate(papers):
+    github_url = paper.get('github_url', '')
+    github_stars = paper.get('github_stars', 0)
+    framework = paper.get('framework', '')
+    is_official = paper.get('is_official', False)
     repo_count = paper.get('repo_count', 0)
-    repo_badge = f"\U0001F4E6 {repo_count}个代码仓库" if repo_count > 0 else "📄 无代码"
 
     if i < len(parsed_blocks):
         cn_title, contrib, stars = parsed_blocks[i]
@@ -328,9 +385,25 @@ for i, paper in enumerate(papers):
         stars = "价值：⭐⭐⭐"
 
     msg_lines.append(f"*{cn_title}*")
-    msg_lines.append(f"作者：{paper['first_author']} 等 | {repo_badge}")
+    msg_lines.append(f"作者：{paper['first_author']} 等")
+
+    # 论文链接
     link = paper.get('url_abs', '') or f"https://paperswithcode.com/paper/{paper.get('paper_id', '')}"
-    msg_lines.append(f"链接：{link}")
+    msg_lines.append(f"论文：{link}")
+
+    # GitHub 仓库详情（核心价值）
+    if github_url:
+        badge_parts = [f"\u2B50 {github_stars}"]
+        if framework:
+            badge_parts.append(framework)
+        if is_official:
+            badge_parts.append("官方")
+        if repo_count > 1:
+            badge_parts.append(f"共{repo_count}个仓库")
+        msg_lines.append(f"代码：{github_url} ({' | '.join(badge_parts)})")
+    else:
+        msg_lines.append("代码：暂无")
+
     msg_lines.append(contrib)
     msg_lines.append(stars)
     msg_lines.append("")
