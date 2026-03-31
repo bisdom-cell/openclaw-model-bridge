@@ -146,7 +146,7 @@
   },
   "session_context": {
     "last_session": "2026-03-31",
-    "unfinished": "",
+    "unfinished": "kb_embed.py sources覆盖率不足(sources/*.md大文件分块索引不完整，PA统计严重低估ArXiv/HN/OpenClaw/货代数据量)",
     "open_prs": [],
     "blocked_on": ""
   },
