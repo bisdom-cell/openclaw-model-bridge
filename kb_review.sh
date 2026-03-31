@@ -101,6 +101,7 @@ sources = {
     'dblp_daily.md': 'DBLP CS论文',
     'acl_anthology.md': 'ACL Anthology NLP论文',
     'pwc_daily.md': 'Papers with Code 论文+代码',
+    'github_trending.md': 'GitHub Trending ML/AI',
     'freight_daily.md': '货代动态',
     'openclaw_official.md': 'OpenClaw更新',
 }
@@ -256,6 +257,7 @@ sources_map = {
     'dblp_daily.md': ('📚 DBLP', 3),
     'acl_anthology.md': ('📝 ACL', 2),
     'pwc_daily.md': ('💻 PwC', 3),
+    'github_trending.md': ('🚀 GH趋势', 3),
     'freight_daily.md': ('🚢 货代', 2),
     'openclaw_official.md': ('⚙️ OpenClaw', 1),
 }
