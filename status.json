@@ -1,5 +1,5 @@
 {
-  "updated": "2026-04-01 02:00:02",
+  "updated": "2026-04-01 03:00:01",
   "updated_by": "cron",
   "priorities": [
     {
@@ -133,15 +133,15 @@
   "feedback": [],
   "health": {
     "services": "ok",
-    "last_deploy": "e8db264",
-    "last_deploy_time": "2026-04-01 01:00",
+    "last_deploy": "ebf4a91",
+    "last_deploy_time": "2026-04-01 02:00",
     "last_preflight": "pass",
-    "last_preflight_time": "2026-04-01 01:00",
+    "last_preflight_time": "2026-04-01 02:00",
     "last_trend_report": "2026-03-28",
     "model_id": "Qwen3-235B-A22B-Instruct-2507-W8A8",
-    "kb_stats": "162 notes, 13 today, 1290KB sources",
-    "stale_jobs": "arxiv",
-    "last_refresh": "2026-04-01 02:00",
+    "kb_stats": "162 notes, 13 today, 1292KB sources",
+    "stale_jobs": "arxiv,freight",
+    "last_refresh": "2026-04-01 03:00",
     "security_score": "98/100 (98.0%)"
   },
   "session_context": {
