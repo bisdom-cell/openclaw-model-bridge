@@ -37,7 +37,8 @@ HEADER_FILE="$CACHE/curl_headers.txt"
 
 # 搜索策略：多个 topic 关键词，按 stars 排序
 # GitHub Search API：免费未认证 10次/分钟，认证 30次/分钟
-TOPICS="machine-learning+OR+deep-learning+OR+llm+OR+large-language-model+OR+transformer+OR+diffusion+OR+rag+OR+ai-agent"
+# GitHub Search API 限制最多 5 个 AND/OR/NOT 操作符
+TOPICS="machine-learning+OR+deep-learning+OR+llm+OR+ai-agent+OR+diffusion-model"
 SEARCH_URL="https://api.github.com/search/repositories?q=${TOPICS}+created:%3E${WEEK_AGO}&sort=stars&order=desc&per_page=50"
 
 FETCH_OK=false
