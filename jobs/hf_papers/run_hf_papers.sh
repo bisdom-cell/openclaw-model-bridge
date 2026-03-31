@@ -154,6 +154,58 @@ if [ "$PAPER_COUNT" -eq 0 ]; then
 fi
 echo "[hf_papers] 新论文: ${PAPER_COUNT} 篇"
 
+# ── 2.5 通过 GitHub Search 查找论文关联的代码仓库 ─────────────────────
+ENRICHED_FILE="$CACHE/papers_enriched.jsonl"
+python3 - "$PAPERS_FILE" "$ENRICHED_FILE" << 'PYEOF'
+import sys, json, urllib.request, urllib.error, urllib.parse, time
+
+papers_file = sys.argv[1]
+enriched_file = sys.argv[2]
+
+papers = []
+with open(papers_file) as f:
+    for line in f:
+        line = line.strip()
+        if line:
+            papers.append(json.loads(line))
+
+for p in papers:
+    pid = p.get("paper_id", "")
+    if not pid:
+        continue
+    # 用 ArXiv ID 搜索 GitHub 仓库（官方实现通常在 README 中引用论文链接）
+    query = urllib.parse.quote(f"{pid} in:readme")
+    url = f"https://api.github.com/search/repositories?q={query}&sort=stars&order=desc&per_page=3"
+    try:
+        req = urllib.request.Request(url, headers={
+            "Accept": "application/vnd.github.v3+json",
+            "User-Agent": "openclaw-hf-monitor/1.0"
+        })
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read().decode())
+        items = data.get("items", [])
+        if items:
+            best = items[0]
+            p["github_url"] = best.get("html_url", "")
+            p["github_stars"] = best.get("stargazers_count", 0)
+            p["github_desc"] = (best.get("description", "") or "")[:80]
+            p["github_lang"] = best.get("language", "")
+            p["repo_count"] = data.get("total_count", len(items))
+        time.sleep(3)  # GitHub 未认证限速 10次/分钟，间隔3s安全
+    except (urllib.error.URLError, urllib.error.HTTPError, Exception) as e:
+        print(f"[hf_papers] WARN: GitHub搜索 {pid} 失败: {e}", file=sys.stderr)
+
+with open(enriched_file, 'w') as f:
+    for p in papers:
+        f.write(json.dumps(p, ensure_ascii=False) + '\n')
+
+has_code = sum(1 for p in papers if p.get("github_url"))
+print(f"[hf_papers] GitHub仓库查找完成: {has_code}/{len(papers)} 篇有代码", file=sys.stderr)
+PYEOF
+if [ -f "$ENRICHED_FILE" ]; then
+    mv "$ENRICHED_FILE" "$PAPERS_FILE"
+fi
+
 # ── 3. 构建LLM prompt ────────────────────────────────────────────────
 PROMPT_FILE="$CACHE/llm_prompt.txt"
 python3 - "$PAPERS_FILE" << 'PYEOF' > "$PROMPT_FILE"
@@ -310,7 +362,18 @@ for i, paper in enumerate(papers):
 
     msg_lines.append(f"*{cn_title}*")
     msg_lines.append(f"作者：{paper['first_author']} 等 | \U0001F44D {upvotes}")
-    msg_lines.append(f"链接：https://huggingface.co/papers/{paper.get('paper_id', '')}")
+    msg_lines.append(f"论文：https://huggingface.co/papers/{paper.get('paper_id', '')}")
+
+    # GitHub 代码仓库（通过 ArXiv ID 搜索关联）
+    github_url = paper.get('github_url', '')
+    if github_url:
+        github_stars = paper.get('github_stars', 0)
+        github_lang = paper.get('github_lang', '')
+        badge_parts = [f"\u2B50 {github_stars}"]
+        if github_lang:
+            badge_parts.append(github_lang)
+        msg_lines.append(f"代码：{github_url} ({' | '.join(badge_parts)})")
+
     msg_lines.append(contrib)
     msg_lines.append(stars)
     msg_lines.append("")

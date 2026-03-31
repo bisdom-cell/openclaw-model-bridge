@@ -84,8 +84,8 @@ jobs:
     interval: "0 13 * * *"             # 每天 13:00 HKT
     log: ~/.openclaw/logs/jobs/pwc.log
     needs_api_key: false
-    enabled: true
-    description: Papers with Code 论文+代码监控（免费API，论文+代码仓库关联）
+    enabled: false                   # V31: API 302→HF，已合并到 HF Papers 增强
+    description: Papers with Code 论文+代码监控（已停用：API 302重定向到HF，功能合并到 hf_papers）
 
   - id: kb_evening
     scheduler: system
