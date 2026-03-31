@@ -76,6 +76,11 @@
   "recent_changes": [
     {
       "date": "2026-03-31",
+      "what": "V31: Watchdog 8维全面升级(11 jobs+服务健康+磁盘+crontab+KB新鲜度) + 动态context裁剪(70%/85%阈值) + FILE_MAP补齐7文件+双向preflight验证 + status.json JSON合并驱动(消除反复冲突) + preflight check#6/#15修复",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-03-31",
       "what": "V30.5: search_kb混合检索工具(语义搜索+关键词+LLM解读) + DBLP监控上线 + kb_evening修复 + KB下游管道扩展5源 + Gateway工具配置确认(10个为上限)",
       "by": "claude_code"
     },
@@ -135,8 +140,8 @@
     "security_score": "98/100 (98.0%)"
   },
   "session_context": {
-    "last_session": "2026-03-29",
-    "unfinished": "preference_learner crontab待注册到Mac Mini; inboundDebounce待Gateway升级后启用",
+    "last_session": "2026-03-31",
+    "unfinished": "5脚本缺chmod+x(hf_papers/semantic_scholar/dblp/acl_anthology/preference_learner); docs/config.md漂移待同步; HN Python3.14 dlopen cron环境问题; OpenReview crontab残留条目待清理; preference_learner crontab待注册",
     "open_prs": [],
     "blocked_on": ""
   },
@@ -204,7 +209,7 @@
     ],
     "evolved_from": "2026-03-28 status.json共享了个寂寞+SOUL.md空置数月的反思"
   },
-  "focus": "数据清洗Phase2 + PA子Agent委派 + ops agent激活（PA memory/偏好读取等Qwen模型升级后再验证）",
+  "focus": "数据清洗Phase2 + PA子Agent委派 + ops agent激活 + 遗留清理(chmod+x/config漂移/HN cron修复)",
   "notes": "",
   "preferences": [
     "[auto] 用户偏好简洁回复（平均响应 <200 字）",
