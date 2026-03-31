@@ -32,6 +32,10 @@ test -f "$KB_SRC" || echo "# RSS 博客订阅" > "$KB_SRC"
 # 格式：name|feed_url|label
 RSS_FEEDS=(
     "科学空间|https://spaces.ac.cn/feed|苏剑林(NLP/深度学习)"
+    "Lil'Log|https://lilianweng.github.io/feed.xml|Lilian Weng/OpenAI(LLM/Agent综述)"
+    "Simon Willison|https://simonwillison.net/atom/everything/|Simon Willison(LLM工具/实践)"
+    "Latent Space|https://www.latent.space/feed|Swyx&Alessio(AI工程/Agent架构)"
+    "LangChain|https://blog.langchain.dev/rss/|LangChain(Agent/RAG实战)"
 )
 
 SEEN_FILE="$CACHE/seen_urls.txt"
