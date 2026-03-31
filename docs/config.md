@@ -285,6 +285,7 @@ export GEMINI_API_KEY="AIzaXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"   # V29.1新增
 | weekly-health-check | 每周一09:00 | `~/health_check.sh` | `~/health_check.log` | ✅ V29.1：从openclaw cron迁移至系统crontab，直接执行不经LLM |
 | ~~pwc~~ | ~~每天13:00~~ | `~/.openclaw/jobs/pwc/run_pwc.sh` | `~/.openclaw/logs/jobs/pwc.log` | ❌ **已停用**（V31：API 302→HF，功能合并到 hf_papers 增强） |
 | github-trending | 每天14:00 | `~/.openclaw/jobs/github_trending/run_github_trending.sh` | `~/.openclaw/logs/jobs/github_trending.log` | ✅ V31新增：GitHub Trending ML/AI 仓库监控（Search API，从代码端发现趋势） |
+| rss-blogs | 每天08:00,18:00 | `~/.openclaw/jobs/rss_blogs/run_rss_blogs.sh` | `~/.openclaw/logs/jobs/rss_blogs.log` | ✅ V31新增：RSS 博客订阅监控（科学空间等中文技术博客） |
 | preference-learner | 每天07:30 | `~/preference_learner.py` | `~/preference_learner.log` | ✅ V30.4新增：每天从行为数据自动推断用户偏好（活跃时段/工具使用/关注领域），写入status.json→SOUL.md |
 | gateway-watchdog | ~~每30分钟~~ | `~/restart.sh` | `~/.openclaw/logs/gateway_watchdog.log` | ❌ **已移除**（#95：与launchd KeepAlive双主控冲突，导致误杀gateway） |
 
