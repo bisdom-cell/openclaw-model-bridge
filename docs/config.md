@@ -283,6 +283,7 @@ export GEMINI_API_KEY="AIzaXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"   # V29.1新增
 | kb-status-refresh | 每小时整点 | `~/kb_status_refresh.sh` | `~/kb_status_refresh.log` | ✅ V30.1新增：每小时刷新status.json系统健康字段（三层服务/模型ID/KB统计/过期job） |
 | auto-deploy | 每2分钟 | `~/openclaw-model-bridge/auto_deploy.sh` | `~/.openclaw/logs/auto_deploy.log` | ✅ V27.1新增+V28.1：部署后自动体检 |
 | weekly-health-check | 每周一09:00 | `~/health_check.sh` | `~/health_check.log` | ✅ V29.1：从openclaw cron迁移至系统crontab，直接执行不经LLM |
+| pwc | 每天13:00 | `~/.openclaw/jobs/pwc/run_pwc.sh` | `~/.openclaw/logs/jobs/pwc.log` | ✅ V31新增：Papers with Code 论文+代码监控（免费API，论文+代码仓库关联） |
 | preference-learner | 每天07:30 | `~/preference_learner.py` | `~/preference_learner.log` | ✅ V30.4新增：每天从行为数据自动推断用户偏好（活跃时段/工具使用/关注领域），写入status.json→SOUL.md |
 | gateway-watchdog | ~~每30分钟~~ | `~/restart.sh` | `~/.openclaw/logs/gateway_watchdog.log` | ❌ **已移除**（#95：与launchd KeepAlive双主控冲突，导致误杀gateway） |
 

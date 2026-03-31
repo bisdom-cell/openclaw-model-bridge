@@ -116,6 +116,7 @@ declare -a FILE_MAP=(
     "jobs/openreview/run_openreview.sh|$HOME/.openclaw/jobs/openreview/run_openreview.sh"
     "jobs/dblp/run_dblp.sh|$HOME/.openclaw/jobs/dblp/run_dblp.sh"
     "jobs/acl_anthology/run_acl_anthology.sh|$HOME/.openclaw/jobs/acl_anthology/run_acl_anthology.sh"
+    "jobs/pwc/run_pwc.sh|$HOME/.openclaw/jobs/pwc/run_pwc.sh"
 
     # 备份脚本
     "openclaw_backup.sh|$HOME/openclaw_backup.sh"
