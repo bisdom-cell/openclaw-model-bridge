@@ -1,5 +1,5 @@
 {
-  "updated": "2026-03-31 17:00:01",
+  "updated": "2026-03-31 18:00:01",
   "updated_by": "cron",
   "priorities": [
     {
@@ -50,7 +50,7 @@
     {
       "task": "论文源扩展: Papers with Code",
       "status": "done",
-      "note": "V31: PwC API已死(302→HF)，改为HF Papers增强——通过GitHub Search API查找论文关联代码仓库(stars/语言)"
+      "note": "V31: 论文+代码监控上线，免费API，每日13:00推送，优先展示有代码的论文"
     },
     {
       "task": "论文源扩展: OpenReview",
@@ -133,15 +133,15 @@
   "feedback": [],
   "health": {
     "services": "ok",
-    "last_deploy": "83b4c83",
-    "last_deploy_time": "2026-03-31 15:00",
+    "last_deploy": "d028219",
+    "last_deploy_time": "2026-03-31 17:42",
     "last_preflight": "pass",
-    "last_preflight_time": "2026-03-31 15:00",
+    "last_preflight_time": "2026-03-31 17:00",
     "last_trend_report": "2026-03-28",
     "model_id": "Qwen3-235B-A22B-Instruct-2507-W8A8",
-    "kb_stats": "155 notes, 13 today, 1255KB sources",
+    "kb_stats": "159 notes, 17 today, 1266KB sources",
     "stale_jobs": "all_ok",
-    "last_refresh": "2026-03-31 17:00",
+    "last_refresh": "2026-03-31 18:00",
     "security_score": "98/100 (98.0%)"
   },
   "session_context": {
