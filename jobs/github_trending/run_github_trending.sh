@@ -42,27 +42,25 @@ SEARCH_URL="https://api.github.com/search/repositories?q=${TOPICS}+created:%3E${
 
 FETCH_OK=false
 for attempt in 1 2 3; do
-  HTTP_CODE=$(curl -sSL --max-time 30 -w '%{http_code}' \
+  HTTP_CODE=$(curl -sS --max-time 30 -w '%{http_code}' \
     -H "Accept: application/vnd.github.v3+json" \
     -H "User-Agent: openclaw-gh-trending/1.0" \
-    -D "$HEADER_FILE" \
-    "$SEARCH_URL" \
-    -o "$FEED_FILE" 2>"$CACHE/curl_feed.err") || HTTP_CODE="000"
+    -o "$FEED_FILE" \
+    "$SEARCH_URL" 2>"$CACHE/curl_feed.err") || HTTP_CODE="000"
 
   if [ "$HTTP_CODE" = "200" ]; then
     if $PYTHON3 -c "import json; json.load(open('$FEED_FILE'))" 2>/dev/null; then
       FETCH_OK=true
       break
     else
-      log "WARN: GitHub API 返回非JSON内容（第${attempt}次）"
+      log "WARN: GitHub API 返回非JSON内容（attempt ${attempt}）"
     fi
   else
-    log "WARN: GitHub API 返回 HTTP $HTTP_CODE（第${attempt}次）"
+    log "WARN: GitHub API HTTP ${HTTP_CODE}（attempt ${attempt}）"
   fi
 
   if [ "$HTTP_CODE" = "403" ] || [ "$HTTP_CODE" = "429" ]; then
-    RETRY_AFTER=$(grep -i '^Retry-After:' "$HEADER_FILE" 2>/dev/null | head -1 | tr -dc '0-9')
-    WAIT="${RETRY_AFTER:-$((60 * attempt))}"
+    WAIT=$((60 * attempt))
     log "限速退避等待 ${WAIT}s"
     sleep "$WAIT"
   else
