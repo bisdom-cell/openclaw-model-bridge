@@ -263,10 +263,28 @@ def should_strip_tools(messages):
     return False
 
 
-def truncate_messages(messages, max_bytes=MAX_REQUEST_BYTES):
-    """截断旧消息以控制请求体大小。保留所有 system 消息 + 最近的非 system 消息。
+def truncate_messages(messages, max_bytes=MAX_REQUEST_BYTES, last_prompt_tokens=0):
+    """截断旧消息以控制请求体大小和 token 用量。
+
+    保留所有 system 消息 + 最近的非 system 消息。
+    V31: 当上一次 prompt_tokens 已接近 context limit 时，动态缩减 max_bytes
+    以主动削减历史消息，防止 context 溢出。
     返回 (truncated_messages, dropped_count)。
     """
+    # ── V31: 基于上一次 prompt_tokens 的动态裁剪 ──
+    # 原理：prompt_tokens 反映 LLM 实际消耗，包括 system prompt、tool schema、
+    # KV cache 等 messages bytes 无法衡量的开销。
+    # 当 prompt_tokens 已高时，主动压缩 messages 给 LLM 更多呼吸空间。
+    if last_prompt_tokens > 0 and CONTEXT_LIMIT > 0:
+        usage_pct = last_prompt_tokens / CONTEXT_LIMIT
+        if usage_pct >= 0.85:
+            # 临界：只保留最近 ~50KB 消息（大幅裁剪）
+            max_bytes = min(max_bytes, 50000)
+        elif usage_pct >= 0.70:
+            # 预警：保留最近 ~100KB 消息（适度裁剪）
+            max_bytes = min(max_bytes, 100000)
+        # < 70%: 使用默认 200KB，不额外裁剪
+
     system = [m for m in messages if m.get("role") == "system"]
     others = [m for m in messages if m.get("role") != "system"]
     # 截断超大 system 消息（保留前 max_bytes/2 字符）
