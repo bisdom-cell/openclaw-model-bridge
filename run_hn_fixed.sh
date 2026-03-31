@@ -1,6 +1,8 @@
 #!/bin/bash
 # cron 环境 PATH 极简，必须显式声明（规则 #13）
 export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
+# Homebrew python3 → 3.14 在 cron 环境 dlopen 失败，用系统 Python 3.9（只需标准库）
+PYTHON3=/usr/bin/python3
 
 # 防重叠执行（mkdir 原子锁，macOS 兼容）
 LOCK="/tmp/hn_watcher.lockdir"
@@ -43,7 +45,7 @@ if [ ! -s "$RSS_FILE" ]; then
 fi
 
 # ★ Fix1: Python dedup阶段同步写inbox，防止LLM失败时URL未记录导致重复处理
-python3 - << 'PYEOF' > "$NEW_FILE"
+$PYTHON3 - << 'PYEOF' > "$NEW_FILE"
 import xml.etree.ElementTree as ET
 import json, os
 
@@ -126,7 +128,7 @@ fi
 TODAY=$(date '+%Y-%m-%d')
 
 # 用Python读取所有条目，构建批量Prompt，一次LLM调用处理全部
-RESULT=$(python3 - << 'PYEOF'
+RESULT=$($PYTHON3 - << 'PYEOF'
 import json, os, re, sys
 
 new_file = os.path.expanduser("~/.openclaw/jobs/hn_watcher/cache/hn_new.jsonl")
@@ -268,7 +270,7 @@ printf "💻 HN 头版精选 (%s)\n\n" "$TODAY" > "$MSG_FILE"
 
 # 单次 Python 调用处理全部结果，避免每条数据重复启动 5 个子进程
 # 注意：不能用 python3 - <<heredoc <<<data，heredoc 会耗尽 stdin 导致 data 丢失
-SENT_COUNT=$(echo "$RESULT" | python3 -c '
+SENT_COUNT=$(echo "$RESULT" | $PYTHON3 -c '
 import json, sys
 
 today, msg_file, kb_source = sys.argv[1], sys.argv[2], sys.argv[3]
