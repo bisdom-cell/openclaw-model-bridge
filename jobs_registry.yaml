@@ -96,6 +96,15 @@ jobs:
     enabled: true
     description: GitHub Trending ML/AI 仓库监控（GitHub Search API，从代码端发现趋势）
 
+  - id: rss_blogs
+    scheduler: system
+    entry: jobs/rss_blogs/run_rss_blogs.sh
+    interval: "0 8,18 * * *"           # 每天 08:00, 18:00 HKT
+    log: ~/.openclaw/logs/jobs/rss_blogs.log
+    needs_api_key: false
+    enabled: true
+    description: RSS 博客订阅监控（科学空间等，高质量中文技术博客）
+
   - id: kb_evening
     scheduler: system
     entry: kb_evening.sh
