@@ -78,6 +78,15 @@ jobs:
     enabled: true
     description: ACL Anthology NLP 顶会论文监控（ACL/EMNLP/NAACL）
 
+  - id: pwc
+    scheduler: system
+    entry: jobs/pwc/run_pwc.sh
+    interval: "0 13 * * *"             # 每天 13:00 HKT
+    log: ~/.openclaw/logs/jobs/pwc.log
+    needs_api_key: false
+    enabled: true
+    description: Papers with Code 论文+代码监控（免费API，论文+代码仓库关联）
+
   - id: kb_evening
     scheduler: system
     entry: kb_evening.sh

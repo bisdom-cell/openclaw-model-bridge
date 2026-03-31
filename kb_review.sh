@@ -100,6 +100,7 @@ sources = {
     'semantic_scholar_daily.md': 'Semantic Scholar论文',
     'dblp_daily.md': 'DBLP CS论文',
     'acl_anthology.md': 'ACL Anthology NLP论文',
+    'pwc_daily.md': 'Papers with Code 论文+代码',
     'freight_daily.md': '货代动态',
     'openclaw_official.md': 'OpenClaw更新',
 }
@@ -254,6 +255,7 @@ sources_map = {
     'semantic_scholar_daily.md': ('📈 S2', 3),
     'dblp_daily.md': ('📚 DBLP', 3),
     'acl_anthology.md': ('📝 ACL', 2),
+    'pwc_daily.md': ('💻 PwC', 3),
     'freight_daily.md': ('🚢 货代', 2),
     'openclaw_official.md': ('⚙️ OpenClaw', 1),
 }

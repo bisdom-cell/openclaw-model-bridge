@@ -49,8 +49,8 @@
     },
     {
       "task": "论文源扩展: Papers with Code",
-      "status": "backlog",
-      "note": "论文+代码实现关联，免费API"
+      "status": "done",
+      "note": "V31: 论文+代码监控上线，免费API，每日13:00推送，优先展示有代码的论文"
     },
     {
       "task": "论文源扩展: OpenReview",
