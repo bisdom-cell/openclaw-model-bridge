@@ -123,6 +123,7 @@
 | `test_data_clean.py` | **V30.3新增** 数据清洗单测（80个用例：格式检测/读写/操作/端到端/多格式） |
 | `data_clean_poc/` | **V30.3新增** Phase 0 验证材料（3个脏数据样本+LLM判断力测试脚本） |
 | `SOUL.md` | **V30.4新增** OpenClaw 最高优先级 system prompt（PA身份Wei、三方宪法、行为指令、项目状态实时快照，每小时自动刷新） |
+| `ops_soul.md` | **V31新增** Ops Agent 运维助手 SOUL.md（系统健康检查/日志排查/cron诊断/维护操作，部署到 `~/.openclaw/SOUL.md`） |
 | `status.json` | **V30.4新增（仓库副本）** 三方共享意识锚点（priorities/feedback/incidents/quality/operating_rules/session_context），Mac Mini 每小时 git push 同步 |
 | `adapter.py` | API适配层（认证 `$REMOTE_API_KEY`，Fallback降级 `$FALLBACK_PROVIDER`） |
 | `openclaw_backup.sh` | **V29.1新增** 每日Gateway state备份到外挂SSD（保留7天） |
@@ -646,7 +647,7 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 | 中高 | **数据清洗 Phase 2**：三 Agent 架构（Profiler/Planner/Executor，可用 `sessions_spawn` 实现）、语义去重、自定义清洗规则、清洗模板积累到 KB、清洗后文件回传 WhatsApp |
 | 中 | **PA 长期记忆**：启用 `memory_search`/`memory_get` 工具，让 PA 跨 session 记住用户偏好。⚠️ V30.4验证：Qwen3不主动调用memory工具（基础设施已就绪，等模型升级后重新验证） |
 | 中 | **PA 子 Agent 委派**：利用 `sessions_spawn` + `sessions_send` 让 PA 自主创建子任务（如 research agent 查资料→返回主 agent 汇总） |
-| 中 | **ops agent 激活**：配置独立工具白名单（exec/read/web_fetch），SOUL.md 注入运维身份，处理系统健康查询和故障排查 |
+| ✅ | **ops agent 激活**：ops_soul.md 运维身份 + 工具白名单(exec/read/write/message/web_fetch) + auto_deploy 部署（V31） |
 | 中低 | **安全加固**：配置 `sandbox.mode: restricted` + `redactSensitive: "tools"` 限制 PA 文件系统写入范围和日志脱敏 |
 | 中低 | **紧急告警中断**：配置 queue `interrupt` 模式，watchdog 告警可中断当前对话直接推送用户 |
 | 低 | 知识图谱：AI大模型领域知识图谱构建（需6-12个月数据积累，暂缓） |
