@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
-"""kb_embed.py — KB 文本向量索引器
+"""kb_embed.py — KB 文本向量索引器（100% 全覆盖）
 
-扫描 ~/.kb/notes/ + ~/.kb/sources/，分块生成本地 embedding，
-存储到 ~/.kb/text_index/（meta.json + vectors.bin）。
+扫描 ~/.kb/ 下所有文本数据（notes/sources/daily/topics/digest/inbox），
+分块生成本地 embedding，存储到 ~/.kb/text_index/（meta.json + vectors.bin）。
 
 用法：
   python3 kb_embed.py              # 增量索引（跳过已索引文件）
   python3 kb_embed.py --reindex    # 重建全部索引
-  python3 kb_embed.py --stats      # 显示索引统计
+  python3 kb_embed.py --stats      # 显示索引统计（含覆盖率）
+  python3 kb_embed.py --verify     # 验证覆盖率和内容完整性
 
 依赖：pip3 install sentence-transformers
 """
@@ -88,13 +89,17 @@ def chunk_text(text, source_file):
 
     策略：按段落优先切分，超长段落按字符数切分。
     每块带来源文件信息，方便 RAG 结果溯源。
+
+    保证零内容丢失：短片段向前/向后合并，不会因 MIN_CHUNK_LEN 丢弃。
     """
     text = strip_frontmatter(text)
-    if len(text) < MIN_CHUNK_LEN:
+    if not text.strip():
         return []
 
     # 按双换行分段
     paragraphs = [p.strip() for p in text.split("\n\n") if p.strip()]
+    if not paragraphs:
+        return []
 
     chunks = []
     current = ""
@@ -105,39 +110,70 @@ def chunk_text(text, source_file):
         if len(current) + len(para) + 2 <= CHUNK_SIZE:
             current = (current + "\n\n" + para).strip() if current else para
         else:
-            # 先保存当前块
+            # 先保存当前块（如果够长）
             if len(current) >= MIN_CHUNK_LEN:
                 chunks.append((current, chunk_idx))
                 chunk_idx += 1
+                current = ""
+            # current < MIN_CHUNK_LEN 时不丢弃，保留并向后合并到下一段
 
-            # 如果单段超长，按字符切分
+            # 如果单段超长，先把残留 current 合并到首块
             if len(para) > CHUNK_SIZE:
                 pos = 0
                 while pos < len(para):
                     end = min(pos + CHUNK_SIZE, len(para))
                     piece = para[pos:end]
+                    # 首块：合并残留的 current
+                    if pos == 0 and current:
+                        piece = current + "\n\n" + piece
+                        current = ""
                     if len(piece) >= MIN_CHUNK_LEN:
                         chunks.append((piece, chunk_idx))
                         chunk_idx += 1
+                    else:
+                        # 极短尾片段合并到上一块
+                        if chunks:
+                            prev_text, prev_idx = chunks[-1]
+                            chunks[-1] = (prev_text + "\n\n" + piece, prev_idx)
                     pos += CHUNK_SIZE - CHUNK_OVERLAP
-                current = ""
             else:
-                # overlap：取上一块尾部
-                if chunks and CHUNK_OVERLAP > 0:
-                    tail = chunks[-1][0][-CHUNK_OVERLAP:]
-                    current = tail + "\n\n" + para
+                # 普通段落：把残留 current 合并进来
+                if current:
+                    current = current + "\n\n" + para
                 else:
-                    current = para
+                    # overlap：取上一块尾部
+                    if chunks and CHUNK_OVERLAP > 0:
+                        tail = chunks[-1][0][-CHUNK_OVERLAP:]
+                        current = tail + "\n\n" + para
+                    else:
+                        current = para
 
-    # 最后一块
-    if len(current) >= MIN_CHUNK_LEN:
-        chunks.append((current, chunk_idx))
+    # 最后一块：如果够长直接保存，否则合并到上一块
+    if current:
+        if len(current) >= MIN_CHUNK_LEN:
+            chunks.append((current, chunk_idx))
+        elif chunks:
+            # 合并到上一块，不丢弃
+            prev_text, prev_idx = chunks[-1]
+            chunks[-1] = (prev_text + "\n\n" + current, prev_idx)
+        else:
+            # 整个文件就这点内容，也保留
+            chunks.append((current, chunk_idx))
 
     return chunks
 
 
 def scan_kb_files():
-    """扫描所有 KB 文本文件，返回 [(path, source_type)] 列表"""
+    """扫描所有 KB 文本文件，返回 [(path, source_type)] 列表
+
+    覆盖范围：
+      - notes/*.md      — 用户笔记
+      - sources/*.md     — 每日数据归档（ArXiv/HN/GitHub/论文等）
+      - daily/*.md       — KB 回顾报告
+      - topics/*.md      — 按标签分组的主题笔记
+      - daily_digest.md  — 每日 KB 精华摘要
+      - inbox.md         — HN URL 收件箱
+    """
     files = []
 
     # Notes
@@ -149,6 +185,27 @@ def scan_kb_files():
     if os.path.isdir(SOURCES_DIR):
         for f in sorted(glob.glob(os.path.join(SOURCES_DIR, "*.md"))):
             files.append((f, "source"))
+
+    # Daily reviews
+    daily_dir = os.path.join(KB_DIR, "daily")
+    if os.path.isdir(daily_dir):
+        for f in sorted(glob.glob(os.path.join(daily_dir, "*.md"))):
+            files.append((f, "review"))
+
+    # Topics
+    topics_dir = os.path.join(KB_DIR, "topics")
+    if os.path.isdir(topics_dir):
+        for f in sorted(glob.glob(os.path.join(topics_dir, "*.md"))):
+            files.append((f, "topic"))
+
+    # Root-level KB files
+    digest = os.path.join(KB_DIR, "daily_digest.md")
+    if os.path.isfile(digest):
+        files.append((digest, "digest"))
+
+    inbox = os.path.join(KB_DIR, "inbox.md")
+    if os.path.isfile(inbox):
+        files.append((inbox, "inbox"))
 
     return files
 
@@ -162,34 +219,144 @@ def show_stats():
 
     # 按来源统计
     by_source = {}
-    by_type = {"note": 0, "source": 0}
+    by_type = {}
     files_seen = set()
+    total_chars = 0
     for c in chunks:
         src = c.get("source_type", "?")
         by_type[src] = by_type.get(src, 0) + 1
         fname = os.path.basename(c.get("file", ""))
         by_source[fname] = by_source.get(fname, 0) + 1
         files_seen.add(c.get("file", ""))
+        total_chars += c.get("char_len", 0)
 
     # 向量文件大小
     vec_size = os.path.getsize(VECS_FILE) if os.path.isfile(VECS_FILE) else 0
+
+    # 覆盖率计算：扫描所有可索引文件
+    all_files = scan_kb_files()
+    unindexed = [f for f, _ in all_files if f not in files_seen]
 
     print(f"📊 KB Text Index 统计")
     print(f"   模型:     {meta.get('model', '?')}")
     print(f"   向量维度: {meta.get('dim', '?')}")
     print(f"   总 chunks: {len(chunks)}")
+    print(f"   总字符数: {total_chars:,}")
     print(f"   源文件数: {len(files_seen)}")
     print(f"   向量文件: {vec_size / 1024:.1f} KB")
-    print(f"   类型分布: notes={by_type.get('note', 0)}, sources={by_type.get('source', 0)}")
+    print(f"   类型分布: {', '.join(f'{k}={v}' for k, v in sorted(by_type.items()))}")
+    print(f"   覆盖率:   {len(files_seen)}/{len(all_files)} 文件 "
+          f"({len(files_seen) / max(len(all_files), 1) * 100:.0f}%)")
+    if unindexed:
+        print(f"   ⚠️ 未索引文件:")
+        for f in unindexed:
+            print(f"     {os.path.basename(f)}")
     print(f"   Top 文件:")
     for fname, count in sorted(by_source.items(), key=lambda x: -x[1])[:10]:
         print(f"     {fname}: {count} chunks")
+
+
+def verify_coverage():
+    """验证索引覆盖率和内容完整性"""
+    meta = load_meta()
+    chunks = meta.get("chunks", [])
+    indexed_files = {c.get("file", "") for c in chunks}
+    indexed_hashes = {}
+    for c in chunks:
+        indexed_hashes[c.get("file", "")] = c.get("file_hash", "")
+
+    all_files = scan_kb_files()
+    total_files = len(all_files)
+    indexed_count = 0
+    stale_count = 0
+    missing_count = 0
+    total_source_chars = 0
+    total_indexed_chars = 0
+    issues = []
+
+    for path, source_type in all_files:
+        if not os.path.isfile(path):
+            issues.append(f"  ❌ {os.path.basename(path)} — 文件不存在")
+            missing_count += 1
+            continue
+
+        try:
+            with open(path, encoding="utf-8", errors="ignore") as f:
+                text = f.read()
+            source_chars = len(strip_frontmatter(text))
+            total_source_chars += source_chars
+        except OSError:
+            issues.append(f"  ❌ {os.path.basename(path)} — 读取失败")
+            missing_count += 1
+            continue
+
+        if path in indexed_files:
+            indexed_count += 1
+            # 检查是否过期
+            fhash = file_hash(path)
+            if indexed_hashes.get(path) != fhash:
+                stale_count += 1
+                issues.append(f"  ⚠️  {os.path.basename(path)} — 索引过期（文件已变更）")
+
+            # 统计已索引字符数
+            file_chunks = [c for c in chunks if c.get("file") == path]
+            file_indexed_chars = sum(c.get("char_len", 0) for c in file_chunks)
+            total_indexed_chars += file_indexed_chars
+
+            # 检查内容覆盖比（允许因 overlap 超过 100%）
+            if source_chars > 0:
+                ratio = file_indexed_chars / source_chars
+                if ratio < 0.5:
+                    issues.append(
+                        f"  ⚠️  {os.path.basename(path)} — "
+                        f"内容覆盖率低: {file_indexed_chars}/{source_chars} "
+                        f"({ratio:.0%}), {len(file_chunks)} chunks"
+                    )
+        else:
+            issues.append(f"  ❌ {os.path.basename(path)} [{source_type}] — 未索引 ({source_chars} 字符)")
+
+    # 向量文件一致性
+    vec_ok = True
+    if os.path.isfile(VECS_FILE) and chunks:
+        dim = meta.get("dim", 384)
+        expected_bytes = len(chunks) * dim * 4  # float32 = 4 bytes
+        actual_bytes = os.path.getsize(VECS_FILE)
+        if actual_bytes != expected_bytes:
+            vec_ok = False
+            issues.append(
+                f"  ❌ vectors.bin 大小不一致: 期望 {expected_bytes} bytes, "
+                f"实际 {actual_bytes} bytes"
+            )
+
+    # 报告
+    coverage_pct = indexed_count / max(total_files, 1) * 100
+    char_pct = total_indexed_chars / max(total_source_chars, 1) * 100
+
+    print(f"🔍 KB 索引覆盖率验证")
+    print(f"   文件覆盖: {indexed_count}/{total_files} ({coverage_pct:.0f}%)")
+    print(f"   字符覆盖: {total_indexed_chars:,}/{total_source_chars:,} ({char_pct:.0f}%)")
+    print(f"   过期索引: {stale_count}")
+    print(f"   向量一致: {'✅' if vec_ok else '❌'}")
+    print(f"   总 chunks: {len(chunks)}")
+
+    if issues:
+        print(f"\n   问题 ({len(issues)}):")
+        for issue in issues:
+            print(issue)
+    else:
+        print(f"\n   ✅ 所有文件已索引且为最新状态")
+
+    return len(issues) == 0
 
 
 def main():
     if "--stats" in sys.argv:
         show_stats()
         return
+
+    if "--verify" in sys.argv:
+        ok = verify_coverage()
+        sys.exit(0 if ok else 1)
 
     reindex = "--reindex" in sys.argv
 
@@ -321,26 +488,34 @@ def main():
 
 
 def _rebuild_vectors(meta, dim):
-    """重建向量文件：重新 embed 所有 chunks（文件变更时触发）"""
+    """重建向量文件：重新 embed 所有 chunks（文件变更时触发）
+
+    从源文件重新读取完整 chunk 文本（而非 100 字符 preview），
+    确保向量质量。注意 chunk_text() 内部已处理 frontmatter。
+    """
     from local_embed import embed_texts
 
-    all_texts = [c["preview"] for c in meta["chunks"]]
-    # 用完整文本重新 embed 更准确，但 preview 只有 100 字符
-    # 需要重新读取源文件获取完整 chunk 文本
     all_texts = []
+    # 按文件缓存，避免同一文件反复读取和分块
+    file_chunks_cache = {}
     for c in meta["chunks"]:
-        try:
-            with open(c["file"], encoding="utf-8", errors="ignore") as f:
-                text = f.read()
-            text = strip_frontmatter(text)
-            chunks = chunk_text(text, c["file"])
-            idx = c.get("chunk_idx", 0)
-            if idx < len(chunks):
-                all_texts.append(chunks[idx][0])
-            else:
-                all_texts.append(c["preview"])
-        except (OSError, IndexError):
-            all_texts.append(c["preview"])
+        fpath = c.get("file", "")
+        idx = c.get("chunk_idx", 0)
+
+        if fpath not in file_chunks_cache:
+            try:
+                with open(fpath, encoding="utf-8", errors="ignore") as f:
+                    text = f.read()
+                # chunk_text 内部已调用 strip_frontmatter，无需额外处理
+                file_chunks_cache[fpath] = chunk_text(text, fpath)
+            except OSError:
+                file_chunks_cache[fpath] = []
+
+        cached = file_chunks_cache[fpath]
+        if idx < len(cached):
+            all_texts.append(cached[idx][0])
+        else:
+            all_texts.append(c.get("preview", ""))
 
     if not all_texts:
         return

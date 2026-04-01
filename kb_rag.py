@@ -184,8 +184,8 @@ def show_stats():
     print(f"   Chunks:   {len(chunks)}")
     print(f"   源文件:   {len(files)}")
     print(f"   向量大小: {vec_size / 1024:.1f} KB")
-    print(f"   Notes:    {by_type.get('note', 0)} chunks")
-    print(f"   Sources:  {by_type.get('source', 0)} chunks")
+    for t, count in sorted(by_type.items()):
+        print(f"   {t:10s}: {count} chunks")
 
 
 def main():
