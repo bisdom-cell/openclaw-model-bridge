@@ -325,7 +325,7 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
         add_auth(req)
         req.add_header("User-Agent", "curl/8.0")
         try:
-            with urlopen(req, timeout=300, context=ctx) as resp:
+            with _safe_urlopen(req, timeout=300, context=ctx) as resp:
                 resp_body = resp.read()
                 elapsed = int((time.monotonic() - t0) * 1000)
                 log(f"{tag}RESPONSE: {resp.status} ({len(resp_body)} bytes) {elapsed}ms")

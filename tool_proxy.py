@@ -6,8 +6,17 @@ V28: + token/error 监控（proxy_stats）
 """
 import http.server, socketserver, json, sys, subprocess, os, threading, uuid, time
 from datetime import datetime
-from urllib.request import Request, urlopen
+from urllib.request import Request, urlopen as _raw_urlopen
 from urllib.parse import urlparse, parse_qs
+from urllib.error import URLError
+
+
+def _safe_urlopen(url_or_req, **kwargs):
+    """urlopen wrapper that rejects non-http(s) schemes (B310 mitigation)."""
+    raw = url_or_req.full_url if isinstance(url_or_req, Request) else str(url_or_req)
+    if not raw.startswith(("http://", "https://")):
+        raise URLError(f"Blocked URL scheme: {raw[:20]}")
+    return _raw_urlopen(url_or_req, **kwargs)  # nosec B310
 
 from proxy_filters import (
     ALLOWED_TOOLS, ALLOWED_PREFIXES, CUSTOM_TOOL_NAMES,
@@ -57,7 +66,7 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
         if self.path == "/health":
             adapter_ok = False
             try:
-                with urlopen(f"{BACKEND}/health", timeout=5) as resp:
+                with _safe_urlopen(f"{BACKEND}/health", timeout=5) as resp:
                     adapter_ok = resp.status == 200
             except Exception:
                 pass
@@ -79,7 +88,7 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
         url = f"{BACKEND}{self.path}"
         req = Request(url)
         try:
-            with urlopen(req, timeout=30) as resp:
+            with _safe_urlopen(req, timeout=30) as resp:
                 body = resp.read()
                 self.send_response(resp.status)
                 self.send_header("Content-Type", "application/json")
@@ -536,7 +545,7 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
             req = Request(url, data=json.dumps(followup_body).encode(), method="POST")
             req.add_header("Content-Type", "application/json")
             req.add_header("X-Request-ID", f"{rid}-kb")
-            with urlopen(req, timeout=120) as resp:
+            with _safe_urlopen(req, timeout=120) as resp:
                 resp_body = resp.read()
                 rj = json.loads(resp_body)
                 content = rj.get("choices", [{}])[0].get("message", {}).get("content", "")
@@ -700,7 +709,7 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
         req.add_header("Content-Type", "application/json")
         req.add_header("X-Request-ID", rid)
         try:
-            with urlopen(req, timeout=300) as resp:
+            with _safe_urlopen(req, timeout=300) as resp:
                 resp_body = resp.read()
                 elapsed = int((time.monotonic() - t0) * 1000)
                 log(f"[{rid}] Backend: {resp.status} {len(resp_body)}b {elapsed}ms stream={was_streaming}")
