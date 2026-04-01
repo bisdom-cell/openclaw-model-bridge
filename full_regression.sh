@@ -4,6 +4,9 @@
 # 用法：bash full_regression.sh
 set -uo pipefail
 
+# macOS pip3 用户安装的可执行文件路径（bandit 等）
+export PATH="$HOME/Library/Python/3.9/bin:$PATH"
+
 PASS=0
 FAIL=0
 TOTAL_TESTS=0
