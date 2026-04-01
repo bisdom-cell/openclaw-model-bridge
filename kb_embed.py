@@ -442,6 +442,7 @@ def main():
                 "file_hash": fhash,
                 "source_type": source_type,
                 "chunk_idx": chunk_idx,
+                "text": chunk_text_str,
                 "preview": chunk_text_str[:100].replace("\n", " "),
                 "char_len": len(chunk_text_str),
                 "indexed_at": datetime.now().isoformat(),
@@ -490,32 +491,14 @@ def main():
 def _rebuild_vectors(meta, dim):
     """重建向量文件：重新 embed 所有 chunks（文件变更时触发）
 
-    从源文件重新读取完整 chunk 文本（而非 100 字符 preview），
-    确保向量质量。注意 chunk_text() 内部已处理 frontmatter。
+    直接使用 meta 中存储的完整 chunk 文本（自包含，不依赖源文件）。
     """
     from local_embed import embed_texts
 
     all_texts = []
-    # 按文件缓存，避免同一文件反复读取和分块
-    file_chunks_cache = {}
     for c in meta["chunks"]:
-        fpath = c.get("file", "")
-        idx = c.get("chunk_idx", 0)
-
-        if fpath not in file_chunks_cache:
-            try:
-                with open(fpath, encoding="utf-8", errors="ignore") as f:
-                    text = f.read()
-                # chunk_text 内部已调用 strip_frontmatter，无需额外处理
-                file_chunks_cache[fpath] = chunk_text(text, fpath)
-            except OSError:
-                file_chunks_cache[fpath] = []
-
-        cached = file_chunks_cache[fpath]
-        if idx < len(cached):
-            all_texts.append(cached[idx][0])
-        else:
-            all_texts.append(c.get("preview", ""))
+        # 优先用存储的完整文本，兼容旧版索引（无 text 字段）回退到 preview
+        all_texts.append(c.get("text", c.get("preview", "")))
 
     if not all_texts:
         return
