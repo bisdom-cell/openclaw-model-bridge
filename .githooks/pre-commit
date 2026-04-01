@@ -1,0 +1,95 @@
+#!/bin/bash
+# pre-commit hook — 安全扫描 + 语法检查
+# 安装：git config core.hooksPath .githooks
+# 或：ln -sf ../../.githooks/pre-commit .git/hooks/pre-commit
+set -uo pipefail
+
+FAIL=0
+
+echo "🔒 Pre-commit: 安全扫描 + 语法检查"
+
+# ── 1. API Key 泄漏扫描 ──
+LEAKED=$(grep -r "sk-[A-Za-z0-9]\{20,\}" . --include="*.py" --include="*.sh" 2>/dev/null \
+    | grep -v ".git" | grep -v "sk-xx" | grep -v "sk-REPLACE" | grep -v "sk-X\.\.\." | grep -v "test_" || true)
+if [ -n "$LEAKED" ]; then
+    echo "  ❌ API key 泄漏:"
+    echo "$LEAKED"
+    FAIL=1
+else
+    echo "  ✅ API key 扫描通过"
+fi
+
+# ── 2. 手机号泄漏扫描 ──
+PHONE=$(grep -r "+852[0-9]\{8\}" . --include="*.py" --include="*.sh" 2>/dev/null \
+    | grep -v ".git" | grep -v "+85200000000" | grep -v "test_" || true)
+if [ -n "$PHONE" ]; then
+    echo "  ❌ 手机号泄漏:"
+    echo "$PHONE"
+    FAIL=1
+else
+    echo "  ✅ 手机号扫描通过"
+fi
+
+# ── 3. 危险 crontab 模式 ──
+DANGEROUS=$(grep -rn "| crontab -" . --include="*.sh" 2>/dev/null \
+    | grep -v ".git" | grep -v "^.*:#" | grep -v "echo" | grep -v "crontab_safe" | grep -v "full_regression" || true)
+if [ -n "$DANGEROUS" ]; then
+    echo "  ❌ 危险 crontab 模式:"
+    echo "$DANGEROUS"
+    FAIL=1
+else
+    echo "  ✅ crontab 安全扫描通过"
+fi
+
+# ── 4. Python 语法检查（仅检查暂存的 .py 文件）──
+PY_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep '\.py$' || true)
+if [ -n "$PY_FILES" ]; then
+    PY_ERR=0
+    for f in $PY_FILES; do
+        if [ -f "$f" ]; then
+            if ! python3 -c "import ast; ast.parse(open('$f').read())" 2>/dev/null; then
+                echo "  ❌ Python 语法错误: $f"
+                PY_ERR=1
+            fi
+        fi
+    done
+    if [ $PY_ERR -eq 0 ]; then
+        echo "  ✅ Python 语法检查通过 ($(echo "$PY_FILES" | wc -l | tr -d ' ') 文件)"
+    else
+        FAIL=1
+    fi
+else
+    echo "  ⏭  无暂存 .py 文件，跳过语法检查"
+fi
+
+# ── 5. Shell 语法检查（仅检查暂存的 .sh 文件）──
+SH_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep '\.sh$' || true)
+if [ -n "$SH_FILES" ]; then
+    SH_ERR=0
+    for f in $SH_FILES; do
+        if [ -f "$f" ]; then
+            if ! bash -n "$f" 2>/dev/null; then
+                echo "  ❌ Shell 语法错误: $f"
+                SH_ERR=1
+            fi
+        fi
+    done
+    if [ $SH_ERR -eq 0 ]; then
+        echo "  ✅ Shell 语法检查通过 ($(echo "$SH_FILES" | wc -l | tr -d ' ') 文件)"
+    else
+        FAIL=1
+    fi
+else
+    echo "  ⏭  无暂存 .sh 文件，跳过语法检查"
+fi
+
+# ── 结果 ──
+if [ $FAIL -gt 0 ]; then
+    echo ""
+    echo "❌ Pre-commit 检查未通过，提交已阻止"
+    exit 1
+else
+    echo ""
+    echo "✅ Pre-commit 检查全部通过"
+    exit 0
+fi
