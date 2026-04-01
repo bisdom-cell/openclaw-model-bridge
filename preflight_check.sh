@@ -26,7 +26,7 @@ echo "Mode: $([ "$FULL_MODE" = true ] && echo 'FULL (Mac Mini)' || echo 'DEV (re
 echo ""
 
 # ── 1. 单元测试 ──────────────────────────────────────────────────────
-echo "📋 1/16 单元测试"
+echo "📋 1/17 单元测试"
 
 if python3 test_tool_proxy.py > /dev/null 2>&1; then
     pass "proxy_filters 单测 (test_tool_proxy.py)"
@@ -42,7 +42,7 @@ fi
 
 # ── 2. 注册表校验 ─────────────────────────────────────────────────────
 echo ""
-echo "📋 2/16 注册表校验"
+echo "📋 2/17 注册表校验"
 
 if python3 check_registry.py > /dev/null 2>&1; then
     pass "jobs_registry.yaml 校验通过"
@@ -52,7 +52,7 @@ fi
 
 # ── 3. 文档漂移检测 ───────────────────────────────────────────────────
 echo ""
-echo "📋 3/16 文档漂移检测"
+echo "📋 3/17 文档漂移检测"
 
 if python3 gen_jobs_doc.py --check > /dev/null 2>&1; then
     pass "docs/config.md 与 registry 一致"
@@ -62,7 +62,7 @@ fi
 
 # ── 4. 脚本语法检查 + 权限检查 ────────────────────────────────────────
 echo ""
-echo "📋 4/16 脚本语法 & 权限"
+echo "📋 4/17 脚本语法 & 权限"
 
 # 从 registry 提取所有 enabled 的 entry 文件（兼容无 PyYAML 环境）
 SCRIPT_FILES=$(python3 -c "
@@ -128,7 +128,7 @@ done
 
 # ── 5. Python 文件语法检查 ────────────────────────────────────────────
 echo ""
-echo "📋 5/16 Python 语法检查"
+echo "📋 5/17 Python 语法检查"
 
 for pyfile in adapter.py tool_proxy.py proxy_filters.py check_registry.py gen_jobs_doc.py; do
     if [ -f "$SCRIPT_DIR/$pyfile" ]; then
@@ -142,7 +142,7 @@ done
 
 # ── 6. 部署文件一致性检查（仓库 vs 运行时副本）────────────────────────
 echo ""
-echo "📋 6/16 部署文件一致性"
+echo "📋 6/17 部署文件一致性"
 
 if $FULL_MODE; then
     # V31: 从 auto_deploy.sh 动态解析 FILE_MAP（不再硬编码，避免两处不同步）
@@ -200,7 +200,7 @@ fi
 
 # ── 7. 环境变量检查（bash -lc 模拟 cron 环境）────────────────────────
 echo ""
-echo "📋 7/16 环境变量检查（cron 环境模拟）"
+echo "📋 7/17 环境变量检查（cron 环境模拟）"
 
 if $FULL_MODE; then
     # 模拟 cron 调用方式：bash -lc 读取 ~/.bash_profile
@@ -240,7 +240,7 @@ fi
 
 # ── 8. 服务连通性检查 ─────────────────────────────────────────────────
 echo ""
-echo "📋 8/16 服务连通性"
+echo "📋 8/17 服务连通性"
 
 if $FULL_MODE; then
     # Adapter :5001
@@ -272,7 +272,7 @@ fi
 
 # ── 9. 安全扫描（push 前必扫）────────────────────────────────────────
 echo ""
-echo "📋 9/16 安全扫描"
+echo "📋 9/17 安全扫描"
 
 # API Key 泄漏检查（只扫描 git 跟踪的文件，忽略 .gitignore 排除的本地配置）
 LEAK_SK=$(git grep -n "sk-[A-Za-z0-9]\{15,\}" -- "*.py" "*.sh" "*.md" 2>/dev/null | grep -v "sk-REPLACE-ME" | grep -v "sk-xxxx" || true)
@@ -298,7 +298,7 @@ fi
 # ── 10. Job 数据流 smoke test ──────────────────────────────────────────
 # 用合成数据验证 job 脚本的 shell→Python 数据传递，零接触生产状态
 echo ""
-echo "📋 10/16 Job 数据流 smoke test"
+echo "📋 10/17 Job 数据流 smoke test"
 
 # 10a. 反模式扫描：heredoc 结束符后紧跟 <<< 会导致 stdin 被 heredoc 耗尽
 #      python3 - <<'PYEOF' ... PYEOF; <<< "$DATA" → DATA 永远读不到
@@ -352,7 +352,7 @@ rm -rf "$SMOKE_DIR"
 
 # ── 11. 货代 deep_dive 静默失败检测 ─────────────────────────────────────
 echo ""
-echo "📋 11/16 货代 deep_dive 静默失败检测"
+echo "📋 11/17 货代 deep_dive 静默失败检测"
 
 if $FULL_MODE; then
     # 检查 last_run.json 中 deep_dive 字段
@@ -412,7 +412,7 @@ fi
 
 # ── 12. #48703 WhatsApp listeners Map 补丁检测 ────────────────────────
 echo ""
-echo "📋 12/16 #48703 WhatsApp listeners Map 补丁"
+echo "📋 12/17 #48703 WhatsApp listeners Map 补丁"
 
 if $FULL_MODE; then
     OPENCLAW_DIST="/opt/homebrew/lib/node_modules/openclaw/dist"
@@ -435,7 +435,7 @@ fi
 
 # ── 13. 陈旧锁文件检测（V30新增）─────────────────────────────────────
 echo ""
-echo "📋 13/16 陈旧锁文件检测"
+echo "📋 13/17 陈旧锁文件检测"
 
 if $FULL_MODE; then
     STALE_LOCK_DIRS=(
@@ -480,7 +480,7 @@ fi
 
 # ── 14. Cron 心跳检测（V30新增）──────────────────────────────────────
 echo ""
-echo "📋 14/16 Cron 心跳检测"
+echo "📋 14/17 Cron 心跳检测"
 
 if $FULL_MODE; then
     CANARY_FILE="$HOME/.cron_canary"
@@ -507,7 +507,7 @@ fi
 
 # ── 15. Crontab 路径 vs FILE_MAP 双向一致性（V31 加强）──────────────
 echo ""
-echo "📋 15/16 Crontab ↔ FILE_MAP 双向一致性"
+echo "📋 15/17 Crontab ↔ FILE_MAP 双向一致性"
 
 if $FULL_MODE; then
     CRON_PATH_ERRORS=0
@@ -617,7 +617,7 @@ fi
 
 # ── 16. 推送通道 smoke test（V30.3 E2E 功能测试）──────────────────────
 echo ""
-echo "📋 16/16 推送通道 smoke test"
+echo "📋 16/17 推送通道 smoke test"
 
 if $FULL_MODE; then
     # 验证 openclaw message send 命令可用且无配置错误
@@ -639,6 +639,64 @@ if $FULL_MODE; then
     fi
 else
     skip "推送通道 smoke test（需在 Mac Mini 上验证）"
+fi
+
+# ── 17. KB 语义索引健康（数据复利基础）────────────────────────────────
+echo ""
+echo "📋 17/17 KB 语义索引健康"
+
+if $FULL_MODE; then
+    KB_IDX_DIR="$HOME/.kb/text_index"
+    if [ -f "$KB_IDX_DIR/meta.json" ] && [ -f "$KB_IDX_DIR/vectors.bin" ]; then
+        # 运行 kb_embed.py --verify（轻量级，不加载模型，只做文件比对）
+        VERIFY_OUT=$(python3 "$HOME/kb_embed.py" --verify 2>/dev/null)
+        VERIFY_RC=$?
+
+        # 提取关键指标
+        FILE_COV=$(echo "$VERIFY_OUT" | grep -o '文件覆盖.*' | head -1)
+        CHAR_COV=$(echo "$VERIFY_OUT" | grep -o '字符覆盖.*' | head -1)
+        VEC_OK=$(echo "$VERIFY_OUT" | grep -o '向量一致.*' | head -1)
+        CHUNKS=$(echo "$VERIFY_OUT" | grep -o '总 chunks.*' | head -1)
+        STALE=$(echo "$VERIFY_OUT" | grep -o '过期索引.*' | head -1)
+
+        if [ $VERIFY_RC -eq 0 ]; then
+            pass "KB 索引 100% 覆盖 ($FILE_COV, $CHUNKS)"
+        else
+            # 有问题但不是致命的
+            ISSUE_COUNT=$(echo "$VERIFY_OUT" | grep -c "❌\|⚠️" 2>/dev/null || echo "0")
+            fail "KB 索引覆盖不完整: $FILE_COV ($ISSUE_COUNT 个问题)"
+            echo "$VERIFY_OUT" | grep "❌\|⚠️" | head -5 | while read -r line; do
+                echo "      $line"
+            done
+        fi
+
+        # 向量文件时效检查（超过 48h 未更新可能是 cron 问题）
+        if [ "$(uname)" = "Darwin" ]; then
+            VEC_EPOCH=$(stat -f %m "$KB_IDX_DIR/vectors.bin" 2>/dev/null || echo "0")
+        else
+            VEC_EPOCH=$(stat -c %Y "$KB_IDX_DIR/vectors.bin" 2>/dev/null || echo "0")
+        fi
+        VEC_AGE_H=$(( ($(date +%s) - VEC_EPOCH) / 3600 ))
+        if [ "$VEC_AGE_H" -le 48 ]; then
+            pass "向量索引新鲜度: ${VEC_AGE_H}h 前更新"
+        else
+            warn "向量索引已 ${VEC_AGE_H}h 未更新（kb_embed cron 是否正常？）"
+        fi
+    else
+        fail "KB text_index 不存在（运行 python3 kb_embed.py --reindex 初始化）"
+    fi
+else
+    # dev 环境：只检查 kb_embed.py 语法正确
+    if python3 -c "import ast; ast.parse(open('$SCRIPT_DIR/kb_embed.py').read())" 2>/dev/null; then
+        pass "kb_embed.py: 语法正确"
+    else
+        fail "kb_embed.py: Python 语法错误"
+    fi
+    if python3 -c "import ast; ast.parse(open('$SCRIPT_DIR/kb_rag.py').read())" 2>/dev/null; then
+        pass "kb_rag.py: 语法正确"
+    else
+        fail "kb_rag.py: Python 语法错误"
+    fi
 fi
 
 # ── 汇总 ──────────────────────────────────────────────────────────────

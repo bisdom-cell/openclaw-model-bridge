@@ -293,6 +293,67 @@ except Exception as e:
     esac
 fi
 
+# ── KB 语义索引检查（数据复利基础）──
+echo "━━━ KB 语义索引 ━━━"
+KB_IDX_DIR="$HOME/.kb/text_index"
+if [ -f "$KB_IDX_DIR/meta.json" ] && [ -f "$KB_IDX_DIR/vectors.bin" ]; then
+    IDX_CHECK=$(python3 -c "
+import json, os
+meta_file = os.path.expanduser('~/.kb/text_index/meta.json')
+vecs_file = os.path.expanduser('~/.kb/text_index/vectors.bin')
+with open(meta_file) as f:
+    meta = json.load(f)
+chunks = meta.get('chunks', [])
+dim = meta.get('dim', 384)
+model = meta.get('model', '?')
+
+# chunk 数量
+print(f'OK|chunks: {len(chunks)}, model: {model.split(\"/\")[-1]}, dim: {dim}')
+
+# 向量文件一致性
+expected = len(chunks) * dim * 4
+actual = os.path.getsize(vecs_file)
+if actual == expected:
+    print(f'OK|vectors.bin 一致 ({actual // 1024}KB)')
+else:
+    print(f'FAIL|vectors.bin 不一致: 期望 {expected}B, 实际 {actual}B')
+
+# 文件覆盖率
+indexed_files = set(c.get('file', '') for c in chunks)
+print(f'OK|已索引 {len(indexed_files)} 个文件')
+
+# 来源分布
+by_type = {}
+for c in chunks:
+    t = c.get('source_type', '?')
+    by_type[t] = by_type.get(t, 0) + 1
+dist = ', '.join(f'{k}={v}' for k, v in sorted(by_type.items()))
+print(f'OK|分布: {dist}')
+" 2>/dev/null || echo "FAIL|Python 执行失败")
+    while IFS= read -r check_line; do
+        case "${check_line%%|*}" in
+            OK) pass "text_index: ${check_line#*|}" ;;
+            WARN) warn "text_index: ${check_line#*|}" ;;
+            FAIL) fail "text_index: ${check_line#*|}" ;;
+        esac
+    done <<< "$IDX_CHECK"
+
+    # 向量索引时效
+    if [ "$(uname)" = "Darwin" ]; then
+        VEC_EPOCH=$(stat -f %m "$KB_IDX_DIR/vectors.bin" 2>/dev/null || echo "0")
+    else
+        VEC_EPOCH=$(stat -c %Y "$KB_IDX_DIR/vectors.bin" 2>/dev/null || echo "0")
+    fi
+    VEC_AGE_H=$(( (NOW_EPOCH - VEC_EPOCH) / 3600 ))
+    if [ "$VEC_AGE_H" -le 24 ]; then
+        pass "text_index 新鲜度: ${VEC_AGE_H}h 前更新"
+    else
+        warn "text_index 已 ${VEC_AGE_H}h 未更新（kb_embed cron 正常？）"
+    fi
+else
+    warn "KB text_index 不存在（需运行 python3 kb_embed.py --reindex）"
+fi
+
 echo ""
 
 # ── 备份健康检查 ──

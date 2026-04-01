@@ -62,6 +62,25 @@ print(f'{total} notes, {today} today, {src_size // 1024}KB sources')
     if [ -n "$KB_STATS" ]; then
         python3 "$STATUS_UPDATE" --set health.kb_stats "$KB_STATS" --by cron 2>/dev/null || true
     fi
+
+    # 语义索引统计（数据复利基础监控）
+    IDX_META="$KB_DIR/text_index/meta.json"
+    if [ -f "$IDX_META" ]; then
+        IDX_STATS=$(python3 -c "
+import json, os
+meta_file = os.path.expanduser('~/.kb/text_index/meta.json')
+vecs_file = os.path.expanduser('~/.kb/text_index/vectors.bin')
+with open(meta_file) as f:
+    meta = json.load(f)
+chunks = meta.get('chunks', [])
+files = len(set(c.get('file', '') for c in chunks))
+vecs_kb = os.path.getsize(vecs_file) // 1024 if os.path.isfile(vecs_file) else 0
+print(f'{len(chunks)} chunks, {files} files, {vecs_kb}KB vectors')
+" 2>/dev/null)
+        if [ -n "$IDX_STATS" ]; then
+            python3 "$STATUS_UPDATE" --set health.text_index "$IDX_STATS" --by cron 2>/dev/null || true
+        fi
+    fi
 fi
 
 # ── 4. 最近 job 执行状态汇总 ──────────────────────────────────────
@@ -181,8 +200,10 @@ model = h.get("model_id", "unknown")
 kb = h.get("kb_stats", "unknown")
 jobs = h.get("stale_jobs", "unknown")
 job_str = "全部Job运行正常" if jobs == "all_ok" else f"过期Job: {jobs}"
+idx = h.get("text_index", "")
+idx_str = f" | 索引: {idx}" if idx else ""
 lines.append("")
-lines.append(f"**系统健康：** 服务{'正常' if svc == 'ok' else svc} | 模型: {model} | KB: {kb} | {job_str}")
+lines.append(f"**系统健康：** 服务{'正常' if svc == 'ok' else svc} | 模型: {model} | KB: {kb}{idx_str} | {job_str}")
 
 print("\n".join(lines))
 PYEOF
