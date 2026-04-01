@@ -2,7 +2,7 @@
 
 > Production-tested guide for connecting any LLM to OpenClaw via middleware on Mac Mini.
 > 基于生产验证的中间件接入指南，运行于 Mac Mini，适用于任意大模型。
-> Last updated: 2026-03-24 (V29.3)
+> Last updated: 2026-04-01 (V32)
 
 ---
 
@@ -463,7 +463,7 @@ curl http://localhost:18789/health  # Gateway
 
 | Monitor | Interval | Alert condition |
 |---------|----------|----------------|
-| Job watchdog | Hourly | Job timeout or push failure in logs |
+| Job watchdog | Every 4 hours | Job timeout or push failure in logs |
 | WhatsApp keepalive | 30 min | Gateway HTTP probe failure |
 | Proxy stats | Real-time | Token threshold or consecutive errors |
 | Drift detection | Hourly | md5 mismatch between repo and runtime |

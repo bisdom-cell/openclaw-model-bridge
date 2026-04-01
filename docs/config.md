@@ -1,7 +1,7 @@
 # OpenClaw 完整配置文档
 > 最后更新：2026-03-31 (HKT)
 > 系统：Mac Mini (macOS) | 用户：bisdom
-> 版本：v30.5（论文监控矩阵5源全覆盖 + search_kb混合检索 + 数据复利闭环）
+> 版本：v32（控制平面先行 + search_kb加固 + pre-commit/CI + 396测试）
 > OpenClaw Gateway：2026.3.13-1（当前部署，暂不升级）| 上游最新：v2026.3.23-2（WhatsApp sidecar 重新打包但独立包仍 404 + ClawHub 429 #54446 未修复，等 @openclaw/whatsapp 正式发布再升级）
 ---
 ## 一、系统架构（V28.1 四层架构）
@@ -48,7 +48,7 @@
 │  ③ 监控层（多级自动告警）                                                            │
 │                                                                                     │
 │  每30min  wa_keepalive ──→ 真实发送零宽字符 ──→ 失败则记录日志                         │
-│  每小时   job_watchdog ──→ 检查所有job状态文件 + 日志扫描 ──→ 超时/失败→WhatsApp告警   │
+│  每4小时  job_watchdog ──→ 检查所有job状态文件 + 日志扫描 ──→ 超时/失败→WhatsApp告警   │
 │  实时     proxy_stats ──→ token用量 + 连续错误计数 ──→ 阈值告警                       │
 │  /health  三层健康端点：Gateway(:18789) → Proxy(:5002) → Adapter(:5001)              │
 └─────────────────────────────────────────────────────────────────────────────────────┘
@@ -62,7 +62,7 @@
 │                     ├─ 文件同步（仓库→运行时，31个文件映射）                            │
 │                     ├─ 每小时漂移检测（md5全量比对）                                   │
 │                     ├─ 按需restart（核心服务文件变更时）                                │
-│                     └─ preflight_check.sh --full（部署后自动体检 11项）                │
+│                     └─ preflight_check.sh --full（部署后自动体检 17项）                │
 │                         ├─ 单元测试 (proxy_filters + registry)                       │
 │                         ├─ 注册表校验                                                │
 │                         ├─ 文档漂移检测                                              │
@@ -91,7 +91,7 @@
     ├─ 自定义工具注入 (data_clean + search_kb) [V30.3/V30.5]
     ├─ 自定义工具拦截执行：
     │   ├─ data_clean → subprocess data_clean.py → 直接返回格式化结果
-    │   └─ search_kb → 语义搜索(kb_rag.py) + 关键词补充 → followup LLM调用 → 自然语言回答
+    │   └─ search_kb → 语义搜索(kb_rag.py, +source/recent_hours过滤) + 关键词补充 → followup LLM调用 → 自然语言回答
     ├─ 参数修复/别名映射
     ├─ 200KB消息截断
     ├─ 非流式→SSE转换
@@ -153,7 +153,7 @@
 | **货代Watcher脚本** | **~/.openclaw/jobs/freight_watcher/run_freight.sh** | **货代商机Watcher（v23新增，v26首次验证）** |
 | **货代Watcher日志** | **~/.openclaw/logs/jobs/freight_watcher.log** | **货代Watcher cron日志** |
 | **自动部署+漂移检测+体检** | **~/openclaw-model-bridge/auto_deploy.sh** | **V27.1新增：仓库→部署自动同步 + 每小时md5全量比对 + WhatsApp漂移告警；V28.1：部署后自动运行preflight_check** |
-| **收工全面体检** | **~/openclaw-model-bridge/preflight_check.sh** | **V28.1新增：11项自动化检查（单测+注册表+语法+部署一致性+环境变量+连通性+安全扫描+数据流+货代监控），auto_deploy部署后自动触发** |
+| **收工全面体检** | **~/openclaw-model-bridge/preflight_check.sh** | **V28.1新增→V30.3升级：17项自动化检查（单测+注册表+语法+部署一致性+环境变量+连通性+安全扫描+数据流+货代监控+crontab路径+推送E2E），auto_deploy部署后自动触发** |
 | **WhatsApp保活** | **~/wa_keepalive.sh** | **V28.1新增：每30分钟真实发送零宽字符验证WhatsApp通道可用性** |
 | **元监控** | **~/job_watchdog.sh** | **V28新增：检查所有job状态文件 + 日志推送失败扫描 + proxy_stats + WhatsApp告警** |
 | **端到端smoke test** | **~/openclaw-model-bridge/smoke_test.sh** | **V28新增：单测+注册表+文档漂移+连通性快速验证** |
@@ -267,7 +267,7 @@ export GEMINI_API_KEY="AIzaXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"   # V29.1新增
 | hn-watcher | 每3小时:45分 | `run_hn_fixed.sh` | `~/.openclaw/logs/jobs/hn_watcher.log` | ✅ |
 | freight-watcher | 每天08:00/14:00/20:00 | `~/.openclaw/jobs/freight_watcher/run_freight.sh` | `~/.openclaw/logs/jobs/freight_watcher.log` | ✅ v26验证成功 |
 | arxiv-monitor | 每3小时整点 | `~/.openclaw/jobs/arxiv_monitor/run_arxiv.sh` | `~/.openclaw/logs/jobs/arxiv_monitor.log` | ✅ V28新增（替代 monitor-arxiv-ai-models + kb-save-arxiv） |
-| job-watchdog | 每小时:30分 | `~/openclaw-model-bridge/job_watchdog.sh` | `~/job_watchdog.log` | ✅ V28新增：元监控，检查各job是否按时执行 |
+| job-watchdog | 每4小时:30分 | `~/openclaw-model-bridge/job_watchdog.sh` | `~/job_watchdog.log` | ✅ V28新增→V32改频：元监控，检查各job是否按时执行（从每小时→每4小时，减少告警噪音） |
 | kb-evening | 每天22:00 | `kb_evening.sh` | `~/kb_evening.log` | ✅ 晚间 KB 整理 |
 | session-cleanup | 每6小时 04/10/16/22:00 | 直接rm命令（无脚本） | `~/.openclaw/logs/session_cleanup.log` | ✅ v24变更：从每天1次→每6小时1次 |
 | wa-keepalive | 每30分钟 | `~/wa_keepalive.sh` | `~/wa_keepalive.log` | ✅ V28.1新增：真实发送零宽字符验证WhatsApp通道 |
@@ -901,7 +901,7 @@ nohup python3 ~/adapter.py > ~/adapter.log 2>&1 &
 | ✅ | V28.1 tool_proxy.py /health 级联健康检查 | 完成 |
 | ✅ | V28.1 wa_keepalive.sh 真实发送替代无效dry-run | 完成 |
 | ✅ | V28.1 job_watchdog.sh 日志推送失败扫描 | 完成 |
-| ✅ | V28.1 preflight_check.sh 全面体检系统（9项检查） | 完成 |
+| ✅ | V28.1→V30.3 preflight_check.sh 全面体检系统（9→17项检查） | 完成 |
 | ✅ | V28.1 auto_deploy.sh 部署后自动体检 + WhatsApp告警 | 完成 |
 | ✅ | V28.1 环境变量同步到 ~/.bash_profile（cron环境修复） | 完成 |
 | ✅ | V28.1 四层架构图文档化 | 完成 |
