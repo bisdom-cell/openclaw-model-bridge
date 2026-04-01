@@ -67,15 +67,46 @@ print(f'{total} notes, {today} today, {src_size // 1024}KB sources')
     IDX_META="$KB_DIR/text_index/meta.json"
     if [ -f "$IDX_META" ]; then
         IDX_STATS=$(python3 -c "
-import json, os
-meta_file = os.path.expanduser('~/.kb/text_index/meta.json')
-vecs_file = os.path.expanduser('~/.kb/text_index/vectors.bin')
+import json, os, hashlib, glob, time
+
+KB_DIR = os.path.expanduser('~/.kb')
+meta_file = os.path.join(KB_DIR, 'text_index/meta.json')
+vecs_file = os.path.join(KB_DIR, 'text_index/vectors.bin')
+
 with open(meta_file) as f:
     meta = json.load(f)
 chunks = meta.get('chunks', [])
-files = len(set(c.get('file', '') for c in chunks))
+indexed_files = set(c.get('file', '') for c in chunks)
 vecs_kb = os.path.getsize(vecs_file) // 1024 if os.path.isfile(vecs_file) else 0
-print(f'{len(chunks)} chunks, {files} files, {vecs_kb}KB vectors')
+
+# 扫描所有可索引文件（与 kb_embed.py scan_kb_files 一致）
+scannable = []
+for d, stype in [('notes','note'), ('sources','source'), ('daily','review'), ('topics','topic')]:
+    dp = os.path.join(KB_DIR, d)
+    if os.path.isdir(dp):
+        scannable.extend(glob.glob(os.path.join(dp, '*.md')))
+for f in ['daily_digest.md', 'inbox.md']:
+    fp = os.path.join(KB_DIR, f)
+    if os.path.isfile(fp):
+        scannable.append(fp)
+
+total_files = len(scannable)
+covered = sum(1 for f in scannable if f in indexed_files)
+pct = int(covered / max(total_files, 1) * 100)
+
+# 过期检测（文件hash变了但索引未更新）
+indexed_hashes = {c.get('file',''): c.get('file_hash','') for c in chunks}
+stale = 0
+for f in scannable:
+    if f in indexed_hashes:
+        h = hashlib.md5(open(f, 'rb').read()).hexdigest()
+        if h != indexed_hashes[f]:
+            stale += 1
+
+# 向量时效
+vecs_age_h = int((time.time() - os.path.getmtime(vecs_file)) / 3600) if os.path.isfile(vecs_file) else -1
+
+print(f'{len(chunks)} chunks, {covered}/{total_files} files ({pct}%), {stale} stale, {vecs_age_h}h ago, {vecs_kb}KB')
 " 2>/dev/null)
         if [ -n "$IDX_STATS" ]; then
             python3 "$STATUS_UPDATE" --set health.text_index "$IDX_STATS" --by cron 2>/dev/null || true
