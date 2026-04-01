@@ -1,6 +1,6 @@
 {
-  "updated": "2026-04-01 14:00:02",
-  "updated_by": "cron",
+  "updated": "2026-04-01 13:16:39",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "数据清洗 Phase 2",
@@ -153,7 +153,7 @@
   "session_context": {
     "last_session": "2026-03-31",
     "unfinished": "kb_embed.py sources覆盖率不足(sources/*.md大文件分块索引不完整，PA统计严重低估ArXiv/HN/OpenClaw/货代数据量)",
-    "open_prs": [],
+    "open_prs": "PR#225: search_kb全面加固(待合并)",
     "blocked_on": ""
   },
   "quality": {
