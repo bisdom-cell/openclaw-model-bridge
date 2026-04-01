@@ -168,7 +168,7 @@ jobs:
   - id: job_watchdog
     scheduler: system
     entry: job_watchdog.sh
-    interval: "30 * * * *"           # 每小时:30分
+    interval: "30 */4 * * *"         # 每4小时:30分（减少重复告警噪音）
     log: ~/job_watchdog.log
     needs_api_key: false
     enabled: true
