@@ -388,8 +388,9 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 | 低 | MM搜索接入对话：mm_search.py 注册为 OpenClaw tool |
 | 低 | KB 静态加密：status.json / index.json 使用 age/gpg 加密存盘 |
 | 低 | 依赖漏洞扫描：pip-audit 集成到 full_regression.sh |
-| 低 | **WhatsApp E2E 自动化测试**：通过 Gateway API 自动发测试消息→验证 PA 回复包含预期关键词（反馈循环最后一环） |
-| 低 | **pre-commit hook**：本地 git commit 前自动跑安全扫描+语法检查（架构约束本地执行） |
+| ✅ | **WhatsApp E2E 测试脚本**：`wa_e2e_test.sh` 端到端业务验证（基础对话/工具注入/KB索引/Proxy监控） |
+| ✅ | **pre-commit hook**：`.githooks/pre-commit` 安全扫描+语法检查（`git config core.hooksPath .githooks`） |
+| ✅ | **GitHub Actions CI**：`.github/workflows/ci.yml` PR 门禁（8套单测+注册表+文档漂移+安全扫描+bandit） |
 | ✅ | **search_kb 混合检索 + 数据复利闭环：语义搜索+关键词+LLM解读（V30.5）** |
 | ✅ | **论文监控矩阵：ArXiv+HF+S2+DBLP+ACL 5源全覆盖（V30.5）** |
 | ✅ | **三方宪法闭环验证：SOUL.md + status.json 实时同步 + PA 主动感知（V30.4）** |
