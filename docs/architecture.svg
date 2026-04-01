@@ -86,7 +86,7 @@
   <!-- TITLE -->
   <!-- ═══════════════════════════════════ -->
   <text x="480" y="35" text-anchor="middle" font-size="13" fill="#8b949e" letter-spacing="4">OPENCLAW MODEL BRIDGE</text>
-  <text x="480" y="55" text-anchor="middle" font-size="11" fill="#484f58" letter-spacing="2">Four-Layer Architecture  v29.4 — Multimodal</text>
+  <text x="480" y="55" text-anchor="middle" font-size="11" fill="#484f58" letter-spacing="2">Five-Layer Architecture  v32 — Control Plane First</text>
 
   <!-- ═══════════════════════════════════ -->
   <!-- LAYER 1: CORE DATA PATH -->
@@ -257,7 +257,7 @@
   <!-- job_watchdog -->
   <rect x="265" y="515" width="210" height="55" rx="6" fill="#0d1117" opacity="0.6" stroke="#f85149" stroke-width="0.5" stroke-opacity="0.4"/>
   <text x="370" y="534" text-anchor="middle" font-size="10" fill="#f85149" font-weight="bold">job_watchdog</text>
-  <text x="370" y="548" text-anchor="middle" font-size="8" fill="#8b949e">hourly: check all job status files</text>
+  <text x="370" y="548" text-anchor="middle" font-size="8" fill="#8b949e">every 4h: check all job status files</text>
   <text x="370" y="561" text-anchor="middle" font-size="8" fill="#484f58">+ log scan for push failures</text>
 
   <!-- proxy_stats -->
