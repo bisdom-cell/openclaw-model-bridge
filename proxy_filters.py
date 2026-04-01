@@ -215,19 +215,24 @@ CUSTOM_TOOLS = [
         "type": "function",
         "function": {
             "name": "search_kb",
-            "description": "搜索用户的知识库。当用户提到论文、文档、文章、最近的XX、找一下、有没有关于XX时，必须调用此工具。"
-                           "知识库包含：ArXiv/HuggingFace/SemanticScholar/DBLP/ACL论文、HackerNews热帖、货代动态、用户笔记。",
+            "description": "搜索用户的知识库。当用户提到论文、文档、文章、最近的XX、今天有什么、找一下、有没有关于XX时，必须调用此工具。"
+                           "知识库包含：ArXiv/HuggingFace/SemanticScholar/DBLP/ACL论文、HackerNews热帖、货代动态、用户笔记。"
+                           "当用户问'今天/最近有什么新内容'时，设置 recent_hours=24。",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "query": {
                         "type": "string",
-                        "description": "搜索关键词（如 'DeepSeek'、'大模型'、'RAG'）"
+                        "description": "搜索关键词（如 'DeepSeek'、'大模型'、'RAG'）。当使用 recent_hours 时可为空或描述性文字"
                     },
                     "source": {
                         "type": "string",
                         "enum": ["all", "arxiv", "hf", "semantic_scholar", "dblp", "acl", "hn", "notes"],
                         "description": "搜索范围。默认 all 搜索全部来源"
+                    },
+                    "recent_hours": {
+                        "type": "integer",
+                        "description": "返回最近N小时内更新的内容（按时间倒序）。用于'今天有什么新内容'类查询，设24即可"
                     },
                 },
                 "required": ["query"],
