@@ -1,0 +1,76 @@
+name: CI — Full Regression
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install pyyaml bandit
+
+      # ── 第一层：单元测试 ──
+      - name: "Unit tests: proxy_filters"
+        run: python3 test_tool_proxy.py
+
+      - name: "Unit tests: check_registry"
+        run: python3 test_check_registry.py
+
+      - name: "Unit tests: cron_health"
+        run: python3 test_cron_health.py
+
+      - name: "Unit tests: status_update"
+        run: python3 test_status_update.py
+
+      - name: "Unit tests: adapter"
+        run: python3 test_adapter.py
+
+      - name: "Unit tests: kb_business"
+        run: python3 test_kb_business.py
+
+      - name: "Unit tests: audit_log"
+        run: python3 test_audit_log.py
+
+      - name: "Unit tests: data_clean"
+        run: python3 test_data_clean.py
+
+      # ── 第二层：注册表 + 文档一致性 ──
+      - name: "Registry validation"
+        run: python3 check_registry.py
+
+      - name: "Config drift detection"
+        run: python3 gen_jobs_doc.py --check
+
+      # ── 第三层：安全扫描 ──
+      - name: "Security: API key leak scan"
+        run: |
+          LEAKED=$(grep -r "sk-[A-Za-z0-9]\{20,\}" . --include="*.py" --include="*.sh" 2>/dev/null | grep -v ".git" | grep -v "sk-xx" | grep -v "sk-REPLACE" | grep -v "sk-X\.\.\." | grep -v "test_" || true)
+          if [ -n "$LEAKED" ]; then echo "❌ API key leak detected:"; echo "$LEAKED"; exit 1; fi
+          echo "✅ No API key leaks"
+
+      - name: "Security: phone number leak scan"
+        run: |
+          PHONE=$(grep -r "+852[0-9]\{8\}" . --include="*.py" --include="*.sh" 2>/dev/null | grep -v ".git" | grep -v "+85200000000" | grep -v "test_" || true)
+          if [ -n "$PHONE" ]; then echo "❌ Phone number leak:"; echo "$PHONE"; exit 1; fi
+          echo "✅ No phone leaks"
+
+      - name: "Security: dangerous crontab pattern"
+        run: |
+          DANGEROUS=$(grep -rn "| crontab -" . --include="*.sh" 2>/dev/null | grep -v ".git" | grep -v "^.*:#" | grep -v "echo" | grep -v "crontab_safe" | grep -v "full_regression" || true)
+          if [ -n "$DANGEROUS" ]; then echo "❌ Dangerous crontab pattern:"; echo "$DANGEROUS"; exit 1; fi
+          echo "✅ No dangerous crontab patterns"
+
+      # ── 第四层：bandit 静态安全 ──
+      - name: "Bandit static security analysis"
+        run: |
+          bandit -r proxy_filters.py adapter.py tool_proxy.py status_update.py audit_log.py -q -ll
