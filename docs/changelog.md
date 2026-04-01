@@ -2,6 +2,34 @@
 
 > 从 CLAUDE.md 提取的完整版本变更历史。Agent 按需 `read docs/changelog.md` 查阅。
 
+## V32 变更摘要（2026-04-01）
+
+> 控制平面先行 + search_kb 全面加固 + 预发布验证体系
+
+### 功能变更
+
+1. **search_kb 全面加固**：新增 `recent_hours` 参数支持时间过滤（"今天有什么新内容"）；`source` 参数传递给 kb_rag 语义搜索（按来源过滤 arxiv/hf/dblp/acl/hn/notes）；fcntl 文件锁保护索引（排他写 LOCK_EX / 共享读 LOCK_SH）；哈希算法从 MD5 迁移至 SHA256（需一次性 `--reindex`）；结果截断改为段落边界对齐（上限 6000 字符）；notes 关键词搜索扩展到 topics 目录
+2. **Watchdog 告警频率优化**：从每小时 → 每4小时（24次/天 → 6次/天，减少重复告警噪音）
+3. **Pre-commit hook**（`.githooks/pre-commit`）：5项检查（API key 泄漏 / 手机号泄漏 / 危险 crontab 模式 / Python 语法 / Shell 语法），`git config core.hooksPath .githooks` 安装
+4. **GitHub Actions CI**（`.github/workflows/ci.yml`）：8 个测试套件（proxy_filters/registry/cron_health/status_update/adapter/kb_business/audit_log/data_clean）+ 注册表校验 + 安全扫描 + bandit，PR 自动触发
+5. **V32 方法论：控制平面先行**：三平面架构（Control 70% / Capability 85% / Memory 60%），SLO 最小集定义，E2E 旅程测试集成 CI，故障快照机制，阈值中心化
+
+### 受影响文件
+
+| 文件 | 变更 |
+|------|------|
+| `kb_rag.py` | +recent_hours/source 参数、fcntl 共享锁、SHA256 迁移 |
+| `kb_embed.py` | +fcntl 排他锁、MD5→SHA256 |
+| `tool_proxy.py` | +source 验证、recent_hours 提取、段落截断、超时60s |
+| `proxy_filters.py` | +search_kb schema 新参数（recent_hours/source） |
+| `jobs_registry.yaml` | watchdog: `30 * * * *` → `30 */4 * * *` |
+| `.githooks/pre-commit` | 新增 |
+| `.github/workflows/ci.yml` | 新增 |
+| `CLAUDE.md` | +三平面架构、P0/P1/P2 路线图 |
+| `status.json` | +V32 methodology、控制平面先行原则 |
+| `README.md` | 全面刷新（396测试/32jobs/V32方法论） |
+| `docs/architecture.svg` | v32 Five-Layer Control Plane First |
+
 ## V30.5 变更摘要（2026-03-31）
 
 > 论文监控矩阵扩展 + search_kb 混合检索工具 + 数据复利闭环

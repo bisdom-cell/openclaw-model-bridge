@@ -372,20 +372,39 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 
 </details>
 
+## 系统定位：三平面架构
+
+> 来源：2026-04-01 外部专业评审反馈，确立"控制平面先行"原则
+
+```
+控制平面（先做强 → 60%→90%）：治理、限流、降级、观测、审计
+能力平面（持续演进 → 80%）    ：模型路由、工具编排、多模态能力
+记忆平面（长期投入 → 60%）    ：知识沉淀、冲突消解、可信度评分
+```
+
+**核心原则：控制平面先行。否则能力越强，系统越难控。**
+
 ## 当前待办
 
 | 优先级 | 任务 |
 |--------|------|
-| 中高 | **数据清洗 Phase 2**：三 Agent 架构（Profiler/Planner/Executor，可用 `sessions_spawn` 实现）、语义去重、自定义清洗规则、清洗模板积累到 KB、清洗后文件回传 WhatsApp |
-| 中 | **PA 长期记忆**：启用 `memory_search`/`memory_get` 工具，让 PA 跨 session 记住用户偏好。⚠️ V30.4验证：Qwen3不主动调用memory工具（基础设施已就绪，等模型升级后重新验证） |
-| 中 | **PA 子 Agent 委派**：利用 `sessions_spawn` + `sessions_send` 让 PA 自主创建子任务（如 research agent 查资料→返回主 agent 汇总） |
-| ✅ | **ops agent 激活**：ops_soul.md 运维身份 + 工具白名单(exec/read/write/message/web_fetch) + auto_deploy 部署（V31） |
-| 中低 | **安全加固**：配置 `sandbox.mode: restricted` + `redactSensitive: "tools"` 限制 PA 文件系统写入范围和日志脱敏 |
-| 中低 | **紧急告警中断**：配置 queue `interrupt` 模式，watchdog 告警可中断当前对话直接推送用户 |
+| **P0-高** | **SLO 最小集**：定义延迟 p95 < 30s、工具成功率 > 95%、降级率 < 5%、超时率 < 3%、自动恢复率 > 90%，写入统一配置并接入 watchdog 告警 |
+| **P0-高** | **阈值中心化**：工具上限/请求上限/超时重试/降级阈值 统一收敛到 `config.yaml`，消除散落在各文件的魔法数字 |
+| **P0-高** | **旅程级 E2E 进 CI**：wa_e2e_test.sh 覆盖三条主路径（基础对话 / search_kb 检索 / 图片理解），集成到 preflight |
+| **P0-高** | **故障快照机制**：故障时自动收集 proxy.log 尾部 + adapter.log + 最近请求 + 系统状态，写入 `~/.kb/incidents/` |
+| **P1-中** | **Job 分层治理**：registry 增加 tier 字段（core/auxiliary/experiment），core job 失败立即告警，experiment 失败仅记录 |
+| **P1-中** | **Fallback Matrix 模板化**：外部依赖（远程GPU/ArXiv API/WhatsApp Gateway）抖动时的标准降级路径，代码化到 adapter.py |
+| **P1-中** | **变更影响评估**：PR 描述模板增加"影响范围"和"回滚方案"字段 |
+| 中 | **数据清洗 Phase 2**：三 Agent 架构（Profiler/Planner/Executor，可用 `sessions_spawn` 实现）、语义去重、自定义清洗规则 |
+| 中 | **PA 长期记忆**：启用 `memory_search`/`memory_get`。⚠️ Qwen3不主动调用memory工具，等模型升级后重新验证 |
+| 中 | **PA 子 Agent 委派**：`sessions_spawn` + `sessions_send` 让 PA 自主创建子任务 |
+| **P2-低** | **配置中心化 + 变更审计**：所有运行时配置统一管理，变更自动记录到审计日志 |
+| **P2-低** | **GameDay 故障演练**：定期模拟 GPU 不可用 / Gateway 断连 / 索引损坏，验证降级和恢复 |
+| **P2-低** | **记忆系统分层**：短期（session内）/ 长期（跨session偏好）/ 任务（项目上下文），含冲突消解和可信度评分 |
+| **P2-低** | **成本-质量-时延联动调度**：根据查询复杂度动态选择模型/参数组合 |
 | 低 | 知识图谱：AI大模型领域知识图谱构建（需6-12个月数据积累，暂缓） |
 | 低 | 货代Watcher V3：Bing News API替代GoogleNews |
 | 低 | 语音消息支持：WhatsApp语音→STT→LLM回复 |
-| 低 | MM搜索接入对话：mm_search.py 注册为 OpenClaw tool |
 | 低 | KB 静态加密：status.json / index.json 使用 age/gpg 加密存盘 |
 | 低 | 依赖漏洞扫描：pip-audit 集成到 full_regression.sh |
 | ✅ | **WhatsApp E2E 测试脚本**：`wa_e2e_test.sh` 端到端业务验证（基础对话/工具注入/KB索引/Proxy监控） |
