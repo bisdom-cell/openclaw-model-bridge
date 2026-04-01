@@ -49,32 +49,12 @@ def load_vectors(count, dim):
 
 
 def get_chunk_text(chunk_meta):
-    """从源文件中提取 chunk 的完整文本"""
-    fpath = chunk_meta.get("file", "")
-    chunk_idx = chunk_meta.get("chunk_idx", 0)
+    """获取 chunk 的完整文本
 
-    if not os.path.isfile(fpath):
-        return chunk_meta.get("preview", "")
-
-    try:
-        with open(fpath, encoding="utf-8", errors="ignore") as f:
-            text = f.read()
-
-        # 去除 frontmatter
-        if text.startswith("---"):
-            parts = text.split("---", 2)
-            if len(parts) >= 3:
-                text = parts[2].strip()
-
-        # 重新分块找到对应 chunk
-        from kb_embed import chunk_text
-        chunks = chunk_text(text, fpath)
-        if chunk_idx < len(chunks):
-            return chunks[chunk_idx][0]
-    except Exception:
-        pass
-
-    return chunk_meta.get("preview", "")
+    优先使用索引中存储的完整文本（自包含，不依赖源文件）。
+    兼容旧版索引（无 text 字段）回退到 preview。
+    """
+    return chunk_meta.get("text", chunk_meta.get("preview", ""))
 
 
 def search(query, top_k, output_mode="text"):
