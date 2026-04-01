@@ -3,6 +3,7 @@ import http.server, socketserver, json, ssl, sys, os, threading, time
 from datetime import datetime
 from urllib.request import Request, urlopen
 from urllib.error import URLError, HTTPError
+from urllib.parse import urlparse
 
 # ---------------------------------------------------------------------------
 # Provider registry — add new providers here, no other code changes needed
@@ -119,6 +120,14 @@ def add_auth(req):
     for k, v in _make_auth_headers(AUTH_STYLE, API_KEY).items():
         req.add_header(k, v)
 
+def _safe_urlopen(req, **kwargs):
+    """urlopen wrapper that rejects non-https schemes (B310 mitigation)."""
+    scheme = urlparse(req.full_url).scheme
+    if scheme not in ("https", "http"):
+        raise URLError(f"Blocked URL scheme: {scheme}")
+    return urlopen(req, **kwargs)  # nosec B310
+
+
 def _forward_request(url, data, auth_headers, timeout=300):
     """Send POST request and return (status, body). Raises on failure."""
     req = Request(url, data=data, method="POST")
@@ -126,7 +135,7 @@ def _forward_request(url, data, auth_headers, timeout=300):
     req.add_header("User-Agent", "curl/8.0")
     for k, v in auth_headers.items():
         req.add_header(k, v)
-    with urlopen(req, timeout=timeout, context=ctx) as resp:
+    with _safe_urlopen(req, timeout=timeout, context=ctx) as resp:
         return resp.status, resp.read()
 
 class ProxyHandler(http.server.BaseHTTPRequestHandler):
@@ -158,7 +167,7 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
         add_auth(req)
         req.add_header("User-Agent", "curl/8.0")
         try:
-            with urlopen(req, timeout=30, context=ctx) as resp:
+            with _safe_urlopen(req, timeout=30, context=ctx) as resp:
                 body = resp.read()
                 self.send_response(resp.status)
                 self.send_header("Content-Type", "application/json")
