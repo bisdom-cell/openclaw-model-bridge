@@ -20,6 +20,7 @@ import hashlib
 import struct
 import glob
 import time
+import fcntl
 from datetime import datetime
 
 # ── 配置 ──────────────────────────────────────────────────────────────
@@ -44,8 +45,8 @@ def log(msg):
 
 
 def file_hash(path):
-    """快速 MD5（用于增量检测）"""
-    h = hashlib.md5()
+    """SHA256 哈希（用于增量检测 + 完整性校验）"""
+    h = hashlib.sha256()
     with open(path, "rb") as f:
         for chunk in iter(lambda: f.read(8192), b""):
             h.update(chunk)
@@ -59,12 +60,23 @@ def load_meta():
     return {"version": 2, "model": "", "dim": 0, "chunks": []}
 
 
+LOCK_FILE = os.path.join(INDEX_DIR, ".lock")
+
+
 def save_meta(meta):
     os.makedirs(INDEX_DIR, exist_ok=True)
     tmp = META_FILE + ".tmp"
     with open(tmp, "w") as f:
         json.dump(meta, f, ensure_ascii=False)
     os.replace(tmp, META_FILE)
+
+
+def _acquire_exclusive_lock():
+    """获取排他锁（写操作），阻塞直到所有读操作完成"""
+    os.makedirs(INDEX_DIR, exist_ok=True)
+    lock_fd = open(LOCK_FILE, "w")
+    fcntl.flock(lock_fd, fcntl.LOCK_EX)
+    return lock_fd
 
 
 def append_vectors(vecs, dim):
@@ -468,22 +480,26 @@ def main():
         # 有删除，需要完整重写（罕见路径）
         pass
 
-    # 追加新 chunks 和向量
-    meta["chunks"].extend(batch_meta)
-    append_vectors(vectors, dim)
+    # 追加新 chunks 和向量（排他锁保护，防止搜索读到半写数据）
+    lock_fd = _acquire_exclusive_lock()
+    try:
+        meta["chunks"].extend(batch_meta)
+        append_vectors(vectors, dim)
 
-    # 如果有文件变更（删除了旧 chunks），需要重建向量文件
-    old_file_set = {c.get("file") for c in remaining_old}
-    changed_files = set()
-    for m in batch_meta:
-        if m["file"] in indexed_hashes:
-            changed_files.add(m["file"])
+        # 如果有文件变更（删除了旧 chunks），需要重建向量文件
+        old_file_set = {c.get("file") for c in remaining_old}
+        changed_files = set()
+        for m in batch_meta:
+            if m["file"] in indexed_hashes:
+                changed_files.add(m["file"])
 
-    if changed_files:
-        log(f"检测到 {len(changed_files)} 个文件变更，重建向量文件...")
-        _rebuild_vectors(meta, dim)
+        if changed_files:
+            log(f"检测到 {len(changed_files)} 个文件变更，重建向量文件...")
+            _rebuild_vectors(meta, dim)
 
-    save_meta(meta)
+        save_meta(meta)
+    finally:
+        lock_fd.close()
     log(f"完成: 新增 {new_chunks} chunks, 跳过 {skip_count} 文件, "
         f"失败 {error_count}, 总计 {len(meta['chunks'])} chunks")
 

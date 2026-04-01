@@ -221,14 +221,27 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
             return home_path
         return os.path.join(os.path.dirname(os.path.abspath(__file__)), "data_clean.py")
 
-    def _search_kb(self, query, source="all"):
-        """搜索知识库：语义搜索优先，关键词补充"""
-        max_total = 4000
+    # search_kb 合法 source 值
+    VALID_SOURCES = {"all", "arxiv", "hf", "semantic_scholar", "dblp", "acl", "hn", "notes"}
+
+    def _search_kb(self, query, source="all", recent_hours=None):
+        """搜索知识库：语义搜索优先，关键词补充
+
+        source: 来源过滤（传递到 kb_rag 语义搜索 + 关键词搜索）
+        recent_hours: 最近N小时模式（按时间排序，不做语义匹配）
+        """
+        t0 = time.monotonic()
+        max_total = 6000  # 扩大到6000字符，减少信息丢失
         results = []
         seen_files = set()
 
+        # ── source 参数校验 ──
+        if source not in self.VALID_SOURCES:
+            log(f"WARN: search_kb invalid source '{source}', fallback to 'all'")
+            source = "all"
+
         # ── 1. 语义搜索（kb_rag）──
-        semantic_results = self._semantic_search(query, top_k=8)
+        semantic_results = self._semantic_search(query, top_k=8, source=source, recent_hours=recent_hours)
         if semantic_results:
             items = []
             for r in semantic_results:
@@ -236,42 +249,78 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                 score = r.get("score", 0)
                 text = r.get("text", "").strip()
                 src = r.get("source_type", "")
+                indexed_at = r.get("indexed_at", "")
                 seen_files.add(fname)
-                # 截取片段
-                snippet = text[:300] + ("..." if len(text) > 300 else "")
+                # 截取片段（按段落边界截断，避免断句）
+                snippet = text[:300]
+                last_newline = snippet.rfind("\n", 200)
+                if last_newline > 0 and len(text) > 300:
+                    snippet = snippet[:last_newline] + "..."
+                elif len(text) > 300:
+                    snippet += "..."
                 icon = "📄" if src == "source" else "📝"
-                items.append(f"{icon} [{fname}] (相关度:{score:.2f})\n{snippet}")
-            results.append("🔍 语义搜索结果:\n\n" + "\n\n".join(items))
+                time_info = f" 索引:{indexed_at[:16]}" if indexed_at else ""
+                items.append(f"{icon} [{fname}] (相关度:{score:.2f}{time_info})\n{snippet}")
 
-        # ── 2. 关键词补充（捕获精确匹配但语义搜索遗漏的）──
-        keyword_results = self._keyword_search(query, source, exclude_files=seen_files)
-        if keyword_results:
-            results.append("📎 关键词补充:\n\n" + keyword_results)
+            header = "🕐 最近更新:" if recent_hours else "🔍 语义搜索结果:"
+            results.append(f"{header}\n\n" + "\n\n".join(items))
+
+        # ── 2. 关键词补充（recent 模式跳过，避免重复）──
+        if not recent_hours:
+            keyword_results = self._keyword_search(query, source, exclude_files=seen_files)
+            if keyword_results:
+                results.append("📎 关键词补充:\n\n" + keyword_results)
+
+        elapsed_ms = int((time.monotonic() - t0) * 1000)
+        log(f"search_kb: query='{query[:50]}' source={source} recent={recent_hours} "
+            f"semantic={len(semantic_results) if semantic_results else 0} "
+            f"results={len(results)} {elapsed_ms}ms")
 
         if not results:
             return "知识库中未找到与「{}」相关的内容。\n\n知识库包含 ArXiv/HF/S2/DBLP/ACL 论文和 HN 热帖，每日自动更新。".format(query)
 
         total = "\n\n".join(results)
         if len(total) > max_total:
-            total = total[:max_total] + "\n\n...（结果已截断，可缩小搜索范围获取更多）"
+            # 按段落边界截断，不在句中断开
+            cutoff = total.rfind("\n\n", 0, max_total)
+            if cutoff < max_total * 0.7:
+                cutoff = max_total
+            total = total[:cutoff] + "\n\n...（结果已截断，可缩小搜索范围获取更多）"
         return total
 
-    def _semantic_search(self, query, top_k=8):
-        """调用 kb_rag 进行语义搜索，失败时返回空列表"""
+    def _semantic_search(self, query, top_k=8, source=None, recent_hours=None):
+        """调用 kb_rag 进行语义搜索，失败时返回空列表并记录日志"""
         try:
             # kb_rag.py 可能在 HOME 目录或仓库目录
             rag_path = os.path.expanduser("~/kb_rag.py")
             if not os.path.exists(rag_path):
                 rag_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "kb_rag.py")
             if not os.path.exists(rag_path):
+                log("WARN: kb_rag.py not found, semantic search disabled")
                 return []
 
-            cmd = [sys.executable, rag_path, "--json", "--top", str(top_k), query]
+            cmd = [sys.executable, rag_path, "--json", "--top", str(top_k)]
+            if source and source != "all":
+                cmd += ["--source", source]
+            if recent_hours:
+                cmd += ["--recent", str(recent_hours)]
+            cmd.append(query)
+
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
             if result.returncode != 0:
+                log(f"WARN: kb_rag exited {result.returncode}: {result.stderr[:200]}")
                 return []
-            return json.loads(result.stdout)
-        except (subprocess.TimeoutExpired, json.JSONDecodeError, Exception):
+            data = json.loads(result.stdout)
+            # --json 输出格式: {"query": "...", "results": [...]}
+            return data.get("results", data) if isinstance(data, dict) else data
+        except subprocess.TimeoutExpired:
+            log("ERROR: kb_rag semantic search timeout (30s)")
+            return []
+        except json.JSONDecodeError as e:
+            log(f"ERROR: kb_rag JSON parse failed: {e}")
+            return []
+        except Exception as e:
+            log(f"ERROR: kb_rag semantic search failed: {e}")
             return []
 
     def _keyword_search(self, query, source="all", exclude_files=None):
@@ -306,12 +355,17 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
             except OSError:
                 continue
 
-        # 搜索笔记
+        # 搜索笔记（notes + topics）
         if source in ("all", "notes"):
-            notes_dir = os.path.join(kb_dir, "notes")
-            if os.path.isdir(notes_dir):
+            note_dirs = [
+                (os.path.join(kb_dir, "notes"), "📝"),
+                (os.path.join(kb_dir, "topics"), "🏷️"),
+            ]
+            for note_dir, icon in note_dirs:
+                if not os.path.isdir(note_dir):
+                    continue
                 import glob
-                for f in sorted(glob.glob(os.path.join(notes_dir, "*.md")), reverse=True)[:50]:
+                for f in sorted(glob.glob(os.path.join(note_dir, "*.md")), reverse=True)[:50]:
                     basename = os.path.basename(f)
                     if basename in exclude_files:
                         continue
@@ -320,11 +374,13 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                             content = fh.read()
                         if query in content.lower():
                             snippet = self._extract_snippet(content, query, max_len=200)
-                            items.append(f"📝 [{basename}] {snippet}")
-                            if len(items) >= 8:
+                            items.append(f"{icon} [{basename}] {snippet}")
+                            if len(items) >= 10:
                                 break
                     except OSError:
                         continue
+                if len(items) >= 10:
+                    break
 
         return "\n\n".join(items) if items else ""
 
@@ -448,12 +504,18 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
             except json.JSONDecodeError:
                 return json.dumps({"error": f"参数解析失败: {arguments}"})
 
-            query = args.get("query", "").lower()
+            query = args.get("query", "").strip()
             source = args.get("source", "all")
-            if not query:
+            recent_hours = args.get("recent_hours")
+
+            # recent 模式允许空 query
+            if not query and not recent_hours:
                 return json.dumps({"error": "缺少 query 参数"})
 
-            return self._search_kb(query, source)
+            # query 转小写用于关键词搜索（语义搜索不受影响）
+            query_lower = query.lower() if query else "recent"
+
+            return self._search_kb(query_lower, source, recent_hours=recent_hours)
 
         return json.dumps({"error": f"未知自定义工具: {name}"})
 
@@ -545,7 +607,7 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
             req = Request(url, data=json.dumps(followup_body).encode(), method="POST")
             req.add_header("Content-Type", "application/json")
             req.add_header("X-Request-ID", f"{rid}-kb")
-            with _safe_urlopen(req, timeout=120) as resp:
+            with _safe_urlopen(req, timeout=60) as resp:
                 resp_body = resp.read()
                 rj = json.loads(resp_body)
                 content = rj.get("choices", [{}])[0].get("message", {}).get("content", "")
