@@ -75,6 +75,11 @@
   ],
   "recent_changes": [
     {
+      "date": "2026-04-01",
+      "what": "search_kb 全面加固（时间过滤+source过滤+文件锁+SHA256）+ KB 100%覆盖 + 四原则加固（CI/pre-commit/CLAUDE.md瘦身）",
+      "by": "claude_code"
+    },
+    {
       "date": "2026-03-31",
       "what": "V31: 遗留清理5项 + ops agent激活(SOUL.md+exec+ops_health.sh) + HN dlopen修复(/usr/bin/python3) + HF Papers增强(GitHub代码链接10/10) + GitHub Trending ML/AI监控 + RSS博客订阅(科学空间+Lil'Log+Simon Willison+Latent Space+LangChain) — KB信息源5→8个",
       "by": "claude_code"
