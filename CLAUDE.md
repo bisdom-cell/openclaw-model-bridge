@@ -597,7 +597,7 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 >
 > 共享状态：`~/.kb/status.json`（三方实时同步优先级、反馈、系统健康）
 
-### 🔴 每次必查（13条，优先级最高）
+### 🔴 每次必查（15条，优先级最高）
 
 | # | 原则 | 一句话 |
 |---|------|--------|
@@ -614,6 +614,8 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 | 11 | **🆕 结果验证优先于功能建设** | 先定义"从用户视角，成功长什么样"，再写代码。status.json 的成功标准不是"能写入"，而是"PA 能正确回答项目进展"。（2026-03-28教训：393个单测通过但 PA 说"没有项目"） |
 | 12 | **🆕 上下文工程是一等公民** | SOUL.md = 宪法级（身份+关键状态，LLM 注意力最高），CLAUDE.md = 手册级（工具+详情）；信息放哪里、占多少 token、LLM 能否注意到——都是架构决策，和 API 设计同等严肃。（2026-03-28教训：SOUL.md 空置数月，17KB CLAUDE.md 信息被"lost in the middle"） |
 | 13 | **🆕 定期像用户一样使用系统** | 不是跑单测，而是在 WhatsApp 上实际问 PA 问题。每次涉及 PA 行为的变更后，必须清空 session（`echo '{"sessions":[]}' > sessions.json`）+ 重启 Gateway + WhatsApp 实测。单测验证组件内部，系统价值在组件之间的接缝处。 |
+| 14 | **🆕 PR 合并后立即同步 Mac Mini** | GitHub PR 合并到 main 后，**必须立即提醒用户在 Mac Mini 上同步**：`cd ~/openclaw-model-bridge && git fetch origin main && git reset --hard origin/main`。不要等 auto_deploy 轮询（最长 2 分钟延迟）——合并后紧急同步是标准操作，确保运行时代码与仓库一致。同步后立即跑 `bash preflight_check.sh --full`。（2026-04-01教训：合并后 preflight 8 项失败全是部署漂移） |
+| 15 | **🆕 测试必须全量：单测 + full_regression + WhatsApp 业务验证** | 每次变更后测试三层缺一不可：① `bash full_regression.sh`（394 单测 + 注册表 + 安全扫描 + 代码质量）② `bash preflight_check.sh --full` + `bash job_smoke_test.sh`（Mac Mini 部署验证）③ **WhatsApp 端实际业务测试**（用户视角发消息验证 PA 回复、search_kb 检索、图片理解等核心功能）。只跑单测不算测完——单测验证组件，WhatsApp 验证系统。（2026-04-01教训：394 单测全过但 preflight 8 项失败） |
 
 ### 🟡 按需查阅（操作 & 架构参考）
 
@@ -628,8 +630,9 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 - **macOS sed禁用OR语法** — `\|` 在 BSD sed 不支持，用 Python 替代
 - **禁用交互式编辑器** — git merge 用 `--no-edit`，commit 用 `-m`
 - **crontab 安全操作** — **严禁 `echo ... | crontab -`**（2026-03-25事故：清空全部 cron），必须用 `bash crontab_safe.sh add '<行>'`
-- **分支合并由用户在GitHub操作** — 推送到 `claude/xxx` 分支 → 提醒用户创建 PR → 用户在 Mac Mini 同步
+- **分支合并由用户在GitHub操作** — 推送到 `claude/xxx` 分支 → 提醒用户创建 PR → **合并后立即同步 Mac Mini**（见必查 #14）
 - **Mac Mini 同步用 reset 不用 pull** — `git fetch origin main && git reset --hard origin/main`（Mac Mini 是纯消费端，无本地 commit；`git pull` 会因历史 merge commit 导致分叉失败）
+- **全量测试三层标准** — 单测通过 ≠ 测完，必须 full_regression + preflight + **WhatsApp 业务验证**（见必查 #15）
 
 **架构类**
 - **进程管理单一主控** — Gateway 由 launchd 管理，禁止再加 cron watchdog（#95）
