@@ -1,6 +1,6 @@
 {
-  "updated": "2026-04-01 06:14:47",
-  "updated_by": "claude_code",
+  "updated": "2026-04-01 14:00:02",
+  "updated_by": "cron",
   "priorities": [
     {
       "task": "数据清洗 Phase 2",
@@ -138,16 +138,17 @@
   "feedback": [],
   "health": {
     "services": "ok",
-    "last_deploy": "70715f1",
-    "last_deploy_time": "2026-04-01 08:00",
+    "last_deploy": "5cfb847",
+    "last_deploy_time": "2026-04-01 11:36",
     "last_preflight": "pass",
-    "last_preflight_time": "2026-04-01 08:00",
+    "last_preflight_time": "2026-04-01 10:00",
     "last_trend_report": "2026-03-28",
     "model_id": "Qwen3-235B-A22B-Instruct-2507-W8A8",
-    "kb_stats": "165 notes, 16 today, 1319KB sources",
-    "stale_jobs": "all_ok",
-    "last_refresh": "2026-04-01 09:00",
-    "security_score": "98/100 (98.0%)"
+    "kb_stats": "168 notes, 19 today, 1334KB sources",
+    "stale_jobs": "arxiv",
+    "last_refresh": "2026-04-01 14:00",
+    "security_score": "98/100 (98.0%)",
+    "text_index": "10376 chunks, 205/205 files (100%), 205 stale, 0h ago, 15564KB"
   },
   "session_context": {
     "last_session": "2026-03-31",
