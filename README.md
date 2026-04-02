@@ -5,9 +5,10 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-396%20passed-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-424%20passed-brightgreen.svg)]()
 [![Jobs](https://img.shields.io/badge/cron%20jobs-32%20(28%20active)-blue.svg)]()
 [![CI](https://img.shields.io/badge/CI-GitHub%20Actions-green.svg)]()
+[![SLO](https://img.shields.io/badge/SLO-5%20metrics-blueviolet.svg)]()
 
 ## Architecture / 系统架构
 
@@ -23,7 +24,7 @@
 └────────────────────────┬────────────────────────────────────────┘
                          │
 ┌────────────────────────▼────────────────────────────────────────┐
-│  ① 核心数据通路（实时对话 + 多模态）                               │
+│  ① 核心数据通路（实时对话 + 多模态 + SLO 监控）                   │
 │                                                                  │
 │  WhatsApp ←→ Gateway (:18789) ←→ Proxy (:5002) ←→ Adapter (:5001) ←→ Remote GPU       │
 │              [launchd]           [策略过滤+监控]    [认证+Fallback]    [Qwen3-235B]      │
@@ -31,6 +32,9 @@
 │                                 [自定义工具注入]    [→Gemini降级]                        │
 │                                 data_clean(清洗)                                       │
 │                                 search_kb(混合检索)                                    │
+│                                 [SLO指标采集]                                          │
+│                                 延迟p95/错误分类                                       │
+│                                 工具成功率/降级率                                      │
 │                                                                  │
 │  search_kb流程：用户问论文 → PA调search_kb → Proxy拦截           │
 │    → ①语义搜索(embedding cosine) + ②关键词补充                   │
@@ -73,13 +77,17 @@
 └──────────────────────────────────────────────────────────────────┘
                    │
 ┌──────────────────▼──────────────────────────────────────────────┐
-│  ④ DevOps（自动部署 + 17项体检 + pre-commit + GitHub Actions CI） │
+│  ④ 控制平面（SLO + 阈值中心化 + 故障快照 + 19项体检 + CI）        │
 │                                                                  │
 │  Claude Code → claude/分支 → PR → main → auto_deploy → Mac Mini  │
-│       auto_deploy: 文件同步(31个) + 漂移检测 + 按需restart        │
-│       preflight: 17项检查（单测+注册表+语法+部署+安全+E2E）       │
+│       config.yaml: 统一阈值配置（70+参数，9个分区）               │
+│       SLO 5指标: 延迟p95<30s / 工具成功>95% / 降级<5%            │
+│                  超时<3% / 自动恢复>90%                           │
+│       auto_deploy: 文件同步(35个) + 漂移检测 + 按需restart        │
+│       preflight: 19项检查（单测+注册表+语法+部署+安全+E2E+SLO）   │
+│       故障快照: 连续错误→自动采集日志+状态→~/.kb/incidents/        │
 │       pre-commit: API key/手机号泄漏+语法检查                     │
-│       GitHub Actions CI: 8套单测+注册表+安全扫描+bandit           │
+│       GitHub Actions CI: 9套单测+注册表+配置校验+安全扫描+bandit  │
 └──────────────────────────────────────────────────────────────────┘
                    │
 ┌──────────────────▼──────────────────────────────────────────────┐
@@ -87,7 +95,7 @@
 │                                                                  │
 │  用户(WhatsApp) ←→ PA ←→ status.json ←→ Claude Code ←→ Cron    │
 │  反馈+决策          写入    优先级/反馈    读/写       自动更新    │
-│                             健康/焦点                             │
+│                             健康/SLO/焦点                         │
 │                                                                  │
 │  宪法：用户专业深度 + Claude Code设计部署 + OpenClaw数据复利       │
 │        三者合一 = 有生命的闭环系统                                 │
@@ -99,8 +107,10 @@
 | Component | Port | Files | Role |
 |-----------|------|-------|------|
 | OpenClaw Gateway | 18789 | npm global | WhatsApp integration, media storage, tool execution, session management |
-| Tool Proxy | 5002 | `tool_proxy.py` + `proxy_filters.py` | Tool filtering (24→12), **custom tools** (data_clean + search_kb hybrid search), **image base64 injection**, SSE conversion, truncation, token monitoring |
+| Tool Proxy | 5002 | `tool_proxy.py` + `proxy_filters.py` | Tool filtering (24→12), **custom tools** (data_clean + search_kb hybrid search), **image base64 injection**, SSE conversion, truncation, token monitoring, **SLO metrics collection**, **incident snapshots** |
 | Adapter | 5001 | `adapter.py` | Multi-provider forwarding, auth, **multimodal routing** (text→Qwen3, image→Qwen2.5-VL), fallback degradation |
+| Config Center | — | `config.yaml` + `config_loader.py` | **V32** Centralized thresholds (70+ params, 9 sections: SLO/proxy/tokens/alerts/routing/truncation/watchdog/incidents/jobs) |
+| SLO Checker | — | `slo_checker.py` | **V32** SLO compliance — 5 metrics (latency p95, tool success rate, degradation rate, timeout rate, auto-recovery rate) |
 | Local Embedding | — | `local_embed.py` | sentence-transformers (384-dim, 50+ languages), zero API calls |
 | Remote GPU | — | hkagentx.hkopenlab.com | Qwen3-235B (text, 262K context) + **Qwen2.5-VL-72B** (vision) |
 
@@ -152,10 +162,14 @@ python3 mm_index.py && python3 mm_search.py "cat photos"
 | `data_clean.py` | **V30.3** Data cleaning CLI — 7 operations (dedup/trim/fix_dates/etc), 5 formats (CSV/TSV/JSON/JSONL/Excel), version chain + audit log |
 | `SOUL.md` | **V30.4** PA constitutional system prompt — identity (Wei), three-party constitution, behavior directives, live project status |
 
-### Monitoring & Quality
+### Monitoring, SLO & Quality
 
 | File | Description |
 |------|-------------|
+| `config.yaml` | **V32** Centralized thresholds — 70+ params across 9 sections (SLO/proxy/tokens/alerts/routing/truncation/watchdog/incidents/jobs) |
+| `config_loader.py` | **V32** Config loader — `from config_loader import MAX_REQUEST_BYTES` for backward compatibility |
+| `slo_checker.py` | **V32** SLO compliance checker — evaluates 5 SLO metrics from proxy_stats, outputs alerts for violations |
+| `incident_snapshot.py` | **V32** Fault snapshot — auto-collects proxy/adapter/gateway logs + stats + service status → `~/.kb/incidents/` |
 | `conv_quality.py` | Daily conversation quality report — response time, success rate, tool distribution, token usage |
 | `token_report.py` | Daily token usage report — consumption, hourly distribution, context pressure, multi-day trends |
 | `job_watchdog.sh` | Meta-monitor — checks all job status + log scanning → WhatsApp alerts on timeout/failure |
@@ -166,8 +180,8 @@ python3 mm_index.py && python3 mm_search.py "cat photos"
 | File | Description |
 |------|-------------|
 | `restart.sh` | One-command restart all services (with PATH fix for cron) |
-| `auto_deploy.sh` | Auto-deployment — git pull + file sync (31 files) + drift detection + smart restart + post-deploy preflight |
-| `preflight_check.sh` | Pre-flight check — **17 automated checks** (tests, registry, syntax, deploy consistency, env vars, connectivity, security scan, data flow, crontab) |
+| `auto_deploy.sh` | Auto-deployment — git pull + file sync (35 files) + drift detection + smart restart + post-deploy preflight |
+| `preflight_check.sh` | Pre-flight check — **19 automated checks** (tests, registry, syntax, deploy consistency, env vars, connectivity, security scan, data flow, crontab, **E2E journey test**, **SLO compliance**) |
 | `health_check.sh` | Weekly health report + JSON output |
 | `openclaw_backup.sh` | **V29.1** Daily Gateway state backup to external SSD (7-day retention) |
 | `upgrade_openclaw.sh` | Gateway upgrade SOP (must run via SSH, never via WhatsApp) |
@@ -216,7 +230,7 @@ All jobs registered in `jobs_registry.yaml`. Validate: `python3 check_registry.p
 | `jobs_registry.yaml` | Unified job registry — 32 jobs (28 active, 4 disabled), system cron |
 | `check_registry.py` | Registry validator — ID uniqueness, paths, fields |
 | `gen_jobs_doc.py` | Auto-generate job docs from registry + drift detection |
-| `test_tool_proxy.py` | Unit tests for proxy_filters (67 cases) |
+| `test_tool_proxy.py` | Unit tests for proxy_filters (70 cases) |
 | `test_check_registry.py` | Unit tests for check_registry (18 cases) |
 | `test_data_clean.py` | Unit tests for data_clean (80 cases) |
 | `test_adapter.py` | Unit tests for adapter (36 cases) |
@@ -224,9 +238,10 @@ All jobs registered in `jobs_registry.yaml`. Validate: `python3 check_registry.p
 | `test_cron_health.py` | Unit tests for cron health (94 cases) |
 | `test_status_update.py` | Unit tests for status_update (33 cases) |
 | `test_audit_log.py` | Unit tests for audit_log (19 cases) |
-| `full_regression.sh` | **V30.1** Full regression runner — 396 tests, all must pass |
+| `test_config_slo.py` | **V32** Unit tests for config_loader + slo_checker + incident_snapshot + ProxyStats SLO (28 cases) |
+| `full_regression.sh` | **V30.1** Full regression runner — 424 tests, all must pass |
 | `.githooks/pre-commit` | **V32** Pre-commit hook — API key/phone leak + syntax checks |
-| `.github/workflows/ci.yml` | **V32** GitHub Actions CI — 8 test suites + security scan |
+| `.github/workflows/ci.yml` | **V32** GitHub Actions CI — 9 test suites + config validation + security scan |
 | `CLAUDE.md` | Project context for AI-assisted development |
 
 ### Documentation
@@ -244,11 +259,18 @@ All jobs registered in `jobs_registry.yaml`. Validate: `python3 check_registry.p
 > "The stronger capabilities get, the harder the system is to control — governance must lead, not follow."
 
 **Three-Plane Architecture**:
-- **Control Plane** (70%): SLO monitoring, threshold centralization, E2E journey tests, incident snapshots
+- **Control Plane** (90%): SLO 5-metric monitoring, `config.yaml` centralized thresholds, 19-check preflight, incident snapshots, audit logging
 - **Capability Plane** (85%): Data cleaning, search_kb hybrid retrieval, multimodal understanding
 - **Memory Plane** (60%): KB RAG, trend analysis, preference learning, long-term memory (pending model upgrade)
 
-**Current Focus**: P0 SLO system + threshold centralization + E2E into CI + incident snapshots (1-2 weeks)
+**SLO Targets** (defined in `config.yaml`, enforced by `slo_checker.py`):
+| Metric | Target | Source |
+|--------|--------|--------|
+| Latency p95 | < 30s | proxy_stats.json |
+| Tool success rate | > 95% | Custom tool execution |
+| Degradation rate | < 5% | Fallback provider usage |
+| Timeout rate | < 3% | Error type classification |
+| Auto-recovery rate | > 90% | Consecutive error → recovery |
 
 ## Key Rules
 
@@ -295,21 +317,21 @@ python3 mm_search.py --stats           # Index stats
 ```
 Claude Code → claude/branch → PR → main → auto_deploy (2 min) → Mac Mini
                                                 ↓
-                               git pull → test → file sync (31 files) → smart restart
+                               git pull → test → file sync (35 files) → smart restart
                                                 ↓
-                               preflight_check.sh --full (17 checks)
+                               preflight_check.sh --full (19 checks)
 ```
 
-The `auto_deploy.sh` script maps 31 repo files to runtime locations and only restarts services when core files change. Hourly drift detection via md5 checksums with WhatsApp alerts.
+The `auto_deploy.sh` script maps 35 repo files to runtime locations and only restarts services when core files change. Hourly drift detection via md5 checksums with WhatsApp alerts.
 
 ## Testing
 
 ```bash
-# Full regression (396 tests — must pass before push)
+# Full regression (424 tests — must pass before push)
 bash full_regression.sh
 
 # Individual test suites
-python3 test_tool_proxy.py              # 67 proxy_filters tests
+python3 test_tool_proxy.py              # 70 proxy_filters tests
 python3 test_check_registry.py          # 18 registry tests
 python3 test_data_clean.py              # 80 data cleaning tests
 python3 test_adapter.py                 # 36 adapter tests
@@ -317,6 +339,7 @@ python3 test_kb_business.py             # 44 KB business logic tests
 python3 test_cron_health.py             # 94 cron health tests
 python3 test_status_update.py           # 33 status update tests
 python3 test_audit_log.py               # 19 audit log tests
+python3 test_config_slo.py             # 28 config/SLO/incident tests
 
 # Registry validation
 python3 check_registry.py               # Validate all 32 jobs
@@ -328,7 +351,15 @@ python3 gen_jobs_doc.py --check          # Compare registry vs docs
 bash smoke_test.sh                       # Tests + registry + connectivity
 
 # Full pre-flight check (on Mac Mini)
-bash preflight_check.sh --full           # 17 automated checks
+bash preflight_check.sh --full           # 19 automated checks
+
+# SLO compliance check
+python3 slo_checker.py                   # Check all 5 SLO metrics
+python3 slo_checker.py --alert           # Output violations only
+
+# Incident snapshot (manual)
+python3 incident_snapshot.py --manual "description"
+python3 incident_snapshot.py --list      # Recent snapshots
 
 # Security score
 python3 security_score.py               # 7-dimension score (100 points)
