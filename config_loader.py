@@ -4,13 +4,64 @@ config_loader.py — 统一配置加载器（V32: 阈值中心化）
 从 config.yaml 加载所有阈值，供 proxy_filters / tool_proxy / watchdog 等使用。
 """
 import os
-import yaml
+
+try:
+    import yaml
+except ImportError:
+    yaml = None
 
 _CONFIG_CACHE = None
 _CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.yaml")
 
 # 运行时配置可能在 HOME 目录（auto_deploy 同步后）
 _RUNTIME_PATH = os.path.expanduser("~/config.yaml")
+
+
+def _parse_yaml_simple(text):
+    """极简 YAML 解析器（仅支持 config.yaml 的 key: value 和 section: 格式）。
+    当 pyyaml 未安装时的 fallback，避免新增 pip 依赖。
+    """
+    result = {}
+    current_section = None
+    for line in text.split("\n"):
+        stripped = line.rstrip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        indent = len(line) - len(line.lstrip())
+        content = stripped.strip()
+        if ":" not in content:
+            continue
+        key, _, val = content.partition(":")
+        key = key.strip()
+        val = val.strip()
+        # 去除行内注释
+        if val and "#" in val:
+            val = val[:val.index("#")].strip()
+
+        if indent == 0 and (not val or val == ""):
+            # 顶级 section
+            current_section = key
+            result[current_section] = {}
+        elif indent > 0 and current_section:
+            # section 内的 key-value
+            result[current_section][key] = _coerce_value(val)
+        elif indent == 0 and val:
+            result[key] = _coerce_value(val)
+    return result
+
+
+def _coerce_value(val):
+    """将字符串值转为合适的 Python 类型"""
+    if not val or val == '""' or val == "''":
+        return ""
+    if val.startswith('"') and val.endswith('"'):
+        return val[1:-1]
+    try:
+        if "." in val:
+            return float(val)
+        return int(val)
+    except ValueError:
+        return val
 
 
 def load_config(force_reload=False):
@@ -21,7 +72,12 @@ def load_config(force_reload=False):
 
     path = _RUNTIME_PATH if os.path.exists(_RUNTIME_PATH) else _CONFIG_PATH
     with open(path) as f:
-        _CONFIG_CACHE = yaml.safe_load(f)
+        text = f.read()
+
+    if yaml is not None:
+        _CONFIG_CACHE = yaml.safe_load(text)
+    else:
+        _CONFIG_CACHE = _parse_yaml_simple(text)
     return _CONFIG_CACHE
 
 
