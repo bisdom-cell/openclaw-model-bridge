@@ -37,6 +37,8 @@ def check_slo(stats, config):
     slo_cfg = config.get("slo", {})
     slo_data = stats.get("slo", {})
     latency = slo_data.get("latency", {})
+    total_requests = stats.get("total_requests", 0)
+    no_traffic = total_requests == 0  # 无流量时所有 SLO 视为达标
     results = []
 
     # 1. 延迟 p95
@@ -57,7 +59,7 @@ def check_slo(stats, config):
     tool_rate = slo_data.get("tool_success_rate_pct", 100.0)
     target_tool = slo_cfg.get("tool_success_rate_pct", 95.0)
     tool_total = slo_data.get("tool_calls_total", 0)
-    ok = tool_rate >= target_tool or tool_total == 0  # 无数据不告警
+    ok = tool_rate >= target_tool or tool_total == 0 or no_traffic  # 无数据不告警
     results.append({
         "name": "tool_success_rate",
         "value": tool_rate,
