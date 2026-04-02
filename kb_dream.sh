@@ -39,14 +39,21 @@ log() { echo "[$TS] dream: $1"; }
 
 # Sources: 全量 source 文件，每个文件采样三层
 SOURCES_SUMMARY=""
+ALL_SOURCES=""
+SRC_COUNT=0
 if [ -d "$KB_BASE/sources" ]; then
-    ALL_SOURCES=$(find "$KB_BASE/sources" -name "*.md" 2>/dev/null | sort)
-    SRC_COUNT=$(echo "$ALL_SOURCES" | grep -c "." 2>/dev/null || echo "0")
+    ALL_SOURCES=$(find "$KB_BASE/sources" -name "*.md" 2>/dev/null | sort || true)
+    if [ -n "$ALL_SOURCES" ]; then
+        SRC_COUNT=$(echo "$ALL_SOURCES" | wc -l | tr -d ' ')
+    fi
 
-    for src in $ALL_SOURCES; do
+    while IFS= read -r src; do
+        [ -z "$src" ] && continue
+        [ -f "$src" ] || continue
         name=$(basename "$src" .md)
         total_lines=$(wc -l < "$src" 2>/dev/null | tr -d ' ')
-        [ "$total_lines" -eq 0 ] 2>/dev/null && continue
+        [ -z "$total_lines" ] && total_lines=0
+        [ "$total_lines" -eq 0 ] && continue
 
         # 层1: 文件头部（标题 + 最早的几条，理解数据来源）
         head_content=$(head -10 "$src" 2>/dev/null | head -c 500)
@@ -57,7 +64,7 @@ if [ -d "$KB_BASE/sources" ]; then
         if [ "$total_lines" -gt 50 ]; then
             # 从中间 1/3 位置取 10 行
             mid_start=$(( total_lines / 3 ))
-            mid_content=$(sed -n "${mid_start},$((mid_start+10))p" "$src" 2>/dev/null | head -c 600)
+            mid_content=$(tail -n +${mid_start} "$src" 2>/dev/null | head -10 | head -c 600)
         fi
 
         SOURCES_SUMMARY+="
@@ -66,17 +73,23 @@ if [ -d "$KB_BASE/sources" ]; then
 [历史] $mid_content
 [最新] $tail_content
 "
-    done
+    done <<< "$ALL_SOURCES"
 fi
+log "sources 采样完成: $SRC_COUNT files"
 
 # Notes: 全量笔记文件
 NOTES_SUMMARY=""
+NOTE_COUNT=0
 if [ -d "$KB_BASE/notes" ]; then
-    ALL_NOTES=$(find "$KB_BASE/notes" -name "*.md" 2>/dev/null | sort)
-    for note in $ALL_NOTES; do
+    ALL_NOTES=$(find "$KB_BASE/notes" -name "*.md" 2>/dev/null | sort || true)
+    while IFS= read -r note; do
+        [ -z "$note" ] && continue
+        [ -f "$note" ] || continue
         name=$(basename "$note" .md)
         total_lines=$(wc -l < "$note" 2>/dev/null | tr -d ' ')
-        [ "$total_lines" -eq 0 ] 2>/dev/null && continue
+        [ -z "$total_lines" ] && total_lines=0
+        [ "$total_lines" -eq 0 ] && continue
+        NOTE_COUNT=$((NOTE_COUNT + 1))
 
         # 笔记通常较短，取更多内容
         content=$(head -80 "$note" 2>/dev/null | head -c 2000)
@@ -84,13 +97,14 @@ if [ -d "$KB_BASE/notes" ]; then
 ### $name (${total_lines}行)
 $content
 "
-    done
+    done <<< "$ALL_NOTES"
 fi
+log "notes 采样完成: $NOTE_COUNT files"
 
 # 历史梦境回顾（如果有前次梦境，避免重复同样的发现）
 PREV_DREAMS=""
 if [ -d "$DREAM_DIR" ]; then
-    PREV_DREAM=$(ls -t "$DREAM_DIR"/*.md 2>/dev/null | head -1)
+    PREV_DREAM=$(ls -t "$DREAM_DIR"/*.md 2>/dev/null | head -1 || true)
     if [ -n "$PREV_DREAM" ] && [ -f "$PREV_DREAM" ]; then
         PREV_DREAMS="
 ### 上次梦境摘要
