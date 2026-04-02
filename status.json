@@ -1,5 +1,5 @@
 {
-  "updated": "2026-04-02 23:00:02",
+  "updated": "2026-04-03 00:00:01",
   "updated_by": "cron",
   "priorities": [
     {
@@ -154,11 +154,11 @@
     "last_preflight_time": "2026-04-02 21:00",
     "last_trend_report": "2026-03-28",
     "model_id": "Qwen3-235B-A22B-Instruct-2507-W8A8",
-    "kb_stats": "182 notes, 20 today, 1426KB sources",
+    "kb_stats": "182 notes, 10 today, 1428KB sources",
     "stale_jobs": "all_ok",
-    "last_refresh": "2026-04-02 23:00",
+    "last_refresh": "2026-04-03 00:00",
     "security_score": "93/100 (93.0%)",
-    "text_index": "11965 chunks, 218/219 files (99%), 218 stale, 2h ago, 17947KB"
+    "text_index": "11965 chunks, 218/219 files (99%), 218 stale, 3h ago, 17947KB"
   },
   "session_context": {
     "last_session": "2026-03-31",
