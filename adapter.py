@@ -6,6 +6,17 @@ from urllib.error import URLError, HTTPError
 from urllib.parse import urlparse
 
 # ---------------------------------------------------------------------------
+# Load fallback config from config.yaml (optional, graceful fallback)
+# ---------------------------------------------------------------------------
+_FALLBACK_CFG = {}
+try:
+    from config_loader import load_config
+    _cfg = load_config()
+    _FALLBACK_CFG = _cfg.get("fallback", {}).get("remote_gpu", {})
+except Exception:
+    pass  # config_loader 不可用时使用默认值
+
+# ---------------------------------------------------------------------------
 # Provider registry — add new providers here, no other code changes needed
 # ---------------------------------------------------------------------------
 PROVIDERS = {
@@ -100,6 +111,53 @@ try:
 except ImportError:
     classify_complexity = None
 
+# ---------------------------------------------------------------------------
+# Circuit Breaker for primary provider (V32: Fallback Matrix)
+# ---------------------------------------------------------------------------
+_CB_THRESHOLD = _FALLBACK_CFG.get("circuit_breaker_threshold", 5)
+_CB_RESET_SEC = _FALLBACK_CFG.get("circuit_breaker_reset_seconds", 300)
+_PRIMARY_TIMEOUT = _FALLBACK_CFG.get("timeout_ms", 300000) / 1000  # → seconds
+_FALLBACK_TIMEOUT = _FALLBACK_CFG.get("fallback_timeout_ms", 60000) / 1000
+
+class CircuitBreaker:
+    """简易断路器：连续失败 N 次后短路，直接走 fallback，reset 时间后恢复尝试。"""
+    def __init__(self, threshold=5, reset_seconds=300):
+        self._threshold = threshold
+        self._reset_seconds = reset_seconds
+        self._consecutive_failures = 0
+        self._open_since = 0  # epoch when circuit opened
+        self._lock = threading.Lock()
+
+    def is_open(self):
+        with self._lock:
+            if self._consecutive_failures < self._threshold:
+                return False
+            # 短路状态：检查是否到了重置时间
+            if time.time() - self._open_since >= self._reset_seconds:
+                # half-open: 允许一次尝试
+                return False
+            return True
+
+    def record_success(self):
+        with self._lock:
+            self._consecutive_failures = 0
+
+    def record_failure(self):
+        with self._lock:
+            self._consecutive_failures += 1
+            if self._consecutive_failures >= self._threshold:
+                self._open_since = time.time()
+
+    def state(self):
+        with self._lock:
+            if self._consecutive_failures < self._threshold:
+                return "closed"
+            if time.time() - self._open_since >= self._reset_seconds:
+                return "half-open"
+            return "open"
+
+_circuit_breaker = CircuitBreaker(_CB_THRESHOLD, _CB_RESET_SEC)
+
 ALLOWED_PARAMS = {
     "model", "messages", "max_tokens", "temperature", "top_p",
     "stream", "stop", "tools", "tool_choice", "n",
@@ -150,6 +208,7 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                 info["vl_model"] = VL_MODEL_ID
             if FALLBACK:
                 info["fallback"] = FALLBACK["name"]
+                info["circuit_breaker"] = _circuit_breaker.state()
             if FAST_ROUTE:
                 info["fast_route"] = f"{FAST_ROUTE['name']}/{FAST_ROUTE['model_id']}"
             resp = json.dumps(info).encode()
@@ -271,7 +330,7 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
             data = json.dumps(clean).encode()
             log(f"{tag}FORWARDING: {len(data)} bytes")
 
-            # --- Primary request with fallback ---
+            # --- Primary request with fallback + circuit breaker ---
             if use_fast:
                 fr = FAST_ROUTE
                 fast_clean = dict(clean)
@@ -283,40 +342,52 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                 data = fast_data
             else:
                 primary_auth = _make_auth_headers(AUTH_STYLE, API_KEY)
-            try:
-                status, resp_body = _forward_request(url, data, primary_auth)
-                elapsed = int((time.monotonic() - t0) * 1000)
-                log(f"{tag}RESPONSE: {status} ({len(resp_body)} bytes) {elapsed}ms")
-                self._send_json(status, resp_body)
-            except Exception as primary_err:
-                elapsed = int((time.monotonic() - t0) * 1000)
-                log(f"{tag}PRIMARY FAILED ({elapsed}ms): {primary_err}")
 
-                if not FALLBACK:
-                    log(f"{tag}NO FALLBACK configured, returning 502")
-                    self._send_json(502, json.dumps({"error": str(primary_err)}).encode())
-                    return
+            # Circuit breaker: 短路时跳过 primary，直接走 fallback
+            cb_open = FALLBACK and _circuit_breaker.is_open()
+            if cb_open:
+                log(f"{tag}CIRCUIT BREAKER OPEN: skipping primary, direct fallback")
 
-                # --- Fallback attempt ---
-                fb = FALLBACK
-                fb_url = f"{fb['base_url']}{path}"
-                fb_clean = dict(clean)
-                fb_clean["model"] = fb["model_id"]
-                fb_data = json.dumps(fb_clean).encode()
-                fb_auth = _make_auth_headers(fb["auth_style"], fb["api_key"])
-
-                log(f"{tag}FALLBACK -> {fb['name']} ({fb['model_id']}) {fb_url}")
+            primary_err = None
+            if not cb_open:
                 try:
-                    fb_status, fb_body = _forward_request(fb_url, fb_data, fb_auth)
-                    fb_elapsed = int((time.monotonic() - t0) * 1000)
-                    log(f"{tag}FALLBACK OK: {fb_status} ({len(fb_body)} bytes) {fb_elapsed}ms")
-                    self._send_json(fb_status, fb_body)
-                except Exception as fb_err:
-                    fb_elapsed = int((time.monotonic() - t0) * 1000)
-                    log(f"{tag}FALLBACK ALSO FAILED ({fb_elapsed}ms): {fb_err}")
-                    self._send_json(502, json.dumps({
-                        "error": f"primary: {primary_err}; fallback({fb['name']}): {fb_err}"
-                    }).encode())
+                    status, resp_body = _forward_request(url, data, primary_auth, timeout=int(_PRIMARY_TIMEOUT))
+                    elapsed = int((time.monotonic() - t0) * 1000)
+                    log(f"{tag}RESPONSE: {status} ({len(resp_body)} bytes) {elapsed}ms")
+                    _circuit_breaker.record_success()
+                    self._send_json(status, resp_body)
+                    return
+                except Exception as err:
+                    primary_err = err
+                    elapsed = int((time.monotonic() - t0) * 1000)
+                    log(f"{tag}PRIMARY FAILED ({elapsed}ms): {primary_err}")
+                    _circuit_breaker.record_failure()
+
+            if not FALLBACK:
+                log(f"{tag}NO FALLBACK configured, returning 502")
+                self._send_json(502, json.dumps({"error": str(primary_err or "circuit breaker open")}).encode())
+                return
+
+            # --- Fallback attempt ---
+            fb = FALLBACK
+            fb_url = f"{fb['base_url']}{path}"
+            fb_clean = dict(clean)
+            fb_clean["model"] = fb["model_id"]
+            fb_data = json.dumps(fb_clean).encode()
+            fb_auth = _make_auth_headers(fb["auth_style"], fb["api_key"])
+
+            log(f"{tag}FALLBACK -> {fb['name']} ({fb['model_id']}) {fb_url}")
+            try:
+                fb_status, fb_body = _forward_request(fb_url, fb_data, fb_auth, timeout=int(_FALLBACK_TIMEOUT))
+                fb_elapsed = int((time.monotonic() - t0) * 1000)
+                log(f"{tag}FALLBACK OK: {fb_status} ({len(fb_body)} bytes) {fb_elapsed}ms")
+                self._send_json(fb_status, fb_body)
+            except Exception as fb_err:
+                fb_elapsed = int((time.monotonic() - t0) * 1000)
+                log(f"{tag}FALLBACK ALSO FAILED ({fb_elapsed}ms): {fb_err}")
+                self._send_json(502, json.dumps({
+                    "error": f"primary: {primary_err or 'circuit open'}; fallback({fb['name']}): {fb_err}"
+                }).encode())
             return
 
         # --- Non-chat endpoints: no fallback ---

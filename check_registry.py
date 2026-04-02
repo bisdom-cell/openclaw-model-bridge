@@ -63,6 +63,7 @@ except ImportError:
 
 
 VALID_SCHEDULERS = {"system", "openclaw"}
+VALID_TIERS = {"core", "auxiliary", "experiment"}
 REQUIRED_FIELDS = {"id", "scheduler", "entry", "enabled"}
 REQUIRED_WHEN_ENABLED = {"log", "description"}
 
@@ -107,6 +108,13 @@ def validate(path):
         sched = j.get("scheduler", "")
         if sched and sched not in VALID_SCHEDULERS:
             errors.append(f"{prefix} invalid scheduler: {sched!r} (valid: {VALID_SCHEDULERS})")
+
+        # 4b. Tier valid (V32: Job 分层治理)
+        tier = j.get("tier", "")
+        if tier and tier not in VALID_TIERS:
+            errors.append(f"{prefix} invalid tier: {tier!r} (valid: {VALID_TIERS})")
+        if j.get("enabled") and not tier:
+            warnings.append(f"{prefix} enabled but missing tier (default: auxiliary)")
 
         # 5. Entry path exists
         entry = j.get("entry", "")

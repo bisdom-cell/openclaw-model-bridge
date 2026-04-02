@@ -47,43 +47,54 @@ STATS_WARN=0
 # ════════════════════════════════════════════════════════════════════
 # 1/8 定时任务执行状态（15个job，时间戳+状态字段）
 # ════════════════════════════════════════════════════════════════════
-# 格式：job_id | status_file 路径 | 最大允许静默时间(秒) | 显示名
+# 格式：job_id | status_file 路径 | 最大允许静默时间(秒) | 显示名 | tier
 # 静默时间 = interval × 2 + 缓冲
+# tier: core（失败立即告警）/ auxiliary（失败记录警告）/ experiment（失败仅记录）
 JOBS=(
     # ── 论文监控矩阵（5源）──
     # ArXiv: 每天4次(04/10/16/22) → 最多静默 14h
-    "arxiv_monitor|$HOME/.openclaw/jobs/arxiv_monitor/cache/last_run.json|50400|ArXiv论文监控"
+    "arxiv_monitor|$HOME/.openclaw/jobs/arxiv_monitor/cache/last_run.json|50400|ArXiv论文监控|core"
     # HF Papers: 每天2次(10/20) → 最多静默 28h
-    "hf_papers|$HOME/.openclaw/jobs/hf_papers/cache/last_run.json|100800|HF论文监控"
+    "hf_papers|$HOME/.openclaw/jobs/hf_papers/cache/last_run.json|100800|HF论文监控|core"
     # Semantic Scholar: 每天1次(08:00) → 最多静默 50h
-    "semantic_scholar|$HOME/.openclaw/jobs/semantic_scholar/cache/last_run.json|180000|S2论文监控"
+    "semantic_scholar|$HOME/.openclaw/jobs/semantic_scholar/cache/last_run.json|180000|S2论文监控|core"
     # DBLP: 每天1次(12:00) → 最多静默 50h
-    "dblp|$HOME/.openclaw/jobs/dblp/cache/last_run.json|180000|DBLP论文监控"
+    "dblp|$HOME/.openclaw/jobs/dblp/cache/last_run.json|180000|DBLP论文监控|auxiliary"
     # ACL: 每周三(09:30) → 最多静默 192h（8天）
-    "acl_anthology|$HOME/.openclaw/jobs/acl_anthology/cache/last_run.json|691200|ACL论文监控"
+    "acl_anthology|$HOME/.openclaw/jobs/acl_anthology/cache/last_run.json|691200|ACL论文监控|auxiliary"
 
     # ── 应用监控 ──
     # HN: 每3小时 → 最多静默 7h
-    "run_hn_fixed|$HOME/.openclaw/jobs/hn_watcher/cache/last_run.json|25200|HN热帖抓取"
+    "run_hn_fixed|$HOME/.openclaw/jobs/hn_watcher/cache/last_run.json|25200|HN热帖抓取|core"
     # Freight: 每天3次(08/14/20) → 最多静默 14h
-    "freight_watcher|$HOME/.openclaw/jobs/freight_watcher/cache/last_run.json|50400|货代Watcher"
+    "freight_watcher|$HOME/.openclaw/jobs/freight_watcher/cache/last_run.json|50400|货代Watcher|core"
     # OpenClaw Releases: 每天1次(08:00) → 最多静默 50h
-    "openclaw_run|$HOME/.openclaw/jobs/openclaw_official/cache/last_run.json|180000|OpenClaw版本监控"
+    "openclaw_run|$HOME/.openclaw/jobs/openclaw_official/cache/last_run.json|180000|OpenClaw版本监控|core"
     # Discussions: 每小时 → 最多静默 3h
-    "run_discussions|$HOME/.openclaw/jobs/openclaw_official/cache/last_run_discussions.json|10800|Issues监控"
+    "run_discussions|$HOME/.openclaw/jobs/openclaw_official/cache/last_run_discussions.json|10800|Issues监控|auxiliary"
 
     # ── KB 处理 ──
     # KB Evening: 每天22:00 → 最多静默 50h
-    "kb_evening|$HOME/.kb/last_run_evening.json|180000|KB晚间整理"
+    "kb_evening|$HOME/.kb/last_run_evening.json|180000|KB晚间整理|core"
     # KB Review: 每周五21:00 → 最多静默 192h（8天）
-    "kb_review|$HOME/.kb/last_run_review.json|691200|KB周回顾"
+    "kb_review|$HOME/.kb/last_run_review.json|691200|KB周回顾|auxiliary"
 )
 
+CORE_ALERTS=()
+AUX_ALERTS=()
+EXP_ALERTS=()
+
 for entry in "${JOBS[@]}"; do
-    IFS='|' read -r job_id status_file max_silence display_name <<< "$entry"
+    IFS='|' read -r job_id status_file max_silence display_name tier <<< "$entry"
+    tier="${tier:-auxiliary}"  # 默认 auxiliary
 
     # 状态文件不存在 → 可能从未成功运行过
     if [ ! -f "$status_file" ]; then
+        case "$tier" in
+            core) CORE_ALERTS+=("🔴 $display_name: 状态文件不存在（从未成功执行？）") ;;
+            auxiliary) AUX_ALERTS+=("🟡 $display_name: 状态文件不存在") ;;
+            *) EXP_ALERTS+=("⚪ $display_name: 状态文件不存在") ;;
+        esac
         ALERTS+=("$display_name: 状态文件不存在（从未成功执行？）")
         continue
     fi
@@ -120,34 +131,49 @@ except Exception as e:
     ELAPSED=$((NOW_EPOCH - LAST_TIME))
     if [ "$ELAPSED" -gt "$max_silence" ]; then
         HOURS=$((ELAPSED / 3600))
-        ALERTS+=("$display_name: 已 ${HOURS}h 未更新（阈值 $((max_silence / 3600))h）")
+        _msg="$display_name: 已 ${HOURS}h 未更新（阈值 $((max_silence / 3600))h）"
+        ALERTS+=("$_msg")
+        case "$tier" in
+            core) CORE_ALERTS+=("🔴 $_msg") ;;
+            auxiliary) AUX_ALERTS+=("🟡 $_msg") ;;
+            *) EXP_ALERTS+=("⚪ $_msg") ;;
+        esac
     else
         STATS_PASS=$((STATS_PASS + 1))
     fi
 
     # 状态字段检查（扩展匹配：任何非 ok/unknown 的失败状态）
+    _status_msg=""
     case "$LAST_STATUS" in
         ok|unknown)
             ;;  # 正常
         fetch_failed)
-            ALERTS+=("$display_name: 最近一次抓取失败 (HTTP $HTTP_CODE)")
+            _status_msg="$display_name: 最近一次抓取失败 (HTTP $HTTP_CODE)"
             ;;
         parse_failed|parse_quality_low)
-            ALERTS+=("$display_name: 最近一次解析异常 ($LAST_STATUS)")
+            _status_msg="$display_name: 最近一次解析异常 ($LAST_STATUS)"
             ;;
         send_failed)
-            ALERTS+=("$display_name: 最近一次推送失败")
+            _status_msg="$display_name: 最近一次推送失败"
             ;;
         no_volumes)
-            ALERTS+=("$display_name: 外挂存储不可用 ($LAST_STATUS)")
+            _status_msg="$display_name: 外挂存储不可用 ($LAST_STATUS)"
             ;;
         *)
             # 捕获所有未知的非 ok 状态
             if [ "$LAST_STATUS" != "ok" ] && [ "$LAST_STATUS" != "unknown" ]; then
-                ALERTS+=("$display_name: 异常状态 ($LAST_STATUS)")
+                _status_msg="$display_name: 异常状态 ($LAST_STATUS)"
             fi
             ;;
     esac
+    if [ -n "$_status_msg" ]; then
+        ALERTS+=("$_status_msg")
+        case "$tier" in
+            core) CORE_ALERTS+=("🔴 $_status_msg") ;;
+            auxiliary) AUX_ALERTS+=("🟡 $_status_msg") ;;
+            *) EXP_ALERTS+=("⚪ $_status_msg") ;;
+        esac
+    fi
 
     # 货代 deep_dive 特殊检查
     if [ "$job_id" = "freight_watcher" ] && [ -n "$DEEP_DIVE" ]; then
@@ -460,14 +486,68 @@ else
 fi
 
 ALERT_MSG="🚨 系统监控告警 $SEVERITY ($TS)
-检查: $TOTAL_CHECKS 项 | 通过: $STATS_PASS | 告警: ${#ALERTS[@]}
+检查: $TOTAL_CHECKS 项 | 通过: $STATS_PASS | 告警: ${#ALERTS[@]} (core:${#CORE_ALERTS[@]} aux:${#AUX_ALERTS[@]} exp:${#EXP_ALERTS[@]})"
 
-以下需要关注："
-
-for a in "${ALERTS[@]}"; do
+# 按 tier 分组展示：core 先行
+if [ ${#CORE_ALERTS[@]} -gt 0 ]; then
     ALERT_MSG+="
+
+🔴 CORE（立即处理）:"
+    for a in "${CORE_ALERTS[@]}"; do
+        ALERT_MSG+="
 • $a"
+    done
+fi
+
+if [ ${#AUX_ALERTS[@]} -gt 0 ]; then
+    ALERT_MSG+="
+
+🟡 AUXILIARY（关注）:"
+    for a in "${AUX_ALERTS[@]}"; do
+        ALERT_MSG+="
+• $a"
+    done
+fi
+
+if [ ${#EXP_ALERTS[@]} -gt 0 ]; then
+    ALERT_MSG+="
+
+⚪ EXPERIMENT（仅记录）:"
+    for a in "${EXP_ALERTS[@]}"; do
+        ALERT_MSG+="
+• $a"
+    done
+fi
+
+# 非 job 告警（服务/磁盘/cron 等）单独展示
+NON_JOB_ALERTS=()
+for a in "${ALERTS[@]}"; do
+    # 跳过已在 tier 分组中展示的 job 告警
+    is_job=false
+    for c in "${CORE_ALERTS[@]}" "${AUX_ALERTS[@]}" "${EXP_ALERTS[@]}"; do
+        # tier 告警带前缀，去掉前缀后比较
+        stripped="${c#🔴 }"
+        stripped="${stripped#🟡 }"
+        stripped="${stripped#⚪ }"
+        if [ "$a" = "$stripped" ]; then
+            is_job=true
+            break
+        fi
+    done
+    if ! $is_job; then
+        NON_JOB_ALERTS+=("$a")
+    fi
 done
+
+if [ ${#NON_JOB_ALERTS[@]} -gt 0 ]; then
+    ALERT_MSG+="
+
+🔧 系统告警:"
+    for a in "${NON_JOB_ALERTS[@]}"; do
+        ALERT_MSG+="
+• $a"
+    done
+fi
 
 ALERT_MSG+="
 

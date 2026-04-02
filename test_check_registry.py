@@ -328,6 +328,93 @@ class TestFileMapCompleteness(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
+# Tier validation tests (V32: Job 分层治理)
+# ---------------------------------------------------------------------------
+
+class TestTierValidation(unittest.TestCase):
+
+    def test_valid_tier_no_error(self):
+        """Valid tier values should not produce errors."""
+        for tier in ("core", "auxiliary", "experiment"):
+            yaml_content = textwrap.dedent(f"""\
+                version: 1
+                jobs:
+                  - id: tier_test
+                    scheduler: system
+                    entry: test_check_registry.py
+                    enabled: true
+                    tier: {tier}
+                    log: ~/test.log
+                    description: test
+            """)
+            path = write_temp_yaml(yaml_content)
+            try:
+                errors, _ = validate(path)
+                self.assertEqual(errors, [], f"tier={tier} should be valid, got: {errors}")
+            finally:
+                os.unlink(path)
+
+    def test_invalid_tier_error(self):
+        """Invalid tier value should produce an error."""
+        yaml_content = textwrap.dedent("""\
+            version: 1
+            jobs:
+              - id: bad_tier
+                scheduler: system
+                entry: test_check_registry.py
+                enabled: true
+                tier: critical
+                log: ~/test.log
+                description: test
+        """)
+        path = write_temp_yaml(yaml_content)
+        try:
+            errors, _ = validate(path)
+            tier_errors = [e for e in errors if "invalid tier" in e]
+            self.assertTrue(len(tier_errors) >= 1, f"Expected tier error, got: {errors}")
+        finally:
+            os.unlink(path)
+
+    def test_missing_tier_warns(self):
+        """Enabled job without tier should produce a warning."""
+        yaml_content = textwrap.dedent("""\
+            version: 1
+            jobs:
+              - id: no_tier
+                scheduler: system
+                entry: test_check_registry.py
+                enabled: true
+                log: ~/test.log
+                description: test
+        """)
+        path = write_temp_yaml(yaml_content)
+        try:
+            _, warnings = validate(path)
+            tier_warns = [w for w in warnings if "missing tier" in w]
+            self.assertTrue(len(tier_warns) >= 1, f"Expected tier warning, got: {warnings}")
+        finally:
+            os.unlink(path)
+
+    def test_disabled_job_no_tier_warning(self):
+        """Disabled jobs should not warn about missing tier."""
+        yaml_content = textwrap.dedent("""\
+            version: 1
+            jobs:
+              - id: disabled_no_tier
+                scheduler: system
+                entry: test_check_registry.py
+                enabled: false
+        """)
+        path = write_temp_yaml(yaml_content)
+        try:
+            _, warnings = validate(path)
+            tier_warns = [w for w in warnings if "missing tier" in w]
+            self.assertEqual(tier_warns, [])
+        finally:
+            os.unlink(path)
+
+
+# ---------------------------------------------------------------------------
 # Integration: validate the actual jobs_registry.yaml
 # ---------------------------------------------------------------------------
 

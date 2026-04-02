@@ -288,6 +288,70 @@ class TestMessageCleaning(unittest.TestCase):
         self.assertIn("ALLOWED_PARAMS", content)
 
 
+class TestCircuitBreaker(unittest.TestCase):
+    """V32: 断路器测试（通过 exec 提取 CircuitBreaker 类，避免 import adapter 启动服务器）"""
+
+    @classmethod
+    def setUpClass(cls):
+        """从 adapter.py 源码中提取 CircuitBreaker 类"""
+        import re
+        with open("adapter.py") as f:
+            src = f.read()
+        # 提取 CircuitBreaker 类定义
+        match = re.search(r'(class CircuitBreaker:.*?)(?=\n\w|\n_circuit_breaker)', src, re.DOTALL)
+        assert match, "CircuitBreaker class not found in adapter.py"
+        ns = {"threading": __import__("threading"), "time": __import__("time")}
+        exec(match.group(1), ns)
+        cls.CB = ns["CircuitBreaker"]
+
+    def test_initial_state_closed(self):
+        cb = self.CB(3, 1)
+        self.assertEqual(cb.state(), "closed")
+        self.assertFalse(cb.is_open())
+
+    def test_failures_below_threshold(self):
+        cb = self.CB(3, 1)
+        cb.record_failure()
+        cb.record_failure()
+        self.assertEqual(cb.state(), "closed")
+
+    def test_failures_at_threshold_opens(self):
+        cb = self.CB(3, 1)
+        for _ in range(3):
+            cb.record_failure()
+        self.assertEqual(cb.state(), "open")
+        self.assertTrue(cb.is_open())
+
+    def test_success_resets(self):
+        cb = self.CB(2, 1)
+        cb.record_failure()
+        cb.record_failure()
+        self.assertTrue(cb.is_open())
+        cb.record_success()
+        self.assertEqual(cb.state(), "closed")
+        self.assertFalse(cb.is_open())
+
+    def test_half_open_after_reset(self):
+        cb = self.CB(2, 0)  # reset=0 → 立即 half-open
+        cb.record_failure()
+        cb.record_failure()
+        import time
+        time.sleep(0.01)
+        self.assertEqual(cb.state(), "half-open")
+        self.assertFalse(cb.is_open())  # half-open allows attempt
+
+    def test_health_shows_circuit_breaker(self):
+        with open("adapter.py") as f:
+            content = f.read()
+        self.assertIn("circuit_breaker", content)
+
+    def test_config_driven_timeouts(self):
+        with open("adapter.py") as f:
+            content = f.read()
+        self.assertIn("_PRIMARY_TIMEOUT", content)
+        self.assertIn("_FALLBACK_TIMEOUT", content)
+
+
 class TestAdapterSyntax(unittest.TestCase):
     """语法和基本结构"""
 

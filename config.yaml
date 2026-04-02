@@ -85,6 +85,33 @@ incidents:
   auto_snapshot_on_consecutive_errors: 3  # 连续 N 次错误自动快照
 
 # ---------------------------------------------------------------------------
+# Fallback Matrix（外部依赖降级路径）
+# 每个依赖定义：主路径 → 降级路径 → 兜底行为
+# adapter.py 在请求失败时按此矩阵执行降级
+# ---------------------------------------------------------------------------
+fallback:
+  # 远程 GPU（主 LLM）
+  remote_gpu:
+    primary: qwen               # Qwen3-235B
+    fallback: gemini            # Gemini 2.5 Flash
+    timeout_ms: 300000          # 5 分钟
+    fallback_timeout_ms: 60000  # fallback 用更短超时
+    max_retries: 0              # 不重试，直接降级（避免延迟翻倍）
+    circuit_breaker_threshold: 5  # 连续 5 次失败后短路
+    circuit_breaker_reset_seconds: 300  # 短路后 5 分钟恢复尝试
+  # WhatsApp Gateway
+  whatsapp_gateway:
+    health_url: "http://localhost:18789"
+    timeout_ms: 5000
+    on_failure: "log_and_queue"  # 消息进本地队列，恢复后重发
+  # ArXiv API
+  arxiv_api:
+    timeout_ms: 30000
+    max_retries: 2
+    retry_backoff_ms: 5000
+    on_failure: "skip_and_retry_next_cycle"  # 跳过本轮，下次 cron 重试
+
+# ---------------------------------------------------------------------------
 # 定时任务沉默超时（秒）
 # ---------------------------------------------------------------------------
 job_silence_timeouts:

@@ -13,6 +13,7 @@ jobs:
     log: ~/health_check.log
     needs_api_key: true
     enabled: true
+    tier: auxiliary                  # 周报，非实时关键
     description: 每周健康周报，推送到 WhatsApp
 
   - id: kb_save_arxiv
@@ -22,6 +23,7 @@ jobs:
     log: ~/kb_save_arxiv.log
     needs_api_key: false
     enabled: false                   # V28: 功能已合并到 arxiv_monitor
+    tier: experiment
     description: ArXiv 监控结果写入 KB + rsync 备份（已废弃）
 
   - id: arxiv_monitor
@@ -31,6 +33,7 @@ jobs:
     log: ~/.openclaw/logs/jobs/arxiv_monitor.log
     needs_api_key: true
     enabled: true
+    tier: core                       # 论文监控核心源
     description: ArXiv AI论文监控（脚本控制格式，替代 --announce 模式）
 
   - id: hf_papers
@@ -40,6 +43,7 @@ jobs:
     log: ~/.openclaw/logs/jobs/hf_papers.log
     needs_api_key: true
     enabled: true
+    tier: core                       # 论文监控核心源
     description: Hugging Face Daily Papers 社区精选论文监控
 
   - id: semantic_scholar
@@ -49,6 +53,7 @@ jobs:
     log: ~/.openclaw/logs/jobs/semantic_scholar.log
     needs_api_key: true
     enabled: true
+    tier: core                       # 论文监控核心源
     description: Semantic Scholar 高引AI论文监控（多关键词搜索+引用排序）
 
   - id: openreview
@@ -58,6 +63,7 @@ jobs:
     log: ~/.openclaw/logs/jobs/openreview.log
     needs_api_key: true
     enabled: false                   # V30.4: OpenReview API 全面 403（2025-11安全事件后锁定），S2 已覆盖顶会论文
+    tier: experiment                 # 已停用
     description: OpenReview 顶会高分论文监控（ICLR/NeurIPS/ICML）（已停用：API 403）
 
   - id: dblp
@@ -67,6 +73,7 @@ jobs:
     log: ~/.openclaw/logs/jobs/dblp.log
     needs_api_key: true
     enabled: true
+    tier: auxiliary                   # 补充源
     description: DBLP CS全领域论文索引监控（多关键词搜索+LLM翻译+WhatsApp推送）
 
   - id: acl_anthology
@@ -76,6 +83,7 @@ jobs:
     log: ~/.openclaw/logs/jobs/acl_anthology.log
     needs_api_key: true
     enabled: true
+    tier: auxiliary                   # 补充源（按会议周期）
     description: ACL Anthology NLP 顶会论文监控（ACL/EMNLP/NAACL）
 
   - id: pwc
@@ -85,6 +93,7 @@ jobs:
     log: ~/.openclaw/logs/jobs/pwc.log
     needs_api_key: false
     enabled: false                   # V31: API 302→HF，已合并到 HF Papers 增强
+    tier: experiment                 # 已停用
     description: Papers with Code 论文+代码监控（已停用：API 302重定向到HF，功能合并到 hf_papers）
 
   - id: github_trending
@@ -94,6 +103,7 @@ jobs:
     log: ~/.openclaw/logs/jobs/github_trending.log
     needs_api_key: false
     enabled: true
+    tier: auxiliary                   # 补充信息源
     description: GitHub Trending ML/AI 仓库监控（GitHub Search API，从代码端发现趋势）
 
   - id: rss_blogs
@@ -103,6 +113,7 @@ jobs:
     log: ~/.openclaw/logs/jobs/rss_blogs.log
     needs_api_key: false
     enabled: true
+    tier: auxiliary                   # 补充信息源
     description: RSS 博客订阅监控（科学空间等，高质量中文技术博客）
 
   - id: kb_evening
@@ -112,6 +123,7 @@ jobs:
     log: ~/kb_evening.log
     needs_api_key: false
     enabled: true
+    tier: core                       # KB 数据整理，影响次日摘要
     description: 晚间 KB 整理
 
   - id: kb_inject
@@ -121,6 +133,7 @@ jobs:
     log: ~/kb_inject.log
     needs_api_key: false
     enabled: true
+    tier: core                       # 每日摘要注入，影响 PA 知识
     description: 每日 KB 摘要生成 + WhatsApp 推送精华摘要，供 LLM 对话时 read 查阅
 
   # ---- openclaw cron 任务（经过 LLM 链路） ----
@@ -132,6 +145,7 @@ jobs:
     log: ~/.openclaw/logs/jobs/freight_watcher.log
     needs_api_key: true
     enabled: true
+    tier: core                       # 业务核心：航运动态
     description: 货代 Watcher，抓取航运动态（系统crontab触发，脚本内直接curl LLM）
 
   - id: openclaw_run
@@ -141,6 +155,7 @@ jobs:
     log: ~/.openclaw/logs/jobs/openclaw_official.log
     needs_api_key: true
     enabled: true
+    tier: core                       # 上游依赖监控
     description: OpenClaw Releases Watcher（版本更新+LLM中文摘要）
 
   # openclaw_discussions 已删除 — 与 run_discussions (id: run_discussions) 完全重复
@@ -152,6 +167,7 @@ jobs:
     log: ~/kb_review.log
     needs_api_key: true
     enabled: true
+    tier: auxiliary                   # 周度回顾
     description: "KB 跨笔记回顾（V29: LLM深度分析+WhatsApp推送）"
 
   # ---- HN 讨论抓取（独立脚本） ----
@@ -163,6 +179,7 @@ jobs:
     log: ~/.openclaw/logs/jobs/hn_watcher.log
     needs_api_key: false
     enabled: true
+    tier: core                       # 信息源核心
     description: HackerNews 热帖抓取
 
   - id: job_watchdog
@@ -172,6 +189,7 @@ jobs:
     log: ~/job_watchdog.log
     needs_api_key: false
     enabled: true
+    tier: core                       # 元监控，系统基石
     description: 元监控 — 检查所有定时任务是否按时执行，超时则 WhatsApp 告警
 
   - id: gateway_watchdog
@@ -181,6 +199,7 @@ jobs:
     log: ~/.openclaw/logs/gateway_watchdog.log
     needs_api_key: false
     enabled: false                   # #95: 与 launchd KeepAlive 双主控冲突，已从 crontab 移除（2026-03-09）
+    tier: experiment                 # 已废弃
     description: Gateway 自愈 watchdog（已废弃 — Gateway 由 launchd 单一管理）
 
   - id: auto_deploy
@@ -190,6 +209,7 @@ jobs:
     log: ~/.openclaw/logs/auto_deploy.log
     needs_api_key: false
     enabled: true
+    tier: core                       # 部署管线，系统基石
     description: 自动部署 — git pull + 文件同步 + 按需 restart
 
   - id: run_discussions
@@ -199,6 +219,7 @@ jobs:
     log: ~/.openclaw/logs/jobs/openclaw_discussions.log
     needs_api_key: false
     enabled: true
+    tier: auxiliary                   # 社区监控
     description: 社区 Issues 监控（GitHub REST API + ETag 缓存，支持 GITHUB_TOKEN 认证提升限额）
 
   - id: wa_keepalive
@@ -208,6 +229,7 @@ jobs:
     log: ~/wa_keepalive.log
     needs_api_key: false
     enabled: true
+    tier: core                       # WhatsApp 连接保活
     description: WhatsApp session 保活（Gateway HTTP 探测，不发送消息）
 
   - id: openclaw_backup
@@ -217,6 +239,7 @@ jobs:
     log: ~/openclaw_backup.log
     needs_api_key: false
     enabled: true
+    tier: core                       # 数据安全
     description: 每日备份 OpenClaw state（config/sessions/memory）到外挂 SSD，保留7天
 
   - id: mm_index
@@ -226,6 +249,7 @@ jobs:
     log: ~/.openclaw/logs/jobs/mm_index.log
     needs_api_key: true              # GEMINI_API_KEY
     enabled: true
+    tier: auxiliary                   # 多模态索引
     description: Multimodal Memory 索引 — 扫描媒体文件 → Gemini Embedding 2 → 本地向量索引
 
   - id: conv_quality
@@ -235,6 +259,7 @@ jobs:
     log: ~/conv_quality.log
     needs_api_key: false
     enabled: true
+    tier: auxiliary                   # 质量分析
     description: 对话质量日报 — 解析 proxy/adapter 日志，生成响应时间/成功率/工具分布/Token用量报告
 
   - id: token_report
@@ -244,6 +269,7 @@ jobs:
     log: ~/token_report.log
     needs_api_key: false
     enabled: true
+    tier: auxiliary                   # 用量分析
     description: Token 用量日报 — 每日消耗总量/逐小时分布/上下文压力/多日趋势
 
   - id: kb_dedup
@@ -253,6 +279,7 @@ jobs:
     log: ~/kb_dedup.log
     needs_api_key: false
     enabled: true
+    tier: auxiliary                   # KB 维护
     description: KB 智能去重 — Notes 精确/模糊去重 + Sources 行去重（dry-run 模式，仅报告）
 
   - id: kb_embed
@@ -262,6 +289,7 @@ jobs:
     log: ~/kb_embed.log
     needs_api_key: false
     enabled: true
+    tier: core                       # RAG 搜索依赖
     description: KB 文本向量索引 — 本地 embedding（sentence-transformers），增量分块索引 notes+sources，供 RAG 语义搜索
 
   - id: kb_trend
@@ -271,6 +299,7 @@ jobs:
     log: ~/kb_trend.log
     needs_api_key: false             # 通过 proxy:5002 调 LLM，不需要独立 key
     enabled: true
+    tier: auxiliary                   # 周度报告
     description: KB 周趋势报告 — 本周 vs 上周关键词频率变化 + LLM 趋势分析 + WhatsApp 推送
 
   - id: cron_canary
@@ -280,6 +309,7 @@ jobs:
     log: ~/.cron_canary_log
     needs_api_key: false
     enabled: true
+    tier: core                       # cron 健康基石
     description: Cron 心跳金丝雀 — 写 epoch 到 ~/.cron_canary，供 watchdog/doctor 验证 cron daemon 存活
 
   - id: kb_status_refresh
@@ -289,6 +319,7 @@ jobs:
     log: ~/kb_status_refresh.log
     needs_api_key: false
     enabled: true
+    tier: core                       # 三方宪法实时同步
     description: 每小时刷新 status.json 系统健康字段（三层服务/模型ID/KB统计/过期job），补齐三方宪法实时同步需求
 
   - id: preference_learner
@@ -298,4 +329,5 @@ jobs:
     log: ~/preference_learner.log
     needs_api_key: false
     enabled: true
+    tier: experiment                 # 实验性功能
     description: 每天从行为数据自动推断用户偏好（活跃时段/工具使用/关注领域），写入 status.json → SOUL.md
