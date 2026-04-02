@@ -331,3 +331,13 @@ jobs:
     enabled: true
     tier: experiment                 # 实验性功能
     description: 每天从行为数据自动推断用户偏好（活跃时段/工具使用/关注领域），写入 status.json → SOUL.md
+
+  - id: kb_dream
+    scheduler: system
+    entry: kb_dream.sh
+    interval: "0 3 * * *"           # 每天 03:00（凌晨系统空闲时"做梦"）
+    log: ~/kb_dream.log
+    needs_api_key: false             # 通过 proxy:5002 调 LLM
+    enabled: true
+    tier: experiment                 # 实验性：Agent 跨领域探索
+    description: "Agent 做梦引擎 — 跨领域关联发现 + 趋势推演 + 被忽视信号挖掘（每日凌晨，输出 ~/.kb/dreams/）"

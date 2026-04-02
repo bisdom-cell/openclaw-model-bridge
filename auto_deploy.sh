@@ -164,6 +164,9 @@ declare -a FILE_MAP=(
     "slo_checker.py|$HOME/slo_checker.py"
     "incident_snapshot.py|$HOME/incident_snapshot.py"
 
+    # Agent 做梦引擎（V32）
+    "kb_dream.sh|$HOME/kb_dream.sh"
+
     # 三方宪法 SOUL.md
     "SOUL.md|$HOME/.openclaw/workspace/.openclaw/SOUL.md"
 
