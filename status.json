@@ -1,6 +1,6 @@
 {
-  "updated": "2026-04-02 09:00:01",
-  "updated_by": "cron",
+  "updated": "2026-04-02 01:49:33",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "数据清洗 Phase 2",
@@ -74,6 +74,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-04-02",
+      "what": "V32: 四个P0任务完成 — SLO最小集(延迟p95/错误分类/工具成功率/降级率/恢复率) + 阈值中心化(config.yaml收敛70+魔法数字) + E2E进CI(preflight 19项) + 故障快照(incident_snapshot.py自动采集) + 28新单测",
+      "by": "claude_code"
+    },
     {
       "date": "2026-04-01",
       "what": "search_kb 全面加固（时间过滤+source过滤+文件锁+SHA256）+ KB 100%覆盖 + 四原则加固（CI/pre-commit/CLAUDE.md瘦身）",
