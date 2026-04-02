@@ -33,42 +33,70 @@ mkdir -p "$DREAM_DIR"
 log() { echo "[$TS] dream: $1"; }
 
 # ═══════════════════════════════════════════════════════════════════
-# 1. 收集"梦的素材"：最近 7 天的 KB 数据
+# 1. 收集"梦的素材"：KB 全量数据（智能采样，避免 token 爆炸）
+#    策略：全量文件 × 分层采样（标题概览 + 最新条目 + 历史随机段）
 # ═══════════════════════════════════════════════════════════════════
 
-# Sources: 最近 7 天内更新的 source 文件（论文/HN/货代/博客等）
+# Sources: 全量 source 文件，每个文件采样三层
 SOURCES_SUMMARY=""
 if [ -d "$KB_BASE/sources" ]; then
-    RECENT_SOURCES=$(find "$KB_BASE/sources" -name "*.md" -mtime -7 2>/dev/null | sort)
-    SRC_COUNT=$(echo "$RECENT_SOURCES" | grep -c "." 2>/dev/null || echo "0")
+    ALL_SOURCES=$(find "$KB_BASE/sources" -name "*.md" 2>/dev/null | sort)
+    SRC_COUNT=$(echo "$ALL_SOURCES" | grep -c "." 2>/dev/null || echo "0")
 
-    # 从每个 source 提取最近的条目（最后 30 行，避免 token 爆炸）
-    for src in $RECENT_SOURCES; do
+    for src in $ALL_SOURCES; do
         name=$(basename "$src" .md)
-        tail_content=$(tail -30 "$src" 2>/dev/null | head -c 2000)
-        if [ -n "$tail_content" ]; then
-            SOURCES_SUMMARY+="
-### $name (最近)
-$tail_content
-"
+        total_lines=$(wc -l < "$src" 2>/dev/null | tr -d ' ')
+        [ "$total_lines" -eq 0 ] 2>/dev/null && continue
+
+        # 层1: 文件头部（标题 + 最早的几条，理解数据来源）
+        head_content=$(head -10 "$src" 2>/dev/null | head -c 500)
+        # 层2: 文件尾部（最新条目，了解最近动态）
+        tail_content=$(tail -20 "$src" 2>/dev/null | head -c 1000)
+        # 层3: 中间随机采样（挖掘历史中被忽视的信号）
+        mid_content=""
+        if [ "$total_lines" -gt 50 ]; then
+            # 从中间 1/3 位置取 10 行
+            mid_start=$(( total_lines / 3 ))
+            mid_content=$(sed -n "${mid_start},$((mid_start+10))p" "$src" 2>/dev/null | head -c 600)
         fi
+
+        SOURCES_SUMMARY+="
+### $name (${total_lines}行, 全量采样)
+[最早] $head_content
+[历史] $mid_content
+[最新] $tail_content
+"
     done
 fi
 
-# Notes: 最近 7 天的笔记
+# Notes: 全量笔记文件
 NOTES_SUMMARY=""
 if [ -d "$KB_BASE/notes" ]; then
-    RECENT_NOTES=$(find "$KB_BASE/notes" -name "*.md" -mtime -7 2>/dev/null | sort)
-    for note in $RECENT_NOTES; do
+    ALL_NOTES=$(find "$KB_BASE/notes" -name "*.md" 2>/dev/null | sort)
+    for note in $ALL_NOTES; do
         name=$(basename "$note" .md)
-        content=$(head -50 "$note" 2>/dev/null | head -c 2000)
-        if [ -n "$content" ]; then
-            NOTES_SUMMARY+="
-### $name
+        total_lines=$(wc -l < "$note" 2>/dev/null | tr -d ' ')
+        [ "$total_lines" -eq 0 ] 2>/dev/null && continue
+
+        # 笔记通常较短，取更多内容
+        content=$(head -80 "$note" 2>/dev/null | head -c 2000)
+        NOTES_SUMMARY+="
+### $name (${total_lines}行)
 $content
 "
-        fi
     done
+fi
+
+# 历史梦境回顾（如果有前次梦境，避免重复同样的发现）
+PREV_DREAMS=""
+if [ -d "$DREAM_DIR" ]; then
+    PREV_DREAM=$(ls -t "$DREAM_DIR"/*.md 2>/dev/null | head -1)
+    if [ -n "$PREV_DREAM" ] && [ -f "$PREV_DREAM" ]; then
+        PREV_DREAMS="
+### 上次梦境摘要
+$(head -30 "$PREV_DREAM" 2>/dev/null | head -c 800)
+"
+    fi
 fi
 
 # Status: 项目当前状态
@@ -97,16 +125,16 @@ if [ -f "$TREND_FILE" ]; then
 fi
 
 # 统计
-TOTAL_CHARS=$(printf "%s%s%s%s" "$SOURCES_SUMMARY" "$NOTES_SUMMARY" "$STATUS_CONTEXT" "$TREND_CONTEXT" | wc -c | tr -d ' ')
-log "素材收集完成: sources=$SRC_COUNT files, total=${TOTAL_CHARS} chars"
+TOTAL_CHARS=$(printf "%s%s%s%s%s" "$SOURCES_SUMMARY" "$NOTES_SUMMARY" "$STATUS_CONTEXT" "$TREND_CONTEXT" "$PREV_DREAMS" | wc -c | tr -d ' ')
+log "素材收集完成: sources=$SRC_COUNT files, total=${TOTAL_CHARS} chars (全量采样)"
 
 if $DRY_RUN; then
     echo "=== DRY RUN ==="
-    echo "Sources: $SRC_COUNT files"
+    echo "Sources: $SRC_COUNT files (全量)"
     echo "Total chars: $TOTAL_CHARS"
     echo "Dream file: $DREAM_FILE"
     echo "=== Sources list ==="
-    echo "$RECENT_SOURCES" 2>/dev/null
+    echo "$ALL_SOURCES" 2>/dev/null
     exit 0
 fi
 
@@ -121,12 +149,12 @@ fi
 # 2. "做梦"：让 LLM 进行跨领域探索
 # ═══════════════════════════════════════════════════════════════════
 
-# 截断素材到 12000 chars 避免超 token
-MATERIAL=$(printf "%s\n\n%s\n\n%s\n\n%s" "$SOURCES_SUMMARY" "$NOTES_SUMMARY" "$STATUS_CONTEXT" "$TREND_CONTEXT" | head -c 12000)
+# 截断素材到 20000 chars（Qwen3-235B 262K context，留足空间给 prompt + 输出）
+MATERIAL=$(printf "%s\n\n%s\n\n%s\n\n%s\n\n%s" "$SOURCES_SUMMARY" "$NOTES_SUMMARY" "$STATUS_CONTEXT" "$TREND_CONTEXT" "$PREV_DREAMS" | head -c 20000)
 
 DREAM_PROMPT="你是一个「数据梦境分析师」。你的任务不是总结信息，而是在数据中发现隐藏的关联、趋势和可能性。
 
-以下是过去一周积累的知识数据（来自论文、技术博客、HackerNews、航运动态、项目笔记等多个领域）：
+以下是系统全量知识库的采样数据（每个数据源包含最早/历史/最新三层采样，涵盖论文、技术博客、HackerNews、航运动态、项目笔记等多个领域的完整时间跨度）：
 
 ---
 $MATERIAL
@@ -147,9 +175,11 @@ $MATERIAL
 每个建议：做什么 + 为什么现在做
 
 要求：
-- 大胆联想，但每个论点必须有数据支撑（引用具体的来源）
+- 大胆联想，但每个论点必须有数据支撑（引用具体的来源名称和内容）
+- 特别关注跨越时间的关联（早期数据中的线索 + 最新数据中的印证）
 - 宁可有创意但可能错误，也不要平庸但正确
-- 总输出控制在 500 字以内"
+- 如果有上次梦境摘要，避免重复相同发现，寻找新的角度
+- 总输出控制在 600 字以内"
 
 # 调用 LLM
 DREAM_RESULT=$(curl -sS --max-time 120 "$PROXY_URL" \
