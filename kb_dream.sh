@@ -165,7 +165,9 @@ fi
 # ═══════════════════════════════════════════════════════════════════
 
 # 截断素材到 20000 chars（Qwen3-235B 262K context，留足空间给 prompt + 输出）
-MATERIAL=$(printf "%s\n\n%s\n\n%s\n\n%s\n\n%s" "$SOURCES_SUMMARY" "$NOTES_SUMMARY" "$STATUS_CONTEXT" "$TREND_CONTEXT" "$PREV_DREAMS" | head -c 20000)
+# 用变量截断避免 printf | head 的 broken pipe 问题
+_RAW_MATERIAL=$(printf "%s\n\n%s\n\n%s\n\n%s\n\n%s" "$SOURCES_SUMMARY" "$NOTES_SUMMARY" "$STATUS_CONTEXT" "$TREND_CONTEXT" "$PREV_DREAMS")
+MATERIAL="${_RAW_MATERIAL:0:20000}"
 
 DREAM_PROMPT="你是一个「数据梦境分析师」。你的任务不是总结信息，而是在数据中发现隐藏的关联、趋势和可能性。
 
