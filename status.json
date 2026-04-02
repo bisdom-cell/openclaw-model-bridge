@@ -1,6 +1,6 @@
 {
-  "updated": "2026-04-02 14:44:54",
-  "updated_by": "claude_code",
+  "updated": "2026-04-02 23:00:02",
+  "updated_by": "cron",
   "priorities": [
     {
       "task": "数据清洗 Phase 2",
@@ -74,11 +74,6 @@
     }
   ],
   "recent_changes": [
-    {
-      "date": "2026-04-02",
-      "what": "V32完整: P0×4(SLO/阈值中心化/E2E/故障快照) + P1×3(Job分层治理/Fallback Matrix断路器/PR模板) + Agent做梦引擎kb_dream.sh(全量KB三层采样+跨领域关联+趋势推演) + config_loader pyyaml fallback + SLO零流量误报修复 + kb_embed源100%覆盖 — 440测试, 安全93/100",
-      "by": "claude_code"
-    },
     {
       "date": "2026-04-02",
       "what": "V32: P0四项(SLO最小集+阈值中心化+E2E进CI+故障快照) + P1三项(Job分层治理tier字段+Fallback Matrix断路器+PR影响评估模板) + config_loader pyyaml fallback + SLO零流量误报修复 + kb_embed源覆盖率100% — 440测试全过, 安全评分93/100",
@@ -159,11 +154,11 @@
     "last_preflight_time": "2026-04-02 21:00",
     "last_trend_report": "2026-03-28",
     "model_id": "Qwen3-235B-A22B-Instruct-2507-W8A8",
-    "kb_stats": "181 notes, 19 today, 1422KB sources",
+    "kb_stats": "182 notes, 20 today, 1426KB sources",
     "stale_jobs": "all_ok",
-    "last_refresh": "2026-04-02 22:00",
+    "last_refresh": "2026-04-02 23:00",
     "security_score": "93/100 (93.0%)",
-    "text_index": "11965 chunks, 218/218 files (100%), 218 stale, 1h ago, 17947KB"
+    "text_index": "11965 chunks, 218/219 files (99%), 218 stale, 2h ago, 17947KB"
   },
   "session_context": {
     "last_session": "2026-03-31",
