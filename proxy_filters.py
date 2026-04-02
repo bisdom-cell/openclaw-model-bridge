@@ -759,6 +759,7 @@ class ProxyStats:
                 "slo": {
                     "latency": lp,
                     "errors_by_type": dict(self.errors_by_type),
+                    "tool_calls_total": self.tool_calls_total,
                     "tool_success_rate_pct": round(self.tool_calls_success * 100 / (self.tool_calls_total or 1), 1),
                     "degradation_rate_pct": round(self.fallback_count * 100 / total, 1),
                     "timeout_rate_pct": round(self.errors_by_type["timeout"] * 100 / total, 1),
@@ -793,6 +794,7 @@ class ProxyStats:
                 "slo": {
                     "latency": lp,
                     "errors_by_type": dict(self.errors_by_type),
+                    "tool_calls_total": self.tool_calls_total,
                     "tool_success_rate_pct": round(self.tool_calls_success * 100 / (self.tool_calls_total or 1), 1),
                     "degradation_rate_pct": round(self.fallback_count * 100 / total, 1),
                     "timeout_rate_pct": round(self.errors_by_type["timeout"] * 100 / total, 1),

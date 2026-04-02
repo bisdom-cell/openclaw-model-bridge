@@ -56,13 +56,15 @@ def check_slo(stats, config):
     # 2. 工具成功率
     tool_rate = slo_data.get("tool_success_rate_pct", 100.0)
     target_tool = slo_cfg.get("tool_success_rate_pct", 95.0)
-    ok = tool_rate >= target_tool
+    tool_total = slo_data.get("tool_calls_total", 0)
+    ok = tool_rate >= target_tool or tool_total == 0  # 无数据不告警
     results.append({
         "name": "tool_success_rate",
         "value": tool_rate,
         "target": target_tool,
         "unit": "%",
         "ok": ok,
+        "samples": tool_total,
     })
 
     # 3. 降级率

@@ -130,12 +130,31 @@ class TestSloChecker(unittest.TestCase):
         latency = [r for r in results if r["name"] == "latency_p95"][0]
         self.assertTrue(latency["ok"], "Should skip alert when < 5 samples")
 
+    def test_zero_tool_calls_not_violation(self):
+        """零工具调用时不应报 tool_success_rate 违规"""
+        from slo_checker import check_slo
+        from config_loader import load_config
+        stats = self._make_stats(slo={
+            "latency": {"p50": 0, "p95": 0, "p99": 0, "max": 0, "count": 0},
+            "errors_by_type": {"timeout": 0, "context_overflow": 0, "backend": 0, "other": 0},
+            "tool_calls_total": 0,
+            "tool_success_rate_pct": 0.0,
+            "degradation_rate_pct": 0.0,
+            "timeout_rate_pct": 0.0,
+            "auto_recovery_rate_pct": 100.0,
+        })
+        results, all_ok = check_slo(stats, load_config())
+        tool = [r for r in results if r["name"] == "tool_success_rate"][0]
+        self.assertTrue(tool["ok"], "Should not alert when tool_calls_total=0")
+        self.assertTrue(all_ok)
+
     def test_tool_success_rate_violation(self):
         from slo_checker import check_slo
         from config_loader import load_config
         stats = self._make_stats(slo={
             "latency": {"p50": 1000, "p95": 5000, "p99": 8000, "max": 12000, "count": 50},
             "errors_by_type": {"timeout": 0, "context_overflow": 0, "backend": 0, "other": 0},
+            "tool_calls_total": 100,
             "tool_success_rate_pct": 80.0,
             "degradation_rate_pct": 0.0,
             "timeout_rate_pct": 0.0,
