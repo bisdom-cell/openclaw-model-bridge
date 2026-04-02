@@ -158,6 +158,12 @@ declare -a FILE_MAP=(
     # 用户偏好自动学习
     "preference_learner.py|$HOME/preference_learner.py"
 
+    # SLO + 配置中心化 + 故障快照（V32）
+    "config.yaml|$HOME/config.yaml"
+    "config_loader.py|$HOME/config_loader.py"
+    "slo_checker.py|$HOME/slo_checker.py"
+    "incident_snapshot.py|$HOME/incident_snapshot.py"
+
     # 三方宪法 SOUL.md
     "SOUL.md|$HOME/.openclaw/workspace/.openclaw/SOUL.md"
 

@@ -47,6 +47,22 @@ def _send_alert(msg):
         log(f"WARN: Failed to send alert: {msg[:80]}")
 
 
+def _create_incident_snapshot(description):
+    """后台创建故障快照（不阻塞请求处理）。"""
+    try:
+        snapshot_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "incident_snapshot.py")
+        if not os.path.exists(snapshot_script):
+            snapshot_script = os.path.expanduser("~/incident_snapshot.py")
+        if os.path.exists(snapshot_script):
+            subprocess.run(
+                [sys.executable, snapshot_script, "--auto", description],
+                timeout=10, capture_output=True,
+            )
+            log(f"Incident snapshot created: {description}")
+    except Exception as e:
+        log(f"WARN: Failed to create incident snapshot: {e}")
+
+
 class ProxyHandler(http.server.BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
         log(fmt % args)
@@ -554,6 +570,9 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                 log(f"[{rid}] CUSTOM_TOOL: {fn_name} args={fn_args[:200]}")
                 result = self._execute_custom_tool(fn_name, fn_args)
                 log(f"[{rid}] CUSTOM_TOOL result: {len(result)} chars")
+                # SLO: 记录工具调用成功/失败
+                tool_ok = not (result.startswith("{") and '"error"' in result[:100])
+                proxy_stats.record_tool_call(success=tool_ok)
 
                 # search_kb 需要 LLM 解读结果，其他工具直接返回
                 if fn_name == "search_kb":
@@ -798,15 +817,15 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                             elif m.get("content"):
                                 log(f"[{rid}] TEXT: {len(str(m['content']))} chars")
 
-                        # Token 监控：记录 usage
+                        # Token 监控：记录 usage + 延迟
                         usage = rj.get("usage", {})
                         if usage:
                             pt = usage.get("prompt_tokens", 0)
                             tt = usage.get("total_tokens", 0)
                             log(f"[{rid}] TOKENS: prompt={pt:,} total={tt:,} ({pt*100//260000}% of 260K)")
-                            proxy_stats.record_success(usage)
+                            proxy_stats.record_success(usage, latency_ms=elapsed)
                         else:
-                            proxy_stats.record_success({})
+                            proxy_stats.record_success({}, latency_ms=elapsed)
 
                         # 发送待处理告警
                         for alert in proxy_stats.pop_alerts():
@@ -840,7 +859,14 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
             error_str = str(e)
             if "403" in error_str:
                 error_code = 403
-            proxy_stats.record_error(error_code, error_str)
+            proxy_stats.record_error(error_code, error_str, latency_ms=elapsed)
+            # 故障快照：连续错误达阈值时自动采集
+            if proxy_stats.consecutive_errors == 3:
+                threading.Thread(
+                    target=_create_incident_snapshot,
+                    args=(f"连续{proxy_stats.consecutive_errors}次错误 HTTP {error_code}",),
+                    daemon=True,
+                ).start()
             for alert in proxy_stats.pop_alerts():
                 log(f"ALERT: {alert}")
                 _send_alert(alert)
