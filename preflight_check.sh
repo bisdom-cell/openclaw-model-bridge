@@ -26,7 +26,7 @@ echo "Mode: $([ "$FULL_MODE" = true ] && echo 'FULL (Mac Mini)' || echo 'DEV (re
 echo ""
 
 # ── 1. 单元测试 ──────────────────────────────────────────────────────
-echo "📋 1/17 单元测试"
+echo "📋 1/19 单元测试"
 
 if python3 test_tool_proxy.py > /dev/null 2>&1; then
     pass "proxy_filters 单测 (test_tool_proxy.py)"
@@ -42,7 +42,7 @@ fi
 
 # ── 2. 注册表校验 ─────────────────────────────────────────────────────
 echo ""
-echo "📋 2/17 注册表校验"
+echo "📋 2/19 注册表校验"
 
 if python3 check_registry.py > /dev/null 2>&1; then
     pass "jobs_registry.yaml 校验通过"
@@ -52,7 +52,7 @@ fi
 
 # ── 3. 文档漂移检测 ───────────────────────────────────────────────────
 echo ""
-echo "📋 3/17 文档漂移检测"
+echo "📋 3/19 文档漂移检测"
 
 if python3 gen_jobs_doc.py --check > /dev/null 2>&1; then
     pass "docs/config.md 与 registry 一致"
@@ -62,7 +62,7 @@ fi
 
 # ── 4. 脚本语法检查 + 权限检查 ────────────────────────────────────────
 echo ""
-echo "📋 4/17 脚本语法 & 权限"
+echo "📋 4/19 脚本语法 & 权限"
 
 # 从 registry 提取所有 enabled 的 entry 文件（兼容无 PyYAML 环境）
 SCRIPT_FILES=$(python3 -c "
@@ -128,7 +128,7 @@ done
 
 # ── 5. Python 文件语法检查 ────────────────────────────────────────────
 echo ""
-echo "📋 5/17 Python 语法检查"
+echo "📋 5/19 Python 语法检查"
 
 for pyfile in adapter.py tool_proxy.py proxy_filters.py check_registry.py gen_jobs_doc.py; do
     if [ -f "$SCRIPT_DIR/$pyfile" ]; then
@@ -142,7 +142,7 @@ done
 
 # ── 6. 部署文件一致性检查（仓库 vs 运行时副本）────────────────────────
 echo ""
-echo "📋 6/17 部署文件一致性"
+echo "📋 6/19 部署文件一致性"
 
 if $FULL_MODE; then
     # V31: 从 auto_deploy.sh 动态解析 FILE_MAP（不再硬编码，避免两处不同步）
@@ -200,7 +200,7 @@ fi
 
 # ── 7. 环境变量检查（bash -lc 模拟 cron 环境）────────────────────────
 echo ""
-echo "📋 7/17 环境变量检查（cron 环境模拟）"
+echo "📋 7/19 环境变量检查（cron 环境模拟）"
 
 if $FULL_MODE; then
     # 模拟 cron 调用方式：bash -lc 读取 ~/.bash_profile
@@ -240,7 +240,7 @@ fi
 
 # ── 8. 服务连通性检查 ─────────────────────────────────────────────────
 echo ""
-echo "📋 8/17 服务连通性"
+echo "📋 8/19 服务连通性"
 
 if $FULL_MODE; then
     # Adapter :5001
@@ -272,7 +272,7 @@ fi
 
 # ── 9. 安全扫描（push 前必扫）────────────────────────────────────────
 echo ""
-echo "📋 9/17 安全扫描"
+echo "📋 9/19 安全扫描"
 
 # API Key 泄漏检查（只扫描 git 跟踪的文件，忽略 .gitignore 排除的本地配置）
 LEAK_SK=$(git grep -n "sk-[A-Za-z0-9]\{15,\}" -- "*.py" "*.sh" "*.md" 2>/dev/null | grep -v "sk-REPLACE-ME" | grep -v "sk-xxxx" || true)
@@ -298,7 +298,7 @@ fi
 # ── 10. Job 数据流 smoke test ──────────────────────────────────────────
 # 用合成数据验证 job 脚本的 shell→Python 数据传递，零接触生产状态
 echo ""
-echo "📋 10/17 Job 数据流 smoke test"
+echo "📋 10/19 Job 数据流 smoke test"
 
 # 10a. 反模式扫描：heredoc 结束符后紧跟 <<< 会导致 stdin 被 heredoc 耗尽
 #      python3 - <<'PYEOF' ... PYEOF; <<< "$DATA" → DATA 永远读不到
@@ -352,7 +352,7 @@ rm -rf "$SMOKE_DIR"
 
 # ── 11. 货代 deep_dive 静默失败检测 ─────────────────────────────────────
 echo ""
-echo "📋 11/17 货代 deep_dive 静默失败检测"
+echo "📋 11/19 货代 deep_dive 静默失败检测"
 
 if $FULL_MODE; then
     # 检查 last_run.json 中 deep_dive 字段
@@ -412,7 +412,7 @@ fi
 
 # ── 12. #48703 WhatsApp listeners Map 补丁检测 ────────────────────────
 echo ""
-echo "📋 12/17 #48703 WhatsApp listeners Map 补丁"
+echo "📋 12/19 #48703 WhatsApp listeners Map 补丁"
 
 if $FULL_MODE; then
     OPENCLAW_DIST="/opt/homebrew/lib/node_modules/openclaw/dist"
@@ -435,7 +435,7 @@ fi
 
 # ── 13. 陈旧锁文件检测（V30新增）─────────────────────────────────────
 echo ""
-echo "📋 13/17 陈旧锁文件检测"
+echo "📋 13/19 陈旧锁文件检测"
 
 if $FULL_MODE; then
     STALE_LOCK_DIRS=(
@@ -480,7 +480,7 @@ fi
 
 # ── 14. Cron 心跳检测（V30新增）──────────────────────────────────────
 echo ""
-echo "📋 14/17 Cron 心跳检测"
+echo "📋 14/19 Cron 心跳检测"
 
 if $FULL_MODE; then
     CANARY_FILE="$HOME/.cron_canary"
@@ -507,7 +507,7 @@ fi
 
 # ── 15. Crontab 路径 vs FILE_MAP 双向一致性（V31 加强）──────────────
 echo ""
-echo "📋 15/17 Crontab ↔ FILE_MAP 双向一致性"
+echo "📋 15/19 Crontab ↔ FILE_MAP 双向一致性"
 
 if $FULL_MODE; then
     CRON_PATH_ERRORS=0
@@ -617,7 +617,7 @@ fi
 
 # ── 16. 推送通道 smoke test（V30.3 E2E 功能测试）──────────────────────
 echo ""
-echo "📋 16/17 推送通道 smoke test"
+echo "📋 16/19 推送通道 smoke test"
 
 if $FULL_MODE; then
     # 验证 openclaw message send 命令可用且无配置错误
@@ -643,7 +643,7 @@ fi
 
 # ── 17. KB 语义索引健康（数据复利基础）────────────────────────────────
 echo ""
-echo "📋 17/17 KB 语义索引健康"
+echo "📋 17/19 KB 语义索引健康"
 
 if $FULL_MODE; then
     KB_IDX_DIR="$HOME/.kb/text_index"
@@ -696,6 +696,60 @@ else
         pass "kb_rag.py: 语法正确"
     else
         fail "kb_rag.py: Python 语法错误"
+    fi
+fi
+
+# ── 18. 旅程级 E2E 测试（V32: P0-3）────────────────────────────────────
+echo ""
+echo "📋 18/19 旅程级 E2E 测试"
+
+if $FULL_MODE; then
+    E2E_SCRIPT="$HOME/wa_e2e_test.sh"
+    if [ -f "$E2E_SCRIPT" ]; then
+        E2E_OUT=$(bash "$E2E_SCRIPT" 2>&1) && E2E_RC=0 || E2E_RC=$?
+        E2E_PASS=$(echo "$E2E_OUT" | grep -c "✅\|PASS" || true)
+        E2E_FAIL=$(echo "$E2E_OUT" | grep -c "❌\|FAIL" || true)
+        if [ $E2E_RC -eq 0 ]; then
+            pass "E2E 测试通过（$E2E_PASS 项验证）"
+        else
+            fail "E2E 测试失败（$E2E_FAIL 项失败）: $(echo "$E2E_OUT" | grep -i "fail\|❌" | head -3)"
+        fi
+    else
+        warn "wa_e2e_test.sh 未部署到 ~/（部署后自动运行）"
+    fi
+else
+    # dev 环境：验证 E2E 脚本语法
+    if [ -f "$SCRIPT_DIR/wa_e2e_test.sh" ]; then
+        bash -n "$SCRIPT_DIR/wa_e2e_test.sh" 2>/dev/null && pass "wa_e2e_test.sh: 语法正确" || fail "wa_e2e_test.sh: 语法错误"
+    else
+        skip "wa_e2e_test.sh 不存在"
+    fi
+fi
+
+# ── 19. SLO 合规检查（V32: P0-1）──────────────────────────────────────
+echo ""
+echo "📋 19/19 SLO 合规检查"
+
+if $FULL_MODE; then
+    SLO_SCRIPT="$HOME/slo_checker.py"
+    if [ -f "$SLO_SCRIPT" ]; then
+        SLO_OUT=$(python3 "$SLO_SCRIPT" --alert 2>&1) && SLO_RC=0 || SLO_RC=$?
+        if [ $SLO_RC -eq 0 ]; then
+            pass "SLO 全部达标"
+        elif [ $SLO_RC -eq 2 ]; then
+            warn "SLO 有违规: $(echo "$SLO_OUT" | head -5)"
+        else
+            warn "SLO 检查异常: $SLO_OUT"
+        fi
+    else
+        skip "slo_checker.py 未部署到 ~/（部署后自动运行）"
+    fi
+else
+    # dev 环境：验证 SLO 脚本语法
+    if python3 -c "import ast; ast.parse(open('$SCRIPT_DIR/slo_checker.py').read())" 2>/dev/null; then
+        pass "slo_checker.py: 语法正确"
+    else
+        fail "slo_checker.py: Python 语法错误"
     fi
 fi
 

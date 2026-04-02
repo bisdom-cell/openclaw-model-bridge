@@ -44,12 +44,18 @@ jobs:
       - name: "Unit tests: data_clean"
         run: python3 test_data_clean.py
 
-      # ── 第二层：注册表 + 文档一致性 ──
+      - name: "Unit tests: config_loader + slo_checker"
+        run: python3 test_config_slo.py
+
+      # ── 第二层：注册表 + 文档一致性 + 配置校验 ──
       - name: "Registry validation"
         run: python3 check_registry.py
 
       - name: "Config drift detection"
         run: python3 gen_jobs_doc.py --check
+
+      - name: "Config YAML validation"
+        run: python3 -c "import yaml; cfg=yaml.safe_load(open('config.yaml')); assert 'slo' in cfg; assert 'proxy' in cfg; print('✅ config.yaml valid')"
 
       # ── 第三层：安全扫描 ──
       - name: "Security: API key leak scan"
@@ -73,4 +79,4 @@ jobs:
       # ── 第四层：bandit 静态安全 ──
       - name: "Bandit static security analysis"
         run: |
-          bandit -r proxy_filters.py adapter.py tool_proxy.py status_update.py audit_log.py -q -ll
+          bandit -r proxy_filters.py adapter.py tool_proxy.py status_update.py audit_log.py config_loader.py slo_checker.py incident_snapshot.py -q -ll

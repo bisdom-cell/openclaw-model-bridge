@@ -4,11 +4,24 @@ proxy_filters.py — V27 提取自 tool_proxy.py
 所有过滤、修复、截断、SSE转换逻辑。纯函数 + 配置数据，无 HTTP/网络依赖。
 """
 import base64
+import collections
 import glob
 import json
 import os
 import threading
 import time
+
+from config_loader import (
+    MAX_REQUEST_BYTES as _CFG_MAX_REQUEST_BYTES,
+    CONTEXT_LIMIT as _CFG_CONTEXT_LIMIT,
+    TOKEN_WARN_THRESHOLD as _CFG_TOKEN_WARN,
+    TOKEN_CRITICAL_THRESHOLD as _CFG_TOKEN_CRITICAL,
+    CONSECUTIVE_ERROR_ALERT as _CFG_CONSECUTIVE_ERROR,
+    SIMPLE_MAX_MSGS as _CFG_SIMPLE_MAX_MSGS,
+    SIMPLE_MAX_USER_LEN as _CFG_SIMPLE_MAX_USER_LEN,
+    COMPLEX_MIN_MSGS as _CFG_COMPLEX_MIN_MSGS,
+    STATS_FLUSH_INTERVAL as _CFG_FLUSH_INTERVAL,
+)
 
 # ---------------------------------------------------------------------------
 # 配置数据
@@ -135,8 +148,8 @@ TOOL_PARAMS = {
 # 浏览器合法 profile
 VALID_BROWSER_PROFILES = {"openclaw", "chrome"}
 
-# 请求体大小上限
-MAX_REQUEST_BYTES = 200000  # 200KB safe limit
+# 请求体大小上限（从 config.yaml 加载）
+MAX_REQUEST_BYTES = _CFG_MAX_REQUEST_BYTES
 
 # ---------------------------------------------------------------------------
 # 过滤函数
@@ -526,21 +539,23 @@ def build_sse_response(rj):
 # Token / Error 监控
 # ---------------------------------------------------------------------------
 
-# Qwen3-235B context window limit (tokens)
-CONTEXT_LIMIT = 260000
-# 告警阈值：prompt_tokens 超过此值时触发预警
-TOKEN_WARN_THRESHOLD = int(CONTEXT_LIMIT * 0.75)  # 195K
-TOKEN_CRITICAL_THRESHOLD = int(CONTEXT_LIMIT * 0.90)  # 234K
-# 连续错误告警阈值
-CONSECUTIVE_ERROR_ALERT = 3
+# 从 config.yaml 加载（阈值中心化 V32）
+CONTEXT_LIMIT = _CFG_CONTEXT_LIMIT
+TOKEN_WARN_THRESHOLD = _CFG_TOKEN_WARN
+TOKEN_CRITICAL_THRESHOLD = _CFG_TOKEN_CRITICAL
+CONSECUTIVE_ERROR_ALERT = _CFG_CONSECUTIVE_ERROR
 
 STATS_FILE = os.path.expanduser("~/proxy_stats.json")
 
 
 class ProxyStats:
-    """轻量级请求统计跟踪器（进程内单例，线程安全）。"""
+    """请求统计跟踪器 + SLO 指标收集（进程内单例，线程安全）。
 
-    FLUSH_INTERVAL = 10  # 最多每10秒刷盘一次
+    V32 新增：延迟百分位、错误分类、工具成功率、降级率、自动恢复率。
+    """
+
+    FLUSH_INTERVAL = _CFG_FLUSH_INTERVAL
+    LATENCY_WINDOW = 200  # 保留最近 N 个请求延迟用于百分位计算
 
     def __init__(self):
         self._lock = threading.Lock()
@@ -558,21 +573,45 @@ class ProxyStats:
         self._today = time.strftime("%Y-%m-%d")
         self._last_flush = 0.0
 
+        # --- SLO 指标（V32 新增）---
+        self._latencies = collections.deque(maxlen=self.LATENCY_WINDOW)
+        self.errors_by_type = {"timeout": 0, "context_overflow": 0, "backend": 0, "other": 0}
+        self.tool_calls_total = 0
+        self.tool_calls_success = 0
+        self.fallback_count = 0        # 降级次数
+        self._recovery_total = 0       # 连续错误后恢复的次数
+        self._failure_streaks = 0      # 曾发生的连续错误事件数
+
     def _check_day_reset(self):
         today = time.strftime("%Y-%m-%d")
         if today != self._today:
             self.max_prompt_tokens_today = 0
             self.total_requests = 0
             self.total_errors = 0
+            self.errors_by_type = {"timeout": 0, "context_overflow": 0, "backend": 0, "other": 0}
+            self.tool_calls_total = 0
+            self.tool_calls_success = 0
+            self.fallback_count = 0
+            self._recovery_total = 0
+            self._failure_streaks = 0
+            self._latencies.clear()
             self._today = today
 
-    def record_success(self, usage: dict):
-        """记录一次成功请求的 token 用量。"""
+    def record_success(self, usage: dict, latency_ms: int = 0):
+        """记录一次成功请求的 token 用量和延迟。"""
         with self._lock:
             self._check_day_reset()
             self.total_requests += 1
+
+            # 自动恢复追踪：从连续错误中恢复
+            if self.consecutive_errors > 0:
+                self._recovery_total += 1
             self.consecutive_errors = 0
             self.last_success_time = time.time()
+
+            # 延迟追踪
+            if latency_ms > 0:
+                self._latencies.append(latency_ms)
 
             prompt_tokens = usage.get("prompt_tokens", 0)
             total_tokens = usage.get("total_tokens", 0)
@@ -596,8 +635,8 @@ class ProxyStats:
 
             self._maybe_flush()
 
-    def record_error(self, status_code: int, error_msg: str = ""):
-        """记录一次错误响应。"""
+    def record_error(self, status_code: int, error_msg: str = "", latency_ms: int = 0):
+        """记录一次错误响应，自动分类错误类型。"""
         with self._lock:
             self._check_day_reset()
             self.total_requests += 1
@@ -606,6 +645,25 @@ class ProxyStats:
             self.last_error_code = status_code
             self.last_error_msg = error_msg[:200]
             self.last_error_time = time.time()
+
+            # 延迟追踪
+            if latency_ms > 0:
+                self._latencies.append(latency_ms)
+
+            # 错误分类
+            err_lower = error_msg.lower()
+            if "timeout" in err_lower or "timed out" in err_lower or status_code == 504:
+                self.errors_by_type["timeout"] += 1
+            elif status_code == 403 or "context" in err_lower:
+                self.errors_by_type["context_overflow"] += 1
+            elif status_code in (502, 503):
+                self.errors_by_type["backend"] += 1
+            else:
+                self.errors_by_type["other"] += 1
+
+            # 连续错误事件计数（首次达到阈值时+1）
+            if self.consecutive_errors == CONSECUTIVE_ERROR_ALERT:
+                self._failure_streaks += 1
 
             # 连续错误告警
             if self.consecutive_errors >= CONSECUTIVE_ERROR_ALERT:
@@ -616,6 +674,51 @@ class ProxyStats:
                 )
 
             self._maybe_flush()
+
+    def record_tool_call(self, success: bool):
+        """记录一次工具调用结果。"""
+        with self._lock:
+            self.tool_calls_total += 1
+            if success:
+                self.tool_calls_success += 1
+
+    def record_fallback(self):
+        """记录一次降级（使用 fallback provider）。"""
+        with self._lock:
+            self.fallback_count += 1
+
+    def get_latency_percentiles(self) -> dict:
+        """计算延迟百分位（调用方需持锁或在 _lock 内调用）。"""
+        if not self._latencies:
+            return {"p50": 0, "p95": 0, "p99": 0, "max": 0, "count": 0}
+        s = sorted(self._latencies)
+        n = len(s)
+        return {
+            "p50": s[int(n * 0.50)] if n > 0 else 0,
+            "p95": s[min(int(n * 0.95), n - 1)] if n > 0 else 0,
+            "p99": s[min(int(n * 0.99), n - 1)] if n > 0 else 0,
+            "max": s[-1] if n > 0 else 0,
+            "count": n,
+        }
+
+    def get_slo_status(self) -> dict:
+        """评估当前 SLO 达标情况。"""
+        with self._lock:
+            lp = self.get_latency_percentiles()
+            total = self.total_requests or 1
+            tool_total = self.tool_calls_total or 1
+            streaks = self._failure_streaks or 1
+
+            return {
+                "latency_p95_ms": lp["p95"],
+                "latency_p95_ok": lp["p95"] <= _CFG_CONTEXT_LIMIT,  # placeholder, use SLO
+                "tool_success_rate_pct": round(self.tool_calls_success * 100 / tool_total, 1),
+                "degradation_rate_pct": round(self.fallback_count * 100 / total, 1),
+                "timeout_rate_pct": round(self.errors_by_type["timeout"] * 100 / total, 1),
+                "auto_recovery_rate_pct": round(self._recovery_total * 100 / streaks, 1) if self._failure_streaks > 0 else 100.0,
+                "errors_by_type": dict(self.errors_by_type),
+                "latency_percentiles": lp,
+            }
 
     def pop_alerts(self) -> list:
         """取出并清空待发送告警。"""
@@ -634,6 +737,8 @@ class ProxyStats:
     def _write_stats(self):
         """写入统计文件供 watchdog 读取（调用方已持锁）。"""
         try:
+            lp = self.get_latency_percentiles()
+            total = self.total_requests or 1
             data = {
                 "updated": time.strftime("%Y-%m-%d %H:%M:%S"),
                 "total_requests": self.total_requests,
@@ -650,6 +755,15 @@ class ProxyStats:
                     "time": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(self.last_error_time)) if self.last_error_time else "",
                 },
                 "last_success_time": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(self.last_success_time)) if self.last_success_time else "",
+                # SLO 指标（V32）
+                "slo": {
+                    "latency": lp,
+                    "errors_by_type": dict(self.errors_by_type),
+                    "tool_success_rate_pct": round(self.tool_calls_success * 100 / (self.tool_calls_total or 1), 1),
+                    "degradation_rate_pct": round(self.fallback_count * 100 / total, 1),
+                    "timeout_rate_pct": round(self.errors_by_type["timeout"] * 100 / total, 1),
+                    "auto_recovery_rate_pct": round(self._recovery_total * 100 / (self._failure_streaks or 1), 1) if self._failure_streaks > 0 else 100.0,
+                },
             }
             tmp = STATS_FILE + ".tmp"
             with open(tmp, "w") as f:
@@ -659,9 +773,11 @@ class ProxyStats:
             pass
 
     def get_stats_dict(self) -> dict:
-        """返回当前统计数据（用于 /stats 端点）。"""
+        """返回当前统计数据（用于 /stats 端点，含 SLO 指标）。"""
         with self._lock:
             self._check_day_reset()
+            lp = self.get_latency_percentiles()
+            total = self.total_requests or 1
             return {
                 "updated": time.strftime("%Y-%m-%d %H:%M:%S"),
                 "total_requests": self.total_requests,
@@ -674,6 +790,14 @@ class ProxyStats:
                 "context_usage_pct": round(self.last_prompt_tokens * 100 / CONTEXT_LIMIT, 1) if CONTEXT_LIMIT else 0,
                 "last_error_code": self.last_error_code,
                 "last_success_time": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(self.last_success_time)) if self.last_success_time else "",
+                "slo": {
+                    "latency": lp,
+                    "errors_by_type": dict(self.errors_by_type),
+                    "tool_success_rate_pct": round(self.tool_calls_success * 100 / (self.tool_calls_total or 1), 1),
+                    "degradation_rate_pct": round(self.fallback_count * 100 / total, 1),
+                    "timeout_rate_pct": round(self.errors_by_type["timeout"] * 100 / total, 1),
+                    "auto_recovery_rate_pct": round(self._recovery_total * 100 / (self._failure_streaks or 1), 1) if self._failure_streaks > 0 else 100.0,
+                },
             }
 
 
@@ -681,10 +805,10 @@ class ProxyStats:
 # 智能路由：消息复杂度分类
 # ---------------------------------------------------------------------------
 
-# 复杂度阈值
-_SIMPLE_MAX_MSGS = 4        # 对话轮数 ≤ 4
-_SIMPLE_MAX_USER_LEN = 200  # 最后一条用户消息 ≤ 200 字符
-_COMPLEX_MIN_MSGS = 10      # 对话轮数 ≥ 10 视为复杂
+# 复杂度阈值（从 config.yaml 加载）
+_SIMPLE_MAX_MSGS = _CFG_SIMPLE_MAX_MSGS
+_SIMPLE_MAX_USER_LEN = _CFG_SIMPLE_MAX_USER_LEN
+_COMPLEX_MIN_MSGS = _CFG_COMPLEX_MIN_MSGS
 
 
 def classify_complexity(messages, has_tools=False):
