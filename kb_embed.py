@@ -96,11 +96,58 @@ def strip_frontmatter(text):
     return text.strip()
 
 
-def chunk_text(text, source_file):
+import re
+
+# 条目边界模式（source 类文件专用）
+# ArXiv/HF/S2/DBLP/ACL: 以 *标题* 开头
+# HN: 以 - **[Title] 开头
+# Freight: 以 数字. 开头
+# 日期头: ## YYYY-MM-DD
+_ENTRY_PATTERNS = [
+    re.compile(r"^## \d{4}-\d{2}-\d{2}"),     # 日期 header
+    re.compile(r"^\*[^*\n]+\*$", re.M),         # *斜体标题*（ArXiv/HF/S2）
+    re.compile(r"^- \*\*\["),                    # - **[Title]（HN）
+    re.compile(r"^\d+\.\s"),                     # 1. 企业信号（Freight）
+    re.compile(r"^### "),                        # ### 子标题
+]
+
+
+def _split_source_entries(text):
+    """将 source 类文件按条目边界切分，返回条目列表。
+
+    识别 ArXiv/HF/S2 的 *标题* 行、HN 的 - **[Title] 行、
+    Freight 的 数字. 行等作为条目开头。
+    """
+    lines = text.split("\n")
+    entries = []
+    current_lines = []
+
+    for line in lines:
+        is_boundary = any(p.match(line) for p in _ENTRY_PATTERNS)
+        if is_boundary and current_lines:
+            entry = "\n".join(current_lines).strip()
+            if entry:
+                entries.append(entry)
+            current_lines = [line]
+        else:
+            current_lines.append(line)
+
+    # 最后一条
+    if current_lines:
+        entry = "\n".join(current_lines).strip()
+        if entry:
+            entries.append(entry)
+
+    return entries
+
+
+def chunk_text(text, source_file, source_type="note"):
     """将文本分块，返回 [(chunk_text, chunk_idx)] 列表
 
-    策略：按段落优先切分，超长段落按字符数切分。
-    每块带来源文件信息，方便 RAG 结果溯源。
+    策略：
+      - source 类文件：按条目边界切分（*标题* / - **[Title] / 数字.）
+        每条目保持完整语义，相邻短条目合并到 CHUNK_SIZE
+      - note/其他类：按段落(\n\n)切分
 
     保证零内容丢失：短片段向前/向后合并，不会因 MIN_CHUNK_LEN 丢弃。
     """
@@ -108,19 +155,24 @@ def chunk_text(text, source_file):
     if not text.strip():
         return []
 
-    # 按双换行分段
-    paragraphs = [p.strip() for p in text.split("\n\n") if p.strip()]
-    if not paragraphs:
+    # source 类文件使用条目感知切分
+    if source_type == "source":
+        segments = _split_source_entries(text)
+    else:
+        # note/review/topic/digest: 按双换行分段
+        segments = [p.strip() for p in text.split("\n\n") if p.strip()]
+
+    if not segments:
         return []
 
     chunks = []
     current = ""
     chunk_idx = 0
 
-    for para in paragraphs:
+    for seg in segments:
         # 如果加上这段还在限制内，合并
-        if len(current) + len(para) + 2 <= CHUNK_SIZE:
-            current = (current + "\n\n" + para).strip() if current else para
+        if len(current) + len(seg) + 2 <= CHUNK_SIZE:
+            current = (current + "\n\n" + seg).strip() if current else seg
         else:
             # 先保存当前块（如果够长）
             if len(current) >= MIN_CHUNK_LEN:
@@ -130,11 +182,11 @@ def chunk_text(text, source_file):
             # current < MIN_CHUNK_LEN 时不丢弃，保留并向后合并到下一段
 
             # 如果单段超长，先把残留 current 合并到首块
-            if len(para) > CHUNK_SIZE:
+            if len(seg) > CHUNK_SIZE:
                 pos = 0
-                while pos < len(para):
-                    end = min(pos + CHUNK_SIZE, len(para))
-                    piece = para[pos:end]
+                while pos < len(seg):
+                    end = min(pos + CHUNK_SIZE, len(seg))
+                    piece = seg[pos:end]
                     # 首块：合并残留的 current
                     if pos == 0 and current:
                         piece = current + "\n\n" + piece
@@ -151,14 +203,14 @@ def chunk_text(text, source_file):
             else:
                 # 普通段落：把残留 current 合并进来
                 if current:
-                    current = current + "\n\n" + para
+                    current = current + "\n\n" + seg
                 else:
                     # overlap：取上一块尾部
                     if chunks and CHUNK_OVERLAP > 0:
                         tail = chunks[-1][0][-CHUNK_OVERLAP:]
-                        current = tail + "\n\n" + para
+                        current = tail + "\n\n" + seg
                     else:
-                        current = para
+                        current = seg
 
     # 最后一块：如果够长直接保存，否则合并到上一块
     if current:
@@ -442,7 +494,7 @@ def main():
             error_count += 1
             continue
 
-        chunks = chunk_text(text, path)
+        chunks = chunk_text(text, path, source_type=source_type)
         if not chunks:
             skip_count += 1
             continue

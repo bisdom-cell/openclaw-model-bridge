@@ -37,6 +37,94 @@ class TestKbEmbedLogic(unittest.TestCase):
             content = f.read()
         self.assertIn("chunk", content.lower())
 
+    def test_chunk_arxiv_source(self):
+        """ArXiv source 格式：按 *标题* 行切分条目"""
+        from kb_embed import chunk_text
+        text = """## 2025-03-15
+*Qwen3: A New Foundation Model*
+作者：Author 等 | 日期：2025-03-15
+链接：https://arxiv.org/abs/2503.12345
+贡献：核心贡献说明
+价值：⭐⭐⭐
+
+*LLaMA 4: Scaling Language Models*
+作者：Meta 等 | 日期：2025-03-15
+链接：https://arxiv.org/abs/2503.67890
+贡献：大规模扩展
+价值：⭐⭐⭐⭐"""
+        chunks = chunk_text(text, "sources/arxiv_daily.md", source_type="source")
+        self.assertGreater(len(chunks), 0)
+        # 每条论文应该是一个独立条目（可能与日期头合并）
+        all_text = " ".join(c[0] for c in chunks)
+        self.assertIn("Qwen3", all_text)
+        self.assertIn("LLaMA 4", all_text)
+
+    def test_chunk_hn_source(self):
+        """HN source 格式：按 - **[Title] 行切分"""
+        from kb_embed import chunk_text
+        lines = []
+        for i in range(20):
+            lines.append(f"- **[Article {i}](https://hn.item/{i})** | 2025-03-15 | 要点：要点{i} | ⭐⭐⭐")
+        text = "## 2025-03-15\n" + "\n".join(lines)
+        chunks = chunk_text(text, "sources/hn_daily.md", source_type="source")
+        self.assertGreater(len(chunks), 0)
+        all_text = " ".join(c[0] for c in chunks)
+        # 所有条目都应被索引
+        for i in range(20):
+            self.assertIn(f"Article {i}", all_text)
+
+    def test_chunk_freight_source(self):
+        """Freight source 格式：按数字序号切分"""
+        from kb_embed import chunk_text
+        text = """## 2025-03-15 08:00
+1. 企业信号：[某某] — 需求描述一
+行动：建议一
+评级：⭐⭐⭐
+链接：https://example.com/1
+2. 企业信号：[某某二] — 需求描述二
+行动：建议二
+评级：⭐⭐⭐⭐
+链接：https://example.com/2"""
+        chunks = chunk_text(text, "sources/freight_daily.md", source_type="source")
+        self.assertGreater(len(chunks), 0)
+        all_text = " ".join(c[0] for c in chunks)
+        self.assertIn("某某", all_text)
+        self.assertIn("某某二", all_text)
+
+    def test_chunk_note_unchanged(self):
+        """note 类文件仍按 \\n\\n 分段（行为不变）"""
+        from kb_embed import chunk_text
+        text = "第一段内容，这是一些笔记。\n\n第二段内容，继续写。\n\n第三段。"
+        chunks = chunk_text(text, "notes/test.md", source_type="note")
+        self.assertGreater(len(chunks), 0)
+        all_text = " ".join(c[0] for c in chunks)
+        self.assertIn("第一段", all_text)
+        self.assertIn("第三段", all_text)
+
+    def test_chunk_source_no_content_loss(self):
+        """source 切分零内容丢失"""
+        from kb_embed import chunk_text
+        entries = []
+        for i in range(50):
+            entries.append(f"*Paper {i}: A Study on Topic {i}*\n作者：Author {i}\n链接：https://example.com/{i}\n价值：⭐⭐⭐")
+        text = "## 2025-03-15\n" + "\n".join(entries)
+        chunks = chunk_text(text, "sources/test.md", source_type="source")
+        all_text = " ".join(c[0] for c in chunks)
+        for i in range(50):
+            self.assertIn(f"Paper {i}", all_text, f"Paper {i} lost in chunking")
+
+    def test_split_source_entries(self):
+        """_split_source_entries 正确识别条目边界"""
+        from kb_embed import _split_source_entries
+        text = """## 2025-03-15
+*First Paper*
+作者：Author
+## 2025-03-16
+*Second Paper*
+作者：Author2"""
+        entries = _split_source_entries(text)
+        self.assertEqual(len(entries), 4)  # 2 date headers + 2 papers
+
     def test_uses_atomic_write(self):
         """元数据使用原子写入"""
         with open("kb_embed.py") as f:
