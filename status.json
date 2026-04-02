@@ -1,5 +1,5 @@
 {
-  "updated": "2026-04-02 14:11:15",
+  "updated": "2026-04-02 14:44:54",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -74,6 +74,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-04-02",
+      "what": "V32完整: P0×4(SLO/阈值中心化/E2E/故障快照) + P1×3(Job分层治理/Fallback Matrix断路器/PR模板) + Agent做梦引擎kb_dream.sh(全量KB三层采样+跨领域关联+趋势推演) + config_loader pyyaml fallback + SLO零流量误报修复 + kb_embed源100%覆盖 — 440测试, 安全93/100",
+      "by": "claude_code"
+    },
     {
       "date": "2026-04-02",
       "what": "V32: P0四项(SLO最小集+阈值中心化+E2E进CI+故障快照) + P1三项(Job分层治理tier字段+Fallback Matrix断路器+PR影响评估模板) + config_loader pyyaml fallback + SLO零流量误报修复 + kb_embed源覆盖率100% — 440测试全过, 安全评分93/100",
