@@ -1,6 +1,6 @@
 {
-  "updated": "2026-04-02 22:00:02",
-  "updated_by": "cron",
+  "updated": "2026-04-02 14:11:15",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "数据清洗 Phase 2",
@@ -74,6 +74,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-04-02",
+      "what": "V32: P0四项(SLO最小集+阈值中心化+E2E进CI+故障快照) + P1三项(Job分层治理tier字段+Fallback Matrix断路器+PR影响评估模板) + config_loader pyyaml fallback + SLO零流量误报修复 + kb_embed源覆盖率100% — 440测试全过, 安全评分93/100",
+      "by": "claude_code"
+    },
     {
       "date": "2026-04-02",
       "what": "V32: 四个P0任务完成 — SLO最小集(延迟p95/错误分类/工具成功率/降级率/恢复率) + 阈值中心化(config.yaml收敛70+魔法数字) + E2E进CI(preflight 19项) + 故障快照(incident_snapshot.py自动采集) + 28新单测",
@@ -152,12 +157,12 @@
     "kb_stats": "181 notes, 19 today, 1422KB sources",
     "stale_jobs": "all_ok",
     "last_refresh": "2026-04-02 22:00",
-    "security_score": "98/100 (98.0%)",
+    "security_score": "93/100 (93.0%)",
     "text_index": "11965 chunks, 218/218 files (100%), 218 stale, 1h ago, 17947KB"
   },
   "session_context": {
     "last_session": "2026-03-31",
-    "unfinished": "kb_embed.py sources覆盖率不足(sources/*.md大文件分块索引不完整，PA统计严重低估ArXiv/HN/OpenClaw/货代数据量)",
+    "unfinished": "",
     "open_prs": "PR#225: search_kb全面加固(待合并)",
     "blocked_on": ""
   },
