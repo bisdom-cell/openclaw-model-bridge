@@ -9,7 +9,8 @@
 # 用法：bash kb_dream.sh              # 正常运行
 #       bash kb_dream.sh --dry-run    # 只展示输入数据统计，不调用 LLM
 export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
-set -eo pipefail
+set -o pipefail
+# 注意：不用 set -e，因为 find/wc/grep 在空目录下返回非零会中断脚本
 
 # 防重叠执行
 LOCK="/tmp/kb_dream.lockdir"
