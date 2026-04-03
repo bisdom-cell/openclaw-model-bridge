@@ -1,6 +1,6 @@
 # CLAUDE.md — openclaw-model-bridge 项目背景
 
-> 每次新会话开始时自动读取。当前版本：v30.5（2026-03-31）
+> 每次新会话开始时自动读取。当前版本：v34（2026-04-03）
 
 ---
 
@@ -126,7 +126,11 @@
 | `ops_soul.md` | **V31新增** Ops Agent 运维助手 SOUL.md（系统健康检查/日志排查/cron诊断/维护操作，部署到 `~/.openclaw/SOUL.md`） |
 | `ops_health.sh` | **V31新增** Ops Agent 健康检查包装脚本（Qwen3 拒绝直接 curl localhost，通过脚本包装绕过） |
 | `status.json` | **V30.4新增（仓库副本）** 三方共享意识锚点（priorities/feedback/incidents/quality/operating_rules/session_context），Mac Mini 每小时 git push 同步 |
-| `adapter.py` | API适配层（认证 `$REMOTE_API_KEY`，Fallback降级 `$FALLBACK_PROVIDER`） |
+| `providers.py` | **V34新增** Provider Compatibility Layer（BaseProvider 抽象 + 4 个实现 + ProviderRegistry 动态注册 + 能力声明 + CLI 兼容性矩阵输出） |
+| `test_providers.py` | **V34新增** providers.py 单测（48个用例：能力声明/模型查找/认证头/注册表/向后兼容/CLI输出） |
+| `adapter.py` | API适配层（认证 `$REMOTE_API_KEY`，Fallback降级 `$FALLBACK_PROVIDER`）。V34: 从 `providers.py` 导入 PROVIDERS |
+| `docs/strategic_review_20260403.md` | **V34新增** 导师战略复盘文档（Stage判断/主战场定位/V1-V3路标/三个高价值模块/话语权输出/三块差距） |
+| `docs/compatibility_matrix.md` | **V34新增** Provider 兼容性矩阵（验证状态/降级路径/添加新 Provider 指南） |
 | `openclaw_backup.sh` | **V29.1新增** 每日Gateway state备份到外挂SSD（保留7天） |
 | `jobs_registry.yaml` | **V27新增** 统一任务注册表（system + openclaw 双 cron） |
 | `check_registry.py` | **V27新增** 注册表校验脚本 |
@@ -188,6 +192,7 @@
 
 | 版本 | 日期 | 关键变更 |
 |------|------|----------|
+| V34 | 2026-04-03 | **Stage2 启动** — Provider Compatibility Layer + 导师战略复盘嵌入治理体系 + V1/V2/V3 路标 + 461 测试 |
 | V33 | 2026-04-03 | Discord 双通道支持 + 统一推送 notify.sh + Gateway 不升级可用 |
 | V30.5 | 2026-03-31 | search_kb 混合检索 + 论文监控矩阵 5 源全覆盖 + DBLP 上线 |
 | V30.4 | 2026-03-28 | SOUL.md 激活 + 三方宪法闭环 + 方法论进化（结果验证优先） |
@@ -226,7 +231,7 @@ python3 check_registry.py
 # 一键 smoke test（单测+注册表+连通性）
 bash smoke_test.sh
 
-# 全量回归测试（393个用例，发布前必须100%通过）
+# 全量回归测试（461个用例，发布前必须100%通过）
 bash full_regression.sh
 
 # 安全评分（7维度100分）
@@ -271,6 +276,10 @@ python3 data_clean.py validate original.csv cleaned.csv  # 验证结果
 python3 data_clean.py list-ops                           # 可用操作
 python3 data_clean.py history data.xlsx                  # 版本历史
 curl http://localhost:5002/data_clean/help               # REST 端点帮助
+
+# Provider 兼容性矩阵
+python3 providers.py              # Markdown 表格
+python3 providers.py --json       # JSON 格式（供脚本调用）
 
 # 生成任务文档 / 检测文档漂移
 python3 gen_jobs_doc.py           # 输出 markdown 表格
@@ -327,7 +336,28 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 >
 > 共享状态：`~/.kb/status.json`（三方实时同步优先级、反馈、系统健康）
 
-### 🔴 每次必查（15条，优先级最高）
+### 🔴 战略定位（2026-04-03 导师评审确立）
+
+> **项目已跨过关键门槛：Stage 1 完成（系统构建者）→ 正在冲刺 Stage 2（被社区认可的系统作者）。**
+>
+> **主战场**：不再是抽象的"LLM推理系统"，已收敛为两条线：
+> 1. **Agent Runtime / Inference Gateway / Control Plane** — 模型接入 + 工具治理 + 可观测性 + 故障恢复
+> 2. **Agent Memory Plane / KB-RAG / Job-Orchestrated Intelligence** — 记忆系统 + 知识检索 + 作业编排
+>
+> **旗舰叙事**：`OpenClaw Runtime Control Plane for Tool-Calling Agents`
+>
+> **核心洞察**：项目最强的不是单独算法，而是把模型接入、工具治理、可观测性、故障恢复、记忆与作业系统编织成可运行的 agent runtime。顶级专家不是死守最初设想，而是顺着已证明的能力继续放大。
+>
+> **12 个月路线图**：
+> - **V1（0-4月）别人能跑**：安装稳定 / 配置清晰 / 文档闭环 / 最小 demo / golden test trace
+> - **V2（4-8月）别人敢用**：benchmark / SLO dashboard / incident drill / 兼容矩阵 / semver
+> - **V3（8-12月）别人会扩展**：provider plugin / tool policy plugin / memory plane plugin / SDK / extension guide
+>
+> **距离世界顶级的三块差距**：可迁移性（去硬编码场景依赖）/ 证据密度（benchmark+演练+案例）/ 话语权输出（代码+文档+评测+方法论=完整叙事）
+>
+> **详细战略文档**：`docs/strategic_review_20260403.md`
+
+### 🔴 每次必查（20条，优先级最高）
 
 | # | 原则 | 一句话 |
 |---|------|--------|
@@ -348,11 +378,14 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 | 15 | **🆕 测试必须全量：单测 + full_regression + WhatsApp 业务验证** | 每次变更后测试三层缺一不可：① `bash full_regression.sh`（394 单测 + 注册表 + 安全扫描 + 代码质量）② `bash preflight_check.sh --full` + `bash job_smoke_test.sh`（Mac Mini 部署验证）③ **WhatsApp 端实际业务测试**（用户视角发消息验证 PA 回复、search_kb 检索、图片理解等核心功能）。只跑单测不算测完——单测验证组件，WhatsApp 验证系统。（2026-04-01教训：394 单测全过但 preflight 8 项失败） |
 | 16 | **🆕 所有推送必须双通道（WhatsApp + Discord）** | 新增或修改任何消息推送时，**必须同时覆盖 WhatsApp 和 Discord 两个通道**，不允许遗留单通道发送。优先使用 `notify.sh`（`source notify.sh && notify "msg" --topic papers`）统一推送；若直接调用 `openclaw message send`，每个 WhatsApp 发送后必须紧跟对应的 Discord 发送（成功路径→对应 topic 频道，错误/告警→`DISCORD_CH_ALERTS`）。审计方法：`grep -c "message send.*whatsapp"` 与 `grep -c "message send.*discord"` 计数必须一致。（2026-04-03教训：货代客户画像推送遗漏 Discord，11 个脚本错误路径缺 Discord） |
 | 17 | **🆕 收工必须交叉校验待办状态** | 收工时不仅更新 `status.json`，还必须**扫描 CLAUDE.md 待办列表**，对照本次 session 的 commits 和 recent_changes，将已实现的任务标记 ✅。实现代码 + 更新待办 = 一个完整的交付，缺一不可。同时检查：① CLAUDE.md 待办 vs 实际代码一致 ② status.json priorities vs CLAUDE.md 待办一致 ③ 版本号/文件表/常用命令是否需要同步更新。（2026-04-03教训：V32 实现了 7 个 P0+P1 任务但 CLAUDE.md 全部未标记，直到 V33 审计才发现） |
+| 18 | **🆕 补证据而非补功能** | 下一阶段最该补的不是功能，而是**可对外复述的证据链**：A.兼容性矩阵（provider/模型/模态/工具模式验证 matrix+checklist）B.性能/SLO 实验结果（延迟/成功率/降级恢复时间）C.运维韧性证据（故障注入+恢复时间统计）D.可复现证据（一键启动+demo transcript）。新增功能前先问"这能产出什么证据？"（2026-04-03导师评审：系统已有但证据密度不足） |
+| 19 | **🆕 纵向做深不横向铺开** | 沿 `providers.py` 已证明的方向继续放大，不轻易开新战线。每个改动必须对应 V1/V2/V3 路标中的具体目标：V1=别人能跑，V2=别人敢用，V3=别人会扩展。对照 `docs/strategic_review_20260403.md` 和 status.json 路标检查。偏离路标的功能需要明确理由。（2026-04-03导师建议：不是再做更多功能，而是把已有能力做成证据链） |
+| 20 | **🆕 话语权输出是一等公民** | 代码只是第一步，真正的顶级专家把代码、文档、评测、方法论、复盘文章串成完整叙事。每个 milestone 完成后考虑：能否产出一篇架构型/证据型/立场型文章？README 里的方法论要持续扩写成观点体系。（2026-04-03导师建议：建立"话语权上层建筑"） |
 
 ### 🟡 按需查阅（操作 & 架构参考）
 
 <details>
-<summary>展开查看完整原则列表（13条）</summary>
+<summary>展开查看完整原则列表（16条）</summary>
 
 **操作类**
 - **故障先回滚** — 线上故障 → `git checkout v26-snapshot` 恢复服务 → 再排查根因
@@ -365,6 +398,11 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 - **分支合并由用户在GitHub操作** — 推送到 `claude/xxx` 分支 → 提醒用户创建 PR → **合并后立即同步 Mac Mini**（见必查 #14）
 - **Mac Mini 同步用 reset 不用 pull** — `git fetch origin main && git reset --hard origin/main`（Mac Mini 是纯消费端，无本地 commit；`git pull` 会因历史 merge commit 导致分叉失败）
 - **全量测试三层标准** — 单测通过 ≠ 测完，必须 full_regression + preflight + **WhatsApp 业务验证**（见必查 #15）
+
+**战略类（导师建议 2026-04-03）**
+- **不再是桥接器，是控制平面产品** — 项目已远超 "bridge"，实际是 agent runtime control plane。旗舰叙事：`OpenClaw Runtime Control Plane for Tool-Calling Agents`
+- **沿此仓库继续长 12 个月** — 不轻易切换去做完全不同的大项目，把这个仓库做成第一性代表作
+- **下次汇报准备 5 样东西** — 版本变化 + 1-2 个关键架构图 + benchmark 数据 + 一次真实故障案例 + 对下一阶段的取舍判断
 
 **架构类**
 - **进程管理单一主控** — Gateway 由 launchd 管理，禁止再加 cron watchdog（#95）
@@ -379,58 +417,103 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 
 ## 系统定位：三平面架构
 
-> 来源：2026-04-01 外部专业评审反馈，确立"控制平面先行"原则
+> 来源：2026-04-01 外部专业评审反馈 + 2026-04-03 导师战略复盘
 
 ```
 控制平面（先做强 → 60%→90%）：治理、限流、降级、观测、审计
+  → V34: Provider Compatibility Layer (providers.py) 已实现
 能力平面（持续演进 → 80%）    ：模型路由、工具编排、多模态能力
+  → V34: 兼容性矩阵 + 能力声明 (ProviderCapabilities) 已实现
 记忆平面（长期投入 → 60%）    ：知识沉淀、冲突消解、可信度评分
+  → V2 路标: Memory Plane v1 统一叙事（将 5 个散落组件统一）
 ```
 
 **核心原则：控制平面先行。否则能力越强，系统越难控。**
 
-## 当前待办
+### 导师确立的三个高价值模块（V34+）
 
-| 优先级 | 任务 |
-|--------|------|
-| ✅ | **SLO 最小集**：5 项 SLO 指标定义到 config.yaml + proxy_stats 实时采集 + slo_checker.py 检查 + watchdog 每小时告警（V32→V33 接入 watchdog） |
-| ✅ | **阈值中心化**：config.yaml 统一管理 9 大类阈值（SLO/Proxy/Token/Alert/Routing/Truncation/Watchdog/Incident/Fallback），config_loader.py 统一加载（V32） |
-| ✅ | **旅程级 E2E 进 CI**：wa_e2e_test.sh 覆盖三条主路径（基础对话 / search_kb 检索 / 图片理解），集成到 preflight 18/19（V33） |
-| ✅ | **故障快照机制**：故障时自动收集 proxy.log 尾部 + adapter.log + 最近请求 + 系统状态，写入 `~/.kb/incidents/`（V33: job_watchdog CORE告警自动触发） |
-| ✅ | **Job 分层治理**：registry tier 字段（core/auxiliary/experiment） + watchdog 按 tier 分级告警（V31-V32） |
-| ✅ | **Fallback Matrix 模板化**：config.yaml fallback 段 + adapter.py 断路器 + 自动降级（V32） |
-| ✅ | **变更影响评估**：`.github/PULL_REQUEST_TEMPLATE.md` 含 Impact Scope + Risk Assessment + Rollback Plan（V32） |
-| 中 | **数据清洗 Phase 2**：三 Agent 架构（Profiler/Planner/Executor，可用 `sessions_spawn` 实现）、语义去重、自定义清洗规则 |
-| 中 | **PA 长期记忆**：启用 `memory_search`/`memory_get`。⚠️ Qwen3不主动调用memory工具，等模型升级后重新验证 |
-| 中 | **PA 子 Agent 委派**：`sessions_spawn` + `sessions_send` 让 PA 自主创建子任务 |
-| ✅ | **配置中心化 + 变更审计**：config.yaml 统一配置 + config_loader.py 加载 + audit_log.py 链式哈希审计（V30.2-V32） |
-| ✅ | **GameDay 故障演练**：`gameday.sh` 5 场景（GPU超时/断路器/快照/SLO/Watchdog流水线），`--all` 一键演练（V33） |
-| **P2-低** | **记忆系统分层**：短期（session内）/ 长期（跨session偏好）/ 任务（项目上下文），含冲突消解和可信度评分 |
-| **P2-低** | **成本-质量-时延联动调度**：根据查询复杂度动态选择模型/参数组合 |
-| 低 | 知识图谱：AI大模型领域知识图谱构建（需6-12个月数据积累，暂缓） |
-| 低 | 货代Watcher V3：Bing News API替代GoogleNews |
-| 低 | 语音消息支持：WhatsApp语音→STT→LLM回复 |
-| 低 | **视频号内容转录分析**：firethinker张东普视频号监控，视频保存→STT转录（FunASR/Whisper）→LLM提炼观点+点评→KB沉淀（标签firethinker）→周趋势串联分析成长轨迹。当前方案：手动记笔记→PA写入KB；未来：半自动流水线（保存视频→自动转录分析） |
-| 低 | KB 静态加密：status.json / index.json 使用 age/gpg 加密存盘 |
-| ✅ | 依赖漏洞扫描：pip-audit 集成到 full_regression.sh 第三层安全扫描（V33） |
-| ✅ | **WhatsApp E2E 测试脚本**：`wa_e2e_test.sh` 端到端业务验证（基础对话/工具注入/KB索引/Proxy监控） |
-| ✅ | **pre-commit hook**：`.githooks/pre-commit` 安全扫描+语法检查（`git config core.hooksPath .githooks`） |
-| ✅ | **GitHub Actions CI**：`.github/workflows/ci.yml` PR 门禁（8套单测+注册表+文档漂移+安全扫描+bandit） |
-| ✅ | **search_kb 混合检索 + 数据复利闭环：语义搜索+关键词+LLM解读（V30.5）** |
-| ✅ | **论文监控矩阵：ArXiv+HF+S2+DBLP+ACL 5源全覆盖（V30.5）** |
-| ✅ | **三方宪法闭环验证：SOUL.md + status.json 实时同步 + PA 主动感知（V30.4）** |
-| ✅ | **数据清洗 Phase 1：CLI + 自定义工具注入 + WhatsApp E2E（V30.3）** |
-| ✅ | **安全评分体系 + 审计日志 + 持续安全机制（V30.2）** |
-| ✅ | **全量回归测试框架 393 用例（V30.1）** |
-| ✅ | **KB 周趋势报告 + 模型智能路由（V29.5）** |
-| ✅ | **多模态图片理解：Qwen2.5-VL-72B 自动路由（V29.4）** |
-| ✅ | Multimodal Memory：Gemini Embedding 2 索引图片/音频/视频/PDF（V29.1） |
-| ✅ | Model Fallback 降级链（V29.1） |
-| ✅ | 每日自动备份（V29.1） |
-| ✅ | Multi-Agent 专业化（V29.1） |
-| ✅ | Bootstrap KB 自动注入（V29.1） |
-| ✅ | Context Pruning 配置（V29.1） |
-| ✅ | KB三件套：搜索/LLM深度回顾/每日摘要注入（V29） |
+| 模块 | 目标 | 当前基础 | 路标 |
+|------|------|----------|------|
+| **Provider Compatibility Layer** | auth/chat/tool-calling/multimodal/streaming/fallback 标准接口 | `providers.py`+`adapter.py` 重构完成 | **V1 (in progress)** |
+| **Agent Reliability Bench** | 系统性可靠性评测（provider宕机/tool timeout/malformed args/kb miss-hit/cron drift） | `gameday.sh` 5 场景 | **V2 (backlog)** |
+| **Memory Plane v1** | 短期对话/KB语义/多媒体/用户偏好/运维状态 统一成一个平面 | local_embed+kb_rag+mm_index+preference_learner+status_sync | **V2 (backlog)** |
+
+## 当前待办（按导师 V1/V2/V3 路标组织）
+
+> 来源：2026-04-03 导师战略复盘。路标 = 时间窗口 + 成功标准。详见 `docs/strategic_review_20260403.md`
+
+### V1 路标（0-4 个月）：别人能跑
+
+| 优先级 | 任务 | 状态 |
+|--------|------|------|
+| **V1-P0** | **Provider Compatibility Layer**：`providers.py` BaseProvider 抽象 + 4 个实现 + ProviderRegistry + 能力声明 + CLI 兼容性矩阵（V34 已实现，生产验证中） | 🔄 运行验证中 |
+| **V1-P0** | **兼容性矩阵 + SLO Benchmark 证据**：`docs/compatibility_matrix.md` 已生成。下一步把 SLO 从规则变成实验结果（延迟 p95 / 成功率 / 降级恢复时间 / 超时率） | 🔄 矩阵完成，benchmark 待做 |
+| **V1-P1** | **一键启动 + 最小 demo + golden test trace**：别人 10 分钟能跑起来 = 传播效率翻倍 | 待启动 |
+| **V1-P1** | **可复现证据**：Quick Start 完善 + 一键 smoke test demo + demo transcript | 待启动 |
+
+### V2 路标（4-8 个月）：别人敢用
+
+| 优先级 | 任务 | 状态 |
+|--------|------|------|
+| **V2-P0** | **Agent Reliability Bench**（导师建议模块二）：provider 宕机 / tool timeout / malformed args / oversized request / kb miss-hit / cron drift / state corruption 系统性评测。基于 `gameday.sh` 扩展 | 待启动 |
+| **V2-P0** | **Memory Plane v1 统一叙事**（导师建议模块三）：把 local_embed / kb_rag / mm_index / preference_learner / status_sync 统一成一个 memory plane（短期对话 / KB 语义 / 多媒体 / 用户偏好 / 运维状态） | 待启动 |
+| **V2-P1** | **运维韧性证据**：故障注入实验 + 演练脚本 + 恢复时间统计 → 从"工程做得挺全"升级成"有 SRE 味道的 agent infra" | 待启动 |
+| **V2-P1** | **SLO Dashboard + semver 版本治理** | 待启动 |
+| **V2-P1** | **安全边界说明文档** | 待启动 |
+
+### V3 路标（8-12 个月）：别人会扩展
+
+| 优先级 | 任务 | 状态 |
+|--------|------|------|
+| **V3** | **Provider Plugin Interface**：auth / chat / tool-calling / multimodal normalization / streaming / fallback contract 标准接口 | 待启动 |
+| **V3** | **Tool Policy Plugin + Memory Plane Plugin**：可插拔的工具策略和记忆平面扩展 | 待启动 |
+| **V3** | **Job Template/Registry SDK + Extension Guide**：让别人能基于框架扩展 | 待启动 |
+
+### 话语权输出（持续推进）
+
+| 类型 | 任务 | 状态 |
+|------|------|------|
+| 架构型 | **Why Agent Systems Need a Control Plane** / **From Model Bridge to Runtime Governance** | 待写 |
+| 证据型 | **Benchmark Report** / **Failure Injection Report** / **Lessons from 461-test Regression** | 待写 |
+| 立场型 | **为什么 agent 系统首先是治理问题** / **为什么 control plane 必须先于 capability plane** | 待写 |
+
+### 现有功能任务（V1 稳定后继续推进）
+
+| 优先级 | 任务 | 状态 |
+|--------|------|------|
+| 中 | **数据清洗 Phase 2**：三 Agent 架构（Profiler/Planner/Executor，用 `sessions_spawn`）、语义去重、自定义规则 | active |
+| 中 | **PA 子 Agent 委派**：`sessions_spawn` + `sessions_send` 让 PA 自主创建子任务 | active |
+| deferred | **PA 长期记忆**：Qwen3 不主动调用 memory 工具，等模型升级后重新验证 | blocked |
+| 低 | **可迁移性抽象**：去除个人/场景定制痕迹，抽象成别人也能迁移的框架（导师指出三块差距之一） | V2-V3 |
+| 低 | **记忆系统分层**：短期/长期/任务，含冲突消解和可信度评分 → 纳入 Memory Plane v1 | V2 |
+| 低 | **成本-质量-时延联动调度**：根据查询复杂度动态选择模型/参数组合 | V2+ |
+| 低 | 知识图谱：AI 大模型领域知识图谱构建（需 6-12 个月数据积累） | V3 |
+| 低 | 货代 Watcher V3：Bing News API 替代 GoogleNews | 按需 |
+| 低 | 语音消息支持：WhatsApp 语音→STT→LLM 回复 | 按需 |
+| 低 | **视频号内容转录分析**：firethinker 视频号监控 → STT 转录 → LLM 提炼 → KB 沉淀 | 按需 |
+| 低 | KB 静态加密：status.json / index.json 使用 age/gpg 加密存盘 | 按需 |
+
+### 已完成里程碑（V27-V33）
+
+<details>
+<summary>展开查看 25+ 项已完成任务</summary>
+
+| 版本 | 任务 |
+|------|------|
+| V34 | **Provider Compatibility Layer**：providers.py + 48 单测 + 兼容性矩阵 + adapter.py 重构 |
+| V33 | SLO 最小集 + 阈值中心化 + 旅程级 E2E 进 CI + 故障快照机制 + Job 分层治理 + Fallback Matrix + 变更影响评估 + GameDay 故障演练 + Discord 双通道 + notify.sh + pip-audit |
+| V32 | 配置中心化 + 变更审计 + config_loader.py |
+| V30.5 | search_kb 混合检索 + 论文监控矩阵 5 源全覆盖 + DBLP |
+| V30.4 | SOUL.md 激活 + 三方宪法闭环 + 方法论进化 |
+| V30.3 | 数据清洗 Phase 1 + 自定义工具注入 + WhatsApp E2E |
+| V30.2 | 安全评分体系 + 审计日志 + 持续安全机制 |
+| V30.1 | status.json 实时刷新 + KB 完整性 + 全量回归 374→461 测试 |
+| V30 | crontab 事故修复 + cron 安全三层保护 |
+| V29.x | KB 搜索/RAG/趋势/MM 索引/Fallback/备份/Multi-Agent |
+| V28.x | preflight 体检 + WhatsApp 保活 + CI + pre-commit |
+| V27.x | Proxy 拆层 + 任务注册表 + auto_deploy + 回滚机制 |
+
+</details>
 
 ## 远程连接（本机）
 
