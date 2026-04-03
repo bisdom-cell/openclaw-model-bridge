@@ -395,9 +395,9 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 | ✅ | **阈值中心化**：config.yaml 统一管理 9 大类阈值（SLO/Proxy/Token/Alert/Routing/Truncation/Watchdog/Incident/Fallback），config_loader.py 统一加载（V32） |
 | ✅ | **旅程级 E2E 进 CI**：wa_e2e_test.sh 覆盖三条主路径（基础对话 / search_kb 检索 / 图片理解），集成到 preflight 18/19（V33） |
 | ✅ | **故障快照机制**：故障时自动收集 proxy.log 尾部 + adapter.log + 最近请求 + 系统状态，写入 `~/.kb/incidents/`（V33: job_watchdog CORE告警自动触发） |
-| **P1-中** | **Job 分层治理**：registry 增加 tier 字段（core/auxiliary/experiment），core job 失败立即告警，experiment 失败仅记录 |
-| **P1-中** | **Fallback Matrix 模板化**：外部依赖（远程GPU/ArXiv API/WhatsApp Gateway）抖动时的标准降级路径，代码化到 adapter.py |
-| **P1-中** | **变更影响评估**：PR 描述模板增加"影响范围"和"回滚方案"字段 |
+| ✅ | **Job 分层治理**：registry tier 字段（core/auxiliary/experiment） + watchdog 按 tier 分级告警（V31-V32） |
+| ✅ | **Fallback Matrix 模板化**：config.yaml fallback 段 + adapter.py 断路器 + 自动降级（V32） |
+| ✅ | **变更影响评估**：`.github/PULL_REQUEST_TEMPLATE.md` 含 Impact Scope + Risk Assessment + Rollback Plan（V32） |
 | 中 | **数据清洗 Phase 2**：三 Agent 架构（Profiler/Planner/Executor，可用 `sessions_spawn` 实现）、语义去重、自定义清洗规则 |
 | 中 | **PA 长期记忆**：启用 `memory_search`/`memory_get`。⚠️ Qwen3不主动调用memory工具，等模型升级后重新验证 |
 | 中 | **PA 子 Agent 委派**：`sessions_spawn` + `sessions_send` 让 PA 自主创建子任务 |
