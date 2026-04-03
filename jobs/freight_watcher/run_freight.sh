@@ -483,6 +483,12 @@ ${PROFILE_OUT}
 💡 数据来源：ImportYeti美国海关提单 + 行业新闻
 ⚠ 预算为运价推算值，仅供参考" --json >/dev/null 2>&1; then
                 log "已推送客户画像"
+                "$OPENCLAW" message send --channel discord --target "${DISCORD_CH_FREIGHT:-}" --message "📊 货代客户画像 (${DAY})
+
+${PROFILE_OUT}
+
+💡 数据来源：ImportYeti美国海关提单 + 行业新闻
+⚠ 预算为运价推算值，仅供参考" --json >/dev/null 2>&1 || true
             else
                 log "ERROR: 客户画像推送失败，请检查 gateway。"
             fi
