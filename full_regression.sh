@@ -127,6 +127,22 @@ else
     FAILED_SUITES+=("dangerous crontab pattern")
 fi
 
+echo -n "  🔒 依赖漏洞扫描 (pip-audit) ... "
+if command -v pip-audit &>/dev/null; then
+    AUDIT_OUT=$(pip-audit --desc -q 2>&1) || true
+    VULN_COUNT=$(echo "$AUDIT_OUT" | grep -cE "^Name" 2>/dev/null || echo "0")
+    # pip-audit 无漏洞时输出为空
+    if [ -z "$(echo "$AUDIT_OUT" | grep -iE 'found [1-9]|CRITICAL|HIGH')" ]; then
+        echo "✅ 无已知漏洞"
+        PASS=$((PASS + 1))
+    else
+        echo "⚠️ 发现漏洞（非阻塞）"
+        echo "$AUDIT_OUT" | head -10
+    fi
+else
+    echo "⚠️ pip-audit 未安装（pip3 install pip-audit）"
+fi
+
 echo -n "  🔒 审计日志完整性 ... "
 if python3 audit_log.py --verify --json 2>/dev/null | python3 -c "import sys,json; sys.exit(0 if json.load(sys.stdin).get('ok') else 1)" 2>/dev/null; then
     AUDIT_COUNT=$(python3 audit_log.py --verify --json 2>/dev/null | python3 -c "import sys,json; print(json.load(sys.stdin).get('total',0))" 2>/dev/null || echo 0)

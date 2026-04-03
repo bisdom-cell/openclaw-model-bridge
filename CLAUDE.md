@@ -171,6 +171,7 @@
 | `audit_log.py` | **V30.2新增** 链式哈希审计日志（JSONL append-only，SHA256 链式校验，篡改/删除可检测） |
 | `test_audit_log.py` | **V30.2新增** 审计日志单测（19个用例：写入/链式哈希/篡改检测/删除检测/统计） |
 | `security_score.py` | **V30.2新增** 系统安全评分（7维度100分：密钥/测试/完整性/部署/传输/审计/可用性） |
+| `gameday.sh` | **V33新增** GameDay 故障演练（5场景：GPU超时/断路器/快照/SLO/Watchdog，`bash gameday.sh --all`） |
 | `jobs/dblp/run_dblp.sh` | **V30.5新增** DBLP CS论文监控（多关键词搜索、免费API、每日12:00推送+KB写入） |
 | `jobs/hf_papers/run_hf_papers.sh` | **V30.5新增** HuggingFace Daily Papers 监控（热门AI论文、每日10:00推送+KB写入） |
 | `jobs/semantic_scholar/run_semantic_scholar.sh` | **V30.5新增** Semantic Scholar 论文监控（引用量排序、每日11:00推送+KB写入） |
@@ -391,25 +392,26 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 
 | 优先级 | 任务 |
 |--------|------|
-| **P0-高** | **SLO 最小集**：定义延迟 p95 < 30s、工具成功率 > 95%、降级率 < 5%、超时率 < 3%、自动恢复率 > 90%，写入统一配置并接入 watchdog 告警 |
-| **P0-高** | **阈值中心化**：工具上限/请求上限/超时重试/降级阈值 统一收敛到 `config.yaml`，消除散落在各文件的魔法数字 |
-| **P0-高** | **旅程级 E2E 进 CI**：wa_e2e_test.sh 覆盖三条主路径（基础对话 / search_kb 检索 / 图片理解），集成到 preflight |
-| **P0-高** | **故障快照机制**：故障时自动收集 proxy.log 尾部 + adapter.log + 最近请求 + 系统状态，写入 `~/.kb/incidents/` |
-| **P1-中** | **Job 分层治理**：registry 增加 tier 字段（core/auxiliary/experiment），core job 失败立即告警，experiment 失败仅记录 |
-| **P1-中** | **Fallback Matrix 模板化**：外部依赖（远程GPU/ArXiv API/WhatsApp Gateway）抖动时的标准降级路径，代码化到 adapter.py |
-| **P1-中** | **变更影响评估**：PR 描述模板增加"影响范围"和"回滚方案"字段 |
+| ✅ | **SLO 最小集**：5 项 SLO 指标定义到 config.yaml + proxy_stats 实时采集 + slo_checker.py 检查 + watchdog 每小时告警（V32→V33 接入 watchdog） |
+| ✅ | **阈值中心化**：config.yaml 统一管理 9 大类阈值（SLO/Proxy/Token/Alert/Routing/Truncation/Watchdog/Incident/Fallback），config_loader.py 统一加载（V32） |
+| ✅ | **旅程级 E2E 进 CI**：wa_e2e_test.sh 覆盖三条主路径（基础对话 / search_kb 检索 / 图片理解），集成到 preflight 18/19（V33） |
+| ✅ | **故障快照机制**：故障时自动收集 proxy.log 尾部 + adapter.log + 最近请求 + 系统状态，写入 `~/.kb/incidents/`（V33: job_watchdog CORE告警自动触发） |
+| ✅ | **Job 分层治理**：registry tier 字段（core/auxiliary/experiment） + watchdog 按 tier 分级告警（V31-V32） |
+| ✅ | **Fallback Matrix 模板化**：config.yaml fallback 段 + adapter.py 断路器 + 自动降级（V32） |
+| ✅ | **变更影响评估**：`.github/PULL_REQUEST_TEMPLATE.md` 含 Impact Scope + Risk Assessment + Rollback Plan（V32） |
 | 中 | **数据清洗 Phase 2**：三 Agent 架构（Profiler/Planner/Executor，可用 `sessions_spawn` 实现）、语义去重、自定义清洗规则 |
 | 中 | **PA 长期记忆**：启用 `memory_search`/`memory_get`。⚠️ Qwen3不主动调用memory工具，等模型升级后重新验证 |
 | 中 | **PA 子 Agent 委派**：`sessions_spawn` + `sessions_send` 让 PA 自主创建子任务 |
-| **P2-低** | **配置中心化 + 变更审计**：所有运行时配置统一管理，变更自动记录到审计日志 |
-| **P2-低** | **GameDay 故障演练**：定期模拟 GPU 不可用 / Gateway 断连 / 索引损坏，验证降级和恢复 |
+| ✅ | **配置中心化 + 变更审计**：config.yaml 统一配置 + config_loader.py 加载 + audit_log.py 链式哈希审计（V30.2-V32） |
+| ✅ | **GameDay 故障演练**：`gameday.sh` 5 场景（GPU超时/断路器/快照/SLO/Watchdog流水线），`--all` 一键演练（V33） |
 | **P2-低** | **记忆系统分层**：短期（session内）/ 长期（跨session偏好）/ 任务（项目上下文），含冲突消解和可信度评分 |
 | **P2-低** | **成本-质量-时延联动调度**：根据查询复杂度动态选择模型/参数组合 |
 | 低 | 知识图谱：AI大模型领域知识图谱构建（需6-12个月数据积累，暂缓） |
 | 低 | 货代Watcher V3：Bing News API替代GoogleNews |
 | 低 | 语音消息支持：WhatsApp语音→STT→LLM回复 |
+| 低 | **视频号内容转录分析**：firethinker张东普视频号监控，视频保存→STT转录（FunASR/Whisper）→LLM提炼观点+点评→KB沉淀（标签firethinker）→周趋势串联分析成长轨迹。当前方案：手动记笔记→PA写入KB；未来：半自动流水线（保存视频→自动转录分析） |
 | 低 | KB 静态加密：status.json / index.json 使用 age/gpg 加密存盘 |
-| 低 | 依赖漏洞扫描：pip-audit 集成到 full_regression.sh |
+| ✅ | 依赖漏洞扫描：pip-audit 集成到 full_regression.sh 第三层安全扫描（V33） |
 | ✅ | **WhatsApp E2E 测试脚本**：`wa_e2e_test.sh` 端到端业务验证（基础对话/工具注入/KB索引/Proxy监控） |
 | ✅ | **pre-commit hook**：`.githooks/pre-commit` 安全扫描+语法检查（`git config core.hooksPath .githooks`） |
 | ✅ | **GitHub Actions CI**：`.github/workflows/ci.yml` PR 门禁（8套单测+注册表+文档漂移+安全扫描+bandit） |

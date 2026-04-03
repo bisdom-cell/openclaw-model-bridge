@@ -163,6 +163,7 @@ declare -a FILE_MAP=(
     "config_loader.py|$HOME/config_loader.py"
     "slo_checker.py|$HOME/slo_checker.py"
     "incident_snapshot.py|$HOME/incident_snapshot.py"
+    "gameday.sh|$HOME/gameday.sh"
 
     # Agent 做梦引擎（V32）
     "kb_dream.sh|$HOME/kb_dream.sh"
