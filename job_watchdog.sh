@@ -552,14 +552,25 @@ fi
 ALERT_MSG+="
 
 排查建议：
-1. bash cron_doctor.sh     # 全面诊断
-2. curl localhost:5002/health  # Proxy健康
-3. curl localhost:5001/health  # Adapter健康
-4. rmdir /tmp/*.lockdir    # 清除残留锁
-5. crontab -l | wc -l     # 确认调度条目
-6. df -h /                 # 磁盘空间"
+1. python3 ~/incident_snapshot.py --list  # 查看故障快照
+2. bash cron_doctor.sh     # 全面诊断
+3. curl localhost:5002/health  # Proxy健康
+4. curl localhost:5001/health  # Adapter健康
+5. rmdir /tmp/*.lockdir    # 清除残留锁
+6. crontab -l | wc -l     # 确认调度条目"
 
 echo "$ALERT_MSG"
+
+# ── 故障快照：告警时自动收集系统状态 ──
+# 仅在有 CORE 告警或 CRITICAL 告警时触发（避免低级别告警频繁快照）
+if [ "$CRITICAL_COUNT" -gt 0 ] || [ "${#CORE_ALERTS[@]}" -gt 0 ]; then
+    SNAPSHOT_DESC="watchdog: ${#ALERTS[@]} alerts (${CRITICAL_COUNT} critical, ${#CORE_ALERTS[@]} core)"
+    python3 "$HOME/incident_snapshot.py" --auto "$SNAPSHOT_DESC" 2>/dev/null && {
+        echo "[watchdog] 故障快照已创建"
+    } || {
+        echo "[watchdog] 故障快照创建失败（非致命）"
+    }
+fi
 
 # 推送 WhatsApp（失败时写本地告警文件，打破 WhatsApp↔Gateway 循环依赖）
 ALERT_LOG="$HOME/.openclaw_alerts.log"

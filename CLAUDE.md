@@ -393,8 +393,8 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 |--------|------|
 | **P0-高** | **SLO 最小集**：定义延迟 p95 < 30s、工具成功率 > 95%、降级率 < 5%、超时率 < 3%、自动恢复率 > 90%，写入统一配置并接入 watchdog 告警 |
 | **P0-高** | **阈值中心化**：工具上限/请求上限/超时重试/降级阈值 统一收敛到 `config.yaml`，消除散落在各文件的魔法数字 |
-| **P0-高** | **旅程级 E2E 进 CI**：wa_e2e_test.sh 覆盖三条主路径（基础对话 / search_kb 检索 / 图片理解），集成到 preflight |
-| **P0-高** | **故障快照机制**：故障时自动收集 proxy.log 尾部 + adapter.log + 最近请求 + 系统状态，写入 `~/.kb/incidents/` |
+| ✅ | **旅程级 E2E 进 CI**：wa_e2e_test.sh 覆盖三条主路径（基础对话 / search_kb 检索 / 图片理解），集成到 preflight 18/19（V33） |
+| ✅ | **故障快照机制**：故障时自动收集 proxy.log 尾部 + adapter.log + 最近请求 + 系统状态，写入 `~/.kb/incidents/`（V33: job_watchdog CORE告警自动触发） |
 | **P1-中** | **Job 分层治理**：registry 增加 tier 字段（core/auxiliary/experiment），core job 失败立即告警，experiment 失败仅记录 |
 | **P1-中** | **Fallback Matrix 模板化**：外部依赖（远程GPU/ArXiv API/WhatsApp Gateway）抖动时的标准降级路径，代码化到 adapter.py |
 | **P1-中** | **变更影响评估**：PR 描述模板增加"影响范围"和"回滚方案"字段 |

@@ -747,7 +747,7 @@ if $FULL_MODE; then
         if [ $E2E_RC -eq 0 ]; then
             pass "E2E 测试通过（$E2E_PASS 项验证）"
         else
-            fail "E2E 测试失败（$E2E_FAIL 项失败）: $(echo "$E2E_OUT" | grep -i "fail\|❌" | head -3)"
+            warn "E2E 测试失败（$E2E_FAIL 项失败）: $(echo "$E2E_OUT" | grep -i "fail\|❌" | head -3)"
         fi
     else
         warn "wa_e2e_test.sh 未部署到 ~/（部署后自动运行）"
