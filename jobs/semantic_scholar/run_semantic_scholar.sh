@@ -47,8 +47,8 @@ for i in "${!KEYWORDS[@]}"; do
   OUTFILE="$RAW_DIR/search_${i}.json"
   ENCODED_KW=$(python3 -c "import urllib.parse; print(urllib.parse.quote('$KW'))")
 
-  # Semantic Scholar 免费 API: 1 req/sec
-  sleep 1
+  # Semantic Scholar 免费 API: 严格限流，关键词间隔 5s
+  [ "$i" -gt 0 ] && sleep 5
 
   HTTP_CODE=$(curl -sSL --max-time 30 -w '%{http_code}' \
     -H "User-Agent: openclaw-s2-monitor/1.0" \
@@ -58,15 +58,21 @@ for i in "${!KEYWORDS[@]}"; do
   if [ "$HTTP_CODE" = "200" ]; then
     echo "[s2] 搜索 '$KW' 成功"
   elif [ "$HTTP_CODE" = "429" ]; then
-    log "WARN: S2 API 429 for '$KW'，等待 60s 重试"
-    sleep 60
-    HTTP_CODE=$(curl -sSL --max-time 30 -w '%{http_code}' \
-      -H "User-Agent: openclaw-s2-monitor/1.0" \
-      "${S2_API}?query=${ENCODED_KW}&fields=${FIELDS}&limit=20&publicationDateOrYear=${DATE_FROM}:${DATE_TO}&fieldsOfStudy=Computer+Science" \
-      -o "$OUTFILE" 2>"$CACHE/curl_s2.err") || HTTP_CODE="000"
+    # 指数退避重试：60s → 120s
+    for RETRY in 60 120; do
+      log "WARN: S2 API 429 for '$KW'，等待 ${RETRY}s 重试"
+      sleep "$RETRY"
+      HTTP_CODE=$(curl -sSL --max-time 30 -w '%{http_code}' \
+        -H "User-Agent: openclaw-s2-monitor/1.0" \
+        "${S2_API}?query=${ENCODED_KW}&fields=${FIELDS}&limit=20&publicationDateOrYear=${DATE_FROM}:${DATE_TO}&fieldsOfStudy=Computer+Science" \
+        -o "$OUTFILE" 2>"$CACHE/curl_s2.err") || HTTP_CODE="000"
+      [ "$HTTP_CODE" = "200" ] && break
+    done
     if [ "$HTTP_CODE" != "200" ]; then
       log "WARN: S2 重试仍失败 ($HTTP_CODE) for '$KW'"
       FETCH_ERRORS=$((FETCH_ERRORS + 1))
+    else
+      echo "[s2] 搜索 '$KW' 成功（重试后）"
     fi
   else
     log "WARN: S2 API 返回 HTTP $HTTP_CODE for '$KW'"
