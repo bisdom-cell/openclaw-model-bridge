@@ -556,18 +556,28 @@ FORCE_SYSTEM = """你是Wei，一个专业AI助手。身份已完全确认，onb
 **环境变量**（添加到 `~/.zshrc` 和 `~/.bash_profile`）：
 ```bash
 export DISCORD_BOT_TOKEN="你的Bot Token"
-export DISCORD_TARGET="你的Discord用户ID"   # 开发者模式右键复制
+export DISCORD_TARGET="你的Discord用户ID"   # 开发者模式右键复制（纯数字）
 ```
 
-**Gateway 配对**：
+**添加通道 + 配对**：
 ```bash
-# 重启 Gateway 后，在 Discord 中 DM 你的 Bot
-# Bot 回复配对码，然后在 Mac Mini 上执行：
+# 用 CLI 添加 Discord 通道（会自动写入 openclaw.json）
+openclaw channels add --channel discord --token "$DISCORD_BOT_TOKEN"
+
+# 重启 Gateway
+bash ~/restart.sh
+
+# 在 Discord 中 DM Bot，Bot 回复配对码，然后执行：
 openclaw pairing approve discord <配对码>
 
 # 验证通道状态
 openclaw channels list
-openclaw channels status
+openclaw channels status --probe
+```
+
+**推送命令格式**（Discord target 需要 `user:` 前缀）：
+```bash
+openclaw message send --channel discord --target "user:$DISCORD_TARGET" --message "测试" --json
 ```
 
 **推送通道迁移**：
