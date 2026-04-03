@@ -345,6 +345,7 @@ PYEOF
 SEND_ERR=$(mktemp)
 if openclaw message send --channel whatsapp --target "$PHONE" --message "$WA_MSG" --json >/dev/null 2>"$SEND_ERR"; then
     log "每日摘要已推送 WhatsApp"
+    openclaw message send --channel discord --target "${DISCORD_CH_DAILY:-}" --message "$WA_MSG" --json >/dev/null 2>&1 || true
 else
     log "WARNING: WhatsApp 推送失败: $(head -3 "$SEND_ERR" 2>/dev/null)"
     # 本地告警回退（V30: 监控不依赖被监控对象）

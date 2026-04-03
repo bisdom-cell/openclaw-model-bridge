@@ -153,6 +153,7 @@ done < "$CACHE/discussions_send.txt"
 SEND_ERR=$(mktemp)
 if openclaw message send --channel whatsapp --target "$TO" --message "$(cat "$MSG")" --json >/dev/null 2>"$SEND_ERR"; then
     log "已推送 ${cnt} 条新 issue（含LLM富摘要）。"
+    openclaw message send --channel discord --target "${DISCORD_CH_TECH:-}" --message "$(cat "$MSG")" --json >/dev/null 2>&1 || true
     printf '{"time":"%s","status":"ok","new":%d,"sent":true}\n' "$TS" "$cnt" > "$STATUS_FILE"
 else
     log "ERROR: 推送失败（${cnt} 条待发）: $(cat "$SEND_ERR" | head -3)"

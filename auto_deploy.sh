@@ -261,6 +261,7 @@ if [ "$MINUTE" -lt 2 ]; then
         # 漂移发现时推送 WhatsApp 告警
         DRIFT_MSG="⚠️ 漂移检测: 修复 ${DRIFT} 个部署文件不一致，已自动覆盖。详见 auto_deploy.log"
         openclaw message send --channel whatsapp --target "${OPENCLAW_PHONE:-+85200000000}" --message "$DRIFT_MSG" --json >/dev/null 2>&1 || true
+        openclaw message send --channel discord --target "${DISCORD_CH_ALERTS:-}" --message "$DRIFT_MSG" --json >/dev/null 2>&1 || true
     fi
 
     # ── 3c. Crontab 引号完整性检查（每小时整点，与漂移检测同步）──────────
@@ -283,6 +284,7 @@ if [ "$MINUTE" -lt 2 ]; then
 ${CRONTAB_ISSUES}
 请立即检查: crontab -l"
         openclaw message send --channel whatsapp --target "${OPENCLAW_PHONE:-+85200000000}" --message "$CRON_MSG" --json >/dev/null 2>&1 || true
+        openclaw message send --channel discord --target "${DISCORD_CH_ALERTS:-}" --message "$CRON_MSG" --json >/dev/null 2>&1 || true
     fi
 
     # ── 3d. Crontab 条目数监控（V30新增：防止意外清空）─────────────────
@@ -305,6 +307,7 @@ ${CRONTAB_ISSUES}
 1. bash ~/crontab_safe.sh restore
 2. 或: bash ~/cron_doctor.sh"
             openclaw message send --channel whatsapp --target "${OPENCLAW_PHONE:-+85200000000}" --message "$CRON_ALERT" --json >/dev/null 2>&1 || true
+            openclaw message send --channel discord --target "${DISCORD_CH_ALERTS:-}" --message "$CRON_ALERT" --json >/dev/null 2>&1 || true
             date +%s > "$CRON_COUNT_FILE.alert"
         fi
     else
@@ -353,6 +356,7 @@ $FAIL_LINES
             echo "$(date) ❌ preflight_check 失败:" >> "$LOG"
             echo "$PREFLIGHT_OUT" >> "$LOG"
             openclaw message send --channel whatsapp --target "${OPENCLAW_PHONE:-+85200000000}" --message "$ALERT_MSG" --json >/dev/null 2>&1 || true
+            openclaw message send --channel discord --target "${DISCORD_CH_ALERTS:-}" --message "$ALERT_MSG" --json >/dev/null 2>&1 || true
         else
             echo "$(date) ✅ preflight_check 通过" >> "$LOG"
             # 更新三方共享状态

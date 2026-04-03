@@ -569,6 +569,7 @@ ALERT_LOG="$HOME/.openclaw_alerts.log"
     echo "$ALERT_MSG" >> "$ALERT_LOG"
     echo "================================" >> "$ALERT_LOG"
 }
+"$OPENCLAW" message send --channel discord --target "${DISCORD_CH_ALERTS:-}" --message "$ALERT_MSG" --json >/dev/null 2>&1 || true
 
 # 本地告警文件始终写入（供 cron_doctor / SSH 检查时查看）
 echo "[$TS] ALERT: ${#ALERTS[@]} issues (${CRITICAL_COUNT} critical, ${WARNING_COUNT} warning)" >> "$ALERT_LOG"
