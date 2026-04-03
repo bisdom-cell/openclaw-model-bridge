@@ -411,7 +411,7 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 | 低 | 语音消息支持：WhatsApp语音→STT→LLM回复 |
 | 低 | **视频号内容转录分析**：firethinker张东普视频号监控，视频保存→STT转录（FunASR/Whisper）→LLM提炼观点+点评→KB沉淀（标签firethinker）→周趋势串联分析成长轨迹。当前方案：手动记笔记→PA写入KB；未来：半自动流水线（保存视频→自动转录分析） |
 | 低 | KB 静态加密：status.json / index.json 使用 age/gpg 加密存盘 |
-| 低 | 依赖漏洞扫描：pip-audit 集成到 full_regression.sh |
+| ✅ | 依赖漏洞扫描：pip-audit 集成到 full_regression.sh 第三层安全扫描（V33） |
 | ✅ | **WhatsApp E2E 测试脚本**：`wa_e2e_test.sh` 端到端业务验证（基础对话/工具注入/KB索引/Proxy监控） |
 | ✅ | **pre-commit hook**：`.githooks/pre-commit` 安全扫描+语法检查（`git config core.hooksPath .githooks`） |
 | ✅ | **GitHub Actions CI**：`.github/workflows/ci.yml` PR 门禁（8套单测+注册表+文档漂移+安全扫描+bandit） |
