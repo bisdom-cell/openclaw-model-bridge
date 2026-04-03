@@ -642,7 +642,7 @@ echo "📋 16/19 推送通道 smoke test"
 if $FULL_MODE; then
     # 验证 openclaw message send 命令可用且无配置错误
     PUSH_ERR=$(mktemp)
-    PUSH_TEST=$(openclaw message send --target "${OPENCLAW_PHONE:-+85200000000}" --message "🔧 preflight push test $(date '+%H:%M')" --json 2>"$PUSH_ERR") && PUSH_RC=0 || PUSH_RC=$?
+    PUSH_TEST=$(openclaw message send --channel whatsapp --target "${OPENCLAW_PHONE:-+85200000000}" --message "🔧 preflight push test $(date '+%H:%M')" --json 2>"$PUSH_ERR") && PUSH_RC=0 || PUSH_RC=$?
 
     PUSH_STDERR=$(cat "$PUSH_ERR" 2>/dev/null)
     rm -f "$PUSH_ERR"

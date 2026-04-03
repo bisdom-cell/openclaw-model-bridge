@@ -205,7 +205,7 @@ echo "$LLM_OUT" >> "$LLM_RAW"
 if [ -z "${LLM_OUT// }" ]; then
     ERR_MSG="⚠️ 货代Watcher LLM调用失败（${DAY}），请检查 $LLM_RAW"
     echo "$ERR_MSG"
-    "$OPENCLAW" message send --target "$TO" --message "$ERR_MSG" --json >/dev/null 2>&1 || true
+    "$OPENCLAW" message send --channel whatsapp --target "$TO" --message "$ERR_MSG" --json >/dev/null 2>&1 || true
     exit 1
 fi
 
@@ -214,7 +214,7 @@ PARSE_OK="$(echo "$LLM_OUT" | grep -c '评级：' || true)"
 if [ "$PARSE_OK" -lt $(( NEW_COUNT / 2 )) ] && [ "$NEW_COUNT" -gt 2 ]; then
     WARN_MSG="⚠️ 货代Watcher解析成功率低 ${PARSE_OK}/${NEW_COUNT}（${DAY}），请查 $LLM_RAW"
     echo "$WARN_MSG"
-    "$OPENCLAW" message send --target "$TO" --message "$WARN_MSG" --json >/dev/null 2>&1 || true
+    "$OPENCLAW" message send --channel whatsapp --target "$TO" --message "$WARN_MSG" --json >/dev/null 2>&1 || true
     exit 2
 fi
 
@@ -288,7 +288,7 @@ PYEOF2
 
 # ── 5. 推送WhatsApp ─────────────────────────────────────────────────────
 SEND_ERR=$(mktemp)
-if "$OPENCLAW" message send --target "$TO" --message "$(cat "$MSG_FILE")" --json >/dev/null 2>"$SEND_ERR"; then
+if "$OPENCLAW" message send --channel whatsapp --target "$TO" --message "$(cat "$MSG_FILE")" --json >/dev/null 2>"$SEND_ERR"; then
     log "已推送 ${NEW_COUNT} 条商机（${DAY}）"
     printf '{"time":"%s","status":"ok","new":%d,"sent":true}\n' "$TS" "$NEW_COUNT" > "$STATUS_FILE"
 else
@@ -474,7 +474,7 @@ except Exception:
 
         # 推送客户画像
         if [ -n "${PROFILE_OUT// }" ]; then
-            if "$OPENCLAW" message send --target "$TO" \
+            if "$OPENCLAW" message send --channel whatsapp --target "$TO" \
                 --message "📊 货代客户画像 (${DAY})
 
 ${PROFILE_OUT}

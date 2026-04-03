@@ -124,7 +124,7 @@ JSONEOF
 echo "[health] JSON written to $HEALTH_JSON"
 
 # === 推送到WhatsApp ===
-if $OPENCLAW message send --target "$PHONE" --message "$REPORT" --json 2>>"$HOME/health_check.log"; then
+if $OPENCLAW message send --channel whatsapp --target "$PHONE" --message "$REPORT" --json 2>>"$HOME/health_check.log"; then
     echo "[health] WhatsApp 推送成功"
 else
     echo "[health] ERROR: WhatsApp 推送失败，检查 gateway 状态" >> "$HOME/health_check.log"

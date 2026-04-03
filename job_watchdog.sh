@@ -563,7 +563,7 @@ echo "$ALERT_MSG"
 
 # 推送 WhatsApp（失败时写本地告警文件，打破 WhatsApp↔Gateway 循环依赖）
 ALERT_LOG="$HOME/.openclaw_alerts.log"
-"$OPENCLAW" message send --target "$TO" --message "$ALERT_MSG" --json >/dev/null 2>&1 || {
+"$OPENCLAW" message send --channel whatsapp --target "$TO" --message "$ALERT_MSG" --json >/dev/null 2>&1 || {
     echo "[$TS] watchdog: ⚠️ WhatsApp 推送失败，写入本地告警文件"
     echo "=== UNDELIVERED ALERT [$TS] ===" >> "$ALERT_LOG"
     echo "$ALERT_MSG" >> "$ALERT_LOG"

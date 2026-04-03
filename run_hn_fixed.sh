@@ -256,7 +256,7 @@ PYEOF
 if [ -z "$RESULT" ]; then
     ERR_MSG="⚠️ HN Watcher LLM调用失败（$(date '+%Y-%m-%d %H:%M')），请检查 $LLM_RAW_LOG"
     echo "$ERR_MSG"
-    openclaw message send --target "$TO" --message "$ERR_MSG" --json >/dev/null 2>&1 || true
+    openclaw message send --channel whatsapp --target "$TO" --message "$ERR_MSG" --json >/dev/null 2>&1 || true
     exit 1
 fi
 
@@ -300,7 +300,7 @@ print(sent)
 
 if [ "$SENT_COUNT" -gt 0 ]; then
     SEND_ERR=$(mktemp)
-    if openclaw message send --target "$TO" --message "$(cat "$MSG_FILE")" --json >/dev/null 2>"$SEND_ERR"; then
+    if openclaw message send --channel whatsapp --target "$TO" --message "$(cat "$MSG_FILE")" --json >/dev/null 2>"$SEND_ERR"; then
         log "已推送 ${SENT_COUNT} 条AI/Tech精选（单次批量LLM）。"
         printf '{"time":"%s","status":"ok","new":%d,"sent":true}\n' "$TS" "$SENT_COUNT" > "$STATUS_FILE"
     else

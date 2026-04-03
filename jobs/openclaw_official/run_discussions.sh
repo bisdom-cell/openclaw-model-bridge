@@ -52,7 +52,7 @@ fi
 if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
   ERR_MSG="⚠️ Issues Watcher API 请求失败 HTTP ${HTTP_CODE}（$(TZ=Asia/Hong_Kong date '+%H:%M')）: $(head -1 "$CACHE/curl_issues_api.err" 2>/dev/null)"
   log "ERROR: $ERR_MSG"
-  openclaw message send --target "$TO" --message "$ERR_MSG" --json >/dev/null 2>&1 || true
+  openclaw message send --channel whatsapp --target "$TO" --message "$ERR_MSG" --json >/dev/null 2>&1 || true
   printf '{"time":"%s","status":"fetch_failed","http":%s,"new":0}\n' "$TS" "$HTTP_CODE" > "$STATUS_FILE"
   exit 1
 fi
@@ -83,7 +83,7 @@ print(f'[issues] 解析完成: {count} 条 issues', file=sys.stderr)
 " "$API_JSON" > "$CACHE/discussions_raw.txt" 2>"$CACHE/parse_issues.err"; then
   ERR_MSG="⚠️ Issues Watcher 解析失败（$(TZ=Asia/Hong_Kong date '+%H:%M')）: $(head -1 "$CACHE/parse_issues.err" 2>/dev/null)"
   log "ERROR: $ERR_MSG"
-  openclaw message send --target "$TO" --message "$ERR_MSG" --json >/dev/null 2>&1 || true
+  openclaw message send --channel whatsapp --target "$TO" --message "$ERR_MSG" --json >/dev/null 2>&1 || true
   printf '{"time":"%s","status":"parse_failed","new":0}\n' "$TS" > "$STATUS_FILE"
   exit 1
 fi
@@ -151,7 +151,7 @@ while IFS='|' read -r title url date; do
 done < "$CACHE/discussions_send.txt"
 
 SEND_ERR=$(mktemp)
-if openclaw message send --target "$TO" --message "$(cat "$MSG")" --json >/dev/null 2>"$SEND_ERR"; then
+if openclaw message send --channel whatsapp --target "$TO" --message "$(cat "$MSG")" --json >/dev/null 2>"$SEND_ERR"; then
     log "已推送 ${cnt} 条新 issue（含LLM富摘要）。"
     printf '{"time":"%s","status":"ok","new":%d,"sent":true}\n' "$TS" "$cnt" > "$STATUS_FILE"
 else

@@ -44,7 +44,7 @@ if ! ATOM_PATH="$("$FETCH" 2>"$CACHE_DIR/fetch_releases.err")"; then
   ERR_MSG="⚠️ OpenClaw Releases 抓取失败（$(TZ=Asia/Hong_Kong date '+%H:%M')）: $(head -1 "$CACHE_DIR/fetch_releases.err" 2>/dev/null)"
   log "ERROR: $ERR_MSG"
   TO="${OPENCLAW_PHONE:-+85200000000}"
-  openclaw message send --target "$TO" --message "$ERR_MSG" --json >/dev/null 2>&1 || true
+  openclaw message send --channel whatsapp --target "$TO" --message "$ERR_MSG" --json >/dev/null 2>&1 || true
   printf '{"time":"%s","status":"fetch_failed","new":0}\n' "$TS" > "$STATUS_FILE"
   exit 1
 fi
@@ -201,7 +201,7 @@ rsync -a --quiet "$HOME/.kb/" "/Volumes/MOVESPEED/KB/" 2>/dev/null || true
 # OPTIONAL: announce hook (adapt to your environment)
 # "$ROOT/bin/announce.sh" < "$MSG"
 SEND_ERR=$(mktemp)
-if openclaw message send --target "$TO" --message "$(cat "$MSG")" --json >/dev/null 2>"$SEND_ERR"; then
+if openclaw message send --channel whatsapp --target "$TO" --message "$(cat "$MSG")" --json >/dev/null 2>"$SEND_ERR"; then
     log "已推送 ${new_count} 条 releases 更新。"
     printf '{"time":"%s","status":"ok","new":%d,"sent":true}\n' "$TS" "$new_count" > "$STATUS_FILE"
 else
