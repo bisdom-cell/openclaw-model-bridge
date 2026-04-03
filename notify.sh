@@ -51,9 +51,9 @@ notify() {
         fi
     fi
 
-    # Discord
+    # Discord（target 格式: user:<ID>）
     if echo "$channels" | grep -q "discord" && [ -n "$_NOTIFY_DISCORD_TARGET" ]; then
-        if "$OPENCLAW" message send --channel discord --target "$_NOTIFY_DISCORD_TARGET" --message "$msg" --json >/dev/null 2>&1; then
+        if "$OPENCLAW" message send --channel discord --target "user:$_NOTIFY_DISCORD_TARGET" --message "$msg" --json >/dev/null 2>&1; then
             sent=$((sent + 1))
         else
             echo "[notify] WARN: Discord 发送失败" >&2
