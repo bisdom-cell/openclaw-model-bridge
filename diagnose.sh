@@ -187,6 +187,10 @@ if command -v openclaw >/dev/null 2>&1 || [ -x "$OPENCLAW" ]; then
     echo "  正在发送测试消息..."
     SEND_RESULT=$("$OPENCLAW" message send --channel whatsapp --target "$PHONE" --message "🔧 诊断测试消息 ($TS)" --json 2>&1 || true)
     echo "  发送结果: $SEND_RESULT" | head -5 | sed 's/^/    /'
+    # Discord 诊断测试
+    if [ -n "${DISCORD_TARGET:-}" ]; then
+        "$OPENCLAW" message send --channel discord --target "user:${DISCORD_TARGET}" --message "🔧 诊断测试消息 ($TS)" --json >/dev/null 2>&1 || true
+    fi
 else
     echo "  🔴 openclaw 命令未找到！"
     FAIL=1
