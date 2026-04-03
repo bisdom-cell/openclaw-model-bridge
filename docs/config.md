@@ -1,7 +1,7 @@
 # OpenClaw 完整配置文档
-> 最后更新：2026-03-31 (HKT)
+> 最后更新：2026-04-03 (HKT)
 > 系统：Mac Mini (macOS) | 用户：bisdom
-> 版本：v32（控制平面先行 + search_kb加固 + pre-commit/CI + 396测试）
+> 版本：v33（Discord 双通道 + 统一推送 notify.sh）
 > OpenClaw Gateway：2026.3.13-1（当前部署，暂不升级）| 上游最新：v2026.3.23-2（WhatsApp sidecar 重新打包但独立包仍 404 + ClawHub 429 #54446 未修复，等 @openclaw/whatsapp 正式发布再升级）
 ---
 ## 一、系统架构（V28.1 四层架构）
@@ -287,6 +287,7 @@ export GEMINI_API_KEY="AIzaXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"   # V29.1新增
 | github-trending | 每天14:00 | `~/.openclaw/jobs/github_trending/run_github_trending.sh` | `~/.openclaw/logs/jobs/github_trending.log` | ✅ V31新增：GitHub Trending ML/AI 仓库监控（Search API，从代码端发现趋势） |
 | rss-blogs | 每天08:00,18:00 | `~/.openclaw/jobs/rss_blogs/run_rss_blogs.sh` | `~/.openclaw/logs/jobs/rss_blogs.log` | ✅ V31新增：RSS 博客订阅监控（科学空间等中文技术博客） |
 | preference-learner | 每天07:30 | `~/preference_learner.py` | `~/preference_learner.log` | ✅ V30.4新增：每天从行为数据自动推断用户偏好（活跃时段/工具使用/关注领域），写入status.json→SOUL.md |
+| kb_dream | 每天03:00 | `~/kb_dream.sh` | `~/kb_dream.log` | ✅ V32新增：Agent 做梦引擎 — 跨领域关联发现+趋势推演+被忽视信号挖掘（凌晨空闲时运行，输出 ~/.kb/dreams/） |
 | gateway-watchdog | ~~每30分钟~~ | `~/restart.sh` | `~/.openclaw/logs/gateway_watchdog.log` | ❌ **已移除**（#95：与launchd KeepAlive双主控冲突，导致误杀gateway） |
 
 当前 `crontab -l` 核心条目：
@@ -532,6 +533,10 @@ FORCE_SYSTEM = """你是Wei，一个专业AI助手。身份已完全确认，onb
       "selfChatMode": true,
       "allowFrom": ["+85200000000"],
       "debounceMs": 0
+    },
+    "discord": {
+      "enabled": true,
+      "dmPolicy": "pairing"
     }
   }
 }
@@ -540,7 +545,47 @@ FORCE_SYSTEM = """你是Wei，一个专业AI助手。身份已完全确认，onb
 > ⚠️ `agents.defaults.model.primary` 必须带 `qwen-local/` 前缀。
 > ⚠️ `contextPruning` 合法 key：`mode`(`cache-ttl`/`off`)、`ttl`(duration字符串如`6h`)、`keepLastAssistants`(复数带s)。
 
-### 11.2 Multi-Agent 配置（V29.1新增）
+### 11.2 Discord 通道配置（V33新增）
+
+**前置条件**：
+1. 在 [Discord Developer Portal](https://discord.com/developers/applications) 创建 Application → 添加 Bot
+2. 开启 **Message Content Intent**（Privileged Gateway Intents）
+3. Bot 权限：View Channels, Send Messages, Read Message History, Embed Links, Attach Files
+4. 用 OAuth2 URL 邀请 Bot 到你的 Server
+
+**环境变量**（添加到 `~/.zshrc` 和 `~/.bash_profile`）：
+```bash
+export DISCORD_BOT_TOKEN="你的Bot Token"
+export DISCORD_TARGET="你的Discord用户ID"   # 开发者模式右键复制
+```
+
+**Gateway 配对**：
+```bash
+# 重启 Gateway 后，在 Discord 中 DM 你的 Bot
+# Bot 回复配对码，然后在 Mac Mini 上执行：
+openclaw pairing approve discord <配对码>
+
+# 验证通道状态
+openclaw channels list
+openclaw channels status
+```
+
+**推送通道迁移**：
+```bash
+# 新脚本使用统一推送：
+source ~/openclaw-model-bridge/notify.sh
+notify "消息内容"                    # 发送到所有启用通道（WhatsApp + Discord）
+notify "消息内容" --channel discord   # 只发 Discord
+
+# 环境变量控制（可按需覆盖）：
+NOTIFY_CHANNELS="discord"           # 只启用 Discord
+NOTIFY_CHANNELS="whatsapp,discord"  # 双通道（默认）
+```
+
+> ⚠️ Discord Bot Token **必须通过环境变量**设置，禁止写入配置文件或代码。
+> ⚠️ 图片理解链路需 E2E 验证：Discord 媒体走 CDN URL，Gateway 归一化后传给 Proxy，确认 `<media:image>` 检测正常。
+
+### 11.3 Multi-Agent 配置（V29.1新增）
 ```json
 {
   "agents": {

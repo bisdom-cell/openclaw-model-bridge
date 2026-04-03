@@ -208,6 +208,10 @@ if $FULL_MODE; then
         "REMOTE_API_KEY|adapter.py 远程 GPU 认证"
         "OPENCLAW_PHONE|WhatsApp 推送目标号码"
     )
+    OPTIONAL_VARS=(
+        "DISCORD_BOT_TOKEN|Discord Bot 认证"
+        "DISCORD_TARGET|Discord 推送目标用户ID"
+    )
 
     for entry in "${REQUIRED_VARS[@]}"; do
         VAR_NAME="${entry%%|*}"
@@ -224,6 +228,22 @@ if $FULL_MODE; then
             pass "$VAR_NAME ($VAR_DESC) = $MASKED"
         else
             fail "$VAR_NAME ($VAR_DESC) 在 bash -lc 环境中未设置（检查 ~/.bash_profile）"
+        fi
+    done
+
+    for entry in "${OPTIONAL_VARS[@]}"; do
+        VAR_NAME="${entry%%|*}"
+        VAR_DESC="${entry##*|}"
+        VAL=$(bash -lc "echo \${$VAR_NAME:-}" 2>/dev/null)
+        if [ -n "$VAL" ]; then
+            if [ ${#VAL} -gt 8 ]; then
+                MASKED="${VAL:0:4}...${VAL: -4}"
+            else
+                MASKED="***"
+            fi
+            pass "$VAR_NAME ($VAR_DESC) = $MASKED"
+        else
+            warn "$VAR_NAME ($VAR_DESC) 未设置（Discord 通道不可用）"
         fi
     done
 
