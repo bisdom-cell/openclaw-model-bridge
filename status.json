@@ -1,6 +1,6 @@
 {
-  "updated": "2026-04-03 09:00:01",
-  "updated_by": "cron",
+  "updated": "2026-04-03 06:31:50",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "数据清洗 Phase 2",
@@ -74,6 +74,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-04-03",
+      "what": "V33: Discord双通道全量覆盖(24脚本100%对齐) + notify.sh统一推送 + S2论文429修复(指数退避) + 故障快照接入watchdog + SLO接入watchdog + GameDay演练脚本 + pip-audit集成 + P0全部完成(4/4) + P1全部完成(3/3) + P2完成2项 + 工作原则#16(双通道强制) + 安全评分93",
+      "by": "claude_code"
+    },
     {
       "date": "2026-04-02",
       "what": "V32: P0四项(SLO最小集+阈值中心化+E2E进CI+故障快照) + P1三项(Job分层治理tier字段+Fallback Matrix断路器+PR影响评估模板) + config_loader pyyaml fallback + SLO零流量误报修复 + kb_embed源覆盖率100% — 440测试全过, 安全评分93/100",
