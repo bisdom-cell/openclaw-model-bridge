@@ -179,6 +179,7 @@
 | `jobs/openreview/run_openreview.sh` | **V30.5禁用** OpenReview 论文监控（API 403 post-security-incident，已停用） |
 | `preference_learner.py` | **V30.4新增** 用户偏好自动学习器（从对话历史推断偏好，写入 status.json） |
 | `activate_openclaw_features.py` | **V30.5新增** OpenClaw 功能激活脚本（检查+启用 agent 工具配置） |
+| `notify.sh` | **V33新增** 统一消息推送（WhatsApp + Discord 双通道，`source notify.sh && notify "msg"`） |
 
 ## 版本变更历史
 
@@ -186,6 +187,7 @@
 
 | 版本 | 日期 | 关键变更 |
 |------|------|----------|
+| V33 | 2026-04-03 | Discord 双通道支持 + 统一推送 notify.sh + Gateway 不升级可用 |
 | V30.5 | 2026-03-31 | search_kb 混合检索 + 论文监控矩阵 5 源全覆盖 + DBLP 上线 |
 | V30.4 | 2026-03-28 | SOUL.md 激活 + 三方宪法闭环 + 方法论进化（结果验证优先） |
 | V30.3 | 2026-03-27 | 数据清洗 Phase 1 + 自定义工具注入机制 + WhatsApp E2E |

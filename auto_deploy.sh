@@ -167,6 +167,9 @@ declare -a FILE_MAP=(
     # Agent 做梦引擎（V32）
     "kb_dream.sh|$HOME/kb_dream.sh"
 
+    # 统一推送（V33 Discord 双通道）
+    "notify.sh|$HOME/notify.sh"
+
     # 三方宪法 SOUL.md
     "SOUL.md|$HOME/.openclaw/workspace/.openclaw/SOUL.md"
 
