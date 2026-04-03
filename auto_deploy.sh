@@ -85,6 +85,7 @@ declare -a FILE_MAP=(
     "proxy_filters.py|$HOME/proxy_filters.py"
     "tool_proxy.py|$HOME/tool_proxy.py"
     "adapter.py|$HOME/adapter.py"
+    "providers.py|$HOME/providers.py"
 
     # 运维脚本
     "restart.sh|$HOME/restart.sh"

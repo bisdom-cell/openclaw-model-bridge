@@ -3,14 +3,84 @@
   "updated_by": "claude_code",
   "priorities": [
     {
-      "task": "数据清洗 Phase 2",
+      "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
       "status": "active",
-      "note": "三Agent架构（用sessions_spawn）、语义去重、自定义规则、模板积累、文件回传"
+      "note": "导师评审确认 Stage1 完成。路线：bridge→runtime→control plane→方法论与生态。详见 docs/strategic_review_20260403.md"
     },
     {
-      "task": "PA长期记忆",
-      "status": "deferred",
-      "note": "Qwen3不主动调用memory工具+无法读取SOUL.md偏好数据，等模型升级后重新验证；基础设施已就绪"
+      "task": "【V1-P0】Provider Compatibility Layer",
+      "status": "in_progress",
+      "note": "V34已实现: providers.py(BaseProvider+4实现+ProviderRegistry+能力声明+CLI矩阵)+48单测。需生产运行验证后固化"
+    },
+    {
+      "task": "【V1-P0】兼容性矩阵 + SLO Benchmark 证据",
+      "status": "in_progress",
+      "note": "矩阵文档已生成(docs/compatibility_matrix.md)。下一步：把SLO从规则变成实验结果（延迟/成功率/降级恢复时间/超时率）"
+    },
+    {
+      "task": "【V1-P1】一键启动 + 最小 demo + golden test trace",
+      "status": "backlog",
+      "note": "导师建议：别人10分钟能跑起来，传播效率翻倍。需要：安装稳定/配置清晰/文档闭环/demo transcript"
+    },
+    {
+      "task": "【V1-P1】可复现证据：Quick Start 完善 + smoke test demo",
+      "status": "backlog",
+      "note": "已有 Quick Start/GUIDE/CI/测试，再加一键 demo transcript / golden trace"
+    },
+    {
+      "task": "【V2-P0】Agent Reliability Bench",
+      "status": "backlog",
+      "note": "导师建议模块二：provider宕机/tool timeout/malformed args/oversized request/kb miss-hit/cron drift/state corruption评测。基于gameday.sh扩展"
+    },
+    {
+      "task": "【V2-P0】Memory Plane v1 统一叙事",
+      "status": "backlog",
+      "note": "导师建议模块三：把 local_embed/kb_rag/mm_index/preference_learner/status_sync 统一成一个 memory plane（短期对话/KB语义/多媒体/用户偏好/运维状态）"
+    },
+    {
+      "task": "【V2-P1】运维韧性证据：故障注入 + 恢复时间统计",
+      "status": "backlog",
+      "note": "已有 incident_snapshot/watchdog/preflight/gameday。下一步：系统性故障注入实验+演练脚本+恢复时间统计"
+    },
+    {
+      "task": "【V2-P1】SLO Dashboard + 版本治理 semver",
+      "status": "backlog",
+      "note": "SLO指标已定义(config.yaml)，需要可视化dashboard和语义化版本管理"
+    },
+    {
+      "task": "【V3】Provider Plugin Interface",
+      "status": "backlog",
+      "note": "导师建议：auth/chat/tool-calling/multimodal normalization/streaming/fallback contract 标准接口"
+    },
+    {
+      "task": "【V3】Tool Policy Plugin + Memory Plane Plugin",
+      "status": "backlog",
+      "note": "可插拔的工具策略和记忆平面扩展接口"
+    },
+    {
+      "task": "【V3】Job Template/Registry SDK + Extension Guide",
+      "status": "backlog",
+      "note": "让别人能基于框架扩展自己的 job 和 agent"
+    },
+    {
+      "task": "【输出】第一篇架构型文章",
+      "status": "backlog",
+      "note": "导师建议题目：Why Agent Systems Need a Control Plane / From Model Bridge to Runtime Governance"
+    },
+    {
+      "task": "【输出】证据型文章（Benchmark/故障案例/Lessons Learned）",
+      "status": "backlog",
+      "note": "424+ tests, 9组CI, 26条教训 — 都适合转化为文章"
+    },
+    {
+      "task": "【输出】立场型文章（为什么agent首先是治理问题）",
+      "status": "backlog",
+      "note": "Control Plane First 方法论已在README写出，需扩写成完整观点体系"
+    },
+    {
+      "task": "数据清洗 Phase 2",
+      "status": "active",
+      "note": "三Agent架构（用sessions_spawn）、语义去重、自定义规则。V1稳定后继续推进"
     },
     {
       "task": "PA子Agent委派",
@@ -18,59 +88,14 @@
       "note": "sessions_spawn+sessions_send，PA自主创建子任务"
     },
     {
-      "task": "ops agent激活",
-      "status": "done",
-      "note": "V31: ops_soul.md运维身份+工具白名单(exec/read/write/message/web_fetch)+auto_deploy部署"
-    },
-    {
-      "task": "趋势报告优化",
-      "status": "active",
-      "note": "反馈闭环已上线"
-    },
-    {
-      "task": "模型智能路由",
+      "task": "PA长期记忆",
       "status": "deferred",
-      "note": "Gemini Flash临时免费API有额度限制，暂不启用FAST_PROVIDER；等有稳定的快速模型再评估"
+      "note": "Qwen3不主动调用memory工具，等模型升级后重新验证"
     },
     {
-      "task": "安全加固",
-      "status": "done",
-      "note": "sandbox.mode+redactSensitive限制PA写入范围和日志脱敏"
-    },
-    {
-      "task": "紧急告警中断",
+      "task": "可迁移性抽象",
       "status": "backlog",
-      "note": "queue interrupt模式，watchdog告警可中断当前对话"
-    },
-    {
-      "task": "知识图谱",
-      "status": "backlog",
-      "note": "需6-12个月数据积累"
-    },
-    {
-      "task": "论文源扩展: Papers with Code",
-      "status": "done",
-      "note": "V31: 论文+代码监控上线，免费API，每日13:00推送，优先展示有代码的论文"
-    },
-    {
-      "task": "论文源扩展: OpenReview",
-      "status": "done",
-      "note": "ICLR/NeurIPS/ICML顶会投稿+评审，可过滤高分论文"
-    },
-    {
-      "task": "论文源扩展: ACL Anthology",
-      "status": "done",
-      "note": "NLP顶会（ACL/EMNLP/NAACL）完整收录，按会议周期更新"
-    },
-    {
-      "task": "论文源扩展: DBLP",
-      "status": "done",
-      "note": "V30.5: DBLP CS论文监控上线，多关键词搜索，免费API，每日12:00推送"
-    },
-    {
-      "task": "search_kb 混合检索工具",
-      "status": "done",
-      "note": "V30.5: 语义搜索(embedding)+关键词补充+followup LLM解读，PA数据复利闭环"
+      "note": "导师指出的三块差距之一：去除个人/场景定制痕迹，抽象成别人也能迁移的框架。V2-V3阶段推进"
     }
   ],
   "recent_changes": [
