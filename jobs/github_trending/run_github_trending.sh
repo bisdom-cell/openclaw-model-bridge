@@ -223,7 +223,7 @@ except Exception:
 if [ -z "${LLM_CONTENT// }" ]; then
     ERR_MSG="⚠️ GitHub Trending LLM调用失败（${DAY}），请检查 $LLM_RAW"
     echo "$ERR_MSG"
-    "$OPENCLAW" message send --target "$TO" --message "$ERR_MSG" --json >/dev/null 2>&1 || true
+    "$OPENCLAW" message send --channel whatsapp --target "$TO" --message "$ERR_MSG" --json >/dev/null 2>&1 || true
     exit 1
 fi
 
@@ -339,7 +339,7 @@ PYEOF
 # ── 6. 推送WhatsApp ──────────────────────────────────────────────────
 MSG_CONTENT="$(head -c 4000 "$MSG_FILE")"
 SEND_ERR=$(mktemp)
-if "$OPENCLAW" message send --target "$TO" --message "$MSG_CONTENT" --json >/dev/null 2>"$SEND_ERR"; then
+if "$OPENCLAW" message send --channel whatsapp --target "$TO" --message "$MSG_CONTENT" --json >/dev/null 2>"$SEND_ERR"; then
     log "已推送 ${REPO_COUNT} 个仓库"
     if [ -f "$NEW_IDS_FILE" ]; then
         cat "$NEW_IDS_FILE" >> "$SEEN_FILE"

@@ -358,7 +358,7 @@ ${LLM_SHORT}
 💡 回复任何话题可深入讨论"
 
 SEND_ERR=$(mktemp)
-if openclaw message send --target "$PHONE" --message "$WA_MSG" --json >/dev/null 2>"$SEND_ERR"; then
+if openclaw message send --channel whatsapp --target "$PHONE" --message "$WA_MSG" --json >/dev/null 2>"$SEND_ERR"; then
     log "回顾已推送 WhatsApp"
     printf '{"time":"%s","status":"ok","notes":%d,"llm":true}\n' "$TS" "$NOTE_COUNT" > "$STATUS_FILE"
 else

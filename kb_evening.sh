@@ -51,7 +51,7 @@ PYEOF
 $SUMMARIES"
 fi
 
-if openclaw message send --target "$PHONE" --message "$MSG" --json 2>>"$HOME/kb_evening.log" >/dev/null; then
+if openclaw message send --channel whatsapp --target "$PHONE" --message "$MSG" --json 2>>"$HOME/kb_evening.log" >/dev/null; then
     log "发送完成: $DATE"
     printf '{"time":"%s","status":"ok","sent":true}\n' "$TS" > "$STATUS_FILE"
 else

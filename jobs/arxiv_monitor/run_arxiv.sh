@@ -232,7 +232,7 @@ except Exception:
 if [ -z "${LLM_CONTENT// }" ]; then
     ERR_MSG="⚠️ ArXiv监控 LLM调用失败（${DAY}），请检查 $LLM_RAW"
     echo "$ERR_MSG"
-    "$OPENCLAW" message send --target "$TO" --message "$ERR_MSG" --json >/dev/null 2>&1 || true
+    "$OPENCLAW" message send --channel whatsapp --target "$TO" --message "$ERR_MSG" --json >/dev/null 2>&1 || true
     exit 1
 fi
 
@@ -365,7 +365,7 @@ ASSEMBLE_EXIT=$?
 if [ -f "$ASSEMBLE_ERR" ] && grep -q "WARNING.*解析成功率过低" "$ASSEMBLE_ERR" 2>/dev/null; then
     L2_MSG="⚠️ ArXiv监控 LLM解析异常（${DAY}）: $(grep 'WARNING' "$ASSEMBLE_ERR" | head -1)，请检查 $CACHE/llm_content.txt"
     log "$L2_MSG"
-    "$OPENCLAW" message send --target "$TO" --message "$L2_MSG" --json >/dev/null 2>&1 || true
+    "$OPENCLAW" message send --channel whatsapp --target "$TO" --message "$L2_MSG" --json >/dev/null 2>&1 || true
     printf '{"time":"%s","status":"parse_quality_low","new":%d}\n' "$TS" "$PAPER_COUNT" > "$STATUS_FILE"
     exit 2
 fi
@@ -374,7 +374,7 @@ fi
 # 消息过长时截断（WhatsApp 单条上限约 65000 字符，留 buffer 取 4000）
 MSG_CONTENT="$(head -c 4000 "$MSG_FILE")"
 SEND_ERR=$(mktemp)
-if "$OPENCLAW" message send --target "$TO" --message "$MSG_CONTENT" --json >/dev/null 2>"$SEND_ERR"; then
+if "$OPENCLAW" message send --channel whatsapp --target "$TO" --message "$MSG_CONTENT" --json >/dev/null 2>"$SEND_ERR"; then
     log "已推送 ${PAPER_COUNT} 篇论文"
     # 推送成功后才标记为已发送（防止推送失败后论文被跳过）
     if [ -f "$NEW_IDS_FILE" ]; then

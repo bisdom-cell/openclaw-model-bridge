@@ -343,7 +343,7 @@ PYEOF
 )
 
 SEND_ERR=$(mktemp)
-if openclaw message send --target "$PHONE" --message "$WA_MSG" --json >/dev/null 2>"$SEND_ERR"; then
+if openclaw message send --channel whatsapp --target "$PHONE" --message "$WA_MSG" --json >/dev/null 2>"$SEND_ERR"; then
     log "每日摘要已推送 WhatsApp"
 else
     log "WARNING: WhatsApp 推送失败: $(head -3 "$SEND_ERR" 2>/dev/null)"

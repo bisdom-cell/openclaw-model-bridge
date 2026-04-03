@@ -41,9 +41,9 @@ notify() {
     local rc=0
     local sent=0
 
-    # WhatsApp
+    # WhatsApp（多通道环境必须指定 --channel）
     if echo "$channels" | grep -q "whatsapp" && [ -n "$_NOTIFY_WA_TARGET" ]; then
-        if "$OPENCLAW" message send --target "$_NOTIFY_WA_TARGET" --message "$msg" --json >/dev/null 2>&1; then
+        if "$OPENCLAW" message send --channel whatsapp --target "$_NOTIFY_WA_TARGET" --message "$msg" --json >/dev/null 2>&1; then
             sent=$((sent + 1))
         else
             echo "[notify] WARN: WhatsApp 发送失败" >&2

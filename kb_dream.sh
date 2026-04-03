@@ -235,7 +235,7 @@ WA_MSG="🌙 Agent Dream ($DAY)
 $(echo "$DREAM_RESULT" | head -c 800)"
 
 SEND_ERR=$(mktemp)
-if "$OPENCLAW" message send --target "$TO" --message "$WA_MSG" --json >/dev/null 2>"$SEND_ERR"; then
+if "$OPENCLAW" message send --channel whatsapp --target "$TO" --message "$WA_MSG" --json >/dev/null 2>"$SEND_ERR"; then
     log "梦境已推送到 WhatsApp"
     printf '{"time":"%s","status":"ok","chars":%d,"sources":%d,"dream_bytes":%d,"sent":true}\n' \
         "$TS" "$TOTAL_CHARS" "$SRC_COUNT" "$(wc -c < "$DREAM_FILE" | tr -d ' ')" > "$STATUS_FILE"
