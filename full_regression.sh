@@ -49,6 +49,7 @@ run_suite "check_registry (注册表校验器)" "python3 test_check_registry.py"
 run_suite "cron_health (锁/心跳/告警/完整性)" "python3 test_cron_health.py"
 run_suite "status_update (三方状态CRUD)" "python3 test_status_update.py"
 run_suite "adapter (路由/Fallback/认证)" "python3 test_adapter.py"
+run_suite "providers (Provider Compatibility Layer)" "python3 test_providers.py"
 run_suite "kb_business (KB全业务逻辑)" "python3 test_kb_business.py"
 run_suite "audit_log (审计日志/链式哈希)" "python3 test_audit_log.py"
 
@@ -163,8 +164,8 @@ echo "📋 第四层：代码质量（参考项）"
 # 代码覆盖率
 echo -n "  📊 代码覆盖率 ... "
 if command -v coverage &>/dev/null || python3 -c "import coverage" 2>/dev/null; then
-    COV_OUTPUT=$(python3 -m coverage run --source=. --omit="test_*,*/site-packages/*" -m pytest test_tool_proxy.py test_check_registry.py test_status_update.py test_adapter.py -q 2>&1 || \
-                 python3 -m coverage run --source=proxy_filters,status_update,adapter,audit_log --omit="test_*" -m unittest test_tool_proxy test_status_update test_adapter 2>&1)
+    COV_OUTPUT=$(python3 -m coverage run --source=. --omit="test_*,*/site-packages/*" -m pytest test_tool_proxy.py test_check_registry.py test_status_update.py test_adapter.py test_providers.py -q 2>&1 || \
+                 python3 -m coverage run --source=proxy_filters,status_update,adapter,providers,audit_log --omit="test_*" -m unittest test_tool_proxy test_status_update test_adapter test_providers 2>&1)
     COV_REPORT=$(python3 -m coverage report --format=total 2>/dev/null || python3 -m coverage report 2>/dev/null | tail -1 | awk '{print $NF}')
     echo "📈 $COV_REPORT"
 else

@@ -17,35 +17,42 @@ except Exception:
     pass  # config_loader 不可用时使用默认值
 
 # ---------------------------------------------------------------------------
-# Provider registry — add new providers here, no other code changes needed
+# Provider registry — V34: 从 providers.py 加载（Provider Compatibility Layer）
+# 向后兼容：PROVIDERS 仍是 dict，provider 对象可通过 get_provider() 获取能力声明
 # ---------------------------------------------------------------------------
-PROVIDERS = {
-    "qwen": {
-        "base_url":    "https://hkagentx.hkopenlab.com/v1",
-        "api_key_env": "REMOTE_API_KEY",
-        "model_id":    "Qwen3-235B-A22B-Instruct-2507-W8A8",
-        "vl_model_id": "Qwen2.5-VL-72B-Instruct",   # Vision-Language model on same endpoint
-        "auth_style":  "bearer",      # Authorization: Bearer <key>
-    },
-    "openai": {
-        "base_url":    "https://api.openai.com/v1",
-        "api_key_env": "OPENAI_API_KEY",
-        "model_id":    "gpt-4o",
-        "auth_style":  "bearer",
-    },
-    "gemini": {
-        "base_url":    "https://generativelanguage.googleapis.com/v1beta/openai",
-        "api_key_env": "GEMINI_API_KEY",
-        "model_id":    "gemini-2.5-flash",
-        "auth_style":  "bearer",
-    },
-    "claude": {
-        "base_url":    "https://api.anthropic.com/v1",
-        "api_key_env": "ANTHROPIC_API_KEY",
-        "model_id":    "claude-sonnet-4-6",
-        "auth_style":  "x-api-key",   # x-api-key: <key> + anthropic-version header
-    },
-}
+try:
+    from providers import PROVIDERS, get_provider as _get_provider, get_registry as _get_registry
+except ImportError:
+    # providers.py 不可用时回退到内联定义
+    _get_provider = None
+    _get_registry = None
+    PROVIDERS = {
+        "qwen": {
+            "base_url":    "https://hkagentx.hkopenlab.com/v1",
+            "api_key_env": "REMOTE_API_KEY",
+            "model_id":    "Qwen3-235B-A22B-Instruct-2507-W8A8",
+            "vl_model_id": "Qwen2.5-VL-72B-Instruct",
+            "auth_style":  "bearer",
+        },
+        "openai": {
+            "base_url":    "https://api.openai.com/v1",
+            "api_key_env": "OPENAI_API_KEY",
+            "model_id":    "gpt-4o",
+            "auth_style":  "bearer",
+        },
+        "gemini": {
+            "base_url":    "https://generativelanguage.googleapis.com/v1beta/openai",
+            "api_key_env": "GEMINI_API_KEY",
+            "model_id":    "gemini-2.5-flash",
+            "auth_style":  "bearer",
+        },
+        "claude": {
+            "base_url":    "https://api.anthropic.com/v1",
+            "api_key_env": "ANTHROPIC_API_KEY",
+            "model_id":    "claude-sonnet-4-6",
+            "auth_style":  "x-api-key",
+        },
+    }
 
 # ---------------------------------------------------------------------------
 # Load active provider from environment (default: qwen for backward compat)
@@ -211,6 +218,12 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                 info["circuit_breaker"] = _circuit_breaker.state()
             if FAST_ROUTE:
                 info["fast_route"] = f"{FAST_ROUTE['name']}/{FAST_ROUTE['model_id']}"
+            # V34: capabilities from Provider Compatibility Layer
+            if _get_provider:
+                p = _get_provider(PROVIDER_NAME)
+                if p:
+                    info["capabilities"] = p.capabilities.supported_modalities()
+                    info["verified"] = p.capabilities.verified_features()
             resp = json.dumps(info).encode()
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
