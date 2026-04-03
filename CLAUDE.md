@@ -171,6 +171,7 @@
 | `audit_log.py` | **V30.2新增** 链式哈希审计日志（JSONL append-only，SHA256 链式校验，篡改/删除可检测） |
 | `test_audit_log.py` | **V30.2新增** 审计日志单测（19个用例：写入/链式哈希/篡改检测/删除检测/统计） |
 | `security_score.py` | **V30.2新增** 系统安全评分（7维度100分：密钥/测试/完整性/部署/传输/审计/可用性） |
+| `gameday.sh` | **V33新增** GameDay 故障演练（5场景：GPU超时/断路器/快照/SLO/Watchdog，`bash gameday.sh --all`） |
 | `jobs/dblp/run_dblp.sh` | **V30.5新增** DBLP CS论文监控（多关键词搜索、免费API、每日12:00推送+KB写入） |
 | `jobs/hf_papers/run_hf_papers.sh` | **V30.5新增** HuggingFace Daily Papers 监控（热门AI论文、每日10:00推送+KB写入） |
 | `jobs/semantic_scholar/run_semantic_scholar.sh` | **V30.5新增** Semantic Scholar 论文监控（引用量排序、每日11:00推送+KB写入） |
@@ -401,8 +402,8 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 | 中 | **数据清洗 Phase 2**：三 Agent 架构（Profiler/Planner/Executor，可用 `sessions_spawn` 实现）、语义去重、自定义清洗规则 |
 | 中 | **PA 长期记忆**：启用 `memory_search`/`memory_get`。⚠️ Qwen3不主动调用memory工具，等模型升级后重新验证 |
 | 中 | **PA 子 Agent 委派**：`sessions_spawn` + `sessions_send` 让 PA 自主创建子任务 |
-| **P2-低** | **配置中心化 + 变更审计**：所有运行时配置统一管理，变更自动记录到审计日志 |
-| **P2-低** | **GameDay 故障演练**：定期模拟 GPU 不可用 / Gateway 断连 / 索引损坏，验证降级和恢复 |
+| ✅ | **配置中心化 + 变更审计**：config.yaml 统一配置 + config_loader.py 加载 + audit_log.py 链式哈希审计（V30.2-V32） |
+| ✅ | **GameDay 故障演练**：`gameday.sh` 5 场景（GPU超时/断路器/快照/SLO/Watchdog流水线），`--all` 一键演练（V33） |
 | **P2-低** | **记忆系统分层**：短期（session内）/ 长期（跨session偏好）/ 任务（项目上下文），含冲突消解和可信度评分 |
 | **P2-低** | **成本-质量-时延联动调度**：根据查询复杂度动态选择模型/参数组合 |
 | 低 | 知识图谱：AI大模型领域知识图谱构建（需6-12个月数据积累，暂缓） |
