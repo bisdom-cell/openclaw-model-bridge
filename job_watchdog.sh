@@ -406,6 +406,19 @@ except Exception as e:
     while IFS= read -r line; do
         [ -n "$line" ] && ALERTS+=("$line")
     done <<< "$PROXY_CHECK"
+
+    # SLO 合规检查（V33: 接入 slo_checker.py）
+    SLO_SCRIPT="$HOME/slo_checker.py"
+    if [ -f "$SLO_SCRIPT" ]; then
+        SLO_ALERT=$(python3 "$SLO_SCRIPT" --alert 2>/dev/null) && SLO_RC=0 || SLO_RC=$?
+        if [ "$SLO_RC" -eq 2 ] && [ -n "$SLO_ALERT" ]; then
+            while IFS= read -r line; do
+                [ -n "$line" ] && ALERTS+=("$line")
+            done <<< "$SLO_ALERT"
+        elif [ "$SLO_RC" -eq 0 ]; then
+            STATS_PASS=$((STATS_PASS + 1))
+        fi
+    fi
 fi
 
 # ════════════════════════════════════════════════════════════════════
