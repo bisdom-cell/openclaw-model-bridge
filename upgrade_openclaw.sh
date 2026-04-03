@@ -64,6 +64,8 @@ if [ "$GW" = "UP" ]; then
     # 推送通知
     $OPENCLAW message send --channel whatsapp -t "$PHONE" \
         -m "✅ OpenClaw 升级完成: $OLD_VER → $NEW_VER" 2>/dev/null || true
+    $OPENCLAW message send --channel discord -t "${DISCORD_CH_ALERTS:-}" \
+        -m "✅ OpenClaw 升级完成: $OLD_VER → $NEW_VER" 2>/dev/null || true
 else
     echo ""
     echo "⚠️ Gateway 未启动，请检查日志: /tmp/openclaw/openclaw-$(date +%Y-%m-%d).log"

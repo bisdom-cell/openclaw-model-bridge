@@ -206,6 +206,7 @@ if [ -z "${LLM_OUT// }" ]; then
     ERR_MSG="⚠️ 货代Watcher LLM调用失败（${DAY}），请检查 $LLM_RAW"
     echo "$ERR_MSG"
     "$OPENCLAW" message send --channel whatsapp --target "$TO" --message "$ERR_MSG" --json >/dev/null 2>&1 || true
+    "$OPENCLAW" message send --channel discord --target "${DISCORD_CH_ALERTS:-}" --message "$ERR_MSG" --json >/dev/null 2>&1 || true
     exit 1
 fi
 
@@ -215,6 +216,7 @@ if [ "$PARSE_OK" -lt $(( NEW_COUNT / 2 )) ] && [ "$NEW_COUNT" -gt 2 ]; then
     WARN_MSG="⚠️ 货代Watcher解析成功率低 ${PARSE_OK}/${NEW_COUNT}（${DAY}），请查 $LLM_RAW"
     echo "$WARN_MSG"
     "$OPENCLAW" message send --channel whatsapp --target "$TO" --message "$WARN_MSG" --json >/dev/null 2>&1 || true
+    "$OPENCLAW" message send --channel discord --target "${DISCORD_CH_ALERTS:-}" --message "$WARN_MSG" --json >/dev/null 2>&1 || true
     exit 2
 fi
 
@@ -483,6 +485,12 @@ ${PROFILE_OUT}
 💡 数据来源：ImportYeti美国海关提单 + 行业新闻
 ⚠ 预算为运价推算值，仅供参考" --json >/dev/null 2>&1; then
                 log "已推送客户画像"
+                "$OPENCLAW" message send --channel discord --target "${DISCORD_CH_FREIGHT:-}" --message "📊 货代客户画像 (${DAY})
+
+${PROFILE_OUT}
+
+💡 数据来源：ImportYeti美国海关提单 + 行业新闻
+⚠ 预算为运价推算值，仅供参考" --json >/dev/null 2>&1 || true
             else
                 log "ERROR: 客户画像推送失败，请检查 gateway。"
             fi

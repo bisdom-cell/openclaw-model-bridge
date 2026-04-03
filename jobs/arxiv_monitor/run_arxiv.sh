@@ -233,6 +233,7 @@ if [ -z "${LLM_CONTENT// }" ]; then
     ERR_MSG="⚠️ ArXiv监控 LLM调用失败（${DAY}），请检查 $LLM_RAW"
     echo "$ERR_MSG"
     "$OPENCLAW" message send --channel whatsapp --target "$TO" --message "$ERR_MSG" --json >/dev/null 2>&1 || true
+    "$OPENCLAW" message send --channel discord --target "${DISCORD_CH_ALERTS:-}" --message "$ERR_MSG" --json >/dev/null 2>&1 || true
     exit 1
 fi
 
@@ -366,6 +367,7 @@ if [ -f "$ASSEMBLE_ERR" ] && grep -q "WARNING.*解析成功率过低" "$ASSEMBLE
     L2_MSG="⚠️ ArXiv监控 LLM解析异常（${DAY}）: $(grep 'WARNING' "$ASSEMBLE_ERR" | head -1)，请检查 $CACHE/llm_content.txt"
     log "$L2_MSG"
     "$OPENCLAW" message send --channel whatsapp --target "$TO" --message "$L2_MSG" --json >/dev/null 2>&1 || true
+    "$OPENCLAW" message send --channel discord --target "${DISCORD_CH_ALERTS:-}" --message "$L2_MSG" --json >/dev/null 2>&1 || true
     printf '{"time":"%s","status":"parse_quality_low","new":%d}\n' "$TS" "$PAPER_COUNT" > "$STATUS_FILE"
     exit 2
 fi

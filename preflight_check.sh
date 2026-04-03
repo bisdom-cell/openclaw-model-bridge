@@ -657,6 +657,21 @@ if $FULL_MODE; then
     else
         fail "WhatsApp 推送失败（退出码 $PUSH_RC）: $(echo "$PUSH_STDERR" | head -2)"
     fi
+
+    # Discord 推送通道 E2E
+    if [ -n "${DISCORD_TARGET:-}" ]; then
+        DC_ERR=$(mktemp)
+        openclaw message send --channel discord --target "user:${DISCORD_TARGET}" --message "🔧 preflight push test $(date '+%H:%M')" --json 2>"$DC_ERR" && DC_RC=0 || DC_RC=$?
+        DC_STDERR=$(cat "$DC_ERR" 2>/dev/null)
+        rm -f "$DC_ERR"
+        if [ $DC_RC -eq 0 ]; then
+            pass "Discord 推送通道正常（openclaw message send 退出码 0）"
+        else
+            warn "Discord 推送失败（退出码 $DC_RC）: $(echo "$DC_STDERR" | head -2)"
+        fi
+    else
+        skip "Discord 推送通道（DISCORD_TARGET 未设置）"
+    fi
 else
     skip "推送通道 smoke test（需在 Mac Mini 上验证）"
 fi
