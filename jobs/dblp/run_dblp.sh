@@ -378,6 +378,7 @@ MSG_CONTENT="$(head -c 4000 "$MSG_FILE")"
 SEND_ERR=$(mktemp)
 if "$OPENCLAW" message send --channel whatsapp --target "$TO" --message "$MSG_CONTENT" --json >/dev/null 2>"$SEND_ERR"; then
     log "已推送 ${PAPER_COUNT} 篇论文"
+    "$OPENCLAW" message send --channel discord --target "${DISCORD_CH_PAPERS:-}" --message "$MSG_CONTENT" --json >/dev/null 2>&1 || true
     if [ -f "$NEW_IDS_FILE" ]; then
         cat "$NEW_IDS_FILE" >> "$SEEN_FILE"
         log "已标记 ${PAPER_COUNT} 篇为已发送"

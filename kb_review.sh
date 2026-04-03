@@ -360,6 +360,7 @@ ${LLM_SHORT}
 SEND_ERR=$(mktemp)
 if openclaw message send --channel whatsapp --target "$PHONE" --message "$WA_MSG" --json >/dev/null 2>"$SEND_ERR"; then
     log "回顾已推送 WhatsApp"
+    openclaw message send --channel discord --target "${DISCORD_CH_DAILY:-}" --message "$WA_MSG" --json >/dev/null 2>&1 || true
     printf '{"time":"%s","status":"ok","notes":%d,"llm":true}\n' "$TS" "$NOTE_COUNT" > "$STATUS_FILE"
 else
     log "ERROR: WhatsApp 推送失败: $(head -3 "$SEND_ERR" 2>/dev/null)"

@@ -53,6 +53,7 @@ fi
 
 if openclaw message send --channel whatsapp --target "$PHONE" --message "$MSG" --json 2>>"$HOME/kb_evening.log" >/dev/null; then
     log "发送完成: $DATE"
+    openclaw message send --channel discord --target "${DISCORD_CH_DAILY:-}" --message "$MSG" --json >/dev/null 2>&1 || true
     printf '{"time":"%s","status":"ok","sent":true}\n' "$TS" > "$STATUS_FILE"
 else
     log "ERROR: 消息发送失败，请检查 gateway。"

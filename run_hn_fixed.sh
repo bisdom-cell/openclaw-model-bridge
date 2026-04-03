@@ -302,6 +302,7 @@ if [ "$SENT_COUNT" -gt 0 ]; then
     SEND_ERR=$(mktemp)
     if openclaw message send --channel whatsapp --target "$TO" --message "$(cat "$MSG_FILE")" --json >/dev/null 2>"$SEND_ERR"; then
         log "已推送 ${SENT_COUNT} 条AI/Tech精选（单次批量LLM）。"
+        openclaw message send --channel discord --target "${DISCORD_CH_TECH:-}" --message "$(cat "$MSG_FILE")" --json >/dev/null 2>&1 || true
         printf '{"time":"%s","status":"ok","new":%d,"sent":true}\n' "$TS" "$SENT_COUNT" > "$STATUS_FILE"
     else
         # 过滤已知无害警告（feishu 插件 duplicate id、plugins.allow empty）
@@ -309,6 +310,7 @@ if [ "$SENT_COUNT" -gt 0 ]; then
         if [ -z "$REAL_ERR" ]; then
             # 只有无害警告，实际推送可能成功了
             log "已推送 ${SENT_COUNT} 条AI/Tech精选（单次批量LLM，忽略插件警告）。"
+            openclaw message send --channel discord --target "${DISCORD_CH_TECH:-}" --message "$(cat "$MSG_FILE")" --json >/dev/null 2>&1 || true
             printf '{"time":"%s","status":"ok","new":%d,"sent":true}\n' "$TS" "$SENT_COUNT" > "$STATUS_FILE"
         else
             log "ERROR: 推送失败（${SENT_COUNT} 条待发）: $(echo "$REAL_ERR" | head -3)"

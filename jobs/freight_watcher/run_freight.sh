@@ -290,6 +290,7 @@ PYEOF2
 SEND_ERR=$(mktemp)
 if "$OPENCLAW" message send --channel whatsapp --target "$TO" --message "$(cat "$MSG_FILE")" --json >/dev/null 2>"$SEND_ERR"; then
     log "已推送 ${NEW_COUNT} 条商机（${DAY}）"
+    "$OPENCLAW" message send --channel discord --target "${DISCORD_CH_FREIGHT:-}" --message "$(cat "$MSG_FILE")" --json >/dev/null 2>&1 || true
     printf '{"time":"%s","status":"ok","new":%d,"sent":true}\n' "$TS" "$NEW_COUNT" > "$STATUS_FILE"
 else
     log "ERROR: 推送失败（${NEW_COUNT} 条待发）: $(cat "$SEND_ERR" | head -3)"
