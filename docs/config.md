@@ -2,7 +2,7 @@
 > 最后更新：2026-04-03 (HKT)
 > 系统：Mac Mini (macOS) | 用户：bisdom
 > 版本：v33（Discord 双通道 + 统一推送 notify.sh）
-> OpenClaw Gateway：2026.3.13-1（当前部署，暂不升级）| 上游最新：v2026.3.23-2（WhatsApp sidecar 重新打包但独立包仍 404 + ClawHub 429 #54446 未修复，等 @openclaw/whatsapp 正式发布再升级）
+> OpenClaw Gateway：2026.3.13-1（当前部署，暂不升级）| 上游最新：v2026.4.2（WhatsApp sidecar 已修复。新阻塞：#59265 agent actions 不可见（macOS 已确认）+ trusted-proxy auth 变更可能中断 Proxy→Gateway。详见 `docs/gateway_upgrade_eval_v2026.4.md`）
 ---
 ## 一、系统架构（V28.1 四层架构）
 

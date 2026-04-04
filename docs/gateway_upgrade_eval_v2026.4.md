@@ -13,8 +13,8 @@
 | 当前部署版本 | v2026.3.13-1 |
 | 原 hold 条件 | 等 @openclaw/whatsapp 正式发布 + ClawHub 429 修复 |
 | 最新稳定版 | **v2026.4.1**（npm 已发布） |
-| 最新版 | **v2026.4.2**（18小时前发布） |
-| 中间版本数 | ~10个（v2026.3.14 ~ v2026.4.2） |
+| 最新版 | **v2026.4.2**（2026-04-03 发布） |
+| 中间稳定版本 | 6个：v2026.3.23 → 3.23-2 → 3.24 → 3.28 → 3.31 → 4.1 |
 
 ## 二、原 Hold 条件评估
 
@@ -78,16 +78,38 @@
 
 **影响评估**：我们不使用 x_search（用 Brave Search）。**零影响**。
 
-## 五、已知 Bug（v2026.4.1）
+## 五、已知 Bug 与新增风险
 
 ### 5.1 #59265: Agents working in secret — no actions visible in chat（⚠️⚠️ 高风险）
 
 **描述**：Agent 在后台执行操作，但 chat 中不显示任何 action。
+**状态**：OPEN，未修复，无 assignee。**v2026.4.2 macOS 上也已确认复现**。
+**症状**：Chat history 消失、agent 输出不可见、WebSocket 断连重连 (code 1001)。
+**关联**：可能与 auto-failover 功能有关。
 
 **影响评估**：
 - 如果影响 WhatsApp 通道，用户将看不到 PA 的工具调用过程
-- 需要确认此 bug 是否在 v2026.4.2 中已修复
-- **建议**：如升级，目标应为 v2026.4.2 而非 v2026.4.1
+- **v2026.4.2 未修复此问题**
+- **建议**：此 bug 是当前最大升级阻塞，等修复后再考虑
+
+### 5.2 `trusted-proxy` auth 变更（⚠️⚠️ 高风险，v2026.3.31）
+
+**变更**：拒绝混合 shared-token 配置，local-direct fallback 需要配置 token，不再隐式信任同主机调用。
+
+**影响评估**：
+- 我们的 Tool Proxy(:5002) 转发请求到 Gateway(:18789)，都在 localhost
+- 如果 Gateway 之前隐式信任 localhost 调用，此变更可能**中断 Proxy→Gateway 链路**
+- **必须在升级前确认** `openclaw.json` 中的 auth 配置是否充分
+
+### 5.3 #58701: v2026.3.31 bundled plugin runtime deps（✅ 已修复）
+
+**描述**：v2026.3.31 npm tarball 缺少 grammy、@aws-sdk 等依赖。
+**状态**：CLOSED，v2026.4.1 已修复。
+
+### 5.4 Exec 环境安全加固（⚠️ 中风险，v2026.3.31）
+
+**变更**：exec 环境屏蔽 proxy/TLS/Docker/Python 包索引/编译器路径等环境变量。
+**影响评估**：我们的 cron 脚本通过 `bash -lc` 加载环境。如果 Gateway exec 工具屏蔽了某些 env，可能影响 openclaw cron 内的 agent 任务。System crontab 不受影响。
 
 ## 六、我们的集成点风险矩阵
 
@@ -224,17 +246,22 @@ openclaw message send --channel whatsapp -t "$OPENCLAW_PHONE" -m "回滚完成"
 
 | 选项 | 描述 | 推荐度 |
 |------|------|--------|
-| **A. 升级到 v2026.4.2** | 最新版，含 v2026.4.1 bug 修复 | ⭐⭐⭐⭐ 推荐 |
-| **B. 升级到 v2026.4.1** | 稳定版但有 #59265 | ⭐⭐ |
-| **C. 继续 hold** | 等 v2026.4.3+ 进一步稳定 | ⭐⭐⭐ 保守选择 |
+| **A. 继续 hold（更新阻塞原因）** | 等 #59265 修复 + trusted-proxy 确认 | ⭐⭐⭐⭐⭐ 推荐 |
+| **B. 升级到 v2026.4.2** | 最新版，但 #59265 在 macOS 已确认复现 | ⭐⭐ |
+| **C. 升级到 v2026.4.1** | 有 #59265 + 未修的 deps 问题 | ⭐ |
 
-**推荐方案 A**：升级到 v2026.4.2。理由：
-- 原 hold 条件已满足（WhatsApp bundled + sidecar 稳定）
-- v2026.4.2 比 v2026.4.1 多修了 bug
-- 版本差距越大，未来升级风险越高
-- 升级流程清晰，回滚方案完备（30 秒）
+**推荐方案 A**：继续 hold，但更新阻塞原因。理由：
+- **#59265（agent actions 不可见）在 v2026.4.2 macOS 上已确认复现**，无修复，无 workaround
+- `trusted-proxy` auth 变更可能中断 Proxy→Gateway 链路，需先研究确认
+- 原 hold 条件（WhatsApp sidecar）已满足，但出现了新的阻塞
+- 版本差距确实在增大，但功能稳定性优先于版本跟进
 
-**前提**：先在 Mac Mini 上运行 `check_upgrade.sh` 和 `openclaw doctor` 确认配置兼容，再决定执行。
+**新 hold 条件**：
+1. #59265 关闭或确认不影响 WhatsApp + macOS + 自定义 provider
+2. `trusted-proxy` auth 变更对 localhost proxy 链路的影响确认
+3. 目标版本至少 v2026.4.3+
+
+**下次检查时机**：每周一 `check_upgrade.sh` + 关注 #59265 进展
 
 ## 九、升级后文档更新清单
 
