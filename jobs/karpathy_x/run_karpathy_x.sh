@@ -89,65 +89,74 @@ with open(seen_file) as f:
 
 tweets = []
 
-# ── 方式 A：解析 Syndication HTML ──
+# ── 方式 A：解析 Syndication HTML（__NEXT_DATA__ JSON）──
 html_file = os.path.join(raw_dir, "timeline.html")
 if os.path.exists(html_file) and os.path.getsize(html_file) > 500:
     with open(html_file, encoding="utf-8", errors="replace") as f:
         html = f.read()
 
-    # Syndication API 返回的 HTML 中，推文内容在特定的 data 属性或 script 标签中
-    # 策略1: 提取 <script> 中的 JSON 数据（timeline widget data）
-    json_match = re.search(r'<script[^>]*>\s*window\.__TIMELINE_DATA__\s*=\s*({.*?})\s*;?\s*</script>', html, re.DOTALL)
-    if json_match:
+    # Twitter Syndication API 使用 Next.js，数据在 <script id="__NEXT_DATA__"> 中
+    # 结构：props.pageProps.timeline.entries[].content.tweet
+    next_data_match = re.search(
+        r'<script\s+id="__NEXT_DATA__"\s+type="application/json">(.*?)</script>',
+        html, re.DOTALL)
+    if next_data_match:
         try:
-            data = json.loads(json_match.group(1))
-            for entry in data.get("entries", data.get("timeline", {}).get("entries", [])):
-                tweet = entry.get("content", {}).get("tweet", entry)
-                text = tweet.get("full_text", tweet.get("text", ""))
-                tweet_id = str(tweet.get("id_str", tweet.get("id", "")))
-                if text and tweet_id:
-                    tweets.append({"id": tweet_id, "text": unescape(text),
-                                   "date": tweet.get("created_at", ""),
-                                   "source": "syndication_json"})
-        except (json.JSONDecodeError, KeyError):
-            pass
+            data = json.loads(next_data_match.group(1))
+            entries = (data.get("props", {})
+                          .get("pageProps", {})
+                          .get("timeline", {})
+                          .get("entries", []))
+            for entry in entries:
+                if entry.get("type") != "tweet":
+                    continue
+                tweet_data = entry.get("content", {}).get("tweet", {})
+                if not tweet_data:
+                    continue
 
-    # 策略2: 正则提取推文文本块（HTML 模式）
+                # 提取推文文本（支持 full_text 和 text 字段）
+                text = tweet_data.get("full_text", tweet_data.get("text", ""))
+
+                # 提取 tweet ID
+                tweet_id = str(tweet_data.get("id_str",
+                               entry.get("entry_id", "").replace("tweet-", "")))
+
+                # 提取日期
+                created_at = tweet_data.get("created_at", "")
+
+                # 提取用户信息（确认是 Karpathy 本人而非转推引用）
+                user = tweet_data.get("user", {})
+                screen_name = user.get("screen_name", "").lower()
+
+                # 构建推文链接
+                link = ""
+                if tweet_id and tweet_id.isdigit():
+                    link = f"https://x.com/karpathy/status/{tweet_id}"
+
+                if text and len(text) > 10:
+                    tweets.append({
+                        "id": tweet_id,
+                        "text": unescape(text),
+                        "date": created_at,
+                        "link": link,
+                        "is_retweet": screen_name not in ("karpathy", ""),
+                        "source": "syndication_json"
+                    })
+        except (json.JSONDecodeError, KeyError, TypeError) as e:
+            print(f"[karpathy_x] WARN: __NEXT_DATA__ 解析异常: {e}", file=sys.stderr)
+
+    # Fallback: 正则提取推文文本（HTML 结构变化时的兜底）
     if not tweets:
-        # 推文通常在 <div class="timeline-Tweet-text"> 或 data-tweet-id 属性中
         tweet_blocks = re.findall(
-            r'data-tweet-id=["\'](\d+)["\'].*?<p[^>]*class="[^"]*tweet-text[^"]*"[^>]*>(.*?)</p>',
+            r'data-tweet-id=["\'](\d+)["\'].*?<p[^>]*>(.*?)</p>',
             html, re.DOTALL | re.IGNORECASE)
-        if not tweet_blocks:
-            # 另一种 HTML 结构
-            tweet_blocks = re.findall(
-                r'<article[^>]*>.*?<p[^>]*>(.*?)</p>.*?</article>',
-                html, re.DOTALL | re.IGNORECASE)
-            tweet_blocks = [(hashlib.md5(t.encode()).hexdigest()[:16], t) for t in tweet_blocks if len(t) > 30]
-
         for tid, raw_text in tweet_blocks:
             text = re.sub(r'<[^>]+>', '', raw_text).strip()
             text = unescape(text)
             if text and len(text) > 20:
                 tweets.append({"id": str(tid), "text": text,
-                               "date": "", "source": "syndication_html"})
-
-    # 策略3: 纯文本提取（最后手段）
-    if not tweets:
-        # 去除所有 HTML 标签，按段落分割
-        clean = re.sub(r'<style[^>]*>.*?</style>', '', html, flags=re.DOTALL)
-        clean = re.sub(r'<script[^>]*>.*?</script>', '', clean, flags=re.DOTALL)
-        clean = re.sub(r'<[^>]+>', '\n', clean)
-        clean = unescape(clean)
-        paragraphs = [p.strip() for p in clean.split('\n') if len(p.strip()) > 50]
-        # 过滤掉明显的非推文内容
-        skip_patterns = re.compile(r'(cookie|privacy|sign up|log in|javascript|copyright)', re.I)
-        for p in paragraphs:
-            if skip_patterns.search(p):
-                continue
-            pid = hashlib.md5(p.encode()).hexdigest()[:16]
-            tweets.append({"id": pid, "text": p,
-                           "date": "", "source": "syndication_text"})
+                               "date": "", "link": f"https://x.com/karpathy/status/{tid}",
+                               "is_retweet": False, "source": "syndication_html"})
 
 # ── 方式 B：解析 xcancel RSS（fallback）──
 rss_file = os.path.join(raw_dir, "xcancel.xml")
@@ -186,8 +195,8 @@ new_tweets = []
 for t in tweets:
     if t["id"] in seen_ids:
         continue
-    # 过滤纯转发（RT @）和过短内容
-    if t["text"].startswith("RT @") or len(t["text"]) < 30:
+    # 过滤纯转发和过短内容
+    if t.get("is_retweet") or t["text"].startswith("RT @") or len(t["text"]) < 30:
         continue
     new_tweets.append(t)
     if len(new_tweets) >= 15:  # 每次最多处理 15 条
