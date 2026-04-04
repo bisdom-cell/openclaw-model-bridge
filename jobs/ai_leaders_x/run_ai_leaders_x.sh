@@ -84,9 +84,25 @@ for leader_entry in "${LEADERS[@]}"; do
     $PYTHON3 - "$RAW_HTML" "$SEEN_FILE" "$HANDLE" "$DISPLAY_NAME" "$LABEL" "$MAX_PER_PERSON" << 'PYEOF' >> "$ALL_TWEETS"
 import sys, json, re
 from html import unescape
+from datetime import datetime, timedelta, timezone
 
 html_file, seen_file, handle, display_name, label, max_per = sys.argv[1:7]
 max_per = int(max_per)
+
+# 只保留 14 天内的推文
+CUTOFF = datetime.now(timezone.utc) - timedelta(days=14)
+
+def parse_twitter_date(s):
+    """解析 Twitter 的日期格式：'Wed Oct 10 20:19:24 +0000 2018'"""
+    try:
+        return datetime.strptime(s, "%a %b %d %H:%M:%S %z %Y")
+    except (ValueError, TypeError):
+        return None
+
+def is_link_only(text):
+    """检测是否为纯链接推文（无实质内容）"""
+    clean = re.sub(r'https?://\S+', '', text).strip()
+    return len(clean) < 15
 
 with open(seen_file) as f:
     seen_ids = set(line.strip() for line in f if line.strip())
@@ -130,6 +146,13 @@ if next_data_match:
             if text and len(text) > 20 and tweet_id not in seen_ids:
                 # 跳过纯 RT
                 if text.startswith("RT @"):
+                    continue
+                # 跳过纯链接推文
+                if is_link_only(text):
+                    continue
+                # 跳过超过 14 天的旧推文
+                tweet_date = parse_twitter_date(created_at)
+                if tweet_date and tweet_date < CUTOFF:
                     continue
                 tweets.append({
                     "id": tweet_id,
