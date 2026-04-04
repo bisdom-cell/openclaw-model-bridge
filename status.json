@@ -101,6 +101,11 @@
   "recent_changes": [
     {
       "date": "2026-04-03",
+      "what": "V34: Provider Compatibility Layer(providers.py+48单测+兼容性矩阵) + 导师战略指导全面嵌入治理体系(CLAUDE.md宪法+必查#18-20+V1/V2/V3路标待办+话语权输出计划) + adapter.py重构(/health端点capabilities+verified) + 461测试全过 + Mac Mini部署验证通过",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-04-03",
       "what": "V33: Discord双通道全量覆盖(24脚本100%对齐) + notify.sh统一推送 + S2论文429修复(指数退避) + 故障快照接入watchdog + SLO接入watchdog + GameDay演练脚本 + pip-audit集成 + P0全部完成(4/4) + P1全部完成(3/3) + P2完成2项 + 工作原则#16(双通道强制) + 安全评分93",
       "by": "claude_code"
     },
@@ -197,15 +202,15 @@
     "text_index": "12878 chunks, 236/236 files (100%), 236 stale, 1h ago, 19317KB"
   },
   "session_context": {
-    "last_session": "2026-03-31",
+    "last_session": "2026-04-03",
     "unfinished": "",
-    "open_prs": "PR#225: search_kb全面加固(待合并)",
+    "open_prs": "",
     "blocked_on": ""
   },
   "quality": {
     "security_score": 0,
-    "test_count": 393,
-    "last_regression": "2026-03-27 pass",
+    "test_count": "461",
+    "last_regression": "2026-04-03 pass",
     "coverage_pct": 0
   },
   "incidents": [
@@ -272,8 +277,6 @@
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-24:00（2天数据）",
-    "[auto] 用户偏好简洁回复（平均响应 <200 字）",
-    "[auto] 关注领域：技术/AI、学术/论文、arxiv-ai-models、技术/编程、hf-daily-papers",
-    "[auto] 用户已提交 1 条反馈，最新: {\"date\": \"2026-04-03\", \"from\": \"mentor\", \"what\": \""
+    "[auto] 关注领域：技术/AI、学术/论文、arxiv-ai-models、技术/编程、hf-daily-papers"
   ]
 }
