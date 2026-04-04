@@ -116,6 +116,16 @@ jobs:
     tier: auxiliary                   # 补充信息源
     description: RSS 博客订阅监控（科学空间等，高质量中文技术博客）
 
+  - id: karpathy_x
+    scheduler: system
+    entry: jobs/karpathy_x/run_karpathy_x.sh
+    interval: "0 9,21 * * *"            # 每天 09:00, 21:00 HKT
+    log: ~/.openclaw/logs/jobs/karpathy_x.log
+    needs_api_key: true
+    enabled: true
+    tier: core                         # 技术方向参考核心源
+    description: Andrej Karpathy X/Twitter 技术分享追踪（深度分析+KB归档+系统演进参考）
+
   - id: kb_evening
     scheduler: system
     entry: kb_evening.sh

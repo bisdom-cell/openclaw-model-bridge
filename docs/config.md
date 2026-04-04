@@ -286,6 +286,7 @@ export GEMINI_API_KEY="AIzaXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"   # V29.1新增
 | ~~pwc~~ | ~~每天13:00~~ | `~/.openclaw/jobs/pwc/run_pwc.sh` | `~/.openclaw/logs/jobs/pwc.log` | ❌ **已停用**（V31：API 302→HF，功能合并到 hf_papers 增强） |
 | github-trending | 每天14:00 | `~/.openclaw/jobs/github_trending/run_github_trending.sh` | `~/.openclaw/logs/jobs/github_trending.log` | ✅ V31新增：GitHub Trending ML/AI 仓库监控（Search API，从代码端发现趋势） |
 | rss-blogs | 每天08:00,18:00 | `~/.openclaw/jobs/rss_blogs/run_rss_blogs.sh` | `~/.openclaw/logs/jobs/rss_blogs.log` | ✅ V31新增：RSS 博客订阅监控（科学空间等中文技术博客） |
+| karpathy-x | 每天09:00,21:00 | `~/.openclaw/jobs/karpathy_x/run_karpathy_x.sh` | `~/.openclaw/logs/jobs/karpathy_x.log` | ✅ V34新增：Andrej Karpathy X 技术分享追踪（Twitter Syndication API+LLM深度分析+KB归档+系统演进参考） |
 | preference-learner | 每天07:30 | `~/preference_learner.py` | `~/preference_learner.log` | ✅ V30.4新增：每天从行为数据自动推断用户偏好（活跃时段/工具使用/关注领域），写入status.json→SOUL.md |
 | kb_dream | 每天03:00 | `~/kb_dream.sh` | `~/kb_dream.log` | ✅ V32新增：Agent 做梦引擎 — 跨领域关联发现+趋势推演+被忽视信号挖掘（凌晨空闲时运行，输出 ~/.kb/dreams/） |
 | gateway-watchdog | ~~每30分钟~~ | `~/restart.sh` | `~/.openclaw/logs/gateway_watchdog.log` | ❌ **已移除**（#95：与launchd KeepAlive双主控冲突，导致误杀gateway） |
