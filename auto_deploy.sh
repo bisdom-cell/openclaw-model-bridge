@@ -121,6 +121,9 @@ declare -a FILE_MAP=(
     "jobs/github_trending/run_github_trending.sh|$HOME/.openclaw/jobs/github_trending/run_github_trending.sh"
     "jobs/rss_blogs/run_rss_blogs.sh|$HOME/.openclaw/jobs/rss_blogs/run_rss_blogs.sh"
 
+    # Karpathy X 技术分享追踪
+    "jobs/karpathy_x/run_karpathy_x.sh|$HOME/.openclaw/jobs/karpathy_x/run_karpathy_x.sh"
+
     # 备份脚本
     "openclaw_backup.sh|$HOME/openclaw_backup.sh"
 
