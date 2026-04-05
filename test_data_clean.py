@@ -775,7 +775,7 @@ class TestSampleFiles(unittest.TestCase):
         dc.VERSION_DIR = os.path.join(self.tmpdir, "versions")
         dc.LOG_FILE = os.path.join(self.tmpdir, "audit.jsonl")
         os.makedirs(dc.VERSION_DIR, exist_ok=True)
-        self.sample_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data_clean_poc")
+        self.sample_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "docs/archive/data_clean_poc")
 
     def tearDown(self):
         dc.WORKSPACE = self.orig_workspace
