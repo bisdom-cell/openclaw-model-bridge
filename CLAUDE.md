@@ -128,7 +128,7 @@
 | `ops_soul.md` | **V31新增** Ops Agent 运维助手 SOUL.md（系统健康检查/日志排查/cron诊断/维护操作，部署到 `~/.openclaw/SOUL.md`） |
 | `ops_health.sh` | **V31新增** Ops Agent 健康检查包装脚本（Qwen3 拒绝直接 curl localhost，通过脚本包装绕过） |
 | `status.json` | **V30.4新增（仓库副本）** 三方共享意识锚点（priorities/feedback/incidents/quality/operating_rules/session_context），Mac Mini 每小时 git push 同步 |
-| `providers.py` | **V34新增** Provider Compatibility Layer（BaseProvider 抽象 + 4 个实现 + ProviderRegistry 动态注册 + 能力声明 + CLI 兼容性矩阵输出） |
+| `providers.py` | **V34新增→V35+扩展** Provider Compatibility Layer（BaseProvider 抽象 + **7 个实现**（Qwen/GPT-4o/Gemini/Claude/Kimi/MiniMax/GLM）+ ProviderRegistry 动态注册 + 能力声明 + CLI 兼容性矩阵输出） |
 | `test_providers.py` | **V34新增** providers.py 单测（48个用例：能力声明/模型查找/认证头/注册表/向后兼容/CLI输出） |
 | `adapter.py` | API适配层（认证 `$REMOTE_API_KEY`，Fallback降级 `$FALLBACK_PROVIDER`）。V34: 从 `providers.py` 导入 PROVIDERS |
 | `docs/strategic_review_20260403.md` | **V34新增** 导师战略复盘文档（Stage判断/主战场定位/V1-V3路标/三个高价值模块/话语权输出/三块差距） |
@@ -197,7 +197,7 @@
 | ~~`jobs/openreview/`~~ | **V35 已移除**（API 403 post-security-incident，S2 已覆盖顶会论文） |
 | `preference_learner.py` | **V30.4新增** 用户偏好自动学习器（从对话历史推断偏好，写入 status.json） |
 | `activate_openclaw_features.py` | **V30.5新增** OpenClaw 功能激活脚本（检查+启用 agent 工具配置） |
-| `notify.sh` | **V33新增** 统一消息推送（WhatsApp + Discord 双通道，`source notify.sh && notify "msg"`） |
+| `notify.sh` | **V33新增→V35+升级** 统一消息推送（WhatsApp + Discord 双通道 + **自动重试3次指数退避** + **失败队列持久化+自动重放**，`source notify.sh && notify "msg"`） |
 
 ## 版本变更历史
 
@@ -206,7 +206,7 @@
 | 版本 | 日期 | 关键变更 |
 |------|------|----------|
 | V36 | 2026-04-05 | **V2 路标双P0完成** — Agent Reliability Bench（7场景47检查） + Memory Plane v1（4层统一接口+45单测+架构文档） + 560 测试 |
-| V35 | 2026-04-05 | **V1 路标冲刺** — SLO Benchmark 实验报告 + Quick Start 一键 demo + Golden Test Trace + Sub-agent PoC（链路通，deferred 等模型升级）+ 595 测试 |
+| V35 | 2026-04-05 | **V1 路标冲刺** — SLO Benchmark 实验报告 + Quick Start 一键 demo + Golden Test Trace + Sub-agent PoC（链路通，deferred 等模型升级）+ 605 测试 |
 | V34 | 2026-04-03 | **Stage2 启动** — Provider Compatibility Layer + 导师战略复盘嵌入治理体系 + V1/V2/V3 路标 + 461 测试 |
 | V33 | 2026-04-03 | Discord 双通道支持 + 统一推送 notify.sh + Gateway 不升级可用 |
 | V30.5 | 2026-03-31 | search_kb 混合检索 + 论文监控矩阵 5 源全覆盖 + DBLP 上线 |
@@ -484,7 +484,7 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 
 | 优先级 | 任务 | 状态 |
 |--------|------|------|
-| **V1-P0** | **Provider Compatibility Layer**：`providers.py` BaseProvider 抽象 + 4 个实现 + ProviderRegistry + 能力声明 + CLI 兼容性矩阵（V34 已实现，生产验证中） | ✅ V34 完成，生产验证通过 |
+| **V1-P0** | **Provider Compatibility Layer**：`providers.py` BaseProvider 抽象 + **7 个实现** + ProviderRegistry + 能力声明 + CLI 兼容性矩阵（V34 实现，V35+ 扩展至 7 provider） | ✅ V35+ 完成，7 provider 生产验证通过 |
 | **V1-P0** | **兼容性矩阵 + SLO Benchmark 证据**：`docs/compatibility_matrix.md` + `slo_benchmark.py` + `docs/slo_benchmark_report.md`（5/5 PASS，p95=459ms） | ✅ V35 完成 |
 | **V1-P1** | **一键启动 + 最小 demo + golden test trace**：`quickstart.sh` 4阶段（前置检查→启动→健康→demo），19/19 通过，`docs/golden_trace.json` | ✅ V35 完成 |
 | **V1-P1** | **可复现证据**：Quick Start + golden trace + SLO benchmark report 均已入库 | ✅ V35 完成 |
@@ -538,7 +538,7 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 
 | 版本 | 任务 |
 |------|------|
-| V35 | **V1 路标完成** — SLO Benchmark 实验报告（5/5 PASS, p95=459ms）+ Quick Start 一键 demo（19/19）+ Golden Test Trace + Sub-agent PoC（链路通，deferred）+ 595 测试 |
+| V35 | **V1 路标完成** — SLO Benchmark 实验报告（5/5 PASS, p95=459ms）+ Quick Start 一键 demo（19/19）+ Golden Test Trace + Sub-agent PoC（链路通，deferred）+ 605 测试 |
 | V34 | **Provider Compatibility Layer**：providers.py + 48 单测 + 兼容性矩阵 + adapter.py 重构 |
 | V33 | SLO 最小集 + 阈值中心化 + 旅程级 E2E 进 CI + 故障快照机制 + Job 分层治理 + Fallback Matrix + 变更影响评估 + GameDay 故障演练 + Discord 双通道 + notify.sh + pip-audit |
 | V32 | 配置中心化 + 变更审计 + config_loader.py |
