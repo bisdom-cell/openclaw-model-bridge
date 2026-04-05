@@ -185,6 +185,9 @@
 | `reliability_bench.py` | **V36新增** Agent Reliability Bench（7场景47检查：Provider宕机/工具超时/畸形参数/超大请求/KB未命中/Cron漂移/状态损坏，mock-based可在dev运行） |
 | `test_reliability_bench.py` | **V36新增** Reliability Bench 单测（36个用例：7场景×独立验证+报告格式+CLI） |
 | `docs/reliability_bench_report.md` | **V36新增** 首份 Reliability Bench 实验报告（7/7 PASS，47/47 checks） |
+| `memory_plane.py` | **V36新增** Memory Plane v1 统一接口（4层：KB语义/多媒体/偏好/状态，统一 query/context/stats） |
+| `test_memory_plane.py` | **V36新增** Memory Plane 单测（45个用例：4层×可用性/搜索/统计+统一查询+优雅降级+CLI） |
+| `docs/memory_plane.md` | **V36新增** Memory Plane 架构文档（分层设计/API/数据流/CLI） |
 | `gameday.sh` | **V33新增** GameDay 故障演练（5场景：GPU超时/断路器/快照/SLO/Watchdog，`bash gameday.sh --all`） |
 | `jobs/dblp/run_dblp.sh` | **V30.5新增** DBLP CS论文监控（多关键词搜索、免费API、每日12:00推送+KB写入） |
 | `jobs/hf_papers/run_hf_papers.sh` | **V30.5新增** HuggingFace Daily Papers 监控（热门AI论文、每日10:00推送+KB写入） |
@@ -202,7 +205,7 @@
 
 | 版本 | 日期 | 关键变更 |
 |------|------|----------|
-| V36 | 2026-04-05 | **V2 路标启动** — Agent Reliability Bench（7场景47检查，mock-based） + 36单测 + 首份实验报告 + 515 测试 |
+| V36 | 2026-04-05 | **V2 路标双P0完成** — Agent Reliability Bench（7场景47检查） + Memory Plane v1（4层统一接口+45单测+架构文档） + 560 测试 |
 | V35 | 2026-04-05 | **V1 路标冲刺** — SLO Benchmark 实验报告 + Quick Start 一键 demo + Golden Test Trace + Sub-agent PoC（链路通，deferred 等模型升级）+ 595 测试 |
 | V34 | 2026-04-03 | **Stage2 启动** — Provider Compatibility Layer + 导师战略复盘嵌入治理体系 + V1/V2/V3 路标 + 461 测试 |
 | V33 | 2026-04-03 | Discord 双通道支持 + 统一推送 notify.sh + Gateway 不升级可用 |
@@ -293,6 +296,13 @@ curl http://localhost:5002/data_clean/help               # REST 端点帮助
 bash quickstart.sh                # 完整 4 阶段（前置检查→启动→健康→demo）
 bash quickstart.sh --check        # 仅检查前置条件
 bash quickstart.sh --demo         # 仅运行 demo 请求
+
+# Memory Plane（统一记忆平面）
+python3 memory_plane.py layers                    # 层可用性检查
+python3 memory_plane.py stats                     # 各层统计
+python3 memory_plane.py query "Qwen3"             # 统一搜索
+python3 memory_plane.py query --context "AI论文"   # LLM可注入格式
+python3 memory_plane.py query --layers kb "RAG"    # 仅搜索KB层
 
 # Agent Reliability Bench（7场景故障评测）
 python3 reliability_bench.py            # Markdown 报告
@@ -464,7 +474,7 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 |------|------|----------|------|
 | **Provider Compatibility Layer** | auth/chat/tool-calling/multimodal/streaming/fallback 标准接口 | `providers.py`+`adapter.py` 重构完成 | **V1 (in progress)** |
 | **Agent Reliability Bench** | 系统性可靠性评测（7场景47检查：provider宕机/tool timeout/malformed args/oversized/kb miss-hit/cron drift/state corruption） | `reliability_bench.py`+`gameday.sh` | **V2 (✅ V36 done)** |
-| **Memory Plane v1** | 短期对话/KB语义/多媒体/用户偏好/运维状态 统一成一个平面 | local_embed+kb_rag+mm_index+preference_learner+status_sync | **V2 (backlog)** |
+| **Memory Plane v1** | 4层统一接口（KB语义/多媒体/偏好/状态）+ query/context/stats + 优雅降级 | `memory_plane.py` + 5个底层组件 | **V2 (✅ V36 done)** |
 
 ## 当前待办（按导师 V1/V2/V3 路标组织）
 
@@ -484,7 +494,7 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 | 优先级 | 任务 | 状态 |
 |--------|------|------|
 | **V2-P0** | **Agent Reliability Bench**（导师建议模块二）：`reliability_bench.py` 7场景47检查（Provider宕机/工具超时/畸形参数/超大请求/KB未命中/Cron漂移/状态损坏），mock-based可在dev运行，36单测 | ✅ V36 完成 |
-| **V2-P0** | **Memory Plane v1 统一叙事**（导师建议模块三）：把 local_embed / kb_rag / mm_index / preference_learner / status_sync 统一成一个 memory plane（短期对话 / KB 语义 / 多媒体 / 用户偏好 / 运维状态） | 待启动 |
+| **V2-P0** | **Memory Plane v1 统一叙事**（导师建议模块三）：`memory_plane.py` 4层统一接口（KB语义/多媒体/偏好/状态）+ query/context/stats API + 45单测 + 架构文档 | ✅ V36 完成 |
 | **V2-P1** | **运维韧性证据**：故障注入实验 + 演练脚本 + 恢复时间统计 → 从"工程做得挺全"升级成"有 SRE 味道的 agent infra" | 待启动 |
 | **V2-P1** | **SLO Dashboard + semver 版本治理** | 待启动 |
 | **V2-P1** | **安全边界说明文档** | 待启动 |

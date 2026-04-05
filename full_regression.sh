@@ -53,6 +53,7 @@ run_suite "providers (Provider Compatibility Layer)" "python3 test_providers.py"
 run_suite "kb_business (KB全业务逻辑)" "python3 test_kb_business.py"
 run_suite "audit_log (审计日志/链式哈希)" "python3 test_audit_log.py"
 run_suite "reliability_bench (故障场景评测)" "python3 test_reliability_bench.py"
+run_suite "memory_plane (统一记忆平面)" "python3 test_memory_plane.py"
 
 # 条件性测试（仅当文件存在时运行）
 for tf in test_conv_quality.py test_kb_autotag.py test_kb_dedup.py test_token_report.py test_arxiv_parser.py test_shell_antipatterns.py; do

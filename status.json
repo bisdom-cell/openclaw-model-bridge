@@ -34,8 +34,8 @@
     },
     {
       "task": "【V2-P0】Memory Plane v1 统一叙事",
-      "status": "backlog",
-      "note": "导师建议模块三：把 local_embed/kb_rag/mm_index/preference_learner/status_sync 统一成一个 memory plane（短期对话/KB语义/多媒体/用户偏好/运维状态）"
+      "status": "done",
+      "note": "V36完成：memory_plane.py 4层统一接口（KB语义/多媒体/偏好/状态）+ query/context/stats API + 优雅降级 + 45单测 + 架构文档"
     },
     {
       "task": "【V2-P1】运维韧性证据：故障注入 + 恢复时间统计",
@@ -101,7 +101,7 @@
   "recent_changes": [
     {
       "date": "2026-04-05",
-      "what": "V36: Agent Reliability Bench — 7场景47检查（Provider宕机/工具超时/畸形参数/超大请求/KB未命中/Cron漂移/状态损坏）+ 36单测 + 首份实验报告 + full_regression 515测试全过",
+      "what": "V36: Agent Reliability Bench（7场景47检查+36单测）+ Memory Plane v1（4层统一接口+45单测+架构文档）— V2路标双P0完成，560测试全过",
       "by": "claude_code"
     },
     {
