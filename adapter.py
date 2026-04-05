@@ -53,13 +53,13 @@ except ImportError:
             "auth_style":  "x-api-key",
         },
         "kimi": {
-            "base_url":    "https://api.moonshot.cn/v1",
+            "base_url":    "https://api.moonshot.ai/v1",
             "api_key_env": "MOONSHOT_API_KEY",
-            "model_id":    "kimi-2.5",
+            "model_id":    "kimi-k2.5",
             "auth_style":  "bearer",
         },
         "minimax": {
-            "base_url":    "https://api.minimax.chat/v1",
+            "base_url":    "https://api.minimaxi.com/v1",
             "api_key_env": "MINIMAX_API_KEY",
             "model_id":    "MiniMax-M2.7",
             "auth_style":  "bearer",

@@ -422,30 +422,31 @@ class TestChineseProviders(unittest.TestCase):
         p = KimiProvider()
         self.assertEqual(p.name, "kimi")
         self.assertEqual(p.auth_style, "bearer")
-        self.assertIn("moonshot.cn", p.base_url)
+        self.assertIn("moonshot.ai", p.base_url)
         self.assertEqual(p.api_key_env, "MOONSHOT_API_KEY")
-        self.assertEqual(len(p.models), 2)
+        self.assertEqual(len(p.models), 1)
         self.assertTrue(p.capabilities.tool_calling)
         self.assertTrue(p.capabilities.vision)
+        self.assertEqual(p.capabilities.context_window, 262144)
 
     def test_kimi_default_model(self):
         from providers import KimiProvider
         p = KimiProvider()
         dm = p.default_model()
         self.assertIsNotNone(dm)
-        self.assertEqual(dm.model_id, "kimi-2.5")
+        self.assertEqual(dm.model_id, "kimi-k2.5")
 
     def test_minimax_provider(self):
         from providers import MiniMaxProvider
         p = MiniMaxProvider()
         self.assertEqual(p.name, "minimax")
         self.assertEqual(p.auth_style, "bearer")
-        self.assertIn("minimax.chat", p.base_url)
+        self.assertIn("minimaxi.com", p.base_url)
         self.assertEqual(p.api_key_env, "MINIMAX_API_KEY")
         self.assertEqual(len(p.models), 1)
         self.assertTrue(p.capabilities.tool_calling)
         self.assertTrue(p.capabilities.vision)
-        self.assertEqual(p.capabilities.context_window, 1000000)
+        self.assertEqual(p.capabilities.context_window, 204800)
 
     def test_minimax_default_model(self):
         from providers import MiniMaxProvider
@@ -470,7 +471,7 @@ class TestChineseProviders(unittest.TestCase):
         p = GLMProvider()
         vm = p.vision_model()
         self.assertIsNotNone(vm)
-        self.assertIn("5v", vm.model_id)
+        self.assertEqual(vm.model_id, "glm-5v-turbo")
 
     def test_glm_default_model(self):
         from providers import GLMProvider
@@ -484,7 +485,7 @@ class TestChineseProviders(unittest.TestCase):
         p = GLMProvider()
         d = p.to_legacy_dict()
         self.assertIn("vl_model_id", d)
-        self.assertIn("5v", d["vl_model_id"])
+        self.assertEqual(d["vl_model_id"], "glm-5v-turbo")
 
     def test_chinese_providers_in_legacy_dict(self):
         from providers import PROVIDERS

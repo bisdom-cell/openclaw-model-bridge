@@ -91,9 +91,9 @@ capabilities = ProviderCapabilities(
 | **OpenAI** | GPT-4o | 128K | 多模态（文本+视觉+音频） |
 | **Google Gemini** | Gemini 2.5 Flash | 1M | 百万级上下文，已验证 Fallback |
 | **Anthropic Claude** | Claude Sonnet 4.6 | 200K | x-api-key 认证 |
-| **Kimi (Moonshot AI)** | Kimi 2.5 | 131K | 视觉理解 + 长上下文标杆 |
-| **MiniMax** | MiniMax M2.7 | 1M | 百万 token 上下文 + 视觉理解 |
-| **GLM (Zhipu AI)** | GLM-5 + GLM-5V | 128K | 视觉模型 + JSON mode |
+| **Kimi (Moonshot AI)** | Kimi K2.5 (1T MoE, 32B active) | 256K | 视觉理解 + 32K 输出 |
+| **MiniMax** | MiniMax M2.7 | 200K | 视觉理解 + 131K 超长输出 |
+| **GLM (Zhipu AI)** | GLM-5 (744B MoE) + GLM-5V-Turbo | 200K | 视觉模型 + 128K 输出 |
 
 **添加新 Provider 只需 3 步**：
 
@@ -139,7 +139,7 @@ export PROVIDER=my_provider && export MY_API_KEY=... && bash restart.sh
 # 你有什么 API key，就用什么模型。零配置。
 export OPENAI_API_KEY='sk-...'    # 有 OpenAI key？用 GPT-4o
 export GEMINI_API_KEY='...'       # 有 Gemini key？用 Gemini
-export MOONSHOT_API_KEY='...'     # 有 Kimi key？用 Kimi 2.5
+export MOONSHOT_API_KEY='...'     # 有 Kimi key？用 Kimi K2.5
 export GLM_API_KEY='...'          # 有 GLM key？用 GLM-4
 # 或者显式指定：
 export PROVIDER=minimax

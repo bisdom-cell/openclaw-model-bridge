@@ -316,27 +316,20 @@ class ClaudeProvider(BaseProvider):
 # Chinese Providers — 国内主流大模型
 # ---------------------------------------------------------------------------
 class KimiProvider(BaseProvider):
-    """Moonshot AI (Kimi) — https://platform.moonshot.cn"""
+    """Moonshot AI (Kimi) — https://platform.moonshot.ai"""
     name = "kimi"
     display_name = "Kimi (Moonshot AI)"
-    base_url = "https://api.moonshot.cn/v1"
+    base_url = "https://api.moonshot.ai/v1"
     api_key_env = "MOONSHOT_API_KEY"
     auth_style = "bearer"
     models = [
         ModelInfo(
-            model_id="kimi-2.5",
-            display_name="Kimi 2.5",
+            model_id="kimi-k2.5",
+            display_name="Kimi K2.5 (1T MoE, 32B active)",
             modalities=["text", "vision"],
-            context_window=131072,
-            max_output_tokens=8192,
+            context_window=262144,
+            max_output_tokens=32768,
             is_default=True,
-        ),
-        ModelInfo(
-            model_id="moonshot-v1-128k",
-            display_name="Moonshot v1 128K",
-            modalities=["text"],
-            context_window=131072,
-            max_output_tokens=8192,
         ),
     ]
     capabilities = ProviderCapabilities(
@@ -347,8 +340,8 @@ class KimiProvider(BaseProvider):
         tool_calling=True,
         streaming=True,
         json_mode=True,
-        context_window=131072,
-        max_output_tokens=8192,
+        context_window=262144,
+        max_output_tokens=32768,
         verified_text=False,
         verified_vision=False,
         verified_tool_calling=False,
@@ -358,10 +351,10 @@ class KimiProvider(BaseProvider):
 
 
 class MiniMaxProvider(BaseProvider):
-    """MiniMax — https://platform.minimaxi.com"""
+    """MiniMax — https://www.minimax.io"""
     name = "minimax"
     display_name = "MiniMax"
-    base_url = "https://api.minimax.chat/v1"
+    base_url = "https://api.minimaxi.com/v1"
     api_key_env = "MINIMAX_API_KEY"
     auth_style = "bearer"
     models = [
@@ -369,8 +362,8 @@ class MiniMaxProvider(BaseProvider):
             model_id="MiniMax-M2.7",
             display_name="MiniMax M2.7",
             modalities=["text", "vision"],
-            context_window=1000000,
-            max_output_tokens=8192,
+            context_window=204800,
+            max_output_tokens=131072,
             is_default=True,
         ),
     ]
@@ -382,8 +375,8 @@ class MiniMaxProvider(BaseProvider):
         tool_calling=True,
         streaming=True,
         json_mode=True,
-        context_window=1000000,
-        max_output_tokens=8192,
+        context_window=204800,
+        max_output_tokens=131072,
         verified_text=False,
         verified_vision=False,
         verified_tool_calling=False,
@@ -402,18 +395,18 @@ class GLMProvider(BaseProvider):
     models = [
         ModelInfo(
             model_id="glm-5",
-            display_name="GLM-5",
+            display_name="GLM-5 (744B MoE, ~40B active)",
             modalities=["text"],
-            context_window=128000,
-            max_output_tokens=16384,
+            context_window=202752,
+            max_output_tokens=128000,
             is_default=True,
         ),
         ModelInfo(
-            model_id="glm-5v",
-            display_name="GLM-5V (Vision)",
+            model_id="glm-5v-turbo",
+            display_name="GLM-5V-Turbo (Vision)",
             modalities=["text", "vision"],
-            context_window=128000,
-            max_output_tokens=16384,
+            context_window=202752,
+            max_output_tokens=128000,
             is_vision=True,
         ),
     ]
@@ -425,8 +418,8 @@ class GLMProvider(BaseProvider):
         tool_calling=True,
         streaming=True,
         json_mode=True,
-        context_window=128000,
-        max_output_tokens=16384,
+        context_window=202752,
+        max_output_tokens=128000,
         verified_text=False,
         verified_vision=False,
         verified_tool_calling=False,
