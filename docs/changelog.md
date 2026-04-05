@@ -1,6 +1,44 @@
 # Changelog — openclaw-model-bridge
 
 > 从 CLAUDE.md 提取的完整版本变更历史。Agent 按需 `read docs/changelog.md` 查阅。
+>
+> 版本号映射：V36 = semver `0.36.0`。Pre-1.0 表示 API 尚未稳定。
+> 从 V36 开始使用 semver：MAJOR.MINOR.PATCH（MAJOR=0 期间 MINOR=breaking, PATCH=fix）。
+
+## V36 / 0.36.0 变更摘要（2026-04-05）
+
+> V2 路标双 P0 完成 + 安全边界文档 + semver 版本治理 + Memory Plane 生产接入
+
+### 功能变更
+
+1. **Agent Reliability Bench**：`reliability_bench.py` — 7 场景 47 检查（Provider 宕机/工具超时/畸形参数/超大请求/KB 未命中/Cron 漂移/状态损坏），mock-based 可在 dev 运行。36 个单测
+2. **Memory Plane v1**：`memory_plane.py` — 4 层统一接口（KB 语义/多媒体/偏好/状态），query/get_context/stats API，优雅降级。45 个单测 + 架构文档
+3. **Memory Plane 生产接入**：search_kb 优先走 memory_plane.query() 在进程内搜索，回退 subprocess。kb_inject.sh 每日摘要新增 Memory Plane 状态段
+4. **安全边界文档**：`docs/security_boundaries.md` — 8 节完整安全说明（认证/网络/输入验证/数据保护/LLM 安全/运维/评分/已知风险）
+5. **semver 版本治理**：`VERSION` 文件 + changelog 格式升级。V36 = `0.36.0`
+
+### 受影响文件
+
+| 文件 | 变更 |
+|------|------|
+| `reliability_bench.py` | 新增，7 场景故障评测 |
+| `test_reliability_bench.py` | 新增，36 个单测 |
+| `docs/reliability_bench_report.md` | 新增，首份实验报告 |
+| `memory_plane.py` | 新增，4 层统一记忆平面 |
+| `test_memory_plane.py` | 新增，45 个单测 |
+| `docs/memory_plane.md` | 新增，架构文档 |
+| `docs/security_boundaries.md` | 新增，安全边界文档 |
+| `VERSION` | 新增，semver 版本号 |
+| `tool_proxy.py` | search_kb 接入 memory_plane |
+| `kb_inject.sh` | 每日摘要增加 Memory Plane 状态 |
+| `full_regression.sh` | +reliability_bench +memory_plane 测试套件 |
+
+### 测试
+
+- 全量回归：560 tests, 22/22 suites, 0 failures
+- 安全评分：93/100
+
+---
 
 ## V35 变更摘要（2026-04-05）
 
