@@ -1,5 +1,5 @@
 {
-  "updated": "2026-04-05 21:00:02",
+  "updated": "2026-04-06 00:00:02",
   "updated_by": "cron",
   "priorities": [
     {
@@ -29,13 +29,13 @@
     },
     {
       "task": "【V2-P0】Agent Reliability Bench",
-      "status": "done",
-      "note": "V36完成：reliability_bench.py 7场景47检查（Provider宕机/工具超时/畸形参数/超大请求/KB未命中/Cron漂移/状态损坏），mock-based可在dev运行，36单测全过"
+      "status": "backlog",
+      "note": "导师建议模块二：provider宕机/tool timeout/malformed args/oversized request/kb miss-hit/cron drift/state corruption评测。基于gameday.sh扩展"
     },
     {
       "task": "【V2-P0】Memory Plane v1 统一叙事",
-      "status": "done",
-      "note": "V36完成：memory_plane.py 4层统一接口（KB语义/多媒体/偏好/状态）+ query/context/stats API + 优雅降级 + 45单测 + 架构文档"
+      "status": "backlog",
+      "note": "导师建议模块三：把 local_embed/kb_rag/mm_index/preference_learner/status_sync 统一成一个 memory plane（短期对话/KB语义/多媒体/用户偏好/运维状态）"
     },
     {
       "task": "【V2-P1】运维韧性证据：故障注入 + 恢复时间统计",
@@ -101,12 +101,33 @@
       "task": "可迁移性抽象",
       "status": "backlog",
       "note": "导师指出的三块差距之一：去除个人/场景定制痕迹，抽象成别人也能迁移的框架。V2-V3阶段推进"
+    },
+    {
+      "task": "Provider Compatibility Layer",
+      "status": "completed"
+    },
+    {
+      "task": "兼容性矩阵",
+      "status": "completed"
+    },
+    {
+      "task": "一键启动",
+      "status": "completed"
+    },
+    {
+      "task": "可复现证据",
+      "status": "completed"
     }
   ],
   "recent_changes": [
     {
       "date": "2026-04-05",
       "what": "V36/0.36.0: V2路标7/7全部完成 — Reliability Bench(7场景47检查)+Memory Plane v1+v2(4层统一+去重+置信度+冲突消解,64单测)+SLO Dashboard(历史追踪+sparkline)+安全边界文档+semver版本治理+运维韧性报告+第一篇架构文章(dev.to+知乎+Twitter发布)+610测试23套件全过+Mac Mini生产验证通过",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-04-05",
+      "what": "V35+: notify.sh auto-retry+failure queue (3x exponential backoff + persistent queue + auto-replay), job_watchdog.sh uses notify.sh (retry+queue) + 24h log filter, 7 providers live, security 93/100",
       "by": "claude_code"
     },
     {
@@ -204,17 +225,17 @@
   ],
   "health": {
     "services": "ok",
-    "last_deploy": "d254972",
-    "last_deploy_time": "2026-04-05 17:00",
+    "last_deploy": "8b11562",
+    "last_deploy_time": "2026-04-05 13:46",
     "last_preflight": "pass",
-    "last_preflight_time": "2026-04-05 17:00",
+    "last_preflight_time": "2026-04-05 09:00",
     "last_trend_report": "2026-04-04",
     "model_id": "Qwen3-235B-A22B-Instruct-2507-W8A8",
-    "kb_stats": "212 notes, 20 today, 1650KB sources",
+    "kb_stats": "213 notes, 9 today, 1667KB sources",
     "stale_jobs": "all_ok",
-    "last_refresh": "2026-04-05 21:00",
+    "last_refresh": "2026-04-06 00:00",
     "security_score": "93/100 (93.0%)",
-    "text_index": "13925 chunks, 254/254 files (100%), 254 stale, 0h ago, 20887KB"
+    "text_index": "13925 chunks, 254/255 files (99%), 254 stale, 3h ago, 20887KB"
   },
   "session_context": {
     "last_session": "2026-04-05",
