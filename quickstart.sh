@@ -40,11 +40,14 @@ detect_provider() {
     if [ -n "${PROVIDER:-}" ]; then
         DETECTED_PROVIDER="$PROVIDER"
         case "$PROVIDER" in
-            qwen)   DETECTED_KEY_VAR="REMOTE_API_KEY" ;;
-            openai) DETECTED_KEY_VAR="OPENAI_API_KEY" ;;
-            gemini) DETECTED_KEY_VAR="GEMINI_API_KEY" ;;
-            claude) DETECTED_KEY_VAR="ANTHROPIC_API_KEY" ;;
-            *)      DETECTED_KEY_VAR="" ;;
+            qwen)    DETECTED_KEY_VAR="REMOTE_API_KEY" ;;
+            openai)  DETECTED_KEY_VAR="OPENAI_API_KEY" ;;
+            gemini)  DETECTED_KEY_VAR="GEMINI_API_KEY" ;;
+            claude)  DETECTED_KEY_VAR="ANTHROPIC_API_KEY" ;;
+            kimi)    DETECTED_KEY_VAR="MOONSHOT_API_KEY" ;;
+            minimax) DETECTED_KEY_VAR="MINIMAX_API_KEY" ;;
+            glm)     DETECTED_KEY_VAR="GLM_API_KEY" ;;
+            *)       DETECTED_KEY_VAR="" ;;
         esac
         return
     fi
@@ -62,6 +65,15 @@ detect_provider() {
     elif [ -n "${ANTHROPIC_API_KEY:-}" ]; then
         DETECTED_PROVIDER="claude"
         DETECTED_KEY_VAR="ANTHROPIC_API_KEY"
+    elif [ -n "${MOONSHOT_API_KEY:-}" ]; then
+        DETECTED_PROVIDER="kimi"
+        DETECTED_KEY_VAR="MOONSHOT_API_KEY"
+    elif [ -n "${MINIMAX_API_KEY:-}" ]; then
+        DETECTED_PROVIDER="minimax"
+        DETECTED_KEY_VAR="MINIMAX_API_KEY"
+    elif [ -n "${GLM_API_KEY:-}" ]; then
+        DETECTED_PROVIDER="glm"
+        DETECTED_KEY_VAR="GLM_API_KEY"
     fi
 }
 
@@ -93,9 +105,12 @@ check_prerequisites() {
         export PROVIDER="$DETECTED_PROVIDER"
     else
         fail "No API key found. Set one of:"
-        echo "    export OPENAI_API_KEY='sk-...'        # OpenAI (easiest)"
+        echo "    export OPENAI_API_KEY='sk-...'        # OpenAI"
         echo "    export GEMINI_API_KEY='...'            # Google Gemini"
         echo "    export ANTHROPIC_API_KEY='sk-ant-...'  # Anthropic Claude"
+        echo "    export MOONSHOT_API_KEY='...'          # Kimi (Moonshot AI)"
+        echo "    export MINIMAX_API_KEY='...'           # MiniMax"
+        echo "    export GLM_API_KEY='...'               # GLM (Zhipu AI)"
         echo "    export REMOTE_API_KEY='...'            # Custom Qwen endpoint"
     fi
 

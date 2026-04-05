@@ -52,6 +52,24 @@ except ImportError:
             "model_id":    "claude-sonnet-4-6",
             "auth_style":  "x-api-key",
         },
+        "kimi": {
+            "base_url":    "https://api.moonshot.cn/v1",
+            "api_key_env": "MOONSHOT_API_KEY",
+            "model_id":    "kimi-k2-0711",
+            "auth_style":  "bearer",
+        },
+        "minimax": {
+            "base_url":    "https://api.minimax.chat/v1",
+            "api_key_env": "MINIMAX_API_KEY",
+            "model_id":    "MiniMax-M1",
+            "auth_style":  "bearer",
+        },
+        "glm": {
+            "base_url":    "https://open.bigmodel.cn/api/paas/v4",
+            "api_key_env": "GLM_API_KEY",
+            "model_id":    "glm-4-plus",
+            "auth_style":  "bearer",
+        },
     }
 
 # ---------------------------------------------------------------------------
