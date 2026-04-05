@@ -501,7 +501,7 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 | **V2-P1** | **SLO Dashboard**：`slo_dashboard.py` 历史快照追踪 + sparkline 趋势 + cron 定时采集 + 31 单测 | ✅ V36 完成 |
 | **V2-P1** | **semver 版本治理**：`VERSION` 文件 + /health 端点暴露版本 + changelog 格式升级 | ✅ V36 完成 |
 | **V2-P1** | **安全边界说明文档**：`docs/security_boundaries.md`（8节：认证/网络/输入验证/数据保护/LLM安全/运维/评分/已知风险） | ✅ V36 完成 |
-| **V2-P1** | **Memory Plane v2**：跨层去重 + 置信度加权 + 冲突消解 + 记忆衰减 | 待启动 |
+| **V2-P1** | **Memory Plane v2**：跨层去重（filename+text）+ 置信度加权（4层权重+新鲜度衰减）+ 冲突消解（优先级vs偏好矛盾检测）+ 64单测 | ✅ V36 完成 |
 
 ### V3 路标（8-12 个月）：别人会扩展
 

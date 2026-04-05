@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """
-test_memory_plane.py — Memory Plane v1 单测
+test_memory_plane.py — Memory Plane v2 单测
 
-测试 memory_plane.py 的统一接口、各层适配、报告格式、优雅降级。
+测试 memory_plane.py 的统一接口、各层适配、报告格式、优雅降级、
+跨层去重、置信度加权、冲突消解。
 """
 import json
 import os
@@ -16,7 +17,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from memory_plane import (
     MemoryResult, LayerStatus,
     check_layers, query, get_context, stats,
-    LAYERS,
+    LAYERS, LAYER_CONFIDENCE,
+    apply_confidence, deduplicate, resolve_conflicts,
     _kb_available, _kb_search, _kb_stats,
     _mm_available, _mm_stats,
     _preferences_available, _get_preferences,
@@ -347,6 +349,160 @@ class TestCLI(unittest.TestCase):
             self.assertIn("kb", data)
         finally:
             sys.argv = old_argv
+
+
+# ---------------------------------------------------------------------------
+# V2: Confidence scoring
+# ---------------------------------------------------------------------------
+class TestApplyConfidence(unittest.TestCase):
+    def test_kb_gets_full_weight(self):
+        results = [MemoryResult(layer="kb", score=0.8)]
+        apply_confidence(results)
+        self.assertAlmostEqual(results[0].score, 0.8 * LAYER_CONFIDENCE["kb"])
+
+    def test_preferences_get_lower_weight(self):
+        results = [
+            MemoryResult(layer="kb", score=0.8),
+            MemoryResult(layer="preferences", score=0.8),
+        ]
+        apply_confidence(results)
+        self.assertGreater(results[0].score, results[1].score)
+
+    def test_unknown_layer_gets_default(self):
+        results = [MemoryResult(layer="custom_layer", score=1.0)]
+        apply_confidence(results)
+        self.assertAlmostEqual(results[0].score, 0.5)  # default weight
+
+    def test_empty_list(self):
+        results = apply_confidence([])
+        self.assertEqual(results, [])
+
+    def test_all_layers_weighted(self):
+        results = [MemoryResult(layer=k, score=1.0) for k in LAYER_CONFIDENCE]
+        apply_confidence(results)
+        scores = {r.layer: r.score for r in results}
+        self.assertGreater(scores["kb"], scores["preferences"])
+        self.assertGreater(scores["multimodal"], scores["preferences"])
+
+
+# ---------------------------------------------------------------------------
+# V2: Cross-layer deduplication
+# ---------------------------------------------------------------------------
+class TestDeduplicate(unittest.TestCase):
+    def test_same_filename_deduped(self):
+        results = [
+            MemoryResult(layer="kb", score=0.9, text="paper X", metadata={"filename": "arxiv_daily.md"}),
+            MemoryResult(layer="multimodal", score=0.7, text="arxiv pdf", metadata={"filename": "arxiv_daily.md"}),
+        ]
+        deduped = deduplicate(results)
+        self.assertEqual(len(deduped), 1)
+        self.assertEqual(deduped[0].score, 0.9)  # higher score kept
+        self.assertEqual(deduped[0].metadata.get("also_in"), "multimodal")
+
+    def test_different_filenames_kept(self):
+        results = [
+            MemoryResult(layer="kb", score=0.9, metadata={"filename": "a.md"}),
+            MemoryResult(layer="kb", score=0.8, metadata={"filename": "b.md"}),
+        ]
+        deduped = deduplicate(results)
+        self.assertEqual(len(deduped), 2)
+
+    def test_no_filename_uses_text(self):
+        results = [
+            MemoryResult(layer="kb", score=0.9, text="Qwen3 is a large model" + "x" * 100),
+            MemoryResult(layer="status", score=0.7, text="Qwen3 is a large model" + "x" * 100),
+        ]
+        deduped = deduplicate(results)
+        self.assertEqual(len(deduped), 1)
+
+    def test_empty_text_and_filename_not_deduped(self):
+        results = [
+            MemoryResult(layer="kb", score=0.9, text="", metadata={}),
+            MemoryResult(layer="status", score=0.7, text="", metadata={}),
+        ]
+        deduped = deduplicate(results)
+        self.assertEqual(len(deduped), 2)  # no key to dedup on
+
+    def test_single_result(self):
+        results = [MemoryResult(layer="kb", score=0.9)]
+        self.assertEqual(len(deduplicate(results)), 1)
+
+    def test_empty_list(self):
+        self.assertEqual(deduplicate([]), [])
+
+    def test_lower_score_dup_preserves_higher(self):
+        """When first result has lower score, second should replace it."""
+        results = [
+            MemoryResult(layer="multimodal", score=0.5, metadata={"filename": "test.pdf"}),
+            MemoryResult(layer="kb", score=0.9, metadata={"filename": "test.pdf"}),
+        ]
+        deduped = deduplicate(results)
+        self.assertEqual(len(deduped), 1)
+        self.assertEqual(deduped[0].score, 0.9)
+        self.assertEqual(deduped[0].layer, "kb")
+
+
+# ---------------------------------------------------------------------------
+# V2: Conflict resolution
+# ---------------------------------------------------------------------------
+class TestResolveConflicts(unittest.TestCase):
+    def test_no_conflict_without_both_layers(self):
+        results = [MemoryResult(layer="kb", score=0.9)]
+        resolved = resolve_conflicts(results)
+        self.assertEqual(len(resolved), 1)
+        self.assertNotIn("conflict", resolved[0].metadata)
+
+    def test_conflict_detected(self):
+        results = [
+            MemoryResult(layer="status", score=0.7, text="Provider Compatibility active", source="priorities"),
+            MemoryResult(layer="preferences", score=0.6, text="不关注 Provider Compatibility"),
+        ]
+        resolved = resolve_conflicts(results)
+        # Preference should be penalized
+        pref = next(r for r in resolved if r.layer == "preferences")
+        self.assertIn("conflict", pref.metadata)
+        self.assertLess(pref.score, 0.6)  # penalized
+
+    def test_no_conflict_when_aligned(self):
+        results = [
+            MemoryResult(layer="status", score=0.7, text="Memory Plane active", source="priorities"),
+            MemoryResult(layer="preferences", score=0.6, text="关注 AI 和 Memory 技术"),
+        ]
+        resolved = resolve_conflicts(results)
+        pref = next(r for r in resolved if r.layer == "preferences")
+        self.assertNotIn("conflict", pref.metadata)
+
+    def test_empty_list(self):
+        self.assertEqual(resolve_conflicts([]), [])
+
+    def test_single_result(self):
+        results = [MemoryResult(layer="status", score=0.7)]
+        self.assertEqual(len(resolve_conflicts(results)), 1)
+
+
+# ---------------------------------------------------------------------------
+# V2: Integration — full pipeline
+# ---------------------------------------------------------------------------
+class TestV2Pipeline(unittest.TestCase):
+    def test_query_applies_confidence(self):
+        """Query results should have confidence-adjusted scores."""
+        results = query("test", layers=["status", "preferences"])
+        if len(results) >= 2:
+            # Status and preferences both return score=1.0 raw,
+            # but after confidence weighting status (0.7) > preferences (0.6)
+            status_results = [r for r in results if r.layer == "status"]
+            pref_results = [r for r in results if r.layer == "preferences"]
+            if status_results and pref_results:
+                self.assertGreaterEqual(status_results[0].score, pref_results[0].score)
+
+    def test_dedup_in_pipeline(self):
+        """Duplicate results should be merged in the pipeline."""
+        # This is hard to trigger with real data, but verify the pipeline doesn't crash
+        results = query("test")
+        # No duplicates should exist
+        filenames = [r.metadata.get("filename") for r in results if r.metadata.get("filename")]
+        # Each filename should appear at most once
+        self.assertEqual(len(filenames), len(set(f.lower() for f in filenames)))
 
 
 if __name__ == "__main__":
