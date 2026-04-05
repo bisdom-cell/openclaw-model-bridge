@@ -116,7 +116,7 @@
 | SLO Benchmark | — | `slo_benchmark.py` | SLO compliance — 5 metrics, real production data reports (p95=459ms, 5/5 PASS) |
 | Notifications | — | `notify.sh` | **Dual-channel push**: WhatsApp + Discord (6 topic channels: papers/freight/alerts/daily/tech/DM) |
 | Local Embedding | — | `local_embed.py` | sentence-transformers (384-dim, 50+ languages), zero API calls |
-| Remote LLM | — | 7 providers | Qwen3-235B / GPT-4o / Gemini 2.5 / Claude Sonnet / Kimi 2.5 / MiniMax M2.7 / GLM-5 |
+| Remote LLM | — | 7 providers | Qwen3-235B / GPT-4o / Gemini 2.5 / Claude Sonnet / Kimi K2.5 / MiniMax M2.7 / GLM-5 |
 
 ## Supported Providers (7)
 
@@ -126,9 +126,9 @@
 | **OpenAI** | GPT-4o | 128K | built-in | Bearer | available |
 | **Google Gemini** | Gemini 2.5 Flash | 1M | built-in | Bearer | 2/5 (fallback) |
 | **Anthropic Claude** | Claude Sonnet 4.6 | 200K | built-in | x-api-key | available |
-| **Kimi** (Moonshot AI) | Kimi 2.5 | 131K | built-in | Bearer | available |
-| **MiniMax** | MiniMax M2.7 | 1M | built-in | Bearer | available |
-| **GLM** (Zhipu AI) | GLM-5 | 128K | GLM-5V | Bearer | available |
+| **Kimi** (Moonshot AI) | Kimi K2.5 (1T MoE) | 256K | built-in | Bearer | available |
+| **MiniMax** | MiniMax M2.7 | 200K | built-in | Bearer | available |
+| **GLM** (Zhipu AI) | GLM-5 (744B MoE) | 200K | GLM-5V-Turbo | Bearer | available |
 
 All providers use **OpenAI-compatible API** format. Adding a new provider: see [docs/compatibility_matrix.md](docs/compatibility_matrix.md).
 
