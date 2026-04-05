@@ -1,5 +1,5 @@
 {
-  "updated": "2026-04-05 10:52:33",
+  "updated": "2026-04-05 14:22:06",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -115,6 +115,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-04-05",
+      "what": "V35+: notify.sh auto-retry+failure queue (3x exponential backoff + persistent queue + auto-replay), job_watchdog.sh uses notify.sh (retry+queue) + 24h log filter, 7 providers live, security 93/100",
+      "by": "claude_code"
+    },
     {
       "date": "2026-04-05",
       "what": "V35+: notify.sh auto-retry + failure queue (3次指数退避+队列持久化+自动重放), job_watchdog.sh改用notify.sh推送(享受retry)+日志扫描24h过滤, 双通道生产验证通过(WhatsApp+Discord), 7 providers全量上线(Kimi K2.5/MiniMax M2.7/GLM-5), 知乎文章+README刷新+架构SVG更新, 安全评分93/100",
