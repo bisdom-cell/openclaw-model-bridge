@@ -198,11 +198,15 @@ scan_logs() {
     local job_name="$2"
     [ -f "$logfile" ] || return
 
-    # 检查日志文件最后修改时间（超过预期间隔的3倍 → 日志可能已停更）
+    # 跳过超过 24h 未修改的日志文件（避免告警已自愈的陈旧错误）
     if [ "$(uname)" = "Darwin" ]; then
         LOG_MOD=$(stat -f %m "$logfile" 2>/dev/null || echo "0")
     else
         LOG_MOD=$(stat -c %Y "$logfile" 2>/dev/null || echo "0")
+    fi
+    local LOG_AGE=$(( NOW_EPOCH - LOG_MOD ))
+    if [ "$LOG_AGE" -gt 86400 ]; then
+        return  # 日志超过24h未更新，跳过扫描
     fi
 
     # 扫描最后50行中的错误（比原来的20行覆盖更多）
@@ -585,15 +589,27 @@ if [ "$CRITICAL_COUNT" -gt 0 ] || [ "${#CORE_ALERTS[@]}" -gt 0 ]; then
     }
 fi
 
-# 推送 WhatsApp（失败时写本地告警文件，打破 WhatsApp↔Gateway 循环依赖）
+# 推送告警（使用 notify.sh 自动重试 + 失败队列）
 ALERT_LOG="$HOME/.openclaw_alerts.log"
-"$OPENCLAW" message send --channel whatsapp --target "$TO" --message "$ALERT_MSG" --json >/dev/null 2>&1 || {
-    echo "[$TS] watchdog: ⚠️ WhatsApp 推送失败，写入本地告警文件"
-    echo "=== UNDELIVERED ALERT [$TS] ===" >> "$ALERT_LOG"
-    echo "$ALERT_MSG" >> "$ALERT_LOG"
-    echo "================================" >> "$ALERT_LOG"
-}
-"$OPENCLAW" message send --channel discord --target "${DISCORD_CH_ALERTS:-}" --message "$ALERT_MSG" --json >/dev/null 2>&1 || true
+NOTIFY_SCRIPT="$(cd "$(dirname "$0")" && pwd)/notify.sh"
+if [ -f "$NOTIFY_SCRIPT" ]; then
+    source "$NOTIFY_SCRIPT"
+    notify "$ALERT_MSG" --topic alerts || {
+        echo "[$TS] watchdog: ⚠️ 推送失败（已入队待重放），写入本地告警文件"
+        echo "=== UNDELIVERED ALERT [$TS] ===" >> "$ALERT_LOG"
+        echo "$ALERT_MSG" >> "$ALERT_LOG"
+        echo "================================" >> "$ALERT_LOG"
+    }
+else
+    # fallback: 直接发送（notify.sh 不可用时）
+    "$OPENCLAW" message send --channel whatsapp --target "$TO" --message "$ALERT_MSG" --json >/dev/null 2>&1 || {
+        echo "[$TS] watchdog: ⚠️ WhatsApp 推送失败，写入本地告警文件"
+        echo "=== UNDELIVERED ALERT [$TS] ===" >> "$ALERT_LOG"
+        echo "$ALERT_MSG" >> "$ALERT_LOG"
+        echo "================================" >> "$ALERT_LOG"
+    }
+    "$OPENCLAW" message send --channel discord --target "${DISCORD_CH_ALERTS:-}" --message "$ALERT_MSG" --json >/dev/null 2>&1 || true
+fi
 
 # 本地告警文件始终写入（供 cron_doctor / SSH 检查时查看）
 echo "[$TS] ALERT: ${#ALERTS[@]} issues (${CRITICAL_COUNT} critical, ${WARNING_COUNT} warning)" >> "$ALERT_LOG"
