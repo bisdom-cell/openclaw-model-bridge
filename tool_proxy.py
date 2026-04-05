@@ -305,9 +305,34 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
         return total
 
     def _semantic_search(self, query, top_k=8, source=None, recent_hours=None):
-        """调用 kb_rag 进行语义搜索，失败时返回空列表并记录日志"""
+        """语义搜索：优先 memory_plane 在进程内搜索（快），回退 subprocess（安全）"""
+        # ── 路径 1：memory_plane 在进程内直接搜索 ──
         try:
-            # kb_rag.py 可能在 HOME 目录或仓库目录
+            from memory_plane import query as mp_query
+            results = mp_query(query, layers=["kb"], top_k=top_k,
+                               source=source if source != "all" else None,
+                               recent_hours=recent_hours)
+            if results:
+                log(f"search_kb: memory_plane in-process hit ({len(results)} results)")
+                return [
+                    {
+                        "score": r.score,
+                        "text": r.text,
+                        "source_type": r.source,
+                        "file": r.metadata.get("file", ""),
+                        "filename": r.metadata.get("filename", ""),
+                        "chunk_idx": r.metadata.get("chunk_idx", 0),
+                        "indexed_at": r.metadata.get("indexed_at", ""),
+                    }
+                    for r in results
+                ]
+            # memory_plane 可用但无结果 — 继续（不回退到 subprocess）
+            return []
+        except Exception as e:
+            log(f"search_kb: memory_plane unavailable ({e}), fallback to subprocess")
+
+        # ── 路径 2：subprocess 回退（memory_plane 不可用时） ──
+        try:
             rag_path = os.path.expanduser("~/kb_rag.py")
             if not os.path.exists(rag_path):
                 rag_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "kb_rag.py")
@@ -327,7 +352,6 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                 log(f"WARN: kb_rag exited {result.returncode}: {result.stderr[:200]}")
                 return []
             data = json.loads(result.stdout)
-            # --json 输出格式: {"query": "...", "results": [...]}
             return data.get("results", data) if isinstance(data, dict) else data
         except subprocess.TimeoutExpired:
             log("ERROR: kb_rag semantic search timeout (30s)")

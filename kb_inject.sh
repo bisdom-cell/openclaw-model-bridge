@@ -52,6 +52,30 @@ sections.append(f"""# KB 每日摘要
 > 热门标签：{top_tags}
 > 本期新增：{len(recent)} 条""")
 
+# ── Memory Plane 状态（V36: 统一记忆层可用性） ──
+try:
+    from memory_plane import stats as mp_stats
+    mp = mp_stats()
+    mp_lines = []
+    for layer_name, layer_data in mp.items():
+        avail = layer_data.get('available', False)
+        icon = '✅' if avail else '❌'
+        detail = ''
+        if avail:
+            if 'total_chunks' in layer_data:
+                detail = f" ({layer_data['total_chunks']} chunks, {layer_data.get('total_files',0)} files)"
+            elif 'total_entries' in layer_data:
+                detail = f" ({layer_data['total_entries']} media)"
+            elif 'total_priorities' in layer_data:
+                detail = f" ({layer_data['active']} active priorities)"
+            elif 'count' in layer_data:
+                detail = f" ({layer_data['count']} preferences)"
+        mp_lines.append(f"  {icon} {layer_name}{detail}")
+    if mp_lines:
+        sections.append("## Memory Plane\n" + '\n'.join(mp_lines))
+except Exception:
+    pass  # memory_plane 不可用时静默跳过
+
 # ── Notes 精华 ──
 notes_dir = os.path.join(kb_dir, 'notes')
 note_items = []
