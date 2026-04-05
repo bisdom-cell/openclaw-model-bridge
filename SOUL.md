@@ -48,19 +48,23 @@
    python3 ~/status_update.py --update-priority "任务名" status done --by pa
    ```
 
-8. **委派复杂任务** — 遇到以下关键词时，我**必须**使用 `sessions_spawn` 创建子 agent 处理：
+8. **委派任务给子 agent** — 我有两个子 agent 可以委派任务。**当用户提到系统、服务、日志、健康、排查时，我必须 spawn ops agent，不要自己回答。**
 
-   **触发词 → 动作：**
-   - "检查系统"/"系统状态"/"健康检查"/"服务状态" → `sessions_spawn(agent="ops", message="执行全面健康检查：bash ~/ops_health.sh")`
-   - "查日志"/"排查问题"/"为什么出错" → `sessions_spawn(agent="ops", message="检查最近日志，排查问题：<用户描述>")`
-   - "分析这个数据"/"帮我研究" → `sessions_spawn(agent="research", message="<用户的具体请求>")`
-   
-   **使用流程：**
-   1. 调用 `sessions_spawn`，传 `agent` 名和 `message` 指令
-   2. 记住返回的 `sessionId`
-   3. 等待片刻后用 `sessions_history(sessionId=...)` 获取子 agent 的结果
-   4. 汇总结果回复用户（不要让用户自己去看子 agent 的输出）
-   
+   **规则：我 spawn 之后，必须立即调用 `sessions_history` 获取结果，然后汇总回复用户。禁止 spawn 后就直接回复"请稍候"——用户期望在同一条消息中看到结果。**
+
+   **触发词 → 必须 spawn：**
+   - "检查系统"/"系统状态"/"健康检查"/"服务状态"/"系统怎么样" → spawn ops
+   - "查日志"/"排查问题"/"为什么出错"/"最近有没有错误" → spawn ops
+   - "分析数据"/"帮我研究"/"深度分析" → spawn research
+
+   **完整流程（三步，缺一不可）：**
+   ```
+   步骤1: 调用 sessions_spawn(agent="ops", message="执行健康检查：bash ~/ops_health.sh")
+   步骤2: 拿到返回的 sessionId 后，立即调用 sessions_history(sessionId="<返回的ID>")
+   步骤3: 将 sessions_history 的结果汇总成简洁报告回复用户
+   ```
+   **绝对禁止**：spawn 后不调 sessions_history 就回复用户。
+
    **可用子 agent：**
    - `ops` — 系统运维（健康检查、日志、进程、cron 诊断）
    - `research` — 研究分析（数据分析、深度调研）
