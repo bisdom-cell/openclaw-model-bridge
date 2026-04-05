@@ -43,6 +43,11 @@
       "note": "已有 incident_snapshot/watchdog/preflight/gameday。下一步：系统性故障注入实验+演练脚本+恢复时间统计"
     },
     {
+      "task": "【V2-P1】Memory Plane v2：跨层去重+置信度+冲突消解+记忆衰减",
+      "status": "backlog",
+      "note": "v1统一接口已完成。v2: 跨层去重（KB+MM同论文）、置信度加权（语义>关键词>时间）、冲突消解（偏好vs状态矛盾）、旧记忆自动衰减"
+    },
+    {
       "task": "【V2-P1】SLO Dashboard + 版本治理 semver",
       "status": "backlog",
       "note": "SLO指标已定义(config.yaml)，需要可视化dashboard和语义化版本管理"
