@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-memory_plane.py — Memory Plane v1 统一接口（V36: V2-P0）
+memory_plane.py — Memory Plane v2 统一接口（V36）
 
 将 5 个散落的记忆组件统一为一个 Memory Plane：
   1. KB 语义搜索   — kb_rag.py + kb_embed.py + local_embed.py
@@ -15,6 +15,11 @@ memory_plane.py — Memory Plane v1 统一接口（V36: V2-P0）
   - LLM 友好：get_context() 直接生成可注入 LLM 的上下文
   - 零新依赖：仅编排已有组件，不引入新库
   - 优雅降级：任一层不可用时跳过，不影响其他层
+
+V2 新增（跨层去重 + 置信度加权 + 冲突消解）：
+  - 跨层去重：相同文件名/高文本相似度的结果合并，保留最高分
+  - 置信度加权：语义搜索 > 关键词 > 偏好/状态，按层和新鲜度调整
+  - 冲突消解：同一主题不同层结果矛盾时，标记冲突供 LLM 判断
 
 用法：
   python3 memory_plane.py query "Qwen3 模型"          # 统一搜索
@@ -340,6 +345,133 @@ LAYERS = {
 }
 
 
+# ---------------------------------------------------------------------------
+# V2: Confidence weights per layer (higher = more trusted)
+# ---------------------------------------------------------------------------
+LAYER_CONFIDENCE = {
+    "kb": 1.0,           # Semantic search — highest trust (embedding-based relevance)
+    "multimodal": 0.85,  # Gemini embeddings — good but cross-modal
+    "status": 0.7,       # Operational state — always relevant but not query-specific
+    "preferences": 0.6,  # Auto-learned — useful context but low query specificity
+}
+
+# Freshness decay: results older than this (hours) get score penalty
+FRESHNESS_DECAY_HOURS = 72  # 3 days
+
+
+def apply_confidence(results):
+    """V2: Apply layer-based confidence weighting to scores.
+
+    Adjusts raw scores by layer trust weight, so KB semantic results
+    naturally rank above preferences/status for the same raw score.
+    """
+    for r in results:
+        weight = LAYER_CONFIDENCE.get(r.layer, 0.5)
+        r.score = round(r.score * weight, 4)
+
+        # Freshness decay for KB results with indexed_at timestamp
+        indexed_at = r.metadata.get("indexed_at", "")
+        if indexed_at and r.layer == "kb":
+            try:
+                from datetime import datetime
+                idx_time = datetime.fromisoformat(indexed_at.replace("Z", "+00:00"))
+                age_hours = (datetime.now(idx_time.tzinfo) - idx_time).total_seconds() / 3600
+                if age_hours > FRESHNESS_DECAY_HOURS:
+                    # Gentle decay: 5% penalty per day beyond threshold
+                    days_old = (age_hours - FRESHNESS_DECAY_HOURS) / 24
+                    decay = max(0.5, 1.0 - 0.05 * days_old)  # floor at 50%
+                    r.score = round(r.score * decay, 4)
+            except (ValueError, TypeError):
+                pass  # Can't parse timestamp, skip decay
+    return results
+
+
+def deduplicate(results):
+    """V2: Cross-layer deduplication.
+
+    When KB and multimodal return results about the same file,
+    or two KB chunks have the same filename, keep the highest-scored one.
+    Merges metadata from duplicates into the winner.
+    """
+    if len(results) <= 1:
+        return results
+
+    seen = {}  # key → index in deduped list
+    deduped = []
+
+    for r in results:
+        # Build dedup key: prefer filename, fall back to first 80 chars of text
+        filename = r.metadata.get("filename", "")
+        if filename:
+            key = filename.lower()
+        else:
+            # Normalize text for comparison
+            key = r.text[:80].strip().lower()
+
+        if not key:
+            deduped.append(r)
+            continue
+
+        if key in seen:
+            existing_idx = seen[key]
+            existing = deduped[existing_idx]
+            if r.score > existing.score:
+                # Replace with higher-scored result, merge layers info
+                r.metadata["also_in"] = existing.layer
+                deduped[existing_idx] = r
+            else:
+                existing.metadata["also_in"] = r.layer
+        else:
+            seen[key] = len(deduped)
+            deduped.append(r)
+
+    return deduped
+
+
+def resolve_conflicts(results):
+    """V2: Detect and annotate conflicting results.
+
+    When different layers return contradictory information about the same topic,
+    mark the conflict so the LLM can make an informed decision.
+
+    Conflict detection is conservative: only flags obvious contradictions
+    between status (active/done) and preferences (interest/disinterest).
+    """
+    if len(results) <= 1:
+        return results
+
+    # Build topic → results mapping for status and preferences
+    status_results = [r for r in results if r.layer == "status"]
+    pref_results = [r for r in results if r.layer == "preferences"]
+
+    if not status_results or not pref_results:
+        return results  # No cross-layer conflict possible
+
+    # Check for topic overlap between active priorities and preferences
+    active_topics = set()
+    for r in status_results:
+        if r.source == "priorities":
+            # Extract topic keywords from priority text
+            words = set(r.text.lower().split())
+            active_topics.update(words)
+
+    for r in pref_results:
+        pref_lower = r.text.lower()
+        # Check if preference contradicts active priority
+        # e.g., preference says "不关注X" but priority says "X is active"
+        negative_markers = ["不关注", "不感兴趣", "skip", "ignore", "低优先"]
+        has_negative = any(m in pref_lower for m in negative_markers)
+        if has_negative:
+            # Check if the negative preference overlaps with active topics
+            pref_words = set(pref_lower.split())
+            overlap = pref_words & active_topics
+            if overlap:
+                r.metadata["conflict"] = f"preference contradicts active priority (overlap: {overlap})"
+                r.score = round(r.score * 0.5, 4)  # Penalize conflicting preference
+
+    return results
+
+
 def check_layers():
     """Check availability of all memory layers."""
     results = []
@@ -393,7 +525,10 @@ def query(text, layers=None, top_k=5, source=None, recent_hours=None):
         except Exception:
             continue
 
-    # Sort by score descending
+    # V2 pipeline: confidence → dedup → conflict → sort
+    all_results = apply_confidence(all_results)
+    all_results = deduplicate(all_results)
+    all_results = resolve_conflicts(all_results)
     all_results.sort(key=lambda r: r.score, reverse=True)
     return all_results
 
