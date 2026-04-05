@@ -106,7 +106,7 @@
   "recent_changes": [
     {
       "date": "2026-04-05",
-      "what": "V36: Agent Reliability Bench（7场景47检查+36单测）+ Memory Plane v1（4层统一接口+45单测+架构文档）— V2路标双P0完成，560测试全过",
+      "what": "V36/0.36.0: V2路标7/7全部完成 — Reliability Bench(7场景47检查)+Memory Plane v1+v2(4层统一+去重+置信度+冲突消解,64单测)+SLO Dashboard(历史追踪+sparkline)+安全边界文档+semver版本治理+运维韧性报告+第一篇架构文章(dev.to+知乎+Twitter发布)+610测试23套件全过+Mac Mini生产验证通过",
       "by": "claude_code"
     },
     {
@@ -217,9 +217,9 @@
     "text_index": "13925 chunks, 254/254 files (100%), 254 stale, 0h ago, 20887KB"
   },
   "session_context": {
-    "last_session": "2026-03-31",
+    "last_session": "2026-04-05",
     "unfinished": "",
-    "open_prs": "PR#225: search_kb全面加固(待合并)",
+    "open_prs": "",
     "blocked_on": ""
   },
   "quality": {
