@@ -30,6 +30,42 @@ warn() { echo -e "  ${YELLOW}⚠️  $1${NC}"; WARN=$((WARN + 1)); }
 info() { echo -e "  ${BLUE}ℹ️  $1${NC}"; }
 
 # ============================================================================
+# Provider Auto-Detection
+# ============================================================================
+DETECTED_PROVIDER=""
+DETECTED_KEY_VAR=""
+
+detect_provider() {
+    # Priority: explicit PROVIDER env > auto-detect from available keys
+    if [ -n "${PROVIDER:-}" ]; then
+        DETECTED_PROVIDER="$PROVIDER"
+        case "$PROVIDER" in
+            qwen)   DETECTED_KEY_VAR="REMOTE_API_KEY" ;;
+            openai) DETECTED_KEY_VAR="OPENAI_API_KEY" ;;
+            gemini) DETECTED_KEY_VAR="GEMINI_API_KEY" ;;
+            claude) DETECTED_KEY_VAR="ANTHROPIC_API_KEY" ;;
+            *)      DETECTED_KEY_VAR="" ;;
+        esac
+        return
+    fi
+
+    # Auto-detect: check which API keys are available
+    if [ -n "${REMOTE_API_KEY:-}" ] && [ "$REMOTE_API_KEY" != "sk-REPLACE-ME" ]; then
+        DETECTED_PROVIDER="qwen"
+        DETECTED_KEY_VAR="REMOTE_API_KEY"
+    elif [ -n "${OPENAI_API_KEY:-}" ]; then
+        DETECTED_PROVIDER="openai"
+        DETECTED_KEY_VAR="OPENAI_API_KEY"
+    elif [ -n "${GEMINI_API_KEY:-}" ]; then
+        DETECTED_PROVIDER="gemini"
+        DETECTED_KEY_VAR="GEMINI_API_KEY"
+    elif [ -n "${ANTHROPIC_API_KEY:-}" ]; then
+        DETECTED_PROVIDER="claude"
+        DETECTED_KEY_VAR="ANTHROPIC_API_KEY"
+    fi
+}
+
+# ============================================================================
 # Phase 1: Prerequisites Check
 # ============================================================================
 check_prerequisites() {
@@ -50,11 +86,17 @@ check_prerequisites() {
     # No third-party deps needed for core
     ok "Core services: zero third-party dependencies (stdlib only)"
 
-    # REMOTE_API_KEY
-    if [ -n "${REMOTE_API_KEY:-}" ] && [ "$REMOTE_API_KEY" != "sk-REPLACE-ME" ]; then
-        ok "REMOTE_API_KEY is set"
+    # Provider auto-detection
+    detect_provider
+    if [ -n "$DETECTED_PROVIDER" ]; then
+        ok "Provider: $DETECTED_PROVIDER (via \$$DETECTED_KEY_VAR)"
+        export PROVIDER="$DETECTED_PROVIDER"
     else
-        fail "REMOTE_API_KEY not set — export REMOTE_API_KEY='your-key-here'"
+        fail "No API key found. Set one of:"
+        echo "    export OPENAI_API_KEY='sk-...'        # OpenAI (easiest)"
+        echo "    export GEMINI_API_KEY='...'            # Google Gemini"
+        echo "    export ANTHROPIC_API_KEY='sk-ant-...'  # Anthropic Claude"
+        echo "    export REMOTE_API_KEY='...'            # Custom Qwen endpoint"
     fi
 
     # config.yaml
@@ -211,24 +253,26 @@ run_demo() {
     echo "  Phase 4: Golden Test Trace"
     echo "═══════════════════════════════════════════════════════"
     echo ""
+    DEMO_PROVIDER="${DETECTED_PROVIDER:-${PROVIDER:-qwen}}"
     info "Sending a test request through the full stack..."
-    info "(Proxy :5002 → Adapter :5001 → Remote GPU → Response)"
+    info "(Proxy :5002 → Adapter :5001 [$DEMO_PROVIDER] → LLM → Response)"
     echo ""
 
     # Build a minimal chat completion request
-    DEMO_REQUEST='{
-  "model": "qwen-local/auto",
-  "messages": [
-    {"role": "system", "content": "You are a helpful assistant. Reply in exactly one sentence."},
-    {"role": "user", "content": "What is 2+2? Reply in one word."}
+    # Model field uses "provider/auto" prefix — adapter strips prefix and routes to active model
+    DEMO_REQUEST="{
+  \"model\": \"${DEMO_PROVIDER}-local/auto\",
+  \"messages\": [
+    {\"role\": \"system\", \"content\": \"You are a helpful assistant. Reply in exactly one sentence.\"},
+    {\"role\": \"user\", \"content\": \"What is 2+2? Reply in one word.\"}
   ],
-  "max_tokens": 50,
-  "stream": false
-}'
+  \"max_tokens\": 50,
+  \"stream\": false
+}"
 
     echo "  ── Request ──"
     echo "  POST http://localhost:5002/v1/chat/completions"
-    echo "  Model: qwen-local/auto"
+    echo "  Provider: $DEMO_PROVIDER"
     echo "  Prompt: 'What is 2+2? Reply in one word.'"
     echo ""
 
