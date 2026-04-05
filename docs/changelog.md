@@ -2,6 +2,64 @@
 
 > 从 CLAUDE.md 提取的完整版本变更历史。Agent 按需 `read docs/changelog.md` 查阅。
 
+## V35 变更摘要（2026-04-05）
+
+> V1 路标冲刺完成 + 中国 Provider 扩展 + 可复现证据链闭环
+
+### 功能变更
+
+1. **Provider Compatibility Layer 扩展至 7 家**：新增 Kimi (Moonshot AI)、MiniMax、GLM (Zhipu AI) 三个中国国内 LLM Provider，均为 OpenAI-compatible API 格式。`providers.py` 导出 `PROVIDERS` dict 向后兼容 `adapter.py`
+2. **SLO Benchmark 实验报告**：`slo_benchmark.py` 读取 `proxy_stats.json` 真实生产数据，生成 Markdown/JSON 报告（5/5 PASS，p95=459ms）。17 个单测覆盖
+3. **Quick Start 一键跑通**：`quickstart.sh` 4 阶段（前置检查→启动服务→健康验证→Golden Test Trace），Provider 自动检测（7 个 API key 环境变量），10 分钟跑通全栈
+4. **Golden Test Trace**：`docs/golden_trace.json` — 真实请求穿越全栈的完整记录（521ms，可复现证据）
+5. **Sub-agent PoC**：sessions_spawn E2E 链路验证通过（Schema 注入→Qwen3 工具调用→Gateway 执行→ops agent 会话创建）。Qwen3 隐式触发不可靠，deferred 至下一代模型
+6. **仓库整理**：移除 3 个废弃文件（-672 行），归档 13 个 PoC 文件到 `docs/archive/`
+7. **README 全面刷新**：Quick Start 强调、7 Provider 矩阵、SLO 实测数据、Discord 双通道、Evidence Chain 证据链表
+
+### 受影响文件
+
+| 文件 | 变更 |
+|------|------|
+| `providers.py` | +KimiProvider/MiniMaxProvider/GLMProvider（4→7 Provider） |
+| `adapter.py` | fallback dict 同步新增 3 个 Provider |
+| `quickstart.sh` | 新增，4 阶段 Quick Start + 7-provider 自动检测 |
+| `slo_benchmark.py` | 新增，SLO Benchmark 报告生成器 |
+| `test_slo_benchmark.py` | 新增，17 个单测 |
+| `test_providers.py` | 48→58 单测（+10 中国 Provider 测试） |
+| `notify.sh` | V33 统一推送，WhatsApp + Discord 双通道 |
+| `docs/golden_trace.json` | 新增，Golden Test Trace |
+| `docs/slo_benchmark_report.md` | 新增，首份 SLO 实验报告 |
+| `docs/compatibility_matrix.md` | 7 Provider 兼容性矩阵 |
+| `docs/FEATURES.md` | V35 全面更新 |
+| `README.md` | 全面刷新（605测试/7providers/SLO/Quick Start/Discord） |
+
+---
+
+## V34 变更摘要（2026-04-03）
+
+> Stage2 启动 — Provider Compatibility Layer + 导师战略复盘
+
+### 功能变更
+
+1. **Provider Compatibility Layer**：`providers.py` — BaseProvider 抽象 + 4 个实现（Qwen/OpenAI/Gemini/Claude）+ ProviderRegistry 动态注册 + ProviderCapabilities 能力声明 + CLI 兼容性矩阵。48 个单测
+2. **导师战略复盘**：Stage 判断（Stage1→Stage2）、主战场定位（Agent Runtime Control Plane）、V1/V2/V3 路标、三个高价值模块、话语权输出、三块差距
+3. **兼容性矩阵文档**：`docs/compatibility_matrix.md` — 验证状态/降级路径/添加新 Provider 指南
+
+---
+
+## V33 变更摘要（2026-04-03）
+
+> Discord 双通道 + 统一推送 + GameDay 故障演练
+
+### 功能变更
+
+1. **Discord 双通道支持**：所有推送同时发送 WhatsApp + Discord，6 个 topic 频道（papers/freight/alerts/daily/tech/DM）
+2. **统一推送 notify.sh**：`source notify.sh && notify "msg" --topic papers`，替代零散的 `openclaw message send`
+3. **GameDay 故障演练**：`gameday.sh --all`，5 场景（GPU 超时/断路器/快照/SLO/Watchdog）
+4. **Gateway 不升级可用**：确认 OpenClaw v2026.3.23 升级 hold 决策不变
+
+---
+
 ## V32 变更摘要（2026-04-01）
 
 > 控制平面先行 + search_kb 全面加固 + 预发布验证体系
