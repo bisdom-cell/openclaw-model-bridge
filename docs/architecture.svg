@@ -86,7 +86,7 @@
   <!-- TITLE -->
   <!-- ═══════════════════════════════════ -->
   <text x="480" y="35" text-anchor="middle" font-size="13" fill="#8b949e" letter-spacing="4">OPENCLAW MODEL BRIDGE</text>
-  <text x="480" y="55" text-anchor="middle" font-size="11" fill="#484f58" letter-spacing="2">Five-Layer Architecture  v32 — Control Plane First</text>
+  <text x="480" y="55" text-anchor="middle" font-size="11" fill="#484f58" letter-spacing="2">Five-Layer Architecture  v35 — Control Plane First</text>
 
   <!-- ═══════════════════════════════════ -->
   <!-- LAYER 1: CORE DATA PATH -->
@@ -98,11 +98,13 @@
   <text x="48" y="86" font-size="11" fill="#58a6ff" font-weight="bold" letter-spacing="1">Core Data Path</text>
   <text x="220" y="86" font-size="9" fill="#484f58">Real-time conversation + Multimodal</text>
 
-  <!-- WhatsApp Box -->
-  <rect x="30" y="100" width="120" height="70" rx="8" fill="url(#waGrad)" stroke="#25d366" stroke-width="1" opacity="0.9"/>
-  <text x="90" y="127" text-anchor="middle" font-size="14" fill="#25d366">WhatsApp</text>
-  <text x="90" y="143" text-anchor="middle" font-size="9" fill="#8b949e">Text + Image</text>
-  <text x="90" y="159" text-anchor="middle" font-size="8" fill="#484f58">User Interface</text>
+  <!-- WhatsApp + Discord Box -->
+  <rect x="30" y="95" width="120" height="82" rx="8" fill="url(#waGrad)" stroke="#25d366" stroke-width="1" opacity="0.9"/>
+  <text x="90" y="117" text-anchor="middle" font-size="12" fill="#25d366" font-weight="bold">WhatsApp</text>
+  <text x="90" y="133" text-anchor="middle" font-size="9" fill="#8b949e">Text + Image</text>
+  <line x1="50" y1="140" x2="130" y2="140" stroke="#484f58" stroke-width="0.5" opacity="0.3"/>
+  <text x="90" y="155" text-anchor="middle" font-size="12" fill="#7289da" font-weight="bold">Discord</text>
+  <text x="90" y="169" text-anchor="middle" font-size="8" fill="#484f58">6 topic channels</text>
 
   <!-- Arrow WA <-> GW -->
   <line x1="150" y1="135" x2="195" y2="135" stroke="#484f58" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arrowGray)" marker-start="url(#arrowGrayLeft)"/>
@@ -143,12 +145,14 @@
   <!-- Arrow Adapter -> GPU -->
   <line x1="805" y1="135" x2="848" y2="135" stroke="#ff7b72" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arrowRed)" opacity="0.7"/>
 
-  <!-- GPU Box -->
-  <rect x="848" y="100" width="95" height="70" rx="8" fill="url(#gpuGrad)" stroke="#ff7b72" stroke-width="1"/>
-  <text x="895" y="120" text-anchor="middle" font-size="11" fill="#ff7b72" font-weight="bold">GPU</text>
-  <text x="895" y="134" text-anchor="middle" font-size="8" fill="#8b949e">Qwen3-235B</text>
-  <text x="895" y="147" text-anchor="middle" font-size="8" fill="#ff7b72" font-weight="bold">Qwen2.5-VL-72B</text>
-  <text x="895" y="160" text-anchor="middle" font-size="8" fill="#484f58">262K ctx / W8A8</text>
+  <!-- 7 Providers Box -->
+  <rect x="848" y="95" width="100" height="82" rx="8" fill="url(#gpuGrad)" stroke="#ff7b72" stroke-width="1"/>
+  <text x="898" y="112" text-anchor="middle" font-size="10" fill="#ff7b72" font-weight="bold">7 Providers</text>
+  <text x="898" y="126" text-anchor="middle" font-size="7" fill="#8b949e">Qwen3 / GPT-4o</text>
+  <text x="898" y="138" text-anchor="middle" font-size="7" fill="#8b949e">Gemini / Claude</text>
+  <text x="898" y="150" text-anchor="middle" font-size="7" fill="#ff7b72">Kimi K2.5</text>
+  <text x="898" y="162" text-anchor="middle" font-size="7" fill="#ff7b72">MiniMax / GLM-5</text>
+  <text x="898" y="174" text-anchor="middle" font-size="7" fill="#484f58">providers.py</text>
 
   <!-- Image flow annotation -->
   <rect x="30" y="182" width="900" height="22" rx="4" fill="#bc8cff" opacity="0.08"/>
@@ -204,7 +208,7 @@
   <rect x="760" y="282" width="155" height="42" rx="6" fill="#0d1117" opacity="0.6" stroke="#f0883e" stroke-width="0.5" stroke-opacity="0.3"/>
   <text x="837" y="295" text-anchor="middle" font-size="8" fill="#f0883e">HN / Freight / Releases</text>
   <text x="837" y="308" text-anchor="middle" font-size="8" fill="#f0883e">Issues / Trend Report</text>
-  <text x="837" y="320" text-anchor="middle" font-size="7" fill="#484f58">all → KB + WhatsApp</text>
+  <text x="837" y="320" text-anchor="middle" font-size="7" fill="#484f58">all → KB + WA + Discord</text>
 
   <!-- Row 2: KB + Maintenance -->
   <text x="50" y="346" font-size="9" fill="#f0883e" font-weight="bold" letter-spacing="1">KB &amp; MAINTENANCE</text>
@@ -219,7 +223,7 @@
 
   <rect x="380" y="354" width="155" height="42" rx="6" fill="#0d1117" opacity="0.6" stroke="#f0883e" stroke-width="0.5" stroke-opacity="0.3"/>
   <text x="457" y="372" text-anchor="middle" font-size="9" fill="#f0883e">Health Report</text>
-  <text x="457" y="388" text-anchor="middle" font-size="8" fill="#484f58">Mon 09:00 -> WhatsApp</text>
+  <text x="457" y="388" text-anchor="middle" font-size="8" fill="#484f58">Mon 09:00 -> WA+Discord</text>
 
   <rect x="545" y="354" width="155" height="42" rx="6" fill="#0d1117" opacity="0.6" stroke="#f0883e" stroke-width="0.5" stroke-opacity="0.3"/>
   <text x="622" y="372" text-anchor="middle" font-size="9" fill="#f0883e">KB Embed (Local)</text>
@@ -230,7 +234,7 @@
   <text x="812" y="388" text-anchor="middle" font-size="8" fill="#484f58">every 2h / daily 08:15-08:20</text>
 
   <!-- Output flow -->
-  <text x="50" y="425" font-size="8" fill="#484f58">Output: ~/.kb/ (sources + text_index + mm_index + daily_digest) + WhatsApp push + SSD backup</text>
+  <text x="50" y="425" font-size="8" fill="#484f58">Output: ~/.kb/ (sources + text_index + mm_index + daily_digest) + WhatsApp + Discord push + SSD backup</text>
 
   <!-- ═══════════════════════════════════ -->
   <!-- LAYER 3: MONITORING -->
@@ -264,7 +268,7 @@
   <rect x="490" y="515" width="200" height="55" rx="6" fill="#0d1117" opacity="0.6" stroke="#f85149" stroke-width="0.5" stroke-opacity="0.4"/>
   <text x="590" y="534" text-anchor="middle" font-size="10" fill="#f85149" font-weight="bold">proxy_stats</text>
   <text x="590" y="548" text-anchor="middle" font-size="8" fill="#8b949e">realtime: token usage tracking</text>
-  <text x="590" y="561" text-anchor="middle" font-size="8" fill="#484f58">consecutive errors -> WA alert</text>
+  <text x="590" y="561" text-anchor="middle" font-size="8" fill="#484f58">errors -> WA + Discord alert</text>
 
   <!-- /health endpoints -->
   <rect x="705" y="515" width="210" height="55" rx="6" fill="#0d1117" opacity="0.6" stroke="#f85149" stroke-width="0.5" stroke-opacity="0.4"/>
@@ -273,7 +277,7 @@
   <text x="810" y="561" text-anchor="middle" font-size="8" fill="#484f58">:18789 -> :5002 -> :5001</text>
 
   <!-- Alert output -->
-  <text x="50" y="630" font-size="8" fill="#f85149" opacity="0.7">All alerts -> WhatsApp push to OPENCLAW_PHONE</text>
+  <text x="50" y="630" font-size="8" fill="#f85149" opacity="0.7">All alerts -> WhatsApp + Discord dual-channel push (via notify.sh)</text>
 
   <!-- ═══════════════════════════════════ -->
   <!-- LAYER 4: DEVOPS -->
@@ -321,7 +325,7 @@
 
   <rect x="590" y="724" width="330" height="52" rx="6" fill="#0d1117" opacity="0.6" stroke="#3fb950" stroke-width="1" stroke-opacity="0.6"/>
   <text x="755" y="742" text-anchor="middle" font-size="10" fill="#3fb950" font-weight="bold">preflight_check.sh --full</text>
-  <text x="755" y="756" text-anchor="middle" font-size="8" fill="#8b949e">11 automated checks (fail -> WhatsApp alert)</text>
+  <text x="755" y="756" text-anchor="middle" font-size="8" fill="#8b949e">19 checks (fail -> WA + Discord alert)</text>
   <text x="755" y="768" text-anchor="middle" font-size="8" fill="#484f58">tests / registry / syntax / deploy / env / health / security</text>
 
   <!-- Drift detection -->
