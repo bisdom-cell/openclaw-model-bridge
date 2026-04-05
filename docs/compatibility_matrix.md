@@ -13,9 +13,9 @@
 | OpenAI | gpt-4o | — | Bearer | api.openai.com |
 | Google Gemini | gemini-2.5-flash | — | Bearer | generativelanguage.googleapis.com |
 | Anthropic Claude | claude-sonnet-4-6 | — | x-api-key | api.anthropic.com |
-| Kimi (Moonshot AI) | kimi-k2-0711 | — | Bearer | api.moonshot.cn |
-| MiniMax | MiniMax-M1 | — | Bearer | api.minimax.chat |
-| GLM (Zhipu AI) | glm-4-plus | glm-4v-plus | Bearer | open.bigmodel.cn |
+| Kimi (Moonshot AI) | kimi-2.5 | — | Bearer | api.moonshot.cn |
+| MiniMax | MiniMax-M2.7 | — | Bearer | api.minimax.chat |
+| GLM (Zhipu AI) | glm-5 | glm-5v | Bearer | open.bigmodel.cn |
 
 ## 能力矩阵
 
@@ -25,9 +25,9 @@
 | OpenAI | Yes | Yes | Yes | — | Yes | Yes | Yes | 128K |
 | Google Gemini | Yes | Yes | — | — | Yes | Yes | Yes | 1048K |
 | Anthropic Claude | Yes | Yes | — | — | Yes | Yes | — | 200K |
-| Kimi (Moonshot AI) | Yes | — | — | — | Yes | Yes | Yes | 131K |
-| MiniMax | Yes | — | — | — | Yes | Yes | Yes | 1000K |
-| GLM (Zhipu AI) | Yes | Yes | — | — | Yes | Yes | — | 128K |
+| Kimi (Moonshot AI) | Yes | Yes | — | — | Yes | Yes | Yes | 131K |
+| MiniMax | Yes | Yes | — | — | Yes | Yes | Yes | 1000K |
+| GLM (Zhipu AI) | Yes | Yes | — | — | Yes | Yes | Yes | 128K |
 
 ## 验证状态
 

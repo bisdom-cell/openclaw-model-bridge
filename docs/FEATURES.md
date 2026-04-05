@@ -11,9 +11,9 @@
 | | Qwen2.5-VL-72B | 图片理解，自动路由 | 检测 image_url 自动切换 |
 | | Gemini Flash (降级) | 主力不可用时自动切换 | FALLBACK_PROVIDER |
 | | OpenAI / Claude | 手动切换备选 | 环境变量 PROVIDER= |
-| | Kimi K2 (Moonshot) | 国内长上下文 131K | MOONSHOT_API_KEY |
-| | MiniMax M1 | 百万 token 上下文 | MINIMAX_API_KEY |
-| | GLM-4-Plus (Zhipu) | 含 GLM-4V 视觉 | GLM_API_KEY |
+| | Kimi 2.5 (Moonshot) | 视觉+长上下文 131K | MOONSHOT_API_KEY |
+| | MiniMax M2.7 | 百万 token 上下文+视觉 | MINIMAX_API_KEY |
+| | GLM-5 (Zhipu) | 含 GLM-5V 视觉 | GLM_API_KEY |
 | **自定义工具** | search_kb | 混合检索：语义搜索(embedding) + 关键词补充 + source/时间过滤 → followup LLM 解读 | `proxy_filters.py` 注入 |
 | | data_clean | 数据清洗：7 种操作(dedup/trim/fix_dates 等)、5 种格式(CSV/JSON/Excel 等) | `data_clean.py` |
 | **本地 AI** | KB RAG 语义搜索 | sentence-transformers 384 维 50+ 语言，零 API 调用 | `local_embed.py` + `kb_embed.py` + `kb_rag.py` |

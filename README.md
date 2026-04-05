@@ -21,22 +21,23 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                     用户层 (WhatsApp)                            │
-│                 文本 / 图片 / 语音消息                            │
+│                 用户层 (WhatsApp + Discord 双通道)                │
+│             文本 / 图片 / 语音消息 | 6个Discord频道               │
 └────────────────────────┬────────────────────────────────────────┘
                          │
 ┌────────────────────────▼────────────────────────────────────────┐
 │  ① 核心数据通路（实时对话 + 多模态 + SLO 监控）                   │
 │                                                                  │
-│  WhatsApp ←→ Gateway (:18789) ←→ Proxy (:5002) ←→ Adapter (:5001) ←→ Remote GPU       │
-│              [launchd]           [策略过滤+监控]    [认证+Fallback]    [Qwen3-235B]      │
-│              [媒体存储]          [图片base64注入]   [VL模型路由]       [Qwen2.5-VL-72B]  │
-│                                 [自定义工具注入]    [→Gemini降级]                        │
-│                                 data_clean(清洗)                                       │
-│                                 search_kb(混合检索)                                    │
-│                                 [SLO指标采集]                                          │
-│                                 延迟p95/错误分类                                       │
-│                                 工具成功率/降级率                                      │
+│  WhatsApp ←┐                                                     │
+│  Discord  ←┼→ Gateway (:18789) ←→ Proxy (:5002) ←→ Adapter (:5001) ←→ LLM (7 Providers) │
+│            │  [launchd]           [策略过滤+监控]    [认证+Fallback]    [Qwen3-235B]       │
+│            │  [媒体存储]          [图片base64注入]   [VL模型路由]       [+6 more providers] │
+│  notify.sh ┘  [双通道推送]        [自定义工具注入]    [→Gemini降级]                        │
+│                                   data_clean(清洗)                                       │
+│                                   search_kb(混合检索)                                    │
+│                                   [SLO指标采集]                                          │
+│                                   延迟p95/错误分类                                       │
+│                                   工具成功率/降级率                                      │
 │                                                                  │
 │  search_kb流程：用户问论文 → PA调search_kb → Proxy拦截           │
 │    → ①语义搜索(embedding cosine) + ②关键词补充                   │
@@ -95,9 +96,9 @@
 ┌──────────────────▼──────────────────────────────────────────────┐
 │  ⑤ 三方共享状态（~/.kb/status.json 实时同步）                     │
 │                                                                  │
-│  用户(WhatsApp) ←→ PA ←→ status.json ←→ Claude Code ←→ Cron    │
-│  反馈+决策          写入    优先级/反馈    读/写       自动更新    │
-│                             健康/SLO/焦点                         │
+│  用户(WhatsApp+Discord) ←→ PA ←→ status.json ←→ Claude Code    │
+│  反馈+决策                 写入    优先级/反馈    读/写            │
+│                                   健康/SLO/焦点  ←→ Cron自动更新  │
 │                                                                  │
 │  宪法：用户专业深度 + Claude Code设计部署 + OpenClaw数据复利       │
 │        三者合一 = 有生命的闭环系统                                 │
@@ -115,7 +116,7 @@
 | SLO Benchmark | — | `slo_benchmark.py` | SLO compliance — 5 metrics, real production data reports (p95=459ms, 5/5 PASS) |
 | Notifications | — | `notify.sh` | **Dual-channel push**: WhatsApp + Discord (6 topic channels: papers/freight/alerts/daily/tech/DM) |
 | Local Embedding | — | `local_embed.py` | sentence-transformers (384-dim, 50+ languages), zero API calls |
-| Remote LLM | — | 7 providers | Qwen3-235B / GPT-4o / Gemini 2.5 / Claude Sonnet / Kimi K2 / MiniMax M1 / GLM-4 |
+| Remote LLM | — | 7 providers | Qwen3-235B / GPT-4o / Gemini 2.5 / Claude Sonnet / Kimi 2.5 / MiniMax M2.7 / GLM-5 |
 
 ## Supported Providers (7)
 
@@ -125,9 +126,9 @@
 | **OpenAI** | GPT-4o | 128K | built-in | Bearer | available |
 | **Google Gemini** | Gemini 2.5 Flash | 1M | built-in | Bearer | 2/5 (fallback) |
 | **Anthropic Claude** | Claude Sonnet 4.6 | 200K | built-in | x-api-key | available |
-| **Kimi** (Moonshot AI) | Kimi K2 | 131K | — | Bearer | available |
-| **MiniMax** | MiniMax M1 | 1M | — | Bearer | available |
-| **GLM** (Zhipu AI) | GLM-4-Plus | 128K | GLM-4V-Plus | Bearer | available |
+| **Kimi** (Moonshot AI) | Kimi 2.5 | 131K | built-in | Bearer | available |
+| **MiniMax** | MiniMax M2.7 | 1M | built-in | Bearer | available |
+| **GLM** (Zhipu AI) | GLM-5 | 128K | GLM-5V | Bearer | available |
 
 All providers use **OpenAI-compatible API** format. Adding a new provider: see [docs/compatibility_matrix.md](docs/compatibility_matrix.md).
 

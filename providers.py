@@ -324,9 +324,9 @@ class KimiProvider(BaseProvider):
     auth_style = "bearer"
     models = [
         ModelInfo(
-            model_id="kimi-k2-0711",
-            display_name="Kimi K2",
-            modalities=["text"],
+            model_id="kimi-2.5",
+            display_name="Kimi 2.5",
+            modalities=["text", "vision"],
             context_window=131072,
             max_output_tokens=8192,
             is_default=True,
@@ -341,7 +341,7 @@ class KimiProvider(BaseProvider):
     ]
     capabilities = ProviderCapabilities(
         text=True,
-        vision=False,
+        vision=True,
         audio=False,
         video=False,
         tool_calling=True,
@@ -366,9 +366,9 @@ class MiniMaxProvider(BaseProvider):
     auth_style = "bearer"
     models = [
         ModelInfo(
-            model_id="MiniMax-M1",
-            display_name="MiniMax M1",
-            modalities=["text"],
+            model_id="MiniMax-M2.7",
+            display_name="MiniMax M2.7",
+            modalities=["text", "vision"],
             context_window=1000000,
             max_output_tokens=8192,
             is_default=True,
@@ -376,7 +376,7 @@ class MiniMaxProvider(BaseProvider):
     ]
     capabilities = ProviderCapabilities(
         text=True,
-        vision=False,
+        vision=True,
         audio=False,
         video=False,
         tool_calling=True,
@@ -401,19 +401,19 @@ class GLMProvider(BaseProvider):
     auth_style = "bearer"
     models = [
         ModelInfo(
-            model_id="glm-4-plus",
-            display_name="GLM-4-Plus",
+            model_id="glm-5",
+            display_name="GLM-5",
             modalities=["text"],
             context_window=128000,
-            max_output_tokens=4096,
+            max_output_tokens=16384,
             is_default=True,
         ),
         ModelInfo(
-            model_id="glm-4v-plus",
-            display_name="GLM-4V-Plus (Vision)",
+            model_id="glm-5v",
+            display_name="GLM-5V (Vision)",
             modalities=["text", "vision"],
-            context_window=8192,
-            max_output_tokens=4096,
+            context_window=128000,
+            max_output_tokens=16384,
             is_vision=True,
         ),
     ]
@@ -424,9 +424,9 @@ class GLMProvider(BaseProvider):
         video=False,
         tool_calling=True,
         streaming=True,
-        json_mode=False,
+        json_mode=True,
         context_window=128000,
-        max_output_tokens=4096,
+        max_output_tokens=16384,
         verified_text=False,
         verified_vision=False,
         verified_tool_calling=False,

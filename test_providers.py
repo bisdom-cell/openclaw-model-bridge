@@ -426,14 +426,14 @@ class TestChineseProviders(unittest.TestCase):
         self.assertEqual(p.api_key_env, "MOONSHOT_API_KEY")
         self.assertEqual(len(p.models), 2)
         self.assertTrue(p.capabilities.tool_calling)
-        self.assertFalse(p.capabilities.vision)
+        self.assertTrue(p.capabilities.vision)
 
     def test_kimi_default_model(self):
         from providers import KimiProvider
         p = KimiProvider()
         dm = p.default_model()
         self.assertIsNotNone(dm)
-        self.assertIn("kimi", dm.model_id)
+        self.assertEqual(dm.model_id, "kimi-2.5")
 
     def test_minimax_provider(self):
         from providers import MiniMaxProvider
@@ -444,6 +444,7 @@ class TestChineseProviders(unittest.TestCase):
         self.assertEqual(p.api_key_env, "MINIMAX_API_KEY")
         self.assertEqual(len(p.models), 1)
         self.assertTrue(p.capabilities.tool_calling)
+        self.assertTrue(p.capabilities.vision)
         self.assertEqual(p.capabilities.context_window, 1000000)
 
     def test_minimax_default_model(self):
@@ -451,7 +452,7 @@ class TestChineseProviders(unittest.TestCase):
         p = MiniMaxProvider()
         dm = p.default_model()
         self.assertIsNotNone(dm)
-        self.assertIn("MiniMax", dm.model_id)
+        self.assertEqual(dm.model_id, "MiniMax-M2.7")
 
     def test_glm_provider(self):
         from providers import GLMProvider
@@ -469,21 +470,21 @@ class TestChineseProviders(unittest.TestCase):
         p = GLMProvider()
         vm = p.vision_model()
         self.assertIsNotNone(vm)
-        self.assertIn("4v", vm.model_id)
+        self.assertIn("5v", vm.model_id)
 
     def test_glm_default_model(self):
         from providers import GLMProvider
         p = GLMProvider()
         dm = p.default_model()
         self.assertIsNotNone(dm)
-        self.assertEqual(dm.model_id, "glm-4-plus")
+        self.assertEqual(dm.model_id, "glm-5")
 
     def test_glm_vl_model_in_legacy(self):
         from providers import GLMProvider
         p = GLMProvider()
         d = p.to_legacy_dict()
         self.assertIn("vl_model_id", d)
-        self.assertIn("4v", d["vl_model_id"])
+        self.assertIn("5v", d["vl_model_id"])
 
     def test_chinese_providers_in_legacy_dict(self):
         from providers import PROVIDERS
