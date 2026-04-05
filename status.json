@@ -84,8 +84,8 @@
     },
     {
       "task": "PA子Agent委派",
-      "status": "active",
-      "note": "sessions_spawn+sessions_send，PA自主创建子任务"
+      "status": "deferred",
+      "note": "PoC完成：链路通但Qwen3隐式触发不可靠（优先从上下文回答）。显式触发可用。保留能力等下一代模型。"
     },
     {
       "task": "PA长期记忆",
@@ -99,6 +99,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-04-05",
+      "what": "Sub-agent PoC 完成：sessions_spawn schema注入+SOUL.md触发词+E2E验证。结论：显式触发可用，隐式触发受Qwen3行为限制（优先从上下文回答不调工具）。作为潜在能力保留，等下一代模型。578单测全过。",
+      "by": "claude_code"
+    },
     {
       "date": "2026-04-03",
       "what": "V33: Discord双通道全量覆盖(24脚本100%对齐) + notify.sh统一推送 + S2论文429修复(指数退避) + 故障快照接入watchdog + SLO接入watchdog + GameDay演练脚本 + pip-audit集成 + P0全部完成(4/4) + P1全部完成(3/3) + P2完成2项 + 工作原则#16(双通道强制) + 安全评分93",
