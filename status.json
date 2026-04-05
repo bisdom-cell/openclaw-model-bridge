@@ -29,8 +29,8 @@
     },
     {
       "task": "【V2-P0】Agent Reliability Bench",
-      "status": "backlog",
-      "note": "导师建议模块二：provider宕机/tool timeout/malformed args/oversized request/kb miss-hit/cron drift/state corruption评测。基于gameday.sh扩展"
+      "status": "done",
+      "note": "V36完成：reliability_bench.py 7场景47检查（Provider宕机/工具超时/畸形参数/超大请求/KB未命中/Cron漂移/状态损坏），mock-based可在dev运行，36单测全过"
     },
     {
       "task": "【V2-P0】Memory Plane v1 统一叙事",
@@ -99,6 +99,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-04-05",
+      "what": "V36: Agent Reliability Bench — 7场景47检查（Provider宕机/工具超时/畸形参数/超大请求/KB未命中/Cron漂移/状态损坏）+ 36单测 + 首份实验报告 + full_regression 515测试全过",
+      "by": "claude_code"
+    },
     {
       "date": "2026-04-05",
       "what": "V35+: Added 3 Chinese LLM providers (Kimi K2.5/MiniMax M2.7/GLM-5, 4→7 providers), refreshed README (Quick Start/SLO/Discord/Evidence Chain), updated architecture SVG (Discord dual-channel + 7 providers), wrote Zhihu article, 605 tests pass, security 93/100",

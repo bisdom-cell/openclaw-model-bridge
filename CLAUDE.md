@@ -182,6 +182,9 @@
 | `audit_log.py` | **V30.2新增** 链式哈希审计日志（JSONL append-only，SHA256 链式校验，篡改/删除可检测） |
 | `test_audit_log.py` | **V30.2新增** 审计日志单测（19个用例：写入/链式哈希/篡改检测/删除检测/统计） |
 | `security_score.py` | **V30.2新增** 系统安全评分（7维度100分：密钥/测试/完整性/部署/传输/审计/可用性） |
+| `reliability_bench.py` | **V36新增** Agent Reliability Bench（7场景47检查：Provider宕机/工具超时/畸形参数/超大请求/KB未命中/Cron漂移/状态损坏，mock-based可在dev运行） |
+| `test_reliability_bench.py` | **V36新增** Reliability Bench 单测（36个用例：7场景×独立验证+报告格式+CLI） |
+| `docs/reliability_bench_report.md` | **V36新增** 首份 Reliability Bench 实验报告（7/7 PASS，47/47 checks） |
 | `gameday.sh` | **V33新增** GameDay 故障演练（5场景：GPU超时/断路器/快照/SLO/Watchdog，`bash gameday.sh --all`） |
 | `jobs/dblp/run_dblp.sh` | **V30.5新增** DBLP CS论文监控（多关键词搜索、免费API、每日12:00推送+KB写入） |
 | `jobs/hf_papers/run_hf_papers.sh` | **V30.5新增** HuggingFace Daily Papers 监控（热门AI论文、每日10:00推送+KB写入） |
@@ -199,6 +202,7 @@
 
 | 版本 | 日期 | 关键变更 |
 |------|------|----------|
+| V36 | 2026-04-05 | **V2 路标启动** — Agent Reliability Bench（7场景47检查，mock-based） + 36单测 + 首份实验报告 + 515 测试 |
 | V35 | 2026-04-05 | **V1 路标冲刺** — SLO Benchmark 实验报告 + Quick Start 一键 demo + Golden Test Trace + Sub-agent PoC（链路通，deferred 等模型升级）+ 595 测试 |
 | V34 | 2026-04-03 | **Stage2 启动** — Provider Compatibility Layer + 导师战略复盘嵌入治理体系 + V1/V2/V3 路标 + 461 测试 |
 | V33 | 2026-04-03 | Discord 双通道支持 + 统一推送 notify.sh + Gateway 不升级可用 |
@@ -289,6 +293,12 @@ curl http://localhost:5002/data_clean/help               # REST 端点帮助
 bash quickstart.sh                # 完整 4 阶段（前置检查→启动→健康→demo）
 bash quickstart.sh --check        # 仅检查前置条件
 bash quickstart.sh --demo         # 仅运行 demo 请求
+
+# Agent Reliability Bench（7场景故障评测）
+python3 reliability_bench.py            # Markdown 报告
+python3 reliability_bench.py --json     # JSON 格式
+python3 reliability_bench.py --save     # 保存到 docs/reliability_bench_report.md
+python3 reliability_bench.py --scenario 3  # 运行单个场景
 
 # SLO Benchmark（真实生产数据报告）
 python3 slo_benchmark.py          # Markdown 报告
@@ -453,7 +463,7 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 | 模块 | 目标 | 当前基础 | 路标 |
 |------|------|----------|------|
 | **Provider Compatibility Layer** | auth/chat/tool-calling/multimodal/streaming/fallback 标准接口 | `providers.py`+`adapter.py` 重构完成 | **V1 (in progress)** |
-| **Agent Reliability Bench** | 系统性可靠性评测（provider宕机/tool timeout/malformed args/kb miss-hit/cron drift） | `gameday.sh` 5 场景 | **V2 (backlog)** |
+| **Agent Reliability Bench** | 系统性可靠性评测（7场景47检查：provider宕机/tool timeout/malformed args/oversized/kb miss-hit/cron drift/state corruption） | `reliability_bench.py`+`gameday.sh` | **V2 (✅ V36 done)** |
 | **Memory Plane v1** | 短期对话/KB语义/多媒体/用户偏好/运维状态 统一成一个平面 | local_embed+kb_rag+mm_index+preference_learner+status_sync | **V2 (backlog)** |
 
 ## 当前待办（按导师 V1/V2/V3 路标组织）
@@ -473,7 +483,7 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 
 | 优先级 | 任务 | 状态 |
 |--------|------|------|
-| **V2-P0** | **Agent Reliability Bench**（导师建议模块二）：provider 宕机 / tool timeout / malformed args / oversized request / kb miss-hit / cron drift / state corruption 系统性评测。基于 `gameday.sh` 扩展 | 待启动 |
+| **V2-P0** | **Agent Reliability Bench**（导师建议模块二）：`reliability_bench.py` 7场景47检查（Provider宕机/工具超时/畸形参数/超大请求/KB未命中/Cron漂移/状态损坏），mock-based可在dev运行，36单测 | ✅ V36 完成 |
 | **V2-P0** | **Memory Plane v1 统一叙事**（导师建议模块三）：把 local_embed / kb_rag / mm_index / preference_learner / status_sync 统一成一个 memory plane（短期对话 / KB 语义 / 多媒体 / 用户偏好 / 运维状态） | 待启动 |
 | **V2-P1** | **运维韧性证据**：故障注入实验 + 演练脚本 + 恢复时间统计 → 从"工程做得挺全"升级成"有 SRE 味道的 agent infra" | 待启动 |
 | **V2-P1** | **SLO Dashboard + semver 版本治理** | 待启动 |
