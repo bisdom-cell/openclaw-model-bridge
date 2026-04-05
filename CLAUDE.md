@@ -498,7 +498,7 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 | **V2-P0** | **Agent Reliability Bench**（导师建议模块二）：`reliability_bench.py` 7场景47检查（Provider宕机/工具超时/畸形参数/超大请求/KB未命中/Cron漂移/状态损坏），mock-based可在dev运行，36单测 | ✅ V36 完成 |
 | **V2-P0** | **Memory Plane v1 统一叙事**（导师建议模块三）：`memory_plane.py` 4层统一接口（KB语义/多媒体/偏好/状态）+ query/context/stats API + 45单测 + 架构文档 | ✅ V36 完成 |
 | **V2-P1** | **运维韧性证据**：`docs/resilience_report.md` — 7场景故障注入实验 + Recovery Time 汇总 + Dev Bench vs Production GameDay 对比 + 5项改进建议 | ✅ V36 完成 |
-| **V2-P1** | **SLO Dashboard**：可视化延迟/成功率/降级率 | 待启动 |
+| **V2-P1** | **SLO Dashboard**：`slo_dashboard.py` 历史快照追踪 + sparkline 趋势 + cron 定时采集 + 31 单测 | ✅ V36 完成 |
 | **V2-P1** | **semver 版本治理**：`VERSION` 文件 + /health 端点暴露版本 + changelog 格式升级 | ✅ V36 完成 |
 | **V2-P1** | **安全边界说明文档**：`docs/security_boundaries.md`（8节：认证/网络/输入验证/数据保护/LLM安全/运维/评分/已知风险） | ✅ V36 完成 |
 | **V2-P1** | **Memory Plane v2**：跨层去重 + 置信度加权 + 冲突消解 + 记忆衰减 | 待启动 |
