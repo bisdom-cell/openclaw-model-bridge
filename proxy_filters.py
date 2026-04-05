@@ -123,7 +123,38 @@ CLEAN_SCHEMAS = {
         "properties": {"text": {"type": "string", "description": "Text to convert to speech"}},
         "required": ["text"],
         "additionalProperties": False
-    }
+    },
+    "sessions_spawn": {
+        "type": "object",
+        "properties": {
+            "agent": {"type": "string", "description": "Agent name to spawn (e.g. 'ops', 'research')"},
+            "message": {"type": "string", "description": "Initial message/instruction to send to the spawned agent"},
+        },
+        "required": ["agent", "message"],
+        "additionalProperties": False
+    },
+    "sessions_send": {
+        "type": "object",
+        "properties": {
+            "sessionId": {"type": "string", "description": "Session ID of the target sub-agent (returned by sessions_spawn)"},
+            "message": {"type": "string", "description": "Message to send to the sub-agent"},
+        },
+        "required": ["sessionId", "message"],
+        "additionalProperties": False
+    },
+    "sessions_history": {
+        "type": "object",
+        "properties": {
+            "sessionId": {"type": "string", "description": "Session ID to retrieve history for"},
+        },
+        "required": ["sessionId"],
+        "additionalProperties": False
+    },
+    "agents_list": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": False
+    },
 }
 
 # 每个工具的合法参数集（用于响应清理）
@@ -139,6 +170,10 @@ TOOL_PARAMS = {
     "cron": {"action", "schedule", "command", "id", "name", "sessionTarget", "payload", "job"},
     "message": {"to", "text"},
     "tts": {"text"},
+    "sessions_spawn": {"agent", "message"},
+    "sessions_send": {"sessionId", "message"},
+    "sessions_history": {"sessionId"},
+    "agents_list": set(),
     "browser_navigate": {"url", "profile", "target"},
     "browser_click": {"selector", "profile", "target"},
     "browser_type": {"selector", "text", "profile", "target"},
