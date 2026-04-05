@@ -1,6 +1,6 @@
 {
-  "updated": "2026-04-05 02:10:53",
-  "updated_by": "claude_code",
+  "updated": "2026-04-05 11:00:01",
+  "updated_by": "cron",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -101,11 +101,6 @@
   "recent_changes": [
     {
       "date": "2026-04-05",
-      "what": "V35: SLO Benchmark实验报告(5/5 PASS,p95=459ms) + Quick Start一键demo(19/19通过) + Golden Test Trace入库 + Sub-agent PoC(链路通,deferred等模型升级) + quickstart.sh修复 + CLAUDE.md V35更新 — 595单测全过",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-04-05",
       "what": "Sub-agent PoC 完成：sessions_spawn schema注入+SOUL.md触发词+E2E验证。结论：显式触发可用，隐式触发受Qwen3行为限制（优先从上下文回答不调工具）。作为潜在能力保留，等下一代模型。578单测全过。",
       "by": "claude_code"
     },
@@ -200,11 +195,11 @@
     "last_preflight_time": "2026-04-05 09:00",
     "last_trend_report": "2026-04-04",
     "model_id": "Qwen3-235B-A22B-Instruct-2507-W8A8",
-    "kb_stats": "206 notes, 14 today, 1622KB sources",
+    "kb_stats": "207 notes, 15 today, 1625KB sources",
     "stale_jobs": "all_ok",
-    "last_refresh": "2026-04-05 10:00",
+    "last_refresh": "2026-04-05 11:00",
     "security_score": "93/100 (93.0%)",
-    "text_index": "13561 chunks, 247/248 files (99%), 247 stale, 1h ago, 20341KB"
+    "text_index": "13561 chunks, 247/249 files (99%), 247 stale, 2h ago, 20341KB"
   },
   "session_context": {
     "last_session": "2026-03-31",
