@@ -509,6 +509,16 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 | **605 Unit Tests** | 10 test files | `python3 -m unittest discover -p "test_*.py"` |
 | **GameDay Drill** | `gameday.sh` | `bash gameday.sh --all` |
 | **Security Score** | `security_score.py` | `python3 security_score.py` |
+| **Reliability Bench** | `docs/reliability_bench_report.md` | `python3 reliability_bench.py --save` |
+| **Resilience Report** | `docs/resilience_report.md` | 7 fault injection experiments |
+| **Security Boundaries** | `docs/security_boundaries.md` | 8-section security analysis |
+
+## Articles
+
+| Article | Language | Platform |
+|---------|----------|----------|
+| [Why Agent Systems Need a Control Plane](docs/articles/why_control_plane.md) | English | [dev.to](https://dev.to) |
+| [为什么 Agent 系统首先需要一个控制平面](docs/articles/why_control_plane_zh.md) | 中文 | 知乎 |
 
 ## Full Guide
 
