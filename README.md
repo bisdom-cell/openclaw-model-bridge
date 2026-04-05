@@ -117,11 +117,24 @@
 ## Quick Start
 
 ```bash
-# Core services — no third-party dependencies (stdlib only)
+# One-click: prerequisites check + start services + health verify + demo request
 export REMOTE_API_KEY="your-key-here"
-bash restart.sh
-curl http://localhost:5002/health
-# → {"ok":true,"proxy":true,"adapter":true}
+bash quickstart.sh
+# → Runs 4 phases: prerequisites → start → health → golden test trace
+
+# Or step by step:
+bash quickstart.sh --check   # Prerequisites only
+bash restart.sh              # Start services
+bash quickstart.sh --demo    # Demo request only
+```
+
+**Core services require zero third-party dependencies** (Python stdlib only).
+
+```bash
+# SLO Benchmark — real production metrics report
+python3 slo_benchmark.py          # Markdown report
+python3 slo_benchmark.py --json   # JSON format
+python3 slo_benchmark.py --save   # Save to docs/slo_benchmark_report.md
 
 # Optional: KB RAG semantic search
 pip3 install -r requirements-rag.txt
