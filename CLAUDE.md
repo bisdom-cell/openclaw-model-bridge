@@ -121,7 +121,7 @@
 | `proxy_filters.py` | **V27新增** 策略层（过滤、修复、截断、SSE转换、**自定义工具注入**（data_clean+search_kb）），纯函数无网络依赖 |
 | `data_clean.py` | **V30.3新增** 数据清洗 CLI 工具（profile/execute/validate/history，7种操作，支持CSV/TSV/JSON/JSONL/Excel） |
 | `test_data_clean.py` | **V30.3新增** 数据清洗单测（80个用例：格式检测/读写/操作/端到端/多格式） |
-| `data_clean_poc/` | **V30.3新增** Phase 0 验证材料（3个脏数据样本+LLM判断力测试脚本） |
+| `docs/archive/data_clean_poc/` | **V30.3新增→V35归档** Phase 0 验证材料（3个脏数据样本+LLM判断力测试脚本） |
 | `SOUL.md` | **V30.4新增** OpenClaw 最高优先级 system prompt（PA身份Wei、三方宪法、行为指令、项目状态实时快照，每小时自动刷新） |
 | `ops_soul.md` | **V31新增** Ops Agent 运维助手 SOUL.md（系统健康检查/日志排查/cron诊断/维护操作，部署到 `~/.openclaw/SOUL.md`） |
 | `ops_health.sh` | **V31新增** Ops Agent 健康检查包装脚本（Qwen3 拒绝直接 curl localhost，通过脚本包装绕过） |
@@ -186,7 +186,7 @@
 | `jobs/semantic_scholar/run_semantic_scholar.sh` | **V30.5新增** Semantic Scholar 论文监控（引用量排序、每日11:00推送+KB写入） |
 | `jobs/acl_anthology/run_acl_anthology.sh` | **V30.5新增** ACL Anthology NLP论文监控（顶会论文、每日09:30推送+KB写入） |
 | `jobs/pwc/run_pwc.sh` | **V31新增** Papers with Code 论文+代码监控（免费API、每日13:00推送+KB写入，核心价值：论文+代码仓库关联） |
-| `jobs/openreview/run_openreview.sh` | **V30.5禁用** OpenReview 论文监控（API 403 post-security-incident，已停用） |
+| ~~`jobs/openreview/`~~ | **V35 已移除**（API 403 post-security-incident，S2 已覆盖顶会论文） |
 | `preference_learner.py` | **V30.4新增** 用户偏好自动学习器（从对话历史推断偏好，写入 status.json） |
 | `activate_openclaw_features.py` | **V30.5新增** OpenClaw 功能激活脚本（检查+启用 agent 工具配置） |
 | `notify.sh` | **V33新增** 统一消息推送（WhatsApp + Discord 双通道，`source notify.sh && notify "msg"`） |

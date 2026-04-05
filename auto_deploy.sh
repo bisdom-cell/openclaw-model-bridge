@@ -114,7 +114,6 @@ declare -a FILE_MAP=(
     "jobs/arxiv_monitor/run_arxiv.sh|$HOME/.openclaw/jobs/arxiv_monitor/run_arxiv.sh"
     "jobs/hf_papers/run_hf_papers.sh|$HOME/.openclaw/jobs/hf_papers/run_hf_papers.sh"
     "jobs/semantic_scholar/run_semantic_scholar.sh|$HOME/.openclaw/jobs/semantic_scholar/run_semantic_scholar.sh"
-    "jobs/openreview/run_openreview.sh|$HOME/.openclaw/jobs/openreview/run_openreview.sh"
     "jobs/dblp/run_dblp.sh|$HOME/.openclaw/jobs/dblp/run_dblp.sh"
     "jobs/acl_anthology/run_acl_anthology.sh|$HOME/.openclaw/jobs/acl_anthology/run_acl_anthology.sh"
     "jobs/pwc/run_pwc.sh|$HOME/.openclaw/jobs/pwc/run_pwc.sh"

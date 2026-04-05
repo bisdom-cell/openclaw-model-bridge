@@ -56,15 +56,7 @@ jobs:
     tier: core                       # 论文监控核心源
     description: Semantic Scholar 高引AI论文监控（多关键词搜索+引用排序）
 
-  - id: openreview
-    scheduler: system
-    entry: jobs/openreview/run_openreview.sh
-    interval: "30 9 * * 1"           # 每周一 09:30 HKT（顶会论文按 deadline 周期更新）
-    log: ~/.openclaw/logs/jobs/openreview.log
-    needs_api_key: true
-    enabled: false                   # V30.4: OpenReview API 全面 403（2025-11安全事件后锁定），S2 已覆盖顶会论文
-    tier: experiment                 # 已停用
-    description: OpenReview 顶会高分论文监控（ICLR/NeurIPS/ICML）（已停用：API 403）
+  # openreview: V35 已移除（API 403 post-security-incident，S2 已覆盖顶会论文）
 
   - id: dblp
     scheduler: system
