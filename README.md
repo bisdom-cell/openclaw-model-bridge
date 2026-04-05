@@ -1,14 +1,16 @@
 # openclaw-model-bridge
 
-> Connect any LLM to [OpenClaw](https://github.com/openclaw/openclaw) — production-tested middleware with multimodal support on Mac Mini.
-> 将任意大模型接入 OpenClaw — 支持多模态（图片理解）的生产中间件，运行于 Mac Mini。
+> **Agent Runtime Control Plane** — Connect any LLM to [OpenClaw](https://github.com/openclaw/openclaw) with one command. Zero dependencies, 7 providers, multimodal support.
+> 将任意大模型（Qwen / OpenAI / Gemini / Claude / Kimi / MiniMax / GLM）一键接入 OpenClaw — 零第三方依赖、支持多模态、10 分钟跑通。
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-424%20passed-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-605%20passed-brightgreen.svg)]()
+[![Providers](https://img.shields.io/badge/providers-7%20supported-orange.svg)]()
+[![SLO](https://img.shields.io/badge/SLO-5%2F5%20PASS-blueviolet.svg)]()
 [![Jobs](https://img.shields.io/badge/cron%20jobs-32%20(28%20active)-blue.svg)]()
 [![CI](https://img.shields.io/badge/CI-GitHub%20Actions-green.svg)]()
-[![SLO](https://img.shields.io/badge/SLO-5%20metrics-blueviolet.svg)]()
+[![Notifications](https://img.shields.io/badge/notifications-WhatsApp%20%2B%20Discord-informational.svg)]()
 
 ## Architecture / 系统架构
 
@@ -60,11 +62,11 @@
 │                                                                  │
 │  论文监控矩阵（5源）：                                            │
 │    ArXiv(每3h) + HF Papers(10:00) + S2(11:00)                   │
-│    + DBLP(12:00) + ACL(09:30) ──→ KB + WhatsApp推送             │
-│  每3h   HN热帖抓取 ──→ KB + WhatsApp推送                         │
-│  每天×3 货代Watcher ──→ LLM分析 + KB + WhatsApp推送              │
-│  每天   OpenClaw Releases ──→ LLM摘要 + KB + WhatsApp推送        │
-│  每小时 Issues监控 ──→ KB + WhatsApp推送                         │
+│    + DBLP(12:00) + ACL(09:30) ──→ KB + WhatsApp + Discord推送   │
+│  每3h   HN热帖抓取 ──→ KB + WhatsApp + Discord推送               │
+│  每天×3 货代Watcher ──→ LLM分析 + KB + WhatsApp + Discord推送    │
+│  每天   OpenClaw Releases ──→ LLM摘要 + KB + WhatsApp + Discord  │
+│  每小时 Issues监控 ──→ KB + WhatsApp + Discord推送               │
 │  每天   KB每日摘要 / 晚间整理 / 智能去重                          │
 │  每4h   KB 向量索引（本地 embedding）                             │
 │  每2h   多媒体索引（Gemini Embedding 2）                          │
@@ -108,49 +110,111 @@
 |-----------|------|-------|------|
 | OpenClaw Gateway | 18789 | npm global | WhatsApp integration, media storage, tool execution, session management |
 | Tool Proxy | 5002 | `tool_proxy.py` + `proxy_filters.py` | Tool filtering (24→12), **custom tools** (data_clean + search_kb hybrid search), **image base64 injection**, SSE conversion, truncation, token monitoring, **SLO metrics collection**, **incident snapshots** |
-| Adapter | 5001 | `adapter.py` | Multi-provider forwarding, auth, **multimodal routing** (text→Qwen3, image→Qwen2.5-VL), fallback degradation |
-| Config Center | — | `config.yaml` + `config_loader.py` | **V32** Centralized thresholds (70+ params, 9 sections: SLO/proxy/tokens/alerts/routing/truncation/watchdog/incidents/jobs) |
-| SLO Checker | — | `slo_checker.py` | **V32** SLO compliance — 5 metrics (latency p95, tool success rate, degradation rate, timeout rate, auto-recovery rate) |
+| Adapter | 5001 | `adapter.py` + `providers.py` | **7-provider** forwarding, auth, **multimodal routing** (text→Qwen3, image→Qwen2.5-VL), fallback degradation |
+| Config Center | — | `config.yaml` + `config_loader.py` | Centralized thresholds (70+ params, 9 sections: SLO/proxy/tokens/alerts/routing/truncation/watchdog/incidents/jobs) |
+| SLO Benchmark | — | `slo_benchmark.py` | SLO compliance — 5 metrics, real production data reports (p95=459ms, 5/5 PASS) |
+| Notifications | — | `notify.sh` | **Dual-channel push**: WhatsApp + Discord (6 topic channels: papers/freight/alerts/daily/tech/DM) |
 | Local Embedding | — | `local_embed.py` | sentence-transformers (384-dim, 50+ languages), zero API calls |
-| Remote GPU | — | hkagentx.hkopenlab.com | Qwen3-235B (text, 262K context) + **Qwen2.5-VL-72B** (vision) |
+| Remote LLM | — | 7 providers | Qwen3-235B / GPT-4o / Gemini 2.5 / Claude Sonnet / Kimi K2 / MiniMax M1 / GLM-4 |
 
-## Quick Start
+## Supported Providers (7)
+
+| Provider | Default Model | Context | Vision | Auth | Verified |
+|----------|--------------|---------|--------|------|----------|
+| **Qwen** (Remote GPU) | Qwen3-235B | 262K | Qwen2.5-VL-72B | Bearer | 5/5 (production) |
+| **OpenAI** | GPT-4o | 128K | built-in | Bearer | available |
+| **Google Gemini** | Gemini 2.5 Flash | 1M | built-in | Bearer | 2/5 (fallback) |
+| **Anthropic Claude** | Claude Sonnet 4.6 | 200K | built-in | x-api-key | available |
+| **Kimi** (Moonshot AI) | Kimi K2 | 131K | — | Bearer | available |
+| **MiniMax** | MiniMax M1 | 1M | — | Bearer | available |
+| **GLM** (Zhipu AI) | GLM-4-Plus | 128K | GLM-4V-Plus | Bearer | available |
+
+All providers use **OpenAI-compatible API** format. Adding a new provider: see [docs/compatibility_matrix.md](docs/compatibility_matrix.md).
 
 ```bash
-# Set any ONE of these API keys — quickstart auto-detects your provider:
-export OPENAI_API_KEY="sk-..."        # OpenAI (GPT-4o)
-export GEMINI_API_KEY="..."           # Google Gemini
-export ANTHROPIC_API_KEY="sk-ant-..." # Anthropic Claude
-export REMOTE_API_KEY="..."           # Custom endpoint (e.g. Qwen)
+# Switch provider at runtime
+export PROVIDER=kimi && export MOONSHOT_API_KEY=... && bash restart.sh
+```
 
-# One-click: prerequisites → start services → health verify → demo request
+## Quick Start (10 minutes)
+
+**Three steps. Zero third-party dependencies. Any LLM provider.**
+
+```bash
+# Step 1: Clone
+git clone https://github.com/bisdom-cell/openclaw-model-bridge.git
+cd openclaw-model-bridge
+
+# Step 2: Set any ONE API key — quickstart auto-detects your provider
+export OPENAI_API_KEY="sk-..."           # OpenAI (GPT-4o)
+export GEMINI_API_KEY="..."              # Google Gemini
+export ANTHROPIC_API_KEY="sk-ant-..."    # Anthropic Claude
+export MOONSHOT_API_KEY="..."            # Kimi (Moonshot AI)
+export MINIMAX_API_KEY="..."             # MiniMax
+export GLM_API_KEY="..."                 # GLM (Zhipu AI)
+export REMOTE_API_KEY="..."              # Custom Qwen endpoint
+
+# Step 3: One command — auto-detects provider, runs 4 phases
 bash quickstart.sh
-# → Auto-detects provider, runs 4 phases, outputs golden test trace
+```
 
-# Or step by step:
+**What happens:**
+
+```
+Phase 1: Prerequisites     → Python, files, syntax, provider auto-detection
+Phase 2: Start Services    → Adapter(:5001) + Proxy(:5002), ~3 seconds
+Phase 3: Health Check      → 605 unit tests + registry validation
+Phase 4: Golden Test Trace → Real request through full stack, saved to docs/golden_trace.json
+```
+
+**Expected output:**
+
+```
+✅ Provider: openai (via $OPENAI_API_KEY)
+✅ 605 tests passed
+✅ Golden test: "Four" in 521ms (37 prompt + 2 completion tokens)
+   Trace saved to docs/golden_trace.json
+```
+
+<details>
+<summary>Step-by-step alternative / 分步执行</summary>
+
+```bash
 bash quickstart.sh --check   # Prerequisites only
 bash restart.sh              # Start services
 bash quickstart.sh --demo    # Demo request only
 ```
+</details>
 
-**Core services require zero third-party dependencies** (Python stdlib only).
-**Supports 4 providers out of the box**: OpenAI, Gemini, Claude, Qwen (custom endpoint).
+<details>
+<summary>After Quick Start: optional capabilities</summary>
 
 ```bash
 # SLO Benchmark — real production metrics report
-python3 slo_benchmark.py          # Markdown report
-python3 slo_benchmark.py --json   # JSON format
+python3 slo_benchmark.py          # Markdown report (5/5 PASS, p95=459ms)
+python3 slo_benchmark.py --json   # JSON format for CI
 python3 slo_benchmark.py --save   # Save to docs/slo_benchmark_report.md
 
-# Optional: KB RAG semantic search
+# Provider compatibility matrix
+python3 providers.py              # Markdown table (7 providers)
+python3 providers.py --json       # JSON format
+
+# GameDay fault injection drill
+bash gameday.sh --all             # 5 scenarios: GPU timeout, circuit breaker, etc.
+
+# KB RAG semantic search (requires pip install)
 pip3 install -r requirements-rag.txt
 python3 kb_embed.py && python3 kb_rag.py "AI papers"
 
-# Optional: Multimodal memory (images/audio/video)
-export GEMINI_API_KEY="your-gemini-key"
+# Multimodal memory search (requires pip install + Gemini key)
 pip3 install -r requirements-mm.txt
 python3 mm_index.py && python3 mm_search.py "cat photos"
 ```
+</details>
+
+### Why Zero Dependencies?
+
+Core services (`tool_proxy.py`, `adapter.py`, `proxy_filters.py`) use **only Python standard library** — `http.server`, `json`, `urllib`. No pip install, no virtual environment, no Docker. This is a deliberate architecture decision: **every dependency you remove is one fewer reason someone can't run your system.**
 
 ## Project Structure
 
@@ -160,7 +224,11 @@ python3 mm_index.py && python3 mm_search.py "cat photos"
 |------|-------------|
 | `tool_proxy.py` | HTTP layer — request/response routing, **custom tool execution** (data_clean + search_kb), **media injection**, followup LLM calls, logging, health cascade |
 | `proxy_filters.py` | Policy layer — tool filtering, **custom tool injection** (data_clean + search_kb), **image base64 injection** (`<media:image>` → `image_url`), param fixing, truncation, SSE conversion |
-| `adapter.py` | API adapter — multi-provider forwarding, auth, **multimodal routing** (text→Qwen3, image→Qwen2.5-VL), fallback degradation |
+| `adapter.py` | API adapter — **7-provider** forwarding, auth, **multimodal routing** (text→Qwen3, image→Qwen2.5-VL), fallback degradation |
+| `providers.py` | **V34** Provider Compatibility Layer — BaseProvider abstraction, 7 concrete providers, ProviderRegistry, capability declaration, CLI matrix |
+| `slo_benchmark.py` | **V35** SLO Benchmark report generator — reads proxy_stats.json → Markdown/JSON report (latency p50/p95/p99, success rate, degradation) |
+| `quickstart.sh` | **V35** One-click Quick Start — 4 phases (prerequisites → services → health → golden test), provider auto-detection |
+| `notify.sh` | **V33** Unified notification — WhatsApp + Discord dual-channel push, 6 topic channels |
 
 ### Knowledge Base & Local AI
 
@@ -204,6 +272,7 @@ python3 mm_index.py && python3 mm_search.py "cat photos"
 | `health_check.sh` | Weekly health report + JSON output |
 | `openclaw_backup.sh` | **V29.1** Daily Gateway state backup to external SSD (7-day retention) |
 | `upgrade_openclaw.sh` | Gateway upgrade SOP (must run via SSH, never via WhatsApp) |
+| `gameday.sh` | **V33** GameDay fault injection — 5 scenarios (GPU timeout, circuit breaker, snapshot, SLO, watchdog) |
 | `smoke_test.sh` | End-to-end smoke test (unit tests + registry + doc drift + connectivity) |
 
 ### Scheduled Jobs (32 registered, 28 active)
@@ -249,6 +318,7 @@ All jobs registered in `jobs_registry.yaml`. Validate: `python3 check_registry.p
 | `jobs_registry.yaml` | Unified job registry — 32 jobs (28 active, 4 disabled), system cron |
 | `check_registry.py` | Registry validator — ID uniqueness, paths, fields |
 | `gen_jobs_doc.py` | Auto-generate job docs from registry + drift detection |
+| `test_providers.py` | Unit tests for providers (58 cases) |
 | `test_tool_proxy.py` | Unit tests for proxy_filters (70 cases) |
 | `test_check_registry.py` | Unit tests for check_registry (18 cases) |
 | `test_data_clean.py` | Unit tests for data_clean (80 cases) |
@@ -258,7 +328,7 @@ All jobs registered in `jobs_registry.yaml`. Validate: `python3 check_registry.p
 | `test_status_update.py` | Unit tests for status_update (33 cases) |
 | `test_audit_log.py` | Unit tests for audit_log (19 cases) |
 | `test_config_slo.py` | **V32** Unit tests for config_loader + slo_checker + incident_snapshot + ProxyStats SLO (28 cases) |
-| `full_regression.sh` | **V30.1** Full regression runner — 424 tests, all must pass |
+| `full_regression.sh` | Full regression runner — **605 tests**, all must pass before push |
 | `.githooks/pre-commit` | **V32** Pre-commit hook — API key/phone leak + syntax checks |
 | `.github/workflows/ci.yml` | **V32** GitHub Actions CI — 9 test suites + config validation + security scan |
 | `CLAUDE.md` | Project context for AI-assisted development |
@@ -267,29 +337,67 @@ All jobs registered in `jobs_registry.yaml`. Validate: `python3 check_registry.p
 
 | File | Description |
 |------|-------------|
+| `docs/compatibility_matrix.md` | **V35** Provider compatibility matrix — 7 providers, verification status, degradation paths |
+| `docs/slo_benchmark_report.md` | **V35** SLO Benchmark production report — 5/5 PASS, p95=459ms |
+| `docs/golden_trace.json` | **V35** Golden Test Trace — real request/response through full stack (521ms, reproducible) |
+| `docs/strategic_review_20260403.md` | **V34** Strategic review — Stage2 positioning, V1-V3 roadmap, methodology |
 | `docs/GUIDE.md` | Complete bilingual (CN/EN) integration guide with 26 lessons learned |
 | `docs/config.md` | Full system configuration + historical changelog |
 | `docs/openclaw_architecture.md` | OpenClaw upstream architecture reference (synced to v2026.3.23) |
-| `docs/importyeti_sop.md` | ImportYeti manual query SOP for freight research |
 | `ROLLBACK.md` | Rollback guide — 30-second recovery to v26 |
 
-## V32 Methodology: Control Plane First
+## Methodology: Control Plane First
 
 > "The stronger capabilities get, the harder the system is to control — governance must lead, not follow."
 
 **Three-Plane Architecture**:
-- **Control Plane** (90%): SLO 5-metric monitoring, `config.yaml` centralized thresholds, 19-check preflight, incident snapshots, audit logging
-- **Capability Plane** (85%): Data cleaning, search_kb hybrid retrieval, multimodal understanding
-- **Memory Plane** (60%): KB RAG, trend analysis, preference learning, long-term memory (pending model upgrade)
+- **Control Plane** (90%): Provider Compatibility Layer, SLO 5-metric monitoring, centralized thresholds, 19-check preflight, incident snapshots, circuit breaker, audit logging
+- **Capability Plane** (85%): 7-provider routing, multimodal (text+vision), tool governance (≤12), data cleaning, search_kb hybrid retrieval
+- **Memory Plane** (60%): KB RAG, trend analysis, preference learning, multimodal memory, long-term memory (pending model upgrade)
 
-**SLO Targets** (defined in `config.yaml`, enforced by `slo_checker.py`):
-| Metric | Target | Source |
-|--------|--------|--------|
-| Latency p95 | < 30s | proxy_stats.json |
-| Tool success rate | > 95% | Custom tool execution |
-| Degradation rate | < 5% | Fallback provider usage |
-| Timeout rate | < 3% | Error type classification |
-| Auto-recovery rate | > 90% | Consecutive error → recovery |
+### SLO Benchmark Results (real production data)
+
+| Metric | Target | Actual | Status |
+|--------|--------|--------|--------|
+| Latency p95 | < 30s | **459ms** | PASS |
+| Tool success rate | > 95% | **100%** | PASS |
+| Degradation rate | < 5% | **0%** | PASS |
+| Timeout rate | < 3% | **0%** | PASS |
+| Auto-recovery rate | > 90% | **100%** | PASS |
+
+```bash
+python3 slo_benchmark.py --save   # Regenerate from live data → docs/slo_benchmark_report.md
+```
+
+### Fallback & Circuit Breaker
+
+```
+Primary (e.g. Qwen3-235B, 5min timeout)
+    ↓ failure / timeout / circuit break (5 consecutive failures)
+Fallback (e.g. Gemini 2.5 Flash, 1min timeout)
+    ↓ also failed
+502 Error (both error messages returned)
+    ↓ 300s later: half-open, attempt recovery
+```
+
+### Notification Channels
+
+All job outputs push to **both WhatsApp and Discord** simultaneously via `notify.sh`:
+
+```bash
+source notify.sh
+notify "New papers found"              # WhatsApp + Discord DM
+notify "ArXiv digest" --topic papers   # WhatsApp + Discord #papers channel
+notify "Deploy alert" --topic alerts   # WhatsApp + Discord #alerts channel
+```
+
+| Discord Channel | Content |
+|----------------|---------|
+| #papers | ArXiv, HF Papers, Semantic Scholar, DBLP, ACL |
+| #freight | Freight intelligence reports |
+| #alerts | Deploy alerts, watchdog, preflight failures |
+| #daily | KB digest, health reports, reviews |
+| #tech | HN, GitHub Trending, RSS blogs, OpenClaw releases |
 
 ## Key Rules
 
@@ -346,45 +454,38 @@ The `auto_deploy.sh` script maps 35 repo files to runtime locations and only res
 ## Testing
 
 ```bash
-# Full regression (424 tests — must pass before push)
+# Full regression (605 tests across 10 suites — must ALL pass before push)
 bash full_regression.sh
 
 # Individual test suites
+python3 test_providers.py               # 58 provider/registry tests
 python3 test_tool_proxy.py              # 70 proxy_filters tests
-python3 test_check_registry.py          # 18 registry tests
 python3 test_data_clean.py              # 80 data cleaning tests
-python3 test_adapter.py                 # 36 adapter tests
-python3 test_kb_business.py             # 44 KB business logic tests
 python3 test_cron_health.py             # 94 cron health tests
+python3 test_kb_business.py             # 44 KB business logic tests
+python3 test_adapter.py                 # 36 adapter tests
 python3 test_status_update.py           # 33 status update tests
-python3 test_audit_log.py               # 19 audit log tests
 python3 test_config_slo.py             # 28 config/SLO/incident tests
+python3 test_audit_log.py               # 19 audit log tests
+python3 test_check_registry.py          # 18 registry tests
+python3 test_slo_benchmark.py           # 17 SLO benchmark tests
 
-# Registry validation
-python3 check_registry.py               # Validate all 32 jobs
+# SLO benchmark report (real production data)
+python3 slo_benchmark.py                # Markdown: 5/5 PASS, p95=459ms
+python3 slo_benchmark.py --save         # Save to docs/
 
-# Doc drift detection
-python3 gen_jobs_doc.py --check          # Compare registry vs docs
+# Provider compatibility matrix
+python3 providers.py                    # 7-provider matrix
+python3 providers.py --json             # JSON for CI
 
-# End-to-end smoke test
-bash smoke_test.sh                       # Tests + registry + connectivity
+# GameDay fault injection (5 scenarios)
+bash gameday.sh --all
 
-# Full pre-flight check (on Mac Mini)
-bash preflight_check.sh --full           # 19 automated checks
+# Pre-flight check (19 automated checks, on Mac Mini)
+bash preflight_check.sh --full
 
-# SLO compliance check
-python3 slo_checker.py                   # Check all 5 SLO metrics
-python3 slo_checker.py --alert           # Output violations only
-
-# Incident snapshot (manual)
-python3 incident_snapshot.py --manual "description"
-python3 incident_snapshot.py --list      # Recent snapshots
-
-# Security score
-python3 security_score.py               # 7-dimension score (100 points)
-
-# Local embedding benchmark
-python3 local_embed.py --bench           # Performance test
+# Security score (7-dimension, 100 points)
+python3 security_score.py
 ```
 
 ## Security
@@ -396,6 +497,17 @@ grep -r "sk-[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*.md" | grep -v ".git"
 # All output must be empty
 ```
+
+## Evidence Chain
+
+| Evidence | File | How to reproduce |
+|----------|------|------------------|
+| **Golden Test Trace** | `docs/golden_trace.json` | `bash quickstart.sh --demo` |
+| **SLO Benchmark** | `docs/slo_benchmark_report.md` | `python3 slo_benchmark.py --save` |
+| **Compatibility Matrix** | `docs/compatibility_matrix.md` | `python3 providers.py` |
+| **605 Unit Tests** | 10 test files | `python3 -m unittest discover -p "test_*.py"` |
+| **GameDay Drill** | `gameday.sh` | `bash gameday.sh --all` |
+| **Security Score** | `security_score.py` | `python3 security_score.py` |
 
 ## Full Guide
 
