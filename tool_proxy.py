@@ -29,6 +29,13 @@ from proxy_filters import (
 BACKEND = "http://127.0.0.1:5001"
 PORT = 5002
 
+# Version — read from VERSION file (semver, V36+)
+try:
+    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "VERSION")) as _vf:
+        _VERSION = _vf.read().strip()
+except OSError:
+    _VERSION = "unknown"
+
 def log(msg):
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     print(f"[proxy] {ts} {msg}", flush=True)
@@ -86,7 +93,7 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                     adapter_ok = resp.status == 200
             except Exception:
                 pass
-            status = {"ok": adapter_ok, "proxy": True, "adapter": adapter_ok}
+            status = {"ok": adapter_ok, "version": _VERSION, "proxy": True, "adapter": adapter_ok}
             code = 200 if adapter_ok else 503
             body = json.dumps(status).encode()
             self.send_response(code)

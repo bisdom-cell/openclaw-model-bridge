@@ -3,6 +3,15 @@ import http.server, socketserver, json, ssl, sys, os, threading, time
 from datetime import datetime
 from urllib.request import Request, urlopen
 from urllib.error import URLError, HTTPError
+
+# ---------------------------------------------------------------------------
+# Version — read from VERSION file (semver, V36+)
+# ---------------------------------------------------------------------------
+try:
+    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "VERSION")) as _vf:
+        _VERSION = _vf.read().strip()
+except OSError:
+    _VERSION = "unknown"
 from urllib.parse import urlparse
 
 # ---------------------------------------------------------------------------
@@ -228,7 +237,7 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
         # Local health check — never forward to remote
         if self.path in ("/health", "/v1/health"):
-            info = {"ok": True, "provider": PROVIDER_NAME, "model": REAL_MODEL_ID}
+            info = {"ok": True, "version": _VERSION, "provider": PROVIDER_NAME, "model": REAL_MODEL_ID}
             if VL_MODEL_ID:
                 info["vl_model"] = VL_MODEL_ID
             if FALLBACK:

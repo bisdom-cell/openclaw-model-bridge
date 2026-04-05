@@ -1,6 +1,6 @@
 # CLAUDE.md — openclaw-model-bridge 项目背景
 
-> 每次新会话开始时自动读取。当前版本：v35（2026-04-05）
+> 每次新会话开始时自动读取。当前版本：v36 / 0.36.0（2026-04-05）
 
 ---
 
@@ -497,7 +497,8 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 | **V2-P0** | **Agent Reliability Bench**（导师建议模块二）：`reliability_bench.py` 7场景47检查（Provider宕机/工具超时/畸形参数/超大请求/KB未命中/Cron漂移/状态损坏），mock-based可在dev运行，36单测 | ✅ V36 完成 |
 | **V2-P0** | **Memory Plane v1 统一叙事**（导师建议模块三）：`memory_plane.py` 4层统一接口（KB语义/多媒体/偏好/状态）+ query/context/stats API + 45单测 + 架构文档 | ✅ V36 完成 |
 | **V2-P1** | **运维韧性证据**：故障注入实验 + 演练脚本 + 恢复时间统计 → 从"工程做得挺全"升级成"有 SRE 味道的 agent infra" | 待启动 |
-| **V2-P1** | **SLO Dashboard + semver 版本治理** | 待启动 |
+| **V2-P1** | **SLO Dashboard**：可视化延迟/成功率/降级率 | 待启动 |
+| **V2-P1** | **semver 版本治理**：`VERSION` 文件 + /health 端点暴露版本 + changelog 格式升级 | ✅ V36 完成 |
 | **V2-P1** | **安全边界说明文档**：`docs/security_boundaries.md`（8节：认证/网络/输入验证/数据保护/LLM安全/运维/评分/已知风险） | ✅ V36 完成 |
 | **V2-P1** | **Memory Plane v2**：跨层去重 + 置信度加权 + 冲突消解 + 记忆衰减 | 待启动 |
 
