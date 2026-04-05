@@ -117,10 +117,15 @@
 ## Quick Start
 
 ```bash
-# One-click: prerequisites check + start services + health verify + demo request
-export REMOTE_API_KEY="your-key-here"
+# Set any ONE of these API keys — quickstart auto-detects your provider:
+export OPENAI_API_KEY="sk-..."        # OpenAI (GPT-4o)
+export GEMINI_API_KEY="..."           # Google Gemini
+export ANTHROPIC_API_KEY="sk-ant-..." # Anthropic Claude
+export REMOTE_API_KEY="..."           # Custom endpoint (e.g. Qwen)
+
+# One-click: prerequisites → start services → health verify → demo request
 bash quickstart.sh
-# → Runs 4 phases: prerequisites → start → health → golden test trace
+# → Auto-detects provider, runs 4 phases, outputs golden test trace
 
 # Or step by step:
 bash quickstart.sh --check   # Prerequisites only
@@ -129,6 +134,7 @@ bash quickstart.sh --demo    # Demo request only
 ```
 
 **Core services require zero third-party dependencies** (Python stdlib only).
+**Supports 4 providers out of the box**: OpenAI, Gemini, Claude, Qwen (custom endpoint).
 
 ```bash
 # SLO Benchmark — real production metrics report

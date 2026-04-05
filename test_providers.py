@@ -204,10 +204,10 @@ class TestConcreteProviders(unittest.TestCase):
 class TestProviderRegistry(unittest.TestCase):
     """注册表测试"""
 
-    def test_default_registry_has_4_providers(self):
+    def test_default_registry_has_7_providers(self):
         from providers import get_registry
         reg = get_registry()
-        self.assertEqual(len(reg.list_names()), 4)
+        self.assertEqual(len(reg.list_names()), 7)
 
     def test_get_existing_provider(self):
         from providers import get_registry
@@ -228,6 +228,9 @@ class TestProviderRegistry(unittest.TestCase):
         self.assertIn("gemini", names)
         self.assertIn("openai", names)
         self.assertIn("claude", names)
+        self.assertIn("kimi", names)
+        self.assertIn("minimax", names)
+        self.assertIn("glm", names)
 
     def test_to_legacy_dict(self):
         from providers import get_registry
@@ -242,7 +245,7 @@ class TestProviderRegistry(unittest.TestCase):
     def test_compatibility_matrix(self):
         from providers import get_registry
         matrix = get_registry().compatibility_matrix()
-        self.assertEqual(len(matrix), 4)
+        self.assertEqual(len(matrix), 7)
         for row in matrix:
             self.assertIn("provider", row)
             self.assertIn("models", row)
@@ -287,7 +290,7 @@ class TestBackwardCompatibility(unittest.TestCase):
     def test_providers_dict_exported(self):
         from providers import PROVIDERS
         self.assertIsInstance(PROVIDERS, dict)
-        self.assertEqual(len(PROVIDERS), 4)
+        self.assertEqual(len(PROVIDERS), 7)
 
     def test_providers_dict_matches_old_format(self):
         """PROVIDERS dict 的格式与旧版 adapter.py 完全一致"""
@@ -408,7 +411,92 @@ class TestCLIOutput(unittest.TestCase):
         self.assertEqual(result.returncode, 0)
         data = json.loads(result.stdout)
         self.assertIsInstance(data, list)
-        self.assertEqual(len(data), 4)
+        self.assertEqual(len(data), 7)
+
+
+class TestChineseProviders(unittest.TestCase):
+    """中国国内 Provider 测试"""
+
+    def test_kimi_provider(self):
+        from providers import KimiProvider
+        p = KimiProvider()
+        self.assertEqual(p.name, "kimi")
+        self.assertEqual(p.auth_style, "bearer")
+        self.assertIn("moonshot.cn", p.base_url)
+        self.assertEqual(p.api_key_env, "MOONSHOT_API_KEY")
+        self.assertEqual(len(p.models), 2)
+        self.assertTrue(p.capabilities.tool_calling)
+        self.assertFalse(p.capabilities.vision)
+
+    def test_kimi_default_model(self):
+        from providers import KimiProvider
+        p = KimiProvider()
+        dm = p.default_model()
+        self.assertIsNotNone(dm)
+        self.assertIn("kimi", dm.model_id)
+
+    def test_minimax_provider(self):
+        from providers import MiniMaxProvider
+        p = MiniMaxProvider()
+        self.assertEqual(p.name, "minimax")
+        self.assertEqual(p.auth_style, "bearer")
+        self.assertIn("minimax.chat", p.base_url)
+        self.assertEqual(p.api_key_env, "MINIMAX_API_KEY")
+        self.assertEqual(len(p.models), 1)
+        self.assertTrue(p.capabilities.tool_calling)
+        self.assertEqual(p.capabilities.context_window, 1000000)
+
+    def test_minimax_default_model(self):
+        from providers import MiniMaxProvider
+        p = MiniMaxProvider()
+        dm = p.default_model()
+        self.assertIsNotNone(dm)
+        self.assertIn("MiniMax", dm.model_id)
+
+    def test_glm_provider(self):
+        from providers import GLMProvider
+        p = GLMProvider()
+        self.assertEqual(p.name, "glm")
+        self.assertEqual(p.auth_style, "bearer")
+        self.assertIn("bigmodel.cn", p.base_url)
+        self.assertEqual(p.api_key_env, "GLM_API_KEY")
+        self.assertEqual(len(p.models), 2)
+        self.assertTrue(p.capabilities.vision)
+        self.assertTrue(p.capabilities.tool_calling)
+
+    def test_glm_has_vision_model(self):
+        from providers import GLMProvider
+        p = GLMProvider()
+        vm = p.vision_model()
+        self.assertIsNotNone(vm)
+        self.assertIn("4v", vm.model_id)
+
+    def test_glm_default_model(self):
+        from providers import GLMProvider
+        p = GLMProvider()
+        dm = p.default_model()
+        self.assertIsNotNone(dm)
+        self.assertEqual(dm.model_id, "glm-4-plus")
+
+    def test_glm_vl_model_in_legacy(self):
+        from providers import GLMProvider
+        p = GLMProvider()
+        d = p.to_legacy_dict()
+        self.assertIn("vl_model_id", d)
+        self.assertIn("4v", d["vl_model_id"])
+
+    def test_chinese_providers_in_legacy_dict(self):
+        from providers import PROVIDERS
+        self.assertIn("kimi", PROVIDERS)
+        self.assertIn("minimax", PROVIDERS)
+        self.assertIn("glm", PROVIDERS)
+
+    def test_chinese_providers_openai_compatible(self):
+        """All Chinese providers use bearer auth (OpenAI-compatible)."""
+        from providers import get_registry
+        for name in ["kimi", "minimax", "glm"]:
+            p = get_registry().get(name)
+            self.assertEqual(p.auth_style, "bearer", f"{name} should use bearer auth")
 
 
 if __name__ == "__main__":

@@ -313,6 +313,129 @@ class ClaudeProvider(BaseProvider):
 
 
 # ---------------------------------------------------------------------------
+# Chinese Providers — 国内主流大模型
+# ---------------------------------------------------------------------------
+class KimiProvider(BaseProvider):
+    """Moonshot AI (Kimi) — https://platform.moonshot.cn"""
+    name = "kimi"
+    display_name = "Kimi (Moonshot AI)"
+    base_url = "https://api.moonshot.cn/v1"
+    api_key_env = "MOONSHOT_API_KEY"
+    auth_style = "bearer"
+    models = [
+        ModelInfo(
+            model_id="kimi-k2-0711",
+            display_name="Kimi K2",
+            modalities=["text"],
+            context_window=131072,
+            max_output_tokens=8192,
+            is_default=True,
+        ),
+        ModelInfo(
+            model_id="moonshot-v1-128k",
+            display_name="Moonshot v1 128K",
+            modalities=["text"],
+            context_window=131072,
+            max_output_tokens=8192,
+        ),
+    ]
+    capabilities = ProviderCapabilities(
+        text=True,
+        vision=False,
+        audio=False,
+        video=False,
+        tool_calling=True,
+        streaming=True,
+        json_mode=True,
+        context_window=131072,
+        max_output_tokens=8192,
+        verified_text=False,
+        verified_vision=False,
+        verified_tool_calling=False,
+        verified_streaming=False,
+        verified_fallback=False,
+    )
+
+
+class MiniMaxProvider(BaseProvider):
+    """MiniMax — https://platform.minimaxi.com"""
+    name = "minimax"
+    display_name = "MiniMax"
+    base_url = "https://api.minimax.chat/v1"
+    api_key_env = "MINIMAX_API_KEY"
+    auth_style = "bearer"
+    models = [
+        ModelInfo(
+            model_id="MiniMax-M1",
+            display_name="MiniMax M1",
+            modalities=["text"],
+            context_window=1000000,
+            max_output_tokens=8192,
+            is_default=True,
+        ),
+    ]
+    capabilities = ProviderCapabilities(
+        text=True,
+        vision=False,
+        audio=False,
+        video=False,
+        tool_calling=True,
+        streaming=True,
+        json_mode=True,
+        context_window=1000000,
+        max_output_tokens=8192,
+        verified_text=False,
+        verified_vision=False,
+        verified_tool_calling=False,
+        verified_streaming=False,
+        verified_fallback=False,
+    )
+
+
+class GLMProvider(BaseProvider):
+    """Zhipu AI (GLM) — https://open.bigmodel.cn"""
+    name = "glm"
+    display_name = "GLM (Zhipu AI)"
+    base_url = "https://open.bigmodel.cn/api/paas/v4"
+    api_key_env = "GLM_API_KEY"
+    auth_style = "bearer"
+    models = [
+        ModelInfo(
+            model_id="glm-4-plus",
+            display_name="GLM-4-Plus",
+            modalities=["text"],
+            context_window=128000,
+            max_output_tokens=4096,
+            is_default=True,
+        ),
+        ModelInfo(
+            model_id="glm-4v-plus",
+            display_name="GLM-4V-Plus (Vision)",
+            modalities=["text", "vision"],
+            context_window=8192,
+            max_output_tokens=4096,
+            is_vision=True,
+        ),
+    ]
+    capabilities = ProviderCapabilities(
+        text=True,
+        vision=True,
+        audio=False,
+        video=False,
+        tool_calling=True,
+        streaming=True,
+        json_mode=False,
+        context_window=128000,
+        max_output_tokens=4096,
+        verified_text=False,
+        verified_vision=False,
+        verified_tool_calling=False,
+        verified_streaming=False,
+        verified_fallback=False,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Provider Registry — 动态注册 + 发现
 # ---------------------------------------------------------------------------
 class ProviderRegistry:
@@ -374,6 +497,9 @@ _default_registry.register(QwenProvider())
 _default_registry.register(OpenAIProvider())
 _default_registry.register(GeminiProvider())
 _default_registry.register(ClaudeProvider())
+_default_registry.register(KimiProvider())
+_default_registry.register(MiniMaxProvider())
+_default_registry.register(GLMProvider())
 
 
 def get_registry() -> ProviderRegistry:

@@ -1,7 +1,7 @@
 # Provider Compatibility Matrix
 
-> 自动生成：`python3 providers.py` | 最后更新：2026-04-03
-> 数据来源：`providers.py` — Provider Compatibility Layer (V34)
+> 自动生成：`python3 providers.py` | 最后更新：2026-04-05
+> 数据来源：`providers.py` — Provider Compatibility Layer (V35)
 
 ---
 
@@ -13,6 +13,9 @@
 | OpenAI | gpt-4o | — | Bearer | api.openai.com |
 | Google Gemini | gemini-2.5-flash | — | Bearer | generativelanguage.googleapis.com |
 | Anthropic Claude | claude-sonnet-4-6 | — | x-api-key | api.anthropic.com |
+| Kimi (Moonshot AI) | kimi-k2-0711 | — | Bearer | api.moonshot.cn |
+| MiniMax | MiniMax-M1 | — | Bearer | api.minimax.chat |
+| GLM (Zhipu AI) | glm-4-plus | glm-4v-plus | Bearer | open.bigmodel.cn |
 
 ## 能力矩阵
 
@@ -22,6 +25,9 @@
 | OpenAI | Yes | Yes | Yes | — | Yes | Yes | Yes | 128K |
 | Google Gemini | Yes | Yes | — | — | Yes | Yes | Yes | 1048K |
 | Anthropic Claude | Yes | Yes | — | — | Yes | Yes | — | 200K |
+| Kimi (Moonshot AI) | Yes | — | — | — | Yes | Yes | Yes | 131K |
+| MiniMax | Yes | — | — | — | Yes | Yes | Yes | 1000K |
+| GLM (Zhipu AI) | Yes | Yes | — | — | Yes | Yes | — | 128K |
 
 ## 验证状态
 
@@ -47,9 +53,9 @@
 - Text: 作为 fallback 处理降级请求
 - Fallback: 在 Qwen 超时/故障时自动接管，60s 超时
 
-**OpenAI / Claude** — 0/5 verified
+**OpenAI / Claude / Kimi / MiniMax / GLM** — 0/5 verified
 - 注册表中已配置，但未在生产环境验证
-- 可通过 `PROVIDER=openai` 或 `PROVIDER=claude` 环境变量切换
+- 可通过 `PROVIDER=openai|claude|kimi|minimax|glm` 环境变量切换
 
 ## 部署配置
 
@@ -79,6 +85,18 @@ export OPENAI_API_KEY=sk-...
 # 切换到 Claude
 export PROVIDER=claude
 export ANTHROPIC_API_KEY=sk-ant-...
+
+# 切换到 Kimi (Moonshot AI)
+export PROVIDER=kimi
+export MOONSHOT_API_KEY=sk-...
+
+# 切换到 MiniMax
+export PROVIDER=minimax
+export MINIMAX_API_KEY=...
+
+# 切换到 GLM (Zhipu AI)
+export PROVIDER=glm
+export GLM_API_KEY=...
 
 # 重启 adapter
 bash restart.sh
@@ -134,13 +152,13 @@ bash restart.sh
 
 ## 工具模式验证
 
-| 模式 | Qwen | Gemini | OpenAI | Claude |
-|------|------|--------|--------|--------|
-| 单工具调用 | :white_check_mark: | — | — | — |
-| 多工具并行 | :white_check_mark: | — | — | — |
-| 自定义工具拦截 | :white_check_mark: | — | — | — |
-| Schema 简化 | :white_check_mark: | — | — | — |
-| 参数修复/别名映射 | :white_check_mark: | — | — | — |
+| 模式 | Qwen | Gemini | OpenAI | Claude | Kimi | MiniMax | GLM |
+|------|------|--------|--------|--------|------|---------|-----|
+| 单工具调用 | :white_check_mark: | — | — | — | — | — | — |
+| 多工具并行 | :white_check_mark: | — | — | — | — | — | — |
+| 自定义工具拦截 | :white_check_mark: | — | — | — | — | — | — |
+| Schema 简化 | :white_check_mark: | — | — | — | — | — | — |
+| 参数修复/别名映射 | :white_check_mark: | — | — | — | — | — | — |
 
 ---
 
