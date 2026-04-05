@@ -1,6 +1,6 @@
 # CLAUDE.md — openclaw-model-bridge 项目背景
 
-> 每次新会话开始时自动读取。当前版本：v34（2026-04-03）
+> 每次新会话开始时自动读取。当前版本：v35（2026-04-05）
 
 ---
 
@@ -131,6 +131,11 @@
 | `adapter.py` | API适配层（认证 `$REMOTE_API_KEY`，Fallback降级 `$FALLBACK_PROVIDER`）。V34: 从 `providers.py` 导入 PROVIDERS |
 | `docs/strategic_review_20260403.md` | **V34新增** 导师战略复盘文档（Stage判断/主战场定位/V1-V3路标/三个高价值模块/话语权输出/三块差距） |
 | `docs/compatibility_matrix.md` | **V34新增** Provider 兼容性矩阵（验证状态/降级路径/添加新 Provider 指南） |
+| `slo_benchmark.py` | **V35新增** SLO Benchmark 报告生成器（读取 proxy_stats.json 真实数据→Markdown/JSON 报告：延迟p50/p95/p99、成功率、错误分类、降级率、恢复率） |
+| `test_slo_benchmark.py` | **V35新增** SLO Benchmark 单测（17个用例：全通过/各类违规/零请求/格式化/文件读取） |
+| `quickstart.sh` | **V35新增** 一键 Quick Start（4阶段：前置检查→启动服务→健康验证→Golden Test Trace，10分钟跑通全栈） |
+| `docs/golden_trace.json` | **V35新增** Golden Test Trace（quickstart.sh 生成的真实请求/响应/延迟记录，可复现证据） |
+| `docs/slo_benchmark_report.md` | **V35新增** 首份 SLO Benchmark 实验报告（5/5 PASS，p95=459ms） |
 | `openclaw_backup.sh` | **V29.1新增** 每日Gateway state备份到外挂SSD（保留7天） |
 | `jobs_registry.yaml` | **V27新增** 统一任务注册表（system + openclaw 双 cron） |
 | `check_registry.py` | **V27新增** 注册表校验脚本 |
@@ -192,6 +197,7 @@
 
 | 版本 | 日期 | 关键变更 |
 |------|------|----------|
+| V35 | 2026-04-05 | **V1 路标冲刺** — SLO Benchmark 实验报告 + Quick Start 一键 demo + Golden Test Trace + Sub-agent PoC（链路通，deferred 等模型升级）+ 595 测试 |
 | V34 | 2026-04-03 | **Stage2 启动** — Provider Compatibility Layer + 导师战略复盘嵌入治理体系 + V1/V2/V3 路标 + 461 测试 |
 | V33 | 2026-04-03 | Discord 双通道支持 + 统一推送 notify.sh + Gateway 不升级可用 |
 | V30.5 | 2026-03-31 | search_kb 混合检索 + 论文监控矩阵 5 源全覆盖 + DBLP 上线 |
@@ -276,6 +282,16 @@ python3 data_clean.py validate original.csv cleaned.csv  # 验证结果
 python3 data_clean.py list-ops                           # 可用操作
 python3 data_clean.py history data.xlsx                  # 版本历史
 curl http://localhost:5002/data_clean/help               # REST 端点帮助
+
+# Quick Start（一键 10 分钟跑通全栈）
+bash quickstart.sh                # 完整 4 阶段（前置检查→启动→健康→demo）
+bash quickstart.sh --check        # 仅检查前置条件
+bash quickstart.sh --demo         # 仅运行 demo 请求
+
+# SLO Benchmark（真实生产数据报告）
+python3 slo_benchmark.py          # Markdown 报告
+python3 slo_benchmark.py --json   # JSON 格式
+python3 slo_benchmark.py --save   # 保存到 docs/slo_benchmark_report.md
 
 # Provider 兼容性矩阵
 python3 providers.py              # Markdown 表格
@@ -446,10 +462,10 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 
 | 优先级 | 任务 | 状态 |
 |--------|------|------|
-| **V1-P0** | **Provider Compatibility Layer**：`providers.py` BaseProvider 抽象 + 4 个实现 + ProviderRegistry + 能力声明 + CLI 兼容性矩阵（V34 已实现，生产验证中） | 🔄 运行验证中 |
-| **V1-P0** | **兼容性矩阵 + SLO Benchmark 证据**：`docs/compatibility_matrix.md` 已生成。下一步把 SLO 从规则变成实验结果（延迟 p95 / 成功率 / 降级恢复时间 / 超时率） | 🔄 矩阵完成，benchmark 待做 |
-| **V1-P1** | **一键启动 + 最小 demo + golden test trace**：别人 10 分钟能跑起来 = 传播效率翻倍 | 待启动 |
-| **V1-P1** | **可复现证据**：Quick Start 完善 + 一键 smoke test demo + demo transcript | 待启动 |
+| **V1-P0** | **Provider Compatibility Layer**：`providers.py` BaseProvider 抽象 + 4 个实现 + ProviderRegistry + 能力声明 + CLI 兼容性矩阵（V34 已实现，生产验证中） | ✅ V34 完成，生产验证通过 |
+| **V1-P0** | **兼容性矩阵 + SLO Benchmark 证据**：`docs/compatibility_matrix.md` + `slo_benchmark.py` + `docs/slo_benchmark_report.md`（5/5 PASS，p95=459ms） | ✅ V35 完成 |
+| **V1-P1** | **一键启动 + 最小 demo + golden test trace**：`quickstart.sh` 4阶段（前置检查→启动→健康→demo），19/19 通过，`docs/golden_trace.json` | ✅ V35 完成 |
+| **V1-P1** | **可复现证据**：Quick Start + golden trace + SLO benchmark report 均已入库 | ✅ V35 完成 |
 
 ### V2 路标（4-8 个月）：别人敢用
 
@@ -482,7 +498,7 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 | 优先级 | 任务 | 状态 |
 |--------|------|------|
 | 中 | **数据清洗 Phase 2**：三 Agent 架构（Profiler/Planner/Executor，用 `sessions_spawn`）、语义去重、自定义规则 | active |
-| 中 | **PA 子 Agent 委派**：`sessions_spawn` + `sessions_send` 让 PA 自主创建子任务 | active |
+| deferred | **PA 子 Agent 委派**：`sessions_spawn` + `sessions_send`。V35 PoC 完成：链路通（显式触发可用），但 Qwen3 隐式触发不可靠（优先从上下文回答）。等下一代模型 | deferred |
 | deferred | **PA 长期记忆**：Qwen3 不主动调用 memory 工具，等模型升级后重新验证 | blocked |
 | 低 | **可迁移性抽象**：去除个人/场景定制痕迹，抽象成别人也能迁移的框架（导师指出三块差距之一） | V2-V3 |
 | 低 | **记忆系统分层**：短期/长期/任务，含冲突消解和可信度评分 → 纳入 Memory Plane v1 | V2 |
@@ -493,13 +509,14 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 | 低 | **视频号内容转录分析**：firethinker 视频号监控 → STT 转录 → LLM 提炼 → KB 沉淀 | 按需 |
 | 低 | KB 静态加密：status.json / index.json 使用 age/gpg 加密存盘 | 按需 |
 
-### 已完成里程碑（V27-V33）
+### 已完成里程碑（V27-V35）
 
 <details>
 <summary>展开查看 25+ 项已完成任务</summary>
 
 | 版本 | 任务 |
 |------|------|
+| V35 | **V1 路标完成** — SLO Benchmark 实验报告（5/5 PASS, p95=459ms）+ Quick Start 一键 demo（19/19）+ Golden Test Trace + Sub-agent PoC（链路通，deferred）+ 595 测试 |
 | V34 | **Provider Compatibility Layer**：providers.py + 48 单测 + 兼容性矩阵 + adapter.py 重构 |
 | V33 | SLO 最小集 + 阈值中心化 + 旅程级 E2E 进 CI + 故障快照机制 + Job 分层治理 + Fallback Matrix + 变更影响评估 + GameDay 故障演练 + Discord 双通道 + notify.sh + pip-audit |
 | V32 | 配置中心化 + 变更审计 + config_loader.py |
