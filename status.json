@@ -122,12 +122,12 @@
   "recent_changes": [
     {
       "date": "2026-04-05",
-      "what": "V35+: notify.sh auto-retry+failure queue (3x exponential backoff + persistent queue + auto-replay), job_watchdog.sh uses notify.sh (retry+queue) + 24h log filter, 7 providers live, security 93/100",
+      "what": "V36/0.36.0: V2路标7/7全部完成 — Reliability Bench(7场景47检查)+Memory Plane v1+v2(4层统一+去重+置信度+冲突消解,64单测)+SLO Dashboard(历史追踪+sparkline)+安全边界文档+semver版本治理+运维韧性报告+第一篇架构文章(dev.to+知乎+Twitter发布)+610测试23套件全过+Mac Mini生产验证通过",
       "by": "claude_code"
     },
     {
       "date": "2026-04-05",
-      "what": "V35+: notify.sh auto-retry + failure queue (3次指数退避+队列持久化+自动重放), job_watchdog.sh改用notify.sh推送(享受retry)+日志扫描24h过滤, 双通道生产验证通过(WhatsApp+Discord), 7 providers全量上线(Kimi K2.5/MiniMax M2.7/GLM-5), 知乎文章+README刷新+架构SVG更新, 安全评分93/100",
+      "what": "V35+: notify.sh auto-retry+failure queue (3x exponential backoff + persistent queue + auto-replay), job_watchdog.sh uses notify.sh (retry+queue) + 24h log filter, 7 providers live, security 93/100",
       "by": "claude_code"
     },
     {
@@ -238,9 +238,9 @@
     "text_index": "13925 chunks, 254/255 files (99%), 254 stale, 3h ago, 20887KB"
   },
   "session_context": {
-    "last_session": "2026-03-31",
+    "last_session": "2026-04-05",
     "unfinished": "",
-    "open_prs": "PR#225: search_kb全面加固(待合并)",
+    "open_prs": "",
     "blocked_on": ""
   },
   "quality": {
