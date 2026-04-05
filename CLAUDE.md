@@ -515,7 +515,7 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 
 | 类型 | 任务 | 状态 |
 |------|------|------|
-| 架构型 | **Why Agent Systems Need a Control Plane** / **From Model Bridge to Runtime Governance** | 待写 |
+| 架构型 | **Why Agent Systems Need a Control Plane** — `docs/articles/why_control_plane.md`（问题→三平面架构→7场景证据→5条教训→立场） | ✅ V36 完成 |
 | 证据型 | **Benchmark Report** / **Failure Injection Report** / **Lessons from 461-test Regression** | 待写 |
 | 立场型 | **为什么 agent 系统首先是治理问题** / **为什么 control plane 必须先于 capability plane** | 待写 |
 
