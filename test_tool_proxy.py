@@ -669,5 +669,85 @@ class TestClassifyComplexity(unittest.TestCase):
         self.assertEqual(classify_complexity([], has_tools=False), "simple")
 
 
+class TestSessionToolSchemas(unittest.TestCase):
+    """V35 PoC: sessions_spawn/send/history/agents_list schema injection tests."""
+
+    def test_sessions_spawn_schema_injected(self):
+        """sessions_spawn should get CLEAN_SCHEMA with agent + message params."""
+        tools = [{"function": {"name": "sessions_spawn", "parameters": {"bloated": True}}}]
+        filtered, _, kept = filter_tools(tools)
+        self.assertIn("sessions_spawn", kept)
+        schema = filtered[0]["function"]["parameters"]
+        self.assertIn("agent", schema["properties"])
+        self.assertIn("message", schema["properties"])
+        self.assertEqual(schema["required"], ["agent", "message"])
+        self.assertTrue(schema.get("additionalProperties") is False)
+
+    def test_sessions_send_schema_injected(self):
+        """sessions_send should get CLEAN_SCHEMA with sessionId + message params."""
+        tools = [{"function": {"name": "sessions_send", "parameters": {"bloated": True}}}]
+        filtered, _, kept = filter_tools(tools)
+        self.assertIn("sessions_send", kept)
+        schema = filtered[0]["function"]["parameters"]
+        self.assertIn("sessionId", schema["properties"])
+        self.assertIn("message", schema["properties"])
+        self.assertEqual(schema["required"], ["sessionId", "message"])
+
+    def test_sessions_history_schema_injected(self):
+        """sessions_history should get CLEAN_SCHEMA with sessionId param."""
+        tools = [{"function": {"name": "sessions_history", "parameters": {}}}]
+        filtered, _, kept = filter_tools(tools)
+        self.assertIn("sessions_history", kept)
+        schema = filtered[0]["function"]["parameters"]
+        self.assertIn("sessionId", schema["properties"])
+        self.assertEqual(schema["required"], ["sessionId"])
+
+    def test_agents_list_schema_injected(self):
+        """agents_list should get CLEAN_SCHEMA with no required params."""
+        tools = [{"function": {"name": "agents_list", "parameters": {"junk": True}}}]
+        filtered, _, kept = filter_tools(tools)
+        self.assertIn("agents_list", kept)
+        schema = filtered[0]["function"]["parameters"]
+        self.assertEqual(schema["properties"], {})
+        self.assertTrue(schema.get("additionalProperties") is False)
+
+    def test_sessions_tools_in_allowed(self):
+        """All session tools must be in ALLOWED_TOOLS."""
+        for name in ("sessions_spawn", "sessions_send", "sessions_history", "agents_list"):
+            self.assertIn(name, ALLOWED_TOOLS)
+
+    def test_sessions_tools_in_tool_params(self):
+        """All session tools must have TOOL_PARAMS entries."""
+        self.assertEqual(TOOL_PARAMS["sessions_spawn"], {"agent", "message"})
+        self.assertEqual(TOOL_PARAMS["sessions_send"], {"sessionId", "message"})
+        self.assertEqual(TOOL_PARAMS["sessions_history"], {"sessionId"})
+        self.assertEqual(TOOL_PARAMS["agents_list"], set())
+
+    def test_spawn_args_cleaned(self):
+        """fix_tool_args should strip extra params from sessions_spawn."""
+        resp = make_response("sessions_spawn", {
+            "agent": "ops",
+            "message": "check health",
+            "bogus_param": "should be removed"
+        })
+        fix_tool_args(resp)
+        args = get_args(resp)
+        self.assertIn("agent", args)
+        self.assertIn("message", args)
+        self.assertNotIn("bogus_param", args)
+
+    def test_send_args_cleaned(self):
+        """fix_tool_args should strip extra params from sessions_send."""
+        resp = make_response("sessions_send", {
+            "sessionId": "abc-123",
+            "message": "hello",
+            "extra": "gone"
+        })
+        fix_tool_args(resp)
+        args = get_args(resp)
+        self.assertIn("sessionId", args)
+        self.assertNotIn("extra", args)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
