@@ -55,19 +55,19 @@ except ImportError:
         "kimi": {
             "base_url":    "https://api.moonshot.cn/v1",
             "api_key_env": "MOONSHOT_API_KEY",
-            "model_id":    "kimi-k2-0711",
+            "model_id":    "kimi-2.5",
             "auth_style":  "bearer",
         },
         "minimax": {
             "base_url":    "https://api.minimax.chat/v1",
             "api_key_env": "MINIMAX_API_KEY",
-            "model_id":    "MiniMax-M1",
+            "model_id":    "MiniMax-M2.7",
             "auth_style":  "bearer",
         },
         "glm": {
             "base_url":    "https://open.bigmodel.cn/api/paas/v4",
             "api_key_env": "GLM_API_KEY",
-            "model_id":    "glm-4-plus",
+            "model_id":    "glm-5",
             "auth_style":  "bearer",
         },
     }

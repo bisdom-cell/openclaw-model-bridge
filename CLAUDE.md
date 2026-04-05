@@ -13,15 +13,17 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                        用户层 (WhatsApp)                            │
+│                 用户层 (WhatsApp + Discord 双通道)                    │
 └────────────────────────────┬────────────────────────────────────────┘
                              │
 ┌────────────────────────────▼────────────────────────────────────────┐
 │  ① 核心数据通路（实时对话 + 多模态）                                  │
 │                                                                     │
-│  WhatsApp ←→ Gateway (:18789) ←→ Tool Proxy (:5002) ←→ Adapter (:5001) ←→ 远程GPU        │
-│              [launchd管理]        [策略过滤+监控]       [认证+VL路由]     [Qwen3-235B]      │
-│              [媒体存储]           [图片base64注入]      [Fallback降级]    [Qwen2.5-VL-72B]  │
+│  WhatsApp ←┐                                                        │
+│  Discord  ←┼→ Gateway (:18789) ←→ Tool Proxy (:5002) ←→ Adapter (:5001) ←→ LLM (7 Providers) │
+│  notify.sh ┘  [launchd管理]        [策略过滤+监控]       [认证+VL路由]     [Qwen3/GPT-4o/     │
+│               [媒体存储]           [图片base64注入]      [Fallback降级]     Gemini/Claude/     │
+│               [双通道推送]         [自定义工具注入]                         Kimi/MiniMax/GLM]  │
 │                  │                [自定义工具注入]          │                               │
 │                  │                    │                    │                               │
 │                  │               /health ──→ /health       │                               │
@@ -37,22 +39,22 @@
 ┌──────────────────▼────────────────────▼────────────────────▼────────────────────────┐
 │  ② 定时任务层（system crontab，不经过 LLM 链路）                                     │
 │                                                                                     │
-│  每3h    ArXiv论文监控 ──→ KB写入 + WhatsApp推送                                     │
-│  每3h    HN热帖抓取 ──→ KB写入 + WhatsApp推送                                        │
-│  每天×3  货代Watcher ──→ LLM分析(直接curl) + KB写入 + WhatsApp推送                    │
-│  每天    OpenClaw Releases ──→ LLM富摘要 + KB写入 + WhatsApp推送                     │
-│  每小时  Issues监控 ──→ KB写入 + WhatsApp推送                                        │
+│  每3h    ArXiv论文监控 ──→ KB写入 + WhatsApp+Discord推送                              │
+│  每3h    HN热帖抓取 ──→ KB写入 + WhatsApp+Discord推送                                 │
+│  每天×3  货代Watcher ──→ LLM分析(直接curl) + KB写入 + WhatsApp+Discord推送             │
+│  每天    OpenClaw Releases ──→ LLM富摘要 + KB写入 + WhatsApp+Discord推送              │
+│  每小时  Issues监控 ──→ KB写入 + WhatsApp+Discord推送                                 │
 │  每天    KB晚间整理                                                                  │
 │  每天    KB每日摘要 ──→ ~/.kb/daily_digest.md（LLM对话时可查）                          │
-│  每周    KB跨笔记回顾 ──→ LLM深度分析 + WhatsApp推送                                   │
-│  每周    健康周报 ──→ WhatsApp推送                                                    │
+│  每周    KB跨笔记回顾 ──→ LLM深度分析 + WhatsApp+Discord推送                            │
+│  每周    健康周报 ──→ WhatsApp+Discord推送                                             │
 └─────────────────────────────────────────────────────────────────────────────────────┘
                                        │
 ┌──────────────────────────────────────▼──────────────────────────────────────────────┐
 │  ③ 监控层（多级自动告警）                                                            │
 │                                                                                     │
 │  每30min  wa_keepalive ──→ 真实发送零宽字符 ──→ 失败则记录日志                         │
-│  每小时   job_watchdog ──→ 检查所有job状态文件 + 日志扫描 ──→ 超时/失败→WhatsApp告警   │
+│  每小时   job_watchdog ──→ 检查所有job状态文件 + 日志扫描 ──→ 超时/失败→WhatsApp+Discord告警│
 │  实时     proxy_stats ──→ token用量 + 连续错误计数 ──→ 阈值告警                       │
 │  /health  三层健康端点：Gateway(:18789) → Proxy(:5002) → Adapter(:5001)              │
 └─────────────────────────────────────────────────────────────────────────────────────┘
@@ -111,7 +113,7 @@
 | OpenClaw Gateway | 18789 | npm全局安装 | WhatsApp接入、**媒体存储**、工具执行、会话管理 | launchd (KeepAlive) |
 | Tool Proxy | 5002 | `tool_proxy.py` + `proxy_filters.py` | 工具过滤(24→12)、**图片base64注入**、**自定义工具注入+拦截执行**（data_clean、search_kb）、Schema简化、SSE转换、截断、token监控、`/data_clean/*` REST端点 | launchd plist |
 | Adapter | 5001 | `adapter.py` | 多Provider转发、认证、**多模态路由**（文本→Qwen3，图片→Qwen2.5-VL）、Fallback降级 | launchd plist |
-| 远程GPU | — | hkagentx.hkopenlab.com | **Qwen3-235B**（文本, 262K context）+ **Qwen2.5-VL-72B**（视觉理解） | 外部服务 |
+| LLM Providers (7) | — | `providers.py` | **7 Provider**：Qwen3-235B + VL-72B（主力）/ GPT-4o / Gemini 2.5 / Claude / Kimi / MiniMax / GLM | 外部服务 |
 
 ## 关键文件（本仓库）
 
@@ -156,7 +158,7 @@
 | `kb_trend.py` | **V29.5新增** KB周趋势报告（本周vs上周关键词+LLM分析+WhatsApp推送） |
 | `status_update.py` | **V29.5新增** 三方共享项目状态工具（原子读写 ~/.kb/status.json，Claude Code + PA + cron 共用） |
 | `kb_save_arxiv.sh` | ArXiv监控结果写入KB + rsync备份 |
-| `auto_deploy.sh` | **V27.1新增** 仓库→部署自动同步 + 漂移检测（md5全量比对+WhatsApp告警） |
+| `auto_deploy.sh` | **V27.1新增** 仓库→部署自动同步 + 漂移检测（md5全量比对+WhatsApp+Discord告警） |
 | `test_tool_proxy.py` | proxy_filters 单测（67个用例，含自定义工具注入） |
 | `test_check_registry.py` | **V28新增** check_registry.py 单测（18个用例） |
 | `gen_jobs_doc.py` | **V28新增** 从 registry 自动生成任务文档 + 漂移检测 |
