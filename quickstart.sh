@@ -185,12 +185,14 @@ verify_health() {
     echo ""
     info "Running unit tests..."
     TEST_OUTPUT=$(python3 -m unittest discover -s "$SCRIPT_DIR" -p "test_*.py" -q 2>&1) || true
-    TEST_LAST=$(echo "$TEST_OUTPUT" | tail -1)
-    if echo "$TEST_LAST" | grep -q "^OK"; then
-        TEST_COUNT=$(echo "$TEST_OUTPUT" | grep -oP 'Ran \K[0-9]+' || echo "?")
+    # Extract the result line (e.g. "Ran 595 tests in 1.3s" + "OK (skipped=5)")
+    # Use grep instead of tail -1 because test output may include non-result lines
+    TEST_RESULT=$(echo "$TEST_OUTPUT" | grep -E "^OK|^FAILED" | head -1)
+    TEST_COUNT=$(echo "$TEST_OUTPUT" | grep -oE 'Ran [0-9]+' | grep -oE '[0-9]+' || echo "?")
+    if echo "$TEST_RESULT" | grep -q "^OK"; then
         ok "Unit tests passed ($TEST_COUNT tests)"
     else
-        warn "Some tests failed: $TEST_LAST"
+        warn "Some tests failed: $TEST_RESULT"
     fi
 
     # Provider compatibility matrix
