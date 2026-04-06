@@ -372,6 +372,112 @@ class TestValidation(unittest.TestCase):
         self.assertTrue(valid)
 
 
+class TestGenerateProxyData(unittest.TestCase):
+    """Phase 1 等价性证明：ontology 生成的数据 == proxy_filters 硬编码。
+
+    这组测试是 Phase 1 的核心安全网：
+    如果任何一项不等价，说明 ontology 还不能替换硬编码。
+    """
+
+    def setUp(self):
+        self.onto = ToolOntology()
+        self.data = self.onto.generate_proxy_data()
+
+    def test_generate_returns_all_keys(self):
+        """generate_proxy_data 必须返回全部 7 个数据结构。"""
+        expected_keys = {
+            "ALLOWED_TOOLS", "ALLOWED_PREFIXES", "CLEAN_SCHEMAS",
+            "TOOL_PARAMS", "CUSTOM_TOOLS", "CUSTOM_TOOL_NAMES",
+            "VALID_BROWSER_PROFILES",
+        }
+        self.assertEqual(set(self.data.keys()), expected_keys)
+
+    def test_allowed_tools_equals_hardcoded(self):
+        """ALLOWED_TOOLS: ontology 生成 == proxy_filters 硬编码。"""
+        from proxy_filters import ALLOWED_TOOLS
+        self.assertEqual(self.data["ALLOWED_TOOLS"], ALLOWED_TOOLS,
+                         f"ALLOWED_TOOLS 不等价:\n"
+                         f"  仅 ontology: {self.data['ALLOWED_TOOLS'] - ALLOWED_TOOLS}\n"
+                         f"  仅 hardcoded: {ALLOWED_TOOLS - self.data['ALLOWED_TOOLS']}")
+
+    def test_allowed_prefixes_equals_hardcoded(self):
+        """ALLOWED_PREFIXES: ontology 生成 == proxy_filters 硬编码。"""
+        from proxy_filters import ALLOWED_PREFIXES
+        self.assertEqual(self.data["ALLOWED_PREFIXES"], ALLOWED_PREFIXES)
+
+    def test_clean_schemas_keys_equal_hardcoded(self):
+        """CLEAN_SCHEMAS: 覆盖的工具集合必须一致。"""
+        from proxy_filters import CLEAN_SCHEMAS
+        self.assertEqual(set(self.data["CLEAN_SCHEMAS"].keys()),
+                         set(CLEAN_SCHEMAS.keys()),
+                         "CLEAN_SCHEMAS 覆盖的工具不一致")
+
+    def test_clean_schemas_structure_equals_hardcoded(self):
+        """CLEAN_SCHEMAS: 每个工具的 schema 结构必须一致（忽略 description 文本）。"""
+        from proxy_filters import CLEAN_SCHEMAS
+
+        def strip_desc(schema):
+            """递归移除 description，只比结构。"""
+            if not isinstance(schema, dict):
+                return schema
+            return {k: strip_desc(v) for k, v in schema.items() if k != "description"}
+
+        for tool_name in CLEAN_SCHEMAS:
+            hard = strip_desc(CLEAN_SCHEMAS[tool_name])
+            onto = strip_desc(self.data["CLEAN_SCHEMAS"].get(tool_name, {}))
+            self.assertEqual(hard, onto,
+                             f"CLEAN_SCHEMAS['{tool_name}'] 结构不一致:\n"
+                             f"  hardcoded: {hard}\n"
+                             f"  ontology:  {onto}")
+
+    def test_tool_params_equals_hardcoded(self):
+        """TOOL_PARAMS: 每个工具的合法参数集必须一致。"""
+        from proxy_filters import TOOL_PARAMS
+        for tool_name in TOOL_PARAMS:
+            hard = TOOL_PARAMS[tool_name]
+            onto = self.data["TOOL_PARAMS"].get(tool_name, set())
+            self.assertEqual(hard, onto,
+                             f"TOOL_PARAMS['{tool_name}'] 不一致:\n"
+                             f"  hardcoded: {hard}\n"
+                             f"  ontology:  {onto}")
+
+    def test_custom_tools_count_equals_hardcoded(self):
+        """CUSTOM_TOOLS: 数量必须一致。"""
+        from proxy_filters import CUSTOM_TOOLS
+        self.assertEqual(len(self.data["CUSTOM_TOOLS"]), len(CUSTOM_TOOLS))
+
+    def test_custom_tool_names_equals_hardcoded(self):
+        """CUSTOM_TOOL_NAMES: 名称集合必须一致。"""
+        from proxy_filters import CUSTOM_TOOL_NAMES
+        self.assertEqual(self.data["CUSTOM_TOOL_NAMES"], CUSTOM_TOOL_NAMES)
+
+    def test_browser_profiles_equals_hardcoded(self):
+        """VALID_BROWSER_PROFILES: 必须一致。"""
+        from proxy_filters import VALID_BROWSER_PROFILES
+        self.assertEqual(self.data["VALID_BROWSER_PROFILES"], VALID_BROWSER_PROFILES)
+
+    def test_generate_is_complete_replacement(self):
+        """综合验证：generate_proxy_data 能完全替代硬编码的 7 个数据结构。"""
+        from proxy_filters import (ALLOWED_TOOLS, ALLOWED_PREFIXES, CLEAN_SCHEMAS,
+                                   TOOL_PARAMS, CUSTOM_TOOLS, CUSTOM_TOOL_NAMES,
+                                   VALID_BROWSER_PROFILES)
+        # 1. 白名单
+        self.assertEqual(self.data["ALLOWED_TOOLS"], ALLOWED_TOOLS)
+        # 2. 前缀
+        self.assertEqual(self.data["ALLOWED_PREFIXES"], ALLOWED_PREFIXES)
+        # 3. Schema keys
+        self.assertEqual(set(self.data["CLEAN_SCHEMAS"].keys()), set(CLEAN_SCHEMAS.keys()))
+        # 4. Params
+        for name in TOOL_PARAMS:
+            self.assertEqual(self.data["TOOL_PARAMS"].get(name, set()), TOOL_PARAMS[name])
+        # 5. 自定义工具数量
+        self.assertEqual(len(self.data["CUSTOM_TOOLS"]), len(CUSTOM_TOOLS))
+        # 6. 自定义工具名
+        self.assertEqual(self.data["CUSTOM_TOOL_NAMES"], CUSTOM_TOOL_NAMES)
+        # 7. 浏览器
+        self.assertEqual(self.data["VALID_BROWSER_PROFILES"], VALID_BROWSER_PROFILES)
+
+
 class TestConsistencyCheck(unittest.TestCase):
     """与 proxy_filters.py 一致性检查测试。"""
 
@@ -514,6 +620,109 @@ class TestConstitution(unittest.TestCase):
         }
         self.assertEqual(dimensions, expected_dims,
                          f"diff 维度不完整: 缺少 {expected_dims - dimensions}")
+
+
+class TestSemanticQuery(unittest.TestCase):
+    """语义查询测试 — POC 核心验证。
+
+    证明本体可以用属性推导工具集，而不是手动枚举。
+    """
+
+    def setUp(self):
+        self.onto = ToolOntology()
+
+    def test_query_side_effects_true(self):
+        """有副作用的工具集。"""
+        result = self.onto.query_tools(side_effects=True)
+        self.assertIn("write", result)
+        self.assertIn("edit", result)
+        self.assertIn("exec", result)
+        self.assertIn("cron", result)
+        self.assertIn("data_clean", result)
+        self.assertNotIn("read", result)
+        self.assertNotIn("web_search", result)
+
+    def test_query_side_effects_false(self):
+        """无副作用的工具集。"""
+        result = self.onto.query_tools(side_effects=False)
+        self.assertIn("read", result)
+        self.assertIn("web_search", result)
+        self.assertIn("search_kb", result)
+        self.assertNotIn("write", result)
+        self.assertNotIn("exec", result)
+
+    def test_query_by_category(self):
+        result = self.onto.query_tools(category="file_operation")
+        self.assertEqual(result, ["edit", "read", "write"])
+
+    def test_query_by_resource_type(self):
+        result = self.onto.query_tools(resource_type="WebPage")
+        self.assertEqual(result, ["web_fetch", "web_search"])
+
+    def test_query_combined(self):
+        """组合条件：有副作用 + 文件操作 = write, edit（不含 read）。"""
+        result = self.onto.query_tools(side_effects=True, category="file_operation")
+        self.assertEqual(result, ["edit", "write"])
+
+    def test_query_by_tool_type(self):
+        result = self.onto.query_tools(tool_type="custom")
+        self.assertEqual(result, ["data_clean", "search_kb"])
+
+    def test_query_no_filters_returns_all(self):
+        """无条件查询返回全部工具。"""
+        result = self.onto.query_tools()
+        self.assertEqual(len(result), 18)  # 16 builtin + 2 custom
+
+    def test_query_impossible_returns_empty(self):
+        """不可能的条件返回空列表。"""
+        result = self.onto.query_tools(category="nonexistent_category")
+        self.assertEqual(result, [])
+
+    def test_side_effects_partition(self):
+        """有副作用 + 无副作用 = 全部工具（完美分区）。"""
+        with_effects = set(self.onto.query_tools(side_effects=True))
+        without_effects = set(self.onto.query_tools(side_effects=False))
+        all_tools = set(self.onto.query_tools())
+        self.assertEqual(with_effects | without_effects, all_tools)
+        self.assertEqual(with_effects & without_effects, set())
+
+    def test_infer_policy_targets_simple(self):
+        """语义条件推导 — 简单条件。"""
+        result = self.onto.infer_policy_targets("side_effects == true")
+        self.assertIn("write", result)
+        self.assertNotIn("read", result)
+
+    def test_infer_policy_targets_combined(self):
+        """语义条件推导 — 组合条件。"""
+        result = self.onto.infer_policy_targets("side_effects == true AND category == file_operation")
+        self.assertEqual(result, ["edit", "write"])
+
+    def test_infer_matches_query(self):
+        """infer_policy_targets 结果必须和 query_tools 一致。"""
+        inferred = self.onto.infer_policy_targets("side_effects == false")
+        queried = self.onto.query_tools(side_effects=False)
+        self.assertEqual(inferred, queried)
+
+    def test_new_tool_auto_coverage(self):
+        """模拟新增工具：声明属性后自动被语义查询覆盖。"""
+        # 用自定义数据模拟新增工具
+        data = {
+            "tools": {"builtin": {
+                "read": {"category": "file_operation", "side_effects": False,
+                         "resource_type": "File", "parameters": {"path": {"type": "string", "required": True}}},
+                "write": {"category": "file_operation", "side_effects": True,
+                          "resource_type": "File", "parameters": {"path": {"type": "string", "required": True}}},
+                "deploy": {"category": "system_execution", "side_effects": True,
+                           "resource_type": "File", "parameters": {"target": {"type": "string", "required": True}}},
+            }, "custom": {}},
+            "policies": {},
+            "metadata": {"version": "test"}
+        }
+        test_onto = ToolOntology(data=data)
+        dangerous = test_onto.query_tools(side_effects=True)
+        self.assertIn("deploy", dangerous)
+        self.assertIn("write", dangerous)
+        self.assertNotIn("read", dangerous)
 
 
 if __name__ == "__main__":
