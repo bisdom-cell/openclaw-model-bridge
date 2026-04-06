@@ -19,7 +19,8 @@
 #   papers  → #论文（arxiv/hf/s2/dblp/acl）
 #   freight → #货代（freight_watcher）
 #   alerts  → #告警（auto_deploy/watchdog/preflight）
-#   daily   → #日报（kb_dream/kb_review/health_check）
+#   daily    → #日报（kb_dream/kb_review/health_check）
+#   ontology → #ontology（本体论讨论与推送）
 #   tech    → #技术（hn/github_trending/rss_blogs/openclaw）
 #   (空)    → DM（私信，默认）
 #
@@ -31,6 +32,7 @@
 #   DISCORD_CH_ALERTS   — Discord #告警 频道ID
 #   DISCORD_CH_DAILY    — Discord #日报 频道ID
 #   DISCORD_CH_TECH     — Discord #技术 频道ID
+#   DISCORD_CH_ONTOLOGY — Discord #ontology 频道ID
 #   NOTIFY_CHANNELS     — 启用的通道，逗号分隔（默认 "whatsapp,discord"）
 #   NOTIFY_MAX_RETRIES  — 最大重试次数（默认 3）
 #   NOTIFY_QUEUE_DIR    — 失败队列目录（默认 ~/.kb/notify_queue）
@@ -53,6 +55,7 @@ _notify_discord_target_for_topic() {
         alerts)  echo "${DISCORD_CH_ALERTS:-}" ;;
         daily)   echo "${DISCORD_CH_DAILY:-}" ;;
         tech)    echo "${DISCORD_CH_TECH:-}" ;;
+        ontology) echo "${DISCORD_CH_ONTOLOGY:-}" ;;
         *)       echo "" ;;
     esac
 }
