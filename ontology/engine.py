@@ -436,6 +436,35 @@ class ToolOntology:
                 filters[key] = value
         return filters
 
+    # ── Phase 1: 生成 proxy_filters 兼容数据 ──
+
+    def generate_proxy_data(self):
+        """生成与 proxy_filters.py 硬编码完全相同格式的数据结构。
+
+        Phase 1 核心方法：证明本体可以生成 drop-in 替换数据。
+        返回 dict，key 与 proxy_filters.py 中的全局变量一一对应。
+
+        Returns:
+            {
+                "ALLOWED_TOOLS": set,
+                "ALLOWED_PREFIXES": list,
+                "CLEAN_SCHEMAS": dict,
+                "TOOL_PARAMS": dict,
+                "CUSTOM_TOOLS": list,
+                "CUSTOM_TOOL_NAMES": set,
+                "VALID_BROWSER_PROFILES": set,
+            }
+        """
+        return {
+            "ALLOWED_TOOLS": self.allowed_tools,
+            "ALLOWED_PREFIXES": self.allowed_prefixes,
+            "CLEAN_SCHEMAS": self.clean_schemas,
+            "TOOL_PARAMS": self.tool_params,
+            "CUSTOM_TOOLS": self.custom_tools,
+            "CUSTOM_TOOL_NAMES": self.custom_tool_names,
+            "VALID_BROWSER_PROFILES": self.valid_browser_profiles,
+        }
+
     # ── 验证接口 ──
 
     def validate_tool_args(self, tool_name, args):

@@ -24,7 +24,15 @@ from config_loader import (
 )
 
 # ---------------------------------------------------------------------------
-# 配置数据
+# Phase 1: Ontology 特性开关（默认 off = 使用硬编码，完全等价于改动前）
+# ONTOLOGY_MODE=on 时从 ontology/tool_ontology.yaml 加载数据
+# 任何加载失败自动回退到硬编码，等价于开关 off
+# 回退方式：ONTOLOGY_MODE=off 或 rm -rf ontology/
+# ---------------------------------------------------------------------------
+_ONTOLOGY_MODE = os.environ.get("ONTOLOGY_MODE", "off").lower() == "on"
+
+# ---------------------------------------------------------------------------
+# 配置数据（硬编码 — 始终定义，作为基线和回退）
 # ---------------------------------------------------------------------------
 
 # 允许通过的工具（白名单）
@@ -296,6 +304,45 @@ CUSTOM_TOOLS = [
 
 # 自定义工具名称集合（用于 proxy 拦截判断）
 CUSTOM_TOOL_NAMES = {t["function"]["name"] for t in CUSTOM_TOOLS}
+
+
+# ---------------------------------------------------------------------------
+# Phase 1: Ontology 数据覆盖（仅 ONTOLOGY_MODE=on 时生效）
+# 回退逻辑：加载失败 → 保留上方硬编码不变 → 等价于开关 off
+# ---------------------------------------------------------------------------
+if _ONTOLOGY_MODE:
+    try:
+        import importlib.util as _imp_util
+        _onto_engine_path = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), "ontology", "engine.py")
+        if os.path.exists(_onto_engine_path):
+            _spec = _imp_util.spec_from_file_location("_onto_engine", _onto_engine_path)
+            _mod = _imp_util.module_from_spec(_spec)
+            _spec.loader.exec_module(_mod)
+            _onto = _mod.ToolOntology()
+            _data = _onto.generate_proxy_data()
+
+            # 覆盖硬编码（只有全部生成成功才覆盖）
+            ALLOWED_TOOLS = _data["ALLOWED_TOOLS"]
+            ALLOWED_PREFIXES = _data["ALLOWED_PREFIXES"]
+            CLEAN_SCHEMAS = _data["CLEAN_SCHEMAS"]
+            TOOL_PARAMS = _data["TOOL_PARAMS"]
+            CUSTOM_TOOLS = _data["CUSTOM_TOOLS"]
+            CUSTOM_TOOL_NAMES = _data["CUSTOM_TOOL_NAMES"]
+            VALID_BROWSER_PROFILES = _data["VALID_BROWSER_PROFILES"]
+
+            import logging as _log
+            _log.getLogger("proxy_filters").info(
+                "ONTOLOGY_MODE=on: loaded %d tools from ontology/tool_ontology.yaml",
+                len(ALLOWED_TOOLS))
+
+            # 清理临时变量
+            del _spec, _mod, _onto, _data
+    except Exception as _e:
+        import logging as _log
+        _log.getLogger("proxy_filters").warning(
+            "ONTOLOGY_MODE=on but load failed, falling back to hardcoded: %s", _e)
+        # 硬编码变量未被修改，安全回退
 
 
 # [NO_TOOLS] 标记：消息中包含此标记时，proxy 强制清空工具列表

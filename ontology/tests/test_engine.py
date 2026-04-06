@@ -372,6 +372,112 @@ class TestValidation(unittest.TestCase):
         self.assertTrue(valid)
 
 
+class TestGenerateProxyData(unittest.TestCase):
+    """Phase 1 等价性证明：ontology 生成的数据 == proxy_filters 硬编码。
+
+    这组测试是 Phase 1 的核心安全网：
+    如果任何一项不等价，说明 ontology 还不能替换硬编码。
+    """
+
+    def setUp(self):
+        self.onto = ToolOntology()
+        self.data = self.onto.generate_proxy_data()
+
+    def test_generate_returns_all_keys(self):
+        """generate_proxy_data 必须返回全部 7 个数据结构。"""
+        expected_keys = {
+            "ALLOWED_TOOLS", "ALLOWED_PREFIXES", "CLEAN_SCHEMAS",
+            "TOOL_PARAMS", "CUSTOM_TOOLS", "CUSTOM_TOOL_NAMES",
+            "VALID_BROWSER_PROFILES",
+        }
+        self.assertEqual(set(self.data.keys()), expected_keys)
+
+    def test_allowed_tools_equals_hardcoded(self):
+        """ALLOWED_TOOLS: ontology 生成 == proxy_filters 硬编码。"""
+        from proxy_filters import ALLOWED_TOOLS
+        self.assertEqual(self.data["ALLOWED_TOOLS"], ALLOWED_TOOLS,
+                         f"ALLOWED_TOOLS 不等价:\n"
+                         f"  仅 ontology: {self.data['ALLOWED_TOOLS'] - ALLOWED_TOOLS}\n"
+                         f"  仅 hardcoded: {ALLOWED_TOOLS - self.data['ALLOWED_TOOLS']}")
+
+    def test_allowed_prefixes_equals_hardcoded(self):
+        """ALLOWED_PREFIXES: ontology 生成 == proxy_filters 硬编码。"""
+        from proxy_filters import ALLOWED_PREFIXES
+        self.assertEqual(self.data["ALLOWED_PREFIXES"], ALLOWED_PREFIXES)
+
+    def test_clean_schemas_keys_equal_hardcoded(self):
+        """CLEAN_SCHEMAS: 覆盖的工具集合必须一致。"""
+        from proxy_filters import CLEAN_SCHEMAS
+        self.assertEqual(set(self.data["CLEAN_SCHEMAS"].keys()),
+                         set(CLEAN_SCHEMAS.keys()),
+                         "CLEAN_SCHEMAS 覆盖的工具不一致")
+
+    def test_clean_schemas_structure_equals_hardcoded(self):
+        """CLEAN_SCHEMAS: 每个工具的 schema 结构必须一致（忽略 description 文本）。"""
+        from proxy_filters import CLEAN_SCHEMAS
+
+        def strip_desc(schema):
+            """递归移除 description，只比结构。"""
+            if not isinstance(schema, dict):
+                return schema
+            return {k: strip_desc(v) for k, v in schema.items() if k != "description"}
+
+        for tool_name in CLEAN_SCHEMAS:
+            hard = strip_desc(CLEAN_SCHEMAS[tool_name])
+            onto = strip_desc(self.data["CLEAN_SCHEMAS"].get(tool_name, {}))
+            self.assertEqual(hard, onto,
+                             f"CLEAN_SCHEMAS['{tool_name}'] 结构不一致:\n"
+                             f"  hardcoded: {hard}\n"
+                             f"  ontology:  {onto}")
+
+    def test_tool_params_equals_hardcoded(self):
+        """TOOL_PARAMS: 每个工具的合法参数集必须一致。"""
+        from proxy_filters import TOOL_PARAMS
+        for tool_name in TOOL_PARAMS:
+            hard = TOOL_PARAMS[tool_name]
+            onto = self.data["TOOL_PARAMS"].get(tool_name, set())
+            self.assertEqual(hard, onto,
+                             f"TOOL_PARAMS['{tool_name}'] 不一致:\n"
+                             f"  hardcoded: {hard}\n"
+                             f"  ontology:  {onto}")
+
+    def test_custom_tools_count_equals_hardcoded(self):
+        """CUSTOM_TOOLS: 数量必须一致。"""
+        from proxy_filters import CUSTOM_TOOLS
+        self.assertEqual(len(self.data["CUSTOM_TOOLS"]), len(CUSTOM_TOOLS))
+
+    def test_custom_tool_names_equals_hardcoded(self):
+        """CUSTOM_TOOL_NAMES: 名称集合必须一致。"""
+        from proxy_filters import CUSTOM_TOOL_NAMES
+        self.assertEqual(self.data["CUSTOM_TOOL_NAMES"], CUSTOM_TOOL_NAMES)
+
+    def test_browser_profiles_equals_hardcoded(self):
+        """VALID_BROWSER_PROFILES: 必须一致。"""
+        from proxy_filters import VALID_BROWSER_PROFILES
+        self.assertEqual(self.data["VALID_BROWSER_PROFILES"], VALID_BROWSER_PROFILES)
+
+    def test_generate_is_complete_replacement(self):
+        """综合验证：generate_proxy_data 能完全替代硬编码的 7 个数据结构。"""
+        from proxy_filters import (ALLOWED_TOOLS, ALLOWED_PREFIXES, CLEAN_SCHEMAS,
+                                   TOOL_PARAMS, CUSTOM_TOOLS, CUSTOM_TOOL_NAMES,
+                                   VALID_BROWSER_PROFILES)
+        # 1. 白名单
+        self.assertEqual(self.data["ALLOWED_TOOLS"], ALLOWED_TOOLS)
+        # 2. 前缀
+        self.assertEqual(self.data["ALLOWED_PREFIXES"], ALLOWED_PREFIXES)
+        # 3. Schema keys
+        self.assertEqual(set(self.data["CLEAN_SCHEMAS"].keys()), set(CLEAN_SCHEMAS.keys()))
+        # 4. Params
+        for name in TOOL_PARAMS:
+            self.assertEqual(self.data["TOOL_PARAMS"].get(name, set()), TOOL_PARAMS[name])
+        # 5. 自定义工具数量
+        self.assertEqual(len(self.data["CUSTOM_TOOLS"]), len(CUSTOM_TOOLS))
+        # 6. 自定义工具名
+        self.assertEqual(self.data["CUSTOM_TOOL_NAMES"], CUSTOM_TOOL_NAMES)
+        # 7. 浏览器
+        self.assertEqual(self.data["VALID_BROWSER_PROFILES"], VALID_BROWSER_PROFILES)
+
+
 class TestConsistencyCheck(unittest.TestCase):
     """与 proxy_filters.py 一致性检查测试。"""
 
