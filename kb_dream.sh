@@ -550,11 +550,13 @@ SENT=false
 if [ -n "$NOTIFY_PATH" ]; then
     source "$NOTIFY_PATH"
 
-    # 用 Python 按章节（## 标记）智能分段，每段不超过 4000 字符
-    SEGMENTS=$(python3 -c "
-import sys
+    # 用 Python 按章节智能分段，写入临时文件
+    CHUNK_DIR=$(mktemp -d)
+    TOTAL_PARTS=$(python3 -c "
+import sys, os
 
 text = sys.stdin.read()
+chunk_dir = '$CHUNK_DIR'
 max_chunk = 4000
 sections = text.split('\n## ')
 chunks = []
@@ -562,16 +564,14 @@ current = ''
 
 for i, sec in enumerate(sections):
     piece = sec if i == 0 else '## ' + sec
-    # 如果加入当前块不超限，合并
     if len(current) + len(piece) + 1 <= max_chunk:
         current = current + '\n' + piece if current else piece
     else:
         if current:
             chunks.append(current.strip())
-        # 如果单个章节超限，硬切
         while len(piece) > max_chunk:
             cut = piece[:max_chunk].rfind('\n')
-            if cut < max_chunk * 0.5:
+            if cut < int(max_chunk * 0.5):
                 cut = max_chunk
             chunks.append(piece[:cut].strip())
             piece = piece[cut:].strip()
@@ -579,19 +579,21 @@ for i, sec in enumerate(sections):
 if current.strip():
     chunks.append(current.strip())
 
-# 输出用 NULL 分隔
-import sys
-sys.stdout.write('\0'.join(chunks))
+for idx, chunk in enumerate(chunks):
+    with open(os.path.join(chunk_dir, f'{idx:03d}.txt'), 'w') as f:
+        f.write(chunk)
+
+print(len(chunks))
 " <<< "$DREAM_RESULT")
 
-    # 逐段发送
-    TOTAL_PARTS=$(echo "$SEGMENTS" | tr -cd '\0' | wc -c | tr -d ' ')
-    TOTAL_PARTS=$((TOTAL_PARTS + 1))
     PART_IDX=0
     SEND_OK=0
 
-    while IFS= read -r -d '' segment; do
+    for chunk_file in "$CHUNK_DIR"/*.txt; do
+        [ -f "$chunk_file" ] || continue
         PART_IDX=$((PART_IDX + 1))
+        segment=$(cat "$chunk_file")
+
         if [ "$TOTAL_PARTS" -gt 1 ]; then
             PUSH_MSG="🌙 Agent Dream ($DAY) [$PART_IDX/$TOTAL_PARTS]
 
@@ -605,12 +607,14 @@ $segment"
         if notify "$PUSH_MSG" --topic daily; then
             SEND_OK=$((SEND_OK + 1))
         else
-            log "WARN: 第 $PART_IDX 段推送失败"
+            log "WARN: 第 $PART_IDX/$TOTAL_PARTS 段推送失败"
         fi
 
         # 段间间隔 1 秒，避免消息乱序
         [ "$PART_IDX" -lt "$TOTAL_PARTS" ] && sleep 1
-    done <<< "$SEGMENTS"
+    done
+
+    rm -rf "$CHUNK_DIR"
 
     if [ "$SEND_OK" -gt 0 ]; then
         log "梦境已推送 $SEND_OK/$TOTAL_PARTS 段到 WhatsApp + Discord"
