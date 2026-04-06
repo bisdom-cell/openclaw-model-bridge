@@ -29,7 +29,7 @@ jobs:
   - id: arxiv_monitor
     scheduler: system
     entry: jobs/arxiv_monitor/run_arxiv.sh
-    interval: "0 4,10,16,22 * * *"  # 每天4次（避免ArXiv API 429限速）
+    interval: "0 8,20 * * *"        # 每天2次（ArXiv日更一次，2次足够覆盖）
     log: ~/.openclaw/logs/jobs/arxiv_monitor.log
     needs_api_key: true
     enabled: true
