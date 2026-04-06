@@ -1,5 +1,5 @@
 {
-  "updated": "2026-04-06 07:00:01",
+  "updated": "2026-04-06 08:00:02",
   "updated_by": "cron",
   "priorities": [
     {
@@ -231,11 +231,11 @@
     "last_preflight_time": "2026-04-06 05:00",
     "last_trend_report": "2026-04-04",
     "model_id": "Qwen3-235B-A22B-Instruct-2507-W8A8",
-    "kb_stats": "213 notes, 9 today, 1678KB sources",
+    "kb_stats": "213 notes, 9 today, 1679KB sources",
     "stale_jobs": "freight",
-    "last_refresh": "2026-04-06 07:00",
+    "last_refresh": "2026-04-06 08:00",
     "security_score": "93/100 (93.0%)",
-    "text_index": "14132 chunks, 255/255 files (100%), 255 stale, 2h ago, 21198KB"
+    "text_index": "14132 chunks, 255/255 files (100%), 255 stale, 3h ago, 21198KB"
   },
   "session_context": {
     "last_session": "2026-04-05",
@@ -312,9 +312,9 @@
   "focus": "Stage2:被社区认可的系统作者。P0:Provider Compatibility Layer抽象+Agent Reliability Bench+Memory Plane v1统一+兼容矩阵&SLO benchmark证据。P1:一键demo+第一篇架构文章。详见docs/strategic_review_20260403.md",
   "notes": "",
   "preferences": [
-    "[auto] 活跃时段 00:00-24:00（2天数据）",
+    "[auto] 活跃时段 00:00-08:00（2天数据）",
     "[auto] 用户偏好简洁回复（平均响应 <200 字）",
-    "[auto] 关注领域：技术/AI、学术/论文、arxiv-ai-models、技术/编程、rss-blogs",
+    "[auto] 关注领域：技术/AI、学术/论文、arxiv-ai-models、技术/编程、hf-daily-papers",
     "[auto] 用户已提交 1 条反馈，最新: {\"date\": \"2026-04-03\", \"from\": \"mentor\", \"what\": \""
   ]
 }
