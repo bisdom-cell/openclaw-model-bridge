@@ -279,66 +279,148 @@ $signals
 fi
 
 # ═══════════════════════════════════════════════════════════════════
-# 4. 收集 Notes 素材
-#    MapReduce 模式：Map 已覆盖 sources 全量，notes 只取最近 + 随机采样
-#    Fast 模式：notes 全量读取（受 Reduce 截断保护）
+# 4. Notes 也走 Map 阶段（与 Sources 同等待遇）
+#    Notes 含用户与 PA 的重要交互信息，不能被 Sources 信号淹没
+#    策略：按时间分批打包（每批 ~15KB），每批独立提取信号
 # ═══════════════════════════════════════════════════════════════════
 
-NOTES_MATERIAL=""
-if [ -n "$ALL_NOTES" ]; then
+NOTES_SIGNALS=""
+NOTES_MAP_COUNT=0
+
+if [ "$FAST_MODE" = false ] && [ -n "$ALL_NOTES" ]; then
+    log "Phase 1b (Map Notes): 开始从笔记中提取信号..."
+
     # 按修改时间倒序（最新在前）
     SORTED_NOTES=$(echo "$ALL_NOTES" | while read f; do
         [ -f "$f" ] && echo "$(stat -f '%m' "$f" 2>/dev/null || stat -c '%Y' "$f" 2>/dev/null || echo 0) $f"
     done | sort -rn | awk '{print $2}')
 
-    NOTE_BUDGET=30   # MapReduce 模式下取最近 20 + 随机 10
-    [ "$FAST_MODE" = true ] && NOTE_BUDGET=80
-    NOTE_IDX=0
-    NOTE_RECENT=20
-    [ "$FAST_MODE" = true ] && NOTE_RECENT=60
+    NOTES_MAP_PROMPT='你是一个数据矿工。以下是用户的个人笔记和与AI助手的交互记录。这些笔记包含用户认为重要的信息、决策、发现和想法。
 
-    # 收集剩余 notes 路径供随机采样
-    REMAINING_NOTES=""
+数据类型: 用户笔记/交互记录
+笔记数量: %d 条
+
+完整内容:
+---
+%s
+---
+
+请提取 8-12 个最值得注意的信号，每个信号一行，格式：
+- [日期或笔记名] 信号描述（具体事实，含关键内容）
+
+重点关注：
+1. 用户明确标记为重要的信息（主动保存 = 用户认为有价值）
+2. 用户的决策、判断、观点（反映用户的思考方向）
+3. 跨多条笔记出现的主题（重复出现 = 持续关注）
+4. 与外部数据源（论文、新闻、技术趋势）可能关联的线索
+5. 反常或意外的记录（与日常模式不同的条目）
+
+只输出信号列表，不要前言或总结。控制在 500 字以内。'
+
+    # 将 notes 分批打包，每批 ~15KB
+    BATCH=""
+    BATCH_COUNT=0
+    BATCH_NUM=0
 
     while IFS= read -r note; do
         [ -z "$note" ] && continue
         [ -f "$note" ] || continue
-        NOTE_IDX=$((NOTE_IDX + 1))
+        name=$(basename "$note" .md)
+        content=$(cat "$note" 2>/dev/null | utf8_truncate 2000)
+        [ -z "${content// }" ] && continue
 
-        if [ "$NOTE_IDX" -le "$NOTE_RECENT" ]; then
-            # 最近的 notes 直接取
-            name=$(basename "$note" .md)
-            content=$(cat "$note" 2>/dev/null | utf8_truncate 2000)
-            [ -z "${content// }" ] && continue
-            NOTES_MATERIAL+="
+        BATCH+="
 ### $name
 $content
 "
-        else
-            REMAINING_NOTES+="$note
+        BATCH_COUNT=$((BATCH_COUNT + 1))
+
+        # 每 15 条或累计 > 12000 字符，提交一批
+        BATCH_SIZE=${#BATCH}
+        if [ "$BATCH_COUNT" -ge 15 ] || [ "$BATCH_SIZE" -gt 12000 ]; then
+            BATCH_NUM=$((BATCH_NUM + 1))
+
+            # 检查缓存
+            batch_hash=$(echo "$BATCH" | md5sum 2>/dev/null | cut -c1-12 || echo "b${BATCH_NUM}")
+            cache_file="$MAP_DIR/${DAY}_notes_${batch_hash}.txt"
+
+            if [ -f "$cache_file" ]; then
+                log "  Map Notes [批次$BATCH_NUM]: 使用缓存 ($BATCH_COUNT 条)"
+                signals=$(cat "$cache_file")
+            else
+                prompt=$(printf "$NOTES_MAP_PROMPT" "$BATCH_COUNT" "$BATCH")
+                log "  Map Notes [批次$BATCH_NUM]: ${BATCH_COUNT}条, ${BATCH_SIZE}B → 提取信号..."
+                signals=$(llm_call "$prompt" 1200 0.5 90 || true)
+
+                if [ -n "${signals// }" ]; then
+                    echo "$signals" > "$cache_file"
+                else
+                    log "  Map Notes [批次$BATCH_NUM]: LLM 返回空，跳过"
+                    BATCH=""
+                    BATCH_COUNT=0
+                    continue
+                fi
+            fi
+
+            NOTES_SIGNALS+="
+## 用户笔记（批次$BATCH_NUM, ${BATCH_COUNT}条）
+$signals
 "
+            NOTES_MAP_COUNT=$((NOTES_MAP_COUNT + BATCH_COUNT))
+            BATCH=""
+            BATCH_COUNT=0
         fi
     done <<< "$SORTED_NOTES"
 
-    # 从剩余 notes 随机采样
-    RANDOM_BUDGET=$((NOTE_BUDGET - NOTE_RECENT))
-    if [ "$RANDOM_BUDGET" -gt 0 ] && [ -n "$REMAINING_NOTES" ]; then
-        RANDOM_PICKS=$(echo "$REMAINING_NOTES" | grep -v '^$' | sort -R 2>/dev/null | head -"$RANDOM_BUDGET" || \
-                       echo "$REMAINING_NOTES" | grep -v '^$' | awk 'BEGIN{srand()} {print rand(), $0}' | sort -n | head -"$RANDOM_BUDGET" | awk '{print $2}')
-        while IFS= read -r note; do
-            [ -z "$note" ] && continue
-            [ -f "$note" ] || continue
-            name=$(basename "$note" .md)
-            content=$(cat "$note" 2>/dev/null | utf8_truncate 2000)
-            [ -z "${content// }" ] && continue
-            NOTES_MATERIAL+="
-### $name (历史)
-$content
+    # 处理最后不足一批的剩余
+    if [ -n "${BATCH// }" ] && [ "$BATCH_COUNT" -gt 0 ]; then
+        BATCH_NUM=$((BATCH_NUM + 1))
+        BATCH_SIZE=${#BATCH}
+        batch_hash=$(echo "$BATCH" | md5sum 2>/dev/null | cut -c1-12 || echo "b${BATCH_NUM}")
+        cache_file="$MAP_DIR/${DAY}_notes_${batch_hash}.txt"
+
+        if [ -f "$cache_file" ]; then
+            log "  Map Notes [批次$BATCH_NUM]: 使用缓存 ($BATCH_COUNT 条)"
+            signals=$(cat "$cache_file")
+        else
+            prompt=$(printf "$NOTES_MAP_PROMPT" "$BATCH_COUNT" "$BATCH")
+            log "  Map Notes [批次$BATCH_NUM]: ${BATCH_COUNT}条, ${BATCH_SIZE}B → 提取信号..."
+            signals=$(llm_call "$prompt" 1200 0.5 90 || true)
+            [ -n "${signals// }" ] && echo "$signals" > "$cache_file"
+        fi
+
+        if [ -n "${signals// }" ]; then
+            NOTES_SIGNALS+="
+## 用户笔记（批次$BATCH_NUM, ${BATCH_COUNT}条）
+$signals
 "
-        done <<< "$RANDOM_PICKS"
+            NOTES_MAP_COUNT=$((NOTES_MAP_COUNT + BATCH_COUNT))
+        fi
     fi
 
-    log "notes 采样完成: $NOTE_IDX total, 取 $NOTE_RECENT recent + $RANDOM_BUDGET random = $NOTE_BUDGET"
+    log "Phase 1b 完成: $NOTES_MAP_COUNT/$NOTE_COUNT notes 提取了信号 ($BATCH_NUM 批)"
+
+elif [ -n "$ALL_NOTES" ]; then
+    # Fast 模式：直接采样 notes 原文
+    SORTED_NOTES=$(echo "$ALL_NOTES" | while read f; do
+        [ -f "$f" ] && echo "$(stat -f '%m' "$f" 2>/dev/null || stat -c '%Y' "$f" 2>/dev/null || echo 0) $f"
+    done | sort -rn | awk '{print $2}')
+
+    NOTES_MATERIAL=""
+    NOTE_IDX=0
+    while IFS= read -r note; do
+        [ -z "$note" ] && continue
+        [ -f "$note" ] || continue
+        NOTE_IDX=$((NOTE_IDX + 1))
+        [ "$NOTE_IDX" -gt 80 ] && break
+        name=$(basename "$note" .md)
+        content=$(cat "$note" 2>/dev/null | utf8_truncate 2000)
+        [ -z "${content// }" ] && continue
+        NOTES_MATERIAL+="
+### $name
+$content
+"
+    done <<< "$SORTED_NOTES"
 fi
 
 # ═══════════════════════════════════════════════════════════════════
@@ -387,14 +469,16 @@ if [ "$FAST_MODE" = true ] || [ -z "${MAP_SIGNALS// }" ]; then
     # Notes 全量
     REDUCE_DATA+="$NOTES_MATERIAL"
 else
-    # MapReduce 模式：用 Map 阶段的精炼信号
-    REDUCE_INTRO="以下是系统知识库的 **全量深度分析结果**。Phase 1 已对 $MAP_COUNT 个数据源逐一进行了信号提取（覆盖全部 ${TOTAL_KB_BYTES} 字节数据），以下是每个源的关键信号："
+    # MapReduce 模式：Sources 信号 + Notes 信号并列
+    REDUCE_INTRO="以下是系统知识库的 **全量深度分析结果**。Phase 1 已对 $MAP_COUNT 个数据源和 $NOTES_MAP_COUNT 条用户笔记逐一进行了信号提取（覆盖全部 ${TOTAL_KB_BYTES} 字节数据）。
+
+**重要：用户笔记中的信号同样重要。** 这些笔记是用户主动保存的重要信息、决策和发现，反映了用户的关注方向和判断。分析时必须同时考虑外部数据源信号和用户笔记信号。"
     REDUCE_DATA="
-# Phase 1 提取的信号（全量 KB 覆盖）
+# Phase 1a: 外部数据源信号
 $MAP_SIGNALS
 
-# 笔记全文
-$NOTES_MATERIAL
+# Phase 1b: 用户笔记/交互记录信号（用户主动保存的重要信息）
+$NOTES_SIGNALS
 "
 fi
 
