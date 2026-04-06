@@ -310,22 +310,23 @@ def write_json(data):
         print(f"[conv_quality] WARN: Failed to write JSON: {e}")
 
 
-def send_whatsapp(report):
-    """Push report to WhatsApp (best-effort)."""
-    send_err = os.path.expanduser("~/conv_quality_send.err")
+def send_notification(report):
+    """Push report via notify.sh (dual-channel + retry)."""
+    import tempfile
     try:
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
+            f.write(report)
+            tmp = f.name
         result = subprocess.run(
-            [OPENCLAW, "message", "send", "--target", PHONE, "--message", report, "--json"],
-            capture_output=True, text=True, timeout=30,
+            ["bash", "-c", f'source ~/notify.sh && notify "$(cat "{tmp}")" --topic daily; rm -f "{tmp}"'],
+            capture_output=True, text=True, timeout=60,
         )
         if result.returncode == 0:
-            print("[conv_quality] WhatsApp 推送成功")
+            print("[conv_quality] 推送成功 (WhatsApp + Discord)")
         else:
-            with open(send_err, "w") as f:
-                f.write(result.stderr or result.stdout or "unknown error")
-            print(f"[conv_quality] ERROR: WhatsApp 推送失败 (exit {result.returncode})")
+            print(f"[conv_quality] ERROR: 推送失败 (exit {result.returncode}): {result.stderr[:200]}")
     except (OSError, subprocess.TimeoutExpired) as e:
-        print(f"[conv_quality] ERROR: WhatsApp 推送异常: {e}")
+        print(f"[conv_quality] ERROR: 推送异常: {e}")
 
 
 def main():
@@ -346,7 +347,7 @@ def main():
     write_json(data)
 
     if data["total_requests"] > 0:
-        send_whatsapp(report)
+        send_notification(report)
     else:
         print("[conv_quality] No requests found, skipping WhatsApp push")
 

@@ -250,8 +250,13 @@ except Exception:
 if [ -z "${LLM_CONTENT// }" ]; then
     ERR_MSG="⚠️ DBLP论文监控 LLM调用失败（${DAY}），请检查 $LLM_RAW"
     echo "$ERR_MSG"
-    "$OPENCLAW" message send --channel whatsapp --target "$TO" --message "$ERR_MSG" --json >/dev/null 2>&1 || true
-    "$OPENCLAW" message send --channel discord --target "${DISCORD_CH_ALERTS:-}" --message "$ERR_MSG" --json >/dev/null 2>&1 || true
+    if [ -f "${HOME}/notify.sh" ]; then
+        source "${HOME}/notify.sh"
+        notify "$ERR_MSG" --topic alerts || true
+    else
+        "$OPENCLAW" message send --channel whatsapp --target "$TO" --message "$ERR_MSG" --json >/dev/null 2>&1 || true
+        "$OPENCLAW" message send --channel discord --target "${DISCORD_CH_ALERTS:-}" --message "$ERR_MSG" --json >/dev/null 2>&1 || true
+    fi
     exit 1
 fi
 
@@ -374,20 +379,38 @@ total = len(papers)
 print(f"[dblp] 消息组装完成: {total} 篇，LLM解析成功 {llm_ok}/{total}", file=sys.stderr)
 PYEOF
 
-# ── 6. 推送WhatsApp ─────────────────────────────────────────────────
+# ── 6. 推送（notify.sh 双通道 + 自动重试）─────────────────────────────
 MSG_CONTENT="$(head -c 4000 "$MSG_FILE")"
-SEND_ERR=$(mktemp)
-if "$OPENCLAW" message send --channel whatsapp --target "$TO" --message "$MSG_CONTENT" --json >/dev/null 2>"$SEND_ERR"; then
-    log "已推送 ${PAPER_COUNT} 篇论文"
-    "$OPENCLAW" message send --channel discord --target "${DISCORD_CH_PAPERS:-}" --message "$MSG_CONTENT" --json >/dev/null 2>&1 || true
-    if [ -f "$NEW_IDS_FILE" ]; then
-        cat "$NEW_IDS_FILE" >> "$SEEN_FILE"
-        log "已标记 ${PAPER_COUNT} 篇为已发送"
+NOTIFY_SH="${HOME}/notify.sh"
+if [ -f "$NOTIFY_SH" ]; then
+    source "$NOTIFY_SH"
+    if notify "$MSG_CONTENT" --topic papers; then
+        log "已推送 ${PAPER_COUNT} 篇论文 (WhatsApp + Discord)"
+        if [ -f "$NEW_IDS_FILE" ]; then
+            cat "$NEW_IDS_FILE" >> "$SEEN_FILE"
+            log "已标记 ${PAPER_COUNT} 篇为已发送"
+        fi
+        printf '{"time":"%s","status":"ok","new":%d,"sent":true}\n' "$TS" "$PAPER_COUNT" > "$STATUS_FILE"
+    else
+        log "ERROR: 推送失败"
+        printf '{"time":"%s","status":"send_failed","new":%d,"sent":false}\n' "$TS" "$PAPER_COUNT" > "$STATUS_FILE"
     fi
-    printf '{"time":"%s","status":"ok","new":%d,"sent":true}\n' "$TS" "$PAPER_COUNT" > "$STATUS_FILE"
 else
-    log "ERROR: 推送失败: $(cat "$SEND_ERR" | head -3)"
-    printf '{"time":"%s","status":"send_failed","new":%d,"sent":false}\n' "$TS" "$PAPER_COUNT" > "$STATUS_FILE"
+    # fallback: 直接调用 openclaw
+    SEND_ERR=$(mktemp)
+    if "$OPENCLAW" message send --channel whatsapp --target "$TO" --message "$MSG_CONTENT" --json >/dev/null 2>"$SEND_ERR"; then
+        log "已推送 ${PAPER_COUNT} 篇论文"
+        "$OPENCLAW" message send --channel discord --target "${DISCORD_CH_PAPERS:-}" --message "$MSG_CONTENT" --json >/dev/null 2>&1 || true
+        if [ -f "$NEW_IDS_FILE" ]; then
+            cat "$NEW_IDS_FILE" >> "$SEEN_FILE"
+            log "已标记 ${PAPER_COUNT} 篇为已发送"
+        fi
+        printf '{"time":"%s","status":"ok","new":%d,"sent":true}\n' "$TS" "$PAPER_COUNT" > "$STATUS_FILE"
+    else
+        log "ERROR: 推送失败: $(cat "$SEND_ERR" | head -3)"
+        printf '{"time":"%s","status":"send_failed","new":%d,"sent":false}\n' "$TS" "$PAPER_COUNT" > "$STATUS_FILE"
+    fi
+    rm -f "$SEND_ERR"
 fi
 
 # ── 6.5 Ontology 论文单独推送到 Discord #ontology ─────────────────────────

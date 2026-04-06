@@ -264,19 +264,23 @@ def format_report(stats, exact_dupes, fuzzy_dupes, source_results, applied):
     return "\n".join(lines)
 
 
-def send_whatsapp(report):
-    """Push report to WhatsApp."""
+def send_notification(report):
+    """Push report via notify.sh (dual-channel + retry)."""
+    import tempfile
     try:
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
+            f.write(report)
+            tmp = f.name
         result = subprocess.run(
-            [OPENCLAW, "message", "send", "--target", PHONE, "--message", report, "--json"],
-            capture_output=True, text=True, timeout=30,
+            ["bash", "-c", f'source ~/notify.sh && notify "$(cat "{tmp}")" --topic daily; rm -f "{tmp}"'],
+            capture_output=True, text=True, timeout=60,
         )
         if result.returncode == 0:
-            print("[kb_dedup] WhatsApp 推送成功")
+            print("[kb_dedup] 推送成功 (WhatsApp + Discord)")
         else:
-            print(f"[kb_dedup] ERROR: WhatsApp 推送失败 (exit {result.returncode})")
+            print(f"[kb_dedup] ERROR: 推送失败 (exit {result.returncode}): {result.stderr[:200]}")
     except (OSError, subprocess.TimeoutExpired) as e:
-        print(f"[kb_dedup] ERROR: WhatsApp 推送异常: {e}")
+        print(f"[kb_dedup] ERROR: 推送异常: {e}")
 
 
 def write_json(stats, exact_dupes, fuzzy_dupes, source_results, applied):
@@ -333,7 +337,7 @@ def main():
 
     total_dupes = sum(len(r) for _, r in exact_dupes) + sum(r[2] for r in source_results.values())
     if total_dupes > 0:
-        send_whatsapp(report)
+        send_notification(report)
     else:
         print("[kb_dedup] No duplicates, skipping WhatsApp push")
 
