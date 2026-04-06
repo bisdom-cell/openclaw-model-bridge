@@ -330,11 +330,14 @@ def send_notification(report):
 
 
 def main():
+    no_push = "--no-push" in sys.argv
+    args = [a for a in sys.argv[1:] if a != "--no-push"]
+
     # Default: report on yesterday (cron runs at 08:15, reports on previous day)
-    if len(sys.argv) > 1 and sys.argv[1] == "--today":
+    if args and args[0] == "--today":
         target_date = datetime.now().strftime("%Y-%m-%d")
-    elif len(sys.argv) > 1 and re.match(r"\d{4}-\d{2}-\d{2}", sys.argv[1]):
-        target_date = sys.argv[1]
+    elif args and re.match(r"\d{4}-\d{2}-\d{2}", args[0]):
+        target_date = args[0]
     else:
         target_date = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
 
@@ -346,10 +349,12 @@ def main():
 
     write_json(data)
 
+    if no_push:
+        return
     if data["total_requests"] > 0:
         send_notification(report)
     else:
-        print("[conv_quality] No requests found, skipping WhatsApp push")
+        print("[conv_quality] No requests found, skipping push")
 
 
 if __name__ == "__main__":

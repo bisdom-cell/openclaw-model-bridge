@@ -264,35 +264,17 @@ jobs:
     tier: auxiliary                   # 多模态索引
     description: Multimodal Memory 索引 — 扫描媒体文件 → Gemini Embedding 2 → 本地向量索引
 
-  - id: conv_quality
+  - id: daily_ops_report
     scheduler: system
-    entry: conv_quality.py
-    interval: "15 8 * * *"          # 每天 08:15（报告前一天数据）
-    log: ~/conv_quality.log
+    entry: daily_ops_report.sh
+    interval: "15 8 * * *"          # 每天 08:15（合并 conv_quality + token_report 为一条推送）
+    log: ~/daily_ops_report.log
     needs_api_key: false
     enabled: true
-    tier: auxiliary                   # 质量分析
-    description: 对话质量日报 — 解析 proxy/adapter 日志，生成响应时间/成功率/工具分布/Token用量报告
-
-  - id: token_report
-    scheduler: system
-    entry: token_report.py
-    interval: "20 8 * * *"          # 每天 08:20（conv_quality 之后5分钟）
-    log: ~/token_report.log
-    needs_api_key: false
-    enabled: true
-    tier: auxiliary                   # 用量分析
-    description: Token 用量日报 — 每日消耗总量/逐小时分布/上下文压力/多日趋势
-
-  - id: kb_dedup
-    scheduler: system
-    entry: kb_dedup.py
-    interval: "0 23 * * *"          # 每天 23:00（晚间整理后）
-    log: ~/kb_dedup.log
-    needs_api_key: false
-    enabled: true
-    tier: auxiliary                   # KB 维护
-    description: KB 智能去重 — Notes 精确/模糊去重 + Sources 行去重（dry-run 模式，仅报告）
+    tier: auxiliary                   # 运维日报
+    description: 运维日报 — 合并对话质量+Token用量为一条推送（原 conv_quality 08:15 + token_report 08:20）
+  # kb_dedup 已合并到 kb_evening（22:00 晚间整理时自动执行去重）
+  # conv_quality.py / token_report.py 仍保留（daily_ops_report.sh 调用 --no-push 模式）
 
   - id: kb_embed
     scheduler: system

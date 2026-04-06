@@ -264,10 +264,13 @@ def send_notification(report):
 
 
 def main():
-    if len(sys.argv) > 1 and sys.argv[1] == "--today":
+    no_push = "--no-push" in sys.argv
+    args = [a for a in sys.argv[1:] if a != "--no-push"]
+
+    if args and args[0] == "--today":
         target_date = datetime.now().strftime("%Y-%m-%d")
-    elif len(sys.argv) > 1 and re.match(r"\d{4}-\d{2}-\d{2}", sys.argv[1]):
-        target_date = sys.argv[1]
+    elif args and re.match(r"\d{4}-\d{2}-\d{2}", args[0]):
+        target_date = args[0]
     else:
         target_date = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
 
@@ -289,7 +292,8 @@ def main():
     report = format_report(data, prev_day)
     print(report)
     write_json(data)
-    send_notification(report)
+    if not no_push:
+        send_notification(report)
 
 
 if __name__ == "__main__":

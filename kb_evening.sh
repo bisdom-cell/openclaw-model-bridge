@@ -51,13 +51,41 @@ PYEOF
 $SUMMARIES"
 fi
 
-if openclaw message send --channel whatsapp --target "$PHONE" --message "$MSG" --json 2>>"$HOME/kb_evening.log" >/dev/null; then
-    log "发送完成: $DATE"
-    openclaw message send --channel discord --target "${DISCORD_CH_DAILY:-}" --message "$MSG" --json >/dev/null 2>&1 || true
-    printf '{"time":"%s","status":"ok","sent":true}\n' "$TS" > "$STATUS_FILE"
+# ── KB 去重（原 kb_dedup 23:00 独立任务，现合并到晚间整理）──────────
+DEDUP_REPORT=""
+DEDUP_OUTPUT=$(python3 ~/kb_dedup.py --no-push 2>&1) || true
+DEDUP_REPORT=$(echo "$DEDUP_OUTPUT" | grep -v '^\[kb_dedup\]')
+if [ -n "${DEDUP_REPORT// }" ]; then
+    MSG="$MSG
+
+━━━━━━━━━━━━━━━━━━━━
+
+$DEDUP_REPORT"
+fi
+
+# ── 推送（一条消息，双通道）──────────────────────────────────────────
+MSG="$(echo "$MSG" | head -c 4000)"
+
+NOTIFY_SH="${HOME}/notify.sh"
+if [ -f "$NOTIFY_SH" ]; then
+    source "$NOTIFY_SH"
+    if notify "$MSG" --topic daily; then
+        log "发送完成: $DATE"
+        printf '{"time":"%s","status":"ok","sent":true}\n' "$TS" > "$STATUS_FILE"
+    else
+        log "ERROR: 推送失败"
+        printf '{"time":"%s","status":"send_failed","sent":false}\n' "$TS" > "$STATUS_FILE"
+    fi
 else
-    log "ERROR: 消息发送失败，请检查 gateway。"
-    printf '{"time":"%s","status":"send_failed","sent":false}\n' "$TS" > "$STATUS_FILE"
+    # fallback: 直接调用 openclaw
+    if openclaw message send --channel whatsapp --target "$PHONE" --message "$MSG" --json 2>>"$HOME/kb_evening.log" >/dev/null; then
+        log "发送完成: $DATE"
+        openclaw message send --channel discord --target "${DISCORD_CH_DAILY:-}" --message "$MSG" --json >/dev/null 2>&1 || true
+        printf '{"time":"%s","status":"ok","sent":true}\n' "$TS" > "$STATUS_FILE"
+    else
+        log "ERROR: 消息发送失败，请检查 gateway。"
+        printf '{"time":"%s","status":"send_failed","sent":false}\n' "$TS" > "$STATUS_FILE"
+    fi
 fi
 
 # ── 日志轮转 ─────────────────────────────────────────────────────────────────

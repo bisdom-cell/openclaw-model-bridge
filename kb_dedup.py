@@ -305,6 +305,7 @@ def write_json(stats, exact_dupes, fuzzy_dupes, source_results, applied):
 
 def main():
     apply_mode = "--apply" in sys.argv
+    no_push = "--no-push" in sys.argv
     stats_only = "--stats" in sys.argv
 
     stats = generate_stats()
@@ -335,11 +336,13 @@ def main():
 
     write_json(stats, exact_dupes, fuzzy_dupes, source_results, applied)
 
+    if no_push:
+        return
     total_dupes = sum(len(r) for _, r in exact_dupes) + sum(r[2] for r in source_results.values())
     if total_dupes > 0:
         send_notification(report)
     else:
-        print("[kb_dedup] No duplicates, skipping WhatsApp push")
+        print("[kb_dedup] No duplicates, skipping push")
 
 
 if __name__ == "__main__":

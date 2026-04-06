@@ -134,7 +134,8 @@ declare -a FILE_MAP=(
     "mm_search.py|$HOME/openclaw-model-bridge/mm_search.py"
     "mm_index_cron.sh|$HOME/openclaw-model-bridge/mm_index_cron.sh"
 
-    # 监控 & 维护
+    # 监控 & 维护（conv_quality+token_report 合并为 daily_ops_report）
+    "daily_ops_report.sh|$HOME/daily_ops_report.sh"
     "conv_quality.py|$HOME/conv_quality.py"
     "token_report.py|$HOME/token_report.py"
     "kb_dedup.py|$HOME/kb_dedup.py"
