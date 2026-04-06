@@ -585,6 +585,8 @@ for line in crontab_lines:
     if not m:
         continue
     cron_path = m.group(1).replace('~/', os.path.expanduser('~/')).replace('$HOME/', os.path.expanduser('~/'))
+    if not cron_path.startswith('/'):
+        cron_path = os.path.expanduser('~/') + cron_path
     script_name = os.path.basename(cron_path)
 
     if script_name in file_map:

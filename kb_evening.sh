@@ -51,11 +51,80 @@ PYEOF
 $SUMMARIES"
 fi
 
-if openclaw message send --channel whatsapp --target "$PHONE" --message "$MSG" --json 2>>"$HOME/kb_evening.log" >/dev/null; then
-    log "发送完成: $DATE"
-    openclaw message send --channel discord --target "${DISCORD_CH_DAILY:-}" --message "$MSG" --json >/dev/null 2>&1 || true
-    printf '{"time":"%s","status":"ok","sent":true}\n' "$TS" > "$STATUS_FILE"
-else
-    log "ERROR: 消息发送失败，请检查 gateway。"
-    printf '{"time":"%s","status":"send_failed","sent":false}\n' "$TS" > "$STATUS_FILE"
+# ── KB 去重（原 kb_dedup 23:00 独立任务，现合并到晚间整理）──────────
+DEDUP_REPORT=""
+DEDUP_OUTPUT=$(python3 ~/kb_dedup.py --no-push 2>&1) || true
+DEDUP_REPORT=$(echo "$DEDUP_OUTPUT" | grep -v '^\[kb_dedup\]')
+if [ -n "${DEDUP_REPORT// }" ]; then
+    MSG="$MSG
+
+━━━━━━━━━━━━━━━━━━━━
+
+$DEDUP_REPORT"
 fi
+
+# ── 推送（一条消息，双通道）──────────────────────────────────────────
+MSG="$(echo "$MSG" | head -c 4000)"
+
+NOTIFY_SH="${HOME}/notify.sh"
+if [ -f "$NOTIFY_SH" ]; then
+    source "$NOTIFY_SH"
+    if notify "$MSG" --topic daily; then
+        log "发送完成: $DATE"
+        printf '{"time":"%s","status":"ok","sent":true}\n' "$TS" > "$STATUS_FILE"
+    else
+        log "ERROR: 推送失败"
+        printf '{"time":"%s","status":"send_failed","sent":false}\n' "$TS" > "$STATUS_FILE"
+    fi
+else
+    # fallback: 直接调用 openclaw
+    if openclaw message send --channel whatsapp --target "$PHONE" --message "$MSG" --json 2>>"$HOME/kb_evening.log" >/dev/null; then
+        log "发送完成: $DATE"
+        openclaw message send --channel discord --target "${DISCORD_CH_DAILY:-}" --message "$MSG" --json >/dev/null 2>&1 || true
+        printf '{"time":"%s","status":"ok","sent":true}\n' "$TS" > "$STATUS_FILE"
+    else
+        log "ERROR: 消息发送失败，请检查 gateway。"
+        printf '{"time":"%s","status":"send_failed","sent":false}\n' "$TS" > "$STATUS_FILE"
+    fi
+fi
+
+# ── 日志轮转 ─────────────────────────────────────────────────────────────────
+# 对超过 100KB 的 job 日志文件截断到最后 200 行（无压缩，无备份编号）
+LOG_ROTATE_COUNT=0
+LOG_ROTATE_LIMIT=$((100 * 1024))  # 100KB in bytes
+
+_rotate_if_large() {
+    local f="$1"
+    # 展开 ~ 并跳过不存在的文件
+    f="${f/#\~/$HOME}"
+    [ -f "$f" ] || return 0
+    local size
+    size=$(wc -c < "$f" 2>/dev/null || echo 0)
+    if [ "$size" -gt "$LOG_ROTATE_LIMIT" ]; then
+        local tmp
+        tmp=$(mktemp)
+        tail -200 "$f" > "$tmp" && mv "$tmp" "$f"
+        LOG_ROTATE_COUNT=$((LOG_ROTATE_COUNT + 1))
+    fi
+}
+
+# 固定路径日志
+for _log_file in \
+    ~/conv_quality.log \
+    ~/token_report.log \
+    ~/kb_dedup.log \
+    ~/kb_evening.log \
+    ~/kb_embed.log \
+    ~/kb_dream.log \
+    ~/job_watchdog.log
+do
+    _rotate_if_large "$_log_file"
+done
+
+# ~/.openclaw/logs/jobs/*.log（通配）
+for _log_file in "$HOME/.openclaw/logs/jobs/"*.log; do
+    _rotate_if_large "$_log_file"
+done
+
+log "日志轮转: $LOG_ROTATE_COUNT 个文件已清理"
+# ─────────────────────────────────────────────────────────────────────────────

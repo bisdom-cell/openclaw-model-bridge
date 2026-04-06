@@ -244,26 +244,33 @@ def write_json(data):
         print(f"[token_report] WARN: Failed to write JSON: {e}")
 
 
-def send_whatsapp(report):
-    """Push report to WhatsApp."""
+def send_notification(report):
+    """Push report via notify.sh (dual-channel + retry)."""
+    import tempfile
     try:
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
+            f.write(report)
+            tmp = f.name
         result = subprocess.run(
-            [OPENCLAW, "message", "send", "--target", PHONE, "--message", report, "--json"],
-            capture_output=True, text=True, timeout=30,
+            ["bash", "-c", f'source ~/notify.sh && notify "$(cat "{tmp}")" --topic daily; rm -f "{tmp}"'],
+            capture_output=True, text=True, timeout=60,
         )
         if result.returncode == 0:
-            print("[token_report] WhatsApp 推送成功")
+            print("[token_report] 推送成功 (WhatsApp + Discord)")
         else:
-            print(f"[token_report] ERROR: WhatsApp 推送失败 (exit {result.returncode})")
+            print(f"[token_report] ERROR: 推送失败 (exit {result.returncode}): {result.stderr[:200]}")
     except (OSError, subprocess.TimeoutExpired) as e:
-        print(f"[token_report] ERROR: WhatsApp 推送异常: {e}")
+        print(f"[token_report] ERROR: 推送异常: {e}")
 
 
 def main():
-    if len(sys.argv) > 1 and sys.argv[1] == "--today":
+    no_push = "--no-push" in sys.argv
+    args = [a for a in sys.argv[1:] if a != "--no-push"]
+
+    if args and args[0] == "--today":
         target_date = datetime.now().strftime("%Y-%m-%d")
-    elif len(sys.argv) > 1 and re.match(r"\d{4}-\d{2}-\d{2}", sys.argv[1]):
-        target_date = sys.argv[1]
+    elif args and re.match(r"\d{4}-\d{2}-\d{2}", args[0]):
+        target_date = args[0]
     else:
         target_date = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
 
@@ -285,7 +292,8 @@ def main():
     report = format_report(data, prev_day)
     print(report)
     write_json(data)
-    send_whatsapp(report)
+    if not no_push:
+        send_notification(report)
 
 
 if __name__ == "__main__":
