@@ -897,3 +897,29 @@ def classify_complexity(messages, has_tools=False):
 
 # 进程级单例
 proxy_stats = ProxyStats()
+
+
+# ---------------------------------------------------------------------------
+# 本体一致性校验（启动时）
+# ---------------------------------------------------------------------------
+
+def _check_ontology_consistency():
+    """启动时校验 tool_ontology.yaml 与硬编码规则的一致性。
+
+    渐进迁移安全网：如果 YAML 和 Python 代码不一致，记录警告。
+    不阻塞启动，仅日志提醒。
+    """
+    try:
+        from ontology_engine import ToolOntology
+        onto = ToolOntology()
+        issues = onto.check_consistency(ALLOWED_TOOLS, CLEAN_SCHEMAS, TOOL_PARAMS)
+        if issues:
+            import logging
+            logger = logging.getLogger("proxy_filters")
+            for issue in issues:
+                logger.warning(f"Ontology consistency: {issue}")
+    except Exception:
+        pass  # 本体文件不存在或格式错误时静默跳过
+
+
+_check_ontology_consistency()

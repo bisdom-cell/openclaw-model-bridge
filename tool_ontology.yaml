@@ -1,0 +1,363 @@
+# tool_ontology.yaml — Agent 工具本体约束（声明式规则，运行时加载）
+#
+# 核心理念：把 proxy_filters.py 中散落的隐式规则提取为显式声明。
+# 新增/修改规则只需编辑此文件，不需要改 Python 代码。
+#
+# 结构：concepts（概念定义）→ tools（工具声明）→ policies（行为策略）→ aliases（参数别名）
+#
+# 术语映射（Ontology → 代码）：
+#   Concept（概念）  → Python class / data structure
+#   Tool（工具）     → OpenAI function calling schema
+#   Policy（策略）   → proxy_filters.py 中的 if/else 规则
+#   Constraint（约束）→ 参数验证、阈值检查
+#   Alias（别名）    → fix_tool_args 中的参数名映射
+
+# ═══════════════════════════════════════════════════════════════════════
+# 1. 概念定义（Concepts）— 系统中的核心实体及其分类
+# ═══════════════════════════════════════════════════════════════════════
+concepts:
+  Tool:
+    description: "Agent 可调用的能力单元"
+    subtypes:
+      - BuiltinTool       # Gateway 原生工具
+      - CustomTool        # Proxy 拦截执行的自定义工具
+      - BrowserTool       # 浏览器操作工具（前缀匹配）
+
+  Party:
+    description: "系统参与方"
+    instances:
+      - User              # WhatsApp/Discord 用户
+      - Agent             # LLM Agent（PA）
+      - Proxy             # Tool Proxy（治理层）
+      - Gateway           # OpenClaw Gateway
+
+  Resource:
+    description: "被操作的对象"
+    subtypes:
+      - File              # 文件系统资源
+      - WebPage           # 网页资源
+      - Memory            # Agent 记忆
+      - KnowledgeBase     # KB 知识库
+      - Session           # Agent 会话
+      - CronJob           # 定时任务
+      - Message           # 消息
+
+# ═══════════════════════════════════════════════════════════════════════
+# 2. 工具声明（Tools）— 每个工具的身份、能力、约束
+# ═══════════════════════════════════════════════════════════════════════
+tools:
+  # ── 内置工具（Gateway 提供，Proxy 放行）──
+  builtin:
+    # -- 信息获取类 --
+    web_search:
+      category: information_retrieval
+      description: "搜索互联网"
+      resource_type: WebPage
+      side_effects: false
+      parameters:
+        query: {type: string, required: true, description: "Search query string"}
+      aliases: {query: [search_query, q, keyword, search]}
+
+    web_fetch:
+      category: information_retrieval
+      description: "获取网页内容"
+      resource_type: WebPage
+      side_effects: false
+      parameters:
+        url: {type: string, required: true, description: "URL to fetch"}
+
+    # -- 文件操作类 --
+    read:
+      category: file_operation
+      description: "读取文件"
+      resource_type: File
+      side_effects: false
+      parameters:
+        path: {type: string, required: true, description: "Absolute file path to read"}
+      aliases: {path: [file_path, file, filepath, filename]}
+
+    write:
+      category: file_operation
+      description: "写入文件"
+      resource_type: File
+      side_effects: true
+      parameters:
+        path: {type: string, required: true, description: "Absolute file path to write"}
+        content: {type: string, required: true, description: "Content to write to file"}
+      aliases: {content: [text, data, body, file_content]}
+
+    edit:
+      category: file_operation
+      description: "编辑文件"
+      resource_type: File
+      side_effects: true
+      parameters:
+        path: {type: string, required: true, description: "Absolute file path to edit"}
+        old_text: {type: string, required: true, description: "Existing text to find and replace"}
+        new_text: {type: string, required: true, description: "New text to replace with"}
+
+    # -- 系统执行类 --
+    exec:
+      category: system_execution
+      description: "执行 Shell 命令"
+      resource_type: File
+      side_effects: true
+      parameters:
+        command: {type: string, required: true, description: "Shell command to execute"}
+      aliases: {command: [cmd, shell, bash, script]}
+
+    # -- 记忆类 --
+    memory_search:
+      category: memory
+      description: "搜索 Agent 记忆"
+      resource_type: Memory
+      side_effects: false
+      parameters:
+        query: {type: string, required: true, description: "Search query for memory"}
+
+    memory_get:
+      category: memory
+      description: "获取 Agent 记忆"
+      resource_type: Memory
+      side_effects: false
+      parameters:
+        key: {type: string, required: true, description: "Memory key to retrieve"}
+
+    # -- 会话管理类 --
+    sessions_spawn:
+      category: session_management
+      description: "创建子 Agent 会话"
+      resource_type: Session
+      side_effects: true
+      parameters:
+        agent: {type: string, required: true, description: "Agent name to spawn"}
+        message: {type: string, required: true, description: "Initial message to send"}
+
+    sessions_send:
+      category: session_management
+      description: "向子 Agent 发送消息"
+      resource_type: Session
+      side_effects: true
+      parameters:
+        sessionId: {type: string, required: true, description: "Session ID of target sub-agent"}
+        message: {type: string, required: true, description: "Message to send"}
+
+    sessions_history:
+      category: session_management
+      description: "获取子 Agent 历史"
+      resource_type: Session
+      side_effects: false
+      parameters:
+        sessionId: {type: string, required: true, description: "Session ID to retrieve history for"}
+
+    agents_list:
+      category: session_management
+      description: "列出可用 Agent"
+      resource_type: Session
+      side_effects: false
+      parameters: {}
+
+    # -- 定时任务类 --
+    cron:
+      category: job_management
+      description: "管理定时任务"
+      resource_type: CronJob
+      side_effects: true
+      parameters:
+        action: {type: string, required: true, description: "Action: add, list, remove"}
+        name: {type: string, required: false, description: "Name of the cron job"}
+        schedule: {type: object, required: false, description: "Schedule object with kind, expr, tz fields"}
+        sessionTarget: {type: string, required: false, description: "Session target"}
+        payload: {type: string, required: false, description: "Instruction to execute when triggered"}
+        id: {type: string, required: false, description: "Cron job ID for remove action"}
+        command: {type: string, required: false, description: "Command to execute (legacy)"}
+        job: {type: string, required: false, description: "Job identifier (legacy)"}
+
+    # -- 消息类 --
+    message:
+      category: communication
+      description: "发送消息"
+      resource_type: Message
+      side_effects: true
+      parameters:
+        to: {type: string, required: true, description: "Recipient phone number or contact"}
+        text: {type: string, required: true, description: "Message text to send"}
+
+    tts:
+      category: communication
+      description: "文本转语音"
+      resource_type: Message
+      side_effects: true
+      parameters:
+        text: {type: string, required: true, description: "Text to convert to speech"}
+
+    image:
+      category: media
+      description: "图片处理"
+      resource_type: File
+      side_effects: false
+
+  # ── 前缀匹配工具（浏览器系列）──
+  prefix_matched:
+    browser:
+      category: browser_automation
+      description: "浏览器自动化操作"
+      resource_type: WebPage
+      side_effects: true
+      tools:
+        browser_navigate:
+          parameters:
+            url: {type: string, required: true, description: "URL to navigate to"}
+            profile: {type: string, required: false}
+            target: {type: string, required: false}
+        browser_click:
+          parameters:
+            selector: {type: string, required: true, description: "CSS selector to click"}
+            profile: {type: string, required: false}
+            target: {type: string, required: false}
+        browser_type:
+          parameters:
+            selector: {type: string, required: true, description: "CSS selector to type into"}
+            text: {type: string, required: true, description: "Text to type"}
+            profile: {type: string, required: false}
+            target: {type: string, required: false}
+        browser_snapshot:
+          parameters:
+            profile: {type: string, required: false}
+            target: {type: string, required: false}
+      constraints:
+        valid_profiles: [openclaw, chrome]
+        default_profile: openclaw
+
+  # ── 自定义工具（Proxy 拦截执行）──
+  custom:
+    data_clean:
+      category: data_processing
+      description: "分析和清洗数据文件。支持 CSV/TSV/JSON/JSONL/Excel。用户上传的文件在 ~/.openclaw/media/inbound/ 目录下。"
+      resource_type: File
+      side_effects: true
+      executor: "data_clean.py"
+      parameters:
+        action: {type: string, required: true, enum: [profile, execute, list_ops], description: "profile=数据质量诊断, execute=执行清洗, list_ops=可用操作列表"}
+        file: {type: string, required: false, description: "数据文件的完整路径"}
+        ops: {type: string, required: false, description: "清洗操作，逗号分隔: trim,dedup,dedup_near,fix_dates,fix_case,fill_missing,remove_test"}
+        fix_case_cols: {type: string, required: false, description: "fix_case操作的目标列名，逗号分隔"}
+
+    search_kb:
+      category: knowledge_retrieval
+      description: "搜索用户的知识库。当用户提到论文、文档、文章、最近的XX、今天有什么、找一下、有没有关于XX时，必须调用此工具。知识库包含：ArXiv/HuggingFace/SemanticScholar/DBLP/ACL论文、HackerNews热帖、货代动态、用户笔记。当用户问'今天/最近有什么新内容'时，设置 recent_hours=24。"
+      resource_type: KnowledgeBase
+      side_effects: false
+      executor: "kb_rag.py"
+      parameters:
+        query: {type: string, required: true, description: "搜索关键词"}
+        source: {type: string, required: false, enum: [all, arxiv, hf, semantic_scholar, dblp, acl, hn, notes], description: "搜索范围，默认 all"}
+        recent_hours: {type: integer, required: false, description: "返回最近N小时内更新的内容"}
+
+# ═══════════════════════════════════════════════════════════════════════
+# 3. 行为策略（Policies）— 运行时治理规则
+# ═══════════════════════════════════════════════════════════════════════
+policies:
+  # -- 工具准入策略 --
+  tool_admission:
+    description: "控制哪些工具可以被 Agent 调用"
+    rules:
+      - name: whitelist_only
+        description: "只有白名单内的工具可以通过"
+        rationale: "防止模型调用未知/危险工具"
+        enforcement: filter_tools()
+      - name: max_tools
+        description: "单次请求最多携带的工具数量"
+        value: 12
+        rationale: "超出导致模型混乱，工具选择质量下降"
+        evidence: "V26 实测：>12 工具时 Qwen3 开始混淆参数"
+      - name: no_tools_marker
+        description: "消息中包含 [NO_TOOLS] 标记时强制清空工具"
+        rationale: "纯推理任务（如客户画像生成）不需要工具干扰"
+
+  # -- 请求限制策略 --
+  request_limits:
+    description: "控制请求体大小和资源消耗"
+    rules:
+      - name: max_request_bytes
+        value: 200000
+        hard_limit: 280000
+        rationale: "防止超大请求导致 LLM 处理超时"
+      - name: media_max_size_bytes
+        value: 10485760  # 10MB
+        rationale: "图片注入大小上限"
+      - name: media_max_age_seconds
+        value: 300  # 5 minutes
+        rationale: "只注入最近 5 分钟的图片，避免注入过期内容"
+
+  # -- 参数修复策略 --
+  parameter_healing:
+    description: "自动修复模型生成的不正确参数"
+    rationale: "Qwen3 经常生成参数别名或非法值，自动修复比拒绝更好"
+    rules:
+      - name: alias_resolution
+        description: "将常见的参数别名映射到正式参数名"
+        enforcement: fix_tool_args()
+        rationale: "Qwen3 经常使用非标准参数名（如 file_path 代替 path），自动修复提升成功率"
+        # 具体别名定义在每个工具的 aliases 字段中
+      - name: browser_profile_default
+        description: "浏览器工具缺少 profile 时自动注入默认值"
+        default_value: openclaw
+        rationale: "防止浏览器操作使用系统默认 profile 导致状态污染"
+      - name: extra_param_stripping
+        description: "剥离工具声明中未定义的多余参数"
+        rationale: "Qwen3 有时会幻觉出不存在的参数"
+
+  # -- 智能路由策略 --
+  routing:
+    description: "根据请求复杂度选择模型"
+    rules:
+      - name: has_tools_is_complex
+        condition: "has_tools == true"
+        result: complex
+        rationale: "工具调用需要强模型"
+      - name: no_tools_marker_is_simple
+        condition: "NO_TOOLS in messages"
+        result: simple
+        rationale: "显式标记为纯推理"
+      - name: long_conversation_is_complex
+        condition: "non_system_msgs >= complex_min_msgs"
+        result: complex
+        rationale: "长对话需要更强的上下文理解"
+      - name: multimodal_is_complex
+        condition: "last_user_msg is list (content blocks)"
+        result: complex
+        rationale: "多模态输入需要 VL 模型"
+      - name: short_simple_conversation
+        condition: "non_system_msgs <= simple_max_msgs AND last_user_len <= simple_max_user_len"
+        result: simple
+        rationale: "短问答可用快速模型"
+
+  # -- 上下文管理策略 --
+  context_management:
+    description: "动态管理 context window 使用"
+    rules:
+      - name: aggressive_truncation
+        condition: "prompt_tokens_usage >= 85%"
+        action: "保留最近 50KB 消息"
+        rationale: "临界状态大幅裁剪避免溢出"
+      - name: moderate_truncation
+        condition: "prompt_tokens_usage >= 70%"
+        action: "保留最近 100KB 消息"
+        rationale: "预警状态适度裁剪"
+      - name: system_msg_truncation
+        action: "system 消息超过 max_request_bytes/2 时截断"
+        rationale: "防止过长的 SOUL.md 占用全部空间"
+
+# ═══════════════════════════════════════════════════════════════════════
+# 4. 元数据（Metadata）
+# ═══════════════════════════════════════════════════════════════════════
+metadata:
+  version: "0.1.0"
+  created: "2026-04-06"
+  ontology_basis: "UFO-C (Agent/Service/Commitment)"
+  description: "OpenClaw Tool Proxy 的工具治理本体——从 proxy_filters.py 中提取的声明式规则"
+  rationale: |
+    这个文件是从 ~900 行 Python 代码中提取出的隐式规则的显式声明。
+    目标：新增/修改规则只需编辑此文件，不需要改 Python 代码。
+    长期：作为 Ontology-powered Agent Governance 的最小可行实验。
