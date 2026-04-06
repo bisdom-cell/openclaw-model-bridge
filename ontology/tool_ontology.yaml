@@ -170,8 +170,8 @@ tools:
         sessionTarget: {type: string, required: false, description: "Session target"}
         payload: {type: string, required: false, description: "Instruction to execute when triggered"}
         id: {type: string, required: false, description: "Cron job ID for remove action"}
-        command: {type: string, required: false, description: "Command to execute (legacy)"}
-        job: {type: string, required: false, description: "Job identifier (legacy)"}
+      # legacy_params: 不在 schema 中暴露给 LLM，但 fix_tool_args 需要识别
+      legacy_params: [command, job]
 
     # -- 消息类 --
     message:

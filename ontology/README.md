@@ -1,6 +1,9 @@
-# Ontology KB — 本体论驱动的企业智能架构
+# Ontology KB — 企业 AI 的语义控制平面
 
-> 核心论点：**Ontology（语义骨架）+ LLM（大脑）+ Agent（执行）= 未来企业的核心业务形态**
+> **核心命题**：Ontology is not the whole solution; it is the **semantic control plane** of enterprise AI.
+> 本体论不是企业 AI 的全部，但它应该成为企业 AI 的语义控制平面。
+>
+> 术语严格定义见 `ontology_scope.md`（术语宪法）。工作原则见 `CONSTITUTION.md`（五条宪法）。
 
 ## 为什么需要本体论
 
@@ -39,13 +42,17 @@
 
 ```
 docs/ontology/
+├── ontology_scope.md    # ✅ 🔴 术语宪法（四层定义+术语规范+措辞规范，宪法级）
+├── CONSTITUTION.md      # ✅ 🔴 工作宪法（五条不可违反原则）
+│
 ├── foundations/          # 基础理论
 │   ├── core_concepts.md           # ✅ 本体论核心概念（What/Why/How）
 │   ├── schools_comparison.md      # ✅ 三大流派深度对比：BFO / DOLCE / UFO（选型建议+决策树）
 │   └── knowledge_representation.md # 🔜 知识表示技术：OWL/RDF/SHACL/KG
 │
 ├── architecture/         # 架构模式
-│   ├── ontology_llm_agent.md      # ✅ 三角架构深度论述（核心文档）
+│   ├── ontology_llm_agent.md      # ✅ 语义控制平面论述 v2（四漂移+耦合分类+六域映射）
+│   ├── enterprise_agent_ontology_v0.1.md # ✅ 六域参考模型（Actor/Capability/Task/Memory/Governance/Execution）
 │   ├── neuro_symbolic.md          # ✅ Neuro-Symbolic AI 深度分析（6范式+5缺陷+实现路径）
 │   └── semantic_layer.md          # 🔜 企业语义层设计
 │

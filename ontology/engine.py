@@ -15,6 +15,11 @@ import json
 import os
 import sys
 
+# 确保能导入父目录的模块（proxy_filters 等）
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, _PROJECT_ROOT)
+
 # PyYAML: config_loader 已依赖，确认可用
 try:
     import yaml
@@ -116,14 +121,16 @@ class ToolOntology:
         # 内置工具（只有声明了 parameters 的工具才生成 schema）
         for name, tool_def in self._tools_section.get("builtin", {}).items():
             params = tool_def.get("parameters")
+            legacy = tool_def.get("legacy_params", [])
             if params is not None and len(params) > 0:
                 schema = self._build_schema(params)
                 self._clean_schemas[name] = schema
-                self._tool_params[name] = set(params.keys())
+                # TOOL_PARAMS 包含 schema params + legacy params
+                self._tool_params[name] = set(params.keys()) | set(legacy)
             elif params is not None and len(params) == 0:
                 # 显式空参数（如 agents_list）
                 self._clean_schemas[name] = {"type": "object", "properties": {}, "additionalProperties": False}
-                self._tool_params[name] = set()
+                self._tool_params[name] = set(legacy) if legacy else set()
             # else: 没有 parameters 字段（如 image），不生成 schema
 
         # 前缀匹配工具（浏览器系列）
