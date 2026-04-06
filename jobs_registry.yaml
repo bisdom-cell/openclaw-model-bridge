@@ -126,7 +126,7 @@ jobs:
     needs_api_key: true
     enabled: true
     tier: core                         # 技术方向参考核心源
-    description: AI Leaders X 技术洞察追踪（9位大牛：Karpathy/Jim Fan/LeCun/Chollet/Swyx/Lilian Weng/Jason Wei/Hyung Won Chung/Harrison Chase）
+    description: "AI Leaders X 技术洞察追踪（15位：Karpathy/Jim Fan/LeCun/Chollet/Swyx/Lilian Weng/Jason Wei/HW Chung/Harrison Chase + Ontology方向：Gary Marcus/Jure Leskovec/Michael Witbrock + Enterprise AI：Palantir/Alex Karp/Shyam Sankar）"
 
   - id: kb_evening
     scheduler: system
