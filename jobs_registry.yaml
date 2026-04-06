@@ -347,9 +347,9 @@ jobs:
   - id: kb_dream
     scheduler: system
     entry: kb_dream.sh
-    interval: "0 3 * * *"           # 每天 03:00（凌晨系统空闲时"做梦"）
+    interval: "30 4 * * *"          # 每天 04:30（GPU 低负载时段，避开其他 cron 集中期）
     log: ~/kb_dream.log
-    needs_api_key: false             # 通过 proxy:5002 调 LLM
+    needs_api_key: false             # 通过 Adapter:5001 调 LLM（绕过 Proxy）
     enabled: true
     tier: experiment                 # 实验性：Agent 跨领域探索
     description: "Agent 做梦引擎 — 跨领域关联发现 + 趋势推演 + 被忽视信号挖掘（每日凌晨，输出 ~/.kb/dreams/）"
