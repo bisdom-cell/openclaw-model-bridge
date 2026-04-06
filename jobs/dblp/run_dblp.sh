@@ -390,6 +390,19 @@ else
     printf '{"time":"%s","status":"send_failed","new":%d,"sent":false}\n' "$TS" "$PAPER_COUNT" > "$STATUS_FILE"
 fi
 
+# ── 6.5 Ontology 论文单独推送到 Discord #ontology ─────────────────────────
+ONTO_MSG_FILE="$CACHE/ontology_papers.txt"
+ONTO_FILTER="$(dirname "$0")/../ontology_filter.py"
+if [ -f "$ONTO_FILTER" ]; then
+    python3 "$ONTO_FILTER" "$PAPERS_FILE" "$DAY" "$ONTO_MSG_FILE" 2>/dev/null || true
+    if [ -s "$ONTO_MSG_FILE" ]; then
+        ONTO_CONTENT="$(head -c 4000 "$ONTO_MSG_FILE")"
+        ONTO_COUNT=$(grep -c '^\*' "$ONTO_MSG_FILE" || true)
+        "$OPENCLAW" message send --channel discord --target "${DISCORD_CH_ONTOLOGY:-}" --message "$ONTO_CONTENT" --json >/dev/null 2>&1 || true
+        log "Ontology论文推送到Discord #ontology: ${ONTO_COUNT} 篇"
+    fi
+fi
+
 # ── 7. KB归档 ────────────────────────────────────────────────────────
 SUMMARY="$(cat "$MSG_FILE")"
 if [ -n "$SUMMARY" ]; then
