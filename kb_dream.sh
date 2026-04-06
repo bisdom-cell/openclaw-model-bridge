@@ -22,7 +22,11 @@ LOCK="/tmp/kb_dream.lockdir"
 mkdir "$LOCK" 2>/dev/null || { echo "[dream] Already running, skip"; exit 0; }
 trap 'rmdir "$LOCK" 2>/dev/null' EXIT
 
-PROXY_URL="http://localhost:5002/v1/chat/completions"
+# 直接调 Adapter(:5001)，绕过 Proxy(:5002)
+# 原因：Proxy 有 200KB 请求体限制、SSE 转换、工具注入等——全是交互式对话用的
+# Agent Dream 是纯推理批处理任务，不需要这些，直接调 Adapter 获得：
+# ① 无请求体大小限制 ② 标准 JSON 响应 ③ 不受并发对话影响
+ADAPTER_URL="http://localhost:5001/v1/chat/completions"
 DAY="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d')"
 TS="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')"
 DRY_RUN=false
@@ -66,7 +70,7 @@ llm_call() {
     local err_file=$(mktemp)
 
     while [ $attempt -lt 2 ]; do
-        raw=$(curl -sS --max-time "$timeout" "$PROXY_URL" \
+        raw=$(curl -sS --max-time "$timeout" "$ADAPTER_URL" \
             -H 'Content-Type: application/json' \
             -d "$(jq -nc --arg p "$prompt" --argjson mt "$max_tokens" --argjson t "$temp" \
                 '{model:"any",messages:[{role:"user",content:$p}],max_tokens:$mt,temperature:$t,stream:false}')" \
@@ -402,8 +406,9 @@ $STATUS_CONTEXT
 $TREND_CONTEXT
 "
 
-# 截断 Reduce 素材到 50K chars（≈ 100-150KB UTF-8，低于 Proxy 200KB 限制）
-REDUCE_MATERIAL=$(echo "$REDUCE_DATA" | utf8_truncate 50000)
+# 截断 Reduce 素材到 80K chars（直接调 Adapter，无 Proxy 200KB 限制）
+# Qwen3-235B 262K context，80K chars ≈ 25-30K tokens，留足空间给 prompt + 8K output
+REDUCE_MATERIAL=$(echo "$REDUCE_DATA" | utf8_truncate 80000)
 REDUCE_CHARS=$(echo "$REDUCE_MATERIAL" | wc -c | tr -d ' ')
 log "Reduce 素材: ${REDUCE_CHARS} bytes (截断前 $(echo "$REDUCE_DATA" | wc -c | tr -d ' ') bytes)"
 
@@ -464,9 +469,9 @@ PROMPT_BYTES=$(echo "$REDUCE_PROMPT" | wc -c | tr -d ' ')
 log "Reduce prompt: ${PROMPT_BYTES} bytes → 发送 LLM..."
 
 # 安全检查：prompt 超过 180KB 则截断（Proxy 限制 200KB，留 20KB 给 JSON 包装）
-if [ "$PROMPT_BYTES" -gt 180000 ]; then
-    log "WARN: Reduce prompt 过大 (${PROMPT_BYTES}B > 180KB)，回退到 30K 素材"
-    REDUCE_MATERIAL=$(echo "$REDUCE_DATA" | utf8_truncate 30000)
+if [ "$PROMPT_BYTES" -gt 500000 ]; then
+    log "WARN: Reduce prompt 过大 (${PROMPT_BYTES}B > 500KB)，回退到 40K 素材"
+    REDUCE_MATERIAL=$(echo "$REDUCE_DATA" | utf8_truncate 40000)
     # 重新构建 prompt（用简化版，避免递归展开）
     REDUCE_PROMPT="你是一个在海量数据中寻找蛛丝马迹的探索者。
 
@@ -482,7 +487,7 @@ $REDUCE_MATERIAL
     log "回退后 prompt: ${PROMPT_BYTES} bytes"
 fi
 
-DREAM_RESULT=$(llm_call "$REDUCE_PROMPT" 4000 0.85 240 || true)
+DREAM_RESULT=$(llm_call "$REDUCE_PROMPT" 8000 0.85 300 || true)
 
 if [ -z "${DREAM_RESULT// }" ]; then
     log "ERROR: Phase 2 LLM 返回空结果 (prompt was ${PROMPT_BYTES} bytes)"
