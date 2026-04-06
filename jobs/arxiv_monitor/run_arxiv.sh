@@ -22,7 +22,7 @@ LLM_RAW="$CACHE/llm_raw_last.txt"
 MAX_PAPERS=10
 MAX_AGE_DAYS=14
 
-ARXIV_URL="https://export.arxiv.org/api/query?search_query=ti:LLM+OR+ti:%22Large+Language+Model%22+OR+ti:%22AI+Agent%22+OR+ti:RAG+OR+ti:RLHF+OR+ti:Multimodal+OR+ti:DeepSeek+OR+ti:Gemini+OR+ti:ChatGPT+OR+ti:GPT-4+OR+ti:GPT-5+OR+ti:Claude+OR+ti:Llama+OR+ti:Mistral+OR+ti:Qwen&sortBy=submittedDate&sortOrder=descending&max_results=50"
+ARXIV_URL="https://export.arxiv.org/api/query?search_query=ti:LLM+OR+ti:%22Large+Language+Model%22+OR+ti:%22AI+Agent%22+OR+ti:RAG+OR+ti:RLHF+OR+ti:Multimodal+OR+ti:DeepSeek+OR+ti:Gemini+OR+ti:ChatGPT+OR+ti:GPT-4+OR+ti:GPT-5+OR+ti:Claude+OR+ti:Llama+OR+ti:Mistral+OR+ti:Qwen+OR+ti:Ontology+OR+ti:%22Knowledge+Graph%22+OR+ti:%22Neuro-Symbolic%22+OR+ti:%22Knowledge+Representation%22+OR+ti:%22Symbolic+AI%22&sortBy=submittedDate&sortOrder=descending&max_results=50"
 
 TS="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')"
 STATUS_FILE="$CACHE/last_run.json"

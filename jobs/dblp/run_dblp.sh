@@ -33,7 +33,7 @@ mkdir -p "$CACHE" "${KB_BASE:-$HOME/.kb}/sources"
 test -f "$KB_SRC" || echo "# DBLP CS论文索引" > "$KB_SRC"
 
 # ── 1. 多关键词搜索 ─────────────────────────────────────────────────
-KEYWORDS=("large language model" "LLM agent" "multimodal foundation model" "retrieval augmented generation" "RLHF alignment")
+KEYWORDS=("large language model" "LLM agent" "multimodal foundation model" "retrieval augmented generation" "RLHF alignment" "ontology knowledge graph" "neuro-symbolic reasoning" "enterprise ontology")
 RAW_DIR="$CACHE/raw"
 mkdir -p "$RAW_DIR"
 
