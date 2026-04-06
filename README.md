@@ -5,7 +5,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-605%20passed-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-610%20passed-brightgreen.svg)]()
 [![Providers](https://img.shields.io/badge/providers-7%20supported-orange.svg)]()
 [![SLO](https://img.shields.io/badge/SLO-5%2F5%20PASS-blueviolet.svg)]()
 [![Jobs](https://img.shields.io/badge/cron%20jobs-32%20(28%20active)-blue.svg)]()
@@ -164,7 +164,7 @@ bash quickstart.sh
 ```
 Phase 1: Prerequisites     → Python, files, syntax, provider auto-detection
 Phase 2: Start Services    → Adapter(:5001) + Proxy(:5002), ~3 seconds
-Phase 3: Health Check      → 605 unit tests + registry validation
+Phase 3: Health Check      → 610 unit tests + registry validation
 Phase 4: Golden Test Trace → Real request through full stack, saved to docs/golden_trace.json
 ```
 
@@ -172,7 +172,7 @@ Phase 4: Golden Test Trace → Real request through full stack, saved to docs/go
 
 ```
 ✅ Provider: openai (via $OPENAI_API_KEY)
-✅ 605 tests passed
+✅ 610 tests passed
 ✅ Golden test: "Four" in 521ms (37 prompt + 2 completion tokens)
    Trace saved to docs/golden_trace.json
 ```
@@ -334,6 +334,18 @@ All jobs registered in `jobs_registry.yaml`. Validate: `python3 check_registry.p
 | `.github/workflows/ci.yml` | **V32** GitHub Actions CI — 9 test suites + config validation + security scan |
 | `CLAUDE.md` | Project context for AI-assisted development |
 
+### Ontology Sub-Project (V36.2)
+
+| File | Description |
+|------|-------------|
+| `ontology/engine.py` | **V36.2** Tool Ontology Engine — declarative rule inference (81 rules from proxy_filters.py), query/validate/suggest APIs |
+| `ontology/tool_ontology.yaml` | **V36.2** Declarative tool rules — 81 rules extracted from proxy_filters.py (filters, injections, truncation, SSE, media) |
+| `ontology/diff.py` | **V36.2** Consistency checker — compares engine rules vs proxy_filters.py behavior (81/81 = 100%) |
+| `ontology/poc_semantic_query.py` | **V36.2** Semantic query PoC — from enumeration to inference (the jump) |
+| `ontology/CONSTITUTION.md` | **V36.2** Ontology Constitution — 6 articles + Supreme Article (project isolation) + value assessment matrix |
+| `ontology/tests/test_engine.py` | **V36.2** Engine unit tests |
+| `ontology/docs/` | Knowledge base — 16 files covering foundations (BFO/DOLCE/UFO), architecture (neuro-symbolic, enterprise), cases (OpenClaw), readings |
+
 ### Documentation
 
 | File | Description |
@@ -354,7 +366,8 @@ All jobs registered in `jobs_registry.yaml`. Validate: `python3 check_registry.p
 **Three-Plane Architecture**:
 - **Control Plane** (90%): Provider Compatibility Layer, SLO 5-metric monitoring, centralized thresholds, 19-check preflight, incident snapshots, circuit breaker, audit logging
 - **Capability Plane** (85%): 7-provider routing, multimodal (text+vision), tool governance (≤12), data cleaning, search_kb hybrid retrieval
-- **Memory Plane** (60%): KB RAG, trend analysis, preference learning, multimodal memory, long-term memory (pending model upgrade)
+- **Memory Plane** (70%): KB RAG, trend analysis, preference learning, multimodal memory, Memory Plane v2 (dedup + confidence + conflict resolution)
+- **Ontology Plane** (new): Tool Ontology Engine (81 declarative rules), semantic query, enterprise AI knowledge base
 
 ### SLO Benchmark Results (real production data)
 
@@ -455,7 +468,7 @@ The `auto_deploy.sh` script maps 35 repo files to runtime locations and only res
 ## Testing
 
 ```bash
-# Full regression (605 tests across 10 suites — must ALL pass before push)
+# Full regression (610 tests across 10 suites — must ALL pass before push)
 bash full_regression.sh
 
 # Individual test suites
@@ -506,12 +519,13 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 | **Golden Test Trace** | `docs/golden_trace.json` | `bash quickstart.sh --demo` |
 | **SLO Benchmark** | `docs/slo_benchmark_report.md` | `python3 slo_benchmark.py --save` |
 | **Compatibility Matrix** | `docs/compatibility_matrix.md` | `python3 providers.py` |
-| **605 Unit Tests** | 10 test files | `python3 -m unittest discover -p "test_*.py"` |
+| **610 Unit Tests** | 10 test files | `python3 -m unittest discover -p "test_*.py"` |
 | **GameDay Drill** | `gameday.sh` | `bash gameday.sh --all` |
 | **Security Score** | `security_score.py` | `python3 security_score.py` |
 | **Reliability Bench** | `docs/reliability_bench_report.md` | `python3 reliability_bench.py --save` |
 | **Resilience Report** | `docs/resilience_report.md` | 7 fault injection experiments |
 | **Security Boundaries** | `docs/security_boundaries.md` | 8-section security analysis |
+| **Tool Ontology** | `ontology/` | `python3 ontology/diff.py` (81/81 consistency) |
 
 ## Articles
 
