@@ -297,7 +297,7 @@ jobs:
   - id: kb_embed
     scheduler: system
     entry: kb_embed.py
-    interval: "30 */4 * * *"        # 每4小时:30分（kb_inject 之后，错开其他 job）
+    interval: "30 3 * * *"           # 每天 03:30（凌晨集中执行，为 04:00-06:00 LLM 黄金窗口让路）
     log: ~/kb_embed.log
     needs_api_key: false
     enabled: true
@@ -352,4 +352,13 @@ jobs:
     needs_api_key: false             # 通过 Adapter:5001 调 LLM（绕过 Proxy）
     enabled: true
     tier: experiment                 # 实验性：Agent 跨领域探索
-    description: "Agent 做梦引擎 — 跨领域关联发现 + 趋势推演 + 被忽视信号挖掘（每日凌晨，输出 ~/.kb/dreams/）"
+    description: "Agent 做梦引擎 — MapReduce 全量 KB 探索 + 深度分析（每日凌晨，输出 ~/.kb/dreams/）"
+
+  # ── 凌晨 GPU 黄金窗口时间预算（04:00-06:00，LLM 专用） ──────────────
+  # 03:00  openclaw_backup（轻量 rsync，不调 LLM）
+  # 03:30  kb_embed（本地向量索引，不调 LLM）
+  # 04:00  [预留] 未来重度 LLM 任务（Ontology 专题分析）
+  # 04:30  kb_dream（MapReduce 全量分析，~15 分钟）
+  # 05:00  [预留] 未来重度 LLM 任务（KB 跨期深度回顾）
+  # 05:30  [预留] 未来重度 LLM 任务
+  # 06:00  ── 日间调度开始 ──
