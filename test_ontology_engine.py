@@ -450,5 +450,66 @@ class TestCLI(unittest.TestCase):
         self.assertIn("web_search", names)
 
 
+class TestConstitution(unittest.TestCase):
+    """宪法四条强制执行测试。
+
+    这些测试直接对应 docs/ontology/CONSTITUTION.md 的四条不可违反原则。
+    任何一条失败 = 违宪。
+    """
+
+    def test_constitution_1_non_destructive(self):
+        """宪法第一条：非破坏性引入 — proxy_filters 不依赖 ontology_engine 即可工作。"""
+        # 验证 proxy_filters 的核心数据结构独立存在
+        from proxy_filters import ALLOWED_TOOLS, CLEAN_SCHEMAS, TOOL_PARAMS, CUSTOM_TOOLS
+        self.assertGreater(len(ALLOWED_TOOLS), 0, "ALLOWED_TOOLS 必须独立定义")
+        self.assertGreater(len(CLEAN_SCHEMAS), 0, "CLEAN_SCHEMAS 必须独立定义")
+        self.assertGreater(len(TOOL_PARAMS), 0, "TOOL_PARAMS 必须独立定义")
+        self.assertGreater(len(CUSTOM_TOOLS), 0, "CUSTOM_TOOLS 必须独立定义")
+
+    def test_constitution_2_consistency(self):
+        """宪法第二条：一致性安全网 — ontology 与 hardcoded 100% 一致。"""
+        from proxy_filters import ALLOWED_TOOLS, CLEAN_SCHEMAS, TOOL_PARAMS
+        onto = ToolOntology()
+        issues = onto.check_consistency(ALLOWED_TOOLS, CLEAN_SCHEMAS, TOOL_PARAMS)
+        self.assertEqual(issues, [],
+                         f"宪法第二条违规 — ontology 与 hardcoded 不一致:\n" +
+                         "\n".join(f"  - {i}" for i in issues))
+
+    def test_constitution_3_rationale(self):
+        """宪法第三条：每条规则有 rationale — 无例外。"""
+        onto = ToolOntology()
+        missing = []
+        for cat_name, policy in onto._policies.items():
+            for rule in policy.get("rules", []):
+                name = rule.get("name", "?")
+                if not rule.get("rationale", "").strip():
+                    missing.append(f"{cat_name}.{name}")
+        self.assertEqual(missing, [],
+                         f"宪法第三条违规 — 以下规则缺少 rationale:\n" +
+                         "\n".join(f"  - {m}" for m in missing))
+
+    def test_constitution_4_diff_all_green(self):
+        """宪法第四条：差异对比全绿 — 81 项 100% 一致。"""
+        from ontology_diff import run_diff
+        items = run_diff()
+        non_match = [i for i in items if i.status != "match"]
+        self.assertEqual(len(non_match), 0,
+                         f"宪法第四条违规 — {len(non_match)} 项不一致:\n" +
+                         "\n".join(f"  - [{i.dimension}] {i.item}: {i.icon} {i.detail}"
+                                  for i in non_match))
+
+    def test_constitution_4_all_dimensions_covered(self):
+        """宪法第四条补充：diff 必须覆盖所有 9 个维度。"""
+        from ontology_diff import run_diff
+        items = run_diff()
+        dimensions = {i.dimension for i in items}
+        expected_dims = {
+            "工具白名单", "前缀匹配", "Schema", "参数集合",
+            "参数别名", "自定义工具", "浏览器约束", "策略值", "Rationale覆盖"
+        }
+        self.assertEqual(dimensions, expected_dims,
+                         f"diff 维度不完整: 缺少 {expected_dims - dimensions}")
+
+
 if __name__ == "__main__":
     unittest.main()

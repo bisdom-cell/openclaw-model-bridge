@@ -108,7 +108,8 @@ CLEAN_SCHEMAS = {
             "payload": {"type": "string", "description": "The message/instruction to execute when triggered"},
             "id": {"type": "string", "description": "Cron job ID for remove action"}
         },
-        "required": ["action"]
+        "required": ["action"],
+        "additionalProperties": False
     },
     "message": {
         "type": "object",
@@ -116,7 +117,8 @@ CLEAN_SCHEMAS = {
             "to": {"type": "string", "description": "Recipient phone number or contact"},
             "text": {"type": "string", "description": "Message text to send"}
         },
-        "required": ["to", "text"]
+        "required": ["to", "text"],
+        "additionalProperties": False
     },
     "tts": {
         "type": "object",
@@ -178,6 +180,8 @@ TOOL_PARAMS = {
     "browser_click": {"selector", "profile", "target"},
     "browser_type": {"selector", "text", "profile", "target"},
     "browser_snapshot": {"profile", "target"},
+    "data_clean": {"action", "file", "ops", "fix_case_cols"},
+    "search_kb": {"query", "source", "recent_hours"},
 }
 
 # 浏览器合法 profile
