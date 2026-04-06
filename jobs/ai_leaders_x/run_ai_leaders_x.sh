@@ -45,10 +45,13 @@ LEADERS=(
     "_jasonwei|Jason Wei|OpenAI，Chain-of-Thought推理研究"
     "hwchung27|Hyung Won Chung|OpenAI，Scaling Laws/训练洞察"
     "hwchase17|Harrison Chase|LangChain创建者，Agent编排/工具链"
+    "GaryMarcus|Gary Marcus|Neuro-Symbolic AI倡导者，Rebooting AI作者"
+    "juaborges|Jure Leskovec|Stanford，图神经网络/知识图谱推理"
+    "Michael_Witbrock|Michael Witbrock|Cycorp/Cyc知识库，常识推理先驱"
 )
 
 MAX_PER_PERSON=5
-MAX_TOTAL=20
+MAX_TOTAL=25
 ALL_TWEETS="$CACHE/all_tweets.jsonl"
 > "$ALL_TWEETS"
 FETCH_STATS=""
