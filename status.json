@@ -103,6 +103,16 @@
       "note": "导师指出的三块差距之一：去除个人/场景定制痕迹，抽象成别人也能迁移的框架。V2-V3阶段推进"
     },
     {
+      "task": "【新方向】Ontology KB — 本体论驱动的企业智能架构",
+      "status": "active",
+      "note": "核心论点：Ontology(语义骨架)+LLM(大脑)+Agent(执行)=未来企业智能架构。已创建docs/ontology/(7文件)，论文监控已加ontology关键词，X监控已加Marcus/Leskovec/Witbrock/Palantir。下一步：丰富内容+第一篇立场文章"
+    },
+    {
+      "task": "【优化】Agent Dream v2 MapReduce",
+      "status": "active",
+      "note": "MapReduce全量KB探索(14 sources+226 notes)，Notes走Map阶段，一个主题×全部分析维度，绕过Proxy直调Adapter，04:30错峰执行。待验收：明早04:30自动运行结果"
+    },
+    {
       "task": "Provider Compatibility Layer",
       "status": "completed"
     },
@@ -120,6 +130,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-04-06",
+      "what": "Agent Dream v2 MapReduce全量KB探索(14 sources+226 notes全覆盖) + Notes走Map阶段(用户交互=一等信号) + 一个主题×全部分析维度(隐藏关联+趋势推演+被忽视信号+行动建议) + 绕过Proxy直调Adapter + 分段推送完整梦境 + 短响应自动重试 + Ontology KB创建(7文件571行:三角架构+核心概念+AI治理+OpenClaw本体审视+文献+人物) + Discord #ontology频道 + 论文监控加ontology关键词(ArXiv/S2/DBLP) + X监控9→15人(+Marcus/Leskovec/Witbrock/Palantir×3) + Cron调度优化(~55次/天→~30次/天,08:00并发4→2) + 凌晨04:00-06:00 GPU黄金窗口规划 + CLAUDE.md规则#14硬卡点",
+      "by": "claude_code"
+    },
     {
       "date": "2026-04-05",
       "what": "V36/0.36.0: V2路标7/7全部完成 — Reliability Bench(7场景47检查)+Memory Plane v1+v2(4层统一+去重+置信度+冲突消解,64单测)+SLO Dashboard(历史追踪+sparkline)+安全边界文档+semver版本治理+运维韧性报告+第一篇架构文章(dev.to+知乎+Twitter发布)+610测试23套件全过+Mac Mini生产验证通过",
@@ -238,8 +253,8 @@
     "text_index": "14296 chunks, 260/261 files (99%), 260 stale, 3h ago, 21444KB"
   },
   "session_context": {
-    "last_session": "2026-04-05",
-    "unfinished": "",
+    "last_session": "2026-04-06",
+    "unfinished": "明早验收Dream v2 04:30自动运行结果(期望>10KB+Notes信号)",
     "open_prs": "",
     "blocked_on": ""
   },
@@ -309,7 +324,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "Stage2:被社区认可的系统作者。P0:Provider Compatibility Layer抽象+Agent Reliability Bench+Memory Plane v1统一+兼容矩阵&SLO benchmark证据。P1:一键demo+第一篇架构文章。详见docs/strategic_review_20260403.md",
+  "focus": "Stage2:被社区认可的系统作者。双线并进：① Control Plane(V1-V2完成,V3 Plugin待启动) ② Ontology KB(新方向:Ontology+LLM+Agent企业架构,docs/ontology/已创建)。Dream v2 MapReduce全量KB探索已部署。详见docs/strategic_review_20260403.md + docs/ontology/README.md",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-08:00（2天数据）",

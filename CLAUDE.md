@@ -1,6 +1,6 @@
 # CLAUDE.md — openclaw-model-bridge 项目背景
 
-> 每次新会话开始时自动读取。当前版本：v36 / 0.36.0（2026-04-05）
+> 每次新会话开始时自动读取。当前版本：v36.1 / 0.36.1（2026-04-06）
 
 ---
 
@@ -190,6 +190,8 @@
 | `docs/memory_plane.md` | **V36新增** Memory Plane 架构文档（分层设计/API/数据流/CLI） |
 | `docs/security_boundaries.md` | **V36新增** 安全边界文档（8节：认证/网络/输入验证/数据保护/LLM安全/运维/评分/已知风险+Checklist） |
 | `docs/resilience_report.md` | **V36新增** 运维韧性实验报告（7场景故障注入+Recovery Time+GameDay对比+改进建议） |
+| `docs/ontology/` | **V36新增** Ontology KB — 本体论驱动的企业智能架构知识库（7文件：三角架构论述/核心概念/AI治理/OpenClaw本体审视/文献/人物/README） |
+| `kb_dream.sh` | **V36新增→升级** Agent Dream v2 MapReduce 全量 KB 探索引擎（Phase1 Map 14源+226笔记逐一提取信号 → Phase2 Reduce 跨域深度分析，一个主题×全部分析维���，绕过Proxy直调Adapter，分段WhatsApp推送，短响应自动重试，04:30错峰执行） |
 | `gameday.sh` | **V33新增** GameDay 故障演练（5场景：GPU超时/断路器/快照/SLO/Watchdog，`bash gameday.sh --all`） |
 | `jobs/dblp/run_dblp.sh` | **V30.5新增** DBLP CS论文监控（多关键词搜索、免费API、每日12:00推送+KB写入） |
 | `jobs/hf_papers/run_hf_papers.sh` | **V30.5新增** HuggingFace Daily Papers 监控（热门AI论文、每日10:00推送+KB写入） |
@@ -207,6 +209,7 @@
 
 | 版本 | 日期 | 关键变更 |
 |------|------|----------|
+| V36.1 | 2026-04-06 | **Agent Dream v2 + Ontology KB** — MapReduce 全量 KB 探索（14源+226笔记）+ Notes 一等信号 + Ontology KB 创建（7文件）+ 论文监控加 ontology 关键词 + X 监控 9→15 人（+Palantir）+ Cron 调度优化（~55→30 次/天）+ 凌晨 GPU 黄金窗口 |
 | V36 | 2026-04-05 | **V2 路标双P0完成** — Agent Reliability Bench（7场景47检查） + Memory Plane v1（4层统一接口+45单测+架构文档） + 560 测试 |
 | V35 | 2026-04-05 | **V1 路标冲刺** — SLO Benchmark 实验报告 + Quick Start 一键 demo + Golden Test Trace + Sub-agent PoC（链路通，deferred 等模型升级）+ 605 测试 |
 | V34 | 2026-04-03 | **Stage2 启动** — Provider Compatibility Layer + 导师战略复盘嵌入治理体系 + V1/V2/V3 路标 + 461 测试 |
@@ -305,6 +308,12 @@ python3 memory_plane.py stats                     # 各层统计
 python3 memory_plane.py query "Qwen3"             # 统一搜索
 python3 memory_plane.py query --context "AI论文"   # LLM可注入格式
 python3 memory_plane.py query --layers kb "RAG"    # 仅搜索KB层
+
+# Agent Dream v2（MapReduce 全量 KB 探索）
+bash kb_dream.sh              # 完整 MapReduce 做梦（~15 分钟）
+bash kb_dream.sh --dry-run    # 素材统计（不调 LLM）
+bash kb_dream.sh --fast       # 跳过 Map，直接采样做梦（旧模式）
+cat ~/.kb/dreams/2026-04-06.md  # 查看梦境结果
 
 # Agent Reliability Bench（7场景故障评测）
 python3 reliability_bench.py            # Markdown 报告
@@ -518,6 +527,19 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 | 架构型 | **Why Agent Systems Need a Control Plane** — `docs/articles/why_control_plane.md`（问题→三平面架构→7场景证据→5条教训→立场） | ✅ V36 完成 |
 | 证据型 | **Benchmark Report** / **Failure Injection Report** / **Lessons from 461-test Regression** | 待写 |
 | 立场型 | **为什么 agent 系统首先是治理问题** / **为什么 control plane 必须先于 capability plane** | 待写 |
+| 立场型 | **Why Enterprise AI Needs Ontology Before It Needs More Models** — Ontology+LLM+Agent 三角架构论述 | 待写 |
+
+### Ontology KB（新方向，持续推进）
+
+| 优先级 | 任务 | 状态 |
+|--------|------|------|
+| **P0** | Ontology KB 目录结构 + 初始文件（7 文件） | ✅ V36.1 完成 |
+| **P0** | 论文监控加 ontology 关键词（ArXiv/S2/DBLP） | ✅ V36.1 完成 |
+| **P0** | X 监控加 ontology 人物（Marcus/Leskovec/Witbrock/Palantir×3） | ✅ V36.1 完成 |
+| **P1** | 丰富 Ontology KB 内容：BFO/DOLCE/UFO 流派对比、Neuro-Symbolic 技术、供应链本体 | 待写 |
+| **P1** | 用本体论视角重新审视 OpenClaw（深度版，含工具语义本体实验） | 待写 |
+| **P1** | 第一篇立场文章：**Why Enterprise AI Needs Ontology Before It Needs More Models** | 待写 |
+| **P2** | 在 OpenClaw 中实验性引入本体约束（工具调用前置条件检查） | 待启动 |
 
 ### 现有功能任务（V1 稳定后继续推进）
 
