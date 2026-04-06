@@ -48,10 +48,13 @@ LEADERS=(
     "GaryMarcus|Gary Marcus|Neuro-Symbolic AI倡导者，Rebooting AI作者"
     "juaborges|Jure Leskovec|Stanford，图神经网络/知识图谱推理"
     "Michael_Witbrock|Michael Witbrock|Cycorp/Cyc知识库，常识推理先驱"
+    "PalantirTech|Palantir Technologies|企业AI平台/Ontology+AIP/数据治理"
+    "AlexKarp|Alex Karp|Palantir CEO，企业AI+本体论落地实践"
+    "ShyamSankar|Shyam Sankar|Palantir CTO，Foundry Ontology架构师"
 )
 
 MAX_PER_PERSON=5
-MAX_TOTAL=25
+MAX_TOTAL=30
 ALL_TWEETS="$CACHE/all_tweets.jsonl"
 > "$ALL_TWEETS"
 FETCH_STATS=""
