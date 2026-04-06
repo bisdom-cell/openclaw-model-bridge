@@ -9,48 +9,48 @@
     },
     {
       "task": "【V1-P0】Provider Compatibility Layer",
-      "status": "in_progress",
-      "note": "V34已实现: providers.py(BaseProvider+4实现+ProviderRegistry+能力声明+CLI矩阵)+48单测。需生产运行验证后固化"
+      "status": "completed",
+      "note": "V35+完成: providers.py 7 Provider + ProviderRegistry + 能力声明 + CLI矩阵 + 48单测，生产验证通过"
     },
     {
       "task": "【V1-P0】兼容性矩阵 + SLO Benchmark 证据",
-      "status": "in_progress",
-      "note": "矩阵文档已生成(docs/compatibility_matrix.md)。下一步：把SLO从规则变成实验结果（延迟/成功率/降级恢复时间/超时率）"
+      "status": "completed",
+      "note": "V35完成: docs/compatibility_matrix.md + slo_benchmark.py + 实验报告(5/5 PASS, p95=459ms)"
     },
     {
       "task": "【V1-P1】一键启动 + 最小 demo + golden test trace",
-      "status": "backlog",
-      "note": "导师建议：别人10分钟能跑起来，传播效率翻倍。需要：安装稳定/配置清晰/文档闭环/demo transcript"
+      "status": "completed",
+      "note": "V35完成: quickstart.sh 4阶段(19/19通过) + docs/golden_trace.json"
     },
     {
-      "task": "【V1-P1】可复现证据：Quick Start 完善 + smoke test demo",
-      "status": "backlog",
-      "note": "已有 Quick Start/GUIDE/CI/测试，再加一键 demo transcript / golden trace"
+      "task": "【V1-P1】可复现证据",
+      "status": "completed",
+      "note": "V35完成: Quick Start + golden trace + SLO benchmark report 均已入库"
     },
     {
       "task": "【V2-P0】Agent Reliability Bench",
-      "status": "backlog",
-      "note": "导师建议模块二：provider宕机/tool timeout/malformed args/oversized request/kb miss-hit/cron drift/state corruption评测。基于gameday.sh扩展"
+      "status": "completed",
+      "note": "V36完成: reliability_bench.py 7场景47检查 + 36单测 + docs/reliability_bench_report.md"
     },
     {
       "task": "【V2-P0】Memory Plane v1 统一叙事",
-      "status": "backlog",
-      "note": "导师建议模块三：把 local_embed/kb_rag/mm_index/preference_learner/status_sync 统一成一个 memory plane（短期对话/KB语义/多媒体/用户偏好/运维状态）"
+      "status": "completed",
+      "note": "V36完成: memory_plane.py 4层统一接口 + 45单测 + docs/memory_plane.md"
     },
     {
-      "task": "【V2-P1】运维韧性证据：故障注入 + 恢复时间统计",
-      "status": "backlog",
-      "note": "已有 incident_snapshot/watchdog/preflight/gameday。下一步：系统性故障注入实验+演练脚本+恢复时间统计"
+      "task": "【V2-P1】运维韧性证据",
+      "status": "completed",
+      "note": "V36完成: docs/resilience_report.md — 7场景故障注入 + Recovery Time + GameDay对比"
     },
     {
-      "task": "【V2-P1】Memory Plane v2：跨层去重+置信度+冲突消解+记忆衰减",
-      "status": "backlog",
-      "note": "v1统一接口已完成。v2: 跨层去重（KB+MM同论文）、置信度加权（语义>关键词>时间）、冲突消解（偏好vs状态矛盾）、旧记忆自动衰减"
+      "task": "【V2-P1】Memory Plane v2",
+      "status": "completed",
+      "note": "V36完成: 跨层去重 + 置信度加权 + 冲突消解 + 64单测"
     },
     {
       "task": "【V2-P1】SLO Dashboard + 版本治理 semver",
-      "status": "backlog",
-      "note": "SLO指标已定义(config.yaml)，需要可视化dashboard和语义化版本管理"
+      "status": "completed",
+      "note": "V36完成: slo_dashboard.py + VERSION文件 + /health暴露版本 + 31单测"
     },
     {
       "task": "【V3】Provider Plugin Interface",
@@ -69,18 +69,18 @@
     },
     {
       "task": "【输出】第一篇架构型文章",
-      "status": "backlog",
-      "note": "导师建议题目：Why Agent Systems Need a Control Plane / From Model Bridge to Runtime Governance"
+      "status": "completed",
+      "note": "V36完成: docs/articles/why_control_plane.md — dev.to+知乎+Twitter发布"
     },
     {
       "task": "【输出】证据型文章（Benchmark/故障案例/Lessons Learned）",
       "status": "backlog",
-      "note": "424+ tests, 9组CI, 26条教训 — 都适合转化为文章"
+      "note": "610+ tests, Reliability Bench/SLO Benchmark/Resilience Report 数据已有，需转化为文章"
     },
     {
       "task": "【输出】立场型文章（为什么agent首先是治理问题）",
       "status": "backlog",
-      "note": "Control Plane First 方法论已在README写出，需扩写成完整观点体系"
+      "note": "Control Plane First 方法论已在README写出。新增Ontology立场文章: Why Enterprise AI Needs Ontology Before It Needs More Models"
     },
     {
       "task": "数据清洗 Phase 2",
@@ -103,9 +103,9 @@
       "note": "导师指出的三块差距之一：去除个人/场景定制痕迹，抽象成别人也能迁移的框架。V2-V3阶段推进"
     },
     {
-      "task": "【新方向】Ontology KB — 本体论驱动的企业智能架构",
+      "task": "【新方向】Ontology 子项目 — 本体论驱动的企业智能架构",
       "status": "active",
-      "note": "核心论点：Ontology(语义骨架)+LLM(大脑)+Agent(执行)=未来企业智能架构。已创建docs/ontology/(7文件)，论文监控已加ontology关键词，X监控已加Marcus/Leskovec/Witbrock/Palantir。下一步：丰富内容+第一篇立场文章"
+      "note": "已独立为 ontology/ 子项目(2800+行,21文件): Tool Ontology Engine(81条声明式规则)+宪法(6条+最高条款)+语义查询PoC+特性开关(3模式rollback)+价值评估矩阵。论文/X监控已加ontology关键词。下一步：立场文章+工具语义本体实验+丰富内容"
     },
     {
       "task": "【优化】Agent Dream v2 MapReduce",
@@ -132,7 +132,12 @@
   "recent_changes": [
     {
       "date": "2026-04-06",
-      "what": "Agent Dream v2 MapReduce全量KB探索(14 sources+226 notes全覆盖) + Notes走Map阶段(用户交互=一等信号) + 一个主题×全部分析维度(隐藏关联+趋势推演+被忽视信号+行动建议) + 绕过Proxy直调Adapter + 分段推送完整梦境 + 短响应自动重试 + Ontology KB创建(7文件571行:三角架构+核心概念+AI治理+OpenClaw本体审视+文献+人物) + Discord #ontology频道 + 论文监控加ontology关键词(ArXiv/S2/DBLP) + X监控9→15人(+Marcus/Leskovec/Witbrock/Palantir×3) + Cron调度优化(~55次/天→~30次/天,08:00并发4→2) + 凌晨04:00-06:00 GPU黄金窗口规划 + CLAUDE.md规则#14硬卡点",
+      "what": "V36.1 Session 2: Ontology子项目深度建设 — ① ontology/独立子项目(2800+行21文件) ② Tool Ontology Engine(proxy_filters→81条声明式规则yaml+engine.py推理引擎+diff.py一致性校验100%) ③ Ontology宪法(6条+最高条款:项目隔离) ④ 语义查询PoC(枚举→推理跳跃) ⑤ 特性开关Phase1(equivalence proof+3模式rollback) ⑥ 价值评估矩阵(Article 5) ⑦ 论文Discord #ontology频道路由 ⑧ 各种修复(中文推送/stderr重定向)",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-04-06",
+      "what": "Agent Dream v2 MapReduce全量KB探索(14 sources+226 notes全覆盖) + Notes走Map阶段(用户交互=一等信号) + Ontology KB创建(7文件571行) + Discord #ontology频道 + 论文监控加ontology关键词 + X监控9→15人 + Cron调度优化(~55→~30次/天) + GPU黄金窗口",
       "by": "claude_code"
     },
     {
@@ -254,14 +259,14 @@
   },
   "session_context": {
     "last_session": "2026-04-06",
-    "unfinished": "明早验收Dream v2 04:30自动运行结果(期望>10KB+Notes信号)",
-    "open_prs": "",
+    "unfinished": "① 明早验收Dream v2 04:30自动运行结果 ② Ontology特性开关Phase2(engine替代filters)+Phase3(切换生产) ③ Ontology立场文章待写",
+    "open_prs": "claude/start-daily-work-rCiVr (ontology子项目深度建设)",
     "blocked_on": ""
   },
   "quality": {
-    "security_score": 0,
-    "test_count": 393,
-    "last_regression": "2026-03-27 pass",
+    "security_score": 98,
+    "test_count": 610,
+    "last_regression": "2026-04-05 pass",
     "coverage_pct": 0
   },
   "incidents": [
@@ -324,7 +329,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "Stage2:被社区认可的系统作者。双线并进：① Control Plane(V1-V2完成,V3 Plugin待启动) ② Ontology KB(新方向:Ontology+LLM+Agent企业架构,docs/ontology/已创建)。Dream v2 MapReduce全量KB探索已部署。详见docs/strategic_review_20260403.md + docs/ontology/README.md",
+  "focus": "Stage2:被社区认可的系统作者。三线并进：① Control Plane(V1-V2全部完成✅,V3 Plugin待启动) ② Ontology子项目(独立ontology/目录,2800+行:Engine+宪法+PoC+特性开关,下一步:立场文章+生产切换) ③ Dream v2 MapReduce已部署(待验收04:30结果)。详见docs/strategic_review_20260403.md + ontology/README.md",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-08:00（2天数据）",
