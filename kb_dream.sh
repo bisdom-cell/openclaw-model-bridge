@@ -22,11 +22,26 @@ LOCK="/tmp/kb_dream.lockdir"
 mkdir "$LOCK" 2>/dev/null || { echo "[dream] Already running, skip"; exit 0; }
 trap 'rmdir "$LOCK" 2>/dev/null' EXIT
 
-# 直接调 Adapter(:5001)，绕过 Proxy(:5002)
-# 原因：Proxy 有 200KB 请求体限制、SSE 转换、工具注入等——全是交互式对话用的
-# Agent Dream 是纯推理批处理任务，不需要这些，直接调 Adapter 获得：
-# ① 无请求体大小限制 ② 标准 JSON 响应 ③ 不受并发对话影响
-ADAPTER_URL="http://localhost:5001/v1/chat/completions"
+# Dream 专用 LLM：直接调 Gemini API，完全独立于 WhatsApp 的 Qwen3
+# 原因：
+# ① 资源隔离：Qwen3 远端 GPU 高峰时段常截断响应（2KB vs 17KB）
+# ② Gemini 2.5 Flash：1M context（113KB prompt 轻松容纳）+ 8192 max_output_tokens
+# ③ 免费/低成本，且和 Qwen3 不共享任何资源
+# 回退：如果 GEMINI_API_KEY 未设置，仍用 Adapter(:5001)
+GEMINI_API_KEY="${GEMINI_API_KEY:-}"
+if [ -n "$GEMINI_API_KEY" ]; then
+    LLM_URL="https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
+    LLM_AUTH="Bearer $GEMINI_API_KEY"
+    LLM_MODEL="gemini-2.5-flash"
+    LLM_SOURCE="gemini"
+    log "LLM: Gemini 2.5 Flash (独立资源，不与 WhatsApp 竞争)"
+else
+    LLM_URL="http://localhost:5001/v1/chat/completions"
+    LLM_AUTH=""
+    LLM_MODEL="any"
+    LLM_SOURCE="adapter"
+    log "LLM: Adapter(:5001) (GEMINI_API_KEY 未设置，回退)"
+fi
 DAY="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d')"
 TS="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')"
 DRY_RUN=false
@@ -70,10 +85,15 @@ llm_call() {
     local err_file=$(mktemp)
 
     while [ $attempt -lt 2 ]; do
-        raw=$(curl -sS --max-time "$timeout" "$ADAPTER_URL" \
+        # 构建 auth header（Gemini 需要 Bearer token，Adapter 不需要）
+        local auth_args=()
+        [ -n "$LLM_AUTH" ] && auth_args=(-H "Authorization: $LLM_AUTH")
+
+        raw=$(curl -sS --max-time "$timeout" "$LLM_URL" \
             -H 'Content-Type: application/json' \
-            -d "$(jq -nc --arg p "$prompt" --argjson mt "$max_tokens" --argjson t "$temp" \
-                '{model:"any",messages:[{role:"user",content:$p}],max_tokens:$mt,temperature:$t,stream:false}')" \
+            "${auth_args[@]}" \
+            -d "$(jq -nc --arg p "$prompt" --arg m "$LLM_MODEL" --argjson mt "$max_tokens" --argjson t "$temp" \
+                '{model:$m,messages:[{role:"user",content:$p}],max_tokens:$mt,temperature:$t,stream:false}')" \
             2>"$err_file" || true)
 
         # 尝试从标准 JSON 提取
