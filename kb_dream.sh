@@ -54,29 +54,44 @@ print(text)
 "
 }
 
-# LLM 调用封装（含重试）
+# LLM 调用封装（含重试和错误诊断）
 llm_call() {
     local prompt="$1"
     local max_tokens="${2:-1500}"
     local temp="${3:-0.8}"
     local timeout="${4:-120}"
     local result=""
+    local raw=""
     local attempt=0
+    local err_file=$(mktemp)
 
     while [ $attempt -lt 2 ]; do
-        result=$(curl -sS --max-time "$timeout" "$PROXY_URL" \
+        raw=$(curl -sS --max-time "$timeout" "$PROXY_URL" \
             -H 'Content-Type: application/json' \
             -d "$(jq -nc --arg p "$prompt" --argjson mt "$max_tokens" --argjson t "$temp" \
                 '{model:"any",messages:[{role:"user",content:$p}],max_tokens:$mt,temperature:$t}')" \
-            2>/dev/null | jq -r '.choices[0].message.content // empty' 2>/dev/null || true)
+            2>"$err_file" || true)
+
+        # 尝试提取内容
+        result=$(echo "$raw" | jq -r '.choices[0].message.content // empty' 2>/dev/null || true)
 
         if [ -n "${result// }" ]; then
+            rm -f "$err_file"
             echo "$result"
             return 0
         fi
+
+        # 诊断失败原因
+        local curl_err=$(cat "$err_file" 2>/dev/null)
+        local error_msg=$(echo "$raw" | jq -r '.error.message // .error // empty' 2>/dev/null || true)
+        [ -n "$curl_err" ] && log "  LLM curl error: $curl_err"
+        [ -n "$error_msg" ] && log "  LLM API error: $error_msg"
+        [ -z "$raw" ] && log "  LLM returned empty response"
+
         attempt=$((attempt + 1))
         [ $attempt -lt 2 ] && sleep 3
     done
+    rm -f "$err_file"
     return 1
 }
 
@@ -249,22 +264,66 @@ $signals
 fi
 
 # ═══════════════════════════════════════════════════════════════════
-# 4. 收集 Notes 素材（全量读取，notes 通常较短）
+# 4. 收集 Notes 素材
+#    MapReduce 模式：Map 已覆盖 sources 全量，notes 只取最近 + 随机采样
+#    Fast 模式：notes 全量读取（受 Reduce 截断保护）
 # ═══════════════════════════════════════════════════════════════════
 
 NOTES_MATERIAL=""
 if [ -n "$ALL_NOTES" ]; then
+    # 按修改时间倒序（最新在前）
+    SORTED_NOTES=$(echo "$ALL_NOTES" | while read f; do
+        [ -f "$f" ] && echo "$(stat -f '%m' "$f" 2>/dev/null || stat -c '%Y' "$f" 2>/dev/null || echo 0) $f"
+    done | sort -rn | awk '{print $2}')
+
+    NOTE_BUDGET=30   # MapReduce 模式下取最近 20 + 随机 10
+    [ "$FAST_MODE" = true ] && NOTE_BUDGET=80
+    NOTE_IDX=0
+    NOTE_RECENT=20
+    [ "$FAST_MODE" = true ] && NOTE_RECENT=60
+
+    # 收集剩余 notes 路径供随机采样
+    REMAINING_NOTES=""
+
     while IFS= read -r note; do
         [ -z "$note" ] && continue
         [ -f "$note" ] || continue
-        name=$(basename "$note" .md)
-        content=$(cat "$note" 2>/dev/null | utf8_truncate 3000)
-        [ -z "${content// }" ] && continue
-        NOTES_MATERIAL+="
+        NOTE_IDX=$((NOTE_IDX + 1))
+
+        if [ "$NOTE_IDX" -le "$NOTE_RECENT" ]; then
+            # 最近的 notes 直接取
+            name=$(basename "$note" .md)
+            content=$(cat "$note" 2>/dev/null | utf8_truncate 2000)
+            [ -z "${content// }" ] && continue
+            NOTES_MATERIAL+="
 ### $name
 $content
 "
-    done <<< "$ALL_NOTES"
+        else
+            REMAINING_NOTES+="$note
+"
+        fi
+    done <<< "$SORTED_NOTES"
+
+    # 从剩余 notes 随机采样
+    RANDOM_BUDGET=$((NOTE_BUDGET - NOTE_RECENT))
+    if [ "$RANDOM_BUDGET" -gt 0 ] && [ -n "$REMAINING_NOTES" ]; then
+        RANDOM_PICKS=$(echo "$REMAINING_NOTES" | grep -v '^$' | sort -R 2>/dev/null | head -"$RANDOM_BUDGET" || \
+                       echo "$REMAINING_NOTES" | grep -v '^$' | awk 'BEGIN{srand()} {print rand(), $0}' | sort -n | head -"$RANDOM_BUDGET" | awk '{print $2}')
+        while IFS= read -r note; do
+            [ -z "$note" ] && continue
+            [ -f "$note" ] || continue
+            name=$(basename "$note" .md)
+            content=$(cat "$note" 2>/dev/null | utf8_truncate 2000)
+            [ -z "${content// }" ] && continue
+            NOTES_MATERIAL+="
+### $name (历史)
+$content
+"
+        done <<< "$RANDOM_PICKS"
+    fi
+
+    log "notes 采样完成: $NOTE_IDX total, 取 $NOTE_RECENT recent + $RANDOM_BUDGET random = $NOTE_BUDGET"
 fi
 
 # ═══════════════════════════════════════════════════════════════════
@@ -277,8 +336,8 @@ log "Phase 2 (Reduce): 开始跨领域关联..."
 
 # 组装 Reduce 素材
 if [ "$FAST_MODE" = true ] || [ -z "${MAP_SIGNALS// }" ]; then
-    # Fast 模式或 Map 失败：回退到直接采样（加大到 80K）
-    log "使用直接采样模式 (80K chars)"
+    # Fast 模式或 Map 失败：回退到直接采样
+    log "使用直接采样模式"
     REDUCE_INTRO="以下是系统知识库的全量采样数据（涵盖论文、技术博客、HackerNews、航运动态、项目笔记等多个领域）："
     REDUCE_DATA=""
 
@@ -333,9 +392,10 @@ $STATUS_CONTEXT
 $TREND_CONTEXT
 "
 
-# 截断 Reduce 素材到 80K（Qwen3 262K context 的 ~30%，留足空间给 prompt + 输出）
-REDUCE_MATERIAL=$(echo "$REDUCE_DATA" | utf8_truncate 80000)
+# 截断 Reduce 素材到 50K chars（≈ 100-150KB UTF-8，低于 Proxy 200KB 限制）
+REDUCE_MATERIAL=$(echo "$REDUCE_DATA" | utf8_truncate 50000)
 REDUCE_CHARS=$(echo "$REDUCE_MATERIAL" | wc -c | tr -d ' ')
+log "Reduce 素材: ${REDUCE_CHARS} bytes (截断前 $(echo "$REDUCE_DATA" | wc -c | tr -d ' ') bytes)"
 
 REDUCE_PROMPT="你是一个在海量数据中寻找蛛丝马迹的探索者。你的目标是发现真正有价值的隐藏信号，而不是把不相关的领域硬凑在一起。
 
@@ -368,12 +428,34 @@ $PREV_THEMES")
 - 每个论点必须引用具体的数据源名称、日期或数字
 - 总输出控制在 800 字以内，Markdown 格式"
 
+PROMPT_BYTES=$(echo "$REDUCE_PROMPT" | wc -c | tr -d ' ')
+log "Reduce prompt: ${PROMPT_BYTES} bytes → 发送 LLM..."
+
+# 安全检查：prompt 超过 180KB 则截断（Proxy 限制 200KB，留 20KB 给 JSON 包装）
+if [ "$PROMPT_BYTES" -gt 180000 ]; then
+    log "WARN: Reduce prompt 过大 (${PROMPT_BYTES}B > 180KB)，回退到 30K 素材"
+    REDUCE_MATERIAL=$(echo "$REDUCE_DATA" | utf8_truncate 30000)
+    # 重新构建 prompt（用简化版，避免递归展开）
+    REDUCE_PROMPT="你是一个在海量数据中寻找蛛丝马迹的探索者。
+
+$REDUCE_INTRO
+
+---
+$REDUCE_MATERIAL
+---
+
+请找出 2-3 个隐藏关联 + 2-3 个趋势推演 + 1-2 个被忽视的信号 + 1-2 个行动建议。
+每个论点必须引用具体的数据源名称和日期。质量优先，控制在 800 字以内。"
+    PROMPT_BYTES=$(echo "$REDUCE_PROMPT" | wc -c | tr -d ' ')
+    log "回退后 prompt: ${PROMPT_BYTES} bytes"
+fi
+
 DREAM_RESULT=$(llm_call "$REDUCE_PROMPT" 2000 0.9 180 || true)
 
 if [ -z "${DREAM_RESULT// }" ]; then
-    log "ERROR: Phase 2 LLM 返回空结果"
-    printf '{"time":"%s","status":"llm_failed","phase":"reduce","map_count":%d,"chars":%d}\n' \
-        "$TS" "$MAP_COUNT" "$REDUCE_CHARS" > "$STATUS_FILE"
+    log "ERROR: Phase 2 LLM 返回空结果 (prompt was ${PROMPT_BYTES} bytes)"
+    printf '{"time":"%s","status":"llm_failed","phase":"reduce","map_count":%d,"reduce_chars":%d,"prompt_bytes":%d}\n' \
+        "$TS" "$MAP_COUNT" "$REDUCE_CHARS" "$PROMPT_BYTES" > "$STATUS_FILE"
     exit 1
 fi
 
