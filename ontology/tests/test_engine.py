@@ -10,10 +10,15 @@ import os
 import sys
 import unittest
 
-# 确保能导入项目模块
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# 确保能导入 ontology 包和父项目模块
+_TESTS_DIR = os.path.dirname(os.path.abspath(__file__))
+_ONTOLOGY_DIR = os.path.dirname(_TESTS_DIR)
+_PROJECT_ROOT = os.path.dirname(_ONTOLOGY_DIR)
+for p in [_ONTOLOGY_DIR, _PROJECT_ROOT]:
+    if p not in sys.path:
+        sys.path.insert(0, p)
 
-from ontology_engine import ToolOntology, get_ontology
+from engine import ToolOntology, get_ontology
 
 
 class TestToolOntologyLoading(unittest.TestCase):
@@ -390,42 +395,42 @@ class TestCLI(unittest.TestCase):
 
     def test_cli_summary(self):
         import subprocess
-        result = subprocess.run([sys.executable, "ontology_engine.py", "--summary"],
+        result = subprocess.run([sys.executable, os.path.join(_ONTOLOGY_DIR, "engine.py"), "--summary"],
                                 capture_output=True, text=True)
         self.assertEqual(result.returncode, 0)
         self.assertIn("Tool Ontology", result.stdout)
 
     def test_cli_tools(self):
         import subprocess
-        result = subprocess.run([sys.executable, "ontology_engine.py", "--tools"],
+        result = subprocess.run([sys.executable, os.path.join(_ONTOLOGY_DIR, "engine.py"), "--tools"],
                                 capture_output=True, text=True)
         self.assertEqual(result.returncode, 0)
         self.assertIn("web_search", result.stdout)
 
     def test_cli_categories(self):
         import subprocess
-        result = subprocess.run([sys.executable, "ontology_engine.py", "--categories"],
+        result = subprocess.run([sys.executable, os.path.join(_ONTOLOGY_DIR, "engine.py"), "--categories"],
                                 capture_output=True, text=True)
         self.assertEqual(result.returncode, 0)
         self.assertIn("file_operation", result.stdout)
 
     def test_cli_policies(self):
         import subprocess
-        result = subprocess.run([sys.executable, "ontology_engine.py", "--policies"],
+        result = subprocess.run([sys.executable, os.path.join(_ONTOLOGY_DIR, "engine.py"), "--policies"],
                                 capture_output=True, text=True)
         self.assertEqual(result.returncode, 0)
         self.assertIn("tool_admission", result.stdout)
 
     def test_cli_check(self):
         import subprocess
-        result = subprocess.run([sys.executable, "ontology_engine.py", "--check"],
+        result = subprocess.run([sys.executable, os.path.join(_ONTOLOGY_DIR, "engine.py"), "--check"],
                                 capture_output=True, text=True)
         self.assertEqual(result.returncode, 0)
         self.assertIn("consistent", result.stdout)
 
     def test_cli_validate_valid(self):
         import subprocess
-        result = subprocess.run([sys.executable, "ontology_engine.py", "--validate",
+        result = subprocess.run([sys.executable, os.path.join(_ONTOLOGY_DIR, "engine.py"), "--validate",
                                  "web_search", '{"query":"test"}'],
                                 capture_output=True, text=True)
         self.assertEqual(result.returncode, 0)
@@ -433,7 +438,7 @@ class TestCLI(unittest.TestCase):
 
     def test_cli_validate_invalid(self):
         import subprocess
-        result = subprocess.run([sys.executable, "ontology_engine.py", "--validate",
+        result = subprocess.run([sys.executable, os.path.join(_ONTOLOGY_DIR, "engine.py"), "--validate",
                                  "web_search", '{}'],
                                 capture_output=True, text=True)
         self.assertEqual(result.returncode, 1)
@@ -441,7 +446,7 @@ class TestCLI(unittest.TestCase):
 
     def test_cli_tools_json(self):
         import subprocess
-        result = subprocess.run([sys.executable, "ontology_engine.py", "--tools", "--json"],
+        result = subprocess.run([sys.executable, os.path.join(_ONTOLOGY_DIR, "engine.py"), "--tools", "--json"],
                                 capture_output=True, text=True)
         self.assertEqual(result.returncode, 0)
         data = json.loads(result.stdout)
@@ -490,7 +495,7 @@ class TestConstitution(unittest.TestCase):
 
     def test_constitution_4_diff_all_green(self):
         """宪法第四条：差异对比全绿 — 81 项 100% 一致。"""
-        from ontology_diff import run_diff
+        from diff import run_diff
         items = run_diff()
         non_match = [i for i in items if i.status != "match"]
         self.assertEqual(len(non_match), 0,
@@ -500,7 +505,7 @@ class TestConstitution(unittest.TestCase):
 
     def test_constitution_4_all_dimensions_covered(self):
         """宪法第四条补充：diff 必须覆盖所有 9 个维度。"""
-        from ontology_diff import run_diff
+        from diff import run_diff
         items = run_diff()
         dimensions = {i.dimension for i in items}
         expected_dims = {

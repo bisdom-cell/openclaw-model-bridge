@@ -15,6 +15,11 @@ import json
 import os
 import sys
 
+# 确保能导入父目录的模块（proxy_filters 等）
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, _PROJECT_ROOT)
+
 # PyYAML: config_loader 已依赖，确认可用
 try:
     import yaml

@@ -914,16 +914,22 @@ def _check_ontology_consistency():
     不阻塞启动，仅日志提醒。
     """
     try:
-        from ontology_engine import ToolOntology
-        onto = ToolOntology()
-        issues = onto.check_consistency(ALLOWED_TOOLS, CLEAN_SCHEMAS, TOOL_PARAMS)
-        if issues:
-            import logging
-            logger = logging.getLogger("proxy_filters")
-            for issue in issues:
-                logger.warning(f"Ontology consistency: {issue}")
+        # ontology 是独立子项目，导入路径指向 ontology/engine.py
+        import importlib.util
+        _onto_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ontology", "engine.py")
+        if os.path.exists(_onto_path):
+            spec = importlib.util.spec_from_file_location("ontology_engine", _onto_path)
+            _onto_mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(_onto_mod)
+            onto = _onto_mod.ToolOntology()
+            issues = onto.check_consistency(ALLOWED_TOOLS, CLEAN_SCHEMAS, TOOL_PARAMS)
+            if issues:
+                import logging
+                logger = logging.getLogger("proxy_filters")
+                for issue in issues:
+                    logger.warning(f"Ontology consistency: {issue}")
     except Exception:
-        pass  # 本体文件不存在或格式错误时静默跳过
+        pass  # ontology 子项目不存在或格式错误时静默跳过
 
 
 _check_ontology_consistency()

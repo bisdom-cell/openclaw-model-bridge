@@ -16,7 +16,13 @@ import os
 import sys
 import time
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# 确保能导入父目录（proxy_filters）和当前目录（engine）
+_ONTOLOGY_DIR = os.path.dirname(os.path.abspath(__file__))
+_PROJECT_ROOT = os.path.dirname(_ONTOLOGY_DIR)
+if _PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, _PROJECT_ROOT)
+if _ONTOLOGY_DIR not in sys.path:
+    sys.path.insert(0, _ONTOLOGY_DIR)
 
 from proxy_filters import (
     ALLOWED_TOOLS,
@@ -30,7 +36,7 @@ from proxy_filters import (
     MEDIA_MAX_AGE_SECONDS,
     NO_TOOLS_MARKER,
 )
-from ontology_engine import ToolOntology
+from engine import ToolOntology
 
 
 # ---------------------------------------------------------------------------
@@ -513,8 +519,7 @@ def main():
     print(report)
 
     if args.save:
-        save_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                 "docs", "ontology_diff_report.md")
+        save_path = os.path.join(_ONTOLOGY_DIR, "docs", "ontology_diff_report.md")
         with open(save_path, "w", encoding="utf-8") as f:
             f.write(report)
         print(f"\n📄 报告已保存到 {save_path}")
