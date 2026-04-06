@@ -539,27 +539,88 @@ log "梦境已写入: $DREAM_FILE ($(wc -c < "$DREAM_FILE" | tr -d ' ') bytes)"
 # 7. 推送 + 状态记录
 # ═══════════════════════════════════════════════════════════════════
 
-PUSH_BODY=$(echo "$DREAM_RESULT" | utf8_truncate 1500)
-PUSH_MSG="🌙 Agent Dream ($DAY)
-
-$PUSH_BODY"
-
-# 使用 notify.sh 统一双通道推送（WhatsApp + Discord，含自动重试+失败队列）
-SENT=false
+# 推送完整梦境（分段发送，每段 ≤ 4000 字符，确保 WhatsApp 可读性）
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-for notify_path in "$SCRIPT_DIR/notify.sh" "$HOME/notify.sh"; do
-    if [ -f "$notify_path" ]; then
-        source "$notify_path"
-        if notify "$PUSH_MSG" --topic daily; then
-            log "梦境已推送到 WhatsApp + Discord"
-            SENT=true
-        else
-            log "WARN: notify.sh 推送失败"
-        fi
-        break
-    fi
+NOTIFY_PATH=""
+for np in "$SCRIPT_DIR/notify.sh" "$HOME/notify.sh"; do
+    [ -f "$np" ] && NOTIFY_PATH="$np" && break
 done
-[ "$SENT" = false ] && log "WARN: notify.sh 未找到，跳过推送"
+
+SENT=false
+if [ -n "$NOTIFY_PATH" ]; then
+    source "$NOTIFY_PATH"
+
+    # 用 Python 按章节（## 标记）智能分段，每段不超过 4000 字符
+    SEGMENTS=$(python3 -c "
+import sys
+
+text = sys.stdin.read()
+max_chunk = 4000
+sections = text.split('\n## ')
+chunks = []
+current = ''
+
+for i, sec in enumerate(sections):
+    piece = sec if i == 0 else '## ' + sec
+    # 如果加入当前块不超限，合并
+    if len(current) + len(piece) + 1 <= max_chunk:
+        current = current + '\n' + piece if current else piece
+    else:
+        if current:
+            chunks.append(current.strip())
+        # 如果单个章节超限，硬切
+        while len(piece) > max_chunk:
+            cut = piece[:max_chunk].rfind('\n')
+            if cut < max_chunk * 0.5:
+                cut = max_chunk
+            chunks.append(piece[:cut].strip())
+            piece = piece[cut:].strip()
+        current = piece
+if current.strip():
+    chunks.append(current.strip())
+
+# 输出用 NULL 分隔
+import sys
+sys.stdout.write('\0'.join(chunks))
+" <<< "$DREAM_RESULT")
+
+    # 逐段发送
+    TOTAL_PARTS=$(echo "$SEGMENTS" | tr -cd '\0' | wc -c | tr -d ' ')
+    TOTAL_PARTS=$((TOTAL_PARTS + 1))
+    PART_IDX=0
+    SEND_OK=0
+
+    while IFS= read -r -d '' segment; do
+        PART_IDX=$((PART_IDX + 1))
+        if [ "$TOTAL_PARTS" -gt 1 ]; then
+            PUSH_MSG="🌙 Agent Dream ($DAY) [$PART_IDX/$TOTAL_PARTS]
+
+$segment"
+        else
+            PUSH_MSG="🌙 Agent Dream ($DAY)
+
+$segment"
+        fi
+
+        if notify "$PUSH_MSG" --topic daily; then
+            SEND_OK=$((SEND_OK + 1))
+        else
+            log "WARN: 第 $PART_IDX 段推送失败"
+        fi
+
+        # 段间间隔 1 秒，避免消息乱序
+        [ "$PART_IDX" -lt "$TOTAL_PARTS" ] && sleep 1
+    done <<< "$SEGMENTS"
+
+    if [ "$SEND_OK" -gt 0 ]; then
+        log "梦境已推送 $SEND_OK/$TOTAL_PARTS 段到 WhatsApp + Discord"
+        SENT=true
+    else
+        log "WARN: 所有段推送失败"
+    fi
+else
+    log "WARN: notify.sh 未找到，跳过推送"
+fi
 
 # 状态记录
 printf '{"time":"%s","status":"ok","mode":"%s","map_count":%d,"sources":%d,"notes":%d,"kb_bytes":%d,"reduce_chars":%d,"dream_bytes":%d,"sent":%s}\n' \
