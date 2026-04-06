@@ -123,9 +123,10 @@
 | KB回顾脚本 | ~/kb_review.sh | **V29升级：LLM深度分析+WhatsApp推送** |
 | **KB搜索工具** | **~/kb_search.sh** | **V29新增：按需查询（关键词/标签/来源/统计概览）** |
 | **KB每日摘要** | **~/kb_inject.sh** | **V29新增：每日07:00生成~/.kb/daily_digest.md，供LLM对话查阅** |
-| **对话质量日报** | **~/conv_quality.py** | **V29.2新增：解析proxy/adapter日志，生成成功率/延迟/工具/错误报告** |
-| **Token用量日报** | **~/token_report.py** | **V29.2新增：每日token消耗总量/逐小时分布/上下文压力/多日趋势** |
-| **KB智能去重** | **~/kb_dedup.py** | **V29.2新增：Notes精确/模糊去重 + Sources行去重（默认dry-run）** |
+| **运维日报** | **~/daily_ops_report.sh** | **V36.2新增：合并对话质量+Token用量为一条推送（conv_quality.py+token_report.py --no-push）** |
+| **对话质量分析** | **~/conv_quality.py** | **V29.2新增→V36.2改为--no-push模式：由daily_ops_report.sh调用** |
+| **Token用量分析** | **~/token_report.py** | **V29.2新增→V36.2改为--no-push模式：由daily_ops_report.sh调用** |
+| **KB智能去重** | **~/kb_dedup.py** | **V29.2新增→V36.2合并到kb_evening.sh：晚间整理时自动执行** |
 | **KB标签自动化** | **~/kb_autotag.py** | **V29.2新增：9类关键词推断标签，集成到kb_write.sh，支持批量retag** |
 | **本地Embedding引擎** | **~/local_embed.py** | **V29.3新增：sentence-transformers本地向量生成，零API调用/零限速/零成本** |
 | **KB文本向量索引** | **~/kb_embed.py** | **V29.3新增：notes+sources分块→本地embedding→~/.kb/text_index/** |
@@ -274,9 +275,10 @@ export GEMINI_API_KEY="AIzaXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"   # V29.1新增
 | kb-inject | 每天07:00 | `~/kb_inject.sh` | `~/kb_inject.log` | ✅ V29新增：每日KB摘要生成，供LLM对话查阅 |
 | openclaw-backup | 每天03:00 | `~/openclaw_backup.sh` | `~/openclaw_backup.log` | ✅ V29.1新增：每日备份Gateway state到SSD，保留7天 |
 | mm-index | 每2小时 | `~/openclaw-model-bridge/mm_index_cron.sh` | `~/.openclaw/logs/jobs/mm_index.log` | ✅ V29.1新增：Multimodal Memory索引（Gemini Embedding 2） |
-| conv-quality | 每天08:15 | `~/conv_quality.py` | `~/conv_quality.log` | ✅ V29.2新增：对话质量日报（成功率/延迟/工具/错误/Fallback） |
-| token-report | 每天08:20 | `~/token_report.py` | `~/token_report.log` | ✅ V29.2新增：Token用量日报（总量/逐小时/趋势/环比） |
-| kb-dedup | 每天23:00 | `~/kb_dedup.py` | `~/kb_dedup.log` | ✅ V29.2新增：KB智能去重（dry-run模式，精确+模糊+source行去重） |
+| daily-ops-report | 每天08:15 | `~/daily_ops_report.sh` | `~/daily_ops_report.log` | ✅ V36.2新增：运维日报（合并conv_quality+token_report为一条推送） |
+| ~~conv-quality~~ | ~~每天08:15~~ | `~/conv_quality.py` | `~/conv_quality.log` | 🔀 V36.2合并到daily-ops-report（--no-push模式，仍生成JSON） |
+| ~~token-report~~ | ~~每天08:20~~ | `~/token_report.py` | `~/token_report.log` | 🔀 V36.2合并到daily-ops-report（--no-push模式，仍生成JSON） |
+| ~~kb-dedup~~ | ~~每天23:00~~ | `~/kb_dedup.py` | `~/kb_dedup.log` | 🔀 V36.2合并到kb-evening（22:00晚间整理时自动执行） |
 | kb-embed | 每4小时:30分 | `~/kb_embed.py` | `~/kb_embed.log` | ✅ V29.3新增：KB文本向量索引（本地sentence-transformers，增量分块，供RAG搜索） |
 | kb-trend | 每周六09:00 | `~/kb_trend.py` | `~/kb_trend.log` | ✅ V29.5新增：KB周趋势报告（本周vs上周关键词+LLM分析+WhatsApp推送） |
 | cron-canary | 每10分钟 | `~/cron_canary.sh` | 无（写 `~/.cron_canary`） | ✅ V30新增：Cron心跳金丝雀（零依赖、零锁文件、原子写入），供watchdog/doctor检测cron daemon存活 |
