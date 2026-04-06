@@ -503,14 +503,38 @@ $REDUCE_MATERIAL
     log "回退后 prompt: ${PROMPT_BYTES} bytes"
 fi
 
-DREAM_RESULT=$(llm_call "$REDUCE_PROMPT" 8000 0.85 300 || true)
+# Reduce 调用 + 短响应自动重试
+# LLM 响应不稳定：同样的 prompt 有时产出 17KB，有时只有 2KB
+# 如果响应 < 4000 字符（约 1000 字），大概率是被截断，值得重试
+MIN_DREAM_CHARS=4000
+MAX_RETRIES=2
+DREAM_RESULT=""
+
+for retry in $(seq 1 $MAX_RETRIES); do
+    DREAM_RESULT=$(llm_call "$REDUCE_PROMPT" 8000 0.85 300 || true)
+    DREAM_CHARS=$(echo "$DREAM_RESULT" | wc -c | tr -d ' ')
+
+    if [ -z "${DREAM_RESULT// }" ]; then
+        log "Reduce 尝试 $retry/$MAX_RETRIES: 空响应"
+    elif [ "$DREAM_CHARS" -lt "$MIN_DREAM_CHARS" ]; then
+        log "Reduce 尝试 $retry/$MAX_RETRIES: 响应过短 (${DREAM_CHARS} chars < ${MIN_DREAM_CHARS})，重试..."
+    else
+        log "Reduce 尝试 $retry/$MAX_RETRIES: 成功 (${DREAM_CHARS} chars)"
+        break
+    fi
+
+    [ "$retry" -lt "$MAX_RETRIES" ] && sleep 5
+done
 
 if [ -z "${DREAM_RESULT// }" ]; then
-    log "ERROR: Phase 2 LLM 返回空结果 (prompt was ${PROMPT_BYTES} bytes)"
+    log "ERROR: Phase 2 所有重试均失败 (prompt was ${PROMPT_BYTES} bytes)"
     printf '{"time":"%s","status":"llm_failed","phase":"reduce","map_count":%d,"reduce_chars":%d,"prompt_bytes":%d}\n' \
         "$TS" "$MAP_COUNT" "$REDUCE_CHARS" "$PROMPT_BYTES" > "$STATUS_FILE"
     exit 1
 fi
+
+DREAM_CHARS=$(echo "$DREAM_RESULT" | wc -c | tr -d ' ')
+log "最终梦境: ${DREAM_CHARS} chars"
 
 # ═══════════════════════════════════════════════════════════════════
 # 6. 输出"梦境"
