@@ -1,8 +1,34 @@
 # Ontology 工作宪法
 
-> 本体论实验的五条不可违反原则。每次修改 ontology 相关代码前必须对照检查。
+> 本体论实验的六条不可违反原则。每次修改 ontology 相关代码前必须对照检查。
 
-## 宪法五条
+## 宪法六条
+
+### 最高条：项目隔离（优先级最高，不可覆盖）
+
+> **Ontology 是 openclaw-model-bridge 的独立子项目。Ontology 的任何操作都不得对原项目产生任何影响。**
+
+这是所有其他条款的前提。违反此条 = 违反全部宪法。
+
+**具体要求**：
+
+1. **代码隔离**：ontology 相关的 Python 文件（`ontology_engine.py`、`ontology_diff.py`、`test_ontology_engine.py`）和数据文件（`tool_ontology.yaml`）是**只读观察者**，不得修改原项目的运行时行为
+2. **导入方向单向**：ontology 代码可以 `import proxy_filters`（读取硬编码数据做对比），但 proxy_filters / tool_proxy / adapter **永远不得 import ontology_engine**（当前 proxy_filters.py 启动时的一致性检查是唯一例外，且必须 try/except 包裹，ontology 不存在时静默跳过）
+3. **删除安全**：删除所有 ontology 文件后，原项目必须正常运行，所有原有测试必须通过
+4. **文档隔离**：ontology 文档全部在 `docs/ontology/` 目录下，不修改 `docs/config.md`、`README.md` 等原项目文档（CLAUDE.md 中的 ontology 条目仅作索引指向，不包含 ontology 具体内容）
+5. **测试隔离**：`test_ontology_engine.py` 是独立测试文件，不修改 `test_tool_proxy.py` 等原有测试；`full_regression.sh` 可选择性包含 ontology 测试，但 ontology 测试失败**不得阻断**原项目的回归
+
+**检查方法**：
+```bash
+# 模拟删除 ontology 后原项目是否正常
+python3 -c "
+import proxy_filters
+print('ALLOWED_TOOLS:', len(proxy_filters.ALLOWED_TOOLS))
+print('CLEAN_SCHEMAS:', len(proxy_filters.CLEAN_SCHEMAS))
+print('proxy_filters OK: independent of ontology')
+"
+python3 -m unittest test_tool_proxy  # 必须不依赖 ontology 就能通过
+```
 
 ### 第零条：术语纪律（2026-04-06 新增，来自外部专家评审）
 
