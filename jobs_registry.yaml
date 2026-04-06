@@ -39,7 +39,7 @@ jobs:
   - id: hf_papers
     scheduler: system
     entry: jobs/hf_papers/run_hf_papers.sh
-    interval: "0 10,20 * * *"        # 每天2次（10:00, 20:00 HKT）
+    interval: "0 10 * * *"            # 每天1次（HF日更，1次足够覆盖）
     log: ~/.openclaw/logs/jobs/hf_papers.log
     needs_api_key: true
     enabled: true
@@ -49,7 +49,7 @@ jobs:
   - id: semantic_scholar
     scheduler: system
     entry: jobs/semantic_scholar/run_semantic_scholar.sh
-    interval: "0 8 * * *"            # 每天1次（08:00 HKT）
+    interval: "0 11 * * *"            # 每天1次（11:00 HKT，避开08:00高峰）
     log: ~/.openclaw/logs/jobs/semantic_scholar.log
     needs_api_key: true
     enabled: true
@@ -101,7 +101,7 @@ jobs:
   - id: rss_blogs
     scheduler: system
     entry: jobs/rss_blogs/run_rss_blogs.sh
-    interval: "0 8,18 * * *"           # 每天 08:00, 18:00 HKT
+    interval: "0 18 * * *"             # 每天1次（博客更新频率低，1次够了）
     log: ~/.openclaw/logs/jobs/rss_blogs.log
     needs_api_key: false
     enabled: true
@@ -163,7 +163,7 @@ jobs:
   - id: openclaw_run
     scheduler: system
     entry: jobs/openclaw_official/run.sh
-    interval: "0 8 * * *"           # 每天 08:00 HKT
+    interval: "0 9 * * *"           # 每天 09:00 HKT（避开08:00高峰）
     log: ~/.openclaw/logs/jobs/openclaw_official.log
     needs_api_key: true
     enabled: true
@@ -187,7 +187,7 @@ jobs:
   - id: run_hn_fixed
     scheduler: system
     entry: run_hn_fixed.sh
-    interval: "45 */3 * * *"        # 每3小时:45分（与 ArXiv 错开45分钟）
+    interval: "45 8,14,20 * * *"    # 每天3次（HN实时性不强，从8次降到3次）
     log: ~/.openclaw/logs/jobs/hn_watcher.log
     needs_api_key: false
     enabled: true
@@ -227,7 +227,7 @@ jobs:
   - id: run_discussions
     scheduler: system
     entry: jobs/openclaw_official/run_discussions.sh
-    interval: "15 * * * *"          # 每小时第15分钟
+    interval: "15 */4 * * *"        # 每4小时（Issues不需要实时监控）
     log: ~/.openclaw/logs/jobs/openclaw_discussions.log
     needs_api_key: false
     enabled: true
