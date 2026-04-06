@@ -54,29 +54,44 @@ print(text)
 "
 }
 
-# LLM 调用封装（含重试）
+# LLM 调用封装（含重试和错误诊断）
 llm_call() {
     local prompt="$1"
     local max_tokens="${2:-1500}"
     local temp="${3:-0.8}"
     local timeout="${4:-120}"
     local result=""
+    local raw=""
     local attempt=0
+    local err_file=$(mktemp)
 
     while [ $attempt -lt 2 ]; do
-        result=$(curl -sS --max-time "$timeout" "$PROXY_URL" \
+        raw=$(curl -sS --max-time "$timeout" "$PROXY_URL" \
             -H 'Content-Type: application/json' \
             -d "$(jq -nc --arg p "$prompt" --argjson mt "$max_tokens" --argjson t "$temp" \
                 '{model:"any",messages:[{role:"user",content:$p}],max_tokens:$mt,temperature:$t}')" \
-            2>/dev/null | jq -r '.choices[0].message.content // empty' 2>/dev/null || true)
+            2>"$err_file" || true)
+
+        # 尝试提取内容
+        result=$(echo "$raw" | jq -r '.choices[0].message.content // empty' 2>/dev/null || true)
 
         if [ -n "${result// }" ]; then
+            rm -f "$err_file"
             echo "$result"
             return 0
         fi
+
+        # 诊断失败原因
+        local curl_err=$(cat "$err_file" 2>/dev/null)
+        local error_msg=$(echo "$raw" | jq -r '.error.message // .error // empty' 2>/dev/null || true)
+        [ -n "$curl_err" ] && log "  LLM curl error: $curl_err"
+        [ -n "$error_msg" ] && log "  LLM API error: $error_msg"
+        [ -z "$raw" ] && log "  LLM returned empty response"
+
         attempt=$((attempt + 1))
         [ $attempt -lt 2 ] && sleep 3
     done
+    rm -f "$err_file"
     return 1
 }
 
@@ -192,17 +207,18 @@ if [ "$FAST_MODE" = false ] && [ "$SRC_COUNT" -gt 0 ]; then
 %s
 ---
 
-请提取 5-8 个最值得注意的信号，每个信号一行，格式：
-- [日期或时间段] 信号描述（具体事实，非观点）
+请提取 10-15 个值得注意的信号，每个信号一行，格式：
+- [日期或时间段] 信号描述（具体事实，含关键数字/人名/技术名）
 
-重点关注：
-1. 反常数据点（数字突变、趋势逆转、异常沉默）
-2. 具体的人名/公司/技术/数字（越具体越好，不要泛化）
-3. 时间维度上的变化（加速、减速、消失、首次出现）
-4. 容易被忽略的细节（脚注里的数字、附带提及的事实）
+提取维度（每个维度至少 2 个信号）：
+1. 反常数据点（数字突变、趋势逆转、异常沉默、与预期相反的结果）
+2. 具体实体（人名/公司/技术/产品/论文标题——越具体越好，不要泛化为"某AI公司"）
+3. 时间维度变化（加速、减速、消失、首次出现、周期性波动）
+4. 容易被忽略的细节（脚注里的数字、附带提及的事实、数据中的空白区域）
+5. 量化事实（具体数字、百分比、金额、排名变化——这些是最有价值的信号）
 
 不要试图关联其他领域，只忠实提取本数据源中的事实。
-只输出信号列表，不要前言或总结。控制在 300 字以内。'
+只输出信号列表，不要前言或总结。控制在 500 字以内。'
 
     while IFS= read -r src; do
         [ -z "$src" ] && continue
@@ -228,7 +244,7 @@ if [ "$FAST_MODE" = false ] && [ "$SRC_COUNT" -gt 0 ]; then
             prompt=$(printf "$MAP_PROMPT_TPL" "$name" "$total_lines" "$full_content")
 
             log "  Map [$name]: ${total_lines}行, ${file_size}B → 提取信号..."
-            signals=$(llm_call "$prompt" 800 0.5 60 || true)
+            signals=$(llm_call "$prompt" 1200 0.5 90 || true)
 
             if [ -n "${signals// }" ]; then
                 echo "$signals" > "$cache_file"
@@ -249,22 +265,66 @@ $signals
 fi
 
 # ═══════════════════════════════════════════════════════════════════
-# 4. 收集 Notes 素材（全量读取，notes 通常较短）
+# 4. 收集 Notes 素材
+#    MapReduce 模式：Map 已覆盖 sources 全量，notes 只取最近 + 随机采样
+#    Fast 模式：notes 全量读取（受 Reduce 截断保护）
 # ═══════════════════════════════════════════════════════════════════
 
 NOTES_MATERIAL=""
 if [ -n "$ALL_NOTES" ]; then
+    # 按修改时间倒序（最新在前）
+    SORTED_NOTES=$(echo "$ALL_NOTES" | while read f; do
+        [ -f "$f" ] && echo "$(stat -f '%m' "$f" 2>/dev/null || stat -c '%Y' "$f" 2>/dev/null || echo 0) $f"
+    done | sort -rn | awk '{print $2}')
+
+    NOTE_BUDGET=30   # MapReduce 模式下取最近 20 + 随机 10
+    [ "$FAST_MODE" = true ] && NOTE_BUDGET=80
+    NOTE_IDX=0
+    NOTE_RECENT=20
+    [ "$FAST_MODE" = true ] && NOTE_RECENT=60
+
+    # 收集剩余 notes 路径供随机采样
+    REMAINING_NOTES=""
+
     while IFS= read -r note; do
         [ -z "$note" ] && continue
         [ -f "$note" ] || continue
-        name=$(basename "$note" .md)
-        content=$(cat "$note" 2>/dev/null | utf8_truncate 3000)
-        [ -z "${content// }" ] && continue
-        NOTES_MATERIAL+="
+        NOTE_IDX=$((NOTE_IDX + 1))
+
+        if [ "$NOTE_IDX" -le "$NOTE_RECENT" ]; then
+            # 最近的 notes 直接取
+            name=$(basename "$note" .md)
+            content=$(cat "$note" 2>/dev/null | utf8_truncate 2000)
+            [ -z "${content// }" ] && continue
+            NOTES_MATERIAL+="
 ### $name
 $content
 "
-    done <<< "$ALL_NOTES"
+        else
+            REMAINING_NOTES+="$note
+"
+        fi
+    done <<< "$SORTED_NOTES"
+
+    # 从剩余 notes 随机采样
+    RANDOM_BUDGET=$((NOTE_BUDGET - NOTE_RECENT))
+    if [ "$RANDOM_BUDGET" -gt 0 ] && [ -n "$REMAINING_NOTES" ]; then
+        RANDOM_PICKS=$(echo "$REMAINING_NOTES" | grep -v '^$' | sort -R 2>/dev/null | head -"$RANDOM_BUDGET" || \
+                       echo "$REMAINING_NOTES" | grep -v '^$' | awk 'BEGIN{srand()} {print rand(), $0}' | sort -n | head -"$RANDOM_BUDGET" | awk '{print $2}')
+        while IFS= read -r note; do
+            [ -z "$note" ] && continue
+            [ -f "$note" ] || continue
+            name=$(basename "$note" .md)
+            content=$(cat "$note" 2>/dev/null | utf8_truncate 2000)
+            [ -z "${content// }" ] && continue
+            NOTES_MATERIAL+="
+### $name (历史)
+$content
+"
+        done <<< "$RANDOM_PICKS"
+    fi
+
+    log "notes 采样完成: $NOTE_IDX total, 取 $NOTE_RECENT recent + $RANDOM_BUDGET random = $NOTE_BUDGET"
 fi
 
 # ═══════════════════════════════════════════════════════════════════
@@ -277,8 +337,8 @@ log "Phase 2 (Reduce): 开始跨领域关联..."
 
 # 组装 Reduce 素材
 if [ "$FAST_MODE" = true ] || [ -z "${MAP_SIGNALS// }" ]; then
-    # Fast 模式或 Map 失败：回退到直接采样（加大到 80K）
-    log "使用直接采样模式 (80K chars)"
+    # Fast 模式或 Map 失败：回退到直接采样
+    log "使用直接采样模式"
     REDUCE_INTRO="以下是系统知识库的全量采样数据（涵盖论文、技术博客、HackerNews、航运动态、项目笔记等多个领域）："
     REDUCE_DATA=""
 
@@ -333,9 +393,10 @@ $STATUS_CONTEXT
 $TREND_CONTEXT
 "
 
-# 截断 Reduce 素材到 80K（Qwen3 262K context 的 ~30%，留足空间给 prompt + 输出）
-REDUCE_MATERIAL=$(echo "$REDUCE_DATA" | utf8_truncate 80000)
+# 截断 Reduce 素材到 50K chars（≈ 100-150KB UTF-8，低于 Proxy 200KB 限制）
+REDUCE_MATERIAL=$(echo "$REDUCE_DATA" | utf8_truncate 50000)
 REDUCE_CHARS=$(echo "$REDUCE_MATERIAL" | wc -c | tr -d ' ')
+log "Reduce 素材: ${REDUCE_CHARS} bytes (截断前 $(echo "$REDUCE_DATA" | wc -c | tr -d ' ') bytes)"
 
 REDUCE_PROMPT="你是一个在海量数据中寻找蛛丝马迹的探索者。你的目标是发现真正有价值的隐藏信号，而不是把不相关的领域硬凑在一起。
 
@@ -348,32 +409,76 @@ $REDUCE_MATERIAL
 $([ -n "$PREV_THEMES" ] && echo "### 最近梦境主题（必须避免重复这些发现）
 $PREV_THEMES")
 
-请在这些数据中寻找蛛丝马迹。严格按以下格式输出：
+这些数据是花费大量算力逐源深度分析的结果，请充分利用每一条信号，产出尽可能丰富详尽的分析。严格按以下格式输出：
 
-## 🌙 隐藏关联
-找出 2-3 个数据中**真实存在**的关联。关联必须有具体证据链（A事实 → B事实 → 因此C），不要为了跨领域而跨领域——如果两个领域确实没关系，就不要硬凑。同一领域内的深层关联同样有价值。
+## 🌙 隐藏关联（3-5 个）
+找出数据中**真实存在**的关联。每个关联必须包含：
+- **标题**（一句话概括）
+- **证据链**（A事实 → B事实 → 因此C，引用具体数据源名称和日期）
+- **为什么重要**（这个关联意味着什么，对我们有什么启示）
 
-## 🔮 趋势推演
-基于数据中的**具体数字或事件序列**推演 2-3 个走向。每个推演必须标注：数据点是什么 → 趋势方向 → 如果持续会怎样。拒绝没有数据支撑的泛泛预测。
+不要为了跨领域而跨领域——同一领域内的深层关联同样有价值。但如果确实发现了跨域联系，要详细解释逻辑链条。
 
-## 💎 被忽视的信号
-找出 1-2 个藏在数据中但容易被忽略的重要信息。越具体越好：一个具体的数字、一个反常的事件、一个突然消失的趋势。说清楚在哪个数据源、什么日期发现的。
+## 🔮 趋势推演（3-5 个）
+基于数据中的**具体数字或事件序列**推演走向。每个推演必须包含：
+- **趋势名**
+- **数据证据**（具体引用哪个源、什么日期、什么数字）
+- **推演逻辑**（为什么这个数据点暗示了某个方向）
+- **时间窗口**（这个趋势大概在什么时间范围内会显现）
+- **如果成真的影响**（对技术/行业/我们的项目意味着什么）
 
-## 🎯 行动建议
-基于以上发现，给出 1-2 个这周可以立即执行的建议。必须具体（做什么、查什么、验证什么），不要「关注某某趋势」这种空话。
+## 💎 被忽视的信号（2-4 个）
+藏在数据中但容易被忽略的重要信息。每个信号必须包含：
+- **信号是什么**（一个具体的数字、事件、异常）
+- **在哪发现的**（数据源名称、日期）
+- **为什么被忽视**（通常人们会怎么看待/忽略它）
+- **为什么值得关注**（它暗示了什么更大的变化）
+
+## 🎯 行动建议（3-5 个，按优先级排列）
+基于以上所有发现，给出具体可执行的建议。每个建议必须包含：
+- **做什么**（具体到可以立即执行的步骤）
+- **为什么现在做**（时间窗口/机会成本）
+- **预期收益**（做了之后能得到什么）
+- **验证方法**（怎么知道做对了）
+
+## 📊 数据质量观察
+对本次分析的数据源质量做简短评价：哪些源信息密度最高、哪些源最近更新滞后、哪些源之间存在信息冗余、是否有明显的信息盲区。
 
 核心原则：
-- 质量 > 数量：一个有扎实证据链的发现，胜过三个牵强附会的关联
-- 宁可说「没发现跨域关联」也不要编造——同领域内的深层洞察同样珍贵
+- 这次分析覆盖了全量 KB 数据，代价不小——请充分产出，不要吝啬篇幅
+- 质量仍然最重要：一个有扎实证据链的发现，胜过三个牵强附会的关联
+- 宁可说「没发现跨域关联」也不要编造
 - 每个论点必须引用具体的数据源名称、日期或数字
-- 总输出控制在 800 字以内，Markdown 格式"
+- 总输出 1500-2500 字，Markdown 格式，尽可能详尽"
 
-DREAM_RESULT=$(llm_call "$REDUCE_PROMPT" 2000 0.9 180 || true)
+PROMPT_BYTES=$(echo "$REDUCE_PROMPT" | wc -c | tr -d ' ')
+log "Reduce prompt: ${PROMPT_BYTES} bytes → 发送 LLM..."
+
+# 安全检查：prompt 超过 180KB 则截断（Proxy 限制 200KB，留 20KB 给 JSON 包装）
+if [ "$PROMPT_BYTES" -gt 180000 ]; then
+    log "WARN: Reduce prompt 过大 (${PROMPT_BYTES}B > 180KB)，回退到 30K 素材"
+    REDUCE_MATERIAL=$(echo "$REDUCE_DATA" | utf8_truncate 30000)
+    # 重新构建 prompt（用简化版，避免递归展开）
+    REDUCE_PROMPT="你是一个在海量数据中寻找蛛丝马迹的探索者。
+
+$REDUCE_INTRO
+
+---
+$REDUCE_MATERIAL
+---
+
+请找出 2-3 个隐藏关联 + 2-3 个趋势推演 + 1-2 个被忽视的信号 + 1-2 个行动建议。
+每个论点必须引用具体的数据源名称和日期。质量优先，控制在 800 字以内。"
+    PROMPT_BYTES=$(echo "$REDUCE_PROMPT" | wc -c | tr -d ' ')
+    log "回退后 prompt: ${PROMPT_BYTES} bytes"
+fi
+
+DREAM_RESULT=$(llm_call "$REDUCE_PROMPT" 4000 0.85 240 || true)
 
 if [ -z "${DREAM_RESULT// }" ]; then
-    log "ERROR: Phase 2 LLM 返回空结果"
-    printf '{"time":"%s","status":"llm_failed","phase":"reduce","map_count":%d,"chars":%d}\n' \
-        "$TS" "$MAP_COUNT" "$REDUCE_CHARS" > "$STATUS_FILE"
+    log "ERROR: Phase 2 LLM 返回空结果 (prompt was ${PROMPT_BYTES} bytes)"
+    printf '{"time":"%s","status":"llm_failed","phase":"reduce","map_count":%d,"reduce_chars":%d,"prompt_bytes":%d}\n' \
+        "$TS" "$MAP_COUNT" "$REDUCE_CHARS" "$PROMPT_BYTES" > "$STATUS_FILE"
     exit 1
 fi
 
@@ -395,7 +500,7 @@ MODE_DESC="MapReduce 全量（$MAP_COUNT 源 × 独立信号提取 → 跨域关
     echo "$DREAM_RESULT"
     echo ""
     echo "---"
-    echo "*This dream was generated by kb_dream.sh v2 (MapReduce) — not a summary, but an exploration of ${TOTAL_KB_BYTES} bytes of knowledge.*"
+    echo "*Generated by kb_dream.sh v2 (MapReduce) — ${TOTAL_KB_BYTES} bytes of knowledge, ${MAP_COUNT} sources deep-analyzed, every signal counts.*"
 } > "$DREAM_FILE"
 
 log "梦境已写入: $DREAM_FILE ($(wc -c < "$DREAM_FILE" | tr -d ' ') bytes)"
@@ -404,7 +509,7 @@ log "梦境已写入: $DREAM_FILE ($(wc -c < "$DREAM_FILE" | tr -d ' ') bytes)"
 # 7. 推送 + 状态记录
 # ═══════════════════════════════════════════════════════════════════
 
-PUSH_BODY=$(echo "$DREAM_RESULT" | utf8_truncate 800)
+PUSH_BODY=$(echo "$DREAM_RESULT" | utf8_truncate 1500)
 PUSH_MSG="🌙 Agent Dream ($DAY)
 
 $PUSH_BODY"
