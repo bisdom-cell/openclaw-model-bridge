@@ -333,6 +333,109 @@ class ToolOntology:
         meta = self.get_tool_metadata(tool_name)
         return meta.get("side_effects", False)
 
+    # ── 语义查询（POC：从枚举到推理的跳跃）──
+
+    def query_tools(self, **filters) -> list:
+        """基于语义属性查询工具 — 这是本体论的核心价值。
+
+        不列工具名，而是用属性描述"我要什么样的工具"。
+        新增的工具只要声明了正确的属性，就自动被规则覆盖。
+
+        支持的 filters：
+            side_effects: bool     — 是否有副作用
+            category: str          — 工具类别
+            resource_type: str     — 操作的资源类型
+            tool_type: str         — "builtin" / "custom"
+
+        返回匹配的工具名列表（排序）。
+
+        示例：
+            onto.query_tools(side_effects=True)
+            → ['cron', 'data_clean', 'edit', 'exec', 'message', ...]
+
+            onto.query_tools(category="file_operation")
+            → ['edit', 'read', 'write']
+
+            onto.query_tools(side_effects=False, resource_type="WebPage")
+            → ['web_fetch', 'web_search']
+        """
+        results = []
+        all_tools = self._get_all_tool_defs()
+        for name, tool_def, tool_type in all_tools:
+            if self._matches_filters(tool_def, tool_type, filters):
+                results.append(name)
+        return sorted(results)
+
+    def _get_all_tool_defs(self):
+        """返回所有工具的 (name, def_dict, type) 三元组。"""
+        tools = []
+        for name, tool_def in self._tools_section.get("builtin", {}).items():
+            tools.append((name, tool_def, "builtin"))
+        for name, tool_def in self._tools_section.get("custom", {}).items():
+            tools.append((name, tool_def, "custom"))
+        return tools
+
+    def _matches_filters(self, tool_def, tool_type, filters):
+        """检查工具定义是否匹配所有 filter 条件。"""
+        for key, value in filters.items():
+            if key == "side_effects":
+                if tool_def.get("side_effects", False) != value:
+                    return False
+            elif key == "category":
+                if tool_def.get("category") != value:
+                    return False
+            elif key == "resource_type":
+                if tool_def.get("resource_type") != value:
+                    return False
+            elif key == "tool_type":
+                if tool_type != value:
+                    return False
+        return True
+
+    def infer_policy_targets(self, policy_condition: str) -> list:
+        """从语义条件推导受影响的工具 — 本体推理的核心能力。
+
+        不需要人手动维护工具列表，本体从属性自动推导。
+
+        Args:
+            policy_condition: 语义条件表达式，支持：
+                "side_effects == true"
+                "side_effects == false"
+                "category == <value>"
+                "resource_type == <value>"
+                "side_effects == true AND category == <value>"
+
+        Returns:
+            匹配的工具名列表（排序）
+
+        示例：
+            # 传统方式：手动列出 8 个工具
+            NIGHT_BLOCKED = {"write", "edit", "exec", "cron", "message", ...}
+
+            # 本体方式：语义条件自动推导
+            onto.infer_policy_targets("side_effects == true")
+            → 自动找到所有有副作用的工具，新增工具自动覆盖
+        """
+        filters = self._parse_condition(policy_condition)
+        return self.query_tools(**filters)
+
+    def _parse_condition(self, condition: str) -> dict:
+        """解析简单的语义条件表达式为 filter dict。"""
+        filters = {}
+        # 支持 AND 组合
+        parts = [p.strip() for p in condition.split("AND")]
+        for part in parts:
+            part = part.strip()
+            if "==" in part:
+                key, value = [x.strip() for x in part.split("==", 1)]
+                # 处理布尔值
+                if value.lower() == "true":
+                    value = True
+                elif value.lower() == "false":
+                    value = False
+                filters[key] = value
+        return filters
+
     # ── 验证接口 ──
 
     def validate_tool_args(self, tool_name, args):

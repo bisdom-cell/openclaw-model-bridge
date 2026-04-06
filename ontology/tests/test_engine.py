@@ -516,5 +516,108 @@ class TestConstitution(unittest.TestCase):
                          f"diff 维度不完整: 缺少 {expected_dims - dimensions}")
 
 
+class TestSemanticQuery(unittest.TestCase):
+    """语义查询测试 — POC 核心验证。
+
+    证明本体可以用属性推导工具集，而不是手动枚举。
+    """
+
+    def setUp(self):
+        self.onto = ToolOntology()
+
+    def test_query_side_effects_true(self):
+        """有副作用的工具集。"""
+        result = self.onto.query_tools(side_effects=True)
+        self.assertIn("write", result)
+        self.assertIn("edit", result)
+        self.assertIn("exec", result)
+        self.assertIn("cron", result)
+        self.assertIn("data_clean", result)
+        self.assertNotIn("read", result)
+        self.assertNotIn("web_search", result)
+
+    def test_query_side_effects_false(self):
+        """无副作用的工具集。"""
+        result = self.onto.query_tools(side_effects=False)
+        self.assertIn("read", result)
+        self.assertIn("web_search", result)
+        self.assertIn("search_kb", result)
+        self.assertNotIn("write", result)
+        self.assertNotIn("exec", result)
+
+    def test_query_by_category(self):
+        result = self.onto.query_tools(category="file_operation")
+        self.assertEqual(result, ["edit", "read", "write"])
+
+    def test_query_by_resource_type(self):
+        result = self.onto.query_tools(resource_type="WebPage")
+        self.assertEqual(result, ["web_fetch", "web_search"])
+
+    def test_query_combined(self):
+        """组合条件：有副作用 + 文件操作 = write, edit（不含 read）。"""
+        result = self.onto.query_tools(side_effects=True, category="file_operation")
+        self.assertEqual(result, ["edit", "write"])
+
+    def test_query_by_tool_type(self):
+        result = self.onto.query_tools(tool_type="custom")
+        self.assertEqual(result, ["data_clean", "search_kb"])
+
+    def test_query_no_filters_returns_all(self):
+        """无条件查询返回全部工具。"""
+        result = self.onto.query_tools()
+        self.assertEqual(len(result), 18)  # 16 builtin + 2 custom
+
+    def test_query_impossible_returns_empty(self):
+        """不可能的条件返回空列表。"""
+        result = self.onto.query_tools(category="nonexistent_category")
+        self.assertEqual(result, [])
+
+    def test_side_effects_partition(self):
+        """有副作用 + 无副作用 = 全部工具（完美分区）。"""
+        with_effects = set(self.onto.query_tools(side_effects=True))
+        without_effects = set(self.onto.query_tools(side_effects=False))
+        all_tools = set(self.onto.query_tools())
+        self.assertEqual(with_effects | without_effects, all_tools)
+        self.assertEqual(with_effects & without_effects, set())
+
+    def test_infer_policy_targets_simple(self):
+        """语义条件推导 — 简单条件。"""
+        result = self.onto.infer_policy_targets("side_effects == true")
+        self.assertIn("write", result)
+        self.assertNotIn("read", result)
+
+    def test_infer_policy_targets_combined(self):
+        """语义条件推导 — 组合条件。"""
+        result = self.onto.infer_policy_targets("side_effects == true AND category == file_operation")
+        self.assertEqual(result, ["edit", "write"])
+
+    def test_infer_matches_query(self):
+        """infer_policy_targets 结果必须和 query_tools 一致。"""
+        inferred = self.onto.infer_policy_targets("side_effects == false")
+        queried = self.onto.query_tools(side_effects=False)
+        self.assertEqual(inferred, queried)
+
+    def test_new_tool_auto_coverage(self):
+        """模拟新增工具：声明属性后自动被语义查询覆盖。"""
+        # 用自定义数据模拟新增工具
+        data = {
+            "tools": {"builtin": {
+                "read": {"category": "file_operation", "side_effects": False,
+                         "resource_type": "File", "parameters": {"path": {"type": "string", "required": True}}},
+                "write": {"category": "file_operation", "side_effects": True,
+                          "resource_type": "File", "parameters": {"path": {"type": "string", "required": True}}},
+                "deploy": {"category": "system_execution", "side_effects": True,
+                           "resource_type": "File", "parameters": {"target": {"type": "string", "required": True}}},
+            }, "custom": {}},
+            "policies": {},
+            "metadata": {"version": "test"}
+        }
+        test_onto = ToolOntology(data=data)
+        dangerous = test_onto.query_tools(side_effects=True)
+        self.assertIn("deploy", dangerous)
+        self.assertIn("write", dangerous)
+        self.assertNotIn("read", dangerous)
+
+
 if __name__ == "__main__":
     unittest.main()
