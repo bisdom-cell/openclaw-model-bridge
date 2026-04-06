@@ -59,3 +59,44 @@ else
     log "ERROR: 消息发送失败，请检查 gateway。"
     printf '{"time":"%s","status":"send_failed","sent":false}\n' "$TS" > "$STATUS_FILE"
 fi
+
+# ── 日志轮转 ─────────────────────────────────────────────────────────────────
+# 对超过 100KB 的 job 日志文件截断到最后 200 行（无压缩，无备份编号）
+LOG_ROTATE_COUNT=0
+LOG_ROTATE_LIMIT=$((100 * 1024))  # 100KB in bytes
+
+_rotate_if_large() {
+    local f="$1"
+    # 展开 ~ 并跳过不存在的文件
+    f="${f/#\~/$HOME}"
+    [ -f "$f" ] || return 0
+    local size
+    size=$(wc -c < "$f" 2>/dev/null || echo 0)
+    if [ "$size" -gt "$LOG_ROTATE_LIMIT" ]; then
+        local tmp
+        tmp=$(mktemp)
+        tail -200 "$f" > "$tmp" && mv "$tmp" "$f"
+        LOG_ROTATE_COUNT=$((LOG_ROTATE_COUNT + 1))
+    fi
+}
+
+# 固定路径日志
+for _log_file in \
+    ~/conv_quality.log \
+    ~/token_report.log \
+    ~/kb_dedup.log \
+    ~/kb_evening.log \
+    ~/kb_embed.log \
+    ~/kb_dream.log \
+    ~/job_watchdog.log
+do
+    _rotate_if_large "$_log_file"
+done
+
+# ~/.openclaw/logs/jobs/*.log（通配）
+for _log_file in "$HOME/.openclaw/logs/jobs/"*.log; do
+    _rotate_if_large "$_log_file"
+done
+
+log "日志轮转: $LOG_ROTATE_COUNT 个文件已清理"
+# ─────────────────────────────────────────────────────────────────────────────
