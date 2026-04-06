@@ -69,11 +69,18 @@ llm_call() {
         raw=$(curl -sS --max-time "$timeout" "$PROXY_URL" \
             -H 'Content-Type: application/json' \
             -d "$(jq -nc --arg p "$prompt" --argjson mt "$max_tokens" --argjson t "$temp" \
-                '{model:"any",messages:[{role:"user",content:$p}],max_tokens:$mt,temperature:$t}')" \
+                '{model:"any",messages:[{role:"user",content:$p}],max_tokens:$mt,temperature:$t,stream:false}')" \
             2>"$err_file" || true)
 
-        # 尝试提取内容
+        # 尝试从标准 JSON 提取
         result=$(echo "$raw" | jq -r '.choices[0].message.content // empty' 2>/dev/null || true)
+
+        # 如果标准 JSON 失败，尝试解析 SSE 格式（data: {...}\n\n）
+        if [ -z "${result// }" ] && echo "$raw" | grep -q '^data: ' 2>/dev/null; then
+            log "  检测到 SSE 响应，解析中..."
+            result=$(echo "$raw" | grep '^data: ' | grep -v '\[DONE\]' | sed 's/^data: //' \
+                | jq -rs '[.[].choices[0].delta.content // empty] | join("")' 2>/dev/null || true)
+        fi
 
         if [ -n "${result// }" ]; then
             rm -f "$err_file"
@@ -230,7 +237,9 @@ if [ "$FAST_MODE" = false ] && [ "$SRC_COUNT" -gt 0 ]; then
 
         # 检查 map 缓存（同一天同一文件大小不重复提取）
         file_size=$(wc -c < "$src" 2>/dev/null | tr -d ' ')
-        cache_key="${name}_${file_size}"
+        # 缓存 key 含 prompt 版本哈希，prompt 变化时自动重新提取
+        prompt_hash=$(echo "$MAP_PROMPT_TPL" | md5sum 2>/dev/null | cut -c1-8 || echo "v2")
+        cache_key="${name}_${file_size}_${prompt_hash}"
         cache_file="$MAP_DIR/${DAY}_${cache_key}.txt"
 
         if [ -f "$cache_file" ]; then
@@ -544,4 +553,4 @@ find "$MAP_DIR" -name "*.txt" -mtime +3 -delete 2>/dev/null || true
 # rsync 备份
 rsync -a --quiet "$KB_BASE/dreams/" "/Volumes/MOVESPEED/KB/dreams/" 2>/dev/null || true
 
-log "完成。今夜的梦境已记录（$MODE_DESC）。"
+log "完成。模式=$MODE_DESC"
