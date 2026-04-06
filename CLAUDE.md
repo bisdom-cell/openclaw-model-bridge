@@ -418,7 +418,7 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 | 6 | **新功能必须 Mac Mini E2E 验证** | dev 环境单测通过不算完成；**必须提醒用户在 Mac Mini 上运行 `bash preflight_check.sh --full` + `bash job_smoke_test.sh` + 手动触发目标 job**，确认端到端有效果（消息到达 WhatsApp / 文件生成 / 日志正常）。dev 通过 ≠ 生产工作。 |
 | 7 | **故障先查自身代码** | 排查问题时默认从我们自己的代码和架构中找 bug（shell 数据传递、cron 环境、进程管理等），不归因于上游服务不稳定（#97教训） |
 | 8 | **做减法不做加法** | 新增防护/监控前先问"谁已经在管这件事"；每加一层保险 = 多一个故障源（#95教训） |
-| 9 | **收工提醒 preflight + 安全评分 + job smoke test + 更新 status.json** | "结束今天的工作"时：① `security_score.py --update` 写入安全评分 ② 提醒用户在 Mac Mini 上运行 `bash preflight_check.sh --full` + `bash job_smoke_test.sh` ③ `status_update.py` 写入变更摘要和优先级 |
+| 9 | **🔴 收工必须刷新全部项目状态 + 健康检查** | "结束今天的工作"时，以下步骤**全部完成才算收工**：① **刷新 GitHub 项目内容**：更新 `status.json`（recent_changes+priorities+session_context）+ `CLAUDE.md`（版本号+文件表+变更历史+待办状态）→ 提交推送 ② `security_score.py --update` 写入安全评分 ③ 提醒用户在 Mac Mini 上运行 `bash preflight_check.sh --full` + `bash job_smoke_test.sh` ④ 刷新 GitHub = 让下一个 session 的 Claude Code 和 Mac Mini 的 cron 都能看到最新状态。**不刷新就收工 = 下次开工浪费时间重新理解上下文**（2026-04-06教训：多次 session 间状态不同步导致重复工作） |
 | 10 | **相信 OpenClaw，用好 OpenClaw** | 优先利用 OpenClaw 已有能力（Multi-Agent、contextPruning、workspace SOUL.md/CLAUDE.md、memory、sessions_spawn 等），而非重新造轮子；遇到新需求先查 OpenClaw 文档和 release notes |
 | 11 | **🆕 结果验证优先于功能建设** | 先定义"从用户视角，成功长什么样"，再写代码。status.json 的成功标准不是"能写入"，而是"PA 能正确回答项目进展"。（2026-03-28教训：393个单测通过但 PA 说"没有项目"） |
 | 12 | **🆕 上下文工程是一等公民** | SOUL.md = 宪法级（身份+关键状态，LLM 注意力最高），CLAUDE.md = 手册级（工具+详情）；信息放哪里、占多少 token、LLM 能否注意到——都是架构决策，和 API 设计同等严肃。（2026-03-28教训：SOUL.md 空置数月，17KB CLAUDE.md 信息被"lost in the middle"） |
