@@ -291,7 +291,7 @@ export GEMINI_API_KEY="AIzaXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"   # V29.1新增
 | ~~karpathy-x~~ | ~~每天09:00,21:00~~ | `~/.openclaw/jobs/karpathy_x/run_karpathy_x.sh` | `~/.openclaw/logs/jobs/karpathy_x.log` | ❌ **已停用**（V34: 合并到 ai_leaders_x 多账号追踪） |
 | ai-leaders-x | 每天09:00,21:00 | `~/.openclaw/jobs/ai_leaders_x/run_ai_leaders_x.sh` | `~/.openclaw/logs/jobs/ai_leaders_x.log` | ✅ V34新增：9位AI大牛X技术洞察追踪（Karpathy/Jim Fan/LeCun/Chollet/Swyx/Lilian Weng/Jason Wei/HW Chung/Harrison Chase，Syndication API+LLM深度分析+KB归档） |
 | preference-learner | 每天07:30 | `~/preference_learner.py` | `~/preference_learner.log` | ✅ V30.4新增：每天从行为数据自动推断用户偏好（活跃时段/工具使用/关注领域），写入status.json→SOUL.md |
-| kb_dream | 每天03:00 | `~/kb_dream.sh` | `~/kb_dream.log` | ✅ V32新增：Agent 做梦引擎 — 跨领域关联发现+趋势推演+被忽视信号挖掘（凌晨空闲时运行，输出 ~/.kb/dreams/） |
+| kb_dream | 每天04:30 | `~/kb_dream.sh` | `~/kb_dream.log` | ✅ V32新增→V36.2修复：Agent Dream v2 MapReduce 全量 KB 探索（14源+226笔记逐一提取信号→跨域关联，04:30 GPU 低负载时段，输出 ~/.kb/dreams/） |
 | gateway-watchdog | ~~每30分钟~~ | `~/restart.sh` | `~/.openclaw/logs/gateway_watchdog.log` | ❌ **已移除**（#95：与launchd KeepAlive双主控冲突，导致误杀gateway） |
 
 当前 `crontab -l` 核心条目：

@@ -17,9 +17,23 @@ export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
 set -o pipefail
 # 注意：不用 set -e，因为 find/wc/grep 在空目录下返回非零会中断脚本
 
-# 防重叠执行
+# 诊断日志（cron 环境调试）
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] dream: START pid=$$ args=$* PATH=$PATH"
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] dream: jq=$(which jq 2>/dev/null || echo MISSING) python3=$(which python3 2>/dev/null || echo MISSING) curl=$(which curl 2>/dev/null || echo MISSING)"
+
+# 防重叠执行（含残留锁检测：超过 60 分钟视为残留，自动清理）
 LOCK="/tmp/kb_dream.lockdir"
-mkdir "$LOCK" 2>/dev/null || { echo "[dream] Already running, skip"; exit 0; }
+if [ -d "$LOCK" ]; then
+    lock_age=$(( $(date +%s) - $(stat -f '%m' "$LOCK" 2>/dev/null || stat -c '%Y' "$LOCK" 2>/dev/null || echo 0) ))
+    if [ "$lock_age" -gt 3600 ]; then
+        echo "[dream] Stale lock detected (${lock_age}s old), removing"
+        rmdir "$LOCK" 2>/dev/null || rm -rf "$LOCK"
+    else
+        echo "[dream] Already running (${lock_age}s), skip"
+        exit 0
+    fi
+fi
+mkdir "$LOCK" 2>/dev/null || { echo "[dream] Lock contention, skip"; exit 0; }
 trap 'rmdir "$LOCK" 2>/dev/null' EXIT
 
 # Dream LLM 配置：直接调 Adapter(:5001)，绕过 Proxy
@@ -209,14 +223,43 @@ MAP_COUNT=0
 if [ "$FAST_MODE" = false ] && [ "$SRC_COUNT" -gt 0 ]; then
     log "Phase 1 (Map): 开始逐源提取信号..."
 
-    MAP_PROMPT_TPL='你是一个数据矿工。从以下数据源中挖掘值得注意的信号。
+    while IFS= read -r src; do
+        [ -z "$src" ] && continue
+        [ -f "$src" ] || continue
+        name=$(basename "$src" .md)
+        total_lines=$(wc -l < "$src" 2>/dev/null | tr -d ' ')
+        [ -z "$total_lines" ] && total_lines=0
+        [ "$total_lines" -eq 0 ] && continue
 
-数据源名称: %s
-数据量: %d 行
+        # 检查 map 缓存（同一天同一文件大小不重复提取）
+        file_size=$(wc -c < "$src" 2>/dev/null | tr -d ' ')
+        # 缓存 key 含 prompt 版本哈希，prompt 变化时自动重新提取
+        prompt_hash="v3"  # bump when prompt template changes to invalidate cache
+        cache_key="${name}_${file_size}_${prompt_hash}"
+        cache_file="$MAP_DIR/${DAY}_${cache_key}.txt"
+
+        if [ -f "$cache_file" ]; then
+            log "  Map [$name]: 使用缓存"
+            signals=$(cat "$cache_file")
+        else
+            # 读取文件全文，用 UTF-8 安全截断到 15000 字符
+            # 15K chars ≈ 4-5K tokens，Qwen3 262K context 轻松容纳
+            full_content=$(cat "$src" 2>/dev/null | utf8_truncate 15000)
+
+            # 用 Python 安全拼接 prompt（避免 printf 对 KB 内容中 % 字符的格式化注入）
+            prompt=$(python3 -c "
+import sys
+tpl = sys.stdin.read()
+print(tpl.replace('TPL_NAME', sys.argv[1]).replace('TPL_LINES', sys.argv[2]).replace('TPL_CONTENT', sys.argv[3]))
+" "$name" "$total_lines" "$full_content" <<'PROMPT_EOF'
+你是一个数据矿工。从以下数据源中挖掘值得注意的信号。
+
+数据源名称: TPL_NAME
+数据量: TPL_LINES 行
 
 完整内容:
 ---
-%s
+TPL_CONTENT
 ---
 
 请提取 10-15 个值得注意的信号，每个信号一行，格式：
@@ -230,32 +273,9 @@ if [ "$FAST_MODE" = false ] && [ "$SRC_COUNT" -gt 0 ]; then
 5. 量化事实（具体数字、百分比、金额、排名变化——这些是最有价值的信号）
 
 不要试图关联其他领域，只忠实提取本数据源中的事实。
-只输出信号列表，不要前言或总结。控制在 500 字以内。'
-
-    while IFS= read -r src; do
-        [ -z "$src" ] && continue
-        [ -f "$src" ] || continue
-        name=$(basename "$src" .md)
-        total_lines=$(wc -l < "$src" 2>/dev/null | tr -d ' ')
-        [ -z "$total_lines" ] && total_lines=0
-        [ "$total_lines" -eq 0 ] && continue
-
-        # 检查 map 缓存（同一天同一文件大小不重复提取）
-        file_size=$(wc -c < "$src" 2>/dev/null | tr -d ' ')
-        # 缓存 key 含 prompt 版本哈希，prompt 变化时自动重新提取
-        prompt_hash=$(echo "$MAP_PROMPT_TPL" | md5sum 2>/dev/null | cut -c1-8 || echo "v2")
-        cache_key="${name}_${file_size}_${prompt_hash}"
-        cache_file="$MAP_DIR/${DAY}_${cache_key}.txt"
-
-        if [ -f "$cache_file" ]; then
-            log "  Map [$name]: 使用缓存"
-            signals=$(cat "$cache_file")
-        else
-            # 读取文件全文，用 UTF-8 安全截断到 15000 字符
-            # 15K chars ≈ 4-5K tokens，Qwen3 262K context 轻松容纳
-            full_content=$(cat "$src" 2>/dev/null | utf8_truncate 15000)
-
-            prompt=$(printf "$MAP_PROMPT_TPL" "$name" "$total_lines" "$full_content")
+只输出信号列表，不要前言或总结。控制在 500 字以内。
+PROMPT_EOF
+)
 
             log "  Map [$name]: ${total_lines}行, ${file_size}B → 提取信号..."
             signals=$(llm_call "$prompt" 1200 0.5 90 || true)
@@ -295,28 +315,6 @@ if [ "$FAST_MODE" = false ] && [ -n "$ALL_NOTES" ]; then
         [ -f "$f" ] && echo "$(stat -f '%m' "$f" 2>/dev/null || stat -c '%Y' "$f" 2>/dev/null || echo 0) $f"
     done | sort -rn | awk '{print $2}')
 
-    NOTES_MAP_PROMPT='你是一个数据矿工。以下是用户的个人笔记和与AI助手的交互记录。这些笔记包含用户认为重要的信息、决策、发现和想法。
-
-数据类型: 用户笔记/交互记录
-笔记数量: %d 条
-
-完整内容:
----
-%s
----
-
-请提取 8-12 个最值得注意的信号，每个信号一行，格式：
-- [日期或笔记名] 信号描述（具体事实，含关键内容）
-
-重点关注：
-1. 用户明确标记为重要的信息（主动保存 = 用户认为有价值）
-2. 用户的决策、判断、观点（反映用户的思考方向）
-3. 跨多条笔记出现的主题（重复出现 = 持续关注）
-4. 与外部数据源（论文、新闻、技术趋势）可能关联的线索
-5. 反常或意外的记录（与日常模式不同的条目）
-
-只输出信号列表，不要前言或总结。控制在 500 字以内。'
-
     # 将 notes 分批打包，每批 ~15KB
     BATCH=""
     BATCH_COUNT=0
@@ -348,7 +346,34 @@ $content
                 log "  Map Notes [批次$BATCH_NUM]: 使用缓存 ($BATCH_COUNT 条)"
                 signals=$(cat "$cache_file")
             else
-                prompt=$(printf "$NOTES_MAP_PROMPT" "$BATCH_COUNT" "$BATCH")
+                prompt=$(python3 -c "
+import sys
+tpl = sys.stdin.read()
+print(tpl.replace('TPL_COUNT', sys.argv[1]).replace('TPL_CONTENT', sys.argv[2]))
+" "$BATCH_COUNT" "$BATCH" <<'PROMPT_EOF'
+你是一个数据矿工。以下是用户的个人笔记和与AI助手的交互记录。这些笔记包含用户认为重要的信息、决策、发现和想法。
+
+数据类型: 用户笔记/交互记录
+笔记数量: TPL_COUNT 条
+
+完整内容:
+---
+TPL_CONTENT
+---
+
+请提取 8-12 个最值得注意的信号，每个信号一行，格式：
+- [日期或笔记名] 信号描述（具体事实，含关键内容）
+
+重点关注：
+1. 用户明确标记为重要的信息（主动保存 = 用户认为有价值）
+2. 用户的决策、判断、观点（反映用户的思考方向）
+3. 跨多条笔记出现的主题（重复出现 = 持续关注）
+4. 与外部数据源（论文、新闻、技术趋势）可能关联的线索
+5. 反常或意外的记录（与日常模式不同的条目）
+
+只输出信号列表，不要前言或总结。控制在 500 字以内。
+PROMPT_EOF
+)
                 log "  Map Notes [批次$BATCH_NUM]: ${BATCH_COUNT}条, ${BATCH_SIZE}B → 提取信号..."
                 signals=$(llm_call "$prompt" 1200 0.5 90 || true)
 
@@ -383,7 +408,34 @@ $signals
             log "  Map Notes [批次$BATCH_NUM]: 使用缓存 ($BATCH_COUNT 条)"
             signals=$(cat "$cache_file")
         else
-            prompt=$(printf "$NOTES_MAP_PROMPT" "$BATCH_COUNT" "$BATCH")
+            prompt=$(python3 -c "
+import sys
+tpl = sys.stdin.read()
+print(tpl.replace('TPL_COUNT', sys.argv[1]).replace('TPL_CONTENT', sys.argv[2]))
+" "$BATCH_COUNT" "$BATCH" <<'PROMPT_EOF'
+你是一个数据矿工。以下是用户的个人笔记和与AI助手的交互记录。这些笔记包含用户认为重要的信息、决策、发现和想法。
+
+数据类型: 用户笔记/交互记录
+笔记数量: TPL_COUNT 条
+
+完整内容:
+---
+TPL_CONTENT
+---
+
+请提取 8-12 个最值得注意的信号，每个信号一行，格式：
+- [日期或笔记名] 信号描述（具体事实，含关键内容）
+
+重点关注：
+1. 用户明确标记为重要的信息（主动保存 = 用户认为有价值）
+2. 用户的决策、判断、观点（反映用户的思考方向）
+3. 跨多条笔记出现的主题（重复出现 = 持续关注）
+4. 与外部数据源（论文、新闻、技术趋势）可能关联的线索
+5. 反常或意外的记录（与日常模式不同的条目）
+
+只输出信号列表，不要前言或总结。控制在 500 字以内。
+PROMPT_EOF
+)
             log "  Map Notes [批次$BATCH_NUM]: ${BATCH_COUNT}条, ${BATCH_SIZE}B → 提取信号..."
             signals=$(llm_call "$prompt" 1200 0.5 90 || true)
             [ -n "${signals// }" ] && echo "$signals" > "$cache_file"
