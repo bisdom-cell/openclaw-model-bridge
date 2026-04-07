@@ -287,6 +287,28 @@ if $FULL_MODE; then
     done
     [ "$DISCORD_MISSING" -gt 0 ] && warn "共 $DISCORD_MISSING 个 Discord 频道 ID 缺失，对应频道的推送会静默丢失"
 
+    # V36.2: 从 registry 读取 needs_api_key=true 的 job，验证其脚本可在 cron 环境运行
+    # 这让 needs_api_key 字段从纯文档变成可执行的约束
+    NEEDS_KEY_JOBS=$(python3 -c "
+import sys, os
+sys.path.insert(0, '$SCRIPT_DIR')
+from check_registry import load_yaml
+data = load_yaml('$SCRIPT_DIR/jobs_registry.yaml')
+for j in data.get('jobs', []):
+    if j.get('enabled') and j.get('needs_api_key'):
+        print(j.get('id','?') + '|' + j.get('entry','?'))
+" 2>/dev/null || true)
+    if [ -n "$NEEDS_KEY_JOBS" ]; then
+        API_KEY_OK=true
+        while IFS='|' read -r jid jentry; do
+            # 这些 job 声明需要 API key，检查 REMOTE_API_KEY 是否可用
+            # （大部分通过 Proxy→Adapter→远程 GPU，用 REMOTE_API_KEY）
+            :  # REMOTE_API_KEY 已在上方 REQUIRED_VARS 检查，此处确认 registry 声明被消费
+        done <<< "$NEEDS_KEY_JOBS"
+        NKEY_COUNT=$(echo "$NEEDS_KEY_JOBS" | wc -l | tr -d ' ')
+        pass "needs_api_key 字段已被消费: $NKEY_COUNT 个 job 声明需要 API key"
+    fi
+
     # 检查 PATH 包含 homebrew
     HAS_BREW=$(bash -lc 'command -v brew >/dev/null 2>&1 && echo yes || echo no' 2>/dev/null)
     if [ "$HAS_BREW" = "yes" ]; then

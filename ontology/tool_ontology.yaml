@@ -242,6 +242,7 @@ tools:
         file: {type: string, required: false, description: "数据文件的完整路径"}
         ops: {type: string, required: false, description: "清洗操作，逗号分隔: trim,dedup,dedup_near,fix_dates,fix_case,fill_missing,remove_test"}
         fix_case_cols: {type: string, required: false, description: "fix_case操作的目标列名，逗号分隔"}
+        fix_date_cols: {type: string, required: false, description: "fix_dates操作的目标列名，逗号分隔"}
 
     search_kb:
       category: knowledge_retrieval

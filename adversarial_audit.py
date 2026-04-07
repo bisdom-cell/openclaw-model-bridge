@@ -170,9 +170,17 @@ def check_status_freshness():
     health = data.get("health", {})
     quality = data.get("quality", {})
 
-    # security_score 没有自动刷新机制
+    # security_score 自动刷新 + 时间戳检查
     if quality.get("security_score") and "security_score_time" not in quality:
-        issues.append("security_score 无时间戳 — 可能陈旧数周而不被发现")
+        # 检查 kb_status_refresh.sh 是否有自动刷新代码
+        refresh_path = os.path.join(REPO_ROOT, "kb_status_refresh.sh")
+        has_auto_refresh = False
+        if os.path.exists(refresh_path):
+            with open(refresh_path) as rf:
+                has_auto_refresh = "security_score_time" in rf.read()
+        if not has_auto_refresh:
+            issues.append("security_score 无时间戳且无自动刷新 — 可能陈旧数周而不被发现")
+        # 如果有自动刷新代码但 status.json 还没有时间戳，说明尚未运行（可接受）
 
     # last_regression 可能陈旧
     last_reg = quality.get("last_regression", "")
