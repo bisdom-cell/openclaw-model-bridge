@@ -50,6 +50,21 @@ else
     fail "jobs_registry.yaml 校验失败（运行 python3 check_registry.py 查看详情）"
 fi
 
+# V36.2: Crontab 间隔漂移检测（仅 --full 模式，需要 crontab 访问）
+if $FULL_MODE; then
+    DRIFT_OUT=$(python3 check_registry.py --check-crontab 2>&1)
+    if echo "$DRIFT_OUT" | grep -q "间隔漂移"; then
+        DRIFT_LINES=$(echo "$DRIFT_OUT" | grep "间隔漂移")
+        fail "crontab 间隔漂移（registry vs 实际 crontab 不一致）:
+$DRIFT_LINES
+修复: 用 crontab_safe.sh remove/add 对齐 registry"
+    else
+        pass "crontab 间隔与 registry 一致（零漂移）"
+    fi
+else
+    skip "crontab 间隔漂移检测"
+fi
+
 # ── 3. 文档漂移检测 ───────────────────────────────────────────────────
 echo ""
 echo "📋 3/19 文档漂移检测"
