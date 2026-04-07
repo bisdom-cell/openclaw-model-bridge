@@ -197,7 +197,7 @@ jobs:
   - id: job_watchdog
     scheduler: system
     entry: job_watchdog.sh
-    interval: "30 */4 * * *"         # 每4小时:30分（减少重复告警噪音）
+    interval: "30 8,12,16,20 * * *"  # 每天4次日间（跳过 00:30/04:30 凌晨静默期）
     log: ~/job_watchdog.log
     needs_api_key: false
     enabled: true
@@ -227,7 +227,7 @@ jobs:
   - id: run_discussions
     scheduler: system
     entry: jobs/openclaw_official/run_discussions.sh
-    interval: "15 */4 * * *"        # 每4小时（Issues不需要实时监控）
+    interval: "15 8,12,16,20 * * *"  # 每天4次日间（跳过 00:15/04:15 凌晨静默期）
     log: ~/.openclaw/logs/jobs/openclaw_discussions.log
     needs_api_key: false
     enabled: true
@@ -329,18 +329,27 @@ jobs:
   - id: kb_dream
     scheduler: system
     entry: kb_dream.sh
-    interval: "30 4 * * *"          # 每天 04:30（GPU 低负载时段，避开其他 cron 集中期）
+    interval: "30 5 * * *"          # 每天 05:30（避开 04:00 ArXiv + 04:30 Watchdog 冲突）
     log: ~/kb_dream.log
     needs_api_key: false             # 通过 Adapter:5001 调 LLM（绕过 Proxy）
     enabled: true
     tier: experiment                 # 实验性：Agent 跨领域探索
     description: "Agent 做梦引擎 — MapReduce 全量 KB 探索 + 深度分析（每日凌晨，输出 ~/.kb/dreams/）"
 
-  # ── 凌晨 GPU 黄金窗口时间预算（04:00-06:00，LLM 专用） ──────────────
-  # 03:00  openclaw_backup（轻量 rsync，不调 LLM）
-  # 03:30  kb_embed（本地向量索引，不调 LLM）
-  # 04:00  [预留] 未来重度 LLM 任务（Ontology 专题分析）
-  # 04:30  kb_dream（MapReduce 全量分析，~15 分钟）
-  # 05:00  [预留] 未来重度 LLM 任务（KB 跨期深度回顾）
-  # 05:30  [预留] 未来重度 LLM 任务
-  # 06:00  ── 日间调度开始 ──
+  # ── 凌晨静默期 + GPU 黄金窗口（00:00-07:00）─────────────────────
+  # 策略：00:00-07:00 零推送通知（用户睡眠），仅允许静默任务和重算力 LLM
+  #
+  # 静默任务（不推送、不调 LLM）：
+  #   */10   cron_canary（心跳）
+  #   */30   wa_keepalive（HTTP 探测）
+  #   */2    auto_deploy（部署同步，告警被 quiet_alert 静默）
+  #   0 *    kb_status_refresh（status.json 刷新）
+  #   0 */2  mm_index（Gemini 向量索引，不推送）
+  #   0 3    openclaw_backup（rsync 备份）
+  #   30 3   kb_embed（本地向量索引）
+  #
+  # GPU 黄金窗口（重算力 LLM，允许推送）：
+  #   30 5   kb_dream（MapReduce 全量分析，~30 分钟，完成后推送梦境）
+  #   [预留] 未来重度 LLM（Ontology 专题分析等）
+  #
+  # 07:00  ── 日间调度开始（kb_inject 摘要推送）──

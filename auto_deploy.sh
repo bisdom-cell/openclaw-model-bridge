@@ -18,6 +18,23 @@ REPO_DIR="$HOME/openclaw-model-bridge"
 LOG="$HOME/.openclaw/logs/auto_deploy.log"
 mkdir -p "$(dirname "$LOG")"
 
+# 凌晨静默期：00:00-07:00 不推送告警（deploy/sync 照常，只是不发通知）
+is_quiet_hours() {
+    local hour=$(TZ=Asia/Hong_Kong date '+%H')
+    [ "$hour" -ge 0 ] && [ "$hour" -lt 7 ]
+}
+
+# 静默感知的推送封装：静默期跳过推送，仅写日志
+quiet_alert() {
+    local msg="$1"
+    if is_quiet_hours; then
+        echo "$(date) [QUIET] 静默期跳过推送: ${msg:0:80}..." >> "$LOG"
+        return 0
+    fi
+    openclaw message send --channel whatsapp --target "${OPENCLAW_PHONE:-+85200000000}" --message "$msg" --json >/dev/null 2>&1 || true
+    openclaw message send --channel discord --target "${DISCORD_CH_ALERTS:-}" --message "$msg" --json >/dev/null 2>&1 || true
+}
+
 cd "$REPO_DIR" || { echo "$(date) ERROR: cannot cd to $REPO_DIR" >> "$LOG"; exit 1; }
 
 # ── 0. 确保 JSON merge driver 已配置（status.json 冲突自动合并）──
@@ -268,8 +285,7 @@ if [ "$MINUTE" -lt 2 ]; then
         echo "$(date) ⚠️ 漂移检测: 修复 ${DRIFT} 个文件" >> "$LOG"
         # 漂移发现时推送 WhatsApp 告警
         DRIFT_MSG="⚠️ 漂移检测: 修复 ${DRIFT} 个部署文件不一致，已自动覆盖。详见 auto_deploy.log"
-        openclaw message send --channel whatsapp --target "${OPENCLAW_PHONE:-+85200000000}" --message "$DRIFT_MSG" --json >/dev/null 2>&1 || true
-        openclaw message send --channel discord --target "${DISCORD_CH_ALERTS:-}" --message "$DRIFT_MSG" --json >/dev/null 2>&1 || true
+        quiet_alert "$DRIFT_MSG"
     fi
 
     # ── 3c. Crontab 引号完整性检查（每小时整点，与漂移检测同步）──────────
@@ -291,8 +307,7 @@ if [ "$MINUTE" -lt 2 ]; then
         CRON_MSG="🔴 Crontab 语法异常（自动检测）：
 ${CRONTAB_ISSUES}
 请立即检查: crontab -l"
-        openclaw message send --channel whatsapp --target "${OPENCLAW_PHONE:-+85200000000}" --message "$CRON_MSG" --json >/dev/null 2>&1 || true
-        openclaw message send --channel discord --target "${DISCORD_CH_ALERTS:-}" --message "$CRON_MSG" --json >/dev/null 2>&1 || true
+        quiet_alert "$CRON_MSG"
     fi
 
     # ── 3d. Crontab 条目数监控（V30新增：防止意外清空）─────────────────
@@ -314,8 +329,7 @@ ${CRONTAB_ISSUES}
 修复：
 1. bash ~/crontab_safe.sh restore
 2. 或: bash ~/cron_doctor.sh"
-            openclaw message send --channel whatsapp --target "${OPENCLAW_PHONE:-+85200000000}" --message "$CRON_ALERT" --json >/dev/null 2>&1 || true
-            openclaw message send --channel discord --target "${DISCORD_CH_ALERTS:-}" --message "$CRON_ALERT" --json >/dev/null 2>&1 || true
+            quiet_alert "$CRON_ALERT"
             date +%s > "$CRON_COUNT_FILE.alert"
         fi
     else
@@ -363,8 +377,7 @@ $FAIL_LINES
 详情：auto_deploy.log"
             echo "$(date) ❌ preflight_check 失败:" >> "$LOG"
             echo "$PREFLIGHT_OUT" >> "$LOG"
-            openclaw message send --channel whatsapp --target "${OPENCLAW_PHONE:-+85200000000}" --message "$ALERT_MSG" --json >/dev/null 2>&1 || true
-            openclaw message send --channel discord --target "${DISCORD_CH_ALERTS:-}" --message "$ALERT_MSG" --json >/dev/null 2>&1 || true
+            quiet_alert "$ALERT_MSG"
         else
             echo "$(date) ✅ preflight_check 通过" >> "$LOG"
             # 更新三方共享状态
