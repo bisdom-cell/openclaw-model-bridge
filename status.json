@@ -1,5 +1,5 @@
 {
-  "updated": "2026-04-07 07:00:02",
+  "updated": "2026-04-07 08:00:02",
   "updated_by": "cron",
   "priorities": [
     {
@@ -253,9 +253,9 @@
     "model_id": "Qwen3-235B-A22B-Instruct-2507-W8A8",
     "kb_stats": "225 notes, 12 today, 1737KB sources",
     "stale_jobs": "hn,freight,discussions",
-    "last_refresh": "2026-04-07 07:00",
+    "last_refresh": "2026-04-07 08:00",
     "security_score": "98/100 (98.0%)",
-    "text_index": "14616 chunks, 266/267 files (99%), 266 stale, 3h ago, 21924KB"
+    "text_index": "14616 chunks, 266/267 files (99%), 266 stale, 4h ago, 21924KB"
   },
   "session_context": {
     "last_session": "2026-04-06",
@@ -332,9 +332,8 @@
   "focus": "Stage2:被社区认可的系统作者。三线并进：① Control Plane(V1-V2全部完成✅,V3 Plugin待启动) ② Ontology子项目(独立ontology/目录,2800+行:Engine+宪法+PoC+特性开关,下一步:立场文章+生产切换) ③ Dream v2 MapReduce已部署(待验收04:30结果)。详见docs/strategic_review_20260403.md + ontology/README.md",
   "notes": "",
   "preferences": [
-    "[auto] 活跃时段 00:00-08:00（2天数据）",
-    "[auto] 用户偏好简洁回复（平均响应 <200 字）",
-    "[auto] 关注领域：技术/AI、学术/论文、arxiv-ai-models、技术/编程、hf-daily-papers",
+    "[auto] 活跃时段 00:00-05:00（2天数据）",
+    "[auto] 关注领域：技术/AI、学术/论文、arxiv-ai-models、技术/编程、rss-blogs",
     "[auto] 用户已提交 1 条反馈，最新: {\"date\": \"2026-04-03\", \"from\": \"mentor\", \"what\": \""
   ]
 }
