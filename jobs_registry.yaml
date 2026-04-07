@@ -329,18 +329,19 @@ jobs:
   - id: kb_dream
     scheduler: system
     entry: kb_dream.sh
-    interval: "30 4 * * *"          # 每天 04:30（GPU 低负载时段，避开其他 cron 集中期）
+    interval: "30 5 * * *"          # 每天 05:30（避开 04:00 ArXiv + 04:30 Watchdog 冲突）
     log: ~/kb_dream.log
     needs_api_key: false             # 通过 Adapter:5001 调 LLM（绕过 Proxy）
     enabled: true
     tier: experiment                 # 实验性：Agent 跨领域探索
     description: "Agent 做梦引擎 — MapReduce 全量 KB 探索 + 深度分析（每日凌晨，输出 ~/.kb/dreams/）"
 
-  # ── 凌晨 GPU 黄金窗口时间预算（04:00-06:00，LLM 专用） ──────────────
+  # ── 凌晨 GPU 黄金窗口时间预算（03:00-06:30，LLM 专用） ─────────────
   # 03:00  openclaw_backup（轻量 rsync，不调 LLM）
   # 03:30  kb_embed（本地向量索引，不调 LLM）
-  # 04:00  [预留] 未来重度 LLM 任务（Ontology 专题分析）
-  # 04:30  kb_dream（MapReduce 全量分析，~15 分钟）
-  # 05:00  [预留] 未来重度 LLM 任务（KB 跨期深度回顾）
-  # 05:30  [预留] 未来重度 LLM 任务
-  # 06:00  ── 日间调度开始 ──
+  # 04:00  ArXiv 论文监控（LLM 翻译+评价，~10 分钟）← 实际 crontab 需确认
+  # 04:30  job_watchdog（不调 LLM，但会与 dream 时间冲突 → dream 移走）
+  # 05:00  [预留] 未来重度 LLM 任务（Ontology 专题分析）
+  # 05:30  kb_dream（MapReduce 全量分析，~30 分钟）
+  # 06:00  [预留] 未来重度 LLM 任务
+  # 06:30  ── 日间调度开始 ──
