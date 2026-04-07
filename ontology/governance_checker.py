@@ -198,6 +198,180 @@ def run_all(data):
     return results
 
 
+# ═══════════════════════════════════════════════════════════════════════
+# Meta-Rule Discovery Engine (Phase 0)
+# 扫描结构化数据源，自动发现缺失不变式
+# ═══════════════════════════════════════════════════════════════════════
+
+def _collect_invariant_coverage(data):
+    """从所有不变式的 checks 中收集已覆盖的关键词（脚本名、变量名等）。"""
+    covered = set()
+    for inv in data.get("invariants", []):
+        for check in inv.get("checks", []):
+            # 从 python_assert code 中提取引用的文件名/变量名
+            code = check.get("code", "")
+            pattern = check.get("pattern", "")
+            file_ref = check.get("file", "")
+            var_ref = check.get("var", "")
+            covered.add(file_ref)
+            covered.add(var_ref)
+            covered.add(pattern)
+            # 提取 code 中的 .sh/.py 文件引用
+            for word in code.split():
+                if word.endswith((".sh", ".py", ".yaml")):
+                    covered.add(word.strip("\"'(),"))
+    return covered
+
+
+def run_meta_discovery(data):
+    """Phase 0: 扫描 jobs_registry.yaml，发现缺少不变式覆盖的 job。"""
+    discoveries = data.get("meta_rule_discovery", [])
+    discovery_results = []
+
+    # 收集当前不变式已覆盖的所有关键词
+    covered = _collect_invariant_coverage(data)
+    # 也把不变式的 checks 中所有 code 拼成一个大字符串供搜索
+    all_check_code = ""
+    for inv in data.get("invariants", []):
+        for check in inv.get("checks", []):
+            all_check_code += check.get("code", "") + " "
+            all_check_code += check.get("pattern", "") + " "
+            all_check_code += check.get("file", "") + " "
+
+    for disc in discoveries:
+        disc_id = disc.get("id", "?")
+        name = disc.get("name", "?")
+        severity = disc.get("severity_when_missing", "warn")
+
+        if disc_id == "MRD-CRON-001":
+            # 扫描 registry 中所有 enabled system job
+            result = _discover_uncovered_jobs(all_check_code, severity)
+            discovery_results.append({"id": disc_id, "name": name, **result})
+
+        elif disc_id == "MRD-ENV-001":
+            # 扫描 needs_api_key=true 的 job
+            result = _discover_uncovered_api_keys(all_check_code, severity)
+            discovery_results.append({"id": disc_id, "name": name, **result})
+
+        elif disc_id == "MRD-NOTIFY-001":
+            # 扫描 notify --topic 使用的 topic
+            result = _discover_uncovered_topics(severity)
+            discovery_results.append({"id": disc_id, "name": name, **result})
+
+    return discovery_results
+
+
+def _load_registry():
+    """加载 jobs_registry.yaml。"""
+    registry_path = os.path.join(_PROJECT_ROOT, "jobs_registry.yaml")
+    if not os.path.exists(registry_path):
+        return []
+    with open(registry_path, "r", encoding="utf-8") as f:
+        data = yaml.safe_load(f)
+    return data.get("jobs", [])
+
+
+def _discover_uncovered_jobs(all_check_code, severity):
+    """MRD-CRON-001: 哪些 enabled system job 没有出现在任何不变式检查中？"""
+    jobs = _load_registry()
+    uncovered = []
+    covered = []
+
+    for job in jobs:
+        if not job.get("enabled") or job.get("scheduler") != "system":
+            continue
+        jid = job.get("id", "?")
+        entry = job.get("entry", "")
+        script = os.path.basename(entry) if entry else ""
+
+        # 检查 job id 或脚本名是否在任何不变式的检查代码中
+        if script and (script in all_check_code or jid in all_check_code):
+            covered.append(jid)
+        else:
+            uncovered.append(jid)
+
+    if uncovered:
+        return {
+            "status": "warn",
+            "severity": severity,
+            "message": f"{len(uncovered)} 个 enabled job 未被不变式覆盖: {', '.join(uncovered[:5])}{'...' if len(uncovered) > 5 else ''}",
+            "uncovered": uncovered,
+            "covered": covered,
+        }
+    return {
+        "status": "pass",
+        "severity": severity,
+        "message": f"所有 {len(covered)} 个 enabled system job 已被不变式覆盖",
+        "uncovered": [],
+        "covered": covered,
+    }
+
+
+def _discover_uncovered_api_keys(all_check_code, severity):
+    """MRD-ENV-001: needs_api_key=true 但 preflight 未检查？"""
+    jobs = _load_registry()
+    needs_key = [j.get("id") for j in jobs if j.get("enabled") and j.get("needs_api_key")]
+
+    # preflight 已检查 REMOTE_API_KEY 和 GEMINI_API_KEY，覆盖了所有 needs_api_key job
+    # 检查 preflight 中是否有 needs_api_key 消费
+    preflight_path = os.path.join(_PROJECT_ROOT, "preflight_check.sh")
+    if os.path.exists(preflight_path):
+        with open(preflight_path) as f:
+            if "needs_api_key" in f.read():
+                return {
+                    "status": "pass",
+                    "severity": severity,
+                    "message": f"preflight 消费 needs_api_key 字段，覆盖 {len(needs_key)} 个 job",
+                }
+    return {
+        "status": "warn",
+        "severity": severity,
+        "message": f"preflight 未消费 needs_api_key 字段，{len(needs_key)} 个 job 的 API key 需求未被验证",
+    }
+
+
+def _discover_uncovered_topics(severity):
+    """MRD-NOTIFY-001: 脚本中用了哪些 --topic，是否都在路由表中？"""
+    import glob as glob_mod
+    # 从 notify.sh 提取路由表中的 topic
+    notify_path = os.path.join(_PROJECT_ROOT, "notify.sh")
+    known_topics = set()
+    if os.path.exists(notify_path):
+        with open(notify_path) as f:
+            for line in f:
+                # case 分支：papers) freight) alerts) daily) tech) ontology)
+                m = re.match(r'\s+(\w+)\)\s+echo', line)
+                if m:
+                    known_topics.add(m.group(1))
+
+    # 扫描所有 .sh 文件中 --topic 参数
+    used_topics = set()
+    for sh_file in glob_mod.glob(os.path.join(_PROJECT_ROOT, "**/*.sh"), recursive=True):
+        if ".git" in sh_file:
+            continue
+        try:
+            with open(sh_file, encoding="utf-8", errors="ignore") as f:
+                for line in f:
+                    m = re.search(r'--topic\s+(\w+)', line)
+                    if m:
+                        used_topics.add(m.group(1))
+        except Exception:
+            pass
+
+    unrouted = used_topics - known_topics
+    if unrouted:
+        return {
+            "status": "warn",
+            "severity": severity,
+            "message": f"脚本使用了 {len(unrouted)} 个未路由的 topic: {', '.join(unrouted)}",
+        }
+    return {
+        "status": "pass",
+        "severity": severity,
+        "message": f"所有 {len(used_topics)} 个 topic 都在路由表中",
+    }
+
+
 def print_results(results):
     if JSON_MODE:
         print(json.dumps(results, indent=2, ensure_ascii=False))
@@ -256,8 +430,38 @@ def print_results(results):
     return failed_invs
 
 
+def print_discovery(discovery_results):
+    """Print meta-rule discovery results."""
+    if not discovery_results:
+        return
+
+    status_icons = {"pass": "✅", "warn": "⚠️", "fail": "❌"}
+
+    if not JSON_MODE:
+        print()
+        print("─" * 70)
+        print("  META-RULE DISCOVERY (Phase 0) — 自动发现缺失不变式")
+        print("─" * 70)
+
+        for d in discovery_results:
+            icon = status_icons.get(d["status"], "?")
+            print(f"  {icon} [{d['id']}] {d['name']}")
+            print(f"     {d['message']}")
+
+            if d.get("uncovered"):
+                for u in d["uncovered"][:8]:
+                    print(f"       📌 {u} — 建议新增不变式")
+
+
 if __name__ == "__main__":
     data = _load()
     results = run_all(data)
+    discovery = run_meta_discovery(data)
     fails = print_results(results)
+    print_discovery(discovery)
+
+    if JSON_MODE:
+        combined = {"invariants": results, "discovery": discovery}
+        print(json.dumps(combined, indent=2, ensure_ascii=False))
+
     sys.exit(1 if fails else 0)

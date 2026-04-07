@@ -323,14 +323,65 @@ invariants:
         pattern: "间隔漂移"
 
 # ═══════════════════════════════════════════════════════════════════════
-# 4. 审计元数据
+# 4. 可执行元规则（Phase 0）— 自动发现缺失不变式
+#    只扫描结构化数据源，不解析自然语言
+#    误报 → warn（非 fail），不阻塞 CI
+# ═══════════════════════════════════════════════════════════════════════
+meta_rule_discovery:
+
+  - id: MRD-CRON-001
+    meta_rule: MR-3
+    name: "每个 enabled system job 应有调度治理覆盖"
+    description: |
+      扫描 jobs_registry.yaml 中所有 enabled + scheduler=system 的 job，
+      检查每个 job 的脚本名是否出现在某个 INV-* 的 checks 中。
+      未覆盖的 job = 潜在的声明-执行断裂盲区。
+    scan_source: jobs_registry.yaml
+    scan_filter: "enabled == true and scheduler == 'system'"
+    match_against: "invariants[*].checks[*].code 或 checks[*].pattern"
+    severity_when_missing: warn  # 不阻塞，只提醒
+    rationale: |
+      今天的 ArXiv 漂移就是因为 arxiv_monitor 没有对应的不变式。
+      如果当时有这条元规则，新增 job 时就会被提醒"需要加治理覆盖"。
+
+  - id: MRD-ENV-001
+    meta_rule: MR-1
+    name: "每个 needs_api_key=true 的 job 应有环境变量验证"
+    description: |
+      扫描 registry 中 needs_api_key=true 的 job，
+      检查 preflight_check.sh 是否验证了对应的 API key。
+    scan_source: jobs_registry.yaml
+    scan_filter: "enabled == true and needs_api_key == true"
+    match_against: "preflight_check.sh 中的环境变量检查列表"
+    severity_when_missing: warn
+
+  - id: MRD-NOTIFY-001
+    meta_rule: MR-4
+    name: "每个使用 notify.sh 的脚本应有对应的 topic 频道"
+    description: |
+      扫描所有 .sh 文件中调用 notify 的 --topic 参数，
+      检查每个 topic 是否在 notify.sh 的路由表中有对应。
+    scan_source: "*.sh files"
+    scan_filter: "grep 'notify.*--topic'"
+    match_against: "_notify_discord_target_for_topic() case 分支"
+    severity_when_missing: warn
+
+# ═══════════════════════════════════════════════════════════════════════
+# 5. 审计元数据
 # ═══════════════════════════════════════════════════════════════════════
 audit_metadata:
-  version: "2.0"
+  version: "2.1"
   created: "2026-04-07"
-  upgraded: "v1 描述性 → v2 可执行"
-  total_checks: 28           # 12 个不变式，28 个可执行检查
+  upgraded: "v2.0 可执行检查 → v2.1 元规则自动发现 (Phase 0: 结构化数据源)"
+  total_checks: 28
+  meta_rule_discovery_count: 3   # Phase 0: registry + env + notify
   check_types_used: [python_assert, file_contains, file_not_contains, env_var_exists, command_succeeds]
+
+  phase_roadmap:
+    phase_0: "结构化数据源（jobs_registry.yaml）← 当前"
+    phase_1: "config.yaml 阈值 → 检查执行代码引用（待稳定后）"
+    phase_2: "ALLOWED_TOOLS 变更 → 检查 schema 同步（待稳定后）"
+    phase_3: "CLAUDE.md 硬性限制表格 → 检查执行+验证（待稳定后）"
 
   meta_audit:
     question: "governance_ontology.yaml 本身是否可能遗漏了某个维度？"
