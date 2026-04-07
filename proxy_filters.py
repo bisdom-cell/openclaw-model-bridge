@@ -21,6 +21,7 @@ from config_loader import (
     SIMPLE_MAX_USER_LEN as _CFG_SIMPLE_MAX_USER_LEN,
     COMPLEX_MIN_MSGS as _CFG_COMPLEX_MIN_MSGS,
     STATS_FLUSH_INTERVAL as _CFG_FLUSH_INTERVAL,
+    MAX_TOOLS as _CFG_MAX_TOOLS,
 )
 
 # ---------------------------------------------------------------------------
@@ -229,6 +230,16 @@ def filter_tools(tools, log_fn=None):
     # 注入 proxy 自定义工具
     for custom_tool in CUSTOM_TOOLS:
         new_tools.append(custom_tool)
+
+    # V36.2: 硬性工具数量上限（CLAUDE.md: "工具数量 <= 12，超出导致模型混乱"）
+    # 如果超限，保留 custom tools，截断 gateway tools
+    if len(new_tools) > _CFG_MAX_TOOLS:
+        if log_fn:
+            log_fn(f"WARN: tool count {len(new_tools)} > {_CFG_MAX_TOOLS}, truncating")
+        custom_names = {t.get("function", {}).get("name") for t in CUSTOM_TOOLS}
+        custom = [t for t in new_tools if t.get("function", {}).get("name") in custom_names]
+        gateway = [t for t in new_tools if t.get("function", {}).get("name") not in custom_names]
+        new_tools = gateway[:_CFG_MAX_TOOLS - len(custom)] + custom
 
     kept_names = [t.get("function", {}).get("name") for t in new_tools]
     return new_tools, all_names, kept_names

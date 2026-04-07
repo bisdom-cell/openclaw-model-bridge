@@ -157,6 +157,19 @@ else
     FAIL=$((FAIL + 1))
     FAILED_SUITES+=("audit integrity")
 fi
+echo -n "  🔒 对抗审计（声明 vs 实际） ... "
+AUDIT_RESULT=$(python3 adversarial_audit.py 2>&1)
+AUDIT_RC=$?
+if [ $AUDIT_RC -eq 0 ]; then
+    AUDIT_PASS=$(echo "$AUDIT_RESULT" | grep -c "✅" || true)
+    echo "✅ ($AUDIT_PASS checks passed)"
+    PASS=$((PASS + 1))
+else
+    echo "❌"
+    echo "$AUDIT_RESULT" | grep "❌"
+    FAIL=$((FAIL + 1))
+    FAILED_SUITES+=("adversarial audit")
+fi
 echo ""
 
 # ═══════════════════════════════════════════════════════════════

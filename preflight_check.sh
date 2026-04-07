@@ -222,10 +222,20 @@ if $FULL_MODE; then
     REQUIRED_VARS=(
         "REMOTE_API_KEY|adapter.py 远程 GPU 认证"
         "OPENCLAW_PHONE|WhatsApp 推送目标号码"
+        "GEMINI_API_KEY|mm_index Multimodal Embedding"
     )
     OPTIONAL_VARS=(
         "DISCORD_BOT_TOKEN|Discord Bot 认证"
         "DISCORD_TARGET|Discord 推送目标用户ID"
+    )
+    # V36.2: Discord 频道 ID — 缺失会导致推送静默失败
+    DISCORD_CHANNEL_VARS=(
+        "DISCORD_CH_PAPERS|Discord #论文 频道"
+        "DISCORD_CH_TECH|Discord #技术 频道"
+        "DISCORD_CH_ALERTS|Discord #告警 频道"
+        "DISCORD_CH_DAILY|Discord #日报 频道"
+        "DISCORD_CH_FREIGHT|Discord #货代 频道"
+        "DISCORD_CH_ONTOLOGY|Discord #ontology 频道"
     )
 
     for entry in "${REQUIRED_VARS[@]}"; do
@@ -261,6 +271,21 @@ if $FULL_MODE; then
             warn "$VAR_NAME ($VAR_DESC) 未设置（Discord 通道不可用）"
         fi
     done
+
+    # V36.2: Discord 频道 ID 检查（缺失 = 推送静默丢失）
+    DISCORD_MISSING=0
+    for entry in "${DISCORD_CHANNEL_VARS[@]}"; do
+        VAR_NAME="${entry%%|*}"
+        VAR_DESC="${entry##*|}"
+        VAL=$(bash -lc "echo \${$VAR_NAME:-}" 2>/dev/null)
+        if [ -n "$VAL" ]; then
+            pass "$VAR_NAME ($VAR_DESC) 已设置"
+        else
+            fail "$VAR_NAME ($VAR_DESC) 未设置 — Discord 推送到该频道会静默失败！"
+            DISCORD_MISSING=$((DISCORD_MISSING + 1))
+        fi
+    done
+    [ "$DISCORD_MISSING" -gt 0 ] && warn "共 $DISCORD_MISSING 个 Discord 频道 ID 缺失，对应频道的推送会静默丢失"
 
     # 检查 PATH 包含 homebrew
     HAS_BREW=$(bash -lc 'command -v brew >/dev/null 2>&1 && echo yes || echo no' 2>/dev/null)
