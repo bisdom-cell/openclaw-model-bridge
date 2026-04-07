@@ -181,6 +181,7 @@
 | `full_regression.sh` | **V30.1新增** 全量回归测试一键运行器（四层：单元测试+注册表文档+安全扫描+代码质量，393个用例，100%通过才允许推送） |
 | `audit_log.py` | **V30.2新增** 链式哈希审计日志（JSONL append-only，SHA256 链式校验，篡改/删除可检测） |
 | `test_audit_log.py` | **V30.2新增** 审计日志单测（19个用例：写入/链式哈希/篡改检测/删除检测/统计） |
+| `adversarial_audit.py` | **V36.2新增** 对抗审计 — 声明 vs 实际一致性检查（9项：工具数量/MAX_TOOLS导入/通知路由/Schema一致性/健康陈旧度 + --full: crontab漂移/Discord频道/服务响应体），集成进 full_regression.sh |
 | `security_score.py` | **V30.2新增** 系统安全评分（7维度100分：密钥/测试/完整性/部署/传输/审计/可用性） |
 | `reliability_bench.py` | **V36新增** Agent Reliability Bench（7场景47检查：Provider宕机/工具超时/畸形参数/超大请求/KB未命中/Cron漂移/状态损坏，mock-based可在dev运行） |
 | `test_reliability_bench.py` | **V36新增** Reliability Bench 单测（36个用例：7场景×独立验证+报告格式+CLI） |
@@ -255,6 +256,11 @@ bash smoke_test.sh
 
 # 全量回归测试（461个用例，发布前必须100%通过）
 bash full_regression.sh
+
+# 对抗审计（声明 vs 实际一致性检查）
+python3 adversarial_audit.py            # dev 模式（6 个检查）
+python3 adversarial_audit.py --full     # Mac Mini（9 个检查，含 crontab/env/服务）
+python3 adversarial_audit.py --json     # JSON 输出
 
 # 安全评分（7维度100分）
 python3 security_score.py
@@ -432,6 +438,7 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 | 18 | **🆕 补证据而非补功能** | 下一阶段最该补的不是功能，而是**可对外复述的证据链**：A.兼容性矩阵（provider/模型/模态/工具模式验证 matrix+checklist）B.性能/SLO 实验结果（延迟/成功率/降级恢复时间）C.运维韧性证据（故障注入+恢复时间统计）D.可复现证据（一键启动+demo transcript）。新增功能前先问"这能产出什么证据？"（2026-04-03导师评审：系统已有但证据密度不足） |
 | 19 | **🆕 纵向做深不横向铺开** | 沿 `providers.py` 已证明的方向继续放大，不轻易开新战线。每个改动必须对应 V1/V2/V3 路标中的具体目标：V1=别人能跑，V2=别人敢用，V3=别人会扩展。对照 `docs/strategic_review_20260403.md` 和 status.json 路标检查。偏离路标的功能需要明确理由。（2026-04-03导师建议：不是再做更多功能，而是把已有能力做成证据链） |
 | 20 | **🆕 话语权输出是一等公民** | 代码只是第一步，真正的顶级专家把代码、文档、评测、方法论、复盘文章串成完整叙事。每个 milestone 完成后考虑：能否产出一篇架构型/证据型/立场型文章？README 里的方法论要持续扩写成观点体系。（2026-04-03导师建议：建立"话语权上层建筑"） |
+| 21 | **🆕 对抗审计：问"什么坏了我们发现不了"** | 每月至少一次 adversarial review：不问"检查了什么"，而问"**什么东西坏了我们会发现不了？**"。自动化审计（`adversarial_audit.py`）防止已知漏洞回归；人工对抗思维发现新维度盲区。每发现一个"没人会发现"的答案，就转化为一个新审计检查项。检查体系最危险的漏洞不是某个检查没写好，而是某个维度从未被纳入检查。（2026-04-07教训：4层检查工具全部有同一个盲区——只查"有没有"不查"对不对"，ArXiv 04:00推送+工具18>12+Discord静默丢失同时存在数周，安全评分98/610测试全过却无人发现） |
 
 ### 🟡 按需查阅（操作 & 架构参考）
 
