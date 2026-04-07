@@ -8,10 +8,27 @@ export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
 STATUS_UPDATE="${STATUS_UPDATE:-$HOME/status_update.py}"
 TS="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M')"
 
-# ── 1. 三层服务连通性 ─────────────────────────────────────────────
-GW=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 http://localhost:18789/health 2>/dev/null)
-PX=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 http://localhost:5002/health 2>/dev/null)
-AD=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 http://localhost:5001/health 2>/dev/null)
+# ── 1. 三层服务连通性（V36.2: 验证响应 body，不只是 HTTP 200）────
+_check_health() {
+    local url="$1"
+    local resp code body
+    resp=$(curl -s --max-time 5 -w "\n%{http_code}" "$url" 2>/dev/null)
+    code=$(echo "$resp" | tail -1)
+    body=$(echo "$resp" | sed '$d')
+    if [ "$code" != "200" ]; then
+        echo "${code:-timeout}"
+        return
+    fi
+    # 验证 body 是有效 JSON 且含 ok/status 字段（防止 HTTP 200 + error body 误判）
+    if echo "$body" | python3 -c "import json,sys; d=json.load(sys.stdin); assert d.get('ok') or d.get('status')" 2>/dev/null; then
+        echo "200"
+    else
+        echo "200-bad-body"
+    fi
+}
+GW=$(_check_health http://localhost:18789/health)
+PX=$(_check_health http://localhost:5002/health)
+AD=$(_check_health http://localhost:5001/health)
 
 if [ "$GW" = "200" ] && [ "$PX" = "200" ] && [ "$AD" = "200" ]; then
     SVC_STATUS="ok"
@@ -143,6 +160,15 @@ print(','.join(stale) if stale else 'all_ok')
 
 python3 "$STATUS_UPDATE" --set health.stale_jobs "${STALE_JOBS:-unknown}" --by cron 2>/dev/null || true
 python3 "$STATUS_UPDATE" --set health.last_refresh "$TS" --by cron 2>/dev/null || true
+
+# ── 4b. security_score 自动刷新 + 时间戳（V36.2: 防止陈旧数周）───
+if [ -f "$HOME/openclaw-model-bridge/security_score.py" ]; then
+    SEC_SCORE=$(python3 "$HOME/openclaw-model-bridge/security_score.py" --json 2>/dev/null | python3 -c "import json,sys; print(json.load(sys.stdin).get('total',0))" 2>/dev/null || echo "")
+    if [ -n "$SEC_SCORE" ] && [ "$SEC_SCORE" != "0" ]; then
+        python3 "$STATUS_UPDATE" --set quality.security_score "$SEC_SCORE" --by cron 2>/dev/null || true
+        python3 "$STATUS_UPDATE" --set quality.security_score_time "$TS" --by cron 2>/dev/null || true
+    fi
+fi
 
 echo "[$TS] kb_status_refresh: services=$SVC_STATUS stale_jobs=${STALE_JOBS:-unknown}"
 

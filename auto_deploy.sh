@@ -97,6 +97,20 @@ fi
 
 # ── 3. 文件同步映射表 ────────────────────────────────────────────────
 # 格式：仓库相对路径 → 运行绝对路径
+#
+# V36.2: 显式声明不需要部署的文件类别（解决 INV-DEPLOY-001 gap）
+# 以下文件在仓库中但有意不在 FILE_MAP 中：
+#   - test_*.py          → 开发环境单测，Mac Mini 不运行
+#   - full_regression.sh → 开发环境全量回归，Mac Mini 不运行
+#   - smoke_test.sh      → 开发环境 smoke test
+#   - quickstart.sh      → 一次性 demo 脚本
+#   - *_benchmark.py     → 开发环境评测工具（slo_benchmark/reliability_bench）
+#   - adversarial_audit.py → 开发环境对抗审计
+#   - ontology/           → 独立子项目（宪法规定：删除后原系统正常）
+#   - docs/               → 文档（GitHub 在线阅读）
+#   - gameday.sh          → 故障演练（手动执行）
+#   - merge_status_json.py → git merge driver（仓库内使用）
+#
 declare -a FILE_MAP=(
     # 核心服务（Proxy + Adapter）
     "proxy_filters.py|$HOME/proxy_filters.py"

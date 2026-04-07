@@ -189,7 +189,7 @@ TOOL_PARAMS = {
     "browser_click": {"selector", "profile", "target"},
     "browser_type": {"selector", "text", "profile", "target"},
     "browser_snapshot": {"profile", "target"},
-    "data_clean": {"action", "file", "ops", "fix_case_cols"},
+    "data_clean": {"action", "file", "ops", "fix_case_cols", "fix_date_cols"},
     "search_kb": {"query", "source", "recent_hours"},
 }
 
@@ -275,6 +275,10 @@ CUSTOM_TOOLS = [
                     "fix_case_cols": {
                         "type": "string",
                         "description": "fix_case操作的目标列名，逗号分隔"
+                    },
+                    "fix_date_cols": {
+                        "type": "string",
+                        "description": "fix_dates操作的目标列名，逗号分隔"
                     },
                 },
                 "required": ["action"],

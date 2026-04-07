@@ -153,7 +153,7 @@ invariants:
       what: "审计检查 schema 一致性"
       where: adversarial_audit.py
       test_name: "check_custom_tool_schema"
-    known_gap: "data_clean 缺少 fix_date_cols 声明"
+    fixed: "V36.2: fix_date_cols 已加入 CUSTOM_TOOLS schema + TOOL_PARAMS + tool_ontology.yaml"
     audit: adversarial_audit.py#custom-tool-schema-consistency
 
   # ── 3.2 调度治理 ──────────────────────────────────────────────────
@@ -260,7 +260,7 @@ invariants:
         - DISCORD_CH_DAILY
         - DISCORD_CH_FREIGHT
         - DISCORD_CH_ONTOLOGY
-    known_gap: "needs_api_key=true 字段未被任何代码消费做验证"
+    fixed: "V36.2: preflight --full 从 registry 读取 needs_api_key=true 的 job 并确认消费"
 
   # ── 3.5 健康状态治理 ──────────────────────────────────────────────
 
@@ -278,10 +278,11 @@ invariants:
       what: "审计检查陈旧度"
       where: adversarial_audit.py
       test_name: "check_status_freshness"
-    known_gaps:
-      - "security_score 从不自动刷新，无时间戳"
-      - "last_preflight 只在有新 commit 时更新"
-      - "text_index 266/267 stale（99%）可能是 hash bug"
+    fixed:
+      - "V36.2: security_score 每小时由 kb_status_refresh.sh 自动刷新 + security_score_time 时间戳"
+    remaining_gaps:
+      - "last_preflight 只在有新 commit 时更新（设计如此，可接受）"
+      - "text_index 266/267 stale（99%）可能是 hash 计算 bug，待排查"
 
   - id: INV-HEALTH-002
     name: service-health-validates-content
@@ -297,7 +298,7 @@ invariants:
       what: "审计检查响应体包含 ok 字段"
       where: adversarial_audit.py
       test_name: "check_service_health_body"
-    known_gap: "只检查 HTTP 200，不验证响应内容；200 + error body 也算 ok"
+    fixed: "V36.2: _check_health() 验证 JSON body 含 ok/status 字段，200-bad-body 视为 degraded"
     audit: adversarial_audit.py#service-health-response-body
 
   # ── 3.6 部署治理 ──────────────────────────────────────────────────
@@ -315,7 +316,7 @@ invariants:
     verification:
       what: "check_registry.py --check-crontab 检查 FILE_MAP"
       where: check_registry.py
-    known_gap: "仓库 98 个 .sh/.py，FILE_MAP 只跟踪 61 个（37 个未跟踪是开发工具/测试，可能正常）"
+    fixed: "V36.2: auto_deploy.sh FILE_MAP 上方显式声明不需要部署的文件类别（test_*/docs/ontology/等），37 个未跟踪文件有意排除"
 
   - id: INV-DEPLOY-002
     name: auto-deploy-never-modifies-crontab
@@ -346,8 +347,9 @@ audit_metadata:
   coverage:
     total_invariants: 12
     with_audit_check: 9    # 有 adversarial_audit.py 对应检查
-    without_audit_check: 3 # INV-CRON-002, INV-ENV-001, INV-DEPLOY-001 待补
-    known_gaps: 7          # 已知但未修复的 gap
+    without_audit_check: 3 # INV-CRON-002, INV-ENV-001, INV-DEPLOY-001（已有 preflight 覆盖）
+    known_gaps_fixed: 5    # V36.2 全部修复
+    remaining_gaps: 2      # last_preflight 按需设计 + text_index hash 待排查
 
   # 元审计：本文件自身的完备性
   meta_audit:
