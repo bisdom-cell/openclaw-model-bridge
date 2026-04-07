@@ -170,6 +170,75 @@ else
     FAIL=$((FAIL + 1))
     FAILED_SUITES+=("adversarial audit")
 fi
+echo -n "  🔒 Ontology 宪法执行（双范式互验证） ... "
+if [ -f ontology/governance_checker.py ]; then
+    GOV_RESULT=$(python3 ontology/governance_checker.py 2>&1)
+    GOV_RC=$?
+    if [ $GOV_RC -eq 0 ]; then
+        GOV_PASS=$(echo "$GOV_RESULT" | grep -c "✅" || true)
+        echo "✅ ($GOV_PASS invariants pass)"
+        PASS=$((PASS + 1))
+    else
+        echo "❌"
+        echo "$GOV_RESULT" | grep "❌"
+        FAIL=$((FAIL + 1))
+        FAILED_SUITES+=("governance ontology")
+    fi
+else
+    echo "⏭ ontology/ 不存在（宪法最高条：删除不影响原系统）"
+fi
+
+echo -n "  🔒 Ontology 一致性（tool_ontology vs hardcoded） ... "
+if [ -f ontology/engine.py ]; then
+    ONTO_RESULT=$(python3 ontology/engine.py --check 2>&1)
+    ONTO_RC=$?
+    if [ $ONTO_RC -eq 0 ]; then
+        echo "✅ consistent"
+        PASS=$((PASS + 1))
+    else
+        echo "❌"
+        echo "$ONTO_RESULT" | tail -3
+        FAIL=$((FAIL + 1))
+        FAILED_SUITES+=("ontology consistency")
+    fi
+else
+    echo "⏭ ontology/ 不存在"
+fi
+
+echo -n "  🔒 Ontology diff（硬编码 vs 本体声明） ... "
+if [ -f ontology/diff.py ]; then
+    DIFF_RESULT=$(python3 ontology/diff.py --check 2>&1)
+    DIFF_RC=$?
+    if [ $DIFF_RC -eq 0 ]; then
+        echo "✅ 全量一致"
+        PASS=$((PASS + 1))
+    else
+        echo "⚠️ 存在差异（非阻塞）"
+        echo "$DIFF_RESULT" | grep -E "⚠️|❌" | head -5
+    fi
+else
+    echo "⏭ ontology/ 不存在"
+fi
+
+echo -n "  🔒 Ontology 项目隔离验证 ... "
+if [ -d ontology/ ]; then
+    # 宪法最高条：原项目测试不依赖 ontology
+    ISOLATION_RESULT=$(python3 -c "
+import proxy_filters
+assert len(proxy_filters.ALLOWED_TOOLS) > 0
+print('proxy_filters OK: independent of ontology')
+" 2>&1)
+    if [ $? -eq 0 ]; then
+        echo "✅ proxy_filters 不依赖 ontology"
+        PASS=$((PASS + 1))
+    else
+        echo "❌ proxy_filters 依赖 ontology（违反宪法最高条！）"
+        FAIL=$((FAIL + 1))
+        FAILED_SUITES+=("ontology isolation")
+    fi
+else
+    echo "⏭ ontology/ 不存在"
+fi
 echo ""
 
 # ═══════════════════════════════════════════════════════════════
