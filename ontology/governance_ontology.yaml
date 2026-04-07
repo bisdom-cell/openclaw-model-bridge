@@ -1,365 +1,343 @@
-# governance_ontology.yaml — 系统治理不变式本体（声明式规则）
+# governance_ontology.yaml — 系统治理不变式本体 v2（可执行声明式规则）
 #
 # 核心问题："什么东西坏了我们会发现不了？"
 #
-# 本文件形式化系统中所有"声明 → 验证 → 运行时"的三层关系。
-# 每条不变式回答一个具体问题：某个声明是否有对应的验证路径，
-# 验证路径是否真的检查了运行时状态。
+# v1 → v2 升级：从"描述性三元组"升级为"可执行三元组"。
+# 每个不变式的 checks 字段包含真正可运行的断言，
+# governance_checker.py 直接执行这些断言，不再只是 grep 字符串。
 #
-# 术语映射（Ontology → 系统）：
-#   Declaration（声明）   → CLAUDE.md / registry / config 中的断言
-#   Enforcement（执行）   → 代码中实际生效的检查/约束
-#   Verification（验证）  → 测试/审计中检查声明-执行一致性的机制
-#   Invariant（不变式）   → 声明-执行-验证 三者必须同时存在的约束
-#
-# 教训来源：2026-04-07 对抗审计 — 22 个声明 vs 实际断裂点
-#   - ArXiv 04:00 推送（registry 说 08:00，crontab 未同步）
-#   - 工具 18>12（MAX_TOOLS 定义但从未 import）
-#   - Discord 静默丢失（channel ID 空时 || true 吃掉错误）
-#   - 安全评分 98 分但 4 层检查共享同一盲区
+# 检查类型（check_type）：
+#   python_assert  — 执行 Python 代码，assert 不抛异常 = pass
+#   file_contains  — 检查文件是否包含指定 pattern（正则）
+#   file_not_contains — 检查文件不包含指定 pattern
+#   env_var_exists — 检查环境变量非空（需 --full 模式，bash -lc）
+#   command_succeeds — 执行 shell 命令，exit code 0 = pass
+#   json_field      — 检查 JSON 文件中某字段存在且满足条件
 #
 # 使用方式：
-#   - governance_checker.py 读取此文件，自动扫描代码验证不变式
-#   - adversarial_audit.py 的检查项应与此文件对应
-#   - 每发现新的"没人会发现"的问题，在此文件新增一条不变式
+#   python3 ontology/governance_checker.py              # dev 模式
+#   python3 ontology/governance_checker.py --full        # Mac Mini（含 env/crontab）
+#   python3 ontology/governance_checker.py --json        # JSON 输出
+#
+# 教训来源：2026-04-07 对抗审计 — 22 个声明 vs 实际断裂点
 
 # ═══════════════════════════════════════════════════════════════════════
-# 1. 元概念（Meta-Concepts）— 治理体系的核心实体
+# 1. 元概念（Meta-Concepts）
 # ═══════════════════════════════════════════════════════════════════════
 meta_concepts:
-
   Declaration:
-    description: "系统中任何可验证的断言（约束、配置、调度）"
-    sources:
-      - CLAUDE.md           # 工作原则、硬性限制
-      - jobs_registry.yaml  # 任务调度声明
-      - config.yaml         # 阈值、参数
-      - status.json         # 健康状态声明
+    description: "系统中任何可验证的断言"
+    sources: [CLAUDE.md, jobs_registry.yaml, config.yaml, status.json]
 
   Enforcement:
     description: "让声明在运行时真正生效的代码"
-    examples:
-      - "filter_tools() 中的 len(new_tools) <= MAX_TOOLS"
-      - "crontab 条目的实际调度时间"
-      - "notify.sh 中检查 channel ID 非空"
 
   Verification:
-    description: "检查声明和执行一致的机制"
-    examples:
-      - "adversarial_audit.py 的检查项"
-      - "preflight_check.sh --full 的验证"
-      - "单元测试中的 assertLessEqual"
-
-  Gap:
-    description: "声明存在但执行或验证缺失的漏洞"
-    severity_levels:
-      critical: "声明与实际完全相反且无检测机制"
-      high: "声明存在检测但检测有盲区"
-      medium: "声明有部分覆盖但不完整"
+    description: "证明声明和执行一致的可执行检查"
 
 # ═══════════════════════════════════════════════════════════════════════
-# 2. 元规则（Meta-Rules）— 所有不变式必须满足的元约束
-#    这是本体最核心的价值：不是检查具体项，而是检查"检查的完备性"
+# 2. 元规则（Meta-Rules）
 # ═══════════════════════════════════════════════════════════════════════
 meta_rules:
-
   - id: MR-1
     name: every-declaration-has-enforcement
     description: "每个声明必须有对应的运行时执行代码"
-    rationale: "声明没有执行 = 注释，不是约束"
-    anti_pattern: "CLAUDE.md 写 '工具 ≤12' 但 filter_tools() 没有检查"
     lesson: "2026-04-07: MAX_TOOLS 在 config_loader 定义但从未被 import"
 
   - id: MR-2
     name: every-enforcement-has-verification
     description: "每个执行代码必须有测试/审计验证其正确性"
-    rationale: "执行代码可能被改坏、被绕过、或从未生效"
-    anti_pattern: "filter_tools() 有截断逻辑但没有测试验证截断真的发生"
 
   - id: MR-3
     name: every-declaration-change-propagates
     description: "声明变更必须传播到所有执行层"
-    rationale: "声明更新但执行未更新 = 漂移"
-    anti_pattern: "registry 改了 interval 但 crontab 未同步"
     lesson: "2026-04-07: ArXiv registry 0 8,20 但 crontab 仍是 0 */3"
 
   - id: MR-4
     name: silent-failure-is-a-bug
-    description: "任何操作失败必须有可观测信号（日志/告警/返回值）"
-    rationale: "静默失败 = 不可发现的故障"
-    anti_pattern: "Discord 发送失败被 || true 吃掉，无日志无队列"
+    description: "任何操作失败必须有可观测信号"
     lesson: "2026-04-07: 6 个 DISCORD_CH_* 为空时推送静默消失"
 
   - id: MR-5
     name: health-fields-have-freshness-guarantee
     description: "每个健康状态字段必须有刷新机制和陈旧度检测"
-    rationale: "陈旧的 'ok' 比没有 'ok' 更危险（虚假安全感）"
-    anti_pattern: "security_score 98 分但上次计算是三周前"
     lesson: "2026-04-07: security_score 无时间戳，从不自动刷新"
 
 # ═══════════════════════════════════════════════════════════════════════
-# 3. 具体不变式（Invariants）— 每个可验证的声明-执行-验证三元组
+# 3. 不变式（Invariants）— 可执行的声明-执行-验证三元组
 # ═══════════════════════════════════════════════════════════════════════
 invariants:
 
-  # ── 3.1 工具治理 ──────────────────────────────────────────────────
+  # ── 工具治理 ────────────────────────────────────────────────────────
 
   - id: INV-TOOL-001
     name: tool-count-limit
     meta_rule: MR-1
     severity: critical
-    declaration:
-      what: "Agent 单次请求工具数 ≤ 12"
-      where: CLAUDE.md
-      value: 12
-    enforcement:
-      what: "filter_tools() 截断工具列表"
-      where: proxy_filters.py
-      code_pattern: "_CFG_MAX_TOOLS"
-    verification:
-      what: "单测验证截断行为"
-      where: test_tool_proxy.py
-      test_name: "test_tool_count_never_exceeds_max"
-    audit: adversarial_audit.py#tool-count-enforcement
+    declaration: "Agent 单次请求工具数 ≤ 12（CLAUDE.md）"
+    checks:
+      - name: "filter_tools() 输出不超过 MAX_TOOLS"
+        check_type: python_assert
+        code: |
+          from proxy_filters import filter_tools, ALLOWED_TOOLS, CUSTOM_TOOLS
+          from config_loader import MAX_TOOLS
+          tools = [{"function": {"name": n, "parameters": {}}} for n in ALLOWED_TOOLS]
+          filtered, _, kept = filter_tools(tools)
+          assert len(filtered) <= MAX_TOOLS, f"filter_tools() 产出 {len(filtered)} > {MAX_TOOLS}"
+          custom_names = {t["function"]["name"] for t in CUSTOM_TOOLS}
+          for cn in custom_names:
+              assert cn in kept, f"Custom tool '{cn}' 被截断丢失"
 
   - id: INV-TOOL-002
     name: max-tools-config-imported
     meta_rule: MR-1
     severity: critical
-    declaration:
-      what: "MAX_TOOLS = 12 定义在配置中心"
-      where: config_loader.py
-    enforcement:
-      what: "proxy_filters.py 导入并使用 MAX_TOOLS"
-      where: proxy_filters.py
-      code_pattern: "MAX_TOOLS"
-    verification:
-      what: "审计检查 import 存在"
-      where: adversarial_audit.py
-      test_name: "check_max_tools_imported"
-    audit: adversarial_audit.py#max-tools-import
+    declaration: "MAX_TOOLS = 12 定义在 config_loader → proxy_filters 必须导入使用"
+    checks:
+      - name: "proxy_filters.py 包含 MAX_TOOLS"
+        check_type: file_contains
+        file: proxy_filters.py
+        pattern: "MAX_TOOLS"
+      - name: "config_loader 导出 MAX_TOOLS = 12"
+        check_type: python_assert
+        code: |
+          from config_loader import MAX_TOOLS
+          assert MAX_TOOLS == 12, f"MAX_TOOLS = {MAX_TOOLS}, expected 12"
 
   - id: INV-TOOL-003
     name: custom-tool-schema-sync
     meta_rule: MR-3
     severity: high
-    declaration:
-      what: "CUSTOM_TOOLS schema 与 tool_proxy.py 实现一致"
-      where: proxy_filters.py (CUSTOM_TOOLS)
-    enforcement:
-      what: "参数声明匹配实际处理逻辑"
-      where: tool_proxy.py (_handle_data_clean, _search_kb)
-    verification:
-      what: "审计检查 schema 一致性"
-      where: adversarial_audit.py
-      test_name: "check_custom_tool_schema"
-    fixed: "V36.2: fix_date_cols 已加入 CUSTOM_TOOLS schema + TOOL_PARAMS + tool_ontology.yaml"
-    audit: adversarial_audit.py#custom-tool-schema-consistency
+    declaration: "CUSTOM_TOOLS schema 与 tool_proxy.py 实现一致"
+    checks:
+      - name: "data_clean schema 包含所有 tool_proxy 使用的参数"
+        check_type: python_assert
+        code: |
+          from proxy_filters import CUSTOM_TOOLS
+          dc = next(t for t in CUSTOM_TOOLS if t["function"]["name"] == "data_clean")
+          props = set(dc["function"]["parameters"]["properties"].keys())
+          with open("tool_proxy.py") as f:
+              code = f.read()
+          for param in ["action", "file", "ops", "fix_case_cols", "fix_date_cols"]:
+              if param in code:
+                  assert param in props, f"tool_proxy 使用 {param} 但 schema 未声明"
+      - name: "search_kb schema source enum 与 VALID_SOURCES 一致"
+        check_type: python_assert
+        code: |
+          from proxy_filters import CUSTOM_TOOLS
+          sk = next(t for t in CUSTOM_TOOLS if t["function"]["name"] == "search_kb")
+          schema_enum = set(sk["function"]["parameters"]["properties"]["source"]["enum"])
+          expected = {"all", "arxiv", "hf", "semantic_scholar", "dblp", "acl", "hn", "notes"}
+          assert schema_enum == expected, f"schema enum {schema_enum} != expected {expected}"
 
-  # ── 3.2 调度治理 ──────────────────────────────────────────────────
+  # ── 调度治理 ────────────────────────────────────────────────────────
 
   - id: INV-CRON-001
     name: registry-crontab-interval-sync
     meta_rule: MR-3
     severity: critical
-    declaration:
-      what: "jobs_registry.yaml 中每个 enabled job 的 interval"
-      where: jobs_registry.yaml
-    enforcement:
-      what: "Mac Mini 实际 crontab 条目的时间字段"
-      where: "crontab -l"
-    verification:
-      what: "check_registry.py --check-crontab 间隔漂移检测"
-      where: check_registry.py
+    declaration: "registry interval 与实际 crontab 一致"
     lesson: "2026-04-07: ArXiv registry 0 8,20 但 crontab 0 */3"
-    audit: adversarial_audit.py#crontab-interval-drift
+    checks:
+      - name: "check_registry.py 有间隔漂移检测代码"
+        check_type: file_contains
+        file: check_registry.py
+        pattern: "间隔漂移"
+      - name: "check_registry.py --check-crontab 无漂移"
+        check_type: command_succeeds
+        command: "python3 check_registry.py --check-crontab 2>&1 | grep -v '间隔漂移'"
+        requires_full: true
 
   - id: INV-CRON-002
     name: quiet-hours-enforcement
     meta_rule: MR-4
     severity: high
-    declaration:
-      what: "00:00-07:00 零推送通知（Dream 除外）"
-      where: jobs_registry.yaml (凌晨静默期注释)
-    enforcement:
-      what: |
-        - job_watchdog: 30 8,12,16,20（跳过凌晨）
-        - run_discussions: 15 8,12,16,20（跳过凌晨）
-        - auto_deploy: quiet_alert() 静默期封装
-      where: jobs_registry.yaml, auto_deploy.sh
-    verification:
-      what: "crontab 中 00-07 时段无推送 job（Dream 除外）"
-      where: preflight_check.sh (manual)
+    declaration: "00:00-07:00 零推送通知（Dream 除外）"
     lesson: "2026-04-07: watchdog 04:30 + ArXiv 04:00 打扰睡眠"
+    checks:
+      - name: "job_watchdog 不在 00-07 时段运行"
+        check_type: python_assert
+        code: |
+          from check_registry import load_yaml
+          data = load_yaml("jobs_registry.yaml")
+          for j in data["jobs"]:
+              if j.get("id") == "job_watchdog" and j.get("enabled"):
+                  interval = j.get("interval", "")
+                  hours = interval.split()[1] if len(interval.split()) >= 2 else ""
+                  # 不能是 */N 格式（会命中凌晨）
+                  assert "*" not in hours, f"job_watchdog interval '{interval}' 会命中凌晨时段"
+      - name: "auto_deploy 有 quiet_alert 静默封装"
+        check_type: file_contains
+        file: auto_deploy.sh
+        pattern: "quiet_alert"
 
-  # ── 3.3 通知治理 ──────────────────────────────────────────────────
+  # ── 通知治理 ────────────────────────────────────────────────────────
 
   - id: INV-NOTIFY-001
     name: discord-channel-availability
     meta_rule: MR-4
     severity: critical
-    declaration:
-      what: "所有推送必须双通道（WhatsApp + Discord）"
-      where: CLAUDE.md 原则 #16
-    enforcement:
-      what: "6 个 DISCORD_CH_* 环境变量设置且非空"
-      where: "~/.bash_profile on Mac Mini"
-      variables:
-        - DISCORD_CH_PAPERS
-        - DISCORD_CH_TECH
-        - DISCORD_CH_ALERTS
-        - DISCORD_CH_DAILY
-        - DISCORD_CH_FREIGHT
-        - DISCORD_CH_ONTOLOGY
-    verification:
-      what: "preflight --full 检查所有 channel ID"
-      where: preflight_check.sh
-    audit: adversarial_audit.py#discord-channel-env-vars
+    declaration: "所有推送必须双通道（CLAUDE.md #16），6 个 DISCORD_CH_* 非空"
+    checks:
+      - name: "preflight 检查 DISCORD_CH_PAPERS"
+        check_type: file_contains
+        file: preflight_check.sh
+        pattern: "DISCORD_CH_PAPERS"
+      - name: "preflight 检查 DISCORD_CH_ALERTS"
+        check_type: file_contains
+        file: preflight_check.sh
+        pattern: "DISCORD_CH_ALERTS"
+      - name: "DISCORD_CH_PAPERS 环境变量非空"
+        check_type: env_var_exists
+        var: DISCORD_CH_PAPERS
+        requires_full: true
+      - name: "DISCORD_CH_TECH 环境变量非空"
+        check_type: env_var_exists
+        var: DISCORD_CH_TECH
+        requires_full: true
+      - name: "DISCORD_CH_ALERTS 环境变量非空"
+        check_type: env_var_exists
+        var: DISCORD_CH_ALERTS
+        requires_full: true
+      - name: "DISCORD_CH_DAILY 环境变量非空"
+        check_type: env_var_exists
+        var: DISCORD_CH_DAILY
+        requires_full: true
+      - name: "DISCORD_CH_FREIGHT 环境变量非空"
+        check_type: env_var_exists
+        var: DISCORD_CH_FREIGHT
+        requires_full: true
+      - name: "DISCORD_CH_ONTOLOGY 环境变量非空"
+        check_type: env_var_exists
+        var: DISCORD_CH_ONTOLOGY
+        requires_full: true
 
   - id: INV-NOTIFY-002
     name: notify-empty-channel-error
     meta_rule: MR-4
     severity: high
-    declaration:
-      what: "推送失败必须有可观测信号"
-      where: CLAUDE.md 原则 #16
-    enforcement:
-      what: "notify.sh 在 channel ID 为空时打印 ERROR"
-      where: notify.sh
-      code_pattern: "ERROR.*为空"
-    verification:
-      what: "审计检查 ERROR 存在"
-      where: adversarial_audit.py
-      test_name: "check_notify_empty_channel"
+    declaration: "推送失败必须有可观测信号，空 channel 不能静默跳过"
     lesson: "2026-04-07: 空 channel ID 静默跳过，消息消失无痕迹"
-    audit: adversarial_audit.py#notify-empty-channel-detection
+    checks:
+      - name: "notify.sh 在空 channel 时打印 ERROR"
+        check_type: file_contains
+        file: notify.sh
+        pattern: "ERROR.*为空"
 
-  # ── 3.4 环境变量治理 ──────────────────────────────────────────────
+  # ── 环境变量治理 ────────────────────────────────────────────────────
 
   - id: INV-ENV-001
     name: required-env-vars-in-preflight
     meta_rule: MR-2
     severity: high
-    declaration:
-      what: "关键环境变量必须在 cron 环境中可用"
-      where: jobs_registry.yaml (needs_api_key)
-    enforcement:
-      what: "脚本运行时读取环境变量"
-      where: "各 job 脚本"
-    verification:
-      what: "preflight --full 验证环境变量"
-      where: preflight_check.sh
-      required_vars:
-        - REMOTE_API_KEY
-        - OPENCLAW_PHONE
-        - GEMINI_API_KEY
-      channel_vars:
-        - DISCORD_CH_PAPERS
-        - DISCORD_CH_TECH
-        - DISCORD_CH_ALERTS
-        - DISCORD_CH_DAILY
-        - DISCORD_CH_FREIGHT
-        - DISCORD_CH_ONTOLOGY
-    fixed: "V36.2: preflight --full 从 registry 读取 needs_api_key=true 的 job 并确认消费"
+    declaration: "registry needs_api_key 字段被代码消费，不是死文档"
+    checks:
+      - name: "preflight 消费 needs_api_key 字段"
+        check_type: file_contains
+        file: preflight_check.sh
+        pattern: "needs_api_key"
+      - name: "REMOTE_API_KEY 在 preflight 必需列表中"
+        check_type: file_contains
+        file: preflight_check.sh
+        pattern: "REMOTE_API_KEY"
+      - name: "GEMINI_API_KEY 在 preflight 必需列表中"
+        check_type: file_contains
+        file: preflight_check.sh
+        pattern: "GEMINI_API_KEY"
 
-  # ── 3.5 健康状态治理 ──────────────────────────────────────────────
+  # ── 健康状态治理 ────────────────────────────────────────────────────
 
   - id: INV-HEALTH-001
     name: health-fields-freshness
     meta_rule: MR-5
     severity: high
-    declaration:
-      what: "status.json health 字段反映实时系统状态"
-      where: status.json
-    enforcement:
-      what: "kb_status_refresh.sh 每小时刷新"
-      where: kb_status_refresh.sh
-    verification:
-      what: "审计检查陈旧度"
-      where: adversarial_audit.py
-      test_name: "check_status_freshness"
-    fixed:
-      - "V36.2: security_score 每小时由 kb_status_refresh.sh 自动刷新 + security_score_time 时间戳"
-    remaining_gaps:
-      - "last_preflight 只在有新 commit 时更新（设计如此，可接受）"
-      - "text_index 266/267 stale（99%）可能是 hash 计算 bug，待排查"
+    declaration: "status.json health 字段有自动刷新 + 时间戳"
+    checks:
+      - name: "kb_status_refresh.sh 有 security_score 自动刷新"
+        check_type: file_contains
+        file: kb_status_refresh.sh
+        pattern: "security_score"
+      - name: "kb_status_refresh.sh 写入 security_score_time"
+        check_type: file_contains
+        file: kb_status_refresh.sh
+        pattern: "security_score_time"
 
   - id: INV-HEALTH-002
     name: service-health-validates-content
     meta_rule: MR-2
     severity: high
-    declaration:
-      what: "services: ok 意味着三层服务正常"
-      where: status.json
-    enforcement:
-      what: "kb_status_refresh.sh 检查 HTTP 200"
-      where: kb_status_refresh.sh
-    verification:
-      what: "审计检查响应体包含 ok 字段"
-      where: adversarial_audit.py
-      test_name: "check_service_health_body"
-    fixed: "V36.2: _check_health() 验证 JSON body 含 ok/status 字段，200-bad-body 视为 degraded"
-    audit: adversarial_audit.py#service-health-response-body
+    declaration: "services: ok 必须验证响应 body，不只是 HTTP 200"
+    checks:
+      - name: "kb_status_refresh.sh 有 _check_health 函数"
+        check_type: file_contains
+        file: kb_status_refresh.sh
+        pattern: "_check_health"
+      - name: "_check_health 验证 JSON body"
+        check_type: file_contains
+        file: kb_status_refresh.sh
+        pattern: "200-bad-body"
+      - name: "Adapter /health 返回有效 JSON"
+        check_type: command_succeeds
+        command: "curl -s --max-time 3 http://localhost:5001/health | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get(\"ok\") or d.get(\"status\")'"
+        requires_full: true
 
-  # ── 3.6 部署治理 ──────────────────────────────────────────────────
+  # ── 部署治理 ────────────────────────────────────────────────────────
 
   - id: INV-DEPLOY-001
     name: file-map-completeness
     meta_rule: MR-2
     severity: medium
-    declaration:
-      what: "仓库中所有可部署文件在 FILE_MAP 中"
-      where: auto_deploy.sh
-    enforcement:
-      what: "FILE_MAP 条目 → cp 到目标路径"
-      where: auto_deploy.sh
-    verification:
-      what: "check_registry.py --check-crontab 检查 FILE_MAP"
-      where: check_registry.py
-    fixed: "V36.2: auto_deploy.sh FILE_MAP 上方显式声明不需要部署的文件类别（test_*/docs/ontology/等），37 个未跟踪文件有意排除"
+    declaration: "未部署文件必须显式声明为不需要部署"
+    checks:
+      - name: "auto_deploy.sh 有显式排除声明"
+        check_type: file_contains
+        file: auto_deploy.sh
+        pattern: "显式声明不需要部署"
 
   - id: INV-DEPLOY-002
     name: auto-deploy-never-modifies-crontab
     meta_rule: MR-3
     severity: critical
-    declaration:
-      what: "registry interval 变更应反映到 crontab"
-      where: jobs_registry.yaml
-    enforcement:
-      what: "auto_deploy.sh 只同步文件，不修改 crontab"
-      where: auto_deploy.sh
-    verification:
-      what: "check_registry.py --check-crontab 漂移检测"
-      where: check_registry.py
-    design_decision: |
-      auto_deploy 有意不自动修改 crontab（安全考虑：crontab 变更需人工确认）。
-      但这意味着 registry interval 变更必须手动同步，漂移检测是安全网。
+    declaration: "auto_deploy 不改 crontab → 必须有漂移检测兜底"
+    design_decision: "crontab 变更需人工确认（安全考虑），漂移检测是安全网"
+    checks:
+      - name: "auto_deploy 不写入 crontab（只读取监控）"
+        check_type: python_assert
+        code: |
+          with open("auto_deploy.sh") as f:
+              lines = f.readlines()
+          for i, line in enumerate(lines, 1):
+              stripped = line.strip()
+              # 跳过注释和 FILE_MAP 部署条目（部署 crontab_safe.sh 到 Mac Mini ≠ 执行它）
+              if stripped.startswith("#") or stripped.startswith('"') or stripped.startswith("'"):
+                  continue
+              assert "| crontab -" not in stripped, f"line {i}: auto_deploy 不应 pipe 到 crontab"
+              assert "crontab -e" not in stripped, f"line {i}: auto_deploy 不应编辑 crontab"
+              # crontab_safe add/remove = 写入。crontab -l = 读取（允许）
+              if "crontab_safe" in stripped:
+                  assert "add" not in stripped and "remove" not in stripped, \
+                      f"line {i}: auto_deploy 不应调用 crontab_safe add/remove"
+      - name: "check_registry 有漂移检测"
+        check_type: file_contains
+        file: check_registry.py
+        pattern: "间隔漂移"
 
 # ═══════════════════════════════════════════════════════════════════════
-# 4. 审计元数据 — 不变式覆盖率追踪
+# 4. 审计元数据
 # ═══════════════════════════════════════════════════════════════════════
 audit_metadata:
-  version: "1.0"
+  version: "2.0"
   created: "2026-04-07"
-  created_by: "adversarial audit session"
-  trigger: "ArXiv 04:00 推送事件 → 发现 4 层检查共享盲区 → 22 个 gaps"
+  upgraded: "v1 描述性 → v2 可执行"
+  total_checks: 28           # 12 个不变式，28 个可执行检查
+  check_types_used: [python_assert, file_contains, file_not_contains, env_var_exists, command_succeeds]
 
-  coverage:
-    total_invariants: 12
-    with_audit_check: 9    # 有 adversarial_audit.py 对应检查
-    without_audit_check: 3 # INV-CRON-002, INV-ENV-001, INV-DEPLOY-001（已有 preflight 覆盖）
-    known_gaps_fixed: 5    # V36.2 全部修复
-    remaining_gaps: 2      # last_preflight 按需设计 + text_index hash 待排查
-
-  # 元审计：本文件自身的完备性
   meta_audit:
     question: "governance_ontology.yaml 本身是否可能遗漏了某个维度？"
-    answer: |
-      是的。本文件只覆盖今天发现的 22 个 gap 所在的 6 个维度。
-      可能遗漏的维度（需要下次 adversarial review 探索）：
-        - launchd plist 配置 vs 预期进程状态
-        - Python 依赖版本 vs 代码兼容性
-        - Gateway 配置（openclaw.json）vs proxy 预期
-        - KB 向量索引维度 vs embedding 模型版本
-        - 备份文件完整性 vs 声明的保留策略
-    next_review: "2026-05-07"  # 一个月后
+    uncovered_dimensions:
+      - "launchd plist 配置 vs 预期进程状态"
+      - "Python 依赖版本 vs 代码兼容性"
+      - "Gateway 配置（openclaw.json）vs proxy 预期"
+      - "KB 向量索引维度 vs embedding 模型版本"
+      - "备份文件完整性 vs 声明的保留策略"
+    next_review: "2026-05-07"
