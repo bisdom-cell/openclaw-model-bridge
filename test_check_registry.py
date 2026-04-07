@@ -10,7 +10,7 @@ import tempfile
 import textwrap
 import unittest
 
-from check_registry import validate, load_yaml, check_filemap_completeness
+from check_registry import validate, load_yaml, check_filemap_completeness, check_crontab
 
 
 # ---------------------------------------------------------------------------
@@ -412,6 +412,131 @@ class TestTierValidation(unittest.TestCase):
             self.assertEqual(tier_warns, [])
         finally:
             os.unlink(path)
+
+
+# ---------------------------------------------------------------------------
+# check_crontab() interval drift tests (V36.2)
+# ---------------------------------------------------------------------------
+
+class TestIntervalDrift(unittest.TestCase):
+    """V36.2: Verify registry interval vs actual crontab drift detection."""
+
+    def _mock_check_crontab(self, yaml_content, crontab_lines):
+        """Helper: run check_crontab with mocked crontab output."""
+        import subprocess
+        import unittest.mock as mock
+
+        path = write_temp_yaml(yaml_content)
+        try:
+            mock_result = mock.MagicMock()
+            mock_result.stdout = "\n".join(crontab_lines)
+            with mock.patch("subprocess.run", return_value=mock_result):
+                errors, warnings = check_crontab(path)
+            return errors, warnings
+        finally:
+            os.unlink(path)
+
+    def test_matching_interval_no_error(self):
+        """When crontab interval matches registry, no drift error."""
+        yaml = textwrap.dedent("""\
+            version: 1
+            jobs:
+              - id: arxiv_monitor
+                scheduler: system
+                entry: run_arxiv.sh
+                interval: "0 8,20 * * *"
+                enabled: true
+                log: ~/test.log
+                description: test
+        """)
+        crontab = ["0 8,20 * * * bash ~/run_arxiv.sh >> ~/test.log 2>&1"]
+        errors, warnings = self._mock_check_crontab(yaml, crontab)
+        drift_errors = [e for e in errors if "间隔漂移" in e]
+        self.assertEqual(drift_errors, [])
+
+    def test_mismatched_interval_detected(self):
+        """When crontab has different interval, drift is detected as ERROR."""
+        yaml = textwrap.dedent("""\
+            version: 1
+            jobs:
+              - id: arxiv_monitor
+                scheduler: system
+                entry: run_arxiv.sh
+                interval: "0 8,20 * * *"
+                enabled: true
+                log: ~/test.log
+                description: test
+        """)
+        crontab = ["0 */3 * * * bash ~/run_arxiv.sh >> ~/test.log 2>&1"]
+        errors, warnings = self._mock_check_crontab(yaml, crontab)
+        drift_errors = [e for e in errors if "间隔漂移" in e]
+        self.assertEqual(len(drift_errors), 1)
+        self.assertIn("0 8,20 * * *", drift_errors[0])
+        self.assertIn("0 */3 * * *", drift_errors[0])
+
+    def test_disabled_job_no_drift_check(self):
+        """Disabled jobs should not be checked for drift."""
+        yaml = textwrap.dedent("""\
+            version: 1
+            jobs:
+              - id: old_job
+                scheduler: system
+                entry: old.sh
+                interval: "0 8 * * *"
+                enabled: false
+                log: ~/test.log
+                description: test
+        """)
+        crontab = ["0 */2 * * * bash ~/old.sh >> ~/test.log 2>&1"]
+        errors, warnings = self._mock_check_crontab(yaml, crontab)
+        drift_errors = [e for e in errors if "间隔漂移" in e]
+        self.assertEqual(drift_errors, [])
+
+    def test_missing_from_crontab_still_warns(self):
+        """Script not in crontab at all should still produce a warning."""
+        yaml = textwrap.dedent("""\
+            version: 1
+            jobs:
+              - id: missing_job
+                scheduler: system
+                entry: not_in_crontab.sh
+                interval: "0 9 * * *"
+                enabled: true
+                log: ~/test.log
+                description: test
+        """)
+        crontab = ["0 8 * * * bash ~/other.sh >> ~/test.log 2>&1"]
+        errors, warnings = self._mock_check_crontab(yaml, crontab)
+        missing_warns = [w for w in warnings if "未找到" in w]
+        self.assertEqual(len(missing_warns), 1)
+
+    def test_multiple_drift_detected(self):
+        """Multiple jobs with drift should each produce an error."""
+        yaml = textwrap.dedent("""\
+            version: 1
+            jobs:
+              - id: job_a
+                scheduler: system
+                entry: a.sh
+                interval: "0 8 * * *"
+                enabled: true
+                log: ~/a.log
+                description: a
+              - id: job_b
+                scheduler: system
+                entry: b.sh
+                interval: "30 12 * * *"
+                enabled: true
+                log: ~/b.log
+                description: b
+        """)
+        crontab = [
+            "0 4 * * * bash ~/a.sh >> ~/a.log 2>&1",
+            "0 12 * * * bash ~/b.sh >> ~/b.log 2>&1",
+        ]
+        errors, warnings = self._mock_check_crontab(yaml, crontab)
+        drift_errors = [e for e in errors if "间隔漂移" in e]
+        self.assertEqual(len(drift_errors), 2)
 
 
 # ---------------------------------------------------------------------------

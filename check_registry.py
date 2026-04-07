@@ -11,7 +11,8 @@ check_registry.py — V28 任务注册表校验器
   4. 启用任务有 scheduler / interval / log / description
   5. scheduler 值合法
   6. [V28] --check-crontab: 对比实际 crontab 与 registry，发现缺失/引号错误
-  7. [V28] FILE_MAP 完整性：检查仓库中可部署文件是否全部在 auto_deploy.sh 的 FILE_MAP 中
+  7. [V36.2] --check-crontab: 间隔漂移检测 — 比对 registry interval 与实际 crontab 时间字段
+  8. [V28] FILE_MAP 完整性：检查仓库中可部署文件是否全部在 auto_deploy.sh 的 FILE_MAP 中
 """
 import os
 import sys
@@ -169,12 +170,14 @@ def check_crontab(registry_path):
                 errors.append(f"crontab 第{i+1}行: 单引号未闭合 — {line[:80]}...")
 
     # 检查2: registry 中 enabled=true 且 scheduler=system 的任务在 crontab 中有对应条目
+    # 同时检查间隔是否匹配（V36.2: 修复 registry-crontab 漂移盲区）
     crontab_text = "\n".join(active_lines)
     for job in data.get("jobs", []):
         if not job.get("enabled") or job.get("scheduler") != "system":
             continue
         jid = job.get("id", "?")
         entry = job.get("entry", "")
+        expected_interval = job.get("interval", "")
 
         # 用脚本文件名作为匹配关键字
         script_name = os.path.basename(entry) if entry else ""
@@ -182,6 +185,22 @@ def check_crontab(registry_path):
             # 也检查完整路径
             if entry not in crontab_text:
                 warnings.append(f"[{jid}] registry 已启用但 crontab 中未找到 '{script_name}'")
+                continue
+
+        # V36.2: 间隔漂移检测 — 比对 registry interval 与实际 crontab 时间字段
+        if script_name and expected_interval:
+            for line in active_lines:
+                if script_name in line or (entry and entry in line):
+                    # 提取 crontab 行的前5个字段（分 时 日 月 周）
+                    parts = line.split()
+                    if len(parts) >= 5:
+                        actual_interval = " ".join(parts[:5])
+                        if actual_interval != expected_interval:
+                            errors.append(
+                                f"[{jid}] 间隔漂移: registry=\"{expected_interval}\" "
+                                f"但 crontab=\"{actual_interval}\" — 请用 crontab_safe.sh 修正"
+                            )
+                    break
 
     # 检查3: 重复条目检测
     seen_scripts = {}
