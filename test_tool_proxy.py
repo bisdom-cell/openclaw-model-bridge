@@ -207,6 +207,31 @@ class TestFilterTools(unittest.TestCase):
         filtered, all_names, kept = filter_tools([])
         self.assertEqual(len(filtered), NUM_CUSTOM_TOOLS)  # 自定义工具仍注入
 
+    def test_tool_count_never_exceeds_max(self):
+        """V36.2: 工具数量硬上限 — CLAUDE.md 声明 <=12，filter_tools() 必须强制执行。"""
+        from config_loader import MAX_TOOLS
+        # 构造 20 个合法工具（超过上限）
+        allowed = ["web_search", "web_fetch", "read", "write", "edit", "exec",
+                    "memory_search", "memory_get", "sessions_spawn", "sessions_send",
+                    "sessions_history", "agents_list", "cron", "message", "tts", "image"]
+        tools = [{"function": {"name": n, "parameters": {}}} for n in allowed]
+        filtered, _, kept = filter_tools(tools)
+        self.assertLessEqual(len(filtered), MAX_TOOLS,
+            f"filter_tools() produced {len(filtered)} tools, violates <= {MAX_TOOLS} constraint")
+        # 自定义工具必须保留
+        for ct in CUSTOM_TOOLS:
+            ct_name = ct["function"]["name"]
+            self.assertIn(ct_name, kept, f"Custom tool '{ct_name}' must survive truncation")
+
+    def test_tool_count_small_input_untouched(self):
+        """少量工具不应被截断。"""
+        tools = [
+            {"function": {"name": "exec", "parameters": {}}},
+            {"function": {"name": "read", "parameters": {}}},
+        ]
+        filtered, _, _ = filter_tools(tools)
+        self.assertEqual(len(filtered), 2 + NUM_CUSTOM_TOOLS)
+
 
 class TestTruncateMessages(unittest.TestCase):
 

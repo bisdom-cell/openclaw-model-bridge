@@ -165,7 +165,13 @@ notify() {
         if [ -n "$topic" ]; then
             local ch_id
             ch_id=$(_notify_discord_target_for_topic "$topic")
-            [ -n "$ch_id" ] && discord_target="$ch_id"
+            if [ -n "$ch_id" ]; then
+                discord_target="$ch_id"
+            else
+                # V36.2: 空 channel ID 显式报错（不再静默跳过）
+                local var_name="DISCORD_CH_$(echo "$topic" | tr '[:lower:]' '[:upper:]')"
+                echo "[notify] ERROR: topic='$topic' 但 $var_name 为空 — Discord 推送被跳过！请设置环境变量" >&2
+            fi
         fi
         # fallback 到 DM
         [ -z "$discord_target" ] && discord_target="user:$_NOTIFY_DISCORD_TARGET"
