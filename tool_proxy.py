@@ -54,6 +54,17 @@ def _capture_conversation_turn(messages, assistant_content):
                 break
         if not user_msg or not assistant_content:
             return
+        # Strip Gateway system metadata prefix (WhatsApp connected, sender info)
+        # Pattern: "System: [...] ...\n```json\n{...}\n```\n\nSender...\n```json\n{...}\n```\n\n<actual>"
+        if user_msg.startswith("System:") and "```" in user_msg:
+            # Find end of last ``` block, take everything after
+            last_fence = user_msg.rfind("```")
+            if last_fence != -1:
+                after = user_msg[last_fence + 3:].strip()
+                if after:
+                    user_msg = after
+        if not user_msg:
+            return
         # Skip system/short messages (likely automated, not real conversations)
         if len(user_msg) < 5 or len(assistant_content) < 10:
             return
