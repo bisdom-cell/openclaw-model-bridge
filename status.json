@@ -1,6 +1,6 @@
 {
-  "updated": "2026-04-07 11:00:01",
-  "updated_by": "cron",
+  "updated": "2026-04-08 00:40:51",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -253,9 +253,9 @@
     "text_index": "14616 chunks, 266/270 files (98%), 266 stale, 7h ago, 21924KB"
   },
   "session_context": {
-    "last_session": "2026-04-07",
-    "unfinished": "① Mac Mini ZeroTier掉线,到办公室后:同步代码+crontab修复(5个变更)+governance_checker --full+adversarial_audit --full ② Phase 1-3元规则(config.yaml/ALLOWED_TOOLS/CLAUDE.md,待稳定后) ③ 合并PR到main",
-    "open_prs": "claude/start-daily-work-BPBjR (dream修复+静默期+对抗审计+governance ontology v2+Phase 0)",
+    "last_session": "2026-04-08",
+    "unfinished": "Mac Mini待办: ① 同步代码(git fetch+reset) ② 9个job crontab调度同步(registry已更新,crontab待应用) ③ governance_checker --full + adversarial_audit --full ④ preflight --full + job_smoke_test",
+    "open_prs": "",
     "blocked_on": ""
   },
   "quality": {
