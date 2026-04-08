@@ -1,6 +1,6 @@
 # CLAUDE.md — openclaw-model-bridge 项目背景
 
-> 每次新会话开始时自动读取。当前版本：v36.2 / 0.36.2（2026-04-07）
+> 每次新会话开始时自动读取。当前版本：v36.3 / 0.36.3（2026-04-08）
 
 ---
 
@@ -192,7 +192,7 @@
 | `docs/security_boundaries.md` | **V36新增** 安全边界文档（8节：认证/网络/输入验证/数据保护/LLM安全/运维/评分/已知风险+Checklist） |
 | `docs/resilience_report.md` | **V36新增** 运维韧性实验报告（7场景故障注入+Recovery Time+GameDay对比+改进建议） |
 | `docs/ontology/` | **V36新增** Ontology KB — 本体论驱动的企业智能架构知识库（16文件：三角架构论述/核心概念/AI治理/OpenClaw本体审视/文献/人物/README/流派对比/供应链本体） |
-| `ontology/` | **V36.1新增→V36.2升级** Ontology 独立子项目 — Tool Engine（81条声明式规则+推理引擎）+ **Governance Ontology v2**（12不变式+28可执行检查+5元规则+Phase 0元规则自主发现）+ governance_checker.py 执行引擎 + 宪法6条 + 语义查询PoC + 立场文章(EN+ZH) |
+| `ontology/` | **V36.1新增→V36.3升级** Ontology 独立子项目 — Tool Engine（81条声明式规则+推理引擎+**classify_tool_call语义分类**）+ **Governance Ontology v3**（**15不变式**+32可执行检查+**6元规则**+**验证深度三层模型**+Phase 0元规则自主发现+**MRD-LAYER-001深度盲区发现**）+ governance_checker.py 执行引擎 + 宪法6条 + 语义查询PoC + **Phase 2 shadow模式**(off→shadow→on) + 立场文章(EN+ZH) |
 | `kb_dream.sh` | **V36新增→升级** Agent Dream v2 MapReduce 全量 KB 探索引擎（Phase1 Map 14源+226笔记逐一提取信号 → Phase2 Reduce 跨域深度分析，一个主题×全部分析维���，绕过Proxy直调Adapter，分段WhatsApp推送，短响应自动重试，04:30错峰执行） |
 | `gameday.sh` | **V33新增** GameDay 故障演练（5场景：GPU超时/断路器/快照/SLO/Watchdog，`bash gameday.sh --all`） |
 | `jobs/dblp/run_dblp.sh` | **V30.5新增** DBLP CS论文监控（多关键词搜索、免费API、每日12:00推送+KB写入） |
@@ -211,6 +211,7 @@
 
 | 版本 | 日期 | 关键变更 |
 |------|------|----------|
+| V36.3 | 2026-04-08 | **Runtime Governance + Ontology Shadow Mode** — ① 遗留修复(crontab漂移3job+重复清理35→28+DBLP/Dream推送恢复+notify.sh zsh兼容+smoke test python3检测) ② Governance v3(12→15不变式: 运行时层INV-CRON-003/004+INV-ENV-002, MR-6多层深度要求) ③ 验证深度三层模型(声明/运行时/效果, governance自我意识盲区, MRD-LAYER-001) ④ 语义推理落地(classify_tool_call从属性推理risk_level+policy_tags) ⑤ Phase 2 shadow模式(off→shadow→on三档, Mac Mini生产上线) ⑥ 832测试 |
 | V36.2 | 2026-04-07 | **Governance Ontology + 对抗审计体系** — ① Dream修复(printf注入+残留锁) ② 凌晨静默期(00-07零推送) ③ Crontab漂移检测(registry vs crontab) ④ 对抗审计22个声明-实际断裂→adversarial_audit.py(9项) ⑤ governance_ontology.yaml v2(12不变式+28可执行检查+5元规则) ⑥ Phase 0元规则自主发现(23个未覆盖job) ⑦ 工具数量硬断言(MAX_TOOLS import+截断) ⑧ 立场文章(EN+ZH) + Ontology子项目深度建设(Tool Engine+宪法+PoC+特性开关) |
 | V36.1 | 2026-04-06 | **Agent Dream v2 + Ontology KB** — MapReduce 全量 KB 探索（14源+226笔记）+ Notes 一等信号 + Ontology KB 创建（7文件）+ 论文监控加 ontology 关键词 + X 监控 9→15 人（+Palantir）+ Cron 调度优化（~55→30 次/天）+ 凌晨 GPU 黄金窗口 |
 | V36 | 2026-04-05 | **V2 路标双P0完成** — Agent Reliability Bench（7场景47检查） + Memory Plane v1（4层统一接口+45单测+架构文档） + 560 测试 |
@@ -551,6 +552,9 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 | **P1** | 丰富 Ontology KB 内容：BFO/DOLCE/UFO 流派对比、Neuro-Symbolic 技术、供应链本体 | ✅ V36.1 完成 |
 | **P1** | 语义查询 PoC：从枚举到推理的跳跃 | ✅ V36.2 完成 |
 | **P1** | 特性开关 Phase 1：equivalence proof + 3模式 rollback | ✅ V36.2 完成 |
+| **P0** | 验证深度三层模型：声明/运行时/效果分层 + MR-6 + MRD-LAYER-001 深度盲区自动发现 | ✅ V36.3 完成 |
+| **P0** | 语义推理落地：classify_tool_call() 从属性推理 risk_level + policy_tags | ✅ V36.3 完成 |
+| **P0** | Feature Flag Phase 2：shadow 模式双跑比对（off→shadow→on），Mac Mini 生产上线 | ✅ V36.3 完成 |
 | **P1** | 用本体论视角重新审视 OpenClaw（深度版，含工具语义本体实验） | 进行中 |
 | **P1** | 第一篇立场文章：**Why Enterprise AI Needs Ontology Before It Needs More Models** | ✅ V36.2 完成（EN dev.to + ZH 知乎发布） |
 | **P0** | Governance Ontology v2：12不变式+28可执行检查+5元规则+governance_checker.py 执行引擎 | ✅ V36.2 完成 |
@@ -559,7 +563,8 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 | **P1** | Phase 1 元规则：扫描 config.yaml 阈值 → 检查执行代码引用 | 待稳定后 |
 | **P1** | Phase 2 元规则：扫描 ALLOWED_TOOLS 变更 → 检查 schema 同步 | 待稳定后 |
 | **P1** | Phase 3 元规则：扫描 CLAUDE.md 硬性限制表格 → 检查执行+验证 | 待稳定后 |
-| **P2** | 特性开关 Phase 2-3：Engine 替代 filters 生产切换 | 待启动 |
+| **P2** | 特性开关 Phase 3：shadow 观察无 drift 后切 on（ONTOLOGY_MODE=on） | shadow 观察中 |
+| **P2** | 语义策略替代枚举：infer_policy_targets() 接入 proxy_filters 策略决策点 | 待启动 |
 | **P2** | 在 OpenClaw 中实验性引入本体约束（工具调用前置条件检查） | 待启动 |
 
 ### 现有功能任务（V1 稳定后继续推进）
