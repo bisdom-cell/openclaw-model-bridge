@@ -1,6 +1,6 @@
 {
-  "updated": "2026-04-08 13:00:02",
-  "updated_by": "cron",
+  "updated": "2026-04-08 14:30:32",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -132,6 +132,11 @@
   "recent_changes": [
     {
       "date": "2026-04-08",
+      "what": "V37 Session: ① V3路标启动: Provider Plugin Interface(YAML/Python插件+合约验证+Extension Guide,107单测) + Capability-Based Routing(find_by_capability+build_fallback_chain+CLI) + adapter.py多级Fallback Chain(auto-discovery+sequential try) ② LLM协作方法论: 4条新原则(#22顺势设计/#23链式幻觉防范/#24触发词机制/#25对话数据一等公民) ③ 对话数据闭环: proxy热路径捕获+kb_harvest_chat.py冷路径提炼+MEMORY.md索引 ④ KB统一: HN+Freight双写notes对齐12/12 job ⑤ 修复: preflight set-e崩溃/adapter config防御/Gateway元数据过滤/industrial_ai_paradigm.md幻觉链切断 ⑥ 692测试",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-04-08",
       "what": "V36.3 追加: ① Mac Mini双shell环境变量统一(~/.env_shared, .zshrc+.bash_profile统一source, 消除zsh/bash env裂缝) ② DISCORD_CH_ONTOLOGY持久化 ③ GitHub文档刷新(README测试数832+ontology运行时引擎章节+shadow模式) ④ crontab清理35→28(去重+preference_learner)",
       "by": "claude_code"
     },
@@ -223,11 +228,6 @@
     {
       "date": "2026-03-28",
       "what": "V30.4方法论进化：结果验证优先+上下文工程一等公民+定期像用户一样使用系统",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-03-28",
-      "what": "SOUL.md激活：PA首次正确回答项目进展（之前说没有项目）",
       "by": "claude_code"
     }
   ],
@@ -325,7 +325,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "Ontology从审计→生产: shadow模式已上线Mac Mini(引擎16工具+语义分类+双跑比对), governance v3(15不变式+验证深度三层模型), 下一步: 观察无drift后切on→语义策略替代枚举",
+  "focus": "V3路标进行中: Provider Plugin Interface已完成(YAML/Python插件+合约验证+能力路由+fallback chain), 下一步: Tool Policy Plugin或证据型文章。对话数据闭环已上线(proxy捕获+MEMORY.md索引+harvest cron), 明早验证自动提炼效果",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
