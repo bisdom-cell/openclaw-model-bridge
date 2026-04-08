@@ -1,6 +1,6 @@
 {
-  "updated": "2026-04-08 11:00:02",
-  "updated_by": "cron",
+  "updated": "2026-04-08 04:10:41",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -132,6 +132,11 @@
   "recent_changes": [
     {
       "date": "2026-04-08",
+      "what": "V36.3 追加: ① Mac Mini双shell环境变量统一(~/.env_shared, .zshrc+.bash_profile统一source, 消除zsh/bash env裂缝) ② DISCORD_CH_ONTOLOGY持久化 ③ GitHub文档刷新(README测试数832+ontology运行时引擎章节+shadow模式) ④ crontab清理35→28(去重+preference_learner)",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-04-08",
       "what": "V36.3 Session: ① 遗留修复(crontab漂移3job+重复清理35→28+DBLP/Dream推送恢复+notify.sh zsh兼容+smoke test python3检测) ② Governance v3(12→15不变式: 3运行时层INV-CRON-003/004+INV-ENV-002, MR-6多层深度, MRD-LAYER-001深度盲区自动发现) ③ 验证深度三层模型(声明/运行时/效果, governance自我意识盲区) ④ 语义推理落地(classify_tool_call从属性推理风险+策略标签) ⑤ Phase 2 shadow模式(off→shadow→on三档, Mac Mini生产上线)",
       "by": "claude_code"
     },
@@ -223,11 +228,6 @@
     {
       "date": "2026-03-28",
       "what": "SOUL.md激活：PA首次正确回答项目进展（之前说没有项目）",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-03-28",
-      "what": "三方宪法闭环验证通过：status.json跨环境同步+PA主动感知",
       "by": "claude_code"
     }
   ],
