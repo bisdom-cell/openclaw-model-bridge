@@ -242,6 +242,21 @@ def filter_tools(tools, log_fn=None):
         new_tools = gateway[:_CFG_MAX_TOOLS - len(custom)] + custom
 
     kept_names = [t.get("function", {}).get("name") for t in new_tools]
+
+    # 语义观察：ontology 对每个通过的工具提供语义分类
+    # 不改变过滤行为，只产生语义信号供日志和未来策略使用
+    if _onto_engine and log_fn:
+        try:
+            high_risk = []
+            for name in kept_names:
+                cl = _onto_engine.classify_tool_call(name)
+                if cl.get("risk_level") == "high":
+                    high_risk.append(name)
+            if high_risk:
+                log_fn(f"ONTO: {len(high_risk)} high-risk tools: {','.join(high_risk)}")
+        except Exception:
+            pass  # 语义观察失败不影响主流程
+
     return new_tools, all_names, kept_names
 
 
@@ -351,13 +366,19 @@ if _ONTOLOGY_MODE:
                 "ONTOLOGY_MODE=on: loaded %d tools from ontology/tool_ontology.yaml",
                 len(ALLOWED_TOOLS))
 
-            # 清理临时变量
-            del _spec, _mod, _onto, _data
+            # 保留引擎实例供语义观察使用
+            _onto_engine = _onto
+
+            # 清理其他临时变量
+            del _spec, _mod, _data
     except Exception as _e:
         import logging as _log
         _log.getLogger("proxy_filters").warning(
             "ONTOLOGY_MODE=on but load failed, falling back to hardcoded: %s", _e)
         # 硬编码变量未被修改，安全回退
+
+# 语义引擎实例（ONTOLOGY_MODE=on 时可用，否则 None）
+_onto_engine = locals().get("_onto_engine") if _ONTOLOGY_MODE else None
 
 
 # [NO_TOOLS] 标记：消息中包含此标记时，proxy 强制清空工具列表

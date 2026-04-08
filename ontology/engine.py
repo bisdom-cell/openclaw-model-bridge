@@ -436,6 +436,72 @@ class ToolOntology:
                 filters[key] = value
         return filters
 
+    # ── 语义分类（从观察到决策的桥梁）──
+
+    def classify_tool_call(self, tool_name: str) -> dict:
+        """对工具调用进行语义分类 — 从存在推导本质。
+
+        不是查表（"这个工具名在列表里吗"），
+        而是推理（"这个工具是什么类别、有什么副作用、操作什么资源"）。
+
+        用于 proxy_filters 的语义观察模式：
+        - 每次工具调用时，ontology 提供语义元数据
+        - proxy 记录这些信号，为未来的语义策略决策积累数据
+
+        Returns:
+            {
+                "name": "write",
+                "known": True,           # ontology 认识这个工具吗
+                "category": "file_operation",
+                "side_effects": True,
+                "resource_type": "File",
+                "risk_level": "high",    # 推理出的风险等级
+                "policy_tags": ["night_blockable", "audit_required"],
+            }
+        """
+        meta = self.get_tool_metadata(tool_name)
+        if not meta:
+            return {
+                "name": tool_name,
+                "known": False,
+                "category": None,
+                "side_effects": None,
+                "resource_type": None,
+                "risk_level": "unknown",
+                "policy_tags": ["unknown_tool"],
+            }
+
+        side_fx = meta.get("side_effects", False)
+        category = meta.get("category")
+
+        # 从属性推理风险等级和策略标签
+        risk = "low"
+        tags = []
+
+        if side_fx:
+            risk = "high"
+            tags.append("night_blockable")
+            tags.append("audit_required")
+        else:
+            tags.append("audit_exempt")
+
+        if category == "file_operation" and side_fx:
+            tags.append("approval_required")
+        if meta.get("resource_type") == "WebPage":
+            tags.append("rate_limited")
+            if risk == "low":
+                risk = "medium"
+
+        return {
+            "name": tool_name,
+            "known": True,
+            "category": category,
+            "side_effects": side_fx,
+            "resource_type": meta.get("resource_type"),
+            "risk_level": risk,
+            "policy_tags": sorted(tags),
+        }
+
     # ── Phase 1: 生成 proxy_filters 兼容数据 ──
 
     def generate_proxy_data(self):
