@@ -99,24 +99,44 @@ PORT        = int(os.environ.get("PORT", 5001))
 ctx         = ssl.create_default_context()
 
 # ---------------------------------------------------------------------------
-# Fallback provider (optional, for chat/completions only)
+# Fallback chain — capability-based auto-discovery + manual pin (V37)
+# If FALLBACK_PROVIDER is set, it becomes first in chain.
+# Remaining slots auto-filled from build_fallback_chain() by capability overlap.
 # ---------------------------------------------------------------------------
-FALLBACK_NAME = os.environ.get("FALLBACK_PROVIDER", "gemini")
-_fb = PROVIDERS.get(FALLBACK_NAME)
-if _fb and FALLBACK_NAME != PROVIDER_NAME:
+FALLBACK_CHAIN = []  # List of {name, base_url, api_key, model_id, auth_style}
+
+# 1) Explicit FALLBACK_PROVIDER (backward compat) → first in chain
+_explicit_fb = os.environ.get("FALLBACK_PROVIDER", "")
+if _explicit_fb and _explicit_fb in PROVIDERS and _explicit_fb != PROVIDER_NAME:
+    _fb = PROVIDERS[_explicit_fb]
     _fb_key = os.environ.get(_fb["api_key_env"], "")
     if _fb_key:
-        FALLBACK = {
-            "name":       FALLBACK_NAME,
+        FALLBACK_CHAIN.append({
+            "name":       _explicit_fb,
             "base_url":   _fb["base_url"],
             "api_key":    _fb_key,
             "model_id":   os.environ.get("FALLBACK_MODEL_ID", _fb["model_id"]),
             "auth_style": _fb["auth_style"],
-        }
-    else:
-        FALLBACK = None
-else:
-    FALLBACK = None
+        })
+
+# 2) Auto-discover from capability-based chain (sorted by overlap + verification)
+if _get_registry:
+    _auto_chain = _get_registry().build_fallback_chain(PROVIDER_NAME, require_available=True)
+    _existing_names = {fb["name"] for fb in FALLBACK_CHAIN}
+    for _cp in _auto_chain:
+        if _cp.name not in _existing_names:
+            _ck = os.environ.get(_cp.api_key_env, "")
+            if _ck:
+                FALLBACK_CHAIN.append({
+                    "name":       _cp.name,
+                    "base_url":   _cp.base_url,
+                    "api_key":    _ck,
+                    "model_id":   _cp.model_id,
+                    "auth_style": _cp.auth_style,
+                })
+
+# Backward compat: FALLBACK = first in chain (or None)
+FALLBACK = FALLBACK_CHAIN[0] if FALLBACK_CHAIN else None
 
 # ---------------------------------------------------------------------------
 # Smart routing: fast model for simple queries (optional)
@@ -240,8 +260,9 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
             info = {"ok": True, "version": _VERSION, "provider": PROVIDER_NAME, "model": REAL_MODEL_ID}
             if VL_MODEL_ID:
                 info["vl_model"] = VL_MODEL_ID
-            if FALLBACK:
-                info["fallback"] = FALLBACK["name"]
+            if FALLBACK_CHAIN:
+                info["fallback_chain"] = [fb["name"] for fb in FALLBACK_CHAIN]
+                info["fallback"] = FALLBACK_CHAIN[0]["name"]  # backward compat
                 info["circuit_breaker"] = _circuit_breaker.state()
             if FAST_ROUTE:
                 info["fast_route"] = f"{FAST_ROUTE['name']}/{FAST_ROUTE['model_id']}"
@@ -383,10 +404,10 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
             else:
                 primary_auth = _make_auth_headers(AUTH_STYLE, API_KEY)
 
-            # Circuit breaker: 短路时跳过 primary，直接走 fallback
-            cb_open = FALLBACK and _circuit_breaker.is_open()
+            # Circuit breaker: 短路时跳过 primary，直接走 fallback chain
+            cb_open = FALLBACK_CHAIN and _circuit_breaker.is_open()
             if cb_open:
-                log(f"{tag}CIRCUIT BREAKER OPEN: skipping primary, direct fallback")
+                log(f"{tag}CIRCUIT BREAKER OPEN: skipping primary, direct fallback chain ({len(FALLBACK_CHAIN)} providers)")
 
             primary_err = None
             if not cb_open:
@@ -403,31 +424,35 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                     log(f"{tag}PRIMARY FAILED ({elapsed}ms): {primary_err}")
                     _circuit_breaker.record_failure()
 
-            if not FALLBACK:
-                log(f"{tag}NO FALLBACK configured, returning 502")
+            if not FALLBACK_CHAIN:
+                log(f"{tag}NO FALLBACK CHAIN configured, returning 502")
                 self._send_json(502, json.dumps({"error": str(primary_err or "circuit breaker open")}).encode())
                 return
 
-            # --- Fallback attempt ---
-            fb = FALLBACK
-            fb_url = f"{fb['base_url']}{path}"
-            fb_clean = dict(clean)
-            fb_clean["model"] = fb["model_id"]
-            fb_data = json.dumps(fb_clean).encode()
-            fb_auth = _make_auth_headers(fb["auth_style"], fb["api_key"])
+            # --- Fallback chain: try each provider sequentially ---
+            fb_errors = [f"primary: {primary_err or 'circuit open'}"]
+            for fb in FALLBACK_CHAIN:
+                fb_url = f"{fb['base_url']}{path}"
+                fb_clean = dict(clean)
+                fb_clean["model"] = fb["model_id"]
+                fb_data = json.dumps(fb_clean).encode()
+                fb_auth = _make_auth_headers(fb["auth_style"], fb["api_key"])
 
-            log(f"{tag}FALLBACK -> {fb['name']} ({fb['model_id']}) {fb_url}")
-            try:
-                fb_status, fb_body = _forward_request(fb_url, fb_data, fb_auth, timeout=int(_FALLBACK_TIMEOUT))
-                fb_elapsed = int((time.monotonic() - t0) * 1000)
-                log(f"{tag}FALLBACK OK: {fb_status} ({len(fb_body)} bytes) {fb_elapsed}ms")
-                self._send_json(fb_status, fb_body)
-            except Exception as fb_err:
-                fb_elapsed = int((time.monotonic() - t0) * 1000)
-                log(f"{tag}FALLBACK ALSO FAILED ({fb_elapsed}ms): {fb_err}")
-                self._send_json(502, json.dumps({
-                    "error": f"primary: {primary_err or 'circuit open'}; fallback({fb['name']}): {fb_err}"
-                }).encode())
+                log(f"{tag}FALLBACK -> {fb['name']} ({fb['model_id']})")
+                try:
+                    fb_status, fb_body = _forward_request(fb_url, fb_data, fb_auth, timeout=int(_FALLBACK_TIMEOUT))
+                    fb_elapsed = int((time.monotonic() - t0) * 1000)
+                    log(f"{tag}FALLBACK OK: {fb_status} ({len(fb_body)} bytes) {fb_elapsed}ms via {fb['name']}")
+                    self._send_json(fb_status, fb_body)
+                    return
+                except Exception as fb_err:
+                    fb_elapsed = int((time.monotonic() - t0) * 1000)
+                    log(f"{tag}FALLBACK {fb['name']} FAILED ({fb_elapsed}ms): {fb_err}")
+                    fb_errors.append(f"{fb['name']}: {fb_err}")
+
+            # All providers in chain failed
+            log(f"{tag}ALL {len(FALLBACK_CHAIN)} FALLBACKS FAILED")
+            self._send_json(502, json.dumps({"error": "; ".join(fb_errors)}).encode())
             return
 
         # --- Non-chat endpoints: no fallback ---
@@ -463,7 +488,8 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-fb_info = f" (fallback: {FALLBACK['name']}/{FALLBACK['model_id']})" if FALLBACK else " (no fallback)"
+_chain_names = [fb["name"] for fb in FALLBACK_CHAIN]
+fb_info = f" (fallback chain: {' -> '.join(_chain_names)})" if FALLBACK_CHAIN else " (no fallback)"
 vl_info = f" (VL: {VL_MODEL_ID})" if VL_MODEL_ID else ""
 fast_info = f" (fast: {FAST_ROUTE['name']}/{FAST_ROUTE['model_id']})" if FAST_ROUTE else ""
 BIND_ADDR = os.environ.get("BIND_ADDR", "127.0.0.1")

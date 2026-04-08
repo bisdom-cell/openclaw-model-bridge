@@ -167,10 +167,10 @@ class TestMultimodalRouting(unittest.TestCase):
 
 
 class TestFallbackLogic(unittest.TestCase):
-    """Fallback 降级链测试"""
+    """Fallback chain 降级链测试 (V37: multi-level)"""
 
     def test_fallback_provider_configurable(self):
-        """FALLBACK_PROVIDER 可通过环境变量配置"""
+        """FALLBACK_PROVIDER 可通过环境变量配置（backward compat）"""
         with open("adapter.py") as f:
             content = f.read()
         self.assertIn("FALLBACK_PROVIDER", content)
@@ -182,10 +182,10 @@ class TestFallbackLogic(unittest.TestCase):
         self.assertIn("FALLBACK_MODEL_ID", content)
 
     def test_no_fallback_returns_502(self):
-        """无 fallback 时返回 502"""
+        """无 fallback chain 时返回 502"""
         with open("adapter.py") as f:
             content = f.read()
-        self.assertIn("NO FALLBACK configured", content)
+        self.assertIn("NO FALLBACK CHAIN configured", content)
         self.assertIn("502", content)
 
     def test_fallback_uses_same_clean_body(self):
@@ -195,12 +195,38 @@ class TestFallbackLogic(unittest.TestCase):
         self.assertIn('fb_clean = dict(clean)', content)
         self.assertIn('fb_clean["model"] = fb["model_id"]', content)
 
-    def test_double_failure_returns_both_errors(self):
-        """primary + fallback 都失败时返回两个错误"""
+    def test_all_fallbacks_failed_message(self):
+        """所有 fallback 都失败时有明确日志"""
         with open("adapter.py") as f:
             content = f.read()
-        self.assertIn("FALLBACK ALSO FAILED", content)
-        self.assertIn("primary:", content)
+        self.assertIn("ALL", content)
+        self.assertIn("FALLBACKS FAILED", content)
+
+    def test_fallback_chain_is_list(self):
+        """FALLBACK_CHAIN 是列表结构"""
+        with open("adapter.py") as f:
+            content = f.read()
+        self.assertIn("FALLBACK_CHAIN = []", content)
+        self.assertIn("FALLBACK_CHAIN.append", content)
+
+    def test_fallback_chain_auto_discover(self):
+        """自动从 build_fallback_chain() 发现可用 fallback"""
+        with open("adapter.py") as f:
+            content = f.read()
+        self.assertIn("build_fallback_chain", content)
+        self.assertIn("require_available=True", content)
+
+    def test_fallback_chain_loop(self):
+        """fallback 通过循环顺序尝试"""
+        with open("adapter.py") as f:
+            content = f.read()
+        self.assertIn("for fb in FALLBACK_CHAIN:", content)
+
+    def test_fallback_backward_compat(self):
+        """FALLBACK 变量保持向后兼容（= chain 第一个）"""
+        with open("adapter.py") as f:
+            content = f.read()
+        self.assertIn("FALLBACK = FALLBACK_CHAIN[0]", content)
 
 
 class TestSmartRouting(unittest.TestCase):
@@ -258,6 +284,12 @@ class TestHealthEndpoint(unittest.TestCase):
         with open("adapter.py") as f:
             content = f.read()
         self.assertIn('"fallback"', content)
+
+    def test_health_shows_fallback_chain(self):
+        """health 包含 fallback_chain 列表"""
+        with open("adapter.py") as f:
+            content = f.read()
+        self.assertIn('"fallback_chain"', content)
 
 
 class TestMessageCleaning(unittest.TestCase):
