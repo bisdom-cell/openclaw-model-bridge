@@ -334,13 +334,12 @@ invariants:
     design_decision: "2026-04-08 教训：DBLP/Dream/Watchdog 无 bash -lc → OPENCLAW_PHONE 为占位号 → 推送连续失败 3 天"
     checks:
       - name: "所有 enabled job 的 crontab 条目包含 bash -lc"
-        check_type: command_succeeds
+        check_type: python_assert
         requires_full: true
-        command: |
-          python3 -c "
-          import yaml, subprocess, sys
-          with open('jobs_registry.yaml') as f:
-              data = yaml.safe_load(f)
+        code: |
+          import subprocess
+          from check_registry import load_yaml
+          data = load_yaml("jobs_registry.yaml")
           crontab = subprocess.check_output(['crontab', '-l'], text=True)
           missing = []
           for job in data['jobs']:
@@ -350,16 +349,12 @@ invariants:
               script = entry.split('/')[-1] if entry else ''
               if not script:
                   continue
-              # 找到包含此脚本的 crontab 行
               for line in crontab.splitlines():
                   if script in line and not line.strip().startswith('#'):
                       if 'bash -lc' not in line:
-                          missing.append(f'{job[\"id\"]}: {script}')
+                          missing.append(f"{job['id']}: {script}")
                       break
-          if missing:
-              print('FAIL: ' + '; '.join(missing), file=sys.stderr)
-              sys.exit(1)
-          "
+          assert not missing, f"缺少 bash -lc: {'; '.join(missing)}"
 
   - id: INV-CRON-004
     name: crontab-no-duplicates
@@ -369,13 +364,12 @@ invariants:
     design_decision: "2026-04-08 教训：kb_dream 有 3 个 crontab 条目，双进程启动触发 lock contention"
     checks:
       - name: "crontab 中无重复 job 脚本"
-        check_type: command_succeeds
+        check_type: python_assert
         requires_full: true
-        command: |
-          python3 -c "
-          import yaml, subprocess, sys, collections
-          with open('jobs_registry.yaml') as f:
-              data = yaml.safe_load(f)
+        code: |
+          import subprocess
+          from check_registry import load_yaml
+          data = load_yaml("jobs_registry.yaml")
           crontab = subprocess.check_output(['crontab', '-l'], text=True)
           lines = [l for l in crontab.splitlines() if l.strip() and not l.strip().startswith('#')]
           for job in data['jobs']:
@@ -386,10 +380,7 @@ invariants:
               if not script:
                   continue
               hits = [l for l in lines if script in l]
-              if len(hits) > 1:
-                  print(f'FAIL: {job[\"id\"]} ({script}) 在 crontab 中出现 {len(hits)} 次', file=sys.stderr)
-                  sys.exit(1)
-          "
+              assert len(hits) <= 1, f"{job['id']} ({script}) 在 crontab 中出现 {len(hits)} 次"
 
   - id: INV-ENV-002
     name: cron-env-smoke-test
