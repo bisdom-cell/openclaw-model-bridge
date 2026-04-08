@@ -322,6 +322,88 @@ invariants:
         file: check_registry.py
         pattern: "间隔漂移"
 
+  # ── 运行时治理（2026-04-08 真实 bug 驱动）──────────────────────────
+  # 教训：声明层检查全过，但 cron 运行时环境不对导致推送连续失败 3 天
+  # 维度跃升：从"声明一致性"到"运行时真实性"
+
+  - id: INV-CRON-003
+    name: bash-lc-enforcement
+    meta_rule: MR-1
+    severity: critical
+    declaration: "每个 enabled job 的 crontab 条目必须包含 bash -lc（否则 cron 环境缺少 env vars）"
+    design_decision: "2026-04-08 教训：DBLP/Dream/Watchdog 无 bash -lc → OPENCLAW_PHONE 为占位号 → 推送连续失败 3 天"
+    checks:
+      - name: "所有 enabled job 的 crontab 条目包含 bash -lc"
+        check_type: command_succeeds
+        requires_full: true
+        command: |
+          python3 -c "
+          import yaml, subprocess, sys
+          with open('jobs_registry.yaml') as f:
+              data = yaml.safe_load(f)
+          crontab = subprocess.check_output(['crontab', '-l'], text=True)
+          missing = []
+          for job in data['jobs']:
+              if not job.get('enabled') or job.get('scheduler') != 'system':
+                  continue
+              entry = job.get('entry', '')
+              script = entry.split('/')[-1] if entry else ''
+              if not script:
+                  continue
+              # 找到包含此脚本的 crontab 行
+              for line in crontab.splitlines():
+                  if script in line and not line.strip().startswith('#'):
+                      if 'bash -lc' not in line:
+                          missing.append(f'{job[\"id\"]}: {script}')
+                      break
+          if missing:
+              print('FAIL: ' + '; '.join(missing), file=sys.stderr)
+              sys.exit(1)
+          "
+
+  - id: INV-CRON-004
+    name: crontab-no-duplicates
+    meta_rule: MR-3
+    severity: high
+    declaration: "每个 job 在 crontab 中最多出现一次（重复条目导致并发执行和资源浪费）"
+    design_decision: "2026-04-08 教训：kb_dream 有 3 个 crontab 条目，双进程启动触发 lock contention"
+    checks:
+      - name: "crontab 中无重复 job 脚本"
+        check_type: command_succeeds
+        requires_full: true
+        command: |
+          python3 -c "
+          import yaml, subprocess, sys, collections
+          with open('jobs_registry.yaml') as f:
+              data = yaml.safe_load(f)
+          crontab = subprocess.check_output(['crontab', '-l'], text=True)
+          lines = [l for l in crontab.splitlines() if l.strip() and not l.strip().startswith('#')]
+          for job in data['jobs']:
+              if not job.get('enabled') or job.get('scheduler') != 'system':
+                  continue
+              entry = job.get('entry', '')
+              script = entry.split('/')[-1] if entry else ''
+              if not script:
+                  continue
+              hits = [l for l in lines if script in l]
+              if len(hits) > 1:
+                  print(f'FAIL: {job[\"id\"]} ({script}) 在 crontab 中出现 {len(hits)} 次', file=sys.stderr)
+                  sys.exit(1)
+          "
+
+  - id: INV-ENV-002
+    name: cron-env-smoke-test
+    meta_rule: MR-1
+    severity: critical
+    declaration: "cron 环境（bash -lc）中 OPENCLAW_PHONE 必须是真实号码，非占位号"
+    design_decision: "2026-04-08 教训：cron 无 bash -lc 时 OPENCLAW_PHONE 为 +85200000000（占位号），所有 WhatsApp 推送静默失败"
+    checks:
+      - name: "OPENCLAW_PHONE 非占位号"
+        check_type: command_succeeds
+        requires_full: true
+        command: |
+          bash -lc 'test -n "$OPENCLAW_PHONE" && test "$OPENCLAW_PHONE" != "+85200000000"'
+
 # ═══════════════════════════════════════════════════════════════════════
 # 4. 可执行元规则（Phase 0）— 自动发现缺失不变式
 #    只扫描结构化数据源，不解析自然语言
