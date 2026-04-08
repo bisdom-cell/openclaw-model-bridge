@@ -748,8 +748,8 @@ if $FULL_MODE; then
     KB_IDX_DIR="$HOME/.kb/text_index"
     if [ -f "$KB_IDX_DIR/meta.json" ] && [ -f "$KB_IDX_DIR/vectors.bin" ]; then
         # 运行 kb_embed.py --verify（轻量级，不加载模型，只做文件比对）
-        VERIFY_OUT=$(python3 "$HOME/kb_embed.py" --verify 2>/dev/null)
-        VERIFY_RC=$?
+        VERIFY_RC=0
+        VERIFY_OUT=$(python3 "$HOME/kb_embed.py" --verify 2>/dev/null) || VERIFY_RC=$?
 
         # 提取关键指标
         FILE_COV=$(echo "$VERIFY_OUT" | grep -o '文件覆盖.*' | head -1)
