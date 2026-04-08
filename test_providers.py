@@ -1102,6 +1102,245 @@ class TestCLIValidate(unittest.TestCase):
         self.assertIn("built-in", result.stdout)
 
 
+class TestFindByCapability(unittest.TestCase):
+    """Capability-based provider discovery tests"""
+
+    def test_find_vision_providers(self):
+        from providers import get_registry
+        vision = get_registry().find_by_capability(vision=True)
+        names = [p.name for p in vision]
+        self.assertIn("qwen", names)
+        self.assertIn("openai", names)
+        self.assertGreater(len(vision), 0)
+
+    def test_find_audio_providers(self):
+        from providers import get_registry
+        audio = get_registry().find_by_capability(audio=True)
+        names = [p.name for p in audio]
+        self.assertIn("openai", names)
+        # Qwen doesn't support audio
+        self.assertNotIn("qwen", names)
+
+    def test_find_tool_calling_and_streaming(self):
+        from providers import get_registry
+        results = get_registry().find_by_capability(tool_calling=True, streaming=True)
+        self.assertGreater(len(results), 0)
+        for p in results:
+            self.assertTrue(p.capabilities.tool_calling)
+            self.assertTrue(p.capabilities.streaming)
+
+    def test_find_nonexistent_combination(self):
+        from providers import get_registry
+        # No provider has video support
+        results = get_registry().find_by_capability(video=True)
+        self.assertEqual(results, [])
+
+    def test_find_json_mode(self):
+        from providers import get_registry
+        results = get_registry().find_by_capability(json_mode=True)
+        names = [p.name for p in results]
+        self.assertIn("openai", names)
+        self.assertIn("gemini", names)
+        # Qwen doesn't have json_mode
+        self.assertNotIn("qwen", names)
+
+    def test_find_with_false_value(self):
+        from providers import get_registry
+        # Providers that do NOT support vision
+        text_only = get_registry().find_by_capability(vision=False)
+        for p in text_only:
+            self.assertFalse(p.capabilities.vision)
+
+    def test_find_empty_kwargs_returns_all(self):
+        from providers import get_registry
+        results = get_registry().find_by_capability()
+        self.assertEqual(len(results), len(get_registry().list_names()))
+
+    def test_find_on_custom_registry(self):
+        from providers import ProviderRegistry, BaseProvider, ModelInfo, ProviderCapabilities
+        reg = ProviderRegistry()
+        p1 = BaseProvider()
+        p1.name = "vis"
+        p1.base_url = "https://vis.com/v1"
+        p1.api_key_env = "V_KEY"
+        p1.models = [ModelInfo(model_id="v1", modalities=["text", "vision"], is_default=True, is_vision=True)]
+        p1.capabilities = ProviderCapabilities(text=True, vision=True)
+        p2 = BaseProvider()
+        p2.name = "txt"
+        p2.base_url = "https://txt.com/v1"
+        p2.api_key_env = "T_KEY"
+        p2.models = [ModelInfo(model_id="t1", is_default=True)]
+        p2.capabilities = ProviderCapabilities(text=True, vision=False)
+        reg.register(p1)
+        reg.register(p2)
+        vision = reg.find_by_capability(vision=True)
+        self.assertEqual(len(vision), 1)
+        self.assertEqual(vision[0].name, "vis")
+
+
+class TestBuildFallbackChain(unittest.TestCase):
+    """Auto-generated fallback chain tests"""
+
+    def test_fallback_chain_excludes_primary(self):
+        from providers import get_registry
+        chain = get_registry().build_fallback_chain("qwen")
+        names = [p.name for p in chain]
+        self.assertNotIn("qwen", names)
+
+    def test_fallback_chain_returns_all_others(self):
+        from providers import get_registry
+        chain = get_registry().build_fallback_chain("qwen")
+        self.assertEqual(len(chain), len(get_registry().list_names()) - 1)
+
+    def test_fallback_chain_verified_first(self):
+        from providers import get_registry
+        chain = get_registry().build_fallback_chain("qwen")
+        # Gemini has verified_fallback=True, should rank high
+        names = [p.name for p in chain]
+        gemini_idx = names.index("gemini")
+        # Gemini should be in top positions (has verified features)
+        self.assertLessEqual(gemini_idx, 2)
+
+    def test_fallback_chain_nonexistent_primary(self):
+        from providers import get_registry
+        chain = get_registry().build_fallback_chain("nonexistent")
+        self.assertEqual(chain, [])
+
+    def test_fallback_chain_custom_registry(self):
+        from providers import ProviderRegistry, BaseProvider, ModelInfo, ProviderCapabilities
+        reg = ProviderRegistry()
+        primary = BaseProvider()
+        primary.name = "primary"
+        primary.base_url = "https://p.com/v1"
+        primary.api_key_env = "P_KEY"
+        primary.models = [ModelInfo(model_id="p1", modalities=["text", "vision"], is_default=True)]
+        primary.capabilities = ProviderCapabilities(
+            text=True, vision=True, tool_calling=True
+        )
+        # fb1: high overlap (text+vision+tool), verified
+        fb1 = BaseProvider()
+        fb1.name = "fb1"
+        fb1.base_url = "https://fb1.com/v1"
+        fb1.api_key_env = "F1_KEY"
+        fb1.models = [ModelInfo(model_id="f1", modalities=["text", "vision"], is_default=True)]
+        fb1.capabilities = ProviderCapabilities(
+            text=True, vision=True, tool_calling=True,
+            verified_text=True, verified_fallback=True
+        )
+        # fb2: low overlap (text only), no verification
+        fb2 = BaseProvider()
+        fb2.name = "fb2"
+        fb2.base_url = "https://fb2.com/v1"
+        fb2.api_key_env = "F2_KEY"
+        fb2.models = [ModelInfo(model_id="f2", is_default=True)]
+        fb2.capabilities = ProviderCapabilities(text=True)
+        reg.register(primary)
+        reg.register(fb2)
+        reg.register(fb1)
+        chain = reg.build_fallback_chain("primary")
+        self.assertEqual(len(chain), 2)
+        # fb1 should rank before fb2 (more overlap + verified)
+        self.assertEqual(chain[0].name, "fb1")
+        self.assertEqual(chain[1].name, "fb2")
+
+
+class TestCapabilityOverlap(unittest.TestCase):
+    """Capability overlap comparison tests"""
+
+    def test_overlap_qwen_gemini(self):
+        from providers import get_registry
+        overlap = get_registry().capability_overlap("qwen", "gemini")
+        self.assertIsInstance(overlap, dict)
+        self.assertTrue(overlap["text"])
+        self.assertTrue(overlap["vision"])
+        self.assertTrue(overlap["tool_calling"])
+        self.assertTrue(overlap["streaming"])
+
+    def test_overlap_nonexistent(self):
+        from providers import get_registry
+        overlap = get_registry().capability_overlap("qwen", "nonexistent")
+        self.assertEqual(overlap, {})
+
+    def test_overlap_has_all_capability_fields(self):
+        from providers import get_registry
+        overlap = get_registry().capability_overlap("qwen", "openai")
+        expected_keys = {"text", "vision", "audio", "video",
+                         "tool_calling", "streaming", "json_mode"}
+        self.assertEqual(set(overlap.keys()), expected_keys)
+
+    def test_overlap_audio_qwen_vs_openai(self):
+        from providers import get_registry
+        overlap = get_registry().capability_overlap("qwen", "openai")
+        # Qwen has no audio, OpenAI has audio → overlap is False
+        self.assertFalse(overlap["audio"])
+
+
+class TestAvailableProviders(unittest.TestCase):
+    """Registry.available() tests"""
+
+    def test_available_checks_env(self):
+        from providers import ProviderRegistry, BaseProvider, ModelInfo, ProviderCapabilities
+        reg = ProviderRegistry()
+        p = BaseProvider()
+        p.name = "envtest"
+        p.base_url = "https://env.com/v1"
+        p.api_key_env = "_TEST_AVAIL_KEY_12345"
+        p.models = [ModelInfo(model_id="e1", is_default=True)]
+        p.capabilities = ProviderCapabilities(text=True)
+        reg.register(p)
+        # Key not set → not available
+        avail = reg.available()
+        self.assertEqual(len(avail), 0)
+        # Set key → available
+        os.environ["_TEST_AVAIL_KEY_12345"] = "test-key"
+        try:
+            avail = reg.available()
+            self.assertEqual(len(avail), 1)
+            self.assertEqual(avail[0].name, "envtest")
+        finally:
+            del os.environ["_TEST_AVAIL_KEY_12345"]
+
+    def test_available_empty_key_is_unavailable(self):
+        from providers import ProviderRegistry, BaseProvider, ModelInfo, ProviderCapabilities
+        reg = ProviderRegistry()
+        p = BaseProvider()
+        p.name = "empty"
+        p.base_url = "https://e.com/v1"
+        p.api_key_env = "_TEST_EMPTY_KEY_12345"
+        p.models = [ModelInfo(model_id="e1", is_default=True)]
+        p.capabilities = ProviderCapabilities(text=True)
+        reg.register(p)
+        os.environ["_TEST_EMPTY_KEY_12345"] = ""
+        try:
+            avail = reg.available()
+            self.assertEqual(len(avail), 0)
+        finally:
+            del os.environ["_TEST_EMPTY_KEY_12345"]
+
+
+class TestFallbackChainCLI(unittest.TestCase):
+    """CLI --fallback-chain tests"""
+
+    def test_fallback_chain_cli(self):
+        import subprocess
+        result = subprocess.run(
+            [sys.executable, "providers.py", "--fallback-chain", "qwen"],
+            capture_output=True, text=True
+        )
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("Fallback Chain", result.stdout)
+        self.assertIn("qwen", result.stdout)
+        self.assertIn("Gemini", result.stdout)
+
+    def test_fallback_chain_cli_nonexistent(self):
+        import subprocess
+        result = subprocess.run(
+            [sys.executable, "providers.py", "--fallback-chain", "nonexistent"],
+            capture_output=True, text=True
+        )
+        self.assertNotEqual(result.returncode, 0)
+
+
 class TestDefaultRegistryPluginDir(unittest.TestCase):
     """Test that the default registry handles providers.d/ correctly"""
 
