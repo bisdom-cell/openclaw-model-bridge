@@ -52,7 +52,7 @@ fi
 
 # V36.2: Crontab 间隔漂移检测（仅 --full 模式，需要 crontab 访问）
 if $FULL_MODE; then
-    DRIFT_OUT=$(python3 check_registry.py --check-crontab 2>&1)
+    DRIFT_OUT=$(python3 check_registry.py --check-crontab 2>&1 || true)
     if echo "$DRIFT_OUT" | grep -q "间隔漂移"; then
         DRIFT_LINES=$(echo "$DRIFT_OUT" | grep "间隔漂移")
         fail "crontab 间隔漂移（registry vs 实际 crontab 不一致）:
