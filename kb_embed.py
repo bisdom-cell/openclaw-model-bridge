@@ -271,6 +271,11 @@ def scan_kb_files():
     if os.path.isfile(inbox):
         files.append((inbox, "inbox"))
 
+    # PA workspace MEMORY.md — PA 自主写入的高质量用户洞察
+    memory_md = os.path.expanduser("~/.openclaw/workspace/MEMORY.md")
+    if os.path.isfile(memory_md):
+        files.append((memory_md, "memory"))
+
     return files
 
 
