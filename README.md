@@ -5,7 +5,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-610%20passed-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-832%20passed-brightgreen.svg)]()
 [![Providers](https://img.shields.io/badge/providers-7%20supported-orange.svg)]()
 [![SLO](https://img.shields.io/badge/SLO-5%2F5%20PASS-blueviolet.svg)]()
 [![Jobs](https://img.shields.io/badge/cron%20jobs-32%20(28%20active)-blue.svg)]()
@@ -94,13 +94,16 @@
 └──────────────────────────────────────────────────────────────────┘
                    │
 ┌──────────────────▼──────────────────────────────────────────────┐
-│  ⑤ Ontology Plane（声明式工具治理 + 知识体系）                     │
+│  ⑤ Ontology Plane（语义控制平面 + 运行时治理 + 知识体系）           │
 │                                                                  │
 │  ontology/                                                       │
 │    engine.py ←→ tool_ontology.yaml (81条声明式规则)              │
+│      └→ classify_tool_call(): 语义推理(属性→风险+策略标签)       │
+│    governance_checker.py ←→ governance_ontology.yaml v3          │
+│      └→ 15不变式 + 32检查 + 6元规则 + 验证深度三层模型           │
+│      └→ MRD-LAYER-001: 自动发现单层验证盲区                     │
 │    diff.py: engine ↔ proxy_filters 一致性校验 (81/81=100%)      │
-│    poc_semantic_query.py: 推理式查询（枚举→推理跳跃）             │
-│    docs/: BFO/DOLCE/UFO + Neuro-Symbolic + 企业AI + 供应链本体   │
+│    Phase 2 shadow: off→shadow→on (Mac Mini 生产运行中)           │
 │    CONSTITUTION.md: 宪法6条 + 最高条款（项目隔离）                │
 └──────────────────────────────────────────────────────────────────┘
                    │

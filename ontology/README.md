@@ -81,6 +81,59 @@ docs/ontology/
 - **Dream 引擎** = 用本体论视角分析信息流，发现深层关联
 - **OpenClaw Control Plane** = Ontology 的运行时实例化
 
+## 运行时引擎（ontology/）
+
+从知识库到生产系统 — 本体论不只是文档，更是运行时引擎。
+
+### Tool Ontology Engine
+
+```bash
+python3 ontology/engine.py --check    # 一致性校验（81/81 = 100%）
+python3 ontology/engine.py --tools    # 工具列表 + 副作用标记
+python3 ontology/engine.py --validate write '{"path":"/tmp/x","content":"hi"}'  # 参数验证
+```
+
+| 能力 | 说明 |
+|------|------|
+| 81 条声明式规则 | tool_ontology.yaml，16 builtin + 2 custom + 策略 |
+| 语义查询 | `query_tools(side_effects=True)` — 按属性查，非按名称查 |
+| 策略推理 | `infer_policy_targets("side_effects == true AND category == file_operation")` |
+| **语义分类** | `classify_tool_call("write")` → `{risk: high, tags: [night_blockable, audit_required]}` |
+| 等价证明 | Phase 1：引擎输出 = 硬编码输出（89 测试验证） |
+
+### Governance Checker v3
+
+```bash
+python3 ontology/governance_checker.py          # dev 模式
+python3 ontology/governance_checker.py --full    # Mac Mini（含 env/crontab 运行时检查）
+```
+
+| 维度 | 数量 |
+|------|------|
+| 不变式 | **15**（INV-TOOL × 3, INV-CRON × 4, INV-NOTIFY × 2, INV-ENV × 2, INV-HEALTH × 2, INV-DEPLOY × 2） |
+| 可执行检查 | **32**（python_assert / file_contains / env_var_exists / command_succeeds） |
+| 元规则 | **6**（MR-1~6，含 MR-6 多层深度要求） |
+| 元规则发现 | **4**（MRD-CRON-001 / ENV-001 / NOTIFY-001 / **LAYER-001 深度盲区**） |
+
+### 验证深度三层模型（V36.3 核心创新）
+
+```
+Layer 3: Effect（效果层）  — "X 达到了预期目的吗？"          → 待建设
+Layer 2: Runtime（运行时层）— "X 在执行环境中真的发生了吗？"  → ✅ 3 不变式
+Layer 1: Declaration（声明层）— "代码/配置说了 X 吗？"       → ✅ 12 不变式
+```
+
+MRD-LAYER-001 自动发现单层覆盖的 critical 不变式 — **governance 检查自己的检查能力**。
+
+### Feature Flag 三档切换
+
+```python
+# proxy_filters.py
+ONTOLOGY_MODE = "off"     # 纯硬编码（默认）
+ONTOLOGY_MODE = "shadow"  # 双跑比对：引擎观察，硬编码决策 ← Mac Mini 生产运行中
+ONTOLOGY_MODE = "on"      # 引擎替换硬编码（已验证等价）
+```
+
 ## 起步路径
 
 1. ✅ 目录结构和 README（V36.1）
@@ -89,16 +142,21 @@ docs/ontology/
 4. ✅ 实践验证：用本体论视角审视 OpenClaw（V36.1）
 5. ✅ 架构分析：**Neuro-Symbolic AI 6 范式 + 实现路径**（V36.1）
 6. ✅ 行业应用：**供应链本体 + DCSA 对齐 + 货代 Watcher 升级路径**（V36.1）
-7. 🔜 知识表示技术：OWL/RDF/SHACL 实操指南
-8. 🔜 话语权输出：**"Why Enterprise AI Needs Ontology Before It Needs More Models"**
-9. 🔜 实验：用 OntoUML 重新建模 proxy_filters.py 的工具策略
+7. ✅ Tool Ontology Engine：81 条声明式规则 + 推理引擎（V36.2）
+8. ✅ Governance v3：15 不变式 + 验证深度三层模型（V36.3）
+9. ✅ Phase 2 Shadow：Mac Mini 生产双跑比对（V36.3）
+10. ✅ 话语权输出：**"Why Enterprise AI Needs Ontology"**（EN dev.to + ZH 知乎）（V36.2）
+11. 🔜 Phase 3：shadow → on 切换（观察期后）
+12. 🔜 语义策略替代枚举：infer_policy_targets 接入 proxy_filters 决策点
 
 ## 进度统计
 
 | 维度 | 已完成 | 计划 |
 |------|--------|------|
-| 文件数 | **10** | ~15 |
-| 总行数 | ~1500 | ~2500 |
-| 覆盖子目录 | 5/6 | 6/6（technical 待创建） |
+| 引擎代码 | **2,691 行** Python + **922 行** YAML | 持续演进 |
+| 测试 | **89** 测试（引擎 + 宪法 + 语义查询） | 持续 |
+| 不变式 | **15** 不变式 + **32** 可执行检查 | 按 incident 驱动增长 |
+| 生产模式 | **shadow**（Mac Mini 运行中） | → on |
+| KB 文档 | **10** 文件 | ~15 |
 | 文献追踪 | 40+ 文献 | 持续 |
 | 标准对齐 | DCSA / UN/CEFACT | + GS1 / ISO 28000 |
