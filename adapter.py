@@ -21,7 +21,11 @@ _FALLBACK_CFG = {}
 try:
     from config_loader import load_config
     _cfg = load_config()
-    _FALLBACK_CFG = _cfg.get("fallback", {}).get("remote_gpu", {})
+    _fb = _cfg.get("fallback", {})
+    if isinstance(_fb, dict):
+        _rg = _fb.get("remote_gpu", {})
+        if isinstance(_rg, dict):
+            _FALLBACK_CFG = _rg
 except Exception:
     pass  # config_loader 不可用时使用默认值
 
