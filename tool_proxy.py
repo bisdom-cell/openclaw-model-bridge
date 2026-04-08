@@ -901,6 +901,13 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                                     fn_name = tc.get('function', {}).get('name', '?')
                                     fn_args = tc.get('function', {}).get('arguments', '')
                                     log(f"[{rid}] CALL: {fn_name} ({len(fn_args)} bytes)")
+                                # Capture user question even when PA responds with tool calls
+                                tool_names = ",".join(tc.get('function', {}).get('name', '?')
+                                                      for tc in m["tool_calls"])
+                                _capture_conversation_turn(
+                                    body.get("messages", []),
+                                    f"[PA调用工具: {tool_names}]"
+                                )
                             elif m.get("content"):
                                 log(f"[{rid}] TEXT: {len(str(m['content']))} chars")
                                 # Capture conversation turn for KB harvesting
