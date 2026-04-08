@@ -306,10 +306,12 @@ if [ -d "$REPO_DIR/.git" ] && [ -f "$HOME/.kb/status.json" ]; then
         cp "$SOUL_SRC" "$SOUL_DST"
     fi
 
-    # 仅在 status.json 有变化时才提交（SOUL.md 由 Claude Code 管理，不自动提交）
+    # V36.3: 停止自动 push status.json 到 git
+    # 原因：每小时 auto commit 导致每个 PR 必冲突（2026-04-08 一天解决 3 次）
+    # health 字段是信息性的，Claude Code 看到过期几小时不影响开发决策
+    # ~/.kb/status.json（本地）仍由 cron 每小时刷新，PA 和脚本不受影响
+    # repo status.json 改由 Claude Code session 收工时更新
     if ! git diff --quiet "$REPO_STATUS" 2>/dev/null; then
-        git add status.json
-        git commit -m "auto: sync status.json from kb_status_refresh" --no-gpg-sign 2>/dev/null || true
-        git push origin main 2>/dev/null || echo "[$TS] WARN: push failed (will retry next hour)"
+        git checkout -- "$REPO_STATUS" 2>/dev/null || true  # 丢弃本地变更，保持 repo 干净
     fi
 fi
