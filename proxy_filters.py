@@ -31,7 +31,7 @@ from config_loader import (
 # on     — 引擎数据替换硬编码（Phase 1，已验证等价性）
 # 任何加载失败自动回退到 off
 # ---------------------------------------------------------------------------
-_ONTOLOGY_MODE = os.environ.get("ONTOLOGY_MODE", "off").lower()  # "off" | "shadow" | "on"
+_ONTOLOGY_MODE = os.environ.get("ONTOLOGY_MODE", "shadow").lower()  # "off" | "shadow" | "on"
 
 # ---------------------------------------------------------------------------
 # 配置数据（硬编码 — 始终定义，作为基线和回退）
