@@ -4,6 +4,8 @@
 # 用法：bash job_smoke_test.sh          （Mac Mini 上运行）
 # 注意：不会真正执行 job，只做被动检查
 export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
+export LANG="${LANG:-en_US.UTF-8}"
+export PYTHONIOENCODING=utf-8
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 TS=$(date '+%Y-%m-%d %H:%M:%S')
