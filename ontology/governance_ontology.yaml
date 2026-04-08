@@ -380,7 +380,10 @@ invariants:
               sname = entry.split('/')[-1] if entry else ''
               if not sname:
                   continue
-              count = sum(1 for l in lines if sname in l)
+              count = 0
+              for l in lines:
+                  if sname in l:
+                      count += 1
               if count > 1:
                   dupes.append(f"{job['id']} x{count}")
           assert not dupes, f"重复 crontab: {'; '.join(dupes)}"
