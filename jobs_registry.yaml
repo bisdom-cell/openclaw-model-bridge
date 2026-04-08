@@ -336,6 +336,16 @@ jobs:
     tier: experiment                 # 实验性：Agent 跨领域探索
     description: "Agent 做梦引擎 — MapReduce 全量 KB 探索 + 深度分析（每日凌晨，输出 ~/.kb/dreams/）"
 
+  - id: kb_harvest_chat
+    scheduler: system
+    entry: kb_harvest_chat.py
+    interval: "0 6 * * *"            # 每天 06:00（Dream 完成后，处理昨天的对话）
+    log: ~/kb_harvest_chat.log
+    needs_api_key: false              # 通过 Adapter:5001 调 LLM
+    enabled: true
+    tier: core                        # 用户对话是最高质量数据源
+    description: "对话精华提炼 — 从 proxy 捕获的每日对话中 LLM 提取关键点（决策/偏好/洞察/结论），写入 KB notes"
+
   # ── 凌晨静默期 + GPU 黄金窗口（00:00-07:00）─────────────────────
   # 策略：00:00-07:00 零推送通知（用户睡眠），仅允许静默任务和重算力 LLM
   #
