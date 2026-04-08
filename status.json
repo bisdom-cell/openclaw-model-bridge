@@ -1,5 +1,5 @@
 {
-  "updated": "2026-04-07 11:00:01",
+  "updated": "2026-04-08 08:00:02",
   "updated_by": "cron",
   "priorities": [
     {
@@ -131,11 +131,6 @@
   ],
   "recent_changes": [
     {
-      "date": "2026-04-07",
-      "what": "V36.2 Session: ① Dream修复(printf注入+残留锁+诊断日志) ② 凌晨静默期(00-07零推送,Dream除外) ③ Crontab漂移检测(registry vs crontab间隔比对) ④ 对抗审计(22个声明-实际断裂,修3个致命) ⑤ governance_ontology.yaml v1→v2(12不变式+28可执行检查+5元规则) ⑥ 5个ontology识别gap全部修复(12/12 pass) ⑦ Phase 0元规则自主发现(23个未覆盖job) ⑧ adversarial_audit.py例行化(集成full_regression) ⑨ 立场文章(EN+ZH): Why Enterprise AI Needs Ontology",
-      "by": "claude_code"
-    },
-    {
       "date": "2026-04-06",
       "what": "V36.1 Session 2: Ontology子项目深度建设 — ① ontology/独立子项目(2800+行21文件) ② Tool Ontology Engine(proxy_filters→81条声明式规则yaml+engine.py推理引擎+diff.py一致性校验100%) ③ Ontology宪法(6条+最高条款:项目隔离) ④ 语义查询PoC(枚举→推理跳跃) ⑤ 特性开关Phase1(equivalence proof+3模式rollback) ⑥ 价值评估矩阵(Article 5) ⑦ 论文Discord #ontology频道路由 ⑧ 各种修复(中文推送/stderr重定向)",
       "by": "claude_code"
@@ -229,6 +224,16 @@
       "date": "2026-03-28",
       "what": "三方宪法闭环验证通过：status.json跨环境同步+PA主动感知",
       "by": "claude_code"
+    },
+    {
+      "date": "2026-03-28",
+      "what": "OpenClaw能力深挖：识别12项未充分利用的功能，4项列入active优先级",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-03-27",
+      "what": "V30.3: 数据清洗CLI + 自定义工具注入 + WhatsApp E2E验证",
+      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -246,23 +251,24 @@
     "last_preflight_time": "2026-04-07 04:00",
     "last_trend_report": "2026-04-04",
     "model_id": "Qwen3-235B-A22B-Instruct-2507-W8A8",
-    "kb_stats": "228 notes, 15 today, 1748KB sources",
-    "stale_jobs": "all_ok",
-    "last_refresh": "2026-04-07 11:00",
+    "kb_stats": "235 notes, 11 today, 1783KB sources",
+    "stale_jobs": "arxiv,hn,freight,discussions",
+    "last_refresh": "2026-04-08 08:00",
     "security_score": "98/100 (98.0%)",
-    "text_index": "14616 chunks, 266/270 files (98%), 266 stale, 7h ago, 21924KB"
+    "text_index": "15011 chunks, 277/277 files (100%), 277 stale, 4h ago, 22516KB"
   },
   "session_context": {
-    "last_session": "2026-04-07",
-    "unfinished": "① Mac Mini ZeroTier掉线,到办公室后:同步代码+crontab修复(5个变更)+governance_checker --full+adversarial_audit --full ② Phase 1-3元规则(config.yaml/ALLOWED_TOOLS/CLAUDE.md,待稳定后) ③ 合并PR到main",
-    "open_prs": "claude/start-daily-work-BPBjR (dream修复+静默期+对抗审计+governance ontology v2+Phase 0)",
+    "last_session": "2026-04-06",
+    "unfinished": "① 明早验收Dream v2 04:30自动运行结果 ② Ontology特性开关Phase2(engine替代filters)+Phase3(切换生产) ③ Ontology立场文章待写",
+    "open_prs": "claude/start-daily-work-rCiVr (ontology子项目深度建设)",
     "blocked_on": ""
   },
   "quality": {
-    "security_score": 98,
+    "security_score": "68",
     "test_count": 610,
     "last_regression": "2026-04-05 pass",
-    "coverage_pct": 0
+    "coverage_pct": 0,
+    "security_score_time": "2026-04-08 08:00"
   },
   "incidents": [
     {
@@ -324,10 +330,11 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "Stage2+Ontology突破: governance_ontology.yaml v2可执行治理本体(12不变式28检查5元规则)+Phase 0元规则自主发现(23个未覆盖job)+立场文章(EN+ZH)发布。Ontology从学术探索变为生产治理工具。下一步:Mac Mini验证+Phase 1-3(待稳定后)",
+  "focus": "Stage2:被社区认可的系统作者。三线并进：① Control Plane(V1-V2全部完成✅,V3 Plugin待启动) ② Ontology子项目(独立ontology/目录,2800+行:Engine+宪法+PoC+特性开关,下一步:立场文章+生产切换) ③ Dream v2 MapReduce已部署(待验收04:30结果)。详见docs/strategic_review_20260403.md + ontology/README.md",
   "notes": "",
   "preferences": [
-    "[auto] 活跃时段 00:00-05:00（2天数据）",
+    "[auto] 活跃时段 00:00-21:00（2天数据）",
+    "[auto] 常用工具：read(10次)、sessions_spawn(8次)、sessions_history(8次)",
     "[auto] 关注领域：技术/AI、学术/论文、arxiv-ai-models、技术/编程、rss-blogs",
     "[auto] 用户已提交 1 条反馈，最新: {\"date\": \"2026-04-03\", \"from\": \"mentor\", \"what\": \""
   ]
