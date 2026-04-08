@@ -55,8 +55,13 @@ def _capture_conversation_turn(messages, assistant_content):
         if not user_msg or not assistant_content:
             return
         # Strip Gateway system metadata prefix (WhatsApp connected, sender info)
-        # Pattern: "System: [...] ...\n```json\n{...}\n```\n\nSender...\n```json\n{...}\n```\n\n<actual>"
-        if user_msg.startswith("System:") and "```" in user_msg:
+        # Two formats:
+        #   A: "System: [date] ...\n```json\n{...}\n```\n\nSender...\n```json\n{...}\n```\n\n<actual>"
+        #   B: "Conversation info ...\n```json\n{...}\n```\n\nSender...\n```json\n{...}\n```\n\n<actual>"
+        if "```" in user_msg and (
+            user_msg.startswith("System:") or
+            user_msg.startswith("Conversation info")
+        ):
             # Find end of last ``` block, take everything after
             last_fence = user_msg.rfind("```")
             if last_fence != -1:
