@@ -1,6 +1,6 @@
 {
-  "updated": "2026-04-08 08:00:02",
-  "updated_by": "cron",
+  "updated": "2026-04-08 03:33:39",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -131,6 +131,11 @@
   ],
   "recent_changes": [
     {
+      "date": "2026-04-08",
+      "what": "V36.3 Session: ① 遗留修复(crontab漂移3job+重复清理35→28+DBLP/Dream推送恢复+notify.sh zsh兼容+smoke test python3检测) ② Governance v3(12→15不变式: 3运行时层INV-CRON-003/004+INV-ENV-002, MR-6多层深度, MRD-LAYER-001深度盲区自动发现) ③ 验证深度三层模型(声明/运行时/效果, governance自我意识盲区) ④ 语义推理落地(classify_tool_call从属性推理风险+策略标签) ⑤ Phase 2 shadow模式(off→shadow→on三档, Mac Mini生产上线)",
+      "by": "claude_code"
+    },
+    {
       "date": "2026-04-06",
       "what": "V36.1 Session 2: Ontology子项目深度建设 — ① ontology/独立子项目(2800+行21文件) ② Tool Ontology Engine(proxy_filters→81条声明式规则yaml+engine.py推理引擎+diff.py一致性校验100%) ③ Ontology宪法(6条+最高条款:项目隔离) ④ 语义查询PoC(枚举→推理跳跃) ⑤ 特性开关Phase1(equivalence proof+3模式rollback) ⑥ 价值评估矩阵(Article 5) ⑦ 论文Discord #ontology频道路由 ⑧ 各种修复(中文推送/stderr重定向)",
       "by": "claude_code"
@@ -224,16 +229,6 @@
       "date": "2026-03-28",
       "what": "三方宪法闭环验证通过：status.json跨环境同步+PA主动感知",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-03-28",
-      "what": "OpenClaw能力深挖：识别12项未充分利用的功能，4项列入active优先级",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-03-27",
-      "what": "V30.3: 数据清洗CLI + 自定义工具注入 + WhatsApp E2E验证",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -259,7 +254,7 @@
   },
   "session_context": {
     "last_session": "2026-04-08",
-    "unfinished": "Mac Mini待办: ① 同步代码(git fetch+reset) ② 9个job crontab调度同步(registry已更新,crontab待应用) ③ governance_checker --full + adversarial_audit --full ④ preflight --full + job_smoke_test",
+    "unfinished": "① shadow模式观察(几天无ONTO SHADOW DRIFT后切on) ② Mac Mini homebrew python3修复(brew reinstall python3) ③ D.治理元规则Phase1(扫描config.yaml阈值)",
     "open_prs": "",
     "blocked_on": ""
   },
@@ -330,7 +325,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "Stage2:被社区认可的系统作者。三线并进：① Control Plane(V1-V2全部完成✅,V3 Plugin待启动) ② Ontology子项目(独立ontology/目录,2800+行:Engine+宪法+PoC+特性开关,下一步:立场文章+生产切换) ③ Dream v2 MapReduce已部署(待验收04:30结果)。详见docs/strategic_review_20260403.md + ontology/README.md",
+  "focus": "Ontology从审计→生产: shadow模式已上线Mac Mini(引擎16工具+语义分类+双跑比对), governance v3(15不变式+验证深度三层模型), 下一步: 观察无drift后切on→语义策略替代枚举",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
