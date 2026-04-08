@@ -21,6 +21,7 @@ SCRIPT_DIR="$HOME/.openclaw/jobs/hn_watcher"
 CACHE_DIR="$SCRIPT_DIR/cache"
 INBOX="$HOME/.kb/inbox.md"
 KB_SOURCE="$HOME/.kb/sources/hn_daily.md"
+KB_WRITE_SCRIPT="${KB_WRITE_SCRIPT:-$HOME/kb_write.sh}"
 KB_DIR="$HOME/.kb"
 SSD_BACKUP="/Volumes/MOVESPEED/KB/"
 MSG_FILE="$CACHE_DIR/hn_message.txt"
@@ -304,6 +305,10 @@ if [ "$SENT_COUNT" -gt 0 ]; then
         log "已推送 ${SENT_COUNT} 条AI/Tech精选（单次批量LLM）。"
         openclaw message send --channel discord --target "${DISCORD_CH_TECH:-}" --message "$(cat "$MSG_FILE")" --json >/dev/null 2>&1 || true
         printf '{"time":"%s","status":"ok","new":%d,"sent":true}\n' "$TS" "$SENT_COUNT" > "$STATUS_FILE"
+        # 写入 KB notes（与其他 10 个 job 对齐双写模式）
+        bash "$KB_WRITE_SCRIPT" "# HN AI/Tech精选 $(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M')
+
+$(cat "$MSG_FILE")" "hn-tech" "note" 2>/dev/null || true
     else
         # 过滤已知无害警告（feishu 插件 duplicate id、plugins.allow empty）
         REAL_ERR=$(grep -v -E "feishu|plugin.*duplicate|plugins\.allow|Config warnings" "$SEND_ERR" 2>/dev/null || true)
@@ -312,6 +317,9 @@ if [ "$SENT_COUNT" -gt 0 ]; then
             log "已推送 ${SENT_COUNT} 条AI/Tech精选（单次批量LLM，忽略插件警告）。"
             openclaw message send --channel discord --target "${DISCORD_CH_TECH:-}" --message "$(cat "$MSG_FILE")" --json >/dev/null 2>&1 || true
             printf '{"time":"%s","status":"ok","new":%d,"sent":true}\n' "$TS" "$SENT_COUNT" > "$STATUS_FILE"
+            bash "$KB_WRITE_SCRIPT" "# HN AI/Tech精选 $(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M')
+
+$(cat "$MSG_FILE")" "hn-tech" "note" 2>/dev/null || true
         else
             log "ERROR: 推送失败（${SENT_COUNT} 条待发）: $(echo "$REAL_ERR" | head -3)"
             printf '{"time":"%s","status":"send_failed","new":%d,"sent":false}\n' "$TS" "$SENT_COUNT" > "$STATUS_FILE"
