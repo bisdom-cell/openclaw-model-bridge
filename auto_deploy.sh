@@ -206,6 +206,9 @@ declare -a FILE_MAP=(
     # Agent 做梦引擎（V32）
     "kb_dream.sh|$HOME/kb_dream.sh"
 
+    # 对话精华提炼（V37）
+    "kb_harvest_chat.py|$HOME/kb_harvest_chat.py"
+
     # 统一推送（V33 Discord 双通道）
     "notify.sh|$HOME/notify.sh"
 
