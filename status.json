@@ -1,6 +1,6 @@
 {
-  "updated": "2026-04-08 03:33:39",
-  "updated_by": "claude_code",
+  "updated": "2026-04-08 11:00:02",
+  "updated_by": "cron",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -240,17 +240,17 @@
   ],
   "health": {
     "services": "ok",
-    "last_deploy": "2d3e8ca",
-    "last_deploy_time": "2026-04-07 04:00",
+    "last_deploy": "d916aab",
+    "last_deploy_time": "2026-04-08 10:00",
     "last_preflight": "pass",
     "last_preflight_time": "2026-04-07 04:00",
     "last_trend_report": "2026-04-04",
     "model_id": "Qwen3-235B-A22B-Instruct-2507-W8A8",
-    "kb_stats": "235 notes, 11 today, 1783KB sources",
-    "stale_jobs": "arxiv,hn,freight,discussions",
-    "last_refresh": "2026-04-08 08:00",
+    "kb_stats": "238 notes, 14 today, 1797KB sources",
+    "stale_jobs": "all_ok",
+    "last_refresh": "2026-04-08 11:00",
     "security_score": "98/100 (98.0%)",
-    "text_index": "15011 chunks, 277/277 files (100%), 277 stale, 4h ago, 22516KB"
+    "text_index": "15011 chunks, 277/280 files (98%), 277 stale, 7h ago, 22516KB"
   },
   "session_context": {
     "last_session": "2026-04-08",
@@ -263,7 +263,7 @@
     "test_count": 610,
     "last_regression": "2026-04-05 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-04-08 08:00"
+    "security_score_time": "2026-04-08 11:00"
   },
   "incidents": [
     {
