@@ -389,26 +389,15 @@ if _ONTOLOGY_MODE in ("on", "shadow"):
                 CUSTOM_TOOLS = _data["CUSTOM_TOOLS"]
                 CUSTOM_TOOL_NAMES = _data["CUSTOM_TOOL_NAMES"]
                 VALID_BROWSER_PROFILES = _data["VALID_BROWSER_PROFILES"]
-
-                import logging as _log
-                _log.getLogger("proxy_filters").info(
-                    "ONTOLOGY_MODE=on: loaded %d tools from engine",
-                    len(ALLOWED_TOOLS))
+                print(f"[proxy] ONTOLOGY_MODE=on: loaded {len(ALLOWED_TOOLS)} tools from engine")
             else:
                 # Phase 2 shadow: 保留引擎数据但不覆盖硬编码
                 _onto_shadow_data = _data
-                import logging as _log
-                _log.getLogger("proxy_filters").info(
-                    "ONTOLOGY_MODE=shadow: engine loaded (%d tools), "
-                    "hardcoded active, comparing at runtime",
-                    len(_data["ALLOWED_TOOLS"]))
+                print(f"[proxy] ONTOLOGY_MODE=shadow: engine loaded ({len(_data['ALLOWED_TOOLS'])} tools), hardcoded active, comparing at runtime")
 
             del _spec, _mod, _data
     except Exception as _e:
-        import logging as _log
-        _log.getLogger("proxy_filters").warning(
-            "ONTOLOGY_MODE=%s but load failed, falling back to hardcoded: %s",
-            _ONTOLOGY_MODE, _e)
+        print(f"[proxy] WARN: ONTOLOGY_MODE={_ONTOLOGY_MODE} but load failed, falling back to hardcoded: {_e}")
 
 
 # [NO_TOOLS] 标记：消息中包含此标记时，proxy 强制清空工具列表
