@@ -109,7 +109,8 @@ _notify_drain_queue() {
     echo "[notify] 发现 $count 条排队消息，尝试重放..." >&2
 
     local f channel target msg
-    for f in $qfiles; do
+    while IFS= read -r f; do
+        [ -f "$f" ] || continue
         channel=$(python3 -c "import json,sys; print(json.load(sys.stdin)['channel'])" < "$f" 2>/dev/null) || continue
         target=$(python3 -c "import json,sys; print(json.load(sys.stdin)['target'])" < "$f" 2>/dev/null) || continue
         msg=$(python3 -c "import json,sys; print(json.load(sys.stdin)['msg'])" < "$f" 2>/dev/null) || continue
@@ -121,7 +122,7 @@ _notify_drain_queue() {
             echo "[notify] REPLAY FAIL: $(basename "$f")，保留队列" >&2
             break  # 如果还是失败，停止重放（避免雪崩）
         fi
-    done
+    done <<< "$qfiles"
 }
 
 # notify "message" [--channel whatsapp|discord] [--topic papers|freight|alerts|daily|tech]
