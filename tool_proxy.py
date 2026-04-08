@@ -29,6 +29,46 @@ from proxy_filters import (
 BACKEND = "http://127.0.0.1:5001"
 PORT = 5002
 
+# ---------------------------------------------------------------------------
+# Conversation capture — lightweight append to JSONL for KB harvesting (V37)
+# Hot path: only file append, no LLM, no network. Processing is offline.
+# ---------------------------------------------------------------------------
+_CHAT_LOG_DIR = os.path.expanduser("~/.kb/conversations")
+
+def _capture_conversation_turn(messages, assistant_content):
+    """Append a conversation turn to daily JSONL log.
+    Called after successful chat completion. Must not raise."""
+    try:
+        # Extract the last user message
+        user_msg = ""
+        for m in reversed(messages):
+            if m.get("role") == "user":
+                content = m.get("content", "")
+                if isinstance(content, list):
+                    # Multimodal: extract text parts only
+                    text_parts = [p.get("text", "") for p in content
+                                  if isinstance(p, dict) and p.get("type") == "text"]
+                    user_msg = " ".join(text_parts)
+                else:
+                    user_msg = str(content)
+                break
+        if not user_msg or not assistant_content:
+            return
+        # Skip system/short messages (likely automated, not real conversations)
+        if len(user_msg) < 5 or len(assistant_content) < 10:
+            return
+        os.makedirs(_CHAT_LOG_DIR, exist_ok=True)
+        log_file = os.path.join(_CHAT_LOG_DIR, f"{datetime.now():%Y%m%d}.jsonl")
+        entry = json.dumps({
+            "ts": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "user": user_msg[:3000],
+            "assistant": assistant_content[:3000],
+        }, ensure_ascii=False)
+        with open(log_file, "a") as f:
+            f.write(entry + "\n")
+    except Exception:
+        pass  # Never fail the hot path
+
 # Version — read from VERSION file (semver, V36+)
 try:
     with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "VERSION")) as _vf:
@@ -847,6 +887,11 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                                     log(f"[{rid}] CALL: {fn_name} ({len(fn_args)} bytes)")
                             elif m.get("content"):
                                 log(f"[{rid}] TEXT: {len(str(m['content']))} chars")
+                                # Capture conversation turn for KB harvesting
+                                _capture_conversation_turn(
+                                    body.get("messages", []),
+                                    str(m["content"])
+                                )
 
                         # Token 监控：记录 usage + 延迟
                         usage = rj.get("usage", {})

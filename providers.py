@@ -761,6 +761,115 @@ class ProviderRegistry:
                   f"{'Yes' if row['tool_calling'] else 'No'} | "
                   f"{'Yes' if row['streaming'] else 'No'} | {ctx} | {verified} |")
 
+    # ------------------------------------------------------------------
+    # Capability-Based Routing — V37: query providers by features
+    # ------------------------------------------------------------------
+    def find_by_capability(self, **required) -> List[BaseProvider]:
+        """Find providers matching ALL required capabilities.
+
+        Accepts any ProviderCapabilities boolean field as a keyword argument.
+        Example: registry.find_by_capability(vision=True, tool_calling=True)
+
+        Returns matching providers (order preserved from registration).
+        """
+        results = []
+        for p in self._providers.values():
+            caps = p.capabilities
+            match = True
+            for key, value in required.items():
+                if not hasattr(caps, key):
+                    match = False
+                    break
+                if getattr(caps, key) != value:
+                    match = False
+                    break
+            if match:
+                results.append(p)
+        return results
+
+    def available(self) -> List[BaseProvider]:
+        """Return providers that have API keys configured in environment."""
+        return [
+            p for p in self._providers.values()
+            if os.environ.get(p.api_key_env, "")
+        ]
+
+    def _capability_score(self, provider: BaseProvider) -> int:
+        """Score a provider by total capability count (for ranking)."""
+        caps = provider.capabilities
+        score = 0
+        for attr in ('text', 'vision', 'audio', 'video',
+                     'tool_calling', 'streaming', 'json_mode'):
+            if getattr(caps, attr, False):
+                score += 1
+        for attr in ('verified_text', 'verified_vision', 'verified_tool_calling',
+                     'verified_streaming', 'verified_fallback'):
+            if getattr(caps, attr, False):
+                score += 2  # verified features weigh more
+        return score
+
+    def _capability_overlap(self, a: BaseProvider, b: BaseProvider) -> int:
+        """Count shared capabilities between two providers."""
+        overlap = 0
+        for attr in ('text', 'vision', 'audio', 'video',
+                     'tool_calling', 'streaming', 'json_mode'):
+            if getattr(a.capabilities, attr, False) and getattr(b.capabilities, attr, False):
+                overlap += 1
+        return overlap
+
+    def build_fallback_chain(self, primary_name: str,
+                             require_available: bool = False) -> List[BaseProvider]:
+        """Auto-build a fallback chain for a primary provider.
+
+        Returns providers sorted by:
+        1. Capability overlap with primary (most similar first)
+        2. Verified features (verified > unverified)
+        3. Total capability score (more capable > less)
+
+        Args:
+            primary_name: Name of the primary provider to build chain for.
+            require_available: If True, only include providers with API keys set.
+
+        Excludes the primary provider itself.
+        """
+        primary = self._providers.get(primary_name)
+        if primary is None:
+            return []
+
+        candidates = [
+            p for p in self._providers.values()
+            if p.name != primary_name
+        ]
+
+        if require_available:
+            candidates = [p for p in candidates if os.environ.get(p.api_key_env, "")]
+
+        def sort_key(p):
+            overlap = self._capability_overlap(primary, p)
+            verified_count = len(p.capabilities.verified_features())
+            cap_score = self._capability_score(p)
+            # Negative for descending sort
+            return (-overlap, -verified_count, -cap_score)
+
+        return sorted(candidates, key=sort_key)
+
+    def capability_overlap(self, name_a: str, name_b: str) -> Dict[str, bool]:
+        """Compare capabilities between two providers.
+
+        Returns dict of {capability: both_support_it}.
+        """
+        a = self._providers.get(name_a)
+        b = self._providers.get(name_b)
+        if not a or not b:
+            return {}
+        result = {}
+        for attr in ('text', 'vision', 'audio', 'video',
+                     'tool_calling', 'streaming', 'json_mode'):
+            a_has = getattr(a.capabilities, attr, False)
+            b_has = getattr(b.capabilities, attr, False)
+            result[attr] = a_has and b_has
+        return result
+
 
 # ---------------------------------------------------------------------------
 # Default registry — 7 built-in providers + auto-discovered plugins
@@ -807,6 +916,33 @@ if __name__ == "__main__":
     if "--json" in sys.argv:
         import json
         print(json.dumps(_default_registry.compatibility_matrix(), indent=2, ensure_ascii=False))
+    elif "--fallback-chain" in sys.argv:
+        # Show auto-generated fallback chain for a provider
+        idx = sys.argv.index("--fallback-chain")
+        primary = sys.argv[idx + 1] if idx + 1 < len(sys.argv) else "qwen"
+        chain = _default_registry.build_fallback_chain(primary)
+        avail = _default_registry.available()
+        avail_names = {p.name for p in avail}
+        print(f"# Fallback Chain for '{primary}'\n")
+        primary_p = _default_registry.get(primary)
+        if not primary_p:
+            print(f"ERROR: provider '{primary}' not found")
+            sys.exit(1)
+        primary_caps = primary_p.capabilities.supported_modalities()
+        print(f"Primary capabilities: {', '.join(primary_caps)}")
+        print(f"Tool calling: {primary_p.capabilities.tool_calling}")
+        print(f"Streaming: {primary_p.capabilities.streaming}\n")
+        print(f"| # | Provider | Overlap | Verified | Available | Caps Lost |")
+        print(f"|---|----------|---------|----------|-----------|-----------|")
+        for i, p in enumerate(chain, 1):
+            overlap = _default_registry.capability_overlap(primary, p.name)
+            shared = sum(1 for v in overlap.values() if v)
+            total = sum(1 for v in overlap.values() if getattr(primary_p.capabilities, list(overlap.keys())[list(overlap.values()).index(True)], False)) if any(overlap.values()) else 0
+            lost = [k for k, v in overlap.items() if not v and getattr(primary_p.capabilities, k, False)]
+            avail_mark = "yes" if p.name in avail_names else "no"
+            verified_str = ", ".join(p.capabilities.verified_features()) or "none"
+            lost_str = ", ".join(lost) if lost else "none"
+            print(f"| {i} | {p.display_name} | {shared}/{len(overlap)} | {verified_str} | {avail_mark} | {lost_str} |")
     elif "--validate" in sys.argv:
         # Validate all registered providers
         print("# Provider Contract Validation\n")
