@@ -1,10 +1,32 @@
-# governance_ontology.yaml — 系统治理不变式本体 v2（可执行声明式规则）
+# governance_ontology.yaml — 系统治理不变式本体 v3（验证深度分层）
 #
 # 核心问题："什么东西坏了我们会发现不了？"
 #
-# v1 → v2 升级：从"描述性三元组"升级为"可执行三元组"。
-# 每个不变式的 checks 字段包含真正可运行的断言，
-# governance_checker.py 直接执行这些断言，不再只是 grep 字符串。
+# v1 → v2: 从"描述性三元组"升级为"可执行三元组"
+# v2 → v3: 从"平面检查"升级为"验证深度三层模型"
+#   - 2026-04-07 教训：22 个声明-实际断裂，全在声明层
+#   - 2026-04-08 教训：声明层 12/12 全过，WhatsApp 推送却静默失败 3 天
+#     根因：只查"代码写了什么"(声明层)，不查"运行时环境对不对"(运行时层)
+#
+# 验证深度三层模型（Verification Depth Model）：
+#   Layer 1 — Declaration（声明层）："代码/配置说了 X 吗？"
+#     file_contains, file_not_contains, python_assert(静态)
+#     能查：代码级不一致
+#     盲区：代码正确但从未被执行
+#
+#   Layer 2 — Runtime（运行时层）："X 在执行时真的发生了吗？"
+#     env_var_exists, command_succeeds, python_assert(subprocess)
+#     能查：环境和执行时不一致
+#     盲区：执行正确但结果错误
+#
+#   Layer 3 — Effect（效果层）："X 达到了预期目的吗？"
+#     E2E验证：消息真的到达？数据不只新鲜还正确？
+#     能查：端到端失败（组件各自正常但整体不工作）
+#     盲区：未来的探索方向
+#
+# 每个不变式标注 verification_layer，让 governance 自我意识盲区深度。
+# MR-6 要求关键不变式覆盖 ≥2 层。
+# MRD-LAYER-001 自动发现只有单层覆盖的不变式。
 #
 # 检查类型（check_type）：
 #   python_assert  — 执行 Python 代码，assert 不抛异常 = pass
@@ -12,14 +34,15 @@
 #   file_not_contains — 检查文件不包含指定 pattern
 #   env_var_exists — 检查环境变量非空（需 --full 模式，bash -lc）
 #   command_succeeds — 执行 shell 命令，exit code 0 = pass
-#   json_field      — 检查 JSON 文件中某字段存在且满足条件
 #
 # 使用方式：
 #   python3 ontology/governance_checker.py              # dev 模式
 #   python3 ontology/governance_checker.py --full        # Mac Mini（含 env/crontab）
 #   python3 ontology/governance_checker.py --json        # JSON 输出
 #
-# 教训来源：2026-04-07 对抗审计 — 22 个声明 vs 实际断裂点
+# 教训来源：
+#   2026-04-07 对抗审计 — 22 个声明-实际断裂点
+#   2026-04-08 运行时层发现 — 声明全过但推送失败 3 天
 
 # ═══════════════════════════════════════════════════════════════════════
 # 1. 元概念（Meta-Concepts）
@@ -34,6 +57,34 @@ meta_concepts:
 
   Verification:
     description: "证明声明和执行一致的可执行检查"
+
+  # v3 新增：验证深度分层
+  VerificationDepth:
+    description: "检查在哪个深度层工作 — 越深越接近真实"
+    layers:
+      declaration:
+        depth: 1
+        question: "代码/配置说了 X 吗？"
+        check_types: [file_contains, file_not_contains, python_assert]
+        catches: "代码级不一致（pattern 缺失、字段缺失、导入缺失）"
+        blind_spot: "代码正确但从未被执行（cron 环境不同、PATH 不同）"
+        lesson: "2026-04-07: 12/12 声明检查全过"
+
+      runtime:
+        depth: 2
+        question: "X 在执行环境中真的发生了吗？"
+        check_types: [env_var_exists, command_succeeds]
+        catches: "执行环境不一致（env vars 缺失、python3 损坏、crontab 漂移）"
+        blind_spot: "执行正确但结果错误（发送成功但目标号码是占位号）"
+        lesson: "2026-04-08: bash -lc 缺失导致 OPENCLAW_PHONE 为占位号，推送 3 天失败"
+
+      effect:
+        depth: 3
+        question: "X 达到了预期目的吗？"
+        check_types: []  # 待建设
+        catches: "端到端失败（各组件正常但整体不工作）"
+        blind_spot: "需要外部反馈（用户确认收到消息）"
+        lesson: "待积累 — 每个真实 bug 驱动一个新 effect 检查"
 
 # ═══════════════════════════════════════════════════════════════════════
 # 2. 元规则（Meta-Rules）
@@ -63,6 +114,11 @@ meta_rules:
     description: "每个健康状态字段必须有刷新机制和陈旧度检测"
     lesson: "2026-04-07: security_score 无时间戳，从不自动刷新"
 
+  - id: MR-6
+    name: critical-invariants-need-depth
+    description: "severity=critical 的不变式必须有 ≥2 层验证深度（声明层+运行时层）"
+    lesson: "2026-04-08: 声明层 12/12 全过但 DBLP/Dream WhatsApp 推送连续失败 3 天。单层检查给出虚假的安全感。"
+
 # ═══════════════════════════════════════════════════════════════════════
 # 3. 不变式（Invariants）— 可执行的声明-执行-验证三元组
 # ═══════════════════════════════════════════════════════════════════════
@@ -73,6 +129,7 @@ invariants:
   - id: INV-TOOL-001
     name: tool-count-limit
     meta_rule: MR-1
+    verification_layer: [declaration]
     severity: critical
     declaration: "Agent 单次请求工具数 ≤ 12（CLAUDE.md）"
     checks:
@@ -91,6 +148,7 @@ invariants:
   - id: INV-TOOL-002
     name: max-tools-config-imported
     meta_rule: MR-1
+    verification_layer: [declaration]
     severity: critical
     declaration: "MAX_TOOLS = 12 定义在 config_loader → proxy_filters 必须导入使用"
     checks:
@@ -107,6 +165,7 @@ invariants:
   - id: INV-TOOL-003
     name: custom-tool-schema-sync
     meta_rule: MR-3
+    verification_layer: [declaration]
     severity: high
     declaration: "CUSTOM_TOOLS schema 与 tool_proxy.py 实现一致"
     checks:
@@ -135,6 +194,7 @@ invariants:
   - id: INV-CRON-001
     name: registry-crontab-interval-sync
     meta_rule: MR-3
+    verification_layer: [declaration, runtime]
     severity: critical
     declaration: "registry interval 与实际 crontab 一致"
     lesson: "2026-04-07: ArXiv registry 0 8,20 但 crontab 0 */3"
@@ -151,6 +211,7 @@ invariants:
   - id: INV-CRON-002
     name: quiet-hours-enforcement
     meta_rule: MR-4
+    verification_layer: [declaration]
     severity: high
     declaration: "00:00-07:00 零推送通知（Dream 除外）"
     lesson: "2026-04-07: watchdog 04:30 + ArXiv 04:00 打扰睡眠"
@@ -176,6 +237,7 @@ invariants:
   - id: INV-NOTIFY-001
     name: discord-channel-availability
     meta_rule: MR-4
+    verification_layer: [declaration, runtime]
     severity: critical
     declaration: "所有推送必须双通道（CLAUDE.md #16），6 个 DISCORD_CH_* 非空"
     checks:
@@ -215,6 +277,7 @@ invariants:
   - id: INV-NOTIFY-002
     name: notify-empty-channel-error
     meta_rule: MR-4
+    verification_layer: [declaration]
     severity: high
     declaration: "推送失败必须有可观测信号，空 channel 不能静默跳过"
     lesson: "2026-04-07: 空 channel ID 静默跳过，消息消失无痕迹"
@@ -229,6 +292,7 @@ invariants:
   - id: INV-ENV-001
     name: required-env-vars-in-preflight
     meta_rule: MR-2
+    verification_layer: [declaration, runtime]
     severity: high
     declaration: "registry needs_api_key 字段被代码消费，不是死文档"
     checks:
@@ -250,6 +314,7 @@ invariants:
   - id: INV-HEALTH-001
     name: health-fields-freshness
     meta_rule: MR-5
+    verification_layer: [declaration]
     severity: high
     declaration: "status.json health 字段有自动刷新 + 时间戳"
     checks:
@@ -265,6 +330,7 @@ invariants:
   - id: INV-HEALTH-002
     name: service-health-validates-content
     meta_rule: MR-2
+    verification_layer: [declaration, runtime]
     severity: high
     declaration: "services: ok 必须验证响应 body，不只是 HTTP 200"
     checks:
@@ -286,6 +352,7 @@ invariants:
   - id: INV-DEPLOY-001
     name: file-map-completeness
     meta_rule: MR-2
+    verification_layer: [declaration]
     severity: medium
     declaration: "未部署文件必须显式声明为不需要部署"
     checks:
@@ -297,6 +364,7 @@ invariants:
   - id: INV-DEPLOY-002
     name: auto-deploy-never-modifies-crontab
     meta_rule: MR-3
+    verification_layer: [declaration]
     severity: critical
     declaration: "auto_deploy 不改 crontab → 必须有漂移检测兜底"
     design_decision: "crontab 变更需人工确认（安全考虑），漂移检测是安全网"
@@ -329,6 +397,7 @@ invariants:
   - id: INV-CRON-003
     name: bash-lc-enforcement
     meta_rule: MR-1
+    verification_layer: [runtime]
     severity: critical
     declaration: "每个 enabled job 的 crontab 条目必须包含 bash -lc（否则 cron 环境缺少 env vars）"
     design_decision: "2026-04-08 教训：DBLP/Dream/Watchdog 无 bash -lc → OPENCLAW_PHONE 为占位号 → 推送连续失败 3 天"
@@ -359,6 +428,7 @@ invariants:
   - id: INV-CRON-004
     name: crontab-no-duplicates
     meta_rule: MR-3
+    verification_layer: [runtime]
     severity: high
     declaration: "每个 job 在 crontab 中最多出现一次（重复条目导致并发执行和资源浪费）"
     design_decision: "2026-04-08 教训：kb_dream 有 3 个 crontab 条目，双进程启动触发 lock contention"
@@ -391,6 +461,7 @@ invariants:
   - id: INV-ENV-002
     name: cron-env-smoke-test
     meta_rule: MR-1
+    verification_layer: [runtime]
     severity: critical
     declaration: "cron 环境（bash -lc）中 OPENCLAW_PHONE 必须是真实号码，非占位号"
     design_decision: "2026-04-08 教训：cron 无 bash -lc 时 OPENCLAW_PHONE 为 +85200000000（占位号），所有 WhatsApp 推送静默失败"
@@ -445,16 +516,30 @@ meta_rule_discovery:
     match_against: "_notify_discord_target_for_topic() case 分支"
     severity_when_missing: warn
 
+  - id: MRD-LAYER-001
+    meta_rule: MR-6
+    name: "severity=critical 的不变式应有 ≥2 层验证深度"
+    description: |
+      扫描所有 severity=critical 的不变式，检查 verification_layer 是否包含
+      ≥2 个层（如 [declaration, runtime]）。单层覆盖的 critical 不变式 = 虚假安全感。
+    scan_source: "governance_ontology.yaml invariants"
+    scan_filter: "severity == 'critical' and len(verification_layer) < 2"
+    severity_when_missing: warn
+    lesson: "2026-04-08: 声明层 12/12 全过但推送失败 3 天——单层检查的虚假安全感"
+
 # ═══════════════════════════════════════════════════════════════════════
 # 5. 审计元数据
 # ═══════════════════════════════════════════════════════════════════════
 audit_metadata:
-  version: "2.1"
+  version: "3.0"
   created: "2026-04-07"
-  upgraded: "v2.0 可执行检查 → v2.1 元规则自动发现 (Phase 0: 结构化数据源)"
-  total_checks: 28
-  meta_rule_discovery_count: 3   # Phase 0: registry + env + notify
+  upgraded: "v2.1 → v3.0: 验证深度三层模型 + MR-6 多层覆盖要求 + MRD-LAYER-001 深度盲区自动发现"
+  total_invariants: 15
+  total_checks: 32
+  meta_rules: 6         # MR-1~MR-6
+  meta_rule_discovery_count: 4   # Phase 0: registry + env + notify + layer depth
   check_types_used: [python_assert, file_contains, file_not_contains, env_var_exists, command_succeeds]
+  verification_layers_used: [declaration, runtime]  # effect 层待建设
 
   phase_roadmap:
     phase_0: "结构化数据源（jobs_registry.yaml）← 当前"

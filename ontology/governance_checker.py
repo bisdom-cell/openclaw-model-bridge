@@ -258,6 +258,11 @@ def run_meta_discovery(data):
             result = _discover_uncovered_topics(severity)
             discovery_results.append({"id": disc_id, "name": name, **result})
 
+        elif disc_id == "MRD-LAYER-001":
+            # 扫描 critical 不变式的验证深度
+            result = _discover_shallow_critical(data, severity)
+            discovery_results.append({"id": disc_id, "name": name, **result})
+
     return discovery_results
 
 
@@ -372,6 +377,37 @@ def _discover_uncovered_topics(severity):
     }
 
 
+def _discover_shallow_critical(data, severity):
+    """MRD-LAYER-001: severity=critical 的不变式应有 ≥2 层验证深度。"""
+    invariants = data.get("invariants", [])
+    shallow = []
+    deep = []
+
+    for inv in invariants:
+        if inv.get("severity") != "critical":
+            continue
+        layers = inv.get("verification_layer", [])
+        inv_id = inv.get("id", "?")
+        if len(layers) < 2:
+            shallow.append(f"{inv_id} ({','.join(layers) if layers else 'none'})")
+        else:
+            deep.append(inv_id)
+
+    if shallow:
+        return {
+            "status": "warn",
+            "severity": severity,
+            "message": f"{len(shallow)} 个 critical 不变式仅有单层验证: {', '.join(shallow[:5])}{'...' if len(shallow) > 5 else ''}",
+            "shallow": shallow,
+            "deep": deep,
+        }
+    return {
+        "status": "pass",
+        "severity": severity,
+        "message": f"所有 {len(deep)} 个 critical 不变式都有 ≥2 层验证深度",
+    }
+
+
 def print_results(results):
     if JSON_MODE:
         print(json.dumps(results, indent=2, ensure_ascii=False))
@@ -419,7 +455,7 @@ def print_results(results):
     print()
     print("─" * 70)
     print(f"  不变式: {len(results)} | 检查: {executed} 执行, {skipped} 跳过")
-    print(f"  通过: {passed_checks}/{executed} checks | 元规则: {len(mr_used)}/5")
+    print(f"  通过: {passed_checks}/{executed} checks | 元规则: {len(mr_used)}/6")
 
     if failed_invs:
         print(f"\n  ❌ {failed_invs} 个不变式被违反")

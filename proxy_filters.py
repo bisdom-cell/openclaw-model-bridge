@@ -25,12 +25,13 @@ from config_loader import (
 )
 
 # ---------------------------------------------------------------------------
-# Phase 1: Ontology 特性开关（默认 off = 使用硬编码，完全等价于改动前）
-# ONTOLOGY_MODE=on 时从 ontology/tool_ontology.yaml 加载数据
-# 任何加载失败自动回退到硬编码，等价于开关 off
-# 回退方式：ONTOLOGY_MODE=off 或 rm -rf ontology/
+# Ontology 特性开关（三档渐进切换）
+# off    — 纯硬编码，ontology 不加载（默认）
+# shadow — 双跑比对：硬编码做决策，引擎在旁边比对，差异记日志（Phase 2）
+# on     — 引擎数据替换硬编码（Phase 1，已验证等价性）
+# 任何加载失败自动回退到 off
 # ---------------------------------------------------------------------------
-_ONTOLOGY_MODE = os.environ.get("ONTOLOGY_MODE", "off").lower() == "on"
+_ONTOLOGY_MODE = os.environ.get("ONTOLOGY_MODE", "off").lower()  # "off" | "shadow" | "on"
 
 # ---------------------------------------------------------------------------
 # 配置数据（硬编码 — 始终定义，作为基线和回退）
@@ -242,6 +243,43 @@ def filter_tools(tools, log_fn=None):
         new_tools = gateway[:_CFG_MAX_TOOLS - len(custom)] + custom
 
     kept_names = [t.get("function", {}).get("name") for t in new_tools]
+
+    # Shadow 比对：引擎 vs 硬编码产生相同结果吗？
+    if _onto_shadow_data and log_fn:
+        try:
+            shadow_allowed = _onto_shadow_data["ALLOWED_TOOLS"]
+            shadow_prefixes = _onto_shadow_data["ALLOWED_PREFIXES"]
+            # 用引擎数据重新过滤同一批工具
+            shadow_kept = []
+            for t in tools:
+                name = t.get("function", {}).get("name", "")
+                if name in shadow_allowed:
+                    shadow_kept.append(name)
+                elif any(name.startswith(p) for p in shadow_prefixes):
+                    shadow_kept.append(name)
+            # 比对：硬编码 kept vs 引擎 kept（不含 custom tools）
+            hc_set = {n for n in kept_names if n not in CUSTOM_TOOL_NAMES}
+            eng_set = set(shadow_kept)
+            if hc_set != eng_set:
+                only_hc = hc_set - eng_set
+                only_eng = eng_set - hc_set
+                log_fn(f"ONTO SHADOW DRIFT: hardcoded_only={only_hc or '{}'} engine_only={only_eng or '{}'}")
+        except Exception:
+            pass  # shadow 比对失败不影响主流程
+
+    # 语义观察：ontology 对每个通过的工具提供语义分类
+    if _onto_engine and log_fn:
+        try:
+            high_risk = []
+            for name in kept_names:
+                cl = _onto_engine.classify_tool_call(name)
+                if cl.get("risk_level") == "high":
+                    high_risk.append(name)
+            if high_risk:
+                log_fn(f"ONTO: {len(high_risk)} high-risk tools: {','.join(high_risk)}")
+        except Exception:
+            pass  # 语义观察失败不影响主流程
+
     return new_tools, all_names, kept_names
 
 
@@ -322,10 +360,13 @@ CUSTOM_TOOL_NAMES = {t["function"]["name"] for t in CUSTOM_TOOLS}
 
 
 # ---------------------------------------------------------------------------
-# Phase 1: Ontology 数据覆盖（仅 ONTOLOGY_MODE=on 时生效）
-# 回退逻辑：加载失败 → 保留上方硬编码不变 → 等价于开关 off
+# Ontology 引擎加载（shadow / on 模式）
+# 回退逻辑：加载失败 → 保留上方硬编码不变 → 等价于 off
 # ---------------------------------------------------------------------------
-if _ONTOLOGY_MODE:
+_onto_engine = None
+_onto_shadow_data = None  # shadow 模式用：引擎生成的数据（不覆盖硬编码）
+
+if _ONTOLOGY_MODE in ("on", "shadow"):
     try:
         import importlib.util as _imp_util
         _onto_engine_path = os.path.join(
@@ -337,27 +378,37 @@ if _ONTOLOGY_MODE:
             _onto = _mod.ToolOntology()
             _data = _onto.generate_proxy_data()
 
-            # 覆盖硬编码（只有全部生成成功才覆盖）
-            ALLOWED_TOOLS = _data["ALLOWED_TOOLS"]
-            ALLOWED_PREFIXES = _data["ALLOWED_PREFIXES"]
-            CLEAN_SCHEMAS = _data["CLEAN_SCHEMAS"]
-            TOOL_PARAMS = _data["TOOL_PARAMS"]
-            CUSTOM_TOOLS = _data["CUSTOM_TOOLS"]
-            CUSTOM_TOOL_NAMES = _data["CUSTOM_TOOL_NAMES"]
-            VALID_BROWSER_PROFILES = _data["VALID_BROWSER_PROFILES"]
+            _onto_engine = _onto
 
-            import logging as _log
-            _log.getLogger("proxy_filters").info(
-                "ONTOLOGY_MODE=on: loaded %d tools from ontology/tool_ontology.yaml",
-                len(ALLOWED_TOOLS))
+            if _ONTOLOGY_MODE == "on":
+                # Phase 1: 覆盖硬编码
+                ALLOWED_TOOLS = _data["ALLOWED_TOOLS"]
+                ALLOWED_PREFIXES = _data["ALLOWED_PREFIXES"]
+                CLEAN_SCHEMAS = _data["CLEAN_SCHEMAS"]
+                TOOL_PARAMS = _data["TOOL_PARAMS"]
+                CUSTOM_TOOLS = _data["CUSTOM_TOOLS"]
+                CUSTOM_TOOL_NAMES = _data["CUSTOM_TOOL_NAMES"]
+                VALID_BROWSER_PROFILES = _data["VALID_BROWSER_PROFILES"]
 
-            # 清理临时变量
-            del _spec, _mod, _onto, _data
+                import logging as _log
+                _log.getLogger("proxy_filters").info(
+                    "ONTOLOGY_MODE=on: loaded %d tools from engine",
+                    len(ALLOWED_TOOLS))
+            else:
+                # Phase 2 shadow: 保留引擎数据但不覆盖硬编码
+                _onto_shadow_data = _data
+                import logging as _log
+                _log.getLogger("proxy_filters").info(
+                    "ONTOLOGY_MODE=shadow: engine loaded (%d tools), "
+                    "hardcoded active, comparing at runtime",
+                    len(_data["ALLOWED_TOOLS"]))
+
+            del _spec, _mod, _data
     except Exception as _e:
         import logging as _log
         _log.getLogger("proxy_filters").warning(
-            "ONTOLOGY_MODE=on but load failed, falling back to hardcoded: %s", _e)
-        # 硬编码变量未被修改，安全回退
+            "ONTOLOGY_MODE=%s but load failed, falling back to hardcoded: %s",
+            _ONTOLOGY_MODE, _e)
 
 
 # [NO_TOOLS] 标记：消息中包含此标记时，proxy 强制清空工具列表
