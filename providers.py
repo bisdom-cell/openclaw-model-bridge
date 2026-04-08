@@ -12,9 +12,14 @@ providers.py — Provider Compatibility Layer (V34: Stage2)
 - 能力声明：每个 Provider 显式声明支持的功能，而非运行时探测
 - 可扩展：新 Provider 只需继承 BaseProvider 并注册
 """
+import importlib.util
+import logging
 import os
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Set
+from pathlib import Path
+from typing import Dict, List, Optional, Set, Tuple
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -159,6 +164,226 @@ class BaseProvider:
             "auth_style": self.auth_style,
             "verified": caps.verified_features(),
         }
+
+
+# ---------------------------------------------------------------------------
+# Provider Contract — registration-time validation
+# ---------------------------------------------------------------------------
+class ProviderContract:
+    """Validates that a provider meets the minimum contract requirements.
+
+    The contract ensures every registered provider has:
+    - A unique name
+    - A valid base_url
+    - An api_key_env pointing to the credential
+    - At least one model with a model_id
+    - A recognized auth_style
+    - Consistent capability declarations
+    """
+    VALID_AUTH_STYLES = {"bearer", "x-api-key", "query-param", "custom"}
+
+    @classmethod
+    def validate(cls, provider: BaseProvider) -> List[str]:
+        """Validate provider contract. Returns list of violations (empty = valid)."""
+        violations = []
+        if not getattr(provider, 'name', ''):
+            violations.append("name is required")
+        if not getattr(provider, 'base_url', ''):
+            violations.append("base_url is required")
+        if not getattr(provider, 'api_key_env', ''):
+            violations.append("api_key_env is required")
+        models = getattr(provider, 'models', [])
+        if not models:
+            violations.append("at least one model is required")
+        else:
+            for i, m in enumerate(models):
+                if not getattr(m, 'model_id', ''):
+                    violations.append(f"models[{i}].model_id is required")
+            defaults = [m for m in models if getattr(m, 'is_default', False)]
+            if len(defaults) > 1:
+                violations.append(f"only one model can be is_default (found {len(defaults)})")
+        auth = getattr(provider, 'auth_style', 'bearer')
+        if auth not in cls.VALID_AUTH_STYLES:
+            violations.append(f"auth_style '{auth}' not in {sorted(cls.VALID_AUTH_STYLES)}")
+        caps = getattr(provider, 'capabilities', None)
+        if caps and getattr(caps, 'vision', False) and models:
+            has_vision_model = any(
+                getattr(m, 'is_vision', False) or 'vision' in getattr(m, 'modalities', [])
+                for m in models
+            )
+            if not has_vision_model:
+                violations.append("capabilities declares vision=True but no model supports vision")
+        return violations
+
+
+class ContractViolationError(ValueError):
+    """Raised when a provider fails contract validation."""
+    def __init__(self, provider_name: str, violations: List[str]):
+        self.provider_name = provider_name
+        self.violations = violations
+        msg = f"Provider '{provider_name}' contract violations: {'; '.join(violations)}"
+        super().__init__(msg)
+
+
+# ---------------------------------------------------------------------------
+# Plugin Loader — discover and load providers from YAML/Python files
+# ---------------------------------------------------------------------------
+class PluginLoader:
+    """Load provider plugins from YAML definitions or Python modules.
+
+    Supports two formats:
+    - YAML (.yaml/.yml): Declarative provider definition, no code needed.
+      Covers 90% of use cases (OpenAI-compatible providers).
+    - Python (.py): For providers needing custom auth or special behavior.
+      Must export exactly one BaseProvider subclass.
+
+    Files starting with '_' or '.' are skipped (reserved for examples/hidden).
+    """
+
+    @classmethod
+    def from_yaml(cls, path: str) -> BaseProvider:
+        """Load a provider from a YAML definition file.
+
+        YAML format:
+            name: deepseek
+            display_name: DeepSeek
+            base_url: https://api.deepseek.com/v1
+            api_key_env: DEEPSEEK_API_KEY
+            auth_style: bearer          # optional, default: bearer
+            models:
+              - model_id: deepseek-chat
+                display_name: DeepSeek V3
+                modalities: [text]
+                context_window: 65536
+                max_output_tokens: 8192
+                is_default: true
+            capabilities:               # optional
+              text: true
+              tool_calling: true
+              streaming: true
+        """
+        try:
+            import yaml
+        except ImportError:
+            raise ImportError("PyYAML is required for YAML plugins: pip3 install pyyaml")
+
+        with open(path, 'r') as f:
+            data = yaml.safe_load(f)
+
+        if not isinstance(data, dict):
+            raise ValueError(f"YAML plugin must be a dict, got {type(data).__name__}")
+
+        return cls._dict_to_provider(data, source=path)
+
+    @classmethod
+    def _dict_to_provider(cls, data: dict, source: str = "") -> BaseProvider:
+        """Convert a dict (from YAML or JSON) to a BaseProvider instance."""
+        # Build models
+        models = []
+        for md in data.get('models', []):
+            models.append(ModelInfo(
+                model_id=md.get('model_id', ''),
+                display_name=md.get('display_name', ''),
+                modalities=md.get('modalities', ['text']),
+                context_window=md.get('context_window', 0),
+                max_output_tokens=md.get('max_output_tokens', 0),
+                is_default=md.get('is_default', False),
+                is_vision=md.get('is_vision', False),
+            ))
+
+        # Build capabilities
+        caps_data = data.get('capabilities', {})
+        caps = ProviderCapabilities(
+            text=caps_data.get('text', True),
+            vision=caps_data.get('vision', False),
+            audio=caps_data.get('audio', False),
+            video=caps_data.get('video', False),
+            tool_calling=caps_data.get('tool_calling', False),
+            streaming=caps_data.get('streaming', False),
+            json_mode=caps_data.get('json_mode', False),
+            context_window=caps_data.get('context_window', 0),
+            max_output_tokens=caps_data.get('max_output_tokens', 0),
+        )
+
+        # Create provider instance
+        provider = BaseProvider()
+        provider.name = data.get('name', '')
+        provider.display_name = data.get('display_name', provider.name)
+        provider.base_url = data.get('base_url', '')
+        provider.api_key_env = data.get('api_key_env', '')
+        provider.auth_style = data.get('auth_style', 'bearer')
+        provider.models = models
+        provider.capabilities = caps
+        provider._plugin_source = source
+        return provider
+
+    @classmethod
+    def from_python(cls, path: str) -> BaseProvider:
+        """Load a provider from a Python module.
+
+        The module must define exactly one class that inherits from BaseProvider.
+        The class is instantiated with no arguments.
+        """
+        module_name = Path(path).stem
+        spec = importlib.util.spec_from_file_location(
+            f"provider_plugin_{module_name}", path
+        )
+        if spec is None or spec.loader is None:
+            raise ImportError(f"Cannot load Python plugin: {path}")
+
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+
+        # Find BaseProvider subclasses defined in this module
+        candidates = []
+        for attr_name in dir(module):
+            attr = getattr(module, attr_name)
+            if (isinstance(attr, type)
+                    and issubclass(attr, BaseProvider)
+                    and attr is not BaseProvider
+                    and attr.__module__ == module.__name__):
+                candidates.append(attr)
+
+        if not candidates:
+            raise ValueError(f"No BaseProvider subclass found in {path}")
+        if len(candidates) > 1:
+            names = [c.__name__ for c in candidates]
+            raise ValueError(f"Multiple BaseProvider subclasses in {path}: {names}. Expected exactly one.")
+
+        provider = candidates[0]()
+        provider._plugin_source = path
+        return provider
+
+    @classmethod
+    def discover(cls, directory: str) -> List[Tuple[Optional[BaseProvider], Optional[str]]]:
+        """Discover and load all provider plugins from a directory.
+
+        Returns list of (provider, error) tuples.
+        - On success: (provider, None)
+        - On failure: (None, error_message)
+
+        Files starting with '_' or '.' are skipped.
+        """
+        results = []
+        dir_path = Path(directory)
+        if not dir_path.is_dir():
+            return results
+
+        for f in sorted(dir_path.iterdir()):
+            if f.name.startswith('_') or f.name.startswith('.'):
+                continue
+            try:
+                if f.suffix in ('.yaml', '.yml'):
+                    provider = cls.from_yaml(str(f))
+                    results.append((provider, None))
+                elif f.suffix == '.py':
+                    provider = cls.from_python(str(f))
+                    results.append((provider, None))
+            except Exception as e:
+                results.append((None, f"{f.name}: {e}"))
+                logger.warning("Failed to load plugin %s: %s", f.name, e)
+
+        return results
 
 
 # ---------------------------------------------------------------------------
@@ -432,14 +657,34 @@ class GLMProvider(BaseProvider):
 # Provider Registry — 动态注册 + 发现
 # ---------------------------------------------------------------------------
 class ProviderRegistry:
-    """Provider 注册表，支持动态注册和按名查找。"""
+    """Provider 注册表，支持动态注册、合约验证和插件发现。"""
 
     def __init__(self):
         self._providers: Dict[str, BaseProvider] = {}
+        self._plugin_errors: List[str] = []
 
-    def register(self, provider: BaseProvider):
-        """注册一个 Provider。"""
+    def register(self, provider: BaseProvider, validate: bool = True):
+        """注册一个 Provider。
+
+        Args:
+            provider: Provider instance to register.
+            validate: If True, run contract validation before registration.
+
+        Raises:
+            ContractViolationError: If validation is enabled and provider
+                fails contract checks.
+        """
+        if validate:
+            violations = ProviderContract.validate(provider)
+            if violations:
+                raise ContractViolationError(
+                    getattr(provider, 'name', '<unknown>'), violations
+                )
         self._providers[provider.name] = provider
+
+    def unregister(self, name: str) -> bool:
+        """Remove a provider by name. Returns True if it existed."""
+        return self._providers.pop(name, None) is not None
 
     def get(self, name: str) -> Optional[BaseProvider]:
         """按名获取 Provider。"""
@@ -452,6 +697,41 @@ class ProviderRegistry:
     def all(self) -> List[BaseProvider]:
         """返回所有已注册 Provider。"""
         return list(self._providers.values())
+
+    def load_plugins(self, directory: str) -> List[str]:
+        """Discover and load all provider plugins from a directory.
+
+        Returns list of error messages (empty = all loaded successfully).
+        Plugins that conflict with built-in names are skipped with a warning.
+        """
+        errors = []
+        results = PluginLoader.discover(directory)
+        for provider, error in results:
+            if error:
+                errors.append(error)
+                continue
+            if provider is None:
+                continue
+            if provider.name in self._providers:
+                src = getattr(provider, '_plugin_source', '?')
+                errors.append(
+                    f"{provider.name}: skipped (conflicts with built-in provider). "
+                    f"Source: {src}"
+                )
+                logger.warning("Plugin '%s' skipped: conflicts with built-in", provider.name)
+                continue
+            try:
+                self.register(provider, validate=True)
+                logger.info("Loaded plugin provider: %s", provider.name)
+            except ContractViolationError as e:
+                errors.append(str(e))
+        self._plugin_errors = errors
+        return errors
+
+    @property
+    def plugin_errors(self) -> List[str]:
+        """Errors from the last load_plugins() call."""
+        return self._plugin_errors
 
     def to_legacy_dict(self) -> Dict[str, dict]:
         """转换为旧格式 PROVIDERS dict（向后兼容 adapter.py）。"""
@@ -483,7 +763,7 @@ class ProviderRegistry:
 
 
 # ---------------------------------------------------------------------------
-# Default registry — 内置 4 个 Provider
+# Default registry — 7 built-in providers + auto-discovered plugins
 # ---------------------------------------------------------------------------
 _default_registry = ProviderRegistry()
 _default_registry.register(QwenProvider())
@@ -493,6 +773,14 @@ _default_registry.register(ClaudeProvider())
 _default_registry.register(KimiProvider())
 _default_registry.register(MiniMaxProvider())
 _default_registry.register(GLMProvider())
+
+# Auto-discover plugins from providers.d/ (relative to this file)
+_PLUGIN_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "providers.d")
+if os.path.isdir(_PLUGIN_DIR):
+    _plugin_errors = _default_registry.load_plugins(_PLUGIN_DIR)
+    if _plugin_errors:
+        for _err in _plugin_errors:
+            logger.warning("Plugin load error: %s", _err)
 
 
 def get_registry() -> ProviderRegistry:
@@ -519,11 +807,45 @@ if __name__ == "__main__":
     if "--json" in sys.argv:
         import json
         print(json.dumps(_default_registry.compatibility_matrix(), indent=2, ensure_ascii=False))
+    elif "--validate" in sys.argv:
+        # Validate all registered providers
+        print("# Provider Contract Validation\n")
+        all_ok = True
+        for p in _default_registry.all():
+            violations = ProviderContract.validate(p)
+            source = getattr(p, '_plugin_source', 'built-in')
+            if violations:
+                print(f"FAIL {p.name} ({source}): {'; '.join(violations)}")
+                all_ok = False
+            else:
+                print(f"  OK {p.name} ({source})")
+        if _default_registry.plugin_errors:
+            print(f"\nPlugin load errors:")
+            for err in _default_registry.plugin_errors:
+                print(f"  ERROR {err}")
+            all_ok = False
+        print(f"\n{'All providers valid.' if all_ok else 'Some providers have issues.'}")
+        sys.exit(0 if all_ok else 1)
     else:
         print("# Provider Compatibility Matrix\n")
         _default_registry.print_matrix()
-        print(f"\nTotal: {len(_default_registry.list_names())} providers registered")
+
+        # Separate built-in from plugins
+        builtins = [p for p in _default_registry.all() if not hasattr(p, '_plugin_source')]
+        plugins = [p for p in _default_registry.all() if hasattr(p, '_plugin_source')]
+        print(f"\nTotal: {len(_default_registry.list_names())} providers "
+              f"({len(builtins)} built-in, {len(plugins)} plugins)")
         print(f"Names: {', '.join(_default_registry.list_names())}")
+
+        if plugins:
+            print(f"\n## Plugins\n")
+            for p in plugins:
+                print(f"- **{p.display_name}** ({p.name}) — {p._plugin_source}")
+
+        if _default_registry.plugin_errors:
+            print(f"\n## Plugin Errors\n")
+            for err in _default_registry.plugin_errors:
+                print(f"- {err}")
 
         # 验证摘要
         print("\n## Verification Status\n")
