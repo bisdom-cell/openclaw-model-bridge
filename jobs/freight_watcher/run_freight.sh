@@ -25,6 +25,7 @@ ROOT="${HOME}/.openclaw"
 JOB="$ROOT/jobs/freight_watcher"
 CACHE="$JOB/cache"
 KB_SRC="${KB_BASE:-$HOME/.kb}/sources/freight_daily.md"
+KB_WRITE_SCRIPT="${KB_WRITE_SCRIPT:-$HOME/kb_write.sh}"
 KB_INBOX="${KB_BASE:-$HOME/.kb}/inbox.md"
 TO="${OPENCLAW_PHONE:-+85200000000}"
 LLM_RAW="$CACHE/llm_raw_last.txt"
@@ -305,6 +306,11 @@ fi
     echo "## ${DAY}"
     cat "$MSG_FILE"
 } >> "$KB_SRC"
+
+# 写入 KB notes（与其他 job 对齐双写模式）
+bash "$KB_WRITE_SCRIPT" "# 货代商机 ${DAY}
+
+$(cat "$MSG_FILE")" "freight" "note" 2>/dev/null || true
 
 # ── 7. rsync备份 ────────────────────────────────────────────────────────
 rsync -a --quiet "$HOME/.kb/" "/Volumes/MOVESPEED/KB/" 2>/dev/null || true
