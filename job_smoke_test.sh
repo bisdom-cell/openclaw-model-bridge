@@ -4,6 +4,17 @@
 # 用法：bash job_smoke_test.sh          （Mac Mini 上运行）
 # 注意：不会真正执行 job，只做被动检查
 export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
+export LANG="${LANG:-en_US.UTF-8}"
+export PYTHONIOENCODING=utf-8
+
+# Detect working python3 (homebrew python may be Killed:9 on macOS)
+if python3 -c "pass" 2>/dev/null; then
+    PY3=python3
+elif /usr/bin/python3 -c "pass" 2>/dev/null; then
+    PY3=/usr/bin/python3
+else
+    echo "❌ No working python3 found"; exit 1
+fi
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 TS=$(date '+%Y-%m-%d %H:%M:%S')
@@ -24,7 +35,7 @@ echo "╚═══════════════════════�
 echo ""
 
 # ── 从 registry 解析所有启用的 job ──
-JOBS=$(python3 - "$SCRIPT_DIR/jobs_registry.yaml" << 'PYEOF'
+JOBS=$($PY3 - "$SCRIPT_DIR/jobs_registry.yaml" << 'PYEOF'
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.abspath(sys.argv[1])))
 try:
@@ -146,7 +157,7 @@ while IFS='|' read -r job_id entry log_path interval needs_key description; do
         "$HOME/.openclaw/jobs/${job_id}/cache/last_run.json" \
         "$HOME/.kb/last_run_${job_id}.json"; do
         if [ -f "$status_file" ]; then
-            STATUS=$(python3 -c "
+            STATUS=$($PY3 -c "
 import json
 try:
     d = json.load(open('$status_file'))
@@ -243,7 +254,7 @@ echo ""
 echo "━━━ KB JSON 结构验证 ━━━"
 # index.json 解析 + 条目数
 if [ -f "$HOME/.kb/index.json" ]; then
-    IDX_CHECK=$(python3 -c "
+    IDX_CHECK=$($PY3 -c "
 import json
 try:
     with open('$HOME/.kb/index.json') as f:
@@ -260,7 +271,7 @@ except json.JSONDecodeError as e:
     print(f'FAIL|JSON 解析失败: {e}')
 except Exception as e:
     print(f'FAIL|{e}')
-" 2>/dev/null || echo "FAIL|Python 执行失败")
+" 2>/tmp/_jst_py_err || echo "FAIL|Python 执行失败: $(head -1 /tmp/_jst_py_err 2>/dev/null)")
     case "${IDX_CHECK%%|*}" in
         OK) pass "index.json: ${IDX_CHECK#*|}" ;;
         WARN) warn "index.json: ${IDX_CHECK#*|}" ;;
@@ -270,7 +281,7 @@ fi
 
 # status.json 解析 + 必要字段
 if [ -f "$HOME/.kb/status.json" ]; then
-    STS_CHECK=$(python3 -c "
+    STS_CHECK=$($PY3 -c "
 import json
 try:
     with open('$HOME/.kb/status.json') as f:
@@ -285,7 +296,7 @@ except json.JSONDecodeError as e:
     print(f'FAIL|JSON 损坏: {e}')
 except Exception as e:
     print(f'FAIL|{e}')
-" 2>/dev/null || echo "FAIL|Python 执行失败")
+" 2>/tmp/_jst_py_err || echo "FAIL|Python 执行失败: $(head -1 /tmp/_jst_py_err 2>/dev/null)")
     case "${STS_CHECK%%|*}" in
         OK) pass "status.json: ${STS_CHECK#*|}" ;;
         WARN) warn "status.json: ${STS_CHECK#*|}" ;;
@@ -297,7 +308,7 @@ fi
 echo "━━━ KB 语义索引 ━━━"
 KB_IDX_DIR="$HOME/.kb/text_index"
 if [ -f "$KB_IDX_DIR/meta.json" ] && [ -f "$KB_IDX_DIR/vectors.bin" ]; then
-    IDX_CHECK=$(python3 -c "
+    IDX_CHECK=$($PY3 -c "
 import json, os
 meta_file = os.path.expanduser('~/.kb/text_index/meta.json')
 vecs_file = os.path.expanduser('~/.kb/text_index/vectors.bin')
@@ -329,7 +340,7 @@ for c in chunks:
     by_type[t] = by_type.get(t, 0) + 1
 dist = ', '.join(f'{k}={v}' for k, v in sorted(by_type.items()))
 print(f'OK|分布: {dist}')
-" 2>/dev/null || echo "FAIL|Python 执行失败")
+" 2>/tmp/_jst_py_err || echo "FAIL|Python 执行失败: $(head -1 /tmp/_jst_py_err 2>/dev/null)")
     while IFS= read -r check_line; do
         case "${check_line%%|*}" in
             OK) pass "text_index: ${check_line#*|}" ;;

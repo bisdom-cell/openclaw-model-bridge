@@ -258,9 +258,9 @@
     "text_index": "15011 chunks, 277/277 files (100%), 277 stale, 4h ago, 22516KB"
   },
   "session_context": {
-    "last_session": "2026-04-06",
-    "unfinished": "① 明早验收Dream v2 04:30自动运行结果 ② Ontology特性开关Phase2(engine替代filters)+Phase3(切换生产) ③ Ontology立场文章待写",
-    "open_prs": "claude/start-daily-work-rCiVr (ontology子项目深度建设)",
+    "last_session": "2026-04-08",
+    "unfinished": "Mac Mini待办: ① 同步代码(git fetch+reset) ② 9个job crontab调度同步(registry已更新,crontab待应用) ③ governance_checker --full + adversarial_audit --full ④ preflight --full + job_smoke_test",
+    "open_prs": "",
     "blocked_on": ""
   },
   "quality": {
