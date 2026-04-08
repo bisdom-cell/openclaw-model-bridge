@@ -372,15 +372,21 @@ invariants:
           data = load_yaml("jobs_registry.yaml")
           crontab = subprocess.check_output(['crontab', '-l'], text=True)
           lines = [l for l in crontab.splitlines() if l.strip() and not l.strip().startswith('#')]
+          dupes = []
           for job in data['jobs']:
               if not job.get('enabled') or job.get('scheduler') != 'system':
                   continue
               entry = job.get('entry', '')
-              script = entry.split('/')[-1] if entry else ''
-              if not script:
+              sname = entry.split('/')[-1] if entry else ''
+              if not sname:
                   continue
-              hits = [l for l in lines if script in l]
-              assert len(hits) <= 1, f"{job['id']} ({script}) 在 crontab 中出现 {len(hits)} 次"
+              count = 0
+              for l in lines:
+                  if sname in l:
+                      count += 1
+              if count > 1:
+                  dupes.append(f"{job['id']} x{count}")
+          assert not dupes, f"重复 crontab: {'; '.join(dupes)}"
 
   - id: INV-ENV-002
     name: cron-env-smoke-test
