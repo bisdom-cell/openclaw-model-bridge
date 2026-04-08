@@ -260,7 +260,7 @@ except json.JSONDecodeError as e:
     print(f'FAIL|JSON 解析失败: {e}')
 except Exception as e:
     print(f'FAIL|{e}')
-" 2>/dev/null || echo "FAIL|Python 执行失败")
+" 2>/tmp/_jst_py_err || echo "FAIL|Python 执行失败: $(head -1 /tmp/_jst_py_err 2>/dev/null)")
     case "${IDX_CHECK%%|*}" in
         OK) pass "index.json: ${IDX_CHECK#*|}" ;;
         WARN) warn "index.json: ${IDX_CHECK#*|}" ;;
@@ -285,7 +285,7 @@ except json.JSONDecodeError as e:
     print(f'FAIL|JSON 损坏: {e}')
 except Exception as e:
     print(f'FAIL|{e}')
-" 2>/dev/null || echo "FAIL|Python 执行失败")
+" 2>/tmp/_jst_py_err || echo "FAIL|Python 执行失败: $(head -1 /tmp/_jst_py_err 2>/dev/null)")
     case "${STS_CHECK%%|*}" in
         OK) pass "status.json: ${STS_CHECK#*|}" ;;
         WARN) warn "status.json: ${STS_CHECK#*|}" ;;
@@ -329,7 +329,7 @@ for c in chunks:
     by_type[t] = by_type.get(t, 0) + 1
 dist = ', '.join(f'{k}={v}' for k, v in sorted(by_type.items()))
 print(f'OK|分布: {dist}')
-" 2>/dev/null || echo "FAIL|Python 执行失败")
+" 2>/tmp/_jst_py_err || echo "FAIL|Python 执行失败: $(head -1 /tmp/_jst_py_err 2>/dev/null)")
     while IFS= read -r check_line; do
         case "${check_line%%|*}" in
             OK) pass "text_index: ${check_line#*|}" ;;
