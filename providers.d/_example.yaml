@@ -1,0 +1,50 @@
+# Example Provider Plugin (YAML format)
+#
+# To add a new provider, copy this file, remove the leading '_',
+# and fill in your provider details. The file will be auto-discovered
+# when providers.py is imported.
+#
+# Filename: <provider-name>.yaml (e.g., deepseek.yaml)
+# Files starting with '_' or '.' are ignored.
+#
+# Required fields:
+#   - name: unique identifier (lowercase, no spaces)
+#   - base_url: API endpoint (OpenAI-compatible /v1 format)
+#   - api_key_env: environment variable holding the API key
+#   - models: at least one model with a model_id
+#
+# Optional fields:
+#   - display_name: human-readable name (defaults to name)
+#   - auth_style: "bearer" (default) | "x-api-key" | "query-param" | "custom"
+#   - capabilities: feature declarations for routing and fallback
+#
+# --- Example: DeepSeek ---
+#
+# name: deepseek
+# display_name: DeepSeek
+# base_url: https://api.deepseek.com/v1
+# api_key_env: DEEPSEEK_API_KEY
+# auth_style: bearer
+#
+# models:
+#   - model_id: deepseek-chat
+#     display_name: DeepSeek V3 (671B MoE)
+#     modalities: [text]
+#     context_window: 65536
+#     max_output_tokens: 8192
+#     is_default: true
+#
+#   - model_id: deepseek-reasoner
+#     display_name: DeepSeek R1
+#     modalities: [text]
+#     context_window: 65536
+#     max_output_tokens: 8192
+#
+# capabilities:
+#   text: true
+#   vision: false
+#   tool_calling: true
+#   streaming: true
+#   json_mode: true
+#   context_window: 65536
+#   max_output_tokens: 8192

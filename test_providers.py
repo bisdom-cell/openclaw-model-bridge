@@ -501,5 +501,624 @@ class TestChineseProviders(unittest.TestCase):
             self.assertEqual(p.auth_style, "bearer", f"{name} should use bearer auth")
 
 
+class TestProviderContract(unittest.TestCase):
+    """Provider contract validation tests"""
+
+    def _make_valid_provider(self, **overrides):
+        from providers import BaseProvider, ModelInfo, ProviderCapabilities
+        p = BaseProvider()
+        p.name = overrides.get('name', 'test')
+        p.display_name = overrides.get('display_name', 'Test Provider')
+        p.base_url = overrides.get('base_url', 'https://api.test.com/v1')
+        p.api_key_env = overrides.get('api_key_env', 'TEST_API_KEY')
+        p.auth_style = overrides.get('auth_style', 'bearer')
+        p.models = overrides.get('models', [
+            ModelInfo(model_id='test-v1', is_default=True)
+        ])
+        p.capabilities = overrides.get('capabilities', ProviderCapabilities(text=True))
+        return p
+
+    def test_valid_provider_passes(self):
+        from providers import ProviderContract
+        p = self._make_valid_provider()
+        self.assertEqual(ProviderContract.validate(p), [])
+
+    def test_missing_name(self):
+        from providers import ProviderContract
+        p = self._make_valid_provider(name='')
+        violations = ProviderContract.validate(p)
+        self.assertTrue(any('name' in v for v in violations))
+
+    def test_missing_base_url(self):
+        from providers import ProviderContract
+        p = self._make_valid_provider(base_url='')
+        violations = ProviderContract.validate(p)
+        self.assertTrue(any('base_url' in v for v in violations))
+
+    def test_missing_api_key_env(self):
+        from providers import ProviderContract
+        p = self._make_valid_provider(api_key_env='')
+        violations = ProviderContract.validate(p)
+        self.assertTrue(any('api_key_env' in v for v in violations))
+
+    def test_no_models(self):
+        from providers import ProviderContract
+        p = self._make_valid_provider(models=[])
+        violations = ProviderContract.validate(p)
+        self.assertTrue(any('model' in v.lower() for v in violations))
+
+    def test_model_without_id(self):
+        from providers import ProviderContract, ModelInfo
+        p = self._make_valid_provider(models=[ModelInfo(model_id='')])
+        violations = ProviderContract.validate(p)
+        self.assertTrue(any('model_id' in v for v in violations))
+
+    def test_multiple_defaults(self):
+        from providers import ProviderContract, ModelInfo
+        p = self._make_valid_provider(models=[
+            ModelInfo(model_id='m1', is_default=True),
+            ModelInfo(model_id='m2', is_default=True),
+        ])
+        violations = ProviderContract.validate(p)
+        self.assertTrue(any('is_default' in v for v in violations))
+
+    def test_invalid_auth_style(self):
+        from providers import ProviderContract
+        p = self._make_valid_provider(auth_style='invalid')
+        violations = ProviderContract.validate(p)
+        self.assertTrue(any('auth_style' in v for v in violations))
+
+    def test_valid_auth_styles(self):
+        from providers import ProviderContract
+        for style in ['bearer', 'x-api-key', 'query-param', 'custom']:
+            p = self._make_valid_provider(auth_style=style)
+            violations = ProviderContract.validate(p)
+            self.assertEqual(violations, [], f"auth_style '{style}' should be valid")
+
+    def test_vision_capability_without_vision_model(self):
+        from providers import ProviderContract, ProviderCapabilities, ModelInfo
+        caps = ProviderCapabilities(text=True, vision=True)
+        p = self._make_valid_provider(
+            capabilities=caps,
+            models=[ModelInfo(model_id='text-only', modalities=['text'])]
+        )
+        violations = ProviderContract.validate(p)
+        self.assertTrue(any('vision' in v for v in violations))
+
+    def test_vision_capability_with_vision_model(self):
+        from providers import ProviderContract, ProviderCapabilities, ModelInfo
+        caps = ProviderCapabilities(text=True, vision=True)
+        p = self._make_valid_provider(
+            capabilities=caps,
+            models=[ModelInfo(model_id='vis', modalities=['text', 'vision'], is_default=True)]
+        )
+        violations = ProviderContract.validate(p)
+        self.assertEqual(violations, [])
+
+    def test_all_builtin_providers_pass_contract(self):
+        from providers import ProviderContract, get_registry
+        for p in get_registry().all():
+            violations = ProviderContract.validate(p)
+            self.assertEqual(violations, [], f"{p.name} has contract violations: {violations}")
+
+
+class TestContractViolationError(unittest.TestCase):
+    """ContractViolationError tests"""
+
+    def test_error_message(self):
+        from providers import ContractViolationError
+        err = ContractViolationError("bad_provider", ["name is required", "no models"])
+        self.assertIn("bad_provider", str(err))
+        self.assertIn("name is required", str(err))
+
+    def test_error_attributes(self):
+        from providers import ContractViolationError
+        err = ContractViolationError("bad", ["v1", "v2"])
+        self.assertEqual(err.provider_name, "bad")
+        self.assertEqual(err.violations, ["v1", "v2"])
+
+    def test_is_value_error(self):
+        from providers import ContractViolationError
+        err = ContractViolationError("x", ["v"])
+        self.assertIsInstance(err, ValueError)
+
+
+class TestPluginLoaderYAML(unittest.TestCase):
+    """YAML plugin loading tests"""
+
+    def setUp(self):
+        import tempfile
+        self.tmpdir = tempfile.mkdtemp()
+
+    def tearDown(self):
+        import shutil
+        shutil.rmtree(self.tmpdir)
+
+    def _write_yaml(self, filename, content):
+        path = os.path.join(self.tmpdir, filename)
+        with open(path, 'w') as f:
+            f.write(content)
+        return path
+
+    def test_load_valid_yaml(self):
+        from providers import PluginLoader
+        path = self._write_yaml("deepseek.yaml", """
+name: deepseek
+display_name: DeepSeek
+base_url: https://api.deepseek.com/v1
+api_key_env: DEEPSEEK_API_KEY
+auth_style: bearer
+models:
+  - model_id: deepseek-chat
+    display_name: DeepSeek V3
+    modalities: [text]
+    context_window: 65536
+    max_output_tokens: 8192
+    is_default: true
+capabilities:
+  text: true
+  tool_calling: true
+  streaming: true
+  context_window: 65536
+""")
+        p = PluginLoader.from_yaml(path)
+        self.assertEqual(p.name, "deepseek")
+        self.assertEqual(p.display_name, "DeepSeek")
+        self.assertEqual(p.base_url, "https://api.deepseek.com/v1")
+        self.assertEqual(p.api_key_env, "DEEPSEEK_API_KEY")
+        self.assertEqual(p.auth_style, "bearer")
+        self.assertEqual(len(p.models), 1)
+        self.assertEqual(p.models[0].model_id, "deepseek-chat")
+        self.assertTrue(p.capabilities.tool_calling)
+        self.assertTrue(p.capabilities.streaming)
+        self.assertEqual(p.capabilities.context_window, 65536)
+
+    def test_yaml_default_auth_style(self):
+        from providers import PluginLoader
+        path = self._write_yaml("minimal.yaml", """
+name: minimal
+base_url: https://api.minimal.com/v1
+api_key_env: MINIMAL_API_KEY
+models:
+  - model_id: mini-v1
+    is_default: true
+""")
+        p = PluginLoader.from_yaml(path)
+        self.assertEqual(p.auth_style, "bearer")
+
+    def test_yaml_display_name_defaults_to_name(self):
+        from providers import PluginLoader
+        path = self._write_yaml("noname.yaml", """
+name: noname
+base_url: https://api.x.com/v1
+api_key_env: X_KEY
+models:
+  - model_id: x-v1
+    is_default: true
+""")
+        p = PluginLoader.from_yaml(path)
+        self.assertEqual(p.display_name, "noname")
+
+    def test_yaml_multiple_models(self):
+        from providers import PluginLoader
+        path = self._write_yaml("multi.yaml", """
+name: multi
+base_url: https://api.multi.com/v1
+api_key_env: MULTI_KEY
+models:
+  - model_id: text-v1
+    is_default: true
+  - model_id: vision-v1
+    is_vision: true
+    modalities: [text, vision]
+""")
+        p = PluginLoader.from_yaml(path)
+        self.assertEqual(len(p.models), 2)
+        self.assertIsNotNone(p.default_model())
+        self.assertIsNotNone(p.vision_model())
+
+    def test_yaml_legacy_dict(self):
+        from providers import PluginLoader
+        path = self._write_yaml("legacy.yaml", """
+name: legtest
+base_url: https://api.leg.com/v1
+api_key_env: LEG_KEY
+models:
+  - model_id: leg-v1
+    is_default: true
+""")
+        p = PluginLoader.from_yaml(path)
+        d = p.to_legacy_dict()
+        self.assertEqual(d['base_url'], 'https://api.leg.com/v1')
+        self.assertEqual(d['model_id'], 'leg-v1')
+
+    def test_yaml_invalid_not_dict(self):
+        from providers import PluginLoader
+        path = self._write_yaml("bad.yaml", "- just a list")
+        with self.assertRaises(ValueError):
+            PluginLoader.from_yaml(path)
+
+    def test_yaml_plugin_source_recorded(self):
+        from providers import PluginLoader
+        path = self._write_yaml("src.yaml", """
+name: src
+base_url: https://api.src.com/v1
+api_key_env: SRC_KEY
+models:
+  - model_id: src-v1
+    is_default: true
+""")
+        p = PluginLoader.from_yaml(path)
+        self.assertEqual(p._plugin_source, path)
+
+
+class TestPluginLoaderPython(unittest.TestCase):
+    """Python plugin loading tests"""
+
+    def setUp(self):
+        import tempfile
+        self.tmpdir = tempfile.mkdtemp()
+
+    def tearDown(self):
+        import shutil
+        shutil.rmtree(self.tmpdir)
+
+    def _write_py(self, filename, content):
+        path = os.path.join(self.tmpdir, filename)
+        with open(path, 'w') as f:
+            f.write(content)
+        return path
+
+    def test_load_valid_python_plugin(self):
+        from providers import PluginLoader
+        path = self._write_py("myprovider.py", """
+import sys, os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from providers import BaseProvider, ModelInfo, ProviderCapabilities
+
+class MyProvider(BaseProvider):
+    name = "myprovider"
+    display_name = "My Provider"
+    base_url = "https://api.my.com/v1"
+    api_key_env = "MY_API_KEY"
+    auth_style = "bearer"
+    models = [ModelInfo(model_id="my-v1", is_default=True)]
+    capabilities = ProviderCapabilities(text=True, streaming=True)
+""")
+        p = PluginLoader.from_python(path)
+        self.assertEqual(p.name, "myprovider")
+        self.assertTrue(p.capabilities.streaming)
+
+    def test_python_no_subclass(self):
+        from providers import PluginLoader
+        path = self._write_py("empty.py", "x = 1\n")
+        with self.assertRaises(ValueError) as ctx:
+            PluginLoader.from_python(path)
+        self.assertIn("No BaseProvider subclass", str(ctx.exception))
+
+    def test_python_multiple_subclasses(self):
+        from providers import PluginLoader
+        path = self._write_py("multi.py", """
+import sys, os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from providers import BaseProvider, ModelInfo
+
+class ProviderA(BaseProvider):
+    name = "a"
+    base_url = "https://a.com/v1"
+    api_key_env = "A_KEY"
+    models = [ModelInfo(model_id="a-v1", is_default=True)]
+
+class ProviderB(BaseProvider):
+    name = "b"
+    base_url = "https://b.com/v1"
+    api_key_env = "B_KEY"
+    models = [ModelInfo(model_id="b-v1", is_default=True)]
+""")
+        with self.assertRaises(ValueError) as ctx:
+            PluginLoader.from_python(path)
+        self.assertIn("Multiple", str(ctx.exception))
+
+    def test_python_custom_auth(self):
+        from providers import PluginLoader
+        path = self._write_py("customauth.py", """
+import sys, os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from providers import BaseProvider, ModelInfo, ProviderCapabilities
+
+class CustomAuthProvider(BaseProvider):
+    name = "customauth"
+    display_name = "Custom Auth"
+    base_url = "https://api.custom.com/v1"
+    api_key_env = "CUSTOM_KEY"
+    auth_style = "custom"
+    models = [ModelInfo(model_id="c-v1", is_default=True)]
+    capabilities = ProviderCapabilities(text=True)
+
+    def make_auth_headers(self, api_key):
+        return {"X-Custom": f"Token {api_key}"}
+""")
+        p = PluginLoader.from_python(path)
+        self.assertEqual(p.name, "customauth")
+        headers = p.make_auth_headers("mykey")
+        self.assertEqual(headers, {"X-Custom": "Token mykey"})
+
+
+class TestPluginDiscovery(unittest.TestCase):
+    """Plugin directory discovery tests"""
+
+    def setUp(self):
+        import tempfile
+        self.tmpdir = tempfile.mkdtemp()
+
+    def tearDown(self):
+        import shutil
+        shutil.rmtree(self.tmpdir)
+
+    def _write_file(self, filename, content):
+        path = os.path.join(self.tmpdir, filename)
+        with open(path, 'w') as f:
+            f.write(content)
+        return path
+
+    def test_discover_empty_directory(self):
+        from providers import PluginLoader
+        results = PluginLoader.discover(self.tmpdir)
+        self.assertEqual(results, [])
+
+    def test_discover_skips_underscore_files(self):
+        from providers import PluginLoader
+        self._write_file("_example.yaml", "name: skip\n")
+        results = PluginLoader.discover(self.tmpdir)
+        self.assertEqual(results, [])
+
+    def test_discover_skips_dot_files(self):
+        from providers import PluginLoader
+        self._write_file(".hidden.yaml", "name: hidden\n")
+        results = PluginLoader.discover(self.tmpdir)
+        self.assertEqual(results, [])
+
+    def test_discover_nonexistent_directory(self):
+        from providers import PluginLoader
+        results = PluginLoader.discover("/nonexistent/path/12345")
+        self.assertEqual(results, [])
+
+    def test_discover_yaml_plugin(self):
+        from providers import PluginLoader
+        self._write_file("testprov.yaml", """
+name: testprov
+base_url: https://api.test.com/v1
+api_key_env: TEST_KEY
+models:
+  - model_id: test-v1
+    is_default: true
+""")
+        results = PluginLoader.discover(self.tmpdir)
+        self.assertEqual(len(results), 1)
+        provider, error = results[0]
+        self.assertIsNone(error)
+        self.assertEqual(provider.name, "testprov")
+
+    def test_discover_reports_errors(self):
+        from providers import PluginLoader
+        self._write_file("bad.yaml", "- not a dict")
+        results = PluginLoader.discover(self.tmpdir)
+        self.assertEqual(len(results), 1)
+        provider, error = results[0]
+        self.assertIsNone(provider)
+        self.assertIn("bad.yaml", error)
+
+    def test_discover_skips_non_plugin_extensions(self):
+        from providers import PluginLoader
+        self._write_file("readme.txt", "not a plugin")
+        self._write_file("data.json", '{"not": "plugin"}')
+        results = PluginLoader.discover(self.tmpdir)
+        self.assertEqual(results, [])
+
+    def test_discover_mixed_valid_and_invalid(self):
+        from providers import PluginLoader
+        self._write_file("good.yaml", """
+name: good
+base_url: https://api.good.com/v1
+api_key_env: GOOD_KEY
+models:
+  - model_id: good-v1
+    is_default: true
+""")
+        self._write_file("bad.yaml", "not: {valid: yaml: here")
+        results = PluginLoader.discover(self.tmpdir)
+        self.assertEqual(len(results), 2)
+        successes = [(p, e) for p, e in results if e is None]
+        failures = [(p, e) for p, e in results if e is not None]
+        self.assertEqual(len(successes), 1)
+        self.assertEqual(len(failures), 1)
+
+
+class TestRegistryWithValidation(unittest.TestCase):
+    """Registry register() with contract validation"""
+
+    def _make_valid_provider(self):
+        from providers import BaseProvider, ModelInfo, ProviderCapabilities
+        p = BaseProvider()
+        p.name = "valid"
+        p.base_url = "https://api.valid.com/v1"
+        p.api_key_env = "VALID_KEY"
+        p.models = [ModelInfo(model_id="v1", is_default=True)]
+        p.capabilities = ProviderCapabilities(text=True)
+        return p
+
+    def test_register_valid_passes(self):
+        from providers import ProviderRegistry
+        reg = ProviderRegistry()
+        reg.register(self._make_valid_provider())
+        self.assertEqual(len(reg.list_names()), 1)
+
+    def test_register_invalid_raises(self):
+        from providers import ProviderRegistry, BaseProvider, ContractViolationError
+        reg = ProviderRegistry()
+        bad = BaseProvider()  # all defaults = empty
+        with self.assertRaises(ContractViolationError):
+            reg.register(bad)
+
+    def test_register_skip_validation(self):
+        from providers import ProviderRegistry, BaseProvider
+        reg = ProviderRegistry()
+        bad = BaseProvider()
+        bad.name = "raw"
+        reg.register(bad, validate=False)
+        self.assertIn("raw", reg.list_names())
+
+    def test_unregister_existing(self):
+        from providers import ProviderRegistry
+        reg = ProviderRegistry()
+        reg.register(self._make_valid_provider())
+        self.assertTrue(reg.unregister("valid"))
+        self.assertEqual(len(reg.list_names()), 0)
+
+    def test_unregister_nonexistent(self):
+        from providers import ProviderRegistry
+        reg = ProviderRegistry()
+        self.assertFalse(reg.unregister("ghost"))
+
+
+class TestRegistryLoadPlugins(unittest.TestCase):
+    """Registry.load_plugins() integration tests"""
+
+    def setUp(self):
+        import tempfile
+        self.tmpdir = tempfile.mkdtemp()
+
+    def tearDown(self):
+        import shutil
+        shutil.rmtree(self.tmpdir)
+
+    def _write_yaml(self, filename, content):
+        path = os.path.join(self.tmpdir, filename)
+        with open(path, 'w') as f:
+            f.write(content)
+        return path
+
+    def test_load_plugins_adds_to_registry(self):
+        from providers import ProviderRegistry, QwenProvider
+        reg = ProviderRegistry()
+        reg.register(QwenProvider())
+        self._write_yaml("newprov.yaml", """
+name: newprov
+base_url: https://api.new.com/v1
+api_key_env: NEW_KEY
+models:
+  - model_id: new-v1
+    is_default: true
+""")
+        errors = reg.load_plugins(self.tmpdir)
+        self.assertEqual(errors, [])
+        self.assertEqual(len(reg.list_names()), 2)
+        self.assertIn("newprov", reg.list_names())
+
+    def test_load_plugins_skips_conflicts(self):
+        from providers import ProviderRegistry, QwenProvider
+        reg = ProviderRegistry()
+        reg.register(QwenProvider())
+        self._write_yaml("qwen.yaml", """
+name: qwen
+base_url: https://api.fake.com/v1
+api_key_env: FAKE_KEY
+models:
+  - model_id: fake-v1
+    is_default: true
+""")
+        errors = reg.load_plugins(self.tmpdir)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("conflicts", errors[0])
+        # Original should be preserved
+        self.assertEqual(reg.get("qwen").base_url, "https://hkagentx.hkopenlab.com/v1")
+
+    def test_load_plugins_skips_invalid(self):
+        from providers import ProviderRegistry
+        reg = ProviderRegistry()
+        self._write_yaml("invalid.yaml", """
+name: ""
+base_url: ""
+api_key_env: ""
+models: []
+""")
+        errors = reg.load_plugins(self.tmpdir)
+        self.assertGreater(len(errors), 0)
+        self.assertEqual(len(reg.list_names()), 0)
+
+    def test_load_plugins_in_legacy_dict(self):
+        from providers import ProviderRegistry
+        reg = ProviderRegistry()
+        self._write_yaml("plug.yaml", """
+name: plug
+base_url: https://api.plug.com/v1
+api_key_env: PLUG_KEY
+models:
+  - model_id: plug-v1
+    is_default: true
+capabilities:
+  text: true
+""")
+        reg.load_plugins(self.tmpdir)
+        legacy = reg.to_legacy_dict()
+        self.assertIn("plug", legacy)
+        self.assertEqual(legacy["plug"]["base_url"], "https://api.plug.com/v1")
+        self.assertEqual(legacy["plug"]["model_id"], "plug-v1")
+
+    def test_plugin_errors_property(self):
+        from providers import ProviderRegistry
+        reg = ProviderRegistry()
+        self._write_yaml("bad.yaml", "- list not dict")
+        reg.load_plugins(self.tmpdir)
+        self.assertGreater(len(reg.plugin_errors), 0)
+
+    def test_load_plugins_empty_dir(self):
+        from providers import ProviderRegistry
+        reg = ProviderRegistry()
+        errors = reg.load_plugins(self.tmpdir)
+        self.assertEqual(errors, [])
+
+
+class TestCLIValidate(unittest.TestCase):
+    """CLI --validate flag tests"""
+
+    def test_validate_all_pass(self):
+        import subprocess
+        result = subprocess.run(
+            [sys.executable, "providers.py", "--validate"],
+            capture_output=True, text=True
+        )
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("All providers valid", result.stdout)
+        self.assertIn("OK", result.stdout)
+
+    def test_cli_shows_plugin_count(self):
+        import subprocess
+        result = subprocess.run(
+            [sys.executable, "providers.py"],
+            capture_output=True, text=True
+        )
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("built-in", result.stdout)
+
+
+class TestDefaultRegistryPluginDir(unittest.TestCase):
+    """Test that the default registry handles providers.d/ correctly"""
+
+    def test_example_files_not_loaded(self):
+        """Files starting with _ in providers.d/ should not be loaded."""
+        from providers import get_registry
+        names = get_registry().list_names()
+        # _example.yaml should be skipped
+        self.assertNotIn("deepseek", names)
+        # Only built-in providers should be present
+        self.assertEqual(len(names), 7)
+
+    def test_providers_d_exists(self):
+        """providers.d/ directory should exist for plugin discovery."""
+        providers_d = os.path.join(os.path.dirname(__file__), "providers.d")
+        self.assertTrue(os.path.isdir(providers_d))
+
+
 if __name__ == "__main__":
     unittest.main()
