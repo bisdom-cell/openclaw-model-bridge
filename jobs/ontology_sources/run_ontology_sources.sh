@@ -228,7 +228,11 @@ def clean_desc(desc):
     if not desc:
         return ""
     desc = re.sub(r'<[^>]+>', ' ', desc)
-    desc = re.sub(r'^Publication date:.*?Author\(s\):\s*[^.]+\.?\s*', '', desc, flags=re.DOTALL)
+    # Strip ScienceDirect metadata: everything up to "Abstract:" if present
+    desc = re.sub(r'^.*?Abstract\s*:\s*', '', desc, flags=re.DOTALL | re.IGNORECASE)
+    # Fallback: strip remaining Publication date / Author lines individually
+    desc = re.sub(r'Publication date:[^\n]*', '', desc)
+    desc = re.sub(r'Author\(s\):[^\n]*', '', desc)
     return re.sub(r'\s+', ' ', desc).strip()
 
 prompt = """你是本体论(Ontology)和语义网(Semantic Web)领域的学术编辑。对以下每篇文章严格输出三行（不要输出任何其他内容）：
