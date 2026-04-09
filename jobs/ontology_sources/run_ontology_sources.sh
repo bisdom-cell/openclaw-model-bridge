@@ -40,10 +40,10 @@ done
 # ── Ontology RSS 源配置 ───────────────────────────────────────────────
 # 格式：name|feed_url|label
 RSS_FEEDS=(
-    "Semantic Web Journal|http://www.semantic-web-journal.net/rss.xml|SWJ(本体/语义网第一期刊，开放获取)"
+    "Semantic Web Journal|https://www.semantic-web-journal.net/rss.xml|SWJ(本体/语义网第一期刊，开放获取)"
     "W3C Semantic Web|https://www.w3.org/blog/feed/|W3C(OWL/RDF/SPARQL/SHACL标准动态)"
-    "Knowledge Graph Blog|https://blog.knowledgegraph.tech/feed/|KG Conference(知识图谱行业实践)"
-    "Schema.org Releases|https://schema.org/docs/releases.html|Schema.org(Web结构化数据标准)"
+    "Ontotext Blog|https://www.ontotext.com/blog/feed/|Ontotext(知识图谱/语义技术企业实践)"
+    "Journal of Web Semantics|https://rss.sciencedirect.com/publication/science/15708268|JWS(语义网研究，Elsevier)"
 )
 
 SEEN_FILE="$CACHE/seen_urls.txt"
