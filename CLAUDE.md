@@ -181,7 +181,7 @@
 | `full_regression.sh` | **V30.1新增** 全量回归测试一键运行器（四层：单元测试+注册表文档+安全扫描+代码质量，393个用例，100%通过才允许推送） |
 | `audit_log.py` | **V30.2新增** 链式哈希审计日志（JSONL append-only，SHA256 链式校验，篡改/删除可检测） |
 | `test_audit_log.py` | **V30.2新增** 审计日志单测（19个用例：写入/链式哈希/篡改检测/删除检测/统计） |
-| `adversarial_audit.py` | **V36.2新增** 对抗审计 — 声明 vs 实际一致性检查（9项：工具数量/MAX_TOOLS导入/通知路由/Schema一致性/健康陈旧度 + --full: crontab漂移/Discord频道/服务响应体），集成进 full_regression.sh |
+| `governance_audit_cron.sh` | **V37.1新增** 每日定时治理审计（governance_checker --full + engine --check，失败推送 alerts），ontology 从被动验证升级为主动监控 |
 | `security_score.py` | **V30.2新增** 系统安全评分（7维度100分：密钥/测试/完整性/部署/传输/审计/可用性） |
 | `reliability_bench.py` | **V36新增** Agent Reliability Bench（7场景47检查：Provider宕机/工具超时/畸形参数/超大请求/KB未命中/Cron漂移/状态损坏，mock-based可在dev运行） |
 | `test_reliability_bench.py` | **V36新增** Reliability Bench 单测（36个用例：7场景×独立验证+报告格式+CLI） |
@@ -263,10 +263,10 @@ bash smoke_test.sh
 # 全量回归测试（461个用例，发布前必须100%通过）
 bash full_regression.sh
 
-# 对抗审计（声明 vs 实际一致性检查）
-python3 adversarial_audit.py            # dev 模式（6 个检查）
-python3 adversarial_audit.py --full     # Mac Mini（9 个检查，含 crontab/env/服务）
-python3 adversarial_audit.py --json     # JSON 输出
+# 治理审计（ontology-native，17不变式+6元发现）
+python3 ontology/governance_checker.py              # dev 模式
+python3 ontology/governance_checker.py --full        # Mac Mini（含 crontab/env/服务）
+python3 ontology/governance_checker.py --json        # JSON 输出
 
 # 安全评分（7维度100分）
 python3 security_score.py
@@ -432,7 +432,7 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 | 6 | **新功能必须 Mac Mini E2E 验证** | dev 环境单测通过不算完成；**必须提醒用户在 Mac Mini 上运行 `bash preflight_check.sh --full` + `bash job_smoke_test.sh` + 手动触发目标 job**，确认端到端有效果（消息到达 WhatsApp / 文件生成 / 日志正常）。dev 通过 ≠ 生产工作。 |
 | 7 | **故障先查自身代码** | 排查问题时默认从我们自己的代码和架构中找 bug（shell 数据传递、cron 环境、进程管理等），不归因于上游服务不稳定（#97教训） |
 | 8 | **做减法不做加法** | 新增防护/监控前先问"谁已经在管这件事"；每加一层保险 = 多一个故障源（#95教训） |
-| 9 | **🔴 收工必须执行完整检查清单（不可跳过）** | "结束今天的工作"时，**必须逐项执行以下清单，每项完成后打勾确认，禁止跳过或合并**：**A. 全量回归** `bash full_regression.sh`（692+ tests 必须 0 fail）**B. 安全评分** `python3 security_score.py --update` **C. 安全扫描** API key + 手机号 + BSA 泄漏扫描 **D. 对抗审计** `python3 adversarial_audit.py` **E. 文档刷新**（逐一 check）：`status.json`（recent_changes/session_context/focus）→ `CLAUDE.md`（版本/文件表/changelog/待办交叉校验）→ `docs/config.md`（如有配置变更）→ `README.md`（如有架构变更）→ `SOUL.md`（如有 PA 行为变更）→ `docs/ontology/`（如有 ontology 变更）**F. 交叉校验** 原则#17：commits vs CLAUDE.md 待办一致性 **G. 全部提交推送** **H. 提醒 Mac Mini 验证** `preflight_check.sh --full` + `job_smoke_test.sh` — **不是"提醒"而是必须等用户执行并确认结果** **I. 遗留问题登记** 未完成事项写入 session_context.unfinished。（2026-04-08教训：长 session 后"赶紧结束"心态导致跳过 6 项检查，用户两次追问才补齐） |
+| 9 | **🔴 收工必须执行完整检查清单（不可跳过）** | "结束今天的工作"时，**必须逐项执行以下清单，每项完成后打勾确认，禁止跳过或合并**：**A. 全量回归** `bash full_regression.sh`（692+ tests 必须 0 fail）**B. 安全评分** `python3 security_score.py --update` **C. 安全扫描** API key + 手机号 + BSA 泄漏扫描 **D. 治理审计** `python3 ontology/governance_checker.py` **E. 文档刷新**（逐一 check）：`status.json`（recent_changes/session_context/focus）→ `CLAUDE.md`（版本/文件表/changelog/待办交叉校验）→ `docs/config.md`（如有配置变更）→ `README.md`（如有架构变更）→ `SOUL.md`（如有 PA 行为变更）→ `docs/ontology/`（如有 ontology 变更）**F. 交叉校验** 原则#17：commits vs CLAUDE.md 待办一致性 **G. 全部提交推送** **H. 提醒 Mac Mini 验证** `preflight_check.sh --full` + `job_smoke_test.sh` — **不是"提醒"而是必须等用户执行并确认结果** **I. 遗留问题登记** 未完成事项写入 session_context.unfinished。（2026-04-08教训：长 session 后"赶紧结束"心态导致跳过 6 项检查，用户两次追问才补齐） |
 | 10 | **相信 OpenClaw，用好 OpenClaw** | 优先利用 OpenClaw 已有能力（Multi-Agent、contextPruning、workspace SOUL.md/CLAUDE.md、memory、sessions_spawn 等），而非重新造轮子；遇到新需求先查 OpenClaw 文档和 release notes |
 | 11 | **🆕 结果验证优先于功能建设** | 先定义"从用户视角，成功长什么样"，再写代码。status.json 的成功标准不是"能写入"，而是"PA 能正确回答项目进展"。（2026-03-28教训：393个单测通过但 PA 说"没有项目"） |
 | 12 | **🆕 上下文工程是一等公民** | SOUL.md = 宪法级（身份+关键状态，LLM 注意力最高），CLAUDE.md = 手册级（工具+详情）；信息放哪里、占多少 token、LLM 能否注意到——都是架构决策，和 API 设计同等严肃。（2026-03-28教训：SOUL.md 空置数月，17KB CLAUDE.md 信息被"lost in the middle"） |
@@ -444,7 +444,7 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 | 18 | **🆕 补证据而非补功能** | 下一阶段最该补的不是功能，而是**可对外复述的证据链**：A.兼容性矩阵（provider/模型/模态/工具模式验证 matrix+checklist）B.性能/SLO 实验结果（延迟/成功率/降级恢复时间）C.运维韧性证据（故障注入+恢复时间统计）D.可复现证据（一键启动+demo transcript）。新增功能前先问"这能产出什么证据？"（2026-04-03导师评审：系统已有但证据密度不足） |
 | 19 | **🆕 纵向做深不横向铺开** | 沿 `providers.py` 已证明的方向继续放大，不轻易开新战线。每个改动必须对应 V1/V2/V3 路标中的具体目标：V1=别人能跑，V2=别人敢用，V3=别人会扩展。对照 `docs/strategic_review_20260403.md` 和 status.json 路标检查。偏离路标的功能需要明确理由。（2026-04-03导师建议：不是再做更多功能，而是把已有能力做成证据链） |
 | 20 | **🆕 话语权输出是一等公民** | 代码只是第一步，真正的顶级专家把代码、文档、评测、方法论、复盘文章串成完整叙事。每个 milestone 完成后考虑：能否产出一篇架构型/证据型/立场型文章？README 里的方法论要持续扩写成观点体系。（2026-04-03导师建议：建立"话语权上层建筑"） |
-| 21 | **🆕 对抗审计：问"什么坏了我们发现不了"** | 每月至少一次 adversarial review：不问"检查了什么"，而问"**什么东西坏了我们会发现不了？**"。自动化审计（`adversarial_audit.py`）防止已知漏洞回归；人工对抗思维发现新维度盲区。每发现一个"没人会发现"的答案，就转化为一个新审计检查项。检查体系最危险的漏洞不是某个检查没写好，而是某个维度从未被纳入检查。（2026-04-07教训：4层检查工具全部有同一个盲区——只查"有没有"不查"对不对"，ArXiv 04:00推送+工具18>12+Discord静默丢失同时存在数周，安全评分98/610测试全过却无人发现） |
+| 21 | **🆕 对抗审计：问"什么坏了我们发现不了"** | 每月至少一次 adversarial review：不问"检查了什么"，而问"**什么东西坏了我们会发现不了？**"。治理审计（`ontology/governance_checker.py`，每日 07:00 自动执行+失败告警）防止已知漏洞回归；人工对抗思维发现新维度盲区。每发现一个"没人会发现"的答案，就转化为 `governance_ontology.yaml` 的新不变式（ontology-native，不用硬编码）。检查体系最危险的漏洞不是某个检查没写好，而是某个维度从未被纳入检查。（2026-04-09升级：adversarial_audit.py 9个检查已完全合并入 governance_ontology.yaml 17不变式+6元发现） |
 | 22 | **🆕 顺势设计：适配模型行为，不对抗** | LLM 工具使用服从训练分布，不服从"应该"。通用工具（write/read/exec）自然使用，专用工具（memory/sessions）需 SOUL.md 强制规则才触发。设计系统时**顺着模型的自然行为**：PA 自然用 write 写 MEMORY.md → 我们把 MEMORY.md 接入 KB 索引；PA 不会主动调 kb_write.sh → 我们在 proxy 层静默捕获对话。对抗模型倾向的设计必然失败。（2026-04-08教训：等了一个月让 Qwen3 调 memory_create，从未成功；改为顺势捕获后一天闭环） |
 | 23 | **🆕 链式幻觉防范：LLM 链路中每一跳都会放大幻觉** | 多个 LLM 共享上下文时，一个 LLM 的幻觉会被下游 LLM 当作事实执行。Dream LLM 编造文件名 → PA LLM 尝试读取 → 失败。防范方法：① 讨论密度必须等于文档密度（KB 里高频讨论的主题必须有对应文档，否则 LLM 会补全出不存在的文件名）② LLM 生成的行动建议不能直接执行，需要 grounding 检查（文件是否存在、工具是否可用）③ 上下文中提供明确的文件清单，让 LLM 知道"有什么"和"没有什么"。（2026-04-08教训：industrial_ai_paradigm.md 幻觉链——Dream 生成→PA 执行→文件不存在） |
 | 24 | **🆕 SOUL.md 触发词是唯一可靠的工具调用机制** | 当前 Qwen3 不会自主决定调用专用工具。唯一可靠的强制方式是 SOUL.md 的"遇到X必须调Y"规则+具体触发词列表。ops agent 的 sessions_spawn 成功不是因为 Qwen3 学会了，而是触发词"排查/超时/告警"命中了 SOUL.md 硬规则。新增专用工具时，必须同步更新 SOUL.md 触发词规则，否则工具永远不会被调用。（2026-04-08教训：memory 工具上线数周零调用，ops spawn 靠触发词 100% 成功） |
@@ -568,7 +568,7 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 | **P1** | 第一篇立场文章：**Why Enterprise AI Needs Ontology Before It Needs More Models** | ✅ V36.2 完成（EN dev.to + ZH 知乎发布） |
 | **P0** | Governance Ontology v2：12不变式+28可执行检查+5元规则+governance_checker.py 执行引擎 | ✅ V36.2 完成 |
 | **P0** | Phase 0 元规则自主发现：扫描 registry 自动发现 23 个未覆盖 job | ✅ V36.2 完成 |
-| **P0** | 对抗审计例行化：adversarial_audit.py 集成 full_regression.sh + CLAUDE.md 原则 #21 | ✅ V36.2 完成 |
+| **P0** | 对抗审计 ontology-native 化：adversarial_audit.py 9检查合并入 governance_ontology.yaml 17不变式 + 每日定时审计 + 效果层启动 | ✅ V37.1 完成 |
 | **P1** | Phase 1 元规则：扫描 config.yaml 阈值 → 检查执行代码引用 | 待稳定后 |
 | **P1** | Phase 2 元规则：扫描 ALLOWED_TOOLS 变更 → 检查 schema 同步 | 待稳定后 |
 | **P1** | Phase 3 元规则：扫描 CLAUDE.md 硬性限制表格 → 检查执行+验证 | 待稳定后 |

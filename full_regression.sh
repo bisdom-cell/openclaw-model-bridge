@@ -157,26 +157,13 @@ else
     FAIL=$((FAIL + 1))
     FAILED_SUITES+=("audit integrity")
 fi
-echo -n "  🔒 对抗审计（声明 vs 实际） ... "
-AUDIT_RESULT=$(python3 adversarial_audit.py 2>&1)
-AUDIT_RC=$?
-if [ $AUDIT_RC -eq 0 ]; then
-    AUDIT_PASS=$(echo "$AUDIT_RESULT" | grep -c "✅" || true)
-    echo "✅ ($AUDIT_PASS checks passed)"
-    PASS=$((PASS + 1))
-else
-    echo "❌"
-    echo "$AUDIT_RESULT" | grep "❌"
-    FAIL=$((FAIL + 1))
-    FAILED_SUITES+=("adversarial audit")
-fi
-echo -n "  🔒 Ontology 宪法执行（双范式互验证） ... "
+echo -n "  🔒 Ontology 治理审计（17不变式 + 6元发现） ... "
 if [ -f ontology/governance_checker.py ]; then
     GOV_RESULT=$(python3 ontology/governance_checker.py 2>&1)
     GOV_RC=$?
     if [ $GOV_RC -eq 0 ]; then
         GOV_PASS=$(echo "$GOV_RESULT" | grep -c "✅" || true)
-        echo "✅ ($GOV_PASS invariants pass)"
+        echo "✅ ($GOV_PASS checks pass)"
         PASS=$((PASS + 1))
     else
         echo "❌"
