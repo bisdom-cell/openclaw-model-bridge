@@ -378,7 +378,14 @@ if [ -f "$ONTO_FILTER" ]; then
     if [ -s "$ONTO_MSG_FILE" ]; then
         ONTO_CONTENT="$(head -c 4000 "$ONTO_MSG_FILE")"
         ONTO_COUNT=$(grep -c '^\*' "$ONTO_MSG_FILE" || true)
-        "$OPENCLAW" message send --channel discord --target "${DISCORD_CH_ONTOLOGY:-}" --message "$ONTO_CONTENT" --json 2>"$CACHE/onto_discord.err" || true
+        # 使用 notify.sh 统一推送（带重试+错误捕获+队列）
+        if [ -f "${HOME}/notify.sh" ]; then
+            source "${HOME}/notify.sh"
+            notify "$ONTO_CONTENT" --channel discord --topic ontology
+        else
+            log "WARN: notify.sh not found, falling back to direct send"
+            "$OPENCLAW" message send --channel discord --target "${DISCORD_CH_ONTOLOGY:-}" --message "$ONTO_CONTENT" --json 2>"$CACHE/onto_discord.err" || true
+        fi
         log "Ontology论文推送到Discord #ontology: ${ONTO_COUNT} 篇"
     fi
 fi

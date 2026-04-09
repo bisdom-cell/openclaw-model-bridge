@@ -394,7 +394,6 @@ fi
 
 # ── 6.5 Ontology 论文单独推送到 Discord #ontology ─────────────────────────
 # 检测标题/摘要命中 ontology 关键词的论文，额外推送到 #ontology 频道
-# WhatsApp 不受影响（没有频道区分）
 ONTO_MSG_FILE="$CACHE/ontology_papers.txt"
 ONTO_FILTER="$(dirname "$0")/../ontology_filter.py"
 if [ -f "$ONTO_FILTER" ]; then
@@ -402,7 +401,14 @@ if [ -f "$ONTO_FILTER" ]; then
     if [ -s "$ONTO_MSG_FILE" ]; then
         ONTO_CONTENT="$(head -c 4000 "$ONTO_MSG_FILE")"
         ONTO_COUNT=$(grep -c '^\*' "$ONTO_MSG_FILE" || true)
-        "$OPENCLAW" message send --channel discord --target "${DISCORD_CH_ONTOLOGY:-}" --message "$ONTO_CONTENT" --json 2>"$CACHE/onto_discord.err" || true
+        # 使用 notify.sh 统一推送（带重试+错误捕获+队列）
+        if [ -f "${HOME}/notify.sh" ]; then
+            source "${HOME}/notify.sh"
+            notify "$ONTO_CONTENT" --channel discord --topic ontology
+        else
+            log "WARN: notify.sh not found, falling back to direct send"
+            "$OPENCLAW" message send --channel discord --target "${DISCORD_CH_ONTOLOGY:-}" --message "$ONTO_CONTENT" --json 2>"$CACHE/onto_discord.err" || true
+        fi
         log "Ontology论文推送到Discord #ontology: ${ONTO_COUNT} 篇"
     fi
 fi
