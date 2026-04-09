@@ -92,21 +92,26 @@ seen_file = sys.argv[2]
 feed_name = sys.argv[3]
 feed_label = sys.argv[4]
 
-# Ontology 关键词过滤（SWJ 全部保留，其他源按关键词过滤）
-ONTOLOGY_KEYWORDS = [
+# Ontology 核心关键词（强信号，命中一个即通过）
+STRONG_KEYWORDS = [
     "ontology", "ontologies", "ontological",
-    "semantic web", "linked data", "knowledge graph",
+    "semantic web", "linked data",
     "OWL", "RDF", "SPARQL", "SHACL", "SKOS",
     "description logic", "formal ontology",
     "knowledge representation", "knowledge engineering",
     "upper ontology", "BFO", "UFO", "DOLCE",
-    "schema.org", "structured data",
     "neuro-symbolic", "neurosymbolic",
-    "conceptual modeling", "knowledge base",
+    "conceptual modeling", "conceptual model",
+]
+# 弱关键词（需要标题中出现才算，避免摘要中的泛匹配）
+TITLE_KEYWORDS = [
+    "knowledge graph", "knowledge base",
+    "schema.org", "structured data",
+    "reasoning", "taxonomy",
 ]
 
-# SWJ 是专属源，不需要过滤
-SKIP_FILTER = feed_name in ("Semantic Web Journal",)
+# JWS/DKE 是领域期刊，只需弱过滤；KBS 范围很广，需要强过滤
+SKIP_FILTER = False  # 所有源都过滤
 
 with open(seen_file) as f:
     seen_urls = set(line.strip() for line in f if line.strip())
@@ -166,11 +171,13 @@ for item in items[:30]:  # 检查前30篇
     if link in seen_urls:
         continue
 
-    # 关键词过滤（非专属源）
-    if not SKIP_FILTER:
-        text_to_check = (title + " " + description).lower()
-        if not any(kw.lower() in text_to_check for kw in ONTOLOGY_KEYWORDS):
-            continue
+    # 关键词过滤：强关键词查全文，弱关键词只查标题
+    full_text = (title + " " + description).lower()
+    title_lower = title.lower()
+    has_strong = any(kw.lower() in full_text for kw in STRONG_KEYWORDS)
+    has_title_kw = any(kw.lower() in title_lower for kw in TITLE_KEYWORDS)
+    if not (has_strong or has_title_kw):
+        continue
 
     print(json.dumps({
         "title": title,
@@ -183,7 +190,7 @@ for item in items[:30]:  # 检查前30篇
     }, ensure_ascii=False))
     new_count += 1
 
-    if new_count >= 8:  # 每个源每次最多8篇
+    if new_count >= 5:  # 每个源每次最多5篇（控制总量，避免LLM超时）
         break
 
 print(f"[onto-src] {feed_name}: {new_count} 篇新文章", file=sys.stderr)
@@ -241,10 +248,11 @@ with open('$CACHE/llm_payload.json', 'w') as f:
     }, f)
 "
 
-LLM_RESP=$(curl -s --max-time 120 \
+# 调 proxy（5002）而非 adapter（5001），proxy 有更好的超时和错误处理
+LLM_RESP=$(curl -s --max-time 180 \
     -H "Content-Type: application/json" \
     -d "@$CACHE/llm_payload.json" \
-    http://127.0.0.1:5001/v1/chat/completions 2>"$CACHE/llm.stderr" || true)
+    http://127.0.0.1:5002/v1/chat/completions 2>"$CACHE/llm.stderr" || true)
 
 echo "$LLM_RESP" > "$LLM_RAW"
 
