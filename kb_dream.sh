@@ -145,12 +145,17 @@ llm_call() {
             return 0
         fi
 
-        # 诊断失败原因
+        # 诊断失败原因（V37.1 加强：记录原始响应前 500 字符，定位空响应根因）
         local curl_err=$(cat "$err_file" 2>/dev/null)
         local error_msg=$(echo "$raw" | jq -r '.error.message // .error // empty' 2>/dev/null || true)
+        local raw_len=${#raw}
         [ -n "$curl_err" ] && log "  LLM curl error: $curl_err"
         [ -n "$error_msg" ] && log "  LLM API error: $error_msg"
-        [ -z "$raw" ] && log "  LLM returned empty response"
+        if [ -z "$raw" ]; then
+            log "  LLM returned completely empty response (0 bytes)"
+        else
+            log "  LLM raw response: ${raw_len} bytes, first 500 chars: ${raw:0:500}"
+        fi
 
         attempt=$((attempt + 1))
         [ $attempt -lt 2 ] && sleep 3
@@ -581,9 +586,14 @@ $STATUS_CONTEXT
 $TREND_CONTEXT
 "
 
-# 截断 Reduce 素材到 80K chars（直接调 Adapter，无 Proxy 200KB 限制）
-# Qwen3-235B 262K context，80K chars ≈ 25-30K tokens，留足空间给 prompt + 8K output
-REDUCE_MATERIAL=$(echo "$REDUCE_DATA" | utf8_truncate 80000)
+# 截断 Reduce 素材：MapReduce 模式 80K，Fast/直接采样模式 40K
+# Fast 模式塞的是原始数据（冗余高），40K 已足够；MapReduce 模式是信号（信息密度高），给 80K
+# V37.1: Fast 模式 130KB prompt 导致上游 LLM 空响应，降到 40K 解决
+if [ "$FAST_MODE" = true ] || [ -z "${MAP_SIGNALS// }" ]; then
+    REDUCE_MATERIAL=$(echo "$REDUCE_DATA" | utf8_truncate 40000)
+else
+    REDUCE_MATERIAL=$(echo "$REDUCE_DATA" | utf8_truncate 80000)
+fi
 REDUCE_CHARS=$(echo "$REDUCE_MATERIAL" | wc -c | tr -d ' ')
 log "Reduce 素材: ${REDUCE_CHARS} bytes (截断前 $(echo "$REDUCE_DATA" | wc -c | tr -d ' ') bytes)"
 
@@ -659,10 +669,10 @@ $PREV_THEMES")
 PROMPT_BYTES=$(echo "$REDUCE_PROMPT" | wc -c | tr -d ' ')
 log "Reduce prompt: ${PROMPT_BYTES} bytes → 发送 LLM..."
 
-# 安全检查：prompt 超过 180KB 则截断（Proxy 限制 200KB，留 20KB 给 JSON 包装）
-if [ "$PROMPT_BYTES" -gt 500000 ]; then
-    log "WARN: Reduce prompt 过大 (${PROMPT_BYTES}B > 500KB)，回退到 40K 素材"
-    REDUCE_MATERIAL=$(echo "$REDUCE_DATA" | utf8_truncate 40000)
+# 安全检查：prompt 超过 100KB 则截断（V37.1: 从 500KB 降到 100KB，130KB 已证实导致空响应）
+if [ "$PROMPT_BYTES" -gt 100000 ]; then
+    log "WARN: Reduce prompt 过大 (${PROMPT_BYTES}B > 100KB)，回退到 30K 素材"
+    REDUCE_MATERIAL=$(echo "$REDUCE_DATA" | utf8_truncate 30000)
     # 重新构建 prompt（用简化版，避免递归展开）
     REDUCE_PROMPT="你是一个在海量数据中寻找蛛丝马迹的探索者。
 
