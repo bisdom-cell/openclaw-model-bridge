@@ -1,6 +1,8 @@
 #!/bin/bash
 # cron 环境 PATH 极简，必须显式声明（规则 #13）
 export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
+# 加载环境变量（cron 环境中 OPENCLAW_PHONE/DISCORD_CH_* 等必须从 profile 获取）
+source "$HOME/.bash_profile" 2>/dev/null || source "$HOME/.env_shared" 2>/dev/null || true
 set -euo pipefail
 DATE=$(date +%Y%m%d)
 KB_DIR="${KB_BASE:-/Users/bisdom/.kb}"
