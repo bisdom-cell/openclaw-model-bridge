@@ -233,7 +233,7 @@ for i, a in enumerate(articles, 1):
     prompt += f"文章{i}：{a['title']}\n"
     prompt += f"来源：{a['feed_label']}\n"
     if a.get('description'):
-        prompt += f"摘要：{a['description'][:300]}\n"
+        prompt += f"摘要：{a['description'][:150]}\n"
     prompt += "\n"
 
 print(prompt)
@@ -248,16 +248,17 @@ with open('$CACHE/llm_payload.json', 'w') as f:
     json.dump({
         'model': 'default',
         'messages': [{'role': 'user', 'content': prompt}],
-        'max_tokens': 4096,
+        'max_tokens': 2048,
         'temperature': 0.3
     }, f)
 "
 
-# 调 proxy（5002）而非 adapter（5001），proxy 有更好的超时和错误处理
-LLM_RESP=$(curl -s --max-time 180 \
+# 直接调 adapter（5001），proxy 的工具注入会增加延迟
+LLM_RESP=$(curl -s --max-time 90 \
     -H "Content-Type: application/json" \
+    -H "Authorization: Bearer $(echo $REMOTE_API_KEY)" \
     -d "@$CACHE/llm_payload.json" \
-    http://127.0.0.1:5002/v1/chat/completions 2>"$CACHE/llm.stderr" || true)
+    http://127.0.0.1:5001/v1/chat/completions 2>"$CACHE/llm.stderr" || true)
 
 echo "$LLM_RESP" > "$LLM_RAW"
 
