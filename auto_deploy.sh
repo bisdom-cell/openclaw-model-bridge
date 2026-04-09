@@ -164,6 +164,7 @@ declare -a FILE_MAP=(
     "jobs/pwc/run_pwc.sh|$HOME/.openclaw/jobs/pwc/run_pwc.sh"
     "jobs/github_trending/run_github_trending.sh|$HOME/.openclaw/jobs/github_trending/run_github_trending.sh"
     "jobs/rss_blogs/run_rss_blogs.sh|$HOME/.openclaw/jobs/rss_blogs/run_rss_blogs.sh"
+    "jobs/ontology_sources/run_ontology_sources.sh|$HOME/.openclaw/jobs/ontology_sources/run_ontology_sources.sh"
 
     # AI Leaders X 技术洞察追踪（V34: 替代 karpathy_x，9位 AI 大牛）
     "jobs/karpathy_x/run_karpathy_x.sh|$HOME/.openclaw/jobs/karpathy_x/run_karpathy_x.sh"

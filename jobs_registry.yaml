@@ -326,6 +326,16 @@ jobs:
     tier: core                       # ontology 治理基石
     description: 每日 ontology 治理审计 — governance_checker.py --full（17不变式+6元发现）+ engine.py --check（81规则），失败推送 alerts
 
+  - id: ontology_sources
+    scheduler: system
+    entry: jobs/ontology_sources/run_ontology_sources.sh
+    interval: "0 10,20 * * *"         # 每天 10:00, 20:00 HKT
+    log: ~/.openclaw/logs/jobs/ontology_sources.log
+    needs_api_key: false
+    enabled: true
+    tier: auxiliary                     # ontology 知识积累
+    description: Ontology 专属信息源监控 — Semantic Web Journal + W3C + KG Conference RSS，关键词过滤，LLM 富摘要，Discord #ontology 推送 + KB 归档
+
   - id: preference_learner
     scheduler: system
     entry: preference_learner.py
