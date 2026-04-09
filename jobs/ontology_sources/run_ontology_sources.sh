@@ -110,8 +110,8 @@ TITLE_KEYWORDS = [
     "reasoning", "taxonomy",
 ]
 
-# JWS/DKE 是领域期刊，只需弱过滤；KBS 范围很广，需要强过滤
-SKIP_FILTER = False  # 所有源都过滤
+# KBS 范围极广，只接受强关键词（弱关键词如 reasoning 会命中航空/医学等无关论文）
+STRICT_SOURCES = ["Knowledge-Based Systems"]
 
 with open(seen_file) as f:
     seen_urls = set(line.strip() for line in f if line.strip())
@@ -172,12 +172,17 @@ for item in items[:30]:  # 检查前30篇
         continue
 
     # 关键词过滤：强关键词查全文，弱关键词只查标题
+    # KBS 等泛源只接受强关键词，避免 "reasoning" 等匹配到航空/医学论文
     full_text = (title + " " + description).lower()
     title_lower = title.lower()
     has_strong = any(kw.lower() in full_text for kw in STRONG_KEYWORDS)
-    has_title_kw = any(kw.lower() in title_lower for kw in TITLE_KEYWORDS)
-    if not (has_strong or has_title_kw):
-        continue
+    if feed_name in STRICT_SOURCES:
+        if not has_strong:
+            continue
+    else:
+        has_title_kw = any(kw.lower() in title_lower for kw in TITLE_KEYWORDS)
+        if not (has_strong or has_title_kw):
+            continue
 
     print(json.dumps({
         "title": title,
@@ -190,7 +195,7 @@ for item in items[:30]:  # 检查前30篇
     }, ensure_ascii=False))
     new_count += 1
 
-    if new_count >= 5:  # 每个源每次最多5篇（控制总量，避免LLM超时）
+    if new_count >= 3:  # 每个源每次最多3篇（控制总量≤12，避免截断）
         break
 
 print(f"[onto-src] {feed_name}: {new_count} 篇新文章", file=sys.stderr)
@@ -334,11 +339,48 @@ print(f"[onto-src] 消息组装完成: {len(articles)} 篇", file=sys.stderr)
 PYEOF
 
 # ── 推送到 Discord #ontology（主推通道）+ WhatsApp ───────────────────
-MSG_CONTENT="$(head -c 4000 "$MSG_FILE")"
-
+# 按文章分段推送，避免单条消息超长截断
 if $NOTIFY_LOADED; then
-    notify "$MSG_CONTENT" --topic ontology
-    log "已推送 ${TOTAL_NEW} 篇到 #ontology"
+    PART_FILES=$($PYTHON3 - "$MSG_FILE" << 'SPLIT_EOF'
+import sys
+
+msg_file = sys.argv[1]
+with open(msg_file) as f:
+    content = f.read()
+
+# 按空行分割为文章块，每段≤3500字符
+blocks = content.split('\n\n')
+chunks = []
+current = ""
+for block in blocks:
+    candidate = (current + "\n\n" + block).strip() if current else block.strip()
+    if len(candidate) > 3500 and current:
+        chunks.append(current.strip())
+        current = block.strip()
+    else:
+        current = candidate
+if current.strip():
+    chunks.append(current.strip())
+
+for i, chunk in enumerate(chunks):
+    path = f"/tmp/onto_msg_part_{i}.txt"
+    with open(path, 'w') as f:
+        f.write(chunk)
+    print(path)
+SPLIT_EOF
+    )
+
+    PART_COUNT=0
+    while IFS= read -r part_file; do
+        [ -f "$part_file" ] || continue
+        PART_CONTENT="$(cat "$part_file")"
+        notify "$PART_CONTENT" --topic ontology
+        PART_COUNT=$((PART_COUNT + 1))
+        rm -f "$part_file"
+        sleep 1
+    done <<< "$PART_FILES"
+
+    log "已推送 ${TOTAL_NEW} 篇到 #ontology（${PART_COUNT} 段）"
 else
     log "WARN: notify.sh not loaded, skipping push"
 fi
