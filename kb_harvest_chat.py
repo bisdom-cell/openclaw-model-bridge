@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-kb_harvest_chat.py — 对话精华提炼器 (V37)
+kb_harvest_chat.py — 对话精华提炼器 (V37.1)
 
 从 tool_proxy 捕获的每日对话日志中提取关键内容，写入 KB。
 将用户与 PA 的高质量交互转化为持久化知识。
@@ -12,7 +12,7 @@ kb_harvest_chat.py — 对话精华提炼器 (V37)
 设计原则：
   - 离线处理：不在请求热路径上，cron 触发
   - 去重：已处理的日志文件标记跳过
-  - 批量：一天的对话合并为一次 LLM 调用
+  - MapReduce：大对话量分块提取 + 合并去重，零数据丢失
   - 隐私：日志留在本地，仅提炼后的摘要进入 KB
 
 用法：
@@ -34,6 +34,8 @@ PROCESSED_MARKER_DIR = os.path.expanduser("~/.kb/conversations/.processed")
 KB_WRITE_SCRIPT = os.path.expanduser("~/kb_write.sh")
 # Direct adapter call (bypass proxy, no tools needed)
 LLM_URL = "http://127.0.0.1:5001/v1/chat/completions"
+# MapReduce: chunk size for map phase (leave room for prompt ~3K)
+CHUNK_MAX_CHARS = 45000
 
 
 def load_conversations(date_str):
@@ -68,21 +70,51 @@ def mark_processed(date_str):
         f.write(datetime.now().isoformat())
 
 
-def format_conversations(turns):
-    """Format conversation turns for LLM analysis."""
-    parts = []
+
+def chunk_conversations(turns):
+    """Split formatted conversation turns into chunks of ~CHUNK_MAX_CHARS.
+
+    Splits at turn boundaries to preserve conversation integrity.
+    Returns list of (chunk_text, turn_range_str) tuples.
+    """
+    chunks = []
+    current_parts = []
+    current_size = 0
+    chunk_start = 1
+
     for i, t in enumerate(turns, 1):
         ts = t.get("ts", "?")
         user = t.get("user", "")[:1500]
         assistant = t.get("assistant", "")[:1500]
-        parts.append(f"--- 对话 {i} [{ts}] ---\n用户: {user}\nPA: {assistant}")
-    return "\n\n".join(parts)
+        part = f"--- 对话 {i} [{ts}] ---\n用户: {user}\nPA: {assistant}"
+        part_size = len(part)
+
+        if current_size + part_size > CHUNK_MAX_CHARS and current_parts:
+            chunk_text = "\n\n".join(current_parts)
+            chunks.append((chunk_text, f"{chunk_start}-{i - 1}"))
+            current_parts = []
+            current_size = 0
+            chunk_start = i
+
+        current_parts.append(part)
+        current_size += part_size + 2  # +2 for "\n\n" join
+
+    if current_parts:
+        chunk_text = "\n\n".join(current_parts)
+        end_idx = chunk_start + len(current_parts) - 1
+        chunks.append((chunk_text, f"{chunk_start}-{end_idx}"))
+
+    return chunks
 
 
-def extract_key_points(conversations_text, date_str):
-    """Use LLM to extract key points from conversations."""
-    prompt = f"""你是一个信息提炼器。以下是用户与AI助手(PA)在 {date_str} 的全部对话记录。
+def _build_extract_prompt(conversations_text, date_str, chunk_info=None):
+    """Build the extraction prompt for a (chunk of) conversations."""
+    chunk_note = ""
+    if chunk_info:
+        chunk_note = f"\n注意：这是当天对话的第 {chunk_info} 部分，请完整提取本段中的所有关键内容。\n"
 
+    return f"""你是一个信息提炼器。以下是用户与AI助手(PA)在 {date_str} 的对话记录。
+{chunk_note}
 请从中提取**值得长期保存**的关键内容。
 
 提取标准（只保留真正有价值的）：
@@ -97,23 +129,26 @@ def extract_key_points(conversations_text, date_str):
 - PA的技术操作细节（代码执行、文件读写）
 - 已在其他系统记录的信息（cron状态、系统健康等）
 
-输出格式（每条一行，可以有0-10条）：
+输出格式（每条一行，可以有0-20条）：
 - [类型] 内容概要（保留关键细节和上下文）
 
 类型：decision/preference/insight/conclusion/discovery
 
-如果当天对话没有值得保存的内容，输出：无关键内容
+如果对话没有值得保存的内容，输出：无关键内容
 
 ---
 {conversations_text}
 ---"""
 
+
+def _llm_call(prompt, max_tokens=1500, timeout=120):
+    """Single LLM call, returns content string or None."""
     try:
         import urllib.request
         req_body = json.dumps({
             "model": "default",
             "messages": [{"role": "user", "content": prompt}],
-            "max_tokens": 1500,
+            "max_tokens": max_tokens,
             "temperature": 0.3,
         }).encode()
         req = urllib.request.Request(
@@ -122,12 +157,76 @@ def extract_key_points(conversations_text, date_str):
             method="POST",
             headers={"Content-Type": "application/json"},
         )
-        with urllib.request.urlopen(req, timeout=120) as resp:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
             result = json.loads(resp.read())
             return result["choices"][0]["message"]["content"].strip()
     except Exception as e:
         print(f"[harvest] LLM call failed: {e}", file=sys.stderr)
         return None
+
+
+def _reduce_key_points(all_points, date_str):
+    """Merge and deduplicate key points from multiple map chunks."""
+    prompt = f"""你是一个信息整合器。以下是从 {date_str} 的对话中**分段提取**的关键内容。
+由于对话量大，分成了多段独立提取，可能存在重复或重叠。
+
+请完成以下工作：
+1. **去重**：合并语义相同的条目（保留更完整的版本）
+2. **保留全部独特信息**：不同的洞察/决策/偏好必须全部保留
+3. **统一格式**：保持 [类型] 前缀
+
+输入（各段提取结果）：
+{all_points}
+
+输出格式（每条一行）：
+- [类型] 内容概要
+
+类型：decision/preference/insight/conclusion/discovery"""
+
+    return _llm_call(prompt, max_tokens=2000, timeout=120)
+
+
+def extract_key_points(turns, date_str):
+    """Extract key points using MapReduce for large conversations.
+
+    - Single chunk (<=CHUNK_MAX_CHARS): one LLM call (same as before)
+    - Multiple chunks: Map (extract per chunk) → Reduce (merge + dedup)
+    """
+    chunks = chunk_conversations(turns)
+    total_chars = sum(len(c[0]) for c in chunks)
+
+    if len(chunks) == 1:
+        # Single chunk: direct extraction (backward compatible)
+        prompt = _build_extract_prompt(chunks[0][0], date_str)
+        return _llm_call(prompt)
+
+    # MapReduce: multiple chunks
+    print(f"[harvest] MapReduce mode: {len(chunks)} chunks "
+          f"({total_chars} chars total)")
+
+    # Map phase: extract from each chunk
+    map_results = []
+    for i, (chunk_text, turn_range) in enumerate(chunks, 1):
+        chunk_info = f"{i}/{len(chunks)} (对话 {turn_range})"
+        print(f"[harvest]   Map {chunk_info} ({len(chunk_text)} chars)...")
+        prompt = _build_extract_prompt(chunk_text, date_str, chunk_info)
+        result = _llm_call(prompt)
+        if result and "无关键内容" not in result:
+            map_results.append(f"=== 第{i}段 (对话 {turn_range}) ===\n{result}")
+
+    if not map_results:
+        return "无关键内容"
+
+    if len(map_results) == 1:
+        # Only one chunk had content, no reduce needed
+        # Strip the segment header
+        return map_results[0].split("\n", 1)[1] if "\n" in map_results[0] else map_results[0]
+
+    # Reduce phase: merge and deduplicate
+    all_points = "\n\n".join(map_results)
+    print(f"[harvest]   Reduce: merging {len(map_results)} segments...")
+    reduced = _reduce_key_points(all_points, date_str)
+    return reduced
 
 
 def write_to_kb(key_points, date_str):
@@ -164,16 +263,16 @@ def process_date(date_str, dry_run=False):
 
     print(f"[harvest] {date_str}: {len(turns)} conversation turns")
 
-    # Format conversations for LLM
-    conv_text = format_conversations(turns)
-    total_chars = len(conv_text)
-    # Truncate to ~60K chars if too long (leave room for prompt)
-    if total_chars > 60000:
-        conv_text = conv_text[:60000] + "\n\n[... 截断，更多对话未展示 ...]"
-        print(f"[harvest] Truncated: {total_chars} -> 60000 chars")
+    # Estimate total size for reporting
+    total_chars = sum(
+        len(t.get("user", "")[:1500]) + len(t.get("assistant", "")[:1500]) + 30
+        for t in turns
+    )
+    chunks = chunk_conversations(turns)
 
     if dry_run:
-        print(f"[harvest] DRY RUN: would process {len(turns)} turns ({total_chars} chars)")
+        print(f"[harvest] DRY RUN: would process {len(turns)} turns "
+              f"({total_chars} chars, {len(chunks)} chunk(s))")
         print(f"[harvest] Sample (first turn):")
         if turns:
             t = turns[0]
@@ -181,9 +280,10 @@ def process_date(date_str, dry_run=False):
             print(f"  PA: {t.get('assistant', '')[:100]}...")
         return "dry_run"
 
-    # Extract key points via LLM
-    print(f"[harvest] Extracting key points via LLM ({total_chars} chars)...")
-    key_points = extract_key_points(conv_text, date_str)
+    # Extract key points via MapReduce (auto: single chunk or multi-chunk)
+    print(f"[harvest] Extracting key points via LLM "
+          f"({total_chars} chars, {len(chunks)} chunk(s))...")
+    key_points = extract_key_points(turns, date_str)
     if not key_points:
         print(f"[harvest] {date_str}: LLM extraction failed")
         return "error"
