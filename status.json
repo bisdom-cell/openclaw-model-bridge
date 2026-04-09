@@ -1,6 +1,6 @@
 {
-  "updated": "2026-04-08 14:35:11",
-  "updated_by": "security_score",
+  "updated": "2026-04-09 10:57:50",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -131,6 +131,11 @@
   ],
   "recent_changes": [
     {
+      "date": "2026-04-09",
+      "what": "V37.1 Session: ① kb_harvest_chat MapReduce升级(零对话数据丢失,28单测) ② Ontology专属信息源(4 RSS: W3C/JWS/DKE/KBS + 两层关键词过滤 + LLM中文摘要 + Discord #ontology推送 + KB归档) ③ DBLP/S2加ontology关键词 ④ X加4位ontology先驱(Barry Smith/Guizzardi/Hitzler/Horrocks) ⑤ adversarial_audit合并入governance(17不变式) ⑥ 每日governance_audit cron(07:00) ⑦ CI修复(config.md drift) ⑧ 692测试",
+      "by": "claude_code"
+    },
+    {
       "date": "2026-04-08",
       "what": "V37 Session: ① V3路标启动: Provider Plugin Interface(YAML/Python插件+合约验证+Extension Guide,107单测) + Capability-Based Routing(find_by_capability+build_fallback_chain+CLI) + adapter.py多级Fallback Chain(auto-discovery+sequential try) ② LLM协作方法论: 4条新原则(#22顺势设计/#23链式幻觉防范/#24触发词机制/#25对话数据一等公民) ③ 对话数据闭环: proxy热路径捕获+kb_harvest_chat.py冷路径提炼+MEMORY.md索引 ④ KB统一: HN+Freight双写notes对齐12/12 job ⑤ 修复: preflight set-e崩溃/adapter config防御/Gateway元数据过滤/industrial_ai_paradigm.md幻觉链切断 ⑥ 692测试",
       "by": "claude_code"
@@ -224,11 +229,6 @@
       "date": "2026-03-28",
       "what": "preference_learner.py上线+SOUL.md偏好嵌入+proxy_filters开放sessions工具+确认Qwen3 memory/偏好读取限制",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-03-28",
-      "what": "V30.4方法论进化：结果验证优先+上下文工程一等公民+定期像用户一样使用系统",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -254,9 +254,10 @@
   },
   "session_context": {
     "last_session": "2026-04-08",
-    "unfinished": "① shadow模式观察(几天无ONTO SHADOW DRIFT后切on) ② Mac Mini homebrew python3修复(brew reinstall python3) ③ D.治理元规则Phase1(扫描config.yaml阈值)",
+    "unfinished": "[{\"item\":\"PR #341 ontology-sources优化待合并\",\"priority\":\"P1\"},{\"item\":\"KBS过滤仍有边缘case(knowledge tracing等)\",\"priority\":\"P2\"},{\"item\":\"ScienceDirect描述正则未完全清干净(作者名残留)\",\"priority\":\"P2\"},{\"item\":\"20:15 discussions cron首次执行待验证\",\"priority\":\"P1\"},{\"item\":\"07:00 governance_audit首次执行待验证\",\"priority\":\"P1\"},{\"item\":\"ontology_sources cron首次自动运行待验证(10:00/20:00)\",\"priority\":\"P1\"}]",
     "open_prs": "",
-    "blocked_on": ""
+    "blocked_on": "",
+    "focus": "Ontology信息源已上线(4 RSS+过滤+LLM摘要+cron 10:00/20:00), 待验证: 20:15 discussions cron首次执行 + 07:00 governance_audit首次执行 + ontology_sources cron首次自动运行。PR #341待合并(ontology源优化)。下一步: KBS过滤/描述正则可继续优化"
   },
   "quality": {
     "security_score": "68",
