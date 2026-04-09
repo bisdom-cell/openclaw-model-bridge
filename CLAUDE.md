@@ -209,6 +209,7 @@
 | `providers.d/` | **V37新增** Provider Plugin 目录（YAML/Python 插件自动发现，`_example.yaml` + `_example_provider.py` 示例） |
 | `docs/provider_plugin_guide.md` | **V37新增** Provider Plugin Extension Guide（60秒添加新 Provider，合约验证，YAML/Python 双模式） |
 | `ontology/docs/architecture/industrial_ai_paradigm.md` | **V37新增** 工业AI范式文档（三平面架构+五项工业需求+范式对比，切断 Dream→PA 链式幻觉） |
+| `ontology/docs/architecture/target_architecture.md` | **V37.1新增** Ontology 终态架构（四层设计+六域概念模型+策略引擎+三阶段门控+迁移路径 Phase 3-5） |
 
 ## 版本变更历史
 
@@ -550,33 +551,71 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 | 立场型 | **为什么 agent 系统首先是治理问题** / **为什么 control plane 必须先于 capability plane** | 待写 |
 | 立场型 | **Why Enterprise AI Needs Ontology Before It Needs More Models** — Ontology+LLM+Agent 三角架构论述 | ✅ V36.2 完成（EN dev.to + ZH 知乎发布） |
 
-### Ontology KB（新方向，持续推进）
+### Ontology 子项目（终态架构：Semantic Control Plane）
 
-| 优先级 | 任务 | 状态 |
-|--------|------|------|
-| **P0** | Ontology KB 目录结构 + 初始文件（7 文件） | ✅ V36.1 完成 |
-| **P0** | 论文监控加 ontology 关键词（ArXiv/S2/DBLP） | ✅ V36.1 完成 |
-| **P0** | X 监控加 ontology 人物（Marcus/Leskovec/Witbrock/Palantir×3） | ✅ V36.1 完成 |
-| **P0** | Ontology 独立子项目：ontology/ 目录（engine.py+tool_ontology.yaml+diff.py+宪法+PoC+tests） | ✅ V36.2 完成 |
-| **P0** | Tool Ontology Engine：proxy_filters.py → 81条声明式规则 YAML + 推理引擎 + 一致性校验 | ✅ V36.2 完成 |
-| **P0** | Ontology 宪法：6条+最高条款（项目隔离）+ 价值评估矩阵（Article 5） | ✅ V36.2 完成 |
-| **P1** | 丰富 Ontology KB 内容：BFO/DOLCE/UFO 流派对比、Neuro-Symbolic 技术、供应链本体 | ✅ V36.1 完成 |
-| **P1** | 语义查询 PoC：从枚举到推理的跳跃 | ✅ V36.2 完成 |
-| **P1** | 特性开关 Phase 1：equivalence proof + 3模式 rollback | ✅ V36.2 完成 |
-| **P0** | 验证深度三层模型：声明/运行时/效果分层 + MR-6 + MRD-LAYER-001 深度盲区自动发现 | ✅ V36.3 完成 |
-| **P0** | 语义推理落地：classify_tool_call() 从属性推理 risk_level + policy_tags | ✅ V36.3 完成 |
-| **P0** | Feature Flag Phase 2：shadow 模式双跑比对（off→shadow→on），Mac Mini 生产上线 | ✅ V36.3 完成 |
-| **P1** | 用本体论视角重新审视 OpenClaw（深度版，含工具语义本体实验） | 进行中 |
-| **P1** | 第一篇立场文章：**Why Enterprise AI Needs Ontology Before It Needs More Models** | ✅ V36.2 完成（EN dev.to + ZH 知乎发布） |
-| **P0** | Governance Ontology v2：12不变式+28可执行检查+5元规则+governance_checker.py 执行引擎 | ✅ V36.2 完成 |
-| **P0** | Phase 0 元规则自主发现：扫描 registry 自动发现 23 个未覆盖 job | ✅ V36.2 完成 |
-| **P0** | 对抗审计 ontology-native 化：adversarial_audit.py 9检查合并入 governance_ontology.yaml 17不变式 + 每日定时审计 + 效果层启动 | ✅ V37.1 完成 |
-| **P1** | Phase 1 元规则：扫描 config.yaml 阈值 → 检查执行代码引用 | 待稳定后 |
-| **P1** | Phase 2 元规则：扫描 ALLOWED_TOOLS 变更 → 检查 schema 同步 | 待稳定后 |
-| **P1** | Phase 3 元规则：扫描 CLAUDE.md 硬性限制表格 → 检查执行+验证 | 待稳定后 |
-| **P2** | 特性开关 Phase 3：shadow 观察无 drift 后切 on（ONTOLOGY_MODE=on） | shadow 观察中 |
-| **P2** | 语义策略替代枚举：infer_policy_targets() 接入 proxy_filters 策略决策点 | 待启动 |
-| **P2** | 在 OpenClaw 中实验性引入本体约束（工具调用前置条件检查） | 待启动 |
+> 终态架构文档：`ontology/docs/architecture/target_architecture.md`
+> 迁移路径：Phase 2 Shadow（当前）→ Phase 3 渐进替换 → Phase 4 完全推理 → Phase 5 对外输出
+
+#### Phase 2 已完成（Shadow 观察，V36.1-V37.1）
+
+<details>
+<summary>展开查看 17 项已完成</summary>
+
+| 任务 | 版本 |
+|------|------|
+| Ontology KB 目录结构 + 初始文件（7 文件） | V36.1 |
+| 论文监控加 ontology 关键词（ArXiv/S2/DBLP） | V36.1 |
+| X 监控加 ontology 人物（Marcus/Leskovec/Witbrock/Palantir×3） | V36.1 |
+| Ontology 独立子项目：engine.py+tool_ontology.yaml+diff.py+宪法+PoC+tests | V36.2 |
+| Tool Ontology Engine：81条声明式规则 + 推理引擎 + 一致性校验 | V36.2 |
+| Ontology 宪法：6条+最高条款+价值评估矩阵 | V36.2 |
+| BFO/DOLCE/UFO 流派对比、Neuro-Symbolic、供应链本体 | V36.1 |
+| 语义查询 PoC：从枚举到推理 | V36.2 |
+| 特性开关 Phase 1：equivalence proof + 3模式 rollback | V36.2 |
+| 验证深度三层模型：声明/运行时/效果 + MR-6 + MRD-LAYER-001 | V36.3 |
+| classify_tool_call() 从属性推理 risk_level + policy_tags | V36.3 |
+| Feature Flag Phase 2：shadow 模式 Mac Mini 生产上线 | V36.3 |
+| 立场文章：Why Enterprise AI Needs Ontology（EN+ZH 发布） | V36.2 |
+| Governance Ontology v3：17不变式+35检查+6元规则+执行引擎 | V37.1 |
+| Phase 0 元规则自主发现：23 个未覆盖 job | V36.2 |
+| 对抗审计 ontology-native 化 + 每日定时审计 + 效果层启动 | V37.1 |
+| Ontology 专属信息源（4 RSS + 两层过滤 + LLM 摘要 + Discord） | V37.1 |
+
+</details>
+
+#### Phase 3: 渐进替换（近期，P0-P1）
+
+| 优先级 | 任务 | 状态 | 说明 |
+|--------|------|------|------|
+| **P0** | **ONTOLOGY_MODE=on 切换**：shadow 观察无 drift 后正式切换，引擎数据替代硬编码 | shadow 观察中 | 等价已证明，需确认生产无 drift 后切换 |
+| **P0** | **filter_tools() 改用引擎**：内部调用 `ontology.query_tools()` 替代 `ALLOWED_TOOLS` 枚举 | 待启动 | 依赖 ONTOLOGY_MODE=on |
+| **P0** | **fix_tool_args() 改用引擎**：参数修复调用 `ontology.resolve_alias()` 替代硬编码映射 | 待启动 | 依赖 ONTOLOGY_MODE=on |
+| **P1** | **夜间阻止语义化**：从手动维护阻止列表改为 `infer("side_effects==true")` 自动覆盖 | 待启动 | Phase 3 标志性交付 |
+| **P1** | **新工具只加 YAML**：推广 V37 Provider Plugin 模式到 Tool，新增工具零 Python 改动 | 待启动 | 需要 Tool Plugin YAML schema |
+| **P1** | **元规则扩展**：MR-7 新策略必须有 shadow 观察期 / MR-8 概念变更触发影响分析 | 待启动 | 治理体系自我演进 |
+| **P1** | 用本体论视角重新审视 OpenClaw（深度版，含工具语义本体实验） | 进行中 | `cases/openclaw_as_ontology.md` |
+
+#### Phase 4: 完全推理（中期，P1-P2）
+
+| 优先级 | 任务 | 状态 | 说明 |
+|--------|------|------|------|
+| **P1** | **domain_ontology.yaml**：六域概念模型（Actor/Tool/Resource/Task/Provider/Memory），概念间关系推理 | 待启动 | Layer 1 终态：从工具列表到领域模型 |
+| **P1** | **policy_ontology.yaml**：策略声明式定义（静态+时序+路由三类策略统一） | 待启动 | Layer 2 终态：evaluate_policy() 统一评估 |
+| **P1** | **三阶段门控**：Pre-check（前置条件）→ Runtime Gate → Post-verify（后置验证）接入请求管线 | 待启动 | Layer 3 终态：Neuro-Symbolic 四耦合点 |
+| **P2** | **审计带规则链**：每条审计记录包含 policy_evaluated + rule_chain + rationale | 待启动 | Layer 4 终态：从"做了什么"到"基于什么规则" |
+| **P2** | **策略冲突检测**：策略间矛盾自动发现（如夜间阻止 vs 紧急通知） | 待启动 | 策略引擎高级能力 |
+| **P2** | **影响分析工具**：`ontology.impact_analysis("修改 max_tools")` → 受影响策略/工具列表 | 待启动 | 变更安全保障 |
+| **P2** | **效果层覆盖率 ≥ 60%**：30+ 不变式中至少 18 个有 L3 效果验证 | 待启动 | MR-9 元规则 |
+
+#### Phase 5: 对外输出（长期，V3 路标对齐）
+
+| 优先级 | 任务 | 状态 | 说明 |
+|--------|------|------|------|
+| **P2** | **Tool Policy Plugin**：`tool_policy.yaml` 声明式工具策略扩展接口 | 待启动 | V3 路标对齐 |
+| **P2** | **Memory Policy Plugin**：`memory_policy.yaml` 记忆平面策略扩展 | 待启动 | V3 路标对齐 |
+| **P2** | **Ontology Extension Guide**：第三方基于 ontology 框架扩展的指南 | 待启动 | V3 路标对齐 |
+| **P3** | **可发布引擎**：ontology 引擎可独立 pip install 的治理组件 | 待启动 | 长期目标 |
+| **P3** | 证据型文章：从 17 不变式到 30+ 的治理演进实战 | 待启动 | 话语权输出 |
 
 ### 现有功能任务（V1 稳定后继续推进）
 

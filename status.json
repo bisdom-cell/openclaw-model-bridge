@@ -1,5 +1,5 @@
 {
-  "updated": "2026-04-09 10:57:50",
+  "updated": "2026-04-09 15:45:04",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -76,60 +76,14 @@
       "task": "【输出】证据型文章（Benchmark/故障案例/Lessons Learned）",
       "status": "backlog",
       "note": "610+ tests, Reliability Bench/SLO Benchmark/Resilience Report 数据已有，需转化为文章"
-    },
-    {
-      "task": "【输出】立场型文章（为什么agent首先是治理问题）",
-      "status": "backlog",
-      "note": "Control Plane First 方法论已在README写出。新增Ontology立场文章: Why Enterprise AI Needs Ontology Before It Needs More Models"
-    },
-    {
-      "task": "数据清洗 Phase 2",
-      "status": "active",
-      "note": "三Agent架构（用sessions_spawn）、语义去重、自定义规则。V1稳定后继续推进"
-    },
-    {
-      "task": "PA子Agent委派",
-      "status": "deferred",
-      "note": "PoC完成：链路通但Qwen3隐式触发不可靠（优先从上下文回答）。显式触发可用。保留能力等下一代模型。"
-    },
-    {
-      "task": "PA长期记忆",
-      "status": "deferred",
-      "note": "Qwen3不主动调用memory工具，等模型升级后重新验证"
-    },
-    {
-      "task": "可迁移性抽象",
-      "status": "backlog",
-      "note": "导师指出的三块差距之一：去除个人/场景定制痕迹，抽象成别人也能迁移的框架。V2-V3阶段推进"
-    },
-    {
-      "task": "【新方向】Ontology 子项目 — 本体论驱动的企业智能架构",
-      "status": "active",
-      "note": "已独立为 ontology/ 子项目(2800+行,21文件): Tool Ontology Engine(81条声明式规则)+宪法(6条+最高条款)+语义查询PoC+特性开关(3模式rollback)+价值评估矩阵。论文/X监控已加ontology关键词。下一步：立场文章+工具语义本体实验+丰富内容"
-    },
-    {
-      "task": "【优化】Agent Dream v2 MapReduce",
-      "status": "active",
-      "note": "MapReduce全量KB探索(14 sources+226 notes)，Notes走Map阶段，一个主题×全部分析维度，绕过Proxy直调Adapter，04:30错峰执行。待验收：明早04:30自动运行结果"
-    },
-    {
-      "task": "Provider Compatibility Layer",
-      "status": "completed"
-    },
-    {
-      "task": "兼容性矩阵",
-      "status": "completed"
-    },
-    {
-      "task": "一键启动",
-      "status": "completed"
-    },
-    {
-      "task": "可复现证据",
-      "status": "completed"
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-04-09",
+      "what": "Ontology终态架构文档(target_architecture.md)+Phase3/4/5待办分解写入CLAUDE.md+ScienceDirect正则修复+governance_audit全通过+kb_harvest_chat crontab修复",
+      "by": "claude_code"
+    },
     {
       "date": "2026-04-09",
       "what": "V37.1 Session: ① kb_harvest_chat MapReduce升级(零对话数据丢失,28单测) ② Ontology专属信息源(4 RSS: W3C/JWS/DKE/KBS + 两层关键词过滤 + LLM中文摘要 + Discord #ontology推送 + KB归档) ③ DBLP/S2加ontology关键词 ④ X加4位ontology先驱(Barry Smith/Guizzardi/Hitzler/Horrocks) ⑤ adversarial_audit合并入governance(17不变式) ⑥ 每日governance_audit cron(07:00) ⑦ CI修复(config.md drift) ⑧ 692测试",
@@ -224,11 +178,6 @@
       "date": "2026-03-29",
       "what": "OpenClaw内置功能分析+启用4项配置(Brave llm-context/日志脱敏/sandbox)+SOUL.md强化(反幻觉/项目定位/三类能力清单)+修复kb_status_refresh反向覆盖SOUL.md",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-03-28",
-      "what": "preference_learner.py上线+SOUL.md偏好嵌入+proxy_filters开放sessions工具+确认Qwen3 memory/偏好读取限制",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -257,7 +206,8 @@
     "unfinished": "[{\"item\":\"PR #341 ontology-sources优化待合并\",\"priority\":\"P1\"},{\"item\":\"KBS过滤仍有边缘case(knowledge tracing等)\",\"priority\":\"P2\"},{\"item\":\"ScienceDirect描述正则未完全清干净(作者名残留)\",\"priority\":\"P2\"},{\"item\":\"20:15 discussions cron首次执行待验证\",\"priority\":\"P1\"},{\"item\":\"07:00 governance_audit首次执行待验证\",\"priority\":\"P1\"},{\"item\":\"ontology_sources cron首次自动运行待验证(10:00/20:00)\",\"priority\":\"P1\"}]",
     "open_prs": "",
     "blocked_on": "",
-    "focus": "Ontology信息源已上线(4 RSS+过滤+LLM摘要+cron 10:00/20:00), 待验证: 20:15 discussions cron首次执行 + 07:00 governance_audit首次执行 + ontology_sources cron首次自动运行。PR #341待合并(ontology源优化)。下一步: KBS过滤/描述正则可继续优化"
+    "focus": "Ontology信息源已上线(4 RSS+过滤+LLM摘要+cron 10:00/20:00), 待验证: 20:15 discussions cron首次执行 + 07:00 governance_audit首次执行 + ontology_sources cron首次自动运行。PR #341待合并(ontology源优化)。下一步: KBS过滤/描述正则可继续优化",
+    "current_focus": "Ontology Phase 3 渐进替换 — 从 shadow 到引擎数据替代硬编码"
   },
   "quality": {
     "security_score": "68",
