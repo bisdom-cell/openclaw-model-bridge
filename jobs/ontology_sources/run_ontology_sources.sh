@@ -171,17 +171,19 @@ for item in items[:30]:  # 检查前30篇
     if link in seen_urls:
         continue
 
-    # 关键词过滤：强关键词查全文，弱关键词只查标题
-    # KBS 等泛源只接受强关键词，避免 "reasoning" 等匹配到航空/医学论文
+    # 关键词过滤（三层严格度）
+    # KBS 等泛源：强关键词必须出现在标题中（摘要中偶然出现不算）
+    # JWS/DKE 等领域期刊：强关键词查全文 OR 弱关键词查标题
     full_text = (title + " " + description).lower()
     title_lower = title.lower()
-    has_strong = any(kw.lower() in full_text for kw in STRONG_KEYWORDS)
+    has_strong_title = any(kw.lower() in title_lower for kw in STRONG_KEYWORDS)
     if feed_name in STRICT_SOURCES:
-        if not has_strong:
+        if not has_strong_title:
             continue
     else:
+        has_strong_full = any(kw.lower() in full_text for kw in STRONG_KEYWORDS)
         has_title_kw = any(kw.lower() in title_lower for kw in TITLE_KEYWORDS)
-        if not (has_strong or has_title_kw):
+        if not (has_strong_full or has_title_kw):
             continue
 
     print(json.dumps({
@@ -213,7 +215,7 @@ log "共 ${TOTAL_NEW} 篇新文章"
 # ── 组装消息（无 LLM，直接用原始标题+描述）──────────────────────────
 MSG_FILE="$CACHE/onto_message.txt"
 $PYTHON3 - "$ALL_NEW_FILE" "$DAY" "$MSG_FILE" << 'PYEOF'
-import sys, json
+import sys, json, re
 
 articles_file, day, msg_file = sys.argv[1:4]
 
@@ -224,17 +226,28 @@ with open(articles_file) as f:
         if line:
             articles.append(json.loads(line))
 
+def clean_description(desc):
+    """清理 RSS 描述：去 HTML、去 ScienceDirect 元数据前缀"""
+    if not desc:
+        return ""
+    # 去 HTML 标签
+    desc = re.sub(r'<[^>]+>', ' ', desc)
+    # 去 ScienceDirect 元数据前缀 "Publication date: ...Author(s): Name, Name"
+    desc = re.sub(r'^Publication date:.*?Author\(s\):\s*[^.]+\.?\s*', '', desc, flags=re.DOTALL)
+    # 去多余空白
+    desc = re.sub(r'\s+', ' ', desc).strip()
+    return desc
+
 msg_lines = [f"🔬 Ontology 学术动态 ({day})", ""]
 
 for article in articles:
-    title = article['title'][:80]
+    title = article['title']
     msg_lines.append(f"*{title}*")
     msg_lines.append(f"来源：{article['feed_label']} | {article.get('pub_date', '')[:16]}")
     msg_lines.append(f"链接：{article['link']}")
-    desc = article.get('description', '')
-    if desc:
-        # 取前100字符作为摘要
-        msg_lines.append(f"摘要：{desc[:100]}...")
+    desc = clean_description(article.get('description', ''))
+    if desc and len(desc) > 10:
+        msg_lines.append(f"摘要：{desc[:150]}")
     msg_lines.append("")
 
 with open(msg_file, 'w') as f:
