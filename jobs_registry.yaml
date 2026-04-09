@@ -316,6 +316,16 @@ jobs:
     tier: core                       # 三方宪法实时同步
     description: 每小时刷新 status.json 系统健康字段（三层服务/模型ID/KB统计/过期job），补齐三方宪法实时同步需求
 
+  - id: governance_audit
+    scheduler: system
+    entry: governance_audit_cron.sh
+    interval: "0 7 * * *"            # 每天 07:00 HKT（静默期结束后首个检查）
+    log: ~/governance_audit.log
+    needs_api_key: false
+    enabled: true
+    tier: core                       # ontology 治理基石
+    description: 每日 ontology 治理审计 — governance_checker.py --full（17不变式+6元发现）+ engine.py --check（81规则），失败推送 alerts
+
   - id: preference_learner
     scheduler: system
     entry: preference_learner.py

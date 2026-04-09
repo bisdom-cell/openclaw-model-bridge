@@ -81,10 +81,10 @@ meta_concepts:
       effect:
         depth: 3
         question: "X 达到了预期目的吗？"
-        check_types: []  # 待建设
+        check_types: [log_activity_check]  # MRD-NOTIFY-002 首个效果层检查
         catches: "端到端失败（各组件正常但整体不工作）"
         blind_spot: "需要外部反馈（用户确认收到消息）"
-        lesson: "待积累 — 每个真实 bug 驱动一个新 effect 检查"
+        lesson: "2026-04-09: ontology 频道声明+运行时全 OK 但从未收到消息——驱动首个 effect 检查"
 
 # ═══════════════════════════════════════════════════════════════════════
 # 2. 元规则（Meta-Rules）
@@ -390,6 +390,61 @@ invariants:
         file: check_registry.py
         pattern: "间隔漂移"
 
+  # ── 通知路径治理（2026-04-09 真实 bug 驱动）─────────────────────────
+  # 教训：三个论文脚本绕过 notify.sh 直接调 openclaw message send，
+  #   ${DISCORD_CH_ONTOLOGY:-} 空默认 + || true 静默吞错误，ontology 频道从未收到推送。
+  #   adversarial_audit 只查"环境变量存在"(声明层)，不查"代码路径是否正确"(运行时层)。
+  # 维度跃升：从"通道是否配置"到"代码路径是否统一"
+
+  - id: INV-NOTIFY-003
+    name: push-through-notify-sh
+    meta_rule: MR-4
+    verification_layer: [declaration]
+    severity: high
+    declaration: "所有推送脚本必须通过 notify.sh，禁止直接调用 openclaw message send（否则失去重试+错误捕获+队列）"
+    lesson: "2026-04-09: 三个论文脚本绕过 notify.sh 直接发送，ontology 频道从未收到推送且零报错"
+    checks:
+      - name: "论文脚本 ontology 推送使用 notify.sh"
+        check_type: python_assert
+        code: |
+          import glob, os, re
+          violations = []
+          for sh in glob.glob("jobs/*/run_*.sh"):
+              with open(sh) as f:
+                  content = f.read()
+              if "DISCORD_CH_ONTOLOGY" not in content:
+                  continue
+              lines = content.split('\n')
+              in_onto_block = False
+              for i, line in enumerate(lines, 1):
+                  if 'Ontology' in line and '推送' in line:
+                      in_onto_block = True
+                  elif in_onto_block and line.strip().startswith('fi'):
+                      in_onto_block = False
+                  if in_onto_block and 'message send' in line and 'DISCORD_CH_ONTOLOGY' in line:
+                      # 检查上下文 ±3 行是否有明确的 fallback 标记
+                      ctx = '\n'.join(lines[max(0,i-4):i]).lower()
+                      if 'fallback' not in ctx and 'fall back' not in ctx and 'falling back' not in ctx:
+                          violations.append(f"{sh}:{i}")
+          assert not violations, f"直接 openclaw 推送(绕过notify.sh): {violations}"
+
+  - id: INV-NOTIFY-004
+    name: notify-error-capture
+    meta_rule: MR-4
+    verification_layer: [declaration]
+    severity: high
+    declaration: "notify.sh 的 send 函数必须捕获 stderr，禁止 >/dev/null 2>&1 吞错误"
+    lesson: "2026-04-09: _notify_send_with_retry 用 >/dev/null 2>&1 吞掉所有错误，WhatsApp 失败3天无诊断信息"
+    checks:
+      - name: "notify.sh send 函数不吞 stderr"
+        check_type: file_not_contains
+        file: notify.sh
+        pattern: "message send.*>/dev/null 2>&1"
+      - name: "notify.sh send 函数捕获 stderr"
+        check_type: file_contains
+        file: notify.sh
+        pattern: "send_err.*2>&1"
+
   # ── 运行时治理（2026-04-08 真实 bug 驱动）──────────────────────────
   # 教训：声明层检查全过，但 cron 运行时环境不对导致推送连续失败 3 天
   # 维度跃升：从"声明一致性"到"运行时真实性"
@@ -516,6 +571,31 @@ meta_rule_discovery:
     match_against: "_notify_discord_target_for_topic() case 分支"
     severity_when_missing: warn
 
+  - id: MRD-ERROR-001
+    meta_rule: MR-4
+    name: "推送脚本不应静默吞掉发送错误"
+    description: |
+      扫描所有包含 openclaw message send 的 .sh 文件，
+      检查 stderr 是否被 >/dev/null 2>&1 吞掉。
+      静默吞错误 = MR-4 违反（silent failure is a bug）。
+    scan_source: "*.sh files"
+    scan_filter: "grep 'message send.*>/dev/null 2>&1'"
+    match_against: "每个 send 调用的 stderr 应被捕获或记录"
+    severity_when_missing: warn
+    lesson: "2026-04-09: notify.sh 吞掉 stderr → WhatsApp 失败3天无诊断"
+
+  - id: MRD-NOTIFY-002
+    meta_rule: MR-4
+    name: "每个 Discord 频道最近 7 天应有推送活动"
+    description: |
+      效果层（Layer 3）首个检查：扫描 notify_queue/ 和日志，
+      检查每个已配置的 Discord 频道是否在最近 7 天内成功推送过。
+      长期静默的频道 = 推送链路可能断裂。
+    scan_source: "~/kb_dream.log, ~/jobs/*/cache/*.log, ~/.kb/notify_queue/"
+    scan_filter: "最近 7 天内有 topic=X 的成功推送记录"
+    severity_when_missing: warn
+    lesson: "2026-04-09: ontology 频道配置完整但从未收到推送——效果层空白导致盲区"
+
   - id: MRD-LAYER-001
     meta_rule: MR-6
     name: "severity=critical 的不变式应有 ≥2 层验证深度"
@@ -531,15 +611,15 @@ meta_rule_discovery:
 # 5. 审计元数据
 # ═══════════════════════════════════════════════════════════════════════
 audit_metadata:
-  version: "3.0"
+  version: "3.1"
   created: "2026-04-07"
-  upgraded: "v2.1 → v3.0: 验证深度三层模型 + MR-6 多层覆盖要求 + MRD-LAYER-001 深度盲区自动发现"
-  total_invariants: 15
-  total_checks: 32
+  upgraded: "v3.0 → v3.1: 通知路径治理(INV-NOTIFY-003/004) + 错误可观测性(MRD-ERROR-001) + 效果层启动(MRD-NOTIFY-002)"
+  total_invariants: 17
+  total_checks: 36
   meta_rules: 6         # MR-1~MR-6
-  meta_rule_discovery_count: 4   # Phase 0: registry + env + notify + layer depth
-  check_types_used: [python_assert, file_contains, file_not_contains, env_var_exists, command_succeeds]
-  verification_layers_used: [declaration, runtime]  # effect 层待建设
+  meta_rule_discovery_count: 6   # Phase 0: registry + env + notify-topic + layer-depth + error-suppression + notify-activity
+  check_types_used: [python_assert, file_contains, file_not_contains, env_var_exists, command_succeeds, log_activity_check]
+  verification_layers_used: [declaration, runtime, effect]  # v3.1: 效果层启动
 
   phase_roadmap:
     phase_0: "结构化数据源（jobs_registry.yaml）← 当前"

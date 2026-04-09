@@ -258,6 +258,16 @@ def run_meta_discovery(data):
             result = _discover_uncovered_topics(severity)
             discovery_results.append({"id": disc_id, "name": name, **result})
 
+        elif disc_id == "MRD-ERROR-001":
+            # 扫描推送脚本中静默吞错误的模式
+            result = _discover_silent_error_suppression(severity)
+            discovery_results.append({"id": disc_id, "name": name, **result})
+
+        elif disc_id == "MRD-NOTIFY-002":
+            # 效果层：检查每个 Discord 频道最近是否有推送活动
+            result = _discover_silent_channels(severity)
+            discovery_results.append({"id": disc_id, "name": name, **result})
+
         elif disc_id == "MRD-LAYER-001":
             # 扫描 critical 不变式的验证深度
             result = _discover_shallow_critical(data, severity)
@@ -374,6 +384,106 @@ def _discover_uncovered_topics(severity):
         "status": "pass",
         "severity": severity,
         "message": f"所有 {len(used_topics)} 个 topic 都在路由表中",
+    }
+
+
+def _discover_silent_error_suppression(severity):
+    """MRD-ERROR-001: 推送脚本中 openclaw message send 是否被 >/dev/null 2>&1 吞掉？"""
+    import glob as glob_mod
+    violations = []
+
+    for sh_file in glob_mod.glob(os.path.join(_PROJECT_ROOT, "**/*.sh"), recursive=True):
+        if ".git" in sh_file:
+            continue
+        try:
+            with open(sh_file, encoding="utf-8", errors="ignore") as f:
+                lines = f.readlines()
+            for i, line in enumerate(lines, 1):
+                # 查找 openclaw message send ... >/dev/null 2>&1 模式
+                if "message send" in line and ">/dev/null 2>&1" in line:
+                    rel = os.path.relpath(sh_file, _PROJECT_ROOT)
+                    violations.append(f"{rel}:{i}")
+        except Exception:
+            pass
+
+    if violations:
+        return {
+            "status": "warn",
+            "severity": severity,
+            "message": f"{len(violations)} 处推送调用静默吞错误: {', '.join(violations[:5])}{'...' if len(violations) > 5 else ''}",
+            "violations": violations,
+        }
+    return {
+        "status": "pass",
+        "severity": severity,
+        "message": "所有推送调用的 stderr 已被正确捕获",
+    }
+
+
+def _discover_silent_channels(severity):
+    """MRD-NOTIFY-002: 效果层 — 每个 Discord 频道最近 7 天是否有推送活动？"""
+    # 扫描日志文件查找各 topic 的推送记录
+    topics = ["papers", "freight", "alerts", "daily", "tech", "ontology"]
+    home = os.path.expanduser("~")
+    log_files = []
+
+    # 收集可能包含推送记录的日志
+    for pattern in ["*.log", "jobs/*/cache/*.log"]:
+        import glob as glob_mod
+        log_files.extend(glob_mod.glob(os.path.join(home, pattern)))
+
+    # 也检查 notify_queue 中的失败记录
+    queue_dir = os.path.join(home, ".kb", "notify_queue")
+
+    active_topics = set()
+    queued_topics = set()
+
+    # 从日志中查找最近 7 天的推送记录
+    import time
+    seven_days_ago = time.time() - 7 * 86400
+
+    for lf in log_files:
+        try:
+            if os.path.getmtime(lf) < seven_days_ago:
+                continue
+            with open(lf, encoding="utf-8", errors="ignore") as f:
+                content = f.read()
+            for topic in topics:
+                if f"--topic {topic}" in content or f"topic={topic}" in content:
+                    active_topics.add(topic)
+        except Exception:
+            pass
+
+    # 检查队列中积压的消息
+    if os.path.isdir(queue_dir):
+        for qf in os.listdir(queue_dir):
+            if qf.endswith(".json"):
+                try:
+                    with open(os.path.join(queue_dir, qf)) as f:
+                        import json as json_mod
+                        data = json_mod.load(f)
+                    t = data.get("topic", "")
+                    if t:
+                        queued_topics.add(t)
+                except Exception:
+                    pass
+
+    silent = [t for t in topics if t not in active_topics]
+    if silent:
+        msg = f"{len(silent)} 个频道最近 7 天无推送活动: {', '.join(silent)}"
+        if queued_topics:
+            msg += f" (队列积压: {', '.join(queued_topics)})"
+        return {
+            "status": "warn",
+            "severity": severity,
+            "message": msg,
+            "silent_topics": silent,
+            "active_topics": list(active_topics),
+        }
+    return {
+        "status": "pass",
+        "severity": severity,
+        "message": f"所有 {len(topics)} 个频道最近 7 天都有推送活动",
     }
 
 
