@@ -66,19 +66,22 @@ _notify_discord_target_for_topic() {
 _notify_send_with_retry() {
     local channel="$1" target="$2" msg="$3"
     local attempt=0 delay=2
+    local send_err="" last_err=""
 
     while [ "$attempt" -lt "$_NOTIFY_MAX_RETRIES" ]; do
-        if "$OPENCLAW" message send --channel "$channel" --target "$target" --message "$msg" --json >/dev/null 2>&1; then
+        send_err=$("$OPENCLAW" message send --channel "$channel" --target "$target" --message "$msg" --json 2>&1 >/dev/null) && {
             [ "$attempt" -gt 0 ] && echo "[notify] OK: $channel 第$((attempt+1))次重试成功" >&2
             return 0
-        fi
+        }
+        last_err="$send_err"
         attempt=$((attempt + 1))
         if [ "$attempt" -lt "$_NOTIFY_MAX_RETRIES" ]; then
-            echo "[notify] WARN: $channel 发送失败，${delay}s 后第$((attempt+1))次重试..." >&2
+            echo "[notify] WARN: $channel 发送失败(attempt $attempt): ${send_err:-(no stderr)}，${delay}s 后重试..." >&2
             sleep "$delay"
             delay=$((delay * 2))
         fi
     done
+    echo "[notify] ERROR: $channel ${_NOTIFY_MAX_RETRIES}次均失败，最后错误: ${last_err:-(no stderr)}" >&2
     return 1
 }
 
@@ -115,13 +118,14 @@ _notify_drain_queue() {
         target=$(python3 -c "import json,sys; print(json.load(sys.stdin)['target'])" < "$f" 2>/dev/null) || continue
         msg=$(python3 -c "import json,sys; print(json.load(sys.stdin)['msg'])" < "$f" 2>/dev/null) || continue
 
-        if "$OPENCLAW" message send --channel "$channel" --target "$target" --message "$msg" --json >/dev/null 2>&1; then
+        local replay_err=""
+        replay_err=$("$OPENCLAW" message send --channel "$channel" --target "$target" --message "$msg" --json 2>&1 >/dev/null) && {
             echo "[notify] REPLAY OK: $(basename "$f")" >&2
             rm -f "$f"
-        else
-            echo "[notify] REPLAY FAIL: $(basename "$f")，保留队列" >&2
-            break  # 如果还是失败，停止重放（避免雪崩）
-        fi
+            continue
+        }
+        echo "[notify] REPLAY FAIL: $(basename "$f") — ${replay_err:-(no stderr)}，保留队列" >&2
+        break  # 如果还是失败，停止重放（避免雪崩）
     done <<< "$qfiles"
 }
 

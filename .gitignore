@@ -9,6 +9,7 @@ config.local.*
 *.log
 *.jsonl
 sessions/
+.last_deploy_head
 
 # 个人知识库
 .kb/

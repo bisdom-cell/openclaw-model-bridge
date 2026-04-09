@@ -112,6 +112,8 @@ print(text)
 }
 
 # LLM 调用封装（含重试和错误诊断）
+# V37.1: 用 Python 构造 JSON + 临时文件传递，彻底避免 shell/jq 对大型 KB 数据的编码问题
+# 旧方式 `jq --arg p "$prompt"` 在 KB 含特殊字符时会损坏请求体导致 LLM 空响应
 llm_call() {
     local prompt="$1"
     local max_tokens="${2:-1500}"
@@ -121,12 +123,27 @@ llm_call() {
     local raw=""
     local attempt=0
     local err_file=$(mktemp)
+    local body_file=$(mktemp)
 
     while [ $attempt -lt 2 ]; do
+        # 用 Python 安全构造 JSON（处理所有 Unicode/转义/控制字符）
+        python3 -c "
+import json, sys
+prompt = sys.stdin.read()
+body = {
+    'model': 'any',
+    'messages': [{'role': 'user', 'content': prompt}],
+    'max_tokens': $max_tokens,
+    'temperature': $temp,
+    'stream': False
+}
+with open('$body_file', 'w') as f:
+    json.dump(body, f, ensure_ascii=False)
+" <<< "$prompt"
+
         raw=$(curl -sS --max-time "$timeout" "$LLM_URL" \
             -H 'Content-Type: application/json' \
-            -d "$(jq -nc --arg p "$prompt" --argjson mt "$max_tokens" --argjson t "$temp" \
-                '{model:"any",messages:[{role:"user",content:$p}],max_tokens:$mt,temperature:$t,stream:false}')" \
+            -d @"$body_file" \
             2>"$err_file" || true)
 
         # 尝试从标准 JSON 提取
@@ -140,22 +157,28 @@ llm_call() {
         fi
 
         if [ -n "${result// }" ]; then
-            rm -f "$err_file"
+            rm -f "$err_file" "$body_file"
             echo "$result"
             return 0
         fi
 
-        # 诊断失败原因
+        # 诊断失败原因（V37.1: 记录原始响应前 500 字符）
         local curl_err=$(cat "$err_file" 2>/dev/null)
         local error_msg=$(echo "$raw" | jq -r '.error.message // .error // empty' 2>/dev/null || true)
+        local raw_len=${#raw}
+        local body_len=$(wc -c < "$body_file" 2>/dev/null | tr -d ' ')
         [ -n "$curl_err" ] && log "  LLM curl error: $curl_err"
         [ -n "$error_msg" ] && log "  LLM API error: $error_msg"
-        [ -z "$raw" ] && log "  LLM returned empty response"
+        if [ -z "$raw" ]; then
+            log "  LLM returned completely empty response (0 bytes, request body was ${body_len} bytes)"
+        else
+            log "  LLM raw response: ${raw_len} bytes, first 500 chars: ${raw:0:500}"
+        fi
 
         attempt=$((attempt + 1))
         [ $attempt -lt 2 ] && sleep 3
     done
-    rm -f "$err_file"
+    rm -f "$err_file" "$body_file"
     return 1
 }
 
@@ -659,7 +682,7 @@ $PREV_THEMES")
 PROMPT_BYTES=$(echo "$REDUCE_PROMPT" | wc -c | tr -d ' ')
 log "Reduce prompt: ${PROMPT_BYTES} bytes → 发送 LLM..."
 
-# 安全检查：prompt 超过 180KB 则截断（Proxy 限制 200KB，留 20KB 给 JSON 包装）
+# 安全检查：prompt 超过 500KB 则截断（Qwen3 262K context 可处理 130KB prompt）
 if [ "$PROMPT_BYTES" -gt 500000 ]; then
     log "WARN: Reduce prompt 过大 (${PROMPT_BYTES}B > 500KB)，回退到 40K 素材"
     REDUCE_MATERIAL=$(echo "$REDUCE_DATA" | utf8_truncate 40000)
