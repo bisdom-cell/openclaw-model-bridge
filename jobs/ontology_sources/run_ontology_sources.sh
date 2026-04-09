@@ -212,12 +212,71 @@ if [ "$TOTAL_NEW" -eq 0 ]; then
 fi
 log "共 ${TOTAL_NEW} 篇新文章"
 
-# ── 组装消息（无 LLM，直接用原始标题+描述）──────────────────────────
-MSG_FILE="$CACHE/onto_message.txt"
-$PYTHON3 - "$ALL_NEW_FILE" "$DAY" "$MSG_FILE" << 'PYEOF'
+# ── 构建 LLM prompt ──────────────────────────────────────────────────
+PROMPT_FILE="$CACHE/llm_prompt.txt"
+$PYTHON3 - "$ALL_NEW_FILE" << 'PYEOF' > "$PROMPT_FILE"
 import sys, json, re
 
-articles_file, day, msg_file = sys.argv[1:4]
+articles = []
+with open(sys.argv[1]) as f:
+    for line in f:
+        line = line.strip()
+        if line:
+            articles.append(json.loads(line))
+
+def clean_desc(desc):
+    if not desc:
+        return ""
+    desc = re.sub(r'<[^>]+>', ' ', desc)
+    desc = re.sub(r'^Publication date:.*?Author\(s\):\s*[^.]+\.?\s*', '', desc, flags=re.DOTALL)
+    return re.sub(r'\s+', ' ', desc).strip()
+
+prompt = """你是本体论(Ontology)和语义网(Semantic Web)领域的学术编辑。对以下每篇文章严格输出三行（不要输出任何其他内容）：
+第一行：中文标题（翻译或意译，≤25字）
+第二行：要点：[1句话≤60字，说明核心贡献或价值]
+第三行：价值：⭐（1到5个星，评估对本体论/知识工程从业者的参考价值）
+每篇之间用一行 --- 分隔。
+
+"""
+for i, a in enumerate(articles, 1):
+    prompt += f"文章{i}：{a['title']}\n"
+    prompt += f"来源：{a['feed_label']}\n"
+    desc = clean_desc(a.get('description', ''))
+    if desc:
+        prompt += f"摘要：{desc[:150]}\n"
+    prompt += "\n"
+
+print(prompt)
+PYEOF
+
+# ── 调用 LLM（直接调 adapter:5001）──────────────────────────────────
+LLM_RAW="$CACHE/llm_raw_last.txt"
+$PYTHON3 -c "
+import json
+prompt = open('$CACHE/llm_prompt.txt').read()
+with open('$CACHE/llm_payload.json', 'w') as f:
+    json.dump({
+        'model': 'default',
+        'messages': [{'role': 'user', 'content': prompt}],
+        'max_tokens': 2048,
+        'temperature': 0.3
+    }, f)
+"
+
+LLM_RESP=$(curl -s --max-time 120 \
+    -H "Content-Type: application/json" \
+    -H "Authorization: Bearer $(echo $REMOTE_API_KEY)" \
+    -d "@$CACHE/llm_payload.json" \
+    http://127.0.0.1:5001/v1/chat/completions 2>"$CACHE/llm.stderr" || true)
+
+echo "$LLM_RESP" > "$LLM_RAW"
+
+# ── 组装消息（LLM 成功用中文摘要，失败用原始标题）──────────────────
+MSG_FILE="$CACHE/onto_message.txt"
+$PYTHON3 - "$ALL_NEW_FILE" "$LLM_RAW" "$DAY" "$MSG_FILE" << 'PYEOF'
+import sys, json, re
+
+articles_file, llm_file, day, msg_file = sys.argv[1:5]
 
 articles = []
 with open(articles_file) as f:
@@ -226,28 +285,46 @@ with open(articles_file) as f:
         if line:
             articles.append(json.loads(line))
 
-def clean_description(desc):
-    """清理 RSS 描述：去 HTML、去 ScienceDirect 元数据前缀"""
-    if not desc:
-        return ""
-    # 去 HTML 标签
-    desc = re.sub(r'<[^>]+>', ' ', desc)
-    # 去 ScienceDirect 元数据前缀 "Publication date: ...Author(s): Name, Name"
-    desc = re.sub(r'^Publication date:.*?Author\(s\):\s*[^.]+\.?\s*', '', desc, flags=re.DOTALL)
-    # 去多余空白
-    desc = re.sub(r'\s+', ' ', desc).strip()
-    return desc
+# 尝试解析 LLM 输出
+try:
+    with open(llm_file) as f:
+        raw = json.load(f)
+    llm_content = raw.get("choices", [{}])[0].get("message", {}).get("content", "")
+except Exception:
+    llm_content = ""
+
+# 解析三行一组（中文标题/要点/价值）
+parsed_blocks = []
+lines = [l.strip() for l in llm_content.split('\n') if l.strip() and not re.match(r'^[-=*]{3,}$', l)]
+
+i = 0
+while i < len(lines):
+    if re.match(r'^文章\d+[：:]', lines[i]):
+        i += 1
+        continue
+    cn_title = lines[i] if i < len(lines) else ""
+    highlight = lines[i+1] if i+1 < len(lines) else ""
+    stars = lines[i+2] if i+2 < len(lines) else ""
+    parsed_blocks.append((cn_title, highlight, stars))
+    i += 3
 
 msg_lines = [f"🔬 Ontology 学术动态 ({day})", ""]
 
-for article in articles:
-    title = article['title']
-    msg_lines.append(f"*{title}*")
+for idx, article in enumerate(articles):
+    if idx < len(parsed_blocks):
+        cn_title, highlight, stars = parsed_blocks[idx]
+        msg_lines.append(f"*{cn_title}*")
+    else:
+        msg_lines.append(f"*{article['title']}*")
+        highlight = ""
+        stars = ""
+
     msg_lines.append(f"来源：{article['feed_label']} | {article.get('pub_date', '')[:16]}")
     msg_lines.append(f"链接：{article['link']}")
-    desc = clean_description(article.get('description', ''))
-    if desc and len(desc) > 10:
-        msg_lines.append(f"摘要：{desc[:150]}")
+    if highlight:
+        msg_lines.append(highlight)
+    if stars and '⭐' in stars:
+        msg_lines.append(stars)
     msg_lines.append("")
 
 with open(msg_file, 'w') as f:
