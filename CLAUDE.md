@@ -1,6 +1,6 @@
 # CLAUDE.md — openclaw-model-bridge 项目背景
 
-> 每次新会话开始时自动读取。当前版本：v37.0 / 0.37.0（2026-04-08）
+> 每次新会话开始时自动读取。当前版本：v37.1 / 0.37.1（2026-04-09）
 
 ---
 
@@ -204,7 +204,8 @@
 | `preference_learner.py` | **V30.4新增** 用户偏好自动学习器（从对话历史推断偏好，写入 status.json） |
 | `activate_openclaw_features.py` | **V30.5新增** OpenClaw 功能激活脚本（检查+启用 agent 工具配置） |
 | `notify.sh` | **V33新增→V35+升级** 统一消息推送（WhatsApp + Discord 双通道 + **自动重试3次指数退避** + **失败队列持久化+自动重放**，`source notify.sh && notify "msg"`） |
-| `kb_harvest_chat.py` | **V37新增** 对话精华提炼器（从 proxy 捕获的每日对话中 LLM 提取决策/偏好/洞察/结论，写入 KB notes，每日 06:00 cron） |
+| `kb_harvest_chat.py` | **V37新增→V37.1升级** 对话精华提炼器 MapReduce 版（从 proxy 捕获的每日对话中 LLM 分段提取+去重合并，零数据丢失，每日 06:00 cron） |
+| `jobs/ontology_sources/run_ontology_sources.sh` | **V37.1新增** Ontology 专属信息源监控（4 RSS: W3C/JWS/DKE/KBS + 两层关键词过滤 + LLM 中文摘要+要点+价值 + Discord #ontology 推送 + KB 归档，cron 10:00/20:00） |
 | `providers.d/` | **V37新增** Provider Plugin 目录（YAML/Python 插件自动发现，`_example.yaml` + `_example_provider.py` 示例） |
 | `docs/provider_plugin_guide.md` | **V37新增** Provider Plugin Extension Guide（60秒添加新 Provider，合约验证，YAML/Python 双模式） |
 | `ontology/docs/architecture/industrial_ai_paradigm.md` | **V37新增** 工业AI范式文档（三平面架构+五项工业需求+范式对比，切断 Dream→PA 链式幻觉） |
@@ -215,6 +216,7 @@
 
 | 版本 | 日期 | 关键变更 |
 |------|------|----------|
+| V37.1 | 2026-04-09 | **Ontology 信息源 + 对话数据零丢失 + 治理主动监控** — ① Ontology 专属信息源（4 RSS: W3C/JWS/DKE/KBS + 两层关键词过滤 + LLM 摘要 + Discord #ontology + KB 归档，cron 10:00/20:00）② kb_harvest_chat MapReduce 升级（分段提炼+去重，零对话数据丢失，28 单测）③ DBLP/S2 加 ontology 关键词 ④ X 监控加 4 位 ontology 先驱（Barry Smith/Guizzardi/Hitzler/Horrocks）⑤ adversarial_audit 合并入 governance_ontology（17 不变式）⑥ 每日 governance_audit cron（07:00 自动执行+失败告警）⑦ 692 测试 |
 | V37 | 2026-04-08 | **V3 路标启动 + LLM 协作方法论 + 对话数据闭环** — ① Provider Plugin Interface（YAML/Python 插件+合约验证+Extension Guide+128单测）② Capability-Based Routing（find_by_capability+build_fallback_chain+auto-discovery fallback chain 接入 adapter.py）③ 对话数据闭环（proxy 热路径捕获→kb_harvest_chat.py 冷路径提炼→MEMORY.md 索引→KB 可检索）④ KB 统一（HN+Freight 双写 notes 对齐 12/12 job）⑤ LLM 协作 4 条新原则（#22 顺势设计/#23 链式幻觉防范/#24 触发词机制/#25 对话数据一等公民）⑥ industrial_ai_paradigm.md 切断幻觉链 ⑦ 692 测试 |
 | V36.3 | 2026-04-08 | **Runtime Governance + Ontology Shadow Mode** — ① 遗留修复(crontab漂移3job+重复清理35→28+DBLP/Dream推送恢复+notify.sh zsh兼容+smoke test python3检测) ② Governance v3(12→15不变式: 运行时层INV-CRON-003/004+INV-ENV-002, MR-6多层深度要求) ③ 验证深度三层模型(声明/运行时/效果, governance自我意识盲区, MRD-LAYER-001) ④ 语义推理落地(classify_tool_call从属性推理risk_level+policy_tags) ⑤ Phase 2 shadow模式(off→shadow→on三档, Mac Mini生产上线) ⑥ 832测试 |
 | V36.2 | 2026-04-07 | **Governance Ontology + 对抗审计体系** — ① Dream修复(printf注入+残留锁) ② 凌晨静默期(00-07零推送) ③ Crontab漂移检测(registry vs crontab) ④ 对抗审计22个声明-实际断裂→adversarial_audit.py(9项) ⑤ governance_ontology.yaml v2(12不变式+28可执行检查+5元规则) ⑥ Phase 0元规则自主发现(23个未覆盖job) ⑦ 工具数量硬断言(MAX_TOOLS import+截断) ⑧ 立场文章(EN+ZH) + Ontology子项目深度建设(Tool Engine+宪法+PoC+特性开关) |
