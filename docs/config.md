@@ -292,7 +292,8 @@ export GEMINI_API_KEY="AIzaXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"   # V29.1新增
 | ai-leaders-x | 每天09:00,21:00 | `~/.openclaw/jobs/ai_leaders_x/run_ai_leaders_x.sh` | `~/.openclaw/logs/jobs/ai_leaders_x.log` | ✅ V34新增：9位AI大牛X技术洞察追踪（Karpathy/Jim Fan/LeCun/Chollet/Swyx/Lilian Weng/Jason Wei/HW Chung/Harrison Chase，Syndication API+LLM深度分析+KB归档） |
 | preference-learner | 每天07:30 | `~/preference_learner.py` | `~/preference_learner.log` | ✅ V30.4新增：每天从行为数据自动推断用户偏好（活跃时段/工具使用/关注领域），写入status.json→SOUL.md |
 | kb_dream | 每天05:30 | `~/kb_dream.sh` | `~/kb_dream.log` | ✅ V32新增→V36.2修复：Agent Dream v2 MapReduce 全量 KB 探索（14源+232笔记逐一提取信号→跨域关联，05:30 避开04:xx ArXiv+Watchdog冲突，输出 ~/.kb/dreams/） |
-| kb_harvest_chat | 每天06:00 | `~/kb_harvest_chat.py` | `~/kb_harvest_chat.log` | ✅ V37新增：对话精华提炼 — 从 proxy 捕获的每日对话中 LLM 提取关键点（决策/偏好/洞察/结论），写入 KB notes |
+| kb_harvest_chat | 每天06:00 | `~/kb_harvest_chat.py` | `~/kb_harvest_chat.log` | ✅ V37新增→V37.1升级MapReduce：对话精华提炼 — 从 proxy 捕获的每日对话中 LLM 提取关键点（决策/偏好/洞察/结论），分块零丢失，写入 KB notes |
+| governance_audit | 每天07:00 | `~/governance_audit_cron.sh` | `~/governance_audit.log` | ✅ V37.1新增：每日 ontology 治理审计（governance_checker --full 17不变式+6元发现 + engine --check 81规则），失败推送 alerts |
 | gateway-watchdog | ~~每30分钟~~ | `~/restart.sh` | `~/.openclaw/logs/gateway_watchdog.log` | ❌ **已移除**（#95：与launchd KeepAlive双主控冲突，导致误杀gateway） |
 
 当前 `crontab -l` 核心条目：
@@ -313,6 +314,7 @@ export GEMINI_API_KEY="AIzaXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"   # V29.1新增
 */10 * * * * bash -lc 'bash $HOME/cron_canary.sh'
 0 * * * * bash -lc 'bash $HOME/kb_status_refresh.sh >> $HOME/kb_status_refresh.log 2>&1'
 */2 * * * * bash -lc 'bash $HOME/openclaw-model-bridge/auto_deploy.sh >> $HOME/.openclaw/logs/auto_deploy.log 2>&1'
+0 7 * * * bash -lc "$HOME/governance_audit_cron.sh" >> $HOME/governance_audit.log 2>&1
 ```
 > 💡 **架构说明**：系统crontab用`bash -lc`加载完整登录环境（含`$HOME`、`$PATH`等环境变量），避免cron空环境导致命令找不到。创建日志目录前置在`mkdir -p`确保首次运行不失败。
 
