@@ -64,6 +64,18 @@ if [ "$LOCAL" = "$REMOTE" ]; then
     HAS_NEW_COMMITS=false
 fi
 
+# ── 检测手动 git reset 导致的 HEAD 变化（auto_deploy 的 fetch 看不到新 commit）──
+# 场景：用户执行 git fetch + git reset --hard origin/main，repo 已是最新，
+# 但 auto_deploy 的 fetch 发现 LOCAL==REMOTE，跳过文件同步 → 部署文件滞后
+# 修复：记录上次部署的 HEAD，HEAD 变化时强制全量文件同步
+LAST_DEPLOY_HEAD_FILE="$REPO_DIR/.last_deploy_head"
+LAST_DEPLOY_HEAD=""
+[ -f "$LAST_DEPLOY_HEAD_FILE" ] && LAST_DEPLOY_HEAD=$(cat "$LAST_DEPLOY_HEAD_FILE" 2>/dev/null)
+HEAD_CHANGED=false
+if [ "$LOCAL" != "$LAST_DEPLOY_HEAD" ]; then
+    HEAD_CHANGED=true
+fi
+
 CHANGED_FILES=""
 
 if $HAS_NEW_COMMITS; then
@@ -262,10 +274,22 @@ if $HAS_NEW_COMMITS; then
     echo "$(date) 同步完成: ${SYNCED} 个文件" >> "$LOG"
 fi
 
-# ── 3b. 漂移检测（每小时整点执行一次全量比对）────────────────────────
-# 解决盲区：新加入 FILE_MAP 的文件、初始手动部署的旧版不会被增量同步覆盖
+# ── 3b. 漂移检测 ──────────────────────────────────────────────────────
+# 触发条件（满足任一即执行）：
+#   1. 每小时整点 (minute < 2) — 定期兜底
+#   2. HEAD 变化但无新 commit — 手动 git reset 后立即同步（V37.1 修复）
+# 解决盲区：用户执行 git reset --hard origin/main 后，auto_deploy 看不到新 commit，
+# 但 HEAD 已变化，立即触发全量比对确保部署文件同步
 MINUTE=$(date +%M)
+DRIFT_REASON=""
 if [ "$MINUTE" -lt 2 ]; then
+    DRIFT_REASON="hourly"
+elif $HEAD_CHANGED && ! $HAS_NEW_COMMITS; then
+    DRIFT_REASON="head_changed_no_new_commits"
+    echo "$(date) HEAD 变化(${LAST_DEPLOY_HEAD:0:8}->${LOCAL:0:8})但无新commit(手动reset?)，触发全量同步" >> "$LOG"
+fi
+
+if [ -n "$DRIFT_REASON" ]; then
     DRIFT=0
     for mapping in "${FILE_MAP[@]}"; do
         SRC="${mapping%%|*}"
@@ -364,6 +388,9 @@ ${CRONTAB_ISSUES}
         find "$HOME/.crontab_backups" -name ".today_*" -mtime +7 -delete 2>/dev/null || true
     fi
 fi
+
+# 记录当前已部署的 HEAD（用于下次检测手动 reset）
+echo "$LOCAL" > "$LAST_DEPLOY_HEAD_FILE"
 
 # ── 4. 按需重启服务 ──────────────────────────────────────────────────
 if $NEED_RESTART; then
