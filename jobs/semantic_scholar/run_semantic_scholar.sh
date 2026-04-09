@@ -37,7 +37,7 @@ test -f "$KB_SRC" || echo "# Semantic Scholar AI论文" > "$KB_SRC"
 
 # ── 1. 多关键词搜索 + 合并去重 ──────────────────────────────────────
 # 搜索多个关键词，每个取 20 篇，合并后按引用量排序
-KEYWORDS=("large language model" "LLM agent" "RAG retrieval augmented" "multimodal AI" "RLHF alignment" "ontology knowledge graph" "neuro-symbolic reasoning" "enterprise ontology")
+KEYWORDS=("large language model" "LLM agent" "RAG retrieval augmented" "multimodal AI" "RLHF alignment" "ontology knowledge graph" "neuro-symbolic reasoning" "enterprise ontology" "formal ontology information systems" "description logic OWL" "semantic web linked data" "knowledge representation reasoning")
 RAW_DIR="$CACHE/raw"
 mkdir -p "$RAW_DIR"
 

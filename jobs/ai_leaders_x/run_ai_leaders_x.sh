@@ -51,6 +51,10 @@ LEADERS=(
     "PalantirTech|Palantir Technologies|企业AI平台/Ontology+AIP/数据治理"
     "AlexKarp|Alex Karp|Palantir CEO，企业AI+本体论落地实践"
     "ShyamSankar|Shyam Sankar|Palantir CTO，Foundry Ontology架构师"
+    "BarrySmith46|Barry Smith|BFO创建者，形式本体论奠基人"
+    "gaborguizzardi|Giancarlo Guizzardi|UFO/OntoUML创建者，概念建模"
+    "pascal_hitzler|Pascal Hitzler|Kansas State，Knowledge Graph/语义网"
+    "IanHorrocks|Ian Horrocks|Oxford，OWL/Description Logic奠基人"
 )
 
 MAX_PER_PERSON=5
