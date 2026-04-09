@@ -43,8 +43,8 @@ done
 RSS_FEEDS=(
     "W3C Semantic Web|https://www.w3.org/blog/feed/|W3C(OWL/RDF/SPARQL/SHACL标准动态)"
     "Journal of Web Semantics|https://rss.sciencedirect.com/publication/science/15708268|JWS(语义网研究，Elsevier)"
-    "Applied Ontology|https://rss.sciencedirect.com/publication/science/15705838|AO(IOS Press，纯本体论期刊)"
-    "Stardog Blog|https://www.stardog.com/blog/rss.xml|Stardog(知识图谱/企业本体平台)"
+    "Data and Knowledge Engineering|https://rss.sciencedirect.com/publication/science/0169023X|DKE(Elsevier，数据与知识工程，本体建模/概念建模)"
+    "Knowledge-Based Systems|https://rss.sciencedirect.com/publication/science/09507051|KBS(Elsevier，知识系统/知识图谱/推理)"
 )
 
 SEEN_FILE="$CACHE/seen_urls.txt"
