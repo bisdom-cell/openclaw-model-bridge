@@ -117,7 +117,7 @@ fi
 #   - smoke_test.sh      → 开发环境 smoke test
 #   - quickstart.sh      → 一次性 demo 脚本
 #   - *_benchmark.py     → 开发环境评测工具（slo_benchmark/reliability_bench）
-#   - adversarial_audit.py → 开发环境对抗审计
+#   - adversarial_audit.py → 已移除（V37.1: 合并入 ontology/governance_checker.py）
 #   - ontology/           → 独立子项目（宪法规定：删除后原系统正常）
 #   - docs/               → 文档（GitHub 在线阅读）
 #   - gameday.sh          → 故障演练（手动执行）
