@@ -39,11 +39,12 @@ done
 
 # ── Ontology RSS 源配置 ───────────────────────────────────────────────
 # 格式：name|feed_url|label
+# 选择标准：有可用RSS、无Cloudflare反爬、ontology/语义网专属
 RSS_FEEDS=(
-    "Semantic Web Journal|https://www.semantic-web-journal.net/rss.xml|SWJ(本体/语义网第一期刊，开放获取)"
     "W3C Semantic Web|https://www.w3.org/blog/feed/|W3C(OWL/RDF/SPARQL/SHACL标准动态)"
-    "Ontotext Blog|https://www.ontotext.com/blog/feed/|Ontotext(知识图谱/语义技术企业实践)"
     "Journal of Web Semantics|https://rss.sciencedirect.com/publication/science/15708268|JWS(语义网研究，Elsevier)"
+    "Applied Ontology|https://rss.sciencedirect.com/publication/science/15705838|AO(IOS Press，纯本体论期刊)"
+    "Stardog Blog|https://www.stardog.com/blog/rss.xml|Stardog(知识图谱/企业本体平台)"
 )
 
 SEEN_FILE="$CACHE/seen_urls.txt"
