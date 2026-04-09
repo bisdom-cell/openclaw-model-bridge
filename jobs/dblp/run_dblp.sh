@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # cron 环境 PATH 极简，必须显式声明
 export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
+# 加载环境变量（cron 环境中 OPENCLAW_PHONE/DISCORD_CH_* 等必须从 profile 获取）
+source "$HOME/.bash_profile" 2>/dev/null || source "$HOME/.env_shared" 2>/dev/null || true
 # DBLP CS论文索引监控 v1
 # 每天 12:00 HKT 由系统 crontab 触发
 # 搜索 AI 相关关键词，按年份过滤当年论文，去重推送

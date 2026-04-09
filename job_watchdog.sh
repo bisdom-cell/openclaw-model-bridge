@@ -1,5 +1,7 @@
 #!/bin/bash
 # job_watchdog.sh — 元监控：全方位系统健康检查
+# 加载环境变量（cron 环境中 OPENCLAW_PHONE/DISCORD_CH_* 等必须从 profile 获取）
+source "$HOME/.bash_profile" 2>/dev/null || source "$HOME/.env_shared" 2>/dev/null || true
 # 每小时由系统 crontab 触发，检查 8 大维度：
 #   1. 定时任务执行状态（15个job，时间戳+状态字段）
 #   2. 日志错误扫描（所有job日志，最近50行）

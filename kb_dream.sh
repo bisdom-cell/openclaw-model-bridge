@@ -17,9 +17,14 @@ export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
 set -o pipefail
 # 注意：不用 set -e，因为 find/wc/grep 在空目录下返回非零会中断脚本
 
+# 加载环境变量（cron 环境极简，OPENCLAW_PHONE/DISCORD_CH_* 等必须从 profile 获取）
+# V37.1: 这是 Dream 推送长期失败的根因之一 — cron 中 env 为空导致 notify.sh 用占位号发送
+source "$HOME/.bash_profile" 2>/dev/null || source "$HOME/.env_shared" 2>/dev/null || true
+
 # 诊断日志（cron 环境调试）
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] dream: START pid=$$ args=$* PATH=$PATH"
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] dream: jq=$(which jq 2>/dev/null || echo MISSING) python3=$(which python3 2>/dev/null || echo MISSING) curl=$(which curl 2>/dev/null || echo MISSING)"
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] dream: OPENCLAW_PHONE=${OPENCLAW_PHONE:-(unset)} DISCORD_CH_DAILY=${DISCORD_CH_DAILY:-(unset)}"
 
 # 防重叠执行（含残留锁检测：超过 60 分钟视为残留，自动清理）
 LOCK="/tmp/kb_dream.lockdir"
@@ -57,6 +62,39 @@ MAP_DIR="$DREAM_DIR/.map_cache"
 mkdir -p "$DREAM_DIR" "$MAP_DIR"
 
 log() { echo "[$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')] dream: $1"; }
+
+# 提前加载 notify.sh（用于失败告警，不仅限于成功推送）
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+_DREAM_NOTIFY_LOADED=false
+for _np in "$SCRIPT_DIR/notify.sh" "$HOME/notify.sh"; do
+    if [ -f "$_np" ]; then
+        source "$_np"
+        _DREAM_NOTIFY_LOADED=true
+        log "notify.sh loaded from $_np"
+        break
+    fi
+done
+$_DREAM_NOTIFY_LOADED || log "WARN: notify.sh not found, push/alerts will be skipped"
+
+# 失败告警：无论哪个阶段失败都通知用户（V37.1 核心修复：静默失败→显式告警）
+dream_fail_alert() {
+    local reason="$1"
+    local msg="⚠️ Agent Dream 失败 ($DAY): $reason — 检查 ~/kb_dream.log"
+    log "FAIL ALERT: $reason"
+    if $_DREAM_NOTIFY_LOADED; then
+        notify "$msg" --topic alerts 2>/dev/null || true
+    fi
+}
+
+# LLM 健康检查：在开始 30 分钟的 MapReduce 前确认 Adapter 可达
+# V37.1: 避免 LLM 不可用时白白浪费时间
+llm_health=$(curl -s --max-time 10 "http://localhost:5001/health" 2>/dev/null || echo "")
+if [ -z "$llm_health" ]; then
+    dream_fail_alert "Adapter(:5001) 不可达，LLM 服务可能未启动"
+    printf '{"time":"%s","status":"llm_unreachable"}\n' "$TS" > "$STATUS_FILE"
+    exit 1
+fi
+log "LLM health OK: $(echo "$llm_health" | head -c 100)"
 
 # UTF-8 安全截断函数
 utf8_truncate() {
@@ -667,6 +705,7 @@ if [ -z "${DREAM_RESULT// }" ]; then
     log "ERROR: Phase 2 所有重试均失败 (prompt was ${PROMPT_BYTES} bytes)"
     printf '{"time":"%s","status":"llm_failed","phase":"reduce","map_count":%d,"reduce_chars":%d,"prompt_bytes":%d}\n' \
         "$TS" "$MAP_COUNT" "$REDUCE_CHARS" "$PROMPT_BYTES" > "$STATUS_FILE"
+    dream_fail_alert "Phase 2 Reduce LLM ${MAX_RETRIES}次全部失败 (prompt=${PROMPT_BYTES}B, map=$MAP_COUNT sources)"
     exit 1
 fi
 
@@ -701,15 +740,11 @@ log "梦境已写入: $DREAM_FILE ($(wc -c < "$DREAM_FILE" | tr -d ' ') bytes)"
 # ═══════════════════════════════════════════════════════════════════
 
 # 推送完整梦境（分段发送，每段 ≤ 4000 字符，确保 WhatsApp 可读性）
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-NOTIFY_PATH=""
-for np in "$SCRIPT_DIR/notify.sh" "$HOME/notify.sh"; do
-    [ -f "$np" ] && NOTIFY_PATH="$np" && break
-done
+# notify.sh 已在脚本开头加载（用于失败告警），这里直接使用
 
 SENT=false
-if [ -n "$NOTIFY_PATH" ]; then
-    source "$NOTIFY_PATH"
+if $_DREAM_NOTIFY_LOADED; then
+    log "推送开始: OPENCLAW_PHONE=${OPENCLAW_PHONE:-(unset)} DISCORD_CH_DAILY=${DISCORD_CH_DAILY:-(unset)}"
 
     # 用 Python 按章节智能分段，写入临时文件
     CHUNK_DIR=$(mktemp -d)
@@ -781,7 +816,8 @@ $segment"
         log "梦境已推送 $SEND_OK/$TOTAL_PARTS 段到 WhatsApp + Discord"
         SENT=true
     else
-        log "WARN: 所有段推送失败"
+        log "ERROR: 所有 $TOTAL_PARTS 段推送均失败"
+        dream_fail_alert "梦境已生成(${DREAM_CHARS}字)但推送全部失败(${TOTAL_PARTS}段) — 检查 OPENCLAW_PHONE/DISCORD_CH_DAILY 环境变量"
     fi
 else
     log "WARN: notify.sh 未找到，跳过推送"

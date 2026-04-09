@@ -1,6 +1,8 @@
 #!/bin/bash
 # cron 环境 PATH 极简，必须显式声明
 export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
+# 加载环境变量（cron 环境中 OPENCLAW_PHONE/DISCORD_CH_* 等必须从 profile 获取）
+source "$HOME/.bash_profile" 2>/dev/null || source "$HOME/.env_shared" 2>/dev/null || true
 # 运维日报 — 合并 conv_quality + token_report 为一条推送
 # 每天 08:15 由 system crontab 触发，报告前一天数据
 # 替代原来分开推送的两个脚本（每天 2 条 → 1 条）
