@@ -1,5 +1,5 @@
 {
-  "updated": "2026-04-09 15:45:04",
+  "updated": "2026-04-09 16:21:33",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-04-09",
+      "what": "SOUL.md批判性思考规则#9(反迎合)+PA回声室案例分析+ontology终态架构文档+ScienceDirect正则修复+governance_audit全通过35/35+kb_harvest_chat crontab bash-lc修复",
+      "by": "claude_code"
+    },
     {
       "date": "2026-04-09",
       "what": "Ontology终态架构文档(target_architecture.md)+Phase3/4/5待办分解写入CLAUDE.md+ScienceDirect正则修复+governance_audit全通过+kb_harvest_chat crontab修复",
@@ -173,11 +178,6 @@
       "date": "2026-03-30",
       "what": "论文源扩展: HF Daily Papers + Semantic Scholar + OpenReview + ACL Anthology 监控上线; ArXiv 429修复（退避+降频）",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-03-29",
-      "what": "OpenClaw内置功能分析+启用4项配置(Brave llm-context/日志脱敏/sandbox)+SOUL.md强化(反幻觉/项目定位/三类能力清单)+修复kb_status_refresh反向覆盖SOUL.md",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -203,7 +203,7 @@
   },
   "session_context": {
     "last_session": "2026-04-08",
-    "unfinished": "[{\"item\":\"PR #341 ontology-sources优化待合并\",\"priority\":\"P1\"},{\"item\":\"KBS过滤仍有边缘case(knowledge tracing等)\",\"priority\":\"P2\"},{\"item\":\"ScienceDirect描述正则未完全清干净(作者名残留)\",\"priority\":\"P2\"},{\"item\":\"20:15 discussions cron首次执行待验证\",\"priority\":\"P1\"},{\"item\":\"07:00 governance_audit首次执行待验证\",\"priority\":\"P1\"},{\"item\":\"ontology_sources cron首次自动运行待验证(10:00/20:00)\",\"priority\":\"P1\"}]",
+    "unfinished": "[]",
     "open_prs": "",
     "blocked_on": "",
     "focus": "Ontology信息源已上线(4 RSS+过滤+LLM摘要+cron 10:00/20:00), 待验证: 20:15 discussions cron首次执行 + 07:00 governance_audit首次执行 + ontology_sources cron首次自动运行。PR #341待合并(ontology源优化)。下一步: KBS过滤/描述正则可继续优化",

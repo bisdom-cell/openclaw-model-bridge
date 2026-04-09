@@ -124,7 +124,7 @@
 | `data_clean.py` | **V30.3新增** 数据清洗 CLI 工具（profile/execute/validate/history，7种操作，支持CSV/TSV/JSON/JSONL/Excel） |
 | `test_data_clean.py` | **V30.3新增** 数据清洗单测（80个用例：格式检测/读写/操作/端到端/多格式） |
 | `docs/archive/data_clean_poc/` | **V30.3新增→V35归档** Phase 0 验证材料（3个脏数据样本+LLM判断力测试脚本） |
-| `SOUL.md` | **V30.4新增** OpenClaw 最高优先级 system prompt（PA身份Wei、三方宪法、行为指令、项目状态实时快照，每小时自动刷新） |
+| `SOUL.md` | **V30.4新增→V37.1升级** OpenClaw 最高优先级 system prompt（PA身份Wei、三方宪法、行为指令、**规则9批判性思考（反迎合+禁模糊关联+保存验证）**、项目状态实时快照，每小时自动刷新） |
 | `ops_soul.md` | **V31新增** Ops Agent 运维助手 SOUL.md（系统健康检查/日志排查/cron诊断/维护操作，部署到 `~/.openclaw/SOUL.md`） |
 | `ops_health.sh` | **V31新增** Ops Agent 健康检查包装脚本（Qwen3 拒绝直接 curl localhost，通过脚本包装绕过） |
 | `status.json` | **V30.4新增（仓库副本）** 三方共享意识锚点（priorities/feedback/incidents/quality/operating_rules/session_context），Mac Mini 每小时 git push 同步 |
@@ -210,6 +210,7 @@
 | `docs/provider_plugin_guide.md` | **V37新增** Provider Plugin Extension Guide（60秒添加新 Provider，合约验证，YAML/Python 双模式） |
 | `ontology/docs/architecture/industrial_ai_paradigm.md` | **V37新增** 工业AI范式文档（三平面架构+五项工业需求+范式对比，切断 Dream→PA 链式幻觉） |
 | `ontology/docs/architecture/target_architecture.md` | **V37.1新增** Ontology 终态架构（四层设计+六域概念模型+策略引擎+三阶段门控+迁移路径 Phase 3-5） |
+| `ontology/docs/cases/pa_echo_chamber_case.md` | **V37.1新增** PA 迎合性回复案例分析（三环反馈陷阱根因+SOUL.md 批判性规则修复+Phase 4 结构性修复路径） |
 
 ## 版本变更历史
 
@@ -217,7 +218,7 @@
 
 | 版本 | 日期 | 关键变更 |
 |------|------|----------|
-| V37.1 | 2026-04-09 | **Ontology 信息源 + 对话数据零丢失 + 治理主动监控** — ① Ontology 专属信息源（4 RSS: W3C/JWS/DKE/KBS + 两层关键词过滤 + LLM 摘要 + Discord #ontology + KB 归档，cron 10:00/20:00）② kb_harvest_chat MapReduce 升级（分段提炼+去重，零对话数据丢失，28 单测）③ DBLP/S2 加 ontology 关键词 ④ X 监控加 4 位 ontology 先驱（Barry Smith/Guizzardi/Hitzler/Horrocks）⑤ adversarial_audit 合并入 governance_ontology（17 不变式）⑥ 每日 governance_audit cron（07:00 自动执行+失败告警）⑦ 692 测试 |
+| V37.1 | 2026-04-09 | **Ontology 信息源 + 对话数据零丢失 + 治理主动监控 + PA 批判性思考** — ① Ontology 专属信息源（4 RSS: W3C/JWS/DKE/KBS + 两层关键词过滤 + LLM 摘要 + Discord #ontology + KB 归档，cron 10:00/20:00）② kb_harvest_chat MapReduce 升级（分段提炼+去重，零对话数据丢失，28 单测）③ DBLP/S2 加 ontology 关键词 ④ X 监控加 4 位 ontology 先驱（Barry Smith/Guizzardi/Hitzler/Horrocks）⑤ adversarial_audit 合并入 governance_ontology（17 不变式）⑥ 每日 governance_audit cron（07:00 自动执行+失败告警）⑦ SOUL.md 规则 9 批判性思考（反迎合+禁模糊关联+PA 回声室案例分析）⑧ Ontology 终态架构文档（四层+三阶段门控+迁移 Phase 3-5）⑨ ScienceDirect 描述正则修复 ⑩ 692 测试 |
 | V37 | 2026-04-08 | **V3 路标启动 + LLM 协作方法论 + 对话数据闭环** — ① Provider Plugin Interface（YAML/Python 插件+合约验证+Extension Guide+128单测）② Capability-Based Routing（find_by_capability+build_fallback_chain+auto-discovery fallback chain 接入 adapter.py）③ 对话数据闭环（proxy 热路径捕获→kb_harvest_chat.py 冷路径提炼→MEMORY.md 索引→KB 可检索）④ KB 统一（HN+Freight 双写 notes 对齐 12/12 job）⑤ LLM 协作 4 条新原则（#22 顺势设计/#23 链式幻觉防范/#24 触发词机制/#25 对话数据一等公民）⑥ industrial_ai_paradigm.md 切断幻觉链 ⑦ 692 测试 |
 | V36.3 | 2026-04-08 | **Runtime Governance + Ontology Shadow Mode** — ① 遗留修复(crontab漂移3job+重复清理35→28+DBLP/Dream推送恢复+notify.sh zsh兼容+smoke test python3检测) ② Governance v3(12→15不变式: 运行时层INV-CRON-003/004+INV-ENV-002, MR-6多层深度要求) ③ 验证深度三层模型(声明/运行时/效果, governance自我意识盲区, MRD-LAYER-001) ④ 语义推理落地(classify_tool_call从属性推理risk_level+policy_tags) ⑤ Phase 2 shadow模式(off→shadow→on三档, Mac Mini生产上线) ⑥ 832测试 |
 | V36.2 | 2026-04-07 | **Governance Ontology + 对抗审计体系** — ① Dream修复(printf注入+残留锁) ② 凌晨静默期(00-07零推送) ③ Crontab漂移检测(registry vs crontab) ④ 对抗审计22个声明-实际断裂→adversarial_audit.py(9项) ⑤ governance_ontology.yaml v2(12不变式+28可执行检查+5元规则) ⑥ Phase 0元规则自主发现(23个未覆盖job) ⑦ 工具数量硬断言(MAX_TOOLS import+截断) ⑧ 立场文章(EN+ZH) + Ontology子项目深度建设(Tool Engine+宪法+PoC+特性开关) |
