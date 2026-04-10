@@ -1,8 +1,9 @@
 # OpenClaw Gateway 升级评估：v2026.3.13-1 → v2026.4.x
 
-> 评估日期：2026-04-04
+> 初次评估：2026-04-04
+> 二次评估：2026-04-10（上游已到 v2026.4.9，#59265 仍 OPEN）
 > 评估者：Claude Code
-> 状态：**评估完成，待用户决策**
+> 状态：**继续 hold — #59265 未修复**
 
 ---
 
@@ -12,9 +13,9 @@
 |------|------|
 | 当前部署版本 | v2026.3.13-1 |
 | 原 hold 条件 | 等 @openclaw/whatsapp 正式发布 + ClawHub 429 修复 |
-| 最新稳定版 | **v2026.4.1**（npm 已发布） |
-| 最新版 | **v2026.4.2**（2026-04-03 发布） |
-| 中间稳定版本 | 6个：v2026.3.23 → 3.23-2 → 3.24 → 3.28 → 3.31 → 4.1 |
+| 最新稳定版 | **v2026.4.9**（2026-04-10 确认，npm 可用） |
+| 上次评估最新版 | v2026.4.2（2026-04-03） |
+| 中间版本 | v2026.3.23 → 3.23-2 → 3.24 → 3.28 → 3.31 → 4.1 → 4.2 → 4.5 → 4.7 → 4.8 → 4.9 |
 
 ## 二、原 Hold 条件评估
 
@@ -259,9 +260,45 @@ openclaw message send --channel whatsapp -t "$OPENCLAW_PHONE" -m "回滚完成"
 **新 hold 条件**：
 1. #59265 关闭或确认不影响 WhatsApp + macOS + 自定义 provider
 2. `trusted-proxy` auth 变更对 localhost proxy 链路的影响确认
-3. 目标版本至少 v2026.4.3+
+3. 目标版本至少 v2026.4.10+（#59265 修复版本）
 
 **下次检查时机**：每周一 `check_upgrade.sh` + 关注 #59265 进展
+
+---
+
+## 十、二次评估记录（2026-04-10）
+
+### 背景
+
+上游从 v2026.4.2 推进到 **v2026.4.9**（7 个新版本），重新评估阻塞条件。
+
+### 阻塞条件复查
+
+| 阻塞项 | v2026.4.2 时 | v2026.4.9 时 | 结论 |
+|--------|-------------|-------------|------|
+| **#59265: Agent actions 不可见** | OPEN | **仍 OPEN**（最后更新 2026-04-03，一周无动静） | 硬阻塞未解除 |
+| **trusted-proxy auth 变更** | 未验证 | v2026.4.8 有 proxy 相关变更（Slack outbound），但非 localhost trust 问题 | 未解除 |
+| **新增：v2026.4.5 config alias 移除** | — | legacy config aliases 移除（有 `doctor --fix` 迁移路径） | 新增中风险 |
+
+### v2026.4.3~4.9 关键变更（与我们相关）
+
+| 版本 | 变更 | 影响 |
+|------|------|------|
+| v2026.4.5 | **Legacy config aliases 移除**（breaking） | 中：升级前需 `openclaw doctor --fix` |
+| v2026.4.8 | HTTP(S) proxy 支持 Socket Mode WebSocket；trusted env-proxy 模式 | 低：Slack 相关，不影响我们 |
+| v2026.4.9 | `providerAuthAliases`（provider 声明 auth 别名共享）；Memory/Dreaming 改进 | 低：长期有价值但非紧急 |
+| v2026.4.3~4.9 | **#59265 未出现在任何版本 fix 列表中** | 确认未修复 |
+
+### 二次评估结论
+
+**继续 hold，理由不变且更充分**：
+1. #59265 经过 7 个版本仍未修复，说明是深层 bug，短期不会解决
+2. 版本跨度从 6 个增加到 11 个中间版本，升级风险反而更大
+3. v2026.4.5 新增 config breaking change，增加一个迁移步骤
+4. 当前 v2026.3.13-1 运行稳定（718 tests pass，三层服务 ok）
+5. 无功能缺失或 bug 驱动升级
+
+**下次检查**：关注 #59265 状态变化（`curl -s https://api.github.com/repos/openclaw/openclaw/issues/59265 | python3 -c "import json,sys; d=json.load(sys.stdin); print(f'#{d[\"number\"]}: {d[\"state\"]}')"）
 
 ## 九、升级后文档更新清单
 
