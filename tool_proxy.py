@@ -735,6 +735,16 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                 resp_body = resp.read()
                 rj = json.loads(resp_body)
                 content = rj.get("choices", [{}])[0].get("message", {}).get("content", "")
+
+                # Followup 响应也可能含 <tool_call> XML（Qwen3 训练 artifact）
+                # 必须清理，否则原样发到 WhatsApp
+                if isinstance(content, str) and "<tool_call>" in content:
+                    import re
+                    cleaned = re.sub(r'<tool_call>\s*\{.*?\}\s*</tool_call>', '', content, flags=re.DOTALL).strip()
+                    rj["choices"][0]["message"]["content"] = cleaned
+                    log(f"[{rid}] SEARCH_KB followup: stripped <tool_call> XML ({len(content)} -> {len(cleaned)} chars)")
+                    content = cleaned
+
                 log(f"[{rid}] SEARCH_KB followup result: {len(content)} chars")
                 return rj
         except Exception as e:
