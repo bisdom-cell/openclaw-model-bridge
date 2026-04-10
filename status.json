@@ -1,5 +1,5 @@
 {
-  "updated": "2026-04-09 16:21:33",
+  "updated": "2026-04-10 04:00:46",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-04-10",
+      "what": "V37.1+ Session: ① Dream配额爆炸链修复(智能退避429/524+Map熔断3次+inter-call节流) ② HN垃圾推送修复(RSS描述注入+JSON输出+__LLM_FAILED__信号+3次重试) ③ 原则#26升级为宪法级(异常分析五步法:因果链图+三层根因+时间线+条件组合+本体喂养) ④ Dream配额爆炸链案例文档+2新治理不变式(INV-QUOTA-001/INV-PUSH-001) ⑤ Adapter hot-reload(FALLBACK_CHAIN零停机刷新+feature flag+/health暴露) ⑥ Proxy幻觉工具过滤(<tool_call>XML清理:主路径+followup路径) ⑦ 718测试",
+      "by": "claude_code"
+    },
     {
       "date": "2026-04-09",
       "what": "SOUL.md批判性思考规则#9(反迎合)+PA回声室案例分析+ontology终态架构文档+ScienceDirect正则修复+governance_audit全通过35/35+kb_harvest_chat crontab bash-lc修复",
@@ -172,11 +177,6 @@
     {
       "date": "2026-03-31",
       "what": "V30.5: search_kb混合检索工具(语义搜索+关键词+LLM解读) + DBLP监控上线 + kb_evening修复 + KB下游管道扩展5源 + Gateway工具配置确认(10个为上限)",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-03-30",
-      "what": "论文源扩展: HF Daily Papers + Semantic Scholar + OpenReview + ACL Anthology 监控上线; ArXiv 429修复（退避+降频）",
       "by": "claude_code"
     }
   ],
