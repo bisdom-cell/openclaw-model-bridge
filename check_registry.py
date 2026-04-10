@@ -203,17 +203,17 @@ def check_crontab(registry_path):
                             )
                     break
 
-    # 检查3: 重复条目检测
-    seen_scripts = {}
+    # 检查3: 重复条目检测（比较完整命令，不仅是脚本名）
+    # 同一脚本不同参数视为不同 job（如 kb_dream.sh vs kb_dream.sh --map-only）
+    seen_commands = {}
     for line in active_lines:
-        # 提取脚本名
-        for part in line.split():
-            if part.endswith(".sh") or part.endswith(".py"):
-                base = os.path.basename(part)
-                if base in seen_scripts:
-                    warnings.append(f"crontab 疑似重复: '{base}' 出现在多个条目中")
-                seen_scripts[base] = seen_scripts.get(base, 0) + 1
-                break
+        parts = line.split()
+        if len(parts) > 5:
+            # crontab: min hour day month weekday command...
+            cmd = " ".join(parts[5:])  # 完整命令（含参数）
+            if cmd in seen_commands:
+                warnings.append(f"crontab 完全重复: '{cmd}' 出现在多个条目中")
+            seen_commands[cmd] = seen_commands.get(cmd, 0) + 1
 
     return errors, warnings
 

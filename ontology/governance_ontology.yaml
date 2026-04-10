@@ -485,10 +485,10 @@ invariants:
     meta_rule: MR-3
     verification_layer: [runtime]
     severity: high
-    declaration: "每个 job 在 crontab 中最多出现一次（重复条目导致并发执行和资源浪费）"
-    design_decision: "2026-04-08 教训：kb_dream 有 3 个 crontab 条目，双进程启动触发 lock contention"
+    declaration: "每个完整命令（脚本+参数）在 crontab 中最多出现一次（同一脚本不同参数视为不同 job，如 kb_dream.sh vs kb_dream.sh --map-only）"
+    design_decision: "2026-04-08 教训：kb_dream 有 3 个完全相同的 crontab 条目→双进程 lock contention；2026-04-10 澄清：同一脚本不同参数是合法的分离调度（Map-Reduce 分阶段执行）"
     checks:
-      - name: "crontab 中无重复 job 脚本"
+      - name: "crontab 中无完全重复的命令条目"
         check_type: python_assert
         requires_full: true
         code: |
