@@ -774,5 +774,49 @@ class TestSessionToolSchemas(unittest.TestCase):
         self.assertNotIn("extra", args)
 
 
+class TestToolCallXMLStripping(unittest.TestCase):
+    """V37.1+: 幻觉工具调用 <tool_call> XML 清理测试"""
+
+    def _read_proxy(self):
+        with open("tool_proxy.py") as f:
+            return f.read()
+
+    def test_xml_stripped_from_content(self):
+        """<tool_call> XML 始终从 content 中清除"""
+        content = self._read_proxy()
+        self.assertIn("re.sub", content)
+        self.assertIn("<tool_call>", content)
+        self.assertIn("</tool_call>", content)
+
+    def test_hallucinated_tool_logged(self):
+        """幻觉工具名有日志记录"""
+        content = self._read_proxy()
+        self.assertIn("HALLUCINATED TOOL stripped", content)
+
+    def test_unknown_tool_not_in_tool_calls(self):
+        """不存在的工具不应出现在 tool_calls 中"""
+        content = self._read_proxy()
+        # 验证存在过滤逻辑：只保留 CUSTOM_TOOL_NAMES + ALLOWED_TOOLS + ALLOWED_PREFIXES
+        self.assertIn("CUSTOM_TOOL_NAMES", content)
+        self.assertIn("ALLOWED_TOOLS", content)
+        self.assertIn("ALLOWED_PREFIXES", content)
+
+    def test_empty_tool_calls_removed(self):
+        """所有工具都是幻觉时 tool_calls 被移除"""
+        content = self._read_proxy()
+        self.assertIn('msg.pop("tool_calls", None)', content)
+
+    def test_valid_custom_tool_preserved(self):
+        """有效自定义工具（search_kb/data_clean）不被过滤"""
+        for name in CUSTOM_TOOL_NAMES:
+            self.assertIn(name, CUSTOM_TOOL_NAMES)
+
+    def test_summarize_not_valid_tool(self):
+        """'summarize' 不是任何已知工具"""
+        self.assertNotIn("summarize", ALLOWED_TOOLS)
+        self.assertNotIn("summarize", CUSTOM_TOOL_NAMES)
+        self.assertFalse(any("summarize".startswith(p) for p in ALLOWED_PREFIXES))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

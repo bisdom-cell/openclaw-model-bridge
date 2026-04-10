@@ -636,7 +636,25 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                 if isinstance(content, str) and "<tool_call>" in content:
                     tool_calls = self._extract_tool_calls_from_text(content)
                     if tool_calls:
-                        msg["tool_calls"] = tool_calls
+                        # 始终清除 content 中的 <tool_call> XML，无论工具是否有效
+                        import re
+                        cleaned = re.sub(r'<tool_call>\s*\{.*?\}\s*</tool_call>', '', content, flags=re.DOTALL).strip()
+                        msg["content"] = cleaned
+
+                        # 过滤掉不存在的幻觉工具（只保留已知工具）
+                        valid_calls = []
+                        for tc in tool_calls:
+                            fn_name = tc.get("function", {}).get("name", "")
+                            if fn_name in CUSTOM_TOOL_NAMES or fn_name in ALLOWED_TOOLS or any(fn_name.startswith(p) for p in ALLOWED_PREFIXES):
+                                valid_calls.append(tc)
+                            else:
+                                log(f"[{rid}] HALLUCINATED TOOL stripped: {fn_name}")
+                        tool_calls = valid_calls
+                        if tool_calls:
+                            msg["tool_calls"] = tool_calls
+                        else:
+                            # 所有提取的工具都是幻觉 → 不设 tool_calls，让文本响应流过
+                            msg.pop("tool_calls", None)
                 if not tool_calls:
                     continue
 
