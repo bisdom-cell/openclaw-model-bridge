@@ -41,8 +41,8 @@ fi
 mkdir "$LOCK" 2>/dev/null || { echo "[dream] Lock contention, skip"; exit 0; }
 trap 'rmdir "$LOCK" 2>/dev/null' EXIT
 
-# 全局超时保护：整个 Dream 不超过 25 分钟（V37.2 fix: 防止卡住影响后续 job）
-# 04:30 启动 → 最迟 04:55 结束，留 5 分钟余量给 05:00 的其他 job
+# 全局超时保护（V37.2 fix: 防止卡住影响后续 job）
+# 03:00 启动 → 最迟 04:00 结束，00:00-06:00 为 Qwen3 算力专属窗口
 DREAM_START_EPOCH=$(date +%s)
 DREAM_TIMEOUT_SEC=3600  # 60 minutes（凌晨整段时间预留给 Dream，全量无损运行）
 check_deadline() {
@@ -55,7 +55,7 @@ check_deadline() {
 }
 
 # Dream LLM 配置：直接调 Adapter(:5001)，绕过 Proxy
-# 资源竞争缓解策略：cron 调度到凌晨 4:00（GPU 低负载时段）+ 短响应自动重试
+# 资源竞争缓解策略：cron 调度到凌晨 03:00（00:00-06:00 Qwen3 算力专属窗口）+ 短响应自动重试
 # Gemini 2.5 Flash 已验证不适合（中文质量差、免费 tier 限速、输出极短）
 LLM_URL="http://localhost:5001/v1/chat/completions"
 LLM_AUTH=""

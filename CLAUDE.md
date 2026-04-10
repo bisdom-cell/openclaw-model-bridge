@@ -193,7 +193,7 @@
 | `docs/resilience_report.md` | **V36新增** 运维韧性实验报告（7场景故障注入+Recovery Time+GameDay对比+改进建议） |
 | `docs/ontology/` | **V36新增** Ontology KB — 本体论驱动的企业智能架构知识库（16文件：三角架构论述/核心概念/AI治理/OpenClaw本体审视/文献/人物/README/流派对比/供应链本体） |
 | `ontology/` | **V36.1新增→V36.3升级** Ontology 独立子项目 — Tool Engine（81条声明式规则+推理引擎+**classify_tool_call语义分类**）+ **Governance Ontology v3**（**15不变式**+32可执行检查+**6元规则**+**验证深度三层模型**+Phase 0元规则自主发现+**MRD-LAYER-001深度盲区发现**）+ governance_checker.py 执行引擎 + 宪法6条 + 语义查询PoC + **Phase 2 shadow模式**(off→shadow→on) + 立场文章(EN+ZH) |
-| `kb_dream.sh` | **V36新增→升级** Agent Dream v2 MapReduce 全量 KB 探索引擎（Phase1 Map 14源+226笔记逐一提取信号 → Phase2 Reduce 跨域深度分析，一个主题×全部分析维���，绕过Proxy直调Adapter，分段WhatsApp推送，短响应自动重试，04:30错峰执行） |
+| `kb_dream.sh` | **V36新增→升级** Agent Dream v2 MapReduce 全量 KB 探索引擎（Phase1 Map 14源+226笔记逐一提取信号 → Phase2 Reduce 跨域深度分析，一个主题×全部分析维���，绕过Proxy直调Adapter，分段WhatsApp推送，短响应自动重试，03:00执行，00:00-06:00算力专属窗口） |
 | `gameday.sh` | **V33新增** GameDay 故障演练（5场景：GPU超时/断路器/快照/SLO/Watchdog，`bash gameday.sh --all`） |
 | `jobs/dblp/run_dblp.sh` | **V30.5新增** DBLP CS论文监控（多关键词搜索、免费API、每日12:00推送+KB写入） |
 | `jobs/hf_papers/run_hf_papers.sh` | **V30.5新增** HuggingFace Daily Papers 监控（热门AI论文、每日10:00推送+KB写入） |
