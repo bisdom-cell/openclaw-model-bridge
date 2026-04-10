@@ -66,17 +66,18 @@ while IFS='|' read -r job_id entry log_path interval needs_key description; do
     ISSUES=0
 
     # ── 1. 脚本文件存在性 ──
-    # 检查 FILE_MAP 目标路径和仓库路径
-    REPO_PATH="$SCRIPT_DIR/$entry"
+    # Strip arguments: "kb_dream.sh --map-sources" → "kb_dream.sh"
+    entry_script="${entry%% *}"
+    REPO_PATH="$SCRIPT_DIR/$entry_script"
     if [ -f "$REPO_PATH" ]; then
-        pass "仓库文件存在: $entry"
+        pass "仓库文件存在: $entry_script"
     else
-        fail "仓库文件不存在: $entry"
+        fail "仓库文件不存在: $entry_script"
         ISSUES=$((ISSUES + 1))
     fi
 
     # ── 2. Crontab 注册检查 ──
-    entry_basename=$(basename "$entry")
+    entry_basename=$(basename "$entry_script")
     if echo "$CRONTAB" | grep -q "$entry_basename"; then
         CRON_LINE=$(echo "$CRONTAB" | grep "$entry_basename" | head -1)
         pass "crontab 已注册"
