@@ -1,5 +1,5 @@
 {
-  "updated": "2026-04-10 09:35:23",
+  "updated": "2026-04-10 10:24:26",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-04-10",
+      "what": "Shadow模式修复: ① tool_proxy.py补上log_fn让drift检测真正运行 ② 发现~/ontology/从未部署到运行时路径(V36.2以来shadow从未生效) ③ Mac Mini创建symlink修复 ④ 首条生产shadow数据采集成功(4 high-risk tools,零drift) ⑤ job_smoke_test.sh参数感知修复",
+      "by": "claude_code"
+    },
     {
       "date": "2026-04-10",
       "what": "Dream Map-Reduce三阶段分离: ① Map-Reduce分离执行(Map 00:00写缓存→Reduce 03:00读缓存,7x提速) ② Map再拆Sources(00:00)+Notes(00:40)独立调度+超时隔离 ③ 3新治理不变式(INV-CRON-005锁隔离/INV-CACHE-001缓存完整/INV-JOB-001状态隔离,22不变式) ④ check_registry/preflight参数感知修复(split()[0]) ⑤ 718测试",
@@ -172,11 +177,6 @@
     {
       "date": "2026-03-31",
       "what": "V31: 遗留清理5项 + ops agent激活(SOUL.md+exec+ops_health.sh) + HN dlopen修复(/usr/bin/python3) + HF Papers增强(GitHub代码链接10/10) + GitHub Trending ML/AI监控 + RSS博客订阅(科学空间+Lil'Log+Simon Willison+Latent Space+LangChain) — KB信息源5→8个",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-03-31",
-      "what": "V31: Watchdog 8维全面升级(11 jobs+服务健康+磁盘+crontab+KB新鲜度) + 动态context裁剪(70%/85%阈值) + FILE_MAP补齐7文件+双向preflight验证 + status.json JSON合并驱动(消除反复冲突) + preflight check#6/#15修复",
       "by": "claude_code"
     }
   ],
@@ -276,7 +276,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "Dream Map-Reduce三阶段分离完成(Sources 00:00→Notes 00:40→Reduce 03:00), 22治理不变式, V3路标继续: Tool Policy Plugin或证据型文章",
+  "focus": "Shadow drift检测已上线(04-10起计时,04-17可切ONTOLOGY_MODE=on). Dream三阶段分离完成. V3路标继续: Tool Policy Plugin或证据型文章",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
