@@ -329,9 +329,11 @@ python3 memory_plane.py query "Qwen3"             # 统一搜索
 python3 memory_plane.py query --context "AI论文"   # LLM可注入格式
 python3 memory_plane.py query --layers kb "RAG"    # 仅搜索KB层
 
-# Agent Dream v2（Map-Reduce 分离调度）
-bash kb_dream.sh --map-only   # Map 预热：提取信号写缓存（00:00 cron，~20min）
-bash kb_dream.sh              # Reduce：缓存命中→跨域关联→推送（03:00 cron，~3.5min）
+# Agent Dream v2（Map-Reduce 三阶段分离调度）
+bash kb_dream.sh --map-sources # Sources Map 预热（00:00 cron，~10min）
+bash kb_dream.sh --map-notes   # Notes Map 预热（00:25 cron，~10min）
+bash kb_dream.sh              # Reduce：两层缓存命中→跨域关联→推送（03:00 cron，~3.5min）
+bash kb_dream.sh --map-only   # 全部 Map 预热（Sources + Notes，~20min）
 bash kb_dream.sh --dry-run    # 素材统计（不调 LLM）
 bash kb_dream.sh --fast       # 跳过 Map，直接采样做梦（旧模式）
 cat ~/.kb/dreams/2026-04-06.md  # 查看梦境结果

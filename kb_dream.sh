@@ -9,14 +9,17 @@
 #   Phase 2 (Reduce) — 汇总所有信号 + notes + 状态，进行跨领域关联发现
 #
 # 调度策略：Map 和 Reduce 可分离执行，利用缓存解耦
-#   00:00  bash kb_dream.sh --map-only   # 预热：只跑 Map，写入缓存，不调 Reduce
-#   03:00  bash kb_dream.sh              # 主程序：Map 全缓存命中(~15s) → Reduce(~3min) → 推送
-#   效果：03:00 的 Reduce 从 ~24min 降到 ~3.5min
+#   00:00  bash kb_dream.sh --map-sources  # 预热 Sources（~10min，15 源）
+#   00:25  bash kb_dream.sh --map-notes    # 预热 Notes（~10min，~16 批）
+#   03:00  bash kb_dream.sh               # Reduce：缓存全命中(~15s) → 跨域关联(~3min) → 推送
+#   效果：每个子任务 ≤ 10min，不会超时；03:00 只需 ~3.5min
 #
 # 输出：~/.kb/dreams/YYYY-MM-DD.md + WhatsApp+Discord 推送精华洞察
 #
 # 用法：bash kb_dream.sh              # 正常运行（MapReduce 全量）
-#       bash kb_dream.sh --map-only   # 只跑 Map 阶段，预热缓存（00:00 cron）
+#       bash kb_dream.sh --map-only   # 只跑全部 Map（Sources + Notes），预热缓存
+#       bash kb_dream.sh --map-sources # 只跑 Sources Map（00:00 cron）
+#       bash kb_dream.sh --map-notes   # 只跑 Notes Map（00:25 cron）
 #       bash kb_dream.sh --dry-run    # 只展示输入数据统计，不调用 LLM
 #       bash kb_dream.sh --fast       # 跳过 Map 阶段，直接采样做梦（旧模式）
 export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
@@ -71,9 +74,13 @@ TS="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')"
 DRY_RUN=false
 FAST_MODE=false
 MAP_ONLY=false
+MAP_SOURCES_ONLY=false
+MAP_NOTES_ONLY=false
 [ "${1:-}" = "--dry-run" ] && DRY_RUN=true
 [ "${1:-}" = "--fast" ] && FAST_MODE=true
 [ "${1:-}" = "--map-only" ] && MAP_ONLY=true
+[ "${1:-}" = "--map-sources" ] && { MAP_ONLY=true; MAP_SOURCES_ONLY=true; }
+[ "${1:-}" = "--map-notes" ] && { MAP_ONLY=true; MAP_NOTES_ONLY=true; }
 
 KB_BASE="${KB_BASE:-$HOME/.kb}"
 DREAM_DIR="$KB_BASE/dreams"
@@ -265,8 +272,12 @@ if $DRY_RUN; then
     echo "Notes: $NOTE_COUNT files"
     echo "Total KB size: $TOTAL_KB_BYTES bytes (~$((TOTAL_KB_BYTES / 1024))KB)"
     echo "Dream file: $DREAM_FILE"
-    if $MAP_ONLY; then
-        echo "Mode: MAP-ONLY (pre-warm cache, no Reduce)"
+    if $MAP_SOURCES_ONLY; then
+        echo "Mode: MAP-SOURCES (pre-warm sources cache only)"
+    elif $MAP_NOTES_ONLY; then
+        echo "Mode: MAP-NOTES (pre-warm notes cache only)"
+    elif $MAP_ONLY; then
+        echo "Mode: MAP-ONLY (pre-warm all cache, no Reduce)"
     elif $FAST_MODE; then
         echo "Mode: FAST (single-pass)"
     else
@@ -340,8 +351,8 @@ MAP_SIGNALS=""
 MAP_COUNT=0
 MAP_CONSECUTIVE_FAILS=0  # 连续失败计数：超过 3 次停止 Map，保护 fallback 配额
 
-if [ "$FAST_MODE" = false ] && [ "$SRC_COUNT" -gt 0 ]; then
-    log "Phase 1 (Map): 开始逐源提取信号..."
+if [ "$FAST_MODE" = false ] && [ "$SRC_COUNT" -gt 0 ] && [ "$MAP_NOTES_ONLY" = false ]; then
+    log "Phase 1a (Map Sources): 开始逐源提取信号..."
 
     while IFS= read -r src; do
         # 全局超时检查
@@ -443,7 +454,7 @@ fi
 NOTES_SIGNALS=""
 NOTES_MAP_COUNT=0
 
-if [ "$FAST_MODE" = false ] && [ -n "$ALL_NOTES" ] && [ "$MAP_CONSECUTIVE_FAILS" -lt 3 ]; then
+if [ "$FAST_MODE" = false ] && [ -n "$ALL_NOTES" ] && [ "$MAP_CONSECUTIVE_FAILS" -lt 3 ] && [ "$MAP_SOURCES_ONLY" = false ]; then
     log "Phase 1b (Map Notes): 开始从笔记中提取信号..."
 
     # 按修改时间倒序（最新在前）
@@ -627,19 +638,23 @@ $content
     done <<< "$SORTED_NOTES"
 fi
 
-# --map-only 模式：Map 完成后直接退出，缓存已写入，Reduce 交给后续调度
+# --map-* 模式：Map 完成后直接退出，缓存已写入，Reduce 交给后续调度
 if $MAP_ONLY; then
     MAP_ELAPSED=$(( $(date +%s) - DREAM_START_EPOCH ))
-    log "Map-only 完成: sources=$MAP_COUNT/$SRC_COUNT, notes=$NOTES_MAP_COUNT/$NOTE_COUNT, 缓存已写入 $MAP_DIR, 耗时 ${MAP_ELAPSED}s"
+    MAP_SCOPE="all"
+    $MAP_SOURCES_ONLY && MAP_SCOPE="sources"
+    $MAP_NOTES_ONLY && MAP_SCOPE="notes"
+    log "Map-${MAP_SCOPE} 完成: sources=$MAP_COUNT/$SRC_COUNT, notes=$NOTES_MAP_COUNT/$NOTE_COUNT, 缓存已写入 $MAP_DIR, 耗时 ${MAP_ELAPSED}s"
     # 写入独立的 Map status 文件（不覆盖 Reduce 的 .last_run.json）
-    printf '{"time":"%s","status":"map_only_done","map_count":%d,"notes_map_count":%d,"sources":%d,"notes":%d,"elapsed_sec":%d,"consecutive_fails":%d}\n' \
-        "$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')" "$MAP_COUNT" "$NOTES_MAP_COUNT" "$SRC_COUNT" "$NOTE_COUNT" "$MAP_ELAPSED" "$MAP_CONSECUTIVE_FAILS" > "$MAP_STATUS_FILE"
+    printf '{"time":"%s","status":"map_%s_done","map_count":%d,"notes_map_count":%d,"sources":%d,"notes":%d,"elapsed_sec":%d,"consecutive_fails":%d}\n' \
+        "$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')" "$MAP_SCOPE" "$MAP_COUNT" "$NOTES_MAP_COUNT" "$SRC_COUNT" "$NOTE_COUNT" "$MAP_ELAPSED" "$MAP_CONSECUTIVE_FAILS" > "$MAP_STATUS_FILE"
     # 写入完成标记（Reduce 阶段可检测 Map 是否成功完成）
+    # --map-sources 只更新 sources 计数，--map-notes 只更新 notes 计数
     if [ "$MAP_COUNT" -gt 0 ] || [ "$NOTES_MAP_COUNT" -gt 0 ]; then
         echo "$MAP_COUNT:$NOTES_MAP_COUNT" > "$MAP_DONE_FLAG"
-        log "Map 完成标记已写入: $MAP_DONE_FLAG"
+        log "Map 完成标记已写入: $MAP_DONE_FLAG (scope=$MAP_SCOPE)"
     else
-        log "WARN: Map 零成功，不写入完成标记"
+        log "WARN: Map 零成功，不写入完成标记 (scope=$MAP_SCOPE)"
     fi
     exit 0
 fi

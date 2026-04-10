@@ -346,15 +346,25 @@ jobs:
     tier: experiment                 # 实验性功能
     description: 每天从行为数据自动推断用户偏好（活跃时段/工具使用/关注领域），写入 status.json → SOUL.md
 
-  - id: kb_dream_map
+  - id: kb_dream_map_sources
     scheduler: system
-    entry: kb_dream.sh --map-only
-    interval: "0 0 * * *"           # 每天 00:00（Map 预热：提取信号写缓存，不调 Reduce）
+    entry: kb_dream.sh --map-sources
+    interval: "0 0 * * *"           # 每天 00:00（Map Sources：15 源 × LLM 提取信号 → 缓存，~10min）
     log: ~/kb_dream.log
     needs_api_key: false             # 通过 Adapter:5001 调 LLM（绕过 Proxy）
     enabled: true
     tier: experiment                 # Dream Map 阶段分离调度
-    description: "Agent 做梦 Map 预热 — 逐源提取信号写入缓存（~20min），为 03:00 Reduce 阶段做准备"
+    description: "Agent 做梦 Map Sources 预热 — 15 个数据源逐一提取信号写缓存（~10min）"
+
+  - id: kb_dream_map_notes
+    scheduler: system
+    entry: kb_dream.sh --map-notes
+    interval: "25 0 * * *"          # 每天 00:25（Map Notes：~16 批笔记 × LLM 提取信号 → 缓存，~10min）
+    log: ~/kb_dream.log
+    needs_api_key: false             # 通过 Adapter:5001 调 LLM（绕过 Proxy）
+    enabled: true
+    tier: experiment                 # Dream Map 阶段分离调度
+    description: "Agent 做梦 Map Notes 预热 — ~226 条笔记分批提取信号写缓存（~10min）"
 
   - id: kb_dream
     scheduler: system
@@ -389,9 +399,10 @@ jobs:
   #   0 3    openclaw_backup（rsync 备份）
   #   30 3   kb_embed（本地 CPU 向量索引）
   #
-  # Qwen3 算力专属（Map-Reduce 分离调度）：
-  #   0 0    kb_dream --map-only（Map 预热：31次 LLM 调用提取信号→缓存，~20min）
-  #   0 3    kb_dream（Reduce：缓存命中 ~15s → 1次 Qwen3 深度关联 ~3min → 推送）
+  # Qwen3 算力专属（Map-Reduce 三阶段分离调度）：
+  #   0 0    kb_dream --map-sources（Sources Map：15源×LLM，~10min）
+  #   25 0   kb_dream --map-notes（Notes Map：~16批×LLM，~10min）
+  #   0 3    kb_dream（Reduce：两层缓存命中 ~15s → 1次 Qwen3 深度关联 ~3min → 推送）
   #   [预留] 未来重度 Qwen3 任务（Ontology 专题分析等）
   #
   # 06:00  ── Qwen3 共享恢复（kb_harvest_chat 对话提炼）──

@@ -291,8 +291,9 @@ export GEMINI_API_KEY="AIzaXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"   # V29.1新增
 | ~~karpathy-x~~ | ~~每天09:00,21:00~~ | `~/.openclaw/jobs/karpathy_x/run_karpathy_x.sh` | `~/.openclaw/logs/jobs/karpathy_x.log` | ❌ **已停用**（V34: 合并到 ai_leaders_x 多账号追踪） |
 | ai-leaders-x | 每天09:00,21:00 | `~/.openclaw/jobs/ai_leaders_x/run_ai_leaders_x.sh` | `~/.openclaw/logs/jobs/ai_leaders_x.log` | ✅ V34新增：9位AI大牛X技术洞察追踪（Karpathy/Jim Fan/LeCun/Chollet/Swyx/Lilian Weng/Jason Wei/HW Chung/Harrison Chase，Syndication API+LLM深度分析+KB归档） |
 | preference-learner | 每天07:30 | `~/preference_learner.py` | `~/preference_learner.log` | ✅ V30.4新增：每天从行为数据自动推断用户偏好（活跃时段/工具使用/关注领域），写入status.json→SOUL.md |
-| kb_dream_map | 每天00:00 | `~/kb_dream.sh --map-only` | `~/kb_dream.log` | ✅ V37.2新增：Dream Map 预热 — 逐源提取信号写入缓存（~20min），为 03:00 Reduce 做准备 |
-| kb_dream | 每天03:00 | `~/kb_dream.sh` | `~/kb_dream.log` | ✅ V32新增→V37.2分离调度：Map 阶段 00:00 已预热缓存 → 03:00 缓存命中(~15s) → Reduce 跨域关联(~3min) → 推送梦境 |
+| kb_dream_map_sources | 每天00:00 | `~/kb_dream.sh --map-sources` | `~/kb_dream.log` | ✅ V37.2新增：Dream Sources Map 预热 — 15源×LLM提取信号写缓存（~10min） |
+| kb_dream_map_notes | 每天00:25 | `~/kb_dream.sh --map-notes` | `~/kb_dream.log` | ✅ V37.2新增：Dream Notes Map 预热 — ~16批笔记×LLM提取信号写缓存（~10min） |
+| kb_dream | 每天03:00 | `~/kb_dream.sh` | `~/kb_dream.log` | ✅ V32新增→V37.2三阶段分离调度：Sources+Notes 缓存命中(~15s) → Reduce 跨域关联(~3min) → 推送梦境 |
 | kb_harvest_chat | 每天06:00 | `~/kb_harvest_chat.py` | `~/kb_harvest_chat.log` | ✅ V37新增→V37.1升级MapReduce：对话精华提炼 — 从 proxy 捕获的每日对话中 LLM 提取关键点（决策/偏好/洞察/结论），分块零丢失，写入 KB notes |
 | governance_audit | 每天07:00 | `~/governance_audit_cron.sh` | `~/governance_audit.log` | ✅ V37.1新增：每日 ontology 治理审计（governance_checker --full 17不变式+6元发现 + engine --check 81规则），失败推送 alerts |
 | ontology_sources | 每天10:00,20:00 | `~/.openclaw/jobs/ontology_sources/run_ontology_sources.sh` | `~/.openclaw/logs/jobs/ontology_sources.log` | ✅ V37.1新增：Ontology 专属信息源监控 — SWJ+W3C+KG Conference RSS，关键词过滤，LLM富摘要，Discord #ontology + KB 归档 |
