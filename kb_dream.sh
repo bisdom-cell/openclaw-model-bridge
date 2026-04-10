@@ -44,7 +44,7 @@ trap 'rmdir "$LOCK" 2>/dev/null' EXIT
 # 全局超时保护：整个 Dream 不超过 25 分钟（V37.2 fix: 防止卡住影响后续 job）
 # 04:30 启动 → 最迟 04:55 结束，留 5 分钟余量给 05:00 的其他 job
 DREAM_START_EPOCH=$(date +%s)
-DREAM_TIMEOUT_SEC=1500  # 25 minutes
+DREAM_TIMEOUT_SEC=2700  # 45 minutes（04:30 + 45 = 05:15，不影响后续 job）
 check_deadline() {
     local elapsed=$(( $(date +%s) - DREAM_START_EPOCH ))
     if [ "$elapsed" -ge "$DREAM_TIMEOUT_SEC" ]; then
@@ -456,9 +456,9 @@ $content
 "
         BATCH_COUNT=$((BATCH_COUNT + 1))
 
-        # 每 15 条或累计 > 12000 字符，提交一批
+        # 每 25 条或累计 > 20000 字符，提交一批（V37.2: 从 15/12K 升级，减少 LLM 调用次数 ~28→~12 批）
         BATCH_SIZE=${#BATCH}
-        if [ "$BATCH_COUNT" -ge 15 ] || [ "$BATCH_SIZE" -gt 12000 ]; then
+        if [ "$BATCH_COUNT" -ge 25 ] || [ "$BATCH_SIZE" -gt 20000 ]; then
             BATCH_NUM=$((BATCH_NUM + 1))
 
             # 检查缓存
