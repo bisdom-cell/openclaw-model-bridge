@@ -106,41 +106,100 @@ ctx         = ssl.create_default_context()
 # Fallback chain — capability-based auto-discovery + manual pin (V37)
 # If FALLBACK_PROVIDER is set, it becomes first in chain.
 # Remaining slots auto-filled from build_fallback_chain() by capability overlap.
+# V37.1+: Hot-reload support — _build_fallback_chain() shared by startup & reload.
 # ---------------------------------------------------------------------------
-FALLBACK_CHAIN = []  # List of {name, base_url, api_key, model_id, auth_style}
 
-# 1) Explicit FALLBACK_PROVIDER (backward compat) → first in chain
-_explicit_fb = os.environ.get("FALLBACK_PROVIDER", "")
-if _explicit_fb and _explicit_fb in PROVIDERS and _explicit_fb != PROVIDER_NAME:
-    _fb = PROVIDERS[_explicit_fb]
-    _fb_key = os.environ.get(_fb["api_key_env"], "")
-    if _fb_key:
-        FALLBACK_CHAIN.append({
-            "name":       _explicit_fb,
-            "base_url":   _fb["base_url"],
-            "api_key":    _fb_key,
-            "model_id":   os.environ.get("FALLBACK_MODEL_ID", _fb["model_id"]),
-            "auth_style": _fb["auth_style"],
-        })
+def _build_fallback_chain():
+    """Build fallback chain from env + capability registry. Pure function, no side effects.
+    Returns list of {name, base_url, api_key, model_id, auth_style} dicts."""
+    chain = []
 
-# 2) Auto-discover from capability-based chain (sorted by overlap + verification)
-if _get_registry:
-    _auto_chain = _get_registry().build_fallback_chain(PROVIDER_NAME, require_available=True)
-    _existing_names = {fb["name"] for fb in FALLBACK_CHAIN}
-    for _cp in _auto_chain:
-        if _cp.name not in _existing_names:
-            _ck = os.environ.get(_cp.api_key_env, "")
-            if _ck:
-                FALLBACK_CHAIN.append({
-                    "name":       _cp.name,
-                    "base_url":   _cp.base_url,
-                    "api_key":    _ck,
-                    "model_id":   _cp.model_id,
-                    "auth_style": _cp.auth_style,
-                })
+    # 1) Explicit FALLBACK_PROVIDER (backward compat) → first in chain
+    explicit_fb = os.environ.get("FALLBACK_PROVIDER", "")
+    if explicit_fb and explicit_fb in PROVIDERS and explicit_fb != PROVIDER_NAME:
+        fb = PROVIDERS[explicit_fb]
+        fb_key = os.environ.get(fb["api_key_env"], "")
+        if fb_key:
+            chain.append({
+                "name":       explicit_fb,
+                "base_url":   fb["base_url"],
+                "api_key":    fb_key,
+                "model_id":   os.environ.get("FALLBACK_MODEL_ID", fb["model_id"]),
+                "auth_style": fb["auth_style"],
+            })
+
+    # 2) Auto-discover from capability-based chain (sorted by overlap + verification)
+    if _get_registry:
+        auto_chain = _get_registry().build_fallback_chain(PROVIDER_NAME, require_available=True)
+        existing_names = {fb["name"] for fb in chain}
+        for cp in auto_chain:
+            if cp.name not in existing_names:
+                ck = os.environ.get(cp.api_key_env, "")
+                if ck:
+                    chain.append({
+                        "name":       cp.name,
+                        "base_url":   cp.base_url,
+                        "api_key":    ck,
+                        "model_id":   cp.model_id,
+                        "auth_style": cp.auth_style,
+                    })
+
+    return chain
+
+# Initial build at startup
+FALLBACK_CHAIN = _build_fallback_chain()
 
 # Backward compat: FALLBACK = first in chain (or None)
 FALLBACK = FALLBACK_CHAIN[0] if FALLBACK_CHAIN else None
+
+# ---------------------------------------------------------------------------
+# Hot-reload thread — periodically rebuild FALLBACK_CHAIN (V37.1+)
+# Gated by ADAPTER_HOT_RELOAD=true (default: false, non-destructive introduction)
+# ---------------------------------------------------------------------------
+_HOT_RELOAD_ENABLED = os.environ.get("ADAPTER_HOT_RELOAD", "false").lower() in ("true", "1", "yes")
+_HOT_RELOAD_INTERVAL = int(os.environ.get("ADAPTER_HOT_RELOAD_INTERVAL", "3600"))  # seconds
+_last_reload_time = time.time()
+_last_reload_status = "init"  # "init" | "ok" | "error:<msg>"
+
+def _reload_fallback_chain():
+    """Rebuild FALLBACK_CHAIN from current env + registry. Thread-safe via reference replacement."""
+    global FALLBACK_CHAIN, FALLBACK, _last_reload_time, _last_reload_status
+    old_names = [fb["name"] for fb in FALLBACK_CHAIN]
+    try:
+        new_chain = _build_fallback_chain()
+        new_names = [fb["name"] for fb in new_chain]
+
+        # Only update if build succeeded (never degrade to empty if old chain was non-empty)
+        if not new_chain and FALLBACK_CHAIN:
+            _last_reload_status = "error:new chain empty, kept old"
+            log(f"HOT-RELOAD: new chain is empty but old has {len(FALLBACK_CHAIN)} providers — keeping old chain")
+            _last_reload_time = time.time()
+            return
+
+        # Atomic reference replacement (Python GIL guarantees safe read from request threads)
+        FALLBACK_CHAIN = new_chain
+        FALLBACK = new_chain[0] if new_chain else None
+        _last_reload_time = time.time()
+
+        if old_names != new_names:
+            _last_reload_status = f"ok:changed"
+            log(f"HOT-RELOAD: chain updated: {' -> '.join(new_names)} (was: {' -> '.join(old_names)})")
+        else:
+            _last_reload_status = "ok:unchanged"
+    except Exception as e:
+        _last_reload_status = f"error:{e}"
+        _last_reload_time = time.time()
+        log(f"HOT-RELOAD ERROR: {e} — keeping old chain ({' -> '.join(old_names)})")
+
+def _hot_reload_loop():
+    """Background thread: periodically reload fallback chain."""
+    while True:
+        time.sleep(_HOT_RELOAD_INTERVAL)
+        _reload_fallback_chain()
+
+if _HOT_RELOAD_ENABLED:
+    _reload_thread = threading.Thread(target=_hot_reload_loop, daemon=True, name="fallback-reload")
+    _reload_thread.start()
 
 # ---------------------------------------------------------------------------
 # Smart routing: fast model for simple queries (optional)
@@ -268,6 +327,13 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                 info["fallback_chain"] = [fb["name"] for fb in FALLBACK_CHAIN]
                 info["fallback"] = FALLBACK_CHAIN[0]["name"]  # backward compat
                 info["circuit_breaker"] = _circuit_breaker.state()
+            if _HOT_RELOAD_ENABLED:
+                info["hot_reload"] = {
+                    "enabled": True,
+                    "interval_s": _HOT_RELOAD_INTERVAL,
+                    "last_status": _last_reload_status,
+                    "last_reload": datetime.fromtimestamp(_last_reload_time).strftime("%H:%M:%S"),
+                }
             if FAST_ROUTE:
                 info["fast_route"] = f"{FAST_ROUTE['name']}/{FAST_ROUTE['model_id']}"
             # V34: capabilities from Provider Compatibility Layer
@@ -496,8 +562,9 @@ _chain_names = [fb["name"] for fb in FALLBACK_CHAIN]
 fb_info = f" (fallback chain: {' -> '.join(_chain_names)})" if FALLBACK_CHAIN else " (no fallback)"
 vl_info = f" (VL: {VL_MODEL_ID})" if VL_MODEL_ID else ""
 fast_info = f" (fast: {FAST_ROUTE['name']}/{FAST_ROUTE['model_id']})" if FAST_ROUTE else ""
+reload_info = f" (hot-reload: every {_HOT_RELOAD_INTERVAL}s)" if _HOT_RELOAD_ENABLED else ""
 BIND_ADDR = os.environ.get("BIND_ADDR", "127.0.0.1")
-log(f"Starting on {BIND_ADDR}:{PORT} -> {TARGET_BASE} (model: {REAL_MODEL_ID}){vl_info}{fb_info}{fast_info}")
+log(f"Starting on {BIND_ADDR}:{PORT} -> {TARGET_BASE} (model: {REAL_MODEL_ID}){vl_info}{fb_info}{fast_info}{reload_info}")
 sys.stdout.flush()
 class ThreadedServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
     daemon_threads = True
