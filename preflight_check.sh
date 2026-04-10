@@ -91,9 +91,13 @@ except ImportError:
     # 回退：用 check_registry 的 load_yaml
     from check_registry import load_yaml
     data = load_yaml('jobs_registry.yaml')
+seen = set()
 for j in data.get('jobs', []):
     if j.get('enabled', False) or j.get('enabled') == 'true':
-        print(j['entry'])
+        script = j['entry'].split()[0]  # strip args (e.g. 'kb_dream.sh --map-sources' → 'kb_dream.sh')
+        if script not in seen:
+            seen.add(script)
+            print(script)
 " 2>/dev/null || echo "")
 
 if [ -z "$SCRIPT_FILES" ]; then
@@ -674,13 +678,19 @@ if registry_file and os.path.exists(registry_file):
     with open(registry_file) as f:
         registry = yaml.safe_load(f)
     reg_missing = []
+    seen_scripts = set()
     for job in registry.get('jobs', []):
         entry = job.get('entry', '')
         enabled = job.get('enabled', True)
         if not enabled:
             continue
-        if entry not in file_map_srcs:
-            reg_missing.append(f"{job.get('id','?')}: {entry}")
+        # Strip arguments: "kb_dream.sh --map-sources" → "kb_dream.sh"
+        entry_script = entry.split()[0] if entry else ''
+        if entry_script in seen_scripts:
+            continue  # Same script with different args, already checked
+        if entry_script not in file_map_srcs:
+            reg_missing.append(f"{job.get('id','?')}: {entry_script}")
+        seen_scripts.add(entry_script)
     if reg_missing:
         for rm in reg_missing:
             errors.append(f"FAIL|Registry job {rm} 不在 FILE_MAP 中")
