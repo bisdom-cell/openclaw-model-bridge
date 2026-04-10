@@ -117,12 +117,13 @@ def validate(path):
         if j.get("enabled") and not tier:
             warnings.append(f"{prefix} enabled but missing tier (default: auxiliary)")
 
-        # 5. Entry path exists
+        # 5. Entry path exists (strip arguments like "kb_dream.sh --map-only")
         entry = j.get("entry", "")
         if entry:
-            entry_path = os.path.join(repo_root, entry)
+            entry_base = entry.split()[0]  # first token = script path
+            entry_path = os.path.join(repo_root, entry_base)
             if not os.path.exists(entry_path):
-                warnings.append(f"{prefix} entry not found: {entry} (checked: {entry_path})")
+                warnings.append(f"{prefix} entry not found: {entry_base} (checked: {entry_path})")
 
         # 6. Enabled jobs need extra fields
         if j.get("enabled"):
@@ -252,13 +253,14 @@ def check_filemap_completeness(registry_path):
         if not entry:
             continue
 
-        entry_path = os.path.join(repo_root, entry)
-        if os.path.exists(entry_path) and entry not in mapped_sources:
-            errors.append(f"[{jid}] '{entry}' 存在于仓库但不在 auto_deploy FILE_MAP 中（不会自动部署！）")
+        entry_base = entry.split()[0]  # strip arguments
+        entry_path = os.path.join(repo_root, entry_base)
+        if os.path.exists(entry_path) and entry_base not in mapped_sources:
+            errors.append(f"[{jid}] '{entry_base}' 存在于仓库但不在 auto_deploy FILE_MAP 中（不会自动部署！）")
 
         # 检查 jobs/ 子目录下的关联文件（只检查子目录，跳过仓库根目录的开发工具）
         entry_dir = os.path.dirname(entry_path)
-        entry_rel_dir = os.path.dirname(entry)
+        entry_rel_dir = os.path.dirname(entry_base)
         if entry_rel_dir and entry_rel_dir != "." and os.path.isdir(entry_dir):
             for fname in os.listdir(entry_dir):
                 rel_path = os.path.join(entry_rel_dir, fname)
