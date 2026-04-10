@@ -182,18 +182,30 @@ payload = json.dumps({
 
 llm_out = ""
 llm_err = ""
-try:
-    req = urllib.request.Request(
-        "http://127.0.0.1:5002/v1/chat/completions",
-        data=payload,
-        headers={"Content-Type": "application/json"}
-    )
-    with urllib.request.urlopen(req, timeout=120) as resp:
-        resp_data = json.loads(resp.read())
-        llm_out = resp_data["choices"][0]["message"]["content"]
-except Exception as e:
-    llm_err = str(e)
-    print(f"[hn_watcher] LLM调用失败: {e}", file=sys.stderr)
+llm_failed = False
+for _attempt in range(3):
+    try:
+        req = urllib.request.Request(
+            "http://127.0.0.1:5002/v1/chat/completions",
+            data=payload,
+            headers={"Content-Type": "application/json"}
+        )
+        with urllib.request.urlopen(req, timeout=120) as resp:
+            resp_data = json.loads(resp.read())
+            llm_out = resp_data["choices"][0]["message"]["content"]
+            break  # 成功，退出重试
+    except Exception as e:
+        llm_err = str(e)
+        print(f"[hn_watcher] LLM调用失败 (attempt {_attempt+1}/3): {e}", file=sys.stderr)
+        if _attempt < 2:
+            import time as _t
+            _wait = 15 * (_attempt + 1)  # 15s, 30s
+            print(f"[hn_watcher] 等待 {_wait}s 后重试...", file=sys.stderr)
+            _t.sleep(_wait)
+
+if not llm_out:
+    llm_failed = True
+    print(f"[hn_watcher] LLM_FAILED=true (3次重试全部失败)", file=sys.stderr)
 
 # LLM原始输出写入日志，方便排查格式匹配问题
 try:
@@ -260,6 +272,11 @@ try:
 except OSError as e:
     print(f"[hn_watcher] WARN: 无法追加解析日志: {e}", file=sys.stderr)
 
+# LLM 完全失败时，输出特殊标记让 shell 层知道（而不是输出回退垃圾）
+if llm_failed:
+    print("__LLM_FAILED__")
+    sys.exit(0)
+
 # 输出结果供shell使用
 for i, item in enumerate(items):
     p = parsed_items[i] if i < len(parsed_items) else {}
@@ -285,6 +302,13 @@ if [ -z "$RESULT" ]; then
     echo "$ERR_MSG"
     openclaw message send --channel whatsapp --target "$TO" --message "$ERR_MSG" --json >/dev/null 2>&1 || true
     exit 1
+fi
+
+# LLM 全部失败检测（3次重试后仍失败）— 不推送垃圾，而是告警
+if echo "$RESULT" | grep -q "__LLM_FAILED__"; then
+    log "⚠️ LLM 3次重试全部失败，跳过本轮推送（不发送回退文案）"
+    printf '{"time":"%s","status":"llm_failed","new":%d}\n' "$TS" "$(echo "$RESULT" | grep -v __LLM_FAILED__ | wc -l)" > "$STATUS_FILE"
+    exit 0
 fi
 
 # 429限流检测：防止把错误文案推送到WhatsApp
