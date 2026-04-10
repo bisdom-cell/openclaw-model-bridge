@@ -149,7 +149,7 @@ policies:
     rule: "time ∈ [00:00, 07:00) ∧ tool.side_effects = true → BLOCK"
     targets: infer("side_effects == true")  # 语义推理，非枚举
     enforcement: evaluate_policy()
-    exception: "kb_dream.sh 豁免（04:30 错峰）"
+    exception: "kb_dream.sh 豁免（03:00，00:00-06:00 算力专属窗口）"
 
   # === 时序策略（状态机）===
   circuit_breaker:
