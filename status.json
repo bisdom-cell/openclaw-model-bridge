@@ -1,5 +1,5 @@
 {
-  "updated": "2026-04-10 04:00:46",
+  "updated": "2026-04-10 09:35:23",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-04-10",
+      "what": "Dream Map-Reduce三阶段分离: ① Map-Reduce分离执行(Map 00:00写缓存→Reduce 03:00读缓存,7x提速) ② Map再拆Sources(00:00)+Notes(00:40)独立调度+超时隔离 ③ 3新治理不变式(INV-CRON-005锁隔离/INV-CACHE-001缓存完整/INV-JOB-001状态隔离,22不变式) ④ check_registry/preflight参数感知修复(split()[0]) ⑤ 718测试",
+      "by": "claude_code"
+    },
     {
       "date": "2026-04-10",
       "what": "V37.1+ Session: ① Dream配额爆炸链修复(智能退避429/524+Map熔断3次+inter-call节流) ② HN垃圾推送修复(RSS描述注入+JSON输出+__LLM_FAILED__信号+3次重试) ③ 原则#26升级为宪法级(异常分析五步法:因果链图+三层根因+时间线+条件组合+本体喂养) ④ Dream配额爆炸链案例文档+2新治理不变式(INV-QUOTA-001/INV-PUSH-001) ⑤ Adapter hot-reload(FALLBACK_CHAIN零停机刷新+feature flag+/health暴露) ⑥ Proxy幻觉工具过滤(<tool_call>XML清理:主路径+followup路径) ⑦ 718测试",
@@ -172,11 +177,6 @@
     {
       "date": "2026-03-31",
       "what": "V31: Watchdog 8维全面升级(11 jobs+服务健康+磁盘+crontab+KB新鲜度) + 动态context裁剪(70%/85%阈值) + FILE_MAP补齐7文件+双向preflight验证 + status.json JSON合并驱动(消除反复冲突) + preflight check#6/#15修复",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-03-31",
-      "what": "V30.5: search_kb混合检索工具(语义搜索+关键词+LLM解读) + DBLP监控上线 + kb_evening修复 + KB下游管道扩展5源 + Gateway工具配置确认(10个为上限)",
       "by": "claude_code"
     }
   ],
@@ -276,7 +276,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V3路标进行中: Provider Plugin Interface已完成(YAML/Python插件+合约验证+能力路由+fallback chain), 下一步: Tool Policy Plugin或证据型文章。对话数据闭环已上线(proxy捕获+MEMORY.md索引+harvest cron), 明早验证自动提炼效果",
+  "focus": "Dream Map-Reduce三阶段分离完成(Sources 00:00→Notes 00:40→Reduce 03:00), 22治理不变式, V3路标继续: Tool Policy Plugin或证据型文章",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
