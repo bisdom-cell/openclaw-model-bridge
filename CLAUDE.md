@@ -1,6 +1,6 @@
 # CLAUDE.md — openclaw-model-bridge 项目背景
 
-> 每次新会话开始时自动读取。当前版本：v37.1 / 0.37.1（2026-04-09）
+> 每次新会话开始时自动读取。当前版本：v37.2 / 0.37.2（2026-04-10）
 
 ---
 
@@ -211,6 +211,7 @@
 | `ontology/docs/architecture/industrial_ai_paradigm.md` | **V37新增** 工业AI范式文档（三平面架构+五项工业需求+范式对比，切断 Dream→PA 链式幻觉） |
 | `ontology/docs/architecture/target_architecture.md` | **V37.1新增** Ontology 终态架构（四层设计+六域概念模型+策略引擎+三阶段门控+迁移路径 Phase 3-5） |
 | `ontology/docs/cases/pa_echo_chamber_case.md` | **V37.1新增** PA 迎合性回复案例分析（三环反馈陷阱根因+SOUL.md 批判性规则修复+Phase 4 结构性修复路径） |
+| `ontology/docs/cases/dream_quota_blast_radius_case.md` | **V37.2新增** Dream MapReduce 配额耗尽跨 Job 爆炸链案例（30+ LLM 调用 × Qwen3 宕机 → Gemini 配额耗尽 → HN 垃圾推送，三层修复+2 新不变式） |
 
 ## 版本变更历史
 
@@ -218,6 +219,7 @@
 
 | 版本 | 日期 | 关键变更 |
 |------|------|----------|
+| V37.2 | 2026-04-10 | **系统韧性加固 + Adapter Hot-Reload + 幻觉工具过滤 + 异常分析宪法** — ① Dream 配额爆炸链修复（智能退避 429/524 + Map 熔断 3 次 + inter-call 节流）② HN 垃圾推送修复（RSS 描述注入 + JSON 输出 + `__LLM_FAILED__` 信号 + 3 次重试）③ Adapter FALLBACK_CHAIN hot-reload（`_build_fallback_chain()` 提取 + daemon 线程 + feature flag `ADAPTER_HOT_RELOAD` + /health 暴露）④ Proxy 幻觉工具过滤（`<tool_call>` XML 清理：主响应路径 + search_kb followup 路径）⑤ 原则 #26 升级为宪法级异常分析五步法 ⑥ Dream 配额爆炸链案例文档 + 2 新治理不变式（INV-QUOTA-001/INV-PUSH-001，19 不变式）⑦ 718 测试 |
 | V37.1 | 2026-04-09 | **Ontology 信息源 + 对话数据零丢失 + 治理主动监控 + PA 批判性思考** — ① Ontology 专属信息源（4 RSS: W3C/JWS/DKE/KBS + 两层关键词过滤 + LLM 摘要 + Discord #ontology + KB 归档，cron 10:00/20:00）② kb_harvest_chat MapReduce 升级（分段提炼+去重，零对话数据丢失，28 单测）③ DBLP/S2 加 ontology 关键词 ④ X 监控加 4 位 ontology 先驱（Barry Smith/Guizzardi/Hitzler/Horrocks）⑤ adversarial_audit 合并入 governance_ontology（17 不变式）⑥ 每日 governance_audit cron（07:00 自动执行+失败告警）⑦ SOUL.md 规则 9 批判性思考（反迎合+禁模糊关联+PA 回声室案例分析）⑧ Ontology 终态架构文档（四层+三阶段门控+迁移 Phase 3-5）⑨ ScienceDirect 描述正则修复 ⑩ 692 测试 |
 | V37 | 2026-04-08 | **V3 路标启动 + LLM 协作方法论 + 对话数据闭环** — ① Provider Plugin Interface（YAML/Python 插件+合约验证+Extension Guide+128单测）② Capability-Based Routing（find_by_capability+build_fallback_chain+auto-discovery fallback chain 接入 adapter.py）③ 对话数据闭环（proxy 热路径捕获→kb_harvest_chat.py 冷路径提炼→MEMORY.md 索引→KB 可检索）④ KB 统一（HN+Freight 双写 notes 对齐 12/12 job）⑤ LLM 协作 4 条新原则（#22 顺势设计/#23 链式幻觉防范/#24 触发词机制/#25 对话数据一等公民）⑥ industrial_ai_paradigm.md 切断幻觉链 ⑦ 692 测试 |
 | V36.3 | 2026-04-08 | **Runtime Governance + Ontology Shadow Mode** — ① 遗留修复(crontab漂移3job+重复清理35→28+DBLP/Dream推送恢复+notify.sh zsh兼容+smoke test python3检测) ② Governance v3(12→15不变式: 运行时层INV-CRON-003/004+INV-ENV-002, MR-6多层深度要求) ③ 验证深度三层模型(声明/运行时/效果, governance自我意识盲区, MRD-LAYER-001) ④ 语义推理落地(classify_tool_call从属性推理risk_level+policy_tags) ⑤ Phase 2 shadow模式(off→shadow→on三档, Mac Mini生产上线) ⑥ 832测试 |
@@ -436,7 +438,7 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 | 6 | **新功能必须 Mac Mini E2E 验证** | dev 环境单测通过不算完成；**必须提醒用户在 Mac Mini 上运行 `bash preflight_check.sh --full` + `bash job_smoke_test.sh` + 手动触发目标 job**，确认端到端有效果（消息到达 WhatsApp / 文件生成 / 日志正常）。dev 通过 ≠ 生产工作。 |
 | 7 | **故障先查自身代码** | 排查问题时默认从我们自己的代码和架构中找 bug（shell 数据传递、cron 环境、进程管理等），不归因于上游服务不稳定（#97教训） |
 | 8 | **做减法不做加法** | 新增防护/监控前先问"谁已经在管这件事"；每加一层保险 = 多一个故障源（#95教训） |
-| 9 | **🔴 收工必须执行完整检查清单（不可跳过）** | "结束今天的工作"时，**必须逐项执行以下清单，每项完成后打勾确认，禁止跳过或合并**：**A. 全量回归** `bash full_regression.sh`（692+ tests 必须 0 fail）**B. 安全评分** `python3 security_score.py --update` **C. 安全扫描** API key + 手机号 + BSA 泄漏扫描 **D. 治理审计** `python3 ontology/governance_checker.py` **E. 文档刷新**（逐一 check）：`status.json`（recent_changes/session_context/focus）→ `CLAUDE.md`（版本/文件表/changelog/待办交叉校验）→ `docs/config.md`（如有配置变更）→ `README.md`（如有架构变更）→ `SOUL.md`（如有 PA 行为变更）→ `docs/ontology/`（如有 ontology 变更）**F. 交叉校验** 原则#17：commits vs CLAUDE.md 待办一致性 **G. 全部提交推送** **H. 提醒 Mac Mini 验证** `preflight_check.sh --full` + `job_smoke_test.sh` — **不是"提醒"而是必须等用户执行并确认结果** **I. 遗留问题登记** 未完成事项写入 session_context.unfinished。（2026-04-08教训：长 session 后"赶紧结束"心态导致跳过 6 项检查，用户两次追问才补齐） |
+| 9 | **🔴 收工必须执行完整检查清单（不可跳过）** | "结束今天的工作"时，**必须逐项执行以下清单，每项完成后打勾确认，禁止跳过或合并**：**A. 全量回归** `bash full_regression.sh`（718+ tests 必须 0 fail）**B. 安全评分** `python3 security_score.py --update` **C. 安全扫描** API key + 手机号 + BSA 泄漏扫描 **D. 治理审计** `python3 ontology/governance_checker.py` **E. 文档刷新**（逐一 check）：`status.json`（recent_changes/session_context/focus）→ `CLAUDE.md`（版本/文件表/changelog/待办交叉校验）→ `docs/config.md`（如有配置变更）→ `README.md`（如有架构变更）→ `SOUL.md`（如有 PA 行为变更）→ `docs/ontology/`（如有 ontology 变更）**F. 交叉校验** 原则#17：commits vs CLAUDE.md 待办一致性 **G. 全部提交推送** **H. 提醒 Mac Mini 验证** `preflight_check.sh --full` + `job_smoke_test.sh` — **不是"提醒"而是必须等用户执行并确认结果** **I. 遗留问题登记** 未完成事项写入 session_context.unfinished。（2026-04-08教训：长 session 后"赶紧结束"心态导致跳过 6 项检查，用户两次追问才补齐） |
 | 10 | **相信 OpenClaw，用好 OpenClaw** | 优先利用 OpenClaw 已有能力（Multi-Agent、contextPruning、workspace SOUL.md/CLAUDE.md、memory、sessions_spawn 等），而非重新造轮子；遇到新需求先查 OpenClaw 文档和 release notes |
 | 11 | **🆕 结果验证优先于功能建设** | 先定义"从用户视角，成功长什么样"，再写代码。status.json 的成功标准不是"能写入"，而是"PA 能正确回答项目进展"。（2026-03-28教训：393个单测通过但 PA 说"没有项目"） |
 | 12 | **🆕 上下文工程是一等公民** | SOUL.md = 宪法级（身份+关键状态，LLM 注意力最高），CLAUDE.md = 手册级（工具+详情）；信息放哪里、占多少 token、LLM 能否注意到——都是架构决策，和 API 设计同等严肃。（2026-03-28教训：SOUL.md 空置数月，17KB CLAUDE.md 信息被"lost in the middle"） |
