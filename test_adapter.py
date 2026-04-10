@@ -203,11 +203,12 @@ class TestFallbackLogic(unittest.TestCase):
         self.assertIn("FALLBACKS FAILED", content)
 
     def test_fallback_chain_is_list(self):
-        """FALLBACK_CHAIN 是列表结构"""
+        """FALLBACK_CHAIN 是列表结构（via _build_fallback_chain）"""
         with open("adapter.py") as f:
             content = f.read()
-        self.assertIn("FALLBACK_CHAIN = []", content)
-        self.assertIn("FALLBACK_CHAIN.append", content)
+        self.assertIn("FALLBACK_CHAIN = _build_fallback_chain()", content)
+        self.assertIn("chain = []", content)  # inside _build_fallback_chain
+        self.assertIn("chain.append", content)
 
     def test_fallback_chain_auto_discover(self):
         """自动从 build_fallback_chain() 发现可用 fallback"""
@@ -382,6 +383,191 @@ class TestCircuitBreaker(unittest.TestCase):
             content = f.read()
         self.assertIn("_PRIMARY_TIMEOUT", content)
         self.assertIn("_FALLBACK_TIMEOUT", content)
+
+
+class TestHotReload(unittest.TestCase):
+    """V37.1+: Fallback chain hot-reload 测试"""
+
+    def _read(self):
+        with open("adapter.py") as f:
+            return f.read()
+
+    def test_build_fallback_chain_function_exists(self):
+        """_build_fallback_chain() 独立函数存在"""
+        content = self._read()
+        self.assertIn("def _build_fallback_chain():", content)
+
+    def test_startup_uses_build_function(self):
+        """启动时通过 _build_fallback_chain() 构建 chain"""
+        content = self._read()
+        self.assertIn("FALLBACK_CHAIN = _build_fallback_chain()", content)
+
+    def test_reload_function_exists(self):
+        """_reload_fallback_chain() 函数存在"""
+        content = self._read()
+        self.assertIn("def _reload_fallback_chain():", content)
+
+    def test_reload_loop_exists(self):
+        """_hot_reload_loop() 后台循环存在"""
+        content = self._read()
+        self.assertIn("def _hot_reload_loop():", content)
+
+    def test_feature_flag_default_off(self):
+        """ADAPTER_HOT_RELOAD 默认关闭"""
+        content = self._read()
+        self.assertIn('ADAPTER_HOT_RELOAD', content)
+        self.assertIn('"false"', content)
+
+    def test_reload_interval_configurable(self):
+        """热重载间隔通过环境变量配置"""
+        content = self._read()
+        self.assertIn("ADAPTER_HOT_RELOAD_INTERVAL", content)
+        self.assertIn('"3600"', content)
+
+    def test_reload_keeps_old_on_empty(self):
+        """新链为空时保留旧链（不降级）"""
+        content = self._read()
+        self.assertIn("new chain empty", content)
+        self.assertIn("kept old", content)
+
+    def test_reload_logs_changes(self):
+        """链变更时记录日志"""
+        content = self._read()
+        self.assertIn("HOT-RELOAD: chain updated", content)
+
+    def test_reload_error_keeps_old(self):
+        """重载异常时保留旧链"""
+        content = self._read()
+        self.assertIn("HOT-RELOAD ERROR", content)
+        self.assertIn("keeping old chain", content)
+
+    def test_health_exposes_reload_status(self):
+        """/health 端点暴露热重载状态"""
+        content = self._read()
+        self.assertIn('"hot_reload"', content)
+        self.assertIn('"last_status"', content)
+        self.assertIn('"last_reload"', content)
+
+    def test_startup_log_includes_reload_info(self):
+        """启动日志包含热重载信息"""
+        content = self._read()
+        self.assertIn("hot-reload:", content)
+
+    def test_daemon_thread(self):
+        """热重载使用 daemon 线程（不阻止进程退出）"""
+        content = self._read()
+        self.assertIn('daemon=True', content)
+        self.assertIn('name="fallback-reload"', content)
+
+    def test_reload_uses_global_replacement(self):
+        """通过 global 引用替换实现线程安全"""
+        content = self._read()
+        self.assertIn("global FALLBACK_CHAIN, FALLBACK", content)
+
+    def test_reload_tracks_status(self):
+        """追踪最后一次重载状态"""
+        content = self._read()
+        self.assertIn("_last_reload_status", content)
+        self.assertIn("_last_reload_time", content)
+
+
+class TestHotReloadFunctional(unittest.TestCase):
+    """V37.1+: _build_fallback_chain() 功能测试（通过 exec 提取函数）"""
+
+    @classmethod
+    def setUpClass(cls):
+        """从 adapter.py 提取 _build_fallback_chain 函数"""
+        import re
+        with open("adapter.py") as f:
+            src = f.read()
+
+        # 提取 _build_fallback_chain 函数定义
+        match = re.search(
+            r'(def _build_fallback_chain\(\):.*?)(?=\n# Initial build at startup)',
+            src, re.DOTALL
+        )
+        assert match, "_build_fallback_chain not found"
+        cls._func_src = match.group(1)
+
+    def _exec_build(self, providers=None, provider_name="qwen",
+                    fallback_provider="", get_registry=None, env_overrides=None):
+        """Execute _build_fallback_chain with mocked globals"""
+        import os as _os
+        env = _os.environ.copy()
+        if env_overrides:
+            env.update(env_overrides)
+
+        ns = {
+            "os": type("MockOS", (), {
+                "environ": type("Env", (), {"get": lambda self, k, d="": env.get(k, d)})()
+            })(),
+            "PROVIDERS": providers or {"qwen": {"base_url": "https://q", "api_key_env": "QWEN_KEY", "model_id": "qwen3", "auth_style": "bearer"}},
+            "PROVIDER_NAME": provider_name,
+            "_get_registry": get_registry,
+        }
+        exec(self._func_src, ns)
+        return ns["_build_fallback_chain"]()
+
+    def test_empty_when_no_fallback_configured(self):
+        """无 FALLBACK_PROVIDER 且无 registry → 空链"""
+        chain = self._exec_build()
+        self.assertEqual(chain, [])
+
+    def test_explicit_fallback_added(self):
+        """FALLBACK_PROVIDER 正确加入链"""
+        providers = {
+            "qwen": {"base_url": "https://q", "api_key_env": "QWEN_KEY", "model_id": "qwen3", "auth_style": "bearer"},
+            "gemini": {"base_url": "https://g", "api_key_env": "GEMINI_KEY", "model_id": "gemini-2.5", "auth_style": "bearer"},
+        }
+        chain = self._exec_build(
+            providers=providers,
+            env_overrides={"FALLBACK_PROVIDER": "gemini", "GEMINI_KEY": "test-key"}
+        )
+        self.assertEqual(len(chain), 1)
+        self.assertEqual(chain[0]["name"], "gemini")
+
+    def test_skip_self_as_fallback(self):
+        """不将自己加入 fallback 链"""
+        chain = self._exec_build(
+            env_overrides={"FALLBACK_PROVIDER": "qwen", "QWEN_KEY": "test-key"}
+        )
+        self.assertEqual(chain, [])
+
+    def test_skip_unknown_fallback(self):
+        """未知 provider 不加入链"""
+        chain = self._exec_build(
+            env_overrides={"FALLBACK_PROVIDER": "nonexistent"}
+        )
+        self.assertEqual(chain, [])
+
+    def test_skip_fallback_without_key(self):
+        """无 API key 的 provider 不加入链"""
+        providers = {
+            "qwen": {"base_url": "https://q", "api_key_env": "QWEN_KEY", "model_id": "qwen3", "auth_style": "bearer"},
+            "gemini": {"base_url": "https://g", "api_key_env": "GEMINI_KEY", "model_id": "gemini-2.5", "auth_style": "bearer"},
+        }
+        chain = self._exec_build(
+            providers=providers,
+            env_overrides={"FALLBACK_PROVIDER": "gemini"}  # no GEMINI_KEY
+        )
+        self.assertEqual(chain, [])
+
+    def test_build_is_pure_function(self):
+        """_build_fallback_chain 是纯函数，可重复调用"""
+        providers = {
+            "qwen": {"base_url": "https://q", "api_key_env": "QWEN_KEY", "model_id": "qwen3", "auth_style": "bearer"},
+            "gemini": {"base_url": "https://g", "api_key_env": "GEMINI_KEY", "model_id": "gemini-2.5", "auth_style": "bearer"},
+        }
+        chain1 = self._exec_build(
+            providers=providers,
+            env_overrides={"FALLBACK_PROVIDER": "gemini", "GEMINI_KEY": "k1"}
+        )
+        chain2 = self._exec_build(
+            providers=providers,
+            env_overrides={"FALLBACK_PROVIDER": "gemini", "GEMINI_KEY": "k1"}
+        )
+        self.assertEqual(len(chain1), len(chain2))
+        self.assertEqual(chain1[0]["name"], chain2[0]["name"])
 
 
 class TestAdapterSyntax(unittest.TestCase):
