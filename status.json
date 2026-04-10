@@ -1,5 +1,5 @@
 {
-  "updated": "2026-04-10 17:47:03",
+  "updated": "2026-04-10 18:29:51",
   "updated_by": "full_regression",
   "priorities": [
     {
@@ -211,10 +211,10 @@
   },
   "quality": {
     "security_score": "93",
-    "test_count": "718",
-    "last_regression": "2026-04-10 17:47 pass",
+    "test_count": "729",
+    "last_regression": "2026-04-10 18:29 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-04-10 17:47",
+    "security_score_time": "2026-04-10 18:29",
     "test_suites": "26",
     "governance_invariants": "22/22",
     "governance_checks": "30/41",
