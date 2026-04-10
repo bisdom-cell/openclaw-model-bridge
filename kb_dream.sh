@@ -456,9 +456,9 @@ $content
 "
         BATCH_COUNT=$((BATCH_COUNT + 1))
 
-        # 每 25 条或累计 > 20000 字符，提交一批（V37.2: 从 15/12K 升级，减少 LLM 调用次数 ~28→~12 批）
+        # 每 15 条或累计 > 12000 字符，提交一批
         BATCH_SIZE=${#BATCH}
-        if [ "$BATCH_COUNT" -ge 25 ] || [ "$BATCH_SIZE" -gt 20000 ]; then
+        if [ "$BATCH_COUNT" -ge 15 ] || [ "$BATCH_SIZE" -gt 12000 ]; then
             BATCH_NUM=$((BATCH_NUM + 1))
 
             # 检查缓存
