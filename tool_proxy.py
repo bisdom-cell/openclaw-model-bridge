@@ -888,7 +888,7 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                 # Filter tools
                 elif "tools" in body:
                     orig = len(body["tools"])
-                    body["tools"], all_names, kept_names = filter_tools(body["tools"])
+                    body["tools"], all_names, kept_names = filter_tools(body["tools"], log_fn=lambda msg: log(f"[{rid}] {msg}"))
                     log(f"[{rid}] ALL tools ({orig}): {all_names}")
                     log(f"[{rid}] Kept tools ({len(body['tools'])}): {kept_names}")
                     if not body["tools"]:
