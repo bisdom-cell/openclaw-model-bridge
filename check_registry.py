@@ -117,12 +117,13 @@ def validate(path):
         if j.get("enabled") and not tier:
             warnings.append(f"{prefix} enabled but missing tier (default: auxiliary)")
 
-        # 5. Entry path exists
+        # 5. Entry path exists (strip arguments like "kb_dream.sh --map-only")
         entry = j.get("entry", "")
         if entry:
-            entry_path = os.path.join(repo_root, entry)
+            entry_base = entry.split()[0]  # first token = script path
+            entry_path = os.path.join(repo_root, entry_base)
             if not os.path.exists(entry_path):
-                warnings.append(f"{prefix} entry not found: {entry} (checked: {entry_path})")
+                warnings.append(f"{prefix} entry not found: {entry_base} (checked: {entry_path})")
 
         # 6. Enabled jobs need extra fields
         if j.get("enabled"):
@@ -202,17 +203,17 @@ def check_crontab(registry_path):
                             )
                     break
 
-    # 检查3: 重复条目检测
-    seen_scripts = {}
+    # 检查3: 重复条目检测（比较完整命令，不仅是脚本名）
+    # 同一脚本不同参数视为不同 job（如 kb_dream.sh vs kb_dream.sh --map-only）
+    seen_commands = {}
     for line in active_lines:
-        # 提取脚本名
-        for part in line.split():
-            if part.endswith(".sh") or part.endswith(".py"):
-                base = os.path.basename(part)
-                if base in seen_scripts:
-                    warnings.append(f"crontab 疑似重复: '{base}' 出现在多个条目中")
-                seen_scripts[base] = seen_scripts.get(base, 0) + 1
-                break
+        parts = line.split()
+        if len(parts) > 5:
+            # crontab: min hour day month weekday command...
+            cmd = " ".join(parts[5:])  # 完整命令（含参数）
+            if cmd in seen_commands:
+                warnings.append(f"crontab 完全重复: '{cmd}' 出现在多个条目中")
+            seen_commands[cmd] = seen_commands.get(cmd, 0) + 1
 
     return errors, warnings
 
@@ -252,13 +253,14 @@ def check_filemap_completeness(registry_path):
         if not entry:
             continue
 
-        entry_path = os.path.join(repo_root, entry)
-        if os.path.exists(entry_path) and entry not in mapped_sources:
-            errors.append(f"[{jid}] '{entry}' 存在于仓库但不在 auto_deploy FILE_MAP 中（不会自动部署！）")
+        entry_base = entry.split()[0]  # strip arguments
+        entry_path = os.path.join(repo_root, entry_base)
+        if os.path.exists(entry_path) and entry_base not in mapped_sources:
+            errors.append(f"[{jid}] '{entry_base}' 存在于仓库但不在 auto_deploy FILE_MAP 中（不会自动部署！）")
 
         # 检查 jobs/ 子目录下的关联文件（只检查子目录，跳过仓库根目录的开发工具）
         entry_dir = os.path.dirname(entry_path)
-        entry_rel_dir = os.path.dirname(entry)
+        entry_rel_dir = os.path.dirname(entry_base)
         if entry_rel_dir and entry_rel_dir != "." and os.path.isdir(entry_dir):
             for fname in os.listdir(entry_dir):
                 rel_path = os.path.join(entry_rel_dir, fname)

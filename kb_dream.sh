@@ -4,13 +4,22 @@
 # 核心理念：不是总结，而是探索。在数据宇宙中寻找跨领域关联、反直觉趋势、被忽视的信号。
 # 每天凌晨系统空闲时触发，对 KB 全量数据进行两阶段"计算性想象"。
 #
-# 架构（MapReduce）：
+# 架构（MapReduce 分离调度）：
 #   Phase 1 (Map)   — 每个 source 文件独立发送给 LLM，提取关键信号和异常点
 #   Phase 2 (Reduce) — 汇总所有信号 + notes + 状态，进行跨领域关联发现
+#
+# 调度策略：Map 和 Reduce 可分离执行，利用缓存解耦
+#   00:00  bash kb_dream.sh --map-sources  # 预热 Sources（~10-15min，15 源）
+#   00:40  bash kb_dream.sh --map-notes    # 预热 Notes（~10-15min，~16 批，留足余量给 Sources）
+#   03:00  bash kb_dream.sh               # Reduce：缓存全命中(~15s) → 跨域关联(~3min) → 推送
+#   效果：每个子任务 ≤ 10min，不会超时；03:00 只需 ~3.5min
 #
 # 输出：~/.kb/dreams/YYYY-MM-DD.md + WhatsApp+Discord 推送精华洞察
 #
 # 用法：bash kb_dream.sh              # 正常运行（MapReduce 全量）
+#       bash kb_dream.sh --map-only   # 只跑全部 Map（Sources + Notes），预热缓存
+#       bash kb_dream.sh --map-sources # 只跑 Sources Map（00:00 cron）
+#       bash kb_dream.sh --map-notes   # 只跑 Notes Map（00:25 cron）
 #       bash kb_dream.sh --dry-run    # 只展示输入数据统计，不调用 LLM
 #       bash kb_dream.sh --fast       # 跳过 Map 阶段，直接采样做梦（旧模式）
 export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
@@ -64,13 +73,21 @@ DAY="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d')"
 TS="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')"
 DRY_RUN=false
 FAST_MODE=false
+MAP_ONLY=false
+MAP_SOURCES_ONLY=false
+MAP_NOTES_ONLY=false
 [ "${1:-}" = "--dry-run" ] && DRY_RUN=true
 [ "${1:-}" = "--fast" ] && FAST_MODE=true
+[ "${1:-}" = "--map-only" ] && MAP_ONLY=true
+[ "${1:-}" = "--map-sources" ] && { MAP_ONLY=true; MAP_SOURCES_ONLY=true; }
+[ "${1:-}" = "--map-notes" ] && { MAP_ONLY=true; MAP_NOTES_ONLY=true; }
 
 KB_BASE="${KB_BASE:-$HOME/.kb}"
 DREAM_DIR="$KB_BASE/dreams"
 DREAM_FILE="$DREAM_DIR/$DAY.md"
-STATUS_FILE="$DREAM_DIR/.last_run.json"
+STATUS_FILE="$DREAM_DIR/.last_run.json"        # Reduce 阶段状态
+MAP_STATUS_FILE="$DREAM_DIR/.last_map.json"    # Map 阶段状态（独立，不被 Reduce 覆盖）
+MAP_DONE_FLAG="$DREAM_DIR/.map_cache/${DAY}_MAP_DONE"  # Map 完成标记（Reduce 可感知）
 MAP_DIR="$DREAM_DIR/.map_cache"
 mkdir -p "$DREAM_DIR" "$MAP_DIR"
 
@@ -108,14 +125,16 @@ for _dep in python3 jq curl; do
 done
 
 # LLM 健康检查：在开始 30 分钟的 MapReduce 前确认 Adapter 可达
-# V37.1: 避免 LLM 不可用时白白浪费时间
-llm_health=$(curl -s --max-time 10 "http://localhost:5001/health" 2>/dev/null || echo "")
-if [ -z "$llm_health" ]; then
-    dream_fail_alert "Adapter(:5001) 不可达，LLM 服务可能未启动"
-    printf '{"time":"%s","status":"llm_unreachable"}\n' "$TS" > "$STATUS_FILE"
-    exit 1
+# V37.1: 避免 LLM 不可用时白白浪费时间（dry-run 不需要 LLM）
+if ! $DRY_RUN; then
+    llm_health=$(curl -s --max-time 10 "http://localhost:5001/health" 2>/dev/null || echo "")
+    if [ -z "$llm_health" ]; then
+        dream_fail_alert "Adapter(:5001) 不可达，LLM 服务可能未启动"
+        printf '{"time":"%s","status":"llm_unreachable"}\n' "$TS" > "$STATUS_FILE"
+        exit 1
+    fi
+    log "LLM health OK: $(echo "$llm_health" | head -c 100)"
 fi
-log "LLM health OK: $(echo "$llm_health" | head -c 100)"
 
 # UTF-8 安全截断函数
 utf8_truncate() {
@@ -253,7 +272,17 @@ if $DRY_RUN; then
     echo "Notes: $NOTE_COUNT files"
     echo "Total KB size: $TOTAL_KB_BYTES bytes (~$((TOTAL_KB_BYTES / 1024))KB)"
     echo "Dream file: $DREAM_FILE"
-    echo "Mode: $([ "$FAST_MODE" = true ] && echo 'FAST (single-pass)' || echo 'MAPREDUCE (two-phase)')"
+    if $MAP_SOURCES_ONLY; then
+        echo "Mode: MAP-SOURCES (pre-warm sources cache only)"
+    elif $MAP_NOTES_ONLY; then
+        echo "Mode: MAP-NOTES (pre-warm notes cache only)"
+    elif $MAP_ONLY; then
+        echo "Mode: MAP-ONLY (pre-warm all cache, no Reduce)"
+    elif $FAST_MODE; then
+        echo "Mode: FAST (single-pass)"
+    else
+        echo "Mode: MAPREDUCE (two-phase)"
+    fi
     echo "=== Sources ==="
     echo "$ALL_SOURCES" 2>/dev/null
     echo "=== Notes ==="
@@ -322,8 +351,8 @@ MAP_SIGNALS=""
 MAP_COUNT=0
 MAP_CONSECUTIVE_FAILS=0  # 连续失败计数：超过 3 次停止 Map，保护 fallback 配额
 
-if [ "$FAST_MODE" = false ] && [ "$SRC_COUNT" -gt 0 ]; then
-    log "Phase 1 (Map): 开始逐源提取信号..."
+if [ "$FAST_MODE" = false ] && [ "$SRC_COUNT" -gt 0 ] && [ "$MAP_NOTES_ONLY" = false ]; then
+    log "Phase 1a (Map Sources): 开始逐源提取信号..."
 
     while IFS= read -r src; do
         # 全局超时检查
@@ -425,7 +454,7 @@ fi
 NOTES_SIGNALS=""
 NOTES_MAP_COUNT=0
 
-if [ "$FAST_MODE" = false ] && [ -n "$ALL_NOTES" ] && [ "$MAP_CONSECUTIVE_FAILS" -lt 3 ]; then
+if [ "$FAST_MODE" = false ] && [ -n "$ALL_NOTES" ] && [ "$MAP_CONSECUTIVE_FAILS" -lt 3 ] && [ "$MAP_SOURCES_ONLY" = false ]; then
     log "Phase 1b (Map Notes): 开始从笔记中提取信号..."
 
     # 按修改时间倒序（最新在前）
@@ -609,6 +638,27 @@ $content
     done <<< "$SORTED_NOTES"
 fi
 
+# --map-* 模式：Map 完成后直接退出，缓存已写入，Reduce 交给后续调度
+if $MAP_ONLY; then
+    MAP_ELAPSED=$(( $(date +%s) - DREAM_START_EPOCH ))
+    MAP_SCOPE="all"
+    $MAP_SOURCES_ONLY && MAP_SCOPE="sources"
+    $MAP_NOTES_ONLY && MAP_SCOPE="notes"
+    log "Map-${MAP_SCOPE} 完成: sources=$MAP_COUNT/$SRC_COUNT, notes=$NOTES_MAP_COUNT/$NOTE_COUNT, 缓存已写入 $MAP_DIR, 耗时 ${MAP_ELAPSED}s"
+    # 写入独立的 Map status 文件（不覆盖 Reduce 的 .last_run.json）
+    printf '{"time":"%s","status":"map_%s_done","map_count":%d,"notes_map_count":%d,"sources":%d,"notes":%d,"elapsed_sec":%d,"consecutive_fails":%d}\n' \
+        "$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')" "$MAP_SCOPE" "$MAP_COUNT" "$NOTES_MAP_COUNT" "$SRC_COUNT" "$NOTE_COUNT" "$MAP_ELAPSED" "$MAP_CONSECUTIVE_FAILS" > "$MAP_STATUS_FILE"
+    # 写入完成标记（Reduce 阶段可检测 Map 是否成功完成）
+    # --map-sources 只更新 sources 计数，--map-notes 只更新 notes 计数
+    if [ "$MAP_COUNT" -gt 0 ] || [ "$NOTES_MAP_COUNT" -gt 0 ]; then
+        echo "$MAP_COUNT:$NOTES_MAP_COUNT" > "$MAP_DONE_FLAG"
+        log "Map 完成标记已写入: $MAP_DONE_FLAG (scope=$MAP_SCOPE)"
+    else
+        log "WARN: Map 零成功，不写入完成标记 (scope=$MAP_SCOPE)"
+    fi
+    exit 0
+fi
+
 # 全局超时检查：Map 阶段如果用了太长时间，跳过 Reduce 直接用已有信号生成简报
 if ! check_deadline; then
     dream_fail_alert "全局超时 — Map 阶段耗时过长，跳过 Reduce"
@@ -633,12 +683,25 @@ fi
 #    输出：梦境报告
 # ═══════════════════════════════════════════════════════════════════
 
+# Map 完成度检查：检测 00:00 的 --map-only 是否成功完成（INV-CACHE-001）
+# 如果 Map 预热失败导致缓存为空，降级时必须输出明确信号，不能静默
+MAP_DEGRADED=false
+if [ "$FAST_MODE" = false ] && [ -z "${MAP_SIGNALS// }" ] && [ -z "${NOTES_SIGNALS// }" ]; then
+    if [ -f "$MAP_DONE_FLAG" ]; then
+        log "WARN: Map 完成标记存在但信号为空（缓存可能已损坏）"
+    else
+        log "WARN: Map 缓存为空且无完成标记 — 00:00 Map 预热可能失败"
+    fi
+    MAP_DEGRADED=true
+    dream_fail_alert "Reduce 降级为 Fast 模式 — Map 缓存为空（00:00 预热可能失败），梦境质量将降低"
+fi
+
 log "Phase 2 (Reduce): 开始跨领域关联..."
 
 # 组装 Reduce 素材
 if [ "$FAST_MODE" = true ] || [ -z "${MAP_SIGNALS// }" ]; then
-    # Fast 模式或 Map 失败：回退到直接采样
-    log "使用直接采样模式"
+    # Fast 模式或 Map 缓存为空：回退到直接采样
+    log "使用直接采样模式$([ "$MAP_DEGRADED" = true ] && echo '（Map 预热失败降级）')"
     REDUCE_INTRO="以下是系统知识库的全量采样数据（涵盖论文、技术博客、HackerNews、航运动态、项目笔记等多个领域）："
     REDUCE_DATA=""
 
@@ -947,12 +1010,12 @@ else
     log "WARN: notify.sh 未找到，跳过推送"
 fi
 
-# 状态记录
-printf '{"time":"%s","status":"ok","mode":"%s","map_count":%d,"sources":%d,"notes":%d,"kb_bytes":%d,"reduce_chars":%d,"dream_bytes":%d,"sent":%s}\n' \
+# 状态记录（Reduce 写 .last_run.json，Map 写 .last_map.json — 互不覆盖，INV-JOB-001）
+printf '{"time":"%s","status":"ok","mode":"%s","map_count":%d,"sources":%d,"notes":%d,"kb_bytes":%d,"reduce_chars":%d,"dream_bytes":%d,"sent":%s,"map_degraded":%s}\n' \
     "$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')" \
     "$([ "$FAST_MODE" = true ] && echo 'fast' || echo 'mapreduce')" \
     "$MAP_COUNT" "$SRC_COUNT" "$NOTE_COUNT" "$TOTAL_KB_BYTES" "$REDUCE_CHARS" \
-    "$(wc -c < "$DREAM_FILE" | tr -d ' ')" "$SENT" > "$STATUS_FILE"
+    "$(wc -c < "$DREAM_FILE" | tr -d ' ')" "$SENT" "$MAP_DEGRADED" > "$STATUS_FILE"
 
 # 清理过期 map 缓存（保留 3 天）
 find "$MAP_DIR" -name "*.txt" -mtime +3 -delete 2>/dev/null || true

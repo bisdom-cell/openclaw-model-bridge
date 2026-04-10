@@ -346,15 +346,35 @@ jobs:
     tier: experiment                 # 实验性功能
     description: 每天从行为数据自动推断用户偏好（活跃时段/工具使用/关注领域），写入 status.json → SOUL.md
 
+  - id: kb_dream_map_sources
+    scheduler: system
+    entry: kb_dream.sh --map-sources
+    interval: "0 0 * * *"           # 每天 00:00（Map Sources：15 源 × LLM 提取信号 → 缓存，~10min）
+    log: ~/kb_dream.log
+    needs_api_key: false             # 通过 Adapter:5001 调 LLM（绕过 Proxy）
+    enabled: true
+    tier: experiment                 # Dream Map 阶段分离调度
+    description: "Agent 做梦 Map Sources 预热 — 15 个数据源逐一提取信号写缓存（~10min）"
+
+  - id: kb_dream_map_notes
+    scheduler: system
+    entry: kb_dream.sh --map-notes
+    interval: "40 0 * * *"          # 每天 00:40（Map Notes：~16 批笔记 × LLM 提取信号 → 缓存，~10min，留 40min 给 Sources）
+    log: ~/kb_dream.log
+    needs_api_key: false             # 通过 Adapter:5001 调 LLM（绕过 Proxy）
+    enabled: true
+    tier: experiment                 # Dream Map 阶段分离调度
+    description: "Agent 做梦 Map Notes 预热 — ~226 条笔记分批提取信号写缓存（~10min）"
+
   - id: kb_dream
     scheduler: system
     entry: kb_dream.sh
-    interval: "0 3 * * *"           # 每天 03:00（00:00-06:00 Qwen3 算力专属窗口，Dream 独占 3h）
+    interval: "0 3 * * *"           # 每天 03:00（Map 缓存命中 ~15s → Reduce ~3min → 推送）
     log: ~/kb_dream.log
     needs_api_key: false             # 通过 Adapter:5001 调 LLM（绕过 Proxy）
     enabled: true
     tier: experiment                 # 实验性：Agent 跨领域探索
-    description: "Agent 做梦引擎 — MapReduce 全量 KB 探索 + 深度分析（每日凌晨，输出 ~/.kb/dreams/）"
+    description: "Agent 做梦引擎 — Map 缓存命中后 Reduce 跨域关联 + 推送梦境（00:00 已预热缓存，03:00 仅需 ~3.5min）"
 
   - id: kb_harvest_chat
     scheduler: system
@@ -379,8 +399,10 @@ jobs:
   #   0 3    openclaw_backup（rsync 备份）
   #   30 3   kb_embed（本地 CPU 向量索引）
   #
-  # Qwen3 算力专属（全量无损分析）：
-  #   0 3    kb_dream（MapReduce 全量分析，独占 3h 窗口，完成后推送梦境）
+  # Qwen3 算力专属（Map-Reduce 三阶段分离调度）：
+  #   0 0    kb_dream --map-sources（Sources Map：15源×LLM，~10-15min）
+  #   40 0   kb_dream --map-notes（Notes Map：~16批×LLM，~10-15min）
+  #   0 3    kb_dream（Reduce：两层缓存命中 ~15s → 1次 Qwen3 深度关联 ~3min → 推送）
   #   [预留] 未来重度 Qwen3 任务（Ontology 专题分析等）
   #
   # 06:00  ── Qwen3 共享恢复（kb_harvest_chat 对话提炼）──
