@@ -299,11 +299,17 @@ fi
 
 MAP_SIGNALS=""
 MAP_COUNT=0
+MAP_CONSECUTIVE_FAILS=0  # 连续失败计数：超过 3 次停止 Map，保护 fallback 配额
 
 if [ "$FAST_MODE" = false ] && [ "$SRC_COUNT" -gt 0 ]; then
     log "Phase 1 (Map): 开始逐源提取信号..."
 
     while IFS= read -r src; do
+        # 连续失败熔断：3 次连续 LLM 失败 → 停止 Map，保留配额给 Reduce
+        if [ "$MAP_CONSECUTIVE_FAILS" -ge 3 ]; then
+            log "  ⚠️ 连续 ${MAP_CONSECUTIVE_FAILS} 次 LLM 失败，停止 Map 阶段（保护 fallback 配额）"
+            break
+        fi
         [ -z "$src" ] && continue
         [ -f "$src" ] || continue
         name=$(basename "$src" .md)
@@ -362,10 +368,12 @@ PROMPT_EOF
 
             if [ -n "${signals// }" ]; then
                 echo "$signals" > "$cache_file"
+                MAP_CONSECUTIVE_FAILS=0  # 成功，重置计数
                 # 节流：Map 调用之间等待 5 秒，避免密集调用耗尽 fallback 配额
                 sleep 5
             else
-                log "  Map [$name]: LLM 返回空，跳过"
+                MAP_CONSECUTIVE_FAILS=$((MAP_CONSECUTIVE_FAILS + 1))
+                log "  Map [$name]: LLM 返回空，跳过 (连续失败: $MAP_CONSECUTIVE_FAILS)"
                 sleep 10  # 失败后等更久再继续
                 continue
             fi
@@ -390,7 +398,7 @@ fi
 NOTES_SIGNALS=""
 NOTES_MAP_COUNT=0
 
-if [ "$FAST_MODE" = false ] && [ -n "$ALL_NOTES" ]; then
+if [ "$FAST_MODE" = false ] && [ -n "$ALL_NOTES" ] && [ "$MAP_CONSECUTIVE_FAILS" -lt 3 ]; then
     log "Phase 1b (Map Notes): 开始从笔记中提取信号..."
 
     # 按修改时间倒序（最新在前）
@@ -462,10 +470,16 @@ PROMPT_EOF
 
                 if [ -n "${signals// }" ]; then
                     echo "$signals" > "$cache_file"
+                    MAP_CONSECUTIVE_FAILS=0
                     # 节流：批次之间等待 5 秒
                     sleep 5
                 else
-                    log "  Map Notes [批次$BATCH_NUM]: LLM 返回空，跳过"
+                    MAP_CONSECUTIVE_FAILS=$((MAP_CONSECUTIVE_FAILS + 1))
+                    log "  Map Notes [批次$BATCH_NUM]: LLM 返回空 (连续失败: $MAP_CONSECUTIVE_FAILS)"
+                    if [ "$MAP_CONSECUTIVE_FAILS" -ge 3 ]; then
+                        log "  ⚠️ 连续失败熔断，停止 Notes Map"
+                        break
+                    fi
                     sleep 10
                     BATCH=""
                     BATCH_COUNT=0

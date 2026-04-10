@@ -148,27 +148,28 @@ with open(new_file) as f:
 if not items:
     sys.exit(0)
 
-# 构建批量Prompt — 严格纯文本格式，禁止Markdown以减少解析变体
-titles_text = "\n".join(f"{i}. {item['title']}" for i, item in enumerate(items))
-prompt = f"""将以下{len(items)}条英文标题翻译成中文，逐条输出。
+# 构建批量Prompt — 包含 description 以生成有意义的要点，要求 JSON 输出避免正则解析
+items_text = ""
+for i, item in enumerate(items):
+    desc = item.get('desc', '').strip()
+    # 清理 HTML 标签
+    desc = re.sub(r'<[^>]+>', '', desc).strip()
+    if desc:
+        items_text += f"\n{i}. {item['title']}\n   摘要：{desc[:300]}\n"
+    else:
+        items_text += f"\n{i}. {item['title']}\n"
 
-{titles_text}
+prompt = f"""将以下{len(items)}条英文科技新闻翻译并提炼要点。
 
-【输出规则】
-- 严格按下方格式，每条恰好3行，条目间空一行
-- 不要加任何多余文字、标点装饰、Markdown符号（*、#、[]等）
-- 数字序号与字段名之间不加空格
+{items_text}
 
-格式（每条3行）：
-0.中文标题：翻译文字
-0.要点：不超过25字的核心要点
-0.价值：⭐到⭐⭐⭐⭐⭐
+请以 JSON 数组格式输出，每个元素包含3个字段：
+- zh_title: 中文标题
+- point: 核心要点（15-25字，必须具体，禁止"详见原文"等空话）
+- stars: 价值评级（⭐到⭐⭐⭐⭐⭐）
 
-1.中文标题：翻译文字
-1.要点：不超过25字的核心要点
-1.价值：⭐到⭐⭐⭐⭐⭐
-
-共{len(items)}条，依次输出，序号从0开始。"""
+只输出 JSON 数组，不要其他文字。示例格式：
+[{{"zh_title":"中文标题","point":"具体技术要点","stars":"⭐⭐⭐"}}]"""
 
 # 规则 #27: 纯推理直接 curl proxy:5002，禁止用 openclaw agent（#94教训）
 import urllib.request
@@ -181,18 +182,30 @@ payload = json.dumps({
 
 llm_out = ""
 llm_err = ""
-try:
-    req = urllib.request.Request(
-        "http://127.0.0.1:5002/v1/chat/completions",
-        data=payload,
-        headers={"Content-Type": "application/json"}
-    )
-    with urllib.request.urlopen(req, timeout=120) as resp:
-        resp_data = json.loads(resp.read())
-        llm_out = resp_data["choices"][0]["message"]["content"]
-except Exception as e:
-    llm_err = str(e)
-    print(f"[hn_watcher] LLM调用失败: {e}", file=sys.stderr)
+llm_failed = False
+for _attempt in range(3):
+    try:
+        req = urllib.request.Request(
+            "http://127.0.0.1:5002/v1/chat/completions",
+            data=payload,
+            headers={"Content-Type": "application/json"}
+        )
+        with urllib.request.urlopen(req, timeout=120) as resp:
+            resp_data = json.loads(resp.read())
+            llm_out = resp_data["choices"][0]["message"]["content"]
+            break  # 成功，退出重试
+    except Exception as e:
+        llm_err = str(e)
+        print(f"[hn_watcher] LLM调用失败 (attempt {_attempt+1}/3): {e}", file=sys.stderr)
+        if _attempt < 2:
+            import time as _t
+            _wait = 15 * (_attempt + 1)  # 15s, 30s
+            print(f"[hn_watcher] 等待 {_wait}s 后重试...", file=sys.stderr)
+            _t.sleep(_wait)
+
+if not llm_out:
+    llm_failed = True
+    print(f"[hn_watcher] LLM_FAILED=true (3次重试全部失败)", file=sys.stderr)
 
 # LLM原始输出写入日志，方便排查格式匹配问题
 try:
@@ -207,43 +220,73 @@ try:
 except OSError as e:
     print(f"[hn_watcher] WARN: 无法写入 llm_raw_log: {e}", file=sys.stderr)
 
-# 去除ANSI转义码
+# 去除ANSI转义码和 Qwen3 <think> 标签
 llm_out = re.sub(r'\x1b\[[0-9;]*[a-zA-Z]', '', llm_out)
+llm_out = re.sub(r'<think>.*?</think>', '', llm_out, flags=re.DOTALL).strip()
 
-# ★ Fix2核心：正则宽容度提升，兼容【】格式和多余空白
-# 原：r'^(\d+)[\.。]?\s*(中文标题|要点|价值)\s*[：:]\s*(.+)$'
-# 新：支持 【中文标题】、**中文标题**、多余空格等LLM输出变体
-parsed = {}
-for line in llm_out.splitlines():
-    line = line.strip()
-    # 兼容格式：0.中文标题：xxx / 0. 【中文标题】：xxx / 0.中文标题:xxx
-    m = re.match(
-        r'^(\d+)[\.。]?\s*[【\*]*(中文标题|要点|价值)[】\*]*\s*[：:]\s*(.+)$',
-        line
-    )
-    if m:
-        idx, key, val = m.group(1), m.group(2), m.group(3).strip()
-        # 清理val中可能的markdown符号
-        val = re.sub(r'^\*+|\*+$', '', val).strip()
-        if idx not in parsed:
-            parsed[idx] = {}
-        parsed[idx][key] = val
+# ★ V38: JSON 优先解析，正则兜底
+parsed_items = []
+
+# 尝试1: 直接 JSON 解析
+try:
+    # 提取 JSON 数组（可能被 ```json 包裹）
+    json_text = llm_out
+    json_match = re.search(r'\[.*\]', json_text, re.DOTALL)
+    if json_match:
+        parsed_items = json.loads(json_match.group())
+except (json.JSONDecodeError, ValueError):
+    pass
+
+# 尝试2: 如果 JSON 失败，回退到正则解析（向后兼容旧格式）
+if not parsed_items:
+    parsed = {}
+    for line in llm_out.splitlines():
+        line = line.strip()
+        m = re.match(
+            r'^(\d+)[\.。]?\s*[【\*]*(中文标题|要点|价值|zh_title|point|stars)[】\*]*\s*[：:]\s*(.+)$',
+            line
+        )
+        if m:
+            idx, key, val = m.group(1), m.group(2), m.group(3).strip()
+            val = re.sub(r'^\*+|\*+$', '', val).strip()
+            if idx not in parsed:
+                parsed[idx] = {}
+            # 统一 key 名
+            key_map = {'中文标题': 'zh_title', '要点': 'point', '价值': 'stars'}
+            parsed[idx][key_map.get(key, key)] = val
+    # 转换为列表格式
+    for i in range(len(items)):
+        if str(i) in parsed:
+            parsed_items.append(parsed[str(i)])
+        else:
+            parsed_items.append({})
 
 # 统计解析成功率（写入日志）
-success_count = sum(1 for i in range(len(items)) if len(parsed.get(str(i), {})) >= 2)
+success_count = sum(1 for p in parsed_items if p.get('zh_title') or p.get('point'))
 try:
     with open(llm_raw_log, 'a') as f:
         f.write(f"\n--- parsed ---\n")
+        f.write(f"method: {'json' if parsed_items and isinstance(parsed_items[0], dict) and 'zh_title' in parsed_items[0] else 'regex_fallback'}\n")
         f.write(f"success: {success_count}/{len(items)}\n")
-        f.write(json.dumps(parsed, ensure_ascii=False, indent=2)[:1000])
+        f.write(json.dumps(parsed_items, ensure_ascii=False, indent=2)[:1000])
 except OSError as e:
     print(f"[hn_watcher] WARN: 无法追加解析日志: {e}", file=sys.stderr)
 
+# LLM 完全失败时，输出特殊标记让 shell 层知道（而不是输出回退垃圾）
+if llm_failed:
+    print("__LLM_FAILED__")
+    sys.exit(0)
+
 # 输出结果供shell使用
 for i, item in enumerate(items):
-    zh_title = parsed.get(str(i), {}).get('中文标题', item['title'])
-    point    = parsed.get(str(i), {}).get('要点', '技术内容，详见原文')
-    stars    = parsed.get(str(i), {}).get('价值', '⭐⭐⭐')
+    p = parsed_items[i] if i < len(parsed_items) else {}
+    zh_title = p.get('zh_title') or p.get('中文标题') or item['title']
+    point    = p.get('point') or p.get('要点') or ''
+    stars    = p.get('stars') or p.get('价值') or '⭐⭐⭐'
+    # 过滤空话要点：如果要点是空的或含"详见原文"，用标题自动生成
+    if not point or '详见原文' in point or len(point) < 4:
+        # 从标题推断一个基本要点
+        point = zh_title[:25] if zh_title != item['title'] else item['title'][:40]
     print(json.dumps({
         'zh_title': zh_title,
         'point': point,
@@ -259,6 +302,13 @@ if [ -z "$RESULT" ]; then
     echo "$ERR_MSG"
     openclaw message send --channel whatsapp --target "$TO" --message "$ERR_MSG" --json >/dev/null 2>&1 || true
     exit 1
+fi
+
+# LLM 全部失败检测（3次重试后仍失败）— 不推送垃圾，而是告警
+if echo "$RESULT" | grep -q "__LLM_FAILED__"; then
+    log "⚠️ LLM 3次重试全部失败，跳过本轮推送（不发送回退文案）"
+    printf '{"time":"%s","status":"llm_failed","new":%d}\n' "$TS" "$(echo "$RESULT" | grep -v __LLM_FAILED__ | wc -l)" > "$STATUS_FILE"
+    exit 0
 fi
 
 # 429限流检测：防止把错误文案推送到WhatsApp
@@ -288,7 +338,7 @@ for line in sys.stdin:
     if not hn_url:           # Fix3：HN_URL空值保护
         continue
     zh_title = d.get("zh_title") or d.get("title", "")
-    point    = d.get("point")    or "技术内容，详见原文"
+    point    = d.get("point")    or d.get("title", "")[:40]
     stars    = d.get("stars")    or "⭐⭐⭐"
     title    = d.get("title", zh_title)
     with open(msg_file, "a") as f:
