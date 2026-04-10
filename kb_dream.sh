@@ -78,7 +78,9 @@ MAP_ONLY=false
 KB_BASE="${KB_BASE:-$HOME/.kb}"
 DREAM_DIR="$KB_BASE/dreams"
 DREAM_FILE="$DREAM_DIR/$DAY.md"
-STATUS_FILE="$DREAM_DIR/.last_run.json"
+STATUS_FILE="$DREAM_DIR/.last_run.json"        # Reduce 阶段状态
+MAP_STATUS_FILE="$DREAM_DIR/.last_map.json"    # Map 阶段状态（独立，不被 Reduce 覆盖）
+MAP_DONE_FLAG="$DREAM_DIR/.map_cache/${DAY}_MAP_DONE"  # Map 完成标记（Reduce 可感知）
 MAP_DIR="$DREAM_DIR/.map_cache"
 mkdir -p "$DREAM_DIR" "$MAP_DIR"
 
@@ -629,8 +631,16 @@ fi
 if $MAP_ONLY; then
     MAP_ELAPSED=$(( $(date +%s) - DREAM_START_EPOCH ))
     log "Map-only 完成: sources=$MAP_COUNT/$SRC_COUNT, notes=$NOTES_MAP_COUNT/$NOTE_COUNT, 缓存已写入 $MAP_DIR, 耗时 ${MAP_ELAPSED}s"
-    printf '{"time":"%s","status":"map_only_done","map_count":%d,"notes_map_count":%d,"sources":%d,"notes":%d,"elapsed_sec":%d}\n' \
-        "$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')" "$MAP_COUNT" "$NOTES_MAP_COUNT" "$SRC_COUNT" "$NOTE_COUNT" "$MAP_ELAPSED" > "$STATUS_FILE"
+    # 写入独立的 Map status 文件（不覆盖 Reduce 的 .last_run.json）
+    printf '{"time":"%s","status":"map_only_done","map_count":%d,"notes_map_count":%d,"sources":%d,"notes":%d,"elapsed_sec":%d,"consecutive_fails":%d}\n' \
+        "$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')" "$MAP_COUNT" "$NOTES_MAP_COUNT" "$SRC_COUNT" "$NOTE_COUNT" "$MAP_ELAPSED" "$MAP_CONSECUTIVE_FAILS" > "$MAP_STATUS_FILE"
+    # 写入完成标记（Reduce 阶段可检测 Map 是否成功完成）
+    if [ "$MAP_COUNT" -gt 0 ] || [ "$NOTES_MAP_COUNT" -gt 0 ]; then
+        echo "$MAP_COUNT:$NOTES_MAP_COUNT" > "$MAP_DONE_FLAG"
+        log "Map 完成标记已写入: $MAP_DONE_FLAG"
+    else
+        log "WARN: Map 零成功，不写入完成标记"
+    fi
     exit 0
 fi
 
@@ -658,12 +668,25 @@ fi
 #    输出：梦境报告
 # ═══════════════════════════════════════════════════════════════════
 
+# Map 完成度检查：检测 00:00 的 --map-only 是否成功完成（INV-CACHE-001）
+# 如果 Map 预热失败导致缓存为空，降级时必须输出明确信号，不能静默
+MAP_DEGRADED=false
+if [ "$FAST_MODE" = false ] && [ -z "${MAP_SIGNALS// }" ] && [ -z "${NOTES_SIGNALS// }" ]; then
+    if [ -f "$MAP_DONE_FLAG" ]; then
+        log "WARN: Map 完成标记存在但信号为空（缓存可能已损坏）"
+    else
+        log "WARN: Map 缓存为空且无完成标记 — 00:00 Map 预热可能失败"
+    fi
+    MAP_DEGRADED=true
+    dream_fail_alert "Reduce 降级为 Fast 模式 — Map 缓存为空（00:00 预热可能失败），梦境质量将降低"
+fi
+
 log "Phase 2 (Reduce): 开始跨领域关联..."
 
 # 组装 Reduce 素材
 if [ "$FAST_MODE" = true ] || [ -z "${MAP_SIGNALS// }" ]; then
-    # Fast 模式或 Map 失败：回退到直接采样
-    log "使用直接采样模式"
+    # Fast 模式或 Map 缓存为空：回退到直接采样
+    log "使用直接采样模式$([ "$MAP_DEGRADED" = true ] && echo '（Map 预热失败降级）')"
     REDUCE_INTRO="以下是系统知识库的全量采样数据（涵盖论文、技术博客、HackerNews、航运动态、项目笔记等多个领域）："
     REDUCE_DATA=""
 
@@ -972,12 +995,12 @@ else
     log "WARN: notify.sh 未找到，跳过推送"
 fi
 
-# 状态记录
-printf '{"time":"%s","status":"ok","mode":"%s","map_count":%d,"sources":%d,"notes":%d,"kb_bytes":%d,"reduce_chars":%d,"dream_bytes":%d,"sent":%s}\n' \
+# 状态记录（Reduce 写 .last_run.json，Map 写 .last_map.json — 互不覆盖，INV-JOB-001）
+printf '{"time":"%s","status":"ok","mode":"%s","map_count":%d,"sources":%d,"notes":%d,"kb_bytes":%d,"reduce_chars":%d,"dream_bytes":%d,"sent":%s,"map_degraded":%s}\n' \
     "$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')" \
     "$([ "$FAST_MODE" = true ] && echo 'fast' || echo 'mapreduce')" \
     "$MAP_COUNT" "$SRC_COUNT" "$NOTE_COUNT" "$TOTAL_KB_BYTES" "$REDUCE_CHARS" \
-    "$(wc -c < "$DREAM_FILE" | tr -d ' ')" "$SENT" > "$STATUS_FILE"
+    "$(wc -c < "$DREAM_FILE" | tr -d ' ')" "$SENT" "$MAP_DEGRADED" > "$STATUS_FILE"
 
 # 清理过期 map 缓存（保留 3 天）
 find "$MAP_DIR" -name "*.txt" -mtime +3 -delete 2>/dev/null || true

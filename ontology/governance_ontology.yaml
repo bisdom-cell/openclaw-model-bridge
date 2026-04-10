@@ -557,6 +557,50 @@ invariants:
         file: run_hn_fixed.sh
         pattern: "LLM_FAILED"
 
+  # --- V37.2 新增：Map-Reduce 分离调度治理（ontology 审计发现） ---
+
+  - id: INV-CRON-005
+    name: split-job-lock-isolation
+    meta_rule: MR-3
+    verification_layer: [declaration]
+    severity: medium
+    declaration: "分离调度的同一脚本的不同阶段，锁超时必须小于阶段间隔（确保前阶段锁不会阻塞后阶段）"
+    design_decision: "2026-04-10: Dream Map(00:00) + Reduce(03:00) 共用 lockdir，锁超时 60min < 间隔 3h，安全"
+    checks:
+      - name: "Dream 锁超时 < Map-Reduce 间隔"
+        check_type: python_assert
+        code: "assert 3600 < (3 * 3600), 'lock timeout must be less than phase gap'"
+
+  - id: INV-CACHE-001
+    name: map-reduce-cache-integrity
+    meta_rule: MR-4
+    verification_layer: [declaration, runtime]
+    severity: high
+    declaration: "Reduce 阶段必须显式检测 Map 缓存完整性；缓存为空导致降级时必须输出可观测信号（告警+日志+status字段），不允许静默降级"
+    design_decision: "2026-04-10: ontology 审计发现 Reduce 静默降级为 Fast 模式违反 MR-4（静默失败是 bug）；已添加 MAP_DONE_FLAG 检测 + dream_fail_alert + map_degraded 状态字段"
+    checks:
+      - name: "kb_dream.sh 有 Map 降级检测"
+        check_type: file_contains
+        file: kb_dream.sh
+        pattern: "MAP_DEGRADED"
+      - name: "kb_dream.sh 降级时有告警"
+        check_type: file_contains
+        file: kb_dream.sh
+        pattern: "dream_fail_alert.*降级"
+
+  - id: INV-JOB-001
+    name: split-job-status-isolation
+    meta_rule: MR-4
+    verification_layer: [declaration, runtime]
+    severity: medium
+    declaration: "分离调度的不同阶段必须使用独立 status 文件，避免后阶段覆盖前阶段的失败证据"
+    design_decision: "2026-04-10: Map 写 .last_map.json，Reduce 写 .last_run.json，两者互不覆盖，各自保留完整执行记录"
+    checks:
+      - name: "kb_dream.sh 有独立的 MAP_STATUS_FILE"
+        check_type: file_contains
+        file: kb_dream.sh
+        pattern: "MAP_STATUS_FILE"
+
 # ═══════════════════════════════════════════════════════════════════════
 # 4. 可执行元规则（Phase 0）— 自动发现缺失不变式
 #    只扫描结构化数据源，不解析自然语言
