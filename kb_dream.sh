@@ -111,9 +111,11 @@ print(text)
 "
 }
 
-# LLM 调用封装（含重试和错误诊断）
+# LLM 调用封装（含智能退避重试和错误诊断）
 # V37.1: 用 Python 构造 JSON + 临时文件传递，彻底避免 shell/jq 对大型 KB 数据的编码问题
 # 旧方式 `jq --arg p "$prompt"` 在 KB 含特殊字符时会损坏请求体导致 LLM 空响应
+# V38: 智能退避 — 429(rate limit)等60s, 524(timeout)等20s, 指数退避最多4次
+LLM_CALL_MAX_RETRIES=4
 llm_call() {
     local prompt="$1"
     local max_tokens="${2:-1500}"
@@ -125,7 +127,7 @@ llm_call() {
     local err_file=$(mktemp)
     local body_file=$(mktemp)
 
-    while [ $attempt -lt 2 ]; do
+    while [ $attempt -lt $LLM_CALL_MAX_RETRIES ]; do
         # 用 Python 安全构造 JSON（处理所有 Unicode/转义/控制字符）
         python3 -c "
 import json, sys
@@ -176,7 +178,24 @@ with open('$body_file', 'w') as f:
         fi
 
         attempt=$((attempt + 1))
-        [ $attempt -lt 2 ] && sleep 3
+        if [ $attempt -lt $LLM_CALL_MAX_RETRIES ]; then
+            # 智能退避：根据错误类型决定等待时间
+            local wait_sec=5
+            if echo "$raw" "$error_msg" | grep -qi "429\|rate.limit\|too many" 2>/dev/null; then
+                # 429 Rate Limit: 等较长时间让配额恢复
+                wait_sec=$((30 + attempt * 30))  # 60s, 90s, 120s
+                log "  Rate limited (429), waiting ${wait_sec}s before retry $((attempt+1))/$LLM_CALL_MAX_RETRIES..."
+            elif echo "$raw" "$error_msg" "$curl_err" | grep -qi "524\|timeout\|timed.out" 2>/dev/null; then
+                # 524 Timeout: 服务端过载，适度等待
+                wait_sec=$((10 + attempt * 10))  # 20s, 30s, 40s
+                log "  Timeout (524), waiting ${wait_sec}s before retry $((attempt+1))/$LLM_CALL_MAX_RETRIES..."
+            else
+                # 其他错误: 指数退避
+                wait_sec=$((3 * attempt * attempt))  # 3s, 12s, 27s
+                log "  Waiting ${wait_sec}s before retry $((attempt+1))/$LLM_CALL_MAX_RETRIES..."
+            fi
+            sleep "$wait_sec"
+        fi
     done
     rm -f "$err_file" "$body_file"
     return 1
@@ -343,8 +362,11 @@ PROMPT_EOF
 
             if [ -n "${signals// }" ]; then
                 echo "$signals" > "$cache_file"
+                # 节流：Map 调用之间等待 5 秒，避免密集调用耗尽 fallback 配额
+                sleep 5
             else
                 log "  Map [$name]: LLM 返回空，跳过"
+                sleep 10  # 失败后等更久再继续
                 continue
             fi
         fi
@@ -440,8 +462,11 @@ PROMPT_EOF
 
                 if [ -n "${signals// }" ]; then
                     echo "$signals" > "$cache_file"
+                    # 节流：批次之间等待 5 秒
+                    sleep 5
                 else
                     log "  Map Notes [批次$BATCH_NUM]: LLM 返回空，跳过"
+                    sleep 10
                     BATCH=""
                     BATCH_COUNT=0
                     continue
@@ -704,8 +729,9 @@ fi
 # Reduce 调用 + 短响应自动重试
 # LLM 响应不稳定：同样的 prompt 有时产出 17KB，有时只有 2KB
 # 如果响应 < 4000 字符（约 1000 字），大概率是被截断，值得重试
+# V38: 增加重试次数 2→3，退避时间升级为指数退避
 MIN_DREAM_CHARS=4000
-MAX_RETRIES=2
+MAX_RETRIES=3
 DREAM_RESULT=""
 
 for retry in $(seq 1 $MAX_RETRIES); do
@@ -721,7 +747,11 @@ for retry in $(seq 1 $MAX_RETRIES); do
         break
     fi
 
-    [ "$retry" -lt "$MAX_RETRIES" ] && sleep 5
+    if [ "$retry" -lt "$MAX_RETRIES" ]; then
+        local_wait=$((15 * retry))  # 15s, 30s
+        log "Reduce: 等待 ${local_wait}s 后重试..."
+        sleep "$local_wait"
+    fi
 done
 
 if [ -z "${DREAM_RESULT// }" ]; then
