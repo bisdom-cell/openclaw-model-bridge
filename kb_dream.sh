@@ -41,6 +41,19 @@ fi
 mkdir "$LOCK" 2>/dev/null || { echo "[dream] Lock contention, skip"; exit 0; }
 trap 'rmdir "$LOCK" 2>/dev/null' EXIT
 
+# 全局超时保护：整个 Dream 不超过 25 分钟（V37.2 fix: 防止卡住影响后续 job）
+# 04:30 启动 → 最迟 04:55 结束，留 5 分钟余量给 05:00 的其他 job
+DREAM_START_EPOCH=$(date +%s)
+DREAM_TIMEOUT_SEC=1500  # 25 minutes
+check_deadline() {
+    local elapsed=$(( $(date +%s) - DREAM_START_EPOCH ))
+    if [ "$elapsed" -ge "$DREAM_TIMEOUT_SEC" ]; then
+        log "⚠️ 全局超时 (${elapsed}s >= ${DREAM_TIMEOUT_SEC}s)，中止当前阶段"
+        return 1
+    fi
+    return 0
+}
+
 # Dream LLM 配置：直接调 Adapter(:5001)，绕过 Proxy
 # 资源竞争缓解策略：cron 调度到凌晨 4:00（GPU 低负载时段）+ 短响应自动重试
 # Gemini 2.5 Flash 已验证不适合（中文质量差、免费 tier 限速、输出极短）
@@ -85,6 +98,14 @@ dream_fail_alert() {
         notify "$msg" --topic alerts 2>/dev/null || true
     fi
 }
+
+# 前置依赖检查：python3 + jq 是核心依赖，缺失则整个脚本无法工作（V37.2 fix: fail-fast）
+for _dep in python3 jq curl; do
+    if ! command -v "$_dep" >/dev/null 2>&1; then
+        dream_fail_alert "$_dep 未找到，Dream 无法运行"
+        exit 1
+    fi
+done
 
 # LLM 健康检查：在开始 30 分钟的 MapReduce 前确认 Adapter 可达
 # V37.1: 避免 LLM 不可用时白白浪费时间
@@ -305,6 +326,11 @@ if [ "$FAST_MODE" = false ] && [ "$SRC_COUNT" -gt 0 ]; then
     log "Phase 1 (Map): 开始逐源提取信号..."
 
     while IFS= read -r src; do
+        # 全局超时检查
+        if ! check_deadline; then
+            log "  ⚠️ Map 阶段超时，跳过剩余 sources"
+            break
+        fi
         # 连续失败熔断：3 次连续 LLM 失败 → 停止 Map，保留配额给 Reduce
         if [ "$MAP_CONSECUTIVE_FAILS" -ge 3 ]; then
             log "  ⚠️ 连续 ${MAP_CONSECUTIVE_FAILS} 次 LLM 失败，停止 Map 阶段（保护 fallback 配额）"
@@ -327,6 +353,7 @@ if [ "$FAST_MODE" = false ] && [ "$SRC_COUNT" -gt 0 ]; then
         if [ -f "$cache_file" ]; then
             log "  Map [$name]: 使用缓存"
             signals=$(cat "$cache_file")
+            MAP_CONSECUTIVE_FAILS=0  # 缓存命中视为成功，重置计数（V37.2 fix: 防止假熔断）
         else
             # 读取文件全文，用 UTF-8 安全截断到 15000 字符
             # 15K chars ≈ 4-5K tokens，Qwen3 262K context 轻松容纳
@@ -412,6 +439,11 @@ if [ "$FAST_MODE" = false ] && [ -n "$ALL_NOTES" ] && [ "$MAP_CONSECUTIVE_FAILS"
     BATCH_NUM=0
 
     while IFS= read -r note; do
+        # 全局超时检查
+        if ! check_deadline; then
+            log "  ⚠️ Notes Map 阶段超时，跳过剩余 notes"
+            break
+        fi
         [ -z "$note" ] && continue
         [ -f "$note" ] || continue
         name=$(basename "$note" .md)
@@ -436,6 +468,7 @@ $content
             if [ -f "$cache_file" ]; then
                 log "  Map Notes [批次$BATCH_NUM]: 使用缓存 ($BATCH_COUNT 条)"
                 signals=$(cat "$cache_file")
+                MAP_CONSECUTIVE_FAILS=0  # 缓存命中视为成功，重置计数（V37.2 fix）
             else
                 prompt=$(python3 -c "
 import sys
@@ -507,6 +540,7 @@ $signals
         if [ -f "$cache_file" ]; then
             log "  Map Notes [批次$BATCH_NUM]: 使用缓存 ($BATCH_COUNT 条)"
             signals=$(cat "$cache_file")
+            MAP_CONSECUTIVE_FAILS=0  # 缓存命中视为成功（V37.2 fix）
         else
             prompt=$(python3 -c "
 import sys
@@ -573,6 +607,24 @@ elif [ -n "$ALL_NOTES" ]; then
 $content
 "
     done <<< "$SORTED_NOTES"
+fi
+
+# 全局超时检查：Map 阶段如果用了太长时间，跳过 Reduce 直接用已有信号生成简报
+if ! check_deadline; then
+    dream_fail_alert "全局超时 — Map 阶段耗时过长，跳过 Reduce"
+    # 写入已收集的 Map 信号作为简化报告
+    {
+        echo "# Agent Dream $DAY (超时简报)"
+        echo ""
+        echo "> Map 阶段超时，以下为已收集的原始信号（未经 Reduce 分析）"
+        echo ""
+        [ -n "${MAP_SIGNALS// }" ] && echo "$MAP_SIGNALS"
+        [ -n "${NOTES_SIGNALS// }" ] && echo "$NOTES_SIGNALS"
+    } > "$DREAM_FILE"
+    printf '{"time":"%s","status":"timeout","map_count":%d,"sources":%d,"notes":%d}\n' \
+        "$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')" "$MAP_COUNT" "$SRC_COUNT" "$NOTE_COUNT" > "$STATUS_FILE"
+    log "超时退出，已保存简化报告到 $DREAM_FILE"
+    exit 0
 fi
 
 # ═══════════════════════════════════════════════════════════════════
@@ -879,11 +931,16 @@ $segment"
 
     rm -rf "$CHUNK_DIR"
 
-    if [ "$SEND_OK" -gt 0 ]; then
+    if [ "$SEND_OK" -eq "$TOTAL_PARTS" ]; then
         log "梦境已推送 $SEND_OK/$TOTAL_PARTS 段到 WhatsApp + Discord"
         SENT=true
+    elif [ "$SEND_OK" -gt 0 ]; then
+        log "WARN: 梦境部分推送成功 $SEND_OK/$TOTAL_PARTS 段"
+        SENT="\"partial:${SEND_OK}/${TOTAL_PARTS}\""
+        dream_fail_alert "梦境推送不完整: $SEND_OK/$TOTAL_PARTS 段成功"
     else
         log "ERROR: 所有 $TOTAL_PARTS 段推送均失败"
+        SENT=false
         dream_fail_alert "梦境已生成(${DREAM_CHARS}字)但推送全部失败(${TOTAL_PARTS}段) — 检查 OPENCLAW_PHONE/DISCORD_CH_DAILY 环境变量"
     fi
 else
