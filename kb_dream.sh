@@ -9,8 +9,8 @@
 #   Phase 2 (Reduce) — 汇总所有信号 + notes + 状态，进行跨领域关联发现
 #
 # 调度策略：Map 和 Reduce 可分离执行，利用缓存解耦
-#   00:00  bash kb_dream.sh --map-sources  # 预热 Sources（~10min，15 源）
-#   00:25  bash kb_dream.sh --map-notes    # 预热 Notes（~10min，~16 批）
+#   00:00  bash kb_dream.sh --map-sources  # 预热 Sources（~10-15min，15 源）
+#   00:40  bash kb_dream.sh --map-notes    # 预热 Notes（~10-15min，~16 批，留足余量给 Sources）
 #   03:00  bash kb_dream.sh               # Reduce：缓存全命中(~15s) → 跨域关联(~3min) → 推送
 #   效果：每个子任务 ≤ 10min，不会超时；03:00 只需 ~3.5min
 #

@@ -292,7 +292,7 @@ export GEMINI_API_KEY="AIzaXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"   # V29.1新增
 | ai-leaders-x | 每天09:00,21:00 | `~/.openclaw/jobs/ai_leaders_x/run_ai_leaders_x.sh` | `~/.openclaw/logs/jobs/ai_leaders_x.log` | ✅ V34新增：9位AI大牛X技术洞察追踪（Karpathy/Jim Fan/LeCun/Chollet/Swyx/Lilian Weng/Jason Wei/HW Chung/Harrison Chase，Syndication API+LLM深度分析+KB归档） |
 | preference-learner | 每天07:30 | `~/preference_learner.py` | `~/preference_learner.log` | ✅ V30.4新增：每天从行为数据自动推断用户偏好（活跃时段/工具使用/关注领域），写入status.json→SOUL.md |
 | kb_dream_map_sources | 每天00:00 | `~/kb_dream.sh --map-sources` | `~/kb_dream.log` | ✅ V37.2新增：Dream Sources Map 预热 — 15源×LLM提取信号写缓存（~10min） |
-| kb_dream_map_notes | 每天00:25 | `~/kb_dream.sh --map-notes` | `~/kb_dream.log` | ✅ V37.2新增：Dream Notes Map 预热 — ~16批笔记×LLM提取信号写缓存（~10min） |
+| kb_dream_map_notes | 每天00:40 | `~/kb_dream.sh --map-notes` | `~/kb_dream.log` | ✅ V37.2新增：Dream Notes Map 预热 — ~16批笔记×LLM提取信号写缓存（~10-15min） |
 | kb_dream | 每天03:00 | `~/kb_dream.sh` | `~/kb_dream.log` | ✅ V32新增→V37.2三阶段分离调度：Sources+Notes 缓存命中(~15s) → Reduce 跨域关联(~3min) → 推送梦境 |
 | kb_harvest_chat | 每天06:00 | `~/kb_harvest_chat.py` | `~/kb_harvest_chat.log` | ✅ V37新增→V37.1升级MapReduce：对话精华提炼 — 从 proxy 捕获的每日对话中 LLM 提取关键点（决策/偏好/洞察/结论），分块零丢失，写入 KB notes |
 | governance_audit | 每天07:00 | `~/governance_audit_cron.sh` | `~/governance_audit.log` | ✅ V37.1新增：每日 ontology 治理审计（governance_checker --full 17不变式+6元发现 + engine --check 81规则），失败推送 alerts |
