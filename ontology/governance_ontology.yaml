@@ -527,6 +527,36 @@ invariants:
         command: |
           bash -lc 'test -n "$OPENCLAW_PHONE" && test "$OPENCLAW_PHONE" != "+85200000000"'
 
+  # --- 2026-04-10 新增：从 Dream 配额爆炸链案例提炼 ---
+
+  - id: INV-QUOTA-001
+    name: llm-batch-circuit-breaker
+    meta_rule: MR-1
+    verification_layer: [declaration, runtime]
+    severity: high
+    declaration: "批量 LLM 调用的 Job 必须有连续失败熔断机制，防止 fallback 配额耗尽影响其他 Job"
+    design_decision: "2026-04-10 教训：Dream MapReduce 30+ 次调用全部 fallback 到 Gemini，耗尽日配额，导致 HN 推送全部垃圾"
+    source_case: "ontology/docs/cases/dream_quota_blast_radius_case.md"
+    checks:
+      - name: "Dream 有连续失败熔断"
+        check_type: file_contains
+        file: kb_dream.sh
+        pattern: "MAP_CONSECUTIVE_FAILS"
+
+  - id: INV-PUSH-001
+    name: no-silent-garbage-push
+    meta_rule: MR-1
+    verification_layer: [declaration, runtime]
+    severity: high
+    declaration: "面向用户的推送脚本必须能检测 LLM 完全失败并跳过推送，不允许静默发送回退文案"
+    design_decision: "2026-04-10 教训：HN 脚本 LLM 502 后静默填入回退文案推送，用户收到 5 条'技术内容，详见原文'"
+    source_case: "ontology/docs/cases/dream_quota_blast_radius_case.md"
+    checks:
+      - name: "HN 有 LLM 失败检测"
+        check_type: file_contains
+        file: run_hn_fixed.sh
+        pattern: "LLM_FAILED"
+
 # ═══════════════════════════════════════════════════════════════════════
 # 4. 可执行元规则（Phase 0）— 自动发现缺失不变式
 #    只扫描结构化数据源，不解析自然语言
