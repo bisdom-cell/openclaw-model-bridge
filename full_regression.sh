@@ -282,14 +282,70 @@ else
     echo "✅ 全量回归测试通过，可以安全推送"
 
     # ═══════════════════════════════════════════════════════════════
-    # 证据口径自动化：回写测试数到 status.json（单一数据源）
+    # 证据口径自动化：所有指标回写 status.json（单一数据源）
     # ═══════════════════════════════════════════════════════════════
     REGRESSION_TS="$(date '+%Y-%m-%d %H:%M')"
     if [ -f status_update.py ]; then
+        echo ""
+        echo "📊 证据回写 status.json ..."
+
+        # 1) 测试数 + 回归结果
         python3 status_update.py --set quality.test_count "$TOTAL_TESTS" --by full_regression 2>/dev/null
         python3 status_update.py --set quality.last_regression "${REGRESSION_TS} pass" --by full_regression 2>/dev/null
         python3 status_update.py --set quality.test_suites "$PASS" --by full_regression 2>/dev/null
-        echo "📊 status.json 已更新: test_count=$TOTAL_TESTS, suites=$PASS"
+        echo "   test_count=$TOTAL_TESTS, suites=$PASS"
+
+        # 2) 安全评分（单次调用，解析三个字段）
+        if [ -f security_score.py ]; then
+            SEC_JSON=$(python3 security_score.py --json 2>/dev/null || echo "{}")
+            SEC_SCORE=$(echo "$SEC_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin).get('total',''))" 2>/dev/null || echo "")
+            SEC_MAX=$(echo "$SEC_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin).get('max',100))" 2>/dev/null || echo "100")
+            SEC_PCT=$(echo "$SEC_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin).get('percentage',''))" 2>/dev/null || echo "")
+            if [ -n "$SEC_SCORE" ]; then
+                python3 status_update.py --set quality.security_score "$SEC_SCORE" --by full_regression 2>/dev/null
+                python3 status_update.py --set quality.security_score_time "$REGRESSION_TS" --by full_regression 2>/dev/null
+                python3 status_update.py --set health.security_score "${SEC_SCORE}/${SEC_MAX} (${SEC_PCT}%)" --by full_regression 2>/dev/null
+                echo "   security_score=${SEC_SCORE}/${SEC_MAX} (${SEC_PCT}%)"
+            fi
+        fi
+
+        # 3) 治理不变式
+        if [ -f ontology/governance_checker.py ]; then
+            GOV_STATS=$(python3 ontology/governance_checker.py --json 2>/dev/null | grep -v '^\[proxy\]' | python3 -c "
+import sys, json
+raw = sys.stdin.read()
+depth = 0
+for i, c in enumerate(raw):
+    if c == '[': depth += 1
+    elif c == ']': depth -= 1
+    if depth == 0 and i > 0:
+        data = json.loads(raw[:i+1])
+        total = len(data)
+        passed = sum(1 for d in data if d['status'] == 'pass')
+        checks = sum(d.get('total_checks', 0) for d in data)
+        checks_passed = sum(d.get('passed_checks', 0) for d in data)
+        print(f'{passed}/{total}/{checks_passed}/{checks}')
+        break
+" 2>/dev/null || echo "")
+            if [ -n "$GOV_STATS" ]; then
+                GOV_INV_PASSED=$(echo "$GOV_STATS" | cut -d/ -f1)
+                GOV_INV_TOTAL=$(echo "$GOV_STATS" | cut -d/ -f2)
+                GOV_CHK_PASSED=$(echo "$GOV_STATS" | cut -d/ -f3)
+                GOV_CHK_TOTAL=$(echo "$GOV_STATS" | cut -d/ -f4)
+                python3 status_update.py --set quality.governance_invariants "${GOV_INV_PASSED}/${GOV_INV_TOTAL}" --by full_regression 2>/dev/null
+                python3 status_update.py --set quality.governance_checks "${GOV_CHK_PASSED}/${GOV_CHK_TOTAL}" --by full_regression 2>/dev/null
+                echo "   governance=${GOV_INV_PASSED}/${GOV_INV_TOTAL} invariants, ${GOV_CHK_PASSED}/${GOV_CHK_TOTAL} checks"
+            fi
+        fi
+
+        # 4) 版本号
+        if [ -f VERSION ]; then
+            VERSION_STR=$(cat VERSION | tr -d '[:space:]')
+            python3 status_update.py --set quality.version "$VERSION_STR" --by full_regression 2>/dev/null
+            echo "   version=$VERSION_STR"
+        fi
+
+        echo "✅ 证据回写完成"
     fi
 
     exit 0
