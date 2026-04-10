@@ -280,5 +280,17 @@ if [ "$FAIL" -gt 0 ]; then
 else
     echo ""
     echo "✅ 全量回归测试通过，可以安全推送"
+
+    # ═══════════════════════════════════════════════════════════════
+    # 证据口径自动化：回写测试数到 status.json（单一数据源）
+    # ═══════════════════════════════════════════════════════════════
+    REGRESSION_TS="$(date '+%Y-%m-%d %H:%M')"
+    if [ -f status_update.py ]; then
+        python3 status_update.py --set quality.test_count "$TOTAL_TESTS" --by full_regression 2>/dev/null
+        python3 status_update.py --set quality.last_regression "${REGRESSION_TS} pass" --by full_regression 2>/dev/null
+        python3 status_update.py --set quality.test_suites "$PASS" --by full_regression 2>/dev/null
+        echo "📊 status.json 已更新: test_count=$TOTAL_TESTS, suites=$PASS"
+    fi
+
     exit 0
 fi

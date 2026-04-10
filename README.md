@@ -186,7 +186,7 @@ Phase 4: Golden Test Trace → Real request through full stack, saved to docs/go
 
 ```
 ✅ Provider: openai (via $OPENAI_API_KEY)
-✅ 610 tests passed
+✅ all tests passed
 ✅ Golden test: "Four" in 521ms (37 prompt + 2 completion tokens)
    Trace saved to docs/golden_trace.json
 ```
@@ -343,7 +343,7 @@ All jobs registered in `jobs_registry.yaml`. Validate: `python3 check_registry.p
 | `test_status_update.py` | Unit tests for status_update (33 cases) |
 | `test_audit_log.py` | Unit tests for audit_log (19 cases) |
 | `test_config_slo.py` | **V32** Unit tests for config_loader + slo_checker + incident_snapshot + ProxyStats SLO (28 cases) |
-| `full_regression.sh` | Full regression runner — **605 tests**, all must pass before push |
+| `full_regression.sh` | Full regression runner — all tests must pass before push (auto-updates `status.json` test_count) |
 | `.githooks/pre-commit` | **V32** Pre-commit hook — API key/phone leak + syntax checks |
 | `.github/workflows/ci.yml` | **V32** GitHub Actions CI — 9 test suites + config validation + security scan |
 | `CLAUDE.md` | Project context for AI-assisted development |
@@ -482,7 +482,7 @@ The `auto_deploy.sh` script maps 35 repo files to runtime locations and only res
 ## Testing
 
 ```bash
-# Full regression (610 tests across 10 suites — must ALL pass before push)
+# Full regression (must ALL pass before push; auto-updates status.json test_count)
 bash full_regression.sh
 
 # Individual test suites

@@ -1,6 +1,6 @@
 {
-  "updated": "2026-04-10 10:24:26",
-  "updated_by": "claude_code",
+  "updated": "2026-04-10 17:40:06",
+  "updated_by": "full_regression",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -75,7 +75,7 @@
     {
       "task": "【输出】证据型文章（Benchmark/故障案例/Lessons Learned）",
       "status": "backlog",
-      "note": "610+ tests, Reliability Bench/SLO Benchmark/Resilience Report 数据已有，需转化为文章"
+      "note": "Reliability Bench/SLO Benchmark/Resilience Report 数据已有，需转化为文章（测试数见 quality.test_count，由 full_regression.sh 自动更新）"
     }
   ],
   "recent_changes": [
@@ -211,10 +211,11 @@
   },
   "quality": {
     "security_score": "68",
-    "test_count": 610,
-    "last_regression": "2026-04-05 pass",
+    "test_count": "718",
+    "last_regression": "2026-04-10 17:40 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-04-08 13:00"
+    "security_score_time": "2026-04-08 13:00",
+    "test_suites": "26"
   },
   "incidents": [
     {
