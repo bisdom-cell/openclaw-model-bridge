@@ -215,12 +215,13 @@
     "last_session": "2026-04-11",
     "unfinished": [
       "preflight 6/19 status.json 仓库 vs 运行时分叉 — 合法设计（dev 写回 vs cron 每小时刷新），但 preflight 仍记为 FAIL。修复思路：preflight 豁免 status.json 一致性检查，或只对比非自动回写字段（priorities/focus/recent_changes）而忽略 updated/quality 字段",
-      "preflight 17/19 KB 索引过期 2 文件（openclaw_official.md + inbox.md）— pre-existing 节奏问题，kb_embed 下次 cron 运行自动补齐。修复思路：kb_embed cron 频率从每小时改为每 30 分钟，或在 preflight 里只对 24h 以上的过期才报 FAIL"
+      "preflight 17/19 KB 索引过期 2 文件（openclaw_official.md + inbox.md）— pre-existing 节奏问题，kb_embed 下次 cron 运行自动补齐。修复思路：kb_embed cron 频率从每小时改为每 30 分钟，或在 preflight 里只对 24h 以上的过期才报 FAIL",
+      "kb_review.sh 效果层静默降级（20260410 推送发现）— 六类问题: ①LLM 超时后退化到只列 digest 容器标题没有任何 LLM 深度分析 ②把 '今日arXiv精选(2026-04-04)' 这类 digest 文件名当成论文亮点列出(ArXiv/HF/S2/DBLP/GH 5 源全部)，没有下探到 digest 内部具体论文 ③source 枚举硬编码漏了 X/AI leaders + ontology_sources + freight，博客标题在但内容为空 ④时间窗口声称 7 天但所有源都停在 04-06~04-08，04-09/04-10 零内容 ⑤元数据 '282条|286篇' 数字口径不一致 ⑥'回复任何话题可深入讨论' 承诺悬空(PA 无法从 digest 容器下探到具体论文). 性质: effect-layer silent degradation, 和 V37.4.3 血案同类 (状态码绿但功能残废, fallback 不 fail-fast). 修复策略: LLM timeout 应 fail-fast 不降级推送 + source 枚举改从 jobs_registry.yaml 读取 + kb_review 需要下探 digest 到论文粒度 + 新增 INV-REVIEW-001 effect-layer 不变式验证推送内容必须包含 LLM 生成段落. 发现时间: 2026-04-11 收工回顾时"
     ],
     "open_prs": "",
     "blocked_on": "",
-    "focus": "V37.4.3 PA 告警污染血案闭环完成 + WhatsApp 生产验证通过 (13:06 原题复现零红线命中) + Mac Mini governance --full 28/28/67/67 + INV-PA-001/002 15 checks 全绿 + 33 job 全可运行. 2 个 preflight FAIL 是 pre-existing 分叉已登记 unfinished. 下一步: Ontology Phase 3 渐进替换 (ONTOLOGY_MODE=on 切换) 或 Tool Policy Plugin V3 路标",
-    "current_focus": "V37.4.3 闭环完成（生产硬验证通过），Ontology Phase 3 渐进替换 / Tool Policy Plugin V3 路标启动 待用户选择"
+    "focus": "V37.4.3 PA 告警污染血案闭环完成 + WhatsApp 生产验证通过 (13:06 原题复现零红线命中) + Mac Mini governance --full 28/28/67/67 + INV-PA-001/002 15 checks 全绿 + 33 job 全可运行. 2 个 preflight FAIL 是 pre-existing 分叉已登记 unfinished. 收工回顾发现 kb_review.sh 效果层静默降级 (同类 V37.4.3 血案) 已登记 unfinished. 下一步: Ontology Phase 3 渐进替换 (ONTOLOGY_MODE=on 切换) 或 Tool Policy Plugin V3 路标 或 kb_review 效果层修复",
+    "current_focus": "V37.4.3 闭环完成（生产硬验证通过）+ kb_review 静默降级已登记. Ontology Phase 3 / Tool Policy Plugin V3 / kb_review 修复 三选一待用户决定"
   },
   "quality": {
     "security_score": "93",
