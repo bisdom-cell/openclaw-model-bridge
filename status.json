@@ -1,5 +1,5 @@
 {
-  "updated": "2026-04-11 01:41:53",
+  "updated": "2026-04-11 01:55:28",
   "updated_by": "full_regression",
   "priorities": [
     {
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-04-11",
+      "what": "Governance INV-CRON-003/004 三层 bug 修复: ① 子串匹配 false-positive (kb_dream.sh 被 Map-Reduce split 误报 x3) → endswith+word-boundary 精确匹配 ② YAML exec() 作用域陷阱 (def helper 在 exec 局部, 生成器表达式看不到) → for-loop 替代 ③ governance_checker silent error bug (error 状态未计入 failed_invs, 💥 被 ✅ 汇总掩盖) → 区分 fail/error 并在汇总行显式标注. 生产验证: Mac Mini governance --full 40/41+💥 → 41/41 ✅, preflight 75/1/2 → 76/0/2 (kb_embed 补齐 3 未索引 notes+2 过期文件). 新增 16→18 单测 (+exec scope trap 正向对照). 27 suites / 747 tests / 0 fail.",
+      "by": "claude_code"
+    },
     {
       "date": "2026-04-10",
       "what": "Shadow模式修复: ① tool_proxy.py补上log_fn让drift检测真正运行 ② 发现~/ontology/从未部署到运行时路径(V36.2以来shadow从未生效) ③ Mac Mini创建symlink修复 ④ 首条生产shadow数据采集成功(4 high-risk tools,零drift) ⑤ job_smoke_test.sh参数感知修复",
@@ -173,11 +178,6 @@
       "date": "2026-04-01",
       "what": "search_kb 全面加固（时间过滤+source过滤+文件锁+SHA256）+ KB 100%覆盖 + 四原则加固（CI/pre-commit/CLAUDE.md瘦身）",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-03-31",
-      "what": "V31: 遗留清理5项 + ops agent激活(SOUL.md+exec+ops_health.sh) + HN dlopen修复(/usr/bin/python3) + HF Papers增强(GitHub代码链接10/10) + GitHub Trending ML/AI监控 + RSS博客订阅(科学空间+Lil'Log+Simon Willison+Latent Space+LangChain) — KB信息源5→8个",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -202,19 +202,19 @@
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB"
   },
   "session_context": {
-    "last_session": "2026-04-08",
-    "unfinished": "[]",
+    "last_session": "\"2026-04-11\"",
+    "unfinished": "\"[]\"",
     "open_prs": "",
     "blocked_on": "",
-    "focus": "Ontology信息源已上线(4 RSS+过滤+LLM摘要+cron 10:00/20:00), 待验证: 20:15 discussions cron首次执行 + 07:00 governance_audit首次执行 + ontology_sources cron首次自动运行。PR #341待合并(ontology源优化)。下一步: KBS过滤/描述正则可继续优化",
+    "focus": "\"Governance INV-CRON 三层 bug 修复完成 (子串/exec-scope/silent-error), Mac Mini 生产验证 41/41 + preflight 0 fail + kb_embed 100%. 下一步: Ontology Phase 3 渐进替换 (ONTOLOGY_MODE=on 切换前置) 或 Tool Policy Plugin V3 路标\"",
     "current_focus": "Ontology Phase 3 渐进替换 — 从 shadow 到引擎数据替代硬编码"
   },
   "quality": {
     "security_score": "93",
     "test_count": "747",
-    "last_regression": "2026-04-11 01:41 pass",
+    "last_regression": "2026-04-11 01:55 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-04-11 01:41",
+    "security_score_time": "2026-04-11 01:55",
     "test_suites": "27",
     "governance_invariants": "22/22",
     "governance_checks": "30/41",
@@ -280,7 +280,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "Shadow drift检测已上线(04-10起计时,04-17可切ONTOLOGY_MODE=on). Dream三阶段分离完成. V3路标继续: Tool Policy Plugin或证据型文章",
+  "focus": "\"Governance 三层 bug 修复完成 (2026-04-11), 生产全绿. 下一步: Ontology Phase 3 渐进替换或 Tool Policy Plugin V3 路标\"",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
