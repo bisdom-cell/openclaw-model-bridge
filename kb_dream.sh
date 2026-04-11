@@ -972,24 +972,39 @@ $REDUCE_MATERIAL
     log "回退后 prompt: ${PROMPT_BYTES} bytes"
 fi
 
-# Reduce 调用 + 短响应自动重试
-# LLM 响应不稳定：同样的 prompt 有时产出 17KB，有时只有 2KB
-# 如果响应 < 4000 字符（约 1000 字），大概率是被截断，值得重试
-# V38: 增加重试次数 2→3，退避时间升级为指数退避
-MIN_DREAM_CHARS=4000
+# Reduce 调用 + 短响应自动重试（V37.4.1 修复）
+# LLM 响应不稳定：同一 prompt 产出 3967/906/2000 字节都有可能
+# - MIN_DREAM_CHARS=3000：≈1000 汉字，是"1500 字目标"的合理下限
+# - BEST_RESULT 追踪：始终保留最长的一次，最终 fallback 到最佳
+# - 逐步降温 0.85→0.6→0.4：retry 1 探索，retry 2/3 求稳
+# - 最低兜底 MIN_ACCEPTABLE_CHARS=1500：真短的才算失败
+MIN_DREAM_CHARS=3000
+MIN_ACCEPTABLE_CHARS=1500
 MAX_RETRIES=3
 DREAM_RESULT=""
+DREAM_CHARS=0
+BEST_RESULT=""
+BEST_CHARS=0
+# 逐次降温：第一次放开探索，重试时求稳
+REDUCE_TEMPS=("0.85" "0.6" "0.4")
 
 for retry in $(seq 1 $MAX_RETRIES); do
-    DREAM_RESULT=$(llm_call "$REDUCE_PROMPT" 8000 0.85 300 || true)
+    cur_temp="${REDUCE_TEMPS[$((retry - 1))]}"
+    DREAM_RESULT=$(llm_call "$REDUCE_PROMPT" 8000 "$cur_temp" 300 || true)
     DREAM_CHARS=$(echo "$DREAM_RESULT" | wc -c | tr -d ' ')
 
+    # 始终保留最佳，retry 过程中丢不掉好结果
+    if [ "$DREAM_CHARS" -gt "$BEST_CHARS" ] && [ -n "${DREAM_RESULT// }" ]; then
+        BEST_RESULT="$DREAM_RESULT"
+        BEST_CHARS=$DREAM_CHARS
+    fi
+
     if [ -z "${DREAM_RESULT// }" ]; then
-        log "Reduce 尝试 $retry/$MAX_RETRIES: 空响应"
+        log "Reduce 尝试 $retry/$MAX_RETRIES (temp=$cur_temp): 空响应"
     elif [ "$DREAM_CHARS" -lt "$MIN_DREAM_CHARS" ]; then
-        log "Reduce 尝试 $retry/$MAX_RETRIES: 响应过短 (${DREAM_CHARS} chars < ${MIN_DREAM_CHARS})，重试..."
+        log "Reduce 尝试 $retry/$MAX_RETRIES (temp=$cur_temp): 响应过短 (${DREAM_CHARS} chars < ${MIN_DREAM_CHARS})，当前最佳=${BEST_CHARS}，继续重试..."
     else
-        log "Reduce 尝试 $retry/$MAX_RETRIES: 成功 (${DREAM_CHARS} chars)"
+        log "Reduce 尝试 $retry/$MAX_RETRIES (temp=$cur_temp): 成功 (${DREAM_CHARS} chars)"
         break
     fi
 
@@ -1000,16 +1015,30 @@ for retry in $(seq 1 $MAX_RETRIES); do
     fi
 done
 
-if [ -z "${DREAM_RESULT// }" ]; then
-    log "ERROR: Phase 2 所有重试均失败 (prompt was ${PROMPT_BYTES} bytes)"
-    printf '{"time":"%s","status":"llm_failed","phase":"reduce","map_count":%d,"reduce_chars":%d,"prompt_bytes":%d}\n' \
-        "$TS" "$MAP_COUNT" "$REDUCE_CHARS" "$PROMPT_BYTES" > "$STATUS_FILE"
-    dream_fail_alert "Phase 2 Reduce LLM ${MAX_RETRIES}次全部失败 (prompt=${PROMPT_BYTES}B, map=$MAP_COUNT sources)"
+# Fallback 策略：
+# 1) 如果最终结果达标，直接用
+# 2) 如果没达标但 BEST_RESULT 更长，用 BEST_RESULT
+# 3) 如果 BEST_RESULT 也 < MIN_ACCEPTABLE_CHARS，才算真失败
+if [ "$DREAM_CHARS" -lt "$MIN_DREAM_CHARS" ] && [ "$BEST_CHARS" -gt "$DREAM_CHARS" ]; then
+    log "Reduce: 最后一次 (${DREAM_CHARS} chars) 不如之前最佳 (${BEST_CHARS} chars)，使用最佳结果"
+    DREAM_RESULT="$BEST_RESULT"
+    DREAM_CHARS=$BEST_CHARS
+fi
+
+if [ -z "${DREAM_RESULT// }" ] || [ "$DREAM_CHARS" -lt "$MIN_ACCEPTABLE_CHARS" ]; then
+    log "ERROR: Phase 2 所有重试均失败 (最佳 ${BEST_CHARS} chars < ${MIN_ACCEPTABLE_CHARS}, prompt was ${PROMPT_BYTES} bytes)"
+    printf '{"time":"%s","status":"llm_failed","phase":"reduce","map_count":%d,"reduce_chars":%d,"prompt_bytes":%d,"best_chars":%d}\n' \
+        "$TS" "$MAP_COUNT" "$REDUCE_CHARS" "$PROMPT_BYTES" "$BEST_CHARS" > "$STATUS_FILE"
+    dream_fail_alert "Phase 2 Reduce LLM ${MAX_RETRIES}次全部失败 (最佳 ${BEST_CHARS} chars, prompt=${PROMPT_BYTES}B, map=$MAP_COUNT sources)"
     exit 1
 fi
 
-DREAM_CHARS=$(echo "$DREAM_RESULT" | wc -c | tr -d ' ')
-log "最终梦境: ${DREAM_CHARS} chars"
+# 接受 MIN_ACCEPTABLE_CHARS ~ MIN_DREAM_CHARS 之间的 fallback 结果，但记录日志
+if [ "$DREAM_CHARS" -lt "$MIN_DREAM_CHARS" ]; then
+    log "Reduce: 使用 fallback 结果 (${DREAM_CHARS} chars, 低于理想 ${MIN_DREAM_CHARS} 但高于最低 ${MIN_ACCEPTABLE_CHARS})"
+fi
+
+log "最终梦境: ${DREAM_CHARS} chars (最佳候选 ${BEST_CHARS} chars)"
 
 # ═══════════════════════════════════════════════════════════════════
 # 6. 输出"梦境"

@@ -315,6 +315,97 @@ class TestFlushPendingBatchHelper(unittest.TestCase):
         )
 
 
+class TestReduceRetryFallback(unittest.TestCase):
+    """V37.4.1: Reduce retry logic must preserve best result and fall back
+    gracefully. Fixes the 2026-04-11 13:38 bug where retry 1 gave 3967 chars
+    (usable), retry 2 gave 906 chars (worse), and the code discarded retry 1
+    to pursue ever-worse retries."""
+
+    def test_min_dream_chars_lowered_to_3000(self):
+        """4000 was too strict — 3967 chars ≈ 1300 汉字 is functionally fine."""
+        src = _read_kb_dream()
+        self.assertIn(
+            "MIN_DREAM_CHARS=3000",
+            src,
+            "MIN_DREAM_CHARS must be 3000 (≈1000 汉字 lower bound for the "
+            "'1500 字 target'). 4000 rejects borderline-good output.",
+        )
+        self.assertNotIn(
+            "MIN_DREAM_CHARS=4000",
+            src,
+            "Old 4000 threshold still present — V37.4.1 regressed.",
+        )
+
+    def test_min_acceptable_chars_floor(self):
+        """Even all-retry-failures must have a floor below which we give up."""
+        src = _read_kb_dream()
+        self.assertIn(
+            "MIN_ACCEPTABLE_CHARS=1500",
+            src,
+            "MIN_ACCEPTABLE_CHARS floor missing — all-retry-failure logic "
+            "has no minimum bar, could emit near-empty Dream files.",
+        )
+
+    def test_best_result_tracking(self):
+        """retry loop must track the longest response across attempts."""
+        src = _read_kb_dream()
+        self.assertIn(
+            "BEST_RESULT=",
+            src,
+            "BEST_RESULT tracking missing — retry loop will throw away good "
+            "early results when later retries are worse.",
+        )
+        self.assertIn(
+            "BEST_CHARS=",
+            src,
+            "BEST_CHARS tracking missing — can't compare retries to pick "
+            "the longest.",
+        )
+
+    def test_best_result_fallback_used(self):
+        """On sub-threshold final result, must fall back to BEST_RESULT."""
+        src = _read_kb_dream()
+        self.assertRegex(
+            src,
+            r'DREAM_RESULT="\$BEST_RESULT"',
+            'Fallback assignment DREAM_RESULT="$BEST_RESULT" missing — '
+            "best-result fallback not wired up.",
+        )
+
+    def test_temperature_decay_on_retry(self):
+        """Retries must decay temperature (0.85→0.6→0.4) to reduce LLM
+        sampling variance. Same prompt + high temp = gambling."""
+        src = _read_kb_dream()
+        self.assertIn(
+            "REDUCE_TEMPS=",
+            src,
+            "REDUCE_TEMPS array missing — retries still use a single fixed "
+            "temperature and will produce equally volatile outputs.",
+        )
+        # Sanity: the array must contain a monotonically decaying sequence
+        m = re.search(r'REDUCE_TEMPS=\("([\d.]+)"\s+"([\d.]+)"\s+"([\d.]+)"\)', src)
+        self.assertIsNotNone(
+            m,
+            "REDUCE_TEMPS array format unexpected — expected 3-element "
+            "decaying temperature array.",
+        )
+        t1, t2, t3 = float(m.group(1)), float(m.group(2)), float(m.group(3))
+        self.assertGreater(t1, t2, "Retry temperatures must monotonically decay")
+        self.assertGreater(t2, t3, "Retry temperatures must monotonically decay")
+
+    def test_fatal_error_uses_min_acceptable_not_min_dream(self):
+        """The true failure floor is MIN_ACCEPTABLE_CHARS (1500), not
+        MIN_DREAM_CHARS (3000). Otherwise we exit 1 on sub-optimal but
+        still usable output, defeating the whole fallback."""
+        src = _read_kb_dream()
+        self.assertRegex(
+            src,
+            r"DREAM_CHARS[^\n]*-lt[^\n]*MIN_ACCEPTABLE_CHARS",
+            "Fatal error check must use MIN_ACCEPTABLE_CHARS (1500) as the "
+            "true failure floor, not MIN_DREAM_CHARS (3000).",
+        )
+
+
 class TestSourcesCacheFastPathUnchanged(unittest.TestCase):
     """Sources cache key (${name}_${file_size}_${prompt_hash}) was already
     stable and must remain so — don't accidentally port it to md5(content)."""
