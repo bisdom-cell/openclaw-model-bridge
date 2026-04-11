@@ -574,6 +574,202 @@ class TestKbReviewShellGuards(unittest.TestCase):
         self.assertNotIn("export NOTES_CONTENT", self.content)
         self.assertNotIn("export SOURCE_CONTENT", self.content)
 
+    def test_no_pipe_heredoc_stdin_collision(self):
+        """V37.5.1 回归: 禁止 `| python3 - ... << PYEOF` 反模式
+
+        Bug: echo "$X" | python3 - "$arg" << 'PYEOF' 同时把 pipe 和 heredoc
+        写入 python3 的 stdin, heredoc 覆盖 pipe, python3 - 读代码用掉 stdin,
+        代码内的 json.load(sys.stdin) 读到空 → JSONDecodeError。
+        2026-04-11 Mac Mini E2E 首次触发。修复: 用环境变量传数据, heredoc 只传代码。
+        """
+        # 匹配 `python3 -` 后跟空格/结尾/引号 (即 "read code from stdin" 模式)
+        # 注意区别于 `python3 -c` (inline code, 不读 stdin)
+        # 跳过 shell 注释行 (# 开头), 允许文档里描述 bug
+        for lineno, line in enumerate(self.content.splitlines(), start=1):
+            stripped = line.lstrip()
+            if stripped.startswith("#"):
+                continue
+            m = re.search(r"\|\s*python3\s+-(\s|$|\")", line)
+            self.assertIsNone(
+                m,
+                f"kb_review.sh:{lineno} 不得使用 `| python3 -` (stdin-as-code) 反模式, "
+                f"与 heredoc 冲突会吞 JSON 数据 (V37.5.1 blood lesson). "
+                f"修复: 改用 env var + `python3 << PYEOF`. 行内容: {line!r}",
+            )
+
+
+# ══════════════════════════════════════════════════════════════════════
+# 9. V37.5.1 Subprocess Runtime 测试 — 真实执行 shell 脚本关键路径
+#    (TestKbReviewShellGuards 是 grep 守卫, 本类是运行时守卫, MR-6 要求)
+# ══════════════════════════════════════════════════════════════════════
+class TestKbReviewShellRuntime(unittest.TestCase):
+    """V37.5.1 新增: 真实 subprocess 执行验证 heredoc+env var 数据传递能跑通。
+
+    MR-6 元规则: grep 守卫不足, 必须有运行时回归。
+    2026-04-11 血案: TestKbReviewShellGuards 的 8 个检查全过, 但 Mac Mini
+    第一次真实 run 就炸 JSONDecodeError — 因为 shell 脚本的 IO 行为
+    grep 看不见。
+    """
+
+    def test_env_var_heredoc_pattern_writes_file(self):
+        """V37.5.1 fix 验证: env var + heredoc 模式成功写文件 (不再吞 JSON)"""
+        import subprocess
+        tmp = tempfile.mkdtemp(prefix="kb_review_runtime_")
+        try:
+            review_file = os.path.join(tmp, "review.md")
+            collector_output = json.dumps({
+                "status": "ok",
+                "review_markdown": "# V37.5.1 runtime test\n\n内容正确写入。",
+                "wa_message": "x",
+                "note_count": 1,
+                "sources_used": [],
+            })
+            # 复刻 kb_review.sh:155-161 (V37.5.1 fix 后的模式)
+            script = (
+                'COLLECTOR_OUTPUT="$COLLECTOR_OUTPUT" '
+                'REVIEW_FILE="$REVIEW_FILE" '
+                "python3 << 'PYEOF'\n"
+                "import json, os\n"
+                'data = json.loads(os.environ["COLLECTOR_OUTPUT"])\n'
+                'with open(os.environ["REVIEW_FILE"], "w", encoding="utf-8") as f:\n'
+                '    f.write(data["review_markdown"])\n'
+                "PYEOF\n"
+            )
+            result = subprocess.run(
+                ["bash", "-c", script],
+                env={
+                    **os.environ,
+                    "COLLECTOR_OUTPUT": collector_output,
+                    "REVIEW_FILE": review_file,
+                },
+                capture_output=True, text=True, timeout=15,
+            )
+            self.assertEqual(
+                result.returncode, 0,
+                f"env var + heredoc 模式执行失败: {result.stderr}",
+            )
+            self.assertNotIn("JSONDecodeError", result.stderr)
+            with open(review_file, encoding="utf-8") as f:
+                content = f.read()
+            self.assertIn("V37.5.1 runtime test", content)
+            self.assertIn("内容正确写入", content)
+        finally:
+            import shutil
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_pipe_heredoc_antipattern_actually_fails(self):
+        """负向证据: V37.5.1 前的反模式在 subprocess 中确实炸 JSONDecodeError
+
+        留作文档: 为什么这是 bug 不是"偶尔不稳定"。
+        """
+        import subprocess
+        tmp = tempfile.mkdtemp(prefix="kb_review_antipattern_")
+        try:
+            review_file = os.path.join(tmp, "review.md")
+            collector_output = json.dumps({"review_markdown": "should NOT write"})
+            # V37.5 原始 buggy 模式: echo | python3 - + heredoc
+            script = (
+                f'echo {json.dumps(collector_output)} | '
+                f'python3 - {json.dumps(review_file)} << \'PYEOF\'\n'
+                "import json, sys\n"
+                "review_file = sys.argv[1]\n"
+                "data = json.load(sys.stdin)\n"
+                'with open(review_file, "w", encoding="utf-8") as f:\n'
+                '    f.write(data["review_markdown"])\n'
+                "PYEOF\n"
+            )
+            result = subprocess.run(
+                ["bash", "-c", script],
+                capture_output=True, text=True, timeout=15,
+            )
+            # 反模式应该失败, 不然说明 bash 语义变了, 这条测试需要重写
+            self.assertNotEqual(
+                result.returncode, 0,
+                "反模式应该 JSONDecodeError 失败, 但退出码=0 — 重新评估 shell 语义",
+            )
+            self.assertTrue(
+                "JSONDecodeError" in result.stderr or "Expecting value" in result.stderr,
+                f"期望 JSONDecodeError, 实际 stderr: {result.stderr[:500]}",
+            )
+            # review 文件不应被写入 (pipe 数据被吞掉)
+            self.assertFalse(
+                os.path.exists(review_file),
+                "反模式竟然写成了 review file — shell 语义变更?",
+            )
+        finally:
+            import shutil
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_kb_review_sh_end_to_end_mock_collector(self):
+        """真 E2E: 用 mock collector 驱动完整 kb_review.sh, 验证 review 文件落盘
+
+        这是 TestKbReviewShellGuards 的 runtime 对应: 前者 grep, 本测真跑。
+        只验证到 "写 review 文件" 这一步; 推送阶段无 openclaw 会失败, 不关心。
+        """
+        import subprocess
+        import shutil
+        tmp = tempfile.mkdtemp(prefix="kb_review_e2e_")
+        try:
+            repo_dir = os.path.dirname(os.path.abspath(__file__))
+            # 1. 拷贝 kb_review.sh 到 tmp (SCRIPT_DIR 会指到 tmp)
+            shutil.copy(os.path.join(repo_dir, "kb_review.sh"), tmp)
+            # 2. 写 mock collector: 打印 canned JSON, 不访问 LLM
+            mock_collector = os.path.join(tmp, "kb_review_collect.py")
+            with open(mock_collector, "w", encoding="utf-8") as f:
+                f.write(
+                    "import json\n"
+                    "print(json.dumps({\n"
+                    '    "status": "ok",\n'
+                    '    "review_markdown": "# E2E mock review\\n\\n笔记签名: alpha.",\n'
+                    '    "wa_message": "E2E 回顾",\n'
+                    '    "note_count": 42,\n'
+                    '    "sources_used": ["arxiv"],\n'
+                    '    "sources_skipped": [],\n'
+                    '    "sources_missing": []\n'
+                    "}))\n"
+                )
+            # 3. 写 stub registry (kb_review.sh 只校验存在, 不解析内容在 shell 层)
+            with open(os.path.join(tmp, "jobs_registry.yaml"), "w") as f:
+                f.write("jobs:\n  - id: stub\n    enabled: true\n")
+            # 4. mock KB dir
+            kb_dir = os.path.join(tmp, "kb")
+            os.makedirs(os.path.join(kb_dir, "daily"), exist_ok=True)
+            # 5. 执行 (notify/openclaw 都不存在, 推送会失败 → exit 1,
+            #    但 review 文件在推送之前就写好了)
+            result = subprocess.run(
+                ["bash", os.path.join(tmp, "kb_review.sh")],
+                env={
+                    "PATH": "/usr/bin:/bin:/usr/local/bin:/opt/homebrew/bin",
+                    "KB_BASE": kb_dir,
+                    "KB_REVIEW_REGISTRY": os.path.join(tmp, "jobs_registry.yaml"),
+                    "OPENCLAW_PHONE": "+85200000000",
+                    "HOME": tmp,
+                },
+                capture_output=True, text=True, timeout=30,
+            )
+            # JSONDecodeError 是 V37.5.1 修复的 bug — 必须不出现
+            self.assertNotIn(
+                "JSONDecodeError", result.stderr,
+                f"V37.5.1 pipe+heredoc bug 回归! stderr: {result.stderr[:500]}",
+            )
+            self.assertNotIn("Expecting value", result.stderr)
+            # review 文件必须已经落盘 (写文件在推送之前)
+            daily_dir = os.path.join(kb_dir, "daily")
+            review_files = [
+                f for f in os.listdir(daily_dir) if f.startswith("review_")
+            ]
+            self.assertEqual(
+                len(review_files), 1,
+                f"期望 1 份 review 文件, 实际: {review_files}. stderr: {result.stderr[:500]}",
+            )
+            with open(os.path.join(daily_dir, review_files[0]), encoding="utf-8") as f:
+                content = f.read()
+            self.assertIn("E2E mock review", content)
+            self.assertIn("笔记签名: alpha", content)
+        finally:
+            import shutil as _sh
+            _sh.rmtree(tmp, ignore_errors=True)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

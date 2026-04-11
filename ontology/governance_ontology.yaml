@@ -1114,6 +1114,87 @@ invariants:
           assert "LLM returned empty content" in src, (
               "call_llm 必须拒绝空响应 (不允许空字符串伪装成功)"
           )
+      - name: "V37.5.1 反模式: 禁止 `| python3 -` stdin-as-code 与 heredoc 冲突"
+        check_type: python_assert
+        code: |
+          # V37.5.1 血案: 2026-04-11 Mac Mini E2E 第一次 run 就炸 JSONDecodeError。
+          # 原代码 `echo $OUT | python3 - "$arg" << 'PYEOF'` 让 pipe 和 heredoc
+          # 同时注入 python3 stdin, heredoc 覆盖 pipe, python3 - 读代码耗尽 stdin,
+          # json.load(sys.stdin) 读到空 → 崩溃。修复: 改用 env var 传数据, heredoc 只传代码。
+          # 跳过 shell 注释行 (允许文档描述 bug)。
+          import re
+          src = open("kb_review.sh", encoding="utf-8").read()
+          bad_lines = []
+          for lineno, line in enumerate(src.splitlines(), start=1):
+              stripped = line.lstrip()
+              if stripped.startswith("#"):
+                  continue
+              if re.search(r"\|\s*python3\s+-(\s|$|\")", line):
+                  bad_lines.append((lineno, line))
+          assert not bad_lines, (
+              f"kb_review.sh 包含 V37.5.1 反模式 (pipe+stdin-as-code) 在行: "
+              f"{[(ln, line.strip()[:80]) for ln, line in bad_lines]}"
+          )
+      - name: "V37.5.1 runtime: 真实 subprocess 执行 kb_review.sh 不触发 JSONDecodeError"
+        check_type: python_assert
+        code: |
+          # 运行时 E2E 守卫: 用 mock collector 驱动 kb_review.sh, 验证写文件路径
+          # 能正确从 env var 读数据, 不再因 pipe+heredoc 冲突而崩溃。
+          # MR-6 要求: grep 守卫不足, 必须有 runtime 回归。
+          import subprocess, tempfile, os, shutil, json as _json
+          tmp = tempfile.mkdtemp(prefix="gov_inv_review_runtime_")
+          try:
+              repo_dir = os.getcwd()
+              shutil.copy(os.path.join(repo_dir, "kb_review.sh"), tmp)
+              mock = os.path.join(tmp, "kb_review_collect.py")
+              with open(mock, "w", encoding="utf-8") as f:
+                  f.write(
+                      "import json\n"
+                      "print(json.dumps({\n"
+                      '    "status": "ok",\n'
+                      '    "review_markdown": "# gov runtime test\\n",\n'
+                      '    "wa_message": "x",\n'
+                      '    "note_count": 1,\n'
+                      '    "sources_used": [],\n'
+                      '    "sources_skipped": [],\n'
+                      '    "sources_missing": []\n'
+                      "}))\n"
+                  )
+              with open(os.path.join(tmp, "jobs_registry.yaml"), "w") as f:
+                  f.write("jobs:\n  - id: stub\n    enabled: true\n")
+              kb_dir = os.path.join(tmp, "kb")
+              os.makedirs(os.path.join(kb_dir, "daily"), exist_ok=True)
+              result = subprocess.run(
+                  ["bash", os.path.join(tmp, "kb_review.sh")],
+                  env={
+                      "PATH": "/usr/bin:/bin:/usr/local/bin:/opt/homebrew/bin",
+                      "KB_BASE": kb_dir,
+                      "KB_REVIEW_REGISTRY": os.path.join(tmp, "jobs_registry.yaml"),
+                      "OPENCLAW_PHONE": "+85200000000",
+                      "HOME": tmp,
+                  },
+                  capture_output=True, text=True, timeout=30,
+              )
+              assert "JSONDecodeError" not in result.stderr, (
+                  f"V37.5.1 回归! kb_review.sh 触发 JSONDecodeError: "
+                  f"{result.stderr[:400]}"
+              )
+              assert "Expecting value" not in result.stderr, (
+                  f"V37.5.1 JSON 空输入错误: {result.stderr[:400]}"
+              )
+              daily = os.path.join(kb_dir, "daily")
+              review_files = [f for f in os.listdir(daily) if f.startswith("review_")]
+              assert len(review_files) == 1, (
+                  f"期望 1 份 review 文件, 实际 {review_files}. "
+                  f"stderr: {result.stderr[:400]}"
+              )
+              with open(os.path.join(daily, review_files[0]), encoding="utf-8") as f:
+                  content = f.read()
+              assert "gov runtime test" in content, (
+                  f"review 文件内容错误: {content[:200]}"
+              )
+          finally:
+              shutil.rmtree(tmp, ignore_errors=True)
 
 # ═══════════════════════════════════════════════════════════════════════
 # 4. 可执行元规则（Phase 0）— 自动发现缺失不变式
@@ -1207,8 +1288,9 @@ audit_metadata:
     v3.2 → v3.3: Dream Map 预算溢出 + cache key 漂移案例 → INV-DREAM-001 (map budget scales with mode) + INV-DREAM-002 (reduce path must not re-run map loops) + INV-CACHE-002 (notes cache key stable under mtime drift)
     v3.3 → v3.4: PA 告警污染血案 → INV-PA-001 (alert does not pollute chat context, 两侧契约 + 顺序锁定 + 运行时回归) + INV-PA-002 (SOUL.md 规则 10 存在) — 结构 + 行为双防线
     v3.4 → v3.5: kb_review 6-issue silent degradation 血案 → INV-REVIEW-001 (kb-review-fails-loud-not-silent, fail-fast 顺序锁 + registry-driven 发现回归 + H2 parser drill-down + mock LLM 失败契约) — 与 V37.4.3 同血案类 (效果层静默降级)
+    v3.5 → v3.5.1: V37.5.1 热修复 — kb_review.sh Mac Mini E2E 首次执行炸 JSONDecodeError, 根因 `echo ... | python3 - "$arg" << 'PYEOF'` pipe+heredoc stdin 冲突。INV-REVIEW-001 扩展 2 个 runtime 检查 (anti-pattern 扫描 + subprocess 真实执行). 体现 MR-6: grep 守卫不足, 必须有运行时回归。
   total_invariants: 29  # +INV-REVIEW-001
-  total_checks: 81      # +14 checks on kb_review fail-fast (INV-REVIEW-001: 9 declaration + 5 runtime)
+  total_checks: 83      # +14+2 checks on kb_review fail-fast + V37.5.1 pipe+heredoc regression
   meta_rules: 7         # MR-1~MR-7
   meta_rule_discovery_count: 6   # Phase 0: registry + env + notify-topic + layer-depth + error-suppression + notify-activity
   check_types_used: [python_assert, file_contains, file_not_contains, env_var_exists, command_succeeds, log_activity_check]

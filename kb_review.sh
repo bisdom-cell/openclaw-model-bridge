@@ -151,11 +151,13 @@ if [ "$STATUS" != "ok" ]; then
 fi
 
 # ── 5. LLM 成功 — 写 review 文件 + 推送 ──
-echo "$COLLECTOR_OUTPUT" | python3 - "$REVIEW_FILE" << 'PYEOF'
-import json, sys
-review_file = sys.argv[1]
-data = json.load(sys.stdin)
-with open(review_file, "w", encoding="utf-8") as f:
+# V37.5.1: 禁止 `echo ... | python3 - <<EOF` 反模式（pipe+heredoc 冲突，
+# stdin 被 heredoc 覆盖，json.load(sys.stdin) 读到空串→JSONDecodeError）。
+# 改用环境变量传 collector output，heredoc 只传代码，无 stdin 竞争。
+COLLECTOR_OUTPUT="$COLLECTOR_OUTPUT" REVIEW_FILE="$REVIEW_FILE" python3 << 'PYEOF'
+import json, os
+data = json.loads(os.environ["COLLECTOR_OUTPUT"])
+with open(os.environ["REVIEW_FILE"], "w", encoding="utf-8") as f:
     f.write(data["review_markdown"])
 PYEOF
 log "回顾文件已生成: $REVIEW_FILE"
