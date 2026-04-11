@@ -50,7 +50,9 @@ if [ "$HTTP_CODE" -eq 304 ]; then
 fi
 
 if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
-  ERR_MSG="⚠️ Issues Watcher API 请求失败 HTTP ${HTTP_CODE}（$(TZ=Asia/Hong_Kong date '+%H:%M')）: $(head -1 "$CACHE/curl_issues_api.err" 2>/dev/null)"
+  # V37.4.3: 告警消息加 [SYSTEM_ALERT] 隔离标记
+  ERR_MSG="[SYSTEM_ALERT]
+⚠️ Issues Watcher API 请求失败 HTTP ${HTTP_CODE}（$(TZ=Asia/Hong_Kong date '+%H:%M')）: $(head -1 "$CACHE/curl_issues_api.err" 2>/dev/null)"
   log "ERROR: $ERR_MSG"
   openclaw message send --channel whatsapp --target "$TO" --message "$ERR_MSG" --json >/dev/null 2>&1 || true
   openclaw message send --channel discord --target "${DISCORD_CH_ALERTS:-}" --message "$ERR_MSG" --json >/dev/null 2>&1 || true
@@ -82,7 +84,9 @@ for item in data:
     count += 1
 print(f'[issues] 解析完成: {count} 条 issues', file=sys.stderr)
 " "$API_JSON" > "$CACHE/discussions_raw.txt" 2>"$CACHE/parse_issues.err"; then
-  ERR_MSG="⚠️ Issues Watcher 解析失败（$(TZ=Asia/Hong_Kong date '+%H:%M')）: $(head -1 "$CACHE/parse_issues.err" 2>/dev/null)"
+  # V37.4.3: 告警消息加 [SYSTEM_ALERT] 隔离标记
+  ERR_MSG="[SYSTEM_ALERT]
+⚠️ Issues Watcher 解析失败（$(TZ=Asia/Hong_Kong date '+%H:%M')）: $(head -1 "$CACHE/parse_issues.err" 2>/dev/null)"
   log "ERROR: $ERR_MSG"
   openclaw message send --channel whatsapp --target "$TO" --message "$ERR_MSG" --json >/dev/null 2>&1 || true
   openclaw message send --channel discord --target "${DISCORD_CH_ALERTS:-}" --message "$ERR_MSG" --json >/dev/null 2>&1 || true

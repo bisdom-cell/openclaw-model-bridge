@@ -41,7 +41,9 @@ if [ ! -f "$KB_INBOX" ]; then
 fi
 
 if ! ATOM_PATH="$("$FETCH" 2>"$CACHE_DIR/fetch_releases.err")"; then
-  ERR_MSG="⚠️ OpenClaw Releases 抓取失败（$(TZ=Asia/Hong_Kong date '+%H:%M')）: $(head -1 "$CACHE_DIR/fetch_releases.err" 2>/dev/null)"
+  # V37.4.3: 告警消息加 [SYSTEM_ALERT] 隔离标记
+  ERR_MSG="[SYSTEM_ALERT]
+⚠️ OpenClaw Releases 抓取失败（$(TZ=Asia/Hong_Kong date '+%H:%M')）: $(head -1 "$CACHE_DIR/fetch_releases.err" 2>/dev/null)"
   log "ERROR: $ERR_MSG"
   TO="${OPENCLAW_PHONE:-+85200000000}"
   openclaw message send --channel whatsapp --target "$TO" --message "$ERR_MSG" --json >/dev/null 2>&1 || true

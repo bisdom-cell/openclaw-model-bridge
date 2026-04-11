@@ -790,6 +790,151 @@ invariants:
           assert exit_code != 0, \
               f"silent error regression: error 状态未计入失败 (exit={exit_code})"
 
+  # ── PA 对话上下文隔离（V37.4.3 血案）──────────────────────────────────
+
+  - id: INV-PA-001
+    name: alert-does-not-pollute-chat-context
+    meta_rule: MR-4
+    verification_layer: [declaration, runtime]
+    severity: critical
+    declaration: "系统告警必须在进入 LLM 上下文前被剥离；推送侧注入 [SYSTEM_ALERT] 标记，消费侧 filter_system_alerts() 在 truncate_messages 之前执行"
+    design_decision: |
+      2026-04-11 血案：13:06 用户问"AI Agent 终极架构：本体×随机×贝叶斯"，
+      PA 回复"已收到系统告警跟进任务，请打开系统偏好设置添加 /usr/sbin/cron
+      到完全磁盘访问权限"——完全忽略用户真实问题，编造错误的 macOS 指令。
+      根因：12:30 job_watchdog 通过 notify.sh --topic alerts 推送 WARNING，
+      Gateway 把告警写入 sessions.json 作为 assistant role，truncate 的"最近 N 条"
+      窗口把它带到 13:06 的请求上下文，Qwen3 attention 错误跨主题关联。
+      结构性修复：push 端注入 [SYSTEM_ALERT] 标记，proxy 端在 truncate 之前
+      剥离。这条不变式锁定两侧契约。
+    checks:
+      - name: "proxy_filters 定义 SYSTEM_ALERT_MARKER"
+        check_type: file_contains
+        file: proxy_filters.py
+        pattern: 'SYSTEM_ALERT_MARKER = "\[SYSTEM_ALERT\]"'
+      - name: "proxy_filters 定义 filter_system_alerts"
+        check_type: file_contains
+        file: proxy_filters.py
+        pattern: "def filter_system_alerts"
+      - name: "tool_proxy 导入 filter_system_alerts"
+        check_type: file_contains
+        file: tool_proxy.py
+        pattern: "filter_system_alerts"
+      - name: "tool_proxy 在 truncate_messages 之前调用 filter_system_alerts"
+        check_type: python_assert
+        code: |
+          # 顺序锁定：filter_system_alerts 必须在 truncate_messages 之前执行，
+          # 否则 truncate 的"最近 N 条"窗口会把告警带过去。
+          import re
+          src = open("tool_proxy.py", encoding="utf-8").read()
+          # 允许函数调用或符号引用，只要 filter 在 truncate 前出现即可
+          filter_idx = src.find("filter_system_alerts(")
+          trunc_idx = src.find("truncate_messages(")
+          assert filter_idx != -1, "tool_proxy.py 未调用 filter_system_alerts()"
+          assert trunc_idx != -1, "tool_proxy.py 未调用 truncate_messages()"
+          assert filter_idx < trunc_idx, (
+              f"filter_system_alerts 必须在 truncate_messages 之前执行 "
+              f"(filter_idx={filter_idx}, trunc_idx={trunc_idx})"
+          )
+      - name: "notify.sh --topic alerts 路径注入 [SYSTEM_ALERT] 标记"
+        check_type: file_contains
+        file: notify.sh
+        pattern: '\[SYSTEM_ALERT\]'
+      - name: "auto_deploy.sh quiet_alert 注入 [SYSTEM_ALERT] 标记"
+        check_type: file_contains
+        file: auto_deploy.sh
+        pattern: '\[SYSTEM_ALERT\]'
+      - name: "run_hn_fixed.sh 直接 send 告警路径注入 [SYSTEM_ALERT] 标记"
+        check_type: file_contains
+        file: run_hn_fixed.sh
+        pattern: '\[SYSTEM_ALERT\]'
+      - name: "run.sh releases 告警路径注入 [SYSTEM_ALERT] 标记"
+        check_type: file_contains
+        file: jobs/openclaw_official/run.sh
+        pattern: '\[SYSTEM_ALERT\]'
+      - name: "run_discussions.sh 告警路径注入 [SYSTEM_ALERT] 标记"
+        check_type: file_contains
+        file: jobs/openclaw_official/run_discussions.sh
+        pattern: '\[SYSTEM_ALERT\]'
+      - name: "filter_system_alerts 运行时真的剥离 [SYSTEM_ALERT] 消息"
+        check_type: python_assert
+        code: |
+          # 运行时回归：构造真实告警消息结构，验证 filter 正确剥离。
+          import sys, os
+          sys.path.insert(0, os.getcwd())
+          from proxy_filters import filter_system_alerts, SYSTEM_ALERT_MARKER
+          # 1. 普通对话：混入 assistant 告警消息
+          msgs = [
+              {"role": "system", "content": "you are Wei"},
+              {"role": "user", "content": "hello"},
+              {"role": "assistant", "content": "[SYSTEM_ALERT]\n⚠️ job_watchdog fire"},
+              {"role": "user", "content": "what is ontology"},
+          ]
+          filtered, dropped = filter_system_alerts(msgs)
+          assert dropped == 1, f"应剥离 1 条告警,实际 {dropped}"
+          roles = [m["role"] for m in filtered]
+          assert roles == ["system", "user", "user"], f"roles 错误: {roles}"
+          # 2. system role 即使带标记也保留（system prompt 例外）
+          sys_msgs = [
+              {"role": "system", "content": "[SYSTEM_ALERT]\nsome rule"},
+              {"role": "user", "content": "hi"},
+          ]
+          filtered, dropped = filter_system_alerts(sys_msgs)
+          assert dropped == 0, "system role 告警不应被剥离"
+          assert len(filtered) == 2
+          # 3. OpenAI content blocks 格式也要处理
+          block_msgs = [
+              {"role": "user", "content": "q"},
+              {"role": "assistant", "content": [
+                  {"type": "text", "text": "[SYSTEM_ALERT]\nfire"}
+              ]},
+          ]
+          filtered, dropped = filter_system_alerts(block_msgs)
+          assert dropped == 1, f"content blocks 告警应剥离,实际 dropped={dropped}"
+          # 4. 普通消息提到标记字符串不应被误伤（仅匹配开头）
+          mention = [
+              {"role": "user", "content": "the [SYSTEM_ALERT] marker prevents contamination"},
+          ]
+          filtered, dropped = filter_system_alerts(mention)
+          assert dropped == 0, "标记只能出现在开头才被剥离"
+          assert len(filtered) == 1
+
+  - id: INV-PA-002
+    name: soul-rule-10-present
+    meta_rule: MR-4
+    verification_layer: [declaration]
+    severity: high
+    declaration: "SOUL.md 规则 10 '告警消息不跟进' 必须存在且包含主题对齐硬规则，作为 LLM 层最终防线（当 proxy filter 漏过时）"
+    design_decision: |
+      2026-04-11 血案：结构性修复（INV-PA-001 的 filter_system_alerts）是主防线，
+      但 LLM 有可能被其他未标记告警源污染。SOUL.md 规则 10 是最后一道防线——
+      即使告警进入上下文，LLM 本身也必须拒绝把它当作用户任务。
+      这条不变式锁定 SOUL.md 必须包含规则 10 的核心声明文本。
+    lesson: |
+      Proxy filter 是结构修复（处理"告警进来"的问题），SOUL.md 规则是行为修复
+      （处理"告警进来后 LLM 怎么响应"的问题）。两层同时存在才是纵深防御。
+    checks:
+      - name: "SOUL.md 包含规则 10 标题 '告警消息不跟进'"
+        check_type: file_contains
+        file: SOUL.md
+        pattern: "告警消息不跟进"
+      - name: "SOUL.md 包含 '2026-04-11 血案规则' 版本锚点"
+        check_type: file_contains
+        file: SOUL.md
+        pattern: "2026-04-11 血案规则"
+      - name: "SOUL.md 包含 '主题对齐' 硬规则"
+        check_type: file_contains
+        file: SOUL.md
+        pattern: "主题对齐"
+      - name: "SOUL.md 明确禁止编造 macOS FDA 指令"
+        check_type: file_contains
+        file: SOUL.md
+        pattern: "完全磁盘访问权限"
+      - name: "SOUL.md 包含 [SYSTEM_ALERT] 识别标志"
+        check_type: file_contains
+        file: SOUL.md
+        pattern: '\[SYSTEM_ALERT\]'
+
 # ═══════════════════════════════════════════════════════════════════════
 # 4. 可执行元规则（Phase 0）— 自动发现缺失不变式
 #    只扫描结构化数据源，不解析自然语言
@@ -874,14 +1019,15 @@ meta_rule_discovery:
 # 5. 审计元数据
 # ═══════════════════════════════════════════════════════════════════════
 audit_metadata:
-  version: "3.3"
+  version: "3.4"
   created: "2026-04-07"
   upgraded: |
     v3.0 → v3.1: 通知路径治理(INV-NOTIFY-003/004) + 错误可观测性(MRD-ERROR-001) + 效果层启动(MRD-NOTIFY-002)
     v3.1 → v3.2: MR-7 governance-execution-is-self-observable + INV-GOV-001 summary 不吞 error（2026-04-11 三层嵌套盲区案例）
     v3.2 → v3.3: Dream Map 预算溢出 + cache key 漂移案例 → INV-DREAM-001 (map budget scales with mode) + INV-DREAM-002 (reduce path must not re-run map loops) + INV-CACHE-002 (notes cache key stable under mtime drift)
-  total_invariants: 26  # +INV-DREAM-001/002 + INV-CACHE-002
-  total_checks: 52      # +9 checks on kb_dream.sh
+    v3.3 → v3.4: PA 告警污染血案 → INV-PA-001 (alert does not pollute chat context, 两侧契约 + 顺序锁定 + 运行时回归) + INV-PA-002 (SOUL.md 规则 10 存在) — 结构 + 行为双防线
+  total_invariants: 28  # +INV-PA-001/002
+  total_checks: 67      # +15 checks on alert isolation (INV-PA-001: 10 + INV-PA-002: 5)
   meta_rules: 7         # MR-1~MR-7
   meta_rule_discovery_count: 6   # Phase 0: registry + env + notify-topic + layer-depth + error-suppression + notify-activity
   check_types_used: [python_assert, file_contains, file_not_contains, env_var_exists, command_succeeds, log_activity_check]

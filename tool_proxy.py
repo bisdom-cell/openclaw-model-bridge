@@ -22,7 +22,7 @@ from proxy_filters import (
     ALLOWED_TOOLS, ALLOWED_PREFIXES, CUSTOM_TOOL_NAMES,
     is_allowed, filter_tools, truncate_messages,
     fix_tool_args, build_sse_response, should_strip_tools,
-    inject_media_into_messages,
+    inject_media_into_messages, filter_system_alerts,
     proxy_stats,
 )
 
@@ -863,6 +863,14 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                 body = json.loads(raw)
                 was_streaming = body.get("stream", False)
                 body["stream"] = False
+
+                # V37.4.3: 先剥离 [SYSTEM_ALERT] 告警消息，防止污染 PA 对话上下文
+                # 必须在 truncate_messages 之前执行 — 否则截断后告警可能仍保留在"最近"窗口。
+                # 案例：2026-04-11 13:06 PA 幻觉事件
+                msgs = body.get("messages", [])
+                msgs, alerts_dropped = filter_system_alerts(msgs, log_fn=lambda m: log(f"[{rid}] {m}"))
+                if alerts_dropped:
+                    body["messages"] = msgs
 
                 # Truncate old messages (V31: 动态裁剪，基于上次 prompt_tokens)
                 msgs = body.get("messages", [])

@@ -147,6 +147,19 @@ notify() {
 
     [ -z "$msg" ] && return 1
 
+    # V37.4.3: 告警消息隔离标记
+    # --topic alerts 的消息在开头加 [SYSTEM_ALERT] 前缀，
+    # tool_proxy.py 构建 LLM 请求时会 filter_system_alerts() 剥离这类消息，
+    # 防止告警污染 PA 对话上下文 → Qwen3 幻觉替换用户问题（2026-04-11 13:06 案例）。
+    # 标记对用户可见且自说明（用户看到 [SYSTEM_ALERT] 就知道是自动告警非 PA 对话）。
+    if [ "$topic" = "alerts" ]; then
+        case "$msg" in
+            "[SYSTEM_ALERT]"*) ;;   # 已有标记（调用方自行加过），不重复
+            *) msg="[SYSTEM_ALERT]
+$msg" ;;
+        esac
+    fi
+
     # 先尝试重放队列中的失败消息
     _notify_drain_queue
 

@@ -11,7 +11,7 @@ import unittest
 from proxy_filters import (
     fix_tool_args, is_allowed, filter_tools,
     truncate_messages, build_sse_response, should_strip_tools,
-    classify_complexity,
+    classify_complexity, filter_system_alerts, SYSTEM_ALERT_MARKER,
     TOOL_PARAMS, VALID_BROWSER_PROFILES,
     ALLOWED_TOOLS, ALLOWED_PREFIXES,
     CUSTOM_TOOLS, CUSTOM_TOOL_NAMES,
@@ -940,6 +940,265 @@ class TestOntologyEquivalence(unittest.TestCase):
             self.assertEqual(hard_result, engine_result,
                              f"Mismatch for {name} {args}: "
                              f"hardcoded={hard_result} engine={engine_result}")
+
+
+# ---------------------------------------------------------------------------
+# V37.4.3: filter_system_alerts tests
+# ---------------------------------------------------------------------------
+# 案例：2026-04-11 13:06 PA 幻觉事件
+#   12:30 job_watchdog 通过 notify.sh --topic alerts 推送 "🚨 系统监控告警"
+#   Gateway 把这条消息写入 sessions.json 作为 assistant 历史消息
+#   13:06 用户问哲学问题（本体×随机×贝叶斯），Qwen3 attention 把 recent
+#   assistant 告警误判为"未完成任务"，生成 macOS FDA 跟进指令替换用户真实回答
+# 修复：notify.sh / 告警直发路径加 [SYSTEM_ALERT] 前缀，
+#       tool_proxy 构建 LLM 请求前 filter_system_alerts() 剥离带标记消息
+# ---------------------------------------------------------------------------
+
+class TestFilterSystemAlerts(unittest.TestCase):
+    """验证 filter_system_alerts 正确移除告警消息，防止污染 PA 对话上下文。"""
+
+    def test_marker_constant_exists(self):
+        """SYSTEM_ALERT_MARKER 常量必须存在且可见"""
+        self.assertEqual(SYSTEM_ALERT_MARKER, "[SYSTEM_ALERT]")
+
+    def test_removes_marked_assistant(self):
+        """带 [SYSTEM_ALERT] 前缀的 assistant 消息必须被移除"""
+        messages = [
+            {"role": "system", "content": "You are PA"},
+            {"role": "user", "content": "上次对话"},
+            {"role": "assistant", "content": "[SYSTEM_ALERT]\n🚨 系统监控告警\nbash cron_doctor.sh"},
+            {"role": "user", "content": "本体×随机×贝叶斯的架构观点"},
+        ]
+        filtered, dropped = filter_system_alerts(messages)
+        self.assertEqual(dropped, 1)
+        self.assertEqual(len(filtered), 3)
+        # 告警消息已被剥离，用户哲学问题完整保留
+        contents = [m.get("content") for m in filtered]
+        self.assertNotIn("[SYSTEM_ALERT]\n🚨 系统监控告警\nbash cron_doctor.sh", contents)
+        self.assertIn("本体×随机×贝叶斯的架构观点", contents)
+
+    def test_removes_marked_user(self):
+        """即使 user role 消息以标记开头（不常见但可能）也要剥离"""
+        messages = [
+            {"role": "user", "content": "[SYSTEM_ALERT]\nwatchdog ping"},
+            {"role": "user", "content": "正常问题"},
+        ]
+        filtered, dropped = filter_system_alerts(messages)
+        self.assertEqual(dropped, 1)
+        self.assertEqual(len(filtered), 1)
+        self.assertEqual(filtered[0]["content"], "正常问题")
+
+    def test_preserves_system_role(self):
+        """system role 消息永远保留，即使内容恰好以标记开头也不剥离
+        （SOUL.md 等宪法级 prompt 不受告警过滤影响）"""
+        messages = [
+            {"role": "system", "content": "[SYSTEM_ALERT] should still stay"},
+            {"role": "user", "content": "hi"},
+        ]
+        filtered, dropped = filter_system_alerts(messages)
+        self.assertEqual(dropped, 0)
+        self.assertEqual(len(filtered), 2)
+
+    def test_preserves_normal_messages(self):
+        """正常对话不应被误伤"""
+        messages = [
+            {"role": "system", "content": "You are PA"},
+            {"role": "user", "content": "你好"},
+            {"role": "assistant", "content": "你好，有什么可以帮你"},
+            {"role": "user", "content": "请解释贝叶斯推理"},
+            {"role": "assistant", "content": "贝叶斯推理是..."},
+        ]
+        filtered, dropped = filter_system_alerts(messages)
+        self.assertEqual(dropped, 0)
+        self.assertEqual(len(filtered), 5)
+
+    def test_marker_only_at_start(self):
+        """标记只在消息开头才触发剥离；正文中引用标记文本不应被误伤
+        （否则用户讨论 [SYSTEM_ALERT] 这个 feature 本身就会被过滤）"""
+        messages = [
+            {"role": "user", "content": "今天的告警 [SYSTEM_ALERT] 是什么意思？"},
+            {"role": "assistant", "content": "说明：[SYSTEM_ALERT] 前缀用于"},
+        ]
+        filtered, dropped = filter_system_alerts(messages)
+        self.assertEqual(dropped, 0)
+        self.assertEqual(len(filtered), 2)
+
+    def test_marker_with_leading_whitespace(self):
+        """消息开头有空白（空格/换行/tab）时，lstrip 后开头匹配仍要剥离"""
+        messages = [
+            {"role": "assistant", "content": "   \n[SYSTEM_ALERT]\nreal alert"},
+            {"role": "assistant", "content": "\t\t[SYSTEM_ALERT] tab alert"},
+        ]
+        filtered, dropped = filter_system_alerts(messages)
+        self.assertEqual(dropped, 2)
+        self.assertEqual(len(filtered), 0)
+
+    def test_content_blocks_openai_format(self):
+        """OpenAI content blocks（list of {type,text}）格式的消息也要支持"""
+        messages = [
+            {"role": "assistant", "content": [
+                {"type": "text", "text": "[SYSTEM_ALERT]\nalert in block"},
+            ]},
+            {"role": "user", "content": [
+                {"type": "text", "text": "正常的多模态问题"},
+            ]},
+        ]
+        filtered, dropped = filter_system_alerts(messages)
+        self.assertEqual(dropped, 1)
+        self.assertEqual(len(filtered), 1)
+
+    def test_empty_messages(self):
+        """空 messages 列表不 crash"""
+        filtered, dropped = filter_system_alerts([])
+        self.assertEqual(dropped, 0)
+        self.assertEqual(filtered, [])
+
+    def test_missing_content(self):
+        """role 字段存在但 content 缺失时不 crash"""
+        messages = [
+            {"role": "assistant"},  # no content
+            {"role": "user", "content": None},
+        ]
+        filtered, dropped = filter_system_alerts(messages)
+        self.assertEqual(dropped, 0)
+        self.assertEqual(len(filtered), 2)
+
+    def test_log_fn_called_on_drop(self):
+        """有 log_fn 时，丢弃消息触发日志调用"""
+        logs = []
+        messages = [
+            {"role": "assistant", "content": "[SYSTEM_ALERT]\nfoo"},
+            {"role": "user", "content": "bar"},
+        ]
+        _, dropped = filter_system_alerts(messages, log_fn=lambda m: logs.append(m))
+        self.assertEqual(dropped, 1)
+        self.assertEqual(len(logs), 1)
+        self.assertIn("dropped 1", logs[0])
+
+    def test_log_fn_not_called_when_clean(self):
+        """无告警消息时不产生日志噪声"""
+        logs = []
+        messages = [{"role": "user", "content": "normal"}]
+        _, _ = filter_system_alerts(messages, log_fn=lambda m: logs.append(m))
+        self.assertEqual(logs, [])
+
+    def test_integration_with_truncate(self):
+        """端到端：filter_system_alerts + truncate_messages 顺序正确
+        确保告警在截断之前被剥离，避免 'last-N 保留窗口' 把告警误带进 LLM 上下文"""
+        messages = [{"role": "system", "content": "SOUL.md"}]
+        # 制造 100 条用户消息 + 中间一条告警
+        for i in range(100):
+            messages.append({"role": "user", "content": f"msg {i}"})
+            if i == 50:
+                messages.append({
+                    "role": "assistant",
+                    "content": f"[SYSTEM_ALERT]\n告警于第 {i} 条消息后推送\nbash cron_doctor.sh"
+                })
+        # 最后是用户真实问题
+        messages.append({"role": "user", "content": "本体×随机×贝叶斯哲学问题"})
+
+        # 先过滤再截断
+        filtered, dropped = filter_system_alerts(messages)
+        self.assertEqual(dropped, 1)
+
+        truncated, trunc_dropped = truncate_messages(filtered, max_bytes=100000)
+        # 告警已不在，truncate 的"最近保留窗口"绝对不会携带它
+        for m in truncated:
+            content = m.get("content", "")
+            if isinstance(content, str):
+                self.assertFalse(
+                    content.lstrip().startswith("[SYSTEM_ALERT]"),
+                    "告警消息泄漏到截断后的上下文 — filter 顺序错误或未生效"
+                )
+
+    def test_multiple_alerts_all_dropped(self):
+        """多条告警累积时全部剥离"""
+        messages = [
+            {"role": "assistant", "content": "[SYSTEM_ALERT]\nalert 1"},
+            {"role": "user", "content": "ok"},
+            {"role": "assistant", "content": "[SYSTEM_ALERT]\nalert 2"},
+            {"role": "user", "content": "still ok"},
+            {"role": "assistant", "content": "[SYSTEM_ALERT]\nalert 3"},
+            {"role": "user", "content": "final"},
+        ]
+        filtered, dropped = filter_system_alerts(messages)
+        self.assertEqual(dropped, 3)
+        self.assertEqual(len(filtered), 3)
+        for m in filtered:
+            self.assertNotIn("[SYSTEM_ALERT]", m["content"])
+
+
+class TestNotifyShAlertMarker(unittest.TestCase):
+    """验证 notify.sh 和告警直发路径正确写入 [SYSTEM_ALERT] 前缀（声明层检查）"""
+
+    def test_notify_sh_alerts_branch_has_marker(self):
+        """notify.sh 的 --topic alerts 分支必须在消息前加 [SYSTEM_ALERT] 前缀"""
+        with open("notify.sh") as f:
+            src = f.read()
+        # 查找 alerts 分支 + 标记写入
+        self.assertIn('topic" = "alerts"', src,
+                      "notify.sh 缺少 alerts topic 分支")
+        self.assertIn("[SYSTEM_ALERT]", src,
+                      "notify.sh alerts 分支缺少 [SYSTEM_ALERT] 前缀注入")
+
+    def test_auto_deploy_quiet_alert_has_marker(self):
+        """auto_deploy.sh 的 quiet_alert 函数必须加 [SYSTEM_ALERT] 前缀"""
+        with open("auto_deploy.sh") as f:
+            src = f.read()
+        # quiet_alert 函数体内必须有标记注入
+        import re
+        m = re.search(r'quiet_alert\(\).*?^\}', src, re.DOTALL | re.MULTILINE)
+        self.assertIsNotNone(m, "auto_deploy.sh 找不到 quiet_alert 函数")
+        body = m.group(0)
+        self.assertIn("[SYSTEM_ALERT]", body,
+                      "auto_deploy.sh quiet_alert 缺少 [SYSTEM_ALERT] 前缀注入")
+
+    def test_hn_err_path_has_marker(self):
+        """run_hn_fixed.sh 的 ERR_MSG 告警路径必须加 [SYSTEM_ALERT] 前缀"""
+        with open("run_hn_fixed.sh") as f:
+            src = f.read()
+        # LLM调用失败 的 ERR_MSG 块
+        self.assertIn("[SYSTEM_ALERT]", src,
+                      "run_hn_fixed.sh 告警路径缺少 [SYSTEM_ALERT] 前缀")
+        self.assertIn("HN Watcher LLM调用失败", src)
+
+    def test_discussions_err_paths_have_marker(self):
+        """run_discussions.sh 的 2 处 ERR_MSG 都必须加 [SYSTEM_ALERT] 前缀"""
+        with open("jobs/openclaw_official/run_discussions.sh") as f:
+            src = f.read()
+        count = src.count("[SYSTEM_ALERT]")
+        self.assertGreaterEqual(count, 2,
+                                f"run_discussions.sh 告警路径至少应有 2 处 [SYSTEM_ALERT]，实际 {count}")
+
+    def test_release_err_path_has_marker(self):
+        """run.sh (OpenClaw Releases) 的 ERR_MSG 必须加 [SYSTEM_ALERT] 前缀"""
+        with open("jobs/openclaw_official/run.sh") as f:
+            src = f.read()
+        self.assertIn("[SYSTEM_ALERT]", src,
+                      "run.sh (releases) 告警路径缺少 [SYSTEM_ALERT] 前缀")
+
+
+class TestToolProxyImportsAlertFilter(unittest.TestCase):
+    """验证 tool_proxy.py 正确导入并使用 filter_system_alerts"""
+
+    def test_tool_proxy_imports_filter(self):
+        """tool_proxy.py 必须从 proxy_filters 导入 filter_system_alerts"""
+        with open("tool_proxy.py") as f:
+            src = f.read()
+        self.assertIn("filter_system_alerts", src,
+                      "tool_proxy.py 未导入 filter_system_alerts")
+
+    def test_tool_proxy_calls_filter_before_truncate(self):
+        """tool_proxy.py 必须在 truncate_messages 之前调用 filter_system_alerts
+        否则告警可能在截断的'最近保留窗口'里被带进 LLM 上下文"""
+        with open("tool_proxy.py") as f:
+            src = f.read()
+        filter_pos = src.find("filter_system_alerts(msgs")
+        truncate_pos = src.find("truncate_messages(msgs")
+        self.assertGreater(filter_pos, 0, "tool_proxy.py 未调用 filter_system_alerts")
+        self.assertGreater(truncate_pos, 0, "tool_proxy.py 未调用 truncate_messages")
+        self.assertLess(filter_pos, truncate_pos,
+                        "filter_system_alerts 必须在 truncate_messages 之前调用")
 
 
 if __name__ == "__main__":

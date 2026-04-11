@@ -403,6 +403,14 @@ if _ONTOLOGY_MODE in ("on", "shadow"):
 # [NO_TOOLS] 标记：消息中包含此标记时，proxy 强制清空工具列表
 NO_TOOLS_MARKER = "[NO_TOOLS]"
 
+# [SYSTEM_ALERT] 标记（V37.4.3 新增）：告警推送消息的隔离标记
+# 由 notify.sh --topic alerts 和告警直发路径在消息开头写入。
+# tool_proxy.py 构建 LLM 请求时调用 filter_system_alerts() 移除带标记的消息，
+# 防止告警内容污染 PA 对话上下文 → Qwen3 幻觉替换用户问题。
+# 案例：2026-04-11 13:06 PA 把 12:30 job_watchdog 告警误当作"跟进任务"，
+# 编造 macOS 完全磁盘访问权限操作步骤，忽略用户的本体论哲学问题。
+SYSTEM_ALERT_MARKER = "[SYSTEM_ALERT]"
+
 
 def should_strip_tools(messages):
     """检查消息中是否包含 [NO_TOOLS] 标记，用于纯推理任务（如客户画像生成）。
@@ -420,6 +428,69 @@ def should_strip_tools(messages):
                     if isinstance(text, str) and NO_TOOLS_MARKER in text:
                         return True
     return False
+
+
+def _message_starts_with_alert_marker(m):
+    """判断单条消息是否以 [SYSTEM_ALERT] 标记开头。
+
+    检测规则：
+    - content 为字符串：lstrip() 后以 SYSTEM_ALERT_MARKER 开头
+    - content 为 content blocks（OpenAI 格式）：第一个 text block lstrip() 后以标记开头
+    - 其他情况（content=None / 空 / 非标记）：False
+
+    只检查消息开头，避免误伤正常对话中引用告警文本的情况。
+    """
+    content = m.get("content", "")
+    if isinstance(content, str):
+        return content.lstrip().startswith(SYSTEM_ALERT_MARKER)
+    if isinstance(content, list):
+        for block in content:
+            if not isinstance(block, dict):
+                continue
+            btype = block.get("type", "text")
+            if btype != "text":
+                continue
+            text = block.get("text", "")
+            if isinstance(text, str):
+                return text.lstrip().startswith(SYSTEM_ALERT_MARKER)
+            return False
+        return False
+    return False
+
+
+def filter_system_alerts(messages, log_fn=None):
+    """移除所有以 [SYSTEM_ALERT] 标记开头的消息，防止告警污染 PA 对话上下文。
+
+    过滤范围：所有非 system role 的消息（assistant + user + tool 都检查）。
+    system role 消息原样保留（SOUL.md 等宪法级 prompt 不受影响）。
+
+    返回 (filtered_messages, dropped_count)。
+
+    为什么要过滤：
+    - job_watchdog / preflight / auto_deploy 等告警脚本通过 notify.sh 推送 WhatsApp
+    - Gateway 将推送内容写入 sessions.json 作为 assistant 消息
+    - 用户下一条无关问题会和这些告警一起进入 LLM 上下文
+    - Qwen3 attention 会把告警误判为"未完成任务"，生成跟进指令替换真实回答
+    - 修复方式：推送端加 [SYSTEM_ALERT] 前缀，proxy 在构建 LLM 请求前剥离这些消息
+
+    为什么不在 Gateway 层过滤：
+    - Gateway 是 OpenClaw 上游组件，修改需要协调；proxy 层是本项目控制域
+    - 过滤在 proxy 意味着告警仍保留在 sessions.json（审计/回放可见），
+      只是不进入 LLM 上下文 — 符合最小入侵原则
+    """
+    filtered = []
+    dropped = 0
+    for m in messages:
+        if m.get("role") == "system":
+            filtered.append(m)
+            continue
+        if _message_starts_with_alert_marker(m):
+            dropped += 1
+            continue
+        filtered.append(m)
+    if dropped and log_fn:
+        log_fn(f"ALERT_FILTER: dropped {dropped} system-alert message(s) from LLM context")
+    return filtered, dropped
 
 
 def truncate_messages(messages, max_bytes=MAX_REQUEST_BYTES, last_prompt_tokens=0):

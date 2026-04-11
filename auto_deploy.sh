@@ -25,12 +25,18 @@ is_quiet_hours() {
 }
 
 # 静默感知的推送封装：静默期跳过推送，仅写日志
+# V37.4.3: 自动加 [SYSTEM_ALERT] 前缀，防止告警污染 PA 上下文
 quiet_alert() {
     local msg="$1"
     if is_quiet_hours; then
         echo "$(date) [QUIET] 静默期跳过推送: ${msg:0:80}..." >> "$LOG"
         return 0
     fi
+    case "$msg" in
+        "[SYSTEM_ALERT]"*) ;;
+        *) msg="[SYSTEM_ALERT]
+$msg" ;;
+    esac
     openclaw message send --channel whatsapp --target "${OPENCLAW_PHONE:-+85200000000}" --message "$msg" --json >/dev/null 2>&1 || true
     openclaw message send --channel discord --target "${DISCORD_CH_ALERTS:-}" --message "$msg" --json >/dev/null 2>&1 || true
 }

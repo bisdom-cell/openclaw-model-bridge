@@ -298,9 +298,12 @@ PYEOF
 )
 
 if [ -z "$RESULT" ]; then
-    ERR_MSG="⚠️ HN Watcher LLM调用失败（$(date '+%Y-%m-%d %H:%M')），请检查 $LLM_RAW_LOG"
+    # V37.4.3: 告警消息加 [SYSTEM_ALERT] 隔离标记
+    ERR_MSG="[SYSTEM_ALERT]
+⚠️ HN Watcher LLM调用失败（$(date '+%Y-%m-%d %H:%M')），请检查 $LLM_RAW_LOG"
     echo "$ERR_MSG"
     openclaw message send --channel whatsapp --target "$TO" --message "$ERR_MSG" --json >/dev/null 2>&1 || true
+    openclaw message send --channel discord --target "${DISCORD_CH_ALERTS:-}" --message "$ERR_MSG" --json >/dev/null 2>&1 || true
     exit 1
 fi
 
