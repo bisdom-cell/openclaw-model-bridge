@@ -380,7 +380,8 @@ ${SUMMARY}" "acl-anthology-nlp" "note" 2>/dev/null || true
 fi
 
 # ── 8. 永久归档 + 清理 + rsync ──────────────────────────────────────
-{ echo ""; echo "## ${DAY}"; cat "$MSG_FILE"; } >> "$KB_SRC"
+# V37.6: idempotent H2-dedup append — 同一天多次运行不会产生重复 section
+{ echo ""; echo "## ${DAY}"; cat "$MSG_FILE"; } | bash "$HOME/kb_append_source.sh" "$KB_SRC" "## ${DAY}"
 
 if [ "$(wc -l < "$SEEN_FILE" | tr -d ' ')" -gt 500 ]; then
     tail -300 "$SEEN_FILE" > "$SEEN_FILE.tmp" && mv "$SEEN_FILE.tmp" "$SEEN_FILE"

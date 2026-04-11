@@ -1196,6 +1196,285 @@ invariants:
           finally:
               shutil.rmtree(tmp, ignore_errors=True)
 
+  - id: INV-KB-001
+    name: content-blocks-flattened-before-kb-write
+    meta_rule: MR-4
+    verification_layer: [declaration, runtime]
+    severity: critical
+    declaration: |
+      OpenAI content blocks (list[{type,text}]) 在写入 KB / 对话日志前必须
+      通过 flatten_content() 压平成纯字符串，禁止使用 str(m["content"])
+      — 否则 Python repr `[{'type':'text',...}]` 会污染 KB notes 标题。
+    design_decision: |
+      V37.6 血案: 2026-04-10 kb_dedup 报告发现 2 条精确重复 notes, 其中一个标题
+      是 `[[{'type': 'text', 'text': 'Qwen3-235B 工具] × 2`. 根因: tool_proxy.py
+      的 _capture_conversation_turn 热路径 (line 947-953) 用 `str(m["content"])`
+      记录用户消息, content 是多模态 OpenAI content blocks list 时, str() 产生
+      Python repr 而非文本. 这条污染流进了 conversation JSONL → kb_harvest_chat
+      提炼 → KB notes title.
+
+      三层修复:
+      1. proxy_filters.py 新增 flatten_content(content) -> str 纯函数, 处理
+         None/str/list[dict]/unknown 四种形态, 只保留 type=text 的 block
+      2. tool_proxy.py 导入 flatten_content 并替换 str(m["content"]) 调用
+      3. 本不变式锁定: 导入 + 使用 + 反模式守卫 + 运行时契约
+
+      同血案类归属: 与 V37.4.3 PA 告警污染 filter_system_alerts 处理
+      content blocks 同属一个"OpenAI 多模态消息结构 × 字符串暴力转换"
+      bug class, 都是 MR-4 silent failure (KB 污染无任何告警/错误).
+    lesson: |
+      2026-04-10: 2 条精确重复 notes, 一个标题是 Python repr. MR-4
+      (silent failure) 第三次演出: 错误结果写入 KB, 零错误码, 零告警,
+      用户需要跑 kb_dedup 才能发现 — 典型的效果层静默污染.
+    checks:
+      - name: "proxy_filters.py 定义 flatten_content 函数"
+        check_type: file_contains
+        file: proxy_filters.py
+        pattern: "def flatten_content"
+      - name: "proxy_filters.py 导出 flatten_content (模块层可见)"
+        check_type: python_assert
+        code: |
+          from proxy_filters import flatten_content
+          assert callable(flatten_content)
+      - name: "tool_proxy.py 导入 flatten_content"
+        check_type: file_contains
+        file: tool_proxy.py
+        pattern: "flatten_content"
+      - name: "tool_proxy.py 反模式守卫: 不再使用 str(m[\"content\"])"
+        check_type: file_not_contains
+        file: tool_proxy.py
+        pattern: 'str\(m\["content"\]\)'
+      - name: "tool_proxy.py 反模式守卫: 不再使用 str(m['content'])"
+        check_type: file_not_contains
+        file: tool_proxy.py
+        pattern: "str\\(m\\['content'\\]\\)"
+      - name: "tool_proxy.py 调用 flatten_content(m[\"content\"])"
+        check_type: file_contains
+        file: tool_proxy.py
+        pattern: 'flatten_content\(m\["content"\]\)'
+      - name: "runtime: flatten_content 正确处理 OpenAI content blocks, 不产生 repr"
+        check_type: python_assert
+        code: |
+          # 运行时回归: 构造 content blocks 直接调用 flatten_content,
+          # 验证绝不返回 Python repr 字符串.
+          from proxy_filters import flatten_content
+          content = [{"type": "text", "text": "Qwen3-235B 工具路由"}]
+          result = flatten_content(content)
+          assert result == "Qwen3-235B 工具路由", f"纯 text block 提取失败: {result!r}"
+          assert "{'type'" not in result, f"泄漏 Python repr: {result!r}"
+          assert "[{" not in result, f"泄漏 list repr: {result!r}"
+          # 多模态: text + image_url 混合, image 应被过滤
+          mixed = [
+              {"type": "text", "text": "看图"},
+              {"type": "image_url", "image_url": {"url": "data:..."}},
+              {"type": "text", "text": "分析"},
+          ]
+          r2 = flatten_content(mixed)
+          assert r2 == "看图 分析", f"多模态提取错误: {r2!r}"
+          assert "image_url" not in r2, f"image block 未被过滤: {r2!r}"
+          # None / 未知类型 → 空串 (不抛异常)
+          assert flatten_content(None) == ""
+          assert flatten_content(42) == ""
+
+  - id: INV-SRC-001
+    name: sources-writes-are-idempotent-at-source
+    meta_rule: MR-4
+    verification_layer: [declaration, runtime]
+    severity: critical
+    declaration: |
+      所有 cron job 向 ~/.kb/sources/*.md 追加 H2 section 必须通过
+      kb_append_source.sh 做 grep -Fxq 整行精确匹配的幂等检查, 禁止
+      直接使用 `} >> "$KB_SRC"` 块追加, 否则同一 H2 marker 被重复写入
+      会导致 sources 文件行数爆炸.
+    design_decision: |
+      V37.6 血案: 2026-04-10 kb_dedup 报告发现 438 行 sources 重复
+      (ontology_sources 183 / dblp 77 / arxiv 42 / rss 40 / freight 36).
+      根因: 14 个 cron job (arxiv/ai_leaders_x/karpathy/rss_blogs/
+      github_trending/s2/pwc/hf_papers/dblp/acl_anthology/ontology_sources/
+      freight×2/openclaw_official) 全部使用相同的 pattern:
+          { echo ""; echo "## ${DAY}"; cat "$MSG_FILE"; } >> "$KB_SRC"
+      cron 重跑 / watchdog 触发 / 手动调用都会重复追加. SEEN_FILE 内存缓
+      存只防重复 WhatsApp 推送, 不防源文件追加. kb_dedup.py 是事后清理,
+      本不变式锁定源头幂等 — 阻断重复在产生点.
+
+      修复: 创建 kb_append_source.sh shared helper:
+        1. mkdir -p + touch (自动初始化)
+        2. grep -Fxq "$H2_MARKER" "$KB_SRC" 已存在 → drain stdin + exit 0
+        3. flock -w 30 200 保护并发 cron 同写
+        4. KB_APPEND_SOURCE_QUIET=1 env var 用于测试静默
+      14 个 job 全部切换到 `} | bash "$HOME/kb_append_source.sh" "$KB_SRC" "$MARKER"`
+      pipeline. ontology_sources (2x/day) 和 freight_watcher (3x/day DAY 含 HH:MM)
+      用更细粒度的 marker 避免同一天合法重跑被误判.
+    lesson: |
+      2026-04-10: 438 行 sources 重复爆炸. MR-4 第三次演出的数据层版本:
+      14 个 job 全部是同一 bug class 但声明/运行时/效果三层都没拦住.
+      kb_dedup.py 事后清理是补救不是根治. 不变式要求治理重心左移到
+      "写入发生之前", 而不是"写入产生之后".
+    checks:
+      - name: "kb_append_source.sh helper 脚本存在"
+        check_type: python_assert
+        code: |
+          import os
+          assert os.path.exists("kb_append_source.sh"), "缺少 kb_append_source.sh"
+      - name: "kb_append_source.sh 使用 grep -Fxq (整行 + fixed string + quiet)"
+        check_type: file_contains
+        file: kb_append_source.sh
+        pattern: "grep -Fxq"
+      - name: "kb_append_source.sh 有 flock 并发保护"
+        check_type: file_contains
+        file: kb_append_source.sh
+        pattern: "flock"
+      - name: "auto_deploy.sh FILE_MAP 包含 kb_append_source.sh (Mac Mini 同步)"
+        check_type: file_contains
+        file: auto_deploy.sh
+        pattern: "kb_append_source.sh"
+      - name: "14 个 job 写入点全部切换到 kb_append_source.sh (静态守卫)"
+        check_type: python_assert
+        code: |
+          # 字节级约束: 每个 job 脚本必须 import helper. freight 有 2 个写入点.
+          job_sites = [
+              ("jobs/arxiv_monitor/run_arxiv.sh", 1),
+              ("jobs/ai_leaders_x/run_ai_leaders_x.sh", 1),
+              ("jobs/karpathy_x/run_karpathy_x.sh", 1),
+              ("jobs/rss_blogs/run_rss_blogs.sh", 1),
+              ("jobs/github_trending/run_github_trending.sh", 1),
+              ("jobs/semantic_scholar/run_semantic_scholar.sh", 1),
+              ("jobs/pwc/run_pwc.sh", 1),
+              ("jobs/hf_papers/run_hf_papers.sh", 1),
+              ("jobs/dblp/run_dblp.sh", 1),
+              ("jobs/acl_anthology/run_acl_anthology.sh", 1),
+              ("jobs/ontology_sources/run_ontology_sources.sh", 1),
+              ("jobs/freight_watcher/run_freight.sh", 2),
+              ("jobs/openclaw_official/run.sh", 1),
+          ]
+          for path, expected in job_sites:
+              with open(path, encoding="utf-8") as f:
+                  src = f.read()
+              n = src.count("kb_append_source.sh")
+              assert n >= expected, (
+                  f"{path} 应有 >={expected} 处 kb_append_source.sh, 实际 {n}"
+              )
+      - name: "反模式守卫: jobs/**/*.sh 不再有 `} >> \"$KB_SRC\"` 直接追加"
+        check_type: python_assert
+        code: |
+          import subprocess
+          r = subprocess.run(
+              ["bash", "-c", r'grep -rEn "} >> \"\$KB_SRC\"" jobs/ || true'],
+              capture_output=True, text=True,
+          )
+          assert not r.stdout.strip(), (
+              f"发现 V37.6 反模式残留: {r.stdout[:400]}"
+          )
+      - name: "runtime: helper 幂等契约 - 同一 marker 第二次写入被跳过"
+        check_type: python_assert
+        code: |
+          # 运行时回归: 真实 subprocess 驱动 helper, 验证幂等.
+          import subprocess, tempfile, os
+          with tempfile.TemporaryDirectory() as tmp:
+              f = os.path.join(tmp, "test.md")
+              open(f, "w").write("# Test\n")
+              marker = "## 2026-04-11"
+              payload = f"\n{marker}\n- item\n"
+              env = {**os.environ, "KB_APPEND_SOURCE_QUIET": "1"}
+              r1 = subprocess.run(
+                  ["bash", "kb_append_source.sh", f, marker],
+                  input=payload, capture_output=True, text=True, env=env,
+              )
+              assert r1.returncode == 0, f"first call failed: {r1.stderr}"
+              c1 = open(f).read()
+              assert "- item" in c1
+              r2 = subprocess.run(
+                  ["bash", "kb_append_source.sh", f, marker],
+                  input=payload, capture_output=True, text=True, env=env,
+              )
+              assert r2.returncode == 0
+              c2 = open(f).read()
+              assert c1 == c2, "helper 不幂等: 同一 marker 被重复追加"
+              assert c2.count(marker) == 1, f"marker 出现多次: {c2.count(marker)}"
+
+  - id: INV-DEDUP-001
+    name: kb-dedup-is-h2-scoped-and-scans-unindexed-notes
+    meta_rule: MR-3
+    verification_layer: [declaration, runtime]
+    severity: high
+    declaration: |
+      kb_dedup.find_duplicate_source_lines 必须是 H2 section-scoped
+      (seen set 在每个 `## ` 边界重置), 不能把跨 H2 section 的合法
+      重复内容 (RSS rolling window) 误判为需要删除的 duplicate.
+      kb_dedup.find_duplicate_notes 必须扫描 NOTES_DIR, 不能只扫
+      index.entries, 否则未索引的孤儿 note 永远逃过 dedup.
+    design_decision: |
+      V37.6 kb_dedup 审计发现两个算法 bug:
+      1. find_duplicate_source_lines 用 file-level seen set (line 146),
+         同一条 RSS 条目合法出现在 `## 2026-04-09` AND `## 2026-04-10`
+         被计为 duplicate, --apply 会删掉历史记录.
+      2. find_duplicate_notes 只遍历 index.get("entries"), 2026-04-10
+         报告 Notes 286 但 Index 282, 4 条孤儿 note (索引漂移或脚本
+         直写 NOTES_DIR) 永远逃过 dedup.
+
+      修复:
+      1. find_duplicate_source_lines 跟踪 current_h2: 遇到 `## `
+         开头的行 → 重置 seen set, 保留 header. `### ` 子标题不重置
+         (同一 H2 内的 sub-section 仍应 dedup).
+      2. find_duplicate_notes 先把 NOTES_DIR 下所有未索引的 .md 追加
+         为虚拟 entries (summary="", __unindexed__=True), 参与 fuzzy
+         hash pass (不参与 summary 精确 pass 因为 summary 为空).
+    lesson: |
+      2026-04-10 报告的 "438 行重复" 数字部分是 V37.6 之前的真实 bug
+      (14 个 job 的 `} >> $KB_SRC` 反模式), 部分是 kb_dedup 算法 bug
+      (把跨 H2 合法重复当成真重复). 两个 bug 同时存在时, kb_dedup
+      --apply 会在删除重复的同时丢失历史. 源头幂等 (INV-SRC-001)
+      + 算法正确 (本不变式) 缺一不可.
+    checks:
+      - name: "kb_dedup.find_duplicate_source_lines 在 H2 边界重置 seen"
+        check_type: file_contains
+        file: kb_dedup.py
+        pattern: 'stripped.startswith\("## "\)'
+      - name: "kb_dedup.find_duplicate_notes 扫描 NOTES_DIR 纳入未索引 note"
+        check_type: file_contains
+        file: kb_dedup.py
+        pattern: "os.listdir\\(NOTES_DIR\\)"
+      - name: "runtime: 跨 H2 section 的相同内容不被误判为 duplicate"
+        check_type: python_assert
+        code: |
+          # 运行时回归: 构造双 H2 + 相同内容, 验证不触发 dedup.
+          import sys, os, tempfile, importlib
+          sys.path.insert(0, os.getcwd())
+          if "kb_dedup" in sys.modules:
+              importlib.reload(sys.modules["kb_dedup"])
+          import kb_dedup
+          with tempfile.TemporaryDirectory() as tmp:
+              open(os.path.join(tmp, "rss.md"), "w").write(
+                  "# RSS\n"
+                  "## 2026-04-09\n"
+                  "- W3C SHACL 1.2\n"
+                  "## 2026-04-10\n"
+                  "- W3C SHACL 1.2\n"
+              )
+              results = kb_dedup.find_duplicate_source_lines(tmp)
+              assert results == {}, (
+                  f"跨 H2 合法重复被误判: {results}"
+              )
+      - name: "runtime: 同一 H2 section 内的真实重复被检测"
+        check_type: python_assert
+        code: |
+          import sys, os, tempfile, importlib
+          sys.path.insert(0, os.getcwd())
+          if "kb_dedup" in sys.modules:
+              importlib.reload(sys.modules["kb_dedup"])
+          import kb_dedup
+          with tempfile.TemporaryDirectory() as tmp:
+              open(os.path.join(tmp, "arxiv.md"), "w").write(
+                  "## 2026-04-10\n"
+                  "- Paper A\n"
+                  "- Paper B\n"
+                  "- Paper A\n"
+              )
+              results = kb_dedup.find_duplicate_source_lines(tmp)
+              assert "arxiv.md" in results, "同 section 重复应被检测"
+              _, _, removed = results["arxiv.md"]
+              assert removed == 1, f"应检测到 1 条重复, 实际 {removed}"
+
 # ═══════════════════════════════════════════════════════════════════════
 # 4. 可执行元规则（Phase 0）— 自动发现缺失不变式
 #    只扫描结构化数据源，不解析自然语言
@@ -1280,7 +1559,7 @@ meta_rule_discovery:
 # 5. 审计元数据
 # ═══════════════════════════════════════════════════════════════════════
 audit_metadata:
-  version: "3.5"
+  version: "3.6"
   created: "2026-04-07"
   upgraded: |
     v3.0 → v3.1: 通知路径治理(INV-NOTIFY-003/004) + 错误可观测性(MRD-ERROR-001) + 效果层启动(MRD-NOTIFY-002)
@@ -1289,8 +1568,9 @@ audit_metadata:
     v3.3 → v3.4: PA 告警污染血案 → INV-PA-001 (alert does not pollute chat context, 两侧契约 + 顺序锁定 + 运行时回归) + INV-PA-002 (SOUL.md 规则 10 存在) — 结构 + 行为双防线
     v3.4 → v3.5: kb_review 6-issue silent degradation 血案 → INV-REVIEW-001 (kb-review-fails-loud-not-silent, fail-fast 顺序锁 + registry-driven 发现回归 + H2 parser drill-down + mock LLM 失败契约) — 与 V37.4.3 同血案类 (效果层静默降级)
     v3.5 → v3.5.1: V37.5.1 热修复 — kb_review.sh Mac Mini E2E 首次执行炸 JSONDecodeError, 根因 `echo ... | python3 - "$arg" << 'PYEOF'` pipe+heredoc stdin 冲突。INV-REVIEW-001 扩展 2 个 runtime 检查 (anti-pattern 扫描 + subprocess 真实执行). 体现 MR-6: grep 守卫不足, 必须有运行时回归。
-  total_invariants: 29  # +INV-REVIEW-001
-  total_checks: 83      # +14+2 checks on kb_review fail-fast + V37.5.1 pipe+heredoc regression
+    v3.5.1 → v3.6: KB 内容+sources 双血案 (MR-4 第三次演出) — INV-KB-001 (content-blocks-flattened-before-kb-write, 修复 str(list) 产生 Python repr 污染 KB note 标题) + INV-SRC-001 (sources-writes-are-idempotent-at-source, 14 个 cron job 共享 kb_append_source.sh H2-marker 幂等 helper, 阻断 438 行 sources 重复爆炸) + INV-DEDUP-001 (kb-dedup-is-h2-scoped-and-scans-unindexed-notes, 修复 file-level seen set 误判跨 H2 合法重复 + 只扫 index.entries 漏掉 4 条孤儿 note)
+  total_invariants: 32  # +INV-KB-001 +INV-SRC-001 +INV-DEDUP-001
+  total_checks: 102     # +7 KB-001 +7 SRC-001 +5 DEDUP-001
   meta_rules: 7         # MR-1~MR-7
   meta_rule_discovery_count: 6   # Phase 0: registry + env + notify-topic + layer-depth + error-suppression + notify-activity
   check_types_used: [python_assert, file_contains, file_not_contains, env_var_exists, command_succeeds, log_activity_check]

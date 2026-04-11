@@ -301,11 +301,13 @@ else
 fi
 
 # ── 6. KB归档 ───────────────────────────────────────────────────────────
+# V37.6: idempotent H2-dedup append。DAY 已含 HH:MM，三次每日 slot 天然
+# 不冲突；只有同一 slot 的重复触发（watchdog/手动）才触发幂等跳过。
 {
     echo ""
     echo "## ${DAY}"
     cat "$MSG_FILE"
-} >> "$KB_SRC"
+} | bash "$HOME/kb_append_source.sh" "$KB_SRC" "## ${DAY}"
 
 # 写入 KB notes（与其他 job 对齐双写模式）
 bash "$KB_WRITE_SCRIPT" "# 货代商机 ${DAY}
@@ -501,12 +503,12 @@ ${PROFILE_OUT}
                 log "ERROR: 客户画像推送失败，请检查 gateway。"
             fi
 
-            # KB归档
+            # KB归档（V37.6: idempotent append，DAY 含 HH:MM 天然不冲突）
             {
                 echo ""
                 echo "## 📊 客户画像 ${DAY}"
                 echo "$PROFILE_OUT"
-            } >> "$KB_SRC"
+            } | bash "$HOME/kb_append_source.sh" "$KB_SRC" "## 📊 客户画像 ${DAY}"
 
             # 再次备份
             rsync -a --quiet "$HOME/.kb/" "/Volumes/MOVESPEED/KB/" 2>/dev/null || true

@@ -150,6 +150,7 @@ now_hkt="$(TZ=Asia/Hong_Kong date "+%Y-%m-%d %H:%M HKT")"
 } > "$MSG"
 
 day="$(TZ=Asia/Hong_Kong date "+%Y-%m-%d")"
+# V37.6: idempotent H2-dedup append — 同一天多次触发不会产生重复 section
 {
   echo ""
   echo "## ${day}"
@@ -165,7 +166,7 @@ day="$(TZ=Asia/Hong_Kong date "+%Y-%m-%d")"
     echo "  - ID: ${id}"
     echo "  - Fingerprint: ${fp}"
   done < "$new_events_file"
-} >> "$KB_SRC"
+} | bash "$HOME/kb_append_source.sh" "$KB_SRC" "## ${day}"
 
 # INBOX append with de-dup by URL
 while IFS= read -r ev; do

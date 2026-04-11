@@ -23,6 +23,7 @@ from proxy_filters import (
     is_allowed, filter_tools, truncate_messages,
     fix_tool_args, build_sse_response, should_strip_tools,
     inject_media_into_messages, filter_system_alerts,
+    flatten_content,
     proxy_stats,
 )
 
@@ -945,11 +946,15 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                                     f"[PA调用工具: {tool_names}]"
                                 )
                             elif m.get("content"):
-                                log(f"[{rid}] TEXT: {len(str(m['content']))} chars")
+                                # V37.6: flatten_content() prevents OpenAI list-of-blocks
+                                # from becoming Python repr `[{'type':'text',...}]` in
+                                # conversation JSONL → KB harvest → note titles.
+                                flat = flatten_content(m["content"])
+                                log(f"[{rid}] TEXT: {len(flat)} chars")
                                 # Capture conversation turn for KB harvesting
                                 _capture_conversation_turn(
                                     body.get("messages", []),
-                                    str(m["content"])
+                                    flat
                                 )
 
                         # Token 监控：记录 usage + 延迟

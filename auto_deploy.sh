@@ -142,6 +142,7 @@ declare -a FILE_MAP=(
     "restart.sh|$HOME/restart.sh"
     "health_check.sh|$HOME/health_check.sh"
     "kb_write.sh|$HOME/kb_write.sh"
+    "kb_append_source.sh|$HOME/kb_append_source.sh"
     "kb_review.sh|$HOME/kb_review.sh"
     "kb_evening.sh|$HOME/kb_evening.sh"
     "kb_save_arxiv.sh|$HOME/kb_save_arxiv.sh"

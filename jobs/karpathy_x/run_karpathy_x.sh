@@ -403,11 +403,12 @@ ${FULL_ANALYSIS}"
 fi
 
 # ── 8. 永久归档（源文件） ────────────────────────────────────────────
+# V37.6: idempotent H2-dedup append — 同一天多次运行不会产生重复 section
 {
     echo ""
     echo "## ${DAY}"
     cat "$MSG_FILE"
-} >> "$KB_SRC"
+} | bash "$HOME/kb_append_source.sh" "$KB_SRC" "## ${DAY}"
 
 # ── 9. 清理 seen 缓存 ───────────────────────────────────────────────
 if [ "$(wc -l < "$SEEN_FILE" | tr -d ' ')" -gt 500 ]; then

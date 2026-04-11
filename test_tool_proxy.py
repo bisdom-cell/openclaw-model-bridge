@@ -12,6 +12,7 @@ from proxy_filters import (
     fix_tool_args, is_allowed, filter_tools,
     truncate_messages, build_sse_response, should_strip_tools,
     classify_complexity, filter_system_alerts, SYSTEM_ALERT_MARKER,
+    flatten_content,
     TOOL_PARAMS, VALID_BROWSER_PROFILES,
     ALLOWED_TOOLS, ALLOWED_PREFIXES,
     CUSTOM_TOOLS, CUSTOM_TOOL_NAMES,
@@ -1199,6 +1200,501 @@ class TestToolProxyImportsAlertFilter(unittest.TestCase):
         self.assertGreater(truncate_pos, 0, "tool_proxy.py 未调用 truncate_messages")
         self.assertLess(filter_pos, truncate_pos,
                         "filter_system_alerts 必须在 truncate_messages 之前调用")
+
+
+# ============================================================
+# V37.6: content blocks flatten (KB harvest title pollution fix)
+# ============================================================
+
+class TestFlattenContent(unittest.TestCase):
+    """验证 flatten_content 正确处理 OpenAI content blocks，防止 `str()`
+    产生 Python repr 污染 KB notes 标题（V37.6 数据质量血案）。"""
+
+    def test_string_passthrough(self):
+        """纯字符串 content 原样返回"""
+        self.assertEqual(flatten_content("hello"), "hello")
+        self.assertEqual(flatten_content(""), "")
+
+    def test_none_returns_empty(self):
+        """None → 空串（不抛 AttributeError）"""
+        self.assertEqual(flatten_content(None), "")
+
+    def test_single_text_block_extracted(self):
+        """单个 text block → 只返回 text 字段，绝不返回 repr"""
+        content = [{"type": "text", "text": "Qwen3-235B 工具路由"}]
+        result = flatten_content(content)
+        self.assertEqual(result, "Qwen3-235B 工具路由")
+        # 关键：绝不是 Python repr
+        self.assertNotIn("{'type':", result)
+        self.assertNotIn("[{", result)
+
+    def test_multiple_text_blocks_joined(self):
+        """多个 text block 以空格连接"""
+        content = [
+            {"type": "text", "text": "part 1"},
+            {"type": "text", "text": "part 2"},
+        ]
+        self.assertEqual(flatten_content(content), "part 1 part 2")
+
+    def test_image_block_filtered(self):
+        """非 text 块（image_url 等）被跳过，只保留 text"""
+        content = [
+            {"type": "text", "text": "请分析这张图"},
+            {"type": "image_url", "image_url": {"url": "data:image/jpeg;base64,..."}},
+            {"type": "text", "text": "并总结"},
+        ]
+        result = flatten_content(content)
+        self.assertEqual(result, "请分析这张图 并总结")
+        self.assertNotIn("image_url", result)
+        self.assertNotIn("base64", result)
+
+    def test_regression_str_repr_bug(self):
+        """回归锁：保证 flatten_content 和 str() 的行为在 list 上彻底不同
+
+        V37.6 血案：tool_proxy.py 用 str(m['content']) 把 list 转成
+        `"[{'type': 'text', 'text': '...'}]"` 作为 note title，
+        导致 KB notes 里出现 `[[{'type': 'text', 'text': 'Qwen3'] × 2`
+        这种 Python repr 污染。"""
+        content = [{"type": "text", "text": "Qwen3 工具"}]
+        str_result = str(content)
+        flat_result = flatten_content(content)
+        # 反模式（str）会产生 repr
+        self.assertIn("{'type'", str_result)
+        self.assertIn("[{", str_result)
+        # 正确模式（flatten_content）产生纯文本
+        self.assertEqual(flat_result, "Qwen3 工具")
+        self.assertNotIn("{'type'", flat_result)
+        self.assertNotIn("[{", flat_result)
+
+    def test_empty_list_returns_empty(self):
+        """空 list → 空串"""
+        self.assertEqual(flatten_content([]), "")
+
+    def test_non_dict_blocks_skipped(self):
+        """list 中混入非 dict 元素时不 crash"""
+        content = [
+            "random string",  # 非 dict
+            {"type": "text", "text": "valid"},
+            42,  # 非 dict
+        ]
+        self.assertEqual(flatten_content(content), "valid")
+
+    def test_missing_text_field_skipped(self):
+        """block 缺少 text 字段时跳过"""
+        content = [
+            {"type": "text"},  # 缺 text
+            {"type": "text", "text": "ok"},
+        ]
+        self.assertEqual(flatten_content(content), "ok")
+
+    def test_non_string_text_skipped(self):
+        """text 字段非字符串时跳过"""
+        content = [
+            {"type": "text", "text": None},
+            {"type": "text", "text": "good"},
+            {"type": "text", "text": 123},
+        ]
+        self.assertEqual(flatten_content(content), "good")
+
+    def test_unknown_content_type_returns_empty(self):
+        """未知 content 类型（int/dict/bytes）返回空串而非 repr"""
+        self.assertEqual(flatten_content(42), "")
+        self.assertEqual(flatten_content({"not": "a list"}), "")
+        self.assertEqual(flatten_content(b"bytes"), "")
+
+    def test_default_type_is_text(self):
+        """block 未显式指定 type 时默认为 text（OpenAI 规范允许省略）"""
+        content = [{"text": "no type field"}]
+        self.assertEqual(flatten_content(content), "no type field")
+
+
+class TestToolProxyUsesFlattenContent(unittest.TestCase):
+    """验证 tool_proxy.py 正确导入并在 _capture_conversation_turn
+    路径使用 flatten_content，替代 V37.5 及之前的 `str(m['content'])`。"""
+
+    def test_tool_proxy_imports_flatten_content(self):
+        with open("tool_proxy.py") as f:
+            src = f.read()
+        self.assertIn("flatten_content", src,
+                      "tool_proxy.py 未导入 flatten_content")
+
+    def test_tool_proxy_does_not_use_str_on_content(self):
+        """反模式守卫：tool_proxy.py 在 _capture_conversation_turn 前后
+        不应再使用 `str(m["content"])` 或 `str(m['content'])`，
+        否则 OpenAI content blocks 会被 repr 序列化污染 KB。"""
+        with open("tool_proxy.py") as f:
+            src = f.read()
+        self.assertNotIn('str(m["content"])', src,
+                         'tool_proxy.py 仍有 str(m["content"]) 反模式，'
+                         '必须用 flatten_content(m["content"]) 替代 (V37.6)')
+        self.assertNotIn("str(m['content'])", src,
+                         "tool_proxy.py 仍有 str(m['content']) 反模式")
+
+    def test_tool_proxy_calls_flatten_content(self):
+        """tool_proxy.py 的 _capture_conversation_turn 热路径必须调用
+        flatten_content(m["content"])"""
+        with open("tool_proxy.py") as f:
+            src = f.read()
+        self.assertIn('flatten_content(m["content"])', src,
+                      "tool_proxy.py 未在消息捕获路径调用 flatten_content")
+
+
+# ============================================================
+# V37.6: kb_append_source.sh idempotent H2-dedup helper
+# ============================================================
+
+class TestKbAppendSourceHelper(unittest.TestCase):
+    """验证 kb_append_source.sh 行为 + 所有 14 个 job 写入点正确使用它。
+
+    MR-4 (silent failure is a bug) 第三次演出的数据层防线：
+    cron job 每次运行都 append 已存在 ## YYYY-MM-DD section，
+    导致 sources 文件重复行爆炸（2026-04-10 kb_dedup: 438 行重复）。
+    """
+
+    import os as _os  # avoid shadowing module-level os
+
+    HELPER = "kb_append_source.sh"
+
+    def test_helper_script_exists_and_executable(self):
+        import os, stat
+        self.assertTrue(os.path.exists(self.HELPER),
+                        f"{self.HELPER} 不存在")
+        st = os.stat(self.HELPER)
+        self.assertTrue(st.st_mode & stat.S_IXUSR,
+                        f"{self.HELPER} 缺少 user execute bit")
+
+    def test_helper_uses_grep_Fxq(self):
+        """必须用 -Fxq（fixed string + 整行 + quiet）而不是普通 grep，
+        避免 H2 marker 中的 `.`/`*`/`📊` 被 regex 误解。"""
+        with open(self.HELPER) as f:
+            src = f.read()
+        self.assertIn("grep -Fxq", src,
+                      "kb_append_source.sh 必须用 grep -Fxq 做整行精确匹配")
+
+    def test_helper_has_flock_protection(self):
+        """并发 cron 同时写同一 sources 文件时要用 flock 防止行撕裂"""
+        with open(self.HELPER) as f:
+            src = f.read()
+        self.assertIn("flock", src,
+                      "kb_append_source.sh 缺少 flock 并发保护")
+
+    def test_helper_drains_stdin_on_skip(self):
+        """幂等跳过时必须 drain stdin，避免上游 pipe SIGPIPE"""
+        with open(self.HELPER) as f:
+            src = f.read()
+        # 检查 skip 分支附近有 cat > /dev/null 或等价 drain
+        normalized = src.replace(" ", "")
+        self.assertIn("cat>/dev/null", normalized,
+                      "kb_append_source.sh 跳过分支未 drain stdin")
+
+    def test_helper_idempotent_end_to_end(self):
+        """真实 subprocess 调用：同一 marker 第二次写入必须被跳过
+        (MR-6 declaration ≠ runtime verification — 必须实际运行 shell)"""
+        import subprocess, tempfile, os
+        with tempfile.TemporaryDirectory() as tmp:
+            src_file = os.path.join(tmp, "test_source.md")
+            with open(src_file, "w") as f:
+                f.write("# Test\n")
+
+            marker = "## 2026-04-11"
+            payload = f"\n{marker}\n- item 1\n- item 2\n"
+
+            # First call: append
+            r1 = subprocess.run(
+                ["bash", self.HELPER, src_file, marker],
+                input=payload, capture_output=True, text=True,
+                env={**os.environ, "KB_APPEND_SOURCE_QUIET": "1"},
+            )
+            self.assertEqual(r1.returncode, 0, f"first call failed: {r1.stderr}")
+            with open(src_file) as f:
+                content_after_1 = f.read()
+            self.assertIn("- item 1", content_after_1)
+            self.assertIn(marker, content_after_1)
+
+            # Second call: same marker, must skip
+            r2 = subprocess.run(
+                ["bash", self.HELPER, src_file, marker],
+                input=payload, capture_output=True, text=True,
+                env={**os.environ, "KB_APPEND_SOURCE_QUIET": "1"},
+            )
+            self.assertEqual(r2.returncode, 0)
+            with open(src_file) as f:
+                content_after_2 = f.read()
+            # 文件必须一字不变（幂等）
+            self.assertEqual(content_after_1, content_after_2,
+                             "kb_append_source.sh 不幂等：同一 marker 被重复追加")
+            # Marker 仍然只出现一次
+            self.assertEqual(content_after_2.count(marker), 1)
+
+    def test_helper_appends_new_marker(self):
+        """不同 marker（新 day / 新 slot）必须被正常追加"""
+        import subprocess, tempfile, os
+        with tempfile.TemporaryDirectory() as tmp:
+            src_file = os.path.join(tmp, "test_source.md")
+            with open(src_file, "w") as f:
+                f.write("# Test\n")
+
+            # Day 1
+            subprocess.run(
+                ["bash", self.HELPER, src_file, "## 2026-04-10"],
+                input="\n## 2026-04-10\n- day1\n",
+                capture_output=True, text=True,
+                env={**os.environ, "KB_APPEND_SOURCE_QUIET": "1"},
+            )
+            # Day 2 — different marker, must append
+            subprocess.run(
+                ["bash", self.HELPER, src_file, "## 2026-04-11"],
+                input="\n## 2026-04-11\n- day2\n",
+                capture_output=True, text=True,
+                env={**os.environ, "KB_APPEND_SOURCE_QUIET": "1"},
+            )
+            with open(src_file) as f:
+                content = f.read()
+            self.assertIn("- day1", content)
+            self.assertIn("- day2", content)
+            self.assertIn("## 2026-04-10", content)
+            self.assertIn("## 2026-04-11", content)
+
+    def test_helper_creates_missing_parent(self):
+        """目标文件所在目录不存在时必须自动 mkdir -p"""
+        import subprocess, tempfile, os
+        with tempfile.TemporaryDirectory() as tmp:
+            nested = os.path.join(tmp, "deep", "nested", "dir", "sources.md")
+            self.assertFalse(os.path.exists(nested))
+            r = subprocess.run(
+                ["bash", self.HELPER, nested, "## 2026-04-11"],
+                input="\n## 2026-04-11\n- x\n",
+                capture_output=True, text=True,
+                env={**os.environ, "KB_APPEND_SOURCE_QUIET": "1"},
+            )
+            self.assertEqual(r.returncode, 0, r.stderr)
+            self.assertTrue(os.path.exists(nested))
+
+    def test_all_job_sites_use_kb_append_source(self):
+        """静态守卫 + 字节级约束：14 个 sources 写入点必须通过 kb_append_source.sh 做幂等。
+
+        发现的写入点（V37.6 审计）：
+        1. arxiv_monitor/run_arxiv.sh
+        2. ai_leaders_x/run_ai_leaders_x.sh
+        3. karpathy_x/run_karpathy_x.sh
+        4. rss_blogs/run_rss_blogs.sh
+        5. github_trending/run_github_trending.sh
+        6. semantic_scholar/run_semantic_scholar.sh
+        7. pwc/run_pwc.sh
+        8. hf_papers/run_hf_papers.sh
+        9. dblp/run_dblp.sh
+        10. acl_anthology/run_acl_anthology.sh
+        11. ontology_sources/run_ontology_sources.sh
+        12. freight_watcher/run_freight.sh (2 sites: daily + profile)
+        13. openclaw_official/run.sh
+        """
+        job_sites = [
+            "jobs/arxiv_monitor/run_arxiv.sh",
+            "jobs/ai_leaders_x/run_ai_leaders_x.sh",
+            "jobs/karpathy_x/run_karpathy_x.sh",
+            "jobs/rss_blogs/run_rss_blogs.sh",
+            "jobs/github_trending/run_github_trending.sh",
+            "jobs/semantic_scholar/run_semantic_scholar.sh",
+            "jobs/pwc/run_pwc.sh",
+            "jobs/hf_papers/run_hf_papers.sh",
+            "jobs/dblp/run_dblp.sh",
+            "jobs/acl_anthology/run_acl_anthology.sh",
+            "jobs/ontology_sources/run_ontology_sources.sh",
+            "jobs/freight_watcher/run_freight.sh",
+            "jobs/openclaw_official/run.sh",
+        ]
+        for path in job_sites:
+            with open(path) as f:
+                src = f.read()
+            self.assertIn("kb_append_source.sh", src,
+                          f"{path} 未使用 kb_append_source.sh 幂等写入")
+            # freight_watcher 有 2 个写入点
+            if path == "jobs/freight_watcher/run_freight.sh":
+                self.assertGreaterEqual(
+                    src.count("kb_append_source.sh"), 2,
+                    "freight_watcher/run_freight.sh 应有至少 2 处 kb_append_source.sh"
+                    "（daily + profile 两个写入点）")
+
+    def test_no_append_gt_gt_antipattern_in_jobs(self):
+        """反模式守卫：jobs/**/*.sh 中不应再有 `} >> "$KB_SRC"` 直接追加
+        （V37.6 之前的 bug pattern——所有 14 个 job 都踩坑）。"""
+        import subprocess
+        result = subprocess.run(
+            ["bash", "-c",
+             r'grep -rEn "} >> \"\$KB_SRC\"" jobs/ || true'],
+            capture_output=True, text=True,
+        )
+        # 无匹配 = 通过
+        self.assertEqual(result.stdout.strip(), "",
+                         f"发现未迁移的 `}} >> \"$KB_SRC\"` 反模式：\n{result.stdout}")
+
+    def test_auto_deploy_includes_helper(self):
+        """auto_deploy.sh 的 FILE_MAP 必须包含 kb_append_source.sh，
+        否则 Mac Mini 同步时新建的 jobs 找不到 helper。"""
+        with open("auto_deploy.sh") as f:
+            src = f.read()
+        self.assertIn("kb_append_source.sh", src,
+                      "auto_deploy.sh FILE_MAP 未包含 kb_append_source.sh")
+
+
+# ============================================================
+# V37.6: kb_dedup.py H2-scoped algorithm fix
+# ============================================================
+
+class TestKbDedupH2Scoped(unittest.TestCase):
+    """验证 kb_dedup.find_duplicate_source_lines 是 H2 section-scoped，
+    不再把跨日期的合法重复（RSS rolling window）误判为文件级重复。"""
+
+    def setUp(self):
+        import sys, importlib
+        # 确保从仓库路径导入 kb_dedup（不是用户环境的 site-packages）
+        if "kb_dedup" in sys.modules:
+            importlib.reload(sys.modules["kb_dedup"])
+        else:
+            import kb_dedup  # noqa: F401
+        import kb_dedup
+        self.kb_dedup = kb_dedup
+
+    def _write(self, tmp, fname, text):
+        import os
+        path = os.path.join(tmp, fname)
+        with open(path, "w") as f:
+            f.write(text)
+        return path
+
+    def test_cross_h2_duplicate_is_preserved(self):
+        """跨 H2 section 的相同内容不应被标记为重复（RSS 轮播合法情况）"""
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            self._write(tmp, "rss.md", (
+                "# RSS Sources\n"
+                "\n"
+                "## 2026-04-09\n"
+                "- W3C released SHACL 1.2 draft\n"
+                "- OWL 3 proposal published\n"
+                "\n"
+                "## 2026-04-10\n"
+                "- W3C released SHACL 1.2 draft\n"  # 同一条目跨日期重复
+                "- New JWS paper on reasoning\n"
+            ))
+            results = self.kb_dedup.find_duplicate_source_lines(tmp)
+            # 跨 H2 的重复绝对不能被计数（否则 --apply 会丢失历史）
+            self.assertEqual(
+                results, {},
+                f"跨 H2 section 的合法重复被误判为 duplicate: {results}"
+            )
+
+    def test_within_h2_duplicate_is_detected(self):
+        """同一 H2 section 内的真实重复仍然被检测到"""
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            path = self._write(tmp, "arxiv.md", (
+                "# ArXiv Daily\n"
+                "\n"
+                "## 2026-04-10\n"
+                "- Paper A: some abstract\n"
+                "- Paper B: another abstract\n"
+                "- Paper A: some abstract\n"  # section 内重复
+            ))
+            results = self.kb_dedup.find_duplicate_source_lines(tmp)
+            self.assertIn("arxiv.md", results)
+            orig, deduped, removed = results["arxiv.md"]
+            self.assertEqual(removed, 1, "section 内部的重复行应被检测到")
+            deduped_text = "".join(deduped)
+            self.assertEqual(deduped_text.count("- Paper A: some abstract\n"), 1)
+            self.assertIn("- Paper B: another abstract\n", deduped_text)
+
+    def test_h2_headers_reset_seen(self):
+        """H2 boundary 必须重置 seen set"""
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            self._write(tmp, "multi.md", (
+                "# Test\n"
+                "## 2026-04-09\n"
+                "- duplicate\n"
+                "## 2026-04-10\n"
+                "- duplicate\n"
+                "## 2026-04-11\n"
+                "- duplicate\n"
+            ))
+            results = self.kb_dedup.find_duplicate_source_lines(tmp)
+            # 三个 section 各有一条 "- duplicate"，H2-scoped 视角下零重复
+            self.assertEqual(results, {},
+                             "H2 boundary 未重置 seen，跨 section 合并了")
+
+    def test_h2_and_within_section_mixed(self):
+        """混合情况：section A 干净，section B 有内部重复"""
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            self._write(tmp, "mixed.md", (
+                "## 2026-04-09\n"
+                "- item1\n"
+                "- item2\n"
+                "## 2026-04-10\n"
+                "- item1\n"            # 跨 H2 不算
+                "- dup\n"
+                "- dup\n"              # section B 内部重复
+                "- item3\n"
+            ))
+            results = self.kb_dedup.find_duplicate_source_lines(tmp)
+            self.assertIn("mixed.md", results)
+            _, _, removed = results["mixed.md"]
+            self.assertEqual(removed, 1, "只有 section B 内部的一条 dup 算重复")
+
+    def test_sub_headings_do_not_reset(self):
+        """### 三级标题不应触发 seen 重置（否则 section 内部夹 sub-heading
+        时 dedup 就失效）"""
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            self._write(tmp, "sub.md", (
+                "## 2026-04-10\n"
+                "### 论文\n"
+                "- dup\n"
+                "### 博客\n"
+                "- dup\n"  # 同一 H2 下不同 sub-heading，仍算重复
+            ))
+            results = self.kb_dedup.find_duplicate_source_lines(tmp)
+            self.assertIn("sub.md", results)
+            _, _, removed = results["sub.md"]
+            self.assertEqual(removed, 1)
+
+    def test_unindexed_notes_included_in_dedup(self):
+        """find_duplicate_notes 必须扫描 NOTES_DIR，而不仅是 index.entries。
+        否则未索引的孤儿 note 永远逃过 dedup（2026-04-10 报告：4 unindexed）"""
+        import tempfile, os, hashlib
+        with tempfile.TemporaryDirectory() as tmp:
+            # 构造临时 KB 结构
+            notes_dir = os.path.join(tmp, "notes")
+            os.makedirs(notes_dir)
+            # 两个内容相同的 note，都不在 index 里
+            same_content = (
+                "---\n"
+                "date: 2026-04-10\n"
+                "---\n"
+                "这是一条完全相同的笔记内容，用于测试未索引文件也能被去重捕获。"
+                "添加更多内容以超过 20 字符的最小阈值限制。"
+            )
+            with open(os.path.join(notes_dir, "orphan_a.md"), "w") as f:
+                f.write(same_content)
+            with open(os.path.join(notes_dir, "orphan_b.md"), "w") as f:
+                f.write(same_content)
+
+            # 猴补丁 kb_dedup 的路径常量
+            orig_base = self.kb_dedup.KB_BASE
+            orig_notes = self.kb_dedup.NOTES_DIR
+            try:
+                self.kb_dedup.KB_BASE = tmp
+                self.kb_dedup.NOTES_DIR = notes_dir
+                empty_index = {"entries": []}
+                exact, fuzzy = self.kb_dedup.find_duplicate_notes(empty_index)
+                # exact 因为没有 summary 所以不触发，但 fuzzy 必须捕获
+                self.assertTrue(
+                    fuzzy,
+                    "未索引 notes 未被纳入 fuzzy duplicate 检测（V37.6 bug）"
+                )
+            finally:
+                self.kb_dedup.KB_BASE = orig_base
+                self.kb_dedup.NOTES_DIR = orig_notes
 
 
 if __name__ == "__main__":

@@ -75,13 +75,38 @@ def content_hash(text, length=200):
 
 def find_duplicate_notes(index):
     """Find duplicate notes in index.
+
+    V37.6: Previously only scanned `index.entries`, which missed unindexed
+    notes (files written directly to ~/.kb/notes/ without being added to
+    index.json — e.g. from scripts bypassing kb_write.sh, or index drift
+    after a crash). Now also walks NOTES_DIR and synthesizes "virtual
+    entries" for any .md file not already in the index, so the dedup pass
+    can catch them too.
+
     Returns:
       exact_dupes: list of (kept_entry, removed_entries) — same summary
       fuzzy_dupes: list of (entry_a, entry_b) — similar content
     """
-    entries = index.get("entries", [])
+    entries = list(index.get("entries", []))
 
-    # --- Exact duplicates by summary ---
+    # V37.6: augment with unindexed .md files under NOTES_DIR so they also
+    # participate in dedup. We build a "notes/<fname>" file path to match
+    # the convention used by index.entries.
+    indexed_paths = {e.get("file", "") for e in entries}
+    if os.path.isdir(NOTES_DIR):
+        for fname in os.listdir(NOTES_DIR):
+            if not fname.endswith(".md"):
+                continue
+            rel = os.path.join("notes", fname)
+            if rel in indexed_paths:
+                continue
+            # Synthesize a minimal entry. summary is left empty so this file
+            # only participates in the fuzzy-hash pass (content-based), never
+            # the summary-based exact pass — we can't invent a summary.
+            entries.append({"file": rel, "summary": "", "__unindexed__": True})
+
+    # --- Exact duplicates by summary (indexed only, since unindexed have
+    #     empty summary and we don't want to merge "" groups) ---
     summary_groups = defaultdict(list)
     for entry in entries:
         summary = entry.get("summary", "").strip()
@@ -96,7 +121,7 @@ def find_duplicate_notes(index):
             removed = group[1:]
             exact_dupes.append((kept, removed))
 
-    # --- Fuzzy duplicates by content hash ---
+    # --- Fuzzy duplicates by content hash (now includes unindexed files) ---
     hash_groups = defaultdict(list)
     for entry in entries:
         filepath = entry.get("file", "")
@@ -125,7 +150,18 @@ def find_duplicate_notes(index):
 
 
 def find_duplicate_source_lines(sources_dir):
-    """Find duplicate lines within each source file.
+    """Find duplicate lines within each source file, **scoped to H2 section**.
+
+    V37.6: Previously used a file-level `seen` set, which collapsed legitimate
+    cross-date recurrences (e.g. RSS item appearing in `## 2026-04-09` AND
+    `## 2026-04-10` due to rolling window) into "duplicates" and deleted them
+    on --apply, causing history loss.
+
+    Now: reset `seen` whenever a new H2 boundary is crossed. Duplicate content
+    is only removed if it appears twice *within the same H2 section*. This is
+    the correct contract given V37.6 kb_append_source.sh guarantees each H2
+    section is written at most once at the source.
+
     Returns: dict of {filename: (original_lines, deduped_lines, removed_count)}
     """
     results = {}
@@ -142,16 +178,28 @@ def find_duplicate_source_lines(sources_dir):
         except OSError:
             continue
 
-        # Dedup content lines (preserve headers "## YYYY-MM-DD" and empty lines)
+        # H2-scoped dedup. `seen` is reset at each `## ...` boundary so we
+        # never collapse the same content line across different dated sections.
         seen = set()
         deduped = []
         removed = 0
         for line in lines:
             stripped = line.strip()
-            # Always keep headers, empty lines, and metadata
-            if not stripped or stripped.startswith("##") or stripped.startswith("#"):
+
+            # H2 boundary → reset per-section seen set
+            # (use startswith("## ") not "##" so "###" sub-headings do NOT reset
+            # and are still dedup'd within their parent H2)
+            if stripped.startswith("## "):
+                seen = set()
                 deduped.append(line)
                 continue
+
+            # H1 and empty lines preserved verbatim, no dedup participation
+            if not stripped or stripped.startswith("# "):
+                deduped.append(line)
+                continue
+
+            # Sub-heading or content line: dedup inside current H2 section
             if stripped in seen:
                 removed += 1
                 continue

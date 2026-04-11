@@ -409,11 +409,16 @@ ${SUMMARY}"
 fi
 
 # ── 永久归档 ──────────────────────────────────────────────────────────
+# V37.6: idempotent H2-dedup append。cron 10:00/20:00 2x/day，用 HH:MM 区分
+# slot，避免第二次运行被当作"同一天重复"静默丢弃；同一 slot 内同一天再次
+# 触发（watchdog/手动）才会触发幂等跳过。
+SLOT_TAG="$(TZ=Asia/Hong_Kong date '+%H:%M')"
+SECTION_MARKER="## ${DAY} ${SLOT_TAG}"
 {
     echo ""
-    echo "## ${DAY}"
+    echo "${SECTION_MARKER}"
     cat "$MSG_FILE"
-} >> "$KB_SRC"
+} | bash "$HOME/kb_append_source.sh" "$KB_SRC" "${SECTION_MARKER}"
 
 # ── 清理 seen 缓存 ──────────────────────────────────────────────────
 if [ "$(wc -l < "$SEEN_FILE" | tr -d ' ')" -gt 500 ]; then

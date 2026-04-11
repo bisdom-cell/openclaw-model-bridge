@@ -430,6 +430,43 @@ def should_strip_tools(messages):
     return False
 
 
+def flatten_content(content):
+    """把 OpenAI message.content 压平成纯字符串，用于日志/KB 写入等场景。
+
+    V37.6 新增：修复 `str(content)` 在 content 为 list 时产生 Python repr
+    (`[{'type': 'text', 'text': '...'}]`) 污染 KB notes 标题的 bug。
+
+    输入可能的形态（OpenAI 多模态规范）：
+    - str: 直接返回
+    - list[dict]: 提取所有 `type=text` 块的 text 字段，空格拼接
+    - None / 其他: 返回空字符串（绝不抛异常——hot-path 安全）
+
+    非 text 块（image_url / tool_use 等）被过滤，因为 KB 写入只保留文本。
+
+    对比反模式 `str(content)`：
+    - `str("hello")` → `"hello"` ✓
+    - `str([{"type": "text", "text": "hi"}])` → `"[{'type': 'text', 'text': 'hi'}]"` ✗
+    - `flatten_content([{"type": "text", "text": "hi"}])` → `"hi"` ✓
+    """
+    if content is None:
+        return ""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts = []
+        for block in content:
+            if not isinstance(block, dict):
+                continue
+            if block.get("type", "text") != "text":
+                continue
+            text = block.get("text", "")
+            if isinstance(text, str) and text:
+                parts.append(text)
+        return " ".join(parts)
+    # Unknown type — safest fallback is empty string, not str() which leaks repr
+    return ""
+
+
 def _message_starts_with_alert_marker(m):
     """判断单条消息是否以 [SYSTEM_ALERT] 标记开头。
 
