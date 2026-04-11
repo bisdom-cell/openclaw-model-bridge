@@ -164,6 +164,7 @@ log "晚间整理文件已生成: $EVENING_FILE"
 # ── 6. 提取 wa_message + 统计信息 ──
 WA_MSG=$(echo "$COLLECTOR_OUTPUT" | python3 -c 'import json,sys; print(json.load(sys.stdin)["wa_message"])')
 NOTE_COUNT=$(echo "$COLLECTOR_OUTPUT" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("note_count",0))')
+TODAY_NOTE_COUNT=$(echo "$COLLECTOR_OUTPUT" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("today_note_count",0))')
 SOURCES_USED=$(echo "$COLLECTOR_OUTPUT" | python3 -c 'import json,sys; print(len(json.load(sys.stdin).get("sources_used",[])))')
 
 # ── 7. KB 去重（原 kb_dedup 合并到晚间整理，作为健康附注）────────────
@@ -218,7 +219,7 @@ fi
 # ── 9. rsync 备份 ──
 rsync -a --quiet "$KB_DIR/" "/Volumes/MOVESPEED/KB/" 2>/dev/null || true
 
-log "晚间整理 ${DATE} | 覆盖 ${SOURCES_USED} 源 | 今日笔记 ${NOTE_COUNT} 篇 | LLM: ✓"
+log "晚间整理 ${DATE} | 覆盖 ${SOURCES_USED} 源 | 笔记总数 ${NOTE_COUNT} | 今日新增 ${TODAY_NOTE_COUNT} 篇 | LLM: ✓"
 log "晚间整理文件: ${EVENING_FILE}"
 
 # ── 10. 日志轮转（保留 V37 前版本的功能）────────────────────────────

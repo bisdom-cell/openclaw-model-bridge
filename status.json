@@ -1,5 +1,5 @@
 {
-  "updated": "2026-04-11 14:20:28",
+  "updated": "2026-04-11 15:12:31",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-04-11",
+      "what": "V37.7 双跑审计闭环 3 合 1 修复 + MR-8/MR-9 元规则. Bucket 1 P0: run_discussions.sh V37.6 第 16 处漏网 (MR-4 第 5 次演出, SLOT_TAG 区分同日多 run). Bucket 2A: audit_log.verify_chain JSON parse error prev_hash 级联 bug (parse 失败行下游不再被误报 prev-mismatch). Bucket 2B: kb_dedup.find_duplicate_notes dangling index refs 假重复 (MR-4 第 4 次演出, find_dangling_index_entries 独立 reporter + os.path.exists pre-filter, --apply 清理 dangling 从 index 不动磁盘). Bucket 2C: kb_evening_collect 标签语义 (count_today_notes 扫 notes/ YYYYMMDD 前缀, 区分笔记总数 298 vs 今日新增 5). Bucket 3A: MR-8 copy-paste-is-a-bug-class 从 candidate 形式化 (INV-EVENING-001 重归属 MR-8, import 复用正向兑现). Bucket 3B: MR-9 state-writes-go-through-helper-not-raw-redirect 新增 (INV-SRC-001 重归属 MR-9, 上游预防 MR-4 silent-failure). INV-GOV-001 check 2 去 global mutation (print_results(json_mode=None) 参数注入). INV-SRC-001 catch-all 2 新 check (15 job scan + path-regex). INV-DEDUP-002 新不变式 (4 checks 含 main --apply E2E). governance_checker meta_rules counter 动态化 (audit_metadata 来源). Governance v3.7→v3.8 (33→34 inv, 119→126 checks, 7→9 MR). 新增 12 单测 + full_regression.sh 接入 test_kb_evening.py (V37.6 漏登记). 31 suites / 927 tests / 0 fail / 8/9 meta rules / 安全 93/100",
+      "by": "claude_code"
+    },
     {
       "date": "2026-04-11",
       "what": "V37.6 数据层三合一修复 (flatten_content content-blocks repr bug + kb_append_source.sh H2 repeat-append + kb_dedup H2-scoped) + kb_evening 架构对齐 (import kb_review_collect 复用 + thin wrapper + fail-fast). Governance v3.7: 33 inv / 119 checks. 30 suites / 886 tests / 0 fail.",
@@ -173,11 +178,6 @@
       "date": "2026-04-08",
       "what": "V36.3 追加: ① Mac Mini双shell环境变量统一(~/.env_shared, .zshrc+.bash_profile统一source, 消除zsh/bash env裂缝) ② DISCORD_CH_ONTOLOGY持久化 ③ GitHub文档刷新(README测试数832+ontology运行时引擎章节+shadow模式) ④ crontab清理35→28(去重+preference_learner)",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-04-08",
-      "what": "V36.3 Session: ① 遗留修复(crontab漂移3job+重复清理35→28+DBLP/Dream推送恢复+notify.sh zsh兼容+smoke test python3检测) ② Governance v3(12→15不变式: 3运行时层INV-CRON-003/004+INV-ENV-002, MR-6多层深度, MRD-LAYER-001深度盲区自动发现) ③ 验证深度三层模型(声明/运行时/效果, governance自我意识盲区) ④ 语义推理落地(classify_tool_call从属性推理风险+策略标签) ⑤ Phase 2 shadow模式(off→shadow→on三档, Mac Mini生产上线)",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -214,13 +214,13 @@
   },
   "quality": {
     "security_score": "93",
-    "test_count": "886",
-    "last_regression": "2026-04-11 14:18 pass",
+    "test_count": "927",
+    "last_regression": "2026-04-11 15:10 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-04-11 14:18",
-    "test_suites": "30",
-    "governance_invariants": "33/33",
-    "governance_checks": "108/119",
+    "security_score_time": "2026-04-11 15:10",
+    "test_suites": "31",
+    "governance_invariants": "34/34",
+    "governance_checks": "115/126",
     "version": "0.37.5"
   },
   "incidents": [
@@ -283,7 +283,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.6 数据层三合一修复 + kb_evening 架构对齐（MR-4 第三次演出 + MR-8 正向兑现）. P0: flatten_content() + kb_append_source.sh + kb_dedup H2-scoped + find_duplicate_notes 扫 NOTES_DIR. P1: kb_evening_collect.py import kb_review_collect 复用全部采集原语 + thin wrapper 重写 (fail-fast + [SYSTEM_ALERT]). auto_deploy FILE_MAP 补齐 V37.5 部署缺口 (kb_review_collect + kb_evening_collect + kb_dedup). Governance v3.7: 33 不变式 / 119 checks (新增 INV-KB-001/INV-SRC-001/INV-DEDUP-001/INV-EVENING-001). 全量回归: 30 suites / 886 tests / 0 fail / 安全 93/100. 待 Mac Mini 验证: bash preflight_check.sh --full + 14 source-producing job slot 归档 + kb_evening.sh E2E",
+  "focus": "V37.7 双跑审计闭环 — 3 合 1 修复 (run_discussions.sh + audit_log.verify_chain + kb_dedup dangling) + MR-8/MR-9 元规则形式化. MR-4 silent-failure 第 4 + 5 次演出收敛, MR-9 state-writes-go-through-helper 成为上游预防层. Governance v3.8: 34 不变式 / 126 checks / 9 meta rules. 全量回归: 31 suites / 927 tests / 0 fail / 安全 93/100. 待 Mac Mini 验证: bash preflight_check.sh --full + job_smoke_test.sh + kb_evening 下次 cron 验证 today_note_count 正确",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",

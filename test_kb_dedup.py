@@ -102,6 +102,86 @@ class TestExactDedup(unittest.TestCase):
         self.assertEqual(len(updated["entries"]), 1)
 
 
+class TestDanglingIndexRefs(unittest.TestCase):
+    """V37.7: dangling index refs must be detected separately from duplicates.
+
+    Before V37.7, find_duplicate_notes treated index entries whose `file`
+    no longer exists as regular entries → grouped by summary → falsely
+    reported as duplicates → `--apply` deleted the surviving sibling's
+    file (not just the index entry). This is MR-4 silent failure演出 #4.
+    """
+
+    def setUp(self):
+        if os.path.exists(_kb_base):
+            shutil.rmtree(_kb_base)
+        setup_kb()
+
+    def test_find_dangling_index_entries(self):
+        """Index entry whose file is missing on disk → dangling."""
+        write_note("20260324100000.md", "# Alive note")
+        write_index([
+            {"date": "20260324", "file": "notes/20260324100000.md", "summary": "Alive note", "tags": []},
+            {"date": "20260324", "file": "notes/20260324110000.md", "summary": "Ghost note", "tags": []},
+            {"date": "20260324", "file": "notes/20260324120000.md", "summary": "Another ghost", "tags": []},
+        ])
+        index = kb_dedup.load_index()
+        dangling = kb_dedup.find_dangling_index_entries(index)
+        self.assertEqual(len(dangling), 2)
+        self.assertEqual({e["file"] for e in dangling},
+                         {"notes/20260324110000.md", "notes/20260324120000.md"})
+
+    def test_no_dangling_when_all_exist(self):
+        write_note("20260324100000.md", "# A")
+        write_note("20260324110000.md", "# B")
+        write_index([
+            {"date": "20260324", "file": "notes/20260324100000.md", "summary": "A", "tags": []},
+            {"date": "20260324", "file": "notes/20260324110000.md", "summary": "B", "tags": []},
+        ])
+        index = kb_dedup.load_index()
+        dangling = kb_dedup.find_dangling_index_entries(index)
+        self.assertEqual(len(dangling), 0)
+
+    def test_dangling_not_reported_as_duplicate(self):
+        """The V37.7 fix: two entries with same summary, one alive, one dangling
+        → not flagged as duplicate (dangling filtered before dedup grouping)."""
+        write_note("20260324100000.md", "# Same")
+        # 20260324110000.md deliberately NOT written → dangling
+        write_index([
+            {"date": "20260324", "file": "notes/20260324100000.md", "summary": "Same", "tags": []},
+            {"date": "20260324", "file": "notes/20260324110000.md", "summary": "Same", "tags": []},
+        ])
+        index = kb_dedup.load_index()
+        exact, _ = kb_dedup.find_duplicate_notes(index)
+        self.assertEqual(len(exact), 0,
+                         "dangling ref must not create false-positive duplicate")
+        dangling = kb_dedup.find_dangling_index_entries(index)
+        self.assertEqual(len(dangling), 1)
+
+    def test_apply_cleans_dangling_from_index(self):
+        """--apply path removes dangling entries from index.json without
+        touching real files."""
+        write_note("20260324100000.md", "# Alive")
+        write_index([
+            {"date": "20260324", "file": "notes/20260324100000.md", "summary": "Alive", "tags": []},
+            {"date": "20260324", "file": "notes/20260324999999.md", "summary": "Ghost", "tags": []},
+        ])
+        index = kb_dedup.load_index()
+        dangling = kb_dedup.find_dangling_index_entries(index)
+        self.assertEqual(len(dangling), 1)
+        # Simulate main() --apply cleanup logic
+        dangling_paths = {e.get("file", "") for e in dangling}
+        index["entries"] = [
+            e for e in index.get("entries", [])
+            if e.get("file", "") not in dangling_paths
+        ]
+        kb_dedup.save_index(index)
+        after = kb_dedup.load_index()
+        self.assertEqual(len(after["entries"]), 1)
+        self.assertEqual(after["entries"][0]["file"], "notes/20260324100000.md")
+        # Alive file must still exist
+        self.assertTrue(os.path.exists(os.path.join(_notes_dir, "20260324100000.md")))
+
+
 class TestFuzzyDedup(unittest.TestCase):
 
     def setUp(self):

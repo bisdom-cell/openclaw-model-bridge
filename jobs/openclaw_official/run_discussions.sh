@@ -101,7 +101,6 @@ while IFS='|' read -r title url date; do
     [ -z "$url" ] && continue
     if ! grep -Fq "$url" "$KB_INBOX" 2>/dev/null; then
         echo "- [ ] ($day) openclaw issues | $title | $url" >> "$KB_INBOX"
-        echo "- **[$title]($url)** | $date" >> "$KB_SRC"
         echo "$title|$url|$date" >> "$CACHE/discussions_send.txt"
     fi
 done < "$CACHE/discussions_raw.txt"
@@ -112,6 +111,19 @@ if [ "$cnt" -eq 0 ]; then
     printf '{"time":"%s","status":"ok","new":0}\n' "$TS" > "$STATUS_FILE"
     exit 0
 fi
+
+# V37.7: idempotent H2-dedup append to sources (was direct >> loop, bug class
+# MR-4/MR-9). Cron 4x/day (08:15/12:15/16:15/20:15) → SLOT_TAG distinguishes
+# same-day runs so second run isn't silently dropped as "duplicate section".
+SLOT_TAG="$(TZ=Asia/Hong_Kong date '+%H:%M')"
+SECTION_MARKER="## ${day} ${SLOT_TAG}"
+{
+    echo ""
+    echo "${SECTION_MARKER}"
+    while IFS='|' read -r title url date; do
+        echo "- **[$title]($url)** | $date"
+    done < "$CACHE/discussions_send.txt"
+} | bash "$HOME/kb_append_source.sh" "$KB_SRC" "${SECTION_MARKER}"
 
 # 逐条 LLM 富摘要，组装消息
 MSG="$CACHE/system_message_discussions.txt"

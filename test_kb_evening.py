@@ -151,7 +151,7 @@ class TestBuildEveningPrompt(unittest.TestCase):
     def test_prompt_has_evening_sections(self):
         """evening prompt 必须包含四个 evening-specific 字段"""
         prompt = ev.build_evening_prompt(
-            "note", "source", 1, 100, 5, "AI"
+            "note", "source", 1, 100, 298, 5, "AI"
         )
         self.assertIn("今日要闻", prompt)
         self.assertIn("一条行动", prompt)
@@ -161,19 +161,23 @@ class TestBuildEveningPrompt(unittest.TestCase):
     def test_prompt_does_not_ask_for_weekly_sections(self):
         """evening prompt 不应该要求"跨领域关联"(那是 weekly review 的职责)"""
         prompt = ev.build_evening_prompt(
-            "note", "source", 1, 100, 5, "AI"
+            "note", "source", 1, 100, 298, 5, "AI"
         )
         self.assertNotIn("跨领域关联", prompt)
         self.assertNotIn("3-5个要点", prompt)  # kb_review 的结构
 
     def test_prompt_includes_stats(self):
-        prompt = ev.build_evening_prompt("n", "s", 1, 99, 7, "AI/ML")
-        self.assertIn("99", prompt)
-        self.assertIn("7", prompt)
+        """V37.7: stats 同时包含"笔记总数"和"今日新增"两个字段"""
+        prompt = ev.build_evening_prompt("n", "s", 1, 99, 298, 7, "AI/ML")
+        self.assertIn("99", prompt)     # index_total
+        self.assertIn("298", prompt)    # note_count (total)
+        self.assertIn("7", prompt)      # today_note_count
         self.assertIn("AI/ML", prompt)
+        self.assertIn("笔记总数", prompt)
+        self.assertIn("今日新增", prompt)
 
     def test_prompt_handles_empty_notes(self):
-        prompt = ev.build_evening_prompt("", "", 1, 100, 0, "")
+        prompt = ev.build_evening_prompt("", "", 1, 100, 0, 0, "")
         self.assertIn("今日无新增笔记", prompt)
         self.assertIn("今日无来源归档更新", prompt)
 
@@ -184,7 +188,7 @@ class TestBuildEveningPrompt(unittest.TestCase):
 class TestBuildEveningMarkdown(unittest.TestCase):
     def test_markdown_has_evening_frontmatter(self):
         md = ev.build_evening_markdown(
-            "20260411", 1, "test content", 100, 5, "AI",
+            "20260411", 1, "test content", 100, 298, 5, "AI",
             ["arxiv"], [], [],
         )
         self.assertIn("type: evening", md)
@@ -194,14 +198,14 @@ class TestBuildEveningMarkdown(unittest.TestCase):
     def test_markdown_does_not_use_review_title(self):
         """evening 文件标题必须是'晚间整理'，不能是'知识回顾'"""
         md = ev.build_evening_markdown(
-            "20260411", 1, "test", 100, 5, "AI", [], [], [],
+            "20260411", 1, "test", 100, 298, 5, "AI", [], [], [],
         )
         self.assertIn("# 晚间整理", md)
         self.assertNotIn("# 知识回顾", md)
 
     def test_markdown_shows_source_coverage(self):
         md = ev.build_evening_markdown(
-            "20260411", 1, "test", 100, 5, "AI",
+            "20260411", 1, "test", 100, 298, 5, "AI",
             ["arxiv", "hn"], ["freight"], ["missing_src"],
         )
         self.assertIn("今日覆盖源", md)
@@ -209,6 +213,17 @@ class TestBuildEveningMarkdown(unittest.TestCase):
         self.assertIn("hn", md)
         self.assertIn("freight", md)
         self.assertIn("missing_src", md)
+
+    def test_markdown_distinguishes_total_vs_today_counts(self):
+        """V37.7: markdown 基础统计必须同时显示"笔记总数"和"今日新增"两列"""
+        md = ev.build_evening_markdown(
+            "20260411", 1, "test", 100, 298, 5, "AI", ["arxiv"], [], [],
+        )
+        # Frontmatter 记录 today_note_count
+        self.assertIn("today_note_count: 5", md)
+        # 基础统计两列分列
+        self.assertIn("笔记总数：298", md)
+        self.assertIn("今日新增：5", md)
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -218,14 +233,14 @@ class TestBuildEveningWaMessage(unittest.TestCase):
     def test_header_uses_evening_emoji(self):
         """晚间整理消息使用 🌙 而非 📚"""
         msg = ev.build_evening_wa_message(
-            "20260411", 1, 100, 5, "content here", 3
+            "20260411", 1, 100, 298, 5, "content here", 3
         )
         self.assertIn("🌙", msg)
         self.assertNotIn("📚", msg)  # 那是 kb_review
 
     def test_header_uses_evening_title(self):
         msg = ev.build_evening_wa_message(
-            "20260411", 1, 100, 5, "content", 3
+            "20260411", 1, 100, 298, 5, "content", 3
         )
         self.assertIn("晚间整理", msg)
         self.assertIn("20260411", msg)
@@ -233,10 +248,66 @@ class TestBuildEveningWaMessage(unittest.TestCase):
     def test_body_truncated_at_1400(self):
         long = "x" * 5000
         msg = ev.build_evening_wa_message(
-            "20260411", 1, 100, 5, long, 3
+            "20260411", 1, 100, 298, 5, long, 3
         )
         # Header + \n\n + truncated body
         self.assertLess(len(msg), 1500 + 200)  # header buffer
+
+    def test_header_distinguishes_total_vs_today(self):
+        """V37.7 label bug fix: header 必须同时显示"笔记总数 298 | 今日新增 5"
+        而不是 V37.6 的错误标签"今日笔记 298 篇" — 298 是历史总数, 不是今日"""
+        msg = ev.build_evening_wa_message(
+            "20260411", 1, 100, 298, 5, "content", 3
+        )
+        self.assertIn("笔记总数 298", msg)
+        self.assertIn("今日新增 5", msg)
+        # V37.6 的错误标签必须消失
+        self.assertNotIn("今日笔记 298", msg)
+
+
+# ══════════════════════════════════════════════════════════════════════
+# 5b. count_today_notes (V37.7 label-fix helper)
+# ══════════════════════════════════════════════════════════════════════
+class TestCountTodayNotes(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="test_ev_today_")
+        os.makedirs(os.path.join(self.tmp, "notes"))
+
+    def tearDown(self):
+        import shutil
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _touch(self, name):
+        with open(os.path.join(self.tmp, "notes", name), "w") as f:
+            f.write("# x")
+
+    def test_counts_only_today_prefix(self):
+        """V37.7: 只数文件名前缀 YYYYMMDD 匹配今天的 .md 文件"""
+        self._touch("20260411090000.md")
+        self._touch("20260411120000.md")
+        self._touch("20260410090000.md")  # yesterday, not counted
+        self._touch("20260101000000.md")  # old, not counted
+        today = datetime(2026, 4, 11)
+        n = ev.count_today_notes(self.tmp, today=today)
+        self.assertEqual(n, 2)
+
+    def test_returns_zero_when_notes_dir_missing(self):
+        tmp = tempfile.mkdtemp(prefix="test_ev_empty_")
+        try:
+            n = ev.count_today_notes(tmp, today=datetime(2026, 4, 11))
+            self.assertEqual(n, 0)
+        finally:
+            import shutil
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_ignores_non_md_files(self):
+        self._touch("20260411090000.md")
+        # Non-md file with today prefix — should be ignored
+        with open(os.path.join(self.tmp, "notes", "20260411090000.txt"), "w") as f:
+            f.write("nope")
+        today = datetime(2026, 4, 11)
+        n = ev.count_today_notes(self.tmp, today=today)
+        self.assertEqual(n, 1)
 
 
 # ══════════════════════════════════════════════════════════════════════

@@ -73,6 +73,27 @@ def content_hash(text, length=200):
     return hashlib.md5(normalized.encode()).hexdigest()
 
 
+def find_dangling_index_entries(index):
+    """Return index entries whose `file` no longer exists on disk.
+
+    V37.7: dangling refs are a separate class from duplicates — they
+    represent index drift after file cleanup / manual removal / crash.
+    `apply_note_dedup` silently ignored these (os.path.exists check) so
+    they never got cleaned and kept polluting exact/fuzzy passes below.
+    Split them out so they're reported independently (not hidden inside
+    "duplicates" count) and can be cleaned via a dedicated path.
+    """
+    dangling = []
+    for e in index.get("entries", []):
+        filepath = e.get("file", "")
+        if not filepath:
+            continue
+        full = os.path.join(KB_BASE, filepath) if not os.path.isabs(filepath) else filepath
+        if not os.path.exists(full):
+            dangling.append(e)
+    return dangling
+
+
 def find_duplicate_notes(index):
     """Find duplicate notes in index.
 
@@ -83,11 +104,31 @@ def find_duplicate_notes(index):
     entries" for any .md file not already in the index, so the dedup pass
     can catch them too.
 
+    V37.7: Pre-filter dangling entries (file no longer exists on disk).
+    Previously these would be grouped by summary, fed into `apply_note_dedup`,
+    and silently no-op'd by `os.remove` on missing files — leaving drift
+    undetected. Dangling refs are now reported separately by
+    `find_dangling_index_entries` and never participate in duplicate passes.
+    This is INV-DEDUP-002 / MR-4.
+
     Returns:
       exact_dupes: list of (kept_entry, removed_entries) — same summary
       fuzzy_dupes: list of (entry_a, entry_b) — similar content
     """
-    entries = list(index.get("entries", []))
+    raw_entries = list(index.get("entries", []))
+
+    # V37.7: drop dangling index refs BEFORE grouping. They are a different
+    # failure class (index drift, not duplicate content) and must not pollute
+    # the exact/fuzzy groupings or silently no-op at apply time.
+    entries = []
+    for e in raw_entries:
+        filepath = e.get("file", "")
+        if not filepath:
+            entries.append(e)
+            continue
+        full = os.path.join(KB_BASE, filepath) if not os.path.isabs(filepath) else filepath
+        if os.path.exists(full):
+            entries.append(e)
 
     # V37.6: augment with unindexed .md files under NOTES_DIR so they also
     # participate in dedup. We build a "notes/<fname>" file path to match
@@ -366,11 +407,23 @@ def main():
     print(f"[kb_dedup] Mode: {'APPLY' if apply_mode else 'DRY-RUN'}")
 
     index = load_index()
+    dangling = find_dangling_index_entries(index)
     exact_dupes, fuzzy_dupes = find_duplicate_notes(index)
     source_results = find_duplicate_source_lines(SOURCES_DIR)
 
     applied = False
-    if apply_mode and (exact_dupes or source_results):
+    if apply_mode and (exact_dupes or source_results or dangling):
+        if dangling:
+            # V37.7: clean dangling refs from index (not file-system ops,
+            # so this always succeeds; separate from apply_note_dedup which
+            # tries to delete files on disk)
+            dangling_paths = {e.get("file", "") for e in dangling}
+            index["entries"] = [
+                e for e in index.get("entries", [])
+                if e.get("file", "") not in dangling_paths
+            ]
+            save_index(index)
+            print(f"[kb_dedup] Removed {len(dangling)} dangling index entries")
         if exact_dupes:
             n = apply_note_dedup(exact_dupes, index)
             print(f"[kb_dedup] Removed {n} duplicate note files")
@@ -378,6 +431,10 @@ def main():
             n = apply_source_dedup(source_results, SOURCES_DIR)
             print(f"[kb_dedup] Removed {n} duplicate source lines")
         applied = True
+
+    if dangling and not apply_mode:
+        print(f"[kb_dedup] ⚠️  {len(dangling)} dangling index entries "
+              f"(file missing on disk) — run --apply to clean")
 
     report = format_report(stats, exact_dupes, fuzzy_dupes, source_results, applied)
     print(report)
