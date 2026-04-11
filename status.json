@@ -1,5 +1,5 @@
 {
-  "updated": "2026-04-11 15:55:47",
+  "updated": "2026-04-11 16:05:23",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-04-11",
+      "what": "V37.8 Mac Mini 生产硬验证通过 — governance --full: 35/35 不变式 / 136/136 checks (0 skip, FULL 模式全执行) / 9/9 元规则 全绿. 核心验证项: INV-LAYER-001 MR-6 硬强制 2 checks / INV-DREAM-002 SKIP_MAP_LOOPS 顺序锁真跑 kb_dream.sh 行号断言 / INV-CACHE-002 md5 content-hash mtime 漂移 parity 真跑 / INV-ENV-002 OPENCLAW_PHONE 真号 + 占位号反例守卫 / INV-DEPLOY-002 shlex AST 零 crontab 写入 token. preflight 75/2/2/0 (2 FAIL 是 pre-existing status.json+CLAUDE.md 分叉). job_smoke 33 job / 177 pass / 0 fail / 15 warn (历史日志). MRD-NOTIFY-002 activity 层假阳性 (source 层正确, activity 层扫错路径) 已登记 unfinished 待 V37.8.1 修.",
+      "by": "claude_code"
+    },
     {
       "date": "2026-04-11",
       "what": "V37.8 MR-6 深度补齐 + MRD-NOTIFY-002 语义修复 — 7 个 critical 不变式从单层升级双层: INV-TOOL-001 (新增 MAX_TOOLS 声明层引用) / INV-TOOL-002 (元数据修复 verification_layer 标签) / INV-DEPLOY-002 (新增 shlex AST token 扫描 crontab 写入) / INV-CRON-003 (新增源码匹配器模式引用声明层) / INV-ENV-002 (新增 REQUIRED_VARS OPENCLAW_PHONE 声明层 + 占位号反例守卫) / INV-DREAM-002 (新增 SKIP_MAP_LOOPS 顺序锁运行时验证, 赋值位于 Phase 1a/1b 门控之前) / INV-CACHE-002 (新增运行时 md5 content-hash 对照, mtime 漂移稳定性真跑, inline md5 避免 exec scope trap). INV-LAYER-001 新元不变式: MR-6 硬强制所有 critical 不变式声明 >=2 层验证深度, MRD-LAYER-001 warn 升级为 hard fail. MRD-NOTIFY-002 检测器重写: 接受 notify.sh --topic 或 openclaw message send --channel-id DISCORD_CH_X 两种 caller 形式 (28/32 job 直接绕过 notify.sh), topic_to_env 映射 papers/freight/alerts/daily/tech/ontology, activity 层扫 notify_queue + cache 日志 mtime. Governance v3.8→v3.9 (34→35 inv, 124→139 checks, 8/9→9/9 meta rules). 31 suites / 927 tests / 0 fail / 安全 93/100. governance --full: 35 不变式 / 125/125 checks / 9/9 元规则 全通过.",
@@ -173,11 +178,6 @@
       "date": "2026-04-09",
       "what": "V37.1 Session: ① kb_harvest_chat MapReduce升级(零对话数据丢失,28单测) ② Ontology专属信息源(4 RSS: W3C/JWS/DKE/KBS + 两层关键词过滤 + LLM中文摘要 + Discord #ontology推送 + KB归档) ③ DBLP/S2加ontology关键词 ④ X加4位ontology先驱(Barry Smith/Guizzardi/Hitzler/Horrocks) ⑤ adversarial_audit合并入governance(17不变式) ⑥ 每日governance_audit cron(07:00) ⑦ CI修复(config.md drift) ⑧ 692测试",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-04-08",
-      "what": "V37 Session: ① V3路标启动: Provider Plugin Interface(YAML/Python插件+合约验证+Extension Guide,107单测) + Capability-Based Routing(find_by_capability+build_fallback_chain+CLI) + adapter.py多级Fallback Chain(auto-discovery+sequential try) ② LLM协作方法论: 4条新原则(#22顺势设计/#23链式幻觉防范/#24触发词机制/#25对话数据一等公民) ③ 对话数据闭环: proxy热路径捕获+kb_harvest_chat.py冷路径提炼+MEMORY.md索引 ④ KB统一: HN+Freight双写notes对齐12/12 job ⑤ 修复: preflight set-e崩溃/adapter config防御/Gateway元数据过滤/industrial_ai_paradigm.md幻觉链切断 ⑥ 692测试",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -210,7 +210,7 @@
     "open_prs": "",
     "blocked_on": "",
     "focus": "V37.4.3 PA 告警污染血案闭环完成 + WhatsApp 生产验证通过 (13:06 原题复现零红线命中) + Mac Mini governance --full 28/28/67/67 + INV-PA-001/002 15 checks 全绿 + 33 job 全可运行. 2 个 preflight FAIL 是 pre-existing 分叉已登记 unfinished. 收工回顾发现 kb_review.sh 效果层静默降级 (同类 V37.4.3 血案) 已登记 unfinished. 下一步: Ontology Phase 3 渐进替换 (ONTOLOGY_MODE=on 切换) 或 Tool Policy Plugin V3 路标 或 kb_review 效果层修复",
-    "current_focus": "V37.8 MR-6 深度补齐完成 (7 critical inv 双层化 + INV-LAYER-001 硬强制 + MRD-NOTIFY-002 重写) / governance v3.9 35 inv 139 checks 9/9 MR / 927 测试 / 下一步: commit+push+Mac Mini sync 验证"
+    "current_focus": "V37.8 MR-6 深度补齐生产硬验证通过 (35/35 inv / 136/136 checks / 9/9 MR 全绿). 下一步: V37.8.1 修复 MRD-NOTIFY-002 activity 层假阳性 (topic→job log 映射扫 mtime) 或 Ontology Phase 3 渐进替换 (ONTOLOGY_MODE=on) 或 Tool Policy Plugin V3 路标"
   },
   "quality": {
     "security_score": "93",
@@ -290,5 +290,8 @@
     "[auto] 常用工具：read(10次)、sessions_spawn(8次)、sessions_history(8次)",
     "[auto] 关注领域：技术/AI、学术/论文、arxiv-ai-models、技术/编程、rss-blogs",
     "[auto] 用户已提交 1 条反馈，最新: {\"date\": \"2026-04-03\", \"from\": \"mentor\", \"what\": \""
+  ],
+  "session_context.unfinished": [
+    "V37.8 MRD-NOTIFY-002 activity 层假阳性 — 新检测器 source 层正确识别 6 频道 caller（28/32 job 直调 openclaw message send 的 case 已修复），但 activity 层扫 notify_queue/*.json + jobs/*/cache/*.log mtime 这两个路径都不是成功推送的真实记录（notify_queue 只记失败重放，jobs/*/cache 不是每个 job 都有），导致 papers/freight/alerts/daily/tech/ontology 全部 7 天无活动假阳性。正确修复思路：在 _discover_silent_channels activity 层建立 topic → job log 映射（papers→arxiv/hf/dblp/s2/acl/ai_leaders_x 的 ~/*.log，freight→freight_watcher，alerts→job_watchdog+auto_deploy，daily→kb_review+kb_evening+kb_trend+daily_ops_report，tech→github_trending+rss_blogs，ontology→ontology_sources），对每个 topic 取映射日志的最大 mtime，7 天内算活跃。MRD 是建议层不影响 9/9 元规则硬闭环，但会误导新认知。下次 session V37.8.1 修复。"
   ]
 }
