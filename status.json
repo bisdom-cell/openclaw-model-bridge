@@ -1,6 +1,6 @@
 {
-  "updated": "2026-04-11 01:55:28",
-  "updated_by": "full_regression",
+  "updated": "2026-04-11 02:04:17",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -203,7 +203,7 @@
   },
   "session_context": {
     "last_session": "\"2026-04-11\"",
-    "unfinished": "\"[]\"",
+    "unfinished": "\"[\\\"2026-04-11: 将本轮 governance INV-CRON 三层嵌套 bug 写入 ontology/docs/cases/ 作为元治理案例 — 价值在于展示'检查执行失败被汇总行掩盖'这类治理体系内部盲区，可以提炼新元规则 (MR-7?): check 执行状态必须端到端可观察，不允许 silent error\\\"]\"",
     "open_prs": "",
     "blocked_on": "",
     "focus": "\"Governance INV-CRON 三层 bug 修复完成 (子串/exec-scope/silent-error), Mac Mini 生产验证 41/41 + preflight 0 fail + kb_embed 100%. 下一步: Ontology Phase 3 渐进替换 (ONTOLOGY_MODE=on 切换前置) 或 Tool Policy Plugin V3 路标\"",
