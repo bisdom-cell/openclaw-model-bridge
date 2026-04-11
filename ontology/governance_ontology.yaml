@@ -541,7 +541,15 @@ invariants:
               entry = job.get('entry', '')
               if not entry:
                   continue
-              count = sum(1 for l in lines if _cron_cmd_invokes(l, entry))
+              # Regular for-loop instead of generator: Python exec() puts
+              # `def _cron_cmd_invokes` into the local scope of the exec'd code,
+              # and generator expressions create their own scope that cannot see
+              # enclosing function locals (only module globals). This would fail
+              # with NameError: name '_cron_cmd_invokes' is not defined.
+              count = 0
+              for l in lines:
+                  if _cron_cmd_invokes(l, entry):
+                      count += 1
               if count > 1:
                   dupes.append(f"{job['id']} x{count}")
           assert not dupes, f"重复 crontab: {'; '.join(dupes)}"

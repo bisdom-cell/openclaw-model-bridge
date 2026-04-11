@@ -180,5 +180,62 @@ class TestYamlMatcherInSync(unittest.TestCase):
         self.assertNotIn("if script in line and not line.strip().startswith('#'):", content)
 
 
+class TestExecScopeTrap(unittest.TestCase):
+    """Regression: Python exec() puts `def helper` into local scope of the
+    exec'd code, and generator expressions create their own scope that cannot
+    see enclosing function locals (only module globals). So code like:
+
+        exec('''
+            def helper(x): return x > 0
+            xs = [1, 2, 3]
+            n = sum(1 for x in xs if helper(x))  # ← NameError!
+        ''')
+
+    fails with `NameError: name 'helper' is not defined`. This bit us on
+    2026-04-11 when INV-CRON-004 was using `sum(1 for l in lines if
+    _cron_cmd_invokes(l, entry))` inside governance_checker's _exec_python_assert.
+
+    Lock in two things:
+    1. The YAML check for INV-CRON-004 must NOT use a generator expression
+       that references a local helper — it must use a plain for-loop.
+    2. A standalone exec() reproducer shows the trap exists, so the regression
+       test is self-explanatory to anyone reading it.
+    """
+
+    def test_yaml_no_generator_expression_over_cron_cmd_invokes(self):
+        yaml_path = os.path.join(_PROJECT_ROOT, "ontology", "governance_ontology.yaml")
+        with open(yaml_path) as f:
+            content = f.read()
+        # These are the two known-broken patterns. If either reappears,
+        # governance_checker will silently error on INV-CRON-004.
+        self.assertNotIn("sum(1 for l in lines if _cron_cmd_invokes", content)
+        self.assertNotIn("sum(1 for line in lines if _cron_cmd_invokes", content)
+
+    def test_exec_scope_trap_is_real(self):
+        """Positive-control reproduction. If this starts failing, Python
+        semantics changed and we can simplify the yaml fix."""
+        gen_code = (
+            "def helper(x):\n"
+            "    return x > 0\n"
+            "xs = [1, 2, 3]\n"
+            "result = sum(1 for x in xs if helper(x))\n"
+        )
+        with self.assertRaises(NameError):
+            exec(compile(gen_code, "<trap>", "exec"))
+
+        loop_code = (
+            "def helper(x):\n"
+            "    return x > 0\n"
+            "xs = [1, 2, 3]\n"
+            "result = 0\n"
+            "for x in xs:\n"
+            "    if helper(x):\n"
+            "        result += 1\n"
+        )
+        ns = {}
+        exec(compile(loop_code, "<loop>", "exec"), ns)
+        self.assertEqual(ns["result"], 3)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
