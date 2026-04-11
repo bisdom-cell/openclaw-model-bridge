@@ -421,69 +421,143 @@ def _discover_silent_error_suppression(severity):
 
 
 def _discover_silent_channels(severity):
-    """MRD-NOTIFY-002: 效果层 — 每个 Discord 频道最近 7 天是否有推送活动？"""
-    # 扫描日志文件查找各 topic 的推送记录
+    """MRD-NOTIFY-002: 效果层 — 每个 Discord 频道是否有推送路径？
+
+    V37.8 重写：原实现只 grep `~/*.log` 里的 `--topic X` 字符串，但只有 4/32 个
+    job 使用 notify.sh（arxiv/dblp/semantic_scholar/ontology_sources），其余 28
+    个 job 直接调用 `openclaw message send --channel-id "$DISCORD_CH_X"`，绕过
+    notify.sh 不产生 --topic 日志字样，导致 6 个频道里有多个被误报 silent。
+
+    新实现分两层：
+      1. **Source layer（dev + full 都跑）**：扫源码，每个 topic 必须有至少
+         一个 caller（notify.sh 的 `--topic T` 或直接调用的 `DISCORD_CH_<T>`）。
+         这是 *在 dev 环境也能运行* 的效果层检查——回答"有没有代码路径能写到
+         这个频道"。
+      2. **Activity layer（仅 --full）**：Mac Mini 上额外检查日志 + notify_queue
+         最近 7 天有无活动。dev 环境缺少 ~/.kb 目录直接跳过。
+    """
     topics = ["papers", "freight", "alerts", "daily", "tech", "ontology"]
-    home = os.path.expanduser("~")
-    log_files = []
+    # topic → 对应的 DISCORD_CH_* 环境变量名（大写）
+    topic_to_env = {
+        "papers": "DISCORD_CH_PAPERS",
+        "freight": "DISCORD_CH_FREIGHT",
+        "alerts": "DISCORD_CH_ALERTS",
+        "daily": "DISCORD_CH_DAILY",
+        "tech": "DISCORD_CH_TECH",
+        "ontology": "DISCORD_CH_ONTOLOGY",
+    }
 
-    # 收集可能包含推送记录的日志
-    for pattern in ["*.log", "jobs/*/cache/*.log"]:
-        import glob as glob_mod
-        log_files.extend(glob_mod.glob(os.path.join(home, pattern)))
+    # ── Source layer: 扫描源码查找任何 caller ─────────────────────
+    import glob as glob_mod
+    source_globs = [
+        os.path.join(_PROJECT_ROOT, "jobs", "*", "run_*.sh"),
+        os.path.join(_PROJECT_ROOT, "*.sh"),
+    ]
+    source_files = []
+    for g in source_globs:
+        source_files.extend(glob_mod.glob(g))
 
-    # 也检查 notify_queue 中的失败记录
-    queue_dir = os.path.join(home, ".kb", "notify_queue")
-
-    active_topics = set()
-    queued_topics = set()
-
-    # 从日志中查找最近 7 天的推送记录
-    import time
-    seven_days_ago = time.time() - 7 * 86400
-
-    for lf in log_files:
+    sourced_topics = set()
+    callers_per_topic = {t: [] for t in topics}
+    for sf in source_files:
         try:
-            if os.path.getmtime(lf) < seven_days_ago:
-                continue
-            with open(lf, encoding="utf-8", errors="ignore") as f:
+            with open(sf, encoding="utf-8", errors="ignore") as f:
                 content = f.read()
-            for topic in topics:
-                if f"--topic {topic}" in content or f"topic={topic}" in content:
-                    active_topics.add(topic)
         except Exception:
-            pass
+            continue
+        rel = os.path.relpath(sf, _PROJECT_ROOT)
+        for topic in topics:
+            env_var = topic_to_env[topic]
+            # 两种路径都算 caller：notify.sh 路由 或 直接 openclaw send
+            if f"--topic {topic}" in content or env_var in content:
+                sourced_topics.add(topic)
+                callers_per_topic[topic].append(rel)
 
-    # 检查队列中积压的消息
-    if os.path.isdir(queue_dir):
-        for qf in os.listdir(queue_dir):
-            if qf.endswith(".json"):
+    source_silent = [t for t in topics if t not in sourced_topics]
+
+    # ── Activity layer: 仅 --full 模式 + 存在 ~/.kb 时执行 ───────
+    activity_silent = []
+    activity_note = ""
+    home = os.path.expanduser("~")
+    kb_dir = os.path.join(home, ".kb")
+    queue_dir = os.path.join(kb_dir, "notify_queue")
+
+    if FULL_MODE and os.path.isdir(kb_dir):
+        import time
+        seven_days_ago = time.time() - 7 * 86400
+        active_topics = set()
+        # 用 mtime 作信号：notify_queue/*.json 最近 7 天内被触碰 = 该 topic 有活动
+        # （成功路径也会经过 queue 短暂写入/立刻删除，失败路径会留下）
+        queue_activity_topics = set()
+        if os.path.isdir(queue_dir):
+            for qf in os.listdir(queue_dir):
+                qfp = os.path.join(queue_dir, qf)
                 try:
-                    with open(os.path.join(queue_dir, qf)) as f:
+                    if os.path.getmtime(qfp) < seven_days_ago:
+                        continue
+                    with open(qfp) as f:
                         import json as json_mod
                         data = json_mod.load(f)
                     t = data.get("topic", "")
                     if t:
-                        queued_topics.add(t)
+                        queue_activity_topics.add(t)
                 except Exception:
                     pass
+        active_topics |= queue_activity_topics
 
-    silent = [t for t in topics if t not in active_topics]
-    if silent:
-        msg = f"{len(silent)} 个频道最近 7 天无推送活动: {', '.join(silent)}"
-        if queued_topics:
-            msg += f" (队列积压: {', '.join(queued_topics)})"
+        # jobs/*/cache/*.log 的 mtime 说明该 job 最近跑过；若该 job 的脚本是
+        # 某个 topic 的 caller，就把这个 topic 标记为 active
+        job_log_glob = os.path.join(home, "jobs", "*", "cache", "*.log")
+        for lf in glob_mod.glob(job_log_glob):
+            try:
+                if os.path.getmtime(lf) < seven_days_ago:
+                    continue
+            except Exception:
+                continue
+            # 从路径回推 job name → 匹配 source-layer 的 callers_per_topic
+            parts = lf.split(os.sep)
+            try:
+                idx = parts.index("jobs")
+                job_name = parts[idx + 1]
+            except (ValueError, IndexError):
+                continue
+            for topic, callers in callers_per_topic.items():
+                if any(job_name in c for c in callers):
+                    active_topics.add(topic)
+
+        # 只对"源码里有 caller 但运行时没信号"的 topic 报 silent
+        activity_silent = [
+            t for t in topics if t in sourced_topics and t not in active_topics
+        ]
+        if active_topics:
+            activity_note = f" (runtime active: {', '.join(sorted(active_topics))})"
+    elif FULL_MODE:
+        activity_note = " (runtime check skipped: ~/.kb not found)"
+    else:
+        activity_note = " (runtime check requires --full)"
+
+    # ── 合并结论 ────────────────────────────────────────────────
+    all_silent = source_silent + [t for t in activity_silent if t not in source_silent]
+    if all_silent:
+        parts_msg = []
+        if source_silent:
+            parts_msg.append(f"source-layer 无 caller: {', '.join(source_silent)}")
+        if activity_silent:
+            parts_msg.append(
+                f"runtime 7 天无活动 (但 source-layer 有 caller): {', '.join(activity_silent)}"
+            )
         return {
             "status": "warn",
             "severity": severity,
-            "message": msg,
-            "silent_topics": silent,
-            "active_topics": list(active_topics),
+            "message": f"{len(all_silent)} 个频道可能沉默 — {'; '.join(parts_msg)}{activity_note}",
+            "source_silent": source_silent,
+            "activity_silent": activity_silent,
+            "sourced_topics": sorted(sourced_topics),
         }
     return {
         "status": "pass",
         "severity": severity,
-        "message": f"所有 {len(topics)} 个频道最近 7 天都有推送活动",
+        "message": f"所有 {len(topics)} 个频道均有 source-layer caller{activity_note}",
     }
 
 
