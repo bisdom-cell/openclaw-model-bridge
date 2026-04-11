@@ -1,6 +1,6 @@
 {
-  "updated": "2026-04-11 10:09:16",
-  "updated_by": "full_regression",
+  "updated": "2026-04-11 13:20:25",
+  "updated_by": "security_score",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-04-11",
+      "what": "V37.5.1 kb_review.sh pipe+heredoc stdin 冲突热修复 — V37.5 推送后 Mac Mini 首次 bash ~/kb_review.sh 即 JSONDecodeError (stdin 读到空串). 根因经典 shell 反模式: echo | python3 - << PYEOF 让 pipe 和 heredoc 同时喂 python3 stdin, heredoc 优先作为代码源, pipe 的 JSON 被丢弃. V37.5 的 44 单测 + 14 governance checks 全过却漏掉 — 全是声明层 grep guard, 从未 subprocess.run 跑脚本. 三层修复: 代码层 kb_review.sh:154-163 改用 COLLECTOR_OUTPUT env var 模式 (heredoc 只承载代码, 零 stdin 竞争) + 治理层 INV-REVIEW-001 +2 checks (反模式静态守卫 + 真实 subprocess runtime 锁定) + 测试层 test_kb_review.py +4 (44→48: test_no_pipe_heredoc_stdin_collision + TestKbReviewShellRuntime 3 测试含 E2E mock collector). Mac Mini 生产验证: 12 源/299 notes/LLM ✓/review 文件落盘/WhatsApp+Discord #daily 推送成功. Governance v3.5→v3.5.1 (29 不变式, 81→83 checks). 元认知: 同一 MR-4 血案类三天内第二次演出 (V37.5 主 → V37.5.1 子), 证明主血案修复本身也可能埋坑, MR-6 从建议升级为基础假设.",
+      "by": "claude_code"
+    },
     {
       "date": "2026-04-11",
       "what": "V37.5 kb_review fail-fast + registry-driven + H2 drill-down — 修复 6-issue silent degradation 血案（shell scope + 硬编码源 + 机械 fallback + 伪造 llm=true + 行级日期匹配 + 悬空承诺）。重写为 kb_review_collect.py (纯Python, llm_caller 可注入) + kb_review.sh thin wrapper fail-fast [SYSTEM_ALERT] + jobs_registry.yaml 加 kb_source_file 字段 12 个源 + INV-REVIEW-001 (29 不变式 / 81 checks) + test_kb_review.py 44 单测 + 案例文档",
@@ -172,11 +177,6 @@
     {
       "date": "2026-04-06",
       "what": "V36.1 Session 2: Ontology子项目深度建设 — ① ontology/独立子项目(2800+行21文件) ② Tool Ontology Engine(proxy_filters→81条声明式规则yaml+engine.py推理引擎+diff.py一致性校验100%) ③ Ontology宪法(6条+最高条款:项目隔离) ④ 语义查询PoC(枚举→推理跳跃) ⑤ 特性开关Phase1(equivalence proof+3模式rollback) ⑥ 价值评估矩阵(Article 5) ⑦ 论文Discord #ontology频道路由 ⑧ 各种修复(中文推送/stderr重定向)",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-04-06",
-      "what": "Agent Dream v2 MapReduce全量KB探索(14 sources+226 notes全覆盖) + Notes走Map阶段(用户交互=一等信号) + Ontology KB创建(7文件571行) + Discord #ontology频道 + 论文监控加ontology关键词 + X监控9→15人 + Cron调度优化(~55→~30次/天) + GPU黄金窗口",
       "by": "claude_code"
     }
   ],
@@ -283,7 +283,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.5 kb_review silent degradation 血案闭环修复（fail-fast + registry-driven + H2 drill-down）. 与 V37.4.3 PA 告警污染同属 MR-4 效果层静默降级血案类——6 个 bug 相互掩护导致用户连续收到'无实质内容'的回顾推送. 结构性修复: 全 Python 化消除 shell scope bug class + registry-driven 消除硬编码漂移 + H2 parser drill-down 到论文粒度 + LLM 失败推 [SYSTEM_ALERT]+exit 1 + 诚实 llm_status 字段. INV-REVIEW-001 14 checks 锁定 (declaration + runtime 双层). 29 不变式 / 81 checks / 44 新单测. 下一步: Mac Mini 同步 + WhatsApp 实测验证 + Ontology Phase 3 渐进替换",
+  "focus": "V37.5.1 kb_review pipe+heredoc 热修复 — V37.5 主血案的子血案，Mac Mini E2E 首次执行即触发 JSONDecodeError (shell 反模式 | python3 - << PYEOF)。三层修复：代码 env var 模式 + 治理 INV-REVIEW-001 +2 checks (反模式守卫 + 真 subprocess runtime) + 测试 +4 (44→48, 含 mock collector E2E). Mac Mini 生产验证: 12 源 / 299 notes / LLM ✓ / 双通道推送. Governance v3.5.1: 29 不变式 / 83 checks. MR-6 从'建议'升级为'基础假设' — grep 守卫必须配合 subprocess runtime 验证。下一步: Ontology Phase 3 渐进替换 (ONTOLOGY_MODE=on)",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
