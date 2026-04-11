@@ -81,6 +81,11 @@
   "recent_changes": [
     {
       "date": "2026-04-11",
+      "what": "V37.4.3 Mac Mini 收工三件套验证通过 — ① preflight --full: 74 pass / 2 fail / 2 warn. 2 FAIL 全是 pre-existing 非阻塞分叉: status.json 仓库 vs 运行时合法分叉 (dev full_regression 写回 vs cron kb_status_refresh 刷新) + KB 索引过期 2 文件 (openclaw_official.md/inbox.md, kb_embed 下次 cron 补齐). V37.4.3 相关检查全绿 (脚本/Python 语法 + 双通道推送实测 Discord msgId 1492448433884364920). ② job_smoke_test: 33 job / 174 pass / 0 fail / 17 warn. 零失败, 17 warn 全是历史日志 (Dream 03:00 超时已 V37.4 修复/上游 502-403/governance_audit 07:00 旧状态已被 16:57 手动 67/67 覆盖). ③ governance --full: 28/28 invariants / 67/67 checks / 6/6 meta rules 全通过. INV-PA-001 10/10 (含运行时 python_assert filter_system_alerts 真的剥离 [SYSTEM_ALERT]) + INV-PA-002 5/5 (SOUL.md 规则 10 全字段) — V37.4.3 Path A + Path C 双防线生产硬验证. 2 preflight FAIL 登记 session_context.unfinished 待下次 session 修复 (preflight 豁免 status.json 分叉字段 + kb_embed cron 频率调整).",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-04-11",
       "what": "V37.4.3 生产验证通过 — Mac Mini 部署+WhatsApp 端实测闭环: ① 代码同步 force drift detection path (rm .last_deploy_head) 触发 auto_deploy 16:12 同步 8 文件 + 16:14 drift 修复 2 文件, proxy_filters.py/tool_proxy.py/notify.sh/SOUL.md 全部生效 ② governance --full 28/28 invariants / 67/67 checks 全通过 (dev 56/67 因 --full-only 检查跳过) ③ 主 sessions.json 清空至 16 字节消除残留污染 ④ WhatsApp 端发两条测试: 消息1 AI Agent 和本体论的关系 (广义验证) + 消息2 本体×随机×贝叶斯三者组成什么 (13:06 原题复现). PA 回复主题完全对齐: 消息1 返回 确定性锚点/共享语言/记忆推理 三层架构, 消息2 返回 本体=宪法/随机=创造力/贝叶斯=学习 三层认知引擎+闭环循环示例+AGI 路径. 全部红线零命中 (无告警/cron/系统偏好/完全磁盘访问权限/已收到跟进). 关键验证: 消息2 正确引用消息1 本体+LLM+Agent 下一代工业软件基础范式 结论 → 证明 filter_system_alerts 只剥离 [SYSTEM_ALERT] 不误伤真实对话. 对比 13:06 幻觉答案 → 16:36 哲学+架构+AGI 答案, 教科书级血案闭环.",
       "by": "claude_code"
     },
@@ -208,11 +213,14 @@
   },
   "session_context": {
     "last_session": "2026-04-11",
-    "unfinished": [],
+    "unfinished": [
+      "preflight 6/19 status.json 仓库 vs 运行时分叉 — 合法设计（dev 写回 vs cron 每小时刷新），但 preflight 仍记为 FAIL。修复思路：preflight 豁免 status.json 一致性检查，或只对比非自动回写字段（priorities/focus/recent_changes）而忽略 updated/quality 字段",
+      "preflight 17/19 KB 索引过期 2 文件（openclaw_official.md + inbox.md）— pre-existing 节奏问题，kb_embed 下次 cron 运行自动补齐。修复思路：kb_embed cron 频率从每小时改为每 30 分钟，或在 preflight 里只对 24h 以上的过期才报 FAIL"
+    ],
     "open_prs": "",
     "blocked_on": "",
-    "focus": "V37.4.3 PA 告警污染血案闭环完成 + WhatsApp 生产验证通过 (13:06 原题复现零红线命中). 下一步: Ontology Phase 3 渐进替换 (ONTOLOGY_MODE=on 切换) 或 Tool Policy Plugin V3 路标",
-    "current_focus": "V37.4.3 闭环完成，Ontology Phase 3 渐进替换 / Tool Policy Plugin V3 路标启动 待用户选择"
+    "focus": "V37.4.3 PA 告警污染血案闭环完成 + WhatsApp 生产验证通过 (13:06 原题复现零红线命中) + Mac Mini governance --full 28/28/67/67 + INV-PA-001/002 15 checks 全绿 + 33 job 全可运行. 2 个 preflight FAIL 是 pre-existing 分叉已登记 unfinished. 下一步: Ontology Phase 3 渐进替换 (ONTOLOGY_MODE=on 切换) 或 Tool Policy Plugin V3 路标",
+    "current_focus": "V37.4.3 闭环完成（生产硬验证通过），Ontology Phase 3 渐进替换 / Tool Policy Plugin V3 路标启动 待用户选择"
   },
   "quality": {
     "security_score": "93",
