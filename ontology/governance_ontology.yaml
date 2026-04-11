@@ -455,14 +455,33 @@ invariants:
     verification_layer: [runtime]
     severity: critical
     declaration: "每个 enabled job 的 crontab 条目必须包含 bash -lc（否则 cron 环境缺少 env vars）"
-    design_decision: "2026-04-08 教训：DBLP/Dream/Watchdog 无 bash -lc → OPENCLAW_PHONE 为占位号 → 推送连续失败 3 天"
+    design_decision: "2026-04-08 教训：DBLP/Dream/Watchdog 无 bash -lc → OPENCLAW_PHONE 为占位号 → 推送连续失败 3 天。2026-04-11 修复匹配逻辑：原子串匹配 `script in line` 对同脚本不同参数的条目（kb_dream.sh vs kb_dream.sh --map-sources）会错误命中首条，改为 endswith + 词边界。"
     checks:
       - name: "所有 enabled job 的 crontab 条目包含 bash -lc"
         check_type: python_assert
         requires_full: true
         code: |
-          import subprocess
+          import re, subprocess
           from check_registry import load_yaml
+
+          def _cron_cmd_invokes(line, entry):
+              """Return True iff this crontab line's command invokes exactly this registry entry.
+              Uses endswith + word-boundary to avoid false-positive on shared prefixes
+              (e.g. 'kb_dream.sh' must not match 'kb_dream.sh --map-sources')."""
+              parts = line.split(None, 5)
+              if len(parts) < 6:
+                  return False
+              cmd = parts[5]
+              # Strip trailing redirection pipeline
+              cmd = re.split(r"\s*(?:>>|>|<|2>|\|)", cmd, maxsplit=1)[0]
+              cmd = cmd.rstrip(" '\"")
+              if not cmd.endswith(entry):
+                  return False
+              idx = len(cmd) - len(entry)
+              if idx == 0:
+                  return True
+              return cmd[idx - 1] in "/ \t\"'"
+
           data = load_yaml("jobs_registry.yaml")
           crontab = subprocess.check_output(['crontab', '-l'], text=True)
           missing = []
@@ -470,13 +489,14 @@ invariants:
               if not job.get('enabled') or job.get('scheduler') != 'system':
                   continue
               entry = job.get('entry', '')
-              script = entry.split('/')[-1] if entry else ''
-              if not script:
+              if not entry:
                   continue
               for line in crontab.splitlines():
-                  if script in line and not line.strip().startswith('#'):
+                  if not line.strip() or line.strip().startswith('#'):
+                      continue
+                  if _cron_cmd_invokes(line, entry):
                       if 'bash -lc' not in line:
-                          missing.append(f"{job['id']}: {script}")
+                          missing.append(f"{job['id']}: {entry}")
                       break
           assert not missing, f"缺少 bash -lc: {'; '.join(missing)}"
 
@@ -486,14 +506,31 @@ invariants:
     verification_layer: [runtime]
     severity: high
     declaration: "每个完整命令（脚本+参数）在 crontab 中最多出现一次（同一脚本不同参数视为不同 job，如 kb_dream.sh vs kb_dream.sh --map-only）"
-    design_decision: "2026-04-08 教训：kb_dream 有 3 个完全相同的 crontab 条目→双进程 lock contention；2026-04-10 澄清：同一脚本不同参数是合法的分离调度（Map-Reduce 分阶段执行）"
+    design_decision: "2026-04-08 教训：kb_dream 有 3 个完全相同的 crontab 条目→双进程 lock contention；2026-04-10 澄清：同一脚本不同参数是合法的分离调度（Map-Reduce 分阶段执行）；2026-04-11 修复 check bug：原 `sname in l` 子串匹配导致 Reduce 条目（entry=kb_dream.sh）被 --map-sources/--map-notes 误报 x3。改为 endswith + 词边界精确匹配。"
     checks:
       - name: "crontab 中无完全重复的命令条目"
         check_type: python_assert
         requires_full: true
         code: |
-          import subprocess
+          import re, subprocess
           from check_registry import load_yaml
+
+          def _cron_cmd_invokes(line, entry):
+              """Return True iff this crontab line's command invokes exactly this registry entry.
+              See INV-CRON-003 for rationale."""
+              parts = line.split(None, 5)
+              if len(parts) < 6:
+                  return False
+              cmd = parts[5]
+              cmd = re.split(r"\s*(?:>>|>|<|2>|\|)", cmd, maxsplit=1)[0]
+              cmd = cmd.rstrip(" '\"")
+              if not cmd.endswith(entry):
+                  return False
+              idx = len(cmd) - len(entry)
+              if idx == 0:
+                  return True
+              return cmd[idx - 1] in "/ \t\"'"
+
           data = load_yaml("jobs_registry.yaml")
           crontab = subprocess.check_output(['crontab', '-l'], text=True)
           lines = [l for l in crontab.splitlines() if l.strip() and not l.strip().startswith('#')]
@@ -502,13 +539,9 @@ invariants:
               if not job.get('enabled') or job.get('scheduler') != 'system':
                   continue
               entry = job.get('entry', '')
-              sname = entry.split('/')[-1] if entry else ''
-              if not sname:
+              if not entry:
                   continue
-              count = 0
-              for l in lines:
-                  if sname in l:
-                      count += 1
+              count = sum(1 for l in lines if _cron_cmd_invokes(l, entry))
               if count > 1:
                   dupes.append(f"{job['id']} x{count}")
           assert not dupes, f"重复 crontab: {'; '.join(dupes)}"
