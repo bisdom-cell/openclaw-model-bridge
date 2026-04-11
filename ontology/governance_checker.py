@@ -554,13 +554,18 @@ def print_results(results):
                 if c["message"]:
                     print(f"          → {c['message']}")
 
-        if r["status"] == "fail":
+        # Count both hard failures (fail) and execution errors (error) as
+        # not-passing. Previously `error` status was silently ignored, so a
+        # broken check (exception in Python code) looked identical to a pass.
+        if r["status"] in ("fail", "error"):
             failed_invs += 1
 
     # Summary
     mr_used = set(r["meta_rule"] for r in results if r["meta_rule"])
     skipped = sum(1 for r in results for c in r["checks"] if c["status"] == "skip")
     executed = total_checks - skipped
+    errored_invs = sum(1 for r in results if r["status"] == "error")
+    hard_fail_invs = failed_invs - errored_invs
 
     print()
     print("─" * 70)
@@ -568,7 +573,12 @@ def print_results(results):
     print(f"  通过: {passed_checks}/{executed} checks | 元规则: {len(mr_used)}/6")
 
     if failed_invs:
-        print(f"\n  ❌ {failed_invs} 个不变式被违反")
+        if errored_invs and hard_fail_invs:
+            print(f"\n  ❌ {hard_fail_invs} 个不变式被违反, 💥 {errored_invs} 个检查执行出错")
+        elif errored_invs:
+            print(f"\n  💥 {errored_invs} 个不变式检查执行出错")
+        else:
+            print(f"\n  ❌ {failed_invs} 个不变式被违反")
     else:
         print(f"\n  ✅ 所有不变式成立")
     print("=" * 70)
