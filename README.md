@@ -186,7 +186,7 @@ Phase 4: Golden Test Trace → Real request through full stack, saved to docs/go
 
 ```
 ✅ Provider: openai (via $OPENAI_API_KEY)
-✅ 610 tests passed
+✅ all tests passed
 ✅ Golden test: "Four" in 521ms (37 prompt + 2 completion tokens)
    Trace saved to docs/golden_trace.json
 ```
@@ -333,17 +333,17 @@ All jobs registered in `jobs_registry.yaml`. Validate: `python3 check_registry.p
 | `jobs_registry.yaml` | Unified job registry — 32 jobs (28 active, 4 disabled), system cron |
 | `check_registry.py` | Registry validator — ID uniqueness, paths, fields |
 | `gen_jobs_doc.py` | Auto-generate job docs from registry + drift detection |
-| `test_providers.py` | Unit tests for providers (58 cases) |
-| `test_tool_proxy.py` | Unit tests for proxy_filters (70 cases) |
-| `test_check_registry.py` | Unit tests for check_registry (18 cases) |
-| `test_data_clean.py` | Unit tests for data_clean (80 cases) |
-| `test_adapter.py` | Unit tests for adapter (36 cases) |
-| `test_kb_business.py` | Unit tests for KB business logic (44 cases) |
-| `test_cron_health.py` | Unit tests for cron health (94 cases) |
-| `test_status_update.py` | Unit tests for status_update (33 cases) |
-| `test_audit_log.py` | Unit tests for audit_log (19 cases) |
-| `test_config_slo.py` | **V32** Unit tests for config_loader + slo_checker + incident_snapshot + ProxyStats SLO (28 cases) |
-| `full_regression.sh` | Full regression runner — **605 tests**, all must pass before push |
+| `test_providers.py` | Unit tests for providers |
+| `test_tool_proxy.py` | Unit tests for proxy_filters |
+| `test_check_registry.py` | Unit tests for check_registry |
+| `test_data_clean.py` | Unit tests for data_clean |
+| `test_adapter.py` | Unit tests for adapter |
+| `test_kb_business.py` | Unit tests for KB business logic |
+| `test_cron_health.py` | Unit tests for cron health |
+| `test_status_update.py` | Unit tests for status_update |
+| `test_audit_log.py` | Unit tests for audit_log |
+| `test_config_slo.py` | **V32** Unit tests for config_loader + slo_checker + incident_snapshot + ProxyStats SLO |
+| `full_regression.sh` | Full regression runner — all tests must pass before push (auto-updates `status.json` test_count) |
 | `.githooks/pre-commit` | **V32** Pre-commit hook — API key/phone leak + syntax checks |
 | `.github/workflows/ci.yml` | **V32** GitHub Actions CI — 9 test suites + config validation + security scan |
 | `CLAUDE.md` | Project context for AI-assisted development |
@@ -482,21 +482,21 @@ The `auto_deploy.sh` script maps 35 repo files to runtime locations and only res
 ## Testing
 
 ```bash
-# Full regression (610 tests across 10 suites — must ALL pass before push)
+# Full regression (must ALL pass before push; auto-updates status.json test_count)
 bash full_regression.sh
 
-# Individual test suites
-python3 test_providers.py               # 58 provider/registry tests
-python3 test_tool_proxy.py              # 70 proxy_filters tests
-python3 test_data_clean.py              # 80 data cleaning tests
-python3 test_cron_health.py             # 94 cron health tests
-python3 test_kb_business.py             # 44 KB business logic tests
-python3 test_adapter.py                 # 36 adapter tests
-python3 test_status_update.py           # 33 status update tests
-python3 test_config_slo.py             # 28 config/SLO/incident tests
-python3 test_audit_log.py               # 19 audit log tests
-python3 test_check_registry.py          # 18 registry tests
-python3 test_slo_benchmark.py           # 17 SLO benchmark tests
+# Individual test suites (run full_regression.sh for totals)
+python3 test_providers.py               # provider/registry tests
+python3 test_tool_proxy.py              # proxy_filters tests
+python3 test_data_clean.py              # data cleaning tests
+python3 test_cron_health.py             # cron health tests
+python3 test_kb_business.py             # KB business logic tests
+python3 test_adapter.py                 # adapter tests
+python3 test_status_update.py           # status update tests
+python3 test_config_slo.py             # config/SLO/incident tests
+python3 test_audit_log.py               # audit log tests
+python3 test_check_registry.py          # registry tests
+python3 test_slo_benchmark.py           # SLO benchmark tests
 
 # SLO benchmark report (real production data)
 python3 slo_benchmark.py                # Markdown: 5/5 PASS, p95=459ms

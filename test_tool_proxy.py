@@ -818,5 +818,129 @@ class TestToolCallXMLStripping(unittest.TestCase):
         self.assertFalse(any("summarize".startswith(p) for p in ALLOWED_PREFIXES))
 
 
+class TestOntologyEquivalence(unittest.TestCase):
+    """验证 ONTOLOGY_MODE=on 时引擎输出与硬编码完全等价。"""
+
+    @classmethod
+    def setUpClass(cls):
+        """Load ontology engine for comparison."""
+        try:
+            import sys, os
+            sys.path.insert(0, os.path.join(os.path.dirname(__file__), "ontology"))
+            from engine import ToolOntology
+            cls.onto = ToolOntology()
+            cls.available = True
+        except Exception:
+            cls.onto = None
+            cls.available = False
+
+    def test_engine_available(self):
+        """Ontology engine should be loadable."""
+        self.assertTrue(self.available, "ontology/engine.py not loadable")
+
+    def test_allowed_tools_equivalence(self):
+        """Engine allowed_tools == hardcoded ALLOWED_TOOLS."""
+        if not self.available:
+            self.skipTest("engine not available")
+        data = self.onto.generate_proxy_data()
+        self.assertEqual(data["ALLOWED_TOOLS"], ALLOWED_TOOLS)
+
+    def test_allowed_prefixes_equivalence(self):
+        """Engine prefixes == hardcoded ALLOWED_PREFIXES."""
+        if not self.available:
+            self.skipTest("engine not available")
+        data = self.onto.generate_proxy_data()
+        self.assertEqual(data["ALLOWED_PREFIXES"], ALLOWED_PREFIXES)
+
+    def test_tool_params_equivalence(self):
+        """Engine TOOL_PARAMS keys and values == hardcoded."""
+        if not self.available:
+            self.skipTest("engine not available")
+        data = self.onto.generate_proxy_data()
+        self.assertEqual(set(data["TOOL_PARAMS"].keys()), set(TOOL_PARAMS.keys()))
+        for name in TOOL_PARAMS:
+            self.assertEqual(data["TOOL_PARAMS"][name], TOOL_PARAMS[name],
+                             f"TOOL_PARAMS mismatch for {name}")
+
+    def test_custom_tool_names_equivalence(self):
+        """Engine custom tool names == hardcoded."""
+        if not self.available:
+            self.skipTest("engine not available")
+        data = self.onto.generate_proxy_data()
+        self.assertEqual(data["CUSTOM_TOOL_NAMES"], CUSTOM_TOOL_NAMES)
+
+    def test_alias_resolution_read(self):
+        """Engine resolve_alias for read matches hardcoded."""
+        if not self.available:
+            self.skipTest("engine not available")
+        for alt in ["file_path", "file", "filepath", "filename"]:
+            resolved, changed = self.onto.resolve_alias("read", {alt: "/tmp/x"})
+            self.assertTrue(changed, f"read alias {alt} not resolved")
+            self.assertIn("path", resolved)
+            self.assertNotIn(alt, resolved)
+
+    def test_alias_resolution_exec(self):
+        """Engine resolve_alias for exec matches hardcoded."""
+        if not self.available:
+            self.skipTest("engine not available")
+        for alt in ["cmd", "shell", "bash", "script"]:
+            resolved, changed = self.onto.resolve_alias("exec", {alt: "ls"})
+            self.assertTrue(changed, f"exec alias {alt} not resolved")
+            self.assertIn("command", resolved)
+
+    def test_alias_resolution_write(self):
+        """Engine resolve_alias for write matches hardcoded."""
+        if not self.available:
+            self.skipTest("engine not available")
+        for alt in ["text", "data", "body", "file_content"]:
+            resolved, changed = self.onto.resolve_alias("write", {alt: "hi", "path": "/tmp/x"})
+            self.assertTrue(changed, f"write alias {alt} not resolved")
+            self.assertIn("content", resolved)
+
+    def test_alias_resolution_web_search(self):
+        """Engine resolve_alias for web_search matches hardcoded."""
+        if not self.available:
+            self.skipTest("engine not available")
+        for alt in ["search_query", "q", "keyword", "search"]:
+            resolved, changed = self.onto.resolve_alias("web_search", {alt: "test"})
+            self.assertTrue(changed, f"web_search alias {alt} not resolved")
+            self.assertIn("query", resolved)
+
+    def test_canonical_params_no_change(self):
+        """Canonical params should not trigger alias resolution."""
+        if not self.available:
+            self.skipTest("engine not available")
+        _, changed = self.onto.resolve_alias("read", {"path": "/tmp/x"})
+        self.assertFalse(changed)
+        _, changed = self.onto.resolve_alias("exec", {"command": "ls"})
+        self.assertFalse(changed)
+
+    def test_fix_tool_args_on_mode_equivalence(self):
+        """fix_tool_args output is identical under on vs hardcoded for all alias cases."""
+        if not self.available:
+            self.skipTest("engine not available")
+        cases = [
+            ("read", {"file_path": "/tmp/x"}),
+            ("exec", {"cmd": "ls -la"}),
+            ("write", {"path": "/tmp/f", "text": "hello"}),
+            ("web_search", {"q": "python"}),
+            ("read", {"path": "/tmp/x"}),  # canonical, no alias
+        ]
+        for name, args in cases:
+            # Hardcoded path
+            rj_hard = make_response(name, dict(args))
+            fix_tool_args(rj_hard)
+            hard_result = get_args(rj_hard)
+
+            # Engine path
+            resolved, _ = self.onto.resolve_alias(name, dict(args))
+            allowed = TOOL_PARAMS.get(name, set())
+            engine_result = {k: v for k, v in resolved.items() if k in allowed}
+
+            self.assertEqual(hard_result, engine_result,
+                             f"Mismatch for {name} {args}: "
+                             f"hardcoded={hard_result} engine={engine_result}")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

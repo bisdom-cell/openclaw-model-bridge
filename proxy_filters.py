@@ -616,30 +616,50 @@ def fix_tool_args(rj):
                 allowed = TOOL_PARAMS.get(name)
                 if allowed:
                     alias_changed = False
-                    if name == "read" and "path" not in args:
-                        for alt in ["file_path", "file", "filepath", "filename"]:
-                            if alt in args:
-                                args["path"] = args.pop(alt)
-                                alias_changed = True
-                                break
-                    if name == "exec" and "command" not in args:
-                        for alt in ["cmd", "shell", "bash", "script"]:
-                            if alt in args:
-                                args["command"] = args.pop(alt)
-                                alias_changed = True
-                                break
-                    if name == "write" and "content" not in args:
-                        for alt in ["text", "data", "body", "file_content"]:
-                            if alt in args:
-                                args["content"] = args.pop(alt)
-                                alias_changed = True
-                                break
-                    if name == "web_search" and "query" not in args:
-                        for alt in ["search_query", "q", "keyword", "search"]:
-                            if alt in args:
-                                args["query"] = args.pop(alt)
-                                alias_changed = True
-                                break
+
+                    # Ontology-driven alias resolution (ONTOLOGY_MODE="on")
+                    # or hardcoded fallback (ONTOLOGY_MODE="off"/"shadow")
+                    if _ONTOLOGY_MODE == "on" and _onto_engine is not None:
+                        resolved, alias_changed = _onto_engine.resolve_alias(name, args)
+                        if alias_changed:
+                            args = resolved
+                    else:
+                        # Hardcoded alias mappings (legacy)
+                        if name == "read" and "path" not in args:
+                            for alt in ["file_path", "file", "filepath", "filename"]:
+                                if alt in args:
+                                    args["path"] = args.pop(alt)
+                                    alias_changed = True
+                                    break
+                        if name == "exec" and "command" not in args:
+                            for alt in ["cmd", "shell", "bash", "script"]:
+                                if alt in args:
+                                    args["command"] = args.pop(alt)
+                                    alias_changed = True
+                                    break
+                        if name == "write" and "content" not in args:
+                            for alt in ["text", "data", "body", "file_content"]:
+                                if alt in args:
+                                    args["content"] = args.pop(alt)
+                                    alias_changed = True
+                                    break
+                        if name == "web_search" and "query" not in args:
+                            for alt in ["search_query", "q", "keyword", "search"]:
+                                if alt in args:
+                                    args["query"] = args.pop(alt)
+                                    alias_changed = True
+                                    break
+
+                    # Shadow drift detection for alias resolution
+                    if _ONTOLOGY_MODE == "shadow" and _onto_engine is not None and alias_changed:
+                        shadow_args = dict(args)  # post-hardcoded state
+                        # Re-resolve from original to compare
+                        orig_args = json.loads(args_str) if isinstance(args_str, str) else dict(args_str)
+                        engine_resolved, engine_changed = _onto_engine.resolve_alias(name, orig_args)
+                        if set(shadow_args.keys()) != set(engine_resolved.keys()):
+                            print(f"[proxy] ONTO SHADOW DRIFT fix_tool_args: {name} "
+                                  f"hardcoded_keys={sorted(shadow_args.keys())} "
+                                  f"engine_keys={sorted(engine_resolved.keys())}")
 
                     clean = {k: v for k, v in args.items() if k in allowed}
                     if clean != args or alias_changed:
