@@ -187,10 +187,17 @@ invariants:
   - id: INV-TOOL-001
     name: tool-count-limit
     meta_rule: MR-1
-    verification_layer: [declaration]
+    verification_layer: [declaration, runtime]
     severity: critical
     declaration: "Agent 单次请求工具数 ≤ 12（CLAUDE.md）"
+    # V37.8: MR-6 合规 — 声明层(代码引用 MAX_TOOLS) + 运行时层(真跑 filter_tools)
     checks:
+      # declaration layer: proxy_filters.py 静态引用了 MAX_TOOLS 约束
+      - name: "proxy_filters.py 静态引用 MAX_TOOLS 截断逻辑"
+        check_type: file_contains
+        file: proxy_filters.py
+        pattern: "MAX_TOOLS"
+      # runtime layer: 真实构造输入 → 执行 filter_tools → 断言输出上限
       - name: "filter_tools() 输出不超过 MAX_TOOLS"
         check_type: python_assert
         code: |
@@ -206,9 +213,10 @@ invariants:
   - id: INV-TOOL-002
     name: max-tools-config-imported
     meta_rule: MR-1
-    verification_layer: [declaration]
+    verification_layer: [declaration, runtime]
     severity: critical
     declaration: "MAX_TOOLS = 12 定义在 config_loader → proxy_filters 必须导入使用"
+    # V37.8: 已有声明+运行时双层，仅修正 verification_layer 元数据标签（原先错标单层）
     checks:
       - name: "proxy_filters.py 包含 MAX_TOOLS"
         check_type: file_contains
@@ -422,11 +430,16 @@ invariants:
   - id: INV-DEPLOY-002
     name: auto-deploy-never-modifies-crontab
     meta_rule: MR-3
-    verification_layer: [declaration]
+    verification_layer: [declaration, runtime]
     severity: critical
     declaration: "auto_deploy 不改 crontab → 必须有漂移检测兜底"
     design_decision: "crontab 变更需人工确认（安全考虑），漂移检测是安全网"
+    # V37.8: MR-6 合规 — 原有单层(静态文本扫描) 无法发现"auto_deploy 进程在 Mac Mini
+    # 运行时真的触碰了 crontab"这种真实运行时漂移。新增运行时层：subprocess 级 shlex
+    # tokenize，把 auto_deploy.sh 逐行拆成 token 后，任何 token 是 `crontab` 或
+    # `crontab_safe.sh` 且后续 token 为 `add/remove/-e/-i` 的命令 = 运行时违反。
     checks:
+      # declaration layer: 文本/正则扫描
       - name: "auto_deploy 不写入 crontab（只读取监控）"
         check_type: python_assert
         code: |
@@ -447,6 +460,46 @@ invariants:
         check_type: file_contains
         file: check_registry.py
         pattern: "间隔漂移"
+      # runtime layer: shlex tokenize AST 扫描（比字符串匹配强一层）
+      - name: "auto_deploy.sh AST 级扫描无 crontab 写入 token 序列"
+        check_type: python_assert
+        code: |
+          import shlex
+          with open("auto_deploy.sh") as f:
+              source = f.read()
+          # shlex tokenize：识别引号/变量替换/转义，避免被注释或字符串内文本误导
+          lex = shlex.shlex(source, posix=True)
+          lex.whitespace_split = True
+          lex.commenters = "#"
+          try:
+              tokens = list(lex)
+          except ValueError:
+              # 有未闭合的引号等复杂结构时，退化为行解析
+              tokens = []
+              for line in source.splitlines():
+                  s = line.split("#", 1)[0].strip()
+                  if not s:
+                      continue
+                  try:
+                      tokens.extend(shlex.split(s, posix=True))
+                  except ValueError:
+                      tokens.extend(s.split())
+          # 构造危险 token 序列表
+          violations = []
+          for i, tok in enumerate(tokens):
+              # case 1: 直接 crontab 命令 + 写入操作
+              if tok == "crontab":
+                  nxt = tokens[i + 1] if i + 1 < len(tokens) else ""
+                  if nxt in ("-e", "-i", "-r", "-"):
+                      violations.append(f"token[{i}]: crontab {nxt}")
+              # case 2: crontab_safe.sh 被调用且下一个 token 是写入动作
+              if tok.endswith("crontab_safe.sh") or tok.endswith("crontab_safe"):
+                  nxt = tokens[i + 1] if i + 1 < len(tokens) else ""
+                  if nxt in ("add", "remove", "rm", "delete", "set", "replace"):
+                      # 允许 FILE_MAP 映射字符串里包含文件名 crontab_safe.sh（文件复制）
+                      # 映射语法是 "src dst"，不会出现 add/remove 紧随其后
+                      violations.append(f"token[{i}]: {tok} {nxt}")
+          assert not violations, f"auto_deploy.sh 运行时会写入 crontab: {violations}"
 
   # ── 通知路径治理（2026-04-09 真实 bug 驱动）─────────────────────────
   # 教训：三个论文脚本绕过 notify.sh 直接调 openclaw message send，
@@ -510,11 +563,25 @@ invariants:
   - id: INV-CRON-003
     name: bash-lc-enforcement
     meta_rule: MR-1
-    verification_layer: [runtime]
+    verification_layer: [declaration, runtime]
     severity: critical
     declaration: "每个 enabled job 的 crontab 条目必须包含 bash -lc（否则 cron 环境缺少 env vars）"
     design_decision: "2026-04-08 教训：DBLP/Dream/Watchdog 无 bash -lc → OPENCLAW_PHONE 为占位号 → 推送连续失败 3 天。2026-04-11 修复匹配逻辑：原子串匹配 `script in line` 对同脚本不同参数的条目（kb_dream.sh vs kb_dream.sh --map-sources）会错误命中首条，改为 endswith + 词边界。"
+    # V37.8: MR-6 合规 — 原有单层(运行时 crontab -l 解析) 在 dev 环境下完全 skip。
+    # 新增声明层：V37.2+ 的 _cron_cmd_invokes 精确匹配器必须存在于 YAML 源码中
+    # （防止未来重构回到子串匹配的回归），并断言 YAML 文本里既没有 `"X" in line`
+    # 类的子串匹配陷阱又包含 word-boundary 字符集。
     checks:
+      # declaration layer: 源码级守卫 — 精确匹配器必须存在
+      - name: "INV-CRON-003/004 源码包含 _cron_cmd_invokes 精确匹配器"
+        check_type: file_contains
+        file: ontology/governance_ontology.yaml
+        pattern: "_cron_cmd_invokes"
+      - name: "INV-CRON-003/004 匹配器使用 endswith + 词边界（非子串）"
+        check_type: file_contains
+        file: ontology/governance_ontology.yaml
+        pattern: 'cmd\.endswith\(entry\)'
+      # runtime layer: 真实 crontab 解析（Mac Mini --full 模式）
       - name: "所有 enabled job 的 crontab 条目包含 bash -lc"
         check_type: python_assert
         requires_full: true
@@ -615,11 +682,33 @@ invariants:
   - id: INV-ENV-002
     name: cron-env-smoke-test
     meta_rule: MR-1
-    verification_layer: [runtime]
+    verification_layer: [declaration, runtime]
     severity: critical
     declaration: "cron 环境（bash -lc）中 OPENCLAW_PHONE 必须是真实号码，非占位号"
     design_decision: "2026-04-08 教训：cron 无 bash -lc 时 OPENCLAW_PHONE 为 +85200000000（占位号），所有 WhatsApp 推送静默失败"
+    # V37.8: MR-6 合规 — 原有单层(Mac Mini --full 模式 bash -lc 运行时读取)
+    # 在 dev 环境下被跳过，整个 critical 不变式每天 dev 跑法都是盲区。新增声明层：
+    # ① preflight_check.sh 必须把 OPENCLAW_PHONE 声明为 REQUIRED_VARS（否则连
+    # 每日体检都不会拦截占位号）② YAML 源码里必须保留占位号字面量 `+85200000000`
+    # 作为 runtime 比较的反例（防止有人把真实号填进 YAML 占位）
     checks:
+      # declaration layer: preflight 把 OPENCLAW_PHONE 列为必需
+      - name: "preflight_check.sh 声明 OPENCLAW_PHONE 为 REQUIRED_VARS"
+        check_type: python_assert
+        code: |
+          with open("preflight_check.sh") as f:
+              content = f.read()
+          # REQUIRED_VARS 是一个 bash 数组，必须在数组内出现 OPENCLAW_PHONE
+          import re
+          m = re.search(r'REQUIRED_VARS=\((.*?)\)', content, re.DOTALL)
+          assert m, "preflight_check.sh 未找到 REQUIRED_VARS 数组"
+          assert "OPENCLAW_PHONE" in m.group(1), \
+              "OPENCLAW_PHONE 未声明为 REQUIRED_VARS（占位号会绕过每日体检）"
+      - name: "INV-ENV-002 YAML 保留占位号字面量作为反例守卫"
+        check_type: file_contains
+        file: ontology/governance_ontology.yaml
+        pattern: '\+85200000000'
+      # runtime layer: 真实 bash -lc 读取环境
       - name: "OPENCLAW_PHONE 非占位号"
         check_type: command_succeeds
         requires_full: true
@@ -728,7 +817,7 @@ invariants:
   - id: INV-DREAM-002
     name: reduce-path-must-not-re-run-map-loops
     meta_rule: MR-4
-    verification_layer: [declaration]
+    verification_layer: [declaration, runtime]
     severity: critical
     declaration: "Map-Reduce 分离调度的契约：默认 full run（MAP_ONLY=false 且 FAST_MODE=false）必须跳过 Phase 1a/1b 的 LLM 循环，只从 .map_cache/ 读取，否则 Reduce 会重复燃烧 Map 预算"
     design_decision: |
@@ -738,6 +827,11 @@ invariants:
       超时在同一位置。修复：Reduce 路径新增 cache-only fast path，扫 $MAP_DIR
       直接填充 MAP_SIGNALS/NOTES_SIGNALS 并 SKIP_MAP_LOOPS=true。
     source_case: "ontology/docs/cases/dream_map_budget_overflow_case.md"
+    # V37.8: MR-6 合规 — 原有三层全是 file_contains(declaration)，grep 能证明
+    # `SKIP_MAP_LOOPS=true` 字面量存在 + 门控语句存在，但无法证明**门控在
+    # Phase 1a/1b 循环之前生效**。新增运行时层：读文件拿行号，断言
+    # SKIP_MAP_LOOPS 赋值在 Phase 1a 循环行之前（顺序锁定，防止重构时把赋值
+    # 移到循环之后的回归）。
     checks:
       - name: "kb_dream.sh 有 SKIP_MAP_LOOPS 开关"
         check_type: file_contains
@@ -751,11 +845,34 @@ invariants:
         check_type: file_contains
         file: kb_dream.sh
         pattern: '\[ "\$SKIP_MAP_LOOPS" = false \].*ALL_NOTES'
+      # runtime layer: 行号顺序锁 — SKIP_MAP_LOOPS=true 赋值必须在 Phase 1a/1b 门控之前
+      - name: "SKIP_MAP_LOOPS=true 赋值位于 Phase 1a/1b 门控之前（顺序锁）"
+        check_type: python_assert
+        code: |
+          with open("kb_dream.sh") as f:
+              lines = f.readlines()
+          assign_line = None
+          gate_1a_line = None
+          gate_1b_line = None
+          for i, line in enumerate(lines, 1):
+              if assign_line is None and "SKIP_MAP_LOOPS=true" in line:
+                  assign_line = i
+              if gate_1a_line is None and '[ "$SKIP_MAP_LOOPS" = false ]' in line and "SRC_COUNT" in line:
+                  gate_1a_line = i
+              if gate_1b_line is None and '[ "$SKIP_MAP_LOOPS" = false ]' in line and "ALL_NOTES" in line:
+                  gate_1b_line = i
+          assert assign_line, "kb_dream.sh 无 SKIP_MAP_LOOPS=true 赋值"
+          assert gate_1a_line, "kb_dream.sh 无 Phase 1a 门控"
+          assert gate_1b_line, "kb_dream.sh 无 Phase 1b 门控"
+          assert assign_line < gate_1a_line, \
+              f"SKIP_MAP_LOOPS 赋值(L{assign_line}) 应在 Phase 1a 门控(L{gate_1a_line}) 之前"
+          assert assign_line < gate_1b_line, \
+              f"SKIP_MAP_LOOPS 赋值(L{assign_line}) 应在 Phase 1b 门控(L{gate_1b_line}) 之前"
 
   - id: INV-CACHE-002
     name: notes-cache-key-stable-under-mtime-drift
     meta_rule: MR-4
-    verification_layer: [declaration]
+    verification_layer: [declaration, runtime]
     severity: critical
     declaration: "Dream Notes Map 的 cache key 必须只依赖 note content（md5(content)），不依赖 mtime / sort 顺序 / 批次组合；同一条 note 在不同 run 中必须产生相同 cache key"
     design_decision: |
@@ -765,6 +882,10 @@ invariants:
       key = md5(content) 前 12 位。mtime/sort/batch 组合的漂移都不再影响。
       读取时按 signal hash 去重（一批 N 个 note 共享同一份 signals）。
     source_case: "ontology/docs/cases/dream_map_budget_overflow_case.md"
+    # V37.8: MR-6 合规 — 原有四层全是 file_contains/file_not_contains(declaration)，
+    # 只能证明代码中有 `content_hash=$(printf ... md5sum)` 字样，无法证明"同一内容
+    # 在不同 mtime 下真的产生相同 hash"。新增运行时层：真跑 md5，两个 tempfile 同
+    # 内容不同 mtime，断言 hash 一致 + 不同内容 hash 不同。
     checks:
       - name: "cache key 使用 content_hash 而非 batch_hash"
         check_type: file_contains
@@ -782,6 +903,42 @@ invariants:
         check_type: file_contains
         file: kb_dream.sh
         pattern: 'seen_note_signal_hashes'
+      # runtime layer: content-only hash 真实稳定性验证
+      # 注意：exec() 作用域陷阱——嵌套函数看不到 exec local dict 的 import，
+      # 所以 hash 计算必须 inline，不能包成 def _content_hash(s): ...
+      - name: "content-hash 在 mtime 漂移下稳定（真跑 md5 对照）"
+        check_type: python_assert
+        code: |
+          import hashlib, os, tempfile, time
+          content_a = "# Note about Qwen3\n\nbody line 1\nbody line 2\n"
+          content_b = "# Note about Gemini\n\ndifferent body\n"
+          with tempfile.TemporaryDirectory() as td:
+              p1 = os.path.join(td, "note_old.md")
+              p2 = os.path.join(td, "note_new.md")
+              p3 = os.path.join(td, "note_other.md")
+              for p, c in ((p1, content_a), (p2, content_a), (p3, content_b)):
+                  with open(p, "w") as f:
+                      f.write(c)
+              # 人为给 p1/p2 不同的 mtime（模拟 mm_index/kb_embed 触碰）
+              past = time.time() - 86400 * 2
+              os.utime(p1, (past, past))
+              now = time.time()
+              os.utime(p2, (now, now))
+              # 读回各自内容并计算 hash（inline md5 避免 exec 作用域陷阱）
+              # 语义与 kb_dream.sh 的 md5(content) 前 12 位一致
+              with open(p1) as f:
+                  h1 = hashlib.md5(f.read().encode("utf-8")).hexdigest()[:12]
+              with open(p2) as f:
+                  h2 = hashlib.md5(f.read().encode("utf-8")).hexdigest()[:12]
+              with open(p3) as f:
+                  h3 = hashlib.md5(f.read().encode("utf-8")).hexdigest()[:12]
+              # 必须：
+              #   h(p1) == h(p2)   （同内容不同 mtime → cache key 相同）
+              #   h(p1) != h(p3)   （不同内容 → cache key 不同）
+              assert h1 == h2, \
+                  f"mtime 漂移导致 cache key 变化: h(p1)={h1}, h(p2)={h2} — INV-CACHE-002 契约被违反"
+              assert h1 != h3, \
+                  f"不同内容产生相同 hash（碰撞或实现缺陷）: h(p1)={h1} == h(p3)={h3}"
 
   # ── 治理系统自观察（MR-7） ─────────────────────────────────────────
   # 2026-04-11: 治理系统自身是一等被治理对象。任何 check 层可能出现的状态
@@ -835,6 +992,56 @@ invariants:
         check_type: file_contains
         file: ontology/governance_checker.py
         pattern: "def print_results\\(results, json_mode=None\\)"
+
+  # ── 治理深度自我强制（MR-6 + MR-7 交汇点，V37.8） ─────────────────────
+  # MR-6 说"critical 不变式必须有 ≥2 层验证深度"，MR-7 说"治理系统自身是一等
+  # 被治理对象"。MRD-LAYER-001 只 warn 不 fail，执行中 7 个 critical 单层漏
+  # 洞连续 4 天没被修复。本不变式把 MR-6 从"建议"升级为"硬强制"——任何新增的
+  # critical 不变式只要少于 2 层验证深度就直接 fail governance_checker，在 CI
+  # 层面防止回归到"虚假安全感"的声明层单层快餐检查。
+
+  - id: INV-LAYER-001
+    name: critical-invariants-have-two-layers
+    meta_rule: MR-6
+    verification_layer: [declaration, runtime]
+    severity: critical
+    declaration: "所有 severity=critical 的不变式必须在 verification_layer 中声明 ≥2 个层（典型组合 [declaration, runtime]），防止单层虚假安全感"
+    design_decision: |
+      2026-04-11 V37.8：MR-6 在 v3 引入时只配了警告级元发现 MRD-LAYER-001
+      （severity_when_missing: warn），不阻塞。结果 7 个 critical 不变式
+      （INV-TOOL-001/002, INV-DEPLOY-002, INV-CRON-003, INV-ENV-002,
+      INV-DREAM-002, INV-CACHE-002）长期单层覆盖，其中 INV-ENV-002 在 dev
+      环境下还是整个 critical 检查被 skip（只 runtime 层 + 需 --full）。
+      本不变式把 MR-6 升级为 fail-stopping hard invariant — 再有人提交
+      single-layer critical，governance_checker 直接退出 1。
+    source_case: "2026-04-11 V37.7 双跑审计发现 MRD-LAYER-001 warn 漂移"
+    checks:
+      # declaration layer: MR-6 元规则文本存在
+      - name: "MR-6 critical-invariants-need-depth 元规则存在"
+        check_type: file_contains
+        file: ontology/governance_ontology.yaml
+        pattern: "critical-invariants-need-depth"
+      # runtime layer: 遍历自身 YAML，任何 severity==critical 但 layers<2 = fail
+      - name: "所有 critical 不变式声明 ≥2 层验证深度"
+        check_type: python_assert
+        code: |
+          import yaml
+          with open("ontology/governance_ontology.yaml") as f:
+              data = yaml.safe_load(f)
+          shallow = []
+          for inv in data.get("invariants", []):
+              if inv.get("severity") != "critical":
+                  continue
+              layers = inv.get("verification_layer", [])
+              if not isinstance(layers, list) or len(layers) < 2:
+                  shallow.append(
+                      f"{inv.get('id','?')} (verification_layer={layers})"
+                  )
+          assert not shallow, (
+              f"{len(shallow)} 个 critical 不变式仅有单层验证（MR-6 违反）: "
+              f"{', '.join(shallow)}. "
+              "critical 不变式必须有 ≥2 层，典型组合 [declaration, runtime]。"
+          )
 
   # ── PA 对话上下文隔离（V37.4.3 血案）──────────────────────────────────
 
@@ -1930,15 +2137,27 @@ meta_rule_discovery:
 
   - id: MRD-NOTIFY-002
     meta_rule: MR-4
-    name: "每个 Discord 频道最近 7 天应有推送活动"
+    name: "每个 Discord 频道必须有 caller，且 Mac Mini 上最近 7 天有推送活动"
     description: |
-      效果层（Layer 3）首个检查：扫描 notify_queue/ 和日志，
-      检查每个已配置的 Discord 频道是否在最近 7 天内成功推送过。
-      长期静默的频道 = 推送链路可能断裂。
-    scan_source: "~/kb_dream.log, ~/jobs/*/cache/*.log, ~/.kb/notify_queue/"
-    scan_filter: "最近 7 天内有 topic=X 的成功推送记录"
+      效果层（Layer 3）两段检查（V37.8 重写）：
+        1. source layer（dev + full）：扫描 jobs/*/run_*.sh + *.sh，每个 topic
+           至少要有一个 caller — 要么是 `--topic T`（通过 notify.sh 路由），
+           要么是 `DISCORD_CH_<T_upper>`（直接 openclaw message send 调用）。
+           同时接受两种路径，因为 32 个 job 中 28 个不经过 notify.sh。
+        2. activity layer（仅 --full 且存在 ~/.kb 时）：扫描 notify_queue/*.json
+           和 jobs/*/cache/*.log 的 mtime，检查源码里有 caller 的 topic 最近
+           7 天是否还在被实际调用。只对"源码有 caller 但运行时静默"的 topic
+           报警，避免在原实现里 28 个 bypass 日志误报为 silent。
+      原实现的致命缺陷：只 grep `--topic X` 字符串，28 个 bypass notify.sh 的
+      caller 永不产生该字样 → ontology/tech/freight 等频道被误报 silent。
+    scan_source: "jobs/*/run_*.sh + *.sh (source), ~/.kb/notify_queue + ~/jobs/*/cache/*.log (activity, --full only)"
+    scan_filter: "source: `--topic T` 或 `DISCORD_CH_<T_upper>` 任一存在; activity: 7 天内 mtime"
     severity_when_missing: warn
-    lesson: "2026-04-09: ontology 频道配置完整但从未收到推送——效果层空白导致盲区"
+    lesson: |
+      2026-04-09: ontology 频道配置完整但从未收到推送——效果层空白导致盲区。
+      2026-04-11 (V37.8): 只 grep --topic 字符串的检测器产生 false positive，
+      因为 28/32 个 caller bypass notify.sh 直接走 DISCORD_CH_<X>，需要接受
+      两种 caller 形式才能反映真实源码拓扑。
 
   - id: MRD-LAYER-001
     meta_rule: MR-6
@@ -1955,7 +2174,7 @@ meta_rule_discovery:
 # 5. 审计元数据
 # ═══════════════════════════════════════════════════════════════════════
 audit_metadata:
-  version: "3.8"
+  version: "3.9"
   created: "2026-04-07"
   upgraded: |
     v3.0 → v3.1: 通知路径治理(INV-NOTIFY-003/004) + 错误可观测性(MRD-ERROR-001) + 效果层启动(MRD-NOTIFY-002)
@@ -1967,8 +2186,9 @@ audit_metadata:
     v3.5.1 → v3.6: KB 内容+sources 双血案 (MR-4 第三次演出) — INV-KB-001 (content-blocks-flattened-before-kb-write, 修复 str(list) 产生 Python repr 污染 KB note 标题) + INV-SRC-001 (sources-writes-are-idempotent-at-source, 14 个 cron job 共享 kb_append_source.sh H2-marker 幂等 helper, 阻断 438 行 sources 重复爆炸) + INV-DEDUP-001 (kb-dedup-is-h2-scoped-and-scans-unindexed-notes, 修复 file-level seen set 误判跨 H2 合法重复 + 只扫 index.entries 漏掉 4 条孤儿 note)
     v3.6 → v3.7: kb_evening 升级复用 V37.5 kb_review 架构 → INV-EVENING-001 (kb-evening-fails-loud-not-silent, 复用性锁定: import 不 copy + evening-specific prompt + fail-fast wrapper 契约 + 1-day 窗口运行时回归) — MR-8 candidate "copy-paste-is-a-bug-class" 的正面兑现, auto_deploy FILE_MAP 同步补齐 kb_review_collect.py V37.5 历史漏洞
     v3.7 → v3.8: V37.7 双跑审计闭环 — (a) MR-8 "copy-paste-is-a-bug-class" 从 candidate 正式形式化进入 meta_rules (INV-EVENING-001 重新归属); (b) MR-9 "state-writes-go-through-helper-not-raw-redirect" 新增 (MR-4 上游预防层, 禁止 shell `>>` 直写持久化 state 文件, 必须走 kb_append_source.sh / kb_write.sh 等 helper); (c) INV-SRC-001 重新归属 MR-9 并新增 2 个 catch-all 运行时 scan (任何位置 `>> "$KB_SRC"` + 任何 `>> sources/*.md` 路径); (d) INV-DEDUP-002 新增 (kb-dedup-pre-filters-dangling-index-entries, MR-4 第 4 次演出 — dangling index refs 被误判为 duplicate 并在 --apply 时删除历史); (e) INV-GOV-001 check 2 重构去掉 JSON_MODE global mutation (依赖注入 print_results(json_mode=False) 参数); (f) run_discussions.sh V37.6 P0-2 第 16 处漏网修复 (bucket 1, MR-4 第 5 次演出); (g) audit_log.verify_chain JSON parse error prev_hash 级联 bug 修复 (不再让解析错误静默传播到下一行 prev check); (h) kb_evening "今日笔记" label semantics 修复 (count_today_notes filename prefix 扫描 vs 历史累计 note_count)
-  total_invariants: 34  # +INV-DEDUP-002
-  total_checks: 124     # +4 DEDUP-002 (2 declarative + 2 runtime python_assert)
+    v3.8 → v3.9: V37.8 MR-6 深度补齐 + MRD-NOTIFY-002 语义修复 — (a) 7 个 critical 单层不变式全部补第二层验证: INV-TOOL-001 (+declaration: proxy_filters.py 静态引用 MAX_TOOLS), INV-TOOL-002 (元数据标签修正，已有双层未声明), INV-DEPLOY-002 (+runtime: shlex tokenize AST 扫描 auto_deploy.sh 无 crontab 写入 token 序列), INV-CRON-003 (+declaration: _cron_cmd_invokes 精确匹配器源码守卫), INV-ENV-002 (+declaration: preflight REQUIRED_VARS 必含 OPENCLAW_PHONE + YAML 占位号字面量反例守卫), INV-DREAM-002 (+runtime: SKIP_MAP_LOOPS 赋值行号必须在 Phase 1a/1b 门控之前), INV-CACHE-002 (+runtime: 真跑 md5 对照同内容不同 mtime 的两个 tempfile hash 相等 + 不同内容 hash 不等); (b) INV-LAYER-001 新增 (critical-invariants-have-two-layers, meta_rule=MR-6, 把 MRD-LAYER-001 的 warn 升级为 hard-enforcing invariant — 未来任何新增 critical 不变式只要 <2 层就直接 fail); (c) MRD-NOTIFY-002 检测器重写 — 原实现只 grep `--topic X` 字符串但 32 个 job 中 28 个 bypass notify.sh 直接走 `DISCORD_CH_<X>`，导致 4-6 个频道长期被误报 silent。新实现两层: source layer (dev + full 都跑, 扫 jobs/*/run_*.sh 接受 `--topic T` 或 `DISCORD_CH_<T_upper>` 任一 caller) + activity layer (仅 --full, 用 notify_queue/jobs cache mtime 而非字符串 grep)
+  total_invariants: 35  # +INV-LAYER-001
+  total_checks: 139     # +INV-TOOL-001(+1) +INV-DEPLOY-002(+1) +INV-CRON-003(+2) +INV-ENV-002(+2) +INV-DREAM-002(+1) +INV-CACHE-002(+1) +INV-LAYER-001(+2) = +10; metadata-only: INV-TOOL-002 label fix
   meta_rules: 9         # MR-1~MR-9 (MR-8 formalized + MR-9 new)
   meta_rule_discovery_count: 6   # Phase 0: registry + env + notify-topic + layer-depth + error-suppression + notify-activity
   check_types_used: [python_assert, file_contains, file_not_contains, env_var_exists, command_succeeds, log_activity_check]

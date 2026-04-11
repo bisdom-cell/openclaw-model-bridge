@@ -1,5 +1,5 @@
 {
-  "updated": "2026-04-11 15:12:31",
+  "updated": "2026-04-11 15:55:47",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-04-11",
+      "what": "V37.8 MR-6 深度补齐 + MRD-NOTIFY-002 语义修复 — 7 个 critical 不变式从单层升级双层: INV-TOOL-001 (新增 MAX_TOOLS 声明层引用) / INV-TOOL-002 (元数据修复 verification_layer 标签) / INV-DEPLOY-002 (新增 shlex AST token 扫描 crontab 写入) / INV-CRON-003 (新增源码匹配器模式引用声明层) / INV-ENV-002 (新增 REQUIRED_VARS OPENCLAW_PHONE 声明层 + 占位号反例守卫) / INV-DREAM-002 (新增 SKIP_MAP_LOOPS 顺序锁运行时验证, 赋值位于 Phase 1a/1b 门控之前) / INV-CACHE-002 (新增运行时 md5 content-hash 对照, mtime 漂移稳定性真跑, inline md5 避免 exec scope trap). INV-LAYER-001 新元不变式: MR-6 硬强制所有 critical 不变式声明 >=2 层验证深度, MRD-LAYER-001 warn 升级为 hard fail. MRD-NOTIFY-002 检测器重写: 接受 notify.sh --topic 或 openclaw message send --channel-id DISCORD_CH_X 两种 caller 形式 (28/32 job 直接绕过 notify.sh), topic_to_env 映射 papers/freight/alerts/daily/tech/ontology, activity 层扫 notify_queue + cache 日志 mtime. Governance v3.8→v3.9 (34→35 inv, 124→139 checks, 8/9→9/9 meta rules). 31 suites / 927 tests / 0 fail / 安全 93/100. governance --full: 35 不变式 / 125/125 checks / 9/9 元规则 全通过.",
+      "by": "claude_code"
+    },
     {
       "date": "2026-04-11",
       "what": "V37.7 双跑审计闭环 3 合 1 修复 + MR-8/MR-9 元规则. Bucket 1 P0: run_discussions.sh V37.6 第 16 处漏网 (MR-4 第 5 次演出, SLOT_TAG 区分同日多 run). Bucket 2A: audit_log.verify_chain JSON parse error prev_hash 级联 bug (parse 失败行下游不再被误报 prev-mismatch). Bucket 2B: kb_dedup.find_duplicate_notes dangling index refs 假重复 (MR-4 第 4 次演出, find_dangling_index_entries 独立 reporter + os.path.exists pre-filter, --apply 清理 dangling 从 index 不动磁盘). Bucket 2C: kb_evening_collect 标签语义 (count_today_notes 扫 notes/ YYYYMMDD 前缀, 区分笔记总数 298 vs 今日新增 5). Bucket 3A: MR-8 copy-paste-is-a-bug-class 从 candidate 形式化 (INV-EVENING-001 重归属 MR-8, import 复用正向兑现). Bucket 3B: MR-9 state-writes-go-through-helper-not-raw-redirect 新增 (INV-SRC-001 重归属 MR-9, 上游预防 MR-4 silent-failure). INV-GOV-001 check 2 去 global mutation (print_results(json_mode=None) 参数注入). INV-SRC-001 catch-all 2 新 check (15 job scan + path-regex). INV-DEDUP-002 新不变式 (4 checks 含 main --apply E2E). governance_checker meta_rules counter 动态化 (audit_metadata 来源). Governance v3.7→v3.8 (33→34 inv, 119→126 checks, 7→9 MR). 新增 12 单测 + full_regression.sh 接入 test_kb_evening.py (V37.6 漏登记). 31 suites / 927 tests / 0 fail / 8/9 meta rules / 安全 93/100",
@@ -173,11 +178,6 @@
       "date": "2026-04-08",
       "what": "V37 Session: ① V3路标启动: Provider Plugin Interface(YAML/Python插件+合约验证+Extension Guide,107单测) + Capability-Based Routing(find_by_capability+build_fallback_chain+CLI) + adapter.py多级Fallback Chain(auto-discovery+sequential try) ② LLM协作方法论: 4条新原则(#22顺势设计/#23链式幻觉防范/#24触发词机制/#25对话数据一等公民) ③ 对话数据闭环: proxy热路径捕获+kb_harvest_chat.py冷路径提炼+MEMORY.md索引 ④ KB统一: HN+Freight双写notes对齐12/12 job ⑤ 修复: preflight set-e崩溃/adapter config防御/Gateway元数据过滤/industrial_ai_paradigm.md幻觉链切断 ⑥ 692测试",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-04-08",
-      "what": "V36.3 追加: ① Mac Mini双shell环境变量统一(~/.env_shared, .zshrc+.bash_profile统一source, 消除zsh/bash env裂缝) ② DISCORD_CH_ONTOLOGY持久化 ③ GitHub文档刷新(README测试数832+ontology运行时引擎章节+shadow模式) ④ crontab清理35→28(去重+preference_learner)",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -210,17 +210,17 @@
     "open_prs": "",
     "blocked_on": "",
     "focus": "V37.4.3 PA 告警污染血案闭环完成 + WhatsApp 生产验证通过 (13:06 原题复现零红线命中) + Mac Mini governance --full 28/28/67/67 + INV-PA-001/002 15 checks 全绿 + 33 job 全可运行. 2 个 preflight FAIL 是 pre-existing 分叉已登记 unfinished. 收工回顾发现 kb_review.sh 效果层静默降级 (同类 V37.4.3 血案) 已登记 unfinished. 下一步: Ontology Phase 3 渐进替换 (ONTOLOGY_MODE=on 切换) 或 Tool Policy Plugin V3 路标 或 kb_review 效果层修复",
-    "current_focus": "V37.4.3 闭环完成（生产硬验证通过）+ kb_review 静默降级已登记. Ontology Phase 3 / Tool Policy Plugin V3 / kb_review 修复 三选一待用户决定"
+    "current_focus": "V37.8 MR-6 深度补齐完成 (7 critical inv 双层化 + INV-LAYER-001 硬强制 + MRD-NOTIFY-002 重写) / governance v3.9 35 inv 139 checks 9/9 MR / 927 测试 / 下一步: commit+push+Mac Mini sync 验证"
   },
   "quality": {
     "security_score": "93",
     "test_count": "927",
-    "last_regression": "2026-04-11 15:10 pass",
+    "last_regression": "2026-04-11 15:51 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-04-11 15:10",
+    "security_score_time": "2026-04-11 15:51",
     "test_suites": "31",
-    "governance_invariants": "34/34",
-    "governance_checks": "115/126",
+    "governance_invariants": "35/35",
+    "governance_checks": "125/136",
     "version": "0.37.5"
   },
   "incidents": [
