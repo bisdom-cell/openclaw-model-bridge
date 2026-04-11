@@ -34,6 +34,8 @@ jobs:
     needs_api_key: true
     enabled: true
     tier: core                       # 论文监控核心源
+    kb_source_file: arxiv_daily.md
+    kb_source_label: 📄 ArXiv AI论文
     description: ArXiv AI论文监控（脚本控制格式，替代 --announce 模式）
 
   - id: hf_papers
@@ -44,6 +46,8 @@ jobs:
     needs_api_key: true
     enabled: true
     tier: core                       # 论文监控核心源
+    kb_source_file: hf_papers_daily.md
+    kb_source_label: 🤗 HuggingFace 论文
     description: Hugging Face Daily Papers 社区精选论文监控
 
   - id: semantic_scholar
@@ -54,6 +58,8 @@ jobs:
     needs_api_key: true
     enabled: true
     tier: core                       # 论文监控核心源
+    kb_source_file: semantic_scholar_daily.md
+    kb_source_label: 📈 Semantic Scholar
     description: Semantic Scholar 高引AI论文监控（多关键词搜索+引用排序）
 
   # openreview: V35 已移除（API 403 post-security-incident，S2 已覆盖顶会论文）
@@ -66,6 +72,8 @@ jobs:
     needs_api_key: true
     enabled: true
     tier: auxiliary                   # 补充源
+    kb_source_file: dblp_daily.md
+    kb_source_label: 📚 DBLP CS论文
     description: DBLP CS全领域论文索引监控（多关键词搜索+LLM翻译+WhatsApp推送）
 
   - id: acl_anthology
@@ -76,6 +84,8 @@ jobs:
     needs_api_key: true
     enabled: true
     tier: auxiliary                   # 补充源（按会议周期）
+    kb_source_file: acl_anthology.md
+    kb_source_label: 📝 ACL Anthology NLP
     description: ACL Anthology NLP 顶会论文监控（ACL/EMNLP/NAACL）
 
   - id: pwc
@@ -96,6 +106,8 @@ jobs:
     needs_api_key: false
     enabled: true
     tier: auxiliary                   # 补充信息源
+    kb_source_file: github_trending.md
+    kb_source_label: 🚀 GitHub Trending ML/AI
     description: GitHub Trending ML/AI 仓库监控（GitHub Search API，从代码端发现趋势）
 
   - id: rss_blogs
@@ -106,6 +118,8 @@ jobs:
     needs_api_key: false
     enabled: true
     tier: auxiliary                   # 补充信息源
+    kb_source_file: rss_blogs.md
+    kb_source_label: 📖 RSS 技术博客
     description: RSS 博客订阅监控（科学空间等，高质量中文技术博客）
 
   - id: karpathy_x
@@ -126,6 +140,8 @@ jobs:
     needs_api_key: true
     enabled: true
     tier: core                         # 技术方向参考核心源
+    kb_source_file: ai_leaders_x.md
+    kb_source_label: 🐦 AI Leaders X 洞察
     description: "AI Leaders X 技术洞察追踪（15位：Karpathy/Jim Fan/LeCun/Chollet/Swyx/Lilian Weng/Jason Wei/HW Chung/Harrison Chase + Ontology方向：Gary Marcus/Jure Leskovec/Michael Witbrock + Enterprise AI：Palantir/Alex Karp/Shyam Sankar）"
 
   - id: kb_evening
@@ -158,6 +174,8 @@ jobs:
     needs_api_key: true
     enabled: true
     tier: core                       # 业务核心：航运动态
+    kb_source_file: freight_daily.md
+    kb_source_label: 🚢 货代动态
     description: 货代 Watcher，抓取航运动态（系统crontab触发，脚本内直接curl LLM）
 
   - id: openclaw_run
@@ -168,6 +186,8 @@ jobs:
     needs_api_key: true
     enabled: true
     tier: core                       # 上游依赖监控
+    kb_source_file: openclaw_official.md
+    kb_source_label: ⚙️ OpenClaw Releases
     description: OpenClaw Releases Watcher（版本更新+LLM中文摘要）
 
   # openclaw_discussions 已删除 — 与 run_discussions (id: run_discussions) 完全重复
@@ -192,6 +212,8 @@ jobs:
     needs_api_key: false
     enabled: true
     tier: core                       # 信息源核心
+    kb_source_file: hn_daily.md
+    kb_source_label: 🔥 HackerNews 热帖
     description: HackerNews 热帖抓取
 
   - id: job_watchdog
@@ -334,6 +356,8 @@ jobs:
     needs_api_key: false
     enabled: true
     tier: auxiliary                     # ontology 知识积累
+    kb_source_file: ontology_sources.md
+    kb_source_label: 🧠 Ontology 专属源
     description: Ontology 专属信息源监控 — Semantic Web Journal + W3C + KG Conference RSS，关键词过滤，LLM 富摘要，Discord #ontology 推送 + KB 归档
 
   - id: preference_learner

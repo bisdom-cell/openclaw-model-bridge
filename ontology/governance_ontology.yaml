@@ -935,6 +935,186 @@ invariants:
         file: SOUL.md
         pattern: '\[SYSTEM_ALERT\]'
 
+  - id: INV-REVIEW-001
+    name: kb-review-fails-loud-not-silent
+    meta_rule: MR-4
+    verification_layer: [declaration, runtime]
+    severity: critical
+    declaration: |
+      kb_review 必须 fail-fast：LLM 失败→推送 [SYSTEM_ALERT]+exit 1；
+      不允许机械 fallback 伪装成功；status.json 的 llm_status 字段必须诚实；
+      源文件枚举必须从 jobs_registry.yaml 读取（registry-driven，消除硬编码漂移）；
+      最近 N 天提取必须按 H2 章节 drill-down（而非行级日期匹配），避免把
+      digest 容器标题当论文亮点。
+    design_decision: |
+      2026-04-11 血案（与 V37.4.3 PA 告警污染同血案类，"效果层静默降级"）：
+      kb_review.sh V29 原实现有 6 个 bug 构成 silent degradation 链：
+      (1) export NOTES_CONTENT 在 LLM 调用之后，Python 子进程始终拿到空 prompt
+      (2) 源枚举硬编码 7 个（缺 ai_leaders_x + ontology_sources）
+      (3) LLM 失败后机械 fallback（把 `## 今日arXiv精选(YYYY-MM-DD)` digest 容器
+          标题当论文亮点写入 review，看起来像成功，实际是垃圾）
+      (4) status.json 永远写 "llm": true，即使 LLM 实际失败
+      (5) 行级日期匹配漏掉整个 H2 section 的实体内容
+      (6) "回复任何话题可深入讨论"悬空承诺但没有对应实现
+
+      V37.5 结构性修复：
+      - 删除 shell 变量传递（全部 Python 化）→ 消除 scope bug class
+      - 源枚举 registry-driven（jobs_registry.yaml::kb_source_file）
+      - H2 章节解析（extract_recent_sections）替代行级匹配
+      - LLM 失败 fail-fast 推送 [SYSTEM_ALERT] 并 exit 1
+      - status.json 诚实字段 llm_status: ok|failed|unknown
+      - 移除"回复任何话题可深入讨论"悬空承诺
+
+      这条不变式锁定：①代码层契约（fail-fast + registry-driven + H2 parser）
+      ②运行时契约（mock LLM 失败 → status=llm_failed 不伪装）
+      ③诚实状态层（不再永远写 llm:true）
+    lesson: |
+      V37.4.3 PA 告警污染是"告警数据结构性污染 LLM 上下文"；
+      V37.5 kb_review 是"失败路径结构性伪装成功状态"。两者都属于
+      MR-4 (silent failure is a bug) 下的血案类——声明层检查全过，
+      效果层却完全失效。治理体系必须在两个维度同时拦截：结构契约 +
+      运行时回归。
+    checks:
+      - name: "kb_review.sh 标注 V37.5 fail-fast 版本"
+        check_type: file_contains
+        file: kb_review.sh
+        pattern: "V37.5"
+      - name: "kb_review.sh 失败路径注入 [SYSTEM_ALERT] 标记"
+        check_type: file_contains
+        file: kb_review.sh
+        pattern: '\[SYSTEM_ALERT\]'
+      - name: "kb_review.sh 不再包含 V29 机械 fallback 标签"
+        check_type: file_not_contains
+        file: kb_review.sh
+        pattern: "LLM 不可用, 基础整理"
+      - name: "kb_review.sh 不再包含悬空承诺 '回复任何话题可深入讨论'"
+        check_type: file_not_contains
+        file: kb_review.sh
+        pattern: "回复任何话题可深入讨论"
+      - name: "kb_review_collect.py 定义 load_sources_from_registry"
+        check_type: file_contains
+        file: kb_review_collect.py
+        pattern: "def load_sources_from_registry"
+      - name: "kb_review_collect.py 定义 extract_recent_sections (H2 parser)"
+        check_type: file_contains
+        file: kb_review_collect.py
+        pattern: "def extract_recent_sections"
+      - name: "kb_review_collect.py 定义 call_llm 函数"
+        check_type: file_contains
+        file: kb_review_collect.py
+        pattern: "def call_llm"
+      - name: "kb_review_collect.py 不再包含悬空承诺"
+        check_type: file_not_contains
+        file: kb_review_collect.py
+        pattern: "回复任何话题可深入讨论"
+      - name: "jobs_registry.yaml 声明 kb_source_file 字段 (registry-driven 证据)"
+        check_type: file_contains
+        file: jobs_registry.yaml
+        pattern: "kb_source_file:"
+      - name: "kb_review.sh llm_failed 分支必须紧跟 exit 1 (fail-fast 顺序锁)"
+        check_type: python_assert
+        code: |
+          # fail-fast 顺序锁：llm_failed 分支后 500 字符内必须有 exit 1，
+          # 否则可能存在"检测到失败但继续推送"的 silent degradation 漏洞。
+          src = open("kb_review.sh", encoding="utf-8").read()
+          llm_failed_idx = src.find('STATUS" = "llm_failed"')
+          assert llm_failed_idx != -1, "kb_review.sh 缺少 llm_failed 处理分支"
+          exit_idx = src.find("exit 1", llm_failed_idx)
+          assert exit_idx != -1, "llm_failed 分支后未找到 exit 1"
+          assert (exit_idx - llm_failed_idx) < 500, (
+              f"llm_failed 分支必须立即 fail-fast exit 1, "
+              f"实际距离 {exit_idx - llm_failed_idx} 字符"
+          )
+      - name: "registry-driven: load_sources_from_registry 真实发现 >=12 源含 ai_leaders_x + ontology_sources"
+        check_type: python_assert
+        code: |
+          # 运行时回归：registry 必须发现 V37.5 修复前遗漏的两个源，
+          # 防止未来有人手动改回硬编码或者从 registry 删除字段。
+          import sys, os
+          sys.path.insert(0, os.getcwd())
+          import kb_review_collect as m
+          srcs = m.load_sources_from_registry("jobs_registry.yaml")
+          assert len(srcs) >= 12, f"期望 registry 声明 >=12 sources, 实际 {len(srcs)}"
+          ids = {s["id"] for s in srcs}
+          assert "ai_leaders_x" in ids, (
+              f"ai_leaders_x 必须在 registry-driven 发现列表中 "
+              f"(V37.5 新增, 此前硬编码漏掉), got: {sorted(ids)}"
+          )
+          assert "ontology_sources" in ids, (
+              f"ontology_sources 必须在 registry-driven 发现列表中 "
+              f"(V37.1 新增信息源, 此前硬编码漏掉), got: {sorted(ids)}"
+          )
+          # 每条必须有 kb_source_file
+          for s in srcs:
+              assert s.get("kb_source_file"), f"source {s['id']} 缺少 kb_source_file"
+      - name: "H2 parser drill-down: 窗口内章节保留, 窗口外章节剔除"
+        check_type: python_assert
+        code: |
+          # 运行时回归：H2 章节解析替代行级日期匹配。
+          # 构造 3 个 H2 章节 (窗口内 + 窗口外 + 今日), 验证正确过滤。
+          import sys, os
+          sys.path.insert(0, os.getcwd())
+          import kb_review_collect as m
+          from datetime import datetime
+          today = datetime(2026, 4, 11)
+          content = (
+              "# title\n\n"
+              "## 2026-04-10 arxiv report\n"
+              "Paper A: 重要论文 A 的细节内容\n\n"
+              "## 2026-04-05 arxiv report\n"
+              "Paper B: 过期论文 B (应被剔除)\n\n"
+              "## 2026-04-11 arxiv report\n"
+              "Paper C: 今日论文 C\n"
+          )
+          result = m.extract_recent_sections(content, days=3, max_chars=5000, today=today)
+          assert "Paper A" in result, f"窗口内章节 Paper A 必须保留: {result!r}"
+          assert "Paper B" not in result, f"窗口外章节 Paper B 必须剔除: {result!r}"
+          assert "Paper C" in result, f"今日章节 Paper C 必须保留: {result!r}"
+      - name: "fail-fast contract: mock LLM 失败 → status=llm_failed, 不伪装 ok"
+        check_type: python_assert
+        code: |
+          # 运行时回归：run() 以 llm_caller 注入失败 → status 必须 llm_failed,
+          # 不允许降级为 ok, 不允许写入 review_markdown / wa_message 伪造产物。
+          import sys, os, tempfile
+          sys.path.insert(0, os.getcwd())
+          import kb_review_collect as m
+          from datetime import datetime
+          tmp = tempfile.mkdtemp(prefix="gov_inv_review_")
+
+          def mock_fail(prompt):
+              return (False, "", "proxy_unreachable_for_test")
+
+          result = m.run(
+              tmp, 7, "jobs_registry.yaml",
+              today=datetime(2026, 4, 11),
+              llm_caller=mock_fail,
+          )
+          assert result["status"] == "llm_failed", (
+              f"LLM 失败必须 fail-fast, status={result['status']}"
+          )
+          assert result["reason"] == "proxy_unreachable_for_test"
+          # 关键: 失败路径不允许产出 review_markdown / wa_message
+          assert "review_markdown" not in result, (
+              "LLM 失败后 run() 不得产出 review_markdown (silent degradation 漏洞)"
+          )
+          assert "wa_message" not in result, (
+              "LLM 失败后 run() 不得产出 wa_message (silent degradation 漏洞)"
+          )
+      - name: "call_llm 最小内容阈值: 短响应判失败"
+        check_type: python_assert
+        code: |
+          # call_llm 必须拒绝空/过短响应, 防止 LLM 返回空壳被当成功。
+          src = open("kb_review_collect.py", encoding="utf-8").read()
+          assert "LLM content too short" in src, (
+              "call_llm 必须拒绝过短 LLM 响应 (V37.5 fail-fast 契约)"
+          )
+          assert "len(content.strip()) < 80" in src, (
+              "call_llm 必须声明 80-char 最小内容阈值"
+          )
+          assert "LLM returned empty content" in src, (
+              "call_llm 必须拒绝空响应 (不允许空字符串伪装成功)"
+          )
+
 # ═══════════════════════════════════════════════════════════════════════
 # 4. 可执行元规则（Phase 0）— 自动发现缺失不变式
 #    只扫描结构化数据源，不解析自然语言
@@ -1019,15 +1199,16 @@ meta_rule_discovery:
 # 5. 审计元数据
 # ═══════════════════════════════════════════════════════════════════════
 audit_metadata:
-  version: "3.4"
+  version: "3.5"
   created: "2026-04-07"
   upgraded: |
     v3.0 → v3.1: 通知路径治理(INV-NOTIFY-003/004) + 错误可观测性(MRD-ERROR-001) + 效果层启动(MRD-NOTIFY-002)
     v3.1 → v3.2: MR-7 governance-execution-is-self-observable + INV-GOV-001 summary 不吞 error（2026-04-11 三层嵌套盲区案例）
     v3.2 → v3.3: Dream Map 预算溢出 + cache key 漂移案例 → INV-DREAM-001 (map budget scales with mode) + INV-DREAM-002 (reduce path must not re-run map loops) + INV-CACHE-002 (notes cache key stable under mtime drift)
     v3.3 → v3.4: PA 告警污染血案 → INV-PA-001 (alert does not pollute chat context, 两侧契约 + 顺序锁定 + 运行时回归) + INV-PA-002 (SOUL.md 规则 10 存在) — 结构 + 行为双防线
-  total_invariants: 28  # +INV-PA-001/002
-  total_checks: 67      # +15 checks on alert isolation (INV-PA-001: 10 + INV-PA-002: 5)
+    v3.4 → v3.5: kb_review 6-issue silent degradation 血案 → INV-REVIEW-001 (kb-review-fails-loud-not-silent, fail-fast 顺序锁 + registry-driven 发现回归 + H2 parser drill-down + mock LLM 失败契约) — 与 V37.4.3 同血案类 (效果层静默降级)
+  total_invariants: 29  # +INV-REVIEW-001
+  total_checks: 81      # +14 checks on kb_review fail-fast (INV-REVIEW-001: 9 declaration + 5 runtime)
   meta_rules: 7         # MR-1~MR-7
   meta_rule_discovery_count: 6   # Phase 0: registry + env + notify-topic + layer-depth + error-suppression + notify-activity
   check_types_used: [python_assert, file_contains, file_not_contains, env_var_exists, command_succeeds, log_activity_check]
