@@ -1,6 +1,6 @@
 {
-  "updated": "2026-04-11 06:56:55",
-  "updated_by": "full_regression",
+  "updated": "2026-04-11 07:22:29",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -79,6 +79,16 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-04-11",
+      "what": "V37.4.2: Dream Reduce 短输出 bug 二段闭环修复 — 触发 V37.4.1 Mac Mini 14:01 run 三次重试 876/876/927 chars 完全一致 → 根因 Qwen3 server-side prompt caching + 缓存读取 bland header 让 LLM 陷入简短总结收敛. 结构化修复(cache-only 读取 line 414-465): UNIQ_NOTE_SIG_BLOCKS 数组去重+覆盖统计 meta header+编号簇 ### 笔记信号簇 i/N+Phase 1b cache-hit header 用 $name. 重试变体修复(line 1011-1024): retry=1 用 REDUCE_PROMPT, retry≥2 prepend 第 N 次尝试 — 上一次响应过短+硬性 6 章节+2500 汉字, prompt prefix 变化绕过 server cache. 新增 6 单测 TestV37_4_2_CacheReadStructureAndRetryVariation. Mac Mini 15:02 验证: retry 1 = 1402 chars 仍被 cache 命中 → retry 2 变体 = 21871 chars/7000 汉字/6 章节完整/9m24s/3 segments 推送成功/识别 本体+LLM+Agent 深度融合 主题. 32 Dream 单测 / 0 fail.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-04-11",
+      "what": "V37.4.1: Dream Reduce 重试降级机制 第一次尝试 — 触发 V37.4 Mac Mini Run 1 cache-only fast path 生效(11s 缓存加载) 但 Phase 2 Reduce retry 1 = 3967 → retry 2 = 906 chars 砸穿. 重试降级修复(line 975-1045): BEST_RESULT 跟踪历次最长 + REDUCE_TEMPS=(0.85 0.6 0.4) 温度衰减 + 双阈值 MIN_DREAM_CHARS=3000 目标/MIN_ACCEPTABLE_CHARS=1500 失败底线 + fallback DREAM_RESULT=$BEST_RESULT. 新增 6 单测 TestReduceRetryFallback. 验证失败: Mac Mini Run 2 三次重试 876/876/927 chars 完全一致 → 暴露 简单重试无法突破 server-side prompt caching 更深根因 → V37.4.2 必须结构+变体双修复.",
+      "by": "claude_code"
+    },
     {
       "date": "2026-04-11",
       "what": "V37.4: Dream Map 预算溢出+cache key 稳定性三层修复 — 触发 286 notes×76s>60min budget. Fix A: Reduce cache-only fast path (SKIP_MAP_LOOPS 门控 Phase 1a+1b+elif). Fix B: Notes batch 15/12000→30/24000 halve LLM calls. Fix C: per-note cache key=md5(content) + macOS md5 -q fallback + signal dedup. DREAM_TIMEOUT_SEC dynamic: MAP_ONLY=5400 / full_run=3600. 案例文档 dream_map_budget_overflow_case.md (四维度因果链+三层根因+时间线). 3 新不变式 INV-DREAM-001/002+INV-CACHE-002 (v3.2→v3.3, 23→26, 43→52 checks). test_dream_cache_stability.py 20 单测锁定. full_regression: 29 suites / 774 tests / 0 fail / 26/26 invariants / 41/52 checks.",
@@ -168,16 +178,6 @@
       "date": "2026-04-05",
       "what": "Sub-agent PoC 完成：sessions_spawn schema注入+SOUL.md触发词+E2E验证。结论：显式触发可用，隐式触发受Qwen3行为限制（优先从上下文回答不调工具）。作为潜在能力保留，等下一代模型。578单测全过。",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-04-03",
-      "what": "V33: Discord双通道全量覆盖(24脚本100%对齐) + notify.sh统一推送 + S2论文429修复(指数退避) + 故障快照接入watchdog + SLO接入watchdog + GameDay演练脚本 + pip-audit集成 + P0全部完成(4/4) + P1全部完成(3/3) + P2完成2项 + 工作原则#16(双通道强制) + 安全评分93",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-04-02",
-      "what": "V32: P0四项(SLO最小集+阈值中心化+E2E进CI+故障快照) + P1三项(Job分层治理tier字段+Fallback Matrix断路器+PR影响评估模板) + config_loader pyyaml fallback + SLO零流量误报修复 + kb_embed源覆盖率100% — 440测试全过, 安全评分93/100",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -202,8 +202,8 @@
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB"
   },
   "session_context": {
-    "last_session": "\"2026-04-11\"",
-    "unfinished": "[]",
+    "last_session": "2026-04-11",
+    "unfinished": [],
     "open_prs": "",
     "blocked_on": "",
     "focus": "\"Governance INV-CRON 三层 bug 修复完成 (子串/exec-scope/silent-error), Mac Mini 生产验证 41/41 + preflight 0 fail + kb_embed 100%. 下一步: Ontology Phase 3 渐进替换 (ONTOLOGY_MODE=on 切换前置) 或 Tool Policy Plugin V3 路标\"",
@@ -280,7 +280,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.4 发布: Dream Map 预算+缓存稳定性三层修复完成 (Fix A/B/C). 29 suites / 774 tests / 26 不变式. 下一步: Mac Mini 验证 03:00 Dream 是否能正常完成 + Ontology Phase 3 或 Tool Policy Plugin V3 路标",
+  "focus": "V37.4.2 发布: Dream Reduce 短输出 bug 二段闭环修复完成. Mac Mini 15:02 生产验证: retry 2 变体 prompt = 21871 chars / 7000 汉字 / 6 章节完整 / 9m24s / 3 segments WhatsApp+Discord 推送成功. 下一步: Mac Mini preflight --full + 观察明日 03:00 Dream 自动运行",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
