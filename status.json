@@ -1,5 +1,5 @@
 {
-  "updated": "2026-04-11 03:44:58",
+  "updated": "2026-04-11 04:39:10",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-04-11",
+      "what": "V37.4: Dream Map 预算溢出+cache key 稳定性三层修复 — 触发 286 notes×76s>60min budget. Fix A: Reduce cache-only fast path (SKIP_MAP_LOOPS 门控 Phase 1a+1b+elif). Fix B: Notes batch 15/12000→30/24000 halve LLM calls. Fix C: per-note cache key=md5(content) + macOS md5 -q fallback + signal dedup. DREAM_TIMEOUT_SEC dynamic: MAP_ONLY=5400 / full_run=3600. 案例文档 dream_map_budget_overflow_case.md (四维度因果链+三层根因+时间线). 3 新不变式 INV-DREAM-001/002+INV-CACHE-002 (v3.2→v3.3, 23→26, 43→52 checks). test_dream_cache_stability.py 20 单测锁定. full_regression: 29 suites / 774 tests / 0 fail / 26/26 invariants / 41/52 checks.",
+      "by": "claude_code"
+    },
     {
       "date": "2026-04-11",
       "what": "V37.3: Governance 自观察元规则 MR-7 + INV-GOV-001 — 案例文档 ontology/docs/cases/governance_silent_error_case.md (四维度因果链+三层根因+观察者的自我盲区) + MR-7 governance-execution-is-self-observable (治理系统是一等被治理对象) + INV-GOV-001 summary-counts-all-non-pass (声明层 grep 守卫 + 运行时 error 注入 probe, JSON_MODE save/restore) + test_governance_summary.py 7 单测锁定 bug 3 + 接入 full_regression.sh. 全量回归: 28 suites / 754 tests / 0 fail, governance 23/23 invariants / 32/43 checks. v3.1 → v3.2 (22→23 不变式, 6→7 元规则, 41→43 checks).",
@@ -173,11 +178,6 @@
       "date": "2026-04-02",
       "what": "V32: P0四项(SLO最小集+阈值中心化+E2E进CI+故障快照) + P1三项(Job分层治理tier字段+Fallback Matrix断路器+PR影响评估模板) + config_loader pyyaml fallback + SLO零流量误报修复 + kb_embed源覆盖率100% — 440测试全过, 安全评分93/100",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-04-02",
-      "what": "V32: 四个P0任务完成 — SLO最小集(延迟p95/错误分类/工具成功率/降级率/恢复率) + 阈值中心化(config.yaml收敛70+魔法数字) + E2E进CI(preflight 19项) + 故障快照(incident_snapshot.py自动采集) + 28新单测",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -211,13 +211,13 @@
   },
   "quality": {
     "security_score": "93",
-    "test_count": "754",
-    "last_regression": "2026-04-11 03:42 pass",
+    "test_count": "774",
+    "last_regression": "2026-04-11 04:37 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-04-11 03:42",
-    "test_suites": "28",
-    "governance_invariants": "23/23",
-    "governance_checks": "32/43",
+    "security_score_time": "2026-04-11 04:37",
+    "test_suites": "29",
+    "governance_invariants": "26/26",
+    "governance_checks": "41/52",
     "version": "0.36.0"
   },
   "incidents": [
@@ -280,7 +280,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.3 发布: Governance 自观察 MR-7 + INV-GOV-001 完成. 生产全绿 754 测试 / 23 不变式 / 7 元规则. 下一步: Ontology Phase 3 渐进替换或 Tool Policy Plugin V3 路标",
+  "focus": "V37.4 发布: Dream Map 预算+缓存稳定性三层修复完成 (Fix A/B/C). 29 suites / 774 tests / 26 不变式. 下一步: Mac Mini 验证 03:00 Dream 是否能正常完成 + Ontology Phase 3 或 Tool Policy Plugin V3 路标",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",

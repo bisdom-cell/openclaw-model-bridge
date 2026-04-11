@@ -61,6 +61,9 @@ fi
 if [ -f ontology/tests/test_governance_summary.py ]; then
     run_suite "governance_summary (INV-GOV-001 silent error)" "python3 -m unittest ontology.tests.test_governance_summary"
 fi
+if [ -f ontology/tests/test_dream_cache_stability.py ]; then
+    run_suite "dream_cache_stability (INV-DREAM-001/002 + INV-CACHE-002)" "python3 -m unittest ontology.tests.test_dream_cache_stability"
+fi
 
 # 条件性测试（仅当文件存在时运行）
 for tf in test_conv_quality.py test_kb_autotag.py test_kb_dedup.py test_token_report.py test_arxiv_parser.py test_shell_antipatterns.py; do

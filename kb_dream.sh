@@ -8,11 +8,12 @@
 #   Phase 1 (Map)   — 每个 source 文件独立发送给 LLM，提取关键信号和异常点
 #   Phase 2 (Reduce) — 汇总所有信号 + notes + 状态，进行跨领域关联发现
 #
-# 调度策略：Map 和 Reduce 可分离执行，利用缓存解耦
-#   00:00  bash kb_dream.sh --map-sources  # 预热 Sources（~10-15min，15 源）
-#   00:40  bash kb_dream.sh --map-notes    # 预热 Notes（~10-15min，~16 批，留足余量给 Sources）
-#   03:00  bash kb_dream.sh               # Reduce：缓存全命中(~15s) → 跨域关联(~3min) → 推送
-#   效果：每个子任务 ≤ 10min，不会超时；03:00 只需 ~3.5min
+# 调度策略：Map 和 Reduce 可分离执行，利用缓存解耦（V37.4 加固）
+#   00:00  bash kb_dream.sh --map-sources  # 预热 Sources（~10-15min，15 源，90min 预算）
+#   00:40  bash kb_dream.sh --map-notes    # 预热 Notes（~30min 首日 bootstrap / ~90s 增量，90min 预算）
+#   03:00  bash kb_dream.sh               # Reduce cache-only fast path → 跨域关联(~3min) → 推送（60min 预算）
+#   V37.4 fix: 03:00 full run 不再重跑 Phase 1a/1b LLM 循环，只从 $MAP_DIR 读缓存
+#             (SKIP_MAP_LOOPS=true)。预期 03:00 总耗时 <5min。
 #
 # 输出：~/.kb/dreams/YYYY-MM-DD.md + WhatsApp+Discord 推送精华洞察
 #
@@ -50,10 +51,12 @@ fi
 mkdir "$LOCK" 2>/dev/null || { echo "[dream] Lock contention, skip"; exit 0; }
 trap 'rmdir "$LOCK" 2>/dev/null' EXIT
 
-# 全局超时保护（V37.2 fix: 防止卡住影响后续 job）
-# 03:00 启动 → 最迟 04:00 结束，00:00-06:00 为 Qwen3 算力专属窗口
+# 全局超时保护（V37.2 fix: 防止卡住影响后续 job；V37.3 fix: 按模式动态预算）
+# Map 预热（--map-sources / --map-notes / --map-only）: 90 min（KB 全量 bootstrap 可能耗时）
+# Reduce full run（无参数）: 60 min（读缓存 + 1 次 Reduce LLM call，应 <5 min）
+# 最终 DREAM_TIMEOUT_SEC 在参数解析之后才确定（见下方"动态预算"段落）
 DREAM_START_EPOCH=$(date +%s)
-DREAM_TIMEOUT_SEC=3600  # 60 minutes（凌晨整段时间预留给 Dream，全量无损运行）
+DREAM_TIMEOUT_SEC=3600  # 默认占位；实际值在 MAP_ONLY 解析后覆盖
 check_deadline() {
     local elapsed=$(( $(date +%s) - DREAM_START_EPOCH ))
     if [ "$elapsed" -ge "$DREAM_TIMEOUT_SEC" ]; then
@@ -81,6 +84,18 @@ MAP_NOTES_ONLY=false
 [ "${1:-}" = "--map-only" ] && MAP_ONLY=true
 [ "${1:-}" = "--map-sources" ] && { MAP_ONLY=true; MAP_SOURCES_ONLY=true; }
 [ "${1:-}" = "--map-notes" ] && { MAP_ONLY=true; MAP_NOTES_ONLY=true; }
+
+# V37.3 fix: 按模式动态预算
+#   Map 预热：需要处理全量 KB（286+ notes），首日 bootstrap 可能耗时 → 90 min
+#   Reduce full run：只读缓存 + 1 次 Reduce LLM → 60 min 足矣
+# 环境变量 DREAM_TIMEOUT_SEC_OVERRIDE 可覆盖（用于调试）
+if [ -n "${DREAM_TIMEOUT_SEC_OVERRIDE:-}" ]; then
+    DREAM_TIMEOUT_SEC="$DREAM_TIMEOUT_SEC_OVERRIDE"
+elif [ "$MAP_ONLY" = true ]; then
+    DREAM_TIMEOUT_SEC=5400  # 90 minutes
+else
+    DREAM_TIMEOUT_SEC=3600  # 60 minutes
+fi
 
 KB_BASE="${KB_BASE:-$HOME/.kb}"
 DREAM_DIR="$KB_BASE/dreams"
@@ -349,9 +364,96 @@ fi
 
 MAP_SIGNALS=""
 MAP_COUNT=0
+NOTES_SIGNALS=""
+NOTES_MAP_COUNT=0
 MAP_CONSECUTIVE_FAILS=0  # 连续失败计数：超过 3 次停止 Map，保护 fallback 配额
 
-if [ "$FAST_MODE" = false ] && [ "$SRC_COUNT" -gt 0 ] && [ "$MAP_NOTES_ONLY" = false ]; then
+# ─────────────────────────────────────────────────────────────────────
+# V37.3 fix A: Reduce 路径的 "Cache-Only Fast Path"
+#
+# 背景：2026-04-11 的 Dream 失败暴露了一个结构性 bug —— 03:00 full run
+# 过去会再跑一遍 Phase 1a/1b Map 循环（即使 00:00 --map-sources 和
+# 00:40 --map-notes 已经把缓存写好了），导致重复燃烧 LLM 时间，60 min
+# 预算被 Notes Map 循环吃光，Reduce 从未开始。
+#
+# 修复：当不是 MAP_ONLY 也不是 FAST_MODE 时（即默认 full-run 模式），
+# 跳过 Phase 1a/1b 循环，直接从 $MAP_DIR 扫描缓存文件，把内容填进
+# MAP_SIGNALS / NOTES_SIGNALS。缓存缺失的部分视为"这次不深挖"而非
+# "立刻 LLM 重跑"。
+#
+# 边缘情况：
+#   1. 缓存全空 → MAP_SIGNALS/NOTES_SIGNALS 空 → 降级 Fast mode（line 697）
+#   2. 缓存部分存在（如 00:40 Notes 超时时的 207/286）→ 使用部分，继续推送
+#   3. --map-sources / --map-notes / --map-only 仍然走 Map 循环（它们就是预热）
+# ─────────────────────────────────────────────────────────────────────
+SKIP_MAP_LOOPS=false
+if [ "$FAST_MODE" = false ] && [ "$MAP_ONLY" = false ] && [ -d "$MAP_DIR" ]; then
+    log "Reduce 路径：从缓存加载 Map 信号（V37.3 fix A，跳过 Map 循环）"
+
+    # ── Sources：文件名带 source_name，可以直接对齐 ALL_SOURCES ──
+    if [ -n "$ALL_SOURCES" ]; then
+        while IFS= read -r src; do
+            [ -z "$src" ] && continue
+            [ -f "$src" ] || continue
+            name=$(basename "$src" .md)
+            file_size=$(wc -c < "$src" 2>/dev/null | tr -d ' ')
+            prompt_hash="v3"
+            cache_key="${name}_${file_size}_${prompt_hash}"
+            cache_file="$MAP_DIR/${DAY}_${cache_key}.txt"
+            if [ -f "$cache_file" ]; then
+                signals=$(cat "$cache_file")
+                MAP_SIGNALS+="
+## $name
+$signals
+"
+                MAP_COUNT=$((MAP_COUNT + 1))
+            fi
+        done <<< "$ALL_SOURCES"
+        log "  Sources 缓存: $MAP_COUNT/$SRC_COUNT 命中"
+    fi
+
+    # ── Notes：per-note cache (V37.3 fix C)，按 content_hash 匹配并 dedupe signals ──
+    NOTES_SIGNALS=""
+    NOTES_MAP_COUNT=0
+    seen_signal_hashes=""
+    if [ -n "$ALL_NOTES" ]; then
+        while IFS= read -r note; do
+            [ -z "$note" ] && continue
+            [ -f "$note" ] || continue
+            content=$(cat "$note" 2>/dev/null | utf8_truncate 2000)
+            [ -z "${content// }" ] && continue
+            # V37.3: cache key = md5(content) — 稳定于 mtime 和 batch 组合漂移
+            content_hash=$(printf '%s' "$content" | md5sum 2>/dev/null | cut -c1-12)
+            [ -z "$content_hash" ] && content_hash=$(printf '%s' "$content" | md5 -q 2>/dev/null | cut -c1-12)
+            [ -z "$content_hash" ] && continue
+            cache_file="$MAP_DIR/${DAY}_note_${content_hash}.txt"
+            if [ -f "$cache_file" ]; then
+                signals=$(cat "$cache_file")
+                [ -z "${signals// }" ] && continue
+                # dedupe: 同一个 batch 的 N 个 notes 共享一份 signals，只纳入一次
+                sig_hash=$(printf '%s' "$signals" | md5sum 2>/dev/null | cut -c1-12)
+                [ -z "$sig_hash" ] && sig_hash=$(printf '%s' "$signals" | md5 -q 2>/dev/null | cut -c1-12)
+                case "$seen_signal_hashes" in
+                    *"|$sig_hash|"*) : ;;
+                    *)
+                        seen_signal_hashes+="|$sig_hash|"
+                        NOTES_SIGNALS+="
+## 用户笔记（缓存）
+$signals
+"
+                        ;;
+                esac
+                NOTES_MAP_COUNT=$((NOTES_MAP_COUNT + 1))
+            fi
+        done <<< "$ALL_NOTES"
+        log "  Notes 缓存: $NOTES_MAP_COUNT/$NOTE_COUNT 命中（去重后 $(printf '%s' "$seen_signal_hashes" | tr -cd '|' | wc -c | awk '{print int($1/2)}') 个独特信号块）"
+    fi
+
+    SKIP_MAP_LOOPS=true
+    log "Reduce 路径缓存加载完成，跳过 Phase 1a/1b 循环"
+fi
+
+if [ "$SKIP_MAP_LOOPS" = false ] && [ "$FAST_MODE" = false ] && [ "$SRC_COUNT" -gt 0 ] && [ "$MAP_NOTES_ONLY" = false ]; then
     log "Phase 1a (Map Sources): 开始逐源提取信号..."
 
     while IFS= read -r src; do
@@ -448,29 +550,127 @@ fi
 # ═══════════════════════════════════════════════════════════════════
 # 4. Notes 也走 Map 阶段（与 Sources 同等待遇）
 #    Notes 含用户与 PA 的重要交互信息，不能被 Sources 信号淹没
-#    策略：按时间分批打包（每批 ~15KB），每批独立提取信号
+#
+#    V37.3 fix B+C（解决 60min 预算被 47 批 Notes Map 吃光的问题）：
+#      B. 批次从 15 条/12000B → 30 条/24000B，LLM 调用次数减半（47→24 左右）
+#      C. 缓存粒度从"每批一个 hash"→"每 note 一个 md5(content) hash"
+#         - 稳定于 mtime 漂移 / sort 顺序 / 新笔记插入（之前因为这几个因素
+#           每天 cache key 都变，03:00 full run 全 miss）
+#         - 一次 LLM 调用的 signals 写入这批所有 note 的缓存文件（同内容多副本）
+#         - 第二天增量：只有新增 notes 是 cache miss，其余直接走缓存
+#      结果：首日 bootstrap ~24 批 ≈ 32min（在 90min Map 预算内）
+#            后续每日 ~1 批 ≈ 90s
 # ═══════════════════════════════════════════════════════════════════
 
-NOTES_SIGNALS=""
-NOTES_MAP_COUNT=0
+if [ "$SKIP_MAP_LOOPS" = false ] && [ "$FAST_MODE" = false ] && [ -n "$ALL_NOTES" ] && [ "$MAP_CONSECUTIVE_FAILS" -lt 3 ] && [ "$MAP_SOURCES_ONLY" = false ]; then
+    log "Phase 1b (Map Notes, V37.3 fix B+C): per-note 缓存 + 动态批次(30 条/24KB)..."
 
-if [ "$FAST_MODE" = false ] && [ -n "$ALL_NOTES" ] && [ "$MAP_CONSECUTIVE_FAILS" -lt 3 ] && [ "$MAP_SOURCES_ONLY" = false ]; then
-    log "Phase 1b (Map Notes): 开始从笔记中提取信号..."
-
-    # 按修改时间倒序（最新在前）
+    # 按修改时间倒序（处理顺序 — 最新在前）
+    # 注意：sort 顺序只影响处理次序，不影响 cache key（cache key = md5(content)）
     SORTED_NOTES=$(echo "$ALL_NOTES" | while read f; do
         [ -f "$f" ] && echo "$(stat -f '%m' "$f" 2>/dev/null || stat -c '%Y' "$f" 2>/dev/null || echo 0) $f"
     done | sort -rn | awk '{print $2}')
 
-    # 将 notes 分批打包，每批 ~15KB
-    BATCH=""
-    BATCH_COUNT=0
+    # 动态批次累积区（cache miss 的 notes 累积成 batch，flush 时一次 LLM 调用）
+    PENDING_BATCH=""
+    PENDING_COUNT=0
+    PENDING_SIZE=0
+    PENDING_CACHE_FILES=""  # newline-separated cache file paths for this batch
     BATCH_NUM=0
+    seen_note_signal_hashes=""  # "|hash1|hash2|" dedup: 同 batch 的 N 个 note 共享 signals
+
+    # helper: flush pending batch → 1 次 LLM 调用 → 写入每个参与 note 的独立 cache 文件
+    flush_pending_batch() {
+        [ "$PENDING_COUNT" -le 0 ] && return 0
+        BATCH_NUM=$((BATCH_NUM + 1))
+
+        # flush 前超时检查：如果预算已用完，放弃这一批（不调 LLM 浪费配额）
+        if ! check_deadline; then
+            log "  ⚠️ Notes Map flush 前超时，丢弃 ${PENDING_COUNT} 条 pending"
+            PENDING_BATCH=""
+            PENDING_COUNT=0
+            PENDING_SIZE=0
+            PENDING_CACHE_FILES=""
+            return 1
+        fi
+
+        local prompt signals sig_hash cfile
+        prompt=$(python3 -c "
+import sys
+tpl = sys.stdin.read()
+print(tpl.replace('TPL_COUNT', sys.argv[1]).replace('TPL_CONTENT', sys.argv[2]))
+" "$PENDING_COUNT" "$PENDING_BATCH" <<'PROMPT_EOF'
+你是一个数据矿工。以下是用户的个人笔记和与AI助手的交互记录。这些笔记包含用户认为重要的信息、决策、发现和想法。
+
+数据类型: 用户笔记/交互记录
+笔记数量: TPL_COUNT 条
+
+完整内容:
+---
+TPL_CONTENT
+---
+
+请提取 8-12 个最值得注意的信号，每个信号一行，格式：
+- [日期或笔记名] 信号描述（具体事实，含关键内容）
+
+重点关注：
+1. 用户明确标记为重要的信息（主动保存 = 用户认为有价值）
+2. 用户的决策、判断、观点（反映用户的思考方向）
+3. 跨多条笔记出现的主题（重复出现 = 持续关注）
+4. 与外部数据源（论文、新闻、技术趋势）可能关联的线索
+5. 反常或意外的记录（与日常模式不同的条目）
+
+只输出信号列表，不要前言或总结。控制在 500 字以内。
+PROMPT_EOF
+)
+        log "  Map Notes [批次$BATCH_NUM]: ${PENDING_COUNT}条, ${PENDING_SIZE}B → 提取信号..."
+        signals=$(llm_call "$prompt" 1200 0.5 90 || true)
+
+        if [ -n "${signals// }" ]; then
+            # 把 signals 写入本批所有 note 的 cache 文件（同内容多副本，换取 cache key 稳定性）
+            while IFS= read -r cfile; do
+                [ -z "$cfile" ] && continue
+                echo "$signals" > "$cfile"
+            done <<< "$PENDING_CACHE_FILES"
+            MAP_CONSECUTIVE_FAILS=0
+
+            # 加入 NOTES_SIGNALS，按 signal hash 去重（防止缓存重复读取同批时多次计入）
+            sig_hash=$(printf '%s' "$signals" | md5sum 2>/dev/null | cut -c1-12)
+            [ -z "$sig_hash" ] && sig_hash=$(printf '%s' "$signals" | md5 -q 2>/dev/null | cut -c1-12)
+            case "$seen_note_signal_hashes" in
+                *"|$sig_hash|"*) : ;;
+                *)
+                    seen_note_signal_hashes+="|$sig_hash|"
+                    NOTES_SIGNALS+="
+## 用户笔记（批次$BATCH_NUM, ${PENDING_COUNT}条）
+$signals
+"
+                    ;;
+            esac
+            NOTES_MAP_COUNT=$((NOTES_MAP_COUNT + PENDING_COUNT))
+            sleep 5  # 节流：批次之间等待
+        else
+            MAP_CONSECUTIVE_FAILS=$((MAP_CONSECUTIVE_FAILS + 1))
+            log "  Map Notes [批次$BATCH_NUM]: LLM 返回空 (连续失败: $MAP_CONSECUTIVE_FAILS)"
+            sleep 10
+        fi
+
+        PENDING_BATCH=""
+        PENDING_COUNT=0
+        PENDING_SIZE=0
+        PENDING_CACHE_FILES=""
+        return 0
+    }
 
     while IFS= read -r note; do
         # 全局超时检查
         if ! check_deadline; then
             log "  ⚠️ Notes Map 阶段超时，跳过剩余 notes"
+            break
+        fi
+        # 连续失败熔断
+        if [ "$MAP_CONSECUTIVE_FAILS" -ge 3 ]; then
+            log "  ⚠️ 连续 ${MAP_CONSECUTIVE_FAILS} 次 LLM 失败，停止 Notes Map"
             break
         fi
         [ -z "$note" ] && continue
@@ -479,144 +679,61 @@ if [ "$FAST_MODE" = false ] && [ -n "$ALL_NOTES" ] && [ "$MAP_CONSECUTIVE_FAILS"
         content=$(cat "$note" 2>/dev/null | utf8_truncate 2000)
         [ -z "${content// }" ] && continue
 
-        BATCH+="
+        # V37.3 fix C: cache key = md5(content)，稳定于 mtime/sort 顺序/批次组合
+        content_hash=$(printf '%s' "$content" | md5sum 2>/dev/null | cut -c1-12)
+        [ -z "$content_hash" ] && content_hash=$(printf '%s' "$content" | md5 -q 2>/dev/null | cut -c1-12)
+        [ -z "$content_hash" ] && continue
+        cache_file="$MAP_DIR/${DAY}_note_${content_hash}.txt"
+
+        if [ -f "$cache_file" ]; then
+            # cache hit：直接读 signals + dedupe（一批 note 共享 signals，防止重复）
+            signals=$(cat "$cache_file")
+            if [ -n "${signals// }" ]; then
+                sig_hash=$(printf '%s' "$signals" | md5sum 2>/dev/null | cut -c1-12)
+                [ -z "$sig_hash" ] && sig_hash=$(printf '%s' "$signals" | md5 -q 2>/dev/null | cut -c1-12)
+                case "$seen_note_signal_hashes" in
+                    *"|$sig_hash|"*) : ;;
+                    *)
+                        seen_note_signal_hashes+="|$sig_hash|"
+                        NOTES_SIGNALS+="
+## 用户笔记（缓存）
+$signals
+"
+                        ;;
+                esac
+                NOTES_MAP_COUNT=$((NOTES_MAP_COUNT + 1))
+                MAP_CONSECUTIVE_FAILS=0  # 缓存命中重置计数
+            fi
+            continue
+        fi
+
+        # cache miss：加入 pending batch
+        PENDING_BATCH+="
 ### $name
 $content
 "
-        BATCH_COUNT=$((BATCH_COUNT + 1))
-
-        # 每 15 条或累计 > 12000 字符，提交一批
-        BATCH_SIZE=${#BATCH}
-        if [ "$BATCH_COUNT" -ge 15 ] || [ "$BATCH_SIZE" -gt 12000 ]; then
-            BATCH_NUM=$((BATCH_NUM + 1))
-
-            # 检查缓存
-            batch_hash=$(echo "$BATCH" | md5sum 2>/dev/null | cut -c1-12 || echo "b${BATCH_NUM}")
-            cache_file="$MAP_DIR/${DAY}_notes_${batch_hash}.txt"
-
-            if [ -f "$cache_file" ]; then
-                log "  Map Notes [批次$BATCH_NUM]: 使用缓存 ($BATCH_COUNT 条)"
-                signals=$(cat "$cache_file")
-                MAP_CONSECUTIVE_FAILS=0  # 缓存命中视为成功，重置计数（V37.2 fix）
-            else
-                prompt=$(python3 -c "
-import sys
-tpl = sys.stdin.read()
-print(tpl.replace('TPL_COUNT', sys.argv[1]).replace('TPL_CONTENT', sys.argv[2]))
-" "$BATCH_COUNT" "$BATCH" <<'PROMPT_EOF'
-你是一个数据矿工。以下是用户的个人笔记和与AI助手的交互记录。这些笔记包含用户认为重要的信息、决策、发现和想法。
-
-数据类型: 用户笔记/交互记录
-笔记数量: TPL_COUNT 条
-
-完整内容:
----
-TPL_CONTENT
----
-
-请提取 8-12 个最值得注意的信号，每个信号一行，格式：
-- [日期或笔记名] 信号描述（具体事实，含关键内容）
-
-重点关注：
-1. 用户明确标记为重要的信息（主动保存 = 用户认为有价值）
-2. 用户的决策、判断、观点（反映用户的思考方向）
-3. 跨多条笔记出现的主题（重复出现 = 持续关注）
-4. 与外部数据源（论文、新闻、技术趋势）可能关联的线索
-5. 反常或意外的记录（与日常模式不同的条目）
-
-只输出信号列表，不要前言或总结。控制在 500 字以内。
-PROMPT_EOF
-)
-                log "  Map Notes [批次$BATCH_NUM]: ${BATCH_COUNT}条, ${BATCH_SIZE}B → 提取信号..."
-                signals=$(llm_call "$prompt" 1200 0.5 90 || true)
-
-                if [ -n "${signals// }" ]; then
-                    echo "$signals" > "$cache_file"
-                    MAP_CONSECUTIVE_FAILS=0
-                    # 节流：批次之间等待 5 秒
-                    sleep 5
-                else
-                    MAP_CONSECUTIVE_FAILS=$((MAP_CONSECUTIVE_FAILS + 1))
-                    log "  Map Notes [批次$BATCH_NUM]: LLM 返回空 (连续失败: $MAP_CONSECUTIVE_FAILS)"
-                    if [ "$MAP_CONSECUTIVE_FAILS" -ge 3 ]; then
-                        log "  ⚠️ 连续失败熔断，停止 Notes Map"
-                        break
-                    fi
-                    sleep 10
-                    BATCH=""
-                    BATCH_COUNT=0
-                    continue
-                fi
-            fi
-
-            NOTES_SIGNALS+="
-## 用户笔记（批次$BATCH_NUM, ${BATCH_COUNT}条）
-$signals
+        PENDING_COUNT=$((PENDING_COUNT + 1))
+        PENDING_CACHE_FILES+="$cache_file
 "
-            NOTES_MAP_COUNT=$((NOTES_MAP_COUNT + BATCH_COUNT))
-            BATCH=""
-            BATCH_COUNT=0
+        PENDING_SIZE=${#PENDING_BATCH}
+
+        # V37.3 fix B: 30 条或 24000B 才 flush（原 15/12000 翻倍 → LLM 调用减半）
+        if [ "$PENDING_COUNT" -ge 30 ] || [ "$PENDING_SIZE" -gt 24000 ]; then
+            flush_pending_batch
         fi
     done <<< "$SORTED_NOTES"
 
     # 处理最后不足一批的剩余
-    if [ -n "${BATCH// }" ] && [ "$BATCH_COUNT" -gt 0 ]; then
-        BATCH_NUM=$((BATCH_NUM + 1))
-        BATCH_SIZE=${#BATCH}
-        batch_hash=$(echo "$BATCH" | md5sum 2>/dev/null | cut -c1-12 || echo "b${BATCH_NUM}")
-        cache_file="$MAP_DIR/${DAY}_notes_${batch_hash}.txt"
-
-        if [ -f "$cache_file" ]; then
-            log "  Map Notes [批次$BATCH_NUM]: 使用缓存 ($BATCH_COUNT 条)"
-            signals=$(cat "$cache_file")
-            MAP_CONSECUTIVE_FAILS=0  # 缓存命中视为成功（V37.2 fix）
-        else
-            prompt=$(python3 -c "
-import sys
-tpl = sys.stdin.read()
-print(tpl.replace('TPL_COUNT', sys.argv[1]).replace('TPL_CONTENT', sys.argv[2]))
-" "$BATCH_COUNT" "$BATCH" <<'PROMPT_EOF'
-你是一个数据矿工。以下是用户的个人笔记和与AI助手的交互记录。这些笔记包含用户认为重要的信息、决策、发现和想法。
-
-数据类型: 用户笔记/交互记录
-笔记数量: TPL_COUNT 条
-
-完整内容:
----
-TPL_CONTENT
----
-
-请提取 8-12 个最值得注意的信号，每个信号一行，格式：
-- [日期或笔记名] 信号描述（具体事实，含关键内容）
-
-重点关注：
-1. 用户明确标记为重要的信息（主动保存 = 用户认为有价值）
-2. 用户的决策、判断、观点（反映用户的思考方向）
-3. 跨多条笔记出现的主题（重复出现 = 持续关注）
-4. 与外部数据源（论文、新闻、技术趋势）可能关联的线索
-5. 反常或意外的记录（与日常模式不同的条目）
-
-只输出信号列表，不要前言或总结。控制在 500 字以内。
-PROMPT_EOF
-)
-            log "  Map Notes [批次$BATCH_NUM]: ${BATCH_COUNT}条, ${BATCH_SIZE}B → 提取信号..."
-            signals=$(llm_call "$prompt" 1200 0.5 90 || true)
-            [ -n "${signals// }" ] && echo "$signals" > "$cache_file"
-        fi
-
-        if [ -n "${signals// }" ]; then
-            NOTES_SIGNALS+="
-## 用户笔记（批次$BATCH_NUM, ${BATCH_COUNT}条）
-$signals
-"
-            NOTES_MAP_COUNT=$((NOTES_MAP_COUNT + BATCH_COUNT))
-        fi
+    if [ "$PENDING_COUNT" -gt 0 ]; then
+        flush_pending_batch
     fi
 
-    log "Phase 1b 完成: $NOTES_MAP_COUNT/$NOTE_COUNT notes 提取了信号 ($BATCH_NUM 批)"
+    log "Phase 1b 完成: $NOTES_MAP_COUNT/$NOTE_COUNT notes 提取了信号 ($BATCH_NUM 批, V37.3 fix B+C)"
 
-elif [ -n "$ALL_NOTES" ]; then
+elif [ "$SKIP_MAP_LOOPS" = false ] && [ -n "$ALL_NOTES" ]; then
     # Fast 模式：直接采样 notes 原文
+    # 注意：SKIP_MAP_LOOPS=true 时（cache-only fast path）已经填好 NOTES_SIGNALS，
+    # 不应该再进这个 elif，否则会覆盖 cache-only 的结果
     SORTED_NOTES=$(echo "$ALL_NOTES" | while read f; do
         [ -f "$f" ] && echo "$(stat -f '%m' "$f" 2>/dev/null || stat -c '%Y' "$f" 2>/dev/null || echo 0) $f"
     done | sort -rn | awk '{print $2}')

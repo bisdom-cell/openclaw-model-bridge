@@ -654,6 +654,89 @@ invariants:
         file: kb_dream.sh
         pattern: "MAP_STATUS_FILE"
 
+  # --- 2026-04-11 新增：Dream Map 预算溢出 + cache key 漂移案例 ---
+
+  - id: INV-DREAM-001
+    name: map-budget-scales-with-mode
+    meta_rule: MR-4
+    verification_layer: [declaration]
+    severity: high
+    declaration: "Dream 的 DREAM_TIMEOUT_SEC 必须按模式动态：Map-Only 模式 >= 5400s (90min) 以容纳全量 KB bootstrap，Reduce full run 保持 3600s (60min)"
+    design_decision: |
+      2026-04-11 教训：Notes 总量增长到 286 → Notes Map 总耗时 ~60 min 刚好撞上
+      DREAM_TIMEOUT_SEC=3600 的硬预算。00:40 --map-notes 和 03:00 full run 连续
+      超时，Reduce 从未执行。固定预算是"定时炸弹"——workload 长到某天就会炸。
+      修复：按 MAP_ONLY 动态预算（90min / 60min），并把 Notes Map 的 batch size
+      翻倍（15/12KB → 30/24KB）将 LLM 调用次数减半。
+    source_case: "ontology/docs/cases/dream_map_budget_overflow_case.md"
+    checks:
+      - name: "kb_dream.sh 动态 DREAM_TIMEOUT_SEC（MAP_ONLY=5400）"
+        check_type: file_contains
+        file: kb_dream.sh
+        pattern: "MAP_ONLY.*=.*true.*\\n.*DREAM_TIMEOUT_SEC=5400"
+      - name: "kb_dream.sh Notes batch 阈值为 30 条 / 24000B"
+        check_type: file_contains
+        file: kb_dream.sh
+        pattern: 'PENDING_COUNT.*-ge 30.*PENDING_SIZE.*-gt 24000'
+
+  - id: INV-DREAM-002
+    name: reduce-path-must-not-re-run-map-loops
+    meta_rule: MR-4
+    verification_layer: [declaration]
+    severity: critical
+    declaration: "Map-Reduce 分离调度的契约：默认 full run（MAP_ONLY=false 且 FAST_MODE=false）必须跳过 Phase 1a/1b 的 LLM 循环，只从 .map_cache/ 读取，否则 Reduce 会重复燃烧 Map 预算"
+    design_decision: |
+      2026-04-11 教训：Reduce full run 之前会再跑一遍完整的 Phase 1a/1b，即使
+      00:00 --map-sources 和 00:40 --map-notes 已经把缓存写好。这让"分离调度
+      节省预算"的设计意图形同虚设——Reduce 每次都重跑 47 批 Notes Map，每次
+      超时在同一位置。修复：Reduce 路径新增 cache-only fast path，扫 $MAP_DIR
+      直接填充 MAP_SIGNALS/NOTES_SIGNALS 并 SKIP_MAP_LOOPS=true。
+    source_case: "ontology/docs/cases/dream_map_budget_overflow_case.md"
+    checks:
+      - name: "kb_dream.sh 有 SKIP_MAP_LOOPS 开关"
+        check_type: file_contains
+        file: kb_dream.sh
+        pattern: "SKIP_MAP_LOOPS=true"
+      - name: "Phase 1a 受 SKIP_MAP_LOOPS 门控"
+        check_type: file_contains
+        file: kb_dream.sh
+        pattern: '\[ "\$SKIP_MAP_LOOPS" = false \].*SRC_COUNT'
+      - name: "Phase 1b 受 SKIP_MAP_LOOPS 门控"
+        check_type: file_contains
+        file: kb_dream.sh
+        pattern: '\[ "\$SKIP_MAP_LOOPS" = false \].*ALL_NOTES'
+
+  - id: INV-CACHE-002
+    name: notes-cache-key-stable-under-mtime-drift
+    meta_rule: MR-4
+    verification_layer: [declaration]
+    severity: critical
+    declaration: "Dream Notes Map 的 cache key 必须只依赖 note content（md5(content)），不依赖 mtime / sort 顺序 / 批次组合；同一条 note 在不同 run 中必须产生相同 cache key"
+    design_decision: |
+      2026-04-11 教训：原 cache key = md5(batch 拼接文本)。SORTED_NOTES 按 mtime
+      DESC 排序，mm_index.py/kb_embed.py 任何一次触碰都会改变顺序 → 改变批次边界
+      → 改变 md5 → 00:40 写的缓存 03:00 全部 miss。修复：每 note 一个 cache 文件，
+      key = md5(content) 前 12 位。mtime/sort/batch 组合的漂移都不再影响。
+      读取时按 signal hash 去重（一批 N 个 note 共享同一份 signals）。
+    source_case: "ontology/docs/cases/dream_map_budget_overflow_case.md"
+    checks:
+      - name: "cache key 使用 content_hash 而非 batch_hash"
+        check_type: file_contains
+        file: kb_dream.sh
+        pattern: 'content_hash=.*printf.*content.*md5sum'
+      - name: "缓存文件名格式为 _note_<content_hash>.txt"
+        check_type: file_contains
+        file: kb_dream.sh
+        pattern: 'DAY.*_note_.*content_hash'
+      - name: "不再使用脆弱的批次级 batch_hash"
+        check_type: file_not_contains
+        file: kb_dream.sh
+        pattern: 'batch_hash=.*echo.*BATCH.*md5sum'
+      - name: "读取缓存时按 signal hash 去重"
+        check_type: file_contains
+        file: kb_dream.sh
+        pattern: 'seen_note_signal_hashes'
+
   # ── 治理系统自观察（MR-7） ─────────────────────────────────────────
   # 2026-04-11: 治理系统自身是一等被治理对象。任何 check 层可能出现的状态
   # 都必须在汇总层有观察路径。详见 ontology/docs/cases/governance_silent_error_case.md
@@ -791,13 +874,14 @@ meta_rule_discovery:
 # 5. 审计元数据
 # ═══════════════════════════════════════════════════════════════════════
 audit_metadata:
-  version: "3.2"
+  version: "3.3"
   created: "2026-04-07"
   upgraded: |
     v3.0 → v3.1: 通知路径治理(INV-NOTIFY-003/004) + 错误可观测性(MRD-ERROR-001) + 效果层启动(MRD-NOTIFY-002)
     v3.1 → v3.2: MR-7 governance-execution-is-self-observable + INV-GOV-001 summary 不吞 error（2026-04-11 三层嵌套盲区案例）
-  total_invariants: 23  # +INV-GOV-001
-  total_checks: 43      # +2 checks on governance_checker
+    v3.2 → v3.3: Dream Map 预算溢出 + cache key 漂移案例 → INV-DREAM-001 (map budget scales with mode) + INV-DREAM-002 (reduce path must not re-run map loops) + INV-CACHE-002 (notes cache key stable under mtime drift)
+  total_invariants: 26  # +INV-DREAM-001/002 + INV-CACHE-002
+  total_checks: 52      # +9 checks on kb_dream.sh
   meta_rules: 7         # MR-1~MR-7
   meta_rule_discovery_count: 6   # Phase 0: registry + env + notify-topic + layer-depth + error-suppression + notify-activity
   check_types_used: [python_assert, file_contains, file_not_contains, env_var_exists, command_succeeds, log_activity_check]
