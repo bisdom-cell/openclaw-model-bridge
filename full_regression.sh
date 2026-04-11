@@ -58,6 +58,9 @@ run_suite "slo_dashboard (SLO仪表盘)" "python3 test_slo_dashboard.py"
 if [ -f ontology/tests/test_governance_cron_matcher.py ]; then
     run_suite "governance_cron_matcher (INV-CRON-003/004 匹配器)" "python3 -m unittest ontology.tests.test_governance_cron_matcher"
 fi
+if [ -f ontology/tests/test_governance_summary.py ]; then
+    run_suite "governance_summary (INV-GOV-001 silent error)" "python3 -m unittest ontology.tests.test_governance_summary"
+fi
 
 # 条件性测试（仅当文件存在时运行）
 for tf in test_conv_quality.py test_kb_autotag.py test_kb_dedup.py test_token_report.py test_arxiv_parser.py test_shell_antipatterns.py; do

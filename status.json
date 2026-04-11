@@ -1,5 +1,5 @@
 {
-  "updated": "2026-04-11 02:04:17",
+  "updated": "2026-04-11 03:44:58",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-04-11",
+      "what": "V37.3: Governance 自观察元规则 MR-7 + INV-GOV-001 — 案例文档 ontology/docs/cases/governance_silent_error_case.md (四维度因果链+三层根因+观察者的自我盲区) + MR-7 governance-execution-is-self-observable (治理系统是一等被治理对象) + INV-GOV-001 summary-counts-all-non-pass (声明层 grep 守卫 + 运行时 error 注入 probe, JSON_MODE save/restore) + test_governance_summary.py 7 单测锁定 bug 3 + 接入 full_regression.sh. 全量回归: 28 suites / 754 tests / 0 fail, governance 23/23 invariants / 32/43 checks. v3.1 → v3.2 (22→23 不变式, 6→7 元规则, 41→43 checks).",
+      "by": "claude_code"
+    },
     {
       "date": "2026-04-11",
       "what": "Governance INV-CRON-003/004 三层 bug 修复: ① 子串匹配 false-positive (kb_dream.sh 被 Map-Reduce split 误报 x3) → endswith+word-boundary 精确匹配 ② YAML exec() 作用域陷阱 (def helper 在 exec 局部, 生成器表达式看不到) → for-loop 替代 ③ governance_checker silent error bug (error 状态未计入 failed_invs, 💥 被 ✅ 汇总掩盖) → 区分 fail/error 并在汇总行显式标注. 生产验证: Mac Mini governance --full 40/41+💥 → 41/41 ✅, preflight 75/1/2 → 76/0/2 (kb_embed 补齐 3 未索引 notes+2 过期文件). 新增 16→18 单测 (+exec scope trap 正向对照). 27 suites / 747 tests / 0 fail.",
@@ -173,11 +178,6 @@
       "date": "2026-04-02",
       "what": "V32: 四个P0任务完成 — SLO最小集(延迟p95/错误分类/工具成功率/降级率/恢复率) + 阈值中心化(config.yaml收敛70+魔法数字) + E2E进CI(preflight 19项) + 故障快照(incident_snapshot.py自动采集) + 28新单测",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-04-01",
-      "what": "search_kb 全面加固（时间过滤+source过滤+文件锁+SHA256）+ KB 100%覆盖 + 四原则加固（CI/pre-commit/CLAUDE.md瘦身）",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -203,21 +203,21 @@
   },
   "session_context": {
     "last_session": "\"2026-04-11\"",
-    "unfinished": "\"[\\\"2026-04-11: 将本轮 governance INV-CRON 三层嵌套 bug 写入 ontology/docs/cases/ 作为元治理案例 — 价值在于展示'检查执行失败被汇总行掩盖'这类治理体系内部盲区，可以提炼新元规则 (MR-7?): check 执行状态必须端到端可观察，不允许 silent error\\\"]\"",
+    "unfinished": "[]",
     "open_prs": "",
     "blocked_on": "",
     "focus": "\"Governance INV-CRON 三层 bug 修复完成 (子串/exec-scope/silent-error), Mac Mini 生产验证 41/41 + preflight 0 fail + kb_embed 100%. 下一步: Ontology Phase 3 渐进替换 (ONTOLOGY_MODE=on 切换前置) 或 Tool Policy Plugin V3 路标\"",
-    "current_focus": "Ontology Phase 3 渐进替换 — 从 shadow 到引擎数据替代硬编码"
+    "current_focus": "Ontology Phase 3 渐进替换: ONTOLOGY_MODE=on 切换观察 + filter_tools/fix_tool_args 改用引擎 / 或 Tool Policy Plugin V3 路标启动"
   },
   "quality": {
     "security_score": "93",
-    "test_count": "747",
-    "last_regression": "2026-04-11 01:55 pass",
+    "test_count": "754",
+    "last_regression": "2026-04-11 03:42 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-04-11 01:55",
-    "test_suites": "27",
-    "governance_invariants": "22/22",
-    "governance_checks": "30/41",
+    "security_score_time": "2026-04-11 03:42",
+    "test_suites": "28",
+    "governance_invariants": "23/23",
+    "governance_checks": "32/43",
     "version": "0.36.0"
   },
   "incidents": [
@@ -280,7 +280,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "\"Governance 三层 bug 修复完成 (2026-04-11), 生产全绿. 下一步: Ontology Phase 3 渐进替换或 Tool Policy Plugin V3 路标\"",
+  "focus": "V37.3 发布: Governance 自观察 MR-7 + INV-GOV-001 完成. 生产全绿 754 测试 / 23 不变式 / 7 元规则. 下一步: Ontology Phase 3 渐进替换或 Tool Policy Plugin V3 路标",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",

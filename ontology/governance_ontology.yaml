@@ -119,6 +119,18 @@ meta_rules:
     description: "severity=critical 的不变式必须有 ≥2 层验证深度（声明层+运行时层）"
     lesson: "2026-04-08: 声明层 12/12 全过但 DBLP/Dream WhatsApp 推送连续失败 3 天。单层检查给出虚假的安全感。"
 
+  - id: MR-7
+    name: governance-execution-is-self-observable
+    description: |
+      治理系统自身是一等运行时代码，必须遵守它强制执行的所有规则，包括 MR-4。
+      任何 check 层可能出现的状态（pass/fail/skip/error）都必须在汇总层有明确的
+      观察路径——不允许在聚合时被"透明化"。治理的汇总行必须不会说谎。
+    lesson: |
+      2026-04-11: governance_checker.print_results() 仅统计 status=="fail"，
+      status=="error" 被 ✅ 汇总行完全吞掉。INV-CRON-003/004 连续数次 NameError
+      崩溃，汇总行持续显示"所有不变式成立"。这是"观察者的自我盲区"：治理系统
+      没有把自己当被治理对象。详见 ontology/docs/cases/governance_silent_error_case.md
+
 # ═══════════════════════════════════════════════════════════════════════
 # 3. 不变式（Invariants）— 可执行的声明-执行-验证三元组
 # ═══════════════════════════════════════════════════════════════════════
@@ -642,6 +654,59 @@ invariants:
         file: kb_dream.sh
         pattern: "MAP_STATUS_FILE"
 
+  # ── 治理系统自观察（MR-7） ─────────────────────────────────────────
+  # 2026-04-11: 治理系统自身是一等被治理对象。任何 check 层可能出现的状态
+  # 都必须在汇总层有观察路径。详见 ontology/docs/cases/governance_silent_error_case.md
+
+  - id: INV-GOV-001
+    name: governance-summary-counts-all-non-pass
+    meta_rule: MR-7
+    verification_layer: [declaration, runtime]
+    severity: critical
+    declaration: "governance_checker 汇总层必须区分并统计 fail 和 error，两者都不能被 ✅ 汇总行吞掉"
+    design_decision: |
+      2026-04-11 教训：failed_invs 原本只数 status=="fail"，status=="error"
+      被 ✅ 汇总行完全吞掉。INV-CRON-003/004 连续数次 NameError 崩溃，汇总行
+      仍报"所有不变式成立"。修复：`if r["status"] in ("fail", "error")`。
+    checks:
+      - name: "print_results 的 failed_invs 同时统计 fail 和 error"
+        check_type: file_contains
+        file: ontology/governance_checker.py
+        pattern: 'r\["status"\] in \("fail", "error"\)'
+      - name: "error 状态注入时汇总行不会说 '所有不变式成立'"
+        check_type: python_assert
+        code: |
+          # 独立回归：构造一个注定 error 的虚假 result，验证汇总不说谎
+          # 注意：governance_checker.JSON_MODE 是模块级全局，调用时必须
+          # 临时切到 False，否则 print_results 走 JSON 分支无法验证文本汇总。
+          import io, contextlib, sys, os
+          sys.path.insert(0, 'ontology')
+          import governance_checker
+          saved = governance_checker.JSON_MODE
+          governance_checker.JSON_MODE = False
+          try:
+              fake_results = [{
+                  "id": "INV-FAKE-ERROR",
+                  "name": "synthetic-silent-error-probe",
+                  "status": "error",
+                  "severity": "critical",
+                  "meta_rule": "MR-7",
+                  "declaration": "注入的 error 用于验证 summary 不吞 error",
+                  "checks": [
+                      {"name": "synthetic", "status": "error", "message": "NameError: fake"}
+                  ],
+              }]
+              buf = io.StringIO()
+              with contextlib.redirect_stdout(buf):
+                  exit_code = governance_checker.print_results(fake_results)
+              out = buf.getvalue()
+          finally:
+              governance_checker.JSON_MODE = saved
+          assert "所有不变式成立" not in out, \
+              "silent error regression: ✅ 汇总行吞掉了 error 状态"
+          assert exit_code != 0, \
+              f"silent error regression: error 状态未计入失败 (exit={exit_code})"
+
 # ═══════════════════════════════════════════════════════════════════════
 # 4. 可执行元规则（Phase 0）— 自动发现缺失不变式
 #    只扫描结构化数据源，不解析自然语言
@@ -726,12 +791,14 @@ meta_rule_discovery:
 # 5. 审计元数据
 # ═══════════════════════════════════════════════════════════════════════
 audit_metadata:
-  version: "3.1"
+  version: "3.2"
   created: "2026-04-07"
-  upgraded: "v3.0 → v3.1: 通知路径治理(INV-NOTIFY-003/004) + 错误可观测性(MRD-ERROR-001) + 效果层启动(MRD-NOTIFY-002)"
-  total_invariants: 17
-  total_checks: 36
-  meta_rules: 6         # MR-1~MR-6
+  upgraded: |
+    v3.0 → v3.1: 通知路径治理(INV-NOTIFY-003/004) + 错误可观测性(MRD-ERROR-001) + 效果层启动(MRD-NOTIFY-002)
+    v3.1 → v3.2: MR-7 governance-execution-is-self-observable + INV-GOV-001 summary 不吞 error（2026-04-11 三层嵌套盲区案例）
+  total_invariants: 23  # +INV-GOV-001
+  total_checks: 43      # +2 checks on governance_checker
+  meta_rules: 7         # MR-1~MR-7
   meta_rule_discovery_count: 6   # Phase 0: registry + env + notify-topic + layer-depth + error-suppression + notify-activity
   check_types_used: [python_assert, file_contains, file_not_contains, env_var_exists, command_succeeds, log_activity_check]
   verification_layers_used: [declaration, runtime, effect]  # v3.1: 效果层启动
