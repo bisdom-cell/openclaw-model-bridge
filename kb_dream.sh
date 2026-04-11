@@ -413,9 +413,12 @@ $signals
     fi
 
     # ── Notes：per-note cache (V37.3 fix C)，按 content_hash 匹配并 dedupe signals ──
+    # V37.4.2: 先收集独立信号块到数组，再带结构 header（编号+总数）一次性 flush
+    # 避免 bland 重复标题 × 22，给 Reduce LLM 可辨识的密度信号
     NOTES_SIGNALS=""
     NOTES_MAP_COUNT=0
     seen_signal_hashes=""
+    declare -a UNIQ_NOTE_SIG_BLOCKS=()
     if [ -n "$ALL_NOTES" ]; then
         while IFS= read -r note; do
             [ -z "$note" ] && continue
@@ -437,16 +440,30 @@ $signals
                     *"|$sig_hash|"*) : ;;
                     *)
                         seen_signal_hashes+="|$sig_hash|"
-                        NOTES_SIGNALS+="
-## 用户笔记（缓存）
-$signals
-"
+                        UNIQ_NOTE_SIG_BLOCKS+=("$signals")
                         ;;
                 esac
                 NOTES_MAP_COUNT=$((NOTES_MAP_COUNT + 1))
             fi
         done <<< "$ALL_NOTES"
-        log "  Notes 缓存: $NOTES_MAP_COUNT/$NOTE_COUNT 命中（去重后 $(printf '%s' "$seen_signal_hashes" | tr -cd '|' | wc -c | awk '{print int($1/2)}') 个独特信号块）"
+
+        # V37.4.2: 带结构 header 一次性 flush — 编号 + 总数 + 覆盖笔记数
+        UNIQ_BLOCK_COUNT=${#UNIQ_NOTE_SIG_BLOCKS[@]}
+        if [ "$UNIQ_BLOCK_COUNT" -gt 0 ]; then
+            NOTES_SIGNALS="
+## 用户笔记信号总览
+> 覆盖 $NOTES_MAP_COUNT 条用户笔记，提取出 $UNIQ_BLOCK_COUNT 个独立信号簇
+> 每个信号簇由一个 Map 批次独立生成，代表一组主题相关的观察点
+"
+            for i in "${!UNIQ_NOTE_SIG_BLOCKS[@]}"; do
+                idx=$((i + 1))
+                NOTES_SIGNALS+="
+### 笔记信号簇 $idx / $UNIQ_BLOCK_COUNT
+${UNIQ_NOTE_SIG_BLOCKS[$i]}
+"
+            done
+        fi
+        log "  Notes 缓存: $NOTES_MAP_COUNT/$NOTE_COUNT 命中（去重后 $UNIQ_BLOCK_COUNT 个独特信号块）"
     fi
 
     SKIP_MAP_LOOPS=true
@@ -687,6 +704,7 @@ $signals
 
         if [ -f "$cache_file" ]; then
             # cache hit：直接读 signals + dedupe（一批 note 共享 signals，防止重复）
+            # V37.4.2: 用 note 名做 header，不用 bland 重复标题
             signals=$(cat "$cache_file")
             if [ -n "${signals// }" ]; then
                 sig_hash=$(printf '%s' "$signals" | md5sum 2>/dev/null | cut -c1-12)
@@ -696,7 +714,7 @@ $signals
                     *)
                         seen_note_signal_hashes+="|$sig_hash|"
                         NOTES_SIGNALS+="
-## 用户笔记（缓存）
+## 用户笔记缓存命中: $name
 $signals
 "
                         ;;
@@ -972,12 +990,15 @@ $REDUCE_MATERIAL
     log "回退后 prompt: ${PROMPT_BYTES} bytes"
 fi
 
-# Reduce 调用 + 短响应自动重试（V37.4.1 修复）
-# LLM 响应不稳定：同一 prompt 产出 3967/906/2000 字节都有可能
+# Reduce 调用 + 短响应自动重试（V37.4.1 → V37.4.2 修复）
+# LLM 响应不稳定：同一 prompt 产出 3967/906/876 字节都有可能
 # - MIN_DREAM_CHARS=3000：≈1000 汉字，是"1500 字目标"的合理下限
 # - BEST_RESULT 追踪：始终保留最长的一次，最终 fallback 到最佳
 # - 逐步降温 0.85→0.6→0.4：retry 1 探索，retry 2/3 求稳
 # - 最低兜底 MIN_ACCEPTABLE_CHARS=1500：真短的才算失败
+# - V37.4.2 新增：retry 2/3 改写 prompt（prepend 长度强制前缀）
+#   同一 prompt hash 可能触发 server-side 缓存或收敛到确定性短路径，
+#   retry 时改 prompt hash + 显式长度强制 = 同时绕过缓存和强迫 LLM 展开
 MIN_DREAM_CHARS=3000
 MIN_ACCEPTABLE_CHARS=1500
 MAX_RETRIES=3
@@ -990,7 +1011,17 @@ REDUCE_TEMPS=("0.85" "0.6" "0.4")
 
 for retry in $(seq 1 $MAX_RETRIES); do
     cur_temp="${REDUCE_TEMPS[$((retry - 1))]}"
-    DREAM_RESULT=$(llm_call "$REDUCE_PROMPT" 8000 "$cur_temp" 300 || true)
+    # V37.4.2: retry 2+ 使用变体 prompt，改 hash 绕过 server cache + 强制长度
+    if [ "$retry" -eq 1 ]; then
+        cur_prompt="$REDUCE_PROMPT"
+    else
+        cur_prompt="【第 $retry 次尝试 — 上一次响应过短，不合格】
+
+【重要硬性要求】这次回答必须完整覆盖所有 6 个章节（发现过程 / 隐藏关联 / 趋势推演 / 被忽视的信号 / 行动建议 / 数据质量备注），每个章节都要展开到位，总字数不少于 2500 汉字。不要只写一段总结就结束，必须每个维度都钻透到位。
+
+$REDUCE_PROMPT"
+    fi
+    DREAM_RESULT=$(llm_call "$cur_prompt" 8000 "$cur_temp" 300 || true)
     DREAM_CHARS=$(echo "$DREAM_RESULT" | wc -c | tr -d ' ')
 
     # 始终保留最佳，retry 过程中丢不掉好结果

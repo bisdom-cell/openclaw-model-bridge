@@ -222,6 +222,112 @@ class TestFixC_PerNoteCacheKey(unittest.TestCase):
         )
 
 
+class TestV37_4_2_CacheReadStructureAndRetryVariation(unittest.TestCase):
+    """V37.4.2: Cache-only read path must emit structured, numbered headers
+    (not N copies of bland "## 用户笔记（缓存）") AND retry 2+ must vary the
+    prompt to break server-side caching and force length.
+
+    Background: 2026-04-11 14:01 run produced retry 1 = 876 chars and retry 2
+    = *exactly* 876 chars (different temps, same output) — smoking gun for
+    server-side prompt caching. Combined with bland repeated headers, Qwen3
+    converged on a 'terse summary' mode for this material."""
+
+    def test_uniq_note_sig_blocks_array(self):
+        """Cache-only read path must accumulate into a bash array for
+        structured emission at the end, not append bland headers in-loop."""
+        src = _read_kb_dream()
+        self.assertIn(
+            "UNIQ_NOTE_SIG_BLOCKS=()",
+            src,
+            "UNIQ_NOTE_SIG_BLOCKS array missing — cache read path still "
+            "appends bland '## 用户笔记（缓存）' × N copies.",
+        )
+
+    def test_structured_header_has_coverage_stats(self):
+        """The emitted header must surface 'covered N notes, K unique clusters'
+        so Reduce LLM sees density signal, not just a flat list."""
+        src = _read_kb_dream()
+        self.assertIn(
+            "用户笔记信号总览",
+            src,
+            "Structured overview header missing — Reduce LLM will read the "
+            "material as homogeneous and produce a terse summary.",
+        )
+        self.assertRegex(
+            src,
+            r"覆盖\s*\$NOTES_MAP_COUNT.*笔记.*\$UNIQ_BLOCK_COUNT",
+            "Coverage stats line must expose both NOTES_MAP_COUNT and "
+            "UNIQ_BLOCK_COUNT so LLM sees quantity.",
+        )
+
+    def test_numbered_cluster_headers(self):
+        """Each block must get a '信号簇 N / total' header — gives the LLM
+        discrete chunks to synthesize over."""
+        src = _read_kb_dream()
+        self.assertRegex(
+            src,
+            r"笔记信号簇\s*\$idx\s*/\s*\$UNIQ_BLOCK_COUNT",
+            "Numbered cluster headers missing — LLM won't see distinct "
+            "chunks, will produce single-finding summary.",
+        )
+
+    def test_bland_header_gone(self):
+        """The old bland '## 用户笔记（缓存）' in-loop append must be gone."""
+        src = _read_kb_dream()
+        self.assertNotIn(
+            "## 用户笔记（缓存）",
+            src,
+            "Old bland header still present — V37.4.2 regressed, material "
+            "will look like 22 duplicate sections to Qwen3.",
+        )
+
+    def test_retry_prompt_variation(self):
+        """retry 2+ must use a variant prompt prefix, not just re-run the
+        exact same prompt at a different temp. Variant prompt:
+          1) changes prompt hash → bypasses server cache
+          2) injects explicit length mandate → forces LLM to elaborate"""
+        src = _read_kb_dream()
+        # A cur_prompt var must be assigned differently for retry==1 vs else
+        self.assertIn(
+            'cur_prompt="$REDUCE_PROMPT"',
+            src,
+            "First retry must use raw REDUCE_PROMPT — cur_prompt branching "
+            "missing.",
+        )
+        self.assertIn(
+            "第 $retry 次尝试",
+            src,
+            "Retry variant header missing — retry 2+ still sends identical "
+            "prompt, won't bypass server cache.",
+        )
+        self.assertIn(
+            "2500 汉字",
+            src,
+            "Explicit length mandate (2500 汉字) missing in retry variant — "
+            "LLM has no pressure to elaborate on retry.",
+        )
+
+    def test_llm_call_uses_cur_prompt_not_reduce_prompt(self):
+        """The actual llm_call inside retry loop must use $cur_prompt so the
+        retry variant is actually sent. If it still uses $REDUCE_PROMPT,
+        the whole variation is dead code."""
+        src = _read_kb_dream()
+        # Find the llm_call inside the retry loop — should reference cur_prompt
+        m = re.search(
+            r'DREAM_RESULT=\$\(llm_call\s+"\$([A-Za-z_]+)"\s+8000',
+            src,
+        )
+        self.assertIsNotNone(
+            m, "Reduce retry llm_call not found in expected shape"
+        )
+        self.assertEqual(
+            m.group(1),
+            "cur_prompt",
+            f"Retry llm_call uses ${m.group(1)} instead of $cur_prompt — "
+            "prompt variation is dead code.",
+        )
+
+
 class TestDynamicTimeoutBudget(unittest.TestCase):
     """Map-only modes need a 90-min budget (full KB bootstrap); Reduce keeps
     60 min (cache read + 1 LLM call). Dynamic assignment by mode."""
