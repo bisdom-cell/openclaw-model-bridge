@@ -93,6 +93,11 @@ def verify_chain() -> dict:
     """
     校验审计日志链式哈希完整性。
 
+    V37.7: 当某行 JSON 解析失败时，`prev_hash` 标记为 None（chain broken
+    from here），后续有效行跳过 prev 指针检查（我们无法知道该是什么），
+    但仍然独立验证 entry 自身 hash。这避免了单个 parse error 引发 cascade
+    错误把无辜的后续行全部误报。
+
     Returns:
         {"ok": bool, "total": int, "errors": [{"line": int, "expected": str, "actual": str}]}
     """
@@ -101,7 +106,8 @@ def verify_chain() -> dict:
 
     errors = []
     total = 0
-    prev_hash = "0" * 16
+    # prev_hash = None 表示"链式已在上游断裂，下一行不要再和前值比对"
+    prev_hash: "str | None" = "0" * 16
 
     with open(AUDIT_FILE) as f:
         for i, line in enumerate(f, 1):
@@ -113,17 +119,19 @@ def verify_chain() -> dict:
                 entry = json.loads(line)
             except json.JSONDecodeError:
                 errors.append({"line": i, "expected": "valid JSON", "actual": "parse error"})
+                # Chain 已断裂，下游无法验证 prev 指针
+                prev_hash = None
                 continue
 
-            # 检查链式指针
-            if entry.get("prev") != prev_hash:
+            # 检查链式指针（仅当上游未断裂时）
+            if prev_hash is not None and entry.get("prev") != prev_hash:
                 errors.append({
                     "line": i,
                     "expected": f"prev={prev_hash}",
                     "actual": f"prev={entry.get('prev', '?')}"
                 })
 
-            # 重算哈希
+            # 重算哈希（独立验证，不依赖 prev_hash 状态）
             stored_hash = entry.pop("hash", "")
             entry_str = json.dumps(entry, ensure_ascii=False, sort_keys=True)
             computed = _compute_hash(entry_str)
@@ -134,6 +142,7 @@ def verify_chain() -> dict:
                     "actual": f"hash={stored_hash}"
                 })
             entry["hash"] = stored_hash
+            # 只要本行 hash 有效就可以把链续上（即使上游断过）
             prev_hash = stored_hash
 
     return {"ok": len(errors) == 0, "total": total, "errors": errors}

@@ -518,8 +518,16 @@ def _discover_shallow_critical(data, severity):
     }
 
 
-def print_results(results):
-    if JSON_MODE:
+def print_results(results, json_mode=None):
+    """Print governance check results.
+
+    V37.7: `json_mode` parameter allows tests (INV-GOV-001 check 2) to
+    specify output format without mutating the module-level JSON_MODE
+    global. Defaults to the global for backwards compat / CLI use.
+    """
+    if json_mode is None:
+        json_mode = JSON_MODE
+    if json_mode:
         print(json.dumps(results, indent=2, ensure_ascii=False))
         return 0
 
@@ -566,11 +574,16 @@ def print_results(results):
     executed = total_checks - skipped
     errored_invs = sum(1 for r in results if r["status"] == "error")
     hard_fail_invs = failed_invs - errored_invs
+    # V37.7: pull meta_rules total from audit_metadata instead of hardcoding
+    try:
+        mr_total = _load().get("audit_metadata", {}).get("meta_rules", len(mr_used))
+    except Exception:
+        mr_total = len(mr_used)
 
     print()
     print("─" * 70)
     print(f"  不变式: {len(results)} | 检查: {executed} 执行, {skipped} 跳过")
-    print(f"  通过: {passed_checks}/{executed} checks | 元规则: {len(mr_used)}/6")
+    print(f"  通过: {passed_checks}/{executed} checks | 元规则: {len(mr_used)}/{mr_total}")
 
     if failed_invs:
         if errored_invs and hard_fail_invs:

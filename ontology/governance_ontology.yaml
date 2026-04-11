@@ -131,6 +131,52 @@ meta_rules:
       崩溃，汇总行持续显示"所有不变式成立"。这是"观察者的自我盲区"：治理系统
       没有把自己当被治理对象。详见 ontology/docs/cases/governance_silent_error_case.md
 
+  - id: MR-8
+    name: copy-paste-is-a-bug-class
+    description: |
+      跨 job/模块复制相似逻辑 = 引入 bug 类。修复一处其他地方仍然带病运行，
+      新增字段需要 N 处同步更新，任何一处忘记同步就成为静默漂移源。正确做法是
+      把公共原语提取为可 import 的模块，只允许通过"差异注入"（函数参数、
+      配置传参、依赖注入）扩展行为，禁止 fork-then-modify。
+      对这条规则的正向兑现 = 新 job 直接 `import X as rc` 而不是复制 500 行。
+    lesson: |
+      2026-04-11: V37.5 kb_review_collect.py 被 V37.6 kb_evening_collect.py
+      直接 import 复用（load_sources_from_registry/extract_recent_sections/
+      collect_notes/collect_sources/call_llm 零重复），只覆写 evening-specific
+      的 prompt 结构 + 1-day 窗口 + WA header。这是 kb_evening 三年来第一次
+      不靠"文件名前 80 字"伪摘要——靠的是拒绝 copy-paste。同场演出 V37.6 P0-2:
+      14 个 RSS/cron job 各自独立 `>> sources/*.md`，每次架构升级都要改 14 处，
+      V37.6 统一到 kb_append_source.sh helper。MR-8 是 MR-9 的上位法则。
+
+  - id: MR-9
+    name: state-writes-go-through-helper-not-raw-redirect
+    description: |
+      shell `>>` 直写持久化状态文件（~/.kb/sources/*.md、index.json、seen.txt
+      等任何跨进程/跨 cron 共享的 state 文件）必须走一个强制 dedup / 并发锁 /
+      契约的 helper（kb_append_source.sh、kb_write.sh 等），禁止 job 里出现
+      裸的 `echo ... >> "$KB_SRC"`、`cat >> "$INDEX"`、`printf >> "$STATE"`。
+      理由：state 文件的写入语义（append / upsert / idempotent-section /
+      atomic-replace）不能交给每个 caller 自己理解，否则：
+        (a) 同一 cron 一天跑多次 → 重复 section 污染（如 ontology_sources 10:00/20:00）
+        (b) 并发写 → 内容交错损坏（没有 flock）
+        (c) 架构升级时 14 个 caller 要改 14 次（14 个 H2-dedup 补丁都要复制粘贴）
+        (d) 单个 caller 遗漏迁移 → 静默退回旧行为（V37.6 run_discussions.sh 第 16 处漏网）
+      helper 的契约必须声明（且自测）：幂等性 / 并发安全 / section 标记 /
+      SLOT_TAG 支持（同日多 run） / 失败时 exit ≠ 0 让 caller fail-fast。
+    enforcement:
+      - "INV-SRC-001 声明层：扫 jobs/*/run*.sh 不得出现 `>> \"$KB_SRC\"` 或 `>> .*sources/.*\\.md`"
+      - "INV-SRC-001 运行时层：扫 15 个 enabled source-producing jobs 必须调用 kb_append_source.sh"
+      - "新增 source-producing job 必须在 jobs_registry.yaml 声明 kb_source_file 且 grep 确认 helper 调用存在"
+    derivative_invariants: [INV-SRC-001, INV-DEDUP-001, INV-DEDUP-002]
+    blood_lessons: |
+      2026-04-11 V37.6: 438 行 sources 污染（多个 cron 在 `## $DAY` 下重复追加同一条目，
+      滚动窗口内一条论文出现 N 次），根因是 14 个 cron job 各自独立 `>> sources/*.md`，
+      没有统一 helper。修复引入 kb_append_source.sh + SLOT_TAG，但 run_discussions.sh
+      第 16 处漏网（MR-4 第 5 次演出），直到 V37.7 双跑审计才发现。
+      结论：这不是"14 个 caller 每个都要记得调 helper"的纪律问题，而是 ontology
+      必须禁止裸 `>>` 直写 state 文件的架构问题——让 CI/governance 自动拦截，
+      不靠程序员记忆。MR-9 是 MR-4 "silent-failure-is-a-bug" 的上游预防层。
+
 # ═══════════════════════════════════════════════════════════════════════
 # 3. 不变式（Invariants）— 可执行的声明-执行-验证三元组
 # ═══════════════════════════════════════════════════════════════════════
@@ -759,36 +805,36 @@ invariants:
       - name: "error 状态注入时汇总行不会说 '所有不变式成立'"
         check_type: python_assert
         code: |
-          # 独立回归：构造一个注定 error 的虚假 result，验证汇总不说谎
-          # 注意：governance_checker.JSON_MODE 是模块级全局，调用时必须
-          # 临时切到 False，否则 print_results 走 JSON 分支无法验证文本汇总。
-          import io, contextlib, sys, os
+          # V37.7: 用 json_mode=False 参数注入，不再污染 module-level
+          # JSON_MODE 全局状态（嵌套调用下该全局会被 save/restore 污染其他
+          # check 的视角）。print_results(results, json_mode=False) 的参数
+          # 注入是 V37.7 dependency injection 重构的核心目的。
+          import io, contextlib, sys
           sys.path.insert(0, 'ontology')
           import governance_checker
-          saved = governance_checker.JSON_MODE
-          governance_checker.JSON_MODE = False
-          try:
-              fake_results = [{
-                  "id": "INV-FAKE-ERROR",
-                  "name": "synthetic-silent-error-probe",
-                  "status": "error",
-                  "severity": "critical",
-                  "meta_rule": "MR-7",
-                  "declaration": "注入的 error 用于验证 summary 不吞 error",
-                  "checks": [
-                      {"name": "synthetic", "status": "error", "message": "NameError: fake"}
-                  ],
-              }]
-              buf = io.StringIO()
-              with contextlib.redirect_stdout(buf):
-                  exit_code = governance_checker.print_results(fake_results)
-              out = buf.getvalue()
-          finally:
-              governance_checker.JSON_MODE = saved
+          fake_results = [{
+              "id": "INV-FAKE-ERROR",
+              "name": "synthetic-silent-error-probe",
+              "status": "error",
+              "severity": "critical",
+              "meta_rule": "MR-7",
+              "declaration": "注入的 error 用于验证 summary 不吞 error",
+              "checks": [
+                  {"name": "synthetic", "status": "error", "message": "NameError: fake"}
+              ],
+          }]
+          buf = io.StringIO()
+          with contextlib.redirect_stdout(buf):
+              exit_code = governance_checker.print_results(fake_results, json_mode=False)
+          out = buf.getvalue()
           assert "所有不变式成立" not in out, \
               "silent error regression: ✅ 汇总行吞掉了 error 状态"
           assert exit_code != 0, \
               f"silent error regression: error 状态未计入失败 (exit={exit_code})"
+      - name: "print_results 参数化 json_mode（不污染全局状态）"
+        check_type: file_contains
+        file: ontology/governance_checker.py
+        pattern: "def print_results\\(results, json_mode=None\\)"
 
   # ── PA 对话上下文隔离（V37.4.3 血案）──────────────────────────────────
 
@@ -1198,7 +1244,7 @@ invariants:
 
   - id: INV-EVENING-001
     name: kb-evening-fails-loud-not-silent
-    meta_rule: MR-4
+    meta_rule: MR-8
     verification_layer: [declaration, runtime]
     severity: high
     declaration: |
@@ -1474,7 +1520,7 @@ invariants:
 
   - id: INV-SRC-001
     name: sources-writes-are-idempotent-at-source
-    meta_rule: MR-4
+    meta_rule: MR-9
     verification_layer: [declaration, runtime]
     severity: critical
     declaration: |
@@ -1524,10 +1570,11 @@ invariants:
         check_type: file_contains
         file: auto_deploy.sh
         pattern: "kb_append_source.sh"
-      - name: "14 个 job 写入点全部切换到 kb_append_source.sh (静态守卫)"
+      - name: "15 个 job 写入点全部切换到 kb_append_source.sh (静态守卫)"
         check_type: python_assert
         code: |
           # 字节级约束: 每个 job 脚本必须 import helper. freight 有 2 个写入点.
+          # V37.7: openclaw_official/run_discussions.sh 补齐 (V37.6 P0-2 漏网).
           job_sites = [
               ("jobs/arxiv_monitor/run_arxiv.sh", 1),
               ("jobs/ai_leaders_x/run_ai_leaders_x.sh", 1),
@@ -1542,6 +1589,7 @@ invariants:
               ("jobs/ontology_sources/run_ontology_sources.sh", 1),
               ("jobs/freight_watcher/run_freight.sh", 2),
               ("jobs/openclaw_official/run.sh", 1),
+              ("jobs/openclaw_official/run_discussions.sh", 1),  # V37.7 补齐
           ]
           for path, expected in job_sites:
               with open(path, encoding="utf-8") as f:
@@ -1560,6 +1608,46 @@ invariants:
           )
           assert not r.stdout.strip(), (
               f"发现 V37.6 反模式残留: {r.stdout[:400]}"
+          )
+      - name: "V37.7 全量扫描: jobs/**/*.sh 不得有任何 `>> \"$KB_SRC\"` 直写"
+        check_type: python_assert
+        code: |
+          # V37.7: 跨 run_discussions.sh 第 16 个漏网事件后加的 catch-all 守卫.
+          # 之前的 `} >> $KB_SRC` 正则只匹配块追加, run_discussions.sh 的
+          # `echo ... >> $KB_SRC` 单行追加在 while-loop 内部逃过. 本检查
+          # 用更宽的 regex 锁死所有 `>> $KB_SRC` 形式.
+          import subprocess
+          r = subprocess.run(
+              ["bash", "-c", r'grep -rEn ">>[[:space:]]*\"\$KB_SRC\"" jobs/ || true'],
+              capture_output=True, text=True,
+          )
+          # 允许: kb_append_source.sh helper 脚本本身的注释与文档
+          leaks = [
+              line for line in r.stdout.splitlines()
+              if line.strip() and "kb_append_source.sh" not in line
+          ]
+          assert not leaks, (
+              f"发现 V37.7 catch-all 反模式残留 ({len(leaks)} 行): "
+              + "\n".join(leaks[:10])
+          )
+      - name: "V37.7 catch-all: 任何 jobs/*.sh 追加 .kb/sources/*.md 必须通过 helper"
+        check_type: python_assert
+        code: |
+          # 字符串匹配法(不依赖变量展开): 检查所有 jobs/*.sh 脚本中
+          # 是否存在直接 append 到 sources 目录的实体行.
+          import subprocess
+          r = subprocess.run(
+              ["bash", "-c",
+               r'grep -rEn ">>[[:space:]]*.*sources/.*\.md" jobs/ || true'],
+              capture_output=True, text=True,
+          )
+          leaks = [
+              line for line in r.stdout.splitlines()
+              if line.strip() and "kb_append_source.sh" not in line
+          ]
+          assert not leaks, (
+              f"发现 sources/*.md 直接追加 ({len(leaks)} 行):\n"
+              + "\n".join(leaks[:10])
           )
       - name: "runtime: helper 幂等契约 - 同一 marker 第二次写入被跳过"
         check_type: python_assert
@@ -1671,6 +1759,118 @@ invariants:
               _, _, removed = results["arxiv.md"]
               assert removed == 1, f"应检测到 1 条重复, 实际 {removed}"
 
+  - id: INV-DEDUP-002
+    name: kb-dedup-pre-filters-dangling-index-entries
+    meta_rule: MR-4
+    verification_layer: [declaration, runtime]
+    severity: high
+    declaration: |
+      kb_dedup.find_duplicate_notes 必须先剔除 file 字段指向不存在文件
+      的 "dangling" index entries，再做精确 / 模糊 dedup 分组。
+      dangling 条目必须由独立的 find_dangling_index_entries 函数报告，
+      不能混入 duplicate count 隐藏 index drift。
+    design_decision: |
+      V37.7 Mac Mini 血案: 用户跑 `kb_dedup.py --apply` 期望删除 2 条
+      dup note, 实际只成功删除 1 条. 调查发现 index.json 里有 2 条
+      entry 指向 notes/20260226_type_text_t.md 和 notes/20260226_type.md
+      但物理文件早已不存在 (V37.6 修复 content-blocks repr bug 时手动清掉
+      但 index 未同步). kb_dedup.find_duplicate_notes 把它们作为 entry
+      读入 → 按 summary 分组 → 传给 apply_note_dedup → os.remove() 静默
+      no-op → 数字对不上.
+
+      修复:
+      1. 新增 find_dangling_index_entries(index) 独立报告 dangling refs.
+      2. find_duplicate_notes 入口先 os.path.exists() pre-filter,
+         dangling 不进入 exact/fuzzy 分组.
+      3. main() 在 --apply 模式下清理 dangling (纯 index 操作, 无文件 IO),
+         在 dry-run 模式下发出 WARN 报告数量.
+      4. format_report / write_json 可选展示 dangling count.
+    lesson: |
+      2026-04-11: MR-4 第四次演出的 index drift 版本.
+      "apply 动作和 find 动作之间缺少一致性保证" = silent failure.
+      dangling != duplicate, 两个 failure class 不能在 dedup 计数里混用.
+    checks:
+      - name: "kb_dedup 定义 find_dangling_index_entries"
+        check_type: file_contains
+        file: kb_dedup.py
+        pattern: "def find_dangling_index_entries"
+      - name: "find_duplicate_notes 有 V37.7 pre-filter 注释标记"
+        check_type: file_contains
+        file: kb_dedup.py
+        pattern: "V37.7"
+      - name: "runtime: dangling entries 不出现在 exact_dupes"
+        check_type: python_assert
+        code: |
+          # 构造 2 条 index entry 指向同一 summary, 其中 1 条物理不存在.
+          # 期望: dangling 被 pre-filter 剔除 → exact_dupes 为空（只剩 1 条实存）.
+          import sys, os, tempfile, json, importlib
+          sys.path.insert(0, os.getcwd())
+          if "kb_dedup" in sys.modules:
+              importlib.reload(sys.modules["kb_dedup"])
+          import kb_dedup
+          with tempfile.TemporaryDirectory() as tmp:
+              kb_dedup.KB_BASE = tmp
+              kb_dedup.NOTES_DIR = os.path.join(tmp, "notes")
+              kb_dedup.SOURCES_DIR = os.path.join(tmp, "sources")
+              kb_dedup.INDEX_FILE = os.path.join(tmp, "index.json")
+              os.makedirs(kb_dedup.NOTES_DIR)
+              # Real file
+              with open(os.path.join(kb_dedup.NOTES_DIR, "real.md"), "w") as f:
+                  f.write("# Real note\nbody")
+              # Index has real + dangling, both claim same summary
+              idx = {"entries": [
+                  {"file": "notes/real.md", "summary": "Same summary"},
+                  {"file": "notes/missing.md", "summary": "Same summary"},
+              ]}
+              dangling = kb_dedup.find_dangling_index_entries(idx)
+              assert len(dangling) == 1, f"应检测 1 条 dangling, 实际 {len(dangling)}"
+              assert dangling[0]["file"] == "notes/missing.md"
+              exact, fuzzy = kb_dedup.find_duplicate_notes(idx)
+              # dangling 被 pre-filter → real 和 missing 不再同组
+              # real 单独一条 + missing 被剔除 → 没有 exact dup
+              for kept, removed in exact:
+                  files = {kept.get("file")} | {r.get("file") for r in removed}
+                  assert "notes/missing.md" not in files, \
+                      f"dangling 漏进 exact dup group: {files}"
+      - name: "runtime: main --apply 清理 dangling 且不报错"
+        check_type: python_assert
+        code: |
+          # 走完 main 的 --apply 路径, 验证 dangling 被从 index 删除.
+          import sys, os, tempfile, json, importlib, io, contextlib
+          sys.path.insert(0, os.getcwd())
+          if "kb_dedup" in sys.modules:
+              importlib.reload(sys.modules["kb_dedup"])
+          import kb_dedup
+          with tempfile.TemporaryDirectory() as tmp:
+              kb_dedup.KB_BASE = tmp
+              kb_dedup.NOTES_DIR = os.path.join(tmp, "notes")
+              kb_dedup.SOURCES_DIR = os.path.join(tmp, "sources")
+              kb_dedup.INDEX_FILE = os.path.join(tmp, "index.json")
+              kb_dedup.REPORT_JSON = os.path.join(tmp, "report.json")
+              os.makedirs(kb_dedup.NOTES_DIR)
+              os.makedirs(kb_dedup.SOURCES_DIR)
+              with open(os.path.join(kb_dedup.NOTES_DIR, "real.md"), "w") as f:
+                  f.write("# Real\nbody")
+              with open(kb_dedup.INDEX_FILE, "w") as f:
+                  json.dump({"entries": [
+                      {"file": "notes/real.md", "summary": "a"},
+                      {"file": "notes/dangling.md", "summary": "b"},
+                  ]}, f)
+              old_argv = sys.argv
+              sys.argv = ["kb_dedup.py", "--apply", "--no-push"]
+              try:
+                  with contextlib.redirect_stdout(io.StringIO()):
+                      kb_dedup.main()
+              finally:
+                  sys.argv = old_argv
+              with open(kb_dedup.INDEX_FILE) as f:
+                  idx = json.load(f)
+              files = [e["file"] for e in idx["entries"]]
+              assert "notes/dangling.md" not in files, \
+                  f"dangling 未被清理: {files}"
+              assert "notes/real.md" in files, \
+                  f"real entry 被误删: {files}"
+
 # ═══════════════════════════════════════════════════════════════════════
 # 4. 可执行元规则（Phase 0）— 自动发现缺失不变式
 #    只扫描结构化数据源，不解析自然语言
@@ -1755,7 +1955,7 @@ meta_rule_discovery:
 # 5. 审计元数据
 # ═══════════════════════════════════════════════════════════════════════
 audit_metadata:
-  version: "3.7"
+  version: "3.8"
   created: "2026-04-07"
   upgraded: |
     v3.0 → v3.1: 通知路径治理(INV-NOTIFY-003/004) + 错误可观测性(MRD-ERROR-001) + 效果层启动(MRD-NOTIFY-002)
@@ -1766,9 +1966,10 @@ audit_metadata:
     v3.5 → v3.5.1: V37.5.1 热修复 — kb_review.sh Mac Mini E2E 首次执行炸 JSONDecodeError, 根因 `echo ... | python3 - "$arg" << 'PYEOF'` pipe+heredoc stdin 冲突。INV-REVIEW-001 扩展 2 个 runtime 检查 (anti-pattern 扫描 + subprocess 真实执行). 体现 MR-6: grep 守卫不足, 必须有运行时回归。
     v3.5.1 → v3.6: KB 内容+sources 双血案 (MR-4 第三次演出) — INV-KB-001 (content-blocks-flattened-before-kb-write, 修复 str(list) 产生 Python repr 污染 KB note 标题) + INV-SRC-001 (sources-writes-are-idempotent-at-source, 14 个 cron job 共享 kb_append_source.sh H2-marker 幂等 helper, 阻断 438 行 sources 重复爆炸) + INV-DEDUP-001 (kb-dedup-is-h2-scoped-and-scans-unindexed-notes, 修复 file-level seen set 误判跨 H2 合法重复 + 只扫 index.entries 漏掉 4 条孤儿 note)
     v3.6 → v3.7: kb_evening 升级复用 V37.5 kb_review 架构 → INV-EVENING-001 (kb-evening-fails-loud-not-silent, 复用性锁定: import 不 copy + evening-specific prompt + fail-fast wrapper 契约 + 1-day 窗口运行时回归) — MR-8 candidate "copy-paste-is-a-bug-class" 的正面兑现, auto_deploy FILE_MAP 同步补齐 kb_review_collect.py V37.5 历史漏洞
-  total_invariants: 33  # +INV-EVENING-001
-  total_checks: 120     # +18 EVENING-001 (17 checks, 部分多行)
-  meta_rules: 7         # MR-1~MR-7
+    v3.7 → v3.8: V37.7 双跑审计闭环 — (a) MR-8 "copy-paste-is-a-bug-class" 从 candidate 正式形式化进入 meta_rules (INV-EVENING-001 重新归属); (b) MR-9 "state-writes-go-through-helper-not-raw-redirect" 新增 (MR-4 上游预防层, 禁止 shell `>>` 直写持久化 state 文件, 必须走 kb_append_source.sh / kb_write.sh 等 helper); (c) INV-SRC-001 重新归属 MR-9 并新增 2 个 catch-all 运行时 scan (任何位置 `>> "$KB_SRC"` + 任何 `>> sources/*.md` 路径); (d) INV-DEDUP-002 新增 (kb-dedup-pre-filters-dangling-index-entries, MR-4 第 4 次演出 — dangling index refs 被误判为 duplicate 并在 --apply 时删除历史); (e) INV-GOV-001 check 2 重构去掉 JSON_MODE global mutation (依赖注入 print_results(json_mode=False) 参数); (f) run_discussions.sh V37.6 P0-2 第 16 处漏网修复 (bucket 1, MR-4 第 5 次演出); (g) audit_log.verify_chain JSON parse error prev_hash 级联 bug 修复 (不再让解析错误静默传播到下一行 prev check); (h) kb_evening "今日笔记" label semantics 修复 (count_today_notes filename prefix 扫描 vs 历史累计 note_count)
+  total_invariants: 34  # +INV-DEDUP-002
+  total_checks: 124     # +4 DEDUP-002 (2 declarative + 2 runtime python_assert)
+  meta_rules: 9         # MR-1~MR-9 (MR-8 formalized + MR-9 new)
   meta_rule_discovery_count: 6   # Phase 0: registry + env + notify-topic + layer-depth + error-suppression + notify-activity
   check_types_used: [python_assert, file_contains, file_not_contains, env_var_exists, command_succeeds, log_activity_check]
   verification_layers_used: [declaration, runtime, effect]  # v3.1: 效果层启动

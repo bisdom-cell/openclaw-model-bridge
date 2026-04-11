@@ -138,6 +138,39 @@ class TestVerify(TestAuditBase):
         result = audit_log.verify_chain()
         self.assertFalse(result["ok"])
 
+    def test_json_parse_error_does_not_cascade(self):
+        """V37.7: JSON parse error on one line must not cascade the prev_hash
+        pointer to the next line. Before V37.7, prev_hash was left untouched
+        on parse error → subsequent valid entries saw stale pointer → all
+        downstream entries falsely flagged as prev-mismatch errors.
+        """
+        audit_log.audit("test", "set", "a")
+        audit_log.audit("test", "set", "b")
+        audit_log.audit("test", "set", "c")
+        # Corrupt line 2 to invalid JSON
+        with open(self.audit_file) as f:
+            lines = f.readlines()
+        lines[1] = "{not valid json at all]\n"
+        with open(self.audit_file, "w") as f:
+            f.writelines(lines)
+        result = audit_log.verify_chain()
+        self.assertFalse(result["ok"])
+        # Exactly 1 error (the parse error itself) — not 2+ from cascaded
+        # prev-mismatch reports on lines 3+
+        parse_errors = [e for e in result["errors"]
+                        if "parse" in str(e.get("actual", "")).lower()
+                        or "parse" in str(e.get("expected", "")).lower()]
+        self.assertGreaterEqual(len(parse_errors), 1)
+        # Line 3 (valid JSON with valid self-hash) must not itself trigger
+        # a prev-mismatch error
+        line_3_errors = [e for e in result["errors"] if e.get("line") == 3]
+        # Allowed: zero line-3 errors because we skip prev check when prev_hash is None
+        self.assertEqual(
+            len([e for e in line_3_errors if "prev" in str(e.get("expected", ""))]),
+            0,
+            "line 3 must not be flagged for prev mismatch after line 2 parse error"
+        )
+
 
 class TestTail(TestAuditBase):
     def test_tail_empty(self):

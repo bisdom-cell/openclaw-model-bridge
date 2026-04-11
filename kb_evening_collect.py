@@ -27,6 +27,7 @@ Exit codes:
   0 — JSON 已产出（status 字段指明 ok / llm_failed / collector_failed）
   1 — 致命错误（参数缺失/注册表不可读），stderr 有原因
 """
+import glob
 import json
 import os
 import sys
@@ -38,11 +39,38 @@ import kb_review_collect as rc
 
 
 # ══════════════════════════════════════════════════════════════════════
+# 0. Today-scoped helpers — V37.7 label semantics fix
+# ══════════════════════════════════════════════════════════════════════
+
+def count_today_notes(kb_dir, today=None):
+    """Count notes whose filename prefix matches today's date (YYYYMMDD).
+
+    V37.7: fixes V37.6 label bug where `今日笔记 {note_count} 篇` was
+    mislabeled — `note_count` from rc.read_index_stats is the *total*
+    note count on disk, not today's additions. Evening report's entire
+    pitch is "今日 (today)" so this count must be today-scoped.
+
+    Naming convention: files named YYYYMMDDHHMMSS.md (V27+).
+    """
+    if today is None:
+        today = datetime.now()
+    today_prefix = today.strftime("%Y%m%d")
+    notes_dir = os.path.join(kb_dir, "notes")
+    if not os.path.isdir(notes_dir):
+        return 0
+    return sum(
+        1 for p in glob.glob(os.path.join(notes_dir, "*.md"))
+        if os.path.basename(p).startswith(today_prefix)
+    )
+
+
+# ══════════════════════════════════════════════════════════════════════
 # 1. Evening-specific prompt — 今日窗口 + 行动导向
 # ══════════════════════════════════════════════════════════════════════
 
 def build_evening_prompt(
-    notes_text, sources_text, days, index_total, note_count, themes
+    notes_text, sources_text, days, index_total, note_count,
+    today_note_count, themes,
 ):
     """构造晚间整理 prompt。
 
@@ -50,6 +78,10 @@ def build_evening_prompt(
       - 窗口缩到 1 天，不需要"跨领域关联"长篇分析
       - 要求输出聚焦"今日要闻 + 明日关注"，行动导向
       - 总字数 450 内（WhatsApp 1 屏可见，不需要 review 文件那么长）
+
+    V37.7: 区分 `note_count` (笔记总数，所有 .md 文件) 和 `today_note_count`
+    (今日新增笔记)。V37.6 曾把 note_count 错误标签为"今日笔记"，导致 LLM
+    prompt 里给出的统计与"今日"不一致。
     """
     return f"""你是一位知识管理助手，请基于用户知识库中今天（最近 {days} 天）新增的内容，
 生成一份简洁的晚间整理。用中文回答，总字数 450 内，按以下四节输出：
@@ -67,7 +99,8 @@ def build_evening_prompt(
 
 ═══ 基础统计 ═══
 知识库总条目: {index_total} 条
-今日笔记: {note_count} 篇
+笔记总数: {note_count} 篇
+今日新增: {today_note_count} 篇
 活跃标签: {themes}"""
 
 
@@ -76,10 +109,14 @@ def build_evening_prompt(
 # ══════════════════════════════════════════════════════════════════════
 
 def build_evening_markdown(
-    date_str, days, llm_content, index_total, note_count, themes,
-    sources_used, sources_skipped, sources_missing,
+    date_str, days, llm_content, index_total, note_count, today_note_count,
+    themes, sources_used, sources_skipped, sources_missing,
 ):
-    """生成 evening_YYYYMMDD.md 文件内容，写入 ~/.kb/daily/。"""
+    """生成 evening_YYYYMMDD.md 文件内容，写入 ~/.kb/daily/。
+
+    V37.7: 新增 `today_note_count` 参数，分列"笔记总数"（历史累计）和
+    "今日新增"（今天实际生产），避免 V37.6 "今日笔记 298 篇"的虚标。
+    """
     sources_block_lines = []
     if sources_used:
         sources_block_lines.append(f"**今日覆盖源** ({len(sources_used)}):")
@@ -102,13 +139,15 @@ period: {days}days
 llm_analyzed: true
 sources_used: {len(sources_used)}
 sources_missing: {len(sources_missing)}
+today_note_count: {today_note_count}
 ---
 
 # 晚间整理 {date_str}
 
 ## 基础统计
 - 知识库总条目：{index_total} 条
-- 今日笔记：{note_count} 篇
+- 笔记总数：{note_count} 篇
+- 今日新增：{today_note_count} 篇
 - 活跃标签：{themes}
 
 ## 源覆盖
@@ -121,13 +160,18 @@ sources_missing: {len(sources_missing)}
 
 
 def build_evening_wa_message(
-    date_str, days, index_total, note_count, llm_content, sources_count
+    date_str, days, index_total, note_count, today_note_count,
+    llm_content, sources_count,
 ):
-    """生成 WhatsApp/Discord 晚间推送消息。"""
+    """生成 WhatsApp/Discord 晚间推送消息。
+
+    V37.7: header 分列"KB 总条目"/"笔记总数"/"今日新增"，消除 V37.6 把
+    历史累计笔记数标为"今日笔记"的误导。
+    """
     header = (
         f"🌙 晚间整理 {date_str}"
-        f"（KB 总条目 {index_total} | 今日笔记 {note_count} 篇 "
-        f"| 覆盖 {sources_count} 源）"
+        f"（KB 总条目 {index_total} | 笔记总数 {note_count} "
+        f"| 今日新增 {today_note_count} 篇 | 覆盖 {sources_count} 源）"
     )
     body = llm_content[:1400] if len(llm_content) > 1400 else llm_content
     return f"{header}\n\n{body}"
@@ -156,6 +200,8 @@ def run(kb_dir, days, registry_path, today=None, llm_caller=None):
 
     # Collect — 直接复用 kb_review_collect 的原语
     index_total, note_count, themes = rc.read_index_stats(kb_dir)
+    # V37.7: today_note_count ≠ note_count（total），fix the V37.6 label bug
+    today_note_count = count_today_notes(kb_dir, today=today)
     notes_text = rc.collect_notes(kb_dir, days, MAX_NOTES_CHARS, today=today)
 
     try:
@@ -174,7 +220,8 @@ def run(kb_dir, days, registry_path, today=None, llm_caller=None):
     prompt_notes = notes_text[:PROMPT_TRUNCATE_NOTES]
     prompt_sources = sources_info["text"][:PROMPT_TRUNCATE_SOURCES]
     prompt = build_evening_prompt(
-        prompt_notes, prompt_sources, days, index_total, note_count, themes
+        prompt_notes, prompt_sources, days, index_total, note_count,
+        today_note_count, themes,
     )
 
     # Call LLM — 复用 rc.call_llm（同一个 proxy URL/timeout/min-length 契约）
@@ -189,6 +236,7 @@ def run(kb_dir, days, registry_path, today=None, llm_caller=None):
             "days": days,
             "index_total": index_total,
             "note_count": note_count,
+            "today_note_count": today_note_count,
             "themes": themes,
             "sources_used": sources_info["used"],
             "sources_skipped": sources_info["skipped"],
@@ -197,12 +245,13 @@ def run(kb_dir, days, registry_path, today=None, llm_caller=None):
 
     # Build evening-specific output artifacts
     evening_md = build_evening_markdown(
-        date_str, days, llm_content, index_total, note_count, themes,
+        date_str, days, llm_content, index_total, note_count,
+        today_note_count, themes,
         sources_info["used"], sources_info["skipped"], sources_info["missing"],
     )
     wa_message = build_evening_wa_message(
-        date_str, days, index_total, note_count, llm_content,
-        len(sources_info["used"]),
+        date_str, days, index_total, note_count, today_note_count,
+        llm_content, len(sources_info["used"]),
     )
 
     return {
@@ -211,6 +260,7 @@ def run(kb_dir, days, registry_path, today=None, llm_caller=None):
         "days": days,
         "index_total": index_total,
         "note_count": note_count,
+        "today_note_count": today_note_count,
         "themes": themes,
         "sources_used": sources_info["used"],
         "sources_skipped": sources_info["skipped"],
