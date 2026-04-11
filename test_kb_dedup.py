@@ -147,14 +147,18 @@ class TestSourceDedup(unittest.TestCase):
         self.assertEqual(len(results), 0)
 
     def test_duplicate_lines(self):
+        # V37.6: dedup is H2-scoped. Same line repeated WITHIN one H2 section
+        # is a duplicate; same line across different H2 sections is legitimate
+        # rolling-window recurrence and must NOT be flagged.
         write_source("arxiv_daily.md",
             "## 2026-03-24\n- Paper A: description\n- Paper B: desc\n"
+            "- Paper A: description\n"  # in-section duplicate
             "## 2026-03-23\n- Paper A: description\n- Paper C: different\n"
         )
         results = kb_dedup.find_duplicate_source_lines(_sources_dir)
         self.assertIn("arxiv_daily.md", results)
         _, deduped, removed = results["arxiv_daily.md"]
-        self.assertEqual(removed, 1)  # "- Paper A: description" duplicated
+        self.assertEqual(removed, 1)  # only in-section repeat of Paper A
 
     def test_headers_preserved(self):
         """Date headers and empty lines are never removed."""
@@ -169,16 +173,18 @@ class TestSourceDedup(unittest.TestCase):
             self.assertEqual(header_count, 2)
 
     def test_apply_source_dedup(self):
+        # V37.6: dedup is H2-scoped. Duplicate must be within same section.
         write_source("hn_daily.md",
-            "## 2026-03-24\n- Post A\n- Post B\n## 2026-03-23\n- Post A\n- Post C\n"
+            "## 2026-03-24\n- Post A\n- Post B\n- Post A\n"  # in-section dup
+            "## 2026-03-23\n- Post A\n- Post C\n"  # cross-section, kept
         )
         results = kb_dedup.find_duplicate_source_lines(_sources_dir)
         n = kb_dedup.apply_source_dedup(results, _sources_dir)
         self.assertEqual(n, 1)
-        # Verify file was rewritten
+        # Verify file was rewritten: Post A kept once in 03-24, once in 03-23
         with open(os.path.join(_sources_dir, "hn_daily.md")) as f:
             content = f.read()
-        self.assertEqual(content.count("- Post A"), 1)  # deduped to 1
+        self.assertEqual(content.count("- Post A"), 2)
 
 
 class TestStats(unittest.TestCase):

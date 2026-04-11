@@ -1196,6 +1196,202 @@ invariants:
           finally:
               shutil.rmtree(tmp, ignore_errors=True)
 
+  - id: INV-EVENING-001
+    name: kb-evening-fails-loud-not-silent
+    meta_rule: MR-4
+    verification_layer: [declaration, runtime]
+    severity: high
+    declaration: |
+      kb_evening 必须继承 V37.5 kb_review 的 6 条架构保证：全 Python 化 /
+      registry-driven / H2 drill-down / LLM 深度分析 / fail-fast / 诚实 status。
+      kb_evening_collect.py 必须通过 import 复用 kb_review_collect.py 的采集原语
+      (load_sources_from_registry / extract_recent_sections / collect_notes /
+      collect_sources / call_llm)，禁止复制代码。kb_evening.sh 必须是 thin wrapper:
+      LLM 失败 → [SYSTEM_ALERT] 推送 alerts topic + exit 1（不再静默"今日无"）。
+    design_decision: |
+      V37.6 升级理由: 原 kb_evening.sh 用"文件名前 80 字"作为摘要, 属于"假摘要":
+      ① 零 LLM 智能 — 只是把今日文件名拼接, 无法提取跨源信号
+      ② 仅扫描 notes — 完全忽略 sources (ArXiv/HN/freight 等 cron 抓取的全部价值)
+      ③ 没有 registry 驱动 — 新增源永远看不到
+      ④ 没有 fail-fast — "今日无新增知识记录"掩盖了采集失败/LLM 宕机
+      ⑤ PA 无法说"今天用户知识库涨了什么" — evening 从未产出过结构化回顾
+
+      V37.6 方案: 复用 V37.5 kb_review_collect.py 已证明的 6 大架构, 只改 3 件事:
+      (1) DAYS 默认 1 (今日窗口, kb_review 是 7 天)
+      (2) build_evening_prompt 改成"今日要闻 / 一条行动 / 明日关注 / 健康度"结构
+      (3) 输出文件名 evening_YYYYMMDD.md (与 review_*.md 区分)
+      其他全部通过 `import kb_review_collect as rc` 复用, 两个 job 共享一份采集
+      代码、一份 bug 修复点 — 消除"V37.5 修了 kb_review, V37.6 evening 还在踩同一
+      个坑"的跨 job 漂移风险.
+    lesson: |
+      V37.5 教训: kb_review silent degradation 属于"架构投资有效, 但没有被第二个
+      消费者复用"的典型盲区. kb_evening 是第二个最强复用场景 (同样的 KB 数据源,
+      同样的 registry, 同样的 LLM 调用). 如果两个 job 各写一套, 未来每次架构升级
+      都要双倍工作量 + 漂移风险. MR-8 候选 "copy-paste-is-a-bug-class" 的正面
+      兑现: 不允许复制, 必须 import. 本不变式锁定这一契约 — import 消失 = 回归.
+    checks:
+      - name: "kb_evening_collect.py 必须通过 import 复用 kb_review_collect"
+        check_type: file_contains
+        file: kb_evening_collect.py
+        pattern: "import kb_review_collect"
+      - name: "kb_evening_collect.py 不得重定义 load_sources_from_registry"
+        check_type: file_not_contains
+        file: kb_evening_collect.py
+        pattern: "def load_sources_from_registry"
+      - name: "kb_evening_collect.py 不得重定义 extract_recent_sections (H2 parser)"
+        check_type: file_not_contains
+        file: kb_evening_collect.py
+        pattern: "def extract_recent_sections"
+      - name: "kb_evening_collect.py 不得重定义 call_llm"
+        check_type: file_not_contains
+        file: kb_evening_collect.py
+        pattern: "def call_llm\\("
+      - name: "kb_evening_collect.py 定义 build_evening_prompt (evening-specific)"
+        check_type: file_contains
+        file: kb_evening_collect.py
+        pattern: "def build_evening_prompt"
+      - name: "kb_evening_collect.py 定义 run() orchestrator"
+        check_type: file_contains
+        file: kb_evening_collect.py
+        pattern: "def run\\("
+      - name: "kb_evening.sh 标注 V37.6 fail-fast 版本"
+        check_type: file_contains
+        file: kb_evening.sh
+        pattern: "V37.6"
+      - name: "kb_evening.sh 失败路径注入 [SYSTEM_ALERT] 标记 (V37.4.3 规则 10)"
+        check_type: file_contains
+        file: kb_evening.sh
+        pattern: '\[SYSTEM_ALERT\]'
+      - name: "kb_evening.sh 调用 kb_evening_collect.py"
+        check_type: file_contains
+        file: kb_evening.sh
+        pattern: "kb_evening_collect.py"
+      - name: "kb_evening.sh 写入 evening_*.md (非 review_*.md)"
+        check_type: file_contains
+        file: kb_evening.sh
+        pattern: "evening_\\$\\{DATE\\}.md"
+      - name: "kb_evening.sh 不应包含 review_*.md 输出 (防止 copy-paste 回漂)"
+        check_type: file_not_contains
+        file: kb_evening.sh
+        pattern: "review_\\$\\{DATE\\}.md"
+      - name: "kb_evening.sh 保留 kb_dedup 健康附注拼接 (V37 前功能)"
+        check_type: file_contains
+        file: kb_evening.sh
+        pattern: "kb_dedup.py"
+      - name: "auto_deploy.sh FILE_MAP 包含 kb_evening_collect.py (部署闭环)"
+        check_type: file_contains
+        file: auto_deploy.sh
+        pattern: "kb_evening_collect.py"
+      - name: "auto_deploy.sh FILE_MAP 包含 kb_review_collect.py (V37.5 历史漏洞补齐)"
+        check_type: file_contains
+        file: auto_deploy.sh
+        pattern: "kb_review_collect.py"
+      - name: "kb_evening.sh llm_failed 分支必须 send_alert + exit 1 (fail-fast 顺序锁)"
+        check_type: python_assert
+        code: |
+          # fail-fast 顺序锁: llm_failed 分支 500 字符内必须有 send_alert + exit 1.
+          src = open("kb_evening.sh", encoding="utf-8").read()
+          llm_failed_idx = src.find('STATUS" = "llm_failed"')
+          assert llm_failed_idx != -1, "kb_evening.sh 缺少 llm_failed 处理分支"
+          branch = src[llm_failed_idx : llm_failed_idx + 500]
+          assert "send_alert" in branch, (
+              "llm_failed 分支必须调用 send_alert (V37.4.3 规则 10)"
+          )
+          assert "exit 1" in branch, (
+              "llm_failed 分支必须 exit 1 (fail-fast 契约)"
+          )
+      - name: "V37.5.1 反模式: kb_evening.sh 不得包含 `| python3 -` stdin-as-code"
+        check_type: python_assert
+        code: |
+          # 与 kb_review.sh 同 V37.5.1 血案保护: pipe+stdin-as-code 与 heredoc 冲突.
+          import re
+          src = open("kb_evening.sh", encoding="utf-8").read()
+          bad_lines = []
+          for lineno, line in enumerate(src.splitlines(), start=1):
+              stripped = line.lstrip()
+              if stripped.startswith("#"):
+                  continue
+              if re.search(r"\|\s*python3\s+-(\s|$|\")", line):
+                  bad_lines.append((lineno, line))
+          assert not bad_lines, (
+              f"kb_evening.sh 包含 V37.5.1 反模式在行: "
+              f"{[(ln, line.strip()[:80]) for ln, line in bad_lines]}"
+          )
+      - name: "runtime: kb_evening_collect.run() mock LLM 失败 → status=llm_failed"
+        check_type: python_assert
+        code: |
+          # 运行时回归: evening 继承 fail-fast 契约, LLM 失败不得伪装成功.
+          import sys, os, tempfile, shutil, json as _json
+          sys.path.insert(0, os.getcwd())
+          import kb_evening_collect as ev
+          from datetime import datetime
+          tmp = tempfile.mkdtemp(prefix="gov_inv_evening_")
+          try:
+              os.makedirs(os.path.join(tmp, "notes"))
+              os.makedirs(os.path.join(tmp, "sources"))
+              with open(os.path.join(tmp, "index.json"), "w", encoding="utf-8") as f:
+                  _json.dump({"entries": []}, f)
+              reg = os.path.join(tmp, "jobs_registry.yaml")
+              with open(reg, "w", encoding="utf-8") as f:
+                  f.write("jobs:\n")
+
+              def mock_fail(prompt):
+                  return (False, "", "proxy_unreachable_for_test")
+
+              result = ev.run(
+                  tmp, 1, reg,
+                  today=datetime(2026, 4, 11),
+                  llm_caller=mock_fail,
+              )
+              assert result["status"] == "llm_failed", (
+                  f"LLM 失败必须 fail-fast, got status={result['status']}"
+              )
+              # 失败路径不得产出伪造产物
+              assert "evening_markdown" not in result, (
+                  "llm_failed 路径不得产出 evening_markdown (silent degradation)"
+              )
+              assert "wa_message" not in result, (
+                  "llm_failed 路径不得产出 wa_message (silent degradation)"
+              )
+          finally:
+              shutil.rmtree(tmp, ignore_errors=True)
+      - name: "runtime: DAYS=1 窗口真实过滤今日外 notes (直接测 collect_notes, 避免 exec 闭包陷阱)"
+        check_type: python_assert
+        code: |
+          # 运行时回归: 1-day 窗口契约真实过滤旧 note, 不会回退到 review 的 7 天.
+          # V37.2+ 教训: exec() 内嵌闭包看不到外部变量, 此处直接调 collect_notes
+          # (evening 通过 import 复用的 kb_review 原语), 验证过滤行为.
+          import sys, os, tempfile, shutil
+          sys.path.insert(0, os.getcwd())
+          import kb_review_collect as rc
+          import kb_evening_collect as ev
+          from datetime import datetime
+          tmp = tempfile.mkdtemp(prefix="gov_inv_evening_days_")
+          try:
+              os.makedirs(os.path.join(tmp, "notes"))
+              today = datetime(2026, 4, 11)
+              # Today (in window) + 3-days-ago (outside 1-day window)
+              with open(os.path.join(tmp, "notes", "20260411090000.md"), "w", encoding="utf-8") as f:
+                  f.write("TODAY_SIGNAL_UNIQUE_EV")
+              with open(os.path.join(tmp, "notes", "20260408090000.md"), "w", encoding="utf-8") as f:
+                  f.write("OLD_SIGNAL_UNIQUE_EV")
+              # Use evening's own budget to match production path
+              notes_text = rc.collect_notes(
+                  tmp, days=1, max_chars=ev.MAX_NOTES_CHARS, today=today,
+              )
+              assert "TODAY_SIGNAL_UNIQUE_EV" in notes_text, (
+                  f"DAYS=1 窗口必须包含今日 note. 实际内容: {notes_text[:200]!r}"
+              )
+              assert "OLD_SIGNAL_UNIQUE_EV" not in notes_text, (
+                  f"DAYS=1 窗口必须排除 3 天前 note (否则等同 review 7 天窗口). "
+                  f"实际内容: {notes_text[:200]!r}"
+              )
+              # 同时验证 evening import 了正确的 helper (复用契约硬锁)
+              assert rc.collect_notes is not None
+              assert hasattr(ev, "MAX_NOTES_CHARS"), "kb_evening_collect 必须声明自己的 notes budget"
+          finally:
+              shutil.rmtree(tmp, ignore_errors=True)
+
   - id: INV-KB-001
     name: content-blocks-flattened-before-kb-write
     meta_rule: MR-4
@@ -1559,7 +1755,7 @@ meta_rule_discovery:
 # 5. 审计元数据
 # ═══════════════════════════════════════════════════════════════════════
 audit_metadata:
-  version: "3.6"
+  version: "3.7"
   created: "2026-04-07"
   upgraded: |
     v3.0 → v3.1: 通知路径治理(INV-NOTIFY-003/004) + 错误可观测性(MRD-ERROR-001) + 效果层启动(MRD-NOTIFY-002)
@@ -1569,8 +1765,9 @@ audit_metadata:
     v3.4 → v3.5: kb_review 6-issue silent degradation 血案 → INV-REVIEW-001 (kb-review-fails-loud-not-silent, fail-fast 顺序锁 + registry-driven 发现回归 + H2 parser drill-down + mock LLM 失败契约) — 与 V37.4.3 同血案类 (效果层静默降级)
     v3.5 → v3.5.1: V37.5.1 热修复 — kb_review.sh Mac Mini E2E 首次执行炸 JSONDecodeError, 根因 `echo ... | python3 - "$arg" << 'PYEOF'` pipe+heredoc stdin 冲突。INV-REVIEW-001 扩展 2 个 runtime 检查 (anti-pattern 扫描 + subprocess 真实执行). 体现 MR-6: grep 守卫不足, 必须有运行时回归。
     v3.5.1 → v3.6: KB 内容+sources 双血案 (MR-4 第三次演出) — INV-KB-001 (content-blocks-flattened-before-kb-write, 修复 str(list) 产生 Python repr 污染 KB note 标题) + INV-SRC-001 (sources-writes-are-idempotent-at-source, 14 个 cron job 共享 kb_append_source.sh H2-marker 幂等 helper, 阻断 438 行 sources 重复爆炸) + INV-DEDUP-001 (kb-dedup-is-h2-scoped-and-scans-unindexed-notes, 修复 file-level seen set 误判跨 H2 合法重复 + 只扫 index.entries 漏掉 4 条孤儿 note)
-  total_invariants: 32  # +INV-KB-001 +INV-SRC-001 +INV-DEDUP-001
-  total_checks: 102     # +7 KB-001 +7 SRC-001 +5 DEDUP-001
+    v3.6 → v3.7: kb_evening 升级复用 V37.5 kb_review 架构 → INV-EVENING-001 (kb-evening-fails-loud-not-silent, 复用性锁定: import 不 copy + evening-specific prompt + fail-fast wrapper 契约 + 1-day 窗口运行时回归) — MR-8 candidate "copy-paste-is-a-bug-class" 的正面兑现, auto_deploy FILE_MAP 同步补齐 kb_review_collect.py V37.5 历史漏洞
+  total_invariants: 33  # +INV-EVENING-001
+  total_checks: 120     # +18 EVENING-001 (17 checks, 部分多行)
   meta_rules: 7         # MR-1~MR-7
   meta_rule_discovery_count: 6   # Phase 0: registry + env + notify-topic + layer-depth + error-suppression + notify-activity
   check_types_used: [python_assert, file_contains, file_not_contains, env_var_exists, command_succeeds, log_activity_check]

@@ -190,6 +190,8 @@ declare -a FILE_MAP=(
     "conv_quality.py|$HOME/conv_quality.py"
     "token_report.py|$HOME/token_report.py"
     "kb_dedup.py|$HOME/kb_dedup.py"
+    "kb_review_collect.py|$HOME/kb_review_collect.py"
+    "kb_evening_collect.py|$HOME/kb_evening_collect.py"
     "kb_autotag.py|$HOME/kb_autotag.py"
 
     # KB 趋势报告 + 状态共享 + 安全

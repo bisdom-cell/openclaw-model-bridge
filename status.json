@@ -1,6 +1,6 @@
 {
-  "updated": "2026-04-11 13:20:25",
-  "updated_by": "security_score",
+  "updated": "2026-04-11 14:20:28",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-04-11",
+      "what": "V37.6 数据层三合一修复 (flatten_content content-blocks repr bug + kb_append_source.sh H2 repeat-append + kb_dedup H2-scoped) + kb_evening 架构对齐 (import kb_review_collect 复用 + thin wrapper + fail-fast). Governance v3.7: 33 inv / 119 checks. 30 suites / 886 tests / 0 fail.",
+      "by": "claude_code"
+    },
     {
       "date": "2026-04-11",
       "what": "V37.5.1 kb_review.sh pipe+heredoc stdin 冲突热修复 — V37.5 推送后 Mac Mini 首次 bash ~/kb_review.sh 即 JSONDecodeError (stdin 读到空串). 根因经典 shell 反模式: echo | python3 - << PYEOF 让 pipe 和 heredoc 同时喂 python3 stdin, heredoc 优先作为代码源, pipe 的 JSON 被丢弃. V37.5 的 44 单测 + 14 governance checks 全过却漏掉 — 全是声明层 grep guard, 从未 subprocess.run 跑脚本. 三层修复: 代码层 kb_review.sh:154-163 改用 COLLECTOR_OUTPUT env var 模式 (heredoc 只承载代码, 零 stdin 竞争) + 治理层 INV-REVIEW-001 +2 checks (反模式静态守卫 + 真实 subprocess runtime 锁定) + 测试层 test_kb_review.py +4 (44→48: test_no_pipe_heredoc_stdin_collision + TestKbReviewShellRuntime 3 测试含 E2E mock collector). Mac Mini 生产验证: 12 源/299 notes/LLM ✓/review 文件落盘/WhatsApp+Discord #daily 推送成功. Governance v3.5→v3.5.1 (29 不变式, 81→83 checks). 元认知: 同一 MR-4 血案类三天内第二次演出 (V37.5 主 → V37.5.1 子), 证明主血案修复本身也可能埋坑, MR-6 从建议升级为基础假设.",
@@ -173,11 +178,6 @@
       "date": "2026-04-08",
       "what": "V36.3 Session: ① 遗留修复(crontab漂移3job+重复清理35→28+DBLP/Dream推送恢复+notify.sh zsh兼容+smoke test python3检测) ② Governance v3(12→15不变式: 3运行时层INV-CRON-003/004+INV-ENV-002, MR-6多层深度, MRD-LAYER-001深度盲区自动发现) ③ 验证深度三层模型(声明/运行时/效果, governance自我意识盲区) ④ 语义推理落地(classify_tool_call从属性推理风险+策略标签) ⑤ Phase 2 shadow模式(off→shadow→on三档, Mac Mini生产上线)",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-04-06",
-      "what": "V36.1 Session 2: Ontology子项目深度建设 — ① ontology/独立子项目(2800+行21文件) ② Tool Ontology Engine(proxy_filters→81条声明式规则yaml+engine.py推理引擎+diff.py一致性校验100%) ③ Ontology宪法(6条+最高条款:项目隔离) ④ 语义查询PoC(枚举→推理跳跃) ⑤ 特性开关Phase1(equivalence proof+3模式rollback) ⑥ 价值评估矩阵(Article 5) ⑦ 论文Discord #ontology频道路由 ⑧ 各种修复(中文推送/stderr重定向)",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -214,13 +214,13 @@
   },
   "quality": {
     "security_score": "93",
-    "test_count": "855",
-    "last_regression": "2026-04-11 10:09 pass",
+    "test_count": "886",
+    "last_regression": "2026-04-11 14:18 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-04-11 10:09",
+    "security_score_time": "2026-04-11 14:18",
     "test_suites": "30",
-    "governance_invariants": "29/29",
-    "governance_checks": "72/83",
+    "governance_invariants": "33/33",
+    "governance_checks": "108/119",
     "version": "0.37.5"
   },
   "incidents": [
@@ -283,7 +283,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.5.1 kb_review pipe+heredoc 热修复 — V37.5 主血案的子血案，Mac Mini E2E 首次执行即触发 JSONDecodeError (shell 反模式 | python3 - << PYEOF)。三层修复：代码 env var 模式 + 治理 INV-REVIEW-001 +2 checks (反模式守卫 + 真 subprocess runtime) + 测试 +4 (44→48, 含 mock collector E2E). Mac Mini 生产验证: 12 源 / 299 notes / LLM ✓ / 双通道推送. Governance v3.5.1: 29 不变式 / 83 checks. MR-6 从'建议'升级为'基础假设' — grep 守卫必须配合 subprocess runtime 验证。下一步: Ontology Phase 3 渐进替换 (ONTOLOGY_MODE=on)",
+  "focus": "V37.6 数据层三合一修复 + kb_evening 架构对齐（MR-4 第三次演出 + MR-8 正向兑现）. P0: flatten_content() + kb_append_source.sh + kb_dedup H2-scoped + find_duplicate_notes 扫 NOTES_DIR. P1: kb_evening_collect.py import kb_review_collect 复用全部采集原语 + thin wrapper 重写 (fail-fast + [SYSTEM_ALERT]). auto_deploy FILE_MAP 补齐 V37.5 部署缺口 (kb_review_collect + kb_evening_collect + kb_dedup). Governance v3.7: 33 不变式 / 119 checks (新增 INV-KB-001/INV-SRC-001/INV-DEDUP-001/INV-EVENING-001). 全量回归: 30 suites / 886 tests / 0 fail / 安全 93/100. 待 Mac Mini 验证: bash preflight_check.sh --full + 14 source-producing job slot 归档 + kb_evening.sh E2E",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
