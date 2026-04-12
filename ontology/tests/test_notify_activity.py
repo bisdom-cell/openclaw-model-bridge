@@ -154,23 +154,30 @@ class TestPreflightStatusJsonExemption(unittest.TestCase):
 
 
 class TestPreflightKbIndexWarnThreshold(unittest.TestCase):
-    """V37.8.1: KB index <=5 stale files should be warn not fail."""
+    """V37.8.1: KB index uses coverage percentage threshold (>=90% = warn, <90% = fail)."""
 
-    def test_threshold_5_in_preflight(self):
+    def test_coverage_percentage_threshold(self):
         src = open(os.path.join(_PROJECT_ROOT, "preflight_check.sh")).read()
-        self.assertIn('-le 5', src,
-                      "preflight should use <=5 threshold for warn vs fail")
+        self.assertIn('-ge 90', src,
+                      "preflight should use >=90% coverage threshold")
 
-    def test_warn_for_small_count(self):
-        """Small issue count should use warn, not fail."""
+    def test_warn_for_high_coverage(self):
+        """>=90% coverage should produce warn, not fail."""
         src = open(os.path.join(_PROJECT_ROOT, "preflight_check.sh")).read()
-        # Find the section with the threshold check
-        idx = src.find('-le 5')
+        idx = src.find('-ge 90')
         self.assertGreater(idx, 0)
-        # The warn should follow the threshold check
         section = src[idx:idx + 200]
         self.assertIn('warn', section,
-                      "<=5 stale files should produce warn, not fail")
+                      ">=90% coverage should produce warn")
+
+    def test_fail_for_low_coverage(self):
+        """<90% coverage should produce fail."""
+        src = open(os.path.join(_PROJECT_ROOT, "preflight_check.sh")).read()
+        idx = src.find('-ge 90')
+        self.assertGreater(idx, 0)
+        section = src[idx:idx + 400]
+        self.assertIn('fail', section,
+                      "<90% coverage should produce fail")
 
 
 if __name__ == "__main__":
