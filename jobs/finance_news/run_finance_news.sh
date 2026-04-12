@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # run_finance_news.sh — 全球财经/政策新闻每日汇总
 # 每天早上 07:30 HKT 由系统 crontab 触发（算力空闲窗口）
-# 一次性抓取 15+ 国内外权威源 → LLM 分析 → 一份结构化晚报推送
+# 一次性抓取 20 国内外权威源（10 国际 + 10 亚太）→ LLM 分析 → 一份结构化简报推送
 #
 # 输出格式：
 #   1. 原始新闻列表（出处/时间/价值/关键点评）
@@ -46,28 +46,28 @@ done
 # 格式：name|feed_url|label|region
 # region: intl=国际, cn=中国/亚太
 RSS_FEEDS=(
-    # ── 国际权威 ──
+    # ── 国际权威（验证可用 2026-04-13）──
     "Fed Press|https://www.federalreserve.gov/feeds/press_all.xml|美联储官方声明|intl"
-    "Reuters Business|https://feeds.reuters.com/reuters/businessNews|路透社全球财经|intl"
-    "Reuters World|https://feeds.reuters.com/Reuters/worldNews|路透社国际政治|intl"
-    "Brookings|https://www.brookings.edu/feed/|布鲁金斯学会(美国政策智库)|intl"
-    "PIIE|https://www.piie.com/blogs/feed|彼得森国际经济研究所|intl"
-    "World Bank|https://blogs.worldbank.org/feed|世界银行博客|intl"
-    "VoxEU|https://cepr.org/rss/columns|CEPR欧洲经济政策研究|intl"
-    "IMF Blog|https://www.imf.org/en/Blogs/rss|国际货币基金组织博客|intl"
     "NBER|https://www.nber.org/rss/new.xml|美国国家经济研究局(工作论文)|intl"
     "FT|https://www.ft.com/rss/home|金融时报(摘要)|intl"
     "ECB|https://www.ecb.europa.eu/rss/press.xml|欧洲央行声明|intl"
-    # ── 中国/亚太 ──
-    "新华财经|http://www.news.cn/fortune/rss.xml|新华网财经频道|cn"
-    "中国央行|http://www.pbc.gov.cn/rss/zhengcehuobisi/zhengcehuobisi.xml|中国人民银行政策|cn"
-    "新浪财经|https://feed.mix.sina.com.cn/api/roll/get?pageid=153&lid=2516&num=20&page=1&encode=utf-8|新浪财经要闻(JSON)|cn"
+    "BIS Speeches|https://www.bis.org/doclist/cbspeeches.rss|国际清算银行(央行演讲)|intl"
+    "Brookings Economy|https://www.brookings.edu/topic/economy/feed/|布鲁金斯学会经济|intl"
+    "World Bank News|https://www.worldbank.org/en/news/rss.xml|世界银行新闻|intl"
+    "IMF Blog|https://www.imf.org/en/Blogs/Articles/rss|国际货币基金组织博客|intl"
+    "Reuters via RSSHub|https://rsshub.app/reuters/world|路透社国际(via RSSHub)|intl"
+    "Yahoo Finance|https://finance.yahoo.com/news/rssindex|雅虎财经|intl"
+    # ── 中国/亚太（验证可用 2026-04-13）──
     "SCMP Economy|https://www.scmp.com/rss/5/feed|南华早报经济频道|cn"
-    "Nikkei Asia|https://asia.nikkei.com/rss|日经亚洲|cn"
-    "中国政府网|http://www.gov.cn/rss/zhengce.xml|国务院政策文件|cn"
-    "财新|https://rsshub.app/caixin/latest|财新网最新(via RSSHub)|cn"
     "36氪|https://36kr.com/feed|36氪科技财经|cn"
+    "新华财经|https://rsshub.app/xinhuanet/fortune|新华网财经(via RSSHub)|cn"
+    "新浪财经|https://rsshub.app/sina/finance/china|新浪财经(via RSSHub)|cn"
+    "Nikkei Asia|https://rsshub.app/nikkei/asia|日经亚洲(via RSSHub)|cn"
+    "中国政府网|https://rsshub.app/gov/zhengce/zuixin|国务院政策(via RSSHub)|cn"
+    "中国央行|https://rsshub.app/gov/pbc/goutongjiaoliu|中国人民银行(via RSSHub)|cn"
+    "财新|https://rsshub.app/caixin/latest|财新网最新(via RSSHub)|cn"
     "华尔街见闻|https://rsshub.app/wallstreetcn/news/global|华尔街见闻(via RSSHub)|cn"
+    "FT中文|https://rsshub.app/ft/chinese/hotstoryby7day|FT中文热门(via RSSHub)|cn"
 )
 
 SEEN_FILE="$CACHE/seen_urls.txt"
@@ -141,18 +141,23 @@ def parse_date(s):
 
 articles = []
 
-# 新浪财经 JSON API 特殊处理
-if "mix.sina.com.cn" in feed_file or "mix.sina" in open(feed_file).read()[:50]:
+# 检测 JSON vs XML（读前几字节判断）
+with open(feed_file, 'r', encoding='utf-8', errors='replace') as f:
+    first_bytes = f.read(20).lstrip()
+is_json = first_bytes.startswith('{') or first_bytes.startswith('[')
+
+if is_json:
     try:
         with open(feed_file) as f:
             raw = f.read()
-        # 新浪 API 返回 JSON
         data = json.loads(raw)
-        for item in data.get("result", {}).get("data", [])[:8]:
+        # 兼容新浪 API 格式
+        items_list = data.get("result", {}).get("data", []) if "result" in data else data if isinstance(data, list) else []
+        for item in items_list[:8]:
             title = item.get("title", "").strip()
-            url = item.get("url", "")
-            ctime = item.get("ctime", "")
-            intro = item.get("intro", item.get("summary", ""))[:300]
+            url = item.get("url", item.get("link", ""))
+            ctime = item.get("ctime", item.get("pub_date", item.get("pubDate", "")))
+            intro = item.get("intro", item.get("summary", item.get("description", "")))[:300]
             if not title or url in seen_urls:
                 continue
             articles.append({
