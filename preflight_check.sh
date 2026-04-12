@@ -194,6 +194,14 @@ with open('$SCRIPT_DIR/auto_deploy.sh') as f:
             continue
         fi
 
+        # V37.8.1: status.json 合法分叉豁免 — repo 是 Claude Code 快照，
+        # runtime 由 cron (kb_status_refresh) 每小时刷新 health/quality 字段，
+        # 两边设计上永远不一致，全文件 md5 比对无意义
+        if [[ "$SRC" == "status.json" ]]; then
+            pass "status.json: 豁免（仓库快照 vs 运行时实时刷新，合法分叉）"
+            continue
+        fi
+
         if [ ! -f "$DST" ]; then
             fail "$SRC: 运行时副本不存在 ($DST)"
             DRIFT_COUNT=$((DRIFT_COUNT + 1))
@@ -771,9 +779,14 @@ if $FULL_MODE; then
         if [ $VERIFY_RC -eq 0 ]; then
             pass "KB 索引 100% 覆盖 ($FILE_COV, $CHUNKS)"
         else
-            # 有问题但不是致命的
             ISSUE_COUNT=$(echo "$VERIFY_OUT" | grep -c "❌\|⚠️" 2>/dev/null || echo "0")
-            fail "KB 索引覆盖不完整: $FILE_COV ($ISSUE_COUNT 个问题)"
+            # V37.8.1: 少量过期文件（<=5）是正常节奏差——kb_embed 每天 03:30 跑，
+            # 日间新增的 notes 要到次日才被索引。只有大量过期才是 cron 故障信号。
+            if [ "$ISSUE_COUNT" -le 5 ]; then
+                warn "KB 索引有 $ISSUE_COUNT 个过期文件（下次 kb_embed cron 自动补齐）"
+            else
+                fail "KB 索引覆盖不完整: $FILE_COV ($ISSUE_COUNT 个问题)"
+            fi
             echo "$VERIFY_OUT" | grep "❌\|⚠️" | head -5 | while read -r line; do
                 echo "      $line"
             done

@@ -476,54 +476,60 @@ def _discover_silent_channels(severity):
     source_silent = [t for t in topics if t not in sourced_topics]
 
     # ── Activity layer: 仅 --full 模式 + 存在 ~/.kb 时执行 ───────
+    # V37.8.1 重写：用 registry-driven topic→job log 映射替代 V37.8 的
+    # notify_queue + jobs/*/cache 路径（前者只记失败重放，后者不是每个 job
+    # 都有 cache/ 目录，导致 6 频道全部 7 天无活动假阳性）。
+    # 正确信号源：每个 job 的真实日志文件 mtime。
     activity_silent = []
     activity_note = ""
     home = os.path.expanduser("~")
     kb_dir = os.path.join(home, ".kb")
-    queue_dir = os.path.join(kb_dir, "notify_queue")
+
+    # topic → 贡献该频道推送的 job_id 列表（与 source layer 的 callers_per_topic 对应）
+    TOPIC_JOB_MAP = {
+        "papers": ["arxiv_monitor", "hf_papers", "semantic_scholar", "dblp",
+                    "acl_anthology", "ai_leaders_x"],
+        "freight": ["freight_watcher"],
+        "alerts": ["job_watchdog", "auto_deploy"],
+        "daily": ["kb_review", "kb_evening", "kb_trend", "daily_ops_report",
+                   "kb_dream"],
+        "tech": ["github_trending", "rss_blogs", "run_hn_fixed", "openclaw_run",
+                 "run_discussions"],
+        "ontology": ["ontology_sources"],
+    }
 
     if FULL_MODE and os.path.isdir(kb_dir):
         import time
+        import yaml as yaml_mod
         seven_days_ago = time.time() - 7 * 86400
         active_topics = set()
-        # 用 mtime 作信号：notify_queue/*.json 最近 7 天内被触碰 = 该 topic 有活动
-        # （成功路径也会经过 queue 短暂写入/立刻删除，失败路径会留下）
-        queue_activity_topics = set()
-        if os.path.isdir(queue_dir):
-            for qf in os.listdir(queue_dir):
-                qfp = os.path.join(queue_dir, qf)
-                try:
-                    if os.path.getmtime(qfp) < seven_days_ago:
-                        continue
-                    with open(qfp) as f:
-                        import json as json_mod
-                        data = json_mod.load(f)
-                    t = data.get("topic", "")
-                    if t:
-                        queue_activity_topics.add(t)
-                except Exception:
-                    pass
-        active_topics |= queue_activity_topics
 
-        # jobs/*/cache/*.log 的 mtime 说明该 job 最近跑过；若该 job 的脚本是
-        # 某个 topic 的 caller，就把这个 topic 标记为 active
-        job_log_glob = os.path.join(home, "jobs", "*", "cache", "*.log")
-        for lf in glob_mod.glob(job_log_glob):
-            try:
-                if os.path.getmtime(lf) < seven_days_ago:
+        # 从 jobs_registry.yaml 加载 job_id → log 路径映射
+        registry_path = os.path.join(_PROJECT_ROOT, "jobs_registry.yaml")
+        job_log_paths = {}
+        try:
+            with open(registry_path) as f:
+                reg = yaml_mod.safe_load(f)
+            for job in reg.get("jobs", []):
+                if job.get("enabled") and job.get("log"):
+                    log_path = job["log"].replace("~", home)
+                    job_log_paths[job["id"]] = log_path
+        except Exception:
+            pass
+
+        # 对每个 topic，取其映射 job 的日志文件最大 mtime
+        for topic in topics:
+            job_ids = TOPIC_JOB_MAP.get(topic, [])
+            for jid in job_ids:
+                log_path = job_log_paths.get(jid)
+                if not log_path or not os.path.isfile(log_path):
                     continue
-            except Exception:
-                continue
-            # 从路径回推 job name → 匹配 source-layer 的 callers_per_topic
-            parts = lf.split(os.sep)
-            try:
-                idx = parts.index("jobs")
-                job_name = parts[idx + 1]
-            except (ValueError, IndexError):
-                continue
-            for topic, callers in callers_per_topic.items():
-                if any(job_name in c for c in callers):
-                    active_topics.add(topic)
+                try:
+                    if os.path.getmtime(log_path) >= seven_days_ago:
+                        active_topics.add(topic)
+                        break  # 一个活跃 job 就够
+                except Exception:
+                    continue
 
         # 只对"源码里有 caller 但运行时没信号"的 topic 报 silent
         activity_silent = [
