@@ -315,6 +315,9 @@ with open(html_file, encoding="utf-8", errors="replace") as f:
     html = f.read()
 
 tweets = []
+# 诊断计数
+diag = {"total": 0, "rt_pure": 0, "short": 0, "seen": 0, "old": 0, "no_data": 0}
+
 next_data = re.search(
     r'<script\s+id="__NEXT_DATA__"\s+type="application/json">(.*?)</script>',
     html, re.DOTALL)
@@ -334,17 +337,29 @@ if next_data:
             text = td.get("full_text", td.get("text", ""))
             tweet_id = str(td.get("id_str", ""))
             created_at = td.get("created_at", "")
+            diag["total"] += 1
 
-            # 跳过转推和短文
-            if text.startswith("RT @") or len(text) < 30:
+            # 跳过纯转推（保留带评论的引用推文）
+            if text.startswith("RT @"):
+                # 提取 RT 后的原文，如果整条都是 "RT @xxx: 原文" 且无额外内容则跳过
+                diag["rt_pure"] += 1
                 continue
+
+            # 跳过过短推文（中文 10 字已有信息量）
+            clean_for_len = re.sub(r'https?://\S+', '', text).strip()
+            if len(clean_for_len) < 10:
+                diag["short"] += 1
+                continue
+
             if tweet_id in seen_ids:
+                diag["seen"] += 1
                 continue
 
             # 时间过滤
             try:
                 dt = datetime.strptime(created_at, "%a %b %d %H:%M:%S %z %Y")
                 if dt < CUTOFF:
+                    diag["old"] += 1
                     continue
                 pub_date = dt.strftime("%Y-%m-%d %H:%M")
             except (ValueError, TypeError):
@@ -366,16 +381,35 @@ if next_data:
             })
     except (json.JSONDecodeError, KeyError):
         pass
+else:
+    diag["no_data"] = 1
 
-# 每账号最多 3 条（X 信息密度低于 RSS）
+# 每账号最多 3 条
 for t in tweets[:3]:
     print(json.dumps(t, ensure_ascii=False))
     with open(seen_file, 'a') as f:
         f.write(t.get("tweet_id", t["link"]) + "\n")
 
 count = min(len(tweets), 3)
+# 始终打印诊断（含 0 条时的过滤原因）
 if count > 0:
     print(f"[finance] X @{handle}: {count} 条", file=sys.stderr)
+else:
+    reasons = []
+    if diag["no_data"]:
+        reasons.append("无时间线数据")
+    if diag["total"] == 0:
+        reasons.append("API返回0推文")
+    if diag["rt_pure"]:
+        reasons.append(f"{diag['rt_pure']}条纯RT")
+    if diag["short"]:
+        reasons.append(f"{diag['short']}条过短")
+    if diag["seen"]:
+        reasons.append(f"{diag['seen']}条已见")
+    if diag["old"]:
+        reasons.append(f"{diag['old']}条超36h")
+    reason_str = ", ".join(reasons) if reasons else "未知"
+    print(f"[finance] X @{handle}: 0 条（原始{diag['total']}条, 过滤: {reason_str}）", file=sys.stderr)
 XPYEOF
 
     X_FETCH_OK=$((X_FETCH_OK + 1))
