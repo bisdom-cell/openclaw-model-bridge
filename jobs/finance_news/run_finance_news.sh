@@ -70,6 +70,7 @@ FINANCE_X_ACCOUNTS=(
     "business|Bloomberg商业(X)|intl"
     "WSJ|华尔街日报(X)|intl"
     "ReutersBiz|路透社财经(X)|intl"
+    "TheEconomist|经济学人(X)|intl"
     # ── 中国官媒 ──
     "XHNews|新华社英文(X)|cn"
     "PDChina|人民日报英文(X)|cn"
