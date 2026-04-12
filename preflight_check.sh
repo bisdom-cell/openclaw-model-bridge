@@ -780,12 +780,15 @@ if $FULL_MODE; then
             pass "KB 索引 100% 覆盖 ($FILE_COV, $CHUNKS)"
         else
             ISSUE_COUNT=$(echo "$VERIFY_OUT" | grep -c "❌\|⚠️" 2>/dev/null || echo "0")
-            # V37.8.1: 少量过期文件（<=5）是正常节奏差——kb_embed 每天 03:30 跑，
-            # 日间新增的 notes 要到次日才被索引。只有大量过期才是 cron 故障信号。
-            if [ "$ISSUE_COUNT" -le 5 ]; then
-                warn "KB 索引有 $ISSUE_COUNT 个过期文件（下次 kb_embed cron 自动补齐）"
+            # V37.8.1: 用覆盖率百分比判断——kb_embed 每天 03:30 跑一次，
+            # 33 个 cron job 白天持续产出，到晚上 23:00 自然累积 ~36 个未索引文件
+            # （约 90% 覆盖率），这是正常节奏。<90% 才说明 cron 可能故障。
+            COV_PCT=$(echo "$FILE_COV" | grep -oE '[0-9]+%' | grep -oE '[0-9]+')
+            COV_PCT=${COV_PCT:-0}
+            if [ "$COV_PCT" -ge 90 ]; then
+                warn "KB 索引覆盖 ${COV_PCT}%（${ISSUE_COUNT} 个待索引，下次 kb_embed cron 自动补齐）"
             else
-                fail "KB 索引覆盖不完整: $FILE_COV ($ISSUE_COUNT 个问题)"
+                fail "KB 索引覆盖不足: $FILE_COV ($ISSUE_COUNT 个问题，检查 kb_embed cron）"
             fi
             echo "$VERIFY_OUT" | grep "❌\|⚠️" | head -5 | while read -r line; do
                 echo "      $line"
