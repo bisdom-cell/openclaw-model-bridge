@@ -1,5 +1,5 @@
 {
-  "updated": "2026-04-11 16:05:23",
+  "updated": "2026-04-12 17:24:02",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-04-12",
+      "what": "V37.8.2: (1) preflight status.json 合法分叉豁免 (2) KB 索引阈值改百分比 (3) kb_evening/kb_review LLM 反幻觉约束 (4) finance_news 全新 job: 8 RSS + 21 X 双通道, 72h 窗口, daily seen 重置, LLM 结构化分析 + KB + 推送 (5) CLAUDE.md 原则 #27 X/Twitter 优先 (6) auto_deploy FILE_MAP 补齐 (7) governance_checker MRD-NOTIFY-002 TOPIC_JOB_MAP 重写消除假阳性",
+      "by": "claude_code"
+    },
     {
       "date": "2026-04-11",
       "what": "V37.8 Mac Mini 生产硬验证通过 — governance --full: 35/35 不变式 / 136/136 checks (0 skip, FULL 模式全执行) / 9/9 元规则 全绿. 核心验证项: INV-LAYER-001 MR-6 硬强制 2 checks / INV-DREAM-002 SKIP_MAP_LOOPS 顺序锁真跑 kb_dream.sh 行号断言 / INV-CACHE-002 md5 content-hash mtime 漂移 parity 真跑 / INV-ENV-002 OPENCLAW_PHONE 真号 + 占位号反例守卫 / INV-DEPLOY-002 shlex AST 零 crontab 写入 token. preflight 75/2/2/0 (2 FAIL 是 pre-existing status.json+CLAUDE.md 分叉). job_smoke 33 job / 177 pass / 0 fail / 15 warn (历史日志). MRD-NOTIFY-002 activity 层假阳性 (source 层正确, activity 层扫错路径) 已登记 unfinished 待 V37.8.1 修.",
@@ -173,11 +178,6 @@
       "date": "2026-04-09",
       "what": "Ontology终态架构文档(target_architecture.md)+Phase3/4/5待办分解写入CLAUDE.md+ScienceDirect正则修复+governance_audit全通过+kb_harvest_chat crontab修复",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-04-09",
-      "what": "V37.1 Session: ① kb_harvest_chat MapReduce升级(零对话数据丢失,28单测) ② Ontology专属信息源(4 RSS: W3C/JWS/DKE/KBS + 两层关键词过滤 + LLM中文摘要 + Discord #ontology推送 + KB归档) ③ DBLP/S2加ontology关键词 ④ X加4位ontology先驱(Barry Smith/Guizzardi/Hitzler/Horrocks) ⑤ adversarial_audit合并入governance(17不变式) ⑥ 每日governance_audit cron(07:00) ⑦ CI修复(config.md drift) ⑧ 692测试",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -203,10 +203,7 @@
   },
   "session_context": {
     "last_session": "2026-04-11",
-    "unfinished": [
-      "preflight 6/19 status.json 仓库 vs 运行时分叉 — 合法设计（dev 写回 vs cron 每小时刷新），但 preflight 仍记为 FAIL。修复思路：preflight 豁免 status.json 一致性检查，或只对比非自动回写字段（priorities/focus/recent_changes）而忽略 updated/quality 字段",
-      "preflight 17/19 KB 索引过期 2 文件（openclaw_official.md + inbox.md）— pre-existing 节奏问题，kb_embed 下次 cron 运行自动补齐。修复思路：kb_embed cron 频率从每小时改为每 30 分钟，或在 preflight 里只对 24h 以上的过期才报 FAIL"
-    ],
+    "unfinished": "[\"finance_news X handle 验证: CaixinGlobal/YicaiGlobal/SingTaoDaily/STcom 可能不是正确的 X handle (API 返回 0 推文), 需手动在 X 上搜索验证并修正\", \"test_kb_evening.py E2E 测试 flaky: test_end_to_end_mock_collector_produces_evening_file 文件落盘但 os.path.isfile 返回 False, pre-existing 非本次引入\"]",
     "open_prs": "",
     "blocked_on": "",
     "focus": "V37.4.3 PA 告警污染血案闭环完成 + WhatsApp 生产验证通过 (13:06 原题复现零红线命中) + Mac Mini governance --full 28/28/67/67 + INV-PA-001/002 15 checks 全绿 + 33 job 全可运行. 2 个 preflight FAIL 是 pre-existing 分叉已登记 unfinished. 收工回顾发现 kb_review.sh 效果层静默降级 (同类 V37.4.3 血案) 已登记 unfinished. 下一步: Ontology Phase 3 渐进替换 (ONTOLOGY_MODE=on 切换) 或 Tool Policy Plugin V3 路标 或 kb_review 效果层修复",
