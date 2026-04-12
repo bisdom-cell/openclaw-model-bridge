@@ -88,10 +88,14 @@ FINANCE_X_ACCOUNTS=(
     "asahi|朝日新闻(X)|cn"
 )
 
-SEEN_FILE="$CACHE/seen_urls.txt"
-touch "$SEEN_FILE"
+# 每日 job：按天去重，每天自动清空旧缓存
+SEEN_FILE="$CACHE/seen_urls_${DAY}.txt"
+: > "$SEEN_FILE"
 ALL_NEW_FILE="$CACHE/all_new.jsonl"
 > "$ALL_NEW_FILE"
+# 清理前几天的 seen 文件
+find "$CACHE" -name 'seen_urls_*.txt' -not -name "seen_urls_${DAY}.txt" -delete 2>/dev/null || true
+find "$CACHE" -name 'seen_x_ids_*.txt' -not -name "seen_x_ids_${DAY}.txt" -delete 2>/dev/null || true
 
 TOTAL_NEW=0
 FETCH_ERRORS=0
@@ -135,8 +139,8 @@ feed_file, seen_file, feed_name, feed_label, region = sys.argv[1:6]
 with open(seen_file) as f:
     seen_urls = set(line.strip() for line in f if line.strip())
 
-# 24h 窗口过滤
-cutoff = datetime.now(timezone.utc) - timedelta(hours=36)
+# 72h 窗口（覆盖周末）
+cutoff = datetime.now(timezone.utc) - timedelta(hours=72)
 
 def parse_date(s):
     """尝试解析多种日期格式"""
@@ -270,8 +274,8 @@ PYEOF
 done
 
 # ── 2. X/Twitter 财经账号抓取（Syndication API）───────────────────────
-SEEN_X_FILE="$CACHE/seen_x_ids.txt"
-touch "$SEEN_X_FILE"
+SEEN_X_FILE="$CACHE/seen_x_ids_${DAY}.txt"
+: > "$SEEN_X_FILE"
 X_FETCH_OK=0
 X_FETCH_FAIL=0
 
@@ -408,7 +412,7 @@ else:
     if diag["seen"]:
         reasons.append(f"{diag['seen']}条已见")
     if diag["old"]:
-        reasons.append(f"{diag['old']}条超36h")
+        reasons.append(f"{diag['old']}条超72h")
     reason_str = ", ".join(reasons) if reasons else "未知"
     print(f"[finance] X @{handle}: 0 条（原始{diag['total']}条, 过滤: {reason_str}）", file=sys.stderr)
 XPYEOF
