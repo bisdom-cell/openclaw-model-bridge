@@ -415,6 +415,13 @@ class TestRunOrchestrator(unittest.TestCase):
         self.assertIn("跨领域关联", received["prompt"])
         self.assertIn("知识库总条目", received["prompt"])
 
+    def test_prompt_has_anti_hallucination_constraint(self):
+        """V37.8.1: review prompt 必须包含反幻觉约束"""
+        prompt = m.build_prompt("notes", "sources", 7, 100, 50, "AI")
+        self.assertIn("严禁虚构", prompt)
+        self.assertIn("标注来源", prompt)
+        self.assertIn("明确出现", prompt)
+
 
 # ══════════════════════════════════════════════════════════════════════
 # 6. build_review_markdown / build_wa_message — 输出契约
