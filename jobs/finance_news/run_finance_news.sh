@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # run_finance_news.sh — 全球财经/政策新闻每日汇总
 # 每天早上 07:30 HKT 由系统 crontab 触发（算力空闲窗口）
-# 一次性抓取 20 国内外权威源（10 国际 + 10 亚太）→ LLM 分析 → 一份结构化简报推送
+# 双通道抓取：8 个直连 RSS + 14 个财经 X 账号 → LLM 分析 → 一份结构化简报推送
 #
 # 输出格式：
 #   1. 原始新闻列表（出处/时间/价值/关键点评）
@@ -29,7 +29,7 @@ STATUS_FILE="$CACHE/last_run.json"
 
 log() { echo "[$TS] finance: $1"; }
 
-mkdir -p "$CACHE" "${KB_BASE:-$HOME/.kb}/sources"
+mkdir -p "$CACHE/raw" "${KB_BASE:-$HOME/.kb}/sources"
 test -f "$KB_SRC" || echo "# 全球财经/政策每日汇总" > "$KB_SRC"
 
 # ── 加载 notify.sh ────────────────────────────────────────────────────
@@ -42,32 +42,42 @@ for _np in "$HOME/openclaw-model-bridge/notify.sh" "$HOME/notify.sh"; do
     fi
 done
 
-# ── RSS 源配置 ─────────────────────────────────────────────────────────
+# ── RSS 源配置（仅直连可达，不依赖 RSSHub）────────────────────────────
 # 格式：name|feed_url|label|region
 # region: intl=国际, cn=中国/亚太
 RSS_FEEDS=(
-    # ── 国际权威（验证可用 2026-04-13）──
+    # ── 国际权威（Mac Mini 2026-04-13 验证）──
     "Fed Press|https://www.federalreserve.gov/feeds/press_all.xml|美联储官方声明|intl"
     "NBER|https://www.nber.org/rss/new.xml|美国国家经济研究局(工作论文)|intl"
     "FT|https://www.ft.com/rss/home|金融时报(摘要)|intl"
     "ECB|https://www.ecb.europa.eu/rss/press.xml|欧洲央行声明|intl"
     "BIS Speeches|https://www.bis.org/doclist/cbspeeches.rss|国际清算银行(央行演讲)|intl"
-    "Brookings Economy|https://www.brookings.edu/topic/economy/feed/|布鲁金斯学会经济|intl"
-    "World Bank News|https://www.worldbank.org/en/news/rss.xml|世界银行新闻|intl"
-    "IMF Blog|https://www.imf.org/en/Blogs/Articles/rss|国际货币基金组织博客|intl"
-    "Reuters via RSSHub|https://rsshub.app/reuters/world|路透社国际(via RSSHub)|intl"
     "Yahoo Finance|https://finance.yahoo.com/news/rssindex|雅虎财经|intl"
-    # ── 中国/亚太（验证可用 2026-04-13）──
+    # ── 中国/亚太（Mac Mini 2026-04-13 验证）──
     "SCMP Economy|https://www.scmp.com/rss/5/feed|南华早报经济频道|cn"
     "36氪|https://36kr.com/feed|36氪科技财经|cn"
-    "新华财经|https://rsshub.app/xinhuanet/fortune|新华网财经(via RSSHub)|cn"
-    "新浪财经|https://rsshub.app/sina/finance/china|新浪财经(via RSSHub)|cn"
-    "Nikkei Asia|https://rsshub.app/nikkei/asia|日经亚洲(via RSSHub)|cn"
-    "中国政府网|https://rsshub.app/gov/zhengce/zuixin|国务院政策(via RSSHub)|cn"
-    "中国央行|https://rsshub.app/gov/pbc/goutongjiaoliu|中国人民银行(via RSSHub)|cn"
-    "财新|https://rsshub.app/caixin/latest|财新网最新(via RSSHub)|cn"
-    "华尔街见闻|https://rsshub.app/wallstreetcn/news/global|华尔街见闻(via RSSHub)|cn"
-    "FT中文|https://rsshub.app/ft/chinese/hotstoryby7day|FT中文热门(via RSSHub)|cn"
+)
+
+# ── 财经 X/Twitter 账号（Syndication API，无需认证）─────────────────────
+# 格式：handle|显示名|标签|region
+# 补充 RSS 无法覆盖的中国/亚太 + 国际权威声音
+FINANCE_X_ACCOUNTS=(
+    # ── 国际权威 ──
+    "Reuters|路透社官方(X)|intl"
+    "IMFNews|IMF官方(X)|intl"
+    "WorldBank|世界银行官方(X)|intl"
+    "BrookingsInst|布鲁金斯学会(X)|intl"
+    "business|Bloomberg商业(X)|intl"
+    "WSJ|华尔街日报(X)|intl"
+    "ReutersBiz|路透社财经(X)|intl"
+    # ── 中国/亚太 ──
+    "XHNews|新华社英文(X)|cn"
+    "CGTNOfficial|CGTN财经(X)|cn"
+    "CaixinGlobal|财新英文(X)|cn"
+    "PDChina|人民日报英文(X)|cn"
+    "NikkeiAsia|日经亚洲(X)|cn"
+    "SCMPNews|南华早报(X)|cn"
+    "YicaiGlobal|第一财经英文(X)|cn"
 )
 
 SEEN_FILE="$CACHE/seen_urls.txt"
@@ -250,6 +260,123 @@ print(f"[finance] {feed_name}: {count} 篇", file=sys.stderr)
 PYEOF
 
 done
+
+# ── 2. X/Twitter 财经账号抓取（Syndication API）───────────────────────
+SEEN_X_FILE="$CACHE/seen_x_ids.txt"
+touch "$SEEN_X_FILE"
+X_FETCH_OK=0
+X_FETCH_FAIL=0
+
+for x_entry in "${FINANCE_X_ACCOUNTS[@]}"; do
+    IFS='|' read -r X_HANDLE X_LABEL X_REGION <<< "$x_entry"
+    RAW_HTML="$CACHE/raw/${X_HANDLE}.html"
+
+    # 抓取 Twitter Syndication API
+    XFETCH_OK=false
+    for attempt in 1 2; do
+        HTTP_CODE=$(curl -sSL --max-time 20 -w '%{http_code}' \
+            -H "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" \
+            -o "$RAW_HTML" \
+            "https://syndication.twitter.com/srv/timeline-profile/screen-name/${X_HANDLE}" \
+            2>/dev/null) || HTTP_CODE="000"
+        if [ "$HTTP_CODE" = "200" ] && [ -s "$RAW_HTML" ]; then
+            XFETCH_OK=true
+            break
+        fi
+        sleep "$((attempt * 3))"
+    done
+
+    if [ "$XFETCH_OK" != "true" ]; then
+        X_FETCH_FAIL=$((X_FETCH_FAIL + 1))
+        continue
+    fi
+
+    # 解析推文 → JSONL
+    $PYTHON3 - "$RAW_HTML" "$SEEN_X_FILE" "$X_HANDLE" "$X_LABEL" "$X_REGION" << 'XPYEOF' >> "$ALL_NEW_FILE"
+import sys, json, re
+from html import unescape
+from datetime import datetime, timedelta, timezone
+
+html_file, seen_file, handle, label, region = sys.argv[1:6]
+CUTOFF = datetime.now(timezone.utc) - timedelta(hours=36)
+
+with open(seen_file) as f:
+    seen_ids = set(line.strip() for line in f if line.strip())
+
+with open(html_file, encoding="utf-8", errors="replace") as f:
+    html = f.read()
+
+tweets = []
+next_data = re.search(
+    r'<script\s+id="__NEXT_DATA__"\s+type="application/json">(.*?)</script>',
+    html, re.DOTALL)
+if next_data:
+    try:
+        data = json.loads(next_data.group(1))
+        entries = (data.get("props", {})
+                      .get("pageProps", {})
+                      .get("timeline", {})
+                      .get("entries", []))
+        for entry in entries:
+            if entry.get("type") != "tweet":
+                continue
+            td = entry.get("content", {}).get("tweet", {})
+            if not td:
+                continue
+            text = td.get("full_text", td.get("text", ""))
+            tweet_id = str(td.get("id_str", ""))
+            created_at = td.get("created_at", "")
+
+            # 跳过转推和短文
+            if text.startswith("RT @") or len(text) < 30:
+                continue
+            if tweet_id in seen_ids:
+                continue
+
+            # 时间过滤
+            try:
+                dt = datetime.strptime(created_at, "%a %b %d %H:%M:%S %z %Y")
+                if dt < CUTOFF:
+                    continue
+                pub_date = dt.strftime("%Y-%m-%d %H:%M")
+            except (ValueError, TypeError):
+                pub_date = ""
+
+            # 清理文本
+            clean_text = unescape(re.sub(r'https?://t\.co/\S+', '', text)).strip()
+            link = f"https://x.com/{handle}/status/{tweet_id}" if tweet_id.isdigit() else ""
+
+            tweets.append({
+                "title": clean_text[:120],
+                "link": link,
+                "description": clean_text[:300],
+                "pub_date": pub_date,
+                "feed_name": f"X @{handle}",
+                "feed_label": label,
+                "region": region,
+                "tweet_id": tweet_id,
+            })
+    except (json.JSONDecodeError, KeyError):
+        pass
+
+# 每账号最多 3 条（X 信息密度低于 RSS）
+for t in tweets[:3]:
+    print(json.dumps(t, ensure_ascii=False))
+    with open(seen_file, 'a') as f:
+        f.write(t.get("tweet_id", t["link"]) + "\n")
+
+count = min(len(tweets), 3)
+if count > 0:
+    print(f"[finance] X @{handle}: {count} 条", file=sys.stderr)
+XPYEOF
+
+    X_FETCH_OK=$((X_FETCH_OK + 1))
+done
+
+if [ "$X_FETCH_OK" -gt 0 ] || [ "$X_FETCH_FAIL" -gt 0 ]; then
+    log "X/Twitter: ${X_FETCH_OK} 账号成功, ${X_FETCH_FAIL} 失败"
+fi
+FETCH_ERRORS=$((FETCH_ERRORS + X_FETCH_FAIL))
 
 TOTAL_NEW="$(wc -l < "$ALL_NEW_FILE" | tr -d ' ')"
 if [ "$TOTAL_NEW" -eq 0 ]; then
