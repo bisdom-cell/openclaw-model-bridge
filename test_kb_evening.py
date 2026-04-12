@@ -181,6 +181,20 @@ class TestBuildEveningPrompt(unittest.TestCase):
         self.assertIn("今日无新增笔记", prompt)
         self.assertIn("今日无来源归档更新", prompt)
 
+    def test_prompt_has_anti_hallucination_constraint(self):
+        """V37.8.1: prompt 必须包含反幻觉约束（禁止虚构、要求来源标注）"""
+        prompt = ev.build_evening_prompt("note", "source", 1, 100, 298, 5, "AI")
+        self.assertIn("严禁虚构", prompt)
+        self.assertIn("标注来源", prompt)
+        self.assertIn("明确出现", prompt)
+
+    def test_prompt_requires_source_labels(self):
+        """V37.8.1: 今日要闻每条必须要求标注来源标签"""
+        prompt = ev.build_evening_prompt("note", "source", 1, 100, 298, 5, "AI")
+        # 要闻条目要求包含来源标签示例
+        self.assertIn("[ArXiv]", prompt)
+        self.assertIn("[HN]", prompt)
+
 
 # ══════════════════════════════════════════════════════════════════════
 # 4. Evening markdown 输出格式
