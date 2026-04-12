@@ -1,0 +1,438 @@
+#!/usr/bin/env bash
+# run_finance_news.sh — 全球财经/政策新闻每日汇总
+# 每天早上 07:30 HKT 由系统 crontab 触发（算力空闲窗口）
+# 一次性抓取 15+ 国内外权威源 → LLM 分析 → 一份结构化晚报推送
+#
+# 输出格式：
+#   1. 原始新闻列表（出处/时间/价值/关键点评）
+#   2. 国内 vs 海外对比总结
+#   3. 一句话投资建议 + 风险提示
+#
+# crontab: 30 7 * * * bash -lc 'bash ~/.openclaw/jobs/finance_news/run_finance_news.sh >> ~/.openclaw/logs/jobs/finance_news.log 2>&1'
+export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
+set -eo pipefail
+
+# 防重叠执行
+LOCK="/tmp/finance_news.lockdir"
+mkdir "$LOCK" 2>/dev/null || { echo "[finance] Already running, skip"; exit 0; }
+trap 'rmdir "$LOCK" 2>/dev/null' EXIT
+
+JOB_DIR="${HOME}/.openclaw/jobs/finance_news"
+CACHE="$JOB_DIR/cache"
+KB_SRC="${KB_BASE:-$HOME/.kb}/sources/finance_daily.md"
+KB_WRITE_SCRIPT="${KB_WRITE_SCRIPT:-$HOME/kb_write.sh}"
+PYTHON3=/usr/bin/python3
+
+TS="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')"
+DAY="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d')"
+STATUS_FILE="$CACHE/last_run.json"
+
+log() { echo "[$TS] finance: $1"; }
+
+mkdir -p "$CACHE" "${KB_BASE:-$HOME/.kb}/sources"
+test -f "$KB_SRC" || echo "# 全球财经/政策每日汇总" > "$KB_SRC"
+
+# ── 加载 notify.sh ────────────────────────────────────────────────────
+NOTIFY_LOADED=false
+for _np in "$HOME/openclaw-model-bridge/notify.sh" "$HOME/notify.sh"; do
+    if [ -f "$_np" ]; then
+        source "$_np"
+        NOTIFY_LOADED=true
+        break
+    fi
+done
+
+# ── RSS 源配置 ─────────────────────────────────────────────────────────
+# 格式：name|feed_url|label|region
+# region: intl=国际, cn=中国/亚太
+RSS_FEEDS=(
+    # ── 国际权威 ──
+    "Fed Press|https://www.federalreserve.gov/feeds/press_all.xml|美联储官方声明|intl"
+    "Reuters Business|https://feeds.reuters.com/reuters/businessNews|路透社全球财经|intl"
+    "Reuters World|https://feeds.reuters.com/Reuters/worldNews|路透社国际政治|intl"
+    "Brookings|https://www.brookings.edu/feed/|布鲁金斯学会(美国政策智库)|intl"
+    "PIIE|https://www.piie.com/blogs/feed|彼得森国际经济研究所|intl"
+    "World Bank|https://blogs.worldbank.org/feed|世界银行博客|intl"
+    "VoxEU|https://cepr.org/rss/columns|CEPR欧洲经济政策研究|intl"
+    "IMF Blog|https://www.imf.org/en/Blogs/rss|国际货币基金组织博客|intl"
+    "NBER|https://www.nber.org/rss/new.xml|美国国家经济研究局(工作论文)|intl"
+    "FT|https://www.ft.com/rss/home|金融时报(摘要)|intl"
+    "ECB|https://www.ecb.europa.eu/rss/press.xml|欧洲央行声明|intl"
+    # ── 中国/亚太 ──
+    "新华财经|http://www.news.cn/fortune/rss.xml|新华网财经频道|cn"
+    "中国央行|http://www.pbc.gov.cn/rss/zhengcehuobisi/zhengcehuobisi.xml|中国人民银行政策|cn"
+    "新浪财经|https://feed.mix.sina.com.cn/api/roll/get?pageid=153&lid=2516&num=20&page=1&encode=utf-8|新浪财经要闻(JSON)|cn"
+    "SCMP Economy|https://www.scmp.com/rss/5/feed|南华早报经济频道|cn"
+    "Nikkei Asia|https://asia.nikkei.com/rss|日经亚洲|cn"
+    "中国政府网|http://www.gov.cn/rss/zhengce.xml|国务院政策文件|cn"
+    "财新|https://rsshub.app/caixin/latest|财新网最新(via RSSHub)|cn"
+    "36氪|https://36kr.com/feed|36氪科技财经|cn"
+    "华尔街见闻|https://rsshub.app/wallstreetcn/news/global|华尔街见闻(via RSSHub)|cn"
+)
+
+SEEN_FILE="$CACHE/seen_urls.txt"
+touch "$SEEN_FILE"
+ALL_NEW_FILE="$CACHE/all_new.jsonl"
+> "$ALL_NEW_FILE"
+
+TOTAL_NEW=0
+FETCH_ERRORS=0
+INTL_COUNT=0
+CN_COUNT=0
+
+for feed_entry in "${RSS_FEEDS[@]}"; do
+    IFS='|' read -r FEED_NAME FEED_URL FEED_LABEL FEED_REGION <<< "$feed_entry"
+    FEED_FILE="$CACHE/feed_$(echo "$FEED_NAME" | tr ' /' '_').xml"
+
+    # 抓取 RSS（3 次重试，指数退避）
+    FETCH_OK=false
+    for attempt in 1 2 3; do
+        HTTP_CODE=$(curl -sSL --max-time 30 -w '%{http_code}' \
+            -H "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X) AppleWebKit/537.36 Chrome/120.0.0.0" \
+            -o "$FEED_FILE" \
+            "$FEED_URL" 2>"$CACHE/curl_feed.err") || HTTP_CODE="000"
+
+        if [ "$HTTP_CODE" = "200" ] && [ -s "$FEED_FILE" ]; then
+            FETCH_OK=true
+            break
+        fi
+        sleep "$((attempt * 3))"
+    done
+
+    if [ "$FETCH_OK" != "true" ]; then
+        log "WARN: ${FEED_NAME} 抓取失败 (HTTP ${HTTP_CODE})，跳过"
+        FETCH_ERRORS=$((FETCH_ERRORS + 1))
+        continue
+    fi
+
+    # 解析 RSS/JSON → 提取近 24h 文章
+    $PYTHON3 - "$FEED_FILE" "$SEEN_FILE" "$FEED_NAME" "$FEED_LABEL" "$FEED_REGION" << 'PYEOF' >> "$ALL_NEW_FILE"
+import sys, json, re
+import xml.etree.ElementTree as ET
+from datetime import datetime, timedelta, timezone
+from email.utils import parsedate_to_datetime
+
+feed_file, seen_file, feed_name, feed_label, region = sys.argv[1:6]
+
+with open(seen_file) as f:
+    seen_urls = set(line.strip() for line in f if line.strip())
+
+# 24h 窗口过滤
+cutoff = datetime.now(timezone.utc) - timedelta(hours=36)
+
+def parse_date(s):
+    """尝试解析多种日期格式"""
+    if not s:
+        return None
+    try:
+        return parsedate_to_datetime(s)
+    except Exception:
+        pass
+    for fmt in ["%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%dT%H:%M:%SZ", "%Y-%m-%d %H:%M:%S",
+                "%Y-%m-%d", "%a, %d %b %Y %H:%M:%S %z"]:
+        try:
+            dt = datetime.strptime(s[:25], fmt)
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            return dt
+        except Exception:
+            continue
+    return None
+
+articles = []
+
+# 新浪财经 JSON API 特殊处理
+if "mix.sina.com.cn" in feed_file or "mix.sina" in open(feed_file).read()[:50]:
+    try:
+        with open(feed_file) as f:
+            raw = f.read()
+        # 新浪 API 返回 JSON
+        data = json.loads(raw)
+        for item in data.get("result", {}).get("data", [])[:8]:
+            title = item.get("title", "").strip()
+            url = item.get("url", "")
+            ctime = item.get("ctime", "")
+            intro = item.get("intro", item.get("summary", ""))[:300]
+            if not title or url in seen_urls:
+                continue
+            articles.append({
+                "title": title,
+                "link": url,
+                "description": intro,
+                "pub_date": ctime,
+                "feed_name": feed_name,
+                "feed_label": feed_label,
+                "region": region,
+            })
+    except Exception as e:
+        print(f"[finance] {feed_name} JSON解析失败: {e}", file=sys.stderr)
+else:
+    # 标准 RSS/Atom XML 解析
+    try:
+        tree = ET.parse(feed_file)
+        root = tree.getroot()
+    except ET.ParseError:
+        try:
+            with open(feed_file, 'r', encoding='utf-8', errors='replace') as f:
+                content = f.read()
+            root = ET.fromstring(content)
+        except ET.ParseError:
+            print(f"[finance] {feed_name} XML解析失败", file=sys.stderr)
+            sys.exit(0)
+
+    ns = {'atom': 'http://www.w3.org/2005/Atom',
+          'content': 'http://purl.org/rss/1.0/modules/content/',
+          'dc': 'http://purl.org/dc/elements/1.1/'}
+
+    items = root.findall('.//item')
+    if not items:
+        items = root.findall('.//atom:entry', ns)
+
+    for item in items[:15]:
+        title_el = item.find('title')
+        link_el = item.find('link')
+        desc_el = item.find('description')
+        date_el = item.find('pubDate')
+        content_el = item.find('content:encoded', ns)
+
+        # Atom fallback
+        if link_el is None:
+            link_el = item.find('atom:link', ns)
+            if link_el is not None:
+                link_el = type('o', (object,), {'text': link_el.get('href', '')})()
+        if title_el is None:
+            title_el = item.find('atom:title', ns)
+        if date_el is None:
+            date_el = item.find('atom:published', ns) or item.find('atom:updated', ns)
+
+        title = (title_el.text or '').strip() if title_el is not None else ''
+        link = (link_el.text or '').strip() if link_el is not None else ''
+        description = ''
+        if content_el is not None and content_el.text:
+            description = re.sub(r'<[^>]+>', '', content_el.text)[:400]
+        elif desc_el is not None and desc_el.text:
+            description = re.sub(r'<[^>]+>', '', desc_el.text)[:400]
+        pub_date = (date_el.text or '').strip() if date_el is not None else ''
+
+        if not title or not link:
+            continue
+        if link in seen_urls:
+            continue
+
+        # 时间过滤（允许无日期的通过，避免漏掉）
+        dt = parse_date(pub_date)
+        if dt and dt < cutoff:
+            continue
+
+        articles.append({
+            "title": title,
+            "link": link,
+            "description": re.sub(r'\s+', ' ', description).strip(),
+            "pub_date": pub_date[:25],
+            "feed_name": feed_name,
+            "feed_label": feed_label,
+            "region": region,
+        })
+
+# 每源最多 5 篇
+for a in articles[:5]:
+    print(json.dumps(a, ensure_ascii=False))
+    with open(seen_file, 'a') as f:
+        f.write(a["link"] + "\n")
+
+count = min(len(articles), 5)
+print(f"[finance] {feed_name}: {count} 篇", file=sys.stderr)
+PYEOF
+
+done
+
+TOTAL_NEW="$(wc -l < "$ALL_NEW_FILE" | tr -d ' ')"
+if [ "$TOTAL_NEW" -eq 0 ]; then
+    log "无新文章（${FETCH_ERRORS} 源抓取失败），跳过推送。"
+    printf '{"time":"%s","status":"ok","new":0,"errors":%d}\n' "$TS" "$FETCH_ERRORS" > "$STATUS_FILE"
+    exit 0
+fi
+
+# 统计国内/国际
+INTL_COUNT=$($PYTHON3 -c "
+import json
+with open('$ALL_NEW_FILE') as f:
+    print(sum(1 for l in f if json.loads(l).get('region')=='intl'))
+")
+CN_COUNT=$($PYTHON3 -c "
+import json
+with open('$ALL_NEW_FILE') as f:
+    print(sum(1 for l in f if json.loads(l).get('region')=='cn'))
+")
+log "共 ${TOTAL_NEW} 篇新文章（国际 ${INTL_COUNT} / 国内 ${CN_COUNT}），${FETCH_ERRORS} 源失败"
+
+# ── 构建 LLM 分析 prompt ──────────────────────────────────────────────
+PROMPT_FILE="$CACHE/llm_prompt.txt"
+$PYTHON3 - "$ALL_NEW_FILE" << 'PYEOF' > "$PROMPT_FILE"
+import sys, json, re
+
+articles = []
+with open(sys.argv[1]) as f:
+    for line in f:
+        line = line.strip()
+        if line:
+            articles.append(json.loads(line))
+
+intl = [a for a in articles if a.get("region") == "intl"]
+cn = [a for a in articles if a.get("region") == "cn"]
+
+def format_articles(arts, max_n=25):
+    lines = []
+    for i, a in enumerate(arts[:max_n], 1):
+        desc = a.get("description", "")[:150]
+        lines.append(f"{i}. [{a['feed_label']}] {a['title']}")
+        if a.get("pub_date"):
+            lines.append(f"   时间: {a['pub_date']}")
+        if desc:
+            lines.append(f"   摘要: {desc}")
+        lines.append("")
+    return "\n".join(lines)
+
+prompt = f"""你是一位资深财经分析师。以下是过去24小时内来自全球权威信源的财经/政策新闻。
+请严格基于以下提供的新闻内容，输出结构化分析报告。
+
+⚠️ 严格约束：
+- 只使用下方新闻中明确出现的信息，严禁虚构任何事件/政策/数据
+- 每条新闻必须标注原始出处（如 [美联储]、[路透社]、[新华财经]）
+- 如果某个领域无数据，直接标注"今日无相关信源"
+
+═══ 第一部分：海外新闻（{len(intl)} 条）═══
+{format_articles(intl)}
+
+═══ 第二部分：国内/亚太新闻（{len(cn)} 条）═══
+{format_articles(cn)}
+
+═══ 请输出以下结构（总字数 800-1200 字）═══
+
+## 📰 今日要闻（按价值排序，最多 8 条）
+
+对每条新闻输出：
+- **[来源] 标题**（发布时间）
+  💡 价值：⭐~⭐⭐⭐⭐⭐ | 关键点评：一句话分析其影响
+
+## 🌏 海外 vs 国内 对比总结
+
+| 维度 | 海外动向 | 国内动向 |
+|------|---------|---------|
+| 货币政策 | ... | ... |
+| 经济数据 | ... | ... |
+| 产业趋势 | ... | ... |
+| 风险信号 | ... | ... |
+
+（无数据的维度写"今日无相关信源"，不要编造）
+
+## 💰 一句话投资建议
+
+（基于今日信息，≤50 字，必须有依据）
+
+## ⚠️ 风险提示
+
+（≤30 字，指出最大不确定性）
+"""
+
+print(prompt)
+PYEOF
+
+# ── 调用 LLM ──────────────────────────────────────────────────────────
+LLM_RAW="$CACHE/llm_raw_last.json"
+$PYTHON3 -c "
+import json
+prompt = open('$CACHE/llm_prompt.txt').read()
+with open('$CACHE/llm_payload.json', 'w') as f:
+    json.dump({
+        'model': 'default',
+        'messages': [{'role': 'user', 'content': prompt}],
+        'max_tokens': 3000,
+        'temperature': 0.3
+    }, f, ensure_ascii=False)
+"
+
+LLM_OK=false
+for attempt in 1 2 3; do
+    LLM_RESP=$(curl -s --max-time 180 \
+        -H "Content-Type: application/json" \
+        -H "Authorization: Bearer $(echo $REMOTE_API_KEY)" \
+        -d "@$CACHE/llm_payload.json" \
+        http://127.0.0.1:5001/v1/chat/completions 2>"$CACHE/llm.stderr" || true)
+
+    echo "$LLM_RESP" > "$LLM_RAW"
+
+    LLM_CONTENT=$($PYTHON3 -c "
+import json, sys
+try:
+    r = json.loads(open('$LLM_RAW').read())
+    c = r.get('choices',[{}])[0].get('message',{}).get('content','')
+    if len(c) > 200:
+        print(c)
+    else:
+        sys.exit(1)
+except:
+    sys.exit(1)
+" 2>/dev/null) && LLM_OK=true && break
+
+    log "WARN: LLM 调用失败 (attempt ${attempt})"
+    sleep "$((attempt * 10))"
+done
+
+if [ "$LLM_OK" != "true" ]; then
+    log "ERROR: LLM 3次调用全部失败，推送原始标题"
+    # Fallback: 只推送标题列表
+    LLM_CONTENT=$($PYTHON3 -c "
+import json
+arts = []
+with open('$ALL_NEW_FILE') as f:
+    for l in f:
+        if l.strip(): arts.append(json.loads(l))
+lines = ['⚠️ LLM分析失败，以下为原始标题：\n']
+for a in arts[:15]:
+    lines.append(f'• [{a[\"feed_label\"]}] {a[\"title\"]}')
+print('\n'.join(lines))
+")
+fi
+
+# ── 组装消息 + 推送 ──────────────────────────────────────────────────
+MSG_HEADER="📊 每日财经简报 ${DAY}（国际 ${INTL_COUNT} + 国内 ${CN_COUNT} 条 | ${FETCH_ERRORS} 源不可用）"
+FULL_MSG="${MSG_HEADER}
+
+${LLM_CONTENT}"
+
+# 截断 WhatsApp 长度限制
+WA_MSG="${FULL_MSG:0:3800}"
+
+# ── KB 归档 ──────────────────────────────────────────────────────────
+KB_APPEND_SCRIPT="${HOME}/openclaw-model-bridge/kb_append_source.sh"
+if [ -f "$KB_APPEND_SCRIPT" ]; then
+    echo "$LLM_CONTENT" | bash "$KB_APPEND_SCRIPT" "$KB_SRC" "$DAY" "finance_news"
+else
+    # fallback: 直接 append
+    printf '\n## %s\n\n%s\n' "$DAY" "$LLM_CONTENT" >> "$KB_SRC"
+fi
+
+# ── KB notes 写入 ────────────────────────────────────────────────────
+if [ -f "$KB_WRITE_SCRIPT" ]; then
+    echo "$LLM_CONTENT" | bash "$KB_WRITE_SCRIPT" --title "财经简报 ${DAY}" --tags "finance,policy,daily" --source "finance_news"
+fi
+
+# ── 推送（WhatsApp + Discord）────────────────────────────────────────
+if [ "$NOTIFY_LOADED" = "true" ]; then
+    notify "$WA_MSG" --topic daily
+else
+    # fallback: 直接推送
+    OPENCLAW="${OPENCLAW:-/opt/homebrew/bin/openclaw}"
+    TO="${OPENCLAW_PHONE:-+85200000000}"
+    "$OPENCLAW" message send --to "$TO" --content "$WA_MSG" --channel whatsapp 2>/dev/null || true
+    if [ -n "${DISCORD_CH_DAILY:-}" ]; then
+        "$OPENCLAW" message send --channel-id "$DISCORD_CH_DAILY" --content "$FULL_MSG" --channel discord 2>/dev/null || true
+    fi
+fi
+
+# ── 状态记录 ──────────────────────────────────────────────────────────
+printf '{"time":"%s","status":"ok","new":%d,"intl":%d,"cn":%d,"errors":%d}\n' \
+    "$TS" "$TOTAL_NEW" "$INTL_COUNT" "$CN_COUNT" "$FETCH_ERRORS" > "$STATUS_FILE"
+
+log "完成: ${TOTAL_NEW} 篇 → LLM 分析 → 推送成功"

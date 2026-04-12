@@ -360,6 +360,18 @@ jobs:
     kb_source_label: 🧠 Ontology 专属源
     description: Ontology 专属信息源监控 — Semantic Web Journal + W3C + KG Conference RSS，关键词过滤，LLM 富摘要，Discord #ontology 推送 + KB 归档
 
+  - id: finance_news
+    scheduler: system
+    entry: jobs/finance_news/run_finance_news.sh
+    interval: "30 7 * * *"             # 每天 07:30 HKT（早间算力空闲，一天一推）
+    log: ~/.openclaw/logs/jobs/finance_news.log
+    needs_api_key: false               # 通过 Adapter:5001 调 LLM
+    enabled: true
+    tier: auxiliary                     # 财经信息积累
+    kb_source_file: finance_daily.md
+    kb_source_label: 📊 全球财经/政策
+    description: 全球财经/政策每日汇总 — 15+ 国内外权威 RSS 源（美联储/路透社/新华财经/央行等），LLM 结构化分析（来源标注+价值评级+国内外对比+投资建议），Discord #daily + WhatsApp 推送
+
   - id: preference_learner
     scheduler: system
     entry: preference_learner.py
