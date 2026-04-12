@@ -478,6 +478,7 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 | 24 | **🆕 SOUL.md 触发词是唯一可靠的工具调用机制** | 当前 Qwen3 不会自主决定调用专用工具。唯一可靠的强制方式是 SOUL.md 的"遇到X必须调Y"规则+具体触发词列表。ops agent 的 sessions_spawn 成功不是因为 Qwen3 学会了，而是触发词"排查/超时/告警"命中了 SOUL.md 硬规则。新增专用工具时，必须同步更新 SOUL.md 触发词规则，否则工具永远不会被调用。（2026-04-08教训：memory 工具上线数周零调用，ops spawn 靠触发词 100% 成功） |
 | 25 | **🆕 对话数据是最高质量信号源** | 用户与 PA 的对话包含决策、偏好、专业洞察、领域判断——这些是 cron 抓取的论文/新闻无法替代的一手数据。必须确保对话数据被捕获并进入 KB 索引（`tool_proxy.py` 热路径捕获 → `kb_harvest_chat.py` 冷路径提炼 → KB notes）。同时关注 PA 自主写入的文件（如 `MEMORY.md`），将其纳入索引范围。数据流失 = 系统失忆。（2026-04-08教训：240 条 KB notes 全是机器抓取，零对话数据；PA 自主写入的 MEMORY.md 也是孤岛） |
 | 26 | **🔴 异常分析宪法：必须输出完整因果链架构图** | 见下方独立章节"异常分析宪法"。（2026-04-10 升级为宪法级） |
+| 27 | **🆕 X/Twitter 是高质量实时数据的第一选择** | 当 RSS 源失效（官方取消、CDN 封锁、RSSHub 公共实例 403）时，**X/Twitter Syndication API 是最可靠的替代通道**——无需认证、零成本、覆盖全球权威机构官方账号。Twitter Syndication API (`syndication.twitter.com/srv/timeline-profile/screen-name/{handle}`) 返回 HTML 内含 `__NEXT_DATA__` JSON，可解析出完整推文内容+时间+ID。新增数据抓取任务时，优先评估目标机构的 X 账号是否活跃，再考虑 RSS/API。实践证明：14 个财经 X 账号 100% 成功率 vs 10 个 RSSHub 路由 100% 失败率。（2026-04-13教训：finance_news 首次测试 12/20 RSS 源失败，切换到 RSS+X 双通道后 0 失败 34 篇文章） |
 
 ### 🔴 异常分析宪法（原则 #26 展开，无例外强制执行）
 
