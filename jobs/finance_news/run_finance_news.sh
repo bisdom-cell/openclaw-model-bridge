@@ -306,7 +306,8 @@ from html import unescape
 from datetime import datetime, timedelta, timezone
 
 html_file, seen_file, handle, label, region = sys.argv[1:6]
-CUTOFF = datetime.now(timezone.utc) - timedelta(hours=36)
+# X 账号用 72h 窗口（覆盖周末，官媒周末发帖少）
+CUTOFF = datetime.now(timezone.utc) - timedelta(hours=72)
 
 with open(seen_file) as f:
     seen_ids = set(line.strip() for line in f if line.strip())
