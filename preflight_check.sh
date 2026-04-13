@@ -627,7 +627,7 @@ deploy_script = sys.argv[1]
 registry_file = sys.argv[2] if len(sys.argv) > 2 else None
 
 # ── 解析 FILE_MAP ──
-file_map = {}  # basename → deploy target path
+file_map = {}  # basename → [target1, target2, ...] (V37.8.3: 支持多部署目标)
 file_map_srcs = set()  # full source paths
 with open(deploy_script) as f:
     in_map = False
@@ -642,7 +642,8 @@ with open(deploy_script) as f:
             if m:
                 parts = m.group(1).split('|', 1)
                 if len(parts) == 2:
-                    file_map[os.path.basename(parts[0])] = parts[1].replace('$HOME', os.path.expanduser('~'))
+                    target = parts[1].replace('$HOME', os.path.expanduser('~'))
+                    file_map.setdefault(os.path.basename(parts[0]), []).append(target)
                     file_map_srcs.add(parts[0])
 
 # ── 解析 crontab ──
@@ -671,17 +672,15 @@ for line in crontab_lines:
     script_name = os.path.basename(cron_path)
 
     if script_name in file_map:
-        # 正向检查：路径一致性
-        expected = file_map[script_name]
-        if os.path.normpath(cron_path) != os.path.normpath(expected):
-            errors.append(f"FAIL|{script_name}: crontab 路径 {cron_path} ≠ FILE_MAP 目标 {expected}")
+        # 正向检查：路径一致性（V37.8.3: 支持多部署目标，任一匹配即可）
+        targets = file_map[script_name]
+        norm_targets = [os.path.normpath(t) for t in targets]
+        if os.path.normpath(cron_path) not in norm_targets:
+            errors.append(f"FAIL|{script_name}: crontab 路径 {cron_path} ≠ FILE_MAP 目标 {targets}")
         checked += 1
     else:
         # 反向检查：crontab 引用了 FILE_MAP 中不存在的脚本
-        # 排除不需要部署的脚本（auto_deploy 自身等）
-        skip_names = {'auto_deploy.sh'}
-        if script_name not in skip_names:
-            not_in_map.append(script_name)
+        not_in_map.append(script_name)
 
 # ── 反向检查输出 ──
 if not_in_map:
