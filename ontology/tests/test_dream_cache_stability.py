@@ -596,6 +596,105 @@ class TestV37_8_3_ProgressiveMaterialDegradation(unittest.TestCase):
         )
 
 
+class TestV37_8_3_SystemUserMessageSplit(unittest.TestCase):
+    """V37.8.3: Split Reduce prompt into system + user messages.
+    Root cause: 82KB single user message causes Qwen3 "lost in the middle" —
+    length requirements buried in 80KB of material get ignored, model produces
+    ~900 char summaries (completion_tokens=328/8000, model stops voluntarily).
+    Fix: system message carries meta-instructions (role + length mandate +
+    format), user message carries data + analysis structure template.
+    System role has highest model attention priority."""
+
+    def test_reduce_system_variable_defined(self):
+        """REDUCE_SYSTEM must be defined to carry meta-instructions."""
+        src = _read_kb_dream()
+        self.assertIn(
+            'REDUCE_SYSTEM=',
+            src,
+            "REDUCE_SYSTEM variable missing — system message not implemented.",
+        )
+
+    def test_system_contains_length_mandate(self):
+        """System message must contain the hard length requirement so it's
+        in the model's highest-attention position."""
+        src = _read_kb_dream()
+        # Find the REDUCE_SYSTEM definition and check for length keywords
+        m = re.search(r'REDUCE_SYSTEM="(.*?)"', src, re.DOTALL)
+        self.assertIsNotNone(m, "Cannot extract REDUCE_SYSTEM content")
+        system_content = m.group(1)
+        self.assertIn("2000", system_content,
+                       "System message must specify minimum output length")
+        self.assertIn("1500", system_content,
+                       "System message must warn about discard threshold")
+
+    def test_system_contains_six_chapters(self):
+        """System message must enumerate the 6 required chapters."""
+        src = _read_kb_dream()
+        m = re.search(r'REDUCE_SYSTEM="(.*?)"', src, re.DOTALL)
+        self.assertIsNotNone(m)
+        system_content = m.group(1)
+        for keyword in ["发现过程", "隐藏关联", "趋势推演", "被忽视的信号", "行动建议", "数据质量备注"]:
+            self.assertIn(keyword, system_content,
+                          f"System message missing chapter '{keyword}'")
+
+    def test_llm_call_receives_system_message(self):
+        """The Reduce llm_call must pass system message as 5th argument."""
+        src = _read_kb_dream()
+        # Pattern: llm_call "$cur_prompt" 8000 "$cur_temp" 300 "$cur_system"
+        self.assertRegex(
+            src,
+            r'llm_call\s+"\$cur_prompt"\s+8000\s+"\$cur_temp"\s+300\s+"\$cur_system"',
+            "Reduce llm_call does not pass system message — model will use "
+            "single user message and lose length requirements in long prompt.",
+        )
+
+    def test_llm_call_function_accepts_system_msg_param(self):
+        """llm_call() must accept a 5th parameter for system message."""
+        src = _read_kb_dream()
+        self.assertRegex(
+            src,
+            r'local system_msg="\$\{5:-\}"',
+            "llm_call function does not accept system_msg as 5th parameter.",
+        )
+
+    def test_llm_call_passes_system_to_python(self):
+        """llm_call must pass system_msg to the Python JSON builder via env."""
+        src = _read_kb_dream()
+        self.assertIn(
+            '_LLM_SYSTEM_MSG="$system_msg"',
+            src,
+            "llm_call does not pass system_msg to Python subprocess — "
+            "system message is dead code.",
+        )
+
+    def test_retry_modifies_cur_system(self):
+        """Retry 2+ must modify cur_system (not just cur_prompt) to add
+        retry context to the system message."""
+        src = _read_kb_dream()
+        self.assertIn(
+            'cur_system="$REDUCE_SYSTEM',
+            src,
+            "Retry does not build cur_system from REDUCE_SYSTEM — retry "
+            "context is not in system message.",
+        )
+
+    def test_user_prompt_no_longer_contains_writing_style(self):
+        """After V37.8.3 split, the main REDUCE_PROMPT (user message) should
+        NOT contain writing style instructions — those moved to REDUCE_SYSTEM."""
+        src = _read_kb_dream()
+        # Find the main REDUCE_PROMPT (not the retry one, not REDUCE_SYSTEM)
+        # Look for REDUCE_PROMPT=" that comes right after REDUCE_SYSTEM
+        m = re.search(r'REDUCE_PROMPT="(.*?)(?=\n\nPROMPT_BYTES=)', src, re.DOTALL)
+        if m:
+            prompt_content = m.group(1)
+            self.assertNotIn(
+                "像写给技术决策者",
+                prompt_content,
+                "Writing style instructions should be in REDUCE_SYSTEM, not "
+                "REDUCE_PROMPT (user message) — defeats the split purpose.",
+            )
+
+
 class TestSourcesCacheFastPathUnchanged(unittest.TestCase):
     """Sources cache key (${name}_${file_size}_${prompt_hash}) was already
     stable and must remain so — don't accidentally port it to md5(content)."""
