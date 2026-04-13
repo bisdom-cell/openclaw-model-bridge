@@ -990,7 +990,7 @@ $REDUCE_MATERIAL
     log "回退后 prompt: ${PROMPT_BYTES} bytes"
 fi
 
-# Reduce 调用 + 短响应自动重试（V37.4.1 → V37.4.2 修复）
+# Reduce 调用 + 短响应自动重试（V37.4.1 → V37.4.2 → V37.8.3 修复）
 # LLM 响应不稳定：同一 prompt 产出 3967/906/876 字节都有可能
 # - MIN_DREAM_CHARS=3000：≈1000 汉字，是"1500 字目标"的合理下限
 # - BEST_RESULT 追踪：始终保留最长的一次，最终 fallback 到最佳
@@ -999,6 +999,11 @@ fi
 # - V37.4.2 新增：retry 2/3 改写 prompt（prepend 长度强制前缀）
 #   同一 prompt hash 可能触发 server-side 缓存或收敛到确定性短路径，
 #   retry 时改 prompt hash + 显式长度强制 = 同时绕过缓存和强迫 LLM 展开
+# - V37.8.3 新增：渐进式素材降级（80K → 50K → 30K）
+#   当 prompt 超过 ~80KB 时，模型进入"读多写少"摘要收敛模式：
+#   89KB 输入 × 6节结构要求 → 模型把 token 预算花在理解上，输出仅 ~1200 chars。
+#   重试时缩减素材量，让模型从"阅读理解"切换到"深度分析写作"。
+#   同时重建 REDUCE_PROMPT 以确保素材量变化生效。
 MIN_DREAM_CHARS=3000
 MIN_ACCEPTABLE_CHARS=1500
 MAX_RETRIES=3
@@ -1008,14 +1013,94 @@ BEST_RESULT=""
 BEST_CHARS=0
 # 逐次降温：第一次放开探索，重试时求稳
 REDUCE_TEMPS=("0.85" "0.6" "0.4")
+# V37.8.3: 渐进式素材降级 — retry 时逐步缩减素材量
+REDUCE_MATERIAL_CAPS=("80000" "50000" "30000")
 
 for retry in $(seq 1 $MAX_RETRIES); do
     cur_temp="${REDUCE_TEMPS[$((retry - 1))]}"
+    cur_cap="${REDUCE_MATERIAL_CAPS[$((retry - 1))]}"
+
+    # V37.8.3: 重试时缩减素材量并重建 prompt
+    if [ "$retry" -gt 1 ]; then
+        REDUCE_MATERIAL=$(echo "$REDUCE_DATA" | utf8_truncate "$cur_cap")
+        REDUCE_CHARS=$(echo "$REDUCE_MATERIAL" | wc -c | tr -d ' ')
+        log "Reduce retry $retry: 素材降级 ${cur_cap} bytes (实际 ${REDUCE_CHARS} bytes)"
+        # 重建 REDUCE_PROMPT（用新的 REDUCE_MATERIAL）
+        REDUCE_PROMPT="你是一个在海量数据中寻找蛛丝马迹的探索者。你的目标是发现真正有价值的隐藏信号，而不是把不相关的领域硬凑在一起。
+
+$REDUCE_INTRO
+
+---
+$REDUCE_MATERIAL
+---
+
+这些数据是花费大量算力（14 个数据源逐一深度分析）的结果。不要浪费在浅尝辄止的多主题分析上。
+
+**核心要求：每天只深挖一个主题，但用全部分析维度去钻透它。**
+
+第一步：从所有信号中选出今天最有价值的一个发现。选题标准：
+1. 有扎实的多源证据链（至少 3 个不同数据源互相印证）
+2. 对我们的项目或技术方向有直接可操作的启示
+3. 反直觉、容易被忽视、但有数据支撑的信号
+4. 如果与最近梦境同一主题，必须有新角度或新证据，不要简单重复
+
+$([ -n "$PREV_THEMES" ] && echo "### 最近梦境主题（仅供参考，如果同一热点有新角度可以继续深挖）
+$PREV_THEMES")
+
+第二步：围绕这一个主题，严格按以下结构深度展开：
+
+## 🌙 今日深度发现：[一句话主题]
+
+### 发现过程
+像侦探一样描述：哪些数据源的哪些条目最先引起注意？信号是如何从不同数据源中逐步浮现并互相印证的？
+
+### 🔗 隐藏关联
+围绕这个主题，列出 3-5 个隐藏的关联：
+- 每个关联需标注证据链：A事实([数据源, 日期]) → B事实([数据源, 日期]) → 因此C
+- 关联可以是同一领域内的深层联系，也可以是跨领域的意外连接
+- 如果有矛盾的证据，也要列出并分析为什么矛盾
+
+### 🔮 趋势推演
+基于这个主题的证据，推演 2-3 个未来走向：
+- **趋势名**
+- **数据证据**（具体引用源、日期、数字）
+- **推演逻辑**（为什么这些数据暗示了这个方向）
+- **时间窗口**（萌芽期/加速期/拐点？6 个月/1 年/3 年后会怎样？）
+- **如果成真的影响**
+
+### 💎 被忽视的信号
+围绕这个主题，找出 2-3 个藏在数据中容易被忽略的信号：
+- **是什么**（具体数字、事件、异常）
+- **在哪发现的**（数据源、日期）
+- **为什么被忽视**（人们通常怎么忽略它）
+- **为什么值得关注**（它暗示了什么更深层的变化）
+
+### 🎯 行动建议（按优先级排列）
+基于以上全部分析，给出 3-5 个具体可执行的建议：
+- **做什么**（具体到这周可以直接执行的操作）
+- **为什么现在做**（时间窗口/机会成本）
+- **怎么验证**（怎么知道做对了）
+- **预期产出**（做完后能得到什么具体的东西）
+
+### 📊 数据质量备注
+哪些数据源为这个主题贡献了关键证据？哪些数据源信息密度低或更新滞后？本次分析存在哪些信息盲区，需要补充什么新的数据源？
+
+---
+
+写作要求：
+- 像写给技术决策者的专业分析备忘录，不是写给 AI 看的
+- 所有维度（关联、推演、信号、建议）都必须紧扣同一个主题，形成完整的分析闭环
+- 每个论点都要有出处（数据源+日期+具体内容），不允许空泛断言
+- 不要客套话和铺垫，直接进入核心发现
+- 行动建议必须具体到可以立即执行，拒绝「关注某某趋势」这种空话
+- 目标 2000-3000 字，Markdown 格式"
+    fi
+
     # V37.4.2: retry 2+ 使用变体 prompt，改 hash 绕过 server cache + 强制长度
     if [ "$retry" -eq 1 ]; then
         cur_prompt="$REDUCE_PROMPT"
     else
-        cur_prompt="【第 $retry 次尝试 — 上一次响应过短，不合格】
+        cur_prompt="【第 $retry 次尝试 — 上一次响应过短（仅 ${BEST_CHARS} 字符），不合格。本次素材已精简到 ${REDUCE_CHARS} 字节以留出更多写作空间。】
 
 【重要硬性要求】这次回答必须完整覆盖所有 6 个章节（发现过程 / 隐藏关联 / 趋势推演 / 被忽视的信号 / 行动建议 / 数据质量备注），每个章节都要展开到位，总字数不少于 2500 汉字。不要只写一段总结就结束，必须每个维度都钻透到位。
 
@@ -1031,11 +1116,11 @@ $REDUCE_PROMPT"
     fi
 
     if [ -z "${DREAM_RESULT// }" ]; then
-        log "Reduce 尝试 $retry/$MAX_RETRIES (temp=$cur_temp): 空响应"
+        log "Reduce 尝试 $retry/$MAX_RETRIES (temp=$cur_temp, cap=${cur_cap}): 空响应"
     elif [ "$DREAM_CHARS" -lt "$MIN_DREAM_CHARS" ]; then
-        log "Reduce 尝试 $retry/$MAX_RETRIES (temp=$cur_temp): 响应过短 (${DREAM_CHARS} chars < ${MIN_DREAM_CHARS})，当前最佳=${BEST_CHARS}，继续重试..."
+        log "Reduce 尝试 $retry/$MAX_RETRIES (temp=$cur_temp, cap=${cur_cap}): 响应过短 (${DREAM_CHARS} chars < ${MIN_DREAM_CHARS})，当前最佳=${BEST_CHARS}，继续重试..."
     else
-        log "Reduce 尝试 $retry/$MAX_RETRIES (temp=$cur_temp): 成功 (${DREAM_CHARS} chars)"
+        log "Reduce 尝试 $retry/$MAX_RETRIES (temp=$cur_temp, cap=${cur_cap}): 成功 (${DREAM_CHARS} chars)"
         break
     fi
 

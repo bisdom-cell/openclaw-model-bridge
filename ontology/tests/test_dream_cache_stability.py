@@ -512,6 +512,90 @@ class TestReduceRetryFallback(unittest.TestCase):
         )
 
 
+class TestV37_8_3_ProgressiveMaterialDegradation(unittest.TestCase):
+    """V37.8.3: When the Reduce prompt is too large (89KB+), the model enters
+    "read-heavy summarization collapse" mode and produces ~1200 chars output
+    regardless of retries. Fix: progressively reduce material size on retry
+    (80K → 50K → 30K) so the model shifts from reading to writing.
+
+    Background: 2026-04-13 03:00 run, all 3 retries produced ≤1192 chars from
+    a 89318B prompt. V37.4.2's variant prefix (<300B) was <0.3% of prompt —
+    insufficient to change model behavior at this scale."""
+
+    def test_material_caps_array_exists(self):
+        """Retry loop must have a REDUCE_MATERIAL_CAPS array defining per-retry
+        material size limits."""
+        src = _read_kb_dream()
+        self.assertIn(
+            "REDUCE_MATERIAL_CAPS=",
+            src,
+            "REDUCE_MATERIAL_CAPS array missing — retries still use fixed "
+            "80K material, model stays in summarization collapse.",
+        )
+
+    def test_material_caps_are_decreasing(self):
+        """Material caps must monotonically decrease across retries."""
+        src = _read_kb_dream()
+        m = re.search(
+            r'REDUCE_MATERIAL_CAPS=\("(\d+)"\s+"(\d+)"\s+"(\d+)"\)',
+            src,
+        )
+        self.assertIsNotNone(
+            m,
+            "REDUCE_MATERIAL_CAPS array format unexpected — expected 3 "
+            "decreasing integer elements.",
+        )
+        c1, c2, c3 = int(m.group(1)), int(m.group(2)), int(m.group(3))
+        self.assertGreater(c1, c2, "Material caps must decrease on retry")
+        self.assertGreater(c2, c3, "Material caps must decrease on retry")
+        # First cap should be the original 80K
+        self.assertEqual(c1, 80000, "First attempt should use original 80K cap")
+
+    def test_retry_rebuilds_reduce_prompt(self):
+        """On retry, REDUCE_PROMPT must be rebuilt with the new (smaller)
+        REDUCE_MATERIAL. Otherwise the variant prefix changes the hash but
+        the actual material size stays at 80K — defeating the purpose."""
+        src = _read_kb_dream()
+        # The retry block (retry > 1) must re-truncate REDUCE_DATA
+        self.assertRegex(
+            src,
+            r'retry.*-gt.*1.*\n.*REDUCE_MATERIAL=.*utf8_truncate.*cur_cap',
+            "Retry does not re-truncate REDUCE_DATA with cur_cap — material "
+            "size stays at 80K across all retries.",
+        )
+
+    def test_retry_uses_cur_cap_variable(self):
+        """The retry loop must index into REDUCE_MATERIAL_CAPS using retry."""
+        src = _read_kb_dream()
+        self.assertIn(
+            "cur_cap=",
+            src,
+            "cur_cap variable missing — retry loop doesn't read from "
+            "REDUCE_MATERIAL_CAPS array.",
+        )
+
+    def test_retry_logs_material_degradation(self):
+        """Operator must see material size changes in the log."""
+        src = _read_kb_dream()
+        self.assertIn(
+            "素材降级",
+            src,
+            "Material degradation log line missing — operator can't verify "
+            "retry used smaller material.",
+        )
+
+    def test_retry_variant_includes_best_chars(self):
+        """V37.8.3 variant prefix should report BEST_CHARS so LLM knows
+        the previous attempt's output size."""
+        src = _read_kb_dream()
+        self.assertIn(
+            "${BEST_CHARS}",
+            src,
+            "Retry variant prefix doesn't include BEST_CHARS — LLM gets "
+            "no signal about how short the previous attempt was.",
+        )
+
+
 class TestSourcesCacheFastPathUnchanged(unittest.TestCase):
     """Sources cache key (${name}_${file_size}_${prompt_hash}) was already
     stable and must remain so — don't accidentally port it to md5(content)."""
