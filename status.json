@@ -1,6 +1,6 @@
 {
-  "updated": "2026-04-13 16:48:50",
-  "updated_by": "full_regression",
+  "updated": "2026-04-13 17:12:38",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-04-13",
+      "what": "V37.8.3: (1) finance_news 3个错误X账号修复 (CaixinGlobal→caixin, YicaiGlobal→yicaichina, STcom→straits_times) (2) Dream MIN_ACCEPTABLE_CHARS 1500→3000 + BEST_CHARS 未定义变量修复 (3) kb_evening E2E测试时区闪烁修复 (4) preflight 连锁修复闭环: FILE_MAP多目标支持 + SCRIPT_DIR HOME检测 + auto_deploy双目标部署 + preflight/job_smoke_test纳入FILE_MAP, 5轮修复从20失败到0失败 (5) MR-10 understand-before-fix 新元规则(连锁修复血案教训) (6) 原则#28理解再动手 + 原则#29开工收工零遗漏 (7) 第0号宪法: 最强模型不降配不降速不妥协 (8) 案例文档 preflight_cascading_fix_case.md",
+      "by": "claude_code"
+    },
     {
       "date": "2026-04-12",
       "what": "V37.8.2: (1) preflight status.json 合法分叉豁免 (2) KB 索引阈值改百分比 (3) kb_evening/kb_review LLM 反幻觉约束 (4) finance_news 全新 job: 8 RSS + 21 X 双通道, 72h 窗口, daily seen 重置, LLM 结构化分析 + KB + 推送 (5) CLAUDE.md 原则 #27 X/Twitter 优先 (6) auto_deploy FILE_MAP 补齐 (7) governance_checker MRD-NOTIFY-002 TOPIC_JOB_MAP 重写消除假阳性",
@@ -173,11 +178,6 @@
       "date": "2026-04-09",
       "what": "SOUL.md批判性思考规则#9(反迎合)+PA回声室案例分析+ontology终态架构文档+ScienceDirect正则修复+governance_audit全通过35/35+kb_harvest_chat crontab bash-lc修复",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-04-09",
-      "what": "Ontology终态架构文档(target_architecture.md)+Phase3/4/5待办分解写入CLAUDE.md+ScienceDirect正则修复+governance_audit全通过+kb_harvest_chat crontab修复",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -202,8 +202,8 @@
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB"
   },
   "session_context": {
-    "last_session": "2026-04-11",
-    "unfinished": "[\"finance_news X handle 验证: CaixinGlobal/YicaiGlobal/SingTaoDaily/STcom 可能不是正确的 X handle (API 返回 0 推文), 需手动在 X 上搜索验证并修正\", \"test_kb_evening.py E2E 测试 flaky: test_end_to_end_mock_collector_produces_evening_file 文件落盘但 os.path.isfile 返回 False, pre-existing 非本次引入\"]",
+    "last_session": "2026-04-13",
+    "unfinished": "[\"Dream 输出质量待验证: 等今晚03:00 cron运行后检查 ~/.kb/dreams/2026-04-14.md 是否>=3000 bytes (MIN_ACCEPTABLE_CHARS 已从1500提升到3000)\", \"finance_news X账号待验证: 等明天07:30 cron运行后检查 caixin/yicaichina/straits_times 是否成功抓取推文\"]",
     "open_prs": "",
     "blocked_on": "",
     "focus": "V37.4.3 PA 告警污染血案闭环完成 + WhatsApp 生产验证通过 (13:06 原题复现零红线命中) + Mac Mini governance --full 28/28/67/67 + INV-PA-001/002 15 checks 全绿 + 33 job 全可运行. 2 个 preflight FAIL 是 pre-existing 分叉已登记 unfinished. 收工回顾发现 kb_review.sh 效果层静默降级 (同类 V37.4.3 血案) 已登记 unfinished. 下一步: Ontology Phase 3 渐进替换 (ONTOLOGY_MODE=on 切换) 或 Tool Policy Plugin V3 路标 或 kb_review 效果层修复",
@@ -212,9 +212,9 @@
   "quality": {
     "security_score": "93",
     "test_count": "951",
-    "last_regression": "2026-04-13 16:48 pass",
+    "last_regression": "2026-04-13 17:11 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-04-13 16:48",
+    "security_score_time": "2026-04-13 17:11",
     "test_suites": "31",
     "governance_invariants": "35/35",
     "governance_checks": "125/136",
@@ -280,7 +280,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.7 双跑审计闭环 — 3 合 1 修复 (run_discussions.sh + audit_log.verify_chain + kb_dedup dangling) + MR-8/MR-9 元规则形式化. MR-4 silent-failure 第 4 + 5 次演出收敛, MR-9 state-writes-go-through-helper 成为上游预防层. Governance v3.8: 34 不变式 / 126 checks / 9 meta rules. 全量回归: 31 suites / 927 tests / 0 fail / 安全 93/100. 待 Mac Mini 验证: bash preflight_check.sh --full + job_smoke_test.sh + kb_evening 下次 cron 验证 today_note_count 正确",
+  "focus": "V37.8.3 运维巩固+方法论升级 — preflight 连锁修复闭环(5轮20→0失败) + MR-10 understand-before-fix 元规则 + 第0号宪法(最强模型) + 原则#28/#29. finance_news X账号修复 + Dream阈值调整. 全量回归 951 tests / 35/35 invariants / 10 meta rules / 安全93/100. 待观察: Dream 03:00 输出质量 + finance_news 07:30 X账号抓取",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",

@@ -177,6 +177,41 @@ meta_rules:
       必须禁止裸 `>>` 直写 state 文件的架构问题——让 CI/governance 自动拦截，
       不靠程序员记忆。MR-9 是 MR-4 "silent-failure-is-a-bug" 的上游预防层。
 
+  - id: MR-10
+    name: understand-before-fix
+    description: |
+      看到报错/失败时，禁止直接开始"修"。必须先回答三个问题：
+        (1) 这个问题之前存在吗？如果之前不存在，那是我的改动引入的，不是系统的 bug。
+        (2) 是我的哪个改动引入的？精确定位因果链，不猜测。
+        (3) 最小修复方案是什么？不引入新概念、新模式、新复杂度。
+      三个问题答不上来 = 还没理解问题，禁止动手。
+      每次"修复"都可能制造下一个 bug——连锁修复（fix → new bug → fix → new bug）
+      是最危险的系统破坏模式，因为：
+        (a) 每层修复增加系统复杂度
+        (b) 新复杂度创造新的故障面
+        (c) 用户被迫反复手动测试
+        (d) 最终修复的总成本远超最初问题
+      MR-10 是 MR-4 (silent-failure) 和 MR-6 (depth) 的上位原则——在写代码之前
+      截断"不理解就动手"的冲动。与原则 #26 (异常分析宪法) 互为表里：#26 说"画图先于修复"，
+      MR-10 说"理解先于画图"。
+    enforcement:
+      - "CLAUDE.md 原则 #28 声明三问检查"
+      - "异常分析宪法（原则 #26）要求因果链架构图在修复之前输出"
+    blood_lessons: |
+      2026-04-13 V37.8.3: preflight 一个部署同步问题（~/auto_deploy.sh 未跟上仓库更新）
+      被误诊为"缺少 FILE_MAP 配置条目"，触发 5 轮连锁修复：
+        Round 1: 加 preflight/job_smoke_test 到 FILE_MAP → 引入 HOME 部署拓扑
+        Round 2: 加 auto_deploy.sh 双目标部署 → 引入从未有过的一源两目标模式
+        Round 3: 加 SCRIPT_DIR HOME 检测 → Round 1 的"修复"制造了此 bug
+        Round 4: 改 FILE_MAP parser dict→list → Round 2 的"修复"制造了此 bug
+        Round 5: 给 job_smoke_test.sh 加同样的 SCRIPT_DIR 检测
+      原始问题只需 `cp ~/openclaw-model-bridge/auto_deploy.sh ~/auto_deploy.sh`。
+      4 层新复杂度 × 用户 5 次 Mac Mini 手动测试 = 最贵的一次 `cp` 命令。
+      951 个单测全部通过但无一能暴露部署拓扑问题——dev 环境 (Linux/root) 没有
+      HOME 部署拓扑，SCRIPT_DIR 永远指向仓库目录。这不是"测试不够"的问题，
+      而是"不理解就动手"的问题——如果 Round 1 时先问"之前为什么能通过"，
+      就不会走上 5 轮连锁修复的歧路。
+
 # ═══════════════════════════════════════════════════════════════════════
 # 3. 不变式（Invariants）— 可执行的声明-执行-验证三元组
 # ═══════════════════════════════════════════════════════════════════════
@@ -2189,7 +2224,7 @@ audit_metadata:
     v3.8 → v3.9: V37.8 MR-6 深度补齐 + MRD-NOTIFY-002 语义修复 — (a) 7 个 critical 单层不变式全部补第二层验证: INV-TOOL-001 (+declaration: proxy_filters.py 静态引用 MAX_TOOLS), INV-TOOL-002 (元数据标签修正，已有双层未声明), INV-DEPLOY-002 (+runtime: shlex tokenize AST 扫描 auto_deploy.sh 无 crontab 写入 token 序列), INV-CRON-003 (+declaration: _cron_cmd_invokes 精确匹配器源码守卫), INV-ENV-002 (+declaration: preflight REQUIRED_VARS 必含 OPENCLAW_PHONE + YAML 占位号字面量反例守卫), INV-DREAM-002 (+runtime: SKIP_MAP_LOOPS 赋值行号必须在 Phase 1a/1b 门控之前), INV-CACHE-002 (+runtime: 真跑 md5 对照同内容不同 mtime 的两个 tempfile hash 相等 + 不同内容 hash 不等); (b) INV-LAYER-001 新增 (critical-invariants-have-two-layers, meta_rule=MR-6, 把 MRD-LAYER-001 的 warn 升级为 hard-enforcing invariant — 未来任何新增 critical 不变式只要 <2 层就直接 fail); (c) MRD-NOTIFY-002 检测器重写 — 原实现只 grep `--topic X` 字符串但 32 个 job 中 28 个 bypass notify.sh 直接走 `DISCORD_CH_<X>`，导致 4-6 个频道长期被误报 silent。新实现两层: source layer (dev + full 都跑, 扫 jobs/*/run_*.sh 接受 `--topic T` 或 `DISCORD_CH_<T_upper>` 任一 caller) + activity layer (仅 --full, 用 notify_queue/jobs cache mtime 而非字符串 grep)
   total_invariants: 35  # +INV-LAYER-001
   total_checks: 139     # +INV-TOOL-001(+1) +INV-DEPLOY-002(+1) +INV-CRON-003(+2) +INV-ENV-002(+2) +INV-DREAM-002(+1) +INV-CACHE-002(+1) +INV-LAYER-001(+2) = +10; metadata-only: INV-TOOL-002 label fix
-  meta_rules: 9         # MR-1~MR-9 (MR-8 formalized + MR-9 new)
+  meta_rules: 10        # MR-1~MR-10 (MR-10 understand-before-fix: 2026-04-13 连锁修复血案)
   meta_rule_discovery_count: 6   # Phase 0: registry + env + notify-topic + layer-depth + error-suppression + notify-activity
   check_types_used: [python_assert, file_contains, file_not_contains, env_var_exists, command_succeeds, log_activity_check]
   verification_layers_used: [declaration, runtime, effect]  # v3.1: 效果层启动
