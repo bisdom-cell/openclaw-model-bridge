@@ -1007,113 +1007,128 @@ $REDUCE_MATERIAL
     log "回退后 prompt: ${PROMPT_BYTES} bytes"
 fi
 
-# Reduce 调用 + 短响应自动重试（V37.4.1 → V37.4.2 → V37.8.3 修复）
-# LLM 响应不稳定：同一 prompt 产出 3967/906/876 字节都有可能
-# - MIN_DREAM_CHARS=3000：≈1000 汉字，是"1500 字目标"的合理下限
-# - BEST_RESULT 追踪：始终保留最长的一次，最终 fallback 到最佳
-# - 逐步降温 0.85→0.6→0.4：retry 1 探索，retry 2/3 求稳
-# - 最低兜底 MIN_ACCEPTABLE_CHARS=1500：真短的才算失败
-# - V37.4.2 新增：retry 2/3 改写 prompt（prepend 长度强制前缀）
-#   同一 prompt hash 可能触发 server-side 缓存或收敛到确定性短路径，
-#   retry 时改 prompt hash + 显式长度强制 = 同时绕过缓存和强迫 LLM 展开
-# - V37.8.3 新增：渐进式素材降级（80K → 50K → 30K）
-#   当 prompt 超过 ~80KB 时，模型进入"读多写少"摘要收敛模式：
-#   89KB 输入 × 6节结构要求 → 模型把 token 预算花在理解上，输出仅 ~1200 chars。
-#   重试时缩减素材量，让模型从"阅读理解"切换到"深度分析写作"。
-#   同时重建 REDUCE_PROMPT 以确保素材量变化生效。
-MIN_DREAM_CHARS=3000
-MIN_ACCEPTABLE_CHARS=1500
-MAX_RETRIES=3
+# V37.8.3: 分段生成（Chunked Generation）
+# 根因：远端 GPU 服务器有 output token 上限（~300-500 tokens），单次调用最多产出 ~900 chars。
+# V37.4.2 曾成功（21871 chars），但 04-13 服务端配置变更后退化。
+# 修复：把 6 章节拆成 3 次 LLM 调用，每次只写 2 章节，拼接后达到 2000+ chars。
+# 每次调用用截断后的素材（30KB），减少处理时间。
+CHUNKED_MATERIAL=$(echo "$REDUCE_DATA" | utf8_truncate 30000)
+CHUNKED_CHARS=$(echo "$CHUNKED_MATERIAL" | wc -c | tr -d ' ')
+log "分段生成模式: 素材 ${CHUNKED_CHARS} bytes, 3 次 LLM 调用"
+
+# --- 第 1 段：选题 + 发现过程 + 隐藏关联 ---
+CHUNK1_SYSTEM="你是专业数据分析师。从提供的多源数据中选出一个最有价值的发现，写出两个章节。
+要求：
+1. 选题要有扎实的多源证据链（至少 3 个不同数据源互相印证）
+2. 每个章节至少 200 字，引用具体数据源名称和日期
+3. Markdown 格式，直接输出内容，不要多余的开头和结尾"
+
+CHUNK1_PROMPT="$REDUCE_INTRO
+
+---
+$CHUNKED_MATERIAL
+---
+
+$([ -n "$PREV_THEMES" ] && echo "最近梦境主题（避免重复）：$PREV_THEMES
+
+")请写出以下两个章节：
+
+## 🌙 今日深度发现：[一句话主题]
+
+### 发现过程
+像侦探一样描述：哪些数据源的哪些条目最先引起注意？信号是如何从不同数据源中逐步浮现并互相印证的？
+
+### 🔗 隐藏关联
+围绕这个主题，列出 3-5 个隐藏的关联，每个标注证据链：A事实([数据源, 日期]) → B事实([数据源, 日期]) → 因此C"
+
+log "Chunk 1/3: 选题+发现+关联 → 发送 LLM..."
+CHUNK1_RESULT=$(llm_call "$CHUNK1_PROMPT" 4000 0.85 300 "$CHUNK1_SYSTEM" || true)
+CHUNK1_CHARS=$(echo "$CHUNK1_RESULT" | wc -c | tr -d ' ')
+log "Chunk 1/3: ${CHUNK1_CHARS} chars"
+
+# 从第 1 段提取主题（用于后续章节保持一致）
+DREAM_THEME=$(echo "$CHUNK1_RESULT" | head -3 | grep -o '今日深度发现：.*' | head -1 || echo "")
+[ -z "$DREAM_THEME" ] && DREAM_THEME="（延续第一段主题）"
+
+# --- 第 2 段：趋势推演 + 被忽视的信号 ---
+CHUNK2_SYSTEM="你是专业数据分析师。基于已选主题继续深度分析，写出两个章节。
+要求：每个章节至少 200 字，引用具体数据源名称和日期。Markdown 格式。"
+
+CHUNK2_PROMPT="当前分析主题：$DREAM_THEME
+
+数据素材摘要：
+---
+$(echo "$CHUNKED_MATERIAL" | utf8_truncate 15000)
+---
+
+请写出以下两个章节（紧扣上述主题）：
+
+### 🔮 趋势推演
+基于证据推演 2-3 个未来走向，每个包含：趋势名 / 数据证据（具体引用） / 推演逻辑 / 时间窗口 / 影响
+
+### 💎 被忽视的信号
+找出 2-3 个容易被忽略的信号，每个包含：是什么 / 在哪发现的 / 为什么被忽视 / 为什么值得关注"
+
+log "Chunk 2/3: 趋势+信号 → 发送 LLM..."
+CHUNK2_RESULT=$(llm_call "$CHUNK2_PROMPT" 4000 0.75 300 "$CHUNK2_SYSTEM" || true)
+CHUNK2_CHARS=$(echo "$CHUNK2_RESULT" | wc -c | tr -d ' ')
+log "Chunk 2/3: ${CHUNK2_CHARS} chars"
+
+# --- 第 3 段：行动建议 + 数据质量备注 ---
+CHUNK3_SYSTEM="你是专业数据分析师。基于前面的分析写出行动建议和数据质量评估。
+要求：建议必须具体到本周可执行。Markdown 格式。"
+
+CHUNK3_PROMPT="当前分析主题：$DREAM_THEME
+
+前面的关键发现摘要：
+$(echo "$CHUNK1_RESULT" | tail -20 | utf8_truncate 2000)
+$(echo "$CHUNK2_RESULT" | tail -20 | utf8_truncate 2000)
+
+请写出以下两个章节：
+
+### 🎯 行动建议（按优先级排列）
+给出 3-5 个具体可执行的建议，每个包含：做什么 / 为什么现在做 / 怎么验证 / 预期产出
+
+### 📊 数据质量备注
+哪些数据源贡献了关键证据？哪些信息密度低？存在哪些信息盲区？"
+
+log "Chunk 3/3: 建议+质量 → 发送 LLM..."
+CHUNK3_RESULT=$(llm_call "$CHUNK3_PROMPT" 4000 0.7 300 "$CHUNK3_SYSTEM" || true)
+CHUNK3_CHARS=$(echo "$CHUNK3_RESULT" | wc -c | tr -d ' ')
+log "Chunk 3/3: ${CHUNK3_CHARS} chars"
+
+# --- 拼接结果 ---
 DREAM_RESULT=""
 DREAM_CHARS=0
-BEST_RESULT=""
-BEST_CHARS=0
-# 逐次降温：第一次放开探索，重试时求稳
-REDUCE_TEMPS=("0.85" "0.6" "0.4")
-# V37.8.3: 渐进式素材降级 — retry 时逐步缩减素材量
-REDUCE_MATERIAL_CAPS=("80000" "50000" "30000")
+SUCCESSFUL_CHUNKS=0
 
-for retry in $(seq 1 $MAX_RETRIES); do
-    cur_temp="${REDUCE_TEMPS[$((retry - 1))]}"
-    cur_cap="${REDUCE_MATERIAL_CAPS[$((retry - 1))]}"
+for chunk_var in CHUNK1_RESULT CHUNK2_RESULT CHUNK3_RESULT; do
+    chunk_content="${!chunk_var}"
+    chunk_len=$(echo "$chunk_content" | wc -c | tr -d ' ')
+    if [ -n "${chunk_content// }" ] && [ "$chunk_len" -gt 50 ]; then
+        if [ -n "$DREAM_RESULT" ]; then
+            DREAM_RESULT="$DREAM_RESULT
 
-    # V37.8.3: 重试时缩减素材量并重建 user prompt（system message 保持不变）
-    if [ "$retry" -gt 1 ]; then
-        REDUCE_MATERIAL=$(echo "$REDUCE_DATA" | utf8_truncate "$cur_cap")
-        REDUCE_CHARS=$(echo "$REDUCE_MATERIAL" | wc -c | tr -d ' ')
-        log "Reduce retry $retry: 素材降级 ${cur_cap} bytes (实际 ${REDUCE_CHARS} bytes)"
-    fi
-
-    # V37.8.3: retry 2+ 在 system message 追加重试上下文（改变 prompt hash 绕过 server cache）
-    if [ "$retry" -eq 1 ]; then
-        cur_prompt="$REDUCE_PROMPT"
-        cur_system="$REDUCE_SYSTEM"
-    else
-        # 重建 user prompt 用降级后的素材
-        cur_prompt="$REDUCE_INTRO
-
----
-$REDUCE_MATERIAL
----
-
-这些数据是花费大量算力分析的结果。每天只深挖一个主题，用全部分析维度去钻透它。
-
-从所有信号中选出最有价值的一个发现（多源互证、反直觉、可执行），严格按 6 章节展开：
-发现过程 → 隐藏关联(3-5个证据链) → 趋势推演(2-3个) → 被忽视的信号(2-3个) → 行动建议(3-5个) → 数据质量备注
-
-$([ -n "$PREV_THEMES" ] && echo "最近梦境主题（避免重复）：$PREV_THEMES")"
-
-        # 在 system 追加重试上下文
-        cur_system="$REDUCE_SYSTEM
-
-【第 $retry 次尝试】上一次回复仅 ${BEST_CHARS} 字符，严重不合格。素材已精简到 ${REDUCE_CHARS} 字节以留出充足写作空间。这次必须完整覆盖 6 个章节，总字数不少于 2500 汉字。不要只写一段总结就结束。"
-    fi
-    DREAM_RESULT=$(llm_call "$cur_prompt" 8000 "$cur_temp" 300 "$cur_system" || true)
-    DREAM_CHARS=$(echo "$DREAM_RESULT" | wc -c | tr -d ' ')
-
-    # 始终保留最佳，retry 过程中丢不掉好结果
-    if [ "$DREAM_CHARS" -gt "$BEST_CHARS" ] && [ -n "${DREAM_RESULT// }" ]; then
-        BEST_RESULT="$DREAM_RESULT"
-        BEST_CHARS=$DREAM_CHARS
-    fi
-
-    if [ -z "${DREAM_RESULT// }" ]; then
-        log "Reduce 尝试 $retry/$MAX_RETRIES (temp=$cur_temp, cap=${cur_cap}): 空响应"
-    elif [ "$DREAM_CHARS" -lt "$MIN_DREAM_CHARS" ]; then
-        log "Reduce 尝试 $retry/$MAX_RETRIES (temp=$cur_temp, cap=${cur_cap}): 响应过短 (${DREAM_CHARS} chars < ${MIN_DREAM_CHARS})，当前最佳=${BEST_CHARS}，继续重试..."
-    else
-        log "Reduce 尝试 $retry/$MAX_RETRIES (temp=$cur_temp, cap=${cur_cap}): 成功 (${DREAM_CHARS} chars)"
-        break
-    fi
-
-    if [ "$retry" -lt "$MAX_RETRIES" ]; then
-        local_wait=$((15 * retry))  # 15s, 30s
-        log "Reduce: 等待 ${local_wait}s 后重试..."
-        sleep "$local_wait"
+$chunk_content"
+        else
+            DREAM_RESULT="$chunk_content"
+        fi
+        SUCCESSFUL_CHUNKS=$((SUCCESSFUL_CHUNKS + 1))
     fi
 done
 
-# Fallback 策略：
-# 1) 如果最终结果达标，直接用
-# 2) 如果没达标但 BEST_RESULT 更长，用 BEST_RESULT
-# 3) 如果 BEST_RESULT 也 < MIN_ACCEPTABLE_CHARS，才算真失败
-if [ "$DREAM_CHARS" -lt "$MIN_DREAM_CHARS" ] && [ "$BEST_CHARS" -gt "$DREAM_CHARS" ]; then
-    log "Reduce: 最后一次 (${DREAM_CHARS} chars) 不如之前最佳 (${BEST_CHARS} chars)，使用最佳结果"
-    DREAM_RESULT="$BEST_RESULT"
-    DREAM_CHARS=$BEST_CHARS
-fi
+DREAM_CHARS=$(echo "$DREAM_RESULT" | wc -c | tr -d ' ')
+log "分段拼接完成: ${SUCCESSFUL_CHUNKS}/3 段成功, 总计 ${DREAM_CHARS} chars"
 
-if [ -z "${DREAM_RESULT// }" ] || [ "$DREAM_CHARS" -lt "$MIN_ACCEPTABLE_CHARS" ]; then
-    log "ERROR: Phase 2 所有重试均失败 (最佳 ${BEST_CHARS} chars < ${MIN_ACCEPTABLE_CHARS}, prompt was ${PROMPT_BYTES} bytes)"
-    printf '{"time":"%s","status":"llm_failed","phase":"reduce","map_count":%d,"reduce_chars":%d,"prompt_bytes":%d,"best_chars":%d}\n' \
-        "$TS" "$MAP_COUNT" "$REDUCE_CHARS" "$PROMPT_BYTES" "$BEST_CHARS" > "$STATUS_FILE"
-    dream_fail_alert "Phase 2 Reduce LLM ${MAX_RETRIES}次全部失败 (最佳 ${BEST_CHARS} chars, prompt=${PROMPT_BYTES}B, map=$MAP_COUNT sources)"
+# 最低要求：至少 2 段成功且总字数 > MIN_ACCEPTABLE_CHARS
+MIN_ACCEPTABLE_CHARS=1500
+
+if [ "$SUCCESSFUL_CHUNKS" -lt 2 ] || [ "$DREAM_CHARS" -lt "$MIN_ACCEPTABLE_CHARS" ]; then
+    log "ERROR: 分段生成失败 (${SUCCESSFUL_CHUNKS}/3 段, ${DREAM_CHARS} chars < ${MIN_ACCEPTABLE_CHARS})"
+    printf '{"time":"%s","status":"llm_failed","phase":"reduce_chunked","chunks_ok":%d,"total_chars":%d,"prompt_bytes":%d}\n' \
+        "$TS" "$SUCCESSFUL_CHUNKS" "$DREAM_CHARS" "$CHUNKED_CHARS" > "$STATUS_FILE"
+    dream_fail_alert "Phase 2 分段生成失败 (${SUCCESSFUL_CHUNKS}/3 段, ${DREAM_CHARS} chars, material=${CHUNKED_CHARS}B)"
     exit 1
-fi
-
-# 接受 MIN_ACCEPTABLE_CHARS ~ MIN_DREAM_CHARS 之间的 fallback 结果，但记录日志
-if [ "$DREAM_CHARS" -lt "$MIN_DREAM_CHARS" ]; then
-    log "Reduce: 使用 fallback 结果 (${DREAM_CHARS} chars, 低于理想 ${MIN_DREAM_CHARS} 但高于最低 ${MIN_ACCEPTABLE_CHARS})"
 fi
 
 log "最终梦境: ${DREAM_CHARS} chars (最佳候选 ${BEST_CHARS} chars)"
