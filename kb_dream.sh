@@ -1164,8 +1164,9 @@ done
 DREAM_CHARS=$(echo "$DREAM_RESULT" | wc -c | tr -d ' ')
 log "分段拼接完成: ${SUCCESSFUL_CHUNKS}/3 段成功, 总计 ${DREAM_CHARS} chars"
 
-# 最低要求：至少 2 段成功且总字数 > MIN_ACCEPTABLE_CHARS
-MIN_ACCEPTABLE_CHARS=1500
+# 最低要求：至少 2 段成功且总字节数 > MIN_ACCEPTABLE_CHARS
+# 注意：wc -c 计算 UTF-8 字节数，中文每字 3 字节，3000 bytes ≈ 1000 汉字
+MIN_ACCEPTABLE_CHARS=3000
 
 if [ "$SUCCESSFUL_CHUNKS" -lt 2 ] || [ "$DREAM_CHARS" -lt "$MIN_ACCEPTABLE_CHARS" ]; then
     log "ERROR: 分段生成失败 (${SUCCESSFUL_CHUNKS}/3 段, ${DREAM_CHARS} chars < ${MIN_ACCEPTABLE_CHARS})"
@@ -1175,7 +1176,7 @@ if [ "$SUCCESSFUL_CHUNKS" -lt 2 ] || [ "$DREAM_CHARS" -lt "$MIN_ACCEPTABLE_CHARS
     exit 1
 fi
 
-log "最终梦境: ${DREAM_CHARS} chars (最佳候选 ${BEST_CHARS} chars)"
+log "最终梦境: ${DREAM_CHARS} chars (${SUCCESSFUL_CHUNKS}/3 段)"
 
 # ═══════════════════════════════════════════════════════════════════
 # 6. 输出"梦境"

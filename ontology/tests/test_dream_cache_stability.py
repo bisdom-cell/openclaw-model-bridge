@@ -394,10 +394,11 @@ class TestReduceChunkedGeneration(unittest.TestCase):
         """Chunked generation must have a floor below which we give up."""
         src = _read_kb_dream()
         self.assertIn(
-            "MIN_ACCEPTABLE_CHARS=1500",
+            "MIN_ACCEPTABLE_CHARS=3000",
             src,
             "MIN_ACCEPTABLE_CHARS floor missing — no minimum bar for "
-            "chunked output, could emit near-empty Dream files.",
+            "chunked output, could emit near-empty Dream files. "
+            "3000 bytes ≈ 1000 Chinese chars, reasonable floor for 3-chunk mode.",
         )
 
     def test_three_chunks_defined(self):
