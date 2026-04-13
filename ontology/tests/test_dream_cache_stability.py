@@ -223,9 +223,8 @@ class TestFixC_PerNoteCacheKey(unittest.TestCase):
 
 
 class TestV37_4_2_CacheReadStructureAndRetryVariation(unittest.TestCase):
-    """V37.4.2: Cache-only read path must emit structured, numbered headers
-    (not N copies of bland "## 用户笔记（缓存）") AND retry 2+ must vary the
-    prompt to break server-side caching and force length.
+    """V37.4.2 → V37.8.3: Cache-only read path must emit structured, numbered
+    headers. Retry logic replaced by chunked generation in V37.8.3.
 
     Background: 2026-04-11 14:01 run produced retry 1 = 876 chars and retry 2
     = *exactly* 876 chars (different temps, same output) — smoking gun for
@@ -281,51 +280,14 @@ class TestV37_4_2_CacheReadStructureAndRetryVariation(unittest.TestCase):
             "will look like 22 duplicate sections to Qwen3.",
         )
 
-    def test_retry_prompt_variation(self):
-        """retry 2+ must use a variant prompt prefix, not just re-run the
-        exact same prompt at a different temp. Variant prompt:
-          1) changes prompt hash → bypasses server cache
-          2) injects explicit length mandate → forces LLM to elaborate"""
+    def test_chunked_generation_replaces_retry_loop(self):
+        """V37.8.3: Chunked generation replaced the single-shot retry loop.
+        The code must have CHUNK1/CHUNK2/CHUNK3 calls."""
         src = _read_kb_dream()
-        # A cur_prompt var must be assigned differently for retry==1 vs else
-        self.assertIn(
-            'cur_prompt="$REDUCE_PROMPT"',
-            src,
-            "First retry must use raw REDUCE_PROMPT — cur_prompt branching "
-            "missing.",
-        )
-        self.assertIn(
-            "第 $retry 次尝试",
-            src,
-            "Retry variant header missing — retry 2+ still sends identical "
-            "prompt, won't bypass server cache.",
-        )
-        self.assertIn(
-            "2500 汉字",
-            src,
-            "Explicit length mandate (2500 汉字) missing in retry variant — "
-            "LLM has no pressure to elaborate on retry.",
-        )
-
-    def test_llm_call_uses_cur_prompt_not_reduce_prompt(self):
-        """The actual llm_call inside retry loop must use $cur_prompt so the
-        retry variant is actually sent. If it still uses $REDUCE_PROMPT,
-        the whole variation is dead code."""
-        src = _read_kb_dream()
-        # Find the llm_call inside the retry loop — should reference cur_prompt
-        m = re.search(
-            r'DREAM_RESULT=\$\(llm_call\s+"\$([A-Za-z_]+)"\s+8000',
-            src,
-        )
-        self.assertIsNotNone(
-            m, "Reduce retry llm_call not found in expected shape"
-        )
-        self.assertEqual(
-            m.group(1),
-            "cur_prompt",
-            f"Retry llm_call uses ${m.group(1)} instead of $cur_prompt — "
-            "prompt variation is dead code.",
-        )
+        self.assertIn("CHUNK1_RESULT", src,
+                       "Chunked generation not found — old retry loop still in use")
+        self.assertIn("CHUNK2_RESULT", src)
+        self.assertIn("CHUNK3_RESULT", src)
 
 
 class TestDynamicTimeoutBudget(unittest.TestCase):
@@ -421,189 +383,163 @@ class TestFlushPendingBatchHelper(unittest.TestCase):
         )
 
 
-class TestReduceRetryFallback(unittest.TestCase):
-    """V37.4.1: Reduce retry logic must preserve best result and fall back
-    gracefully. Fixes the 2026-04-11 13:38 bug where retry 1 gave 3967 chars
-    (usable), retry 2 gave 906 chars (worse), and the code discarded retry 1
-    to pursue ever-worse retries."""
-
-    def test_min_dream_chars_lowered_to_3000(self):
-        """4000 was too strict — 3967 chars ≈ 1300 汉字 is functionally fine."""
-        src = _read_kb_dream()
-        self.assertIn(
-            "MIN_DREAM_CHARS=3000",
-            src,
-            "MIN_DREAM_CHARS must be 3000 (≈1000 汉字 lower bound for the "
-            "'1500 字 target'). 4000 rejects borderline-good output.",
-        )
-        self.assertNotIn(
-            "MIN_DREAM_CHARS=4000",
-            src,
-            "Old 4000 threshold still present — V37.4.1 regressed.",
-        )
+class TestReduceChunkedGeneration(unittest.TestCase):
+    """V37.8.3: Chunked generation replaces single-shot retry loop.
+    Root cause: remote GPU server output token limit (~300-500 tokens) caps
+    single-call output at ~900 chars regardless of prompt engineering.
+    Fix: split 6 sections into 3 LLM calls, each producing 2 sections,
+    concatenate results. Each call stays within server token limit."""
 
     def test_min_acceptable_chars_floor(self):
-        """Even all-retry-failures must have a floor below which we give up."""
+        """Chunked generation must have a floor below which we give up."""
         src = _read_kb_dream()
         self.assertIn(
             "MIN_ACCEPTABLE_CHARS=1500",
             src,
-            "MIN_ACCEPTABLE_CHARS floor missing — all-retry-failure logic "
-            "has no minimum bar, could emit near-empty Dream files.",
+            "MIN_ACCEPTABLE_CHARS floor missing — no minimum bar for "
+            "chunked output, could emit near-empty Dream files.",
         )
 
-    def test_best_result_tracking(self):
-        """retry loop must track the longest response across attempts."""
+    def test_three_chunks_defined(self):
+        """Must have exactly 3 chunk calls covering all 6 sections."""
+        src = _read_kb_dream()
+        for i in range(1, 4):
+            self.assertIn(
+                f"CHUNK{i}_RESULT",
+                src,
+                f"CHUNK{i}_RESULT missing — not all 3 chunks defined.",
+            )
+            self.assertIn(
+                f"CHUNK{i}_CHARS",
+                src,
+                f"CHUNK{i}_CHARS missing — can't verify chunk {i} output size.",
+            )
+
+    def test_chunk1_covers_theme_and_discovery(self):
+        """Chunk 1 must select theme and write discovery + connections."""
+        src = _read_kb_dream()
+        self.assertIn("发现过程", src)
+        self.assertIn("隐藏关联", src)
+        self.assertIn("DREAM_THEME", src,
+                       "DREAM_THEME extraction missing — chunks 2/3 won't "
+                       "know what theme to continue with.")
+
+    def test_chunk2_covers_trends_and_signals(self):
+        """Chunk 2 must cover trend projection and overlooked signals."""
+        src = _read_kb_dream()
+        self.assertIn("趋势推演", src)
+        self.assertIn("被忽视的信号", src)
+
+    def test_chunk3_covers_actions_and_quality(self):
+        """Chunk 3 must cover action recommendations and data quality."""
+        src = _read_kb_dream()
+        self.assertIn("行动建议", src)
+        self.assertIn("数据质量备注", src)
+
+    def test_chunks_use_system_messages(self):
+        """Each chunk call must use system message for meta-instructions."""
+        src = _read_kb_dream()
+        for i in range(1, 4):
+            self.assertIn(
+                f"CHUNK{i}_SYSTEM",
+                src,
+                f"CHUNK{i}_SYSTEM missing — chunk {i} has no system message, "
+                "model won't get focused instructions.",
+            )
+
+    def test_chunks_use_truncated_material(self):
+        """Chunked mode must use truncated material (30KB), not full 80KB."""
         src = _read_kb_dream()
         self.assertIn(
-            "BEST_RESULT=",
+            "CHUNKED_MATERIAL",
             src,
-            "BEST_RESULT tracking missing — retry loop will throw away good "
-            "early results when later retries are worse.",
+            "CHUNKED_MATERIAL missing — chunks still using full 80KB material.",
         )
-        self.assertIn(
-            "BEST_CHARS=",
+        self.assertRegex(
             src,
-            "BEST_CHARS tracking missing — can't compare retries to pick "
-            "the longest.",
+            r'utf8_truncate\s+30000',
+            "Material must be truncated to 30000 for chunked mode.",
         )
 
-    def test_best_result_fallback_used(self):
-        """On sub-threshold final result, must fall back to BEST_RESULT."""
+    def test_concatenation_counts_successful_chunks(self):
+        """Must track how many chunks succeeded and require at least 2."""
+        src = _read_kb_dream()
+        self.assertIn(
+            "SUCCESSFUL_CHUNKS",
+            src,
+            "SUCCESSFUL_CHUNKS counter missing — can't verify minimum chunks.",
+        )
+
+    def test_failure_requires_fewer_than_2_chunks(self):
+        """Dream should only fail if fewer than 2 chunks succeeded."""
         src = _read_kb_dream()
         self.assertRegex(
             src,
-            r'DREAM_RESULT="\$BEST_RESULT"',
-            'Fallback assignment DREAM_RESULT="$BEST_RESULT" missing — '
-            "best-result fallback not wired up.",
+            r'SUCCESSFUL_CHUNKS.*-lt.*2',
+            "Failure check must require at least 2 successful chunks.",
         )
 
-    def test_temperature_decay_on_retry(self):
-        """Retries must decay temperature (0.85→0.6→0.4) to reduce LLM
-        sampling variance. Same prompt + high temp = gambling."""
-        src = _read_kb_dream()
-        self.assertIn(
-            "REDUCE_TEMPS=",
-            src,
-            "REDUCE_TEMPS array missing — retries still use a single fixed "
-            "temperature and will produce equally volatile outputs.",
-        )
-        # Sanity: the array must contain a monotonically decaying sequence
-        m = re.search(r'REDUCE_TEMPS=\("([\d.]+)"\s+"([\d.]+)"\s+"([\d.]+)"\)', src)
-        self.assertIsNotNone(
-            m,
-            "REDUCE_TEMPS array format unexpected — expected 3-element "
-            "decaying temperature array.",
-        )
-        t1, t2, t3 = float(m.group(1)), float(m.group(2)), float(m.group(3))
-        self.assertGreater(t1, t2, "Retry temperatures must monotonically decay")
-        self.assertGreater(t2, t3, "Retry temperatures must monotonically decay")
 
-    def test_fatal_error_uses_min_acceptable_not_min_dream(self):
-        """The true failure floor is MIN_ACCEPTABLE_CHARS (1500), not
-        MIN_DREAM_CHARS (3000). Otherwise we exit 1 on sub-optimal but
-        still usable output, defeating the whole fallback."""
+class TestV37_8_3_ChunkedGenerationStructure(unittest.TestCase):
+    """V37.8.3: Chunked generation structure tests.
+    Each chunk must pass system message to llm_call and log its output size."""
+
+    def test_each_chunk_logged(self):
+        """Each chunk call must log its output for operator visibility."""
         src = _read_kb_dream()
+        self.assertIn("Chunk 1/3:", src)
+        self.assertIn("Chunk 2/3:", src)
+        self.assertIn("Chunk 3/3:", src)
+
+    def test_chunk2_receives_theme_from_chunk1(self):
+        """Chunk 2 must reference DREAM_THEME extracted from chunk 1."""
+        src = _read_kb_dream()
+        # CHUNK2_PROMPT must contain DREAM_THEME
         self.assertRegex(
             src,
-            r"DREAM_CHARS[^\n]*-lt[^\n]*MIN_ACCEPTABLE_CHARS",
-            "Fatal error check must use MIN_ACCEPTABLE_CHARS (1500) as the "
-            "true failure floor, not MIN_DREAM_CHARS (3000).",
+            r'CHUNK2_PROMPT=.*DREAM_THEME',
+            "Chunk 2 prompt doesn't reference DREAM_THEME — sections will "
+            "be disconnected, not a coherent analysis.",
         )
 
-
-class TestV37_8_3_ProgressiveMaterialDegradation(unittest.TestCase):
-    """V37.8.3: When the Reduce prompt is too large (89KB+), the model enters
-    "read-heavy summarization collapse" mode and produces ~1200 chars output
-    regardless of retries. Fix: progressively reduce material size on retry
-    (80K → 50K → 30K) so the model shifts from reading to writing.
-
-    Background: 2026-04-13 03:00 run, all 3 retries produced ≤1192 chars from
-    a 89318B prompt. V37.4.2's variant prefix (<300B) was <0.3% of prompt —
-    insufficient to change model behavior at this scale."""
-
-    def test_material_caps_array_exists(self):
-        """Retry loop must have a REDUCE_MATERIAL_CAPS array defining per-retry
-        material size limits."""
+    def test_chunk3_receives_prior_context(self):
+        """Chunk 3 must receive findings from chunks 1 and 2."""
         src = _read_kb_dream()
+        # CHUNK3_PROMPT is a multiline heredoc, so we check that both
+        # CHUNK1_RESULT and CHUNK2_RESULT appear between CHUNK3_PROMPT= and
+        # the next CHUNK3_ variable (the prompt spans multiple lines).
+        chunk3_start = src.find('CHUNK3_PROMPT=')
+        self.assertNotEqual(chunk3_start, -1, "CHUNK3_PROMPT not found")
+        chunk3_block = src[chunk3_start:chunk3_start + 2000]
         self.assertIn(
-            "REDUCE_MATERIAL_CAPS=",
-            src,
-            "REDUCE_MATERIAL_CAPS array missing — retries still use fixed "
-            "80K material, model stays in summarization collapse.",
+            'CHUNK1_RESULT',
+            chunk3_block,
+            "Chunk 3 doesn't receive CHUNK1_RESULT — action items "
+            "won't be grounded in the analysis.",
         )
-
-    def test_material_caps_are_decreasing(self):
-        """Material caps must monotonically decrease across retries."""
-        src = _read_kb_dream()
-        m = re.search(
-            r'REDUCE_MATERIAL_CAPS=\("(\d+)"\s+"(\d+)"\s+"(\d+)"\)',
-            src,
-        )
-        self.assertIsNotNone(
-            m,
-            "REDUCE_MATERIAL_CAPS array format unexpected — expected 3 "
-            "decreasing integer elements.",
-        )
-        c1, c2, c3 = int(m.group(1)), int(m.group(2)), int(m.group(3))
-        self.assertGreater(c1, c2, "Material caps must decrease on retry")
-        self.assertGreater(c2, c3, "Material caps must decrease on retry")
-        # First cap should be the original 80K
-        self.assertEqual(c1, 80000, "First attempt should use original 80K cap")
-
-    def test_retry_rebuilds_reduce_prompt(self):
-        """On retry, REDUCE_PROMPT must be rebuilt with the new (smaller)
-        REDUCE_MATERIAL. Otherwise the variant prefix changes the hash but
-        the actual material size stays at 80K — defeating the purpose."""
-        src = _read_kb_dream()
-        # The retry block (retry > 1) must re-truncate REDUCE_DATA
-        self.assertRegex(
-            src,
-            r'retry.*-gt.*1.*\n.*REDUCE_MATERIAL=.*utf8_truncate.*cur_cap',
-            "Retry does not re-truncate REDUCE_DATA with cur_cap — material "
-            "size stays at 80K across all retries.",
-        )
-
-    def test_retry_uses_cur_cap_variable(self):
-        """The retry loop must index into REDUCE_MATERIAL_CAPS using retry."""
-        src = _read_kb_dream()
         self.assertIn(
-            "cur_cap=",
-            src,
-            "cur_cap variable missing — retry loop doesn't read from "
-            "REDUCE_MATERIAL_CAPS array.",
+            'CHUNK2_RESULT',
+            chunk3_block,
+            "Chunk 3 doesn't receive CHUNK2_RESULT — action items "
+            "won't reflect trend analysis.",
         )
 
-    def test_retry_logs_material_degradation(self):
-        """Operator must see material size changes in the log."""
+    def test_chunked_material_is_30k(self):
+        """Chunked mode uses 30KB material (not 80KB) for faster processing."""
         src = _read_kb_dream()
-        self.assertIn(
-            "素材降级",
-            src,
-            "Material degradation log line missing — operator can't verify "
-            "retry used smaller material.",
-        )
-
-    def test_retry_variant_includes_best_chars(self):
-        """V37.8.3 variant prefix should report BEST_CHARS so LLM knows
-        the previous attempt's output size."""
-        src = _read_kb_dream()
-        self.assertIn(
-            "${BEST_CHARS}",
-            src,
-            "Retry variant prefix doesn't include BEST_CHARS — LLM gets "
-            "no signal about how short the previous attempt was.",
-        )
+        m = re.search(r'CHUNKED_MATERIAL=.*utf8_truncate\s+(\d+)', src)
+        self.assertIsNotNone(m, "CHUNKED_MATERIAL truncation not found")
+        self.assertEqual(int(m.group(1)), 30000,
+                         "Chunked material should be truncated to 30000")
 
 
 class TestV37_8_3_SystemUserMessageSplit(unittest.TestCase):
-    """V37.8.3: Split Reduce prompt into system + user messages.
-    Root cause: 82KB single user message causes Qwen3 "lost in the middle" —
-    length requirements buried in 80KB of material get ignored, model produces
-    ~900 char summaries (completion_tokens=328/8000, model stops voluntarily).
-    Fix: system message carries meta-instructions (role + length mandate +
-    format), user message carries data + analysis structure template.
-    System role has highest model attention priority."""
+    """V37.8.3: System+user message split + chunked generation.
+    Root cause: remote GPU server output token limit (~300-500 tokens) caps
+    each LLM call to ~900 chars regardless of prompt size/structure.
+    Fix: llm_call() accepts 5th system_msg parameter, and Reduce uses
+    chunked generation (3 focused LLM calls × 2 sections each) to stay
+    within per-call token limits while producing full 6-section reports."""
 
     def test_reduce_system_variable_defined(self):
         """REDUCE_SYSTEM must be defined to carry meta-instructions."""
@@ -637,16 +573,17 @@ class TestV37_8_3_SystemUserMessageSplit(unittest.TestCase):
             self.assertIn(keyword, system_content,
                           f"System message missing chapter '{keyword}'")
 
-    def test_llm_call_receives_system_message(self):
-        """The Reduce llm_call must pass system message as 5th argument."""
+    def test_chunked_llm_calls_receive_system_message(self):
+        """Each chunked llm_call must pass its own system message as 5th arg."""
         src = _read_kb_dream()
-        # Pattern: llm_call "$cur_prompt" 8000 "$cur_temp" 300 "$cur_system"
-        self.assertRegex(
-            src,
-            r'llm_call\s+"\$cur_prompt"\s+8000\s+"\$cur_temp"\s+300\s+"\$cur_system"',
-            "Reduce llm_call does not pass system message — model will use "
-            "single user message and lose length requirements in long prompt.",
-        )
+        # V37.8.3 chunked generation: 3 llm_call each with CHUNKn_SYSTEM
+        for i in range(1, 4):
+            self.assertRegex(
+                src,
+                rf'llm_call\s+"\$CHUNK{i}_PROMPT"\s+\d+\s+[\d.]+\s+\d+\s+"\$CHUNK{i}_SYSTEM"',
+                f"Chunk {i} llm_call does not pass CHUNK{i}_SYSTEM — "
+                "model will use single user message without focused instructions.",
+            )
 
     def test_llm_call_function_accepts_system_msg_param(self):
         """llm_call() must accept a 5th parameter for system message."""
@@ -667,16 +604,17 @@ class TestV37_8_3_SystemUserMessageSplit(unittest.TestCase):
             "system message is dead code.",
         )
 
-    def test_retry_modifies_cur_system(self):
-        """Retry 2+ must modify cur_system (not just cur_prompt) to add
-        retry context to the system message."""
+    def test_each_chunk_has_distinct_system_message(self):
+        """Each chunk must have its own CHUNK{n}_SYSTEM with focused section
+        instructions, not a shared single system message."""
         src = _read_kb_dream()
-        self.assertIn(
-            'cur_system="$REDUCE_SYSTEM',
-            src,
-            "Retry does not build cur_system from REDUCE_SYSTEM — retry "
-            "context is not in system message.",
-        )
+        for i in range(1, 4):
+            self.assertIn(
+                f'CHUNK{i}_SYSTEM=',
+                src,
+                f"CHUNK{i}_SYSTEM not defined — chunk {i} lacks focused "
+                "section-specific system instructions.",
+            )
 
     def test_user_prompt_no_longer_contains_writing_style(self):
         """After V37.8.3 split, the main REDUCE_PROMPT (user message) should
