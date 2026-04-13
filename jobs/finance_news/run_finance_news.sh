@@ -78,14 +78,14 @@ FINANCE_X_ACCOUNTS=(
     "ChinaDaily|中国日报(X)|cn"
     "globaltimesnews|环球时报(X)|cn"
     "CNS1952|中新社(X)|cn"
-    "CaixinGlobal|财新英文(X)|cn"
-    "YicaiGlobal|第一财经英文(X)|cn"
+    "caixin|财新英文(X)|cn"
+    "yicaichina|第一财经(X)|cn"
     # ── 港台/亚太 ──
     "SCMPNews|南华早报(X)|cn"
     "NikkeiAsia|日经亚洲(X)|cn"
     "SingTaoDaily|星岛日报(X)|cn"
     "ChannelNewsAsia|CNA新加坡(X)|cn"
-    "STcom|海峡时报(X)|cn"
+    "straits_times|海峡时报(X)|cn"
     "asahi|朝日新闻(X)|cn"
 )
 
