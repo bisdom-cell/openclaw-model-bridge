@@ -6,6 +6,13 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+# V37.8.3: 当部署到 HOME 运行时，自动解析到仓库目录
+# (preflight_check.sh 部署到 ~/ 但测试文件和源码在 ~/openclaw-model-bridge/)
+if [ "$SCRIPT_DIR" = "$HOME" ] && [ -d "$HOME/openclaw-model-bridge" ] && [ -f "$HOME/openclaw-model-bridge/preflight_check.sh" ]; then
+    SCRIPT_DIR="$HOME/openclaw-model-bridge"
+fi
+
 cd "$SCRIPT_DIR"
 
 FULL_MODE=false

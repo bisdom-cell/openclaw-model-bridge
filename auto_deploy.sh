@@ -250,8 +250,11 @@ declare -a FILE_MAP=(
     # 三方宪法状态锚点（repo → ~/.kb/，Claude Code 收工写入的变更同步到 PA）
     "status.json|$HOME/.kb/status.json"
 
-    # 自部署（bootstrapping）
+    # 自部署（bootstrapping）— 部署到两个位置：
+    #   1. 仓库目录（cron 可能从此路径启动）
+    #   2. HOME 目录（preflight/job_smoke_test 从 ~/SCRIPT_DIR 读取 FILE_MAP）
     "auto_deploy.sh|$HOME/openclaw-model-bridge/auto_deploy.sh"
+    "auto_deploy.sh|$HOME/auto_deploy.sh"
 
     # PA 灵魂文件（最高优先级上下文）
     "SOUL.md|$HOME/.openclaw/workspace/SOUL.md"
