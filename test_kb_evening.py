@@ -593,12 +593,15 @@ class TestKbEveningShellRuntime(unittest.TestCase):
         )
         # Should not contain JSONDecodeError (V37.5.1 blood lesson guard)
         self.assertNotIn("JSONDecodeError", result.stderr)
-        # Evening file should exist
-        evening_file = os.path.join(
-            self.tmp_home, ".kb", "daily", "evening_20260411.md"
-        )
-        # Must match today's actual date — use real date
-        today_date = datetime.now().strftime("%Y%m%d")
+        # Evening file should exist — script runs with TZ=Asia/Hong_Kong,
+        # so use the same TZ to compute expected date (fixes flaky failure
+        # when system UTC date != HK date, e.g. 16:00-24:00 UTC)
+        import subprocess as _sp
+        today_date = _sp.run(
+            ["date", "+%Y%m%d"],
+            env={"TZ": "Asia/Hong_Kong", "PATH": "/usr/bin:/bin"},
+            capture_output=True, text=True,
+        ).stdout.strip()
         evening_file_real = os.path.join(
             self.tmp_home, ".kb", "daily", f"evening_{today_date}.md"
         )
