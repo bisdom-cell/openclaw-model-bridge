@@ -183,6 +183,10 @@ declare -a FILE_MAP=(
     # 备份脚本
     "openclaw_backup.sh|$HOME/openclaw_backup.sh"
 
+    # 体检 & 验证脚本（V37.8.3: 确保 Mac Mini ~/preflight 是最新版）
+    "preflight_check.sh|$HOME/preflight_check.sh"
+    "job_smoke_test.sh|$HOME/job_smoke_test.sh"
+
     # Multimodal Memory
     "mm_index.py|$HOME/openclaw-model-bridge/mm_index.py"
     "mm_search.py|$HOME/openclaw-model-bridge/mm_search.py"
