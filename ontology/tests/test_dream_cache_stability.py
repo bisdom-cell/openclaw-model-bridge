@@ -385,10 +385,10 @@ class TestFlushPendingBatchHelper(unittest.TestCase):
 
 class TestReduceChunkedGeneration(unittest.TestCase):
     """V37.8.3: Chunked generation replaces single-shot retry loop.
-    Root cause: remote GPU server output token limit (~300-500 tokens) caps
-    single-call output at ~900 chars regardless of prompt engineering.
-    Fix: split 6 sections into 3 LLM calls, each producing 2 sections,
-    concatenate results. Each call stays within server token limit."""
+    Root cause: Qwen3 <think> tags consuming tokens + 80KB prompt causing
+    system-role length instruction attention decay → model defaults to ~900
+    char short summaries. Fix: strip <think>, /no_think, explicit length
+    requirements at prompt end, split into 3 focused LLM calls."""
 
     def test_min_acceptable_chars_floor(self):
         """Chunked generation must have a floor below which we give up."""
@@ -535,11 +535,10 @@ class TestV37_8_3_ChunkedGenerationStructure(unittest.TestCase):
 
 class TestV37_8_3_SystemUserMessageSplit(unittest.TestCase):
     """V37.8.3: System+user message split + chunked generation.
-    Root cause: remote GPU server output token limit (~300-500 tokens) caps
-    each LLM call to ~900 chars regardless of prompt size/structure.
-    Fix: llm_call() accepts 5th system_msg parameter, and Reduce uses
-    chunked generation (3 focused LLM calls × 2 sections each) to stay
-    within per-call token limits while producing full 6-section reports."""
+    Root cause: Qwen3 <think> tags + 80KB prompt attention decay.
+    Fix: llm_call() accepts 5th system_msg parameter with /no_think,
+    Reduce uses chunked generation (3 focused LLM calls × 2 sections
+    each) with per-chunk length mandates at prompt end (recency bias)."""
 
     def test_reduce_system_variable_defined(self):
         """REDUCE_SYSTEM must be defined to carry meta-instructions."""
@@ -630,6 +629,68 @@ class TestV37_8_3_SystemUserMessageSplit(unittest.TestCase):
                 prompt_content,
                 "Writing style instructions should be in REDUCE_SYSTEM, not "
                 "REDUCE_PROMPT (user message) — defeats the split purpose.",
+            )
+
+
+class TestV37_8_3_ThinkTagAndNoThink(unittest.TestCase):
+    """V37.8.3: Qwen3 <think> tag handling + /no_think in Dream.
+    Root cause revised: Qwen3 thinking mode embeds <think>...</think> in
+    content, consuming tokens. run_hn_fixed.sh already strips these tags
+    but kb_dream.sh's llm_call did not. Also, 80KB user message causes
+    system-role length instructions to decay in model attention."""
+
+    def test_llm_call_strips_think_tags(self):
+        """llm_call must strip <think>...</think> from Qwen3 output."""
+        src = _read_kb_dream()
+        self.assertIn(
+            "<think>",
+            src,
+            "llm_call should reference <think> tag for stripping.",
+        )
+        self.assertIn(
+            "re.sub",
+            src,
+            "llm_call must use re.sub to strip <think> tags.",
+        )
+
+    def test_no_think_in_chunk_system(self):
+        """/no_think must be present in chunk system messages to disable
+        Qwen3 thinking mode and save tokens for actual content."""
+        src = _read_kb_dream()
+        for i in range(1, 4):
+            # Find CHUNKn_SYSTEM definition
+            marker = f'CHUNK{i}_SYSTEM='
+            idx = src.find(marker)
+            self.assertNotEqual(idx, -1, f"{marker} not found")
+            block = src[idx:idx + 500]
+            self.assertIn(
+                "/no_think",
+                block,
+                f"CHUNK{i}_SYSTEM lacks /no_think — Qwen3 will use thinking "
+                "mode and waste tokens on internal reasoning.",
+            )
+
+    def test_chunk_prompts_have_length_requirements(self):
+        """Each chunk prompt must end with explicit length requirements
+        to exploit LLM recency bias in attention."""
+        src = _read_kb_dream()
+        # Check that length requirements appear in chunk prompts
+        self.assertIn(
+            "不少于 800 字",
+            src,
+            "Chunk prompts missing '不少于 800 字' — model will default to "
+            "short summaries without explicit user-message length mandate.",
+        )
+
+    def test_chunk_head_diagnostic_logged(self):
+        """Each chunk must log first 120 chars to diagnose <think> presence."""
+        src = _read_kb_dream()
+        for i in range(1, 4):
+            self.assertIn(
+                f"CHUNK{i}_HEAD",
+                src,
+                f"Chunk {i} diagnostic head logging missing — can't diagnose "
+                "whether <think> tags are present in output.",
             )
 
 

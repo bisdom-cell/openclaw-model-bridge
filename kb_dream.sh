@@ -224,6 +224,14 @@ with open('$body_file', 'w') as f:
         fi
 
         if [ -n "${result// }" ]; then
+            # V37.8.3: 剥离 Qwen3 <think>...</think> 推理块（run_hn_fixed.sh 同款处理）
+            # Qwen3 thinking 模式会在 content 中嵌入推理过程，消耗 token 但对 Dream 无用
+            result=$(echo "$result" | python3 -c "
+import re, sys
+out = sys.stdin.read()
+out = re.sub(r'<think>.*?</think>', '', out, flags=re.DOTALL).strip()
+print(out)
+" 2>/dev/null || echo "$result")
             rm -f "$err_file" "$body_file"
             echo "$result"
             return 0
@@ -1007,21 +1015,29 @@ $REDUCE_MATERIAL
     log "回退后 prompt: ${PROMPT_BYTES} bytes"
 fi
 
-# V37.8.3: 分段生成（Chunked Generation）
-# 根因：远端 GPU 服务器有 output token 上限（~300-500 tokens），单次调用最多产出 ~900 chars。
-# V37.4.2 曾成功（21871 chars），但 04-13 服务端配置变更后退化。
-# 修复：把 6 章节拆成 3 次 LLM 调用，每次只写 2 章节，拼接后达到 2000+ chars。
-# 每次调用用截断后的素材（30KB），减少处理时间。
+# V37.8.3: 分段生成（Chunked Generation）+ <think> 剥离 + /no_think
+# 根因（双层叠加）：
+#   1. Qwen3 thinking 模式在 content 中嵌入 <think>...</think> 推理块，消耗 token 但
+#      对 Dream 无用（run_hn_fixed.sh 已有同款处理，kb_dream.sh 缺失）
+#   2. 80KB user message 导致 system role 中的长度指令注意力衰减，模型默认产出短摘要
+#      （V37.4.2 变体 prompt 把 "不少于 2500 汉字" 放 user message 开头才生效）
+# 修复三层：
+#   A. llm_call 剥离 <think> 标签（回收被思考占用的 token）
+#   B. /no_think 在 system message 中禁用 Qwen3 思考模式
+#   C. 每个 chunk prompt 末尾加硬性字数要求（利用 recency bias）
+#   D. 6 章节拆成 3 次 LLM 调用，每次只写 2 章节（缩小 prompt = 更强注意力）
 CHUNKED_MATERIAL=$(echo "$REDUCE_DATA" | utf8_truncate 30000)
 CHUNKED_CHARS=$(echo "$CHUNKED_MATERIAL" | wc -c | tr -d ' ')
 log "分段生成模式: 素材 ${CHUNKED_CHARS} bytes, 3 次 LLM 调用"
 
 # --- 第 1 段：选题 + 发现过程 + 隐藏关联 ---
-CHUNK1_SYSTEM="你是专业数据分析师。从提供的多源数据中选出一个最有价值的发现，写出两个章节。
+CHUNK1_SYSTEM="/no_think
+你是专业数据分析师。从提供的多源数据中选出一个最有价值的发现，写出两个章节。
 要求：
 1. 选题要有扎实的多源证据链（至少 3 个不同数据源互相印证）
-2. 每个章节至少 200 字，引用具体数据源名称和日期
-3. Markdown 格式，直接输出内容，不要多余的开头和结尾"
+2. 每个章节至少 400 字，引用具体数据源名称和日期
+3. 两个章节合计不少于 800 字
+4. Markdown 格式，直接输出内容，不要多余的开头和结尾"
 
 CHUNK1_PROMPT="$REDUCE_INTRO
 
@@ -1039,20 +1055,24 @@ $([ -n "$PREV_THEMES" ] && echo "最近梦境主题（避免重复）：$PREV_TH
 像侦探一样描述：哪些数据源的哪些条目最先引起注意？信号是如何从不同数据源中逐步浮现并互相印证的？
 
 ### 🔗 隐藏关联
-围绕这个主题，列出 3-5 个隐藏的关联，每个标注证据链：A事实([数据源, 日期]) → B事实([数据源, 日期]) → 因此C"
+围绕这个主题，列出 3-5 个隐藏的关联，每个标注证据链：A事实([数据源, 日期]) → B事实([数据源, 日期]) → 因此C
+
+【硬性要求：以上两个章节合计不少于 800 字，每个章节至少 400 字。少于 800 字视为不合格。】"
 
 log "Chunk 1/3: 选题+发现+关联 → 发送 LLM..."
 CHUNK1_RESULT=$(llm_call "$CHUNK1_PROMPT" 4000 0.85 300 "$CHUNK1_SYSTEM" || true)
 CHUNK1_CHARS=$(echo "$CHUNK1_RESULT" | wc -c | tr -d ' ')
-log "Chunk 1/3: ${CHUNK1_CHARS} chars"
+CHUNK1_HEAD=$(echo "$CHUNK1_RESULT" | head -c 120 | tr '\n' ' ')
+log "Chunk 1/3: ${CHUNK1_CHARS} chars, head: ${CHUNK1_HEAD}"
 
 # 从第 1 段提取主题（用于后续章节保持一致）
 DREAM_THEME=$(echo "$CHUNK1_RESULT" | head -3 | grep -o '今日深度发现：.*' | head -1 || echo "")
 [ -z "$DREAM_THEME" ] && DREAM_THEME="（延续第一段主题）"
 
 # --- 第 2 段：趋势推演 + 被忽视的信号 ---
-CHUNK2_SYSTEM="你是专业数据分析师。基于已选主题继续深度分析，写出两个章节。
-要求：每个章节至少 200 字，引用具体数据源名称和日期。Markdown 格式。"
+CHUNK2_SYSTEM="/no_think
+你是专业数据分析师。基于已选主题继续深度分析，写出两个章节。
+要求：每个章节至少 400 字，两个章节合计不少于 800 字。引用具体数据源名称和日期。Markdown 格式。"
 
 CHUNK2_PROMPT="当前分析主题：$DREAM_THEME
 
@@ -1067,16 +1087,20 @@ $(echo "$CHUNKED_MATERIAL" | utf8_truncate 15000)
 基于证据推演 2-3 个未来走向，每个包含：趋势名 / 数据证据（具体引用） / 推演逻辑 / 时间窗口 / 影响
 
 ### 💎 被忽视的信号
-找出 2-3 个容易被忽略的信号，每个包含：是什么 / 在哪发现的 / 为什么被忽视 / 为什么值得关注"
+找出 2-3 个容易被忽略的信号，每个包含：是什么 / 在哪发现的 / 为什么被忽视 / 为什么值得关注
+
+【硬性要求：以上两个章节合计不少于 800 字，每个章节至少 400 字。少于 800 字视为不合格。】"
 
 log "Chunk 2/3: 趋势+信号 → 发送 LLM..."
 CHUNK2_RESULT=$(llm_call "$CHUNK2_PROMPT" 4000 0.75 300 "$CHUNK2_SYSTEM" || true)
 CHUNK2_CHARS=$(echo "$CHUNK2_RESULT" | wc -c | tr -d ' ')
-log "Chunk 2/3: ${CHUNK2_CHARS} chars"
+CHUNK2_HEAD=$(echo "$CHUNK2_RESULT" | head -c 120 | tr '\n' ' ')
+log "Chunk 2/3: ${CHUNK2_CHARS} chars, head: ${CHUNK2_HEAD}"
 
 # --- 第 3 段：行动建议 + 数据质量备注 ---
-CHUNK3_SYSTEM="你是专业数据分析师。基于前面的分析写出行动建议和数据质量评估。
-要求：建议必须具体到本周可执行。Markdown 格式。"
+CHUNK3_SYSTEM="/no_think
+你是专业数据分析师。基于前面的分析写出行动建议和数据质量评估。
+要求：两个章节合计不少于 600 字。建议必须具体到本周可执行。Markdown 格式。"
 
 CHUNK3_PROMPT="当前分析主题：$DREAM_THEME
 
@@ -1090,11 +1114,15 @@ $(echo "$CHUNK2_RESULT" | tail -20 | utf8_truncate 2000)
 给出 3-5 个具体可执行的建议，每个包含：做什么 / 为什么现在做 / 怎么验证 / 预期产出
 
 ### 📊 数据质量备注
-哪些数据源贡献了关键证据？哪些信息密度低？存在哪些信息盲区？"
+哪些数据源贡献了关键证据？哪些信息密度低？存在哪些信息盲区？
+
+【硬性要求：以上两个章节合计不少于 600 字。少于 600 字视为不合格。】"
 
 log "Chunk 3/3: 建议+质量 → 发送 LLM..."
 CHUNK3_RESULT=$(llm_call "$CHUNK3_PROMPT" 4000 0.7 300 "$CHUNK3_SYSTEM" || true)
 CHUNK3_CHARS=$(echo "$CHUNK3_RESULT" | wc -c | tr -d ' ')
+CHUNK3_HEAD=$(echo "$CHUNK3_RESULT" | head -c 120 | tr '\n' ' ')
+log "Chunk 3/3: ${CHUNK3_CHARS} chars, head: ${CHUNK3_HEAD}"
 log "Chunk 3/3: ${CHUNK3_CHARS} chars"
 
 # --- 拼接结果 ---
