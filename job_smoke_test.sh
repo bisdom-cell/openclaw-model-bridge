@@ -17,6 +17,12 @@ else
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+# V37.8.3: 当部署到 HOME 运行时，自动解析到仓库目录
+if [ "$SCRIPT_DIR" = "$HOME" ] && [ -d "$HOME/openclaw-model-bridge" ] && [ -f "$HOME/openclaw-model-bridge/job_smoke_test.sh" ]; then
+    SCRIPT_DIR="$HOME/openclaw-model-bridge"
+fi
+
 TS=$(date '+%Y-%m-%d %H:%M:%S')
 NOW_EPOCH=$(date +%s)
 
