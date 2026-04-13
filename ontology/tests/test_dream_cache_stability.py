@@ -503,25 +503,40 @@ class TestV37_8_3_ChunkedGenerationStructure(unittest.TestCase):
         )
 
     def test_chunk3_receives_prior_context(self):
-        """Chunk 3 must receive findings from chunks 1 and 2."""
+        """Chunk 3 must receive findings from chunks 1 and 2.
+
+        V37.8.3+: prior context is pre-computed into _CHUNK3_CTX1/CTX2
+        variables (bash 3.2 compat), then embedded in CHUNK3_PROMPT via
+        simple $-expansion instead of inline $() command substitution.
+        """
         src = _read_kb_dream()
-        # CHUNK3_PROMPT is a multiline heredoc, so we check that both
-        # CHUNK1_RESULT and CHUNK2_RESULT appear between CHUNK3_PROMPT= and
-        # the next CHUNK3_ variable (the prompt spans multiple lines).
-        chunk3_start = src.find('CHUNK3_PROMPT=')
-        self.assertNotEqual(chunk3_start, -1, "CHUNK3_PROMPT not found")
-        chunk3_block = src[chunk3_start:chunk3_start + 2000]
+        # _CHUNK3_CTX variables compute prior context from chunk results
+        chunk3_area_start = src.find('_CHUNK3_CTX1=')
+        self.assertNotEqual(chunk3_area_start, -1,
+                            "_CHUNK3_CTX1 not found — chunk 3 context "
+                            "computation missing")
+        chunk3_block = src[chunk3_area_start:chunk3_area_start + 3000]
         self.assertIn(
             'CHUNK1_RESULT',
             chunk3_block,
-            "Chunk 3 doesn't receive CHUNK1_RESULT — action items "
-            "won't be grounded in the analysis.",
+            "Chunk 3 context doesn't reference CHUNK1_RESULT — action "
+            "items won't be grounded in the analysis.",
         )
         self.assertIn(
             'CHUNK2_RESULT',
             chunk3_block,
-            "Chunk 3 doesn't receive CHUNK2_RESULT — action items "
-            "won't reflect trend analysis.",
+            "Chunk 3 context doesn't reference CHUNK2_RESULT — action "
+            "items won't reflect trend analysis.",
+        )
+        # Verify CHUNK3_PROMPT uses the pre-computed context
+        prompt_start = src.find('CHUNK3_PROMPT=')
+        self.assertNotEqual(prompt_start, -1, "CHUNK3_PROMPT not found")
+        prompt_block = src[prompt_start:prompt_start + 1000]
+        self.assertIn(
+            '_CHUNK3_CTX',
+            prompt_block,
+            "CHUNK3_PROMPT doesn't use _CHUNK3_CTX variables — prior "
+            "context is computed but not embedded in the prompt.",
         )
 
     def test_chunked_material_is_30k(self):
@@ -691,6 +706,75 @@ class TestV37_8_3_ThinkTagAndNoThink(unittest.TestCase):
                 src,
                 f"Chunk {i} diagnostic head logging missing — can't diagnose "
                 "whether <think> tags are present in output.",
+            )
+
+
+class TestBash32Compat(unittest.TestCase):
+    """V37.8.3+: bash 3.2 compatibility fix for Mac Mini.
+
+    Root cause: $() command substitutions inside double-quoted string
+    assignments can cause parsing cascades on bash 3.2 (macOS default).
+    Fix: pre-compute conditional/piped values into helper variables,
+    then use simple $VAR expansion inside the string assignments.
+    """
+
+    def test_no_dollar_paren_in_chunk_prompts(self):
+        """CHUNK{1,2,3}_PROMPT must NOT contain $() inline.
+
+        The old pattern `CHUNK1_PROMPT="... $([ -n ... ]) ..."` caused
+        bash 3.2 to misparse the string on Mac Mini, interpreting prompt
+        template text as shell commands.
+        """
+        src = _read_kb_dream()
+        for i in range(1, 4):
+            marker = f'CHUNK{i}_PROMPT="'
+            idx = src.find(marker)
+            self.assertNotEqual(idx, -1, f"CHUNK{i}_PROMPT not found")
+            # Find end of string assignment (next unescaped " at line start
+            # or after content). Use a simple heuristic: next occurrence of
+            # a line that ends with just '"'
+            end_idx = src.find('\n\n', idx + len(marker))
+            if end_idx == -1:
+                end_idx = idx + 3000
+            block = src[idx:end_idx]
+            self.assertNotIn(
+                "$(",
+                block.split("\n", 1)[1] if "\n" in block else "",
+                f"CHUNK{i}_PROMPT still contains $() inline — this breaks "
+                "bash 3.2 on Mac Mini. Use pre-computed helper variables.",
+            )
+
+    def test_reduce_prompt_no_dollar_paren(self):
+        """REDUCE_PROMPT must not contain $() inline (bash 3.2 compat)."""
+        src = _read_kb_dream()
+        # Find REDUCE_PROMPT= (the main one, not the safety fallback)
+        idx = src.find('\nREDUCE_PROMPT="$REDUCE_INTRO')
+        self.assertNotEqual(idx, -1, "REDUCE_PROMPT not found")
+        # Check a reasonable block for $()
+        block = src[idx:idx + 3000]
+        self.assertNotIn(
+            "$([ -n",
+            block,
+            "REDUCE_PROMPT still contains $([ -n ... ]) inline — "
+            "use _REDUCE_PREV_SECTION pre-computed variable.",
+        )
+
+    def test_precomputed_helpers_exist(self):
+        """Pre-computed helper variables must exist for the extracted $()."""
+        src = _read_kb_dream()
+        helpers = [
+            "_REDUCE_PREV_SECTION",
+            "_CHUNK1_PREV",
+            "_CHUNK2_MATERIAL",
+            "_CHUNK3_CTX1",
+            "_CHUNK3_CTX2",
+        ]
+        for h in helpers:
+            self.assertIn(
+                f'{h}=',
+                src,
+                f"Pre-computed helper {h} not found — $() extraction "
+                "incomplete, bash 3.2 may still crash.",
             )
 
 
