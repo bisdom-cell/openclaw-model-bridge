@@ -1,5 +1,5 @@
 {
-  "updated": "2026-04-14 13:31:54",
+  "updated": "2026-04-14 13:40:22",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-04-14",
+      "what": "V37.8.4 Mac Mini E2E 验证通过：preflight 77/0/3 + job_smoke_test 186/0/11 + finance_news 手动运行成功。系统独立发现第 8 个僵尸 SCMPNews (95/95 超72h)，⚠️ ZOMBIE嫌疑 标记 + 告警正常触发 + 27 篇文章成功推送+LLM分析。按设计等 3 天连续命中再决定删除。登记 2 个边缘检测盲区：CNS1952 near-zombie (98/99 old + 1 短，老/总=99%但未=100%不触发) + SingTaoDaily 0-tweet stub (total=0 不触发 total>0 门槛)",
+      "by": "claude_code"
+    },
     {
       "date": "2026-04-14",
       "what": "V37.8.4 finance_news X 僵尸账号血案闭环：删除 7 个已验证僵尸 handle (Reuters/WorldBank/BrookingsInst/caixin/yicaichina/ChannelNewsAsia/straits_times，停更 253-3364 天) + 加静默失败检测 (is_zombie_suspect parser + ⚠️ 诊断前缀 + zombies_${DAY}.txt + 3 天 comm -12 告警) + INV-X-001 新增 (36 不变式, 138 checks) + CLAUDE.md 原则 #27 升级强制 X 账号健康 ≠ HTTP 200 + 案例文档 finance_news_syndication_zombie_case.md + governance v3.9→v3.10。MR-10 (V37.8.3 引入) 正向兑现。全量回归 951 tests / 31 suites / 0 fail",
@@ -171,11 +176,6 @@
     {
       "date": "2026-04-10",
       "what": "Shadow模式修复: ① tool_proxy.py补上log_fn让drift检测真正运行 ② 发现~/ontology/从未部署到运行时路径(V36.2以来shadow从未生效) ③ Mac Mini创建symlink修复 ④ 首条生产shadow数据采集成功(4 high-risk tools,零drift) ⑤ job_smoke_test.sh参数感知修复",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-04-10",
-      "what": "Dream Map-Reduce三阶段分离: ① Map-Reduce分离执行(Map 00:00写缓存→Reduce 03:00读缓存,7x提速) ② Map再拆Sources(00:00)+Notes(00:40)独立调度+超时隔离 ③ 3新治理不变式(INV-CRON-005锁隔离/INV-CACHE-001缓存完整/INV-JOB-001状态隔离,22不变式) ④ check_registry/preflight参数感知修复(split()[0]) ⑤ 718测试",
       "by": "claude_code"
     }
   ],
@@ -289,5 +289,22 @@
   ],
   "session_context.unfinished": [
     "V37.8 MRD-NOTIFY-002 activity 层假阳性 — 新检测器 source 层正确识别 6 频道 caller（28/32 job 直调 openclaw message send 的 case 已修复），但 activity 层扫 notify_queue/*.json + jobs/*/cache/*.log mtime 这两个路径都不是成功推送的真实记录（notify_queue 只记失败重放，jobs/*/cache 不是每个 job 都有），导致 papers/freight/alerts/daily/tech/ontology 全部 7 天无活动假阳性。正确修复思路：在 _discover_silent_channels activity 层建立 topic → job log 映射（papers→arxiv/hf/dblp/s2/acl/ai_leaders_x 的 ~/*.log，freight→freight_watcher，alerts→job_watchdog+auto_deploy，daily→kb_review+kb_evening+kb_trend+daily_ops_report，tech→github_trending+rss_blogs，ontology→ontology_sources），对每个 topic 取映射日志的最大 mtime，7 天内算活跃。MRD 是建议层不影响 9/9 元规则硬闭环，但会误导新认知。下次 session V37.8.1 修复。"
+  ],
+  "unfinished": [
+    {
+      "date": "2026-04-14",
+      "what": "SCMPNews 僵尸观察：95 tweets 全部 >72h，已进入 zombies_2026-04-14.txt。等 2026-04-16 再检查 zombies_{2026-04-15,2026-04-16}.txt，若 3 天均含 SCMPNews → 删除 + INV-X-001 守卫行 + commit V37.8.5",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-04-14",
+      "what": "Detection gap 1: CNS1952 near-zombie (98条超72h + 1条过短 = 99/99 实际为 0)，当前 is_zombie_suspect = (total>0 && old==total) 严格等号漏检。备选：改为 >=90% 比例。仅在下次血案后升级，不主动 refine 避免 scope creep",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-04-14",
+      "what": "Detection gap 2: SingTaoDaily 返回 0 推文 (total=0) → 无法触发 total>0 门槛。这是不同形态的僵尸（stub/suspended），需要 HTML size<5KB 或 total==0 连续多天的独立检测路径。并入 INV-X-001 未来扩展",
+      "by": "claude_code"
+    }
   ]
 }
