@@ -2113,6 +2113,87 @@ invariants:
               assert "notes/real.md" in files, \
                   f"real entry 被误删: {files}"
 
+  # --- 2026-04-14 新增：finance_news X/Twitter 僵尸账号血案（V37.8.4）---
+
+  - id: INV-X-001
+    name: syndication-account-must-have-fresh-tweets
+    meta_rule: MR-10
+    verification_layer: [declaration]
+    severity: high
+    declaration: |
+      任何使用 Twitter Syndication API 抓取账号的 job（当前：finance_news）
+      必须具备僵尸账号静默失败检测：
+        (1) 解析层：当 diag['total'] > 0 且 diag['old'] == diag['total']
+            （即抓到推文但 100% 超时间窗）→ 标记为 ZOMBIE 嫌疑
+        (2) 诊断层：诊断输出行带 ⚠️ ZOMBIE嫌疑 前缀，区别于普通"0 条"
+        (3) 持久化层：嫌疑 handle 写入 cache/zombies_${DAY}.txt 独立文件
+        (4) 告警层：后处理 3 天连续命中 → log warning 建议人工复核
+        (5) 移除层：V37.8.4 已确认的 7 个僵尸账号不得再出现在账号列表中
+    design_decision: |
+      2026-04-14 血案：V37.8.3 修复把 3 个 X handle 改为 caixin/yicaichina/straits_times，
+      HTTP 200 + 可解析 HTML + 有推文数据三层都绿，但最新推文停更 2227/3364/420 天。
+      继续审计发现 Reuters 253d, WorldBank stub, BrookingsInst 585d, ChannelNewsAsia 2955d
+      — 22 账号 7 僵尸 (~32% 污染)。
+      Syndication API 对 embed-disabled 或已停更账号返回 stale 快照，协议层绿灯 ≠ 内容健康。
+      修复：在 parser 内嵌检测 + 独立文件 + 3 天告警。
+      meta_rule=MR-10（understand-before-fix）因为血案本质是 V37.8.3 改 handle 时没有验证
+      新 handle 的真实活跃度，符合 MR-10 三问中第 3 问"最小修复"被浅层执行的模式。
+    blood_lessons:
+      - "2026-04-14 V37.8.4: V37.8.3 改 handle 次日即暴露僵尸问题；HTTP 协议层/内容层不一致静默失败"
+    checks:
+      - name: "run_finance_news.sh 声明 ZOMBIE_FILE"
+        check_type: file_contains
+        file: jobs/finance_news/run_finance_news.sh
+        pattern: 'ZOMBIE_FILE="\$CACHE/zombies_\$\{DAY\}\.txt"'
+      - name: "run_finance_news.sh parser 检测 diag['total']>0 且 diag['old']==diag['total']"
+        check_type: file_contains
+        file: jobs/finance_news/run_finance_news.sh
+        pattern: 'is_zombie_suspect = \(diag\["total"\] > 0 and diag\["old"\] == diag\["total"\]\)'
+      - name: "run_finance_news.sh 写入 zombie_file"
+        check_type: file_contains
+        file: jobs/finance_news/run_finance_news.sh
+        pattern: 'with open\(zombie_file, .a.\) as f'
+      - name: "run_finance_news.sh 诊断行有 ⚠️ ZOMBIE嫌疑 前缀"
+        check_type: file_contains
+        file: jobs/finance_news/run_finance_news.sh
+        pattern: 'ZOMBIE嫌疑'
+      - name: "run_finance_news.sh 3 天连续命中告警（comm -12 + Y_FILE + DB_FILE）"
+        check_type: file_contains
+        file: jobs/finance_news/run_finance_news.sh
+        pattern: 'comm -12 - <\(sort -u "\$Y_FILE"\)'
+      - name: "已确认僵尸 Reuters 已从列表移除"
+        check_type: file_not_contains
+        file: jobs/finance_news/run_finance_news.sh
+        pattern: '"Reuters\|路透社官方'
+      - name: "已确认僵尸 caixin 已从列表移除"
+        check_type: file_not_contains
+        file: jobs/finance_news/run_finance_news.sh
+        pattern: '"caixin\|'
+      - name: "已确认僵尸 yicaichina 已从列表移除"
+        check_type: file_not_contains
+        file: jobs/finance_news/run_finance_news.sh
+        pattern: '"yicaichina\|'
+      - name: "已确认僵尸 WorldBank 已从列表移除"
+        check_type: file_not_contains
+        file: jobs/finance_news/run_finance_news.sh
+        pattern: '"WorldBank\|世界银行'
+      - name: "已确认僵尸 BrookingsInst 已从列表移除"
+        check_type: file_not_contains
+        file: jobs/finance_news/run_finance_news.sh
+        pattern: '"BrookingsInst\|布鲁金斯'
+      - name: "已确认僵尸 ChannelNewsAsia 已从列表移除"
+        check_type: file_not_contains
+        file: jobs/finance_news/run_finance_news.sh
+        pattern: '"ChannelNewsAsia\|CNA新加坡'
+      - name: "已确认僵尸 straits_times 已从列表移除"
+        check_type: file_not_contains
+        file: jobs/finance_news/run_finance_news.sh
+        pattern: '"straits_times\|海峡时报'
+      - name: "CLAUDE.md 原则 #27 更新强制 X 账号健康 ≠ HTTP 200"
+        check_type: file_contains
+        file: CLAUDE.md
+        pattern: '账号健康 ≠ HTTP 200'
+
 # ═══════════════════════════════════════════════════════════════════════
 # 4. 可执行元规则（Phase 0）— 自动发现缺失不变式
 #    只扫描结构化数据源，不解析自然语言
@@ -2222,8 +2303,9 @@ audit_metadata:
     v3.6 → v3.7: kb_evening 升级复用 V37.5 kb_review 架构 → INV-EVENING-001 (kb-evening-fails-loud-not-silent, 复用性锁定: import 不 copy + evening-specific prompt + fail-fast wrapper 契约 + 1-day 窗口运行时回归) — MR-8 candidate "copy-paste-is-a-bug-class" 的正面兑现, auto_deploy FILE_MAP 同步补齐 kb_review_collect.py V37.5 历史漏洞
     v3.7 → v3.8: V37.7 双跑审计闭环 — (a) MR-8 "copy-paste-is-a-bug-class" 从 candidate 正式形式化进入 meta_rules (INV-EVENING-001 重新归属); (b) MR-9 "state-writes-go-through-helper-not-raw-redirect" 新增 (MR-4 上游预防层, 禁止 shell `>>` 直写持久化 state 文件, 必须走 kb_append_source.sh / kb_write.sh 等 helper); (c) INV-SRC-001 重新归属 MR-9 并新增 2 个 catch-all 运行时 scan (任何位置 `>> "$KB_SRC"` + 任何 `>> sources/*.md` 路径); (d) INV-DEDUP-002 新增 (kb-dedup-pre-filters-dangling-index-entries, MR-4 第 4 次演出 — dangling index refs 被误判为 duplicate 并在 --apply 时删除历史); (e) INV-GOV-001 check 2 重构去掉 JSON_MODE global mutation (依赖注入 print_results(json_mode=False) 参数); (f) run_discussions.sh V37.6 P0-2 第 16 处漏网修复 (bucket 1, MR-4 第 5 次演出); (g) audit_log.verify_chain JSON parse error prev_hash 级联 bug 修复 (不再让解析错误静默传播到下一行 prev check); (h) kb_evening "今日笔记" label semantics 修复 (count_today_notes filename prefix 扫描 vs 历史累计 note_count)
     v3.8 → v3.9: V37.8 MR-6 深度补齐 + MRD-NOTIFY-002 语义修复 — (a) 7 个 critical 单层不变式全部补第二层验证: INV-TOOL-001 (+declaration: proxy_filters.py 静态引用 MAX_TOOLS), INV-TOOL-002 (元数据标签修正，已有双层未声明), INV-DEPLOY-002 (+runtime: shlex tokenize AST 扫描 auto_deploy.sh 无 crontab 写入 token 序列), INV-CRON-003 (+declaration: _cron_cmd_invokes 精确匹配器源码守卫), INV-ENV-002 (+declaration: preflight REQUIRED_VARS 必含 OPENCLAW_PHONE + YAML 占位号字面量反例守卫), INV-DREAM-002 (+runtime: SKIP_MAP_LOOPS 赋值行号必须在 Phase 1a/1b 门控之前), INV-CACHE-002 (+runtime: 真跑 md5 对照同内容不同 mtime 的两个 tempfile hash 相等 + 不同内容 hash 不等); (b) INV-LAYER-001 新增 (critical-invariants-have-two-layers, meta_rule=MR-6, 把 MRD-LAYER-001 的 warn 升级为 hard-enforcing invariant — 未来任何新增 critical 不变式只要 <2 层就直接 fail); (c) MRD-NOTIFY-002 检测器重写 — 原实现只 grep `--topic X` 字符串但 32 个 job 中 28 个 bypass notify.sh 直接走 `DISCORD_CH_<X>`，导致 4-6 个频道长期被误报 silent。新实现两层: source layer (dev + full 都跑, 扫 jobs/*/run_*.sh 接受 `--topic T` 或 `DISCORD_CH_<T_upper>` 任一 caller) + activity layer (仅 --full, 用 notify_queue/jobs cache mtime 而非字符串 grep)
-  total_invariants: 35  # +INV-LAYER-001
-  total_checks: 139     # +INV-TOOL-001(+1) +INV-DEPLOY-002(+1) +INV-CRON-003(+2) +INV-ENV-002(+2) +INV-DREAM-002(+1) +INV-CACHE-002(+1) +INV-LAYER-001(+2) = +10; metadata-only: INV-TOOL-002 label fix
+    v3.9 → v3.10: V37.8.4 finance_news X 僵尸账号血案 — INV-X-001 新增 (syndication-account-must-have-fresh-tweets, meta_rule=MR-10, severity=high) 锁定 5 层防御: parser 检测 diag['total']>0 且 100% 超窗口 + ⚠️ ZOMBIE嫌疑 诊断前缀 + 独立 zombies_${DAY}.txt 文件 + 3 天 comm -12 连续告警 + 7 个已确认僵尸 handle (Reuters/WorldBank/BrookingsInst/caixin/yicaichina/ChannelNewsAsia/straits_times) file_not_contains 守卫。CLAUDE.md 原则 #27 升级强制条款 "X 账号健康 ≠ HTTP 200" — 协议层绿灯不等于内容层健康，Syndication API 对 embed-disabled 或停更账号返回 stale 快照 (最老 3364 天)。本次是 MR-10 (V37.8.3 引入) 被违反后的正向兑现: 血案本身成为元规则执行力的训练样本。
+  total_invariants: 36  # +INV-X-001
+  total_checks: 152     # +INV-X-001(+13): ZOMBIE_FILE 声明 + parser 检测逻辑 + 写文件 + ⚠️ 前缀 + 3 天告警 + 7 个 file_not_contains + CLAUDE.md 原则 #27 更新
   meta_rules: 10        # MR-1~MR-10 (MR-10 understand-before-fix: 2026-04-13 连锁修复血案)
   meta_rule_discovery_count: 6   # Phase 0: registry + env + notify-topic + layer-depth + error-suppression + notify-activity
   check_types_used: [python_assert, file_contains, file_not_contains, env_var_exists, command_succeeds, log_activity_check]
