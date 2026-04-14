@@ -1,5 +1,5 @@
 {
-  "updated": "2026-04-13 17:12:38",
+  "updated": "2026-04-14 12:26:18",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -79,6 +79,10 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-04-14",
+      "what": "原则 #30 新增: 开工必须主动声明模型（第 0 号宪法执行机制）。格式固定为 🤖 本次 session 模型：Claude Opus 4.6 (claude-opus-4-6) | 最强级别，无降级 | fast mode 状态见 /fast 命令，独占一行放在任何寒暄/分析/工具调用之前。模型 ID 非 claude-opus-4-6 立即停止告知用户。每次必查 29→30 条。触发: 用户追问是否最强模型才能确认，声明应主动前置"
+    },
     {
       "date": "2026-04-13",
       "what": "V37.8.3: (1) finance_news 3个错误X账号修复 (CaixinGlobal→caixin, YicaiGlobal→yicaichina, STcom→straits_times) (2) Dream MIN_ACCEPTABLE_CHARS 1500→3000 + BEST_CHARS 未定义变量修复 (3) kb_evening E2E测试时区闪烁修复 (4) preflight 连锁修复闭环: FILE_MAP多目标支持 + SCRIPT_DIR HOME检测 + auto_deploy双目标部署 + preflight/job_smoke_test纳入FILE_MAP, 5轮修复从20失败到0失败 (5) MR-10 understand-before-fix 新元规则(连锁修复血案教训) (6) 原则#28理解再动手 + 原则#29开工收工零遗漏 (7) 第0号宪法: 最强模型不降配不降速不妥协 (8) 案例文档 preflight_cascading_fix_case.md",
@@ -172,11 +176,6 @@
     {
       "date": "2026-04-10",
       "what": "V37.1+ Session: ① Dream配额爆炸链修复(智能退避429/524+Map熔断3次+inter-call节流) ② HN垃圾推送修复(RSS描述注入+JSON输出+__LLM_FAILED__信号+3次重试) ③ 原则#26升级为宪法级(异常分析五步法:因果链图+三层根因+时间线+条件组合+本体喂养) ④ Dream配额爆炸链案例文档+2新治理不变式(INV-QUOTA-001/INV-PUSH-001) ⑤ Adapter hot-reload(FALLBACK_CHAIN零停机刷新+feature flag+/health暴露) ⑥ Proxy幻觉工具过滤(<tool_call>XML清理:主路径+followup路径) ⑦ 718测试",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-04-09",
-      "what": "SOUL.md批判性思考规则#9(反迎合)+PA回声室案例分析+ontology终态架构文档+ScienceDirect正则修复+governance_audit全通过35/35+kb_harvest_chat crontab bash-lc修复",
       "by": "claude_code"
     }
   ],
