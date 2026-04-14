@@ -63,29 +63,32 @@ RSS_FEEDS=(
 # 补充 RSS 无法覆盖的中国/亚太 + 国际权威声音
 FINANCE_X_ACCOUNTS=(
     # ── 国际权威 ──
-    "Reuters|路透社官方(X)|intl"
+    # V37.8.4 已移除僵尸账号：
+    #   Reuters         — 最新推文 2025-08-03（253 天无更新）
+    #   WorldBank       — Syndication 返回 2KB stub（embed disabled）
+    #   BrookingsInst   — 最新推文 2024-09-06（585 天无更新）
     "IMFNews|IMF官方(X)|intl"
-    "WorldBank|世界银行官方(X)|intl"
-    "BrookingsInst|布鲁金斯学会(X)|intl"
     "business|Bloomberg商业(X)|intl"
     "WSJ|华尔街日报(X)|intl"
     "ReutersBiz|路透社财经(X)|intl"
     "TheEconomist|经济学人(X)|intl"
     # ── 中国官媒 ──
+    # V37.8.4 已移除僵尸账号：
+    #   caixin          — 最新推文 2019-10-15（2227 天无更新）
+    #   yicaichina      — 最新推文 2016-12-09（3364 天无更新）
     "XHNews|新华社英文(X)|cn"
     "PDChina|人民日报英文(X)|cn"
     "CGTNOfficial|CGTN央视国际(X)|cn"
     "ChinaDaily|中国日报(X)|cn"
     "globaltimesnews|环球时报(X)|cn"
     "CNS1952|中新社(X)|cn"
-    "caixin|财新英文(X)|cn"
-    "yicaichina|第一财经(X)|cn"
     # ── 港台/亚太 ──
+    # V37.8.4 已移除僵尸账号：
+    #   ChannelNewsAsia — 最新推文 2018-01（2955 天无更新）
+    #   straits_times   — 最新推文 2024-12-20（420 天无更新）
     "SCMPNews|南华早报(X)|cn"
     "NikkeiAsia|日经亚洲(X)|cn"
     "SingTaoDaily|星岛日报(X)|cn"
-    "ChannelNewsAsia|CNA新加坡(X)|cn"
-    "straits_times|海峡时报(X)|cn"
     "asahi|朝日新闻(X)|cn"
 )
 
@@ -277,6 +280,9 @@ done
 # ── 2. X/Twitter 财经账号抓取（Syndication API）───────────────────────
 SEEN_X_FILE="$CACHE/seen_x_ids_${DAY}.txt"
 : > "$SEEN_X_FILE"
+# V37.8.4 新增：静默失败检测 — 抓到 HTML 但所有推文都超 72h 的账号 = 僵尸嫌疑
+ZOMBIE_FILE="$CACHE/zombies_${DAY}.txt"
+: > "$ZOMBIE_FILE"
 X_FETCH_OK=0
 X_FETCH_FAIL=0
 
@@ -305,12 +311,12 @@ for x_entry in "${FINANCE_X_ACCOUNTS[@]}"; do
     fi
 
     # 解析推文 → JSONL
-    $PYTHON3 - "$RAW_HTML" "$SEEN_X_FILE" "$X_HANDLE" "$X_LABEL" "$X_REGION" << 'XPYEOF' >> "$ALL_NEW_FILE"
+    $PYTHON3 - "$RAW_HTML" "$SEEN_X_FILE" "$X_HANDLE" "$X_LABEL" "$X_REGION" "$ZOMBIE_FILE" << 'XPYEOF' >> "$ALL_NEW_FILE"
 import sys, json, re
 from html import unescape
 from datetime import datetime, timedelta, timezone
 
-html_file, seen_file, handle, label, region = sys.argv[1:6]
+html_file, seen_file, handle, label, region, zombie_file = sys.argv[1:7]
 # X 账号用 72h 窗口（覆盖周末，官媒周末发帖少）
 CUTOFF = datetime.now(timezone.utc) - timedelta(hours=72)
 
@@ -397,6 +403,13 @@ for t in tweets[:3]:
         f.write(t.get("tweet_id", t["link"]) + "\n")
 
 count = min(len(tweets), 3)
+# V37.8.4 僵尸嫌疑检测：API 返回了推文，但 100% 超 72h = 账号已停更/embed disabled 返回旧快照
+# （HTTP 200 + HTML 可解析但无新推文，是 MR-10 诱导的"静默失败"——骨架在但效果为零）
+is_zombie_suspect = (diag["total"] > 0 and diag["old"] == diag["total"])
+if is_zombie_suspect:
+    with open(zombie_file, 'a') as f:
+        f.write(f"{handle}\n")
+
 # 始终打印诊断（含 0 条时的过滤原因）
 if count > 0:
     print(f"[finance] X @{handle}: {count} 条", file=sys.stderr)
@@ -415,7 +428,8 @@ else:
     if diag["old"]:
         reasons.append(f"{diag['old']}条超72h")
     reason_str = ", ".join(reasons) if reasons else "未知"
-    print(f"[finance] X @{handle}: 0 条（原始{diag['total']}条, 过滤: {reason_str}）", file=sys.stderr)
+    prefix = "⚠️ ZOMBIE嫌疑 " if is_zombie_suspect else ""
+    print(f"[finance] X @{handle}: {prefix}0 条（原始{diag['total']}条, 过滤: {reason_str}）", file=sys.stderr)
 XPYEOF
 
     X_FETCH_OK=$((X_FETCH_OK + 1))
@@ -425,6 +439,30 @@ if [ "$X_FETCH_OK" -gt 0 ] || [ "$X_FETCH_FAIL" -gt 0 ]; then
     log "X/Twitter: ${X_FETCH_OK} 账号成功, ${X_FETCH_FAIL} 失败"
 fi
 FETCH_ERRORS=$((FETCH_ERRORS + X_FETCH_FAIL))
+
+# V37.8.4 连续 3 天僵尸检测：本次 + 前两天都命中同一个 handle → 告警建议人工复核
+if [ -s "$ZOMBIE_FILE" ]; then
+    TODAY_COUNT=$(wc -l < "$ZOMBIE_FILE" | tr -d ' ')
+    log "X 僵尸嫌疑今日 ${TODAY_COUNT} 个（详见 $ZOMBIE_FILE）"
+
+    # 计算昨天、前天日期（macOS 和 Linux 语法不同，容错处理）
+    YESTERDAY=$(date -v-1d +%Y-%m-%d 2>/dev/null || date -d 'yesterday' +%Y-%m-%d 2>/dev/null || echo "")
+    DAY_BEFORE=$(date -v-2d +%Y-%m-%d 2>/dev/null || date -d '2 days ago' +%Y-%m-%d 2>/dev/null || echo "")
+    Y_FILE="$CACHE/zombies_${YESTERDAY}.txt"
+    DB_FILE="$CACHE/zombies_${DAY_BEFORE}.txt"
+
+    if [ -n "$YESTERDAY" ] && [ -n "$DAY_BEFORE" ] && [ -s "$Y_FILE" ] && [ -s "$DB_FILE" ]; then
+        PERSISTENT=$(sort -u "$ZOMBIE_FILE" | comm -12 - <(sort -u "$Y_FILE") | comm -12 - <(sort -u "$DB_FILE") || true)
+        if [ -n "$PERSISTENT" ]; then
+            COUNT=$(echo "$PERSISTENT" | wc -l | tr -d ' ')
+            log "⚠️ X 账号连续 3 天无新推文（疑似僵尸 ${COUNT} 个）："
+            echo "$PERSISTENT" | while IFS= read -r h; do
+                [ -z "$h" ] && continue
+                log "  - @${h}"
+            done
+        fi
+    fi
+fi
 
 TOTAL_NEW="$(wc -l < "$ALL_NEW_FILE" | tr -d ' ')"
 if [ "$TOTAL_NEW" -eq 0 ]; then
