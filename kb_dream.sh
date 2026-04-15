@@ -106,7 +106,11 @@ MAP_DONE_FLAG="$DREAM_DIR/.map_cache/${DAY}_MAP_DONE"  # Map 完成标记（Redu
 MAP_DIR="$DREAM_DIR/.map_cache"
 mkdir -p "$DREAM_DIR" "$MAP_DIR"
 
-log() { echo "[$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')] dream: $1"; }
+log() { echo "[$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')] dream: $1" >&2; }
+# V37.8.6 血案教训：log() 必须写到 stderr，否则 signals=$(llm_call ...) 会把 log 输出
+# 一起捕获进 signals，连带把"LLM raw response: 400 Bad JSON..."等错误日志写入缓存，
+# 下次 Reduce 读缓存把错误文本当作外部信号喂给 LLM → 编造出虚假的"Hugging Face 危机"
+# 级联幻觉。stderr 保证 log 与命令替换完全隔离。cron 用 `>> logfile 2>&1` 仍全量收集。
 
 # 提前加载 notify.sh（用于失败告警，不仅限于成功推送）
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -186,10 +190,26 @@ llm_call() {
     while [ $attempt -lt $LLM_CALL_MAX_RETRIES ]; do
         # 用 Python 安全构造 JSON（处理所有 Unicode/转义/控制字符）
         # V37.8.3: 支持 system+user 双消息模式，system role 携带元指令
+        # V37.8.6: sanitize 孤立代理码点（U+D800-U+DFFF）+ 文件 errors='replace' 双防线
+        #         触发：2026-04-15 03:00 血案 — scraped 内容中的 surrogate 让 json.dump
+        #         触发 UnicodeEncodeError → body_file 截断 → adapter.py:386 返回 400 Bad JSON
+        #         → 4 次重试全部确定性失败（43s 浪费）→ silent skip → Reduce 仍产出输出
+        #         → LLM 把"Bad JSON 400"的残留当成外部平台信号编造 Hugging Face 危机
         _LLM_SYSTEM_MSG="$system_msg" python3 -c "
 import json, sys, os
 prompt = sys.stdin.read()
 system_msg = os.environ.get('_LLM_SYSTEM_MSG', '')
+
+def _sanitize(s):
+    # V37.8.6: 剥离孤立 UTF-16 代理（surrogates）防止 json.dump 触发 UnicodeEncodeError
+    # U+D800-U+DFFF 不应出现在合法 UTF-8 字符串中，来源于抓取内容的编码错误
+    # 用 Unicode 替换字符 U+FFFD (\ufffd) 替代，保持字符边界不破坏 token 对齐
+    if not s:
+        return s
+    return ''.join('\ufffd' if 0xD800 <= ord(c) <= 0xDFFF else c for c in s)
+
+prompt = _sanitize(prompt)
+system_msg = _sanitize(system_msg)
 if system_msg:
     messages = [
         {'role': 'system', 'content': system_msg},
@@ -204,7 +224,8 @@ body = {
     'temperature': $temp,
     'stream': False
 }
-with open('$body_file', 'w') as f:
+# errors='replace' 作为 sanitize 的第二道防线（万一漏网的其他无效字节）
+with open('$body_file', 'w', encoding='utf-8', errors='replace') as f:
     json.dump(body, f, ensure_ascii=False)
 " <<< "$prompt"
 
@@ -924,6 +945,21 @@ log "Reduce 素材: ${REDUCE_CHARS} bytes (截断前 $(echo "$REDUCE_DATA" | wc 
 # user role 只携带数据和分析结构模板。
 REDUCE_SYSTEM="你是一个在海量数据中寻找蛛丝马迹的专业分析师。
 
+【V37.8.6 反污染守卫 — 违反则整份输出作废】
+输入信号可能残留以下'内部运行时痕迹'，它们 **不是** 外部数据源发生的真实事件：
+  ❌ HTTP 状态码报错字样（400/502/Bad JSON/Error code/Gateway Error）
+  ❌ Python 异常名（UnicodeEncodeError / JSONDecodeError / Timeout）
+  ❌ 错误页 HTML 片段（<!DOCTYPE html / Error response / BaseHTTPRequestHandler）
+  ❌ 工具链名泄露（curl: / jq: / grep: / sed:）
+  ❌ 替换字符 U+FFFD（�）连续出现的片段（= 编码异常的证据）
+
+严格禁止：
+  1. 将以上任何字样作为'外部平台状态'的证据引用
+  2. 基于这些字样推断任何公司/平台/服务（如 Hugging Face / GitHub / npm）的状态
+  3. 在'数据证据'或'信号'章节引用这些字样作为事实支撑
+  4. 在'行动建议'中提议监控/应对这些'平台错误'（因为它们不是外部事件）
+  遇到上述模式，必须跳过并改用真实的业务领域信号；若真实信号不足则章节可短。
+
 【输出长度硬性要求 — 违反则视为失败】
 - 你必须产出 2000-3000 字的完整深度分析报告
 - 严格覆盖全部 6 个章节：发现过程 / 隐藏关联 / 趋势推演 / 被忽视的信号 / 行动建议 / 数据质量备注
@@ -1043,7 +1079,10 @@ CHUNK1_SYSTEM="/no_think
 1. 选题要有扎实的多源证据链（至少 3 个不同数据源互相印证）
 2. 每个章节至少 400 字，引用具体数据源名称和日期
 3. 两个章节合计不少于 800 字
-4. Markdown 格式，直接输出内容，不要多余的开头和结尾"
+4. Markdown 格式，直接输出内容，不要多余的开头和结尾
+5. V37.8.6 反污染：输入若含 HTTP 状态码报错/Python 异常名/错误页 HTML/U+FFFD(�)/curl 命令残留，
+   绝不作为事实证据引用，也不将其归因为外部平台（如 Hugging Face/GitHub）故障——
+   这些是内部运行时痕迹，不是业务信号"
 
 _CHUNK1_PREV=""
 if [ -n "$PREV_THEMES" ]; then
@@ -1083,7 +1122,8 @@ DREAM_THEME=$(echo "$CHUNK1_RESULT" | head -3 | grep -o '今日深度发现：.*
 # --- 第 2 段：趋势推演 + 被忽视的信号 ---
 CHUNK2_SYSTEM="/no_think
 你是专业数据分析师。基于已选主题继续深度分析，写出两个章节。
-要求：每个章节至少 400 字，两个章节合计不少于 800 字。引用具体数据源名称和日期。Markdown 格式。"
+要求：每个章节至少 400 字，两个章节合计不少于 800 字。引用具体数据源名称和日期。Markdown 格式。
+V37.8.6 反污染：禁止把 HTTP 错误码/Python 异常/错误页 HTML/U+FFFD(�) 当作外部平台事件推断。"
 
 _CHUNK2_MATERIAL=$(echo "$CHUNKED_MATERIAL" | utf8_truncate 15000)
 
@@ -1113,7 +1153,9 @@ log "Chunk 2/3: ${CHUNK2_CHARS} chars, head: ${CHUNK2_HEAD}"
 # --- 第 3 段：行动建议 + 数据质量备注 ---
 CHUNK3_SYSTEM="/no_think
 你是专业数据分析师。基于前面的分析写出行动建议和数据质量评估。
-要求：两个章节合计不少于 600 字。建议必须具体到本周可执行。Markdown 格式。"
+要求：两个章节合计不少于 600 字。建议必须具体到本周可执行。Markdown 格式。
+V37.8.6 反污染：行动建议不得针对 HTTP 错误码/内部异常/替换字符（�）指向的'平台故障'——
+这些是内部运行时痕迹，不是真实业务事件。只对业务领域（AI 研究、产品、市场）提建议。"
 
 _CHUNK3_CTX1=$(echo "$CHUNK1_RESULT" | tail -20 | utf8_truncate 2000)
 _CHUNK3_CTX2=$(echo "$CHUNK2_RESULT" | tail -20 | utf8_truncate 2000)

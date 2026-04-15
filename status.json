@@ -1,5 +1,5 @@
 {
-  "updated": "2026-04-15 01:33:25",
+  "updated": "2026-04-15 02:05:20",
   "updated_by": "security_score",
   "priorities": [
     {
@@ -79,6 +79,7 @@
     }
   ],
   "recent_changes": [
+    "{\"date\":\"2026-04-15\",\"what\":\"V37.8.6 Dream 自引用幻觉血案闭环：2026-04-15 03:00 Dream run 推送虚假 Hugging Face 平台危机分析，根因三层：(1) scraped 内容含 surrogate UTF-8 → json.dump + utf-8 文件写入 → UnicodeEncodeError → body_file 截断 → adapter.py:386 返回 400 Bad JSON (2) kb_dream.sh log() 用 echo 写 stdout + signals=$(llm_call ...) 命令替换捕获 log 行 → cache file 被错误日志污染 (3) Reduce cache-only fast path 把错误日志注入 LLM 上下文 → Qwen3 基于训练数据编造 Hugging Face 危机叙事。四层防御：log→stderr + _sanitize(U+D800-U+DFFF→U+FFFD) + file errors=\"\\\"replace\\\"\" + REDUCE/CHUNK system prompt 反污染守卫。19 单测 + INV-DREAM-003 (critical, declaration+runtime 含 python_assert 真跑 5 场景) + 案例 ontology/docs/cases/dream_self_referential_hallucination_case.md。MR-4 第 7 次演出 + 原则 #23 链式幻觉典型实证。governance v3.11→v3.12 (36→37 inv, 159→175 checks)。全量回归 994 tests / 0 fail / 37 inv / 10 meta rules / 安全 93/100。VERSION 0.37.8.5→0.37.8.6\",\"by\":\"claude_code\"}",
     {
       "date": "2026-04-15",
       "what": "V37.8.5 僵尸检测边缘盲区闭合：V37.8.4 登记的 2 个 unfinished (CNS1952 99% + SingTaoDaily 0-tweet) 结构化修复。独立 finance_news_zombie.py 纯函数模块 + classify_zombie(diag, count) 三层 tier (stub/stale/alive) + 24 单测 + INV-X-001 升级 [declaration,runtime] + runtime python_assert 5 场景。governance v3.10→v3.11 (36 inv, 152→159 checks)。全量回归 975 tests / 0 fail。MR-10 第 2 次演出（修复本身埋坑）+ MR-6 正向兑现 + MR-8 禁 inline fallback。VERSION 0.37.5→0.37.8.5。案例 ontology/docs/cases/zombie_detection_edge_case_closure.md",
@@ -172,11 +173,6 @@
       "date": "2026-04-11",
       "what": "V37.3: Governance 自观察元规则 MR-7 + INV-GOV-001 — 案例文档 ontology/docs/cases/governance_silent_error_case.md (四维度因果链+三层根因+观察者的自我盲区) + MR-7 governance-execution-is-self-observable (治理系统是一等被治理对象) + INV-GOV-001 summary-counts-all-non-pass (声明层 grep 守卫 + 运行时 error 注入 probe, JSON_MODE save/restore) + test_governance_summary.py 7 单测锁定 bug 3 + 接入 full_regression.sh. 全量回归: 28 suites / 754 tests / 0 fail, governance 23/23 invariants / 32/43 checks. v3.1 → v3.2 (22→23 不变式, 6→7 元规则, 41→43 checks).",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-04-11",
-      "what": "Governance INV-CRON-003/004 三层 bug 修复: ① 子串匹配 false-positive (kb_dream.sh 被 Map-Reduce split 误报 x3) → endswith+word-boundary 精确匹配 ② YAML exec() 作用域陷阱 (def helper 在 exec 局部, 生成器表达式看不到) → for-loop 替代 ③ governance_checker silent error bug (error 状态未计入 failed_invs, 💥 被 ✅ 汇总掩盖) → 区分 fail/error 并在汇总行显式标注. 生产验证: Mac Mini governance --full 40/41+💥 → 41/41 ✅, preflight 75/1/2 → 76/0/2 (kb_embed 补齐 3 未索引 notes+2 过期文件). 新增 16→18 单测 (+exec scope trap 正向对照). 27 suites / 747 tests / 0 fail.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -202,7 +198,14 @@
   },
   "session_context": {
     "last_session": "2026-04-13",
-    "unfinished": "[\"Mac Mini 生产验证: V37.8.5 同步部署后下次 07:30 cron 运行时观察 CNS1952 (Tier 3 stale 99%) 和 SingTaoDaily (Tier 1 stub 0-tweet) 诊断输出是否正确打 ⚠️ ZOMBIE嫌疑[tier] 前缀并写入 zombies_YYYY-MM-DD.txt\", \"待观察 V37.8.4 Mac Mini 04-14 登记的 unfinished: finance_news 07:30 cron 实际抓取是否含 V37.8.3 改名的 caixin/yicaichina/straits_times — 这三个 V37.8.3 首次验证是僵尸的 handle 已在 V37.8.4 删除，不应再抓取\"]",
+    "unfinished": [
+      "Mac Mini 生产验证 V37.8.6：下次 03:00 kb_dream cron 运行时检查 (a) log() 输出走 stderr (b) Dream 推送内容不含虚假 Hugging Face/GitHub/npm 平台危机字样 (c) cache file 不含 Bad JSON / Error code / HTML 等错误痕迹",
+      "MR-11 元规则候选 shell-function-output-must-go-to-stderr-if-not-returned-value：扫描所有 shell 函数的 log/debug/status 输出是否用 >&2",
+      "系统化 surrogate 清洗：Dream 在 LLM 边界做 sanitize 但源头(爬虫/KB 写入)应先清洗",
+      "LLM 输出 grounding allow-list：Dream 输出中的平台名/公司名/产品名应有 allow-list (提 Hugging Face 必须信号里先提到)",
+      "Dream 失败率可观测：Map 批次失败 > 阈值输出加 [DEGRADED] 前缀或干脆跳过推送",
+      "审计今日 pwc_daily / 其他 source 文件是否真含 surrogate 字节"
+    ],
     "open_prs": "",
     "blocked_on": "",
     "focus": "V37.4.3 PA 告警污染血案闭环完成 + WhatsApp 生产验证通过 (13:06 原题复现零红线命中) + Mac Mini governance --full 28/28/67/67 + INV-PA-001/002 15 checks 全绿 + 33 job 全可运行. 2 个 preflight FAIL 是 pre-existing 分叉已登记 unfinished. 收工回顾发现 kb_review.sh 效果层静默降级 (同类 V37.4.3 血案) 已登记 unfinished. 下一步: Ontology Phase 3 渐进替换 (ONTOLOGY_MODE=on 切换) 或 Tool Policy Plugin V3 路标 或 kb_review 效果层修复",
@@ -210,14 +213,14 @@
   },
   "quality": {
     "security_score": "93",
-    "test_count": "975",
-    "last_regression": "2026-04-15 01:29 pass",
+    "test_count": "994",
+    "last_regression": "2026-04-15 01:55 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-04-15 01:29",
-    "test_suites": "32",
-    "governance_invariants": "36/36",
-    "governance_checks": "145/156",
-    "version": "0.37.5"
+    "security_score_time": "2026-04-15 01:55",
+    "test_suites": "33",
+    "governance_invariants": "37/37",
+    "governance_checks": "161/172",
+    "version": "0.37.8.5"
   },
   "incidents": [
     {
@@ -279,7 +282,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.8.5 僵尸检测边缘盲区闭合 — CNS1952 99% + SingTaoDaily 0-tweet 两个 V37.8.4 登记的 unfinished 结构化修复。三层 tier 检测 + 24 单测 + INV-X-001 升级 runtime 层。governance v3.11 / 975 tests / 36 inv / 10 meta rules / 安全 93/100. 待观察: Mac Mini 生产 cron 07:30 运行后 CNS1952 + SingTaoDaily 是否被正确标记 stub/stale",
+  "focus": "V37.8.6 Dream 自引用幻觉血案闭环 — 03:00 Dream run 推送虚假 Hugging Face 危机。四层防御：log→stderr / sanitize surrogates / errors=replace / 反污染 prompt。37 invariants (INV-DREAM-003 新增 critical 双层) / 994 tests / 10 meta rules / 93 security. 待观察: (a) Mac Mini 下次 03:00 cron 运行后检查输出是否不含虚假平台危机字样 (b) 审计今日 pwc_daily/其他 source 是否真含 surrogate 字节",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
@@ -306,5 +309,8 @@
       "what": "Detection gap 2: SingTaoDaily 返回 0 推文 (total=0) → 无法触发 total>0 门槛。这是不同形态的僵尸（stub/suspended），需要 HTML size<5KB 或 total==0 连续多天的独立检测路径。并入 INV-X-001 未来扩展",
       "by": "claude_code"
     }
-  ]
+  ],
+  "_meta": {
+    "last_updated_by": "claude_code"
+  }
 }
