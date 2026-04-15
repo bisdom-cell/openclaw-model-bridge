@@ -200,3 +200,101 @@
 3. **Fail-open observability**。观察性增强代码**绝不能**成为新的故障源。`e.read()` 抛异常时必须 fallback 到原行为（try/except 包裹）。
 4. **单一 fallback = 没有 fallback**。`FALLBACK_CHAIN = ["gemini"]` 在 primary 不稳时只能提供一次救援机会；遇到 quota exhausted 就整个链路死亡。至少 2 个 provider 才能算有 fallback。
 5. **观察盲区的规模通常大于你以为的**。本案 proxy_stats 显示 45% 全天错误率，而 kb_evening 只是其中一个可见出口。**如果你只有一个观察点，你看到的不是系统真实状态，而是那一个点周围的状态**。
+
+---
+
+## 8. 后续章节 V37.8.11：告警噪声也是 observability 问题（MR-4 第 10 次演出）
+
+V37.8.10 闭环后同晚（2026-04-15 夜），用户反馈：
+
+> "现在几乎每个小时都会收到这个告警 `[SYSTEM_ALERT] 漂移检测: 修复 1 个部署文件不一致，已自动覆盖`"
+
+三问验证：
+- **问题存在吗？** 是。22:00 + 23:00 两个样本 + 用户确认"存在很久了，只是没注意"。
+- **哪个改动引入？** **不是** V37.8.10 引入。追溯到 V37.8.1：preflight_check.sh 加了 status.json 合法分叉豁免，但 auto_deploy.sh 的等价 drift 循环**没有同步加**。遗漏至今。
+- **最小修复？** auto_deploy drift 循环镜像同款豁免。
+
+### 8.1 新血案因果链（与 V37.8.10 对比）
+
+```
+每小时整点 (minute<2)  [auto_deploy cron]
+     │
+     ├─ for each file in FILE_MAP:
+     │    md5(repo/SRC) vs md5(runtime/DST)
+     │
+     ├─ SRC = "status.json"
+     │    ├─ runtime 由 kb_status_refresh cron 每小时重写 health/quality → 永远和 repo 不等
+     │    ├─ preflight_check.sh:207 已豁免 ✅
+     │    └─ auto_deploy.sh:319 **未豁免** ❌
+     │
+     ├─ md5 不一致 → cp repo/status.json -> runtime/.kb/status.json
+     │    ↑ **清空 runtime 数据**（覆盖 health/last_refresh/stale_jobs 等）
+     │
+     ├─ DRIFT=1 → quiet_alert("⚠️ 漂移检测: 修复 1 个...")
+     │    ↓ [SYSTEM_ALERT] 前缀（V37.4.3）
+     │    ↓ WhatsApp + Discord 推送
+     │
+     └─ 下个整点 kb_status_refresh 再次写入 → 再次 md5 不等 → 恶性循环
+```
+
+### 8.2 MR-4 silent-failure 演出史新形态
+
+| 次数 | 场景 | 形态 |
+|------|------|------|
+| 1-9 | 历次血案 | 错误被吞 / 错误被稀释 |
+| **10** | **本次 V37.8.11** | **expected-behavior 被系统错分类为 error，产出噪声告警** |
+
+关键洞察：**"告警"不等于"有问题"**。如果一个系统把正常现象标为异常，告警就成为噪声；噪声多到一定程度，用户对真正的告警麻木（boy-who-cried-wolf）。这**不是 observability 不足，是 observability 分类错误**——同样会腐蚀系统的自我感知能力。
+
+### 8.3 修复 + INV-DEPLOY-003
+
+`auto_deploy.sh:319` 加入：
+
+```bash
+# V37.8.11: status.json 合法分叉豁免（mirror V37.8.1 preflight 豁免）
+if [[ "$SRC" == "status.json" ]]; then
+    continue
+fi
+```
+
+**保留** new-commit 同步路径（CHANGED_FILES 循环），确保 Claude Code 的 intent 变更（priorities / unfinished / recent_changes）仍能单向下传到 runtime。契约：
+
+> **one-way intent flow (repo → runtime via new-commit) + exempt from two-way drift detection**
+
+INV-DEPLOY-003 5 checks：
+1. preflight 豁免守卫 `if SRC == status.json continue`
+2. preflight 豁免 pass 消息
+3. auto_deploy 豁免关键字 `V37.8.11.*status.json`
+4. auto_deploy `if SRC == status.json continue` 语法结构
+5. FILE_MAP 仍含 status.json（intent 通道不能丢）
+
+### 8.4 元教训
+
+**系统性扫描而非单点修复**。V37.8.1 只给 preflight 加豁免，没扫描 FILE_MAP 的其他消费者（auto_deploy、job_smoke_test、可能还有其他）。未来任何给 drift/deploy 检测加豁免时，应该：
+
+1. 列出 FILE_MAP 的**所有**消费者
+2. 判断每个消费者是否需要同款豁免
+3. 批量应用或显式记录为什么某个消费者不需要
+
+登记为**原则扩展候选**（下次收工时考虑加入原则列表）：
+
+> **原则 #31 候选**：任何 FILE_MAP 或 REQUIRED_VARS 类检查规则的豁免/配置变更，应在**所有消费者**（preflight / auto_deploy / job_smoke_test / 其他扫描脚本）同步更新。修改单点时应显式列出未修改的消费者及其理由。
+
+### 8.5 原则 #15 反思
+
+CLAUDE.md 原则 #15 说：
+
+> **定期像用户一样使用系统** — 不是跑单测，而是在 WhatsApp 上实际问 PA 问题。
+
+本案正是这条原则的反面教材：**开发环境所有单测/治理/preflight/full_regression 全绿，但生产环境用户每天被 24 条噪声告警折磨**。我们的自动化观察不包括"噪声体感"这个维度——只有人真的每天看 WhatsApp 才能感知。
+
+登记为**每周一次 WhatsApp 观察 session（30 min）**的运维动作：专门看告警噪声 / 推送延迟 / 信息密度 / 用户感知。
+
+### 8.6 Mac Mini E2E 验证（待明日）
+
+下一个整点 2026-04-16 00:00（约 30 min 后，如果 auto_deploy 能在 V37.8.11 合并后的 2 分钟内 git pull 到更新）：
+
+- **期望**：auto_deploy 运行但不输出"⚠️ 漂移修复(不一致): status.json..."日志行，不推送 [SYSTEM_ALERT] 告警
+- **验证命令**：`grep "$(date +'%Y-%m-%d')" ~/.openclaw/logs/auto_deploy.log | grep -c "漂移修复.*status.json"` 应为 **0**
+- **若仍有告警**：表明 git pull 未及时，或我的豁免语法有问题——二次排查
+
