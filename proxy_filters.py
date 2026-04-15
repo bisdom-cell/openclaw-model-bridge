@@ -530,6 +530,61 @@ def filter_system_alerts(messages, log_fn=None):
     return filtered, dropped
 
 
+# V37.8.10: max chars of upstream body appended to proxy 502 error_str.
+# Bounds the 502 response size when upstream (adapter) returns long fallback
+# error chains. 500 chars is enough for "ALL 3 FALLBACKS FAILED: ..." messages.
+MAX_UPSTREAM_BODY_CHARS = 500
+
+
+def compose_backend_error_str(exc):
+    """Compose backend error string that exposes upstream (adapter) body.
+
+    V37.8.10 (INV-OBSERVABILITY-001): When adapter returns 502 with JSON body
+    like `{"error": "ALL 1 FALLBACKS FAILED: gemini HTTP 429"}`, urllib raises
+    HTTPError whose `__str__` only yields "HTTP Error 502: Bad Gateway" — the
+    body carrying the real cause is dropped unless we call `.read()`.
+
+    Blood lesson (2026-04-14/15 kb_evening 22:00 连续 2 天告警稀释):
+    Primary Qwen3 circuit breaker OPEN + gemini 429 → adapter body 含具体
+    provider 错误 → proxy `str(e)` 丢弃 body → kb_evening 告警只剩"HTTP 502:
+    Bad Gateway"。详见 ontology/docs/cases/kb_evening_fallback_quota_chain_case.md
+
+    Contract:
+      - Always returns str(exc) at minimum (backward-compatible)
+      - If exc.read() returns non-empty body → append " | upstream: <body>"
+      - JSON body → extract "error" field; non-JSON → raw text
+      - Truncate at MAX_UPSTREAM_BODY_CHARS (bounded 502 response size)
+      - Any read/decode failure falls back to str(exc) (fail-open principle:
+        observability enhancement must never cause new failures)
+
+    Pure function at module level. See test_tool_proxy.py::TestComposeBackendErrorStr.
+    """
+    base = str(exc)
+    if not hasattr(exc, "read") or not callable(getattr(exc, "read", None)):
+        return base
+    try:
+        body_bytes = exc.read() or b""
+    except Exception:
+        return base
+    if not body_bytes:
+        return base
+    body_text = body_bytes.decode("utf-8", errors="replace").strip()
+    upstream = ""
+    try:
+        body_json = json.loads(body_text)
+        if isinstance(body_json, dict):
+            upstream = str(body_json.get("error", "")).strip()
+    except (ValueError, TypeError):
+        pass
+    if not upstream:
+        upstream = body_text
+    if not upstream:
+        return base
+    if len(upstream) > MAX_UPSTREAM_BODY_CHARS:
+        upstream = upstream[:MAX_UPSTREAM_BODY_CHARS] + "...[truncated]"
+    return f"{base} | upstream: {upstream}"
+
+
 def truncate_messages(messages, max_bytes=MAX_REQUEST_BYTES, last_prompt_tokens=0):
     """截断旧消息以控制请求体大小和 token 用量。
 

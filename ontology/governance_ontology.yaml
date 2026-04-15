@@ -2528,6 +2528,122 @@ invariants:
               assert "---" not in ct, f"block {i} cn_title 含分隔符残留: {ct}"
               assert "价值" not in ct, f"block {i} cn_title 串到价值行: {ct}"
 
+  - id: INV-OBSERVABILITY-001
+    name: llm-error-chain-is-transparent-across-proxy-and-client
+    meta_rule: MR-4
+    verification_layer: [declaration, runtime]
+    severity: high
+    declaration: |
+      LLM 调用链（client → proxy:5002 → adapter:5001 → upstream LLM）中任何
+      一跳返回 HTTP 错误时，真实错误原因必须透传到最下游的 client，不得在中间
+      层被稀释为"HTTP 502: Bad Gateway"状态短语。
+        (1) proxy_filters.py 必须定义 compose_backend_error_str(exc) 纯函数，
+            对 HTTPError 读取 response body 并拼进 error 字符串（失败 fail-open）
+        (2) tool_proxy.py 的 except Exception 分支必须 import 并调用
+            compose_backend_error_str，不得直接 str(e)
+        (3) kb_review_collect.py 必须定义 _compose_http_reason(http_error)
+            纯函数（相同语义 client 侧版本）
+        (4) call_llm 的 urllib.error.HTTPError 分支必须调 _compose_http_reason，
+            不得直接 return f"HTTP {e.code}: {e.reason}"
+        (5) 两侧 helper 都必须有 MAX_UPSTREAM_BODY_CHARS 常量控制上限
+            （避免告警消息超出 WhatsApp 4000 字符限制）
+        (6) test_tool_proxy.py + test_kb_review.py 各自提供回归测试锁定
+    design_decision: |
+      2026-04-14/15 连续 2 天 kb_evening 22:00 告警"HTTP 502: Bad Gateway"，
+      用户无法从告警判断根因。Mac Mini 日志显示真实原因是 primary Qwen3
+      circuit breaker OPEN + fallback gemini HTTP 429 quota exhausted。但
+      adapter→proxy→client 三跳中每一跳都把上游错误 body 丢弃：
+        - adapter: _send_json(502, {"error": "ALL 1 FALLBACKS FAILED: gemini 429"})
+        - proxy:   urllib.error.HTTPError → str(e) → "HTTP Error 502: Bad Gateway"
+                   body 从未被 e.read() 提取，wfile.write(json.dumps({"error": str(e)}))
+        - client:  rc.call_llm HTTPError.reason → "Bad Gateway"，body 再次丢弃
+      结果：用户告警"HTTP 502: Bad Gateway"，真实原因经过 3 次稀释完全不可见。
+      MR-4 silent-failure 第 9 次演出：错误没被吞，只是内容被稀释到无意义。
+
+      修复契约：proxy 层和 client 层都必须读 HTTPError.read() body。两层修复
+      缺一不可——只改 client 只能看到 proxy 的 "HTTP Error 502"，看不到
+      adapter 的 "gemini 429"。
+    blood_lessons:
+      - "2026-04-14/15 V37.8.10: kb_evening 22:00 连续 2 天告警'HTTP 502: Bad Gateway'，真实原因 primary 断路器 OPEN + gemini 429 quota 耗尽被三层稀释；MR-4 第 9 次演出（错误被稀释而非吞）"
+    checks:
+      - name: "proxy_filters.py 定义 compose_backend_error_str"
+        check_type: file_contains
+        file: proxy_filters.py
+        pattern: 'def compose_backend_error_str\(exc\)'
+      - name: "proxy_filters.py 定义 MAX_UPSTREAM_BODY_CHARS 常量"
+        check_type: file_contains
+        file: proxy_filters.py
+        pattern: 'MAX_UPSTREAM_BODY_CHARS\s*='
+      - name: "proxy_filters helper 读 exc.read() body"
+        check_type: file_contains
+        file: proxy_filters.py
+        pattern: 'body_bytes\s*=\s*exc\.read\(\)'
+      - name: "proxy_filters helper 有 fail-open 契约 (try/except)"
+        check_type: file_contains
+        file: proxy_filters.py
+        pattern: 'return base'
+      - name: "tool_proxy.py import compose_backend_error_str"
+        check_type: file_contains
+        file: tool_proxy.py
+        pattern: 'compose_backend_error_str'
+      - name: "tool_proxy.py 不重新定义 helper（MR-8: 必须 import）"
+        check_type: file_not_contains
+        file: tool_proxy.py
+        pattern: 'def compose_backend_error_str'
+      - name: "tool_proxy.py except 分支调 compose_backend_error_str"
+        check_type: file_contains
+        file: tool_proxy.py
+        pattern: 'error_str\s*=\s*compose_backend_error_str\(e\)'
+      - name: "kb_review_collect.py 定义 _compose_http_reason"
+        check_type: file_contains
+        file: kb_review_collect.py
+        pattern: 'def _compose_http_reason\(http_error\)'
+      - name: "kb_review_collect.py 定义 MAX_UPSTREAM_BODY_CHARS 常量"
+        check_type: file_contains
+        file: kb_review_collect.py
+        pattern: 'MAX_UPSTREAM_BODY_CHARS\s*='
+      - name: "kb_review call_llm HTTPError 分支调 _compose_http_reason"
+        check_type: file_contains
+        file: kb_review_collect.py
+        pattern: 'return False, "", _compose_http_reason\(e\)'
+      - name: "V37.8.10 runtime: proxy helper 真实读 HTTPError body + extract error 字段"
+        check_type: python_assert
+        code: |
+          import sys, os, io, json
+          import urllib.error
+          sys.path.insert(0, ".")
+          from proxy_filters import compose_backend_error_str
+          # 模拟 2026-04-15 22:00 实际产生的 adapter 错误 body
+          body = json.dumps({"error": "ALL 1 FALLBACKS FAILED: gemini HTTP 429"}).encode()
+          fp = io.BytesIO(body)
+          e = urllib.error.HTTPError("http://adapter:5001", 502, "Bad Gateway", {}, fp)
+          result = compose_backend_error_str(e)
+          assert "upstream:" in result, f"upstream body not extracted: {result}"
+          assert "gemini" in result, f"gemini not in result: {result}"
+          assert "429" in result, f"429 not in result: {result}"
+      - name: "V37.8.10 runtime: kb_review helper 真实读 HTTPError body + fail-open on exception"
+        check_type: python_assert
+        code: |
+          import sys, os, io, json
+          import urllib.error
+          sys.path.insert(0, ".")
+          import kb_review_collect as m
+          body = json.dumps({"error": "ALL 1 FALLBACKS FAILED: gemini HTTP 429"}).encode()
+          fp = io.BytesIO(body)
+          e = urllib.error.HTTPError("http://proxy:5002", 502, "Bad Gateway", {}, fp)
+          reason = m._compose_http_reason(e)
+          assert "HTTP 502" in reason
+          assert "upstream:" in reason
+          assert "gemini" in reason
+          assert "429" in reason
+          # Fail-open: e.read 抛异常也不炸
+          body2 = b"whatever"
+          fp2 = io.BytesIO(body2)
+          e2 = urllib.error.HTTPError("http://proxy", 502, "Bad Gateway", {}, fp2)
+          e2.read = lambda: (_ for _ in ()).throw(RuntimeError("boom"))
+          reason2 = m._compose_http_reason(e2)
+          assert "HTTP 502" in reason2, "fail-open contract violated"
+
 # ═══════════════════════════════════════════════════════════════════════
 # 4. 可执行元规则（Phase 0）— 自动发现缺失不变式
 #    只扫描结构化数据源，不解析自然语言
@@ -2691,7 +2807,7 @@ meta_rule_discovery:
 # 5. 审计元数据
 # ═══════════════════════════════════════════════════════════════════════
 audit_metadata:
-  version: "3.15"
+  version: "3.16"
   created: "2026-04-07"
   upgraded: |
     v3.0 → v3.1: 通知路径治理(INV-NOTIFY-003/004) + 错误可观测性(MRD-ERROR-001) + 效果层启动(MRD-NOTIFY-002)
@@ -2705,13 +2821,14 @@ audit_metadata:
     v3.7 → v3.8: V37.7 双跑审计闭环 — (a) MR-8 "copy-paste-is-a-bug-class" 从 candidate 正式形式化进入 meta_rules (INV-EVENING-001 重新归属); (b) MR-9 "state-writes-go-through-helper-not-raw-redirect" 新增 (MR-4 上游预防层, 禁止 shell `>>` 直写持久化 state 文件, 必须走 kb_append_source.sh / kb_write.sh 等 helper); (c) INV-SRC-001 重新归属 MR-9 并新增 2 个 catch-all 运行时 scan (任何位置 `>> "$KB_SRC"` + 任何 `>> sources/*.md` 路径); (d) INV-DEDUP-002 新增 (kb-dedup-pre-filters-dangling-index-entries, MR-4 第 4 次演出 — dangling index refs 被误判为 duplicate 并在 --apply 时删除历史); (e) INV-GOV-001 check 2 重构去掉 JSON_MODE global mutation (依赖注入 print_results(json_mode=False) 参数); (f) run_discussions.sh V37.6 P0-2 第 16 处漏网修复 (bucket 1, MR-4 第 5 次演出); (g) audit_log.verify_chain JSON parse error prev_hash 级联 bug 修复 (不再让解析错误静默传播到下一行 prev check); (h) kb_evening "今日笔记" label semantics 修复 (count_today_notes filename prefix 扫描 vs 历史累计 note_count)
     v3.8 → v3.9: V37.8 MR-6 深度补齐 + MRD-NOTIFY-002 语义修复 — (a) 7 个 critical 单层不变式全部补第二层验证: INV-TOOL-001 (+declaration: proxy_filters.py 静态引用 MAX_TOOLS), INV-TOOL-002 (元数据标签修正，已有双层未声明), INV-DEPLOY-002 (+runtime: shlex tokenize AST 扫描 auto_deploy.sh 无 crontab 写入 token 序列), INV-CRON-003 (+declaration: _cron_cmd_invokes 精确匹配器源码守卫), INV-ENV-002 (+declaration: preflight REQUIRED_VARS 必含 OPENCLAW_PHONE + YAML 占位号字面量反例守卫), INV-DREAM-002 (+runtime: SKIP_MAP_LOOPS 赋值行号必须在 Phase 1a/1b 门控之前), INV-CACHE-002 (+runtime: 真跑 md5 对照同内容不同 mtime 的两个 tempfile hash 相等 + 不同内容 hash 不等); (b) INV-LAYER-001 新增 (critical-invariants-have-two-layers, meta_rule=MR-6, 把 MRD-LAYER-001 的 warn 升级为 hard-enforcing invariant — 未来任何新增 critical 不变式只要 <2 层就直接 fail); (c) MRD-NOTIFY-002 检测器重写 — 原实现只 grep `--topic X` 字符串但 32 个 job 中 28 个 bypass notify.sh 直接走 `DISCORD_CH_<X>`，导致 4-6 个频道长期被误报 silent。新实现两层: source layer (dev + full 都跑, 扫 jobs/*/run_*.sh 接受 `--topic T` 或 `DISCORD_CH_<T_upper>` 任一 caller) + activity layer (仅 --full, 用 notify_queue/jobs cache mtime 而非字符串 grep)
     v3.9 → v3.10: V37.8.4 finance_news X 僵尸账号血案 — INV-X-001 新增 (syndication-account-must-have-fresh-tweets, meta_rule=MR-10, severity=high) 锁定 5 层防御: parser 检测 diag['total']>0 且 100% 超窗口 + ⚠️ ZOMBIE嫌疑 诊断前缀 + 独立 zombies_${DAY}.txt 文件 + 3 天 comm -12 连续告警 + 7 个已确认僵尸 handle (Reuters/WorldBank/BrookingsInst/caixin/yicaichina/ChannelNewsAsia/straits_times) file_not_contains 守卫。CLAUDE.md 原则 #27 升级强制条款 "X 账号健康 ≠ HTTP 200" — 协议层绿灯不等于内容层健康，Syndication API 对 embed-disabled 或停更账号返回 stale 快照 (最老 3364 天)。本次是 MR-10 (V37.8.3 引入) 被违反后的正向兑现: 血案本身成为元规则执行力的训练样本。
+    v3.15 → v3.16: V37.8.10 LLM 错误链透明度血案闭环 — INV-OBSERVABILITY-001 新增 (llm-error-chain-is-transparent-across-proxy-and-client, meta_rule=MR-4, severity=high, verification_layer=[declaration, runtime], 12 checks). 2026-04-14/15 连续 2 天 kb_evening 22:00 告警"HTTP 502: Bad Gateway"，用户无从判断根因。Mac Mini 证据显示真实原因是 primary Qwen3 circuit breaker OPEN + gemini HTTP 429 quota exhausted，但 adapter→proxy→client 三跳每跳都把 upstream 错误 body 丢弃：adapter 返回 `{"error": "ALL 1 FALLBACKS FAILED: gemini 429"}`，proxy `str(HTTPError)` 只拿"HTTP Error 502: Bad Gateway"不读 body，client `e.reason` 再次丢 body，告警被三层稀释。MR-4 silent-failure 第 9 次演出（错误被稀释而非吞）。双侧结构修复：proxy_filters.compose_backend_error_str(exc) 纯函数读 exc.read() body + JSON error 字段提取 + MAX_UPSTREAM_BODY_CHARS=500 截断 + fail-open try/except 契约；kb_review_collect._compose_http_reason(http_error) 镜像语义 client 侧。架构契约 MR-8 兑现：helper 放在 proxy_filters（纯函数无网络依赖）而非 tool_proxy.py（import 会启动 HTTP server），让 test_tool_proxy 可直接导入测试。21 单测 (TestComposeHttpReason 10 + TestComposeBackendErrorStr 11) 覆盖：JSON error 提取 / 血案实际场景 / 非 JSON raw text fallback / empty body 向后兼容 / 超长 body 截断 / utf8 decode errors replace / e.read 抛异常 fail-open / tool_proxy.py import guard 禁止重新定义 helper。governance v3.15→v3.16, 38→39 invariants, 168+12=180 → 192 checks (dev), meta_rules 12 不变。Fix D 配套: Mac Mini adapter 进程从 V36 (0.36.0) 首次重启到 V37.8.9, /health version 跳到 0.37.8.9, V3 capability routing 真正生效（但 fallback_chain 仍只返回 gemini，说明需要单独配置第二 fallback provider，登记为 V37.8.11 候选）。
     v3.14 → v3.15: V37.8.9 MR-11/MR-12 运行时检测落地 — 两个新 MRD 实现：(a) MRD-LOG-STDERR-001 扫所有 shell 文件的 log/debug/status/warn/info/notice 函数定义，识别 echo 无 >&2 的违规（支持单行+多行函数体）+ 白名单豁免 11 个用户交互诊断工具（cron_doctor/preflight/job_smoke_test/full_regression/daily_ops_report/health_check/smoke_test/quickstart/gameday/governance_audit_cron/kb_status_refresh），其余 38 个 shell 文件严格 enforce (b) MRD-LLM-PARSER-POSITIONAL-001 扫 LLM 调用脚本（jobs/*/run_*.sh + kb_*.{py,sh} + run_hn_fixed.sh + jobs/**/*.py 共 37 个）识别 lines[i+N]/i += N (N≥2)/var.split()[N] 三种反模式 + 跨行 docstring 状态机豁免（V37.8.9 edge case fix）+ test_*.py assertNotIn 断言豁免。i += 1 不视为违反（合法 while 遍历），只匹配 i += 2 以上跳多行（V37.8.7 血案 i+=3 核心模式）。批量修复 19 个 job 脚本的 log() 函数（sed 添加 >&2）：acl_anthology/ai_leaders_x/arxiv_monitor/dblp/finance_news/freight_watcher/github_trending/hf_papers/karpathy_x/ontology_sources/openclaw_official(run+run_discussions)/pwc/rss_blogs/semantic_scholar + kb_evening/kb_inject/kb_review/run_hn_fixed。governance_checker.py 的 mr_used 计数器扩展为同时收集 invariants 和 meta_rule_discovery 引用的元规则——从 10/12 升到 12/12 覆盖。32 单测 test_governance_mrd_v8_9.py 加入 full_regression：TestIsEchoToStdout(5) + TestScanShellLogFunctions(7) + TestDiscoverLogStderr(3) + TestPositionalPatterns(9) + TestDiscoverLlmParser(2) + TestMRDDeclarationInYaml(4) + 2 集成测试。MR-11/MR-12 从 V37.8.8 的"纯声明"状态升级为"运行时 CI 检测 + enforcement"状态——未来任何 shell 新函数或 LLM 解析器违反这两条元规则都会被 governance 审计自动捕获。
     v3.13 → v3.14: V37.8.8 双元规则正式立案 — MR-11 shell-function-output-must-go-to-stderr-if-not-returned-value (源自 V37.8.6 Dream log→stdout→cache→LLM 幻觉链) + MR-12 llm-output-parser-must-be-key-based-not-positional (源自 V37.8.7 ontology_sources i+=3 级联错位)。两条元规则从"案例教训"升级为"ontology 架构硬规则"。MR-11 把"shell 函数 log 必须写 stderr"从纪律问题升级为 CI 可扫描的违反模式（正则 `log\(\) { echo ... [^&]2? ... }`）。MR-12 把"LLM 输出解析必须 key-based"从工程经验升级为违反模式（正则 `lines\[i\+[0-9]\]` / `i \+= [0-9]+` / `split()[0-9]`）。MR-12 scan 覆盖 15 个 LLM 解析器（2026-04-15 扫描结果）：blood 受害者 kb_dream/ontology_sources 已修；7 个论文类 job 共享 state-machine key-based + fallback 模式是参考实现；ai_leaders_x 用 pure dict key-based；run_hn_fixed 用 JSON+regex fallback；其余用 markdown pass-through。audit_metadata.meta_rules 从 10 → 12。待 V37.8.9 迭代：MRD-LOG-STDERR-001 和 MRD-LLM-PARSER-POSITIONAL-001 运行时扫描落地（正则扫 shell heredoc + Python 文件），让两条元规则从"声明层"升级为"CI 可检测层"。
     v3.12 → v3.13: V37.8.7 ontology_sources 推送格式错位血案 — INV-ONTOLOGY-001 新增 (ontology-sources-parser-must-be-key-based-not-positional, meta_rule=MR-4, severity=high, verification_layer=[declaration, runtime], 7 checks). 2026-04-15 用户 WhatsApp 收到 ontology_sources 推送严重错位：第 2 篇 cn_title 显示为 *---*、第 3 篇 cn_title 显示为 *价值：⭐⭐⭐⭐*。根因：原解析器用严格位置 (lines[i], lines[i+1], lines[i+2]) + i+=3 步进 — LLM 漏一行"要点"或多一行空白就让所有后续条目的 cn_title/highlight/stars 全部右移一格级联污染。修复：抽到独立模块 jobs/ontology_sources/ontology_parser.py（纯函数 parse_llm_blocks 可单测，避开 V37.5 heredoc-only 不可测血案），按 separator 切块 + 块内 key-based prefix 解析，单块缺行不影响其他块。runtime python_assert 真跑用户实际看到的污染场景断言"缺要点不级联"。24 单测 (test_ontology_parser.py)：TestNormalCases(4) + TestBloodLessonRegression(5) + TestSeparatorVariants(5) + TestLLMOutputVariants(5) + TestShellScriptIntegration(4) + TestActualBloodLessonScenario(1)。MR-4 silent-failure 第 8 次演出（输出"看起来正常" 6 字段都在但语义错乱）。auto_deploy FILE_MAP 补齐 ontology_parser.py。
     v3.11 → v3.12: V37.8.6 Dream 自引用幻觉血案 — INV-DREAM-003 新增 (dream-log-cannot-pollute-cache-nor-fabricate-platform-crises, meta_rule=MR-4, severity=critical, verification_layer=[declaration, runtime], 16 checks). 2026-04-15 03:00 Dream run 出现 4 次 Bad JSON 400 (adapter 收到破损 JSON)，但 Dream 仍产出完整"Hugging Face 平台危机"分析，用户察觉 Signal(Papers with Code 沉默)↔Action(监控 Hugging Face) 主题断裂后上报。三层根因：(a) scraped 内容含 surrogate UTF-8 → json.dump + utf-8 file write → UnicodeEncodeError → body_file 截断 → adapter.py:386 返回 400 Bad JSON (b) kb_dream.sh log() 用 `echo` 写 stdout → signals=$(llm_call ...) 命令替换捕获 log 行进 signals → cache file 被"LLM raw response: Error code 400 Bad JSON..."污染 (c) Reduce cache-only fast path 把错误日志注入 LLM 上下文 → LLM 基于这些字样自动编造"Hugging Face 危机"叙事 = 原则 #23 链式幻觉 + MR-4 silent failure 第 7 次演出。四层结构修复（defense-in-depth）：log→stderr 阻断 stdout 污染通道 + _sanitize(U+D800-U+DFFF → U+FFFD) 防编码炸裂 + file open 显式 encoding='utf-8' errors='replace' 第二防线 + REDUCE/CHUNK1/2/3 system prompt 四块加反污染守卫 (禁止把 HTTP 错误码/Python 异常/错误页 HTML/U+FFFD 当外部信号，禁止基于这些字样推断 Hugging Face/GitHub/npm 等平台状态)。runtime python_assert 真跑 sanitize 五场景 (孤立高位/低位代理/正常串/代理范围边界/sanitize 后 json+utf-8 编码不炸)。19 单测 (TestLogGoesToStderr×2 + TestSanitizeSurrogates×7 + TestShellSanitizeImplementation×5 + TestAntiPollutionSystemPrompt×3 + TestShellScriptIntegrity×1 + TestLogDefHasCommentMeta×1)。
     v3.10 → v3.11: V37.8.5 INV-X-001 升级三层检测 (血案二次演出: V37.8.4 修复本身埋盲区) — V37.8.4 收工 Mac Mini E2E 即发现 2 个边缘：CNS1952 98/99 超窗口 + 1 过短老化率 99% 但未触发严格 old==total (MR-10 第 2 次演出：修复会埋坑)；SingTaoDaily 0-tweet stub (embed disabled 返回空骨架) 被 total>0 门槛绕过完全不标记。V37.8.5 修复：(1) 检测逻辑独立为 jobs/finance_news/finance_news_zombie.py 纯函数模块 (classify_zombie(diag, count)); (2) 三层 tier: "stub" (no_data=0 + total=0) + "stale" (≥90% 老化 + count=0 守卫防止低频活跃误报)，整数比较 old*10 >= total*9 避免浮点; (3) 24 单测锁定三层 + 守卫 + shell 集成 + auto_deploy FILE_MAP; (4) verification_layer 从 [declaration] 升级到 [declaration, runtime] (MR-6 遵循: INV-X-001 现在有 python_assert 真跑 5 个 tier 场景); (5) shell 脚本禁止内嵌 inline fallback (防模块缺失时静默降级回 V37.8.4 逻辑 — MR-8 copy-paste-is-a-bug-class 兑现)。诊断行 tier 区分 ⚠️ ZOMBIE嫌疑[stub] vs [stale]，便于日志定位。
-  total_invariants: 38  # +INV-ONTOLOGY-001
-  total_checks: 182     # +INV-ONTOLOGY-001(+7): parse_llm_blocks 函数 + separator 切块 + key-based 字段识别 + export ONTOLOGY_JOBS_DIR + import 模块 + auto_deploy FILE_MAP + runtime python_assert 缺要点不级联
+  total_invariants: 39  # +INV-OBSERVABILITY-001
+  total_checks: 194     # +INV-OBSERVABILITY-001(+12): proxy helper 定义/常量/read body/fail-open + tool_proxy import guard×3 + kb_review helper 镜像×3 + runtime python_assert proxy×1 + runtime python_assert kb_review×1
   meta_rules: 12        # MR-1~MR-12 (MR-11 log→stderr: V37.8.6 Dream 血案; MR-12 llm-output-key-based: V37.8.7 ontology_sources 血案)
   meta_rule_discovery_count: 6   # Phase 0: registry + env + notify-topic + layer-depth + error-suppression + notify-activity
   check_types_used: [python_assert, file_contains, file_not_contains, env_var_exists, command_succeeds, log_activity_check]

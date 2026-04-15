@@ -328,6 +328,125 @@ class TestCallLlm(unittest.TestCase):
 
 
 # ══════════════════════════════════════════════════════════════════════
+# 4b. V37.8.10 _compose_http_reason — upstream body exposure
+# ══════════════════════════════════════════════════════════════════════
+class TestComposeHttpReason(unittest.TestCase):
+    """Blood lesson regression (2026-04-14/15 kb_evening 22:00):
+    告警 "HTTP 502: Bad Gateway" 丢弃了 proxy 的 upstream body，
+    真实原因 "gemini 429 quota exhausted" 对用户不可见。
+    """
+
+    def _make_http_error(self, code, reason, body_bytes):
+        import urllib.error
+        import io
+        fp = io.BytesIO(body_bytes) if body_bytes is not None else None
+        return urllib.error.HTTPError("http://proxy:5002", code, reason, {}, fp)
+
+    def test_json_error_field_extracted(self):
+        """adapter-style JSON body → upstream 字段拼进 reason"""
+        body = json.dumps({"error": "ALL 1 FALLBACKS FAILED: gemini HTTP 429"}).encode()
+        e = self._make_http_error(502, "Bad Gateway", body)
+        reason = m._compose_http_reason(e)
+        self.assertIn("HTTP 502", reason)
+        self.assertIn("Bad Gateway", reason)
+        self.assertIn("upstream:", reason)
+        self.assertIn("gemini HTTP 429", reason)
+
+    def test_blood_lesson_kb_evening_alert_actually_contains_gemini_429(self):
+        """如果 2026-04-14/15 血案场景再演，用户告警会看到 gemini 429。"""
+        body = json.dumps({
+            "error": "HTTP Error 502: Bad Gateway | upstream: ALL 1 FALLBACKS FAILED: gemini HTTP Error 429: Too Many Requests"
+        }).encode()
+        e = self._make_http_error(502, "Bad Gateway", body)
+        reason = m._compose_http_reason(e)
+        self.assertIn("gemini", reason)
+        self.assertIn("429", reason)
+        self.assertIn("Too Many Requests", reason)
+
+    def test_non_json_body_raw_text_fallback(self):
+        """adapter 返回 text/html 错误页时 fallback 到原始文本"""
+        body = b"<html><body>502 Bad Gateway nginx/1.21.0</body></html>"
+        e = self._make_http_error(502, "Bad Gateway", body)
+        reason = m._compose_http_reason(e)
+        self.assertIn("502 Bad Gateway nginx", reason)
+
+    def test_empty_body_falls_back_to_status_phrase(self):
+        """body 为空时保持原行为（向后兼容）"""
+        e = self._make_http_error(502, "Bad Gateway", b"")
+        reason = m._compose_http_reason(e)
+        self.assertEqual(reason, "HTTP 502: Bad Gateway")
+        self.assertNotIn("upstream:", reason)
+
+    def test_none_fp_falls_back_gracefully(self):
+        """HTTPError with fp=None → read() 返回空，reason 无 upstream 字段"""
+        e = self._make_http_error(502, "Bad Gateway", None)
+        reason = m._compose_http_reason(e)
+        # HTTPError.read() with None fp may raise AttributeError or return b""
+        # 契约: 任何失败都 fallback 到状态短语，不得崩溃
+        self.assertIn("HTTP 502", reason)
+
+    def test_body_read_exception_is_caught(self):
+        """e.read() 抛异常时 reason 仍包含状态短语（fail-open 契约）"""
+        e = self._make_http_error(502, "Bad Gateway", b"whatever")
+        # Sabotage: make .read() throw
+        def boom():
+            raise RuntimeError("disk on fire")
+        e.read = boom
+        reason = m._compose_http_reason(e)
+        self.assertIn("HTTP 502", reason)
+        self.assertIn("Bad Gateway", reason)
+        # Must not crash test runner
+        self.assertIsInstance(reason, str)
+
+    def test_body_over_400_chars_truncated(self):
+        """超长 body 截断到 MAX_UPSTREAM_BODY_CHARS + truncation marker"""
+        long_err = "x" * 1000
+        body = json.dumps({"error": long_err}).encode()
+        e = self._make_http_error(502, "Bad Gateway", body)
+        reason = m._compose_http_reason(e)
+        self.assertIn("[truncated]", reason)
+        # 总长度受控：status phrase + upstream budget + marker
+        self.assertLess(len(reason), m.MAX_UPSTREAM_BODY_CHARS + 100)
+
+    def test_utf8_decode_errors_replaced(self):
+        """non-utf8 bytes → errors='replace' → reason 仍可读"""
+        # Invalid UTF-8 sequence
+        body = b'\xff\xfe\x00garbage' + json.dumps({"error": "valid_after_garbage"}).encode()
+        e = self._make_http_error(502, "Bad Gateway", body)
+        reason = m._compose_http_reason(e)
+        # No crash, reason contains status phrase
+        self.assertIn("HTTP 502", reason)
+
+    def test_json_without_error_field_falls_back_to_raw(self):
+        """JSON 合法但无 error 字段 → upstream = raw text (不遗漏信息)"""
+        body = json.dumps({"detail": "something else", "code": 502}).encode()
+        e = self._make_http_error(502, "Bad Gateway", body)
+        reason = m._compose_http_reason(e)
+        # Raw JSON text fallback contains the fields
+        self.assertIn("detail", reason)
+
+    def test_call_llm_integration_http_error_with_body(self):
+        """call_llm 端到端: HTTPError + body → reason 正确拼接 upstream"""
+        import urllib.error
+        import io
+        body = json.dumps({"error": "gemini: HTTP Error 429: Too Many Requests"}).encode()
+
+        def raise_http_with_body(*args, **kwargs):
+            fp = io.BytesIO(body)
+            raise urllib.error.HTTPError(
+                "http://proxy", 502, "Bad Gateway", {}, fp
+            )
+
+        with patch("urllib.request.urlopen", side_effect=raise_http_with_body):
+            ok, content, reason = m.call_llm("test prompt")
+        self.assertFalse(ok)
+        self.assertEqual(content, "")
+        self.assertIn("HTTP 502", reason)
+        self.assertIn("gemini", reason)
+        self.assertIn("429", reason)
+
+
+# ══════════════════════════════════════════════════════════════════════
 # 5. run — orchestrator fail-fast 契约
 # ══════════════════════════════════════════════════════════════════════
 class TestRunOrchestrator(unittest.TestCase):

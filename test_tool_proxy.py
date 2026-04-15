@@ -13,6 +13,7 @@ from proxy_filters import (
     truncate_messages, build_sse_response, should_strip_tools,
     classify_complexity, filter_system_alerts, SYSTEM_ALERT_MARKER,
     flatten_content,
+    compose_backend_error_str, MAX_UPSTREAM_BODY_CHARS,
     TOOL_PARAMS, VALID_BROWSER_PROFILES,
     ALLOWED_TOOLS, ALLOWED_PREFIXES,
     CUSTOM_TOOLS, CUSTOM_TOOL_NAMES,
@@ -1695,6 +1696,123 @@ class TestKbDedupH2Scoped(unittest.TestCase):
             finally:
                 self.kb_dedup.KB_BASE = orig_base
                 self.kb_dedup.NOTES_DIR = orig_notes
+
+
+# ══════════════════════════════════════════════════════════════════════
+# V37.8.10 compose_backend_error_str — INV-OBSERVABILITY-001
+# Blood lesson (2026-04-14/15 kb_evening 22:00):
+#   adapter 返回 502 + body {"error": "ALL 1 FALLBACKS FAILED: gemini 429"}
+#   → proxy urllib 抛 HTTPError → str(e) 只给 "HTTP Error 502: Bad Gateway"
+#   → kb_evening 告警丢失真实原因 "gemini 429 quota exhausted"
+# ══════════════════════════════════════════════════════════════════════
+class TestComposeBackendErrorStr(unittest.TestCase):
+    def _make_http_error(self, code, reason, body_bytes):
+        import urllib.error
+        import io
+        fp = io.BytesIO(body_bytes) if body_bytes is not None else None
+        return urllib.error.HTTPError("http://adapter:5001", code, reason, {}, fp)
+
+    def test_json_error_field_extracted_into_upstream(self):
+        body = json.dumps({"error": "ALL 1 FALLBACKS FAILED: gemini HTTP 429"}).encode()
+        e = self._make_http_error(502, "Bad Gateway", body)
+        result = compose_backend_error_str(e)
+        self.assertIn("upstream:", result)
+        self.assertIn("gemini HTTP 429", result)
+        self.assertIn("ALL 1 FALLBACKS FAILED", result)
+
+    def test_blood_lesson_kb_evening_scenario(self):
+        """复现 2026-04-15 22:00 实际产生的 adapter 错误 body。"""
+        body = json.dumps({
+            "error": "gemini (gemini-2.5-flash): HTTP Error 429: Too Many Requests"
+        }).encode()
+        e = self._make_http_error(502, "Bad Gateway", body)
+        result = compose_backend_error_str(e)
+        self.assertIn("gemini", result)
+        self.assertIn("429", result)
+        self.assertIn("Too Many Requests", result)
+
+    def test_non_httperror_exception_returns_str_only(self):
+        """Plain Exception 无 .read() → 原 str(e) 行为（向后兼容）"""
+        e = RuntimeError("backend connection refused")
+        result = compose_backend_error_str(e)
+        self.assertEqual(result, "backend connection refused")
+        self.assertNotIn("upstream:", result)
+
+    def test_httperror_with_empty_body(self):
+        """空 body → 保持原 str(e) 行为"""
+        e = self._make_http_error(502, "Bad Gateway", b"")
+        result = compose_backend_error_str(e)
+        # str(HTTPError) → "HTTP Error 502: Bad Gateway"
+        self.assertIn("502", result)
+        self.assertNotIn("upstream:", result)
+
+    def test_non_json_body_raw_text_fallback(self):
+        """text/html 错误页 → raw text 作 upstream"""
+        body = b"<html><head><title>502 Bad Gateway</title></head></html>"
+        e = self._make_http_error(502, "Bad Gateway", body)
+        result = compose_backend_error_str(e)
+        self.assertIn("upstream:", result)
+        self.assertIn("502 Bad Gateway", result)
+
+    def test_json_without_error_field_falls_back_to_raw(self):
+        """JSON 合法但无 `error` key → 保留原始 JSON 文本"""
+        body = json.dumps({"detail": "something", "code": 502}).encode()
+        e = self._make_http_error(502, "Bad Gateway", body)
+        result = compose_backend_error_str(e)
+        self.assertIn("upstream:", result)
+        self.assertIn("detail", result)
+
+    def test_long_body_truncated_at_max_chars(self):
+        long_err = "x" * 2000
+        body = json.dumps({"error": long_err}).encode()
+        e = self._make_http_error(502, "Bad Gateway", body)
+        result = compose_backend_error_str(e)
+        self.assertIn("[truncated]", result)
+        # upstream 部分不超过 MAX_UPSTREAM_BODY_CHARS + marker
+        upstream_part = result.split("upstream:", 1)[1]
+        self.assertLess(len(upstream_part), MAX_UPSTREAM_BODY_CHARS + 50)
+
+    def test_read_exception_fails_open(self):
+        """e.read() 抛异常 → 静默 fallback 到 str(e)，不让 observability 炸主流程"""
+        e = self._make_http_error(502, "Bad Gateway", b"whatever")
+        def boom():
+            raise RuntimeError("disk on fire")
+        e.read = boom
+        result = compose_backend_error_str(e)
+        # 原 str(e) 行为保留，不崩
+        self.assertIsInstance(result, str)
+        self.assertIn("502", result)
+
+    def test_utf8_replace_does_not_crash(self):
+        """非 utf8 字节 → errors='replace' → 不崩溃"""
+        body = b'\xff\xfe' + json.dumps({"error": "gemini 429"}).encode()
+        e = self._make_http_error(502, "Bad Gateway", body)
+        result = compose_backend_error_str(e)
+        # 不崩就算成功，最起码保留 str(e)
+        self.assertIn("502", result)
+
+    def test_max_upstream_body_chars_constant_value(self):
+        """Regression: 常量值契约（V37.8.10 声明为 500）"""
+        self.assertEqual(MAX_UPSTREAM_BODY_CHARS, 500)
+
+    def test_tool_proxy_imports_helper_from_filters(self):
+        """Source-level guard: tool_proxy.py 必须 import 而非重新定义 helper。
+
+        V37.8.10 架构契约: proxy_filters 是纯函数无网络依赖，tool_proxy 是 HTTP
+        层。helper 放在 proxy_filters 才能被 test_tool_proxy 导入测试（因 import
+        tool_proxy 会启动 HTTP server）。任何未来在 tool_proxy.py 内重新定义该
+        helper 的重构都会让它不可测，此 guard 拒绝回退。
+        """
+        import os
+        path = os.path.join(os.path.dirname(__file__), "tool_proxy.py")
+        with open(path, encoding="utf-8") as f:
+            src = f.read()
+        self.assertIn("compose_backend_error_str", src, "tool_proxy 必须 import compose_backend_error_str")
+        # Must be imported, not redefined
+        self.assertNotIn("def compose_backend_error_str", src,
+            "tool_proxy 不得重新定义 compose_backend_error_str — 必须从 proxy_filters import")
+        self.assertNotIn("def _compose_backend_error_str", src,
+            "tool_proxy 不得重新定义 _compose_backend_error_str — 必须从 proxy_filters import")
 
 
 if __name__ == "__main__":
