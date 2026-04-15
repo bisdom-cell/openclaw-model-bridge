@@ -212,6 +212,79 @@ meta_rules:
       而是"不理解就动手"的问题——如果 Round 1 时先问"之前为什么能通过"，
       就不会走上 5 轮连锁修复的歧路。
 
+  - id: MR-11
+    name: shell-function-output-must-go-to-stderr-if-not-returned-value
+    description: |
+      shell 函数内的诊断/日志/状态输出 (log / debug / status / warn) 必须写到 stderr
+      （`>&2`），**不得写 stdout**。原因：调用方经常用命令替换 `RESULT=$(func ...)`
+      捕获函数的 stdout 作为"返回值"。如果 log 也写 stdout，它会污染 RESULT，
+      然后被当作业务数据向下游传递。
+      只有函数的"真正返回值"（被调用方需要捕获的字符串）才应该写 stdout。
+      所有其他输出一律 `>&2`。
+    violation_patterns:
+      - '^\s*(log|debug|status|warn|info)\(\)\s*\{\s*echo\s+.*[^&]2?\s*[^>&]\s*\}$'  # log 函数 echo 不带 >&2
+      - 'echo\s+"\[.*\]"\s*$'  # 时间戳日志行结尾无重定向（heuristic）
+    enforcement:
+      - "CLAUDE.md 原则待立项（V37.8.8 候选）"
+      - "governance runtime python_assert 扫所有 shell 函数定义"
+    blood_lessons: |
+      2026-04-15 V37.8.6 Dream 血案：kb_dream.sh:109 `log() { echo "[$TS] dream: $1"; }`
+      写 stdout。Map 循环用 `signals=$(llm_call ...)` 命令替换捕获 stdout。llm_call
+      失败时 log() 发出的 "LLM raw response: <HTML>Error code: 400 Bad JSON..."
+      错误日志被捕获进 `$signals` 变量 → 写入 cache → Reduce LLM 读 cache →
+      基于错误字样编造"Hugging Face 平台危机"推送给用户。
+      **一个 `>&2` 就阻断了整条幻觉链。** 这证明 MR-11 不是纪律问题，而是架构硬规则。
+
+  - id: MR-12
+    name: llm-output-parser-must-be-key-based-not-positional
+    description: |
+      解析 LLM 文本输出的代码**不得用严格位置索引**（`lines[i]` / `lines[i+1]` /
+      `lines[i+2]` / `i += N` / `content.split()[0/1/2]`）。LLM 输出永远不能假设
+      格式严格遵守——模型偶尔会：
+        - 漏一行（如漏"要点："）
+        - 多一行空白
+        - 保留 prompt 序号（"文章1：..."）
+        - 把分隔符 (---) 放错位置
+        - 用变体前缀（"标题:"/"中文标题："）
+      任何位置依赖的解析器都会因这些偏差**级联错位**，污染所有后续条目。
+
+      **允许的模式**（按推荐度排序）：
+        1. **JSON/YAML schema 校验**：让 LLM 返回结构化 JSON，validate schema
+        2. **key-based prefix dict**：`line.startswith('字段名：')` 识别字段
+        3. **语义 state-machine**：用特征字符（⭐/---/:) 界定块边界 + pending_*
+           状态机 + 完整块触发后 reset
+        4. **正则直接提取**：`re.search(r'字段:\s*(.+)', content)`
+
+      **强制要求**（所有模式都必须满足）：
+        - 每个字段缺失时必须有 sentinel 默认值（`pending_title or ''`）
+        - 输出层必须有兜底（`cn_title = paper['title']` 用原始数据作 fallback）
+        - 每块相互独立，单块缺字段不影响其他块（无级联）
+
+    violation_patterns:
+      - 'lines\[i\s*[+]\s*[0-9]+\]'           # lines[i+N] 位置索引
+      - '^\s*i\s*\+=\s*[0-9]+\s*$'             # i += N 固定步进（arxiv 的 state-machine 不会出现这个）
+      - 'content\.split\([^)]*\)\[[0-9]+\]'   # split()[0/1/2] 固定索引
+    enforcement:
+      - "CLAUDE.md 原则待立项（V37.8.8 候选）"
+      - "governance runtime python_assert 扫所有 LLM 输出解析 heredoc"
+    blood_lessons: |
+      2026-04-15 V37.8.7 ontology_sources 格式错位血案：
+      `run_ontology_sources.sh:300-313` 用严格位置 `lines[i], lines[i+1], lines[i+2]`
+      + `i += 3` 步进。LLM 第 2 篇漏一行"要点"就让所有后续条目的 (cn_title,
+      highlight, stars) 全部右移一格——用户 WhatsApp 看到 cn_title 显示为
+      `*---*` 和 `*价值：⭐⭐⭐⭐*`。修复：抽到独立模块 ontology_parser.py
+      按 separator 切块 + 块内 key-based prefix 解析，单块缺行不影响其他块。
+
+      V37.8.7 同日扫描所有 15 个 LLM 输出解析器，发现 **7 个论文类 job**
+      (arxiv/semantic_scholar/hf_papers/dblp/pwc/acl_anthology/github_trending
+       + rss_blogs) 已用 state-machine key-based + fallback 模式，是 MR-12
+      合规的参考实现。ai_leaders_x 用 pure dict key-based。run_hn_fixed 用
+      JSON + 正则 fallback。其余脚本 LLM 输出作为 markdown 整段用（不抽字段）。
+
+      **MR-12 与 MR-4 (silent-failure) 的关系**：MR-4 是"问题分类"（输出看起来
+      正常但语义错乱就是 bug），MR-12 是"防御机制"（不用严格位置解析就能从
+      架构层规避这类 silent-failure）。
+
 # ═══════════════════════════════════════════════════════════════════════
 # 3. 不变式（Invariants）— 可执行的声明-执行-验证三元组
 # ═══════════════════════════════════════════════════════════════════════
@@ -2551,7 +2624,7 @@ meta_rule_discovery:
 # 5. 审计元数据
 # ═══════════════════════════════════════════════════════════════════════
 audit_metadata:
-  version: "3.13"
+  version: "3.14"
   created: "2026-04-07"
   upgraded: |
     v3.0 → v3.1: 通知路径治理(INV-NOTIFY-003/004) + 错误可观测性(MRD-ERROR-001) + 效果层启动(MRD-NOTIFY-002)
@@ -2565,12 +2638,13 @@ audit_metadata:
     v3.7 → v3.8: V37.7 双跑审计闭环 — (a) MR-8 "copy-paste-is-a-bug-class" 从 candidate 正式形式化进入 meta_rules (INV-EVENING-001 重新归属); (b) MR-9 "state-writes-go-through-helper-not-raw-redirect" 新增 (MR-4 上游预防层, 禁止 shell `>>` 直写持久化 state 文件, 必须走 kb_append_source.sh / kb_write.sh 等 helper); (c) INV-SRC-001 重新归属 MR-9 并新增 2 个 catch-all 运行时 scan (任何位置 `>> "$KB_SRC"` + 任何 `>> sources/*.md` 路径); (d) INV-DEDUP-002 新增 (kb-dedup-pre-filters-dangling-index-entries, MR-4 第 4 次演出 — dangling index refs 被误判为 duplicate 并在 --apply 时删除历史); (e) INV-GOV-001 check 2 重构去掉 JSON_MODE global mutation (依赖注入 print_results(json_mode=False) 参数); (f) run_discussions.sh V37.6 P0-2 第 16 处漏网修复 (bucket 1, MR-4 第 5 次演出); (g) audit_log.verify_chain JSON parse error prev_hash 级联 bug 修复 (不再让解析错误静默传播到下一行 prev check); (h) kb_evening "今日笔记" label semantics 修复 (count_today_notes filename prefix 扫描 vs 历史累计 note_count)
     v3.8 → v3.9: V37.8 MR-6 深度补齐 + MRD-NOTIFY-002 语义修复 — (a) 7 个 critical 单层不变式全部补第二层验证: INV-TOOL-001 (+declaration: proxy_filters.py 静态引用 MAX_TOOLS), INV-TOOL-002 (元数据标签修正，已有双层未声明), INV-DEPLOY-002 (+runtime: shlex tokenize AST 扫描 auto_deploy.sh 无 crontab 写入 token 序列), INV-CRON-003 (+declaration: _cron_cmd_invokes 精确匹配器源码守卫), INV-ENV-002 (+declaration: preflight REQUIRED_VARS 必含 OPENCLAW_PHONE + YAML 占位号字面量反例守卫), INV-DREAM-002 (+runtime: SKIP_MAP_LOOPS 赋值行号必须在 Phase 1a/1b 门控之前), INV-CACHE-002 (+runtime: 真跑 md5 对照同内容不同 mtime 的两个 tempfile hash 相等 + 不同内容 hash 不等); (b) INV-LAYER-001 新增 (critical-invariants-have-two-layers, meta_rule=MR-6, 把 MRD-LAYER-001 的 warn 升级为 hard-enforcing invariant — 未来任何新增 critical 不变式只要 <2 层就直接 fail); (c) MRD-NOTIFY-002 检测器重写 — 原实现只 grep `--topic X` 字符串但 32 个 job 中 28 个 bypass notify.sh 直接走 `DISCORD_CH_<X>`，导致 4-6 个频道长期被误报 silent。新实现两层: source layer (dev + full 都跑, 扫 jobs/*/run_*.sh 接受 `--topic T` 或 `DISCORD_CH_<T_upper>` 任一 caller) + activity layer (仅 --full, 用 notify_queue/jobs cache mtime 而非字符串 grep)
     v3.9 → v3.10: V37.8.4 finance_news X 僵尸账号血案 — INV-X-001 新增 (syndication-account-must-have-fresh-tweets, meta_rule=MR-10, severity=high) 锁定 5 层防御: parser 检测 diag['total']>0 且 100% 超窗口 + ⚠️ ZOMBIE嫌疑 诊断前缀 + 独立 zombies_${DAY}.txt 文件 + 3 天 comm -12 连续告警 + 7 个已确认僵尸 handle (Reuters/WorldBank/BrookingsInst/caixin/yicaichina/ChannelNewsAsia/straits_times) file_not_contains 守卫。CLAUDE.md 原则 #27 升级强制条款 "X 账号健康 ≠ HTTP 200" — 协议层绿灯不等于内容层健康，Syndication API 对 embed-disabled 或停更账号返回 stale 快照 (最老 3364 天)。本次是 MR-10 (V37.8.3 引入) 被违反后的正向兑现: 血案本身成为元规则执行力的训练样本。
+    v3.13 → v3.14: V37.8.8 双元规则正式立案 — MR-11 shell-function-output-must-go-to-stderr-if-not-returned-value (源自 V37.8.6 Dream log→stdout→cache→LLM 幻觉链) + MR-12 llm-output-parser-must-be-key-based-not-positional (源自 V37.8.7 ontology_sources i+=3 级联错位)。两条元规则从"案例教训"升级为"ontology 架构硬规则"。MR-11 把"shell 函数 log 必须写 stderr"从纪律问题升级为 CI 可扫描的违反模式（正则 `log\(\) { echo ... [^&]2? ... }`）。MR-12 把"LLM 输出解析必须 key-based"从工程经验升级为违反模式（正则 `lines\[i\+[0-9]\]` / `i \+= [0-9]+` / `split()[0-9]`）。MR-12 scan 覆盖 15 个 LLM 解析器（2026-04-15 扫描结果）：blood 受害者 kb_dream/ontology_sources 已修；7 个论文类 job 共享 state-machine key-based + fallback 模式是参考实现；ai_leaders_x 用 pure dict key-based；run_hn_fixed 用 JSON+regex fallback；其余用 markdown pass-through。audit_metadata.meta_rules 从 10 → 12。待 V37.8.9 迭代：MRD-LOG-STDERR-001 和 MRD-LLM-PARSER-POSITIONAL-001 运行时扫描落地（正则扫 shell heredoc + Python 文件），让两条元规则从"声明层"升级为"CI 可检测层"。
     v3.12 → v3.13: V37.8.7 ontology_sources 推送格式错位血案 — INV-ONTOLOGY-001 新增 (ontology-sources-parser-must-be-key-based-not-positional, meta_rule=MR-4, severity=high, verification_layer=[declaration, runtime], 7 checks). 2026-04-15 用户 WhatsApp 收到 ontology_sources 推送严重错位：第 2 篇 cn_title 显示为 *---*、第 3 篇 cn_title 显示为 *价值：⭐⭐⭐⭐*。根因：原解析器用严格位置 (lines[i], lines[i+1], lines[i+2]) + i+=3 步进 — LLM 漏一行"要点"或多一行空白就让所有后续条目的 cn_title/highlight/stars 全部右移一格级联污染。修复：抽到独立模块 jobs/ontology_sources/ontology_parser.py（纯函数 parse_llm_blocks 可单测，避开 V37.5 heredoc-only 不可测血案），按 separator 切块 + 块内 key-based prefix 解析，单块缺行不影响其他块。runtime python_assert 真跑用户实际看到的污染场景断言"缺要点不级联"。24 单测 (test_ontology_parser.py)：TestNormalCases(4) + TestBloodLessonRegression(5) + TestSeparatorVariants(5) + TestLLMOutputVariants(5) + TestShellScriptIntegration(4) + TestActualBloodLessonScenario(1)。MR-4 silent-failure 第 8 次演出（输出"看起来正常" 6 字段都在但语义错乱）。auto_deploy FILE_MAP 补齐 ontology_parser.py。
     v3.11 → v3.12: V37.8.6 Dream 自引用幻觉血案 — INV-DREAM-003 新增 (dream-log-cannot-pollute-cache-nor-fabricate-platform-crises, meta_rule=MR-4, severity=critical, verification_layer=[declaration, runtime], 16 checks). 2026-04-15 03:00 Dream run 出现 4 次 Bad JSON 400 (adapter 收到破损 JSON)，但 Dream 仍产出完整"Hugging Face 平台危机"分析，用户察觉 Signal(Papers with Code 沉默)↔Action(监控 Hugging Face) 主题断裂后上报。三层根因：(a) scraped 内容含 surrogate UTF-8 → json.dump + utf-8 file write → UnicodeEncodeError → body_file 截断 → adapter.py:386 返回 400 Bad JSON (b) kb_dream.sh log() 用 `echo` 写 stdout → signals=$(llm_call ...) 命令替换捕获 log 行进 signals → cache file 被"LLM raw response: Error code 400 Bad JSON..."污染 (c) Reduce cache-only fast path 把错误日志注入 LLM 上下文 → LLM 基于这些字样自动编造"Hugging Face 危机"叙事 = 原则 #23 链式幻觉 + MR-4 silent failure 第 7 次演出。四层结构修复（defense-in-depth）：log→stderr 阻断 stdout 污染通道 + _sanitize(U+D800-U+DFFF → U+FFFD) 防编码炸裂 + file open 显式 encoding='utf-8' errors='replace' 第二防线 + REDUCE/CHUNK1/2/3 system prompt 四块加反污染守卫 (禁止把 HTTP 错误码/Python 异常/错误页 HTML/U+FFFD 当外部信号，禁止基于这些字样推断 Hugging Face/GitHub/npm 等平台状态)。runtime python_assert 真跑 sanitize 五场景 (孤立高位/低位代理/正常串/代理范围边界/sanitize 后 json+utf-8 编码不炸)。19 单测 (TestLogGoesToStderr×2 + TestSanitizeSurrogates×7 + TestShellSanitizeImplementation×5 + TestAntiPollutionSystemPrompt×3 + TestShellScriptIntegrity×1 + TestLogDefHasCommentMeta×1)。
     v3.10 → v3.11: V37.8.5 INV-X-001 升级三层检测 (血案二次演出: V37.8.4 修复本身埋盲区) — V37.8.4 收工 Mac Mini E2E 即发现 2 个边缘：CNS1952 98/99 超窗口 + 1 过短老化率 99% 但未触发严格 old==total (MR-10 第 2 次演出：修复会埋坑)；SingTaoDaily 0-tweet stub (embed disabled 返回空骨架) 被 total>0 门槛绕过完全不标记。V37.8.5 修复：(1) 检测逻辑独立为 jobs/finance_news/finance_news_zombie.py 纯函数模块 (classify_zombie(diag, count)); (2) 三层 tier: "stub" (no_data=0 + total=0) + "stale" (≥90% 老化 + count=0 守卫防止低频活跃误报)，整数比较 old*10 >= total*9 避免浮点; (3) 24 单测锁定三层 + 守卫 + shell 集成 + auto_deploy FILE_MAP; (4) verification_layer 从 [declaration] 升级到 [declaration, runtime] (MR-6 遵循: INV-X-001 现在有 python_assert 真跑 5 个 tier 场景); (5) shell 脚本禁止内嵌 inline fallback (防模块缺失时静默降级回 V37.8.4 逻辑 — MR-8 copy-paste-is-a-bug-class 兑现)。诊断行 tier 区分 ⚠️ ZOMBIE嫌疑[stub] vs [stale]，便于日志定位。
   total_invariants: 38  # +INV-ONTOLOGY-001
   total_checks: 182     # +INV-ONTOLOGY-001(+7): parse_llm_blocks 函数 + separator 切块 + key-based 字段识别 + export ONTOLOGY_JOBS_DIR + import 模块 + auto_deploy FILE_MAP + runtime python_assert 缺要点不级联
-  meta_rules: 10        # MR-1~MR-10 (MR-10 understand-before-fix: 2026-04-13 连锁修复血案)
+  meta_rules: 12        # MR-1~MR-12 (MR-11 log→stderr: V37.8.6 Dream 血案; MR-12 llm-output-key-based: V37.8.7 ontology_sources 血案)
   meta_rule_discovery_count: 6   # Phase 0: registry + env + notify-topic + layer-depth + error-suppression + notify-activity
   check_types_used: [python_assert, file_contains, file_not_contains, env_var_exists, command_succeeds, log_activity_check]
   verification_layers_used: [declaration, runtime, effect]  # v3.1: 效果层启动
