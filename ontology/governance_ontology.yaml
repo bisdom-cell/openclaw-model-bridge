@@ -2250,6 +2250,131 @@ invariants:
         file: CLAUDE.md
         pattern: '账号健康 ≠ HTTP 200'
 
+  # --- 2026-04-15 新增：Dream 自引用幻觉血案（V37.8.6）---
+
+  - id: INV-DREAM-003
+    name: dream-log-cannot-pollute-cache-nor-fabricate-platform-crises
+    meta_rule: MR-4
+    verification_layer: [declaration, runtime]
+    severity: critical
+    declaration: |
+      kb_dream.sh 必须阻断"log() 输出污染 cache → Reduce 读 cache → LLM 把内部运行时
+      痕迹当外部信号编造平台危机"的幻觉链路：
+        (1) log() 函数必须写到 stderr（>&2），不得写 stdout，否则
+            signals=$(llm_call ...) 命令替换会把 log 输出捕获进 signals → 写入 cache。
+        (2) llm_call heredoc 必须对 prompt 和 system_msg 做 surrogate 清洗
+            （U+D800-U+DFFF → U+FFFD），防止 json.dump 触发 UnicodeEncodeError
+            导致 body_file 截断 → adapter 返回 400 Bad JSON → 错误日志最终污染 cache。
+        (3) 文件 open 必须显式指定 encoding='utf-8' 和 errors='replace' 作为第二防线。
+        (4) REDUCE/CHUNK1/2/3 system prompt 必须含反污染守卫，明示禁止：
+            - 把 HTTP 错误码/Python 异常/错误页 HTML/U+FFFD 片段 当作外部信号
+            - 基于这些字样推断 Hugging Face / GitHub / npm 等平台状态
+            - 在行动建议中针对'平台错误'（因为它们不是外部事件）给建议
+    design_decision: |
+      2026-04-15 03:00 血案：Dream run 出现 4 次 "Bad JSON 400" 错误（adapter.py:386），
+      但 Dream 仍产出完整 "Hugging Face 平台危机" 分析，Action 建议监控 Hugging Face。
+      用户察觉 Signal(Papers with Code)↔Action(Hugging Face) 主题断裂后上报。
+
+      三层根因：
+        (a) 触发器: scraped 内容含 surrogate UTF-8 → llm_call heredoc 的
+            json.dump(body, f, ensure_ascii=False) 触发 UnicodeEncodeError →
+            body_file 截断 → adapter.py:383 json.loads 炸 400 "Bad JSON"。
+        (b) 放大器: kb_dream.sh log() 用 `echo` 写 stdout，而 signals=$(llm_call ...)
+            是命令替换 → log 行被捕获进 signals → line 563/其他 cache 写入路径
+            把"LLM raw response: <HTML>...Error code: 400 Bad JSON..."写进 cache file。
+        (c) 掩护者: Reduce cache-only fast path 读 cache 把错误日志注入 LLM 上下文 →
+            Qwen3 基于这些字样自动编造 "Hugging Face 平台 400 Bad JSON 危机" 叙事
+            来合理化看到的运行时痕迹 = 原则 #23 链式幻觉 + MR-4 silent failure 复合。
+
+      修复是结构性的：stderr 隔离 + sanitize + errors='replace' + 反污染 prompt
+      四层防御，任一层都能单独阻断幻觉链（defense-in-depth）。
+      meta_rule=MR-4 因为这是 silent failure 的第 7 次演出：
+      4 次 LLM 失败 + 整体输出"看起来正常"+ 无任何 degraded 标记。
+    blood_lessons:
+      - "2026-04-15 V37.8.6: Dream log→stdout 污染 cache → LLM 编造 Hugging Face 危机；MR-4 第 7 次演出 + 原则 #23 链式幻觉实证"
+    checks:
+      - name: "kb_dream.sh log() 必须写 stderr（阻断 stdout 污染 cache 通道）"
+        check_type: file_contains
+        file: kb_dream.sh
+        pattern: 'log\(\) \{ echo.*>&2; \}'
+      - name: "kb_dream.sh log() 附近有 V37.8.6 血案注释"
+        check_type: file_contains
+        file: kb_dream.sh
+        pattern: 'V37.8.6.*stderr'
+      - name: "kb_dream.sh heredoc 含 _sanitize 函数（surrogate 清洗）"
+        check_type: file_contains
+        file: kb_dream.sh
+        pattern: 'def _sanitize\(s\):'
+      - name: "kb_dream.sh sanitize 覆盖 U+D800-U+DFFF 完整代理范围"
+        check_type: file_contains
+        file: kb_dream.sh
+        pattern: '0xD800 <= ord\(c\) <= 0xDFFF'
+      - name: "kb_dream.sh sanitize 用 U+FFFD (\\ufffd) 替换（不是 ?）"
+        check_type: file_contains
+        file: kb_dream.sh
+        pattern: "'\\\\ufffd' if 0xD800"
+      - name: "kb_dream.sh sanitize 应用于 prompt"
+        check_type: file_contains
+        file: kb_dream.sh
+        pattern: 'prompt = _sanitize\(prompt\)'
+      - name: "kb_dream.sh sanitize 应用于 system_msg"
+        check_type: file_contains
+        file: kb_dream.sh
+        pattern: 'system_msg = _sanitize\(system_msg\)'
+      - name: "kb_dream.sh body_file open 用 errors='replace' 第二防线"
+        check_type: file_contains
+        file: kb_dream.sh
+        pattern: "errors='replace'"
+      - name: "kb_dream.sh body_file open 显式 encoding='utf-8'"
+        check_type: file_contains
+        file: kb_dream.sh
+        pattern: "encoding='utf-8'"
+      - name: "kb_dream.sh REDUCE_SYSTEM 含 V37.8.6 反污染守卫"
+        check_type: file_contains
+        file: kb_dream.sh
+        pattern: 'V37.8.6 反污染守卫'
+      - name: "kb_dream.sh REDUCE_SYSTEM 禁止引用 Bad JSON 作为外部信号"
+        check_type: file_contains
+        file: kb_dream.sh
+        pattern: 'Bad JSON/Error code'
+      - name: "kb_dream.sh REDUCE_SYSTEM 点名 Hugging Face 作为禁止编造对象示例"
+        check_type: file_contains
+        file: kb_dream.sh
+        pattern: 'Hugging Face.*GitHub.*npm'
+      - name: "kb_dream.sh CHUNK1_SYSTEM 含反污染条款"
+        check_type: file_contains
+        file: kb_dream.sh
+        pattern: 'CHUNK1_SYSTEM="[^"]*V37.8.6 反污染'
+      - name: "kb_dream.sh CHUNK2_SYSTEM 含反污染条款"
+        check_type: file_contains
+        file: kb_dream.sh
+        pattern: 'CHUNK2_SYSTEM="[^"]*V37.8.6 反污染'
+      - name: "kb_dream.sh CHUNK3_SYSTEM 含反污染条款"
+        check_type: file_contains
+        file: kb_dream.sh
+        pattern: 'CHUNK3_SYSTEM="[^"]*V37.8.6 反污染'
+      - name: "V37.8.6 runtime: sanitize 等价实现正确去除孤立代理"
+        check_type: python_assert
+        code: |
+          # 执行与 kb_dream.sh heredoc 等价的 sanitize 逻辑
+          def _sanitize(s):
+              if not s:
+                  return s
+              return ''.join('\ufffd' if 0xD800 <= ord(c) <= 0xDFFF else c for c in s)
+          # 孤立高位代理
+          assert _sanitize("hello\ud800world") == "hello\ufffdworld", "high surrogate not replaced"
+          # 孤立低位代理
+          assert _sanitize("\udfffprefix") == "\ufffdprefix", "low surrogate not replaced"
+          # 正常字符串不变
+          assert _sanitize("Papers with Code 2026-04") == "Papers with Code 2026-04"
+          # 代理范围外边界不误伤
+          assert _sanitize("\ud7ff") == "\ud7ff", "U+D7FF 不应被替换"
+          assert _sanitize("\ue000") == "\ue000", "U+E000 不应被替换"
+          # sanitize 后可通过 json + utf-8 编码（原 bug 就炸在此）
+          import json
+          out = json.dumps({"x": _sanitize("bad\ud800char")}, ensure_ascii=False).encode("utf-8")
+          assert b'\xef\xbf\xbd' in out, "U+FFFD UTF-8 bytes not in output"
+
 # ═══════════════════════════════════════════════════════════════════════
 # 4. 可执行元规则（Phase 0）— 自动发现缺失不变式
 #    只扫描结构化数据源，不解析自然语言
@@ -2346,7 +2471,7 @@ meta_rule_discovery:
 # 5. 审计元数据
 # ═══════════════════════════════════════════════════════════════════════
 audit_metadata:
-  version: "3.11"
+  version: "3.12"
   created: "2026-04-07"
   upgraded: |
     v3.0 → v3.1: 通知路径治理(INV-NOTIFY-003/004) + 错误可观测性(MRD-ERROR-001) + 效果层启动(MRD-NOTIFY-002)
@@ -2360,9 +2485,10 @@ audit_metadata:
     v3.7 → v3.8: V37.7 双跑审计闭环 — (a) MR-8 "copy-paste-is-a-bug-class" 从 candidate 正式形式化进入 meta_rules (INV-EVENING-001 重新归属); (b) MR-9 "state-writes-go-through-helper-not-raw-redirect" 新增 (MR-4 上游预防层, 禁止 shell `>>` 直写持久化 state 文件, 必须走 kb_append_source.sh / kb_write.sh 等 helper); (c) INV-SRC-001 重新归属 MR-9 并新增 2 个 catch-all 运行时 scan (任何位置 `>> "$KB_SRC"` + 任何 `>> sources/*.md` 路径); (d) INV-DEDUP-002 新增 (kb-dedup-pre-filters-dangling-index-entries, MR-4 第 4 次演出 — dangling index refs 被误判为 duplicate 并在 --apply 时删除历史); (e) INV-GOV-001 check 2 重构去掉 JSON_MODE global mutation (依赖注入 print_results(json_mode=False) 参数); (f) run_discussions.sh V37.6 P0-2 第 16 处漏网修复 (bucket 1, MR-4 第 5 次演出); (g) audit_log.verify_chain JSON parse error prev_hash 级联 bug 修复 (不再让解析错误静默传播到下一行 prev check); (h) kb_evening "今日笔记" label semantics 修复 (count_today_notes filename prefix 扫描 vs 历史累计 note_count)
     v3.8 → v3.9: V37.8 MR-6 深度补齐 + MRD-NOTIFY-002 语义修复 — (a) 7 个 critical 单层不变式全部补第二层验证: INV-TOOL-001 (+declaration: proxy_filters.py 静态引用 MAX_TOOLS), INV-TOOL-002 (元数据标签修正，已有双层未声明), INV-DEPLOY-002 (+runtime: shlex tokenize AST 扫描 auto_deploy.sh 无 crontab 写入 token 序列), INV-CRON-003 (+declaration: _cron_cmd_invokes 精确匹配器源码守卫), INV-ENV-002 (+declaration: preflight REQUIRED_VARS 必含 OPENCLAW_PHONE + YAML 占位号字面量反例守卫), INV-DREAM-002 (+runtime: SKIP_MAP_LOOPS 赋值行号必须在 Phase 1a/1b 门控之前), INV-CACHE-002 (+runtime: 真跑 md5 对照同内容不同 mtime 的两个 tempfile hash 相等 + 不同内容 hash 不等); (b) INV-LAYER-001 新增 (critical-invariants-have-two-layers, meta_rule=MR-6, 把 MRD-LAYER-001 的 warn 升级为 hard-enforcing invariant — 未来任何新增 critical 不变式只要 <2 层就直接 fail); (c) MRD-NOTIFY-002 检测器重写 — 原实现只 grep `--topic X` 字符串但 32 个 job 中 28 个 bypass notify.sh 直接走 `DISCORD_CH_<X>`，导致 4-6 个频道长期被误报 silent。新实现两层: source layer (dev + full 都跑, 扫 jobs/*/run_*.sh 接受 `--topic T` 或 `DISCORD_CH_<T_upper>` 任一 caller) + activity layer (仅 --full, 用 notify_queue/jobs cache mtime 而非字符串 grep)
     v3.9 → v3.10: V37.8.4 finance_news X 僵尸账号血案 — INV-X-001 新增 (syndication-account-must-have-fresh-tweets, meta_rule=MR-10, severity=high) 锁定 5 层防御: parser 检测 diag['total']>0 且 100% 超窗口 + ⚠️ ZOMBIE嫌疑 诊断前缀 + 独立 zombies_${DAY}.txt 文件 + 3 天 comm -12 连续告警 + 7 个已确认僵尸 handle (Reuters/WorldBank/BrookingsInst/caixin/yicaichina/ChannelNewsAsia/straits_times) file_not_contains 守卫。CLAUDE.md 原则 #27 升级强制条款 "X 账号健康 ≠ HTTP 200" — 协议层绿灯不等于内容层健康，Syndication API 对 embed-disabled 或停更账号返回 stale 快照 (最老 3364 天)。本次是 MR-10 (V37.8.3 引入) 被违反后的正向兑现: 血案本身成为元规则执行力的训练样本。
+    v3.11 → v3.12: V37.8.6 Dream 自引用幻觉血案 — INV-DREAM-003 新增 (dream-log-cannot-pollute-cache-nor-fabricate-platform-crises, meta_rule=MR-4, severity=critical, verification_layer=[declaration, runtime], 16 checks). 2026-04-15 03:00 Dream run 出现 4 次 Bad JSON 400 (adapter 收到破损 JSON)，但 Dream 仍产出完整"Hugging Face 平台危机"分析，用户察觉 Signal(Papers with Code 沉默)↔Action(监控 Hugging Face) 主题断裂后上报。三层根因：(a) scraped 内容含 surrogate UTF-8 → json.dump + utf-8 file write → UnicodeEncodeError → body_file 截断 → adapter.py:386 返回 400 Bad JSON (b) kb_dream.sh log() 用 `echo` 写 stdout → signals=$(llm_call ...) 命令替换捕获 log 行进 signals → cache file 被"LLM raw response: Error code 400 Bad JSON..."污染 (c) Reduce cache-only fast path 把错误日志注入 LLM 上下文 → LLM 基于这些字样自动编造"Hugging Face 危机"叙事 = 原则 #23 链式幻觉 + MR-4 silent failure 第 7 次演出。四层结构修复（defense-in-depth）：log→stderr 阻断 stdout 污染通道 + _sanitize(U+D800-U+DFFF → U+FFFD) 防编码炸裂 + file open 显式 encoding='utf-8' errors='replace' 第二防线 + REDUCE/CHUNK1/2/3 system prompt 四块加反污染守卫 (禁止把 HTTP 错误码/Python 异常/错误页 HTML/U+FFFD 当外部信号，禁止基于这些字样推断 Hugging Face/GitHub/npm 等平台状态)。runtime python_assert 真跑 sanitize 五场景 (孤立高位/低位代理/正常串/代理范围边界/sanitize 后 json+utf-8 编码不炸)。19 单测 (TestLogGoesToStderr×2 + TestSanitizeSurrogates×7 + TestShellSanitizeImplementation×5 + TestAntiPollutionSystemPrompt×3 + TestShellScriptIntegrity×1 + TestLogDefHasCommentMeta×1)。
     v3.10 → v3.11: V37.8.5 INV-X-001 升级三层检测 (血案二次演出: V37.8.4 修复本身埋盲区) — V37.8.4 收工 Mac Mini E2E 即发现 2 个边缘：CNS1952 98/99 超窗口 + 1 过短老化率 99% 但未触发严格 old==total (MR-10 第 2 次演出：修复会埋坑)；SingTaoDaily 0-tweet stub (embed disabled 返回空骨架) 被 total>0 门槛绕过完全不标记。V37.8.5 修复：(1) 检测逻辑独立为 jobs/finance_news/finance_news_zombie.py 纯函数模块 (classify_zombie(diag, count)); (2) 三层 tier: "stub" (no_data=0 + total=0) + "stale" (≥90% 老化 + count=0 守卫防止低频活跃误报)，整数比较 old*10 >= total*9 避免浮点; (3) 24 单测锁定三层 + 守卫 + shell 集成 + auto_deploy FILE_MAP; (4) verification_layer 从 [declaration] 升级到 [declaration, runtime] (MR-6 遵循: INV-X-001 现在有 python_assert 真跑 5 个 tier 场景); (5) shell 脚本禁止内嵌 inline fallback (防模块缺失时静默降级回 V37.8.4 逻辑 — MR-8 copy-paste-is-a-bug-class 兑现)。诊断行 tier 区分 ⚠️ ZOMBIE嫌疑[stub] vs [stale]，便于日志定位。
-  total_invariants: 36  # unchanged (INV-X-001 升级, 未新增 invariant)
-  total_checks: 159     # +INV-X-001(+7 net): -严格 old==total pattern; +import classify_zombie; +classify_zombie(diag, count); +export FINANCE_NEWS_JOBS_DIR; +模块存在; +Tier 1 stub; +Tier 2+3 stale; +auto_deploy FILE_MAP; +runtime python_assert 五场景
+  total_invariants: 37  # +INV-DREAM-003
+  total_checks: 175     # +INV-DREAM-003(+16): log→stderr + 血案注释 + _sanitize 定义 + U+D800-U+DFFF 范围 + U+FFFD 替换 + prompt/system_msg 应用 + errors='replace' + encoding='utf-8' + REDUCE_SYSTEM 反污染守卫 + Bad JSON 禁令 + Hugging Face/GitHub/npm 例 + CHUNK1/2/3_SYSTEM 反污染 + runtime python_assert 五场景
   meta_rules: 10        # MR-1~MR-10 (MR-10 understand-before-fix: 2026-04-13 连锁修复血案)
   meta_rule_discovery_count: 6   # Phase 0: registry + env + notify-topic + layer-depth + error-suppression + notify-activity
   check_types_used: [python_assert, file_contains, file_not_contains, env_var_exists, command_succeeds, log_activity_check]
