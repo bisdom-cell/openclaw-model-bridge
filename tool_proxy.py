@@ -18,12 +18,15 @@ def _safe_urlopen(url_or_req, **kwargs):
         raise URLError(f"Blocked URL scheme: {raw[:20]}")
     return _raw_urlopen(url_or_req, **kwargs)  # nosec B310
 
+
+
 from proxy_filters import (
     ALLOWED_TOOLS, ALLOWED_PREFIXES, CUSTOM_TOOL_NAMES,
     is_allowed, filter_tools, truncate_messages,
     fix_tool_args, build_sse_response, should_strip_tools,
     inject_media_into_messages, filter_system_alerts,
     flatten_content,
+    compose_backend_error_str,  # V37.8.10: INV-OBSERVABILITY-001
     proxy_stats,
 )
 
@@ -993,10 +996,15 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                 self.wfile.write(resp_body)
         except Exception as e:
             elapsed = int((time.monotonic() - t0) * 1000)
-            log(f"[{rid}] Backend error ({elapsed}ms): {e}")
+            # V37.8.10: 读 HTTPError body 透传 adapter 的 fallback chain 错误链
+            # (如 "ALL 1 FALLBACKS FAILED: gemini HTTP 429")。不读 body 时
+            # str(e) 只有状态短语 "HTTP Error 502: Bad Gateway"，真实原因丢失。
+            # Blood lesson: 2026-04-14/15 kb_evening 连续 2 天 22:00 告警信息
+            # 稀释，详见 ontology/docs/cases/kb_evening_fallback_quota_chain_case.md
+            error_str = compose_backend_error_str(e)
+            log(f"[{rid}] Backend error ({elapsed}ms): {error_str}")
             # 记录错误到监控
             error_code = 502
-            error_str = str(e)
             if "403" in error_str:
                 error_code = 403
             proxy_stats.record_error(error_code, error_str, latency_ms=elapsed)

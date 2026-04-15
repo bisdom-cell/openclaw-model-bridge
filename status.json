@@ -1,6 +1,6 @@
 {
-  "updated": "2026-04-15 05:48:12",
-  "updated_by": "unknown",
+  "updated": "2026-04-15 16:17:45",
+  "updated_by": "full_regression",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-04-15",
+      "what": "V37.8.10 kb_evening LLM 错误链三层稀释血案闭环 (MR-4 第 9 次演出 新形态)。2026-04-14/15 连续 2 天 22:00 告警 HTTP 502 Bad Gateway，真实原因 primary Qwen3 breaker OPEN + gemini 429 quota 耗尽被 adapter→proxy→client 三跳每跳 str(e) 丢 body 稀释至状态短语。双侧结构修复：proxy_filters.compose_backend_error_str(exc) 纯函数读 e.read() body + JSON error 字段提取 + MAX_UPSTREAM_BODY_CHARS=500 + fail-open try/except；kb_review_collect._compose_http_reason 镜像。架构契约 MR-8 正向兑现 helper 放 proxy_filters 可测 (tool_proxy import 启动 HTTP server 不可测)。INV-OBSERVABILITY-001 (declaration+runtime, 12 checks) + 21 单测 (TestComposeHttpReason 10 + TestComposeBackendErrorStr 11，血案场景复现 + fail-open 反证 + tool_proxy import guard)。Fix D Mac Mini adapter 自 V36 首次重启 0.36.0→0.37.8.9 (/health version 确认), V3 capability routing 真生效但 fallback_chain 仍 [gemini] 需独立配 API key 扩第二 fallback (登记 V37.8.11 候选)。案例文档 kb_evening_fallback_quota_chain_case.md. governance v3.15→v3.16 (38→39 inv, 182→194 checks, 12/12 MR). 全量回归 1071 tests / 0 fail / 39 inv / 180/180 checks / 安全 93/100. VERSION 0.37.8.9→0.37.8.10",
+      "by": "claude_code"
+    },
     {
       "date": "2026-04-15",
       "what": "V37.8.7 ontology_sources 格式错位血案闭环：位置解析 i+=3 在 LLM 漏一行时级联污染所有后续条目。修复：抽到独立模块 ontology_parser.py，按 ---/===/*** 分隔符切块 + 块内 key-based prefix 解析。同日 V37.8.6 Dream + V37.8.7 ontology_sources 双 MR-4 演出共同教训：LLM 输出格式不可严格假设。INV-ONTOLOGY-001 (declaration+runtime, 7 checks) + 24 单测 + 案例 ontology_sources_positional_parser_cascade_case.md + auto_deploy FILE_MAP + governance v3.12→v3.13 (37→38 inv, 175→182 checks)。1018 tests / 0 fail / 安全 93/100. VERSION 0.37.8.6→0.37.8.7",
@@ -168,11 +173,6 @@
       "date": "2026-04-11",
       "what": "V37.4.1: Dream Reduce 重试降级机制 第一次尝试 — 触发 V37.4 Mac Mini Run 1 cache-only fast path 生效(11s 缓存加载) 但 Phase 2 Reduce retry 1 = 3967 → retry 2 = 906 chars 砸穿. 重试降级修复(line 975-1045): BEST_RESULT 跟踪历次最长 + REDUCE_TEMPS=(0.85 0.6 0.4) 温度衰减 + 双阈值 MIN_DREAM_CHARS=3000 目标/MIN_ACCEPTABLE_CHARS=1500 失败底线 + fallback DREAM_RESULT=$BEST_RESULT. 新增 6 单测 TestReduceRetryFallback. 验证失败: Mac Mini Run 2 三次重试 876/876/927 chars 完全一致 → 暴露 简单重试无法突破 server-side prompt caching 更深根因 → V37.4.2 必须结构+变体双修复.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-04-11",
-      "what": "V37.4: Dream Map 预算溢出+cache key 稳定性三层修复 — 触发 286 notes×76s>60min budget. Fix A: Reduce cache-only fast path (SKIP_MAP_LOOPS 门控 Phase 1a+1b+elif). Fix B: Notes batch 15/12000→30/24000 halve LLM calls. Fix C: per-note cache key=md5(content) + macOS md5 -q fallback + signal dedup. DREAM_TIMEOUT_SEC dynamic: MAP_ONLY=5400 / full_run=3600. 案例文档 dream_map_budget_overflow_case.md (四维度因果链+三层根因+时间线). 3 新不变式 INV-DREAM-001/002+INV-CACHE-002 (v3.2→v3.3, 23→26, 43→52 checks). test_dream_cache_stability.py 20 单测锁定. full_regression: 29 suites / 774 tests / 0 fail / 26/26 invariants / 41/52 checks.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -198,15 +198,7 @@
   },
   "session_context": {
     "last_session": "2026-04-15 05:48",
-    "unfinished": [
-      "Mac Mini 运维观察 (今晚): (a) 16:15 Issues 监控 cron 应自动恢复 (V37.8.5 后偶发 cron 跳过) (b) 22:00 KB晚间应自愈 (昨天 502 LLM 错误) (c) 明日 03:00 Dream 验证反污染 prompt 生效 (输出不含虚假 Hugging Face/GitHub/npm 平台危机字样) (d) 明日 07:30 finance_news 验证三层僵尸检测 ⚠️ZOMBIE嫌疑[stub/stale] 前缀输出",
-      "V37.8.10 候选 (Dream 衍生): (a) 系统化 surrogate 清洗 — 爬虫/KB 写入源头先清洗，扫 kb_write.sh/kb_append_source.sh/各 RSS 解析脚本 (b) LLM 输出 grounding allow-list — 平台名/公司名/产品名必须在信号里先出现才能提 (c) Dream 失败率可观测 — Map 批次失败>阈值时输出加 [DEGRADED] 前缀或跳过推送 (d) 审计 pwc_daily/其他 source 文件是否真有 surrogate 字节",
-      "V37.8.10 候选 (ontology emit 防御): emit 端字段语义校验 — *{cn_title}* emit 前断言 cn_title 不是分隔符也不以已知前缀(价值:/要点:)开头",
-      "V37.8.5 finance_news 观察项: SCMPNews 3 天连续僵尸观察 (V37.8.4 登记，2026-04-16 决策窗口到期); CNS1952/SingTaoDaily V37.8.5 三层检测验证后连续 3 天命中则删除 (2026-04-18 窗口)",
-      "MR-13 候选元规则: emit-layer-must-validate-fields-before-publish (V37.8.7 衍生 — 输出层最小语义校验是 MR-12 的兜底)",
-      "运维 P2 长期登记: ImportYeti Cloudflare / freight_watcher dcvelocity 超时 / cron_doctor.sh launchd false-positive / wa_e2e_test.sh 未部署 / Qwen3 不主动调用 memory 工具 (deferred 等模型升级) / Gateway v2026.3.13-1 hold (上游 v2026.4.9 仍 #59265 OPEN)",
-      "V3 路标 backlog: Tool Policy Plugin / Memory Plane Plugin / Job Template SDK / Ontology Phase 3 (ONTOLOGY_MODE=on)"
-    ],
+    "unfinished": "[\"Mac Mini 运维观察 (2026-04-16 22:00): 下次 kb_evening 告警 (若再失败) 应显示完整 upstream chain，形如 HTTP 502 Bad Gateway | upstream: ALL 1 FALLBACKS FAILED: gemini HTTP 429 Too Many Requests。告警仍裸状态短语说明修复未生效需二次排查\",\"V37.8.11 候选 P0 (高优先级，本血案直接衍生): Fix B 扩展 fallback_chain 到 ≥2 provider — 需要用户决策：Claude/Kimi/GLM/MiniMax 哪个 API key 可用 + 配 providers.d/ YAML + 环境变量。当前 fallback 只有 gemini 一根稻草，primary 不稳时必死\",\"V37.8.11 候选 P1: 17+ LLM cron 补 last_run_*.json 观察入口 (arxiv/hf_papers/s2/dblp/pwc/github_trending/rss_blogs/ai_leaders_x/freight/ontology_sources/hn 等) — 当前只有 3 个 (evening/review/governance_audit) 能看到，全天 45% 错误率被掩盖\",\"V37.8.11 候选 P1: MR-13 新元规则立案 error-chain-must-preserve-upstream-cause-across-layers — 把本血案教训升级为 ontology 硬规则，未来任何中间层 catch-then-rethrow 必须保留 upstream body\",\"V37.8.11 候选 P2: gemini quota 消耗审计 — 白天 ~20 LLM cron 哪些可降频/合并/改用非-LLM 路径；proxy_stats auto_recovery_rate_pct=194.1% 数学 bug 次要\",\"V37.8.10 Fix A 效果层观察项: 若明日 22:00 告警含 gemini 429 字样 → 证明 upstream body 透传链路生效，从 MR-4 第 9 次演出真正闭环\",\"V37.8.6 Dream 观察 (昨日未消化): 反污染 prompt 明日 03:00 run 生效验证 (输出不含虚假 Hugging Face/GitHub/npm 平台危机字样)\",\"V37.8.5 finance_news 观察: SCMPNews 3 天连续僵尸观察 2026-04-16 决策窗口到期; CNS1952/SingTaoDaily V37.8.5 三层检测验证后连续 3 天命中则删除 (2026-04-18 窗口)\",\"运维 P2 长期登记: ImportYeti Cloudflare / freight_watcher dcvelocity 超时 / cron_doctor.sh launchd false-positive / wa_e2e_test.sh 未部署 / Qwen3 不主动调用 memory 工具 (deferred 等模型升级) / Gateway v2026.3.13-1 hold (上游 v2026.4.9 仍 #59265 OPEN)\",\"V3 路标 backlog: Tool Policy Plugin / Memory Plane Plugin / Job Template SDK / Ontology Phase 3 (ONTOLOGY_MODE=on)\"]",
     "open_prs": "",
     "blocked_on": "",
     "focus": "V37.8.7 ontology_sources 推送格式错位血案闭环 — 同日 V37.8.6+V37.8.7 双 MR-4 演出。位置解析 i+=3 → separator 切块 + key-based prefix 解析，单块缺行不级联。INV-ONTOLOGY-001 (high, declaration+runtime) + 24 单测 + 案例 ontology_sources_positional_parser_cascade_case.md。1018 tests / 38/38 invariants. 待观察: 下次 ontology_sources 10:00/20:00 cron 推送格式正确无错位",
@@ -221,14 +213,14 @@
   },
   "quality": {
     "security_score": "93",
-    "test_count": "1050",
-    "last_regression": "2026-04-15 05:47 pass",
+    "test_count": "1071",
+    "last_regression": "2026-04-15 16:17 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-04-15 05:47",
+    "security_score_time": "2026-04-15 16:17",
     "test_suites": "35",
-    "governance_invariants": "38/38",
-    "governance_checks": "168/179",
-    "version": "0.37.8.9"
+    "governance_invariants": "39/39",
+    "governance_checks": "180/191",
+    "version": "0.37.8.10"
   },
   "incidents": [
     {
@@ -290,7 +282,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.8.6→V37.8.9 同日四连发完成 + Mac Mini 部署生效。今日 4 个血案/治理 commit 全部合并: V37.8.6 Dream 自引用幻觉(log→stderr+sanitize+反污染prompt) + V37.8.7 ontology_sources 格式错位(key-based parser) + V37.8.8 MR-11/MR-12 元规则立案 + V37.8.9 MRD-LOG-STDERR-001/MRD-LLM-PARSER-POSITIONAL-001 运行时检测落地+19脚本批量修复. 元规则 12/12 全覆盖, 1050 tests / 38 invariants / 安全 93/100. Mac Mini preflight 77/0/3 通过. 待观察: 16:15 Issues / 22:00 KB晚间 / 明日 03:00 Dream 反污染 / 07:30 finance_news 三层僵尸",
+  "focus": "V37.8.10 kb_evening 告警'HTTP 502: Bad Gateway'血案闭环 (MR-4 第 9 次演出 新形态: 错误被稀释而非吞)。LLM 错误链三层稀释 adapter→proxy→client 每跳丢 body → 用户看到状态短语无法判断根因 gemini 429 quota 耗尽。双侧 helper 结构修复 (proxy_filters.compose_backend_error_str + kb_review_collect._compose_http_reason) + MR-8 契约 (helper 放纯函数模块可单测) + INV-OBSERVABILITY-001 12 checks (declaration+runtime) + 21 单测 (TestComposeHttpReason 10 + TestComposeBackendErrorStr 11)。Fix D Mac Mini adapter 0.36.0 → 0.37.8.9 首次重启 (自 V36 未重启) 但 fallback_chain 仍 ['gemini'] 需单独扩。governance v3.15→v3.16 (39 inv / 194 checks / 12 MR)。待观察 2026-04-16 22:00 下次告警应含 upstream chain",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",

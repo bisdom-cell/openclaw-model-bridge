@@ -349,6 +349,52 @@ def build_prompt(notes_text, sources_text, days, index_total, note_count, themes
 活跃标签: {themes}"""
 
 
+# V37.8.10: max bytes to attach upstream body to reason (WhatsApp alert budget)
+MAX_UPSTREAM_BODY_CHARS = 400
+
+
+def _compose_http_reason(http_error):
+    """Compose an HTTPError reason that includes upstream response body.
+
+    V37.8.10 (INV-OBSERVABILITY-001): HTTPError.reason only carries the status
+    phrase (e.g. "Bad Gateway"). The response body (e.g. proxy's
+    `{"error": "ALL 1 FALLBACKS FAILED: gemini HTTP 429"}`) is what tells us
+    WHICH fallback provider died for WHAT reason. Losing it is the V37.8.10
+    blood lesson.
+
+    Contract:
+      - Always returns a non-empty string starting with "HTTP {code}: {phrase}"
+      - If body is JSON with `error` field → append " | upstream: <error>"
+      - If body is non-JSON text → append raw text
+      - Truncate to MAX_UPSTREAM_BODY_CHARS to keep alert messages bounded
+      - Body read/decode errors silently fall through to status phrase only
+        (fail-open: observability enhancement must not cause new failures)
+    """
+    reason = f"HTTP {http_error.code}: {http_error.reason}"
+    body_bytes = b""
+    try:
+        body_bytes = http_error.read() or b""
+    except Exception:
+        return reason
+    if not body_bytes:
+        return reason
+    body_text = body_bytes.decode("utf-8", errors="replace").strip()
+    upstream = ""
+    try:
+        body_json = json.loads(body_text)
+        if isinstance(body_json, dict):
+            upstream = str(body_json.get("error", "")).strip()
+    except (ValueError, TypeError):
+        pass
+    if not upstream:
+        upstream = body_text
+    if not upstream:
+        return reason
+    if len(upstream) > MAX_UPSTREAM_BODY_CHARS:
+        upstream = upstream[:MAX_UPSTREAM_BODY_CHARS] + "...[truncated]"
+    return f"{reason} | upstream: {upstream}"
+
+
 def call_llm(prompt, timeout=LLM_TIMEOUT, url=PROXY_URL, model=LLM_MODEL):
     """调用本地 Proxy:5002 做 LLM 推理。
 
@@ -374,7 +420,13 @@ def call_llm(prompt, timeout=LLM_TIMEOUT, url=PROXY_URL, model=LLM_MODEL):
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             data = json.loads(resp.read().decode("utf-8"))
     except urllib.error.HTTPError as e:
-        return False, "", f"HTTP {e.code}: {e.reason}"
+        # V37.8.10: 读取 response body 暴露 upstream 错误链（如 proxy 的
+        # "ALL 1 FALLBACKS FAILED: gemini HTTP 429"）。不读 body 时 reason
+        # 只剩状态短语 "Bad Gateway"，真实原因被稀释。
+        # Blood lesson: 2026-04-14/15 kb_evening 连续 2 天 22:00 告警
+        # "HTTP 502: Bad Gateway"，但实际是 primary Qwen3 断路器 OPEN +
+        # gemini quota 耗尽。详见 ontology/docs/cases/kb_evening_fallback_quota_chain_case.md
+        return False, "", _compose_http_reason(e)
     except urllib.error.URLError as e:
         return False, "", f"URLError: {e.reason}"
     except (TimeoutError, json.JSONDecodeError) as e:
