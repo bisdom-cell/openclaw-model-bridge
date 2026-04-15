@@ -321,6 +321,21 @@ if [ -n "$DRIFT_REASON" ]; then
         DST="${mapping##*|}"
 
         [ ! -f "$REPO_DIR/$SRC" ] && continue
+
+        # V37.8.11: status.json 合法分叉豁免（mirror V37.8.1 preflight 豁免）
+        # repo 是 Claude Code 快照，runtime 由 kb_status_refresh cron 每小时
+        # 重写 health/quality 字段 → 两侧设计上永远不一致 → 整文件 md5 比对
+        # 永远 mismatch → 每小时"修复"+ 每小时告警 + 每次覆盖会清空运行时数据。
+        # 修复方法：drift loop 跳过 status.json；Claude Code 的 intent 变更（priorities/
+        # unfinished/recent_changes）通过 new-commit 路径（上方 CHANGED_FILES 循环）
+        # 单向下传，确保 intent 仍能到达运行时。
+        # Blood lesson: 2026-04-15 用户反馈"每小时收到漂移告警"—预期噪声被 [SYSTEM_ALERT]
+        # 前缀显性化后成为干扰。详见 ontology/docs/cases/kb_evening_fallback_quota_chain_case.md
+        # V37.8.11 扩展章节。
+        if [[ "$SRC" == "status.json" ]]; then
+            continue
+        fi
+
         [ ! -f "$DST" ] && {
             # 目标不存在，直接部署
             mkdir -p "$(dirname "$DST")"

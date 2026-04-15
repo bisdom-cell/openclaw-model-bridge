@@ -1,5 +1,5 @@
 {
-  "updated": "2026-04-15 16:17:45",
+  "updated": "2026-04-15 16:31:07",
   "updated_by": "full_regression",
   "priorities": [
     {
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-04-15",
+      "what": "V37.8.11 auto_deploy 每小时漂移告警噪声闭环 (MR-4 第 10 次演出 — expected-behavior 错分类为 error)。用户反馈每小时 [SYSTEM_ALERT] 漂移检测，确认问题存在长期。根因: V37.8.1 preflight status.json 合法分叉豁免但 auto_deploy drift 循环漏改。修复: auto_deploy.sh:319 镜像同款 if SRC==status.json then continue 豁免，new-commit 路径保留 intent 单向下传契约。INV-DEPLOY-003 (declaration, 5 checks): preflight 豁免守卫 + auto_deploy 豁免关键字 + V37.8.11 注释 + FILE_MAP 仍含 status.json。governance v3.16→v3.17 (39→40 inv, 194→199 checks). 原则 #15 反思: 半天 WhatsApp 实际观察就能发现。VERSION 0.37.8.10→0.37.8.11",
+      "by": "claude_code"
+    },
     {
       "date": "2026-04-15",
       "what": "V37.8.10 kb_evening LLM 错误链三层稀释血案闭环 (MR-4 第 9 次演出 新形态)。2026-04-14/15 连续 2 天 22:00 告警 HTTP 502 Bad Gateway，真实原因 primary Qwen3 breaker OPEN + gemini 429 quota 耗尽被 adapter→proxy→client 三跳每跳 str(e) 丢 body 稀释至状态短语。双侧结构修复：proxy_filters.compose_backend_error_str(exc) 纯函数读 e.read() body + JSON error 字段提取 + MAX_UPSTREAM_BODY_CHARS=500 + fail-open try/except；kb_review_collect._compose_http_reason 镜像。架构契约 MR-8 正向兑现 helper 放 proxy_filters 可测 (tool_proxy import 启动 HTTP server 不可测)。INV-OBSERVABILITY-001 (declaration+runtime, 12 checks) + 21 单测 (TestComposeHttpReason 10 + TestComposeBackendErrorStr 11，血案场景复现 + fail-open 反证 + tool_proxy import guard)。Fix D Mac Mini adapter 自 V36 首次重启 0.36.0→0.37.8.9 (/health version 确认), V3 capability routing 真生效但 fallback_chain 仍 [gemini] 需独立配 API key 扩第二 fallback (登记 V37.8.11 候选)。案例文档 kb_evening_fallback_quota_chain_case.md. governance v3.15→v3.16 (38→39 inv, 182→194 checks, 12/12 MR). 全量回归 1071 tests / 0 fail / 39 inv / 180/180 checks / 安全 93/100. VERSION 0.37.8.9→0.37.8.10",
@@ -168,11 +173,6 @@
       "date": "2026-04-11",
       "what": "V37.4.2: Dream Reduce 短输出 bug 二段闭环修复 — 触发 V37.4.1 Mac Mini 14:01 run 三次重试 876/876/927 chars 完全一致 → 根因 Qwen3 server-side prompt caching + 缓存读取 bland header 让 LLM 陷入简短总结收敛. 结构化修复(cache-only 读取 line 414-465): UNIQ_NOTE_SIG_BLOCKS 数组去重+覆盖统计 meta header+编号簇 ### 笔记信号簇 i/N+Phase 1b cache-hit header 用 $name. 重试变体修复(line 1011-1024): retry=1 用 REDUCE_PROMPT, retry≥2 prepend 第 N 次尝试 — 上一次响应过短+硬性 6 章节+2500 汉字, prompt prefix 变化绕过 server cache. 新增 6 单测 TestV37_4_2_CacheReadStructureAndRetryVariation. Mac Mini 15:02 验证: retry 1 = 1402 chars 仍被 cache 命中 → retry 2 变体 = 21871 chars/7000 汉字/6 章节完整/9m24s/3 segments 推送成功/识别 本体+LLM+Agent 深度融合 主题. 32 Dream 单测 / 0 fail.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-04-11",
-      "what": "V37.4.1: Dream Reduce 重试降级机制 第一次尝试 — 触发 V37.4 Mac Mini Run 1 cache-only fast path 生效(11s 缓存加载) 但 Phase 2 Reduce retry 1 = 3967 → retry 2 = 906 chars 砸穿. 重试降级修复(line 975-1045): BEST_RESULT 跟踪历次最长 + REDUCE_TEMPS=(0.85 0.6 0.4) 温度衰减 + 双阈值 MIN_DREAM_CHARS=3000 目标/MIN_ACCEPTABLE_CHARS=1500 失败底线 + fallback DREAM_RESULT=$BEST_RESULT. 新增 6 单测 TestReduceRetryFallback. 验证失败: Mac Mini Run 2 三次重试 876/876/927 chars 完全一致 → 暴露 简单重试无法突破 server-side prompt caching 更深根因 → V37.4.2 必须结构+变体双修复.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -198,7 +198,7 @@
   },
   "session_context": {
     "last_session": "2026-04-15 05:48",
-    "unfinished": "[\"Mac Mini 运维观察 (2026-04-16 22:00): 下次 kb_evening 告警 (若再失败) 应显示完整 upstream chain，形如 HTTP 502 Bad Gateway | upstream: ALL 1 FALLBACKS FAILED: gemini HTTP 429 Too Many Requests。告警仍裸状态短语说明修复未生效需二次排查\",\"V37.8.11 候选 P0 (高优先级，本血案直接衍生): Fix B 扩展 fallback_chain 到 ≥2 provider — 需要用户决策：Claude/Kimi/GLM/MiniMax 哪个 API key 可用 + 配 providers.d/ YAML + 环境变量。当前 fallback 只有 gemini 一根稻草，primary 不稳时必死\",\"V37.8.11 候选 P1: 17+ LLM cron 补 last_run_*.json 观察入口 (arxiv/hf_papers/s2/dblp/pwc/github_trending/rss_blogs/ai_leaders_x/freight/ontology_sources/hn 等) — 当前只有 3 个 (evening/review/governance_audit) 能看到，全天 45% 错误率被掩盖\",\"V37.8.11 候选 P1: MR-13 新元规则立案 error-chain-must-preserve-upstream-cause-across-layers — 把本血案教训升级为 ontology 硬规则，未来任何中间层 catch-then-rethrow 必须保留 upstream body\",\"V37.8.11 候选 P2: gemini quota 消耗审计 — 白天 ~20 LLM cron 哪些可降频/合并/改用非-LLM 路径；proxy_stats auto_recovery_rate_pct=194.1% 数学 bug 次要\",\"V37.8.10 Fix A 效果层观察项: 若明日 22:00 告警含 gemini 429 字样 → 证明 upstream body 透传链路生效，从 MR-4 第 9 次演出真正闭环\",\"V37.8.6 Dream 观察 (昨日未消化): 反污染 prompt 明日 03:00 run 生效验证 (输出不含虚假 Hugging Face/GitHub/npm 平台危机字样)\",\"V37.8.5 finance_news 观察: SCMPNews 3 天连续僵尸观察 2026-04-16 决策窗口到期; CNS1952/SingTaoDaily V37.8.5 三层检测验证后连续 3 天命中则删除 (2026-04-18 窗口)\",\"运维 P2 长期登记: ImportYeti Cloudflare / freight_watcher dcvelocity 超时 / cron_doctor.sh launchd false-positive / wa_e2e_test.sh 未部署 / Qwen3 不主动调用 memory 工具 (deferred 等模型升级) / Gateway v2026.3.13-1 hold (上游 v2026.4.9 仍 #59265 OPEN)\",\"V3 路标 backlog: Tool Policy Plugin / Memory Plane Plugin / Job Template SDK / Ontology Phase 3 (ONTOLOGY_MODE=on)\"]",
+    "unfinished": "[\"Mac Mini E2E 观察 (今夜 2026-04-16 00:00 + 凌晨 03:00 + 明日 22:00): (a) 00:00 整点 drift 告警应消失 (V37.8.11 生效后) (b) 03:00 Dream 反污染 prompt 生效验证 (c) 22:00 下次 kb_evening (若再失败) 应显示 upstream chain 含 gemini 429\",\"V37.8.12 候选 P0 (本血案直接衍生): Fix B 扩展 fallback_chain 到 ≥2 provider — 需要用户决策：Claude/Kimi/GLM/MiniMax 哪个 API key 可用 + 配 providers.d/ YAML + 环境变量。当前 fallback 只有 gemini，primary 不稳时必死\",\"V37.8.12 候选 P1: 17+ LLM cron 补 last_run_*.json 观察入口 (arxiv/hf_papers/s2/dblp/pwc/github_trending/rss_blogs/ai_leaders_x/freight/ontology_sources/hn 等)\",\"V37.8.12 候选 P1: MR-13 新元规则立案 error-chain-must-preserve-upstream-cause-across-layers\",\"V37.8.12 候选 P2: gemini quota 消耗审计 + proxy_stats auto_recovery_rate_pct=194.1% 数学 bug\",\"V37.8.11 元教训 → 原则扩展候选: 任何 FILE_MAP drift 检测的豁免规则应在所有 FILE_MAP 消费者 (preflight + auto_deploy + job_smoke_test) 同步更新 — 系统性扫描而非单点修复\",\"原则 #15 反思落地: 每周一次 WhatsApp 实际观察 session (30 min)，专门看告警噪声 / 推送延迟 / 信息密度 / 用户感知\",\"V37.8.6 Dream 观察: 明日 03:00 反污染 prompt 生效验证\",\"V37.8.5 finance_news 观察: SCMPNews 2026-04-16 决策窗口到期; CNS1952/SingTaoDaily 2026-04-18 窗口\",\"运维 P2 长期登记: ImportYeti Cloudflare / freight_watcher dcvelocity 超时 / cron_doctor.sh launchd false-positive / wa_e2e_test.sh 未部署 / Qwen3 不主动调用 memory 工具 (deferred 等模型升级) / Gateway v2026.3.13-1 hold\",\"V3 路标 backlog: Tool Policy Plugin / Memory Plane Plugin / Job Template SDK / Ontology Phase 3\"]",
     "open_prs": "",
     "blocked_on": "",
     "focus": "V37.8.7 ontology_sources 推送格式错位血案闭环 — 同日 V37.8.6+V37.8.7 双 MR-4 演出。位置解析 i+=3 → separator 切块 + key-based prefix 解析，单块缺行不级联。INV-ONTOLOGY-001 (high, declaration+runtime) + 24 单测 + 案例 ontology_sources_positional_parser_cascade_case.md。1018 tests / 38/38 invariants. 待观察: 下次 ontology_sources 10:00/20:00 cron 推送格式正确无错位",
@@ -214,13 +214,13 @@
   "quality": {
     "security_score": "93",
     "test_count": "1071",
-    "last_regression": "2026-04-15 16:17 pass",
+    "last_regression": "2026-04-15 16:31 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-04-15 16:17",
+    "security_score_time": "2026-04-15 16:31",
     "test_suites": "35",
-    "governance_invariants": "39/39",
-    "governance_checks": "180/191",
-    "version": "0.37.8.10"
+    "governance_invariants": "40/40",
+    "governance_checks": "185/196",
+    "version": "0.37.8.11"
   },
   "incidents": [
     {
@@ -282,7 +282,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.8.10 kb_evening 告警'HTTP 502: Bad Gateway'血案闭环 (MR-4 第 9 次演出 新形态: 错误被稀释而非吞)。LLM 错误链三层稀释 adapter→proxy→client 每跳丢 body → 用户看到状态短语无法判断根因 gemini 429 quota 耗尽。双侧 helper 结构修复 (proxy_filters.compose_backend_error_str + kb_review_collect._compose_http_reason) + MR-8 契约 (helper 放纯函数模块可单测) + INV-OBSERVABILITY-001 12 checks (declaration+runtime) + 21 单测 (TestComposeHttpReason 10 + TestComposeBackendErrorStr 11)。Fix D Mac Mini adapter 0.36.0 → 0.37.8.9 首次重启 (自 V36 未重启) 但 fallback_chain 仍 ['gemini'] 需单独扩。governance v3.15→v3.16 (39 inv / 194 checks / 12 MR)。待观察 2026-04-16 22:00 下次告警应含 upstream chain",
+  "focus": "V37.8.11 auto_deploy drift 告警噪声闭环 (MR-4 第 10 次演出新形态: expected-behavior 被错分类为 error → 噪声告警)。问题存在长期: V37.8.1 preflight 加了 status.json 分叉豁免但 auto_deploy 漏改，[SYSTEM_ALERT] 前缀让长期潜伏告警在 WhatsApp 显性化被用户察觉。修复: auto_deploy drift 循环镜像同款豁免 + INV-DEPLOY-003 双侧守卫 5 checks + 案例扩展 V37.8.11 章节。governance v3.16→v3.17 (40 inv/199 checks). 待观察 2026-04-16 00:00 下个整点 drift 告警应消失。原则 #15 反思: 定期像用户一样使用系统 (半天 WhatsApp 观察就能发现噪声)",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
