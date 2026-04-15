@@ -19,6 +19,8 @@ trap 'rmdir "$LOCK" 2>/dev/null' EXIT
 
 JOB_DIR="${HOME}/.openclaw/jobs/finance_news"
 CACHE="$JOB_DIR/cache"
+# V37.8.5 暴露 JOB_DIR 给 heredoc Python（import finance_news_zombie）
+export FINANCE_NEWS_JOBS_DIR="$JOB_DIR"
 KB_SRC="${KB_BASE:-$HOME/.kb}/sources/finance_daily.md"
 KB_WRITE_SCRIPT="${KB_WRITE_SCRIPT:-$HOME/kb_write.sh}"
 PYTHON3=/usr/bin/python3
@@ -403,9 +405,14 @@ for t in tweets[:3]:
         f.write(t.get("tweet_id", t["link"]) + "\n")
 
 count = min(len(tweets), 3)
-# V37.8.4 僵尸嫌疑检测：API 返回了推文，但 100% 超 72h = 账号已停更/embed disabled 返回旧快照
-# （HTTP 200 + HTML 可解析但无新推文，是 MR-10 诱导的"静默失败"——骨架在但效果为零）
-is_zombie_suspect = (diag["total"] > 0 and diag["old"] == diag["total"])
+# V37.8.5 三层僵尸检测（闭合 V37.8.4 两个边缘盲区：CNS1952 99% + SingTaoDaily 0-tweet stub）
+# 导入纯函数模块以获得可单测的 classify_zombie()；失败时硬退出（不提供 inline fallback，避免血案重演）
+import os as _os, sys as _sys
+_jobs_dir = _os.environ.get("FINANCE_NEWS_JOBS_DIR")
+if _jobs_dir and _jobs_dir not in _sys.path:
+    _sys.path.insert(0, _jobs_dir)
+from finance_news_zombie import classify_zombie  # noqa: E402
+is_zombie_suspect, zombie_tier = classify_zombie(diag, count)
 if is_zombie_suspect:
     with open(zombie_file, 'a') as f:
         f.write(f"{handle}\n")
@@ -428,7 +435,8 @@ else:
     if diag["old"]:
         reasons.append(f"{diag['old']}条超72h")
     reason_str = ", ".join(reasons) if reasons else "未知"
-    prefix = "⚠️ ZOMBIE嫌疑 " if is_zombie_suspect else ""
+    # V37.8.5 tier 标记：stub（空骨架）/ stale（≥90% 老化），便于日志定位
+    prefix = f"⚠️ ZOMBIE嫌疑[{zombie_tier}] " if is_zombie_suspect else ""
     print(f"[finance] X @{handle}: {prefix}0 条（原始{diag['total']}条, 过滤: {reason_str}）", file=sys.stderr)
 XPYEOF
 

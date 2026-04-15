@@ -173,8 +173,9 @@ declare -a FILE_MAP=(
     "jobs/rss_blogs/run_rss_blogs.sh|$HOME/.openclaw/jobs/rss_blogs/run_rss_blogs.sh"
     "jobs/ontology_sources/run_ontology_sources.sh|$HOME/.openclaw/jobs/ontology_sources/run_ontology_sources.sh"
 
-    # 财经/政策新闻（V37.8.2）
+    # 财经/政策新闻（V37.8.2） + V37.8.5 僵尸检测模块
     "jobs/finance_news/run_finance_news.sh|$HOME/.openclaw/jobs/finance_news/run_finance_news.sh"
+    "jobs/finance_news/finance_news_zombie.py|$HOME/.openclaw/jobs/finance_news/finance_news_zombie.py"
 
     # AI Leaders X 技术洞察追踪（V34: 替代 karpathy_x，9位 AI 大牛）
     "jobs/karpathy_x/run_karpathy_x.sh|$HOME/.openclaw/jobs/karpathy_x/run_karpathy_x.sh"

@@ -57,6 +57,7 @@ run_suite "audit_log (审计日志/链式哈希)" "python3 test_audit_log.py"
 run_suite "reliability_bench (故障场景评测)" "python3 test_reliability_bench.py"
 run_suite "memory_plane (统一记忆平面)" "python3 test_memory_plane.py"
 run_suite "slo_dashboard (SLO仪表盘)" "python3 test_slo_dashboard.py"
+run_suite "finance_news_zombie (V37.8.5 三层僵尸检测)" "python3 test_finance_news_zombie.py"
 if [ -f ontology/tests/test_governance_cron_matcher.py ]; then
     run_suite "governance_cron_matcher (INV-CRON-003/004 匹配器)" "python3 -m unittest ontology.tests.test_governance_cron_matcher"
 fi
