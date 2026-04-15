@@ -30,7 +30,7 @@ FIELDS="title,authors,abstract,url,citationCount,publicationDate,externalIds,tld
 DATE_FROM="$(TZ=Asia/Hong_Kong date -v-30d '+%Y-%m-%d' 2>/dev/null || date -d '30 days ago' '+%Y-%m-%d')"
 DATE_TO="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d')"
 
-log() { echo "[$TS] s2: $1"; }
+log() { echo "[$TS] s2: $1" >&2; }
 
 mkdir -p "$CACHE" "${KB_BASE:-$HOME/.kb}/sources"
 test -f "$KB_SRC" || echo "# Semantic Scholar AI论文" > "$KB_SRC"

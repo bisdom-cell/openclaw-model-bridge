@@ -29,7 +29,7 @@ TS="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')"
 DAY="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d')"
 STATUS_FILE="$CACHE/last_run.json"
 
-log() { echo "[$TS] finance: $1"; }
+log() { echo "[$TS] finance: $1" >&2; }
 
 mkdir -p "$CACHE/raw" "${KB_BASE:-$HOME/.kb}/sources"
 test -f "$KB_SRC" || echo "# 全球财经/政策每日汇总" > "$KB_SRC"

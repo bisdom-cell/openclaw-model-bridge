@@ -32,7 +32,7 @@ TO="${OPENCLAW_PHONE:-+85200000000}"
 TS="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')"
 STATUS_FILE="$CACHE_DIR/last_run.json"
 
-log() { echo "[$TS] hn_watcher: $1"; }
+log() { echo "[$TS] hn_watcher: $1" >&2; }
 
 mkdir -p "$CACHE_DIR"
 touch "$INBOX"

@@ -26,7 +26,7 @@ TS="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')"
 DAY="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d')"
 STATUS_FILE="$CACHE/last_run.json"
 
-log() { echo "[$TS] onto-src: $1"; }
+log() { echo "[$TS] onto-src: $1" >&2; }
 
 mkdir -p "$CACHE" "${KB_BASE:-$HOME/.kb}/sources"
 test -f "$KB_SRC" || echo "# Ontology Sources Watcher" > "$KB_SRC"

@@ -24,7 +24,7 @@ TS="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')"
 DAY="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d')"
 STATUS_FILE="$CACHE/last_run.json"
 
-log() { echo "[$TS] hf_papers: $1"; }
+log() { echo "[$TS] hf_papers: $1" >&2; }
 
 mkdir -p "$CACHE" "${KB_BASE:-$HOME/.kb}/sources"
 test -f "$KB_SRC" || echo "# Hugging Face Daily Papers" > "$KB_SRC"

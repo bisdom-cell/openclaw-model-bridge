@@ -29,7 +29,7 @@ YEAR="$(TZ=Asia/Hong_Kong date '+%Y')"
 
 DBLP_API="https://dblp.org/search/publ/api"
 
-log() { echo "[$TS] dblp: $1"; }
+log() { echo "[$TS] dblp: $1" >&2; }
 
 mkdir -p "$CACHE" "${KB_BASE:-$HOME/.kb}/sources"
 test -f "$KB_SRC" || echo "# DBLP CS论文索引" > "$KB_SRC"

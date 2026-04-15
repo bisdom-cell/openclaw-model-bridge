@@ -32,7 +32,7 @@ LLM_RAW="$CACHE/llm_raw_last.txt"
 TS="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')"
 STATUS_FILE="$CACHE/last_run.json"
 
-log() { echo "[$TS] freight: $1"; }
+log() { echo "[$TS] freight: $1" >&2; }
 
 mkdir -p "$CACHE" "${KB_BASE:-$HOME/.kb}/sources"
 test -f "$KB_SRC"   || echo "# 货代商机 Watcher" > "$KB_SRC"

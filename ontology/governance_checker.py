@@ -273,6 +273,16 @@ def run_meta_discovery(data):
             result = _discover_shallow_critical(data, severity)
             discovery_results.append({"id": disc_id, "name": name, **result})
 
+        elif disc_id == "MRD-LOG-STDERR-001":
+            # V37.8.9: MR-11 运行时检测 — shell log 函数必须写 stderr
+            result = _discover_log_stderr_violations(severity)
+            discovery_results.append({"id": disc_id, "name": name, **result})
+
+        elif disc_id == "MRD-LLM-PARSER-POSITIONAL-001":
+            # V37.8.9: MR-12 运行时检测 — LLM 解析器不得用位置索引
+            result = _discover_llm_parser_positional_violations(severity)
+            discovery_results.append({"id": disc_id, "name": name, **result})
+
     return discovery_results
 
 
@@ -598,6 +608,324 @@ def _discover_shallow_critical(data, severity):
     }
 
 
+# ═══════════════════════════════════════════════════════════════════════
+# V37.8.9 — MR-11 / MR-12 运行时检测器（把声明层升级为 CI 可检测层）
+# ═══════════════════════════════════════════════════════════════════════
+
+# shell 中被视为"诊断输出函数"的名字（必须写 stderr，不是 stdout）
+_LOG_FUNC_NAMES = (
+    "log", "debug", "status", "warn", "info", "notice",
+    "error_log", "err_log", "log_err", "err",
+)
+
+# 单行函数定义：NAME() { ... echo ... }
+_ONELINE_LOG_FUNC_RE = re.compile(
+    r'^\s*(' + '|'.join(_LOG_FUNC_NAMES) + r')\s*\(\)\s*\{(.*?)\}\s*(>&2)?\s*$'
+)
+
+# 多行函数开始：NAME() {
+_MULTILINE_LOG_FUNC_START_RE = re.compile(
+    r'^\s*(' + '|'.join(_LOG_FUNC_NAMES) + r')\s*\(\)\s*\{\s*$'
+)
+
+# echo 行是否包含 stderr 重定向（>&2 或 1>&2）
+_STDERR_REDIRECT_RE = re.compile(r'(?:^|[^0-9])(?:>&2|1>&2)(?:\s|$|;|&|\|)')
+
+
+def _is_echo_to_stdout(line):
+    """判断一行 echo 是否写入 stdout（无 >&2 重定向）。
+
+    允许的 stderr 模式：
+      echo "x" >&2
+      echo "x" 1>&2
+      echo "x"; echo "y" >&2  ← 只要行里**任一 echo 命令** redirect 到 stderr 就算合规
+                                  （保守判断：只要本行含 >&2/1>&2 就豁免）
+
+    不算违反：
+      echo >> "$FILE"    → 重定向到文件（不是 stdout）
+      echo 2>&1          → stderr 合并到 stdout（这是特殊情况，但
+                            不在 log 函数内出现，保持 warn）
+    """
+    stripped = line.strip()
+    # 非 echo 行不管
+    if "echo" not in stripped:
+        return False
+    # 排除 echo >> file（重定向到文件不是 stdout 污染）
+    if re.search(r'echo\s+[^|&]*>>\s*[^&]', stripped):
+        return False
+    # 排除 echo > file（非 stderr 重定向）
+    if re.search(r'echo\s+[^|&]*(?<![&>])>\s*(?!&2)', stripped):
+        return False
+    # 若本行已有 stderr 重定向，合规
+    if _STDERR_REDIRECT_RE.search(line):
+        return False
+    return True
+
+
+def _scan_shell_file_log_functions(sh_file):
+    """返回 [(lineno, func_name, body_preview)] 违规列表。"""
+    violations = []
+    try:
+        with open(sh_file, encoding="utf-8", errors="ignore") as f:
+            lines = f.readlines()
+    except Exception:
+        return violations
+
+    i = 0
+    n = len(lines)
+    while i < n:
+        line = lines[i]
+        # 单行函数定义
+        m = _ONELINE_LOG_FUNC_RE.match(line)
+        if m:
+            func_name = m.group(1)
+            body = m.group(2)
+            func_redir = m.group(3)
+            # 整个函数用 `} >&2` 后置重定向也合规
+            if func_redir == ">&2":
+                i += 1
+                continue
+            # 体内所有 echo 至少一个写 stdout 则违规
+            # 把 body 按 `;` 切开逐条判断
+            segments = [s for s in body.split(";") if s.strip()]
+            for seg in segments:
+                if _is_echo_to_stdout(seg):
+                    violations.append((i + 1, func_name, line.strip()[:80]))
+                    break
+            i += 1
+            continue
+
+        # 多行函数定义开始
+        m = _MULTILINE_LOG_FUNC_START_RE.match(line)
+        if m:
+            func_name = m.group(1)
+            func_start = i
+            # 查找配对的 }，只支持最简单的情况（函数体无嵌套 {}）
+            body_lines = []
+            j = i + 1
+            found_close = False
+            while j < n and j - i < 30:  # 限制扫描范围避免失控
+                if re.match(r'^\s*\}\s*(>&2)?\s*$', lines[j]):
+                    found_close = True
+                    close_line = lines[j]
+                    break
+                body_lines.append(lines[j])
+                j += 1
+            if not found_close:
+                i += 1
+                continue
+            # 检查关闭行是否有 `} >&2` 后置重定向
+            if re.search(r'>&2', close_line):
+                i = j + 1
+                continue
+            # 逐行检查 body
+            for body_line in body_lines:
+                if _is_echo_to_stdout(body_line):
+                    violations.append((func_start + 1, func_name, lines[func_start].strip()[:80]))
+                    break
+            i = j + 1
+            continue
+
+        i += 1
+
+    return violations
+
+
+# 白名单：用户直接运行的诊断/报告工具，stdout 就是用户终端输出目标
+# 这些脚本不被其他脚本用 `$()` 命令替换捕获，log→stdout 无污染风险
+# MR-11 核心风险是"被命令替换捕获" — 这些脚本不会被
+_LOG_STDERR_EXEMPT_BASENAMES = {
+    # 用户交互式诊断工具（直接跑给人看）
+    "cron_doctor.sh",
+    "preflight_check.sh",
+    "job_smoke_test.sh",
+    "full_regression.sh",
+    "smoke_test.sh",
+    "quickstart.sh",
+    "gameday.sh",
+    # 用户交互式报告工具
+    "daily_ops_report.sh",
+    "health_check.sh",
+    # Cron wrapper (输出进 logfile，不是 $()  捕获)
+    "governance_audit_cron.sh",
+    "kb_status_refresh.sh",
+}
+
+
+def _discover_log_stderr_violations(severity):
+    """MRD-LOG-STDERR-001: 扫所有 shell 文件的 log/debug/status/warn/info
+    函数定义，确认诊断输出写入 stderr（>&2），不污染 stdout 供命令替换捕获。
+
+    触发血案：V37.8.6 Dream 自引用幻觉 — kb_dream.sh `log() { echo ...; }`
+    写 stdout，`signals=$(llm_call ...)` 命令替换把 LLM 错误日志捕获进 signals
+    → cache → Reduce LLM 上下文 → 编造"Hugging Face 危机"推送给用户。
+
+    白名单豁免：用户直接运行的诊断工具（cron_doctor/preflight/...），stdout
+    是用户终端的合法输出通道，不存在命令替换污染风险。
+    """
+    import glob as glob_mod
+
+    violations = []
+    scanned = 0
+    exempted = 0
+    # 扫描所有 shell 脚本（仓库 + jobs/）
+    patterns = [
+        os.path.join(_PROJECT_ROOT, "*.sh"),
+        os.path.join(_PROJECT_ROOT, "jobs", "**", "*.sh"),
+    ]
+    sh_files = set()
+    for patt in patterns:
+        sh_files.update(glob_mod.glob(patt, recursive=True))
+
+    for sh_file in sorted(sh_files):
+        if ".git" in sh_file or "/test_" in sh_file:
+            continue
+        basename = os.path.basename(sh_file)
+        # V37.8.9: 白名单豁免用户交互式诊断工具
+        if basename in _LOG_STDERR_EXEMPT_BASENAMES:
+            exempted += 1
+            continue
+        scanned += 1
+        file_violations = _scan_shell_file_log_functions(sh_file)
+        rel = os.path.relpath(sh_file, _PROJECT_ROOT)
+        for lineno, func_name, preview in file_violations:
+            violations.append(f"{rel}:{lineno} {func_name}() 写 stdout")
+
+    if violations:
+        return {
+            "status": "warn",
+            "severity": severity,
+            "message": (
+                f"{len(violations)} 处 shell log 函数写 stdout（应 >&2），"
+                f"扫描 {scanned} 个 .sh 文件（豁免 {exempted} 个诊断工具）: "
+                f"{', '.join(violations[:5])}"
+                f"{'...' if len(violations) > 5 else ''}"
+            ),
+            "violations": violations,
+        }
+    return {
+        "status": "pass",
+        "severity": severity,
+        "message": f"所有 {scanned} 个 shell 文件的 log/debug/status/warn 函数均写 stderr（{exempted} 个诊断工具豁免）",
+    }
+
+
+# MR-12 位置索引反模式：LLM 输出解析器不得用严格位置索引
+# V37.8.9 refinement:
+#   - i += 1 是合法的 while-loop 一行一行遍历，不视为违反
+#   - 只匹配 i += N (N>=2) — 跳多行才是 MR-12 核心违反（V37.8.7 血案 i += 3）
+#   - lines[i+N] 即使 N=1 也是危险（按偏移读下一行，不理解边界就级联）
+_POSITIONAL_PATTERNS = [
+    (re.compile(r'lines\[\s*i\s*\+\s*[0-9]+\s*\]'), "lines[i+N]"),
+    (re.compile(r'^\s*i\s*\+=\s*([2-9]|[1-9][0-9]+)\s*(?:$|#)'), "i += N 步进 (N≥2)"),
+    (re.compile(r'\b(content|text|response|result|output|raw|llm_content)\.split\([^)]*\)\[\s*[0-9]+\s*\]'),
+     "var.split()[N]"),
+]
+
+
+def _discover_llm_parser_positional_violations(severity):
+    """MRD-LLM-PARSER-POSITIONAL-001: 扫 LLM 调用脚本的位置索引反模式。
+
+    触发血案：V37.8.7 ontology_sources 推送格式错位 — run_ontology_sources.sh
+    用 `lines[i], lines[i+1], lines[i+2]` + `i += 3` 步进；LLM 漏一行"要点"
+    就让所有后续条目 cn_title/highlight/stars 全部右移一格级联错位。
+
+    扫描范围（从 V37.8.7 MR-12 scan 已知的 LLM 调用文件集合）：
+      - jobs/**/run_*.sh  （heredoc 中的 Python）
+      - kb_*.py / kb_*.sh / run_hn_fixed.sh
+      - 主仓库 .py 文件中显式 LLM 相关的
+
+    跳过：
+      - 注释行（# 或 // 开头）
+      - 测试断言行（assertNotIn / assertRaises 列违反模式的反例）
+      - shell variable slicing `${VAR:offset}` 与本规则无关
+    """
+    import glob as glob_mod
+
+    # 候选文件集合
+    targets = set()
+    for patt in [
+        "jobs/*/run_*.sh",
+        "kb_*.py",
+        "kb_*.sh",
+        "run_hn_fixed.sh",
+    ]:
+        targets.update(glob_mod.glob(os.path.join(_PROJECT_ROOT, patt)))
+    # 也扫 jobs 下的其他 .py 解析模块
+    targets.update(glob_mod.glob(
+        os.path.join(_PROJECT_ROOT, "jobs", "**", "*.py"), recursive=True
+    ))
+
+    violations = []
+    scanned = 0
+    for f in sorted(targets):
+        if ".git" in f or "/test_" in f or "/tests/" in f:
+            continue
+        # 排除 test_ 开头的文件（里面故意含反模式作为 assertNotIn 断言）
+        base = os.path.basename(f)
+        if base.startswith("test_"):
+            continue
+        scanned += 1
+        try:
+            with open(f, encoding="utf-8", errors="ignore") as fh:
+                lines = fh.readlines()
+        except Exception:
+            continue
+        # V37.8.9: 跨行 docstring tracking — 进入 """ 或 ''' 块后跳过所有行直到关闭
+        in_docstring = False
+        docstring_delim = None
+        for lineno, line in enumerate(lines, 1):
+            stripped = line.lstrip()
+            # docstring 状态机
+            if in_docstring:
+                if docstring_delim in line:
+                    in_docstring = False
+                    docstring_delim = None
+                continue
+            # 检测 docstring 开始（行内必须是开放，不是 """text""" 单行形式）
+            for delim in ('"""', "'''"):
+                if delim in line:
+                    # 单行 docstring（delim 出现偶数次）？跳过不变状态
+                    count = line.count(delim)
+                    if count >= 2:
+                        break  # 单行 """..."""，不进入多行模式
+                    if count == 1:
+                        in_docstring = True
+                        docstring_delim = delim
+                        break
+            if in_docstring:
+                continue
+            # 跳过注释
+            if stripped.startswith(("#", "//", "*")):
+                continue
+            # 跳过 unittest 断言行（有意列反模式作为负向检查）
+            if "assertNotIn" in line or "assertRaises" in line:
+                continue
+            for patt, desc in _POSITIONAL_PATTERNS:
+                if patt.search(line):
+                    rel = os.path.relpath(f, _PROJECT_ROOT)
+                    violations.append(
+                        f"{rel}:{lineno} [{desc}] {stripped.rstrip()[:70]}"
+                    )
+                    break
+
+    if violations:
+        return {
+            "status": "warn",
+            "severity": severity,
+            "message": (
+                f"{len(violations)} 处 LLM 解析位置索引反模式，扫描 {scanned} 个脚本: "
+                f"{violations[0][:100]}{'...' if len(violations) > 1 else ''}"
+            ),
+            "violations": violations[:20],
+        }
+    return {
+        "status": "pass",
+        "severity": severity,
+        "message": f"所有 {scanned} 个 LLM 调用脚本均无位置索引反模式",
+    }
+
+
 def print_results(results, json_mode=None):
     """Print governance check results.
 
@@ -649,7 +977,16 @@ def print_results(results, json_mode=None):
             failed_invs += 1
 
     # Summary
+    # V37.8.9: mr_used 现在同时包含 invariants 和 meta_rule_discovery 引用的元规则
+    # （MRD 也是"执行中的元规则检测器"，应该被计入 "used" 集合）
     mr_used = set(r["meta_rule"] for r in results if r["meta_rule"])
+    try:
+        for mrd in _load().get("meta_rule_discovery", []):
+            mr = mrd.get("meta_rule")
+            if mr:
+                mr_used.add(mr)
+    except Exception:
+        pass
     skipped = sum(1 for r in results for c in r["checks"] if c["status"] == "skip")
     executed = total_checks - skipped
     errored_invs = sum(1 for r in results if r["status"] == "error")

@@ -25,7 +25,7 @@ DAY="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d')"
 STATUS_FILE="$CACHE/last_run.json"
 
 JOB_TAG="ai_leaders"
-log() { echo "[$TS] ${JOB_TAG}: $1"; }
+log() { echo "[$TS] ${JOB_TAG}: $1" >&2; }
 
 mkdir -p "$CACHE/raw" "${KB_BASE:-$HOME/.kb}/sources"
 test -f "$KB_SRC" || echo "# AI Leaders X 技术洞察" > "$KB_SRC"
