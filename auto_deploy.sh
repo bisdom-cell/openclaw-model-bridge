@@ -172,6 +172,7 @@ declare -a FILE_MAP=(
     "jobs/github_trending/run_github_trending.sh|$HOME/.openclaw/jobs/github_trending/run_github_trending.sh"
     "jobs/rss_blogs/run_rss_blogs.sh|$HOME/.openclaw/jobs/rss_blogs/run_rss_blogs.sh"
     "jobs/ontology_sources/run_ontology_sources.sh|$HOME/.openclaw/jobs/ontology_sources/run_ontology_sources.sh"
+    "jobs/ontology_sources/ontology_parser.py|$HOME/.openclaw/jobs/ontology_sources/ontology_parser.py"
 
     # 财经/政策新闻（V37.8.2） + V37.8.5 僵尸检测模块
     "jobs/finance_news/run_finance_news.sh|$HOME/.openclaw/jobs/finance_news/run_finance_news.sh"

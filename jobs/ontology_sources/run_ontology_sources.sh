@@ -18,6 +18,10 @@ KB_SRC="${KB_BASE:-$HOME/.kb}/sources/ontology_sources.md"
 KB_WRITE_SCRIPT="${KB_WRITE_SCRIPT:-$HOME/kb_write.sh}"
 PYTHON3=/usr/bin/python3
 
+# V37.8.7: 让 heredoc Python 能 import 同目录的 ontology_parser 模块
+# (heredoc 通过 `python3 -` 读 stdin，sys.path 不含脚本目录，需主动注入)
+export ONTOLOGY_JOBS_DIR="$JOB_DIR"
+
 TS="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')"
 DAY="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d')"
 STATUS_FILE="$CACHE/last_run.json"
@@ -297,20 +301,17 @@ try:
 except Exception:
     llm_content = ""
 
-# 解析三行一组（中文标题/要点/价值）
-parsed_blocks = []
-lines = [l.strip() for l in llm_content.split('\n') if l.strip() and not re.match(r'^[-=*]{3,}$', l)]
-
-i = 0
-while i < len(lines):
-    if re.match(r'^文章\d+[：:]', lines[i]):
-        i += 1
-        continue
-    cn_title = lines[i] if i < len(lines) else ""
-    highlight = lines[i+1] if i+1 < len(lines) else ""
-    stars = lines[i+2] if i+2 < len(lines) else ""
-    parsed_blocks.append((cn_title, highlight, stars))
-    i += 3
+# V37.8.7 修复：原解析器用严格位置 (lines[i], lines[i+1], lines[i+2]) + i+=3 步进，
+# LLM 漏一行"要点"或多一行空白就会导致**级联错位** —— 后续所有条目的 cn_title/
+# highlight/stars 全部错位，输出出现 *---*、*价值：⭐⭐⭐⭐*、中文标题丢失等乱序症状。
+# 新解析器抽到独立模块 ontology_parser.py（纯函数可单测，避开 V37.5 heredoc-only
+# 不可测血案）：按 --- 分隔符切块 + 块内按前缀键查找，单块缺行不影响其他块。
+import os
+_jobs_dir = os.environ.get("ONTOLOGY_JOBS_DIR", "")
+if _jobs_dir:
+    sys.path.insert(0, _jobs_dir)
+from ontology_parser import parse_llm_blocks
+parsed_blocks = parse_llm_blocks(llm_content)
 
 msg_lines = [f"🔬 Ontology 学术动态 ({day})", ""]
 

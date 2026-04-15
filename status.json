@@ -1,6 +1,6 @@
 {
-  "updated": "2026-04-15 02:05:20",
-  "updated_by": "security_score",
+  "updated": "2026-04-15 02:45:48",
+  "updated_by": "unknown",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-04-15",
+      "what": "V37.8.7 ontology_sources 格式错位血案闭环：位置解析 i+=3 在 LLM 漏一行时级联污染所有后续条目。修复：抽到独立模块 ontology_parser.py，按 ---/===/*** 分隔符切块 + 块内 key-based prefix 解析。同日 V37.8.6 Dream + V37.8.7 ontology_sources 双 MR-4 演出共同教训：LLM 输出格式不可严格假设。INV-ONTOLOGY-001 (declaration+runtime, 7 checks) + 24 单测 + 案例 ontology_sources_positional_parser_cascade_case.md + auto_deploy FILE_MAP + governance v3.12→v3.13 (37→38 inv, 175→182 checks)。1018 tests / 0 fail / 安全 93/100. VERSION 0.37.8.6→0.37.8.7",
+      "by": "claude_code"
+    },
     "{\"date\":\"2026-04-15\",\"what\":\"V37.8.6 Dream 自引用幻觉血案闭环：2026-04-15 03:00 Dream run 推送虚假 Hugging Face 平台危机分析，根因三层：(1) scraped 内容含 surrogate UTF-8 → json.dump + utf-8 文件写入 → UnicodeEncodeError → body_file 截断 → adapter.py:386 返回 400 Bad JSON (2) kb_dream.sh log() 用 echo 写 stdout + signals=$(llm_call ...) 命令替换捕获 log 行 → cache file 被错误日志污染 (3) Reduce cache-only fast path 把错误日志注入 LLM 上下文 → Qwen3 基于训练数据编造 Hugging Face 危机叙事。四层防御：log→stderr + _sanitize(U+D800-U+DFFF→U+FFFD) + file errors=\"\\\"replace\\\"\" + REDUCE/CHUNK system prompt 反污染守卫。19 单测 + INV-DREAM-003 (critical, declaration+runtime 含 python_assert 真跑 5 场景) + 案例 ontology/docs/cases/dream_self_referential_hallucination_case.md。MR-4 第 7 次演出 + 原则 #23 链式幻觉典型实证。governance v3.11→v3.12 (36→37 inv, 159→175 checks)。全量回归 994 tests / 0 fail / 37 inv / 10 meta rules / 安全 93/100。VERSION 0.37.8.5→0.37.8.6\",\"by\":\"claude_code\"}",
     {
       "date": "2026-04-15",
@@ -168,11 +173,6 @@
       "date": "2026-04-11",
       "what": "V37.4: Dream Map 预算溢出+cache key 稳定性三层修复 — 触发 286 notes×76s>60min budget. Fix A: Reduce cache-only fast path (SKIP_MAP_LOOPS 门控 Phase 1a+1b+elif). Fix B: Notes batch 15/12000→30/24000 halve LLM calls. Fix C: per-note cache key=md5(content) + macOS md5 -q fallback + signal dedup. DREAM_TIMEOUT_SEC dynamic: MAP_ONLY=5400 / full_run=3600. 案例文档 dream_map_budget_overflow_case.md (四维度因果链+三层根因+时间线). 3 新不变式 INV-DREAM-001/002+INV-CACHE-002 (v3.2→v3.3, 23→26, 43→52 checks). test_dream_cache_stability.py 20 单测锁定. full_regression: 29 suites / 774 tests / 0 fail / 26/26 invariants / 41/52 checks.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-04-11",
-      "what": "V37.3: Governance 自观察元规则 MR-7 + INV-GOV-001 — 案例文档 ontology/docs/cases/governance_silent_error_case.md (四维度因果链+三层根因+观察者的自我盲区) + MR-7 governance-execution-is-self-observable (治理系统是一等被治理对象) + INV-GOV-001 summary-counts-all-non-pass (声明层 grep 守卫 + 运行时 error 注入 probe, JSON_MODE save/restore) + test_governance_summary.py 7 单测锁定 bug 3 + 接入 full_regression.sh. 全量回归: 28 suites / 754 tests / 0 fail, governance 23/23 invariants / 32/43 checks. v3.1 → v3.2 (22→23 不变式, 6→7 元规则, 41→43 checks).",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -199,28 +199,31 @@
   "session_context": {
     "last_session": "2026-04-13",
     "unfinished": [
+      "Mac Mini 生产验证 V37.8.7：下次 ontology_sources 10:00/20:00 cron 推送时检查 (a) 中文标题不含 ---/===/价值: 等错位字段 (b) 三字段顺序正确 (c) 缺字段正确留空不级联",
       "Mac Mini 生产验证 V37.8.6：下次 03:00 kb_dream cron 运行时检查 (a) log() 输出走 stderr (b) Dream 推送内容不含虚假 Hugging Face/GitHub/npm 平台危机字样 (c) cache file 不含 Bad JSON / Error code / HTML 等错误痕迹",
       "MR-11 元规则候选 shell-function-output-must-go-to-stderr-if-not-returned-value：扫描所有 shell 函数的 log/debug/status 输出是否用 >&2",
       "系统化 surrogate 清洗：Dream 在 LLM 边界做 sanitize 但源头(爬虫/KB 写入)应先清洗",
       "LLM 输出 grounding allow-list：Dream 输出中的平台名/公司名/产品名应有 allow-list (提 Hugging Face 必须信号里先提到)",
       "Dream 失败率可观测：Map 批次失败 > 阈值输出加 [DEGRADED] 前缀或干脆跳过推送",
-      "审计今日 pwc_daily / 其他 source 文件是否真含 surrogate 字节"
+      "审计今日 pwc_daily / 其他 source 文件是否真含 surrogate 字节",
+      "V37.8.8 候选：emit 端字段语义校验（cn_title 不应是分隔符 / 不应以已知前缀开头）+ 同模式审查其他 LLM 输出解析器",
+      "MR-12 元规则候选 llm-output-parser-must-be-key-based-not-positional：LLM 输出永远不能假设格式严格遵守，所有解析必须容忍单条缺/多/重排，用前缀语义键定位"
     ],
     "open_prs": "",
     "blocked_on": "",
-    "focus": "V37.4.3 PA 告警污染血案闭环完成 + WhatsApp 生产验证通过 (13:06 原题复现零红线命中) + Mac Mini governance --full 28/28/67/67 + INV-PA-001/002 15 checks 全绿 + 33 job 全可运行. 2 个 preflight FAIL 是 pre-existing 分叉已登记 unfinished. 收工回顾发现 kb_review.sh 效果层静默降级 (同类 V37.4.3 血案) 已登记 unfinished. 下一步: Ontology Phase 3 渐进替换 (ONTOLOGY_MODE=on 切换) 或 Tool Policy Plugin V3 路标 或 kb_review 效果层修复",
+    "focus": "V37.8.7 ontology_sources 推送格式错位血案闭环 — 同日 V37.8.6+V37.8.7 双 MR-4 演出。位置解析 i+=3 → separator 切块 + key-based prefix 解析，单块缺行不级联。INV-ONTOLOGY-001 (high, declaration+runtime) + 24 单测 + 案例 ontology_sources_positional_parser_cascade_case.md。1018 tests / 38/38 invariants. 待观察: 下次 ontology_sources 10:00/20:00 cron 推送格式正确无错位",
     "current_focus": "V37.8 MR-6 深度补齐生产硬验证通过 (35/35 inv / 136/136 checks / 9/9 MR 全绿). 下一步: V37.8.1 修复 MRD-NOTIFY-002 activity 层假阳性 (topic→job log 映射扫 mtime) 或 Ontology Phase 3 渐进替换 (ONTOLOGY_MODE=on) 或 Tool Policy Plugin V3 路标"
   },
   "quality": {
     "security_score": "93",
-    "test_count": "994",
-    "last_regression": "2026-04-15 01:55 pass",
+    "test_count": "1018",
+    "last_regression": "2026-04-15 02:42 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-04-15 01:55",
-    "test_suites": "33",
-    "governance_invariants": "37/37",
-    "governance_checks": "161/172",
-    "version": "0.37.8.5"
+    "security_score_time": "2026-04-15 02:42",
+    "test_suites": "34",
+    "governance_invariants": "38/38",
+    "governance_checks": "168/179",
+    "version": "0.37.8.6"
   },
   "incidents": [
     {
