@@ -1,6 +1,6 @@
 {
-  "updated": "2026-04-15 16:31:07",
-  "updated_by": "full_regression",
+  "updated": "2026-04-15 16:45:06",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -291,7 +291,8 @@
     "[auto] 用户已提交 1 条反馈，最新: {\"date\": \"2026-04-03\", \"from\": \"mentor\", \"what\": \""
   ],
   "session_context.unfinished": [
-    "V37.8 MRD-NOTIFY-002 activity 层假阳性 — 新检测器 source 层正确识别 6 频道 caller（28/32 job 直调 openclaw message send 的 case 已修复），但 activity 层扫 notify_queue/*.json + jobs/*/cache/*.log mtime 这两个路径都不是成功推送的真实记录（notify_queue 只记失败重放，jobs/*/cache 不是每个 job 都有），导致 papers/freight/alerts/daily/tech/ontology 全部 7 天无活动假阳性。正确修复思路：在 _discover_silent_channels activity 层建立 topic → job log 映射（papers→arxiv/hf/dblp/s2/acl/ai_leaders_x 的 ~/*.log，freight→freight_watcher，alerts→job_watchdog+auto_deploy，daily→kb_review+kb_evening+kb_trend+daily_ops_report，tech→github_trending+rss_blogs，ontology→ontology_sources），对每个 topic 取映射日志的最大 mtime，7 天内算活跃。MRD 是建议层不影响 9/9 元规则硬闭环，但会误导新认知。下次 session V37.8.1 修复。"
+    "V37.8 MRD-NOTIFY-002 activity 层假阳性 — 新检测器 source 层正确识别 6 频道 caller（28/32 job 直调 openclaw message send 的 case 已修复），但 activity 层扫 notify_queue/*.json + jobs/*/cache/*.log mtime 这两个路径都不是成功推送的真实记录（notify_queue 只记失败重放，jobs/*/cache 不是每个 job 都有），导致 papers/freight/alerts/daily/tech/ontology 全部 7 天无活动假阳性。正确修复思路：在 _discover_silent_channels activity 层建立 topic → job log 映射（papers→arxiv/hf/dblp/s2/acl/ai_leaders_x 的 ~/*.log，freight→freight_watcher，alerts→job_watchdog+auto_deploy，daily→kb_review+kb_evening+kb_trend+daily_ops_report，tech→github_trending+rss_blogs，ontology→ontology_sources），对每个 topic 取映射日志的最大 mtime，7 天内算活跃。MRD 是建议层不影响 9/9 元规则硬闭环，但会误导新认知。下次 session V37.8.1 修复。",
+    "V37.8.12 候选 (自复制 bug - V37.8.11 部署过程暴露): auto_deploy.sh FILE_MAP 第 258 行 auto_deploy.sh|$HOME/openclaw-model-bridge/auto_deploy.sh 是自复制 (REPO_DIR==$HOME/openclaw-model-bridge 时), macOS cp 返回非零 + set -e 杀脚本, 新 commit 同步中途死亡, 需要下次 hourly drift 兜底。修复: 移除 line 258 冗余映射, 保留 line 259 auto_deploy.sh|$HOME/auto_deploy.sh + 加 grep 守卫禁止 FILE_MAP 自复制模式 + 新增 INV 锁定"
   ],
   "unfinished": [
     {
