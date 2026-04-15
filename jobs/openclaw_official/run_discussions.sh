@@ -21,7 +21,7 @@ TS="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')"
 STATUS_FILE="$CACHE/last_run_discussions.json"
 ETAG_FILE="$CACHE/issues_etag.txt"
 
-log() { echo "[$TS] openclaw_issues: $1"; }
+log() { echo "[$TS] openclaw_issues: $1" >&2; }
 
 mkdir -p "$CACHE" "$HOME/.kb/sources"
 test -f "$KB_SRC"   || echo "# OpenClaw Official Watcher" > "$KB_SRC"

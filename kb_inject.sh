@@ -15,7 +15,7 @@ INDEX="$KB_DIR/index.json"
 TS="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M')"
 DATE=$(date +%Y%m%d)
 
-log() { echo "[$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')] kb_inject: $1"; }
+log() { echo "[$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')] kb_inject: $1" >&2; }
 
 mkdir -p "$KB_DIR"
 

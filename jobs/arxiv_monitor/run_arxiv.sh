@@ -27,7 +27,7 @@ ARXIV_URL="https://export.arxiv.org/api/query?search_query=ti:LLM+OR+ti:%22Large
 TS="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')"
 STATUS_FILE="$CACHE/last_run.json"
 
-log() { echo "[$TS] arxiv: $1"; }
+log() { echo "[$TS] arxiv: $1" >&2; }
 
 mkdir -p "$CACHE" "${KB_BASE:-$HOME/.kb}/sources"
 test -f "$KB_SRC" || echo "# ArXiv AI论文监控" > "$KB_SRC"

@@ -25,7 +25,7 @@ KB_INBOX="${KB_BASE:-$HOME/.kb}/inbox.md"
 TS="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')"
 STATUS_FILE="$CACHE_DIR/last_run.json"
 
-log() { echo "[$TS] openclaw_releases: $1"; }
+log() { echo "[$TS] openclaw_releases: $1" >&2; }
 
 mkdir -p "$CACHE_DIR" "$HOME/.kb/sources" "$ROOT/logs/jobs"
 

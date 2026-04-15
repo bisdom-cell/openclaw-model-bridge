@@ -26,7 +26,7 @@ STATUS_FILE="$CACHE/last_run.json"
 YEAR="$(TZ=Asia/Hong_Kong date '+%Y')"
 PREV_YEAR="$((YEAR - 1))"
 
-log() { echo "[$TS] acl: $1"; }
+log() { echo "[$TS] acl: $1" >&2; }
 
 mkdir -p "$CACHE" "${KB_BASE:-$HOME/.kb}/sources"
 test -f "$KB_SRC" || echo "# ACL Anthology NLP论文" > "$KB_SRC"

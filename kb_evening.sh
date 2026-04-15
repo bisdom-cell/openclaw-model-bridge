@@ -43,7 +43,7 @@ fi
 
 mkdir -p "$KB_DIR/daily"
 
-log() { echo "[$TS] kb_evening: $1"; }
+log() { echo "[$TS] kb_evening: $1" >&2; }
 
 # Try to source notify.sh so we can use notify() with --topic daily/alerts
 NOTIFY_SH=""
