@@ -1,6 +1,6 @@
 {
-  "updated": "2026-04-15 05:38:54",
-  "updated_by": "security_score",
+  "updated": "2026-04-15 05:48:12",
+  "updated_by": "unknown",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -197,29 +197,34 @@
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB"
   },
   "session_context": {
-    "last_session": "2026-04-13",
+    "last_session": "2026-04-15 05:48",
     "unfinished": [
-      "Mac Mini 生产验证 V37.8.7：下次 ontology_sources 10:00/20:00 cron 推送时检查 (a) 中文标题不含 ---/===/价值: 等错位字段 (b) 三字段顺序正确 (c) 缺字段正确留空不级联",
-      "Mac Mini 生产验证 V37.8.6：下次 03:00 kb_dream cron 运行时检查 (a) log() 输出走 stderr (b) Dream 推送内容不含虚假 Hugging Face/GitHub/npm 平台危机字样 (c) cache file 不含 Bad JSON / Error code / HTML 等错误痕迹",
-      "MR-11 元规则候选 shell-function-output-must-go-to-stderr-if-not-returned-value：扫描所有 shell 函数的 log/debug/status 输出是否用 >&2",
-      "系统化 surrogate 清洗：Dream 在 LLM 边界做 sanitize 但源头(爬虫/KB 写入)应先清洗",
-      "LLM 输出 grounding allow-list：Dream 输出中的平台名/公司名/产品名应有 allow-list (提 Hugging Face 必须信号里先提到)",
-      "Dream 失败率可观测：Map 批次失败 > 阈值输出加 [DEGRADED] 前缀或干脆跳过推送",
-      "审计今日 pwc_daily / 其他 source 文件是否真含 surrogate 字节",
-      "V37.8.8 候选：emit 端字段语义校验（cn_title 不应是分隔符 / 不应以已知前缀开头）+ 同模式审查其他 LLM 输出解析器",
-      "MR-12 元规则候选 llm-output-parser-must-be-key-based-not-positional：LLM 输出永远不能假设格式严格遵守，所有解析必须容忍单条缺/多/重排，用前缀语义键定位"
+      "Mac Mini 运维观察 (今晚): (a) 16:15 Issues 监控 cron 应自动恢复 (V37.8.5 后偶发 cron 跳过) (b) 22:00 KB晚间应自愈 (昨天 502 LLM 错误) (c) 明日 03:00 Dream 验证反污染 prompt 生效 (输出不含虚假 Hugging Face/GitHub/npm 平台危机字样) (d) 明日 07:30 finance_news 验证三层僵尸检测 ⚠️ZOMBIE嫌疑[stub/stale] 前缀输出",
+      "V37.8.10 候选 (Dream 衍生): (a) 系统化 surrogate 清洗 — 爬虫/KB 写入源头先清洗，扫 kb_write.sh/kb_append_source.sh/各 RSS 解析脚本 (b) LLM 输出 grounding allow-list — 平台名/公司名/产品名必须在信号里先出现才能提 (c) Dream 失败率可观测 — Map 批次失败>阈值时输出加 [DEGRADED] 前缀或跳过推送 (d) 审计 pwc_daily/其他 source 文件是否真有 surrogate 字节",
+      "V37.8.10 候选 (ontology emit 防御): emit 端字段语义校验 — *{cn_title}* emit 前断言 cn_title 不是分隔符也不以已知前缀(价值:/要点:)开头",
+      "V37.8.5 finance_news 观察项: SCMPNews 3 天连续僵尸观察 (V37.8.4 登记，2026-04-16 决策窗口到期); CNS1952/SingTaoDaily V37.8.5 三层检测验证后连续 3 天命中则删除 (2026-04-18 窗口)",
+      "MR-13 候选元规则: emit-layer-must-validate-fields-before-publish (V37.8.7 衍生 — 输出层最小语义校验是 MR-12 的兜底)",
+      "运维 P2 长期登记: ImportYeti Cloudflare / freight_watcher dcvelocity 超时 / cron_doctor.sh launchd false-positive / wa_e2e_test.sh 未部署 / Qwen3 不主动调用 memory 工具 (deferred 等模型升级) / Gateway v2026.3.13-1 hold (上游 v2026.4.9 仍 #59265 OPEN)",
+      "V3 路标 backlog: Tool Policy Plugin / Memory Plane Plugin / Job Template SDK / Ontology Phase 3 (ONTOLOGY_MODE=on)"
     ],
     "open_prs": "",
     "blocked_on": "",
     "focus": "V37.8.7 ontology_sources 推送格式错位血案闭环 — 同日 V37.8.6+V37.8.7 双 MR-4 演出。位置解析 i+=3 → separator 切块 + key-based prefix 解析，单块缺行不级联。INV-ONTOLOGY-001 (high, declaration+runtime) + 24 单测 + 案例 ontology_sources_positional_parser_cascade_case.md。1018 tests / 38/38 invariants. 待观察: 下次 ontology_sources 10:00/20:00 cron 推送格式正确无错位",
-    "current_focus": "V37.8 MR-6 深度补齐生产硬验证通过 (35/35 inv / 136/136 checks / 9/9 MR 全绿). 下一步: V37.8.1 修复 MRD-NOTIFY-002 activity 层假阳性 (topic→job log 映射扫 mtime) 或 Ontology Phase 3 渐进替换 (ONTOLOGY_MODE=on) 或 Tool Policy Plugin V3 路标"
+    "current_focus": "V37.8 MR-6 深度补齐生产硬验证通过 (35/35 inv / 136/136 checks / 9/9 MR 全绿). 下一步: V37.8.1 修复 MRD-NOTIFY-002 activity 层假阳性 (topic→job log 映射扫 mtime) 或 Ontology Phase 3 渐进替换 (ONTOLOGY_MODE=on) 或 Tool Policy Plugin V3 路标",
+    "recent_changes": [
+      {
+        "date": "2026-04-15",
+        "what": "V37.8.6/8.7/8.8/8.9 四连发同日上线 — (1) V37.8.6 Dream log→stderr 阻断 stdout 污染 cache 的 LLM 幻觉链 + sanitize U+D800-U+DFFF 孤立代理 + REDUCE/CHUNK system prompt 反污染守卫，INV-DREAM-003 critical 双层 16 checks (2) V37.8.7 ontology_sources 推送格式错位修复，抽 ontology_parser.py 用 separator 切块 + key-based prefix 解析，单块缺行不级联，INV-ONTOLOGY-001 high 双层 7 checks (3) V37.8.8 MR-11 (log→stderr) + MR-12 (llm-parser-key-based) 正式立案为 ontology 元规则 (4) V37.8.9 MRD-LOG-STDERR-001 + MRD-LLM-PARSER-POSITIONAL-001 运行时扫描器落地，批量 sed 修复 19 个 job 脚本 log() 写 >&2，元规则覆盖率 10/12→12/12。MR-4 silent-failure 第 7+8 次演出 + 原则 #23 链式幻觉典型实证 (Hugging Face 编造案例)。governance v3.11→v3.15。35 suites / 1050 tests / 0 fail / 38 invariants / 168 checks / 安全 93。Mac Mini E2E preflight 77/0/3。VERSION 0.37.8.5→0.37.8.9。",
+        "by": "claude_code"
+      }
+    ]
   },
   "quality": {
     "security_score": "93",
     "test_count": "1050",
-    "last_regression": "2026-04-15 05:38 pass",
+    "last_regression": "2026-04-15 05:47 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-04-15 05:38",
+    "security_score_time": "2026-04-15 05:47",
     "test_suites": "35",
     "governance_invariants": "38/38",
     "governance_checks": "168/179",
@@ -285,7 +290,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.8.6 Dream 自引用幻觉血案闭环 — 03:00 Dream run 推送虚假 Hugging Face 危机。四层防御：log→stderr / sanitize surrogates / errors=replace / 反污染 prompt。37 invariants (INV-DREAM-003 新增 critical 双层) / 994 tests / 10 meta rules / 93 security. 待观察: (a) Mac Mini 下次 03:00 cron 运行后检查输出是否不含虚假平台危机字样 (b) 审计今日 pwc_daily/其他 source 是否真含 surrogate 字节",
+  "focus": "V37.8.6→V37.8.9 同日四连发完成 + Mac Mini 部署生效。今日 4 个血案/治理 commit 全部合并: V37.8.6 Dream 自引用幻觉(log→stderr+sanitize+反污染prompt) + V37.8.7 ontology_sources 格式错位(key-based parser) + V37.8.8 MR-11/MR-12 元规则立案 + V37.8.9 MRD-LOG-STDERR-001/MRD-LLM-PARSER-POSITIONAL-001 运行时检测落地+19脚本批量修复. 元规则 12/12 全覆盖, 1050 tests / 38 invariants / 安全 93/100. Mac Mini preflight 77/0/3 通过. 待观察: 16:15 Issues / 22:00 KB晚间 / 明日 03:00 Dream 反污染 / 07:30 finance_news 三层僵尸",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
