@@ -255,10 +255,10 @@ declare -a FILE_MAP=(
     # 三方宪法状态锚点（repo → ~/.kb/，Claude Code 收工写入的变更同步到 PA）
     "status.json|$HOME/.kb/status.json"
 
-    # 自部署（bootstrapping）— 部署到两个位置：
-    #   1. 仓库目录（cron 可能从此路径启动）
-    #   2. HOME 目录（preflight/job_smoke_test 从 ~/SCRIPT_DIR 读取 FILE_MAP）
-    "auto_deploy.sh|$HOME/openclaw-model-bridge/auto_deploy.sh"
+    # 自部署（bootstrapping）— 部署到 HOME 目录
+    # V37.8.12: 移除冗余 $HOME/openclaw-model-bridge/auto_deploy.sh 映射——
+    #   当 REPO_DIR==$HOME/openclaw-model-bridge 时是自复制，macOS cp 返回非零 + set -e
+    #   杀脚本，导致 new-commit 同步中途死亡。仓库目录的 auto_deploy.sh 已经由 git pull 更新。
     "auto_deploy.sh|$HOME/auto_deploy.sh"
 
     # PA 灵魂文件（最高优先级上下文）
@@ -284,6 +284,10 @@ if $HAS_NEW_COMMITS; then
 
         # 只同步本次变更的文件
         if echo "$CHANGED_FILES" | grep -q "^${SRC}$"; then
+            # V37.8.12: 自复制守卫（REPO_DIR/SRC == DST 时 macOS cp 返回非零 → set -e 杀脚本）
+            if [ "$REPO_DIR/$SRC" = "$DST" ]; then
+                continue
+            fi
             DST_DIR="$(dirname "$DST")"
             mkdir -p "$DST_DIR"
             cp "$REPO_DIR/$SRC" "$DST"
@@ -336,6 +340,11 @@ if [ -n "$DRIFT_REASON" ]; then
         # 前缀显性化后成为干扰。详见 ontology/docs/cases/kb_evening_fallback_quota_chain_case.md
         # V37.8.11 扩展章节。
         if [[ "$SRC" == "status.json" ]]; then
+            continue
+        fi
+
+        # V37.8.12: 自复制守卫（REPO_DIR/SRC == DST 时跳过，避免 cp 自身报错）
+        if [ "$REPO_DIR/$SRC" = "$DST" ]; then
             continue
         fi
 
