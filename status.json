@@ -94,7 +94,11 @@
       "what": "V37.8.7 ontology_sources 格式错位血案闭环：位置解析 i+=3 在 LLM 漏一行时级联污染所有后续条目。修复：抽到独立模块 ontology_parser.py，按 ---/===/*** 分隔符切块 + 块内 key-based prefix 解析。同日 V37.8.6 Dream + V37.8.7 ontology_sources 双 MR-4 演出共同教训：LLM 输出格式不可严格假设。INV-ONTOLOGY-001 (declaration+runtime, 7 checks) + 24 单测 + 案例 ontology_sources_positional_parser_cascade_case.md + auto_deploy FILE_MAP + governance v3.12→v3.13 (37→38 inv, 175→182 checks)。1018 tests / 0 fail / 安全 93/100. VERSION 0.37.8.6→0.37.8.7",
       "by": "claude_code"
     },
-    "{\"date\":\"2026-04-15\",\"what\":\"V37.8.6 Dream 自引用幻觉血案闭环：2026-04-15 03:00 Dream run 推送虚假 Hugging Face 平台危机分析，根因三层：(1) scraped 内容含 surrogate UTF-8 → json.dump + utf-8 文件写入 → UnicodeEncodeError → body_file 截断 → adapter.py:386 返回 400 Bad JSON (2) kb_dream.sh log() 用 echo 写 stdout + signals=$(llm_call ...) 命令替换捕获 log 行 → cache file 被错误日志污染 (3) Reduce cache-only fast path 把错误日志注入 LLM 上下文 → Qwen3 基于训练数据编造 Hugging Face 危机叙事。四层防御：log→stderr + _sanitize(U+D800-U+DFFF→U+FFFD) + file errors=\"\\\"replace\\\"\" + REDUCE/CHUNK system prompt 反污染守卫。19 单测 + INV-DREAM-003 (critical, declaration+runtime 含 python_assert 真跑 5 场景) + 案例 ontology/docs/cases/dream_self_referential_hallucination_case.md。MR-4 第 7 次演出 + 原则 #23 链式幻觉典型实证。governance v3.11→v3.12 (36→37 inv, 159→175 checks)。全量回归 994 tests / 0 fail / 37 inv / 10 meta rules / 安全 93/100。VERSION 0.37.8.5→0.37.8.6\",\"by\":\"claude_code\"}",
+    {
+      "date": "2026-04-15",
+      "what": "V37.8.6 Dream 自引用幻觉血案闭环 (MR-4 第 7 次演出 + 原则 #23 链式幻觉典型实证)",
+      "by": "claude_code"
+    },
     {
       "date": "2026-04-15",
       "what": "V37.8.5 僵尸检测边缘盲区闭合：V37.8.4 登记的 2 个 unfinished (CNS1952 99% + SingTaoDaily 0-tweet) 结构化修复。独立 finance_news_zombie.py 纯函数模块 + classify_zombie(diag, count) 三层 tier (stub/stale/alive) + 24 单测 + INV-X-001 升级 [declaration,runtime] + runtime python_assert 5 场景。governance v3.10→v3.11 (36 inv, 152→159 checks)。全量回归 975 tests / 0 fail。MR-10 第 2 次演出（修复本身埋坑）+ MR-6 正向兑现 + MR-8 禁 inline fallback。VERSION 0.37.5→0.37.8.5。案例 ontology/docs/cases/zombie_detection_edge_case_closure.md",
@@ -198,7 +202,19 @@
   },
   "session_context": {
     "last_session": "2026-04-15 05:48",
-    "unfinished": "[\"Mac Mini E2E 观察 (今夜 2026-04-16 00:00 + 凌晨 03:00 + 明日 22:00): (a) 00:00 整点 drift 告警应消失 (V37.8.11 生效后) (b) 03:00 Dream 反污染 prompt 生效验证 (c) 22:00 下次 kb_evening (若再失败) 应显示 upstream chain 含 gemini 429\",\"V37.8.12 候选 P0 (本血案直接衍生): Fix B 扩展 fallback_chain 到 ≥2 provider — 需要用户决策：Claude/Kimi/GLM/MiniMax 哪个 API key 可用 + 配 providers.d/ YAML + 环境变量。当前 fallback 只有 gemini，primary 不稳时必死\",\"V37.8.12 候选 P1: 17+ LLM cron 补 last_run_*.json 观察入口 (arxiv/hf_papers/s2/dblp/pwc/github_trending/rss_blogs/ai_leaders_x/freight/ontology_sources/hn 等)\",\"V37.8.12 候选 P1: MR-13 新元规则立案 error-chain-must-preserve-upstream-cause-across-layers\",\"V37.8.12 候选 P2: gemini quota 消耗审计 + proxy_stats auto_recovery_rate_pct=194.1% 数学 bug\",\"V37.8.11 元教训 → 原则扩展候选: 任何 FILE_MAP drift 检测的豁免规则应在所有 FILE_MAP 消费者 (preflight + auto_deploy + job_smoke_test) 同步更新 — 系统性扫描而非单点修复\",\"原则 #15 反思落地: 每周一次 WhatsApp 实际观察 session (30 min)，专门看告警噪声 / 推送延迟 / 信息密度 / 用户感知\",\"V37.8.6 Dream 观察: 明日 03:00 反污染 prompt 生效验证\",\"V37.8.5 finance_news 观察: SCMPNews 2026-04-16 决策窗口到期; CNS1952/SingTaoDaily 2026-04-18 窗口\",\"运维 P2 长期登记: ImportYeti Cloudflare / freight_watcher dcvelocity 超时 / cron_doctor.sh launchd false-positive / wa_e2e_test.sh 未部署 / Qwen3 不主动调用 memory 工具 (deferred 等模型升级) / Gateway v2026.3.13-1 hold\",\"V3 路标 backlog: Tool Policy Plugin / Memory Plane Plugin / Job Template SDK / Ontology Phase 3\"]",
+    "unfinished": [
+      "Mac Mini E2E 观察 (今夜 2026-04-16 00:00 + 凌晨 03:00 + 明日 22:00): (a) 00:00 整点 drift 告警应消失 (V37.8.11 生效后) (b) 03:00 Dream 反污染 prompt 生效验证 (c) 22:00 下次 kb_evening (若再失败) 应显示 upstream chain 含 gemini 429",
+      "V37.8.12 候选 P0 (本血案直接衍生): Fix B 扩展 fallback_chain 到 ≥2 provider — 需要用户决策：Claude/Kimi/GLM/MiniMax 哪个 API key 可用 + 配 providers.d/ YAML + 环境变量。当前 fallback 只有 gemini，primary 不稳时必死",
+      "V37.8.12 候选 P1: 17+ LLM cron 补 last_run_*.json 观察入口 (arxiv/hf_papers/s2/dblp/pwc/github_trending/rss_blogs/ai_leaders_x/freight/ontology_sources/hn 等)",
+      "V37.8.12 候选 P1: MR-13 新元规则立案 error-chain-must-preserve-upstream-cause-across-layers",
+      "V37.8.12 候选 P2: gemini quota 消耗审计 + proxy_stats auto_recovery_rate_pct=194.1% 数学 bug",
+      "V37.8.11 元教训 → 原则扩展候选: 任何 FILE_MAP drift 检测的豁免规则应在所有 FILE_MAP 消费者 (preflight + auto_deploy + job_smoke_test) 同步更新 — 系统性扫描而非单点修复",
+      "原则 #15 反思落地: 每周一次 WhatsApp 实际观察 session (30 min)，专门看告警噪声 / 推送延迟 / 信息密度 / 用户感知",
+      "V37.8.6 Dream 观察: 明日 03:00 反污染 prompt 生效验证",
+      "V37.8.5 finance_news 观察: SCMPNews 2026-04-16 决策窗口到期; CNS1952/SingTaoDaily 2026-04-18 窗口",
+      "运维 P2 长期登记: ImportYeti Cloudflare / freight_watcher dcvelocity 超时 / cron_doctor.sh launchd false-positive / wa_e2e_test.sh 未部署 / Qwen3 不主动调用 memory 工具 (deferred 等模型升级) / Gateway v2026.3.13-1 hold",
+      "V3 路标 backlog: Tool Policy Plugin / Memory Plane Plugin / Job Template SDK / Ontology Phase 3"
+    ],
     "open_prs": "",
     "blocked_on": "",
     "focus": "V37.8.7 ontology_sources 推送格式错位血案闭环 — 同日 V37.8.6+V37.8.7 双 MR-4 演出。位置解析 i+=3 → separator 切块 + key-based prefix 解析，单块缺行不级联。INV-ONTOLOGY-001 (high, declaration+runtime) + 24 单测 + 案例 ontology_sources_positional_parser_cascade_case.md。1018 tests / 38/38 invariants. 待观察: 下次 ontology_sources 10:00/20:00 cron 推送格式正确无错位",
@@ -289,10 +305,6 @@
     "[auto] 常用工具：read(10次)、sessions_spawn(8次)、sessions_history(8次)",
     "[auto] 关注领域：技术/AI、学术/论文、arxiv-ai-models、技术/编程、rss-blogs",
     "[auto] 用户已提交 1 条反馈，最新: {\"date\": \"2026-04-03\", \"from\": \"mentor\", \"what\": \""
-  ],
-  "session_context.unfinished": [
-    "V37.8 MRD-NOTIFY-002 activity 层假阳性 — 新检测器 source 层正确识别 6 频道 caller（28/32 job 直调 openclaw message send 的 case 已修复），但 activity 层扫 notify_queue/*.json + jobs/*/cache/*.log mtime 这两个路径都不是成功推送的真实记录（notify_queue 只记失败重放，jobs/*/cache 不是每个 job 都有），导致 papers/freight/alerts/daily/tech/ontology 全部 7 天无活动假阳性。正确修复思路：在 _discover_silent_channels activity 层建立 topic → job log 映射（papers→arxiv/hf/dblp/s2/acl/ai_leaders_x 的 ~/*.log，freight→freight_watcher，alerts→job_watchdog+auto_deploy，daily→kb_review+kb_evening+kb_trend+daily_ops_report，tech→github_trending+rss_blogs，ontology→ontology_sources），对每个 topic 取映射日志的最大 mtime，7 天内算活跃。MRD 是建议层不影响 9/9 元规则硬闭环，但会误导新认知。下次 session V37.8.1 修复。",
-    "V37.8.12 候选 (自复制 bug - V37.8.11 部署过程暴露): auto_deploy.sh FILE_MAP 第 258 行 auto_deploy.sh|$HOME/openclaw-model-bridge/auto_deploy.sh 是自复制 (REPO_DIR==$HOME/openclaw-model-bridge 时), macOS cp 返回非零 + set -e 杀脚本, 新 commit 同步中途死亡, 需要下次 hourly drift 兜底。修复: 移除 line 258 冗余映射, 保留 line 259 auto_deploy.sh|$HOME/auto_deploy.sh + 加 grep 守卫禁止 FILE_MAP 自复制模式 + 新增 INV 锁定"
   ],
   "unfinished": [
     {

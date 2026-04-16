@@ -170,7 +170,11 @@ def format_human(data):
     if changes:
         lines.append("📝 最近变更:")
         for c in changes[:5]:
-            lines.append(f"  [{c.get('date','')}] {c.get('what','')} (by {c.get('by','')})")
+            if isinstance(c, dict):
+                lines.append(f"  [{c.get('date','')}] {c.get('what','')} (by {c.get('by','')})")
+            else:
+                # V37.8.13: 防御性处理非 dict 条目（避免 AttributeError 崩溃）
+                lines.append(f"  {str(c)[:120]}")
         lines.append("")
 
     # 开发连续性
