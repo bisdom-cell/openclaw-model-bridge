@@ -285,6 +285,42 @@ meta_rules:
       正常但语义错乱就是 bug），MR-12 是"防御机制"（不用严格位置解析就能从
       架构层规避这类 silent-failure）。
 
+  - id: MR-13
+    name: error-chain-must-preserve-upstream-cause-across-layers
+    description: |
+      跨组件错误传播链中，每一跳必须保留上游的真实错误原因（至少包含 HTTP 状态码 +
+      error body 的 key 字段），不得只传递本层的泛化状态码或异常类型名。
+
+      典型违反：
+        - adapter 返回 `{"error": "ALL FALLBACKS FAILED: gemini 429"}`
+          → proxy `except Exception as e: str(e)` 只拿 "HTTP Error 502: Bad Gateway"
+          → client `e.reason` 再次丢弃 body
+          → 用户告警只看到 "HTTP 502" 无法判断根因
+
+      合规做法：
+        - HTTPError 捕获时调 `e.read()` 读 body + 解析 JSON error 字段
+        - 构造错误消息时拼接 `"HTTP {code}: {reason} | upstream: {body_summary}"`
+        - body 超长时截断到 MAX_UPSTREAM_BODY_CHARS（不是丢弃）
+        - `e.read()` 本身抛异常时 fail-open 返回基础信息（不炸）
+
+      MR-13 与 MR-4 (silent-failure) 的关系：MR-4 检测"错误被完全吞没"，
+      MR-13 检测"错误被报出但原因被稀释到信息密度为零"——用户看到告警但
+      无从判断根因，误以为可观测性工作正常。这是 MR-4 的更隐蔽变种。
+    enforcement:
+      - "INV-OBSERVABILITY-001 声明+运行时层：proxy compose_backend_error_str 读 body + 截断 + fail-open"
+      - "INV-OBSERVABILITY-001 client 侧：kb_review_collect._compose_http_reason 镜像语义"
+      - "新增跨组件错误路径时必须验证：下游能否从告警消息中定位上游真实原因"
+    derivative_invariants: [INV-OBSERVABILITY-001]
+    blood_lessons: |
+      2026-04-14/15 V37.8.10: kb_evening 连续 2 天 22:00 告警 "HTTP 502: Bad Gateway"，
+      用户看到告警但无法判断根因。Mac Mini 证据显示真实原因是 primary Qwen3 breaker OPEN
+      + gemini HTTP 429 quota 耗尽，但 adapter→proxy→client 三跳每跳丢弃 upstream body：
+        跳 1: adapter _send_json(502, {"error": "ALL 1 FALLBACKS FAILED: gemini 429"})
+        跳 2: proxy str(HTTPError) → "HTTP Error 502: Bad Gateway"（从未调 e.read()）
+        跳 3: client e.reason → "Bad Gateway"（body 再次丢弃）
+      三层稀释让 "gemini 429 quota 耗尽" 变成 "502"——信息密度从完整原因变为零。
+      MR-4 第 9 次演出新形态："错误被发现但原因不可见"。
+
   - id: MR-14
     name: alert-path-must-not-depend-on-failing-subject
     description: |
@@ -3015,7 +3051,7 @@ audit_metadata:
     v3.10 → v3.11: V37.8.5 INV-X-001 升级三层检测 (血案二次演出: V37.8.4 修复本身埋盲区) — V37.8.4 收工 Mac Mini E2E 即发现 2 个边缘：CNS1952 98/99 超窗口 + 1 过短老化率 99% 但未触发严格 old==total (MR-10 第 2 次演出：修复会埋坑)；SingTaoDaily 0-tweet stub (embed disabled 返回空骨架) 被 total>0 门槛绕过完全不标记。V37.8.5 修复：(1) 检测逻辑独立为 jobs/finance_news/finance_news_zombie.py 纯函数模块 (classify_zombie(diag, count)); (2) 三层 tier: "stub" (no_data=0 + total=0) + "stale" (≥90% 老化 + count=0 守卫防止低频活跃误报)，整数比较 old*10 >= total*9 避免浮点; (3) 24 单测锁定三层 + 守卫 + shell 集成 + auto_deploy FILE_MAP; (4) verification_layer 从 [declaration] 升级到 [declaration, runtime] (MR-6 遵循: INV-X-001 现在有 python_assert 真跑 5 个 tier 场景); (5) shell 脚本禁止内嵌 inline fallback (防模块缺失时静默降级回 V37.8.4 逻辑 — MR-8 copy-paste-is-a-bug-class 兑现)。诊断行 tier 区分 ⚠️ ZOMBIE嫌疑[stub] vs [stale]，便于日志定位。
   total_invariants: 42  # +INV-WA-001, +INV-QUIET-001
   total_checks: 210     # +INV-WA-001(+7) + INV-QUIET-001(+4)
-  meta_rules: 13        # MR-1~MR-12 + MR-14 (MR-14 alert-path-independence: V37.8.13 Gateway 9h 血案)
+  meta_rules: 14        # MR-1~MR-14 (MR-13 error-chain-upstream-cause: V37.8.10; MR-14 alert-path-independence: V37.8.13)
   meta_rule_discovery_count: 6   # Phase 0: registry + env + notify-topic + layer-depth + error-suppression + notify-activity
   check_types_used: [python_assert, file_contains, file_not_contains, env_var_exists, command_succeeds, log_activity_check]
   verification_layers_used: [declaration, runtime, effect]  # v3.1: 效果层启动
