@@ -88,7 +88,8 @@ FINANCE_X_ACCOUNTS=(
     # V37.8.4 已移除僵尸账号：
     #   ChannelNewsAsia — 最新推文 2018-01（2955 天无更新）
     #   straits_times   — 最新推文 2024-12-20（420 天无更新）
-    "SCMPNews|南华早报(X)|cn"
+    # V37.8.13 已移除僵尸账号：
+    #   SCMPNews        — 3 天连续 zombie 嫌疑（2026-04-14/15/16，95/95 超窗口）
     "NikkeiAsia|日经亚洲(X)|cn"
     "SingTaoDaily|星岛日报(X)|cn"
     "asahi|朝日新闻(X)|cn"

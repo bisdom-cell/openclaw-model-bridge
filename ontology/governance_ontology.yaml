@@ -2387,6 +2387,10 @@ invariants:
         check_type: file_not_contains
         file: jobs/finance_news/run_finance_news.sh
         pattern: '"straits_times\|海峡时报'
+      - name: "V37.8.13 已确认僵尸 SCMPNews 已从列表移除"
+        check_type: file_not_contains
+        file: jobs/finance_news/run_finance_news.sh
+        pattern: '"SCMPNews\|南华早报'
       - name: "CLAUDE.md 原则 #27 更新强制 X 账号健康 ≠ HTTP 200"
         check_type: file_contains
         file: CLAUDE.md
