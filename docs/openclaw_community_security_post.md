@@ -1,6 +1,6 @@
 # OpenClaw for Enterprise: Achieving Production-Grade Security on Self-Hosted AI Infrastructure
 
-**TL;DR**: Enterprises hesitate to self-host AI assistants because "self-hosted = insecure." This post proves otherwise. Running OpenClaw + Qwen3-235B in production on a single Mac Mini, I've achieved a quantified 98/100 security score across 7 dimensions, with 393 automated tests, chain-hashed audit logs, and zero hardcoded secrets. Every pattern described here is open-source, battle-tested, and directly applicable to enterprise OpenClaw deployments.
+**TL;DR**: Enterprises hesitate to self-host AI assistants because "self-hosted = insecure." This post proves otherwise. Running OpenClaw + Qwen3-235B in production on a single Mac Mini, I've achieved a quantified 93/100 security score across 7 dimensions, with 1093 automated tests, chain-hashed audit logs, and zero hardcoded secrets. Every pattern described here is open-source, battle-tested, and directly applicable to enterprise OpenClaw deployments.
 
 ---
 
@@ -51,7 +51,7 @@ End Users (WhatsApp / Telegram / etc.)
 
 ---
 
-## Enterprise Security Scorecard: 7 Dimensions, 98/100
+## Enterprise Security Scorecard: 7 Dimensions, 93/100
 
 Enterprises need **quantifiable** security posture — not "we're pretty secure." Here's our production scorecard:
 
@@ -60,14 +60,14 @@ Enterprises need **quantifiable** security posture — not "we're pretty secure.
 | Dimension            | Score | Enterprise Relevance                   |
 +----------------------+-------+----------------------------------------+
 | Key Management       | 15/15 | Zero hardcoded secrets in codebase     |
-| Test Gate            | 15/15 | 393 tests must pass before deployment  |
+| Test Gate            | 15/15 | 1093 tests must pass before deployment  |
 | Data Integrity       | 13/15 | Atomic writes, SHA256 fingerprinting   |
 | Deploy Security      | 15/15 | Hourly drift detection, auto-rollback  |
 | Transport Security   | 15/15 | TLS external, localhost-only internal  |
 | Audit Trail          | 15/15 | Chain-hashed, tamper-detectable logs   |
 | Availability         | 10/10 | Model fallback, heartbeat monitoring   |
 +----------------------+-------+----------------------------------------+
-| TOTAL                | 98/100                                         |
+| TOTAL                | 93/100                                         |
 +----------------------+------------------------------------------------+
 ```
 
@@ -77,7 +77,7 @@ This score is **auto-computed** by `security_score.py` and written to the shared
 V29:   75/100  -- baseline
 V30:   85/100  -- cron protection, atomic writes
 V30.1: 90/100  -- audit trail, integrity checks
-V30.2: 98/100  -- scoring system, static analysis, coverage
+V30.2: 93/100  -- scoring system, static analysis, coverage
 ```
 
 **For enterprise teams**: Run `python3 security_score.py --json` in CI/CD. Parse the output. Block deploys that drop the score. Security becomes a ratchet, not a goal.
@@ -122,7 +122,7 @@ No code reaches production without passing all four layers:
 $ bash full_regression.sh
 
 Layer 1: Unit Tests
-  -- 13 test suites, 393 cases
+  -- 36 test suites, 1093 cases
   -- Covers: proxy filters, adapter routing, cron health,
      audit log, status management, KB operations
 
@@ -141,7 +141,7 @@ Layer 4: Code Quality
   -- Bandit static security analysis (Python)
   -- No medium/high severity findings allowed
 
-RESULT: 19/19 checks passed, 393/393 tests passed
+RESULT: 19/19 checks passed, 1093/1093 tests passed
 STATUS: Safe to deploy
 ```
 
@@ -335,7 +335,7 @@ Compare that to evaluating, procuring, and integrating a managed AI service — 
 | Model selection | Provider's models | **Any model (open-source or commercial)** |
 | Audit trail | Provider's logs (opaque) | **Your chain-hashed logs (verifiable)** |
 | Secret management | Provider handles | **You control (env vars, no hardcoding)** |
-| Deployment verification | Trust the provider | **393 automated tests + 14-item preflight** |
+| Deployment verification | Trust the provider | **1093 automated tests + 14-item preflight** |
 | Availability control | Depends on provider SLA | **Your fallback chain, your monitoring** |
 | Cost at scale | Per-token pricing | **Fixed infra cost (predictable)** |
 | Customization | Limited | **Full control over routing, filtering, tools** |
@@ -354,7 +354,7 @@ Key files for enterprise teams:
 
 | File | Purpose |
 |------|---------|
-| `full_regression.sh` | One-command deployment gate (393 tests, 4 layers) |
+| `full_regression.sh` | One-command deployment gate (1093 tests, 4 layers) |
 | `security_score.py` | 7-dimension security scoring (`--json` for CI/CD) |
 | `audit_log.py` | Chain-hashed audit trail (`--verify` for compliance) |
 | `proxy_filters.py` | Tool filtering + input sanitization (pure functions, 67 tests) |
@@ -379,4 +379,4 @@ Enterprise-grade security isn't about budget or team size. It's about **systemat
 
 ---
 
-*Production deployment: OpenClaw + Qwen3-235B + Qwen2.5-VL-72B, Mac Mini, 393 automated tests, 98/100 security score. Questions welcome — happy to discuss enterprise deployment patterns.*
+*Production deployment: OpenClaw + Qwen3-235B + Qwen2.5-VL-72B, Mac Mini, 1093 automated tests, 93/100 security score. Questions welcome — happy to discuss enterprise deployment patterns.*

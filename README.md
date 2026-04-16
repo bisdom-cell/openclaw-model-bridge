@@ -5,12 +5,14 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-832%20passed-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-1093%20passed-brightgreen.svg)]()
 [![Providers](https://img.shields.io/badge/providers-7%20supported-orange.svg)]()
-[![SLO](https://img.shields.io/badge/SLO-5%2F5%20PASS-blueviolet.svg)]()
-[![Jobs](https://img.shields.io/badge/cron%20jobs-32%20(28%20active)-blue.svg)]()
-[![CI](https://img.shields.io/badge/CI-GitHub%20Actions-green.svg)]()
+[![Governance](https://img.shields.io/badge/invariants-42%2F42%20%2B%2014%20MR-blueviolet.svg)]()
+[![Security](https://img.shields.io/badge/security-93%2F100-green.svg)]()
+[![Jobs](https://img.shields.io/badge/cron%20jobs-34%20active-blue.svg)]()
 [![Notifications](https://img.shields.io/badge/notifications-WhatsApp%20%2B%20Discord-informational.svg)]()
+
+> **Current version:** `v37.8.13` / `0.37.8.13` (2026-04-16) — see [`CLAUDE.md`](CLAUDE.md) for full changelog.
 
 ## Architecture / 系统架构
 
@@ -59,7 +61,7 @@
 └──────────────────────────────────────────────────────────────────┘
                    │
 ┌──────────────────▼──────────────────────────────────────────────┐
-│  ③ 定时任务层（32 个 system cron jobs，28 active）                │
+│  ③ 定时任务层（38 个 system cron jobs，34 active）                │
 │                                                                  │
 │  论文监控矩阵（5源）：                                            │
 │    ArXiv(每3h) + HF Papers(10:00) + S2(11:00)                   │
@@ -99,12 +101,15 @@
 │  ontology/                                                       │
 │    engine.py ←→ tool_ontology.yaml (81条声明式规则)              │
 │      └→ classify_tool_call(): 语义推理(属性→风险+策略标签)       │
-│    governance_checker.py ←→ governance_ontology.yaml v3          │
-│      └→ 15不变式 + 32检查 + 6元规则 + 验证深度三层模型           │
+│    governance_checker.py ←→ governance_ontology.yaml v3.18       │
+│      └→ 42不变式 + 197检查 + 14元规则 + 验证深度三层模型         │
+│      └→ MR-13/MR-14: error-chain-transparency + alert-path-     │
+│         independence (V37.8.10/13 血案教训)                     │
 │      └→ MRD-LAYER-001: 自动发现单层验证盲区                     │
 │    diff.py: engine ↔ proxy_filters 一致性校验 (81/81=100%)      │
 │    Phase 2 shadow: off→shadow→on (Mac Mini 生产运行中)           │
 │    CONSTITUTION.md: 宪法6条 + 最高条款（项目隔离）                │
+│    docs/cases/: 13 篇血案档案 (V37.3-V37.8.13)                  │
 └──────────────────────────────────────────────────────────────────┘
                    │
 ┌──────────────────▼──────────────────────────────────────────────┐
@@ -178,7 +183,7 @@ bash quickstart.sh
 ```
 Phase 1: Prerequisites     → Python, files, syntax, provider auto-detection
 Phase 2: Start Services    → Adapter(:5001) + Proxy(:5002), ~3 seconds
-Phase 3: Health Check      → 610 unit tests + registry validation
+Phase 3: Health Check      → 1093 unit tests + registry validation
 Phase 4: Golden Test Trace → Real request through full stack, saved to docs/golden_trace.json
 ```
 
@@ -290,7 +295,7 @@ Core services (`tool_proxy.py`, `adapter.py`, `proxy_filters.py`) use **only Pyt
 | `gameday.sh` | **V33** GameDay fault injection — 5 scenarios (GPU timeout, circuit breaker, snapshot, SLO, watchdog) |
 | `smoke_test.sh` | End-to-end smoke test (unit tests + registry + doc drift + connectivity) |
 
-### Scheduled Jobs (32 registered, 28 active)
+### Scheduled Jobs (38 registered, 34 active)
 
 All jobs registered in `jobs_registry.yaml`. Validate: `python3 check_registry.py`
 
@@ -330,7 +335,7 @@ All jobs registered in `jobs_registry.yaml`. Validate: `python3 check_registry.p
 
 | File | Description |
 |------|-------------|
-| `jobs_registry.yaml` | Unified job registry — 32 jobs (28 active, 4 disabled), system cron |
+| `jobs_registry.yaml` | Unified job registry — 38 jobs (34 active, 4 disabled), system cron |
 | `check_registry.py` | Registry validator — ID uniqueness, paths, fields |
 | `gen_jobs_doc.py` | Auto-generate job docs from registry + drift detection |
 | `test_providers.py` | Unit tests for providers |
@@ -371,7 +376,8 @@ All jobs registered in `jobs_registry.yaml`. Validate: `python3 check_registry.p
 | `docs/GUIDE.md` | Complete bilingual (CN/EN) integration guide with 26 lessons learned |
 | `docs/config.md` | Full system configuration + historical changelog |
 | `docs/openclaw_architecture.md` | OpenClaw upstream architecture reference (synced to v2026.3.23) |
-| `ROLLBACK.md` | Rollback guide — 30-second recovery to v26 |
+| `docs/INDEX.md` | **V37.8.13** Documentation navigation tree — what to read when |
+| `ROLLBACK.md` | (archived V37.8) Rollback guide — pre-V27 recovery procedure |
 
 ## Methodology: Control Plane First
 
@@ -533,7 +539,7 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 | **Golden Test Trace** | `docs/golden_trace.json` | `bash quickstart.sh --demo` |
 | **SLO Benchmark** | `docs/slo_benchmark_report.md` | `python3 slo_benchmark.py --save` |
 | **Compatibility Matrix** | `docs/compatibility_matrix.md` | `python3 providers.py` |
-| **610 Unit Tests** | 10 test files | `python3 -m unittest discover -p "test_*.py"` |
+| **1093 Unit Tests** | 36 test suites | `bash full_regression.sh` |
 | **GameDay Drill** | `gameday.sh` | `bash gameday.sh --all` |
 | **Security Score** | `security_score.py` | `python3 security_score.py` |
 | **Reliability Bench** | `docs/reliability_bench_report.md` | `python3 reliability_bench.py --save` |

@@ -1,6 +1,6 @@
 # OpenClaw Model Bridge — 系统特性一览表
 
-> V35 (2026-04-05) | 605 tests | 7 providers | 28 active jobs | 5 SLO metrics (5/5 PASS) | 19 preflight checks | WhatsApp + Discord dual-channel
+> V37.8.13 (2026-04-16) | **1093 tests** / 36 suites / 0 fail | 7 providers | **34 active jobs** | 5 SLO metrics (5/5 PASS) | 19 preflight checks | WhatsApp + Discord dual-channel | **42 governance invariants / 14 meta-rules / 197 checks** | security 93/100 | 13 blood-lesson case docs
 
 | 分类 | 特性 | 说明 | 核心文件 |
 |------|------|------|----------|

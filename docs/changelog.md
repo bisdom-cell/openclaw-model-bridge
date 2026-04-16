@@ -1,6 +1,20 @@
 # Changelog — openclaw-model-bridge
 
-> 从 CLAUDE.md 提取的完整版本变更历史。Agent 按需 `read docs/changelog.md` 查阅。
+> ⚠️ **本文档已于 V37 起归档（最后维护版本：V36, 2026-04-05）**
+>
+> **当前 changelog 的 source of truth 是 [`CLAUDE.md`](../CLAUDE.md)** 顶部的版本变更表。
+> 自 V37 起所有变更（V37.1 ~ V37.8.13+）均直接登记到 `CLAUDE.md` 而不再回填本文件，
+> 避免双源同步漂移。本文件保留用于查阅 V27-V36 的历史归档。
+>
+> **如何查最新变更**：
+> - 最新版本号：`cat VERSION` 或 `CLAUDE.md` 第 3 行
+> - 最近变更：`CLAUDE.md` "版本变更历史" 表
+> - 血案档案：`ontology/docs/cases/` 13 篇（V37.3-V37.8.13）
+> - 战略复盘：`docs/strategic_review_20260403.md`
+>
+> ---
+>
+> 历史 changelog（V27-V36，已归档）：从 CLAUDE.md 提取的完整版本变更历史。Agent 按需 `read docs/changelog.md` 查阅。
 >
 > 版本号映射：V36 = semver `0.36.0`。Pre-1.0 表示 API 尚未稳定。
 > 从 V36 开始使用 semver：MAJOR.MINOR.PATCH（MAJOR=0 期间 MINOR=breaking, PATCH=fix）。
