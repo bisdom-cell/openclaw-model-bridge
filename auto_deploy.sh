@@ -171,7 +171,6 @@ declare -a FILE_MAP=(
     "jobs/semantic_scholar/run_semantic_scholar.sh|$HOME/.openclaw/jobs/semantic_scholar/run_semantic_scholar.sh"
     "jobs/dblp/run_dblp.sh|$HOME/.openclaw/jobs/dblp/run_dblp.sh"
     "jobs/acl_anthology/run_acl_anthology.sh|$HOME/.openclaw/jobs/acl_anthology/run_acl_anthology.sh"
-    "jobs/pwc/run_pwc.sh|$HOME/.openclaw/jobs/pwc/run_pwc.sh"
     "jobs/github_trending/run_github_trending.sh|$HOME/.openclaw/jobs/github_trending/run_github_trending.sh"
     "jobs/rss_blogs/run_rss_blogs.sh|$HOME/.openclaw/jobs/rss_blogs/run_rss_blogs.sh"
     "jobs/ontology_sources/run_ontology_sources.sh|$HOME/.openclaw/jobs/ontology_sources/run_ontology_sources.sh"

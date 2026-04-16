@@ -672,6 +672,12 @@ for line in crontab_lines:
     script_name = os.path.basename(cron_path)
 
     if script_name in file_map:
+        # V37.8.13: auto_deploy.sh 是 bootstrap 脚本，git pull 直接更新仓库版本，
+        # FILE_MAP 部署到 $HOME 只是 backup 副本。crontab 调用仓库路径是规范，
+        # 不应要求 crontab 路径必在 FILE_MAP targets 里。
+        if script_name == 'auto_deploy.sh':
+            checked += 1
+            continue
         # 正向检查：路径一致性（V37.8.3: 支持多部署目标，任一匹配即可）
         targets = file_map[script_name]
         norm_targets = [os.path.normpath(t) for t in targets]

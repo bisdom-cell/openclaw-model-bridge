@@ -94,9 +94,9 @@ jobs:
     interval: "0 13 * * *"             # 每天 13:00 HKT
     log: ~/.openclaw/logs/jobs/pwc.log
     needs_api_key: false
-    enabled: false                   # V31: API 302→HF，已合并到 HF Papers 增强
-    tier: experiment                 # 已停用
-    description: Papers with Code 论文+代码监控（已停用：API 302重定向到HF，功能合并到 hf_papers）
+    enabled: false                   # V31: API 302→HF，已合并到 HF Papers 增强；V37.8.13 删除脚本+保留 entry 作历史档案 (避免 ID 复用引起 reference confusion)
+    tier: experiment                 # 已停用 + 脚本已删
+    description: Papers with Code 论文+代码监控（V31 停用：API 302 重定向到 HF；V37.8.13 删除 jobs/pwc/run_pwc.sh 脚本，功能已并入 hf_papers）
 
   - id: github_trending
     scheduler: system

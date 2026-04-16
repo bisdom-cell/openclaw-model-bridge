@@ -116,7 +116,6 @@ sources_map = {
     'semantic_scholar_daily.md': ('Semantic Scholar 论文', 1500),
     'dblp_daily.md': ('DBLP CS论文', 1500),
     'acl_anthology.md': ('ACL Anthology NLP论文', 1000),
-    'pwc_daily.md': ('Papers with Code 论文+代码', 1500),
     'github_trending.md': ('GitHub Trending ML/AI', 1500),
     'rss_blogs.md': ('RSS 博客订阅', 1500),
     'freight_daily.md': ('货代动态', 800),
