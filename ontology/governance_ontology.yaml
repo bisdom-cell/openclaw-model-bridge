@@ -1966,7 +1966,7 @@ invariants:
               ("jobs/rss_blogs/run_rss_blogs.sh", 1),
               ("jobs/github_trending/run_github_trending.sh", 1),
               ("jobs/semantic_scholar/run_semantic_scholar.sh", 1),
-              ("jobs/pwc/run_pwc.sh", 1),
+              # V37.8.13: pwc 脚本已删除 (jobs_registry.yaml entry pwc.enabled=false)
               ("jobs/hf_papers/run_hf_papers.sh", 1),
               ("jobs/dblp/run_dblp.sh", 1),
               ("jobs/acl_anthology/run_acl_anthology.sh", 1),

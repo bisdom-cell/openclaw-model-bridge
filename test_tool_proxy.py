@@ -1481,13 +1481,13 @@ class TestKbAppendSourceHelper(unittest.TestCase):
         4. rss_blogs/run_rss_blogs.sh
         5. github_trending/run_github_trending.sh
         6. semantic_scholar/run_semantic_scholar.sh
-        7. pwc/run_pwc.sh
-        8. hf_papers/run_hf_papers.sh
-        9. dblp/run_dblp.sh
-        10. acl_anthology/run_acl_anthology.sh
-        11. ontology_sources/run_ontology_sources.sh
-        12. freight_watcher/run_freight.sh (2 sites: daily + profile)
-        13. openclaw_official/run.sh
+        7. hf_papers/run_hf_papers.sh
+        8. dblp/run_dblp.sh
+        9. acl_anthology/run_acl_anthology.sh
+        10. ontology_sources/run_ontology_sources.sh
+        11. freight_watcher/run_freight.sh (2 sites: daily + profile)
+        12. openclaw_official/run.sh
+        (V37.8.13: pwc 已删除, 见 jobs_registry.yaml entry pwc.enabled=false)
         """
         job_sites = [
             "jobs/arxiv_monitor/run_arxiv.sh",
@@ -1496,7 +1496,6 @@ class TestKbAppendSourceHelper(unittest.TestCase):
             "jobs/rss_blogs/run_rss_blogs.sh",
             "jobs/github_trending/run_github_trending.sh",
             "jobs/semantic_scholar/run_semantic_scholar.sh",
-            "jobs/pwc/run_pwc.sh",
             "jobs/hf_papers/run_hf_papers.sh",
             "jobs/dblp/run_dblp.sh",
             "jobs/acl_anthology/run_acl_anthology.sh",
