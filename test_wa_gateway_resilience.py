@@ -253,6 +253,55 @@ class TestCrossFileGuards(unittest.TestCase):
             "wa_keepalive 告警不应走 WhatsApp（告警链不得依赖失效主体自身）",
         )
 
+    def test_watchdog_only_monitors_enabled_jobs(self):
+        """job_watchdog JOBS 数组里的 job 必须在 jobs_registry.yaml 是 enabled=true
+
+        V37.8.13 教训：扩容 watchdog 时把 pwc (enabled=false 已停用) 加进监控
+        → 永久"未更新"告警噪声。修复后加此守卫防回退。
+        """
+        import re
+        try:
+            import yaml
+        except ImportError:
+            self.skipTest("PyYAML 未安装")
+        with open(os.path.join(REPO, "jobs_registry.yaml")) as f:
+            reg = yaml.safe_load(f)
+        enabled_ids = {j["id"] for j in reg["jobs"] if j.get("enabled", False)}
+        # 解析 JOBS 数组里的 job_id（每条 "id|status_file|max_silence|name|tier"）
+        wd_src = _read("job_watchdog.sh")
+        # 仅扫 JOBS 数组段（开始于 JOBS=( 结束于 第一个右括号）
+        m = re.search(r"JOBS=\(\s*\n(.*?)\n\)", wd_src, re.DOTALL)
+        self.assertIsNotNone(m, "JOBS 数组未找到")
+        jobs_block = m.group(1)
+        wd_ids = []
+        for line in jobs_block.splitlines():
+            line = line.strip()
+            if not line.startswith('"') or "|" not in line:
+                continue
+            jid = line.lstrip('"').split("|", 1)[0]
+            wd_ids.append(jid)
+        # job_watchdog 用了一些别名 (run_hn_fixed→hn_watcher 等)，建立映射
+        ALIASES = {
+            "run_hn_fixed": "hn_watcher",
+            "openclaw_run": "openclaw_run",
+            "run_discussions": "run_discussions",
+        }
+        for wd_id in wd_ids:
+            registry_id = ALIASES.get(wd_id, wd_id)
+            # 查找 registry 是否有匹配项
+            found_enabled = wd_id in enabled_ids or registry_id in enabled_ids
+            # 部分 watchdog id 用了 hn_watcher / openclaw_run 这类自定义名
+            # 兼容：检查 registry 任何 enabled job id 包含 wd_id 子串
+            if not found_enabled:
+                found_enabled = any(
+                    wd_id in eid or eid in wd_id for eid in enabled_ids
+                )
+            self.assertTrue(
+                found_enabled,
+                f"watchdog 监控了 '{wd_id}' 但 registry 中无 enabled 对应 job — "
+                "扩容 watchdog 必须只加 enabled 的 job",
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

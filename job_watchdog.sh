@@ -96,8 +96,8 @@ JOBS=(
     "ontology_sources|$HOME/.openclaw/jobs/ontology_sources/cache/last_run.json|100800|本体论信息源|auxiliary"
     # KB Harvest Chat: 每天06:00 → 最多静默 50h
     "kb_harvest_chat|$HOME/.kb/last_run_harvest_chat.json|180000|对话精华提炼|core"
-    # PWC Papers: 每天13:00 → 最多静默 50h
-    "pwc|$HOME/.openclaw/jobs/pwc/cache/last_run.json|180000|Papers with Code|auxiliary"
+    # V37.8.13 原计划加入 pwc 但 registry 中 enabled=false (已停用: API 302 重定向到 HF,
+    # 功能合并到 hf_papers)。保持 watchdog 不监控已停用 job 的契约。
 )
 
 CORE_ALERTS=()
