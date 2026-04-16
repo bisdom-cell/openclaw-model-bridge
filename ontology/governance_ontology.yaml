@@ -285,6 +285,39 @@ meta_rules:
       正常但语义错乱就是 bug），MR-12 是"防御机制"（不用严格位置解析就能从
       架构层规避这类 silent-failure）。
 
+  - id: MR-14
+    name: alert-path-must-not-depend-on-failing-subject
+    description: |
+      告警路径不得依赖被监控的对象本身。如果对象 X 宕机，用于告警 X 宕机的
+      通道必须独立于 X。否则告警和被监控对象同生共死 = 死循环。
+
+      典型违反：
+        - Gateway 宕 → WhatsApp 不通 → 用 WhatsApp 告警 Gateway 宕 = 死循环
+        - 数据库宕 → 告警写数据库 → 告警也丢
+        - 网络断 → 用同一网络推送告警 → 告警发不出
+
+      合规做法：
+        - 监控 Gateway → 用 Discord（独立于 Gateway）告警
+        - 监控单通道 → 用其他通道告警
+        - 关键基础设施 → 至少两条独立告警路径
+
+      MR-14 与 MR-4 (silent-failure) 的关系：MR-4 是"发现静默故障的元分类"，
+      MR-14 是"阻止告警本身成为静默故障的架构规则"。当告警路径依赖失效主体时，
+      故障不仅静默，而且连"本该发现故障"的机制也一起死了。
+    enforcement:
+      - "INV-WA-001 声明层：wa_keepalive 告警路径强制走 Discord（不经 Gateway/WhatsApp）"
+      - "INV-QUIET-001 声明层：quiet_alert 静默期仅跳过 WhatsApp，Discord 始终推送"
+      - "新增监控/告警机制的设计评审必须回答：告警路径是否独立于被监控对象？"
+    derivative_invariants: [INV-WA-001, INV-QUIET-001]
+    blood_lessons: |
+      2026-04-16 V37.8.13: Gateway 宕 9 小时完全静默。wa_keepalive 每 30 分钟
+      检测到 Gateway 不可达（18 次 WARN），但告警路径只写日志不推送。auto_deploy
+      preflight 三次检测到 Gateway CRITICAL 失败，但凌晨静默期同时跳过了 WhatsApp
+      和 Discord。job_watchdog 的告警虽然走 notify.sh 双通道（WhatsApp 失败但
+      Discord 成功），但 watchdog 自身 08:30 运行时竟然没检出 Gateway 不可达。
+      最终用户靠人工对比 WhatsApp(空) vs Discord(满) 才发现 — 9 小时的系统级
+      观察力黑洞，核心原因就是"告警链依赖了失效主体"。
+
 # ═══════════════════════════════════════════════════════════════════════
 # 3. 不变式（Invariants）— 可执行的声明-执行-验证三元组
 # ═══════════════════════════════════════════════════════════════════════
@@ -2982,7 +3015,7 @@ audit_metadata:
     v3.10 → v3.11: V37.8.5 INV-X-001 升级三层检测 (血案二次演出: V37.8.4 修复本身埋盲区) — V37.8.4 收工 Mac Mini E2E 即发现 2 个边缘：CNS1952 98/99 超窗口 + 1 过短老化率 99% 但未触发严格 old==total (MR-10 第 2 次演出：修复会埋坑)；SingTaoDaily 0-tweet stub (embed disabled 返回空骨架) 被 total>0 门槛绕过完全不标记。V37.8.5 修复：(1) 检测逻辑独立为 jobs/finance_news/finance_news_zombie.py 纯函数模块 (classify_zombie(diag, count)); (2) 三层 tier: "stub" (no_data=0 + total=0) + "stale" (≥90% 老化 + count=0 守卫防止低频活跃误报)，整数比较 old*10 >= total*9 避免浮点; (3) 24 单测锁定三层 + 守卫 + shell 集成 + auto_deploy FILE_MAP; (4) verification_layer 从 [declaration] 升级到 [declaration, runtime] (MR-6 遵循: INV-X-001 现在有 python_assert 真跑 5 个 tier 场景); (5) shell 脚本禁止内嵌 inline fallback (防模块缺失时静默降级回 V37.8.4 逻辑 — MR-8 copy-paste-is-a-bug-class 兑现)。诊断行 tier 区分 ⚠️ ZOMBIE嫌疑[stub] vs [stale]，便于日志定位。
   total_invariants: 42  # +INV-WA-001, +INV-QUIET-001
   total_checks: 210     # +INV-WA-001(+7) + INV-QUIET-001(+4)
-  meta_rules: 12        # MR-1~MR-12 (MR-11 log→stderr: V37.8.6 Dream 血案; MR-12 llm-output-key-based: V37.8.7 ontology_sources 血案)
+  meta_rules: 13        # MR-1~MR-12 + MR-14 (MR-14 alert-path-independence: V37.8.13 Gateway 9h 血案)
   meta_rule_discovery_count: 6   # Phase 0: registry + env + notify-topic + layer-depth + error-suppression + notify-activity
   check_types_used: [python_assert, file_contains, file_not_contains, env_var_exists, command_succeeds, log_activity_check]
   verification_layers_used: [declaration, runtime, effect]  # v3.1: 效果层启动
