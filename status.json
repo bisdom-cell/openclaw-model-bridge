@@ -54,8 +54,8 @@
     },
     {
       "task": "【V3】Provider Plugin Interface",
-      "status": "backlog",
-      "note": "导师建议：auth/chat/tool-calling/multimodal normalization/streaming/fallback contract 标准接口"
+      "status": "completed",
+      "note": "V37 完成: providers.py 7 Provider + 自动发现 + Extension Guide + 128 单测 + 接入 adapter.py auto-fallback chain"
     },
     {
       "task": "【V3】Tool Policy Plugin + Memory Plane Plugin",

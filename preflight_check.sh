@@ -166,6 +166,22 @@ for pyfile in adapter.py tool_proxy.py proxy_filters.py check_registry.py gen_jo
     fi
 done
 
+# V37.8.13: last_run.json 写入声明层守卫（防回退到 watchdog 报"状态文件不存在"的 V37.8.13 之前状态）
+LAST_RUN_GUARDS=(
+    "kb_inject.sh|last_run_inject.json"
+    "kb_harvest_chat.py|last_run_harvest_chat.json"
+)
+for entry in "${LAST_RUN_GUARDS[@]}"; do
+    IFS='|' read -r script status_file <<< "$entry"
+    if [ -f "$SCRIPT_DIR/$script" ]; then
+        if grep -q "$status_file" "$SCRIPT_DIR/$script"; then
+            pass "$script: V37.8.13 last_run 写入声明存在 ($status_file)"
+        else
+            fail "$script: V37.8.13 last_run 写入声明丢失 — watchdog 会报状态文件不存在"
+        fi
+    fi
+done
+
 # ── 6. 部署文件一致性检查（仓库 vs 运行时副本）────────────────────────
 echo ""
 echo "📋 6/19 部署文件一致性"
