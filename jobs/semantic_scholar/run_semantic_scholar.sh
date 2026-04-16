@@ -37,7 +37,9 @@ test -f "$KB_SRC" || echo "# Semantic Scholar AI论文" > "$KB_SRC"
 
 # ── 1. 多关键词搜索 + 合并去重 ──────────────────────────────────────
 # 搜索多个关键词，每个取 20 篇，合并后按引用量排序
-KEYWORDS=("large language model" "LLM agent" "RAG retrieval augmented" "multimodal AI" "RLHF alignment" "ontology knowledge graph" "neuro-symbolic reasoning" "enterprise ontology" "formal ontology information systems" "description logic OWL" "semantic web linked data" "knowledge representation reasoning")
+# V37.8.13: 关键词 12→6 (S2 免费 API daily/session limit 收紧，04-16 全部 12 个 429)
+# + 间隔 5s→30s 更温和规避限流。保留核心 AI 关键词 + 1 个 ontology 关键词。
+KEYWORDS=("large language model" "LLM agent" "RAG retrieval augmented" "multimodal AI" "RLHF alignment" "ontology knowledge graph")
 RAW_DIR="$CACHE/raw"
 mkdir -p "$RAW_DIR"
 
@@ -47,8 +49,8 @@ for i in "${!KEYWORDS[@]}"; do
   OUTFILE="$RAW_DIR/search_${i}.json"
   ENCODED_KW=$(python3 -c "import urllib.parse; print(urllib.parse.quote('$KW'))")
 
-  # Semantic Scholar 免费 API: 严格限流，关键词间隔 5s
-  [ "$i" -gt 0 ] && sleep 5
+  # V37.8.13: 关键词间隔 30s（原 5s 触发 S2 429 daily limit）
+  [ "$i" -gt 0 ] && sleep 30
 
   HTTP_CODE=$(curl -sSL --max-time 30 -w '%{http_code}' \
     -H "User-Agent: openclaw-s2-monitor/1.0" \

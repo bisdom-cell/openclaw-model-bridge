@@ -262,7 +262,9 @@ HOME_LOGS=(
     "$HOME/openclaw_backup.log|openclaw_backup"
     "$HOME/preference_learner.log|preference_learner"
     "$HOME/kb_dream.log|kb_dream"
-    "$HOME/kb_harvest_chat.log|kb_harvest_chat"
+    # V37.8.13: kb_harvest_chat.log 故意不加入 — 内容是 LLM 提炼的其他 log 历史错误
+    # 字符串（如 "Proxy错误率达50.7%"），误报率 100%。状态通过 last_run_harvest_chat.json
+    # 的 JOBS 数组条目跟踪即可。
 )
 for entry in "${HOME_LOGS[@]}"; do
     IFS='|' read -r logfile job_name <<< "$entry"
