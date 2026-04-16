@@ -272,12 +272,14 @@
     }
   ],
   "operating_rules": [
-    "Gateway维持v2026.3.13-1，等@openclaw/whatsapp正式发布再升级",
-    "数据清洗Phase2优先于新功能开发",
-    "Mac Mini同步用git reset不用git pull",
-    "PA行为变更后必须清空session+重启Gateway+WhatsApp实测（V30.4教训）",
-    "SOUL.md放宪法级信息（身份+状态），CLAUDE.md放操作手册（工具+详情）（V30.4教训）",
-    "功能完成标准=用户视角验证通过，非单测通过（V30.4教训）"
+    "Mac Mini 同步用 git reset 不用 git pull (无本地 commit, 防分叉失败)",
+    "PA 行为变更后必须清空 session + 重启 Gateway + WhatsApp 实测 (V30.4 教训)",
+    "SOUL.md 放宪法级信息 (身份+状态), CLAUDE.md 放操作手册 (工具+详情)",
+    "功能完成标准 = 用户视角验证通过, 非单测通过",
+    "Gateway 维持 v2026.3.13-1, 升级前先读 docs/config.md hold 决策 (V37+ 多次评估)",
+    "告警链不得依赖失效主体自身: WhatsApp 监控走 Discord (V37.8.13 MR-14)",
+    "跨消费者豁免必须全量同步: 任何 FILE_MAP 豁免改 preflight 也要改 auto_deploy/job_smoke_test (V37.8.13 原则 #31)",
+    "战略路标 V1/V2/V3 优先于功能添加 (导师评审 2026-04-03 + V35-V36 已完成 V1/V2 P0)"
   ],
   "methodology": {
     "version": "V34 Stage2: From Builder to Recognized Author",
