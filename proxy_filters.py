@@ -927,8 +927,11 @@ class ProxyStats:
             self._check_day_reset()
             self.total_requests += 1
 
-            # 自动恢复追踪：从连续错误中恢复
-            if self.consecutive_errors > 0:
+            # 自动恢复追踪：从达到告警阈值的连续错误 streak 中恢复
+            # V37.8.13: 修复 >100% 数学 bug — 原逻辑 consecutive_errors > 0
+            # 对任意单次瞬态错误都计 recovery，而 _failure_streaks 只计达到阈值的
+            # streak → 分子 > 分母 → 194.1%。修改为只有从真正的 streak 恢复才计数。
+            if self.consecutive_errors >= CONSECUTIVE_ERROR_ALERT:
                 self._recovery_total += 1
             self.consecutive_errors = 0
             self.last_success_time = time.time()
