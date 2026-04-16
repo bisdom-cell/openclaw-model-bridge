@@ -1,6 +1,6 @@
 {
-  "updated": "2026-04-16 03:19:43",
-  "updated_by": "full_regression",
+  "updated": "2026-04-16 06:40:20",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-04-16",
+      "what": "V37.8.13 gemini quota 审计：16 个 LLM cron，每日 ~50-60 总调用量（kb_dream MapReduce 主力，mm_index 每2h 其次）。根因识别：gemini 429 非日量问题(RPD 50<<1500)，是 TPM 窗口竞争(21:00 ai_leaders_x + 22:00 kb_evening 大 digest 落在同一 TPM 60s 窗口易超 250K)。降频建议: mm_index 2h→6h, ai_leaders_x/kb_evening 错峰，或申请 gemini paid tier/第二 fallback provider。当前不做降频(需用户决策)。",
+      "by": "claude_code"
+    },
     {
       "date": "2026-04-16",
       "what": "V37.8.13 Gateway 宕 9h 静默血案闭环 (MR-4 第 11 次演出): (1) quiet_alert 静默期 Discord 穿透 (2) wa_keepalive 连续 2 次 WARN 自动 Discord 升级 (3) restart.sh 15s 健康验证 + INV-WA-001(7)+INV-QUIET-001(4) + case doc + MR-14 元规则。附带: V37.8.12 FILE_MAP 自复制修复 + status.json format_human 防崩 + MR-13 错误链透明度元规则 + proxy_stats >100% 数学修复 + SCMPNews 僵尸删除 + watchdog 11→19 job。governance v3.18 (42 inv/210 checks/14 MR)。12 commits / 1092 tests / 0 fail / 安全 93/100",
@@ -171,11 +176,6 @@
     {
       "date": "2026-04-11",
       "what": "V37.4.3 生产验证通过 — Mac Mini 部署+WhatsApp 端实测闭环: ① 代码同步 force drift detection path (rm .last_deploy_head) 触发 auto_deploy 16:12 同步 8 文件 + 16:14 drift 修复 2 文件, proxy_filters.py/tool_proxy.py/notify.sh/SOUL.md 全部生效 ② governance --full 28/28 invariants / 67/67 checks 全通过 (dev 56/67 因 --full-only 检查跳过) ③ 主 sessions.json 清空至 16 字节消除残留污染 ④ WhatsApp 端发两条测试: 消息1 AI Agent 和本体论的关系 (广义验证) + 消息2 本体×随机×贝叶斯三者组成什么 (13:06 原题复现). PA 回复主题完全对齐: 消息1 返回 确定性锚点/共享语言/记忆推理 三层架构, 消息2 返回 本体=宪法/随机=创造力/贝叶斯=学习 三层认知引擎+闭环循环示例+AGI 路径. 全部红线零命中 (无告警/cron/系统偏好/完全磁盘访问权限/已收到跟进). 关键验证: 消息2 正确引用消息1 本体+LLM+Agent 下一代工业软件基础范式 结论 → 证明 filter_system_alerts 只剥离 [SYSTEM_ALERT] 不误伤真实对话. 对比 13:06 幻觉答案 → 16:36 哲学+架构+AGI 答案, 教科书级血案闭环.",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-04-11",
-      "what": "V37.4.3: PA 告警污染血案闭环修复 (A+C 方案) — 事件: 13:06 用户问\"AI Agent 终极架构:本体×随机×贝叶斯\" PA 回复\"已收到告警跟进任务,请添加/usr/sbin/cron到完全磁盘访问权限\"完全答非所问+编造错误 macOS 指令. 根因: 12:30 job_watchdog 通过 notify.sh --topic alerts 推送 WARNING, Gateway 写入 sessions.json 作为 assistant role, Proxy truncate_messages 最近 N 条窗口 36min 内保留告警, Qwen3 attention 跨主题错误关联. Path A 结构性隔离: 推送侧 notify.sh+auto_deploy.sh+run_hn_fixed.sh+run.sh+run_discussions.sh 注入 [SYSTEM_ALERT] 标记, 消费侧 proxy_filters.py 新增 filter_system_alerts() 在 truncate_messages 之前执行 (顺序硬约束). Path C 治理+行为双防线: SOUL.md 规则 10 告警消息不跟进+主题对齐硬规则+幻觉防线(macOS launchd cron 不需要 FDA)+2026-04-11 血案案例警示; governance_ontology.yaml v3.3→v3.4 (26→28 不变式, 52→67 checks) INV-PA-001 alert-does-not-pollute-chat-context (declaration+runtime, 顺序锁 python_assert+运行时 filter 回归) + INV-PA-002 soul-rule-10-present. 案例文档 pa_alert_contamination_case.md (六层根因深挖+完整因果链+六条件组合爆炸分析). 新增 21 单测 (TestFilterSystemAlerts 14 + TestNotifyShAlertMarker 5 + TestToolProxyImportsAlertFilter 2). 全量回归: 29 suites / 807 tests / 0 fail, governance 28/28 invariants / 56/67 checks",
       "by": "claude_code"
     }
   ],
