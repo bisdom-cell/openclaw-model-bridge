@@ -24,19 +24,22 @@ is_quiet_hours() {
     [ "$hour" -ge 0 ] && [ "$hour" -lt 7 ]
 }
 
-# 静默感知的推送封装：静默期跳过推送，仅写日志
+# 静默感知的推送封装：静默期跳过 WhatsApp，Discord 始终推送
 # V37.4.3: 自动加 [SYSTEM_ALERT] 前缀，防止告警污染 PA 上下文
+# V37.8.13: 静默期仍推 Discord #alerts（2026-04-16 血案：Gateway 宕 9h 因凌晨静默期
+#   同时跳过 WhatsApp+Discord，3 次 CRITICAL preflight 失败全被吞没）
 quiet_alert() {
     local msg="$1"
-    if is_quiet_hours; then
-        echo "$(date) [QUIET] 静默期跳过推送: ${msg:0:80}..." >> "$LOG"
-        return 0
-    fi
     case "$msg" in
         "[SYSTEM_ALERT]"*) ;;
         *) msg="[SYSTEM_ALERT]
 $msg" ;;
     esac
+    if is_quiet_hours; then
+        echo "$(date) [QUIET] 静默期跳过WhatsApp，Discord仍推: ${msg:0:80}..." >> "$LOG"
+        openclaw message send --channel discord --target "${DISCORD_CH_ALERTS:-}" --message "$msg" --json >/dev/null 2>&1 || true
+        return 0
+    fi
     openclaw message send --channel whatsapp --target "${OPENCLAW_PHONE:-+85200000000}" --message "$msg" --json >/dev/null 2>&1 || true
     openclaw message send --channel discord --target "${DISCORD_CH_ALERTS:-}" --message "$msg" --json >/dev/null 2>&1 || true
 }

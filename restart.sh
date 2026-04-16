@@ -48,6 +48,25 @@ if [ -f "$GATEWAY_PLIST" ]; then
     sleep 1
     launchctl bootstrap "gui/$(id -u)" "$GATEWAY_PLIST"
     echo "[restart] Gateway loaded via launchd (KeepAlive enabled)"
+
+    # V37.8.13: Post-bootstrap health verification (2026-04-16 血案：Gateway bootstrap
+    # 成功但 21 秒内崩溃，restart.sh 报 "Done!" 却 Gateway 已死。现在主动等待并验证)
+    GATEWAY_HEALTHY=false
+    for _gw_attempt in 1 2 3 4 5; do
+        sleep 3
+        _gw_http=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 2 --max-time 3 http://localhost:18789 2>/dev/null || echo "000")
+        if [ "$_gw_http" -ge 200 ] 2>/dev/null && [ "$_gw_http" -lt 400 ] 2>/dev/null; then
+            echo "[restart] Gateway health verified (HTTP $_gw_http after ${_gw_attempt}×3s)"
+            GATEWAY_HEALTHY=true
+            break
+        fi
+        echo "[restart] Gateway not yet healthy (attempt $_gw_attempt/5, HTTP $_gw_http)..."
+    done
+
+    if ! $GATEWAY_HEALTHY; then
+        echo "[restart] ⚠️ Gateway failed to become healthy within 15s — needs manual investigation"
+        echo "[restart] ⚠️ Check: launchctl list | grep gateway ; tail ~/.openclaw/logs/gateway.err.log"
+    fi
 else
     echo "[restart] WARNING: launchd plist not found, falling back to nohup (no auto-restart)"
     nohup "$OPENCLAW" gateway --verbose >> ~/gateway.log 2>&1 &

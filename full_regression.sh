@@ -61,6 +61,7 @@ run_suite "finance_news_zombie (V37.8.5 三层僵尸检测)" "python3 test_finan
 run_suite "dream_surrogate_sanitize (V37.8.6 log→stderr + surrogate 清洗 + 反污染 prompt)" "python3 test_dream_surrogate_sanitize.py"
 run_suite "ontology_parser (V37.8.7 separator+key-based 解析，防级联错位)" "python3 test_ontology_parser.py"
 run_suite "governance_mrd_v8_9 (V37.8.9 MRD-LOG-STDERR + MRD-LLM-PARSER-POSITIONAL)" "python3 test_governance_mrd_v8_9.py"
+run_suite "wa_gateway_resilience (V37.8.13 Gateway 宕机韧性三层修复)" "python3 test_wa_gateway_resilience.py"
 if [ -f ontology/tests/test_governance_cron_matcher.py ]; then
     run_suite "governance_cron_matcher (INV-CRON-003/004 匹配器)" "python3 -m unittest ontology.tests.test_governance_cron_matcher"
 fi
