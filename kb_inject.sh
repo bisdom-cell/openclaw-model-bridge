@@ -508,3 +508,10 @@ chmod 640 "$KB_DIR/index.json" 2>/dev/null || true
 
 # ── rsync 备份 ──
 rsync -a --quiet "$KB_DIR/" "/Volumes/MOVESPEED/KB/" 2>/dev/null || true
+
+# V37.8.13: 写 last_run.json 供 watchdog 观察
+INJECT_STATUS_FILE="$KB_DIR/last_run_inject.json"
+DIGEST_SIZE=$(wc -c < "$DIGEST_FILE" 2>/dev/null | tr -d ' ' || echo "0")
+printf '{"time":"%s","status":"ok","digest_bytes":%s}\n' \
+    "$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')" \
+    "$DIGEST_SIZE" > "$INJECT_STATUS_FILE" 2>/dev/null || true

@@ -345,6 +345,29 @@ def main():
     # Summary
     print(f"\n[harvest] Summary: {results}")
 
+    # V37.8.13: 写 last_run.json 供 watchdog 观察
+    if not args.dry_run and not args.stats:
+        try:
+            status_file = os.path.join(os.path.expanduser("~/.kb"), "last_run_harvest_chat.json")
+            # 整体状态：任一 date=ok 则 ok，全部 empty/error 则 error
+            statuses = list(results.values())
+            if any(s == "ok" for s in statuses):
+                overall = "ok"
+            elif any(s == "error" for s in statuses):
+                overall = "error"
+            else:
+                overall = "empty"
+            status_data = {
+                "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "status": overall,
+                "new": sum(1 for s in statuses if s == "ok"),
+                "dates": results,
+            }
+            with open(status_file, "w", encoding="utf-8") as f:
+                json.dump(status_data, f, ensure_ascii=False)
+        except Exception as e:
+            print(f"[harvest] WARN: last_run.json write failed: {e}", file=sys.stderr)
+
 
 if __name__ == "__main__":
     main()
