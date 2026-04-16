@@ -54,8 +54,8 @@ STATS_WARN=0
 # tier: core（失败立即告警）/ auxiliary（失败记录警告）/ experiment（失败仅记录）
 JOBS=(
     # ── 论文监控矩阵（5源）──
-    # ArXiv: 每天4次(04/10/16/22) → 最多静默 14h
-    "arxiv_monitor|$HOME/.openclaw/jobs/arxiv_monitor/cache/last_run.json|50400|ArXiv论文监控|core"
+    # ArXiv: 每天2次(08/20) → 最多静默 28h
+    "arxiv_monitor|$HOME/.openclaw/jobs/arxiv_monitor/cache/last_run.json|100800|ArXiv论文监控|core"
     # HF Papers: 每天2次(10/20) → 最多静默 28h
     "hf_papers|$HOME/.openclaw/jobs/hf_papers/cache/last_run.json|100800|HF论文监控|core"
     # Semantic Scholar: 每天1次(08:00) → 最多静默 50h
@@ -80,6 +80,24 @@ JOBS=(
     "kb_evening|$HOME/.kb/last_run_evening.json|180000|KB晚间整理|core"
     # KB Review: 每周五21:00 → 最多静默 192h（8天）
     "kb_review|$HOME/.kb/last_run_review.json|691200|KB周回顾|auxiliary"
+
+    # ── V37.8.13 新增：此前完全无观测的 LLM/数据 job ──
+    # GitHub Trending: 每天2次(09/21) → 最多静默 28h
+    "github_trending|$HOME/.openclaw/jobs/github_trending/cache/last_run.json|100800|GitHub热门仓库|auxiliary"
+    # RSS Blogs: 每天2次(07/19) → 最多静默 28h
+    "rss_blogs|$HOME/.openclaw/jobs/rss_blogs/cache/last_run.json|100800|RSS技术博客|auxiliary"
+    # AI Leaders X: 每天3次(09/15/21) → 最多静默 14h
+    "ai_leaders_x|$HOME/.openclaw/jobs/ai_leaders_x/cache/last_run.json|50400|AI领袖X动态|core"
+    # KB Inject: 每天2次(07/19) → 最多静默 28h
+    "kb_inject|$HOME/.kb/last_run_inject.json|100800|KB每日摘要注入|core"
+    # Finance News: 每天07:30 → 最多静默 50h
+    "finance_news|$HOME/.openclaw/jobs/finance_news/cache/last_run.json|180000|全球财经新闻|auxiliary"
+    # Ontology Sources: 每天2次(10/20) → 最多静默 28h
+    "ontology_sources|$HOME/.openclaw/jobs/ontology_sources/cache/last_run.json|100800|本体论信息源|auxiliary"
+    # KB Harvest Chat: 每天06:00 → 最多静默 50h
+    "kb_harvest_chat|$HOME/.kb/last_run_harvest_chat.json|180000|对话精华提炼|core"
+    # PWC Papers: 每天13:00 → 最多静默 50h
+    "pwc|$HOME/.openclaw/jobs/pwc/cache/last_run.json|180000|Papers with Code|auxiliary"
 )
 
 CORE_ALERTS=()
@@ -243,6 +261,8 @@ HOME_LOGS=(
     "$HOME/token_report.log|token_report"
     "$HOME/openclaw_backup.log|openclaw_backup"
     "$HOME/preference_learner.log|preference_learner"
+    "$HOME/kb_dream.log|kb_dream"
+    "$HOME/kb_harvest_chat.log|kb_harvest_chat"
 )
 for entry in "${HOME_LOGS[@]}"; do
     IFS='|' read -r logfile job_name <<< "$entry"
