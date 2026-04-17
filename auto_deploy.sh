@@ -464,7 +464,9 @@ if $HAS_NEW_COMMITS; then
     PREFLIGHT="$REPO_DIR/preflight_check.sh"
     if [ -f "$PREFLIGHT" ]; then
         echo "$(date) 运行 preflight_check..." >> "$LOG"
-        PREFLIGHT_OUT=$(bash "$PREFLIGHT" --full 2>&1) && PREFLIGHT_RC=0 || PREFLIGHT_RC=$?
+        # V37.8.15: SKIP_PUSH_TEST=1 跳过 WhatsApp/Discord push test 实际发送
+        # auto_deploy 有自己的告警通道(quiet_alert)，不需要 preflight 额外发送测试消息
+        PREFLIGHT_OUT=$(SKIP_PUSH_TEST=1 bash "$PREFLIGHT" --full 2>&1) && PREFLIGHT_RC=0 || PREFLIGHT_RC=$?
         if [ $PREFLIGHT_RC -ne 0 ]; then
             # 提取失败项（只保留 ❌ 行）
             FAIL_LINES=$(echo "$PREFLIGHT_OUT" | grep "❌" | head -10)
