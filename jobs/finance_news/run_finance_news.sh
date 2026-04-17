@@ -208,8 +208,10 @@ if is_json:
         else:
             items_list = []
         for item in items_list[:8]:
-            title = item.get("title", "").strip()
-            url = item.get("url", item.get("link", ""))
+            raw_title = item.get("title", "")
+            title = (raw_title.get("en", "") if isinstance(raw_title, dict) else str(raw_title)).strip()
+            raw_url = item.get("url", item.get("link", ""))
+            url = (raw_url.get("en", "") if isinstance(raw_url, dict) else str(raw_url)).strip()
             ctime = item.get("ctime", item.get("pub_date", item.get("pubDate", "")))
             intro = item.get("intro", item.get("summary", item.get("description", "")))[:300]
             if not title or url in seen_urls:
