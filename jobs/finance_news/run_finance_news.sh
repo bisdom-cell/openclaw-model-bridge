@@ -305,6 +305,68 @@ PYEOF
 
 done
 
+# ── 1.5 HTML 直解析源（非 RSS/非 API，直接解析首页 HTML）─────────────
+# V37.8.14 新增：Caixin Global（之前误判为 paywall 不可用，实际首页 82 篇公开文章）
+CAIXIN_HTML="$CACHE/raw/caixin_${DAY}.html"
+CAIXIN_OK=false
+for attempt in 1 2; do
+    HTTP_CODE=$(curl -sSL --max-time 30 -w '%{http_code}' \
+        -H "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" \
+        -o "$CAIXIN_HTML" \
+        "https://www.caixinglobal.com/" 2>/dev/null) || HTTP_CODE="000"
+    if [ "$HTTP_CODE" = "200" ] && [ -s "$CAIXIN_HTML" ]; then
+        CAIXIN_OK=true
+        break
+    fi
+    sleep "$((attempt * 3))"
+done
+
+if [ "$CAIXIN_OK" = "true" ]; then
+    $PYTHON3 - "$CAIXIN_HTML" "$SEEN_FILE" << 'CXEOF' >> "$ALL_NEW_FILE"
+import sys, re, json
+from datetime import datetime, timedelta, timezone
+
+html_file, seen_file = sys.argv[1:3]
+with open(html_file, "r", encoding="utf-8", errors="replace") as f:
+    html = f.read()
+with open(seen_file) as f:
+    seen = set(l.strip() for l in f if l.strip())
+
+cutoff = datetime.now(timezone.utc) - timedelta(hours=72)
+articles = []
+pattern = re.compile(
+    r'<a[^>]*href="(https://www\.caixinglobal\.com/(\d{4})-(\d{2})-(\d{2})/[^"]+)"[^>]*>([^<]+)</a>'
+)
+added = set()
+for m in pattern.finditer(html):
+    url, y, mo, d, title = m.group(1), m.group(2), m.group(3), m.group(4), m.group(5).strip()
+    if not title or len(title) < 15 or url in seen or url in added:
+        continue
+    if "?internalReferrer" in url or "?internalreferrer" in url:
+        continue
+    try:
+        pub = datetime(int(y), int(mo), int(d), tzinfo=timezone.utc)
+        if pub < cutoff:
+            continue
+    except:
+        pass
+    articles.append({"title": title, "link": url, "description": "",
+                     "pub_date": f"{y}-{mo}-{d}",
+                     "feed_name": "Caixin Global", "feed_label": "财新全球(英文)", "region": "cn"})
+    added.add(url)
+
+for a in articles[:8]:
+    print(json.dumps(a, ensure_ascii=False))
+    with open(seen_file, "a") as f:
+        f.write(a["link"] + "\n")
+
+print(f"[finance] Caixin Global: {min(len(articles), 8)} 篇", file=sys.stderr)
+CXEOF
+else
+    log "WARN: Caixin Global 抓取失败 (HTTP ${HTTP_CODE})"
+    FETCH_ERRORS=$((FETCH_ERRORS + 1))
+fi
+
 # ── 2. X/Twitter 财经账号抓取（Syndication API）───────────────────────
 SEEN_X_FILE="$CACHE/seen_x_ids_${DAY}.txt"
 : > "$SEEN_X_FILE"
