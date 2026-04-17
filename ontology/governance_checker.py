@@ -307,7 +307,7 @@ def _discover_uncovered_jobs(all_check_code, severity):
             continue
         jid = job.get("id", "?")
         entry = job.get("entry", "")
-        script = os.path.basename(entry) if entry else ""
+        script = os.path.basename(entry.split()[0]) if entry else ""
 
         # 检查 job id 或脚本名是否在任何不变式的检查代码中
         if script and (script in all_check_code or jid in all_check_code):
