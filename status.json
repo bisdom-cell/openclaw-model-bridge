@@ -204,10 +204,7 @@
     "last_session": "2026-04-16 closeout V37.8.13 (22 commits, Gateway recovery + 7 features + docs stage 1)",
     "unfinished": [
       "V37.8.12 候选 P0 (本血案直接衍生): Fix B 扩展 fallback_chain 到 ≥2 provider — 需要用户决策：Claude/Kimi/GLM/MiniMax 哪个 API key 可用 + 配 providers.d/ YAML + 环境变量。当前 fallback 只有 gemini，primary 不稳时必死",
-      "gemini quota 消耗审计：白天 ~20 cron 哪些可降频（proxy_stats 194% bug 已修）",
-      "V37.8.11 元教训 → 原则扩展候选: 任何 FILE_MAP drift 检测的豁免规则应在所有 FILE_MAP 消费者 (preflight + auto_deploy + job_smoke_test) 同步更新 — 系统性扫描而非单点修复",
-      "原则 #15 反思落地: 每周一次 WhatsApp 实际观察 session (30 min)，专门看告警噪声 / 推送延迟 / 信息密度 / 用户感知",
-      "V37.8.6 Dream 观察: 明日 03:00 反污染 prompt 生效验证",
+      "gemini quota 审计已完成：TPM 窗口竞争非日量问题。待用户决策：mm_index 2h→6h / ai_leaders_x+kb_evening 错峰 / 申请 paid tier / 第二 fallback provider",
       "X 僵尸账号持续观察: ReutersBiz/XHNews/CGTNOfficial/globaltimesnews (2天), PDChina/CNS1952/SingTaoDaily (1天) — 可能是 Syndication API 区域限制而非真僵尸",
       "运维 P2 长期登记: ImportYeti Cloudflare / freight_watcher dcvelocity 超时 / cron_doctor.sh launchd false-positive / wa_e2e_test.sh 未部署 / Qwen3 不主动调用 memory 工具 (deferred 等模型升级) / Gateway v2026.3.13-1 hold",
       "V3 路标 backlog: Tool Policy Plugin / Memory Plane Plugin / Job Template SDK / Ontology Phase 3"

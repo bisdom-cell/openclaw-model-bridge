@@ -210,6 +210,34 @@ class TestShellScriptIntegration(unittest.TestCase):
 # ══════════════════════════════════════════════════════════════════════
 # 8. 模块部署 — FILE_MAP 必须含新模块（否则 Mac Mini 拿不到新代码）
 # ══════════════════════════════════════════════════════════════════════
+class TestPersistentZombieNotification(unittest.TestCase):
+    """V37.8.14: 3 天连续僵尸检测必须推送告警（MR-4 gap closure）"""
+
+    def setUp(self):
+        self.script = os.path.join(_HERE, "jobs", "finance_news", "run_finance_news.sh")
+        with open(self.script, "r", encoding="utf-8") as f:
+            self.source = f.read()
+
+    def test_persistent_zombie_sends_notification(self):
+        """连续 3 天检测到的僵尸必须通过 notify 推送告警"""
+        self.assertIn("notify ", self.source)
+        found = False
+        for line in self.source.splitlines():
+            if "notify" in line and "僵尸" in line and "--topic alerts" in line:
+                found = True
+                break
+        self.assertTrue(found, "3 天连续僵尸检测块必须调用 notify --topic alerts")
+
+    def test_persistent_zombie_has_system_alert_marker(self):
+        """告警消息必须带 [SYSTEM_ALERT] 前缀（V37.4.3 隔离契约）"""
+        found = False
+        for line in self.source.splitlines():
+            if "notify" in line and "僵尸" in line and "[SYSTEM_ALERT]" in line:
+                found = True
+                break
+        self.assertTrue(found, "僵尸告警必须带 [SYSTEM_ALERT] 前缀")
+
+
 class TestAutoDeployMapping(unittest.TestCase):
     def test_finance_news_zombie_py_in_auto_deploy(self):
         """auto_deploy.sh FILE_MAP 必须含 finance_news_zombie.py（否则部署缺失）"""

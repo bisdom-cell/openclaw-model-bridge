@@ -2391,6 +2391,26 @@ invariants:
         check_type: file_not_contains
         file: jobs/finance_news/run_finance_news.sh
         pattern: '"SCMPNews\|南华早报'
+      - name: "V37.8.14 已确认僵尸 ReutersBiz 已从列表移除"
+        check_type: file_not_contains
+        file: jobs/finance_news/run_finance_news.sh
+        pattern: '"ReutersBiz\|'
+      - name: "V37.8.14 已确认僵尸 XHNews 已从列表移除"
+        check_type: file_not_contains
+        file: jobs/finance_news/run_finance_news.sh
+        pattern: '"XHNews\|'
+      - name: "V37.8.14 已确认僵尸 CGTNOfficial 已从列表移除"
+        check_type: file_not_contains
+        file: jobs/finance_news/run_finance_news.sh
+        pattern: '"CGTNOfficial\|'
+      - name: "V37.8.14 已确认僵尸 globaltimesnews 已从列表移除"
+        check_type: file_not_contains
+        file: jobs/finance_news/run_finance_news.sh
+        pattern: '"globaltimesnews\|'
+      - name: "V37.8.14 3天连续僵尸检测必须推送告警(MR-4 gap closure)"
+        check_type: file_contains
+        file: jobs/finance_news/run_finance_news.sh
+        pattern: 'notify.*僵尸.*--topic alerts'
       - name: "CLAUDE.md 原则 #27 更新强制 X 账号健康 ≠ HTTP 200"
         check_type: file_contains
         file: CLAUDE.md
@@ -3054,7 +3074,7 @@ audit_metadata:
     v3.11 → v3.12: V37.8.6 Dream 自引用幻觉血案 — INV-DREAM-003 新增 (dream-log-cannot-pollute-cache-nor-fabricate-platform-crises, meta_rule=MR-4, severity=critical, verification_layer=[declaration, runtime], 16 checks). 2026-04-15 03:00 Dream run 出现 4 次 Bad JSON 400 (adapter 收到破损 JSON)，但 Dream 仍产出完整"Hugging Face 平台危机"分析，用户察觉 Signal(Papers with Code 沉默)↔Action(监控 Hugging Face) 主题断裂后上报。三层根因：(a) scraped 内容含 surrogate UTF-8 → json.dump + utf-8 file write → UnicodeEncodeError → body_file 截断 → adapter.py:386 返回 400 Bad JSON (b) kb_dream.sh log() 用 `echo` 写 stdout → signals=$(llm_call ...) 命令替换捕获 log 行进 signals → cache file 被"LLM raw response: Error code 400 Bad JSON..."污染 (c) Reduce cache-only fast path 把错误日志注入 LLM 上下文 → LLM 基于这些字样自动编造"Hugging Face 危机"叙事 = 原则 #23 链式幻觉 + MR-4 silent failure 第 7 次演出。四层结构修复（defense-in-depth）：log→stderr 阻断 stdout 污染通道 + _sanitize(U+D800-U+DFFF → U+FFFD) 防编码炸裂 + file open 显式 encoding='utf-8' errors='replace' 第二防线 + REDUCE/CHUNK1/2/3 system prompt 四块加反污染守卫 (禁止把 HTTP 错误码/Python 异常/错误页 HTML/U+FFFD 当外部信号，禁止基于这些字样推断 Hugging Face/GitHub/npm 等平台状态)。runtime python_assert 真跑 sanitize 五场景 (孤立高位/低位代理/正常串/代理范围边界/sanitize 后 json+utf-8 编码不炸)。19 单测 (TestLogGoesToStderr×2 + TestSanitizeSurrogates×7 + TestShellSanitizeImplementation×5 + TestAntiPollutionSystemPrompt×3 + TestShellScriptIntegrity×1 + TestLogDefHasCommentMeta×1)。
     v3.10 → v3.11: V37.8.5 INV-X-001 升级三层检测 (血案二次演出: V37.8.4 修复本身埋盲区) — V37.8.4 收工 Mac Mini E2E 即发现 2 个边缘：CNS1952 98/99 超窗口 + 1 过短老化率 99% 但未触发严格 old==total (MR-10 第 2 次演出：修复会埋坑)；SingTaoDaily 0-tweet stub (embed disabled 返回空骨架) 被 total>0 门槛绕过完全不标记。V37.8.5 修复：(1) 检测逻辑独立为 jobs/finance_news/finance_news_zombie.py 纯函数模块 (classify_zombie(diag, count)); (2) 三层 tier: "stub" (no_data=0 + total=0) + "stale" (≥90% 老化 + count=0 守卫防止低频活跃误报)，整数比较 old*10 >= total*9 避免浮点; (3) 24 单测锁定三层 + 守卫 + shell 集成 + auto_deploy FILE_MAP; (4) verification_layer 从 [declaration] 升级到 [declaration, runtime] (MR-6 遵循: INV-X-001 现在有 python_assert 真跑 5 个 tier 场景); (5) shell 脚本禁止内嵌 inline fallback (防模块缺失时静默降级回 V37.8.4 逻辑 — MR-8 copy-paste-is-a-bug-class 兑现)。诊断行 tier 区分 ⚠️ ZOMBIE嫌疑[stub] vs [stale]，便于日志定位。
   total_invariants: 42  # +INV-WA-001, +INV-QUIET-001
-  total_checks: 210     # +INV-WA-001(+7) + INV-QUIET-001(+4)
+  total_checks: 216     # V37.8.14: +5 file_not_contains(4 zombie guards) + 1 notify guard
   meta_rules: 14        # MR-1~MR-14 (MR-13 error-chain-upstream-cause: V37.8.10; MR-14 alert-path-independence: V37.8.13)
   meta_rule_discovery_count: 6   # Phase 0: registry + env + notify-topic + layer-depth + error-suppression + notify-activity
   check_types_used: [python_assert, file_contains, file_not_contains, env_var_exists, command_succeeds, log_activity_check]
