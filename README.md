@@ -7,12 +7,12 @@
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![Tests](https://img.shields.io/badge/tests-1093%20passed-brightgreen.svg)]()
 [![Providers](https://img.shields.io/badge/providers-7%20supported-orange.svg)]()
-[![Governance](https://img.shields.io/badge/invariants-42%2F42%20%2B%2014%20MR-blueviolet.svg)]()
+[![Governance](https://img.shields.io/badge/invariants-52%2F52%20%2B%2014%20MR-blueviolet.svg)]()
 [![Security](https://img.shields.io/badge/security-93%2F100-green.svg)]()
-[![Jobs](https://img.shields.io/badge/cron%20jobs-34%20active-blue.svg)]()
+[![Jobs](https://img.shields.io/badge/cron%20jobs-35%20active-blue.svg)]()
 [![Notifications](https://img.shields.io/badge/notifications-WhatsApp%20%2B%20Discord-informational.svg)]()
 
-> **Current version:** `v37.8.13` / `0.37.8.13` (2026-04-16) — see [`CLAUDE.md`](CLAUDE.md) for full changelog.
+> **Current version:** `v37.8.15` / `0.37.8.15` (2026-04-17) — see [`CLAUDE.md`](CLAUDE.md) for full changelog.
 
 ## Architecture / 系统架构
 
@@ -61,7 +61,7 @@
 └──────────────────────────────────────────────────────────────────┘
                    │
 ┌──────────────────▼──────────────────────────────────────────────┐
-│  ③ 定时任务层（38 个 system cron jobs，34 active）                │
+│  ③ 定时任务层（39 个 system cron jobs，35 active）                │
 │                                                                  │
 │  论文监控矩阵（5源）：                                            │
 │    ArXiv(每3h) + HF Papers(10:00) + S2(11:00)                   │
@@ -88,7 +88,7 @@
 │       config.yaml: 统一阈值配置（70+参数，9个分区）               │
 │       SLO 5指标: 延迟p95<30s / 工具成功>95% / 降级<5%            │
 │                  超时<3% / 自动恢复>90%                           │
-│       auto_deploy: 文件同步(35个) + 漂移检测 + 按需restart        │
+│       auto_deploy: 文件同步(81个) + 漂移检测 + 按需restart        │
 │       preflight: 19项检查（单测+注册表+语法+部署+安全+E2E+SLO）   │
 │       故障快照: 连续错误→自动采集日志+状态→~/.kb/incidents/        │
 │       pre-commit: API key/手机号泄漏+语法检查                     │
@@ -101,15 +101,15 @@
 │  ontology/                                                       │
 │    engine.py ←→ tool_ontology.yaml (81条声明式规则)              │
 │      └→ classify_tool_call(): 语义推理(属性→风险+策略标签)       │
-│    governance_checker.py ←→ governance_ontology.yaml v3.18       │
-│      └→ 42不变式 + 197检查 + 14元规则 + 验证深度三层模型         │
+│    governance_checker.py ←→ governance_ontology.yaml v3.19       │
+│      └→ 52不变式 + 236检查 + 14元规则 + 验证深度三层模型         │
 │      └→ MR-13/MR-14: error-chain-transparency + alert-path-     │
 │         independence (V37.8.10/13 血案教训)                     │
 │      └→ MRD-LAYER-001: 自动发现单层验证盲区                     │
 │    diff.py: engine ↔ proxy_filters 一致性校验 (81/81=100%)      │
-│    Phase 2 shadow: off→shadow→on (Mac Mini 生产运行中)           │
+│    Phase 3: ONTOLOGY_MODE=on (声明式引擎替代硬编码, V37.8.14)    │
 │    CONSTITUTION.md: 宪法6条 + 最高条款（项目隔离）                │
-│    docs/cases/: 13 篇血案档案 (V37.3-V37.8.13)                  │
+│    docs/cases/: 15 篇血案档案 (V37.3-V37.8.13)                  │
 └──────────────────────────────────────────────────────────────────┘
                    │
 ┌──────────────────▼──────────────────────────────────────────────┐
@@ -267,7 +267,11 @@ Core services (`tool_proxy.py`, `adapter.py`, `proxy_filters.py`) use **only Pyt
 | `kb_trend.py` | **V29.5** Weekly AI trend report — this week vs last week keywords + LLM analysis + prediction backtest |
 | `status_update.py` | **V29.5** Three-party shared status — atomic read/write of `~/.kb/status.json` (Claude Code + PA + cron) |
 | `data_clean.py` | **V30.3** Data cleaning CLI — 7 operations (dedup/trim/fix_dates/etc), 5 formats (CSV/TSV/JSON/JSONL/Excel), version chain + audit log |
-| `SOUL.md` | **V30.4** PA constitutional system prompt — identity (Wei), three-party constitution, behavior directives, live project status |
+| `kb_dream.sh` | **V36.1** Agent Dream v2 — MapReduce full KB exploration (14 sources + 300 notes, Map→cache→Reduce) |
+| `kb_harvest_chat.py` | **V37** Conversation distiller — MapReduce chat extraction from proxy captures, zero data loss |
+| `kb_evening_collect.py` | **V37.6** Evening digest collector — reuses `kb_review_collect` primitives via import |
+| `kb_review_collect.py` | **V37.5** Review data collector — registry-driven source discovery + H2 drill-down + LLM call with fail-fast |
+| `SOUL.md` | **V30.4→V37.4.3** PA constitutional system prompt — identity (Wei), three-party constitution, behavior directives, Rule 9 critical thinking, Rule 10 alert non-follow-up |
 
 ### Monitoring, SLO & Quality
 
@@ -287,7 +291,7 @@ Core services (`tool_proxy.py`, `adapter.py`, `proxy_filters.py`) use **only Pyt
 | File | Description |
 |------|-------------|
 | `restart.sh` | One-command restart all services (with PATH fix for cron) |
-| `auto_deploy.sh` | Auto-deployment — git pull + file sync (35 files) + drift detection + smart restart + post-deploy preflight |
+| `auto_deploy.sh` | Auto-deployment — git pull + file sync (81 files) + drift detection + smart restart + post-deploy preflight |
 | `preflight_check.sh` | Pre-flight check — **19 automated checks** (tests, registry, syntax, deploy consistency, env vars, connectivity, security scan, data flow, crontab, **E2E journey test**, **SLO compliance**) |
 | `health_check.sh` | Weekly health report + JSON output |
 | `openclaw_backup.sh` | **V29.1** Daily Gateway state backup to external SSD (7-day retention) |
@@ -295,38 +299,45 @@ Core services (`tool_proxy.py`, `adapter.py`, `proxy_filters.py`) use **only Pyt
 | `gameday.sh` | **V33** GameDay fault injection — 5 scenarios (GPU timeout, circuit breaker, snapshot, SLO, watchdog) |
 | `smoke_test.sh` | End-to-end smoke test (unit tests + registry + doc drift + connectivity) |
 
-### Scheduled Jobs (38 registered, 34 active)
+### Scheduled Jobs (39 registered, 35 active)
 
 All jobs registered in `jobs_registry.yaml`. Validate: `python3 check_registry.py`
 
 | File | Schedule | Description |
 |------|----------|-------------|
-| `jobs/arxiv_monitor/run_arxiv.sh` | Every 3h | ArXiv AI paper monitoring + KB + WhatsApp |
-| `jobs/hf_papers/run_hf_papers.sh` | Daily 10:00 | **V30.5** HuggingFace Daily Papers + KB + WhatsApp |
-| `jobs/semantic_scholar/run_semantic_scholar.sh` | Daily 11:00 | **V30.5** Semantic Scholar papers (citation-ranked) + KB + WhatsApp |
-| `jobs/dblp/run_dblp.sh` | Daily 12:00 | **V30.5** DBLP CS papers (multi-keyword, free API) + KB + WhatsApp |
-| `jobs/acl_anthology/run_acl_anthology.sh` | Daily 09:30 | **V30.5** ACL Anthology NLP top-venue papers + KB + WhatsApp |
+| `jobs/arxiv_monitor/run_arxiv.sh` | Every 3h | ArXiv AI paper monitoring + KB + WhatsApp + Discord |
+| `jobs/hf_papers/run_hf_papers.sh` | Daily 10:00 | **V30.5** HuggingFace Daily Papers + KB + dual-channel push |
+| `jobs/semantic_scholar/run_semantic_scholar.sh` | Daily 11:00 | **V30.5** Semantic Scholar papers (citation-ranked) + KB + dual-channel |
+| `jobs/dblp/run_dblp.sh` | Daily 12:00 | **V30.5** DBLP CS papers (multi-keyword, free API) + KB + dual-channel |
+| `jobs/acl_anthology/run_acl_anthology.sh` | Daily 09:30 | **V30.5** ACL Anthology NLP top-venue papers + KB + dual-channel |
+| `jobs/finance_news/run_finance_news.sh` | Daily 07:30 | **V37.8.2** Global finance/policy news — 15 RSS + 14 X accounts + LLM analysis + zombie detection |
+| `jobs/chaspark/run_chaspark.sh` | Daily 09:00 | **V37.8.14** 茶思屋科技(Chaspark) — HTML API deep analysis + KB + dual-channel |
+| `jobs/ai_leaders_x/run_ai_leaders_x.sh` | Daily 21:00 | **V34** AI Leaders X — 15 AI researchers/founders technical insights |
+| `jobs/ontology_sources/run_ontology_sources.sh` | 10:00/20:00 | **V37.1** Ontology academic RSS (W3C/JWS/DKE/KBS) + LLM summary |
 | `run_hn_fixed.sh` | Every 3h:45 | HackerNews hot posts scraper |
 | `jobs/freight_watcher/run_freight.sh` | 08/14/20:00 | Freight intelligence — scraping + LLM analysis |
 | `jobs/openclaw_official/run.sh` | Daily 08:00 | OpenClaw releases watcher + LLM summary |
 | `jobs/openclaw_official/run_discussions.sh` | Hourly:15 | GitHub Issues monitor (REST API + ETag) |
+| `jobs/github_trending/run_github_trending.sh` | Daily 14:00 | **V31** GitHub Trending ML/AI repos |
+| `jobs/rss_blogs/run_rss_blogs.sh` | 08:00/18:00 | **V31** RSS blog subscriptions (科学空间 etc.) |
 | `kb_inject.sh` | Daily 07:00 | KB daily digest for LLM context |
 | `kb_embed.py` | Every 4h:30 | KB text vector indexing (local embedding) |
-| `kb_evening.sh` | Daily 22:00 | Evening KB cleanup |
+| `kb_evening.sh` | Daily 22:00 | Evening KB cleanup + LLM digest |
 | `kb_dedup.py` | Daily 23:00 | KB deduplication (dry-run) |
-| `kb_review.sh` | Fri 21:00 | Weekly KB deep review (LLM analysis) |
+| `kb_review.sh` | Fri 21:00 | Weekly KB deep review (registry-driven, LLM analysis) |
+| `kb_dream.sh` | Daily 00:00/03:00 | **V36.1** Agent Dream v2 — MapReduce KB exploration (Map 00:00 + Reduce 03:00) |
+| `kb_harvest_chat.py` | Daily 06:00 | **V37** Conversation distiller — MapReduce chat extraction, zero data loss |
 | `mm_index_cron.sh` | Every 2h | Multimodal memory indexing (Gemini) |
 | `conv_quality.py` | Daily 08:15 | Conversation quality report |
 | `token_report.py` | Daily 08:20 | Token usage report |
 | `health_check.sh` | Mon 09:00 | Weekly health report |
 | `openclaw_backup.sh` | Daily 03:00 | Gateway state backup |
-| `auto_deploy.sh` | Every 2 min | Git → runtime auto-sync |
-| `job_watchdog.sh` | Every 4h:30 | Job health monitoring |
-| `wa_keepalive.sh` | Every 30 min | WhatsApp session probe |
+| `auto_deploy.sh` | Every 2 min | Git → runtime auto-sync + drift detection |
+| `job_watchdog.sh` | Every 4h:30 | Job health monitoring (19 jobs) |
+| `wa_keepalive.sh` | Every 30 min | WhatsApp session probe + escalation to Discord |
 | `kb_trend.py` | Sat 09:00 | Weekly AI trend report (keyword trends + LLM analysis) |
-| `jobs/github_trending/run_github_trending.sh` | Daily 14:00 | **V31** GitHub Trending ML/AI repos |
-| `jobs/rss_blogs/run_rss_blogs.sh` | 08:00/18:00 | **V31** RSS blog subscriptions (科学空间 etc.) |
 | `kb_status_refresh.sh` | Hourly | Status.json health refresh (three-party sync) |
+| `governance_audit_cron.sh` | Daily 07:00 | **V37.1** Governance audit — 52 invariants + 14 meta rules |
 | `preference_learner.py` | Daily 07:30 | User preference auto-learning |
 | `cron_canary.sh` | Every 10 min | Cron heartbeat canary |
 | `kb_integrity.py` | (on-demand) | KB file integrity checker (SHA256) |
@@ -335,7 +346,7 @@ All jobs registered in `jobs_registry.yaml`. Validate: `python3 check_registry.p
 
 | File | Description |
 |------|-------------|
-| `jobs_registry.yaml` | Unified job registry — 38 jobs (34 active, 4 disabled), system cron |
+| `jobs_registry.yaml` | Unified job registry — 39 jobs (35 active, 4 disabled), system cron |
 | `check_registry.py` | Registry validator — ID uniqueness, paths, fields |
 | `gen_jobs_doc.py` | Auto-generate job docs from registry + drift detection |
 | `test_providers.py` | Unit tests for providers |
@@ -353,17 +364,22 @@ All jobs registered in `jobs_registry.yaml`. Validate: `python3 check_registry.p
 | `.github/workflows/ci.yml` | **V32** GitHub Actions CI — 9 test suites + config validation + security scan |
 | `CLAUDE.md` | Project context for AI-assisted development |
 
-### Ontology Sub-Project (V36.2)
+### Ontology Sub-Project (V36.2 → V37.8.14 Phase 3)
+
+> **Phase 3 active**: `ONTOLOGY_MODE=on` — declarative engine replaces hardcoded logic (V37.8.14).
+> Roadmap: Phase 4 (domain ontology + policy engine) → Phase 5 (`pip install ontology-engine`).
 
 | File | Description |
 |------|-------------|
-| `ontology/engine.py` | **V36.2** Tool Ontology Engine — declarative rule inference (81 rules from proxy_filters.py), query/validate/suggest APIs |
-| `ontology/tool_ontology.yaml` | **V36.2** Declarative tool rules — 81 rules extracted from proxy_filters.py (filters, injections, truncation, SSE, media) |
-| `ontology/diff.py` | **V36.2** Consistency checker — compares engine rules vs proxy_filters.py behavior (81/81 = 100%) |
-| `ontology/poc_semantic_query.py` | **V36.2** Semantic query PoC — from enumeration to inference (the jump) |
-| `ontology/CONSTITUTION.md` | **V36.2** Ontology Constitution — 6 articles + Supreme Article (project isolation) + value assessment matrix |
-| `ontology/tests/test_engine.py` | **V36.2** Engine unit tests |
-| `ontology/docs/` | Knowledge base — 16 files covering foundations (BFO/DOLCE/UFO), architecture (neuro-symbolic, enterprise), cases (OpenClaw), readings |
+| `ontology/engine.py` | **V36.2** Tool Ontology Engine — declarative rule inference (81 rules), `classify_tool_call()` semantic classification, query/validate/suggest APIs |
+| `ontology/tool_ontology.yaml` | **V36.2** Declarative tool rules — 81 rules (filters, injections, truncation, SSE, media) |
+| `ontology/governance_checker.py` | **V36.3→V37.8** Governance execution engine — 52 invariants + 236 checks + 14 meta rules + 5 check types (file_contains/file_not_contains/python_assert/crontab_check/runtime) + MRD auto-discovery |
+| `ontology/governance_ontology.yaml` | **V37.8.14** Governance Ontology v3.19 — 52 invariants, 236 checks, 14 meta rules, 100% job coverage |
+| `ontology/diff.py` | **V36.2** Consistency checker — engine vs proxy_filters (81/81 = 100%) |
+| `ontology/CONSTITUTION.md` | **V36.2** Ontology Constitution — 6 articles + Supreme Article (project isolation) |
+| `ontology/tests/` | Engine + governance tests (8 test files, 249 tests) |
+| `ontology/docs/cases/` | **V37.3→V37.8.13** 15 blood lesson case studies (MR-4 silent failure × 11 appearances) |
+| `ontology/docs/architecture/` | Industrial AI paradigm, target architecture (Phase 3-5 roadmap) |
 
 ### Documentation
 
@@ -384,10 +400,10 @@ All jobs registered in `jobs_registry.yaml`. Validate: `python3 check_registry.p
 > "The stronger capabilities get, the harder the system is to control — governance must lead, not follow."
 
 **Three-Plane Architecture**:
-- **Control Plane** (90%): Provider Compatibility Layer, SLO 5-metric monitoring, centralized thresholds, 19-check preflight, incident snapshots, circuit breaker, audit logging
+- **Control Plane** (95%): Provider Compatibility Layer, SLO 5-metric monitoring, centralized thresholds, 19-check preflight, incident snapshots, circuit breaker, audit logging, 52-invariant governance
 - **Capability Plane** (85%): 7-provider routing, multimodal (text+vision), tool governance (≤12), data cleaning, search_kb hybrid retrieval
-- **Memory Plane** (70%): KB RAG, trend analysis, preference learning, multimodal memory, Memory Plane v2 (dedup + confidence + conflict resolution)
-- **Ontology Plane** (new): Tool Ontology Engine (81 declarative rules), semantic query, enterprise AI knowledge base
+- **Memory Plane** (75%): KB RAG, trend analysis, preference learning, multimodal memory, Memory Plane v2 (dedup + confidence + conflict resolution), Agent Dream v2 MapReduce
+- **Ontology Plane** (Phase 3 active): Tool Ontology Engine (81 declarative rules, ONTOLOGY_MODE=on), Governance Ontology v3.19 (52 invariants + 14 meta rules), 15 blood lesson cases
 
 ### SLO Benchmark Results (real production data)
 
@@ -478,12 +494,12 @@ python3 mm_search.py --stats           # Index stats
 ```
 Claude Code → claude/branch → PR → main → auto_deploy (2 min) → Mac Mini
                                                 ↓
-                               git pull → test → file sync (35 files) → smart restart
+                               git pull → test → file sync (81 files) → smart restart
                                                 ↓
                                preflight_check.sh --full (19 checks)
 ```
 
-The `auto_deploy.sh` script maps 35 repo files to runtime locations and only restarts services when core files change. Hourly drift detection via md5 checksums with WhatsApp alerts.
+The `auto_deploy.sh` script maps 81 repo files to runtime locations and only restarts services when core files change. Hourly drift detection via md5 checksums with WhatsApp + Discord alerts. Status.json exempt from drift (legitimate divergence between Claude Code snapshots and cron-refreshed runtime).
 
 ## Testing
 
@@ -539,13 +555,15 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 | **Golden Test Trace** | `docs/golden_trace.json` | `bash quickstart.sh --demo` |
 | **SLO Benchmark** | `docs/slo_benchmark_report.md` | `python3 slo_benchmark.py --save` |
 | **Compatibility Matrix** | `docs/compatibility_matrix.md` | `python3 providers.py` |
-| **1093 Unit Tests** | 36 test suites | `bash full_regression.sh` |
+| **1093 Unit Tests** | 37 test suites | `bash full_regression.sh` |
 | **GameDay Drill** | `gameday.sh` | `bash gameday.sh --all` |
 | **Security Score** | `security_score.py` | `python3 security_score.py` |
 | **Reliability Bench** | `docs/reliability_bench_report.md` | `python3 reliability_bench.py --save` |
 | **Resilience Report** | `docs/resilience_report.md` | 7 fault injection experiments |
 | **Security Boundaries** | `docs/security_boundaries.md` | 8-section security analysis |
+| **Governance Audit** | `ontology/governance_checker.py` | `python3 ontology/governance_checker.py` (52/52 invariants, 14 MR) |
 | **Tool Ontology** | `ontology/` | `python3 ontology/diff.py` (81/81 consistency) |
+| **Blood Lesson Cases** | `ontology/docs/cases/` | 15 case studies documenting MR-4 silent failure patterns |
 
 ## Articles
 
