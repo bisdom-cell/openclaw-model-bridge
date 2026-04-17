@@ -60,10 +60,11 @@ RSS_FEEDS=(
     "BBC World|https://feeds.bbci.co.uk/news/world/rss.xml|BBC世界新闻(地缘政治)|intl"
     "CNBC|https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=100003114|CNBC财经|intl"
     "Guardian World|https://www.theguardian.com/world/rss|卫报世界新闻(政治)|intl"
-    # V37.8.14 新增: 地缘政治+智库分析
+    # V37.8.14 新增: 地缘政治+智库分析(Mac Mini 2026-04-17 验证)
     "Al Jazeera|https://www.aljazeera.com/xml/rss/all.xml|半岛电视台(中东/全球政治)|intl"
-    "Brookings|https://www.brookings.edu/feed/|布鲁金斯学会(政策分析)|intl"
-    "CFR|https://www.cfr.org/rss.xml|美国外交关系委员会(外交政策)|intl"
+    "Brookings|https://www.brookings.edu/feed/atom/|布鲁金斯学会(政策分析)|intl"
+    "WorldBank|https://search.worldbank.org/api/v2/news?format=json&rows=10|世界银行新闻(API)|intl"
+    # CFR rss.xml 返回 404（2026-04-17 Mac Mini 验证），暂不可用
     # ── 中国/亚太（Mac Mini 2026-04-13 验证）──
     "SCMP Economy|https://www.scmp.com/rss/5/feed|南华早报经济频道|cn"
     "36氪|https://36kr.com/feed|36氪科技财经|cn"
@@ -197,8 +198,15 @@ if is_json:
         with open(feed_file) as f:
             raw = f.read()
         data = json.loads(raw)
-        # 兼容新浪 API 格式
-        items_list = data.get("result", {}).get("data", []) if "result" in data else data if isinstance(data, list) else []
+        # 兼容多种 JSON API 格式
+        if "result" in data:
+            items_list = data["result"].get("data", [])
+        elif "documents" in data and isinstance(data["documents"], dict):
+            items_list = list(data["documents"].values())
+        elif isinstance(data, list):
+            items_list = data
+        else:
+            items_list = []
         for item in items_list[:8]:
             title = item.get("title", "").strip()
             url = item.get("url", item.get("link", ""))
