@@ -1,6 +1,6 @@
 {
-  "updated": "2026-04-17 08:24:16",
-  "updated_by": "user",
+  "updated": "2026-04-17 08:27:19",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -84,6 +84,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-04-17",
+      "what": "V37.8.14 session: (1) Phase 3 P0 ONTOLOGY_MODE=on 正式切换(249测试) (2) 治理覆盖42→52不变式/0未覆盖job (3) 信源大扩展19→33+源(+7RSS/+Caixin HTML/+WorldBank API/+5X政治/+茶思屋独立job) (4) X僵尸移除4个+通知修复 (5) 终极目标pip install ontology-engine写入路标 (6) 原则#33信源部署环境验证 (7) LLM输出全中文标题 (8) chaspark API发现教训:dev 403≠不可用",
+      "by": "claude_code"
+    },
     {
       "date": "2026-04-16",
       "what": "V37.8.13 gemini quota 审计：16 个 LLM cron，每日 ~50-60 总调用量（kb_dream MapReduce 主力，mm_index 每2h 其次）。根因识别：gemini 429 非日量问题(RPD 50<<1500)，是 TPM 窗口竞争(21:00 ai_leaders_x + 22:00 kb_evening 大 digest 落在同一 TPM 60s 窗口易超 250K)。降频建议: mm_index 2h→6h, ai_leaders_x/kb_evening 错峰，或申请 gemini paid tier/第二 fallback provider。当前不做降频(需用户决策)。",
@@ -177,11 +182,6 @@
       "date": "2026-04-11",
       "what": "V37.4.3 Mac Mini 收工三件套验证通过 — ① preflight --full: 74 pass / 2 fail / 2 warn. 2 FAIL 全是 pre-existing 非阻塞分叉: status.json 仓库 vs 运行时合法分叉 (dev full_regression 写回 vs cron kb_status_refresh 刷新) + KB 索引过期 2 文件 (openclaw_official.md/inbox.md, kb_embed 下次 cron 补齐). V37.4.3 相关检查全绿 (脚本/Python 语法 + 双通道推送实测 Discord msgId 1492448433884364920). ② job_smoke_test: 33 job / 174 pass / 0 fail / 17 warn. 零失败, 17 warn 全是历史日志 (Dream 03:00 超时已 V37.4 修复/上游 502-403/governance_audit 07:00 旧状态已被 16:57 手动 67/67 覆盖). ③ governance --full: 28/28 invariants / 67/67 checks / 6/6 meta rules 全通过. INV-PA-001 10/10 (含运行时 python_assert filter_system_alerts 真的剥离 [SYSTEM_ALERT]) + INV-PA-002 5/5 (SOUL.md 规则 10 全字段) — V37.4.3 Path A + Path C 双防线生产硬验证. 2 preflight FAIL 登记 session_context.unfinished 待下次 session 修复 (preflight 豁免 status.json 分叉字段 + kb_embed cron 频率调整).",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-04-11",
-      "what": "V37.4.3 生产验证通过 — Mac Mini 部署+WhatsApp 端实测闭环: ① 代码同步 force drift detection path (rm .last_deploy_head) 触发 auto_deploy 16:12 同步 8 文件 + 16:14 drift 修复 2 文件, proxy_filters.py/tool_proxy.py/notify.sh/SOUL.md 全部生效 ② governance --full 28/28 invariants / 67/67 checks 全通过 (dev 56/67 因 --full-only 检查跳过) ③ 主 sessions.json 清空至 16 字节消除残留污染 ④ WhatsApp 端发两条测试: 消息1 AI Agent 和本体论的关系 (广义验证) + 消息2 本体×随机×贝叶斯三者组成什么 (13:06 原题复现). PA 回复主题完全对齐: 消息1 返回 确定性锚点/共享语言/记忆推理 三层架构, 消息2 返回 本体=宪法/随机=创造力/贝叶斯=学习 三层认知引擎+闭环循环示例+AGI 路径. 全部红线零命中 (无告警/cron/系统偏好/完全磁盘访问权限/已收到跟进). 关键验证: 消息2 正确引用消息1 本体+LLM+Agent 下一代工业软件基础范式 结论 → 证明 filter_system_alerts 只剥离 [SYSTEM_ALERT] 不误伤真实对话. 对比 13:06 幻觉答案 → 16:36 哲学+架构+AGI 答案, 教科书级血案闭环.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -211,13 +211,14 @@
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB"
   },
   "session_context": {
-    "last_session": "2026-04-16 closeout V37.8.13 (22 commits, Gateway recovery + 7 features + docs stage 1)",
+    "last_session": "2026-04-17 V37.8.14 (15 commits)",
     "unfinished": [
-      "V37.8.12 候选 P0 (本血案直接衍生): Fix B 扩展 fallback_chain 到 ≥2 provider — 需要用户决策：Claude/Kimi/GLM/MiniMax 哪个 API key 可用 + 配 providers.d/ YAML + 环境变量。当前 fallback 只有 gemini，primary 不稳时必死",
-      "gemini quota 审计已完成：TPM 窗口竞争非日量问题。待用户决策：mm_index 2h→6h / ai_leaders_x+kb_evening 错峰 / 申请 paid tier / 第二 fallback provider",
-      "X 僵尸账号持续观察: ReutersBiz/XHNews/CGTNOfficial/globaltimesnews (2天), PDChina/CNS1952/SingTaoDaily (1天) — 可能是 Syndication API 区域限制而非真僵尸",
-      "运维 P2 长期登记: ImportYeti Cloudflare / freight_watcher dcvelocity 超时 / cron_doctor.sh launchd false-positive / wa_e2e_test.sh 未部署 / Qwen3 不主动调用 memory 工具 (deferred 等模型升级) / Gateway v2026.3.13-1 hold",
-      "V3 路标 backlog: Tool Policy Plugin / Memory Plane Plugin / Job Template SDK / Ontology Phase 3"
+      "fallback_chain 扩展 ≥2 provider — 需用户决策 API key（P0，延后）",
+      "gemini quota 降频 — TPM 窗口竞争，待用户决策",
+      "X 僵尸继续观察: PDChina/CNS1952/SingTaoDaily(到4/19) + ForeignPolicy/Carnegie_Endow(新发现，到4/20)",
+      "Nikkei Asia HTML 结构适配 — 200 但 0 篇，需调整解析正则",
+      "Caixin/Nikkei 深度探测: Caixin 已通(HTML直解析)，Nikkei SSL超时+HTML结构待适配",
+      "V3 路标 backlog: Tool Policy Plugin / Memory Plane Plugin / Job Template SDK / Ontology Phase 4-5"
     ],
     "open_prs": "",
     "blocked_on": "",

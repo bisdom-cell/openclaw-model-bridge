@@ -297,7 +297,8 @@ export GEMINI_API_KEY="AIzaXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"   # V29.1新增
 | kb_harvest_chat | 每天06:00 | `~/kb_harvest_chat.py` | `~/kb_harvest_chat.log` | ✅ V37新增→V37.1升级MapReduce：对话精华提炼 — 从 proxy 捕获的每日对话中 LLM 提取关键点（决策/偏好/洞察/结论），分块零丢失，写入 KB notes |
 | governance_audit | 每天07:00 | `~/governance_audit_cron.sh` | `~/governance_audit.log` | ✅ V37.1新增：每日 ontology 治理审计（governance_checker --full 17不变式+6元发现 + engine --check 81规则），失败推送 alerts |
 | ontology_sources | 每天10:00,20:00 | `~/.openclaw/jobs/ontology_sources/run_ontology_sources.sh` | `~/.openclaw/logs/jobs/ontology_sources.log` | ✅ V37.1新增：Ontology 专属信息源监控 — SWJ+W3C+KG Conference RSS，关键词过滤，LLM富摘要，Discord #ontology + KB 归档 |
-| finance_news | 每天07:30 | `~/.openclaw/jobs/finance_news/run_finance_news.sh` | `~/.openclaw/logs/jobs/finance_news.log` | ✅ V37.8.1新增：全球财经/政策每日汇总 — 20+国内外权威RSS源（美联储/路透社/新华财经/央行等），LLM结构化分析（来源标注+价值评级+国内外对比+投资建议），Discord #daily + WhatsApp 推送 |
+| finance_news | 每天07:30 | `~/.openclaw/jobs/finance_news/run_finance_news.sh` | `~/.openclaw/logs/jobs/finance_news.log` | ✅ V37.8.1新增→V37.8.14扩展：全球财经/政策每日汇总 — 15 RSS + Caixin HTML + WorldBank API + 15 X = 33+源，LLM结构化分析（中文标题+价值评级+国内外对比+投资建议），Discord #daily + WhatsApp 推送 |
+| chaspark | 每天11:00 | `~/.openclaw/jobs/chaspark/run_chaspark.sh` | `~/.openclaw/logs/jobs/chaspark.log` | ✅ V37.8.14新增：黄大年茶思屋科技网站 — Chaspark API 直连 + Top 5 深度分析 + KB 归档 + 双通道推送 |
 | gateway-watchdog | ~~每30分钟~~ | `~/restart.sh` | `~/.openclaw/logs/gateway_watchdog.log` | ❌ **已移除**（#95：与launchd KeepAlive双主控冲突，导致误杀gateway） |
 
 当前 `crontab -l` 核心条目：
