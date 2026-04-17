@@ -65,31 +65,33 @@ RSS_FEEDS=(
 # 补充 RSS 无法覆盖的中国/亚太 + 国际权威声音
 FINANCE_X_ACCOUNTS=(
     # ── 国际权威 ──
-    # V37.8.4 已移除僵尸账号：
-    #   Reuters         — 最新推文 2025-08-03（253 天无更新）
-    #   WorldBank       — Syndication 返回 2KB stub（embed disabled）
-    #   BrookingsInst   — 最新推文 2024-09-06（585 天无更新）
+    # V37.8.4 已移除僵尸账号:
+    #   Reuters         — 253天无更新
+    #   WorldBank       — Syndication 返回 2KB stub
+    #   BrookingsInst   — 585天无更新
+    # V37.8.14 已移除僵尸账号(3天连续检测 2026-04-15/16/17 确认):
+    #   ReutersBiz      — 100/100 超72h (stale)
     "IMFNews|IMF官方(X)|intl"
     "business|Bloomberg商业(X)|intl"
     "WSJ|华尔街日报(X)|intl"
-    "ReutersBiz|路透社财经(X)|intl"
     "TheEconomist|经济学人(X)|intl"
     # ── 中国官媒 ──
-    # V37.8.4 已移除僵尸账号：
-    #   caixin          — 最新推文 2019-10-15（2227 天无更新）
-    #   yicaichina      — 最新推文 2016-12-09（3364 天无更新）
-    "XHNews|新华社英文(X)|cn"
+    # V37.8.4 已移除僵尸账号:
+    #   caixin          — 2227天无更新
+    #   yicaichina      — 3364天无更新
+    # V37.8.14 已移除僵尸账号(3天连续检测 2026-04-15/16/17 确认):
+    #   XHNews          — 97/97 超72h (stale)
+    #   CGTNOfficial    — 99/99 超72h (stale)
+    #   globaltimesnews — 98/98 超72h (stale)
     "PDChina|人民日报英文(X)|cn"
-    "CGTNOfficial|CGTN央视国际(X)|cn"
     "ChinaDaily|中国日报(X)|cn"
-    "globaltimesnews|环球时报(X)|cn"
     "CNS1952|中新社(X)|cn"
     # ── 港台/亚太 ──
-    # V37.8.4 已移除僵尸账号：
-    #   ChannelNewsAsia — 最新推文 2018-01（2955 天无更新）
-    #   straits_times   — 最新推文 2024-12-20（420 天无更新）
-    # V37.8.13 已移除僵尸账号：
-    #   SCMPNews        — 3 天连续 zombie 嫌疑（2026-04-14/15/16，95/95 超窗口）
+    # V37.8.4 已移除僵尸账号:
+    #   ChannelNewsAsia — 2955天无更新
+    #   straits_times   — 420天无更新
+    # V37.8.13 已移除僵尸账号:
+    #   SCMPNews        — 3天连续 zombie 嫌疑(2026-04-14/15/16)
     "NikkeiAsia|日经亚洲(X)|cn"
     "SingTaoDaily|星岛日报(X)|cn"
     "asahi|朝日新闻(X)|cn"
