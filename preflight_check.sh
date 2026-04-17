@@ -750,37 +750,55 @@ echo ""
 echo "📋 16/19 推送通道 smoke test"
 
 if $FULL_MODE; then
-    # 验证 openclaw message send 命令可用且无配置错误
-    PUSH_ERR=$(mktemp)
-    PUSH_TEST=$(openclaw message send --channel whatsapp --target "${OPENCLAW_PHONE:-+85200000000}" --message "🔧 preflight push test $(date '+%H:%M')" --json 2>"$PUSH_ERR") && PUSH_RC=0 || PUSH_RC=$?
-
-    PUSH_STDERR=$(cat "$PUSH_ERR" 2>/dev/null)
-    rm -f "$PUSH_ERR"
-
-    if [ $PUSH_RC -eq 0 ]; then
-        # 检查 stderr 是否有插件警告（即使退出码为 0）
-        if echo "$PUSH_STDERR" | grep -qi "duplicate plugin\|plugin.*error" 2>/dev/null; then
-            warn "推送成功但有插件警告: $(echo "$PUSH_STDERR" | head -1)"
-        else
-            pass "WhatsApp 推送通道正常（openclaw message send 退出码 0）"
-        fi
-    else
-        fail "WhatsApp 推送失败（退出码 $PUSH_RC）: $(echo "$PUSH_STDERR" | head -2)"
+    # V37.8.15: SKIP_PUSH_TEST=1 由 auto_deploy.sh 传入时跳过（auto_deploy 有自己的告警通道，
+    # push test 只验证连通性，不需要每次自动部署都发消息）
+    # 同时加速率限制：手动运行 preflight --full 也最多每小时发一次 push test
+    PUSH_TEST_LAST="$HOME/.preflight_push_test_last"
+    PUSH_TEST_COOLDOWN=3600  # 1 hour
+    PUSH_TEST_AGE=$PUSH_TEST_COOLDOWN  # default: expired
+    if [ -f "$PUSH_TEST_LAST" ]; then
+        PUSH_TEST_AGE=$(( $(date +%s) - $(cat "$PUSH_TEST_LAST" 2>/dev/null || echo 0) ))
     fi
 
-    # Discord 推送通道 E2E
-    if [ -n "${DISCORD_TARGET:-}" ]; then
-        DC_ERR=$(mktemp)
-        openclaw message send --channel discord --target "user:${DISCORD_TARGET}" --message "🔧 preflight push test $(date '+%H:%M')" --json 2>"$DC_ERR" && DC_RC=0 || DC_RC=$?
-        DC_STDERR=$(cat "$DC_ERR" 2>/dev/null)
-        rm -f "$DC_ERR"
-        if [ $DC_RC -eq 0 ]; then
-            pass "Discord 推送通道正常（openclaw message send 退出码 0）"
-        else
-            warn "Discord 推送失败（退出码 $DC_RC）: $(echo "$DC_STDERR" | head -2)"
-        fi
+    if [ "${SKIP_PUSH_TEST:-0}" = "1" ]; then
+        skip "推送通道 smoke test（auto_deploy 模式，跳过实际发送）"
+    elif [ "$PUSH_TEST_AGE" -lt "$PUSH_TEST_COOLDOWN" ]; then
+        MINS_AGO=$(( PUSH_TEST_AGE / 60 ))
+        skip "推送通道 smoke test（${MINS_AGO}分钟前已验证，每小时最多一次）"
     else
-        skip "Discord 推送通道（DISCORD_TARGET 未设置）"
+        # 验证 openclaw message send 命令可用且无配置错误
+        PUSH_ERR=$(mktemp)
+        PUSH_TEST=$(openclaw message send --channel whatsapp --target "${OPENCLAW_PHONE:-+85200000000}" --message "🔧 preflight push test $(date '+%H:%M')" --json 2>"$PUSH_ERR") && PUSH_RC=0 || PUSH_RC=$?
+
+        PUSH_STDERR=$(cat "$PUSH_ERR" 2>/dev/null)
+        rm -f "$PUSH_ERR"
+
+        if [ $PUSH_RC -eq 0 ]; then
+            # 检查 stderr 是否有插件警告（即使退出码为 0）
+            if echo "$PUSH_STDERR" | grep -qi "duplicate plugin\|plugin.*error" 2>/dev/null; then
+                warn "推送成功但有插件警告: $(echo "$PUSH_STDERR" | head -1)"
+            else
+                pass "WhatsApp 推送通道正常（openclaw message send 退出码 0）"
+                date +%s > "$PUSH_TEST_LAST"
+            fi
+        else
+            fail "WhatsApp 推送失败（退出码 $PUSH_RC）: $(echo "$PUSH_STDERR" | head -2)"
+        fi
+
+        # Discord 推送通道 E2E
+        if [ -n "${DISCORD_TARGET:-}" ]; then
+            DC_ERR=$(mktemp)
+            openclaw message send --channel discord --target "user:${DISCORD_TARGET}" --message "🔧 preflight push test $(date '+%H:%M')" --json 2>"$DC_ERR" && DC_RC=0 || DC_RC=$?
+            DC_STDERR=$(cat "$DC_ERR" 2>/dev/null)
+            rm -f "$DC_ERR"
+            if [ $DC_RC -eq 0 ]; then
+                pass "Discord 推送通道正常（openclaw message send 退出码 0）"
+            else
+                warn "Discord 推送失败（退出码 $DC_RC）: $(echo "$DC_STDERR" | head -2)"
+            fi
+        else
+            skip "Discord 推送通道（DISCORD_TARGET 未设置）"
+        fi
     fi
 else
     skip "推送通道 smoke test（需在 Mac Mini 上验证）"
