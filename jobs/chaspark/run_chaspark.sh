@@ -1,9 +1,9 @@
 #!/bin/bash
-# run_chaspark.sh — 黄大年茶思屋(Chaspark)科技网站 公众号文章监控
-# 通过搜狗微信搜索抓取最新文章，LLM 分析后推送 + KB 归档
-# cron: 每天 11:00 执行一次（频率低避免搜狗验证码）
+# run_chaspark.sh — 黄大年茶思屋(Chaspark)科技网站内容监控
+# 通过 chaspark.com 官方 API 直接抓取首页推荐内容，LLM 分析后推送 + KB 归档
+# cron: 每天 11:00 执行
 #
-# 数据通路：搜狗微信搜索 → HTML 解析 → 去重 → LLM 分析 → KB + 推送
+# 数据通路：Chaspark API → JSON 解析 → 去重 → LLM 分析 → KB + 推送
 export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:$PATH"
 source "$HOME/.bash_profile" 2>/dev/null || source "$HOME/.env_shared" 2>/dev/null || true
 
@@ -14,8 +14,6 @@ KB_SRC="$KB_BASE/sources/chaspark.md"
 KB_WRITE_SCRIPT="${KB_WRITE_SCRIPT:-$HOME/kb_write.sh}"
 KB_APPEND_SCRIPT="${KB_APPEND_SCRIPT:-$HOME/kb_append_source.sh}"
 PYTHON3="${PYTHON3:-/usr/bin/python3}"
-OPENCLAW="${OPENCLAW:-openclaw}"
-TO="${OPENCLAW_PHONE:-}"
 PROXY_URL="http://127.0.0.1:5002/v1/chat/completions"
 
 TS="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')"
@@ -37,90 +35,84 @@ for _np in "$HOME/openclaw-model-bridge/notify.sh" "$HOME/notify.sh"; do
     fi
 done
 
-# ── 去重文件 ──────────────────────────────────────────────────────────
-SEEN_FILE="$CACHE/seen_urls_${DAY}.txt"
+# ── 去重文件（按 contentId 去重，保留 30 天）─────────────────────────
+SEEN_FILE="$CACHE/seen_ids.txt"
 touch "$SEEN_FILE"
 
-# ── 1. 搜狗微信搜索抓取文章 ──────────────────────────────────────────
-SEARCH_QUERY="黄大年茶思屋科技网站"
-ENCODED_QUERY=$(${PYTHON3} -c "import urllib.parse; print(urllib.parse.quote('${SEARCH_QUERY}'))")
-RAW_HTML="$CACHE/raw/sogou_${DAY}.html"
+# ── 1. 调用 Chaspark 官方 API ─────────────────────────────────────────
+CURL="/usr/bin/curl"
+UA="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+API_BASE="https://www.chaspark.com/chasiwu/v1"
 
-log "抓取搜狗微信: $SEARCH_QUERY"
-HTTP_CODE=$(curl -sSL --max-time 30 -w '%{http_code}' \
-    -H "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" \
-    -o "$RAW_HTML" \
-    "https://weixin.sogou.com/weixin?type=2&query=${ENCODED_QUERY}" \
+# 抓取多个 slot：头条 + 通用推荐 + 直播 + 活动
+SLOTS="homeBanner1,homeGeneralBanner,homelive,homeActivity"
+RAW_JSON="$CACHE/raw/api_${DAY}.json"
+
+log "抓取 Chaspark API: $SLOTS"
+HTTP_CODE=$($CURL -sS --max-time 30 -w '%{http_code}' \
+    -H "User-Agent: $UA" \
+    -o "$RAW_JSON" \
+    "${API_BASE}/content/recommend/slot?slot=${SLOTS}&size=20&current=1&lang=zh&_t=$(date +%s)" \
     2>/dev/null) || HTTP_CODE="000"
 
-if [ "$HTTP_CODE" != "200" ] || [ ! -s "$RAW_HTML" ]; then
-    log "搜狗抓取失败 (HTTP $HTTP_CODE)"
-    printf '{"time":"%s","status":"error","reason":"sogou_fetch_failed","http_code":"%s"}\n' "$TS" "$HTTP_CODE" > "$STATUS_FILE"
+if [ "$HTTP_CODE" != "200" ] || [ ! -s "$RAW_JSON" ]; then
+    log "API 抓取失败 (HTTP $HTTP_CODE)"
+    printf '{"time":"%s","status":"error","reason":"api_fetch_failed","http_code":"%s"}\n' "$TS" "$HTTP_CODE" > "$STATUS_FILE"
     exit 1
 fi
 
-# ── 2. 解析 HTML 提取文章 ─────────────────────────────────────────────
+# ── 2. 解析 JSON 提取文章 ─────────────────────────────────────────────
 ALL_ARTICLES="$CACHE/articles_${DAY}.jsonl"
-$PYTHON3 - "$RAW_HTML" "$SEEN_FILE" "$ALL_ARTICLES" << 'PYEOF'
-import sys, re, json, html
+$PYTHON3 - "$RAW_JSON" "$SEEN_FILE" "$ALL_ARTICLES" << 'PYEOF'
+import sys, json
 
 raw_file, seen_file, out_file = sys.argv[1:4]
 
-with open(raw_file, "r", encoding="utf-8", errors="replace") as f:
-    content = f.read()
+with open(raw_file, "r", encoding="utf-8") as f:
+    data = json.load(f)
 
 with open(seen_file, "r") as f:
     seen = set(line.strip() for line in f if line.strip())
 
-# 搜狗微信文章列表解析：提取标题、摘要、来源、链接
+if data.get("code") != "0" or not data.get("data"):
+    print("[chaspark] API 返回异常或无数据", file=sys.stderr)
+    with open(out_file, "w") as f:
+        pass
+    sys.exit(0)
+
 articles = []
+for slot in data["data"]:
+    slot_name = slot.get("slot", "")
+    slot_title = slot.get("slotTitle", {}).get("zh", slot_name)
+    for item in slot.get("contents", []):
+        cid = item.get("contentId", "")
+        if not cid or cid in seen:
+            continue
 
-# 方法1: 提取 <a> 标签中的文章（搜狗微信搜索结果格式）
-# 标题在 <a> 里，摘要在 <p class="txt-info"> 或类似结构
-title_pattern = re.compile(
-    r'<a[^>]*href="([^"]*)"[^>]*target="_blank"[^>]*>\s*(.*?)\s*</a>',
-    re.DOTALL
-)
-# 来源/公众号名
-source_pattern = re.compile(r'<a[^>]*class="account"[^>]*>(.*?)</a>', re.DOTALL)
-# 摘要
-summary_pattern = re.compile(r'<p\s+class="txt-info"[^>]*>(.*?)</p>', re.DOTALL)
+        # 标题：优先中文自定义标题
+        custom = item.get("customTitle", {})
+        title = custom.get("zh") or item.get("title", "")
+        if not title or len(title) < 2:
+            continue
 
-# 逐个搜索结果块提取
-blocks = re.split(r'<li\s+id="sogou_vr_\d+', content)
+        # 详情链接
+        url = item.get("detailUrl") or item.get("customLink") or ""
 
-for block in blocks[1:]:  # 跳过第一个非结果块
-    title_match = title_pattern.search(block)
-    if not title_match:
-        continue
+        # 类型
+        col_type = item.get("columnTypeName") or item.get("columnType") or ""
 
-    url = title_match.group(1)
-    title = re.sub(r'<[^>]+>', '', title_match.group(2)).strip()
-    title = html.unescape(title)
+        # 领域标签
+        domains = [d.get("domainName", "") for d in item.get("domains", []) if d.get("domainName")]
 
-    if not title or len(title) < 4:
-        continue
-    if url in seen:
-        continue
-
-    summary = ""
-    sm = summary_pattern.search(block)
-    if sm:
-        summary = re.sub(r'<[^>]+>', '', sm.group(1)).strip()
-        summary = html.unescape(summary)
-
-    source_name = ""
-    src_m = source_pattern.search(block)
-    if src_m:
-        source_name = re.sub(r'<[^>]+>', '', src_m.group(1)).strip()
-
-    articles.append({
-        "title": title,
-        "summary": summary[:300],
-        "source": source_name or "茶思屋",
-        "url": url
-    })
-    seen.add(url)
+        articles.append({
+            "id": cid,
+            "title": title,
+            "type": col_type,
+            "slot": slot_title,
+            "domains": domains,
+            "url": url
+        })
+        seen.add(cid)
 
 # 写入结果
 with open(out_file, "w", encoding="utf-8") as f:
@@ -132,70 +124,90 @@ with open(seen_file, "w") as f:
     for u in seen:
         f.write(u + "\n")
 
-print(f"[chaspark] 解析到 {len(articles)} 篇新文章", file=sys.stderr)
+print(f"[chaspark] 解析到 {len(articles)} 篇新内容", file=sys.stderr)
 PYEOF
 
 ARTICLE_COUNT=$(wc -l < "$ALL_ARTICLES" 2>/dev/null | tr -d ' ')
 if [ "${ARTICLE_COUNT:-0}" -eq 0 ]; then
-    log "无新文章（可能已全部推送过或搜狗返回验证码页面）"
+    log "无新内容（已全部推送过或 API 返回空）"
     printf '{"time":"%s","status":"ok","new":0}\n' "$TS" > "$STATUS_FILE"
     exit 0
 fi
 
-log "解析到 $ARTICLE_COUNT 篇新文章"
+log "解析到 $ARTICLE_COUNT 篇新内容"
 
-# ── 3. LLM 分析 ──────────────────────────────────────────────────────
+# ── 3. 构建文章列表文本 ──────────────────────────────────────────────
 ARTICLE_LIST=$($PYTHON3 -c "
 import json
 with open('$ALL_ARTICLES') as f:
     arts = [json.loads(l) for l in f if l.strip()]
-for i, a in enumerate(arts[:10], 1):
-    print(f\"{i}. 【{a['title']}】\")
-    if a.get('summary'):
-        print(f\"   {a['summary'][:200]}\")
-    print()
+for i, a in enumerate(arts[:15], 1):
+    domains = '，'.join(a.get('domains', [])) or '综合'
+    print(f\"{i}. 【{a['title']}】[{a['type']}] ({domains})\")
 ")
 
-LLM_PROMPT="以下是华为黄大年茶思屋科技网站的最新文章列表：
+# ── 4. LLM 分析 ──────────────────────────────────────────────────────
+LLM_PROMPT="以下是华为黄大年茶思屋科技网站的最新推荐内容：
 
 ${ARTICLE_LIST}
 
-请用中文简要分析：
-1. 这些文章涵盖哪些技术方向？
-2. 有哪些值得特别关注的前沿话题？（用⭐标注）
-3. 对 AI/本体论/智能体领域的从业者有什么启发？
+请用中文简要分析（300 字以内）：
+1. 涵盖哪些技术方向？
+2. 值得特别关注的前沿话题？（用⭐标注）
+3. 对 AI/本体论/智能体领域有什么启发？"
 
-控制在 300 字以内。"
+BODY_FILE="$CACHE/raw/llm_body_${DAY}.json"
+$PYTHON3 -c "
+import json
+prompt = open('/dev/stdin').read()
+body = {'model': 'auto', 'messages': [{'role': 'user', 'content': prompt}], 'max_tokens': 1000}
+with open('$BODY_FILE', 'w') as f:
+    json.dump(body, f, ensure_ascii=False)
+" <<< "$LLM_PROMPT"
 
-LLM_BODY=$(cat <<JSONEOF
-{"model":"auto","messages":[{"role":"user","content":$(echo "$LLM_PROMPT" | $PYTHON3 -c "import sys,json; print(json.dumps(sys.stdin.read()))")}],"max_tokens":1000}
-JSONEOF
-)
-
-LLM_RESPONSE=$(curl -s --max-time 120 -X POST "$PROXY_URL" \
+LLM_RAW="$CACHE/raw/llm_response_${DAY}.txt"
+$CURL -s --max-time 120 -X POST "$PROXY_URL" \
     -H "Content-Type: application/json" \
-    -d "$LLM_BODY" 2>/dev/null)
+    -d @"$BODY_FILE" > "$LLM_RAW" 2>/dev/null
 
 LLM_ANALYSIS=$($PYTHON3 -c "
-import json, sys
-try:
-    r = json.loads('''$LLM_RESPONSE''')
-    print(r['choices'][0]['message']['content'])
-except:
-    print('(LLM 分析未返回)')
+import json, sys, re
+with open('$LLM_RAW') as f:
+    raw = f.read()
+# 处理 SSE 格式（proxy 可能返回 SSE 或纯 JSON）
+content_parts = []
+for line in raw.split('\n'):
+    line = line.strip()
+    if line.startswith('data: ') and line != 'data: [DONE]':
+        try:
+            chunk = json.loads(line[6:])
+            delta = chunk.get('choices', [{}])[0].get('delta', {})
+            if 'content' in delta:
+                content_parts.append(delta['content'])
+        except:
+            pass
+if content_parts:
+    print(''.join(content_parts))
+else:
+    # 尝试纯 JSON 格式
+    try:
+        r = json.loads(raw)
+        print(r['choices'][0]['message']['content'])
+    except:
+        print('(LLM 分析未返回)')
 " 2>/dev/null)
 
-# ── 4. KB 归档 ────────────────────────────────────────────────────────
+# ── 5. KB 归档 ────────────────────────────────────────────────────────
 KB_CONTENT="# 茶思屋科技动态 $DAY
 
-## 文章列表
+## 内容列表
 ${ARTICLE_LIST}
 
 ## AI 分析
 ${LLM_ANALYSIS}
 
 ---
-来源: 搜狗微信搜索 → 黄大年茶思屋科技网站公众号
+来源: Chaspark API (www.chaspark.com)
 采集时间: ${TS}"
 
 if [ -x "$KB_WRITE_SCRIPT" ] || [ -f "$KB_WRITE_SCRIPT" ]; then
@@ -203,18 +215,17 @@ if [ -x "$KB_WRITE_SCRIPT" ] || [ -f "$KB_WRITE_SCRIPT" ]; then
     log "KB 写入完成"
 fi
 
-# 写入 sources
 if [ -f "$KB_APPEND_SCRIPT" ]; then
     SLOT_TAG="11:00"
     echo "$KB_CONTENT" | bash "$KB_APPEND_SCRIPT" "$KB_SRC" "$SLOT_TAG"
 fi
 
-# ── 5. 推送 ──────────────────────────────────────────────────────────
+# ── 6. 推送 ──────────────────────────────────────────────────────────
 WA_MSG="🏠 茶思屋科技动态 ($DAY)
 
 ${ARTICLE_LIST}
-📊 AI 分析：
-${LLM_ANALYSIS}"
+
+📊 ${LLM_ANALYSIS}"
 
 if [ "$NOTIFY_LOADED" = true ]; then
     notify "$WA_MSG" --topic daily
@@ -223,6 +234,6 @@ else
     log "notify.sh 未加载，跳过推送"
 fi
 
-# ── 6. 状态记录 ───────────────────────────────────────────────────────
+# ── 7. 状态记录 ───────────────────────────────────────────────────────
 printf '{"time":"%s","status":"ok","new":%d}\n' "$TS" "$ARTICLE_COUNT" > "$STATUS_FILE"
-log "完成: $ARTICLE_COUNT 篇文章"
+log "完成: $ARTICLE_COUNT 篇内容"
