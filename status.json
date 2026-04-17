@@ -8,6 +8,11 @@
       "note": "导师评审确认 Stage1 完成。路线：bridge→runtime→control plane→方法论与生态。详见 docs/strategic_review_20260403.md"
     },
     {
+      "task": "【终极目标】Ontology Engine 产品化: pip install ontology-engine + 项目级 YAML 配置",
+      "status": "active",
+      "note": "将引擎和规则解耦为二层结构: (1) ontology-engine 通用 pip 包(Tool Ontology Engine + Governance Checker 框架 + 三档特性开关 + 5种 check 执行器 + 语义查询/分类/推理) (2) 项目级 YAML 配置(tool_ontology.yaml 工具声明 + governance_ontology.yaml 治理规则 + providers.d/ Provider 插件)。当前基础: Phase 3 已切换 ONTOLOGY_MODE=on，52 不变式 100% job 覆盖，89 引擎单测。路径: Phase 4 领域本体+策略引擎 → Phase 5 pip 包化+Extension Guide+可独立安装。核心价值: 任何 Agent Runtime 项目只需编写自己的 YAML 就能获得工具治理+语义查询+governance 审计能力，无需理解引擎内部。"
+    },
+    {
       "task": "【V1-P0】Provider Compatibility Layer",
       "status": "completed",
       "note": "V35+完成: providers.py 7 Provider + ProviderRegistry + 能力声明 + CLI矩阵 + 48单测，生产验证通过"

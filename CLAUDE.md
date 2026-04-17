@@ -679,7 +679,7 @@ HH:MM  [组件D] 下游事件
 ### Ontology 子项目（终态架构：Semantic Control Plane）
 
 > 终态架构文档：`ontology/docs/architecture/target_architecture.md`
-> 迁移路径：Phase 2 Shadow（当前）→ Phase 3 渐进替换 → Phase 4 完全推理 → Phase 5 对外输出
+> 迁移路径：Phase 2 Shadow（完成）→ Phase 3 渐进替换（✅ P0 已切换）→ Phase 4 完全推理 → Phase 5 `pip install ontology-engine`（终极目标）
 
 #### Phase 2 已完成（Shadow 观察，V36.1-V37.1）
 
@@ -712,7 +712,7 @@ HH:MM  [组件D] 下游事件
 
 | 优先级 | 任务 | 状态 | 说明 |
 |--------|------|------|------|
-| **P0** | **ONTOLOGY_MODE=on 切换**：shadow 观察无 drift 后正式切换，引擎数据替代硬编码 | shadow 观察中 | 等价已证明，需确认生产无 drift 后切换 |
+| **P0** | **ONTOLOGY_MODE=on 切换**：引擎数据替代硬编码 | ✅ V37.8.14 完成 | 等价验证通过，249 测试，已切换为默认 |
 | **P0** | **filter_tools() 改用引擎**：内部调用 `ontology.query_tools()` 替代 `ALLOWED_TOOLS` 枚举 | 待启动 | 依赖 ONTOLOGY_MODE=on |
 | **P0** | **fix_tool_args() 改用引擎**：参数修复调用 `ontology.resolve_alias()` 替代硬编码映射 | 待启动 | 依赖 ONTOLOGY_MODE=on |
 | **P1** | **夜间阻止语义化**：从手动维护阻止列表改为 `infer("side_effects==true")` 自动覆盖 | 待启动 | Phase 3 标志性交付 |
@@ -732,15 +732,30 @@ HH:MM  [组件D] 下游事件
 | **P2** | **影响分析工具**：`ontology.impact_analysis("修改 max_tools")` → 受影响策略/工具列表 | 待启动 | 变更安全保障 |
 | **P2** | **效果层覆盖率 ≥ 60%**：30+ 不变式中至少 18 个有 L3 效果验证 | 待启动 | MR-9 元规则 |
 
-#### Phase 5: 对外输出（长期，V3 路标对齐）
+#### Phase 5: 对外输出（长期，V3 路标对齐）— 终极目标：`pip install ontology-engine`
+
+> **项目终极目标**：将引擎和规则解耦为二层结构，让任何 Agent Runtime 项目只需编写自己的 YAML 就能获得工具治理+语义查询+governance 审计能力。
+>
+> **Layer 1 — `ontology-engine` 通用 pip 包**（项目无关）：
+> - Tool Ontology Engine：YAML → 白名单/schema/参数映射/别名解析/语义查询/分类
+> - Governance Checker 框架：5 种 check 执行器 + 元规则自动发现 + 三档特性开关(off/shadow/on)
+> - 策略推理引擎：`infer_policy_targets("side_effects==true")` 零硬编码
+>
+> **Layer 2 — 项目级 YAML 配置**（项目特定）：
+> - `tool_ontology.yaml`：工具声明（名称/类别/副作用/参数/别名）
+> - `governance_ontology.yaml`：治理规则（不变式/元规则/check 定义）
+> - `providers.d/*.yaml`：Provider 插件
+>
+> **当前基础**：Phase 3 ONTOLOGY_MODE=on 已切换，52 不变式 100% job 覆盖，89 引擎单测。
+> **瓶颈**：领域本体(Phase 4) + 引擎包化(Phase 5) 尚未开始。
 
 | 优先级 | 任务 | 状态 | 说明 |
 |--------|------|------|------|
+| **P1** | **引擎包化**：`ontology-engine` 可独立 `pip install` 的通用治理引擎 | 待启动 | **终极目标核心交付物** |
 | **P2** | **Tool Policy Plugin**：`tool_policy.yaml` 声明式工具策略扩展接口 | 待启动 | V3 路标对齐 |
 | **P2** | **Memory Policy Plugin**：`memory_policy.yaml` 记忆平面策略扩展 | 待启动 | V3 路标对齐 |
 | **P2** | **Ontology Extension Guide**：第三方基于 ontology 框架扩展的指南 | 待启动 | V3 路标对齐 |
-| **P3** | **可发布引擎**：ontology 引擎可独立 pip install 的治理组件 | 待启动 | 长期目标 |
-| **P3** | 证据型文章：从 17 不变式到 30+ 的治理演进实战 | 待启动 | 话语权输出 |
+| **P3** | 证据型文章：从 17 不变式到 52 的治理演进实战 | 待启动 | 话语权输出 |
 
 ### 现有功能任务（V1 稳定后继续推进）
 
