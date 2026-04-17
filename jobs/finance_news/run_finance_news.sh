@@ -60,10 +60,11 @@ RSS_FEEDS=(
     "BBC World|https://feeds.bbci.co.uk/news/world/rss.xml|BBC世界新闻(地缘政治)|intl"
     "CNBC|https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=100003114|CNBC财经|intl"
     "Guardian World|https://www.theguardian.com/world/rss|卫报世界新闻(政治)|intl"
-    # V37.8.14 新增: 地缘政治+智库分析
+    # V37.8.14 新增: 地缘政治+智库分析(Mac Mini 2026-04-17 验证)
     "Al Jazeera|https://www.aljazeera.com/xml/rss/all.xml|半岛电视台(中东/全球政治)|intl"
-    "Brookings|https://www.brookings.edu/feed/|布鲁金斯学会(政策分析)|intl"
-    "CFR|https://www.cfr.org/rss.xml|美国外交关系委员会(外交政策)|intl"
+    "Brookings|https://www.brookings.edu/feed/atom/|布鲁金斯学会(政策分析)|intl"
+    "WorldBank|https://search.worldbank.org/api/v2/news?format=json&rows=10|世界银行新闻(API)|intl"
+    # CFR rss.xml 返回 404（2026-04-17 Mac Mini 验证），暂不可用
     # ── 中国/亚太（Mac Mini 2026-04-13 验证）──
     "SCMP Economy|https://www.scmp.com/rss/5/feed|南华早报经济频道|cn"
     "36氪|https://36kr.com/feed|36氪科技财经|cn"
@@ -197,11 +198,20 @@ if is_json:
         with open(feed_file) as f:
             raw = f.read()
         data = json.loads(raw)
-        # 兼容新浪 API 格式
-        items_list = data.get("result", {}).get("data", []) if "result" in data else data if isinstance(data, list) else []
+        # 兼容多种 JSON API 格式
+        if "result" in data:
+            items_list = data["result"].get("data", [])
+        elif "documents" in data and isinstance(data["documents"], dict):
+            items_list = list(data["documents"].values())
+        elif isinstance(data, list):
+            items_list = data
+        else:
+            items_list = []
         for item in items_list[:8]:
-            title = item.get("title", "").strip()
-            url = item.get("url", item.get("link", ""))
+            raw_title = item.get("title", "")
+            title = (raw_title.get("en", "") if isinstance(raw_title, dict) else str(raw_title)).strip()
+            raw_url = item.get("url", item.get("link", ""))
+            url = (raw_url.get("en", "") if isinstance(raw_url, dict) else str(raw_url)).strip()
             ctime = item.get("ctime", item.get("pub_date", item.get("pubDate", "")))
             intro = item.get("intro", item.get("summary", item.get("description", "")))[:300]
             if not title or url in seen_urls:
@@ -296,6 +306,68 @@ print(f"[finance] {feed_name}: {count} 篇", file=sys.stderr)
 PYEOF
 
 done
+
+# ── 1.5 HTML 直解析源（非 RSS/非 API，直接解析首页 HTML）─────────────
+# V37.8.14 新增：Caixin Global（之前误判为 paywall 不可用，实际首页 82 篇公开文章）
+CAIXIN_HTML="$CACHE/raw/caixin_${DAY}.html"
+CAIXIN_OK=false
+for attempt in 1 2; do
+    HTTP_CODE=$(curl -sSL --max-time 30 -w '%{http_code}' \
+        -H "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" \
+        -o "$CAIXIN_HTML" \
+        "https://www.caixinglobal.com/" 2>/dev/null) || HTTP_CODE="000"
+    if [ "$HTTP_CODE" = "200" ] && [ -s "$CAIXIN_HTML" ]; then
+        CAIXIN_OK=true
+        break
+    fi
+    sleep "$((attempt * 3))"
+done
+
+if [ "$CAIXIN_OK" = "true" ]; then
+    $PYTHON3 - "$CAIXIN_HTML" "$SEEN_FILE" << 'CXEOF' >> "$ALL_NEW_FILE"
+import sys, re, json
+from datetime import datetime, timedelta, timezone
+
+html_file, seen_file = sys.argv[1:3]
+with open(html_file, "r", encoding="utf-8", errors="replace") as f:
+    html = f.read()
+with open(seen_file) as f:
+    seen = set(l.strip() for l in f if l.strip())
+
+cutoff = datetime.now(timezone.utc) - timedelta(hours=72)
+articles = []
+pattern = re.compile(
+    r'<a[^>]*href="(https://www\.caixinglobal\.com/(\d{4})-(\d{2})-(\d{2})/[^"]+)"[^>]*>([^<]+)</a>'
+)
+added = set()
+for m in pattern.finditer(html):
+    url, y, mo, d, title = m.group(1), m.group(2), m.group(3), m.group(4), m.group(5).strip()
+    if not title or len(title) < 15 or url in seen or url in added:
+        continue
+    if "?internalReferrer" in url or "?internalreferrer" in url:
+        continue
+    try:
+        pub = datetime(int(y), int(mo), int(d), tzinfo=timezone.utc)
+        if pub < cutoff:
+            continue
+    except:
+        pass
+    articles.append({"title": title, "link": url, "description": "",
+                     "pub_date": f"{y}-{mo}-{d}",
+                     "feed_name": "Caixin Global", "feed_label": "财新全球(英文)", "region": "cn"})
+    added.add(url)
+
+for a in articles[:8]:
+    print(json.dumps(a, ensure_ascii=False))
+    with open(seen_file, "a") as f:
+        f.write(a["link"] + "\n")
+
+print(f"[finance] Caixin Global: {min(len(articles), 8)} 篇", file=sys.stderr)
+CXEOF
+else
+    log "WARN: Caixin Global 抓取失败 (HTTP ${HTTP_CODE})"
+    FETCH_ERRORS=$((FETCH_ERRORS + 1))
+fi
 
 # ── 2. X/Twitter 财经账号抓取（Syndication API）───────────────────────
 SEEN_X_FILE="$CACHE/seen_x_ids_${DAY}.txt"
@@ -562,8 +634,10 @@ prompt = f"""你是一位资深财经分析师。以下是过去24小时内来�
 ## 📰 今日要闻（按价值排序，最多 8 条）
 
 对每条新闻输出：
-- **[来源] 标题**（发布时间）
+- **[来源] 中文标题**（发布时间）
   💡 价值：⭐~⭐⭐⭐⭐⭐ | 关键点评：一句话分析其影响
+
+注意：英文标题必须翻译为中文，保留原始来源标注。
 
 ## 🌏 海外 vs 国内 对比总结
 

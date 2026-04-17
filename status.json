@@ -1,6 +1,6 @@
 {
-  "updated": "2026-04-16 08:32:33",
-  "updated_by": "claude_code",
+  "updated": "2026-04-17 08:24:16",
+  "updated_by": "user",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -189,6 +189,11 @@
       "date": "2026-04-03",
       "from": "mentor",
       "what": "战略复盘：Stage1完成(系统构建者)→Stage2(被社区认可的系统作者)。主战场收敛为Agent Runtime Control Plane + Memory Plane。下一步补证据(兼容矩阵/SLO benchmark/故障演练/可复现demo)而非功能。12个月路线：V1别人能跑→V2别人敢用→V3别人会扩展。三个高价值模块：Provider Compatibility Layer/Agent Reliability Bench/Memory Plane v1。详见docs/strategic_review_20260403.md"
+    },
+    {
+      "date": "2026-04-17",
+      "from": "user",
+      "what": "协作模式确认：用户提供洞察，Claude提供执行，系统提供不间断执行和数据复利。核心教训：Claude不应在自己环境受限时就下不可能的结论（chaspark 403误判），必须先让用户在部署环境验证。遇到做不到时先问用户，不自己下定论。"
     }
   ],
   "health": {
