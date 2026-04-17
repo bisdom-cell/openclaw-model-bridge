@@ -360,6 +360,18 @@ jobs:
     kb_source_label: 🧠 Ontology 专属源
     description: Ontology 专属信息源监控 — Semantic Web Journal + W3C + KG Conference RSS，关键词过滤，LLM 富摘要，Discord #ontology 推送 + KB 归档
 
+  - id: chaspark
+    scheduler: system
+    entry: jobs/chaspark/run_chaspark.sh
+    interval: "0 11 * * *"             # 每天 11:00 HKT（频率低避免搜狗验证码）
+    log: ~/.openclaw/logs/jobs/chaspark.log
+    needs_api_key: false
+    enabled: true
+    tier: auxiliary
+    kb_source_file: chaspark.md
+    kb_source_label: 🏠 华为茶思屋科技
+    description: 黄大年茶思屋(Chaspark)科技网站公众号文章监控 — 搜狗微信搜索抓取 + LLM 分析 + KB 归档 + 双通道推送
+
   - id: finance_news
     scheduler: system
     entry: jobs/finance_news/run_finance_news.sh

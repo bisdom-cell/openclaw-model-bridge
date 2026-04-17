@@ -180,6 +180,9 @@ declare -a FILE_MAP=(
     "jobs/finance_news/run_finance_news.sh|$HOME/.openclaw/jobs/finance_news/run_finance_news.sh"
     "jobs/finance_news/finance_news_zombie.py|$HOME/.openclaw/jobs/finance_news/finance_news_zombie.py"
 
+    # 黄大年茶思屋科技网站(V37.8.14)
+    "jobs/chaspark/run_chaspark.sh|$HOME/.openclaw/jobs/chaspark/run_chaspark.sh"
+
     # AI Leaders X 技术洞察追踪（V34: 替代 karpathy_x，9位 AI 大牛）
     "jobs/karpathy_x/run_karpathy_x.sh|$HOME/.openclaw/jobs/karpathy_x/run_karpathy_x.sh"
     "jobs/ai_leaders_x/run_ai_leaders_x.sh|$HOME/.openclaw/jobs/ai_leaders_x/run_ai_leaders_x.sh"
