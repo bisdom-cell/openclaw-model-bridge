@@ -55,6 +55,15 @@ RSS_FEEDS=(
     "ECB|https://www.ecb.europa.eu/rss/press.xml|欧洲央行声明|intl"
     "BIS Speeches|https://www.bis.org/doclist/cbspeeches.rss|国际清算银行(央行演讲)|intl"
     "Yahoo Finance|https://finance.yahoo.com/news/rssindex|雅虎财经|intl"
+    # V37.8.14 新增: 国际主流媒体(财经+政治)
+    "BBC Business|https://feeds.bbci.co.uk/news/business/rss.xml|BBC商业新闻|intl"
+    "BBC World|https://feeds.bbci.co.uk/news/world/rss.xml|BBC世界新闻(地缘政治)|intl"
+    "CNBC|https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=100003114|CNBC财经|intl"
+    "Guardian World|https://www.theguardian.com/world/rss|卫报世界新闻(政治)|intl"
+    # V37.8.14 新增: 地缘政治+智库分析
+    "Al Jazeera|https://www.aljazeera.com/xml/rss/all.xml|半岛电视台(中东/全球政治)|intl"
+    "Brookings|https://www.brookings.edu/feed/|布鲁金斯学会(政策分析)|intl"
+    "CFR|https://www.cfr.org/rss.xml|美国外交关系委员会(外交政策)|intl"
     # ── 中国/亚太（Mac Mini 2026-04-13 验证）──
     "SCMP Economy|https://www.scmp.com/rss/5/feed|南华早报经济频道|cn"
     "36氪|https://36kr.com/feed|36氪科技财经|cn"
@@ -75,6 +84,12 @@ FINANCE_X_ACCOUNTS=(
     "business|Bloomberg商业(X)|intl"
     "WSJ|华尔街日报(X)|intl"
     "TheEconomist|经济学人(X)|intl"
+    # V37.8.14 新增: 地缘政治/外交(填补政治类信源空白, 需Mac Mini僵尸检测验证)
+    "ForeignPolicy|外交政策杂志(X)|intl"
+    "StateDept|美国国务院(X)|intl"
+    "EU_Commission|欧盟委员会(X)|intl"
+    "UN|联合国(X)|intl"
+    "Carnegie_Endow|卡内基国际和平基金会(X)|intl"
     # ── 中国官媒 ──
     # V37.8.4 已移除僵尸账号:
     #   caixin          — 2227天无更新
