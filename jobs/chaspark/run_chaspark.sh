@@ -136,7 +136,8 @@ fi
 
 log "解析到 $ARTICLE_COUNT 篇新内容"
 
-# ── 3. 构建文章列表文本 ──────────────────────────────────────────────
+# ── 3. 分两层：全量列表 + Top 5 深度分析素材 ─────────────────────────
+# 全量列表（简表，供参考）
 ARTICLE_LIST=$($PYTHON3 -c "
 import json
 with open('$ALL_ARTICLES') as f:
@@ -146,21 +147,50 @@ for i, a in enumerate(arts[:15], 1):
     print(f\"{i}. 【{a['title']}】[{a['type']}] ({domains})\")
 ")
 
-# ── 4. LLM 分析 ──────────────────────────────────────────────────────
-LLM_PROMPT="以下是华为黄大年茶思屋科技网站的最新推荐内容：
+# Top 5 深度素材（头条优先，取前 5 篇构建详细分析输入）
+TOP5_DETAIL=$($PYTHON3 -c "
+import json
+with open('$ALL_ARTICLES') as f:
+    arts = [json.loads(l) for l in f if l.strip()]
+for i, a in enumerate(arts[:5], 1):
+    domains = '，'.join(a.get('domains', [])) or '综合'
+    print(f'''--- 文章 {i} ---
+标题: {a['title']}
+类型: {a['type']}
+领域: {domains}
+来源板块: {a.get('slot', '')}
+链接: {a.get('url', '')}
+''')
+")
 
-${ARTICLE_LIST}
+# ── 4. LLM 深度分析（聚焦 Top 5，不是泛泛而谈）─────────────────────
+LLM_PROMPT="你是一位资深科技产业分析师。以下是华为黄大年茶思屋科技网站今日头版推荐的 Top 5 内容：
 
-请用中文简要分析（300 字以内）：
-1. 涵盖哪些技术方向？
-2. 值得特别关注的前沿话题？（用⭐标注）
-3. 对 AI/本体论/智能体领域有什么启发？"
+${TOP5_DETAIL}
+
+请对这 5 篇内容进行**深度分析**（800-1200 字），要求：
+
+## 1. 逐篇深度解读（每篇 100-150 字）
+对每篇文章，分析：
+- 这个话题的核心技术问题是什么？
+- 为什么华为/茶思屋在此时推荐它？背后的产业信号是什么？
+- 对从业者的具体价值：能学到什么 / 能用在哪里？
+
+## 2. 跨文章关联洞察（200-300 字）
+- 这 5 篇之间有什么隐藏关联？（技术栈交叉、产业链上下游、趋势共振）
+- 从中能看出华为/学术界正在押注哪个方向？
+- 与当前 AI Agent、本体论、LLM 工程化的大趋势如何呼应？
+
+## 3. 行动建议（2-3 条）
+- 基于以上分析，技术从业者本周应该关注什么？做什么？
+
+请用中文回答，直接输出分析内容，不要复述题目要求。"
 
 BODY_FILE="$CACHE/raw/llm_body_${DAY}.json"
 $PYTHON3 -c "
 import json
 prompt = open('/dev/stdin').read()
-body = {'model': 'auto', 'messages': [{'role': 'user', 'content': prompt}], 'max_tokens': 1000}
+body = {'model': 'auto', 'messages': [{'role': 'user', 'content': prompt}], 'max_tokens': 3000}
 with open('$BODY_FILE', 'w') as f:
     json.dump(body, f, ensure_ascii=False)
 " <<< "$LLM_PROMPT"
@@ -198,13 +228,13 @@ else:
 " 2>/dev/null)
 
 # ── 5. KB 归档 ────────────────────────────────────────────────────────
-KB_CONTENT="# 茶思屋科技动态 $DAY
+KB_CONTENT="# 茶思屋科技深度分析 $DAY
 
-## 内容列表
-${ARTICLE_LIST}
-
-## AI 分析
+## 今日头条 Top 5 深度分析
 ${LLM_ANALYSIS}
+
+## 全量内容列表（${ARTICLE_COUNT} 篇）
+${ARTICLE_LIST}
 
 ---
 来源: Chaspark API (www.chaspark.com)
@@ -221,11 +251,9 @@ if [ -f "$KB_APPEND_SCRIPT" ]; then
 fi
 
 # ── 6. 推送 ──────────────────────────────────────────────────────────
-WA_MSG="🏠 茶思屋科技动态 ($DAY)
+WA_MSG="🏠 茶思屋深度分析 ($DAY) | ${ARTICLE_COUNT} 篇新内容
 
-${ARTICLE_LIST}
-
-📊 ${LLM_ANALYSIS}"
+${LLM_ANALYSIS}"
 
 if [ "$NOTIFY_LOADED" = true ]; then
     notify "$WA_MSG" --topic daily
