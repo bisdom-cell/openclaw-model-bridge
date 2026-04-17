@@ -1,5 +1,5 @@
 {
-  "updated": "2026-04-17 08:27:19",
+  "updated": "2026-04-17 10:53:04",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -76,14 +76,14 @@
       "task": "【输出】第一篇架构型文章",
       "status": "completed",
       "note": "V36完成: docs/articles/why_control_plane.md — dev.to+知乎+Twitter发布"
-    },
-    {
-      "task": "【输出】证据型文章（Benchmark/故障案例/Lessons Learned）",
-      "status": "backlog",
-      "note": "Reliability Bench/SLO Benchmark/Resilience Report 数据已有，需转化为文章（测试数见 quality.test_count，由 full_regression.sh 自动更新）"
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-04-17",
+      "what": "外部代码级评审吸收: 六优势(控制平面/Provider抽象/韧性/阈值/门禁/战略)+五劣势(脚本特征/环境耦合/PyYAML/Memory接口/文档过载)。录入4项P0/P1优先级: 可迁移性闭环+证据链产品化+插件生态接口+可观测闭环。核心三字诀: 标准化+可比较+生态协议",
+      "by": "claude_code"
+    },
     {
       "date": "2026-04-17",
       "what": "V37.8.14 session: (1) Phase 3 P0 ONTOLOGY_MODE=on 正式切换(249测试) (2) 治理覆盖42→52不变式/0未覆盖job (3) 信源大扩展19→33+源(+7RSS/+Caixin HTML/+WorldBank API/+5X政治/+茶思屋独立job) (4) X僵尸移除4个+通知修复 (5) 终极目标pip install ontology-engine写入路标 (6) 原则#33信源部署环境验证 (7) LLM输出全中文标题 (8) chaspark API发现教训:dev 403≠不可用",
@@ -177,11 +177,6 @@
       "date": "2026-04-11",
       "what": "V37.5 kb_review fail-fast + registry-driven + H2 drill-down — 修复 6-issue silent degradation 血案（shell scope + 硬编码源 + 机械 fallback + 伪造 llm=true + 行级日期匹配 + 悬空承诺）。重写为 kb_review_collect.py (纯Python, llm_caller 可注入) + kb_review.sh thin wrapper fail-fast [SYSTEM_ALERT] + jobs_registry.yaml 加 kb_source_file 字段 12 个源 + INV-REVIEW-001 (29 不变式 / 81 checks) + test_kb_review.py 44 单测 + 案例文档",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-04-11",
-      "what": "V37.4.3 Mac Mini 收工三件套验证通过 — ① preflight --full: 74 pass / 2 fail / 2 warn. 2 FAIL 全是 pre-existing 非阻塞分叉: status.json 仓库 vs 运行时合法分叉 (dev full_regression 写回 vs cron kb_status_refresh 刷新) + KB 索引过期 2 文件 (openclaw_official.md/inbox.md, kb_embed 下次 cron 补齐). V37.4.3 相关检查全绿 (脚本/Python 语法 + 双通道推送实测 Discord msgId 1492448433884364920). ② job_smoke_test: 33 job / 174 pass / 0 fail / 17 warn. 零失败, 17 warn 全是历史日志 (Dream 03:00 超时已 V37.4 修复/上游 502-403/governance_audit 07:00 旧状态已被 16:57 手动 67/67 覆盖). ③ governance --full: 28/28 invariants / 67/67 checks / 6/6 meta rules 全通过. INV-PA-001 10/10 (含运行时 python_assert filter_system_alerts 真的剥离 [SYSTEM_ALERT]) + INV-PA-002 5/5 (SOUL.md 规则 10 全字段) — V37.4.3 Path A + Path C 双防线生产硬验证. 2 preflight FAIL 登记 session_context.unfinished 待下次 session 修复 (preflight 豁免 status.json 分叉字段 + kb_embed cron 频率调整).",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -194,6 +189,11 @@
       "date": "2026-04-17",
       "from": "user",
       "what": "协作模式确认：用户提供洞察，Claude提供执行，系统提供不间断执行和数据复利。核心教训：Claude不应在自己环境受限时就下不可能的结论（chaspark 403误判），必须先让用户在部署环境验证。遇到做不到时先问用户，不自己下定论。"
+    },
+    {
+      "date": "2026-04-17",
+      "from": "external_reviewer",
+      "what": "代码级公正评估：项目已是雏形完整的Agent Runtime Control Plane。六大真优势：控制平面意识成熟/Provider抽象方向正确/运行时韧性真落地/阈值中心化好/工程门禁完整/有战略复盘资产。五大劣势：超强脚本系统特征模块边界偏重作者心智/环境耦合高可迁移性不足/PyYAML硬依赖暴露/Memory Plane接口演化期/文档认知过载。核心建议：控制平面标准化产品能力+证据链持续可比较+扩展接口生态协议。"
     }
   ],
   "health": {
@@ -305,7 +305,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.8.11 auto_deploy drift 告警噪声闭环 (MR-4 第 10 次演出新形态: expected-behavior 被错分类为 error → 噪声告警)。问题存在长期: V37.8.1 preflight 加了 status.json 分叉豁免但 auto_deploy 漏改，[SYSTEM_ALERT] 前缀让长期潜伏告警在 WhatsApp 显性化被用户察觉。修复: auto_deploy drift 循环镜像同款豁免 + INV-DEPLOY-003 双侧守卫 5 checks + 案例扩展 V37.8.11 章节。governance v3.16→v3.17 (40 inv/199 checks). 待观察 2026-04-16 00:00 下个整点 drift 告警应消失。原则 #15 反思: 定期像用户一样使用系统 (半天 WhatsApp 观察就能发现噪声)",
+  "focus": "外部评审消化期：项目已是Agent Runtime Control Plane雏形，核心方向确认——(1)控制平面标准化产品能力 (2)证据链持续可比较资产 (3)扩展接口生态协议。P0优先解决可迁移性(环境契约+CLI统一+三profile)和证据链产品化(JSON artifact+基线对比+evidence bundle)",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
