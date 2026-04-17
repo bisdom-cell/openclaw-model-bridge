@@ -465,10 +465,16 @@ if [ -s "$ZOMBIE_FILE" ]; then
         if [ -n "$PERSISTENT" ]; then
             COUNT=$(echo "$PERSISTENT" | wc -l | tr -d ' ')
             log "⚠️ X 账号连续 3 天无新推文（疑似僵尸 ${COUNT} 个）："
+            ZOMBIE_LIST=""
             echo "$PERSISTENT" | while IFS= read -r h; do
                 [ -z "$h" ] && continue
                 log "  - @${h}"
             done
+            ZOMBIE_LIST=$(echo "$PERSISTENT" | tr '\n' ',' | sed 's/,$//')
+            # V37.8.14: 3 天连续检测必须推送告警（MR-4: 检测无通知 = silent failure）
+            if [ "$NOTIFY_LOADED" = true ]; then
+                notify "[SYSTEM_ALERT] X 僵尸账号连续 3 天检测命中 ${COUNT} 个: ${ZOMBIE_LIST}。建议人工复核后从 FINANCE_X_ACCOUNTS 移除。" --topic alerts
+            fi
         fi
     fi
 fi
