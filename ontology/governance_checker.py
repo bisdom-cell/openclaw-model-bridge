@@ -293,6 +293,16 @@ def run_meta_discovery(data):
             result = _discover_alert_path_independence(severity)
             discovery_results.append({"id": disc_id, "name": name, **result})
 
+        elif disc_id == "MRD-SILENT-EXCEPT-001":
+            # V37.8.18: MR-4 运行时检测 — Python 裸 except / except Exception: pass
+            result = _discover_silent_except_violations(severity)
+            discovery_results.append({"id": disc_id, "name": name, **result})
+
+        elif disc_id == "MRD-PUSH-ROUTE-001":
+            # V37.8.18: MR-4 运行时检测 — 推送必须走 notify.sh 或白名单
+            result = _discover_push_route_violations(severity)
+            discovery_results.append({"id": disc_id, "name": name, **result})
+
     return discovery_results
 
 
@@ -1114,6 +1124,216 @@ def _discover_alert_path_independence(severity):
         "status": "pass",
         "severity": severity,
         "message": f"所有 {scanned} 个监控脚本的告警路径均独立于被监控对象",
+    }
+
+
+# V37.8.18 MR-4 MRD-SILENT-EXCEPT-001
+# Python 裸 except / except Exception: pass 反模式
+# 白名单：ImportError pass / test_*.py
+
+def _discover_silent_except_violations(severity):
+    """MRD-SILENT-EXCEPT-001: 扫所有 .py 文件的裸 except / silent pass 反模式。
+
+    触发血案：Route B C11 (2026-04-20) — adapter.py 注入 `try: ... except: pass`
+    静默吞错模式后 audit 完全抓不到。MR-4 silent-failure 源头之一是裸 except
+    pass，但历史只修具体案例，从未普适化。
+
+    检测模式（AST 扫描）：
+      1. `except:` (bare except) → 违反
+      2. `except Exception:` + 函数体只有 pass → 违反
+      3. `except BaseException:` + pass → 违反
+
+    允许（不违反）：
+      - `except SpecificError:` 有具体类型
+      - `except Exception: log.error(...)` 有日志/处理
+      - `except Exception: return fallback` 有降级
+      - `except: raise` 虽然裸但 re-raise
+      - `except ImportError: pass` 可选依赖探测
+
+    跳过文件：test_*.py / __pycache__ / .git / adversarial_chaos_audit.py 本身
+    （后者含 CHAOS_MUTATED 反模式示例）
+    """
+    import ast
+    import glob as glob_mod
+
+    violations = []
+    scanned = 0
+    # 扫项目里所有 .py（排除常见噪音）
+    py_files = glob_mod.glob(os.path.join(_PROJECT_ROOT, "**", "*.py"), recursive=True)
+
+    for f in sorted(py_files):
+        rel = os.path.relpath(f, _PROJECT_ROOT)
+        if any(x in rel for x in [".git/", "__pycache__/", "/test_", "test_"]):
+            continue
+        # 跳过对抗审计脚本自身（含 CHAOS_MUTATED 示例）
+        if rel.endswith("adversarial_chaos_audit.py"):
+            continue
+        scanned += 1
+        try:
+            with open(f, "r", encoding="utf-8", errors="ignore") as fh:
+                source = fh.read()
+            tree = ast.parse(source, filename=f)
+        except (SyntaxError, IOError, OSError):
+            continue
+
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.ExceptHandler):
+                continue
+            exc_type = node.type
+            body = node.body
+            lineno = node.lineno
+
+            # 判定类型名（或 None 为裸 except）
+            type_name = None
+            if exc_type is None:
+                type_name = "bare_except"
+            elif isinstance(exc_type, ast.Name):
+                type_name = exc_type.id
+
+            # 允许 ImportError pass（可选依赖探测）
+            if type_name == "ImportError":
+                continue
+
+            # 判定 body 是否仅为 pass
+            body_is_just_pass = (
+                len(body) == 1 and isinstance(body[0], ast.Pass)
+            )
+            # 判定是否含 raise（re-raise 允许）
+            has_raise = any(isinstance(n, ast.Raise) for n in ast.walk(node))
+
+            is_violation = False
+            if type_name == "bare_except":
+                # 裸 except 除非有 raise
+                if not has_raise:
+                    is_violation = True
+            elif type_name in ("Exception", "BaseException"):
+                # 宽泛捕获 + body 只有 pass
+                if body_is_just_pass:
+                    is_violation = True
+
+            if is_violation:
+                violations.append(f"{rel}:{lineno} except {type_name or 'bare'}")
+
+    if violations:
+        return {
+            "status": "warn",
+            "severity": severity,
+            "message": (
+                f"{len(violations)} 处 Python 裸 except/silent pass 反模式，"
+                f"扫描 {scanned} 个 .py 文件: {', '.join(violations[:5])}"
+                f"{'...' if len(violations) > 5 else ''}"
+            ),
+            "violations": violations,
+        }
+    return {
+        "status": "pass",
+        "severity": severity,
+        "message": f"所有 {scanned} 个 .py 文件无裸 except/silent pass 反模式",
+    }
+
+
+# V37.8.18 MR-4 MRD-PUSH-ROUTE-001
+# 推送白名单：允许直接 openclaw message send 的脚本 basename
+# 白名单原则：主仓库级合法推送入口（路由层 / 监控告警 / 周期性汇总）
+# 新增脚本推送必须走 notify.sh，否则加入白名单需 review
+_PUSH_ROUTE_WHITELIST = {
+    "notify.sh",           # 路由层自身
+    "run_hn_fixed.sh",     # 历史合法直推（V27 前已稳定）
+    "wa_keepalive.sh",     # 告警升级走 openclaw 直发 Discord
+    "job_watchdog.sh",     # watchdog 告警直发
+    "auto_deploy.sh",      # quiet_alert 实现层
+    "daily_ops_report.sh", # 日报直推
+    "health_check.sh",     # 周报直推
+    "kb_status_refresh.sh",  # 状态刷新
+    "cron_canary.sh",      # cron 心跳金丝雀（不推消息但保险）
+    "preflight_check.sh",  # 体检推送（含白名单豁免）
+    "smoke_test.sh",       # 测试
+    "quickstart.sh",       # 一键启动
+    "gameday.sh",          # 故障演练
+    "kb_evening.sh",       # KB 晚间整理推送
+    "kb_inject.sh",        # 每日 KB 摘要推送
+    "kb_review.sh",        # 周度回顾推送
+    "kb_dream.sh",         # Dream 跨域关联推送
+    "check_upgrade.sh",    # OpenClaw 升级 SOP 推送
+    "diagnose.sh",         # 系统诊断推送
+    "upgrade_openclaw.sh", # Gateway 升级推送
+    "restart.sh",          # 服务重启确认
+    "openclaw_backup.sh",  # 备份结果推送
+}
+
+
+def _discover_push_route_violations(severity):
+    """MRD-PUSH-ROUTE-001: 扫所有 .sh 文件的 `openclaw message send` 直调用。
+    白名单外的脚本直接调用 = 绕过 notify.sh 治理层 = warn.
+
+    触发血案：Route B C15 (2026-04-20) — 新建 chaos_rogue_pusher.sh 直接
+    调 `openclaw message send --channel whatsapp` 绕过 notify.sh，audit 当时
+    无任何检测手段。本 MRD 扫所有 shell 脚本的推送调用，非白名单即 warn。
+    """
+    import glob as glob_mod
+
+    violations = []
+    scanned = 0
+
+    # 扫所有 .sh（仓库 + jobs/）
+    patterns = [
+        os.path.join(_PROJECT_ROOT, "*.sh"),
+        os.path.join(_PROJECT_ROOT, "jobs", "**", "*.sh"),
+    ]
+    sh_files = set()
+    for patt in patterns:
+        sh_files.update(glob_mod.glob(patt, recursive=True))
+
+    for sh_file in sorted(sh_files):
+        if ".git" in sh_file:
+            continue
+        basename = os.path.basename(sh_file)
+        if basename.startswith("test_"):
+            continue
+        # jobs/**/*.sh 是合法 job 推送实现（走 topic 模式），不在白名单但
+        # 仍被 MRD-NOTIFY-001 按 topic 覆盖；此处只检测"新增 rogue 推送"
+        normalized_path = sh_file.replace("\\", "/")
+        if "/jobs/" in normalized_path:
+            continue
+        scanned += 1
+
+        if basename in _PUSH_ROUTE_WHITELIST:
+            continue
+
+        try:
+            with open(sh_file, "r", encoding="utf-8", errors="ignore") as fh:
+                content = fh.read()
+        except (IOError, OSError):
+            continue
+
+        # 扫非注释行的 `openclaw message send` 调用
+        lines = content.splitlines()
+        for lineno, line in enumerate(lines, start=1):
+            stripped = line.lstrip()
+            if stripped.startswith("#"):
+                continue
+            if "openclaw message send" in line:
+                rel = os.path.relpath(sh_file, _PROJECT_ROOT)
+                violations.append(f"{rel}:{lineno} bypass notify.sh")
+
+    if violations:
+        return {
+            "status": "warn",
+            "severity": severity,
+            "message": (
+                f"{len(violations)} 处 rogue 推送绕过 notify.sh，"
+                f"扫描 {scanned} 个非白名单 .sh: {', '.join(violations[:5])}"
+                f"{'...' if len(violations) > 5 else ''}"
+            ),
+            "violations": violations,
+        }
+    return {
+        "status": "pass",
+        "severity": severity,
+        "message": (
+            f"所有 {scanned} 个非白名单 .sh 无绕过 notify.sh 的推送调用"
+            f"（白名单 {len(_PUSH_ROUTE_WHITELIST)} 个脚本豁免）"
+        ),
     }
 
 
