@@ -1,5 +1,5 @@
 {
-  "updated": "2026-04-20 03:57:37",
+  "updated": "2026-04-20 04:10:28",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -304,7 +304,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.8.16 完成: PA 自残 HEARTBEAT.md 血案闭环（MR-4 silent-failure 第 12 次演出）+ MR-15 新元规则立案 + INV-HB-001 治理不变式 + proxy 拦截层 + SOUL.md 规则 11 + 16 新单测 + 全量回归 1111 tests / 53 inv / 15 MR / 安全 93/100. 已 Mac Mini E2E 实测通过（早上好 5s 回复 ✅）. 遗留：WhatsApp 入站路由到 research 不是 main（4/10 plugin 安装副作用，不致命，登记 unfinished）",
+  "focus": "Stage2 验证者阶段启动（系统稳定期）: 不增新功能, 专注加固+优化. P0 路线 A: 血案回填审计 - 过去 15 个真实血案逐一诚实回答 3 个问题（爆发前 audit 能发现吗 / 不能是空白还是粒度不够 / 补的不变式能防下一次同类吗）产出 audit_coverage_retrospective.md 作为 ontology audit 防御率的实证报告.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
