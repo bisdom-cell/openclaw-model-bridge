@@ -17,7 +17,11 @@ from proxy_filters import (
     TOOL_PARAMS, VALID_BROWSER_PROFILES,
     ALLOWED_TOOLS, ALLOWED_PREFIXES,
     CUSTOM_TOOLS, CUSTOM_TOOL_NAMES,
+    # V37.8.16 MR-15 reserved-file-write-block
+    detect_reserved_file_write,
+    RESERVED_FILE_BASENAMES, RESERVED_FILE_SAFE_CONTENT,
 )
+import proxy_filters  # for tests that read module-level attrs
 
 NUM_CUSTOM_TOOLS = len(CUSTOM_TOOLS)
 
@@ -1812,6 +1816,171 @@ class TestComposeBackendErrorStr(unittest.TestCase):
             "tool_proxy 不得重新定义 compose_backend_error_str — 必须从 proxy_filters import")
         self.assertNotIn("def _compose_backend_error_str", src,
             "tool_proxy 不得重新定义 _compose_backend_error_str — 必须从 proxy_filters import")
+
+
+class TestReservedFileWriteBlock(unittest.TestCase):
+    """V37.8.16 MR-15: OpenClaw 保留文件写入拦截。
+
+    血案：PA 2026-04-19 把"任务总结"写进 workspace/HEARTBEAT.md →
+    OpenClaw heartbeat 激活 → 所有 WhatsApp 用户消息被 HEARTBEAT_OK 替换 →
+    Gateway stripTokenAtEdges 剥离 → 13 小时静默。
+
+    详见 ontology/docs/cases/heartbeat_md_pa_self_silencing_case.md
+    """
+
+    # ── 纯函数 detect_reserved_file_write ──
+    def test_detect_heartbeat_md_write_blocked(self):
+        blocked, reason = proxy_filters.detect_reserved_file_write(
+            "write", {"path": "/Users/bisdom/.openclaw/workspace/HEARTBEAT.md", "content": "x"})
+        self.assertTrue(blocked)
+        self.assertIn("HEARTBEAT.md", reason)
+
+    def test_detect_heartbeat_md_edit_blocked(self):
+        blocked, reason = proxy_filters.detect_reserved_file_write(
+            "edit", {"path": "/Users/bisdom/HEARTBEAT.md", "old_text": "a", "new_text": "b"})
+        self.assertTrue(blocked)
+        self.assertIn("HEARTBEAT.md", reason)
+
+    def test_detect_file_path_alias(self):
+        """path 的常见 alias（file_path / file / filepath）都要匹配到"""
+        for alias_key in ("file_path", "file", "filepath"):
+            blocked, _ = proxy_filters.detect_reserved_file_write(
+                "write", {alias_key: "~/HEARTBEAT.md"})
+            self.assertTrue(blocked, f"alias {alias_key} 未被检测")
+
+    def test_detect_case_sensitive(self):
+        """OpenClaw 源码用精确名 HEARTBEAT.md — 小写变体不触发（防过拦截）"""
+        for variant in ("heartbeat.md", "Heartbeat.md", "HEARTBEAT_notes.md"):
+            blocked, _ = proxy_filters.detect_reserved_file_write(
+                "write", {"path": f"/Users/bisdom/.openclaw/workspace/{variant}"})
+            self.assertFalse(blocked, f"{variant} 不应被拦截")
+
+    def test_detect_non_write_tool_ignored(self):
+        """read/exec/web_fetch 等非写入工具不受影响"""
+        for tool in ("read", "exec", "web_fetch", "memory_search"):
+            blocked, _ = proxy_filters.detect_reserved_file_write(
+                tool, {"path": "~/HEARTBEAT.md"})
+            self.assertFalse(blocked)
+
+    def test_detect_non_reserved_path_allowed(self):
+        """正常文件写入不受影响"""
+        blocked, _ = proxy_filters.detect_reserved_file_write(
+            "write", {"path": "/tmp/notes.md", "content": "hello"})
+        self.assertFalse(blocked)
+
+    def test_detect_missing_path_safe(self):
+        """缺 path 参数不崩"""
+        blocked, _ = proxy_filters.detect_reserved_file_write("write", {})
+        self.assertFalse(blocked)
+
+    def test_detect_non_dict_args_safe(self):
+        """非 dict 参数（例如 None 或字符串）不崩"""
+        self.assertEqual(proxy_filters.detect_reserved_file_write("write", None), (False, ""))
+        self.assertEqual(proxy_filters.detect_reserved_file_write("write", "not a dict"), (False, ""))
+
+    def test_detect_empty_path_safe(self):
+        """空字符串 path 不崩"""
+        blocked, _ = proxy_filters.detect_reserved_file_write("write", {"path": ""})
+        self.assertFalse(blocked)
+
+    def test_detect_non_string_path_safe(self):
+        """path 不是字符串（比如 LLM 传了个 dict）也不崩"""
+        blocked, _ = proxy_filters.detect_reserved_file_write(
+            "write", {"path": {"nested": "obj"}})
+        self.assertFalse(blocked)
+
+    def test_detect_trailing_slash(self):
+        """trailing slash 也能正确取 basename"""
+        blocked, _ = proxy_filters.detect_reserved_file_write(
+            "write", {"path": "/Users/bisdom/.openclaw/workspace/HEARTBEAT.md/"})
+        self.assertTrue(blocked)
+
+    # ── 集成：fix_tool_args 触发 args 改写 ──
+    def test_fix_tool_args_rewrites_heartbeat_write_content(self):
+        """完整血案场景回归：PA 试图写 HEARTBEAT.md，content 被替换为安全占位"""
+        rj = {
+            "choices": [{
+                "message": {
+                    "tool_calls": [{
+                        "function": {
+                            "name": "write",
+                            "arguments": json.dumps({
+                                "path": "/Users/bisdom/.openclaw/workspace/HEARTBEAT.md",
+                                "content": "- 任务完成：已解决HN抓取问题\n- 下一步：继续监控"
+                            })
+                        }
+                    }]
+                }
+            }]
+        }
+        modified = proxy_filters.fix_tool_args(rj)
+        self.assertTrue(modified)
+        new_args = json.loads(rj["choices"][0]["message"]["tool_calls"][0]["function"]["arguments"])
+        # content 必须被替换为安全占位（只含注释）
+        self.assertIn("Keep this file empty", new_args["content"])
+        self.assertNotIn("任务完成", new_args["content"])
+        self.assertNotIn("下一步", new_args["content"])
+
+    def test_fix_tool_args_rewrites_heartbeat_edit_new_text(self):
+        """edit 工具也要拦：new_text 被替换为安全占位"""
+        rj = {
+            "choices": [{
+                "message": {
+                    "tool_calls": [{
+                        "function": {
+                            "name": "edit",
+                            "arguments": json.dumps({
+                                "path": "~/HEARTBEAT.md",
+                                "old_text": "# HEARTBEAT.md",
+                                "new_text": "- new task description"
+                            })
+                        }
+                    }]
+                }
+            }]
+        }
+        modified = proxy_filters.fix_tool_args(rj)
+        self.assertTrue(modified)
+        new_args = json.loads(rj["choices"][0]["message"]["tool_calls"][0]["function"]["arguments"])
+        self.assertIn("Keep this file empty", new_args["new_text"])
+        self.assertNotIn("new task description", new_args["new_text"])
+
+    def test_fix_tool_args_normal_write_unchanged(self):
+        """正常 write（非保留文件）不受影响"""
+        rj = {
+            "choices": [{
+                "message": {
+                    "tool_calls": [{
+                        "function": {
+                            "name": "write",
+                            "arguments": json.dumps({
+                                "path": "/tmp/notes.md",
+                                "content": "Some normal content"
+                            })
+                        }
+                    }]
+                }
+            }]
+        }
+        proxy_filters.fix_tool_args(rj)  # 可能因其他理由 modified，但 content 不应变
+        new_args = json.loads(rj["choices"][0]["message"]["tool_calls"][0]["function"]["arguments"])
+        self.assertEqual(new_args["content"], "Some normal content")
+
+    def test_reserved_file_basenames_contains_heartbeat(self):
+        """常量守卫：HEARTBEAT.md 必须在 RESERVED_FILE_BASENAMES 中"""
+        self.assertIn("HEARTBEAT.md", proxy_filters.RESERVED_FILE_BASENAMES)
+
+    def test_reserved_file_safe_content_is_effectively_empty(self):
+        """安全占位内容必须只含 # 注释行，保证 isHeartbeatContentEffectivelyEmpty → true
+        (对应 OpenClaw auth-profiles-*.js 里 isHeartbeatContentEffectivelyEmpty 的判定规则)"""
+        content = proxy_filters.RESERVED_FILE_SAFE_CONTENT
+        for line in content.split("\n"):
+            stripped = line.strip()
+            if not stripped:
+                continue
+            # 只允许 # 开头的注释（OpenClaw isHeartbeatContentEffectivelyEmpty 规则）
+            self.assertTrue(stripped.startswith("#"),
+                f"SAFE_CONTENT 含非注释行: {line!r} — 会让 HEARTBEAT.md 变成 effectively non-empty")
 
 
 if __name__ == "__main__":

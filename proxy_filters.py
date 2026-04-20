@@ -197,6 +197,32 @@ TOOL_PARAMS = {
 # 浏览器合法 profile
 VALID_BROWSER_PROFILES = {"openclaw", "chrome"}
 
+# ---------------------------------------------------------------------------
+# V37.8.16 MR-15 reserved-files-must-not-be-writable-by-llm
+# OpenClaw runtime 保留文件：LLM 不能通过 write/edit 工具写入这些文件
+#
+# 血案（2026-04-19）：PA 把"HN告警已恢复/任务完成"写进 workspace/HEARTBEAT.md
+# → OpenClaw heartbeat 机制被激活（文件非空非注释）
+# → 每条 WhatsApp 用户消息都被默认 HEARTBEAT prompt 覆盖 → LLM 回 HEARTBEAT_OK
+# → Gateway stripTokenAtEdges 剥离 12 字符 → 用户完全看不到 PA 回复 13 小时
+#
+# 防御：detect_reserved_file_write() 检测 → 改写 args.content 为安全注释占位 →
+# [SYSTEM_ALERT] 日志 → LLM 的 write 变成 no-op，HEARTBEAT.md 始终只含注释
+#
+# 详见: ontology/docs/cases/heartbeat_md_pa_self_silencing_case.md
+# ---------------------------------------------------------------------------
+RESERVED_FILE_BASENAMES = frozenset([
+    "HEARTBEAT.md",  # OpenClaw heartbeat activation control (MR-15 / V37.8.16)
+])
+
+# 安全占位内容，替换 LLM 尝试写入保留文件的内容（保证 isHeartbeatContentEffectivelyEmpty 返回 true）
+RESERVED_FILE_SAFE_CONTENT = (
+    "# HEARTBEAT.md\n"
+    "# Keep this file empty (or with only comments) to skip heartbeat API calls.\n"
+    "# 禁止写入任何非注释内容 —— 会触发 OpenClaw heartbeat 吞噬用户消息"
+    "（2026-04-19 血案 / V37.8.16 MR-15 自动拦截）\n"
+)
+
 # 请求体大小上限（从 config.yaml 加载）
 MAX_REQUEST_BYTES = _CFG_MAX_REQUEST_BYTES
 
@@ -530,6 +556,39 @@ def filter_system_alerts(messages, log_fn=None):
     return filtered, dropped
 
 
+def detect_reserved_file_write(tool_name, args):
+    """V37.8.16 MR-15: 检测 LLM 是否尝试 write/edit OpenClaw 保留文件。
+
+    OpenClaw 某些文件（如 HEARTBEAT.md）有 runtime 特殊语义。LLM 不知情地写入会
+    触发静默故障（见 heartbeat_md_pa_self_silencing_case.md）。本函数用于
+    proxy 层在响应转发前检测并拦截此类写入。
+
+    Args:
+        tool_name: 工具名（字符串，"write"/"edit"/其他）
+        args: 工具参数 dict（可能含 path / file_path 等 alias）
+
+    Returns:
+        (is_blocked: bool, reason: str)
+            is_blocked=True 时调用方应改写 args 为安全占位或拒绝调用
+            reason 用于日志/告警消息
+
+    纯函数 — 无 I/O，无状态，可任意单测。
+    """
+    if tool_name not in ("write", "edit"):
+        return False, ""
+    if not isinstance(args, dict):
+        return False, ""
+    # 支持 path 的常见 alias（fix_tool_args 可能在调用前或后，我们都要 cover）
+    path = args.get("path") or args.get("file_path") or args.get("file") or args.get("filepath") or ""
+    if not isinstance(path, str) or not path:
+        return False, ""
+    # 只匹配完整 basename（不做 case-insensitive，OpenClaw 源码用精确名 "HEARTBEAT.md"）
+    basename = os.path.basename(path.rstrip("/"))
+    if basename in RESERVED_FILE_BASENAMES:
+        return True, f"reserved file {basename} (path={path})"
+    return False, ""
+
+
 # V37.8.10: max chars of upstream body appended to proxy 502 error_str.
 # Bounds the 502 response size when upstream (adapter) returns long fallback
 # error chains. 500 chars is enough for "ALL 3 FALLBACKS FAILED: ..." messages.
@@ -759,6 +818,23 @@ def fix_tool_args(rj):
                     args = json.loads(args_str) if isinstance(args_str, str) else args_str
                 except (json.JSONDecodeError, ValueError):
                     args = {}
+
+                # V37.8.16 MR-15: 拦截对 OpenClaw 保留文件的写入
+                # 根因见 ontology/docs/cases/heartbeat_md_pa_self_silencing_case.md
+                if name in ("write", "edit"):
+                    blocked, reason = detect_reserved_file_write(name, args)
+                    if blocked:
+                        if name == "write":
+                            args["content"] = RESERVED_FILE_SAFE_CONTENT
+                        else:  # edit
+                            args["new_text"] = RESERVED_FILE_SAFE_CONTENT
+                        fn["arguments"] = json.dumps(args)
+                        modified = True
+                        # 打印 [SYSTEM_ALERT] 供 operator 在 proxy.log 中看到违规事件
+                        # （不推 WhatsApp：这是 LLM 层错误，不应惊动用户，但必须留证）
+                        print(f"[SYSTEM_ALERT] reserved-file-write blocked: {reason} "
+                              f"(V37.8.16 MR-15 — LLM 企图写 OpenClaw 保留文件，"
+                              f"自动替换为注释占位防静默故障)")
 
                 # Fix browser profile
                 if name.startswith("browser"):
