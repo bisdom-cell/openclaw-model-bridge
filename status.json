@@ -1,5 +1,5 @@
 {
-  "updated": "2026-04-20 04:10:28",
+  "updated": "2026-04-20 06:48:07",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-04-20",
+      "what": "V37.8.17 Route A 交付 + MR-14 / MR-15 MRD 第二步跃迁: (1) audit_coverage_retrospective.md 完整 618 行交付, 15 血案 × Q1/Q2/Q3 = 0% 预防率 / 87% 回归率 / 80% 空白类别盲区, 核心结论 \"ontology audit 是 regression engineering 系统不是 prevention engineering\". (2) MRD-RESERVED-FILES-001 实现: 扫 OpenClaw dist/*.js 里 f.name=== 字面模式自动发现 runtime 保留文件声明, 对比 proxy_filters.RESERVED_FILE_BASENAMES, dev 环境 skip / Mac Mini --full 真实扫描. 未来新保留文件自动报警. (3) MRD-ALERT-INDEPENDENCE-001 实现: 扫监控脚本 wa_* / keepalive / watchdog 白名单规则矩阵检测告警路径独立性 (wa_* 不得用 --channel whatsapp 告警), 探测路径豁免. 未来新监控脚本违反告警独立原则自动发现. (4) 两个 MRD 完成 MR-14 / MR-15 从\"声明层\"到\"运行时 CI 扫描\"第二步跃迁, 与 V37.8.8→V37.8.9 MR-11/MR-12 同款模式. governance v3.20→v3.21. 全量回归 36 suites / 1111 tests / 0 fail / 安全 93/100. (5) P0-1 路线 B 对抗性审计留下轮, 工程量大需单独启动. 下轮候选: MR-6 扩展 severity=high / audit-of-audit / 路线 C Security+Governance 双轨 / MR-10 可检测代理.",
+      "by": "claude_code"
+    },
     {
       "date": "2026-04-20",
       "what": "数据闭环验证: chaspark + finance_news 新信息源完整进入 KB（用户主动质疑触发验证）。证据链: (1) sources 归档: chaspark.md 35 chunks + finance_daily.md 116 chunks 均已 text_index 向量化。(2) notes 精华双通道沉淀: notes/茶思屋科技动态 2026-04-17~19.md (3 条) + notes/财经简报 2026-04-13~19.md (7 条), 推测是 PA 或 kb_harvest_chat 从对话/推送自动提炼。(3) kb_dream 今日 dream.md 提及 chaspark/财经 4 次, kb_review 通过 load_sources_from_registry 自动覆盖, search_kb / kb_rag 可语义检索. 数据复利正向循环: 原始归档 + 精华笔记双通道. 诊断首轮曾出现 0 匹配假警报（两个因素共同造成）: 我命令字段名错用 m.get(\"files\", []) 但 meta.json 实际结构只有 chunks 字段 + kb_embed 每 6 小时索引一次存在时间延迟窗口. 用户指出大概率是时间延迟合理修正我的过度自责. 方法学要点: 诊断 eventually-consistent 系统时先确认 cron 频率 + 数据写入时间 + 索引窗口, 首次查不到不等于数据断链. 本次无系统代码改动.",
@@ -172,11 +177,6 @@
       "date": "2026-04-11",
       "what": "V37.8 Mac Mini 生产硬验证通过 — governance --full: 35/35 不变式 / 136/136 checks (0 skip, FULL 模式全执行) / 9/9 元规则 全绿. 核心验证项: INV-LAYER-001 MR-6 硬强制 2 checks / INV-DREAM-002 SKIP_MAP_LOOPS 顺序锁真跑 kb_dream.sh 行号断言 / INV-CACHE-002 md5 content-hash mtime 漂移 parity 真跑 / INV-ENV-002 OPENCLAW_PHONE 真号 + 占位号反例守卫 / INV-DEPLOY-002 shlex AST 零 crontab 写入 token. preflight 75/2/2/0 (2 FAIL 是 pre-existing status.json+CLAUDE.md 分叉). job_smoke 33 job / 177 pass / 0 fail / 15 warn (历史日志). MRD-NOTIFY-002 activity 层假阳性 (source 层正确, activity 层扫错路径) 已登记 unfinished 待 V37.8.1 修.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-04-11",
-      "what": "V37.8 MR-6 深度补齐 + MRD-NOTIFY-002 语义修复 — 7 个 critical 不变式从单层升级双层: INV-TOOL-001 (新增 MAX_TOOLS 声明层引用) / INV-TOOL-002 (元数据修复 verification_layer 标签) / INV-DEPLOY-002 (新增 shlex AST token 扫描 crontab 写入) / INV-CRON-003 (新增源码匹配器模式引用声明层) / INV-ENV-002 (新增 REQUIRED_VARS OPENCLAW_PHONE 声明层 + 占位号反例守卫) / INV-DREAM-002 (新增 SKIP_MAP_LOOPS 顺序锁运行时验证, 赋值位于 Phase 1a/1b 门控之前) / INV-CACHE-002 (新增运行时 md5 content-hash 对照, mtime 漂移稳定性真跑, inline md5 避免 exec scope trap). INV-LAYER-001 新元不变式: MR-6 硬强制所有 critical 不变式声明 >=2 层验证深度, MRD-LAYER-001 warn 升级为 hard fail. MRD-NOTIFY-002 检测器重写: 接受 notify.sh --topic 或 openclaw message send --channel-id DISCORD_CH_X 两种 caller 形式 (28/32 job 直接绕过 notify.sh), topic_to_env 映射 papers/freight/alerts/daily/tech/ontology, activity 层扫 notify_queue + cache 日志 mtime. Governance v3.8→v3.9 (34→35 inv, 124→139 checks, 8/9→9/9 meta rules). 31 suites / 927 tests / 0 fail / 安全 93/100. governance --full: 35 不变式 / 125/125 checks / 9/9 元规则 全通过.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -234,9 +234,9 @@
   "quality": {
     "security_score": "93",
     "test_count": "1111",
-    "last_regression": "2026-04-20 03:35 pass",
+    "last_regression": "2026-04-20 06:47 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-04-20 03:35",
+    "security_score_time": "2026-04-20 06:47",
     "test_suites": "36",
     "governance_invariants": "52/52",
     "governance_checks": "222/233",
