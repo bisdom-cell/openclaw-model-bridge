@@ -645,14 +645,15 @@ def _discover_shallow_critical(data, severity):
 def _discover_audit_performance_regression(severity):
     """MRD-AUDIT-PERF-001 (V37.9 C16): 检测 governance_checker 自身性能退化。
 
-    读 ontology/.audit_metrics.jsonl 历史，对比当前 session wall_time
-    vs 最近 5 次（不含当次）均值。>2x 退化 → warn。
+    策略（V37.9 修正）：
+      - 读当次 SESSION_START 计算到此刻的 wall_time（实时，不等写入）
+      - 与 .audit_metrics.jsonl 历史最近 5 次 wall_time 均值对比
+      - 当次 / 均值 > 2.0 → warn（立即 catch sleep 类 mutation）
 
-    当次 wall_time 尚未写入（写入在 __main__ 结尾），所以这里读的是
-    **历史最新**与**历史均值**对比——等价于"上次跑是否比之前慢"。
-    对抗场景 C16 中：前 N 次都正常 → 注入 sleep 后第 N+1 次写入时慢 →
-    第 N+2 次 MRD 发现退化 → warn。
+    这避免了"metric 写入在 MRD 后执行，MRD 永远看不到当次慢"的闭环问题。
     """
+    # 当次 wall_time（到 MRD 触发这一刻的耗时）
+    current_wall_ms = int((time.time() - _AUDIT_SESSION_START) * 1000)
     metrics_path = os.path.join(_PROJECT_ROOT, "ontology", ".audit_metrics.jsonl")
     if not os.path.exists(metrics_path):
         return {
@@ -681,29 +682,27 @@ def _discover_audit_performance_regression(severity):
         return {
             "status": "skip",
             "severity": severity,
-            "message": f"历史 metric 只有 {len(history)} 条（需 ≥3 条才有基线）",
+            "message": (
+                f"历史 metric 只有 {len(history)} 条（需 ≥3 条才有基线）, "
+                f"当次 wall_time={current_wall_ms}ms"
+            ),
         }
-    latest = history[-1]
-    prior = history[-6:-1] if len(history) >= 6 else history[:-1]
-    if not prior:
-        return {
-            "status": "skip",
-            "severity": severity,
-            "message": "无 prior 历史基线",
-        }
+    # 取最近 5 条作为基线（历史均）
+    prior = history[-5:]
     avg_wall = sum(m.get("wall_time_ms", 0) for m in prior) / len(prior)
-    avg_checks = sum(m.get("total_checks_executed", 0) for m in prior) / len(prior)
-    latest_wall = latest.get("wall_time_ms", 0)
-    latest_checks = latest.get("total_checks_executed", 0)
     issues = []
-    if avg_wall > 0 and latest_wall / avg_wall > 2.0:
+    if avg_wall > 0 and current_wall_ms / avg_wall > 2.0:
         issues.append(
-            f"wall_time {latest_wall}ms vs 历史均值 {int(avg_wall)}ms "
-            f"({latest_wall/avg_wall:.1f}x 退化)"
+            f"当次 wall_time {current_wall_ms}ms vs 历史均值 {int(avg_wall)}ms "
+            f"({current_wall_ms/avg_wall:.1f}x 退化)"
         )
+    # 也对比最近一次 check_count（历史)
+    latest = history[-1]
+    latest_checks = latest.get("total_checks_executed", 0)
+    avg_checks = sum(m.get("total_checks_executed", 0) for m in prior) / len(prior)
     if avg_checks > 0 and latest_checks / avg_checks < 0.7:
         issues.append(
-            f"checks_executed {latest_checks} vs 历史均值 {int(avg_checks)} "
+            f"上次 checks_executed {latest_checks} vs 均值 {int(avg_checks)} "
             f"({(1-latest_checks/avg_checks)*100:.0f}% 下降)"
         )
     if issues:
@@ -711,16 +710,15 @@ def _discover_audit_performance_regression(severity):
             "status": "warn",
             "severity": severity,
             "message": f"audit 自身性能退化嫌疑: {'; '.join(issues)}",
-            "latest": latest,
+            "current_wall_ms": current_wall_ms,
             "avg_wall": avg_wall,
-            "avg_checks": avg_checks,
         }
     return {
         "status": "pass",
         "severity": severity,
         "message": (
-            f"audit 性能健康: wall={latest_wall}ms (avg {int(avg_wall)}ms), "
-            f"checks={latest_checks} (avg {int(avg_checks)})"
+            f"audit 性能健康: 当次 wall={current_wall_ms}ms "
+            f"(历史均值 {int(avg_wall)}ms, checks={latest_checks})"
         ),
     }
 
