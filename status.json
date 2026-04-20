@@ -1,5 +1,5 @@
 {
-  "updated": "2026-04-20 07:55:29",
+  "updated": "2026-04-20 08:01:45",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-04-20",
+      "what": "V37.9.1 路线 C Step 2 + Stage 2 话语权输出. (1) INV-SEC-001 扩展 per-dimension 7 维度阈值守卫 (密钥 15/测试 13/数据 10/部署 15/传输 9/审计 15/可用 8), 从总分≥90 升级为\"每维度不能塌陷\", 防单维度隐性退化盲区. (2) docs/articles/audit_is_regression_not_prevention.md 公开资产: 基于路线 A/B 实证数据论证 audit 是 regression engine 非 prevention tool, 6 条实际落地原则, Stage 2 第 4 份资产. (3) OpenClaw hold 决策确认 (距 4/17 评估 3 天). governance v3.24→v3.25 / 55 inv / 253 checks / 15 MR / 13 MRD scanners. 对抗审计 16/16 保持.",
+      "by": "claude_code"
+    },
     {
       "date": "2026-04-20",
       "what": "V37.9 四项结构性加固 — 从修血案进入建制度阶段. (1) 对抗审计 Cat A 集成 full_regression layer 3.5 (每 PR 前自动跑 10 已知血案场景防御力回归). (2) MR-6 扩展 high: MRD-LAYER-002 渐进强制 warn 级暴露 12 个单层 high 技术债. (3) C16 audit-of-audit: governance_checker 写 .audit_metrics.jsonl + MRD-AUDIT-PERF-001 用 SESSION_START 实时 wall_time + 5 次中位数对比 + 双条件阈值 (1.3x + 300ms). Route B C16 sleep 0.5→1.5s mutation 确认 UNEXPECTED catch. 至此 Route B 6/6 盲区全部闭合. (4) 路线 C Security + Governance 双轨统一: MR-16 立案 + INV-SEC-001 security-score ≥ 90 粗粒度守卫. 对抗审计最终 16/16 (100%). governance v3.23→v3.24 / 55 inv / 252 checks / 15 meta rules. 全量回归 36 suites / 1111 tests / 0 fail / 93/100.",
@@ -173,11 +178,6 @@
       "date": "2026-04-14",
       "what": "V37.8.4 Mac Mini E2E 验证通过：preflight 77/0/3 + job_smoke_test 186/0/11 + finance_news 手动运行成功。系统独立发现第 8 个僵尸 SCMPNews (95/95 超72h)，⚠️ ZOMBIE嫌疑 标记 + 告警正常触发 + 27 篇文章成功推送+LLM分析。按设计等 3 天连续命中再决定删除。登记 2 个边缘检测盲区：CNS1952 near-zombie (98/99 old + 1 短，老/总=99%但未=100%不触发) + SingTaoDaily 0-tweet stub (total=0 不触发 total>0 门槛)",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-04-14",
-      "what": "V37.8.4 finance_news X 僵尸账号血案闭环：删除 7 个已验证僵尸 handle (Reuters/WorldBank/BrookingsInst/caixin/yicaichina/ChannelNewsAsia/straits_times，停更 253-3364 天) + 加静默失败检测 (is_zombie_suspect parser + ⚠️ 诊断前缀 + zombies_${DAY}.txt + 3 天 comm -12 告警) + INV-X-001 新增 (36 不变式, 138 checks) + CLAUDE.md 原则 #27 升级强制 X 账号健康 ≠ HTTP 200 + 案例文档 finance_news_syndication_zombie_case.md + governance v3.9→v3.10。MR-10 (V37.8.3 引入) 正向兑现。全量回归 951 tests / 31 suites / 0 fail",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -235,13 +235,13 @@
   "quality": {
     "security_score": "93",
     "test_count": "1111",
-    "last_regression": "2026-04-20 07:54 pass",
+    "last_regression": "2026-04-20 08:01 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-04-20 07:54",
+    "security_score_time": "2026-04-20 08:01",
     "test_suites": "36",
     "governance_invariants": "52/52",
     "governance_checks": "222/233",
-    "version": "0.37.9"
+    "version": "0.37.9.1"
   },
   "incidents": [
     {
