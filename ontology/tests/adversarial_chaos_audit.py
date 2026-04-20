@@ -54,13 +54,37 @@ class ChaosScenario:
 def _count_violations(combined: str) -> dict:
     """数 violation 信号：fail (❌) / error (💥) / mrd_warn (⚠️ [MRD-)。
 
+    V37.8.18: MRD warn 消息通常形如 "N 处 ..." ，同一 warn 内含多违规。
+    之前只数 warn 行数 → baseline 已有 warn 时新增违规 delta=0（盲区）。
+    现在解析每条 warn 的 "N 处" 数字，累计成精确 violation count。
+
     为了区分 baseline 已有 vs mutation 新增，需要 count 而不是 bool。
     """
     lines = combined.splitlines()
+    fail_count = sum(1 for l in lines if "❌" in l and "[INV-" in l)
+    error_count = sum(1 for l in lines if "💥" in l)
+    # MRD warn 内部 "N 处" 数字累加（比简单数 warn 行精准）
+    mrd_warn_lines = [l for l in lines if "⚠️ [MRD-" in l]
+    mrd_detail_lines = []
+    # MRD 消息通常在 warn 行之后的下一行（格式 "     N 处 ..."）
+    for i, l in enumerate(lines):
+        if "⚠️ [MRD-" in l:
+            # 看下一行找 "N 处"
+            if i + 1 < len(lines):
+                mrd_detail_lines.append(lines[i + 1])
+    mrd_violation_count = 0
+    for dl in mrd_detail_lines:
+        m = re.search(r'(\d+)\s*处', dl)
+        if m:
+            mrd_violation_count += int(m.group(1))
+        else:
+            # 无具体数字的 warn 也算 1
+            mrd_violation_count += 1
     return {
-        "fail": sum(1 for l in lines if "❌" in l and "[INV-" in l),
-        "error": sum(1 for l in lines if "💥" in l),
-        "mrd_warn": sum(1 for l in lines if "⚠️ [MRD-" in l),
+        "fail": fail_count,
+        "error": error_count,
+        "mrd_warn": len(mrd_warn_lines),
+        "mrd_violations": mrd_violation_count,
     }
 
 
