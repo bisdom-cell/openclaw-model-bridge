@@ -150,26 +150,17 @@ def _c1_delete_soul_rule_10():
 
 
 def _c2_inflate_max_tools():
-    """把 MAX_TOOLS 默认值从 12 改到 999 → INV-TOOL-001/002 应报警"""
-    config_path = os.path.join(PROJECT_ROOT, "config_loader.py")
+    """把 max_tools 从 12 改到 999 → INV-TOOL-001/002 应报警"""
+    config_path = os.path.join(PROJECT_ROOT, "config.yaml")
 
     def mutate(content: str) -> str:
-        # 找 MAX_TOOLS 定义并改 default
-        new = re.sub(
-            r'"max_tools":\s*\d+',
-            '"max_tools": 999',
+        # config.yaml 里 `max_tools: 12` → 999
+        return re.sub(
+            r'max_tools:\s*\d+',
+            'max_tools: 999',
             content,
             count=1,
         )
-        # 也改 MAX_TOOLS 常量赋值
-        new = re.sub(
-            r'^MAX_TOOLS\s*=\s*\d+',
-            'MAX_TOOLS = 999',
-            new,
-            count=1,
-            flags=re.MULTILINE,
-        )
-        return new
 
     return file_mutation(config_path, mutate)
 
