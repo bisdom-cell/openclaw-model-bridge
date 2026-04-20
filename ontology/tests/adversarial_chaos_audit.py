@@ -51,35 +51,34 @@ class ChaosScenario:
     restore_fn: Callable[[], None] # 还原现场
 
 
-def run_governance(mode: str = "--json") -> dict:
-    """跑 governance_checker 返回结构化结果。
+def _count_violations(combined: str) -> dict:
+    """数 violation 信号：fail (❌) / error (💥) / mrd_warn (⚠️ [MRD-)。
 
-    Returns:
-        {
-          'exit_code': int,
-          'stdout': str,
-          'stderr': str,
-          'found_violations': bool,  # 简单启发：stdout 含 ❌ 或 💥 即视为 catch
-        }
+    为了区分 baseline 已有 vs mutation 新增，需要 count 而不是 bool。
     """
+    lines = combined.splitlines()
+    return {
+        "fail": sum(1 for l in lines if "❌" in l and "[INV-" in l),
+        "error": sum(1 for l in lines if "💥" in l),
+        "mrd_warn": sum(1 for l in lines if "⚠️ [MRD-" in l),
+    }
+
+
+def run_governance(mode: str = "") -> dict:
+    """跑 governance_checker 返回结构化结果。"""
     cmd = ["python3", os.path.join(PROJECT_ROOT, "ontology", "governance_checker.py")]
     if mode:
         cmd.append(mode)
     proc = subprocess.run(cmd, capture_output=True, text=True, cwd=PROJECT_ROOT, timeout=120)
     combined = proc.stdout + proc.stderr
-    # "catch" 判定：non-zero exit 或 stdout 含 fail/error 标记
-    found = (
-        proc.returncode != 0
-        or "❌" in combined
-        or "💥" in combined
-        or '"status": "fail"' in combined
-        or '"status": "error"' in combined
-    )
+    violations = _count_violations(combined)
+    total = sum(violations.values())
     return {
         "exit_code": proc.returncode,
         "stdout": proc.stdout,
         "stderr": proc.stderr,
-        "found_violations": found,
+        "violations": violations,
+        "total_violations": total,
     }
 
 
@@ -421,30 +420,26 @@ def run_scenario(scenario: ChaosScenario, verbose: bool = False) -> dict:
             "reason": "git status NOT clean after restore — manual check needed",
         }
 
-    # 5. 评估：audit 是否抓到了破坏？
-    baseline_caught = baseline["found_violations"]
-    mutated_caught = mutated["found_violations"]
+    # 5. 评估：audit 是否"新增"catch 了破坏？
+    baseline_total = baseline["total_violations"]
+    mutated_total = mutated["total_violations"]
+    delta = mutated_total - baseline_total
 
-    caught_by_mutation = (not baseline_caught) and mutated_caught
-    # 或者 baseline 也有 violation，但 mutated 增加了新的 fail → 更难判定，降级：
-    # 如果 baseline 干净 + mutated fail → caught
-    # 如果 baseline 本来就 fail → 无法区分，返回 INCONCLUSIVE
+    # delta > 0 意味着 mutation 让 audit 触发了**更多**违规（抓到了）
+    caught_by_mutation = delta > 0
 
-    if baseline_caught:
-        status = "INCONCLUSIVE"
-        reason = "baseline has pre-existing violations — cannot isolate mutation effect"
-    elif scenario.expected_catch and caught_by_mutation:
-        status = "PASS"  # audit 符合预期 catch 了破坏
-        reason = "audit caught mutation as expected"
+    if scenario.expected_catch and caught_by_mutation:
+        status = "PASS"
+        reason = f"audit caught mutation (violations {baseline_total} → {mutated_total}, +{delta})"
     elif scenario.expected_catch and not caught_by_mutation:
-        status = "FAIL"  # audit 应该抓但没抓到 — 真实盲区
-        reason = "audit DID NOT catch mutation (expected to catch) — BLIND SPOT"
+        status = "FAIL"
+        reason = f"audit DID NOT catch mutation (violations {baseline_total} → {mutated_total}) — BLIND SPOT"
     elif not scenario.expected_catch and caught_by_mutation:
-        status = "UNEXPECTED"  # 意外 catch 了（加分项）
-        reason = "audit caught mutation (not expected)"
+        status = "UNEXPECTED"
+        reason = f"audit unexpectedly caught (violations {baseline_total} → {mutated_total}, +{delta})"
     else:
-        status = "PASS"  # 符合预期没抓到（探测类）
-        reason = "audit did not catch (as expected for exploratory)"
+        status = "PASS"
+        reason = f"audit did not catch (as expected for exploratory, violations {baseline_total} → {mutated_total})"
 
     return {
         "id": scenario.id,
@@ -454,8 +449,9 @@ def run_scenario(scenario: ChaosScenario, verbose: bool = False) -> dict:
         "expected_catch": scenario.expected_catch,
         "status": status,
         "reason": reason,
-        "baseline_caught": baseline_caught,
-        "mutated_caught": mutated_caught,
+        "baseline_violations": baseline["violations"],
+        "mutated_violations": mutated["violations"],
+        "delta": delta,
     }
 
 
@@ -472,8 +468,8 @@ def print_result(r: dict, verbose: bool = False):
     }.get(r["status"], "?")
     print(f"{icon} [{r['id']}] {r.get('name','?')} — {r['status']}")
     print(f"     {r['reason']}")
-    if verbose and r.get("status") in ("FAIL", "UNEXPECTED"):
-        print(f"     baseline_caught={r.get('baseline_caught')} mutated_caught={r.get('mutated_caught')}")
+    if verbose:
+        print(f"     baseline={r.get('baseline_violations')} mutated={r.get('mutated_violations')} delta={r.get('delta')}")
 
 
 def main():
@@ -522,11 +518,16 @@ def main():
     a_scenarios = [r for r in results if r.get("category") == "A" and r.get("expected_catch")]
     if a_scenarios:
         caught = sum(1 for r in a_scenarios if r["status"] == "PASS")
-        inconclusive = sum(1 for r in a_scenarios if r["status"] == "INCONCLUSIVE")
         total = len(a_scenarios)
         print()
-        print(f"  Category A 真实防御率: {caught}/{total - inconclusive} "
-              f"(INCONCLUSIVE: {inconclusive})")
+        print(f"  Category A 真实防御率: {caught}/{total}")
+
+    # Category B (expected_catch=False) 意外 catch 的数
+    b_scenarios = [r for r in results if r.get("category") == "B"]
+    if b_scenarios:
+        unexpected = sum(1 for r in b_scenarios if r["status"] == "UNEXPECTED")
+        total_b = len(b_scenarios)
+        print(f"  Category B 意外 catch: {unexpected}/{total_b} (越多 = audit 覆盖维度越广)")
 
     # Exit code
     fails = by_status.get("FAIL", []) + by_status.get("DIRTY", [])
