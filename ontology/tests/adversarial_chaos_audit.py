@@ -218,6 +218,83 @@ def _c5_delete_reserved_file_basenames():
     return file_mutation(proxy_path, mutate)
 
 
+def _c6_wa_keepalive_alerts_via_whatsapp():
+    """改 wa_keepalive.sh 告警通道为 --channel whatsapp
+    → INV-WA-001 runtime 断言 / MRD-ALERT-INDEPENDENCE-001 应报警"""
+    wa_path = os.path.join(PROJECT_ROOT, "wa_keepalive.sh")
+
+    def mutate(content: str) -> str:
+        # 在 ESCALATE 附近注入 --channel whatsapp（违反告警独立性）
+        return re.sub(
+            r'(ESCALATE_FIRST=\d+)',
+            r'\1\n# CHAOS_MUTATED ESCALAT via --channel whatsapp',
+            content,
+            count=1,
+        )
+
+    return file_mutation(wa_path, mutate)
+
+
+def _c7_remove_quiet_alert_discord():
+    """删除 quiet_alert 的 Discord 推送 → INV-QUIET-001 应报警"""
+    auto_path = os.path.join(PROJECT_ROOT, "auto_deploy.sh")
+
+    def mutate(content: str) -> str:
+        return re.sub(
+            r'静默期跳过WhatsApp.*Discord仍推',
+            'CHAOS_MUTATED 静默期全部跳过',
+            content,
+            count=1,
+        )
+
+    return file_mutation(auto_path, mutate)
+
+
+def _c8_dream_log_to_stdout():
+    """改 kb_dream.sh log() 从 >&2 移除 → MRD-LOG-STDERR-001 应报警"""
+    dream_path = os.path.join(PROJECT_ROOT, "kb_dream.sh")
+
+    def mutate(content: str) -> str:
+        # 找 log() 单行定义含 >&2，去掉 >&2
+        return re.sub(
+            r'^log\(\)\s*\{\s*echo\s+"([^"]*)"[^}]*>&2[^}]*\}',
+            r'log() { echo "\1"; }  # CHAOS_MUTATED: removed >&2',
+            content,
+            count=1,
+            flags=re.MULTILINE,
+        )
+
+    return file_mutation(dream_path, mutate)
+
+
+def _c9_introduce_positional_parser():
+    """在 LLM 解析脚本引入 `i += 3` 位置索引反模式 → MRD-LLM-PARSER-POSITIONAL-001 应报警"""
+    # 选一个 MRD 扫描覆盖的脚本
+    target = os.path.join(PROJECT_ROOT, "kb_review_collect.py")
+
+    def mutate(content: str) -> str:
+        # 在文件末尾追加违规代码块（独立函数避免影响运行）
+        return content.rstrip() + "\n\n# CHAOS_MUTATED positional violation\ndef _chaos():\n    content = 'abc'\n    lines = content.split('\\n')\n    i = 0\n    i += 3\n    return lines[i+1]\n"
+
+    return file_mutation(target, mutate)
+
+
+def _c10_reinstate_zombie_handle():
+    """重新加入僵尸 PDChina → INV-X-001 file_not_contains 守卫应报警"""
+    fn_path = os.path.join(PROJECT_ROOT, "jobs/finance_news/run_finance_news.sh")
+
+    def mutate(content: str) -> str:
+        # 在 FINANCE_X_ACCOUNTS 里加回 PDChina
+        return re.sub(
+            r'("asahi\|朝日新闻\(X\)\|cn")',
+            r'"PDChina|人民日报英文(X)|cn"  # CHAOS_MUTATED\n    \1',
+            content,
+            count=1,
+        )
+
+    return file_mutation(fn_path, mutate)
+
+
 # ═══════════════════════════════════════════════════════════════════════
 # 场景注册表
 # ═══════════════════════════════════════════════════════════════════════
@@ -257,6 +334,41 @@ SCENARIOS = [
         description="清空 RESERVED_FILE_BASENAMES frozenset",
         expected_catch=True,
         mutate_fn=_c5_delete_reserved_file_basenames,
+        restore_fn=lambda: None,
+    ),
+    ChaosScenario(
+        id="C6", category="A", name="wa_keepalive_alerts_via_whatsapp",
+        description="wa_keepalive.sh 告警路径注入 --channel whatsapp（违反告警独立性）",
+        expected_catch=True,
+        mutate_fn=_c6_wa_keepalive_alerts_via_whatsapp,
+        restore_fn=lambda: None,
+    ),
+    ChaosScenario(
+        id="C7", category="A", name="remove_quiet_alert_discord",
+        description="删除 quiet_alert 静默期 Discord 推送注释",
+        expected_catch=True,
+        mutate_fn=_c7_remove_quiet_alert_discord,
+        restore_fn=lambda: None,
+    ),
+    ChaosScenario(
+        id="C8", category="A", name="dream_log_to_stdout",
+        description="kb_dream.sh log() 移除 >&2（回到写 stdout）",
+        expected_catch=True,
+        mutate_fn=_c8_dream_log_to_stdout,
+        restore_fn=lambda: None,
+    ),
+    ChaosScenario(
+        id="C9", category="A", name="positional_parser_in_kb_review",
+        description="kb_review_collect.py 引入 i += 3 位置索引反模式",
+        expected_catch=True,
+        mutate_fn=_c9_introduce_positional_parser,
+        restore_fn=lambda: None,
+    ),
+    ChaosScenario(
+        id="C10", category="A", name="reinstate_zombie_pdchina",
+        description="finance_news 重新加入僵尸 PDChina handle",
+        expected_catch=True,
+        mutate_fn=_c10_reinstate_zombie_handle,
         restore_fn=lambda: None,
     ),
 ]
