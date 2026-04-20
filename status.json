@@ -1,5 +1,5 @@
 {
-  "updated": "2026-04-20 07:17:06",
+  "updated": "2026-04-20 07:23:34",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-04-20",
+      "what": "V37.8.18 Phase 2 完整闭环: 2 个 🟡 中优先级盲区修复 + 对抗验证升级到 5/6 (83%). (1) INV-COST-001 新增: retry 上限守卫 ceiling=10, 4 checks 含 runtime iterative walk 避开 exec() 作用域陷阱. C12 对抗 🎉 UNEXPECTED catch. (2) INV-OBSERVABILITY-001 扩展 C13 last_run 一致性: 4 新 file_contains 锁定 kb_inject/kb_evening/kb_review/kb_harvest_chat + runtime 断言 job_watchdog 监控列表与脚本路径一致. C13 对抗 🎉 UNEXPECTED catch. 累计成绩: 53→54 不变式 / 240→249 checks / 9→11 MRD scanners. Route B 修复进度: 5/6 盲区修复验证. 仅剩 C16 audit-of-audit (架构级, V37.9 候选). governance v3.22→v3.23. 全量回归 36 suites / 1111 tests / 0 fail / 93/100.",
+      "by": "claude_code"
+    },
     {
       "date": "2026-04-20",
       "what": "V37.8.18 Phase 1 完整闭环: Route B 3 个 🔴 高优先级盲区修复 + 对抗审计 counter 改进 (4 commits e2b4301/7c5ef4d 系列). 成果数字: Category B 意外 catch 从 0/6 升到 3/6 (50%) - 证明修复真实生效. (1) C14 dict repr: INV-KB-001 扩展 runtime 断言覆盖 flatten_content(dict), mutation 让 fallback 返回 repr 时 audit 立即抓到. (2) C11 silent except: 新增 MRD-SILENT-EXCEPT-001 AST 扫所有 .py 的裸 except / except Exception: pass, 首跑发现 12 处历史技术债 (adapter/kb_trend/governance_checker 自身), 登记待清理; mutation 注入第 13 处立即 catch. (3) C15 push bypass: 新增 MRD-PUSH-ROUTE-001 扫所有 .sh 的 openclaw message send, 22 脚本白名单豁免, jobs/**/*.sh 自动豁免; rogue pusher 立即 catch +2 violations. (4) 对抗 counter 改进: 解析 MRD warn 内 \"N 处\" 数字, 避免 baseline 已有 warn 时 delta=0 的盲区. 方法学洞察: 连工具本身也有自己的盲区! 剩余 3 盲区候选: 🟡 C13 last_run (中优先级) + C12 retry 上限 (中) + ⚫ C16 audit-of-audit (架构级). governance v3.21→v3.22. 全量回归 36 suites / 1111 tests / 0 fail / 93/100.",
@@ -172,11 +177,6 @@
     {
       "date": "2026-04-14",
       "what": "原则 #30 新增: 开工必须主动声明模型（第 0 号宪法执行机制）。格式固定为 🤖 本次 session 模型：Claude Opus 4.6 (claude-opus-4-6) | 最强级别，无降级 | fast mode 状态见 /fast 命令，独占一行放在任何寒暄/分析/工具调用之前。模型 ID 非 claude-opus-4-6 立即停止告知用户。每次必查 29→30 条。触发: 用户追问是否最强模型才能确认，声明应主动前置"
-    },
-    {
-      "date": "2026-04-13",
-      "what": "V37.8.3: (1) finance_news 3个错误X账号修复 (CaixinGlobal→caixin, YicaiGlobal→yicaichina, STcom→straits_times) (2) Dream MIN_ACCEPTABLE_CHARS 1500→3000 + BEST_CHARS 未定义变量修复 (3) kb_evening E2E测试时区闪烁修复 (4) preflight 连锁修复闭环: FILE_MAP多目标支持 + SCRIPT_DIR HOME检测 + auto_deploy双目标部署 + preflight/job_smoke_test纳入FILE_MAP, 5轮修复从20失败到0失败 (5) MR-10 understand-before-fix 新元规则(连锁修复血案教训) (6) 原则#28理解再动手 + 原则#29开工收工零遗漏 (7) 第0号宪法: 最强模型不降配不降速不妥协 (8) 案例文档 preflight_cascading_fix_case.md",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -234,13 +234,13 @@
   "quality": {
     "security_score": "93",
     "test_count": "1111",
-    "last_regression": "2026-04-20 07:16 pass",
+    "last_regression": "2026-04-20 07:22 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-04-20 07:16",
+    "security_score_time": "2026-04-20 07:22",
     "test_suites": "36",
     "governance_invariants": "52/52",
     "governance_checks": "222/233",
-    "version": "0.37.8.17"
+    "version": "0.37.8.18"
   },
   "incidents": [
     {
