@@ -2943,6 +2943,56 @@ invariants:
           e2.read = lambda: (_ for _ in ()).throw(RuntimeError("boom"))
           reason2 = m._compose_http_reason(e2)
           assert "HTTP 502" in reason2, "fail-open contract violated"
+      # V37.8.18 Phase 2 Route B C13 盲区修复: last_run_*.json 一致性
+      - name: "V37.8.18 kb_inject.sh 必须写 last_run_inject.json"
+        check_type: file_contains
+        file: kb_inject.sh
+        pattern: "last_run_inject\\.json"
+      - name: "V37.8.18 kb_evening.sh 必须写 last_run_evening.json"
+        check_type: file_contains
+        file: kb_evening.sh
+        pattern: "last_run_evening\\.json"
+      - name: "V37.8.18 kb_review.sh 必须写 last_run_review.json"
+        check_type: file_contains
+        file: kb_review.sh
+        pattern: "last_run_review\\.json"
+      - name: "V37.8.18 kb_harvest_chat.py 必须写 last_run_harvest_chat.json"
+        check_type: file_contains
+        file: kb_harvest_chat.py
+        pattern: "last_run_harvest_chat\\.json"
+      - name: "V37.8.18 runtime: 所有已登记 LLM job 的 last_run 路径与 job_watchdog 监控列表一致"
+        check_type: python_assert
+        code: |
+          # C13 盲区防御: job_watchdog 的监控列表必须与脚本实际写入路径一致
+          # 若脚本被改 last_run 路径但 watchdog 未同步 → 监控失效 (silent)
+          import re, os
+          with open("job_watchdog.sh", "r", encoding="utf-8") as f:
+              watchdog = f.read()
+          # 从 watchdog 提取 "last_run_XXX.json" 期望值
+          expected = set(re.findall(r'last_run_(\w+)\.json', watchdog))
+          # 每个 expected 对应的脚本必须真的写它
+          # 映射：job id → script path
+          job_scripts = {
+              "inject":        "kb_inject.sh",
+              "evening":       "kb_evening.sh",
+              "review":        "kb_review.sh",
+              "harvest_chat":  "kb_harvest_chat.py",
+              "discussions":   "jobs/openclaw_official/run_discussions.sh",
+              "governance_audit": "governance_audit_cron.sh",
+          }
+          violations = []
+          for jid in expected:
+              if jid not in job_scripts:
+                  continue  # 未登记映射的 job 跳过（avoid false positive）
+              spath = job_scripts[jid]
+              if not os.path.exists(spath):
+                  continue
+              with open(spath, "r", encoding="utf-8", errors="ignore") as f:
+                  script_src = f.read()
+              if f"last_run_{jid}.json" not in script_src:
+                  violations.append(f"{spath} 脚本未写 last_run_{jid}.json "
+                                    f"但 watchdog 期望它")
+          assert not violations, f"last_run 路径漂移: {violations}"
 
   - id: INV-WA-001
     name: wa-keepalive-escalates-to-discord-on-consecutive-warn
