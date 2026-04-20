@@ -1122,7 +1122,7 @@ invariants:
   - id: INV-DREAM-001
     name: map-budget-scales-with-mode
     meta_rule: MR-4
-    verification_layer: [declaration]
+    verification_layer: [declaration, runtime]
     severity: high
     declaration: "Dream 的 DREAM_TIMEOUT_SEC 必须按模式动态：Map-Only 模式 >= 5400s (90min) 以容纳全量 KB bootstrap，Reduce full run 保持 3600s (60min)"
     design_decision: |
@@ -1141,6 +1141,40 @@ invariants:
         check_type: file_contains
         file: kb_dream.sh
         pattern: 'PENDING_COUNT.*-ge 30.*PENDING_SIZE.*-gt 24000'
+      # V37.9.2: MR-6 深度补齐 runtime 层（原仅 declaration）
+      - name: "V37.9.2 runtime: MAP_ONLY 模式预算 >= 5400s + Reduce 模式预算 <= 3600s"
+        check_type: python_assert
+        code: |
+          # Runtime 层补强: 真读 kb_dream.sh 解析两处 DREAM_TIMEOUT_SEC 赋值
+          # 确保预算映射正确（MAP_ONLY 必须比 Reduce 更宽，否则一切退化到固定预算）
+          import re
+          with open("kb_dream.sh", "r", encoding="utf-8") as f:
+              src = f.read()
+          # 找 DREAM_TIMEOUT_SEC 所有赋值位点
+          assignments = re.findall(r'DREAM_TIMEOUT_SEC\s*=\s*(\d+)', src)
+          assert len(assignments) >= 2, (
+              f"kb_dream.sh 至少应有 2 处 DREAM_TIMEOUT_SEC 赋值（MAP_ONLY 与 Reduce），"
+              f"实际 {len(assignments)}: {assignments}"
+          )
+          # 转成 int
+          values = []
+          for a in assignments:
+              values.append(int(a))
+          # 最大值应 >= 5400 (MAP_ONLY 90 min 窗口)
+          max_budget = max(values)
+          assert max_budget >= 5400, (
+              f"DREAM_TIMEOUT_SEC 最大值 {max_budget}s 应 >= 5400s (MAP_ONLY 模式)"
+          )
+          # 最小值 <= 3600 (Reduce 60 min 足够读缓存)
+          min_budget = min(values)
+          assert min_budget <= 3600, (
+              f"DREAM_TIMEOUT_SEC 最小值 {min_budget}s 应 <= 3600s (Reduce 模式)"
+          )
+          # 差距 >= 1800s (30 min)：证明确实按模式动态而非同一常量
+          assert max_budget - min_budget >= 1800, (
+              f"MAP_ONLY 与 Reduce 预算差 {max_budget - min_budget}s < 1800s: "
+              "预算可能未真正按模式分化"
+          )
 
   - id: INV-DREAM-002
     name: reduce-path-must-not-re-run-map-loops
@@ -1483,7 +1517,7 @@ invariants:
   - id: INV-PA-002
     name: soul-rule-10-present
     meta_rule: MR-4
-    verification_layer: [declaration]
+    verification_layer: [declaration, runtime]
     severity: high
     declaration: "SOUL.md 规则 10 '告警消息不跟进' 必须存在且包含主题对齐硬规则，作为 LLM 层最终防线（当 proxy filter 漏过时）"
     design_decision: |
@@ -1515,6 +1549,51 @@ invariants:
         check_type: file_contains
         file: SOUL.md
         pattern: '\[SYSTEM_ALERT\]'
+      # V37.9.2: MR-6 深度补齐 runtime 层（原仅 declaration）
+      - name: "V37.9.2 runtime: SOUL.md 规则 10 结构完整（非片段式混入）"
+        check_type: python_assert
+        code: |
+          # Runtime 层补强: 真读 SOUL.md 解析规则 10 完整段落，
+          # 确保 5 个声明层 pattern 都在"规则 10"内部而非分散在文件各处。
+          # file_contains 只能证"字符串存在"，runtime 证"语义结构连贯"。
+          with open("SOUL.md", "r", encoding="utf-8") as f:
+              soul = f.read()
+          # 定位规则 10 块：从"10. **🔴 告警消息不跟进"到下一条规则（"11." 或 "## 我的性格"）
+          import re
+          rule10_start = soul.find("告警消息不跟进")
+          assert rule10_start > 0, "规则 10 标题未找到"
+          # 结束边界：下一条"11. **" 或 "## 我的性格"，取最近者
+          rule11_match = re.search(r'\n\s*11\.\s*\*\*', soul[rule10_start:])
+          next_section = soul.find("## 我的性格", rule10_start)
+          end_candidates = []
+          if rule11_match:
+              end_candidates.append(rule10_start + rule11_match.start())
+          if next_section > 0:
+              end_candidates.append(next_section)
+          assert end_candidates, "规则 10 结束边界未找到"
+          rule10_end = min(end_candidates)
+          rule10_text = soul[rule10_start:rule10_end]
+          # 5 个关键短语必须都在规则 10 块内（不是散落在其他规则）
+          # V37.3 教训: 避免 generator expression / list comprehension
+          # 在 exec() locals 作用域看不到外层变量
+          required_phrases = [
+              "告警消息不跟进",
+              "2026-04-11 血案规则",
+              "主题对齐",
+              "完全磁盘访问权限",
+              "[SYSTEM_ALERT]",
+          ]
+          missing = []
+          for p in required_phrases:
+              if p not in rule10_text:
+                  missing.append(p)
+          assert not missing, (
+              f"规则 10 块内缺失关键短语: {missing}. 整块长度={len(rule10_text)} chars"
+          )
+          # 合理的规则 10 块长度 ≥ 400 字（过短 = 内容被意外删除）
+          assert len(rule10_text) >= 400, (
+              f"规则 10 块过短 ({len(rule10_text)} chars)，可能已被压缩或删除"
+          )
 
   - id: INV-REVIEW-001
     name: kb-review-fails-loud-not-silent
@@ -2813,7 +2892,7 @@ invariants:
   - id: INV-DEPLOY-003
     name: status-json-is-exempt-from-drift-sync-at-both-preflight-and-auto-deploy
     meta_rule: MR-4
-    verification_layer: [declaration]
+    verification_layer: [declaration, runtime]
     severity: high
     declaration: |
       status.json 是 Claude Code（仓库快照）和 Mac Mini cron（每小时 runtime
@@ -2855,6 +2934,41 @@ invariants:
         check_type: file_contains
         file: auto_deploy.sh
         pattern: '"status\.json\|\$HOME/\.kb/status\.json"'
+      # V37.9.2: MR-6 深度补齐 runtime 层（原仅 declaration）
+      - name: "V37.9.2 runtime: 两侧脚本里 status.json 豁免紧随 continue 语义正确"
+        check_type: python_assert
+        code: |
+          # Runtime 层补强: 验证两侧脚本的 status.json 豁免代码结构完整
+          # 豁免 = 识别 + 立即 continue/skip（而非只声明 pattern 不真跳过）
+          import re
+          violations = []
+          scripts = ["preflight_check.sh", "auto_deploy.sh"]
+          for script in scripts:
+              with open(script, "r", encoding="utf-8") as f:
+                  src = f.read()
+              # 找所有 `"status.json"` 出现位置（真实引用，非注释）
+              # pattern: `if [[ "$SRC" == "status.json" ]]; then continue`
+              # 允许 continue 在 status.json 之后 500 字符窗口内（含换行 then fi 等）
+              found_good = False
+              for m in re.finditer(r'"status\.json"', src):
+                  pos = m.start()
+                  # 跳过注释行里的引用
+                  line_start = src.rfind("\n", 0, pos) + 1
+                  line = src[line_start:src.find("\n", pos)]
+                  if line.lstrip().startswith("#"):
+                      continue
+                  # 往后找 500 字符内的 continue
+                  tail = src[pos:pos + 500]
+                  if "continue" in tail:
+                      found_good = True
+                      break
+              if not found_good:
+                  violations.append(
+                      f"{script}: 无 status.json 豁免代码（SRC/path == status.json → continue）"
+                  )
+          assert not violations, (
+              f"drift 豁免代码结构缺失: {violations}"
+          )
 
   - id: INV-OBSERVABILITY-001
     name: llm-error-chain-is-transparent-across-proxy-and-client
@@ -3850,7 +3964,7 @@ meta_rule_discovery:
 # 5. 审计元数据
 # ═══════════════════════════════════════════════════════════════════════
 audit_metadata:
-  version: "3.25"
+  version: "3.26"
   created: "2026-04-07"
   upgraded: |
     v3.0 → v3.1: 通知路径治理(INV-NOTIFY-003/004) + 错误可观测性(MRD-ERROR-001) + 效果层启动(MRD-NOTIFY-002)
@@ -3864,6 +3978,7 @@ audit_metadata:
     v3.7 → v3.8: V37.7 双跑审计闭环 — (a) MR-8 "copy-paste-is-a-bug-class" 从 candidate 正式形式化进入 meta_rules (INV-EVENING-001 重新归属); (b) MR-9 "state-writes-go-through-helper-not-raw-redirect" 新增 (MR-4 上游预防层, 禁止 shell `>>` 直写持久化 state 文件, 必须走 kb_append_source.sh / kb_write.sh 等 helper); (c) INV-SRC-001 重新归属 MR-9 并新增 2 个 catch-all 运行时 scan (任何位置 `>> "$KB_SRC"` + 任何 `>> sources/*.md` 路径); (d) INV-DEDUP-002 新增 (kb-dedup-pre-filters-dangling-index-entries, MR-4 第 4 次演出 — dangling index refs 被误判为 duplicate 并在 --apply 时删除历史); (e) INV-GOV-001 check 2 重构去掉 JSON_MODE global mutation (依赖注入 print_results(json_mode=False) 参数); (f) run_discussions.sh V37.6 P0-2 第 16 处漏网修复 (bucket 1, MR-4 第 5 次演出); (g) audit_log.verify_chain JSON parse error prev_hash 级联 bug 修复 (不再让解析错误静默传播到下一行 prev check); (h) kb_evening "今日笔记" label semantics 修复 (count_today_notes filename prefix 扫描 vs 历史累计 note_count)
     v3.8 → v3.9: V37.8 MR-6 深度补齐 + MRD-NOTIFY-002 语义修复 — (a) 7 个 critical 单层不变式全部补第二层验证: INV-TOOL-001 (+declaration: proxy_filters.py 静态引用 MAX_TOOLS), INV-TOOL-002 (元数据标签修正，已有双层未声明), INV-DEPLOY-002 (+runtime: shlex tokenize AST 扫描 auto_deploy.sh 无 crontab 写入 token 序列), INV-CRON-003 (+declaration: _cron_cmd_invokes 精确匹配器源码守卫), INV-ENV-002 (+declaration: preflight REQUIRED_VARS 必含 OPENCLAW_PHONE + YAML 占位号字面量反例守卫), INV-DREAM-002 (+runtime: SKIP_MAP_LOOPS 赋值行号必须在 Phase 1a/1b 门控之前), INV-CACHE-002 (+runtime: 真跑 md5 对照同内容不同 mtime 的两个 tempfile hash 相等 + 不同内容 hash 不等); (b) INV-LAYER-001 新增 (critical-invariants-have-two-layers, meta_rule=MR-6, 把 MRD-LAYER-001 的 warn 升级为 hard-enforcing invariant — 未来任何新增 critical 不变式只要 <2 层就直接 fail); (c) MRD-NOTIFY-002 检测器重写 — 原实现只 grep `--topic X` 字符串但 32 个 job 中 28 个 bypass notify.sh 直接走 `DISCORD_CH_<X>`，导致 4-6 个频道长期被误报 silent。新实现两层: source layer (dev + full 都跑, 扫 jobs/*/run_*.sh 接受 `--topic T` 或 `DISCORD_CH_<T_upper>` 任一 caller) + activity layer (仅 --full, 用 notify_queue/jobs cache mtime 而非字符串 grep)
     v3.9 → v3.10: V37.8.4 finance_news X 僵尸账号血案 — INV-X-001 新增 (syndication-account-must-have-fresh-tweets, meta_rule=MR-10, severity=high) 锁定 5 层防御: parser 检测 diag['total']>0 且 100% 超窗口 + ⚠️ ZOMBIE嫌疑 诊断前缀 + 独立 zombies_${DAY}.txt 文件 + 3 天 comm -12 连续告警 + 7 个已确认僵尸 handle (Reuters/WorldBank/BrookingsInst/caixin/yicaichina/ChannelNewsAsia/straits_times) file_not_contains 守卫。CLAUDE.md 原则 #27 升级强制条款 "X 账号健康 ≠ HTTP 200" — 协议层绿灯不等于内容层健康，Syndication API 对 embed-disabled 或停更账号返回 stale 快照 (最老 3364 天)。本次是 MR-10 (V37.8.3 引入) 被违反后的正向兑现: 血案本身成为元规则执行力的训练样本。
+    v3.25 → v3.26: V37.9.2 MR-6 深度补齐 — 12 单层 high 减到 9（-3），逐个升级到双层 [declaration, runtime]. (1) INV-PA-002 (SOUL.md 规则 10 存在): 加 runtime 解析规则 10 完整块（标题定位 + 下一规则边界 + 5 关键短语必须都在块内 + 块长度 ≥ 400 chars）防"关键短语散落在其他规则被误判通过"盲区. 避开 V37.3 exec scope trap 用 iterative for 替代 list comprehension. (2) INV-DREAM-001 (map-budget-scales-with-mode): 加 runtime 真解析 kb_dream.sh 所有 DREAM_TIMEOUT_SEC 赋值，断言 max >= 5400s (MAP_ONLY 90min) + min <= 3600s (Reduce 60min) + 差值 >= 1800s（证实真动态而非常量）. (3) INV-DEPLOY-003 (status.json drift 豁免): 加 runtime 扫两侧脚本 (preflight + auto_deploy) 每个 "status.json" 字面量 500 字符内有 continue，跳过注释引用（三 case 证实 continue 紧随豁免）. MRD-LAYER-002 单层 high warn 从 12 → 9. 本次补齐策略："选择最稳升级"（已有 runtime 可行且不需新增依赖），留下最硬的 9 个作为未来血案修复时顺便升级。governance v3.25→v3.26 / 253→256 checks (+3).
     v3.24 → v3.25: V37.9.1 路线 C Step 2 + Stage 2 话语权输出 — (1) INV-SEC-001 runtime 扩展 per-dimension 阈值守卫: 7 个维度各有 MIN_THRESHOLDS dict（密钥 15/测试 13/数据 10/部署 15/传输 9/审计 15/可用 8），从"总分 ≥ 90"升级为"每维度都不能塌陷"。防"某维度掉到 0 但总分被其他维度拉高"的盲区。compute_score() import 并解析 dimensions list 对比阈值。避开 exec() 作用域陷阱用 iterative 循环。(2) 话语权文章 docs/articles/audit_is_regression_not_prevention.md: 基于路线 A 618 行回填 + 路线 B 177 行对抗报告，用 6 个实证数据论证"audit 不是 prevention 是 regression engine"。Stage 2 从系统构建者到系统作者的第 4 份公开资产（前 3: Control Plane / Seven Failures / Provider Compat）。(3) OpenClaw 升级评估: 距上次评估 4/17 仅 3 天 + 上游 v2026.4.15 #59265 14 版本未修复，继续 hold v2026.3.13-1。governance v3.24→v3.25, 252→253 checks (+1 per-dimension runtime).
     v3.23 → v3.24: V37.9 四项结构性加固 — 从"修血案"进入"建制度"阶段。(1) 对抗审计 Cat A 集成 full_regression layer 3.5: adversarial_chaos_audit.py 原是一次性工具, 现在每次 PR 合并前自动跑 10 个已知血案场景, 防御力退化立即在 CI 层失败. status.json 被 full_regression 自己写入导致 git 不 clean, 通过豁免 status.json 解决. (2) MR-6 扩展 severity=high: MRD-LAYER-002 渐进强制 warn 级暴露 12 个单层 high 技术债 (INV-TOOL-003/CRON-002/NOTIFY-002-004/HEALTH-001/CRON-004/DREAM-001/PA-002/DEPLOY-003/JOB-GOVAUDIT-001/JOB-HARVEST-001), 不阻塞但持续可见推动逐个补齐, 完成后可升级为 INV-LAYER-002 硬强制. (3) C16 audit-of-audit 子系统 (MR-7 观察者盲区补齐): governance_checker __main__ 结尾写 ontology/.audit_metrics.jsonl (wall_time_ms / check_count / skip_count 等); MRD-AUDIT-PERF-001 读 SESSION_START 实时 wall_time + 历史 5 次中位数对比 (median 抗 outlier), 双条件阈值 1.3x 相对退化 + 300ms 绝对差触发 warn. Route B C16 对抗 sleep 0.5s → 1.5s (原 0.5s 在 noise 范围), 验证 MRD 立即 UNEXPECTED catch. 至此 Route B 6/6 盲区全部闭合. (4) 路线 C Security + Governance 双轨统一: MR-16 security-dimensions-governed-by-invariants 立案 + INV-SEC-001 security-score-meets-threshold 作为 Step 1 粗粒度守卫 (总分 ≥ 90), runtime 调 security_score.py 解析"安全评分：N/100"对比. 未来 Step 2 按 7 维度细化为 7 个 INV-SEC-*. governance v3.23→v3.24 (55 不变式 +1 / 252 checks +3 / 15 meta rules +1). 对抗审计最终防御率 Category A 10/10 + Category B 6/6 = 16/16 (100%).
     v3.22 → v3.23: V37.8.18 Phase 2 Route B 盲区修复续（5/6 累计）— 基于 V37.8.18 Phase 1 的 3/6 成绩继续修复 🟡 中优先级 2 个盲区: (1) INV-COST-001 新增（C12 盲区）: retry 相关常量上限守卫（ceiling=10）. 4 checks: config.yaml max_retries 不超过 10 + adapter.py 硬编码 MAX_RETRIES/max_retries 不超过 10 + runtime 扫仓库所有 .py 和 config.yaml 所有 retry 常量. 避开 exec() 作用域陷阱用 iterative stack-based walk 而非嵌套 def. (2) INV-OBSERVABILITY-001 扩展（C13 盲区）: last_run_*.json 一致性守卫. 4 个 file_contains 锁定 kb_inject/kb_evening/kb_review/kb_harvest_chat 写 last_run_*.json + runtime 断言 job_watchdog.sh 的监控列表与脚本实际写入路径一致（通过解析 job_watchdog 的 `last_run_(\w+).json` pattern 并对比脚本源码）. 防 C13 类 silent 断链（脚本改路径但 watchdog 未同步）. Route B 意外 catch 从 V37.8.18 Phase 1 的 3/6 升到 Phase 2 后 5/6 (83%). 仅剩 C16 audit-of-audit（架构级，V37.9 候选）. governance v3.22→v3.23. 累计 V37.8.18 成就: 53→54 不变式 (+INV-COST-001), 240→249 checks (+9: INV-KB-001 dict runtime / INV-COST-001 4 / INV-OBSERVABILITY-001 extension 5), 9→11 MRD scanners (+MRD-SILENT-EXCEPT-001 + MRD-PUSH-ROUTE-001).

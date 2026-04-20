@@ -1,5 +1,5 @@
 {
-  "updated": "2026-04-20 08:01:45",
+  "updated": "2026-04-20 09:40:46",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-04-20",
+      "what": "V37.9.2 MR-6 深度补齐: 12 单层 high 减到 9 (-3). (1) INV-PA-002 加 runtime 解析规则 10 完整块+5 关键短语必须都在块内+长度>=400字; (2) INV-DREAM-001 加 runtime 真解析 DREAM_TIMEOUT_SEC 赋值，MAP_ONLY>=5400s + Reduce<=3600s + 差>=1800s; (3) INV-DEPLOY-003 加 runtime 扫双侧脚本 status.json 邻近 continue. 都用 iterative loop 避开 V37.3 exec scope trap. governance v3.25→v3.26, 253→256 checks. 对抗审计保持 16/16.",
+      "by": "claude_code"
+    },
     {
       "date": "2026-04-20",
       "what": "V37.9.1 路线 C Step 2 + Stage 2 话语权输出. (1) INV-SEC-001 扩展 per-dimension 7 维度阈值守卫 (密钥 15/测试 13/数据 10/部署 15/传输 9/审计 15/可用 8), 从总分≥90 升级为\"每维度不能塌陷\", 防单维度隐性退化盲区. (2) docs/articles/audit_is_regression_not_prevention.md 公开资产: 基于路线 A/B 实证数据论证 audit 是 regression engine 非 prevention tool, 6 条实际落地原则, Stage 2 第 4 份资产. (3) OpenClaw hold 决策确认 (距 4/17 评估 3 天). governance v3.24→v3.25 / 55 inv / 253 checks / 15 MR / 13 MRD scanners. 对抗审计 16/16 保持.",
@@ -173,11 +178,6 @@
       "date": "2026-04-15",
       "what": "V37.8.5 僵尸检测边缘盲区闭合：V37.8.4 登记的 2 个 unfinished (CNS1952 99% + SingTaoDaily 0-tweet) 结构化修复。独立 finance_news_zombie.py 纯函数模块 + classify_zombie(diag, count) 三层 tier (stub/stale/alive) + 24 单测 + INV-X-001 升级 [declaration,runtime] + runtime python_assert 5 场景。governance v3.10→v3.11 (36 inv, 152→159 checks)。全量回归 975 tests / 0 fail。MR-10 第 2 次演出（修复本身埋坑）+ MR-6 正向兑现 + MR-8 禁 inline fallback。VERSION 0.37.5→0.37.8.5。案例 ontology/docs/cases/zombie_detection_edge_case_closure.md",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-04-14",
-      "what": "V37.8.4 Mac Mini E2E 验证通过：preflight 77/0/3 + job_smoke_test 186/0/11 + finance_news 手动运行成功。系统独立发现第 8 个僵尸 SCMPNews (95/95 超72h)，⚠️ ZOMBIE嫌疑 标记 + 告警正常触发 + 27 篇文章成功推送+LLM分析。按设计等 3 天连续命中再决定删除。登记 2 个边缘检测盲区：CNS1952 near-zombie (98/99 old + 1 短，老/总=99%但未=100%不触发) + SingTaoDaily 0-tweet stub (total=0 不触发 total>0 门槛)",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -235,13 +235,13 @@
   "quality": {
     "security_score": "93",
     "test_count": "1111",
-    "last_regression": "2026-04-20 08:01 pass",
+    "last_regression": "2026-04-20 09:40 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-04-20 08:01",
+    "security_score_time": "2026-04-20 09:40",
     "test_suites": "36",
     "governance_invariants": "52/52",
     "governance_checks": "222/233",
-    "version": "0.37.9.1"
+    "version": "0.37.9.2"
   },
   "incidents": [
     {
