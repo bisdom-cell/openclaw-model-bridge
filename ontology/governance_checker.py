@@ -283,6 +283,16 @@ def run_meta_discovery(data):
             result = _discover_llm_parser_positional_violations(severity)
             discovery_results.append({"id": disc_id, "name": name, **result})
 
+        elif disc_id == "MRD-RESERVED-FILES-001":
+            # V37.8.17: MR-15 运行时检测 — 扫 OpenClaw dist 寻找未登记保留文件
+            result = _discover_reserved_files_not_declared(severity)
+            discovery_results.append({"id": disc_id, "name": name, **result})
+
+        elif disc_id == "MRD-ALERT-INDEPENDENCE-001":
+            # V37.8.17: MR-14 运行时检测 — 监控脚本告警通道独立性
+            result = _discover_alert_path_independence(severity)
+            discovery_results.append({"id": disc_id, "name": name, **result})
+
     return discovery_results
 
 
@@ -923,6 +933,187 @@ def _discover_llm_parser_positional_violations(severity):
         "status": "pass",
         "severity": severity,
         "message": f"所有 {scanned} 个 LLM 调用脚本均无位置索引反模式",
+    }
+
+
+# V37.8.17 MR-15 MRD-RESERVED-FILES-001
+# OpenClaw dist 里声明有 runtime 语义的 .md 文件名模式
+_RESERVED_FILE_PATTERNS = [
+    # heartbeat 源码典型模式: params.files.filter(f => f.name === "HEARTBEAT.md")
+    re.compile(r'\bf\.name\s*===\s*"([A-Z][A-Z_]*\.md)"'),
+    re.compile(r'\bfile\.name\s*===\s*"([A-Z][A-Z_]*\.md)"'),
+    # 其他可能模式: (name === "X.md"), name: "X.md"（属性）
+    re.compile(r'\bname\s*===\s*"([A-Z][A-Z_]*\.md)"'),
+]
+
+# OpenClaw dist 路径（Mac Mini 生产环境）
+_OPENCLAW_DIST_PATH = "/opt/homebrew/lib/node_modules/openclaw/dist"
+
+
+def _discover_reserved_files_not_declared(severity):
+    """MRD-RESERVED-FILES-001: 扫 OpenClaw dist/*.js 里的 runtime 保留文件声明
+    确保全部登记在 proxy_filters.RESERVED_FILE_BASENAMES。
+
+    触发血案：V37.8.16 HEARTBEAT.md PA 自残 — OpenClaw runtime 保留文件
+    当时 RESERVED_FILE_BASENAMES 不存在，audit 完全无知。MR-15 立案后，
+    MRD-RESERVED-FILES-001 是第二步跃迁（从单个文件 → 扫源码自动发现）。
+
+    dev 环境 OpenClaw dist 不存在 → skip（info 状态）
+    Mac Mini --full 模式 → 真实扫描并对齐
+    """
+    import glob as glob_mod
+
+    # dev 环境 skip
+    if not os.path.isdir(_OPENCLAW_DIST_PATH):
+        return {
+            "status": "skip",
+            "severity": severity,
+            "message": (
+                f"OpenClaw dist 不存在（dev 环境）: {_OPENCLAW_DIST_PATH} — "
+                "Mac Mini --full 模式自动扫描"
+            ),
+        }
+
+    # 扫 dist/*.js 提取所有保留文件声明
+    js_files = glob_mod.glob(os.path.join(_OPENCLAW_DIST_PATH, "*.js"))
+    upstream_reserved = set()
+    for js in js_files:
+        try:
+            with open(js, "r", encoding="utf-8", errors="replace") as f:
+                content = f.read()
+        except (IOError, OSError):
+            continue
+        for patt in _RESERVED_FILE_PATTERNS:
+            for m in patt.finditer(content):
+                upstream_reserved.add(m.group(1))
+
+    # 读 proxy_filters.RESERVED_FILE_BASENAMES
+    proxy_path = os.path.join(_PROJECT_ROOT, "proxy_filters.py")
+    declared = set()
+    if os.path.exists(proxy_path):
+        try:
+            with open(proxy_path, "r", encoding="utf-8") as f:
+                src = f.read()
+            # 提取 frozenset 字面量里的字符串
+            frozen_match = re.search(
+                r"RESERVED_FILE_BASENAMES\s*=\s*frozenset\s*\(\s*\[(.*?)\]\s*\)",
+                src, re.DOTALL)
+            if frozen_match:
+                for s in re.findall(r'"([^"]+\.md)"', frozen_match.group(1)):
+                    declared.add(s)
+        except (IOError, OSError):
+            pass
+
+    missing = upstream_reserved - declared
+    if missing:
+        return {
+            "status": "warn",
+            "severity": severity,
+            "message": (
+                f"{len(missing)} 个 OpenClaw runtime 保留文件未登记到 "
+                f"RESERVED_FILE_BASENAMES: {sorted(missing)}（扫 {len(js_files)} 个 "
+                f".js 文件，已登记 {len(declared)} 个）"
+            ),
+            "missing": sorted(missing),
+            "declared": sorted(declared),
+            "upstream": sorted(upstream_reserved),
+        }
+    return {
+        "status": "pass",
+        "severity": severity,
+        "message": (
+            f"所有 {len(upstream_reserved)} 个 OpenClaw runtime 保留文件均已登记 "
+            f"({sorted(upstream_reserved)[:3]}{'...' if len(upstream_reserved) > 3 else ''})"
+        ),
+    }
+
+
+# V37.8.17 MR-14 MRD-ALERT-INDEPENDENCE-001
+# 监控脚本 → 禁止的告警通道（告警链不得依赖失效主体自身）
+_ALERT_INDEPENDENCE_RULES = [
+    # (脚本 basename pattern, 禁止的通道关键字列表, 描述)
+    (re.compile(r"^wa_"),
+     ["--channel whatsapp", "--channel whatsapp_only"],
+     "wa_* 脚本监控 WhatsApp，告警不得走 WhatsApp（Gateway 宕则 WA 不通）"),
+    (re.compile(r"whatsapp.*keepalive|whatsapp.*watchdog", re.IGNORECASE),
+     ["--channel whatsapp", "--channel whatsapp_only"],
+     "WhatsApp 监控脚本告警不得走 WhatsApp"),
+]
+
+# 告警关键字锚点（在这些关键字附近找通道选择）
+_ALERT_KEYWORDS = ["alert", "ESCALAT", "WARN_COUNT", "告警", "notify"]
+
+
+def _discover_alert_path_independence(severity):
+    """MRD-ALERT-INDEPENDENCE-001: 扫监控脚本确认告警路径独立于被监控对象。
+
+    触发血案：V37.8.13 Gateway 宕 9h — wa_keepalive 本应告警但告警路径只写日志
+    不推送（原实现）。修复后走 Discord。MR-14 立案后，MRD-ALERT-INDEPENDENCE-001
+    是第二步跃迁（从 wa_keepalive 一个脚本 → 扫所有监控脚本）。
+
+    白名单豁免：探测路径可以走被监控通道（wa_keepalive 探测 Gateway 必须走 WA
+    才能验证存活），只检测"告警"关键字附近的通道选择。
+    """
+    import glob as glob_mod
+
+    violations = []
+    scanned = 0
+    # 扫监控脚本
+    patterns = [
+        os.path.join(_PROJECT_ROOT, "wa_*.sh"),
+        os.path.join(_PROJECT_ROOT, "*keepalive*.sh"),
+        os.path.join(_PROJECT_ROOT, "*watchdog*.sh"),
+    ]
+    monitor_files = set()
+    for patt in patterns:
+        monitor_files.update(glob_mod.glob(patt))
+
+    for sh_file in sorted(monitor_files):
+        basename = os.path.basename(sh_file)
+        # 匹配适用规则
+        applicable_rules = []
+        for name_patt, forbidden_channels, description in _ALERT_INDEPENDENCE_RULES:
+            if name_patt.search(basename):
+                applicable_rules.append((forbidden_channels, description))
+        if not applicable_rules:
+            continue
+        scanned += 1
+
+        try:
+            with open(sh_file, "r", encoding="utf-8") as f:
+                content = f.read()
+        except (IOError, OSError):
+            continue
+
+        lines = content.splitlines()
+        for lineno, line in enumerate(lines, start=1):
+            # 只检测告警关键字附近的通道选择
+            line_context_hit = any(kw.lower() in line.lower() for kw in _ALERT_KEYWORDS)
+            if not line_context_hit:
+                continue
+            for forbidden_channels, description in applicable_rules:
+                for forbidden in forbidden_channels:
+                    if forbidden in line:
+                        rel = os.path.relpath(sh_file, _PROJECT_ROOT)
+                        violations.append(
+                            f"{rel}:{lineno} {description} — 出现 '{forbidden}'"
+                        )
+
+    if violations:
+        return {
+            "status": "warn",
+            "severity": severity,
+            "message": (
+                f"{len(violations)} 处监控脚本告警通道依赖被监控对象，"
+                f"扫描 {scanned} 个监控脚本: {violations[0][:100]}"
+                f"{'...' if len(violations) > 1 else ''}"
+            ),
+            "violations": violations,
+        }
+    return {
+        "status": "pass",
+        "severity": severity,
+        "message": f"所有 {scanned} 个监控脚本的告警路径均独立于被监控对象",
     }
 
 

@@ -3411,11 +3411,77 @@ meta_rule_discovery:
       *价值：⭐⭐⭐⭐* 当 cn_title。修复：抽到 ontology_parser.py 按 separator
       切块 + key-based prefix，单块缺行不影响其他块。
 
+  - id: MRD-RESERVED-FILES-001
+    meta_rule: MR-15
+    name: "OpenClaw runtime 保留文件必须登记在 RESERVED_FILE_BASENAMES"
+    description: |
+      扫描 OpenClaw dist/*.js 里的 runtime 文件名语义声明（如
+      `params.files.filter(f => f.name === "HEARTBEAT.md")`），
+      确保所有被赋予特殊语义的文件都登记在 proxy_filters.py 的
+      RESERVED_FILE_BASENAMES 中，让 LLM 的 write/edit 工具对其自动拦截。
+
+      扫描模式：
+        1. `f.name === "X.md"`             # 严格等值（heartbeat 源码模式）
+        2. `file.name === "X.md"`          # 同上变体
+        3. `\.name\s*===\s*"([A-Z_]+\.md)"` # 大写 + _ 的 md 文件名（惯例）
+
+      跳过（避免噪音）：
+        - 普通文本文件名（如 README.md 通常是用户文档非 runtime 语义）
+        - 路径片段（含 / 的不算纯 basename）
+
+      dev 环境（OpenClaw dist 不存在）→ skip
+      Mac Mini --full 模式 → 真实扫描 /opt/homebrew/lib/node_modules/openclaw/dist/*.js
+    scan_source: "/opt/homebrew/lib/node_modules/openclaw/dist/*.js (Mac Mini only)"
+    scan_filter: "匹配 f.name === / file.name === 字面模式"
+    severity_when_missing: warn
+    lesson: |
+      2026-04-19 V37.8.16 PA 自残 HEARTBEAT.md 血案：PA 用 write 工具把
+      "任务完成"写进 workspace/HEARTBEAT.md，13h 后 OpenClaw heartbeat
+      机制激活让用户消息被 HEARTBEAT_OK 吞掉。RESERVED_FILE_BASENAMES 当时
+      不存在，audit 完全无知。MR-15 立案 + INV-HB-001 防御单个文件，
+      MRD-RESERVED-FILES-001 是第二步跃迁——从"人类手动登记"升级为
+      "扫 OpenClaw 源码自动发现新保留文件"，未来 OpenClaw 升级引入新保留
+      文件（如 AGENTS.md / BOOTSTRAP.md）会被 audit 立即报警。
+
+  - id: MRD-ALERT-INDEPENDENCE-001
+    meta_rule: MR-14
+    name: "监控脚本的告警通道不得依赖被监控对象自身"
+    description: |
+      扫描监控脚本（wa_*.sh / *keepalive*.sh / *watchdog*.sh），检查其告警
+      路径是否走独立于被监控对象的通道。典型违反：监控 WhatsApp 健康的脚本
+      用 WhatsApp 自己发告警（Gateway 宕则 WhatsApp 不通，告警发不出）。
+
+      规则矩阵：
+        脚本名前缀 / pattern    禁止的告警通道
+        wa_*.sh / *whatsapp*   --channel whatsapp (告警必须走 Discord 或其他)
+        *gateway*.sh           gateway 依赖的通道 (告警走 Discord)
+        discord_*.sh (如有)    --channel discord
+
+      检测策略：
+        1. 识别脚本监控对象（脚本名前缀 / grep 关键词）
+        2. 检测告警路径（grep `--channel X` / `openclaw message send X`）
+        3. 如果告警通道 ∈ 监控对象 fate chain → warn
+
+      白名单豁免：监控脚本的"升级"路径（escalation）必须走独立通道，但"成功
+      路径"或"探测"可以走被监控通道（如 wa_keepalive 的探测本身必须走 WhatsApp
+      才能验证存活）。只检测"告警"关键字附近的通道选择。
+    scan_source: "wa_*.sh, *keepalive*.sh, *watchdog*.sh"
+    scan_filter: "识别脚本监控对象 + 扫告警路径通道选择"
+    severity_when_missing: warn
+    lesson: |
+      2026-04-16 V37.8.13 Gateway 宕 9h 静默血案：wa_keepalive 每 30min 探测
+      Gateway 不可达（18 次 WARN）但告警路径只写本地日志不推送。修复后
+      wa_keepalive 连续 2 次 WARN → Discord #alerts。MR-14 立案 + INV-WA-001
+      锁定 wa_keepalive.sh 单个脚本，MRD-ALERT-INDEPENDENCE-001 是第二步跃迁——
+      从"锁 wa_keepalive 一个脚本"升级为"扫所有监控脚本的告警路径"，未来新增
+      监控脚本（如 discord_keepalive.sh / gateway_watchdog_v2.sh）违反告警路径
+      独立原则会被 audit 立即发现。
+
 # ═══════════════════════════════════════════════════════════════════════
 # 5. 审计元数据
 # ═══════════════════════════════════════════════════════════════════════
 audit_metadata:
-  version: "3.20"
+  version: "3.21"
   created: "2026-04-07"
   upgraded: |
     v3.0 → v3.1: 通知路径治理(INV-NOTIFY-003/004) + 错误可观测性(MRD-ERROR-001) + 效果层启动(MRD-NOTIFY-002)
@@ -3429,6 +3495,7 @@ audit_metadata:
     v3.7 → v3.8: V37.7 双跑审计闭环 — (a) MR-8 "copy-paste-is-a-bug-class" 从 candidate 正式形式化进入 meta_rules (INV-EVENING-001 重新归属); (b) MR-9 "state-writes-go-through-helper-not-raw-redirect" 新增 (MR-4 上游预防层, 禁止 shell `>>` 直写持久化 state 文件, 必须走 kb_append_source.sh / kb_write.sh 等 helper); (c) INV-SRC-001 重新归属 MR-9 并新增 2 个 catch-all 运行时 scan (任何位置 `>> "$KB_SRC"` + 任何 `>> sources/*.md` 路径); (d) INV-DEDUP-002 新增 (kb-dedup-pre-filters-dangling-index-entries, MR-4 第 4 次演出 — dangling index refs 被误判为 duplicate 并在 --apply 时删除历史); (e) INV-GOV-001 check 2 重构去掉 JSON_MODE global mutation (依赖注入 print_results(json_mode=False) 参数); (f) run_discussions.sh V37.6 P0-2 第 16 处漏网修复 (bucket 1, MR-4 第 5 次演出); (g) audit_log.verify_chain JSON parse error prev_hash 级联 bug 修复 (不再让解析错误静默传播到下一行 prev check); (h) kb_evening "今日笔记" label semantics 修复 (count_today_notes filename prefix 扫描 vs 历史累计 note_count)
     v3.8 → v3.9: V37.8 MR-6 深度补齐 + MRD-NOTIFY-002 语义修复 — (a) 7 个 critical 单层不变式全部补第二层验证: INV-TOOL-001 (+declaration: proxy_filters.py 静态引用 MAX_TOOLS), INV-TOOL-002 (元数据标签修正，已有双层未声明), INV-DEPLOY-002 (+runtime: shlex tokenize AST 扫描 auto_deploy.sh 无 crontab 写入 token 序列), INV-CRON-003 (+declaration: _cron_cmd_invokes 精确匹配器源码守卫), INV-ENV-002 (+declaration: preflight REQUIRED_VARS 必含 OPENCLAW_PHONE + YAML 占位号字面量反例守卫), INV-DREAM-002 (+runtime: SKIP_MAP_LOOPS 赋值行号必须在 Phase 1a/1b 门控之前), INV-CACHE-002 (+runtime: 真跑 md5 对照同内容不同 mtime 的两个 tempfile hash 相等 + 不同内容 hash 不等); (b) INV-LAYER-001 新增 (critical-invariants-have-two-layers, meta_rule=MR-6, 把 MRD-LAYER-001 的 warn 升级为 hard-enforcing invariant — 未来任何新增 critical 不变式只要 <2 层就直接 fail); (c) MRD-NOTIFY-002 检测器重写 — 原实现只 grep `--topic X` 字符串但 32 个 job 中 28 个 bypass notify.sh 直接走 `DISCORD_CH_<X>`，导致 4-6 个频道长期被误报 silent。新实现两层: source layer (dev + full 都跑, 扫 jobs/*/run_*.sh 接受 `--topic T` 或 `DISCORD_CH_<T_upper>` 任一 caller) + activity layer (仅 --full, 用 notify_queue/jobs cache mtime 而非字符串 grep)
     v3.9 → v3.10: V37.8.4 finance_news X 僵尸账号血案 — INV-X-001 新增 (syndication-account-must-have-fresh-tweets, meta_rule=MR-10, severity=high) 锁定 5 层防御: parser 检测 diag['total']>0 且 100% 超窗口 + ⚠️ ZOMBIE嫌疑 诊断前缀 + 独立 zombies_${DAY}.txt 文件 + 3 天 comm -12 连续告警 + 7 个已确认僵尸 handle (Reuters/WorldBank/BrookingsInst/caixin/yicaichina/ChannelNewsAsia/straits_times) file_not_contains 守卫。CLAUDE.md 原则 #27 升级强制条款 "X 账号健康 ≠ HTTP 200" — 协议层绿灯不等于内容层健康，Syndication API 对 embed-disabled 或停更账号返回 stale 快照 (最老 3364 天)。本次是 MR-10 (V37.8.3 引入) 被违反后的正向兑现: 血案本身成为元规则执行力的训练样本。
+    v3.20 → v3.21: V37.8.17 Route A 交付 + MR-14 / MR-15 第二步跃迁（MRD 运行时扫描器落地）— 基于 audit_coverage_retrospective.md 路线 A 实证分析（15 血案 × Q1/Q2/Q3 = 0% 预防率 / 87% 回归率 / 80% 空白类别盲区）结论，实现 audit 最有价值的"元规则 → MRD"三步跃迁：(1) MRD-RESERVED-FILES-001 (MR-15 落地)：扫 /opt/homebrew/lib/node_modules/openclaw/dist/*.js 里 `f.name === "X.md"` / `file.name === "X.md"` 模式自动发现 OpenClaw runtime 保留文件声明，对比 proxy_filters.RESERVED_FILE_BASENAMES 发现未登记项 → warn。dev 环境 skip（路径不存在），Mac Mini --full 模式真实扫描。未来 OpenClaw 升级引入新保留文件（AGENTS.md / BOOTSTRAP.md 等）会被 audit 立即报警。(2) MRD-ALERT-INDEPENDENCE-001 (MR-14 落地)：扫 wa_*.sh / *keepalive*.sh / *watchdog*.sh 监控脚本，用白名单规则矩阵检测告警路径是否依赖被监控对象自身（如 wa_* 脚本不得用 `--channel whatsapp` 告警）。只检测告警关键字附近的通道选择（探测路径豁免）。未来新增监控脚本违反告警独立原则会被 audit 立即发现。两个 MRD 补齐 MR-14 / MR-15 从"纯声明层"到"运行时 CI 扫描"的第二步跃迁，与 V37.8.8→V37.8.9 MR-11/MR-12 同款模式。governance v3.20→v3.21, 不变式/检查数量不变（MRD 不在 invariants 计数内）。关联报告：ontology/docs/audit_coverage_retrospective.md 最终洞察段"元规则跃迁框架"。
     v3.19 → v3.20: V37.8.16 PA 自残 HEARTBEAT.md 血案闭环（MR-4 silent-failure 第 12 次演出）— MR-15 新元规则 reserved-files-must-not-be-writable-by-llm 正式立案 + INV-HB-001 (heartbeat-md-reserved-file-not-llm-writable, severity=critical, verification_layer=[declaration, runtime], 12 checks). 2026-04-19 09:09 PA (Wei) 处理 HN 告警对话时把"任务完成/下一步监控"写进 ~/.openclaw/workspace/HEARTBEAT.md（不知道它是 OpenClaw runtime 保留文件），13h 后用户发 WhatsApp 消息时 OpenClaw heartbeat 机制 (auth-profiles.js:48796 isHeartbeatContentEffectivelyEmpty=false) 激活 runKind=heartbeat 模式 + 默认 prompt "Read HEARTBEAT.md... If nothing needs attention, reply HEARTBEAT_OK" → LLM 回 HEARTBEAT_OK (12 字符) → Gateway stripTokenAtEdges 剥离 → 用户完全看不到回复。六条件组合爆炸 (WhatsApp plugin 4/10 安装 + PA 有 write 工具 + HEARTBEAT.md 保留文件 + PA 不知特殊语义 + heartbeat.prompt 未配置 + HEARTBEAT.md 非空非注释)，前 5 项长期存在，第 6 项触发即爆。我 4/19 深夜错诊 Bad MAC 差点让用户 auth reset（原则 #28 违规记入案例文档）。最小修复：cat 置 HEARTBEAT.md 为只含注释 → 2026-04-20 09:16 WhatsApp E2E 5s 延迟验证通过。结构修复四层：(1) LLM 行为层 SOUL.md 规则 11 + 血案注释 + 替代方案指向 kb_write.sh/status_update.py (2) Proxy 拦截层 RESERVED_FILE_BASENAMES + detect_reserved_file_write 纯函数 + fix_tool_args 集成改写 content 为 RESERVED_FILE_SAFE_CONTENT (3) 数据层 SAFE_CONTENT 设计保证 isHeartbeatContentEffectivelyEmpty=true (4) 测试层 16 单测 TestReservedFileWriteBlock (纯函数 11 + fix_tool_args 集成 3 + 常量守卫 2). MR-15 与 MR-4 关系：MR-4 是问题分类 "静默故障是 bug"，MR-15 是上游预防层 "别让 LLM 碰能制造静默故障的 runtime 文件". 详见 ontology/docs/cases/heartbeat_md_pa_self_silencing_case.md.
     v3.17 → v3.18: V37.8.13 Gateway 宕 9h 静默血案闭环（MR-4 第 11 次演出）— INV-WA-001 新增 (wa-keepalive-escalates-to-discord-on-consecutive-warn, meta_rule=MR-4, severity=critical, verification_layer=[declaration, runtime], 7 checks) 锁定三层修复: (1) wa_keepalive 连续 2 次 WARN 自动升级 Discord #alerts, 之后每 6 次重复, OK 重置 (2) 告警路径强制走 Discord-only (告警链不得依赖失效主体自身 — Gateway 宕则 WhatsApp 不通) (3) source bash_profile 获取 DISCORD_CH_ALERTS。INV-QUIET-001 新增 (quiet-alert-sends-discord-during-silence-period, meta_rule=MR-4, severity=critical, verification_layer=[declaration, runtime], 4 checks) 锁定凌晨静默期修复: quiet_alert 静默期仅跳过 WhatsApp, Discord 始终推送。[SYSTEM_ALERT] 前缀统一在 is_quiet_hours 判断之前添加。restart.sh 新增 post-bootstrap 健康验证循环 (5×3s) 检测 Gateway 是否真活。21 单测 test_wa_gateway_resilience.py 加入 full_regression: TestQuietAlertDiscordAlways(4) + TestWaKeepaliveEscalation(9) + TestRestartGatewayVerification(5) + TestCrossFileGuards(3)。血案根因: V37.8.10 PR 合并 → auto_deploy → restart.sh 重启 → Gateway 启动 21s 内崩溃 → launchd rapid-crash jettison → auto_deploy preflight 三次 CRITICAL 失败 × 凌晨 [QUIET] 静默期吞 WhatsApp+Discord 双通道 → wa_keepalive 18 次 WARN 只写日志 → 9h 完全静默直到用户手动发现。
     v3.16 → v3.17: V37.8.11 auto_deploy 漂移告警噪声闭环 — INV-DEPLOY-003 新增 (status-json-is-exempt-from-drift-sync-at-both-preflight-and-auto-deploy, meta_rule=MR-4, severity=high, verification_layer=[declaration], 5 checks). 用户反馈每小时整点收到 [SYSTEM_ALERT] "漂移检测: 修复 1 个部署文件不一致"。问题存在长期 — V37.8.1 preflight_check.sh 加了 status.json 合法分叉豁免（仓库快照 vs kb_status_refresh cron 每小时 runtime 重写），但 auto_deploy.sh 的等价 drift 循环**没有同步加**，导致：(a) 每小时 drift 检测发现 md5 不一致 (b) cp 把仓库快照覆盖到 runtime，清空 runtime 数据 (c) 推送 [SYSTEM_ALERT] 告警 (d) 下个整点 kb_status_refresh 再次写入 runtime → 恶性循环。V37.4.3 [SYSTEM_ALERT] 前缀让这些噪声告警从 Discord 静默区变得用户可见，"预期噪声"升级为"需要消除的噪声"。修复：auto_deploy.sh drift 循环镜像同款 `if SRC == status.json then continue` 豁免（new-commit 同步路径保留，确保 Claude Code priorities/unfinished/recent_changes intent 变更仍能单向下传）。契约："one-way intent flow + exempt from two-way drift detection"。5 checks 覆盖：preflight 豁免守卫 + auto_deploy 豁免关键字 + V37.8.11 注释标记 + continue 语法结构 + FILE_MAP 仍含 status.json（intent 通道不能丢）。MR-4 silent-failure 第 10 次演出（这次不是错误被稀释，而是 expected-behavior 被标记为 error 然后告警成噪声 — MR-4 的"错误分类错"新变种）。案例扩展至 kb_evening_fallback_quota_chain_case.md V37.8.11 章节。
