@@ -1,6 +1,6 @@
 {
-  "updated": "2026-04-20 09:40:46",
-  "updated_by": "claude_code",
+  "updated": "2026-04-20 09:58:13",
+  "updated_by": "security_score",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -76,6 +76,31 @@
       "task": "【输出】第一篇架构型文章",
       "status": "completed",
       "note": "V36完成: docs/articles/why_control_plane.md — dev.to+知乎+Twitter发布"
+    },
+    {
+      "task": "【加固-P0】路线 A: 血案回填审计 (Ontology audit 防御率实证)",
+      "status": "completed",
+      "note": "15 血案 × Q1/Q2/Q3 = 0% 预防率 / 87% 回归率 / 80% 空白类别. audit_coverage_retrospective.md 618 行. Stage 2 第 2 份实证资产."
+    },
+    {
+      "task": "【加固-P0】路线 B: 对抗性混沌审计 (Adversarial Chaos Audit)",
+      "status": "completed",
+      "note": "16 场景对真实仓库破坏注入. Cat A 10/10 + Cat B 6/6 = 16/16. adversarial_audit_report.md + adversarial_chaos_audit.py. Stage 2 第 3 份实证资产."
+    },
+    {
+      "task": "【加固-P0】V37.8.18 盲区修复 (Route B 6/6 全闭)",
+      "status": "completed",
+      "note": "C14 dict 污染 / C15 push bypass / C11 silent except / C12 retry 爆炸 / C13 last_run 漂移 / C16 audit-of-audit 全部修复. 6 个 MRD 扫描器新增."
+    },
+    {
+      "task": "【加固-P0】V37.9 结构加固 4 项",
+      "status": "completed",
+      "note": "(1) adversarial Cat A 集成 layer 3.5 (2) MRD-LAYER-002 severity=high 渐进强制 (3) MRD-AUDIT-PERF-001 audit-of-audit (4) MR-16 + INV-SEC-001 security 双轨统一."
+    },
+    {
+      "task": "【输出】Stage 2 第 4 篇文章 audit is regression not prevention",
+      "status": "completed",
+      "note": "docs/articles/audit_is_regression_not_prevention.md 立场型文章, 6 条可落地原则, 基于 Route A + B 实证数据."
     }
   ],
   "recent_changes": [
@@ -214,11 +239,15 @@
   "session_context": {
     "last_session": "2026-04-17 V37.8.14 (15 commits)",
     "unfinished": [
-      "fallback_chain 扩展 ≥2 provider — 需用户决策 API key（P0，延后）",
-      "gemini quota 降频 — TPM 窗口竞争，待用户决策",
-      "V3 路标 backlog: Tool Policy Plugin / Memory Plane Plugin / Job Template SDK / Ontology Phase 4-5",
-      "X 僵尸 3 天连续命中但 07:30 run 未推送 SYSTEM_ALERT 告警（2026-04-20 发现）: 5 个账号 4/18-19-20 三天命中但 finance_news 日志无 SYSTEM_ALERT 字样。需排查 NOTIFY_LOADED 是否加载 / comm 交集逻辑是否在 zombies 重置后才跑 / PERSISTENT 变量判空。纯排查，不紧急（僵尸已手动移除）",
-      "WhatsApp 入站 session 物理落地 research/ 而非 main/（非致命）: 4/10 后 main/sessions.json dormant, research/sessions 无限增长. 共享 workspace 让用户行为层无感. 长期考虑 main/sessions 的 cleanup cron 调整 或 研究 OpenClaw core agent routing 策略"
+      "MR-6 的 9 个单层 high 补齐（INV-TOOL-003/CRON-002/NOTIFY-002/HEALTH-001/NOTIFY-003/NOTIFY-004/CRON-004/JOB-GOVAUDIT-001/JOB-HARVEST-001），按'每次血案修复顺便升级邻近'节奏推进，完成后 MRD-LAYER-002 可升级为 INV-LAYER-002 硬强制",
+      "audit-of-audit (MRD-AUDIT-PERF-001) 扩展维度: memory_mb / skip_rate / cold_start_ms 等（当前只有 wall_time）",
+      "路线 C Step 3 终态: security_score.py 从独立工具变成 governance audit 的 view（数据源统一到 ontology）",
+      "Ontology Phase 4 领域本体: 六域概念模型 (Actor/Tool/Resource/Task/Provider/Memory) + policy_ontology.yaml + 三阶段门控",
+      "V3 路标 backlog: Tool Policy Plugin + Memory Plane Plugin + Job Template SDK + pip install ontology-engine",
+      "fallback_chain 扩展 ≥2 provider (需用户决策 API key)",
+      "gemini quota 降频 (TPM 窗口竞争，需用户决策)",
+      "WhatsApp 入站路由到 research 非 main (4/10 plugin 副作用非致命，研究 plugin 源码后长期考虑 channels.whatsapp.agent 配置)",
+      "X 僵尸告警 3 天连续命中但 07:30 run 未推送 SYSTEM_ALERT (2026-04-20 发现, 僵尸已手动移除, 告警路径漏洞待排查)"
     ],
     "open_prs": "",
     "blocked_on": "",
@@ -230,15 +259,18 @@
         "what": "V37.8.6/8.7/8.8/8.9 四连发同日上线 — (1) V37.8.6 Dream log→stderr 阻断 stdout 污染 cache 的 LLM 幻觉链 + sanitize U+D800-U+DFFF 孤立代理 + REDUCE/CHUNK system prompt 反污染守卫，INV-DREAM-003 critical 双层 16 checks (2) V37.8.7 ontology_sources 推送格式错位修复，抽 ontology_parser.py 用 separator 切块 + key-based prefix 解析，单块缺行不级联，INV-ONTOLOGY-001 high 双层 7 checks (3) V37.8.8 MR-11 (log→stderr) + MR-12 (llm-parser-key-based) 正式立案为 ontology 元规则 (4) V37.8.9 MRD-LOG-STDERR-001 + MRD-LLM-PARSER-POSITIONAL-001 运行时扫描器落地，批量 sed 修复 19 个 job 脚本 log() 写 >&2，元规则覆盖率 10/12→12/12。MR-4 silent-failure 第 7+8 次演出 + 原则 #23 链式幻觉典型实证 (Hugging Face 编造案例)。governance v3.11→v3.15。35 suites / 1050 tests / 0 fail / 38 invariants / 168 checks / 安全 93。Mac Mini E2E preflight 77/0/3。VERSION 0.37.8.5→0.37.8.9。",
         "by": "claude_code"
       }
-    ]
+    ],
+    "last_session_ended": "2026-04-20",
+    "last_session_commits": 34,
+    "last_session_focus": "V37.8.16 -> V37.9.2: Stage 2 验证者阶段完整交付（路线 A 15血案回填 + 路线 B 16对抗场景 + 6/6 盲区全闭 + V37.9 结构加固 + V37.9.1 安全统一 + V37.9.2 MR-6 深度补齐）"
   },
   "quality": {
     "security_score": "93",
     "test_count": "1111",
-    "last_regression": "2026-04-20 09:40 pass",
+    "last_regression": "2026-04-20 09:58 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-04-20 09:40",
-    "test_suites": "36",
+    "security_score_time": "2026-04-20 09:58",
+    "test_suites": "37",
     "governance_invariants": "52/52",
     "governance_checks": "222/233",
     "version": "0.37.9.2"
