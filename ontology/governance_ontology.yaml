@@ -3587,6 +3587,58 @@ meta_rule_discovery:
       "扫 OpenClaw 源码自动发现新保留文件"，未来 OpenClaw 升级引入新保留
       文件（如 AGENTS.md / BOOTSTRAP.md）会被 audit 立即报警。
 
+  - id: MRD-AUDIT-PERF-001
+    meta_rule: MR-7
+    name: "governance_checker 自身性能退化监控 (audit-of-audit)"
+    description: |
+      读取 ontology/.audit_metrics.jsonl 的最近 10 次运行记录，与当次（或上次）
+      wall_time_ms 对比，检测 >2x 的性能退化。填补 V37.3 MR-7 (governance-
+      execution-is-self-observable) 只覆盖 summary 正确性的盲区——audit 自己
+      的执行时间 / check 数量 / skip rate 也是"观察者自观察"的必备维度。
+
+      检测规则:
+        1. 需要至少 3 条历史 metric（首次或 2 次运行时跳过）
+        2. 历史均值 = 最近 5 次（不含当次）的 wall_time_ms 均值
+        3. 当次 wall_time / 历史均值 > 2.0 → warn（性能退化嫌疑）
+        4. 当次 check_count 比历史均值少 30% 以上 → warn（可能有跳过）
+
+      对应 Route B C16 (2026-04-20) 对抗场景：注入 time.sleep(0.5) 到
+      governance_checker.py 的 __main__ → 本次 wall_time 比历史高 500ms，
+      对 dev 环境通常 100-300ms 的 baseline 是 2-6x 退化 → 被 catch。
+    scan_source: "ontology/.audit_metrics.jsonl (governance_checker 自身写入)"
+    scan_filter: "wall_time vs 历史均值 / check_count vs 历史均值"
+    severity_when_missing: warn
+    lesson: |
+      2026-04-20 V37.9: Route B C16 对抗场景在 V37.8.18 之前一直通过——audit
+      对自身性能完全无感。MR-7 只覆盖 summary 正确性（INV-GOV-001），
+      性能 / 资源 / 执行时间 / 跳过率 均无自观察。MRD-AUDIT-PERF-001 补
+      wall_time + check_count 两个维度，未来可扩展 memory_mb / skip_rate 等。
+
+  - id: MRD-LAYER-002
+    meta_rule: MR-6
+    name: "severity=high 的不变式应有 ≥2 层验证深度（渐进强制）"
+    description: |
+      扫描所有 severity=high 的不变式，检查 verification_layer 是否 ≥2 层。
+      V37.9 引入时当前有 12 个单层 high（历史技术债），因此以 warn 级别先暴露，
+      不 fail-stop。未来逐个补齐（每次血案修复顺便升级相邻不变式）后，可以
+      考虑把本 MRD 升级为 INV-LAYER-002 硬强制。
+
+      与 INV-LAYER-001 的关系：
+        - INV-LAYER-001 (MR-6, severity=critical): 强制所有 critical 不变式 ≥2 层
+        - MRD-LAYER-002 (MR-6, warn): 提示所有 high 不变式应 ≥2 层（渐进）
+
+      MR-6 "critical-invariants-need-depth" 的全称其实隐含"严重等级越高深度要求越高"
+      的语义。V37.8 只强制 critical 是第一步，high 层是第二步，medium/low 允许
+      单层（声明层）作为"轻量治理"是合理的。
+    scan_source: "governance_ontology.yaml 自身"
+    scan_filter: "severity=high AND len(verification_layer) < 2"
+    severity_when_missing: warn
+    lesson: |
+      2026-04-20 V37.9 Route B 实证观察：Category A 防御率 10/10 但 Category B
+      意外 catch 5/6，剩余 C16 audit-of-audit 是架构级。继续强化现有审计深度
+      是性价比最高的加固路径。12 个单层 high 不变式是待补齐的技术债，本 MRD
+      让它们持续可见于审计报告，推动逐个升级。
+
   - id: MRD-PUSH-ROUTE-001
     meta_rule: MR-4
     name: "所有推送调用必须走 notify.sh 或已知白名单脚本"

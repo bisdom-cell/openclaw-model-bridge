@@ -24,6 +24,10 @@ import re
 import subprocess
 import sys
 import textwrap
+import time  # V37.9 audit-of-audit self-metric
+
+# V37.9 C16 audit-of-audit: 记录本次 governance 执行耗时起点
+_AUDIT_SESSION_START = time.time()
 
 _PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _ONTOLOGY_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -271,6 +275,16 @@ def run_meta_discovery(data):
         elif disc_id == "MRD-LAYER-001":
             # 扫描 critical 不变式的验证深度
             result = _discover_shallow_critical(data, severity)
+            discovery_results.append({"id": disc_id, "name": name, **result})
+
+        elif disc_id == "MRD-LAYER-002":
+            # V37.9: 扫描 high 不变式的验证深度（渐进强制 warn）
+            result = _discover_shallow_high(data, severity)
+            discovery_results.append({"id": disc_id, "name": name, **result})
+
+        elif disc_id == "MRD-AUDIT-PERF-001":
+            # V37.9 C16 audit-of-audit: 检测 governance 自身性能退化
+            result = _discover_audit_performance_regression(severity)
             discovery_results.append({"id": disc_id, "name": name, **result})
 
         elif disc_id == "MRD-LOG-STDERR-001":
@@ -625,6 +639,122 @@ def _discover_shallow_critical(data, severity):
         "status": "pass",
         "severity": severity,
         "message": f"所有 {len(deep)} 个 critical 不变式都有 ≥2 层验证深度",
+    }
+
+
+def _discover_audit_performance_regression(severity):
+    """MRD-AUDIT-PERF-001 (V37.9 C16): 检测 governance_checker 自身性能退化。
+
+    读 ontology/.audit_metrics.jsonl 历史，对比当前 session wall_time
+    vs 最近 5 次（不含当次）均值。>2x 退化 → warn。
+
+    当次 wall_time 尚未写入（写入在 __main__ 结尾），所以这里读的是
+    **历史最新**与**历史均值**对比——等价于"上次跑是否比之前慢"。
+    对抗场景 C16 中：前 N 次都正常 → 注入 sleep 后第 N+1 次写入时慢 →
+    第 N+2 次 MRD 发现退化 → warn。
+    """
+    metrics_path = os.path.join(_PROJECT_ROOT, "ontology", ".audit_metrics.jsonl")
+    if not os.path.exists(metrics_path):
+        return {
+            "status": "skip",
+            "severity": severity,
+            "message": "首次运行，无历史 metric 对比基线（下次开始生效）",
+        }
+    history = []
+    try:
+        with open(metrics_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    history.append(json.loads(line))
+                except json.JSONDecodeError:
+                    pass
+    except IOError:
+        return {
+            "status": "skip",
+            "severity": severity,
+            "message": f"无法读 metric 文件: {metrics_path}",
+        }
+    if len(history) < 3:
+        return {
+            "status": "skip",
+            "severity": severity,
+            "message": f"历史 metric 只有 {len(history)} 条（需 ≥3 条才有基线）",
+        }
+    latest = history[-1]
+    prior = history[-6:-1] if len(history) >= 6 else history[:-1]
+    if not prior:
+        return {
+            "status": "skip",
+            "severity": severity,
+            "message": "无 prior 历史基线",
+        }
+    avg_wall = sum(m.get("wall_time_ms", 0) for m in prior) / len(prior)
+    avg_checks = sum(m.get("total_checks_executed", 0) for m in prior) / len(prior)
+    latest_wall = latest.get("wall_time_ms", 0)
+    latest_checks = latest.get("total_checks_executed", 0)
+    issues = []
+    if avg_wall > 0 and latest_wall / avg_wall > 2.0:
+        issues.append(
+            f"wall_time {latest_wall}ms vs 历史均值 {int(avg_wall)}ms "
+            f"({latest_wall/avg_wall:.1f}x 退化)"
+        )
+    if avg_checks > 0 and latest_checks / avg_checks < 0.7:
+        issues.append(
+            f"checks_executed {latest_checks} vs 历史均值 {int(avg_checks)} "
+            f"({(1-latest_checks/avg_checks)*100:.0f}% 下降)"
+        )
+    if issues:
+        return {
+            "status": "warn",
+            "severity": severity,
+            "message": f"audit 自身性能退化嫌疑: {'; '.join(issues)}",
+            "latest": latest,
+            "avg_wall": avg_wall,
+            "avg_checks": avg_checks,
+        }
+    return {
+        "status": "pass",
+        "severity": severity,
+        "message": (
+            f"audit 性能健康: wall={latest_wall}ms (avg {int(avg_wall)}ms), "
+            f"checks={latest_checks} (avg {int(avg_checks)})"
+        ),
+    }
+
+
+def _discover_shallow_high(data, severity):
+    """MRD-LAYER-002 (V37.9): severity=high 的不变式应有 ≥2 层验证深度。
+    渐进强制：当前有单层 high 技术债，只 warn 不 fail-stop。"""
+    invariants = data.get("invariants", [])
+    shallow = []
+    deep = []
+    for inv in invariants:
+        if inv.get("severity") != "high":
+            continue
+        layers = inv.get("verification_layer", [])
+        inv_id = inv.get("id", "?")
+        if not isinstance(layers, list) or len(layers) < 2:
+            shallow.append(f"{inv_id} ({','.join(layers) if layers else 'none'})")
+        else:
+            deep.append(inv_id)
+    if shallow:
+        return {
+            "status": "warn",
+            "severity": severity,
+            "message": (
+                f"{len(shallow)} 个 high 不变式仅有单层验证（渐进强制 warn）: "
+                f"{', '.join(shallow[:5])}{'...' if len(shallow) > 5 else ''}"
+            ),
+            "shallow": shallow,
+            "deep": deep,
+        }
+    return {
+        "status": "pass",
+        "severity": severity,
+        "message": f"所有 {len(deep)} 个 high 不变式都有 ≥2 层验证深度",
     }
 
 
@@ -1450,12 +1580,72 @@ def print_discovery(discovery_results):
                     print(f"       📌 {u} — 建议新增不变式")
 
 
+def _write_audit_metrics(results, discovery):
+    """V37.9 C16 audit-of-audit: 记录本次 governance 执行的 metric 到历史文件，
+    供 MRD-AUDIT-PERF-001 下次 run 时对比识别性能退化。
+
+    历史文件: ontology/.audit_metrics.jsonl (每行 1 次 run, 最多保留最近 20 条)
+    字段:
+      timestamp, wall_time_ms, total_invariants, total_checks_executed,
+      total_checks_skipped, pass_count, fail_count, error_count
+    """
+    try:
+        wall_time_ms = int((time.time() - _AUDIT_SESSION_START) * 1000)
+        pass_count = sum(1 for r in results if r.get("status") == "pass")
+        fail_count = sum(1 for r in results if r.get("status") == "fail")
+        error_count = sum(1 for r in results if r.get("status") == "error")
+        checks_exec = sum(r.get("total_checks", 0) for r in results)
+        checks_passed = sum(r.get("passed_checks", 0) for r in results)
+        checks_skipped = checks_exec - checks_passed  # 近似（含 fail+error+skip）
+        metric = {
+            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
+            "wall_time_ms": wall_time_ms,
+            "total_invariants": len(results),
+            "total_checks_executed": checks_exec,
+            "total_checks_skipped": checks_skipped,
+            "pass_count": pass_count,
+            "fail_count": fail_count,
+            "error_count": error_count,
+            "discovery_count": len(discovery),
+        }
+        metrics_path = os.path.join(_PROJECT_ROOT, "ontology", ".audit_metrics.jsonl")
+        # 读历史
+        history = []
+        if os.path.exists(metrics_path):
+            try:
+                with open(metrics_path, "r", encoding="utf-8") as f:
+                    for line in f:
+                        line = line.strip()
+                        if line:
+                            try:
+                                history.append(json.loads(line))
+                            except json.JSONDecodeError:
+                                pass
+            except IOError:
+                pass
+        # 保留最近 19 + 本次 = 20 条
+        history = history[-19:]
+        history.append(metric)
+        # 原子写
+        tmp = metrics_path + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            for m in history:
+                f.write(json.dumps(m, ensure_ascii=False) + "\n")
+        os.replace(tmp, metrics_path)
+    except Exception:
+        # V37.9: 静默 fail — audit self-metric 失败不能阻塞治理主流程
+        pass
+
+
 if __name__ == "__main__":
     data = _load()
     results = run_all(data)
     discovery = run_meta_discovery(data)
     fails = print_results(results)
     print_discovery(discovery)
+
+    # V37.9 C16 audit-of-audit: 写本次 run 的 metric 供下次对比
+    _write_audit_metrics(results, discovery)
 
     if JSON_MODE:
         combined = {"invariants": results, "discovery": discovery}
