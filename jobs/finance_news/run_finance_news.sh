@@ -81,16 +81,17 @@ FINANCE_X_ACCOUNTS=(
     #   BrookingsInst   — 585天无更新
     # V37.8.14 已移除僵尸账号(3天连续检测 2026-04-15/16/17 确认):
     #   ReutersBiz      — 100/100 超72h (stale)
+    # V37.8.16 已移除僵尸账号(3天连续检测 2026-04-18/19/20 确认):
+    #   ForeignPolicy   — 3 天连续 zombie 嫌疑 (4/18-19-20)
+    #   Carnegie_Endow  — 3 天连续 zombie 嫌疑 (4/18-19-20)
     "IMFNews|IMF官方(X)|intl"
     "business|Bloomberg商业(X)|intl"
     "WSJ|华尔街日报(X)|intl"
     "TheEconomist|经济学人(X)|intl"
-    # V37.8.14 新增: 地缘政治/外交(填补政治类信源空白, 需Mac Mini僵尸检测验证)
-    "ForeignPolicy|外交政策杂志(X)|intl"
+    # V37.8.14 新增: 地缘政治/外交(填补政治类信源空白)
     "StateDept|美国国务院(X)|intl"
     "EU_Commission|欧盟委员会(X)|intl"
     "UN|联合国(X)|intl"
-    "Carnegie_Endow|卡内基国际和平基金会(X)|intl"
     # ── 中国官媒 ──
     # V37.8.4 已移除僵尸账号:
     #   caixin          — 2227天无更新
@@ -99,17 +100,19 @@ FINANCE_X_ACCOUNTS=(
     #   XHNews          — 97/97 超72h (stale)
     #   CGTNOfficial    — 99/99 超72h (stale)
     #   globaltimesnews — 98/98 超72h (stale)
-    "PDChina|人民日报英文(X)|cn"
+    # V37.8.16 已移除僵尸账号(3天连续检测 2026-04-18/19/20 确认):
+    #   PDChina         — 3 天连续 zombie 嫌疑 (4/18-19-20)
+    #   CNS1952         — 3 天连续 zombie 嫌疑 (4/18-19-20)
     "ChinaDaily|中国日报(X)|cn"
-    "CNS1952|中新社(X)|cn"
     # ── 港台/亚太 ──
     # V37.8.4 已移除僵尸账号:
     #   ChannelNewsAsia — 2955天无更新
     #   straits_times   — 420天无更新
     # V37.8.13 已移除僵尸账号:
     #   SCMPNews        — 3天连续 zombie 嫌疑(2026-04-14/15/16)
+    # V37.8.16 已移除僵尸账号(3天连续检测 2026-04-18/19/20 确认):
+    #   SingTaoDaily    — 3 天连续 zombie 嫌疑 (4/18-19-20)
     "NikkeiAsia|日经亚洲(X)|cn"
-    "SingTaoDaily|星岛日报(X)|cn"
     "asahi|朝日新闻(X)|cn"
 )
 
