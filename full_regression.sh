@@ -245,6 +245,37 @@ fi
 echo ""
 
 # ═══════════════════════════════════════════════════════════════
+# 第 3.5 层：对抗性混沌审计 — Category A 回归防线（V37.9）
+# Cat A 10 场景模拟已知血案回归攻击，audit 必须 100% catch
+# 每次 PR 合并前跑一次确认治理防御力未退化
+# ═══════════════════════════════════════════════════════════════
+echo "📋 第 3.5 层：对抗性混沌审计（Category A 回归防线）"
+if [ -f ontology/tests/adversarial_chaos_audit.py ]; then
+    # 检查 git 工作树干净（chaos audit 需要）— 豁免 status.json（证据回写）
+    DIRTY=$(git status --porcelain 2>/dev/null | grep -v "status.json$" || true)
+    if [ -n "$DIRTY" ]; then
+        echo "  ⚠️ git 工作树不干净（非 status.json），跳过对抗审计"
+    else
+        echo -n "  🎯 Category A 10 场景（已知血案回归） ... "
+        CHAOS_OUTPUT=$(python3 ontology/tests/adversarial_chaos_audit.py --category a 2>&1)
+        CHAOS_EXIT=$?
+        CAT_A_PASS=$(echo "$CHAOS_OUTPUT" | grep -oE "真实防御率: [0-9]+/[0-9]+" | tail -1)
+        if [ "$CHAOS_EXIT" -eq 0 ] && echo "$CHAOS_OUTPUT" | grep -q "PASS: 10"; then
+            echo "✅ $CAT_A_PASS (10/10 全抓)"
+            PASS=$((PASS + 1))
+        else
+            echo "❌ $CAT_A_PASS — audit 对已知血案回归防御退化"
+            echo "$CHAOS_OUTPUT" | grep -E "FAIL|DIRTY|STALE" | head -5
+            FAIL=$((FAIL + 1))
+            FAILED_SUITES+=("adversarial Cat A regression")
+        fi
+    fi
+else
+    echo "⏭ adversarial_chaos_audit.py 不存在"
+fi
+echo ""
+
+# ═══════════════════════════════════════════════════════════════
 # 第四层：代码质量（非阻塞，仅报告）
 # ═══════════════════════════════════════════════════════════════
 echo "📋 第四层：代码质量（参考项）"

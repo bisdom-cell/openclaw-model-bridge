@@ -1,6 +1,6 @@
 {
-  "updated": "2026-04-20 06:48:07",
-  "updated_by": "claude_code",
+  "updated": "2026-04-20 09:58:13",
+  "updated_by": "security_score",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -76,9 +76,64 @@
       "task": "【输出】第一篇架构型文章",
       "status": "completed",
       "note": "V36完成: docs/articles/why_control_plane.md — dev.to+知乎+Twitter发布"
+    },
+    {
+      "task": "【加固-P0】路线 A: 血案回填审计 (Ontology audit 防御率实证)",
+      "status": "completed",
+      "note": "15 血案 × Q1/Q2/Q3 = 0% 预防率 / 87% 回归率 / 80% 空白类别. audit_coverage_retrospective.md 618 行. Stage 2 第 2 份实证资产."
+    },
+    {
+      "task": "【加固-P0】路线 B: 对抗性混沌审计 (Adversarial Chaos Audit)",
+      "status": "completed",
+      "note": "16 场景对真实仓库破坏注入. Cat A 10/10 + Cat B 6/6 = 16/16. adversarial_audit_report.md + adversarial_chaos_audit.py. Stage 2 第 3 份实证资产."
+    },
+    {
+      "task": "【加固-P0】V37.8.18 盲区修复 (Route B 6/6 全闭)",
+      "status": "completed",
+      "note": "C14 dict 污染 / C15 push bypass / C11 silent except / C12 retry 爆炸 / C13 last_run 漂移 / C16 audit-of-audit 全部修复. 6 个 MRD 扫描器新增."
+    },
+    {
+      "task": "【加固-P0】V37.9 结构加固 4 项",
+      "status": "completed",
+      "note": "(1) adversarial Cat A 集成 layer 3.5 (2) MRD-LAYER-002 severity=high 渐进强制 (3) MRD-AUDIT-PERF-001 audit-of-audit (4) MR-16 + INV-SEC-001 security 双轨统一."
+    },
+    {
+      "task": "【输出】Stage 2 第 4 篇文章 audit is regression not prevention",
+      "status": "completed",
+      "note": "docs/articles/audit_is_regression_not_prevention.md 立场型文章, 6 条可落地原则, 基于 Route A + B 实证数据."
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-04-20",
+      "what": "V37.9.2 MR-6 深度补齐: 12 单层 high 减到 9 (-3). (1) INV-PA-002 加 runtime 解析规则 10 完整块+5 关键短语必须都在块内+长度>=400字; (2) INV-DREAM-001 加 runtime 真解析 DREAM_TIMEOUT_SEC 赋值，MAP_ONLY>=5400s + Reduce<=3600s + 差>=1800s; (3) INV-DEPLOY-003 加 runtime 扫双侧脚本 status.json 邻近 continue. 都用 iterative loop 避开 V37.3 exec scope trap. governance v3.25→v3.26, 253→256 checks. 对抗审计保持 16/16.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-04-20",
+      "what": "V37.9.1 路线 C Step 2 + Stage 2 话语权输出. (1) INV-SEC-001 扩展 per-dimension 7 维度阈值守卫 (密钥 15/测试 13/数据 10/部署 15/传输 9/审计 15/可用 8), 从总分≥90 升级为\"每维度不能塌陷\", 防单维度隐性退化盲区. (2) docs/articles/audit_is_regression_not_prevention.md 公开资产: 基于路线 A/B 实证数据论证 audit 是 regression engine 非 prevention tool, 6 条实际落地原则, Stage 2 第 4 份资产. (3) OpenClaw hold 决策确认 (距 4/17 评估 3 天). governance v3.24→v3.25 / 55 inv / 253 checks / 15 MR / 13 MRD scanners. 对抗审计 16/16 保持.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-04-20",
+      "what": "V37.9 四项结构性加固 — 从修血案进入建制度阶段. (1) 对抗审计 Cat A 集成 full_regression layer 3.5 (每 PR 前自动跑 10 已知血案场景防御力回归). (2) MR-6 扩展 high: MRD-LAYER-002 渐进强制 warn 级暴露 12 个单层 high 技术债. (3) C16 audit-of-audit: governance_checker 写 .audit_metrics.jsonl + MRD-AUDIT-PERF-001 用 SESSION_START 实时 wall_time + 5 次中位数对比 + 双条件阈值 (1.3x + 300ms). Route B C16 sleep 0.5→1.5s mutation 确认 UNEXPECTED catch. 至此 Route B 6/6 盲区全部闭合. (4) 路线 C Security + Governance 双轨统一: MR-16 立案 + INV-SEC-001 security-score ≥ 90 粗粒度守卫. 对抗审计最终 16/16 (100%). governance v3.23→v3.24 / 55 inv / 252 checks / 15 meta rules. 全量回归 36 suites / 1111 tests / 0 fail / 93/100.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-04-20",
+      "what": "V37.8.18 Phase 2 完整闭环: 2 个 🟡 中优先级盲区修复 + 对抗验证升级到 5/6 (83%). (1) INV-COST-001 新增: retry 上限守卫 ceiling=10, 4 checks 含 runtime iterative walk 避开 exec() 作用域陷阱. C12 对抗 🎉 UNEXPECTED catch. (2) INV-OBSERVABILITY-001 扩展 C13 last_run 一致性: 4 新 file_contains 锁定 kb_inject/kb_evening/kb_review/kb_harvest_chat + runtime 断言 job_watchdog 监控列表与脚本路径一致. C13 对抗 🎉 UNEXPECTED catch. 累计成绩: 53→54 不变式 / 240→249 checks / 9→11 MRD scanners. Route B 修复进度: 5/6 盲区修复验证. 仅剩 C16 audit-of-audit (架构级, V37.9 候选). governance v3.22→v3.23. 全量回归 36 suites / 1111 tests / 0 fail / 93/100.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-04-20",
+      "what": "V37.8.18 Phase 1 完整闭环: Route B 3 个 🔴 高优先级盲区修复 + 对抗审计 counter 改进 (4 commits e2b4301/7c5ef4d 系列). 成果数字: Category B 意外 catch 从 0/6 升到 3/6 (50%) - 证明修复真实生效. (1) C14 dict repr: INV-KB-001 扩展 runtime 断言覆盖 flatten_content(dict), mutation 让 fallback 返回 repr 时 audit 立即抓到. (2) C11 silent except: 新增 MRD-SILENT-EXCEPT-001 AST 扫所有 .py 的裸 except / except Exception: pass, 首跑发现 12 处历史技术债 (adapter/kb_trend/governance_checker 自身), 登记待清理; mutation 注入第 13 处立即 catch. (3) C15 push bypass: 新增 MRD-PUSH-ROUTE-001 扫所有 .sh 的 openclaw message send, 22 脚本白名单豁免, jobs/**/*.sh 自动豁免; rogue pusher 立即 catch +2 violations. (4) 对抗 counter 改进: 解析 MRD warn 内 \"N 处\" 数字, 避免 baseline 已有 warn 时 delta=0 的盲区. 方法学洞察: 连工具本身也有自己的盲区! 剩余 3 盲区候选: 🟡 C13 last_run (中优先级) + C12 retry 上限 (中) + ⚫ C16 audit-of-audit (架构级). governance v3.21→v3.22. 全量回归 36 suites / 1111 tests / 0 fail / 93/100.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-04-20",
+      "what": "Route B 对抗性混沌审计完整交付: 框架 adversarial_chaos_audit.py (570 行) + 报告 adversarial_audit_report.md (177 行). 16 场景对真实仓库文件做真实破坏注入. (1) Category A 真实防御率 10/10 (100%): 所有已知血案回归攻击 C1-C10 被 audit 抓到，符合预期. (2) Category B 意外 catch 0/6 (0%): 6 个探测场景 C11-C16 全部\"符合预期未被 audit 抓到\", 量化确认 6 个真实盲区: C11 silent except / C12 retry 爆炸 / C13 last_run 不一致 / C14 dict repr 污染变种 / C15 推送 bypass notify.sh / C16 audit 自身性能 (观察者盲区). (3) V37.8.18 候选修复路线: 🔴 C14/C15/C11 立即可做 / 🟡 C13/C12 下周 / ⚫ C16 架构级 audit-of-audit 子系统. (4) 方法论创新: delta-count 判定避免 INCONCLUSIVE 噪声 / try/finally 可逆 mutation / git clean 前后验证 / Cat A 可选择集成到 full_regression. 今日全部交付: Route A (15 血案回填 618 行) + V37.8.17 (MR-14/15 MRD 第二步跃迁) + Route B (16 场景对抗 + 盲区量化报告).",
+      "by": "claude_code"
+    },
     {
       "date": "2026-04-20",
       "what": "V37.8.17 Route A 交付 + MR-14 / MR-15 MRD 第二步跃迁: (1) audit_coverage_retrospective.md 完整 618 行交付, 15 血案 × Q1/Q2/Q3 = 0% 预防率 / 87% 回归率 / 80% 空白类别盲区, 核心结论 \"ontology audit 是 regression engineering 系统不是 prevention engineering\". (2) MRD-RESERVED-FILES-001 实现: 扫 OpenClaw dist/*.js 里 f.name=== 字面模式自动发现 runtime 保留文件声明, 对比 proxy_filters.RESERVED_FILE_BASENAMES, dev 环境 skip / Mac Mini --full 真实扫描. 未来新保留文件自动报警. (3) MRD-ALERT-INDEPENDENCE-001 实现: 扫监控脚本 wa_* / keepalive / watchdog 白名单规则矩阵检测告警路径独立性 (wa_* 不得用 --channel whatsapp 告警), 探测路径豁免. 未来新监控脚本违反告警独立原则自动发现. (4) 两个 MRD 完成 MR-14 / MR-15 从\"声明层\"到\"运行时 CI 扫描\"第二步跃迁, 与 V37.8.8→V37.8.9 MR-11/MR-12 同款模式. governance v3.20→v3.21. 全量回归 36 suites / 1111 tests / 0 fail / 安全 93/100. (5) P0-1 路线 B 对抗性审计留下轮, 工程量大需单独启动. 下轮候选: MR-6 扩展 severity=high / audit-of-audit / 路线 C Security+Governance 双轨 / MR-10 可检测代理.",
@@ -148,35 +203,6 @@
       "date": "2026-04-15",
       "what": "V37.8.5 僵尸检测边缘盲区闭合：V37.8.4 登记的 2 个 unfinished (CNS1952 99% + SingTaoDaily 0-tweet) 结构化修复。独立 finance_news_zombie.py 纯函数模块 + classify_zombie(diag, count) 三层 tier (stub/stale/alive) + 24 单测 + INV-X-001 升级 [declaration,runtime] + runtime python_assert 5 场景。governance v3.10→v3.11 (36 inv, 152→159 checks)。全量回归 975 tests / 0 fail。MR-10 第 2 次演出（修复本身埋坑）+ MR-6 正向兑现 + MR-8 禁 inline fallback。VERSION 0.37.5→0.37.8.5。案例 ontology/docs/cases/zombie_detection_edge_case_closure.md",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-04-14",
-      "what": "V37.8.4 Mac Mini E2E 验证通过：preflight 77/0/3 + job_smoke_test 186/0/11 + finance_news 手动运行成功。系统独立发现第 8 个僵尸 SCMPNews (95/95 超72h)，⚠️ ZOMBIE嫌疑 标记 + 告警正常触发 + 27 篇文章成功推送+LLM分析。按设计等 3 天连续命中再决定删除。登记 2 个边缘检测盲区：CNS1952 near-zombie (98/99 old + 1 短，老/总=99%但未=100%不触发) + SingTaoDaily 0-tweet stub (total=0 不触发 total>0 门槛)",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-04-14",
-      "what": "V37.8.4 finance_news X 僵尸账号血案闭环：删除 7 个已验证僵尸 handle (Reuters/WorldBank/BrookingsInst/caixin/yicaichina/ChannelNewsAsia/straits_times，停更 253-3364 天) + 加静默失败检测 (is_zombie_suspect parser + ⚠️ 诊断前缀 + zombies_${DAY}.txt + 3 天 comm -12 告警) + INV-X-001 新增 (36 不变式, 138 checks) + CLAUDE.md 原则 #27 升级强制 X 账号健康 ≠ HTTP 200 + 案例文档 finance_news_syndication_zombie_case.md + governance v3.9→v3.10。MR-10 (V37.8.3 引入) 正向兑现。全量回归 951 tests / 31 suites / 0 fail",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-04-14",
-      "what": "原则 #30 新增: 开工必须主动声明模型（第 0 号宪法执行机制）。格式固定为 🤖 本次 session 模型：Claude Opus 4.6 (claude-opus-4-6) | 最强级别，无降级 | fast mode 状态见 /fast 命令，独占一行放在任何寒暄/分析/工具调用之前。模型 ID 非 claude-opus-4-6 立即停止告知用户。每次必查 29→30 条。触发: 用户追问是否最强模型才能确认，声明应主动前置"
-    },
-    {
-      "date": "2026-04-13",
-      "what": "V37.8.3: (1) finance_news 3个错误X账号修复 (CaixinGlobal→caixin, YicaiGlobal→yicaichina, STcom→straits_times) (2) Dream MIN_ACCEPTABLE_CHARS 1500→3000 + BEST_CHARS 未定义变量修复 (3) kb_evening E2E测试时区闪烁修复 (4) preflight 连锁修复闭环: FILE_MAP多目标支持 + SCRIPT_DIR HOME检测 + auto_deploy双目标部署 + preflight/job_smoke_test纳入FILE_MAP, 5轮修复从20失败到0失败 (5) MR-10 understand-before-fix 新元规则(连锁修复血案教训) (6) 原则#28理解再动手 + 原则#29开工收工零遗漏 (7) 第0号宪法: 最强模型不降配不降速不妥协 (8) 案例文档 preflight_cascading_fix_case.md",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-04-12",
-      "what": "V37.8.2: (1) preflight status.json 合法分叉豁免 (2) KB 索引阈值改百分比 (3) kb_evening/kb_review LLM 反幻觉约束 (4) finance_news 全新 job: 8 RSS + 21 X 双通道, 72h 窗口, daily seen 重置, LLM 结构化分析 + KB + 推送 (5) CLAUDE.md 原则 #27 X/Twitter 优先 (6) auto_deploy FILE_MAP 补齐 (7) governance_checker MRD-NOTIFY-002 TOPIC_JOB_MAP 重写消除假阳性",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-04-11",
-      "what": "V37.8 Mac Mini 生产硬验证通过 — governance --full: 35/35 不变式 / 136/136 checks (0 skip, FULL 模式全执行) / 9/9 元规则 全绿. 核心验证项: INV-LAYER-001 MR-6 硬强制 2 checks / INV-DREAM-002 SKIP_MAP_LOOPS 顺序锁真跑 kb_dream.sh 行号断言 / INV-CACHE-002 md5 content-hash mtime 漂移 parity 真跑 / INV-ENV-002 OPENCLAW_PHONE 真号 + 占位号反例守卫 / INV-DEPLOY-002 shlex AST 零 crontab 写入 token. preflight 75/2/2/0 (2 FAIL 是 pre-existing status.json+CLAUDE.md 分叉). job_smoke 33 job / 177 pass / 0 fail / 15 warn (历史日志). MRD-NOTIFY-002 activity 层假阳性 (source 层正确, activity 层扫错路径) 已登记 unfinished 待 V37.8.1 修.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -213,11 +239,15 @@
   "session_context": {
     "last_session": "2026-04-17 V37.8.14 (15 commits)",
     "unfinished": [
-      "fallback_chain 扩展 ≥2 provider — 需用户决策 API key（P0，延后）",
-      "gemini quota 降频 — TPM 窗口竞争，待用户决策",
-      "V3 路标 backlog: Tool Policy Plugin / Memory Plane Plugin / Job Template SDK / Ontology Phase 4-5",
-      "X 僵尸 3 天连续命中但 07:30 run 未推送 SYSTEM_ALERT 告警（2026-04-20 发现）: 5 个账号 4/18-19-20 三天命中但 finance_news 日志无 SYSTEM_ALERT 字样。需排查 NOTIFY_LOADED 是否加载 / comm 交集逻辑是否在 zombies 重置后才跑 / PERSISTENT 变量判空。纯排查，不紧急（僵尸已手动移除）",
-      "WhatsApp 入站 session 物理落地 research/ 而非 main/（非致命）: 4/10 后 main/sessions.json dormant, research/sessions 无限增长. 共享 workspace 让用户行为层无感. 长期考虑 main/sessions 的 cleanup cron 调整 或 研究 OpenClaw core agent routing 策略"
+      "MR-6 的 9 个单层 high 补齐（INV-TOOL-003/CRON-002/NOTIFY-002/HEALTH-001/NOTIFY-003/NOTIFY-004/CRON-004/JOB-GOVAUDIT-001/JOB-HARVEST-001），按'每次血案修复顺便升级邻近'节奏推进，完成后 MRD-LAYER-002 可升级为 INV-LAYER-002 硬强制",
+      "audit-of-audit (MRD-AUDIT-PERF-001) 扩展维度: memory_mb / skip_rate / cold_start_ms 等（当前只有 wall_time）",
+      "路线 C Step 3 终态: security_score.py 从独立工具变成 governance audit 的 view（数据源统一到 ontology）",
+      "Ontology Phase 4 领域本体: 六域概念模型 (Actor/Tool/Resource/Task/Provider/Memory) + policy_ontology.yaml + 三阶段门控",
+      "V3 路标 backlog: Tool Policy Plugin + Memory Plane Plugin + Job Template SDK + pip install ontology-engine",
+      "fallback_chain 扩展 ≥2 provider (需用户决策 API key)",
+      "gemini quota 降频 (TPM 窗口竞争，需用户决策)",
+      "WhatsApp 入站路由到 research 非 main (4/10 plugin 副作用非致命，研究 plugin 源码后长期考虑 channels.whatsapp.agent 配置)",
+      "X 僵尸告警 3 天连续命中但 07:30 run 未推送 SYSTEM_ALERT (2026-04-20 发现, 僵尸已手动移除, 告警路径漏洞待排查)"
     ],
     "open_prs": "",
     "blocked_on": "",
@@ -229,18 +259,21 @@
         "what": "V37.8.6/8.7/8.8/8.9 四连发同日上线 — (1) V37.8.6 Dream log→stderr 阻断 stdout 污染 cache 的 LLM 幻觉链 + sanitize U+D800-U+DFFF 孤立代理 + REDUCE/CHUNK system prompt 反污染守卫，INV-DREAM-003 critical 双层 16 checks (2) V37.8.7 ontology_sources 推送格式错位修复，抽 ontology_parser.py 用 separator 切块 + key-based prefix 解析，单块缺行不级联，INV-ONTOLOGY-001 high 双层 7 checks (3) V37.8.8 MR-11 (log→stderr) + MR-12 (llm-parser-key-based) 正式立案为 ontology 元规则 (4) V37.8.9 MRD-LOG-STDERR-001 + MRD-LLM-PARSER-POSITIONAL-001 运行时扫描器落地，批量 sed 修复 19 个 job 脚本 log() 写 >&2，元规则覆盖率 10/12→12/12。MR-4 silent-failure 第 7+8 次演出 + 原则 #23 链式幻觉典型实证 (Hugging Face 编造案例)。governance v3.11→v3.15。35 suites / 1050 tests / 0 fail / 38 invariants / 168 checks / 安全 93。Mac Mini E2E preflight 77/0/3。VERSION 0.37.8.5→0.37.8.9。",
         "by": "claude_code"
       }
-    ]
+    ],
+    "last_session_ended": "2026-04-20",
+    "last_session_commits": 34,
+    "last_session_focus": "V37.8.16 -> V37.9.2: Stage 2 验证者阶段完整交付（路线 A 15血案回填 + 路线 B 16对抗场景 + 6/6 盲区全闭 + V37.9 结构加固 + V37.9.1 安全统一 + V37.9.2 MR-6 深度补齐）"
   },
   "quality": {
     "security_score": "93",
     "test_count": "1111",
-    "last_regression": "2026-04-20 06:47 pass",
+    "last_regression": "2026-04-20 09:58 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-04-20 06:47",
-    "test_suites": "36",
+    "security_score_time": "2026-04-20 09:58",
+    "test_suites": "37",
     "governance_invariants": "52/52",
     "governance_checks": "222/233",
-    "version": "0.37.8.16"
+    "version": "0.37.9.2"
   },
   "incidents": [
     {
