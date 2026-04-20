@@ -412,15 +412,16 @@ openclaw message send --channel whatsapp "rogue alert bypass"
 
 
 def _c16_audit_performance_regression():
-    """让 governance_checker 变慢（启动时 sleep）。
-    预期盲区：audit 无自身性能不变式（observer blind spot — MR-7 只覆盖 summary 正确性）"""
+    """让 governance_checker 显著变慢（启动时 sleep(1.5)）。
+    V37.9: 注入 1.5s sleep（原 0.5s 在 ~2s baseline 上只是 23% 退化, 在噪声范围）
+    现在 1.5s = 70%+ 退化, 触发 MRD-AUDIT-PERF-001 的 1.3x + 300ms 阈值"""
     target = os.path.join(PROJECT_ROOT, "ontology", "governance_checker.py")
 
     def mutate(content: str) -> str:
-        # 在 `if __name__` 入口注入 sleep 膨胀启动时间
+        # 在 `if __name__` 入口注入 sleep(1.5) 显著膨胀启动时间
         return re.sub(
             r'if __name__ == "__main__":\n',
-            'if __name__ == "__main__":\n    # CHAOS_MUTATED artificial slowdown\n    import time\n    time.sleep(0.5)\n',
+            'if __name__ == "__main__":\n    # CHAOS_MUTATED artificial slowdown\n    import time\n    time.sleep(1.5)\n',
             content,
             count=1,
         )
