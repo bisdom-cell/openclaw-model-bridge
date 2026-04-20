@@ -1,6 +1,6 @@
 {
-  "updated": "2026-04-17 11:03:14",
-  "updated_by": "security_score",
+  "updated": "2026-04-20 00:31:18",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-04-19",
+      "what": "V37.8.16 血案调查 (未闭环，延后明天修复): WhatsApp PA 对用户提问全部静默回复 HEARTBEAT_OK 而不发给用户。诊断链: (1) /stats last_error_code=502+p99=126s 初判 primary/fallback 问题; (2) /health 三层 ok+进程活着 → 排除崩溃; (3) proxy 日志 22:09-23:04 每次 TEXT=12 chars 稳定 → 非偶发; (4) gateway.log 无 Sending/Sent 对应 → Gateway 收到 LLM 回复但不发 outbound; (5) session jsonl dump 出 HEARTBEAT_OK 字面字符串 (usage:0 synthetic); (6) 一周前正常 + 本仓库零命中 → 上游代码+我们触发组合; (7) upstream /opt/homebrew/lib/node_modules/openclaw/dist/auth-profiles-DRjqKE3G.js:48797 发现 default fallback prompt: Read HEARTBEAT.md if it exists. If nothing needs attention, reply HEARTBEAT_OK. 根因: SOUL.md 未被 research agent 正确加载 → OpenClaw 默认 HEARTBEAT prompt 激活 → LLM 执行默认指令回 HEARTBEAT_OK → Gateway 按 ack token 设计吞掉不发给用户。反面教训: 我犯原则#28违规-看到Bad MAC就让用户做auth reset/QR扫码路径(已回滚)。MR-10 understand-before-fix 未兑现。",
+      "by": "claude_code"
+    },
     {
       "date": "2026-04-17",
       "what": "外部代码级评审吸收: 六优势(控制平面/Provider抽象/韧性/阈值/门禁/战略)+五劣势(脚本特征/环境耦合/PyYAML/Memory接口/文档过载)。录入4项P0/P1优先级: 可迁移性闭环+证据链产品化+插件生态接口+可观测闭环。核心三字诀: 标准化+可比较+生态协议",
@@ -171,11 +176,6 @@
     {
       "date": "2026-04-11",
       "what": "V37.5.1 kb_review.sh pipe+heredoc stdin 冲突热修复 — V37.5 推送后 Mac Mini 首次 bash ~/kb_review.sh 即 JSONDecodeError (stdin 读到空串). 根因经典 shell 反模式: echo | python3 - << PYEOF 让 pipe 和 heredoc 同时喂 python3 stdin, heredoc 优先作为代码源, pipe 的 JSON 被丢弃. V37.5 的 44 单测 + 14 governance checks 全过却漏掉 — 全是声明层 grep guard, 从未 subprocess.run 跑脚本. 三层修复: 代码层 kb_review.sh:154-163 改用 COLLECTOR_OUTPUT env var 模式 (heredoc 只承载代码, 零 stdin 竞争) + 治理层 INV-REVIEW-001 +2 checks (反模式静态守卫 + 真实 subprocess runtime 锁定) + 测试层 test_kb_review.py +4 (44→48: test_no_pipe_heredoc_stdin_collision + TestKbReviewShellRuntime 3 测试含 E2E mock collector). Mac Mini 生产验证: 12 源/299 notes/LLM ✓/review 文件落盘/WhatsApp+Discord #daily 推送成功. Governance v3.5→v3.5.1 (29 不变式, 81→83 checks). 元认知: 同一 MR-4 血案类三天内第二次演出 (V37.5 主 → V37.5.1 子), 证明主血案修复本身也可能埋坑, MR-6 从建议升级为基础假设.",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-04-11",
-      "what": "V37.5 kb_review fail-fast + registry-driven + H2 drill-down — 修复 6-issue silent degradation 血案（shell scope + 硬编码源 + 机械 fallback + 伪造 llm=true + 行级日期匹配 + 悬空承诺）。重写为 kb_review_collect.py (纯Python, llm_caller 可注入) + kb_review.sh thin wrapper fail-fast [SYSTEM_ALERT] + jobs_registry.yaml 加 kb_source_file 字段 12 个源 + INV-REVIEW-001 (29 不变式 / 81 checks) + test_kb_review.py 44 单测 + 案例文档",
       "by": "claude_code"
     }
   ],
@@ -305,7 +305,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "外部评审消化期：项目已是Agent Runtime Control Plane雏形，核心方向确认——(1)控制平面标准化产品能力 (2)证据链持续可比较资产 (3)扩展接口生态协议。P0优先解决可迁移性(环境契约+CLI统一+三profile)和证据链产品化(JSON artifact+基线对比+evidence bundle)",
+  "focus": "V37.8.16 HEARTBEAT_OK 静默血案闭环 (P0): SOUL.md 加载失败 → OpenClaw 默认 HEARTBEAT prompt 激活 → 所有用户提问被吞。诊断已完成(4-19 深夜 2h)，明天修复。反面教训: 我犯原则#28违规(Bad MAC 错归因 + 让用户过度 rm -rf auth reset)，已回滚无损失",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
@@ -317,7 +317,9 @@
     {
       "what": "X 僵尸观察: 7 新嫌疑 (ReutersBiz/XHNews/CGTNOfficial/globaltimesnews 2天, PDChina/CNS1952/SingTaoDaily 1天) — 2026-04-18 3天窗口到期决策",
       "status": "observing"
-    }
+    },
+    "V37.8.16 BLOOD LESSON (P0, TOMORROW): SOUL.md 加载失败 → OpenClaw 默认 HEARTBEAT prompt 激活 → HEARTBEAT_OK 静默血案。待做: (1) 跑 3 条验证命令确认 SOUL.md 位置和 research agent 实际收到的 system prompt (ls ~/.openclaw/agents/research/ + find SOUL.md + head session jsonl); (2) git bisect 40 commits 定位 SOUL.md 路径被改坏的 commit (候选: ONTOLOGY_MODE=on 切换 176c8f9/3b92d99/ce2c275 + status.json 豁免); (3) 恢复 SOUL.md 正确加载路径; (4) 新 INV-PA-003 soul-md-must-be-loaded (运行时 probe 测 response NOT = HEARTBEAT_OK); (5) 新 MR-13 候选 external-default-fallbacks-must-be-audited; (6) 案例文档 ontology/docs/cases/soul_md_load_broken_heartbeat_fallback_case.md; (7) 反面教材案例 ontology/docs/cases/misdiagnosis_bad_mac_cascade.md 记录今晚我的原则#28违规 (Bad MAC 错归因 + rm -rf 过度操作 + 差点让用户扫码); (8) 全量回归 + 治理审计 + Mac Mini E2E 验证",
+    "CLAUDE.md 原则#30 模型 ID 字面量过时: 指定 claude-opus-4-6 但实际运行 claude-opus-4-7 (新一代, 非降级)。明天 V37.8.16 收工时顺便把 CLAUDE.md 原则 #30 的模型 ID 措辞改为\"Claude Opus 最新版\"或直接写 4.7 (因为 4.7 是当前最强非降级)"
   ],
   "_meta": {
     "last_updated_by": "claude_code"
