@@ -1,0 +1,132 @@
+#!/bin/bash
+# cron 环境 PATH 极简，必须显式声明（规则 #13）
+export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
+# OpenClaw 每周健康检查脚本 v1.1
+
+# 配置：优先读取环境变量，保留默认值
+PHONE="${OPENCLAW_PHONE:-+85200000000}"
+OPENCLAW="$(command -v openclaw 2>/dev/null || echo /opt/homebrew/bin/openclaw)"
+
+# === 服务状态 ===
+gw=$(lsof -ti :18789 >/dev/null 2>&1 && echo "🟢 正常" || echo "🔴 异常")
+ad=$(lsof -ti :5001 >/dev/null 2>&1 && echo "🟢 正常" || echo "🔴 异常")
+px=$(lsof -ti :5002 >/dev/null 2>&1 && echo "🟢 正常" || echo "🔴 异常")
+
+# === 模型ID检查 ===
+CURRENT_MODEL=$(curl -s --max-time 10 https://hkagentx.hkopenlab.com/v1/models \
+  -H "Authorization: Bearer ${REMOTE_API_KEY}" \
+  | python3 -c "import json,sys; d=json.load(sys.stdin); models=[m['id'] for m in d['data'] if 'Qwen3' in m['id']]; print(models[0][:30] if models else 'NOT_FOUND')" 2>/dev/null)
+LOCAL_MODEL=$(python3 -c "
+import json
+with open('/Users/bisdom/.openclaw/openclaw.json') as f: d=json.load(f)
+print(d['models']['providers']['qwen-local']['models'][0]['id'][:30])
+" 2>/dev/null)
+
+if [ "$CURRENT_MODEL" = "$LOCAL_MODEL" ]; then
+  model_status="🟢 未变更 (${CURRENT_MODEL})"
+else
+  model_status="🔴 已变更！远端:${CURRENT_MODEL} 本地:${LOCAL_MODEL}"
+fi
+
+# === 任务统计（过去7天）===
+TASK_STATS=$(python3 << 'PYEOF'
+import json, time, subprocess, sys
+
+try:
+    with open('/Users/bisdom/.openclaw/cron/jobs.json') as f:
+        jobs = json.load(f).get('jobs', [])
+except (OSError, json.JSONDecodeError, KeyError) as e:
+    print(f"无法读取任务配置: {e}")
+    sys.exit(0)
+
+lines = []
+for j in jobs:
+    if not j.get('enabled'): continue
+    name = j['name']
+    jid = j['id']
+    try:
+        result = subprocess.run(
+            ['/opt/homebrew/bin/openclaw', 'cron', 'runs', '--id', jid, '--limit', '14'],
+            capture_output=True, text=True, timeout=15
+        )
+        data = json.loads(result.stdout)
+        entries = data.get('entries', [])
+        total = len(entries)
+        success = sum(1 for e in entries if e.get('status') in ('ok', 'success'))
+        lines.append(f"  {name}：{success}/{total} 成功")
+    except (json.JSONDecodeError, KeyError, subprocess.TimeoutExpired, OSError) as e:
+        lines.append(f"  {name}：无法获取记录 ({e})")
+
+print('\n'.join(lines))
+PYEOF
+)
+
+# === 知识库统计 ===
+KB_COUNT=$(find ~/.kb/notes/ -name "*.md" -newer ~/.kb/notes/.last_check 2>/dev/null | wc -l | tr -d ' ')
+TOTAL_KB=$(find ~/.kb/notes/ -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
+touch ~/.kb/notes/.last_check 2>/dev/null
+
+# === Session历史大小 ===
+SESSION_SIZE=$(du -sh ~/.openclaw/agents/main/sessions/ 2>/dev/null | cut -f1 || echo "0")
+
+# === 外挂SSD状态 ===
+if [ -d "/Volumes/MOVESPEED" ]; then
+  ssd_status="🟢 在线"
+else
+  ssd_status="🟡 未挂载"
+fi
+
+# === 组装报告 ===
+DATE=$(date '+%Y-%m-%d')
+REPORT="📊 OpenClaw 周报 ${DATE}
+
+🖥 服务状态：
+  Gateway：${gw}
+  Adapter：${ad}
+  Proxy：${px}
+
+🤖 模型ID：${model_status}
+
+📋 任务统计（近7天）：
+${TASK_STATS}
+
+🗂 知识库：本周新增 ${KB_COUNT} 条 / 共 ${TOTAL_KB} 条
+💾 外挂SSD：${ssd_status}
+📁 Session历史：${SESSION_SIZE}
+
+✅ 周报完毕"
+
+echo "$REPORT"
+
+# === V27: 输出机器可读 JSON（供自动化消费） ===
+HEALTH_JSON="${HEALTH_JSON_PATH:-$HOME/health_status.json}"
+python3 << JSONEOF > "$HEALTH_JSON"
+import json, datetime
+data = {
+    "timestamp": datetime.datetime.now().isoformat(),
+    "version": "v27",
+    "services": {
+        "gateway":  {"port": 18789, "status": "ok" if "$gw".startswith("\U0001f7e2") else "down"},
+        "adapter":  {"port": 5001,  "status": "ok" if "$ad".startswith("\U0001f7e2") else "down"},
+        "proxy":    {"port": 5002,  "status": "ok" if "$px".startswith("\U0001f7e2") else "down"},
+    },
+    "model": {
+        "remote": "$CURRENT_MODEL",
+        "local": "$LOCAL_MODEL",
+        "match": "$CURRENT_MODEL" == "$LOCAL_MODEL",
+    },
+    "kb": {"new_this_week": int("$KB_COUNT" or "0"), "total": int("$TOTAL_KB" or "0")},
+    "ssd": "$ssd_status",
+    "session_size": "$SESSION_SIZE",
+}
+print(json.dumps(data, indent=2, ensure_ascii=False))
+JSONEOF
+echo "[health] JSON written to $HEALTH_JSON"
+
+# === 推送到WhatsApp ===
+if $OPENCLAW message send --channel whatsapp --target "$PHONE" --message "$REPORT" --json 2>>"$HOME/health_check.log"; then
+    echo "[health] WhatsApp 推送成功"
+    $OPENCLAW message send --channel discord --target "${DISCORD_CH_DAILY:-}" --message "$REPORT" --json >/dev/null 2>&1 || true
+else
+    echo "[health] ERROR: WhatsApp 推送失败，检查 gateway 状态" >> "$HOME/health_check.log"
+fi

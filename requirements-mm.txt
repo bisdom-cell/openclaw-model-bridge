@@ -1,0 +1,5 @@
+# Multimodal Memory 依赖 (mm_index.py, mm_search.py)
+# Install: pip3 install -r requirements-mm.txt
+# Pin versions for reproducibility (update periodically via pip-compile or manual review)
+google-genai==0.8.3
+numpy==1.26.4
