@@ -1,0 +1,16 @@
+order_id,customer_name,order_date,amount,status,email
+1001,张三,2026-03-15,299.00,active,zhangsan@gmail.com
+1002,李四,15/03/2026,450.50,Active,lisi@qq.com
+1003,王五,2026-03-16,0.00,ACTIVE,wangwu@163.com
+1004,张三,2026-03-15,299.00,active,zhangsan@gmail.com
+1005,赵六,3/17/2026,1200.00,ative,zhaoliu@gmail.com
+1006,钱七,2026-03-18,,inactive,qianqi@hotmail.com
+1007,孙八,N/A,89.90,inactvie,sunba@
+1008,周九,2026-03-19,35.00,0,zhoujiu@gmail.com
+1009,吴十,2026/03/20,999.99,active,
+1010,郑十一,2026-03-21,-50.00,active,zheng11@gmail.com
+1011,  王五 ,2026-03-16,128.00,active,wangwu@163.com
+1012,李四,2026-03-22,670.00,active,LISI@QQ.COM
+1013,冯十三,TBD,300.00,pending,feng13@gmail.com
+1014,陈十四,2026-03-23,450.00,active,chen14@gmail.com
+1015,褚十五,2026-03-24,88.00,active,chu15@yeah.net

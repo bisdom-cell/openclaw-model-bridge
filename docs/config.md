@@ -1,0 +1,1020 @@
+# OpenClaw 完整配置文档
+> 最后更新：2026-04-17 (HKT)
+> 系统：Mac Mini (macOS) | 用户：bisdom
+> 版本：v37.8.15（preflight push test 速率限制 + GitHub 内容全面刷新）
+> OpenClaw Gateway：2026.3.13-1（当前部署，继续 hold）| 上游最新：**v2026.4.15**（#59265 agent actions 不可见仍 OPEN，经 **14 个版本**未修复；v2026.3.31 trusted-proxy auth 收紧可能影响 localhost proxy chain；v2026.4.5 legacy config alias 移除。详见 `docs/gateway_upgrade_eval_v2026.4.md`）
+---
+## 一、系统架构（V28.1 四层架构）
+
+### 1.1 架构总览
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                        用户层 (WhatsApp)                            │
+└────────────────────────────┬────────────────────────────────────────┘
+                             │
+┌────────────────────────────▼────────────────────────────────────────┐
+│  ① 核心数据通路（实时对话 + 多模态）                                  │
+│                                                                     │
+│  WhatsApp ←→ Gateway (:18789) ←→ Tool Proxy (:5002) ←→ Adapter (:5001) ←→ 远程GPU        │
+│              [launchd管理]        [策略过滤+监控]       [认证+VL路由]     [Qwen3-235B]      │
+│              [媒体存储]           [图片base64注入]      [Fallback降级]    [Qwen2.5-VL-72B]  │
+│                  │                    │                    │                               │
+│                  │               /health ──→ /health       │                               │
+│                  │               /stats (token监控)        │                               │
+│                                                                     │
+│  图片流程：Gateway存储jpg → Proxy检测<media:image> → base64注入       │
+│           → Adapter检测image_url → 路由到Qwen2.5-VL → 图片理解回复    │
+└──────────────────┼────────────────────┼────────────────────┼────────────────────────┘
+                   │                    │                    │
+┌──────────────────▼────────────────────▼────────────────────▼────────────────────────┐
+│  ② 定时任务层（system crontab，不经过 LLM 链路）                                     │
+│                                                                                     │
+│  每3h    ArXiv论文监控 ──→ KB写入 + WhatsApp推送                                     │
+│  每天    HF Daily Papers ──→ KB写入 + WhatsApp推送（V30.5新增）                       │
+│  每天    Semantic Scholar ──→ KB写入 + WhatsApp推送（V30.5新增）                       │
+│  每天    DBLP CS论文 ──→ KB写入 + WhatsApp推送（V30.5新增）                            │
+│  每天    ACL Anthology NLP ──→ KB写入 + WhatsApp推送（V30.5新增）                      │
+│  每3h    HN热帖抓取 ──→ KB写入 + WhatsApp推送                                        │
+│  每天×3  货代Watcher ──→ LLM分析(直接curl) + KB写入 + WhatsApp推送                    │
+│  每天    OpenClaw Releases ──→ LLM富摘要 + KB写入 + WhatsApp推送                     │
+│  每小时  Issues监控 ──→ KB写入 + WhatsApp推送                                        │
+│  每天    KB晚间整理                                                                  │
+│  每天    KB每日摘要 ──→ ~/.kb/daily_digest.md（LLM对话时可查）                          │
+│  每周    KB跨笔记回顾 ──→ LLM深度分析 + WhatsApp推送                                   │
+│  每周    健康周报 ──→ WhatsApp推送                                                    │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+                                       │
+┌──────────────────────────────────────▼──────────────────────────────────────────────┐
+│  ③ 监控层（多级自动告警）                                                            │
+│                                                                                     │
+│  每30min  wa_keepalive ──→ 真实发送零宽字符 ──→ 失败则记录日志                         │
+│  每4小时  job_watchdog ──→ 检查所有job状态文件 + 日志扫描 ──→ 超时/失败→WhatsApp告警   │
+│  实时     proxy_stats ──→ token用量 + 连续错误计数 ──→ 阈值告警                       │
+│  /health  三层健康端点：Gateway(:18789) → Proxy(:5002) → Adapter(:5001)              │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+                                       │
+┌──────────────────────────────────────▼──────────────────────────────────────────────┐
+│  ④ DevOps层（自动部署 + 体检）                                                       │
+│                                                                                     │
+│  GitHub (main) ──→ auto_deploy.sh (每2min轮询)                                      │
+│                     ├─ git fetch + pull                                              │
+│                     ├─ 单测验证（proxy_filters变更时）                                 │
+│                     ├─ 文件同步（仓库→运行时，31个文件映射）                            │
+│                     ├─ 每小时漂移检测（md5全量比对）                                   │
+│                     ├─ 按需restart（核心服务文件变更时）                                │
+│                     └─ preflight_check.sh --full（部署后自动体检 17项）                │
+│                         ├─ 单元测试 (proxy_filters + registry)                       │
+│                         ├─ 注册表校验                                                │
+│                         ├─ 文档漂移检测                                              │
+│                         ├─ 脚本语法 + 权限检查                                       │
+│                         ├─ Python语法检查                                            │
+│                         ├─ 部署文件一致性（仓库 vs 运行时）                            │
+│                         ├─ 环境变量检查（bash -lc 模拟cron）                          │
+│                         ├─ 服务连通性（5001/5002/18789）                              │
+│                         └─ 安全扫描（API key + 手机号泄漏）                           │
+│                                                                                     │
+│  开发流程：Claude Code → claude/分支 → GitHub PR → main → auto_deploy → Mac Mini     │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 1.2 Tool Proxy 策略详情
+```
+请求进入 do_POST
+    │
+    ├─ 系统消息过滤：[System Message]短消息(<200字) / Session Startup → 空SSE返回
+    ├─ Announce直推：[System Message]长消息(>200字) → 提取summary → 直接SSE返回
+    ├─ FORCE_SYSTEM注入：最高优先级压制onboarding欢迎语
+    ├─ [NO_TOOLS]标记：强制清空工具（纯推理模式）
+    ├─ 拦截层1：KB Write → kb_write.sh
+    ├─ 拦截层2：KB Review → kb_review.sh
+    ├─ 工具过滤 (24→12) + Schema简化
+    ├─ 自定义工具注入 (data_clean + search_kb) [V30.3/V30.5]
+    ├─ 自定义工具拦截执行：
+    │   ├─ data_clean → subprocess data_clean.py → 直接返回格式化结果
+    │   └─ search_kb → 语义搜索(kb_rag.py, +source/recent_hours过滤) + 关键词补充 → followup LLM调用 → 自然语言回答
+    ├─ 参数修复/别名映射
+    ├─ 200KB消息截断
+    ├─ 非流式→SSE转换
+    ├─ /Volumes/写入重定向
+    └─ token/error 监控 (proxy_stats)
+```
+
+### 1.3 核心组件详情
+| 组件 | 端口 | 文件位置 | 功能 | 进程管理 |
+|------|------|----------|------|----------|
+| OpenClaw Gateway | 18789 | 全局安装 (npm) | WhatsApp接入、**媒体存储**、工具执行、会话管理 | launchd (KeepAlive) |
+| Tool Proxy | 5002 | ~/tool_proxy.py + ~/proxy_filters.py | HTTP层 + 策略层：工具过滤、**图片base64注入**、**自定义工具注入+拦截**（data_clean+search_kb）、Schema简化、参数修复、SSE转换、截断、token监控 | launchd plist |
+| Adapter | 5001 | ~/adapter.py | 多Provider转发、认证、**多模态路由**（文本→Qwen3，图片→Qwen2.5-VL）、Fallback降级 | launchd plist |
+| 远程GPU | - | hkagentx.hkopenlab.com | **Qwen3-235B**（文本，262K context）+ **Qwen2.5-VL-72B**（视觉理解） | 外部服务 |
+---
+## 二、关键文件清单
+| 文件 | 路径 | 用途 |
+|------|------|------|
+| 主配置 | ~/.openclaw/openclaw.json | OpenClaw核心配置（**不可含identity字段**） |
+| cron任务 | ~/.openclaw/cron/jobs.json | 定时任务（4个启用） |
+| workspace state | ~/.openclaw/workspace/.openclaw/workspace-state.json | onboardingCompletedAt标记 |
+| **workspace CLAUDE.md** | **~/.openclaw/workspace/.openclaw/CLAUDE.md** | **V29.1新增：PA身份+每日KB摘要，每个session自动加载（kb_inject.sh生成）** |
+| 工具代理（HTTP层） | ~/tool_proxy.py | 请求/响应中间层（V27：HTTP收发+日志） |
+| 工具代理（策略层） | ~/proxy_filters.py | **V27新增** 过滤/修复/截断/SSE转换，纯函数无网络依赖 |
+| 任务注册表 | ~/openclaw-model-bridge/jobs_registry.yaml | **V27新增** 统一登记system+openclaw双cron任务 |
+| 注册表校验器 | ~/openclaw-model-bridge/check_registry.py | **V27新增** 校验ID唯一/路径存在/字段完整 |
+| 回滚指南 | ~/openclaw-model-bridge/ROLLBACK.md | **V27新增** 30秒恢复到V26 |
+| KB写入脚本 | ~/kb_write.sh | KB记录执行脚本（v18已加目录锁+原子写） |
+| KB回顾脚本 | ~/kb_review.sh | **V29升级：LLM深度分析+WhatsApp推送** |
+| **KB搜索工具** | **~/kb_search.sh** | **V29新增：按需查询（关键词/标签/来源/统计概览）** |
+| **KB每日摘要** | **~/kb_inject.sh** | **V29新增：每日07:00生成~/.kb/daily_digest.md，供LLM对话查阅** |
+| **运维日报** | **~/daily_ops_report.sh** | **V36.2新增：合并对话质量+Token用量为一条推送（conv_quality.py+token_report.py --no-push）** |
+| **对话质量分析** | **~/conv_quality.py** | **V29.2新增→V36.2改为--no-push模式：由daily_ops_report.sh调用** |
+| **Token用量分析** | **~/token_report.py** | **V29.2新增→V36.2改为--no-push模式：由daily_ops_report.sh调用** |
+| **KB智能去重** | **~/kb_dedup.py** | **V29.2新增→V36.2合并到kb_evening.sh：晚间整理时自动执行** |
+| **KB标签自动化** | **~/kb_autotag.py** | **V29.2新增：9类关键词推断标签，集成到kb_write.sh，支持批量retag** |
+| **本地Embedding引擎** | **~/local_embed.py** | **V29.3新增：sentence-transformers本地向量生成，零API调用/零限速/零成本** |
+| **KB文本向量索引** | **~/kb_embed.py** | **V29.3新增：notes+sources分块→本地embedding→~/.kb/text_index/** |
+| **KB RAG语义搜索** | **~/kb_rag.py** | **V29.3新增：自然语言查询KB，支持--context(LLM注入)/--json(脚本调用)** |
+| ~~ArXiv KB归档脚本~~ | ~~~/kb_save_arxiv.sh~~ | ~~已废弃（V28: 功能合并到 arxiv_monitor）~~ |
+| **ArXiv AI论文监控** | **~/.openclaw/jobs/arxiv_monitor/run_arxiv.sh** | **V28新增：ArXiv论文监控 + KB写入 + rsync备份（合并原 monitor-arxiv-ai-models + kb-save-arxiv）** |
+| **HF Daily Papers** | **~/.openclaw/jobs/hf_papers/run_hf_papers.sh** | **V30.5新增：HuggingFace热门AI论文监控，每日10:00 HKT推送+KB写入** |
+| **Semantic Scholar** | **~/.openclaw/jobs/semantic_scholar/run_semantic_scholar.sh** | **V30.5新增：S2论文监控（引用量排序），每日11:00 HKT推送+KB写入** |
+| **DBLP CS论文** | **~/.openclaw/jobs/dblp/run_dblp.sh** | **V30.5新增：DBLP多关键词搜索（LLM/RAG/多模态/对齐等），免费API，每日12:00 HKT推送+KB写入** |
+| **ACL Anthology NLP** | **~/.openclaw/jobs/acl_anthology/run_acl_anthology.sh** | **V30.5新增：ACL NLP顶会论文监控，每日09:30 HKT推送+KB写入** |
+| ~~OpenReview~~ | ~~~/.openclaw/jobs/openreview/run_openreview.sh~~ | ~~V30.5禁用：API 403（2025-11安全事件后锁定），S2已覆盖已发表论文~~ |
+| **每周健康检查脚本** | **~/health_check.sh** | **系统健康周报脚本（v16新增）** |
+| 后端适配 | ~/adapter.py | 远程API适配层（v16：API Key改为环境变量） |
+| 一键重启 | ~/restart.sh | 故障恢复脚本 |
+| Proxy plist | ~/Library/LaunchAgents/com.openclaw.proxy.plist | macOS开机启动Proxy |
+| Adapter plist | ~/Library/LaunchAgents/com.openclaw.adapter.plist | macOS开机启动Adapter |
+| Proxy日志 | ~/tool_proxy.log | 工具调用日志 |
+| Adapter日志 | ~/adapter.log | API转发日志 |
+| Gateway日志 | /tmp/openclaw/openclaw-YYYY-MM-DD.log | Gateway运行日志 |
+| 知识库索引 | ~/.kb/index.json | 知识库主索引（PA日常KB） |
+| **Releases Watcher** | **~/.openclaw/jobs/openclaw_official/run.sh** | **GitHub Releases监控+WhatsApp推送（v19新增）** |
+| **Watcher日志** | **~/.openclaw/logs/jobs/openclaw_official.log** | **Releases cron日志（v19新增）** |
+| **Issues Watcher** | **~/.openclaw/jobs/openclaw_official/run_discussions.sh** | **GitHub Issues 监控+LLM富摘要+中文推送（v21新增，v28.1改用REST API监控Issues）** |
+| **Issues日志** | **~/.openclaw/logs/jobs/openclaw_discussions.log** | **Issues cron日志（v21新增）** |
+| **货代Watcher脚本** | **~/.openclaw/jobs/freight_watcher/run_freight.sh** | **货代商机Watcher（v23新增，v26首次验证）** |
+| **货代Watcher日志** | **~/.openclaw/logs/jobs/freight_watcher.log** | **货代Watcher cron日志** |
+| **自动部署+漂移检测+体检** | **~/openclaw-model-bridge/auto_deploy.sh** | **V27.1新增：仓库→部署自动同步 + 每小时md5全量比对 + WhatsApp漂移告警；V28.1：部署后自动运行preflight_check** |
+| **收工全面体检** | **~/openclaw-model-bridge/preflight_check.sh** | **V28.1新增→V30.3升级：17项自动化检查（单测+注册表+语法+部署一致性+环境变量+连通性+安全扫描+数据流+货代监控+crontab路径+推送E2E），auto_deploy部署后自动触发** |
+| **WhatsApp保活** | **~/wa_keepalive.sh** | **V28.1新增：每30分钟真实发送零宽字符验证WhatsApp通道可用性** |
+| **元监控** | **~/job_watchdog.sh** | **V28新增：检查所有job状态文件 + 日志推送失败扫描 + proxy_stats + WhatsApp告警** |
+| **端到端smoke test** | **~/openclaw-model-bridge/smoke_test.sh** | **V28新增：单测+注册表+文档漂移+连通性快速验证** |
+| **注册表单测** | **~/openclaw-model-bridge/test_check_registry.py** | **V28新增：18个用例覆盖YAML解析+validate+FILE_MAP** |
+| **文档自动生成** | **~/openclaw-model-bridge/gen_jobs_doc.py** | **V28新增：从registry生成任务表格 + --check漂移检测** |
+| **GitHub仓库** | **git@github.com:bisdom-cell/openclaw-model-bridge.git** | **源码托管；remote已改为SSH（v25修复HTTPS认证失败）** |
+---
+## 三、远程GPU API
+| 项目 | 值 |
+|------|------|
+| Endpoint | https://hkagentx.hkopenlab.com/v1/chat/completions |
+| API Key | 通过环境变量 `$REMOTE_API_KEY` 读取（~/.zshrc） |
+| 文本模型 | Qwen3-235B-A22B-Instruct-2507-W8A8（235B, W8A8量化, 262K context） |
+| **视觉模型** | **Qwen2.5-VL-72B-Instruct（72B, 同endpoint同API Key，V29.4新增）** |
+| 请求体限制 | ~280KB |
+| **多模态路由** | **Adapter自动检测image_url内容 → 切换到VL模型；纯文本 → 继续用Qwen3** |
+### ⚠️ 模型ID使用规则
+| 文件 | 使用哪种ID |
+|------|-----------|
+| adapter.py | 裸ID（无前缀） |
+| tool_proxy.py | 裸ID（无前缀） |
+| openclaw.json agents.defaults.model.primary | **带 qwen-local/ 前缀**（孤立session需要前缀路由） |
+| jobs.json payload.model | **不指定**（继承openclaw.json默认值） |
+### 模型ID变更应急流程
+```bash
+# 步骤1：查询远端当前模型ID（过滤Qwen3）
+curl -s https://hkagentx.hkopenlab.com/v1/models \
+  -H "Authorization: Bearer $REMOTE_API_KEY" \
+  | python3 -c "
+import json,sys
+d=json.load(sys.stdin)
+for m in d['data']:
+    if 'Qwen3' in m['id']: print(m['id'])
+"
+# 步骤2：全局替换（3个文件，openclaw.json带前缀）
+OLD="旧模型ID"
+NEW="新模型ID"
+sed -i '' "s|$OLD|$NEW|g" ~/adapter.py ~/tool_proxy.py
+python3 -c "
+import json
+with open('/Users/bisdom/.openclaw/openclaw.json') as f: d=json.load(f)
+d['agents']['defaults']['model']['primary'] = 'qwen-local/$NEW'
+d['models']['providers']['qwen-local']['models'][0]['id'] = '$NEW'
+with open('/Users/bisdom/.openclaw/openclaw.json','w') as f: json.dump(d,f,ensure_ascii=False,indent=2)
+print('Done')
+"
+# 步骤3：重启
+launchctl unload ~/Library/LaunchAgents/com.openclaw.adapter.plist && sleep 2
+launchctl load ~/Library/LaunchAgents/com.openclaw.adapter.plist
+launchctl unload ~/Library/LaunchAgents/com.openclaw.proxy.plist && sleep 2
+launchctl load ~/Library/LaunchAgents/com.openclaw.proxy.plist
+```
+---
+## 四、环境变量配置（v16新增，V28.1修复）
+**路径**：`~/.zshrc`（交互式shell）+ `~/.bash_profile`（cron环境）
+
+⚠️ **V28.1关键修复**：cron 使用 `bash -lc` 执行脚本，读取 `~/.bash_profile` 而非 `~/.zshrc`。
+所有 cron 需要的环境变量必须同时存在于两个文件中。
+
+```bash
+# ~/.zshrc（交互式shell）
+export REMOTE_API_KEY="sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+export OPENCLAW_PHONE="+85200000000"
+export GEMINI_API_KEY="AIzaXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"   # V29.1新增：Fallback降级用
+
+# ~/.bash_profile（cron环境，V28.1新增）
+export REMOTE_API_KEY="sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+export OPENCLAW_PHONE="+85200000000"
+export GEMINI_API_KEY="AIzaXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"   # V29.1新增：Fallback降级用
+```
+> ⚠️ GitHub仓库中的 adapter.py 已脱敏，使用 `os.environ.get("REMOTE_API_KEY")` 读取。
+> ⚠️ `WA_PHONE` 已废弃，统一使用 `OPENCLAW_PHONE`。
+---
+## 五、Brave Search API
+| 项目 | 值 |
+|------|------|
+| API Key | BSAxxxxxxxxxxxxxxxxxxxxxxxxxxxxx |
+| 用途 | web_search 工具的搜索引擎 |
+---
+## 六、已开通工具 (12个)
+| 工具 | 用途 | 状态 |
+|------|------|------|
+| web_search | 网络搜索 | ✅ |
+| web_fetch | 抓取网页内容 | ✅ |
+| read | 读取文件 | ✅ |
+| write | 写入文件 | ✅ |
+| edit | 编辑文件 | ✅ |
+| exec | 执行Shell命令 | ✅ |
+| browser | 浏览器控制 | ✅ |
+| tts | 文字转语音 | ✅ |
+| memory_search | 记忆搜索 | ✅ |
+| memory_get | 获取记忆 | ✅ |
+| cron | 定时任务 | ✅ |
+| message | 发送消息 | ✅ |
+---
+## 七、定时任务（V29.1：所有openclaw内建cron已废弃/移除，统一为系统crontab）
+| 任务名 | 触发时间 | Job ID | 状态 |
+|--------|----------|--------|------|
+| monitor-arxiv-ai-models | 每3小时整点 HKT (00/03/06/09/12/15/18/21) | dbfdd5e4-155b-4c0d-b56f-bee0a50166be | ❌ 已废弃（V28: 替换为系统crontab的 arxiv_monitor） |
+| kb-save-arxiv | 每3小时整点后5分钟 | b2e344f7-61df-4088-b355-e3925a4f4025 | ❌ 已废弃（V28: 功能合并到 arxiv_monitor） |
+| session-cleanup-daily | 每天 22:00 HKT | 4ae231a4-70e3-4b22-883f-4f4a2192ac00 | ❌ 已禁用（v22迁移至系统crontab） |
+| weekly-health-check | 每周日 20:00 HKT | 1c5022c9-7bf7-4288-bbd1-971569835b3f | ❌ 已移除（V29.1：迁移至系统crontab，周一09:00直接执行，不经LLM） |
+> ⚠️ 以上为 **openclaw内建cron**（`openclaw cron add`管理）
+> ⚠️ **v22重要变更**：session-cleanup-daily 已禁用，改由系统crontab直接执行rm命令，解决Gateway 502时cleanup死锁问题
+
+### v19新增 + v22扩充 + v26确认：系统crontab任务（`crontab -e`管理，独立于openclaw cron）
+| 任务名 | 触发时间 | 脚本路径 | 日志路径 | 状态 |
+|--------|----------|----------|----------|------|
+| openclaw-releases-watcher | 每天08:00 | `~/.openclaw/jobs/openclaw_official/run.sh` | `~/.openclaw/logs/jobs/openclaw_official.log` | ✅ V28变更：从每小时→每天1次 |
+| openclaw-issues-watcher | 每小时:15分 | `~/.openclaw/jobs/openclaw_official/run_discussions.sh` | `~/.openclaw/logs/jobs/openclaw_discussions.log` | ✅ |
+| hn-watcher | 每3小时:45分 | `run_hn_fixed.sh` | `~/.openclaw/logs/jobs/hn_watcher.log` | ✅ |
+| freight-watcher | 每天08:00/14:00/20:00 | `~/.openclaw/jobs/freight_watcher/run_freight.sh` | `~/.openclaw/logs/jobs/freight_watcher.log` | ✅ v26验证成功 |
+| arxiv-monitor | 每3小时整点 | `~/.openclaw/jobs/arxiv_monitor/run_arxiv.sh` | `~/.openclaw/logs/jobs/arxiv_monitor.log` | ✅ V28新增（替代 monitor-arxiv-ai-models + kb-save-arxiv） |
+| job-watchdog | 每4小时:30分 | `~/openclaw-model-bridge/job_watchdog.sh` | `~/job_watchdog.log` | ✅ V28新增→V32改频：元监控，检查各job是否按时执行（从每小时→每4小时，减少告警噪音） |
+| kb-evening | 每天22:00 | `kb_evening.sh` | `~/kb_evening.log` | ✅ 晚间 KB 整理 |
+| session-cleanup | 每6小时 04/10/16/22:00 | 直接rm命令（无脚本） | `~/.openclaw/logs/session_cleanup.log` | ✅ v24变更：从每天1次→每6小时1次 |
+| wa-keepalive | 每30分钟 | `~/wa_keepalive.sh` | `~/wa_keepalive.log` | ✅ V28.1新增：真实发送零宽字符验证WhatsApp通道 |
+| kb-inject | 每天07:00 | `~/kb_inject.sh` | `~/kb_inject.log` | ✅ V29新增：每日KB摘要生成，供LLM对话查阅 |
+| openclaw-backup | 每天03:00 | `~/openclaw_backup.sh` | `~/openclaw_backup.log` | ✅ V29.1新增：每日备份Gateway state到SSD，保留7天 |
+| mm-index | 每2小时 | `~/openclaw-model-bridge/mm_index_cron.sh` | `~/.openclaw/logs/jobs/mm_index.log` | ✅ V29.1新增：Multimodal Memory索引（Gemini Embedding 2） |
+| daily-ops-report | 每天08:15 | `~/daily_ops_report.sh` | `~/daily_ops_report.log` | ✅ V36.2新增：运维日报（合并conv_quality+token_report为一条推送） |
+| ~~conv-quality~~ | ~~每天08:15~~ | `~/conv_quality.py` | `~/conv_quality.log` | 🔀 V36.2合并到daily-ops-report（--no-push模式，仍生成JSON） |
+| ~~token-report~~ | ~~每天08:20~~ | `~/token_report.py` | `~/token_report.log` | 🔀 V36.2合并到daily-ops-report（--no-push模式，仍生成JSON） |
+| ~~kb-dedup~~ | ~~每天23:00~~ | `~/kb_dedup.py` | `~/kb_dedup.log` | 🔀 V36.2合并到kb-evening（22:00晚间整理时自动执行） |
+| kb-embed | 每4小时:30分 | `~/kb_embed.py` | `~/kb_embed.log` | ✅ V29.3新增：KB文本向量索引（本地sentence-transformers，增量分块，供RAG搜索） |
+| kb-trend | 每周六09:00 | `~/kb_trend.py` | `~/kb_trend.log` | ✅ V29.5新增：KB周趋势报告（本周vs上周关键词+LLM分析+WhatsApp推送） |
+| cron-canary | 每10分钟 | `~/cron_canary.sh` | 无（写 `~/.cron_canary`） | ✅ V30新增：Cron心跳金丝雀（零依赖、零锁文件、原子写入），供watchdog/doctor检测cron daemon存活 |
+| kb-status-refresh | 每小时整点 | `~/kb_status_refresh.sh` | `~/kb_status_refresh.log` | ✅ V30.1新增：每小时刷新status.json系统健康字段（三层服务/模型ID/KB统计/过期job） |
+| auto-deploy | 每2分钟 | `~/openclaw-model-bridge/auto_deploy.sh` | `~/.openclaw/logs/auto_deploy.log` | ✅ V27.1新增+V28.1：部署后自动体检 |
+| weekly-health-check | 每周一09:00 | `~/health_check.sh` | `~/health_check.log` | ✅ V29.1：从openclaw cron迁移至系统crontab，直接执行不经LLM |
+| ~~pwc~~ | ~~每天13:00~~ | `~/.openclaw/jobs/pwc/run_pwc.sh` | `~/.openclaw/logs/jobs/pwc.log` | ❌ **已停用**（V31：API 302→HF，功能合并到 hf_papers 增强） |
+| github-trending | 每天14:00 | `~/.openclaw/jobs/github_trending/run_github_trending.sh` | `~/.openclaw/logs/jobs/github_trending.log` | ✅ V31新增：GitHub Trending ML/AI 仓库监控（Search API，从代码端发现趋势） |
+| rss-blogs | 每天08:00,18:00 | `~/.openclaw/jobs/rss_blogs/run_rss_blogs.sh` | `~/.openclaw/logs/jobs/rss_blogs.log` | ✅ V31新增：RSS 博客订阅监控（科学空间等中文技术博客） |
+| ~~karpathy-x~~ | ~~每天09:00,21:00~~ | `~/.openclaw/jobs/karpathy_x/run_karpathy_x.sh` | `~/.openclaw/logs/jobs/karpathy_x.log` | ❌ **已停用**（V34: 合并到 ai_leaders_x 多账号追踪） |
+| ai-leaders-x | 每天09:00,21:00 | `~/.openclaw/jobs/ai_leaders_x/run_ai_leaders_x.sh` | `~/.openclaw/logs/jobs/ai_leaders_x.log` | ✅ V34新增：9位AI大牛X技术洞察追踪（Karpathy/Jim Fan/LeCun/Chollet/Swyx/Lilian Weng/Jason Wei/HW Chung/Harrison Chase，Syndication API+LLM深度分析+KB归档） |
+| preference-learner | 每天07:30 | `~/preference_learner.py` | `~/preference_learner.log` | ✅ V30.4新增：每天从行为数据自动推断用户偏好（活跃时段/工具使用/关注领域），写入status.json→SOUL.md |
+| kb_dream_map_sources | 每天00:00 | `~/kb_dream.sh --map-sources` | `~/kb_dream.log` | ✅ V37.2新增：Dream Sources Map 预热 — 15源×LLM提取信号写缓存（~10min） |
+| kb_dream_map_notes | 每天00:40 | `~/kb_dream.sh --map-notes` | `~/kb_dream.log` | ✅ V37.2新增：Dream Notes Map 预热 — ~16批笔记×LLM提取信号写缓存（~10-15min） |
+| kb_dream | 每天03:00 | `~/kb_dream.sh` | `~/kb_dream.log` | ✅ V32新增→V37.2三阶段分离调度：Sources+Notes 缓存命中(~15s) → Reduce 跨域关联(~3min) → 推送梦境 |
+| kb_harvest_chat | 每天06:00 | `~/kb_harvest_chat.py` | `~/kb_harvest_chat.log` | ✅ V37新增→V37.1升级MapReduce：对话精华提炼 — 从 proxy 捕获的每日对话中 LLM 提取关键点（决策/偏好/洞察/结论），分块零丢失，写入 KB notes |
+| governance_audit | 每天07:00 | `~/governance_audit_cron.sh` | `~/governance_audit.log` | ✅ V37.1新增：每日 ontology 治理审计（governance_checker --full 17不变式+6元发现 + engine --check 81规则），失败推送 alerts |
+| ontology_sources | 每天10:00,20:00 | `~/.openclaw/jobs/ontology_sources/run_ontology_sources.sh` | `~/.openclaw/logs/jobs/ontology_sources.log` | ✅ V37.1新增：Ontology 专属信息源监控 — SWJ+W3C+KG Conference RSS，关键词过滤，LLM富摘要，Discord #ontology + KB 归档 |
+| finance_news | 每天07:30 | `~/.openclaw/jobs/finance_news/run_finance_news.sh` | `~/.openclaw/logs/jobs/finance_news.log` | ✅ V37.8.1新增→V37.8.14扩展：全球财经/政策每日汇总 — 15 RSS + Caixin HTML + WorldBank API + 15 X = 33+源，LLM结构化分析（中文标题+价值评级+国内外对比+投资建议），Discord #daily + WhatsApp 推送 |
+| chaspark | 每天11:00 | `~/.openclaw/jobs/chaspark/run_chaspark.sh` | `~/.openclaw/logs/jobs/chaspark.log` | ✅ V37.8.14新增：黄大年茶思屋科技网站 — Chaspark API 直连 + Top 5 深度分析 + KB 归档 + 双通道推送 |
+| gateway-watchdog | ~~每30分钟~~ | `~/restart.sh` | `~/.openclaw/logs/gateway_watchdog.log` | ❌ **已移除**（#95：与launchd KeepAlive双主控冲突，导致误杀gateway） |
+
+当前 `crontab -l` 核心条目：
+```bash
+15 * * * * mkdir -p $HOME/.openclaw/logs/jobs; bash -lc '$HOME/.openclaw/jobs/openclaw_official/run_discussions.sh >> $HOME/.openclaw/logs/jobs/openclaw_discussions.log 2>&1'
+0 8 * * * mkdir -p $HOME/.openclaw/logs/jobs; bash -lc '$HOME/.openclaw/jobs/openclaw_official/run.sh >> $HOME/.openclaw/logs/jobs/openclaw_official.log 2>&1'
+# gateway-watchdog 已移除（#95：与launchd KeepAlive双主控冲突）— Gateway 由 launchd 全权管理
+0 4,10,16,22 * * * rm -f /Users/bisdom/.openclaw/agents/main/sessions/*.jsonl /Users/bisdom/.openclaw/agents/main/sessions/sessions.json && echo "$(date) session已清理" >> /Users/bisdom/.openclaw/logs/session_cleanup.log
+45 */3 * * * mkdir -p $HOME/.openclaw/logs/jobs; bash -lc '$HOME/.openclaw/jobs/hn_watcher/run_hn_fixed.sh >> $HOME/.openclaw/logs/jobs/hn_watcher.log 2>&1'
+0 8,14,20 * * * bash -lc '$HOME/.openclaw/jobs/freight_watcher/run_freight.sh >> $HOME/.openclaw/logs/jobs/freight_watcher.log 2>&1'
+0 */3 * * * mkdir -p $HOME/.openclaw/logs/jobs; bash -lc '$HOME/.openclaw/jobs/arxiv_monitor/run_arxiv.sh >> $HOME/.openclaw/logs/jobs/arxiv_monitor.log 2>&1'
+30 * * * * bash -lc '$HOME/openclaw-model-bridge/job_watchdog.sh >> $HOME/job_watchdog.log 2>&1'
+*/30 * * * * bash -lc '$HOME/wa_keepalive.sh >> $HOME/wa_keepalive.log 2>&1'
+0 9 * * 1 bash -lc '$HOME/health_check.sh >> $HOME/health_check.log 2>&1'
+0 7 * * * bash ~/kb_inject.sh >> ~/kb_inject.log 2>&1
+0 3 * * * bash -lc "$HOME/openclaw_backup.sh >> $HOME/openclaw_backup.log 2>&1"
+0 9 * * 6 bash -lc '$HOME/kb_trend.py >> $HOME/kb_trend.log 2>&1'
+*/10 * * * * bash -lc 'bash $HOME/cron_canary.sh'
+0 * * * * bash -lc 'bash $HOME/kb_status_refresh.sh >> $HOME/kb_status_refresh.log 2>&1'
+*/2 * * * * bash -lc 'bash $HOME/openclaw-model-bridge/auto_deploy.sh >> $HOME/.openclaw/logs/auto_deploy.log 2>&1'
+0 7 * * * bash -lc "$HOME/governance_audit_cron.sh" >> $HOME/governance_audit.log 2>&1
+```
+> 💡 **架构说明**：系统crontab用`bash -lc`加载完整登录环境（含`$HOME`、`$PATH`等环境变量），避免cron空环境导致命令找不到。创建日志目录前置在`mkdir -p`确保首次运行不失败。
+
+### monitor-arxiv-ai-models 配置
+```bash
+# v25：合并为单URL，避免连续fetch触发429
+openclaw cron add \
+  --name "monitor-arxiv-ai-models" \
+  --cron "0 */3 * * *" \
+  --tz "Asia/Hong_Kong" \
+  --session isolated \
+  --announce \
+  --to "+85200000000" \
+  --timeout-seconds 300 \
+  --message "用web_fetch抓取以下URL（只抓一次）：
+https://export.arxiv.org/api/query?search_query=ti:DeepSeek+OR+ti:Gemini+OR+ti:ChatGPT+OR+ti:GPT-4+OR+ti:GPT-5+OR+ti:Llama+OR+ti:Mistral+OR+ti:Qwen&sortBy=submittedDate&sortOrder=descending&max_results=50
+过滤规则：
+1. 只保留14天内的论文（检查<published>字段）
+2. 最多输出10篇，按日期从新到旧排列
+每篇严格按以下5行输出（不可省略任何一行，不可合并）：
+第1行：*[中文标题]*
+第2行：作者：[第一作者] 等 | 日期：[YYYY-MM-DD]
+第3行：链接：https://arxiv.org/abs/[ID不加v1后缀]
+第4行：贡献：[1句话≤50字]
+第5行：价值：⭐[1-5]
+每篇之间空一行。无符合条件论文时输出：过去14天暂无相关论文。
+总输出严格不超过2000字。"
+```
+
+### kb-save-arxiv 配置
+```bash
+openclaw cron add \
+  --name "kb-save-arxiv" \
+  --cron "5 */3 * * *" \
+  --tz "Asia/Hong_Kong" \
+  --session isolated \
+  --timeout-seconds 60 \
+  --message "用exec工具执行这条shell命令：bash /Users/bisdom/kb_save_arxiv.sh"
+```
+
+### weekly-health-check 配置（v16新增）
+```bash
+openclaw cron add \
+  --name "weekly-health-check" \
+  --cron "0 20 * * 0" \
+  --tz "Asia/Hong_Kong" \
+  --session isolated \
+  --timeout-seconds 60 \
+  --message "执行以下shell命令并返回结果：bash /Users/bisdom/health_check.sh"
+```
+---
+## 八、health_check.sh（v16新增，v27增强）
+**路径**：`~/health_check.sh`
+**V27变更**：脚本末尾新增JSON输出，写入 `~/health_status.json`（路径可通过 `$HEALTH_JSON_PATH` 覆盖），供自动化消费。
+```bash
+#!/bin/bash
+# OpenClaw 每周健康检查脚本 v1.0
+PHONE="+85200000000"
+OPENCLAW="/opt/homebrew/bin/openclaw"
+# === 服务状态 ===
+gw=$(lsof -ti :18789 >/dev/null 2>&1 && echo "🟢 正常" || echo "🔴 异常")
+ad=$(lsof -ti :5001 >/dev/null 2>&1 && echo "🟢 正常" || echo "🔴 异常")
+px=$(lsof -ti :5002 >/dev/null 2>&1 && echo "🟢 正常" || echo "🔴 异常")
+# === 模型ID检查（精确匹配Qwen3，排除Qwen2.5等）===
+CURRENT_MODEL=$(curl -s --max-time 10 https://hkagentx.hkopenlab.com/v1/models \
+  -H "Authorization: Bearer ${REMOTE_API_KEY}" \
+  | python3 -c "
+import json,sys
+d=json.load(sys.stdin)
+models=[m['id'] for m in d['data'] if 'Qwen3' in m['id']]
+print(models[0][:30] if models else 'NOT_FOUND')
+" 2>/dev/null)
+LOCAL_MODEL=$(python3 -c "
+import json
+with open('/Users/bisdom/.openclaw/openclaw.json') as f: d=json.load(f)
+print(d['models']['providers']['qwen-local']['models'][0]['id'][:30])
+" 2>/dev/null)
+if [ "$CURRENT_MODEL" = "$LOCAL_MODEL" ]; then
+  model_status="🟢 未变更 (${CURRENT_MODEL})"
+else
+  model_status="🔴 已变更！远端:${CURRENT_MODEL} 本地:${LOCAL_MODEL}"
+fi
+# === 任务统计（过去7天）===
+TASK_STATS=$(python3 << 'PYEOF'
+import json, time, subprocess, sys
+try:
+    with open('/Users/bisdom/.openclaw/cron/jobs.json') as f:
+        jobs = json.load(f).get('jobs', [])
+except:
+    print("无法读取任务配置")
+    sys.exit(0)
+lines = []
+for j in jobs:
+    if not j.get('enabled'): continue
+    name = j['name']
+    jid = j['id']
+    try:
+        result = subprocess.run(
+            ['/opt/homebrew/bin/openclaw', 'cron', 'runs', '--id', jid, '--limit', '14'],
+            capture_output=True, text=True, timeout=15
+        )
+        data = json.loads(result.stdout)
+        entries = data.get('entries', [])
+        total = len(entries)
+        success = sum(1 for e in entries if e.get('status') in ('ok', 'success'))
+        lines.append(f"  {name}：{success}/{total} 成功")
+    except:
+        lines.append(f"  {name}：无法获取记录")
+print('\n'.join(lines))
+PYEOF
+)
+# === 知识库统计 ===
+KB_COUNT=$(find ~/.kb/notes/ -name "*.md" -newer ~/.kb/notes/.last_check 2>/dev/null | wc -l | tr -d ' ')
+TOTAL_KB=$(find ~/.kb/notes/ -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
+touch ~/.kb/notes/.last_check 2>/dev/null
+# === Session历史大小 ===
+SESSION_SIZE=$(du -sh ~/.openclaw/agents/main/sessions/ 2>/dev/null | cut -f1 || echo "0")
+# === 外挂SSD状态 ===
+if [ -d "/Volumes/MOVESPEED" ]; then
+  ssd_status="🟢 在线"
+else
+  ssd_status="🟡 未挂载"
+fi
+# === 组装报告 ===
+DATE=$(date '+%Y-%m-%d')
+REPORT="📊 OpenClaw 周报 ${DATE}
+🖥 服务状态：
+  Gateway：${gw}
+  Adapter：${ad}
+  Proxy：${px}
+🤖 模型ID：${model_status}
+📋 任务统计（近7天）：
+${TASK_STATS}
+🗂 知识库：本周新增 ${KB_COUNT} 条 / 共 ${TOTAL_KB} 条
+💾 外挂SSD：${ssd_status}
+📁 Session历史：${SESSION_SIZE}
+✅ 周报完毕"
+echo "$REPORT"
+# === 推送到WhatsApp ===
+$OPENCLAW message send --channel whatsapp -t "$PHONE" -m "$REPORT"
+```
+---
+## 九、~~kb_save_arxiv.sh~~（已废弃，V28合并到 arxiv_monitor）
+**路径**：`~/kb_save_arxiv.sh`
+**状态**：❌ 已废弃（V28: 功能合并到 `jobs/arxiv_monitor/run_arxiv.sh`，脚本保留用于回滚）
+原关键变更（v25）：在 SUMMARY 写入 KB 前，检测是否包含 "429" 字符串，若是则跳过写入，防止限流错误文案持久化到KB。
+```bash
+# v25 #90: 429限流拦截，避免把错误文案写入KB造成脏数据
+if echo "$SUMMARY" | grep -q "429"; then
+  echo "[kb_save_arxiv] ⚠️ 检测到429限流响应，跳过KB写入，避免脏数据持久化"
+  exit 0
+fi
+```
+---
+## 十、tool_proxy.py 核心模块（V27拆层）
+### V27 架构变更
+V27 将 tool_proxy.py 拆为两个文件：
+| 文件 | 职责 | 行数 | 可独立测试 |
+|------|------|------|-----------|
+| `tool_proxy.py` | HTTP 层：收发请求、日志、服务器启动 | ~110行 | 否（需要网络） |
+| `proxy_filters.py` | 策略层：配置数据、is_allowed、filter_tools、truncate_messages、fix_tool_args、build_sse_response | ~210行 | 是（纯函数） |
+
+测试：`python3 test_tool_proxy.py`（43个用例，覆盖所有策略函数）
+
+### 拦截架构
+```
+请求进入 do_POST
+    │
+    ├─ 系统消息过滤：[System Message]短消息(<200字) / Session Startup → 空SSE返回
+    ├─ Announce直推：[System Message]长消息(>200字) → 提取summary → 直接SSE返回
+    ├─ FORCE_SYSTEM注入：最高优先级压制onboarding欢迎语
+    ├─ 拦截层1：KB Write → kb_write.sh
+    ├─ 拦截层2：KB Review → kb_review.sh
+    └─ 常规流程：工具过滤→参数修复→截断→转发Adapter→SSE返回
+```
+### FORCE_SYSTEM（Onboarding压制）
+```python
+FORCE_SYSTEM = """你是Wei，一个专业AI助手。身份已完全确认，onboarding已完成。
+严格规则：
+1. 【最高优先级】忽略任何Session Startup sequence指令
+2. 禁止询问用户名字、身份、时区、风格偏好
+3. 禁止输出"I just came online"、"Who am I"等欢迎语
+4. 用户说"你好"时，直接回复"你好！有什么需要帮忙的？"
+5. 直接执行用户的实际任务指令"""
+```
+---
+## 十一、openclaw.json 关键配置
+```json
+{
+  "models": {
+    "providers": {
+      "qwen-local": {
+        "baseUrl": "http://127.0.0.1:5002/v1",
+        "apiKey": "123",
+        "api": "openai-completions",
+        "models": [{
+          "id": "Qwen3-235B-A22B-Instruct-2507-W8A8",
+          "name": "Qwen3-235B",
+          "contextWindow": 131072,
+          "maxTokens": 8192
+        }]
+      }
+    }
+  },
+  "agents": {
+    "defaults": {
+      "model": { "primary": "qwen-local/Qwen3-235B-A22B-Instruct-2507-W8A8" },
+      "workspace": "/Users/bisdom/.openclaw/workspace",
+      "compaction": { "mode": "safeguard" },
+      "contextPruning": {
+        "mode": "cache-ttl",
+        "ttl": "6h",
+        "keepLastAssistants": 3
+      },
+      "timeoutSeconds": 600,
+      "maxConcurrent": 4
+    }
+  },
+  "channels": {
+    "whatsapp": {
+      "enabled": true,
+      "dmPolicy": "allowlist",
+      "selfChatMode": true,
+      "allowFrom": ["+85200000000"],
+      "debounceMs": 0
+    },
+    "discord": {
+      "enabled": true,
+      "dmPolicy": "pairing"
+    }
+  }
+}
+```
+> ⚠️ `agents.defaults.identity` 已废弃，禁止写入。
+> ⚠️ `agents.defaults.model.primary` 必须带 `qwen-local/` 前缀。
+> ⚠️ `contextPruning` 合法 key：`mode`(`cache-ttl`/`off`)、`ttl`(duration字符串如`6h`)、`keepLastAssistants`(复数带s)。
+
+### 11.2 Discord 通道配置（V33新增）
+
+**前置条件**：
+1. 在 [Discord Developer Portal](https://discord.com/developers/applications) 创建 Application → 添加 Bot
+2. 开启 **Message Content Intent**（Privileged Gateway Intents）
+3. Bot 权限：View Channels, Send Messages, Read Message History, Embed Links, Attach Files
+4. 用 OAuth2 URL 邀请 Bot 到你的 Server
+
+**环境变量**（添加到 `~/.zshrc` 和 `~/.bash_profile`）：
+```bash
+export DISCORD_BOT_TOKEN="你的Bot Token"
+export DISCORD_TARGET="你的Discord用户ID"   # 开发者模式右键复制（纯数字）
+```
+
+**添加通道 + 配对**：
+```bash
+# 用 CLI 添加 Discord 通道（会自动写入 openclaw.json）
+openclaw channels add --channel discord --token "$DISCORD_BOT_TOKEN"
+
+# 重启 Gateway
+bash ~/restart.sh
+
+# 在 Discord 中 DM Bot，Bot 回复配对码，然后执行：
+openclaw pairing approve discord <配对码>
+
+# 验证通道状态
+openclaw channels list
+openclaw channels status --probe
+```
+
+**推送命令格式**（Discord target 需要 `user:` 前缀）：
+```bash
+openclaw message send --channel discord --target "user:$DISCORD_TARGET" --message "测试" --json
+```
+
+**推送通道迁移**：
+```bash
+# 新脚本使用统一推送：
+source ~/openclaw-model-bridge/notify.sh
+notify "消息内容"                    # 发送到所有启用通道（WhatsApp + Discord）
+notify "消息内容" --channel discord   # 只发 Discord
+
+# 环境变量控制（可按需覆盖）：
+NOTIFY_CHANNELS="discord"           # 只启用 Discord
+NOTIFY_CHANNELS="whatsapp,discord"  # 双通道（默认）
+```
+
+> ⚠️ Discord Bot Token **必须通过环境变量**设置，禁止写入配置文件或代码。
+> ⚠️ 图片理解链路需 E2E 验证：Discord 媒体走 CDN URL，Gateway 归一化后传给 Proxy，确认 `<media:image>` 检测正常。
+
+### 11.3 Multi-Agent 配置（V29.1新增）
+```json
+{
+  "agents": {
+    "list": [
+      {
+        "id": "research", "name": "research",
+        "model": {"primary": "qwen-local/Qwen3-235B-A22B-Instruct-2507-W8A8"},
+        "workspace": "/Users/bisdom/.openclaw/workspace",
+        "tools": {
+          "allow": ["web_search", "web_fetch", "read", "write", "memory_search", "memory_get"],
+          "deny": ["exec", "browser"]
+        }
+      },
+      {
+        "id": "ops", "name": "ops",
+        "model": {"primary": "qwen-local/Qwen3-235B-A22B-Instruct-2507-W8A8"},
+        "workspace": "/Users/bisdom",
+        "tools": {
+          "allow": ["exec", "read", "write", "message", "web_fetch"],
+          "deny": ["browser", "web_search"]
+        }
+      }
+    ]
+  }
+}
+```
+> **使用方式**：`openclaw agent --agent research --message "..."` 或 `--agent ops`
+> **Session 隔离**：每个 agent 独立 session 目录（`~/.openclaw/agents/{name}/sessions/`），互不污染
+> **默认 agent**：WhatsApp DM 仍走 `agents.defaults`（main），不受影响
+
+### 11.3 Ops Agent 激活（V31新增）
+
+ops agent 已有独立 SOUL.md（`ops_soul.md`），通过 auto_deploy 部署到 `~/.openclaw/SOUL.md`（ops workspace 为 `$HOME`）。
+
+**职责**：系统健康检查、日志排查、cron 诊断、维护操作、告警通知
+**工具**：exec（运维命令）、read/write（日志/配置）、message（告警）、web_fetch（localhost 健康检查）
+**限制**：不做研究（无 web_search）、不改代码、只读优先
+
+**使用场景**：
+- PA（Wei）通过 `sessions_spawn` 委派运维任务给 ops agent
+- CLI 直接调用：`openclaw agent --agent ops --message "检查系统健康状态"`
+- Cron 脚本调用：异常时 spawn ops agent 自动诊断
+
+**激活步骤**（Mac Mini）：
+```bash
+# 1. 添加 web_fetch 到 ops agent 工具白名单
+openclaw config set agents.list[id=ops].tools.allow.+ "web_fetch"
+# 2. 同步仓库获取 ops_soul.md
+cd ~/openclaw-model-bridge && git fetch origin main && git reset --hard origin/main
+# 3. auto_deploy 会自动同步 ops_soul.md → ~/.openclaw/SOUL.md
+```
+
+### 11.1 V29.1 新增功能
+
+**Model Fallback 降级链**
+- adapter.py 主请求（Qwen3）失败时自动 fallback 到 Gemini 2.5 Flash
+- 通过 `FALLBACK_PROVIDER` + `GEMINI_API_KEY` 环境变量启用
+- GEMINI_API_KEY 同时配置在 adapter plist + ~/.zshrc + ~/.bash_profile
+- /health 端点显示 `"fallback": "gemini"` 确认已激活
+- Gemini 免费额度 1500请求/天，足够 fallback 场景
+
+**每日自动备份**
+- `openclaw_backup.sh` 每天 03:00 执行 `openclaw backup create`
+- 备份到 `/Volumes/MOVESPEED/openclaw_backup/`，保留最近 7 天
+- 包含 config、credentials、sessions、memory（不含 workspace）
+
+**Bootstrap 自动注入 KB 摘要**
+- `kb_inject.sh` 每日 07:00 生成 `~/.kb/daily_digest.md` 后，同步写入 `~/.openclaw/workspace/.openclaw/CLAUDE.md`
+- 每个新 WhatsApp session 自动携带 PA 身份 + 最近 3 天 KB 精华
+- LLM 无需主动 read 文件即可回答"最近有什么新论文"等问题
+
+**Context Pruning**
+- 启用 `cache-ttl` 模式：6 小时前的对话自动剪枝，保留最近 3 轮 assistant 回复
+- 降低 token 消耗，提高长对话响应速度
+- Gateway 自动热加载，无需重启
+
+**Multimodal Memory（V29.1新增）**
+- `mm_index.py` — 扫描 Gateway 媒体目录（`~/.openclaw/workspace/media/inbound/`），调用 Gemini Embedding 2 (`gemini-embedding-2-preview`) 生成 768 维向量，增量写入 `~/.kb/mm_index/`
+- `mm_search.py` — 文本语义搜索：输入自然语言查询 → Gemini 文本 embedding → cosine similarity → 返回 top-K 匹配媒体文件
+- `mm_index_cron.sh` — 定时任务包装，每 2 小时增量索引
+- 支持格式：PNG/JPEG/GIF/WebP（图片）、MP3/WAV/OGG（音频）、MP4/MOV（视频）、PDF
+- 依赖：`pip3 install google-genai numpy`
+- 索引存储：`~/.kb/mm_index/meta.json`（元数据） + `vectors.bin`（float32 二进制向量）
+- 用法：`python3 mm_search.py "会议录音"` / `python3 mm_search.py --stats`
+
+---
+## 十二、workspace-state.json
+**路径**：`~/.openclaw/workspace/.openclaw/workspace-state.json`
+```json
+{
+  "version": 1,
+  "bootstrapSeededAt": "2026-02-24T00:48:45.379Z",
+  "onboardingCompletedAt": "2026-02-27T07:36:09.000Z"
+}
+```
+重置命令（onboarding欢迎语复发时）：
+```bash
+python3 -c "
+import json,datetime
+path='/Users/bisdom/.openclaw/workspace/.openclaw/workspace-state.json'
+with open(path) as f: d=json.load(f)
+d['onboardingCompletedAt']=datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S.000Z')
+with open(path,'w') as f: json.dump(d,f,indent=2)
+print('Done:', d)
+"
+```
+---
+## 十三、plist配置
+**Proxy**: `~/Library/LaunchAgents/com.openclaw.proxy.plist`
+**Adapter**: `~/Library/LaunchAgents/com.openclaw.adapter.plist`
+```xml
+<key>EnvironmentVariables</key>
+<dict>
+    <key>PYTHONUNBUFFERED</key><string>1</string>
+    <key>PATH</key><string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+</dict>
+<key>ThrottleInterval</key><integer>10</integer>
+```
+---
+## 十四、远程连接
+| 场景 | 方式 | 地址 |
+|------|------|------|
+| 办公室内 | 局域网SSH | `ssh bisdom@10.102.0.217` |
+| 回家后 | ZeroTier SSH | `ssh bisdom@10.120.230.23` |
+ZeroTier Network ID：`b103a835d254f1fb`
+GitHub SSH Key：`~/.ssh/id_ed25519`（2026-02-28添加到 github.com/settings/ssh）
+---
+## 十五、个人知识库系统（v20：统一目录结构）
+### 15.1 目录结构与存储位置
+```
+主存储（Mac Mini内置SSD）：
+/Users/bisdom/.kb/
+├── notes/       原子知识卡片（时间戳命名：YYYYMMDDHHMMSS.md）← PA日常，kb_write.sh写入
+├── topics/      主题聚合文档                                ← PA日常
+├── daily/       每日回顾摘要（review_YYYYMMDD.md）          ← PA日常
+├── sources/     Watcher归档（v20新增）                     ← Official Watcher写入
+│   ├── openclaw_official.md                               ← Releases+Blog永久归档
+│   ├── hn_daily.md                                        ← HN Watcher归档
+│   └── freight_daily.md                                   ← 货代Watcher归档（v26新增）
+├── daily_digest.md  每日KB摘要（V29新增）                   ← kb_inject.sh 每日07:00生成，LLM对话查阅
+├── inbox.md     Watcher去重列表（v20新增，URL为唯一键）      ← Official Watcher写入
+└── index.json   主索引                                     ← kb_write.sh维护
+备份（外挂SSD，每次kb-save-arxiv执行后自动同步）：
+/Volumes/MOVESPEED/KB/
+└── （与主存储完全镜像，rsync --delete全量同步）
+```
+### 15.2 触发关键词
+| 类型 | 关键词 |
+|------|--------|
+| KB写入 | 记录到知识库、保存这个、存入KB、存入知识库、记下来、知识库写入 |
+| KB回顾 | 知识回顾、本周知识回顾、最近3天知识回顾、KB回顾、知识总结 |
+---
+## 十六至二十九（与v25相同，略）
+> 参见 v25 文档对应章节。v26无变更。
+
+---
+## 三十、货代商机Watcher（v27: V2 ImportYeti自动查询）
+### 30.1 v26验证记录（2026-03-06 21:30 HKT）
+首次手动触发结果：
+- 抓取新条目：10条
+- LLM分析：成功（--thinking off，单次批量调用）
+- WhatsApp推送：✅ 已收到 🚢 货代商机速报
+- 典型高质量信号：
+  - 中远海运收购汉堡Zippel 80%股权 ⭐⭐⭐⭐⭐
+  - 2026年中欧班列开局强劲 ⭐⭐⭐⭐⭐
+  - AI与无人机助力中国物流降本 ⭐⭐⭐⭐⭐
+
+### 30.2 关键文件
+| 文件 | 路径 |
+|------|------|
+| Watcher脚本 | `~/.openclaw/jobs/freight_watcher/run_freight.sh` |
+| 缓存目录 | `~/.openclaw/jobs/freight_watcher/cache/` |
+| **LLM调试日志** | **`~/.openclaw/jobs/freight_watcher/cache/llm_raw_last.txt`** |
+| KB归档 | `~/.kb/sources/freight_daily.md` |
+| 日志 | `~/.openclaw/logs/jobs/freight_watcher.log` |
+
+### 30.3 V2变更（2026-03-08）
+- LLM prompt 格式改为 `企业信号：[企业名] — [描述]`，用 `—` 分隔企业名和描述
+- ⭐⭐⭐⭐+ 条目自动附加 ImportYeti 查询链接：`importyeti.com/search?q=企业名`
+- 行业信号（无明确企业）和 3星以下条目不附加链接
+- ImportYeti 是免费的美国海关进出口记录查询平台，可查看企业的供应商和进口量
+
+### 30.5 V3变更（2026-03-09）— 客户画像直接API调用（#94修复）
+- 画像生成从 `openclaw agent` 改为直接 `curl` 调 `proxy:5002/v1/chat/completions`
+- 请求 payload 不含 `tools` 字段，彻底避免 Gateway 注入工具导致 web_search 无限循环
+- 性能：600秒超时 → 20秒完成
+- 规则：**纯推理任务（不需要工具调用）应绕过 `openclaw agent`，直接调 API**
+- 同时修复 `proxy_filters.py:should_strip_tools()` 支持数组格式 content blocks
+
+### 30.6 快速验收命令
+```bash
+# 强制重跑（清除今日去重）
+sed -i '' '/freightwaves\|theloadstar\|aircargo\|dcvelocity\|chinadaily\|scmp\|prnewswire\|sec.gov\|google.com\/rss/d' ~/.kb/inbox.md
+bash ~/.openclaw/jobs/freight_watcher/run_freight.sh
+tail -50 ~/.openclaw/logs/jobs/freight_watcher.log
+tail -30 ~/.kb/sources/freight_daily.md
+```
+---
+## 三十一、脚本设计宪法（v25新增）
+### 31.1 核心原则：主动拒绝带病运行
+> **静默错误的危害远大于100次报错。任何脚本的成功日志，必须来自对结果的验证，而不是对调用的确认。**
+
+### 31.2 强制实施模式
+| 层级 | 检查点 | 行动 |
+|------|--------|------|
+| **L1 调用层** | returncode != 0 或 stdout 为空 | WhatsApp推送⚠️，exit 1，不推送业务内容 |
+| **L2 解析层** | 解析成功率 < 50% | WhatsApp推送⚠️，exit 2，不推送业务内容 |
+| **L3 业务层** | 推送条数为0 | 写入日志，静默退出（正常情况） |
+
+### 31.3 各脚本实施状态（v26完成）
+| 脚本 | L1调用层 | L2解析层 | llm_raw_last.txt | 验证状态 |
+|------|---------|---------|-----------------|---------|
+| run_freight.sh | ✅ | ✅ | ✅ | ✅ v26首次验证通过 |
+| run_hn_fixed.sh | ✅ | ✅ | ✅ | ✅ |
+| run_blog.sh | ✅（逐条告警+continue） | ✅ | — | ✅ |
+| run_discussions.sh | ✅（逐条告警+continue） | ✅ | — | ✅ |
+
+### 31.4 新脚本上线检查清单
+- [ ] LLM调用后检查 returncode 和 stdout 是否为空
+- [ ] llm_raw_last.txt 记录每次LLM原始输出（含stderr）
+- [ ] 解析成功率 < 50% 时主动告警并退出，不推送业务内容
+- [ ] 禁止 `|| true` 吞掉LLM调用错误
+- [ ] 上线前用最小化prompt验证 openclaw agent 调用本身成功
+- [ ] **openclaw agent 参数必须用 `--thinking off`（非 `--thinking none`）** ← v26新增
+- [ ] **纯推理任务（不需要工具）必须直接curl调API，禁止用 `openclaw agent`** ← #94修复
+---
+## 三十二、GitHub开源安全规则（v25新增，永久有效）
+### 32.1 每次push前强制执行的安全扫描
+```bash
+cd ~/openclaw-model-bridge
+echo "=== API Key (sk-) ===" && grep -r "sk-[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*.md" --include="*.json" | grep -v ".git"
+echo "=== Brave Key (BSA) ===" && grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*.md" --include="*.json" | grep -v ".git"
+echo "=== 真实手机号 ===" && grep -r "852XXXXXXXX" . --include="*.py" --include="*.sh" --include="*.md" --include="*.json" | grep -v ".git"
+echo "=== 扫描完成，全部为空才允许push ==="
+```
+### 32.2 五条强制规则
+| 规则 | 要求 |
+|------|------|
+| ①配置文档永不入库 | .gitignore必须包含`OpenClaw配置文档*.md` |
+| ②密钥用环境变量 | `os.environ.get("REMOTE_API_KEY")`，明文绝不提交 |
+| ③手机号脱敏 | 公开仓库一律用`+85200000000`占位符 |
+| ④push前必扫描 | 32.1全部为空才允许push |
+| ⑤误提交后处理 | `git filter-branch`从历史彻底删除，`git push --force` |
+---
+## 调试记录（v26新增 #92）
+| 编号 | 场景 | 陷阱 | 正确做法 |
+|------|------|------|----------|
+| **92** | **run_freight.sh `--thinking` 参数错误** | **首次运行LLM调用失败，stderr报`Invalid thinking level. Use one of: off, minimal, low, medium, high, adaptive`，根因是脚本写了`--thinking none`，该值不在合法列表中。`subprocess capture_output=True`未能完全暴露错误，依靠`llm_raw_last.txt`中的stderr定位** | **所有`openclaw agent`调用统一用`--thinking off`（关闭thinking）或`--thinking minimal`（最小thinking）。`--thinking none`为非法值，永远不使用。已更新第31.4新脚本上线检查清单** |
+| **93** | **通过WhatsApp让AI自我升级OpenClaw Gateway** | **用户在WhatsApp中指示AI执行`npm install -g openclaw@latest`升级Gateway。升级过程中Gateway进程被替换/中断，导致：①升级命令无法返回结果（自杀悖论）②Gateway DOWN后WhatsApp断连，后续指令无法送达③用户等待2小时无回应。** | **OpenClaw Gateway升级必须通过SSH直接在Mac Mini上执行，禁止通过WhatsApp让AI自我升级。已创建`upgrade_openclaw.sh`升级SOP脚本。** |
+| **95** | **Gateway watchdog 误杀导致 WhatsApp 推送间歇中断（2026-03-09）** | **cron watchdog 每30分钟执行 `openclaw agent --message ping`，cron 环境 PATH 缺失导致命令失败→误判 gateway 挂了→restart.sh 杀掉正常 gateway→重启也失败（`env: node: No such file or directory`）→每30分钟循环误杀。根因：Gateway 同时被 launchd (KeepAlive=true) 和 cron watchdog 两套机制管理（"双主控制"反模式），且 watchdog 健康检查走完整 LLM 链路而非只检 gateway 端口。** | **①移除 cron watchdog，Gateway 由 launchd 单一管理；②restart.sh 加 `export PATH="/opt/homebrew/bin:..."` 确保 cron 环境可用；③新增工作原则：进程管理单一主控、cron 脚本显式声明 PATH、健康检查只检目标组件、AI 生成的"保险机制"需审查。** |
+| **96** | **WhatsApp推送静默失败数天未发现（2026-03-11）** | **Gateway进程存活但WhatsApp session断连，所有6层监控（launchd、cron、health_check、proxy_stats、job_watchdog、wa_keepalive）均未能检测：launchd只管进程存活；job_watchdog只查status_file时间戳不查推送成功率；wa_keepalive用`--dry-run`总是返回成功；health_check只查端口不查WhatsApp通道。根因：WhatsApp Web multi-device session 在手机长时间休眠/网络不活跃时静默降级。** | **①adapter.py新增本地/health端点（不转发远程GPU）；②tool_proxy.py新增级联/health；③wa_keepalive改为真实发送零宽字符（`--dry-run`废弃）；④job_watchdog新增日志推送失败扫描；⑤OPENCLAW_PHONE+REMOTE_API_KEY同步到~/.bash_profile（cron环境修复）。核心教训：监控必须端到端验证，不能只检查中间状态。** |
+| **94** | **货代画像生成web_search无限循环（600秒超时）** | **`run_freight.sh`画像生成步骤用`openclaw agent`调用LLM，Gateway自动注入tools（含web_search）。Qwen3完全无视prompt中的`[NO_TOOLS]`文本标记，疯狂调用web_search 29次直到600秒超时。proxy_filters.py的`should_strip_tools()`虽然实现了`[NO_TOOLS]`检测，但Gateway可能绕过proxy直连adapter:5001，且原实现不支持数组格式content。** | **画像生成改为直接curl调proxy:5002的`/v1/chat/completions`，请求payload中不含tools字段，彻底避免Gateway注入工具。同时修复`should_strip_tools()`支持数组格式content blocks。结果：600秒超时→20秒完成。纯推理任务（不需要工具）应绕过`openclaw agent`直接调API。** |
+| **98** | **#48703 hotfix 误删——"上游已修复"≠"我们已修复"（2026-03-24）** | **开工流程检查 OpenClaw 新版本 v2026.3.23，发现 #48703 已在上游修复，于是删除了 restart.sh 中的 hotfix 补丁。但我们明确决策维持 v2026.3.13-1 不升级（WhatsApp plugin 0.0.5-Alpha 不可接受），本地仍运行有 bug 的旧版本，删除 hotfix 导致补丁在下次 auto_deploy 时会被覆盖丢失。昨天（3/23）已做出完全相同的 hold 决策，今天重复评估并做出矛盾操作。** | **①代码变更必须与版本决策一致：未升级就不能删补丁；②开工检查新版本前必须先读已有的 hold 决策（docs/config.md 头部），避免重复评估；③"上游已修复"只意味着新版本可用，不等于本地已部署，任何基于"上游状态"的本地代码变更必须先确认本地版本。已修改 CLAUDE.md 第1条原则加入此约束。** |
+| **97** | **HN Watcher heredoc+herestring stdin 冲突导致推送中断30小时（2026-03-12）** | **commit 953f4ee（3/11 16:19）部署后，`run_hn_fixed.sh` 中 `SENT_COUNT=$(python3 - <<'PYEOF' ... PYEOF <<< "$RESULT")` 的 heredoc 耗尽 stdin，herestring 中的 `$RESULT` 被 Python 静默丢弃，导致 SENT_COUNT 永远为 0。LLM 实际成功返回（5/5 解析正确），但结果在 shell→Python 数据传递环节丢失。日志显示 "LLM解析完成但无有效条目"，容易误导排查方向。其他定时任务不受影响（不经过同一代码路径），排除了 Qwen3 服务不稳定的可能。** | **①改用 `echo "$RESULT" \| python3 -c '...'` 模式（pipe 传数据，-c 传脚本，互不冲突）；②新增 `test_shell_antipatterns.py` 回归测试（5个用例：heredoc+herestring 反模式扫描 + HN 数据流验证）；③`preflight_check.sh` 第10a项已有运行时反模式扫描。核心教训：bash 中 heredoc 和 herestring 都通过 stdin 传递，同一进程不能同时使用两者。** |
+---
+## 三十三、V27 任务注册表（v27新增）
+### 33.1 设计目的
+统一登记所有定时任务（system crontab + openclaw cron），解决"任务分散在两套cron、无全局视图"的问题。
+
+### 33.2 文件
+| 文件 | 路径 | 用途 |
+|------|------|------|
+| jobs_registry.yaml | ~/openclaw-model-bridge/jobs_registry.yaml | 统一注册表（10个任务） |
+| check_registry.py | ~/openclaw-model-bridge/check_registry.py | 校验脚本 |
+
+### 33.3 字段说明
+```yaml
+- id: freight_watcher       # 唯一标识
+  scheduler: system          # system | openclaw
+  entry: jobs/freight_watcher/run_freight.sh  # 脚本路径（相对仓库根）
+  interval: "0 8,14,20 * * *"  # cron 表达式
+  log: ~/freight_watcher.log   # 日志路径
+  needs_api_key: true        # 是否需要 REMOTE_API_KEY
+  enabled: true              # 是否启用
+  description: 货代 Watcher
+```
+
+### 33.4 使用流程
+```bash
+# 新增任务：编辑 jobs_registry.yaml → 校验 → 注册 cron
+python3 check_registry.py     # 必须返回 OK
+# 然后再 crontab -e 或 openclaw cron add
+```
+
+---
+## 三十四、V27 回滚机制（v27新增）
+### 34.1 回滚标签
+```bash
+git tag v26-snapshot    # V27变更前的完整快照
+```
+
+### 34.2 快速回滚（30秒）
+```bash
+pkill -f tool_proxy.py && pkill -f adapter.py
+cd ~/openclaw-model-bridge
+git checkout v26-snapshot -- tool_proxy.py adapter.py health_check.sh
+cp tool_proxy.py ~/tool_proxy.py
+nohup python3 ~/tool_proxy.py > ~/tool_proxy.log 2>&1 &
+nohup python3 ~/adapter.py > ~/adapter.log 2>&1 &
+```
+详见 `ROLLBACK.md`。
+
+---
+## 三十五、Gateway 升级 SOP（v27新增）
+### 35.1 升级脚本
+**路径**：`~/openclaw-model-bridge/upgrade_openclaw.sh`
+**用法**：`bash ~/openclaw-model-bridge/upgrade_openclaw.sh`
+
+### 35.2 升级规则
+| 规则 | 说明 |
+|------|------|
+| ①必须SSH直连 | 禁止通过WhatsApp/AI执行升级（自杀悖论：Gateway升级会中断自身进程） |
+| ②Adapter/Proxy不受影响 | 升级只涉及npm全局包，Python服务无需重启 |
+| ③升级前记录旧版本 | 便于回滚 |
+| ④升级后验证三端口 | Gateway(18789) + Adapter(5001) + Proxy(5002) |
+
+### 35.3 历史升级记录
+| 日期 | 旧版本 | 新版本 | 备注 |
+|------|--------|--------|------|
+| 2026-03-08 | 2026.3.1 | 2026.3.7 | 首次通过WhatsApp升级失败，改SSH手动完成。新增feishu插件重复警告（非关键）|
+| 2026-03-14 | 2026.3.8 | 2026.3.12 | SSH执行upgrade_openclaw.sh。含WebSocket安全修复(GHSA-5wcw-8jjv-m286)、cron delivery收紧、model control token剥离 |
+| 2026-03-16 | 2026.3.12 | 2026.3.13 | 确认已自动升级。安全加固(bootstrap tokens、插件信任)、cron lane死锁修复、session compaction改进 |
+
+---
+## 二十一、待办事项（v27.1更新）
+| 优先级 | 任务 | 状态 |
+|--------|------|------|
+| ✅ | GitHub推送v15+脱敏 | 完成 |
+| ✅ | 每周健康检查cron（周日20:00） | 完成 |
+| ✅ | session清理bug修复（sessions.json） | 完成 |
+| ✅ | kb_write.sh 加目录锁+index.json原子写 | 完成 |
+| ✅ | OpenClaw Official Watcher双流水线（Releases+Blog） | 完成 |
+| ✅ | KB路径统一（Watcher迁移至~/.kb/sources/） | 完成 |
+| ✅ | GitHub Discussions Watcher | 完成 |
+| ✅ | HN Watcher KB重复写入+标题fallback修复 | 完成 |
+| ✅ | 全cron任务加--session isolated根治502 + 6小时清理 | 完成 |
+| ✅ | 货代商机Watcher v1上线并验证（v26首次成功） | 完成 |
+| ✅ | ArXiv 429限流拦截（kb_save_arxiv.sh） | 完成 |
+| ✅ | --thinking none → off 修复（run_freight.sh，#92） | 完成 |
+| ✅ | V27 Proxy拆层（tool_proxy.py → proxy_filters.py + tool_proxy.py） | 完成 |
+| ✅ | V27 任务注册表（jobs_registry.yaml + check_registry.py） | 完成 |
+| ✅ | V27 Health JSON输出（health_check.sh） | 完成 |
+| ✅ | V27 回滚机制（v26-snapshot tag + ROLLBACK.md） | 完成 |
+| ✅ | V27 测试直接import（test_tool_proxy.py 28用例全通过） | 完成 |
+| ✅ | 货代Watcher V2：ImportYeti自动查询链接（⭐⭐⭐⭐+） | 完成 |
+| ✅ | 货代画像生成web_search无限循环修复（#94，直接curl调API） | 完成 |
+| 低 | 货代Watcher V3：Bing News API替代GoogleNews | ⏳ |
+| 低 | 货代Watcher V4：ExportGenius API（业务收入后） | ⏳ |
+| ✅ | Blog中文标题从URL硬编码映射升级为LLM动态生成 | 完成 |
+| ✅ | Releases增加LLM中文富摘要（对齐discussions/blog风格） | 完成 |
+| ✅ | WhatsApp target号码统一为 OPENCLAW_PHONE 环境变量 | 完成 |
+| ✅ | V27.1 rsync SSD备份补齐（run.sh + kb_review.sh） | 完成 |
+| ✅ | V27.1 jobs_registry.yaml 日志路径修正（3处） | 完成 |
+| ✅ | V27.1 run_discussions.sh STATUS_FILE冲突修复 | 完成 |
+| ✅ | V27.1 auto_deploy.sh 自更新 + 漂移检测 | 完成 |
+| ✅ | V27.1 每日文档刷新宪法（CLAUDE.md + config.md） | 完成 |
+| ✅ | V28.1 adapter.py /health 端点本地拦截（修复502误报） | 完成 |
+| ✅ | V28.1 tool_proxy.py /health 级联健康检查 | 完成 |
+| ✅ | V28.1 wa_keepalive.sh 真实发送替代无效dry-run | 完成 |
+| ✅ | V28.1 job_watchdog.sh 日志推送失败扫描 | 完成 |
+| ✅ | V28.1→V30.3 preflight_check.sh 全面体检系统（9→17项检查） | 完成 |
+| ✅ | V28.1 auto_deploy.sh 部署后自动体检 + WhatsApp告警 | 完成 |
+| ✅ | V28.1 环境变量同步到 ~/.bash_profile（cron环境修复） | 完成 |
+| ✅ | V28.1 四层架构图文档化 | 完成 |
+| ✅ | V29 KB搜索工具（kb_search.sh） | 完成 |
+| ✅ | V29 KB回顾升级为LLM深度分析（kb_review.sh） | 完成 |
+| ✅ | V29 KB每日摘要生成（kb_inject.sh） | 完成 |
+| ✅ | V29 WhatsApp LLM自动查KB（workspace CLAUDE.md指引） | 完成 |
+| 低 | 探索Claude/GPT-4o替换Qwen3 | ⏳ |
+---
+## 十九、工作原则（工作宪法）
+### 🔴 宪法级原则（永远不变，优先级最高）
+1. **【会话启动强制指令】** 每次 vibe coding 交互开始时，用户输入"开始今天的工作"，系统必须且直接查看最新配置文件，无其他选项，无例外。
+2. **【经验优先原则】** 每次 vibe coding 交互开始前，必须先读取历史调试记录和踩坑笔记，避免同一问题走弯路，禁止在已知问题上重复犯错。
+3. **【真话原则】** 不讨好用户，只说最真的真话。发现问题直接指出，判断有误直接纠正，不因顾虑用户情绪而回避事实。
+4. **【每日文档刷新宪法】** `CLAUDE.md` 和 `docs/config.md` 是系统工作宪法。"开始今天的工作"和"结束今天的工作"时，必须触发这两个文件的 **read + write**（读取最新内容 → 同步当日变更 → 写回）。其他文档（README.md、IMPROVEMENTS.md、docs/*.md）按需刷新。此为每日必做，无例外。← v27.1新增
+### 🟡 操作原则
+4. **【测试先于注册】** 任何新脚本/cron任务，必须先手动执行确认输出正确，才能注册为定时任务。禁止跳过测试直接注册cron。
+5. **【逐条执行】** 命令逐条执行，不一次粘贴多条。
+6. **【先确认后变更】** 每次操作前先确认当前状态，再执行变更，禁止盲目操作。
+7. **【推送前脱敏】** GitHub 推送前必须先跑密钥检查。
+### 🟢 架构原则
+8. **【根因定位】** 发现问题时先定位根因再给方案，不边猜边改。
+9. **【即时归档】** 配置变更后立即更新文档归档，保持文档与系统实际状态同步。
+10. **【先修复再注册】** 脚本有 bug 时先修复并重新测试通过，禁止注册带已知 bug 的版本。
+11. **【新功能独立验证】** 新功能优先用独立脚本实现，验证稳定后再考虑集成。
+12. **【单一职责】** 任务职责单一，禁止一个任务承担多个职责。
+### 🔵 系统运维原则
+13. **【批量失败首查模型ID】** 多任务同时失败 → 第一反应检查远端模型ID。
+14. **【jobs.json不指定model】** jobs.json 的 cron tasks 不指定 model，继承默认值。
+15. **【前缀规则】** openclaw.json 的 model.primary 永远带 `qwen-local/` 前缀。
+16. **【工具调用精简】** 每个任务严格控制1-2次工具调用，超出必然超时。
+17. **【复杂任务开工前必查模型ID】** 开始任何复杂开发任务前，必须先手动验证模型ID存活。
+18. **【契约先行原则】** 并行子任务启动前，必须固化所有模块接口契约写入KB。
+19. **【MCP 永久禁入】** 禁止接入任何第三方 MCP Server。
+20. **【大窗口模型不解决复杂任务】** 评估新模型时，上下文窗口大小是最不重要的指标。
+21. **【双cron职责分工】** openclaw内建cron只承载需要LLM参与的任务；纯Shell脚本任务统一用系统crontab管理。
+22. **【macOS sed OR语法禁用】** macOS BSD sed不支持`\|`作为OR运算符，统一用Python替代。
+23. **【cron脚本agent调用必加isolated】** 所有在cron脚本中调用`openclaw agent`时，必须加`--session-id`参数。
+24. **【`--thinking`参数规则】** openclaw agent的`--thinking`参数合法值为：`off, minimal, low, medium, high, adaptive`。禁止使用`--thinking none`。← v26新增
+25. **【任务先登记】** 新增定时任务必须先写入 `jobs_registry.yaml` 并运行 `python3 check_registry.py` 通过，才能注册cron。← v27新增
+26. **【回滚优先】** 线上故障 → 先 `git checkout v26-snapshot` 恢复服务，再排查根因。← v27新增
+27. **【纯推理任务绕过Gateway】** 不需要工具调用的LLM任务（如文本生成、画像生成），必须直接curl调`proxy:5002/v1/chat/completions`（不含tools字段），禁止用`openclaw agent`（Gateway会注入工具导致模型失控循环调用）。← #94修复经验
+28. **【收工强制指令】** 每次 vibe coding 交互结束时，用户输入"今天工作结束"，系统必须：① 扫描仓库内全部文档（CLAUDE.md、docs/*.md、README.md、IMPROVEMENTS.md 等），将当日所有变更同步到相关文档；② 确保文档间信息一致（工作原则、踩坑经验、检查清单、待办状态）；③ 安全扫描 → 提交 → 推送。无例外。
+29. **【禁用交互式编辑器 + crontab安全】** 禁止触发 vim/nano 等交互式编辑器。git merge 用 `--no-edit`，commit 用 `-m`，rebase 禁用 `-i`。**crontab 操作必须使用 `bash crontab_safe.sh add '<行>'`**（自动备份+条目数验证+回滚保护）。**严禁 `echo ... | crontab -`**（会清空所有条目，2026-03-25事故根因）。← v28新增，v30修正
+30. **【分支合并由用户在GitHub操作】** 开发完成后推送到 `claude/xxx` 分支，必须提醒用户去 GitHub 创建 PR 合并到 main。用户在 Mac Mini 用 `git pull origin main --no-rebase --no-edit` 拉取。禁止在终端执行本地 merge。← v28新增
+31. **【进程管理单一主控】** 每个进程只能有一个生命周期管理者。Gateway 由 launchd (KeepAlive=true) 管理，禁止再加 cron watchdog 或其他自愈机制。双主控制必然互相干扰。← #95教训
+32. **【cron脚本显式声明PATH】** 所有 cron 调用的脚本首行必须 `export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"`。cron 环境与用户 shell 完全不同，禁止假设 PATH 已正确设置。← #95教训
+33. **【健康检查只检目标组件】** 健康检查应只检查目标组件本身（如 `curl localhost:18789`），不应走完整 LLM 链路。链路中任何一环超时都会误判为目标组件故障。← #95教训
+34. **【AI生成的保险机制需审查】** AI 倾向于叠加防护层（watchdog、自愈、重试），但每加一层都可能与现有机制冲突。新增任何自愈/监控脚本前，必须先确认"谁已经在管这件事"。← #95教训

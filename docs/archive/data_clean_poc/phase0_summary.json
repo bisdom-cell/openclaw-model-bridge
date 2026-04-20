@@ -1,0 +1,13 @@
+{
+  "timestamp": "2026-03-27 04:41:23",
+  "endpoint": "http://localhost:5002",
+  "pass_count": 0,
+  "total": 1,
+  "verdict": "PARTIAL",
+  "results": {
+    "sample1_orders.csv": {
+      "status": "error",
+      "error": "LLM 连接失败: <urlopen error [Errno 97] Address family not supported by protocol>"
+    }
+  }
+}

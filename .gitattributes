@@ -1,0 +1,5 @@
+# JSON-aware merge for status.json
+# cron (main) writes: health, updated, kb_stats
+# Claude Code (branch) writes: priorities, recent_changes, quality
+# Custom driver merges at JSON key level instead of text line level
+status.json merge=json-status
