@@ -1,6 +1,6 @@
 {
-  "updated": "2026-04-20 07:41:05",
-  "updated_by": "full_regression",
+  "updated": "2026-04-20 07:55:29",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-04-20",
+      "what": "V37.9 四项结构性加固 — 从修血案进入建制度阶段. (1) 对抗审计 Cat A 集成 full_regression layer 3.5 (每 PR 前自动跑 10 已知血案场景防御力回归). (2) MR-6 扩展 high: MRD-LAYER-002 渐进强制 warn 级暴露 12 个单层 high 技术债. (3) C16 audit-of-audit: governance_checker 写 .audit_metrics.jsonl + MRD-AUDIT-PERF-001 用 SESSION_START 实时 wall_time + 5 次中位数对比 + 双条件阈值 (1.3x + 300ms). Route B C16 sleep 0.5→1.5s mutation 确认 UNEXPECTED catch. 至此 Route B 6/6 盲区全部闭合. (4) 路线 C Security + Governance 双轨统一: MR-16 立案 + INV-SEC-001 security-score ≥ 90 粗粒度守卫. 对抗审计最终 16/16 (100%). governance v3.23→v3.24 / 55 inv / 252 checks / 15 meta rules. 全量回归 36 suites / 1111 tests / 0 fail / 93/100.",
+      "by": "claude_code"
+    },
     {
       "date": "2026-04-20",
       "what": "V37.8.18 Phase 2 完整闭环: 2 个 🟡 中优先级盲区修复 + 对抗验证升级到 5/6 (83%). (1) INV-COST-001 新增: retry 上限守卫 ceiling=10, 4 checks 含 runtime iterative walk 避开 exec() 作用域陷阱. C12 对抗 🎉 UNEXPECTED catch. (2) INV-OBSERVABILITY-001 扩展 C13 last_run 一致性: 4 新 file_contains 锁定 kb_inject/kb_evening/kb_review/kb_harvest_chat + runtime 断言 job_watchdog 监控列表与脚本路径一致. C13 对抗 🎉 UNEXPECTED catch. 累计成绩: 53→54 不变式 / 240→249 checks / 9→11 MRD scanners. Route B 修复进度: 5/6 盲区修复验证. 仅剩 C16 audit-of-audit (架构级, V37.9 候选). governance v3.22→v3.23. 全量回归 36 suites / 1111 tests / 0 fail / 93/100.",
@@ -173,10 +178,6 @@
       "date": "2026-04-14",
       "what": "V37.8.4 finance_news X 僵尸账号血案闭环：删除 7 个已验证僵尸 handle (Reuters/WorldBank/BrookingsInst/caixin/yicaichina/ChannelNewsAsia/straits_times，停更 253-3364 天) + 加静默失败检测 (is_zombie_suspect parser + ⚠️ 诊断前缀 + zombies_${DAY}.txt + 3 天 comm -12 告警) + INV-X-001 新增 (36 不变式, 138 checks) + CLAUDE.md 原则 #27 升级强制 X 账号健康 ≠ HTTP 200 + 案例文档 finance_news_syndication_zombie_case.md + governance v3.9→v3.10。MR-10 (V37.8.3 引入) 正向兑现。全量回归 951 tests / 31 suites / 0 fail",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-04-14",
-      "what": "原则 #30 新增: 开工必须主动声明模型（第 0 号宪法执行机制）。格式固定为 🤖 本次 session 模型：Claude Opus 4.6 (claude-opus-4-6) | 最强级别，无降级 | fast mode 状态见 /fast 命令，独占一行放在任何寒暄/分析/工具调用之前。模型 ID 非 claude-opus-4-6 立即停止告知用户。每次必查 29→30 条。触发: 用户追问是否最强模型才能确认，声明应主动前置"
     }
   ],
   "feedback": [
@@ -234,13 +235,13 @@
   "quality": {
     "security_score": "93",
     "test_count": "1111",
-    "last_regression": "2026-04-20 07:41 pass",
+    "last_regression": "2026-04-20 07:54 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-04-20 07:41",
-    "test_suites": "37",
+    "security_score_time": "2026-04-20 07:54",
+    "test_suites": "36",
     "governance_invariants": "52/52",
     "governance_checks": "222/233",
-    "version": "0.37.8.18"
+    "version": "0.37.9"
   },
   "incidents": [
     {
