@@ -374,4 +374,245 @@ V37.8.16 之前的 audit 关注：
 
 ---
 
-_续见第 3 批_
+## 📝 批量详填 — 第 3 批
+
+### #10 V37.8.6 dream_self_referential_hallucination（2026-04-15）
+
+**血案**：某 source/note 含 surrogate UTF-8 → `json.dump(body, f, ensure_ascii=False)` UnicodeEncodeError → body_file 截断 → adapter 返回 400 "Bad JSON"（456B HTML 错误页）→ `log()` 用 `echo` 写 stdout → `signals=$(llm_call ...)` 命令替换捕获错误日志进 cache → Reduce LLM 读 cache 看到"Bad JSON 400"字样 → 编造"Hugging Face 平台危机"推送给用户。LLM 把系统自己的运行时痕迹当成外部平台事件，编造一整套合理化叙事。
+
+**Q1: ❌ 不能** — audit 无"shell log 输出通道 × LLM 合理化本能"交叉维度。Dream 4 次重试全部失败 vs 仍产出完整推送这种"失败伪装成功"模式当时完全不在审计范围。
+
+**Q2: 空白类别** — 4 个独立机制叠加（surrogate 编码炸 / log 写 stdout / `$(cmd)` 捕获 log / cache 非空检查只看字数不看质量）每一个单独看都是"设计选择"，只有组合才暴露为 bug class。
+
+**Q3: 🛡️ 完全** — 补了 `INV-DREAM-003` 16 checks（declaration + runtime 四层防御）：
+- 第 1 层 `log() >&2`：阻断 stdout 污染通道（最根本，一个 `>&2` 阻断整条幻觉链）
+- 第 2 层 `_sanitize(U+D800-U+DFFF → U+FFFD)`：json.dump 前清洗孤立代理码点
+- 第 3 层 `open(..., encoding='utf-8', errors='replace')`：第二道编码防线
+- 第 4 层 REDUCE/CHUNK1/2/3 system prompt 反污染守卫：明示禁止把 HTTP 错误码/Python 异常/错误页 HTML 当外部信号
+- 加上 19 单测 + runtime python_assert 真跑 sanitize 5 场景
+
+**能防相同 bug**：能。四层任一单独都能阻断，叠加几乎不可能再发生。
+
+**能防变种**：🛡️ 较完整。四层中第 1 层（log→stderr）后来被 V37.8.8 抽象为 **MR-11 元规则** `shell-function-output-must-go-to-stderr-if-not-returned-value`，V37.8.9 落地 `MRD-LOG-STDERR-001` 运行时扫描器覆盖所有 shell 文件。从"单点修复"真正升级为"架构硬规则"。
+
+**教训**：本案是**从单个血案提炼出跨文件适用元规则**的经典样本——不只是防 Dream 再出 bug，更防所有 shell 脚本的同类 log 反模式。原则 #23（链式幻觉）的教科书级实证。
+
+---
+
+### #11 V37.8.7 ontology_sources_positional_parser_cascade（2026-04-15，与 #10 同日）
+
+**血案**：LLM 输出偶尔漏一行"要点：" → `run_ontology_sources.sh:300-313` 用严格位置 `lines[i], lines[i+1], lines[i+2]` + `i += 3` 步进 → 所有后续条目的 cn_title / highlight / stars 全部右移一格级联污染。用户 WhatsApp 看到 `*---*` 作为文章标题、`*价值：⭐⭐⭐⭐*` 作为标题。emit 端 `*{cn_title}*` 直接输出无任何语义校验。
+
+**Q1: ❌ 不能** — audit 无"LLM 输出解析器必须 key-based 而非位置"维度。同样的 `i += N` / `lines[i+N]` 反模式早在 V37.5 kb_review 和其他多处就存在，但从未被元规则化。
+
+**Q2: 空白类别** — LLM 输出解析的脆弱性在 audit 层完全空白。原因：audit 一直关注"代码是否正确工作"，没问过"代码是否能容忍 LLM 输出的分布偏移"。
+
+**Q3: 🛡️ 一半** — 补了 `INV-ONTOLOGY-001` 7 checks（含 runtime python_assert 真跑用户实际看到的污染场景，构造"3 篇但第 2 篇缺要点"输入断言级联不发生）：
+- parse_llm_blocks 函数定义（纯函数可单测）
+- `_SEPARATOR_RE.split` 按 `---/===/***` 切块
+- 块内 `startswith('中文标题')` key-based 识别
+- 24 单测覆盖正常/缺要点/缺价值/缺标题/端到端血案重现
+
+**能防相同 bug**：能。单块缺行不再影响其他块。
+
+**能防变种**：⚠️ 严重缺陷。**V37.8.7 时只修 ontology_sources 一个 job**。MR-12 候选"llm-output-parser-must-be-key-based-not-positional"当时仅为**候选**未立案。其他 LLM 输出解析器（finance_news / dblp / hf_papers / semantic_scholar 等）未被自动扫描。
+
+**后续兑现**：V37.8.8 正式立案 MR-12 元规则，V37.8.9 落地 `MRD-LLM-PARSER-POSITIONAL-001` 运行时扫描所有 `jobs/*/run_*.sh` + `kb_*.py` 共 37 个 LLM 调用脚本。从"单点修复 → 跨 37 文件扫描"，V37.8.6 类同演化路径。
+
+**教训**：同一类错误在系统内必然多次出现。第一次触发时修单点（V37.8.7）= 🛡️ 一半；系统化为元规则（V37.8.8-9）= 🛡️ 完全。本案与 #10 一起开创了"血案 → 案例级修复 → 元规则立案 → MRD 运行时扫描"四步跃迁路径。
+
+---
+
+### #12 V37.8.10 kb_evening_fallback_quota_chain（2026-04-14~15 连续 2 天）
+
+**血案**：2026-04-14 / 04-15 连续 2 天 22:00 用户收到 `[SYSTEM_ALERT] kb_evening 失败 原因: HTTP 502: Bad Gateway`。真实原因是 primary Qwen3 circuit breaker OPEN + fallback gemini HTTP 429 quota exhausted，但 adapter→proxy→client 三跳每跳都把 upstream 错误 body 丢弃（adapter `{"error": "ALL 1 FALLBACKS FAILED: gemini 429"}` → proxy `str(HTTPError)` 只拿 "HTTP Error 502" 不读 body → client `e.reason` 再次丢 body）→ 告警经三次稀释完全变成无意义的"Bad Gateway"。
+
+**Q1: ❌ 不能** — audit 无"错误链透明度"（错误信息在层间传递时是否保留根因）维度，也无"LLM 配额跨 cron 协调"维度。
+
+**Q2: 空白类别** — "observability 架构缺陷"这种"错误没被吞只是被稀释到无意义"的 silent failure 新形态当时完全没被纳入审计模型。
+
+**Q3: 🛡️ 一半** — 补了 `INV-OBSERVABILITY-001` 12 checks（declaration + runtime 两侧契约）：
+- Proxy 侧：`compose_backend_error_str(exc)` 纯函数读 `exc.read()` body + JSON error 字段提取 + `MAX_UPSTREAM_BODY_CHARS=500` 截断 + fail-open try/except 契约
+- Client 侧：`kb_review_collect._compose_http_reason` 镜像 helper
+- **架构契约 MR-8 兑现**：helper 放 proxy_filters.py（纯函数可测）而非 tool_proxy.py（import 启动 HTTP server 不可测）
+- 21 单测 + runtime 真跑血案场景（proxy helper 拼 upstream body 含 "gemini 429"）
+
+**能防相同 bug**：能。下次 kb_evening 告警会显示完整链，形如 "HTTP 502 \| upstream: ALL 1 FALLBACKS FAILED: gemini HTTP 429"。
+
+**能防变种**：⚠️ 仍有缺口：
+- **根因未根治**：`FALLBACK_CHAIN = ["gemini"]` 只配 1 个 fallback 的事实没变。gemini 429 了仍然会失败，只是用户能看到真实原因。"扩展 fallback_chain ≥2 provider" 登记到 unfinished 需用户决策 API key（至今未做）
+- 其他 17+ LLM cron 仍无 `last_run_*.json` 统一 observability 入口
+- `MR-13 候选`"error-chain-must-preserve-upstream-cause-across-layers" 仅为候选未立案
+
+**教训**：本案是**修告警信息密度 ≠ 修根因**的典型。audit 层补的是 observability，根治性修复（扩展 provider 数）被登记到 unfinished 后至今未做。这是"半修复"常见模式——"补到用户能看到真相"而不是"让真相不再发生"。
+
+---
+
+### #14 V37.8.13 whatsapp_silent_death（2026-04-16）
+
+**血案**：00:20 auto_deploy 触发 restart.sh → Gateway 启动 21s 内崩溃 → launchd rapid-crash jettison 卸载 service → WhatsApp 全断 9h。三层放大器同时失效：① auto_deploy `quiet_alert` 凌晨 00-07 静默期**同时跳过 WhatsApp 和 Discord**，3 次 CRITICAL preflight 失败全被 `[QUIET]` 吞没 ② `wa_keepalive` 每 30min 写 WARN 到日志**但不推送任何告警**（18 次沉默 9h）③ `restart.sh` 报 "Done!" 但不验证 Gateway 是否真活。用户手动对比 WhatsApp(空) vs Discord(满) 才发现。
+
+**Q1: ❌ 不能** — audit 当时无"告警路径独立于失效主体""静默期分通道""restart 后健康验证"三个维度。
+
+**Q2: 空白类别** — 告警链路自身的可靠性（告警链不能依赖被监控对象自身）当时不在审计模型里。
+
+**Q3: 🛡️ 完全** — 补了 2 个 critical 不变式共 11 checks + 21 单测 + `MR-14` 元规则：
+- `INV-WA-001` (wa-keepalive-escalates-to-discord-on-consecutive-warn) 7 checks：WARN_COUNT_FILE 计数器 / ESCALATE_FIRST 阈值 / Discord 升级路径 / V37.8.13 血案注释 / 恢复命令提示 / source env vars / **runtime python_assert 断言告警路径不走 WhatsApp**
+- `INV-QUIET-001` (quiet-alert-sends-discord-during-silence-period) 4 checks：静默期路径含 discord send / V37.8.13 注释 / runtime python_assert 断言 quiet_alert 体含 discord 无 whatsapp / [SYSTEM_ALERT] 前缀在 is_quiet_hours 判断之前
+- **MR-14 元规则**"alert-path-must-not-depend-on-failing-subject"：告警链不得依赖被监控对象自身（Gateway 宕则 WhatsApp 不通 → 用 WhatsApp 告警 Gateway 宕 = 死循环）
+- restart.sh post-bootstrap 5×3s 健康验证循环
+
+**能防相同 bug**：能。INV-WA-001 的 runtime 断言直接检查 `wa_keepalive.sh` 告警路径里没有 `--channel whatsapp`。
+
+**能防变种**：🛡️ 较完整。MR-14 已立案为元规则，未来任何"监控 X 的告警走 X 自身通道"设计会在代码评审时被发现。restart.sh 的健康验证循环也可复用到其他服务重启。但：MR-14 还没有对应的 `MRD-ALERT-INDEPENDENCE-001` 运行时扫描器（类似 V37.8.9 MR-11/12 的落地方式），所以 MR-14 目前仍停留在"声明层"。若未来新增告警路径违反该原则，audit 不会自动拦截。
+
+**教训**：本案是**从血案提炼元规则**的又一样本，但元规则的"运行时扫描器落地"尚未完成——延续 V37.8.8→V37.8.9 的"MR 立案 → MRD 落地"两步模式，MR-14 走到了第一步还没走到第二步。
+
+---
+
+_共 14/15 详填完成（#15 V37.8.16 已在开头作为典型样本详填，见前文）。下面是**最终洞察总结**。_
+
+---
+
+# 🔬 最终洞察总结（基于 15 血案完整样本）
+
+## 🎯 数据层：硬性事实
+
+```
+预防率 (Q1 ✅)        0 / 15 = 0%
+部分预警率 (Q1 ⚠️)    2 / 15 = 13%
+完全漏检率 (Q1 ❌)   13 / 15 = 87%
+
+事后回归率 (Q3 🛡️)   13 / 15 = 87%   (🛡️ 完全 5 + 🛡️ 一半 8)
+根因未根治率 (Q3 ⚠️)   2 / 15 = 13%
+
+维度缺失主因：
+  空白类别        12 / 15 = 80%   ← 审计从未思考过的维度
+  观察者盲区        2 / 15 = 13%   ← audit 看不见 audit 本身 / 修复行为
+  粒度不够          1 / 15 =  7%   ← 有 check 但粒度粗糙
+```
+
+**核心数字**：**Audit 事前防御率 = 0%，事后回归率 = 87%**。
+
+这不是失败——这是一个**回归工程**（regression engineering）系统，不是**预测工程**（predictive engineering）系统。和软件测试一样：测试不能预测所有 bug，但能确保修过的 bug 不再回归。
+
+---
+
+## 📈 时间演化：审计维度如何扩张
+
+按不变式引入时间排列：
+
+| 时代 | 新增审计维度 | 代表不变式 | 触发血案 |
+|---|---|---|---|
+| V37.2 | LLM 配额消耗 / 静默推送 | INV-QUOTA-001, INV-PUSH-001 | Dream Quota Blast |
+| V37.3 | Governance 自观察 | INV-GOV-001 + MR-7 | Governance silent error |
+| V37.4 | 预算弹性 / cache key 稳定 / 分离调度契约 | INV-DREAM-001/002, INV-CACHE-002 | Dream Map Budget |
+| V37.4.3 | LLM context 污染 | INV-PA-001/002 | PA Alert Contamination |
+| V37.5 | 推送内容质量 / registry-driven | INV-REVIEW-001 | kb_review Silent |
+| V37.6 | 类型歧义 / 跨 job copy-paste | INV-KB/SRC/DEDUP-001 | KB Content+Sources |
+| V37.7 | 双跑审计 | INV-DEDUP-002 | Dangling refs |
+| V37.8 | MR-6 深度强制 | INV-LAYER-001 | 治理深度审查 |
+| V37.8.3 | 修复流程约束 | MR-10（纯元规则） | Preflight Cascading |
+| V37.8.4 | 外部账号时效性 | INV-X-001 [declaration] | X Zombie |
+| V37.8.5 | 检测器本身的覆盖正确性 | INV-X-001 升级 [+runtime] | Zombie Edge Case |
+| V37.8.6 | LLM 输入污染链 | INV-DREAM-003 + MR-11 | Dream Self-Hallucination |
+| V37.8.7 | LLM 输出解析鲁棒性 | INV-ONTOLOGY-001 + MR-12 | ontology_sources Parser |
+| V37.8.8-9 | 元规则 → MRD 运行时扫描 | MRD-LOG-STDERR-001, MRD-LLM-PARSER-* | （跨血案） |
+| V37.8.10 | 错误链透明度 | INV-OBSERVABILITY-001 + MR-13 | kb_evening Fallback |
+| V37.8.13 | 告警路径独立性 | INV-WA-001, INV-QUIET-001 + MR-14 | WhatsApp Silent Death |
+| V37.8.16 | runtime 保留文件语义 | INV-HB-001 + MR-15 | HEARTBEAT.md PA Self-Silencing |
+
+**审计体系从 V37.2 到 V37.8.16 的 45 天内，从 ~10 个不变式扩张到 53 个不变式 / 15 个元规则**。每次扩张都是**真实血案"喂养"**的结果——没有任何一个维度是理论推演出来的，全部来自生产环境的硬教训。
+
+---
+
+## 🕳 当前审计的已知盲区（按 Q2 分布）
+
+### 盲区 1: 空白类别（12/15 = 80%）主因是**维度设计滞后**
+
+每次新故障暴露一个"之前没想到的维度"。这是**预期之内**的——audit 不可能预测所有失败模式。但可以加速维度识别：
+
+**可行手段**：
+1. **对抗性审计（路线 B）**：手工构造"故意破坏"场景看 audit 能抓到几个，主动暴露新维度
+2. **同类系统参考**：看 Observability / Chaos Engineering 社区常见 bug class，提前纳入
+3. **上游故障注入**：OpenClaw 升级前扫新版 dist/ 寻找新 semantic file / runtime 约束（如 MR-15 HEARTBEAT.md 本可以从上游发现）
+
+### 盲区 2: 观察者盲区（2/15 = 13%）— 审计自己的不可观察性
+
+2 个样本：
+- **V37.3 governance_silent_error**：audit summary 逻辑自己 bug — **audit 自己从不 audit 自己**
+- **V37.8.3 preflight_cascading_fix**：audit 看不见 Claude Code 的"连锁修复"决策过程
+
+**已部分修复**：MR-7 "governance-execution-is-self-observable" + INV-GOV-001 summary 不吞 error。但**只覆盖"summary 正确性"一个子维度**。audit 的性能、资源消耗、执行时间、跳过率等仍未被自观察。
+
+**可行手段**：建立 `audit-of-audit` 子系统 — governance_checker 输出自身运行 metric（耗时 / skip count / error 类型分布），反过来 audit。
+
+### 盲区 3: 粒度不够（1/15 = 7%）— 声明层 grep 的本质限制
+
+V37.8.5 暴露：`file_contains "old == total"` 只能证明 pattern 存在，不能证明"逻辑覆盖所有僵尸情形"。MR-6 "critical-invariants-need-depth" 正是为此而设。但目前只强制 critical 不变式 ≥2 层，**severity=high 仍允许单层**——这是下一个待强制的维度（V37.8.5 主动兑现 INV-X-001 从 [declaration] 升到 [declaration, runtime] 是正面样本，但无制度性约束）。
+
+---
+
+## 🏗 元规则与 MRD 的跃迁路径（最重要的发现）
+
+审计最有价值的**结构性进步**，不是每次新增单个不变式，而是**从单点修复 → 元规则立案 → MRD 运行时扫描**的三步跃迁：
+
+```
+V37.8.6 Dream 血案
+  ↓ 单点修复 log→stderr
+V37.8.8 MR-11 立案
+  ↓ "shell 函数输出必须 stderr"
+V37.8.9 MRD-LOG-STDERR-001 落地
+  ↓ 扫 38 个 shell 文件自动发现违规
+≡ 从"1 个 bug 被修"升级为"38 个文件被约束"
+```
+
+**已完成三步跃迁的元规则**（2 个）：
+- MR-11 (shell-output-stderr) → MRD-LOG-STDERR-001
+- MR-12 (llm-parser-key-based) → MRD-LLM-PARSER-POSITIONAL-001
+
+**走了一步/两步但未落地 MRD 的元规则**（4 个）：
+- MR-13 (error-chain-upstream-cause) — 候选未立案
+- MR-14 (alert-path-independence) — V37.8.13 立案，无 MRD
+- MR-15 (reserved-files-not-llm-writable) — V37.8.16 立案，无 MRD
+- MR-10 (understand-before-fix) — V37.8.3 立案，**本质上无法 MRD**（流程问题）
+
+**行动建议**：**V37.8.17 候选**：给 MR-14 / MR-15 各自落地 MRD 扫描器
+- MRD-ALERT-INDEPENDENCE-001：扫所有 `--topic alerts` 路径 + 被监控对象，发现"监控 X 用 X"死循环
+- MRD-RESERVED-FILES-001：扫 OpenClaw dist/*.js 的 `params.files.filter(f => f.name === ...)` 模式，自动发现未登记的 runtime 保留文件
+
+---
+
+## 🎯 对用户原始问题的回答
+
+> "最近一段时间不会增加新的任务，但会对原有系统进行加固和优化处理，**尤其是验证子项目 ontology 对本系统的 audit 的作用**。"
+
+**基于 15 个血案回填审计的结论**：
+
+1. **Ontology audit 是一个 regression engineering 工程，不是 prevention engineering 工程**。它的价值体现在"血案爆发后，下次不会再以同样方式出现"——**87% 的事后回归率**是真实有效的防御力。
+
+2. **审计的结构性进步在"元规则 → MRD 跃迁"**，不在"不变式数量增加"。单个不变式只能锁定单个 case；元规则能约束整个 bug class；MRD 运行时扫描能覆盖所有同类文件。**53 个不变式的价值**远不如**2 个完整跃迁的元规则（MR-11/12）**大。
+
+3. **当前最紧的盲区是"空白类别"（80%）**。对抗性审计（路线 B）是系统性暴露新维度的最佳手段。现在不做，下次血案仍会照常发生。
+
+4. **"观察者盲区"是 audit 的永久盲点**。MR-7 只补了 summary 正确性一个点，audit 性能 / 资源 / 执行时间 / 跳过率仍无自观察。建议建立 **audit-of-audit 子系统**作为 V2 路标（"别人敢用"）的核心能力。
+
+**一句话总结**：**Ontology audit 的真实作用 = 把 45 天内每一次真实血案固化为"下一次不会以同样方式再发生"的结构性保证**。它不能预测未知故障（预防率 0%），但能确保已知故障 87% 不回归。审计的演化是**驱动于血案、提炼于元规则、普适于 MRD**的三级跃迁机制——这是一个**活着**的审计体系，不是死的清单。
+
+---
+
+## 🗺 路线 A 后续可执行项（给用户决策）
+
+| 优先级 | 任务 | 预期价值 |
+|---|---|---|
+| **P0** | 路线 B 对抗性审计 | 主动暴露"空白类别"新维度，突破 0% 预防率 |
+| **P0** | V37.8.17 MRD-ALERT-INDEPENDENCE-001 | MR-14 第二步跃迁 |
+| **P0** | V37.8.17 MRD-RESERVED-FILES-001 | MR-15 第二步跃迁，对齐 OpenClaw 新版本 |
+| **P1** | MR-6 扩展到 severity=high（当前只强制 critical） | 消除 V37.8.5 类粒度盲区 |
+| **P1** | audit-of-audit 子系统 | 补 MR-7 观察者盲区的其他维度 |
+| **P1** | 路线 C Security + Governance 双轨统一 | MR-16 + 7 INV-SEC-* |
+| **P2** | 给 MR-10 寻找可检测代理 | 如 commit message heuristic / session 日志扫描 |
+
+---
+
+_本报告是路线 A 的最终交付。一旦你确认，将 commit 并登记到 status.json 作为"Stage2 验证者阶段"的首份知识资产。_
