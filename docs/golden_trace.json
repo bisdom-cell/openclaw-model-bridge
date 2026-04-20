@@ -1,0 +1,19 @@
+{
+  "timestamp": "2026-04-05 10:03:58",
+  "latency_ms": 521,
+  "request": {
+    "model": "qwen-local/auto",
+    "prompt": "What is 2+2? Reply in one word.",
+    "max_tokens": 50
+  },
+  "response": {
+    "content": "Four",
+    "tokens": {
+      "prompt_tokens": 37,
+      "completion_tokens": 2,
+      "total_tokens": 39
+    },
+    "model": "Qwen3-235B-A22B-Instruct-2507-W8A8"
+  },
+  "path": "Proxy(:5002) → Adapter(:5001) → Remote GPU → Response"
+}

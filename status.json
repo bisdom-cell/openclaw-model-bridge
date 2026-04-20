@@ -1,0 +1,328 @@
+{
+  "updated": "2026-04-20 04:10:28",
+  "updated_by": "claude_code",
+  "priorities": [
+    {
+      "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
+      "status": "active",
+      "note": "导师评审确认 Stage1 完成。路线：bridge→runtime→control plane→方法论与生态。详见 docs/strategic_review_20260403.md"
+    },
+    {
+      "task": "【终极目标】Ontology Engine 产品化: pip install ontology-engine + 项目级 YAML 配置",
+      "status": "active",
+      "note": "将引擎和规则解耦为二层结构: (1) ontology-engine 通用 pip 包(Tool Ontology Engine + Governance Checker 框架 + 三档特性开关 + 5种 check 执行器 + 语义查询/分类/推理) (2) 项目级 YAML 配置(tool_ontology.yaml 工具声明 + governance_ontology.yaml 治理规则 + providers.d/ Provider 插件)。当前基础: Phase 3 已切换 ONTOLOGY_MODE=on，52 不变式 100% job 覆盖，89 引擎单测。路径: Phase 4 领域本体+策略引擎 → Phase 5 pip 包化+Extension Guide+可独立安装。核心价值: 任何 Agent Runtime 项目只需编写自己的 YAML 就能获得工具治理+语义查询+governance 审计能力，无需理解引擎内部。"
+    },
+    {
+      "task": "【V1-P0】Provider Compatibility Layer",
+      "status": "completed",
+      "note": "V35+完成: providers.py 7 Provider + ProviderRegistry + 能力声明 + CLI矩阵 + 48单测，生产验证通过"
+    },
+    {
+      "task": "【V1-P0】兼容性矩阵 + SLO Benchmark 证据",
+      "status": "completed",
+      "note": "V35完成: docs/compatibility_matrix.md + slo_benchmark.py + 实验报告(5/5 PASS, p95=459ms)"
+    },
+    {
+      "task": "【V1-P1】一键启动 + 最小 demo + golden test trace",
+      "status": "completed",
+      "note": "V35完成: quickstart.sh 4阶段(19/19通过) + docs/golden_trace.json"
+    },
+    {
+      "task": "【V1-P1】可复现证据",
+      "status": "completed",
+      "note": "V35完成: Quick Start + golden trace + SLO benchmark report 均已入库"
+    },
+    {
+      "task": "【V2-P0】Agent Reliability Bench",
+      "status": "completed",
+      "note": "V36完成: reliability_bench.py 7场景47检查 + 36单测 + docs/reliability_bench_report.md"
+    },
+    {
+      "task": "【V2-P0】Memory Plane v1 统一叙事",
+      "status": "completed",
+      "note": "V36完成: memory_plane.py 4层统一接口 + 45单测 + docs/memory_plane.md"
+    },
+    {
+      "task": "【V2-P1】运维韧性证据",
+      "status": "completed",
+      "note": "V36完成: docs/resilience_report.md — 7场景故障注入 + Recovery Time + GameDay对比"
+    },
+    {
+      "task": "【V2-P1】Memory Plane v2",
+      "status": "completed",
+      "note": "V36完成: 跨层去重 + 置信度加权 + 冲突消解 + 64单测"
+    },
+    {
+      "task": "【V2-P1】SLO Dashboard + 版本治理 semver",
+      "status": "completed",
+      "note": "V36完成: slo_dashboard.py + VERSION文件 + /health暴露版本 + 31单测"
+    },
+    {
+      "task": "【V3】Provider Plugin Interface",
+      "status": "completed",
+      "note": "V37 完成: providers.py 7 Provider + 自动发现 + Extension Guide + 128 单测 + 接入 adapter.py auto-fallback chain"
+    },
+    {
+      "task": "【V3】Tool Policy Plugin + Memory Plane Plugin",
+      "status": "backlog",
+      "note": "可插拔的工具策略和记忆平面扩展接口"
+    },
+    {
+      "task": "【V3】Job Template/Registry SDK + Extension Guide",
+      "status": "backlog",
+      "note": "让别人能基于框架扩展自己的 job 和 agent"
+    },
+    {
+      "task": "【输出】第一篇架构型文章",
+      "status": "completed",
+      "note": "V36完成: docs/articles/why_control_plane.md — dev.to+知乎+Twitter发布"
+    }
+  ],
+  "recent_changes": [
+    {
+      "date": "2026-04-20",
+      "what": "数据闭环验证: chaspark + finance_news 新信息源完整进入 KB（用户主动质疑触发验证）。证据链: (1) sources 归档: chaspark.md 35 chunks + finance_daily.md 116 chunks 均已 text_index 向量化。(2) notes 精华双通道沉淀: notes/茶思屋科技动态 2026-04-17~19.md (3 条) + notes/财经简报 2026-04-13~19.md (7 条), 推测是 PA 或 kb_harvest_chat 从对话/推送自动提炼。(3) kb_dream 今日 dream.md 提及 chaspark/财经 4 次, kb_review 通过 load_sources_from_registry 自动覆盖, search_kb / kb_rag 可语义检索. 数据复利正向循环: 原始归档 + 精华笔记双通道. 诊断首轮曾出现 0 匹配假警报（两个因素共同造成）: 我命令字段名错用 m.get(\"files\", []) 但 meta.json 实际结构只有 chunks 字段 + kb_embed 每 6 小时索引一次存在时间延迟窗口. 用户指出大概率是时间延迟合理修正我的过度自责. 方法学要点: 诊断 eventually-consistent 系统时先确认 cron 频率 + 数据写入时间 + 索引窗口, 首次查不到不等于数据断链. 本次无系统代码改动.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-04-20",
+      "what": "V37.8.16 续: 遗留项推进(原则#30升级Opus 4.7+X僵尸清理+WhatsApp routing 重新评估+新silent bug发现)。(1) CLAUDE.md 原则 #30 升级: 合法模型 = Opus 家族(4.6/4.7/未来)非硬编码ID, \"更强版本不是降级\"显式规则, commit fb12f79. (2) X 僵尸 4/18-19-20 三天连续命中 5 个: Carnegie_Endow/CNS1952/ForeignPolicy/PDChina/SingTaoDaily, 全部从 FINANCE_X_ACCOUNTS 移除. INV-X-001 新增 6 个 file_not_contains 治理守卫防回归(5 个 V37.8.16 僵尸 + 1 索引调整). (3) WhatsApp routing 重新评估: 昨天假说\"plugin 安装改路由\"错误. 真相: plugin 源码(index.ts/src/channel.ts) 零 agent 路由关键字, 只管通道物理收发. handledBy:core 证实 agent 路由在 OpenClaw core 不受 plugin 影响. main/research 共享 workspace, 两个 agent 都加载 workspace/SOUL.md 自称 Wei, 用户行为层无感. 4/10 起 session 落地 research/ 只是存储位置差异, 非致命. (4) 新 silent-failure bug 发现: X 3 天连续命中条件达成但 4/20 07:30 run 未推送 SYSTEM_ALERT 告警(grep 日志无匹配), 说明僵尸告警路径有漏洞. 登记 unfinished 独立排查. (5) Nikkei Asia HTML 适配决策: 不做(paywall+X 账号NikkeiAsia 今日未在 zombies 列表,活跃可用). (6) 全量回归: 36 suites/1111 tests/0 fail/53 inv/15 MR/安全 93/100.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-04-20",
+      "what": "V37.8.16 PA 自残 HEARTBEAT.md 血案完整闭环（MR-4 第 12 次演出 + MR-15 新元规则）: (1) 根因锁定: PA 4/19 09:09 把 HN 告警总结写进 ~/.openclaw/workspace/HEARTBEAT.md → 13h 后用户发消息时 OpenClaw heartbeat 机制激活 isHeartbeatContentEffectivelyEmpty=false → 默认 prompt Read HEARTBEAT.md + If nothing needs attention reply HEARTBEAT_OK → Qwen3 严格执行回 HEARTBEAT_OK 12字符 → Gateway stripTokenAtEdges 剥离 → outbound 空 → 13h 完全静默. (2) 六条件组合爆炸: WhatsApp plugin 4/10 装+PA 有 write+HEARTBEAT.md 保留语义+PA 不知情+heartbeat.prompt 未配+文件非空. 前 5 项长期存在, 4/19 09:09 PA 自写触发第 6 项即爆. (3) 最小修复: cat > HEARTBEAT.md 只留 # 注释 → 4/20 09:16 WhatsApp E2E 5s 回复验证通过. (4) 四层结构修复: LLM 行为层 SOUL.md 规则 11 + Proxy 拦截层 RESERVED_FILE_BASENAMES + detect_reserved_file_write 纯函数 + fix_tool_args 集成 + 数据层 SAFE_CONTENT 只含注释 + 测试层 16 新单测. (5) MR-15 正式立案 reserved-files-must-not-be-writable-by-llm: runtime 保留文件的特殊语义必须对 LLM 显式隔离, MR-4 上游预防层. (6) INV-HB-001 12 checks (declaration + runtime). (7) governance v3.19→v3.20: 52→53 inv, 14→15 MR, 248 checks. (8) 全量回归 36 suites / 1111 tests / 0 fail / 安全 93/100. (9) 反面教训登记: 4/19 深夜我错诊 Bad MAC 让用户 rm -rf auth reset 原则 #28 违规, 幸好用户回滚. (10) 案例文档 heartbeat_md_pa_self_silencing_case.md.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-04-19",
+      "what": "V37.8.16 血案调查 (未闭环，延后明天修复): WhatsApp PA 对用户提问全部静默回复 HEARTBEAT_OK 而不发给用户。诊断链: (1) /stats last_error_code=502+p99=126s 初判 primary/fallback 问题; (2) /health 三层 ok+进程活着 → 排除崩溃; (3) proxy 日志 22:09-23:04 每次 TEXT=12 chars 稳定 → 非偶发; (4) gateway.log 无 Sending/Sent 对应 → Gateway 收到 LLM 回复但不发 outbound; (5) session jsonl dump 出 HEARTBEAT_OK 字面字符串 (usage:0 synthetic); (6) 一周前正常 + 本仓库零命中 → 上游代码+我们触发组合; (7) upstream /opt/homebrew/lib/node_modules/openclaw/dist/auth-profiles-DRjqKE3G.js:48797 发现 default fallback prompt: Read HEARTBEAT.md if it exists. If nothing needs attention, reply HEARTBEAT_OK. 根因: SOUL.md 未被 research agent 正确加载 → OpenClaw 默认 HEARTBEAT prompt 激活 → LLM 执行默认指令回 HEARTBEAT_OK → Gateway 按 ack token 设计吞掉不发给用户。反面教训: 我犯原则#28违规-看到Bad MAC就让用户做auth reset/QR扫码路径(已回滚)。MR-10 understand-before-fix 未兑现。",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-04-17",
+      "what": "外部代码级评审吸收: 六优势(控制平面/Provider抽象/韧性/阈值/门禁/战略)+五劣势(脚本特征/环境耦合/PyYAML/Memory接口/文档过载)。录入4项P0/P1优先级: 可迁移性闭环+证据链产品化+插件生态接口+可观测闭环。核心三字诀: 标准化+可比较+生态协议",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-04-17",
+      "what": "V37.8.14 session: (1) Phase 3 P0 ONTOLOGY_MODE=on 正式切换(249测试) (2) 治理覆盖42→52不变式/0未覆盖job (3) 信源大扩展19→33+源(+7RSS/+Caixin HTML/+WorldBank API/+5X政治/+茶思屋独立job) (4) X僵尸移除4个+通知修复 (5) 终极目标pip install ontology-engine写入路标 (6) 原则#33信源部署环境验证 (7) LLM输出全中文标题 (8) chaspark API发现教训:dev 403≠不可用",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-04-16",
+      "what": "V37.8.13 gemini quota 审计：16 个 LLM cron，每日 ~50-60 总调用量（kb_dream MapReduce 主力，mm_index 每2h 其次）。根因识别：gemini 429 非日量问题(RPD 50<<1500)，是 TPM 窗口竞争(21:00 ai_leaders_x + 22:00 kb_evening 大 digest 落在同一 TPM 60s 窗口易超 250K)。降频建议: mm_index 2h→6h, ai_leaders_x/kb_evening 错峰，或申请 gemini paid tier/第二 fallback provider。当前不做降频(需用户决策)。",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-04-16",
+      "what": "V37.8.13 Gateway 宕 9h 静默血案闭环 (MR-4 第 11 次演出): (1) quiet_alert 静默期 Discord 穿透 (2) wa_keepalive 连续 2 次 WARN 自动 Discord 升级 (3) restart.sh 15s 健康验证 + INV-WA-001(7)+INV-QUIET-001(4) + case doc + MR-14 元规则。附带: V37.8.12 FILE_MAP 自复制修复 + status.json format_human 防崩 + MR-13 错误链透明度元规则 + proxy_stats >100% 数学修复 + SCMPNews 僵尸删除 + watchdog 11→19 job。governance v3.18 (42 inv/210 checks/14 MR)。12 commits / 1092 tests / 0 fail / 安全 93/100",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-04-15",
+      "what": "V37.8.11 auto_deploy 每小时漂移告警噪声闭环 (MR-4 第 10 次演出 — expected-behavior 错分类为 error)。用户反馈每小时 [SYSTEM_ALERT] 漂移检测，确认问题存在长期。根因: V37.8.1 preflight status.json 合法分叉豁免但 auto_deploy drift 循环漏改。修复: auto_deploy.sh:319 镜像同款 if SRC==status.json then continue 豁免，new-commit 路径保留 intent 单向下传契约。INV-DEPLOY-003 (declaration, 5 checks): preflight 豁免守卫 + auto_deploy 豁免关键字 + V37.8.11 注释 + FILE_MAP 仍含 status.json。governance v3.16→v3.17 (39→40 inv, 194→199 checks). 原则 #15 反思: 半天 WhatsApp 实际观察就能发现。VERSION 0.37.8.10→0.37.8.11",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-04-15",
+      "what": "V37.8.10 kb_evening LLM 错误链三层稀释血案闭环 (MR-4 第 9 次演出 新形态)。2026-04-14/15 连续 2 天 22:00 告警 HTTP 502 Bad Gateway，真实原因 primary Qwen3 breaker OPEN + gemini 429 quota 耗尽被 adapter→proxy→client 三跳每跳 str(e) 丢 body 稀释至状态短语。双侧结构修复：proxy_filters.compose_backend_error_str(exc) 纯函数读 e.read() body + JSON error 字段提取 + MAX_UPSTREAM_BODY_CHARS=500 + fail-open try/except；kb_review_collect._compose_http_reason 镜像。架构契约 MR-8 正向兑现 helper 放 proxy_filters 可测 (tool_proxy import 启动 HTTP server 不可测)。INV-OBSERVABILITY-001 (declaration+runtime, 12 checks) + 21 单测 (TestComposeHttpReason 10 + TestComposeBackendErrorStr 11，血案场景复现 + fail-open 反证 + tool_proxy import guard)。Fix D Mac Mini adapter 自 V36 首次重启 0.36.0→0.37.8.9 (/health version 确认), V3 capability routing 真生效但 fallback_chain 仍 [gemini] 需独立配 API key 扩第二 fallback (登记 V37.8.11 候选)。案例文档 kb_evening_fallback_quota_chain_case.md. governance v3.15→v3.16 (38→39 inv, 182→194 checks, 12/12 MR). 全量回归 1071 tests / 0 fail / 39 inv / 180/180 checks / 安全 93/100. VERSION 0.37.8.9→0.37.8.10",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-04-15",
+      "what": "V37.8.7 ontology_sources 格式错位血案闭环：位置解析 i+=3 在 LLM 漏一行时级联污染所有后续条目。修复：抽到独立模块 ontology_parser.py，按 ---/===/*** 分隔符切块 + 块内 key-based prefix 解析。同日 V37.8.6 Dream + V37.8.7 ontology_sources 双 MR-4 演出共同教训：LLM 输出格式不可严格假设。INV-ONTOLOGY-001 (declaration+runtime, 7 checks) + 24 单测 + 案例 ontology_sources_positional_parser_cascade_case.md + auto_deploy FILE_MAP + governance v3.12→v3.13 (37→38 inv, 175→182 checks)。1018 tests / 0 fail / 安全 93/100. VERSION 0.37.8.6→0.37.8.7",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-04-15",
+      "what": "V37.8.6 Dream 自引用幻觉血案闭环 (MR-4 第 7 次演出 + 原则 #23 链式幻觉典型实证)",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-04-15",
+      "what": "V37.8.5 僵尸检测边缘盲区闭合：V37.8.4 登记的 2 个 unfinished (CNS1952 99% + SingTaoDaily 0-tweet) 结构化修复。独立 finance_news_zombie.py 纯函数模块 + classify_zombie(diag, count) 三层 tier (stub/stale/alive) + 24 单测 + INV-X-001 升级 [declaration,runtime] + runtime python_assert 5 场景。governance v3.10→v3.11 (36 inv, 152→159 checks)。全量回归 975 tests / 0 fail。MR-10 第 2 次演出（修复本身埋坑）+ MR-6 正向兑现 + MR-8 禁 inline fallback。VERSION 0.37.5→0.37.8.5。案例 ontology/docs/cases/zombie_detection_edge_case_closure.md",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-04-14",
+      "what": "V37.8.4 Mac Mini E2E 验证通过：preflight 77/0/3 + job_smoke_test 186/0/11 + finance_news 手动运行成功。系统独立发现第 8 个僵尸 SCMPNews (95/95 超72h)，⚠️ ZOMBIE嫌疑 标记 + 告警正常触发 + 27 篇文章成功推送+LLM分析。按设计等 3 天连续命中再决定删除。登记 2 个边缘检测盲区：CNS1952 near-zombie (98/99 old + 1 短，老/总=99%但未=100%不触发) + SingTaoDaily 0-tweet stub (total=0 不触发 total>0 门槛)",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-04-14",
+      "what": "V37.8.4 finance_news X 僵尸账号血案闭环：删除 7 个已验证僵尸 handle (Reuters/WorldBank/BrookingsInst/caixin/yicaichina/ChannelNewsAsia/straits_times，停更 253-3364 天) + 加静默失败检测 (is_zombie_suspect parser + ⚠️ 诊断前缀 + zombies_${DAY}.txt + 3 天 comm -12 告警) + INV-X-001 新增 (36 不变式, 138 checks) + CLAUDE.md 原则 #27 升级强制 X 账号健康 ≠ HTTP 200 + 案例文档 finance_news_syndication_zombie_case.md + governance v3.9→v3.10。MR-10 (V37.8.3 引入) 正向兑现。全量回归 951 tests / 31 suites / 0 fail",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-04-14",
+      "what": "原则 #30 新增: 开工必须主动声明模型（第 0 号宪法执行机制）。格式固定为 🤖 本次 session 模型：Claude Opus 4.6 (claude-opus-4-6) | 最强级别，无降级 | fast mode 状态见 /fast 命令，独占一行放在任何寒暄/分析/工具调用之前。模型 ID 非 claude-opus-4-6 立即停止告知用户。每次必查 29→30 条。触发: 用户追问是否最强模型才能确认，声明应主动前置"
+    },
+    {
+      "date": "2026-04-13",
+      "what": "V37.8.3: (1) finance_news 3个错误X账号修复 (CaixinGlobal→caixin, YicaiGlobal→yicaichina, STcom→straits_times) (2) Dream MIN_ACCEPTABLE_CHARS 1500→3000 + BEST_CHARS 未定义变量修复 (3) kb_evening E2E测试时区闪烁修复 (4) preflight 连锁修复闭环: FILE_MAP多目标支持 + SCRIPT_DIR HOME检测 + auto_deploy双目标部署 + preflight/job_smoke_test纳入FILE_MAP, 5轮修复从20失败到0失败 (5) MR-10 understand-before-fix 新元规则(连锁修复血案教训) (6) 原则#28理解再动手 + 原则#29开工收工零遗漏 (7) 第0号宪法: 最强模型不降配不降速不妥协 (8) 案例文档 preflight_cascading_fix_case.md",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-04-12",
+      "what": "V37.8.2: (1) preflight status.json 合法分叉豁免 (2) KB 索引阈值改百分比 (3) kb_evening/kb_review LLM 反幻觉约束 (4) finance_news 全新 job: 8 RSS + 21 X 双通道, 72h 窗口, daily seen 重置, LLM 结构化分析 + KB + 推送 (5) CLAUDE.md 原则 #27 X/Twitter 优先 (6) auto_deploy FILE_MAP 补齐 (7) governance_checker MRD-NOTIFY-002 TOPIC_JOB_MAP 重写消除假阳性",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-04-11",
+      "what": "V37.8 Mac Mini 生产硬验证通过 — governance --full: 35/35 不变式 / 136/136 checks (0 skip, FULL 模式全执行) / 9/9 元规则 全绿. 核心验证项: INV-LAYER-001 MR-6 硬强制 2 checks / INV-DREAM-002 SKIP_MAP_LOOPS 顺序锁真跑 kb_dream.sh 行号断言 / INV-CACHE-002 md5 content-hash mtime 漂移 parity 真跑 / INV-ENV-002 OPENCLAW_PHONE 真号 + 占位号反例守卫 / INV-DEPLOY-002 shlex AST 零 crontab 写入 token. preflight 75/2/2/0 (2 FAIL 是 pre-existing status.json+CLAUDE.md 分叉). job_smoke 33 job / 177 pass / 0 fail / 15 warn (历史日志). MRD-NOTIFY-002 activity 层假阳性 (source 层正确, activity 层扫错路径) 已登记 unfinished 待 V37.8.1 修.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-04-11",
+      "what": "V37.8 MR-6 深度补齐 + MRD-NOTIFY-002 语义修复 — 7 个 critical 不变式从单层升级双层: INV-TOOL-001 (新增 MAX_TOOLS 声明层引用) / INV-TOOL-002 (元数据修复 verification_layer 标签) / INV-DEPLOY-002 (新增 shlex AST token 扫描 crontab 写入) / INV-CRON-003 (新增源码匹配器模式引用声明层) / INV-ENV-002 (新增 REQUIRED_VARS OPENCLAW_PHONE 声明层 + 占位号反例守卫) / INV-DREAM-002 (新增 SKIP_MAP_LOOPS 顺序锁运行时验证, 赋值位于 Phase 1a/1b 门控之前) / INV-CACHE-002 (新增运行时 md5 content-hash 对照, mtime 漂移稳定性真跑, inline md5 避免 exec scope trap). INV-LAYER-001 新元不变式: MR-6 硬强制所有 critical 不变式声明 >=2 层验证深度, MRD-LAYER-001 warn 升级为 hard fail. MRD-NOTIFY-002 检测器重写: 接受 notify.sh --topic 或 openclaw message send --channel-id DISCORD_CH_X 两种 caller 形式 (28/32 job 直接绕过 notify.sh), topic_to_env 映射 papers/freight/alerts/daily/tech/ontology, activity 层扫 notify_queue + cache 日志 mtime. Governance v3.8→v3.9 (34→35 inv, 124→139 checks, 8/9→9/9 meta rules). 31 suites / 927 tests / 0 fail / 安全 93/100. governance --full: 35 不变式 / 125/125 checks / 9/9 元规则 全通过.",
+      "by": "claude_code"
+    }
+  ],
+  "feedback": [
+    {
+      "date": "2026-04-03",
+      "from": "mentor",
+      "what": "战略复盘：Stage1完成(系统构建者)→Stage2(被社区认可的系统作者)。主战场收敛为Agent Runtime Control Plane + Memory Plane。下一步补证据(兼容矩阵/SLO benchmark/故障演练/可复现demo)而非功能。12个月路线：V1别人能跑→V2别人敢用→V3别人会扩展。三个高价值模块：Provider Compatibility Layer/Agent Reliability Bench/Memory Plane v1。详见docs/strategic_review_20260403.md"
+    },
+    {
+      "date": "2026-04-17",
+      "from": "user",
+      "what": "协作模式确认：用户提供洞察，Claude提供执行，系统提供不间断执行和数据复利。核心教训：Claude不应在自己环境受限时就下不可能的结论（chaspark 403误判），必须先让用户在部署环境验证。遇到做不到时先问用户，不自己下定论。"
+    },
+    {
+      "date": "2026-04-17",
+      "from": "external_reviewer",
+      "what": "代码级公正评估：项目已是雏形完整的Agent Runtime Control Plane。六大真优势：控制平面意识成熟/Provider抽象方向正确/运行时韧性真落地/阈值中心化好/工程门禁完整/有战略复盘资产。五大劣势：超强脚本系统特征模块边界偏重作者心智/环境耦合高可迁移性不足/PyYAML硬依赖暴露/Memory Plane接口演化期/文档认知过载。核心建议：控制平面标准化产品能力+证据链持续可比较+扩展接口生态协议。"
+    }
+  ],
+  "health": {
+    "services": "ok",
+    "last_deploy": "456cf60",
+    "last_deploy_time": "2026-04-08 11:58",
+    "last_preflight": "pass",
+    "last_preflight_time": "2026-04-07 04:00",
+    "last_trend_report": "2026-04-04",
+    "model_id": "Qwen3-235B-A22B-Instruct-2507-W8A8",
+    "kb_stats": "240 notes, 16 today, 1805KB sources",
+    "stale_jobs": "all_ok",
+    "last_refresh": "2026-04-08 13:00",
+    "security_score": "93/100 (93.0%)",
+    "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB"
+  },
+  "session_context": {
+    "last_session": "2026-04-17 V37.8.14 (15 commits)",
+    "unfinished": [
+      "fallback_chain 扩展 ≥2 provider — 需用户决策 API key（P0，延后）",
+      "gemini quota 降频 — TPM 窗口竞争，待用户决策",
+      "V3 路标 backlog: Tool Policy Plugin / Memory Plane Plugin / Job Template SDK / Ontology Phase 4-5",
+      "X 僵尸 3 天连续命中但 07:30 run 未推送 SYSTEM_ALERT 告警（2026-04-20 发现）: 5 个账号 4/18-19-20 三天命中但 finance_news 日志无 SYSTEM_ALERT 字样。需排查 NOTIFY_LOADED 是否加载 / comm 交集逻辑是否在 zombies 重置后才跑 / PERSISTENT 变量判空。纯排查，不紧急（僵尸已手动移除）",
+      "WhatsApp 入站 session 物理落地 research/ 而非 main/（非致命）: 4/10 后 main/sessions.json dormant, research/sessions 无限增长. 共享 workspace 让用户行为层无感. 长期考虑 main/sessions 的 cleanup cron 调整 或 研究 OpenClaw core agent routing 策略"
+    ],
+    "open_prs": "",
+    "blocked_on": "",
+    "focus": "V37.8.7 ontology_sources 推送格式错位血案闭环 — 同日 V37.8.6+V37.8.7 双 MR-4 演出。位置解析 i+=3 → separator 切块 + key-based prefix 解析，单块缺行不级联。INV-ONTOLOGY-001 (high, declaration+runtime) + 24 单测 + 案例 ontology_sources_positional_parser_cascade_case.md。1018 tests / 38/38 invariants. 待观察: 下次 ontology_sources 10:00/20:00 cron 推送格式正确无错位",
+    "current_focus": "V37.8 MR-6 深度补齐生产硬验证通过 (35/35 inv / 136/136 checks / 9/9 MR 全绿). 下一步: V37.8.1 修复 MRD-NOTIFY-002 activity 层假阳性 (topic→job log 映射扫 mtime) 或 Ontology Phase 3 渐进替换 (ONTOLOGY_MODE=on) 或 Tool Policy Plugin V3 路标",
+    "recent_changes": [
+      {
+        "date": "2026-04-15",
+        "what": "V37.8.6/8.7/8.8/8.9 四连发同日上线 — (1) V37.8.6 Dream log→stderr 阻断 stdout 污染 cache 的 LLM 幻觉链 + sanitize U+D800-U+DFFF 孤立代理 + REDUCE/CHUNK system prompt 反污染守卫，INV-DREAM-003 critical 双层 16 checks (2) V37.8.7 ontology_sources 推送格式错位修复，抽 ontology_parser.py 用 separator 切块 + key-based prefix 解析，单块缺行不级联，INV-ONTOLOGY-001 high 双层 7 checks (3) V37.8.8 MR-11 (log→stderr) + MR-12 (llm-parser-key-based) 正式立案为 ontology 元规则 (4) V37.8.9 MRD-LOG-STDERR-001 + MRD-LLM-PARSER-POSITIONAL-001 运行时扫描器落地，批量 sed 修复 19 个 job 脚本 log() 写 >&2，元规则覆盖率 10/12→12/12。MR-4 silent-failure 第 7+8 次演出 + 原则 #23 链式幻觉典型实证 (Hugging Face 编造案例)。governance v3.11→v3.15。35 suites / 1050 tests / 0 fail / 38 invariants / 168 checks / 安全 93。Mac Mini E2E preflight 77/0/3。VERSION 0.37.8.5→0.37.8.9。",
+        "by": "claude_code"
+      }
+    ]
+  },
+  "quality": {
+    "security_score": "93",
+    "test_count": "1111",
+    "last_regression": "2026-04-20 03:35 pass",
+    "coverage_pct": 0,
+    "security_score_time": "2026-04-20 03:35",
+    "test_suites": "36",
+    "governance_invariants": "52/52",
+    "governance_checks": "222/233",
+    "version": "0.37.8.16"
+  },
+  "incidents": [
+    {
+      "date": "2026-03-30",
+      "what": "ArXiv API持续429限速（03-29 15:00至03-30 17:00）",
+      "status": "resolved",
+      "resolution": "增加429退避(30/90/270s)+降频(每3h→每天4次)+尊重Retry-After头",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-03-28",
+      "what": "Qwen3不主动调用memory工具——PA口头说'已记录'但实际未调用memory_search/memory_get",
+      "status": "deferred",
+      "resolution": "基础设施已就绪（proxy+openclaw.json+SOUL.md），等模型升级后重新验证",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-03-28",
+      "what": "PA说'没有项目'——SOUL.md空置+status.json信息未被PA消费",
+      "status": "resolved",
+      "resolution": "SOUL.md激活+直接嵌入状态+session重建",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-03-28",
+      "what": "ArXiv全天无推送（周六正常，非故障）",
+      "status": "resolved",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-03-28",
+      "what": "Claude Code dev环境status.json始终为空",
+      "status": "resolved",
+      "resolution": "git仓库副本+kb_status_refresh每小时push",
+      "by": "claude_code"
+    }
+  ],
+  "operating_rules": [
+    "Mac Mini 同步用 git reset 不用 git pull (无本地 commit, 防分叉失败)",
+    "PA 行为变更后必须清空 session + 重启 Gateway + WhatsApp 实测 (V30.4 教训)",
+    "SOUL.md 放宪法级信息 (身份+状态), CLAUDE.md 放操作手册 (工具+详情)",
+    "功能完成标准 = 用户视角验证通过, 非单测通过",
+    "Gateway 维持 v2026.3.13-1, 升级前先读 docs/config.md hold 决策 (V37+ 多次评估)",
+    "告警链不得依赖失效主体自身: WhatsApp 监控走 Discord (V37.8.13 MR-14)",
+    "跨消费者豁免必须全量同步: 任何 FILE_MAP 豁免改 preflight 也要改 auto_deploy/job_smoke_test (V37.8.13 原则 #31)",
+    "战略路标 V1/V2/V3 优先于功能添加 (导师评审 2026-04-03 + V35-V36 已完成 V1/V2 P0)"
+  ],
+  "methodology": {
+    "version": "V34 Stage2: From Builder to Recognized Author",
+    "principles": [
+      "结果验证优先于功能建设——先定义用户视角的成功标准",
+      "上下文工程是一等公民——LLM注意力是稀缺设计约束",
+      "定期像用户一样使用系统——单测验证组件内部，价值在接缝处"
+    ],
+    "anti_patterns": [
+      "393个单测通过≠系统正常工作",
+      "建了写入通路未验证读取通路",
+      "功能堆积≠系统进化"
+    ],
+    "evolved_from": "2026-03-28 status.json共享了个寂寞+SOUL.md空置数月的反思",
+    "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
+    "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
+  },
+  "focus": "Stage2 验证者阶段启动（系统稳定期）: 不增新功能, 专注加固+优化. P0 路线 A: 血案回填审计 - 过去 15 个真实血案逐一诚实回答 3 个问题（爆发前 audit 能发现吗 / 不能是空白还是粒度不够 / 补的不变式能防下一次同类吗）产出 audit_coverage_retrospective.md 作为 ontology audit 防御率的实证报告.",
+  "notes": "",
+  "preferences": [
+    "[auto] 活跃时段 00:00-21:00（2天数据）",
+    "[auto] 常用工具：read(10次)、sessions_spawn(8次)、sessions_history(8次)",
+    "[auto] 关注领域：技术/AI、学术/论文、arxiv-ai-models、技术/编程、rss-blogs",
+    "[auto] 用户已提交 1 条反馈，最新: {\"date\": \"2026-04-03\", \"from\": \"mentor\", \"what\": \""
+  ],
+  "unfinished": [
+    {
+      "what": "X 僵尸观察: 7 新嫌疑 (ReutersBiz/XHNews/CGTNOfficial/globaltimesnews 2天, PDChina/CNS1952/SingTaoDaily 1天) — 2026-04-18 3天窗口到期决策",
+      "status": "observing"
+    },
+    "V37.8.16 BLOOD LESSON (P0, TOMORROW): SOUL.md 加载失败 → OpenClaw 默认 HEARTBEAT prompt 激活 → HEARTBEAT_OK 静默血案。待做: (1) 跑 3 条验证命令确认 SOUL.md 位置和 research agent 实际收到的 system prompt (ls ~/.openclaw/agents/research/ + find SOUL.md + head session jsonl); (2) git bisect 40 commits 定位 SOUL.md 路径被改坏的 commit (候选: ONTOLOGY_MODE=on 切换 176c8f9/3b92d99/ce2c275 + status.json 豁免); (3) 恢复 SOUL.md 正确加载路径; (4) 新 INV-PA-003 soul-md-must-be-loaded (运行时 probe 测 response NOT = HEARTBEAT_OK); (5) 新 MR-13 候选 external-default-fallbacks-must-be-audited; (6) 案例文档 ontology/docs/cases/soul_md_load_broken_heartbeat_fallback_case.md; (7) 反面教材案例 ontology/docs/cases/misdiagnosis_bad_mac_cascade.md 记录今晚我的原则#28违规 (Bad MAC 错归因 + rm -rf 过度操作 + 差点让用户扫码); (8) 全量回归 + 治理审计 + Mac Mini E2E 验证",
+    "CLAUDE.md 原则#30 模型 ID 字面量过时: 指定 claude-opus-4-6 但实际运行 claude-opus-4-7 (新一代, 非降级)。明天 V37.8.16 收工时顺便把 CLAUDE.md 原则 #30 的模型 ID 措辞改为\"Claude Opus 最新版\"或直接写 4.7 (因为 4.7 是当前最强非降级)",
+    "WhatsApp 入站路由到 research agent 而非 main（4/10 WhatsApp plugin 安装副作用）: main/sessions.json mtime 从 Mar 30 起 dormant, 但 HEARTBEAT.md 修复后 research 正常响应不致命. 长期考虑: channels.whatsapp.agent 显式配置 / agents.list 顺序调整 / 验证 WhatsApp plugin inbound handler routing 逻辑",
+    "原则 #30 升级: Opus 4.7 应被纳入合法模型列表（目前只列 Opus 4.6）, 4.7 是 4.6 的更强升级版不是降级, 满足第 0 号宪法精神"
+  ],
+  "_meta": {
+    "last_updated_by": "claude_code"
+  }
+}
