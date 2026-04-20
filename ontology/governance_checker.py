@@ -687,14 +687,20 @@ def _discover_audit_performance_regression(severity):
                 f"当次 wall_time={current_wall_ms}ms"
             ),
         }
-    # 取最近 5 条作为基线（历史均）
+    # 取最近 5 条作为基线，用 median 而非 mean 抗 outlier
     prior = history[-5:]
-    avg_wall = sum(m.get("wall_time_ms", 0) for m in prior) / len(prior)
+    walls = sorted(m.get("wall_time_ms", 0) for m in prior)
+    median_wall = walls[len(walls) // 2] if walls else 0
     issues = []
-    if avg_wall > 0 and current_wall_ms / avg_wall > 2.0:
+    # 双条件：相对 1.3x 退化 + 绝对 300ms 差（避免 baseline 低时 noise 误报）
+    if (
+        median_wall > 0
+        and current_wall_ms > median_wall * 1.3
+        and current_wall_ms - median_wall > 300
+    ):
         issues.append(
-            f"当次 wall_time {current_wall_ms}ms vs 历史均值 {int(avg_wall)}ms "
-            f"({current_wall_ms/avg_wall:.1f}x 退化)"
+            f"当次 wall_time {current_wall_ms}ms vs 历史中位 {median_wall}ms "
+            f"({current_wall_ms/median_wall:.1f}x 退化, +{current_wall_ms-median_wall}ms)"
         )
     # 也对比最近一次 check_count（历史)
     latest = history[-1]
@@ -711,14 +717,14 @@ def _discover_audit_performance_regression(severity):
             "severity": severity,
             "message": f"audit 自身性能退化嫌疑: {'; '.join(issues)}",
             "current_wall_ms": current_wall_ms,
-            "avg_wall": avg_wall,
+            "median_wall": median_wall,
         }
     return {
         "status": "pass",
         "severity": severity,
         "message": (
             f"audit 性能健康: 当次 wall={current_wall_ms}ms "
-            f"(历史均值 {int(avg_wall)}ms, checks={latest_checks})"
+            f"(历史中位 {median_wall}ms, checks={latest_checks})"
         ),
     }
 
