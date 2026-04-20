@@ -21,3 +21,4 @@ __pycache__/
 .coverage
 htmlcov/
 OpenClaw配置文档*.md
+ontology/.audit_metrics.jsonl

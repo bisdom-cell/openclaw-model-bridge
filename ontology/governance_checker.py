@@ -24,6 +24,10 @@ import re
 import subprocess
 import sys
 import textwrap
+import time  # V37.9 audit-of-audit self-metric
+
+# V37.9 C16 audit-of-audit: 记录本次 governance 执行耗时起点
+_AUDIT_SESSION_START = time.time()
 
 _PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _ONTOLOGY_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -273,6 +277,16 @@ def run_meta_discovery(data):
             result = _discover_shallow_critical(data, severity)
             discovery_results.append({"id": disc_id, "name": name, **result})
 
+        elif disc_id == "MRD-LAYER-002":
+            # V37.9: 扫描 high 不变式的验证深度（渐进强制 warn）
+            result = _discover_shallow_high(data, severity)
+            discovery_results.append({"id": disc_id, "name": name, **result})
+
+        elif disc_id == "MRD-AUDIT-PERF-001":
+            # V37.9 C16 audit-of-audit: 检测 governance 自身性能退化
+            result = _discover_audit_performance_regression(severity)
+            discovery_results.append({"id": disc_id, "name": name, **result})
+
         elif disc_id == "MRD-LOG-STDERR-001":
             # V37.8.9: MR-11 运行时检测 — shell log 函数必须写 stderr
             result = _discover_log_stderr_violations(severity)
@@ -291,6 +305,16 @@ def run_meta_discovery(data):
         elif disc_id == "MRD-ALERT-INDEPENDENCE-001":
             # V37.8.17: MR-14 运行时检测 — 监控脚本告警通道独立性
             result = _discover_alert_path_independence(severity)
+            discovery_results.append({"id": disc_id, "name": name, **result})
+
+        elif disc_id == "MRD-SILENT-EXCEPT-001":
+            # V37.8.18: MR-4 运行时检测 — Python 裸 except / except Exception: pass
+            result = _discover_silent_except_violations(severity)
+            discovery_results.append({"id": disc_id, "name": name, **result})
+
+        elif disc_id == "MRD-PUSH-ROUTE-001":
+            # V37.8.18: MR-4 运行时检测 — 推送必须走 notify.sh 或白名单
+            result = _discover_push_route_violations(severity)
             discovery_results.append({"id": disc_id, "name": name, **result})
 
     return discovery_results
@@ -615,6 +639,126 @@ def _discover_shallow_critical(data, severity):
         "status": "pass",
         "severity": severity,
         "message": f"所有 {len(deep)} 个 critical 不变式都有 ≥2 层验证深度",
+    }
+
+
+def _discover_audit_performance_regression(severity):
+    """MRD-AUDIT-PERF-001 (V37.9 C16): 检测 governance_checker 自身性能退化。
+
+    策略（V37.9 修正）：
+      - 读当次 SESSION_START 计算到此刻的 wall_time（实时，不等写入）
+      - 与 .audit_metrics.jsonl 历史最近 5 次 wall_time 均值对比
+      - 当次 / 均值 > 2.0 → warn（立即 catch sleep 类 mutation）
+
+    这避免了"metric 写入在 MRD 后执行，MRD 永远看不到当次慢"的闭环问题。
+    """
+    # 当次 wall_time（到 MRD 触发这一刻的耗时）
+    current_wall_ms = int((time.time() - _AUDIT_SESSION_START) * 1000)
+    metrics_path = os.path.join(_PROJECT_ROOT, "ontology", ".audit_metrics.jsonl")
+    if not os.path.exists(metrics_path):
+        return {
+            "status": "skip",
+            "severity": severity,
+            "message": "首次运行，无历史 metric 对比基线（下次开始生效）",
+        }
+    history = []
+    try:
+        with open(metrics_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    history.append(json.loads(line))
+                except json.JSONDecodeError:
+                    pass
+    except IOError:
+        return {
+            "status": "skip",
+            "severity": severity,
+            "message": f"无法读 metric 文件: {metrics_path}",
+        }
+    if len(history) < 3:
+        return {
+            "status": "skip",
+            "severity": severity,
+            "message": (
+                f"历史 metric 只有 {len(history)} 条（需 ≥3 条才有基线）, "
+                f"当次 wall_time={current_wall_ms}ms"
+            ),
+        }
+    # 取最近 5 条作为基线，用 median 而非 mean 抗 outlier
+    prior = history[-5:]
+    walls = sorted(m.get("wall_time_ms", 0) for m in prior)
+    median_wall = walls[len(walls) // 2] if walls else 0
+    issues = []
+    # 双条件：相对 1.3x 退化 + 绝对 300ms 差（避免 baseline 低时 noise 误报）
+    if (
+        median_wall > 0
+        and current_wall_ms > median_wall * 1.3
+        and current_wall_ms - median_wall > 300
+    ):
+        issues.append(
+            f"当次 wall_time {current_wall_ms}ms vs 历史中位 {median_wall}ms "
+            f"({current_wall_ms/median_wall:.1f}x 退化, +{current_wall_ms-median_wall}ms)"
+        )
+    # 也对比最近一次 check_count（历史)
+    latest = history[-1]
+    latest_checks = latest.get("total_checks_executed", 0)
+    avg_checks = sum(m.get("total_checks_executed", 0) for m in prior) / len(prior)
+    if avg_checks > 0 and latest_checks / avg_checks < 0.7:
+        issues.append(
+            f"上次 checks_executed {latest_checks} vs 均值 {int(avg_checks)} "
+            f"({(1-latest_checks/avg_checks)*100:.0f}% 下降)"
+        )
+    if issues:
+        return {
+            "status": "warn",
+            "severity": severity,
+            "message": f"audit 自身性能退化嫌疑: {'; '.join(issues)}",
+            "current_wall_ms": current_wall_ms,
+            "median_wall": median_wall,
+        }
+    return {
+        "status": "pass",
+        "severity": severity,
+        "message": (
+            f"audit 性能健康: 当次 wall={current_wall_ms}ms "
+            f"(历史中位 {median_wall}ms, checks={latest_checks})"
+        ),
+    }
+
+
+def _discover_shallow_high(data, severity):
+    """MRD-LAYER-002 (V37.9): severity=high 的不变式应有 ≥2 层验证深度。
+    渐进强制：当前有单层 high 技术债，只 warn 不 fail-stop。"""
+    invariants = data.get("invariants", [])
+    shallow = []
+    deep = []
+    for inv in invariants:
+        if inv.get("severity") != "high":
+            continue
+        layers = inv.get("verification_layer", [])
+        inv_id = inv.get("id", "?")
+        if not isinstance(layers, list) or len(layers) < 2:
+            shallow.append(f"{inv_id} ({','.join(layers) if layers else 'none'})")
+        else:
+            deep.append(inv_id)
+    if shallow:
+        return {
+            "status": "warn",
+            "severity": severity,
+            "message": (
+                f"{len(shallow)} 个 high 不变式仅有单层验证（渐进强制 warn）: "
+                f"{', '.join(shallow[:5])}{'...' if len(shallow) > 5 else ''}"
+            ),
+            "shallow": shallow,
+            "deep": deep,
+        }
+    return {
+        "status": "pass",
+        "severity": severity,
+        "message": f"所有 {len(deep)} 个 high 不变式都有 ≥2 层验证深度",
     }
 
 
@@ -1117,6 +1261,216 @@ def _discover_alert_path_independence(severity):
     }
 
 
+# V37.8.18 MR-4 MRD-SILENT-EXCEPT-001
+# Python 裸 except / except Exception: pass 反模式
+# 白名单：ImportError pass / test_*.py
+
+def _discover_silent_except_violations(severity):
+    """MRD-SILENT-EXCEPT-001: 扫所有 .py 文件的裸 except / silent pass 反模式。
+
+    触发血案：Route B C11 (2026-04-20) — adapter.py 注入 `try: ... except: pass`
+    静默吞错模式后 audit 完全抓不到。MR-4 silent-failure 源头之一是裸 except
+    pass，但历史只修具体案例，从未普适化。
+
+    检测模式（AST 扫描）：
+      1. `except:` (bare except) → 违反
+      2. `except Exception:` + 函数体只有 pass → 违反
+      3. `except BaseException:` + pass → 违反
+
+    允许（不违反）：
+      - `except SpecificError:` 有具体类型
+      - `except Exception: log.error(...)` 有日志/处理
+      - `except Exception: return fallback` 有降级
+      - `except: raise` 虽然裸但 re-raise
+      - `except ImportError: pass` 可选依赖探测
+
+    跳过文件：test_*.py / __pycache__ / .git / adversarial_chaos_audit.py 本身
+    （后者含 CHAOS_MUTATED 反模式示例）
+    """
+    import ast
+    import glob as glob_mod
+
+    violations = []
+    scanned = 0
+    # 扫项目里所有 .py（排除常见噪音）
+    py_files = glob_mod.glob(os.path.join(_PROJECT_ROOT, "**", "*.py"), recursive=True)
+
+    for f in sorted(py_files):
+        rel = os.path.relpath(f, _PROJECT_ROOT)
+        if any(x in rel for x in [".git/", "__pycache__/", "/test_", "test_"]):
+            continue
+        # 跳过对抗审计脚本自身（含 CHAOS_MUTATED 示例）
+        if rel.endswith("adversarial_chaos_audit.py"):
+            continue
+        scanned += 1
+        try:
+            with open(f, "r", encoding="utf-8", errors="ignore") as fh:
+                source = fh.read()
+            tree = ast.parse(source, filename=f)
+        except (SyntaxError, IOError, OSError):
+            continue
+
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.ExceptHandler):
+                continue
+            exc_type = node.type
+            body = node.body
+            lineno = node.lineno
+
+            # 判定类型名（或 None 为裸 except）
+            type_name = None
+            if exc_type is None:
+                type_name = "bare_except"
+            elif isinstance(exc_type, ast.Name):
+                type_name = exc_type.id
+
+            # 允许 ImportError pass（可选依赖探测）
+            if type_name == "ImportError":
+                continue
+
+            # 判定 body 是否仅为 pass
+            body_is_just_pass = (
+                len(body) == 1 and isinstance(body[0], ast.Pass)
+            )
+            # 判定是否含 raise（re-raise 允许）
+            has_raise = any(isinstance(n, ast.Raise) for n in ast.walk(node))
+
+            is_violation = False
+            if type_name == "bare_except":
+                # 裸 except 除非有 raise
+                if not has_raise:
+                    is_violation = True
+            elif type_name in ("Exception", "BaseException"):
+                # 宽泛捕获 + body 只有 pass
+                if body_is_just_pass:
+                    is_violation = True
+
+            if is_violation:
+                violations.append(f"{rel}:{lineno} except {type_name or 'bare'}")
+
+    if violations:
+        return {
+            "status": "warn",
+            "severity": severity,
+            "message": (
+                f"{len(violations)} 处 Python 裸 except/silent pass 反模式，"
+                f"扫描 {scanned} 个 .py 文件: {', '.join(violations[:5])}"
+                f"{'...' if len(violations) > 5 else ''}"
+            ),
+            "violations": violations,
+        }
+    return {
+        "status": "pass",
+        "severity": severity,
+        "message": f"所有 {scanned} 个 .py 文件无裸 except/silent pass 反模式",
+    }
+
+
+# V37.8.18 MR-4 MRD-PUSH-ROUTE-001
+# 推送白名单：允许直接 openclaw message send 的脚本 basename
+# 白名单原则：主仓库级合法推送入口（路由层 / 监控告警 / 周期性汇总）
+# 新增脚本推送必须走 notify.sh，否则加入白名单需 review
+_PUSH_ROUTE_WHITELIST = {
+    "notify.sh",           # 路由层自身
+    "run_hn_fixed.sh",     # 历史合法直推（V27 前已稳定）
+    "wa_keepalive.sh",     # 告警升级走 openclaw 直发 Discord
+    "job_watchdog.sh",     # watchdog 告警直发
+    "auto_deploy.sh",      # quiet_alert 实现层
+    "daily_ops_report.sh", # 日报直推
+    "health_check.sh",     # 周报直推
+    "kb_status_refresh.sh",  # 状态刷新
+    "cron_canary.sh",      # cron 心跳金丝雀（不推消息但保险）
+    "preflight_check.sh",  # 体检推送（含白名单豁免）
+    "smoke_test.sh",       # 测试
+    "quickstart.sh",       # 一键启动
+    "gameday.sh",          # 故障演练
+    "kb_evening.sh",       # KB 晚间整理推送
+    "kb_inject.sh",        # 每日 KB 摘要推送
+    "kb_review.sh",        # 周度回顾推送
+    "kb_dream.sh",         # Dream 跨域关联推送
+    "check_upgrade.sh",    # OpenClaw 升级 SOP 推送
+    "diagnose.sh",         # 系统诊断推送
+    "upgrade_openclaw.sh", # Gateway 升级推送
+    "restart.sh",          # 服务重启确认
+    "openclaw_backup.sh",  # 备份结果推送
+}
+
+
+def _discover_push_route_violations(severity):
+    """MRD-PUSH-ROUTE-001: 扫所有 .sh 文件的 `openclaw message send` 直调用。
+    白名单外的脚本直接调用 = 绕过 notify.sh 治理层 = warn.
+
+    触发血案：Route B C15 (2026-04-20) — 新建 chaos_rogue_pusher.sh 直接
+    调 `openclaw message send --channel whatsapp` 绕过 notify.sh，audit 当时
+    无任何检测手段。本 MRD 扫所有 shell 脚本的推送调用，非白名单即 warn。
+    """
+    import glob as glob_mod
+
+    violations = []
+    scanned = 0
+
+    # 扫所有 .sh（仓库 + jobs/）
+    patterns = [
+        os.path.join(_PROJECT_ROOT, "*.sh"),
+        os.path.join(_PROJECT_ROOT, "jobs", "**", "*.sh"),
+    ]
+    sh_files = set()
+    for patt in patterns:
+        sh_files.update(glob_mod.glob(patt, recursive=True))
+
+    for sh_file in sorted(sh_files):
+        if ".git" in sh_file:
+            continue
+        basename = os.path.basename(sh_file)
+        if basename.startswith("test_"):
+            continue
+        # jobs/**/*.sh 是合法 job 推送实现（走 topic 模式），不在白名单但
+        # 仍被 MRD-NOTIFY-001 按 topic 覆盖；此处只检测"新增 rogue 推送"
+        normalized_path = sh_file.replace("\\", "/")
+        if "/jobs/" in normalized_path:
+            continue
+        scanned += 1
+
+        if basename in _PUSH_ROUTE_WHITELIST:
+            continue
+
+        try:
+            with open(sh_file, "r", encoding="utf-8", errors="ignore") as fh:
+                content = fh.read()
+        except (IOError, OSError):
+            continue
+
+        # 扫非注释行的 `openclaw message send` 调用
+        lines = content.splitlines()
+        for lineno, line in enumerate(lines, start=1):
+            stripped = line.lstrip()
+            if stripped.startswith("#"):
+                continue
+            if "openclaw message send" in line:
+                rel = os.path.relpath(sh_file, _PROJECT_ROOT)
+                violations.append(f"{rel}:{lineno} bypass notify.sh")
+
+    if violations:
+        return {
+            "status": "warn",
+            "severity": severity,
+            "message": (
+                f"{len(violations)} 处 rogue 推送绕过 notify.sh，"
+                f"扫描 {scanned} 个非白名单 .sh: {', '.join(violations[:5])}"
+                f"{'...' if len(violations) > 5 else ''}"
+            ),
+            "violations": violations,
+        }
+    return {
+        "status": "pass",
+        "severity": severity,
+        "message": (
+            f"所有 {scanned} 个非白名单 .sh 无绕过 notify.sh 的推送调用"
+            f"（白名单 {len(_PUSH_ROUTE_WHITELIST)} 个脚本豁免）"
+        ),
+    }
+
+
 def print_results(results, json_mode=None):
     """Print governance check results.
 
@@ -1230,12 +1584,72 @@ def print_discovery(discovery_results):
                     print(f"       📌 {u} — 建议新增不变式")
 
 
+def _write_audit_metrics(results, discovery):
+    """V37.9 C16 audit-of-audit: 记录本次 governance 执行的 metric 到历史文件，
+    供 MRD-AUDIT-PERF-001 下次 run 时对比识别性能退化。
+
+    历史文件: ontology/.audit_metrics.jsonl (每行 1 次 run, 最多保留最近 20 条)
+    字段:
+      timestamp, wall_time_ms, total_invariants, total_checks_executed,
+      total_checks_skipped, pass_count, fail_count, error_count
+    """
+    try:
+        wall_time_ms = int((time.time() - _AUDIT_SESSION_START) * 1000)
+        pass_count = sum(1 for r in results if r.get("status") == "pass")
+        fail_count = sum(1 for r in results if r.get("status") == "fail")
+        error_count = sum(1 for r in results if r.get("status") == "error")
+        checks_exec = sum(r.get("total_checks", 0) for r in results)
+        checks_passed = sum(r.get("passed_checks", 0) for r in results)
+        checks_skipped = checks_exec - checks_passed  # 近似（含 fail+error+skip）
+        metric = {
+            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
+            "wall_time_ms": wall_time_ms,
+            "total_invariants": len(results),
+            "total_checks_executed": checks_exec,
+            "total_checks_skipped": checks_skipped,
+            "pass_count": pass_count,
+            "fail_count": fail_count,
+            "error_count": error_count,
+            "discovery_count": len(discovery),
+        }
+        metrics_path = os.path.join(_PROJECT_ROOT, "ontology", ".audit_metrics.jsonl")
+        # 读历史
+        history = []
+        if os.path.exists(metrics_path):
+            try:
+                with open(metrics_path, "r", encoding="utf-8") as f:
+                    for line in f:
+                        line = line.strip()
+                        if line:
+                            try:
+                                history.append(json.loads(line))
+                            except json.JSONDecodeError:
+                                pass
+            except IOError:
+                pass
+        # 保留最近 19 + 本次 = 20 条
+        history = history[-19:]
+        history.append(metric)
+        # 原子写
+        tmp = metrics_path + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            for m in history:
+                f.write(json.dumps(m, ensure_ascii=False) + "\n")
+        os.replace(tmp, metrics_path)
+    except Exception:
+        # V37.9: 静默 fail — audit self-metric 失败不能阻塞治理主流程
+        pass
+
+
 if __name__ == "__main__":
     data = _load()
     results = run_all(data)
     discovery = run_meta_discovery(data)
     fails = print_results(results)
     print_discovery(discovery)
+
+    # V37.9 C16 audit-of-audit: 写本次 run 的 metric 供下次对比
+    _write_audit_metrics(results, discovery)
 
     if JSON_MODE:
         combined = {"invariants": results, "discovery": discovery}

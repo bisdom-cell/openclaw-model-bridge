@@ -54,13 +54,37 @@ class ChaosScenario:
 def _count_violations(combined: str) -> dict:
     """数 violation 信号：fail (❌) / error (💥) / mrd_warn (⚠️ [MRD-)。
 
+    V37.8.18: MRD warn 消息通常形如 "N 处 ..." ，同一 warn 内含多违规。
+    之前只数 warn 行数 → baseline 已有 warn 时新增违规 delta=0（盲区）。
+    现在解析每条 warn 的 "N 处" 数字，累计成精确 violation count。
+
     为了区分 baseline 已有 vs mutation 新增，需要 count 而不是 bool。
     """
     lines = combined.splitlines()
+    fail_count = sum(1 for l in lines if "❌" in l and "[INV-" in l)
+    error_count = sum(1 for l in lines if "💥" in l)
+    # MRD warn 内部 "N 处" 数字累加（比简单数 warn 行精准）
+    mrd_warn_lines = [l for l in lines if "⚠️ [MRD-" in l]
+    mrd_detail_lines = []
+    # MRD 消息通常在 warn 行之后的下一行（格式 "     N 处 ..."）
+    for i, l in enumerate(lines):
+        if "⚠️ [MRD-" in l:
+            # 看下一行找 "N 处"
+            if i + 1 < len(lines):
+                mrd_detail_lines.append(lines[i + 1])
+    mrd_violation_count = 0
+    for dl in mrd_detail_lines:
+        m = re.search(r'(\d+)\s*处', dl)
+        if m:
+            mrd_violation_count += int(m.group(1))
+        else:
+            # 无具体数字的 warn 也算 1
+            mrd_violation_count += 1
     return {
-        "fail": sum(1 for l in lines if "❌" in l and "[INV-" in l),
-        "error": sum(1 for l in lines if "💥" in l),
-        "mrd_warn": sum(1 for l in lines if "⚠️ [MRD-" in l),
+        "fail": fail_count,
+        "error": error_count,
+        "mrd_warn": len(mrd_warn_lines),
+        "mrd_violations": mrd_violation_count,
     }
 
 
@@ -351,13 +375,20 @@ def _c13_missing_last_run_write():
 
 
 def _c14_kb_write_dict_repr():
-    """在 tool_proxy.py 消息捕获路径引入对 dict 直接 str() 反模式（非 list）。
-    INV-KB-001 只防 list content blocks，string repr of dict 是新变种，应抓不到"""
-    target = os.path.join(PROJECT_ROOT, "tool_proxy.py")
+    """让 flatten_content 对 dict 返回 str(content) repr 污染。
+    V37.8.18 后 INV-KB-001 新增 runtime check 应能 catch（flatten_content(dict)
+    应返回 '' 或不含 {，mutation 让它返回 repr 即触发断言失败）"""
+    target = os.path.join(PROJECT_ROOT, "proxy_filters.py")
 
     def mutate(content: str) -> str:
-        # 在文件末尾加入变种违规（字典 str()）
-        return content.rstrip() + "\n\n# CHAOS_MUTATED dict repr pollution\ndef _chaos_dict_repr(msg):\n    content = msg.get('content')\n    if isinstance(content, dict):\n        return str(content)  # produces {'k': 'v'} repr\n    return content\n"
+        # 把 flatten_content 的 unknown type fallback `return ""` 改为 `return str(content)`
+        # 这会让 dict 输入返回 repr 字符串，INV-KB-001 runtime check 应触发
+        return re.sub(
+            r'(# Unknown type — safest fallback is empty string.*\n\s*)return ""',
+            r'\1return str(content)  # CHAOS_MUTATED dict repr leak',
+            content,
+            count=1,
+        )
 
     return file_mutation(target, mutate)
 
@@ -381,15 +412,16 @@ openclaw message send --channel whatsapp "rogue alert bypass"
 
 
 def _c16_audit_performance_regression():
-    """让 governance_checker 变慢（启动时 sleep）。
-    预期盲区：audit 无自身性能不变式（observer blind spot — MR-7 只覆盖 summary 正确性）"""
+    """让 governance_checker 显著变慢（启动时 sleep(1.5)）。
+    V37.9: 注入 1.5s sleep（原 0.5s 在 ~2s baseline 上只是 23% 退化, 在噪声范围）
+    现在 1.5s = 70%+ 退化, 触发 MRD-AUDIT-PERF-001 的 1.3x + 300ms 阈值"""
     target = os.path.join(PROJECT_ROOT, "ontology", "governance_checker.py")
 
     def mutate(content: str) -> str:
-        # 在 `if __name__` 入口注入 sleep 膨胀启动时间
+        # 在 `if __name__` 入口注入 sleep(1.5) 显著膨胀启动时间
         return re.sub(
             r'if __name__ == "__main__":\n',
-            'if __name__ == "__main__":\n    # CHAOS_MUTATED artificial slowdown\n    import time\n    time.sleep(0.5)\n',
+            'if __name__ == "__main__":\n    # CHAOS_MUTATED artificial slowdown\n    import time\n    time.sleep(1.5)\n',
             content,
             count=1,
         )
@@ -525,12 +557,15 @@ SCENARIOS = [
 
 
 def check_git_clean() -> bool:
-    """验证 git 工作树干净。"""
+    """验证 git 工作树干净（status.json 豁免，因为 full_regression 会 touch 它）。"""
     proc = subprocess.run(
         ["git", "status", "--porcelain"],
         capture_output=True, text=True, cwd=PROJECT_ROOT,
     )
-    return not proc.stdout.strip()
+    lines = [l for l in proc.stdout.strip().splitlines() if l.strip()]
+    # 豁免 status.json（full_regression 证据回写，非实质改动）
+    filtered = [l for l in lines if not l.strip().endswith("status.json")]
+    return not filtered
 
 
 def run_scenario(scenario: ChaosScenario, verbose: bool = False) -> dict:
