@@ -295,6 +295,109 @@ def _c10_reinstate_zombie_handle():
 
 
 # ═══════════════════════════════════════════════════════════════════════
+# Category B: 探测攻击场景（未知维度，旨在暴露新盲区）
+# expected_catch=False → audit 抓到反而是惊喜
+# ═══════════════════════════════════════════════════════════════════════
+
+
+def _c11_silent_error_swallow():
+    """在 adapter.py 引入裸 try: ... except: pass 静默吞错误模式。
+    预期盲区：audit 无"裸 except 禁止"不变式，应抓不到"""
+    target = os.path.join(PROJECT_ROOT, "adapter.py")
+
+    def mutate(content: str) -> str:
+        # 在文件末尾加入 silent swallow 反模式
+        return content.rstrip() + "\n\n# CHAOS_MUTATED silent error swallow\ndef _chaos_silent():\n    try:\n        x = 1/0\n    except:\n        pass\n"
+
+    return file_mutation(target, mutate)
+
+
+def _c12_llm_cost_runaway():
+    """把 adapter.py 某处 retry 从 3 改到 999，模拟 LLM 成本失控。
+    预期盲区：audit 无'LLM 成本上限'不变式，应抓不到"""
+    target = os.path.join(PROJECT_ROOT, "adapter.py")
+
+    def mutate(content: str) -> str:
+        # 寻找 retry 相关常量并膨胀（常见命名 MAX_RETRIES / retries / max_attempts）
+        new, n = re.subn(
+            r'(max_retries|MAX_RETRIES|max_attempts|MAX_ATTEMPTS)\s*=\s*\d+',
+            r'\1 = 999  # CHAOS_MUTATED',
+            content,
+            count=1,
+        )
+        if n == 0:
+            # fallback: 在文件加入 CHAOS 常量
+            return content.rstrip() + "\n\n# CHAOS_MUTATED cost runaway\nMAX_RETRIES = 999\n"
+        return new
+
+    return file_mutation(target, mutate)
+
+
+def _c13_missing_last_run_write():
+    """删除某 job 的 last_run_*.json 写入。
+    预期盲区：非 kb_inject/kb_harvest_chat 的 job 无此不变式，应抓不到"""
+    # 选一个已知写 last_run 的脚本，删除其写入
+    target = os.path.join(PROJECT_ROOT, "kb_inject.sh")
+
+    def mutate(content: str) -> str:
+        # 把 last_run_inject.json 字样改掉
+        return re.sub(
+            r'last_run_inject\.json',
+            'CHAOS_MUTATED_last_run.json',
+            content,
+        )
+
+    return file_mutation(target, mutate)
+
+
+def _c14_kb_write_dict_repr():
+    """在 tool_proxy.py 消息捕获路径引入对 dict 直接 str() 反模式（非 list）。
+    INV-KB-001 只防 list content blocks，string repr of dict 是新变种，应抓不到"""
+    target = os.path.join(PROJECT_ROOT, "tool_proxy.py")
+
+    def mutate(content: str) -> str:
+        # 在文件末尾加入变种违规（字典 str()）
+        return content.rstrip() + "\n\n# CHAOS_MUTATED dict repr pollution\ndef _chaos_dict_repr(msg):\n    content = msg.get('content')\n    if isinstance(content, dict):\n        return str(content)  # produces {'k': 'v'} repr\n    return content\n"
+
+    return file_mutation(target, mutate)
+
+
+def _c15_push_bypass_notify_sh():
+    """新建一个伪造推送脚本，直接 openclaw message send 绕过 notify.sh。
+    MRD-NOTIFY-001 按 topic 扫 caller，应能部分覆盖 / MR-4 可能抓不到"""
+    # 在临时文件里写一个"推送脚本"（不 commit，file_temp_write 管理）
+    target = os.path.join(PROJECT_ROOT, "chaos_rogue_pusher.sh")
+
+    @contextmanager
+    def _cm():
+        temp_content = """#!/bin/bash
+# CHAOS_MUTATED: rogue pusher bypassing notify.sh
+openclaw message send --channel whatsapp "rogue alert bypass"
+"""
+        with file_temp_write(target, temp_content):
+            yield
+
+    return _cm()
+
+
+def _c16_audit_performance_regression():
+    """让 governance_checker 某 check 变慢（sleep）。
+    预期盲区：audit 无自身性能不变式，应抓不到（observer blind spot）"""
+    target = os.path.join(PROJECT_ROOT, "ontology", "governance_checker.py")
+
+    def mutate(content: str) -> str:
+        # 在 main() 入口注入一个 sleep 让总执行时间膨胀
+        return re.sub(
+            r'(def main\(\):)',
+            r'\1\n    # CHAOS_MUTATED artificial slowdown\n    import time\n    time.sleep(0.5)',
+            content,
+            count=1,
+        )
+
+    return file_mutation(target, mutate)
+
+
+# ═══════════════════════════════════════════════════════════════════════
 # 场景注册表
 # ═══════════════════════════════════════════════════════════════════════
 
@@ -368,6 +471,49 @@ SCENARIOS = [
         description="finance_news 重新加入僵尸 PDChina handle",
         expected_catch=True,
         mutate_fn=_c10_reinstate_zombie_handle,
+        restore_fn=lambda: None,
+    ),
+    # Category B: 探测攻击 — 暴露 audit 未覆盖的维度
+    ChaosScenario(
+        id="C11", category="B", name="silent_error_swallow",
+        description="adapter.py 引入裸 `try: ... except: pass` 静默吞错误",
+        expected_catch=False,  # 预期盲区
+        mutate_fn=_c11_silent_error_swallow,
+        restore_fn=lambda: None,
+    ),
+    ChaosScenario(
+        id="C12", category="B", name="llm_cost_runaway",
+        description="adapter.py 把 retry 改到 999（模拟 LLM 成本失控）",
+        expected_catch=False,  # 预期盲区
+        mutate_fn=_c12_llm_cost_runaway,
+        restore_fn=lambda: None,
+    ),
+    ChaosScenario(
+        id="C13", category="B", name="missing_last_run_write",
+        description="kb_inject.sh 删除 last_run_inject.json 写入",
+        expected_catch=False,  # 预期盲区
+        mutate_fn=_c13_missing_last_run_write,
+        restore_fn=lambda: None,
+    ),
+    ChaosScenario(
+        id="C14", category="B", name="kb_write_dict_repr",
+        description="tool_proxy 引入 dict 直接 str() 污染变种（非 list blocks）",
+        expected_catch=False,  # 预期盲区（INV-KB-001 只防 list）
+        mutate_fn=_c14_kb_write_dict_repr,
+        restore_fn=lambda: None,
+    ),
+    ChaosScenario(
+        id="C15", category="B", name="push_bypass_notify_sh",
+        description="新建伪造脚本绕过 notify.sh 直接 openclaw message send",
+        expected_catch=False,  # 预期盲区
+        mutate_fn=_c15_push_bypass_notify_sh,
+        restore_fn=lambda: None,
+    ),
+    ChaosScenario(
+        id="C16", category="B", name="audit_performance_regression",
+        description="governance_checker 注入 sleep(0.5) 性能退化",
+        expected_catch=False,  # 预期盲区（MR-7 自观察盲区）
+        mutate_fn=_c16_audit_performance_regression,
         restore_fn=lambda: None,
     ),
 ]
