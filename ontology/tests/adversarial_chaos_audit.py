@@ -556,12 +556,15 @@ SCENARIOS = [
 
 
 def check_git_clean() -> bool:
-    """验证 git 工作树干净。"""
+    """验证 git 工作树干净（status.json 豁免，因为 full_regression 会 touch 它）。"""
     proc = subprocess.run(
         ["git", "status", "--porcelain"],
         capture_output=True, text=True, cwd=PROJECT_ROOT,
     )
-    return not proc.stdout.strip()
+    lines = [l for l in proc.stdout.strip().splitlines() if l.strip()]
+    # 豁免 status.json（full_regression 证据回写，非实质改动）
+    filtered = [l for l in lines if not l.strip().endswith("status.json")]
+    return not filtered
 
 
 def run_scenario(scenario: ChaosScenario, verbose: bool = False) -> dict:

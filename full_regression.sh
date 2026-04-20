@@ -251,9 +251,10 @@ echo ""
 # ═══════════════════════════════════════════════════════════════
 echo "📋 第 3.5 层：对抗性混沌审计（Category A 回归防线）"
 if [ -f ontology/tests/adversarial_chaos_audit.py ]; then
-    # 检查 git 工作树干净（chaos audit 需要）
-    if [ -n "$(git status --porcelain 2>/dev/null)" ]; then
-        echo "  ⚠️ git 工作树不干净，跳过对抗审计（避免误判）"
+    # 检查 git 工作树干净（chaos audit 需要）— 豁免 status.json（证据回写）
+    DIRTY=$(git status --porcelain 2>/dev/null | grep -v "status.json$" || true)
+    if [ -n "$DIRTY" ]; then
+        echo "  ⚠️ git 工作树不干净（非 status.json），跳过对抗审计"
     else
         echo -n "  🎯 Category A 10 场景（已知血案回归） ... "
         CHAOS_OUTPUT=$(python3 ontology/tests/adversarial_chaos_audit.py --category a 2>&1)
