@@ -969,6 +969,82 @@ invariants:
         file: run_hn_fixed.sh
         pattern: "LLM_FAILED"
 
+  - id: INV-COST-001
+    name: retry-ceiling-capped
+    meta_rule: MR-1
+    verification_layer: [declaration, runtime]
+    severity: high
+    declaration: |
+      所有 retry 相关常量（max_retries / MAX_RETRIES / max_attempts / MAX_ATTEMPTS）
+      必须 ≤ RETRY_MAX_CEILING (默认 10)。防止"单次失败 retry 999 次"类 LLM
+      成本爆炸 + 耗时失控。
+    design_decision: |
+      Route B C12 (2026-04-20) 对抗审计：adapter.py 注入 MAX_RETRIES = 999
+      模拟 LLM 成本失控。audit 无任何"retry 上限"不变式，完全抓不到。
+      V37.8.18 Phase 2 补上此维度。阈值 10 的理由：
+        - config.yaml 当前实际值: 0 (reasoner 直接降级) / 2 (arxiv API)
+        - 一般 retry 3-5 次足够；>10 几乎必然是 bug 而非合理配置
+      如果未来某 job 真的需要 >10 retry（极端罕见），需要显式在本不变式
+      白名单注释 + design_decision 说明。
+    lesson: |
+      2026-04-20 Route B 对抗审计：C12 场景暴露"LLM 成本运行时零约束"盲区。
+      INV-QUOTA-001 只防"连续失败熔断存在"不防"单次调用的 retry 次数"。
+      这两个维度正交：熔断针对"批量多次调用"，retry ceiling 针对"单次调用
+      内部重试上限"。
+    checks:
+      - name: "config.yaml 无 max_retries > 10"
+        check_type: file_not_contains
+        file: config.yaml
+        pattern: 'max_retries:\s*(1[1-9]|[2-9][0-9]|[1-9][0-9]{2,})'
+      - name: "adapter.py 无 MAX_RETRIES > 10 硬编码"
+        check_type: file_not_contains
+        file: adapter.py
+        pattern: 'MAX_RETRIES\s*=\s*(1[1-9]|[2-9][0-9]|[1-9][0-9]{2,})'
+      - name: "adapter.py 无 max_retries > 10 硬编码"
+        check_type: file_not_contains
+        file: adapter.py
+        pattern: 'max_retries\s*=\s*(1[1-9]|[2-9][0-9]|[1-9][0-9]{2,})'
+      - name: "runtime: 扫仓库所有 retry 相关常量 ≤ 10"
+        check_type: python_assert
+        code: |
+          # exec() scope trap 避坑（V37.3 INV-GOV-001 教训）: 不嵌套 def，用 stack
+          import glob, os, re, yaml
+          project_root = os.getcwd()
+          RETRY_CEILING = 10
+          violations = []
+          # 扫 Python 硬编码
+          for f in glob.glob(os.path.join(project_root, "*.py")):
+              base = os.path.basename(f)
+              if base.startswith("test_") or base == "adversarial_chaos_audit.py":
+                  continue
+              with open(f, "r", encoding="utf-8", errors="ignore") as fh:
+                  content = fh.read()
+              for m in re.finditer(
+                  r'(MAX_RETRIES|max_retries|MAX_ATTEMPTS|max_attempts)\s*=\s*(\d+)',
+                  content,
+              ):
+                  n = int(m.group(2))
+                  if n > RETRY_CEILING:
+                      violations.append(f"{base}: {m.group(1)} = {n}")
+          # 扫 config.yaml (iterative stack-based walk)
+          try:
+              with open(os.path.join(project_root, "config.yaml"), "r", encoding="utf-8") as fh:
+                  cfg = yaml.safe_load(fh)
+              stack = [("", cfg)]
+              while stack:
+                  path, obj = stack.pop()
+                  if isinstance(obj, dict):
+                      for k, v in obj.items():
+                          if k in ("max_retries", "max_attempts") and isinstance(v, int) and v > RETRY_CEILING:
+                              violations.append(f"config.yaml {path}.{k} = {v}")
+                          stack.append((f"{path}.{k}", v))
+                  elif isinstance(obj, list):
+                      for i, item in enumerate(obj):
+                          stack.append((f"{path}[{i}]", item))
+          except (IOError, yaml.YAMLError):
+              pass
+          assert not violations, f"retry 超上限 {RETRY_CEILING}: {violations}"
+
   # --- V37.2 新增：Map-Reduce 分离调度治理（ontology 审计发现） ---
 
   - id: INV-CRON-005
