@@ -39,25 +39,38 @@
 
 ## 📊 一览矩阵（15 血案 × Q1/Q2/Q3）
 
-> 试填版本：3 个典型样本（标 🟢）已完成，12 个（标 ⚪）待批量完成
+> **全部 15 个已诚实填完**
 
 | # | 版本 | 血案 | Q1 | Q2 | Q3 | 新增不变式 |
 |---|---|---|---|---|---|---|
-| 🟢 1 | V37.3 | governance_silent_error | ❌ 不能 | 观察者盲区 | 🛡️ 一半 | INV-GOV-001 + MR-7 |
-| ⚪ 2 | V37.4 | dream_map_budget_overflow | _pending_ | | | INV-DREAM-001/002 + INV-CACHE-002 |
-| 🟢 3 | V37.4.3 | pa_alert_contamination | ❌ 不能 | 空白类别 | 🛡️ 完全 | INV-PA-001 + INV-PA-002 |
-| ⚪ 4 | V37.5 | kb_review_silent_degradation | _pending_ | | | INV-REVIEW-001 |
-| ⚪ 5 | V37.6 | kb_content_and_sources_dedup | _pending_ | | | INV-KB-001/SRC-001/DEDUP-001 |
-| ⚪ 6 | V37.1 | pa_echo_chamber | _pending_ | | | SOUL.md 规则 9（无对应不变式） |
-| ⚪ 7 | V37.8.3 | preflight_cascading_fix | _pending_ | | | MR-10 元规则 |
-| ⚪ 8 | V37.8.4 | finance_news_syndication_zombie | _pending_ | | | INV-X-001 |
-| ⚪ 9 | V37.8.5 | zombie_detection_edge_case_closure | _pending_ | | | INV-X-001 升级 |
-| ⚪ 10 | V37.8.6 | dream_self_referential_hallucination | _pending_ | | | INV-DREAM-003 + MR-11 候选 |
-| ⚪ 11 | V37.8.7 | ontology_sources_positional_parser_cascade | _pending_ | | | INV-ONTOLOGY-001 + MR-12 候选 |
-| ⚪ 12 | V37.8.10 | kb_evening_fallback_quota_chain | _pending_ | | | INV-OBSERVABILITY-001 + MR-13 候选 |
-| ⚪ 13 | V37.2 | dream_quota_blast_radius | _pending_ | | | INV-QUOTA-001 + INV-PUSH-001 |
-| ⚪ 14 | V37.8.13 | whatsapp_silent_death | _pending_ | | | INV-WA-001 + INV-QUIET-001 + MR-14 |
-| 🟢 15 | V37.8.16 | heartbeat_md_pa_self_silencing | ❌ 不能 | 空白类别 | 🛡️ 一半 | INV-HB-001 + MR-15 |
+| 1 | V37.3 | governance_silent_error | ❌ 不能 | 观察者盲区 | 🛡️ 一半 | INV-GOV-001 + MR-7 |
+| 2 | V37.4 | dream_map_budget_overflow | ❌ 不能 | 空白类别 | 🛡️ 一半 | INV-DREAM-001/002 + INV-CACHE-002 |
+| 3 | V37.4.3 | pa_alert_contamination | ❌ 不能 | 空白类别 | 🛡️ 完全 | INV-PA-001 + INV-PA-002 |
+| 4 | V37.5 | kb_review_silent_degradation | ❌ 不能 | 空白类别 | 🛡️ 一半 | INV-REVIEW-001 |
+| 5 | V37.6 | kb_content_and_sources_dedup | ❌ 不能 | 空白类别 | 🛡️ 完全 | INV-KB-001/SRC-001/DEDUP-001 |
+| 6 | V37.1 | pa_echo_chamber | ❌ 不能 | 空白类别 | ⚠️ 表层 | SOUL.md 规则 9（无不变式） |
+| 7 | V37.8.3 | preflight_cascading_fix | ⚠️ 部分 | 观察者盲区 | ⚠️ 表层 | MR-10（纯元规则无不变式） |
+| 8 | V37.8.4 | finance_news_syndication_zombie | ❌ 不能 | 空白类别 | 🛡️ 一半 | INV-X-001（V37.8.4 仅声明层） |
+| 9 | V37.8.5 | zombie_detection_edge_case_closure | ⚠️ 部分 | 粒度不够 | 🛡️ 完全 | INV-X-001 升级（+runtime） |
+| 10 | V37.8.6 | dream_self_referential_hallucination | ❌ 不能 | 空白类别 | 🛡️ 完全 | INV-DREAM-003 |
+| 11 | V37.8.7 | ontology_sources_positional_parser_cascade | ❌ 不能 | 空白类别 | 🛡️ 一半 | INV-ONTOLOGY-001 + MR-12 候选 |
+| 12 | V37.8.10 | kb_evening_fallback_quota_chain | ❌ 不能 | 空白类别 | 🛡️ 一半 | INV-OBSERVABILITY-001 + MR-13 候选 |
+| 13 | V37.2 | dream_quota_blast_radius | ❌ 不能 | 空白类别 | 🛡️ 一半 | INV-QUOTA-001 + INV-PUSH-001 |
+| 14 | V37.8.13 | whatsapp_silent_death | ❌ 不能 | 空白类别 | 🛡️ 完全 | INV-WA-001 + INV-QUIET-001 + MR-14 |
+| 15 | V37.8.16 | heartbeat_md_pa_self_silencing | ❌ 不能 | 空白类别 | 🛡️ 一半 | INV-HB-001 + MR-15 |
+
+### 📈 统计分布
+
+| 维度 | 分布 |
+|---|---|
+| **Q1 能否预防** | ✅ 能 **0 / 15 (0%)** · ⚠️ 部分 **2 / 15 (13%)** · ❌ 不能 **13 / 15 (87%)** |
+| **Q2 原因类别** | 空白类别 **12 / 15 (80%)** · 观察者盲区 **2 / 15 (13%)** · 粒度不够 **1 / 15 (7%)** |
+| **Q3 修复强度** | 🛡️ 完全 **5 / 15 (33%)** · 🛡️ 一半 **8 / 15 (53%)** · ⚠️ 表层 **2 / 15 (13%)** |
+
+**核心数据**：
+- **Audit 预防率 = 0%** —— 15 个血案爆发前，没有 1 次是被 audit 提前拦住的
+- **Audit 回归率 = 86%** —— 爆发后 13/15 血案补上了 ≥半 强度的不变式
+- **"空白类别"占 80%** —— 每次新故障暴露的都是审计从未思考过的维度
 
 ---
 
@@ -196,19 +209,169 @@ V37.8.16 之前的 audit 关注：
 
 ---
 
-## 📝 待批量完成（12 个）
+## 📝 批量详填 — 第 1 批（按矩阵 # 顺序）
 
-2 / V37.4 / dream_map_budget_overflow
-4 / V37.5 / kb_review_silent_degradation
-5 / V37.6 / kb_content_and_sources_dedup
-6 / V37.1 / pa_echo_chamber
-7 / V37.8.3 / preflight_cascading_fix
-8 / V37.8.4 / finance_news_syndication_zombie
-9 / V37.8.5 / zombie_detection_edge_case_closure
-10 / V37.8.6 / dream_self_referential_hallucination
-11 / V37.8.7 / ontology_sources_positional_parser_cascade
-12 / V37.8.10 / kb_evening_fallback_quota_chain
-13 / V37.2 / dream_quota_blast_radius
-14 / V37.8.13 / whatsapp_silent_death
+### #6 V37.1 pa_echo_chamber（2026-04-09）
 
-用户确认本报告格式合理后，将依次阅读对应 case doc 并批量完成。
+**血案**：用户提系统论"五维模型"，PA 回复时模糊关联 MEMORY.md 的"本体-代理-Token"，用"异曲同工"代替具体分析，并声称"已保存到知识库"（实际未调工具）。
+
+**Q1: ❌ 不能** — audit 当时完全没有"LLM 回复质量维度"。无法检测"回复是否迎合""模糊关联""是否真的调用了保存工具"。
+
+**Q2: 空白类别** — 对话质量 / 批判性思考 / 保存声明真实性都是 runtime 行为层问题，当时 audit 只关注"系统组件是否正确工作"，从未问过"PA 回复对用户是否有价值"。
+
+**Q3: ⚠️ 表层** — 只补了 SOUL.md 规则 9（"批判性思考 / 禁止模糊关联 / 保存必须真实"）作为**行为层指令**。**无对应 governance 不变式**。audit 层仍无从检测规则 9 是否被遵守 — 只能靠 LLM 自觉 + 用户事后察觉。迎合性回复、虚假保存声明在未来仍可能再发生，且无监测信号。
+
+**教训**：行为层规则 ≠ 治理覆盖。规则 9 属于"顺势设计"（原则 #22）给 LLM 看的 prompt；audit 层需要独立的 L3 效果层不变式（待 V37.x Phase 4 扩展）。
+
+---
+
+### #13 V37.2 dream_quota_blast_radius（2026-04-10）
+
+**血案**：Qwen3 524 超时 + Dream MapReduce V2 单次 30+ LLM 调用 × fallback 到 Gemini → Gemini 日配额耗尽 → 同一 Adapter 上所有 Job 共享配额 → HN 推送全部"技术内容，详见原文"硬编码回退文案，用户以为"正常推送"。
+
+**Q1: ❌ 不能** — audit 无"跨 Job 共享资源消耗模型"维度。Dream 和 HN 在依赖图上独立，但共享 Adapter→Gemini 配额链，这种**隐式耦合**从未被不变式建模。
+
+**Q2: 空白类别** — 共享资源、功能增强的 blast radius、静默回退路径 3 个维度都缺失。V36.1 的 MapReduce 升级没人评估它的"最坏调用数 × fallback 配额消耗"。
+
+**Q3: 🛡️ 一半** — 补了 2 个不变式：
+- `INV-QUOTA-001` "LLM Quota Blast Radius"：grep `kb_dream.sh` 含 `MAP_CONSECUTIVE_FAILS` 熔断字样
+- `INV-PUSH-001` "No Silent Garbage Push"：grep `run_hn_fixed.sh` 含 `__LLM_FAILED__` 信号传播
+
+**能防相同 bug**：能。Dream 连续 3 次失败熔断 + HN 3 次重试 + 失败不推送。
+
+**能防变种**：❌ 只针对 Dream + HN 两个具体 Job。如果未来新增其他 MapReduce 类 Job（finance_news / ontology_sources / 未来任何批处理）没有熔断逻辑，audit 不会自动发现。
+
+**教训**：按"具体脚本 grep"写的不变式只能锁定具体脚本。要普适化需提升为元规则（如 "所有批量 LLM 调用必须有连续失败熔断机制" + 扫所有 heredoc）。
+
+---
+
+### #2 V37.4 dream_map_budget_overflow（2026-04-11）
+
+**血案**：286 notes × 76s/batch ÷ 4.4 notes/batch = **82 min > 60 min 预算**，Dream Map 必然超时；且 Notes cache key = md5(批次拼接) 对 mtime 敏感，00:40 预热的 cache 03:00 Reduce 时全 miss → Reduce 路径重跑 Phase 1b 循环 → 连续 N 天"全局超时"告警，Reduce 从未执行。
+
+**Q1: ❌ 不能** — audit 无"预算 vs workload 比例"或"cache key 稳定性"或"分离调度契约"维度。固定预算 3600s 在 workload 增长时静默失效。
+
+**Q2: 空白类别** — "workload 增长检测" / "cache key 时间正交性" / "Map-Reduce 分离调度的代码路径契约"3 个维度完全空白。
+
+**Q3: 🛡️ 一半** — 补了 3 个不变式共 ~10 checks：
+- `INV-DREAM-001` (map-budget-scales-with-mode)：声明层 + runtime 预算字面量匹配
+- `INV-DREAM-002` (reduce-path-must-not-re-run-map-loops)：声明层 + runtime 顺序锁（SKIP_MAP_LOOPS 赋值行号 < 门控行号）
+- `INV-CACHE-002` (notes-cache-key-stable-under-mtime-drift)：声明层 + runtime tempfile 真跑 hash 对比
+
+**能防相同 bug**：能（INV-CACHE-002 的 runtime 断言直接构造同内容不同 mtime 的 2 个 tempfile 验证 hash 相等）。
+
+**能防变种**：⚠️ 只针对 Dream 具体路径。mm_index / kb_embed 等其他批处理若出现类似问题（预算 vs workload 脆弱 / cache key 对时间敏感）不会被自动发现。
+
+**教训**：三个不变式全部 runtime 层是 V37.8 MR-6 执行后的正面样本。缺的是：把三个原则（预算弹性 / cache 正交 / 分离调度契约）上升为元规则。
+
+---
+
+### #4 V37.5 kb_review_silent_degradation（2026-04-11）
+
+**血案**：kb_review.sh 一次运行 6 个相互掩护的 bug（shell export 时序错 / 硬编码源枚举漏 2 源 / 行级日期匹配过滤掉 H2 section body / 机械 fallback 把残渣当回顾 / status.json 永远写 `llm:true` / 悬空 follow-up 承诺）→ 用户连续 N 周收到推送但回顾内容全是日期标题，无任何论文实体，audit 全绿。
+
+**Q1: ❌ 不能** — audit 当时没有任何"推送内容质量"或"源列表漂移检测"或"LLM 失败真实状态"维度。
+
+**Q2: 空白类别** — 6 个 bug 中每一个都在审计空白：shell 作用域陷阱 / 硬编码 vs registry / markdown 结构解析粒度 / fail-fast / 状态真实性 / 悬空承诺，每一个都是 V37.5 第一次被纳入审计。
+
+**Q3: 🛡️ 一半** — 补了 `INV-REVIEW-001` 14 checks（9 声明层 + 5 runtime）：
+- 声明层：版本标记、[SYSTEM_ALERT] 存在、不含机械 fallback、不含悬空承诺、3 个核心函数定义、jobs_registry.yaml 声明 kb_source_file、fail-fast 顺序锁
+- Runtime：真跑 load_sources_from_registry 发现 ≥12 源（含 ai_leaders_x + ontology_sources）、H2 parser 窗口过滤正确性、mock LLM 失败 → status=llm_failed 不伪装
+
+**能防相同 bug**：能。fail-fast 顺序锁 + registry-driven 消除了 6 个 bug class。
+
+**能防变种**：⚠️ 只针对 kb_review 本身。V37.6 kb_evening 血案后才补 INV-EVENING-001（MR-8 "copy-paste is a bug class" 首次兑现）。仍未普适化为"所有 LLM 驱动的 review 类 Job 必须 fail-fast 不伪造状态"。
+
+**教训**：6-bug silent degradation 是 MR-4 最经典样本。修复范式（结构 + 治理 + 回归）已成熟；缺的是"该范式应用到所有同类 Job"的元规则。
+
+---
+
+## 📝 批量详填 — 第 2 批
+
+### #5 V37.6 kb_content_and_sources_dedup（2026-04-11）
+
+**血案**：两个独立 bug 同日暴露：① `str(m["content"])` 对 OpenAI 多模态 list 产生 Python repr 字面量 `[{'type': 'text', ...}]` → 污染 KB note 标题；② 14 个 cron job 复制粘贴 `} >> $KB_SRC` 反模式 → 同一天多次 run 在 sources 文件里追加多个 `## YYYY-MM-DD` H2 section → 438 行重复。kb_dedup.py 自己的 file-level seen set 算法又把合法跨 H2 日期重复当 bug 处理。
+
+**Q1: ❌ 不能** — audit 对 OpenAI content `str \| list` 类型歧义 / 14 处 bug pattern / dedup 算法正确性都完全空白。
+
+**Q2: 空白类别** — "类型系统歧义的防御性转换" / "跨 job 复制粘贴 bug class 识别" / "事后清理工具自身正确性"3 个维度都是第一次被纳入审计。
+
+**Q3: 🛡️ 完全** — 补了 3 个不变式 19 checks（含 5 个 runtime 级 subprocess 驱动）：
+- `INV-KB-001` content-blocks-flattened-before-kb-write：声明层 flatten_content 函数 + tool_proxy.py 调用 + runtime 构造 content blocks 真跑
+- `INV-SRC-001` sources-writes-are-idempotent-at-source：14 个 job 全部走 `kb_append_source.sh` helper + catch-all 运行时 scan 任何 `>> $KB_SRC` 直写
+- `INV-DEDUP-001` kb-dedup-is-h2-scoped-and-scans-unindexed-notes：声明层 + runtime 构造双 H2 文件验证不误判
+
+**能防相同 bug**：能。
+
+**能防变种**：🛡️ 较完整。`INV-SRC-001` 的 catch-all scan 是少见的"规则级覆盖"——不针对具体 job 而是扫所有 `jobs/**/*.sh`，这让未来新增 job 若违反幂等原则会自动报警。这是审计覆盖**从具体到普适**的难得样本。
+
+**教训**：MR-8 "copy-paste-is-a-bug-class" 候选在本案浮现但未立案，留到 V37.7 正式形式化。catch-all scan 是未来更多元规则应该追求的覆盖模式。
+
+---
+
+### #7 V37.8.3 preflight_cascading_fix（2026-04-13）
+
+**血案**：`~/auto_deploy.sh`（HOME 副本）是旧版本，没有仓库新增的 `finance_news` FILE_MAP 条目 → 与 crontab 不一致 → preflight 报 20 失败。正确修复是 1 条 `cp` 命令，但被误诊为"FILE_MAP 缺少 preflight 条目"→ Claude Code 进行 5 轮连锁修复 + 4 层新复杂度（双目标部署 / SCRIPT_DIR HOME 检测 / dict-of-lists 解析器 / 等）→ 系统永久携带这些不必要的复杂度。
+
+**Q1: ⚠️ 部分** — audit 能报"preflight 失败 20 项"（不变式正常工作），但**无法检测"正在做连锁修复"这种流程问题**。audit 看的是结果，看不到 Claude Code 的推理过程。
+
+**Q2: 观察者盲区** — audit 不能观察修复行为本身。"5 轮连锁修复而不是 1 条 cp 命令"是人（Claude Code）的决策失败，audit 层无从介入。
+
+**Q3: ⚠️ 表层** — 补了 **MR-10 "understand-before-fix"** 元规则（修复前必答三问）。但 MR-10 是**纯声明式元规则**，**无对应 governance 不变式**，无法在 CI 层强制。只能依赖人在每次修复前回忆并执行三问。
+
+**能防相同 bug**：⚠️ 不可靠。MR-10 诞生**第二天**（V37.8.4）就被违反（finance_news X handle 改名没验证活跃度，见 #8）。即 MR-10 本身的有效性依赖执行者的纪律。
+
+**能防变种**：❌ 不能。连锁修复的诱因（"看到报错就想改"）是认知偏差，audit 层无监测手段。
+
+**教训**：最重要的元规则之一（MR-10）居然没有 governance 层锁定，只靠"Claude Code 自己记得"。未来可尝试：每次 commit 前 hook 扫 session 日志看是否违反了"修复前三问"（如 commit message 提到"再次修复" / 短时间多次 edit 同文件等 heuristic）。
+
+---
+
+### #8 V37.8.4 finance_news_syndication_zombie（2026-04-14）
+
+**血案**：V37.8.3 改名 3 个 X handle（CaixinGlobal→caixin 等），**上线第二天发现三个改名后的 handle 全是僵尸**（最新推文 2227 / 3364 / 420 天前）。再审计 22 handle 发现 ~32% 污染率（Reuters 253 天 / BrookingsInst 585 天 / WorldBank 2KB stub / ChannelNewsAsia 2955 天 / ...）。Syndication API 对僵尸账号返回 HTTP 200 + 可解析 JSON + 有推文数据三层全绿，但最新推文是几年前。
+
+**Q1: ❌ 不能** — audit 无"X 账号时效性"维度。"协议层绿灯 ≠ 内容层健康"从未进入审计模型。
+
+**Q2: 空白类别** — 任何外部 API 的"协议 vs 内容"健康分离都是新维度。
+
+**Q3: 🛡️ 一半** — 补了 `INV-X-001` 13 checks（仅声明层 `[declaration]`），包括：
+- parser 检测 `diag["total"] > 0 and diag["old"] == diag["total"]` 模式
+- ⚠️ ZOMBIE嫌疑 诊断前缀
+- 独立 `zombies_${DAY}.txt` 文件
+- 3 天 comm -12 连续告警
+- 7 个已确认僵尸 handle `file_not_contains` 守卫
+
+**能防相同 bug**：部分能。`file_not_contains` 守卫防止已确认僵尸 handle 回归（7 handle 逐个锁定）。
+
+**能防变种**：⚠️ 严重缺陷。V37.8.4 检测器**自身埋下两个边缘盲区**（严格相等 `old == total` 漏 99% 老化；`total > 0` 门槛漏 0-tweet stub）→ CNS1952 98/99 / SingTaoDaily 0 tweet 都没被检出。且 INV-X-001 当时是 `[declaration]` 单层（MR-6 违反），声明层 grep 只能证明 pattern 存在，无法证明"逻辑覆盖所有僵尸情形"。下次 V37.8.5 用血案暴露并补齐。
+
+**教训**：INV-X-001 V37.8.4 的 `[declaration]` 单层审计是 MR-6 反面样本——"有治理 ≠ 治理正确"。
+
+---
+
+### #9 V37.8.5 zombie_detection_edge_case_closure（2026-04-15）
+
+**血案**：V37.8.4 Mac Mini E2E 即发现检测器的两个边缘盲区（严格相等 / total>0 门槛），用户手动观察发现后登记 unfinished 延后处理。次日 V37.8.5 开工按原则 #28 三问处理——即"修复本身埋坑"的连续第二次演出。
+
+**Q1: ⚠️ 部分** — V37.8.4 的 INV-X-001 `[declaration]` 声明层能 grep 到检测器存在（"治理有"），但**不能检测检测器的边缘盲区**（"治理正确吗"）。
+
+**Q2: 粒度不够** — 声明层 `file_contains` 只能证明 pattern 存在，无法证明逻辑覆盖所有应有情形。这是 MR-6 "critical-invariants-need-depth" 精确指向的问题。
+
+**Q3: 🛡️ 完全** — V37.8.5 结构化闭合：
+- 提炼独立纯函数模块 `finance_news_zombie.py` `classify_zombie(diag, count) -> (bool, tier)`
+- 三层 tier：stub (no_data=0 + total=0) / stale (old*10 >= total*9) / alive，加 count 守卫防低频活跃误报
+- INV-X-001 升级 `[declaration]` → `[declaration, runtime]`，13 → 20 checks
+- 新增 python_assert 真跑 5 个 tier 场景
+- 24 独立单测
+- MR-8 兑现：禁止 shell 内嵌 `def classify_zombie` inline fallback（防模块缺失时静默退回 V37.8.4 行为）
+
+**能防相同 bug**：能。runtime 层 python_assert 覆盖 5 tier 场景包括两个血案边缘 case。
+
+**能防变种**：🛡️ 较完整。Tier 可扩展（未来可加 Tier 4 "垃圾推文类僵尸"等）。MR-8 inline fallback 禁止让 shell 侧未来不可能 "回退"到 V37.8.4 简单逻辑。
+
+**教训**：本案是 **MR-6 强制深度的正面兑现**——INV-X-001 升级为双层深度，从"pattern 存在"升级为"逻辑覆盖证明"。也是"修复的修复"范式，说明 audit 需要**迭代迭代再迭代**。
+
+---
+
+_续见第 3 批_
