@@ -351,13 +351,20 @@ def _c13_missing_last_run_write():
 
 
 def _c14_kb_write_dict_repr():
-    """在 tool_proxy.py 消息捕获路径引入对 dict 直接 str() 反模式（非 list）。
-    INV-KB-001 只防 list content blocks，string repr of dict 是新变种，应抓不到"""
-    target = os.path.join(PROJECT_ROOT, "tool_proxy.py")
+    """让 flatten_content 对 dict 返回 str(content) repr 污染。
+    V37.8.18 后 INV-KB-001 新增 runtime check 应能 catch（flatten_content(dict)
+    应返回 '' 或不含 {，mutation 让它返回 repr 即触发断言失败）"""
+    target = os.path.join(PROJECT_ROOT, "proxy_filters.py")
 
     def mutate(content: str) -> str:
-        # 在文件末尾加入变种违规（字典 str()）
-        return content.rstrip() + "\n\n# CHAOS_MUTATED dict repr pollution\ndef _chaos_dict_repr(msg):\n    content = msg.get('content')\n    if isinstance(content, dict):\n        return str(content)  # produces {'k': 'v'} repr\n    return content\n"
+        # 把 flatten_content 的 unknown type fallback `return ""` 改为 `return str(content)`
+        # 这会让 dict 输入返回 repr 字符串，INV-KB-001 runtime check 应触发
+        return re.sub(
+            r'(# Unknown type — safest fallback is empty string.*\n\s*)return ""',
+            r'\1return str(content)  # CHAOS_MUTATED dict repr leak',
+            content,
+            count=1,
+        )
 
     return file_mutation(target, mutate)
 
