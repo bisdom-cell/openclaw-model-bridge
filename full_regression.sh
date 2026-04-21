@@ -80,6 +80,9 @@ fi
 if [ -f test_kb_embed_workspace.py ]; then
     run_suite "kb_embed_workspace (V37.9.5 INV-KB-COVERAGE-001 workspace .md 索引)" "python3 test_kb_embed_workspace.py"
 fi
+if [ -f test_watchdog_freshness.py ]; then
+    run_suite "watchdog_freshness (V37.9.6 INV-WATCHDOG-FRESHNESS-001 行级时间戳过滤)" "python3 test_watchdog_freshness.py"
+fi
 
 # 条件性测试（仅当文件存在时运行）
 for tf in test_conv_quality.py test_kb_autotag.py test_kb_dedup.py test_token_report.py test_arxiv_parser.py test_shell_antipatterns.py; do

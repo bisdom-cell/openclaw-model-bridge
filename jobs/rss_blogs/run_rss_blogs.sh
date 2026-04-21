@@ -35,7 +35,9 @@ RSS_FEEDS=(
     "Lil'Log|https://lilianweng.github.io/index.xml|Lilian Weng/OpenAI(LLM/Agent综述)"
     "Simon Willison|https://simonwillison.net/atom/everything/|Simon Willison(LLM工具/实践)"
     "Latent Space|https://www.latent.space/feed|Swyx&Alessio(AI工程/Agent架构)"
-    "LangChain|https://blog.langchain.dev/feed/|LangChain(Agent/RAG实战)"
+    # V37.9.6 移除: LangChain 博客 RSS 持续 9 次 HTTP 404 (4/20 18:00 watchdog 仍报),
+    # 上游 feed 已死链。移除止噪音, 如未来恢复或迁移路径再加回。
+    # "LangChain|https://blog.langchain.dev/feed/|LangChain(Agent/RAG实战)"
 )
 
 SEEN_FILE="$CACHE/seen_urls.txt"
