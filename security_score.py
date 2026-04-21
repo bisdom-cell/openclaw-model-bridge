@@ -404,13 +404,98 @@ def format_report(data):
     return "\n".join(lines)
 
 
+def load_ontology_thresholds():
+    """V37.9.3 路线 C Step 3: 从 governance_ontology.yaml 读 security_config 数据源。
+
+    返回 (total_threshold, per_dimension_thresholds_dict)。
+    失败降级：返回 (None, {}) 而非异常，避免破坏 --json/--update 主流程。
+    """
+    try:
+        import yaml
+    except ImportError:
+        return None, {}
+    here = os.path.dirname(os.path.abspath(__file__))
+    yaml_path = os.path.join(here, "ontology", "governance_ontology.yaml")
+    if not os.path.exists(yaml_path):
+        return None, {}
+    try:
+        with open(yaml_path, "r", encoding="utf-8") as f:
+            onto = yaml.safe_load(f)
+    except Exception:
+        return None, {}
+    sec_cfg = (onto or {}).get("security_config") or {}
+    total_threshold = sec_cfg.get("total_threshold")
+    per_dim = sec_cfg.get("dimensions") or {}
+    if not isinstance(per_dim, dict):
+        per_dim = {}
+    return total_threshold, per_dim
+
+
+def check_ontology_thresholds(data):
+    """V37.9.3 路线 C Step 3: 用 ontology 声明的阈值自检当前 score。
+
+    输入: compute_score() 返回的 data
+    返回: (ok: bool, violations: list[str])
+
+    与 governance INV-SEC-001 runtime check 读同一 YAML，保证两侧判定一致。
+    """
+    total_threshold, per_dim = load_ontology_thresholds()
+    violations = []
+    if total_threshold is not None and data.get("total", 0) < total_threshold:
+        violations.append(
+            f"总分 {data['total']}/{data['max']} < ontology 阈值 {total_threshold}"
+        )
+    if per_dim:
+        for dim in data.get("dimensions", []):
+            name = dim.get("name")
+            score = dim.get("score", 0)
+            min_score = per_dim.get(name)
+            if min_score is None:
+                continue
+            if score < min_score:
+                violations.append(
+                    f"{name} {score}/{dim.get('max')} < ontology 阈值 {min_score}"
+                )
+    return (not violations), violations
+
+
 def main():
     parser = argparse.ArgumentParser(description="系统安全评分")
     parser.add_argument("--json", action="store_true", help="JSON 输出")
     parser.add_argument("--update", action="store_true", help="写入 status.json")
+    parser.add_argument(
+        "--check-ontology-thresholds",
+        action="store_true",
+        help=(
+            "V37.9.3 路线 C Step 3: 用 ontology governance_ontology.yaml 声明的 "
+            "security_config 阈值自检当前 score，违反则 exit 1"
+        ),
+    )
     args = parser.parse_args()
 
     data = compute_score()
+
+    if args.check_ontology_thresholds:
+        ok, violations = check_ontology_thresholds(data)
+        total_threshold, per_dim = load_ontology_thresholds()
+        if total_threshold is None and not per_dim:
+            print(
+                "WARN: ontology 阈值未加载（PyYAML 缺失或 governance_ontology.yaml "
+                "不存在）— 跳过 ontology-aware 自检",
+                file=sys.stderr,
+            )
+            sys.exit(0)
+        if ok:
+            print(
+                f"OK: 当前 score {data['total']}/{data['max']} 满足 ontology 所有阈值 "
+                f"（总分 ≥ {total_threshold}, {len(per_dim)} 维度各自合规）"
+            )
+            sys.exit(0)
+        else:
+            print("FAIL: ontology 阈值违反：", file=sys.stderr)
+            for v in violations:
+                print(f"  - {v}", file=sys.stderr)
+            sys.exit(1)
 
     if args.json:
         print(json.dumps(data, ensure_ascii=False, indent=2))

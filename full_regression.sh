@@ -71,6 +71,12 @@ fi
 if [ -f ontology/tests/test_dream_cache_stability.py ]; then
     run_suite "dream_cache_stability (INV-DREAM-001/002 + INV-CACHE-002)" "python3 -m unittest ontology.tests.test_dream_cache_stability"
 fi
+if [ -f ontology/tests/test_audit_perf_dimensions.py ]; then
+    run_suite "audit_perf_dimensions (V37.9.3 MRD-AUDIT-PERF-001 4 维度判定)" "python3 -m unittest ontology.tests.test_audit_perf_dimensions"
+fi
+if [ -f test_security_ontology_alignment.py ]; then
+    run_suite "security_ontology_alignment (V37.9.3 路线 C Step 3 数据源统一)" "python3 test_security_ontology_alignment.py"
+fi
 
 # 条件性测试（仅当文件存在时运行）
 for tf in test_conv_quality.py test_kb_autotag.py test_kb_dedup.py test_token_report.py test_arxiv_parser.py test_shell_antipatterns.py; do

@@ -1,6 +1,6 @@
 {
-  "updated": "2026-04-20 09:58:13",
-  "updated_by": "security_score",
+  "updated": "2026-04-21 03:27:07",
+  "updated_by": "full_regression",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -105,6 +105,11 @@
   ],
   "recent_changes": [
     {
+      "date": "2026-04-21",
+      "what": "V37.9.3 四项顺序推进: #1 X 僵尸告警路径诊断(finance_news TZ 统一 + 5 分支诊断 log + notify 失败 exit code 捕获, 4/20 07:30 Gateway 瞬时故障已自愈代码层无 bug) + #2 MR-6 9 个单层 high 全部补齐(Batch A 3 个 metadata 修正 + Batch B 5 个真 runtime 补齐 subprocess/AST + Batch C 1 个 declaration 守卫, MRD-LAYER-002 ⚠️ → ✅, 25 个 high 全部 ≥2 层) + #3 audit-of-audit 1 维 → 4 维(peak_memory_mb 跨平台 + bootstrap_ms SESSION→FIRST_CHECK + skip_rate_pct 突增, 向后兼容 median=0 自动跳过, 14 新单测) + #4 路线 C Step 3 终态(ontology 新增 security_config.dimensions 顶层段作唯一真理源 + INV-SEC-001 从 YAML 读阈值不再硬编码 + 维度名对齐守卫 + security_score.py --check-ontology-thresholds CLI + 12 新单测跨源一致性). governance v3.26→v3.27 / 38 suites / 1137 tests (+26) / 安全 93/100.",
+      "by": "claude_code"
+    },
+    {
       "date": "2026-04-20",
       "what": "V37.9.2 MR-6 深度补齐: 12 单层 high 减到 9 (-3). (1) INV-PA-002 加 runtime 解析规则 10 完整块+5 关键短语必须都在块内+长度>=400字; (2) INV-DREAM-001 加 runtime 真解析 DREAM_TIMEOUT_SEC 赋值，MAP_ONLY>=5400s + Reduce<=3600s + 差>=1800s; (3) INV-DEPLOY-003 加 runtime 扫双侧脚本 status.json 邻近 continue. 都用 iterative loop 避开 V37.3 exec scope trap. governance v3.25→v3.26, 253→256 checks. 对抗审计保持 16/16.",
       "by": "claude_code"
@@ -198,11 +203,6 @@
       "date": "2026-04-15",
       "what": "V37.8.6 Dream 自引用幻觉血案闭环 (MR-4 第 7 次演出 + 原则 #23 链式幻觉典型实证)",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-04-15",
-      "what": "V37.8.5 僵尸检测边缘盲区闭合：V37.8.4 登记的 2 个 unfinished (CNS1952 99% + SingTaoDaily 0-tweet) 结构化修复。独立 finance_news_zombie.py 纯函数模块 + classify_zombie(diag, count) 三层 tier (stub/stale/alive) + 24 单测 + INV-X-001 升级 [declaration,runtime] + runtime python_assert 5 场景。governance v3.10→v3.11 (36 inv, 152→159 checks)。全量回归 975 tests / 0 fail。MR-10 第 2 次演出（修复本身埋坑）+ MR-6 正向兑现 + MR-8 禁 inline fallback。VERSION 0.37.5→0.37.8.5。案例 ontology/docs/cases/zombie_detection_edge_case_closure.md",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -238,17 +238,7 @@
   },
   "session_context": {
     "last_session": "2026-04-17 V37.8.14 (15 commits)",
-    "unfinished": [
-      "MR-6 的 9 个单层 high 补齐（INV-TOOL-003/CRON-002/NOTIFY-002/HEALTH-001/NOTIFY-003/NOTIFY-004/CRON-004/JOB-GOVAUDIT-001/JOB-HARVEST-001），按'每次血案修复顺便升级邻近'节奏推进，完成后 MRD-LAYER-002 可升级为 INV-LAYER-002 硬强制",
-      "audit-of-audit (MRD-AUDIT-PERF-001) 扩展维度: memory_mb / skip_rate / cold_start_ms 等（当前只有 wall_time）",
-      "路线 C Step 3 终态: security_score.py 从独立工具变成 governance audit 的 view（数据源统一到 ontology）",
-      "Ontology Phase 4 领域本体: 六域概念模型 (Actor/Tool/Resource/Task/Provider/Memory) + policy_ontology.yaml + 三阶段门控",
-      "V3 路标 backlog: Tool Policy Plugin + Memory Plane Plugin + Job Template SDK + pip install ontology-engine",
-      "fallback_chain 扩展 ≥2 provider (需用户决策 API key)",
-      "gemini quota 降频 (TPM 窗口竞争，需用户决策)",
-      "WhatsApp 入站路由到 research 非 main (4/10 plugin 副作用非致命，研究 plugin 源码后长期考虑 channels.whatsapp.agent 配置)",
-      "X 僵尸告警 3 天连续命中但 07:30 run 未推送 SYSTEM_ALERT (2026-04-20 发现, 僵尸已手动移除, 告警路径漏洞待排查)"
-    ],
+    "unfinished": "[\"MR-6 完成后 MRD-LAYER-002 可升级为 INV-LAYER-002 硬强制（当前仍是 warn）\",\"#1 X 僵尸告警漏推送根因: 4/20 07:30 Gateway 瞬时故障已自愈，新增诊断 log 在 4/21 07:30 若再发能留下决定性证据\",\"audit-of-audit 4 维度在 Mac Mini --full 模式首次 run 会初始化新字段 history baseline（5 次后完全生效）\",\"路线 C Step 4 候选: 把 security_score.py 从独立 CLI 变成纯 library（仅 governance_checker 调用）或反之（governance 从 score 拉数据）\", \"Ontology Phase 4 领域本体: 六域概念模型 (Actor/Tool/Resource/Task/Provider/Memory) + policy_ontology.yaml + 三阶段门控\", \"V3 路标 backlog: Tool Policy Plugin + Memory Plane Plugin + Job Template SDK + pip install ontology-engine\", \"fallback_chain 扩展 ≥2 provider (需用户决策 API key)\", \"gemini quota 降频 (TPM 窗口竞争，需用户决策)\", \"WhatsApp 入站路由到 research 非 main (4/10 plugin 副作用非致命)\"]",
     "open_prs": "",
     "blocked_on": "",
     "focus": "V37.8.7 ontology_sources 推送格式错位血案闭环 — 同日 V37.8.6+V37.8.7 双 MR-4 演出。位置解析 i+=3 → separator 切块 + key-based prefix 解析，单块缺行不级联。INV-ONTOLOGY-001 (high, declaration+runtime) + 24 单测 + 案例 ontology_sources_positional_parser_cascade_case.md。1018 tests / 38/38 invariants. 待观察: 下次 ontology_sources 10:00/20:00 cron 推送格式正确无错位",
@@ -266,14 +256,14 @@
   },
   "quality": {
     "security_score": "93",
-    "test_count": "1111",
-    "last_regression": "2026-04-20 09:58 pass",
+    "test_count": "1137",
+    "last_regression": "2026-04-21 03:27 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-04-20 09:58",
-    "test_suites": "37",
+    "security_score_time": "2026-04-21 03:27",
+    "test_suites": "38",
     "governance_invariants": "52/52",
     "governance_checks": "222/233",
-    "version": "0.37.9.2"
+    "version": "0.37.9.3"
   },
   "incidents": [
     {
