@@ -383,4 +383,4 @@ else
     printf '{"time":"%s","status":"ok","new":0}\n' "$TS" > "$STATUS_FILE"
 fi
 
-rsync -a --quiet "$KB_DIR/" "$SSD_BACKUP" 2>/dev/null || true
+rsync -a "$KB_DIR/" "$SSD_BACKUP" 2>&1 || echo "[$(basename "$0")] WARN: SSD rsync failed (exit=$?)" >&2  # V37.9.4 MR-4 silent-failure 修复
