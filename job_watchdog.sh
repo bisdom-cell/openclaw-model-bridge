@@ -62,11 +62,14 @@ JOBS=(
     "semantic_scholar|$HOME/.openclaw/jobs/semantic_scholar/cache/last_run.json|180000|S2论文监控|core"
     # DBLP: 每天1次(12:00) → 最多静默 50h
     "dblp|$HOME/.openclaw/jobs/dblp/cache/last_run.json|180000|DBLP论文监控|auxiliary"
-    # ACL: 每周三(09:30) → 最多静默 336h（14天）
-    # V37.9.6 调宽: 4/8 起 13 天无更新（脚本在跑但 ACL 真无新论文/严格过滤），
-    # 8 天阈值持续误报。ACL Anthology 学术源更新频率本就低，14 天合理。
-    # 长期问题登记 unfinished: 确认是 ACL 真无更新还是抓取脚本 0 输出 bug
-    "acl_anthology|$HOME/.openclaw/jobs/acl_anthology/cache/last_run.json|1209600|ACL论文监控|auxiliary"
+    # ACL: 每周三(09:30) → 最多静默 672h（28天/4周）
+    # V37.9.6 调宽: 14 天, V37.9.8 再调宽: 28 天。
+    # V37.9.8 根因确定: 脚本 line 176-179 每个 exit 分支都写 last_run（no_volumes/
+    # parse_failed/ok new=0），4/8 后 status mtime 不变 = cron 4/15 周三 09:30
+    # 偶发 miss（不是脚本 bug）。ACL 是年度顶会周期（7-11 月为主），4 月常 0 新
+    # 论文。28 天阈值容忍 2 周 cron miss + 2 周真低频。
+    # 4/22 周三观察: 若下次 cron 再漏，查 Mac Mini /var/log/cron 或 launchd 日志。
+    "acl_anthology|$HOME/.openclaw/jobs/acl_anthology/cache/last_run.json|2419200|ACL论文监控|auxiliary"
 
     # ── 应用监控 ──
     # HN: 每3小时 → 最多静默 7h
