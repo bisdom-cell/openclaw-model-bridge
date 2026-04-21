@@ -1,5 +1,5 @@
 {
-  "updated": "2026-04-21 03:41:09",
+  "updated": "2026-04-21 03:55:58",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -238,7 +238,7 @@
   },
   "session_context": {
     "last_session": "2026-04-17 V37.8.14 (15 commits)",
-    "unfinished": "[\"MR-6 完成后 MRD-LAYER-002 可升级为 INV-LAYER-002 硬强制（当前仍是 warn）\",\"#1 X 僵尸告警漏推送根因: 4/20 07:30 Gateway 瞬时故障已自愈，新增诊断 log 在 4/21 07:30 若再发能留下决定性证据\",\"audit-of-audit 4 维度在 Mac Mini --full 模式首次 run 会初始化新字段 history baseline（5 次后完全生效）\",\"路线 C Step 4 候选: 把 security_score.py 从独立 CLI 变成纯 library（仅 governance_checker 调用）或反之（governance 从 score 拉数据）\", \"Ontology Phase 4 领域本体: 六域概念模型 (Actor/Tool/Resource/Task/Provider/Memory) + policy_ontology.yaml + 三阶段门控\", \"V3 路标 backlog: Tool Policy Plugin + Memory Plane Plugin + Job Template SDK + pip install ontology-engine\", \"fallback_chain 扩展 ≥2 provider (需用户决策 API key)\", \"gemini quota 降频 (TPM 窗口竞争，需用户决策)\", \"WhatsApp 入站路由到 research 非 main (4/10 plugin 副作用非致命)\"]",
+    "unfinished": "[\"B 问题 MOVESPEED 格式化为 APFS 待执行: Desktop 已有 11G 完整备份(2026-04-21)，用户需在 Disk Utility GUI 手动抹掉 MOVESPEED 卷→APFS→rsync 恢复。所有脚本路径不变(/Volumes/MOVESPEED/KB/ 和 /Volumes/MOVESPEED/openclaw_backup/)。根治 kb_inject/kb_evening/kb_review/kb_dream/hf_papers/kb_save_arxiv 6 个脚本 rsync 静默失败 6 天问题\",\"MR-6 完成后 MRD-LAYER-002 可升级为 INV-LAYER-002 硬强制（当前 warn）\",\"audit-of-audit 4 维度在 Mac Mini --full 模式首次 run 初始化新字段 baseline（5 次后完全生效）\",\"路线 C Step 4 候选: security_score.py 独立 CLI → 纯 library (governance 一等调用方)\",\"Ontology Phase 4 领域本体: 六域概念模型 + policy_ontology.yaml + 三阶段门控\",\"V3 路标 backlog: Tool Policy Plugin + Memory Plane Plugin + Job Template SDK + pip install ontology-engine\",\"fallback_chain 扩展 ≥2 provider (需用户决策 API key)\",\"gemini quota 降频 (TPM 窗口竞争，需用户决策)\",\"auto_deploy 无变化时也应写 heartbeat log(否则 job_smoke_test 误判陈旧)\",\"6 rsync 脚本 || true 静默吞错登记为 MR-4 silent-failure 候选(B 问题格式化后如再发故障，改为 log error 而非吞)\"]",
     "open_prs": "",
     "blocked_on": "",
     "focus": "V37.8.7 ontology_sources 推送格式错位血案闭环 — 同日 V37.8.6+V37.8.7 双 MR-4 演出。位置解析 i+=3 → separator 切块 + key-based prefix 解析，单块缺行不级联。INV-ONTOLOGY-001 (high, declaration+runtime) + 24 单测 + 案例 ontology_sources_positional_parser_cascade_case.md。1018 tests / 38/38 invariants. 待观察: 下次 ontology_sources 10:00/20:00 cron 推送格式正确无错位",
