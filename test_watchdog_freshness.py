@@ -188,13 +188,19 @@ class TestWatchdogShellInvariants(unittest.TestCase):
         self.assertIn("echo \"$recent_window\" | grep", scan_logs_block,
                       "grep must operate on filtered recent_window, not raw tail")
 
-    def test_acl_threshold_widened_to_14d(self):
-        """ACL Anthology threshold must be 14 days (1209600s), not 8 days."""
-        self.assertIn("1209600", self.source,
-                      "ACL acl_anthology threshold must be 14d (1209600s)")
+    def test_acl_threshold_widened_to_28d(self):
+        """V37.9.8: ACL Anthology threshold must be 28 days (2419200s).
+        Trajectory: 8d (V37.9.6 original) → 14d (V37.9.6 first widen) →
+                    28d (V37.9.8 after root cause: cron 4/15 miss + year cycle)."""
+        self.assertIn("2419200", self.source,
+                      "ACL acl_anthology threshold must be 28d (2419200s) per V37.9.8")
+        # Old values must not remain
         self.assertNotIn("acl_anthology|" + "$" + "HOME/.openclaw/jobs/acl_anthology"
                          "/cache/last_run.json|691200", self.source,
                          "Old 8d ACL threshold (691200) must not remain")
+        self.assertNotIn("acl_anthology|" + "$" + "HOME/.openclaw/jobs/acl_anthology"
+                         "/cache/last_run.json|1209600", self.source,
+                         "Intermediate 14d ACL threshold (1209600) must not remain")
 
 
 class TestRssBlogsCleanup(unittest.TestCase):
