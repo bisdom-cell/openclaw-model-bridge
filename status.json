@@ -1,5 +1,5 @@
 {
-  "updated": "2026-04-21 04:58:50",
+  "updated": "2026-04-21 05:18:27",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-04-21",
+      "what": "V37.9.6 告警噪声治理 + watchdog 行级时间戳过滤 (MR-4 反向变种修复). 触发: 12:30 watchdog 12 项告警中 6 项陈旧 (kb_evening 4/14-15 已 V37.8.10 闭环 / openclaw 4/8 / kb_inject gateway 1006). 修复: awk 行级解析 [YYYY-MM-DD] 仅留 24h 内行 + in_recent 状态机让 Traceback 多行延续跟随状态. 失效源清: rss_blogs LangChain 9 次 404 死链 + ACL 阈值 8d→14d. INV-WATCHDOG-FRESHNESS-001 + 12 新单测 test_watchdog_freshness.py. 关键澄清: 08:28 端口冲突初判 silent failure 实为误读 (incident_snapshot 读 proxy.log 历史尾部, proxy 8:15 后正常运行). MR-4 第 16 次演出新形态 = 告警过度报. governance v3.29→v3.30 / 58 inv / 272 checks / 40 suites / 1159 tests / 安全 93/100. VERSION 0.37.9.5→0.37.9.6",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-04-21",
       "what": "V37.9.5 数据全景审计 + workspace 接缝盲区闭合 (3+4 路径). 用户直觉 67M 太少驱动审计, 发现真业务数据 ~75MB (workspace 109M 中 109M=venv 不算业务, logs 105M 中 90M=err 噪声). 任务 3: kb_embed.py 扩展索引 ~/.openclaw/workspace/*.md 顶层, 排 HEARTBEAT.md (V37.8.16) + .bak. MEMORY.md 单独 source_type=memory 保留向后兼容, 其他 .md 用新 source_type=workspace. INV-KB-COVERAGE-001 (MR-4, severity=high, layer=[decl,runtime]) + 10 新单测 test_kb_embed_workspace.py (subprocess 调外部避开 V37.3 exec scope trap). 任务 4: 4/20 kb_harvest 78 条/天合理无需修改. MR-4 第 15 次演出新形态 = 数据接缝盲区. governance v3.28→v3.29 / 57 inv / 265 checks / 39 suites / 1147 tests / 安全 93/100 / VERSION 0.37.9.4→0.37.9.5",
       "by": "claude_code"
     },
@@ -198,11 +203,6 @@
       "date": "2026-04-16",
       "what": "V37.8.13 gemini quota 审计：16 个 LLM cron，每日 ~50-60 总调用量（kb_dream MapReduce 主力，mm_index 每2h 其次）。根因识别：gemini 429 非日量问题(RPD 50<<1500)，是 TPM 窗口竞争(21:00 ai_leaders_x + 22:00 kb_evening 大 digest 落在同一 TPM 60s 窗口易超 250K)。降频建议: mm_index 2h→6h, ai_leaders_x/kb_evening 错峰，或申请 gemini paid tier/第二 fallback provider。当前不做降频(需用户决策)。",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-04-16",
-      "what": "V37.8.13 Gateway 宕 9h 静默血案闭环 (MR-4 第 11 次演出): (1) quiet_alert 静默期 Discord 穿透 (2) wa_keepalive 连续 2 次 WARN 自动 Discord 升级 (3) restart.sh 15s 健康验证 + INV-WA-001(7)+INV-QUIET-001(4) + case doc + MR-14 元规则。附带: V37.8.12 FILE_MAP 自复制修复 + status.json format_human 防崩 + MR-13 错误链透明度元规则 + proxy_stats >100% 数学修复 + SCMPNews 僵尸删除 + watchdog 11→19 job。governance v3.18 (42 inv/210 checks/14 MR)。12 commits / 1092 tests / 0 fail / 安全 93/100",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -256,14 +256,14 @@
   },
   "quality": {
     "security_score": "93",
-    "test_count": "1147",
-    "last_regression": "2026-04-21 04:49 pass",
+    "test_count": "1159",
+    "last_regression": "2026-04-21 05:18 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-04-21 04:49",
-    "test_suites": "39",
+    "security_score_time": "2026-04-21 05:18",
+    "test_suites": "40",
     "governance_invariants": "52/52",
     "governance_checks": "222/233",
-    "version": "0.37.9.4"
+    "version": "0.37.9.6"
   },
   "incidents": [
     {

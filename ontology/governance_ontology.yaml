@@ -3999,6 +3999,93 @@ invariants:
           finally:
               os.unlink(tmp)
 
+  - id: INV-WATCHDOG-FRESHNESS-001
+    name: watchdog-line-level-timestamp-filter
+    meta_rule: MR-4
+    verification_layer: [declaration, runtime]
+    severity: high
+    declaration: |
+      job_watchdog.sh scan_logs() 必须按行级时间戳过滤，仅报告 24h 内错误。
+      防止 tail -50 grep 模式把 13 天前已闭环的旧错误反复报告（告警噪声 = 用户疲劳）。
+      MR-4 silent-failure 的反向变种：noisy false alarm（不是漏报，是过度报）。
+    lesson: |
+      2026-04-21 V37.9.6 12:30 watchdog 告警 12 项中 6 项是陈旧错误：
+        • kb_evening 4/14-15 502（V37.8.10 已闭环）
+        • openclaw_discussions 4/8 推送失败
+        • openclaw_official / kb_inject gateway 1006（陈旧）
+      根因：scan_logs() 只过滤文件 mtime（24h），但 tail -50 行内可能含
+      13 天前错误（在持续更新但内容历史悠久的日志文件里）。
+      修复：awk 行级解析 [YYYY-MM-DD ...] 时间戳，仅保留 24h 内的行 +
+      跟随状态保留无时间戳的 Traceback 多行延续。
+    design_decision: |
+      为什么不直接清旧日志？
+        - 日志保留有审计价值，不应主动截断
+        - 修过滤逻辑而非数据是更稳健的设计
+      为什么 awk 不用 grep？
+        - grep 无法做"按时间戳条件过滤+延续行跟随"的组合
+        - awk 自然支持 in_recent 状态机
+      为什么 24h 不是 6h 或 72h？
+        - 24h 覆盖一天 cron 周期
+        - 短于 24h 会漏报夜间错误（用户次日才看告警）
+        - 长于 24h 又开始引入历史噪声
+    checks:
+      - name: "job_watchdog.sh 含 V37.9.6 标记"
+        check_type: file_contains
+        file: job_watchdog.sh
+        pattern: "V37.9.6"
+      - name: "job_watchdog.sh scan_logs 用 awk 过滤 cutoff_date"
+        check_type: file_contains
+        file: job_watchdog.sh
+        pattern: "cutoff_date"
+      - name: "job_watchdog.sh awk 含 in_recent 状态机（处理 Traceback 延续行）"
+        check_type: file_contains
+        file: job_watchdog.sh
+        pattern: "in_recent"
+      - name: "job_watchdog.sh grep 操作 recent_window 而非 raw tail"
+        check_type: file_contains
+        file: job_watchdog.sh
+        pattern: 'echo "\$recent_window" \| grep'
+      - name: "ACL Anthology 阈值已调到 14 天 (1209600s)"
+        check_type: file_contains
+        file: job_watchdog.sh
+        pattern: "1209600"
+      - name: "rss_blogs.sh 已注释掉死链 LangChain"
+        check_type: python_assert
+        code: |
+          # 任何活跃（非注释）行不得含 blog.langchain.dev
+          # exec() 上下文不能用 return，用 if 控制流
+          import os
+          path = os.path.join(os.getcwd(), "jobs/rss_blogs/run_rss_blogs.sh")
+          if os.path.exists(path):
+              with open(path, "r", encoding="utf-8") as f:
+                  source = f.read()
+              for line in source.split("\n"):
+                  s = line.strip()
+                  if s.startswith("#"):
+                      continue
+                  assert "blog.langchain.dev" not in s, (
+                      f"LangChain RSS 还在活跃配置里: {line}"
+                  )
+      - name: "V37.9.6 runtime: 外部单测 test_watchdog_freshness 全过"
+        check_type: python_assert
+        code: |
+          # Runtime: subprocess 调外部 unittest，避开 V37.3 exec scope trap
+          # 12 单测覆盖：
+          #   - 今日/昨日错误保留
+          #   - 13 天前错误过滤（含 Traceback 多行延续）
+          #   - state machine in_recent 在新旧切换时正确重置
+          #   - shell 源码守卫（V37.9.6 标记/awk/cutoff/in_recent/recent_window/1209600）
+          #   - LangChain 死链确实注释
+          import subprocess, sys, os
+          proc = subprocess.run(
+              [sys.executable, "-m", "unittest", "test_watchdog_freshness", "-v"],
+              capture_output=True, text=True, timeout=60, cwd=os.getcwd(),
+          )
+          assert proc.returncode == 0, (
+              f"test_watchdog_freshness 单测失败:\n"
+              f"STDOUT={proc.stdout[-500:]}\nSTDERR={proc.stderr[-1500:]}"
+          )
+
   - id: INV-KB-COVERAGE-001
     name: workspace-md-indexed-by-kb-embed
     meta_rule: MR-4
@@ -4419,7 +4506,7 @@ security_config:
 # 6. 审计元数据
 # ═══════════════════════════════════════════════════════════════════════
 audit_metadata:
-  version: "3.29"
+  version: "3.30"
   created: "2026-04-07"
   upgraded: |
     v3.0 → v3.1: 通知路径治理(INV-NOTIFY-003/004) + 错误可观测性(MRD-ERROR-001) + 效果层启动(MRD-NOTIFY-002)
@@ -4435,6 +4522,7 @@ audit_metadata:
     v3.9 → v3.10: V37.8.4 finance_news X 僵尸账号血案 — INV-X-001 新增 (syndication-account-must-have-fresh-tweets, meta_rule=MR-10, severity=high) 锁定 5 层防御: parser 检测 diag['total']>0 且 100% 超窗口 + ⚠️ ZOMBIE嫌疑 诊断前缀 + 独立 zombies_${DAY}.txt 文件 + 3 天 comm -12 连续告警 + 7 个已确认僵尸 handle (Reuters/WorldBank/BrookingsInst/caixin/yicaichina/ChannelNewsAsia/straits_times) file_not_contains 守卫。CLAUDE.md 原则 #27 升级强制条款 "X 账号健康 ≠ HTTP 200" — 协议层绿灯不等于内容层健康，Syndication API 对 embed-disabled 或停更账号返回 stale 快照 (最老 3364 天)。本次是 MR-10 (V37.8.3 引入) 被违反后的正向兑现: 血案本身成为元规则执行力的训练样本。
     v3.25 → v3.26: V37.9.2 MR-6 深度补齐 — 12 单层 high 减到 9（-3），逐个升级到双层 [declaration, runtime]. (1) INV-PA-002 (SOUL.md 规则 10 存在): 加 runtime 解析规则 10 完整块（标题定位 + 下一规则边界 + 5 关键短语必须都在块内 + 块长度 ≥ 400 chars）防"关键短语散落在其他规则被误判通过"盲区. 避开 V37.3 exec scope trap 用 iterative for 替代 list comprehension. (2) INV-DREAM-001 (map-budget-scales-with-mode): 加 runtime 真解析 kb_dream.sh 所有 DREAM_TIMEOUT_SEC 赋值，断言 max >= 5400s (MAP_ONLY 90min) + min <= 3600s (Reduce 60min) + 差值 >= 1800s（证实真动态而非常量）. (3) INV-DEPLOY-003 (status.json drift 豁免): 加 runtime 扫两侧脚本 (preflight + auto_deploy) 每个 "status.json" 字面量 500 字符内有 continue，跳过注释引用（三 case 证实 continue 紧随豁免）. MRD-LAYER-002 单层 high warn 从 12 → 9. 本次补齐策略："选择最稳升级"（已有 runtime 可行且不需新增依赖），留下最硬的 9 个作为未来血案修复时顺便升级。governance v3.25→v3.26 / 253→256 checks (+3).
     v3.26 → v3.27: V37.9.3 四项顺序推进 — MR-6 剩余 9 个 high 全部补齐 + audit-of-audit 4 维度 + 路线 C Step 3 数据源统一. (1) MRD-LAYER-002 从 ⚠️9 个 warn → ✅ pass：Batch A 纯 metadata 修正 3 个（INV-TOOL-003/CRON-002/NOTIFY-003 已有 python_assert 但 layer 错标）+ Batch B 真补 runtime 5 个（INV-NOTIFY-002/HEALTH-001/NOTIFY-004/JOB-GOVAUDIT-001/JOB-HARVEST-001 加 subprocess/AST 级 runtime check）+ Batch C 缺 declaration 1 个（INV-CRON-004 加 _cron_cmd_invokes + cmd.endswith(entry) YAML 源码守卫）。25 个 high 不变式全部 ≥2 层验证。(2) MRD-AUDIT-PERF-001 从 1 维扩展到 4 维: 加 peak_memory_mb（1.5x+10MB 跨平台 resource.ru_maxrss）+ bootstrap_ms（2.0x+500ms, SESSION_START → FIRST_CHECK 启动开销）+ skip_rate_pct（abs +20pct 突增）。_AUDIT_FIRST_CHECK_TIME 在 run_all 首次 iter 时 stamp. 老 history 缺字段时 median=0 自动跳过该维度（向后兼容）。14 新单测 test_audit_perf_dimensions.py 锁定 4 维度阈值边界 + 向后兼容 + 跨平台内存。(3) 路线 C Step 3 终态: governance_ontology.yaml 顶层新增 security_config.dimensions 作为 7 维度阈值唯一真理源。INV-SEC-001 runtime 从 YAML 读阈值（不再硬编码）+ 新增维度名对齐守卫（防改名漂移）。security_score.py 新增 load_ontology_thresholds() + check_ontology_thresholds() 纯函数 + --check-ontology-thresholds CLI。12 新单测 test_security_ontology_alignment.py 锁定跨源一致性。(4) jobs/finance_news/run_finance_news.sh 4/20 07:30 告警路径诊断: TZ 统一 + 5 个跳过分支诊断 log + notify 调用失败捕获（根因定性为 Gateway 瞬时故障，已自愈，代码层无 bug）。governance v3.26→v3.27 / 256→258 checks (+2) / 38 suites / 1137 tests (+26).
+    v3.29 → v3.30: V37.9.6 告警噪声治理 + watchdog 行级时间戳过滤 (MR-4 反向变种修复) — 12:30 watchdog 推送 12 项告警中 6 项是陈旧错误 (kb_evening 4/14-15 已闭环 / openclaw 4/8 / 等), 告警疲劳累积. 根因 scan_logs() 只过滤文件 mtime 不过滤行内时间戳, tail -50 grep 抓到持续更新日志的历史尾部. 修复 awk 行级解析 [YYYY-MM-DD] 前缀, 仅保留 24h 内行; in_recent 状态机让 Traceback 多行延续跟随上一时间戳行状态. 失效源清理: rss_blogs LangChain (9 次 404 死链) + ACL 阈值 8d→14d. INV-WATCHDOG-FRESHNESS-001 (MR-4, high, decl+runtime) 7 checks + 12 新单测 test_watchdog_freshness.py 锁定 (今日/昨日保留 + 13d 前过滤 + 旧 Traceback 延续过滤 + state 切换 + 源码守卫 + LangChain 死链清理). 关键澄清: 08:28 端口冲突初判为 silent failure 实为误读 (incident_snapshot 读 proxy.log 历史尾部, proxy 8:15 后正常). MR-4 第 16 次演出新形态 = 告警过度报 (前 14 次是漏报, 第 15 次 V37.9.5 是数据接缝盲区, 第 16 次是告警噪声). governance v3.29→v3.30 / 57→58 inv (+1) / 265→272 checks (+7) / 40 suites / 1159 tests (+12).
     v3.28 → v3.29: V37.9.5 数据全景审计 + workspace .md 接入 KB 索引 (接缝盲区闭合) — 用户直觉"~/.kb 67M 数月业务积累太少"驱动深度审计, 发现 ~/.openclaw/workspace 顶层 PA 自主 .md (~50KB AGENTS/IDENTITY/SOUL/OPENCLAW_*_SUMMARY 等) 数月没接入 text_index, MEMORY.md 单文件已索引但兄弟文件被遗漏. (1) kb_embed.py:scan_kb_files() 扩展从单文件 MEMORY.md 到扫整个 workspace/*.md, 新增 WORKSPACE_EXCLUDE_BASENAMES 显式排 HEARTBEAT.md (V37.8.16 INV-HB-001 控制文件不当业务知识) + .bak/~ 过滤. MEMORY.md 保持 source_type=memory 向后兼容, 其他 .md 用新 source_type=workspace. (2) INV-KB-COVERAGE-001 (meta_rule=MR-4, severity=high, layer=[decl,runtime]) 4 checks: 3 declaration scan kb_embed.py (workspace_dir/HEARTBEAT.md/.bak) + 1 runtime subprocess 调外部 test_kb_embed_workspace.py 10 单测 (避开 V37.3 exec scope trap YAML 内嵌闭包陷阱). (3) 10 新单测覆盖: AGENTS/IDENTITY 被索引 + HEARTBEAT/.bak 排 + MEMORY.md memory 向后兼容 + 其他 .md workspace + 目录不存在不崩 + 常量 + V37.8.16 注释引用. (4) kb_harvest 压缩比验证 4/20 78 条/天合理无需修改. MR-4 第 15 次演出新形态 = 数据接缝盲区. governance v3.28→v3.29 / 56→57 inv (+1) / 261→265 checks (+4) / 39 suites / 1147 tests (+10).
     v3.27 → v3.28: V37.9.4 B 问题闭环 + MR-4 silent-failure 第 14 次演出系统化预防 — (1) INV-BACKUP-001 新增 (ssd-rsync-backup-fails-loud, meta_rule=MR-4, severity=high, layer=[declaration, runtime]): 3 checks 守卫 20 处脚本统一改为 fail-loud 模式. declaration 1 全局扫 .sh 禁止 `2>/dev/null \|\| true` 反模式; declaration 2 任何含 rsync MOVESPEED 的 .sh 必须有 "WARN: SSD" 字样; runtime 真跑模拟 rsync 失败断言 stderr 含 WARN + stdout 不含. 部署即时验证: 第 1 次跑就抓出第 20 个漏网 (run_hn_fixed.sh), 证明声明层守卫真有效. (2) 18 个文件 / 20 处脚本批量修复: 旧 `rsync ... 2>/dev/null \|\| true` → 新 `rsync ... 2>&1 \|\| echo "[XXX] WARN: SSD rsync failed (exit=$?)" >&2`. 覆盖 5 根目录 (kb_dream/kb_save_arxiv/kb_evening/kb_inject/kb_review) + run_hn_fixed.sh + 13 jobs/ (含 freight 2 处). (3) 案例文档 ontology/docs/cases/movespeed_exfat_silent_backup_failure_case.md 完整四维度因果链 + 三层根因 (exfat fskit 触发 / 18 处复制粘贴反模式放大 / 监控盲区掩护) + MR-4 14 次演出对照表 + MR-8 反例兑现. governance v3.27→v3.28 / 55→56 inv (+1 INV-BACKUP-001) / 258→261 checks (+3).
     v3.24 → v3.25: V37.9.1 路线 C Step 2 + Stage 2 话语权输出 — (1) INV-SEC-001 runtime 扩展 per-dimension 阈值守卫: 7 个维度各有 MIN_THRESHOLDS dict（密钥 15/测试 13/数据 10/部署 15/传输 9/审计 15/可用 8），从"总分 ≥ 90"升级为"每维度都不能塌陷"。防"某维度掉到 0 但总分被其他维度拉高"的盲区。compute_score() import 并解析 dimensions list 对比阈值。避开 exec() 作用域陷阱用 iterative 循环。(2) 话语权文章 docs/articles/audit_is_regression_not_prevention.md: 基于路线 A 618 行回填 + 路线 B 177 行对抗报告，用 6 个实证数据论证"audit 不是 prevention 是 regression engine"。Stage 2 从系统构建者到系统作者的第 4 份公开资产（前 3: Control Plane / Seven Failures / Provider Compat）。(3) OpenClaw 升级评估: 距上次评估 4/17 仅 3 天 + 上游 v2026.4.15 #59265 14 版本未修复，继续 hold v2026.3.13-1。governance v3.24→v3.25, 252→253 checks (+1 per-dimension runtime).
