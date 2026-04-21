@@ -25,8 +25,9 @@ KB_SRC="${KB_BASE:-$HOME/.kb}/sources/finance_daily.md"
 KB_WRITE_SCRIPT="${KB_WRITE_SCRIPT:-$HOME/kb_write.sh}"
 PYTHON3=/usr/bin/python3
 
-TS="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')"
-DAY="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d')"
+# V37.9.3: 统一使用系统默认 TZ（与下方 YESTERDAY/DAY_BEFORE 对齐，消除时区不一致漏洞）
+TS="$(date '+%Y-%m-%d %H:%M:%S')"
+DAY="$(date '+%Y-%m-%d')"
 STATUS_FILE="$CACHE/last_run.json"
 
 log() { echo "[$TS] finance: $1" >&2; }
@@ -542,6 +543,7 @@ fi
 FETCH_ERRORS=$((FETCH_ERRORS + X_FETCH_FAIL))
 
 # V37.8.4 连续 3 天僵尸检测：本次 + 前两天都命中同一个 handle → 告警建议人工复核
+# V37.9.3 加诊断 log：每个跳过分支必须 log 原因，消除"告警路径静默"observability 盲区
 if [ -s "$ZOMBIE_FILE" ]; then
     TODAY_COUNT=$(wc -l < "$ZOMBIE_FILE" | tr -d ' ')
     log "X 僵尸嫌疑今日 ${TODAY_COUNT} 个（详见 $ZOMBIE_FILE）"
@@ -551,6 +553,16 @@ if [ -s "$ZOMBIE_FILE" ]; then
     DAY_BEFORE=$(date -v-2d +%Y-%m-%d 2>/dev/null || date -d '2 days ago' +%Y-%m-%d 2>/dev/null || echo "")
     Y_FILE="$CACHE/zombies_${YESTERDAY}.txt"
     DB_FILE="$CACHE/zombies_${DAY_BEFORE}.txt"
+    log "3 天连续检测窗口: 今日=${DAY}(${TODAY_COUNT}) 昨=${YESTERDAY:-?} 前=${DAY_BEFORE:-?}"
+
+    # V37.9.3 分条件诊断：每个分支必须 log，告警路径不得静默
+    SKIP_REASON=""
+    [ -z "$YESTERDAY" ]  && SKIP_REASON="date -v-1d/-d 都失败，昨日日期未解析"
+    [ -z "$DAY_BEFORE" ] && SKIP_REASON="date -v-2d/-d 都失败，前日日期未解析"
+    [ -n "$YESTERDAY" ]  && [ ! -f "$Y_FILE" ]  && SKIP_REASON="昨日 zombies 文件不存在: $Y_FILE"
+    [ -n "$YESTERDAY" ]  && [ -f "$Y_FILE" ]  && [ ! -s "$Y_FILE" ]  && SKIP_REASON="昨日 zombies 文件为空: $Y_FILE (昨日无 zombie 命中，3 天链断)"
+    [ -n "$DAY_BEFORE" ] && [ ! -f "$DB_FILE" ] && SKIP_REASON="前日 zombies 文件不存在: $DB_FILE"
+    [ -n "$DAY_BEFORE" ] && [ -f "$DB_FILE" ] && [ ! -s "$DB_FILE" ] && SKIP_REASON="前日 zombies 文件为空: $DB_FILE (前日无 zombie 命中，3 天链断)"
 
     if [ -n "$YESTERDAY" ] && [ -n "$DAY_BEFORE" ] && [ -s "$Y_FILE" ] && [ -s "$DB_FILE" ]; then
         PERSISTENT=$(sort -u "$ZOMBIE_FILE" | comm -12 - <(sort -u "$Y_FILE") | comm -12 - <(sort -u "$DB_FILE") || true)
@@ -564,10 +576,18 @@ if [ -s "$ZOMBIE_FILE" ]; then
             done
             ZOMBIE_LIST=$(echo "$PERSISTENT" | tr '\n' ',' | sed 's/,$//')
             # V37.8.14: 3 天连续检测必须推送告警（MR-4: 检测无通知 = silent failure）
+            # V37.9.3: NOTIFY_LOADED=false 必须 log，不得静默吞告警（MR-14: 告警不得依赖失效主体自身）
             if [ "$NOTIFY_LOADED" = true ]; then
-                notify "[SYSTEM_ALERT] X 僵尸账号连续 3 天检测命中 ${COUNT} 个: ${ZOMBIE_LIST}。建议人工复核后从 FINANCE_X_ACCOUNTS 移除。" --topic alerts
+                log "推送 SYSTEM_ALERT 到 --topic alerts（${COUNT} 个僵尸）"
+                notify "[SYSTEM_ALERT] X 僵尸账号连续 3 天检测命中 ${COUNT} 个: ${ZOMBIE_LIST}。建议人工复核后从 FINANCE_X_ACCOUNTS 移除。" --topic alerts || log "⚠️ notify 调用失败（exit=$?）"
+            else
+                log "⚠️ NOTIFY_LOADED=false，SYSTEM_ALERT 未推送：${COUNT} 个僵尸=${ZOMBIE_LIST}"
             fi
+        else
+            log "3 天交集为空：今日命中 ${TODAY_COUNT} 个，昨+前日未形成持续链"
         fi
+    else
+        log "3 天连续检测跳过：${SKIP_REASON:-条件不满足但未识别具体原因}"
     fi
 fi
 

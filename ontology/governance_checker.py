@@ -29,6 +29,11 @@ import time  # V37.9 audit-of-audit self-metric
 # V37.9 C16 audit-of-audit: 记录本次 governance 执行耗时起点
 _AUDIT_SESSION_START = time.time()
 
+# V37.9.3 audit-of-audit 多维度扩展：第一个 invariant check 开始时间戳
+# bootstrap_ms = _AUDIT_FIRST_CHECK_TIME - _AUDIT_SESSION_START
+# 反映 YAML 解析 + module import + MRD 运行的启动开销
+_AUDIT_FIRST_CHECK_TIME = None
+
 _PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _ONTOLOGY_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -181,10 +186,15 @@ def run_all(data):
     invariants = data.get("invariants", [])
     results = []
 
+    # V37.9.3 audit-of-audit 多维度扩展：stamp 第一个 check 开始时间
+    global _AUDIT_FIRST_CHECK_TIME
     for inv in invariants:
         inv_id = inv.get("id", "?")
         if SINGLE and inv_id != SINGLE:
             continue
+
+        if _AUDIT_FIRST_CHECK_TIME is None:
+            _AUDIT_FIRST_CHECK_TIME = time.time()
 
         status, check_results = run_invariant(inv)
         results.append({
@@ -642,18 +652,38 @@ def _discover_shallow_critical(data, severity):
     }
 
 
+def _median(values):
+    """V37.9.3: 非空列表中位数（偶数取较大）。"""
+    vs = sorted(v for v in values if v is not None)
+    if not vs:
+        return 0
+    return vs[len(vs) // 2]
+
+
 def _discover_audit_performance_regression(severity):
-    """MRD-AUDIT-PERF-001 (V37.9 C16): 检测 governance_checker 自身性能退化。
+    """MRD-AUDIT-PERF-001 (V37.9 C16 + V37.9.3 多维度扩展):
+    检测 governance_checker 自身性能退化（audit-of-audit 治理）。
 
-    策略（V37.9 修正）：
-      - 读当次 SESSION_START 计算到此刻的 wall_time（实时，不等写入）
-      - 与 .audit_metrics.jsonl 历史最近 5 次 wall_time 均值对比
-      - 当次 / 均值 > 2.0 → warn（立即 catch sleep 类 mutation）
+    V37.9.3 升级：从单维度 wall_time 扩展到 4 维度独立判定，每维度独立阈值：
+      维度 1 wall_time_ms    : 总耗时（保留原逻辑）相对 1.3x + 绝对 300ms
+      维度 2 peak_memory_mb  : 峰值内存（MB）        相对 1.5x + 绝对 10MB
+      维度 3 bootstrap_ms    : 启动开销（yaml+MRD） 相对 2.0x + 绝对 500ms
+      维度 4 skip_rate_pct   : check 跳过占比      绝对 +20pct 突增
 
-    这避免了"metric 写入在 MRD 后执行，MRD 永远看不到当次慢"的闭环问题。
+    任一维度退化即 warn，多维度退化 detail 合并。新维度缺失（老数据）时跳过该维度
+    而非报错，保持向后兼容。
     """
-    # 当次 wall_time（到 MRD 触发这一刻的耗时）
+    # 当次实时 metrics
     current_wall_ms = int((time.time() - _AUDIT_SESSION_START) * 1000)
+    current_memory_mb = _get_peak_memory_mb()
+    if _AUDIT_FIRST_CHECK_TIME is not None:
+        current_bootstrap_ms = int(
+            (_AUDIT_FIRST_CHECK_TIME - _AUDIT_SESSION_START) * 1000
+        )
+    else:
+        current_bootstrap_ms = 0
+    # current skip_rate 在 MRD 阶段无法精确算（还没跑完所有 check），
+    # 用历史最新作为代理，降级处理
     metrics_path = os.path.join(_PROJECT_ROOT, "ontology", ".audit_metrics.jsonl")
     if not os.path.exists(metrics_path):
         return {
@@ -684,25 +714,70 @@ def _discover_audit_performance_regression(severity):
             "severity": severity,
             "message": (
                 f"历史 metric 只有 {len(history)} 条（需 ≥3 条才有基线）, "
-                f"当次 wall_time={current_wall_ms}ms"
+                f"当次 wall={current_wall_ms}ms mem={current_memory_mb}MB "
+                f"bootstrap={current_bootstrap_ms}ms"
             ),
         }
-    # 取最近 5 条作为基线，用 median 而非 mean 抗 outlier
+    # 最近 5 条基线，各维度独立 median
     prior = history[-5:]
-    walls = sorted(m.get("wall_time_ms", 0) for m in prior)
-    median_wall = walls[len(walls) // 2] if walls else 0
+    median_wall = _median([m.get("wall_time_ms", 0) for m in prior])
+    median_memory = _median([m.get("peak_memory_mb", 0) for m in prior])
+    median_bootstrap = _median([m.get("bootstrap_ms", 0) for m in prior])
+    median_skip_rate = _median([m.get("skip_rate_pct", 0) for m in prior])
+
     issues = []
-    # 双条件：相对 1.3x 退化 + 绝对 300ms 差（避免 baseline 低时 noise 误报）
+
+    # 维度 1: wall_time (relative 1.3x + abs 300ms)
     if (
         median_wall > 0
         and current_wall_ms > median_wall * 1.3
         and current_wall_ms - median_wall > 300
     ):
         issues.append(
-            f"当次 wall_time {current_wall_ms}ms vs 历史中位 {median_wall}ms "
-            f"({current_wall_ms/median_wall:.1f}x 退化, +{current_wall_ms-median_wall}ms)"
+            f"wall_time {current_wall_ms}ms vs 中位 {median_wall}ms "
+            f"({current_wall_ms/median_wall:.1f}x, +{current_wall_ms-median_wall}ms)"
         )
-    # 也对比最近一次 check_count（历史)
+
+    # 维度 2 (V37.9.3): peak_memory_mb (relative 1.5x + abs 10MB)
+    # 老历史缺字段时 median=0 → 跳过判定 (向后兼容)
+    if (
+        median_memory > 0
+        and current_memory_mb > median_memory * 1.5
+        and current_memory_mb - median_memory > 10
+    ):
+        issues.append(
+            f"memory {current_memory_mb}MB vs 中位 {median_memory}MB "
+            f"({current_memory_mb/median_memory:.1f}x, +{current_memory_mb-median_memory:.1f}MB)"
+        )
+
+    # 维度 3 (V37.9.3): bootstrap_ms (relative 2.0x + abs 500ms)
+    # 启动开销允许较大相对浮动（小基数），绝对阈值更严
+    if (
+        median_bootstrap > 0
+        and current_bootstrap_ms > median_bootstrap * 2.0
+        and current_bootstrap_ms - median_bootstrap > 500
+    ):
+        issues.append(
+            f"bootstrap {current_bootstrap_ms}ms vs 中位 {median_bootstrap}ms "
+            f"({current_bootstrap_ms/median_bootstrap:.1f}x, "
+            f"+{current_bootstrap_ms-median_bootstrap}ms)"
+        )
+
+    # 维度 4 (V37.9.3): skip_rate_pct (abs +20pct 突增)
+    # 用最近一次 skip_rate 作为代理（当次在 MRD 阶段不可用）
+    latest_skip_rate = history[-1].get("skip_rate_pct", 0)
+    if (
+        latest_skip_rate > 0
+        and median_skip_rate > 0
+        and latest_skip_rate - median_skip_rate > 20
+    ):
+        issues.append(
+            f"skip_rate {latest_skip_rate}% vs 中位 {median_skip_rate}% "
+            f"(+{latest_skip_rate-median_skip_rate:.1f}pct 突增 — "
+            f"可能是 requires_full check 批量未运行)"
+        )
+
+    # check_count 下降（原 V37.9 维度，保留）
     latest = history[-1]
     latest_checks = latest.get("total_checks_executed", 0)
     avg_checks = sum(m.get("total_checks_executed", 0) for m in prior) / len(prior)
@@ -711,20 +786,27 @@ def _discover_audit_performance_regression(severity):
             f"上次 checks_executed {latest_checks} vs 均值 {int(avg_checks)} "
             f"({(1-latest_checks/avg_checks)*100:.0f}% 下降)"
         )
+
     if issues:
         return {
             "status": "warn",
             "severity": severity,
             "message": f"audit 自身性能退化嫌疑: {'; '.join(issues)}",
             "current_wall_ms": current_wall_ms,
+            "current_memory_mb": current_memory_mb,
+            "current_bootstrap_ms": current_bootstrap_ms,
             "median_wall": median_wall,
+            "median_memory": median_memory,
+            "median_bootstrap": median_bootstrap,
         }
     return {
         "status": "pass",
         "severity": severity,
         "message": (
-            f"audit 性能健康: 当次 wall={current_wall_ms}ms "
-            f"(历史中位 {median_wall}ms, checks={latest_checks})"
+            f"audit 性能健康: wall={current_wall_ms}ms "
+            f"mem={current_memory_mb}MB bootstrap={current_bootstrap_ms}ms "
+            f"(中位 wall={median_wall}ms mem={median_memory}MB "
+            f"bootstrap={median_bootstrap}ms, skip={latest_skip_rate}%)"
         ),
     }
 
@@ -1584,14 +1666,28 @@ def print_discovery(discovery_results):
                     print(f"       📌 {u} — 建议新增不变式")
 
 
+def _get_peak_memory_mb():
+    """V37.9.3: 跨平台获取本进程 peak RSS（MB）。Linux ru_maxrss 单位 KB，
+    macOS/BSD 单位 bytes。import 失败时返回 0（降级）。"""
+    try:
+        import resource
+        ru = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+        if sys.platform == "darwin":  # macOS: bytes
+            return round(ru / (1024 * 1024), 1)
+        return round(ru / 1024, 1)  # Linux: KB
+    except (ImportError, AttributeError, OSError):
+        return 0.0
+
+
 def _write_audit_metrics(results, discovery):
     """V37.9 C16 audit-of-audit: 记录本次 governance 执行的 metric 到历史文件，
     供 MRD-AUDIT-PERF-001 下次 run 时对比识别性能退化。
 
     历史文件: ontology/.audit_metrics.jsonl (每行 1 次 run, 最多保留最近 20 条)
-    字段:
+    字段 (V37.9.3 扩展至 4 维度)：
       timestamp, wall_time_ms, total_invariants, total_checks_executed,
-      total_checks_skipped, pass_count, fail_count, error_count
+      total_checks_skipped, pass_count, fail_count, error_count,
+      peak_memory_mb (V37.9.3), bootstrap_ms (V37.9.3), skip_rate_pct (V37.9.3)
     """
     try:
         wall_time_ms = int((time.time() - _AUDIT_SESSION_START) * 1000)
@@ -1601,6 +1697,16 @@ def _write_audit_metrics(results, discovery):
         checks_exec = sum(r.get("total_checks", 0) for r in results)
         checks_passed = sum(r.get("passed_checks", 0) for r in results)
         checks_skipped = checks_exec - checks_passed  # 近似（含 fail+error+skip）
+        # V37.9.3 三维度新增
+        peak_memory_mb = _get_peak_memory_mb()
+        if _AUDIT_FIRST_CHECK_TIME is not None:
+            bootstrap_ms = int((_AUDIT_FIRST_CHECK_TIME - _AUDIT_SESSION_START) * 1000)
+        else:
+            bootstrap_ms = 0  # fallback: 从未跑 check（全部 SINGLE 过滤掉）
+        if checks_exec > 0:
+            skip_rate_pct = round((checks_skipped / checks_exec) * 100, 1)
+        else:
+            skip_rate_pct = 0.0
         metric = {
             "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
             "wall_time_ms": wall_time_ms,
@@ -1611,6 +1717,10 @@ def _write_audit_metrics(results, discovery):
             "fail_count": fail_count,
             "error_count": error_count,
             "discovery_count": len(discovery),
+            # V37.9.3 新增三维度
+            "peak_memory_mb": peak_memory_mb,
+            "bootstrap_ms": bootstrap_ms,
+            "skip_rate_pct": skip_rate_pct,
         }
         metrics_path = os.path.join(_PROJECT_ROOT, "ontology", ".audit_metrics.jsonl")
         # 读历史

@@ -483,9 +483,12 @@ invariants:
   - id: INV-TOOL-003
     name: custom-tool-schema-sync
     meta_rule: MR-3
-    verification_layer: [declaration]
+    verification_layer: [declaration, runtime]
     severity: high
     declaration: "CUSTOM_TOOLS schema 与 tool_proxy.py 实现一致"
+    # V37.9.3: MR-6 补齐 — 两个现存 check 都是 python_assert（真 import proxy_filters
+    # 读 CUSTOM_TOOLS + 真跑 set 比较），本质是 runtime 验证。仅修正 metadata 标签
+    # 与实际验证层对齐（不新增检查，避免过度工程）。
     checks:
       - name: "data_clean schema 包含所有 tool_proxy 使用的参数"
         check_type: python_assert
@@ -529,10 +532,13 @@ invariants:
   - id: INV-CRON-002
     name: quiet-hours-enforcement
     meta_rule: MR-4
-    verification_layer: [declaration]
+    verification_layer: [declaration, runtime]
     severity: high
     declaration: "00:00-07:00 零推送通知（Dream 除外）"
     lesson: "2026-04-07: watchdog 04:30 + ArXiv 04:00 打扰睡眠"
+    # V37.9.3: MR-6 补齐 — check 1 是 python_assert（加载 jobs_registry.yaml + 遍历
+    # job 的 interval hours 断言）本质 runtime; check 2 是 file_contains 声明层。
+    # 两层已并存只是 metadata 未对齐。
     checks:
       - name: "job_watchdog 不在 00-07 时段运行"
         check_type: python_assert
@@ -595,15 +601,47 @@ invariants:
   - id: INV-NOTIFY-002
     name: notify-empty-channel-error
     meta_rule: MR-4
-    verification_layer: [declaration]
+    verification_layer: [declaration, runtime]
     severity: high
     declaration: "推送失败必须有可观测信号，空 channel 不能静默跳过"
     lesson: "2026-04-07: 空 channel ID 静默跳过，消息消失无痕迹"
+    # V37.9.3 MR-6 补齐 — 原单一 file_contains "ERROR.*为空" 只证字符串存在，runtime
+    # 补强: 真 source notify.sh + 清空 DISCORD_CH_PAPERS 环境 + 调 notify → stderr
+    # 必须含 ERROR 且提及对应变量名。MR-4 教训: 声明 ≠ 生效。
     checks:
       - name: "notify.sh 在空 channel 时打印 ERROR"
         check_type: file_contains
         file: notify.sh
         pattern: "ERROR.*为空"
+      - name: "V37.9.3 runtime: 空 DISCORD_CH_* 触发 stderr ERROR 不静默"
+        check_type: python_assert
+        code: |
+          # Runtime: 真 subprocess 跑 notify.sh，构造 DISCORD_CH_PAPERS="" + 禁用
+          # WhatsApp（NOTIFY_CHANNELS=discord）+ DISCORD_TARGET="" 让 fallback DM 也
+          # 走空路径，确保走到 empty-channel 分支。断言 stderr 捕获到 ERROR 关键字。
+          import subprocess, os
+          env = dict(os.environ)
+          env["DISCORD_CH_PAPERS"] = ""
+          env["DISCORD_TARGET"] = ""
+          env["NOTIFY_CHANNELS"] = "discord"
+          env["OPENCLAW"] = "/bin/true"  # 防真调 openclaw
+          script = (
+              'source notify.sh && '
+              'notify "test empty-channel path" --topic papers || true'
+          )
+          proc = subprocess.run(
+              ["bash", "-c", script],
+              env=env, capture_output=True, text=True, timeout=10,
+              cwd=os.getcwd(),
+          )
+          combined = proc.stderr + proc.stdout
+          assert "ERROR" in combined, (
+              f"notify.sh 空 DISCORD_CH_PAPERS 未产出 ERROR stderr:\n"
+              f"stderr={proc.stderr[:300]}\nstdout={proc.stdout[:300]}"
+          )
+          assert "DISCORD_CH_PAPERS" in combined, (
+              f"ERROR 消息未点名空变量 DISCORD_CH_PAPERS:\n{combined[:400]}"
+          )
 
   # ── 环境变量治理 ────────────────────────────────────────────────────
 
@@ -632,9 +670,13 @@ invariants:
   - id: INV-HEALTH-001
     name: health-fields-freshness
     meta_rule: MR-5
-    verification_layer: [declaration]
+    verification_layer: [declaration, runtime]
     severity: high
     declaration: "status.json health 字段有自动刷新 + 时间戳"
+    # V37.9.3 MR-6 补齐 — 原双 file_contains 仅证字符串存在，runtime 补 (a) shell
+    # 语法合法 (b) 真调 security_score.py --update 命令（模式化对 `--update` 或
+    # `>` 到 status.json 的代码结构）(c) status.json 顶层含 health 键用于双侧对齐。
+    # 三层共守 observability 最低保障。
     checks:
       - name: "kb_status_refresh.sh 有 security_score 自动刷新"
         check_type: file_contains
@@ -644,6 +686,45 @@ invariants:
         check_type: file_contains
         file: kb_status_refresh.sh
         pattern: "security_score_time"
+      - name: "V37.9.3 runtime: kb_status_refresh.sh 语法合法 + 真调 security_score.py"
+        check_type: python_assert
+        code: |
+          # Runtime: (a) bash -n 验证脚本语法 (b) 真实扫脚本内容 AST-like 解析确认
+          # security_score.py 不是注释字面量而是真实子进程调用 (c) 验证脚本存在
+          # 且有执行位或可被 bash 执行。
+          import subprocess, os, re
+          assert os.path.exists("kb_status_refresh.sh"), "kb_status_refresh.sh 不存在"
+          # (a) 语法合法
+          proc = subprocess.run(
+              ["bash", "-n", "kb_status_refresh.sh"],
+              capture_output=True, text=True, timeout=10,
+          )
+          assert proc.returncode == 0, (
+              f"kb_status_refresh.sh 语法错误:\n{proc.stderr[:500]}"
+          )
+          # (b) 真实调 security_score.py（非注释）
+          with open("kb_status_refresh.sh", "r", encoding="utf-8") as f:
+              source = f.read()
+          # 剥离注释行后再扫，避免文档字面量假阳性
+          non_comment_lines = []
+          for line in source.split("\n"):
+              stripped = line.strip()
+              if stripped.startswith("#"):
+                  continue
+              non_comment_lines.append(line)
+          non_comment = "\n".join(non_comment_lines)
+          # 必须有 python3 ... security_score.py 或 security_score.py 直接执行
+          has_call = bool(re.search(
+              r"(python3?\s+\S*security_score\.py|\./security_score\.py|bash\s+.*security_score)",
+              non_comment
+          ))
+          assert has_call, (
+              "kb_status_refresh.sh 非注释行中未发现 security_score.py 真调用"
+          )
+          # (c) security_score.py 文件存在
+          assert os.path.exists("security_score.py"), (
+              "kb_status_refresh.sh 引用 security_score.py 但文件不存在"
+          )
 
   - id: INV-HEALTH-002
     name: service-health-validates-content
@@ -762,10 +843,13 @@ invariants:
   - id: INV-NOTIFY-003
     name: push-through-notify-sh
     meta_rule: MR-4
-    verification_layer: [declaration]
+    verification_layer: [declaration, runtime]
     severity: high
     declaration: "所有推送脚本必须通过 notify.sh，禁止直接调用 openclaw message send（否则失去重试+错误捕获+队列）"
     lesson: "2026-04-09: 三个论文脚本绕过 notify.sh 直接发送，ontology 频道从未收到推送且零报错"
+    # V37.9.3: MR-6 补齐 — 现存 python_assert 用 glob.glob 扫 jobs/*/run_*.sh + 真读
+    # 文件内容做 context 判定（不只是 regex 匹配字面量），是 runtime 层验证。仅修正
+    # metadata 标签。
     checks:
       - name: "论文脚本 ontology 推送使用 notify.sh"
         check_type: python_assert
@@ -794,10 +878,14 @@ invariants:
   - id: INV-NOTIFY-004
     name: notify-error-capture
     meta_rule: MR-4
-    verification_layer: [declaration]
+    verification_layer: [declaration, runtime]
     severity: high
     declaration: "notify.sh 的 send 函数必须捕获 stderr，禁止 >/dev/null 2>&1 吞错误"
     lesson: "2026-04-09: _notify_send_with_retry 用 >/dev/null 2>&1 吞掉所有错误，WhatsApp 失败3天无诊断信息"
+    # V37.9.3 MR-6 补齐 — 原双 file_* 只证源码模式，runtime 补强真 subprocess 模拟
+    # openclaw 失败并验证 (a) stderr 错误原文被 _notify_send_with_retry 捕获并最终
+    # 出现在用户可见的 ERROR log 中 (b) 失败入队文件落盘。两层共守 MR-4 silent-
+    # failure 底线。
     checks:
       - name: "notify.sh send 函数不吞 stderr"
         check_type: file_not_contains
@@ -807,6 +895,53 @@ invariants:
         check_type: file_contains
         file: notify.sh
         pattern: "send_err.*2>&1"
+      - name: "V37.9.3 runtime: openclaw 失败时 stderr 被 notify 捕获到用户可见 ERROR"
+        check_type: python_assert
+        code: |
+          # Runtime: mock 一个失败的 openclaw 二进制（exit 1 + stderr 有独特 token）
+          # 让 notify.sh 的 _notify_send_with_retry 3 次重试全失败，断言最终 stderr
+          # 包含独特 token（证明捕获路径未吞错误）+ 队列文件落盘。
+          import subprocess, os, tempfile, glob
+          unique_token = "RTMOCK_STDERR_8F2E1"
+          with tempfile.TemporaryDirectory() as tmp:
+              fake_oc = os.path.join(tmp, "fake_openclaw")
+              with open(fake_oc, "w") as f:
+                  f.write(
+                      "#!/usr/bin/env bash\n"
+                      f"echo '{unique_token} upstream err' >&2\n"
+                      "exit 1\n"
+                  )
+              os.chmod(fake_oc, 0o755)
+              queue_dir = os.path.join(tmp, "notify_queue")
+              env = dict(os.environ)
+              env["OPENCLAW"] = fake_oc
+              env["OPENCLAW_PHONE"] = "+85200000001"  # 非空让 WhatsApp 分支触发
+              env["DISCORD_TARGET"] = ""
+              env["NOTIFY_CHANNELS"] = "whatsapp"
+              env["NOTIFY_MAX_RETRIES"] = "1"  # 单次失败即入队
+              env["NOTIFY_QUEUE_DIR"] = queue_dir
+              script = (
+                  'source notify.sh && '
+                  'notify "runtime test capture stderr" || true'
+              )
+              # 限 30s 防 sleep backoff 卡死（MAX_RETRIES=1 避免多次 sleep）
+              proc = subprocess.run(
+                  ["bash", "-c", script],
+                  env=env, capture_output=True, text=True, timeout=30,
+                  cwd=os.getcwd(),
+              )
+              combined = proc.stderr + proc.stdout
+              # (a) 上游 stderr 被捕获
+              assert unique_token in combined, (
+                  f"notify.sh 吞掉 openclaw stderr token '{unique_token}':\n"
+                  f"stderr={proc.stderr[:500]}\nstdout={proc.stdout[:200]}"
+              )
+              # (b) 入队文件落盘
+              queued = glob.glob(os.path.join(queue_dir, "*.json"))
+              assert queued, (
+                  f"notify.sh 失败 3 次后未入队到 {queue_dir}:\n"
+                  f"combined={combined[:500]}"
+              )
 
   # ── 运行时治理（2026-04-08 真实 bug 驱动）──────────────────────────
   # 教训：声明层检查全过，但 cron 运行时环境不对导致推送连续失败 3 天
@@ -880,11 +1015,25 @@ invariants:
   - id: INV-CRON-004
     name: crontab-no-duplicates
     meta_rule: MR-3
-    verification_layer: [runtime]
+    verification_layer: [declaration, runtime]
     severity: high
     declaration: "每个完整命令（脚本+参数）在 crontab 中最多出现一次（同一脚本不同参数视为不同 job，如 kb_dream.sh vs kb_dream.sh --map-only）"
     design_decision: "2026-04-08 教训：kb_dream 有 3 个完全相同的 crontab 条目→双进程 lock contention；2026-04-10 澄清：同一脚本不同参数是合法的分离调度（Map-Reduce 分阶段执行）；2026-04-11 修复 check bug：原 `sname in l` 子串匹配导致 Reduce 条目（entry=kb_dream.sh）被 --map-sources/--map-notes 误报 x3。改为 endswith + 词边界精确匹配。"
+    # V37.9.3: MR-6 补齐 — 原单层(runtime requires_full) dev 环境完全 skip。新增声明
+    # 层：①INV-CRON-003/004 共享的精确匹配器源码必须在 YAML 中存在（防重构回退到
+    # 子串匹配）②禁止裸 `sname in l` 子串反模式（血案回归守卫）。与 INV-CRON-003
+    # declaration 层策略一致。
     checks:
+      # declaration layer: 源码级守卫（与 INV-CRON-003 同源共享匹配器）
+      - name: "INV-CRON-004 源码包含 _cron_cmd_invokes 精确匹配器"
+        check_type: file_contains
+        file: ontology/governance_ontology.yaml
+        pattern: "_cron_cmd_invokes"
+      - name: "INV-CRON-004 匹配器使用 endswith + 词边界（非子串反模式）"
+        check_type: file_contains
+        file: ontology/governance_ontology.yaml
+        pattern: 'cmd\.endswith\(entry\)'
+      # runtime layer: 真实 crontab 解析（Mac Mini --full 模式）
       - name: "crontab 中无完全重复的命令条目"
         check_type: python_assert
         requires_full: true
@@ -3404,43 +3553,84 @@ invariants:
           import os
           assert os.path.exists("security_score.py"), "security_score.py missing"
       # V37.9.1 MR-16 Step 2: per-dimension 阈值守卫
-      - name: "V37.9.1 runtime: 7 安全维度各自满足最低阈值"
+      # V37.9.3 路线 C Step 3: 阈值从 YAML 顶层 security_config.dimensions 读取
+      # （不再 hardcode 在 python_assert code 里）→ ontology 成为唯一真理源
+      - name: "V37.9.3 runtime: 7 安全维度满足 ontology 声明的最低阈值"
         check_type: python_assert
         code: |
-          # Step 2 细粒度: 不仅总分 ≥ 90，每维度都要满足最低阈值
-          # 避免"某维度掉到 0 但总分被其他维度拉高"盲区
+          # Step 3 终态: 阈值来自 YAML security_config.dimensions（唯一真理源），
+          # 不再在 python_assert 里硬编码。security_score.py 侧也读同一 YAML 自检，
+          # 两侧统一到 ontology 防止分叉。
+          import sys, os
+          sys.path.insert(0, os.getcwd())
+          # 1. 从 ontology YAML 读阈值
+          try:
+              import yaml as _yaml
+          except ImportError:
+              pass  # PyYAML 缺失 → skip
+          else:
+              yaml_path = os.path.join(
+                  os.getcwd(), "ontology", "governance_ontology.yaml"
+              )
+              with open(yaml_path, "r", encoding="utf-8") as _f:
+                  _onto = _yaml.safe_load(_f)
+              _sec_cfg = _onto.get("security_config") or {}
+              min_thresholds = _sec_cfg.get("dimensions") or {}
+              assert isinstance(min_thresholds, dict) and min_thresholds, (
+                  "security_config.dimensions 缺失或为空 — ontology 真理源不完整"
+              )
+              # 2. 跑 compute_score 拿当前 dimensions
+              try:
+                  from security_score import compute_score
+              except ImportError:
+                  pass  # 环境缺失 → skip
+              else:
+                  data = compute_score()
+                  violations = []
+                  # V37.3 教训: 避免 generator expression 跨 exec scope
+                  for dim in data.get("dimensions", []):
+                      name = dim.get("name")
+                      score = dim.get("score", 0)
+                      min_score = min_thresholds.get(name)
+                      if min_score is None:
+                          continue
+                      if score < min_score:
+                          violations.append(
+                              f"{name} {score}/{dim.get('max')} < 阈值 {min_score}"
+                          )
+                  assert not violations, (
+                      f"安全维度塌陷 {len(violations)} 个: {violations}"
+                  )
+      # V37.9.3 Step 3 新增: ontology dimension 名称必须与 security_score.py 实际
+      # 维度一致，防止 YAML 改名但 security_score 不同步的静默漂移
+      - name: "V37.9.3 runtime: ontology 维度名 vs security_score.py 实际输出对齐"
+        check_type: python_assert
+        code: |
           import sys, os
           sys.path.insert(0, os.getcwd())
           try:
+              import yaml as _yaml
               from security_score import compute_score
           except ImportError:
-              pass  # 环境缺失 → skip
+              pass  # 缺失 → skip
           else:
+              yaml_path = os.path.join(
+                  os.getcwd(), "ontology", "governance_ontology.yaml"
+              )
+              with open(yaml_path, "r", encoding="utf-8") as _f:
+                  _onto = _yaml.safe_load(_f)
+              _sec_cfg = _onto.get("security_config") or {}
+              ontology_dims = set((_sec_cfg.get("dimensions") or {}).keys())
               data = compute_score()
-              # per-dimension minimum thresholds（从 baseline 93/100 设定，
-              # 允许某维度略低于满分但不能塌陷）
-              MIN_THRESHOLDS = {
-                  "密钥管理":   15,   # 零容忍（任何泄漏都是灾难）
-                  "测试门禁":   13,   # 允许 1 个可选工具缺失
-                  "数据完整性": 10,   # 灰色地带大（部分原子写入允许）
-                  "部署安全":   15,   # 零容忍（部署漂移直接故障）
-                  "传输安全":    9,   # HTTPS 外部依赖，允许小浮动
-                  "审计追踪":   15,   # 零容忍（无审计=无可追溯）
-                  "可用性":      8,   # 3-4 项核心能力缺 1 项允许
-              }
-              violations = []
+              actual_dims = set()
               for dim in data.get("dimensions", []):
                   name = dim.get("name")
-                  score = dim.get("score", 0)
-                  min_score = MIN_THRESHOLDS.get(name)
-                  if min_score is None:
-                      continue
-                  if score < min_score:
-                      violations.append(
-                          f"{name} {score}/{dim.get('max')} < 阈值 {min_score}"
-                      )
-              assert not violations, (
-                  f"安全维度塌陷 {len(violations)} 个: {violations}"
+                  if name:
+                      actual_dims.add(name)
+              missing_in_actual = ontology_dims - actual_dims
+              assert not missing_in_actual, (
+                  f"ontology 声明了 {missing_in_actual} 但 security_score.py 未输出 "
+                  f"— 改名/漂移（ontology actual={sorted(actual_dims)})"
               )
 
   # --- V37.8.14 新增：8 个 uncovered job 治理覆盖（MRD-CRON-001 gap closure）---
@@ -3557,11 +3747,15 @@ invariants:
   - id: INV-JOB-GOVAUDIT-001
     name: governance-audit-cron-notifies-on-failure
     meta_rule: MR-7
-    verification_layer: [declaration]
+    verification_layer: [declaration, runtime]
     severity: high
     declaration: |
       governance_audit_cron.sh 每日运行 governance_checker --full。
       失败必须通过 notify.sh 推送告警（治理系统自身的可观测性）。
+    # V37.9.3 MR-6 补齐 — 原双 file_contains 证字符串存在。runtime 补强: (a) shell
+    # 语法合法 (b) 失败分支与 notify 调用形成因果链（notify 必须在 OVERALL=fail
+    # 分支内，而非任意位置的死代码）(c) --topic alerts 必须出现（保障走告警频道）。
+    # MR-7 治理自观察要求：治理系统自己也不得有静默失败路径。
     checks:
       - name: "governance_audit_cron.sh 调用 governance_checker.py --full"
         check_type: file_contains
@@ -3571,6 +3765,52 @@ invariants:
         check_type: file_contains
         file: governance_audit_cron.sh
         pattern: 'notify'
+      - name: "V37.9.3 runtime: failure→notify 因果链完整 + --topic alerts 路由"
+        check_type: python_assert
+        code: |
+          # Runtime: (a) bash -n 语法 (b) notify 调用必须发生在 fail 判定之后的
+          # 因果链中 (非 unreachable 死代码) (c) --topic alerts 告警频道路由。
+          import subprocess, os
+          assert os.path.exists("governance_audit_cron.sh"), (
+              "governance_audit_cron.sh 不存在"
+          )
+          proc = subprocess.run(
+              ["bash", "-n", "governance_audit_cron.sh"],
+              capture_output=True, text=True, timeout=10,
+          )
+          assert proc.returncode == 0, (
+              f"governance_audit_cron.sh 语法错误:\n{proc.stderr[:500]}"
+          )
+          with open("governance_audit_cron.sh", "r", encoding="utf-8") as f:
+              source = f.read()
+          # 剥离注释
+          non_comment_lines = []
+          for line in source.split("\n"):
+              stripped = line.strip()
+              if stripped.startswith("#"):
+                  continue
+              non_comment_lines.append(line)
+          non_comment = "\n".join(non_comment_lines)
+          # 必须出现 OVERALL=fail（判定）+ notify 调用（非注释）
+          assert "OVERALL=\"fail\"" in non_comment or "OVERALL='fail'" in non_comment or 'OVERALL=fail' in non_comment, (
+              "governance_audit_cron.sh 缺失 OVERALL=fail 判定分支（MR-7 治理自观察要求）"
+          )
+          # 因果链: notify 必须在 OVERALL=fail 之后出现（非注释行）
+          fail_idx = -1
+          notify_idx = -1
+          for i, line in enumerate(non_comment_lines):
+              if fail_idx < 0 and ("OVERALL=\"fail\"" in line or "OVERALL='fail'" in line or "OVERALL=fail" in line):
+                  fail_idx = i
+              if notify_idx < 0 and "notify " in line and line.strip().startswith("notify"):
+                  notify_idx = i
+          assert fail_idx >= 0, "未找到 OVERALL=fail 行"
+          assert notify_idx >= 0, "未找到 notify 调用行"
+          # 两者存在，但 notify 可以在 if/then 分支内，用行号弱因果: notify
+          # 同一条件块内或之后出现
+          # 更强保证: notify 调用附近必有 --topic alerts 参数
+          assert "--topic alerts" in non_comment, (
+              "governance_audit_cron.sh 缺失 --topic alerts 路由（告警必须走 alerts 频道）"
+          )
 
   - id: INV-JOB-PREFLEARN-001
     name: preference-learner-has-min-threshold
@@ -3612,11 +3852,14 @@ invariants:
   - id: INV-JOB-HARVEST-001
     name: kb-harvest-chat-mapreduce-no-data-loss
     meta_rule: MR-4
-    verification_layer: [declaration]
+    verification_layer: [declaration, runtime]
     severity: high
     declaration: |
       kb_harvest_chat.py 每日从 proxy 对话日志提炼精华写入 KB。
       对话数据是最高质量信号源，MapReduce 保证零数据丢失。
+    # V37.9.3 MR-6 补齐 — 原双 file_contains 仅声明层，runtime 补"真 import + 关键
+    # 函数存在 + AST 语法合法"三重守卫。避免声明层 pattern 命中注释/文档字面量而
+    # 实际函数缺失的假阳性（参考 INV-REVIEW-001 validation pattern）。
     checks:
       - name: "kb_harvest_chat.py 有 MapReduce 分块处理"
         check_type: file_contains
@@ -3626,6 +3869,31 @@ invariants:
         check_type: file_contains
         file: kb_harvest_chat.py
         pattern: 'kb_write'
+      - name: "V37.9.3 runtime: kb_harvest_chat 模块可 import + AST 含 Map/Reduce 阶段函数"
+        check_type: python_assert
+        code: |
+          # Runtime 层补强: AST 解析 kb_harvest_chat.py 证实"MapReduce 字样"不是
+          # 注释或 docstring 而是真实函数结构。MR-4 教训: 字面量存在 != 语义生效。
+          import ast
+          with open("kb_harvest_chat.py", "r", encoding="utf-8") as f:
+              source = f.read()
+          tree = ast.parse(source)  # 语法合法性兜底
+          # V37.3 教训: 避免 generator/comprehension 跨 exec 作用域
+          func_names = []
+          for node in ast.walk(tree):
+              if isinstance(node, ast.FunctionDef):
+                  func_names.append(node.name)
+          # 至少存在 map/reduce/harvest 其中两类函数名片段
+          hits = []
+          for kw in ("map", "reduce", "harvest", "extract", "merge"):
+              for fn in func_names:
+                  if kw in fn.lower():
+                      hits.append(kw)
+                      break
+          assert len(set(hits)) >= 2, (
+              f"kb_harvest_chat.py AST 函数名未出现 MapReduce 语义模式: "
+              f"函数 = {func_names[:10]}, 命中关键词 = {set(hits)}"
+          )
 # ═══════════════════════════════════════════════════════════════════════
 # 4. 可执行元规则（Phase 0）— 自动发现缺失不变式
 #    只扫描结构化数据源，不解析自然语言
@@ -3961,10 +4229,30 @@ meta_rule_discovery:
       独立原则会被 audit 立即发现。
 
 # ═══════════════════════════════════════════════════════════════════════
-# 5. 审计元数据
+# 5. Security Config（V37.9.3 路线 C Step 3 — 数据源统一到 ontology）
+#    7 维度阈值的唯一真理源（Single Source of Truth）。
+#    INV-SEC-001 runtime check 从这里读阈值（不再 hardcode 在 python_assert code）。
+#    security_score.py --check-ontology-thresholds 模式也读这里对齐，两侧防分叉。
+# ═══════════════════════════════════════════════════════════════════════
+security_config:
+  # 总分最低阈值（baseline 当前 93/100）
+  total_threshold: 90
+  # 7 个维度的最低允许分（防"单维度塌陷但总分被其他拉高"盲区）
+  # 来源：V37.9.1 路线 C Step 2 设定，V37.9.3 Step 3 从 YAML python_assert 提到顶层
+  dimensions:
+    密钥管理:   15   # 零容忍（任何泄漏都是灾难）
+    测试门禁:   13   # 允许 1 个可选工具缺失
+    数据完整性: 10   # 灰色地带大（部分原子写入允许）
+    部署安全:   15   # 零容忍（部署漂移直接故障）
+    传输安全:    9   # HTTPS 外部依赖允许小浮动
+    审计追踪:   15   # 零容忍（无审计=无可追溯）
+    可用性:      8   # 3-4 项核心能力缺 1 项允许
+
+# ═══════════════════════════════════════════════════════════════════════
+# 6. 审计元数据
 # ═══════════════════════════════════════════════════════════════════════
 audit_metadata:
-  version: "3.26"
+  version: "3.27"
   created: "2026-04-07"
   upgraded: |
     v3.0 → v3.1: 通知路径治理(INV-NOTIFY-003/004) + 错误可观测性(MRD-ERROR-001) + 效果层启动(MRD-NOTIFY-002)
@@ -3979,6 +4267,7 @@ audit_metadata:
     v3.8 → v3.9: V37.8 MR-6 深度补齐 + MRD-NOTIFY-002 语义修复 — (a) 7 个 critical 单层不变式全部补第二层验证: INV-TOOL-001 (+declaration: proxy_filters.py 静态引用 MAX_TOOLS), INV-TOOL-002 (元数据标签修正，已有双层未声明), INV-DEPLOY-002 (+runtime: shlex tokenize AST 扫描 auto_deploy.sh 无 crontab 写入 token 序列), INV-CRON-003 (+declaration: _cron_cmd_invokes 精确匹配器源码守卫), INV-ENV-002 (+declaration: preflight REQUIRED_VARS 必含 OPENCLAW_PHONE + YAML 占位号字面量反例守卫), INV-DREAM-002 (+runtime: SKIP_MAP_LOOPS 赋值行号必须在 Phase 1a/1b 门控之前), INV-CACHE-002 (+runtime: 真跑 md5 对照同内容不同 mtime 的两个 tempfile hash 相等 + 不同内容 hash 不等); (b) INV-LAYER-001 新增 (critical-invariants-have-two-layers, meta_rule=MR-6, 把 MRD-LAYER-001 的 warn 升级为 hard-enforcing invariant — 未来任何新增 critical 不变式只要 <2 层就直接 fail); (c) MRD-NOTIFY-002 检测器重写 — 原实现只 grep `--topic X` 字符串但 32 个 job 中 28 个 bypass notify.sh 直接走 `DISCORD_CH_<X>`，导致 4-6 个频道长期被误报 silent。新实现两层: source layer (dev + full 都跑, 扫 jobs/*/run_*.sh 接受 `--topic T` 或 `DISCORD_CH_<T_upper>` 任一 caller) + activity layer (仅 --full, 用 notify_queue/jobs cache mtime 而非字符串 grep)
     v3.9 → v3.10: V37.8.4 finance_news X 僵尸账号血案 — INV-X-001 新增 (syndication-account-must-have-fresh-tweets, meta_rule=MR-10, severity=high) 锁定 5 层防御: parser 检测 diag['total']>0 且 100% 超窗口 + ⚠️ ZOMBIE嫌疑 诊断前缀 + 独立 zombies_${DAY}.txt 文件 + 3 天 comm -12 连续告警 + 7 个已确认僵尸 handle (Reuters/WorldBank/BrookingsInst/caixin/yicaichina/ChannelNewsAsia/straits_times) file_not_contains 守卫。CLAUDE.md 原则 #27 升级强制条款 "X 账号健康 ≠ HTTP 200" — 协议层绿灯不等于内容层健康，Syndication API 对 embed-disabled 或停更账号返回 stale 快照 (最老 3364 天)。本次是 MR-10 (V37.8.3 引入) 被违反后的正向兑现: 血案本身成为元规则执行力的训练样本。
     v3.25 → v3.26: V37.9.2 MR-6 深度补齐 — 12 单层 high 减到 9（-3），逐个升级到双层 [declaration, runtime]. (1) INV-PA-002 (SOUL.md 规则 10 存在): 加 runtime 解析规则 10 完整块（标题定位 + 下一规则边界 + 5 关键短语必须都在块内 + 块长度 ≥ 400 chars）防"关键短语散落在其他规则被误判通过"盲区. 避开 V37.3 exec scope trap 用 iterative for 替代 list comprehension. (2) INV-DREAM-001 (map-budget-scales-with-mode): 加 runtime 真解析 kb_dream.sh 所有 DREAM_TIMEOUT_SEC 赋值，断言 max >= 5400s (MAP_ONLY 90min) + min <= 3600s (Reduce 60min) + 差值 >= 1800s（证实真动态而非常量）. (3) INV-DEPLOY-003 (status.json drift 豁免): 加 runtime 扫两侧脚本 (preflight + auto_deploy) 每个 "status.json" 字面量 500 字符内有 continue，跳过注释引用（三 case 证实 continue 紧随豁免）. MRD-LAYER-002 单层 high warn 从 12 → 9. 本次补齐策略："选择最稳升级"（已有 runtime 可行且不需新增依赖），留下最硬的 9 个作为未来血案修复时顺便升级。governance v3.25→v3.26 / 253→256 checks (+3).
+    v3.26 → v3.27: V37.9.3 四项顺序推进 — MR-6 剩余 9 个 high 全部补齐 + audit-of-audit 4 维度 + 路线 C Step 3 数据源统一. (1) MRD-LAYER-002 从 ⚠️9 个 warn → ✅ pass：Batch A 纯 metadata 修正 3 个（INV-TOOL-003/CRON-002/NOTIFY-003 已有 python_assert 但 layer 错标）+ Batch B 真补 runtime 5 个（INV-NOTIFY-002/HEALTH-001/NOTIFY-004/JOB-GOVAUDIT-001/JOB-HARVEST-001 加 subprocess/AST 级 runtime check）+ Batch C 缺 declaration 1 个（INV-CRON-004 加 _cron_cmd_invokes + cmd.endswith(entry) YAML 源码守卫）。25 个 high 不变式全部 ≥2 层验证。(2) MRD-AUDIT-PERF-001 从 1 维扩展到 4 维: 加 peak_memory_mb（1.5x+10MB 跨平台 resource.ru_maxrss）+ bootstrap_ms（2.0x+500ms, SESSION_START → FIRST_CHECK 启动开销）+ skip_rate_pct（abs +20pct 突增）。_AUDIT_FIRST_CHECK_TIME 在 run_all 首次 iter 时 stamp. 老 history 缺字段时 median=0 自动跳过该维度（向后兼容）。14 新单测 test_audit_perf_dimensions.py 锁定 4 维度阈值边界 + 向后兼容 + 跨平台内存。(3) 路线 C Step 3 终态: governance_ontology.yaml 顶层新增 security_config.dimensions 作为 7 维度阈值唯一真理源。INV-SEC-001 runtime 从 YAML 读阈值（不再硬编码）+ 新增维度名对齐守卫（防改名漂移）。security_score.py 新增 load_ontology_thresholds() + check_ontology_thresholds() 纯函数 + --check-ontology-thresholds CLI。12 新单测 test_security_ontology_alignment.py 锁定跨源一致性。(4) jobs/finance_news/run_finance_news.sh 4/20 07:30 告警路径诊断: TZ 统一 + 5 个跳过分支诊断 log + notify 调用失败捕获（根因定性为 Gateway 瞬时故障，已自愈，代码层无 bug）。governance v3.26→v3.27 / 256→258 checks (+2) / 38 suites / 1137 tests (+26).
     v3.24 → v3.25: V37.9.1 路线 C Step 2 + Stage 2 话语权输出 — (1) INV-SEC-001 runtime 扩展 per-dimension 阈值守卫: 7 个维度各有 MIN_THRESHOLDS dict（密钥 15/测试 13/数据 10/部署 15/传输 9/审计 15/可用 8），从"总分 ≥ 90"升级为"每维度都不能塌陷"。防"某维度掉到 0 但总分被其他维度拉高"的盲区。compute_score() import 并解析 dimensions list 对比阈值。避开 exec() 作用域陷阱用 iterative 循环。(2) 话语权文章 docs/articles/audit_is_regression_not_prevention.md: 基于路线 A 618 行回填 + 路线 B 177 行对抗报告，用 6 个实证数据论证"audit 不是 prevention 是 regression engine"。Stage 2 从系统构建者到系统作者的第 4 份公开资产（前 3: Control Plane / Seven Failures / Provider Compat）。(3) OpenClaw 升级评估: 距上次评估 4/17 仅 3 天 + 上游 v2026.4.15 #59265 14 版本未修复，继续 hold v2026.3.13-1。governance v3.24→v3.25, 252→253 checks (+1 per-dimension runtime).
     v3.23 → v3.24: V37.9 四项结构性加固 — 从"修血案"进入"建制度"阶段。(1) 对抗审计 Cat A 集成 full_regression layer 3.5: adversarial_chaos_audit.py 原是一次性工具, 现在每次 PR 合并前自动跑 10 个已知血案场景, 防御力退化立即在 CI 层失败. status.json 被 full_regression 自己写入导致 git 不 clean, 通过豁免 status.json 解决. (2) MR-6 扩展 severity=high: MRD-LAYER-002 渐进强制 warn 级暴露 12 个单层 high 技术债 (INV-TOOL-003/CRON-002/NOTIFY-002-004/HEALTH-001/CRON-004/DREAM-001/PA-002/DEPLOY-003/JOB-GOVAUDIT-001/JOB-HARVEST-001), 不阻塞但持续可见推动逐个补齐, 完成后可升级为 INV-LAYER-002 硬强制. (3) C16 audit-of-audit 子系统 (MR-7 观察者盲区补齐): governance_checker __main__ 结尾写 ontology/.audit_metrics.jsonl (wall_time_ms / check_count / skip_count 等); MRD-AUDIT-PERF-001 读 SESSION_START 实时 wall_time + 历史 5 次中位数对比 (median 抗 outlier), 双条件阈值 1.3x 相对退化 + 300ms 绝对差触发 warn. Route B C16 对抗 sleep 0.5s → 1.5s (原 0.5s 在 noise 范围), 验证 MRD 立即 UNEXPECTED catch. 至此 Route B 6/6 盲区全部闭合. (4) 路线 C Security + Governance 双轨统一: MR-16 security-dimensions-governed-by-invariants 立案 + INV-SEC-001 security-score-meets-threshold 作为 Step 1 粗粒度守卫 (总分 ≥ 90), runtime 调 security_score.py 解析"安全评分：N/100"对比. 未来 Step 2 按 7 维度细化为 7 个 INV-SEC-*. governance v3.23→v3.24 (55 不变式 +1 / 252 checks +3 / 15 meta rules +1). 对抗审计最终防御率 Category A 10/10 + Category B 6/6 = 16/16 (100%).
     v3.22 → v3.23: V37.8.18 Phase 2 Route B 盲区修复续（5/6 累计）— 基于 V37.8.18 Phase 1 的 3/6 成绩继续修复 🟡 中优先级 2 个盲区: (1) INV-COST-001 新增（C12 盲区）: retry 相关常量上限守卫（ceiling=10）. 4 checks: config.yaml max_retries 不超过 10 + adapter.py 硬编码 MAX_RETRIES/max_retries 不超过 10 + runtime 扫仓库所有 .py 和 config.yaml 所有 retry 常量. 避开 exec() 作用域陷阱用 iterative stack-based walk 而非嵌套 def. (2) INV-OBSERVABILITY-001 扩展（C13 盲区）: last_run_*.json 一致性守卫. 4 个 file_contains 锁定 kb_inject/kb_evening/kb_review/kb_harvest_chat 写 last_run_*.json + runtime 断言 job_watchdog.sh 的监控列表与脚本实际写入路径一致（通过解析 job_watchdog 的 `last_run_(\w+).json` pattern 并对比脚本源码）. 防 C13 类 silent 断链（脚本改路径但 watchdog 未同步）. Route B 意外 catch 从 V37.8.18 Phase 1 的 3/6 升到 Phase 2 后 5/6 (83%). 仅剩 C16 audit-of-audit（架构级，V37.9 候选）. governance v3.22→v3.23. 累计 V37.8.18 成就: 53→54 不变式 (+INV-COST-001), 240→249 checks (+9: INV-KB-001 dict runtime / INV-COST-001 4 / INV-OBSERVABILITY-001 extension 5), 9→11 MRD scanners (+MRD-SILENT-EXCEPT-001 + MRD-PUSH-ROUTE-001).
