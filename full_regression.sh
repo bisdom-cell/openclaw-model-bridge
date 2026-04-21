@@ -77,6 +77,9 @@ fi
 if [ -f test_security_ontology_alignment.py ]; then
     run_suite "security_ontology_alignment (V37.9.3 路线 C Step 3 数据源统一)" "python3 test_security_ontology_alignment.py"
 fi
+if [ -f test_kb_embed_workspace.py ]; then
+    run_suite "kb_embed_workspace (V37.9.5 INV-KB-COVERAGE-001 workspace .md 索引)" "python3 test_kb_embed_workspace.py"
+fi
 
 # 条件性测试（仅当文件存在时运行）
 for tf in test_conv_quality.py test_kb_autotag.py test_kb_dedup.py test_token_report.py test_arxiv_parser.py test_shell_antipatterns.py; do

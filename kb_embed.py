@@ -276,6 +276,25 @@ def scan_kb_files():
     if os.path.isfile(memory_md):
         files.append((memory_md, "memory"))
 
+    # V37.9.5: PA workspace 其他 .md — PA 在 OpenClaw runtime 自主沉淀的文档
+    # （AGENTS.md / BOOTSTRAP.md / IDENTITY.md / SOUL.md / OPENCLAW_*_SUMMARY 等）
+    # 量小（~50KB）但信息密度高（PA 行为契约 + 自主洞察）
+    # 排除：
+    #   - MEMORY.md (上方已单独索引为 source_type=memory)
+    #   - HEARTBEAT.md (OpenClaw 保留控制文件，V37.8.16 INV-HB-001 血案规则)
+    #   - *.bak* / *~ (备份/编辑器临时文件)
+    #   - venv/ 子目录 (Python 包不是业务数据，glob *.md 顶层已自动排除)
+    WORKSPACE_EXCLUDE_BASENAMES = {"MEMORY.md", "HEARTBEAT.md"}
+    workspace_dir = os.path.expanduser("~/.openclaw/workspace")
+    if os.path.isdir(workspace_dir):
+        for f in sorted(glob.glob(os.path.join(workspace_dir, "*.md"))):
+            bn = os.path.basename(f)
+            if bn in WORKSPACE_EXCLUDE_BASENAMES:
+                continue
+            if ".bak" in bn or bn.endswith("~"):
+                continue
+            files.append((f, "workspace"))
+
     return files
 
 
