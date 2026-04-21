@@ -200,8 +200,8 @@ else
     rm -f "$SEND_ERR"
 fi
 
-# ── 7. rsync 备份 ──
-rsync -a --quiet "$KB_DIR/" "/Volumes/MOVESPEED/KB/" 2>/dev/null || true
+# ── 7. rsync 备份（V37.9.4: 失败 log WARN 而非静默吞错，MR-4 silent-failure 修复）──
+rsync -a "$KB_DIR/" "/Volumes/MOVESPEED/KB/" 2>&1 || echo "[$(basename "$0")] WARN: SSD rsync failed (exit=$?)" >&2
 
 log "知识回顾 ${DATE} | 覆盖 ${SOURCES_USED} 源 | 本期笔记 ${NOTE_COUNT} 篇 | LLM: ✓"
 log "回顾文件: ${REVIEW_FILE}"
