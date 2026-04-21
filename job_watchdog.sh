@@ -62,8 +62,11 @@ JOBS=(
     "semantic_scholar|$HOME/.openclaw/jobs/semantic_scholar/cache/last_run.json|180000|S2论文监控|core"
     # DBLP: 每天1次(12:00) → 最多静默 50h
     "dblp|$HOME/.openclaw/jobs/dblp/cache/last_run.json|180000|DBLP论文监控|auxiliary"
-    # ACL: 每周三(09:30) → 最多静默 192h（8天）
-    "acl_anthology|$HOME/.openclaw/jobs/acl_anthology/cache/last_run.json|691200|ACL论文监控|auxiliary"
+    # ACL: 每周三(09:30) → 最多静默 336h（14天）
+    # V37.9.6 调宽: 4/8 起 13 天无更新（脚本在跑但 ACL 真无新论文/严格过滤），
+    # 8 天阈值持续误报。ACL Anthology 学术源更新频率本就低，14 天合理。
+    # 长期问题登记 unfinished: 确认是 ACL 真无更新还是抓取脚本 0 输出 bug
+    "acl_anthology|$HOME/.openclaw/jobs/acl_anthology/cache/last_run.json|1209600|ACL论文监控|auxiliary"
 
     # ── 应用监控 ──
     # HN: 每3小时 → 最多静默 7h
@@ -229,12 +232,52 @@ scan_logs() {
         return  # 日志超过24h未更新，跳过扫描
     fi
 
-    # 扫描最后50行中的错误（比原来的20行覆盖更多）
+    # V37.9.6: 行级时间戳过滤——只报最近 24h 内的错误
+    # 之前 bug：只过滤文件 mtime，但 tail -50 行里可能含 13 天前的旧错误
+    # （V37.9.6 之前 12:30 watchdog 报告 4/8 / 4/14 / 4/15 的陈旧错误就是这个原因）
+    # 修复：grep 行级时间戳模式，对带 [YYYY-MM-DD HH:MM:SS] 前缀的行只保留 24h 内的
+    # 行内含错误关键字的本身就是错误日志（包括 ERROR/FAIL/Traceback/HTTP 4xx/5xx）
+    local cutoff_epoch=$(( NOW_EPOCH - 86400 ))
+    local cutoff_date  # YYYY-MM-DD 形式的截止日期（含），用于 grep 过滤
+    if [ "$(uname)" = "Darwin" ]; then
+        cutoff_date=$(date -r "$cutoff_epoch" '+%Y-%m-%d')
+    else
+        cutoff_date=$(date -d "@$cutoff_epoch" '+%Y-%m-%d')
+    fi
+    local today_date
+    if [ "$(uname)" = "Darwin" ]; then
+        today_date=$(date '+%Y-%m-%d')
+    else
+        today_date=$(date '+%Y-%m-%d')
+    fi
+    local err_pattern='推送失败|send_failed|fetch_failed|FAIL(ED)?:|ERROR[: ]|Traceback|HTTP[/ ](4[0-9]{2}|5[0-9]{2})'
+
+    # 抓 tail -200（拉宽窗口防错过近时刻多错误），先按行级时间戳留 24h 内，再 grep 错误
+    # 行级时间戳格式 [YYYY-MM-DD HH:MM:SS] 或 [YYYY-MM-DDTHH:MM:SS] 出现在行首附近
+    # 无时间戳的行（如 Python Traceback 多行）保留以免漏关键上下文
+    local recent_window
+    recent_window=$(tail -200 "$logfile" 2>/dev/null | awk -v cutoff="$cutoff_date" -v today="$today_date" '
+        /\[([0-9]{4}-[0-9]{2}-[0-9]{2})/ {
+            if (match($0, /[0-9]{4}-[0-9]{2}-[0-9]{2}/)) {
+                ts_date = substr($0, RSTART, RLENGTH)
+                if (ts_date >= cutoff && ts_date <= today) {
+                    print
+                    in_recent = 1
+                } else {
+                    in_recent = 0
+                }
+                next
+            }
+        }
+        # 无时间戳行: 跟随上一行状态（Traceback 多行连续输出场景）
+        in_recent { print }
+    ')
+
     local recent_fails
-    recent_fails=$(tail -50 "$logfile" 2>/dev/null | grep -ciE "推送失败|send_failed|fetch_failed|FAIL(ED)?:|ERROR[: ]|Traceback|HTTP[/ ](4[0-9]{2}|5[0-9]{2})" || true)
+    recent_fails=$(echo "$recent_window" | grep -ciE "$err_pattern" || true)
     if [ "$recent_fails" -gt 0 ]; then
         local last_err
-        last_err=$(tail -50 "$logfile" 2>/dev/null | grep -iE "推送失败|send_failed|fetch_failed|FAIL(ED)?:|ERROR[: ]|Traceback|HTTP[/ ](4[0-9]{2}|5[0-9]{2})" | tail -1 | head -c 120)
+        last_err=$(echo "$recent_window" | grep -iE "$err_pattern" | tail -1 | head -c 120)
         ALERTS+=("$job_name 日志: ${recent_fails}条错误 → $last_err")
     fi
 }
