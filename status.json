@@ -1,6 +1,6 @@
 {
-  "updated": "2026-04-21 03:27:07",
-  "updated_by": "full_regression",
+  "updated": "2026-04-21 03:41:09",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-04-21",
+      "what": "Mac Mini 验证: preflight 81/0/2 + job_smoke_test 35/190/0/13 全通过。2 个新问题待排查（登记 unfinished 等 PR 合并后处理）: (A) auto_deploy 日志 11h 陈旧 crontab 注册正确(*/2 * * * *)但日志停止更新 - 需 tail ~/.openclaw/logs/auto_deploy.log + ps 验证进程 (B) KB rsync 备份 /Volumes/MOVESPEED/KB/ 142h 未更新 + openclaw_backup/status_history mkdir Operation not permitted - SSD 权限问题，6 个脚本 rsync 到该路径都 || true 静默吞错 典型 MR-4 silent-failure。其他 11 警告全部历史/外部（kb_evening 4/14-15 502 V37.8.10 案例 / governance_audit 4/11 fail 陈旧 / freight 403 外部封锁等）。",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-04-21",
       "what": "V37.9.3 四项顺序推进: #1 X 僵尸告警路径诊断(finance_news TZ 统一 + 5 分支诊断 log + notify 失败 exit code 捕获, 4/20 07:30 Gateway 瞬时故障已自愈代码层无 bug) + #2 MR-6 9 个单层 high 全部补齐(Batch A 3 个 metadata 修正 + Batch B 5 个真 runtime 补齐 subprocess/AST + Batch C 1 个 declaration 守卫, MRD-LAYER-002 ⚠️ → ✅, 25 个 high 全部 ≥2 层) + #3 audit-of-audit 1 维 → 4 维(peak_memory_mb 跨平台 + bootstrap_ms SESSION→FIRST_CHECK + skip_rate_pct 突增, 向后兼容 median=0 自动跳过, 14 新单测) + #4 路线 C Step 3 终态(ontology 新增 security_config.dimensions 顶层段作唯一真理源 + INV-SEC-001 从 YAML 读阈值不再硬编码 + 维度名对齐守卫 + security_score.py --check-ontology-thresholds CLI + 12 新单测跨源一致性). governance v3.26→v3.27 / 38 suites / 1137 tests (+26) / 安全 93/100.",
       "by": "claude_code"
     },
@@ -197,11 +202,6 @@
     {
       "date": "2026-04-15",
       "what": "V37.8.7 ontology_sources 格式错位血案闭环：位置解析 i+=3 在 LLM 漏一行时级联污染所有后续条目。修复：抽到独立模块 ontology_parser.py，按 ---/===/*** 分隔符切块 + 块内 key-based prefix 解析。同日 V37.8.6 Dream + V37.8.7 ontology_sources 双 MR-4 演出共同教训：LLM 输出格式不可严格假设。INV-ONTOLOGY-001 (declaration+runtime, 7 checks) + 24 单测 + 案例 ontology_sources_positional_parser_cascade_case.md + auto_deploy FILE_MAP + governance v3.12→v3.13 (37→38 inv, 175→182 checks)。1018 tests / 0 fail / 安全 93/100. VERSION 0.37.8.6→0.37.8.7",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-04-15",
-      "what": "V37.8.6 Dream 自引用幻觉血案闭环 (MR-4 第 7 次演出 + 原则 #23 链式幻觉典型实证)",
       "by": "claude_code"
     }
   ],
