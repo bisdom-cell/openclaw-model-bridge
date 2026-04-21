@@ -1,5 +1,5 @@
 {
-  "updated": "2026-04-21 03:55:58",
+  "updated": "2026-04-21 04:14:25",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-04-21",
+      "what": "B 问题 (MOVESPEED 6 天 rsync 静默失败) 完美闭环。Mac Mini SSH 远程操作 diskutil eraseDisk APFS MOVESPEED disk6 → 抹掉重建为 APFS 容器 (disk4s1)。POSIX 测试 3/3 通过 (mkdir status_history / chmod 755 / touch+rm)。从 ~/.kb 主数据 67M 重新 rsync exit 0 全成功，MOVESPEED/KB/ 74M 与主端完全对齐 (27 项 = 27 项 diff 空)。openclaw_backup/ 11G 历史 tar.gz 完整保留。意外发现: 之前 1.2G MOVESPEED/KB/ 是 cron rsync 不带 --delete 长期累积的历史残留 (kb_dedup 清理后的旧 dreams cache/过期 notes)，不是当前主数据。根因定性: exfat + fskit 在某 transient condition 组合下间歇性 EPERM (mkdir Operation not permitted) — APFS 彻底规避。后续 6 个 cron rsync 脚本 (kb_inject/kb_evening/kb_review/kb_dream/hf_papers/kb_save_arxiv) 下次执行将自然恢复并持续工作。",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-04-21",
       "what": "Mac Mini 验证: preflight 81/0/2 + job_smoke_test 35/190/0/13 全通过。2 个新问题待排查（登记 unfinished 等 PR 合并后处理）: (A) auto_deploy 日志 11h 陈旧 crontab 注册正确(*/2 * * * *)但日志停止更新 - 需 tail ~/.openclaw/logs/auto_deploy.log + ps 验证进程 (B) KB rsync 备份 /Volumes/MOVESPEED/KB/ 142h 未更新 + openclaw_backup/status_history mkdir Operation not permitted - SSD 权限问题，6 个脚本 rsync 到该路径都 || true 静默吞错 典型 MR-4 silent-failure。其他 11 警告全部历史/外部（kb_evening 4/14-15 502 V37.8.10 案例 / governance_audit 4/11 fail 陈旧 / freight 403 外部封锁等）。",
       "by": "claude_code"
     },
@@ -198,11 +203,6 @@
       "date": "2026-04-15",
       "what": "V37.8.10 kb_evening LLM 错误链三层稀释血案闭环 (MR-4 第 9 次演出 新形态)。2026-04-14/15 连续 2 天 22:00 告警 HTTP 502 Bad Gateway，真实原因 primary Qwen3 breaker OPEN + gemini 429 quota 耗尽被 adapter→proxy→client 三跳每跳 str(e) 丢 body 稀释至状态短语。双侧结构修复：proxy_filters.compose_backend_error_str(exc) 纯函数读 e.read() body + JSON error 字段提取 + MAX_UPSTREAM_BODY_CHARS=500 + fail-open try/except；kb_review_collect._compose_http_reason 镜像。架构契约 MR-8 正向兑现 helper 放 proxy_filters 可测 (tool_proxy import 启动 HTTP server 不可测)。INV-OBSERVABILITY-001 (declaration+runtime, 12 checks) + 21 单测 (TestComposeHttpReason 10 + TestComposeBackendErrorStr 11，血案场景复现 + fail-open 反证 + tool_proxy import guard)。Fix D Mac Mini adapter 自 V36 首次重启 0.36.0→0.37.8.9 (/health version 确认), V3 capability routing 真生效但 fallback_chain 仍 [gemini] 需独立配 API key 扩第二 fallback (登记 V37.8.11 候选)。案例文档 kb_evening_fallback_quota_chain_case.md. governance v3.15→v3.16 (38→39 inv, 182→194 checks, 12/12 MR). 全量回归 1071 tests / 0 fail / 39 inv / 180/180 checks / 安全 93/100. VERSION 0.37.8.9→0.37.8.10",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-04-15",
-      "what": "V37.8.7 ontology_sources 格式错位血案闭环：位置解析 i+=3 在 LLM 漏一行时级联污染所有后续条目。修复：抽到独立模块 ontology_parser.py，按 ---/===/*** 分隔符切块 + 块内 key-based prefix 解析。同日 V37.8.6 Dream + V37.8.7 ontology_sources 双 MR-4 演出共同教训：LLM 输出格式不可严格假设。INV-ONTOLOGY-001 (declaration+runtime, 7 checks) + 24 单测 + 案例 ontology_sources_positional_parser_cascade_case.md + auto_deploy FILE_MAP + governance v3.12→v3.13 (37→38 inv, 175→182 checks)。1018 tests / 0 fail / 安全 93/100. VERSION 0.37.8.6→0.37.8.7",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -238,7 +238,7 @@
   },
   "session_context": {
     "last_session": "2026-04-17 V37.8.14 (15 commits)",
-    "unfinished": "[\"B 问题 MOVESPEED 格式化为 APFS 待执行: Desktop 已有 11G 完整备份(2026-04-21)，用户需在 Disk Utility GUI 手动抹掉 MOVESPEED 卷→APFS→rsync 恢复。所有脚本路径不变(/Volumes/MOVESPEED/KB/ 和 /Volumes/MOVESPEED/openclaw_backup/)。根治 kb_inject/kb_evening/kb_review/kb_dream/hf_papers/kb_save_arxiv 6 个脚本 rsync 静默失败 6 天问题\",\"MR-6 完成后 MRD-LAYER-002 可升级为 INV-LAYER-002 硬强制（当前 warn）\",\"audit-of-audit 4 维度在 Mac Mini --full 模式首次 run 初始化新字段 baseline（5 次后完全生效）\",\"路线 C Step 4 候选: security_score.py 独立 CLI → 纯 library (governance 一等调用方)\",\"Ontology Phase 4 领域本体: 六域概念模型 + policy_ontology.yaml + 三阶段门控\",\"V3 路标 backlog: Tool Policy Plugin + Memory Plane Plugin + Job Template SDK + pip install ontology-engine\",\"fallback_chain 扩展 ≥2 provider (需用户决策 API key)\",\"gemini quota 降频 (TPM 窗口竞争，需用户决策)\",\"auto_deploy 无变化时也应写 heartbeat log(否则 job_smoke_test 误判陈旧)\",\"6 rsync 脚本 || true 静默吞错登记为 MR-4 silent-failure 候选(B 问题格式化后如再发故障，改为 log error 而非吞)\"]",
+    "unfinished": "[\"MR-6 完成后 MRD-LAYER-002 可升级为 INV-LAYER-002 硬强制（当前 warn）\",\"audit-of-audit 4 维度在 Mac Mini --full 模式首次 run 初始化新字段 baseline（5 次后完全生效）\",\"路线 C Step 4 候选: security_score.py 独立 CLI → 纯 library (governance 一等调用方)\",\"Ontology Phase 4 领域本体: 六域概念模型 + policy_ontology.yaml + 三阶段门控\",\"V3 路标 backlog: Tool Policy Plugin + Memory Plane Plugin + Job Template SDK + pip install ontology-engine\",\"fallback_chain 扩展 ≥2 provider (需用户决策 API key)\",\"gemini quota 降频 (TPM 窗口竞争，需用户决策)\",\"auto_deploy 无变化时也应写 heartbeat log (否则 job_smoke_test 误判陈旧)\",\"6 个 cron rsync 脚本 || true 的静默吞错: B 问题 APFS 已根治，但 || true 仍在；改为 log error 让未来类似 transient 故障可见 (MR-4 silent-failure 候选)\",\"B 问题元教训记录 ontology cases: exfat → APFS 转换案例 + cron rsync 6 天静默 silent-failure 元规则 (MR-4 第 13 次演出，但本次 user 主动发现非系统自检)\",\"Desktop ~/Desktop/MOVESPEED_backup_20260421/ 12G 备份可清理 (B 问题已闭环不再需要)\"]",
     "open_prs": "",
     "blocked_on": "",
     "focus": "V37.8.7 ontology_sources 推送格式错位血案闭环 — 同日 V37.8.6+V37.8.7 双 MR-4 演出。位置解析 i+=3 → separator 切块 + key-based prefix 解析，单块缺行不级联。INV-ONTOLOGY-001 (high, declaration+runtime) + 24 单测 + 案例 ontology_sources_positional_parser_cascade_case.md。1018 tests / 38/38 invariants. 待观察: 下次 ontology_sources 10:00/20:00 cron 推送格式正确无错位",
