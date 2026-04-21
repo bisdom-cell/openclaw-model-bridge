@@ -490,3 +490,15 @@ $FAIL_LINES
     python3 "$HOME/status_update.py" --set health.last_deploy "$NEW_COMMIT" --by cron 2>/dev/null || true
     python3 "$HOME/status_update.py" --set health.last_deploy_time "$(date '+%Y-%m-%d %H:%M')" --by cron 2>/dev/null || true
 fi
+
+# V37.9.8: 无变化心跳（修 job_smoke_test 误判陈旧的副作用）
+# 策略：只在整点（分钟 < 2）且本次既无新 commit 又无 drift 时写一行 heartbeat
+# 频率：每小时最多 1 行 = 24 行/天（低噪声但保证 log mtime 在 24h 内刷新）
+# 避免：每 2 min 都写 = 720 行/天 噪声
+if ! $HAS_NEW_COMMITS && ! $HEAD_CHANGED; then
+    MIN=$(date +%M)
+    # shellcheck disable=SC2004  # zsh/bash 数值比较兼容
+    if [ "$((10#$MIN))" -lt 2 ]; then
+        echo "$(date) heartbeat: no change (HEAD=${LOCAL:0:8})" >> "$LOG"
+    fi
+fi
