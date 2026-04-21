@@ -122,6 +122,109 @@ class TestSetNested(unittest.TestCase):
         set_nested(data, "a.b", "value")
         self.assertEqual(data["a"]["b"], "value")
 
+    # ── V37.9.7: --set JSON 自动解析（闭环 2026-04-21 发现的 bug）────────
+    def test_set_parses_json_list(self):
+        """V37.9.7: '[...]' 字符串自动解析为 list"""
+        from status_update import set_nested
+        data = {}
+        set_nested(data, "items", '["a","b","c"]')
+        self.assertIsInstance(data["items"], list)
+        self.assertEqual(data["items"], ["a", "b", "c"])
+
+    def test_set_parses_json_dict(self):
+        """V37.9.7: '{...}' 字符串自动解析为 dict"""
+        from status_update import set_nested
+        data = {}
+        set_nested(data, "config", '{"k":"v","n":42}')
+        self.assertIsInstance(data["config"], dict)
+        self.assertEqual(data["config"], {"k": "v", "n": 42})
+
+    def test_set_parses_int(self):
+        """V37.9.7: 纯整数字符串解析为 int"""
+        from status_update import set_nested
+        data = {}
+        set_nested(data, "count", "42")
+        self.assertIsInstance(data["count"], int)
+        self.assertEqual(data["count"], 42)
+
+    def test_set_parses_float(self):
+        """V37.9.7: 浮点字符串解析为 float"""
+        from status_update import set_nested
+        data = {}
+        set_nested(data, "score", "93.5")
+        self.assertIsInstance(data["score"], float)
+        self.assertEqual(data["score"], 93.5)
+
+    def test_set_parses_bool_literals(self):
+        """V37.9.7: 'true'/'false'/'null' 解析为对应 Python 值"""
+        from status_update import set_nested
+        data = {}
+        set_nested(data, "enabled", "true")
+        self.assertIs(data["enabled"], True)
+        set_nested(data, "disabled", "false")
+        self.assertIs(data["disabled"], False)
+        set_nested(data, "missing", "null")
+        self.assertIsNone(data["missing"])
+
+    def test_set_plain_string_stays_string(self):
+        """V37.9.7 向后兼容: 非 JSON 字符串保持原样"""
+        from status_update import set_nested
+        data = {}
+        set_nested(data, "note", "hello world")
+        self.assertIsInstance(data["note"], str)
+        self.assertEqual(data["note"], "hello world")
+
+    def test_set_invalid_json_fallback_to_string(self):
+        """V37.9.7: 看似 JSON 但非法 → fallback 为字符串"""
+        from status_update import set_nested
+        data = {}
+        set_nested(data, "broken", "[not valid json")
+        self.assertIsInstance(data["broken"], str)
+        self.assertEqual(data["broken"], "[not valid json")
+
+    def test_set_blood_lesson_unfinished_list(self):
+        """V37.9.7 血案回归: 2026-04-21 unfinished 字段被存为 831 字符串。
+        修复后同样调用应产生 list 类型。"""
+        from status_update import set_nested
+        data = {"session_context": {}}
+        payload = '["item A","item B","item C with 特殊字符"]'
+        set_nested(data, "session_context.unfinished", payload)
+        self.assertIsInstance(
+            data["session_context"]["unfinished"], list,
+            "unfinished 必须是 list 不是 str（2026-04-21 血案）"
+        )
+        self.assertEqual(len(data["session_context"]["unfinished"]), 3)
+        self.assertEqual(
+            data["session_context"]["unfinished"][2],
+            "item C with 特殊字符"
+        )
+
+    def test_parse_cli_value_direct(self):
+        """V37.9.7: _parse_cli_value 纯函数单测"""
+        from status_update import _parse_cli_value
+        # list
+        self.assertEqual(_parse_cli_value('[1,2,3]'), [1, 2, 3])
+        # dict
+        self.assertEqual(_parse_cli_value('{"x":1}'), {"x": 1})
+        # bool
+        self.assertIs(_parse_cli_value("true"), True)
+        self.assertIs(_parse_cli_value("false"), False)
+        self.assertIsNone(_parse_cli_value("null"))
+        # int
+        self.assertEqual(_parse_cli_value("42"), 42)
+        self.assertEqual(_parse_cli_value("-7"), -7)
+        # float
+        self.assertEqual(_parse_cli_value("3.14"), 3.14)
+        # 字符串（向后兼容）
+        self.assertEqual(_parse_cli_value("hello"), "hello")
+        # 非法 JSON 看似像但失败 → 字符串
+        self.assertEqual(_parse_cli_value("[invalid"), "[invalid")
+        # 非字符串输入透传
+        self.assertEqual(_parse_cli_value([1, 2]), [1, 2])
+        self.assertIsNone(_parse_cli_value(None))
+        # 空字符串
+        self.assertEqual(_parse_cli_value(""), "")
+
 
 class TestArrayOperations(unittest.TestCase):
     """数组操作测试（add/pop/clear）"""
