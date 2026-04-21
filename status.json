@@ -1,5 +1,5 @@
 {
-  "updated": "2026-04-21 04:50:16",
+  "updated": "2026-04-21 04:58:50",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -343,7 +343,8 @@
     "V37.8.16 BLOOD LESSON (P0, TOMORROW): SOUL.md 加载失败 → OpenClaw 默认 HEARTBEAT prompt 激活 → HEARTBEAT_OK 静默血案。待做: (1) 跑 3 条验证命令确认 SOUL.md 位置和 research agent 实际收到的 system prompt (ls ~/.openclaw/agents/research/ + find SOUL.md + head session jsonl); (2) git bisect 40 commits 定位 SOUL.md 路径被改坏的 commit (候选: ONTOLOGY_MODE=on 切换 176c8f9/3b92d99/ce2c275 + status.json 豁免); (3) 恢复 SOUL.md 正确加载路径; (4) 新 INV-PA-003 soul-md-must-be-loaded (运行时 probe 测 response NOT = HEARTBEAT_OK); (5) 新 MR-13 候选 external-default-fallbacks-must-be-audited; (6) 案例文档 ontology/docs/cases/soul_md_load_broken_heartbeat_fallback_case.md; (7) 反面教材案例 ontology/docs/cases/misdiagnosis_bad_mac_cascade.md 记录今晚我的原则#28违规 (Bad MAC 错归因 + rm -rf 过度操作 + 差点让用户扫码); (8) 全量回归 + 治理审计 + Mac Mini E2E 验证",
     "CLAUDE.md 原则#30 模型 ID 字面量过时: 指定 claude-opus-4-6 但实际运行 claude-opus-4-7 (新一代, 非降级)。明天 V37.8.16 收工时顺便把 CLAUDE.md 原则 #30 的模型 ID 措辞改为\"Claude Opus 最新版\"或直接写 4.7 (因为 4.7 是当前最强非降级)",
     "WhatsApp 入站路由到 research agent 而非 main（4/10 WhatsApp plugin 安装副作用）: main/sessions.json mtime 从 Mar 30 起 dormant, 但 HEARTBEAT.md 修复后 research 正常响应不致命. 长期考虑: channels.whatsapp.agent 显式配置 / agents.list 顺序调整 / 验证 WhatsApp plugin inbound handler routing 逻辑",
-    "原则 #30 升级: Opus 4.7 应被纳入合法模型列表（目前只列 Opus 4.6）, 4.7 是 4.6 的更强升级版不是降级, 满足第 0 号宪法精神"
+    "原则 #30 升级: Opus 4.7 应被纳入合法模型列表（目前只列 Opus 4.6）, 4.7 是 4.6 的更强升级版不是降级, 满足第 0 号宪法精神",
+    "V37.9.5 workspace SOUL.md 副本观察项: workspace/SOUL.md (12KB) 可能与 ~/openclaw-model-bridge/SOUL.md 主源内容相似, 当前选项 A 保持索引接受少量重复(<0.1% chunks). 长期观察 RAG 检索是否有'两份 SOUL 噪声'迹象, 如有再加 WORKSPACE_EXCLUDE_BASENAMES"
   ],
   "_meta": {
     "last_updated_by": "claude_code"
