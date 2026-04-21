@@ -379,5 +379,5 @@ if [ "$(wc -l < "$SEEN_FILE" | tr -d ' ')" -gt 500 ]; then
 fi
 
 # ── 10. rsync备份 ────────────────────────────────────────────────────
-rsync -a --quiet "$HOME/.kb/" "/Volumes/MOVESPEED/KB/" 2>/dev/null || true
+rsync -a "$HOME/.kb/" "/Volumes/MOVESPEED/KB/" 2>&1 || echo "[$(basename "$0")] WARN: SSD rsync failed (exit=$?)" >&2  # V37.9.4 MR-4 silent-failure 修复
 log "完成"
