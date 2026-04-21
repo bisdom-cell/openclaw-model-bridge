@@ -1,6 +1,6 @@
 {
-  "updated": "2026-04-21 04:27:35",
-  "updated_by": "full_regression",
+  "updated": "2026-04-21 04:50:16",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-04-21",
+      "what": "V37.9.5 数据全景审计 + workspace 接缝盲区闭合 (3+4 路径). 用户直觉 67M 太少驱动审计, 发现真业务数据 ~75MB (workspace 109M 中 109M=venv 不算业务, logs 105M 中 90M=err 噪声). 任务 3: kb_embed.py 扩展索引 ~/.openclaw/workspace/*.md 顶层, 排 HEARTBEAT.md (V37.8.16) + .bak. MEMORY.md 单独 source_type=memory 保留向后兼容, 其他 .md 用新 source_type=workspace. INV-KB-COVERAGE-001 (MR-4, severity=high, layer=[decl,runtime]) + 10 新单测 test_kb_embed_workspace.py (subprocess 调外部避开 V37.3 exec scope trap). 任务 4: 4/20 kb_harvest 78 条/天合理无需修改. MR-4 第 15 次演出新形态 = 数据接缝盲区. governance v3.28→v3.29 / 57 inv / 265 checks / 39 suites / 1147 tests / 安全 93/100 / VERSION 0.37.9.4→0.37.9.5",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-04-21",
       "what": "V37.9.4 B 问题系统化预防完成 (B-1+B-2): (1) 20 处 cron rsync 反模式批量修复 (5 根目录 kb_dream/kb_save_arxiv/kb_evening/kb_inject/kb_review + run_hn_fixed.sh + 13 jobs/ 含 freight 2 处), 旧 2>/dev/null || true 双层吞错 → 新 2>&1 || echo WARN >&2 fail-loud 模式. (2) INV-BACKUP-001 新增 (MR-4, severity=high, declaration+runtime), 部署即时抓出第 20 个漏网 run_hn_fixed.sh 证明守卫有效. (3) 案例文档 movespeed_exfat_silent_backup_failure_case.md (完整四维度因果链 + MR-4 14 次演出 + MR-8 反例). governance v3.27→v3.28 / 56 inv / 261 checks. 38/1137/0 fail / 安全 93/100. VERSION 0.37.9.3→0.37.9.4.",
       "by": "claude_code"
     },
@@ -198,11 +203,6 @@
       "date": "2026-04-16",
       "what": "V37.8.13 Gateway 宕 9h 静默血案闭环 (MR-4 第 11 次演出): (1) quiet_alert 静默期 Discord 穿透 (2) wa_keepalive 连续 2 次 WARN 自动 Discord 升级 (3) restart.sh 15s 健康验证 + INV-WA-001(7)+INV-QUIET-001(4) + case doc + MR-14 元规则。附带: V37.8.12 FILE_MAP 自复制修复 + status.json format_human 防崩 + MR-13 错误链透明度元规则 + proxy_stats >100% 数学修复 + SCMPNews 僵尸删除 + watchdog 11→19 job。governance v3.18 (42 inv/210 checks/14 MR)。12 commits / 1092 tests / 0 fail / 安全 93/100",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-04-15",
-      "what": "V37.8.11 auto_deploy 每小时漂移告警噪声闭环 (MR-4 第 10 次演出 — expected-behavior 错分类为 error)。用户反馈每小时 [SYSTEM_ALERT] 漂移检测，确认问题存在长期。根因: V37.8.1 preflight status.json 合法分叉豁免但 auto_deploy drift 循环漏改。修复: auto_deploy.sh:319 镜像同款 if SRC==status.json then continue 豁免，new-commit 路径保留 intent 单向下传契约。INV-DEPLOY-003 (declaration, 5 checks): preflight 豁免守卫 + auto_deploy 豁免关键字 + V37.8.11 注释 + FILE_MAP 仍含 status.json。governance v3.16→v3.17 (39→40 inv, 194→199 checks). 原则 #15 反思: 半天 WhatsApp 实际观察就能发现。VERSION 0.37.8.10→0.37.8.11",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -256,11 +256,11 @@
   },
   "quality": {
     "security_score": "93",
-    "test_count": "1137",
-    "last_regression": "2026-04-21 04:27 pass",
+    "test_count": "1147",
+    "last_regression": "2026-04-21 04:49 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-04-21 04:27",
-    "test_suites": "38",
+    "security_score_time": "2026-04-21 04:49",
+    "test_suites": "39",
     "governance_invariants": "52/52",
     "governance_checks": "222/233",
     "version": "0.37.9.4"
