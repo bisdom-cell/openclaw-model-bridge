@@ -1554,6 +1554,54 @@ invariants:
               "critical 不变式必须有 ≥2 层，典型组合 [declaration, runtime]。"
           )
 
+  - id: INV-LAYER-002
+    name: high-invariants-have-two-layers
+    meta_rule: MR-6
+    verification_layer: [declaration, runtime]
+    severity: high
+    declaration: "所有 severity=high 的不变式必须在 verification_layer 中声明 ≥2 个层（典型组合 [declaration, runtime]），防止单层虚假安全感"
+    design_decision: |
+      V37.9 引入 MRD-LAYER-002 作为 severity=high 的渐进警告层：
+      当时有 12 个单层 high 技术债，warn 级暴露但不阻塞。
+      V37.9.2 减到 9，V37.9.3 减到 0，MRD-LAYER-002 变 ✅ pass。
+      V37.9.8 把保护升级为 fail-stopping hard invariant — 再有新增
+      single-layer high 不变式，governance_checker 直接退出 1。
+
+      与 INV-LAYER-001 的关系（双轨一致）：
+        - INV-LAYER-001: severity=critical 不变式 ≥2 层（2026-04-11 立案）
+        - INV-LAYER-002: severity=high 不变式 ≥2 层（2026-04-21 立案）
+      MRD-LAYER-002 仍保留作为自发现扫描器（供未来扩展到 medium 时参考）。
+    source_case: |
+      2026-04-21 V37.9.3 完成 MR-6 所有 high 不变式补齐后，
+      今日 V37.9.8 把渐进警告升级为硬强制。
+    checks:
+      # declaration layer: 同 INV-LAYER-001 的 MR-6 元规则引用
+      - name: "MR-6 critical-invariants-need-depth 元规则存在（共享 INV-LAYER-001）"
+        check_type: file_contains
+        file: ontology/governance_ontology.yaml
+        pattern: "critical-invariants-need-depth"
+      # runtime layer: 遍历自身 YAML，任何 severity==high 但 layers<2 = fail
+      - name: "所有 high 不变式声明 ≥2 层验证深度"
+        check_type: python_assert
+        code: |
+          import yaml
+          with open("ontology/governance_ontology.yaml") as f:
+              data = yaml.safe_load(f)
+          shallow = []
+          for inv in data.get("invariants", []):
+              if inv.get("severity") != "high":
+                  continue
+              layers = inv.get("verification_layer", [])
+              if not isinstance(layers, list) or len(layers) < 2:
+                  shallow.append(
+                      f"{inv.get('id','?')} (verification_layer={layers})"
+                  )
+          assert not shallow, (
+              f"{len(shallow)} 个 high 不变式仅有单层验证（MR-6 违反）: "
+              f"{', '.join(shallow)}. "
+              "high 不变式必须有 ≥2 层（V37.9.8 起硬强制，原 MRD-LAYER-002 警告级）。"
+          )
+
   # ── PA 对话上下文隔离（V37.4.3 血案）──────────────────────────────────
 
   - id: INV-PA-001
@@ -4045,10 +4093,10 @@ invariants:
         check_type: file_contains
         file: job_watchdog.sh
         pattern: 'echo "\$recent_window" \| grep'
-      - name: "ACL Anthology 阈值已调到 14 天 (1209600s)"
+      - name: "ACL Anthology 阈值已调到 28 天 (2419200s, V37.9.8 最新)"
         check_type: file_contains
         file: job_watchdog.sh
-        pattern: "1209600"
+        pattern: "2419200"
       - name: "rss_blogs.sh 已注释掉死链 LangChain"
         check_type: python_assert
         code: |
