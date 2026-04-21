@@ -1,6 +1,6 @@
 {
-  "updated": "2026-04-21 05:18:27",
-  "updated_by": "claude_code",
+  "updated": "2026-04-21 05:40:16",
+  "updated_by": "full_regression",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -238,7 +238,20 @@
   },
   "session_context": {
     "last_session": "2026-04-17 V37.8.14 (15 commits)",
-    "unfinished": "[\"MR-6 完成后 MRD-LAYER-002 可升级为 INV-LAYER-002 硬强制（当前 warn）\",\"audit-of-audit 4 维度在 Mac Mini --full 模式首次 run 初始化新字段 baseline（5 次后完全生效）\",\"路线 C Step 4 候选: security_score.py 独立 CLI → 纯 library (governance 一等调用方)\",\"Ontology Phase 4 领域本体: 六域概念模型 + policy_ontology.yaml + 三阶段门控\",\"V3 路标 backlog: Tool Policy Plugin + Memory Plane Plugin + Job Template SDK + pip install ontology-engine\",\"fallback_chain 扩展 ≥2 provider (需用户决策 API key)\",\"gemini quota 降频 (TPM 窗口竞争，需用户决策)\",\"auto_deploy 无变化时也应写 heartbeat log (否则 job_smoke_test 误判陈旧)\",\"6 个 cron rsync 脚本 || true 的静默吞错: B 问题 APFS 已根治，但 || true 仍在；改为 log error 让未来类似 transient 故障可见 (MR-4 silent-failure 候选)\",\"B 问题元教训记录 ontology cases: exfat → APFS 转换案例 + cron rsync 6 天静默 silent-failure 元规则 (MR-4 第 13 次演出，但本次 user 主动发现非系统自检)\",\"Desktop ~/Desktop/MOVESPEED_backup_20260421/ 12G 备份可清理 (B 问题已闭环不再需要)\"]",
+    "unfinished": [
+      "MR-6 完成后 MRD-LAYER-002 可升级为 INV-LAYER-002 硬强制（当前 warn）",
+      "audit-of-audit 4 维度在 Mac Mini --full 模式首次 run 初始化新字段 baseline（5 次后完全生效）",
+      "路线 C Step 4 候选: security_score.py 独立 CLI → 纯 library (governance 一等调用方)",
+      "Ontology Phase 4 领域本体: 六域概念模型 + policy_ontology.yaml + 三阶段门控",
+      "V3 路标 backlog: Tool Policy Plugin + Memory Plane Plugin + Job Template SDK + pip install ontology-engine",
+      "fallback_chain 扩展 ≥2 provider (需用户决策 API key)",
+      "gemini quota 降频 (TPM 窗口竞争，需用户决策)",
+      "auto_deploy 无变化时也应写 heartbeat log (否则 job_smoke_test 误判陈旧)",
+      "Desktop ~/Desktop/MOVESPEED_backup_20260421/ 12G 备份可清理 (B 问题已闭环不再需要)",
+      "V37.9.6 ACL 13 天无更新真因调查: 是 ACL 学术源真无新论文还是抓取脚本 0 输出 bug (阈值已调到 14d 止噪但根因待查)",
+      "V37.9.5 SOUL.md workspace 副本观察项: workspace/SOUL.md (12KB) 可能与 ~/openclaw-model-bridge/SOUL.md 主源内容相似, 长期观察 RAG 检索若噪声明显再加 WORKSPACE_EXCLUDE_BASENAMES",
+      "V37.9.6 下次 watchdog 跑验证: awk 行级时间戳过滤生效后告警条数预期从 12 降到 5-7; 如明天 12:30 仍见 4/8 陈旧告警需查 awk edge case"
+    ],
     "open_prs": "",
     "blocked_on": "",
     "focus": "V37.8.7 ontology_sources 推送格式错位血案闭环 — 同日 V37.8.6+V37.8.7 双 MR-4 演出。位置解析 i+=3 → separator 切块 + key-based prefix 解析，单块缺行不级联。INV-ONTOLOGY-001 (high, declaration+runtime) + 24 单测 + 案例 ontology_sources_positional_parser_cascade_case.md。1018 tests / 38/38 invariants. 待观察: 下次 ontology_sources 10:00/20:00 cron 推送格式正确无错位",
@@ -255,15 +268,15 @@
     "last_session_focus": "V37.8.16 -> V37.9.2: Stage 2 验证者阶段完整交付（路线 A 15血案回填 + 路线 B 16对抗场景 + 6/6 盲区全闭 + V37.9 结构加固 + V37.9.1 安全统一 + V37.9.2 MR-6 深度补齐）"
   },
   "quality": {
-    "security_score": "93",
-    "test_count": "1159",
-    "last_regression": "2026-04-21 05:18 pass",
+    "security_score": 93,
+    "test_count": 1168,
+    "last_regression": "2026-04-21 05:40 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-04-21 05:18",
-    "test_suites": "40",
+    "security_score_time": "2026-04-21 05:40",
+    "test_suites": 40,
     "governance_invariants": "52/52",
     "governance_checks": "222/233",
-    "version": "0.37.9.6"
+    "version": "0.37.9.7"
   },
   "incidents": [
     {

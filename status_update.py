@@ -235,15 +235,47 @@ def format_human(data):
     return "\n".join(lines)
 
 
+def _parse_cli_value(raw):
+    """V37.9.7: CLI --set/--add VALUE 自动检测并解析 JSON 字面量。
+
+    触发条件: 首字符为 '[' '{' 'true' 'false' 'null' 或纯数字
+    → json.loads() 得到 list/dict/bool/None/int/float
+    失败或非 JSON 形 → 返回原字符串（向后兼容）
+
+    背景: 2026-04-21 bug — `status_update.py --set unfinished '[...]'`
+    被当字符串存，`--read --human` 按字符迭代。此函数修复该盲区。
+    """
+    if not isinstance(raw, str) or not raw:
+        return raw
+    s = raw.strip()
+    # JSON 字面量触发字符
+    if s[:1] in "[{" or s in ("true", "false", "null"):
+        try:
+            return json.loads(s)
+        except (ValueError, TypeError):
+            pass  # 不是合法 JSON → 当字符串
+    # 纯整数/浮点（严格格式，不误报科学记数法外情况）
+    if s.lstrip("-").replace(".", "", 1).isdigit():
+        try:
+            return int(s) if "." not in s else float(s)
+        except (ValueError, TypeError):
+            pass
+    return raw
+
+
 def set_nested(data, key_path, value):
-    """设置嵌套字段，如 'health.services' → data['health']['services']。"""
+    """设置嵌套字段，如 'health.services' → data['health']['services']。
+
+    V37.9.7: value 若为 JSON 字面量（'[...]' / '{...}' / true/false/null /
+    数字字符串），自动解析为对应 Python 类型。其他字符串保持原样（向后兼容）。
+    """
     keys = key_path.split(".")
     obj = data
     for k in keys[:-1]:
         if k not in obj or not isinstance(obj[k], dict):
             obj[k] = {}
         obj = obj[k]
-    obj[keys[-1]] = value
+    obj[keys[-1]] = _parse_cli_value(value)
 
 
 def main():
