@@ -447,5 +447,5 @@ if [ "$(wc -l < "$SEEN_FILE" | tr -d ' ')" -gt 1000 ]; then
     echo "[dblp] seen缓存已裁剪至500条"
 fi
 
-rsync -a --quiet "$HOME/.kb/" "/Volumes/MOVESPEED/KB/" 2>/dev/null || true
+rsync -a "$HOME/.kb/" "/Volumes/MOVESPEED/KB/" 2>&1 || echo "[$(basename "$0")] WARN: SSD rsync failed (exit=$?)" >&2  # V37.9.4 MR-4 silent-failure 修复
 log "完成"

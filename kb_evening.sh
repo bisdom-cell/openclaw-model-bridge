@@ -216,8 +216,8 @@ else
     rm -f "$SEND_ERR"
 fi
 
-# ── 9. rsync 备份 ──
-rsync -a --quiet "$KB_DIR/" "/Volumes/MOVESPEED/KB/" 2>/dev/null || true
+# ── 9. rsync 备份（V37.9.4: 失败 log WARN 而非静默吞错，MR-4 silent-failure 修复）──
+rsync -a "$KB_DIR/" "/Volumes/MOVESPEED/KB/" 2>&1 || echo "[$(basename "$0")] WARN: SSD rsync failed (exit=$?)" >&2
 
 log "晚间整理 ${DATE} | 覆盖 ${SOURCES_USED} 源 | 笔记总数 ${NOTE_COUNT} | 今日新增 ${TODAY_NOTE_COUNT} 篇 | LLM: ✓"
 log "晚间整理文件: ${EVENING_FILE}"

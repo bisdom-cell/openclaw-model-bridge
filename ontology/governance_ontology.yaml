@@ -3894,6 +3894,111 @@ invariants:
               f"kb_harvest_chat.py AST 函数名未出现 MapReduce 语义模式: "
               f"函数 = {func_names[:10]}, 命中关键词 = {set(hits)}"
           )
+
+  - id: INV-BACKUP-001
+    name: ssd-rsync-backup-fails-loud
+    meta_rule: MR-4
+    verification_layer: [declaration, runtime]
+    severity: high
+    declaration: |
+      所有 cron 脚本对外挂 SSD 的 rsync 备份必须在失败时 log WARN 到 stderr，
+      不得用 `2>/dev/null || true` 双层吞错。MR-4 silent-failure 在
+      V37.9.4 第 14 次演出（exfat 6 天阻塞）的预防层修复。
+    lesson: |
+      2026-04-21 V37.9.4 血案：MOVESPEED exfat → APFS 转换暴露了 6 天 cron rsync
+      静默失败盲区。19 个脚本（kb_dream/kb_save_arxiv/kb_evening/kb_inject/
+      kb_review + 13 个 jobs/）统一改为 `2>&1 || echo "[XXX] WARN: SSD rsync
+      failed (exit=$?)" >&2`，让未来同类故障可见。
+    design_decision: |
+      不抽 helper（如 rsync_to_ssd.sh）以保持 inline 简洁——19 处统一模式 grep
+      可验证，违反 = 立即 audit 失败。helper 抽象在 V3 路标后期再考虑。
+    checks:
+      - name: "无脚本含 rsync MOVESPEED 2>/dev/null || true 反模式"
+        check_type: python_assert
+        code: |
+          # V37.9.4: 全局扫描 .sh 禁止 rsync MOVESPEED 双层吞错反模式
+          import os, re
+          violations = []
+          # V37.3 教训: 避免 generator 跨 exec scope，用 iterative loop
+          for root, dirs, files in os.walk("."):
+              if ".git" in dirs:
+                  dirs.remove(".git")
+              if "node_modules" in dirs:
+                  dirs.remove("node_modules")
+              for fn in files:
+                  if not fn.endswith(".sh"):
+                      continue
+                  p = os.path.join(root, fn)
+                  try:
+                      with open(p, "r", encoding="utf-8") as f:
+                          content = f.read()
+                  except (IOError, UnicodeDecodeError):
+                      continue
+                  if re.search(r"rsync.*MOVESPEED.*2>/dev/null\s*\|\|\s*true", content):
+                      violations.append(p)
+          assert not violations, (
+              f"反模式残留 {len(violations)} 个: {violations}\n"
+              f"应改为 `2>&1 || echo \"[xxx] WARN: ...\" >&2`"
+          )
+      - name: "所有 SSD 备份脚本含 WARN: SSD 失败 log"
+        check_type: python_assert
+        code: |
+          # V37.9.4: 任何含 rsync MOVESPEED 的 .sh 必须同时有 "WARN: SSD" 字样
+          import os, re
+          missing = []
+          for root, dirs, files in os.walk("."):
+              if ".git" in dirs:
+                  dirs.remove(".git")
+              if "node_modules" in dirs:
+                  dirs.remove("node_modules")
+              for fn in files:
+                  if not fn.endswith(".sh"):
+                      continue
+                  p = os.path.join(root, fn)
+                  try:
+                      with open(p, "r", encoding="utf-8") as f:
+                          content = f.read()
+                  except (IOError, UnicodeDecodeError):
+                      continue
+                  if "rsync" in content and "MOVESPEED" in content:
+                      if "WARN: SSD" not in content:
+                          missing.append(p)
+          assert not missing, (
+              f"{len(missing)} 个 SSD rsync 脚本缺失 WARN log: {missing}"
+          )
+      - name: "V37.9.4 runtime: rsync 失败时真 log 到 stderr (非吞)"
+        check_type: python_assert
+        code: |
+          # Runtime: 模拟 rsync 失败场景，验证新模式确实 log WARN 到 stderr
+          # 构造一个最小 sample 使用同样的 fail-loud 模式
+          import subprocess, tempfile, os
+          script = '''#!/usr/bin/env bash
+          # 模拟新模式（与 19 个生产脚本相同结构）
+          rsync -a /nonexistent/source/ /nonexistent/dest/ 2>&1 || \
+              echo "[$(basename "$0")] WARN: SSD rsync failed (exit=$?)" >&2
+          '''
+          with tempfile.NamedTemporaryFile(mode='w', suffix='.sh', delete=False) as f:
+              f.write(script)
+              tmp = f.name
+          try:
+              os.chmod(tmp, 0o755)
+              proc = subprocess.run(
+                  ["bash", tmp],
+                  capture_output=True, text=True, timeout=10,
+              )
+              # 关键断言: stderr 包含 WARN: SSD（不再静默吞）
+              assert "WARN: SSD" in proc.stderr, (
+                  f"新模式未在 rsync 失败时 log 到 stderr:\n"
+                  f"stderr={proc.stderr[:300]}\nstdout={proc.stdout[:300]}"
+              )
+              # 反例验证: 不应在 stdout（必须是 stderr，命令替换才不污染）
+              assert "WARN: SSD" not in proc.stdout, (
+                  f"WARN log 错误地写到 stdout 而非 stderr (会污染 cmd substitution):\n"
+                  f"stdout={proc.stdout[:300]}"
+              )
+          finally:
+              os.unlink(tmp)
+
 # ═══════════════════════════════════════════════════════════════════════
 # 4. 可执行元规则（Phase 0）— 自动发现缺失不变式
 #    只扫描结构化数据源，不解析自然语言
@@ -4252,7 +4357,7 @@ security_config:
 # 6. 审计元数据
 # ═══════════════════════════════════════════════════════════════════════
 audit_metadata:
-  version: "3.27"
+  version: "3.28"
   created: "2026-04-07"
   upgraded: |
     v3.0 → v3.1: 通知路径治理(INV-NOTIFY-003/004) + 错误可观测性(MRD-ERROR-001) + 效果层启动(MRD-NOTIFY-002)
@@ -4268,6 +4373,7 @@ audit_metadata:
     v3.9 → v3.10: V37.8.4 finance_news X 僵尸账号血案 — INV-X-001 新增 (syndication-account-must-have-fresh-tweets, meta_rule=MR-10, severity=high) 锁定 5 层防御: parser 检测 diag['total']>0 且 100% 超窗口 + ⚠️ ZOMBIE嫌疑 诊断前缀 + 独立 zombies_${DAY}.txt 文件 + 3 天 comm -12 连续告警 + 7 个已确认僵尸 handle (Reuters/WorldBank/BrookingsInst/caixin/yicaichina/ChannelNewsAsia/straits_times) file_not_contains 守卫。CLAUDE.md 原则 #27 升级强制条款 "X 账号健康 ≠ HTTP 200" — 协议层绿灯不等于内容层健康，Syndication API 对 embed-disabled 或停更账号返回 stale 快照 (最老 3364 天)。本次是 MR-10 (V37.8.3 引入) 被违反后的正向兑现: 血案本身成为元规则执行力的训练样本。
     v3.25 → v3.26: V37.9.2 MR-6 深度补齐 — 12 单层 high 减到 9（-3），逐个升级到双层 [declaration, runtime]. (1) INV-PA-002 (SOUL.md 规则 10 存在): 加 runtime 解析规则 10 完整块（标题定位 + 下一规则边界 + 5 关键短语必须都在块内 + 块长度 ≥ 400 chars）防"关键短语散落在其他规则被误判通过"盲区. 避开 V37.3 exec scope trap 用 iterative for 替代 list comprehension. (2) INV-DREAM-001 (map-budget-scales-with-mode): 加 runtime 真解析 kb_dream.sh 所有 DREAM_TIMEOUT_SEC 赋值，断言 max >= 5400s (MAP_ONLY 90min) + min <= 3600s (Reduce 60min) + 差值 >= 1800s（证实真动态而非常量）. (3) INV-DEPLOY-003 (status.json drift 豁免): 加 runtime 扫两侧脚本 (preflight + auto_deploy) 每个 "status.json" 字面量 500 字符内有 continue，跳过注释引用（三 case 证实 continue 紧随豁免）. MRD-LAYER-002 单层 high warn 从 12 → 9. 本次补齐策略："选择最稳升级"（已有 runtime 可行且不需新增依赖），留下最硬的 9 个作为未来血案修复时顺便升级。governance v3.25→v3.26 / 253→256 checks (+3).
     v3.26 → v3.27: V37.9.3 四项顺序推进 — MR-6 剩余 9 个 high 全部补齐 + audit-of-audit 4 维度 + 路线 C Step 3 数据源统一. (1) MRD-LAYER-002 从 ⚠️9 个 warn → ✅ pass：Batch A 纯 metadata 修正 3 个（INV-TOOL-003/CRON-002/NOTIFY-003 已有 python_assert 但 layer 错标）+ Batch B 真补 runtime 5 个（INV-NOTIFY-002/HEALTH-001/NOTIFY-004/JOB-GOVAUDIT-001/JOB-HARVEST-001 加 subprocess/AST 级 runtime check）+ Batch C 缺 declaration 1 个（INV-CRON-004 加 _cron_cmd_invokes + cmd.endswith(entry) YAML 源码守卫）。25 个 high 不变式全部 ≥2 层验证。(2) MRD-AUDIT-PERF-001 从 1 维扩展到 4 维: 加 peak_memory_mb（1.5x+10MB 跨平台 resource.ru_maxrss）+ bootstrap_ms（2.0x+500ms, SESSION_START → FIRST_CHECK 启动开销）+ skip_rate_pct（abs +20pct 突增）。_AUDIT_FIRST_CHECK_TIME 在 run_all 首次 iter 时 stamp. 老 history 缺字段时 median=0 自动跳过该维度（向后兼容）。14 新单测 test_audit_perf_dimensions.py 锁定 4 维度阈值边界 + 向后兼容 + 跨平台内存。(3) 路线 C Step 3 终态: governance_ontology.yaml 顶层新增 security_config.dimensions 作为 7 维度阈值唯一真理源。INV-SEC-001 runtime 从 YAML 读阈值（不再硬编码）+ 新增维度名对齐守卫（防改名漂移）。security_score.py 新增 load_ontology_thresholds() + check_ontology_thresholds() 纯函数 + --check-ontology-thresholds CLI。12 新单测 test_security_ontology_alignment.py 锁定跨源一致性。(4) jobs/finance_news/run_finance_news.sh 4/20 07:30 告警路径诊断: TZ 统一 + 5 个跳过分支诊断 log + notify 调用失败捕获（根因定性为 Gateway 瞬时故障，已自愈，代码层无 bug）。governance v3.26→v3.27 / 256→258 checks (+2) / 38 suites / 1137 tests (+26).
+    v3.27 → v3.28: V37.9.4 B 问题闭环 + MR-4 silent-failure 第 14 次演出系统化预防 — (1) INV-BACKUP-001 新增 (ssd-rsync-backup-fails-loud, meta_rule=MR-4, severity=high, layer=[declaration, runtime]): 3 checks 守卫 20 处脚本统一改为 fail-loud 模式. declaration 1 全局扫 .sh 禁止 `2>/dev/null \|\| true` 反模式; declaration 2 任何含 rsync MOVESPEED 的 .sh 必须有 "WARN: SSD" 字样; runtime 真跑模拟 rsync 失败断言 stderr 含 WARN + stdout 不含. 部署即时验证: 第 1 次跑就抓出第 20 个漏网 (run_hn_fixed.sh), 证明声明层守卫真有效. (2) 18 个文件 / 20 处脚本批量修复: 旧 `rsync ... 2>/dev/null \|\| true` → 新 `rsync ... 2>&1 \|\| echo "[XXX] WARN: SSD rsync failed (exit=$?)" >&2`. 覆盖 5 根目录 (kb_dream/kb_save_arxiv/kb_evening/kb_inject/kb_review) + run_hn_fixed.sh + 13 jobs/ (含 freight 2 处). (3) 案例文档 ontology/docs/cases/movespeed_exfat_silent_backup_failure_case.md 完整四维度因果链 + 三层根因 (exfat fskit 触发 / 18 处复制粘贴反模式放大 / 监控盲区掩护) + MR-4 14 次演出对照表 + MR-8 反例兑现. governance v3.27→v3.28 / 55→56 inv (+1 INV-BACKUP-001) / 258→261 checks (+3).
     v3.24 → v3.25: V37.9.1 路线 C Step 2 + Stage 2 话语权输出 — (1) INV-SEC-001 runtime 扩展 per-dimension 阈值守卫: 7 个维度各有 MIN_THRESHOLDS dict（密钥 15/测试 13/数据 10/部署 15/传输 9/审计 15/可用 8），从"总分 ≥ 90"升级为"每维度都不能塌陷"。防"某维度掉到 0 但总分被其他维度拉高"的盲区。compute_score() import 并解析 dimensions list 对比阈值。避开 exec() 作用域陷阱用 iterative 循环。(2) 话语权文章 docs/articles/audit_is_regression_not_prevention.md: 基于路线 A 618 行回填 + 路线 B 177 行对抗报告，用 6 个实证数据论证"audit 不是 prevention 是 regression engine"。Stage 2 从系统构建者到系统作者的第 4 份公开资产（前 3: Control Plane / Seven Failures / Provider Compat）。(3) OpenClaw 升级评估: 距上次评估 4/17 仅 3 天 + 上游 v2026.4.15 #59265 14 版本未修复，继续 hold v2026.3.13-1。governance v3.24→v3.25, 252→253 checks (+1 per-dimension runtime).
     v3.23 → v3.24: V37.9 四项结构性加固 — 从"修血案"进入"建制度"阶段。(1) 对抗审计 Cat A 集成 full_regression layer 3.5: adversarial_chaos_audit.py 原是一次性工具, 现在每次 PR 合并前自动跑 10 个已知血案场景, 防御力退化立即在 CI 层失败. status.json 被 full_regression 自己写入导致 git 不 clean, 通过豁免 status.json 解决. (2) MR-6 扩展 severity=high: MRD-LAYER-002 渐进强制 warn 级暴露 12 个单层 high 技术债 (INV-TOOL-003/CRON-002/NOTIFY-002-004/HEALTH-001/CRON-004/DREAM-001/PA-002/DEPLOY-003/JOB-GOVAUDIT-001/JOB-HARVEST-001), 不阻塞但持续可见推动逐个补齐, 完成后可升级为 INV-LAYER-002 硬强制. (3) C16 audit-of-audit 子系统 (MR-7 观察者盲区补齐): governance_checker __main__ 结尾写 ontology/.audit_metrics.jsonl (wall_time_ms / check_count / skip_count 等); MRD-AUDIT-PERF-001 读 SESSION_START 实时 wall_time + 历史 5 次中位数对比 (median 抗 outlier), 双条件阈值 1.3x 相对退化 + 300ms 绝对差触发 warn. Route B C16 对抗 sleep 0.5s → 1.5s (原 0.5s 在 noise 范围), 验证 MRD 立即 UNEXPECTED catch. 至此 Route B 6/6 盲区全部闭合. (4) 路线 C Security + Governance 双轨统一: MR-16 security-dimensions-governed-by-invariants 立案 + INV-SEC-001 security-score-meets-threshold 作为 Step 1 粗粒度守卫 (总分 ≥ 90), runtime 调 security_score.py 解析"安全评分：N/100"对比. 未来 Step 2 按 7 维度细化为 7 个 INV-SEC-*. governance v3.23→v3.24 (55 不变式 +1 / 252 checks +3 / 15 meta rules +1). 对抗审计最终防御率 Category A 10/10 + Category B 6/6 = 16/16 (100%).
     v3.22 → v3.23: V37.8.18 Phase 2 Route B 盲区修复续（5/6 累计）— 基于 V37.8.18 Phase 1 的 3/6 成绩继续修复 🟡 中优先级 2 个盲区: (1) INV-COST-001 新增（C12 盲区）: retry 相关常量上限守卫（ceiling=10）. 4 checks: config.yaml max_retries 不超过 10 + adapter.py 硬编码 MAX_RETRIES/max_retries 不超过 10 + runtime 扫仓库所有 .py 和 config.yaml 所有 retry 常量. 避开 exec() 作用域陷阱用 iterative stack-based walk 而非嵌套 def. (2) INV-OBSERVABILITY-001 扩展（C13 盲区）: last_run_*.json 一致性守卫. 4 个 file_contains 锁定 kb_inject/kb_evening/kb_review/kb_harvest_chat 写 last_run_*.json + runtime 断言 job_watchdog.sh 的监控列表与脚本实际写入路径一致（通过解析 job_watchdog 的 `last_run_(\w+).json` pattern 并对比脚本源码）. 防 C13 类 silent 断链（脚本改路径但 watchdog 未同步）. Route B 意外 catch 从 V37.8.18 Phase 1 的 3/6 升到 Phase 2 后 5/6 (83%). 仅剩 C16 audit-of-audit（架构级，V37.9 候选）. governance v3.22→v3.23. 累计 V37.8.18 成就: 53→54 不变式 (+INV-COST-001), 240→249 checks (+9: INV-KB-001 dict runtime / INV-COST-001 4 / INV-OBSERVABILITY-001 extension 5), 9→11 MRD scanners (+MRD-SILENT-EXCEPT-001 + MRD-PUSH-ROUTE-001).

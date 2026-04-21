@@ -505,8 +505,8 @@ chmod 750 "$KB_DIR" 2>/dev/null || true
 chmod 640 "$KB_DIR/status.json" 2>/dev/null || true
 chmod 640 "$KB_DIR/index.json" 2>/dev/null || true
 
-# ── rsync 备份 ──
-rsync -a --quiet "$KB_DIR/" "/Volumes/MOVESPEED/KB/" 2>/dev/null || true
+# ── rsync 备份（V37.9.4: 失败 log WARN 而非静默吞错，MR-4 silent-failure 修复）──
+rsync -a "$KB_DIR/" "/Volumes/MOVESPEED/KB/" 2>&1 || echo "[$(basename "$0")] WARN: SSD rsync failed (exit=$?)" >&2
 
 # V37.8.13: 写 last_run.json 供 watchdog 观察
 INJECT_STATUS_FILE="$KB_DIR/last_run_inject.json"

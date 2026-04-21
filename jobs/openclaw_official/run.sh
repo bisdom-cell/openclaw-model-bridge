@@ -200,7 +200,7 @@ echo "---- SYSTEM MESSAGE ----"
 cat "$MSG"
 
 # ── rsync备份 ────────────────────────────────────────────────────────
-rsync -a --quiet "$HOME/.kb/" "/Volumes/MOVESPEED/KB/" 2>/dev/null || true
+rsync -a "$HOME/.kb/" "/Volumes/MOVESPEED/KB/" 2>&1 || echo "[$(basename "$0")] WARN: SSD rsync failed (exit=$?)" >&2  # V37.9.4 MR-4 silent-failure 修复
 
 # OPTIONAL: announce hook (adapt to your environment)
 # "$ROOT/bin/announce.sh" < "$MSG"

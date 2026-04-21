@@ -177,4 +177,4 @@ else
     log "ERROR: 推送失败（${cnt} 条待发）: $(cat "$SEND_ERR" | head -3)"
     printf '{"time":"%s","status":"send_failed","new":%d,"sent":false}\n' "$TS" "$cnt" > "$STATUS_FILE"
 fi
-rsync -a --quiet "$HOME/.kb/" "/Volumes/MOVESPEED/KB/" 2>/dev/null || true
+rsync -a "$HOME/.kb/" "/Volumes/MOVESPEED/KB/" 2>&1 || echo "[$(basename "$0")] WARN: SSD rsync failed (exit=$?)" >&2  # V37.9.4 MR-4 silent-failure 修复
