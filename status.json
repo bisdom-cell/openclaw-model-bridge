@@ -1,6 +1,6 @@
 {
-  "updated": "2026-04-21 06:12:04",
-  "updated_by": "full_regression",
+  "updated": "2026-04-22 02:25:00",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -105,6 +105,11 @@
   ],
   "recent_changes": [
     {
+      "date": "2026-04-22",
+      "what": "V37.9.9 三合一推进 A+C+B：(A) Mac Mini V37.9.8 验证 — ACL cron 9:30 准时触发 + 10 篇推送成功 (4/15 失败任务复活，V37.9.8 28d 阈值策略生效); auto_deploy heartbeat 每小时整点完美出行; watchdog 实际日志名 gateway_watchdog.log 修正. 新发现 MOVESPEED rsync Operation not permitted 间歇复发登记观察. (C) 路线 C Step 4 security_score library 直调 — INV-SEC-001 check 2 从 subprocess+中文正则 parse 升级为 `from security_score import compute_score` + 从 security_config.total_threshold 读阈值, 消除 ~200ms fork 开销 + 正则 parse 失败塌陷盲区 + 硬编码 90 漂移风险三问题. 3 新 regression test TestInvSec001UsesLibraryDirectCall 锁定契约. MR-16 双轨统一终态. (B) Ontology Phase 4 骨架 — 新增 domain_ontology.yaml (六域 Actor/Tool/Resource/Task/Provider/Memory + 域间关系 + P1/P2/P3 路径) + policy_ontology.yaml (10 条策略 3 static + 2 temporal + 3 contextual + INV-PA-001 ordering_constraint + 策略冲突检测 stub) + test_phase4_ontology_skeleton.py (15 单测跨 ontology 一致性守卫). 状态 declaration_only 未 wiring. governance v3.30→v3.31 / 58 inv / 272→273 checks / 41 suites / 1186 tests (+27) / 安全 93/100.",
+      "by": "claude_code"
+    },
+    {
       "date": "2026-04-21",
       "what": "V37.9.6 告警噪声治理 + watchdog 行级时间戳过滤 (MR-4 反向变种修复). 触发: 12:30 watchdog 12 项告警中 6 项陈旧 (kb_evening 4/14-15 已 V37.8.10 闭环 / openclaw 4/8 / kb_inject gateway 1006). 修复: awk 行级解析 [YYYY-MM-DD] 仅留 24h 内行 + in_recent 状态机让 Traceback 多行延续跟随状态. 失效源清: rss_blogs LangChain 9 次 404 死链 + ACL 阈值 8d→14d. INV-WATCHDOG-FRESHNESS-001 + 12 新单测 test_watchdog_freshness.py. 关键澄清: 08:28 端口冲突初判 silent failure 实为误读 (incident_snapshot 读 proxy.log 历史尾部, proxy 8:15 后正常运行). MR-4 第 16 次演出新形态 = 告警过度报. governance v3.29→v3.30 / 58 inv / 272 checks / 40 suites / 1159 tests / 安全 93/100. VERSION 0.37.9.5→0.37.9.6",
       "by": "claude_code"
@@ -198,11 +203,6 @@
       "date": "2026-04-17",
       "what": "V37.8.14 session: (1) Phase 3 P0 ONTOLOGY_MODE=on 正式切换(249测试) (2) 治理覆盖42→52不变式/0未覆盖job (3) 信源大扩展19→33+源(+7RSS/+Caixin HTML/+WorldBank API/+5X政治/+茶思屋独立job) (4) X僵尸移除4个+通知修复 (5) 终极目标pip install ontology-engine写入路标 (6) 原则#33信源部署环境验证 (7) LLM输出全中文标题 (8) chaspark API发现教训:dev 403≠不可用",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-04-16",
-      "what": "V37.8.13 gemini quota 审计：16 个 LLM cron，每日 ~50-60 总调用量（kb_dream MapReduce 主力，mm_index 每2h 其次）。根因识别：gemini 429 非日量问题(RPD 50<<1500)，是 TPM 窗口竞争(21:00 ai_leaders_x + 22:00 kb_evening 大 digest 落在同一 TPM 60s 窗口易超 250K)。降频建议: mm_index 2h→6h, ai_leaders_x/kb_evening 错峰，或申请 gemini paid tier/第二 fallback provider。当前不做降频(需用户决策)。",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -240,16 +240,16 @@
     "last_session": "2026-04-17 V37.8.14 (15 commits)",
     "unfinished": [
       "audit-of-audit 4 维度在 Mac Mini --full 模式首次 run 初始化新字段 baseline（5 次后完全生效）",
-      "路线 C Step 4 候选: security_score.py 独立 CLI → 纯 library (governance 一等调用方)",
-      "Ontology Phase 4 领域本体: 六域概念模型 + policy_ontology.yaml + 三阶段门控",
       "V3 路标 backlog: Tool Policy Plugin + Memory Plane Plugin + Job Template SDK + pip install ontology-engine",
       "fallback_chain 扩展 ≥2 provider (需用户决策 API key)",
       "gemini quota 降频 (TPM 窗口竞争，需用户决策)",
       "Desktop ~/Desktop/MOVESPEED_backup_20260421/ 12G 备份可清理 (B 问题已闭环不再需要)",
       "V37.9.5 SOUL.md workspace 副本观察项: workspace/SOUL.md (12KB) 可能与 ~/openclaw-model-bridge/SOUL.md 主源内容相似, 长期观察 RAG 检索若噪声明显再加 WORKSPACE_EXCLUDE_BASENAMES",
       "V37.9.6 下次 watchdog 跑验证: awk 行级时间戳过滤生效后告警条数预期从 12 降到 5-7; 如明天 12:30 仍见 4/8 陈旧告警需查 awk edge case",
-      "V37.9.8 ACL 调宽阈值到 28 天: 4/22 周三观察 ACL cron 是否按时触发; 若再漏执行需查 Mac Mini /var/log/cron 或 launchd 日志根因",
-      "V37.9.8 auto_deploy heartbeat 验证: 下一整点 (每小时 minute<2) 应在 ~/.openclaw/logs/auto_deploy.log 看到 heartbeat: no change 行; 明日 job_smoke_test 不再误判陈旧"
+      "V37.9.9 Phase 4 P1+ wiring: engine.py 新增 load_domain_ontology() + find_by_domain() + evaluate_policy() 三个纯函数 API，tests/test_engine_phase4.py 锁定 API 行为，选 max-tools-per-agent 做首条 policy 实切换（proxy_filters.py 从硬编码 MAX_TOOLS=12 改为 evaluate_policy 查询）",
+      "V37.9.9 MOVESPEED rsync Operation not permitted 间歇复发观察 — V37.9.4 APFS 重建后理论闭环但 4/22 ACL 日志再报此错，顶层 /Volumes/MOVESPEED/KB/ 权限 OK 但 rsync 子操作失败。可能 cron FDA 缺失或 APFS mount option 变化。V37.9.4 fail-loud WARN 仍工作非阻断。下次触发查 diskutil info + launchctl env + 具体子目录",
+      "V37.9.9 Mac Mini 验证: (1) pull 后跑 full_regression dev 1186/0 fail (2) governance_checker --full 确认 INV-SEC-001 library 直调在 Mac Mini 仍过 (3) security_score 仍 93/100 (4) Phase 4 骨架 3 文件部署 OK (声明不影响运行时)",
+      "Ontology Phase 4 领域本体骨架已就绪 (V37.9.9 B 任务) — 下次推进 Phase 4 P1 wiring 从 engine.py::load_domain_ontology() + evaluate_policy() 开始"
     ],
     "open_prs": "",
     "blocked_on": "",
@@ -268,11 +268,11 @@
   },
   "quality": {
     "security_score": 93,
-    "test_count": 1168,
-    "last_regression": "2026-04-21 06:11 pass",
+    "test_count": 1186,
+    "last_regression": "2026-04-22 02:20 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-04-21 06:11",
-    "test_suites": 40,
+    "security_score_time": "2026-04-22 02:20",
+    "test_suites": 41,
     "governance_invariants": "52/52",
     "governance_checks": "222/233",
     "version": "0.37.9.8"
@@ -339,7 +339,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "Stage2 验证者阶段启动（系统稳定期）: 不增新功能, 专注加固+优化. P0 路线 A: 血案回填审计 - 过去 15 个真实血案逐一诚实回答 3 个问题（爆发前 audit 能发现吗 / 不能是空白还是粒度不够 / 补的不变式能防下一次同类吗）产出 audit_coverage_retrospective.md 作为 ontology audit 防御率的实证报告.",
+  "focus": "V37.9.9 收工: 路线 C Step 4 完成 + Ontology Phase 4 骨架就绪。下次推进从 engine.py::load_domain_ontology() + evaluate_policy() 最小实现开始，选 max-tools-per-agent 作首个切换 policy。Stage 2 稳定期继续。",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
@@ -360,5 +360,8 @@
   ],
   "_meta": {
     "last_updated_by": "claude_code"
-  }
+  },
+  "session_context.unfinished": [
+    "V37.9.9 Phase 4 P1+ wiring: engine.py 新增 load_domain_ontology() + find_by_domain() + evaluate_policy() 三个纯函数 API，tests/test_engine_phase4.py 锁定 API 行为，选 max-tools-per-agent 做首条 policy 实切换（proxy_filters.py 从硬编码 MAX_TOOLS=12 改为 evaluate_policy 查询）"
+  ]
 }
