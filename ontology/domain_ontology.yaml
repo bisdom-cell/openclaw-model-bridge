@@ -1,0 +1,268 @@
+# domain_ontology.yaml — 六域概念模型（Domain Ontology）
+#
+# 状态: 🌱 Phase 4 骨架 (V37.9.9, 2026-04-22) — 仅声明，未 wiring
+# 定位: Ontology Phase 4 "完全推理"阶段的 Layer 1 — 领域模型
+# 终态路标: 从"工具列表"升级为"六域概念图 + 概念间关系推理"
+#
+# 现状分工（Phase 3 ONTOLOGY_MODE=on 已切换）:
+#   - tool_ontology.yaml        — Layer 0: 工具清单（功能级）
+#   - governance_ontology.yaml  — Layer 0: 治理规则（不变式级）
+#   - providers.d/*.yaml        — Layer 0: Provider 插件
+#   - domain_ontology.yaml      — Layer 1: 领域模型（本文件，骨架）← NEW
+#   - policy_ontology.yaml      — Layer 2: 策略声明（未来）
+#
+# 六域设计来源: 导师评审 V37 + CLAUDE.md Phase 4 路标。把系统参与方从
+# "工具+参与者+资源"三元扩展到"六域"，让策略推理引擎可以基于域间关系
+# 回答更复杂的问题：
+#   - "哪些 Actor 有权触发哪些 Tool 对哪些 Resource 做什么 Task？"
+#   - "哪个 Provider 实现支持这个 Task 在这个 Memory 上下文下？"
+#   - "夜间时段哪些 Task 被禁？（用 side_effects 属性而非黑名单）"
+#
+# 当前状态 = 纯声明，下一步 wiring（Phase 4 P1+）:
+#   (a) 引擎扩展: engine.py 增加 find_by_domain() + infer_relations()
+#   (b) governance_ontology.yaml 的 invariants 引用 domain concept 做跨域校验
+#   (c) runtime 策略引擎查询此文件做 pre-check / runtime-gate / post-verify
+#
+# 禁止使用的反模式:
+#   ❌ 在 python_assert 里硬编码 Actor / Task / Resource 名（用本文件查）
+#   ❌ 在 Python 代码里重复定义 domain relations（DRY: 只在此声明）
+#   ❌ 扩展六域前不更新本文件就往代码里塞新概念
+
+# ═══════════════════════════════════════════════════════════════════════
+# 1. 六域定义（Six Domains）
+# ═══════════════════════════════════════════════════════════════════════
+domains:
+
+  # ── 1.1 Actor（行动主体）──────────────────────────────────────────
+  # 谁在系统里发起动作。与 tool_ontology Party 重叠但更细：Agent 可细分
+  # 为 PA/Ops/Research/Dream 等不同职责身份。
+  Actor:
+    description: "发起动作的主体（人/Agent/Cron）"
+    instances:
+      - id: user
+        kind: human
+        channels: [whatsapp, discord]
+        authority: unlimited  # 最高权威
+      - id: pa
+        kind: agent
+        soul_file: SOUL.md
+        authority: user_delegated
+        default_persona: Wei
+      - id: ops
+        kind: agent
+        soul_file: ops_soul.md
+        authority: user_delegated
+        role: runtime_diagnostics
+      - id: dream
+        kind: agent
+        schedule: "03:00 daily (Reduce)"
+        authority: system
+        role: kb_cross_domain_analysis
+      - id: cron_job
+        kind: scheduler
+        authority: system
+        instances: "见 jobs_registry.yaml"
+      - id: claude_code
+        kind: agent_external
+        authority: user_delegated
+        role: development
+
+  # ── 1.2 Tool（工具）─────────────────────────────────────────────
+  # 系统提供的能力单元。引用 tool_ontology.yaml 的 tools 段作为权威
+  # 数据源（防止漂移）。Phase 4 wiring 时引擎会自动 merge。
+  Tool:
+    description: "Actor 可调用的能力单元"
+    source_of_truth: tool_ontology.yaml
+    classification_dimensions:
+      # 以下分类维度由 tool_ontology classify_tool_call() 在运行时推理
+      - side_effects      # true/false — 是否改变外部状态
+      - risk_level        # low/medium/high/critical
+      - network_required  # true/false
+      - credentials_access # true/false — 是否接触密钥/认证
+    cross_domain_relations:
+      - actor_may_invoke   # Actor × Tool 权限矩阵
+      - tool_operates_on   # Tool × Resource 操作关系
+      - tool_requires_provider  # Tool × Provider 依赖
+
+  # ── 1.3 Resource（资源）─────────────────────────────────────────
+  # 被操作的对象。细化 tool_ontology Resource 分类，加入时效/持久化属性。
+  Resource:
+    description: "被 Tool 操作的对象（文件/网页/KB/memory/status/审计日志等）"
+    categories:
+      - id: file
+        storage: filesystem
+        persistence: durable
+        examples: [workspace/*.md, status.json, ~/.kb/notes/*]
+      - id: webpage
+        storage: remote
+        persistence: transient
+        examples: ["https://*"]
+      - id: kb_note
+        storage: "~/.kb/notes/"
+        persistence: durable
+        indexed_by: [kb_embed (text), mm_index (media)]
+      - id: kb_source
+        storage: "~/.kb/sources/"
+        persistence: durable
+        writer: kb_append_source.sh  # V37.6 INV-SRC-001 唯一 writer
+      - id: memory
+        storage: "~/.openclaw/workspace/MEMORY.md"
+        persistence: durable
+        owner: pa
+        special: "PA 自写，kb_embed 索引"
+      - id: status
+        storage: "~/.kb/status.json"
+        persistence: durable
+        writers: [claude_code, pa, cron, full_regression]
+        special: "三方共享状态，原子写入 (status_update.py)"
+      - id: audit_log
+        storage: "~/.kb/audit_log.jsonl"
+        persistence: append_only
+        integrity: chained_sha256
+
+  # ── 1.4 Task（任务）─────────────────────────────────────────────
+  # 语义层面的"要做什么"，比 Tool 更高一层。一个 Task 可能由多个 Tool
+  # 组合完成（例如"回答用户问题"= search_kb + write）。
+  Task:
+    description: "Actor 意图的语义单元"
+    taxonomy:
+      - id: qa  # question-answering
+        actors: [pa, ops, dream]
+        required_capabilities: [chat, tool_call]
+        example: "用户问 Qwen3 模型细节 → search_kb → 回答"
+      - id: monitoring  # 信息源监控
+        actors: [cron_job]
+        required_capabilities: [http_fetch, llm_summarize, kb_write]
+        example: "ArXiv/HN/ACL/Finance 每日推送"
+      - id: dev  # 开发
+        actors: [claude_code]
+        required_capabilities: [edit, run_tests, git]
+        example: "V37.9.9 路线 C Step 4 重构"
+      - id: ops_diagnostic  # 运维诊断
+        actors: [ops]
+        required_capabilities: [shell_exec, health_check, log_inspect]
+        example: "Gateway 宕机排查 → /health + log 扫描"
+      - id: kb_curation  # KB 整理
+        actors: [dream, cron_job]
+        required_capabilities: [llm_reduce, kb_write, notify]
+        example: "kb_evening/kb_review/kb_dream"
+      - id: governance_audit  # 治理审计
+        actors: [cron_job, full_regression]
+        required_capabilities: [static_analysis, runtime_check]
+        example: "governance_audit_cron 07:00 daily"
+
+  # ── 1.5 Provider（提供者）──────────────────────────────────────
+  # LLM / 外部服务提供者。引用 providers.d/*.yaml 作为权威源。
+  Provider:
+    description: "能力的外部提供者（通常是 LLM API）"
+    source_of_truth: providers.d/*.yaml
+    types:
+      - llm        # Qwen3/GPT-4o/Gemini/Claude/Kimi/MiniMax/GLM
+      - vl_model   # Qwen2.5-VL-72B（多模态路由）
+      - embedding  # local sentence-transformers / Gemini Embedding 2
+      - data_source # RSS/API 信息源
+    capability_matrix_ref: docs/compatibility_matrix.md
+    fallback_chain_ref: providers.py::build_fallback_chain
+
+  # ── 1.6 Memory（记忆）──────────────────────────────────────────
+  # 跨时间维度保留的信息。对应 memory_plane.py 的四层。
+  Memory:
+    description: "跨会话/跨时间保留的信息"
+    source_of_truth: memory_plane.py
+    layers:
+      - id: kb_semantic    # KB 文本 RAG 索引
+        backend: local_embed + sentence-transformers
+        freshness_policy: "索引增量更新，kb_embed.py 每次调用扫 mtime"
+      - id: multimodal     # 图片/音频/视频
+        backend: mm_index.py + Gemini Embedding 2
+        freshness_policy: "每 2 小时 cron 索引增量"
+      - id: preferences    # 用户偏好（学习态）
+        backend: preference_learner.py + status.json
+        freshness_policy: "从对话历史推断，写入 status.json"
+      - id: state          # 运行时共享状态
+        backend: status.json (原子写入)
+        freshness_policy: "实时；三方共享 (Claude Code + PA + cron)"
+    cross_layer_policies:
+      - dedup_across_layers      # memory_plane v2: filename+text 跨层去重
+      - confidence_weighting     # 4 层权重 + 新鲜度衰减
+      - conflict_resolution      # 优先级 vs 偏好矛盾检测
+
+# ═══════════════════════════════════════════════════════════════════════
+# 2. 域间关系（Cross-Domain Relations）— Phase 4 P1 wiring 目标
+# ═══════════════════════════════════════════════════════════════════════
+# 声明阶段: 只列出关系模板，不列实例（实例在 Phase 4 wiring 时从
+# tool_ontology + providers.d 合成生成）。
+relations:
+
+  actor_invokes_tool:
+    cardinality: "many-to-many"
+    constraints:
+      - actor.authority >= tool.required_authority
+      - tool.classification compatible with actor.soul_file rules
+    future_wiring: "引擎 build_invocation_matrix() 生成全量矩阵"
+
+  tool_operates_on_resource:
+    cardinality: "many-to-many"
+    constraints:
+      - tool.side_effects == false OR resource.persistence in [durable, append_only]
+    future_wiring: "用于 pre-check 阶段校验：cron 不得在 audit_log 上做非 append 操作"
+
+  task_requires_capabilities:
+    cardinality: "one-to-many"
+    constraints:
+      - task.required_capabilities ⊆ union(selected_tools.capabilities)
+    future_wiring: "用于 ops agent / research agent 的工具推荐"
+
+  provider_implements_capability:
+    cardinality: "many-to-many"
+    source: "providers.py::ProviderCapabilities + docs/compatibility_matrix.md"
+    future_wiring: "fallback chain 自动生成（V37 Capability-Based Routing 已实现）"
+
+  memory_feeds_task:
+    cardinality: "many-to-many"
+    constraints:
+      - memory.layer freshness_policy compatible with task.latency_budget
+    future_wiring: "qa task 优先查 preferences + kb_semantic，dev task 查 status + audit_log"
+
+# ═══════════════════════════════════════════════════════════════════════
+# 3. Phase 4 实施路径（Implementation Roadmap）
+# ═══════════════════════════════════════════════════════════════════════
+# 本文件只是骨架占位。真正让它生效需要的工作：
+#
+# Phase 4 P1 (领域模型激活):
+#   1. engine.py 新增 load_domain_ontology() + find_by_domain(domain, query)
+#   2. tests/test_domain_ontology.py 锁定六域声明完整性 + 关系约束
+#   3. governance_ontology.yaml 新增 MRD-DOMAIN-001 扫描器：任何 python_assert
+#      中硬编码 domain 概念（Actor/Task/Resource 名字字面量）必须引用本文件
+#
+# Phase 4 P2 (策略引擎):
+#   4. policy_ontology.yaml 声明策略（静态 + 时序 + 路由三类统一）
+#   5. engine.py 新增 evaluate_policy(policy_id, context) 纯函数
+#   6. tool_proxy.py 的 fix_tool_args / filter_tools 从硬编码规则迁移到
+#      evaluate_policy 查询
+#
+# Phase 4 P3 (三阶段门控):
+#   7. proxy 请求管线接入 pre_check() → runtime_gate() → post_verify()
+#   8. 每个 gate 记录 policy_evaluated + rule_chain + rationale 进 audit_log
+#
+# Phase 5 (pip 包化):
+#   9. 引擎和规则解耦为 ontology-engine 包 + 项目级 YAML 配置
+#   10. 任何 Agent Runtime 项目只需编写自己的 YAML 就能获得工具治理能力
+#
+# 注意: 当前仅完成 Step 0（骨架声明），未启动 Step 1 wiring。
+# 下次推进 B 时从 Step 1 开始。
+
+# ═══════════════════════════════════════════════════════════════════════
+# 4. 元数据
+# ═══════════════════════════════════════════════════════════════════════
+meta:
+  version: "0.1-skeleton"
+  phase: "Phase 4 skeleton (pre-wiring)"
+  created: "2026-04-22"
+  status: "declaration_only"
+  next_step: "Phase 4 P1 Step 1 — engine.py load_domain_ontology() + tests"
+  refs:
+    - docs/strategic_review_20260403.md
+    - ontology/tool_ontology.yaml
+    - ontology/governance_ontology.yaml
+    - CLAUDE.md "Ontology 子项目（终态架构）" 小节
