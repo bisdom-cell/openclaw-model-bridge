@@ -1,5 +1,5 @@
 {
-  "updated": "2026-04-22 03:57:19",
+  "updated": "2026-04-22 05:55:57",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -104,6 +104,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-04-22",
+      "what": "V37.9.12 Phase 4 P1 wiring 落地 — engine.py 新增 3 个纯函数 API (load_domain_ontology / find_by_domain / evaluate_policy) + _parse_limit_from_rule regex fallback; policy_ontology.yaml 给 3 条 hard_limit policy 加 limit 字段 (max-tools-per-agent=12 / max-tool-calls-per-task=2 / max-request-body-size=200000) 作机器可读阈值; proxy_filters.py::filter_tools 首切换: 从硬编码 _CFG_MAX_TOOLS 改为 _MAX_TOOLS_RESOLVED (启动期 _resolve_max_tools_limit() 解析), safe-fallback 5 档 (mode=off→config / _onto_mod 缺失→config+warn / policy miss→config+warn / shadow→config+observe diff / on+valid→ontology limit); 38 新单测 test_engine_phase4.py (TestLoadDomainOntology/TestLoadPolicyOntology/TestFindByDomain/TestEvaluatePolicyContract/TestMaxToolsPolicyWiring/TestParseLimitFromRuleFallback/TestEvaluatePolicyLimitFallbackChain); 11 新单测 test_tool_proxy.TestPolicyDrivenMaxTools (5 档回退 monkey-patch + filter_tools 截断 + 源码守卫); 2 扩展单测 test_phase4_ontology_skeleton (hard_limit 必须有 limit / max-tools-per-agent.limit==12 横向守卫); full_regression 42 suites / 1252 tests (+51) / 0 fail / 安全 95/100; VERSION 0.37.9.11→0.37.9.12. 部署策略: ontology/ 不进 FILE_MAP (宪法删除后原系统正常), Mac Mini 走 safe-fallback 用 config 12 = 改前等价行为, dev 环境 wiring 真实生效. 元价值: Phase 4 P1 是骨架到 pip install ontology-engine 终极目标的关键桥梁, 从本体只描述升级为本体可查询.",
+      "by": "claude_code"
+    },
     {
       "date": "2026-04-22",
       "what": "V37.9.11 MRD-RESERVED-FILES-001 闭环 — BOOTSTRAP.md + SKILL.md 加入 RESERVED_FILE_BASENAMES (从 1 扩到 3 文件). 触发: V37.9.9 Mac Mini governance --full 扫 OpenClaw dist/*.js 639 文件发现 2 个未登记. 四层扩展: proxy_filters 常量 + SAFE_CONTENT 改通用 + SOUL.md 规则 11 扩 3 文件 + INV-HB-001 加 4 checks (2 file_contains + 1 runtime for-loop 避 exec scope trap). 8 新 TestReservedFileWriteBlock 单测 (basename 守卫 + 精确集合契约 + BOOTSTRAP/SKILL 拦截 + SAFE_CONTENT 文件无关性). 41 suites / 1201 tests (+8) / 0 fail / 安全 95 dev / 100 Mac Mini. 元价值: MR-15 从 post-hoc 升级为 pre-emptive (源码扫描主动覆盖) + MR-7 治理自证闭环生产级兑现.",
@@ -251,10 +256,11 @@
       "Desktop ~/Desktop/MOVESPEED_backup_20260421/ 12G 备份可清理 (B 问题已闭环不再需要)",
       "V37.9.5 SOUL.md workspace 副本观察项: workspace/SOUL.md (12KB) 可能与 ~/openclaw-model-bridge/SOUL.md 主源内容相似, 长期观察 RAG 检索若噪声明显再加 WORKSPACE_EXCLUDE_BASENAMES",
       "V37.9.6 下次 watchdog 跑验证: awk 行级时间戳过滤生效后告警条数预期从 12 降到 5-7; 如明天 12:30 仍见 4/8 陈旧告警需查 awk edge case",
-      "V37.9.9 Phase 4 P1+ wiring: engine.py 新增 load_domain_ontology() + find_by_domain() + evaluate_policy() 三个纯函数 API，tests/test_engine_phase4.py 锁定 API 行为，选 max-tools-per-agent 做首条 policy 实切换（proxy_filters.py 从硬编码 MAX_TOOLS=12 改为 evaluate_policy 查询）",
       "V37.9.9 MOVESPEED rsync Operation not permitted 间歇复发观察 — V37.9.4 APFS 重建后理论闭环但 4/22 ACL 日志再报此错，顶层 /Volumes/MOVESPEED/KB/ 权限 OK 但 rsync 子操作失败。可能 cron FDA 缺失或 APFS mount option 变化。V37.9.4 fail-loud WARN 仍工作非阻断。下次触发查 diskutil info + launchctl env + 具体子目录",
       "V37.9.9 Mac Mini 验证: (1) pull 后跑 full_regression dev 1186/0 fail (2) governance_checker --full 确认 INV-SEC-001 library 直调在 Mac Mini 仍过 (3) security_score 仍 93/100 (4) Phase 4 骨架 3 文件部署 OK (声明不影响运行时)",
-      "Ontology Phase 4 领域本体骨架已就绪 (V37.9.9 B 任务) — 下次推进 Phase 4 P1 wiring 从 engine.py::load_domain_ontology() + evaluate_policy() 开始"
+      "Ontology Phase 4 领域本体骨架已就绪 (V37.9.9 B 任务) — 下次推进 Phase 4 P1 wiring 从 engine.py::load_domain_ontology() + evaluate_policy() 开始",
+      "V37.9.12 Phase 4 P2: (a) 实现 contextual/temporal policy 的 context evaluator (hour_of_day / request-context matcher), 让 evaluate_policy().applicable 对非 static policy 返回真值 (b) 选 max-tool-calls-per-task 做第二条 policy 切换, 复用 V37.9.12 _resolve_* 模式 (c) evaluate_policy().applicable 覆盖率 100%",
+      "V37.9.12 部署决策: 是否把 ontology/ 加入 auto_deploy FILE_MAP — 当前 Mac Mini 没有 /Users/bisdom/ontology/, proxy_filters 的 max-tools wiring 走 safe-fallback 用 config 12 (与改前等价). 若 Phase 4 要真正在生产启用, 需评估: (1) 破例把 ontology/ 纳入 FILE_MAP (打破 \"删除后原系统正常\" 宪法) (2) 改 proxy_filters 路径解析兼容 $HOME/openclaw-model-bridge/ontology/ (3) 用符号链接. 三选一需要用户决策."
     ],
     "open_prs": "",
     "blocked_on": "",
@@ -269,7 +275,9 @@
     ],
     "last_session_ended": "2026-04-20",
     "last_session_commits": 34,
-    "last_session_focus": "V37.8.16 -> V37.9.2: Stage 2 验证者阶段完整交付（路线 A 15血案回填 + 路线 B 16对抗场景 + 6/6 盲区全闭 + V37.9 结构加固 + V37.9.1 安全统一 + V37.9.2 MR-6 深度补齐）"
+    "last_session_focus": "V37.8.16 -> V37.9.2: Stage 2 验证者阶段完整交付（路线 A 15血案回填 + 路线 B 16对抗场景 + 6/6 盲区全闭 + V37.9 结构加固 + V37.9.1 安全统一 + V37.9.2 MR-6 深度补齐）",
+    "last_session_at": "2026-04-22 HKT",
+    "last_session_version": "V37.9.12"
   },
   "quality": {
     "security_score": 95,
@@ -344,7 +352,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.11 完美收工: 单 session 四次发版 (V37.9.9→10→11). A+C+B 三合一 + audit_log 原子化 + MRD-RESERVED-FILES 闭环. Mac Mini 100/100 安全评分 + 所有 MRD warn 转 pass + MR-7 治理自证闭环生产级兑现. 下次 session 候选: (1) Phase 4 P1 wiring: engine.py load_domain_ontology + evaluate_policy + max-tools-per-agent 首条 policy 切换 (2) MOVESPEED rsync 权限问题深度排查 (3) 继续追其他 MRD warn (MRD-ERROR-001 57 处 silent swallow / MRD-SILENT-EXCEPT-001 13 处裸 except).",
+  "focus": "V37.9.12 Phase 4 P1 wiring 收工: engine.py 3 纯函数 API + proxy_filters.py max-tools-per-agent 首切换完成. 下次推进 Phase 4 P2: (a) contextual/temporal policy 的 context evaluator (hour_of_day matcher) (b) 第二条 policy 切换 (max-tool-calls-per-task 最相似路径) (c) evaluate_policy().applicable 真值覆盖到 100% 策略. 核心问题: 是否 ship ontology/ 到 Mac Mini FILE_MAP 以让 Phase 4 wiring 真正生效 (当前 Mac Mini 只走 config fallback). Stage 2 稳定期继续.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",

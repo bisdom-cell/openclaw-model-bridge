@@ -29,7 +29,10 @@ except ImportError:
 # ---------------------------------------------------------------------------
 # 本体文件路径
 # ---------------------------------------------------------------------------
-_ONTOLOGY_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tool_ontology.yaml")
+_ONTOLOGY_DIR = os.path.dirname(os.path.abspath(__file__))
+_ONTOLOGY_FILE = os.path.join(_ONTOLOGY_DIR, "tool_ontology.yaml")
+_DOMAIN_ONTOLOGY_FILE = os.path.join(_ONTOLOGY_DIR, "domain_ontology.yaml")
+_POLICY_ONTOLOGY_FILE = os.path.join(_ONTOLOGY_DIR, "policy_ontology.yaml")
 
 
 def _load_yaml(path):
@@ -654,6 +657,213 @@ def get_ontology(path=None) -> ToolOntology:
     if _instance is None:
         _instance = ToolOntology(path=path)
     return _instance
+
+
+# ===========================================================================
+# Phase 4 P1: 领域本体 + 策略引擎 纯函数 API (V37.9.12)
+# ---------------------------------------------------------------------------
+# 三个纯函数，为 Phase 4 wiring 提供最小可用接口：
+#
+#   load_domain_ontology(path=None) -> dict
+#       加载 domain_ontology.yaml。纯函数，无副作用。
+#
+#   find_by_domain(domain_name, ontology=None, path=None) -> list
+#       返回给定域的概念列表。Actor/Resource/Task/Memory 有 instance 列表；
+#       Provider.types 是字符串列表，自动包成 {"id": ...}；Tool 以
+#       source_of_truth=tool_ontology.yaml 为权威源，此处返回 []，调用方
+#       应改用 ToolOntology。
+#
+#   evaluate_policy(policy_id, context=None, policy_data=None, path=None) -> dict
+#       评估策略：返回结构化结果含 limit / hard_limit / type / applicable 等。
+#       Phase 4 P1 只覆盖 static 策略；temporal/contextual 先返回 applicable=None
+#       并标 reason="needs_context_evaluator"，留给 Phase 4 P2 完善。
+#
+# 设计原则:
+#   - 纯函数 (输入决定输出，零全局状态)
+#   - 可 inject 数据 (policy_data/ontology 参数供测试使用)
+#   - 失败不抛: 找不到文件/id 返回 found=False 的结构化结果
+#   - 向后兼容: 不动 ToolOntology / get_ontology / get_policy
+# ===========================================================================
+
+import re as _re
+
+
+def load_domain_ontology(path=None) -> dict:
+    """加载 domain_ontology.yaml，返回解析后的 dict。
+
+    Args:
+        path: 可选的文件路径（默认 ontology/domain_ontology.yaml）。
+
+    Returns:
+        dict: 完整的 YAML 解析结果。失败抛 IOError/ImportError。
+
+    纯函数：每次调用重新读盘，无缓存。调用方若需高频访问应自行缓存。
+    """
+    return _load_yaml(path or _DOMAIN_ONTOLOGY_FILE)
+
+
+def load_policy_ontology(path=None) -> dict:
+    """加载 policy_ontology.yaml，返回解析后的 dict。"""
+    return _load_yaml(path or _POLICY_ONTOLOGY_FILE)
+
+
+# 六域 → 该域内概念实例所在的 YAML 键（用于 find_by_domain 归一化）
+_DOMAIN_CONCEPT_KEYS = {
+    "Actor": "instances",     # list of {id, kind, ...}
+    "Resource": "categories",  # list of {id, storage, ...}
+    "Task": "taxonomy",        # list of {id, actors, ...}
+    "Memory": "layers",        # list of {id, backend, ...}
+    "Provider": "types",       # list of strings → 包装成 {id: s}
+    # Tool: 无直接 instance 列表; source_of_truth=tool_ontology.yaml
+    # 调用方应用 ToolOntology.query_tools() 查询。
+}
+
+
+def find_by_domain(domain_name, ontology=None, path=None) -> list:
+    """返回指定域的概念实例列表（归一化为 [{"id": ..., ...}, ...]）。
+
+    Args:
+        domain_name: 六域之一 (Actor / Tool / Resource / Task / Provider / Memory)
+        ontology: 预加载的 domain_ontology dict（可选，测试注入用）
+        path: 可选的文件路径
+
+    Returns:
+        list of dict。每项至少含 "id"。
+        - 未知域 → []
+        - Tool → [] (请用 ToolOntology.query_tools())
+        - Provider.types 字符串列表 → [{"id": "llm"}, {"id": "vl_model"}, ...]
+        - 其他域的 instance/category/taxonomy/layer 原样返回
+
+    纯函数：不修改输入，不写任何文件。
+    """
+    data = ontology if ontology is not None else load_domain_ontology(path)
+    domains = (data or {}).get("domains") or {}
+    dom = domains.get(domain_name)
+    if not dom:
+        return []
+    key = _DOMAIN_CONCEPT_KEYS.get(domain_name)
+    if key is None:
+        # 显式声明 Tool 走 source_of_truth
+        return []
+    raw = dom.get(key) or []
+    # Provider.types 是字符串列表 — 归一化
+    normalized = []
+    for item in raw:
+        if isinstance(item, dict):
+            normalized.append(item)
+        elif isinstance(item, str):
+            normalized.append({"id": item})
+    return normalized
+
+
+def _parse_limit_from_rule(rule_text):
+    """从规则文本中提取数值阈值（仅当 YAML 未显式声明 `limit` 时回退使用）。
+
+    支持模式:
+        "... ≤ N ..." / "... <= N ..."
+        "... < N ..."
+        "... N 以内" (中文)
+    返回 int 或 None。
+    """
+    if not rule_text or not isinstance(rule_text, str):
+        return None
+    # 优先匹配 ≤ / <= / < 后的整数（允许下划线作千位分隔）
+    m = _re.search(r"(?:≤|<=|<)\s*([\d_]+)", rule_text)
+    if m:
+        try:
+            return int(m.group(1).replace("_", ""))
+        except ValueError:
+            return None
+    return None
+
+
+def evaluate_policy(policy_id, context=None, policy_data=None, path=None) -> dict:
+    """评估策略，返回结构化结果。
+
+    Args:
+        policy_id: 策略标识符 (如 "max-tools-per-agent")
+        context: 运行时上下文 dict (可选；temporal/contextual 策略将读此参数，
+                 Phase 4 P1 仅对 static 策略已完备)
+        policy_data: 预加载的 policy_ontology dict (测试注入用)
+        path: 可选的文件路径
+
+    Returns:
+        dict with stable keys:
+            policy_id: str                           # 输入的 id
+            found: bool                              # 是否在 YAML 中找到
+            type: Optional[str]                      # static/temporal/contextual
+            hard_limit: bool                         # 来自 YAML hard_limit 字段
+            limit: Optional[int|float]               # 优先 YAML `limit` 字段，
+                                                      # 次选 rule 文本 regex 解析
+            applicable: Optional[bool]               # static=True;
+                                                      # temporal/contextual=None (待 P2)
+            rule: Optional[str]                      # 原始 rule 文本
+            rationale: Optional[str]
+            enforcement_site: Optional[str]
+            governance_invariant: Optional[str]
+            scope: Optional[list]
+            reason: Optional[str]                    # 解释为何 found=False 或 limit=None
+
+    纯函数：零全局状态修改，可并行调用。
+    """
+    # 统一空壳返回结构 — 任何分支都保证 key 齐全
+    empty_result = {
+        "policy_id": policy_id,
+        "found": False,
+        "type": None,
+        "hard_limit": False,
+        "limit": None,
+        "applicable": None,
+        "rule": None,
+        "rationale": None,
+        "enforcement_site": None,
+        "governance_invariant": None,
+        "scope": None,
+        "reason": None,
+    }
+
+    try:
+        data = policy_data if policy_data is not None else load_policy_ontology(path)
+    except (IOError, OSError, ImportError) as e:
+        result = dict(empty_result)
+        result["reason"] = f"load_failed: {type(e).__name__}"
+        return result
+
+    policies = (data or {}).get("policies") or []
+    match = None
+    for pol in policies:
+        if isinstance(pol, dict) and pol.get("id") == policy_id:
+            match = pol
+            break
+
+    if match is None:
+        result = dict(empty_result)
+        result["reason"] = "policy_id_not_found"
+        return result
+
+    # 抽取数值阈值: 优先 explicit `limit` > `value` > rule 文本解析
+    limit = match.get("limit")
+    if limit is None:
+        limit = match.get("value")
+    if limit is None:
+        limit = _parse_limit_from_rule(match.get("rule"))
+
+    ptype = match.get("type")
+    result = {
+        "policy_id": policy_id,
+        "found": True,
+        "type": ptype,
+        "hard_limit": bool(match.get("hard_limit", False)),
+        "limit": limit,
+        "applicable": True if ptype == "static" else None,
+        "rule": match.get("rule"),
+        "rationale": match.get("rationale"),
+        "enforcement_site": match.get("enforcement_site"),
+        "governance_invariant": match.get("governance_invariant"),
+        "scope": match.get("scope"),
+        "reason": None if ptype == "static" else "needs_context_evaluator",
+    }
+    return result
 
 
 # ---------------------------------------------------------------------------

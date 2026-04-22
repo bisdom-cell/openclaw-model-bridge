@@ -86,6 +86,9 @@ fi
 if [ -f test_phase4_ontology_skeleton.py ]; then
     run_suite "phase4_ontology_skeleton (V37.9.9 domain+policy ontology 骨架守卫)" "python3 test_phase4_ontology_skeleton.py"
 fi
+if [ -f ontology/tests/test_engine_phase4.py ]; then
+    run_suite "engine_phase4 (V37.9.12 load_domain_ontology+find_by_domain+evaluate_policy 契约)" "python3 ontology/tests/test_engine_phase4.py"
+fi
 
 # 条件性测试（仅当文件存在时运行）
 for tf in test_conv_quality.py test_kb_autotag.py test_kb_dedup.py test_token_report.py test_arxiv_parser.py test_shell_antipatterns.py; do
