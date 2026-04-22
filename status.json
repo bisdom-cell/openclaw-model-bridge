@@ -203,6 +203,16 @@
       "date": "2026-04-20",
       "what": "V37.8.16 PA 自残 HEARTBEAT.md 血案完整闭环（MR-4 第 12 次演出 + MR-15 新元规则）: (1) 根因锁定: PA 4/19 09:09 把 HN 告警总结写进 ~/.openclaw/workspace/HEARTBEAT.md → 13h 后用户发消息时 OpenClaw heartbeat 机制激活 isHeartbeatContentEffectivelyEmpty=false → 默认 prompt Read HEARTBEAT.md + If nothing needs attention reply HEARTBEAT_OK → Qwen3 严格执行回 HEARTBEAT_OK 12字符 → Gateway stripTokenAtEdges 剥离 → outbound 空 → 13h 完全静默. (2) 六条件组合爆炸: WhatsApp plugin 4/10 装+PA 有 write+HEARTBEAT.md 保留语义+PA 不知情+heartbeat.prompt 未配+文件非空. 前 5 项长期存在, 4/19 09:09 PA 自写触发第 6 项即爆. (3) 最小修复: cat > HEARTBEAT.md 只留 # 注释 → 4/20 09:16 WhatsApp E2E 5s 回复验证通过. (4) 四层结构修复: LLM 行为层 SOUL.md 规则 11 + Proxy 拦截层 RESERVED_FILE_BASENAMES + detect_reserved_file_write 纯函数 + fix_tool_args 集成 + 数据层 SAFE_CONTENT 只含注释 + 测试层 16 新单测. (5) MR-15 正式立案 reserved-files-must-not-be-writable-by-llm: runtime 保留文件的特殊语义必须对 LLM 显式隔离, MR-4 上游预防层. (6) INV-HB-001 12 checks (declaration + runtime). (7) governance v3.19→v3.20: 52→53 inv, 14→15 MR, 248 checks. (8) 全量回归 36 suites / 1111 tests / 0 fail / 安全 93/100. (9) 反面教训登记: 4/19 深夜我错诊 Bad MAC 让用户 rm -rf auth reset 原则 #28 违规, 幸好用户回滚. (10) 案例文档 heartbeat_md_pa_self_silencing_case.md.",
       "by": "claude_code"
+    },
+    {
+      "date": "2026-04-19",
+      "what": "V37.8.16 血案调查 (未闭环，延后明天修复): WhatsApp PA 对用户提问全部静默回复 HEARTBEAT_OK 而不发给用户。诊断链: (1) /stats last_error_code=502+p99=126s 初判 primary/fallback 问题; (2) /health 三层 ok+进程活着 → 排除崩溃; (3) proxy 日志 22:09-23:04 每次 TEXT=12 chars 稳定 → 非偶发; (4) gateway.log 无 Sending/Sent 对应 → Gateway 收到 LLM 回复但不发 outbound; (5) session jsonl dump 出 HEARTBEAT_OK 字面字符串 (usage:0 synthetic); (6) 一周前正常 + 本仓库零命中 → 上游代码+我们触发组合; (7) upstream /opt/homebrew/lib/node_modules/openclaw/dist/auth-profiles-DRjqKE3G.js:48797 发现 default fallback prompt: Read HEARTBEAT.md if it exists. If nothing needs attention, reply HEARTBEAT_OK. 根因: SOUL.md 未被 research agent 正确加载 → OpenClaw 默认 HEARTBEAT prompt 激活 → LLM 执行默认指令回 HEARTBEAT_OK → Gateway 按 ack token 设计吞掉不发给用户。反面教训: 我犯原则#28违规-看到Bad MAC就让用户做auth reset/QR扫码路径(已回滚)。MR-10 understand-before-fix 未兑现。",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-04-17",
+      "what": "外部代码级评审吸收: 六优势(控制平面/Provider抽象/韧性/阈值/门禁/战略)+五劣势(脚本特征/环境耦合/PyYAML/Memory接口/文档过载)。录入4项P0/P1优先级: 可迁移性闭环+证据链产品化+插件生态接口+可观测闭环。核心三字诀: 标准化+可比较+生态协议",
+      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -271,14 +281,14 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 1252,
-    "last_regression": "2026-04-22 05:51 pass",
+    "test_count": 1201,
+    "last_regression": "2026-04-22 03:50 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-04-22 05:51",
-    "test_suites": 42,
+    "security_score_time": "2026-04-22 03:50",
+    "test_suites": 41,
     "governance_invariants": "52/52",
     "governance_checks": "222/233",
-    "version": "0.37.9.11"
+    "version": "0.37.9.10"
   },
   "incidents": [
     {
