@@ -3471,6 +3471,16 @@ invariants:
         check_type: file_contains
         file: proxy_filters.py
         pattern: "\"HEARTBEAT.md\""
+      # V37.9.11 扩展：依据 MRD-RESERVED-FILES-001 对 OpenClaw dist 的扫描结果
+      # 补齐 BOOTSTRAP.md + SKILL.md 登记
+      - name: "V37.9.11: RESERVED_FILE_BASENAMES 含 BOOTSTRAP.md"
+        check_type: file_contains
+        file: proxy_filters.py
+        pattern: "\"BOOTSTRAP.md\""
+      - name: "V37.9.11: RESERVED_FILE_BASENAMES 含 SKILL.md"
+        check_type: file_contains
+        file: proxy_filters.py
+        pattern: "\"SKILL.md\""
       - name: "proxy_filters.py 定义 detect_reserved_file_write 纯函数"
         check_type: file_contains
         file: proxy_filters.py
@@ -3518,6 +3528,31 @@ invariants:
           blocked3, _ = detect_reserved_file_write(
               "read", {"path": "~/HEARTBEAT.md"})
           assert not blocked3, "read 工具不应触发拦截"
+      - name: "V37.9.11 runtime: BOOTSTRAP.md + SKILL.md 也被 detect 拦截"
+        check_type: python_assert
+        code: |
+          import sys, os
+          sys.path.insert(0, os.getcwd())
+          from proxy_filters import detect_reserved_file_write
+          # V37.9.11 新增两个保留文件：同一机制必须覆盖 3 个 basename
+          # 避开 V37.3 exec scope trap: for-loop 遍历而非 generator expression
+          for basename in ("BOOTSTRAP.md", "SKILL.md"):
+              for path_prefix in (
+                  "/Users/bisdom/.openclaw/workspace/",
+                  "~/",
+                  "/tmp/test/",
+              ):
+                  path = path_prefix + basename
+                  blocked, reason = detect_reserved_file_write(
+                      "write", {"path": path, "content": "malicious"})
+                  assert blocked, f"{path} 写入应被拦截但放过"
+                  assert basename in reason, (
+                      f"reason 应含 {basename}: {reason}"
+                  )
+                  # edit 工具同样拦
+                  blocked2, _ = detect_reserved_file_write(
+                      "edit", {"path": path, "new_text": "x"})
+                  assert blocked2, f"edit {path} 应被拦截"
       - name: "V37.8.16 runtime: fix_tool_args 对 HEARTBEAT.md 写入改写 content 为注释占位"
         check_type: python_assert
         code: |

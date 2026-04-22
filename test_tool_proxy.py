@@ -1982,6 +1982,101 @@ class TestReservedFileWriteBlock(unittest.TestCase):
             self.assertTrue(stripped.startswith("#"),
                 f"SAFE_CONTENT 含非注释行: {line!r} — 会让 HEARTBEAT.md 变成 effectively non-empty")
 
+    # ────────────────────────────────────────────────────────────────────
+    # V37.9.11 扩展：BOOTSTRAP.md + SKILL.md 加入 RESERVED_FILE_BASENAMES
+    # 依据 MRD-RESERVED-FILES-001 对 OpenClaw dist/*.js 扫描结果（Mac Mini
+    # --full 模式报告 2 个上游保留文件未登记）
+    # ────────────────────────────────────────────────────────────────────
+
+    def test_reserved_file_basenames_contains_bootstrap(self):
+        """V37.9.11 常量守卫：BOOTSTRAP.md 必须在 RESERVED_FILE_BASENAMES 中"""
+        self.assertIn("BOOTSTRAP.md", proxy_filters.RESERVED_FILE_BASENAMES)
+
+    def test_reserved_file_basenames_contains_skill(self):
+        """V37.9.11 常量守卫：SKILL.md 必须在 RESERVED_FILE_BASENAMES 中"""
+        self.assertIn("SKILL.md", proxy_filters.RESERVED_FILE_BASENAMES)
+
+    def test_reserved_file_basenames_exact_set(self):
+        """V37.9.11 契约守卫：RESERVED_FILE_BASENAMES 恰好是 3 文件集合，
+        新增必须通过治理流程（MRD-RESERVED-FILES-001 扫描 + INV-HB-001 检查）"""
+        self.assertEqual(
+            set(proxy_filters.RESERVED_FILE_BASENAMES),
+            {"HEARTBEAT.md", "BOOTSTRAP.md", "SKILL.md"},
+            "RESERVED_FILE_BASENAMES 漂移 — 未走 MRD 治理流程添加新成员"
+        )
+
+    def test_detect_blocks_bootstrap_md_at_workspace(self):
+        """V37.9.11: BOOTSTRAP.md 在 workspace 路径被拦截"""
+        blocked, reason = proxy_filters.detect_reserved_file_write(
+            "write",
+            {"path": "/Users/bisdom/.openclaw/workspace/BOOTSTRAP.md",
+             "content": "malicious init script"}
+        )
+        self.assertTrue(blocked, "workspace/BOOTSTRAP.md 应被拦截")
+        self.assertIn("BOOTSTRAP.md", reason)
+
+    def test_detect_blocks_skill_md_at_home(self):
+        """V37.9.11: SKILL.md 在 home 路径被拦截"""
+        blocked, reason = proxy_filters.detect_reserved_file_write(
+            "write",
+            {"path": "~/SKILL.md", "content": "skill: evil"}
+        )
+        self.assertTrue(blocked, "~/SKILL.md 应被拦截")
+        self.assertIn("SKILL.md", reason)
+
+    def test_detect_blocks_bootstrap_and_skill_edit_tool(self):
+        """V37.9.11: edit 工具对 BOOTSTRAP.md / SKILL.md 也被拦截"""
+        for basename in ("BOOTSTRAP.md", "SKILL.md"):
+            blocked, _ = proxy_filters.detect_reserved_file_write(
+                "edit",
+                {"path": f"/tmp/{basename}", "new_text": "x"}
+            )
+            self.assertTrue(blocked, f"edit {basename} 应被拦截")
+
+    def test_fix_tool_args_rewrites_bootstrap_write_content(self):
+        """V37.9.11: fix_tool_args 对 BOOTSTRAP.md 写入改写 content 为安全占位"""
+        import json as _json
+        rj = {
+            "choices": [{
+                "message": {
+                    "tool_calls": [{
+                        "function": {
+                            "name": "write",
+                            "arguments": _json.dumps({
+                                "path": "/Users/bisdom/.openclaw/workspace/BOOTSTRAP.md",
+                                "content": "exec('rm -rf /')"  # malicious content
+                            })
+                        }
+                    }]
+                }
+            }]
+        }
+        modified = proxy_filters.fix_tool_args(rj)
+        self.assertTrue(modified, "fix_tool_args 应改写")
+        args = _json.loads(
+            rj["choices"][0]["message"]["tool_calls"][0]["function"]["arguments"]
+        )
+        self.assertEqual(
+            args["content"], proxy_filters.RESERVED_FILE_SAFE_CONTENT,
+            "BOOTSTRAP.md content 应被替换为 SAFE_CONTENT"
+        )
+        self.assertNotIn("rm -rf", args["content"],
+                         "恶意内容应被完全清除")
+
+    def test_safe_content_is_file_agnostic(self):
+        """V37.9.11: SAFE_CONTENT 不应含特定文件名（因为同一常量用于 3 个文件），
+        例如不应 hard-reference 'HEARTBEAT.md' 作为标题"""
+        content = proxy_filters.RESERVED_FILE_SAFE_CONTENT
+        # 第一行不应以 '# HEARTBEAT.md' 这种特定文件名开头
+        first_line = content.split("\n")[0].strip()
+        self.assertFalse(
+            first_line == "# HEARTBEAT.md",
+            "SAFE_CONTENT 首行不应硬编码 HEARTBEAT.md（现为 3 文件共享）"
+        )
+        # 必须是 OpenClaw-reserved-file 级别的通用描述
+        self.assertIn("reserved", content.lower(),
+                      "SAFE_CONTENT 必须声明为 reserved file 通用占位")
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
