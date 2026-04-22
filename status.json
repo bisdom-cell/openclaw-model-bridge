@@ -1,5 +1,5 @@
 {
-  "updated": "2026-04-22 03:22:00",
+  "updated": "2026-04-22 03:37:55",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-04-22",
+      "what": "V37.9.10 audit_log 原子导出 + fsync 持久化加固 — 数据完整性 13→15 满分 (总分 93→95 dev / 98→100 Mac Mini 预期). audit() 加 flush+fsync 防 cron 崩溃丢尾部记录; 新增 snapshot(dest_path) 用 tmp+os.replace 真原子模式导出审计日志快照 (适用备份/跨主机同步); --snapshot CLI 模式. 7 新 TestSnapshot 单测: 缺文件返回 ok=False / 字节级一致 / 不留 .tmp 残余 / 自动建目标目录 / 覆盖已存在 / 源码守卫 os.replace+os.fsync. 41 suites / 1193 tests (+7) / 0 fail. 原则 #18 补证据而非补功能正向兑现: 每改动对应真运维场景.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-04-22",
       "what": "V37.9.9 三合一推进 A+C+B：(A) Mac Mini V37.9.8 验证 — ACL cron 9:30 准时触发 + 10 篇推送成功 (4/15 失败任务复活，V37.9.8 28d 阈值策略生效); auto_deploy heartbeat 每小时整点完美出行; watchdog 实际日志名 gateway_watchdog.log 修正. 新发现 MOVESPEED rsync Operation not permitted 间歇复发登记观察. (C) 路线 C Step 4 security_score library 直调 — INV-SEC-001 check 2 从 subprocess+中文正则 parse 升级为 `from security_score import compute_score` + 从 security_config.total_threshold 读阈值, 消除 ~200ms fork 开销 + 正则 parse 失败塌陷盲区 + 硬编码 90 漂移风险三问题. 3 新 regression test TestInvSec001UsesLibraryDirectCall 锁定契约. MR-16 双轨统一终态. (B) Ontology Phase 4 骨架 — 新增 domain_ontology.yaml (六域 Actor/Tool/Resource/Task/Provider/Memory + 域间关系 + P1/P2/P3 路径) + policy_ontology.yaml (10 条策略 3 static + 2 temporal + 3 contextual + INV-PA-001 ordering_constraint + 策略冲突检测 stub) + test_phase4_ontology_skeleton.py (15 单测跨 ontology 一致性守卫). 状态 declaration_only 未 wiring. governance v3.30→v3.31 / 58 inv / 272→273 checks / 41 suites / 1186 tests (+27) / 安全 93/100.",
       "by": "claude_code"
     },
@@ -198,11 +203,6 @@
       "date": "2026-04-17",
       "what": "外部代码级评审吸收: 六优势(控制平面/Provider抽象/韧性/阈值/门禁/战略)+五劣势(脚本特征/环境耦合/PyYAML/Memory接口/文档过载)。录入4项P0/P1优先级: 可迁移性闭环+证据链产品化+插件生态接口+可观测闭环。核心三字诀: 标准化+可比较+生态协议",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-04-17",
-      "what": "V37.8.14 session: (1) Phase 3 P0 ONTOLOGY_MODE=on 正式切换(249测试) (2) 治理覆盖42→52不变式/0未覆盖job (3) 信源大扩展19→33+源(+7RSS/+Caixin HTML/+WorldBank API/+5X政治/+茶思屋独立job) (4) X僵尸移除4个+通知修复 (5) 终极目标pip install ontology-engine写入路标 (6) 原则#33信源部署环境验证 (7) LLM输出全中文标题 (8) chaspark API发现教训:dev 403≠不可用",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -233,7 +233,7 @@
     "kb_stats": "240 notes, 16 today, 1805KB sources",
     "stale_jobs": "all_ok",
     "last_refresh": "2026-04-08 13:00",
-    "security_score": "93/100 (93.0%)",
+    "security_score": "95/100 (95.0%)",
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB"
   },
   "session_context": {
@@ -268,15 +268,15 @@
     "last_session_focus": "V37.8.16 -> V37.9.2: Stage 2 验证者阶段完整交付（路线 A 15血案回填 + 路线 B 16对抗场景 + 6/6 盲区全闭 + V37.9 结构加固 + V37.9.1 安全统一 + V37.9.2 MR-6 深度补齐）"
   },
   "quality": {
-    "security_score": 93,
-    "test_count": 1186,
-    "last_regression": "2026-04-22 02:20 pass",
+    "security_score": 95,
+    "test_count": 1193,
+    "last_regression": "2026-04-22 03:37 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-04-22 02:20",
+    "security_score_time": "2026-04-22 03:37",
     "test_suites": 41,
     "governance_invariants": "52/52",
     "governance_checks": "222/233",
-    "version": "0.37.9.8"
+    "version": "0.37.9.9"
   },
   "incidents": [
     {
