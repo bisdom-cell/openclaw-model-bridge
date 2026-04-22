@@ -199,6 +199,7 @@ VALID_BROWSER_PROFILES = {"openclaw", "chrome"}
 
 # ---------------------------------------------------------------------------
 # V37.8.16 MR-15 reserved-files-must-not-be-writable-by-llm
+# V37.9.11 扩展：跟随 OpenClaw dist/*.js 源码扫描结果补齐 BOOTSTRAP.md + SKILL.md
 # OpenClaw runtime 保留文件：LLM 不能通过 write/edit 工具写入这些文件
 #
 # 血案（2026-04-19）：PA 把"HN告警已恢复/任务完成"写进 workspace/HEARTBEAT.md
@@ -207,20 +208,30 @@ VALID_BROWSER_PROFILES = {"openclaw", "chrome"}
 # → Gateway stripTokenAtEdges 剥离 12 字符 → 用户完全看不到 PA 回复 13 小时
 #
 # 防御：detect_reserved_file_write() 检测 → 改写 args.content 为安全注释占位 →
-# [SYSTEM_ALERT] 日志 → LLM 的 write 变成 no-op，HEARTBEAT.md 始终只含注释
+# [SYSTEM_ALERT] 日志 → LLM 的 write 变成 no-op，保留文件始终只含注释
+#
+# MRD-RESERVED-FILES-001 (V37.8.17) 每次 governance --full 扫 OpenClaw dist/*.js
+# 源码 `f.name === "X.md"` 模式，与本列表做 diff；若上游新增保留文件则 warn 要求
+# 同步扩展。V37.9.11 依据此扫描结果登记 BOOTSTRAP.md + SKILL.md。
 #
 # 详见: ontology/docs/cases/heartbeat_md_pa_self_silencing_case.md
 # ---------------------------------------------------------------------------
 RESERVED_FILE_BASENAMES = frozenset([
-    "HEARTBEAT.md",  # OpenClaw heartbeat activation control (MR-15 / V37.8.16)
+    "HEARTBEAT.md",   # OpenClaw heartbeat activation control (MR-15 / V37.8.16)
+    "BOOTSTRAP.md",   # OpenClaw bootstrap init file (V37.9.11 MRD 扩展)
+    "SKILL.md",       # OpenClaw skill definition file (V37.9.11 MRD 扩展)
 ])
 
-# 安全占位内容，替换 LLM 尝试写入保留文件的内容（保证 isHeartbeatContentEffectivelyEmpty 返回 true）
+# 安全占位内容 — 文件无关的通用 comment-only 骨架。
+# 规则：每行要么空要么以 `#` 起头，保证 OpenClaw runtime 各种"有效内容"判定
+# （HEARTBEAT 的 isHeartbeatContentEffectivelyEmpty / BOOTSTRAP 的空 init /
+# SKILL 的空技能列表）全部判为 true，让 LLM 写入等效于"什么都没写"。
 RESERVED_FILE_SAFE_CONTENT = (
-    "# HEARTBEAT.md\n"
-    "# Keep this file empty (or with only comments) to skip heartbeat API calls.\n"
-    "# 禁止写入任何非注释内容 —— 会触发 OpenClaw heartbeat 吞噬用户消息"
-    "（2026-04-19 血案 / V37.8.16 MR-15 自动拦截）\n"
+    "# OpenClaw runtime reserved file — comments-only safe placeholder\n"
+    "# Keep this file empty (or with only `#` comments) to avoid triggering\n"
+    "# runtime side effects (heartbeat / bootstrap / skill injection).\n"
+    "# 禁止写入任何非注释内容 —— 可能吞噬用户消息或破坏对话流\n"
+    "# (2026-04-19 HEARTBEAT.md 血案 / V37.8.16 MR-15 / V37.9.11 扩展 自动拦截)\n"
 )
 
 # 请求体大小上限（从 config.yaml 加载）
