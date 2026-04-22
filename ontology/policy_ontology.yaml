@@ -1,0 +1,200 @@
+# policy_ontology.yaml — 策略本体（Policy Ontology）
+#
+# 状态: 🌱 Phase 4 骨架 (V37.9.9, 2026-04-22) — 仅声明，未 wiring
+# 定位: Ontology Phase 4 Layer 2 — 把散落在 proxy_filters.py / adapter.py /
+#       cron 脚本里的决策规则抽象为三类可推理的策略声明。
+# 终态路标: engine.py::evaluate_policy(policy_id, context) 成为所有
+#           if/else 决策的唯一入口，Python 代码里零硬编码策略。
+#
+# 与 domain_ontology.yaml 的关系:
+#   - domain_ontology = 名词（Actor / Tool / Resource / Task / Provider / Memory）
+#   - policy_ontology = 动词（在什么 context 下允许什么 Actor 对什么 Resource 做什么）
+#
+# 三类策略统一框架:
+#   1. 静态策略（always-on）   — 如"工具数 ≤ 12"
+#   2. 时序策略（time-scoped）  — 如"00-07 凌晨静默期零推送"
+#   3. 路由策略（context-aware）— 如"图片请求走 VL 模型，文本走 Qwen3"
+#
+# 当前 Phase 3 状态: 这些策略已在代码里实现，本文件把它们"外化"为声明。
+# Phase 4 P2 wiring 时引擎统一查询本文件，代码里仅保留执行逻辑不再含判定。
+
+# ═══════════════════════════════════════════════════════════════════════
+# 1. 策略分类（Policy Types）
+# ═══════════════════════════════════════════════════════════════════════
+policy_types:
+
+  static:
+    description: "无条件恒等策略"
+    enforcement: "always"
+    examples:
+      - max-tools-per-agent
+      - max-request-body-size
+
+  temporal:
+    description: "按时间窗口生效的策略"
+    enforcement: "cron_window OR hour_of_day"
+    examples:
+      - quiet-hours-00-07
+      - peak-hours-9-21
+
+  contextual:
+    description: "基于请求上下文决策的策略"
+    enforcement: "per_request"
+    examples:
+      - multimodal-routing
+      - fallback-chain-selection
+      - alert-context-isolation
+
+# ═══════════════════════════════════════════════════════════════════════
+# 2. 具体策略声明（初始集合，从现有代码抽取）
+# ═══════════════════════════════════════════════════════════════════════
+# 每条策略必须包含:
+#   id               — 稳定标识符
+#   type             — static / temporal / contextual
+#   scope            — 作用域 (domain concept 引用)
+#   rule             — 形式化规则（pseudo-logic）
+#   enforcement_site — 当前 Python 代码中执行此策略的位置（wiring 对齐用）
+#   rationale        — 为什么是这条规则（引用血案或设计文档）
+
+policies:
+
+  # ── 静态策略 ──────────────────────────────────────────────────
+  - id: max-tools-per-agent
+    type: static
+    scope: [Actor, Tool]
+    rule: "|selected_tools| ≤ 12 per agent invocation"
+    enforcement_site: "proxy_filters.py::filter_tools (MAX_TOOLS=12)"
+    rationale: "V27 实证：>12 工具导致 Qwen3 混乱、选错工具、超时率 3x"
+    governance_invariant: INV-TOOL-001
+    hard_limit: true
+
+  - id: max-tool-calls-per-task
+    type: static
+    scope: [Task]
+    rule: "|tool_calls| ≤ 2 per user_message"
+    enforcement_site: "tool_proxy.py main request loop"
+    rationale: "V27 实证：>2 次调用超时率指数级上升"
+    governance_invariant: INV-TOOL-002
+    hard_limit: true
+
+  - id: max-request-body-size
+    type: static
+    scope: [Tool]
+    rule: "request_body_bytes ≤ 200_000"
+    enforcement_site: "tool_proxy.py::truncate_messages"
+    rationale: "Adapter 硬限 280KB，留 80KB buffer"
+    hard_limit: true
+
+  - id: alert-context-isolation
+    type: contextual
+    scope: [Actor, Memory]
+    rule: "messages containing [SYSTEM_ALERT] must NOT enter LLM input context"
+    enforcement_site: "proxy_filters.py::filter_system_alerts (before truncate)"
+    rationale: "V37.4.3 PA 告警污染血案 — 告警经 sessions.json 污染对话上下文"
+    governance_invariant: INV-PA-001
+    ordering_constraint: "filter_system_alerts MUST run BEFORE truncate_messages"
+
+  # ── 时序策略 ──────────────────────────────────────────────────
+  - id: quiet-hours-00-07
+    type: temporal
+    scope: [Actor, Tool]
+    rule: "hour_of_day ∈ [0, 7) → suppress non-critical WhatsApp pushes (Discord still routes)"
+    enforcement_site: "auto_deploy.sh::quiet_alert + notify.sh"
+    rationale: "V37.8.13 血案：凌晨静默期不得跳过 Discord（告警链不得依赖失效主体自身 MR-14）"
+    governance_invariant: INV-QUIET-001
+    time_zone: "Asia/Hong_Kong"
+
+  - id: dream-map-budget
+    type: temporal
+    scope: [Task, Provider]
+    rule: "task=kb_dream → DREAM_TIMEOUT_SEC = 5400 if map_only else 3600"
+    enforcement_site: "kb_dream.sh 行 ~20"
+    rationale: "V37.4 预算溢出血案 — Map 286 notes × 76s > 60min"
+    governance_invariant: INV-DREAM-001
+
+  # ── 路由策略 ──────────────────────────────────────────────────
+  - id: multimodal-routing
+    type: contextual
+    scope: [Provider, Memory]
+    rule: "request.has_image → Provider=Qwen2.5-VL-72B; else Provider=Qwen3-235B"
+    enforcement_site: "adapter.py::route_to_provider"
+    rationale: "V29.4 多模态上线 — 文本任务不应付 VL 模型溢价"
+
+  - id: fallback-chain-capability
+    type: contextual
+    scope: [Provider, Task]
+    rule: "for each required_capability ∈ task → primary.supports(cap) ? primary : fallback.find_by_capability(cap)"
+    enforcement_site: "adapter.py::_build_fallback_chain (V37)"
+    rationale: "V37 Provider Plugin Interface — 能力驱动 fallback 而非静态枚举"
+    hot_reload: true
+
+  - id: data-clean-tool-injection
+    type: contextual
+    scope: [Tool, Actor]
+    rule: "user_text contains data cleaning keywords → inject data_clean + search_kb tool_defs"
+    enforcement_site: "proxy_filters.py::inject_custom_tools"
+    rationale: "V30.3 自定义工具机制 — 通过 proxy 扩展 Agent 能力无需 Gateway 改动"
+
+# ═══════════════════════════════════════════════════════════════════════
+# 3. 策略冲突检测（Phase 4 P2 目标）
+# ═══════════════════════════════════════════════════════════════════════
+# Phase 4 P2 的关键能力: 自动发现策略间的矛盾。
+# 示例:
+#   - quiet-hours-00-07 vs "critical system alert must be pushed"
+#     → 应允许 critical 打破 quiet（已体现在 Discord 穿透）
+#   - max-tools-per-agent(12) vs "data-clean injection adds 2 tools"
+#     → 必须从 existing 24 过滤到 10，腾出 2 个空间
+conflict_detection:
+  status: "Phase 4 P2 待启动"
+  future_api: "engine.py::find_conflicts() → list[(policy_a, policy_b, resolution_hint)]"
+  known_tensions:
+    - pair: [quiet-hours-00-07, alert-must-reach-user]
+      resolution: "Discord 穿透静默期 (V37.8.13)"
+    - pair: [max-tools-per-agent, data-clean-tool-injection]
+      resolution: "inject 前先 filter_tools 到 10 (tool_proxy.py 已实现)"
+
+# ═══════════════════════════════════════════════════════════════════════
+# 4. 策略演进的元规则（Meta-Policy）
+# ═══════════════════════════════════════════════════════════════════════
+meta_policy:
+  # 派生于 governance_ontology.yaml 的 MR-* 系列
+  - id: MR-7-governance-self-observable
+    statement: "治理系统自身是一等被治理对象"
+    implication: "修改任何 policy 后必须跑 governance_checker 确认无新盲区"
+  - id: MR-8-copy-paste-is-a-bug-class
+    statement: "跨模块复制相似逻辑 = 引入 bug 类"
+    implication: "新增 policy 如与现有相似必须抽取公共基类，不得 copy-paste"
+  - id: MR-16-security-governance-alignment
+    statement: "security 和 governance 双轨必须共享数据源"
+    implication: "security_score.py 与 governance_ontology.yaml::security_config 共享"
+    bloodline: "V37.9 Route C 实证（Step 4 完成 library 直调）"
+
+# ═══════════════════════════════════════════════════════════════════════
+# 5. Phase 4 实施路径
+# ═══════════════════════════════════════════════════════════════════════
+# Phase 4 P1 (本 session 完成): 仅骨架 + 策略清单
+# Phase 4 P2 (下次迭代):
+#   1. engine.py::evaluate_policy(policy_id, context) API 实现
+#   2. tests/test_policy_engine.py 每条 policy 的 pass/fail 边界单测
+#   3. 选一条 policy（建议 max-tools-per-agent）做首个实际切换：
+#      proxy_filters.py::filter_tools 从硬编码 12 改为 evaluate_policy("max-tools-per-agent")
+#   4. 确认无回归 → 逐条迁移其他 policy
+# Phase 4 P3 (三阶段门控):
+#   5. proxy 管线 pre_check → runtime_gate → post_verify 分别查询对应 policy
+#   6. audit_log 每条记录 policy_evaluated + rule_chain + rationale
+#
+# 下次 B 推进建议: 从 Step 1 (evaluate_policy 最小实现 + 一个 policy 的切换) 开始，
+# 不求覆盖全部，求"可迁移的一条路径"。
+
+meta:
+  version: "0.1-skeleton"
+  phase: "Phase 4 skeleton (pre-wiring)"
+  created: "2026-04-22"
+  status: "declaration_only"
+  policies_declared: 10
+  next_step: "Phase 4 P2 Step 1 — engine.py::evaluate_policy() + 单 policy 迁移验证"
+  refs:
+    - ontology/domain_ontology.yaml
+    - ontology/tool_ontology.yaml
+    - ontology/governance_ontology.yaml
+    - CLAUDE.md "Ontology 子项目（终态架构）" Phase 4 小节
