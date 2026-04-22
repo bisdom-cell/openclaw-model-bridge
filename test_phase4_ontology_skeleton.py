@@ -139,6 +139,30 @@ class TestPolicyOntologySkeleton(unittest.TestCase):
                     f"(hard_limit 只适用 static policy)"
                 )
 
+    def test_hard_limits_have_explicit_limit_field(self):
+        """V37.9.12 Phase 4 P1 wiring 契约: hard_limit=true 的 policy 必须声明
+        explicit `limit` (或 `value`) 字段作为机器可读阈值。
+        evaluate_policy() 会优先读该字段，无须依赖 rule 文本 regex 解析。
+        调用方 (如 proxy_filters._resolve_max_tools_limit) 直接拿数值。"""
+        for pol in self.onto.get("policies", []):
+            if pol.get("hard_limit"):
+                has_explicit = ("limit" in pol) or ("value" in pol)
+                self.assertTrue(
+                    has_explicit,
+                    f"policy {pol['id']} hard_limit=true 但缺 `limit` 字段 "
+                    f"(V37.9.12 起要求所有 hard_limit policy 声明机器可读阈值)"
+                )
+
+    def test_max_tools_per_agent_is_12(self):
+        """wiring 安全网: max-tools-per-agent.limit 必须 == 12 == config MAX_TOOLS。
+        如果改这个值必须同步 config_loader.MAX_TOOLS + 跑 E2E 验证。"""
+        pols = {p["id"]: p for p in self.onto.get("policies", [])}
+        self.assertIn("max-tools-per-agent", pols)
+        self.assertEqual(
+            pols["max-tools-per-agent"].get("limit"), 12,
+            "max-tools-per-agent.limit 漂移 — 必须与 config_loader.MAX_TOOLS 同步"
+        )
+
     def test_alert_context_isolation_has_ordering_constraint(self):
         """INV-PA-001 的核心约束: filter_system_alerts 必须在 truncate 之前。"""
         pols = {p["id"]: p for p in self.onto.get("policies", [])}
