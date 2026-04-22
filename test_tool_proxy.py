@@ -2078,5 +2078,202 @@ class TestReservedFileWriteBlock(unittest.TestCase):
                       "SAFE_CONTENT 必须声明为 reserved file 通用占位")
 
 
+class TestPolicyDrivenMaxTools(unittest.TestCase):
+    """V37.9.12 Phase 4 P1: max-tools-per-agent policy wiring 回归测试。
+
+    锁定契约：
+      1. proxy_filters._MAX_TOOLS_RESOLVED 由 _resolve_max_tools_limit() 派生
+      2. filter_tools 用 _MAX_TOOLS_RESOLVED 作截断阈值（非硬编码 12，非 _CFG_MAX_TOOLS）
+      3. ontology 加载失败/policy miss 时必须回退 config 值，不得抛异常
+      4. 常规 mode=on 场景下 _MAX_TOOLS_RESOLVED == 12（等于 config，保证切换零回归）
+    """
+
+    def test_resolved_limit_matches_config_in_default_mode(self):
+        """默认 ONTOLOGY_MODE=on 场景：policy 声明 == config 硬编码 == 12。"""
+        import proxy_filters as pf
+        self.assertEqual(pf._MAX_TOOLS_RESOLVED, 12)
+        self.assertEqual(pf._MAX_TOOLS_RESOLVED, pf._CFG_MAX_TOOLS)
+
+    def test_resolve_source_is_ontology_policy_in_on_mode(self):
+        """V37.9.12 实际切换：on 模式下 source 必须为 ontology_policy（证明 wiring 生效）。
+        若 source 变成 config_fallback_* 意味着 ontology 加载失败，wiring 已回退。"""
+        import proxy_filters as pf
+        if pf._ONTOLOGY_MODE == "on":
+            self.assertEqual(
+                pf._MAX_TOOLS_SOURCE, "ontology_policy",
+                "ONTOLOGY_MODE=on 时必须使用 policy，不是 config fallback"
+            )
+
+    def test_filter_tools_truncates_at_resolved_limit(self):
+        """filter_tools 构造一个溢出的 tools 列表，验证截断到 _MAX_TOOLS_RESOLVED。"""
+        import proxy_filters as pf
+        # 构造 20 个合法 gateway 工具（超过 12 上限）
+        tools = []
+        for tname in ["web_search", "web_fetch", "read", "write", "edit",
+                      "exec", "memory_search", "memory_get", "sessions_spawn",
+                      "sessions_send", "sessions_history", "agents_list",
+                      "cron", "message", "tts", "image"]:
+            tools.append({
+                "type": "function",
+                "function": {"name": tname, "parameters": {"type": "object", "properties": {}}}
+            })
+
+        kept, all_names, kept_names = pf.filter_tools(list(tools))
+        self.assertLessEqual(
+            len(kept), pf._MAX_TOOLS_RESOLVED,
+            f"filter_tools 截断失败: len(kept)={len(kept)} > limit={pf._MAX_TOOLS_RESOLVED}"
+        )
+
+    def test_filter_tools_preserves_custom_tools_under_truncation(self):
+        """截断时 custom tools (data_clean/search_kb) 必须全部保留。"""
+        import proxy_filters as pf
+        tools = []
+        for tname in ["web_search", "web_fetch", "read", "write", "edit",
+                      "exec", "memory_search", "memory_get", "sessions_spawn",
+                      "sessions_send", "sessions_history", "agents_list",
+                      "cron", "message", "tts", "image"]:
+            tools.append({
+                "type": "function",
+                "function": {"name": tname, "parameters": {"type": "object", "properties": {}}}
+            })
+        kept, all_names, kept_names = pf.filter_tools(list(tools))
+        # custom tool names 必须全部在 kept_names 里
+        for custom_name in pf.CUSTOM_TOOL_NAMES:
+            self.assertIn(
+                custom_name, kept_names,
+                f"custom tool '{custom_name}' 在截断后被删除（应无条件保留）"
+            )
+
+    def test_resolve_function_returns_config_when_mode_off(self):
+        """ONTOLOGY_MODE=off 分支必须直接返回 config 值 + source=config_off_mode。
+        用 monkeypatch 临时切换模式验证分支，不影响其他测试。"""
+        import proxy_filters as pf
+        original_mode = pf._ONTOLOGY_MODE
+        try:
+            pf._ONTOLOGY_MODE = "off"
+            limit, source = pf._resolve_max_tools_limit()
+            self.assertEqual(limit, pf._CFG_MAX_TOOLS)
+            self.assertEqual(source, "config_off_mode")
+        finally:
+            pf._ONTOLOGY_MODE = original_mode
+
+    def test_resolve_function_returns_config_when_onto_mod_missing(self):
+        """_onto_mod=None 分支（ontology load failed）必须回退到 config。"""
+        import proxy_filters as pf
+        original_mod = pf._onto_mod
+        original_mode = pf._ONTOLOGY_MODE
+        try:
+            pf._onto_mod = None
+            pf._ONTOLOGY_MODE = "on"  # 确保走到 load_failed 判定
+            limit, source = pf._resolve_max_tools_limit()
+            self.assertEqual(limit, pf._CFG_MAX_TOOLS)
+            self.assertEqual(source, "config_fallback_load_failed")
+        finally:
+            pf._onto_mod = original_mod
+            pf._ONTOLOGY_MODE = original_mode
+
+    def test_resolve_function_returns_config_when_policy_not_found(self):
+        """evaluate_policy 返回 found=False 时必须回退到 config，不得抛异常。"""
+        import proxy_filters as pf
+
+        class _FakeMod:
+            @staticmethod
+            def evaluate_policy(policy_id):
+                return {"found": False, "limit": None, "reason": "policy_id_not_found"}
+
+        original_mod = pf._onto_mod
+        original_mode = pf._ONTOLOGY_MODE
+        try:
+            pf._onto_mod = _FakeMod()
+            pf._ONTOLOGY_MODE = "on"
+            limit, source = pf._resolve_max_tools_limit()
+            self.assertEqual(limit, pf._CFG_MAX_TOOLS)
+            self.assertEqual(source, "config_fallback_policy_miss")
+        finally:
+            pf._onto_mod = original_mod
+            pf._ONTOLOGY_MODE = original_mode
+
+    def test_resolve_function_returns_config_when_evaluate_raises(self):
+        """evaluate_policy 抛异常时必须 catch 并回退，不得让 proxy 启动崩溃。"""
+        import proxy_filters as pf
+
+        class _BrokenMod:
+            @staticmethod
+            def evaluate_policy(policy_id):
+                raise RuntimeError("simulated engine failure")
+
+        original_mod = pf._onto_mod
+        original_mode = pf._ONTOLOGY_MODE
+        try:
+            pf._onto_mod = _BrokenMod()
+            pf._ONTOLOGY_MODE = "on"
+            limit, source = pf._resolve_max_tools_limit()
+            self.assertEqual(limit, pf._CFG_MAX_TOOLS)
+            self.assertEqual(source, "config_fallback_policy_miss")
+        finally:
+            pf._onto_mod = original_mod
+            pf._ONTOLOGY_MODE = original_mode
+
+    def test_resolve_function_uses_ontology_limit_when_valid(self):
+        """on 模式 + valid policy result：必须使用 ontology.limit 而非 config。"""
+        import proxy_filters as pf
+
+        class _FakeMod:
+            @staticmethod
+            def evaluate_policy(policy_id):
+                # 模拟 ontology 返回 8（测试切换路径；实际生产 limit=12）
+                return {"found": True, "limit": 8, "reason": None}
+
+        original_mod = pf._onto_mod
+        original_mode = pf._ONTOLOGY_MODE
+        try:
+            pf._onto_mod = _FakeMod()
+            pf._ONTOLOGY_MODE = "on"
+            limit, source = pf._resolve_max_tools_limit()
+            self.assertEqual(limit, 8)
+            self.assertEqual(source, "ontology_policy")
+        finally:
+            pf._onto_mod = original_mod
+            pf._ONTOLOGY_MODE = original_mode
+
+    def test_shadow_mode_uses_config_but_observes(self):
+        """shadow 模式即使 policy 有效也必须返回 config 值（观察期不切换行为）。"""
+        import proxy_filters as pf
+
+        class _FakeMod:
+            @staticmethod
+            def evaluate_policy(policy_id):
+                return {"found": True, "limit": 99, "reason": None}
+
+        original_mod = pf._onto_mod
+        original_mode = pf._ONTOLOGY_MODE
+        try:
+            pf._onto_mod = _FakeMod()
+            pf._ONTOLOGY_MODE = "shadow"
+            limit, source = pf._resolve_max_tools_limit()
+            self.assertEqual(limit, pf._CFG_MAX_TOOLS)
+            self.assertEqual(source, "config_shadow_mode")
+        finally:
+            pf._onto_mod = original_mod
+            pf._ONTOLOGY_MODE = original_mode
+
+    def test_filter_tools_no_hardcoded_cfg_max_tools_in_truncation(self):
+        """源码守卫：filter_tools 函数体不得再次出现 _CFG_MAX_TOOLS 作截断阈值。
+        V37.9.12 切换必须彻底 — 未来回归时此守卫会捕获意外回退。"""
+        import inspect
+        import proxy_filters as pf
+        src = inspect.getsource(pf.filter_tools)
+        # 合法：注释引用 _CFG_MAX_TOOLS 说明；非法：作为 `> _CFG_MAX_TOOLS` 判定
+        # 精确检查：条件判断 + 列表切片两处必须用 _MAX_TOOLS_RESOLVED
+        self.assertNotRegex(
+            src, r">\s*_CFG_MAX_TOOLS",
+            "filter_tools 截断条件仍引用 _CFG_MAX_TOOLS（应切换为 _MAX_TOOLS_RESOLVED）"
+        )
+        self.assertIn(
+            "_MAX_TOOLS_RESOLVED", src,
+            "filter_tools 源码必须引用 _MAX_TOOLS_RESOLVED"
+        )
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
