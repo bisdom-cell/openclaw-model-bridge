@@ -1,5 +1,5 @@
 {
-  "updated": "2026-04-22 05:55:57",
+  "updated": "2026-04-22 09:09:25",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-04-22",
+      "what": "V37.9.12.1 Mac Mini 部署验证 + plist 配置债发现修复: (1) 推翻 V37.9.12 changelog 关于 safe-fallback 的假设 — 实测 ~/ontology 是 symlink → ~/openclaw-model-bridge/ontology，Phase 4 P1 wiring 在生产真实生效，/health 返回 0.37.9.12，日志 [proxy] max-tools-per-agent: using ontology limit=12 (Phase 4 P1 wiring active) (2) 发现 launchd plist 未入 FILE_MAP = 纯本地配置，如 plist 丢失/重装需手动重建 — 登记 V37.9.13 候选 ship plist template through auto_deploy (3) 发现 com.openclaw.proxy.plist 导致 launchd 进程始终以 ONTOLOGY_MODE=shadow 启动的配置漂移，但 plist 本身没有 ONTOLOGY_MODE env 声明 — shadow 来源未追到（不是 launchctl getenv/shell rc/proxy_filters 默认值/pycache diff）；通过 PlistBuddy Add :EnvironmentVariables:ONTOLOGY_MODE string on 显式覆盖已修复 (4) 发现 com.openclaw.adapter.plist 同款双管理冲突 — restart.sh manual 进程 + launchd KeepAlive 抢端口 = launchctl list 显示 crash-loop。architectural debt 登记 V37.9.13 候选: restart.sh 改用 launchctl kickstart 替代 nohup python，消除双管理。(5) 结论: V37.9.12 Phase 4 P1 wiring 真实 in production，昨日误判 Mac Mini 走 fallback 是错的。",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-04-22",
       "what": "V37.9.12 Phase 4 P1 wiring 落地 — engine.py 新增 3 个纯函数 API (load_domain_ontology / find_by_domain / evaluate_policy) + _parse_limit_from_rule regex fallback; policy_ontology.yaml 给 3 条 hard_limit policy 加 limit 字段 (max-tools-per-agent=12 / max-tool-calls-per-task=2 / max-request-body-size=200000) 作机器可读阈值; proxy_filters.py::filter_tools 首切换: 从硬编码 _CFG_MAX_TOOLS 改为 _MAX_TOOLS_RESOLVED (启动期 _resolve_max_tools_limit() 解析), safe-fallback 5 档 (mode=off→config / _onto_mod 缺失→config+warn / policy miss→config+warn / shadow→config+observe diff / on+valid→ontology limit); 38 新单测 test_engine_phase4.py (TestLoadDomainOntology/TestLoadPolicyOntology/TestFindByDomain/TestEvaluatePolicyContract/TestMaxToolsPolicyWiring/TestParseLimitFromRuleFallback/TestEvaluatePolicyLimitFallbackChain); 11 新单测 test_tool_proxy.TestPolicyDrivenMaxTools (5 档回退 monkey-patch + filter_tools 截断 + 源码守卫); 2 扩展单测 test_phase4_ontology_skeleton (hard_limit 必须有 limit / max-tools-per-agent.limit==12 横向守卫); full_regression 42 suites / 1252 tests (+51) / 0 fail / 安全 95/100; VERSION 0.37.9.11→0.37.9.12. 部署策略: ontology/ 不进 FILE_MAP (宪法删除后原系统正常), Mac Mini 走 safe-fallback 用 config 12 = 改前等价行为, dev 环境 wiring 真实生效. 元价值: Phase 4 P1 是骨架到 pip install ontology-engine 终极目标的关键桥梁, 从本体只描述升级为本体可查询.",
       "by": "claude_code"
     },
@@ -198,21 +203,6 @@
       "date": "2026-04-20",
       "what": "V37.8.16 续: 遗留项推进(原则#30升级Opus 4.7+X僵尸清理+WhatsApp routing 重新评估+新silent bug发现)。(1) CLAUDE.md 原则 #30 升级: 合法模型 = Opus 家族(4.6/4.7/未来)非硬编码ID, \"更强版本不是降级\"显式规则, commit fb12f79. (2) X 僵尸 4/18-19-20 三天连续命中 5 个: Carnegie_Endow/CNS1952/ForeignPolicy/PDChina/SingTaoDaily, 全部从 FINANCE_X_ACCOUNTS 移除. INV-X-001 新增 6 个 file_not_contains 治理守卫防回归(5 个 V37.8.16 僵尸 + 1 索引调整). (3) WhatsApp routing 重新评估: 昨天假说\"plugin 安装改路由\"错误. 真相: plugin 源码(index.ts/src/channel.ts) 零 agent 路由关键字, 只管通道物理收发. handledBy:core 证实 agent 路由在 OpenClaw core 不受 plugin 影响. main/research 共享 workspace, 两个 agent 都加载 workspace/SOUL.md 自称 Wei, 用户行为层无感. 4/10 起 session 落地 research/ 只是存储位置差异, 非致命. (4) 新 silent-failure bug 发现: X 3 天连续命中条件达成但 4/20 07:30 run 未推送 SYSTEM_ALERT 告警(grep 日志无匹配), 说明僵尸告警路径有漏洞. 登记 unfinished 独立排查. (5) Nikkei Asia HTML 适配决策: 不做(paywall+X 账号NikkeiAsia 今日未在 zombies 列表,活跃可用). (6) 全量回归: 36 suites/1111 tests/0 fail/53 inv/15 MR/安全 93/100.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-04-20",
-      "what": "V37.8.16 PA 自残 HEARTBEAT.md 血案完整闭环（MR-4 第 12 次演出 + MR-15 新元规则）: (1) 根因锁定: PA 4/19 09:09 把 HN 告警总结写进 ~/.openclaw/workspace/HEARTBEAT.md → 13h 后用户发消息时 OpenClaw heartbeat 机制激活 isHeartbeatContentEffectivelyEmpty=false → 默认 prompt Read HEARTBEAT.md + If nothing needs attention reply HEARTBEAT_OK → Qwen3 严格执行回 HEARTBEAT_OK 12字符 → Gateway stripTokenAtEdges 剥离 → outbound 空 → 13h 完全静默. (2) 六条件组合爆炸: WhatsApp plugin 4/10 装+PA 有 write+HEARTBEAT.md 保留语义+PA 不知情+heartbeat.prompt 未配+文件非空. 前 5 项长期存在, 4/19 09:09 PA 自写触发第 6 项即爆. (3) 最小修复: cat > HEARTBEAT.md 只留 # 注释 → 4/20 09:16 WhatsApp E2E 5s 回复验证通过. (4) 四层结构修复: LLM 行为层 SOUL.md 规则 11 + Proxy 拦截层 RESERVED_FILE_BASENAMES + detect_reserved_file_write 纯函数 + fix_tool_args 集成 + 数据层 SAFE_CONTENT 只含注释 + 测试层 16 新单测. (5) MR-15 正式立案 reserved-files-must-not-be-writable-by-llm: runtime 保留文件的特殊语义必须对 LLM 显式隔离, MR-4 上游预防层. (6) INV-HB-001 12 checks (declaration + runtime). (7) governance v3.19→v3.20: 52→53 inv, 14→15 MR, 248 checks. (8) 全量回归 36 suites / 1111 tests / 0 fail / 安全 93/100. (9) 反面教训登记: 4/19 深夜我错诊 Bad MAC 让用户 rm -rf auth reset 原则 #28 违规, 幸好用户回滚. (10) 案例文档 heartbeat_md_pa_self_silencing_case.md.",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-04-19",
-      "what": "V37.8.16 血案调查 (未闭环，延后明天修复): WhatsApp PA 对用户提问全部静默回复 HEARTBEAT_OK 而不发给用户。诊断链: (1) /stats last_error_code=502+p99=126s 初判 primary/fallback 问题; (2) /health 三层 ok+进程活着 → 排除崩溃; (3) proxy 日志 22:09-23:04 每次 TEXT=12 chars 稳定 → 非偶发; (4) gateway.log 无 Sending/Sent 对应 → Gateway 收到 LLM 回复但不发 outbound; (5) session jsonl dump 出 HEARTBEAT_OK 字面字符串 (usage:0 synthetic); (6) 一周前正常 + 本仓库零命中 → 上游代码+我们触发组合; (7) upstream /opt/homebrew/lib/node_modules/openclaw/dist/auth-profiles-DRjqKE3G.js:48797 发现 default fallback prompt: Read HEARTBEAT.md if it exists. If nothing needs attention, reply HEARTBEAT_OK. 根因: SOUL.md 未被 research agent 正确加载 → OpenClaw 默认 HEARTBEAT prompt 激活 → LLM 执行默认指令回 HEARTBEAT_OK → Gateway 按 ack token 设计吞掉不发给用户。反面教训: 我犯原则#28违规-看到Bad MAC就让用户做auth reset/QR扫码路径(已回滚)。MR-10 understand-before-fix 未兑现。",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-04-17",
-      "what": "外部代码级评审吸收: 六优势(控制平面/Provider抽象/韧性/阈值/门禁/战略)+五劣势(脚本特征/环境耦合/PyYAML/Memory接口/文档过载)。录入4项P0/P1优先级: 可迁移性闭环+证据链产品化+插件生态接口+可观测闭环。核心三字诀: 标准化+可比较+生态协议",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -260,7 +250,9 @@
       "V37.9.9 Mac Mini 验证: (1) pull 后跑 full_regression dev 1186/0 fail (2) governance_checker --full 确认 INV-SEC-001 library 直调在 Mac Mini 仍过 (3) security_score 仍 93/100 (4) Phase 4 骨架 3 文件部署 OK (声明不影响运行时)",
       "Ontology Phase 4 领域本体骨架已就绪 (V37.9.9 B 任务) — 下次推进 Phase 4 P1 wiring 从 engine.py::load_domain_ontology() + evaluate_policy() 开始",
       "V37.9.12 Phase 4 P2: (a) 实现 contextual/temporal policy 的 context evaluator (hour_of_day / request-context matcher), 让 evaluate_policy().applicable 对非 static policy 返回真值 (b) 选 max-tool-calls-per-task 做第二条 policy 切换, 复用 V37.9.12 _resolve_* 模式 (c) evaluate_policy().applicable 覆盖率 100%",
-      "V37.9.12 部署决策: 是否把 ontology/ 加入 auto_deploy FILE_MAP — 当前 Mac Mini 没有 /Users/bisdom/ontology/, proxy_filters 的 max-tools wiring 走 safe-fallback 用 config 12 (与改前等价). 若 Phase 4 要真正在生产启用, 需评估: (1) 破例把 ontology/ 纳入 FILE_MAP (打破 \"删除后原系统正常\" 宪法) (2) 改 proxy_filters 路径解析兼容 $HOME/openclaw-model-bridge/ontology/ (3) 用符号链接. 三选一需要用户决策."
+      "V37.9.13 候选 (架构清理): restart.sh 改用 launchctl kickstart 替代 nohup python 启动 adapter/proxy，消除双管理冲突。当前 restart.sh 启 manual nohup 进程 + launchd KeepAlive 抢端口 → launchd 侧 crash-loop。fix 后单一 manager (launchd only)，restart 只调用 kickstart -k。",
+      "V37.9.13 候选 (plist 持久化): com.openclaw.proxy.plist + com.openclaw.adapter.plist 未入 auto_deploy FILE_MAP = 纯 Mac Mini 本地文件。如 macOS 重装或 plist 意外删除，V37.9.12.1 给 proxy plist 加的 ONTOLOGY_MODE=on 丢失。应评估: (a) 把 plist 模板加入 FILE_MAP + 加一次性 install script (b) 在 docs/config.md 文档化恢复步骤 (c) 留作纯手动运维知识",
+      "V37.9.13 观察项 (shadow env 来源): launchd 进程启动时 ONTOLOGY_MODE=shadow 的源头未定位。已排除: launchctl getenv / shell rc files / proxy_filters.py default / pycache diff。疑似候选: macOS 系统级 launchd env 继承 / 早期 bash_profile 删除前写入的 global env / 某些未知 daemon 注入。V37.9.12.1 通过 PlistBuddy 显式覆盖已规避，但未追根。下次触发带着完整诊断再查。"
     ],
     "open_prs": "",
     "blocked_on": "",
@@ -352,7 +344,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.12 Phase 4 P1 wiring 收工: engine.py 3 纯函数 API + proxy_filters.py max-tools-per-agent 首切换完成. 下次推进 Phase 4 P2: (a) contextual/temporal policy 的 context evaluator (hour_of_day matcher) (b) 第二条 policy 切换 (max-tool-calls-per-task 最相似路径) (c) evaluate_policy().applicable 真值覆盖到 100% 策略. 核心问题: 是否 ship ontology/ 到 Mac Mini FILE_MAP 以让 Phase 4 wiring 真正生效 (当前 Mac Mini 只走 config fallback). Stage 2 稳定期继续.",
+  "focus": "V37.9.12 完美收工 (Mac Mini 实测验证): Phase 4 P1 wiring 真实生效 (/health 0.37.9.12 + launchd ONTOLOGY_MODE=on + max-tools policy active). 附带发现并修 launchd plist ONTOLOGY_MODE 配置债 (PlistBuddy 显式覆盖). 下次 session: (1) Phase 4 P2 contextual/temporal context evaluator (hour_of_day matcher) (2) 第二条 policy 切换 (max-tool-calls-per-task) (3) V37.9.13 候选架构清理: restart.sh 改用 launchctl kickstart 消除双管理 (4) plist 模板持久化到 FILE_MAP (5) launchd shadow env 来源深查.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
