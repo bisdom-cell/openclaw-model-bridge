@@ -1,6 +1,6 @@
 {
-  "updated": "2026-04-22 09:09:25",
-  "updated_by": "claude_code",
+  "updated": "2026-04-22 09:14:33",
+  "updated_by": "security_score",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -273,14 +273,14 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 1201,
-    "last_regression": "2026-04-22 03:50 pass",
+    "test_count": 1252,
+    "last_regression": "2026-04-22 06:00 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-04-22 03:50",
-    "test_suites": 41,
-    "governance_invariants": "52/52",
-    "governance_checks": "222/233",
-    "version": "0.37.9.10"
+    "security_score_time": "2026-04-22 17:15",
+    "test_suites": 42,
+    "governance_invariants": "59/59",
+    "governance_checks": "283/283",
+    "version": "0.37.9.12"
   },
   "incidents": [
     {
