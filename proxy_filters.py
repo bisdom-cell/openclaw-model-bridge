@@ -269,15 +269,18 @@ def filter_tools(tools, log_fn=None):
     for custom_tool in CUSTOM_TOOLS:
         new_tools.append(custom_tool)
 
-    # V36.2: 硬性工具数量上限（CLAUDE.md: "工具数量 <= 12，超出导致模型混乱"）
-    # 如果超限，保留 custom tools，截断 gateway tools
-    if len(new_tools) > _CFG_MAX_TOOLS:
+    # V36.2 → V37.9.12 Phase 4 P1 wiring: 硬性工具数量上限
+    # 阈值来自 policy_ontology.yaml::max-tools-per-agent (INV-TOOL-001)
+    # 回退链: ontology policy → config MAX_TOOLS → hardcoded 12
+    # 改 12 只需改 policy_ontology.yaml 一处（Phase 4 terminal state）
+    if len(new_tools) > _MAX_TOOLS_RESOLVED:
         if log_fn:
-            log_fn(f"WARN: tool count {len(new_tools)} > {_CFG_MAX_TOOLS}, truncating")
+            log_fn(f"WARN: tool count {len(new_tools)} > {_MAX_TOOLS_RESOLVED}, truncating "
+                   f"(source={_MAX_TOOLS_SOURCE})")
         custom_names = {t.get("function", {}).get("name") for t in CUSTOM_TOOLS}
         custom = [t for t in new_tools if t.get("function", {}).get("name") in custom_names]
         gateway = [t for t in new_tools if t.get("function", {}).get("name") not in custom_names]
-        new_tools = gateway[:_CFG_MAX_TOOLS - len(custom)] + custom
+        new_tools = gateway[:_MAX_TOOLS_RESOLVED - len(custom)] + custom
 
     kept_names = [t.get("function", {}).get("name") for t in new_tools]
 
@@ -402,6 +405,7 @@ CUSTOM_TOOL_NAMES = {t["function"]["name"] for t in CUSTOM_TOOLS}
 # ---------------------------------------------------------------------------
 _onto_engine = None
 _onto_shadow_data = None  # shadow 模式用：引擎生成的数据（不覆盖硬编码）
+_onto_mod = None  # V37.9.12: policy API (evaluate_policy) 访问入口
 
 if _ONTOLOGY_MODE in ("on", "shadow"):
     try:
@@ -416,6 +420,7 @@ if _ONTOLOGY_MODE in ("on", "shadow"):
             _data = _onto.generate_proxy_data()
 
             _onto_engine = _onto
+            _onto_mod = _mod  # V37.9.12 Phase 4 P1: 保留模块引用供 evaluate_policy
 
             if _ONTOLOGY_MODE == "on":
                 # Phase 1: 覆盖硬编码
@@ -432,9 +437,73 @@ if _ONTOLOGY_MODE in ("on", "shadow"):
                 _onto_shadow_data = _data
                 print(f"[proxy] ONTOLOGY_MODE=shadow: engine loaded ({len(_data['ALLOWED_TOOLS'])} tools), hardcoded active, comparing at runtime")
 
-            del _spec, _mod, _data
+            del _spec, _data  # 保留 _mod 供 evaluate_policy 使用
     except Exception as _e:
         print(f"[proxy] WARN: ONTOLOGY_MODE={_ONTOLOGY_MODE} but load failed, falling back to hardcoded: {_e}")
+
+
+# ---------------------------------------------------------------------------
+# V37.9.12 Phase 4 P1: max-tools-per-agent policy wiring
+# ---------------------------------------------------------------------------
+# 从硬编码 _CFG_MAX_TOOLS 切换到 policy_ontology.yaml 声明式阈值。
+# Fallback chain (fail-safe):
+#   1. ONTOLOGY_MODE=off → 直接用 config 值（完全不触碰 ontology）
+#   2. ontology 加载失败 → 用 config 值 + 日志 warn
+#   3. policy 查询失败/limit=None → 用 config 值 + 日志 warn
+#   4. on 模式 + limit 有效 → 用 policy limit
+#   5. shadow 模式 → 始终用 config 值，但比对差异记 log（观察期）
+# 目标: "改 12 只需改 policy_ontology.yaml 一处"（Phase 4 terminal state）
+# ---------------------------------------------------------------------------
+
+def _resolve_max_tools_limit():
+    """解析 max-tools-per-agent policy 的阈值（启动时一次性计算）。
+
+    Returns:
+        (resolved_limit: int, source: str)
+        source 可能值: "config_off_mode", "config_fallback_load_failed",
+                      "config_fallback_policy_miss", "ontology_policy",
+                      "config_shadow_mode"
+    """
+    # Mode off: 不查 ontology
+    if _ONTOLOGY_MODE == "off":
+        return _CFG_MAX_TOOLS, "config_off_mode"
+
+    # Ontology 模块未加载成功 → 回退
+    if _onto_mod is None or not hasattr(_onto_mod, "evaluate_policy"):
+        return _CFG_MAX_TOOLS, "config_fallback_load_failed"
+
+    try:
+        result = _onto_mod.evaluate_policy("max-tools-per-agent")
+    except Exception as _e:
+        print(f"[proxy] WARN: evaluate_policy(max-tools-per-agent) failed: {_e}")
+        return _CFG_MAX_TOOLS, "config_fallback_policy_miss"
+
+    if not result.get("found") or result.get("limit") is None:
+        print(f"[proxy] WARN: policy max-tools-per-agent not resolvable "
+              f"(found={result.get('found')}, limit={result.get('limit')}), "
+              f"falling back to config {_CFG_MAX_TOOLS}")
+        return _CFG_MAX_TOOLS, "config_fallback_policy_miss"
+
+    onto_limit = result["limit"]
+
+    # Shadow 模式: 始终用 config，观察期记录差异
+    if _ONTOLOGY_MODE == "shadow":
+        if onto_limit != _CFG_MAX_TOOLS:
+            print(f"[proxy] ONTOLOGY_MODE=shadow: max-tools policy drift — "
+                  f"ontology={onto_limit} config={_CFG_MAX_TOOLS} (shadow uses config)")
+        return _CFG_MAX_TOOLS, "config_shadow_mode"
+
+    # On 模式: 使用 ontology
+    if onto_limit != _CFG_MAX_TOOLS:
+        print(f"[proxy] ONTOLOGY_MODE=on: max-tools-per-agent drift — "
+              f"ontology={onto_limit}, config={_CFG_MAX_TOOLS} (using ontology)")
+    return int(onto_limit), "ontology_policy"
+
+
+_MAX_TOOLS_RESOLVED, _MAX_TOOLS_SOURCE = _resolve_max_tools_limit()
+if _MAX_TOOLS_SOURCE == "ontology_policy":
+    print(f"[proxy] max-tools-per-agent: using ontology limit={_MAX_TOOLS_RESOLVED} "
+          f"(Phase 4 P1 wiring active)")
 
 
 # [NO_TOOLS] 标记：消息中包含此标记时，proxy 强制清空工具列表

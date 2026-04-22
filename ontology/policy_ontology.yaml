@@ -63,6 +63,7 @@ policies:
     type: static
     scope: [Actor, Tool]
     rule: "|selected_tools| ≤ 12 per agent invocation"
+    limit: 12  # V37.9.12 Phase 4 P2 — 机器可读阈值 (evaluate_policy() 返回)
     enforcement_site: "proxy_filters.py::filter_tools (MAX_TOOLS=12)"
     rationale: "V27 实证：>12 工具导致 Qwen3 混乱、选错工具、超时率 3x"
     governance_invariant: INV-TOOL-001
@@ -72,6 +73,7 @@ policies:
     type: static
     scope: [Task]
     rule: "|tool_calls| ≤ 2 per user_message"
+    limit: 2
     enforcement_site: "tool_proxy.py main request loop"
     rationale: "V27 实证：>2 次调用超时率指数级上升"
     governance_invariant: INV-TOOL-002
@@ -81,6 +83,7 @@ policies:
     type: static
     scope: [Tool]
     rule: "request_body_bytes ≤ 200_000"
+    limit: 200000
     enforcement_site: "tool_proxy.py::truncate_messages"
     rationale: "Adapter 硬限 280KB，留 80KB buffer"
     hard_limit: true
