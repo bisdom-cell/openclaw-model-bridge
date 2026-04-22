@@ -227,5 +227,79 @@ class TestIntegrationWithStatusUpdate(TestAuditBase):
         self.assertIn("audit", content)
 
 
+class TestSnapshot(TestAuditBase):
+    """V37.9.10 snapshot() 原子导出单测。"""
+
+    def test_snapshot_without_audit_file_returns_error(self):
+        """审计文件不存在时应返回 ok=False 而非抛异常。"""
+        dest = os.path.join(self.tmpdir, "snap.jsonl")
+        result = audit_log.snapshot(dest)
+        self.assertFalse(result["ok"])
+        self.assertIn("error", result)
+        self.assertFalse(os.path.exists(dest))
+
+    def test_snapshot_creates_exact_copy(self):
+        """snapshot 必须产生字节级一致的副本。"""
+        audit_log.audit("test", "set", "health", "ok")
+        audit_log.audit("test", "add", "priority", "new task")
+        audit_log.audit("test", "delete", "priority", "done task")
+
+        dest = os.path.join(self.tmpdir, "snap.jsonl")
+        result = audit_log.snapshot(dest)
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["lines"], 3)
+        self.assertTrue(os.path.exists(dest))
+
+        with open(self.audit_file, "rb") as f1, open(dest, "rb") as f2:
+            self.assertEqual(f1.read(), f2.read(), "snapshot 不是字节级一致副本")
+
+    def test_snapshot_uses_tmp_plus_replace_atomic_pattern(self):
+        """确认 snapshot 实现不留下 .tmp 残余文件（atomic pattern 契约）。"""
+        audit_log.audit("test", "set", "x", "y")
+        dest = os.path.join(self.tmpdir, "snap.jsonl")
+        audit_log.snapshot(dest)
+        # .tmp 不应存在（os.replace 应该消费它）
+        self.assertFalse(os.path.exists(dest + ".tmp"),
+                         "snapshot 应使用 tmp+os.replace 且不留 .tmp 残余")
+
+    def test_snapshot_creates_missing_dest_dir(self):
+        """目标目录不存在应自动创建。"""
+        audit_log.audit("test", "set", "x", "y")
+        dest = os.path.join(self.tmpdir, "nested", "deep", "snap.jsonl")
+        result = audit_log.snapshot(dest)
+        self.assertTrue(result["ok"])
+        self.assertTrue(os.path.exists(dest))
+
+    def test_snapshot_overwrites_existing_dest(self):
+        """目标文件已存在时应原子覆盖（os.replace 语义）。"""
+        audit_log.audit("test", "set", "x", "y")
+        dest = os.path.join(self.tmpdir, "snap.jsonl")
+        # 先写一个不相关的占位
+        with open(dest, "w") as f:
+            f.write("PLACEHOLDER\n")
+        result = audit_log.snapshot(dest)
+        self.assertTrue(result["ok"])
+        with open(dest) as f:
+            content = f.read()
+        self.assertNotIn("PLACEHOLDER", content)
+        self.assertIn("test", content)
+
+    def test_snapshot_source_uses_os_replace(self):
+        """源码级守卫：snapshot 实现必须含 os.replace（原子契约不得被删除）。"""
+        with open(os.path.abspath(audit_log.__file__)) as f:
+            content = f.read()
+        self.assertIn("os.replace(", content,
+                      "audit_log.py 必须含 os.replace 调用（V37.9.10 原子写入契约）")
+        self.assertIn("def snapshot(", content)
+
+    def test_audit_write_calls_fsync(self):
+        """源码级守卫：audit() 写入后必须 flush + fsync（持久化契约）。"""
+        with open(os.path.abspath(audit_log.__file__)) as f:
+            content = f.read()
+        self.assertIn("os.fsync(", content,
+                      "audit() 必须含 os.fsync（V37.9.10 持久化加固）")
+
+
 if __name__ == "__main__":
     unittest.main()

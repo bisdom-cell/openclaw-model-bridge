@@ -65,6 +65,10 @@ def audit(actor: str, action: str, target: str, summary: str = ""):
     """
     写入一条审计记录。
 
+    V37.9.10 持久化加固: write() 之后显式 flush + fsync，防止进程在 cron 环境
+    崩溃时内核缓冲尾部记录丢失。append mode 天然是"前序行已落盘 + 追加段整体
+    写或整体丢"的半原子语义，fsync 让追加段边界成为真正的 commit point。
+
     Args:
         actor: 操作者 (claude_code / pa / cron / user / system)
         action: 动作 (set / add / delete / deploy / restart / backup / login / verify)
@@ -87,6 +91,53 @@ def audit(actor: str, action: str, target: str, summary: str = ""):
     os.makedirs(os.path.dirname(AUDIT_FILE), exist_ok=True)
     with open(AUDIT_FILE, "a") as f:
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+        f.flush()
+        try:
+            os.fsync(f.fileno())
+        except OSError:
+            # fsync 在某些 FS (如 tmpfs) 不可用，降级为 flush-only
+            pass
+
+
+def snapshot(dest_path: str) -> dict:
+    """
+    V37.9.10 导出审计日志快照到目标路径，使用 tmp + os.replace 原子模式。
+
+    用途: 备份 / 导出 / 跨主机同步 — 任何需要一致性拷贝的场景。
+    保证: dest_path 要么是完整有效的 JSONL（等价于某一时刻的 audit.jsonl），
+    要么根本不被创建/修改；绝不会出现"半截快照"污染下游消费者。
+
+    Args:
+        dest_path: 目标路径（绝对或相对）
+
+    Returns:
+        {"ok": bool, "bytes": int, "lines": int, "dest": str}
+    """
+    if not os.path.exists(AUDIT_FILE):
+        return {"ok": False, "bytes": 0, "lines": 0, "dest": dest_path,
+                "error": "audit file does not exist"}
+
+    with open(AUDIT_FILE, "rb") as src:
+        content = src.read()
+
+    # 计数行（非空）用于报告
+    lines = sum(1 for l in content.split(b"\n") if l.strip())
+
+    dest_dir = os.path.dirname(os.path.abspath(dest_path)) or "."
+    os.makedirs(dest_dir, exist_ok=True)
+
+    # tmp + os.replace 原子模式（status_update.py / proxy_filters.py 同款）
+    tmp_path = dest_path + ".tmp"
+    with open(tmp_path, "wb") as f:
+        f.write(content)
+        f.flush()
+        try:
+            os.fsync(f.fileno())
+        except OSError:
+            pass
+    os.replace(tmp_path, dest_path)
+
+    return {"ok": True, "bytes": len(content), "lines": lines, "dest": dest_path}
 
 
 def verify_chain() -> dict:
@@ -211,8 +262,21 @@ def main():
     parser.add_argument("--verify", action="store_true", help="校验链式哈希完整性")
     parser.add_argument("--tail", type=int, nargs="?", const=20, help="查看最近 N 条（默认20）")
     parser.add_argument("--stats", action="store_true", help="统计概览")
+    parser.add_argument("--snapshot", metavar="DEST", help="V37.9.10 原子导出快照到 DEST (tmp+os.replace)")
     parser.add_argument("--json", action="store_true", help="JSON 输出")
     args = parser.parse_args()
+
+    if args.snapshot:
+        result = snapshot(args.snapshot)
+        if args.json:
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+        else:
+            if result["ok"]:
+                print(f"✅ 快照已原子写入 {result['dest']} "
+                      f"({result['lines']} 条, {result['bytes']} bytes)")
+            else:
+                print(f"❌ 快照失败: {result.get('error', 'unknown')}", file=sys.stderr)
+        sys.exit(0 if result["ok"] else 1)
 
     if args.verify:
         result = verify_chain()
