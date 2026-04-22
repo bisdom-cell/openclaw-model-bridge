@@ -1,5 +1,5 @@
 {
-  "updated": "2026-04-22 02:25:00",
+  "updated": "2026-04-22 03:22:00",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -249,7 +249,8 @@
       "V37.9.9 Phase 4 P1+ wiring: engine.py 新增 load_domain_ontology() + find_by_domain() + evaluate_policy() 三个纯函数 API，tests/test_engine_phase4.py 锁定 API 行为，选 max-tools-per-agent 做首条 policy 实切换（proxy_filters.py 从硬编码 MAX_TOOLS=12 改为 evaluate_policy 查询）",
       "V37.9.9 MOVESPEED rsync Operation not permitted 间歇复发观察 — V37.9.4 APFS 重建后理论闭环但 4/22 ACL 日志再报此错，顶层 /Volumes/MOVESPEED/KB/ 权限 OK 但 rsync 子操作失败。可能 cron FDA 缺失或 APFS mount option 变化。V37.9.4 fail-loud WARN 仍工作非阻断。下次触发查 diskutil info + launchctl env + 具体子目录",
       "V37.9.9 Mac Mini 验证: (1) pull 后跑 full_regression dev 1186/0 fail (2) governance_checker --full 确认 INV-SEC-001 library 直调在 Mac Mini 仍过 (3) security_score 仍 93/100 (4) Phase 4 骨架 3 文件部署 OK (声明不影响运行时)",
-      "Ontology Phase 4 领域本体骨架已就绪 (V37.9.9 B 任务) — 下次推进 Phase 4 P1 wiring 从 engine.py::load_domain_ontology() + evaluate_policy() 开始"
+      "Ontology Phase 4 领域本体骨架已就绪 (V37.9.9 B 任务) — 下次推进 Phase 4 P1 wiring 从 engine.py::load_domain_ontology() + evaluate_policy() 开始",
+      "V37.9.9 Mac Mini MRD-RESERVED-FILES-001 真缺口: BOOTSTRAP.md + SKILL.md 应加入 proxy_filters.py::RESERVED_FILE_BASENAMES (V37.8.16 MR-15 同款防御). 扫 639 个 .js 文件发现 OpenClaw runtime 保留但仅登记 HEARTBEAT.md. 优先级 medium, 防下一个 HEARTBEAT.md 类血案. 下次 B 推进前先闭环此缺口."
     ],
     "open_prs": "",
     "blocked_on": "",
