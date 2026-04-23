@@ -99,6 +99,7 @@ def _init_constants():
     constants = {
         "MAX_REQUEST_BYTES": p.get("max_request_bytes", 200000),
         "MAX_TOOLS": p.get("max_tools", 12),
+        "MAX_TOOL_CALLS_PER_TASK": p.get("max_tool_calls_per_task", 2),
         "BACKEND_TIMEOUT": p.get("backend_timeout_seconds", 300),
         "HEALTH_TIMEOUT": p.get("health_check_timeout_seconds", 5),
         "STATS_FLUSH_INTERVAL": p.get("stats_flush_interval_seconds", 10),

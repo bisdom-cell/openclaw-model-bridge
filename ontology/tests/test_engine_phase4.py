@@ -383,5 +383,318 @@ class TestEvaluatePolicyLimitFallbackChain(unittest.TestCase):
         self.assertIsNone(r["limit"])
 
 
+class TestContextEvaluatorQuietHours(unittest.TestCase):
+    """V37.9.13 Phase 4 P2 — temporal policy `quiet-hours-00-07` context evaluator.
+
+    规则: hour_of_day ∈ [0, 7) → applicable=True
+    """
+
+    @unittest.skipUnless(HAS_YAML, "PyYAML not available")
+    def test_hour_in_quiet_window(self):
+        for h in (0, 3, 6):
+            r = evaluate_policy("quiet-hours-00-07", context={"hour": h})
+            self.assertTrue(r["applicable"], f"h={h} should be quiet")
+            self.assertIsNone(r["reason"])
+
+    @unittest.skipUnless(HAS_YAML, "PyYAML not available")
+    def test_hour_outside_quiet_window(self):
+        for h in (7, 12, 23):
+            r = evaluate_policy("quiet-hours-00-07", context={"hour": h})
+            self.assertFalse(r["applicable"], f"h={h} should NOT be quiet")
+
+    @unittest.skipUnless(HAS_YAML, "PyYAML not available")
+    def test_datetime_now_parsed(self):
+        import datetime as _dt
+        r = evaluate_policy(
+            "quiet-hours-00-07",
+            context={"now": _dt.datetime(2026, 4, 23, 5, 30)}
+        )
+        self.assertTrue(r["applicable"])
+
+    @unittest.skipUnless(HAS_YAML, "PyYAML not available")
+    def test_no_context_returns_none_with_specific_reason(self):
+        r = evaluate_policy("quiet-hours-00-07")
+        self.assertIsNone(r["applicable"])
+        self.assertEqual(r["reason"], "needs_context_evaluator")
+
+    @unittest.skipUnless(HAS_YAML, "PyYAML not available")
+    def test_context_without_hour_reports_missing(self):
+        r = evaluate_policy("quiet-hours-00-07", context={"actor": "pa"})
+        self.assertIsNone(r["applicable"])
+        self.assertEqual(r["reason"], "context_missing_hour")
+
+    @unittest.skipUnless(HAS_YAML, "PyYAML not available")
+    def test_invalid_hour_type(self):
+        r = evaluate_policy("quiet-hours-00-07", context={"hour": "five"})
+        self.assertIsNone(r["applicable"])
+        self.assertEqual(r["reason"], "context_hour_invalid_type")
+
+    @unittest.skipUnless(HAS_YAML, "PyYAML not available")
+    def test_out_of_range_hour(self):
+        r = evaluate_policy("quiet-hours-00-07", context={"hour": 25})
+        self.assertIsNone(r["applicable"])
+        self.assertEqual(r["reason"], "context_hour_out_of_range")
+
+    @unittest.skipUnless(HAS_YAML, "PyYAML not available")
+    def test_boundary_7_is_not_quiet(self):
+        """半开区间 [0, 7) 验证: 7 点整不是静默期。"""
+        r = evaluate_policy("quiet-hours-00-07", context={"hour": 7})
+        self.assertFalse(r["applicable"])
+
+    @unittest.skipUnless(HAS_YAML, "PyYAML not available")
+    def test_static_policy_ignores_context(self):
+        """static policy 给任意 context 都应 applicable=True (context 不影响结论)。"""
+        r = evaluate_policy("max-tools-per-agent", context={"hour": 12})
+        self.assertTrue(r["applicable"])
+
+
+class TestContextEvaluatorAlertIsolation(unittest.TestCase):
+    """contextual: alert-context-isolation — messages 含 [SYSTEM_ALERT] 触发。"""
+
+    @unittest.skipUnless(HAS_YAML, "PyYAML not available")
+    def test_str_content_with_alert_marker(self):
+        msgs = [
+            {"role": "user", "content": "hi"},
+            {"role": "assistant", "content": "[SYSTEM_ALERT] cron failure"},
+        ]
+        r = evaluate_policy("alert-context-isolation", context={"messages": msgs})
+        self.assertTrue(r["applicable"])
+
+    @unittest.skipUnless(HAS_YAML, "PyYAML not available")
+    def test_str_content_without_alert(self):
+        msgs = [{"role": "user", "content": "hello"}]
+        r = evaluate_policy("alert-context-isolation", context={"messages": msgs})
+        self.assertFalse(r["applicable"])
+
+    @unittest.skipUnless(HAS_YAML, "PyYAML not available")
+    def test_openai_content_blocks(self):
+        msgs = [
+            {"role": "user", "content": [
+                {"type": "text", "text": "[SYSTEM_ALERT] test"}
+            ]}
+        ]
+        r = evaluate_policy("alert-context-isolation", context={"messages": msgs})
+        self.assertTrue(r["applicable"])
+
+    @unittest.skipUnless(HAS_YAML, "PyYAML not available")
+    def test_messages_missing(self):
+        r = evaluate_policy("alert-context-isolation", context={})
+        self.assertIsNone(r["applicable"])
+        self.assertEqual(r["reason"], "context_missing_messages")
+
+    @unittest.skipUnless(HAS_YAML, "PyYAML not available")
+    def test_messages_not_list(self):
+        r = evaluate_policy("alert-context-isolation", context={"messages": "oops"})
+        self.assertIsNone(r["applicable"])
+        self.assertEqual(r["reason"], "context_messages_must_be_list")
+
+
+class TestContextEvaluatorMultimodal(unittest.TestCase):
+    """contextual: multimodal-routing — has_image flag 或 image blocks 触发。"""
+
+    @unittest.skipUnless(HAS_YAML, "PyYAML not available")
+    def test_explicit_has_image_true(self):
+        r = evaluate_policy("multimodal-routing", context={"has_image": True})
+        self.assertTrue(r["applicable"])
+
+    @unittest.skipUnless(HAS_YAML, "PyYAML not available")
+    def test_explicit_has_image_false(self):
+        r = evaluate_policy("multimodal-routing", context={"has_image": False})
+        self.assertFalse(r["applicable"])
+
+    @unittest.skipUnless(HAS_YAML, "PyYAML not available")
+    def test_image_block_in_messages(self):
+        msgs = [{"role": "user", "content": [
+            {"type": "image_url", "image_url": {"url": "data:image/jpeg;..."}}
+        ]}]
+        r = evaluate_policy("multimodal-routing", context={"messages": msgs})
+        self.assertTrue(r["applicable"])
+
+    @unittest.skipUnless(HAS_YAML, "PyYAML not available")
+    def test_text_only_messages(self):
+        msgs = [{"role": "user", "content": "plain text"}]
+        r = evaluate_policy("multimodal-routing", context={"messages": msgs})
+        self.assertFalse(r["applicable"])
+
+    @unittest.skipUnless(HAS_YAML, "PyYAML not available")
+    def test_no_image_clue(self):
+        r = evaluate_policy("multimodal-routing", context={"actor": "pa"})
+        self.assertIsNone(r["applicable"])
+        self.assertEqual(r["reason"], "context_missing_has_image_or_messages")
+
+
+class TestContextEvaluatorDreamBudget(unittest.TestCase):
+    """temporal: dream-map-budget — task=='kb_dream' 触发。"""
+
+    @unittest.skipUnless(HAS_YAML, "PyYAML not available")
+    def test_task_is_kb_dream(self):
+        r = evaluate_policy("dream-map-budget", context={"task": "kb_dream"})
+        self.assertTrue(r["applicable"])
+
+    @unittest.skipUnless(HAS_YAML, "PyYAML not available")
+    def test_task_is_other(self):
+        r = evaluate_policy("dream-map-budget", context={"task": "kb_evening"})
+        self.assertFalse(r["applicable"])
+
+    @unittest.skipUnless(HAS_YAML, "PyYAML not available")
+    def test_missing_task(self):
+        r = evaluate_policy("dream-map-budget", context={})
+        self.assertIsNone(r["applicable"])
+        self.assertEqual(r["reason"], "context_missing_task")
+
+
+class TestContextEvaluatorDataCleanKeywords(unittest.TestCase):
+    """contextual: data-clean-tool-injection — 关键词匹配。"""
+
+    @unittest.skipUnless(HAS_YAML, "PyYAML not available")
+    def test_chinese_keyword(self):
+        r = evaluate_policy(
+            "data-clean-tool-injection",
+            context={"user_text": "请帮我做一下数据清洗"},
+        )
+        self.assertTrue(r["applicable"])
+
+    @unittest.skipUnless(HAS_YAML, "PyYAML not available")
+    def test_english_keyword_case_insensitive(self):
+        r = evaluate_policy(
+            "data-clean-tool-injection",
+            context={"user_text": "Please clean DATA in this file"},
+        )
+        self.assertTrue(r["applicable"])
+
+    @unittest.skipUnless(HAS_YAML, "PyYAML not available")
+    def test_no_keyword(self):
+        r = evaluate_policy(
+            "data-clean-tool-injection",
+            context={"user_text": "write me a haiku"},
+        )
+        self.assertFalse(r["applicable"])
+
+    @unittest.skipUnless(HAS_YAML, "PyYAML not available")
+    def test_non_string_user_text(self):
+        r = evaluate_policy(
+            "data-clean-tool-injection",
+            context={"user_text": 42},
+        )
+        self.assertIsNone(r["applicable"])
+        self.assertEqual(r["reason"], "context_user_text_must_be_str")
+
+
+class TestContextEvaluatorFallbackChain(unittest.TestCase):
+    """contextual: fallback-chain-capability — need_fallback flag 控制。"""
+
+    @unittest.skipUnless(HAS_YAML, "PyYAML not available")
+    def test_need_fallback_true(self):
+        r = evaluate_policy(
+            "fallback-chain-capability",
+            context={"need_fallback": True},
+        )
+        self.assertTrue(r["applicable"])
+
+    @unittest.skipUnless(HAS_YAML, "PyYAML not available")
+    def test_need_fallback_false(self):
+        r = evaluate_policy(
+            "fallback-chain-capability",
+            context={"need_fallback": False},
+        )
+        self.assertFalse(r["applicable"])
+
+    @unittest.skipUnless(HAS_YAML, "PyYAML not available")
+    def test_missing_flag(self):
+        r = evaluate_policy("fallback-chain-capability", context={})
+        self.assertIsNone(r["applicable"])
+        self.assertEqual(r["reason"], "context_missing_need_fallback")
+
+
+class TestContextEvaluatorUnregistered(unittest.TestCase):
+    """V37.9.13 P2 契约: 未注册 evaluator 的 policy 返回 applicable=None + 明确 reason。
+
+    P2 阶段性承诺: 不"全部做完"，而是"做一条路径，可扩展"。未登记的 policy 走
+    declaration-only fallback，未来可逐条 wire。
+    """
+
+    @unittest.skipUnless(HAS_YAML, "PyYAML not available")
+    def test_unregistered_contextual_policy_with_context(self):
+        """注入一个 P2 evaluator 覆盖范围之外的 contextual policy。"""
+        injected = {
+            "policies": [{
+                "id": "future-unwired-policy", "type": "contextual",
+                "scope": [], "rule": "some future rule",
+                "rationale": "x", "enforcement_site": "y",
+            }]
+        }
+        r = evaluate_policy("future-unwired-policy", context={"anything": 1},
+                            policy_data=injected)
+        self.assertTrue(r["found"])
+        self.assertIsNone(r["applicable"])
+        self.assertEqual(r["reason"], "no_context_evaluator_registered")
+
+
+class TestContextEvaluatorExceptionSafe(unittest.TestCase):
+    """V37.9.13 P2 契约: evaluator 抛异常不得冒泡到调用方。"""
+
+    @unittest.skipUnless(HAS_YAML, "PyYAML not available")
+    def test_evaluator_exception_captured(self):
+        import engine as _eng
+        orig = _eng._CONTEXT_EVALUATORS.get("quiet-hours-00-07")
+        def _boom(policy, context):
+            raise RuntimeError("synthetic")
+        _eng._CONTEXT_EVALUATORS["quiet-hours-00-07"] = _boom
+        try:
+            r = evaluate_policy("quiet-hours-00-07", context={"hour": 3})
+            self.assertTrue(r["found"])
+            self.assertIsNone(r["applicable"])
+            self.assertTrue(r["reason"].startswith("evaluator_error:"))
+            self.assertIn("RuntimeError", r["reason"])
+        finally:
+            if orig is not None:
+                _eng._CONTEXT_EVALUATORS["quiet-hours-00-07"] = orig
+
+
+class TestMaxToolCallsPolicyWiring(unittest.TestCase):
+    """V37.9.13 Phase 4 P2 — 第二条 policy 切换契约 (max-tool-calls-per-task)。
+
+    镜像 TestMaxToolsPolicyWiring，验证 V37.9.12 wiring 模式可扩展性。
+    """
+
+    @unittest.skipUnless(HAS_YAML, "PyYAML not available")
+    def test_policy_exists_and_static(self):
+        r = evaluate_policy("max-tool-calls-per-task")
+        self.assertTrue(r["found"])
+        self.assertEqual(r["type"], "static")
+
+    @unittest.skipUnless(HAS_YAML, "PyYAML not available")
+    def test_limit_is_2(self):
+        r = evaluate_policy("max-tool-calls-per-task")
+        self.assertEqual(r["limit"], 2)
+
+    @unittest.skipUnless(HAS_YAML, "PyYAML not available")
+    def test_limit_matches_config_loader(self):
+        """横向一致性: ontology.limit == config_loader.MAX_TOOL_CALLS_PER_TASK。"""
+        from config_loader import MAX_TOOL_CALLS_PER_TASK
+        r = evaluate_policy("max-tool-calls-per-task")
+        self.assertEqual(
+            r["limit"], MAX_TOOL_CALLS_PER_TASK,
+            f"ontology limit ({r['limit']}) != config_loader "
+            f"({MAX_TOOL_CALLS_PER_TASK}) — Phase 4 P2 wiring 双源一致性契约"
+        )
+
+    @unittest.skipUnless(HAS_YAML, "PyYAML not available")
+    def test_hard_limit_true(self):
+        r = evaluate_policy("max-tool-calls-per-task")
+        self.assertTrue(r["hard_limit"])
+
+    @unittest.skipUnless(HAS_YAML, "PyYAML not available")
+    def test_governance_invariant_is_inv_tool_002(self):
+        r = evaluate_policy("max-tool-calls-per-task")
+        self.assertEqual(r["governance_invariant"], "INV-TOOL-002")
+
+    @unittest.skipUnless(HAS_YAML, "PyYAML not available")
+    def test_enforcement_site_references_tool_proxy(self):
+        r = evaluate_policy("max-tool-calls-per-task")
+        # policy_ontology.yaml declares "tool_proxy.py main request loop"
+        self.assertIn("tool_proxy.py", (r["enforcement_site"] or ""))
+
+
 if __name__ == "__main__":
     unittest.main()
