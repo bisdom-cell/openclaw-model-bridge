@@ -1,29 +1,90 @@
 #!/bin/bash
 set -euo pipefail
 # restart.sh - 一键重启所有服务 / One-command restart all services
+#
+# V37.9.13 架构清理（2026-04-23）:
+#   Adapter + Proxy 改用 `launchctl kickstart -k` 统一走 launchd 管理。
+#   消除 V37.9.12.1 发现的 manual nohup 进程 + launchd KeepAlive 双管理
+#   冲突（两路同时抢占 :5001 / :5002 端口 → launchd 侧持续 crash-loop）。
+#   若 plist 不存在（dev 环境 / 未装 plist），fallback 到 nohup（向后兼容）。
 
 # Ensure Homebrew binaries are in PATH (needed when called from cron)
 export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 OPENCLAW="${OPENCLAW:-$(command -v openclaw 2>/dev/null || echo /opt/homebrew/bin/openclaw)}"
+LAUNCH_AGENTS="$HOME/Library/LaunchAgents"
 
-echo "[restart] Stopping all services..."
+# Helper: restart a service under launchd management.
+#   Signature: restart_via_launchd <label> <port> <plist> <display>
+#   Returns: 0 success, 1 launchd failure, 2 launchd unavailable (caller fallback)
+# Uses `launchctl kickstart -k` (modern idempotent API). Falls back to
+# bootout+bootstrap if the service isn't loaded yet. Applies V37.8.13 post-
+# start health verification loop (5×2s curl probe).
+restart_via_launchd() {
+    local label="$1" port="$2" plist="$3" display="$4"
+    if ! command -v launchctl >/dev/null 2>&1 || [ ! -f "$plist" ]; then
+        return 2
+    fi
+    echo "[restart] $display: launchctl kickstart -k gui/$(id -u)/$label"
+    if ! launchctl kickstart -k "gui/$(id -u)/$label" 2>/dev/null; then
+        # Not loaded — register via bootstrap
+        launchctl bootout "gui/$(id -u)/$label" 2>/dev/null || true
+        if ! launchctl bootstrap "gui/$(id -u)" "$plist" 2>/dev/null; then
+            echo "[restart] ⚠️ $display bootstrap failed (label=$label)"
+            return 1
+        fi
+    fi
+    # Health verification (V37.8.13 pattern extended from Gateway to adapter/proxy)
+    local _attempt _code
+    for _attempt in 1 2 3 4 5; do
+        sleep 2
+        _code=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 2 --max-time 3 \
+            "http://localhost:$port/health" 2>/dev/null || echo "000")
+        if [ "$_code" = "200" ]; then
+            echo "[restart] $display healthy (HTTP $_code after ${_attempt}×2s)"
+            return 0
+        fi
+    done
+    echo "[restart] ⚠️ $display failed to become healthy within 10s"
+    return 1
+}
+
+echo "[restart] Stopping Gateway..."
 # Stop Gateway via launchctl (preserves plist registration knowledge for restart)
 launchctl bootout "gui/$(id -u)/ai.openclaw.gateway" 2>/dev/null || true
-# Kill any stray process on gateway port
+# Kill any stray process on gateway port (adapter/proxy are handled below via launchd)
 lsof -ti :18789 2>/dev/null | xargs kill 2>/dev/null || true
-lsof -ti :5001 2>/dev/null | xargs kill 2>/dev/null || true
-lsof -ti :5002 2>/dev/null | xargs kill 2>/dev/null || true
 sleep 2
 
-echo "[restart] Starting Adapter on :5001..."
-nohup python3 "$SCRIPT_DIR/adapter.py" > ~/adapter.log 2>&1 &
-sleep 1
+# ── Adapter (:5001) ──────────────────────────────────────────────────
+# V37.9.13: single manager (launchd) instead of nohup + launchd double management.
+echo "[restart] Restarting Adapter on :5001..."
+ADAPTER_PLIST="$LAUNCH_AGENTS/com.openclaw.adapter.plist"
+_ad_rc=0
+restart_via_launchd "com.openclaw.adapter" 5001 "$ADAPTER_PLIST" "Adapter" || _ad_rc=$?
+if [ "$_ad_rc" -eq 2 ]; then
+    echo "[restart] Adapter plist not found, fallback to nohup (no auto-restart)"
+    lsof -ti :5001 2>/dev/null | xargs kill 2>/dev/null || true
+    sleep 1
+    nohup python3 "$SCRIPT_DIR/adapter.py" > ~/adapter.log 2>&1 &
+    disown
+    sleep 1
+fi
 
-echo "[restart] Starting Tool Proxy on :5002..."
-nohup python3 "$SCRIPT_DIR/tool_proxy.py" > ~/tool_proxy.log 2>&1 &
-sleep 1
+# ── Tool Proxy (:5002) ───────────────────────────────────────────────
+echo "[restart] Restarting Tool Proxy on :5002..."
+PROXY_PLIST="$LAUNCH_AGENTS/com.openclaw.proxy.plist"
+_px_rc=0
+restart_via_launchd "com.openclaw.proxy" 5002 "$PROXY_PLIST" "Tool Proxy" || _px_rc=$?
+if [ "$_px_rc" -eq 2 ]; then
+    echo "[restart] Tool Proxy plist not found, fallback to nohup (no auto-restart)"
+    lsof -ti :5002 2>/dev/null | xargs kill 2>/dev/null || true
+    sleep 1
+    nohup python3 "$SCRIPT_DIR/tool_proxy.py" > ~/tool_proxy.log 2>&1 &
+    disown
+    sleep 1
+fi
 
 # ── #48703 hotfix: auto-patch listeners Map if needed ──
 OPENCLAW_DIST="/opt/homebrew/lib/node_modules/openclaw/dist"
