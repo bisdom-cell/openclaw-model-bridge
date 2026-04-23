@@ -65,6 +65,9 @@ run_suite "wa_gateway_resilience (V37.8.13 Gateway 宕机韧性三层修复)" "p
 if [ -f test_restart_launchd.py ]; then
     run_suite "restart_launchd (V37.9.13 restart.sh 单一 manager 契约)" "python3 test_restart_launchd.py"
 fi
+if [ -f test_movespeed_incident_capture.py ]; then
+    run_suite "movespeed_incident_capture (V37.9.14 SSD rsync 事故取证 helper + INV-BACKUP-001 check 4)" "python3 test_movespeed_incident_capture.py"
+fi
 if [ -f ontology/tests/test_governance_cron_matcher.py ]; then
     run_suite "governance_cron_matcher (INV-CRON-003/004 匹配器)" "python3 -m unittest ontology.tests.test_governance_cron_matcher"
 fi
