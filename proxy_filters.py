@@ -22,6 +22,7 @@ from config_loader import (
     COMPLEX_MIN_MSGS as _CFG_COMPLEX_MIN_MSGS,
     STATS_FLUSH_INTERVAL as _CFG_FLUSH_INTERVAL,
     MAX_TOOLS as _CFG_MAX_TOOLS,
+    MAX_TOOL_CALLS_PER_TASK as _CFG_MAX_TOOL_CALLS_PER_TASK,
 )
 
 # ---------------------------------------------------------------------------
@@ -504,6 +505,68 @@ _MAX_TOOLS_RESOLVED, _MAX_TOOLS_SOURCE = _resolve_max_tools_limit()
 if _MAX_TOOLS_SOURCE == "ontology_policy":
     print(f"[proxy] max-tools-per-agent: using ontology limit={_MAX_TOOLS_RESOLVED} "
           f"(Phase 4 P1 wiring active)")
+
+
+# ---------------------------------------------------------------------------
+# V37.9.13 Phase 4 P2: max-tool-calls-per-task policy wiring (second switch)
+# ---------------------------------------------------------------------------
+# 复用 V37.9.12 的 5 档 safe-fallback 模式，证明 wiring 可扩展性。
+# 当前 Python 代码尚无 enforcement 点（config.yaml 声明但未落实），本常量
+# 被解析出来供未来 tool_proxy 请求循环引用（"policy available, not yet
+# enforced"——把阈值 wiring 和 enforcement 两件事解耦）。
+# 改 2 → 只需改 policy_ontology.yaml::max-tool-calls-per-task.limit 一处。
+# ---------------------------------------------------------------------------
+
+def _resolve_max_tool_calls_per_task_limit():
+    """解析 max-tool-calls-per-task policy 的阈值（启动时一次性计算）。
+
+    Returns:
+        (resolved_limit: int, source: str)
+        source 可能值: "config_off_mode", "config_fallback_load_failed",
+                      "config_fallback_policy_miss", "ontology_policy",
+                      "config_shadow_mode"
+    """
+    _POLICY_ID = "max-tool-calls-per-task"
+    if _ONTOLOGY_MODE == "off":
+        return _CFG_MAX_TOOL_CALLS_PER_TASK, "config_off_mode"
+
+    if _onto_mod is None or not hasattr(_onto_mod, "evaluate_policy"):
+        return _CFG_MAX_TOOL_CALLS_PER_TASK, "config_fallback_load_failed"
+
+    try:
+        result = _onto_mod.evaluate_policy(_POLICY_ID)
+    except Exception as _e:
+        print(f"[proxy] WARN: evaluate_policy({_POLICY_ID}) failed: {_e}")
+        return _CFG_MAX_TOOL_CALLS_PER_TASK, "config_fallback_policy_miss"
+
+    if not result.get("found") or result.get("limit") is None:
+        print(f"[proxy] WARN: policy {_POLICY_ID} not resolvable "
+              f"(found={result.get('found')}, limit={result.get('limit')}), "
+              f"falling back to config {_CFG_MAX_TOOL_CALLS_PER_TASK}")
+        return _CFG_MAX_TOOL_CALLS_PER_TASK, "config_fallback_policy_miss"
+
+    onto_limit = result["limit"]
+
+    if _ONTOLOGY_MODE == "shadow":
+        if onto_limit != _CFG_MAX_TOOL_CALLS_PER_TASK:
+            print(f"[proxy] ONTOLOGY_MODE=shadow: {_POLICY_ID} policy drift — "
+                  f"ontology={onto_limit} config={_CFG_MAX_TOOL_CALLS_PER_TASK} "
+                  f"(shadow uses config)")
+        return _CFG_MAX_TOOL_CALLS_PER_TASK, "config_shadow_mode"
+
+    if onto_limit != _CFG_MAX_TOOL_CALLS_PER_TASK:
+        print(f"[proxy] ONTOLOGY_MODE=on: {_POLICY_ID} drift — "
+              f"ontology={onto_limit}, config={_CFG_MAX_TOOL_CALLS_PER_TASK} "
+              f"(using ontology)")
+    return int(onto_limit), "ontology_policy"
+
+
+_MAX_TOOL_CALLS_PER_TASK_RESOLVED, _MAX_TOOL_CALLS_PER_TASK_SOURCE = (
+    _resolve_max_tool_calls_per_task_limit()
+)
+if _MAX_TOOL_CALLS_PER_TASK_SOURCE == "ontology_policy":
+    print(f"[proxy] max-tool-calls-per-task: using ontology "
+          f"limit={_MAX_TOOL_CALLS_PER_TASK_RESOLVED} (Phase 4 P2 wiring active)")
 
 
 # [NO_TOOLS] 标记：消息中包含此标记时，proxy 强制清空工具列表
