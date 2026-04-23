@@ -217,7 +217,7 @@ else
 fi
 
 # ── 9. rsync 备份（V37.9.4: 失败 log WARN 而非静默吞错，MR-4 silent-failure 修复）──
-rsync -a "$KB_DIR/" "/Volumes/MOVESPEED/KB/" 2>&1 || echo "[$(basename "$0")] WARN: SSD rsync failed (exit=$?)" >&2
+rsync -a "$KB_DIR/" "/Volumes/MOVESPEED/KB/" 2>&1 || { _rc=$?; echo "[$(basename "$0")] WARN: SSD rsync failed (exit=$_rc)" >&2; "$HOME/movespeed_incident_capture.sh" "$_rc" "$0"; }  # V37.9.14 incident forensics (INV-BACKUP-001 check 4)
 
 log "晚间整理 ${DATE} | 覆盖 ${SOURCES_USED} 源 | 笔记总数 ${NOTE_COUNT} | 今日新增 ${TODAY_NOTE_COUNT} 篇 | LLM: ✓"
 log "晚间整理文件: ${EVENING_FILE}"

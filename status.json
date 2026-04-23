@@ -1,5 +1,5 @@
 {
-  "updated": "2026-04-23 08:31:03",
+  "updated": "2026-04-23 11:04:10",
   "updated_by": "full_regression",
   "priorities": [
     {
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-04-23",
+      "what": "V37.9.14 MOVESPEED SSD rsync 事故取证埋点 — 证据导向修复 (原则 #28 理解再动手正向兑现). 触发: V37.9.4 APFS 重建理论闭环 exfat fskit EPERM, 但 4/22 ACL cron 再次 Operation not permitted (顶层权限 OK 但 rsync 子操作失败), 假说被证伪且根因不明. 方法选择: 原则 #26 异常分析 + #28 理解再动手 - 证据不足拒绝盲目修复, transient EPERM 自愈即抓不到现场, 选埋取证点而非猜根因. 新 helper movespeed_incident_capture.sh (bash 3.2 兼容 macOS, never-fail 契约, 130 行): rsync 失败追加 JSONL 到 ~/.kb/movespeed_incidents.jsonl 含 timestamp/caller/exit_code/mount/diskutil_info/ls_top/ls_kb/df/顶层与KB子目录独立 touch 探测 (区分全盘 EPERM vs 子目录 EPERM, V37.9.4 血案后真正需要的证据)/procs (rsync/backupd/mds/fseventsd/tmutil Spotlight 并发诊断)/sw_vers/env 摘要. python3 argv 参数传递避开 shell 转义, 所有诊断 |\\| true 失败即空串, mktemp 坏走 last-ditch minimal record, 10MB rotate to .1. 20 处 rsync fail-loud 站点升级: 旧 `|\\| echo WARN: SSD (exit=$?) >&2` → 新 `|\\| { _rc=$?; echo WARN: SSD (exit=$_rc) >&2; helper _rc $0; }` (_rc 捕获必须在 echo 之前). 覆盖 kb_save_arxiv/kb_dream/kb_evening/kb_inject/kb_review/run_hn_fixed + jobs/{hf_papers,semantic_scholar,dblp,ontology_sources,karpathy_x,rss_blogs,arxiv_monitor,freight_watcher×2,acl_anthology,github_trending,ai_leaders_x,openclaw_official×2}. INV-BACKUP-001 扩展 check 4 (declaration python_assert 全局扫 rsync+MOVESPEED .sh 必须含 helper 调用) + check 5 (runtime python_assert subprocess 端到端跑 mock caller → rsync 失败 → 断言 caller exit 0 + WARN stderr + JSONL 写入 + JSON 解析 + basename 正确). 26 新单测 test_movespeed_incident_capture.py: TestHelperExists(4) + TestHelperContract(8 never-fail 契约) + TestRotation(2) + TestBashCompat(6 禁 bash 4+ 语法 smart 豁免注释行) + TestInvariantCoverage(4 含 no_extra_undeclared_sites) + TestFileMapCoverage(1) + TestGovernanceExtension(1). MR-9 正面兑现扩展到取证层: V37.9.13 launchctl 单一 manager + V37.9.14 事故取证单一 helper. accumulated: 43→44 suites (+1) / 1319→1345 tests (+26) / 0 fail / governance 60 invariants (INV-BACKUP-001 扩展 2 checks) / 安全 95/100 / VERSION 0.37.9.13 → 0.37.9.14. 下次 transient EPERM 复发 → cat ~/.kb/movespeed_incidents.jsonl → 现场证据 → V37.9.15 精确根因修复.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-04-23",
       "what": "V37.9.13 Mac Mini 实测验证完美通过 (3/3 门): (1) restart.sh V37.9.13 新路径生效 — `[restart] Adapter: launchctl kickstart -k gui/501/com.openclaw.adapter` + `Adapter healthy (HTTP 200 after 1×2s)` 同款 Tool Proxy + Gateway V37.8.13 逻辑保留 (2) HOME vs repo diff 空 (首次跑旧版是因 auto_deploy 2min 轮询未触发, 手动 cp 后对齐) (3) tool_proxy.log 双 wiring 日志: Phase 4 P1 max-tools limit=12 + Phase 4 P2 max-tool-calls limit=2 (V37.9.13 新增). V37.9.12.1 双管理血案正式闭环 — launchctl kickstart 成功(非 No such service) + 健康验证即时 HTTP 200 + 新进程正确打印 P1+P2 wiring active = launchd-managed 进程完美启动无 nohup 双路竞争. 经验补充: FILE_MAP 映射的 HOME 副本(~/restart.sh)不会被 git reset 直接更新, 需等 auto_deploy 2min 轮询或手动 cp, 今日 session 教训.",
       "by": "claude_code"
     },
@@ -198,11 +203,6 @@
       "date": "2026-04-20",
       "what": "V37.8.18 Phase 1 完整闭环: Route B 3 个 🔴 高优先级盲区修复 + 对抗审计 counter 改进 (4 commits e2b4301/7c5ef4d 系列). 成果数字: Category B 意外 catch 从 0/6 升到 3/6 (50%) - 证明修复真实生效. (1) C14 dict repr: INV-KB-001 扩展 runtime 断言覆盖 flatten_content(dict), mutation 让 fallback 返回 repr 时 audit 立即抓到. (2) C11 silent except: 新增 MRD-SILENT-EXCEPT-001 AST 扫所有 .py 的裸 except / except Exception: pass, 首跑发现 12 处历史技术债 (adapter/kb_trend/governance_checker 自身), 登记待清理; mutation 注入第 13 处立即 catch. (3) C15 push bypass: 新增 MRD-PUSH-ROUTE-001 扫所有 .sh 的 openclaw message send, 22 脚本白名单豁免, jobs/**/*.sh 自动豁免; rogue pusher 立即 catch +2 violations. (4) 对抗 counter 改进: 解析 MRD warn 内 \"N 处\" 数字, 避免 baseline 已有 warn 时 delta=0 的盲区. 方法学洞察: 连工具本身也有自己的盲区! 剩余 3 盲区候选: 🟡 C13 last_run (中优先级) + C12 retry 上限 (中) + ⚫ C16 audit-of-audit (架构级). governance v3.21→v3.22. 全量回归 36 suites / 1111 tests / 0 fail / 93/100.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-04-20",
-      "what": "Route B 对抗性混沌审计完整交付: 框架 adversarial_chaos_audit.py (570 行) + 报告 adversarial_audit_report.md (177 行). 16 场景对真实仓库文件做真实破坏注入. (1) Category A 真实防御率 10/10 (100%): 所有已知血案回归攻击 C1-C10 被 audit 抓到，符合预期. (2) Category B 意外 catch 0/6 (0%): 6 个探测场景 C11-C16 全部\"符合预期未被 audit 抓到\", 量化确认 6 个真实盲区: C11 silent except / C12 retry 爆炸 / C13 last_run 不一致 / C14 dict repr 污染变种 / C15 推送 bypass notify.sh / C16 audit 自身性能 (观察者盲区). (3) V37.8.18 候选修复路线: 🔴 C14/C15/C11 立即可做 / 🟡 C13/C12 下周 / ⚫ C16 架构级 audit-of-audit 子系统. (4) 方法论创新: delta-count 判定避免 INCONCLUSIVE 噪声 / try/finally 可逆 mutation / git clean 前后验证 / Cat A 可选择集成到 full_regression. 今日全部交付: Route A (15 血案回填 618 行) + V37.8.17 (MR-14/15 MRD 第二步跃迁) + Route B (16 场景对抗 + 盲区量化报告).",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -246,11 +246,12 @@
       "Desktop ~/Desktop/MOVESPEED_backup_20260421/ 12G 备份可清理 (B 问题已闭环不再需要)",
       "V37.9.5 SOUL.md workspace 副本观察项: workspace/SOUL.md (12KB) 可能与 ~/openclaw-model-bridge/SOUL.md 主源内容相似, 长期观察 RAG 检索若噪声明显再加 WORKSPACE_EXCLUDE_BASENAMES",
       "V37.9.6 下次 watchdog 跑验证: awk 行级时间戳过滤生效后告警条数预期从 12 降到 5-7; 如明天 12:30 仍见 4/8 陈旧告警需查 awk edge case",
-      "V37.9.9 MOVESPEED rsync Operation not permitted 间歇复发观察 — V37.9.4 APFS 重建后理论闭环但 4/22 ACL 日志再报此错，顶层 /Volumes/MOVESPEED/KB/ 权限 OK 但 rsync 子操作失败。可能 cron FDA 缺失或 APFS mount option 变化。V37.9.4 fail-loud WARN 仍工作非阻断。下次触发查 diskutil info + launchctl env + 具体子目录",
       "V37.9.9 Mac Mini 验证: (1) pull 后跑 full_regression dev 1186/0 fail (2) governance_checker --full 确认 INV-SEC-001 library 直调在 Mac Mini 仍过 (3) security_score 仍 93/100 (4) Phase 4 骨架 3 文件部署 OK (声明不影响运行时)",
       "Ontology Phase 4 领域本体骨架已就绪 (V37.9.9 B 任务) — 下次推进 Phase 4 P1 wiring 从 engine.py::load_domain_ontology() + evaluate_policy() 开始",
       "V37.9.13 候选 (plist 持久化): com.openclaw.proxy.plist + com.openclaw.adapter.plist 未入 auto_deploy FILE_MAP = 纯 Mac Mini 本地文件。如 macOS 重装或 plist 意外删除，V37.9.12.1 给 proxy plist 加的 ONTOLOGY_MODE=on 丢失。应评估: (a) 把 plist 模板加入 FILE_MAP + 加一次性 install script (b) 在 docs/config.md 文档化恢复步骤 (c) 留作纯手动运维知识",
-      "V37.9.13 观察项 (shadow env 来源): launchd 进程启动时 ONTOLOGY_MODE=shadow 的源头未定位。已排除: launchctl getenv / shell rc files / proxy_filters.py default / pycache diff。疑似候选: macOS 系统级 launchd env 继承 / 早期 bash_profile 删除前写入的 global env / 某些未知 daemon 注入。V37.9.12.1 通过 PlistBuddy 显式覆盖已规避，但未追根。下次触发带着完整诊断再查。"
+      "V37.9.13 观察项 (shadow env 来源): launchd 进程启动时 ONTOLOGY_MODE=shadow 的源头未定位。已排除: launchctl getenv / shell rc files / proxy_filters.py default / pycache diff。疑似候选: macOS 系统级 launchd env 继承 / 早期 bash_profile 删除前写入的 global env / 某些未知 daemon 注入。V37.9.12.1 通过 PlistBuddy 显式覆盖已规避，但未追根。下次触发带着完整诊断再查。",
+      "V37.9.14 MOVESPEED 事故取证埋点已落地 — 20 处 rsync fail-loud 站点接入 movespeed_incident_capture.sh, 下次 transient EPERM 复发会自动写 ~/.kb/movespeed_incidents.jsonl (含顶层 + KB 子目录独立 touch 探测 / mount / diskutil info / concurrent procs / sw_vers 等)。等抓到至少 1 条 incident 后 → V37.9.15 根因定位 + 结构性修复。contingency: 若 2 周内未复发视为环境自愈，降级为 backlog。",
+      "V37.9.15 候选: job_watchdog.sh 或 kb_status_refresh.sh 消费 movespeed_incidents.jsonl — 24h 内 ≥5 条 incident 触发连续性告警, 升级从被动收证据到主动感知异常。"
     ],
     "open_prs": "",
     "blocked_on": "",
@@ -271,10 +272,10 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 1319,
-    "last_regression": "2026-04-23 08:30 pass",
+    "test_count": 1345,
+    "last_regression": "2026-04-23 11:04 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-04-23 08:30",
+    "security_score_time": "2026-04-23 11:04",
     "test_suites": 44,
     "governance_invariants": "59/59",
     "governance_checks": "283/283",
@@ -342,7 +343,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.13 已收工 Mac Mini 验证 3/3 通过. 下次 session 推荐路径 (按战略杠杆排序): [首选] Phase 4 P3 三阶段门控 — pre-check → runtime-gate → post-verify 把 evaluate_policy(policy_id, context) 接入 proxy 请求管线, 从'能查'升级为'能拦截', Layer 3 Neuro-Symbolic 终态, 代码落点 proxy_filters.py 请求入口 + LLM 返回后. [次选] filter_tools() + fix_tool_args() 切换到 ontology.query_tools() / resolve_alias() (打包推进, Phase 3 完全推理真正兑现, 路径短风险低, shadow 模式可先验证). [可选] 第三条 policy 切换 (max-request-body-size 或 alert-context-isolation) 与 P3 打包, 3 条 policy 共同证明 wiring 模式稳定. 其他 backlog: plist 持久化决策 / pip install ontology-engine 包化 / Tool Policy Plugin / 新工具只加 YAML / 夜间阻止语义化 / 证据型文章. 详细遗留清单 17 项见 session_context.unfinished + CLAUDE.md Phase 3-5 章节.",
+  "focus": "V37.9.14 已收工 — MOVESPEED 事故取证埋点完成, 20 处 rsync fail-loud 站点全部接入 helper. 等下次 transient EPERM 复发 (可能 1 天至 2 周) → ~/.kb/movespeed_incidents.jsonl 自动写现场快照 → V37.9.15 根因定位. 下次 session 推荐路径: [首选] Phase 4 P3 三阶段门控 — evaluate_policy(policy_id, context) 接入 proxy 请求管线, Layer 3 Neuro-Symbolic 终态. [次选] filter_tools() + fix_tool_args() 切换到 ontology.query_tools() / resolve_alias() 打包推进 Phase 3 真正兑现. [可选] 第三条 policy 切换 (max-request-body-size 或 alert-context-isolation) 打包进 P3. 其他 backlog: pip install ontology-engine 包化 / Tool Policy Plugin / 新工具只加 YAML / 夜间阻止语义化 / 证据型文章. 详细遗留清单见 session_context.unfinished + CLAUDE.md Phase 3-5 章节.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
