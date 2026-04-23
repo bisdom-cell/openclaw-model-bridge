@@ -3438,6 +3438,82 @@ invariants:
           quiet_pos = body.find("is_quiet_hours")
           assert quiet_pos > alert_pos, "[SYSTEM_ALERT] 标记应在 quiet 判断之前"
 
+  # --- V37.9.13 新增：restart.sh 单一 manager 契约（MR-9 state-writes-go-through-helper 扩展）---
+
+  - id: INV-RESTART-001
+    name: restart-sh-single-manager-no-double-ownership
+    meta_rule: MR-9
+    verification_layer: [declaration, runtime]
+    severity: high
+    declaration: |
+      restart.sh 的 adapter/proxy 主路径必须通过 launchctl kickstart -k 启动。
+      nohup 路径只能作为 plist 缺失场景的 fallback（dev 环境 / 未装 plist）。
+      V37.9.12.1 发现的双管理冲突（manual nohup + launchd KeepAlive 两路抢端口）
+      必须被源码级防御阻止：任何 nohup python3 adapter.py / tool_proxy.py 必须
+      出现在 _ad_rc=2 / _px_rc=2 fallback 分支内。
+    design_decision: |
+      V37.9.12.1 Mac Mini 验证发现: restart.sh 的 `nohup python3 adapter.py`
+      启动 manual 进程，同时 com.openclaw.adapter.plist 有 KeepAlive=true
+      由 launchd 并行管理。两路进程同时尝试 bind :5001，launchd 侧持续
+      crash-loop（launchctl list 显示 high ExitCode）。同款问题在 proxy 侧
+      也存在。V37.9.13 修复: 统一单一 manager 原则 —
+        1. 所有服务（gateway/adapter/proxy）都走 launchd
+        2. restart.sh 改用 `launchctl kickstart -k` 触发 launchd 内部重启
+        3. plist 缺失时回退到 nohup 保留向后兼容
+        4. V37.8.13 健康验证模式从 Gateway 扩展到 adapter/proxy
+    blood_lessons:
+      - "V37.9.12.1: restart.sh nohup + launchd KeepAlive 双路抢端口，launchd crash-loop"
+      - "V37.9.12.1: 双管理 = 两个 owner 不协作 = 必然有一方失败"
+    checks:
+      - name: "restart.sh 定义 restart_via_launchd helper"
+        check_type: file_contains
+        file: restart.sh
+        pattern: "restart_via_launchd()"
+      - name: "restart.sh 使用 launchctl kickstart -k"
+        check_type: file_contains
+        file: restart.sh
+        pattern: "launchctl kickstart -k"
+      - name: "restart.sh 通过 helper 启动 adapter"
+        check_type: file_contains
+        file: restart.sh
+        pattern: 'restart_via_launchd "com.openclaw.adapter" 5001'
+      - name: "restart.sh 通过 helper 启动 tool proxy"
+        check_type: file_contains
+        file: restart.sh
+        pattern: 'restart_via_launchd "com.openclaw.proxy" 5002'
+      - name: "restart.sh 头部注释记录 V37.9.13 血案背景"
+        check_type: file_contains
+        file: restart.sh
+        pattern: "V37.9.13"
+      - name: "V37.9.13 runtime: adapter nohup 必须在 fallback 分支内"
+        check_type: python_assert
+        code: |
+          import re
+          src = open("restart.sh").read()
+          # 所有 nohup adapter.py 出现位置前 300 字符内必须有 plist/rc 保护
+          for m in re.finditer(r'nohup\s+python3\s+["\$][^"\n]*/adapter\.py', src):
+              ctx = src[max(0, m.start() - 300): m.start()]
+              assert ("plist not found" in ctx) or ("_ad_rc" in ctx), \
+                  f"nohup adapter at offset {m.start()} 不在 fallback 分支内（V37.9.12.1 双管理血案防线）"
+      - name: "V37.9.13 runtime: tool_proxy nohup 必须在 fallback 分支内"
+        check_type: python_assert
+        code: |
+          import re
+          src = open("restart.sh").read()
+          for m in re.finditer(r'nohup\s+python3\s+["\$][^"\n]*/tool_proxy\.py', src):
+              ctx = src[max(0, m.start() - 300): m.start()]
+              assert ("plist not found" in ctx) or ("_px_rc" in ctx), \
+                  f"nohup tool_proxy at offset {m.start()} 不在 fallback 分支内"
+      - name: "V37.9.13 runtime: set -e 安全的返回码捕获模式"
+        check_type: python_assert
+        code: |
+          import re
+          src = open("restart.sh").read()
+          assert re.search(r'restart_via_launchd\s+"com\.openclaw\.adapter".*\|\|\s+_ad_rc=\$\?', src), \
+              "adapter 调用必须用 || _ad_rc=$? 捕获返回码（set -e 安全）"
+          assert re.search(r'restart_via_launchd\s+"com\.openclaw\.proxy".*\|\|\s+_px_rc=\$\?', src), \
+              "proxy 调用必须用 || _px_rc=$? 捕获返回码"
+
   # --- V37.8.16 新增：HEARTBEAT.md 保留文件写入拦截（MR-15 落地）---
 
   - id: INV-HB-001

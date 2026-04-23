@@ -1,5 +1,5 @@
 {
-  "updated": "2026-04-23 05:54:54",
+  "updated": "2026-04-23 06:08:30",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-04-23",
+      "what": "V37.9.13 架构清理: restart.sh 单一 manager 契约. Adapter + Proxy 改用 launchctl kickstart -k (消除 V37.9.12.1 发现的 nohup + launchd KeepAlive 双管理抢端口血案). 新增 restart_via_launchd helper 函数: kickstart 主路径 + bootstrap fallback + 5×2s 健康验证 + 返回码 0/1/2 语义 (2=launchd 不可用→走 nohup fallback). V37.8.13 Gateway 健康验证模式扩展到 adapter/proxy. INV-RESTART-001 (MR-9, severity=high) 加 8 checks 含 2 runtime python_assert: nohup 必在 fallback 分支 + set -e 安全的 `|| _rc=$?` 模式守卫. 20 新单测 test_restart_launchd.py: TestRestartVialaunchdHelper(6) + TestAdapterViaLaunchd(3) + TestProxyViaLaunchd(2) + TestSingleManagerInvariant(5) + TestShellExecutability(3) + TestRuntimeHelperBehavior(1 subprocess 实跑). Gateway V37.8.13 逻辑 + #48703 hotfix 段完整保留. full_regression +1 suite: 43 suites / 1299→1319 tests (+20) / 0 fail / governance 59→60 invariants. MR-9 扩展: 原针对 KB sources 写入, 现扩展到进程管理层 — 进程启停必须走单一管理通道.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-04-23",
       "what": "V37.9.13 Phase 4 P2 context evaluator + 第二条 policy 切换 (max-tool-calls-per-task). engine.py: 6 context matchers + _CONTEXT_EVALUATORS dispatch + evaluate_policy() 三档扩展 (context=None/未注册/异常). proxy_filters.py: _resolve_max_tool_calls_per_task_limit() 镜像 V37.9.12 5档 safe-fallback. config_loader.py: MAX_TOOL_CALLS_PER_TASK 加载 (config.yaml 已声明但从未加载). policy_ontology.yaml meta 0.1-skeleton→0.2-p2-partial. +47 新单测 (37 engine 含半开区间 7 点 boundary + datetime.now.hour 解析 + OpenAI content blocks 双格式 + evaluator 异常不冒泡 + 未注册 policy 不崩溃; 9 tool_proxy 5档 safe-fallback 独立 monkey-patch + MR-8 copy-paste 防御源码守卫; 1 skeleton 横向一致性). 42 suites / 1299 tests / 0 fail / 安全 95/100. MR-8 正面案例兑现: 写两份独立 resolver 优于泛化 _resolve(policy_id) —— 每条 policy 启动日志独立便于 grep + 未来可加 policy-specific 日志/告警/指标. Phase 4 P3 候选: 三阶段门控 + 第三条 policy 切换.",
       "by": "claude_code"
     },
@@ -198,11 +203,6 @@
       "date": "2026-04-20",
       "what": "V37.8.17 Route A 交付 + MR-14 / MR-15 MRD 第二步跃迁: (1) audit_coverage_retrospective.md 完整 618 行交付, 15 血案 × Q1/Q2/Q3 = 0% 预防率 / 87% 回归率 / 80% 空白类别盲区, 核心结论 \"ontology audit 是 regression engineering 系统不是 prevention engineering\". (2) MRD-RESERVED-FILES-001 实现: 扫 OpenClaw dist/*.js 里 f.name=== 字面模式自动发现 runtime 保留文件声明, 对比 proxy_filters.RESERVED_FILE_BASENAMES, dev 环境 skip / Mac Mini --full 真实扫描. 未来新保留文件自动报警. (3) MRD-ALERT-INDEPENDENCE-001 实现: 扫监控脚本 wa_* / keepalive / watchdog 白名单规则矩阵检测告警路径独立性 (wa_* 不得用 --channel whatsapp 告警), 探测路径豁免. 未来新监控脚本违反告警独立原则自动发现. (4) 两个 MRD 完成 MR-14 / MR-15 从\"声明层\"到\"运行时 CI 扫描\"第二步跃迁, 与 V37.8.8→V37.8.9 MR-11/MR-12 同款模式. governance v3.20→v3.21. 全量回归 36 suites / 1111 tests / 0 fail / 安全 93/100. (5) P0-1 路线 B 对抗性审计留下轮, 工程量大需单独启动. 下轮候选: MR-6 扩展 severity=high / audit-of-audit / 路线 C Security+Governance 双轨 / MR-10 可检测代理.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-04-20",
-      "what": "数据闭环验证: chaspark + finance_news 新信息源完整进入 KB（用户主动质疑触发验证）。证据链: (1) sources 归档: chaspark.md 35 chunks + finance_daily.md 116 chunks 均已 text_index 向量化。(2) notes 精华双通道沉淀: notes/茶思屋科技动态 2026-04-17~19.md (3 条) + notes/财经简报 2026-04-13~19.md (7 条), 推测是 PA 或 kb_harvest_chat 从对话/推送自动提炼。(3) kb_dream 今日 dream.md 提及 chaspark/财经 4 次, kb_review 通过 load_sources_from_registry 自动覆盖, search_kb / kb_rag 可语义检索. 数据复利正向循环: 原始归档 + 精华笔记双通道. 诊断首轮曾出现 0 匹配假警报（两个因素共同造成）: 我命令字段名错用 m.get(\"files\", []) 但 meta.json 实际结构只有 chunks 字段 + kb_embed 每 6 小时索引一次存在时间延迟窗口. 用户指出大概率是时间延迟合理修正我的过度自责. 方法学要点: 诊断 eventually-consistent 系统时先确认 cron 频率 + 数据写入时间 + 索引窗口, 首次查不到不等于数据断链. 本次无系统代码改动.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -273,14 +273,14 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 1299,
-    "last_regression": "2026-04-23 05:52 pass",
+    "test_count": 1319,
+    "last_regression": "2026-04-23 06:07 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-04-23 05:52",
-    "test_suites": 42,
+    "security_score_time": "2026-04-23 06:07",
+    "test_suites": 43,
     "governance_invariants": "59/59",
     "governance_checks": "283/283",
-    "version": "0.37.9.12"
+    "version": "0.37.9.13"
   },
   "incidents": [
     {
@@ -344,7 +344,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.13 完美收工: Phase 4 P2 context evaluator + 第二条 policy 切换. engine.py 新增 6 个 matcher 纯函数 (quiet_hours / task_match / has_alert / has_image / need_fallback / data_clean_keywords) + _CONTEXT_EVALUATORS dispatch + evaluate_policy() 三档扩展. proxy_filters.py 新增 _resolve_max_tool_calls_per_task_limit() 镜像 V37.9.12 5档模式. +47 单测 (37 engine + 9 tool_proxy + 1 skeleton). 1299 tests 0 fail / 安全 95/100 / VERSION 0.37.9.12→0.37.9.13. Phase 4 P3 候选: 三阶段门控 + 第三条 policy 切换 + MR-7 INV-* 覆盖 context evaluators.",
+  "focus": "V37.9.13 双交付完美收工: (1) Phase 4 P2 context evaluator + 第二条 policy 切换 (max-tool-calls-per-task) (2) restart.sh 架构清理 — launchctl kickstart 消除 nohup + launchd KeepAlive 双管理血案 (V37.9.12.1 发现). Adapter/Proxy 走单一 manager (launchd), V37.8.13 健康验证模式从 Gateway 扩展到 adapter/proxy. INV-RESTART-001 (MR-9) 加 8 checks 含 2 runtime python_assert 作源码级防线. 43 suites / 1319 tests (+67) / 0 fail / governance 60 invariants / 安全 95/100. 下次 Mac Mini 同步后 bash restart.sh 应看到 launchctl kickstart 日志 + launchctl list 显示 com.openclaw.adapter/proxy PID 稳定.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
