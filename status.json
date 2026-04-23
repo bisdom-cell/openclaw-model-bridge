@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-04-23",
+      "what": "V37.9.14 Mac Mini E2E 验证完美通过 — helper 部署到 $HOME 后 manual rsync source-不存在测试触发 helper, JSONL 13 字段全部正常采集 (timestamp/caller/exit_code=23/mount/disk_info/ls_top/ls_kb/df/probe_top=exit=0|/probe_kb=exit=0|/procs/os/env). preflight 78/0/3/1 全绿 (deployment OK). BASELINE 数据已透露 3 条 V37.9.15 候选根因线索 (待真故障数据交叉验证): (1) APFS Owners Disabled — MOVESPEED 卷未强制 user/group ownership 验证, 不直接造 EPERM 但是放大器候选; (2) Time Machine backupd + backupd-helper 在跑, Time Machine 扫所有 mount 卷会短暂锁定外挂盘子目录元数据 — 间歇性 EPERM 高度嫌疑; (3) Spotlight + 双 mds_stores 进程并发建索引外挂盘 — 同样资源竞争嫌疑. 下次真 transient EPERM 复发时 procs 字段会显示具体并发进程组合, 配合 probe_top vs probe_kb 差异 (全盘 EPERM vs 子目录特定 EPERM) 即可锁定根因. 原则 #6 用户视角验证通过. 原则 #29 收工 9 项 A-I 全部完成. V37.9.14 真正完整收工.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-04-23",
       "what": "V37.9.14 MOVESPEED SSD rsync 事故取证埋点 — 证据导向修复 (原则 #28 理解再动手正向兑现). 触发: V37.9.4 APFS 重建理论闭环 exfat fskit EPERM, 但 4/22 ACL cron 再次 Operation not permitted (顶层权限 OK 但 rsync 子操作失败), 假说被证伪且根因不明. 方法选择: 原则 #26 异常分析 + #28 理解再动手 - 证据不足拒绝盲目修复, transient EPERM 自愈即抓不到现场, 选埋取证点而非猜根因. 新 helper movespeed_incident_capture.sh (bash 3.2 兼容 macOS, never-fail 契约, 130 行): rsync 失败追加 JSONL 到 ~/.kb/movespeed_incidents.jsonl 含 timestamp/caller/exit_code/mount/diskutil_info/ls_top/ls_kb/df/顶层与KB子目录独立 touch 探测 (区分全盘 EPERM vs 子目录 EPERM, V37.9.4 血案后真正需要的证据)/procs (rsync/backupd/mds/fseventsd/tmutil Spotlight 并发诊断)/sw_vers/env 摘要. python3 argv 参数传递避开 shell 转义, 所有诊断 |\\| true 失败即空串, mktemp 坏走 last-ditch minimal record, 10MB rotate to .1. 20 处 rsync fail-loud 站点升级: 旧 `|\\| echo WARN: SSD (exit=$?) >&2` → 新 `|\\| { _rc=$?; echo WARN: SSD (exit=$_rc) >&2; helper _rc $0; }` (_rc 捕获必须在 echo 之前). 覆盖 kb_save_arxiv/kb_dream/kb_evening/kb_inject/kb_review/run_hn_fixed + jobs/{hf_papers,semantic_scholar,dblp,ontology_sources,karpathy_x,rss_blogs,arxiv_monitor,freight_watcher×2,acl_anthology,github_trending,ai_leaders_x,openclaw_official×2}. INV-BACKUP-001 扩展 check 4 (declaration python_assert 全局扫 rsync+MOVESPEED .sh 必须含 helper 调用) + check 5 (runtime python_assert subprocess 端到端跑 mock caller → rsync 失败 → 断言 caller exit 0 + WARN stderr + JSONL 写入 + JSON 解析 + basename 正确). 26 新单测 test_movespeed_incident_capture.py: TestHelperExists(4) + TestHelperContract(8 never-fail 契约) + TestRotation(2) + TestBashCompat(6 禁 bash 4+ 语法 smart 豁免注释行) + TestInvariantCoverage(4 含 no_extra_undeclared_sites) + TestFileMapCoverage(1) + TestGovernanceExtension(1). MR-9 正面兑现扩展到取证层: V37.9.13 launchctl 单一 manager + V37.9.14 事故取证单一 helper. accumulated: 43→44 suites (+1) / 1319→1345 tests (+26) / 0 fail / governance 60 invariants (INV-BACKUP-001 扩展 2 checks) / 安全 95/100 / VERSION 0.37.9.13 → 0.37.9.14. 下次 transient EPERM 复发 → cat ~/.kb/movespeed_incidents.jsonl → 现场证据 → V37.9.15 精确根因修复.",
       "by": "claude_code"
     },
@@ -197,11 +202,6 @@
     {
       "date": "2026-04-20",
       "what": "V37.8.18 Phase 2 完整闭环: 2 个 🟡 中优先级盲区修复 + 对抗验证升级到 5/6 (83%). (1) INV-COST-001 新增: retry 上限守卫 ceiling=10, 4 checks 含 runtime iterative walk 避开 exec() 作用域陷阱. C12 对抗 🎉 UNEXPECTED catch. (2) INV-OBSERVABILITY-001 扩展 C13 last_run 一致性: 4 新 file_contains 锁定 kb_inject/kb_evening/kb_review/kb_harvest_chat + runtime 断言 job_watchdog 监控列表与脚本路径一致. C13 对抗 🎉 UNEXPECTED catch. 累计成绩: 53→54 不变式 / 240→249 checks / 9→11 MRD scanners. Route B 修复进度: 5/6 盲区修复验证. 仅剩 C16 audit-of-audit (架构级, V37.9 候选). governance v3.22→v3.23. 全量回归 36 suites / 1111 tests / 0 fail / 93/100.",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-04-20",
-      "what": "V37.8.18 Phase 1 完整闭环: Route B 3 个 🔴 高优先级盲区修复 + 对抗审计 counter 改进 (4 commits e2b4301/7c5ef4d 系列). 成果数字: Category B 意外 catch 从 0/6 升到 3/6 (50%) - 证明修复真实生效. (1) C14 dict repr: INV-KB-001 扩展 runtime 断言覆盖 flatten_content(dict), mutation 让 fallback 返回 repr 时 audit 立即抓到. (2) C11 silent except: 新增 MRD-SILENT-EXCEPT-001 AST 扫所有 .py 的裸 except / except Exception: pass, 首跑发现 12 处历史技术债 (adapter/kb_trend/governance_checker 自身), 登记待清理; mutation 注入第 13 处立即 catch. (3) C15 push bypass: 新增 MRD-PUSH-ROUTE-001 扫所有 .sh 的 openclaw message send, 22 脚本白名单豁免, jobs/**/*.sh 自动豁免; rogue pusher 立即 catch +2 violations. (4) 对抗 counter 改进: 解析 MRD warn 内 \"N 处\" 数字, 避免 baseline 已有 warn 时 delta=0 的盲区. 方法学洞察: 连工具本身也有自己的盲区! 剩余 3 盲区候选: 🟡 C13 last_run (中优先级) + C12 retry 上限 (中) + ⚫ C16 audit-of-audit (架构级). governance v3.21→v3.22. 全量回归 36 suites / 1111 tests / 0 fail / 93/100.",
       "by": "claude_code"
     }
   ],
@@ -343,7 +343,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.14 已收工 — MOVESPEED 事故取证埋点完成, 20 处 rsync fail-loud 站点全部接入 helper. 等下次 transient EPERM 复发 (可能 1 天至 2 周) → ~/.kb/movespeed_incidents.jsonl 自动写现场快照 → V37.9.15 根因定位. 下次 session 推荐路径: [首选] Phase 4 P3 三阶段门控 — evaluate_policy(policy_id, context) 接入 proxy 请求管线, Layer 3 Neuro-Symbolic 终态. [次选] filter_tools() + fix_tool_args() 切换到 ontology.query_tools() / resolve_alias() 打包推进 Phase 3 真正兑现. [可选] 第三条 policy 切换 (max-request-body-size 或 alert-context-isolation) 打包进 P3. 其他 backlog: pip install ontology-engine 包化 / Tool Policy Plugin / 新工具只加 YAML / 夜间阻止语义化 / 证据型文章. 详细遗留清单见 session_context.unfinished + CLAUDE.md Phase 3-5 章节.",
+  "focus": "V37.9.14 已完整收工 (Mac Mini E2E 3/3 验证通过). 等下次 cron rsync 自然 transient EPERM 复发抓现场数据 → V37.9.15 根因定位. BASELINE 数据已透露 3 条候选根因 (procs 字段证实): Time Machine backupd 并发 / Spotlight+mds_stores 双进程建索引 / APFS Owners Disabled. 下次复发时 probe_top vs probe_kb 差异 + procs 列表即可对照三嫌疑做精确归因. 下次 session 推荐路径: [首选] Phase 4 P3 三阶段门控 — evaluate_policy(policy_id, context) 接入 proxy 请求管线, Layer 3 Neuro-Symbolic 终态. [次选] filter_tools() + fix_tool_args() 切 ontology.query_tools() / resolve_alias() 打包推进. [可选] 第三条 policy 切换 (max-request-body-size 或 alert-context-isolation) 打包进 P3. 其他 backlog: pip install ontology-engine 包化 / Tool Policy Plugin / 新工具只加 YAML / 夜间阻止语义化 / 证据型文章. 详细遗留 13 项见 session_context.unfinished + CLAUDE.md Phase 3-5 章节.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
