@@ -315,7 +315,7 @@ bash "$KB_WRITE_SCRIPT" "# 货代商机 ${DAY}
 $(cat "$MSG_FILE")" "freight" "note" 2>/dev/null || true
 
 # ── 7. rsync备份 ────────────────────────────────────────────────────────
-rsync -a "$HOME/.kb/" "/Volumes/MOVESPEED/KB/" 2>&1 || echo "[$(basename "$0")] WARN: SSD rsync failed (exit=$?)" >&2  # V37.9.4 MR-4 silent-failure 修复
+rsync -a "$HOME/.kb/" "/Volumes/MOVESPEED/KB/" 2>&1 || { _rc=$?; echo "[$(basename "$0")] WARN: SSD rsync failed (exit=$_rc)" >&2; "$HOME/movespeed_incident_capture.sh" "$_rc" "$0"; }  # V37.9.14 incident forensics + V37.9.4 MR-4 silent-failure 修复
 
 # ══════════════════════════════════════════════════════════════════════════
 # V3: 三层情报漏斗 — 第2层 ImportYeti 深挖 + 第3层 客户画像
@@ -511,7 +511,7 @@ ${PROFILE_OUT}
             } | bash "$HOME/kb_append_source.sh" "$KB_SRC" "## 📊 客户画像 ${DAY}"
 
             # 再次备份
-            rsync -a "$HOME/.kb/" "/Volumes/MOVESPEED/KB/" 2>&1 || echo "[$(basename "$0")] WARN: SSD rsync failed (exit=$?)" >&2  # V37.9.4 MR-4 silent-failure 修复
+            rsync -a "$HOME/.kb/" "/Volumes/MOVESPEED/KB/" 2>&1 || { _rc=$?; echo "[$(basename "$0")] WARN: SSD rsync failed (exit=$_rc)" >&2; "$HOME/movespeed_incident_capture.sh" "$_rc" "$0"; }  # V37.9.14 incident forensics + V37.9.4 MR-4 silent-failure 修复
         else
             echo "[freight] 客户画像LLM调用无输出，跳过"
         fi

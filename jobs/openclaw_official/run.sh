@@ -200,7 +200,7 @@ echo "---- SYSTEM MESSAGE ----"
 cat "$MSG"
 
 # ── rsync备份 ────────────────────────────────────────────────────────
-rsync -a "$HOME/.kb/" "/Volumes/MOVESPEED/KB/" 2>&1 || echo "[$(basename "$0")] WARN: SSD rsync failed (exit=$?)" >&2  # V37.9.4 MR-4 silent-failure 修复
+rsync -a "$HOME/.kb/" "/Volumes/MOVESPEED/KB/" 2>&1 || { _rc=$?; echo "[$(basename "$0")] WARN: SSD rsync failed (exit=$_rc)" >&2; "$HOME/movespeed_incident_capture.sh" "$_rc" "$0"; }  # V37.9.14 incident forensics + V37.9.4 MR-4 silent-failure 修复
 
 # OPTIONAL: announce hook (adapt to your environment)
 # "$ROOT/bin/announce.sh" < "$MSG"
