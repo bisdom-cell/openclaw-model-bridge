@@ -4177,6 +4177,82 @@ invariants:
               )
           finally:
               os.unlink(tmp)
+      - name: "V37.9.14: 所有 SSD 备份脚本 fail-loud 分支必须调用 incident capture helper"
+        check_type: python_assert
+        code: |
+          # V37.9.14: forensic capture — rsync-MOVESPEED 脚本必须在失败分支调用
+          # $HOME/movespeed_incident_capture.sh 记录现场快照到 JSONL，防止 4/22
+          # 间歇性 EPERM 无证据复发。未来新增脚本忘记加 helper 会被此守卫抓住。
+          # MR-9 state-writes-go-through-helper 扩展：取证也走单一 helper 路径。
+          # V37.3 教训: 用 iterative loop 而非 generator，避开 exec scope trap。
+          import os
+          missing = []
+          for root, dirs, files in os.walk("."):
+              if ".git" in dirs:
+                  dirs.remove(".git")
+              if "node_modules" in dirs:
+                  dirs.remove("node_modules")
+              for fn in files:
+                  if not fn.endswith(".sh"):
+                      continue
+                  p = os.path.join(root, fn)
+                  try:
+                      with open(p, "r", encoding="utf-8") as f:
+                          content = f.read()
+                  except (IOError, UnicodeDecodeError):
+                      continue
+                  if "rsync" not in content:
+                      continue
+                  if "MOVESPEED" not in content:
+                      continue
+                  # helper 自身 MOVESPEED 在注释里，但无 rsync → 不会进到此处
+                  if "movespeed_incident_capture.sh" not in content:
+                      missing.append(p)
+          assert not missing, (
+              f"{len(missing)} 个 SSD rsync 脚本未调用 incident capture helper: "
+              f"{missing}\n建议模式: "
+              f'|| {{ _rc=$?; echo "[...] WARN: SSD..." >&2; '
+              f'"$HOME/movespeed_incident_capture.sh" "$_rc" "$0"; }}'
+          )
+      - name: "V37.9.14 runtime: helper 在 rsync 失败场景下不挂 caller"
+        check_type: python_assert
+        code: |
+          # Runtime: 端到端模拟 — rsync 失败触发 helper，验证 caller exit 0
+          # 且 JSONL 行写入成功。这是 INV-BACKUP-001 运行时层的 forensic 契约。
+          import os, subprocess, tempfile, json
+          helper = os.path.join(os.getcwd(), "movespeed_incident_capture.sh")
+          assert os.path.isfile(helper), f"helper missing: {helper}"
+          with tempfile.TemporaryDirectory() as td:
+              incident_file = os.path.join(td, "incidents.jsonl")
+              caller_script = os.path.join(td, "mock_caller.sh")
+              with open(caller_script, "w") as f:
+                  f.write(
+                      '#!/usr/bin/env bash\n'
+                      f'export MOVESPEED_INCIDENT_FILE="{incident_file}"\n'
+                      'rsync -a /nonexistent/source/ /Volumes/MOVESPEED/KB/ 2>&1 || '
+                      '{ _rc=$?; '
+                      'echo "[$(basename "$0")] WARN: SSD rsync failed (exit=$_rc)" >&2; '
+                      f'"{helper}" "$_rc" "$0"; '
+                      '}\n'
+                  )
+              os.chmod(caller_script, 0o755)
+              proc = subprocess.run(
+                  ["bash", caller_script],
+                  capture_output=True, text=True, timeout=15,
+              )
+              assert proc.returncode == 0, (
+                  f"caller exit={proc.returncode} (helper must not break caller)"
+              )
+              assert "WARN: SSD" in proc.stderr, (
+                  f"WARN not on stderr: {proc.stderr[:300]}"
+              )
+              assert os.path.isfile(incident_file), "JSONL not written"
+              with open(incident_file) as f:
+                  lines = [l for l in f.read().splitlines() if l.strip()]
+              assert len(lines) == 1, f"expected 1 JSONL line, got {len(lines)}"
+              rec = json.loads(lines[0])
+              assert rec.get("caller") == "mock_caller.sh", rec
+              assert rec.get("timestamp_iso"), "timestamp missing"
 
   - id: INV-WATCHDOG-FRESHNESS-001
     name: watchdog-line-level-timestamp-filter
