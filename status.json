@@ -1,5 +1,5 @@
 {
-  "updated": "2026-04-23 06:16:38",
+  "updated": "2026-04-23 06:22:33",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -342,7 +342,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.13 完美收工 + Mac Mini 实测验证通过: (1) Phase 4 P2 context evaluator 6 matcher + 第二条 policy 切换 max-tool-calls-per-task (2) restart.sh 单一 manager 架构清理 launchctl kickstart. 3/3 Mac Mini 验证门通过: kickstart 成功 + HTTP 200 即时健康 + P1+P2 wiring active 日志. V37.9.12.1 双管理血案闭环. 累计 43 suites / 1319 tests / 0 fail / 60 invariants / 安全 95/100. 下次 session 候选: (a) Phase 4 P3 三阶段门控接入请求管线 (b) 第三条 policy 切换 (max-request-body-size 或 alert-context-isolation) (c) V3 路标 pip install ontology-engine 拆包化 (d) shadow env 来源深查 (e) plist 模板 FILE_MAP 持久化决策.",
+  "focus": "V37.9.13 已收工 Mac Mini 验证 3/3 通过. 下次 session 推荐路径 (按战略杠杆排序): [首选] Phase 4 P3 三阶段门控 — pre-check → runtime-gate → post-verify 把 evaluate_policy(policy_id, context) 接入 proxy 请求管线, 从'能查'升级为'能拦截', Layer 3 Neuro-Symbolic 终态, 代码落点 proxy_filters.py 请求入口 + LLM 返回后. [次选] filter_tools() + fix_tool_args() 切换到 ontology.query_tools() / resolve_alias() (打包推进, Phase 3 完全推理真正兑现, 路径短风险低, shadow 模式可先验证). [可选] 第三条 policy 切换 (max-request-body-size 或 alert-context-isolation) 与 P3 打包, 3 条 policy 共同证明 wiring 模式稳定. 其他 backlog: plist 持久化决策 / pip install ontology-engine 包化 / Tool Policy Plugin / 新工具只加 YAML / 夜间阻止语义化 / 证据型文章. 详细遗留清单 17 项见 session_context.unfinished + CLAUDE.md Phase 3-5 章节.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
