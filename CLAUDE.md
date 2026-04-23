@@ -748,10 +748,10 @@ HH:MM  [组件D] 下游事件
 | 优先级 | 任务 | 状态 | 说明 |
 |--------|------|------|------|
 | **P1** | **domain_ontology.yaml**：六域概念模型（Actor/Tool/Resource/Task/Provider/Memory），概念间关系推理 | ✅ V37.9.9 骨架 + V37.9.12 wiring API (`find_by_domain`) | Layer 1 终态：从工具列表到领域模型 |
-| **P1** | **policy_ontology.yaml**：策略声明式定义（静态+时序+路由三类策略统一） | ✅ V37.9.9 骨架 + V37.9.12 `evaluate_policy()` + max-tools-per-agent 首切换 | Layer 2 部分终态：static policy 已支持，contextual/temporal 留 P2 |
+| **P1** | **policy_ontology.yaml**：策略声明式定义（静态+时序+路由三类策略统一） | ✅ V37.9.9 骨架 + V37.9.12 `evaluate_policy()` + V37.9.13 P2 context evaluator + 2 条 policy 切换 | Layer 2 终态部分兑现：static + 6 条 contextual/temporal 已 wire，剩 4 条待注册 |
 | **P1** | **三阶段门控**：Pre-check（前置条件）→ Runtime Gate → Post-verify（后置验证）接入请求管线 | 待启动 | Layer 3 终态：Neuro-Symbolic 四耦合点 |
-| **P2** | **contextual/temporal policy 的 context evaluator**：实现 hour_of_day / request-context matcher 让 `evaluate_policy().applicable` 对非 static policy 也返回真值 | 待启动 | Phase 4 P1 留给 P2 的任务，V37.9.12 已埋 reason=needs_context_evaluator 占位 |
-| **P2** | **第二条 policy 切换**：选 `max-tool-calls-per-task` 或 `max-request-body-size` 做第二次 wiring，复用 V37.9.12 `_resolve_*` 模式 | 待启动 | 验证 wiring 模式可扩展性 |
+| **P2** | **contextual/temporal policy 的 context evaluator**：实现 hour_of_day / request-context matcher 让 `evaluate_policy().applicable` 对非 static policy 也返回真值 | ✅ V37.9.13 完成 — 6 个 matcher（quiet_hours / task_match / has_alert / has_image / need_fallback / data_clean_keywords）+ `_CONTEXT_EVALUATORS` dispatch + 三档 reason（needs_context / no_evaluator / evaluator_error） | 未注册 policy 走"可扩展路径"不崩溃 |
+| **P2** | **第二条 policy 切换**：选 `max-tool-calls-per-task` 或 `max-request-body-size` 做第二次 wiring，复用 V37.9.12 `_resolve_*` 模式 | ✅ V37.9.13 完成 — `_resolve_max_tool_calls_per_task_limit()` 镜像 V37.9.12 5 档 safe-fallback + MR-8 copy-paste 防御源码守卫 | 验证 wiring 模式可扩展性 ✓ |
 | **P2** | **审计带规则链**：每条审计记录包含 policy_evaluated + rule_chain + rationale | 待启动 | Layer 4 终态：从"做了什么"到"基于什么规则" |
 | **P2** | **策略冲突检测**：策略间矛盾自动发现（如夜间阻止 vs 紧急通知） | 待启动 | 策略引擎高级能力 |
 | **P2** | **影响分析工具**：`ontology.impact_analysis("修改 max_tools")` → 受影响策略/工具列表 | 待启动 | 变更安全保障 |
