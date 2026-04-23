@@ -175,6 +175,17 @@ class TestPolicyOntologySkeleton(unittest.TestCase):
         self.assertIn("filter_system_alerts", pol["ordering_constraint"])
         self.assertIn("truncate", pol["ordering_constraint"])
 
+    def test_max_tool_calls_per_task_is_2(self):
+        """V37.9.13 Phase 4 P2 wiring 安全网: max-tool-calls-per-task.limit 必须 == 2
+        == config MAX_TOOL_CALLS_PER_TASK。第二条 policy 切换的横向一致性契约。"""
+        pols = {p["id"]: p for p in self.onto.get("policies", [])}
+        self.assertIn("max-tool-calls-per-task", pols)
+        self.assertEqual(
+            pols["max-tool-calls-per-task"].get("limit"), 2,
+            "max-tool-calls-per-task.limit 漂移 — 必须与 config_loader."
+            "MAX_TOOL_CALLS_PER_TASK 同步"
+        )
+
 
 class TestCrossOntologyConsistency(unittest.TestCase):
     """domain + policy + governance 三文件交叉一致性。"""

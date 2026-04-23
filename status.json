@@ -1,6 +1,6 @@
 {
-  "updated": "2026-04-22 09:14:33",
-  "updated_by": "security_score",
+  "updated": "2026-04-23 05:54:54",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -105,6 +105,11 @@
   ],
   "recent_changes": [
     {
+      "date": "2026-04-23",
+      "what": "V37.9.13 Phase 4 P2 context evaluator + 第二条 policy 切换 (max-tool-calls-per-task). engine.py: 6 context matchers + _CONTEXT_EVALUATORS dispatch + evaluate_policy() 三档扩展 (context=None/未注册/异常). proxy_filters.py: _resolve_max_tool_calls_per_task_limit() 镜像 V37.9.12 5档 safe-fallback. config_loader.py: MAX_TOOL_CALLS_PER_TASK 加载 (config.yaml 已声明但从未加载). policy_ontology.yaml meta 0.1-skeleton→0.2-p2-partial. +47 新单测 (37 engine 含半开区间 7 点 boundary + datetime.now.hour 解析 + OpenAI content blocks 双格式 + evaluator 异常不冒泡 + 未注册 policy 不崩溃; 9 tool_proxy 5档 safe-fallback 独立 monkey-patch + MR-8 copy-paste 防御源码守卫; 1 skeleton 横向一致性). 42 suites / 1299 tests / 0 fail / 安全 95/100. MR-8 正面案例兑现: 写两份独立 resolver 优于泛化 _resolve(policy_id) —— 每条 policy 启动日志独立便于 grep + 未来可加 policy-specific 日志/告警/指标. Phase 4 P3 候选: 三阶段门控 + 第三条 policy 切换.",
+      "by": "claude_code"
+    },
+    {
       "date": "2026-04-22",
       "what": "V37.9.12.1 Mac Mini 部署验证 + plist 配置债发现修复: (1) 推翻 V37.9.12 changelog 关于 safe-fallback 的假设 — 实测 ~/ontology 是 symlink → ~/openclaw-model-bridge/ontology，Phase 4 P1 wiring 在生产真实生效，/health 返回 0.37.9.12，日志 [proxy] max-tools-per-agent: using ontology limit=12 (Phase 4 P1 wiring active) (2) 发现 launchd plist 未入 FILE_MAP = 纯本地配置，如 plist 丢失/重装需手动重建 — 登记 V37.9.13 候选 ship plist template through auto_deploy (3) 发现 com.openclaw.proxy.plist 导致 launchd 进程始终以 ONTOLOGY_MODE=shadow 启动的配置漂移，但 plist 本身没有 ONTOLOGY_MODE env 声明 — shadow 来源未追到（不是 launchctl getenv/shell rc/proxy_filters 默认值/pycache diff）；通过 PlistBuddy Add :EnvironmentVariables:ONTOLOGY_MODE string on 显式覆盖已修复 (4) 发现 com.openclaw.adapter.plist 同款双管理冲突 — restart.sh manual 进程 + launchd KeepAlive 抢端口 = launchctl list 显示 crash-loop。architectural debt 登记 V37.9.13 候选: restart.sh 改用 launchctl kickstart 替代 nohup python，消除双管理。(5) 结论: V37.9.12 Phase 4 P1 wiring 真实 in production，昨日误判 Mac Mini 走 fallback 是错的。",
       "by": "claude_code"
@@ -198,11 +203,6 @@
       "date": "2026-04-20",
       "what": "数据闭环验证: chaspark + finance_news 新信息源完整进入 KB（用户主动质疑触发验证）。证据链: (1) sources 归档: chaspark.md 35 chunks + finance_daily.md 116 chunks 均已 text_index 向量化。(2) notes 精华双通道沉淀: notes/茶思屋科技动态 2026-04-17~19.md (3 条) + notes/财经简报 2026-04-13~19.md (7 条), 推测是 PA 或 kb_harvest_chat 从对话/推送自动提炼。(3) kb_dream 今日 dream.md 提及 chaspark/财经 4 次, kb_review 通过 load_sources_from_registry 自动覆盖, search_kb / kb_rag 可语义检索. 数据复利正向循环: 原始归档 + 精华笔记双通道. 诊断首轮曾出现 0 匹配假警报（两个因素共同造成）: 我命令字段名错用 m.get(\"files\", []) 但 meta.json 实际结构只有 chunks 字段 + kb_embed 每 6 小时索引一次存在时间延迟窗口. 用户指出大概率是时间延迟合理修正我的过度自责. 方法学要点: 诊断 eventually-consistent 系统时先确认 cron 频率 + 数据写入时间 + 索引窗口, 首次查不到不等于数据断链. 本次无系统代码改动.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-04-20",
-      "what": "V37.8.16 续: 遗留项推进(原则#30升级Opus 4.7+X僵尸清理+WhatsApp routing 重新评估+新silent bug发现)。(1) CLAUDE.md 原则 #30 升级: 合法模型 = Opus 家族(4.6/4.7/未来)非硬编码ID, \"更强版本不是降级\"显式规则, commit fb12f79. (2) X 僵尸 4/18-19-20 三天连续命中 5 个: Carnegie_Endow/CNS1952/ForeignPolicy/PDChina/SingTaoDaily, 全部从 FINANCE_X_ACCOUNTS 移除. INV-X-001 新增 6 个 file_not_contains 治理守卫防回归(5 个 V37.8.16 僵尸 + 1 索引调整). (3) WhatsApp routing 重新评估: 昨天假说\"plugin 安装改路由\"错误. 真相: plugin 源码(index.ts/src/channel.ts) 零 agent 路由关键字, 只管通道物理收发. handledBy:core 证实 agent 路由在 OpenClaw core 不受 plugin 影响. main/research 共享 workspace, 两个 agent 都加载 workspace/SOUL.md 自称 Wei, 用户行为层无感. 4/10 起 session 落地 research/ 只是存储位置差异, 非致命. (4) 新 silent-failure bug 发现: X 3 天连续命中条件达成但 4/20 07:30 run 未推送 SYSTEM_ALERT 告警(grep 日志无匹配), 说明僵尸告警路径有漏洞. 登记 unfinished 独立排查. (5) Nikkei Asia HTML 适配决策: 不做(paywall+X 账号NikkeiAsia 今日未在 zombies 列表,活跃可用). (6) 全量回归: 36 suites/1111 tests/0 fail/53 inv/15 MR/安全 93/100.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -273,10 +273,10 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 1252,
-    "last_regression": "2026-04-22 06:00 pass",
+    "test_count": 1299,
+    "last_regression": "2026-04-23 05:52 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-04-22 17:15",
+    "security_score_time": "2026-04-23 05:52",
     "test_suites": 42,
     "governance_invariants": "59/59",
     "governance_checks": "283/283",
@@ -344,7 +344,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.12 完美收工 (Mac Mini 实测验证): Phase 4 P1 wiring 真实生效 (/health 0.37.9.12 + launchd ONTOLOGY_MODE=on + max-tools policy active). 附带发现并修 launchd plist ONTOLOGY_MODE 配置债 (PlistBuddy 显式覆盖). 下次 session: (1) Phase 4 P2 contextual/temporal context evaluator (hour_of_day matcher) (2) 第二条 policy 切换 (max-tool-calls-per-task) (3) V37.9.13 候选架构清理: restart.sh 改用 launchctl kickstart 消除双管理 (4) plist 模板持久化到 FILE_MAP (5) launchd shadow env 来源深查.",
+  "focus": "V37.9.13 完美收工: Phase 4 P2 context evaluator + 第二条 policy 切换. engine.py 新增 6 个 matcher 纯函数 (quiet_hours / task_match / has_alert / has_image / need_fallback / data_clean_keywords) + _CONTEXT_EVALUATORS dispatch + evaluate_policy() 三档扩展. proxy_filters.py 新增 _resolve_max_tool_calls_per_task_limit() 镜像 V37.9.12 5档模式. +47 单测 (37 engine + 9 tool_proxy + 1 skeleton). 1299 tests 0 fail / 安全 95/100 / VERSION 0.37.9.12→0.37.9.13. Phase 4 P3 候选: 三阶段门控 + 第三条 policy 切换 + MR-7 INV-* 覆盖 context evaluators.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",

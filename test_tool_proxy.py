@@ -2275,5 +2275,151 @@ class TestPolicyDrivenMaxTools(unittest.TestCase):
         )
 
 
+class TestPolicyDrivenMaxToolCallsPerTask(unittest.TestCase):
+    """V37.9.13 Phase 4 P2: max-tool-calls-per-task policy wiring — 镜像 P1 契约。
+
+    第二条 policy 切换的价值不是 enforcement（当前 Python 尚未调用此常量），
+    而是证明 V37.9.12 的 wiring 模式 (_resolve_*_limit + 5 档 safe-fallback +
+    启动期一次性计算) 可扩展到任意 hard_limit policy。
+    """
+
+    def test_resolved_limit_is_2_in_default_mode(self):
+        import proxy_filters as pf
+        self.assertEqual(pf._MAX_TOOL_CALLS_PER_TASK_RESOLVED, 2)
+        self.assertEqual(
+            pf._MAX_TOOL_CALLS_PER_TASK_RESOLVED,
+            pf._CFG_MAX_TOOL_CALLS_PER_TASK,
+        )
+
+    def test_source_is_ontology_policy_when_mode_on(self):
+        import proxy_filters as pf
+        if pf._ONTOLOGY_MODE == "on":
+            self.assertEqual(
+                pf._MAX_TOOL_CALLS_PER_TASK_SOURCE, "ontology_policy",
+                "ONTOLOGY_MODE=on 时 max-tool-calls-per-task 必须走 ontology policy",
+            )
+
+    def test_resolve_returns_config_when_mode_off(self):
+        import proxy_filters as pf
+        original_mode = pf._ONTOLOGY_MODE
+        try:
+            pf._ONTOLOGY_MODE = "off"
+            limit, source = pf._resolve_max_tool_calls_per_task_limit()
+            self.assertEqual(limit, pf._CFG_MAX_TOOL_CALLS_PER_TASK)
+            self.assertEqual(source, "config_off_mode")
+        finally:
+            pf._ONTOLOGY_MODE = original_mode
+
+    def test_resolve_returns_config_when_onto_mod_missing(self):
+        import proxy_filters as pf
+        original_mod = pf._onto_mod
+        original_mode = pf._ONTOLOGY_MODE
+        try:
+            pf._onto_mod = None
+            pf._ONTOLOGY_MODE = "on"
+            limit, source = pf._resolve_max_tool_calls_per_task_limit()
+            self.assertEqual(limit, pf._CFG_MAX_TOOL_CALLS_PER_TASK)
+            self.assertEqual(source, "config_fallback_load_failed")
+        finally:
+            pf._onto_mod = original_mod
+            pf._ONTOLOGY_MODE = original_mode
+
+    def test_resolve_returns_config_when_policy_not_found(self):
+        import proxy_filters as pf
+
+        class _FakeMod:
+            @staticmethod
+            def evaluate_policy(policy_id):
+                return {"found": False, "limit": None, "reason": "policy_id_not_found"}
+
+        original_mod = pf._onto_mod
+        original_mode = pf._ONTOLOGY_MODE
+        try:
+            pf._onto_mod = _FakeMod()
+            pf._ONTOLOGY_MODE = "on"
+            limit, source = pf._resolve_max_tool_calls_per_task_limit()
+            self.assertEqual(limit, pf._CFG_MAX_TOOL_CALLS_PER_TASK)
+            self.assertEqual(source, "config_fallback_policy_miss")
+        finally:
+            pf._onto_mod = original_mod
+            pf._ONTOLOGY_MODE = original_mode
+
+    def test_resolve_returns_config_when_evaluate_raises(self):
+        import proxy_filters as pf
+
+        class _BrokenMod:
+            @staticmethod
+            def evaluate_policy(policy_id):
+                raise RuntimeError("simulated engine failure")
+
+        original_mod = pf._onto_mod
+        original_mode = pf._ONTOLOGY_MODE
+        try:
+            pf._onto_mod = _BrokenMod()
+            pf._ONTOLOGY_MODE = "on"
+            limit, source = pf._resolve_max_tool_calls_per_task_limit()
+            self.assertEqual(limit, pf._CFG_MAX_TOOL_CALLS_PER_TASK)
+            self.assertEqual(source, "config_fallback_policy_miss")
+        finally:
+            pf._onto_mod = original_mod
+            pf._ONTOLOGY_MODE = original_mode
+
+    def test_resolve_uses_ontology_when_valid(self):
+        import proxy_filters as pf
+
+        class _FakeMod:
+            @staticmethod
+            def evaluate_policy(policy_id):
+                return {"found": True, "limit": 5, "reason": None}
+
+        original_mod = pf._onto_mod
+        original_mode = pf._ONTOLOGY_MODE
+        try:
+            pf._onto_mod = _FakeMod()
+            pf._ONTOLOGY_MODE = "on"
+            limit, source = pf._resolve_max_tool_calls_per_task_limit()
+            self.assertEqual(limit, 5)
+            self.assertEqual(source, "ontology_policy")
+        finally:
+            pf._onto_mod = original_mod
+            pf._ONTOLOGY_MODE = original_mode
+
+    def test_shadow_mode_uses_config_but_logs_drift(self):
+        import proxy_filters as pf
+
+        class _FakeMod:
+            @staticmethod
+            def evaluate_policy(policy_id):
+                return {"found": True, "limit": 99, "reason": None}
+
+        original_mod = pf._onto_mod
+        original_mode = pf._ONTOLOGY_MODE
+        try:
+            pf._onto_mod = _FakeMod()
+            pf._ONTOLOGY_MODE = "shadow"
+            limit, source = pf._resolve_max_tool_calls_per_task_limit()
+            self.assertEqual(limit, pf._CFG_MAX_TOOL_CALLS_PER_TASK)
+            self.assertEqual(source, "config_shadow_mode")
+        finally:
+            pf._onto_mod = original_mod
+            pf._ONTOLOGY_MODE = original_mode
+
+    def test_queries_correct_policy_id(self):
+        """源码守卫: _resolve_max_tool_calls_per_task_limit 必须查询正确的
+        policy_id (max-tool-calls-per-task)，防止和 P1 的 max-tools-per-agent
+        混淆（MR-8 copy-paste-is-a-bug-class 主动防御）。"""
+        import inspect
+        import proxy_filters as pf
+        src = inspect.getsource(pf._resolve_max_tool_calls_per_task_limit)
+        self.assertIn(
+            "max-tool-calls-per-task", src,
+            "P2 resolver 必须查询 max-tool-calls-per-task policy，不得指向 P1 policy"
+        )
+        self.assertNotIn(
+            "max-tools-per-agent", src,
+            "P2 resolver 源码不得含 max-tools-per-agent (copy-paste 反模式防御)"
+        )
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
