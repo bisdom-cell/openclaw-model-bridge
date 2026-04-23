@@ -190,12 +190,23 @@ meta_policy:
 # 不求覆盖全部，求"可迁移的一条路径"。
 
 meta:
-  version: "0.1-skeleton"
-  phase: "Phase 4 skeleton (pre-wiring)"
+  version: "0.2-p2-partial"
+  phase: "Phase 4 P2 (context evaluator + 2nd policy switch wired)"
   created: "2026-04-22"
-  status: "declaration_only"
+  last_updated: "2026-04-23"
+  status: "wired_static_and_registered_contextual"
   policies_declared: 10
-  next_step: "Phase 4 P2 Step 1 — engine.py::evaluate_policy() + 单 policy 迁移验证"
+  policies_with_context_evaluator:
+    - quiet-hours-00-07          # temporal: hour ∈ [0,7)
+    - dream-map-budget           # temporal: task=='kb_dream'
+    - alert-context-isolation    # contextual: messages contain [SYSTEM_ALERT]
+    - multimodal-routing         # contextual: has_image OR image blocks
+    - fallback-chain-capability  # contextual: need_fallback flag
+    - data-clean-tool-injection  # contextual: user_text keyword match
+  policies_wired_via_proxy_filters:
+    - max-tools-per-agent        # V37.9.12 first switch
+    - max-tool-calls-per-task    # V37.9.13 second switch (validates extensibility)
+  next_step: "Phase 4 P3 — three-gate enforcement (pre-check / runtime-gate / post-verify)"
   refs:
     - ontology/domain_ontology.yaml
     - ontology/tool_ontology.yaml

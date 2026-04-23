@@ -777,6 +777,125 @@ def _parse_limit_from_rule(rule_text):
     return None
 
 
+# ---------------------------------------------------------------------------
+# V37.9.13 Phase 4 P2: context evaluators for temporal/contextual policies
+# ---------------------------------------------------------------------------
+# Each evaluator returns (applicable: Optional[bool], reason: Optional[str]).
+# applicable=None means "undecidable with given context" (reason explains why).
+# Unregistered policies stay at reason="no_context_evaluator_registered" —
+# P2 rolls out matchers incrementally, not big-bang.
+# ---------------------------------------------------------------------------
+
+def _eval_quiet_hours(policy, context):
+    """temporal: hour_of_day ∈ [0, 7) → applicable."""
+    hour = context.get("hour")
+    if hour is None and context.get("now") is not None:
+        try:
+            hour = context["now"].hour
+        except AttributeError:
+            return None, "context_now_must_have_hour_attr"
+    if hour is None:
+        return None, "context_missing_hour"
+    try:
+        h = int(hour)
+    except (ValueError, TypeError):
+        return None, "context_hour_invalid_type"
+    if h < 0 or h > 23:
+        return None, "context_hour_out_of_range"
+    return (0 <= h < 7), None
+
+
+def _eval_task_match(policy, context, expected_task):
+    task = context.get("task")
+    if task is None:
+        return None, "context_missing_task"
+    return (task == expected_task), None
+
+
+def _eval_has_alert(policy, context):
+    """contextual: messages contain [SYSTEM_ALERT] marker → applicable."""
+    messages = context.get("messages")
+    if messages is None:
+        return None, "context_missing_messages"
+    if not isinstance(messages, list):
+        return None, "context_messages_must_be_list"
+    for m in messages:
+        if not isinstance(m, dict):
+            continue
+        c = m.get("content")
+        if isinstance(c, str):
+            if "[SYSTEM_ALERT]" in c:
+                return True, None
+        elif isinstance(c, list):
+            for block in c:
+                if isinstance(block, dict):
+                    txt = block.get("text", "")
+                    if isinstance(txt, str) and "[SYSTEM_ALERT]" in txt:
+                        return True, None
+    return False, None
+
+
+def _eval_has_image(policy, context):
+    """contextual: has_image flag OR messages contain image blocks."""
+    if "has_image" in context:
+        return bool(context["has_image"]), None
+    messages = context.get("messages")
+    if messages is None:
+        return None, "context_missing_has_image_or_messages"
+    if not isinstance(messages, list):
+        return None, "context_messages_must_be_list"
+    for m in messages:
+        if not isinstance(m, dict):
+            continue
+        c = m.get("content")
+        if isinstance(c, list):
+            for block in c:
+                if isinstance(block, dict) and block.get("type") in ("image_url", "image"):
+                    return True, None
+    return False, None
+
+
+def _eval_need_fallback(policy, context):
+    """contextual: primary failed or required capability missing."""
+    if "need_fallback" in context:
+        return bool(context["need_fallback"]), None
+    return None, "context_missing_need_fallback"
+
+
+_DATA_CLEAN_KEYWORDS = (
+    "数据清洗", "清洗数据",
+    "data clean", "data_clean", "clean data",
+    "去重", "去空格", "规范化日期",
+)
+
+
+def _eval_data_clean_keywords(policy, context):
+    """contextual: user_text contains data cleaning keywords."""
+    text = context.get("user_text")
+    if text is None:
+        return None, "context_missing_user_text"
+    if not isinstance(text, str):
+        return None, "context_user_text_must_be_str"
+    low = text.lower()
+    for kw in _DATA_CLEAN_KEYWORDS:
+        if kw in text or kw in low:
+            return True, None
+    return False, None
+
+
+# Policy id → evaluator mapping (P2 staged rollout).
+_CONTEXT_EVALUATORS = {
+    # temporal
+    "quiet-hours-00-07": _eval_quiet_hours,
+    "dream-map-budget": lambda p, c: _eval_task_match(p, c, "kb_dream"),
+    # contextual
+    "alert-context-isolation": _eval_has_alert,
+    "multimodal-routing": _eval_has_image,
+    "fallback-chain-capability": _eval_need_fallback,
+    "data-clean-tool-injection": _eval_data_clean_keywords,
+}
+
+
 def evaluate_policy(policy_id, context=None, policy_data=None, path=None) -> dict:
     """评估策略，返回结构化结果。
 
@@ -849,19 +968,39 @@ def evaluate_policy(policy_id, context=None, policy_data=None, path=None) -> dic
         limit = _parse_limit_from_rule(match.get("rule"))
 
     ptype = match.get("type")
+
+    # Phase 4 P2: resolve applicability via context evaluator for non-static types.
+    if ptype == "static":
+        applicable = True
+        reason = None
+    elif context is None:
+        applicable = None
+        reason = "needs_context_evaluator"
+    else:
+        evaluator = _CONTEXT_EVALUATORS.get(policy_id)
+        if evaluator is None:
+            applicable = None
+            reason = "no_context_evaluator_registered"
+        else:
+            try:
+                applicable, reason = evaluator(match, context)
+            except Exception as _err:
+                applicable = None
+                reason = f"evaluator_error: {type(_err).__name__}"
+
     result = {
         "policy_id": policy_id,
         "found": True,
         "type": ptype,
         "hard_limit": bool(match.get("hard_limit", False)),
         "limit": limit,
-        "applicable": True if ptype == "static" else None,
+        "applicable": applicable,
         "rule": match.get("rule"),
         "rationale": match.get("rationale"),
         "enforcement_site": match.get("enforcement_site"),
         "governance_invariant": match.get("governance_invariant"),
         "scope": match.get("scope"),
-        "reason": None if ptype == "static" else "needs_context_evaluator",
+        "reason": reason,
     }
     return result
 
