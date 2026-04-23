@@ -5,14 +5,14 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-1093%20passed-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-1319%20passed-brightgreen.svg)]()
 [![Providers](https://img.shields.io/badge/providers-7%20supported-orange.svg)]()
-[![Governance](https://img.shields.io/badge/invariants-52%2F52%20%2B%2014%20MR-blueviolet.svg)]()
-[![Security](https://img.shields.io/badge/security-93%2F100-green.svg)]()
+[![Governance](https://img.shields.io/badge/invariants-60%2F60%20%2B%2015%20MR-blueviolet.svg)]()
+[![Security](https://img.shields.io/badge/security-95%2F100-green.svg)]()
 [![Jobs](https://img.shields.io/badge/cron%20jobs-35%20active-blue.svg)]()
 [![Notifications](https://img.shields.io/badge/notifications-WhatsApp%20%2B%20Discord-informational.svg)]()
 
-> **Current version:** `v37.8.15` / `0.37.8.15` (2026-04-17) — see [`CLAUDE.md`](CLAUDE.md) for full changelog.
+> **Current version:** `v37.9.13` / `0.37.9.13` (2026-04-23) — see [`CLAUDE.md`](CLAUDE.md) for full changelog.
 
 ## Architecture / 系统架构
 
@@ -101,15 +101,26 @@
 │  ontology/                                                       │
 │    engine.py ←→ tool_ontology.yaml (81条声明式规则)              │
 │      └→ classify_tool_call(): 语义推理(属性→风险+策略标签)       │
-│    governance_checker.py ←→ governance_ontology.yaml v3.19       │
-│      └→ 52不变式 + 236检查 + 14元规则 + 验证深度三层模型         │
-│      └→ MR-13/MR-14: error-chain-transparency + alert-path-     │
-│         independence (V37.8.10/13 血案教训)                     │
-│      └→ MRD-LAYER-001: 自动发现单层验证盲区                     │
+│      └→ V37.9.12 Phase 4 P1: load_domain_ontology()             │
+│         + find_by_domain() + evaluate_policy() 三纯函数 API      │
+│      └→ V37.9.13 Phase 4 P2: 6 context evaluators               │
+│         (hour_of_day / has_alert / has_image / task_match)      │
+│    engine.py ←→ domain_ontology.yaml (六域模型，V37.9.9)         │
+│      └→ Actor / Tool / Resource / Task / Provider / Memory      │
+│    engine.py ←→ policy_ontology.yaml (10 策略，V37.9.13)         │
+│      └→ static (3) + temporal (2) + contextual (5)              │
+│      └→ 2 条已 wire: max-tools-per-agent / max-tool-calls       │
+│    governance_checker.py ←→ governance_ontology.yaml v3.31      │
+│      └→ 60不变式 + 273检查 + 15元规则 + 13 MRD 扫描器           │
+│      └→ MR-4 silent-failure (15 次演出) / MR-6 critical≥2层     │
+│      └→ MR-7 治理自观察 / MR-8 copy-paste / MR-9 single-manager │
+│      └→ MR-15 reserved-files / MR-16 security 双轨统一          │
 │    diff.py: engine ↔ proxy_filters 一致性校验 (81/81=100%)      │
-│    Phase 3: ONTOLOGY_MODE=on (声明式引擎替代硬编码, V37.8.14)    │
+│    Phase 3: ONTOLOGY_MODE=on (V37.8.14 正式切换)                │
+│    Phase 4: P1+P2 完成 — policy wiring 可扩展性证明              │
+│    Phase 5 (终极): pip install ontology-engine                  │
 │    CONSTITUTION.md: 宪法6条 + 最高条款（项目隔离）                │
-│    docs/cases/: 15 篇血案档案 (V37.3-V37.8.13)                  │
+│    docs/cases/: 15 篇血案档案 (V37.3-V37.8.16)                  │
 └──────────────────────────────────────────────────────────────────┘
                    │
 ┌──────────────────▼──────────────────────────────────────────────┐
@@ -183,7 +194,7 @@ bash quickstart.sh
 ```
 Phase 1: Prerequisites     → Python, files, syntax, provider auto-detection
 Phase 2: Start Services    → Adapter(:5001) + Proxy(:5002), ~3 seconds
-Phase 3: Health Check      → 1093 unit tests + registry validation
+Phase 3: Health Check      → 1319 unit tests + registry validation
 Phase 4: Golden Test Trace → Real request through full stack, saved to docs/golden_trace.json
 ```
 
@@ -290,7 +301,7 @@ Core services (`tool_proxy.py`, `adapter.py`, `proxy_filters.py`) use **only Pyt
 
 | File | Description |
 |------|-------------|
-| `restart.sh` | One-command restart all services (with PATH fix for cron) |
+| `restart.sh` | **V37.9.13** One-command restart all services — Adapter + Proxy via `launchctl kickstart -k` (single-manager, eliminates manual nohup + launchd KeepAlive double-ownership crash-loop, V37.9.12.1 blood lesson) with 5×2s health verification loop; `nohup` fallback when plist missing |
 | `auto_deploy.sh` | Auto-deployment — git pull + file sync (81 files) + drift detection + smart restart + post-deploy preflight |
 | `preflight_check.sh` | Pre-flight check — **19 automated checks** (tests, registry, syntax, deploy consistency, env vars, connectivity, security scan, data flow, crontab, **E2E journey test**, **SLO compliance**) |
 | `health_check.sh` | Weekly health report + JSON output |
@@ -337,7 +348,7 @@ All jobs registered in `jobs_registry.yaml`. Validate: `python3 check_registry.p
 | `wa_keepalive.sh` | Every 30 min | WhatsApp session probe + escalation to Discord |
 | `kb_trend.py` | Sat 09:00 | Weekly AI trend report (keyword trends + LLM analysis) |
 | `kb_status_refresh.sh` | Hourly | Status.json health refresh (three-party sync) |
-| `governance_audit_cron.sh` | Daily 07:00 | **V37.1** Governance audit — 52 invariants + 14 meta rules |
+| `governance_audit_cron.sh` | Daily 07:00 | **V37.1→V37.9.13** Governance audit — 60 invariants + 15 meta rules + 13 MRD scanners + 273 checks |
 | `preference_learner.py` | Daily 07:30 | User preference auto-learning |
 | `cron_canary.sh` | Every 10 min | Cron heartbeat canary |
 | `kb_integrity.py` | (on-demand) | KB file integrity checker (SHA256) |
@@ -364,21 +375,23 @@ All jobs registered in `jobs_registry.yaml`. Validate: `python3 check_registry.p
 | `.github/workflows/ci.yml` | **V32** GitHub Actions CI — 9 test suites + config validation + security scan |
 | `CLAUDE.md` | Project context for AI-assisted development |
 
-### Ontology Sub-Project (V36.2 → V37.8.14 Phase 3)
+### Ontology Sub-Project (V36.2 → V37.9.13 Phase 4 P2)
 
-> **Phase 3 active**: `ONTOLOGY_MODE=on` — declarative engine replaces hardcoded logic (V37.8.14).
-> Roadmap: Phase 4 (domain ontology + policy engine) → Phase 5 (`pip install ontology-engine`).
+> **Phase 4 P2 active**: `evaluate_policy(policy_id, context)` handles static + 6 contextual/temporal policies (V37.9.13). 2 policies wired through `proxy_filters` (V37.9.12 + V37.9.13).
+> Roadmap: Phase 4 P3 (3-gate enforcement in request pipeline) → Phase 5 (`pip install ontology-engine`).
 
 | File | Description |
 |------|-------------|
-| `ontology/engine.py` | **V36.2** Tool Ontology Engine — declarative rule inference (81 rules), `classify_tool_call()` semantic classification, query/validate/suggest APIs |
+| `ontology/engine.py` | **V36.2→V37.9.13** Tool Ontology Engine + Domain/Policy APIs — `classify_tool_call()` semantic classification + **V37.9.12 `load_domain_ontology()` / `find_by_domain()` / `evaluate_policy()`** three pure functions + **V37.9.13 six context evaluators** (`_eval_quiet_hours` / `_eval_has_alert` / `_eval_has_image` / `_eval_need_fallback` / `_eval_task_match` / `_eval_data_clean_keywords`) + `_CONTEXT_EVALUATORS` dispatch table |
 | `ontology/tool_ontology.yaml` | **V36.2** Declarative tool rules — 81 rules (filters, injections, truncation, SSE, media) |
-| `ontology/governance_checker.py` | **V36.3→V37.8** Governance execution engine — 52 invariants + 236 checks + 14 meta rules + 5 check types (file_contains/file_not_contains/python_assert/crontab_check/runtime) + MRD auto-discovery |
-| `ontology/governance_ontology.yaml` | **V37.8.14** Governance Ontology v3.19 — 52 invariants, 236 checks, 14 meta rules, 100% job coverage |
+| `ontology/domain_ontology.yaml` | **V37.9.9** Layer 1 — six-domain conceptual model (Actor / Tool / Resource / Task / Provider / Memory) + inter-domain relations + Phase 4 implementation path |
+| `ontology/policy_ontology.yaml` | **V37.9.13** Layer 2 — 10 declarative policies: 3 static + 2 temporal + 5 contextual + ordering constraints + meta-rule refs. 2 wired via `proxy_filters._resolve_*_limit()` (max-tools / max-tool-calls) |
+| `ontology/governance_checker.py` | **V36.3→V37.9** Governance execution engine — 60 invariants + 273 checks + 15 meta rules + 13 MRD scanners + 5 check types (file_contains / file_not_contains / python_assert / crontab_check / runtime) + Phase 0 auto-discovery |
+| `ontology/governance_ontology.yaml` | **V37.9.13** Governance Ontology v3.31 — 60 invariants (incl. INV-RESTART-001 single-manager, INV-HB-001 reserved files, INV-PA-001/002 alert isolation, INV-DREAM-001/002/003, INV-CACHE-002, INV-GOV-001 silent-error, INV-LAYER-001 self-enforcing depth), 15 meta rules, 13 MRD scanners |
 | `ontology/diff.py` | **V36.2** Consistency checker — engine vs proxy_filters (81/81 = 100%) |
 | `ontology/CONSTITUTION.md` | **V36.2** Ontology Constitution — 6 articles + Supreme Article (project isolation) |
-| `ontology/tests/` | Engine + governance tests (8 test files, 249 tests) |
-| `ontology/docs/cases/` | **V37.3→V37.8.13** 15 blood lesson case studies (MR-4 silent failure × 11 appearances) |
+| `ontology/tests/` | Engine + governance tests — `test_engine_phase4.py` (75 tests, V37.9.13), `test_governance_*`, `test_dream_cache_stability`, `test_audit_perf_dimensions` |
+| `ontology/docs/cases/` | **V37.3→V37.8.16** 15 blood lesson case studies (MR-4 silent failure × 15 appearances, including HEARTBEAT.md self-silencing → MR-15 new meta-rule) |
 | `ontology/docs/architecture/` | Industrial AI paradigm, target architecture (Phase 3-5 roadmap) |
 
 ### Documentation
@@ -399,11 +412,41 @@ All jobs registered in `jobs_registry.yaml`. Validate: `python3 check_registry.p
 
 > "The stronger capabilities get, the harder the system is to control — governance must lead, not follow."
 
-**Three-Plane Architecture**:
-- **Control Plane** (95%): Provider Compatibility Layer, SLO 5-metric monitoring, centralized thresholds, 19-check preflight, incident snapshots, circuit breaker, audit logging, 52-invariant governance
-- **Capability Plane** (85%): 7-provider routing, multimodal (text+vision), tool governance (≤12), data cleaning, search_kb hybrid retrieval
-- **Memory Plane** (75%): KB RAG, trend analysis, preference learning, multimodal memory, Memory Plane v2 (dedup + confidence + conflict resolution), Agent Dream v2 MapReduce
-- **Ontology Plane** (Phase 3 active): Tool Ontology Engine (81 declarative rules, ONTOLOGY_MODE=on), Governance Ontology v3.19 (52 invariants + 14 meta rules), 15 blood lesson cases
+**Four-Plane Architecture**:
+- **Control Plane** (90%): Provider Compatibility Layer, SLO 5-metric monitoring, centralized thresholds, 19-check preflight, incident snapshots, circuit breaker + audit logging (fsync + atomic snapshot), 60-invariant governance, single-manager process ownership (V37.9.13)
+- **Capability Plane** (85%): 7-provider routing + capability-based fallback chain, multimodal (text+vision), tool governance (≤12, policy-driven via V37.9.12), data cleaning, search_kb hybrid retrieval
+- **Memory Plane** (75%): KB RAG (local sentence-transformers), trend analysis, preference learning, multimodal memory, Memory Plane v2 (dedup + confidence + conflict resolution), Agent Dream v2 MapReduce
+- **Ontology Plane** (Phase 4 P2 active): 4 YAML ontologies (tool/domain/policy/governance), Tool Ontology Engine (81 rules, ONTOLOGY_MODE=on), Governance Ontology v3.31 (60 invariants + 15 meta rules + 13 MRD scanners), 2 policies wired via `evaluate_policy()`, 15 blood lesson cases
+
+### Ontology: What's Declaratively Defined (Phase 4 P2)
+
+> The project's most strategic asset. Evolving from "declarative knowledge" toward "run-time adjudication" — the end goal is a reusable `pip install ontology-engine` package so any Agent Runtime project inherits governance by writing its own YAML.
+
+**Already replaced hardcoding** (Ontology is now the source of truth; Python hardcoded values are fallback-only):
+
+| Hardcoded before | Ontology source of truth | Version |
+|-----------------|-------------------------|---------|
+| `ALLOWED_TOOLS = {"web_search", ...}` 16 tools | `tool_ontology.yaml` via `engine.ALLOWED_TOOLS` | V37.8.14 |
+| Tool param `CLEAN_SCHEMAS` + aliases | `ontology.CLEAN_SCHEMAS` / `resolve_alias()` | V37.8.14 |
+| `MAX_TOOLS = 12` constant | `evaluate_policy("max-tools-per-agent").limit` | V37.9.12 |
+| `MAX_TOOL_CALLS_PER_TASK = 2` | `evaluate_policy("max-tool-calls-per-task").limit` | V37.9.13 |
+| Security score thresholds (90, per-dimension) | `governance_ontology.yaml::security_config` | V37.9.3 |
+| `applicable` for temporal/contextual policies | `_CONTEXT_EVALUATORS` dispatch table (6 policies) | V37.9.13 |
+
+**Meaning**: Changing a threshold requires editing one YAML line, zero Python changes — Phase 4 terminal state partially achieved.
+
+**Roadmap**:
+
+| Phase | Status | Scope |
+|-------|--------|-------|
+| Phase 0 — Meta-rule auto-discovery | ✅ V36.2 | MRD scanners find un-covered areas automatically |
+| Phase 1 — Equivalence proof + 3-mode feature flag | ✅ V36.2 | `ONTOLOGY_MODE=off/shadow/on` |
+| Phase 2 — Shadow observation | ✅ V36.3 | Ontology runs alongside, logs drift |
+| Phase 3 — `ONTOLOGY_MODE=on` | ✅ V37.8.14 | Declarative engine replaces hardcoded logic |
+| Phase 4 P1 — 3 engine APIs + 1st policy switch | ✅ V37.9.12 | `load_domain_ontology` / `find_by_domain` / `evaluate_policy` |
+| **Phase 4 P2** — Context evaluator + 2nd policy switch | **✅ V37.9.13** | **6 matchers (hour_of_day / has_alert / has_image / task_match) + `max-tool-calls-per-task` wired** |
+| Phase 4 P3 — 3-gate enforcement | ⏳ Next | `pre-check → runtime-gate → post-verify` across the proxy request pipeline |
+| Phase 5 — Engine packaging | 🎯 Goal | `pip install ontology-engine` — any Agent Runtime inherits governance |
 
 ### SLO Benchmark Results (real production data)
 
@@ -555,22 +598,28 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 | **Golden Test Trace** | `docs/golden_trace.json` | `bash quickstart.sh --demo` |
 | **SLO Benchmark** | `docs/slo_benchmark_report.md` | `python3 slo_benchmark.py --save` |
 | **Compatibility Matrix** | `docs/compatibility_matrix.md` | `python3 providers.py` |
-| **1093 Unit Tests** | 37 test suites | `bash full_regression.sh` |
+| **1319 Unit Tests** | 43 test suites | `bash full_regression.sh` |
+| **Adversarial Chaos Audit** | `adversarial_chaos_audit.py` — 16/16 defense (10 known blood lessons + 6 blind spots) | `python3 adversarial_chaos_audit.py` |
 | **GameDay Drill** | `gameday.sh` | `bash gameday.sh --all` |
 | **Security Score** | `security_score.py` | `python3 security_score.py` |
 | **Reliability Bench** | `docs/reliability_bench_report.md` | `python3 reliability_bench.py --save` |
 | **Resilience Report** | `docs/resilience_report.md` | 7 fault injection experiments |
 | **Security Boundaries** | `docs/security_boundaries.md` | 8-section security analysis |
-| **Governance Audit** | `ontology/governance_checker.py` | `python3 ontology/governance_checker.py` (52/52 invariants, 14 MR) |
+| **Governance Audit** | `ontology/governance_checker.py` | `python3 ontology/governance_checker.py` (60/60 invariants, 15 MR, 13 MRD scanners) |
 | **Tool Ontology** | `ontology/` | `python3 ontology/diff.py` (81/81 consistency) |
-| **Blood Lesson Cases** | `ontology/docs/cases/` | 15 case studies documenting MR-4 silent failure patterns |
+| **Policy Engine (Phase 4 P2)** | `ontology/policy_ontology.yaml` | `python3 ontology/engine.py --policies` (10 declared, 2 wired via proxy_filters, 6 context evaluators registered) |
+| **Blood Lesson Cases** | `ontology/docs/cases/` | 15 case studies documenting MR-4 silent failure patterns across 15 appearances |
+| **Audit Coverage Retrospective** | `ontology/docs/audit_coverage_retrospective.md` | Stage 2 Route A — 15 blood lessons × Q1/Q2/Q3 = 0% prevention / 87% regression / 80% blind spot categories (V37.9.1) |
 
 ## Articles
 
-| Article | Language | Platform |
-|---------|----------|----------|
-| [Why Agent Systems Need a Control Plane](docs/articles/why_control_plane.md) | English | [dev.to](https://dev.to/wei_wu_735361972b82c5b9f7/why-agent-systems-need-a-control-plane-48id) |
-| [为什么 Agent 系统首先需要一个控制平面](docs/articles/why_control_plane_zh.md) | 中文 | [知乎](https://zhuanlan.zhihu.com/p/2024261226943770996) |
+| Article | Language | Platform | Type |
+|---------|----------|----------|------|
+| [Why Agent Systems Need a Control Plane](docs/articles/why_control_plane.md) | English | [dev.to](https://dev.to/wei_wu_735361972b82c5b9f7/why-agent-systems-need-a-control-plane-48id) | Architecture |
+| [为什么 Agent 系统首先需要一个控制平面](docs/articles/why_control_plane_zh.md) | 中文 | [知乎](https://zhuanlan.zhihu.com/p/2024261226943770996) | Architecture |
+| [Audit is Regression, Not Prevention](docs/articles/audit_is_regression_not_prevention.md) | English | — | Position — 6 actionable principles from Route A/B empirical evidence (V37.9.1) |
+| [Seven Failure Scenarios](docs/articles/seven_failure_scenarios.md) | English | — | Evidence — 7 fault injection experiments |
+| [Provider Compatibility Review](docs/articles/zhihu_provider_compatibility.md) | 中文 | 知乎 | Architecture |
 
 ## Full Guide
 
