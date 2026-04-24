@@ -1469,6 +1469,7 @@ _PUSH_ROUTE_WHITELIST = {
     "kb_evening.sh",       # KB 晚间整理推送
     "kb_inject.sh",        # 每日 KB 摘要推送
     "kb_review.sh",        # 周度回顾推送
+    "kb_deep_dive.sh",     # V37.9.16: 每日深度分析推送（WhatsApp 简版 + Discord #daily 完整版，同款 fallback 模式）
     "kb_dream.sh",         # Dream 跨域关联推送
     "check_upgrade.sh",    # OpenClaw 升级 SOP 推送
     "diagnose.sh",         # 系统诊断推送

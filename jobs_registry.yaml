@@ -202,6 +202,16 @@ jobs:
     tier: auxiliary                   # 周度回顾
     description: "KB 跨笔记回顾（V29: LLM深度分析+WhatsApp推送）"
 
+  - id: kb_deep_dive
+    scheduler: system
+    entry: kb_deep_dive.sh
+    interval: "30 22 * * *"         # 每天 22:30 HKT（22:00 kb_evening → 22:30 kb_deep_dive → 00:40 Dream Map）
+    log: ~/kb_deep_dive.log
+    needs_api_key: true
+    enabled: true
+    tier: auxiliary                   # 每日深度分析（V37.9.16）
+    description: "每日深度分析（V37.9.16: 挑选今日⭐≥4 论文/文章 + 一档 PDF/二档 HTML 抓取 + 论证链分析 + WhatsApp简版 + Discord #daily 完整版 + ~/.kb/deep_dives/ 归档）"
+
   # ---- HN 讨论抓取（独立脚本） ----
 
   - id: run_hn_fixed

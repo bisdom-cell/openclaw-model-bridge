@@ -1,6 +1,6 @@
 {
-  "updated": "2026-04-24 05:04:43",
-  "updated_by": "full_regression",
+  "updated": "2026-04-24 05:29:58",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-04-24",
+      "what": "V37.9.16 每日深度分析 kb_deep_dive 全新上线 — 从周度覆盖升级为每日纵深。新增 3 文件: kb_deep_dive.py 700行纯Python (import kb_review_collect as rc 复用 5 原语 + 3 档 fetcher 架构: 一档 PDF (arxiv/acl/hf/pwc/s2/dblp pdfplumber lazy import + References/Acknowledgments 切割 + Figure/Table caption 去噪 + 30K 截断) / 二档 HTML (rss_blogs/ontology_sources/github_trending bs4 lazy import + article/main 标签优先) / 三档 degrade + picker (MIN_STARS=4 门槛 + TOPIC_WEIGHTS 主题加权 ontology/agent runtime/LLM infra/control plane 各 +10 + 摘要长度 tie-breaker 封顶 +10) + 双 prompt 分支 build_full_text_prompt (论证链+实验对比+局限性+本项目启发) vs build_abstract_only_prompt (禁推测+摘要级标注) 都含 GROUNDING_CONSTRAINT + run() 返回 status: ok/no_candidates/llm_failed/collector_failed llm_failed 路径不产出 artifacts) + kb_deep_dive.sh 150行 thin wrapper 镜像 kb_review.sh V37.5.1 env-var heredoc 模式 (set -euo pipefail + notify.sh source + double-push WhatsApp 简版 + Discord 完整版通过 --topic deep_dive 两次独立调用 + no_candidates 推告警但 exit 0 + llm_failed/collector_failed exit 1 fail-fast + rsync 带 V37.9.14 movespeed_incident_capture 取证) + test_kb_deep_dive.py 55 tests / 10 类 (TestClassifyTier 7 + TestParseEntries 6 + TestScoreEntry 6 + TestPdfUrl 5 + TestPreprocessPdf 5 + TestFetchDegrade 3 + TestPrompts 4 + TestOutputs 5 + TestRun 5 端到端 + TestShellGuards 9 源码级)。配置面: jobs_registry +1 job (interval 30 22 * * * HKT) + auto_deploy FILE_MAP +2 文件 + notify.sh deep_dive→DISCORD_CH_DAILY + full_regression +1 suite + test_movespeed EXPECTED_RSYNC_SITES +1 + governance ALLOWED_PUSH_SCRIPTS 白名单 +1 + docs/config.md 漂移修复 + VERSION 0.37.9.15.2→0.37.9.16. 时间窗 22:00 kb_evening → 22:30 kb_deep_dive → 00:40 Dream Map 零撞车. 全量回归 46 suites / 1472 tests / 0 fail / 309 checks / 61 invariants / 15/16 meta rules / 安全 95/100. 下次候选: Mac Mini pip3 install pdfplumber beautifulsoup4 观察首批 PDF 抓取 + INV-DEEP-001 (shadow 一周后加) + picker 调优.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-04-24",
       "what": "V37.9.15 Phase 4 P3 三阶段门控 shadow wiring — policy 引擎从可查询升级为在请求路径上被调用并产可观测 log。新文件 ontology/three_gate.py (~280 行纯函数): GateFinding namedtuple + pre_check/runtime_gate/post_verify 三 gate + _collect_findings 共享 helper + _safe_evaluate_policy FAIL-OPEN 契约 + ONTOLOGY_GATES_MODE env 三档 off/shadow/on (默认 shadow) + 与 ONTOLOGY_MODE 解耦。tool_proxy.py 两处 wiring: lazy-load three_gate (importlib.util) + _run_gate 帮助函数 (Exception 兜底 + log [gate:*]) + do_POST raw 后调 pre_check+runtime_gate + rj 后调 post_verify (V37.9.15 顺序锁: 必须在 fix_tool_args 之前)。INV-GATE-001 (MR-7, high, [declaration,runtime]) 14 checks. policy_ontology.yaml meta 0.2-p2-partial→0.3-p3-partial, 新增 policies_observed_by_three_gate + gates_feature_flag 声明. 66 新单测 (test_three_gate.py 57 + TestThreeGateWiring 9). governance v3.31→v3.32. 累计 44→45 suites / 1345→1411 tests (+66) / 0 fail / 60→61 invariants / 273→297 checks / 15→16 meta rules (MR-16 计入) / 安全 95/100 / VERSION 0.37.9.14→0.37.9.15. Mac Mini 部署: ontology/ 走 symlink 无需 FILE_MAP, tool_proxy.py 走 auto_deploy 2min 轮询. 启动日志将出现 [proxy] three_gate loaded (mode=shadow), 每请求末尾三行 [gate:*] findings 供运维 grep 观察一周. 下次 (V37.9.16) 候选: shadow→on 推进 (需定义 enforcement 行为) / 第三条 policy 切换 / Phase 4 P4 audit_log 加 rule_chain.",
       "by": "claude_code"
     },
@@ -198,11 +203,6 @@
       "date": "2026-04-20",
       "what": "V37.9.1 路线 C Step 2 + Stage 2 话语权输出. (1) INV-SEC-001 扩展 per-dimension 7 维度阈值守卫 (密钥 15/测试 13/数据 10/部署 15/传输 9/审计 15/可用 8), 从总分≥90 升级为\"每维度不能塌陷\", 防单维度隐性退化盲区. (2) docs/articles/audit_is_regression_not_prevention.md 公开资产: 基于路线 A/B 实证数据论证 audit 是 regression engine 非 prevention tool, 6 条实际落地原则, Stage 2 第 4 份资产. (3) OpenClaw hold 决策确认 (距 4/17 评估 3 天). governance v3.24→v3.25 / 55 inv / 253 checks / 15 MR / 13 MRD scanners. 对抗审计 16/16 保持.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-04-20",
-      "what": "V37.9 四项结构性加固 — 从修血案进入建制度阶段. (1) 对抗审计 Cat A 集成 full_regression layer 3.5 (每 PR 前自动跑 10 已知血案场景防御力回归). (2) MR-6 扩展 high: MRD-LAYER-002 渐进强制 warn 级暴露 12 个单层 high 技术债. (3) C16 audit-of-audit: governance_checker 写 .audit_metrics.jsonl + MRD-AUDIT-PERF-001 用 SESSION_START 实时 wall_time + 5 次中位数对比 + 双条件阈值 (1.3x + 300ms). Route B C16 sleep 0.5→1.5s mutation 确认 UNEXPECTED catch. 至此 Route B 6/6 盲区全部闭合. (4) 路线 C Security + Governance 双轨统一: MR-16 立案 + INV-SEC-001 security-score ≥ 90 粗粒度守卫. 对抗审计最终 16/16 (100%). governance v3.23→v3.24 / 55 inv / 252 checks / 15 meta rules. 全量回归 36 suites / 1111 tests / 0 fail / 93/100.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -272,14 +272,14 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 1417,
-    "last_regression": "2026-04-24 05:04 pass",
+    "test_count": 1472,
+    "last_regression": "2026-04-24 05:27 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-04-24 05:04",
-    "test_suites": 45,
+    "security_score_time": "2026-04-24 05:27",
+    "test_suites": 46,
     "governance_invariants": "59/59",
     "governance_checks": "283/283",
-    "version": "0.37.9.15.1"
+    "version": "0.37.9.16"
   },
   "incidents": [
     {
@@ -343,7 +343,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.15 Phase 4 P3 已完整提交 (commit 7ea4268, 45 suites / 1411 tests / 0 fail). 【下一步未完成】kb_deep_dive 每日深度分析功能 — 方案已全部和用户确认，详见 session_context.unfinished 开头一项 (22:30 HKT + WA+Discord+KB 三通道 + 一二档抓取 + fail→degrade). 新 session 续上只需读 CLAUDE.md + status.json 即可直接进入写代码状态，无需重评估方案。今日出现多次 API stream idle timeout，建议分小块编辑避免 long write。",
+  "focus": "V37.9.16 kb_deep_dive 每日深度分析上线完成 (commit pending). 新增 3 文件 (kb_deep_dive.py 700行 + kb_deep_dive.sh 150行 + test_kb_deep_dive.py 55 tests) + 配置面 8 处更新. 全量回归 46 suites / 1472 tests / 0 fail / 309 checks pass / 61 invariants / 15/16 meta rules / 安全 95/100. 下次 Mac Mini 拉取后 22:30 HKT 首次自动触发 (需 pip3 install pdfplumber beautifulsoup4 观察 tier1 PDF 抓取成功率; dev 环境 lazy import 已 degrade). 下次 session (V37.9.17) 候选: (a) Mac Mini pip 依赖安装 + 首批运行观察 (b) INV-DEEP-001 shadow 一周后加 (c) picker TOPIC_WEIGHTS 调优 (d) no_candidates 频率如过高可放宽 MIN_STARS=4→3 (e) Phase 4 P3 shadow→on 推进 (V37.9.15 延续).",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
