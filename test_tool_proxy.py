@@ -2421,5 +2421,145 @@ class TestPolicyDrivenMaxToolCallsPerTask(unittest.TestCase):
         )
 
 
+class TestThreeGateWiring(unittest.TestCase):
+    """V37.9.15 Phase 4 P3: tool_proxy.py 接入 three_gate 的契约守卫。
+
+    验证:
+      - tool_proxy.py import three_gate 的 lazy-load 模式正确
+      - _run_gate helper 定义 + fail-open 语义
+      - do_POST 内部有 pre_check/runtime_gate/post_verify 三处调用点
+      - 调用点传入的 context 字段满足 three_gate 期望
+      - fail-open: three_gate None 不崩溃，runtime 异常不冒泡
+      - post_verify 顺序锁: 必须在 fix_tool_args 之前运行
+
+    实现注意: tool_proxy.py 模块级 bind :5002 不能直接 import，沿用项目
+    既有模式 `with open("tool_proxy.py") as f: src = f.read()` 做源码级
+    契约守卫。运行时验证留给 Mac Mini preflight。"""
+
+    @staticmethod
+    def _read_proxy_src():
+        with open("tool_proxy.py") as f:
+            return f.read()
+
+    def test_tool_proxy_imports_three_gate_lazy(self):
+        """tool_proxy.py 必须用 importlib.util 方式加载 three_gate，而非
+        `import three_gate` — 后者会在 ontology/ 缺失时让 proxy 启动失败。"""
+        src = self._read_proxy_src()
+        self.assertIn("_three_gate = None", src,
+                      "必须有 _three_gate 模块级哨兵，初始为 None")
+        self.assertIn("three_gate.py", src,
+                      "必须通过文件路径加载 (ontology/three_gate.py)")
+        self.assertIn("_tg_spec = _tg_imp_util.spec_from_file_location", src,
+                      "必须用 importlib.util.spec_from_file_location 模式")
+        self.assertIn("three_gate load failed", src,
+                      "加载失败必须 log WARN 不能抛到外层")
+
+    def test_run_gate_helper_defined(self):
+        """_run_gate 必须存在且具备 fail-open 语义 — 任何 gate 异常不得冒泡。"""
+        src = self._read_proxy_src()
+        self.assertIn("def _run_gate(", src,
+                      "tool_proxy.py 必须定义 _run_gate 函数")
+        # fail-open 核心契约: None 哨兵 + try/except + log WARN
+        self.assertIn("if _three_gate is None", src,
+                      "_run_gate 必须检查 _three_gate None 哨兵")
+        # 必须捕获异常（精确或宽泛都可，但必须有兜底）
+        self.assertTrue(
+            "except Exception" in src,
+            "_run_gate 必须捕获所有异常（fail-open 观察性原则）")
+        self.assertIn("WARN: gate", src,
+                      "gate 抛异常必须 log WARN")
+
+    def test_pre_check_call_site_present(self):
+        """do_POST 必须在请求序列化后调用 pre_check，传入 messages/hour 上下文。"""
+        src = self._read_proxy_src()
+        self.assertIn('_run_gate("pre_check"', src,
+                      "do_POST 必须调用 pre_check gate")
+        self.assertIn('"hour": datetime.now().hour', src,
+                      "gate context 必须含 hour 字段 (quiet-hours-00-07 policy)")
+        self.assertIn('"messages": body.get("messages"', src,
+                      "gate context 必须含 messages (alert-isolation policy)")
+
+    def test_runtime_gate_call_site_present(self):
+        """do_POST 必须调用 runtime_gate 并传 tool_count/body_bytes。"""
+        src = self._read_proxy_src()
+        self.assertIn('_run_gate("runtime_gate"', src,
+                      "do_POST 必须调用 runtime_gate")
+        self.assertIn('"tool_count":', src,
+                      "gate context 必须含 tool_count (max-tools-per-agent)")
+        self.assertIn('"body_bytes":', src,
+                      "gate context 必须含 body_bytes (max-request-body-size)")
+
+    def test_post_verify_call_site_present(self):
+        """do_POST 必须在响应解析后调用 post_verify，传入 response=rj。"""
+        src = self._read_proxy_src()
+        self.assertIn('"post_verify"', src,
+                      "do_POST 必须调用 post_verify gate")
+        self.assertIn("response=rj", src,
+                      "post_verify 必须接收 LLM 响应 dict 作为 response 参数")
+
+    def test_post_verify_runs_before_fix_tool_args(self):
+        """V37.9.15 顺序锁: post_verify 必须在 fix_tool_args 之前运行，
+        以便观察到 LLM 原始响应内容（未被 alias 修复改写）。"""
+        src = self._read_proxy_src()
+        pv_idx = src.find('"post_verify"')
+        fx_idx = src.find("fix_tool_args(rj)")
+        self.assertGreater(pv_idx, 0, "post_verify 调用点必须存在")
+        self.assertGreater(fx_idx, 0, "fix_tool_args 调用必须存在")
+        self.assertLess(pv_idx, fx_idx,
+                        "post_verify 必须在 fix_tool_args 之前运行（V37.9.15 顺序锁）")
+
+    def test_gate_load_message_format(self):
+        """三 gate 加载成功日志必须能被运维 grep 到。"""
+        src = self._read_proxy_src()
+        self.assertIn("Phase 4 P3 shadow wiring active", src,
+                      "加载成功必须打印 Phase 4 P3 标记（运维 grep 友好）")
+
+    def test_gates_are_shadow_by_default(self):
+        """默认模式是 shadow —— 即使 ONTOLOGY_GATES_MODE 未设，gates 也应观察
+        而非关闭，以捕获生产流量中的实际 policy 违规。"""
+        import os
+        import sys
+        ontology_dir = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), "ontology")
+        if ontology_dir not in sys.path:
+            sys.path.insert(0, ontology_dir)
+        prev = os.environ.pop("ONTOLOGY_GATES_MODE", None)
+        try:
+            if "three_gate" in sys.modules:
+                del sys.modules["three_gate"]
+            import three_gate
+            self.assertEqual(three_gate.gates_mode(), "shadow",
+                             "默认 gates_mode 必须是 shadow (观察优先)")
+        finally:
+            if prev is not None:
+                os.environ["ONTOLOGY_GATES_MODE"] = prev
+
+    def test_shadow_mode_never_sets_enforced_true(self):
+        """shadow 模式下 runtime_gate 产出的 findings 绝不应 enforced=True —
+        防止未来有人把 shadow 意外切到 on 而不更新注释。"""
+        import os
+        import sys
+        ontology_dir = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), "ontology")
+        if ontology_dir not in sys.path:
+            sys.path.insert(0, ontology_dir)
+        prev = os.environ.pop("ONTOLOGY_GATES_MODE", None)
+        os.environ["ONTOLOGY_GATES_MODE"] = "shadow"
+        try:
+            if "three_gate" in sys.modules:
+                del sys.modules["three_gate"]
+            import three_gate
+            findings = three_gate.runtime_gate({"tool_count": 999})
+            self.assertTrue(len(findings) >= 1)
+            for f in findings:
+                self.assertFalse(f.enforced,
+                                 f"shadow 模式 finding 必须 enforced=False: {f}")
+        finally:
+            if prev is None:
+                os.environ.pop("ONTOLOGY_GATES_MODE", None)
+            else:
+                os.environ["ONTOLOGY_GATES_MODE"] = prev
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
