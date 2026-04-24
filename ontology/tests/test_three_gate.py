@@ -292,14 +292,54 @@ class TestRuntimeGate(unittest.TestCase):
         self.assertIn("limit=200000", m[0].reason)
 
     def test_missing_signal_does_not_break(self):
-        # Context without signals: static policies still applicable=True but
-        # no signal comparison possible → verdict=flag with reason=applicable=True.
+        # Context without signals: static policies still applicable=True,
+        # but V37.9.15.2 HOTFIX: no measurable signal = pass (not flag).
+        # Only contextual/temporal applicable=True can flag.
         with EnvModeContext("shadow"):
             findings = runtime_gate({})
         # Each runtime policy returns one finding (three total).
         self.assertEqual(len(findings), 3)
         for f in findings:
             self.assertIsInstance(f, GateFinding)
+
+    def test_static_policy_no_signal_is_pass_not_flag(self):
+        """V37.9.15.2 HOTFIX regression guard.
+
+        Production 2026-04-24 13:01 showed `max-tool-calls-per-task` (static,
+        always applicable=True) falsely flag on every request because
+        tool_call_count is not in the runtime_gate context. Fix: static
+        policies without a matching signal must pass with
+        reason='no_signal_in_context', not flag.
+        """
+        with EnvModeContext("shadow"):
+            # Runtime_gate ctx has tool_count and body_bytes, but NOT
+            # tool_call_count (which is a cross-request aggregate).
+            findings = runtime_gate({
+                "tool_count": 5,
+                "body_bytes": 100,
+                # tool_call_count intentionally absent
+            })
+        tc = [f for f in findings if f.policy_id == "max-tool-calls-per-task"]
+        self.assertEqual(len(tc), 1)
+        self.assertEqual(
+            tc[0].verdict, "pass",
+            f"V37.9.15.2: static policy without signal must be pass, "
+            f"got flag. Full finding: {tc[0]}")
+        self.assertIn(
+            "no_signal_in_context", tc[0].reason,
+            f"V37.9.15.2: reason must indicate signal absence, got: {tc[0].reason}")
+        self.assertFalse(
+            tc[0].enforced,
+            "No-signal static findings must never be enforced")
+
+    def test_static_policy_with_signal_still_flags_when_over_limit(self):
+        """V37.9.15.2 safety check: the hotfix must NOT regress the real
+        flag path. When signal is present and exceeds limit, still flag."""
+        with EnvModeContext("shadow"):
+            findings = runtime_gate({"tool_count": 999})
+        mt = [f for f in findings if f.policy_id == "max-tools-per-agent"]
+        self.assertEqual(mt[0].verdict, "flag",
+                         "tool_count=999 > limit=12 must still flag")
 
 
 # ===========================================================================

@@ -1,5 +1,5 @@
 {
-  "updated": "2026-04-24 04:58:43",
+  "updated": "2026-04-24 05:04:43",
   "updated_by": "full_regression",
   "priorities": [
     {
@@ -272,14 +272,14 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 1415,
-    "last_regression": "2026-04-24 04:58 pass",
+    "test_count": 1417,
+    "last_regression": "2026-04-24 05:04 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-04-24 04:58",
+    "security_score_time": "2026-04-24 05:04",
     "test_suites": 45,
     "governance_invariants": "59/59",
     "governance_checks": "283/283",
-    "version": "0.37.9.15"
+    "version": "0.37.9.15.1"
   },
   "incidents": [
     {
