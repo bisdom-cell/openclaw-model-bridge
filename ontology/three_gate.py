@@ -262,15 +262,40 @@ def _collect_findings(gate_name, policy_pairs, context, mode):
                     enforced=enforced,
                 ))
             else:
-                # Contextual/temporal true, or static without signal data
-                findings.append(GateFinding(
-                    gate=gate_name,
-                    policy_id=policy_id,
-                    verdict="flag",
-                    action=action,
-                    reason=reason or "applicable=True",
-                    enforced=enforced,
-                ))
+                # V37.9.15.2 HOTFIX: differentiate static vs contextual/temporal
+                # when no numeric signal was comparable.
+                #
+                # Production 2026-04-24 13:01 showed `max-tool-calls-per-task`
+                # (static policy, always applicable=True) fall into this branch
+                # and produce flag(applicable=True) on EVERY request — false
+                # positive, because the request context legitimately doesn't
+                # carry `tool_call_count` (it's a cross-request aggregate, not
+                # a per-request signal). Static policies without a measurable
+                # signal can NOT be judged — that's "pass(no_signal)", not "flag".
+                #
+                # Contextual/temporal policies with applicable=True DO flag:
+                # their applicability condition itself is the alarm (e.g.
+                # has_alert=True means an alert was detected).
+                ptype = result.get("type")
+                if ptype == "static":
+                    signal_key = _STATIC_SIGNAL_KEYS.get(policy_id, "unmapped")
+                    findings.append(GateFinding(
+                        gate=gate_name,
+                        policy_id=policy_id,
+                        verdict="pass",
+                        action=action,
+                        reason=f"no_signal_in_context (key={signal_key})",
+                        enforced=False,
+                    ))
+                else:
+                    findings.append(GateFinding(
+                        gate=gate_name,
+                        policy_id=policy_id,
+                        verdict="flag",
+                        action=action,
+                        reason=reason or "applicable=True",
+                        enforced=enforced,
+                    ))
         elif applicable is False:
             findings.append(GateFinding(
                 gate=gate_name,
