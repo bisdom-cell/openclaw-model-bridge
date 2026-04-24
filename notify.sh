@@ -20,6 +20,7 @@
 #   freight → #货代（freight_watcher）
 #   alerts  → #告警（auto_deploy/watchdog/preflight）
 #   daily    → #日报（kb_dream/kb_review/health_check）
+#   deep_dive → #日报（kb_deep_dive 每日深度分析，V37.9.16，复用 daily 频道）
 #   ontology → #ontology（本体论讨论与推送）
 #   tech    → #技术（hn/github_trending/rss_blogs/openclaw）
 #   (空)    → DM（私信，默认）
@@ -54,6 +55,8 @@ _notify_discord_target_for_topic() {
         freight) echo "${DISCORD_CH_FREIGHT:-}" ;;
         alerts)  echo "${DISCORD_CH_ALERTS:-}" ;;
         daily)   echo "${DISCORD_CH_DAILY:-}" ;;
+        deep_dive) echo "${DISCORD_CH_DAILY:-}" ;;  # V37.9.16: kb_deep_dive 复用 #daily 频道
+
         tech)    echo "${DISCORD_CH_TECH:-}" ;;
         ontology) echo "${DISCORD_CH_ONTOLOGY:-}" ;;
         *)       echo "" ;;
