@@ -95,6 +95,9 @@ fi
 if [ -f ontology/tests/test_engine_phase4.py ]; then
     run_suite "engine_phase4 (V37.9.12 load_domain_ontology+find_by_domain+evaluate_policy 契约)" "python3 ontology/tests/test_engine_phase4.py"
 fi
+if [ -f ontology/tests/test_three_gate.py ]; then
+    run_suite "three_gate (V37.9.15 Phase 4 P3 三阶段门控 shadow wiring)" "python3 ontology/tests/test_three_gate.py"
+fi
 
 # 条件性测试（仅当文件存在时运行）
 for tf in test_conv_quality.py test_kb_autotag.py test_kb_dedup.py test_token_report.py test_arxiv_parser.py test_shell_antipatterns.py; do
