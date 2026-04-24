@@ -190,11 +190,11 @@ meta_policy:
 # 不求覆盖全部，求"可迁移的一条路径"。
 
 meta:
-  version: "0.2-p2-partial"
-  phase: "Phase 4 P2 (context evaluator + 2nd policy switch wired)"
+  version: "0.3-p3-partial"
+  phase: "Phase 4 P3 (three-gate scaffolding, shadow-only)"
   created: "2026-04-22"
-  last_updated: "2026-04-23"
-  status: "wired_static_and_registered_contextual"
+  last_updated: "2026-04-24"
+  status: "gates_wired_shadow_mode"
   policies_declared: 10
   policies_with_context_evaluator:
     - quiet-hours-00-07          # temporal: hour ∈ [0,7)
@@ -206,9 +206,31 @@ meta:
   policies_wired_via_proxy_filters:
     - max-tools-per-agent        # V37.9.12 first switch
     - max-tool-calls-per-task    # V37.9.13 second switch (validates extensibility)
-  next_step: "Phase 4 P3 — three-gate enforcement (pre-check / runtime-gate / post-verify)"
+  # V37.9.15 Phase 4 P3: policies observed by three_gate scaffolding at runtime.
+  # Each gate evaluates its policy list per-request; shadow mode emits
+  # [gate:*] log findings without altering request/response flow.
+  policies_observed_by_three_gate:
+    pre_check:
+      - alert-context-isolation    # INV-PA-001 shadow observation
+      - quiet-hours-00-07          # INV-QUIET-001 shadow observation
+    runtime_gate:
+      - max-tools-per-agent        # INV-TOOL-001 shadow observation
+      - max-tool-calls-per-task    # INV-TOOL-002 shadow observation
+      - max-request-body-size      # (hard_limit, no INV yet)
+    post_verify:
+      - alert-context-isolation    # assistant-echo detection
+  gates_feature_flag:
+    env_var: ONTOLOGY_GATES_MODE
+    values: ["off", "shadow", "on"]   # quoted: YAML 1.1 parses bare off/on as booleans
+    default: shadow
+    decoupled_from: ONTOLOGY_MODE    # independent rollout from tool-data replacement
+  next_step: |
+    Phase 4 P3.1 — promote shadow → on after 1 week production observation.
+    Phase 4 P3.2 — third policy switch (max-request-body-size) via runtime_gate.
+    Phase 4 P4   — wire gate verdicts to actual enforcement (request mutation).
   refs:
     - ontology/domain_ontology.yaml
     - ontology/tool_ontology.yaml
-    - ontology/governance_ontology.yaml
+    - ontology/three_gate.py       # V37.9.15 P3 scaffolding
+    - ontology/governance_ontology.yaml  # INV-GATE-001
     - CLAUDE.md "Ontology 子项目（终态架构）" Phase 4 小节

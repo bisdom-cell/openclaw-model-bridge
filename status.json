@@ -1,6 +1,6 @@
 {
-  "updated": "2026-04-23 11:04:10",
-  "updated_by": "full_regression",
+  "updated": "2026-04-24 02:45:14",
+  "updated_by": "security_score",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -105,6 +105,11 @@
   ],
   "recent_changes": [
     {
+      "date": "2026-04-24",
+      "what": "V37.9.15 Phase 4 P3 三阶段门控 shadow wiring — policy 引擎从可查询升级为在请求路径上被调用并产可观测 log。新文件 ontology/three_gate.py (~280 行纯函数): GateFinding namedtuple + pre_check/runtime_gate/post_verify 三 gate + _collect_findings 共享 helper + _safe_evaluate_policy FAIL-OPEN 契约 + ONTOLOGY_GATES_MODE env 三档 off/shadow/on (默认 shadow) + 与 ONTOLOGY_MODE 解耦。tool_proxy.py 两处 wiring: lazy-load three_gate (importlib.util) + _run_gate 帮助函数 (Exception 兜底 + log [gate:*]) + do_POST raw 后调 pre_check+runtime_gate + rj 后调 post_verify (V37.9.15 顺序锁: 必须在 fix_tool_args 之前)。INV-GATE-001 (MR-7, high, [declaration,runtime]) 14 checks. policy_ontology.yaml meta 0.2-p2-partial→0.3-p3-partial, 新增 policies_observed_by_three_gate + gates_feature_flag 声明. 66 新单测 (test_three_gate.py 57 + TestThreeGateWiring 9). governance v3.31→v3.32. 累计 44→45 suites / 1345→1411 tests (+66) / 0 fail / 60→61 invariants / 273→297 checks / 15→16 meta rules (MR-16 计入) / 安全 95/100 / VERSION 0.37.9.14→0.37.9.15. Mac Mini 部署: ontology/ 走 symlink 无需 FILE_MAP, tool_proxy.py 走 auto_deploy 2min 轮询. 启动日志将出现 [proxy] three_gate loaded (mode=shadow), 每请求末尾三行 [gate:*] findings 供运维 grep 观察一周. 下次 (V37.9.16) 候选: shadow→on 推进 (需定义 enforcement 行为) / 第三条 policy 切换 / Phase 4 P4 audit_log 加 rule_chain.",
+      "by": "claude_code"
+    },
+    {
       "date": "2026-04-23",
       "what": "V37.9.14 Mac Mini E2E 验证完美通过 — helper 部署到 $HOME 后 manual rsync source-不存在测试触发 helper, JSONL 13 字段全部正常采集 (timestamp/caller/exit_code=23/mount/disk_info/ls_top/ls_kb/df/probe_top=exit=0|/probe_kb=exit=0|/procs/os/env). preflight 78/0/3/1 全绿 (deployment OK). BASELINE 数据已透露 3 条 V37.9.15 候选根因线索 (待真故障数据交叉验证): (1) APFS Owners Disabled — MOVESPEED 卷未强制 user/group ownership 验证, 不直接造 EPERM 但是放大器候选; (2) Time Machine backupd + backupd-helper 在跑, Time Machine 扫所有 mount 卷会短暂锁定外挂盘子目录元数据 — 间歇性 EPERM 高度嫌疑; (3) Spotlight + 双 mds_stores 进程并发建索引外挂盘 — 同样资源竞争嫌疑. 下次真 transient EPERM 复发时 procs 字段会显示具体并发进程组合, 配合 probe_top vs probe_kb 差异 (全盘 EPERM vs 子目录特定 EPERM) 即可锁定根因. 原则 #6 用户视角验证通过. 原则 #29 收工 9 项 A-I 全部完成. V37.9.14 真正完整收工.",
       "by": "claude_code"
@@ -198,11 +203,6 @@
       "date": "2026-04-20",
       "what": "V37.9 四项结构性加固 — 从修血案进入建制度阶段. (1) 对抗审计 Cat A 集成 full_regression layer 3.5 (每 PR 前自动跑 10 已知血案场景防御力回归). (2) MR-6 扩展 high: MRD-LAYER-002 渐进强制 warn 级暴露 12 个单层 high 技术债. (3) C16 audit-of-audit: governance_checker 写 .audit_metrics.jsonl + MRD-AUDIT-PERF-001 用 SESSION_START 实时 wall_time + 5 次中位数对比 + 双条件阈值 (1.3x + 300ms). Route B C16 sleep 0.5→1.5s mutation 确认 UNEXPECTED catch. 至此 Route B 6/6 盲区全部闭合. (4) 路线 C Security + Governance 双轨统一: MR-16 立案 + INV-SEC-001 security-score ≥ 90 粗粒度守卫. 对抗审计最终 16/16 (100%). governance v3.23→v3.24 / 55 inv / 252 checks / 15 meta rules. 全量回归 36 suites / 1111 tests / 0 fail / 93/100.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-04-20",
-      "what": "V37.8.18 Phase 2 完整闭环: 2 个 🟡 中优先级盲区修复 + 对抗验证升级到 5/6 (83%). (1) INV-COST-001 新增: retry 上限守卫 ceiling=10, 4 checks 含 runtime iterative walk 避开 exec() 作用域陷阱. C12 对抗 🎉 UNEXPECTED catch. (2) INV-OBSERVABILITY-001 扩展 C13 last_run 一致性: 4 新 file_contains 锁定 kb_inject/kb_evening/kb_review/kb_harvest_chat + runtime 断言 job_watchdog 监控列表与脚本路径一致. C13 对抗 🎉 UNEXPECTED catch. 累计成绩: 53→54 不变式 / 240→249 checks / 9→11 MRD scanners. Route B 修复进度: 5/6 盲区修复验证. 仅剩 C16 audit-of-audit (架构级, V37.9 候选). governance v3.22→v3.23. 全量回归 36 suites / 1111 tests / 0 fail / 93/100.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -272,14 +272,14 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 1345,
-    "last_regression": "2026-04-23 11:04 pass",
+    "test_count": 1411,
+    "last_regression": "2026-04-24 02:41 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-04-23 11:04",
-    "test_suites": 44,
+    "security_score_time": "2026-04-24 02:41",
+    "test_suites": 45,
     "governance_invariants": "59/59",
     "governance_checks": "283/283",
-    "version": "0.37.9.13"
+    "version": "0.37.9.14"
   },
   "incidents": [
     {
@@ -343,7 +343,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.14 已完整收工 (Mac Mini E2E 3/3 验证通过). 等下次 cron rsync 自然 transient EPERM 复发抓现场数据 → V37.9.15 根因定位. BASELINE 数据已透露 3 条候选根因 (procs 字段证实): Time Machine backupd 并发 / Spotlight+mds_stores 双进程建索引 / APFS Owners Disabled. 下次复发时 probe_top vs probe_kb 差异 + procs 列表即可对照三嫌疑做精确归因. 下次 session 推荐路径: [首选] Phase 4 P3 三阶段门控 — evaluate_policy(policy_id, context) 接入 proxy 请求管线, Layer 3 Neuro-Symbolic 终态. [次选] filter_tools() + fix_tool_args() 切 ontology.query_tools() / resolve_alias() 打包推进. [可选] 第三条 policy 切换 (max-request-body-size 或 alert-context-isolation) 打包进 P3. 其他 backlog: pip install ontology-engine 包化 / Tool Policy Plugin / 新工具只加 YAML / 夜间阻止语义化 / 证据型文章. 详细遗留 13 项见 session_context.unfinished + CLAUDE.md Phase 3-5 章节.",
+  "focus": "V37.9.15 Phase 4 P3 三阶段门控 shadow wiring 完成 — ontology/three_gate.py 新模块 + tool_proxy 两处 wiring + INV-GATE-001 + 66 新单测. 全量回归 45 suites / 1411 tests / 0 fail / 61 invariants / 安全 95/100. 下次 Mac Mini --full 后 proxy 启动日志验证 [proxy] three_gate loaded (mode=shadow), 每请求末尾 [gate:pre_check/runtime_gate/post_verify] 三行 findings 供一周观察. 下次 session 候选路径: [首选] V37.9.16 shadow→on 推进 (需定义 flag verdict 时 proxy 做什么 — reject/truncate/alert) [次选] 第三条 policy 切换 max-request-body-size 或 alert-context-isolation 从硬编码改查 evaluate_policy [可选] Phase 4 P4 四耦合点 audit_log 带 policy_evaluated + rule_chain. 其他 backlog 见 session_context.unfinished.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",

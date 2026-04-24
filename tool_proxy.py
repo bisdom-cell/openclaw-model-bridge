@@ -30,6 +30,26 @@ from proxy_filters import (
     proxy_stats,
 )
 
+# V37.9.15 Phase 4 P3: three-gate policy enforcement scaffolding.
+# Shadow-mode only — observes per-request policy evaluation and emits
+# [gate:*] log lines. Never mutates requests or responses. Fail-open on
+# any import or runtime error (gates are observability, not critical path).
+_three_gate = None
+try:
+    import importlib.util as _tg_imp_util
+    _tg_path = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "ontology", "three_gate.py")
+    if os.path.exists(_tg_path):
+        _tg_spec = _tg_imp_util.spec_from_file_location("_three_gate", _tg_path)
+        _tg_mod = _tg_imp_util.module_from_spec(_tg_spec)
+        _tg_spec.loader.exec_module(_tg_mod)
+        _three_gate = _tg_mod
+        print(f"[proxy] three_gate loaded (mode={_tg_mod.gates_mode()}) "
+              f"(Phase 4 P3 shadow wiring active)", flush=True)
+except Exception as _tg_err:
+    print(f"[proxy] WARN: three_gate load failed: {_tg_err}", flush=True)
+
+
 BACKEND = "http://127.0.0.1:5001"
 PORT = 5002
 
@@ -99,6 +119,28 @@ except OSError:
 def log(msg):
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     print(f"[proxy] {ts} {msg}", flush=True)
+
+
+def _run_gate(gate_fn_name, context, rid, response=None):
+    """V37.9.15 Phase 4 P3: run a three_gate function with full isolation.
+
+    Emits a compact `[gate:*]` log line when findings are present; never
+    raises. Observability-only — gate verdicts do NOT alter request/response
+    flow in shadow mode (the only mode shipped today).
+    """
+    if _three_gate is None:
+        return
+    try:
+        fn = getattr(_three_gate, gate_fn_name, None)
+        if fn is None:
+            return
+        findings = fn(context, response) if response is not None else fn(context)
+        if findings:
+            line = _three_gate.format_findings_for_log(findings)
+            if line:
+                log(f"[{rid}] {line}")
+    except Exception as _gate_err:
+        log(f"[{rid}] WARN: gate {gate_fn_name} raised: {_gate_err}")
 
 
 def _send_alert(msg):
@@ -909,6 +951,19 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                             del body["tool_choice"]
 
                 raw = json.dumps(body).encode()
+
+                # V37.9.15 Phase 4 P3: shadow-mode policy observation.
+                # Runs AFTER filter_system_alerts / truncate_messages / filter_tools
+                # so gate signals reflect the final request shape. Context extracted
+                # from body only; no network, no I/O.
+                _gate_ctx = {
+                    "messages": body.get("messages", []),
+                    "tool_count": len(body.get("tools", []) or []),
+                    "body_bytes": len(raw),
+                    "hour": datetime.now().hour,
+                }
+                _run_gate("pre_check", _gate_ctx, rid)
+                _run_gate("runtime_gate", _gate_ctx, rid)
             except (json.JSONDecodeError, ValueError, KeyError) as e:
                 log(f"Request preprocessing error: {e}")
 
@@ -925,6 +980,17 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                 if "/chat/completions" in self.path and resp_body:
                     try:
                         rj = json.loads(resp_body)
+
+                        # V37.9.15 Phase 4 P3: post-response observability.
+                        # Observes alert echo in assistant output; runs before
+                        # fix_tool_args so any mutation stays auditable.
+                        _run_gate(
+                            "post_verify",
+                            {"messages": body.get("messages", [])},
+                            rid,
+                            response=rj,
+                        )
+
                         fix_tool_args(rj)
 
                         # 自定义工具拦截：LLM 调用 data_clean 等自定义工具时，
