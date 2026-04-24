@@ -490,5 +490,129 @@ class TestModuleIntegration(unittest.TestCase):
         self.assertTrue(all(f.gate == "post_verify" for f in post))
 
 
+class TestEngineLoadStrategies(unittest.TestCase):
+    """V37.9.15.1 HOTFIX regression guard.
+
+    Production log on 2026-04-24 showed three_gate loaded via
+    `spec_from_file_location("_three_gate", ...)` from tool_proxy.py ends up
+    with __package__='' AND sys.path not containing ontology/, so both
+    original import paths (`from . import engine` / `import engine`) fail
+    and every policy evaluation falls through to engine_unavailable — i.e.
+    shadow mode was effectively dark, not observing anything.
+
+    The hotfix adds a __file__-adjacent spec_from_file_location strategy.
+    These tests lock that behavior in:
+      - path 3 works when path 1+2 both unavailable
+      - engine module is cached after first successful load
+      - source marker V37.9.15.1 present for grep-ability
+    """
+
+    def _isolate_and_load_three_gate(self):
+        """Load three_gate.py via spec_from_file_location in an env that
+        deliberately strips ontology/ from sys.path — matches tool_proxy.py
+        production loading conditions."""
+        import importlib.util
+        import os
+        tg_path = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "..", "three_gate.py"))
+        # Drop any ontology-related sys.path entries for this load.
+        saved_path = list(sys.path)
+        # Also drop cached modules so module-level _ENGINE_MOD is reset
+        saved_modules = {
+            k: sys.modules[k] for k in list(sys.modules)
+            if k.startswith("_three_gate") or k == "_three_gate_engine_lazy"
+        }
+        for k in list(saved_modules):
+            del sys.modules[k]
+        sys.path = [p for p in sys.path if "ontology" not in p]
+        try:
+            spec = importlib.util.spec_from_file_location(
+                "_three_gate_isolated_test", tg_path)
+            mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(mod)
+            return mod, saved_path, saved_modules
+        except Exception:
+            sys.path = saved_path
+            for k, v in saved_modules.items():
+                sys.modules[k] = v
+            raise
+
+    def _restore(self, saved_path, saved_modules):
+        sys.path = saved_path
+        for k, v in saved_modules.items():
+            sys.modules[k] = v
+
+    def test_safe_evaluate_policy_works_without_package_or_syspath(self):
+        """HOTFIX regression: production scenario (no __package__, no sys.path
+        ontology/) must still return real policy evaluation, not None."""
+        mod, saved_path, saved_modules = self._isolate_and_load_three_gate()
+        try:
+            self.assertEqual(
+                mod.__package__, "",
+                "Test fixture sanity: __package__ must be empty to exercise hotfix")
+            result = mod._safe_evaluate_policy("max-tools-per-agent", {})
+            self.assertIsNotNone(
+                result, "V37.9.15.1 HOTFIX: engine must load via __file__ path 3")
+            self.assertTrue(
+                result.get("found"),
+                f"max-tools-per-agent policy must be found, got: {result}")
+            self.assertEqual(
+                result.get("limit"), 12,
+                f"max-tools-per-agent limit must be 12, got: {result}")
+        finally:
+            self._restore(saved_path, saved_modules)
+
+    def test_load_engine_module_helper_exposed(self):
+        """V37.9.15.1: _load_engine_module helper exists and is callable.
+
+        Downstream debugging (manual ssh poke) relies on this symbol name.
+        """
+        mod, saved_path, saved_modules = self._isolate_and_load_three_gate()
+        try:
+            self.assertTrue(
+                hasattr(mod, "_load_engine_module"),
+                "Hotfix symbol _load_engine_module must be exposed for diagnostics")
+            engine = mod._load_engine_module()
+            self.assertIsNotNone(engine)
+            self.assertTrue(
+                hasattr(engine, "evaluate_policy"),
+                "Loaded engine must expose evaluate_policy")
+        finally:
+            self._restore(saved_path, saved_modules)
+
+    def test_engine_module_is_cached_after_first_load(self):
+        """V37.9.15.1: _ENGINE_MOD module-level cache avoids repeated
+        exec_module cost on every _safe_evaluate_policy call."""
+        mod, saved_path, saved_modules = self._isolate_and_load_three_gate()
+        try:
+            self.assertIsNone(mod._ENGINE_MOD,
+                              "Fresh load: cache must start None")
+            mod._safe_evaluate_policy("max-tools-per-agent", {})
+            self.assertIsNotNone(
+                mod._ENGINE_MOD,
+                "After first successful call, _ENGINE_MOD must be populated")
+            first_id = id(mod._ENGINE_MOD)
+            mod._safe_evaluate_policy("max-tool-calls-per-task", {})
+            self.assertEqual(id(mod._ENGINE_MOD), first_id,
+                             "Subsequent calls must reuse cached engine module")
+        finally:
+            self._restore(saved_path, saved_modules)
+
+    def test_hotfix_source_marker_present(self):
+        """Grep guard: V37.9.15.1 comment block must be in source so future
+        refactors know why the extra strategy exists."""
+        import os
+        tg_path = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "..", "three_gate.py"))
+        with open(tg_path, encoding="utf-8") as f:
+            src = f.read()
+        self.assertIn("V37.9.15.1 HOTFIX", src,
+                      "Source must retain V37.9.15.1 HOTFIX marker for archaeology")
+        self.assertIn("_load_engine_module", src,
+                      "Source must define _load_engine_module helper")
+        self.assertIn("_ENGINE_MOD", src,
+                      "Source must declare _ENGINE_MOD module-level cache")
+
+
 if __name__ == "__main__":
     unittest.main()

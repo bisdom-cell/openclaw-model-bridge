@@ -125,6 +125,70 @@ _POST_VERIFY_POLICIES = (
 # ---------------------------------------------------------------------------
 # Engine import (lazy + safe)
 # ---------------------------------------------------------------------------
+# V37.9.15.1 HOTFIX: tool_proxy.py 通过 spec_from_file_location("_three_gate",
+# ontology/three_gate.py) 加载本模块时，__package__ 为空 + sys.path 不含
+# ontology/，导致原有两条 import 路径 (package-relative / absolute) 都失败，
+# 所有 findings 降级为 engine_unavailable。Production log 2026-04-24 确认:
+#   [gate:runtime_gate] 3 findings: max-tools-per-agent=pass(engine_unavailable) ...
+# 三 gate 全部 FAIL-OPEN 等于 shadow 模式完全没评估 policy。
+# 修复: 加第三条 import 路径用 __file__ 定位同目录 engine.py，不依赖调用方
+# 环境。模块级缓存 _ENGINE_MOD 避免重复 exec_module 开销。
+
+_ENGINE_MOD = None  # V37.9.15.1: 模块级缓存，首次成功 import 后复用
+
+
+def _load_engine_module():
+    """Attempt to load the ontology engine module via three strategies.
+
+    Strategy order (fail-through):
+      1. package-relative `from . import engine` — works when three_gate is
+         imported as `ontology.three_gate`
+      2. absolute `import engine` — works when ontology/ is on sys.path
+      3. V37.9.15.1 HOTFIX: spec_from_file_location pointing at the engine.py
+         sibling of this module's __file__ — always works as long as the
+         ontology/ directory is intact (the delivery guarantee from CLAUDE.md
+         ontology subproject charter).
+
+    Returns the engine module on success, None on all-paths failure.
+    Caches result at module level so subsequent calls skip import cost.
+    """
+    global _ENGINE_MOD
+    if _ENGINE_MOD is not None:
+        return _ENGINE_MOD
+
+    # Path 1: package-relative
+    try:
+        from . import engine as _e1
+        _ENGINE_MOD = _e1
+        return _e1
+    except (ImportError, ValueError):
+        pass
+
+    # Path 2: absolute (sys.path has ontology/)
+    try:
+        import engine as _e2  # type: ignore
+        _ENGINE_MOD = _e2
+        return _e2
+    except ImportError:
+        pass
+
+    # Path 3: __file__-adjacent spec_from_file_location (V37.9.15.1 hotfix)
+    try:
+        import importlib.util as _imp_util
+        import os as _os
+        _engine_path = _os.path.join(
+            _os.path.dirname(_os.path.abspath(__file__)), "engine.py")
+        if not _os.path.exists(_engine_path):
+            return None
+        _spec = _imp_util.spec_from_file_location(
+            "_three_gate_engine_lazy", _engine_path)
+        _mod = _imp_util.module_from_spec(_spec)
+        _spec.loader.exec_module(_mod)
+        _ENGINE_MOD = _mod
+        return _mod
+    except Exception:
+        return None
+
 
 def _safe_evaluate_policy(policy_id, context):
     """Call engine.evaluate_policy with full exception isolation.
@@ -132,13 +196,9 @@ def _safe_evaluate_policy(policy_id, context):
     Returns dict result on success, None if engine unavailable or raised.
     Log emission is caller's responsibility (three_gate.py never prints).
     """
-    try:
-        from . import engine  # package-relative import
-    except (ImportError, ValueError):
-        try:
-            import engine  # type: ignore
-        except ImportError:
-            return None
+    engine = _load_engine_module()
+    if engine is None:
+        return None
     try:
         return engine.evaluate_policy(policy_id, context=context)
     except Exception:
