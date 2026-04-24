@@ -148,6 +148,7 @@ declare -a FILE_MAP=(
     "kb_append_source.sh|$HOME/kb_append_source.sh"
     "kb_review.sh|$HOME/kb_review.sh"
     "kb_evening.sh|$HOME/kb_evening.sh"
+    "kb_deep_dive.sh|$HOME/kb_deep_dive.sh"
     "kb_save_arxiv.sh|$HOME/kb_save_arxiv.sh"
     "kb_search.sh|$HOME/kb_search.sh"
     "kb_inject.sh|$HOME/kb_inject.sh"
@@ -209,6 +210,7 @@ declare -a FILE_MAP=(
     "kb_dedup.py|$HOME/kb_dedup.py"
     "kb_review_collect.py|$HOME/kb_review_collect.py"
     "kb_evening_collect.py|$HOME/kb_evening_collect.py"
+    "kb_deep_dive.py|$HOME/kb_deep_dive.py"
     "kb_autotag.py|$HOME/kb_autotag.py"
 
     # KB 趋势报告 + 状态共享 + 安全
