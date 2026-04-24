@@ -1,6 +1,6 @@
 {
-  "updated": "2026-04-24 02:45:14",
-  "updated_by": "security_score",
+  "updated": "2026-04-24 04:49:42",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -343,7 +343,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.15 Phase 4 P3 三阶段门控 shadow wiring 完成 — ontology/three_gate.py 新模块 + tool_proxy 两处 wiring + INV-GATE-001 + 66 新单测. 全量回归 45 suites / 1411 tests / 0 fail / 61 invariants / 安全 95/100. 下次 Mac Mini --full 后 proxy 启动日志验证 [proxy] three_gate loaded (mode=shadow), 每请求末尾 [gate:pre_check/runtime_gate/post_verify] 三行 findings 供一周观察. 下次 session 候选路径: [首选] V37.9.16 shadow→on 推进 (需定义 flag verdict 时 proxy 做什么 — reject/truncate/alert) [次选] 第三条 policy 切换 max-request-body-size 或 alert-context-isolation 从硬编码改查 evaluate_policy [可选] Phase 4 P4 四耦合点 audit_log 带 policy_evaluated + rule_chain. 其他 backlog 见 session_context.unfinished.",
+  "focus": "V37.9.15 Phase 4 P3 已完整提交 (commit 7ea4268, 45 suites / 1411 tests / 0 fail). 【下一步未完成】kb_deep_dive 每日深度分析功能 — 方案已全部和用户确认，详见 session_context.unfinished 开头一项 (22:30 HKT + WA+Discord+KB 三通道 + 一二档抓取 + fail→degrade). 新 session 续上只需读 CLAUDE.md + status.json 即可直接进入写代码状态，无需重评估方案。今日出现多次 API stream idle timeout，建议分小块编辑避免 long write。",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
@@ -360,7 +360,8 @@
     "CLAUDE.md 原则#30 模型 ID 字面量过时: 指定 claude-opus-4-6 但实际运行 claude-opus-4-7 (新一代, 非降级)。明天 V37.8.16 收工时顺便把 CLAUDE.md 原则 #30 的模型 ID 措辞改为\"Claude Opus 最新版\"或直接写 4.7 (因为 4.7 是当前最强非降级)",
     "WhatsApp 入站路由到 research agent 而非 main（4/10 WhatsApp plugin 安装副作用）: main/sessions.json mtime 从 Mar 30 起 dormant, 但 HEARTBEAT.md 修复后 research 正常响应不致命. 长期考虑: channels.whatsapp.agent 显式配置 / agents.list 顺序调整 / 验证 WhatsApp plugin inbound handler routing 逻辑",
     "原则 #30 升级: Opus 4.7 应被纳入合法模型列表（目前只列 Opus 4.6）, 4.7 是 4.6 的更强升级版不是降级, 满足第 0 号宪法精神",
-    "V37.9.5 workspace SOUL.md 副本观察项: workspace/SOUL.md (12KB) 可能与 ~/openclaw-model-bridge/SOUL.md 主源内容相似, 当前选项 A 保持索引接受少量重复(<0.1% chunks). 长期观察 RAG 检索是否有'两份 SOUL 噪声'迹象, 如有再加 WORKSPACE_EXCLUDE_BASENAMES"
+    "V37.9.5 workspace SOUL.md 副本观察项: workspace/SOUL.md (12KB) 可能与 ~/openclaw-model-bridge/SOUL.md 主源内容相似, 当前选项 A 保持索引接受少量重复(<0.1% chunks). 长期观察 RAG 检索是否有'两份 SOUL 噪声'迹象, 如有再加 WORKSPACE_EXCLUDE_BASENAMES",
+    "【V37.9.16 候选 - kb_deep_dive】每日深度分析功能，scope 已与用户确认。最终方案：① 新脚本 kb_deep_dive.py (纯 Python，import kb_review_collect as rc 复用 load_sources_from_registry/extract_recent_sections/call_llm) + kb_deep_dive.sh (thin wrapper 镜像 kb_review.sh V37.5.1 env-var heredoc 模式) ② 时间：每天 22:30 HKT (数据最完整 + LLM 空闲 + 不撞 quiet-hours) ③ 推送：Option A 双通道齐发 — WhatsApp 简版 + Discord #daily 完整版 + KB 归档 ~/.kb/deep_dives/YYYY-MM-DD.md ④ picker 算法：星级优先 (⭐≥4 合格) + 主题加权 (ontology/agent runtime/LLM infra +10 分) + 摘要长度 tie-breaker；无 ⭐≥4 候选时 status=no_candidates 推告警 ⑤ 抓取：一档 arxiv/hf_papers/acl/pwc 走 PDF (urllib fetch + pdfplumber 解析)；二档 rss_blogs/ontology_sources/github_trending 走 HTML (urllib + BS4 清洗)；三档 HN/X posts/finance/freight degrade 到摘要 ⑥ fetch 失败策略：degrade 到摘要继续分析 + 推送标注'摘要级分析'，不 block 不单独告警 ⑦ 依赖：pdfplumber + beautifulsoup4 必装 (Mac Mini pip3 install，dev 环境 lazy import + degrade 使单测可跑) ⑧ PDF 预处理：切 References/Acknowledgments 之后 + 限 30k chars + 去图片 caption 噪声 ⑨ prompt 分支：full_text 模式要求论证链分析+实验对比+局限性；abstract-only 模式禁止推测方法细节+明确标注'摘要级'；两种模式都 grounding 约束 (每个判断标注来源+违反即作废) ⑩ 改动清单：新 kb_deep_dive.py (~700 行) + kb_deep_dive.sh (~150 行) + test_kb_deep_dive.py (~300 行/25 tests) + jobs_registry.yaml 新 job + auto_deploy FILE_MAP +2 文件 + notify.sh 新 topic deep_dive 路由到 Discord #daily + full_regression.sh +1 行 + CLAUDE.md 文件表/常用命令/changelog ⑪ 时间点确认：22:00 kb_evening → 22:30 kb_deep_dive → 00:40 Dream Map，三者零撞车 ⑫ 未涉及：governance INV-DEEP-001 先不加，shadow 观察一周后再加。预计实施 3-4h。用户已全部 OK。"
   ],
   "_meta": {
     "last_updated_by": "claude_code"
