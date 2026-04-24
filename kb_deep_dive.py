@@ -217,9 +217,23 @@ def collect_today_candidates(kb_dir, registry_path, today=None):
 
 
 def pick_top(candidates):
-    """返回 top 1 候选，或 None（当 candidates 为空）。"""
+    """返回 top 1 候选，或 None（当 candidates 为空）。
+
+    V37.9.17 方案 C — tier-aware fallback：
+      优先选 TIER 1/2 (PDF/HTML 可抓 → full_text 模式)；
+      只有当 TIER 1+2 全部为空才回退 TIER 3 (degrade abstract_only)。
+
+    背景：V37.9.16 首跑 tier-blind picker 选中 X tweet ⭐5 走 abstract_only，
+    用户感知质量低于预期 (摘要分析 vs 期望论证链拆解)。方案 C 保证：
+      - 当今日有 ⭐≥4 论文/博客时，绝不被 X tweet/HN 帖子挤掉
+      - 当今日纯无论文 (周末等) 才回退 X tweet 的摘要级分析
+    每个桶内仍按 score 排序 (V37.9.16 公式不变)。
+    """
     if not candidates:
         return None
+    tier_12 = [c for c in candidates if classify_tier(c["source_id"]) in (1, 2)]
+    if tier_12:
+        return tier_12[0]
     return candidates[0]
 
 

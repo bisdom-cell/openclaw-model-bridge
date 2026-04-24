@@ -158,6 +158,72 @@ class TestScoreEntry(unittest.TestCase):
 # ══════════════════════════════════════════════════════════════════════
 # 4. PDF URL 派生
 # ══════════════════════════════════════════════════════════════════════
+class TestPickTopTierFallback(unittest.TestCase):
+    """V37.9.17 方案 C: tier-aware fallback — TIER 1/2 优先，TIER 3 fallback。
+
+    背景：V37.9.16 首跑选中 ai_leaders_x ⭐5 走 abstract_only，用户感知质量低于
+    预期。方案 C 保证 TIER 1/2 候选永远优先于 TIER 3，即使 score 较低。
+    """
+
+    def _entry(self, source_id, stars, title="x"):
+        return {
+            "title": title,
+            "link": "https://example.com",
+            "stars": stars,
+            "abstract": "",
+            "source_id": source_id,
+            "source_label": source_id,
+        }
+
+    def test_empty_returns_none(self):
+        self.assertIsNone(m.pick_top([]))
+
+    def test_tier1_wins_over_higher_score_tier3(self):
+        """关键场景：arxiv ⭐4 必须胜过 X tweet ⭐5（tier-aware）。"""
+        tier3 = self._entry("ai_leaders_x", 5, "X tweet")
+        tier1 = self._entry("arxiv_monitor", 4, "Arxiv paper")
+        # candidates 已按 score 排序时 tier3 在前（V37.9.16 行为）
+        result = m.pick_top([tier3, tier1])
+        self.assertEqual(result["source_id"], "arxiv_monitor")
+        self.assertEqual(result["title"], "Arxiv paper")
+
+    def test_tier2_wins_over_tier3(self):
+        tier3 = self._entry("run_hn_fixed", 5, "HN")
+        tier2 = self._entry("rss_blogs", 4, "Blog post")
+        result = m.pick_top([tier3, tier2])
+        self.assertEqual(result["source_id"], "rss_blogs")
+
+    def test_tier1_beats_tier2_when_both_present(self):
+        """TIER 1+2 同桶内按 score 排序（不区分 1 vs 2）— 输入顺序即决定。"""
+        tier1 = self._entry("arxiv_monitor", 4, "Arxiv")
+        tier2 = self._entry("rss_blogs", 5, "Blog")
+        # 输入按 score 排序：tier2 score 高在前 → 同桶内 tier2 胜出
+        result = m.pick_top([tier2, tier1])
+        self.assertEqual(result["source_id"], "rss_blogs")
+        # 反过来 tier1 在前则 tier1 胜出
+        result2 = m.pick_top([tier1, tier2])
+        self.assertEqual(result2["source_id"], "arxiv_monitor")
+
+    def test_only_tier3_fallback(self):
+        """TIER 1+2 全空 → 回退 TIER 3（保留 V37.9.16 行为，没新候选时仍推送）。"""
+        tier3a = self._entry("ai_leaders_x", 5, "X tweet A")
+        tier3b = self._entry("run_hn_fixed", 4, "HN B")
+        result = m.pick_top([tier3a, tier3b])
+        self.assertEqual(result["source_id"], "ai_leaders_x")
+        self.assertEqual(result["title"], "X tweet A")
+
+    def test_v37_9_16_blood_lesson_scenario(self):
+        """直接复现 V37.9.16 首跑场景：tier3 X tweet ⭐5 + tier1 论文 ⭐4
+        必须选 tier1 论文（方案 C 兑现）。"""
+        x_tweet = self._entry("ai_leaders_x", 5, "国家AI动员")
+        arxiv = self._entry("arxiv_monitor", 4, "Some Paper")
+        hf = self._entry("hf_papers", 4, "HF Paper")
+        # 模拟 collect_today_candidates 已排序输出（X tweet score 最高在前）
+        result = m.pick_top([x_tweet, arxiv, hf])
+        self.assertIn(result["source_id"], ("arxiv_monitor", "hf_papers"))
+        self.assertNotEqual(result["source_id"], "ai_leaders_x")
+
+
 class TestPdfUrlDerivation(unittest.TestCase):
     def test_arxiv_abs_to_pdf(self):
         self.assertEqual(
