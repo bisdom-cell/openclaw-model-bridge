@@ -1,5 +1,5 @@
 {
-  "updated": "2026-04-24 05:29:58",
+  "updated": "2026-04-24 06:03:37",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-04-24",
+      "what": "V37.9.17 kb_deep_dive picker tier-aware fallback (方案 C) — V37.9.16 首跑用户感知问题 24h 内闭环。触发: V37.9.16 部署后 1h 用户首跑发现 picker 选 ai_leaders_x Palantir tweet ⭐5 走 abstract_only (LLM 输出 800 字摘要 vs 期望 1200 字论证链), 根因 score 公式 tier-blind (tier3 X tweet 65 分胜过 tier1 arxiv 60 分)。最小修复: pick_top 函数从 candidates[0] 改为先按 classify_tier in (1,2) 过滤 → 有 tier1/2 候选 return tier_12[0] / 否则 fallback candidates[0]。score 公式不动 (避免双重影响, 保持可解释)。每个桶内仍按 V37.9.16 score 排序。6 新单测 TestPickTopTierFallback 含 test_v37_9_16_blood_lesson_scenario 直接复现首跑场景。VERSION 0.37.9.16→0.37.9.17, 核心改动 5 行 + 35 行测试 + 文档同步。全量回归 46 suites / 1478 tests / 0 fail / 安全 95/100。governance INV-DEEP-001 仍按 V37.9.16 计划 shadow 一周后再加。下次观察: 22:30 cron 自动触发 + 一周内 mode 分布期望从 100% TIER 3 升到 80%+ TIER 1/2。如观察到反常 (TIER 1/2 stars 都 <4 连续多日 no_candidates) → V37.9.18 候选放宽 MIN_STARS 或扩展候选窗口到 2 天。MR-7 正向兑现 (用户视角→24h 闭环) + 元教训: V37.9.16 picker 字面正确但忽略 score 高未必抓得到全文的语义鸿沟, 原则 #15 三层测试 WhatsApp 业务验证才暴露。",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-04-24",
       "what": "V37.9.16 每日深度分析 kb_deep_dive 全新上线 — 从周度覆盖升级为每日纵深。新增 3 文件: kb_deep_dive.py 700行纯Python (import kb_review_collect as rc 复用 5 原语 + 3 档 fetcher 架构: 一档 PDF (arxiv/acl/hf/pwc/s2/dblp pdfplumber lazy import + References/Acknowledgments 切割 + Figure/Table caption 去噪 + 30K 截断) / 二档 HTML (rss_blogs/ontology_sources/github_trending bs4 lazy import + article/main 标签优先) / 三档 degrade + picker (MIN_STARS=4 门槛 + TOPIC_WEIGHTS 主题加权 ontology/agent runtime/LLM infra/control plane 各 +10 + 摘要长度 tie-breaker 封顶 +10) + 双 prompt 分支 build_full_text_prompt (论证链+实验对比+局限性+本项目启发) vs build_abstract_only_prompt (禁推测+摘要级标注) 都含 GROUNDING_CONSTRAINT + run() 返回 status: ok/no_candidates/llm_failed/collector_failed llm_failed 路径不产出 artifacts) + kb_deep_dive.sh 150行 thin wrapper 镜像 kb_review.sh V37.5.1 env-var heredoc 模式 (set -euo pipefail + notify.sh source + double-push WhatsApp 简版 + Discord 完整版通过 --topic deep_dive 两次独立调用 + no_candidates 推告警但 exit 0 + llm_failed/collector_failed exit 1 fail-fast + rsync 带 V37.9.14 movespeed_incident_capture 取证) + test_kb_deep_dive.py 55 tests / 10 类 (TestClassifyTier 7 + TestParseEntries 6 + TestScoreEntry 6 + TestPdfUrl 5 + TestPreprocessPdf 5 + TestFetchDegrade 3 + TestPrompts 4 + TestOutputs 5 + TestRun 5 端到端 + TestShellGuards 9 源码级)。配置面: jobs_registry +1 job (interval 30 22 * * * HKT) + auto_deploy FILE_MAP +2 文件 + notify.sh deep_dive→DISCORD_CH_DAILY + full_regression +1 suite + test_movespeed EXPECTED_RSYNC_SITES +1 + governance ALLOWED_PUSH_SCRIPTS 白名单 +1 + docs/config.md 漂移修复 + VERSION 0.37.9.15.2→0.37.9.16. 时间窗 22:00 kb_evening → 22:30 kb_deep_dive → 00:40 Dream Map 零撞车. 全量回归 46 suites / 1472 tests / 0 fail / 309 checks / 61 invariants / 15/16 meta rules / 安全 95/100. 下次候选: Mac Mini pip3 install pdfplumber beautifulsoup4 观察首批 PDF 抓取 + INV-DEEP-001 (shadow 一周后加) + picker 调优.",
       "by": "claude_code"
     },
@@ -198,11 +203,6 @@
       "date": "2026-04-20",
       "what": "V37.9.2 MR-6 深度补齐: 12 单层 high 减到 9 (-3). (1) INV-PA-002 加 runtime 解析规则 10 完整块+5 关键短语必须都在块内+长度>=400字; (2) INV-DREAM-001 加 runtime 真解析 DREAM_TIMEOUT_SEC 赋值，MAP_ONLY>=5400s + Reduce<=3600s + 差>=1800s; (3) INV-DEPLOY-003 加 runtime 扫双侧脚本 status.json 邻近 continue. 都用 iterative loop 避开 V37.3 exec scope trap. governance v3.25→v3.26, 253→256 checks. 对抗审计保持 16/16.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-04-20",
-      "what": "V37.9.1 路线 C Step 2 + Stage 2 话语权输出. (1) INV-SEC-001 扩展 per-dimension 7 维度阈值守卫 (密钥 15/测试 13/数据 10/部署 15/传输 9/审计 15/可用 8), 从总分≥90 升级为\"每维度不能塌陷\", 防单维度隐性退化盲区. (2) docs/articles/audit_is_regression_not_prevention.md 公开资产: 基于路线 A/B 实证数据论证 audit 是 regression engine 非 prevention tool, 6 条实际落地原则, Stage 2 第 4 份资产. (3) OpenClaw hold 决策确认 (距 4/17 评估 3 天). governance v3.24→v3.25 / 55 inv / 253 checks / 15 MR / 13 MRD scanners. 对抗审计 16/16 保持.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -272,14 +272,14 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 1472,
-    "last_regression": "2026-04-24 05:27 pass",
+    "test_count": 1478,
+    "last_regression": "2026-04-24 06:03 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-04-24 05:27",
+    "security_score_time": "2026-04-24 06:03",
     "test_suites": 46,
     "governance_invariants": "59/59",
     "governance_checks": "283/283",
-    "version": "0.37.9.16"
+    "version": "0.37.9.17"
   },
   "incidents": [
     {
