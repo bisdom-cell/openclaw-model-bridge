@@ -1,5 +1,5 @@
 {
-  "updated": "2026-04-26 02:08:28",
+  "updated": "2026-04-26 04:27:45",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-04-26",
+      "what": "V37.9.19 Mac Mini E2E 验证完美通过 + 今日完整收工 — 用户跑 python3 ~/openclaw-model-bridge/ontology/convergence.py --spec jobs_to_crontab 输出 [convergence:jobs_to_crontab] ok declared=36 observed=36 — Mac Mini 当前 36 个 enabled+system job 全部在 crontab 注册零 drift, V37.9.18 修复的 kb_deep_dive 在内, 没有其他历史遗漏。这个 36/36 是 V37.9.20 一周观察期 baseline 数据 (从 2026-04-26 起算, 2026-05-03 决策窗口) — 一周内若数字变化即为 drift 触发, 届时再决策是否升级 drift_action=machine_sync. 今日累积一日双版本: V37.9.18 (cron 未注册血案修复 三层 silent bug 协同同时修, MR-4 第 16 次演出) + V37.9.19 (Phase 4 Layer 5 Convergence Framework + MR-17 立案 + 第一个 spec). 3 commits a92ecf8 + 2a871ab + e1cf8f4 全部 PR 合并 + Mac Mini sync 完成. 最终回归 49 suites / 1542 tests (+64) / 0 fail / 396 governance checks (+87) / 62 invariants / 17 meta rules / 安全 95/100 / VERSION 0.37.9.17→0.37.9.19 跳两位. 今晚 22:30 HKT cron 自动触发 kb_deep_dive 是 V37.9.18 cron 注册修复的最后真实生产兑现。从血案到元规则到 framework 落地一日完成 — ontology 子项目从治理 81 工具规则升级为 control plane 核心抽象, Phase 4 Layer 5 是终极目标 pip install ontology-engine 路径上的关键拐点. 收工 9 项 A~I 全绿 ✅",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-04-26",
       "what": "V37.9.19 Phase 4 Layer 5 上线 — Convergence Framework + MR-17 + 第一个 spec jobs_to_crontab。从 V37.9.18 反思直接落地: 1478 单测 + 309 governance check 全在仓库内层但 runtime 事实在仓库外 → declared→runtime 同步必须机器化。新增 4 件: (1) MR-17 立案 declared-state-must-converge-to-runtime-via-machine-not-memory (governance_ontology.yaml meta_rules +56行, 阐述 5 类 declared/runtime 对应 + 与 MR-1/3/4/9 关系) (2) ontology/convergence.py ~330行纯函数 framework (ConvergenceResult namedtuple 7字段稳定 + FAIL-OPEN 契约 spec_not_found/extractor_failed/observer_failed/parser_failed 全返回合法 result 不 raise + Named-dispatch 三表 _DECLARED_EXTRACTORS/_RUNTIME_OBSERVERS/_IDENTIFIER_PARSERS 镜像 V37.9.13 _CONTEXT_EVALUATORS 模式 + _VALID_DRIFT_ACTIONS 三档 alert_only/machine_sync/block_until_human + crontab -l 无安装用户场景 FAIL-OPEN 处理) (3) ontology/convergence_ontology.yaml 首 spec jobs_to_crontab (extractor=registry_enabled_system_jobs / observer=shell_command crontab -l / parser=line_contains_identifier / drift_action=alert_only V37.9.19 保守不直接 machine_sync) (4) INV-CONVERGENCE-CRON-001 (meta_rule=MR-17, severity=high, [declaration,runtime], 14 checks 含 1 runtime python_assert subprocess 跑 test_convergence.py 49 单测端到端). 49 新单测 14 类 (TestConvergenceResult 3 / TestLoadSpecs 3 / TestSpecLookup 5 / TestExtractor 3 / TestObserver 4 含 crontab 无安装 FAIL-OPEN / TestParsers 5 含 word_boundary 避免 kb_dream.sh 匹配 kb_dream_helper.sh / TestHappyPath 1 / TestDriftDetected 2 含 V37.9.18 血案场景复现 / TestFailOpen 6 / TestDriftActionValidation 2 / TestDisabledSpec 1 / TestFormat 3 / TestRealSpec 2 / TestSourceLevelGuards 9 含禁止 machine_sync 字面量守卫). 累计 47→48 suites (+1) / 1493→1542 tests (+49) / 0 fail / governance v3.32→v3.33 / 61→62 invariants / 297→311 checks (+14) / 16→17 meta rules (+MR-17) / 安全 95/100 / VERSION 0.37.9.18→0.37.9.19. MR-8 兑现: V37.9.20 添加新 spec 类型 (providers_to_adapter / openclaw_config_to_runtime / kb_sources_to_index) 只需 yaml 声明 + 新 dispatch 函数, 零 framework 改动. 元价值: ontology 子项目从治理 81 工具规则升级为 control plane 核心抽象 — Phase 4 Layer 5 是终极目标 pip install ontology-engine 路径上的关键支柱, OpenClaw 与 OPA 等纯 policy 引擎差异化定位 (OPA 只做声明→决策, OpenClaw 做声明→运行时事实闭环). Mac Mini 部署: ontology/ 走 symlink 自动生效, 手动验证 python3 ontology/convergence.py --spec jobs_to_crontab 应输出 0 missing (V37.9.18 已注册 kb_deep_dive cron).",
       "by": "claude_code"
     },
@@ -198,11 +203,6 @@
       "date": "2026-04-21",
       "what": "V37.9.4 B 问题系统化预防完成 (B-1+B-2): (1) 20 处 cron rsync 反模式批量修复 (5 根目录 kb_dream/kb_save_arxiv/kb_evening/kb_inject/kb_review + run_hn_fixed.sh + 13 jobs/ 含 freight 2 处), 旧 2>/dev/null || true 双层吞错 → 新 2>&1 || echo WARN >&2 fail-loud 模式. (2) INV-BACKUP-001 新增 (MR-4, severity=high, declaration+runtime), 部署即时抓出第 20 个漏网 run_hn_fixed.sh 证明守卫有效. (3) 案例文档 movespeed_exfat_silent_backup_failure_case.md (完整四维度因果链 + MR-4 14 次演出 + MR-8 反例). governance v3.27→v3.28 / 56 inv / 261 checks. 38/1137/0 fail / 安全 93/100. VERSION 0.37.9.3→0.37.9.4.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-04-21",
-      "what": "B 问题 (MOVESPEED 6 天 rsync 静默失败) 完美闭环。Mac Mini SSH 远程操作 diskutil eraseDisk APFS MOVESPEED disk6 → 抹掉重建为 APFS 容器 (disk4s1)。POSIX 测试 3/3 通过 (mkdir status_history / chmod 755 / touch+rm)。从 ~/.kb 主数据 67M 重新 rsync exit 0 全成功，MOVESPEED/KB/ 74M 与主端完全对齐 (27 项 = 27 项 diff 空)。openclaw_backup/ 11G 历史 tar.gz 完整保留。意外发现: 之前 1.2G MOVESPEED/KB/ 是 cron rsync 不带 --delete 长期累积的历史残留 (kb_dedup 清理后的旧 dreams cache/过期 notes)，不是当前主数据。根因定性: exfat + fskit 在某 transient condition 组合下间歇性 EPERM (mkdir Operation not permitted) — APFS 彻底规避。后续 6 个 cron rsync 脚本 (kb_inject/kb_evening/kb_review/kb_dream/hf_papers/kb_save_arxiv) 下次执行将自然恢复并持续工作。",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -273,13 +273,13 @@
   "quality": {
     "security_score": 95,
     "test_count": 1542,
-    "last_regression": "2026-04-26 02:06 pass",
+    "last_regression": "2026-04-26 04:27 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-04-26 02:06",
-    "test_suites": 48,
+    "security_score_time": "2026-04-26 04:27",
+    "test_suites": 49,
     "governance_invariants": "59/59",
     "governance_checks": "283/283",
-    "version": "0.37.9.18"
+    "version": "0.37.9.19"
   },
   "incidents": [
     {
