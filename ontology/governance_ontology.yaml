@@ -429,6 +429,75 @@ meta_rules:
       和 governance 由不同代码路径计算，各有盲区。未来任一方发现的问题
       如果没同步到另一方，就会产生观察不一致。MR-16 是预防性元规则。
 
+  - id: MR-17
+    name: declared-state-must-converge-to-runtime-via-machine-not-memory
+    description: |
+      任何"声明态资源"（registry/yaml/config 中的声明）必须有"运行时同步路径"
+      由机器执行，不允许靠"下次 Claude Code session 记得手动执行某条命令"
+      作为同步机制。
+
+      声明态 vs 运行时态举例：
+        - jobs_registry.yaml enabled=true   vs  macOS crontab -l 实际行
+        - openclaw.json agents/models       vs  OpenClaw runtime 加载状态
+        - providers.d/*.yaml provider 列表  vs  adapter /health fallback_chain
+        - KB sources 抓取脚本写入             vs  text_index/ RAG 真实覆盖
+        - launchd plist 配置                vs  launchctl list 服务状态
+
+      核心论断：所有这些声明都对应一个"运行时事实"，两者之间的同步
+      必须由机器化的检测+修复（或检测+告警）路径承担。**任何依赖人类
+      记忆"上线后要手动跑某命令"的同步链都是结构盲区**——它在工程系统
+      投入足够多 checkpoint 时仍会潜伏，因为 checkpoint 全部建在仓库
+      内层（单测 / governance / preflight）但同步的另一端在仓库外
+      （cron/process/http/filesystem）。
+
+      MR-17 与其他元规则的关系：
+        - MR-1 (every-declaration-has-enforcement) 关心"声明 → 代码"
+          MR-17 关心"声明 → 运行时事实"（更高一阶）
+        - MR-3 (every-declaration-change-propagates) 关心"声明变更 → 多个执行层"
+          MR-17 关心"声明态 → 运行时态"是否同步成功（结果而非过程）
+        - MR-4 (silent-failure-is-a-bug) MR-17 是 MR-4 的上游预防层：
+          静默失败的常见根源就是"声明改了但运行时没跟上"，先有 MR-17
+          就少很多 MR-4 演出
+        - MR-9 (state-writes-go-through-helper) 关心"写入操作走 helper"
+          MR-17 关心"声明态 → 运行时态"整体是否收敛（写入只是其中一环）
+
+      实施路径（V37.9.19 +）：
+        Step 1 (V37.9.19): convergence framework + 第一个 spec
+                           jobs_to_crontab (drift_action=alert_only 一周观察)
+        Step 2 (V37.9.20): jobs_to_crontab 升级 auto_sync + 第二个 spec
+                           providers_to_adapter (alert_only)
+        Step 3 (V37.9.21): openclaw_config_to_runtime + kb_sources_to_index
+                           统一进入 convergence framework
+        Step 4 (V3 路标):  ontology-engine pip 包暴露 convergence framework
+                           作为 control plane 核心抽象，与 OPA 等纯 policy
+                           引擎形成差异化（OPA 只做"声明 → 决策"，OpenClaw
+                           做"声明 → 运行时事实闭环"）
+
+      合规模式（每个 declared resource 都需要）：
+        - declaration_path: 声明文件路径
+        - runtime_observable: 怎么观察 runtime 真实状态（method + parser）
+        - drift_action: alert_only / machine_sync / block_until_human
+        - governance_invariant: 对应 INV-CONVERGENCE-* 的 ID
+
+      违反即立即触发 MR-4 (silent-failure)。
+    enforcement:
+      - "ontology/convergence.py 提供 verify_convergence(spec_id) 通用函数"
+      - "ontology/convergence_ontology.yaml 登记每个 declared resource 的 spec"
+      - "INV-CONVERGENCE-* 不变式群守卫每个 spec 真实可执行 + drift 被发现"
+      - "新增任何声明态资源时，必须配套提交对应 convergence_spec 否则视为遗漏"
+    derivative_invariants: [INV-CONVERGENCE-CRON-001]
+    blood_lessons: |
+      2026-04-26 V37.9.18: V37.9.16 (4/24) 上线 kb_deep_dive 时 jobs_registry.yaml
+      声明 enabled=true + interval="30 22 * * *"，但**没人手动 crontab_safe.sh add**，
+      4/24 + 4/25 两次预期 22:30 触发完全静默，2026-04-26 用户察觉"昨天没收到"
+      才浮现。三层 silent bug 协同（preflight grep 选择性吞 warning + crontab_safe
+      谎报 ✅ + cron 不触发零监控）让简单运维遗漏潜伏 2 天。
+
+      根本启示：1478 单测 + 309 governance check + 81 preflight 项的工程投入，
+      全部解决"代码正确性"，但**代码正确不等于运行时事实**。1478 单测防复杂逻辑漏洞，
+      "crontab add 一行"靠 Claude Code 记忆 — 记忆是最弱可靠性机制。
+      详见 ontology/docs/cases/kb_deep_dive_cron_unregistered_case.md
+
 # ═══════════════════════════════════════════════════════════════════════
 # 3. 不变式（Invariants）— 可执行的声明-执行-验证三元组
 # ═══════════════════════════════════════════════════════════════════════
@@ -4516,6 +4585,106 @@ invariants:
           )
           assert proc.returncode == 0, (
               f"three_gate wiring 单测失败:\n"
+              f"STDOUT={proc.stdout[-800:]}\nSTDERR={proc.stderr[-1500:]}"
+          )
+
+  - id: INV-CONVERGENCE-CRON-001
+    name: jobs-registry-converges-to-crontab
+    meta_rule: MR-17
+    verification_layer: [declaration, runtime]
+    severity: high
+    declaration: |
+      V37.9.19 Phase 4 Layer 5 (convergence framework first spec):
+      jobs_registry.yaml 中所有 enabled=true + scheduler=system 的 job
+      其 entry 脚本名必须出现在 macOS crontab 的某一行。convergence framework
+      把"声明 → 运行时事实"同步从"靠记忆"升级为"机器可检测"。
+
+      首期 (V37.9.19) drift_action=alert_only：发现漂移仅产 alert，
+      不自动修复。machine_sync 升级延后到 V37.9.20+ 一周观察期之后。
+    lesson: |
+      2026-04-26 V37.9.18 kb_deep_dive cron 未注册血案：V37.9.16 (4/24)
+      上线时 jobs_registry 声明 enabled=true 但**没人手动 crontab_safe.sh add**，
+      4/24 + 4/25 两次预期 22:30 触发完全静默，2026-04-26 用户察觉浮现。
+      MR-17 (declared-state-must-converge-to-runtime-via-machine-not-memory)
+      立案 + INV-CONVERGENCE-CRON-001 是其首个具体不变式。
+    design_decision: |
+      为什么先 alert_only 而非直接 machine_sync？
+        - 自动写入用户 crontab 是高 blast-radius 操作（误触可清空所有 cron）
+        - 一周生产观察确认零假阳性后再 V37.9.20 升级 machine_sync
+        - 框架本身 V37.9.19 必须先稳定，spec 数据驱动才能可靠扩展
+      为什么 framework 设计为 named extractor + observer + parser dispatch?
+        - 镜像 V37.9.13 _CONTEXT_EVALUATORS / V37.9.15 _STATIC_SIGNAL_KEYS 模式
+        - 添加新 spec 类型只需 yaml 声明 + 注册新 extractor/observer/parser
+        - 避免每加一个 declared resource 就改一遍 framework 代码（MR-8 兑现）
+    checks:
+      - name: "ontology/convergence.py 存在且带 V37.9.19 头注释"
+        check_type: file_contains
+        file: ontology/convergence.py
+        pattern: 'V37.9.19'
+      - name: "convergence.py 导出 verify_convergence"
+        check_type: file_contains
+        file: ontology/convergence.py
+        pattern: 'def verify_convergence'
+      - name: "convergence.py 提供 ConvergenceResult namedtuple"
+        check_type: file_contains
+        file: ontology/convergence.py
+        pattern: 'ConvergenceResult = namedtuple'
+      - name: "convergence.py FAIL-OPEN: _empty_result helper"
+        check_type: file_contains
+        file: ontology/convergence.py
+        pattern: 'def _empty_result'
+      - name: "convergence.py 注册 shell_command observer"
+        check_type: file_contains
+        file: ontology/convergence.py
+        pattern: '"shell_command": _observe_shell_command'
+      - name: "convergence.py 注册 registry_enabled_system_jobs extractor"
+        check_type: file_contains
+        file: ontology/convergence.py
+        pattern: '"registry_enabled_system_jobs": _extract_registry_enabled_system_jobs'
+      - name: "convergence.py 注册 line_contains_identifier parser"
+        check_type: file_contains
+        file: ontology/convergence.py
+        pattern: '"line_contains_identifier": _parse_line_contains_identifier'
+      - name: "convergence.py drift_action 三档常量"
+        check_type: file_contains
+        file: ontology/convergence.py
+        pattern: '_VALID_DRIFT_ACTIONS = \("alert_only", "machine_sync", "block_until_human"\)'
+      - name: "convergence_ontology.yaml 存在且声明 jobs_to_crontab spec"
+        check_type: file_contains
+        file: ontology/convergence_ontology.yaml
+        pattern: 'id: jobs_to_crontab'
+      - name: "jobs_to_crontab drift_action=alert_only（V37.9.19 保守默认）"
+        check_type: file_contains
+        file: ontology/convergence_ontology.yaml
+        pattern: 'drift_action: alert_only'
+      - name: "jobs_to_crontab 引用本 INV 作为 governance_invariant"
+        check_type: file_contains
+        file: ontology/convergence_ontology.yaml
+        pattern: 'governance_invariant: INV-CONVERGENCE-CRON-001'
+      - name: "convergence_ontology meta 引用 MR-17"
+        check_type: file_contains
+        file: ontology/convergence_ontology.yaml
+        pattern: 'meta_rule: MR-17'
+      - name: "MR-17 立案在 meta_rules 段"
+        check_type: file_contains
+        file: ontology/governance_ontology.yaml
+        pattern: 'id: MR-17'
+      - name: "RUNTIME: test_convergence.py 全套通过 (verify_convergence 行为契约 + jobs_to_crontab 真 spec 端到端)"
+        check_type: python_assert
+        assertion: |
+          import subprocess
+          import sys
+          import os
+          repo_root = os.environ.get("OPENCLAW_REPO_ROOT", os.getcwd())
+          test_file = os.path.join(repo_root, "test_convergence.py")
+          assert os.path.exists(test_file), f"test_convergence.py 不存在: {test_file}"
+          proc = subprocess.run(
+              [sys.executable, test_file],
+              capture_output=True, text=True, timeout=60,
+              cwd=repo_root,
+          )
+          assert proc.returncode == 0, (
+              f"test_convergence 单测失败:\n"
               f"STDOUT={proc.stdout[-800:]}\nSTDERR={proc.stderr[-1500:]}"
           )
 
