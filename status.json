@@ -1,5 +1,5 @@
 {
-  "updated": "2026-04-24 07:33:19",
+  "updated": "2026-04-26 01:32:14",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -105,6 +105,11 @@
   ],
   "recent_changes": [
     {
+      "date": "2026-04-26",
+      "what": "V37.9.18 kb_deep_dive cron 未注册血案三层修复 — 用户察觉 \"昨天没收到深度分析\" 触发调查。三层 silent: (1) V37.9.16 收工漏 crontab_safe.sh add 步骤 (2) preflight_check.sh:63 只 grep \"间隔漂移\" 漏掉 \"未找到\" warning 假报零漂移 (3) crontab_safe.sh:cmd_add 不检查 crontab 退出码 + count 用 < 让 35→35 谎报 ✅。修复: (Fix 1) preflight 加第二个 grep 模式 + DRIFT_FAILED 标志统一两类 warning 都触发 fail (Fix 2) crontab_safe 改为 if ! crontab 检查退出码 + count 严格相等 -ne (Fix 3) Mac Mini 已注册 cron 行 30 22 * * * + 立即手动跑产出 2026-04-26.md。15 新单测 (TestPreflightDualWarningCheck 6 + TestCrontabSafeStrictExitCheck 6 + TestCrontabSafeRejectedInputBehavior 3 fake-shim 行为层) 加入 full_regression。47 suites / 1493 tests / 0 fail / 安全 95/100 / VERSION 0.37.9.17→0.37.9.18。本案是 MR-4 silent-failure 第 16 次演出，新形态: 三层独立 silent bug 协同掩护简单运维遗漏 2 天 — 揭示 \"声明态(yaml/registry) → 运行时态(crontab/process)\" 同步必须机器化不能跨人界。MR-17 元规则候选 declared-state-must-converge-to-runtime-via-machine-not-memory 立案。case doc: ontology/docs/cases/kb_deep_dive_cron_unregistered_case.md",
+      "by": "claude_code"
+    },
+    {
       "date": "2026-04-24",
       "what": "V37.9.17 Mac Mini E2E 验证完整通过 + 用户选方案 A 观察一周 — 验证序列: (1) git reset main → HEAD=0459940 V37.9.17 merge (2) pip3 install pdfplumber beautifulsoup4 成功 (含 pdfminer.six 20251107 + pypdfium2 5.7.1 + soupsieve 2.8.3) (3) preflight --full 81 通过/0 失败/3 警告 (3 警告均 pre-existing 与 V37.9.17 无关) (4) 首跑选中 ai_leaders_x ⭐5 走 abstract_only (因 auto_deploy 2min 未到 $HOME/kb_deep_dive.py 仍是 V37.9.16 旧版) (5) 手动 cp 同步后二跑: picker 正确换到 TIER 2 ontology_sources ⭐4 `基于实体类型的图嵌入框架`, mode 仍 abstract_only (6) 诊断确认: degrade_reason=HTML fetch failed: HTTP 403 fetching sciencedirect.com ScienceDirect Elsevier 反爬墙 (Cloudflare/Imperva) 无法简单 UA 绕过 = 站点侧硬限制非系统 bug. 用户决策方案 A: 观察一周 mode 分布后再决策 (2026-05-01 数据到位). 预期: 日常 arxiv/hf cron 有 ⭐4+ preprint 时 mode=full_text, 今日碰巧只有 ontology_sources ScienceDirect 是 ⭐4+ 所以触发 degrade. 登记 V37.9.18 候选: 如 full_text ≥50% 接受现状 / <30% 实施方案 B (反爬域名清单扣分: sciencedirect/nature/science/ieee/acm). 今日 2 commits ceb937e + 05748cf 全部 Mac Mini 同步 + 手动 cp 已验证. 下次 Mac Mini auto_deploy 2min 自动替换 V37.9.16 残余 $HOME 副本.",
       "by": "claude_code"
@@ -198,11 +203,6 @@
       "date": "2026-04-21",
       "what": "Mac Mini 验证: preflight 81/0/2 + job_smoke_test 35/190/0/13 全通过。2 个新问题待排查（登记 unfinished 等 PR 合并后处理）: (A) auto_deploy 日志 11h 陈旧 crontab 注册正确(*/2 * * * *)但日志停止更新 - 需 tail ~/.openclaw/logs/auto_deploy.log + ps 验证进程 (B) KB rsync 备份 /Volumes/MOVESPEED/KB/ 142h 未更新 + openclaw_backup/status_history mkdir Operation not permitted - SSD 权限问题，6 个脚本 rsync 到该路径都 || true 静默吞错 典型 MR-4 silent-failure。其他 11 警告全部历史/外部（kb_evening 4/14-15 502 V37.8.10 案例 / governance_audit 4/11 fail 陈旧 / freight 403 外部封锁等）。",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-04-21",
-      "what": "V37.9.3 四项顺序推进: #1 X 僵尸告警路径诊断(finance_news TZ 统一 + 5 分支诊断 log + notify 失败 exit code 捕获, 4/20 07:30 Gateway 瞬时故障已自愈代码层无 bug) + #2 MR-6 9 个单层 high 全部补齐(Batch A 3 个 metadata 修正 + Batch B 5 个真 runtime 补齐 subprocess/AST + Batch C 1 个 declaration 守卫, MRD-LAYER-002 ⚠️ → ✅, 25 个 high 全部 ≥2 层) + #3 audit-of-audit 1 维 → 4 维(peak_memory_mb 跨平台 + bootstrap_ms SESSION→FIRST_CHECK + skip_rate_pct 突增, 向后兼容 median=0 自动跳过, 14 新单测) + #4 路线 C Step 3 终态(ontology 新增 security_config.dimensions 顶层段作唯一真理源 + INV-SEC-001 从 YAML 读阈值不再硬编码 + 维度名对齐守卫 + security_score.py --check-ontology-thresholds CLI + 12 新单测跨源一致性). governance v3.26→v3.27 / 38 suites / 1137 tests (+26) / 安全 93/100.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -272,11 +272,11 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 1478,
-    "last_regression": "2026-04-24 06:03 pass",
+    "test_count": 1493,
+    "last_regression": "2026-04-26 01:30 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-04-24 06:03",
-    "test_suites": 46,
+    "security_score_time": "2026-04-26 01:30",
+    "test_suites": 47,
     "governance_invariants": "59/59",
     "governance_checks": "283/283",
     "version": "0.37.9.17"
@@ -343,7 +343,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.17 kb_deep_dive picker tier-aware fallback (方案 C) 已完整交付并 Mac Mini E2E 验证通过 — picker 从 TIER 3 X tweet ⭐5 换到 TIER 2 ontology_sources ⭐4 ✓; ScienceDirect 反爬 HTML fetch 失败 degrade 到 abstract_only 符合方案 C 契约 (不 block 不告警). 用户决策方案 A: 观察一周真实 mode 分布再决策 (2026-05-01 数据到位). 当前总结: 46 suites / 1478 tests / 0 fail / 61 invariants / 309 checks / 安全 95/100 / VERSION 0.37.9.17. 今日 2 commits (ceb937e V37.9.16 + 05748cf V37.9.17) 全部 PR 合并 + Mac Mini sync 完成. 下次 session 候选: [主] V37.9.18 如一周观察显示 full_text 比例偏低则方案 B (反爬域名清单) / [次] Phase 4 P3 shadow→on 推进 (V37.9.15 延续一周观察) / [可] audit-of-audit 4 维度 baseline 初始化.",
+  "focus": "V37.9.18 kb_deep_dive cron 未注册血案修复完成 — 用户察觉 2 天推送丢失触发调查 + 三层 silent bug 同时修复 (Fix 1 preflight grep 双模式 / Fix 2 crontab_safe 退出码+严格相等 / Fix 3 Mac Mini cron 已注册). 47 suites / 1493 tests (+15) / 0 fail / 安全 95/100 / VERSION 0.37.9.18. 案例文档喂养 ontology (MR-4 第 16 次演出 + MR-17 候选 declared-state-must-converge-to-runtime-via-machine). 下次 (V37.9.19) 候选: [主] auto_deploy.sh 实现 registry→crontab 自动同步 (方向 1，让 \\\"crontab add\\\" 不再依赖人记忆) / [次] INV-CRON-005/006 写进 governance_ontology.yaml (本次只在测试层覆盖) / [可] V37.9.16 picker tier-aware fallback 一周观察 (5/1 数据到位) / [可] Phase 4 P3 shadow→on 推进.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
@@ -362,7 +362,10 @@
     "原则 #30 升级: Opus 4.7 应被纳入合法模型列表（目前只列 Opus 4.6）, 4.7 是 4.6 的更强升级版不是降级, 满足第 0 号宪法精神",
     "V37.9.5 workspace SOUL.md 副本观察项: workspace/SOUL.md (12KB) 可能与 ~/openclaw-model-bridge/SOUL.md 主源内容相似, 当前选项 A 保持索引接受少量重复(<0.1% chunks). 长期观察 RAG 检索是否有'两份 SOUL 噪声'迹象, 如有再加 WORKSPACE_EXCLUDE_BASENAMES",
     "【V37.9.16 候选 - kb_deep_dive】每日深度分析功能，scope 已与用户确认。最终方案：① 新脚本 kb_deep_dive.py (纯 Python，import kb_review_collect as rc 复用 load_sources_from_registry/extract_recent_sections/call_llm) + kb_deep_dive.sh (thin wrapper 镜像 kb_review.sh V37.5.1 env-var heredoc 模式) ② 时间：每天 22:30 HKT (数据最完整 + LLM 空闲 + 不撞 quiet-hours) ③ 推送：Option A 双通道齐发 — WhatsApp 简版 + Discord #daily 完整版 + KB 归档 ~/.kb/deep_dives/YYYY-MM-DD.md ④ picker 算法：星级优先 (⭐≥4 合格) + 主题加权 (ontology/agent runtime/LLM infra +10 分) + 摘要长度 tie-breaker；无 ⭐≥4 候选时 status=no_candidates 推告警 ⑤ 抓取：一档 arxiv/hf_papers/acl/pwc 走 PDF (urllib fetch + pdfplumber 解析)；二档 rss_blogs/ontology_sources/github_trending 走 HTML (urllib + BS4 清洗)；三档 HN/X posts/finance/freight degrade 到摘要 ⑥ fetch 失败策略：degrade 到摘要继续分析 + 推送标注'摘要级分析'，不 block 不单独告警 ⑦ 依赖：pdfplumber + beautifulsoup4 必装 (Mac Mini pip3 install，dev 环境 lazy import + degrade 使单测可跑) ⑧ PDF 预处理：切 References/Acknowledgments 之后 + 限 30k chars + 去图片 caption 噪声 ⑨ prompt 分支：full_text 模式要求论证链分析+实验对比+局限性；abstract-only 模式禁止推测方法细节+明确标注'摘要级'；两种模式都 grounding 约束 (每个判断标注来源+违反即作废) ⑩ 改动清单：新 kb_deep_dive.py (~700 行) + kb_deep_dive.sh (~150 行) + test_kb_deep_dive.py (~300 行/25 tests) + jobs_registry.yaml 新 job + auto_deploy FILE_MAP +2 文件 + notify.sh 新 topic deep_dive 路由到 Discord #daily + full_regression.sh +1 行 + CLAUDE.md 文件表/常用命令/changelog ⑪ 时间点确认：22:00 kb_evening → 22:30 kb_deep_dive → 00:40 Dream Map，三者零撞车 ⑫ 未涉及：governance INV-DEEP-001 先不加，shadow 观察一周后再加。预计实施 3-4h。用户已全部 OK。",
-    "V37.9.18 候选 (观察后决策): kb_deep_dive 一周 mode 分布观察 — 今天 Mac Mini V37.9.17 首跑方案 C 已验证正确生效 (picker 从 TIER 3 ai_leaders_x ⭐5 换到 TIER 2 ontology_sources ⭐4), 但因选中 URL 是 ScienceDirect 反爬站 HTML fetch 失败 degrade 到 abstract_only. 观察策略: 等 7 天 cron 自动触发统计 last_run_deep_dive.json 的 mode 字段分布. 决策点: (a) 如 full_text ≥50% → 接受现状(预期 arxiv/hf cron 日常有 ⭐4+ 可抓) (b) 如 full_text <30% → V37.9.18 实施方案 B (TIER-2-paywalled 细化, 把 sciencedirect.com/nature.com/science.org/ieee.org/acm.org 等反爬域名列表加 score 扣分) (c) 如观察发现更多反爬变种 → 方案 C fetch-aware picker (实时 fetch top N 候选取第一个成功者). 预期数据到位日期: 2026-05-01."
+    "V37.9.18 候选 (观察后决策): kb_deep_dive 一周 mode 分布观察 — 今天 Mac Mini V37.9.17 首跑方案 C 已验证正确生效 (picker 从 TIER 3 ai_leaders_x ⭐5 换到 TIER 2 ontology_sources ⭐4), 但因选中 URL 是 ScienceDirect 反爬站 HTML fetch 失败 degrade 到 abstract_only. 观察策略: 等 7 天 cron 自动触发统计 last_run_deep_dive.json 的 mode 字段分布. 决策点: (a) 如 full_text ≥50% → 接受现状(预期 arxiv/hf cron 日常有 ⭐4+ 可抓) (b) 如 full_text <30% → V37.9.18 实施方案 B (TIER-2-paywalled 细化, 把 sciencedirect.com/nature.com/science.org/ieee.org/acm.org 等反爬域名列表加 score 扣分) (c) 如观察发现更多反爬变种 → 方案 C fetch-aware picker (实时 fetch top N 候选取第一个成功者). 预期数据到位日期: 2026-05-01.",
+    "V37.9.19 候选 [主] auto_deploy.sh 实现 registry→crontab 自动同步 — 方向 1: 轮询时对比 jobs_registry enabled vs 实际 crontab，缺失即自动 crontab_safe.sh add。彻底消除 V37.9.18 此类血案的\"声明→运行时同步靠人记忆\"根因。涉及 auto_deploy 跨界扩展 + 新加 INV (registry-to-crontab-machine-sync)。设计先行避免 cron 频繁动 + 死循环风险。",
+    "V37.9.19 候选 [次] INV-CRON-005 + INV-CRON-006 写入 governance_ontology.yaml — V37.9.18 修复在代码 + 测试层覆盖，但治理层 (governance_ontology.yaml) 没有对应不变式声明。补完后两个修复点都被 governance_checker 主动监控 + meta_rule MR-4 引用 + verification_layer [declaration, runtime] 双层。",
+    "V37.9.19 候选 [可] MR-17 元规则立案 declared-state-must-converge-to-runtime-via-machine-not-memory — 来自 V37.9.18 反思: 简单遗漏拦不住因为 checkpoint 全在仓库内层。把\"声明 → 运行时同步\"提升为元规则，所有未来类似场景 (jobs_registry/openclaw.json/launchd plist 等声明) 都强制走机器同步。"
   ],
   "_meta": {
     "last_updated_by": "claude_code"
