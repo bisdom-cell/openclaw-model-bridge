@@ -1,5 +1,5 @@
 {
-  "updated": "2026-04-26 01:32:14",
+  "updated": "2026-04-26 02:08:28",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-04-26",
+      "what": "V37.9.19 Phase 4 Layer 5 上线 — Convergence Framework + MR-17 + 第一个 spec jobs_to_crontab。从 V37.9.18 反思直接落地: 1478 单测 + 309 governance check 全在仓库内层但 runtime 事实在仓库外 → declared→runtime 同步必须机器化。新增 4 件: (1) MR-17 立案 declared-state-must-converge-to-runtime-via-machine-not-memory (governance_ontology.yaml meta_rules +56行, 阐述 5 类 declared/runtime 对应 + 与 MR-1/3/4/9 关系) (2) ontology/convergence.py ~330行纯函数 framework (ConvergenceResult namedtuple 7字段稳定 + FAIL-OPEN 契约 spec_not_found/extractor_failed/observer_failed/parser_failed 全返回合法 result 不 raise + Named-dispatch 三表 _DECLARED_EXTRACTORS/_RUNTIME_OBSERVERS/_IDENTIFIER_PARSERS 镜像 V37.9.13 _CONTEXT_EVALUATORS 模式 + _VALID_DRIFT_ACTIONS 三档 alert_only/machine_sync/block_until_human + crontab -l 无安装用户场景 FAIL-OPEN 处理) (3) ontology/convergence_ontology.yaml 首 spec jobs_to_crontab (extractor=registry_enabled_system_jobs / observer=shell_command crontab -l / parser=line_contains_identifier / drift_action=alert_only V37.9.19 保守不直接 machine_sync) (4) INV-CONVERGENCE-CRON-001 (meta_rule=MR-17, severity=high, [declaration,runtime], 14 checks 含 1 runtime python_assert subprocess 跑 test_convergence.py 49 单测端到端). 49 新单测 14 类 (TestConvergenceResult 3 / TestLoadSpecs 3 / TestSpecLookup 5 / TestExtractor 3 / TestObserver 4 含 crontab 无安装 FAIL-OPEN / TestParsers 5 含 word_boundary 避免 kb_dream.sh 匹配 kb_dream_helper.sh / TestHappyPath 1 / TestDriftDetected 2 含 V37.9.18 血案场景复现 / TestFailOpen 6 / TestDriftActionValidation 2 / TestDisabledSpec 1 / TestFormat 3 / TestRealSpec 2 / TestSourceLevelGuards 9 含禁止 machine_sync 字面量守卫). 累计 47→48 suites (+1) / 1493→1542 tests (+49) / 0 fail / governance v3.32→v3.33 / 61→62 invariants / 297→311 checks (+14) / 16→17 meta rules (+MR-17) / 安全 95/100 / VERSION 0.37.9.18→0.37.9.19. MR-8 兑现: V37.9.20 添加新 spec 类型 (providers_to_adapter / openclaw_config_to_runtime / kb_sources_to_index) 只需 yaml 声明 + 新 dispatch 函数, 零 framework 改动. 元价值: ontology 子项目从治理 81 工具规则升级为 control plane 核心抽象 — Phase 4 Layer 5 是终极目标 pip install ontology-engine 路径上的关键支柱, OpenClaw 与 OPA 等纯 policy 引擎差异化定位 (OPA 只做声明→决策, OpenClaw 做声明→运行时事实闭环). Mac Mini 部署: ontology/ 走 symlink 自动生效, 手动验证 python3 ontology/convergence.py --spec jobs_to_crontab 应输出 0 missing (V37.9.18 已注册 kb_deep_dive cron).",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-04-26",
       "what": "V37.9.18 kb_deep_dive cron 未注册血案三层修复 — 用户察觉 \"昨天没收到深度分析\" 触发调查。三层 silent: (1) V37.9.16 收工漏 crontab_safe.sh add 步骤 (2) preflight_check.sh:63 只 grep \"间隔漂移\" 漏掉 \"未找到\" warning 假报零漂移 (3) crontab_safe.sh:cmd_add 不检查 crontab 退出码 + count 用 < 让 35→35 谎报 ✅。修复: (Fix 1) preflight 加第二个 grep 模式 + DRIFT_FAILED 标志统一两类 warning 都触发 fail (Fix 2) crontab_safe 改为 if ! crontab 检查退出码 + count 严格相等 -ne (Fix 3) Mac Mini 已注册 cron 行 30 22 * * * + 立即手动跑产出 2026-04-26.md。15 新单测 (TestPreflightDualWarningCheck 6 + TestCrontabSafeStrictExitCheck 6 + TestCrontabSafeRejectedInputBehavior 3 fake-shim 行为层) 加入 full_regression。47 suites / 1493 tests / 0 fail / 安全 95/100 / VERSION 0.37.9.17→0.37.9.18。本案是 MR-4 silent-failure 第 16 次演出，新形态: 三层独立 silent bug 协同掩护简单运维遗漏 2 天 — 揭示 \"声明态(yaml/registry) → 运行时态(crontab/process)\" 同步必须机器化不能跨人界。MR-17 元规则候选 declared-state-must-converge-to-runtime-via-machine-not-memory 立案。case doc: ontology/docs/cases/kb_deep_dive_cron_unregistered_case.md",
       "by": "claude_code"
     },
@@ -198,11 +203,6 @@
       "date": "2026-04-21",
       "what": "B 问题 (MOVESPEED 6 天 rsync 静默失败) 完美闭环。Mac Mini SSH 远程操作 diskutil eraseDisk APFS MOVESPEED disk6 → 抹掉重建为 APFS 容器 (disk4s1)。POSIX 测试 3/3 通过 (mkdir status_history / chmod 755 / touch+rm)。从 ~/.kb 主数据 67M 重新 rsync exit 0 全成功，MOVESPEED/KB/ 74M 与主端完全对齐 (27 项 = 27 项 diff 空)。openclaw_backup/ 11G 历史 tar.gz 完整保留。意外发现: 之前 1.2G MOVESPEED/KB/ 是 cron rsync 不带 --delete 长期累积的历史残留 (kb_dedup 清理后的旧 dreams cache/过期 notes)，不是当前主数据。根因定性: exfat + fskit 在某 transient condition 组合下间歇性 EPERM (mkdir Operation not permitted) — APFS 彻底规避。后续 6 个 cron rsync 脚本 (kb_inject/kb_evening/kb_review/kb_dream/hf_papers/kb_save_arxiv) 下次执行将自然恢复并持续工作。",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-04-21",
-      "what": "Mac Mini 验证: preflight 81/0/2 + job_smoke_test 35/190/0/13 全通过。2 个新问题待排查（登记 unfinished 等 PR 合并后处理）: (A) auto_deploy 日志 11h 陈旧 crontab 注册正确(*/2 * * * *)但日志停止更新 - 需 tail ~/.openclaw/logs/auto_deploy.log + ps 验证进程 (B) KB rsync 备份 /Volumes/MOVESPEED/KB/ 142h 未更新 + openclaw_backup/status_history mkdir Operation not permitted - SSD 权限问题，6 个脚本 rsync 到该路径都 || true 静默吞错 典型 MR-4 silent-failure。其他 11 警告全部历史/外部（kb_evening 4/14-15 502 V37.8.10 案例 / governance_audit 4/11 fail 陈旧 / freight 403 外部封锁等）。",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -272,14 +272,14 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 1493,
-    "last_regression": "2026-04-26 01:30 pass",
+    "test_count": 1542,
+    "last_regression": "2026-04-26 02:06 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-04-26 01:30",
-    "test_suites": 47,
+    "security_score_time": "2026-04-26 02:06",
+    "test_suites": 48,
     "governance_invariants": "59/59",
     "governance_checks": "283/283",
-    "version": "0.37.9.17"
+    "version": "0.37.9.18"
   },
   "incidents": [
     {
@@ -343,7 +343,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.18 kb_deep_dive cron 未注册血案修复完成 — 用户察觉 2 天推送丢失触发调查 + 三层 silent bug 同时修复 (Fix 1 preflight grep 双模式 / Fix 2 crontab_safe 退出码+严格相等 / Fix 3 Mac Mini cron 已注册). 47 suites / 1493 tests (+15) / 0 fail / 安全 95/100 / VERSION 0.37.9.18. 案例文档喂养 ontology (MR-4 第 16 次演出 + MR-17 候选 declared-state-must-converge-to-runtime-via-machine). 下次 (V37.9.19) 候选: [主] auto_deploy.sh 实现 registry→crontab 自动同步 (方向 1，让 \\\"crontab add\\\" 不再依赖人记忆) / [次] INV-CRON-005/006 写进 governance_ontology.yaml (本次只在测试层覆盖) / [可] V37.9.16 picker tier-aware fallback 一周观察 (5/1 数据到位) / [可] Phase 4 P3 shadow→on 推进.",
+  "focus": "V37.9.19 Convergence Framework 上线 — Phase 4 Layer 5 落地 + MR-17 立案 + 第一个 spec jobs_to_crontab (drift_action=alert_only 一周观察). 48 suites / 1542 tests (+49) / 0 fail / 62 invariants / 311 checks / 17 meta rules / 安全 95/100 / VERSION 0.37.9.19. ontology 子项目从治理工具规则升级为 control plane 核心抽象 — declared→runtime 同步从靠记忆升级为机器化. 下次 (V37.9.20) 候选: [主] jobs_to_crontab drift_action 升级 machine_sync (一周观察后 + cron 行模板) / [次] 第二个 spec providers_to_adapter (新 _observe_http_endpoint observer) / [可] governance_checker 集成调 verify_convergence / [可] 立场文章 Why Control Plane = Convergence Engine.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
@@ -365,7 +365,11 @@
     "V37.9.18 候选 (观察后决策): kb_deep_dive 一周 mode 分布观察 — 今天 Mac Mini V37.9.17 首跑方案 C 已验证正确生效 (picker 从 TIER 3 ai_leaders_x ⭐5 换到 TIER 2 ontology_sources ⭐4), 但因选中 URL 是 ScienceDirect 反爬站 HTML fetch 失败 degrade 到 abstract_only. 观察策略: 等 7 天 cron 自动触发统计 last_run_deep_dive.json 的 mode 字段分布. 决策点: (a) 如 full_text ≥50% → 接受现状(预期 arxiv/hf cron 日常有 ⭐4+ 可抓) (b) 如 full_text <30% → V37.9.18 实施方案 B (TIER-2-paywalled 细化, 把 sciencedirect.com/nature.com/science.org/ieee.org/acm.org 等反爬域名列表加 score 扣分) (c) 如观察发现更多反爬变种 → 方案 C fetch-aware picker (实时 fetch top N 候选取第一个成功者). 预期数据到位日期: 2026-05-01.",
     "V37.9.19 候选 [主] auto_deploy.sh 实现 registry→crontab 自动同步 — 方向 1: 轮询时对比 jobs_registry enabled vs 实际 crontab，缺失即自动 crontab_safe.sh add。彻底消除 V37.9.18 此类血案的\"声明→运行时同步靠人记忆\"根因。涉及 auto_deploy 跨界扩展 + 新加 INV (registry-to-crontab-machine-sync)。设计先行避免 cron 频繁动 + 死循环风险。",
     "V37.9.19 候选 [次] INV-CRON-005 + INV-CRON-006 写入 governance_ontology.yaml — V37.9.18 修复在代码 + 测试层覆盖，但治理层 (governance_ontology.yaml) 没有对应不变式声明。补完后两个修复点都被 governance_checker 主动监控 + meta_rule MR-4 引用 + verification_layer [declaration, runtime] 双层。",
-    "V37.9.19 候选 [可] MR-17 元规则立案 declared-state-must-converge-to-runtime-via-machine-not-memory — 来自 V37.9.18 反思: 简单遗漏拦不住因为 checkpoint 全在仓库内层。把\"声明 → 运行时同步\"提升为元规则，所有未来类似场景 (jobs_registry/openclaw.json/launchd plist 等声明) 都强制走机器同步。"
+    "V37.9.19 候选 [可] MR-17 元规则立案 declared-state-must-converge-to-runtime-via-machine-not-memory — 来自 V37.9.18 反思: 简单遗漏拦不住因为 checkpoint 全在仓库内层。把\"声明 → 运行时同步\"提升为元规则，所有未来类似场景 (jobs_registry/openclaw.json/launchd plist 等声明) 都强制走机器同步。",
+    "V37.9.20 候选 [主] jobs_to_crontab drift_action 升级 machine_sync — 一周观察 alert_only 数据零假阳性后启用. 需要先实现 cron 行模板器 (从 jobs_registry interval+entry+log_path 字段生成 30 22 * * * bash -lc bash ~/X.sh >> ~/X.log 2>&1 标准格式) + 自动调 crontab_safe.sh add. 高 blast-radius 操作必须有 human approval 闸门或预演模式.",
+    "V37.9.20 候选 [次] 第二个 convergence spec providers_to_adapter — 验证 framework 可扩展性. 新增 _observe_http_endpoint observer 函数 (subprocess curl http://localhost:5001/health + jq parse). 验证扩展只需新 observer + 新 spec yaml, 零 framework 改动 — MR-8 兑现.",
+    "V37.9.20 候选 [可] governance_checker 集成 verify_convergence — 治理审计同时跑 convergence 检查, 把 convergence 提升为治理一等公民. 当 convergence drift_detected=True 且 drift_action=alert_only → 治理报 warn; drift_action=block_until_human → 治理 fail.",
+    "V37.10 立场文章候选 Why Control Plane = Convergence Engine — 阐述 OpenClaw 区别于 OPA 等纯 policy 引擎的核心差异: OPA 做声明→决策, OpenClaw 做声明→运行时事实闭环. Convergence framework 是 control plane 缺失的最后一块拼图. Stage 2 第 5 篇话语权输出."
   ],
   "_meta": {
     "last_updated_by": "claude_code"
