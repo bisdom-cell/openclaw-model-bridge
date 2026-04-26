@@ -1,0 +1,84 @@
+# convergence_ontology.yaml — V37.9.19 Phase 4 Layer 5
+#
+# Declared-state → Runtime-state convergence specs (MR-17 enforcement layer).
+#
+# Each spec describes one "declared resource" (yaml/registry/config) and how
+# to observe its corresponding "runtime fact" (cron/process/http/filesystem).
+# convergence.verify_convergence(spec_id) checks for drift and returns a
+# ConvergenceResult; downstream callers (governance_checker, preflight,
+# job_watchdog) decide what action to take per spec.drift_action.
+#
+# V37.9.19 status: framework + 1 spec (jobs_to_crontab, drift_action=alert_only).
+# V37.9.20+ candidates: providers_to_adapter / openclaw_config_to_runtime /
+# kb_sources_to_index. machine_sync escalation deferred until ≥1 week of
+# alert_only observation data per spec.
+
+meta:
+  version: "0.1-skeleton"
+  status: "framework_ready_first_spec_alert_only"
+  description: |
+    Phase 4 Layer 5 of the ontology stack. Layer 1 (domain) describes WHAT
+    exists, Layer 2 (policy) describes WHAT'S ALLOWED, Layer 3 (three-gate)
+    enforces policy at the request boundary, Layer 4 (governance) audits
+    invariants periodically. Layer 5 (convergence) closes the loop between
+    declared state and runtime state — the missing piece that makes ontology
+    a true control plane (not just a policy engine).
+  meta_rule: MR-17
+  related_invariants: [INV-CONVERGENCE-CRON-001]
+  next_step:
+    - V37.9.20: providers_to_adapter spec (alert_only)
+    - V37.9.20: jobs_to_crontab drift_action escalation to machine_sync
+                after one-week alert_only observation period
+    - V37.9.21: openclaw_config_to_runtime spec
+    - V37.9.21: kb_sources_to_index spec (subsumes V37.9.5 INV-KB-COVERAGE-001
+                into the unified convergence framework)
+
+convergence_specs:
+
+  # ── jobs_to_crontab (V37.9.19 first spec) ──────────────────────────────
+  - id: jobs_to_crontab
+    enabled: true
+    description: |
+      jobs_registry.yaml enabled+system jobs must each have a corresponding
+      entry in macOS crontab. Closes V37.9.18 blood lesson where kb_deep_dive
+      was declared enabled=true but never registered, silently missing two
+      scheduled triggers before user noticed.
+
+    declaration:
+      source: jobs_registry.yaml
+      extractor: registry_enabled_system_jobs
+      identifier_field: entry          # script basename (e.g. "kb_deep_dive.sh")
+      identifier_meaning: |
+        The shell script filename that crontab lines must contain (cron lines
+        like `30 22 * * * bash -lc 'bash ~/kb_deep_dive.sh >> ...'` are
+        considered observed if they contain "kb_deep_dive.sh" anywhere).
+
+    runtime_observable:
+      method: shell_command
+      command: "crontab -l"
+      parser: line_contains_identifier
+      notes: |
+        crontab -l exits non-zero when no crontab is installed on this user;
+        observer treats that as "empty observed" rather than hard error
+        (FAIL-OPEN). dev environments without crontab installed will see all
+        declared jobs as missing — expected, callers must filter accordingly.
+
+    drift_action: alert_only
+    drift_action_rationale: |
+      V37.9.19 is the first deployment of convergence framework. Auto-syncing
+      crontab from a Claude Code commit would be powerful but high-blast-radius
+      (e.g. a transient registry parse error could erase the user's crontab).
+      Start with alert_only for ≥1 week. Promote to machine_sync only after
+      observing zero false positives in production.
+
+    convergence_method:
+      planned: machine_sync_via_helper
+      planned_helper: "bash $HOME/crontab_safe.sh add '<line>'"
+      planned_blocker: |
+        Crontab line construction needs interval (5 fields) + bash -lc wrapper
+        + log redirect. jobs_registry has interval but the wrapping convention
+        is shell-side. V37.9.20 must template the cron line from registry
+        fields (interval, entry, log_path) — not in V37.9.19 scope.
+
+    governance_invariant: INV-CONVERGENCE-CRON-001
+    blood_lesson_link: ontology/docs/cases/kb_deep_dive_cron_unregistered_case.md
