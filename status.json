@@ -1,5 +1,5 @@
 {
-  "updated": "2026-04-26 04:27:45",
+  "updated": "2026-04-26 12:48:17",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -375,7 +375,10 @@
     "last_updated_by": "claude_code"
   },
   "session_context.unfinished": [
-    "V37.9.9 Phase 4 P1+ wiring: engine.py 新增 load_domain_ontology() + find_by_domain() + evaluate_policy() 三个纯函数 API，tests/test_engine_phase4.py 锁定 API 行为，选 max-tools-per-agent 做首条 policy 实切换（proxy_filters.py 从硬编码 MAX_TOOLS=12 改为 evaluate_policy 查询）"
+    "V37.9.9 Phase 4 P1+ wiring: engine.py 新增 load_domain_ontology() + find_by_domain() + evaluate_policy() 三个纯函数 API，tests/test_engine_phase4.py 锁定 API 行为，选 max-tools-per-agent 做首条 policy 实切换（proxy_filters.py 从硬编码 MAX_TOOLS=12 改为 evaluate_policy 查询）",
+    "V37.9.19+hot-patch A 闭环未完成 (本 session 工具反复 timeout): 待新 session 执行 4 步 — (1) 写 case doc ontology/docs/cases/kb_deep_dive_homebrew_python_pep668_case.md (MR-4 silent-failure 第 17 次演出, 新形态: 环境层 silent — Homebrew Python 3.14 vs system Python 双解释器 + lazy import 静默 degrade + abstract_only 合法 mode 三重掩护) (2) 更新 status.json recent_changes 加 V37.9.19+hot-patch 条目 (3) 更新 CLAUDE.md changelog 加 V37.9.19+hot-patch 行 + 文件表新 case doc (4) commit+push claude/start-daily-work-4vqA9. Hot patch 本身已在 Mac Mini 验证通过: /opt/homebrew/bin/pip3 install --break-system-packages pdfplumber beautifulsoup4 后, 2026-04-26.md mode 从 abstract_only 切到 full_text, WhatsApp+Discord 推送 1000 字论证链分析生效.",
+    "V37.9.20 主选 [需 A 闭环后启动]: kb_deep_dive Python 环境结构化修复 — (a) venv 隔离: 创建 ~/.openclaw_venv (Homebrew Python 创建) + ~/.openclaw_venv/bin/pip install pdfplumber beautifulsoup4 + 改 kb_deep_dive.sh 顶部加 PYTHON_BIN=${HOME}/.openclaw_venv/bin/python3 (含 fallback) + 全部 python3 改成 PYTHON_BIN 变量 + auto_deploy 加 venv bootstrap (b) 新增 INV-DEEP-002 deep-dive-script-env-has-deps 守卫 (declaration scan PYTHON_BIN 字面量 + runtime python_assert 真跑 venv subprocess 验证 import pdfplumber/bs4) (c) fetch_pdf_text/fetch_html_text ImportError 改 fail-loud (环境配错该 [SYSTEM_ALERT] 而非静默 degrade) (d) WA 摘要重构: 让 LLM 同时产 1000 字完整版 (Discord) + 章节级摘要 (WA 1300 字内含核心论点+启发, 跳过中间论证细节), build_deep_dive_wa 改读 LLM 的 WA-summary 字段而非 substring 截断 — 避免 V37.9.19 hot patch 后 full_text 触发的 WA 截断",
+    "V37.9.21 候选 [V37.9.20 完成后]: kb_deep_dive TIER 1 设计 vs 实现鸿沟修复 — 现状: TIER_1_SOURCES 声明 6 源 (arxiv/acl/hf_papers/dblp/pwc/s2) PDF 可抓, 但 fetch_pdf_text 实现只识别 arxiv.org/abs + aclanthology.org + .pdf 三种 URL 形态 -> hf_papers (huggingface.co/papers/) / dblp (doi.org/) / s2 (部分 fallback URL) 都 degrade. 修复: 扩展 fetch_pdf_text — (a) hf_papers 提取 paper_id 当 arxiv ID 转 arxiv URL (b) dblp doi.org HEAD follow redirect 找真实 PDF host (arxiv/acl/publisher) (c) s2 fallback URL handle (s2 已用 arxiv_id 优先, 兜底 paper_url 时 graceful degrade) (d) 加单测覆盖每种 URL 转换路径 (e) 更新 INV-DEEP-* 守卫. 另: pwc 在 V37.8.13 已停用 (jobs/pwc 目录不存在), 应从 TIER_1_SOURCES 移除避免误导."
   ],
   "last_updated": "2026-04-23 06:11:34 UTC by claude_code"
 }
