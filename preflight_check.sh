@@ -57,19 +57,37 @@ else
     fail "jobs_registry.yaml 校验失败（运行 python3 check_registry.py 查看详情）"
 fi
 
-# V36.2: Crontab 间隔漂移检测（仅 --full 模式，需要 crontab 访问）
+# V36.2 → V37.9.18: Crontab 漂移检测（仅 --full 模式，需要 crontab 访问）
+# V37.9.18 修复: 之前只 grep "间隔漂移" 漏掉 "registry 已启用但 crontab 中未找到" warning，
+# 让 V37.9.16 kb_deep_dive 收工时假绿通过，cron 从未注册导致 2 天静默推送丢失。
+# 现在两种 warning 都触发 fail。
 if $FULL_MODE; then
     DRIFT_OUT=$(python3 check_registry.py --check-crontab 2>&1 || true)
+    DRIFT_FAILED=false
+
+    # 检查 1: 间隔漂移（V36.2）
     if echo "$DRIFT_OUT" | grep -q "间隔漂移"; then
         DRIFT_LINES=$(echo "$DRIFT_OUT" | grep "间隔漂移")
         fail "crontab 间隔漂移（registry vs 实际 crontab 不一致）:
 $DRIFT_LINES
 修复: 用 crontab_safe.sh remove/add 对齐 registry"
-    else
-        pass "crontab 间隔与 registry 一致（零漂移）"
+        DRIFT_FAILED=true
+    fi
+
+    # 检查 2: 注册缺失（V37.9.18 新增 — kb_deep_dive 血案修复）
+    if echo "$DRIFT_OUT" | grep -q "registry 已启用但 crontab 中未找到"; then
+        MISSING_LINES=$(echo "$DRIFT_OUT" | grep "registry 已启用但 crontab 中未找到")
+        fail "crontab 注册缺失（registry 声明 enabled 但 crontab 中无对应条目）:
+$MISSING_LINES
+修复: 用 crontab_safe.sh add '<cron 行>' 注册到 crontab"
+        DRIFT_FAILED=true
+    fi
+
+    if ! $DRIFT_FAILED; then
+        pass "crontab 与 registry 一致（无间隔漂移 + 所有 enabled job 已注册）"
     fi
 else
-    skip "crontab 间隔漂移检测"
+    skip "crontab 漂移检测"
 fi
 
 # ── 3. 文档漂移检测 ───────────────────────────────────────────────────
