@@ -76,16 +76,25 @@ cmd_add() {
     crontab -l > "$tmp_file" 2>/dev/null || true
     echo "$new_line" >> "$tmp_file"
 
-    # 安装新 crontab
-    crontab "$tmp_file"
+    # V37.9.18: 安装新 crontab — 严格检查退出码（kb_deep_dive 血案修复）
+    # 之前: crontab 拒绝（如 "bad minute"）后退出码未检查，count 比较用 < 让 35→35 漏过 → 谎报 ✅
+    if ! crontab "$tmp_file" 2>&1; then
+        local rc=$?
+        rm -f "$tmp_file"
+        echo "❌ crontab 安装失败（语法错误或 cron 拒绝）— 退出码: $rc"
+        echo "   原始尝试添加: $new_line"
+        echo "   提示: cron 时间字段必须是 'min hour day month weekday'，例如 '30 22 * * *'"
+        exit 1
+    fi
     rm -f "$tmp_file"
 
-    # 验证：条目数必须 >= 之前
+    # V37.9.18: 严格相等验证（之前用 -lt 让 35→35 仍打 ✅，谎报成功）
     local count_after
     count_after=$(count_entries)
+    local expected=$((count_before + 1))
 
-    if [ "$count_after" -lt "$count_before" ]; then
-        echo "❌ 严重错误：添加后条目数减少 (${count_before} -> ${count_after})，自动回滚！"
+    if [ "$count_after" -ne "$expected" ]; then
+        echo "❌ 严重错误：预期 $expected 条但实际 $count_after 条（之前 $count_before 条），自动回滚！"
         cmd_restore
         exit 1
     fi
