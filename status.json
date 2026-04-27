@@ -1,5 +1,5 @@
 {
-  "updated": "2026-04-27 14:18:25",
+  "updated": "2026-04-27 14:50:27",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -106,6 +106,16 @@
   "recent_changes": [
     {
       "date": "2026-04-27",
+      "what": "V37.9.21 kb_deep_dive WhatsApp 多窗口分片 (Dream-style) — 用户视角发现 → 同日闭环. 触发: V37.9.20 收工后用户反馈 kb_deep_dive 推送内容超 WhatsApp 单窗口可视范围 (V37.9.16 build_deep_dive_wa 截断到 1400 字 + ... 省略号), 明确要求类似 dream 的长内容使用 [1/N] [2/N] 多窗口. 原则 #13 (定期像用户用) 正向兑现 — 单测/治理全绿但生产使用才暴露 UX 缺口. 3 决策已确认 (#28 理解再动手): (1) 只 WA 分片 / Discord 保持 1900 字 + KB 链接 (Discord 频道天然适合点链接看完整 markdown) (2) 单段预算 1400 字 (与 V37.9.16 原 budget 一致) (3) 每段精简 header `🔬 每日深度 [i/N] {date}{mode_tag}\\n{title}\\n⭐{stars} | {source}` + link 仅 Part 1. 实现: (a) 新增 _split_text_into_chunks 4 级 boundary fallback (段落 \\n\\n > 行 \\n > 中英文句号 。/.> 硬切) (b) build_deep_dive_wa_parts 返 list[str], 单段省 [i/N] indicator (c) run() 返新增 wa_parts 字段 + 保留 wa_message 向后兼容 = parts[0] (d) build_deep_dive_wa 改为 thin wrapper 调 wa_parts 取 [0] 零改 callers (e) kb_deep_dive.sh +63 行: mktemp -d + trap EXIT 清理 + Python env-var heredoc 写 000.txt/001.txt 每段 + 双路径 send_wa_parts_via_notify / send_wa_parts_via_openclaw + for chunk_file in *.txt 遍历 + 段间 sleep 1 避免 WhatsApp 乱序 (Dream 同款契约) + WA_SEND_OK/$WA_PARTS_TOTAL 进度可观测. 23 新单测 4 类: TestSplitTextIntoChunks 7 (short/empty/paragraph_boundary/line_boundary/no_boundary_hard_cut/preserves_full_content/chinese_punctuation_boundary) + TestBuildDeepDiveWaParts 9 (short_single_part/long_multi_part/each_part_indexed_header/link_only_on_first/each_part_within_budget/abstract_mode_tag_on_each_part/empty/full_content_preserved_across_parts 50 markers 守卫无内容丢失/backward_compat_returns_first_part) + TestRunOrchestrator.test_ok_path_returns_wa_parts_list 1 + TestKbDeepDiveShellGuards 6 (V37.9.21 marker/env-var heredoc 反模式/mktemp+trap 清理/for chunk_file ... sleep 1 循环/WA+Discord 独立 send/WA_SEND_OK 可观测 log). smoke 实测 ~3500 字内容产 4 段 1304/694/1131/1086 字, 边界全选中 ## heading 前 \\n\\n, 没句子切两段. 累计 48 suites 不变 / 1577→1600 tests (+23) / 0 fail / 安全 95/100 / VERSION 0.37.9.20→0.37.9.21. 无新 governance INV (V37.9.16 决策 INV-DEEP-001 shadow 一周后再考虑, 多窗口是 UX 增量非安全边界). MR-7 用户视角→24h 闭环第 3 次兑现: V37.9.16 上线 → V37.9.17 picker tier-aware fallback → V37.9.21 多窗口分片. V37.9.21 把原计划 V37.9.21 (jobs_to_crontab → machine_sync) 推到 V37.9.22+ — 那个本来就硬卡在 5/3 决策窗口.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-04-27",
+      "what": "V37.9.20 Mac Mini E2E 验证完美通过 + 完整收工 — 用户同步 main HEAD=a1f9bad (PR #459 merge), VERSION 0.37.9.20 验证, 跑 python3 ~/openclaw-model-bridge/ontology/convergence.py --spec providers_to_adapter 输出 [convergence:providers_to_adapter] DRIFT action=alert_only missing=5 [claude,glm,kimi,minimax,openai] — declared=7 (qwen+gemini+claude+kimi+minimax+glm+openai 7 built-in provider) observed=2 (qwen primary + gemini fallback) missing=5 与预期 4-5 个完全匹配。这是 V37.8.10 fallback chain 单 provider 血案在新 framework 下的首次结构化可观测输出 — 之前要靠手动 cat /health 或运维察觉, 现在 governance audit 端到端可见。--all 同时跑两 spec: [convergence:jobs_to_crontab] ok declared=36 observed=36 (V37.9.19 baseline day 2 零漂移稳定 — 4/26 baseline 起一周观察期决策窗口 2026-05-03 进度 1/7) + [convergence:providers_to_adapter] 同上 5 missing。preflight --full 81 通过/0 失败/3 警告 (3 警告均 pre-existing 与 V37.9.20 无关: 货代 ImportYeti Cloudflare 拦截 + KB 索引 98% cron 自动补齐 + wa_e2e_test.sh 未部署 backlog)。V37.9.20 在 Mac Mini 真实生产环境功能契约 + 性能契约 + FAIL-OPEN 契约全部验证通过。framework 设计正确性硬证据 = 144 行新 dispatch 函数 + 30 行 yaml + 14 governance check + 35 单测 + Mac Mini missing=5 真实输出 + zero verify_convergence 改动 — V3 路标 pip install ontology-engine 终极目标的关键拐点。下次 V37.9.21 候选保持: [主] jobs_to_crontab→machine_sync 等 5/3 决策窗口 / [次] openclaw_config_to_runtime / [次] kb_sources_to_index / [可] governance_checker 集成 verify_convergence / [可] 立场文章 Why Control Plane = Convergence Engine. 收工 9 项 A~I 全绿: A 全量回归 1577/0 fail / B 安全 95/100 / C API 密钥+手机号扫描 0 泄漏 / D governance 412 checks pass / E 文档刷新 (CLAUDE.md V37.9.20 changelog + VERSION + status.json) / F 交叉校验 commits vs 待办一致 / G 提交推送 PR #459 merged / H Mac Mini E2E 81/0/3 / I 遗留 missing=5 provider 已登记 (V37.9.21 unfinished). 元教训: V37.9.20 是 V37.9.19 framework 一周内首次扩展, 一日内闭环 (ontology spec 设计→单测→governance→full_regression→commit→merge→Mac Mini 验证), 验证 named-dispatch 模式真扩展性而非空头承诺.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-04-27",
       "what": "V37.9.20 第二个 convergence spec providers_to_adapter 上线 — V37.9.19 named-dispatch 扩展性首次兑现 (MR-8 copy-paste-is-a-bug-class 正向案例). 触发: V37.9.19 framework 承诺 named-dispatch 三表镜像 V37.9.13/V37.9.15 模式让添加新 spec 类型零 framework 改动, V37.9.20 实测兑现 — verify_convergence orchestrator 改动 0 行, 全部通过 dispatch 表扩展. 新增 3 个 dispatch 函数 (convergence.py +144 行纯函数零 I/O at import): (a) _extract_providers_from_registry 读 ProviderRegistry.list_names() 含 7 built-in + auto-discovered providers.d/ 插件 late import + ImportError/registry FAIL-OPEN (b) _observe_http_endpoint 用 stdlib urllib GET _HTTP_OBSERVER_TIMEOUT_SEC=5 保护 audit cron 不挂 + 包装 HTTPError/URLError/timeout 为 RuntimeError + UTF-8 errors=replace V37.8.6 surrogate 防御复用 (c) _parse_json_set_union 走 spec.json_paths 配置 (field 标量 / field[] list 后缀两种语法) 取 union 后与 declared 求交保持 V37.9.19 line 248 observed⊆declared 框架契约 + 防御 list 路径非 list raise / scalar 路径 dict/list silent skip. convergence_ontology.yaml v0.1-skeleton → v0.2-second-spec, providers_to_adapter spec node (drift_action=alert_only + convergence_method.planned=alert_only_permanent 永久结构性决策 — API key 无法 machine 自动 provision, 与 jobs_to_crontab planned=machine_sync_via_helper 形成对照). INV-CONVERGENCE-PROVIDERS-001 (meta_rule=MR-17, severity=high, [declaration,runtime], 14 checks: 5 dispatch registration + 8 yaml structural + 1 runtime python_assert subprocess 跑 unittest -v 5 个 V37.9.20 测试类). 35 新单测 5 类 (TestExtractProvidersFromRegistry 3 / TestObserveHttpEndpoint 6 含 mock urlopen 200/500/timeout/connection_refused / TestParseJsonSetUnion 12 含全边界 / TestVerifyProvidersToAdapterIntegration 3 含 happy_path/full_visibility 真 mock / TestProvidersSpecSourceGuards 11 含 alert_only_permanent 永久守卫 + machine_sync 字面量禁止). MR-17 derivative_invariants 升级 [INV-CONVERGENCE-CRON-001] → [..., INV-CONVERGENCE-PROVIDERS-001]. 累计 47→48 suites (+1) / 1542→1577 tests (+35) / 0 fail / governance v3.33→v3.34 / 62→63 invariants (+1) / 311→337 checks (+14) / 17 meta rules / 安全 95/100 / VERSION 0.37.9.19→0.37.9.20. dev FAIL-OPEN 验证: python3 ontology/convergence.py --spec providers_to_adapter 输出 error=observer_failed: connection refused declared=7 observed=0 — adapter 不在 dev 跑是预期与 V37.9.19 jobs_to_crontab 行为对称. 元价值: V37.9.19 framework 一周内首次扩展验证, named-dispatch 不是空头承诺 — V3 路标 pip install ontology-engine 终极目标的必备前提条件硬证据.",
       "by": "claude_code"
     },
@@ -193,16 +203,6 @@
       "date": "2026-04-22",
       "what": "V37.9.9 三合一推进 A+C+B：(A) Mac Mini V37.9.8 验证 — ACL cron 9:30 准时触发 + 10 篇推送成功 (4/15 失败任务复活，V37.9.8 28d 阈值策略生效); auto_deploy heartbeat 每小时整点完美出行; watchdog 实际日志名 gateway_watchdog.log 修正. 新发现 MOVESPEED rsync Operation not permitted 间歇复发登记观察. (C) 路线 C Step 4 security_score library 直调 — INV-SEC-001 check 2 从 subprocess+中文正则 parse 升级为 `from security_score import compute_score` + 从 security_config.total_threshold 读阈值, 消除 ~200ms fork 开销 + 正则 parse 失败塌陷盲区 + 硬编码 90 漂移风险三问题. 3 新 regression test TestInvSec001UsesLibraryDirectCall 锁定契约. MR-16 双轨统一终态. (B) Ontology Phase 4 骨架 — 新增 domain_ontology.yaml (六域 Actor/Tool/Resource/Task/Provider/Memory + 域间关系 + P1/P2/P3 路径) + policy_ontology.yaml (10 条策略 3 static + 2 temporal + 3 contextual + INV-PA-001 ordering_constraint + 策略冲突检测 stub) + test_phase4_ontology_skeleton.py (15 单测跨 ontology 一致性守卫). 状态 declaration_only 未 wiring. governance v3.30→v3.31 / 58 inv / 272→273 checks / 41 suites / 1186 tests (+27) / 安全 93/100.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-04-21",
-      "what": "V37.9.6 告警噪声治理 + watchdog 行级时间戳过滤 (MR-4 反向变种修复). 触发: 12:30 watchdog 12 项告警中 6 项陈旧 (kb_evening 4/14-15 已 V37.8.10 闭环 / openclaw 4/8 / kb_inject gateway 1006). 修复: awk 行级解析 [YYYY-MM-DD] 仅留 24h 内行 + in_recent 状态机让 Traceback 多行延续跟随状态. 失效源清: rss_blogs LangChain 9 次 404 死链 + ACL 阈值 8d→14d. INV-WATCHDOG-FRESHNESS-001 + 12 新单测 test_watchdog_freshness.py. 关键澄清: 08:28 端口冲突初判 silent failure 实为误读 (incident_snapshot 读 proxy.log 历史尾部, proxy 8:15 后正常运行). MR-4 第 16 次演出新形态 = 告警过度报. governance v3.29→v3.30 / 58 inv / 272 checks / 40 suites / 1159 tests / 安全 93/100. VERSION 0.37.9.5→0.37.9.6",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-04-21",
-      "what": "V37.9.5 数据全景审计 + workspace 接缝盲区闭合 (3+4 路径). 用户直觉 67M 太少驱动审计, 发现真业务数据 ~75MB (workspace 109M 中 109M=venv 不算业务, logs 105M 中 90M=err 噪声). 任务 3: kb_embed.py 扩展索引 ~/.openclaw/workspace/*.md 顶层, 排 HEARTBEAT.md (V37.8.16) + .bak. MEMORY.md 单独 source_type=memory 保留向后兼容, 其他 .md 用新 source_type=workspace. INV-KB-COVERAGE-001 (MR-4, severity=high, layer=[decl,runtime]) + 10 新单测 test_kb_embed_workspace.py (subprocess 调外部避开 V37.3 exec scope trap). 任务 4: 4/20 kb_harvest 78 条/天合理无需修改. MR-4 第 15 次演出新形态 = 数据接缝盲区. governance v3.28→v3.29 / 57 inv / 265 checks / 39 suites / 1147 tests / 安全 93/100 / VERSION 0.37.9.4→0.37.9.5",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -272,14 +272,14 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 1577,
-    "last_regression": "2026-04-27 14:14 pass",
+    "test_count": 1600,
+    "last_regression": "2026-04-27 14:48 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-04-27 14:14",
+    "security_score_time": "2026-04-27 14:48",
     "test_suites": 48,
     "governance_invariants": "59/59",
     "governance_checks": "283/283",
-    "version": "0.37.9.19"
+    "version": "0.37.9.20"
   },
   "incidents": [
     {
@@ -343,7 +343,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.20 上线第二个 convergence spec providers_to_adapter — V37.9.19 named-dispatch 扩展性首次兑现 (MR-8 正向案例). 48 suites / 1577 tests (+35) / 0 fail / 63 invariants (+1 INV-CONVERGENCE-PROVIDERS-001) / 337 checks (+14) / 17 meta rules / 安全 95/100 / VERSION 0.37.9.20. 核心 verify_convergence orchestrator 改动 0 行, 全部扩展通过新 dispatch 函数 + spec yaml. Phase 4 Layer 5 从单 spec demo 升级为可扩展 control plane 抽象, V3 路标 pip install ontology-engine 终极目标的必备前提条件验证通过. 下次 (V37.9.21) 候选: [主] jobs_to_crontab drift_action 升级 machine_sync (一周观察期 baseline 2026-04-26, 决策窗口 2026-05-03) / [次] 第三个 spec openclaw_config_to_runtime / [次] kb_sources_to_index (subsume INV-KB-COVERAGE-001) / [可] governance_checker 集成 verify_convergence / [可] 立场文章 Why Control Plane = Convergence Engine.",
+  "focus": "V37.9.21 上线 kb_deep_dive WhatsApp 多窗口分片 (Dream-style) — 用户视角发现 → 同日闭环 (原则 #13 兑现, MR-7 第 3 次正向兑现). 触发: V37.9.20 收工后用户反馈 kb_deep_dive 推送内容超 WhatsApp 单窗口可视范围, 明确要求'类似 dream 的长内容, 使用 1/2 和 2/2 两个连续的窗口'. 设计 (3 决策已确认): (1) 只 WA 分片 / Discord 保持 1900 字 + KB 链接 (2) 单段预算 1400 字 (3) 每段都带精简 header + link 仅 Part 1. 实现: 新增 _split_text_into_chunks 4 级 boundary fallback (段落>行>句号>硬切) + build_deep_dive_wa_parts 返 list[str] + run() 输出 wa_parts (保留 wa_message 向后兼容) + kb_deep_dive.sh mktemp+trap 清理 + 段间 sleep 1 (Dream 同款) + WA_SEND_OK/ 可观测. 23 新单测 4 类 (TestSplitTextIntoChunks 7 / TestBuildDeepDiveWaParts 9 含 full_content_preserved_across_parts 关键守卫 / TestRunOrchestrator wa_parts list 1 / TestKbDeepDiveShellGuards 6 V37.9.21 marker+mktemp+trap+sleep+独立 send+log). 累计 48 suites / 1577→1600 tests (+23) / 0 fail / 安全 95/100 / VERSION 0.37.9.20→0.37.9.21. smoke 实测 ~3500 字内容产 4 段 1304/694/1131/1086 字, 边界全选中 ## heading 前的 \\n\\n. 无新 governance INV (V37.9.16 决策 INV-DEEP-001 shadow 一周后再考虑). 下次 V37.9.22 候选 (V37.9.21 把原计划项推后): [主硬卡] jobs_to_crontab → machine_sync 决策窗口 2026-05-03 (今天 4-27 进度 1/7) / [次] 第三个 spec openclaw_config_to_runtime / [次] kb_sources_to_index / [可] governance_checker 集成 verify_convergence / [可] 立场文章 Why Control Plane = Convergence Engine. Mac Mini 部署路径: 已在 FILE_MAP, 22:30 cron 自动用新版, 或 bash ~/kb_deep_dive.sh 立即手动测试.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
@@ -369,7 +369,8 @@
     "V37.9.20 候选 [主] jobs_to_crontab drift_action 升级 machine_sync — 一周观察 alert_only 数据零假阳性后启用. 需要先实现 cron 行模板器 (从 jobs_registry interval+entry+log_path 字段生成 30 22 * * * bash -lc bash ~/X.sh >> ~/X.log 2>&1 标准格式) + 自动调 crontab_safe.sh add. 高 blast-radius 操作必须有 human approval 闸门或预演模式.",
     "V37.9.20 候选 [次] 第二个 convergence spec providers_to_adapter — 验证 framework 可扩展性. 新增 _observe_http_endpoint observer 函数 (subprocess curl http://localhost:5001/health + jq parse). 验证扩展只需新 observer + 新 spec yaml, 零 framework 改动 — MR-8 兑现.",
     "V37.9.20 候选 [可] governance_checker 集成 verify_convergence — 治理审计同时跑 convergence 检查, 把 convergence 提升为治理一等公民. 当 convergence drift_detected=True 且 drift_action=alert_only → 治理报 warn; drift_action=block_until_human → 治理 fail.",
-    "V37.10 立场文章候选 Why Control Plane = Convergence Engine — 阐述 OpenClaw 区别于 OPA 等纯 policy 引擎的核心差异: OPA 做声明→决策, OpenClaw 做声明→运行时事实闭环. Convergence framework 是 control plane 缺失的最后一块拼图. Stage 2 第 5 篇话语权输出."
+    "V37.10 立场文章候选 Why Control Plane = Convergence Engine — 阐述 OpenClaw 区别于 OPA 等纯 policy 引擎的核心差异: OPA 做声明→决策, OpenClaw 做声明→运行时事实闭环. Convergence framework 是 control plane 缺失的最后一块拼图. Stage 2 第 5 篇话语权输出.",
+    "V37.9.20 Mac Mini missing=5 [claude,glm,kimi,minimax,openai] 处理决策: (a) 接受现状 alert_only 永久 — 这 5 个 provider 不需要立即配 API key, 仅 informational 用于 V37.8.10 类血案预警 (b) 部分配置 — 选 ≥1 个最高价值 fallback (推荐 claude 因 Anthropic SDK 已熟) 配 API key 让 fallback_chain 从 [gemini] 扩到 [gemini,claude] 真韧性提升, 与 V37.8.10 血案的根因修复完全对齐 (c) 全配 — 7 provider 全 wire 但成本/合规/SLA 复杂度上升. 用户决策需求: 是否做 (b) 配 ANTHROPIC_API_KEY 扩 fallback_chain 到 ≥2 provider — 登记 V37.9.21 候选"
   ],
   "_meta": {
     "last_updated_by": "claude_code"

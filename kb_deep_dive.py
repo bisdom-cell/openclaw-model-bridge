@@ -581,19 +581,106 @@ link: {entry.get("link", "")}
 
 
 def build_deep_dive_wa(entry, mode, llm_content, date_str):
-    """WhatsApp 简版推送（<=1400 字，保留完整 LLM 内容）。"""
+    """[V37.9.21 deprecated, kept for backward compat] Single-message WA build.
+
+    New code should use build_deep_dive_wa_parts() which returns list[str] for
+    multi-part sending. This function returns parts[0] when content fits in
+    one part, or a truncated version when it doesn't.
+    """
+    parts = build_deep_dive_wa_parts(entry, mode, llm_content, date_str)
+    return parts[0] if parts else ""
+
+
+# V37.9.21: WhatsApp single-bubble character budget (matches original
+# build_deep_dive_wa cap to preserve historical formatting tests).
+_WA_BUDGET_PER_PART = 1400
+
+# Per-part header takes ~80-150 chars depending on title; leave generous buffer
+# for the body. Splitter targets body ~1200 chars per part with header overhead
+# kept under ~200 chars.
+_WA_BODY_BUDGET_PER_PART = 1200
+
+
+def _split_text_into_chunks(text, max_chunk):
+    """Split text into chunks of at most max_chunk chars each, preferring
+    paragraph (\\n\\n) boundaries first, then line (\\n) boundaries, then
+    sentence-ish punctuation, falling back to hard cut.
+
+    V37.9.21: mirrors kb_dream.sh:1263-1290 splitting logic but with the
+    additional layer of paragraph-first preference (deep_dive content has
+    natural section structure: 论证链/实验对比/局限性/启发).
+
+    Returns: list[str] (always non-empty if text is non-empty; preserves
+    text content end-to-end with no truncation, only split points).
+    """
+    if not text:
+        return []
+    if len(text) <= max_chunk:
+        return [text.strip()]
+
+    chunks = []
+    remaining = text
+    while len(remaining) > max_chunk:
+        # Prefer paragraph break in second half of window
+        cut = remaining.rfind("\n\n", int(max_chunk * 0.5), max_chunk)
+        if cut < 0:
+            # Try line break
+            cut = remaining.rfind("\n", int(max_chunk * 0.5), max_chunk)
+        if cut < 0:
+            # Try sentence-ish punctuation
+            for sep in ("。", "！", "？", ". ", "! ", "? "):
+                cut = remaining.rfind(sep, int(max_chunk * 0.5), max_chunk)
+                if cut >= 0:
+                    cut += len(sep)
+                    break
+        if cut < 0:
+            cut = max_chunk  # hard cut
+        chunks.append(remaining[:cut].strip())
+        remaining = remaining[cut:].lstrip()
+    if remaining.strip():
+        chunks.append(remaining.strip())
+    return chunks
+
+
+def build_deep_dive_wa_parts(entry, mode, llm_content, date_str):
+    """Build list of WhatsApp messages, one per part with [i/N] header.
+
+    V37.9.21 multi-part splitting (mirrors kb_dream.sh pattern):
+      - Each part has compact per-part header: "🔬 每日深度 [i/N] {date}{mode_tag}\\n{title}\\n⭐{stars} | {source}\\n\\n"
+      - Body chunked to fit _WA_BUDGET_PER_PART minus header
+      - Link only on Part 1 (saves chars on Parts 2+, user can scroll back)
+      - Single-part case: omit [i/N] indicator (cleaner display)
+
+    Returns: list[str] of WhatsApp messages, in order.
+    """
     mode_tag = "" if mode == "full_text" else "（摘要级）"
-    header = (
-        f"🔬 每日深度 {date_str}{mode_tag}\n"
-        f"{entry['title']}\n"
-        f"⭐{entry['stars']} | {entry['source_label']}\n"
-    )
-    if entry.get("link"):
-        header += f"{entry['link']}\n"
-    header += "\n"
-    budget = 1400 - len(header) - 10
-    body = llm_content if len(llm_content) <= budget else llm_content[:budget] + "..."
-    return header + body
+
+    # Compute body chunks first to know N
+    chunks = _split_text_into_chunks(llm_content, _WA_BODY_BUDGET_PER_PART)
+    if not chunks:
+        return []
+    total = len(chunks)
+
+    parts = []
+    for idx, chunk in enumerate(chunks, start=1):
+        if total > 1:
+            header = (
+                f"🔬 每日深度 [{idx}/{total}] {date_str}{mode_tag}\n"
+                f"{entry['title']}\n"
+                f"⭐{entry['stars']} | {entry['source_label']}\n"
+            )
+        else:
+            header = (
+                f"🔬 每日深度 {date_str}{mode_tag}\n"
+                f"{entry['title']}\n"
+                f"⭐{entry['stars']} | {entry['source_label']}\n"
+            )
+        # Link only on Part 1 (or single part) — saves chars on subsequent
+        if idx == 1 and entry.get("link"):
+            header += f"{entry['link']}\n"
+        header += "\n"
+        parts.append(header + chunk)
+    return parts
 
 
 def build_deep_dive_discord(entry, mode, llm_content, date_str):
@@ -677,7 +764,11 @@ def run(kb_dir, registry_path, today=None, llm_caller=None, fetcher=None):
 
     # 4. 构建输出
     md = build_deep_dive_markdown(pick, mode, llm_content, degrade_reason, date_str)
-    wa = build_deep_dive_wa(pick, mode, llm_content, date_str)
+    # V37.9.21: WA now returns list[str] for multi-part sending. Keep
+    # wa_message (backward-compat: equals wa_parts[0]) for any consumer
+    # that hasn't been migrated yet.
+    wa_parts = build_deep_dive_wa_parts(pick, mode, llm_content, date_str)
+    wa = wa_parts[0] if wa_parts else ""
     discord_msg = build_deep_dive_discord(pick, mode, llm_content, date_str)
 
     return {
@@ -696,6 +787,7 @@ def run(kb_dir, registry_path, today=None, llm_caller=None, fetcher=None):
         "llm_content": llm_content,
         "markdown": md,
         "wa_message": wa,
+        "wa_parts": wa_parts,
         "discord_message": discord_msg,
     }
 
