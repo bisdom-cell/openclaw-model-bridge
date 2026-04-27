@@ -165,29 +165,77 @@ with open(os.environ["DEEP_FILE"], "w", encoding="utf-8") as f:
 PYEOF
 log "深度分析文件已生成: $DEEP_FILE"
 
-WA_MSG=$(echo "$COLLECTOR_OUTPUT" | python3 -c 'import json,sys; print(json.load(sys.stdin)["wa_message"])')
 DISCORD_MSG=$(echo "$COLLECTOR_OUTPUT" | python3 -c 'import json,sys; print(json.load(sys.stdin)["discord_message"])')
 MODE=$(echo "$COLLECTOR_OUTPUT" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("mode","?"))')
 PICK_TITLE=$(echo "$COLLECTOR_OUTPUT" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("pick",{}).get("title",""))')
 
+# V37.9.21: WhatsApp 多窗口分片 — 镜像 kb_dream.sh:1263-1319 模式
+# wa_parts 是 list[str], 单段时 length=1, 长内容自动分多段 [1/N] [2/N] ...
+# 段间 sleep 1 避免 WhatsApp 消息乱序
+WA_CHUNK_DIR=$(mktemp -d -t kb_deep_dive_wa_XXXXXX)
+trap 'rm -rf "$WA_CHUNK_DIR"' EXIT
+
+WA_PARTS_TOTAL=$(COLLECTOR_OUTPUT="$COLLECTOR_OUTPUT" CHUNK_DIR="$WA_CHUNK_DIR" python3 << 'PYEOF'
+import json, os
+data = json.loads(os.environ["COLLECTOR_OUTPUT"])
+parts = data.get("wa_parts") or [data.get("wa_message", "")]
+chunk_dir = os.environ["CHUNK_DIR"]
+for idx, part in enumerate(parts):
+    with open(os.path.join(chunk_dir, f"{idx:03d}.txt"), "w", encoding="utf-8") as f:
+        f.write(part)
+print(len(parts))
+PYEOF
+)
+
 # ── 7. 推送 ──
 # topic=deep_dive 路由到 Discord #daily（保留主 daily 频道作为深度分析归属）
-# WhatsApp 收简版，Discord 收完整版（内容不同）— 用 --channel 分别发
+# WhatsApp 收多段简版（V37.9.21 分片），Discord 收单条完整版（内容不同）— 用 --channel 分别发
+WA_SEND_OK=0
+WA_PART_IDX=0
+
+send_wa_parts_via_notify() {
+    for chunk_file in "$WA_CHUNK_DIR"/*.txt; do
+        [ -f "$chunk_file" ] || continue
+        WA_PART_IDX=$((WA_PART_IDX + 1))
+        WA_SEGMENT=$(cat "$chunk_file")
+        if notify "$WA_SEGMENT" --channel whatsapp --topic deep_dive >/dev/null 2>&1; then
+            WA_SEND_OK=$((WA_SEND_OK + 1))
+        else
+            log "WARN: WhatsApp 第 $WA_PART_IDX/$WA_PARTS_TOTAL 段推送失败"
+        fi
+        # 段间间隔 1 秒，避免消息乱序（Dream 同款）
+        [ "$WA_PART_IDX" -lt "$WA_PARTS_TOTAL" ] && sleep 1
+    done
+}
+
+send_wa_parts_via_openclaw() {
+    for chunk_file in "$WA_CHUNK_DIR"/*.txt; do
+        [ -f "$chunk_file" ] || continue
+        WA_PART_IDX=$((WA_PART_IDX + 1))
+        WA_SEGMENT=$(cat "$chunk_file")
+        if openclaw message send --channel whatsapp --target "$PHONE" --message "$WA_SEGMENT" --json >/dev/null 2>&1; then
+            WA_SEND_OK=$((WA_SEND_OK + 1))
+        else
+            log "WARN: WhatsApp 第 $WA_PART_IDX/$WA_PARTS_TOTAL 段推送失败"
+        fi
+        [ "$WA_PART_IDX" -lt "$WA_PARTS_TOTAL" ] && sleep 1
+    done
+}
+
 if command -v notify >/dev/null 2>&1; then
-    # WhatsApp 简版
-    notify "$WA_MSG" --channel whatsapp --topic deep_dive >/dev/null 2>&1 || \
-        log "WARN: WhatsApp 推送失败"
-    # Discord 完整版
+    # WhatsApp 多段（V37.9.21 分片）
+    send_wa_parts_via_notify
+    # Discord 完整版（单条）
     notify "$DISCORD_MSG" --channel discord --topic deep_dive >/dev/null 2>&1 || \
         log "WARN: Discord 推送失败"
-    log "深度分析已推送（WhatsApp 简版 + Discord #daily 完整版）"
+    log "深度分析已推送（WhatsApp $WA_SEND_OK/$WA_PARTS_TOTAL 段 + Discord #daily 完整版）"
     write_status "ok" "" "$MODE"
 else
     # notify.sh 不可用 — fallback 直接 openclaw
-    openclaw message send --channel whatsapp --target "$PHONE" --message "$WA_MSG" --json >/dev/null 2>&1 || \
-        log "WARN: WhatsApp 推送失败"
+    send_wa_parts_via_openclaw
     openclaw message send --channel discord --target "${DISCORD_CH_DAILY:-}" --message "$DISCORD_MSG" --json >/dev/null 2>&1 || \
         log "WARN: Discord 推送失败"
+    log "深度分析已推送（WhatsApp $WA_SEND_OK/$WA_PARTS_TOTAL 段 + Discord 完整版）"
     write_status "ok" "" "$MODE"
 fi
 
