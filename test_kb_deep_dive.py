@@ -428,6 +428,172 @@ class TestOutputBuilders(unittest.TestCase):
 
 
 # ══════════════════════════════════════════════════════════════════════
+# 8b. V37.9.21 — Multi-part WA splitting (Dream-style)
+# ══════════════════════════════════════════════════════════════════════
+class TestSplitTextIntoChunks(unittest.TestCase):
+    """V37.9.21: chunk splitter for long LLM content."""
+
+    def test_short_text_returns_single_chunk(self):
+        chunks = m._split_text_into_chunks("hello world", 1000)
+        self.assertEqual(chunks, ["hello world"])
+
+    def test_empty_text_returns_empty_list(self):
+        self.assertEqual(m._split_text_into_chunks("", 1000), [])
+
+    def test_long_text_splits_at_paragraph_boundary(self):
+        # First half + paragraph break + second half — splitter prefers \n\n
+        text = ("a" * 800) + "\n\n" + ("b" * 800)
+        chunks = m._split_text_into_chunks(text, 1000)
+        self.assertEqual(len(chunks), 2)
+        # First chunk should end at the paragraph (no b's)
+        self.assertNotIn("b", chunks[0])
+        # Second chunk should be the b's
+        self.assertNotIn("a", chunks[1])
+
+    def test_long_text_splits_at_line_boundary_when_no_paragraph(self):
+        text = "\n".join(["line " + ("x" * 100) for _ in range(20)])
+        chunks = m._split_text_into_chunks(text, 1000)
+        self.assertGreater(len(chunks), 1)
+        # Each chunk should be at most max_chunk + overhead from boundary search
+        for chunk in chunks:
+            self.assertLessEqual(len(chunk), 1100)
+
+    def test_no_boundary_falls_back_to_hard_cut(self):
+        # Pure 'a' string with no separators
+        text = "a" * 3000
+        chunks = m._split_text_into_chunks(text, 1000)
+        self.assertEqual(len(chunks), 3)
+        # Each chunk is exactly 1000 chars (hard cut)
+        for chunk in chunks:
+            self.assertEqual(len(chunk), 1000)
+
+    def test_preserves_full_content(self):
+        text = "Section 1\n\n" + ("a" * 500) + "\n\nSection 2\n\n" + ("b" * 500)
+        chunks = m._split_text_into_chunks(text, 600)
+        # All a's and b's must appear somewhere across chunks
+        joined = "".join(chunks)
+        self.assertEqual(joined.count("a"), 500)
+        self.assertEqual(joined.count("b"), 500)
+
+    def test_chinese_punctuation_boundary(self):
+        # No paragraph or line breaks, but Chinese sentence punctuation
+        text = ("内容" * 100) + "。" + ("更多" * 100) + "。" + ("结尾" * 100)
+        chunks = m._split_text_into_chunks(text, 300)
+        self.assertGreater(len(chunks), 1)
+        # First chunk should end at one of the 。 boundaries
+        self.assertTrue(chunks[0].endswith("。") or len(chunks[0]) == 300)
+
+
+class TestBuildDeepDiveWaParts(unittest.TestCase):
+    """V37.9.21: multi-part WA builder."""
+
+    def _entry(self):
+        return {
+            "title": "Test Paper Title",
+            "source_label": "📄 ArXiv",
+            "link": "https://arxiv.org/abs/2401.12345",
+            "stars": 5,
+            "source_id": "arxiv_monitor",
+        }
+
+    def test_short_content_single_part(self):
+        parts = m.build_deep_dive_wa_parts(
+            self._entry(), "full_text", "短分析。", "2026-04-27"
+        )
+        self.assertEqual(len(parts), 1)
+        # Single-part: NO [i/N] indicator
+        self.assertNotIn("[1/", parts[0])
+        # Has header
+        self.assertIn("Test Paper Title", parts[0])
+        self.assertIn("⭐", parts[0])
+        # Has link
+        self.assertIn("arxiv.org", parts[0])
+
+    def test_long_content_multi_part(self):
+        long_content = "段落内容。" * 500  # ~3000 chars
+        parts = m.build_deep_dive_wa_parts(
+            self._entry(), "full_text", long_content, "2026-04-27"
+        )
+        self.assertGreater(len(parts), 1, "Long content should split into multiple parts")
+
+    def test_each_part_has_indexed_header(self):
+        long_content = "x" * 5000
+        parts = m.build_deep_dive_wa_parts(
+            self._entry(), "full_text", long_content, "2026-04-27"
+        )
+        total = len(parts)
+        self.assertGreater(total, 1)
+        for idx, part in enumerate(parts, start=1):
+            # Each part must have [i/N] indicator
+            self.assertIn(f"[{idx}/{total}]", part,
+                f"Part {idx} missing [{idx}/{total}] indicator")
+            # Each part has title for context
+            self.assertIn("Test Paper Title", part)
+
+    def test_link_only_on_first_part(self):
+        long_content = "y" * 5000
+        parts = m.build_deep_dive_wa_parts(
+            self._entry(), "full_text", long_content, "2026-04-27"
+        )
+        self.assertGreater(len(parts), 1)
+        # Part 1 has link
+        self.assertIn("arxiv.org/abs/2401.12345", parts[0])
+        # Parts 2+ don't repeat link (saves chars)
+        for part in parts[1:]:
+            self.assertNotIn("arxiv.org/abs/2401.12345", part)
+
+    def test_each_part_within_budget(self):
+        long_content = "z" * 8000
+        parts = m.build_deep_dive_wa_parts(
+            self._entry(), "full_text", long_content, "2026-04-27"
+        )
+        for idx, part in enumerate(parts, start=1):
+            self.assertLessEqual(len(part), m._WA_BUDGET_PER_PART + 50,
+                f"Part {idx} exceeds budget: {len(part)} > {m._WA_BUDGET_PER_PART}")
+
+    def test_abstract_mode_tag_on_each_part(self):
+        long_content = "段落。" * 500
+        parts = m.build_deep_dive_wa_parts(
+            self._entry(), "abstract_only", long_content, "2026-04-27"
+        )
+        self.assertGreater(len(parts), 1)
+        for part in parts:
+            self.assertIn("摘要级", part,
+                "All parts must show abstract_only mode tag for context")
+
+    def test_empty_llm_content_returns_empty_list(self):
+        parts = m.build_deep_dive_wa_parts(
+            self._entry(), "full_text", "", "2026-04-27"
+        )
+        self.assertEqual(parts, [])
+
+    def test_full_content_preserved_across_parts(self):
+        """Critical: splitter must NOT lose content (no truncation)."""
+        # Use distinctive markers so we can verify full preservation
+        markers = [f"MARKER_{i:04d}" for i in range(50)]
+        long_content = "\n".join(
+            f"{m_str}: {'x' * 60}" for m_str in markers
+        )
+        parts = m.build_deep_dive_wa_parts(
+            self._entry(), "full_text", long_content, "2026-04-27"
+        )
+        # Concatenate body across all parts and check every marker is present
+        joined = "\n".join(parts)
+        for marker in markers:
+            self.assertIn(marker, joined,
+                f"Content lost: {marker} not in any part")
+
+    def test_backward_compat_build_deep_dive_wa_returns_first_part(self):
+        """build_deep_dive_wa() (legacy) returns parts[0] for backward compat."""
+        long_content = "abc " * 1000
+        wa = m.build_deep_dive_wa(self._entry(), "full_text", long_content, "2026-04-27")
+        parts = m.build_deep_dive_wa_parts(
+            self._entry(), "full_text", long_content, "2026-04-27"
+        )
+        self.assertEqual(wa, parts[0])
+
+
+# ══════════════════════════════════════════════════════════════════════
 # 9. run() orchestrator — 端到端路径
 # ══════════════════════════════════════════════════════════════════════
 class TestRunOrchestrator(unittest.TestCase):
@@ -521,6 +687,28 @@ class TestRunOrchestrator(unittest.TestCase):
         )
         self.assertEqual(out["status"], "collector_failed")
 
+    def test_ok_path_returns_wa_parts_list(self):
+        """V37.9.21: run() must return wa_parts as list[str] for multi-part send."""
+        self._write_arxiv_source(
+            "*Long paper analysis*\n"
+            "链接：https://arxiv.org/abs/2401.99999\n"
+            "贡献：详细贡献\n"
+            "价值：⭐⭐⭐⭐⭐"
+        )
+        long_llm = "深度分析段落。\n\n" * 200  # ~2400 chars guaranteed multi-part
+        out = m.run(
+            self.kb_dir, self.registry_path, today=self.today,
+            llm_caller=lambda p: (True, long_llm, ""),
+            fetcher=lambda e: ("full_text", "BODY", ""),
+        )
+        self.assertEqual(out["status"], "ok")
+        self.assertIn("wa_parts", out)
+        self.assertIsInstance(out["wa_parts"], list)
+        self.assertGreater(len(out["wa_parts"]), 1,
+            "Long LLM content should split into multiple WA parts")
+        # Backward-compat: wa_message still equals parts[0]
+        self.assertEqual(out["wa_message"], out["wa_parts"][0])
+
 
 # ══════════════════════════════════════════════════════════════════════
 # 10. Shell 脚本守卫
@@ -572,6 +760,52 @@ class TestKbDeepDiveShellGuards(unittest.TestCase):
         # 从该处到后面 500 字符内必须有 exit 1
         region = self.content[idx : idx + 800]
         self.assertIn("exit 1", region)
+
+    # ── V37.9.21 multi-part WA shell guards ──────────────────────────────
+
+    def test_v37_9_21_marker_in_script(self):
+        self.assertIn("V37.9.21", self.content,
+            "kb_deep_dive.sh must mark V37.9.21 multi-part section")
+
+    def test_script_extracts_wa_parts_via_env_var_heredoc(self):
+        """V37.5.1 反模式防御：必须用 env-var heredoc, 不能 echo | python3 -."""
+        self.assertIn('COLLECTOR_OUTPUT="$COLLECTOR_OUTPUT"', self.content)
+        self.assertIn("wa_parts", self.content,
+            "Script must consume wa_parts (V37.9.21 list)")
+
+    def test_script_writes_chunks_to_tempdir(self):
+        """V37.9.21: chunks written to mktemp dir, cleaned up on EXIT."""
+        self.assertIn("mktemp -d", self.content)
+        self.assertIn("WA_CHUNK_DIR", self.content)
+        # trap EXIT for cleanup
+        self.assertIn("trap", self.content)
+        self.assertIn('rm -rf "$WA_CHUNK_DIR"', self.content)
+
+    def test_script_loops_over_chunk_files_with_sleep(self):
+        """V37.9.21: send loop iterates *.txt with 1s sleep between (Dream pattern)."""
+        # Loop body
+        self.assertIn('for chunk_file in "$WA_CHUNK_DIR"/*.txt', self.content)
+        # Sleep between segments to avoid WhatsApp out-of-order
+        self.assertIn("sleep 1", self.content)
+        # WA_PART_IDX counter
+        self.assertIn("WA_PART_IDX", self.content)
+        # Total parts variable
+        self.assertIn("WA_PARTS_TOTAL", self.content)
+
+    def test_script_has_separate_wa_and_discord_send(self):
+        """Discord stays single-send (per V37.9.21 design decision 1: only WA splits)."""
+        # Both notify --channel whatsapp and --channel discord must exist
+        self.assertIn("--channel whatsapp --topic deep_dive", self.content)
+        self.assertIn("--channel discord --topic deep_dive", self.content)
+        # Discord NOT in WA chunk loop — separate notify call
+        # Check that DISCORD_MSG is sent ONCE (not in loop)
+        # heuristic: count occurrences of DISCORD_MSG sends
+        discord_send_count = self.content.count('"$DISCORD_MSG"')
+        self.assertGreaterEqual(discord_send_count, 1)
+
+    def test_script_logs_part_count_on_success(self):
+        """ops visibility: log message includes 'X/N 段' so failures are visible."""
+        self.assertIn("$WA_SEND_OK/$WA_PARTS_TOTAL", self.content)
 
 
 if __name__ == "__main__":
