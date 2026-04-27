@@ -485,7 +485,7 @@ meta_rules:
       - "ontology/convergence_ontology.yaml 登记每个 declared resource 的 spec"
       - "INV-CONVERGENCE-* 不变式群守卫每个 spec 真实可执行 + drift 被发现"
       - "新增任何声明态资源时，必须配套提交对应 convergence_spec 否则视为遗漏"
-    derivative_invariants: [INV-CONVERGENCE-CRON-001]
+    derivative_invariants: [INV-CONVERGENCE-CRON-001, INV-CONVERGENCE-PROVIDERS-001]
     blood_lessons: |
       2026-04-26 V37.9.18: V37.9.16 (4/24) 上线 kb_deep_dive 时 jobs_registry.yaml
       声明 enabled=true + interval="30 22 * * *"，但**没人手动 crontab_safe.sh add**，
@@ -4688,6 +4688,136 @@ invariants:
               f"STDOUT={proc.stdout[-800:]}\nSTDERR={proc.stderr[-1500:]}"
           )
 
+  - id: INV-CONVERGENCE-PROVIDERS-001
+    name: providers-registry-converges-to-adapter-health
+    meta_rule: MR-17
+    verification_layer: [declaration, runtime]
+    severity: high
+    declaration: |
+      V37.9.20 Phase 4 Layer 5 (convergence framework second spec):
+      providers.py ProviderRegistry.list_names() (built-in + auto-discovered
+      providers.d/ YAML/Python plugins) 中的每个 provider 必须在 adapter
+      :5001 /health 端点的 provider/fallback/fallback_chain[] 字段 union 中
+      至少出现一次。convergence framework 通过 named-dispatch 扩展（新增
+      providers_from_registry extractor + http_endpoint observer +
+      json_set_union parser）零修改 verify_convergence orchestrator —
+      MR-8 (copy-paste-is-a-bug-class) 正向兑现，证明 V37.9.19 named-
+      dispatch 设计可扩展。
+
+      drift_action 永久为 alert_only（结构性决策，非 V37.9.19 保守 TODO）：
+      providers_to_adapter 漂移源于 (a) 缺 API key 或 (b) registry 构建失
+      败，前者需要操作员决策提供凭证，后者是真实 bug — 两者都不能 machine
+      自动修复。
+    lesson: |
+      2026-04-15 V37.8.10 kb_evening fallback quota chain blood case：
+      用户察觉 fallback_chain 只有 ['gemini'] 而 7 个 provider 已注册，
+      手动追查才知道 6 个 provider 缺 API key 未生效。当时无 declaration→
+      runtime 自动比对机制，盲区潜伏数月。
+      INV-CONVERGENCE-PROVIDERS-001 把 V37.8.10 的事后追查升级为
+      governance audit 主动监控 — convergence.verify_convergence(
+      'providers_to_adapter') 可在每次审计直接给出"declared N / observed
+      M / missing K"的可执行 signal。
+    design_decision: |
+      为什么 alert_only 是永久结构性决策，不是 V37.9.19 同款保守 TODO？
+        - jobs_to_crontab：machine_sync 可达（cron 行模板可从 registry
+          的 interval/entry/log_path 字段生成）→ V37.9.21 升级路径成立
+        - providers_to_adapter：API key 由人类决策提供（某 provider 是
+          否启用涉及成本/合规/SLA），machine 永远无法自动 provision →
+          alert_only 是终态
+      为什么用 http_endpoint observer 而非读 adapter 进程内存？
+        - /health 端点是 adapter 已暴露的官方运行时事实接口（V34+ 既有）
+        - convergence 不应耦合 adapter 内部状态，只观察其对外契约
+        - dev 环境无 adapter 时 observer FAIL-OPEN（connection refused
+          → observer_failed），与 V37.9.19 dev 无 crontab 行为对称
+      为什么 json_set_union parser 选择"observed ⊆ declared"？
+        - V37.9.19 框架约定（line 248 注释）：observed always subset of
+          declared，extras 静默丢弃。保留契约对所有 spec 一致
+        - 防御 /health 字段未来扩展（如 fast_route 出现新 provider 名）
+          意外破坏 drift 计算
+    checks:
+      # ── declaration layer: convergence.py 扩展点都已注册 ────────────
+      - name: "convergence.py 注册 providers_from_registry extractor"
+        check_type: file_contains
+        file: ontology/convergence.py
+        pattern: '"providers_from_registry": _extract_providers_from_registry'
+      - name: "convergence.py 注册 http_endpoint observer"
+        check_type: file_contains
+        file: ontology/convergence.py
+        pattern: '"http_endpoint": _observe_http_endpoint'
+      - name: "convergence.py 注册 json_set_union parser"
+        check_type: file_contains
+        file: ontology/convergence.py
+        pattern: '"json_set_union": _parse_json_set_union'
+      - name: "convergence.py 定义 _HTTP_OBSERVER_TIMEOUT_SEC 常量"
+        check_type: file_contains
+        file: ontology/convergence.py
+        pattern: '_HTTP_OBSERVER_TIMEOUT_SEC = 5'
+      - name: "convergence.py http observer FAIL-OPEN 包装 RuntimeError"
+        check_type: file_contains
+        file: ontology/convergence.py
+        pattern: 'http_endpoint failed:'
+      # ── declaration layer: convergence_ontology.yaml spec 完整 ──────
+      - name: "convergence_ontology.yaml 声明 providers_to_adapter spec"
+        check_type: file_contains
+        file: ontology/convergence_ontology.yaml
+        pattern: 'id: providers_to_adapter'
+      - name: "providers_to_adapter 引用本 INV"
+        check_type: file_contains
+        file: ontology/convergence_ontology.yaml
+        pattern: 'governance_invariant: INV-CONVERGENCE-PROVIDERS-001'
+      - name: "providers_to_adapter 用 http_endpoint observer"
+        check_type: file_contains
+        file: ontology/convergence_ontology.yaml
+        pattern: 'method: http_endpoint'
+      - name: "providers_to_adapter 用 json_set_union parser"
+        check_type: file_contains
+        file: ontology/convergence_ontology.yaml
+        pattern: 'parser: json_set_union'
+      - name: "providers_to_adapter convergence_method=alert_only_permanent (结构性决策)"
+        check_type: file_contains
+        file: ontology/convergence_ontology.yaml
+        pattern: 'alert_only_permanent'
+      - name: "convergence_ontology meta version 升级到 0.2-second-spec"
+        check_type: file_contains
+        file: ontology/convergence_ontology.yaml
+        pattern: '0.2-second-spec'
+      - name: "convergence_ontology meta 引用本 INV (related_invariants)"
+        check_type: file_contains
+        file: ontology/convergence_ontology.yaml
+        pattern: 'INV-CONVERGENCE-PROVIDERS-001'
+      - name: "convergence_ontology blood_lesson 链接 V37.8.10 kb_evening case"
+        check_type: file_contains
+        file: ontology/convergence_ontology.yaml
+        pattern: 'kb_evening_fallback_quota_chain_case.md'
+      # ── runtime layer: V37.9.20 specific test classes 端到端通过 ───
+      - name: "RUNTIME: test_convergence.py V37.9.20 测试类全部通过 (TestExtractProvidersFromRegistry + TestObserveHttpEndpoint + TestParseJsonSetUnion + TestVerifyProvidersToAdapterIntegration + TestProvidersSpecSourceGuards)"
+        check_type: python_assert
+        assertion: |
+          import subprocess
+          import sys
+          import os
+          repo_root = os.environ.get("OPENCLAW_REPO_ROOT", os.getcwd())
+          test_file = os.path.join(repo_root, "test_convergence.py")
+          assert os.path.exists(test_file), f"test_convergence.py 不存在: {test_file}"
+          # Run only V37.9.20 test classes via unittest discovery filter
+          v9_20_classes = [
+              "TestExtractProvidersFromRegistry",
+              "TestObserveHttpEndpoint",
+              "TestParseJsonSetUnion",
+              "TestVerifyProvidersToAdapterIntegration",
+              "TestProvidersSpecSourceGuards",
+          ]
+          targets = [f"test_convergence.{c}" for c in v9_20_classes]
+          proc = subprocess.run(
+              [sys.executable, "-m", "unittest", "-v"] + targets,
+              capture_output=True, text=True, timeout=60,
+              cwd=repo_root,
+          )
+          assert proc.returncode == 0, (
+              f"V37.9.20 providers_to_adapter test classes failed:\n"
+              f"STDOUT={proc.stdout[-1000:]}\nSTDERR={proc.stderr[-1500:]}"
+          )
+
 # ═══════════════════════════════════════════════════════════════════════
 # 4. 可执行元规则（Phase 0）— 自动发现缺失不变式
 #    只扫描结构化数据源，不解析自然语言
@@ -5046,9 +5176,11 @@ security_config:
 # 6. 审计元数据
 # ═══════════════════════════════════════════════════════════════════════
 audit_metadata:
-  version: "3.32"
+  version: "3.34"
   created: "2026-04-07"
   upgraded: |
+    v3.33 → v3.34: V37.9.20 第二个 convergence spec providers_to_adapter — Phase 4 Layer 5 named-dispatch 扩展性首次兑现 (MR-8 copy-paste-is-a-bug-class 正向案例). V37.9.19 framework 用 named-dispatch 三表 (_DECLARED_EXTRACTORS / _RUNTIME_OBSERVERS / _IDENTIFIER_PARSERS) 镜像 V37.9.13 _CONTEXT_EVALUATORS / V37.9.15 _STATIC_SIGNAL_KEYS 模式承诺 "添加新 spec 类型只需 yaml + 注册新函数零 framework 改动"。V37.9.20 是首次兑现: zero changes to verify_convergence orchestrator + 3 个新 dispatch 函数 (`_extract_providers_from_registry` 读 providers.ProviderRegistry.list_names() 含 7 built-in + auto-discovered providers.d/ 插件 / `_observe_http_endpoint` 用 stdlib urllib GET 5s timeout + FAIL-OPEN 包装所有 URLError/HTTPError/timeout 为 RuntimeError 让 framework 转 observer_failed / `_parse_json_set_union` 走 spec.json_paths 配置 (`field` 标量 / `field[]` list) 取 union 后与 declared 求交保持 V37.9.19 "observed ⊆ declared" 契约) + convergence_ontology.yaml `providers_to_adapter` spec (alert_only_permanent 永久结构性决策因 API key 不能 machine 自动 provision)。INV-CONVERGENCE-PROVIDERS-001 新增 (meta_rule=MR-17, severity=high, verification_layer=[declaration, runtime], 14 checks: 5 dispatch registration 守卫 + 8 yaml structural 守卫 + 1 runtime python_assert 跑 V37.9.20 5 个测试类 35 单测端到端). 35 新单测 5 类 (TestExtractProvidersFromRegistry 3 / TestObserveHttpEndpoint 6 含 mock urlopen 200/500/timeout/connection_refused / TestParseJsonSetUnion 12 含 list_path_with_non_list/null_elements/non_string_path 边界 / TestVerifyProvidersToAdapterIntegration 3 含 happy_path/full_visibility 真 mock / TestProvidersSpecSourceGuards 11 含 alert_only_permanent 永久守卫 + machine_sync 禁字面量). 累计 47→48 suites (+1, test_convergence.py 49→84 tests, +35) / 1542→1577 tests / 0 fail / governance v3.33→v3.34 / 62→63 invariants (+1) / 311→337 checks (+14, declaration 13 + runtime 1) / 17 meta rules 不变 / 安全 95/100. MR-17 derivative_invariants 升级 [INV-CONVERGENCE-CRON-001] → [..., INV-CONVERGENCE-PROVIDERS-001]。**元价值**: V37.9.19 framework 一周内首次扩展, 证明 named-dispatch 不是空头承诺 — V37.9.21+ 添加 openclaw_config_to_runtime / kb_sources_to_index 同样零 framework 改动。Phase 4 Layer 5 从"单 spec demo"升级为"可扩展 control plane 抽象"。
+    v3.32 → v3.33: V37.9.19 Phase 4 Layer 5 Convergence Framework + MR-17 立案 + 第一个 spec jobs_to_crontab — declared→runtime 同步从靠记忆升级为机器化。
     v3.31 → v3.32: V37.9.15 Phase 4 P3 三阶段门控 shadow wiring — INV-GATE-001 新增 (three-gate-wiring-observability, meta_rule=MR-7, severity=high, verification_layer=[declaration, runtime], 14 checks). V37.9.12 P1 + V37.9.13 P2 只在启动期解析 static policy 阈值缓存到模块常量; contextual/temporal policy 有 6 个 context evaluator 已注册但生产环境零调用——只被单测覆盖。P3 把 evaluate_policy() 接到真实请求路径: (1) ontology/three_gate.py 新模块 (纯函数 + namedtuple GateFinding + ONTOLOGY_GATES_MODE env 三档 off/shadow/on, 默认 shadow) 导出 pre_check / runtime_gate / post_verify 三 gate, 每 gate 遍历对应 policy_pairs 查 evaluate_policy + 静态 policy 提取 signal 比对 limit 产 pass/flag verdict; FAIL-OPEN 契约所有异常经 _safe_evaluate_policy 捕获返回 None 让 gate 降级为 pass + reason=engine_unavailable 绝不冒泡。(2) tool_proxy.py lazy-load three_gate (importlib.util + exists() 检查 + ontology/ 缺失不崩) + _run_gate 帮助函数 (log [gate:*] 单行格式化 + Exception 兜底) + do_POST 两处调用点: after json.dumps(body) 调 pre_check + runtime_gate (pass messages/tool_count/body_bytes/hour), after json.loads(resp_body) 调 post_verify (pass response=rj) 必须在 fix_tool_args 之前. (3) policy_ontology.yaml meta 0.2-p2-partial → 0.3-p3-partial, status=gates_wired_shadow_mode, phase=Phase 4 P3 (three-gate scaffolding, shadow-only). (4) 66 新单测: ontology/tests/test_three_gate.py 57 tests (TestGatesMode 7 含默认 shadow/case-insensitive/whitespace + TestGateFinding 3 含 immutable + TestOffModeShortCircuit 4 含 off 不调 engine + TestShadowModeNeverEnforces 2 + TestPreCheck 8 含 alert/quiet-hours context 全分支 + TestRuntimeGate 6 含 signal≤limit/signal>limit 边界 + TestPostVerify 5 含 alert echo 检测 + TestFailOpen 4 真 monkey-patch engine 抛异常 + TestExtractSignal 7 含 bool excluded from int + TestExtractAssistantText 6 + TestFormatFindingsForLog 3 + TestModuleIntegration 2) + test_tool_proxy.py TestThreeGateWiring 9 tests (lazy-load / _run_gate / 三处调用点 / post_verify 顺序锁 / Phase 4 P3 日志标记 / 默认 shadow / shadow 不 enforce). (5) MR-8 正面兑现: gate 逻辑统一走 _collect_findings 共享 helper, 每 gate 独立 policy_pairs 配置 — 不 copy-paste 三份遍历循环。governance v3.31→v3.32 / 60→61 inv (+1) / 273→287 checks (+14) / 16 meta rules (MR-16 计入). MR-7 兑现: policy 引擎从"可查询"升级到"请求路径被调用并产 [gate:*] 可观测 log"—为 V37.9.16+ 切 on 模式 + P4 四耦合点铺路。下次 Mac Mini --full 跑会看到 [proxy] three_gate loaded (mode=shadow) 启动日志 + 每请求末尾 [gate:pre_check] / [gate:runtime_gate] / [gate:post_verify] 三行 findings.
     v3.0 → v3.1: 通知路径治理(INV-NOTIFY-003/004) + 错误可观测性(MRD-ERROR-001) + 效果层启动(MRD-NOTIFY-002)
     v3.1 → v3.2: MR-7 governance-execution-is-self-observable + INV-GOV-001 summary 不吞 error（2026-04-11 三层嵌套盲区案例）
@@ -5081,8 +5213,8 @@ audit_metadata:
     v3.12 → v3.13: V37.8.7 ontology_sources 推送格式错位血案 — INV-ONTOLOGY-001 新增 (ontology-sources-parser-must-be-key-based-not-positional, meta_rule=MR-4, severity=high, verification_layer=[declaration, runtime], 7 checks). 2026-04-15 用户 WhatsApp 收到 ontology_sources 推送严重错位：第 2 篇 cn_title 显示为 *---*、第 3 篇 cn_title 显示为 *价值：⭐⭐⭐⭐*。根因：原解析器用严格位置 (lines[i], lines[i+1], lines[i+2]) + i+=3 步进 — LLM 漏一行"要点"或多一行空白就让所有后续条目的 cn_title/highlight/stars 全部右移一格级联污染。修复：抽到独立模块 jobs/ontology_sources/ontology_parser.py（纯函数 parse_llm_blocks 可单测，避开 V37.5 heredoc-only 不可测血案），按 separator 切块 + 块内 key-based prefix 解析，单块缺行不影响其他块。runtime python_assert 真跑用户实际看到的污染场景断言"缺要点不级联"。24 单测 (test_ontology_parser.py)：TestNormalCases(4) + TestBloodLessonRegression(5) + TestSeparatorVariants(5) + TestLLMOutputVariants(5) + TestShellScriptIntegration(4) + TestActualBloodLessonScenario(1)。MR-4 silent-failure 第 8 次演出（输出"看起来正常" 6 字段都在但语义错乱）。auto_deploy FILE_MAP 补齐 ontology_parser.py。
     v3.11 → v3.12: V37.8.6 Dream 自引用幻觉血案 — INV-DREAM-003 新增 (dream-log-cannot-pollute-cache-nor-fabricate-platform-crises, meta_rule=MR-4, severity=critical, verification_layer=[declaration, runtime], 16 checks). 2026-04-15 03:00 Dream run 出现 4 次 Bad JSON 400 (adapter 收到破损 JSON)，但 Dream 仍产出完整"Hugging Face 平台危机"分析，用户察觉 Signal(Papers with Code 沉默)↔Action(监控 Hugging Face) 主题断裂后上报。三层根因：(a) scraped 内容含 surrogate UTF-8 → json.dump + utf-8 file write → UnicodeEncodeError → body_file 截断 → adapter.py:386 返回 400 Bad JSON (b) kb_dream.sh log() 用 `echo` 写 stdout → signals=$(llm_call ...) 命令替换捕获 log 行进 signals → cache file 被"LLM raw response: Error code 400 Bad JSON..."污染 (c) Reduce cache-only fast path 把错误日志注入 LLM 上下文 → LLM 基于这些字样自动编造"Hugging Face 危机"叙事 = 原则 #23 链式幻觉 + MR-4 silent failure 第 7 次演出。四层结构修复（defense-in-depth）：log→stderr 阻断 stdout 污染通道 + _sanitize(U+D800-U+DFFF → U+FFFD) 防编码炸裂 + file open 显式 encoding='utf-8' errors='replace' 第二防线 + REDUCE/CHUNK1/2/3 system prompt 四块加反污染守卫 (禁止把 HTTP 错误码/Python 异常/错误页 HTML/U+FFFD 当外部信号，禁止基于这些字样推断 Hugging Face/GitHub/npm 等平台状态)。runtime python_assert 真跑 sanitize 五场景 (孤立高位/低位代理/正常串/代理范围边界/sanitize 后 json+utf-8 编码不炸)。19 单测 (TestLogGoesToStderr×2 + TestSanitizeSurrogates×7 + TestShellSanitizeImplementation×5 + TestAntiPollutionSystemPrompt×3 + TestShellScriptIntegrity×1 + TestLogDefHasCommentMeta×1)。
     v3.10 → v3.11: V37.8.5 INV-X-001 升级三层检测 (血案二次演出: V37.8.4 修复本身埋盲区) — V37.8.4 收工 Mac Mini E2E 即发现 2 个边缘：CNS1952 98/99 超窗口 + 1 过短老化率 99% 但未触发严格 old==total (MR-10 第 2 次演出：修复会埋坑)；SingTaoDaily 0-tweet stub (embed disabled 返回空骨架) 被 total>0 门槛绕过完全不标记。V37.8.5 修复：(1) 检测逻辑独立为 jobs/finance_news/finance_news_zombie.py 纯函数模块 (classify_zombie(diag, count)); (2) 三层 tier: "stub" (no_data=0 + total=0) + "stale" (≥90% 老化 + count=0 守卫防止低频活跃误报)，整数比较 old*10 >= total*9 避免浮点; (3) 24 单测锁定三层 + 守卫 + shell 集成 + auto_deploy FILE_MAP; (4) verification_layer 从 [declaration] 升级到 [declaration, runtime] (MR-6 遵循: INV-X-001 现在有 python_assert 真跑 5 个 tier 场景); (5) shell 脚本禁止内嵌 inline fallback (防模块缺失时静默降级回 V37.8.4 逻辑 — MR-8 copy-paste-is-a-bug-class 兑现)。诊断行 tier 区分 ⚠️ ZOMBIE嫌疑[stub] vs [stale]，便于日志定位。
-  total_invariants: 61  # V37.9.15: +INV-GATE-001 (MR-7 three-gate-wiring-observability, Phase 4 P3 shadow wiring)
-  total_checks: 299     # V37.9.15.1 HOTFIX: +2 INV-GATE-001 checks (_load_engine_module helper + __file__-adjacent spec loader path 3)
+  total_invariants: 63  # V37.9.20: +INV-CONVERGENCE-PROVIDERS-001 (MR-17 second spec via named-dispatch extension, Phase 4 Layer 5 reusability proof)
+  total_checks: 337     # V37.9.20: +14 INV-CONVERGENCE-PROVIDERS-001 checks (5 dispatch registration + 8 yaml structural + 1 runtime test class subset)
   meta_rules: 16        # MR-1~MR-16 (MR-16 security-governance-alignment: V37.9)
   meta_rule_discovery_count: 6   # Phase 0: registry + env + notify-topic + layer-depth + error-suppression + notify-activity
   check_types_used: [python_assert, file_contains, file_not_contains, env_var_exists, command_succeeds, log_activity_check]

@@ -17,6 +17,7 @@ Covers:
   TestSourceLevelGuards — convergence.py + convergence_ontology.yaml structural guards
 """
 
+import json
 import os
 import subprocess
 import sys
@@ -513,6 +514,327 @@ class TestSourceLevelGuards(unittest.TestCase):
 
     def test_yaml_blood_lesson_link_present(self):
         self.assertIn("kb_deep_dive_cron_unregistered_case.md", self.yaml_src)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# V37.9.20 — providers_to_adapter (second spec) regression tests
+# ═══════════════════════════════════════════════════════════════════════════
+
+class TestExtractProvidersFromRegistry(unittest.TestCase):
+    """V37.9.20 declared-side extractor for providers."""
+
+    def test_returns_set_of_strings(self):
+        result = cv._extract_providers_from_registry({})
+        self.assertIsInstance(result, set)
+        for name in result:
+            self.assertIsInstance(name, str)
+
+    def test_includes_known_builtin_providers(self):
+        # Built-in 7 are stable across V35+; spec relies on this
+        result = cv._extract_providers_from_registry({})
+        # At minimum qwen + gemini must be present (V37.8 fallback chain users)
+        self.assertIn("qwen", result)
+        self.assertIn("gemini", result)
+        self.assertGreaterEqual(len(result), 4,
+            "Built-in registry should expose ≥4 providers (V37.9.20 floor)")
+
+    def test_skips_empty_names(self):
+        # Defense in depth: ensure no empty strings leak through
+        result = cv._extract_providers_from_registry({})
+        self.assertNotIn("", result)
+        self.assertNotIn(None, result)
+
+
+class TestObserveHttpEndpoint(unittest.TestCase):
+    """V37.9.20 HTTP observer with mocked urllib."""
+
+    def _spec(self, **overrides):
+        s = {"runtime_observable": {
+            "method": "http_endpoint",
+            "url": "http://localhost:5001/health",
+            "timeout_sec": 1,
+        }}
+        s["runtime_observable"].update(overrides)
+        return s
+
+    def test_missing_url_raises_value_error(self):
+        spec = {"runtime_observable": {"method": "http_endpoint"}}
+        with self.assertRaises(ValueError):
+            cv._observe_http_endpoint(spec)
+
+    def test_invalid_timeout_falls_back_to_default(self):
+        # Timeout type-coerced; non-numeric should silently use default
+        # (FAIL-OPEN config tolerance, not strict validation)
+        spec = self._spec(timeout_sec="not_a_number")
+        # We can't easily assert the timeout value used, but at least
+        # the call shouldn't raise ValueError before connection attempt
+        with self.assertRaises(RuntimeError):
+            # Will fail with connection refused on dev, but past the
+            # timeout-coercion code path
+            cv._observe_http_endpoint(spec)
+
+    def test_connection_refused_raises_runtime_error_not_url_error(self):
+        # FAIL-OPEN promise: every failure surfaces as RuntimeError so
+        # framework's verify_convergence wraps it in observer_failed
+        spec = self._spec(url="http://localhost:1/should_not_exist")
+        with self.assertRaises(RuntimeError) as cm:
+            cv._observe_http_endpoint(spec)
+        self.assertIn("http_endpoint", str(cm.exception))
+
+    def test_timeout_path_raises_runtime_error(self):
+        # blackholed IP should hit timeout path; very short timeout
+        # 198.51.100.1 is TEST-NET-2 (RFC5737), guaranteed unreachable
+        spec = self._spec(url="http://198.51.100.1:5001/health", timeout_sec=0.5)
+        with self.assertRaises(RuntimeError):
+            cv._observe_http_endpoint(spec)
+
+    def test_successful_response_returns_decoded_body(self):
+        # Mock urlopen via context manager; verify decode path
+        from unittest.mock import patch, MagicMock
+        mock_resp = MagicMock()
+        mock_resp.status = 200
+        mock_resp.read.return_value = b'{"ok": true, "provider": "qwen"}'
+        mock_resp.__enter__ = MagicMock(return_value=mock_resp)
+        mock_resp.__exit__ = MagicMock(return_value=False)
+        with patch("urllib.request.urlopen", return_value=mock_resp):
+            spec = self._spec()
+            body = cv._observe_http_endpoint(spec)
+            self.assertEqual(body, '{"ok": true, "provider": "qwen"}')
+
+    def test_non_2xx_status_raises(self):
+        from unittest.mock import patch, MagicMock
+        mock_resp = MagicMock()
+        mock_resp.status = 500
+        mock_resp.read.return_value = b'oops'
+        mock_resp.__enter__ = MagicMock(return_value=mock_resp)
+        mock_resp.__exit__ = MagicMock(return_value=False)
+        with patch("urllib.request.urlopen", return_value=mock_resp):
+            spec = self._spec()
+            with self.assertRaises(RuntimeError) as cm:
+                cv._observe_http_endpoint(spec)
+            self.assertIn("status=500", str(cm.exception))
+
+
+class TestParseJsonSetUnion(unittest.TestCase):
+    """V37.9.20 JSON parser with multi-path union semantics."""
+
+    def _spec(self, paths):
+        return {"runtime_observable": {"json_paths": paths}}
+
+    def test_basic_three_path_union(self):
+        body = ('{"provider": "qwen", "fallback": "gemini", '
+                '"fallback_chain": ["gemini", "claude"]}')
+        spec = self._spec(["provider", "fallback", "fallback_chain[]"])
+        declared = {"qwen", "gemini", "claude", "openai"}
+        result = cv._parse_json_set_union(spec, body, declared)
+        self.assertEqual(result, {"qwen", "gemini", "claude"})
+
+    def test_observed_intersects_with_declared(self):
+        # Framework convention: extras silently dropped
+        body = '{"provider": "qwen", "fallback_chain": ["unknown_provider"]}'
+        spec = self._spec(["provider", "fallback_chain[]"])
+        declared = {"qwen", "gemini"}
+        result = cv._parse_json_set_union(spec, body, declared)
+        # unknown_provider not in declared → dropped
+        self.assertEqual(result, {"qwen"})
+
+    def test_missing_keys_silently_skipped(self):
+        body = '{"provider": "qwen"}'  # no fallback / fallback_chain
+        spec = self._spec(["provider", "fallback", "fallback_chain[]"])
+        declared = {"qwen", "gemini"}
+        result = cv._parse_json_set_union(spec, body, declared)
+        self.assertEqual(result, {"qwen"})
+
+    def test_empty_raw_returns_empty_set(self):
+        result = cv._parse_json_set_union(self._spec(["x"]), "", {"x"})
+        self.assertEqual(result, set())
+
+    def test_invalid_json_raises_value_error(self):
+        with self.assertRaises(ValueError) as cm:
+            cv._parse_json_set_union(self._spec(["x"]), "not json", {"x"})
+        self.assertIn("invalid JSON", str(cm.exception))
+
+    def test_non_object_top_level_raises(self):
+        # JSON arrays at top level → unsupported
+        with self.assertRaises(ValueError):
+            cv._parse_json_set_union(self._spec(["x"]), '["a","b"]', {"a"})
+
+    def test_missing_paths_config_raises(self):
+        with self.assertRaises(ValueError):
+            cv._parse_json_set_union(
+                {"runtime_observable": {}}, '{"x":1}', {"x"})
+
+    def test_empty_paths_list_raises(self):
+        with self.assertRaises(ValueError):
+            cv._parse_json_set_union(self._spec([]), '{"x":1}', {"x"})
+
+    def test_list_path_with_non_list_value_raises(self):
+        # Spec says fallback_chain[] but body has scalar — structural error
+        body = '{"fallback_chain": "not_a_list"}'
+        with self.assertRaises(ValueError):
+            cv._parse_json_set_union(
+                self._spec(["fallback_chain[]"]), body, {"x"})
+
+    def test_scalar_path_with_dict_value_silently_skipped(self):
+        # FAIL-OPEN: dict on scalar path likely misconfig but don't raise
+        body = '{"provider": {"nested": "qwen"}}'
+        result = cv._parse_json_set_union(
+            self._spec(["provider"]), body, {"qwen"})
+        self.assertEqual(result, set())
+
+    def test_null_list_elements_skipped(self):
+        body = '{"fallback_chain": ["gemini", null, "claude"]}'
+        result = cv._parse_json_set_union(
+            self._spec(["fallback_chain[]"]), body, {"gemini", "claude"})
+        self.assertEqual(result, {"gemini", "claude"})
+
+    def test_non_string_path_skipped(self):
+        # Defensive: spec authors may put None / int by mistake
+        spec = {"runtime_observable": {"json_paths": ["provider", None, 42, ""]}}
+        body = '{"provider": "qwen"}'
+        result = cv._parse_json_set_union(spec, body, {"qwen"})
+        self.assertEqual(result, {"qwen"})
+
+
+class TestVerifyProvidersToAdapterIntegration(unittest.TestCase):
+    """V37.9.20 end-to-end via verify_convergence with mocked HTTP."""
+
+    def test_real_spec_loads_and_runs_without_raise(self):
+        # In dev (no adapter on :5001), expect observer_failed but not crash
+        r = cv.verify_convergence("providers_to_adapter")
+        self.assertEqual(r.spec_id, "providers_to_adapter")
+        self.assertEqual(r.drift_action, "alert_only")
+        self.assertIsInstance(r, cv.ConvergenceResult)
+        # In dev, error should mention observer or extractor (both can trigger
+        # before connection refused depending on import timing)
+        if r.error:
+            self.assertTrue(
+                "observer_failed" in r.error or "extractor_failed" in r.error,
+                f"unexpected error type in dev: {r.error}")
+
+    def test_happy_path_with_mocked_health(self):
+        from unittest.mock import patch, MagicMock
+        # Mock /health response: 3 providers visible
+        mock_resp = MagicMock()
+        mock_resp.status = 200
+        mock_resp.read.return_value = (
+            b'{"provider":"qwen","fallback":"gemini",'
+            b'"fallback_chain":["gemini","claude"]}')
+        mock_resp.__enter__ = MagicMock(return_value=mock_resp)
+        mock_resp.__exit__ = MagicMock(return_value=False)
+        with patch("urllib.request.urlopen", return_value=mock_resp):
+            r = cv.verify_convergence("providers_to_adapter")
+            self.assertIsNone(r.error,
+                f"unexpected error: {r.error}")
+            # 3 of 7 visible → 4 missing
+            self.assertEqual(r.observed,
+                frozenset({"qwen", "gemini", "claude"}))
+            # missing = declared - observed (whatever the registry has minus 3)
+            self.assertEqual(len(r.missing_in_runtime),
+                len(r.declared) - 3)
+            self.assertTrue(r.drift_detected,
+                "Drift expected: 4 providers declared but not in /health")
+
+    def test_full_visibility_no_drift(self):
+        from unittest.mock import patch, MagicMock
+        # Synthesize /health that lists all 7 builtin providers
+        all_known = {"qwen", "openai", "gemini", "claude", "kimi", "minimax", "glm"}
+        body = json.dumps({
+            "provider": "qwen",
+            "fallback": "gemini",
+            "fallback_chain": sorted(all_known - {"qwen"}),
+        }).encode()
+        mock_resp = MagicMock()
+        mock_resp.status = 200
+        mock_resp.read.return_value = body
+        mock_resp.__enter__ = MagicMock(return_value=mock_resp)
+        mock_resp.__exit__ = MagicMock(return_value=False)
+        with patch("urllib.request.urlopen", return_value=mock_resp):
+            r = cv.verify_convergence("providers_to_adapter")
+            self.assertIsNone(r.error)
+            # Every declared provider should be observed → no drift
+            self.assertEqual(r.missing_in_runtime, frozenset())
+            self.assertFalse(r.drift_detected)
+
+
+class TestProvidersSpecSourceGuards(unittest.TestCase):
+    """V37.9.20 source-level guards on yaml + framework registration."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.py_src = (ONTOLOGY_DIR / "convergence.py").read_text(encoding="utf-8")
+        cls.yaml_src = (ONTOLOGY_DIR / "convergence_ontology.yaml").read_text(encoding="utf-8")
+
+    def test_extractor_registered_in_dispatch(self):
+        self.assertIn(
+            '"providers_from_registry": _extract_providers_from_registry',
+            self.py_src,
+        )
+
+    def test_observer_registered_in_dispatch(self):
+        self.assertIn(
+            '"http_endpoint": _observe_http_endpoint',
+            self.py_src,
+        )
+
+    def test_parser_registered_in_dispatch(self):
+        self.assertIn(
+            '"json_set_union": _parse_json_set_union',
+            self.py_src,
+        )
+
+    def test_http_observer_timeout_constant_present(self):
+        self.assertIn("_HTTP_OBSERVER_TIMEOUT_SEC", self.py_src)
+
+    def test_yaml_declares_providers_to_adapter_spec(self):
+        self.assertIn("id: providers_to_adapter", self.yaml_src)
+
+    def test_yaml_drift_action_alert_only(self):
+        # V37.9.20 ships providers_to_adapter as alert_only.
+        # machine_sync NOT applicable structurally (cannot auto-provision keys).
+        # planned_rationale documents this is permanent design choice, not TODO.
+        self.assertIn("alert_only_permanent", self.yaml_src,
+            "providers_to_adapter must declare alert_only_permanent (not TODO)")
+
+    def test_yaml_meta_version_advanced(self):
+        # meta version bumped from 0.1-skeleton → 0.2-second-spec
+        self.assertIn("0.2-second-spec", self.yaml_src)
+        self.assertNotIn('version: "0.1-skeleton"', self.yaml_src,
+            "meta version should be bumped past 0.1-skeleton in V37.9.20")
+
+    def test_yaml_meta_lists_both_invariants(self):
+        # Both V37.9.19 + V37.9.20 invariants present in related_invariants
+        self.assertIn("INV-CONVERGENCE-CRON-001", self.yaml_src)
+        self.assertIn("INV-CONVERGENCE-PROVIDERS-001", self.yaml_src)
+
+    def test_yaml_blood_lesson_links_present(self):
+        # Both blood case docs referenced
+        self.assertIn("kb_deep_dive_cron_unregistered_case.md", self.yaml_src)
+        self.assertIn("kb_evening_fallback_quota_chain_case.md", self.yaml_src)
+
+    def test_v37_9_20_changelog_mentions_dispatch_extension(self):
+        # Document that V37.9.20 is pure named-dispatch extension
+        self.assertIn("v37_9_20_changelog", self.yaml_src)
+        self.assertIn("named-dispatch", self.yaml_src)
+
+    def test_no_machine_sync_for_providers_spec(self):
+        # Guard against accidental drift_action escalation: providers spec
+        # should NEVER have machine_sync (cannot auto-provision API keys)
+        # Find providers_to_adapter spec block and check its drift_action
+        idx = self.yaml_src.find("id: providers_to_adapter")
+        self.assertGreater(idx, 0)
+        # Look at next ~80 lines for spec content
+        block = self.yaml_src[idx:idx + 3000]
+        # Within the spec block, drift_action must be alert_only
+        # (not machine_sync). The first drift_action: line in this block
+        # is the spec's drift_action.
+        lines = block.split("\n")
+        for line in lines:
+            if line.strip().startswith("drift_action:") and "rationale" not in line:
+                self.assertIn("alert_only", line)
+                self.assertNotIn("machine_sync", line)
+                return
+        self.fail("Could not find drift_action: line in providers_to_adapter spec")
 
 
 if __name__ == "__main__":

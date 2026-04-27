@@ -53,6 +53,7 @@ Extending (V37.9.20+):
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import subprocess
@@ -69,6 +70,10 @@ _DEFAULT_DRIFT_ACTION = "alert_only"
 
 # Subprocess timeout for shell_command method (seconds).
 _SHELL_COMMAND_TIMEOUT_SEC = 10
+
+# HTTP observer timeout (seconds). Adapter /health is local, fast — short bound
+# avoids spec verification hanging governance audit cron when adapter is wedged.
+_HTTP_OBSERVER_TIMEOUT_SEC = 5
 
 # ── Result type ───────────────────────────────────────────────────────────
 
@@ -175,8 +180,39 @@ def _extract_registry_enabled_system_jobs(spec):
     return out
 
 
+def _extract_providers_from_registry(spec):
+    """providers.py ProviderRegistry.list_names() → set of provider name strings.
+
+    V37.9.20: Captures both built-in providers (qwen/openai/gemini/...) and
+    auto-discovered YAML plugins from providers.d/. The registry is the
+    single source of truth for "what providers exist according to declaration"
+    — built-in registrations run at module load, then PluginLoader.discover()
+    scans providers.d/ for additional yaml/python plugins.
+
+    FAIL-OPEN: ImportError or registry construction error → bubble up to
+    verify_convergence's extractor_failed branch (caller sees structured error,
+    doesn't crash governance audit).
+    """
+    try:
+        # Late import — avoid hard dependency at convergence module import time
+        # so dev environments without providers.py can still load the framework.
+        import sys
+        repo_root = str(Path(__file__).resolve().parent.parent)
+        if repo_root not in sys.path:
+            sys.path.insert(0, repo_root)
+        from providers import get_registry  # type: ignore
+    except Exception as e:
+        raise RuntimeError(f"providers module not importable: {e}")
+    try:
+        names = get_registry().list_names()
+    except Exception as e:
+        raise RuntimeError(f"registry.list_names() failed: {e}")
+    return {str(n) for n in (names or []) if n}
+
+
 _DECLARED_EXTRACTORS = {
     "registry_enabled_system_jobs": _extract_registry_enabled_system_jobs,
+    "providers_from_registry": _extract_providers_from_registry,
 }
 
 
@@ -227,8 +263,58 @@ def _observe_shell_command(spec):
     return result.stdout
 
 
+def _observe_http_endpoint(spec):
+    """Execute spec.runtime_observable.url HTTP GET and return response body.
+
+    V37.9.20: Mirrors _observe_shell_command's contract — return raw stdout/body
+    string, raise RuntimeError on any failure for FAIL-OPEN handling. urllib
+    (stdlib) avoids external dependencies. Bounded by _HTTP_OBSERVER_TIMEOUT_SEC.
+
+    Spec fields:
+        url (required): full URL to GET
+        timeout_sec (optional): override default _HTTP_OBSERVER_TIMEOUT_SEC
+
+    Returns: str (UTF-8 decoded response body)
+    Raises: RuntimeError on connection error, timeout, non-2xx status, or
+            decode failure. ValueError on missing url.
+    """
+    obs = spec.get("runtime_observable", {})
+    url = obs.get("url", "")
+    if not url:
+        raise ValueError("http_endpoint observer requires runtime_observable.url")
+    timeout = obs.get("timeout_sec", _HTTP_OBSERVER_TIMEOUT_SEC)
+    try:
+        timeout = float(timeout)
+    except (TypeError, ValueError):
+        timeout = _HTTP_OBSERVER_TIMEOUT_SEC
+
+    # Late stdlib imports — keep top-of-module light.
+    from urllib.error import HTTPError, URLError
+    from urllib.request import Request, urlopen
+
+    req = Request(url, headers={"User-Agent": "convergence-observer/1.0"})
+    try:
+        with urlopen(req, timeout=timeout) as resp:
+            status = getattr(resp, "status", 200)
+            if status < 200 or status >= 300:
+                raise RuntimeError(f"http_endpoint status={status}: {url}")
+            body = resp.read()
+    except HTTPError as e:
+        raise RuntimeError(f"http_endpoint http_error={e.code}: {url}")
+    except URLError as e:
+        raise RuntimeError(f"http_endpoint url_error: {e.reason}")
+    except Exception as e:
+        # urllib socket.timeout / connection refused etc surface as various types
+        raise RuntimeError(f"http_endpoint failed: {type(e).__name__}: {e}")
+    try:
+        return body.decode("utf-8")
+    except UnicodeDecodeError:
+        return body.decode("utf-8", errors="replace")
+
+
 _RUNTIME_OBSERVERS = {
     "shell_command": _observe_shell_command,
+    "http_endpoint": _observe_http_endpoint,
 }
 
 
@@ -286,9 +372,67 @@ def _parse_line_contains_word_boundary(spec, raw, declared):
     return found
 
 
+def _parse_json_set_union(spec, raw, declared):
+    """Walk spec.runtime_observable.json_paths over JSON body, union into set,
+    intersect with declared (V37.9.19 framework convention).
+
+    Path syntax (V37.9.20 minimal — extend in V37.9.21+ if more shapes needed):
+        "field"      → top-level scalar (str/int/etc), included if present
+        "field[]"    → top-level list, each element included as string
+
+    Example: json_paths=["provider", "fallback", "fallback_chain[]"] over
+    /health body {"provider":"qwen", "fallback":"gemini",
+    "fallback_chain":["gemini","claude"]} yields union {"qwen","gemini","claude"}.
+
+    FAIL-OPEN philosophy: empty/None values silently skipped; only structural
+    errors (unparseable JSON, non-list paths declared as []) raise.
+    """
+    if not raw:
+        return set()
+    obs = spec.get("runtime_observable", {})
+    paths = obs.get("json_paths") or []
+    if not isinstance(paths, list) or not paths:
+        raise ValueError("json_set_union parser requires runtime_observable.json_paths (non-empty list)")
+    try:
+        data = json.loads(raw)
+    except (TypeError, ValueError) as e:
+        raise ValueError(f"json_set_union parser: invalid JSON body: {e}")
+    if not isinstance(data, dict):
+        raise ValueError(f"json_set_union parser: top-level JSON must be object, got {type(data).__name__}")
+
+    union = set()
+    for path in paths:
+        if not isinstance(path, str) or not path:
+            continue
+        if path.endswith("[]"):
+            key = path[:-2]
+            val = data.get(key)
+            if val is None:
+                continue
+            if not isinstance(val, list):
+                raise ValueError(f"json_set_union parser: path {path!r} expected list, got {type(val).__name__}")
+            for elem in val:
+                if elem is None:
+                    continue
+                union.add(str(elem))
+        else:
+            val = data.get(path)
+            if val is None:
+                continue
+            # Skip non-scalar values silently — list/dict on a scalar path is
+            # likely a misconfigured spec, but we don't raise (FAIL-OPEN).
+            if isinstance(val, (list, dict)):
+                continue
+            union.add(str(val))
+
+    # Framework convention: observed ⊆ declared (extras dropped silently)
+    return union & set(declared)
+
+
 _IDENTIFIER_PARSERS = {
     "line_contains_identifier": _parse_line_contains_identifier,
     "line_contains_word_boundary": _parse_line_contains_word_boundary,
+    "json_set_union": _parse_json_set_union,
 }
 
 
