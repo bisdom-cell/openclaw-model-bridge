@@ -1,5 +1,5 @@
 {
-  "updated": "2026-04-27 14:50:27",
+  "updated": "2026-04-27 15:05:30",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-04-27",
+      "what": "V37.9.21 Mac Mini 生产 E2E 完美通过 + 完整收工 — 用户实测 WhatsApp 收到 Part [1/2] (Sections 1-4 核心论点+论证链+实验/证据+局限性, 含 link) + Part [2/2] (Section 5 对本项目启发完整两条建议, 无 link 节省字数), 边界选中 ## 5. heading 前的 \\n\\n 零内容丢失没有句子被切两段. V37.9.20 的省略号截断从此消失, 每天深度分析在手机上完整可读. 用户视角 → 24h 闭环 (MR-7 第 3 次正向兑现)。同时观察到 22:55:59 那次 silent fail (~3min 跑) 是 auto_deploy 2min 轮询的部署不一致期副作用 — 当时 ~/kb_deep_dive.sh 已是 V37.9.21 (新 shell) 但 ~/kb_deep_dive.py 还是旧版 (py 文件晚到几秒), 新 shell 调旧 py 在 set -e 下静默退出, 几秒后 auto_deploy 同步 py 后自愈. 这是 MR-4 silent-failure 第 17 次演出的新形态: 跨文件部署不一致期的窗口 (新 shell + 旧 py 临时混合). V37.9.22 nice-to-have 候选: 当 collector 输出无 wa_parts 字段时 shell 应 log WARN 而不是静默走 fallback 单段路径, 让运维知道部署不一致 (非紧急, 已自愈). 累计今日: V37.9.20 (上午 providers_to_adapter 第二个 spec) + V37.9.21 (晚上 WhatsApp 多窗口分片) 一日双版本 / 48 suites / 1542→1600 tests (+58, V37.9.20 +35 + V37.9.21 +23) / 0 fail / 安全 95/100 / VERSION 0.37.9.19→0.37.9.21 跳两位.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-04-27",
       "what": "V37.9.21 kb_deep_dive WhatsApp 多窗口分片 (Dream-style) — 用户视角发现 → 同日闭环. 触发: V37.9.20 收工后用户反馈 kb_deep_dive 推送内容超 WhatsApp 单窗口可视范围 (V37.9.16 build_deep_dive_wa 截断到 1400 字 + ... 省略号), 明确要求类似 dream 的长内容使用 [1/N] [2/N] 多窗口. 原则 #13 (定期像用户用) 正向兑现 — 单测/治理全绿但生产使用才暴露 UX 缺口. 3 决策已确认 (#28 理解再动手): (1) 只 WA 分片 / Discord 保持 1900 字 + KB 链接 (Discord 频道天然适合点链接看完整 markdown) (2) 单段预算 1400 字 (与 V37.9.16 原 budget 一致) (3) 每段精简 header `🔬 每日深度 [i/N] {date}{mode_tag}\\n{title}\\n⭐{stars} | {source}` + link 仅 Part 1. 实现: (a) 新增 _split_text_into_chunks 4 级 boundary fallback (段落 \\n\\n > 行 \\n > 中英文句号 。/.> 硬切) (b) build_deep_dive_wa_parts 返 list[str], 单段省 [i/N] indicator (c) run() 返新增 wa_parts 字段 + 保留 wa_message 向后兼容 = parts[0] (d) build_deep_dive_wa 改为 thin wrapper 调 wa_parts 取 [0] 零改 callers (e) kb_deep_dive.sh +63 行: mktemp -d + trap EXIT 清理 + Python env-var heredoc 写 000.txt/001.txt 每段 + 双路径 send_wa_parts_via_notify / send_wa_parts_via_openclaw + for chunk_file in *.txt 遍历 + 段间 sleep 1 避免 WhatsApp 乱序 (Dream 同款契约) + WA_SEND_OK/$WA_PARTS_TOTAL 进度可观测. 23 新单测 4 类: TestSplitTextIntoChunks 7 (short/empty/paragraph_boundary/line_boundary/no_boundary_hard_cut/preserves_full_content/chinese_punctuation_boundary) + TestBuildDeepDiveWaParts 9 (short_single_part/long_multi_part/each_part_indexed_header/link_only_on_first/each_part_within_budget/abstract_mode_tag_on_each_part/empty/full_content_preserved_across_parts 50 markers 守卫无内容丢失/backward_compat_returns_first_part) + TestRunOrchestrator.test_ok_path_returns_wa_parts_list 1 + TestKbDeepDiveShellGuards 6 (V37.9.21 marker/env-var heredoc 反模式/mktemp+trap 清理/for chunk_file ... sleep 1 循环/WA+Discord 独立 send/WA_SEND_OK 可观测 log). smoke 实测 ~3500 字内容产 4 段 1304/694/1131/1086 字, 边界全选中 ## heading 前 \\n\\n, 没句子切两段. 累计 48 suites 不变 / 1577→1600 tests (+23) / 0 fail / 安全 95/100 / VERSION 0.37.9.20→0.37.9.21. 无新 governance INV (V37.9.16 决策 INV-DEEP-001 shadow 一周后再考虑, 多窗口是 UX 增量非安全边界). MR-7 用户视角→24h 闭环第 3 次兑现: V37.9.16 上线 → V37.9.17 picker tier-aware fallback → V37.9.21 多窗口分片. V37.9.21 把原计划 V37.9.21 (jobs_to_crontab → machine_sync) 推到 V37.9.22+ — 那个本来就硬卡在 5/3 决策窗口.",
       "by": "claude_code"
     },
@@ -197,11 +202,6 @@
     {
       "date": "2026-04-22",
       "what": "V37.9.10 audit_log 原子导出 + fsync 持久化加固 — 数据完整性 13→15 满分 (总分 93→95 dev / 98→100 Mac Mini 预期). audit() 加 flush+fsync 防 cron 崩溃丢尾部记录; 新增 snapshot(dest_path) 用 tmp+os.replace 真原子模式导出审计日志快照 (适用备份/跨主机同步); --snapshot CLI 模式. 7 新 TestSnapshot 单测: 缺文件返回 ok=False / 字节级一致 / 不留 .tmp 残余 / 自动建目标目录 / 覆盖已存在 / 源码守卫 os.replace+os.fsync. 41 suites / 1193 tests (+7) / 0 fail. 原则 #18 补证据而非补功能正向兑现: 每改动对应真运维场景.",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-04-22",
-      "what": "V37.9.9 三合一推进 A+C+B：(A) Mac Mini V37.9.8 验证 — ACL cron 9:30 准时触发 + 10 篇推送成功 (4/15 失败任务复活，V37.9.8 28d 阈值策略生效); auto_deploy heartbeat 每小时整点完美出行; watchdog 实际日志名 gateway_watchdog.log 修正. 新发现 MOVESPEED rsync Operation not permitted 间歇复发登记观察. (C) 路线 C Step 4 security_score library 直调 — INV-SEC-001 check 2 从 subprocess+中文正则 parse 升级为 `from security_score import compute_score` + 从 security_config.total_threshold 读阈值, 消除 ~200ms fork 开销 + 正则 parse 失败塌陷盲区 + 硬编码 90 漂移风险三问题. 3 新 regression test TestInvSec001UsesLibraryDirectCall 锁定契约. MR-16 双轨统一终态. (B) Ontology Phase 4 骨架 — 新增 domain_ontology.yaml (六域 Actor/Tool/Resource/Task/Provider/Memory + 域间关系 + P1/P2/P3 路径) + policy_ontology.yaml (10 条策略 3 static + 2 temporal + 3 contextual + INV-PA-001 ordering_constraint + 策略冲突检测 stub) + test_phase4_ontology_skeleton.py (15 单测跨 ontology 一致性守卫). 状态 declaration_only 未 wiring. governance v3.30→v3.31 / 58 inv / 272→273 checks / 41 suites / 1186 tests (+27) / 安全 93/100.",
       "by": "claude_code"
     }
   ],
@@ -370,7 +370,8 @@
     "V37.9.20 候选 [次] 第二个 convergence spec providers_to_adapter — 验证 framework 可扩展性. 新增 _observe_http_endpoint observer 函数 (subprocess curl http://localhost:5001/health + jq parse). 验证扩展只需新 observer + 新 spec yaml, 零 framework 改动 — MR-8 兑现.",
     "V37.9.20 候选 [可] governance_checker 集成 verify_convergence — 治理审计同时跑 convergence 检查, 把 convergence 提升为治理一等公民. 当 convergence drift_detected=True 且 drift_action=alert_only → 治理报 warn; drift_action=block_until_human → 治理 fail.",
     "V37.10 立场文章候选 Why Control Plane = Convergence Engine — 阐述 OpenClaw 区别于 OPA 等纯 policy 引擎的核心差异: OPA 做声明→决策, OpenClaw 做声明→运行时事实闭环. Convergence framework 是 control plane 缺失的最后一块拼图. Stage 2 第 5 篇话语权输出.",
-    "V37.9.20 Mac Mini missing=5 [claude,glm,kimi,minimax,openai] 处理决策: (a) 接受现状 alert_only 永久 — 这 5 个 provider 不需要立即配 API key, 仅 informational 用于 V37.8.10 类血案预警 (b) 部分配置 — 选 ≥1 个最高价值 fallback (推荐 claude 因 Anthropic SDK 已熟) 配 API key 让 fallback_chain 从 [gemini] 扩到 [gemini,claude] 真韧性提升, 与 V37.8.10 血案的根因修复完全对齐 (c) 全配 — 7 provider 全 wire 但成本/合规/SLA 复杂度上升. 用户决策需求: 是否做 (b) 配 ANTHROPIC_API_KEY 扩 fallback_chain 到 ≥2 provider — 登记 V37.9.21 候选"
+    "V37.9.20 Mac Mini missing=5 [claude,glm,kimi,minimax,openai] 处理决策: (a) 接受现状 alert_only 永久 — 这 5 个 provider 不需要立即配 API key, 仅 informational 用于 V37.8.10 类血案预警 (b) 部分配置 — 选 ≥1 个最高价值 fallback (推荐 claude 因 Anthropic SDK 已熟) 配 API key 让 fallback_chain 从 [gemini] 扩到 [gemini,claude] 真韧性提升, 与 V37.8.10 血案的根因修复完全对齐 (c) 全配 — 7 provider 全 wire 但成本/合规/SLA 复杂度上升. 用户决策需求: 是否做 (b) 配 ANTHROPIC_API_KEY 扩 fallback_chain 到 ≥2 provider — 登记 V37.9.21 候选",
+    "V37.9.22 nice-to-have: kb_deep_dive.sh 在 collector JSON 输出无 wa_parts 字段时应 log WARN '[deploy_inconsistency] wa_parts missing, fallback to wa_message — likely auto_deploy py file lag' 而不是静默走 fallback 单段路径。让 MR-4 silent-failure 第 17 次演出的部署不一致期 (新 shell + 旧 py 临时混合) 可观测。非紧急 — 已自愈，下次 auto_deploy 改 FILE_MAP 时一并加"
   ],
   "_meta": {
     "last_updated_by": "claude_code"
