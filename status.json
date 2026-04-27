@@ -1,5 +1,5 @@
 {
-  "updated": "2026-04-26 12:48:17",
+  "updated": "2026-04-27 14:18:25",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -105,6 +105,11 @@
   ],
   "recent_changes": [
     {
+      "date": "2026-04-27",
+      "what": "V37.9.20 第二个 convergence spec providers_to_adapter 上线 — V37.9.19 named-dispatch 扩展性首次兑现 (MR-8 copy-paste-is-a-bug-class 正向案例). 触发: V37.9.19 framework 承诺 named-dispatch 三表镜像 V37.9.13/V37.9.15 模式让添加新 spec 类型零 framework 改动, V37.9.20 实测兑现 — verify_convergence orchestrator 改动 0 行, 全部通过 dispatch 表扩展. 新增 3 个 dispatch 函数 (convergence.py +144 行纯函数零 I/O at import): (a) _extract_providers_from_registry 读 ProviderRegistry.list_names() 含 7 built-in + auto-discovered providers.d/ 插件 late import + ImportError/registry FAIL-OPEN (b) _observe_http_endpoint 用 stdlib urllib GET _HTTP_OBSERVER_TIMEOUT_SEC=5 保护 audit cron 不挂 + 包装 HTTPError/URLError/timeout 为 RuntimeError + UTF-8 errors=replace V37.8.6 surrogate 防御复用 (c) _parse_json_set_union 走 spec.json_paths 配置 (field 标量 / field[] list 后缀两种语法) 取 union 后与 declared 求交保持 V37.9.19 line 248 observed⊆declared 框架契约 + 防御 list 路径非 list raise / scalar 路径 dict/list silent skip. convergence_ontology.yaml v0.1-skeleton → v0.2-second-spec, providers_to_adapter spec node (drift_action=alert_only + convergence_method.planned=alert_only_permanent 永久结构性决策 — API key 无法 machine 自动 provision, 与 jobs_to_crontab planned=machine_sync_via_helper 形成对照). INV-CONVERGENCE-PROVIDERS-001 (meta_rule=MR-17, severity=high, [declaration,runtime], 14 checks: 5 dispatch registration + 8 yaml structural + 1 runtime python_assert subprocess 跑 unittest -v 5 个 V37.9.20 测试类). 35 新单测 5 类 (TestExtractProvidersFromRegistry 3 / TestObserveHttpEndpoint 6 含 mock urlopen 200/500/timeout/connection_refused / TestParseJsonSetUnion 12 含全边界 / TestVerifyProvidersToAdapterIntegration 3 含 happy_path/full_visibility 真 mock / TestProvidersSpecSourceGuards 11 含 alert_only_permanent 永久守卫 + machine_sync 字面量禁止). MR-17 derivative_invariants 升级 [INV-CONVERGENCE-CRON-001] → [..., INV-CONVERGENCE-PROVIDERS-001]. 累计 47→48 suites (+1) / 1542→1577 tests (+35) / 0 fail / governance v3.33→v3.34 / 62→63 invariants (+1) / 311→337 checks (+14) / 17 meta rules / 安全 95/100 / VERSION 0.37.9.19→0.37.9.20. dev FAIL-OPEN 验证: python3 ontology/convergence.py --spec providers_to_adapter 输出 error=observer_failed: connection refused declared=7 observed=0 — adapter 不在 dev 跑是预期与 V37.9.19 jobs_to_crontab 行为对称. 元价值: V37.9.19 framework 一周内首次扩展验证, named-dispatch 不是空头承诺 — V3 路标 pip install ontology-engine 终极目标的必备前提条件硬证据.",
+      "by": "claude_code"
+    },
+    {
       "date": "2026-04-26",
       "what": "V37.9.19 Mac Mini E2E 验证完美通过 + 今日完整收工 — 用户跑 python3 ~/openclaw-model-bridge/ontology/convergence.py --spec jobs_to_crontab 输出 [convergence:jobs_to_crontab] ok declared=36 observed=36 — Mac Mini 当前 36 个 enabled+system job 全部在 crontab 注册零 drift, V37.9.18 修复的 kb_deep_dive 在内, 没有其他历史遗漏。这个 36/36 是 V37.9.20 一周观察期 baseline 数据 (从 2026-04-26 起算, 2026-05-03 决策窗口) — 一周内若数字变化即为 drift 触发, 届时再决策是否升级 drift_action=machine_sync. 今日累积一日双版本: V37.9.18 (cron 未注册血案修复 三层 silent bug 协同同时修, MR-4 第 16 次演出) + V37.9.19 (Phase 4 Layer 5 Convergence Framework + MR-17 立案 + 第一个 spec). 3 commits a92ecf8 + 2a871ab + e1cf8f4 全部 PR 合并 + Mac Mini sync 完成. 最终回归 49 suites / 1542 tests (+64) / 0 fail / 396 governance checks (+87) / 62 invariants / 17 meta rules / 安全 95/100 / VERSION 0.37.9.17→0.37.9.19 跳两位. 今晚 22:30 HKT cron 自动触发 kb_deep_dive 是 V37.9.18 cron 注册修复的最后真实生产兑现。从血案到元规则到 framework 落地一日完成 — ontology 子项目从治理 81 工具规则升级为 control plane 核心抽象, Phase 4 Layer 5 是终极目标 pip install ontology-engine 路径上的关键拐点. 收工 9 项 A~I 全绿 ✅",
       "by": "claude_code"
@@ -198,11 +203,6 @@
       "date": "2026-04-21",
       "what": "V37.9.5 数据全景审计 + workspace 接缝盲区闭合 (3+4 路径). 用户直觉 67M 太少驱动审计, 发现真业务数据 ~75MB (workspace 109M 中 109M=venv 不算业务, logs 105M 中 90M=err 噪声). 任务 3: kb_embed.py 扩展索引 ~/.openclaw/workspace/*.md 顶层, 排 HEARTBEAT.md (V37.8.16) + .bak. MEMORY.md 单独 source_type=memory 保留向后兼容, 其他 .md 用新 source_type=workspace. INV-KB-COVERAGE-001 (MR-4, severity=high, layer=[decl,runtime]) + 10 新单测 test_kb_embed_workspace.py (subprocess 调外部避开 V37.3 exec scope trap). 任务 4: 4/20 kb_harvest 78 条/天合理无需修改. MR-4 第 15 次演出新形态 = 数据接缝盲区. governance v3.28→v3.29 / 57 inv / 265 checks / 39 suites / 1147 tests / 安全 93/100 / VERSION 0.37.9.4→0.37.9.5",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-04-21",
-      "what": "V37.9.4 B 问题系统化预防完成 (B-1+B-2): (1) 20 处 cron rsync 反模式批量修复 (5 根目录 kb_dream/kb_save_arxiv/kb_evening/kb_inject/kb_review + run_hn_fixed.sh + 13 jobs/ 含 freight 2 处), 旧 2>/dev/null || true 双层吞错 → 新 2>&1 || echo WARN >&2 fail-loud 模式. (2) INV-BACKUP-001 新增 (MR-4, severity=high, declaration+runtime), 部署即时抓出第 20 个漏网 run_hn_fixed.sh 证明守卫有效. (3) 案例文档 movespeed_exfat_silent_backup_failure_case.md (完整四维度因果链 + MR-4 14 次演出 + MR-8 反例). governance v3.27→v3.28 / 56 inv / 261 checks. 38/1137/0 fail / 安全 93/100. VERSION 0.37.9.3→0.37.9.4.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -272,11 +272,11 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 1542,
-    "last_regression": "2026-04-26 04:27 pass",
+    "test_count": 1577,
+    "last_regression": "2026-04-27 14:14 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-04-26 04:27",
-    "test_suites": 49,
+    "security_score_time": "2026-04-27 14:14",
+    "test_suites": 48,
     "governance_invariants": "59/59",
     "governance_checks": "283/283",
     "version": "0.37.9.19"
@@ -343,7 +343,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.19 Convergence Framework 上线 — Phase 4 Layer 5 落地 + MR-17 立案 + 第一个 spec jobs_to_crontab (drift_action=alert_only 一周观察). 48 suites / 1542 tests (+49) / 0 fail / 62 invariants / 311 checks / 17 meta rules / 安全 95/100 / VERSION 0.37.9.19. ontology 子项目从治理工具规则升级为 control plane 核心抽象 — declared→runtime 同步从靠记忆升级为机器化. 下次 (V37.9.20) 候选: [主] jobs_to_crontab drift_action 升级 machine_sync (一周观察后 + cron 行模板) / [次] 第二个 spec providers_to_adapter (新 _observe_http_endpoint observer) / [可] governance_checker 集成调 verify_convergence / [可] 立场文章 Why Control Plane = Convergence Engine.",
+  "focus": "V37.9.20 上线第二个 convergence spec providers_to_adapter — V37.9.19 named-dispatch 扩展性首次兑现 (MR-8 正向案例). 48 suites / 1577 tests (+35) / 0 fail / 63 invariants (+1 INV-CONVERGENCE-PROVIDERS-001) / 337 checks (+14) / 17 meta rules / 安全 95/100 / VERSION 0.37.9.20. 核心 verify_convergence orchestrator 改动 0 行, 全部扩展通过新 dispatch 函数 + spec yaml. Phase 4 Layer 5 从单 spec demo 升级为可扩展 control plane 抽象, V3 路标 pip install ontology-engine 终极目标的必备前提条件验证通过. 下次 (V37.9.21) 候选: [主] jobs_to_crontab drift_action 升级 machine_sync (一周观察期 baseline 2026-04-26, 决策窗口 2026-05-03) / [次] 第三个 spec openclaw_config_to_runtime / [次] kb_sources_to_index (subsume INV-KB-COVERAGE-001) / [可] governance_checker 集成 verify_convergence / [可] 立场文章 Why Control Plane = Convergence Engine.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
