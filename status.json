@@ -1,6 +1,6 @@
 {
-  "updated": "2026-04-29 08:41:38",
-  "updated_by": "full_regression",
+  "updated": "2026-04-29 09:04:40",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -343,7 +343,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.21 上线 kb_deep_dive WhatsApp 多窗口分片 (Dream-style) — 用户视角发现 → 同日闭环 (原则 #13 兑现, MR-7 第 3 次正向兑现). 触发: V37.9.20 收工后用户反馈 kb_deep_dive 推送内容超 WhatsApp 单窗口可视范围, 明确要求'类似 dream 的长内容, 使用 1/2 和 2/2 两个连续的窗口'. 设计 (3 决策已确认): (1) 只 WA 分片 / Discord 保持 1900 字 + KB 链接 (2) 单段预算 1400 字 (3) 每段都带精简 header + link 仅 Part 1. 实现: 新增 _split_text_into_chunks 4 级 boundary fallback (段落>行>句号>硬切) + build_deep_dive_wa_parts 返 list[str] + run() 输出 wa_parts (保留 wa_message 向后兼容) + kb_deep_dive.sh mktemp+trap 清理 + 段间 sleep 1 (Dream 同款) + WA_SEND_OK/ 可观测. 23 新单测 4 类 (TestSplitTextIntoChunks 7 / TestBuildDeepDiveWaParts 9 含 full_content_preserved_across_parts 关键守卫 / TestRunOrchestrator wa_parts list 1 / TestKbDeepDiveShellGuards 6 V37.9.21 marker+mktemp+trap+sleep+独立 send+log). 累计 48 suites / 1577→1600 tests (+23) / 0 fail / 安全 95/100 / VERSION 0.37.9.20→0.37.9.21. smoke 实测 ~3500 字内容产 4 段 1304/694/1131/1086 字, 边界全选中 ## heading 前的 \\n\\n. 无新 governance INV (V37.9.16 决策 INV-DEEP-001 shadow 一周后再考虑). 下次 V37.9.22 候选 (V37.9.21 把原计划项推后): [主硬卡] jobs_to_crontab → machine_sync 决策窗口 2026-05-03 (今天 4-27 进度 1/7) / [次] 第三个 spec openclaw_config_to_runtime / [次] kb_sources_to_index / [可] governance_checker 集成 verify_convergence / [可] 立场文章 Why Control Plane = Convergence Engine. Mac Mini 部署路径: 已在 FILE_MAP, 22:30 cron 自动用新版, 或 bash ~/kb_deep_dive.sh 立即手动测试.",
+  "focus": "V37.9.22 收工 — 一日 5 commits / OpenClaw tripwire 决策框架 + Phase 4 Layer 5 闭合 (4 convergence specs + governance integration). 累计 1664 tests / 66 inv / 372 checks / 安全 95/100 / VERSION 0.37.9.22. 等用户合并 PR + Mac Mini 同步 + --full 模式验证 4 spec 真实数字",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
@@ -371,7 +371,11 @@
     "V37.9.20 候选 [可] governance_checker 集成 verify_convergence — 治理审计同时跑 convergence 检查, 把 convergence 提升为治理一等公民. 当 convergence drift_detected=True 且 drift_action=alert_only → 治理报 warn; drift_action=block_until_human → 治理 fail.",
     "V37.10 立场文章候选 Why Control Plane = Convergence Engine — 阐述 OpenClaw 区别于 OPA 等纯 policy 引擎的核心差异: OPA 做声明→决策, OpenClaw 做声明→运行时事实闭环. Convergence framework 是 control plane 缺失的最后一块拼图. Stage 2 第 5 篇话语权输出.",
     "V37.9.20 Mac Mini missing=5 [claude,glm,kimi,minimax,openai] 处理决策: (a) 接受现状 alert_only 永久 — 这 5 个 provider 不需要立即配 API key, 仅 informational 用于 V37.8.10 类血案预警 (b) 部分配置 — 选 ≥1 个最高价值 fallback (推荐 claude 因 Anthropic SDK 已熟) 配 API key 让 fallback_chain 从 [gemini] 扩到 [gemini,claude] 真韧性提升, 与 V37.8.10 血案的根因修复完全对齐 (c) 全配 — 7 provider 全 wire 但成本/合规/SLA 复杂度上升. 用户决策需求: 是否做 (b) 配 ANTHROPIC_API_KEY 扩 fallback_chain 到 ≥2 provider — 登记 V37.9.21 候选",
-    "V37.9.22 nice-to-have: kb_deep_dive.sh 在 collector JSON 输出无 wa_parts 字段时应 log WARN '[deploy_inconsistency] wa_parts missing, fallback to wa_message — likely auto_deploy py file lag' 而不是静默走 fallback 单段路径。让 MR-4 silent-failure 第 17 次演出的部署不一致期 (新 shell + 旧 py 临时混合) 可观测。非紧急 — 已自愈，下次 auto_deploy 改 FILE_MAP 时一并加"
+    "V37.9.22 nice-to-have: kb_deep_dive.sh 在 collector JSON 输出无 wa_parts 字段时应 log WARN '[deploy_inconsistency] wa_parts missing, fallback to wa_message — likely auto_deploy py file lag' 而不是静默走 fallback 单段路径。让 MR-4 silent-failure 第 17 次演出的部署不一致期 (新 shell + 旧 py 临时混合) 可观测。非紧急 — 已自愈，下次 auto_deploy 改 FILE_MAP 时一并加",
+    "V37.9.23 候选 [主硬卡]: jobs_to_crontab drift_action 升级 machine_sync — baseline 2026-04-26 起一周观察期，决策窗口 2026-05-03 (今天 4-29 进度 3/7 — 还差 4 天)。需先实现 cron 行模板（从 jobs_registry interval/entry/log_path 字段生成 `30 22 * * * bash -lc 'bash ~/X.sh >> ~/X.log 2>&1'`）+ 调用 crontab_safe.sh add",
+    "V37.9.23 候选 [话语权输出]: 立场文章 *Why Control Plane = Convergence Engine* — 4 spec + framework + integration 全栈案例素材已齐 (V37.9.22 4 个 spec + governance integration). OPA 只做'声明→决策' vs OpenClaw 做'声明→运行时事实闭环'的差异化定位",
+    "V37.9.22 提交未 PR merge 等用户在 GitHub 操作 — 5 commits (d55fb66 tripwire / cad1821 双小迭代 / 2da9c70 第四 spec / 2554adc integration / 待 CLAUDE.md changelog 提交) 在 claude/start-daily-work-T8ZEE 分支",
+    "V37.9.22 Mac Mini 验证待用户操作: PR merge 后 (1) git fetch origin main && git reset --hard origin/main (2) bash preflight_check.sh --full 验证仓库一致 (3) python3 ontology/governance_checker.py --full 看 convergence section 4 spec 真实数字 (jobs_to_crontab 应 36/36 zero drift / providers_to_adapter 应 5/7 missing 因缺 API key / openclaw_config_to_runtime 看 openclaw.json 是否含 version 字段 / kb_sources_to_index 应 14/14 zero drift)"
   ],
   "_meta": {
     "last_updated_by": "claude_code"
