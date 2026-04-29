@@ -180,6 +180,111 @@ def _extract_registry_enabled_system_jobs(spec):
     return out
 
 
+def _walk_json_paths_to_set(data, paths):
+    """Walk V37.9.20 path syntax over JSON dict, return union as set[str].
+
+    Path syntax (kept identical to _parse_json_set_union for cross-side parity):
+        "field"   → top-level scalar value coerced to str (skip dict/list silently)
+        "field[]" → top-level list, each element coerced to str (skip None)
+
+    Shared by _extract_json_file_paths (V37.9.22 declared side, no downstream
+    intersection) and _parse_json_set_union (observed side, intersected upstream).
+    MR-8 兑现: single source of truth for path traversal logic — V37.9.22+
+    syntax extensions land in one place. Pure function, no I/O, no side effects.
+
+    Raises ValueError on structural misconfig (path declared as [] but value
+    is not a list) — caller decides how to surface.
+    """
+    union = set()
+    for path in paths:
+        if not isinstance(path, str) or not path:
+            continue
+        if path.endswith("[]"):
+            key = path[:-2]
+            val = data.get(key)
+            if val is None:
+                continue
+            if not isinstance(val, list):
+                raise ValueError(f"path {path!r} expected list, got {type(val).__name__}")
+            for elem in val:
+                if elem is None:
+                    continue
+                union.add(str(elem))
+        else:
+            val = data.get(path)
+            if val is None:
+                continue
+            # Skip non-scalar values silently — list/dict on scalar path is
+            # likely misconfigured spec but we don't raise (FAIL-OPEN).
+            if isinstance(val, (list, dict)):
+                continue
+            union.add(str(val))
+    return union
+
+
+def _extract_json_file_paths(spec):
+    """Read JSON file at declaration.source, walk declaration.json_paths to set[str].
+
+    V37.9.22: General-purpose declared-state extractor for any JSON config file.
+    First use case: openclaw_config_to_runtime spec — reads ~/.openclaw/openclaw.json
+    declared agents/channels/providers and compares against runtime endpoint.
+
+    Path syntax: same as _parse_json_set_union (shared helper _walk_json_paths_to_set).
+
+    File resolution:
+        - Absolute path: used as-is
+        - Relative path: resolved against repo root (parent of ontology/)
+        - Supports ~, $HOME, $VAR via os.path.expanduser + expandvars
+
+    FAIL-OPEN philosophy:
+        - File missing → return set() (dev environments without OpenClaw runtime;
+          declared=set() yields drift_detected=False, governance audit doesn't
+          spuriously alert on environments where the file legitimately doesn't
+          exist; Mac Mini admin is expected to notice if openclaw.json deleted
+          since that breaks Gateway entirely — a higher-priority alert).
+        - File unreadable / invalid JSON → RuntimeError (caller turns into
+          extractor_failed for ops visibility — distinct from "file not present").
+        - Top-level JSON not object → ValueError (structural misconfig).
+        - Path-traversal structural error → ValueError via helper.
+
+    Spec fields:
+        declaration.source (required): file path (abs / rel / with env vars)
+        declaration.json_paths (required, list): paths to walk (V37.9.20 syntax)
+    """
+    decl = spec.get("declaration", {})
+    src = decl.get("source", "")
+    paths = decl.get("json_paths") or []
+    if not src:
+        raise ValueError("json_file_paths extractor requires declaration.source")
+    if not isinstance(paths, list) or not paths:
+        raise ValueError("json_file_paths extractor requires declaration.json_paths (non-empty list)")
+
+    # Resolve file path: ~ / $VAR expansion + relative-to-repo-root fallback
+    expanded = os.path.expanduser(os.path.expandvars(src))
+    p = Path(expanded)
+    if not p.is_absolute():
+        p = Path(__file__).resolve().parent.parent / expanded
+
+    # FAIL-OPEN on missing file (dev environments)
+    if not p.exists():
+        return set()
+
+    try:
+        with open(p, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except OSError as e:
+        raise RuntimeError(f"json_file_paths: failed to read {p}: {e}")
+    except ValueError as e:
+        raise RuntimeError(f"json_file_paths: invalid JSON in {p}: {e}")
+
+    if not isinstance(data, dict):
+        raise ValueError(
+            f"json_file_paths: top-level JSON must be object, got {type(data).__name__} in {p}"
+        )
+
+    return _walk_json_paths_to_set(data, paths)
+
+
 def _extract_providers_from_registry(spec):
     """providers.py ProviderRegistry.list_names() → set of provider name strings.
 
@@ -213,6 +318,7 @@ def _extract_providers_from_registry(spec):
 _DECLARED_EXTRACTORS = {
     "registry_enabled_system_jobs": _extract_registry_enabled_system_jobs,
     "providers_from_registry": _extract_providers_from_registry,
+    "json_file_paths": _extract_json_file_paths,
 }
 
 
@@ -400,30 +506,11 @@ def _parse_json_set_union(spec, raw, declared):
     if not isinstance(data, dict):
         raise ValueError(f"json_set_union parser: top-level JSON must be object, got {type(data).__name__}")
 
-    union = set()
-    for path in paths:
-        if not isinstance(path, str) or not path:
-            continue
-        if path.endswith("[]"):
-            key = path[:-2]
-            val = data.get(key)
-            if val is None:
-                continue
-            if not isinstance(val, list):
-                raise ValueError(f"json_set_union parser: path {path!r} expected list, got {type(val).__name__}")
-            for elem in val:
-                if elem is None:
-                    continue
-                union.add(str(elem))
-        else:
-            val = data.get(path)
-            if val is None:
-                continue
-            # Skip non-scalar values silently — list/dict on a scalar path is
-            # likely a misconfigured spec, but we don't raise (FAIL-OPEN).
-            if isinstance(val, (list, dict)):
-                continue
-            union.add(str(val))
+    # V37.9.22: shared helper with _extract_json_file_paths (MR-8 单一真理源)
+    try:
+        union = _walk_json_paths_to_set(data, paths)
+    except ValueError as e:
+        raise ValueError(f"json_set_union parser: {e}")
 
     # Framework convention: observed ⊆ declared (extras dropped silently)
     return union & set(declared)

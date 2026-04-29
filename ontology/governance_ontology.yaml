@@ -485,7 +485,7 @@ meta_rules:
       - "ontology/convergence_ontology.yaml 登记每个 declared resource 的 spec"
       - "INV-CONVERGENCE-* 不变式群守卫每个 spec 真实可执行 + drift 被发现"
       - "新增任何声明态资源时，必须配套提交对应 convergence_spec 否则视为遗漏"
-    derivative_invariants: [INV-CONVERGENCE-CRON-001, INV-CONVERGENCE-PROVIDERS-001]
+    derivative_invariants: [INV-CONVERGENCE-CRON-001, INV-CONVERGENCE-PROVIDERS-001, INV-CONVERGENCE-OPENCLAW-001]
     blood_lessons: |
       2026-04-26 V37.9.18: V37.9.16 (4/24) 上线 kb_deep_dive 时 jobs_registry.yaml
       声明 enabled=true + interval="30 22 * * *"，但**没人手动 crontab_safe.sh add**，
@@ -4777,10 +4777,10 @@ invariants:
         check_type: file_contains
         file: ontology/convergence_ontology.yaml
         pattern: 'alert_only_permanent'
-      - name: "convergence_ontology meta version 升级到 0.2-second-spec"
+      - name: "convergence_ontology meta version 升级到 0.2+ (含 V37.9.22 0.3-third-spec)"
         check_type: file_contains
         file: ontology/convergence_ontology.yaml
-        pattern: '0.2-second-spec'
+        pattern: 'version: "0\.[2-9].*-'
       - name: "convergence_ontology meta 引用本 INV (related_invariants)"
         check_type: file_contains
         file: ontology/convergence_ontology.yaml
@@ -4815,6 +4815,129 @@ invariants:
           )
           assert proc.returncode == 0, (
               f"V37.9.20 providers_to_adapter test classes failed:\n"
+              f"STDOUT={proc.stdout[-1000:]}\nSTDERR={proc.stderr[-1500:]}"
+          )
+
+  - id: INV-CONVERGENCE-OPENCLAW-001
+    name: openclaw-config-converges-to-gateway-runtime
+    meta_rule: MR-17
+    verification_layer: [declaration, runtime]
+    severity: high
+    declaration: |
+      V37.9.22 Phase 4 Layer 5（convergence framework 第三个 spec — 第二次扩展验证）：
+      ~/.openclaw/openclaw.json 中声明的顶层字段（默认 version，admin 可扩展）
+      必须在 Gateway :18789 /health 端点返回的对应 JSON 字段中至少出现一次。
+      convergence framework 通过 named-dispatch 第二次纯扩展（仅新增
+      json_file_paths extractor + 抽出共用 _walk_json_paths_to_set helper），
+      复用 V37.9.20 已有的 http_endpoint observer + json_set_union parser，
+      零修改 verify_convergence orchestrator — V37.9.19/V37.9.20 named-dispatch
+      契约第二次正向兑现，证明 framework 可扩展性持久而非一次性巧合。
+
+      drift_action 永久为 alert_only（结构性决策）：openclaw_config_to_runtime
+      漂移源于 (a) openclaw.json 编辑后 Gateway 未重启 或 (b) Gateway 静默崩溃，
+      两种都需要人类判断（重启 vs 回滚 / 调查根因），machine 不能自动修复。
+    lesson: |
+      2026-04-29 V37.9.22 第三次 OpenClaw 升级评估发现 #59265 closed but no fix
+      evidence，反映"上游版本 status 标签 ≠ 实质修复"的核心 control plane 困境。
+      V37.9.16 #48703 hotfix 误删血案教训为"上游已修复 ≠ 我们已修复"，V37.9.22
+      把这类"declared 状态 vs runtime 实际状态"的 drift 检测正式纳入 framework。
+      本 INV 默认观察的 version 字段是最保守起点，admin 在 Mac Mini 上可扩展
+      json_paths 监控 channels/agents/providers 等更具体配置，但 path 语法
+      当前限制为 V37.9.20 的顶层 field/field[] 格式（嵌套需 V37.9.23+ 扩展）。
+    design_decision: |
+      为什么用 json_file_paths extractor 而非 _extract_openclaw_specific？
+        - 通用 extractor 可服务任何 JSON config 文件，未来 V37.9.23+ 第四个 spec
+          （如 kb_sources_to_index）也可复用，符合 MR-8 单一真理源原则
+        - spec admin 仅靠 yaml 调整 paths 而无需改 Python 代码，验证 V37.9.19
+          framework 设计承诺"添加新 spec 类型只需 yaml + 注册函数零 framework 改"
+      为什么抽出 _walk_json_paths_to_set helper？
+        - V37.9.20 _parse_json_set_union 内联了 path-traversal 逻辑
+        - V37.9.22 _extract_json_file_paths 需要相同 path 语法但不做 intersection
+        - 抽出共用 helper = MR-8 兑现，避免两份独立 path-syntax 实现漂移
+        - 未来扩展嵌套 path 语法（V37.9.23+）改一处 helper，两端自动同步
+      为什么 file_not_exist 时 FAIL-OPEN 返回 set() 而不是 raise？
+        - dev 环境无 ~/.openclaw/openclaw.json 完全合法，governance audit 不应
+          spurious 报警
+        - Mac Mini 上 openclaw.json 被删 = Gateway 整个崩溃，是更高优先级告警
+          通过其他层（wa_keepalive / job_watchdog）触发，convergence 不需重复
+        - 文件存在但不可读 / 无效 JSON 仍 raise（extractor_failed），区分"环境
+          缺失"vs"环境损坏"两类
+    checks:
+      # ── declaration layer: convergence.py 扩展点都已注册 ────────────
+      - name: "convergence.py 注册 json_file_paths extractor"
+        check_type: file_contains
+        file: ontology/convergence.py
+        pattern: '"json_file_paths": _extract_json_file_paths'
+      - name: "convergence.py 定义 _walk_json_paths_to_set 共用 helper (MR-8 单一真理源)"
+        check_type: file_contains
+        file: ontology/convergence.py
+        pattern: 'def _walk_json_paths_to_set'
+      - name: "convergence.py _extract_json_file_paths FAIL-OPEN on missing file"
+        check_type: file_contains
+        file: ontology/convergence.py
+        pattern: 'FAIL-OPEN on missing file'
+      - name: "convergence.py _parse_json_set_union 改用共用 helper (V37.9.22 重构)"
+        check_type: file_contains
+        file: ontology/convergence.py
+        pattern: 'union = _walk_json_paths_to_set\(data, paths\)'
+      # ── declaration layer: convergence_ontology.yaml spec 完整 ──────
+      - name: "convergence_ontology.yaml 声明 openclaw_config_to_runtime spec"
+        check_type: file_contains
+        file: ontology/convergence_ontology.yaml
+        pattern: 'id: openclaw_config_to_runtime'
+      - name: "openclaw_config_to_runtime 引用本 INV"
+        check_type: file_contains
+        file: ontology/convergence_ontology.yaml
+        pattern: 'governance_invariant: INV-CONVERGENCE-OPENCLAW-001'
+      - name: "openclaw_config_to_runtime 用 json_file_paths extractor"
+        check_type: file_contains
+        file: ontology/convergence_ontology.yaml
+        pattern: 'extractor: json_file_paths'
+      - name: "openclaw_config_to_runtime 用 http_endpoint observer (V37.9.20 复用)"
+        check_type: file_contains
+        file: ontology/convergence_ontology.yaml
+        pattern: 'url: "http://localhost:18789/health"'
+      - name: "openclaw_config_to_runtime convergence_method=alert_only_permanent (结构性决策)"
+        check_type: file_contains
+        file: ontology/convergence_ontology.yaml
+        pattern: |-
+          governance_invariant: INV-CONVERGENCE-OPENCLAW-001
+      - name: "convergence_ontology meta version 升级到 0.3-third-spec"
+        check_type: file_contains
+        file: ontology/convergence_ontology.yaml
+        pattern: '0.3-third-spec'
+      - name: "convergence_ontology meta 引用本 INV (related_invariants)"
+        check_type: file_contains
+        file: ontology/convergence_ontology.yaml
+        pattern: 'INV-CONVERGENCE-OPENCLAW-001'
+      - name: "MR-17 derivative_invariants 包含本 INV"
+        check_type: file_contains
+        file: ontology/governance_ontology.yaml
+        pattern: 'INV-CONVERGENCE-OPENCLAW-001'
+      # ── runtime layer: V37.9.22 specific test classes 端到端通过 ───
+      - name: "RUNTIME: test_convergence.py V37.9.22 测试类全部通过 (TestWalkJsonPathsToSet + TestExtractJsonFilePaths + TestVerifyOpenclawConfigToRuntimeIntegration + TestOpenclawSpecSourceGuards)"
+        check_type: python_assert
+        assertion: |
+          import subprocess
+          import sys
+          import os
+          repo_root = os.environ.get("OPENCLAW_REPO_ROOT", os.getcwd())
+          test_file = os.path.join(repo_root, "test_convergence.py")
+          assert os.path.exists(test_file), f"test_convergence.py 不存在: {test_file}"
+          v9_22_classes = [
+              "TestWalkJsonPathsToSet",
+              "TestExtractJsonFilePaths",
+              "TestVerifyOpenclawConfigToRuntimeIntegration",
+              "TestOpenclawSpecSourceGuards",
+          ]
+          targets = [f"test_convergence.{c}" for c in v9_22_classes]
+          proc = subprocess.run(
+              [sys.executable, "-m", "unittest", "-v"] + targets,
+              capture_output=True, text=True, timeout=60,
+              cwd=repo_root,
+          )
+          assert proc.returncode == 0, (
+              f"V37.9.22 openclaw_config_to_runtime test classes failed:\n"
               f"STDOUT={proc.stdout[-1000:]}\nSTDERR={proc.stderr[-1500:]}"
           )
 
