@@ -1,8 +1,8 @@
 # OpenClaw 完整配置文档
-> 最后更新：2026-04-17 (HKT)
+> 最后更新：2026-04-29 (HKT)
 > 系统：Mac Mini (macOS) | 用户：bisdom
-> 版本：v37.8.15（preflight push test 速率限制 + GitHub 内容全面刷新）
-> OpenClaw Gateway：2026.3.13-1（当前部署，继续 hold）| 上游最新：**v2026.4.15**（#59265 agent actions 不可见仍 OPEN，经 **14 个版本**未修复；v2026.3.31 trusted-proxy auth 收紧可能影响 localhost proxy chain；v2026.4.5 legacy config alias 移除。详见 `docs/gateway_upgrade_eval_v2026.4.md`）
+> 版本：v37.9.21（kb_deep_dive WhatsApp 多窗口分片 / 1600 tests / 安全 95/100）
+> OpenClaw Gateway：2026.3.13-1（当前部署，继续 hold）| 上游最新：**v2026.4.26**（4/28 发布；#59265 agent actions 不可见在 sandbox 环境无法直查，按上游 4/3 提交后连续三次评估均仍 OPEN 的深层 bug 节奏推断仍未修复；v2026.3.31 trusted-proxy auth 收紧可能影响 localhost proxy chain 仍未做兼容性验证；v2026.4.5 legacy config alias 移除仍生效。无功能驱动 + 30+ 中间版本 breaking changes 累积 + 当前 v37.9.21 控制平面稳定，第三次评估（2026-04-29）继续 hold。详见 `docs/gateway_upgrade_eval_v2026.4.md`）
 ---
 ## 一、系统架构（V28.1 四层架构）
 
