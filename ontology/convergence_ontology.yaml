@@ -14,8 +14,8 @@
 # alert_only observation data per spec.
 
 meta:
-  version: "0.3-third-spec"
-  status: "framework_ready_three_specs_alert_only"
+  version: "0.4-fourth-spec"
+  status: "framework_ready_four_specs_alert_only"
   description: |
     Phase 4 Layer 5 of the ontology stack. Layer 1 (domain) describes WHAT
     exists, Layer 2 (policy) describes WHAT'S ALLOWED, Layer 3 (three-gate)
@@ -24,7 +24,7 @@ meta:
     declared state and runtime state — the missing piece that makes ontology
     a true control plane (not just a policy engine).
   meta_rule: MR-17
-  related_invariants: [INV-CONVERGENCE-CRON-001, INV-CONVERGENCE-PROVIDERS-001, INV-CONVERGENCE-OPENCLAW-001]
+  related_invariants: [INV-CONVERGENCE-CRON-001, INV-CONVERGENCE-PROVIDERS-001, INV-CONVERGENCE-OPENCLAW-001, INV-CONVERGENCE-KB-001]
   next_step:
     - V37.9.22+: jobs_to_crontab drift_action escalation to machine_sync
                  after one-week alert_only observation period (baseline 2026-04-26,
@@ -43,16 +43,30 @@ meta:
     named-dispatch (MR-8 copy-paste-is-a-bug-class正向兑现, mirrors V37.9.13
     _CONTEXT_EVALUATORS / V37.9.15 _STATIC_SIGNAL_KEYS pattern).
   v37_9_22_changelog: |
-    Added openclaw_config_to_runtime spec (third spec, second extension since
-    V37.9.20 — confirms framework extensibility is durable not a one-shot fluke).
-    New dispatch entry:
-      _DECLARED_EXTRACTORS["json_file_paths"]
-    Plus shared helper _walk_json_paths_to_set extracted from V37.9.20
-    _parse_json_set_union — single source of truth for path-syntax traversal,
-    used by both extractor (declared side) and parser (observed side).
-    Zero changes to verify_convergence orchestrator. Closes #48703-class
-    blood lesson where openclaw.json declared state could drift from
-    Gateway runtime state without detection.
+    Two specs added in one V37.9.22 push (third + fourth spec).
+
+    Third spec: openclaw_config_to_runtime
+      New dispatch entry:
+        _DECLARED_EXTRACTORS["json_file_paths"]
+      Plus shared helper _walk_json_paths_to_set extracted from V37.9.20
+      _parse_json_set_union — single source of truth for path-syntax traversal,
+      used by both extractor (declared side) and parser (observed side).
+      Closes #48703-class blood lesson where openclaw.json declared state
+      could drift from Gateway runtime state without detection.
+
+    Fourth spec: kb_sources_to_index
+      New dispatch entry:
+        _DECLARED_EXTRACTORS["registry_kb_source_files"]
+      Pure dispatch extension — reuses V37.9.19 _observe_shell_command +
+      _parse_line_contains_identifier (zero new observer/parser). Validates
+      that jobs_registry kb_source_file declarations actually appear in
+      ~/.kb/text_index/meta.json chunks. Sibling to V37.9.5 INV-KB-COVERAGE-001
+      (V37.9.5 guards code logic; V37.9.22 spec validates runtime indexing
+      success — drift = "code intended to index but chunks list says it didn't").
+
+    Zero changes to verify_convergence orchestrator across both specs —
+    framework extensibility second + third validation since V37.9.20 first,
+    proves named-dispatch contract is durable over multiple extension cycles.
 
 convergence_specs:
 
@@ -250,3 +264,86 @@ convergence_specs:
 
     governance_invariant: INV-CONVERGENCE-OPENCLAW-001
     blood_lesson_link: docs/gateway_upgrade_eval_v2026.4.md
+
+  # ── kb_sources_to_index (V37.9.22 fourth spec) ─────────────────────────
+  - id: kb_sources_to_index
+    enabled: true
+    description: |
+      jobs_registry.yaml enabled jobs declaring kb_source_file 字段必须 each
+      在 ~/.kb/text_index/meta.json 的 chunks[].source_file 中至少出现一次
+      （kb_embed.py successfully indexed the source）。
+
+      Sibling 关系 vs V37.9.5 INV-KB-COVERAGE-001 (workspace-md-indexed-by-
+      kb-embed):
+        - V37.9.5 INV: 守 kb_embed.py 源码逻辑 — "代码会扫 workspace .md"
+          (declaration layer — source-level grep guards)
+        - V37.9.22 spec: 守运行时事实 — "代码扫了 + chunks 看见了"
+          (convergence layer — declared-vs-runtime drift detection)
+      两者互补不替代，前者防代码改坏，后者防 mtime/cron 漂移让正确代码静默失效。
+
+      Drift signals (alert_only):
+        (a) Job declared kb_source_file 但 chunks 里没看见 → kb_embed cron
+            没跑 / source 文件 mtime 没变 / 代码逻辑过滤掉 / 文件被删
+        (b) /text_index/meta.json 不存在 → KB index 完全没建（首次部署
+            或 cron 长期失败）
+
+    declaration:
+      source: jobs_registry.yaml
+      extractor: registry_kb_source_files
+      identifier_field: kb_source_file
+      identifier_meaning: |
+        kb_source_file basename (e.g. "arxiv_daily.md"). 每个 enabled job
+        声明的 kb_source_file 应该在 ~/.kb/text_index/meta.json 的
+        chunks[].source_file 字段中至少出现一次（substring match — chunks
+        里的 source_file 通常是绝对路径如 /Users/.../arxiv_daily.md）。
+
+    runtime_observable:
+      method: shell_command
+      command: |
+        python3 -c "
+        import json, os
+        f = os.path.expanduser('~/.kb/text_index/meta.json')
+        if not os.path.exists(f):
+            raise SystemExit(0)
+        with open(f) as fp:
+            d = json.load(fp)
+        for c in d.get('chunks', []):
+            sf = c.get('source_file', '')
+            if sf:
+                print(os.path.basename(sf))
+        "
+      parser: line_contains_identifier
+      notes: |
+        Python oneliner reads meta.json + emits chunk source_file basenames
+        one-per-line. line_contains_identifier parser does substring match
+        per declared identifier in the output text. dev environments without
+        ~/.kb/text_index/meta.json: command exits 0 with empty stdout
+        → observer treats as "empty observed" (FAIL-OPEN, mirrors V37.9.19
+        crontab -l no-crontab behavior). meta.json present but unreadable
+        will raise SystemExit / decoding error → observer_failed for ops
+        visibility.
+
+    drift_action: alert_only
+    drift_action_rationale: |
+      machine_sync 是技术可达的 — 跑 `bash kb_embed.py` 重建 index 就能消除
+      drift。但 V37.9.22 仍保守 alert_only 起步：
+        (a) 一周观察期看 false-positive 频率（如 chunks list size 限制 vs
+            真实未索引的歧义）
+        (b) machine_sync 路径需要新增 "convergence trigger → kb_embed.py
+            re-index"，不在 V37.9.22 范围
+      V37.9.23+ 候选：升级到 machine_sync 让 governance audit cron 在 drift
+      时自动调用 kb_embed.py。
+
+    convergence_method:
+      planned: machine_sync_via_helper
+      planned_helper: "bash $HOME/openclaw-model-bridge/kb_embed.py"
+      planned_blocker: |
+        V37.9.22 一周观察期内 alert_only。kb_embed.py 全量重建是幂等的
+        (内部锁机制 V37.8 引入)，technically safe to auto-trigger，但需要
+        更慎重：
+        - 重建会触发 LLM embedding 调用，有 cost/latency 影响
+        - 应该只对真正 drift 的 source 增量重建，不是全量
+        V37.9.23+ 实现增量 re-index 路径后再升级。
+
+    governance_invariant: INV-CONVERGENCE-KB-001
+    blood_lesson_link: ontology/docs/cases/kb_content_and_sources_dedup_case.md

@@ -285,6 +285,37 @@ def _extract_json_file_paths(spec):
     return _walk_json_paths_to_set(data, paths)
 
 
+def _extract_registry_kb_source_files(spec):
+    """jobs_registry.yaml → set of kb_source_file basenames where enabled=true.
+
+    V37.9.22 fourth-spec sibling extractor — registry-specific, mirrors
+    V37.9.19 _extract_registry_enabled_system_jobs pattern (different field).
+    Each enabled job declaring kb_source_file means that file basename should
+    appear at least once in ~/.kb/text_index/meta.json's chunks[].source_file
+    list (i.e. kb_embed.py successfully indexed the source).
+
+    Note: does NOT filter scheduler=system — KB sources can come from either
+    system crontab jobs (most current cases) or openclaw cron jobs in future,
+    both should be indexed regardless of scheduling lane.
+
+    Sibling to V37.9.5 INV-KB-COVERAGE-001 (which guards kb_embed.py source-
+    code logic to *attempt* indexing); this extractor backs V37.9.22
+    INV-CONVERGENCE-KB-001 which validates *successful* indexing at runtime.
+    """
+    decl = spec.get("declaration", {})
+    src = decl.get("source", "jobs_registry.yaml")
+    src_path = Path(__file__).resolve().parent.parent / src
+    data = _load_yaml(src_path)
+    out = set()
+    for job in (data.get("jobs") or []):
+        if not job.get("enabled"):
+            continue
+        kb_file = job.get("kb_source_file") or ""
+        if kb_file:
+            out.add(kb_file)
+    return out
+
+
 def _extract_providers_from_registry(spec):
     """providers.py ProviderRegistry.list_names() → set of provider name strings.
 
@@ -317,6 +348,7 @@ def _extract_providers_from_registry(spec):
 
 _DECLARED_EXTRACTORS = {
     "registry_enabled_system_jobs": _extract_registry_enabled_system_jobs,
+    "registry_kb_source_files": _extract_registry_kb_source_files,
     "providers_from_registry": _extract_providers_from_registry,
     "json_file_paths": _extract_json_file_paths,
 }
