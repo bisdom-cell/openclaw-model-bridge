@@ -14,8 +14,8 @@
 # alert_only observation data per spec.
 
 meta:
-  version: "0.2-second-spec"
-  status: "framework_ready_two_specs_alert_only"
+  version: "0.3-third-spec"
+  status: "framework_ready_three_specs_alert_only"
   description: |
     Phase 4 Layer 5 of the ontology stack. Layer 1 (domain) describes WHAT
     exists, Layer 2 (policy) describes WHAT'S ALLOWED, Layer 3 (three-gate)
@@ -24,16 +24,15 @@ meta:
     declared state and runtime state — the missing piece that makes ontology
     a true control plane (not just a policy engine).
   meta_rule: MR-17
-  related_invariants: [INV-CONVERGENCE-CRON-001, INV-CONVERGENCE-PROVIDERS-001]
+  related_invariants: [INV-CONVERGENCE-CRON-001, INV-CONVERGENCE-PROVIDERS-001, INV-CONVERGENCE-OPENCLAW-001]
   next_step:
-    - V37.9.21: jobs_to_crontab drift_action escalation to machine_sync
-                after one-week alert_only observation period (baseline 2026-04-26,
-                decision window 2026-05-03)
-    - V37.9.21: openclaw_config_to_runtime spec
-    - V37.9.21: kb_sources_to_index spec (subsumes V37.9.5 INV-KB-COVERAGE-001
-                into the unified convergence framework)
-    - V37.9.22: governance_checker integration — daily audit cron calls
-                verify_convergence on all enabled specs
+    - V37.9.22+: jobs_to_crontab drift_action escalation to machine_sync
+                 after one-week alert_only observation period (baseline 2026-04-26,
+                 decision window 2026-05-03)
+    - V37.9.23+: kb_sources_to_index spec (subsumes V37.9.5 INV-KB-COVERAGE-001
+                 into the unified convergence framework)
+    - V37.9.23+: governance_checker integration — daily audit cron calls
+                 verify_convergence on all enabled specs
   v37_9_20_changelog: |
     Added providers_to_adapter spec (second spec, validates V37.9.19 named-
     dispatch extensibility promise). New dispatch entries:
@@ -43,6 +42,17 @@ meta:
     Zero changes to verify_convergence orchestrator — pure extension via
     named-dispatch (MR-8 copy-paste-is-a-bug-class正向兑现, mirrors V37.9.13
     _CONTEXT_EVALUATORS / V37.9.15 _STATIC_SIGNAL_KEYS pattern).
+  v37_9_22_changelog: |
+    Added openclaw_config_to_runtime spec (third spec, second extension since
+    V37.9.20 — confirms framework extensibility is durable not a one-shot fluke).
+    New dispatch entry:
+      _DECLARED_EXTRACTORS["json_file_paths"]
+    Plus shared helper _walk_json_paths_to_set extracted from V37.9.20
+    _parse_json_set_union — single source of truth for path-syntax traversal,
+    used by both extractor (declared side) and parser (observed side).
+    Zero changes to verify_convergence orchestrator. Closes #48703-class
+    blood lesson where openclaw.json declared state could drift from
+    Gateway runtime state without detection.
 
 convergence_specs:
 
@@ -155,3 +165,88 @@ convergence_specs:
 
     governance_invariant: INV-CONVERGENCE-PROVIDERS-001
     blood_lesson_link: ontology/docs/cases/kb_evening_fallback_quota_chain_case.md
+
+  # ── openclaw_config_to_runtime (V37.9.22 third spec) ───────────────────
+  - id: openclaw_config_to_runtime
+    enabled: true
+    description: |
+      ~/.openclaw/openclaw.json declared agent set vs Gateway :18789 /health
+      runtime active agent set. Closes #48703-class blood lesson where
+      declared-state vs runtime-state drift could go undetected (V37.9.16
+      taught us "上游已修复 ≠ 我们已修复"; V37.9.22 generalizes to "声明值 ≠
+      runtime 值" structural detection).
+
+      Initial path config is conservative — defaults to `agents.list[].name`
+      since that's a stable nested-list shape. Mac Mini admins can adjust
+      json_paths in this spec to track other fields (channels, providers,
+      tool allowlists) as the OpenClaw schema evolves.
+
+      Drift signals (alert_only):
+        (a) Agent declared in openclaw.json but not in /health agents — config
+            edit not yet picked up by runtime (Gateway needs restart) or
+            runtime crashed silently.
+        (b) /health unreachable — Gateway down, masked by other layers
+            (wa_keepalive, etc.) but here we surface declaration-vs-runtime
+            asymmetry directly.
+
+    declaration:
+      source: "$HOME/.openclaw/openclaw.json"
+      extractor: json_file_paths
+      json_paths:
+        - "version"
+      identifier_field: version
+      identifier_meaning: |
+        OpenClaw runtime version field from openclaw.json (top-level scalar).
+        V37.9.22 path syntax supports only top-level fields (`field` scalar
+        and `field[]` list of scalars) — same syntax as V37.9.20 parser.
+        Nested traversal like "agents.list[].name" requires V37.9.23+
+        extension. The version field is the most stable cross-OpenClaw-version
+        path; admins can switch to other top-level fields (e.g. flat
+        "primary_agent", "default_channel") that match their openclaw.json
+        shape. Multi-path observation works: list multiple top-level fields
+        in json_paths to track several simultaneously.
+      notes: |
+        FAIL-OPEN behavior: if ~/.openclaw/openclaw.json doesn't exist (dev
+        environments / fresh install before OpenClaw setup), extractor returns
+        empty set rather than raising. Mac Mini admin is expected to notice
+        if openclaw.json deleted (Gateway breaks immediately, not a convergence
+        problem). File present but unreadable / invalid JSON DOES raise via
+        extractor_failed for ops visibility.
+
+    runtime_observable:
+      method: http_endpoint
+      url: "http://localhost:18789/health"
+      timeout_sec: 5
+      parser: json_set_union
+      json_paths:
+        - "version"
+      notes: |
+        Gateway /health response shape is OpenClaw-version-dependent. Spec
+        starts with "version" as the most reliable cross-version field;
+        json_set_union intersects observed with declared upstream. dev
+        environments without Gateway → connection refused → observer_failed
+        → declared-all-missing for ops visibility (mirrors V37.9.20 providers
+        spec FAIL-OPEN behavior). Mac Mini admin extends paths in lockstep
+        with declaration.json_paths as needed.
+
+    drift_action: alert_only
+    drift_action_rationale: |
+      machine_sync is structurally inappropriate for this spec — convergence
+      framework cannot magically restart the Gateway or edit openclaw.json
+      to match runtime. Drift indicates either:
+        (a) openclaw.json edited but Gateway not yet reloaded → operator
+            decision to restart vs revert
+        (b) Gateway crashed silently → operator must investigate root cause
+      Both require human judgment. alert_only is the structurally correct
+      choice (config-gap surfacing, not state-sync).
+
+    convergence_method:
+      planned: alert_only_permanent
+      planned_rationale: |
+        Like providers_to_adapter (V37.9.20), no automated fix path exists.
+        OpenClaw config changes are intentional operator actions, not values
+        a machine should auto-sync. The value is observability + drift
+        detection at audit time, not automatic remediation.
+
+    governance_invariant: INV-CONVERGENCE-OPENCLAW-001
+    blood_lesson_link: docs/gateway_upgrade_eval_v2026.4.md

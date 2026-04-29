@@ -797,10 +797,18 @@ class TestProvidersSpecSourceGuards(unittest.TestCase):
             "providers_to_adapter must declare alert_only_permanent (not TODO)")
 
     def test_yaml_meta_version_advanced(self):
-        # meta version bumped from 0.1-skeleton → 0.2-second-spec
-        self.assertIn("0.2-second-spec", self.yaml_src)
+        # V37.9.20: meta version bumped from 0.1-skeleton → 0.2-second-spec
+        # V37.9.22: bumped further → 0.3-third-spec
+        # Guard against accidental regression below 0.2
         self.assertNotIn('version: "0.1-skeleton"', self.yaml_src,
-            "meta version should be bumped past 0.1-skeleton in V37.9.20")
+            "meta version should be bumped past 0.1-skeleton in V37.9.20+")
+        # Must be at 0.2+ (any second-spec or third-spec or later)
+        has_v2_or_later = any(
+            marker in self.yaml_src for marker in
+            ["0.2-second-spec", "0.3-third-spec"]
+        )
+        self.assertTrue(has_v2_or_later,
+            "meta version must be at 0.2+ (V37.9.20 baseline or higher)")
 
     def test_yaml_meta_lists_both_invariants(self):
         # Both V37.9.19 + V37.9.20 invariants present in related_invariants
@@ -835,6 +843,331 @@ class TestProvidersSpecSourceGuards(unittest.TestCase):
                 self.assertNotIn("machine_sync", line)
                 return
         self.fail("Could not find drift_action: line in providers_to_adapter spec")
+
+
+class TestWalkJsonPathsToSet(unittest.TestCase):
+    """V37.9.22 — _walk_json_paths_to_set shared helper (MR-8 兑现).
+
+    Extracted from V37.9.20 _parse_json_set_union to be shared by both
+    declared-side (_extract_json_file_paths) and observed-side parser.
+    Pure function with no I/O — easy to test directly."""
+
+    def test_top_level_scalar_path(self):
+        data = {"version": "1.2.3", "name": "openclaw"}
+        result = cv._walk_json_paths_to_set(data, ["version"])
+        self.assertEqual(result, {"1.2.3"})
+
+    def test_top_level_list_path(self):
+        data = {"agents": ["pa", "ops", "research"]}
+        result = cv._walk_json_paths_to_set(data, ["agents[]"])
+        self.assertEqual(result, {"pa", "ops", "research"})
+
+    def test_multiple_paths_union(self):
+        data = {"version": "1.2.3", "agents": ["pa", "ops"]}
+        result = cv._walk_json_paths_to_set(data, ["version", "agents[]"])
+        self.assertEqual(result, {"1.2.3", "pa", "ops"})
+
+    def test_missing_key_silently_skipped(self):
+        data = {"version": "1.2.3"}
+        result = cv._walk_json_paths_to_set(data, ["version", "missing", "absent[]"])
+        self.assertEqual(result, {"1.2.3"})
+
+    def test_none_value_silently_skipped(self):
+        data = {"version": None, "name": "x"}
+        result = cv._walk_json_paths_to_set(data, ["version", "name"])
+        self.assertEqual(result, {"x"})
+
+    def test_dict_on_scalar_path_silently_skipped(self):
+        # FAIL-OPEN: nested dict on scalar path is misconfig but doesn't raise
+        data = {"agents": {"pa": "..."}}
+        result = cv._walk_json_paths_to_set(data, ["agents"])
+        self.assertEqual(result, set())
+
+    def test_list_on_scalar_path_silently_skipped(self):
+        # FAIL-OPEN: bare list on scalar path silently skipped
+        data = {"agents": ["pa", "ops"]}
+        result = cv._walk_json_paths_to_set(data, ["agents"])  # missing []
+        self.assertEqual(result, set())
+
+    def test_scalar_on_list_path_raises(self):
+        # Structural misconfig: path declared [] but value is scalar
+        data = {"agents": "pa"}
+        with self.assertRaises(ValueError) as ctx:
+            cv._walk_json_paths_to_set(data, ["agents[]"])
+        self.assertIn("expected list", str(ctx.exception))
+
+    def test_list_with_none_elements_skipped(self):
+        data = {"agents": ["pa", None, "ops"]}
+        result = cv._walk_json_paths_to_set(data, ["agents[]"])
+        self.assertEqual(result, {"pa", "ops"})
+
+    def test_list_coerces_non_string_elements(self):
+        data = {"ports": [5001, 5002, 18789]}
+        result = cv._walk_json_paths_to_set(data, ["ports[]"])
+        self.assertEqual(result, {"5001", "5002", "18789"})
+
+    def test_empty_paths_returns_empty_set(self):
+        result = cv._walk_json_paths_to_set({"a": 1}, [])
+        self.assertEqual(result, set())
+
+    def test_invalid_path_types_silently_skipped(self):
+        # Non-string path entries skipped silently (FAIL-OPEN)
+        data = {"version": "1"}
+        result = cv._walk_json_paths_to_set(data, ["version", None, 42, "", "version"])
+        self.assertEqual(result, {"1"})
+
+
+class TestExtractJsonFilePaths(unittest.TestCase):
+    """V37.9.22 — _extract_json_file_paths declared-side extractor.
+
+    Validates: file resolution (abs/rel/~/$VAR), FAIL-OPEN on missing,
+    error categorization (missing vs corrupted), spec-config validation."""
+
+    def _spec(self, source, json_paths):
+        return {
+            "id": "test_spec",
+            "declaration": {
+                "source": source,
+                "extractor": "json_file_paths",
+                "json_paths": json_paths,
+            },
+        }
+
+    def test_basic_extraction(self):
+        with tempfile.TemporaryDirectory() as td:
+            p = Path(td) / "config.json"
+            p.write_text(json.dumps({"version": "2.5.0", "agents": ["pa", "ops"]}))
+            result = cv._extract_json_file_paths(
+                self._spec(str(p), ["version", "agents[]"])
+            )
+            self.assertEqual(result, {"2.5.0", "pa", "ops"})
+
+    def test_missing_source_raises_value_error(self):
+        with self.assertRaises(ValueError) as ctx:
+            cv._extract_json_file_paths(self._spec("", ["x"]))
+        self.assertIn("source", str(ctx.exception))
+
+    def test_missing_json_paths_raises_value_error(self):
+        with tempfile.TemporaryDirectory() as td:
+            p = Path(td) / "x.json"
+            p.write_text("{}")
+            with self.assertRaises(ValueError) as ctx:
+                cv._extract_json_file_paths(self._spec(str(p), []))
+            self.assertIn("json_paths", str(ctx.exception))
+
+    def test_file_not_exist_returns_empty_set_fail_open(self):
+        """FAIL-OPEN: dev environments without OpenClaw runtime → empty set,
+        not raise. Critical for governance audit not spuriously alerting."""
+        result = cv._extract_json_file_paths(
+            self._spec("/nonexistent/path/openclaw.json", ["version"])
+        )
+        self.assertEqual(result, set())
+
+    def test_invalid_json_raises_runtime_error(self):
+        """File present but corrupted → RuntimeError (extractor_failed),
+        distinct from missing file (set()) — admin sees actual data corruption."""
+        with tempfile.TemporaryDirectory() as td:
+            p = Path(td) / "bad.json"
+            p.write_text("{ not valid json")
+            with self.assertRaises(RuntimeError) as ctx:
+                cv._extract_json_file_paths(self._spec(str(p), ["x"]))
+            self.assertIn("invalid JSON", str(ctx.exception))
+
+    def test_top_level_non_object_raises_value_error(self):
+        """JSON valid but top-level array (not object) → ValueError."""
+        with tempfile.TemporaryDirectory() as td:
+            p = Path(td) / "list.json"
+            p.write_text(json.dumps(["a", "b", "c"]))
+            with self.assertRaises(ValueError) as ctx:
+                cv._extract_json_file_paths(self._spec(str(p), ["x"]))
+            self.assertIn("must be object", str(ctx.exception))
+
+    def test_home_var_expansion(self):
+        """$HOME and ~ should expand to actual home dir."""
+        with tempfile.TemporaryDirectory() as td:
+            # Override HOME to td so we can test expansion safely
+            old_home = os.environ.get("HOME")
+            os.environ["HOME"] = td
+            try:
+                p = Path(td) / "config.json"
+                p.write_text(json.dumps({"version": "1.0"}))
+                # $HOME path
+                result = cv._extract_json_file_paths(
+                    self._spec("$HOME/config.json", ["version"])
+                )
+                self.assertEqual(result, {"1.0"})
+                # ~ path
+                result = cv._extract_json_file_paths(
+                    self._spec("~/config.json", ["version"])
+                )
+                self.assertEqual(result, {"1.0"})
+            finally:
+                if old_home is not None:
+                    os.environ["HOME"] = old_home
+
+    def test_relative_path_resolves_against_repo_root(self):
+        """Relative paths resolve to repo root (parent of ontology/)."""
+        # Create temp file at repo root for this test, clean up after
+        marker = REPO_ROOT / "_test_convergence_v9_22_marker.json"
+        try:
+            marker.write_text(json.dumps({"version": "rel-test"}))
+            result = cv._extract_json_file_paths(
+                self._spec("_test_convergence_v9_22_marker.json", ["version"])
+            )
+            self.assertEqual(result, {"rel-test"})
+        finally:
+            if marker.exists():
+                marker.unlink()
+
+    def test_multi_path_union_from_file(self):
+        with tempfile.TemporaryDirectory() as td:
+            p = Path(td) / "multi.json"
+            p.write_text(json.dumps({
+                "version": "2.5.0",
+                "channels": ["whatsapp", "discord"],
+                "missing_field_skipped": "but_not_in_paths",
+            }))
+            result = cv._extract_json_file_paths(
+                self._spec(str(p), ["version", "channels[]"])
+            )
+            self.assertEqual(result, {"2.5.0", "whatsapp", "discord"})
+
+
+class TestVerifyOpenclawConfigToRuntimeIntegration(unittest.TestCase):
+    """V37.9.22 — End-to-end via real openclaw_config_to_runtime spec from yaml.
+
+    Verifies framework's third extension works: zero changes to verify_convergence
+    orchestrator, just dispatch table extension."""
+
+    def test_real_spec_dev_environment_does_not_crash(self):
+        """dev: openclaw.json absent + Gateway not running → declared=set()
+        + observer_failed → result.error set, drift_detected=False, no raise."""
+        result = cv.verify_convergence("openclaw_config_to_runtime")
+        # Should not raise; result is a valid namedtuple
+        self.assertEqual(result.spec_id, "openclaw_config_to_runtime")
+        # Declared empty (file missing) → no drift detected since nothing to miss
+        self.assertEqual(result.declared, set())
+        # Drift not detected (declared empty intersect observed empty = no missing)
+        self.assertFalse(result.drift_detected)
+
+    def test_spec_uses_json_file_paths_extractor(self):
+        spec = cv.get_spec("openclaw_config_to_runtime")
+        self.assertIsNotNone(spec, "openclaw_config_to_runtime spec must exist in yaml")
+        self.assertEqual(spec["declaration"]["extractor"], "json_file_paths")
+
+    def test_spec_uses_http_endpoint_observer(self):
+        spec = cv.get_spec("openclaw_config_to_runtime")
+        self.assertEqual(spec["runtime_observable"]["method"], "http_endpoint")
+
+    def test_spec_uses_json_set_union_parser(self):
+        spec = cv.get_spec("openclaw_config_to_runtime")
+        self.assertEqual(spec["runtime_observable"]["parser"], "json_set_union")
+
+    def test_spec_drift_action_alert_only(self):
+        spec = cv.get_spec("openclaw_config_to_runtime")
+        self.assertEqual(spec["drift_action"], "alert_only")
+
+
+class TestOpenclawSpecSourceGuards(unittest.TestCase):
+    """V37.9.22 — source-level guards on convergence.py + yaml extension."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.py_src = (ONTOLOGY_DIR / "convergence.py").read_text(encoding="utf-8")
+        cls.yaml_src = (ONTOLOGY_DIR / "convergence_ontology.yaml").read_text(encoding="utf-8")
+        cls.gov_src = (ONTOLOGY_DIR / "governance_ontology.yaml").read_text(encoding="utf-8")
+
+    def test_extractor_registered_in_dispatch(self):
+        self.assertIn(
+            '"json_file_paths": _extract_json_file_paths',
+            self.py_src,
+        )
+
+    def test_walk_helper_defined(self):
+        """MR-8 兑现：shared helper extracted from V37.9.20 parser."""
+        self.assertIn("def _walk_json_paths_to_set", self.py_src)
+
+    def test_extractor_uses_walk_helper(self):
+        """_extract_json_file_paths must call the shared helper, not duplicate logic."""
+        self.assertIn("_walk_json_paths_to_set(data, paths)", self.py_src)
+        # Specifically inside _extract_json_file_paths
+        idx = self.py_src.find("def _extract_json_file_paths")
+        self.assertGreater(idx, 0)
+        end = self.py_src.find("\ndef ", idx + 10)
+        body = self.py_src[idx:end]
+        self.assertIn("_walk_json_paths_to_set", body)
+
+    def test_parser_uses_walk_helper(self):
+        """V37.9.22 refactor: V37.9.20 _parse_json_set_union must now use shared
+        helper instead of inlined path traversal — single source of truth."""
+        idx = self.py_src.find("def _parse_json_set_union")
+        self.assertGreater(idx, 0)
+        end = self.py_src.find("\n\n_IDENTIFIER_PARSERS", idx)
+        body = self.py_src[idx:end]
+        self.assertIn("_walk_json_paths_to_set", body,
+            "V37.9.22 refactor: _parse_json_set_union must call shared helper "
+            "(MR-8 単一真理源 — both extractor and parser go through one path-syntax impl)")
+
+    def test_extractor_fail_open_on_missing_file(self):
+        """FAIL-OPEN contract: extractor returns set() (not raise) when file missing."""
+        idx = self.py_src.find("def _extract_json_file_paths")
+        self.assertGreater(idx, 0)
+        end = self.py_src.find("\ndef ", idx + 10)
+        body = self.py_src[idx:end]
+        self.assertIn("if not p.exists():", body)
+        self.assertIn("return set()", body)
+
+    def test_yaml_declares_openclaw_config_to_runtime_spec(self):
+        self.assertIn("id: openclaw_config_to_runtime", self.yaml_src)
+
+    def test_yaml_meta_version_advanced(self):
+        self.assertIn("0.3-third-spec", self.yaml_src)
+        self.assertNotIn('version: "0.2-second-spec"', self.yaml_src,
+            "meta version should be bumped past 0.2-second-spec in V37.9.22")
+
+    def test_yaml_meta_lists_three_invariants(self):
+        self.assertIn("INV-CONVERGENCE-CRON-001", self.yaml_src)
+        self.assertIn("INV-CONVERGENCE-PROVIDERS-001", self.yaml_src)
+        self.assertIn("INV-CONVERGENCE-OPENCLAW-001", self.yaml_src)
+
+    def test_yaml_changelog_documents_extension(self):
+        self.assertIn("v37_9_22_changelog", self.yaml_src)
+        self.assertIn("json_file_paths", self.yaml_src)
+        self.assertIn("_walk_json_paths_to_set", self.yaml_src)
+
+    def test_yaml_alert_only_permanent_for_third_spec(self):
+        """Like providers spec, openclaw_config_to_runtime cannot machine-sync
+        (operator decision required), so planned=alert_only_permanent."""
+        idx = self.yaml_src.find("id: openclaw_config_to_runtime")
+        self.assertGreater(idx, 0)
+        block = self.yaml_src[idx:]
+        self.assertIn("alert_only_permanent", block)
+
+    def test_no_machine_sync_for_openclaw_spec(self):
+        """Guard against accidental drift_action escalation."""
+        idx = self.yaml_src.find("id: openclaw_config_to_runtime")
+        self.assertGreater(idx, 0)
+        # spec block runs from this id to end of file (it's the last spec in yaml);
+        # openclaw spec is ~7KB with all description/declaration/runtime/method blocks
+        block = self.yaml_src[idx:]
+        for line in block.split("\n"):
+            if line.strip().startswith("drift_action:") and "rationale" not in line:
+                self.assertIn("alert_only", line)
+                self.assertNotIn("machine_sync", line)
+                return
+        self.fail("drift_action: line not found in openclaw_config_to_runtime spec")
+
+    def test_governance_ontology_lists_third_invariant(self):
+        """MR-17 derivative_invariants must include the third INV."""
+        self.assertIn("INV-CONVERGENCE-OPENCLAW-001", self.gov_src)
+        # Specifically in MR-17 derivative_invariants list
+        idx = self.gov_src.find("- id: MR-17")
+        self.assertGreater(idx, 0)
+        end = self.gov_src.find("\n  - id:", idx + 10)
+        if end < 0:
+            end = idx + 5000
+        mr17_block = self.gov_src[idx:end]
+        self.assertIn("INV-CONVERGENCE-OPENCLAW-001", mr17_block)
 
 
 if __name__ == "__main__":

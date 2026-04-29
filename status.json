@@ -1,6 +1,6 @@
 {
-  "updated": "2026-04-27 15:09:17",
-  "updated_by": "full_regression",
+  "updated": "2026-04-29 07:38:51",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -105,6 +105,11 @@
   ],
   "recent_changes": [
     {
+      "date": "2026-04-29",
+      "what": "V37.9.22 双小迭代收工 — (1) #6 kb_deep_dive.sh wa_parts 字段缺失 stderr WARN: V37.9.21 部署不一致期 silent fail 教训(MR-4 第 17 次新形态 — 跨文件部署窗口)闭合, heredoc 内 in 检测 wa_parts not in data → stderr WARN(file=sys.stderr 避免 $(...) 命令替换捕获污染), 不影响 fallback 行为只加可观测性, 6 新单测(1 source-level guard + 1 marker + 4 behavior-level subprocess heredoc 真跑验证 stdout 不污染) (2) #2 第三个 convergence spec openclaw_config_to_runtime: V37.9.20 named-dispatch 第二次扩展验证(framework 真扩展性持久非一次性巧合), 新增 _extract_json_file_paths extractor 通用 JSON config 文件读取 + path-syntax 提取, 抽出 _walk_json_paths_to_set 共用 helper 让 V37.9.20 _parse_json_set_union 改用之(MR-8 单一真理源正向兑现 — extractor declared side + parser observed side 走同一 path-syntax impl), spec yaml 默认观察 openclaw.json version 顶层字段(V37.9.20 path 语法只支持 field/field[], 嵌套 V37.9.23+ 扩展), drift_action=alert_only_permanent(operator 决策不能 machine 自动同步), FAIL-OPEN on missing file(dev 环境无 openclaw.json 返回 set() 不报警), file 损坏时 raise RuntimeError 区分缺失 vs 损坏. INV-CONVERGENCE-OPENCLAW-001 加入(meta_rule=MR-17, severity=high, declaration+runtime, 13 checks: 5 dispatch + 7 yaml structural + 1 runtime python_assert subprocess 跑 V37.9.22 4 测试类). 33 新单测 4 类 (TestWalkJsonPathsToSet 12 含 helper 边界 + TestExtractJsonFilePaths 9 含 ~/$HOME 展开 + 相对路径解析 + TestVerifyOpenclawConfigToRuntimeIntegration 5 含真 spec dev 不崩溃 + TestOpenclawSpecSourceGuards 12 含 yaml/code 守卫). MR-17 derivative_invariants 升级 [INV-CONVERGENCE-CRON-001, INV-CONVERGENCE-PROVIDERS-001] → [..., INV-CONVERGENCE-OPENCLAW-001]. 累计 47→48 suites / 1600→1644 tests (+44, V37.9.22 +6 + +38) / 0 fail / governance v3.34→v3.35 / 63→64 invariants (+1) / 337→350 checks (+13) / 17 meta rules / 安全 95/100 / VERSION 0.37.9.21 → 0.37.9.22. 同时 OpenClaw 升级评估三次评估完成(早上做): 用户授权 WebFetch 实证查 #59265 已 closed at 4/25 但 NO PR / NO release notes mention(closed 状态变化但实质未修复) + 发现 v2026.4.26 新硬阻塞 #73358 (silent OpenAI codex/gpt-5.5 default 升级即业务中断) → 引入 Tripwire 决策框架(6 条触发器: 时间180天/版本差距50个/EOL/WhatsApp破坏性/CVE人工/业务痛点) 替代被动评估模式, check_upgrade.sh 重写 88→248 行 dev环境降级支持. 元价值: V37.9.22 是 V37.9.20 framework extensibility 第二次实测验证(继 V37.9.20 第一次), proves named-dispatch 不是空头承诺 — 添加新 spec 类型只需 yaml 声明 + 注册新函数零 framework 改动, V3 路标 pip install ontology-engine 终极目标硬证据持续累积.",
+      "by": "claude_code"
+    },
+    {
       "date": "2026-04-27",
       "what": "V37.9.21 Mac Mini 生产 E2E 完美通过 + 完整收工 — 用户实测 WhatsApp 收到 Part [1/2] (Sections 1-4 核心论点+论证链+实验/证据+局限性, 含 link) + Part [2/2] (Section 5 对本项目启发完整两条建议, 无 link 节省字数), 边界选中 ## 5. heading 前的 \\n\\n 零内容丢失没有句子被切两段. V37.9.20 的省略号截断从此消失, 每天深度分析在手机上完整可读. 用户视角 → 24h 闭环 (MR-7 第 3 次正向兑现)。同时观察到 22:55:59 那次 silent fail (~3min 跑) 是 auto_deploy 2min 轮询的部署不一致期副作用 — 当时 ~/kb_deep_dive.sh 已是 V37.9.21 (新 shell) 但 ~/kb_deep_dive.py 还是旧版 (py 文件晚到几秒), 新 shell 调旧 py 在 set -e 下静默退出, 几秒后 auto_deploy 同步 py 后自愈. 这是 MR-4 silent-failure 第 17 次演出的新形态: 跨文件部署不一致期的窗口 (新 shell + 旧 py 临时混合). V37.9.22 nice-to-have 候选: 当 collector 输出无 wa_parts 字段时 shell 应 log WARN 而不是静默走 fallback 单段路径, 让运维知道部署不一致 (非紧急, 已自愈). 累计今日: V37.9.20 (上午 providers_to_adapter 第二个 spec) + V37.9.21 (晚上 WhatsApp 多窗口分片) 一日双版本 / 48 suites / 1542→1600 tests (+58, V37.9.20 +35 + V37.9.21 +23) / 0 fail / 安全 95/100 / VERSION 0.37.9.19→0.37.9.21 跳两位.",
       "by": "claude_code"
@@ -198,11 +203,6 @@
       "date": "2026-04-22",
       "what": "V37.9.11 MRD-RESERVED-FILES-001 闭环 — BOOTSTRAP.md + SKILL.md 加入 RESERVED_FILE_BASENAMES (从 1 扩到 3 文件). 触发: V37.9.9 Mac Mini governance --full 扫 OpenClaw dist/*.js 639 文件发现 2 个未登记. 四层扩展: proxy_filters 常量 + SAFE_CONTENT 改通用 + SOUL.md 规则 11 扩 3 文件 + INV-HB-001 加 4 checks (2 file_contains + 1 runtime for-loop 避 exec scope trap). 8 新 TestReservedFileWriteBlock 单测 (basename 守卫 + 精确集合契约 + BOOTSTRAP/SKILL 拦截 + SAFE_CONTENT 文件无关性). 41 suites / 1201 tests (+8) / 0 fail / 安全 95 dev / 100 Mac Mini. 元价值: MR-15 从 post-hoc 升级为 pre-emptive (源码扫描主动覆盖) + MR-7 治理自证闭环生产级兑现.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-04-22",
-      "what": "V37.9.10 audit_log 原子导出 + fsync 持久化加固 — 数据完整性 13→15 满分 (总分 93→95 dev / 98→100 Mac Mini 预期). audit() 加 flush+fsync 防 cron 崩溃丢尾部记录; 新增 snapshot(dest_path) 用 tmp+os.replace 真原子模式导出审计日志快照 (适用备份/跨主机同步); --snapshot CLI 模式. 7 新 TestSnapshot 单测: 缺文件返回 ok=False / 字节级一致 / 不留 .tmp 残余 / 自动建目标目录 / 覆盖已存在 / 源码守卫 os.replace+os.fsync. 41 suites / 1193 tests (+7) / 0 fail. 原则 #18 补证据而非补功能正向兑现: 每改动对应真运维场景.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -272,14 +272,14 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 1600,
-    "last_regression": "2026-04-27 15:09 pass",
+    "test_count": 1644,
+    "last_regression": "2026-04-29 07:37 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-04-27 15:09",
-    "test_suites": 49,
-    "governance_invariants": "59/59",
-    "governance_checks": "283/283",
-    "version": "0.37.9.21"
+    "security_score_time": "2026-04-29 07:37",
+    "test_suites": 48,
+    "governance_invariants": "64/64",
+    "governance_checks": "350/350",
+    "version": "0.37.9.22"
   },
   "incidents": [
     {

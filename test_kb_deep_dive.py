@@ -807,6 +807,115 @@ class TestKbDeepDiveShellGuards(unittest.TestCase):
         """ops visibility: log message includes 'X/N 段' so failures are visible."""
         self.assertIn("$WA_SEND_OK/$WA_PARTS_TOTAL", self.content)
 
+    # ── V37.9.22: deployment inconsistency window detection ────────────────
+
+    def test_v37_9_22_marker_in_script(self):
+        self.assertIn("V37.9.22", self.content,
+            "kb_deep_dive.sh must mark V37.9.22 wa_parts missing detection section")
+
+    def test_v37_9_22_warns_when_wa_parts_field_missing(self):
+        """Source-level guard: heredoc must check 'wa_parts' not in data and emit WARN to stderr.
+        Detects the V37.9.21 deployment-inconsistency-window silent fail
+        (new shell + old py temporarily mixed during 2-min auto_deploy polling)."""
+        # The check itself
+        self.assertIn('"wa_parts" not in data', self.content,
+            "Must explicitly check key existence (not None/empty) to distinguish 'old py' from 'picker returned empty'")
+        # Must write to stderr (so $(...) capture doesn't swallow it)
+        self.assertIn("file=sys.stderr", self.content,
+            "WARN must go to stderr to avoid contaminating $(...) command substitution capture")
+        # Specific marker mentioning the deployment inconsistency cause
+        self.assertIn("部署不一致", self.content,
+            "WARN message must explain root cause for ops visibility")
+
+
+class TestV37_9_22_WaPartsMissingWarn(unittest.TestCase):
+    """Behavior-level: extract heredoc and run it to verify stderr WARN behavior.
+    Mirrors V37.9.13 test_restart_launchd subprocess-runtime pattern."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.script_path = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), "kb_deep_dive.sh"
+        )
+        with open(cls.script_path, "r", encoding="utf-8") as f:
+            cls.content = f.read()
+
+    def _extract_heredoc_python(self):
+        """Extract the wa_parts heredoc (between PYEOF markers right after WA_PARTS_TOTAL=)."""
+        marker = "WA_PARTS_TOTAL=$(COLLECTOR_OUTPUT="
+        start = self.content.find(marker)
+        self.assertGreater(start, 0, "WA_PARTS_TOTAL heredoc not found")
+        # Find the heredoc body between << 'PYEOF' and PYEOF
+        heredoc_open = self.content.find("<< 'PYEOF'", start)
+        body_start = self.content.find("\n", heredoc_open) + 1
+        body_end = self.content.find("\nPYEOF", body_start)
+        return self.content[body_start:body_end]
+
+    def _run_heredoc(self, collector_json):
+        import subprocess, tempfile
+        body = self._extract_heredoc_python()
+        with tempfile.TemporaryDirectory() as td:
+            env = {"COLLECTOR_OUTPUT": collector_json, "CHUNK_DIR": td, "PATH": os.environ.get("PATH", "")}
+            proc = subprocess.run(
+                ["python3", "-c", body],
+                env=env, capture_output=True, text=True, timeout=10,
+            )
+            return proc
+
+    def test_warn_emitted_when_wa_parts_field_missing(self):
+        """Old py simulation: collector JSON without wa_parts field → stderr WARN."""
+        old_py_output = json.dumps({
+            "status": "ok",
+            "wa_message": "single-segment fallback",
+            "discord_message": "discord version",
+        })
+        proc = self._run_heredoc(old_py_output)
+        self.assertEqual(proc.returncode, 0, f"heredoc failed: {proc.stderr}")
+        self.assertIn("WARN", proc.stderr)
+        self.assertIn("wa_parts", proc.stderr)
+        self.assertIn("部署不一致", proc.stderr)
+        # stdout still produces parts count for $(...) capture
+        self.assertEqual(proc.stdout.strip(), "1")
+
+    def test_no_warn_when_wa_parts_field_present(self):
+        """New py: collector JSON with wa_parts → no WARN."""
+        new_py_output = json.dumps({
+            "status": "ok",
+            "wa_parts": ["part 1 of 2", "part 2 of 2"],
+            "wa_message": "part 1 of 2",
+            "discord_message": "discord version",
+        })
+        proc = self._run_heredoc(new_py_output)
+        self.assertEqual(proc.returncode, 0)
+        self.assertNotIn("WARN", proc.stderr)
+        self.assertEqual(proc.stdout.strip(), "2")
+
+    def test_no_warn_when_wa_parts_present_but_empty(self):
+        """Edge case: wa_parts=[] should NOT trigger WARN (key exists, just empty).
+        Empty list is a valid 'no candidates' state already handled upstream."""
+        new_py_empty = json.dumps({
+            "status": "ok",
+            "wa_parts": [],
+            "wa_message": "fallback message",
+            "discord_message": "discord",
+        })
+        proc = self._run_heredoc(new_py_empty)
+        self.assertEqual(proc.returncode, 0)
+        self.assertNotIn("WARN", proc.stderr,
+            "Empty wa_parts is valid (key exists), only missing key should warn")
+        # Falls back to wa_message (existing behavior)
+        self.assertEqual(proc.stdout.strip(), "1")
+
+    def test_warn_does_not_pollute_stdout_capture(self):
+        """Critical contract: WARN must go to stderr, not stdout.
+        If WARN went to stdout, WA_PARTS_TOTAL=$(...) would capture 'WARN: ...\\n1'
+        and downstream arithmetic would break."""
+        old_py_output = json.dumps({"status": "ok", "wa_message": "x"})
+        proc = self._run_heredoc(old_py_output)
+        # stdout must be ONLY the integer count
+        self.assertEqual(proc.stdout.strip(), "1")
+        self.assertNotIn("WARN", proc.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()
