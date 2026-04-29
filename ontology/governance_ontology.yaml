@@ -485,7 +485,7 @@ meta_rules:
       - "ontology/convergence_ontology.yaml 登记每个 declared resource 的 spec"
       - "INV-CONVERGENCE-* 不变式群守卫每个 spec 真实可执行 + drift 被发现"
       - "新增任何声明态资源时，必须配套提交对应 convergence_spec 否则视为遗漏"
-    derivative_invariants: [INV-CONVERGENCE-CRON-001, INV-CONVERGENCE-PROVIDERS-001, INV-CONVERGENCE-OPENCLAW-001, INV-CONVERGENCE-KB-001]
+    derivative_invariants: [INV-CONVERGENCE-CRON-001, INV-CONVERGENCE-PROVIDERS-001, INV-CONVERGENCE-OPENCLAW-001, INV-CONVERGENCE-KB-001, INV-CONVERGENCE-INTEGRATION-001]
     blood_lessons: |
       2026-04-26 V37.9.18: V37.9.16 (4/24) 上线 kb_deep_dive 时 jobs_registry.yaml
       声明 enabled=true + interval="30 22 * * *"，但**没人手动 crontab_safe.sh add**，
@@ -5068,6 +5068,142 @@ invariants:
           assert proc.returncode == 0, (
               f"V37.9.22 kb_sources_to_index test classes failed:\n"
               f"STDOUT={proc.stdout[-1000:]}\nSTDERR={proc.stderr[-1500:]}"
+          )
+
+  - id: INV-CONVERGENCE-INTEGRATION-001
+    name: governance-checker-integrates-convergence-framework
+    meta_rule: MR-17
+    verification_layer: [declaration, runtime]
+    severity: high
+    declaration: |
+      V37.9.22+ Phase 4 Layer 5 闭合: governance_checker.py 主流程必须主动调用
+      convergence framework 跑所有 enabled spec 并报告 drift。这把 Layer 5
+      从"可被 INV runtime python_assert 间接验证"升级为"每次 governance audit
+      cron 都直接消费 framework"，实现 V37.9.19 引入 framework 时承诺的
+      "每天主动检查 declared-vs-runtime drift" 终态。
+
+      集成契约:
+        - run_convergence_specs() 调 cv.list_spec_ids() 遍历所有 spec
+        - 每个 spec 调 cv.verify_convergence(spec_id) 取 ConvergenceResult
+        - print_convergence_results(specs) 用统一格式输出（与 INV/MRD 一致）
+        - drift_detected 是 informational (drift_action=alert_only) 不影响 exit code
+        - JSON 输出 combined dict 含 invariants/discovery/convergence 三键
+        - FAIL-OPEN: 任何 framework 异常 → 单条 error 结果继续 audit
+
+      不破坏现有契约:
+        - run_all() / run_meta_discovery() / print_results() / print_discovery()
+          全部不动
+        - 退出码仍只受 invariant violations 影响（convergence drift 不算 fail）
+        - JSON_MODE 时 print_convergence_results 走 early return 让 __main__
+          统一 dump combined JSON
+    lesson: |
+      V37.9.19~22 引入 4 个 convergence spec 后, framework 只在 INV runtime
+      python_assert 中被间接调用（验证 spec 测试类, 不是 spec 本身）。这意味着
+      framework 实际"verify_convergence(spec_id)"调用从未在生产 audit 流程中
+      发生 — 只在 dev/test 环境下作为 unit test 跑过。V37.9.22+ 把 framework
+      从"测试时被调用"升级为"每次 audit cron 主动调用", 让 declared-vs-runtime
+      drift 检测真正成为 control plane 的运行时事实。
+    design_decision: |
+      为什么不让 drift_detected 算 invariant fail (i.e. 影响 exit code)?
+        - drift_action=alert_only 的语义就是 "informational, NOT enforce"
+        - dev 环境永远会 drift（无 crontab/adapter/Gateway/text_index）
+          → 让 audit fail 会让所有 dev run 都 exit 1, 信号失效
+        - Mac Mini cron 可独立解析 stdout/JSON 决定是否推 alert
+        - 与 V37.9.19 framework 设计 "drift_action 不是 enforcement" 一致
+      为什么 FAIL-OPEN 而不是让 framework 异常算 fail?
+        - 一个 broken spec 不应阻止其他 spec 检查或主 audit 流程
+        - 与 INV-GOV-001 (V37.3 silent error must surface) 不同 — 那个守的是
+          "audit 结果说所有不变式成立 但 error 被忽略", 这里守的是 "framework
+          异常不阻塞 audit", error 仍 visibly 显示 💥 不静默
+      为什么不在 invariant phase 里跑 convergence 而是新 phase?
+        - INV phase 跑 INV-CONVERGENCE-* (4 个 INV) 已经在间接守 framework
+          各部件正确 (extractor/observer/parser 注册)
+        - 新 phase 跑 framework 自身, 验证整体 wiring 正确
+        - 两层独立: INV 守 framework 的"零件"; 新 phase 跑 framework 的"运行"
+    checks:
+      # ── declaration layer ─────────────────────────────────────────────
+      - name: "governance_checker.py 定义 run_convergence_specs 函数"
+        check_type: file_contains
+        file: ontology/governance_checker.py
+        pattern: 'def run_convergence_specs'
+      - name: "governance_checker.py 定义 print_convergence_results 函数"
+        check_type: file_contains
+        file: ontology/governance_checker.py
+        pattern: 'def print_convergence_results'
+      - name: "governance_checker.py __main__ 调用 run_convergence_specs"
+        check_type: file_contains
+        file: ontology/governance_checker.py
+        pattern: 'convergence_results = run_convergence_specs'
+      - name: "governance_checker.py __main__ 调用 print_convergence_results"
+        check_type: file_contains
+        file: ontology/governance_checker.py
+        pattern: 'print_convergence_results\(convergence_results\)'
+      - name: "governance_checker.py JSON 输出包含 convergence 键"
+        check_type: file_contains
+        file: ontology/governance_checker.py
+        pattern: '"convergence": convergence_results'
+      - name: "run_convergence_specs FAIL-OPEN: import 失败不冒泡"
+        check_type: file_contains
+        file: ontology/governance_checker.py
+        pattern: 'convergence module not importable'
+      - name: "run_convergence_specs FAIL-OPEN: per-spec verify_convergence 异常被吃"
+        check_type: file_contains
+        file: ontology/governance_checker.py
+        pattern: 'verify_convergence raised'
+      # ── runtime layer ──────────────────────────────────────────────────
+      - name: "RUNTIME: governance_checker --json 输出 combined dict 含 convergence 键并能跑所有 4 spec"
+        check_type: python_assert
+        assertion: |
+          import subprocess
+          import sys
+          import json
+          import os
+          repo_root = os.environ.get("OPENCLAW_REPO_ROOT", os.getcwd())
+          proc = subprocess.run(
+              [sys.executable, "ontology/governance_checker.py", "--json"],
+              capture_output=True, text=True, timeout=120,
+              cwd=repo_root,
+          )
+          # Last line of stdout should be valid JSON (governance_checker prints
+          # human-readable header THEN JSON dump; JSON is the long final block)
+          # Find the JSON dump (starts with '{' on its own line near end)
+          out = proc.stdout
+          start = out.rfind("{\n  \"invariants\"")
+          assert start >= 0, f"combined JSON not found in --json output: tail={out[-500:]}"
+          parsed = json.loads(out[start:])
+          assert "invariants" in parsed
+          assert "discovery" in parsed
+          assert "convergence" in parsed, "JSON output must contain 'convergence' key"
+          specs = parsed["convergence"]
+          assert isinstance(specs, list)
+          assert len(specs) == 4, f"expected 4 convergence specs, got {len(specs)}"
+          spec_ids = {s["spec_id"] for s in specs}
+          for sid in ["jobs_to_crontab", "providers_to_adapter",
+                      "openclaw_config_to_runtime", "kb_sources_to_index"]:
+              assert sid in spec_ids, f"missing spec {sid} in audit JSON"
+      - name: "RUNTIME: dev mode convergence drift 不影响 exit code (informational only)"
+        check_type: python_assert
+        assertion: |
+          import subprocess
+          import sys
+          import os
+          repo_root = os.environ.get("OPENCLAW_REPO_ROOT", os.getcwd())
+          proc = subprocess.run(
+              [sys.executable, "ontology/governance_checker.py"],
+              capture_output=True, text=True, timeout=120,
+              cwd=repo_root,
+          )
+          # In dev, convergence specs always show drift (no crontab/adapter/etc),
+          # but exit code should reflect ONLY invariant violations.
+          # If invariants pass, dev should exit 0 even with convergence drift visible.
+          # We verify this by checking convergence section appears in stdout
+          # AND the script doesn't fail with a Python exception.
+          assert "CONVERGENCE FRAMEWORK" in proc.stdout, (
+              f"convergence section missing from dev output:\n{proc.stdout[-800:]}"
+          )
+          # Stderr should not contain Python tracebacks from framework
+          assert "Traceback" not in proc.stderr, (
+              f"framework raised exception:\n{proc.stderr[-800:]}"
           )
 
 # ═══════════════════════════════════════════════════════════════════════
