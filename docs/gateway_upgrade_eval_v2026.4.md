@@ -2,9 +2,9 @@
 
 > 初次评估：2026-04-04
 > 二次评估：2026-04-10（上游已到 v2026.4.9，#59265 仍 OPEN）
-> 三次评估：2026-04-29（上游已到 v2026.4.26，#59265 状态因 sandbox 环境受限无法直查，按节奏推断仍 OPEN）
+> 三次评估：2026-04-29（实证查明：#59265 已 closed but no fix evidence + 发现 v2026.4.26 新硬阻塞 #73358 + 引入 tripwire 决策框架）
 > 评估者：Claude Code
-> 状态：**继续 hold — 三个 hold 条件全部未变化 + 无功能驱动**
+> 状态：**继续 hold — 升级风险实际增加 + tripwire 0/6 触发**
 
 ---
 
@@ -303,11 +303,13 @@ openclaw message send --channel whatsapp -t "$OPENCLAW_PHONE" -m "回滚完成"
 
 ---
 
-## 十一、三次评估记录（2026-04-29）
+## 十一、三次评估记录（2026-04-29，实证版）
 
 ### 背景
 
-上游从 v2026.4.9 (4/10) 推进到 **v2026.4.26**（2026-04-28 发布，最新稳定版），中间还出了 v2026.4.25-beta.1~9 + v2026.4.26-beta.1。距上次评估 19 天，距 V37.8.15 (4/16 changelog) 评估 13 天。
+上游从 v2026.4.9 (4/10) 推进到 **v2026.4.26**（2026-04-28 发布，最新稳定版），共 19 个 stable 版本（4/1 ~ 4/28），加上 beta 链 30+ 个中间版本。距上次评估 19 天，距 V37.8.15 (4/16 changelog) 评估 13 天。
+
+**本次评估方法升级**：从"按节奏推断"升级到"实证调查"——通过 WebFetch 直接拉 GitHub issue 页 / release notes / open bugs list，得到事实数据后再评估。
 
 ### 上游版本演进（v2026.4.9 → v2026.4.26）
 
@@ -323,33 +325,124 @@ openclaw message send --channel whatsapp -t "$OPENCLAW_PHONE" -m "回滚完成"
 
 > 注：v2026.4.10~24 区间 npm registry 未列出 stable 版本（仅 4.25-beta 系列），从 4.9 直接跳到 4.25/4.26。
 
-### 阻塞条件复查
+### 实证发现（用户授权 WebFetch 后）
+
+#### 发现 1：#59265 已 closed at 4/25，但 **NO FIX EVIDENCE**
+
+| 数据点 | 来源 | 结论 |
+|---|---|---|
+| state | issue page + search results 双确认 | closed as "completed" at 2026-04-25 |
+| Development sidebar | issue page 直接拉取 | **"No branches or pull requests"** |
+| Relationships | issue page 直接拉取 | **"None yet"** |
+| v2026.4.26 changelog | 完整拉取 ~150 个 fix item | **无一处提及 #59265** |
+| v2026.4.25 changelog | release notes（部分截断） | 可见部分**无 #59265 引用** |
+
+**判断**：closed 可能是 reporter 自助/maintainer 标 stale/相关 PR 间接修复但未明确归功——**不是有据可查的 verified fix**。按"理解再动手"原则 #28，**没有 PR 证据不能假设修复有效**。
+
+#### 发现 2：v2026.4.26 引入新硬阻塞 #73358（直接 dealbreaker）
+
+> 标题：*v2026.4.26 ships `coding-agent` skill + `codex` provider with `openai/gpt-5.5` as silent default — breaks stacks without OpenAI configured*
+
+| 维度 | 详情 |
+|---|---|
+| 状态 | issue 已 closed (报告 + workaround 完成) |
+| 行为 | v2026.4.26 silently 启用 `coding-agent` skill + `codex` provider，silent default 调 `openai/gpt-5.5` |
+| 症状 | Gateway 启动正常，但 "every chat lane fails before reply" 报 `No API key found for provider 'openai'` |
+| **直接命中我们** | qwen-local + gemini fallback，**无 OpenAI key** → 升级即 WhatsApp PA 全断 |
+| workaround | 手动 (1) 删 `models.json` 中 `codex` provider (2) strip OpenAI entries from catalog (3) 显式 `coding-agent` disable (4) 重启 Gateway |
+| 严重度 | feature-blocking（Gateway 起来但所有对话失败） |
+
+#### 发现 3：v2026.4.26 其他可能影响我们的变更（≥150 fix item 中筛出）
+
+- **#40024 Local models**：custom providers with only `baseUrl` defaulted to Chat Completions adapter — 我们的 qwen-local 路由策略可能改变
+- **#59681 Agents/sessions_spawn**：解析 bare model alias 改用 target agent runtime default provider — 可能影响 Multi-Agent
+- **plugin manifests 重构**：pre-runtime model-id normalization 移到 plugin manifests — 可能影响 qwen-local 注册方式
+- **trusted-proxy auth**：本次 release notes **未提及修改**，所以二次评估提出的 v2026.3.31 影响**仍未做 localhost 兼容性验证**
+
+#### 发现 4：上游 open bugs 中有 5+ critical/regression 级
+
+`#46531 gateway crash-loop` / `#46733 opus 4.6 broken` / `#46637 reasoning_content JSON parse` / `#46786 elevated.enabled breaks exec` / `#47487 tool restrictions not enforced` —— 上游本身在持续产生 regression bugs，"升级到 latest" ≠ "升级到 stable"。
+
+### 阻塞条件复查（实证后）
 
 | 阻塞项 | 二次评估时（v2026.4.9） | 三次评估时（v2026.4.26） | 结论 |
 |--------|------------------------|--------------------------|------|
-| **#59265: Agent actions 不可见** | OPEN（v2026.4.2 macOS 复现） | **sandbox 环境无法直查 GitHub API**。但 V37.8.15 (4/16) 已确认"经 14 个版本仍 OPEN"。从 4/16 到 4/29 又过 13 天 + 10+ 版本，按上游 4/3 提交后**连续三次评估均 OPEN** 的深层 bug 节奏，**仍 OPEN 概率极高** | 硬阻塞按推断未解除 |
-| **trusted-proxy auth 变更** | 未做 localhost 链路验证 | **仍未做验证**（无新版本会自愈这个问题） | 未解除 |
+| **#59265: Agent actions 不可见** | OPEN（v2026.4.2 macOS 复现） | **closed at 4/25 but no PR / no release notes mention** | **状态变了实质未变**——不能基于 GitHub status label 升级 |
+| **trusted-proxy auth 变更** | 未做 localhost 链路验证 | **仍未做验证**（v2026.4.26 无相关变更） | 未解除 |
 | **v2026.4.5 legacy config alias 移除** | 新增中风险 | 仍生效（升级时仍需 `openclaw doctor --fix`） | 未解除 |
+| **新增：#73358 OpenAI silent default** | — | **v2026.4.26 引入，直接命中我们的 qwen-local + 无 OpenAI key 配置** | **新硬阻塞，直接 dealbreaker** |
 
-### 三次评估结论
+### 三次评估结论：**继续 hold，但理由完全不同了**
 
-**继续 hold，理由不变且更强**：
+实证后 hold 理由比早上的推断版本**更强**：
+1. **#59265 closed 但无 verified fix** — V37.8.15 教训反向适用："上游 status 变化 ≠ 实质修复"
+2. **#73358 是新硬阻塞** — 升级 v2026.4.26 即业务中断，未来即使决定升级也必须先在 dev/shadow 环境验证 workaround
+3. **跨度未减小** — 30+ 中间版本 + ~150 fix 累积破坏面巨大
+4. **上游 regression 风险** — "latest" 不等于 "stable"，5+ 个 critical open bugs 证明持续动荡
 
-1. **#59265 验证盲区**：当前环境无法直查 GitHub API 确认状态。按"理解再动手"原则 #28，**未验证不动手**。这一项任何变化前不应推动升级。
-2. **跨度从 11 个增加到 30+ 个中间版本**：breaking changes 累积（trusted-proxy + legacy config + Plugin SDK 废弃），一次性吞下变更的回滚验证成本高。
-3. **无功能驱动**：当前 v2026.3.13-1 + V37.9.21 控制平面 1600 tests / 0 fail / 安全 95/100，Mac Mini E2E 完美通过（用户 4/27 实测 WhatsApp Part [1/2]+[2/2] + Discord 推送 + 35 cron 全部稳定）。**升级不带来用户可见收益**。
-4. **原则 #8（做减法）+ V37.8.15 教训**："上游有新版 ≠ 我们必须升级"。没人催着升级 = 现在不升级。
+---
 
-### 触发重新评估的条件（任一满足即可）
+## 十二、Tripwire 决策框架（V37.9.22 引入）
 
-- #59265 confirmed closed（需在能直查 GitHub API 的环境验证）
-- 上游出现明确的安全 CVE 影响 v2026.3.13-1
-- 用户业务出现 v2026.3.13-1 无法解决的痛点
-- WhatsApp plugin 重大破坏性变更（v2026.3.13-1 不再可用）
+### 12.1 战略矛盾
 
-### 下次检查
+- **不升级风险**：版本债务持续累积（30+ → 50+ → 无限），未来某天必须升级时跨度太大失败概率指数上升
+- **升级风险**：每个时点都有当时具体的 dealbreaker（如今天的 #73358）
+- **以前的方法**："看到新版本就评估" → 容易陷入"是否升级"的二元决策疲劳
 
-每周一 `check_upgrade.sh`（已 cron）+ 在能访问 GitHub API 的环境主动 poll #59265 状态。
+### 12.2 新方法：Tripwire-Based Upgrade Trigger
+
+不再"是否升级"二元决策，**预先声明 6 条触发条件**，0/6 触发时自动 hold，任一触发时启动正式评估流程（不是立即升级，是"正式评估 → 选定目标版本 → dev 验证 → 维护窗口切换"）。
+
+| # | Tripwire | 自动化 | 阈值 | 触发后行为 |
+|---|---|---|---|---|
+| 1 | **时间上限** | ✅ | 距上次正式评估 ≥ 180 天 | 启动正式评估 |
+| 2 | **版本差距** | ✅ | 上游 stable 版本差 ≥ 50 个 | 启动正式评估 |
+| 3 | **EOL 信号** | ✅ | latest release notes 含 "v2026.3 / EOL / deprecated v2026 / no longer supported" | 立即启动正式评估 |
+| 4 | **WhatsApp plugin 破坏性变更** | ✅ | latest release notes 的 "Breaking" section 含 whatsapp 提及 | 立即启动正式评估 |
+| 5 | **CVE 命中** | ⚠️ 半自动 | `~/.openclaw_cve_alert` 文件存在（人工写入） | 立即启动正式评估 |
+| 6 | **业务痛点** | ⚠️ 半自动 | `~/.openclaw_pain_point` 文件存在（人工写入） | 启动正式评估 |
+
+**实现**：`check_upgrade.sh` V37.9.22 重写，每周一 cron 运行，6 条全部状态可见（不静默吞 — V37.3 INV-GOV-001 同款），任一触发推送告警但不自动升级。
+
+### 12.3 升级路径选项对比（如未来某天 tripwire 触发）
+
+| 方案 | 跨度 | 风险 | 工程成本 | 适用场景 |
+|---|---|---|---|---|
+| **A. 完全 hold** | 0 | 0 | 0 | 已被 tripwire 否决（仅初始默认状态） |
+| **B. 直跳 latest + workaround** | 大 | 高（多 dealbreaker 累积 + workaround 在 dev 难验证） | 中 | 不推荐 |
+| **C. 阶梯到中间稳定版** | 中 | 中（避主 dealbreaker 但仍多 breaking change） | 中 | 时间不紧迫且能找到"刚好避开" dealbreaker 的版本 |
+| **D. 先建 shadow 演练机制再决定** | — | 0 | 高（需 docker / Mac Mini 副本 + 流量复制） | 跨度极大或多 dealbreaker 时 |
+| **F. 等下一稳定窗口（推荐 default）** | 中 | 低 | 低 | 等上游修当前 dealbreaker（如 v2026.4.27+ 修 #73358） |
+
+### 12.4 选定的下次升级路径模板（条件式）
+
+**当 tripwire 触发，按以下顺序判断**：
+
+1. **检查当前 latest 是否有 dealbreaker**（如今天的 #73358）
+   - 有 → 选 **方案 C**（阶梯到 dealbreaker 引入前的最近稳定版，如 v2026.4.23）或 **方案 F**（等修复）
+   - 无 → 进入第 2 步
+2. **检查跨度**
+   - ≥ 30 中间版本 → **方案 D**（shadow 演练）
+   - < 30 → **方案 C** 直接升级
+3. **检查 #59265 是否有 verified fix**
+   - 有 → 减一个风险点
+   - 无 → 升级前必须备好回滚预案 + WhatsApp 立即可用性验证
+
+### 12.5 触发后的标准流程
+
+1. `check_upgrade.sh` 输出 tripwire 状态 + 启动正式评估提示
+2. 阅读本文档第十二节决策矩阵选定方案
+3. 在非生产环境（dev 或 Mac Mini 临时副本）dry-run
+4. 跑 `preflight_check.sh --full` + `job_smoke_test.sh` + WhatsApp E2E
+5. 通过后选维护窗口（深夜 + 用户在线）切换 + 30 秒回滚预案
+6. 升级成功后更新 `LAST_EVAL_DATE` 至升级日期（重置时间 tripwire）
+
+### 12.6 下次定期检查
+
+- **每周一 cron**：`check_upgrade.sh` 自动跑，0/6 触发时静默通过
+- **任一 tripwire 触发**：脚本退出码 1，通过 cron 失败邮件 / WhatsApp 推送告警
+- **180 天硬性上限**（~ 2026-10-26）：即使 0/6 触发，时间 tripwire 自动触发启动正式评估
 
 ## 九、升级后文档更新清单
 

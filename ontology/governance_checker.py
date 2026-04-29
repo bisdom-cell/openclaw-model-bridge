@@ -1667,6 +1667,144 @@ def print_discovery(discovery_results):
                     print(f"       📌 {u} — 建议新增不变式")
 
 
+def run_convergence_specs():
+    """V37.9.22+ Phase 4 Layer 5 集成: 调 convergence framework 跑所有 enabled spec.
+
+    对每个 spec 调 verify_convergence(spec_id) 取 ConvergenceResult，转化为
+    governance audit 输出格式。FAIL-OPEN: framework 异常 → 单条 error 结果，
+    不影响 invariant phase 退出码。
+
+    Returns: list[dict] each with:
+        spec_id, enabled, declared_count, observed_count, missing_count,
+        drift_detected, drift_action, error
+    """
+    out = []
+    try:
+        # Late import: convergence.py is a sibling in ontology/ directory.
+        # When governance_checker.py is invoked as `python3 ontology/governance_checker.py`,
+        # the script directory isn't auto-added to sys.path, so insert it.
+        # Also try `from ontology import convergence` first for callers that
+        # already have project root on sys.path (e.g. pytest invocations).
+        try:
+            from ontology import convergence as cv  # type: ignore
+        except ImportError:
+            _here = os.path.dirname(os.path.abspath(__file__))
+            if _here not in sys.path:
+                sys.path.insert(0, _here)
+            import convergence as cv  # type: ignore
+    except Exception as e:
+        out.append({
+            "spec_id": "(framework)",
+            "enabled": False,
+            "declared_count": 0,
+            "observed_count": 0,
+            "missing_count": 0,
+            "drift_detected": False,
+            "drift_action": "alert_only",
+            "error": f"convergence module not importable: {e}",
+        })
+        return out
+
+    try:
+        spec_ids = cv.list_spec_ids()
+    except Exception as e:
+        out.append({
+            "spec_id": "(list_spec_ids)",
+            "enabled": False,
+            "declared_count": 0,
+            "observed_count": 0,
+            "missing_count": 0,
+            "drift_detected": False,
+            "drift_action": "alert_only",
+            "error": f"list_spec_ids failed: {e}",
+        })
+        return out
+
+    for spec_id in spec_ids:
+        spec = cv.get_spec(spec_id)
+        enabled = bool(spec and spec.get("enabled", True))
+        if not enabled:
+            out.append({
+                "spec_id": spec_id,
+                "enabled": False,
+                "declared_count": 0,
+                "observed_count": 0,
+                "missing_count": 0,
+                "drift_detected": False,
+                "drift_action": (spec or {}).get("drift_action", "alert_only"),
+                "error": None,
+            })
+            continue
+        try:
+            result = cv.verify_convergence(spec_id)
+            out.append({
+                "spec_id": result.spec_id,
+                "enabled": True,
+                "declared_count": len(result.declared),
+                "observed_count": len(result.observed),
+                "missing_count": len(result.missing_in_runtime),
+                "drift_detected": result.drift_detected,
+                "drift_action": result.drift_action,
+                "error": result.error,
+            })
+        except Exception as e:
+            # FAIL-OPEN per spec: don't let one broken spec halt audit
+            out.append({
+                "spec_id": spec_id,
+                "enabled": True,
+                "declared_count": 0,
+                "observed_count": 0,
+                "missing_count": 0,
+                "drift_detected": False,
+                "drift_action": "alert_only",
+                "error": f"verify_convergence raised: {type(e).__name__}: {e}",
+            })
+    return out
+
+
+def print_convergence_results(specs_results):
+    """V37.9.22+ Print convergence framework spec results.
+
+    Output is informational (drift_action is alert_only / machine_sync_via_helper),
+    NOT enforcement — does not affect exit code. Mac Mini cron consumers can
+    parse stdout / JSON to decide whether to push WhatsApp/Discord alerts.
+    """
+    if not specs_results:
+        return
+
+    if JSON_MODE:
+        # JSON mode embeds convergence in combined output via __main__ caller
+        return
+
+    # Status icon: ok if no drift + no error, ⚠️ if drift_detected (informational),
+    # 💥 if framework error (extractor/observer/parser failed).
+    print()
+    print("─" * 70)
+    print(f"  CONVERGENCE FRAMEWORK (Phase 4 Layer 5) — {len(specs_results)} spec(s)")
+    print("─" * 70)
+
+    for s in specs_results:
+        if s.get("error"):
+            icon = "💥"
+            tail = f" ⚠️  error: {s['error'][:80]}"
+        elif not s.get("enabled"):
+            icon = "⏭ "
+            tail = " (disabled)"
+        elif s.get("drift_detected"):
+            icon = "⚠️"
+            tail = (
+                f" — declared={s['declared_count']} observed={s['observed_count']} "
+                f"missing={s['missing_count']} (drift_action={s['drift_action']})"
+            )
+        else:
+            icon = "✅"
+            tail = (
+                f" — declared={s['declared_count']} observed={s['observed_count']} "
+                f"(no drift)"
+            )
+        print(f"  {icon} [{s['spec_id']}]{tail}")
+
+
 def _get_peak_memory_mb():
     """V37.9.3: 跨平台获取本进程 peak RSS（MB）。Linux ru_maxrss 单位 KB，
     macOS/BSD 单位 bytes。import 失败时返回 0（降级）。"""
@@ -1756,14 +1894,23 @@ if __name__ == "__main__":
     data = _load()
     results = run_all(data)
     discovery = run_meta_discovery(data)
+    # V37.9.22+: convergence framework integration — verify all enabled specs
+    # at audit time. Informational only (drift_action is alert_only), does not
+    # affect exit code. FAIL-OPEN so framework breakage doesn't block audit.
+    convergence_results = run_convergence_specs()
     fails = print_results(results)
     print_discovery(discovery)
+    print_convergence_results(convergence_results)
 
     # V37.9 C16 audit-of-audit: 写本次 run 的 metric 供下次对比
     _write_audit_metrics(results, discovery)
 
     if JSON_MODE:
-        combined = {"invariants": results, "discovery": discovery}
+        combined = {
+            "invariants": results,
+            "discovery": discovery,
+            "convergence": convergence_results,
+        }
         print(json.dumps(combined, indent=2, ensure_ascii=False))
 
     sys.exit(1 if fails else 0)
