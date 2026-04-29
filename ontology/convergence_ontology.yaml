@@ -270,7 +270,7 @@ convergence_specs:
     enabled: true
     description: |
       jobs_registry.yaml enabled jobs declaring kb_source_file 字段必须 each
-      在 ~/.kb/text_index/meta.json 的 chunks[].source_file 中至少出现一次
+      在 ~/.kb/text_index/meta.json 的 chunks[].file 中至少出现一次
       （kb_embed.py successfully indexed the source）。
 
       Sibling 关系 vs V37.9.5 INV-KB-COVERAGE-001 (workspace-md-indexed-by-
@@ -294,8 +294,12 @@ convergence_specs:
       identifier_meaning: |
         kb_source_file basename (e.g. "arxiv_daily.md"). 每个 enabled job
         声明的 kb_source_file 应该在 ~/.kb/text_index/meta.json 的
-        chunks[].source_file 字段中至少出现一次（substring match — chunks
-        里的 source_file 通常是绝对路径如 /Users/.../arxiv_daily.md）。
+        chunks[].file 字段中至少出现一次（substring match — chunks
+        里的 file 通常是绝对路径如 /Users/.../arxiv_daily.md）。
+        V37.9.22 hotfix: 字段名是 `file` 不是 `source_file` (V37.9.22 第一次
+        部署时假设错字段名, Mac Mini 实测发现 chunks 字段是 ['file',
+        'file_hash', 'source_type', 'chunk_idx', 'text', 'preview',
+        'char_len', 'indexed_at'] — 修复 spec yaml 的 python oneliner).
 
     runtime_observable:
       method: shell_command
@@ -308,15 +312,16 @@ convergence_specs:
         with open(f) as fp:
             d = json.load(fp)
         for c in d.get('chunks', []):
-            sf = c.get('source_file', '')
+            sf = c.get('file', '')
             if sf:
                 print(os.path.basename(sf))
         "
       parser: line_contains_identifier
       notes: |
-        Python oneliner reads meta.json + emits chunk source_file basenames
-        one-per-line. line_contains_identifier parser does substring match
-        per declared identifier in the output text. dev environments without
+        Python oneliner reads meta.json + emits chunk `file` field basenames
+        one-per-line (V37.9.22 hotfix: 字段名是 `file` 不是 `source_file`).
+        line_contains_identifier parser does substring match per declared
+        identifier in the output text. dev environments without
         ~/.kb/text_index/meta.json: command exits 0 with empty stdout
         → observer treats as "empty observed" (FAIL-OPEN, mirrors V37.9.19
         crontab -l no-crontab behavior). meta.json present but unreadable
