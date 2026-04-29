@@ -176,8 +176,12 @@ WA_CHUNK_DIR=$(mktemp -d -t kb_deep_dive_wa_XXXXXX)
 trap 'rm -rf "$WA_CHUNK_DIR"' EXIT
 
 WA_PARTS_TOTAL=$(COLLECTOR_OUTPUT="$COLLECTOR_OUTPUT" CHUNK_DIR="$WA_CHUNK_DIR" python3 << 'PYEOF'
-import json, os
+import json, os, sys
 data = json.loads(os.environ["COLLECTOR_OUTPUT"])
+# V37.9.22: 检测部署不一致期 (新 shell + 旧 py 临时混合) — wa_parts 是 V37.9.21 引入的新字段
+# 旧 py 不返回它会 silent fallback 到 wa_message 单段路径, MR-4 silent-failure 第 17 次新形态
+if "wa_parts" not in data:
+    print("WARN: collector 输出缺 wa_parts 字段, 走 wa_message 单段 fallback (V37.9.22 部署不一致检测: 可能新 shell + 旧 py)", file=sys.stderr)
 parts = data.get("wa_parts") or [data.get("wa_message", "")]
 chunk_dir = os.environ["CHUNK_DIR"]
 for idx, part in enumerate(parts):
