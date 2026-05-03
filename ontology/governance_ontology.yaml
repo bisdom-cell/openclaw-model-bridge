@@ -4971,8 +4971,23 @@ invariants:
       workspace。V37.9.22 把同款血案防线从声明层升级到运行时层 — 即使代码逻辑
       正确，cron 故障 / file mtime 漂移 / kb_embed.py 内部限制都可能让"代码扫了
       但 chunks 没看见"的 silent drift 发生。本 INV 把 V37.5 引入的
-      kb_source_file 字段用作 declared 真理源，与 chunks[].source_file 实际
-      runtime 事实直接 set-diff 比对。
+      kb_source_file 字段用作 declared 真理源，与 chunks[].file 实际 runtime
+      事实直接 set-diff 比对（V37.9.22 hotfix 9d60dd3 修正字段名是 file 不是
+      source_file）。
+
+      V37.9.23 加固层 (TestKbSourcesToIndexCommandRuntime, 6 单测): V37.9.22
+      hotfix 9d60dd3 教训表明 dev 单测全过 + governance 全过 + Mac Mini
+      preflight 全过 都不能保证 spec yaml 里 runtime_observable.command 的
+      python oneliner 字段名假设正确 — 只有 Mac Mini 实测 framework 才暴露
+      declared=14 observed=0 missing=14 的字段名错。原来的 dev 单测只测
+      declared extractor 逻辑层 (TestExtractRegistryKbSourceFiles), 没测
+      observer command 的实际执行路径 + JSON 字段读取语义层。V37.9.23 加固
+      构造 mock meta.json + monkey-patch HOME → tempdir + 真实跑
+      verify_convergence("kb_sources_to_index") subprocess, 字面量字段名
+      回归 (file → source_file) 立即被抓 — 反向验证已确认守卫真有效（故意
+      改回 source_file 后 6 测试 3 失败, 还原后全绿）。这是原则 #15 第三层
+      "WhatsApp 业务验证"教训在 ontology framework 层的兑现 — 从"等生产
+      实测才发现"升级为"dev 单测就能拦"。
     design_decision: |
       为什么不创建新 observer / 新 parser？
         - V37.9.19 _observe_shell_command 已能跑 python oneliner 输出
@@ -5044,8 +5059,8 @@ invariants:
         check_type: file_contains
         file: ontology/governance_ontology.yaml
         pattern: 'INV-CONVERGENCE-KB-001'
-      # ── runtime layer: V37.9.22 KB spec 测试类端到端通过 ─────────────
-      - name: "RUNTIME: test_convergence.py V37.9.22 KB spec 测试类全部通过 (TestExtractRegistryKbSourceFiles + TestVerifyKbSourcesToIndexIntegration + TestKbSpecSourceGuards)"
+      # ── runtime layer: V37.9.22 KB spec 测试类 + V37.9.23 加固层端到端通过 ─
+      - name: "RUNTIME: test_convergence.py V37.9.22+V37.9.23 KB spec 测试类全部通过 (TestExtractRegistryKbSourceFiles + TestVerifyKbSourcesToIndexIntegration + TestKbSpecSourceGuards + TestKbSourcesToIndexCommandRuntime)"
         check_type: python_assert
         assertion: |
           import subprocess
@@ -5054,10 +5069,14 @@ invariants:
           repo_root = os.environ.get("OPENCLAW_REPO_ROOT", os.getcwd())
           test_file = os.path.join(repo_root, "test_convergence.py")
           assert os.path.exists(test_file), f"test_convergence.py 不存在: {test_file}"
+          # V37.9.22 原有三类 + V37.9.23 加固层新增 TestKbSourcesToIndexCommandRuntime
+          # (mock meta.json + 真实跑 spec yaml 的 python oneliner, 闭合 4/29 hotfix
+          # 9d60dd3 字段名假设错误教训; 反向验证已确认守卫真有效)
           v9_22_kb_classes = [
               "TestExtractRegistryKbSourceFiles",
               "TestVerifyKbSourcesToIndexIntegration",
               "TestKbSpecSourceGuards",
+              "TestKbSourcesToIndexCommandRuntime",
           ]
           targets = [f"test_convergence.{c}" for c in v9_22_kb_classes]
           proc = subprocess.run(
@@ -5066,7 +5085,7 @@ invariants:
               cwd=repo_root,
           )
           assert proc.returncode == 0, (
-              f"V37.9.22 kb_sources_to_index test classes failed:\n"
+              f"V37.9.22+V37.9.23 kb_sources_to_index test classes failed:\n"
               f"STDOUT={proc.stdout[-1000:]}\nSTDERR={proc.stderr[-1500:]}"
           )
 
