@@ -79,9 +79,12 @@ class TestConvergenceResult(unittest.TestCase):
 
     def test_field_order_stable(self):
         # Stable field order is part of the contract — downstream callers
-        # may unpack positionally or compare against tuple literals
+        # may unpack positionally or compare against tuple literals.
+        # V37.9.23: 加 3 个 machine_sync apply tracking 字段 (向后兼容,
+        # 后置末尾 + 默认值, 现有 kwargs 构造不破坏).
         expected = ("spec_id", "declared", "observed", "missing_in_runtime",
-                    "drift_detected", "drift_action", "error")
+                    "drift_detected", "drift_action", "error",
+                    "applied_actions", "apply_dry_run", "apply_errors")
         self.assertEqual(cv.ConvergenceResult._fields, expected)
 
     def test_result_is_immutable(self):
@@ -97,6 +100,10 @@ class TestConvergenceResult(unittest.TestCase):
         self.assertFalse(r.drift_detected)
         self.assertEqual(r.drift_action, "alert_only")
         self.assertIsNone(r.error)
+        # V37.9.23: machine_sync 字段默认值守卫
+        self.assertEqual(r.applied_actions, ())
+        self.assertTrue(r.apply_dry_run, "默认 dry-run 守卫 (CONVERGENCE_DRY_RUN!=0)")
+        self.assertEqual(r.apply_errors, ())
 
 
 class TestLoadSpecs(unittest.TestCase):
@@ -449,15 +456,28 @@ class TestRealJobsToCrontabSpec(unittest.TestCase):
     """Sanity: real V37.9.19 jobs_to_crontab spec loads + verify completes."""
 
     def test_real_spec_completes_without_raising(self):
-        # In dev environment without crontab, observer returns empty stdout
-        # → all declared jobs reported as missing → drift_detected=True
-        # That's expected behavior; we only assert verify_convergence doesn't
-        # raise and returns a structured result.
+        # V37.9.19 → V37.9.23: drift_action 从 alert_only 升级到 machine_sync
+        # (Plan B 渐进 dry-run, 5/3 决策窗口). In dev environment without
+        # crontab, observer returns empty stdout → all declared jobs reported
+        # as missing → drift_detected=True → V37.9.23 _apply_machine_sync
+        # called in dry-run mode (默认 CONVERGENCE_DRY_RUN!=0). 不应 raise,
+        # 返回结构化 ConvergenceResult (含 V37.9.23 三新字段).
         r = cv.verify_convergence("jobs_to_crontab")
         self.assertEqual(r.spec_id, "jobs_to_crontab")
-        self.assertEqual(r.drift_action, "alert_only")
-        # In environments without crontab, error may be set or empty; either way
-        # we got a structured result back not an exception
+        self.assertEqual(r.drift_action, "machine_sync",
+            "V37.9.23: jobs_to_crontab spec drift_action 已升级到 machine_sync")
+        # In dev (no crontab), all 36 declared jobs missing → dry-run apply
+        # 应产出 36 个 "DRY-RUN would apply: ..." 行 + 0 errors
+        if r.missing_in_runtime:
+            self.assertTrue(r.apply_dry_run,
+                "默认 CONVERGENCE_DRY_RUN!=0 必须 dry-run, 防意外修改 dev crontab")
+            self.assertEqual(len(r.applied_actions), len(r.missing_in_runtime),
+                "每个 missing entry 应在 dry-run 应产出一行 would-apply 字面量")
+            # dry-run 输出必须包含字面量前缀
+            for action in r.applied_actions:
+                self.assertTrue(action.startswith("DRY-RUN would apply:"),
+                    f"dry-run action 应以前缀 'DRY-RUN would apply:' 开头, got: {action!r}")
+        # 结构契约 (与异常区分)
         self.assertIsInstance(r, cv.ConvergenceResult)
 
     def test_real_spec_extractor_finds_declared_jobs(self):
@@ -506,14 +526,33 @@ class TestSourceLevelGuards(unittest.TestCase):
     def test_yaml_first_spec_is_jobs_to_crontab(self):
         self.assertIn("id: jobs_to_crontab", self.yaml_src)
 
-    def test_yaml_first_spec_drift_action_is_alert_only(self):
-        # V37.9.19 ships only with alert_only; machine_sync requires V37.9.20 +
-        # one-week observation evidence. Source-level guard prevents accidental
-        # premature escalation.
-        self.assertIn("drift_action: alert_only", self.yaml_src)
-        self.assertNotIn("drift_action: machine_sync", self.yaml_src,
-            "V37.9.19 must not ship machine_sync — premature escalation blocked. "
-            "If escalating, update this guard explicitly.")
+    def test_yaml_first_spec_drift_action_machine_sync_escalation_v37_9_23(self):
+        # V37.9.19 起步 alert_only; V37.9.23 (5/3 决策窗口 baseline 4/26 + 7d
+        # 一周观察期) 升级到 machine_sync (Plan B 渐进 dry-run 默认安全).
+        # 源码级守卫: jobs_to_crontab 块内必须含 drift_action: machine_sync.
+        # 找 jobs_to_crontab spec 块边界
+        jc_idx = self.yaml_src.find("- id: jobs_to_crontab")
+        self.assertGreater(jc_idx, 0, "jobs_to_crontab spec 必须存在")
+        # 下一个 spec 起点 (或 EOF)
+        next_idx = self.yaml_src.find("\n  - id: ", jc_idx + 10)
+        if next_idx < 0:
+            next_idx = len(self.yaml_src)
+        jc_block = self.yaml_src[jc_idx:next_idx]
+        # V37.9.23 升级守卫
+        self.assertIn("drift_action: machine_sync", jc_block,
+            "V37.9.23 jobs_to_crontab 必须升级到 machine_sync (Plan B 决策窗口已到达)")
+        self.assertIn("dry_run_default: true", jc_block,
+            "V37.9.23 Plan B 安全契约: 默认 dry-run 必须显式声明在 spec 内")
+        # 反例守卫: 不应出现遗留 alert_only 字面量 (在本 spec 块内)
+        # 注意: rationale 段可能引用历史"alert_only" 上下文, 用更精确的 drift_action: 行查
+        for line in jc_block.split("\n"):
+            stripped = line.strip()
+            if stripped.startswith("drift_action:") and "rationale" not in stripped:
+                self.assertIn("machine_sync", stripped,
+                    f"V37.9.23: drift_action 行必须显示 machine_sync, got: {stripped!r}")
+                break
+        else:
+            self.fail("jobs_to_crontab spec 块内未找到 drift_action: 行")
 
     def test_yaml_blood_lesson_link_present(self):
         self.assertIn("kb_deep_dive_cron_unregistered_case.md", self.yaml_src)
@@ -1392,7 +1431,13 @@ class TestKbSpecSourceGuards(unittest.TestCase):
         self.assertIn("id: kb_sources_to_index", self.yaml_src)
 
     def test_yaml_meta_version_advanced_to_fourth(self):
-        self.assertIn("0.4-fourth-spec", self.yaml_src)
+        # V37.9.22 起步 0.4-fourth-spec; V37.9.23 升级到 0.5-machine-sync-dry-run
+        # (jobs_to_crontab drift_action escalated). 守卫: 必须 ≥ 0.4 且消除旧 0.3.
+        version_tokens = ("0.4-fourth-spec", "0.5-machine-sync-dry-run")
+        self.assertTrue(
+            any(tok in self.yaml_src for tok in version_tokens),
+            f"meta version 必须 ≥ 0.4 (V37.9.22) 含 {version_tokens} 之一"
+        )
         self.assertNotIn('version: "0.3-third-spec"', self.yaml_src,
             "meta version should be bumped past 0.3 in V37.9.22 fourth spec")
 
@@ -1436,6 +1481,526 @@ class TestKbSpecSourceGuards(unittest.TestCase):
             end = idx + 5000
         mr17_block = self.gov_src[idx:end]
         self.assertIn("INV-CONVERGENCE-KB-001", mr17_block)
+
+
+class TestFormatCronLine(unittest.TestCase):
+    """V37.9.23 — _format_cron_line(job) 纯函数：jobs_registry job dict → cron line."""
+
+    def test_basic_happy_path_kb_deep_dive(self):
+        """V37.9.18 血案 reference job: kb_deep_dive.sh"""
+        cmd = cv._format_cron_line({
+            "id": "kb_deep_dive",
+            "interval": "30 22 * * *",
+            "entry": "kb_deep_dive.sh",
+            "log": "~/kb_deep_dive.log",
+        })
+        self.assertEqual(
+            cmd,
+            "30 22 * * * bash -lc 'bash ~/kb_deep_dive.sh >> ~/kb_deep_dive.log 2>&1'"
+        )
+
+    def test_jobs_subdir_entry(self):
+        """jobs_registry 大量 entries 是 jobs/X/run_X.sh 形式 → bash ~/jobs/X/run_X.sh"""
+        cmd = cv._format_cron_line({
+            "id": "arxiv_monitor",
+            "interval": "0 8,20 * * *",
+            "entry": "jobs/arxiv_monitor/run_arxiv.sh",
+            "log": "~/.openclaw/logs/jobs/arxiv_monitor.log",
+        })
+        self.assertEqual(
+            cmd,
+            "0 8,20 * * * bash -lc 'bash ~/jobs/arxiv_monitor/run_arxiv.sh >> ~/.openclaw/logs/jobs/arxiv_monitor.log 2>&1'"
+        )
+
+    def test_v37_9_18_inv_cron_003_pattern_match(self):
+        """V37.9.18 INV-CRON-003 _cron_cmd_invokes 模式: bash -lc 'bash ~/X >> Y 2>&1'."""
+        cmd = cv._format_cron_line({
+            "id": "x", "interval": "0 9 * * 1", "entry": "health_check.sh",
+            "log": "~/health_check.log",
+        })
+        self.assertIn("bash -lc 'bash ~/", cmd)
+        self.assertIn("2>&1'", cmd)
+        # 字面量结构守卫
+        self.assertTrue(cmd.startswith("0 9 * * 1 "))
+
+    def test_log_with_absolute_path_not_double_prefixed(self):
+        """log 字段已是绝对路径 (例如某些 cron 写到 /var/log/) → 不加 ~/."""
+        cmd = cv._format_cron_line({
+            "id": "x", "interval": "0 0 * * *", "entry": "foo.sh",
+            "log": "/var/log/foo.log",
+        })
+        self.assertIn(">> /var/log/foo.log", cmd)
+        self.assertNotIn(">> ~//var/log", cmd)
+
+    def test_log_with_bare_path_gets_tilde_prefix(self):
+        """异常情况: log 字段没有 ~/ 也没 / 开头 → defensive 加 ~/."""
+        cmd = cv._format_cron_line({
+            "id": "x", "interval": "0 0 * * *", "entry": "foo.sh",
+            "log": "foo.log",
+        })
+        self.assertIn(">> ~/foo.log", cmd)
+
+    def test_missing_interval_raises(self):
+        with self.assertRaises(ValueError) as ctx:
+            cv._format_cron_line({"id": "x", "entry": "foo.sh", "log": "~/foo.log"})
+        self.assertIn("interval", str(ctx.exception))
+
+    def test_missing_entry_raises(self):
+        with self.assertRaises(ValueError) as ctx:
+            cv._format_cron_line({"id": "x", "interval": "0 0 * * *", "log": "~/foo.log"})
+        self.assertIn("entry", str(ctx.exception))
+
+    def test_missing_log_raises(self):
+        with self.assertRaises(ValueError) as ctx:
+            cv._format_cron_line({"id": "x", "interval": "0 0 * * *", "entry": "foo.sh"})
+        self.assertIn("log", str(ctx.exception))
+
+    def test_interval_must_be_5_fields(self):
+        # 空字符串先被"missing"分支抓 (非空校验在 5-field 校验前), 其他场景 5-field 抓
+        for bad in ["0 0 * *", "0 0 * * * *", "@daily"]:
+            with self.subTest(interval=bad):
+                with self.assertRaises(ValueError) as ctx:
+                    cv._format_cron_line({
+                        "id": "x", "interval": bad,
+                        "entry": "foo.sh", "log": "~/foo.log",
+                    })
+                self.assertIn("5-field", str(ctx.exception))
+
+    def test_empty_interval_caught_as_missing(self):
+        """空字符串 interval 先被 missing/non-string 分支抓 (前置校验顺序)."""
+        with self.assertRaises(ValueError) as ctx:
+            cv._format_cron_line({
+                "id": "x", "interval": "",
+                "entry": "foo.sh", "log": "~/foo.log",
+            })
+        # 任一 missing/non-string 字面量应在 error 信息中
+        err = str(ctx.exception)
+        self.assertTrue("missing" in err or "non-string" in err,
+            f"空 interval 应被 missing 分支抓, got: {err}")
+
+    def test_shell_metachar_in_entry_rejected(self):
+        """defense-in-depth: registry typo 不可命令注入."""
+        for evil in ["foo.sh; rm -rf /", "foo.sh && evil", "foo.sh|cat",
+                     "foo.sh`whoami`", "foo.sh$(date)", "foo'.sh"]:
+            with self.subTest(entry=evil):
+                with self.assertRaises(ValueError) as ctx:
+                    cv._format_cron_line({
+                        "id": "x", "interval": "0 0 * * *",
+                        "entry": evil, "log": "~/foo.log",
+                    })
+                # 要么 single quote 错误要么 metachar 错误
+                err = str(ctx.exception)
+                self.assertTrue(
+                    "single quote" in err or "metachar" in err,
+                    f"应拒绝 metachar {evil!r}, error: {err}"
+                )
+
+    def test_shell_metachar_in_log_rejected(self):
+        for evil in ["~/foo.log;evil", "~/foo.log|cat", "~/foo'.log"]:
+            with self.subTest(log=evil):
+                with self.assertRaises(ValueError):
+                    cv._format_cron_line({
+                        "id": "x", "interval": "0 0 * * *",
+                        "entry": "foo.sh", "log": evil,
+                    })
+
+    def test_non_dict_input_raises(self):
+        for bad in [None, "string", 42, [], ()]:
+            with self.subTest(job=bad):
+                with self.assertRaises(ValueError):
+                    cv._format_cron_line(bad)
+
+
+class TestIsDryRun(unittest.TestCase):
+    """V37.9.23 — _is_dry_run() 读 CONVERGENCE_DRY_RUN env var (默认安全 True)."""
+
+    def setUp(self):
+        # 隔离 env (test 之间不互相污染)
+        self._saved = os.environ.pop("CONVERGENCE_DRY_RUN", None)
+
+    def tearDown(self):
+        if self._saved is not None:
+            os.environ["CONVERGENCE_DRY_RUN"] = self._saved
+        else:
+            os.environ.pop("CONVERGENCE_DRY_RUN", None)
+
+    def test_unset_defaults_to_dry_run(self):
+        os.environ.pop("CONVERGENCE_DRY_RUN", None)
+        self.assertTrue(cv._is_dry_run(),
+            "env 未设置 → 必须 dry-run (V37.9.23 安全默认)")
+
+    def test_value_zero_disables_dry_run(self):
+        os.environ["CONVERGENCE_DRY_RUN"] = "0"
+        self.assertFalse(cv._is_dry_run(),
+            "CONVERGENCE_DRY_RUN=0 是唯一关闭 dry-run 的字面量")
+
+    def test_value_one_keeps_dry_run(self):
+        os.environ["CONVERGENCE_DRY_RUN"] = "1"
+        self.assertTrue(cv._is_dry_run())
+
+    def test_value_true_keeps_dry_run(self):
+        # 任何非 "0" 都视为 dry-run (防 typo / case 混乱)
+        os.environ["CONVERGENCE_DRY_RUN"] = "true"
+        self.assertTrue(cv._is_dry_run(),
+            "非 '0' 字面量 → dry-run (typo 也安全)")
+
+    def test_empty_string_keeps_dry_run(self):
+        os.environ["CONVERGENCE_DRY_RUN"] = ""
+        self.assertTrue(cv._is_dry_run())
+
+
+class TestApplyMachineSyncDryRun(unittest.TestCase):
+    """V37.9.23 — _apply_machine_sync() dry-run 路径 (不调 subprocess)."""
+
+    def setUp(self):
+        # 强制 dry-run env
+        self._saved = os.environ.pop("CONVERGENCE_DRY_RUN", None)
+        os.environ["CONVERGENCE_DRY_RUN"] = "1"
+        self.spec = cv.get_spec("jobs_to_crontab")
+        self.assertIsNotNone(self.spec)
+
+    def tearDown(self):
+        if self._saved is not None:
+            os.environ["CONVERGENCE_DRY_RUN"] = self._saved
+        else:
+            os.environ.pop("CONVERGENCE_DRY_RUN", None)
+
+    def test_empty_missing_returns_empty_tuples(self):
+        applied, errors, dry_run = cv._apply_machine_sync(self.spec, set())
+        self.assertEqual(applied, ())
+        self.assertEqual(errors, ())
+        self.assertTrue(dry_run)
+
+    def test_real_missing_entries_produce_dry_run_lines(self):
+        """从真实 registry 取一个 entry 跑 dry-run → applied 含 'DRY-RUN would apply:'."""
+        # registry 真实 entry sample
+        by_entry = cv._load_jobs_registry_index(self.spec)
+        sample = sorted(by_entry.keys())[0]
+        applied, errors, dry_run = cv._apply_machine_sync(self.spec, {sample})
+
+        self.assertTrue(dry_run)
+        self.assertEqual(len(applied), 1)
+        self.assertTrue(applied[0].startswith("DRY-RUN would apply:"))
+        # cron line 必须含真实 entry
+        self.assertIn(sample, applied[0])
+        # cron line 必须含 V37.9.18 INV-CRON-003 模式
+        self.assertIn("bash -lc 'bash ~/", applied[0])
+        self.assertEqual(errors, ())
+
+    def test_unknown_entry_produces_apply_error(self):
+        """missing 列表含 registry 外 entry (stale identifier) → apply_errors."""
+        applied, errors, dry_run = cv._apply_machine_sync(
+            self.spec, {"nonexistent_xxx_999.sh"}
+        )
+        self.assertEqual(applied, ())
+        self.assertEqual(len(errors), 1)
+        self.assertIn("not in current registry", errors[0])
+        self.assertIn("nonexistent_xxx_999.sh", errors[0])
+
+    def test_entries_processed_in_sorted_order(self):
+        """避免顺序漂移让 dry-run log 比对不可靠."""
+        by_entry = cv._load_jobs_registry_index(self.spec)
+        samples = sorted(by_entry.keys())[:3]
+        # 故意逆序传入
+        applied, _, _ = cv._apply_machine_sync(self.spec, set(reversed(samples)))
+        self.assertEqual(len(applied), 3)
+        # applied 内顺序应基于 sorted(missing) 而非 input 顺序
+        for i, sample in enumerate(sorted(samples)):
+            self.assertIn(sample, applied[i])
+
+    def test_explicit_dry_run_overrides_env(self):
+        """显式 dry_run=False 应覆盖 env (虽然没有 crontab_safe.sh 会失败,
+        但调用语义不同 — 本测试只验证显式参数生效)."""
+        by_entry = cv._load_jobs_registry_index(self.spec)
+        sample = sorted(by_entry.keys())[0]
+        # 强制 env=dry-run 但显式 dry_run=False → 走真模式 → 寻找 crontab_safe.sh
+        applied, errors, dry_run = cv._apply_machine_sync(
+            self.spec, {sample}, dry_run=False
+        )
+        self.assertFalse(dry_run, "显式 dry_run=False 应覆盖 env")
+        # dev 环境无 ~/crontab_safe.sh, 应走 errors 分支
+        # (除非 dev 环境恰好有, 那么 applied 应非空 — 两种情况都合法)
+        self.assertTrue(applied or errors,
+            "真模式必产生 applied 或 errors 之一")
+
+
+class TestApplyMachineSyncReal(unittest.TestCase):
+    """V37.9.23 — _apply_machine_sync() 真模式 (mock subprocess.run)."""
+
+    def setUp(self):
+        # 显式关闭 dry-run env (但仍用 dry_run=False 显式参数)
+        self._saved_env = os.environ.pop("CONVERGENCE_DRY_RUN", None)
+        os.environ["CONVERGENCE_DRY_RUN"] = "0"
+        self.spec = cv.get_spec("jobs_to_crontab")
+        # 缓存真实 subprocess.run 还原用
+        self._saved_run = subprocess.run
+
+    def tearDown(self):
+        subprocess.run = self._saved_run
+        if self._saved_env is not None:
+            os.environ["CONVERGENCE_DRY_RUN"] = self._saved_env
+        else:
+            os.environ.pop("CONVERGENCE_DRY_RUN", None)
+
+    def _set_subprocess_mock(self, mock_fn):
+        """Inject mock subprocess.run into the convergence module namespace.
+        cv._apply_machine_sync 用 module-level subprocess import, 通过
+        覆盖 cv.subprocess.run 让 mock 生效."""
+        cv.subprocess.run = mock_fn
+
+    def test_subprocess_success_produces_applied(self):
+        """returncode=0 → applied_actions 含 'applied:' 字面量."""
+        class Result:
+            returncode = 0
+            stdout = "✅ 已添加（35 → 36 条）"
+            stderr = ""
+        self._set_subprocess_mock(lambda *args, **kwargs: Result())
+
+        # 模拟 ~/crontab_safe.sh 存在 (用 patch.object 不方便, 直接用真路径
+        # 假设存在 — 简化方法: tempfile 创建一个 placeholder, 通过 HOME 重定向)
+        td = tempfile.mkdtemp()
+        try:
+            (Path(td) / "crontab_safe.sh").write_text("#!/bin/bash\nexit 0\n")
+            old_home = os.environ.get("HOME")
+            os.environ["HOME"] = td
+            try:
+                by_entry = cv._load_jobs_registry_index(self.spec)
+                sample = sorted(by_entry.keys())[0]
+                applied, errors, dry_run = cv._apply_machine_sync(
+                    self.spec, {sample}, dry_run=False
+                )
+            finally:
+                if old_home is not None:
+                    os.environ["HOME"] = old_home
+                else:
+                    os.environ.pop("HOME", None)
+        finally:
+            import shutil
+            shutil.rmtree(td, ignore_errors=True)
+
+        self.assertFalse(dry_run)
+        self.assertEqual(len(applied), 1)
+        self.assertTrue(applied[0].startswith("applied:"),
+            f"成功 subprocess 应产 'applied:' 前缀, got: {applied[0]!r}")
+        self.assertEqual(errors, ())
+
+    def test_subprocess_failure_produces_apply_error(self):
+        """returncode!=0 → apply_errors 含 stderr 截断."""
+        class Result:
+            returncode = 1
+            stdout = ""
+            stderr = "❌ crontab 安装失败 — bad minute"
+        self._set_subprocess_mock(lambda *args, **kwargs: Result())
+
+        td = tempfile.mkdtemp()
+        try:
+            (Path(td) / "crontab_safe.sh").write_text("#!/bin/bash\nexit 1\n")
+            old_home = os.environ.get("HOME")
+            os.environ["HOME"] = td
+            try:
+                by_entry = cv._load_jobs_registry_index(self.spec)
+                sample = sorted(by_entry.keys())[0]
+                applied, errors, _ = cv._apply_machine_sync(
+                    self.spec, {sample}, dry_run=False
+                )
+            finally:
+                if old_home is not None:
+                    os.environ["HOME"] = old_home
+                else:
+                    os.environ.pop("HOME", None)
+        finally:
+            import shutil
+            shutil.rmtree(td, ignore_errors=True)
+
+        self.assertEqual(applied, ())
+        self.assertEqual(len(errors), 1)
+        self.assertIn("exit=1", errors[0])
+        self.assertIn("bad minute", errors[0])
+
+    def test_subprocess_timeout_produces_apply_error(self):
+        """timeout → apply_errors timeout 字面量."""
+        def raise_timeout(*args, **kwargs):
+            raise subprocess.TimeoutExpired(cmd="bash crontab_safe.sh", timeout=15)
+        self._set_subprocess_mock(raise_timeout)
+
+        td = tempfile.mkdtemp()
+        try:
+            (Path(td) / "crontab_safe.sh").write_text("#!/bin/bash\nsleep 999\n")
+            old_home = os.environ.get("HOME")
+            os.environ["HOME"] = td
+            try:
+                by_entry = cv._load_jobs_registry_index(self.spec)
+                sample = sorted(by_entry.keys())[0]
+                applied, errors, _ = cv._apply_machine_sync(
+                    self.spec, {sample}, dry_run=False
+                )
+            finally:
+                if old_home is not None:
+                    os.environ["HOME"] = old_home
+                else:
+                    os.environ.pop("HOME", None)
+        finally:
+            import shutil
+            shutil.rmtree(td, ignore_errors=True)
+
+        self.assertEqual(applied, ())
+        self.assertEqual(len(errors), 1)
+        self.assertIn("timed out", errors[0])
+
+    def test_helper_not_found_produces_apply_error(self):
+        """~/crontab_safe.sh 不存在 → apply_errors 不调 subprocess."""
+        # subprocess.run 被覆盖为抛异常 — 如果误调用必失败让测试发现
+        self._set_subprocess_mock(
+            lambda *a, **kw: self.fail("subprocess.run 不应被调用 (helper 不存在)")
+        )
+        td = tempfile.mkdtemp()  # 故意不放 crontab_safe.sh
+        try:
+            old_home = os.environ.get("HOME")
+            os.environ["HOME"] = td
+            try:
+                by_entry = cv._load_jobs_registry_index(self.spec)
+                sample = sorted(by_entry.keys())[0]
+                applied, errors, _ = cv._apply_machine_sync(
+                    self.spec, {sample}, dry_run=False
+                )
+            finally:
+                if old_home is not None:
+                    os.environ["HOME"] = old_home
+                else:
+                    os.environ.pop("HOME", None)
+        finally:
+            import shutil
+            shutil.rmtree(td, ignore_errors=True)
+
+        self.assertEqual(applied, ())
+        self.assertEqual(len(errors), 1)
+        self.assertIn("crontab_safe.sh not found", errors[0])
+
+
+class TestVerifyConvergenceMachineSyncIntegration(unittest.TestCase):
+    """V37.9.23 — 端到端: verify_convergence + drift_action machine_sync."""
+
+    def setUp(self):
+        self._saved = os.environ.pop("CONVERGENCE_DRY_RUN", None)
+        os.environ["CONVERGENCE_DRY_RUN"] = "1"  # 强制 dry-run 安全
+
+    def tearDown(self):
+        if self._saved is not None:
+            os.environ["CONVERGENCE_DRY_RUN"] = self._saved
+        else:
+            os.environ.pop("CONVERGENCE_DRY_RUN", None)
+
+    def test_machine_sync_spec_dry_runs_in_dev(self):
+        """dev 环境无 crontab → 36 declared 全 missing → dry-run 36 行 'would apply'."""
+        r = cv.verify_convergence("jobs_to_crontab")
+        self.assertEqual(r.drift_action, "machine_sync",
+            "V37.9.23: jobs_to_crontab spec 已升级到 machine_sync")
+        if r.missing_in_runtime:
+            self.assertTrue(r.apply_dry_run)
+            # 每个 missing 应对应一个 dry-run 行
+            self.assertEqual(len(r.applied_actions), len(r.missing_in_runtime))
+            self.assertEqual(r.apply_errors, ())
+
+    def test_alert_only_specs_have_no_apply_actions(self):
+        """providers_to_adapter / openclaw_config_to_runtime / kb_sources_to_index
+        都是 alert_only — verify_convergence 不应调 _apply_machine_sync, 三新字段
+        全部默认 (空 / True / 空)."""
+        for sid in ("providers_to_adapter", "openclaw_config_to_runtime", "kb_sources_to_index"):
+            with self.subTest(spec_id=sid):
+                r = cv.verify_convergence(sid)
+                self.assertEqual(r.drift_action, "alert_only",
+                    f"{sid} 必须保持 alert_only (V37.9.23 没动这些)")
+                self.assertEqual(r.applied_actions, (),
+                    "alert_only spec 不应触发 apply_actions")
+                self.assertEqual(r.apply_errors, ())
+                # apply_dry_run 默认值应为 True (但 alert_only path 不修改它)
+                self.assertTrue(r.apply_dry_run)
+
+    def test_format_result_for_log_includes_apply_for_machine_sync(self):
+        """machine_sync drift 时 log 行应含 'apply[dry-run]=N'."""
+        r = cv.verify_convergence("jobs_to_crontab")
+        s = cv.format_result_for_log(r)
+        if r.drift_detected and r.applied_actions:
+            self.assertIn("apply[dry-run]=", s,
+                f"machine_sync drift 时 log 应含 apply[dry-run]= 字面量, got: {s}")
+
+    def test_format_result_for_log_no_apply_for_alert_only(self):
+        """alert_only drift 时 log 行不应含 'apply[' 字面量 (避免噪声)."""
+        for sid in ("providers_to_adapter", "kb_sources_to_index"):
+            with self.subTest(spec_id=sid):
+                r = cv.verify_convergence(sid)
+                s = cv.format_result_for_log(r)
+                self.assertNotIn("apply[", s,
+                    f"{sid} (alert_only) log 不应含 apply[ 字面量, got: {s}")
+
+    def test_jobs_to_crontab_real_yaml_says_machine_sync(self):
+        """V37.9.23 升级守卫 (源码层): yaml 字面量必含 jobs_to_crontab 块的
+        drift_action: machine_sync."""
+        spec = cv.get_spec("jobs_to_crontab")
+        self.assertEqual(spec.get("drift_action"), "machine_sync")
+
+
+class TestV37923SourceLevelGuards(unittest.TestCase):
+    """V37.9.23 — convergence.py + yaml 源码级守卫 (字面量 grep)."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.py_src = (ONTOLOGY_DIR / "convergence.py").read_text(encoding="utf-8")
+        cls.yaml_src = (ONTOLOGY_DIR / "convergence_ontology.yaml").read_text(encoding="utf-8")
+
+    def test_format_cron_line_function_defined(self):
+        self.assertIn("def _format_cron_line(job)", self.py_src)
+
+    def test_apply_machine_sync_function_defined(self):
+        self.assertIn("def _apply_machine_sync(spec, missing_entries", self.py_src)
+
+    def test_is_dry_run_function_defined(self):
+        self.assertIn("def _is_dry_run()", self.py_src)
+
+    def test_dry_run_env_var_constant(self):
+        self.assertIn('_DRY_RUN_ENV_VAR = "CONVERGENCE_DRY_RUN"', self.py_src)
+
+    def test_machine_sync_timeout_constant(self):
+        self.assertIn("_MACHINE_SYNC_TIMEOUT_SEC = 15", self.py_src)
+
+    def test_load_jobs_registry_index_helper(self):
+        self.assertIn("def _load_jobs_registry_index(spec)", self.py_src)
+
+    def test_verify_convergence_wires_apply_machine_sync(self):
+        """verify_convergence 必须含 'drift_action == "machine_sync"' 分支."""
+        self.assertIn('drift_action == "machine_sync"', self.py_src)
+        self.assertIn("_apply_machine_sync(", self.py_src)
+
+    def test_format_cron_line_emits_v37_9_18_inv_cron_003_pattern(self):
+        """字面量守卫: _format_cron_line 必须用 'bash -lc' + 'bash ~/' 模板,
+        与 V37.9.18 INV-CRON-003 _cron_cmd_invokes 检测器对齐 (镜像反向构造)."""
+        # _format_cron_line 函数体内的字面量
+        idx = self.py_src.find("def _format_cron_line(job)")
+        self.assertGreater(idx, 0)
+        # 找下一个 def 边界
+        end = self.py_src.find("\ndef ", idx + 10)
+        self.assertGreater(end, idx)
+        body = self.py_src[idx:end]
+        self.assertIn("bash -lc", body)
+        self.assertIn("bash ~/", body)
+        self.assertIn("2>&1", body)
+
+    def test_yaml_v37_9_23_changelog_section(self):
+        self.assertIn("v37_9_23_changelog", self.yaml_src)
+        self.assertIn("Plan B", self.yaml_src)
+        self.assertIn("CONVERGENCE_DRY_RUN", self.yaml_src)
+
+    def test_yaml_jobs_to_crontab_implements_machine_sync(self):
+        """V37.9.23: yaml jobs_to_crontab spec convergence_method 应有 implemented:
+        替代 V37.9.19 的 planned: 字段."""
+        jc_idx = self.yaml_src.find("- id: jobs_to_crontab")
+        next_idx = self.yaml_src.find("\n  - id: ", jc_idx + 10)
+        if next_idx < 0:
+            next_idx = len(self.yaml_src)
+        block = self.yaml_src[jc_idx:next_idx]
+        self.assertIn("implemented: machine_sync_via_helper", block)
+        self.assertIn("dry_run_default: true", block)
+        self.assertIn("apply_path: convergence._apply_machine_sync", block)
 
 
 class TestKbSourcesToIndexCommandRuntime(unittest.TestCase):
