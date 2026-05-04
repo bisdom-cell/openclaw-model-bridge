@@ -1,5 +1,5 @@
 {
-  "updated": "2026-05-04 04:10:20",
+  "updated": "2026-05-04 05:48:28",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-05-04",
+      "what": "V37.9.26: watchdog 主动告警升级 — 24h 窗口 ≥5 条 MOVESPEED incident 推 [SYSTEM_ALERT] (V37.9.15 候选 watchdog 部分闭环). 新文件 movespeed_incident_monitor.py 纯函数模块 (parse_iso_to_epoch / extract_caller_basename / count_recent_incidents 24h 窗口 / format_watchdog_output pipe 输出 / CLI FAIL-OPEN). job_watchdog.sh 第 9 维度集成 (从 8 大维度扩展到 9), 阈值 INCIDENT_24H_THRESHOLD=5 (噪声 +2σ). MR-8 单一真理源正向兑现: 不内嵌 heredoc, 抽到独立模块, 单测直接 import. INV-INCIDENT-001 新增 (meta_rule=MR-4, 10 checks: 4 monitor.py declaration + 5 watchdog.sh declaration + 1 FILE_MAP + 1 runtime 36 单测). 与 INV-BACKUP-001 sibling 关系 (前者守证据收集, 后者守证据消费产告警, 一起覆盖 declared→runtime→alert 完整链路). 36 新单测 7 类 (含反向验证 + 阈值边界 + watchdog 集成守卫). 同时修 INV-BACKUP-001 检测器豁免 watchdog (V37.9.26 watchdog 加告警消息含 rsync+MOVESPEED 字样误判, 按原则 #28 最小修复加 monitor consumer 豁免, 不破坏 V37.9.14 的检测目的). 累计 48→49 suites / 1762→1798 tests (+36) / 0 fail / governance 67→68 invariants (+1) / 403→413 checks (+10) / 17 meta rules / 安全 95/100 / VERSION 0.37.9.25→0.37.9.26.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-05-04",
       "what": "V37.9.25: 第 5 个 convergence spec services_to_launchd 上线 — V37.9.13 候选 launchd plist 持久化方向闭环. 新增 services_registry.yaml (与 jobs_registry.yaml 平行的独立 declared source, 3 个 service: com.openclaw.adapter / com.openclaw.proxy / ai.openclaw.gateway). convergence.py 注册 _extract_services_from_registry extractor 到 _DECLARED_EXTRACTORS dict (第 5 次 named-dispatch 扩展验证, 镜像 V37.9.22 kb_sources_to_index minimal-extension 路径 — 只新加 1 extractor, 复用 V37.9.19 shell_command observer + line_contains_identifier parser). spec drift_action: alert_only 起步 (V37.9.19 同款保守路线), V37.9.26+ 一周观察后考虑 machine_sync 升级 (planned_helper: bash $HOME/restart.sh + per-service launchctl bootstrap). INV-CONVERGENCE-SERVICES-001 新增 (meta_rule=MR-17, severity=high, 16 checks: 14 declaration + 1 runtime python_assert subprocess 跑 V37.9.25 3 测试类). MR-17 derivative_invariants 升级 [..., INV-CONVERGENCE-SERVICES-001]. 新增 23 单测 3 类 (TestExtractServicesFromRegistry 4 + TestVerifyServicesToLaunchdIntegration 6 + TestServicesSpecSourceGuards 13). 反向验证: yaml label 改坏 (com.openclaw.adapter → com.openclaw.adapter_RENAMED) 立即抓. yaml meta version 0.6 → 0.7-fifth-spec-services-to-launchd. auto_deploy FILE_MAP 加 services_registry.yaml 部署. dev 环境跑通: declared=3 (com.openclaw.adapter/proxy/gateway), launchctl 不存在 → observer_failed FAIL-OPEN → missing=3 alert_only 输出. 累计 47→48 suites / 1739→1762 tests (+23) / 0 fail / governance 66→67 invariants (+1) / 387→403 checks (+16) / 17 meta rules / 安全 95/100 / VERSION 0.37.9.24 → 0.37.9.25 / convergence specs 4→5.",
       "by": "claude_code"
     },
@@ -198,11 +203,6 @@
       "date": "2026-04-23",
       "what": "V37.9.14 MOVESPEED SSD rsync 事故取证埋点 — 证据导向修复 (原则 #28 理解再动手正向兑现). 触发: V37.9.4 APFS 重建理论闭环 exfat fskit EPERM, 但 4/22 ACL cron 再次 Operation not permitted (顶层权限 OK 但 rsync 子操作失败), 假说被证伪且根因不明. 方法选择: 原则 #26 异常分析 + #28 理解再动手 - 证据不足拒绝盲目修复, transient EPERM 自愈即抓不到现场, 选埋取证点而非猜根因. 新 helper movespeed_incident_capture.sh (bash 3.2 兼容 macOS, never-fail 契约, 130 行): rsync 失败追加 JSONL 到 ~/.kb/movespeed_incidents.jsonl 含 timestamp/caller/exit_code/mount/diskutil_info/ls_top/ls_kb/df/顶层与KB子目录独立 touch 探测 (区分全盘 EPERM vs 子目录 EPERM, V37.9.4 血案后真正需要的证据)/procs (rsync/backupd/mds/fseventsd/tmutil Spotlight 并发诊断)/sw_vers/env 摘要. python3 argv 参数传递避开 shell 转义, 所有诊断 |\\| true 失败即空串, mktemp 坏走 last-ditch minimal record, 10MB rotate to .1. 20 处 rsync fail-loud 站点升级: 旧 `|\\| echo WARN: SSD (exit=$?) >&2` → 新 `|\\| { _rc=$?; echo WARN: SSD (exit=$_rc) >&2; helper _rc $0; }` (_rc 捕获必须在 echo 之前). 覆盖 kb_save_arxiv/kb_dream/kb_evening/kb_inject/kb_review/run_hn_fixed + jobs/{hf_papers,semantic_scholar,dblp,ontology_sources,karpathy_x,rss_blogs,arxiv_monitor,freight_watcher×2,acl_anthology,github_trending,ai_leaders_x,openclaw_official×2}. INV-BACKUP-001 扩展 check 4 (declaration python_assert 全局扫 rsync+MOVESPEED .sh 必须含 helper 调用) + check 5 (runtime python_assert subprocess 端到端跑 mock caller → rsync 失败 → 断言 caller exit 0 + WARN stderr + JSONL 写入 + JSON 解析 + basename 正确). 26 新单测 test_movespeed_incident_capture.py: TestHelperExists(4) + TestHelperContract(8 never-fail 契约) + TestRotation(2) + TestBashCompat(6 禁 bash 4+ 语法 smart 豁免注释行) + TestInvariantCoverage(4 含 no_extra_undeclared_sites) + TestFileMapCoverage(1) + TestGovernanceExtension(1). MR-9 正面兑现扩展到取证层: V37.9.13 launchctl 单一 manager + V37.9.14 事故取证单一 helper. accumulated: 43→44 suites (+1) / 1319→1345 tests (+26) / 0 fail / governance 60 invariants (INV-BACKUP-001 扩展 2 checks) / 安全 95/100 / VERSION 0.37.9.13 → 0.37.9.14. 下次 transient EPERM 复发 → cat ~/.kb/movespeed_incidents.jsonl → 现场证据 → V37.9.15 精确根因修复.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-04-23",
-      "what": "V37.9.13 Mac Mini 实测验证完美通过 (3/3 门): (1) restart.sh V37.9.13 新路径生效 — `[restart] Adapter: launchctl kickstart -k gui/501/com.openclaw.adapter` + `Adapter healthy (HTTP 200 after 1×2s)` 同款 Tool Proxy + Gateway V37.8.13 逻辑保留 (2) HOME vs repo diff 空 (首次跑旧版是因 auto_deploy 2min 轮询未触发, 手动 cp 后对齐) (3) tool_proxy.log 双 wiring 日志: Phase 4 P1 max-tools limit=12 + Phase 4 P2 max-tool-calls limit=2 (V37.9.13 新增). V37.9.12.1 双管理血案正式闭环 — launchctl kickstart 成功(非 No such service) + 健康验证即时 HTTP 200 + 新进程正确打印 P1+P2 wiring active = launchd-managed 进程完美启动无 nohup 双路竞争. 经验补充: FILE_MAP 映射的 HOME 副本(~/restart.sh)不会被 git reset 直接更新, 需等 auto_deploy 2min 轮询或手动 cp, 今日 session 教训.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -271,10 +271,10 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 1762,
-    "last_regression": "2026-05-04 04:08 pass",
+    "test_count": 1798,
+    "last_regression": "2026-05-04 05:46 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-05-04 04:08",
+    "security_score_time": "2026-05-04 05:46",
     "test_suites": 49,
     "governance_invariants": "64/64",
     "governance_checks": "350/350",
@@ -342,7 +342,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.25 收工 — 第 5 个 convergence spec services_to_launchd (V37.9.13 闭环) / 1762 tests / 67 inv / 403 checks / 安全 95/100 / VERSION 0.37.9.25 / convergence spec 4→5. 等用户合并 PR + Mac Mini 同步 + governance audit 看 services_to_launchd 输出 (Mac Mini launchctl 应观察到 3 service 全部 loaded → declared=3 observed=3 zero drift).",
+  "focus": "V37.9.26 收工 — watchdog 主动告警升级 (V37.9.15 候选 watchdog 部分闭环) / 1798 tests / 49 suites / 68 inv / 413 checks / VERSION 0.37.9.26. 等用户合并 PR + Mac Mini 同步 + 一周纯观察期 (5/4 baseline → 5/11 决策窗口) 期间 watchdog 自动跑 (每小时 cron) 主动消费 incidents.jsonl. 下次 5/11 决策窗口三 spec 切关 dry-run.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
