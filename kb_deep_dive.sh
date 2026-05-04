@@ -244,7 +244,6 @@ else
 fi
 
 # ── 8. rsync 备份（V37.9.14 事故取证模式，INV-BACKUP-001 check 4）──
-rsync -a "$KB_DIR/" "/Volumes/MOVESPEED/KB/" 2>&1 || { _rc=$?; echo "[$(basename "$0")] WARN: SSD rsync failed (exit=$_rc)" >&2; "$HOME/movespeed_incident_capture.sh" "$_rc" "$0"; }
-
+bash "$HOME/movespeed_rsync_helper.sh" "$0" -- -a "$KB_DIR/" "/Volumes/MOVESPEED/KB/"  # V37.9.27 jitter+retry+fail-loud+capture (replaces V37.9.4/V37.9.14 inline pattern)
 log "每日深度分析 ${DATE} | 模式: ${MODE} | 标题: ${PICK_TITLE}"
 log "归档文件: ${DEEP_FILE}"

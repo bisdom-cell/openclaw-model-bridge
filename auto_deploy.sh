@@ -195,6 +195,7 @@ declare -a FILE_MAP=(
     # 事故取证 helper（V37.9.14 — 20 个 SSD 备份 fail-loud 站点共享, INV-BACKUP-001 check 4）
     "movespeed_incident_capture.sh|$HOME/movespeed_incident_capture.sh"
     "movespeed_incident_monitor.py|$HOME/movespeed_incident_monitor.py"  # V37.9.26 — watchdog 主动告警 helper
+    "movespeed_rsync_helper.sh|$HOME/movespeed_rsync_helper.sh"  # V37.9.27 — jitter+retry+fail-loud+capture wrapper
 
     # 体检 & 验证脚本（V37.8.3: 确保 Mac Mini ~/preflight 是最新版）
     "preflight_check.sh|$HOME/preflight_check.sh"
