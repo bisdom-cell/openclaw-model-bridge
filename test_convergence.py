@@ -15,6 +15,9 @@ Covers:
   TestFormatResultForLog — single-line output for ops grep
   TestRealJobsToCrontabSpec — real convergence_ontology.yaml jobs_to_crontab spec smoke
   TestSourceLevelGuards — convergence.py + convergence_ontology.yaml structural guards
+  TestKbSourcesToIndexCommandRuntime — V37.9.23 加固: mock meta.json 真跑 spec
+    yaml 的 python oneliner, 闭合 V37.9.22 4/29 hotfix 教训 (yaml command 字段名
+    假设错误 dev 单测全过仅 Mac Mini 实测才暴露). MR-4 silent-failure 防御.
 """
 
 import json
@@ -1433,6 +1436,212 @@ class TestKbSpecSourceGuards(unittest.TestCase):
             end = idx + 5000
         mr17_block = self.gov_src[idx:end]
         self.assertIn("INV-CONVERGENCE-KB-001", mr17_block)
+
+
+class TestKbSourcesToIndexCommandRuntime(unittest.TestCase):
+    """V37.9.23 加固层 — Mock meta.json + 真实跑 spec yaml 的 python oneliner.
+
+    为什么需要 (V37.9.22 4/29 hotfix 9d60dd3 教训, MR-4 silent-failure 新形态):
+        spec yaml 里 runtime_observable.command 是字面量 python oneliner, 引用
+        ~/.kb/text_index/meta.json 的 chunks[].file 字段名. V37.9.22 第一次
+        部署假设字段名是 source_file — dev 单测全过 (1664 tests) + governance
+        全过 (66 inv / 372 checks) + Mac Mini preflight 全过 (81/0/3) — 但
+        Mac Mini 实测 framework 才暴露字段名错: declared=14 observed=0 missing=14.
+
+        dev 单测只测 declared extractor 逻辑层 (TestExtractRegistryKbSourceFiles),
+        没测 observer command 的实际执行路径 + JSON 字段读取语义层. source-level
+        grep guard (TestKbSpecSourceGuards) 也只是字面量 grep — source_file 和
+        file 都是合法的 Python identifier 拼写, grep 通过 ≠ 字段名正确.
+
+        本类构造 mock meta.json + monkey-patch HOME → tempdir + 调
+        verify_convergence("kb_sources_to_index") 真实跑 yaml 里的 python
+        oneliner subprocess. 字段名一旦再被改回 source_file (无论是 typo / refactor
+        / merge conflict / 未来 schema 变更未同步) 单测立即抓到, 而不是等到
+        生产实测.
+
+    设计契约:
+        - 不 mock subprocess (真实跑 yaml 里的 python oneliner)
+        - 通过 HOME env var 重定向 ~/ 解析 (subprocess 继承父进程 env;
+          os.path.expanduser 优先看 HOME 环境变量, macOS/Linux 一致)
+        - 同时验证: (1) 正常路径 — observed 集合反映 mock 数据 basename
+                    (2) 反例守卫 — 错字段名 (source_file) 数据不应被读取
+                    (3) 字面量守卫 — yaml command 必须读 'file' 字面量
+                    (4) 空 chunks — 合法状态非 error
+                    (5) declared 外 basename — line_contains_identifier 框架契约
+    """
+
+    def _verify_with_mock_meta(self, meta_content):
+        """Helper: 写 mock meta.json + 跑 verify_convergence + 还原 HOME.
+
+        Args:
+            meta_content: dict (json.dumps 序列化) 或 str (raw 字面量, 用于
+                          损坏 JSON 测试). 写入 $TMPDIR/.kb/text_index/meta.json.
+
+        Returns: ConvergenceResult (verify_convergence 返回值)
+        """
+        td = tempfile.mkdtemp(prefix="kb_meta_test_")
+        try:
+            kb_dir = Path(td) / ".kb" / "text_index"
+            kb_dir.mkdir(parents=True)
+            meta_file = kb_dir / "meta.json"
+            if isinstance(meta_content, str):
+                meta_file.write_text(meta_content, encoding="utf-8")
+            else:
+                meta_file.write_text(json.dumps(meta_content), encoding="utf-8")
+
+            old_home = os.environ.get("HOME")
+            os.environ["HOME"] = td
+            try:
+                result = cv.verify_convergence("kb_sources_to_index")
+            finally:
+                if old_home is not None:
+                    os.environ["HOME"] = old_home
+                else:
+                    os.environ.pop("HOME", None)
+        finally:
+            import shutil
+            shutil.rmtree(td, ignore_errors=True)
+        return result
+
+    def test_mock_meta_observed_set_matches_chunks_file_field(self):
+        """核心: mock chunks 含真实 declared 文件名 → 应被 observed 提取出来.
+
+        V37.9.22 4/29 hotfix 教训直接复现场景: 若 yaml command 用 'source_file'
+        字段名 (错), 此测试 observed 会是空集 (因为 mock 数据用 'file' 字段),
+        断言 sample_names[0] in observed 立即失败.
+        """
+        spec = cv.get_spec("kb_sources_to_index")
+        self.assertIsNotNone(spec, "kb_sources_to_index spec missing (V37.9.22 contract)")
+
+        # 从 registry 读真实 declared kb_source_file 列表 (如 arxiv_daily.md 等)
+        declared_set = cv._extract_registry_kb_source_files(spec)
+        self.assertGreater(len(declared_set), 0,
+            "registry 应至少声明一个 kb_source_file (V37.9.22 第四 spec 前提)")
+
+        # 取至少 2 个真实 declared 名字构造 mock chunks
+        sample_names = sorted(declared_set)[:2]
+
+        # mock 数据: 2 条用正确 'file' 字段 + 1 条用错误 'source_file' 字段反例
+        # (反例不应进 observed — 验证 yaml command 字段名读取正确)
+        mock_data = {
+            "chunks": [
+                {"file": f"/Users/test/.kb/sources/{sample_names[0]}",
+                 "file_hash": "h1", "source_type": "test", "chunk_idx": 0},
+                {"file": f"/Users/test/.kb/sources/{sample_names[1]}",
+                 "file_hash": "h2", "source_type": "test", "chunk_idx": 0},
+                # 反例: 错字段名 (V37.9.22 hotfix 前的字面量), yaml command
+                # 不应读取这条
+                {"source_file": "/Users/test/.kb/sources/wrong_field_should_not_appear.md",
+                 "file_hash": "h3"},
+            ]
+        }
+        result = self._verify_with_mock_meta(mock_data)
+
+        # observed 应包含 mock 里两个真实 file basename
+        for name in sample_names:
+            self.assertIn(name, result.observed,
+                f"observed 应包含 mock chunks[].file 解析出的 {name}, "
+                f"得到 observed={sorted(result.observed)} error={result.error} — "
+                f"如果 yaml command 字段名错 (回归 V37.9.22 hotfix), 此断言会失败")
+
+        # observed 不应包含反例 (错字段名 source_file 的内容)
+        self.assertNotIn("wrong_field_should_not_appear.md", result.observed,
+            "yaml command 必须只读 chunks[].file, 不能读 chunks[].source_file "
+            "(V37.9.22 4/29 hotfix 字面量教训)")
+
+        # 没有 error: extractor + observer + parser 全程顺利
+        self.assertIsNone(result.error,
+            f"mock meta.json 已构造, command 应无 error, got: {result.error}")
+
+    def test_yaml_command_reads_file_field_not_source_file_field(self):
+        """字面量守卫: 直接 grep yaml command 必须含 c.get('file' 不含 c.get('source_file').
+
+        V37.9.22 hotfix 字面量回归守卫. 如果未来有人 (typo / refactor /
+        merge conflict / schema 变更未同步) 把 c.get('file', '') 改回
+        c.get('source_file', ''), 本测试立即失败.
+
+        与 mock 测试互补: 即便 mock 测试因环境问题被 skip, 这个静态守卫
+        仍能拦住字面量回归.
+        """
+        spec = cv.get_spec("kb_sources_to_index")
+        self.assertIsNotNone(spec)
+        cmd = spec["runtime_observable"]["command"]
+
+        # 必须出现的字面量 (V37.9.22 4/29 hotfix 后的正确字段名)
+        self.assertIn("c.get('file'", cmd,
+            "V37.9.22 hotfix 契约: command 必须读 chunks[].file 字段")
+
+        # 反例字面量必须消失 — 排除 yaml 内 # 开头的注释行 (yaml 注释里可能
+        # 有 'source_file' 历史词作教训说明)
+        active_lines = [
+            line for line in cmd.split("\n")
+            if line.strip() and not line.strip().startswith("#")
+        ]
+        active_code = "\n".join(active_lines)
+        self.assertNotIn("c.get('source_file'", active_code,
+            "V37.9.22 4/29 hotfix 契约: command active code 不得再读 'source_file' "
+            "字段 (meta.json 真实字段名是 'file', 反例若回归历史 bug 立即抓到)")
+
+    def test_empty_chunks_array_yields_empty_observed_no_error(self):
+        """合法状态: meta.json 存在但 chunks=[] (KB index 已建但无 source) →
+        observed=set() + 无 error. drift_detected 视 declared 是否非空."""
+        result = self._verify_with_mock_meta({"chunks": []})
+
+        self.assertEqual(len(result.observed), 0,
+            "空 chunks 应产生空 observed 集合")
+        self.assertIsNone(result.error,
+            f"空 chunks 是合法状态不是 error, got: {result.error}")
+        # declared 来自 registry 仍非空, 因此 drift_detected=True (declared > ∅)
+        self.assertGreater(len(result.declared), 0,
+            "declared 应非空 (registry 有 kb_source_file 声明)")
+        self.assertTrue(result.drift_detected,
+            "declared > 0 + observed = 0 应触发 drift_detected")
+
+    def test_mock_chunks_with_unknown_basename_dropped_from_observed(self):
+        """框架契约 (line_contains_identifier): observed 严格 ⊆ declared.
+        registry 外的 basename 即便出现在 chunks 也不进 observed.
+        """
+        mock_data = {
+            "chunks": [
+                {"file": "/Users/test/.kb/sources/_xxx_nonexistent_unknown_999_xxx_.md"},
+            ]
+        }
+        result = self._verify_with_mock_meta(mock_data)
+
+        self.assertNotIn("_xxx_nonexistent_unknown_999_xxx_.md", result.observed,
+            "framework 契约: observed ⊆ declared, registry 外 basename 不应进 observed")
+        self.assertIsNone(result.error,
+            f"未知 basename 是合法 chunks 数据不应触发 error, got: {result.error}")
+
+    def test_meta_missing_chunks_key_treated_as_empty(self):
+        """meta.json 存在但缺 chunks key (异常 schema) → observed=set() + 无 error.
+        yaml command 用 d.get('chunks', []) 兜底, 缺 key 也不崩溃."""
+        result = self._verify_with_mock_meta({"version": "test", "other_key": []})
+
+        self.assertEqual(len(result.observed), 0,
+            "缺 chunks key 应被 d.get(..., []) 兜底为空")
+        self.assertIsNone(result.error,
+            f"缺 chunks key 不应触发 error (yaml 用 .get 兜底), got: {result.error}")
+
+    def test_mock_chunks_with_empty_file_string_skipped(self):
+        """yaml command 内 `if sf: print(...)` 跳过空字符串 file 字段, 不输出空行."""
+        spec = cv.get_spec("kb_sources_to_index")
+        declared_set = cv._extract_registry_kb_source_files(spec)
+        sample_name = sorted(declared_set)[0] if declared_set else "fallback.md"
+        mock_data = {
+            "chunks": [
+                {"file": ""},                                              # 空字符串应被跳过
+                {"file": f"/Users/test/.kb/sources/{sample_name}"},        # 真实文件
+                {"file_hash": "h_no_file"},                                # 缺 file 字段, .get('') 返回 ''
+            ]
+        }
+        result = self._verify_with_mock_meta(mock_data)
+
+        if sample_name in declared_set:
+            self.assertIn(sample_name, result.observed,
+                "真实文件应被识别")
+        self.assertIsNone(result.error,
+            f"空 file 字段应被 yaml command `if sf:` 优雅跳过, got error: {result.error}")
 
 
 if __name__ == "__main__":
