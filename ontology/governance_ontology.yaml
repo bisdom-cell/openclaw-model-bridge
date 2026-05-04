@@ -5111,16 +5111,48 @@ invariants:
         check_type: file_contains
         file: ontology/convergence_ontology.yaml
         pattern: 'parser: line_contains_identifier'
-      - name: "kb_sources_to_index drift_action 起步 alert_only (V37.9.23+ 升级 machine_sync)"
+      # V37.9.24 升级: drift_action alert_only → machine_sync (Plan B 渐进 dry-run).
+      # 字面量守卫迁移到 test_convergence.py block 级守卫 (yaml 全文有其他 spec
+      # alert_only_permanent, file_contains 不能限定块).
+      - name: "V37.9.24: kb_sources_to_index 升级 machine_sync"
+        check_type: file_contains
+        file: ontology/convergence_ontology.yaml
+        # block 级精准守卫见 TestV37924SourceLevelGuards.test_yaml_kb_sources_to_index_apply_function;
+        # 此层是粗粒度: yaml 必须含 apply_function: kb_embed_incremental 字面量
+        pattern: 'apply_function: kb_embed_incremental'
+      - name: "V37.9.24: convergence.py _apply_kb_embed_incremental 函数定义"
+        check_type: file_contains
+        file: ontology/convergence.py
+        pattern: 'def _apply_kb_embed_incremental'
+      - name: "V37.9.24: convergence.py _APPLY_FUNCTIONS named-dispatch 表"
+        check_type: file_contains
+        file: ontology/convergence.py
+        pattern: '_APPLY_FUNCTIONS = \{'
+      - name: "V37.9.24: convergence.py _APPLY_FUNCTIONS 注册 kb_embed_incremental"
+        check_type: file_contains
+        file: ontology/convergence.py
+        pattern: '"kb_embed_incremental": _apply_kb_embed_incremental'
+      - name: "V37.9.24: convergence.py _KB_EMBED_TIMEOUT_SEC = 300"
+        check_type: file_contains
+        file: ontology/convergence.py
+        pattern: '_KB_EMBED_TIMEOUT_SEC = 300'
+      - name: "V37.9.24: _apply_machine_sync dispatcher 读 apply_function 字段"
+        check_type: file_contains
+        file: ontology/convergence.py
+        pattern: 'method.get\("apply_function"\)'
+      - name: "V37.9.24: convergence_ontology.yaml v37_9_24_changelog 段记录升级"
+        check_type: file_contains
+        file: ontology/convergence_ontology.yaml
+        pattern: 'v37_9_24_changelog'
+      - name: "kb_sources_to_index 引用本 INV"
         check_type: file_contains
         file: ontology/convergence_ontology.yaml
         pattern: 'governance_invariant: INV-CONVERGENCE-KB-001'
-      - name: "convergence_ontology meta version 升级到 ≥ 0.4 (V37.9.22 0.4-fourth-spec → V37.9.23 0.5-machine-sync-dry-run)"
+      - name: "convergence_ontology meta version 升级到 ≥ 0.4 (V37.9.22 0.4-fourth-spec → V37.9.23 0.5-machine-sync-dry-run → V37.9.24 0.6-named-dispatch-apply-functions)"
         check_type: file_contains
         file: ontology/convergence_ontology.yaml
-        # V37.9.22 起步 0.4-fourth-spec; V37.9.23 升级到 0.5-machine-sync-dry-run.
         # regex alternation: 任一字面量出现即 pass (向前兼容下个 minor 版本升级)
-        pattern: '0\.4-fourth-spec|0\.5-machine-sync-dry-run'
+        pattern: '0\.4-fourth-spec|0\.5-machine-sync-dry-run|0\.6-named-dispatch-apply-functions'
       - name: "convergence_ontology meta 引用本 INV (related_invariants)"
         check_type: file_contains
         file: ontology/convergence_ontology.yaml
@@ -5129,8 +5161,8 @@ invariants:
         check_type: file_contains
         file: ontology/governance_ontology.yaml
         pattern: 'INV-CONVERGENCE-KB-001'
-      # ── runtime layer: V37.9.22 KB spec 测试类 + V37.9.23 加固层端到端通过 ─
-      - name: "RUNTIME: test_convergence.py V37.9.22+V37.9.23 KB spec 测试类全部通过 (TestExtractRegistryKbSourceFiles + TestVerifyKbSourcesToIndexIntegration + TestKbSpecSourceGuards + TestKbSourcesToIndexCommandRuntime)"
+      # ── runtime layer: V37.9.22+V37.9.23+V37.9.24 KB spec 测试类端到端通过 ─
+      - name: "RUNTIME: test_convergence.py V37.9.22~24 KB spec 测试类全部通过 (含 V37.9.24 ApplyKbEmbedIncremental + NamedDispatch + V37924SourceLevelGuards + OpenclawConfigMockRuntime)"
         check_type: python_assert
         assertion: |
           import subprocess
@@ -5139,14 +5171,17 @@ invariants:
           repo_root = os.environ.get("OPENCLAW_REPO_ROOT", os.getcwd())
           test_file = os.path.join(repo_root, "test_convergence.py")
           assert os.path.exists(test_file), f"test_convergence.py 不存在: {test_file}"
-          # V37.9.22 原有三类 + V37.9.23 加固层新增 TestKbSourcesToIndexCommandRuntime
-          # (mock meta.json + 真实跑 spec yaml 的 python oneliner, 闭合 4/29 hotfix
-          # 9d60dd3 字段名假设错误教训; 反向验证已确认守卫真有效)
+          # V37.9.22 原有三类 + V37.9.23 加固层 + V37.9.24 machine_sync 升级 + 三个加固
           v9_22_kb_classes = [
               "TestExtractRegistryKbSourceFiles",
               "TestVerifyKbSourcesToIndexIntegration",
               "TestKbSpecSourceGuards",
               "TestKbSourcesToIndexCommandRuntime",
+              # V37.9.24 新增
+              "TestApplyKbEmbedIncremental",
+              "TestApplyMachineSyncNamedDispatch",
+              "TestV37924SourceLevelGuards",
+              "TestOpenclawConfigToRuntimeMockRuntime",
           ]
           targets = [f"test_convergence.{c}" for c in v9_22_kb_classes]
           proc = subprocess.run(
