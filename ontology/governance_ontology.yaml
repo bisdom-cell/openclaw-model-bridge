@@ -4202,6 +4202,11 @@ invariants:
               for fn in files:
                   if not fn.endswith(".sh"):
                       continue
+                  # V37.9.26: monitor consumers reference "rsync" + "MOVESPEED"
+                  # ONLY in alert message text, never invoke rsync. Skip them
+                  # (same exemption as INV-INCIDENT-001 site detection logic).
+                  if fn == "job_watchdog.sh":
+                      continue
                   p = os.path.join(root, fn)
                   try:
                       with open(p, "r", encoding="utf-8") as f:
@@ -4263,6 +4268,11 @@ invariants:
                   dirs.remove("node_modules")
               for fn in files:
                   if not fn.endswith(".sh"):
+                      continue
+                  # V37.9.26: monitor consumers (job_watchdog.sh) reference
+                  # "rsync" + "MOVESPEED" ONLY in alert text, not as production
+                  # rsync sites — skip to avoid false-positive forensic checks.
+                  if fn == "job_watchdog.sh":
                       continue
                   p = os.path.join(root, fn)
                   try:
@@ -4407,6 +4417,116 @@ invariants:
           )
           assert proc.returncode == 0, (
               f"test_watchdog_freshness 单测失败:\n"
+              f"STDOUT={proc.stdout[-500:]}\nSTDERR={proc.stderr[-1500:]}"
+          )
+
+  - id: INV-INCIDENT-001
+    name: movespeed-incidents-trigger-active-alert
+    meta_rule: MR-4
+    verification_layer: [declaration, runtime]
+    severity: high
+    declaration: |
+      V37.9.26 主动告警升级: V37.9.14 已落地 20 处 rsync fail-loud → 写
+      ~/.kb/movespeed_incidents.jsonl 取证, 但只是被动证据收集 (operator 不会
+      主动 cat 看). 本 INV 守卫 watchdog 主动消费 incidents.jsonl: 24h 窗口内
+      ≥5 条 incident 推 [SYSTEM_ALERT], 让 B 问题 (exfat fskit transient
+      EPERM) 连续性复发立即可见, 不依赖 operator 记忆.
+
+      集成契约:
+        - movespeed_incident_monitor.py 是独立纯函数模块 (不内嵌 watchdog)
+        - 阈值常量 INCIDENT_24H_THRESHOLD=5 在 watchdog 中明确定义
+        - 文件不存在 + monitor 脚本不存在 → 整段 if [ -f ... ] 跳过 (静默)
+        - parse_iso_to_epoch / count_recent_incidents 是 monitor 独占
+          (watchdog 不应内嵌副本 — MR-8 单一真理源)
+        - 36 单测覆盖 24h 窗口边界 + 阈值触发 + 损坏 JSON 容忍 + CLI FAIL-OPEN
+    lesson: |
+      V37.9.4 案例: MOVESPEED exfat → APFS 重建闭环 B 问题, 但 V37.9.14 收工
+      时观察到 transient EPERM 仍偶发 (~1 周 18 次). V37.9.14 落地 20 处
+      fail-loud + JSONL 取证作为下次复发的现场数据保全机制. 但仅取证不告警 =
+      operator 永远不知道复发已发生.
+
+      V37.9.26 升级: 从被动证据 → 主动告警链. watchdog 每小时跑 (system cron),
+      读 JSONL 计 24h 内条目数, ≥5 推 [SYSTEM_ALERT] 含 24h 计数 + 最近 5 个
+      caller basename. 这是 MR-4 silent-failure 的反例 — 把"漏报"变"主动报",
+      又是 V37.9.6 watchdog 行级时间戳过滤的延续 (从"过度报"修到"恰当报",
+      再到 V37.9.26 "升级为主动报").
+
+      与 INV-BACKUP-001 (V37.9.4 fail-loud 写 JSONL) 是 sibling: 前者守证据
+      收集发生, 后者守证据被消费产告警. 两个 INV 一起覆盖 declared → runtime
+      → alert 完整链路.
+    design_decision: |
+      为什么 24h 窗口而非更长 (一周/一月)?
+        - 24h 与 watchdog cron 频率 (每小时) 协调 — 可观察"今天异常爆发"
+        - 一周窗口会让阈值需要更高 (5 条/周 = 0.7/天 = 高于噪声基线但不指示
+          异常爆发); 24h 窗口 ≥5 条 = 平均 5 倍噪声基线, 信号清晰
+      为什么阈值 5 而非 10 (更保守) 或 3 (更敏感)?
+        - V37.9.4 案例数据: 一周 18 次 = 24h 平均 ~3 次为噪声基线
+        - 5 是噪声 +2σ, 10 太迟 (一天 10 次复发已是严重故障), 3 等于噪声
+      为什么独立 movespeed_incident_monitor.py 而非 watchdog 内嵌?
+        - 单测可直接 import 函数 (不需 subprocess 跑 watchdog)
+        - MR-8 一处真理源, 防止 watchdog 内 inline heredoc 与单测漂移
+        - 未来如增第二种 monitor (e.g. ssd_smart_monitor) 可同款独立模块
+    checks:
+      # ── declaration: monitor 模块存在 + 关键函数定义 ─────────────────
+      - name: "movespeed_incident_monitor.py 存在于 repo root"
+        check_type: file_contains
+        file: movespeed_incident_monitor.py
+        pattern: 'def count_recent_incidents'
+      - name: "monitor 模块定义 parse_iso_to_epoch 纯函数"
+        check_type: file_contains
+        file: movespeed_incident_monitor.py
+        pattern: 'def parse_iso_to_epoch'
+      - name: "monitor 模块定义 extract_caller_basename 纯函数"
+        check_type: file_contains
+        file: movespeed_incident_monitor.py
+        pattern: 'def extract_caller_basename'
+      - name: "monitor 模块定义 format_watchdog_output (pipe 分隔输出)"
+        check_type: file_contains
+        file: movespeed_incident_monitor.py
+        pattern: 'def format_watchdog_output'
+      # ── declaration: watchdog 集成 ────────────────────────────────────
+      - name: "watchdog 调 movespeed_incident_monitor.py (不内嵌 heredoc)"
+        check_type: file_contains
+        file: job_watchdog.sh
+        pattern: 'movespeed_incident_monitor\.py'
+      - name: "watchdog 阈值常量 INCIDENT_24H_THRESHOLD=5"
+        check_type: file_contains
+        file: job_watchdog.sh
+        pattern: 'INCIDENT_24H_THRESHOLD=5'
+      - name: "watchdog 检查 INCIDENT_FILE 文件存在再调监控"
+        check_type: file_contains
+        file: job_watchdog.sh
+        pattern: '\[ -f "\$INCIDENT_FILE" \]'
+      - name: "watchdog 检查 INCIDENT_MONITOR 脚本存在再调监控"
+        check_type: file_contains
+        file: job_watchdog.sh
+        pattern: '\[ -f "\$INCIDENT_MONITOR" \]'
+      - name: "watchdog 阈值触发时 ALERTS+= 推送 24h 计数 + callers"
+        check_type: file_contains
+        file: job_watchdog.sh
+        pattern: 'MOVESPEED 24h 内.*次 rsync 失败'
+      # ── declaration: auto_deploy 部署映射 ─────────────────────────────
+      - name: "auto_deploy.sh FILE_MAP 部署 movespeed_incident_monitor.py"
+        check_type: file_contains
+        file: auto_deploy.sh
+        pattern: 'movespeed_incident_monitor\.py\|\$HOME/movespeed_incident_monitor\.py'
+      # ── runtime: 36 单测端到端通过 ────────────────────────────────────
+      - name: "RUNTIME: test_movespeed_incident_monitor.py 36 单测全过 (parse/extract/count/format/CLI/threshold/watchdog 集成守卫)"
+        check_type: python_assert
+        assertion: |
+          import subprocess
+          import sys
+          import os
+          repo_root = os.environ.get("OPENCLAW_REPO_ROOT", os.getcwd())
+          test_file = os.path.join(repo_root, "test_movespeed_incident_monitor.py")
+          assert os.path.exists(test_file), f"test_movespeed_incident_monitor.py 不存在: {test_file}"
+          proc = subprocess.run(
+              [sys.executable, test_file],
+              capture_output=True, text=True, timeout=60,
+              cwd=repo_root,
+          )
+          assert proc.returncode == 0, (
+              f"test_movespeed_incident_monitor 单测失败:\n"
               f"STDOUT={proc.stdout[-500:]}\nSTDERR={proc.stderr[-1500:]}"
           )
 
