@@ -352,6 +352,43 @@ def _extract_registry_kb_source_files(spec):
     return out
 
 
+def _extract_services_from_registry(spec):
+    """services_registry.yaml → set of launchd label strings.
+
+    V37.9.25 fifth-spec extractor — declares services that MUST be active in
+    launchd (loaded by launchctl + supervised). Each entry's `label` field
+    becomes the identifier compared against `launchctl list` runtime output.
+
+    Schema (services_registry.yaml):
+        services:
+          - id: adapter           # short id (informational, framework uses label)
+            label: com.openclaw.adapter   # required, identifier for set-diff
+            port: 5001            # optional informational
+            plist: com.openclaw.adapter.plist  # optional informational
+            description: ...      # required for ops visibility
+
+    Spec.declaration.source defaults to "services_registry.yaml" if missing.
+    Resolved relative to repo root (ontology/ is one level deep).
+
+    Returns: set[str] of label strings (e.g. {"com.openclaw.adapter",
+    "com.openclaw.proxy", "ai.openclaw.gateway"}).
+
+    Filtering: no filter — all entries' labels go into the set. If you want
+    to disable a declared service from convergence checking, remove the entry
+    (or in future schema add `enabled: false` field).
+    """
+    decl = spec.get("declaration", {})
+    src = decl.get("source", "services_registry.yaml")
+    src_path = Path(__file__).resolve().parent.parent / src
+    data = _load_yaml(src_path)
+    out = set()
+    for svc in (data.get("services") or []):
+        label = svc.get("label") or ""
+        if label:
+            out.add(label)
+    return out
+
+
 def _extract_providers_from_registry(spec):
     """providers.py ProviderRegistry.list_names() → set of provider name strings.
 
@@ -387,6 +424,7 @@ _DECLARED_EXTRACTORS = {
     "registry_kb_source_files": _extract_registry_kb_source_files,
     "providers_from_registry": _extract_providers_from_registry,
     "json_file_paths": _extract_json_file_paths,
+    "services_from_registry": _extract_services_from_registry,  # V37.9.25 — fifth spec
 }
 
 

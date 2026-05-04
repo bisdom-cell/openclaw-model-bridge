@@ -485,7 +485,7 @@ meta_rules:
       - "ontology/convergence_ontology.yaml 登记每个 declared resource 的 spec"
       - "INV-CONVERGENCE-* 不变式群守卫每个 spec 真实可执行 + drift 被发现"
       - "新增任何声明态资源时，必须配套提交对应 convergence_spec 否则视为遗漏"
-    derivative_invariants: [INV-CONVERGENCE-CRON-001, INV-CONVERGENCE-PROVIDERS-001, INV-CONVERGENCE-OPENCLAW-001, INV-CONVERGENCE-KB-001, INV-CONVERGENCE-INTEGRATION-001]
+    derivative_invariants: [INV-CONVERGENCE-CRON-001, INV-CONVERGENCE-PROVIDERS-001, INV-CONVERGENCE-OPENCLAW-001, INV-CONVERGENCE-KB-001, INV-CONVERGENCE-INTEGRATION-001, INV-CONVERGENCE-SERVICES-001]
     blood_lessons: |
       2026-04-26 V37.9.18: V37.9.16 (4/24) 上线 kb_deep_dive 时 jobs_registry.yaml
       声明 enabled=true + interval="30 22 * * *"，但**没人手动 crontab_safe.sh add**，
@@ -5148,11 +5148,11 @@ invariants:
         check_type: file_contains
         file: ontology/convergence_ontology.yaml
         pattern: 'governance_invariant: INV-CONVERGENCE-KB-001'
-      - name: "convergence_ontology meta version 升级到 ≥ 0.4 (V37.9.22 0.4-fourth-spec → V37.9.23 0.5-machine-sync-dry-run → V37.9.24 0.6-named-dispatch-apply-functions)"
+      - name: "convergence_ontology meta version 升级到 ≥ 0.4 (V37.9.22 0.4 → V37.9.25 0.7-fifth-spec-services-to-launchd)"
         check_type: file_contains
         file: ontology/convergence_ontology.yaml
         # regex alternation: 任一字面量出现即 pass (向前兼容下个 minor 版本升级)
-        pattern: '0\.4-fourth-spec|0\.5-machine-sync-dry-run|0\.6-named-dispatch-apply-functions'
+        pattern: '0\.4-fourth-spec|0\.5-machine-sync-dry-run|0\.6-named-dispatch-apply-functions|0\.7-fifth-spec-services-to-launchd'
       - name: "convergence_ontology meta 引用本 INV (related_invariants)"
         check_type: file_contains
         file: ontology/convergence_ontology.yaml
@@ -5191,6 +5191,156 @@ invariants:
           )
           assert proc.returncode == 0, (
               f"V37.9.22+V37.9.23 kb_sources_to_index test classes failed:\n"
+              f"STDOUT={proc.stdout[-1000:]}\nSTDERR={proc.stderr[-1500:]}"
+          )
+
+  - id: INV-CONVERGENCE-SERVICES-001
+    name: services-registry-converges-to-launchd
+    meta_rule: MR-17
+    verification_layer: [declaration, runtime]
+    severity: high
+    declaration: |
+      V37.9.25 Phase 4 Layer 5 第 5 个 spec services_to_launchd:
+      services_registry.yaml 中所有 service 的 launchd label 必须在 macOS
+      `launchctl list` stdout 中至少出现一次（即 launchd 已 load 该 service
+      并在 supervise 它）。framework 第 5 次扩展, 验证 V37.9.20 named-dispatch
+      "添加新 spec 类型零 framework 改动" 承诺第 5 次实证 (minimal-extension 路径:
+      只新加 1 个 extractor _extract_services_from_registry, 复用 V37.9.19
+      _observe_shell_command + _parse_line_contains_identifier).
+
+      首期 (V37.9.25) drift_action=alert_only — 与 V37.9.19 jobs_to_crontab
+      同款保守路线. machine_sync 升级延后到 V37.9.26+ 一周观察期之后.
+      Plan B 渐进 dry-run 模式预留 (planned_helper: bash $HOME/restart.sh
+      或 per-service launchctl bootstrap).
+
+      与其他 4 个 convergence spec 的关系:
+        - jobs_to_crontab (V37.9.19, machine_sync): 守 system cron 注册
+        - kb_sources_to_index (V37.9.22, machine_sync): 守 KB index 索引
+        - providers_to_adapter (V37.9.20, alert_only_permanent): 守 adapter
+          fallback chain (operator decision, no auto-fix)
+        - openclaw_config_to_runtime (V37.9.22, alert_only_permanent): 守
+          Gateway runtime version (operator decision, no auto-fix)
+        - services_to_launchd (V37.9.25, alert_only): 守 launchd 服务注册
+          (V37.9.26+ machine_sync 候选)
+      五个 spec 互补无重叠, 共同覆盖 declared → runtime 同步全栈.
+    lesson: |
+      V37.9.13 候选首次登记 status.json: "如果 macOS 重装或 plist 意外删除,
+      V37.9.12.1 给 proxy plist 加的 ONTOLOGY_MODE=on 会丢失". 延后多版本因
+      plist 入仓涉及敏感 env vars handling (复杂 deployment 问题).
+
+      V37.9.25 重新审视: convergence framework 不需要解决"plist 入仓"问题,
+      只需解决"声明的 service 是否真在 launchd 注册" — 这是更上游的事实层守卫.
+      plist 文件本身可继续作为 Mac Mini 本地配置, 但其加载状态由 framework
+      持续监控. 这是 V37.9.18 kb_deep_dive 血案教训的延伸: 任何"声明态 → 运行
+      时态"的同步盲区都该升级为 convergence spec, 不只是 cron registration.
+
+      与 V37.9.18 INV-CRON-005/006 的 sibling 关系: 前者守 cron 注册执行
+      (interval-based), 本 INV 守 launchd 服务注册执行 (always-on). 互补
+      不替代, 一起覆盖 macOS 调度系统两种语义.
+    design_decision: |
+      为什么 services_registry.yaml 而非扩展 jobs_registry.yaml schema?
+        - jobs_registry semantic = scheduled run-and-exit (cron)
+        - services_registry semantic = persistent supervised (launchd)
+        - 两个独立 source 让 schema 校验 + 文档 + 操作语义清晰分离
+        - 也是 framework 第 5 次扩展的 minimal-extension 路径实证 (单独
+          source 让 V37.9.20 named-dispatch 承诺第 5 次实证)
+      为什么起步 alert_only 而非 machine_sync?
+        - V37.9.19 同款保守路线: 一周观察期收集 false-positive 数据再升级
+        - launchctl bootstrap 是高 blast-radius 操作 (误触可让 service 双注册)
+        - V37.9.26+ 升级 machine_sync 路径: 重用 restart.sh launchctl
+          kickstart -k 模式 + per-service plist 路径解析
+      为什么 substring match 足够?
+        - launchd labels 是 dot-separated identifiers (com.openclaw.adapter
+          / ai.openclaw.gateway 等), 无 substring 重叠风险
+        - 与 V37.9.19 jobs_to_crontab 同款决策, 不需要 word-boundary parser
+    checks:
+      # ── declaration layer: services_registry.yaml 完整 ────────────────
+      - name: "services_registry.yaml 存在且声明 services 段"
+        check_type: file_contains
+        file: services_registry.yaml
+        # \nservices: 匹配顶层 key (避免 multiline mode 依赖)
+        pattern: '\nservices:'
+      - name: "services_registry.yaml 含 com.openclaw.adapter label"
+        check_type: file_contains
+        file: services_registry.yaml
+        pattern: 'label: com\.openclaw\.adapter'
+      - name: "services_registry.yaml 含 com.openclaw.proxy label"
+        check_type: file_contains
+        file: services_registry.yaml
+        pattern: 'label: com\.openclaw\.proxy'
+      - name: "services_registry.yaml 含 ai.openclaw.gateway label"
+        check_type: file_contains
+        file: services_registry.yaml
+        pattern: 'label: ai\.openclaw\.gateway'
+      # ── declaration layer: convergence.py 扩展点 ──────────────────────
+      - name: "V37.9.25: convergence.py 注册 services_from_registry extractor"
+        check_type: file_contains
+        file: ontology/convergence.py
+        pattern: '"services_from_registry": _extract_services_from_registry'
+      - name: "V37.9.25: convergence.py 定义 _extract_services_from_registry 函数"
+        check_type: file_contains
+        file: ontology/convergence.py
+        pattern: 'def _extract_services_from_registry'
+      # ── declaration layer: convergence_ontology.yaml spec 完整 ────────
+      - name: "convergence_ontology.yaml 声明 services_to_launchd spec"
+        check_type: file_contains
+        file: ontology/convergence_ontology.yaml
+        pattern: 'id: services_to_launchd'
+      - name: "services_to_launchd 引用本 INV 作为 governance_invariant"
+        check_type: file_contains
+        file: ontology/convergence_ontology.yaml
+        pattern: 'governance_invariant: INV-CONVERGENCE-SERVICES-001'
+      - name: "services_to_launchd 用 services_from_registry extractor"
+        check_type: file_contains
+        file: ontology/convergence_ontology.yaml
+        pattern: 'extractor: services_from_registry'
+      - name: "services_to_launchd 复用 V37.9.19 shell_command observer (launchctl list)"
+        check_type: file_contains
+        file: ontology/convergence_ontology.yaml
+        pattern: 'command: "launchctl list"'
+      - name: "services_to_launchd 复用 V37.9.19 line_contains_identifier parser"
+        check_type: file_contains
+        file: ontology/convergence_ontology.yaml
+        pattern: 'parser: line_contains_identifier'
+      - name: "convergence_ontology meta version 升级到 ≥ 0.7 (V37.9.25 fifth-spec)"
+        check_type: file_contains
+        file: ontology/convergence_ontology.yaml
+        pattern: '0\.6-named-dispatch-apply-functions|0\.7-fifth-spec-services-to-launchd'
+      - name: "convergence_ontology meta 引用本 INV (related_invariants)"
+        check_type: file_contains
+        file: ontology/convergence_ontology.yaml
+        pattern: 'INV-CONVERGENCE-SERVICES-001'
+      - name: "convergence_ontology v37_9_25_changelog 段记录第 5 spec"
+        check_type: file_contains
+        file: ontology/convergence_ontology.yaml
+        pattern: 'v37_9_25_changelog'
+      - name: "MR-17 derivative_invariants 包含本 INV"
+        check_type: file_contains
+        file: ontology/governance_ontology.yaml
+        pattern: 'INV-CONVERGENCE-SERVICES-001'
+      # ── runtime layer: V37.9.25 services spec 测试类端到端通过 ────────
+      - name: "RUNTIME: test_convergence.py V37.9.25 services spec 测试类全部通过 (TestExtractServicesFromRegistry + TestVerifyServicesToLaunchdIntegration + TestServicesSpecSourceGuards)"
+        check_type: python_assert
+        assertion: |
+          import subprocess
+          import sys
+          import os
+          repo_root = os.environ.get("OPENCLAW_REPO_ROOT", os.getcwd())
+          test_file = os.path.join(repo_root, "test_convergence.py")
+          assert os.path.exists(test_file), f"test_convergence.py 不存在: {test_file}"
+          v9_25_services_classes = [
+              "TestExtractServicesFromRegistry",
+              "TestVerifyServicesToLaunchdIntegration",
+              "TestServicesSpecSourceGuards",
+          ]
+          targets = [f"test_convergence.{c}" for c in v9_25_services_classes]
+          proc = subprocess.run(
+              [sys.executable, "-m", "unittest", "-v"] + targets,
+              capture_output=True, text=True, timeout=60,
+              cwd=repo_root,
+          )
+          assert proc.returncode == 0, (
+              f"V37.9.25 services_to_launchd test classes failed:\n"
               f"STDOUT={proc.stdout[-1000:]}\nSTDERR={proc.stderr[-1500:]}"
           )
 
