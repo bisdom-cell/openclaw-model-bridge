@@ -1746,6 +1746,11 @@ def run_convergence_specs():
                 "drift_detected": result.drift_detected,
                 "drift_action": result.drift_action,
                 "error": result.error,
+                # V37.9.23: machine_sync apply tracking — 让 governance audit
+                # 输出可观测 dry-run / real apply 状态
+                "applied_count": len(result.applied_actions),
+                "apply_dry_run": result.apply_dry_run,
+                "apply_errors_count": len(result.apply_errors),
             })
         except Exception as e:
             # FAIL-OPEN per spec: don't let one broken spec halt audit
@@ -1796,6 +1801,13 @@ def print_convergence_results(specs_results):
                 f" — declared={s['declared_count']} observed={s['observed_count']} "
                 f"missing={s['missing_count']} (drift_action={s['drift_action']})"
             )
+            # V37.9.23: machine_sync 模式下追加 apply 状态可观测
+            if s["drift_action"] == "machine_sync":
+                applied = s.get("applied_count", 0)
+                apply_errs = s.get("apply_errors_count", 0)
+                if applied or apply_errs:
+                    mode = "dry-run" if s.get("apply_dry_run", True) else "real"
+                    tail += f" apply[{mode}]={applied} apply_errors={apply_errs}"
         else:
             icon = "✅"
             tail = (

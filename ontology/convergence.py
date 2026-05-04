@@ -75,6 +75,28 @@ _SHELL_COMMAND_TIMEOUT_SEC = 10
 # avoids spec verification hanging governance audit cron when adapter is wedged.
 _HTTP_OBSERVER_TIMEOUT_SEC = 5
 
+# V37.9.23 — machine_sync subprocess timeout (per crontab_safe.sh add invocation).
+# Should be short — crontab_safe.sh add reads + writes crontab + count verify,
+# all local and fast. 15s ceiling avoids audit cron hang on weird subprocess state.
+_MACHINE_SYNC_TIMEOUT_SEC = 15
+
+# V37.9.23 — Default dry-run for machine_sync. Read from env var so audit
+# can be flipped to "real apply" mode without code change. Any value other
+# than "0" (including unset, "1", "true", "yes") = dry-run (safe default).
+# This is the renewable safety knob for one-week observation window before
+# fully activating machine_sync (V37.9.23 → V37.9.24+ planned escalation).
+_DRY_RUN_ENV_VAR = "CONVERGENCE_DRY_RUN"
+
+
+def _is_dry_run():
+    """Read CONVERGENCE_DRY_RUN env var. Default True (safe).
+    Only the literal "0" disables dry-run — all other values (unset, "1",
+    "true", anything) keep dry-run enabled. This is intentional for the
+    V37.9.23 → V37.9.24 escalation window: operator must explicitly set
+    CONVERGENCE_DRY_RUN=0 to flip to real apply, no accidental activation.
+    """
+    return os.environ.get(_DRY_RUN_ENV_VAR, "1") != "0"
+
 # ── Result type ───────────────────────────────────────────────────────────
 
 ConvergenceResult = namedtuple(
@@ -87,7 +109,12 @@ ConvergenceResult = namedtuple(
         "drift_detected",     # bool — True iff missing_in_runtime is non-empty
         "drift_action",       # str — from spec (alert_only by default)
         "error",              # str | None — FAIL-OPEN: non-None means partial result
+        # V37.9.23 — machine_sync apply tracking (defaults preserve V37.9.22 contract):
+        "applied_actions",    # tuple[str] — what was applied (or "would apply" if dry-run)
+        "apply_dry_run",      # bool — True iff machine_sync ran in dry-run mode
+        "apply_errors",       # tuple[str] — per-missing-entry apply failures (machine_sync only)
     ],
+    defaults=((), True, ()),  # only last 3 fields have defaults — preserves backward-compat
 )
 
 
@@ -100,6 +127,9 @@ def _empty_result(spec_id, error=None, drift_action=_DEFAULT_DRIFT_ACTION):
         drift_detected=False,
         drift_action=drift_action,
         error=error,
+        applied_actions=(),
+        apply_dry_run=True,
+        apply_errors=(),
     )
 
 
@@ -565,6 +595,226 @@ def _parse_observed(spec, raw, declared):
     return fn(spec, raw, declared)
 
 
+# ── V37.9.23 — machine_sync apply path (jobs_to_crontab first user) ───────
+#
+# Plan B (gradual escalation): drift_action=machine_sync triggers apply, but
+# default mode is dry-run via CONVERGENCE_DRY_RUN env. This separates the
+# "wiring exists + cron line construction is correct" verification (V37.9.23)
+# from the "real crontab modifications happen automatically" activation
+# (V37.9.24+ after one-week dry-run observation window).
+#
+# Why a separate _format_cron_line function:
+#   - testable in isolation (no subprocess required)
+#   - rejects malformed inputs early (5-field interval, non-empty entry/log)
+#   - centralizes cron-line conventions (`bash -lc 'bash ~/X >> Y 2>&1'`)
+#     so future changes (e.g. add `set -e` wrapper) need only one edit
+#
+# Why crontab_safe.sh add (not direct crontab manipulation):
+#   - crontab_safe.sh has V37.9.18 hard-fail + V30 backup-and-restore safety
+#   - already idempotent: `grep -qF` skip if line exists (line 64 of script)
+#   - exit 1 on cron rejection (V37.9.18 — kb_deep_dive blood lesson fix)
+#   - 30-day rolling backups protect against framework bugs corrupting crontab
+
+# Cron line template (matches V37.9.18 INV-CRON-003 _cron_cmd_invokes pattern):
+#   <interval> bash -lc 'bash ~/<entry> >> <log> 2>&1'
+# Where:
+#   <interval> is 5-field cron expression (e.g. "30 22 * * *")
+#   <entry>    is jobs_registry entry field, relative to $HOME (e.g. "kb_deep_dive.sh"
+#              or "jobs/arxiv_monitor/run_arxiv.sh")
+#   <log>      is jobs_registry log field, already starts with "~/" or absolute
+#              path (e.g. "~/health_check.log" or "~/.openclaw/logs/jobs/X.log")
+
+
+def _format_cron_line(job):
+    """Format a single jobs_registry job dict → cron line string.
+
+    V37.9.23 — paired with _apply_machine_sync for jobs_to_crontab spec.
+
+    Args:
+        job: dict with keys interval (5-field cron), entry (script path
+             relative to $HOME), log (log path with ~ or absolute).
+             Optional: id (for error context only — not used in line).
+
+    Returns:
+        Cron line string matching V37.9.18 INV-CRON-003 _cron_cmd_invokes
+        pattern (`bash -lc 'bash ~/X >> Y 2>&1'`).
+
+    Raises:
+        ValueError: missing/empty required fields, malformed interval (not
+                    5 fields), suspicious shell metacharacters in entry/log
+                    that could break the inner single-quoted command.
+    """
+    if not isinstance(job, dict):
+        raise ValueError(f"_format_cron_line: job must be dict, got {type(job).__name__}")
+
+    interval = job.get("interval", "")
+    entry = job.get("entry", "")
+    log = job.get("log", "")
+
+    if not interval or not isinstance(interval, str):
+        raise ValueError(f"_format_cron_line: missing/non-string 'interval' in job {job.get('id', '?')!r}")
+    if not entry or not isinstance(entry, str):
+        raise ValueError(f"_format_cron_line: missing/non-string 'entry' in job {job.get('id', '?')!r}")
+    if not log or not isinstance(log, str):
+        raise ValueError(f"_format_cron_line: missing/non-string 'log' in job {job.get('id', '?')!r}")
+
+    # Validate interval is 5-field cron expression. cron also accepts @reboot
+    # / @daily / etc shortcuts but jobs_registry currently uses 5-field only;
+    # if @-shortcuts ever appear we'll extend here.
+    fields = interval.strip().split()
+    if len(fields) != 5:
+        raise ValueError(
+            f"_format_cron_line: interval must be 5-field cron expression "
+            f"(got {len(fields)} fields: {interval!r}) in job {job.get('id', '?')!r}"
+        )
+
+    # Reject shell metacharacters that could escape the inner single-quoted
+    # command. crontab_safe.sh wraps the line with bash -lc '...', and
+    # entry/log are placed inside that single-quote context. A literal `'`
+    # in entry/log would close the quote prematurely. Other metachars are
+    # allowed (paths can contain spaces, but `;`, `\``, `$(` would also be
+    # unsafe — defense-in-depth even though they shouldn't occur in real
+    # registry data).
+    for fname, fval in (("entry", entry), ("log", log)):
+        if "'" in fval:
+            raise ValueError(
+                f"_format_cron_line: {fname!r} contains single quote, would break "
+                f"inner shell quoting: {fval!r} in job {job.get('id', '?')!r}"
+            )
+        # Reject backtick / $() / ; / & / | which could allow command injection.
+        # These are not expected in any legitimate registry value.
+        for bad in ("`", "$(", ";", "&", "|"):
+            if bad in fval:
+                raise ValueError(
+                    f"_format_cron_line: {fname!r} contains shell metachar {bad!r}, "
+                    f"refusing for safety: {fval!r} in job {job.get('id', '?')!r}"
+                )
+
+    # entry is relative to $HOME (registry convention); log already starts
+    # with ~/ or absolute path. Don't double-prefix log.
+    if log.startswith("~") or log.startswith("/"):
+        log_resolved = log
+    else:
+        # Defensive: registry convention requires ~/ prefix for log, but
+        # accept bare path by adding ~/ for compatibility.
+        log_resolved = "~/" + log
+
+    # Match V37.9.18 INV-CRON-003 pattern: bash -lc 'bash ~/{entry} >> {log} 2>&1'
+    return f"{interval} bash -lc 'bash ~/{entry} >> {log_resolved} 2>&1'"
+
+
+def _load_jobs_registry_index(spec):
+    """Load jobs_registry.yaml and return id→job dict for O(1) lookup.
+
+    Used by _apply_machine_sync to find interval/log/entry for each missing
+    identifier (declared by registry_enabled_system_jobs extractor as 'entry'
+    field — we need to find the corresponding job dict to access interval/log).
+    """
+    decl = spec.get("declaration", {})
+    src = decl.get("source", "jobs_registry.yaml")
+    src_path = Path(__file__).resolve().parent.parent / src
+    data = _load_yaml(src_path)
+    by_entry = {}
+    for job in (data.get("jobs") or []):
+        if not job.get("enabled"):
+            continue
+        if job.get("scheduler") != "system":
+            continue
+        entry = job.get("entry") or ""
+        if entry:
+            by_entry[entry] = job
+    return by_entry
+
+
+def _apply_machine_sync(spec, missing_entries, dry_run=None):
+    """Apply machine_sync for jobs_to_crontab — call crontab_safe.sh add for each missing.
+
+    V37.9.23 — Plan B implementation (default dry-run).
+
+    Args:
+        spec: convergence spec dict (used to locate jobs_registry.yaml)
+        missing_entries: iterable of entry strings (e.g. {"kb_deep_dive.sh"})
+        dry_run: explicit override; if None, reads CONVERGENCE_DRY_RUN env
+
+    Returns:
+        (applied_actions: tuple[str], apply_errors: tuple[str], dry_run: bool)
+
+        applied_actions: human-readable list of actions taken (or "would apply")
+        apply_errors: per-entry failure messages (subprocess error, missing job, etc)
+        dry_run: bool reflecting actual mode (so callers can log accurately)
+
+    FAIL-OPEN: never raises. Subprocess failures, missing job entries, malformed
+    cron lines all become apply_errors entries.
+    """
+    if dry_run is None:
+        dry_run = _is_dry_run()
+
+    if not missing_entries:
+        return (), (), dry_run
+
+    try:
+        by_entry = _load_jobs_registry_index(spec)
+    except Exception as e:
+        return (), (f"registry_load_failed: {e}",), dry_run
+
+    applied = []
+    errors = []
+
+    for entry in sorted(missing_entries):
+        job = by_entry.get(entry)
+        if job is None:
+            # Missing identifier doesn't correspond to a current registry job —
+            # registry was edited between extraction and apply, OR identifier
+            # is stale. Don't fabricate cron lines.
+            errors.append(f"{entry}: not in current registry (stale identifier?)")
+            continue
+
+        try:
+            cron_line = _format_cron_line(job)
+        except ValueError as e:
+            errors.append(f"{entry}: format_cron_line failed: {e}")
+            continue
+
+        if dry_run:
+            applied.append(f"DRY-RUN would apply: {cron_line}")
+            continue
+
+        # Real apply path — call crontab_safe.sh add via subprocess.
+        helper = os.path.expanduser("~/crontab_safe.sh")
+        if not os.path.exists(helper):
+            # Defensive: dev environments without crontab_safe.sh deployed.
+            errors.append(f"{entry}: crontab_safe.sh not found at {helper}")
+            continue
+
+        try:
+            proc = subprocess.run(
+                ["bash", helper, "add", cron_line],
+                capture_output=True,
+                text=True,
+                timeout=_MACHINE_SYNC_TIMEOUT_SEC,
+            )
+        except subprocess.TimeoutExpired:
+            errors.append(f"{entry}: crontab_safe.sh timed out after {_MACHINE_SYNC_TIMEOUT_SEC}s")
+            continue
+        except FileNotFoundError as e:
+            errors.append(f"{entry}: bash binary missing: {e}")
+            continue
+        except Exception as e:
+            errors.append(f"{entry}: subprocess unexpected error: {type(e).__name__}: {e}")
+            continue
+
+        if proc.returncode != 0:
+            errors.append(
+                f"{entry}: crontab_safe.sh add exit={proc.returncode}: "
+                f"stderr={proc.stderr[:200].strip()}"
+            )
+            continue
+
+        applied.append(f"applied: {cron_line}")
+
+    return tuple(applied), tuple(errors), dry_run
+
+
 # ── Top-level API ─────────────────────────────────────────────────────────
 
 def verify_convergence(spec_id, specs=None, path=None):
@@ -635,6 +885,21 @@ def verify_convergence(spec_id, specs=None, path=None):
 
     # 5. Compute drift
     missing = declared_fs - observed_fs
+
+    # 6. V37.9.23 — machine_sync apply (only if drift_action says so AND drift detected)
+    applied_actions = ()
+    apply_dry_run = True
+    apply_errors = ()
+    if missing and drift_action == "machine_sync":
+        try:
+            applied_actions, apply_errors, apply_dry_run = _apply_machine_sync(
+                spec, missing
+            )
+        except Exception as e:
+            # _apply_machine_sync is supposed to be FAIL-OPEN, but defense-in-depth.
+            apply_errors = (f"apply_machine_sync raised: {type(e).__name__}: {e}",)
+            apply_dry_run = _is_dry_run()
+
     return ConvergenceResult(
         spec_id=spec_id,
         declared=declared_fs,
@@ -643,6 +908,9 @@ def verify_convergence(spec_id, specs=None, path=None):
         drift_detected=bool(missing),
         drift_action=drift_action,
         error=None,
+        applied_actions=applied_actions,
+        apply_dry_run=apply_dry_run,
+        apply_errors=apply_errors,
     )
 
 
@@ -661,11 +929,19 @@ def format_result_for_log(result):
     missing_preview = ",".join(sorted(result.missing_in_runtime)[:5])
     extra_count = max(0, len(result.missing_in_runtime) - 5)
     suffix = f" (+{extra_count} more)" if extra_count else ""
-    return (
+    base = (
         f"[convergence:{result.spec_id}] DRIFT action={result.drift_action} "
         f"missing={len(result.missing_in_runtime)} "
         f"[{missing_preview}{suffix}]"
     )
+    # V37.9.23 — append apply status when machine_sync mode produced anything
+    if result.drift_action == "machine_sync" and (result.applied_actions or result.apply_errors):
+        mode = "dry-run" if result.apply_dry_run else "real"
+        base += (
+            f" apply[{mode}]={len(result.applied_actions)} "
+            f"apply_errors={len(result.apply_errors)}"
+        )
+    return base
 
 
 # ── CLI for ad-hoc inspection ─────────────────────────────────────────────
@@ -711,6 +987,10 @@ def _cli():
                 "drift_detected": r.drift_detected,
                 "drift_action": r.drift_action,
                 "error": r.error,
+                # V37.9.23 — machine_sync apply tracking (zero-noise for non-machine_sync specs)
+                "applied_actions": list(r.applied_actions),
+                "apply_dry_run": r.apply_dry_run,
+                "apply_errors": list(r.apply_errors),
             }
             for r in results
         ]
