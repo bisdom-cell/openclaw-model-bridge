@@ -11,7 +11,7 @@
 #       scp deploy/install_openclaw_macmini.sh user@new-mac:~/install_openclaw.sh
 # 2. 在 Mac Mini 上以普通用户身份运行 (禁止 root):
 #       bash ~/install_openclaw.sh
-# 3. 按提示输入 WhatsApp 手机号 (E.164, e.g. +85212345678).
+# 3. 按提示输入 WhatsApp 手机号 (E.164, e.g. +85200000000).
 # 4. 安装结束后按"下一步"提示完成 WhatsApp 登录.
 #
 # === 可覆盖的环境变量 (在 bash 命令前加) ===
@@ -19,7 +19,7 @@
 #   QWEN_BASE_URL="https://..."       默认 https://hkagentx.hkopenlab.com/v1
 #   QWEN_MODEL="Qwen3-..."            主模型
 #   QWEN_VL_MODEL="Qwen2.5-VL-..."    多模态 (图片) 模型
-#   PHONE_NUMBER="+85212345678"       手机号 (设了就跳过交互输入)
+#   PHONE_NUMBER="+85200000000"       手机号 (设了就跳过交互输入)
 #   OPENCLAW_VERSION="latest"         npm 标签 / 具体版本号
 #   SKIP_CONFIG_WRITE=1               跳过 openclaw.json 自动写入 (手动配置场景)
 #   DRY_RUN=1                         仅打印将要执行的步骤, 不真改系统
@@ -36,7 +36,10 @@ set -euo pipefail
 # =============================================================================
 # Configuration block — edit before running if needed
 # =============================================================================
-QWEN_API_KEY="${QWEN_API_KEY:-sk-REDACTED-OLD-LEAKED-KEY}"
+# 真实 key + phone 通过 env 注入 (符合仓库安全规则: 禁止明文入库, 只接受占位符)
+# 用法:
+#   QWEN_API_KEY='sk-...' PHONE_NUMBER='+8521xxxxxxxx' bash install_openclaw_macmini.sh
+QWEN_API_KEY="${QWEN_API_KEY:-sk-REPLACE-ME-WITH-YOUR-KEY}"
 QWEN_BASE_URL="${QWEN_BASE_URL:-https://hkagentx.hkopenlab.com/v1}"
 QWEN_MODEL="${QWEN_MODEL:-Qwen3-235B-A22B-Instruct-2507-W8A8}"
 QWEN_VL_MODEL="${QWEN_VL_MODEL:-Qwen2.5-VL-72B-Instruct}"
@@ -44,6 +47,18 @@ PHONE_NUMBER="${PHONE_NUMBER:-+85200000000}"
 OPENCLAW_VERSION="${OPENCLAW_VERSION:-latest}"
 SKIP_CONFIG_WRITE="${SKIP_CONFIG_WRITE:-0}"
 DRY_RUN="${DRY_RUN:-0}"
+
+# 占位符兜底校验: 用户没传 env 就用了占位符默认值, 拒绝继续防止"装好了但 key 是假的"
+if [[ "$QWEN_API_KEY" == "sk-REPLACE-ME"* ]] || [[ "$QWEN_API_KEY" == "sk-xxxx"* ]]; then
+  printf '\033[1;31m❌\033[0m 必须通过 env 提供 QWEN_API_KEY, 例如:\n' >&2
+  printf "    QWEN_API_KEY='sk-...真实key...' PHONE_NUMBER='+8521xxxxxxxx' bash %s\n" "$0" >&2
+  exit 1
+fi
+if [[ "$PHONE_NUMBER" == "+85200000000" ]]; then
+  printf '\033[1;31m❌\033[0m 必须通过 env 提供 PHONE_NUMBER (E.164 格式), 例如:\n' >&2
+  printf "    QWEN_API_KEY='sk-...' PHONE_NUMBER='+8521xxxxxxxx' bash %s\n" "$0" >&2
+  exit 1
+fi
 
 OPENCLAW_HOME="$HOME/.openclaw"
 OPENCLAW_CONFIG="$OPENCLAW_HOME/openclaw.json"
@@ -122,7 +137,7 @@ phase_1_preflight() {
   # 手机号 (E.164 格式)
   if [[ -z "$PHONE_NUMBER" ]]; then
     echo
-    warn "需要 WhatsApp 手机号 (E.164 格式, 必须含国家代码, 如 +85212345678)"
+    warn "需要 WhatsApp 手机号 (E.164 格式, 必须含国家代码, 如 +85200000000)"
     read -r -p "请输入手机号: " PHONE_NUMBER
   fi
   [[ "$PHONE_NUMBER" =~ ^\+[1-9][0-9]{7,14}$ ]] \
