@@ -5,14 +5,14 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-1319%20passed-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-1762%20passed-brightgreen.svg)]()
 [![Providers](https://img.shields.io/badge/providers-7%20supported-orange.svg)]()
-[![Governance](https://img.shields.io/badge/invariants-60%2F60%20%2B%2015%20MR-blueviolet.svg)]()
+[![Governance](https://img.shields.io/badge/invariants-67%2F67%20%2B%2017%20MR-blueviolet.svg)]()
 [![Security](https://img.shields.io/badge/security-95%2F100-green.svg)]()
-[![Jobs](https://img.shields.io/badge/cron%20jobs-35%20active-blue.svg)]()
+[![Jobs](https://img.shields.io/badge/cron%20jobs-36%20active-blue.svg)]()
 [![Notifications](https://img.shields.io/badge/notifications-WhatsApp%20%2B%20Discord-informational.svg)]()
 
-> **Current version:** `v37.9.13` / `0.37.9.13` (2026-04-23) — see [`CLAUDE.md`](CLAUDE.md) for full changelog.
+> **Current version:** `v37.9.25` / `0.37.9.25` (2026-05-04) — see [`CLAUDE.md`](CLAUDE.md) for full changelog.
 
 ## Architecture / 系统架构
 
