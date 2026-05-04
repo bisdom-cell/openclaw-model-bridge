@@ -336,15 +336,22 @@ class TestInvariantCoverage(unittest.TestCase):
             )
 
     def test_every_expected_site_invokes_helper(self):
+        """V37.9.14: site 直接调 movespeed_incident_capture.sh.
+        V37.9.27 升级: site 调 movespeed_rsync_helper.sh, 后者内部接管 capture.
+        任一模式都合规 (helper 是 single source of truth, MR-8)."""
         missing = []
         for rel in EXPECTED_RSYNC_SITES:
             content = self._read(rel)
-            if "movespeed_incident_capture.sh" not in content:
+            has_legacy = "movespeed_incident_capture.sh" in content
+            has_v37_9_27 = "movespeed_rsync_helper.sh" in content
+            if not (has_legacy or has_v37_9_27):
                 missing.append(rel)
         self.assertEqual(
             [],
             missing,
-            f"{len(missing)} sites missing helper invocation: {missing}",
+            f"{len(missing)} sites missing capture wiring (need either "
+            f"V37.9.14 movespeed_incident_capture.sh direct call OR "
+            f"V37.9.27 movespeed_rsync_helper.sh wrapper): {missing}",
         )
 
     def test_helper_invocation_is_inside_rsync_failure_branch(self):
@@ -394,6 +401,11 @@ class TestInvariantCoverage(unittest.TestCase):
                 # reference "rsync" + "MOVESPEED" strings ONLY in alert message
                 # text, never invoke rsync. Don't conflate with production sites.
                 if rel == "job_watchdog.sh":
+                    continue
+                # V37.9.27: rsync helper itself wraps rsync calls, but it's the
+                # single source of truth — exempt from "site" detection
+                # (sites that USE the helper are already in EXPECTED_RSYNC_SITES).
+                if rel == "movespeed_rsync_helper.sh":
                     continue
                 try:
                     with open(path, "r", encoding="utf-8") as fp:

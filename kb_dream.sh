@@ -1347,6 +1347,5 @@ printf '{"time":"%s","status":"ok","mode":"%s","map_count":%d,"sources":%d,"note
 find "$MAP_DIR" -name "*.txt" -mtime +3 -delete 2>/dev/null || true
 
 # rsync 备份（V37.9.4: 失败 log WARN 而非静默吞错，MR-4 silent-failure 修复）
-rsync -a "$KB_BASE/dreams/" "/Volumes/MOVESPEED/KB/dreams/" 2>&1 || { _rc=$?; echo "[$(basename "$0")] WARN: SSD dreams rsync failed (exit=$_rc)" >&2; "$HOME/movespeed_incident_capture.sh" "$_rc" "$0"; }  # V37.9.14 incident forensics (INV-BACKUP-001 check 4)
-
+bash "$HOME/movespeed_rsync_helper.sh" "$0" -- -a "$KB_BASE/dreams/" "/Volumes/MOVESPEED/KB/dreams/"  # V37.9.27 jitter+retry+fail-loud+capture (replaces V37.9.4/V37.9.14 inline pattern)
 log "完成。模式=$MODE_DESC"

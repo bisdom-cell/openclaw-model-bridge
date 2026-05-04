@@ -383,4 +383,4 @@ else
     printf '{"time":"%s","status":"ok","new":0}\n' "$TS" > "$STATUS_FILE"
 fi
 
-rsync -a "$KB_DIR/" "$SSD_BACKUP" 2>&1 || { _rc=$?; echo "[$(basename "$0")] WARN: SSD rsync failed (exit=$_rc)" >&2; "$HOME/movespeed_incident_capture.sh" "$_rc" "$0"; }  # V37.9.14 incident forensics + V37.9.4 MR-4 silent-failure 修复
+bash "$HOME/movespeed_rsync_helper.sh" "$0" -- -a "$KB_DIR/" "$SSD_BACKUP"  # V37.9.27 jitter+retry+fail-loud+capture (replaces V37.9.4/V37.9.14 inline pattern)
