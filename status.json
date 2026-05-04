@@ -1,6 +1,6 @@
 {
-  "updated": "2026-05-04 07:23:24",
-  "updated_by": "claude_code",
+  "updated": "2026-05-04 13:34:00",
+  "updated_by": "full_regression",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-05-04",
+      "what": "V37.9.27 安全事件闭环 (单日响应): preflight 在 Mac Mini 上抓出 deploy/install_openclaw_macmini.sh 中明文 API Key + 真实手机号泄漏 (commits d6ef9bd/51181c1 已 merge 到 main = commit 0d8cd8d)。三步处置: (1) 用户立即 rotate Qwen3 API key (sk-P4Ca...→新 key) (2) 替换源码占位符 sk-REPLACE-ME-WITH-YOUR-KEY + +85200000000, 加占位符兜底校验脚本 entry 拒绝继续防 silent failure (3) git filter-repo --replace-text 清 file 内容 + --replace-message 清 commit message, force-push main + claude/start-daily-work-iBA8O 到 5edb151. 全 history + 60+ remote 分支扫描验证无泄漏. Mac Mini auto_deploy reset --hard origin/main 已同步. 残余风险: GitHub 90 天孤立 commit GC 窗口 (key 已废, 不可利用). 副产品: deploy/install_openclaw_macmini.sh + docs/articles/why_control_plane_is_convergence_engine_devto.md (dev.to schema 优化版) 留作未来部署素材. 用户决策: 新 Mac Mini 部署推迟, pre-commit hook 不装 (preflight + auto_deploy 兜底证明工作只是晚一步).",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-05-04",
       "what": "V37.9.27: B 问题真正修复 — movespeed_rsync_helper.sh (jitter+retry+fail-loud+capture wrapper) 替代 20 个 inline rsync site. V37.9.26 watchdog 主动告警立即抓出 24h 19 条 incident 真相 (V37.9.4 闭环假设失败, MR-4 第 18 次演出: 架构假设级 silent failure 60 天). V37.9.27 三层修复: Phase 1 错峰 30-180s 抖动 (避多 cron 同秒抢 SSD I/O) + Phase 2 retry 3 次 10s/20s 指数退避 (transient EPERM 30s 内自愈) + Phase 3 全部失败才 fail-loud + capture. 预期 incident 从 ~19/24h 降到 <1/24h (95%+ 减少). MR-8 单一真理源: helper 独立模块, 20 个 site 改 1 行调用, 单测可端到端 (24 单测含 mock fake rsync). INV-RETRY-001 新增 (meta_rule=MR-4, 10 checks: 8 declaration helper 设计常量 + 1 auto_deploy + 1 runtime). 与 INV-BACKUP-001 (V37.9.4 fail-loud) + INV-INCIDENT-001 (V37.9.26 主动告警) 形成三阶段防御: 失败时取证 → 累积时告警 → 主动修复减少失败. INV-BACKUP-001 检测器扩展豁免 helper-using sites (MR-8: site 通过 helper 间接获得 capture wiring 视为合规). 累计 49→50 suites / 1798→1822 tests (+24, V37.9.27 24 单测) / 0 fail / governance 68→69 invariants (+1) / 413→423 checks (+10) / 17 meta rules / 安全 95/100 / VERSION 0.37.9.26→0.37.9.27.",
       "by": "claude_code"
     },
@@ -198,11 +203,6 @@
       "date": "2026-04-24",
       "what": "V37.9.15 Phase 4 P3 三阶段门控 shadow wiring — policy 引擎从可查询升级为在请求路径上被调用并产可观测 log。新文件 ontology/three_gate.py (~280 行纯函数): GateFinding namedtuple + pre_check/runtime_gate/post_verify 三 gate + _collect_findings 共享 helper + _safe_evaluate_policy FAIL-OPEN 契约 + ONTOLOGY_GATES_MODE env 三档 off/shadow/on (默认 shadow) + 与 ONTOLOGY_MODE 解耦。tool_proxy.py 两处 wiring: lazy-load three_gate (importlib.util) + _run_gate 帮助函数 (Exception 兜底 + log [gate:*]) + do_POST raw 后调 pre_check+runtime_gate + rj 后调 post_verify (V37.9.15 顺序锁: 必须在 fix_tool_args 之前)。INV-GATE-001 (MR-7, high, [declaration,runtime]) 14 checks. policy_ontology.yaml meta 0.2-p2-partial→0.3-p3-partial, 新增 policies_observed_by_three_gate + gates_feature_flag 声明. 66 新单测 (test_three_gate.py 57 + TestThreeGateWiring 9). governance v3.31→v3.32. 累计 44→45 suites / 1345→1411 tests (+66) / 0 fail / 60→61 invariants / 273→297 checks / 15→16 meta rules (MR-16 计入) / 安全 95/100 / VERSION 0.37.9.14→0.37.9.15. Mac Mini 部署: ontology/ 走 symlink 无需 FILE_MAP, tool_proxy.py 走 auto_deploy 2min 轮询. 启动日志将出现 [proxy] three_gate loaded (mode=shadow), 每请求末尾三行 [gate:*] findings 供运维 grep 观察一周. 下次 (V37.9.16) 候选: shadow→on 推进 (需定义 enforcement 行为) / 第三条 policy 切换 / Phase 4 P4 audit_log 加 rule_chain.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-04-23",
-      "what": "V37.9.14 Mac Mini E2E 验证完美通过 — helper 部署到 $HOME 后 manual rsync source-不存在测试触发 helper, JSONL 13 字段全部正常采集 (timestamp/caller/exit_code=23/mount/disk_info/ls_top/ls_kb/df/probe_top=exit=0|/probe_kb=exit=0|/procs/os/env). preflight 78/0/3/1 全绿 (deployment OK). BASELINE 数据已透露 3 条 V37.9.15 候选根因线索 (待真故障数据交叉验证): (1) APFS Owners Disabled — MOVESPEED 卷未强制 user/group ownership 验证, 不直接造 EPERM 但是放大器候选; (2) Time Machine backupd + backupd-helper 在跑, Time Machine 扫所有 mount 卷会短暂锁定外挂盘子目录元数据 — 间歇性 EPERM 高度嫌疑; (3) Spotlight + 双 mds_stores 进程并发建索引外挂盘 — 同样资源竞争嫌疑. 下次真 transient EPERM 复发时 procs 字段会显示具体并发进程组合, 配合 probe_top vs probe_kb 差异 (全盘 EPERM vs 子目录特定 EPERM) 即可锁定根因. 原则 #6 用户视角验证通过. 原则 #29 收工 9 项 A-I 全部完成. V37.9.14 真正完整收工.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -269,9 +269,9 @@
   "quality": {
     "security_score": 95,
     "test_count": 1822,
-    "last_regression": "2026-05-04 07:22 pass",
+    "last_regression": "2026-05-04 13:33 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-05-04 07:22",
+    "security_score_time": "2026-05-04 13:33",
     "test_suites": 51,
     "governance_invariants": "64/64",
     "governance_checks": "350/350",
