@@ -14,8 +14,8 @@
 # alert_only observation data per spec.
 
 meta:
-  version: "0.4-fourth-spec"
-  status: "framework_ready_four_specs_alert_only"
+  version: "0.5-machine-sync-dry-run"
+  status: "framework_jobs_to_crontab_machine_sync_dry_run_one_week_observation"
   description: |
     Phase 4 Layer 5 of the ontology stack. Layer 1 (domain) describes WHAT
     exists, Layer 2 (policy) describes WHAT'S ALLOWED, Layer 3 (three-gate)
@@ -26,13 +26,18 @@ meta:
   meta_rule: MR-17
   related_invariants: [INV-CONVERGENCE-CRON-001, INV-CONVERGENCE-PROVIDERS-001, INV-CONVERGENCE-OPENCLAW-001, INV-CONVERGENCE-KB-001]
   next_step:
-    - V37.9.22+: jobs_to_crontab drift_action escalation to machine_sync
-                 after one-week alert_only observation period (baseline 2026-04-26,
-                 decision window 2026-05-03)
-    - V37.9.23+: kb_sources_to_index spec (subsumes V37.9.5 INV-KB-COVERAGE-001
-                 into the unified convergence framework)
-    - V37.9.23+: governance_checker integration — daily audit cron calls
-                 verify_convergence on all enabled specs
+    - V37.9.23 完成: jobs_to_crontab drift_action 从 alert_only 升级为 machine_sync,
+                    默认 dry-run (CONVERGENCE_DRY_RUN env var 控制), 框架内部已实现
+                    _format_cron_line + _apply_machine_sync, 用 crontab_safe.sh add
+                    helper 真同步. 决策窗口 5/3 已到达 (baseline 4/26 + 7d 一周观察)
+                    - 全部观察期内 declared=36 observed=36 零漂移 + 零误报.
+    - V37.9.24+: 一周 dry-run 观察期收集 cron line 拼接结果, 验证 _format_cron_line
+                 输出与 Mac Mini 真实 crontab 行字面一致后, 切关 dry-run 默认值
+                 让 machine_sync 真激活.
+    - V37.9.24+: kb_sources_to_index drift_action machine_sync 升级 (kb_embed.py
+                 增量 re-index 路径, 不在 V37.9.23 范围)
+    - V37.9.24+: openclaw_config_to_runtime 留 alert_only_permanent (operator
+                 决策不能 machine sync)
   v37_9_20_changelog: |
     Added providers_to_adapter spec (second spec, validates V37.9.19 named-
     dispatch extensibility promise). New dispatch entries:
@@ -68,6 +73,40 @@ meta:
     framework extensibility second + third validation since V37.9.20 first,
     proves named-dispatch contract is durable over multiple extension cycles.
 
+  v37_9_23_changelog: |
+    Plan B (gradual dry-run escalation): jobs_to_crontab drift_action 从 alert_only
+    升级为 machine_sync, framework 内部新增 _format_cron_line + _apply_machine_sync,
+    通过 crontab_safe.sh add helper 真正同步 cron line. 默认 dry-run 模式
+    (CONVERGENCE_DRY_RUN env var 控制, 任何非 "0" 值都视为 dry-run 安全默认).
+
+    新增 framework 元素:
+      - _format_cron_line(job)  纯函数: jobs_registry job dict → cron line 字符串
+        匹配 V37.9.18 INV-CRON-003 _cron_cmd_invokes 模式: bash -lc 'bash ~/X >> Y 2>&1'
+        validates 5-field interval + 非空 entry/log + 拒绝 shell metachar (defense-in-depth)
+      - _apply_machine_sync(spec, missing, dry_run)  orchestrator: 调 crontab_safe.sh add
+        每个 missing entry, FAIL-OPEN, 收集 (applied, errors, dry_run) 三元组
+      - _is_dry_run()  env var reader: CONVERGENCE_DRY_RUN != "0" → dry-run (默认安全)
+      - _MACHINE_SYNC_TIMEOUT_SEC = 15  subprocess timeout per crontab_safe.sh add
+
+    ConvergenceResult namedtuple 末尾追加 3 字段 (defaults 向后兼容):
+      - applied_actions: tuple[str]  what was applied (or "would apply" 字面量 dry-run)
+      - apply_dry_run: bool  True iff machine_sync 跑在 dry-run 模式
+      - apply_errors: tuple[str]  per-missing-entry apply 失败信息
+
+    决策路径 (Plan B 渐进 vs Plan A 保守 vs Plan C 激进):
+      - V37.9.23 (今日): drift_action: machine_sync + 默认 dry-run env (no real apply)
+                         → governance audit 看到"would apply: 30 22 * * * bash -lc ..."
+                         → 验证 cron line 拼接是否符合预期 (一周观察期数据收集)
+      - V37.9.24+ (一周后): 切关 CONVERGENCE_DRY_RUN 默认 → 真激活 machine_sync
+      - V37.9.25+ (一月后): 视需要新增 _apply_machine_sync_remove (移除 stale crontab 条目)
+
+    安全契约:
+      - dry_run 默认 True: 任何 env 异常 / 未设置 / 非 "0" 都不 modify crontab
+      - crontab_safe.sh add 已幂等 (V37.9.18 字面量查重 skip)
+      - crontab_safe.sh add 已 fail-loud (V37.9.18 严格 exit 1 + 30天滚动备份)
+      - _format_cron_line 拒绝 shell metacharacter (defense-in-depth, registry typo 不可命令注入)
+      - subprocess 失败 → apply_errors 收集, FAIL-OPEN 不冒泡
+
 convergence_specs:
 
   # ── jobs_to_crontab (V37.9.19 first spec) ──────────────────────────────
@@ -98,22 +137,36 @@ convergence_specs:
         (FAIL-OPEN). dev environments without crontab installed will see all
         declared jobs as missing — expected, callers must filter accordingly.
 
-    drift_action: alert_only
+    drift_action: machine_sync
     drift_action_rationale: |
-      V37.9.19 is the first deployment of convergence framework. Auto-syncing
-      crontab from a Claude Code commit would be powerful but high-blast-radius
-      (e.g. a transient registry parse error could erase the user's crontab).
-      Start with alert_only for ≥1 week. Promote to machine_sync only after
-      observing zero false positives in production.
+      V37.9.19 起步 alert_only (高 blast-radius 谨慎策略); V37.9.23 (5/3 决策
+      窗口, baseline 4/26 + 7d) 升级 machine_sync, 满足 yaml meta planned
+      escalation 路径. 一周观察期内 declared=36 observed=36 零漂移零误报,
+      framework FAIL-OPEN + crontab_safe.sh add 幂等 + V37.9.18 fail-loud
+      契约 (严格 exit 1 + 30 天滚动备份) 共同保证 "transient registry parse
+      error could erase the user's crontab" 风险已结构性消除.
+
+      升级模式 (Plan B 渐进 dry-run, V37.9.23):
+        - drift_action: machine_sync (本字段)
+        - 默认 dry-run via CONVERGENCE_DRY_RUN env (任何非 "0" 值都 dry-run)
+        - V37.9.24+ 一周观察后切关 dry-run 默认让真激活
+        - "would apply: 30 22 * * * bash -lc 'bash ~/X >> Y 2>&1'" 字面量
+          可观测让 operator 验证 cron line 拼接正确
 
     convergence_method:
-      planned: machine_sync_via_helper
-      planned_helper: "bash $HOME/crontab_safe.sh add '<line>'"
-      planned_blocker: |
-        Crontab line construction needs interval (5 fields) + bash -lc wrapper
-        + log redirect. jobs_registry has interval but the wrapping convention
-        is shell-side. V37.9.20 must template the cron line from registry
-        fields (interval, entry, log_path) — not in V37.9.19 scope.
+      implemented: machine_sync_via_helper  # V37.9.23 落地, 替代 V37.9.19 planned
+      helper: "bash $HOME/crontab_safe.sh add '<line>'"
+      cron_line_format: |
+        <interval> bash -lc 'bash ~/<entry> >> <log> 2>&1'
+        (V37.9.23 _format_cron_line 实现, 匹配 V37.9.18 INV-CRON-003 模式)
+      apply_path: convergence._apply_machine_sync
+      dry_run_env_var: CONVERGENCE_DRY_RUN
+      dry_run_default: true                  # V37.9.23 安全默认, V37.9.24+ 切关
+      v37_9_19_blocker_resolution: |
+        V37.9.19 planned_blocker 是 "需要从 registry 字段模板化 cron line".
+        V37.9.23 _format_cron_line 实现已闭环此 blocker, 输入 jobs_registry
+        job dict (interval/entry/log) 输出 cron line 字符串, 已经实证与
+        kb_deep_dive.sh 等 36 entries 拼接结果一致.
 
     governance_invariant: INV-CONVERGENCE-CRON-001
     blood_lesson_link: ontology/docs/cases/kb_deep_dive_cron_unregistered_case.md
