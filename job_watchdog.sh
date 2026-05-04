@@ -542,6 +542,33 @@ if [ -f "$KB_INDEX" ]; then
     fi
 fi
 
+# ── 9. MOVESPEED incidents 累积监控（V37.9.26 主动告警升级）──────────
+# V37.9.14 已落地 20 处 rsync fail-loud → movespeed_incident_capture.sh 写
+# JSONL 取证. V37.9.26 升级被动证据收集为主动告警: 24h 内 ≥5 条 incident
+# 视为 "B 问题（exfat fskit transient EPERM）连续性复发", 推 [SYSTEM_ALERT].
+# 阈值 5 来自 V37.9.4 案例一周内 18 次 rsync 失败的经验值 (24h 平均 ~3 次为
+# 噪声基线; ≥5 视为异常爆发).
+INCIDENT_FILE="$HOME/.kb/movespeed_incidents.jsonl"
+INCIDENT_24H_THRESHOLD=5  # 24h 窗口内 incident ≥ 此值触发告警
+INCIDENT_MONITOR="$(cd "$(dirname "$0")" && pwd)/movespeed_incident_monitor.py"
+if [ -f "$INCIDENT_FILE" ] && [ -f "$INCIDENT_MONITOR" ]; then
+    # 调独立模块 (V37.9.26: 一处真理源 + 单测覆盖) 替代 inline heredoc
+    INCIDENT_24H_RESULT=$(python3 "$INCIDENT_MONITOR" "$INCIDENT_FILE" "$NOW_EPOCH" "$INCIDENT_24H_THRESHOLD" 2>/dev/null || echo "ERROR")
+    if [ "$INCIDENT_24H_RESULT" = "ERROR" ]; then
+        # python 解析失败 (理论不应发生, defensive)
+        ALERTS+=("MOVESPEED incidents 解析失败 (非阻塞, 检查 ~/.kb/movespeed_incidents.jsonl 格式)")
+    else
+        # 解析 result: count|threshold_hit|callers
+        INCIDENT_COUNT="${INCIDENT_24H_RESULT%%|*}"
+        REST="${INCIDENT_24H_RESULT#*|}"
+        THRESHOLD_HIT="${REST%%|*}"
+        INCIDENT_CALLERS="${REST#*|}"
+        if [ "$THRESHOLD_HIT" = "1" ]; then
+            ALERTS+=("MOVESPEED 24h 内 ${INCIDENT_COUNT} 次 rsync 失败（≥${INCIDENT_24H_THRESHOLD} 阈值，B 问题连续性复发）callers: ${INCIDENT_CALLERS}")
+        fi
+    fi
+fi
+
 # ════════════════════════════════════════════════════════════════════
 # 汇总告警
 # ════════════════════════════════════════════════════════════════════
