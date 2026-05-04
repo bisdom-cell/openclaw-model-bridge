@@ -1434,12 +1434,14 @@ class TestKbSpecSourceGuards(unittest.TestCase):
 
     def test_yaml_meta_version_advanced_to_fourth(self):
         # V37.9.22 起步 0.4-fourth-spec; V37.9.23 升级到 0.5-machine-sync-dry-run;
-        # V37.9.24 升级到 0.6-named-dispatch-apply-functions.
+        # V37.9.24 升级到 0.6-named-dispatch-apply-functions;
+        # V37.9.25 升级到 0.7-fifth-spec-services-to-launchd.
         # 守卫: 必须 ≥ 0.4 且消除旧 0.3.
         version_tokens = (
             "0.4-fourth-spec",
             "0.5-machine-sync-dry-run",
             "0.6-named-dispatch-apply-functions",
+            "0.7-fifth-spec-services-to-launchd",
         )
         self.assertTrue(
             any(tok in self.yaml_src for tok in version_tokens),
@@ -2711,6 +2713,256 @@ class TestKbSourcesToIndexCommandRuntime(unittest.TestCase):
                 "真实文件应被识别")
         self.assertIsNone(result.error,
             f"空 file 字段应被 yaml command `if sf:` 优雅跳过, got error: {result.error}")
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# V37.9.25 — Fifth spec: services_to_launchd (launchd persistence, V37.9.13 closure)
+# ═══════════════════════════════════════════════════════════════════════════
+
+class TestExtractServicesFromRegistry(unittest.TestCase):
+    """V37.9.25 — _extract_services_from_registry(spec) 直接单测.
+
+    Mirrors V37.9.19 TestExtractRegistryEnabledSystemJobs / V37.9.22
+    TestExtractRegistryKbSourceFiles 同款 registry-driven extractor 测试模式.
+    """
+
+    def test_extracts_service_labels_from_registry(self):
+        """services_registry.yaml 真 yaml → declared 含真实 3 个 label."""
+        spec = cv.get_spec("services_to_launchd")
+        self.assertIsNotNone(spec, "services_to_launchd spec 必须存在")
+        declared = cv._extract_services_from_registry(spec)
+        # services_registry.yaml V37.9.25 初始声明 3 个 service
+        self.assertGreaterEqual(len(declared), 3,
+            f"declared 应 ≥ 3 (V37.9.25 初始 3 个 service), got {sorted(declared)}")
+        # 真实 label 必须出现
+        self.assertIn("com.openclaw.adapter", declared)
+        self.assertIn("com.openclaw.proxy", declared)
+        self.assertIn("ai.openclaw.gateway", declared)
+
+    def test_returns_set_of_strings(self):
+        spec = cv.get_spec("services_to_launchd")
+        declared = cv._extract_services_from_registry(spec)
+        self.assertIsInstance(declared, set)
+        for label in declared:
+            self.assertIsInstance(label, str)
+            self.assertGreater(len(label), 0,
+                "label 字段不应有空字符串混入 declared 集合")
+
+    def test_empty_label_field_skipped(self):
+        """构造一个 mock services_registry 含空 label entry → 应被跳过."""
+        with tempfile.TemporaryDirectory() as td:
+            mock_registry = Path(td) / "services_registry.yaml"
+            mock_registry.write_text(
+                "services:\n"
+                "  - id: real\n"
+                "    label: com.example.real\n"
+                "  - id: empty_label\n"
+                "    label: \"\"\n"
+                "  - id: missing_label_field\n"
+                "    description: no label\n",
+                encoding="utf-8",
+            )
+            # 用绝对路径指向 mock registry (通过 spec.declaration.source 注入)
+            mock_spec = {
+                "declaration": {
+                    "source": str(mock_registry),
+                    "extractor": "services_from_registry",
+                },
+            }
+            # _extract 默认相对于 repo_root, 绝对路径需要直接传 — 我们模拟
+            # path 解析: 把 declaration.source 设为 absolute path
+            # extractor 内 src_path = repo_root / src; 但 absolute path 起点不变
+            # 所以 absolute path 直接被 / 拼接会变成 absolute (Python pathlib 行为)
+            declared = cv._extract_services_from_registry(mock_spec)
+            self.assertEqual(declared, {"com.example.real"},
+                f"空 label / 缺 label 字段都应跳过, got {sorted(declared)}")
+
+    def test_default_source_is_services_registry_yaml(self):
+        """spec.declaration 缺 source 字段 → 默认指向 services_registry.yaml."""
+        # 构造 spec 不含 declaration.source
+        spec_no_source = {
+            "declaration": {
+                "extractor": "services_from_registry",
+                # source 字段故意不写
+            },
+        }
+        # 应能跑且返回真实 registry 内容 (因为 default 指向 services_registry.yaml)
+        declared = cv._extract_services_from_registry(spec_no_source)
+        # 应至少有 3 个 (与真 registry 一致)
+        self.assertGreaterEqual(len(declared), 3,
+            "default source 应指向 services_registry.yaml, "
+            f"got {sorted(declared)}")
+
+
+class TestVerifyServicesToLaunchdIntegration(unittest.TestCase):
+    """V37.9.25 — 端到端 verify_convergence("services_to_launchd")."""
+
+    def test_real_spec_dev_environment_does_not_crash(self):
+        """dev 环境 launchctl 不存在 → observer_failed → declared 全 missing.
+
+        FAIL-OPEN 契约: 不 raise, 返回结构化 ConvergenceResult.
+        """
+        result = cv.verify_convergence("services_to_launchd")
+        self.assertEqual(result.spec_id, "services_to_launchd")
+        # declared 应非空 (registry 有 3 service)
+        self.assertGreater(len(result.declared), 0,
+            "declared 应非空 (services_registry.yaml 真有 3 service)")
+        # dev 环境 launchctl 失败 OR launchctl 存在但无 OpenClaw service
+        # (Linux/CI 环境 launchctl 不存在 → observer_failed → missing=declared)
+        # 任一情况都不应抛异常
+        self.assertIsInstance(result, cv.ConvergenceResult)
+
+    def test_spec_drift_action_alert_only(self):
+        """V37.9.25 起步保守 alert_only — 与 V37.9.19 jobs_to_crontab 同款."""
+        spec = cv.get_spec("services_to_launchd")
+        self.assertEqual(spec["drift_action"], "alert_only",
+            "V37.9.25 起步保守, V37.9.26+ 一周观察后再考虑 machine_sync")
+
+    def test_spec_uses_services_from_registry_extractor(self):
+        spec = cv.get_spec("services_to_launchd")
+        self.assertIsNotNone(spec)
+        self.assertEqual(spec["declaration"]["extractor"], "services_from_registry")
+
+    def test_spec_uses_shell_command_observer_with_launchctl_list(self):
+        """复用 V37.9.19 shell_command observer + 命令 launchctl list."""
+        spec = cv.get_spec("services_to_launchd")
+        self.assertEqual(spec["runtime_observable"]["method"], "shell_command")
+        self.assertEqual(spec["runtime_observable"]["command"], "launchctl list",
+            "V37.9.25 不带 grep 让 parser 在完整 stdout 做 substring match")
+
+    def test_spec_uses_line_contains_identifier_parser(self):
+        """复用 V37.9.19 line_contains_identifier parser."""
+        spec = cv.get_spec("services_to_launchd")
+        self.assertEqual(spec["runtime_observable"]["parser"], "line_contains_identifier")
+
+    def test_dispatch_table_contains_services_extractor(self):
+        """named-dispatch 注册第 5 个 extractor."""
+        self.assertIn("services_from_registry", cv._DECLARED_EXTRACTORS,
+            "V37.9.25 第 5 spec 必须注册到 _DECLARED_EXTRACTORS")
+        self.assertIs(
+            cv._DECLARED_EXTRACTORS["services_from_registry"],
+            cv._extract_services_from_registry,
+            "dispatch 条目应指向正确函数"
+        )
+
+
+class TestServicesSpecSourceGuards(unittest.TestCase):
+    """V37.9.25 — services_registry.yaml + convergence.py + yaml 源码守卫."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.py_src = (ONTOLOGY_DIR / "convergence.py").read_text(encoding="utf-8")
+        cls.yaml_src = (ONTOLOGY_DIR / "convergence_ontology.yaml").read_text(encoding="utf-8")
+        cls.gov_src = (ONTOLOGY_DIR / "governance_ontology.yaml").read_text(encoding="utf-8")
+        cls.svc_src = (REPO_ROOT / "services_registry.yaml").read_text(encoding="utf-8")
+
+    def test_services_registry_file_exists(self):
+        self.assertTrue((REPO_ROOT / "services_registry.yaml").exists(),
+            "V37.9.25: services_registry.yaml 必须存在于 repo root")
+
+    def test_services_registry_declares_three_services(self):
+        """V37.9.25 初始声明 3 个 service (adapter / proxy / gateway)."""
+        self.assertIn("services:", self.svc_src)
+        self.assertIn("com.openclaw.adapter", self.svc_src)
+        self.assertIn("com.openclaw.proxy", self.svc_src)
+        self.assertIn("ai.openclaw.gateway", self.svc_src)
+
+    def test_services_registry_label_field_present(self):
+        """每个 service 必须有 label 字段 (extractor 读取的关键)."""
+        # 至少 3 个 label: 行
+        label_count = self.svc_src.count("label:")
+        self.assertGreaterEqual(label_count, 3,
+            f"services_registry.yaml 至少声明 3 个 label, got {label_count}")
+
+    def test_extractor_registered_in_dispatch(self):
+        self.assertIn(
+            '"services_from_registry": _extract_services_from_registry',
+            self.py_src,
+        )
+
+    def test_extractor_function_defined(self):
+        self.assertIn("def _extract_services_from_registry", self.py_src)
+
+    def test_extractor_reads_services_section(self):
+        """extractor 函数体应读 data.services (不是 data.jobs)."""
+        idx = self.py_src.find("def _extract_services_from_registry")
+        self.assertGreater(idx, 0)
+        end = self.py_src.find("\ndef ", idx + 10)
+        if end < 0:
+            end = idx + 3000
+        body = self.py_src[idx:end]
+        self.assertIn('data.get("services"', body,
+            "extractor 必须读 services 段, 不是 jobs 段")
+        # 应读 label 字段
+        self.assertIn('svc.get("label"', body,
+            "extractor 必须读 label 字段, 不是 id/name")
+
+    def test_yaml_declares_services_to_launchd_spec(self):
+        self.assertIn("id: services_to_launchd", self.yaml_src)
+
+    def test_yaml_meta_version_advanced_to_fifth(self):
+        """V37.9.25 meta version 升级到 0.7-fifth-spec-services-to-launchd."""
+        version_tokens = (
+            "0.6-named-dispatch-apply-functions",
+            "0.7-fifth-spec-services-to-launchd",
+        )
+        self.assertTrue(
+            any(tok in self.yaml_src for tok in version_tokens),
+            f"meta version 必须 ≥ 0.6 含 {version_tokens} 之一"
+        )
+
+    def test_yaml_meta_lists_five_invariants(self):
+        for inv in ["INV-CONVERGENCE-CRON-001", "INV-CONVERGENCE-PROVIDERS-001",
+                    "INV-CONVERGENCE-OPENCLAW-001", "INV-CONVERGENCE-KB-001",
+                    "INV-CONVERGENCE-SERVICES-001"]:
+            self.assertIn(inv, self.yaml_src,
+                f"V37.9.25 meta.related_invariants 必须含 {inv}")
+
+    def test_yaml_v37_9_25_changelog_section(self):
+        self.assertIn("v37_9_25_changelog", self.yaml_src)
+        self.assertIn("services_to_launchd", self.yaml_src)
+        self.assertIn("services_from_registry", self.yaml_src)
+
+    def test_yaml_services_spec_drift_action_alert_only(self):
+        """V37.9.25 起步保守 alert_only — 块内字面量守卫."""
+        idx = self.yaml_src.find("id: services_to_launchd")
+        self.assertGreater(idx, 0)
+        # 找下一个 spec 起点 (或 EOF)
+        next_idx = self.yaml_src.find("\n  - id: ", idx + 10)
+        if next_idx < 0:
+            next_idx = len(self.yaml_src)
+        block = self.yaml_src[idx:next_idx]
+        # 块内必须含 drift_action: alert_only
+        for line in block.split("\n"):
+            stripped = line.strip()
+            if stripped.startswith("drift_action:") and "rationale" not in stripped:
+                self.assertIn("alert_only", stripped,
+                    f"V37.9.25 services_to_launchd 起步保守 alert_only, got: {stripped!r}")
+                self.assertNotIn("machine_sync", stripped,
+                    "V37.9.25 不应直接升 machine_sync (V37.9.26+ 一周观察后再考虑)")
+                return
+        self.fail("drift_action: line not found in services_to_launchd spec")
+
+    def test_yaml_services_spec_command_is_launchctl_list(self):
+        idx = self.yaml_src.find("id: services_to_launchd")
+        next_idx = self.yaml_src.find("\n  - id: ", idx + 10)
+        if next_idx < 0:
+            next_idx = len(self.yaml_src)
+        block = self.yaml_src[idx:next_idx]
+        self.assertIn('command: "launchctl list"', block,
+            "V37.9.25: spec command 必须是 'launchctl list'")
+
+    def test_governance_invariant_lists_fifth_invariant(self):
+        self.assertIn("INV-CONVERGENCE-SERVICES-001", self.gov_src,
+            "MR-17 derivative_invariants + INV 自身定义都需含本 INV")
+        # MR-17 derivative_invariants 必须含本 INV
+        idx = self.gov_src.find("- id: MR-17")
+        self.assertGreater(idx, 0)
+        end = self.gov_src.find("\n  - id:", idx + 10)
+        if end < 0:
+            end = idx + 5000
+        mr17_block = self.gov_src[idx:end]
+        self.assertIn("INV-CONVERGENCE-SERVICES-001", mr17_block)
 
 
 if __name__ == "__main__":

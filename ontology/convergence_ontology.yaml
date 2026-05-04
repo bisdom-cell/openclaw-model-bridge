@@ -14,8 +14,8 @@
 # alert_only observation data per spec.
 
 meta:
-  version: "0.6-named-dispatch-apply-functions"
-  status: "framework_two_specs_machine_sync_named_dispatch_dry_run"
+  version: "0.7-fifth-spec-services-to-launchd"
+  status: "framework_five_specs_two_machine_sync_named_dispatch_dry_run"
   description: |
     Phase 4 Layer 5 of the ontology stack. Layer 1 (domain) describes WHAT
     exists, Layer 2 (policy) describes WHAT'S ALLOWED, Layer 3 (three-gate)
@@ -24,7 +24,7 @@ meta:
     declared state and runtime state — the missing piece that makes ontology
     a true control plane (not just a policy engine).
   meta_rule: MR-17
-  related_invariants: [INV-CONVERGENCE-CRON-001, INV-CONVERGENCE-PROVIDERS-001, INV-CONVERGENCE-OPENCLAW-001, INV-CONVERGENCE-KB-001]
+  related_invariants: [INV-CONVERGENCE-CRON-001, INV-CONVERGENCE-PROVIDERS-001, INV-CONVERGENCE-OPENCLAW-001, INV-CONVERGENCE-KB-001, INV-CONVERGENCE-SERVICES-001]
   next_step:
     - V37.9.23 完成: jobs_to_crontab drift_action 从 alert_only 升级为 machine_sync,
                     默认 dry-run (CONVERGENCE_DRY_RUN env var 控制), 框架内部已实现
@@ -106,6 +106,32 @@ meta:
       - crontab_safe.sh add 已 fail-loud (V37.9.18 严格 exit 1 + 30天滚动备份)
       - _format_cron_line 拒绝 shell metacharacter (defense-in-depth, registry typo 不可命令注入)
       - subprocess 失败 → apply_errors 收集, FAIL-OPEN 不冒泡
+
+  v37_9_25_changelog: |
+    Fifth spec services_to_launchd (V37.9.13 candidate closure):
+
+    New dispatch entry:
+      _DECLARED_EXTRACTORS["services_from_registry"] = _extract_services_from_registry
+
+    New data source: services_registry.yaml (independent registry, parallel
+    to jobs_registry.yaml — distinct concept: persistent launchd-managed
+    services vs scheduled cron jobs). Three initial services declared:
+    com.openclaw.adapter / com.openclaw.proxy / ai.openclaw.gateway.
+
+    Reuses V37.9.19 _observe_shell_command (`launchctl list`) +
+    V37.9.19 _parse_line_contains_identifier — minimal-extension path
+    (only 1 new extractor, mirrors V37.9.22 kb_sources_to_index pattern).
+    Fifth time named-dispatch contract validated: zero changes to
+    verify_convergence orchestrator.
+
+    drift_action alert_only V37.9.25 baseline → 一周观察期 → V37.9.26+
+    machine_sync candidate (planned via launchctl bootstrap or restart.sh
+    invocation). Plan B gradient pattern preserved.
+
+    Closes V37.9.13 candidate登记 from status.json: "如果 macOS 重装或
+    plist 意外删除, V37.9.12.1 给 proxy plist 加的 ONTOLOGY_MODE=on 会
+    丢失". 本 spec 不直接守 plist 文件入仓 (敏感 env vars handling 是更
+    大工作), 而是守 launchd registration 状态 — 上游事实更直接.
 
   v37_9_24_changelog: |
     Three deliverables in one V37.9.24 push:
@@ -460,3 +486,71 @@ convergence_specs:
 
     governance_invariant: INV-CONVERGENCE-KB-001
     blood_lesson_link: ontology/docs/cases/kb_content_and_sources_dedup_case.md
+
+  # ── services_to_launchd (V37.9.25 fifth spec) ──────────────────────────
+  - id: services_to_launchd
+    enabled: true
+    description: |
+      services_registry.yaml 中所有 service 的 launchd label 必须在
+      macOS `launchctl list` 输出中至少出现一次（即 launchd 已 load 该
+      service 并在 supervise 它）。convergence framework 第 5 次扩展, 验证
+      添加新 spec 类型零 framework 改动 (V37.9.20 named-dispatch 设计承诺
+      第 5 次实证).
+
+      Closes V37.9.13 candidate "launchd plist 持久化": Mac Mini 重装或
+      plist 误删后, V37.9.12.1 给 proxy plist 加的 ONTOLOGY_MODE=on env
+      会丢失. 本 spec 不直接守 plist 文件存在性 (那是 deploy/recovery
+      问题), 而是守 "声明的 service 是否真在 launchd 注册" 这一更上游事实.
+
+      Drift signals (alert_only):
+        (a) services_registry 声明 label 但 launchctl list 没看到 →
+            plist 误删 / launchctl bootout 后未 bootstrap / macOS 重启后
+            launchd cache 异常
+        (b) launchctl list 不可用 (dev 环境无 launchctl) → observer_failed
+            FAIL-OPEN 不阻塞 audit
+
+    declaration:
+      source: services_registry.yaml
+      extractor: services_from_registry
+      identifier_field: label
+      identifier_meaning: |
+        launchd label string (e.g. "com.openclaw.adapter") that should appear
+        in `launchctl list` stdout column 3 (label column). substring match
+        is sufficient because launchd labels are dot-separated identifiers
+        with no overlap risk between OpenClaw services.
+
+    runtime_observable:
+      method: shell_command
+      command: "launchctl list"
+      parser: line_contains_identifier
+      notes: |
+        `launchctl list` outputs PID + last_exit + label per line. dev
+        environments without launchctl (Linux / no LaunchAgents loaded)
+        will see "command not found" → observer_failed → declared all
+        reported as missing (mirrors V37.9.19 crontab -l no-crontab FAIL-OPEN
+        behavior). Mac Mini production sees full list of bootstrapped
+        services; OpenClaw labels appear if their plist is loaded.
+
+    drift_action: alert_only
+    drift_action_rationale: |
+      V37.9.25 起步 alert_only — 与 V37.9.19 jobs_to_crontab 同款保守路线.
+      machine_sync 升级延后到 V37.9.26+ 一周观察期之后, 如出现真实漂移
+      (plist 误删 / bootstrap 失败) 才考虑自动 helper:
+        - bash $HOME/restart.sh 已含 launchctl kickstart -k 路径 (V37.9.13)
+        - V37.9.26+ 可加 _apply_services_launchctl_bootstrap 或重用 restart.sh
+      但首期重点是 detection (drift visibility), 不是 enforcement.
+
+    convergence_method:
+      planned: machine_sync_via_helper
+      planned_helper: "bash $HOME/restart.sh (or per-service launchctl bootstrap)"
+      planned_blocker: |
+        V37.9.25 一周观察期内 alert_only. 如果观察期 zero drift, V37.9.26+ 升级:
+        - per-service: launchctl bootstrap "gui/$(id -u)" "<plist_path>"
+        - 但 plist_path 解析需要 services_registry 加 plist 字段 (已在 schema)
+          + Mac Mini 路径 ~/Library/LaunchAgents/<plist>
+        - 风险评估: bootstrap 已加载的 service 会失败 (vs idempotent),
+          所以 dispatcher 应该先检查是否已 list 中再决定 bootstrap
+        Plan B 渐进 dry-run 模式 (V37.9.23 同款) 是默认路径.
+
+    governance_invariant: INV-CONVERGENCE-SERVICES-001
+    blood_lesson_link: docs/config.md  # V37.9.13 candidate 登记于 docs/config.md "launchd plist 持久化"
