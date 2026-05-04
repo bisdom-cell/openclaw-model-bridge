@@ -1394,9 +1394,11 @@ class TestVerifyKbSourcesToIndexIntegration(unittest.TestCase):
         spec = cv.get_spec("kb_sources_to_index")
         self.assertEqual(spec["runtime_observable"]["parser"], "line_contains_identifier")
 
-    def test_spec_drift_action_alert_only(self):
+    def test_spec_drift_action_machine_sync_v37_9_24(self):
+        """V37.9.22 起步 alert_only; V37.9.24 升级 machine_sync (Plan B 渐进 dry-run)."""
         spec = cv.get_spec("kb_sources_to_index")
-        self.assertEqual(spec["drift_action"], "alert_only")
+        self.assertEqual(spec["drift_action"], "machine_sync",
+            "V37.9.24: kb_sources_to_index spec 已升级到 machine_sync (named-dispatch)")
 
 
 class TestKbSpecSourceGuards(unittest.TestCase):
@@ -1431,9 +1433,14 @@ class TestKbSpecSourceGuards(unittest.TestCase):
         self.assertIn("id: kb_sources_to_index", self.yaml_src)
 
     def test_yaml_meta_version_advanced_to_fourth(self):
-        # V37.9.22 起步 0.4-fourth-spec; V37.9.23 升级到 0.5-machine-sync-dry-run
-        # (jobs_to_crontab drift_action escalated). 守卫: 必须 ≥ 0.4 且消除旧 0.3.
-        version_tokens = ("0.4-fourth-spec", "0.5-machine-sync-dry-run")
+        # V37.9.22 起步 0.4-fourth-spec; V37.9.23 升级到 0.5-machine-sync-dry-run;
+        # V37.9.24 升级到 0.6-named-dispatch-apply-functions.
+        # 守卫: 必须 ≥ 0.4 且消除旧 0.3.
+        version_tokens = (
+            "0.4-fourth-spec",
+            "0.5-machine-sync-dry-run",
+            "0.6-named-dispatch-apply-functions",
+        )
         self.assertTrue(
             any(tok in self.yaml_src for tok in version_tokens),
             f"meta version 必须 ≥ 0.4 (V37.9.22) 含 {version_tokens} 之一"
@@ -1461,16 +1468,27 @@ class TestKbSpecSourceGuards(unittest.TestCase):
         self.assertIn("method: shell_command", block)
         self.assertIn("parser: line_contains_identifier", block)
 
-    def test_yaml_kb_spec_drift_action_alert_only(self):
+    def test_yaml_kb_spec_drift_action_machine_sync_v37_9_24(self):
+        """V37.9.22 起步 alert_only; V37.9.24 升级 machine_sync.
+        守卫: kb_sources_to_index 块内必须含 drift_action: machine_sync."""
         idx = self.yaml_src.find("id: kb_sources_to_index")
         self.assertGreater(idx, 0)
         block = self.yaml_src[idx:]
         for line in block.split("\n"):
             if line.strip().startswith("drift_action:") and "rationale" not in line:
-                self.assertIn("alert_only", line)
-                self.assertNotIn("machine_sync", line)
+                self.assertIn("machine_sync", line,
+                    f"V37.9.24: kb_sources_to_index drift_action 必须升级 machine_sync, "
+                    f"got: {line!r}")
                 return
         self.fail("drift_action: line not found in kb_sources_to_index spec")
+
+    def test_yaml_kb_spec_apply_function_kb_embed_incremental(self):
+        """V37.9.24 named-dispatch 守卫: kb_sources_to_index 必须声明 apply_function."""
+        idx = self.yaml_src.find("id: kb_sources_to_index")
+        block = self.yaml_src[idx:]
+        self.assertIn("apply_function: kb_embed_incremental", block,
+            "V37.9.24: kb_sources_to_index 必须声明 apply_function: kb_embed_incremental "
+            "(named-dispatch 路径标识)")
 
     def test_governance_ontology_lists_fourth_invariant(self):
         self.assertIn("INV-CONVERGENCE-KB-001", self.gov_src)
@@ -1902,14 +1920,14 @@ class TestVerifyConvergenceMachineSyncIntegration(unittest.TestCase):
             self.assertEqual(r.apply_errors, ())
 
     def test_alert_only_specs_have_no_apply_actions(self):
-        """providers_to_adapter / openclaw_config_to_runtime / kb_sources_to_index
-        都是 alert_only — verify_convergence 不应调 _apply_machine_sync, 三新字段
-        全部默认 (空 / True / 空)."""
-        for sid in ("providers_to_adapter", "openclaw_config_to_runtime", "kb_sources_to_index"):
+        """providers_to_adapter / openclaw_config_to_runtime 都是 alert_only_permanent —
+        verify_convergence 不应调 _apply_machine_sync, 三新字段全部默认 (空 / True / 空).
+        V37.9.24: kb_sources_to_index 已升级 machine_sync, 从此列表移除."""
+        for sid in ("providers_to_adapter", "openclaw_config_to_runtime"):
             with self.subTest(spec_id=sid):
                 r = cv.verify_convergence(sid)
                 self.assertEqual(r.drift_action, "alert_only",
-                    f"{sid} 必须保持 alert_only (V37.9.23 没动这些)")
+                    f"{sid} 必须保持 alert_only (V37.9.24 没动这两个)")
                 self.assertEqual(r.applied_actions, (),
                     "alert_only spec 不应触发 apply_actions")
                 self.assertEqual(r.apply_errors, ())
@@ -1925,8 +1943,9 @@ class TestVerifyConvergenceMachineSyncIntegration(unittest.TestCase):
                 f"machine_sync drift 时 log 应含 apply[dry-run]= 字面量, got: {s}")
 
     def test_format_result_for_log_no_apply_for_alert_only(self):
-        """alert_only drift 时 log 行不应含 'apply[' 字面量 (避免噪声)."""
-        for sid in ("providers_to_adapter", "kb_sources_to_index"):
+        """alert_only drift 时 log 行不应含 'apply[' 字面量 (避免噪声).
+        V37.9.24: kb_sources_to_index 已升级 machine_sync, 从此列表移除."""
+        for sid in ("providers_to_adapter", "openclaw_config_to_runtime"):
             with self.subTest(spec_id=sid):
                 r = cv.verify_convergence(sid)
                 s = cv.format_result_for_log(r)
@@ -1992,7 +2011,9 @@ class TestV37923SourceLevelGuards(unittest.TestCase):
 
     def test_yaml_jobs_to_crontab_implements_machine_sync(self):
         """V37.9.23: yaml jobs_to_crontab spec convergence_method 应有 implemented:
-        替代 V37.9.19 的 planned: 字段."""
+        替代 V37.9.19 的 planned: 字段.
+        V37.9.24: apply_path 字面量已从 _apply_machine_sync 改为
+        _apply_jobs_to_crontab_per_entry (named-dispatch 重构)."""
         jc_idx = self.yaml_src.find("- id: jobs_to_crontab")
         next_idx = self.yaml_src.find("\n  - id: ", jc_idx + 10)
         if next_idx < 0:
@@ -2000,7 +2021,490 @@ class TestV37923SourceLevelGuards(unittest.TestCase):
         block = self.yaml_src[jc_idx:next_idx]
         self.assertIn("implemented: machine_sync_via_helper", block)
         self.assertIn("dry_run_default: true", block)
-        self.assertIn("apply_path: convergence._apply_machine_sync", block)
+        # V37.9.24: 接受新旧两种 apply_path 字面量 (向前兼容)
+        self.assertTrue(
+            "apply_path: convergence._apply_jobs_to_crontab_per_entry" in block
+            or "apply_path: convergence._apply_machine_sync" in block,
+            f"jobs_to_crontab 必须声明 apply_path (V37.9.23 _apply_machine_sync 或 "
+            f"V37.9.24 _apply_jobs_to_crontab_per_entry)"
+        )
+
+    def test_yaml_jobs_to_crontab_apply_function_named_dispatch_v37_9_24(self):
+        """V37.9.24: jobs_to_crontab spec 必须声明 apply_function: jobs_to_crontab_per_entry
+        (named-dispatch 路径标识)."""
+        jc_idx = self.yaml_src.find("- id: jobs_to_crontab")
+        next_idx = self.yaml_src.find("\n  - id: ", jc_idx + 10)
+        if next_idx < 0:
+            next_idx = len(self.yaml_src)
+        block = self.yaml_src[jc_idx:next_idx]
+        self.assertIn("apply_function: jobs_to_crontab_per_entry", block)
+
+
+class TestApplyKbEmbedIncremental(unittest.TestCase):
+    """V37.9.24 — _apply_kb_embed_incremental() (kb_sources_to_index apply path).
+
+    与 V37.9.23 _apply_jobs_to_crontab_per_entry (per-entry helper) 不同,
+    本路径是 single kb_embed.py call 覆盖所有 missing sources (one-shot pattern).
+    """
+
+    def setUp(self):
+        self._saved_env = os.environ.pop("CONVERGENCE_DRY_RUN", None)
+        os.environ["CONVERGENCE_DRY_RUN"] = "1"
+        self.spec = cv.get_spec("kb_sources_to_index")
+        self.assertIsNotNone(self.spec)
+        self._saved_run = subprocess.run
+
+    def tearDown(self):
+        subprocess.run = self._saved_run
+        if self._saved_env is not None:
+            os.environ["CONVERGENCE_DRY_RUN"] = self._saved_env
+        else:
+            os.environ.pop("CONVERGENCE_DRY_RUN", None)
+
+    def test_empty_missing_returns_empty_tuples(self):
+        """空 missing → 空返回, 不调 subprocess."""
+        applied, errors, dry_run = cv._apply_kb_embed_incremental(
+            self.spec, set(), dry_run=True
+        )
+        self.assertEqual(applied, ())
+        self.assertEqual(errors, ())
+        self.assertTrue(dry_run)
+
+    def test_dry_run_emits_single_summary_line(self):
+        """one-shot pattern: 不论 missing 多少, dry-run 只产 1 行 summary."""
+        missing = {"arxiv_daily.md", "hf_papers_daily.md", "freight_daily.md"}
+        applied, errors, dry_run = cv._apply_kb_embed_incremental(
+            self.spec, missing, dry_run=True
+        )
+        self.assertEqual(len(applied), 1,
+            "kb_embed_incremental 是 one-shot pattern, dry-run 只产 1 行 summary")
+        self.assertTrue(applied[0].startswith("DRY-RUN would run:"))
+        self.assertIn("kb_embed.py", applied[0])
+        self.assertIn("incremental", applied[0])
+        self.assertIn("3 missing sources", applied[0])
+        self.assertEqual(errors, ())
+
+    def test_dry_run_truncates_long_missing_lists(self):
+        """missing 超过 3 项 → 显示前 3 + '... +N more' 字面量."""
+        missing = {f"source_{i}.md" for i in range(10)}
+        applied, errors, _ = cv._apply_kb_embed_incremental(
+            self.spec, missing, dry_run=True
+        )
+        self.assertEqual(len(applied), 1)
+        self.assertIn("... +7 more", applied[0],
+            f"应截断显示 '... +7 more', got: {applied[0]!r}")
+
+    def test_real_mode_subprocess_success(self):
+        """returncode=0 → applied 含 'applied: kb_embed.py incremental' 字面量."""
+        class Result:
+            returncode = 0
+            stdout = "[kb_embed] indexed 3 changed files"
+            stderr = ""
+        cv.subprocess.run = lambda *a, **kw: Result()
+
+        td = tempfile.mkdtemp()
+        try:
+            embed_helper = Path(td) / "openclaw-model-bridge" / "kb_embed.py"
+            embed_helper.parent.mkdir(parents=True)
+            embed_helper.write_text("# stub\n")
+            old_home = os.environ.get("HOME")
+            os.environ["HOME"] = td
+            try:
+                applied, errors, _ = cv._apply_kb_embed_incremental(
+                    self.spec, {"arxiv_daily.md"}, dry_run=False
+                )
+            finally:
+                if old_home is not None:
+                    os.environ["HOME"] = old_home
+                else:
+                    os.environ.pop("HOME", None)
+        finally:
+            import shutil
+            shutil.rmtree(td, ignore_errors=True)
+
+        self.assertEqual(len(applied), 1)
+        self.assertTrue(applied[0].startswith("applied: kb_embed.py incremental"),
+            f"应产 'applied: kb_embed.py incremental' 前缀, got: {applied[0]!r}")
+        self.assertEqual(errors, ())
+
+    def test_real_mode_subprocess_failure(self):
+        """returncode!=0 → apply_errors 含 stderr 截断."""
+        class Result:
+            returncode = 2
+            stdout = ""
+            stderr = "ImportError: local_embed not found"
+        cv.subprocess.run = lambda *a, **kw: Result()
+
+        td = tempfile.mkdtemp()
+        try:
+            embed_helper = Path(td) / "openclaw-model-bridge" / "kb_embed.py"
+            embed_helper.parent.mkdir(parents=True)
+            embed_helper.write_text("# stub\n")
+            old_home = os.environ.get("HOME")
+            os.environ["HOME"] = td
+            try:
+                applied, errors, _ = cv._apply_kb_embed_incremental(
+                    self.spec, {"arxiv_daily.md"}, dry_run=False
+                )
+            finally:
+                if old_home is not None:
+                    os.environ["HOME"] = old_home
+                else:
+                    os.environ.pop("HOME", None)
+        finally:
+            import shutil
+            shutil.rmtree(td, ignore_errors=True)
+
+        self.assertEqual(applied, ())
+        self.assertEqual(len(errors), 1)
+        self.assertIn("exit=2", errors[0])
+        self.assertIn("ImportError", errors[0])
+
+    def test_real_mode_helper_not_found(self):
+        """~/openclaw-model-bridge/kb_embed.py 不存在 → apply_errors."""
+        cv.subprocess.run = lambda *a, **kw: self.fail("subprocess 不应被调用")
+        td = tempfile.mkdtemp()  # 故意不放 kb_embed.py
+        try:
+            old_home = os.environ.get("HOME")
+            os.environ["HOME"] = td
+            try:
+                applied, errors, _ = cv._apply_kb_embed_incremental(
+                    self.spec, {"arxiv_daily.md"}, dry_run=False
+                )
+            finally:
+                if old_home is not None:
+                    os.environ["HOME"] = old_home
+                else:
+                    os.environ.pop("HOME", None)
+        finally:
+            import shutil
+            shutil.rmtree(td, ignore_errors=True)
+
+        self.assertEqual(applied, ())
+        self.assertEqual(len(errors), 1)
+        self.assertIn("kb_embed.py not found", errors[0])
+
+    def test_real_mode_subprocess_timeout(self):
+        """timeout → apply_errors timeout 字面量."""
+        def raise_timeout(*args, **kwargs):
+            raise subprocess.TimeoutExpired(cmd="python3 kb_embed.py", timeout=300)
+        cv.subprocess.run = raise_timeout
+
+        td = tempfile.mkdtemp()
+        try:
+            embed_helper = Path(td) / "openclaw-model-bridge" / "kb_embed.py"
+            embed_helper.parent.mkdir(parents=True)
+            embed_helper.write_text("# stub\n")
+            old_home = os.environ.get("HOME")
+            os.environ["HOME"] = td
+            try:
+                applied, errors, _ = cv._apply_kb_embed_incremental(
+                    self.spec, {"arxiv_daily.md"}, dry_run=False
+                )
+            finally:
+                if old_home is not None:
+                    os.environ["HOME"] = old_home
+                else:
+                    os.environ.pop("HOME", None)
+        finally:
+            import shutil
+            shutil.rmtree(td, ignore_errors=True)
+
+        self.assertEqual(applied, ())
+        self.assertEqual(len(errors), 1)
+        self.assertIn("timed out", errors[0])
+
+
+class TestApplyMachineSyncNamedDispatch(unittest.TestCase):
+    """V37.9.24 — _apply_machine_sync top-level dispatcher 验证 named-dispatch."""
+
+    def setUp(self):
+        self._saved_env = os.environ.pop("CONVERGENCE_DRY_RUN", None)
+        os.environ["CONVERGENCE_DRY_RUN"] = "1"
+
+    def tearDown(self):
+        if self._saved_env is not None:
+            os.environ["CONVERGENCE_DRY_RUN"] = self._saved_env
+        else:
+            os.environ.pop("CONVERGENCE_DRY_RUN", None)
+
+    def test_named_dispatch_routes_kb_sources_to_index(self):
+        """spec.convergence_method.apply_function = 'kb_embed_incremental' →
+        路由到 _apply_kb_embed_incremental (one-shot pattern)."""
+        spec = cv.get_spec("kb_sources_to_index")
+        applied, errors, _ = cv._apply_machine_sync(
+            spec, {"arxiv_daily.md", "hf_papers_daily.md"}, dry_run=True
+        )
+        # one-shot pattern → 应只产 1 行 summary 而非 2 行 (per-entry pattern)
+        self.assertEqual(len(applied), 1,
+            "kb_sources_to_index 应路由到 one-shot kb_embed_incremental, "
+            "不应是 per-entry 模式")
+        self.assertIn("kb_embed.py", applied[0])
+
+    def test_named_dispatch_routes_jobs_to_crontab(self):
+        """spec.convergence_method.apply_function = 'jobs_to_crontab_per_entry' →
+        路由到 _apply_jobs_to_crontab_per_entry (per-entry pattern)."""
+        spec = cv.get_spec("jobs_to_crontab")
+        # 取 2 个真实 entries
+        by_entry = cv._load_jobs_registry_index(spec)
+        samples = sorted(by_entry.keys())[:2]
+        applied, _, _ = cv._apply_machine_sync(spec, set(samples), dry_run=True)
+        # per-entry pattern → 应产 2 行 (一个 entry 一行)
+        self.assertEqual(len(applied), 2,
+            "jobs_to_crontab 应路由到 per-entry jobs_to_crontab_per_entry, "
+            "应产 2 行 (一个 entry 一行)")
+
+    def test_unknown_apply_function_yields_apply_error(self):
+        """spec.convergence_method.apply_function 是未知值 → apply_errors."""
+        # 构造一个 fake spec
+        fake_spec = {
+            "id": "test_fake",
+            "convergence_method": {"apply_function": "bogus_function_name"},
+        }
+        applied, errors, _ = cv._apply_machine_sync(
+            fake_spec, {"x"}, dry_run=True
+        )
+        self.assertEqual(applied, ())
+        self.assertEqual(len(errors), 1)
+        self.assertIn("bogus_function_name", errors[0])
+        self.assertIn("no apply_function registered", errors[0])
+
+    def test_legacy_jobs_to_crontab_id_fallback(self):
+        """V37.9.23 兼容: spec.id == 'jobs_to_crontab' 但缺 apply_function 字段 →
+        fallback 到 jobs_to_crontab_per_entry (向后兼容)."""
+        # 构造一个 fake spec 模拟 V37.9.23 没 apply_function 字段
+        spec_v37923 = {
+            "id": "jobs_to_crontab",
+            "declaration": {
+                "source": "jobs_registry.yaml",
+            },
+            # 故意不含 convergence_method.apply_function
+            "convergence_method": {},
+        }
+        # 用真实 jobs_registry → 取一个 entry
+        real_spec = cv.get_spec("jobs_to_crontab")
+        by_entry = cv._load_jobs_registry_index(real_spec)
+        sample = sorted(by_entry.keys())[0]
+
+        applied, errors, _ = cv._apply_machine_sync(
+            spec_v37923, {sample}, dry_run=True
+        )
+        # 应能正确路由到 jobs_to_crontab_per_entry (legacy id fallback)
+        self.assertEqual(len(applied), 1,
+            "V37.9.23 spec 缺 apply_function 字段时应通过 spec.id fallback 路由")
+        self.assertTrue(applied[0].startswith("DRY-RUN would apply:"))
+
+
+class TestV37924SourceLevelGuards(unittest.TestCase):
+    """V37.9.24 — convergence.py + yaml 源码级守卫 (字面量 grep)."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.py_src = (ONTOLOGY_DIR / "convergence.py").read_text(encoding="utf-8")
+        cls.yaml_src = (ONTOLOGY_DIR / "convergence_ontology.yaml").read_text(encoding="utf-8")
+
+    def test_apply_jobs_to_crontab_per_entry_function_defined(self):
+        """V37.9.23 _apply_machine_sync 主体 V37.9.24 移到 _apply_jobs_to_crontab_per_entry."""
+        self.assertIn("def _apply_jobs_to_crontab_per_entry", self.py_src)
+
+    def test_apply_kb_embed_incremental_function_defined(self):
+        self.assertIn("def _apply_kb_embed_incremental", self.py_src)
+
+    def test_apply_functions_named_dispatch_table(self):
+        self.assertIn("_APPLY_FUNCTIONS = {", self.py_src)
+        self.assertIn('"jobs_to_crontab_per_entry": _apply_jobs_to_crontab_per_entry', self.py_src)
+        self.assertIn('"kb_embed_incremental": _apply_kb_embed_incremental', self.py_src)
+
+    def test_kb_embed_timeout_constant(self):
+        self.assertIn("_KB_EMBED_TIMEOUT_SEC = 300", self.py_src)
+
+    def test_apply_machine_sync_dispatcher_reads_apply_function(self):
+        """_apply_machine_sync 必须读 spec.convergence_method.apply_function 字段."""
+        self.assertIn('method.get("apply_function")', self.py_src)
+        self.assertIn("_APPLY_FUNCTIONS.get(", self.py_src)
+
+    def test_yaml_kb_sources_to_index_apply_function(self):
+        """yaml kb_sources_to_index spec 必须声明 apply_function: kb_embed_incremental."""
+        kb_idx = self.yaml_src.find("- id: kb_sources_to_index")
+        next_idx = self.yaml_src.find("\n  - id: ", kb_idx + 10)
+        if next_idx < 0:
+            next_idx = len(self.yaml_src)
+        block = self.yaml_src[kb_idx:next_idx]
+        self.assertIn("apply_function: kb_embed_incremental", block)
+        self.assertIn("dry_run_default: true", block)
+        self.assertIn("implemented: machine_sync_via_helper", block)
+
+    def test_yaml_jobs_to_crontab_apply_function(self):
+        """yaml jobs_to_crontab spec V37.9.24 加 apply_function 字段."""
+        jc_idx = self.yaml_src.find("- id: jobs_to_crontab")
+        next_idx = self.yaml_src.find("\n  - id: ", jc_idx + 10)
+        if next_idx < 0:
+            next_idx = len(self.yaml_src)
+        block = self.yaml_src[jc_idx:next_idx]
+        self.assertIn("apply_function: jobs_to_crontab_per_entry", block)
+
+    def test_yaml_v37_9_24_changelog_section(self):
+        self.assertIn("v37_9_24_changelog", self.yaml_src)
+        self.assertIn("Named-dispatch", self.yaml_src)
+        self.assertIn("kb_embed_incremental", self.yaml_src)
+
+
+class TestOpenclawConfigToRuntimeMockRuntime(unittest.TestCase):
+    """V37.9.24 加固层 — Mock ~/.openclaw/openclaw.json + 验证 declared 字段读取.
+
+    为什么需要 (V37.9.22 4/29 hotfix 9d60dd3 教训横向扩展):
+        openclaw_config_to_runtime spec 走 method=http_endpoint, declaration 端
+        用 _extract_json_file_paths 读 ~/.openclaw/openclaw.json. spec yaml 用
+        json_paths: ["version"] 字面量配置字段名 — 与 V37.9.22 hotfix 教训
+        (kb_sources_to_index chunks[].file 假设错为 source_file) 同款风险类型.
+
+        如果未来 OpenClaw 版本升级把 "version" 字段改名为 "release_version"
+        / "schema_version", spec yaml 仍读 "version" → declared=set() →
+        drift_detected=False 静默漏过. dev 单测有 _extract_json_file_paths
+        通用 path-syntax 测试, 但**没有针对 openclaw_config_to_runtime spec
+        的 yaml json_paths 字面量值跑 verify_convergence 的运行时验证**.
+
+        本类构造 mock openclaw.json + monkey-patch HOME → tempdir + 真跑
+        verify_convergence("openclaw_config_to_runtime") 验证 spec yaml 配置
+        的字段名 (V37.9.24 = "version") 真能从 mock 数据中提取出来. 若未来
+        spec yaml 改字段名却没改 mock 数据 → 单测立即失败.
+
+    设计契约:
+        - 不 mock _extract_json_file_paths (它有自己的单测 TestExtractJsonFilePaths)
+        - 通过 monkey-patch HOME → tempdir 让 spec source $HOME/.openclaw/openclaw.json 解析到 mock 路径
+        - mock observer (http_endpoint) 必失败因 dev 无 :18789 — 仅验证 declared 端
+    """
+
+    def _verify_with_mock_openclaw_json(self, json_content):
+        """Helper: 写 mock openclaw.json + 跑 verify_convergence + 还原 HOME."""
+        td = tempfile.mkdtemp(prefix="openclaw_json_test_")
+        try:
+            oc_dir = Path(td) / ".openclaw"
+            oc_dir.mkdir(parents=True)
+            oc_file = oc_dir / "openclaw.json"
+            if isinstance(json_content, str):
+                oc_file.write_text(json_content, encoding="utf-8")
+            else:
+                oc_file.write_text(json.dumps(json_content), encoding="utf-8")
+
+            old_home = os.environ.get("HOME")
+            os.environ["HOME"] = td
+            try:
+                result = cv.verify_convergence("openclaw_config_to_runtime")
+            finally:
+                if old_home is not None:
+                    os.environ["HOME"] = old_home
+                else:
+                    os.environ.pop("HOME", None)
+        finally:
+            import shutil
+            shutil.rmtree(td, ignore_errors=True)
+        return result
+
+    def test_mock_openclaw_json_extracts_version_field(self):
+        """核心: mock openclaw.json 含 version 字面量 → declared 应含该值.
+
+        V37.9.22 hotfix 教训直接复现场景: 若 spec yaml 字段名改成 "release"
+        但 mock 还是 "version", declared 会是空集 → 此断言失败.
+        """
+        spec = cv.get_spec("openclaw_config_to_runtime")
+        self.assertIsNotNone(spec, "openclaw_config_to_runtime spec must exist")
+
+        # spec yaml json_paths 当前声明: ["version"]
+        configured_paths = spec.get("declaration", {}).get("json_paths", [])
+        self.assertIn("version", configured_paths,
+            "V37.9.24 契约: spec yaml json_paths 当前应含 'version' 字段; "
+            "如已升级到其他字段名, 同步更新此 mock + 单测预期")
+
+        result = self._verify_with_mock_openclaw_json({
+            "version": "v2026.3.13-1",
+            "agents": [{"name": "main"}],   # 不应被读 (path syntax 不支持嵌套)
+            "channels": ["whatsapp"],        # 不应被读 (除非 yaml 加 channels[])
+        })
+
+        # declared 应含 version 字面量
+        self.assertIn("v2026.3.13-1", result.declared,
+            f"declared 应含 version 字面量 v2026.3.13-1, "
+            f"got declared={sorted(result.declared)} error={result.error}")
+        # observer 在 dev 必失败 (Gateway :18789 不可达), 但 declared 应已正确提取
+        # observer_failed 时 missing = declared (按 verify_convergence FAIL-OPEN 契约)
+        if result.error and "observer_failed" in result.error:
+            self.assertEqual(result.missing_in_runtime, result.declared,
+                "observer_failed 时 framework 契约 missing = declared")
+
+    def test_yaml_json_paths_field_name_guard(self):
+        """字面量守卫: spec yaml json_paths 必须当前声明 'version'.
+
+        V37.9.22 hotfix 同款字面量回归守卫. 如果未来有人改 spec yaml 把
+        json_paths 从 ["version"] 改成 ["release_version"] 但忘记同步更新
+        mock 数据 + 单测预期, 本测试立即失败让 V37.9.24 加固层提示.
+        """
+        spec = cv.get_spec("openclaw_config_to_runtime")
+        decl_paths = spec.get("declaration", {}).get("json_paths", [])
+        obs_paths = spec.get("runtime_observable", {}).get("json_paths", [])
+
+        # V37.9.24 当前契约: declaration 与 runtime_observable 字段名应一致
+        # (declared/observed 比对的前提)
+        self.assertEqual(decl_paths, obs_paths,
+            "V37.9.24 契约: declaration.json_paths 与 runtime_observable.json_paths "
+            "必须字面一致 (V37.9.22 引入时是 ['version'], 双向一致让 set-diff 有意义)")
+
+        # 当前 V37.9.24 的字面量值应是 ["version"] (随 OpenClaw 版本可调整)
+        # 但本守卫仅锁定"非空 list", 不锁字面量
+        self.assertIsInstance(decl_paths, list)
+        self.assertGreater(len(decl_paths), 0,
+            "json_paths 必须非空 list (V37.9.22 至少声明 1 个 path)")
+
+    def test_missing_openclaw_json_returns_empty_declared(self):
+        """文件缺失 (dev 全新环境) → declared=set() FAIL-OPEN 契约."""
+        # 不写 openclaw.json (用空 td 让 ~/.openclaw 不存在)
+        td = tempfile.mkdtemp(prefix="openclaw_json_missing_")
+        try:
+            old_home = os.environ.get("HOME")
+            os.environ["HOME"] = td
+            try:
+                result = cv.verify_convergence("openclaw_config_to_runtime")
+            finally:
+                if old_home is not None:
+                    os.environ["HOME"] = old_home
+                else:
+                    os.environ.pop("HOME", None)
+        finally:
+            import shutil
+            shutil.rmtree(td, ignore_errors=True)
+
+        self.assertEqual(result.declared, frozenset(),
+            "V37.9.22 FAIL-OPEN 契约: 文件缺失 → declared=空集 (不 raise)")
+        self.assertFalse(result.drift_detected,
+            "declared=空集 → 不可能有 missing → drift_detected=False")
+
+    def test_corrupt_openclaw_json_surfaces_extractor_failed(self):
+        """openclaw.json 存在但损坏 → extractor_failed (不静默)."""
+        result = self._verify_with_mock_openclaw_json("{ this is not valid json }")
+        self.assertIsNotNone(result.error,
+            "损坏 JSON 应触发 extractor_failed (不静默)")
+        self.assertIn("extractor_failed", result.error,
+            f"error 应含 'extractor_failed', got: {result.error}")
+
+    def test_top_level_non_object_raises(self):
+        """openclaw.json 顶层是 array/scalar → extractor_failed 不静默."""
+        # 顶层 list 而非 dict
+        result = self._verify_with_mock_openclaw_json("[1, 2, 3]")
+        self.assertIsNotNone(result.error)
+        self.assertIn("extractor_failed", result.error)
+
+    def test_mock_with_missing_version_field_yields_empty_declared(self):
+        """openclaw.json 存在但缺 version key → declared=空集 (silent skip 契约)."""
+        result = self._verify_with_mock_openclaw_json({
+            "agents": [{"name": "main"}],
+            "channels": ["whatsapp"],
+            # 故意不含 "version"
+        })
+        self.assertEqual(result.declared, frozenset(),
+            "缺 version key → _walk_json_paths_to_set silent skip → declared=空集")
+        # 不应触发 extractor_failed (silent skip 是 path 行为)
+        self.assertFalse(result.error and "extractor_failed" in (result.error or ""),
+            f"path missing key 是合法 silent skip, 不应是 extractor_failed: {result.error}")
 
 
 class TestKbSourcesToIndexCommandRuntime(unittest.TestCase):
