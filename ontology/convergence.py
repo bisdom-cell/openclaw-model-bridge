@@ -80,6 +80,12 @@ _HTTP_OBSERVER_TIMEOUT_SEC = 5
 # all local and fast. 15s ceiling avoids audit cron hang on weird subprocess state.
 _MACHINE_SYNC_TIMEOUT_SEC = 15
 
+# V37.9.24 — kb_embed.py incremental subprocess timeout. kb_embed reads KB
+# notes/sources, computes mtime diff, only re-embeds changed files. LLM
+# embedding calls dominate latency for changed files. 5min ceiling covers
+# typical incremental run; full re-index is rare and not on this code path.
+_KB_EMBED_TIMEOUT_SEC = 300
+
 # V37.9.23 — Default dry-run for machine_sync. Read from env var so audit
 # can be flipped to "real apply" mode without code change. Any value other
 # than "0" (including unset, "1", "true", "yes") = dry-run (safe default).
@@ -726,32 +732,17 @@ def _load_jobs_registry_index(spec):
     return by_entry
 
 
-def _apply_machine_sync(spec, missing_entries, dry_run=None):
-    """Apply machine_sync for jobs_to_crontab — call crontab_safe.sh add for each missing.
+def _apply_jobs_to_crontab_per_entry(spec, missing_entries, dry_run):
+    """V37.9.23 jobs_to_crontab apply path — per-entry crontab_safe.sh add.
 
-    V37.9.23 — Plan B implementation (default dry-run).
+    For each missing entry, look up the corresponding job in jobs_registry,
+    format a cron line via _format_cron_line, and (in real mode) invoke
+    crontab_safe.sh add. dry-run mode emits "DRY-RUN would apply: <line>"
+    instead of executing subprocess.
 
-    Args:
-        spec: convergence spec dict (used to locate jobs_registry.yaml)
-        missing_entries: iterable of entry strings (e.g. {"kb_deep_dive.sh"})
-        dry_run: explicit override; if None, reads CONVERGENCE_DRY_RUN env
-
-    Returns:
-        (applied_actions: tuple[str], apply_errors: tuple[str], dry_run: bool)
-
-        applied_actions: human-readable list of actions taken (or "would apply")
-        apply_errors: per-entry failure messages (subprocess error, missing job, etc)
-        dry_run: bool reflecting actual mode (so callers can log accurately)
-
-    FAIL-OPEN: never raises. Subprocess failures, missing job entries, malformed
-    cron lines all become apply_errors entries.
+    FAIL-OPEN: per-entry errors (registry mismatch / format failure / subprocess
+    failure) become individual entries in apply_errors. Other entries continue.
     """
-    if dry_run is None:
-        dry_run = _is_dry_run()
-
-    if not missing_entries:
-        return (), (), dry_run
-
     try:
         by_entry = _load_jobs_registry_index(spec)
     except Exception as e:
@@ -813,6 +804,149 @@ def _apply_machine_sync(spec, missing_entries, dry_run=None):
         applied.append(f"applied: {cron_line}")
 
     return tuple(applied), tuple(errors), dry_run
+
+
+def _apply_kb_embed_incremental(spec, missing_entries, dry_run):
+    """V37.9.24 kb_sources_to_index apply path — single kb_embed.py incremental call.
+
+    Unlike jobs_to_crontab (per-entry helper call), kb_embed.py is invoked
+    ONCE per machine_sync trigger regardless of how many sources are missing.
+    kb_embed.py default mode is incremental (mtime diff) — it scans all KB
+    notes/sources and re-embeds only changed/new files. So one invocation
+    covers all missing entries.
+
+    Why one-shot rather than per-entry:
+      - kb_embed.py loads the embedding model once (~3s startup overhead per
+        call); per-entry calls would amortize poorly
+      - kb_embed.py's mtime-diff logic processes all files; selective re-index
+        would require new CLI args we'd have to add to kb_embed.py
+      - Idempotent: kb_embed.py guarded by internal lock (V37.8 introduced),
+        safe to call repeatedly
+      - Returns to alert path immediately on success — convergence framework
+        does not own the embedding; kb_embed.py owns it
+
+    dry-run mode emits "DRY-RUN would run: bash kb_embed.py (incremental,
+    N missing sources: [list])" without executing subprocess.
+
+    FAIL-OPEN: subprocess timeout / non-zero exit / missing helper become
+    apply_errors. Empty missing_entries → empty result.
+    """
+    # Defense-in-depth: top-level _apply_machine_sync already does this check,
+    # but if this function is called directly (testing / future direct use)
+    # we must not fabricate a "would run kb_embed" line for zero missing.
+    if not missing_entries:
+        return (), (), dry_run
+
+    sorted_missing = sorted(missing_entries)
+    preview = ", ".join(sorted_missing[:3])
+    suffix = f"... +{len(sorted_missing) - 3} more" if len(sorted_missing) > 3 else ""
+    summary = f"{len(sorted_missing)} missing sources: {preview}{suffix}"
+
+    if dry_run:
+        action = (
+            f"DRY-RUN would run: python3 ~/openclaw-model-bridge/kb_embed.py "
+            f"(incremental, {summary})"
+        )
+        return (action,), (), dry_run
+
+    # Real apply path — call kb_embed.py incremental via subprocess.
+    helper = os.path.expanduser("~/openclaw-model-bridge/kb_embed.py")
+    if not os.path.exists(helper):
+        # Defensive: dev / deployment dir absent.
+        return (), (f"kb_embed.py not found at {helper}",), dry_run
+
+    try:
+        proc = subprocess.run(
+            ["python3", helper],
+            capture_output=True,
+            text=True,
+            timeout=_KB_EMBED_TIMEOUT_SEC,
+        )
+    except subprocess.TimeoutExpired:
+        return (), (f"kb_embed.py timed out after {_KB_EMBED_TIMEOUT_SEC}s",), dry_run
+    except FileNotFoundError as e:
+        return (), (f"python3 binary missing: {e}",), dry_run
+    except Exception as e:
+        return (), (f"subprocess unexpected error: {type(e).__name__}: {e}",), dry_run
+
+    if proc.returncode != 0:
+        return (), (
+            f"kb_embed.py exit={proc.returncode}: "
+            f"stderr={proc.stderr[-200:].strip()}",
+        ), dry_run
+
+    return (f"applied: kb_embed.py incremental ({summary})",), (), dry_run
+
+
+# V37.9.24 — Apply-function named dispatch (mirrors V37.9.20 _DECLARED_EXTRACTORS
+# / V37.9.13 _CONTEXT_EVALUATORS pattern). Each spec yaml's
+# convergence_method.apply_function field selects which apply path runs.
+# Adding a new machine_sync spec type only requires: (1) new apply function
+# here, (2) new entry in this dict, (3) spec yaml apply_function field.
+# Zero changes to verify_convergence orchestrator or _apply_machine_sync
+# top-level dispatcher.
+_APPLY_FUNCTIONS = {
+    "jobs_to_crontab_per_entry": _apply_jobs_to_crontab_per_entry,
+    "kb_embed_incremental": _apply_kb_embed_incremental,
+}
+
+
+def _apply_machine_sync(spec, missing_entries, dry_run=None):
+    """Top-level machine_sync dispatcher — route to spec-specific apply path.
+
+    V37.9.23 introduced this helper as a single-spec implementation
+    (jobs_to_crontab only). V37.9.24 refactored it into a named-dispatch
+    top-level router; the original logic moved to
+    _apply_jobs_to_crontab_per_entry. spec yaml's
+    convergence_method.apply_function field selects the dispatcher.
+
+    Args:
+        spec: convergence spec dict
+        missing_entries: iterable of identifier strings (e.g. {"kb_deep_dive.sh"}
+            for jobs_to_crontab, or {"arxiv_daily.md"} for kb_sources_to_index)
+        dry_run: explicit override; if None, reads CONVERGENCE_DRY_RUN env
+
+    Returns:
+        (applied_actions: tuple[str], apply_errors: tuple[str], dry_run: bool)
+
+    FAIL-OPEN: unknown apply_function → apply_errors entry, dry_run preserved.
+    Missing apply_function → apply_errors. All sub-dispatcher failures are
+    caught here as defense-in-depth.
+    """
+    if dry_run is None:
+        dry_run = _is_dry_run()
+
+    if not missing_entries:
+        return (), (), dry_run
+
+    method = spec.get("convergence_method") or {}
+    apply_fn_name = method.get("apply_function") or ""
+
+    # V37.9.24: spec yaml may not yet declare apply_function for legacy specs.
+    # Default to spec.id-based fallback for backward compat (V37.9.23 jobs_to_crontab
+    # spec was deployed before apply_function field existed). New specs MUST
+    # declare apply_function explicitly in yaml (validated by governance).
+    if not apply_fn_name:
+        legacy_id_fallback = {
+            "jobs_to_crontab": "jobs_to_crontab_per_entry",
+        }
+        apply_fn_name = legacy_id_fallback.get(spec.get("id", ""), "")
+
+    fn = _APPLY_FUNCTIONS.get(apply_fn_name)
+    if fn is None:
+        return (), (
+            f"no apply_function registered: {apply_fn_name!r} "
+            f"(spec.id={spec.get('id', '?')!r})",
+        ), dry_run
+
+    try:
+        return fn(spec, missing_entries, dry_run)
+    except Exception as e:
+        # Defense-in-depth: sub-dispatcher should be FAIL-OPEN already, but
+        # if it raises by mistake we don't let it bubble to verify_convergence.
+        return (), (
+            f"apply_function {apply_fn_name!r} raised: {type(e).__name__}: {e}",
+        ), dry_run
 
 
 # ── Top-level API ─────────────────────────────────────────────────────────
