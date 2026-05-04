@@ -1,6 +1,6 @@
 {
-  "updated": "2026-05-04 00:45:24",
-  "updated_by": "full_regression",
+  "updated": "2026-05-04 01:36:50",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-05-04",
+      "what": "V37.9.24 立场文章三渠道发布完成 (Stage 2 第 5 篇资产话语权输出兑现): 知乎中文版 (你的控制平面是收敛引擎，不只是策略引擎) + dev.to 英文版 (Why Your Control Plane Is a Convergence Engine, Not a Policy Engine) + Reddit 投递. 三件套并行收官: (B) framework 演进可扩展性证据 (C) V37.9.22 hotfix 教训横向加固 (A) framework 演进升级为对外可复述叙事. 累计 Stage 2 资产 5 篇 (why_control_plane / why_control_plane_zh / audit_is_regression_not_prevention / seven_failure_scenarios / why_control_plane_is_convergence_engine + en). V3 路标 pip install ontology-engine 终极目标的话语权层素材已完整沉淀.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-05-04",
       "what": "V37.9.24: kb_sources_to_index machine_sync 升级 (named-dispatch refactor + Plan B 渐进 dry-run) + openclaw_config_to_runtime mock 化加固 + 立场文章 Why Control Plane = Convergence Engine. 三件套并行: (B) named-dispatch 重构 _apply_machine_sync 为顶层 dispatcher, _APPLY_FUNCTIONS dict 路由 jobs_to_crontab_per_entry / kb_embed_incremental, kb_sources_to_index drift_action alert_only → machine_sync (one-shot pattern: 单次 kb_embed.py incremental subprocess 覆盖所有 missing sources, 与 jobs_to_crontab 的 per-entry pattern 不同). (C) TestOpenclawConfigToRuntimeMockRuntime 6 单测: mock ~/.openclaw/openclaw.json + monkey-patch HOME + 真跑 verify_convergence (V37.9.22 hotfix 教训横向扩展). (A) docs/articles/why_control_plane_is_convergence_engine.md 304 行立场文章: 2 错觉 + V37.9.19~24 工程证据 + drift_action 4 档洞察 + OPA/Kyverno 对比 + V3 路标 pip install ontology-engine + 5 条可落地原则. 反向验证: yaml apply_function 改坏 → 立即抓; spec yaml json_paths 改坏 → 立即抓. 累计: 48 suites / 1712→1739 tests (+27, V37.9.24 6+7+4+8+2=27 单测) / 0 fail / governance 66 inv / 380→387 checks (+7) / 17 meta rules / 安全 95/100 / VERSION 0.37.9.23→0.37.9.24. machine_sync spec 数 1→2.",
       "by": "claude_code"
     },
@@ -197,11 +202,6 @@
     {
       "date": "2026-04-23",
       "what": "V37.9.13 架构清理: restart.sh 单一 manager 契约. Adapter + Proxy 改用 launchctl kickstart -k (消除 V37.9.12.1 发现的 nohup + launchd KeepAlive 双管理抢端口血案). 新增 restart_via_launchd helper 函数: kickstart 主路径 + bootstrap fallback + 5×2s 健康验证 + 返回码 0/1/2 语义 (2=launchd 不可用→走 nohup fallback). V37.8.13 Gateway 健康验证模式扩展到 adapter/proxy. INV-RESTART-001 (MR-9, severity=high) 加 8 checks 含 2 runtime python_assert: nohup 必在 fallback 分支 + set -e 安全的 `|| _rc=$?` 模式守卫. 20 新单测 test_restart_launchd.py: TestRestartVialaunchdHelper(6) + TestAdapterViaLaunchd(3) + TestProxyViaLaunchd(2) + TestSingleManagerInvariant(5) + TestShellExecutability(3) + TestRuntimeHelperBehavior(1 subprocess 实跑). Gateway V37.8.13 逻辑 + #48703 hotfix 段完整保留. full_regression +1 suite: 43 suites / 1299→1319 tests (+20) / 0 fail / governance 59→60 invariants. MR-9 扩展: 原针对 KB sources 写入, 现扩展到进程管理层 — 进程启停必须走单一管理通道.",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-04-23",
-      "what": "V37.9.13 Phase 4 P2 context evaluator + 第二条 policy 切换 (max-tool-calls-per-task). engine.py: 6 context matchers + _CONTEXT_EVALUATORS dispatch + evaluate_policy() 三档扩展 (context=None/未注册/异常). proxy_filters.py: _resolve_max_tool_calls_per_task_limit() 镜像 V37.9.12 5档 safe-fallback. config_loader.py: MAX_TOOL_CALLS_PER_TASK 加载 (config.yaml 已声明但从未加载). policy_ontology.yaml meta 0.1-skeleton→0.2-p2-partial. +47 新单测 (37 engine 含半开区间 7 点 boundary + datetime.now.hour 解析 + OpenAI content blocks 双格式 + evaluator 异常不冒泡 + 未注册 policy 不崩溃; 9 tool_proxy 5档 safe-fallback 独立 monkey-patch + MR-8 copy-paste 防御源码守卫; 1 skeleton 横向一致性). 42 suites / 1299 tests / 0 fail / 安全 95/100. MR-8 正面案例兑现: 写两份独立 resolver 优于泛化 _resolve(policy_id) —— 每条 policy 启动日志独立便于 grep + 未来可加 policy-specific 日志/告警/指标. Phase 4 P3 候选: 三阶段门控 + 第三条 policy 切换.",
       "by": "claude_code"
     }
   ],
