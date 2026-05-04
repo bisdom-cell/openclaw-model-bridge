@@ -14,8 +14,8 @@
 # alert_only observation data per spec.
 
 meta:
-  version: "0.5-machine-sync-dry-run"
-  status: "framework_jobs_to_crontab_machine_sync_dry_run_one_week_observation"
+  version: "0.6-named-dispatch-apply-functions"
+  status: "framework_two_specs_machine_sync_named_dispatch_dry_run"
   description: |
     Phase 4 Layer 5 of the ontology stack. Layer 1 (domain) describes WHAT
     exists, Layer 2 (policy) describes WHAT'S ALLOWED, Layer 3 (three-gate)
@@ -107,6 +107,43 @@ meta:
       - _format_cron_line 拒绝 shell metacharacter (defense-in-depth, registry typo 不可命令注入)
       - subprocess 失败 → apply_errors 收集, FAIL-OPEN 不冒泡
 
+  v37_9_24_changelog: |
+    Three deliverables in one V37.9.24 push:
+
+    (1) Named-dispatch refactor for apply functions (mirrors V37.9.20 dispatch
+        for declared extractors / V37.9.13 for context evaluators):
+        - _APPLY_FUNCTIONS dict maps apply_function name → handler
+        - _apply_machine_sync becomes top-level dispatcher reading
+          spec.convergence_method.apply_function field
+        - V37.9.23 jobs_to_crontab logic moved to _apply_jobs_to_crontab_per_entry
+          (zero behavior change; legacy id-based fallback preserves V37.9.23 spec
+          compat for transition)
+        - Adding new machine_sync spec types now requires only: new apply
+          function + new dispatch entry + spec yaml apply_function field
+
+    (2) kb_sources_to_index escalated alert_only → machine_sync (Plan B dry-run):
+        - New _apply_kb_embed_incremental handler: single python3 kb_embed.py
+          call (incremental by default — mtime diff + only re-embed changed),
+          one-shot covering all missing sources at once (vs jobs_to_crontab
+          per-entry pattern). Closes V37.9.22 blocker "should be incremental
+          not full re-build" — kb_embed.py default mode IS incremental, V37.9.22
+          mistakenly assumed it was full re-index.
+        - Spec yaml: drift_action machine_sync + apply_function kb_embed_incremental
+        - dry-run default True (CONVERGENCE_DRY_RUN env), V37.9.25+ flip to
+          activate after one-week observation period
+
+    (3) openclaw_config_to_runtime mock-based runtime hardening:
+        - V37.9.22 4/29 hotfix lesson horizontally extended to third spec
+        - TestOpenclawConfigToRuntimeMockRuntime: mock ~/.openclaw/openclaw.json
+          + monkey-patch HOME → tempdir + real verify_convergence subprocess
+        - Field-name regression guard (release_version regression caught in
+          reverse verification — flips test red instantly)
+
+    Two specs now use machine_sync (drift_action), one stays alert_only
+    (providers — no automated remediation possible since API keys are
+    operator-provisioned), one stays alert_only_permanent (openclaw — runtime
+    state changes are operator decisions).
+
 convergence_specs:
 
   # ── jobs_to_crontab (V37.9.19 first spec) ──────────────────────────────
@@ -155,11 +192,12 @@ convergence_specs:
 
     convergence_method:
       implemented: machine_sync_via_helper  # V37.9.23 落地, 替代 V37.9.19 planned
+      apply_function: jobs_to_crontab_per_entry  # V37.9.24 named-dispatch
       helper: "bash $HOME/crontab_safe.sh add '<line>'"
       cron_line_format: |
         <interval> bash -lc 'bash ~/<entry> >> <log> 2>&1'
         (V37.9.23 _format_cron_line 实现, 匹配 V37.9.18 INV-CRON-003 模式)
-      apply_path: convergence._apply_machine_sync
+      apply_path: convergence._apply_jobs_to_crontab_per_entry
       dry_run_env_var: CONVERGENCE_DRY_RUN
       dry_run_default: true                  # V37.9.23 安全默认, V37.9.24+ 切关
       v37_9_19_blocker_resolution: |
@@ -381,27 +419,44 @@ convergence_specs:
         will raise SystemExit / decoding error → observer_failed for ops
         visibility.
 
-    drift_action: alert_only
+    drift_action: machine_sync
     drift_action_rationale: |
-      machine_sync 是技术可达的 — 跑 `bash kb_embed.py` 重建 index 就能消除
-      drift。但 V37.9.22 仍保守 alert_only 起步：
-        (a) 一周观察期看 false-positive 频率（如 chunks list size 限制 vs
-            真实未索引的歧义）
-        (b) machine_sync 路径需要新增 "convergence trigger → kb_embed.py
-            re-index"，不在 V37.9.22 范围
-      V37.9.23+ 候选：升级到 machine_sync 让 governance audit cron 在 drift
-      时自动调用 kb_embed.py。
+      V37.9.22 起步 alert_only (一周观察期收集 false-positive 数据). V37.9.24
+      升级 machine_sync, Plan B 渐进 dry-run (与 V37.9.23 jobs_to_crontab
+      同款安全路径). kb_embed.py 默认是增量模式 (mtime diff + 只重 embed
+      变化文件), 调用一次覆盖所有 missing sources, 与 jobs_to_crontab 的
+      per-entry helper call 模式不同 — kb_sources_to_index 用 single
+      kb_embed.py incremental call 模式.
+
+      升级模式 (Plan B 渐进 dry-run, V37.9.24):
+        - drift_action: machine_sync (本字段)
+        - 默认 dry-run via CONVERGENCE_DRY_RUN env (V37.9.23 同款安全默认)
+        - V37.9.25+ 一周观察后切关 dry-run 默认让真激活
+        - "DRY-RUN would run: python3 ~/openclaw-model-bridge/kb_embed.py
+           (incremental, 11 missing sources: arxiv_daily.md, freight_daily.md,
+           ...)" 字面量可观测 (V37.9.24 preflight 实测 11 待索引正是 spec 预期场景)
 
     convergence_method:
-      planned: machine_sync_via_helper
-      planned_helper: "bash $HOME/openclaw-model-bridge/kb_embed.py"
-      planned_blocker: |
-        V37.9.22 一周观察期内 alert_only。kb_embed.py 全量重建是幂等的
-        (内部锁机制 V37.8 引入)，technically safe to auto-trigger，但需要
-        更慎重：
-        - 重建会触发 LLM embedding 调用，有 cost/latency 影响
-        - 应该只对真正 drift 的 source 增量重建，不是全量
-        V37.9.23+ 实现增量 re-index 路径后再升级。
+      implemented: machine_sync_via_helper  # V37.9.24 落地, 替代 V37.9.22 planned
+      apply_function: kb_embed_incremental  # V37.9.24 named-dispatch
+      helper: "python3 $HOME/openclaw-model-bridge/kb_embed.py"
+      apply_path: convergence._apply_kb_embed_incremental
+      dry_run_env_var: CONVERGENCE_DRY_RUN
+      dry_run_default: true                  # V37.9.24 安全默认, V37.9.25+ 切关
+      v37_9_22_blocker_resolution: |
+        V37.9.22 planned_blocker 是 "应该只对真正 drift 的 source 增量重建,
+        不是全量". V37.9.24 实证: kb_embed.py 默认模式 (无 --reindex 参数)
+        本身就是增量 (mtime diff + 只重 embed 变化文件), V37.9.22 误以为是
+        全量重建. V37.9.24 _apply_kb_embed_incremental 调 `python3 kb_embed.py`
+        无参数 = 增量, 直接闭环 V37.9.22 blocker 不需要新增 CLI args.
+      one_shot_vs_per_entry: |
+        与 V37.9.23 jobs_to_crontab (per-entry crontab_safe.sh add) 不同, 本
+        spec 用 single kb_embed.py call 覆盖所有 missing sources:
+        (a) kb_embed.py 加载 embedding 模型有 ~3s 启动开销, per-entry 调用
+            会 amortize poorly
+        (b) kb_embed.py 内部 mtime-diff 已是 batch 处理逻辑
+        (c) idempotent — V37.8 引入内部锁, 重复调用安全
+        这是 V37.9.20 named-dispatch 的多种 apply 路径设计的实证.
 
     governance_invariant: INV-CONVERGENCE-KB-001
     blood_lesson_link: ontology/docs/cases/kb_content_and_sources_dedup_case.md

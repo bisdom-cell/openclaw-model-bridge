@@ -1,5 +1,5 @@
 {
-  "updated": "2026-05-04 00:09:47",
+  "updated": "2026-05-04 00:45:24",
   "updated_by": "full_regression",
   "priorities": [
     {
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-05-04",
+      "what": "V37.9.24: kb_sources_to_index machine_sync 升级 (named-dispatch refactor + Plan B 渐进 dry-run) + openclaw_config_to_runtime mock 化加固 + 立场文章 Why Control Plane = Convergence Engine. 三件套并行: (B) named-dispatch 重构 _apply_machine_sync 为顶层 dispatcher, _APPLY_FUNCTIONS dict 路由 jobs_to_crontab_per_entry / kb_embed_incremental, kb_sources_to_index drift_action alert_only → machine_sync (one-shot pattern: 单次 kb_embed.py incremental subprocess 覆盖所有 missing sources, 与 jobs_to_crontab 的 per-entry pattern 不同). (C) TestOpenclawConfigToRuntimeMockRuntime 6 单测: mock ~/.openclaw/openclaw.json + monkey-patch HOME + 真跑 verify_convergence (V37.9.22 hotfix 教训横向扩展). (A) docs/articles/why_control_plane_is_convergence_engine.md 304 行立场文章: 2 错觉 + V37.9.19~24 工程证据 + drift_action 4 档洞察 + OPA/Kyverno 对比 + V3 路标 pip install ontology-engine + 5 条可落地原则. 反向验证: yaml apply_function 改坏 → 立即抓; spec yaml json_paths 改坏 → 立即抓. 累计: 48 suites / 1712→1739 tests (+27, V37.9.24 6+7+4+8+2=27 单测) / 0 fail / governance 66 inv / 380→387 checks (+7) / 17 meta rules / 安全 95/100 / VERSION 0.37.9.23→0.37.9.24. machine_sync spec 数 1→2.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-05-04",
       "what": "V37.9.23: jobs_to_crontab → machine_sync 升级 (Plan B 渐进 dry-run) + spec yaml command 字段读取层 mock 化测试加固 (V37.9.22 hotfix 教训闭环). 5/3 决策窗口到达, baseline 4/26 + 7d 一周观察期内 declared=36 observed=36 零漂移零误报. drift_action 从 alert_only 升级为 machine_sync, framework 内部新增 _format_cron_line + _apply_machine_sync + _is_dry_run, 通过 crontab_safe.sh add helper 真同步 cron line. 默认 dry-run 模式 (CONVERGENCE_DRY_RUN env 控制), V37.9.24+ 一周后切关 dry-run 真激活. ConvergenceResult namedtuple 加 3 字段 (applied_actions/apply_dry_run/apply_errors) 默认值向后兼容. governance INV-CONVERGENCE-CRON-001 +8 declaration grep guards (新 helpers/常量/yaml v37_9_23_changelog/dry_run_default 字面量). governance_checker print_convergence_results 显示 apply[dry-run]=36 apply_errors=0 可观测. 同时 V37.9.23 加固 (TestKbSourcesToIndexCommandRuntime 6 单测): mock meta.json + monkey-patch HOME + 真跑 spec yaml python oneliner subprocess. 反向验证已确认两层守卫真有效 (字段名回归 + drift_action 回归立即抓). 累计: 47→47 suites / 1670→1712 tests (+42, V37.9.23 plan B 6+11+5+6+5+8+1) / 0 fail / governance 66 inv 不变 / 372→380 checks (+8) / 17 meta rules / 安全 95/100 / VERSION 0.37.9.22→0.37.9.23.",
       "by": "claude_code"
     },
@@ -198,11 +203,6 @@
       "date": "2026-04-23",
       "what": "V37.9.13 Phase 4 P2 context evaluator + 第二条 policy 切换 (max-tool-calls-per-task). engine.py: 6 context matchers + _CONTEXT_EVALUATORS dispatch + evaluate_policy() 三档扩展 (context=None/未注册/异常). proxy_filters.py: _resolve_max_tool_calls_per_task_limit() 镜像 V37.9.12 5档 safe-fallback. config_loader.py: MAX_TOOL_CALLS_PER_TASK 加载 (config.yaml 已声明但从未加载). policy_ontology.yaml meta 0.1-skeleton→0.2-p2-partial. +47 新单测 (37 engine 含半开区间 7 点 boundary + datetime.now.hour 解析 + OpenAI content blocks 双格式 + evaluator 异常不冒泡 + 未注册 policy 不崩溃; 9 tool_proxy 5档 safe-fallback 独立 monkey-patch + MR-8 copy-paste 防御源码守卫; 1 skeleton 横向一致性). 42 suites / 1299 tests / 0 fail / 安全 95/100. MR-8 正面案例兑现: 写两份独立 resolver 优于泛化 _resolve(policy_id) —— 每条 policy 启动日志独立便于 grep + 未来可加 policy-specific 日志/告警/指标. Phase 4 P3 候选: 三阶段门控 + 第三条 policy 切换.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-04-22",
-      "what": "V37.9.12.1 Mac Mini 部署验证 + plist 配置债发现修复: (1) 推翻 V37.9.12 changelog 关于 safe-fallback 的假设 — 实测 ~/ontology 是 symlink → ~/openclaw-model-bridge/ontology，Phase 4 P1 wiring 在生产真实生效，/health 返回 0.37.9.12，日志 [proxy] max-tools-per-agent: using ontology limit=12 (Phase 4 P1 wiring active) (2) 发现 launchd plist 未入 FILE_MAP = 纯本地配置，如 plist 丢失/重装需手动重建 — 登记 V37.9.13 候选 ship plist template through auto_deploy (3) 发现 com.openclaw.proxy.plist 导致 launchd 进程始终以 ONTOLOGY_MODE=shadow 启动的配置漂移，但 plist 本身没有 ONTOLOGY_MODE env 声明 — shadow 来源未追到（不是 launchctl getenv/shell rc/proxy_filters 默认值/pycache diff）；通过 PlistBuddy Add :EnvironmentVariables:ONTOLOGY_MODE string on 显式覆盖已修复 (4) 发现 com.openclaw.adapter.plist 同款双管理冲突 — restart.sh manual 进程 + launchd KeepAlive 抢端口 = launchctl list 显示 crash-loop。architectural debt 登记 V37.9.13 候选: restart.sh 改用 launchctl kickstart 替代 nohup python，消除双管理。(5) 结论: V37.9.12 Phase 4 P1 wiring 真实 in production，昨日误判 Mac Mini 走 fallback 是错的。",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -272,14 +272,14 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 1712,
-    "last_regression": "2026-05-04 00:09 pass",
+    "test_count": 1739,
+    "last_regression": "2026-05-04 00:45 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-05-04 00:09",
+    "security_score_time": "2026-05-04 00:45",
     "test_suites": 48,
     "governance_invariants": "64/64",
     "governance_checks": "350/350",
-    "version": "0.37.9.23"
+    "version": "0.37.9.24"
   },
   "incidents": [
     {
@@ -343,7 +343,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.23 收工 — jobs_to_crontab machine_sync 升级 (Plan B 渐进 dry-run) + spec mock 化加固 + 1712 tests / 380 checks / 安全 95/100 / VERSION 0.37.9.23. 等用户合并 PR + Mac Mini 同步 + governance audit 看 apply[dry-run]=36 字面量 + 一周观察期 (5/4 baseline → 5/11 决策窗口) 后切关 CONVERGENCE_DRY_RUN env 真激活 machine_sync.",
+  "focus": "V37.9.24 收工 — kb_sources_to_index machine_sync (named-dispatch) + openclaw mock 加固 + 立场文章 Convergence Engine / 1739 tests / 387 checks / 安全 95/100 / VERSION 0.37.9.24 / machine_sync spec 1→2 (jobs_to_crontab + kb_sources_to_index 都默认 dry-run). 等用户合并 PR + Mac Mini 同步 + 一周观察期 (5/4 baseline → 5/11 决策窗口) 后切关 CONVERGENCE_DRY_RUN env 真激活两个 spec 的 machine_sync.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
@@ -377,7 +377,8 @@
     "V37.9.22 提交未 PR merge 等用户在 GitHub 操作 — 5 commits (d55fb66 tripwire / cad1821 双小迭代 / 2da9c70 第四 spec / 2554adc integration / 待 CLAUDE.md changelog 提交) 在 claude/start-daily-work-T8ZEE 分支",
     "V37.9.22 Mac Mini 验证待用户操作: PR merge 后 (1) git fetch origin main && git reset --hard origin/main (2) bash preflight_check.sh --full 验证仓库一致 (3) python3 ontology/governance_checker.py --full 看 convergence section 4 spec 真实数字 (jobs_to_crontab 应 36/36 zero drift / providers_to_adapter 应 5/7 missing 因缺 API key / openclaw_config_to_runtime 看 openclaw.json 是否含 version 字段 / kb_sources_to_index 应 14/14 zero drift)",
     "V37.9.23 加固候选 (基于 V37.9.22 hotfix 教训): spec 单测 mock meta.json 跑 spec 实际 command 验证字段读取 — 覆盖 observer command 语义层. dev 测试 extractor 逻辑正确不等于 spec command 在生产读对字段, 需要 fixture-based command-level test. 同款思路应用所有 4 spec.",
-    "V37.9.24 候选: 一周 dry-run 观察期收集 cron line 拼接结果, 验证 _format_cron_line 输出与 Mac Mini 真实 crontab 行字面一致后, 切关 CONVERGENCE_DRY_RUN env 默认值让 machine_sync 真激活. 预计决策窗口 2026-05-11. 在 Mac Mini 跑 'CONVERGENCE_DRY_RUN=0 python3 -m governance_checker' 试运行验证后修改 _is_dry_run 默认值."
+    "V37.9.24 候选: 一周 dry-run 观察期收集 cron line 拼接结果, 验证 _format_cron_line 输出与 Mac Mini 真实 crontab 行字面一致后, 切关 CONVERGENCE_DRY_RUN env 默认值让 machine_sync 真激活. 预计决策窗口 2026-05-11. 在 Mac Mini 跑 'CONVERGENCE_DRY_RUN=0 python3 -m governance_checker' 试运行验证后修改 _is_dry_run 默认值.",
+    "V37.9.25 候选: 一周 dry-run 观察期 (5/4 baseline → 5/11 决策窗口) 收集两个 machine_sync spec 的 apply 字面量验证. jobs_to_crontab 验证 cron line 拼接结果与生产 crontab 行字面一致, kb_sources_to_index 验证 kb_embed.py 增量调用产 'applied: kb_embed.py incremental (N missing sources)' 真同步成功. 都符合预期后切关 _is_dry_run() 默认值让 CONVERGENCE_DRY_RUN=1 才 dry-run, 真激活 machine_sync."
   ],
   "_meta": {
     "last_updated_by": "claude_code"
