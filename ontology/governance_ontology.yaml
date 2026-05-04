@@ -4599,23 +4599,52 @@ invariants:
       其 entry 脚本名必须出现在 macOS crontab 的某一行。convergence framework
       把"声明 → 运行时事实"同步从"靠记忆"升级为"机器可检测"。
 
-      首期 (V37.9.19) drift_action=alert_only：发现漂移仅产 alert，
-      不自动修复。machine_sync 升级延后到 V37.9.20+ 一周观察期之后。
+      V37.9.19 起步 drift_action=alert_only（保守起步）。V37.9.23 (5/3 决策
+      窗口, baseline 4/26 + 7d 一周观察期到达) 升级到 drift_action=machine_sync,
+      Plan B 渐进 dry-run 模式 (CONVERGENCE_DRY_RUN env var 控制, 默认 dry-run
+      安全). framework 内部新增 _format_cron_line + _apply_machine_sync +
+      _is_dry_run, 通过 crontab_safe.sh add helper 真正同步 cron line.
     lesson: |
       2026-04-26 V37.9.18 kb_deep_dive cron 未注册血案：V37.9.16 (4/24)
       上线时 jobs_registry 声明 enabled=true 但**没人手动 crontab_safe.sh add**，
       4/24 + 4/25 两次预期 22:30 触发完全静默，2026-04-26 用户察觉浮现。
       MR-17 (declared-state-must-converge-to-runtime-via-machine-not-memory)
       立案 + INV-CONVERGENCE-CRON-001 是其首个具体不变式。
+
+      V37.9.23 升级到 machine_sync 兑现 MR-17 真正承诺 — 从"机器可检测"
+      升级到"机器可同步"。Plan B 渐进路径 (V37.9.19 alert_only 起步 →
+      V37.9.23 machine_sync + 默认 dry-run → V37.9.24+ 切关 dry-run 真激活)
+      把"高 blast-radius 操作"分两阶段降低风险:
+        - 阶段 1 (V37.9.19~22): 验证 declared_set vs runtime_set 比对正确
+        - 阶段 2 (V37.9.23): 验证 cron line 拼接结果与生产 crontab 行字面一致
+                             (默认 dry-run 让 operator 看到 "would apply: ..."
+                              字面量再决定切关 dry-run)
+        - 阶段 3 (V37.9.24+): 切关 dry-run 让 governance audit cron 真激活
+                              machine_sync.
     design_decision: |
-      为什么先 alert_only 而非直接 machine_sync？
+      为什么 V37.9.19 先 alert_only 而非直接 machine_sync？
         - 自动写入用户 crontab 是高 blast-radius 操作（误触可清空所有 cron）
-        - 一周生产观察确认零假阳性后再 V37.9.20 升级 machine_sync
+        - 一周生产观察确认零假阳性后再升级 machine_sync (V37.9.23 兑现)
         - 框架本身 V37.9.19 必须先稳定，spec 数据驱动才能可靠扩展
+      为什么 V37.9.23 选 Plan B (渐进 dry-run) 而非 Plan A (保守 manual --apply)
+      或 Plan C (激进直切)?
+        - Plan A: framework wiring 完整但默认行为不变 — 没真正 escalation
+        - Plan C: drift_action machine_sync 直接生效 — 第一次 audit cron 跑
+          就可能误触，没安全网
+        - Plan B: drift_action 升级 + 默认 dry-run env var 控制 — 真值落地
+          但安全默认；operator 可在 Mac Mini 看 dry-run log 字面量验证
+          cron line 拼接正确，确信后切关 env 真激活。这是 V37.9.13 P2
+          context evaluator 同款 "shadow → on" 模式在 convergence 层的
+          兑现。
       为什么 framework 设计为 named extractor + observer + parser dispatch?
         - 镜像 V37.9.13 _CONTEXT_EVALUATORS / V37.9.15 _STATIC_SIGNAL_KEYS 模式
         - 添加新 spec 类型只需 yaml 声明 + 注册新 extractor/observer/parser
         - 避免每加一个 declared resource 就改一遍 framework 代码（MR-8 兑现）
+      为什么 _format_cron_line 拒绝 shell metacharacter (defense-in-depth)?
+        - registry typo 不可命令注入 — 即便有人误把 entry 写成 "foo.sh; rm -rf /"
+          也不会执行恶意命令 (拒绝 ' / ` / $( / ; / & / | 等 metachar)
+        - 即便所有上层校验失败 (registry 语法错 / yaml load 漏过), 这层
+          字面量守卫是最后防线
     checks:
       - name: "ontology/convergence.py 存在且带 V37.9.19 头注释"
         check_type: file_contains
@@ -4653,14 +4682,53 @@ invariants:
         check_type: file_contains
         file: ontology/convergence_ontology.yaml
         pattern: 'id: jobs_to_crontab'
-      - name: "jobs_to_crontab drift_action=alert_only（V37.9.19 保守默认）"
-        check_type: file_contains
-        file: ontology/convergence_ontology.yaml
-        pattern: 'drift_action: alert_only'
+      # V37.9.23: 移除 V37.9.19 的 'drift_action: alert_only' 字面量守卫
+      # (yaml 全文仍含其他 spec 的 alert_only 条目, file_contains 无法限定到
+      # jobs_to_crontab 块. 块级守卫已迁移到 test_convergence.py 的
+      # TestVerifyConvergenceMachineSyncIntegration::test_jobs_to_crontab_real_yaml_says_machine_sync
+      # 通过 cv.get_spec(...).get('drift_action') 精准比对. 见 RUNTIME check.)
       - name: "jobs_to_crontab 引用本 INV 作为 governance_invariant"
         check_type: file_contains
         file: ontology/convergence_ontology.yaml
         pattern: 'governance_invariant: INV-CONVERGENCE-CRON-001'
+      # ── V37.9.23 升级: machine_sync + dry-run 路径声明守卫 ─────────────
+      # 注: file_contains pattern 是 regex (re.search), 括号需 escape
+      - name: "V37.9.23: convergence.py _format_cron_line 函数定义"
+        check_type: file_contains
+        file: ontology/convergence.py
+        pattern: 'def _format_cron_line\(job\)'
+      - name: "V37.9.23: convergence.py _apply_machine_sync orchestrator 定义"
+        check_type: file_contains
+        file: ontology/convergence.py
+        pattern: 'def _apply_machine_sync\(spec, missing_entries'
+      - name: "V37.9.23: convergence.py _is_dry_run env reader 定义"
+        check_type: file_contains
+        file: ontology/convergence.py
+        pattern: 'def _is_dry_run\(\)'
+      - name: "V37.9.23: convergence.py CONVERGENCE_DRY_RUN env var 常量"
+        check_type: file_contains
+        file: ontology/convergence.py
+        pattern: '_DRY_RUN_ENV_VAR = "CONVERGENCE_DRY_RUN"'
+      - name: "V37.9.23: convergence.py _MACHINE_SYNC_TIMEOUT_SEC = 15 常量"
+        check_type: file_contains
+        file: ontology/convergence.py
+        pattern: '_MACHINE_SYNC_TIMEOUT_SEC = 15'
+      - name: "V37.9.23: verify_convergence wires drift_action machine_sync 分支"
+        check_type: file_contains
+        file: ontology/convergence.py
+        pattern: 'drift_action == "machine_sync"'
+      - name: "V37.9.23: convergence_ontology.yaml jobs_to_crontab 升级 machine_sync"
+        check_type: file_contains
+        file: ontology/convergence_ontology.yaml
+        pattern: 'implemented: machine_sync_via_helper'
+      - name: "V37.9.23: convergence_ontology.yaml dry_run_default 安全默认"
+        check_type: file_contains
+        file: ontology/convergence_ontology.yaml
+        pattern: 'dry_run_default: true'
+      - name: "V37.9.23: convergence_ontology.yaml v37_9_23_changelog 段记录升级"
+        check_type: file_contains
+        file: ontology/convergence_ontology.yaml
+        pattern: 'v37_9_23_changelog'
       - name: "convergence_ontology meta 引用 MR-17"
         check_type: file_contains
         file: ontology/convergence_ontology.yaml
@@ -5047,10 +5115,12 @@ invariants:
         check_type: file_contains
         file: ontology/convergence_ontology.yaml
         pattern: 'governance_invariant: INV-CONVERGENCE-KB-001'
-      - name: "convergence_ontology meta version 升级到 0.4-fourth-spec"
+      - name: "convergence_ontology meta version 升级到 ≥ 0.4 (V37.9.22 0.4-fourth-spec → V37.9.23 0.5-machine-sync-dry-run)"
         check_type: file_contains
         file: ontology/convergence_ontology.yaml
-        pattern: '0.4-fourth-spec'
+        # V37.9.22 起步 0.4-fourth-spec; V37.9.23 升级到 0.5-machine-sync-dry-run.
+        # regex alternation: 任一字面量出现即 pass (向前兼容下个 minor 版本升级)
+        pattern: '0\.4-fourth-spec|0\.5-machine-sync-dry-run'
       - name: "convergence_ontology meta 引用本 INV (related_invariants)"
         check_type: file_contains
         file: ontology/convergence_ontology.yaml
