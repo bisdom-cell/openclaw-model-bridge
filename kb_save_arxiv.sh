@@ -61,7 +61,7 @@ echo "[kb_save_arxiv] KB写入完成 ${DATE}"
 
 # 同步备份到外挂SSD（V37.9.4: 失败 log WARN 而非静默吞错，MR-4 silent-failure 修复）
 if [ -d "/Volumes/MOVESPEED" ]; then
-  rsync -a ~/.kb/ /Volumes/MOVESPEED/KB/ 2>&1 || { _rc=$?; echo "[kb_save_arxiv] WARN: SSD rsync failed (exit=$_rc)" >&2; "$HOME/movespeed_incident_capture.sh" "$_rc" "$0"; }  # V37.9.14 incident forensics (INV-BACKUP-001 check 4)
+  bash "$HOME/movespeed_rsync_helper.sh" "$0" -- -a ~/.kb/ /Volumes/MOVESPEED/KB/  # V37.9.27 jitter+retry+fail-loud+capture (replaces V37.9.4/V37.9.14 inline pattern)
   echo "[kb_save_arxiv] 已同步备份到 /Volumes/MOVESPEED/KB/"
 else
   echo "[kb_save_arxiv] 外挂SSD未挂载，跳过备份"

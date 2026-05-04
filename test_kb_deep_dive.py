@@ -748,9 +748,14 @@ class TestKbDeepDiveShellGuards(unittest.TestCase):
         self.assertIn("--topic deep_dive", self.content)
 
     def test_script_has_rsync_with_forensics(self):
-        """V37.9.14 INV-BACKUP-001 check 4: rsync+MOVESPEED 必须调 incident capture"""
-        self.assertIn("rsync", self.content)
-        self.assertIn("movespeed_incident_capture.sh", self.content)
+        """V37.9.14 INV-BACKUP-001 check 4: rsync+MOVESPEED 必须调 incident capture
+        V37.9.27 升级: site 用 movespeed_rsync_helper.sh, helper 内部接管 capture"""
+        # V37.9.14 旧契约 OR V37.9.27 新契约 任一满足即合规
+        has_legacy = "movespeed_incident_capture.sh" in self.content
+        has_v37_9_27_helper = "movespeed_rsync_helper.sh" in self.content
+        self.assertTrue(has_legacy or has_v37_9_27_helper,
+            "V37.9.14: site 需调 movespeed_incident_capture.sh OR "
+            "V37.9.27: 通过 movespeed_rsync_helper.sh 间接调用 (helper 内部接管)")
 
     def test_script_fail_fast_on_llm_failed(self):
         """llm_failed 分支必须 exit 1（fail-fast 契约）"""

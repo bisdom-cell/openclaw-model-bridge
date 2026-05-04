@@ -4207,6 +4207,10 @@ invariants:
                   # (same exemption as INV-INCIDENT-001 site detection logic).
                   if fn == "job_watchdog.sh":
                       continue
+                  # V37.9.27: helper itself emits "WARN: SSD" string but its
+                  # OWN file shouldn't be checked as a "site" — exempt.
+                  if fn == "movespeed_rsync_helper.sh":
+                      continue
                   p = os.path.join(root, fn)
                   try:
                       with open(p, "r", encoding="utf-8") as f:
@@ -4214,6 +4218,12 @@ invariants:
                   except (IOError, UnicodeDecodeError):
                       continue
                   if "rsync" in content and "MOVESPEED" in content:
+                      # V37.9.27: sites that use movespeed_rsync_helper.sh delegate
+                      # the WARN: SSD contract to helper internals — exempt from
+                      # site-level WARN: SSD literal check (helper is single
+                      # source of truth, MR-8 兑现).
+                      if "movespeed_rsync_helper.sh" in content:
+                          continue
                       if "WARN: SSD" not in content:
                           missing.append(p)
           assert not missing, (
@@ -4274,6 +4284,9 @@ invariants:
                   # rsync sites — skip to avoid false-positive forensic checks.
                   if fn == "job_watchdog.sh":
                       continue
+                  # V37.9.27: helper itself doesn't need this check
+                  if fn == "movespeed_rsync_helper.sh":
+                      continue
                   p = os.path.join(root, fn)
                   try:
                       with open(p, "r", encoding="utf-8") as f:
@@ -4283,6 +4296,10 @@ invariants:
                   if "rsync" not in content:
                       continue
                   if "MOVESPEED" not in content:
+                      continue
+                  # V37.9.27: sites using movespeed_rsync_helper.sh inherit the
+                  # incident capture wiring from helper internals — exempt.
+                  if "movespeed_rsync_helper.sh" in content:
                       continue
                   # helper 自身 MOVESPEED 在注释里，但无 rsync → 不会进到此处
                   if "movespeed_incident_capture.sh" not in content:
@@ -4417,6 +4434,121 @@ invariants:
           )
           assert proc.returncode == 0, (
               f"test_watchdog_freshness 单测失败:\n"
+              f"STDOUT={proc.stdout[-500:]}\nSTDERR={proc.stderr[-1500:]}"
+          )
+
+  - id: INV-RETRY-001
+    name: movespeed-rsync-uses-helper-with-jitter-and-retry
+    meta_rule: MR-4
+    verification_layer: [declaration, runtime]
+    severity: high
+    declaration: |
+      V37.9.27 主动修复 B 问题: V37.9.26 watchdog 第一次跑就立即抓到 24h
+      19 条 incident, 真相浮现 — V37.9.4 APFS 重建只解决文件系统层 fskit
+      EPERM, OS 调度层 SSD I/O 竞争仍每天 ~19 次 transient 失败影响 11 个
+      KB cron jobs (60 天 silent failure, MR-4 第 18 次演出, 架构假设级).
+
+      V37.9.27 三层主动修复:
+        Phase 1 错峰 30-180s 抖动 (避多 cron 同秒触发抢 SSD I/O 总线)
+        Phase 2 retry 3 次 10s/20s 指数退避 (transient EPERM 30s 内自愈)
+        Phase 3 全部失败才 fail-loud + 调 movespeed_incident_capture.sh
+
+      Helper 接口契约 (movespeed_rsync_helper.sh):
+        bash $HOME/movespeed_rsync_helper.sh <caller> -- <rsync args>
+      预期效果: 24h incident 数从 ~19 降到 <1 (95%+ 减少).
+
+      所有 20 个 EXPECTED rsync site 必须用 helper, 不再用 V37.9.4/V37.9.14
+      的 inline `rsync ... 2>&1 || { capture; }` 模式 (V37.9.27 完全替代).
+    lesson: |
+      V37.9.4 修文件系统层不修调度层 = 误判闭环. V37.9.14 取证不告警 = 60 天
+      silent failure 潜伏. V37.9.26 watchdog 主动消费 = 真相浮现. V37.9.27
+      retry+jitter = 真正修复.
+
+      MR-4 演出第 18 次新形态: **架构假设级** silent failure (前 17 次都
+      在代码层). "我以为闭环了" 比 "代码 bug" 更危险, 因为整个团队基于
+      错误假设继续工作 60 天.
+
+      原则 #28 反向兑现: 修复前必答三问之"这问题之前存在吗" — 之前**以为**
+      不存在 (V37.9.4 闭环), 实际**一直存在** (V37.9.14 数据从不撒谎).
+      跳过这一步 = V37.9.14~26 半年时间被浪费.
+
+      与 INV-BACKUP-001 (V37.9.4 fail-loud) + INV-INCIDENT-001 (V37.9.26
+      主动告警) 形成三阶段防御: 失败时取证 → 累积时告警 → 主动修复减少
+      失败. 三 INV 一起覆盖 detection → forensic → alert → recovery 完整链路.
+    design_decision: |
+      为什么 jitter 30-180s 而非最初设计的 5-15min?
+        - 5-15min sleep 让所有 cron job 推迟 5-15min, 数据延迟太大
+        - 30-180s 足以错开多 cron 同秒触发 (主问题), 平均 ~2min cron 漂移
+          可接受, retry 是真正的恢复主力
+      为什么 retry 3 次 10s/20s 指数退避?
+        - V37.9.26 数据: transient EPERM 通常 30s 内自愈
+        - 3 次 = 10s + 20s 共 30s 等待 + 3 次执行机会, 覆盖 transient 窗口
+        - 退避避免在 SSD I/O 高峰持续重试加剧拥塞
+      为什么独立 helper 而非 inline?
+        - MR-8 单一真理源 — 20 个 site 一处定义, 不漂移
+        - 单测可端到端跑 helper 行为 (24 单测覆盖)
+        - 未来调整 jitter/retry 参数只改一处
+        - V37.9.26 同款"独立 monitor 模块"模式横向扩展
+      为什么不用 retry=5 或更多?
+        - 数据: 99% 的 transient 在 30s 内恢复, 5+ 次过度
+        - SSD 真正不可用时 (mounting issue) 无限 retry 反加剧问题
+        - 阈值 3 是 "transient vs persistent" 的合理分界
+    checks:
+      # ── declaration: helper 文件 + 关键设计常量 ────────────────────
+      - name: "movespeed_rsync_helper.sh 存在于 repo root"
+        check_type: file_contains
+        file: movespeed_rsync_helper.sh
+        pattern: 'V37\.9\.27'
+      - name: "helper Phase 1 jitter 30-180s 抖动"
+        check_type: file_contains
+        file: movespeed_rsync_helper.sh
+        pattern: 'JITTER_S=\$\(\(30 \+ RANDOM % 151\)\)'
+      - name: "helper Phase 2 默认 MAX_ATTEMPTS=3"
+        check_type: file_contains
+        file: movespeed_rsync_helper.sh
+        pattern: 'MAX_ATTEMPTS="\$\{MOVESPEED_RSYNC_MAX_ATTEMPTS:-3\}"'
+      - name: "helper Phase 2 默认 BACKOFF_BASE=10"
+        check_type: file_contains
+        file: movespeed_rsync_helper.sh
+        pattern: 'BACKOFF_BASE="\$\{MOVESPEED_RSYNC_BACKOFF_BASE:-10\}"'
+      - name: "helper 防御性 clamp MAX_ATTEMPTS ≤ 10"
+        check_type: file_contains
+        file: movespeed_rsync_helper.sh
+        pattern: 'MAX_ATTEMPTS=10'
+      - name: "helper Phase 3 fail-loud WARN: SSD 字面量"
+        check_type: file_contains
+        file: movespeed_rsync_helper.sh
+        pattern: 'WARN: SSD rsync failed'
+      - name: "helper Phase 3 调 movespeed_incident_capture.sh"
+        check_type: file_contains
+        file: movespeed_rsync_helper.sh
+        pattern: 'movespeed_incident_capture\.sh'
+      - name: "helper env override: MOVESPEED_RSYNC_NO_SLEEP (testability)"
+        check_type: file_contains
+        file: movespeed_rsync_helper.sh
+        pattern: 'MOVESPEED_RSYNC_NO_SLEEP'
+      # ── declaration: auto_deploy FILE_MAP 部署 ────────────────────
+      - name: "auto_deploy.sh FILE_MAP 部署 movespeed_rsync_helper.sh"
+        check_type: file_contains
+        file: auto_deploy.sh
+        pattern: 'movespeed_rsync_helper\.sh\|\$HOME/movespeed_rsync_helper\.sh'
+      # ── runtime: 24 单测端到端通过 ─────────────────────────────────
+      - name: "RUNTIME: test_movespeed_rsync_helper.py 24 单测全过 (usage/env/success/retry/all-fail/capture/sites/source)"
+        check_type: python_assert
+        assertion: |
+          import subprocess
+          import sys
+          import os
+          repo_root = os.environ.get("OPENCLAW_REPO_ROOT", os.getcwd())
+          test_file = os.path.join(repo_root, "test_movespeed_rsync_helper.py")
+          assert os.path.exists(test_file), f"test_movespeed_rsync_helper.py 不存在: {test_file}"
+          proc = subprocess.run(
+              [sys.executable, test_file],
+              capture_output=True, text=True, timeout=120,
+              cwd=repo_root,
+          )
+          assert proc.returncode == 0, (
+              f"test_movespeed_rsync_helper 单测失败:\n"
               f"STDOUT={proc.stdout[-500:]}\nSTDERR={proc.stderr[-1500:]}"
           )
 
