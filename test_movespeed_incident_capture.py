@@ -390,6 +390,11 @@ class TestInvariantCoverage(unittest.TestCase):
                 # Helper itself doesn't call rsync — skip
                 if rel == "movespeed_incident_capture.sh":
                     continue
+                # V37.9.26: monitor consumers (read incidents.jsonl + alert)
+                # reference "rsync" + "MOVESPEED" strings ONLY in alert message
+                # text, never invoke rsync. Don't conflate with production sites.
+                if rel == "job_watchdog.sh":
+                    continue
                 try:
                     with open(path, "r", encoding="utf-8") as fp:
                         content = fp.read()

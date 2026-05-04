@@ -71,6 +71,9 @@ fi
 if [ -f test_movespeed_incident_capture.py ]; then
     run_suite "movespeed_incident_capture (V37.9.14 SSD rsync 事故取证 helper + INV-BACKUP-001 check 4)" "python3 test_movespeed_incident_capture.py"
 fi
+if [ -f test_movespeed_incident_monitor.py ]; then
+    run_suite "movespeed_incident_monitor (V37.9.26 watchdog 24h ≥5 incident 主动告警 + INV-INCIDENT-001)" "python3 test_movespeed_incident_monitor.py"
+fi
 if [ -f ontology/tests/test_governance_cron_matcher.py ]; then
     run_suite "governance_cron_matcher (INV-CRON-003/004 匹配器)" "python3 -m unittest ontology.tests.test_governance_cron_matcher"
 fi
