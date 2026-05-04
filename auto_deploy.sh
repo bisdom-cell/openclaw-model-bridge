@@ -140,6 +140,7 @@ declare -a FILE_MAP=(
     "providers.py|$HOME/providers.py"
     "memory_plane.py|$HOME/memory_plane.py"
     "VERSION|$HOME/VERSION"
+    "services_registry.yaml|$HOME/services_registry.yaml"  # V37.9.25 — 第 5 个 convergence spec data source
 
     # 运维脚本
     "restart.sh|$HOME/restart.sh"

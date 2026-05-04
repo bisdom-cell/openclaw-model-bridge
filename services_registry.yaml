@@ -1,0 +1,45 @@
+# services_registry.yaml — V37.9.25 Phase 4 Layer 5 fifth-spec data source
+#
+# Long-running services managed by macOS launchd (Mac Mini production).
+# Each entry declares a service that MUST be active (loaded by launchctl) at
+# all times. The convergence framework's `services_to_launchd` spec (V37.9.25)
+# verifies declared labels appear in `launchctl list` output.
+#
+# Why services live here, not in jobs_registry.yaml:
+#   - jobs_registry.yaml semantics = scheduled jobs (cron / openclaw cron),
+#     run-and-exit triggered by an external scheduler.
+#   - services_registry.yaml semantics = persistent processes (launchd-managed),
+#     KeepAlive=true, supervised + auto-restart by macOS.
+#   These are distinct concepts; mixing them muddles schema + check logic.
+#
+# Entry schema:
+#   id          (str, required) — short identifier (used by convergence framework)
+#   label       (str, required) — full launchd label (matches 'launchctl list' output)
+#   port        (int, optional) — TCP port the service binds (informational)
+#   plist       (str, optional) — plist filename under ~/Library/LaunchAgents/
+#                                 (informational; not yet checked by framework)
+#   description (str, required) — human-readable description for ops
+#
+# V37.9.25 — initial three services (adapter / proxy / gateway). Adding a new
+# service requires: (1) deploy plist to ~/Library/LaunchAgents/ + bootstrap,
+# (2) add entry here, (3) governance audit picks it up automatically.
+version: 1
+
+services:
+  - id: adapter
+    label: com.openclaw.adapter
+    port: 5001
+    plist: com.openclaw.adapter.plist
+    description: Adapter (Python, Qwen3 + Gemini fallback chain, /health on 5001)
+
+  - id: proxy
+    label: com.openclaw.proxy
+    port: 5002
+    plist: com.openclaw.proxy.plist
+    description: Tool Proxy (Python, ontology three-gate + custom tool injection, /health on 5002)
+
+  - id: gateway
+    label: ai.openclaw.gateway
+    port: 18789
+    plist: ai.openclaw.gateway.plist
+    description: OpenClaw Gateway (Node.js, WhatsApp + Discord channels, /health on 18789)

@@ -1,6 +1,6 @@
 {
-  "updated": "2026-05-04 01:36:50",
-  "updated_by": "claude_code",
+  "updated": "2026-05-04 01:49:40",
+  "updated_by": "full_regression",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-05-04",
+      "what": "V37.9.25: 第 5 个 convergence spec services_to_launchd 上线 — V37.9.13 候选 launchd plist 持久化方向闭环. 新增 services_registry.yaml (与 jobs_registry.yaml 平行的独立 declared source, 3 个 service: com.openclaw.adapter / com.openclaw.proxy / ai.openclaw.gateway). convergence.py 注册 _extract_services_from_registry extractor 到 _DECLARED_EXTRACTORS dict (第 5 次 named-dispatch 扩展验证, 镜像 V37.9.22 kb_sources_to_index minimal-extension 路径 — 只新加 1 extractor, 复用 V37.9.19 shell_command observer + line_contains_identifier parser). spec drift_action: alert_only 起步 (V37.9.19 同款保守路线), V37.9.26+ 一周观察后考虑 machine_sync 升级 (planned_helper: bash $HOME/restart.sh + per-service launchctl bootstrap). INV-CONVERGENCE-SERVICES-001 新增 (meta_rule=MR-17, severity=high, 16 checks: 14 declaration + 1 runtime python_assert subprocess 跑 V37.9.25 3 测试类). MR-17 derivative_invariants 升级 [..., INV-CONVERGENCE-SERVICES-001]. 新增 23 单测 3 类 (TestExtractServicesFromRegistry 4 + TestVerifyServicesToLaunchdIntegration 6 + TestServicesSpecSourceGuards 13). 反向验证: yaml label 改坏 (com.openclaw.adapter → com.openclaw.adapter_RENAMED) 立即抓. yaml meta version 0.6 → 0.7-fifth-spec-services-to-launchd. auto_deploy FILE_MAP 加 services_registry.yaml 部署. dev 环境跑通: declared=3 (com.openclaw.adapter/proxy/gateway), launchctl 不存在 → observer_failed FAIL-OPEN → missing=3 alert_only 输出. 累计 47→48 suites / 1739→1762 tests (+23) / 0 fail / governance 66→67 invariants (+1) / 387→403 checks (+16) / 17 meta rules / 安全 95/100 / VERSION 0.37.9.24 → 0.37.9.25 / convergence specs 4→5.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-05-04",
       "what": "V37.9.24 立场文章三渠道发布完成 (Stage 2 第 5 篇资产话语权输出兑现): 知乎中文版 (你的控制平面是收敛引擎，不只是策略引擎) + dev.to 英文版 (Why Your Control Plane Is a Convergence Engine, Not a Policy Engine) + Reddit 投递. 三件套并行收官: (B) framework 演进可扩展性证据 (C) V37.9.22 hotfix 教训横向加固 (A) framework 演进升级为对外可复述叙事. 累计 Stage 2 资产 5 篇 (why_control_plane / why_control_plane_zh / audit_is_regression_not_prevention / seven_failure_scenarios / why_control_plane_is_convergence_engine + en). V3 路标 pip install ontology-engine 终极目标的话语权层素材已完整沉淀.",
       "by": "claude_code"
     },
@@ -198,11 +203,6 @@
       "date": "2026-04-23",
       "what": "V37.9.13 Mac Mini 实测验证完美通过 (3/3 门): (1) restart.sh V37.9.13 新路径生效 — `[restart] Adapter: launchctl kickstart -k gui/501/com.openclaw.adapter` + `Adapter healthy (HTTP 200 after 1×2s)` 同款 Tool Proxy + Gateway V37.8.13 逻辑保留 (2) HOME vs repo diff 空 (首次跑旧版是因 auto_deploy 2min 轮询未触发, 手动 cp 后对齐) (3) tool_proxy.log 双 wiring 日志: Phase 4 P1 max-tools limit=12 + Phase 4 P2 max-tool-calls limit=2 (V37.9.13 新增). V37.9.12.1 双管理血案正式闭环 — launchctl kickstart 成功(非 No such service) + 健康验证即时 HTTP 200 + 新进程正确打印 P1+P2 wiring active = launchd-managed 进程完美启动无 nohup 双路竞争. 经验补充: FILE_MAP 映射的 HOME 副本(~/restart.sh)不会被 git reset 直接更新, 需等 auto_deploy 2min 轮询或手动 cp, 今日 session 教训.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-04-23",
-      "what": "V37.9.13 架构清理: restart.sh 单一 manager 契约. Adapter + Proxy 改用 launchctl kickstart -k (消除 V37.9.12.1 发现的 nohup + launchd KeepAlive 双管理抢端口血案). 新增 restart_via_launchd helper 函数: kickstart 主路径 + bootstrap fallback + 5×2s 健康验证 + 返回码 0/1/2 语义 (2=launchd 不可用→走 nohup fallback). V37.8.13 Gateway 健康验证模式扩展到 adapter/proxy. INV-RESTART-001 (MR-9, severity=high) 加 8 checks 含 2 runtime python_assert: nohup 必在 fallback 分支 + set -e 安全的 `|| _rc=$?` 模式守卫. 20 新单测 test_restart_launchd.py: TestRestartVialaunchdHelper(6) + TestAdapterViaLaunchd(3) + TestProxyViaLaunchd(2) + TestSingleManagerInvariant(5) + TestShellExecutability(3) + TestRuntimeHelperBehavior(1 subprocess 实跑). Gateway V37.8.13 逻辑 + #48703 hotfix 段完整保留. full_regression +1 suite: 43 suites / 1299→1319 tests (+20) / 0 fail / governance 59→60 invariants. MR-9 扩展: 原针对 KB sources 写入, 现扩展到进程管理层 — 进程启停必须走单一管理通道.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -272,14 +272,14 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 1739,
-    "last_regression": "2026-05-04 00:45 pass",
+    "test_count": 1762,
+    "last_regression": "2026-05-04 01:49 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-05-04 00:45",
+    "security_score_time": "2026-05-04 01:49",
     "test_suites": 48,
     "governance_invariants": "64/64",
     "governance_checks": "350/350",
-    "version": "0.37.9.24"
+    "version": "0.37.9.25"
   },
   "incidents": [
     {
@@ -343,7 +343,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.24 收工 — kb_sources_to_index machine_sync (named-dispatch) + openclaw mock 加固 + 立场文章 Convergence Engine / 1739 tests / 387 checks / 安全 95/100 / VERSION 0.37.9.24 / machine_sync spec 1→2 (jobs_to_crontab + kb_sources_to_index 都默认 dry-run). 等用户合并 PR + Mac Mini 同步 + 一周观察期 (5/4 baseline → 5/11 决策窗口) 后切关 CONVERGENCE_DRY_RUN env 真激活两个 spec 的 machine_sync.",
+  "focus": "V37.9.25 收工 — 第 5 个 convergence spec services_to_launchd (V37.9.13 闭环) / 1762 tests / 67 inv / 403 checks / 安全 95/100 / VERSION 0.37.9.25 / convergence spec 4→5. 等用户合并 PR + Mac Mini 同步 + governance audit 看 services_to_launchd 输出 (Mac Mini launchctl 应观察到 3 service 全部 loaded → declared=3 observed=3 zero drift).",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
@@ -378,7 +378,8 @@
     "V37.9.22 Mac Mini 验证待用户操作: PR merge 后 (1) git fetch origin main && git reset --hard origin/main (2) bash preflight_check.sh --full 验证仓库一致 (3) python3 ontology/governance_checker.py --full 看 convergence section 4 spec 真实数字 (jobs_to_crontab 应 36/36 zero drift / providers_to_adapter 应 5/7 missing 因缺 API key / openclaw_config_to_runtime 看 openclaw.json 是否含 version 字段 / kb_sources_to_index 应 14/14 zero drift)",
     "V37.9.23 加固候选 (基于 V37.9.22 hotfix 教训): spec 单测 mock meta.json 跑 spec 实际 command 验证字段读取 — 覆盖 observer command 语义层. dev 测试 extractor 逻辑正确不等于 spec command 在生产读对字段, 需要 fixture-based command-level test. 同款思路应用所有 4 spec.",
     "V37.9.24 候选: 一周 dry-run 观察期收集 cron line 拼接结果, 验证 _format_cron_line 输出与 Mac Mini 真实 crontab 行字面一致后, 切关 CONVERGENCE_DRY_RUN env 默认值让 machine_sync 真激活. 预计决策窗口 2026-05-11. 在 Mac Mini 跑 'CONVERGENCE_DRY_RUN=0 python3 -m governance_checker' 试运行验证后修改 _is_dry_run 默认值.",
-    "V37.9.25 候选: 一周 dry-run 观察期 (5/4 baseline → 5/11 决策窗口) 收集两个 machine_sync spec 的 apply 字面量验证. jobs_to_crontab 验证 cron line 拼接结果与生产 crontab 行字面一致, kb_sources_to_index 验证 kb_embed.py 增量调用产 'applied: kb_embed.py incremental (N missing sources)' 真同步成功. 都符合预期后切关 _is_dry_run() 默认值让 CONVERGENCE_DRY_RUN=1 才 dry-run, 真激活 machine_sync."
+    "V37.9.25 候选: 一周 dry-run 观察期 (5/4 baseline → 5/11 决策窗口) 收集两个 machine_sync spec 的 apply 字面量验证. jobs_to_crontab 验证 cron line 拼接结果与生产 crontab 行字面一致, kb_sources_to_index 验证 kb_embed.py 增量调用产 'applied: kb_embed.py incremental (N missing sources)' 真同步成功. 都符合预期后切关 _is_dry_run() 默认值让 CONVERGENCE_DRY_RUN=1 才 dry-run, 真激活 machine_sync.",
+    "V37.9.26 候选: services_to_launchd machine_sync 升级 (一周观察期 5/4 baseline → 5/11 决策窗口). 如 Mac Mini 一周内 declared=3 observed=3 零漂移, 升级 drift_action: alert_only → machine_sync + 注册新 _apply_services_launchctl_bootstrap 到 _APPLY_FUNCTIONS (复用 restart.sh launchctl kickstart -k 路径 + per-service plist 解析). 同款 V37.9.23/V37.9.24 Plan B 渐进 dry-run 模式."
   ],
   "_meta": {
     "last_updated_by": "claude_code"
