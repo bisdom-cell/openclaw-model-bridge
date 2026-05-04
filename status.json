@@ -1,6 +1,6 @@
 {
-  "updated": "2026-05-04 01:49:40",
-  "updated_by": "full_regression",
+  "updated": "2026-05-04 04:10:20",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -248,7 +248,6 @@
       "V37.9.6 下次 watchdog 跑验证: awk 行级时间戳过滤生效后告警条数预期从 12 降到 5-7; 如明天 12:30 仍见 4/8 陈旧告警需查 awk edge case",
       "V37.9.9 Mac Mini 验证: (1) pull 后跑 full_regression dev 1186/0 fail (2) governance_checker --full 确认 INV-SEC-001 library 直调在 Mac Mini 仍过 (3) security_score 仍 93/100 (4) Phase 4 骨架 3 文件部署 OK (声明不影响运行时)",
       "Ontology Phase 4 领域本体骨架已就绪 (V37.9.9 B 任务) — 下次推进 Phase 4 P1 wiring 从 engine.py::load_domain_ontology() + evaluate_policy() 开始",
-      "V37.9.13 候选 (plist 持久化): com.openclaw.proxy.plist + com.openclaw.adapter.plist 未入 auto_deploy FILE_MAP = 纯 Mac Mini 本地文件。如 macOS 重装或 plist 意外删除，V37.9.12.1 给 proxy plist 加的 ONTOLOGY_MODE=on 丢失。应评估: (a) 把 plist 模板加入 FILE_MAP + 加一次性 install script (b) 在 docs/config.md 文档化恢复步骤 (c) 留作纯手动运维知识",
       "V37.9.13 观察项 (shadow env 来源): launchd 进程启动时 ONTOLOGY_MODE=shadow 的源头未定位。已排除: launchctl getenv / shell rc files / proxy_filters.py default / pycache diff。疑似候选: macOS 系统级 launchd env 继承 / 早期 bash_profile 删除前写入的 global env / 某些未知 daemon 注入。V37.9.12.1 通过 PlistBuddy 显式覆盖已规避，但未追根。下次触发带着完整诊断再查。",
       "V37.9.14 MOVESPEED 事故取证埋点已落地 — 20 处 rsync fail-loud 站点接入 movespeed_incident_capture.sh, 下次 transient EPERM 复发会自动写 ~/.kb/movespeed_incidents.jsonl (含顶层 + KB 子目录独立 touch 探测 / mount / diskutil info / concurrent procs / sw_vers 等)。等抓到至少 1 条 incident 后 → V37.9.15 根因定位 + 结构性修复。contingency: 若 2 周内未复发视为环境自愈，降级为 backlog。",
       "V37.9.15 候选: job_watchdog.sh 或 kb_status_refresh.sh 消费 movespeed_incidents.jsonl — 24h 内 ≥5 条 incident 触发连续性告警, 升级从被动收证据到主动感知异常。"
@@ -273,10 +272,10 @@
   "quality": {
     "security_score": 95,
     "test_count": 1762,
-    "last_regression": "2026-05-04 01:49 pass",
+    "last_regression": "2026-05-04 04:08 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-05-04 01:49",
-    "test_suites": 48,
+    "security_score_time": "2026-05-04 04:08",
+    "test_suites": 49,
     "governance_invariants": "64/64",
     "governance_checks": "350/350",
     "version": "0.37.9.25"
@@ -379,7 +378,8 @@
     "V37.9.23 加固候选 (基于 V37.9.22 hotfix 教训): spec 单测 mock meta.json 跑 spec 实际 command 验证字段读取 — 覆盖 observer command 语义层. dev 测试 extractor 逻辑正确不等于 spec command 在生产读对字段, 需要 fixture-based command-level test. 同款思路应用所有 4 spec.",
     "V37.9.24 候选: 一周 dry-run 观察期收集 cron line 拼接结果, 验证 _format_cron_line 输出与 Mac Mini 真实 crontab 行字面一致后, 切关 CONVERGENCE_DRY_RUN env 默认值让 machine_sync 真激活. 预计决策窗口 2026-05-11. 在 Mac Mini 跑 'CONVERGENCE_DRY_RUN=0 python3 -m governance_checker' 试运行验证后修改 _is_dry_run 默认值.",
     "V37.9.25 候选: 一周 dry-run 观察期 (5/4 baseline → 5/11 决策窗口) 收集两个 machine_sync spec 的 apply 字面量验证. jobs_to_crontab 验证 cron line 拼接结果与生产 crontab 行字面一致, kb_sources_to_index 验证 kb_embed.py 增量调用产 'applied: kb_embed.py incremental (N missing sources)' 真同步成功. 都符合预期后切关 _is_dry_run() 默认值让 CONVERGENCE_DRY_RUN=1 才 dry-run, 真激活 machine_sync.",
-    "V37.9.26 候选: services_to_launchd machine_sync 升级 (一周观察期 5/4 baseline → 5/11 决策窗口). 如 Mac Mini 一周内 declared=3 observed=3 零漂移, 升级 drift_action: alert_only → machine_sync + 注册新 _apply_services_launchctl_bootstrap 到 _APPLY_FUNCTIONS (复用 restart.sh launchctl kickstart -k 路径 + per-service plist 解析). 同款 V37.9.23/V37.9.24 Plan B 渐进 dry-run 模式."
+    "V37.9.26 候选: services_to_launchd machine_sync 升级 (一周观察期 5/4 baseline → 5/11 决策窗口). 如 Mac Mini 一周内 declared=3 observed=3 零漂移, 升级 drift_action: alert_only → machine_sync + 注册新 _apply_services_launchctl_bootstrap 到 _APPLY_FUNCTIONS (复用 restart.sh launchctl kickstart -k 路径 + per-service plist 解析). 同款 V37.9.23/V37.9.24 Plan B 渐进 dry-run 模式.",
+    "V37.9.26 候选 (5/11 决策窗口): 三 spec 同步切关 dry-run 真激活 machine_sync — jobs_to_crontab (V37.9.23 baseline 4/26 累积 2 周) + kb_sources_to_index (V37.9.24 baseline 5/4 + 1 周) + services_to_launchd (V37.9.25 baseline 5/4 + 1 周, 需先实现 _apply_services_launchctl_bootstrap 注册到 _APPLY_FUNCTIONS dict). 修改 _is_dry_run() 默认让 CONVERGENCE_DRY_RUN=1 才 dry-run, 未设/=0 都激活. Plan B 渐进 dry-run → Plan C 真激活的最后一步."
   ],
   "_meta": {
     "last_updated_by": "claude_code"
