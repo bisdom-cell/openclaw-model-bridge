@@ -1,6 +1,8 @@
-# Why Your Control Plane Is a Convergence Engine, Not a Policy Engine
+# 你的控制平面是收敛引擎，不只是策略引擎
 
-> 2026-05-04 | Stage 2 立场资产 | V37.9.24 | OpenClaw Runtime Control Plane
+> 2026-05-04 | Stage 2 立场资产第 5 篇 | OpenClaw Runtime Control Plane V37.9.24
+>
+> *Why Your Control Plane Is a Convergence Engine, Not a Policy Engine*
 
 ## TL;DR
 
