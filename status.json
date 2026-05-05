@@ -1,5 +1,5 @@
 {
-  "updated": "2026-05-05 05:32:24",
+  "updated": "2026-05-05 09:51:55",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -106,6 +106,10 @@
   "recent_changes": [
     {
       "date": "2026-05-05",
+      "what": "V37.9.28 头部版本号漂移修正 (CLAUDE.md + README.md + docs/config.md 三处) — V37.9.28 收工漏改, VERSION 文件已 0.37.9.28 但三处文档头部仍写 v37.9.27/0.37.9.27 (2026-05-04). 1 commit (3c05bd9) 推送到 claude/start-daily-work-KV9z3. 零附带改动. 全仓 grep 验证无遗漏 v37.9.27 顶部声明. 收工 A-D 全过 (53 suites / 1884 tests / 0 fail / 安全 95/100 / 治理 dev 模式所有不变式 + convergence 5 spec 符合 FAIL-OPEN 契约)."
+    },
+    {
+      "date": "2026-05-05",
       "what": "V37.9.28 周一观察 5 finding 单日全闭环 (F1-F5) — 5 commits (4aa9aa0/7d19abe/0666885/e21813e/c7f70fd) 推送到 claude/start-daily-work-cFjWk. 52 suites / 1822→1884 tests (+62) / 0 fail / VERSION 0.37.9.27→0.37.9.28. F1 scan_logs 告警子条目时间戳分布 (最早 X, 最新 Y) 三档格式. F2 数据驱动诊断工具 movespeed_incident_analyzer.py 7 维度 (Mac Mini 跑后再决定 helper 修复, 不推测). F3 HN watchdog 阈值 7h→14h V37.8.7 同款 schedule drift. F4 slo_checker 3/5 metric direction 显示反, 改为每 metric 显式 direction 字段. F5 ai_leaders 4 天前时间戳是 F1 symptom F1 修复后自愈. 因果链发现: F1+F2 互锁, 先修 F1 才能看清 F2 真相. MR-7 用户视角→24h 闭环第 4 次正向兑现 (V37.9.16/17/21/28 链). 原则 #32 周一用户视角观察制度首次实证: 30min 用户视角发现 5 类问题, 同日修 4 个根因 + 1 个 F1 symptom 自愈, framework 用户感知=一等可观测信号硬证据.",
       "by": "claude_code"
     },
@@ -198,11 +202,6 @@
       "date": "2026-04-26",
       "what": "V37.9.18 kb_deep_dive cron 未注册血案三层修复 — 用户察觉 \"昨天没收到深度分析\" 触发调查。三层 silent: (1) V37.9.16 收工漏 crontab_safe.sh add 步骤 (2) preflight_check.sh:63 只 grep \"间隔漂移\" 漏掉 \"未找到\" warning 假报零漂移 (3) crontab_safe.sh:cmd_add 不检查 crontab 退出码 + count 用 < 让 35→35 谎报 ✅。修复: (Fix 1) preflight 加第二个 grep 模式 + DRIFT_FAILED 标志统一两类 warning 都触发 fail (Fix 2) crontab_safe 改为 if ! crontab 检查退出码 + count 严格相等 -ne (Fix 3) Mac Mini 已注册 cron 行 30 22 * * * + 立即手动跑产出 2026-04-26.md。15 新单测 (TestPreflightDualWarningCheck 6 + TestCrontabSafeStrictExitCheck 6 + TestCrontabSafeRejectedInputBehavior 3 fake-shim 行为层) 加入 full_regression。47 suites / 1493 tests / 0 fail / 安全 95/100 / VERSION 0.37.9.17→0.37.9.18。本案是 MR-4 silent-failure 第 16 次演出，新形态: 三层独立 silent bug 协同掩护简单运维遗漏 2 天 — 揭示 \"声明态(yaml/registry) → 运行时态(crontab/process)\" 同步必须机器化不能跨人界。MR-17 元规则候选 declared-state-must-converge-to-runtime-via-machine-not-memory 立案。case doc: ontology/docs/cases/kb_deep_dive_cron_unregistered_case.md",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-04-24",
-      "what": "V37.9.17 Mac Mini E2E 验证完整通过 + 用户选方案 A 观察一周 — 验证序列: (1) git reset main → HEAD=0459940 V37.9.17 merge (2) pip3 install pdfplumber beautifulsoup4 成功 (含 pdfminer.six 20251107 + pypdfium2 5.7.1 + soupsieve 2.8.3) (3) preflight --full 81 通过/0 失败/3 警告 (3 警告均 pre-existing 与 V37.9.17 无关) (4) 首跑选中 ai_leaders_x ⭐5 走 abstract_only (因 auto_deploy 2min 未到 $HOME/kb_deep_dive.py 仍是 V37.9.16 旧版) (5) 手动 cp 同步后二跑: picker 正确换到 TIER 2 ontology_sources ⭐4 `基于实体类型的图嵌入框架`, mode 仍 abstract_only (6) 诊断确认: degrade_reason=HTML fetch failed: HTTP 403 fetching sciencedirect.com ScienceDirect Elsevier 反爬墙 (Cloudflare/Imperva) 无法简单 UA 绕过 = 站点侧硬限制非系统 bug. 用户决策方案 A: 观察一周 mode 分布后再决策 (2026-05-01 数据到位). 预期: 日常 arxiv/hf cron 有 ⭐4+ preprint 时 mode=full_text, 今日碰巧只有 ontology_sources ScienceDirect 是 ⭐4+ 所以触发 degrade. 登记 V37.9.18 候选: 如 full_text ≥50% 接受现状 / <30% 实施方案 B (反爬域名清单扣分: sciencedirect/nature/science/ieee/acm). 今日 2 commits ceb937e + 05748cf 全部 Mac Mini 同步 + 手动 cp 已验证. 下次 Mac Mini auto_deploy 2min 自动替换 V37.9.16 残余 $HOME 副本.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -269,10 +268,10 @@
   "quality": {
     "security_score": 95,
     "test_count": 1884,
-    "last_regression": "2026-05-05 04:06 pass",
+    "last_regression": "2026-05-05 09:50 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-05-05 04:06",
-    "test_suites": 52,
+    "security_score_time": "2026-05-05 09:50",
+    "test_suites": 53,
     "governance_invariants": "64/64",
     "governance_checks": "350/350",
     "version": "0.37.9.28"
