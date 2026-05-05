@@ -72,8 +72,12 @@ JOBS=(
     "acl_anthology|$HOME/.openclaw/jobs/acl_anthology/cache/last_run.json|2419200|ACL论文监控|auxiliary"
 
     # ── 应用监控 ──
-    # HN: 每3小时 → 最多静默 7h
-    "run_hn_fixed|$HOME/.openclaw/jobs/hn_watcher/cache/last_run.json|25200|HN热帖抓取|core"
+    # HN: 每天3次(08:45/14:45/20:45) → 最多静默 14h
+    # V37.9.28 F3: 修正 schedule-vs-threshold drift —— 注释原写"每3小时 → 7h"
+    # 但 jobs_registry.yaml 实际是 "45 8,14,20 * * *" 即每天 3 次, 最大 gap 12h
+    # (overnight 20:45 → 次日 08:45). 7h 阈值导致 overnight 必报警 (用户 5/5 观察现场).
+    # 14h = 12h max gap + 2h slack, 与 freight_watcher (3次同款 schedule) 阈值对齐.
+    "run_hn_fixed|$HOME/.openclaw/jobs/hn_watcher/cache/last_run.json|50400|HN热帖抓取|core"
     # Freight: 每天3次(08/14/20) → 最多静默 14h
     "freight_watcher|$HOME/.openclaw/jobs/freight_watcher/cache/last_run.json|50400|货代Watcher|core"
     # OpenClaw Releases: 每天1次(08:00) → 最多静默 50h

@@ -188,6 +188,20 @@ class TestWatchdogShellInvariants(unittest.TestCase):
         self.assertIn("echo \"$recent_window\" | grep", scan_logs_block,
                       "grep must operate on filtered recent_window, not raw tail")
 
+    def test_v37_9_28_f3_hn_threshold_widened(self):
+        """V37.9.28 F3: HN threshold 25200 (7h) → 50400 (14h) 修正 schedule drift.
+        jobs_registry 实际 schedule '45 8,14,20 * * *' 最大 gap 12h, 7h 阈值
+        导致 overnight 20:45→08:45 必报警. 14h = 12h max gap + 2h slack."""
+        # 新阈值必须存在
+        self.assertIn("|50400|HN热帖抓取", self.source,
+                      "HN run_hn_fixed threshold must be 50400 (14h) per V37.9.28 F3")
+        # 旧阈值必须移除
+        self.assertNotIn("|25200|HN热帖抓取", self.source,
+                         "Old HN 7h threshold (25200) must not remain")
+        # 解释注释存在
+        self.assertIn("V37.9.28 F3", self.source,
+                      "job_watchdog.sh must mark V37.9.28 F3 schedule-threshold alignment")
+
     def test_acl_threshold_widened_to_28d(self):
         """V37.9.8: ACL Anthology threshold must be 28 days (2419200s).
         Trajectory: 8d (V37.9.6 original) → 14d (V37.9.6 first widen) →
