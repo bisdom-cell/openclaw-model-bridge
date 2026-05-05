@@ -444,6 +444,97 @@ openclaw message send --channel whatsapp -t "$OPENCLAW_PHONE" -m "回滚完成"
 - **任一 tripwire 触发**：脚本退出码 1，通过 cron 失败邮件 / WhatsApp 推送告警
 - **180 天硬性上限**（~ 2026-10-26）：即使 0/6 触发，时间 tripwire 自动触发启动正式评估
 
+---
+
+## 十三、第四次评估记录（2026-05-05，Tripwire 框架首次复评）
+
+### 13.1 背景
+
+上游从 v2026.4.26（4/28）推进到 **v2026.5.3-1**（2026-05-04，最新稳定版），7 天内推出 5 个新 stable + 主版本号从 4.x 跳到 **5.x**。距三次评估 6 天。
+
+**重要澄清**：5.x **不是 semver major bump**，是**日历版本号**（年.月.patch）—— 5 月到了自然跳 5.x，**不暗示架构性破坏变更**。
+
+**评估方法**：本次首次跑 V37.9.22 Tripwire 框架自动判定 + 实证 WebFetch 关键 release notes，对比三次评估时的阻塞条件矩阵。
+
+### 13.2 上游版本演进（v2026.4.26 → v2026.5.3-1）
+
+| 版本 | 日期 | 关键内容 |
+|------|------|---------|
+| v2026.4.27 | 2026-04-29 | **🔥 修复 #73358** — release notes 显式写："require explicit `skills.entries.coding-agent.enabled` before exposing the bundled coding-agent skill, so installs with Codex on PATH but no OpenAI auth do not silently offer Codex delegation" |
+| v2026.4.29 | 2026-04-30 | **⚠️ 新破坏性变更**："Security/tools: configured tool sections (`tools.exec`, `tools.fs`) no longer implicitly widen restrictive profiles" — restrictive profile 用户必须显式 `alsoAllow` |
+| v2026.5.2 | 2026-05-03 | 大量改进：plugin manifest `contracts.tools` 强制为工具注册的 ownership 契约；thread-binding toggle 迁移（`threadBindings.spawnSessions` 替代 split toggles，有 `doctor --fix` 自动迁移）；Codex native runtime 标准化（无 silent default） |
+| v2026.5.3 | 2026-05-04 | 性能优化（lazy-loading / defer timers / startup path trimming）+ 插件加固 + macOS LaunchAgent upgrade recovery + ~70 fixes |
+| v2026.5.3-1 | 2026-05-04 | hotfix：plugin install scanner 误判官方 bundled 修复 |
+
+### 13.3 Tripwire 状态（dev 环境跑 `bash check_upgrade.sh`）
+
+```
+✅ [1/6] 时间上限: 6/180 天 (剩 174 天)
+✅ [2/6] 版本差距: 34/50 stable (剩 16)
+✅ [3/6] EOL 信号: latest release 未检出
+✅ [4/6] WhatsApp 破坏性: latest release 未检出
+✅ [5/6] CVE: 无人工标记
+✅ [6/6] 业务痛点: 无人工标记
+
+结论: ✅ 继续 hold (0/6 tripwire 触发)
+```
+
+**自动化判定：继续 hold**。但人工实证仍要做（验证自动化是否漏报）。
+
+### 13.4 阻塞条件复查（实证 vs 三次评估）
+
+| 阻塞项 | 三次评估时（4/29） | 四次评估时（5/5） | 变化 |
+|--------|----|----|----|
+| **#73358 codex/gpt-5.5 silent default** | 硬阻塞 dealbreaker | **✅ v2026.4.27 release notes 显式修复** — 这是 verified fix evidence（不像 #59265 只 closed but no PR） | 🟢 **解除** |
+| **#59265 Agent actions 不可见** | closed but no PR / no fix evidence | **仍无 PR / 无版本 fix mention**（本次 WebFetch 再确认 issue page "No branches or pull requests" + 后续版本 release notes 无引用） | ⚪ 无变化 |
+| **trusted-proxy auth**（v2026.3.31） | 未做 localhost 验证 | v2026.4.29 进一步收紧（IPv6 ULA opt-in）；仍未验证我们 localhost 链路 | ⚪ 无变化 |
+| **v2026.4.5 legacy config alias 移除** | 中风险 | 仍生效；v2026.5.2 新增 thread-binding toggle 迁移（有 `doctor --fix` 自动） | ⚪ 不变 |
+| **新增：v2026.4.29 `tools.exec`/`tools.fs` 不再隐式扩展 restrictive profile** | — | 我们的 proxy_filters 工具白名单可能依赖 OpenClaw 的 tool-section 暴露机制，需在 dev/shadow 验证升级后 12 工具集是否仍可见 | 🟡 **新中风险** |
+| **新增：v2026.5.2 plugin manifest `contracts.tools`** | — | 强制 manifest ownership 契约 — 可能影响 qwen-local provider 的注册路径（adapter.py 启动时如何向 Gateway 注册） | 🟡 **新中风险** |
+| **跨度** | 19 stable | **34 stable**（+15） | 🔴 增大 |
+
+### 13.5 战略局面变化
+
+**4/29 三次评估时**：hold "indefinitely"——`#73358` 不修就不能升，没有时间表。
+
+**5/5 四次评估时**：hold "tactically"——核心 dealbreaker 已修，**升级路径变得明朗**：
+1. 等 5.x 沉淀 4-8 周（~2026-06-15）让社区验证 v2026.5.x 的 70+ 修复
+2. 届时阶梯升至 **v2026.4.27 或 v2026.4.29**（已修 #73358，避开 5.x 早期 churn）
+3. 升级前 dev 验证两个新中风险点（tools.exec 白名单 + plugin manifest contracts）
+4. 同步重新评估 #59265 是否有 verified fix（如仍无 PR + 无版本 mention，准备 WhatsApp 立即可用性回滚预案）
+
+### 13.6 升级路径选项对比（实证后更新）
+
+| 方案 | 跨度 | 风险 | 工程成本 | 推荐度 |
+|------|------|------|--------|--------|
+| **A. 立即升 v2026.5.3-1 latest** | 34 stable | 高（5.x 仅 4 天稳定期 + 两个新 breaking 未验证 + 累积 churn） | 中 | ⭐ |
+| **B. 阶梯升 v2026.4.27**（含 #73358 fix 的最早稳定） | 19 stable | 中（避 4.29/5.x 累积变更，但 4.27 也仅 6 天稳定期） | 中 | ⭐⭐⭐ |
+| **C. 继续 hold 等 5.x 沉淀**（推荐） | 0 | 0 | 0 | ⭐⭐⭐⭐⭐ |
+| **D. shadow 演练** | — | 0 | 高 | ⭐⭐ |
+
+### 13.7 第四次评估结论：**继续 hold（推荐方案 C），但战略路径已开**
+
+**Hold 理由（与四次评估前不同）**：
+1. **不是因为 dealbreaker 不修**（已修），而是**因为社区验证不充分**（5.x 仅 4 天 stable）
+2. **两个新中风险点**（tools.exec + plugin manifest）需要先在 dev 验证
+3. **跨度 34 stable** 意味着升级时累积 breaking 面巨大，不应在缺验证证据时仓促升
+4. **Tripwire 0/6 触发** 表示无外部强制因素，可以从容选时机
+
+**下次评估时机**：
+- **硬性触发**：任一 tripwire 跳红（每周一 cron 自动）
+- **软性触发**：~2026-06-15（4-8 周观察期到达；届时 5.x 已 6 周稳定，社区验证累积充分）
+- **本次 LAST_EVAL_DATE 更新到 2026-05-05**（重置时间 tripwire 计数）
+
+### 13.8 元价值
+
+本次评估是 V37.9.22 Tripwire 框架首次"复评"实践，验证了 framework 的核心承诺：
+- ✅ **不再陷入"看到新版本就评估"的二元决策疲劳**（自动 hold + 人工实证补充）
+- ✅ **方法论从"按节奏推断"升级到"实证调查"**（WebFetch 直接拉 release notes）
+- ✅ **决策矩阵让 hold 理由透明可追溯**（不是模糊的"先等等"，而是具体到哪个 dealbreaker、哪个 breaking change、跨度多少）
+- 🟡 **未来 framework 可优化**：tripwire 当前未自动检测"上游已修复阻塞 bug"信号（如 #73358 修复检测），需 v37.9.x 后续迭代加 tripwire #7（关键 bug fix 检测）作为正向触发
+
+---
+
 ## 九、升级后文档更新清单
 
 升级成功后需同步更新：
