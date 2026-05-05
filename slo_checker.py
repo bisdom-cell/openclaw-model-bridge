@@ -41,7 +41,15 @@ def check_slo(stats, config):
     no_traffic = total_requests == 0  # 无流量时所有 SLO 视为达标
     results = []
 
-    # 1. 延迟 p95
+    # V37.9.28 F4: 每个 metric 显式声明 direction —
+    #   "<" 意为 "actual 应 <= target" (越小越好: latency / 各种 rate 中的"坏率")
+    #   ">" 意为 "actual 应 >= target" (越大越好: success_rate / recovery_rate)
+    # 修正之前 bug: format_alert 用纠缠 if-else 推断 direction, 导致 3/5 metric
+    # 显示反向 (latency_p95 显示 ">" 实际应 "<"; tool_success/auto_recovery 显示 "<"
+    # 实际应 ">"). 用户 5/5 周一观察现场: "latency_p95: 54040ms (目标: >30000ms)"
+    # — 该方向暗示 ">30000ms 是目标"实际应是"<30000ms 是目标".
+
+    # 1. 延迟 p95 (越小越好)
     p95 = latency.get("p95", 0)
     target_p95 = slo_cfg.get("latency_p95_ms", 30000)
     sample_count = latency.get("count", 0)
@@ -51,11 +59,12 @@ def check_slo(stats, config):
         "value": p95,
         "target": target_p95,
         "unit": "ms",
+        "direction": "<",  # actual <= target
         "ok": ok,
         "samples": sample_count,
     })
 
-    # 2. 工具成功率
+    # 2. 工具成功率 (越大越好)
     tool_rate = slo_data.get("tool_success_rate_pct", 100.0)
     target_tool = slo_cfg.get("tool_success_rate_pct", 95.0)
     tool_total = slo_data.get("tool_calls_total", 0)
@@ -65,11 +74,12 @@ def check_slo(stats, config):
         "value": tool_rate,
         "target": target_tool,
         "unit": "%",
+        "direction": ">",  # actual >= target
         "ok": ok,
         "samples": tool_total,
     })
 
-    # 3. 降级率
+    # 3. 降级率 (越小越好)
     deg_rate = slo_data.get("degradation_rate_pct", 0.0)
     target_deg = slo_cfg.get("degradation_rate_pct", 5.0)
     ok = deg_rate <= target_deg
@@ -78,10 +88,11 @@ def check_slo(stats, config):
         "value": deg_rate,
         "target": target_deg,
         "unit": "%",
+        "direction": "<",  # actual <= target
         "ok": ok,
     })
 
-    # 4. 超时率
+    # 4. 超时率 (越小越好)
     timeout_rate = slo_data.get("timeout_rate_pct", 0.0)
     target_timeout = slo_cfg.get("timeout_rate_pct", 3.0)
     ok = timeout_rate <= target_timeout
@@ -90,10 +101,11 @@ def check_slo(stats, config):
         "value": timeout_rate,
         "target": target_timeout,
         "unit": "%",
+        "direction": "<",  # actual <= target
         "ok": ok,
     })
 
-    # 5. 自动恢复率
+    # 5. 自动恢复率 (越大越好)
     recovery = slo_data.get("auto_recovery_rate_pct", 100.0)
     target_recovery = slo_cfg.get("auto_recovery_rate_pct", 90.0)
     ok = recovery >= target_recovery
@@ -102,6 +114,7 @@ def check_slo(stats, config):
         "value": recovery,
         "target": target_recovery,
         "unit": "%",
+        "direction": ">",  # actual >= target
         "ok": ok,
     })
 
@@ -110,16 +123,21 @@ def check_slo(stats, config):
 
 
 def format_alert(results):
-    """格式化违规告警文本"""
+    """格式化违规告警文本.
+
+    V37.9.28 F4: 直接读 v["direction"] (check_slo 写入), 不再用纠缠 if-else 推断.
+    旧 bug: 3/5 metric 方向显示错 (latency_p95/tool_success/auto_recovery 颠倒).
+    用户 5/5 周一观察 "latency_p95: 54040ms (目标: >30000ms)" 是这个 bug 的现场.
+    """
     violations = [r for r in results if not r["ok"]]
     if not violations:
         return ""
 
     lines = ["⚠️ SLO 违规告警:"]
     for v in violations:
-        direction = ">" if v["unit"] == "ms" else "<" if "rate" in v["name"] and "recovery" not in v["name"] else "<"
-        if "recovery" in v["name"] or "success" in v["name"]:
-            direction = "<"
+        # direction 由 check_slo 在每个 metric 创建时显式写入 ("<" 或 ">"),
+        # 旧 fallback "<" 仅为了向后兼容: 如有旧代码路径未写 direction 字段, 不崩.
+        direction = v.get("direction", "<")
         lines.append(f"  🔴 {v['name']}: {v['value']}{v['unit']} (目标: {direction}{v['target']}{v['unit']})")
     return "\n".join(lines)
 

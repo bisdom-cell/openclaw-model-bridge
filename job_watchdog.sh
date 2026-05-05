@@ -72,8 +72,12 @@ JOBS=(
     "acl_anthology|$HOME/.openclaw/jobs/acl_anthology/cache/last_run.json|2419200|ACL论文监控|auxiliary"
 
     # ── 应用监控 ──
-    # HN: 每3小时 → 最多静默 7h
-    "run_hn_fixed|$HOME/.openclaw/jobs/hn_watcher/cache/last_run.json|25200|HN热帖抓取|core"
+    # HN: 每天3次(08:45/14:45/20:45) → 最多静默 14h
+    # V37.9.28 F3: 修正 schedule-vs-threshold drift —— 注释原写"每3小时 → 7h"
+    # 但 jobs_registry.yaml 实际是 "45 8,14,20 * * *" 即每天 3 次, 最大 gap 12h
+    # (overnight 20:45 → 次日 08:45). 7h 阈值导致 overnight 必报警 (用户 5/5 观察现场).
+    # 14h = 12h max gap + 2h slack, 与 freight_watcher (3次同款 schedule) 阈值对齐.
+    "run_hn_fixed|$HOME/.openclaw/jobs/hn_watcher/cache/last_run.json|50400|HN热帖抓取|core"
     # Freight: 每天3次(08/14/20) → 最多静默 14h
     "freight_watcher|$HOME/.openclaw/jobs/freight_watcher/cache/last_run.json|50400|货代Watcher|core"
     # OpenClaw Releases: 每天1次(08:00) → 最多静默 50h
@@ -281,7 +285,28 @@ scan_logs() {
     if [ "$recent_fails" -gt 0 ]; then
         local last_err
         last_err=$(echo "$recent_window" | grep -iE "$err_pattern" | tail -1 | head -c 120)
-        ALERTS+=("$job_name 日志: ${recent_fails}条错误 → $last_err")
+
+        # V37.9.28 F1: 提取错误行的时间戳分布（最早/最新），让告警可读
+        # 之前 bug: 只显示 "12条错误 → last_err" 看不出 12 条是分布的还是集中的
+        # 用户 5/5 周一观察反馈："主要是一些 health 监控推送没有严格的时间戳"
+        # 修复: grep -oE 提取 [YYYY-MM-DD HH:MM] 模式, sort -u 去重, head/tail 取最早最新
+        # 边界: 全是 Traceback 多行无时间戳行 → "(时间戳缺失)" 标记
+        local err_ts oldest newest ts_info
+        err_ts=$(echo "$recent_window" | grep -iE "$err_pattern" | \
+                 grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}[T ][0-9]{2}:[0-9]{2}' | sort -u)
+        if [ -n "$err_ts" ]; then
+            oldest=$(echo "$err_ts" | head -1)
+            newest=$(echo "$err_ts" | tail -1)
+            if [ "$oldest" = "$newest" ]; then
+                ts_info=" (@ $oldest)"
+            else
+                ts_info=" (最早 $oldest, 最新 $newest)"
+            fi
+        else
+            ts_info=" (时间戳缺失)"
+        fi
+
+        ALERTS+=("$job_name 日志: ${recent_fails}条错误${ts_info} → $last_err")
     fi
 }
 
