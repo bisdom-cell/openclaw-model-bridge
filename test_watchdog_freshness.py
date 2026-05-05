@@ -314,6 +314,30 @@ class TestF1AlertFormatTimestampRange(unittest.TestCase):
         self.assertIn("最早 2026-05-04 22:10", result)
         self.assertIn("最新 2026-05-05 08:00", result)
 
+    def test_f5_ai_leaders_format_user_5_5_observation(self):
+        """V37.9.28 F5 (auto-resolved by F1): 用户 5/5 观察告警包含
+        '[2026-05-04 09:00:00] ai_leaders: WARN: pascal_hitzler 抓取失败 (HTTP 429)'
+        在没有 F1 修复时, 用户只看到 'ai_leaders_x 日志: 8条错误 → ...HTTP 429',
+        不知道这 8 条是何时发生的 (实际是 23h 前同一突发, 已自愈).
+
+        F1 修复后, F5 自动解决: alert 显示时间戳范围让用户立刻看清是
+        '23h 前的一次突发' 还是 '持续发生'. 本测试构造 ai_leaders_x 同款日志,
+        断言 F1 grep 正则正确提取 [YYYY-MM-DD HH:MM:SS] 格式时间戳."""
+        log = (
+            "[2026-05-04 09:00:00] ai_leaders: WARN: pascal_hitzler 抓取失败 (HTTP 429)\n"
+            "[2026-05-04 09:00:30] ai_leaders: WARN: marcus 抓取失败 (HTTP 429)\n"
+            "[2026-05-04 09:01:15] ai_leaders: WARN: hitzler 抓取失败 (HTTP 429)\n"
+            "[2026-05-04 09:02:00] ai_leaders: WARN: leskovec 抓取失败 (HTTP 429)\n"
+        )
+        result = _run_alert_format(log)
+        # 4 条 HTTP 429 错误都应被 err_pattern 匹配
+        self.assertIn("4条错误", result)
+        # F1 grep 应提取这些时间戳, 显示同时段范围 (09:00-09:02)
+        self.assertIn("最早 2026-05-04 09:00", result)
+        self.assertIn("最新 2026-05-04 09:02", result)
+        # 用户现在能立刻看出: 这 4 条是 ~3 分钟内同一时段突发, 不是分散在 24h
+        self.assertNotIn("时间戳缺失", result)
+
     def test_mixed_timestamped_and_continuation_lines(self):
         """ERROR 行有时间戳 + Traceback 续行无时间戳 → 仍能从 ERROR 行提取范围。"""
         log = (
