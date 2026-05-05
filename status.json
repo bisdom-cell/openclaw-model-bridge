@@ -1,5 +1,5 @@
 {
-  "updated": "2026-05-05 06:33:42",
+  "updated": "2026-05-05 09:51:55",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -104,6 +104,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-05-05",
+      "what": "V37.9.28 头部版本号漂移修正 (CLAUDE.md + README.md + docs/config.md 三处) — V37.9.28 收工漏改, VERSION 文件已 0.37.9.28 但三处文档头部仍写 v37.9.27/0.37.9.27 (2026-05-04). 1 commit (3c05bd9) 推送到 claude/start-daily-work-KV9z3. 零附带改动. 全仓 grep 验证无遗漏 v37.9.27 顶部声明. 收工 A-D 全过 (53 suites / 1884 tests / 0 fail / 安全 95/100 / 治理 dev 模式所有不变式 + convergence 5 spec 符合 FAIL-OPEN 契约).",
+      "by": "claude_code"
+    },
     {
       "date": "2026-05-05",
       "what": "V37.9.28 兜底 cron 调度调整: 04:00 → 23:30 (用户决策, 选项 B). 数据驱动: incident_analyzer 7d 数据显示 00:00 UTC 是失败高峰 (25 incidents) > 12:00 (24) > 06:00 (20) > 04:00 (13). 23:30 选址理由: (a) 仍属晚间不占凌晨 1-5 时段 (用户希望凌晨给更重要事项) (b) 避开 00:00 整点 macOS maintenance 高峰 (Spotlight/mds_stores/backupd 唤醒) (c) 与 22:00 kb_evening / 22:30 kb_deep_dive / 00:00 dream Map sources 不撞车 (d) 23:30 是 22:30 之后 30min, 00:00 之前 30min, 双向 buffer. 用户已 crontab 替换原子操作 + 验证 grep movespeed 显示 30 23 * * *. 24h RPO 兜底保障保持. 5/6 验证: tail ~/.kb/movespeed_daily_sync.log 应有 23:30 sync 记录.",
@@ -265,9 +270,9 @@
   "quality": {
     "security_score": 95,
     "test_count": 1884,
-    "last_regression": "2026-05-05 06:32 pass",
+    "last_regression": "2026-05-05 09:50 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-05-05 06:32",
+    "security_score_time": "2026-05-05 09:50",
     "test_suites": 53,
     "governance_invariants": "64/64",
     "governance_checks": "350/350",
