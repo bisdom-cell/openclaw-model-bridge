@@ -77,6 +77,9 @@ fi
 if [ -f test_movespeed_rsync_helper.py ]; then
     run_suite "movespeed_rsync_helper (V37.9.27 jitter+retry+fail-loud+capture wrapper + INV-RETRY-001)" "python3 test_movespeed_rsync_helper.py"
 fi
+if [ -f test_movespeed_incident_analyzer.py ]; then
+    run_suite "movespeed_incident_analyzer (V37.9.28 F2 — 数据驱动诊断分析工具)" "python3 test_movespeed_incident_analyzer.py"
+fi
 if [ -f ontology/tests/test_governance_cron_matcher.py ]; then
     run_suite "governance_cron_matcher (INV-CRON-003/004 匹配器)" "python3 -m unittest ontology.tests.test_governance_cron_matcher"
 fi
