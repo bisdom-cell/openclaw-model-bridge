@@ -1,5 +1,5 @@
 {
-  "updated": "2026-05-05 06:17:24",
+  "updated": "2026-05-05 06:33:42",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -265,10 +265,10 @@
   "quality": {
     "security_score": 95,
     "test_count": 1884,
-    "last_regression": "2026-05-05 04:06 pass",
+    "last_regression": "2026-05-05 06:32 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-05-05 04:06",
-    "test_suites": 52,
+    "security_score_time": "2026-05-05 06:32",
+    "test_suites": 53,
     "governance_invariants": "64/64",
     "governance_checks": "350/350",
     "version": "0.37.9.28"
@@ -371,7 +371,8 @@
     "V37.9.29 候选 [P0 — Spotlight + TM 排除效果验证, 需 24h 后观察]: 2026-05-05 已执行 sudo mdutil -i off /Volumes/MOVESPEED + tmutil addexclusion. 5/6 跑 python3 ~/movespeed_incident_analyzer.py --window 24h, 如总数 ~0 → Spotlight + TM 是 root cause 闭环成功. 如总数仍 ~20 → 真有 firmlink/APFS 内核态异常, 需 V37.9.29 系统性调查 (ls -la /Volumes/MOVESPEED 看 firmlink / 看 /System/Volumes/Data/Volumes/MOVESPEED 实际数据 / 系统日志 grep \"movespeed.*denied\"). 来源: 2026-05-05 V37.9.28 F2 修复验证.",
     "[CLOSED V37.9.28 user 5/5 实测] V37.9.29 [P0 — 升级原 P1] 加每日 04:00 cron 强制全量 sync 作为 MOVESPEED 备份硬兜底: bash ~/crontab_safe.sh add \"0 4 * * * bash -c rsync -av --delete \\$HOME/.kb/ /Volumes/MOVESPEED/KB/ >> \\$HOME/.kb/movespeed_daily_sy ... 用户 2026-05-05 已成功 crontab -l 注册. 验证: 04:00 后 ls ~/.kb/movespeed_daily_sync.log 应有内容",
     "V37.9.29 [P1] helper 设计假设根本性升级: V37.9.27 movespeed_rsync_helper.sh 假设\"transient EPERM 30s 自愈\"实际是 macOS 持久 lock (Spotlight/mds_stores/backupd 在整点周期性锁 SSD). retry 3 次 + 30-180s jitter 完全无效. 修复方向 3 选 1: (a) 错峰到 :30 或 :45 整点之间 (ContextLock-aware) (b) 主动检测 backupd/mds_stores active 时跳过 cron (c) 大幅扩 retry 30 次 + 30s/次 = 15min retry 窗口跨过 lock 周期. 决定方案需基于 5/6 24h 数据 (Spotlight+TM 排除是否充分 — 如足以让 incident=0 则 helper 不需大改). 来源: 2026-05-05 helper 实战 8 天连续失败.",
-    "V37.9.29 [P1 — 后续优化] movespeed_daily_sync 从 inline crontab 升级为标准 job: (1) 创建 movespeed_daily_sync.sh 包装脚本 (rsync + log rotation + last_run.json) (2) jobs_registry.yaml 加 entry id=movespeed_daily_sync scheduler=system tier=auxiliary (3) auto_deploy FILE_MAP 加部署映射 (4) crontab 替换 inline 命令调用脚本 (5) job_watchdog 加状态文件检查 (last_run < 30h 报警). 当前 inline 模式工作但绕过了 registry → crontab convergence 检查 (V37.9.19 framework). 5/6 验证 04:00 cron 真实工作后做这步."
+    "V37.9.29 [P1 — 后续优化] movespeed_daily_sync 从 inline crontab 升级为标准 job: (1) 创建 movespeed_daily_sync.sh 包装脚本 (rsync + log rotation + last_run.json) (2) jobs_registry.yaml 加 entry id=movespeed_daily_sync scheduler=system tier=auxiliary (3) auto_deploy FILE_MAP 加部署映射 (4) crontab 替换 inline 命令调用脚本 (5) job_watchdog 加状态文件检查 (last_run < 30h 报警). 当前 inline 模式工作但绕过了 registry → crontab convergence 检查 (V37.9.19 framework). 5/6 验证 04:00 cron 真实工作后做这步.",
+    "V37.9.29 [P3 nice-to-have] 安全扫描 grep 排除规则补全 +85200000001 测试 fixture: governance_ontology.yaml:987 内嵌 Python test 用 +85200000001 (最后位 1 非占位符) 作 fake_oc 测试触发 WhatsApp 分支. 非真号 (fake binary 不真发送), 但 grep [+]852[0-9]{8} 占位符过滤 (匹配 +85200000000) 漏掉它. 选项: (a) 改 yaml 内嵌测试用 +85200000000 (一致性, 测试逻辑只要非空) 或 (b) 扩展占位符过滤 regex 包含 +85200000001 形式. (a) 更优. 工作量 5min, 不紧急, V37.9.29 顺手做."
   ],
   "_meta": {
     "last_updated_by": "claude_code"
