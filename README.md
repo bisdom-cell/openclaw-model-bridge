@@ -12,7 +12,7 @@
 [![Jobs](https://img.shields.io/badge/cron%20jobs-36%20active-blue.svg)]()
 [![Notifications](https://img.shields.io/badge/notifications-WhatsApp%20%2B%20Discord-informational.svg)]()
 
-> **Current version:** `v37.9.27` / `0.37.9.27` (2026-05-04) — see [`CLAUDE.md`](CLAUDE.md) for full changelog.
+> **Current version:** `v37.9.28` / `0.37.9.28` (2026-05-05) — see [`CLAUDE.md`](CLAUDE.md) for full changelog.
 
 ## Architecture / 系统架构
 
