@@ -1,6 +1,6 @@
 {
-  "updated": "2026-05-04 13:34:00",
-  "updated_by": "full_regression",
+  "updated": "2026-05-05 01:52:52",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -105,6 +105,11 @@
   ],
   "recent_changes": [
     {
+      "date": "2026-05-05",
+      "what": "V37.9.27+ 第四次 OpenClaw 升级评估 + 文档全面刷新 (Tripwire 框架首次复评实践). Tripwire 0/6 触发自动 hold. 实证 WebFetch 关键发现: ✅ #73358 codex/gpt-5.5 silent default V37.9.22 三次评估硬阻塞 dealbreaker 已在 v2026.4.27 release notes 显式修复 (require explicit skills.entries.coding-agent.enabled before exposing bundled coding-agent skill). 战略局面变化: 4/29 hold indefinitely → 5/5 hold tactically (路径已开). 上游 v2026.4.26 → v2026.5.3-1 7 天 5 个新 stable + 5.x 是日历版本号 (年.月.patch) 非 semver major bump. 新增两个中风险点: v2026.4.29 tools.exec/tools.fs 不再隐式扩展 restrictive profile + v2026.5.2 强制 plugin manifest contracts.tools ownership 契约. #59265 Agent actions 不可见仍无 verified fix evidence (issue page 仍无 PR). 推荐方案 C: 等 4-8 周 (~2026-06-15) 让 5.x 沉淀社区验证累积充分后阶梯升 v2026.4.27 (含 #73358 fix 的最早稳定). 文档刷新 5 文件: docs/gateway_upgrade_eval_v2026.4.md (新增第十三节 4 次评估完整记录) + check_upgrade.sh (LAST_EVAL_DATE 4/29 → 5/5 重置时间 tripwire) + docs/config.md (顶部 OpenClaw 升级状态行重写) + SOUL.md (Gateway hold 条件升级理由) + status.json (本条 recent_changes + V37.9.28+ unfinished 登记). 元价值: V37.9.22 Tripwire 框架首次复评验证 framework 核心承诺 — 不再陷入二元决策疲劳, 实证调查替代节奏推断, 决策矩阵让 hold 理由透明可追溯. 未来 framework 可优化: 加 tripwire #7 检测上游已修复关键 bug (如 #73358) 作为正向触发, 让自动化能识破 hold 已过期. 无 VERSION bump (0.37.9.27 不变, 纯文档刷新非代码变更, 无新 INV/test).",
+      "by": "claude_code"
+    },
+    {
       "date": "2026-05-04",
       "what": "V37.9.27 安全事件闭环 (单日响应): preflight 在 Mac Mini 上抓出 deploy/install_openclaw_macmini.sh 中明文 API Key + 真实手机号泄漏 (commits d6ef9bd/51181c1 已 merge 到 main = commit 0d8cd8d)。三步处置: (1) 用户立即 rotate Qwen3 API key (sk-P4Ca...→新 key) (2) 替换源码占位符 sk-REPLACE-ME-WITH-YOUR-KEY + +85200000000, 加占位符兜底校验脚本 entry 拒绝继续防 silent failure (3) git filter-repo --replace-text 清 file 内容 + --replace-message 清 commit message, force-push main + claude/start-daily-work-iBA8O 到 5edb151. 全 history + 60+ remote 分支扫描验证无泄漏. Mac Mini auto_deploy reset --hard origin/main 已同步. 残余风险: GitHub 90 天孤立 commit GC 窗口 (key 已废, 不可利用). 副产品: deploy/install_openclaw_macmini.sh + docs/articles/why_control_plane_is_convergence_engine_devto.md (dev.to schema 优化版) 留作未来部署素材. 用户决策: 新 Mac Mini 部署推迟, pre-commit hook 不装 (preflight + auto_deploy 兜底证明工作只是晚一步).",
       "by": "claude_code"
@@ -197,11 +202,6 @@
     {
       "date": "2026-04-24",
       "what": "V37.9.16 每日深度分析 kb_deep_dive 全新上线 — 从周度覆盖升级为每日纵深。新增 3 文件: kb_deep_dive.py 700行纯Python (import kb_review_collect as rc 复用 5 原语 + 3 档 fetcher 架构: 一档 PDF (arxiv/acl/hf/pwc/s2/dblp pdfplumber lazy import + References/Acknowledgments 切割 + Figure/Table caption 去噪 + 30K 截断) / 二档 HTML (rss_blogs/ontology_sources/github_trending bs4 lazy import + article/main 标签优先) / 三档 degrade + picker (MIN_STARS=4 门槛 + TOPIC_WEIGHTS 主题加权 ontology/agent runtime/LLM infra/control plane 各 +10 + 摘要长度 tie-breaker 封顶 +10) + 双 prompt 分支 build_full_text_prompt (论证链+实验对比+局限性+本项目启发) vs build_abstract_only_prompt (禁推测+摘要级标注) 都含 GROUNDING_CONSTRAINT + run() 返回 status: ok/no_candidates/llm_failed/collector_failed llm_failed 路径不产出 artifacts) + kb_deep_dive.sh 150行 thin wrapper 镜像 kb_review.sh V37.5.1 env-var heredoc 模式 (set -euo pipefail + notify.sh source + double-push WhatsApp 简版 + Discord 完整版通过 --topic deep_dive 两次独立调用 + no_candidates 推告警但 exit 0 + llm_failed/collector_failed exit 1 fail-fast + rsync 带 V37.9.14 movespeed_incident_capture 取证) + test_kb_deep_dive.py 55 tests / 10 类 (TestClassifyTier 7 + TestParseEntries 6 + TestScoreEntry 6 + TestPdfUrl 5 + TestPreprocessPdf 5 + TestFetchDegrade 3 + TestPrompts 4 + TestOutputs 5 + TestRun 5 端到端 + TestShellGuards 9 源码级)。配置面: jobs_registry +1 job (interval 30 22 * * * HKT) + auto_deploy FILE_MAP +2 文件 + notify.sh deep_dive→DISCORD_CH_DAILY + full_regression +1 suite + test_movespeed EXPECTED_RSYNC_SITES +1 + governance ALLOWED_PUSH_SCRIPTS 白名单 +1 + docs/config.md 漂移修复 + VERSION 0.37.9.15.2→0.37.9.16. 时间窗 22:00 kb_evening → 22:30 kb_deep_dive → 00:40 Dream Map 零撞车. 全量回归 46 suites / 1472 tests / 0 fail / 309 checks / 61 invariants / 15/16 meta rules / 安全 95/100. 下次候选: Mac Mini pip3 install pdfplumber beautifulsoup4 观察首批 PDF 抓取 + INV-DEEP-001 (shadow 一周后加) + picker 调优.",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-04-24",
-      "what": "V37.9.15 Phase 4 P3 三阶段门控 shadow wiring — policy 引擎从可查询升级为在请求路径上被调用并产可观测 log。新文件 ontology/three_gate.py (~280 行纯函数): GateFinding namedtuple + pre_check/runtime_gate/post_verify 三 gate + _collect_findings 共享 helper + _safe_evaluate_policy FAIL-OPEN 契约 + ONTOLOGY_GATES_MODE env 三档 off/shadow/on (默认 shadow) + 与 ONTOLOGY_MODE 解耦。tool_proxy.py 两处 wiring: lazy-load three_gate (importlib.util) + _run_gate 帮助函数 (Exception 兜底 + log [gate:*]) + do_POST raw 后调 pre_check+runtime_gate + rj 后调 post_verify (V37.9.15 顺序锁: 必须在 fix_tool_args 之前)。INV-GATE-001 (MR-7, high, [declaration,runtime]) 14 checks. policy_ontology.yaml meta 0.2-p2-partial→0.3-p3-partial, 新增 policies_observed_by_three_gate + gates_feature_flag 声明. 66 新单测 (test_three_gate.py 57 + TestThreeGateWiring 9). governance v3.31→v3.32. 累计 44→45 suites / 1345→1411 tests (+66) / 0 fail / 60→61 invariants / 273→297 checks / 15→16 meta rules (MR-16 计入) / 安全 95/100 / VERSION 0.37.9.14→0.37.9.15. Mac Mini 部署: ontology/ 走 symlink 无需 FILE_MAP, tool_proxy.py 走 auto_deploy 2min 轮询. 启动日志将出现 [proxy] three_gate loaded (mode=shadow), 每请求末尾三行 [gate:*] findings 供运维 grep 观察一周. 下次 (V37.9.16) 候选: shadow→on 推进 (需定义 enforcement 行为) / 第三条 policy 切换 / Phase 4 P4 audit_log 加 rule_chain.",
       "by": "claude_code"
     }
   ],
@@ -377,7 +377,8 @@
     "V37.9.25 候选: 一周 dry-run 观察期 (5/4 baseline → 5/11 决策窗口) 收集两个 machine_sync spec 的 apply 字面量验证. jobs_to_crontab 验证 cron line 拼接结果与生产 crontab 行字面一致, kb_sources_to_index 验证 kb_embed.py 增量调用产 'applied: kb_embed.py incremental (N missing sources)' 真同步成功. 都符合预期后切关 _is_dry_run() 默认值让 CONVERGENCE_DRY_RUN=1 才 dry-run, 真激活 machine_sync.",
     "V37.9.26 候选: services_to_launchd machine_sync 升级 (一周观察期 5/4 baseline → 5/11 决策窗口). 如 Mac Mini 一周内 declared=3 observed=3 零漂移, 升级 drift_action: alert_only → machine_sync + 注册新 _apply_services_launchctl_bootstrap 到 _APPLY_FUNCTIONS (复用 restart.sh launchctl kickstart -k 路径 + per-service plist 解析). 同款 V37.9.23/V37.9.24 Plan B 渐进 dry-run 模式.",
     "V37.9.26 候选 (5/11 决策窗口): 三 spec 同步切关 dry-run 真激活 machine_sync — jobs_to_crontab (V37.9.23 baseline 4/26 累积 2 周) + kb_sources_to_index (V37.9.24 baseline 5/4 + 1 周) + services_to_launchd (V37.9.25 baseline 5/4 + 1 周, 需先实现 _apply_services_launchctl_bootstrap 注册到 _APPLY_FUNCTIONS dict). 修改 _is_dry_run() 默认让 CONVERGENCE_DRY_RUN=1 才 dry-run, 未设/=0 都激活. Plan B 渐进 dry-run → Plan C 真激活的最后一步.",
-    "V37.9.28 候选 (5/4-5/11 一周观察期 + 决策窗口三件套): (1) 验证 V37.9.27 retry 实战效果 — 24h incident 数应从 ~19 降到 <1 (95%+ 减少). (2) 5/11 决策窗口三 spec 同步切关 dry-run 真激活 machine_sync (jobs_to_crontab + kb_sources_to_index + services_to_launchd). 修改 _is_dry_run() 默认让 CONVERGENCE_DRY_RUN=1 才 dry-run, 未设/=0 都激活. Plan B → Plan C 过渡. (3) 立场文章第 6 篇候选: \"我以为闭环了\" — 60 天架构假设级 silent failure 教训 (V37.9.4 → V37.9.26 → V37.9.27 时间线)."
+    "V37.9.28 候选 (5/4-5/11 一周观察期 + 决策窗口三件套): (1) 验证 V37.9.27 retry 实战效果 — 24h incident 数应从 ~19 降到 <1 (95%+ 减少). (2) 5/11 决策窗口三 spec 同步切关 dry-run 真激活 machine_sync (jobs_to_crontab + kb_sources_to_index + services_to_launchd). 修改 _is_dry_run() 默认让 CONVERGENCE_DRY_RUN=1 才 dry-run, 未设/=0 都激活. Plan B → Plan C 过渡. (3) 立场文章第 6 篇候选: \"我以为闭环了\" — 60 天架构假设级 silent failure 教训 (V37.9.4 → V37.9.26 → V37.9.27 时间线).",
+    "V37.9.28+ 候选 (软性触发 ~2026-06-15, 4-8 周 5.x 沉淀观察期到达): OpenClaw 升级第五次评估. 届时 5.x 已稳定 6 周, 社区验证累积充分. 评估重点: (a) v2026.5.x 是否仍持续高频迭代或已稳定收敛 (b) #59265 Agent actions 不可见是否在某版本 release notes 显式修复 (有 PR + 版本 mention 双证据) (c) v2026.4.29 tools.exec/tools.fs restrictive profile 收紧对我们 proxy_filters 工具白名单是否影响 — dev 验证 12 工具集 (data_clean / search_kb / read_file / write_file / etc.) 在升级后是否仍可见 (d) v2026.5.2 plugin manifest contracts.tools ownership 强制对 qwen-local provider 注册路径 (adapter.py 启动时如何向 Gateway 注册) 是否破坏. 如所有阻塞解除则推荐阶梯升 v2026.4.27 (V37.9.27+ 评估认定为含 #73358 fix 的最早稳定 + 避开 4.29/5.x 累积变更面). 升级 SOP: 备份 openclaw.json + bash check_upgrade.sh 重新跑 + dev 验证两个新中风险点 + 维护窗口深夜 + 30 秒回滚预案 + WhatsApp 立即可用性 E2E. 升级成功后更新 LAST_EVAL_DATE 为升级日期重置时间 tripwire (180 天硬性上限到 2026-12 后)"
   ],
   "_meta": {
     "last_updated_by": "claude_code"
