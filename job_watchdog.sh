@@ -281,7 +281,28 @@ scan_logs() {
     if [ "$recent_fails" -gt 0 ]; then
         local last_err
         last_err=$(echo "$recent_window" | grep -iE "$err_pattern" | tail -1 | head -c 120)
-        ALERTS+=("$job_name 日志: ${recent_fails}条错误 → $last_err")
+
+        # V37.9.28 F1: 提取错误行的时间戳分布（最早/最新），让告警可读
+        # 之前 bug: 只显示 "12条错误 → last_err" 看不出 12 条是分布的还是集中的
+        # 用户 5/5 周一观察反馈："主要是一些 health 监控推送没有严格的时间戳"
+        # 修复: grep -oE 提取 [YYYY-MM-DD HH:MM] 模式, sort -u 去重, head/tail 取最早最新
+        # 边界: 全是 Traceback 多行无时间戳行 → "(时间戳缺失)" 标记
+        local err_ts oldest newest ts_info
+        err_ts=$(echo "$recent_window" | grep -iE "$err_pattern" | \
+                 grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}[T ][0-9]{2}:[0-9]{2}' | sort -u)
+        if [ -n "$err_ts" ]; then
+            oldest=$(echo "$err_ts" | head -1)
+            newest=$(echo "$err_ts" | tail -1)
+            if [ "$oldest" = "$newest" ]; then
+                ts_info=" (@ $oldest)"
+            else
+                ts_info=" (最早 $oldest, 最新 $newest)"
+            fi
+        else
+            ts_info=" (时间戳缺失)"
+        fi
+
+        ALERTS+=("$job_name 日志: ${recent_fails}条错误${ts_info} → $last_err")
     fi
 }
 

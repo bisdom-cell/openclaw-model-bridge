@@ -203,6 +203,162 @@ class TestWatchdogShellInvariants(unittest.TestCase):
                          "Intermediate 14d ACL threshold (1209600) must not remain")
 
 
+def _run_alert_format(recent_window):
+    """Run the V37.9.28 F1 alert-format logic on a recent_window string.
+
+    Returns the formatted alert line that scan_logs() would push to ALERTS,
+    or empty string if no errors. Mirrors the bash code in job_watchdog.sh
+    (drift caught by TestF1AlertFormatShellGuards source-level checks).
+    """
+    err_pattern = (
+        '推送失败|send_failed|fetch_failed|FAIL(ED)?:|ERROR[: ]|Traceback|'
+        'HTTP[/ ](4[0-9]{2}|5[0-9]{2})'
+    )
+    bash_code = r'''
+        err_pattern="$1"
+        recent_window=$(cat)
+        recent_fails=$(echo "$recent_window" | grep -ciE "$err_pattern" || true)
+        if [ "$recent_fails" -gt 0 ]; then
+            last_err=$(echo "$recent_window" | grep -iE "$err_pattern" | tail -1 | head -c 120)
+            err_ts=$(echo "$recent_window" | grep -iE "$err_pattern" | \
+                     grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}[T ][0-9]{2}:[0-9]{2}' | sort -u)
+            if [ -n "$err_ts" ]; then
+                oldest=$(echo "$err_ts" | head -1)
+                newest=$(echo "$err_ts" | tail -1)
+                if [ "$oldest" = "$newest" ]; then
+                    ts_info=" (@ $oldest)"
+                else
+                    ts_info=" (最早 $oldest, 最新 $newest)"
+                fi
+            else
+                ts_info=" (时间戳缺失)"
+            fi
+            echo "test_job 日志: ${recent_fails}条错误${ts_info} → $last_err"
+        fi
+    '''
+    proc = subprocess.run(
+        ["bash", "-c", bash_code, "_", err_pattern],
+        input=recent_window, capture_output=True, text=True, timeout=10,
+    )
+    assert proc.returncode == 0, f"bash failed: {proc.stderr}"
+    return proc.stdout.strip()
+
+
+class TestF1AlertFormatTimestampRange(unittest.TestCase):
+    """V37.9.28 F1: scan_logs ALERTS 输出包含错误行时间戳分布 (最早 X, 最新 Y)。
+    用户 2026-05-05 周一观察反馈: '主要是一些 health 监控推送没有严格的时间戳' """
+
+    def test_multiple_errors_at_different_times_show_range(self):
+        """Multiple errors spanning 5 hours → '(最早 ..., 最新 ...)' format."""
+        log = (
+            "[2026-05-05 02:14:32] arxiv_monitor: ERROR: rsync(24683): error\n"
+            "[2026-05-05 03:45:12] arxiv_monitor: ERROR: rsync(24684): error\n"
+            "[2026-05-05 07:32:01] arxiv_monitor: ERROR: HTTP 500 internal error\n"
+        )
+        result = _run_alert_format(log)
+        self.assertIn("3条错误", result)
+        self.assertIn("最早 2026-05-05 02:14", result)
+        self.assertIn("最新 2026-05-05 07:32", result)
+        self.assertNotIn("时间戳缺失", result)
+
+    def test_single_timestamp_uses_at_marker(self):
+        """All errors at same minute → '(@ X)' compact format."""
+        log = "[2026-05-05 08:30:00] kb_evening: ERROR: HTTP 502 Bad Gateway\n"
+        result = _run_alert_format(log)
+        self.assertIn("1条错误", result)
+        self.assertIn("(@ 2026-05-05 08:30)", result)
+        self.assertNotIn("最早", result)
+        self.assertNotIn("最新", result)
+
+    def test_no_timestamp_marks_missing(self):
+        """Only Traceback continuation lines (no timestamp) → '(时间戳缺失)'."""
+        log = (
+            "Traceback (most recent call last):\n"
+            "  File 'foo.py', line 42, in bar\n"
+            "    raise ValueError('boom')\n"
+            "ValueError: boom\n"
+        )
+        result = _run_alert_format(log)
+        self.assertIn("时间戳缺失", result)
+        self.assertIn("条错误", result)
+
+    def test_user_observation_blood_lesson_scenario(self):
+        """直接复现用户 2026-05-05 08:30 看到的 WhatsApp 截图场景：
+        13+ 条 rsync EOF 错误，但用户看不出何时发生 — 修复后必须能看出范围。
+        本测试构造同款数据，断言修复后用户能看到 (最早 X, 最新 Y) 信息。"""
+        log = (
+            "[2026-05-04 22:10:01] kb_evening: ERROR: rsync(24683): error: unexpected end of file\n"
+            "[2026-05-04 23:15:02] kb_evening: ERROR: rsync(24684): error: unexpected end of file\n"
+            "[2026-05-05 00:30:03] kb_evening: ERROR: rsync(24685): error: unexpected end of file\n"
+            "[2026-05-05 02:00:04] kb_evening: ERROR: rsync(24686): error: unexpected end of file\n"
+            "[2026-05-05 05:45:05] kb_evening: ERROR: rsync(24687): error: unexpected end of file\n"
+            "[2026-05-05 08:00:06] kb_evening: ERROR: rsync(24688): error: unexpected end of file\n"
+        )
+        result = _run_alert_format(log)
+        self.assertIn("6条错误", result)
+        # 用户现在能立刻看出 10 小时跨度（22:10 → 08:00），不是某瞬间爆发
+        self.assertIn("最早 2026-05-04 22:10", result)
+        self.assertIn("最新 2026-05-05 08:00", result)
+
+    def test_mixed_timestamped_and_continuation_lines(self):
+        """ERROR 行有时间戳 + Traceback 续行无时间戳 → 仍能从 ERROR 行提取范围。"""
+        log = (
+            "[2026-05-05 08:00:00] foo: ERROR: first error\n"
+            "Traceback (most recent call last):\n"
+            "  File 'foo.py', line 99\n"
+            "ValueError: continuation\n"
+            "[2026-05-05 09:30:00] foo: ERROR: second error\n"
+        )
+        result = _run_alert_format(log)
+        # 应至少匹配 2 条 ERROR + Traceback + ValueError
+        self.assertIn("最早 2026-05-05 08:00", result)
+        self.assertIn("最新 2026-05-05 09:30", result)
+
+
+class TestF1AlertFormatShellGuards(unittest.TestCase):
+    """V37.9.28 F1: 源码层守卫防止 job_watchdog.sh 修复后回归。"""
+
+    def setUp(self):
+        with open(os.path.join(_HERE, "job_watchdog.sh"), "r", encoding="utf-8") as f:
+            self.source = f.read()
+
+    def test_v37_9_28_marker_present(self):
+        self.assertIn("V37.9.28 F1", self.source,
+                      "job_watchdog.sh must mark V37.9.28 F1 timestamp visibility fix")
+
+    def test_grep_oE_timestamp_pattern_present(self):
+        """The grep -oE timestamp extraction pattern must be present in scan_logs."""
+        self.assertIn(
+            "grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}[T ][0-9]{2}:[0-9]{2}'",
+            self.source,
+            "scan_logs must use grep -oE to extract YYYY-MM-DD HH:MM timestamps")
+
+    def test_alert_format_includes_ts_info(self):
+        """The ALERTS+= line must include ts_info variable, not just last_err."""
+        # Find the scan_logs ALERTS line; it must reference ts_info
+        scan_logs_block = self.source[self.source.find("scan_logs()"):]
+        scan_logs_block = scan_logs_block[:scan_logs_block.find("\n}\n") + 3]
+        self.assertIn("${ts_info}", scan_logs_block,
+                      "ALERTS+= must use ${ts_info} for timestamp range visibility")
+        self.assertIn('ts_info=" (@ $oldest)"', scan_logs_block,
+                      "Single-timestamp branch must use '(@ X)' format")
+        self.assertIn('ts_info=" (最早 $oldest, 最新 $newest)"', scan_logs_block,
+                      "Multi-timestamp branch must use '(最早 X, 最新 Y)' format")
+        self.assertIn('ts_info=" (时间戳缺失)"', scan_logs_block,
+                      "No-timestamp branch must use '(时间戳缺失)' marker")
+
+    def test_old_naked_alert_format_removed(self):
+        """The old format '${recent_fails}条错误 → $last_err' (no timestamp)
+        must NOT appear as the only ALERTS+= pattern. There should be a
+        ${ts_info} between 条错误 and →."""
+        # Match the ALERTS+= line specifically
+        for line in self.source.split("\n"):
+            if "ALERTS+=" in line and "条错误" in line and "$last_err" in line:
+                # Found the alert line; it must have ts_info between 条错误 and →
+                self.assertIn("${ts_info}", line,
+                              f"ALERTS line missing ts_info: {line.strip()}")
+
+
 class TestRssBlogsCleanup(unittest.TestCase):
     """V37.9.6: LangChain RSS dead-link cleanup."""
 
