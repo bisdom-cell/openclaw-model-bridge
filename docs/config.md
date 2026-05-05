@@ -1,7 +1,7 @@
 # OpenClaw 完整配置文档
 > 最后更新：2026-05-05 (HKT)
 > 系统：Mac Mini (macOS) | 用户：bisdom
-> 版本：v37.9.27（B 问题闭环 movespeed_rsync_helper.sh / 1822 tests / 51 suites / 安全 95/100 / governance 69 inv）
+> 版本：v37.9.28（周一观察 5 finding 单日全闭环 / 1884 tests / 52 suites / 安全 95/100 / governance 69 inv / 423 checks）
 > OpenClaw Gateway：2026.3.13-1（当前部署，继续 hold）| 上游最新：**v2026.5.3-1**（2026-05-04 发布，5 月已到日历版本号跳 5.x 非 semver major bump）。第四次评估（2026-05-05）：✅ **#73358 codex/gpt-5.5 silent default 已在 v2026.4.27 release notes 显式修复**（V37.9.22 三次评估时的硬阻塞 dealbreaker 已解除），战略路径已开。但 hold 理由仍充分：(a) v2026.4.29 新增 `tools.exec`/`tools.fs` 不再隐式扩展 restrictive profile（中风险，需 dev 验证我们的 proxy_filters 工具白名单）(b) v2026.5.2 强制 plugin manifest `contracts.tools` ownership 契约（中风险，可能影响 qwen-local 注册路径）(c) #59265 Agent actions 不可见仍无 verified fix evidence（issue page 仍无 PR）(d) 5.x 仅 4 天稳定期社区验证不充分。Tripwire 0/6 触发自动 hold + 跨度 34 stable 累积 breaking 面巨大。**推荐方案 C：等 4-8 周（~2026-06-15）让 5.x 沉淀后阶梯升 v2026.4.27**（已修 #73358 的最早稳定版）。详见 `docs/gateway_upgrade_eval_v2026.4.md` 第十三节。
 ---
 ## 一、系统架构（V28.1 四层架构）
