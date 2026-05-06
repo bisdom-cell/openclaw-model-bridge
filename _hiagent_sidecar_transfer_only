@@ -137,17 +137,22 @@ def h_dc_profile(path, fmt="text"):
                          path, "--format", fmt])
     if rc != 0:
         return 500, {"error": f"data_clean exit {rc}", "stderr": err}
+    if fmt == "json":
+        return 200, _json_or_wrap(out, err)
     return 200, {"result": out, "stderr": err}
 
 
 def h_dc_execute(path, ops):
     if not path or not ops:
         return 400, {"error": "path and ops required"}
+    ops_list = [op.strip() for op in ops.split(",") if op.strip()]
+    if not ops_list:
+        return 400, {"error": "ops cannot be empty after split"}
     rc, out, err = _run(["python3", "data_clean.py", "execute",
-                         path, "--ops", ops])
+                         path, "--ops"] + ops_list)
     if rc != 0:
         return 500, {"error": f"data_clean exit {rc}", "stderr": err}
-    return 200, {"result": out, "stderr": err}
+    return 200, _json_or_wrap(out, err)
 
 
 # ── HTTP handler ─────────────────────────────────────────────────────────────
