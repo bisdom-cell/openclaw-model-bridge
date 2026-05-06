@@ -1,0 +1,193 @@
+#!/usr/bin/env python3
+"""
+HiAgent Plugin Sidecar — exposes openclaw-model-bridge capabilities as HTTP endpoints.
+Independent file, NOT in main repo, NOT managed by launchd/FILE_MAP.
+Start: HIAGENT_PLUGIN_KEY=<token> python3 ~/hiagent_plugin_server.py
+"""
+import json
+import os
+import subprocess
+import sys
+import time
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from urllib.parse import urlparse, parse_qs
+
+PORT    = int(os.environ.get("HIAGENT_PLUGIN_PORT", 5003))
+TOKEN   = os.environ.get("HIAGENT_PLUGIN_KEY", "").strip()
+TIMEOUT = int(os.environ.get("HIAGENT_PLUGIN_TIMEOUT", 30))
+REPO    = os.environ.get("HIAGENT_PLUGIN_REPO_DIR",
+                          os.path.expanduser("~/openclaw-model-bridge"))
+
+
+def _run(cmd, stdin_data=None):
+    try:
+        p = subprocess.run(
+            cmd, input=stdin_data, capture_output=True,
+            text=True, timeout=TIMEOUT, cwd=REPO
+        )
+        return p.returncode, p.stdout.strip(), p.stderr.strip()
+    except subprocess.TimeoutExpired:
+        return 124, "", f"timeout after {TIMEOUT}s"
+    except Exception as e:
+        return 1, "", str(e)
+
+
+def _json_or_wrap(raw_stdout, stderr=""):
+    """Try to parse JSON; if not valid, wrap as {result: ...}."""
+    try:
+        return json.loads(raw_stdout)
+    except Exception:
+        return {"result": raw_stdout, "stderr": stderr}
+
+
+# ── capability handlers ──────────────────────────────────────────────────────
+
+def h_health():
+    return 200, {"status": "ok", "service": "hiagent-plugin",
+                 "ts": int(time.time()), "port": PORT}
+
+
+def h_kb_search(q, limit=5):
+    rc, out, err = _run(["python3", "kb_rag.py", "--json", q,
+                         "--top-k", str(int(limit))])
+    if rc != 0:
+        return 500, {"error": f"kb_rag exit {rc}", "stderr": err}
+    return 200, _json_or_wrap(out, err)
+
+
+def h_memory(q, layer="all"):
+    cmd = ["python3", "memory_plane.py", "query", "--json"]
+    if layer and layer != "all":
+        cmd += ["--layers", layer]
+    cmd.append(q)
+    rc, out, err = _run(cmd)
+    if rc != 0:
+        return 500, {"error": f"memory_plane exit {rc}", "stderr": err}
+    return 200, _json_or_wrap(out, err)
+
+
+def h_mm_search(q, top_k=5):
+    rc, out, err = _run(["python3", "mm_search.py", q,
+                         "--top-k", str(int(top_k)), "--json"])
+    if rc != 0:
+        return 500, {"error": f"mm_search exit {rc}", "stderr": err}
+    return 200, _json_or_wrap(out, err)
+
+
+def h_dc_profile(path, fmt="text"):
+    if not path:
+        return 400, {"error": "path required"}
+    rc, out, err = _run(["python3", "data_clean.py", "profile",
+                         path, "--format", fmt])
+    if rc != 0:
+        return 500, {"error": f"data_clean exit {rc}", "stderr": err}
+    return 200, {"result": out, "stderr": err}
+
+
+def h_dc_execute(path, ops):
+    if not path or not ops:
+        return 400, {"error": "path and ops required"}
+    rc, out, err = _run(["python3", "data_clean.py", "execute",
+                         path, "--ops", ops])
+    if rc != 0:
+        return 500, {"error": f"data_clean exit {rc}", "stderr": err}
+    return 200, {"result": out, "stderr": err}
+
+
+# ── HTTP handler ─────────────────────────────────────────────────────────────
+
+class PluginHandler(BaseHTTPRequestHandler):
+
+    def log_message(self, fmt, *args):  # quiet normal access log
+        pass
+
+    def _auth(self):
+        if not TOKEN:
+            return True  # no token configured → open (dev mode)
+        return self.headers.get("Authorization", "") == f"Bearer {TOKEN}"
+
+    def _send(self, code, obj):
+        body = json.dumps(obj, ensure_ascii=False).encode()
+        self.send_response(code)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", len(body))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _qs(self):
+        return parse_qs(urlparse(self.path).query, keep_blank_values=False)
+
+    def _body(self):
+        length = int(self.headers.get("Content-Length", 0))
+        if length:
+            try:
+                return json.loads(self.rfile.read(length))
+            except Exception:
+                return {}
+        return {}
+
+    def do_GET(self):
+        path = urlparse(self.path).path
+
+        if path == "/health":
+            code, obj = h_health()
+            self._send(code, obj)
+            return
+
+        if not self._auth():
+            self._send(401, {"error": "unauthorized"})
+            return
+
+        qs = self._qs()
+
+        if path == "/kb/search":
+            q = (qs.get("q") or [""])[0]
+            limit = (qs.get("limit") or ["5"])[0]
+            code, obj = h_kb_search(q, limit)
+
+        elif path == "/memory/query":
+            q = (qs.get("q") or [""])[0]
+            layer = (qs.get("layer") or ["all"])[0]
+            code, obj = h_memory(q, layer)
+
+        elif path == "/mm/search":
+            q = (qs.get("q") or [""])[0]
+            top_k = (qs.get("top_k") or ["5"])[0]
+            code, obj = h_mm_search(q, top_k)
+
+        else:
+            code, obj = 404, {"error": f"unknown path {path}"}
+
+        self._send(code, obj)
+
+    def do_POST(self):
+        path = urlparse(self.path).path
+
+        if not self._auth():
+            self._send(401, {"error": "unauthorized"})
+            return
+
+        body = self._body()
+
+        if path == "/data_clean/profile":
+            code, obj = h_dc_profile(body.get("path", ""),
+                                     body.get("format", "text"))
+
+        elif path == "/data_clean/execute":
+            code, obj = h_dc_execute(body.get("path", ""),
+                                     body.get("ops", ""))
+
+        else:
+            code, obj = 404, {"error": f"unknown path {path}"}
+
+        self._send(code, obj)
+
+
+# ── entry point ───────────────────────────────────────────────────────────────
+
+if __name__ == "__main__":
+    if not TOKEN:
+        print("[WARN] HIAGENT_PLUGIN_KEY not set — running in open mode (dev only)",
+              file=sys.stderr)
+    print(f"[hiagent-plugin] listening on 0.0.0.0:{PORT}", file=sys.stderr)
+    HTTPServer(("0.0.0.0", PORT), PluginHandler).serve_forever()
