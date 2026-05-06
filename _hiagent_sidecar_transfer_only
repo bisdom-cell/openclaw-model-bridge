@@ -49,7 +49,7 @@ def h_health():
 
 def h_kb_search(q, limit=5):
     rc, out, err = _run(["python3", "kb_rag.py", "--json", q,
-                         "--top-k", str(int(limit))])
+                         "--top", str(int(limit))])
     if rc != 0:
         return 500, {"error": f"kb_rag exit {rc}", "stderr": err}
     return 200, _json_or_wrap(out, err)
@@ -68,7 +68,7 @@ def h_memory(q, layer="all"):
 
 def h_mm_search(q, top_k=5):
     rc, out, err = _run(["python3", "mm_search.py", q,
-                         "--top-k", str(int(top_k)), "--json"])
+                         "--top", str(int(top_k)), "--json"])
     if rc != 0:
         return 500, {"error": f"mm_search exit {rc}", "stderr": err}
     return 200, _json_or_wrap(out, err)
