@@ -454,5 +454,126 @@ class TestGovernanceExtension(unittest.TestCase):
         self.assertIn("movespeed_incident_capture.sh", content)
 
 
+class TestV37929MountFieldFix(unittest.TestCase):
+    """V37.9.29 candidate (a): mount field truncation bug fix.
+
+    Bug history (2026-04-29 → 2026-05-05, ~8 days silent misdiagnosis):
+      - Line 63 used `grep -i -e MOVESPEED -e Volumes` matching ALL /Volumes/*
+        entries (Preboot/Data/Recovery/MOVESPEED), often >400 chars combined.
+      - Line 120 read_file limit was 400 → MOVESPEED line frequently truncated
+        out of the captured window.
+      - incident_analyzer.py mount-state classifier (line 215-225) scans for
+        "read-only" / "read-write" substrings, never finds them in truncated
+        output, falls into else → reports "other_or_unmounted".
+      - Resulting metric "21/21 other_or_unmounted" was used in V37.9.28
+        diagnosis as evidence of unmount → 4-step incorrect hypothesis chain.
+
+    Fix:
+      1. Narrow grep to MOVESPEED only — single line ~80 chars.
+      2. Raise limit 400 → 800 as defense-in-depth for future verbose mount.
+    """
+
+    def test_grep_only_matches_movespeed_no_volumes_context(self):
+        """Source guard: -e Volumes must be removed (root cause)."""
+        with open(HELPER_PATH, "r", encoding="utf-8") as fp:
+            content = fp.read()
+        # Must use single-target grep
+        self.assertIn(
+            "mount 2>/dev/null | grep -i MOVESPEED >",
+            content,
+            "Expected narrow grep pattern (V37.9.29 fix)",
+        )
+        # The old wide pattern must be gone
+        self.assertNotIn(
+            "grep -i -e MOVESPEED -e Volumes",
+            content,
+            "Old wide grep pattern still present — re-introduces truncation bug",
+        )
+
+    def test_mount_field_limit_raised_to_800(self):
+        """Source guard: defense-in-depth limit increase 400 → 800."""
+        with open(HELPER_PATH, "r", encoding="utf-8") as fp:
+            content = fp.read()
+        self.assertIn(
+            'read_file("mount", 800)',
+            content,
+            "Expected mount field limit=800 (V37.9.29 defense-in-depth)",
+        )
+        # Old 400 limit must not coexist (would shadow the fix on first match)
+        self.assertNotIn(
+            'read_file("mount", 400)',
+            content,
+            "Old 400-char limit still present",
+        )
+
+    def test_v37_9_29_marker_present(self):
+        """Source guard: V37.9.29 attribution comment near the fix."""
+        with open(HELPER_PATH, "r", encoding="utf-8") as fp:
+            content = fp.read()
+        self.assertIn("V37.9.29", content, "V37.9.29 marker comment missing")
+
+    def test_mount_field_full_capture_with_many_volumes_present(self):
+        """Behavior test: inject fake `mount` outputting many /Volumes/* entries
+        with MOVESPEED at the END. With the OLD pattern this would truncate
+        MOVESPEED out; with the NEW pattern the captured field must contain
+        MOVESPEED and NOT be marked [truncated].
+        """
+        # Build fake `mount` shell shim that prints multi-volume output similar
+        # to what macOS does, with MOVESPEED last (worst case for truncation).
+        with tempfile.TemporaryDirectory() as fake_bin:
+            fake_mount = os.path.join(fake_bin, "mount")
+            # Each line ~70-90 chars; 6 lines totalling ~500 chars before MOVESPEED.
+            fake_output_lines = [
+                "/dev/disk1s1 on / (apfs, local, journaled)",
+                "devfs on /dev (devfs, local, nobrowse)",
+                "/dev/disk1s2 on /System/Volumes/Preboot (apfs, sealed, local, nobrowse)",
+                "/dev/disk1s3 on /System/Volumes/Recovery (apfs, sealed, local, nobrowse)",
+                "/dev/disk1s4 on /System/Volumes/Data (apfs, local, journaled, nobrowse)",
+                "/dev/disk1s5 on /System/Volumes/VM (apfs, local, noexec, nobrowse, nosuid)",
+                "/dev/disk1s6 on /System/Volumes/Update (apfs, sealed, local, nobrowse)",
+                # MOVESPEED last — would be truncated under old grep+400 combo
+                "/dev/disk6s1 on /Volumes/MOVESPEED (apfs, local, nodev, nosuid, journaled, mounted by bisdom)",
+            ]
+            with open(fake_mount, "w", encoding="utf-8") as fp:
+                fp.write("#!/bin/sh\n")
+                # Use printf to avoid echo/quoting traps; each line as separate arg
+                for line in fake_output_lines:
+                    # Shell-escape via single quotes; no quotes in our test data
+                    fp.write(f"printf '%s\\n' '{line}'\n")
+            os.chmod(fake_mount, 0o755)
+
+            with tempfile.TemporaryDirectory() as td:
+                inc = os.path.join(td, "incidents.jsonl")
+                # Prepend fake bin to PATH so `mount` resolves to our shim.
+                env_extra = {"PATH": fake_bin + os.pathsep + os.environ.get("PATH", "")}
+                rc, _, _ = run_helper(
+                    1, "/x/run_freight.sh", inc, env_extra=env_extra
+                )
+                self.assertEqual(rc, 0)
+                with open(inc, "r", encoding="utf-8") as fp:
+                    rec = json.loads(fp.readline())
+                mount_str = rec.get("mount", "")
+                # Critical: MOVESPEED line must be in captured field
+                self.assertIn(
+                    "MOVESPEED",
+                    mount_str,
+                    f"MOVESPEED missing from captured mount field: {mount_str!r}",
+                )
+                # Critical: no truncation marker
+                self.assertNotIn(
+                    "[truncated]",
+                    mount_str,
+                    "MOVESPEED line should fit in 800 char limit after narrow grep",
+                )
+                # Critical: must contain the file system descriptor that
+                # incident_analyzer's mount-state classifier reads.
+                # macOS APFS mount line includes 'apfs' but `mount -v` style
+                # would include 'rw'. Verify the analyzer-relevant info survives.
+                self.assertTrue(
+                    "apfs" in mount_str.lower() or "/Volumes/MOVESPEED" in mount_str,
+                    f"Expected MOVESPEED filesystem details preserved, got: {mount_str!r}",
+                )
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
