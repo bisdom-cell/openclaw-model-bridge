@@ -40,6 +40,32 @@ def _json_or_wrap(raw_stdout, stderr=""):
         return {"result": raw_stdout, "stderr": stderr}
 
 
+def _parse_last_json(raw_stdout, stderr=""):
+    """Parse multiple concatenated top-level JSONs, return last one.
+    memory_plane.py prints two JSONs (internal kb_rag debug + its own results);
+    we only want the unified results array."""
+    decoder = json.JSONDecoder()
+    text = raw_stdout.strip()
+    last = None
+    idx = 0
+    while idx < len(text):
+        while idx < len(text) and text[idx].isspace():
+            idx += 1
+        if idx >= len(text):
+            break
+        try:
+            obj, end = decoder.raw_decode(text, idx)
+            last = obj
+            idx = end
+        except json.JSONDecodeError:
+            break
+    if last is None:
+        return {"result": raw_stdout, "stderr": stderr}
+    if isinstance(last, list):
+        return {"results": last}
+    return last
+
+
 # ── capability handlers ──────────────────────────────────────────────────────
 
 def h_health():
@@ -63,7 +89,7 @@ def h_memory(q, layer="all"):
     rc, out, err = _run(cmd)
     if rc != 0:
         return 500, {"error": f"memory_plane exit {rc}", "stderr": err}
-    return 200, _json_or_wrap(out, err)
+    return 200, _parse_last_json(out, err)
 
 
 def h_mm_search(q, top_k=5):
