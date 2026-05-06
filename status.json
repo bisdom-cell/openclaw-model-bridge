@@ -1,6 +1,6 @@
 {
-  "updated": "2026-05-05 09:51:55",
-  "updated_by": "claude_code",
+  "updated": "2026-05-06 00:56:26",
+  "updated_by": "full_regression",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -105,6 +105,11 @@
   ],
   "recent_changes": [
     {
+      "date": "2026-05-06",
+      "what": "V37.9.29 — MOVESPEED EPERM 60 天 silent failure 真因终于触底 + 24h 验证窗口至 5/7 早 8:00 HKT。① incident_analyzer 揭示 V37.9.28 macOS 修复完全无效 (24h 仍 21 incidents). ② Path A 4 轮诊断锁定真凶: noowners flag (V37.9.4 APFS 重建副作用) + 原始 file ownership root:wheel + _unknown:_unknown (UID 99) + bisdom UID 501 完全错位 + macOS daemon (mds_stores UID 89, backupd UID 200) metadata access 触发跨 UID ACL 拒绝 → bisdom cron 同时段 EPERM. ③ Path D 第一次错序 (第 6 次诊断错误): chown(noowners 模式) → enableOwnership → mount owners → bisdom 失访 ~10 分钟. 根因: macOS APFS 隐含规则 — noowners 模式下 sudo chown 被静默吃掉 (教科书 sudo bypass 假设错). ④ R2 抢救正确顺序: enableOwnership → mount owners → chown → 真生效, UID 全变 bisdom:staff, rsync 67MB 0 EPERM. ⑤ V37.9.29 (a) parallel 独立工作: incident_capture mount 字段 grep -e Volumes 移除 + limit 400→800, 4 新单测 (TestV37929MountFieldFix). ⑥ 完整案例文档 movespeed_noowners_uid_mismatch_case.md (~520 行, 四维度因果链 + 三层根因 + 6 条件组合分析 + chown 操作顺序硬规则 + MR-4 第 22 次演出). ⑦ 24h 可证伪验证窗口: incidents < 5 = ✅ 立 INV-OWNERSHIP-001 / 15+ = ❌ R1 回滚 + path B 调度避峰. ⑧ 累计 52 suites / 1887 tests (+4) / 0 fail / 69 inv / 423 checks / 安全 95/100 / VERSION 0.37.9.28 → 0.37.9.29.",
+      "by": "claude_code"
+    },
+    {
       "date": "2026-05-05",
       "what": "V37.9.28 头部版本号漂移修正 (CLAUDE.md + README.md + docs/config.md 三处) — V37.9.28 收工漏改, VERSION 文件已 0.37.9.28 但三处文档头部仍写 v37.9.27/0.37.9.27 (2026-05-04). 1 commit (3c05bd9) 推送到 claude/start-daily-work-KV9z3. 零附带改动. 全仓 grep 验证无遗漏 v37.9.27 顶部声明. 收工 A-D 全过 (53 suites / 1884 tests / 0 fail / 安全 95/100 / 治理 dev 模式所有不变式 + convergence 5 spec 符合 FAIL-OPEN 契约).",
       "by": "claude_code"
@@ -194,16 +199,6 @@
       "date": "2026-04-27",
       "what": "V37.9.21 kb_deep_dive WhatsApp 多窗口分片 (Dream-style) — 用户视角发现 → 同日闭环. 触发: V37.9.20 收工后用户反馈 kb_deep_dive 推送内容超 WhatsApp 单窗口可视范围 (V37.9.16 build_deep_dive_wa 截断到 1400 字 + ... 省略号), 明确要求类似 dream 的长内容使用 [1/N] [2/N] 多窗口. 原则 #13 (定期像用户用) 正向兑现 — 单测/治理全绿但生产使用才暴露 UX 缺口. 3 决策已确认 (#28 理解再动手): (1) 只 WA 分片 / Discord 保持 1900 字 + KB 链接 (Discord 频道天然适合点链接看完整 markdown) (2) 单段预算 1400 字 (与 V37.9.16 原 budget 一致) (3) 每段精简 header `🔬 每日深度 [i/N] {date}{mode_tag}\\n{title}\\n⭐{stars} | {source}` + link 仅 Part 1. 实现: (a) 新增 _split_text_into_chunks 4 级 boundary fallback (段落 \\n\\n > 行 \\n > 中英文句号 。/.> 硬切) (b) build_deep_dive_wa_parts 返 list[str], 单段省 [i/N] indicator (c) run() 返新增 wa_parts 字段 + 保留 wa_message 向后兼容 = parts[0] (d) build_deep_dive_wa 改为 thin wrapper 调 wa_parts 取 [0] 零改 callers (e) kb_deep_dive.sh +63 行: mktemp -d + trap EXIT 清理 + Python env-var heredoc 写 000.txt/001.txt 每段 + 双路径 send_wa_parts_via_notify / send_wa_parts_via_openclaw + for chunk_file in *.txt 遍历 + 段间 sleep 1 避免 WhatsApp 乱序 (Dream 同款契约) + WA_SEND_OK/$WA_PARTS_TOTAL 进度可观测. 23 新单测 4 类: TestSplitTextIntoChunks 7 (short/empty/paragraph_boundary/line_boundary/no_boundary_hard_cut/preserves_full_content/chinese_punctuation_boundary) + TestBuildDeepDiveWaParts 9 (short_single_part/long_multi_part/each_part_indexed_header/link_only_on_first/each_part_within_budget/abstract_mode_tag_on_each_part/empty/full_content_preserved_across_parts 50 markers 守卫无内容丢失/backward_compat_returns_first_part) + TestRunOrchestrator.test_ok_path_returns_wa_parts_list 1 + TestKbDeepDiveShellGuards 6 (V37.9.21 marker/env-var heredoc 反模式/mktemp+trap 清理/for chunk_file ... sleep 1 循环/WA+Discord 独立 send/WA_SEND_OK 可观测 log). smoke 实测 ~3500 字内容产 4 段 1304/694/1131/1086 字, 边界全选中 ## heading 前 \\n\\n, 没句子切两段. 累计 48 suites 不变 / 1577→1600 tests (+23) / 0 fail / 安全 95/100 / VERSION 0.37.9.20→0.37.9.21. 无新 governance INV (V37.9.16 决策 INV-DEEP-001 shadow 一周后再考虑, 多窗口是 UX 增量非安全边界). MR-7 用户视角→24h 闭环第 3 次兑现: V37.9.16 上线 → V37.9.17 picker tier-aware fallback → V37.9.21 多窗口分片. V37.9.21 把原计划 V37.9.21 (jobs_to_crontab → machine_sync) 推到 V37.9.22+ — 那个本来就硬卡在 5/3 决策窗口.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-04-27",
-      "what": "V37.9.20 Mac Mini E2E 验证完美通过 + 完整收工 — 用户同步 main HEAD=a1f9bad (PR #459 merge), VERSION 0.37.9.20 验证, 跑 python3 ~/openclaw-model-bridge/ontology/convergence.py --spec providers_to_adapter 输出 [convergence:providers_to_adapter] DRIFT action=alert_only missing=5 [claude,glm,kimi,minimax,openai] — declared=7 (qwen+gemini+claude+kimi+minimax+glm+openai 7 built-in provider) observed=2 (qwen primary + gemini fallback) missing=5 与预期 4-5 个完全匹配。这是 V37.8.10 fallback chain 单 provider 血案在新 framework 下的首次结构化可观测输出 — 之前要靠手动 cat /health 或运维察觉, 现在 governance audit 端到端可见。--all 同时跑两 spec: [convergence:jobs_to_crontab] ok declared=36 observed=36 (V37.9.19 baseline day 2 零漂移稳定 — 4/26 baseline 起一周观察期决策窗口 2026-05-03 进度 1/7) + [convergence:providers_to_adapter] 同上 5 missing。preflight --full 81 通过/0 失败/3 警告 (3 警告均 pre-existing 与 V37.9.20 无关: 货代 ImportYeti Cloudflare 拦截 + KB 索引 98% cron 自动补齐 + wa_e2e_test.sh 未部署 backlog)。V37.9.20 在 Mac Mini 真实生产环境功能契约 + 性能契约 + FAIL-OPEN 契约全部验证通过。framework 设计正确性硬证据 = 144 行新 dispatch 函数 + 30 行 yaml + 14 governance check + 35 单测 + Mac Mini missing=5 真实输出 + zero verify_convergence 改动 — V3 路标 pip install ontology-engine 终极目标的关键拐点。下次 V37.9.21 候选保持: [主] jobs_to_crontab→machine_sync 等 5/3 决策窗口 / [次] openclaw_config_to_runtime / [次] kb_sources_to_index / [可] governance_checker 集成 verify_convergence / [可] 立场文章 Why Control Plane = Convergence Engine. 收工 9 项 A~I 全绿: A 全量回归 1577/0 fail / B 安全 95/100 / C API 密钥+手机号扫描 0 泄漏 / D governance 412 checks pass / E 文档刷新 (CLAUDE.md V37.9.20 changelog + VERSION + status.json) / F 交叉校验 commits vs 待办一致 / G 提交推送 PR #459 merged / H Mac Mini E2E 81/0/3 / I 遗留 missing=5 provider 已登记 (V37.9.21 unfinished). 元教训: V37.9.20 是 V37.9.19 framework 一周内首次扩展, 一日内闭环 (ontology spec 设计→单测→governance→full_regression→commit→merge→Mac Mini 验证), 验证 named-dispatch 模式真扩展性而非空头承诺.",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-04-27",
-      "what": "V37.9.20 第二个 convergence spec providers_to_adapter 上线 — V37.9.19 named-dispatch 扩展性首次兑现 (MR-8 copy-paste-is-a-bug-class 正向案例). 触发: V37.9.19 framework 承诺 named-dispatch 三表镜像 V37.9.13/V37.9.15 模式让添加新 spec 类型零 framework 改动, V37.9.20 实测兑现 — verify_convergence orchestrator 改动 0 行, 全部通过 dispatch 表扩展. 新增 3 个 dispatch 函数 (convergence.py +144 行纯函数零 I/O at import): (a) _extract_providers_from_registry 读 ProviderRegistry.list_names() 含 7 built-in + auto-discovered providers.d/ 插件 late import + ImportError/registry FAIL-OPEN (b) _observe_http_endpoint 用 stdlib urllib GET _HTTP_OBSERVER_TIMEOUT_SEC=5 保护 audit cron 不挂 + 包装 HTTPError/URLError/timeout 为 RuntimeError + UTF-8 errors=replace V37.8.6 surrogate 防御复用 (c) _parse_json_set_union 走 spec.json_paths 配置 (field 标量 / field[] list 后缀两种语法) 取 union 后与 declared 求交保持 V37.9.19 line 248 observed⊆declared 框架契约 + 防御 list 路径非 list raise / scalar 路径 dict/list silent skip. convergence_ontology.yaml v0.1-skeleton → v0.2-second-spec, providers_to_adapter spec node (drift_action=alert_only + convergence_method.planned=alert_only_permanent 永久结构性决策 — API key 无法 machine 自动 provision, 与 jobs_to_crontab planned=machine_sync_via_helper 形成对照). INV-CONVERGENCE-PROVIDERS-001 (meta_rule=MR-17, severity=high, [declaration,runtime], 14 checks: 5 dispatch registration + 8 yaml structural + 1 runtime python_assert subprocess 跑 unittest -v 5 个 V37.9.20 测试类). 35 新单测 5 类 (TestExtractProvidersFromRegistry 3 / TestObserveHttpEndpoint 6 含 mock urlopen 200/500/timeout/connection_refused / TestParseJsonSetUnion 12 含全边界 / TestVerifyProvidersToAdapterIntegration 3 含 happy_path/full_visibility 真 mock / TestProvidersSpecSourceGuards 11 含 alert_only_permanent 永久守卫 + machine_sync 字面量禁止). MR-17 derivative_invariants 升级 [INV-CONVERGENCE-CRON-001] → [..., INV-CONVERGENCE-PROVIDERS-001]. 累计 47→48 suites (+1) / 1542→1577 tests (+35) / 0 fail / governance v3.33→v3.34 / 62→63 invariants (+1) / 311→337 checks (+14) / 17 meta rules / 安全 95/100 / VERSION 0.37.9.19→0.37.9.20. dev FAIL-OPEN 验证: python3 ontology/convergence.py --spec providers_to_adapter 输出 error=observer_failed: connection refused declared=7 observed=0 — adapter 不在 dev 跑是预期与 V37.9.19 jobs_to_crontab 行为对称. 元价值: V37.9.19 framework 一周内首次扩展验证, named-dispatch 不是空头承诺 — V3 路标 pip install ontology-engine 终极目标的必备前提条件硬证据.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -269,14 +264,14 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 1884,
-    "last_regression": "2026-05-05 09:50 pass",
+    "test_count": 1888,
+    "last_regression": "2026-05-06 00:56 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-05-05 09:50",
-    "test_suites": 53,
+    "security_score_time": "2026-05-06 00:56",
+    "test_suites": 52,
     "governance_invariants": "64/64",
     "governance_checks": "350/350",
-    "version": "0.37.9.28"
+    "version": "0.37.9.29"
   },
   "incidents": [
     {
@@ -377,7 +372,8 @@
     "[CLOSED V37.9.28 user 5/5 实测] V37.9.29 [P0 — 升级原 P1] 加每日 04:00 cron 强制全量 sync 作为 MOVESPEED 备份硬兜底: bash ~/crontab_safe.sh add \"0 4 * * * bash -c rsync -av --delete \\$HOME/.kb/ /Volumes/MOVESPEED/KB/ >> \\$HOME/.kb/movespeed_daily_sy ... 用户 2026-05-05 已成功 crontab -l 注册. 验证: 04:00 后 ls ~/.kb/movespeed_daily_sync.log 应有内容",
     "V37.9.29 [P1] helper 设计假设根本性升级: V37.9.27 movespeed_rsync_helper.sh 假设\"transient EPERM 30s 自愈\"实际是 macOS 持久 lock (Spotlight/mds_stores/backupd 在整点周期性锁 SSD). retry 3 次 + 30-180s jitter 完全无效. 修复方向 3 选 1: (a) 错峰到 :30 或 :45 整点之间 (ContextLock-aware) (b) 主动检测 backupd/mds_stores active 时跳过 cron (c) 大幅扩 retry 30 次 + 30s/次 = 15min retry 窗口跨过 lock 周期. 决定方案需基于 5/6 24h 数据 (Spotlight+TM 排除是否充分 — 如足以让 incident=0 则 helper 不需大改). 来源: 2026-05-05 helper 实战 8 天连续失败.",
     "V37.9.29 [P1 — 后续优化] movespeed_daily_sync 从 inline crontab 升级为标准 job: (1) 创建 movespeed_daily_sync.sh 包装脚本 (rsync + log rotation + last_run.json) (2) jobs_registry.yaml 加 entry id=movespeed_daily_sync scheduler=system tier=auxiliary (3) auto_deploy FILE_MAP 加部署映射 (4) crontab 替换 inline 命令调用脚本 (5) job_watchdog 加状态文件检查 (last_run < 30h 报警). 当前 inline 模式工作但绕过了 registry → crontab convergence 检查 (V37.9.19 framework). 5/6 验证 04:00 cron 真实工作后做这步.",
-    "V37.9.29 [P3 nice-to-have] 安全扫描 grep 排除规则补全 +85200000001 测试 fixture: governance_ontology.yaml:987 内嵌 Python test 用 +85200000001 (最后位 1 非占位符) 作 fake_oc 测试触发 WhatsApp 分支. 非真号 (fake binary 不真发送), 但 grep [+]852[0-9]{8} 占位符过滤 (匹配 +85200000000) 漏掉它. 选项: (a) 改 yaml 内嵌测试用 +85200000000 (一致性, 测试逻辑只要非空) 或 (b) 扩展占位符过滤 regex 包含 +85200000001 形式. (a) 更优. 工作量 5min, 不紧急, V37.9.29 顺手做."
+    "V37.9.29 [P3 nice-to-have] 安全扫描 grep 排除规则补全 +85200000001 测试 fixture: governance_ontology.yaml:987 内嵌 Python test 用 +85200000001 (最后位 1 非占位符) 作 fake_oc 测试触发 WhatsApp 分支. 非真号 (fake binary 不真发送), 但 grep [+]852[0-9]{8} 占位符过滤 (匹配 +85200000000) 漏掉它. 选项: (a) 改 yaml 内嵌测试用 +85200000000 (一致性, 测试逻辑只要非空) 或 (b) 扩展占位符过滤 regex 包含 +85200000001 形式. (a) 更优. 工作量 5min, 不紧急, V37.9.29 顺手做.",
+    "V37.9.29 path D' 24h 验证窗口至 2026-05-07 早 8:00 HKT — 跑 python3 ~/movespeed_incident_analyzer.py --window 24h, incidents < 5 = 假说正确立 INV-OWNERSHIP-001 / 5-10 = 部分缓解观察一周 / 15+ = R1 回滚 (sudo mount -u -o noowners + sudo diskutil disableOwnership) + 进 path B 调度避峰. 回滚保障 /tmp/movespeed_before_v37_9_29d.txt 已备份."
   ],
   "_meta": {
     "last_updated_by": "claude_code"
