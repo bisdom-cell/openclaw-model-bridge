@@ -60,7 +60,10 @@ fi
 # --- Diagnostics (each best-effort; missing tool = empty field) ---
 
 # Filesystem mount state
-mount 2>/dev/null | grep -i -e MOVESPEED -e Volumes > "$_TMP/mount" 2>/dev/null
+# V37.9.29 Fix: only grep MOVESPEED — older `-e Volumes` matched /System/Volumes/Data
+# etc. and pushed the MOVESPEED line past the 400 char limit, causing analyzer to
+# systematically misreport mount=other_or_unmounted (8 days silent misdiagnosis).
+mount 2>/dev/null | grep -i MOVESPEED > "$_TMP/mount" 2>/dev/null
 
 # macOS disk info (diskutil). On Linux this silently produces empty file.
 diskutil info /Volumes/MOVESPEED > "$_TMP/diskutil" 2>/dev/null
@@ -117,7 +120,7 @@ rec = {
     "timestamp_iso": ts,
     "caller": caller,
     "exit_code": ec,
-    "mount": read_file("mount", 400),
+    "mount": read_file("mount", 800),  # V37.9.29: 400→800 defense-in-depth (grep already narrowed to MOVESPEED-only)
     "disk_info": read_file("diskutil", 2000),
     "ls_top": read_file("ls_top", 800),
     "ls_kb": read_file("ls_kb", 1200),
