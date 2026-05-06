@@ -92,12 +92,42 @@ def h_memory(q, layer="all"):
     return 200, _parse_last_json(out, err)
 
 
+def _parse_mm_search_text(raw):
+    """Parse mm_search.py text output (it has no --json flag)."""
+    import re
+    results = []
+    lines = raw.split("\n")
+    i = 0
+    while i < len(lines):
+        m = re.match(r"\s*(\d+)\.\s*\[(\d+\.\d+)\]\s*([✅❌])\s*(.+?)\s*$", lines[i])
+        if m:
+            rank, score, exists, filename = m.groups()
+            entry = {
+                "rank": int(rank),
+                "score": float(score),
+                "exists": exists == "✅",
+                "filename": filename.strip(),
+            }
+            if i + 1 < len(lines):
+                detail = lines[i + 1].strip()
+                d = re.match(
+                    r"类型:\s*(\S+)\s*\|\s*大小:\s*(\S+)\s*\|\s*路径:\s*(.+?)\s*$",
+                    detail
+                )
+                if d:
+                    entry["type"], entry["size"], entry["path"] = d.groups()
+                    i += 1
+            results.append(entry)
+        i += 1
+    return results
+
+
 def h_mm_search(q, top_k=5):
     rc, out, err = _run(["python3", "mm_search.py", q,
-                         "--top", str(int(top_k)), "--json"])
+                         "--top", str(int(top_k))])
     if rc != 0:
         return 500, {"error": f"mm_search exit {rc}", "stderr": err}
-    return 200, _json_or_wrap(out, err)
+    return 200, {"query": q, "results": _parse_mm_search_text(out)}
 
 
 def h_dc_profile(path, fmt="text"):
