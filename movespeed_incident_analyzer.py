@@ -224,6 +224,25 @@ def analyze(records: list[dict[str, Any]], top_n: int = 5) -> dict[str, Any]:
         else:
             mount_state_counter["other_or_unmounted"] += 1
 
+    # Ownership distribution — V37.9.29 (b)
+    # Records the real UID:GID at top + /KB at incident time. Backward compat:
+    # records before V37.9.29 (b) lack these fields → counted as "empty".
+    # Misalignment pattern (e.g. top=0:0 root + kb=99:99 _unknown) was the real
+    # cause of 60-day silent failure (V37.9.29 path D' closed it).
+    ownership_pair_counter: Counter[str] = Counter()
+    for r in records:
+        top = r.get("ownership_top", "")
+        kb = r.get("ownership_kb", "")
+        if not isinstance(top, str):
+            top = ""
+        if not isinstance(kb, str):
+            kb = ""
+        if not top and not kb:
+            ownership_pair_counter["empty (pre-V37.9.29(b) records)"] += 1
+            continue
+        pair = f"top={top or '?'} kb={kb or '?'}"
+        ownership_pair_counter[pair] += 1
+
     return {
         "count": n,
         "time_coverage": {"earliest": earliest, "latest": latest},
@@ -234,6 +253,7 @@ def analyze(records: list[dict[str, Any]], top_n: int = 5) -> dict[str, Any]:
         "by_proc_combo": dict(proc_combo_counter.most_common(top_n)),
         "by_hour_utc": dict(sorted(hour_counter.items())),
         "by_mount_state": dict(mount_state_counter),
+        "by_ownership": dict(ownership_pair_counter.most_common(top_n)),
     }
 
 
@@ -290,6 +310,13 @@ def format_text_report(analysis: dict[str, Any], window_label: str) -> str:
     for k, v in analysis.get("by_mount_state", {}).items():
         lines.append(f"  {v:>3}  {k}")
 
+    # V37.9.29 (b): Ownership distribution (real UID:GID, bypasses noowners mask)
+    by_ownership = analysis.get("by_ownership", {})
+    if by_ownership:
+        lines.append("\n🔐 Ownership 分布 (V37.9.29 b — 真实 UID:GID, 绕过 noowners 显示):")
+        for k, v in by_ownership.items():
+            lines.append(f"  {v:>3}  {k}")
+
     # 决策提示
     lines.append("\n---\n💡 决策提示 (基于本输出回答 F2 最小修复方案):")
     fm = analysis.get("by_failure_mode", {})
@@ -316,6 +343,25 @@ def format_text_report(analysis: dict[str, Any], window_label: str) -> str:
         )
     else:
         lines.append("  → 失败模式分布不显著, 需更多数据 (记录数 < 10)")
+
+    # V37.9.29 (b): Ownership misalignment alert
+    # If any incident shows non-cron-user UIDs (root 0:0 / _unknown 99:99),
+    # warn about V37.9.29 path D' regression — the fix should have left only
+    # one UID:GID pair matching the cron user.
+    suspicious_pairs = [
+        p for p in by_ownership
+        if "top=0:0" in p or "kb=0:0" in p
+        or "top=99:99" in p or "kb=99:99" in p
+    ]
+    if suspicious_pairs:
+        lines.append(
+            "\n  ⚠️ Ownership 警告 (V37.9.29 b): 检测到非业务用户 UID\n"
+            "     - root (0:0) / _unknown (99:99) 在 incident 时刻出现\n"
+            "     - V37.9.29 path D' 修复后理应仅看 cron user (e.g. 501:20)\n"
+            "     - 若修复后仍有此 pattern → 假说错或回退, 立即 R1 回滚:\n"
+            "       sudo mount -u -o noowners /Volumes/MOVESPEED\n"
+            "       sudo diskutil disableOwnership /Volumes/MOVESPEED"
+        )
 
     return "\n".join(lines)
 

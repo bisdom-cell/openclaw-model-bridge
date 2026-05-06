@@ -171,6 +171,8 @@ class TestHelperContract(unittest.TestCase):
                 "procs",
                 "os",
                 "env",
+                "ownership_top",  # V37.9.29 (b): real UID:GID at /Volumes/MOVESPEED
+                "ownership_kb",   # V37.9.29 (b): real UID:GID at /Volumes/MOVESPEED/KB
             ):
                 self.assertIn(key, rec, f"missing field {key}")
 
