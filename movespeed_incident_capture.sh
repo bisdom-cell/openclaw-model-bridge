@@ -95,6 +95,16 @@ ps -ax -o pid,etime,command 2>/dev/null | \
 # OS identity
 sw_vers > "$_TMP/sw_vers" 2>/dev/null || uname -a > "$_TMP/sw_vers" 2>/dev/null
 
+# Filesystem ownership state — V37.9.29 (b)
+# Record real UID:GID at incident time. macOS noowners flag would otherwise
+# show all files as the calling user, masking the actual ownership UID.
+# 60 days of silent failure (V37.9.4 → V37.9.29) was caused exactly by this
+# masking: stat seemed normal but kernel ACL checks saw root:wheel + UID 99.
+# Capturing real UID:GID lets future incidents reveal ownership misalignment
+# in 1 day instead of 60.
+stat -f "%u:%g" /Volumes/MOVESPEED > "$_TMP/ownership_top" 2>/dev/null
+stat -f "%u:%g" /Volumes/MOVESPEED/KB > "$_TMP/ownership_kb" 2>/dev/null
+
 # --- Build JSON via python3 (argv parameters are escape-safe) ---
 python3 - "$_TS" "$CALLER" "$EXIT_CODE" "$_TMP" <<'PYEOF' >> "$INCIDENT_FILE" 2>/dev/null
 import json
@@ -129,6 +139,8 @@ rec = {
     "probe_kb": read_file("probe_kb_rc") + "|" + read_file("probe_kb_err", 300),
     "procs": read_file("procs", 1500),
     "os": read_file("sw_vers", 200),
+    "ownership_top": read_file("ownership_top", 50),  # V37.9.29 (b): real UID:GID at top level
+    "ownership_kb": read_file("ownership_kb", 50),    # V37.9.29 (b): real UID:GID at /KB
     "env": {
         "user": os.environ.get("USER", ""),
         "home": os.environ.get("HOME", ""),

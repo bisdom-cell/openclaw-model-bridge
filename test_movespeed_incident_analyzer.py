@@ -42,8 +42,10 @@ SCRIPT_PATH = os.path.join(_HERE, "movespeed_incident_analyzer.py")
 
 def _make_record(ts_iso: str, caller: str = "test.sh", exit_code: str = "12",
                  probe_top: str = "exit=0|", probe_kb: str = "exit=0|",
-                 procs: str = "", mount: str = "(read-write)") -> dict:
-    return {
+                 procs: str = "", mount: str = "(read-write)",
+                 ownership_top: str = "", ownership_kb: str = "") -> dict:
+    """V37.9.29 (b): ownership_top/_kb default empty (backward compat with old records)."""
+    rec = {
         "timestamp_iso": ts_iso,
         "caller": caller,
         "exit_code": exit_code,
@@ -52,6 +54,12 @@ def _make_record(ts_iso: str, caller: str = "test.sh", exit_code: str = "12",
         "procs": procs,
         "mount": mount,
     }
+    # Only include ownership fields if non-empty, to test backward compat
+    if ownership_top:
+        rec["ownership_top"] = ownership_top
+    if ownership_kb:
+        rec["ownership_kb"] = ownership_kb
+    return rec
 
 
 class TestParseIsoToDt(unittest.TestCase):
@@ -316,6 +324,193 @@ class TestCli(unittest.TestCase):
             self.assertIn("Invalid window", proc.stderr)
         finally:
             os.unlink(path)
+
+
+class TestV37929BOwnershipAnalysis(unittest.TestCase):
+    """V37.9.29 (b): ownership distribution as 8th analyzer dimension.
+
+    Records before V37.9.29 (b) lack ownership_top / ownership_kb fields,
+    must be classified as 'empty (pre-V37.9.29(b) records)' for backward compat.
+
+    Misalignment patterns (top=0:0 root / kb=99:99 _unknown) trigger an
+    explicit warning in the decision-hint section of the text report.
+    """
+
+    def test_records_without_ownership_fields_counted_as_empty(self):
+        """Backward compat: old records (no ownership_top/_kb) → 'empty' bucket."""
+        records = [
+            _make_record("2026-05-05T01:00:00Z"),  # no ownership fields
+            _make_record("2026-05-05T02:00:00Z"),
+        ]
+        result = analyze(records)
+        owners = result.get("by_ownership", {})
+        # All records should land in the empty bucket
+        empty_key = "empty (pre-V37.9.29(b) records)"
+        self.assertEqual(
+            owners.get(empty_key, 0),
+            2,
+            f"Expected 2 in empty bucket, got: {owners}",
+        )
+
+    def test_records_with_misalignment_pair_counted(self):
+        """V37.9.29 path D' pre-fix pattern: top=root + kb=_unknown."""
+        records = [
+            _make_record("2026-05-05T01:00:00Z",
+                         ownership_top="0:0", ownership_kb="99:99"),
+            _make_record("2026-05-05T02:00:00Z",
+                         ownership_top="0:0", ownership_kb="99:99"),
+            _make_record("2026-05-05T03:00:00Z",
+                         ownership_top="0:0", ownership_kb="99:99"),
+        ]
+        result = analyze(records)
+        owners = result.get("by_ownership", {})
+        misalign_key = "top=0:0 kb=99:99"
+        self.assertEqual(
+            owners.get(misalign_key, 0),
+            3,
+            f"Expected 3 misaligned records, got: {owners}",
+        )
+
+    def test_records_post_fix_consistent_pair_counted(self):
+        """V37.9.29 path D' post-fix pattern: top=bisdom + kb=bisdom."""
+        records = [
+            _make_record("2026-05-05T01:00:00Z",
+                         ownership_top="501:20", ownership_kb="501:20"),
+        ]
+        result = analyze(records)
+        owners = result.get("by_ownership", {})
+        consistent_key = "top=501:20 kb=501:20"
+        self.assertEqual(
+            owners.get(consistent_key, 0),
+            1,
+            f"Expected 1 consistent record, got: {owners}",
+        )
+
+    def test_partial_ownership_field_handled(self):
+        """Edge case: only top set, kb missing → 'kb=?' marker."""
+        # _make_record only adds field if non-empty, so we need to inject directly
+        rec = _make_record("2026-05-05T01:00:00Z")
+        rec["ownership_top"] = "501:20"
+        # kb intentionally absent
+        result = analyze([rec])
+        owners = result.get("by_ownership", {})
+        # Should have a pair with "kb=?" marker
+        found = any("?" in k for k in owners)
+        self.assertTrue(
+            found,
+            f"Expected ?-marker for missing field, got: {owners}",
+        )
+
+    def test_non_string_ownership_field_does_not_crash(self):
+        """Robustness: non-string ownership field must not crash analyzer."""
+        rec = _make_record("2026-05-05T01:00:00Z")
+        rec["ownership_top"] = 12345  # invalid type
+        rec["ownership_kb"] = None
+        # Must not raise
+        result = analyze([rec])
+        # Should land in empty bucket because both became ""
+        self.assertIn("by_ownership", result)
+
+    def test_text_report_shows_ownership_section_when_data_present(self):
+        """Text report includes the new 8th dimension if any record has data."""
+        records = [
+            _make_record("2026-05-05T01:00:00Z",
+                         ownership_top="0:0", ownership_kb="99:99"),
+        ]
+        result = analyze(records)
+        text = format_text_report(result, "all")
+        self.assertIn("Ownership 分布", text, "8th dimension header missing")
+        self.assertIn("V37.9.29 b", text, "V37.9.29 b marker missing")
+        self.assertIn("top=0:0 kb=99:99", text, "Misalignment pair not displayed")
+
+    def test_text_report_warns_on_root_uid_at_incident(self):
+        """Decision hint must alert if root (0:0) appears post-V37.9.29 fix."""
+        records = [
+            _make_record("2026-05-05T01:00:00Z",
+                         ownership_top="0:0", ownership_kb="99:99"),
+        ]
+        result = analyze(records)
+        text = format_text_report(result, "all")
+        self.assertIn("Ownership 警告", text, "Misalignment alert missing")
+        self.assertIn("R1 回滚", text, "Rollback instruction missing")
+        self.assertIn("disableOwnership", text, "Concrete rollback cmd missing")
+
+    def test_text_report_no_warn_when_only_consistent_pairs(self):
+        """No alert when all records show consistent UID:GID."""
+        records = [
+            _make_record("2026-05-05T01:00:00Z",
+                         ownership_top="501:20", ownership_kb="501:20"),
+            _make_record("2026-05-05T02:00:00Z",
+                         ownership_top="501:20", ownership_kb="501:20"),
+        ]
+        result = analyze(records)
+        text = format_text_report(result, "all")
+        self.assertNotIn("Ownership 警告", text,
+                         "Should NOT warn when ownership is consistent")
+
+    def test_text_report_no_section_when_only_empty_records(self):
+        """Old records without ownership fields → don't show empty bucket alone."""
+        # Backward compat: if all records are pre-V37.9.29(b), the section shows
+        # but doesn't trigger warning (no suspicious UIDs to alert on)
+        records = [_make_record("2026-05-05T01:00:00Z")]  # no ownership
+        result = analyze(records)
+        text = format_text_report(result, "all")
+        # The section header still appears (empty bucket is valid data point)
+        self.assertIn("Ownership 分布", text)
+        # But no warning since no suspicious UIDs
+        self.assertNotIn("Ownership 警告", text)
+
+    def test_kb_only_root_uid_also_triggers_alert(self):
+        """Edge: just kb=0:0 (without top=0:0) should also warn."""
+        records = [
+            _make_record("2026-05-05T01:00:00Z",
+                         ownership_top="501:20", ownership_kb="0:0"),
+        ]
+        result = analyze(records)
+        text = format_text_report(result, "all")
+        self.assertIn("Ownership 警告", text)
+
+
+class TestV37929BCaptureScriptIntegrity(unittest.TestCase):
+    """V37.9.29 (b): source-level guards on capture.sh — ensure ownership
+    capture lines + Python rec dict fields stay in sync with this analyzer.
+    """
+
+    def test_capture_script_has_top_ownership_capture(self):
+        """capture.sh must collect /Volumes/MOVESPEED ownership."""
+        cap_path = os.path.join(_HERE, "movespeed_incident_capture.sh")
+        with open(cap_path, "r", encoding="utf-8") as fp:
+            content = fp.read()
+        self.assertIn(
+            'stat -f "%u:%g" /Volumes/MOVESPEED >',
+            content,
+            "Top-level ownership capture missing in capture.sh",
+        )
+
+    def test_capture_script_has_kb_ownership_capture(self):
+        """capture.sh must collect /Volumes/MOVESPEED/KB ownership."""
+        cap_path = os.path.join(_HERE, "movespeed_incident_capture.sh")
+        with open(cap_path, "r", encoding="utf-8") as fp:
+            content = fp.read()
+        self.assertIn(
+            'stat -f "%u:%g" /Volumes/MOVESPEED/KB >',
+            content,
+            "KB ownership capture missing in capture.sh",
+        )
+
+    def test_capture_script_rec_dict_includes_ownership_fields(self):
+        cap_path = os.path.join(_HERE, "movespeed_incident_capture.sh")
+        with open(cap_path, "r", encoding="utf-8") as fp:
+            content = fp.read()
+        self.assertIn('"ownership_top": read_file("ownership_top", 50)', content)
+        self.assertIn('"ownership_kb": read_file("ownership_kb", 50)', content)
+
+    def test_capture_script_v37_9_29_b_marker(self):
+        """Attribution comment for V37.9.29 (b) must exist."""
+        cap_path = os.path.join(_HERE, "movespeed_incident_capture.sh")
+        with open(cap_path, "r", encoding="utf-8") as fp:
+            content = fp.read()
+        self.assertIn("V37.9.29 (b)", content)
 
 
 if __name__ == "__main__":

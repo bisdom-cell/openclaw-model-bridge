@@ -1,6 +1,6 @@
 {
-  "updated": "2026-05-06 00:56:26",
-  "updated_by": "full_regression",
+  "updated": "2026-05-06 01:31:13",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-05-06",
+      "what": "V37.9.29 (b) — incident_capture 加 ownership 字段 (同日加固). capture.sh stat -f %u:%g /Volumes/MOVESPEED + /KB → rec dict 加 ownership_top + ownership_kb 两字段 (limit 50 chars). analyzer.py analyze() 加第 8 维度 by_ownership (ownership_pair_counter 统计 top=X kb=Y pair 分布, 向后兼容旧 records 归入 empty pre-V37.9.29(b) 桶) + format_text_report() 加 🔐 Ownership 分布段 + 决策提示新增 ownership misalignment 警告 (检测到 0:0 / 99:99 任一 → 提示 R1 回滚命令). 14 新单测 (TestV37929BOwnershipAnalysis 10 + TestV37929BCaptureScriptIntegrity 4) 含 backward compat / 错位 pair 计数 / 一致 pair 计数 / partial field handling / non-string field 健壮性 / 警告触发. 意义: 让未来类似 ownership 错位问题在 1 天内发现而不是 60 天. 52 suites / 1888→1902 tests (+14) / 0 fail / 95/100.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-05-06",
       "what": "V37.9.29 — MOVESPEED EPERM 60 天 silent failure 真因终于触底 + 24h 验证窗口至 5/7 早 8:00 HKT。① incident_analyzer 揭示 V37.9.28 macOS 修复完全无效 (24h 仍 21 incidents). ② Path A 4 轮诊断锁定真凶: noowners flag (V37.9.4 APFS 重建副作用) + 原始 file ownership root:wheel + _unknown:_unknown (UID 99) + bisdom UID 501 完全错位 + macOS daemon (mds_stores UID 89, backupd UID 200) metadata access 触发跨 UID ACL 拒绝 → bisdom cron 同时段 EPERM. ③ Path D 第一次错序 (第 6 次诊断错误): chown(noowners 模式) → enableOwnership → mount owners → bisdom 失访 ~10 分钟. 根因: macOS APFS 隐含规则 — noowners 模式下 sudo chown 被静默吃掉 (教科书 sudo bypass 假设错). ④ R2 抢救正确顺序: enableOwnership → mount owners → chown → 真生效, UID 全变 bisdom:staff, rsync 67MB 0 EPERM. ⑤ V37.9.29 (a) parallel 独立工作: incident_capture mount 字段 grep -e Volumes 移除 + limit 400→800, 4 新单测 (TestV37929MountFieldFix). ⑥ 完整案例文档 movespeed_noowners_uid_mismatch_case.md (~520 行, 四维度因果链 + 三层根因 + 6 条件组合分析 + chown 操作顺序硬规则 + MR-4 第 22 次演出). ⑦ 24h 可证伪验证窗口: incidents < 5 = ✅ 立 INV-OWNERSHIP-001 / 15+ = ❌ R1 回滚 + path B 调度避峰. ⑧ 累计 52 suites / 1887 tests (+4) / 0 fail / 69 inv / 423 checks / 安全 95/100 / VERSION 0.37.9.28 → 0.37.9.29.",
       "by": "claude_code"
     },
@@ -194,11 +199,6 @@
       "date": "2026-04-27",
       "what": "V37.9.21 Mac Mini 生产 E2E 完美通过 + 完整收工 — 用户实测 WhatsApp 收到 Part [1/2] (Sections 1-4 核心论点+论证链+实验/证据+局限性, 含 link) + Part [2/2] (Section 5 对本项目启发完整两条建议, 无 link 节省字数), 边界选中 ## 5. heading 前的 \\n\\n 零内容丢失没有句子被切两段. V37.9.20 的省略号截断从此消失, 每天深度分析在手机上完整可读. 用户视角 → 24h 闭环 (MR-7 第 3 次正向兑现)。同时观察到 22:55:59 那次 silent fail (~3min 跑) 是 auto_deploy 2min 轮询的部署不一致期副作用 — 当时 ~/kb_deep_dive.sh 已是 V37.9.21 (新 shell) 但 ~/kb_deep_dive.py 还是旧版 (py 文件晚到几秒), 新 shell 调旧 py 在 set -e 下静默退出, 几秒后 auto_deploy 同步 py 后自愈. 这是 MR-4 silent-failure 第 17 次演出的新形态: 跨文件部署不一致期的窗口 (新 shell + 旧 py 临时混合). V37.9.22 nice-to-have 候选: 当 collector 输出无 wa_parts 字段时 shell 应 log WARN 而不是静默走 fallback 单段路径, 让运维知道部署不一致 (非紧急, 已自愈). 累计今日: V37.9.20 (上午 providers_to_adapter 第二个 spec) + V37.9.21 (晚上 WhatsApp 多窗口分片) 一日双版本 / 48 suites / 1542→1600 tests (+58, V37.9.20 +35 + V37.9.21 +23) / 0 fail / 安全 95/100 / VERSION 0.37.9.19→0.37.9.21 跳两位.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-04-27",
-      "what": "V37.9.21 kb_deep_dive WhatsApp 多窗口分片 (Dream-style) — 用户视角发现 → 同日闭环. 触发: V37.9.20 收工后用户反馈 kb_deep_dive 推送内容超 WhatsApp 单窗口可视范围 (V37.9.16 build_deep_dive_wa 截断到 1400 字 + ... 省略号), 明确要求类似 dream 的长内容使用 [1/N] [2/N] 多窗口. 原则 #13 (定期像用户用) 正向兑现 — 单测/治理全绿但生产使用才暴露 UX 缺口. 3 决策已确认 (#28 理解再动手): (1) 只 WA 分片 / Discord 保持 1900 字 + KB 链接 (Discord 频道天然适合点链接看完整 markdown) (2) 单段预算 1400 字 (与 V37.9.16 原 budget 一致) (3) 每段精简 header `🔬 每日深度 [i/N] {date}{mode_tag}\\n{title}\\n⭐{stars} | {source}` + link 仅 Part 1. 实现: (a) 新增 _split_text_into_chunks 4 级 boundary fallback (段落 \\n\\n > 行 \\n > 中英文句号 。/.> 硬切) (b) build_deep_dive_wa_parts 返 list[str], 单段省 [i/N] indicator (c) run() 返新增 wa_parts 字段 + 保留 wa_message 向后兼容 = parts[0] (d) build_deep_dive_wa 改为 thin wrapper 调 wa_parts 取 [0] 零改 callers (e) kb_deep_dive.sh +63 行: mktemp -d + trap EXIT 清理 + Python env-var heredoc 写 000.txt/001.txt 每段 + 双路径 send_wa_parts_via_notify / send_wa_parts_via_openclaw + for chunk_file in *.txt 遍历 + 段间 sleep 1 避免 WhatsApp 乱序 (Dream 同款契约) + WA_SEND_OK/$WA_PARTS_TOTAL 进度可观测. 23 新单测 4 类: TestSplitTextIntoChunks 7 (short/empty/paragraph_boundary/line_boundary/no_boundary_hard_cut/preserves_full_content/chinese_punctuation_boundary) + TestBuildDeepDiveWaParts 9 (short_single_part/long_multi_part/each_part_indexed_header/link_only_on_first/each_part_within_budget/abstract_mode_tag_on_each_part/empty/full_content_preserved_across_parts 50 markers 守卫无内容丢失/backward_compat_returns_first_part) + TestRunOrchestrator.test_ok_path_returns_wa_parts_list 1 + TestKbDeepDiveShellGuards 6 (V37.9.21 marker/env-var heredoc 反模式/mktemp+trap 清理/for chunk_file ... sleep 1 循环/WA+Discord 独立 send/WA_SEND_OK 可观测 log). smoke 实测 ~3500 字内容产 4 段 1304/694/1131/1086 字, 边界全选中 ## heading 前 \\n\\n, 没句子切两段. 累计 48 suites 不变 / 1577→1600 tests (+23) / 0 fail / 安全 95/100 / VERSION 0.37.9.20→0.37.9.21. 无新 governance INV (V37.9.16 决策 INV-DEEP-001 shadow 一周后再考虑, 多窗口是 UX 增量非安全边界). MR-7 用户视角→24h 闭环第 3 次兑现: V37.9.16 上线 → V37.9.17 picker tier-aware fallback → V37.9.21 多窗口分片. V37.9.21 把原计划 V37.9.21 (jobs_to_crontab → machine_sync) 推到 V37.9.22+ — 那个本来就硬卡在 5/3 决策窗口.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -264,10 +264,10 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 1888,
-    "last_regression": "2026-05-06 00:56 pass",
+    "test_count": 1902,
+    "last_regression": "2026-05-06 01:30 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-05-06 00:56",
+    "security_score_time": "2026-05-06 01:30",
     "test_suites": 52,
     "governance_invariants": "64/64",
     "governance_checks": "350/350",
