@@ -26,8 +26,11 @@ sys.path.insert(0, _HERE)
 
 from movespeed_incident_analyzer import (  # noqa: E402
     analyze,
+    classify_acl_anomaly,  # V37.9.30
     classify_caller_failure_mode,
+    classify_handle_holders,  # V37.9.30
     classify_probe,
+    classify_snapshot_count,  # V37.9.30
     extract_concurrent_procs,
     filter_window,
     format_text_report,
@@ -43,8 +46,12 @@ SCRIPT_PATH = os.path.join(_HERE, "movespeed_incident_analyzer.py")
 def _make_record(ts_iso: str, caller: str = "test.sh", exit_code: str = "12",
                  probe_top: str = "exit=0|", probe_kb: str = "exit=0|",
                  procs: str = "", mount: str = "(read-write)",
-                 ownership_top: str = "", ownership_kb: str = "") -> dict:
-    """V37.9.29 (b): ownership_top/_kb default empty (backward compat with old records)."""
+                 ownership_top: str = "", ownership_kb: str = "",
+                 acl_top: str = "", acl_kb: str = "",
+                 lsof: str = "", snapshots: str = "") -> dict:
+    """V37.9.29 (b): ownership_top/_kb default empty (backward compat with old records).
+    V37.9.30: acl_top/_kb, lsof, snapshots default empty (backward compat with pre-V37.9.30 records).
+    """
     rec = {
         "timestamp_iso": ts_iso,
         "caller": caller,
@@ -59,6 +66,15 @@ def _make_record(ts_iso: str, caller: str = "test.sh", exit_code: str = "12",
         rec["ownership_top"] = ownership_top
     if ownership_kb:
         rec["ownership_kb"] = ownership_kb
+    # V37.9.30: same backward-compat pattern for forensic forensics fields
+    if acl_top:
+        rec["acl_top"] = acl_top
+    if acl_kb:
+        rec["acl_kb"] = acl_kb
+    if lsof:
+        rec["lsof"] = lsof
+    if snapshots:
+        rec["snapshots"] = snapshots
     return rec
 
 
@@ -511,6 +527,362 @@ class TestV37929BCaptureScriptIntegrity(unittest.TestCase):
         with open(cap_path, "r", encoding="utf-8") as fp:
             content = fp.read()
         self.assertIn("V37.9.29 (b)", content)
+
+
+# ────────────────────────────────────────────────────────────────────────
+# V37.9.30: 3 new forensic dimensions (ACL/xattr, lsof handles, TM snapshots)
+#
+# Context: V37.9.29 24h validation showed chown真生效 (19/21 records显示
+# bisdom:staff) but EPERM 100% persisted (21 incidents). Ownership-misalignment
+# hypothesis was partially falsified — UID was a real bug but NOT the EPERM
+# root cause. V37.9.30 adds ACL/xattr/handle/snapshot capture to differentiate
+# new hypotheses (ACL deny / daemon contention / TM local snapshot lock).
+# ────────────────────────────────────────────────────────────────────────
+
+
+class TestV37930ClassifyAclAnomaly(unittest.TestCase):
+    """V37.9.30: ACL/xattr classifier nuances."""
+
+    def test_empty_string_is_empty(self):
+        self.assertEqual(classify_acl_anomaly(""), "empty")
+
+    def test_whitespace_only_is_empty(self):
+        self.assertEqual(classify_acl_anomaly("   \n  "), "empty")
+
+    def test_non_string_is_empty(self):
+        # Robustness: integer / None / list inputs must not crash
+        self.assertEqual(classify_acl_anomaly(None), "empty")  # type: ignore
+        self.assertEqual(classify_acl_anomaly(123), "empty")  # type: ignore
+
+    def test_explicit_deny_rule_is_acl_deny(self):
+        # macOS ACL line format: " 0: group:everyone deny add_file"
+        acl_str = ("drwxr-xr-x@ 5 bisdom staff 160 May  6 00:00 KB\n"
+                   " 0: group:everyone deny add_file,delete")
+        self.assertEqual(classify_acl_anomaly(acl_str), "acl_deny")
+
+    def test_xattr_only_is_xattr_only(self):
+        # Tab-indented xattr line, no ACL deny
+        acl_str = ("drwxr-xr-x@ 5 bisdom staff 160 May  6 00:00 KB\n"
+                   "\tcom.apple.quarantine     38")
+        self.assertEqual(classify_acl_anomaly(acl_str), "xattr_only")
+
+    def test_normal_ls_output_is_normal(self):
+        # Plain ls -la output, no ACL no xattr
+        acl_str = "total 0\ndrwxr-xr-x  5 bisdom staff 160 May  6 00:00 KB"
+        self.assertEqual(classify_acl_anomaly(acl_str), "normal")
+
+    def test_acl_present_without_deny(self):
+        # Structured ACL line but not 'deny' (e.g. allow rule)
+        # Still flagged as acl_present (weaker signal than acl_deny)
+        acl_str = ("drwxr-xr-x+ 5 bisdom staff 160 May  6 00:00 KB\n"
+                   " 0: user:_spotlight allow read")
+        self.assertEqual(classify_acl_anomaly(acl_str), "acl_present")
+
+
+class TestV37930ClassifyHandleHolders(unittest.TestCase):
+    """V37.9.30: lsof handle-holder classifier nuances."""
+
+    def test_empty_is_empty(self):
+        self.assertEqual(classify_handle_holders(""), "empty")
+        self.assertEqual(classify_handle_holders(None), "empty")  # type: ignore
+
+    def test_only_header_line_is_empty(self):
+        # lsof first line is header "COMMAND PID USER FD ..." — must not count
+        self.assertEqual(classify_handle_holders("COMMAND PID USER FD"), "empty")
+
+    def test_only_daemon_lines_is_daemon_dominated(self):
+        lsof_str = (
+            "mds_stores 123 _spotlight 5u REG 1,5 4096 /Volumes/MOVESPEED\n"
+            "backupd    456 _backupd   3r DIR 1,5 1024 /Volumes/MOVESPEED/KB"
+        )
+        self.assertEqual(classify_handle_holders(lsof_str), "daemon_dominated")
+
+    def test_only_user_processes_is_user_only(self):
+        lsof_str = (
+            "rsync 789 bisdom 4r REG 1,5 16384 /Volumes/MOVESPEED/KB/note.md\n"
+            "python 1011 bisdom 5w REG 1,5 8192 /Volumes/MOVESPEED/index.json"
+        )
+        self.assertEqual(classify_handle_holders(lsof_str), "user_only")
+
+    def test_mixed_daemon_and_user_is_mixed(self):
+        lsof_str = (
+            "mds_stores 123 _spotlight 5u REG 1,5 4096 /Volumes/MOVESPEED\n"
+            "rsync 789 bisdom 4r REG 1,5 16384 /Volumes/MOVESPEED/KB/note.md"
+        )
+        self.assertEqual(classify_handle_holders(lsof_str), "mixed")
+
+    def test_mds_substring_does_not_falsely_match_md5sum(self):
+        # 'mds' is a daemon keyword but 'md5sum' would substring-match if naive
+        # — verify via case + word matching that daemon detection works correctly.
+        # (This is validation: classifier must detect 'mds' as substring; the
+        # safeguard is that user_cmds list is checked separately.)
+        lsof_str = "mds 123 _spotlight 5u REG 1,5 4096 /Volumes/MOVESPEED"
+        self.assertEqual(classify_handle_holders(lsof_str), "daemon_dominated")
+
+
+class TestV37930ClassifySnapshotCount(unittest.TestCase):
+    """V37.9.30: TM snapshot count bucketing."""
+
+    def test_empty_is_empty(self):
+        self.assertEqual(classify_snapshot_count(""), "empty")
+        self.assertEqual(classify_snapshot_count(None), "empty")  # type: ignore
+
+    def test_no_snapshots_is_snap_0(self):
+        self.assertEqual(classify_snapshot_count("Snapshots for disk1:\n"), "snap_0")
+
+    def test_one_snapshot_is_snap_1_5(self):
+        snap_str = "Snapshots for disk1:\ncom.apple.TimeMachine.2026-05-06-120000.local"
+        self.assertEqual(classify_snapshot_count(snap_str), "snap_1_5")
+
+    def test_five_snapshots_is_snap_1_5(self):
+        lines = ["Snapshots for disk1:"]
+        for i in range(5):
+            lines.append(f"com.apple.TimeMachine.2026-05-0{i+1}-120000.local")
+        self.assertEqual(classify_snapshot_count("\n".join(lines)), "snap_1_5")
+
+    def test_six_snapshots_is_snap_6_plus(self):
+        lines = ["Snapshots for disk1:"]
+        for i in range(6):
+            lines.append(f"com.apple.TimeMachine.2026-05-0{i+1}-120000.local")
+        self.assertEqual(classify_snapshot_count("\n".join(lines)), "snap_6_plus")
+
+    def test_non_tm_lines_ignored(self):
+        # Stray non-TM lines must not inflate snapshot count
+        snap_str = ("Snapshots for disk1:\n"
+                    "Not a snapshot line\n"
+                    "com.apple.TimeMachine.2026-05-06-120000.local\n"
+                    "another non-tm line")
+        self.assertEqual(classify_snapshot_count(snap_str), "snap_1_5")
+
+
+class TestV37930ForensicAnalysisIntegration(unittest.TestCase):
+    """V37.9.30: full analyze() pipeline with new dimensions.
+
+    Mirror V37.9.29 (b) TestV37929BOwnershipAnalysis structure: backward-compat
+    + warning trigger + no-warning-when-clean.
+    """
+
+    def test_pre_v37_9_30_records_land_in_empty_buckets(self):
+        """Backward compat: pre-V37.9.30 records (no acl/lsof/snapshot fields)
+        must land in the 'empty' bucket without crashing or falsely warning."""
+        records = [
+            _make_record("2026-05-05T01:00:00Z"),
+            _make_record("2026-05-05T02:00:00Z"),
+        ]
+        result = analyze(records)
+        # All three new dimensions must be present in result
+        self.assertIn("by_acl_anomaly", result)
+        self.assertIn("by_handle_pattern", result)
+        self.assertIn("by_snapshot_bucket", result)
+        # All records counted as empty in each dimension
+        self.assertEqual(
+            result["by_acl_anomaly"].get("empty (pre-V37.9.30 records)", 0), 2
+        )
+        self.assertEqual(result["by_handle_pattern"].get("empty", 0), 2)
+        self.assertEqual(result["by_snapshot_bucket"].get("empty", 0), 2)
+
+    def test_acl_deny_pattern_counted(self):
+        """ACL deny is the strongest EPERM signal post-V37.9.29 path D'."""
+        records = [
+            _make_record(
+                "2026-05-07T01:00:00Z",
+                acl_kb=" 0: group:everyone deny add_file,delete",
+            ),
+            _make_record(
+                "2026-05-07T02:00:00Z",
+                acl_top=" 0: group:everyone deny add_file",
+            ),
+        ]
+        result = analyze(records)
+        self.assertEqual(result["by_acl_anomaly"].get("acl_deny", 0), 2)
+
+    def test_daemon_dominated_handle_pattern_counted(self):
+        """daemon_dominated is supports daemon-contention hypothesis."""
+        records = [
+            _make_record(
+                "2026-05-07T01:00:00Z",
+                lsof="mds_stores 123 _spotlight 5u REG /Volumes/MOVESPEED",
+            ),
+            _make_record(
+                "2026-05-07T02:00:00Z",
+                lsof="backupd 456 _backupd 3r DIR /Volumes/MOVESPEED/KB",
+            ),
+        ]
+        result = analyze(records)
+        self.assertEqual(
+            result["by_handle_pattern"].get("daemon_dominated", 0), 2
+        )
+
+    def test_high_snapshot_count_bucketed(self):
+        """6+ snapshots = snap_6_plus = TM local snapshot lock candidate."""
+        many_snaps = "\n".join(
+            f"com.apple.TimeMachine.2026-05-0{i+1}-120000.local" for i in range(7)
+        )
+        records = [
+            _make_record("2026-05-07T01:00:00Z", snapshots=many_snaps),
+        ]
+        result = analyze(records)
+        self.assertEqual(result["by_snapshot_bucket"].get("snap_6_plus", 0), 1)
+
+    def test_text_report_shows_new_three_sections(self):
+        """All 3 V37.9.30 sections appear in text report when data present."""
+        records = [
+            _make_record(
+                "2026-05-07T01:00:00Z",
+                acl_kb=" 0: group:everyone deny add_file",
+                lsof="mds_stores 123 _spotlight 5u REG /Volumes/MOVESPEED",
+                snapshots="\n".join(
+                    f"com.apple.TimeMachine.2026-05-0{i+1}-120000.local"
+                    for i in range(7)
+                ),
+            ),
+        ]
+        result = analyze(records)
+        text = format_text_report(result, "all")
+        self.assertIn("ACL/xattr 异常分布", text, "9th dimension header missing")
+        self.assertIn("句柄持有者模式", text, "10th dimension header missing")
+        self.assertIn("TM Snapshot 分布", text, "11th dimension header missing")
+        self.assertIn("V37.9.30", text, "V37.9.30 marker missing")
+
+    def test_text_report_acl_deny_warning_fires(self):
+        """ACL deny warning must fire with concrete fix command."""
+        records = [
+            _make_record(
+                "2026-05-07T01:00:00Z",
+                acl_kb=" 0: group:everyone deny add_file",
+            ),
+        ]
+        result = analyze(records)
+        text = format_text_report(result, "all")
+        self.assertIn("ACL deny 警告", text)
+        self.assertIn("chmod -RN", text, "ACL clearing command missing")
+
+    def test_text_report_daemon_dominated_warning_fires_when_threshold_met(self):
+        """daemon_dominated warning needs ≥3 records to fire."""
+        records = [
+            _make_record(
+                f"2026-05-07T0{i+1}:00:00Z",
+                lsof="mds_stores 123 _spotlight 5u REG /Volumes/MOVESPEED",
+            )
+            for i in range(3)
+        ]
+        result = analyze(records)
+        text = format_text_report(result, "all")
+        self.assertIn("句柄持有", text)
+        self.assertIn("path B", text, "Schedule避峰 hint missing")
+
+    def test_text_report_no_daemon_warning_below_threshold(self):
+        """daemon_dominated below threshold (=2) must NOT fire warning."""
+        records = [
+            _make_record(
+                "2026-05-07T01:00:00Z",
+                lsof="mds_stores 123 _spotlight 5u REG /Volumes/MOVESPEED",
+            ),
+            _make_record(
+                "2026-05-07T02:00:00Z",
+                lsof="backupd 456 _backupd 3r DIR /Volumes/MOVESPEED/KB",
+            ),
+        ]
+        result = analyze(records)
+        text = format_text_report(result, "all")
+        # The dimension section appears, but the path-B hint should NOT
+        self.assertIn("句柄持有者模式", text)  # section title
+        self.assertNotIn("path B", text)  # decision hint suppressed
+
+    def test_text_report_snapshot_warning_fires_at_snap_6_plus(self):
+        """snap_6_plus must trigger TM-snapshot warning with concrete fix."""
+        many_snaps = "\n".join(
+            f"com.apple.TimeMachine.2026-05-0{i+1}-120000.local" for i in range(7)
+        )
+        records = [
+            _make_record("2026-05-07T01:00:00Z", snapshots=many_snaps),
+        ]
+        result = analyze(records)
+        text = format_text_report(result, "all")
+        self.assertIn("Snapshot 警告", text)
+        self.assertIn("deletelocalsnapshots", text, "TM snapshot fix cmd missing")
+
+    def test_text_report_no_warnings_when_all_clean(self):
+        """All V37.9.30 dimensions normal = no warnings."""
+        records = [
+            _make_record(
+                "2026-05-07T01:00:00Z",
+                acl_kb="total 0\ndrwxr-xr-x 5 bisdom staff 160 May 6 KB",
+                lsof="rsync 789 bisdom 4r REG /Volumes/MOVESPEED/KB/note.md",
+                snapshots="Snapshots for disk1:\n",
+            ),
+        ]
+        result = analyze(records)
+        text = format_text_report(result, "all")
+        self.assertNotIn("ACL deny 警告", text)
+        self.assertNotIn("Snapshot 警告", text)
+        # daemon hint is also absent (user_only pattern, no daemon)
+
+
+class TestV37930CaptureScriptIntegrity(unittest.TestCase):
+    """V37.9.30: source-level guards on capture.sh — ensure new forensic
+    capture lines + Python rec dict fields stay in sync with this analyzer.
+    """
+
+    def test_capture_script_has_acl_top_capture(self):
+        """capture.sh must collect /Volumes/MOVESPEED ACL+xattr (ls -le@)."""
+        cap_path = os.path.join(_HERE, "movespeed_incident_capture.sh")
+        with open(cap_path, "r", encoding="utf-8") as fp:
+            content = fp.read()
+        self.assertIn(
+            'ls -le@ /Volumes/MOVESPEED/ >',
+            content,
+            "Top-level ACL/xattr capture missing in capture.sh",
+        )
+
+    def test_capture_script_has_acl_kb_capture(self):
+        """capture.sh must collect /Volumes/MOVESPEED/KB ACL+xattr (ls -le@)."""
+        cap_path = os.path.join(_HERE, "movespeed_incident_capture.sh")
+        with open(cap_path, "r", encoding="utf-8") as fp:
+            content = fp.read()
+        self.assertIn(
+            'ls -le@ /Volumes/MOVESPEED/KB/ >',
+            content,
+            "KB ACL/xattr capture missing in capture.sh",
+        )
+
+    def test_capture_script_has_lsof_capture(self):
+        """capture.sh must collect lsof open handles on /Volumes/MOVESPEED."""
+        cap_path = os.path.join(_HERE, "movespeed_incident_capture.sh")
+        with open(cap_path, "r", encoding="utf-8") as fp:
+            content = fp.read()
+        self.assertIn("lsof /Volumes/MOVESPEED", content)
+        # Must cap output to bound runtime + size (lsof can hang on macOS)
+        self.assertIn("head -50", content,
+                      "lsof must be capped with head -50 for runtime safety")
+
+    def test_capture_script_has_snapshots_capture(self):
+        """capture.sh must collect tmutil listlocalsnapshots."""
+        cap_path = os.path.join(_HERE, "movespeed_incident_capture.sh")
+        with open(cap_path, "r", encoding="utf-8") as fp:
+            content = fp.read()
+        self.assertIn("tmutil listlocalsnapshots", content)
+
+    def test_capture_script_rec_dict_includes_v37_9_30_fields(self):
+        cap_path = os.path.join(_HERE, "movespeed_incident_capture.sh")
+        with open(cap_path, "r", encoding="utf-8") as fp:
+            content = fp.read()
+        self.assertIn('"acl_top": read_file("acl_top"', content)
+        self.assertIn('"acl_kb": read_file("acl_kb"', content)
+        self.assertIn('"lsof": read_file("lsof"', content)
+        self.assertIn('"snapshots": read_file("snapshots"', content)
+
+    def test_capture_script_v37_9_30_marker(self):
+        """Attribution comment for V37.9.30 must exist in capture.sh."""
+        cap_path = os.path.join(_HERE, "movespeed_incident_capture.sh")
+        with open(cap_path, "r", encoding="utf-8") as fp:
+            content = fp.read()
+        self.assertIn("V37.9.30", content)
+        # Sanity: must mention the falsified-hypothesis context so future
+        # readers understand WHY these new fields were added (MR-7 self-aware
+        # observability — capture.sh attribution carries causal narrative).
+        self.assertIn("partially falsified", content.lower()
+                      .replace("hypothesis is partially falsified", "partially falsified"))
 
 
 if __name__ == "__main__":

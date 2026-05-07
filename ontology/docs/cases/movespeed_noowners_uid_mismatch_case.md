@@ -1,9 +1,9 @@
 # MOVESPEED noowners + UID Mismatch EPERM 血案
 
-> **日期**: 2026-04-29 ~ 2026-05-06（8+ 天潜伏 → 7 轮诊断 → V37.9.29 path D' 闭环）
-> **版本**: V37.9.4 → V37.9.27 → V37.9.28 → **V37.9.29 path D'**
-> **元规则**: MR-4 (silent-failure-is-a-bug) 第 22 次演出 + MR-10 (understand-before-fix) 反向兑现 6 次
-> **状态**: 已应用，24h 验证窗口至 2026-05-07 早 8:00 HKT
+> **日期**: 2026-04-29 ~ 2026-05-07（8+ 天潜伏 → 7 轮诊断 → V37.9.29 path D' 修复 → V37.9.30 假说部分证伪）
+> **版本**: V37.9.4 → V37.9.27 → V37.9.28 → V37.9.29 path D' → **V37.9.30 (假说部分证伪 + 取证扩展)**
+> **元规则**: MR-4 (silent-failure-is-a-bug) 第 22 次 + 23 次演出 + MR-10 (understand-before-fix) 反向兑现 6 次
+> **状态**: V37.9.29 path D' 修了真 bug 但 EPERM 100% 持平 → 假说部分证伪 → V37.9.30 扩 ACL/handle/snapshot 取证维度
 
 ---
 
@@ -291,7 +291,91 @@ python3 ~/movespeed_incident_analyzer.py --window 24h
 ## 相关原则
 
 - 原则 #26 异常分析宪法（本案完整实践）
-- 原则 #28 理解再动手（6 次诊断错误违反 + R2 抢救兑现）
+- 原则 #28 理解再动手（6 次诊断错误违反 + R2 抢救兑现 + V37.9.30 假说证伪后未盲改代码而扩取证维度）
 - 原则 #29 收工零遗漏（V37.9.28 收工时承诺 5/6 验证，V37.9.29 兑现）
-- MR-4 silent-failure-is-a-bug（第 22 次演出）
+- MR-4 silent-failure-is-a-bug（第 22 次演出 + V37.9.30 第 23 次演出新形态）
 - MR-10 understand-before-fix（反向兑现 6 次）
+
+---
+
+## 2026-05-07 V37.9.30 续章 — 假说部分证伪
+
+**24h 验证窗口数据 (5/7 早 8:00 HKT 截止)**：
+
+```
+总数: 21 incidents (>15 R1 阈值)
+🔐 Ownership 分布:
+   19  top=501:20 kb=501:20    ← chown 真生效 (V37.9.29 path D' 验证通过)
+    2  empty (pre-V37.9.29(b))  ← 旧记录, 仅 2 条
+🔍 失败模式:
+   21  全盘_eperm  100%
+🔥 并发进程:
+   21 (100%) [Spotlight,backupd,fseventsd,mds,mds_stores]
+🕐 高峰:
+   12:00 UTC  5 (HKT 20:00 用户活动 + macOS 维护)
+   06:00 UTC  3 (HKT 14:00)
+   00:00 UTC  3 (HKT 08:00)
+```
+
+**关键解读**：
+1. ✅ V37.9.29 path D' chown 修了一个**真存在的 bug**（V37.9.4 引入的 UID 错位 60 天潜伏，19/21 records 验证 ownership 已统一为 bisdom:staff）
+2. ❌ 但 UID 错位**不是 EPERM 的根因**（或不是唯一根因）— chown 修好后 EPERM 完全不降，21 incidents 与 V37.9.28 持平
+3. 🔍 真根因新候选：
+   - **ACL deny rules** — chown 改 owner 但 ACL/xattr 留下，是 chown 不能清的强阻塞模式
+   - **macOS daemon contention** — 5 daemon 100% 共现，12:00 UTC 峰值证据
+   - **APFS 内部锁/快照** — exfat→APFS 转换可能未稳定
+
+### 决策：Path C（不回滚 + 新诊断）
+
+按预定 R1 规则（21 > 15 阈值），应该立即 R1 回滚（mount noowners + disableOwnership）。但严格执行 R1 不合理，因为：
+
+1. **R1 规则原意是"修复有副作用让情况变糟立即恢复"**，实际是"修复无副作用 + 没解决主问题"
+2. chown 修复了真 bug 没引入副作用（rsync 67MB 0 EPERM 验证通过）
+3. 历史数据证明 noowners + disableOwnership 不会让 EPERM 减少（V37.9.4-V37.9.28 都是 ~19/24h）
+4. R1 会失去 V37.9.29 b ownership 诊断字段
+
+用户决策 Path C — **不回滚，承认假说部分错误，进入新诊断**。
+
+### V37.9.30 取证扩展（让数据告诉我们真根因）
+
+新增 3 类取证字段，下次 incident 复发时直接暴露真因：
+
+| 字段 | 工具 | 检测目标 |
+|---|---|---|
+| `acl_top` / `acl_kb` | `ls -le@` | ACL deny 规则（chown 不清）+ xattr |
+| `lsof` | `lsof /Volumes/MOVESPEED \| head -50` | 谁在持有 SSD I/O 句柄 |
+| `snapshots` | `tmutil listlocalsnapshots /` | TM 本地快照锁 metadata 候选 |
+
+新增 3 个决策提示分支（自动出现在 analyzer 输出末尾）：
+- **🛡️ ACL deny 警告** → `sudo chmod -RN /Volumes/MOVESPEED` 清除所有 ACL
+- **📂 句柄持有警告** (daemon_dominated ≥3) → path B 调度避峰
+- **📸 Snapshot 警告** (snap_6_plus) → `sudo tmutil deletelocalsnapshots /`
+
+### MR-4 silent-failure 第 23 次演出新形态
+
+前 22 次 silent 都是"错误被吞 / 错误被稀释 / 错误推送编造"。
+第 23 次是 **"修复成功 + 验证生效 + 但目标问题没改善"** — 完全合规的修复路径 + 数据自我证伪。
+
+这正是 V3 路标 framework "数据从不撒谎"的硬实证场景：
+- V37.9.14 取证（被动）→
+- V37.9.26 主动告警 →
+- V37.9.27 主动修复 →
+- V37.9.28 数据驱动诊断工具 →
+- V37.9.29 ownership 维度 →
+- V37.9.30 ACL/handle/snapshot 维度（每次假说被证伪都不靠盲改代码而靠扩取证维度）
+
+### 元教训
+
+**当假说被证伪时，正确的反应是扩取证维度而不是改代码。** 这与"看到失败就改代码"反模式形成对比。原则 #28（理解再动手）第三问"最小修复方案"在 framework 层级的兑现 = 让数据告诉我们什么是真因。
+
+**6 次假说迭代的轨迹**：
+- V37.9.4: exfat → APFS 重建（触发 noowners 副作用）
+- V37.9.27: helper retry+jitter（假设 transient 自愈，错）
+- V37.9.28: macOS 修复（Spotlight + TM exclude，证伪）
+- V37.9.29: noowners + UID 错位（chown 修真 bug，但 EPERM 不降）
+- V37.9.30 候选 A: ACL deny rules（待数据验证）
+- V37.9.30 候选 B: macOS daemon contention（待数据验证）
+- V37.9.30 候选 C: APFS 内部锁/快照（待数据验证）
+
+每次都是数据驱动假说替换，没有一次是"凭推测改代码"。
+

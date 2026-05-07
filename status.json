@@ -1,5 +1,5 @@
 {
-  "updated": "2026-05-06 01:31:13",
+  "updated": "2026-05-07 01:03:21",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -105,6 +105,11 @@
   ],
   "recent_changes": [
     {
+      "date": "2026-05-07",
+      "what": "V37.9.30 — V37.9.29 24h 验证窗口数据出: 21 incidents (>15 R1 阈值) / 19/21 ownership=501:20 chown 真生效 / EPERM 100% 持平 V37.9.28 → V37.9.29 假说部分证伪 (UID 错位是真 bug 但非 EPERM 根因). 用户决策 Path C (不回滚, 进入新诊断). incident_capture.sh 加 4 新字段 (acl_top/acl_kb/lsof/snapshots), incident_analyzer.py 加 3 个分类纯函数 + 3 个新维度 + 3 个新决策提示分支 (ACL deny → chmod -RN / daemon dominated ≥3 → path B 调度避峰 / snap_6_plus → tmutil deletelocalsnapshots). 35 新单测 5 类 (TestV37930ClassifyAclAnomaly 7 + TestV37930ClassifyHandleHolders 6 + TestV37930ClassifySnapshotCount 6 + TestV37930ForensicAnalysisIntegration 10 + TestV37930CaptureScriptIntegrity 6) 镜像 V37.9.29 b 模式. backward compat 保留 (旧记录无新字段 → empty 桶). 52 suites / 1902→1937 tests (+35) / 0 fail / governance 69 inv 不变 (候选 INV-FORENSIC-001 待 24-48h 真实数据后再立) / 安全 95/100 / VERSION 0.37.9.29 → 0.37.9.30. MR-4 silent-failure 第 23 次演出新形态 (修复成功+验证生效+但目标问题没改善). 数据驱动诊断方法论加固第 6 步 (V37.9.14 取证 → V37.9.26 主动告警 → V37.9.27 主动修复 → V37.9.28 数据驱动诊断工具 → V37.9.29 ownership 维度 → V37.9.30 ACL/handle/snapshot 维度).",
+      "by": "claude_code"
+    },
+    {
       "date": "2026-05-06",
       "what": "V37.9.29 (b) — incident_capture 加 ownership 字段 (同日加固). capture.sh stat -f %u:%g /Volumes/MOVESPEED + /KB → rec dict 加 ownership_top + ownership_kb 两字段 (limit 50 chars). analyzer.py analyze() 加第 8 维度 by_ownership (ownership_pair_counter 统计 top=X kb=Y pair 分布, 向后兼容旧 records 归入 empty pre-V37.9.29(b) 桶) + format_text_report() 加 🔐 Ownership 分布段 + 决策提示新增 ownership misalignment 警告 (检测到 0:0 / 99:99 任一 → 提示 R1 回滚命令). 14 新单测 (TestV37929BOwnershipAnalysis 10 + TestV37929BCaptureScriptIntegrity 4) 含 backward compat / 错位 pair 计数 / 一致 pair 计数 / partial field handling / non-string field 健壮性 / 警告触发. 意义: 让未来类似 ownership 错位问题在 1 天内发现而不是 60 天. 52 suites / 1888→1902 tests (+14) / 0 fail / 95/100.",
       "by": "claude_code"
@@ -194,11 +199,6 @@
       "date": "2026-04-29",
       "what": "V37.9.22 双小迭代收工 — (1) #6 kb_deep_dive.sh wa_parts 字段缺失 stderr WARN: V37.9.21 部署不一致期 silent fail 教训(MR-4 第 17 次新形态 — 跨文件部署窗口)闭合, heredoc 内 in 检测 wa_parts not in data → stderr WARN(file=sys.stderr 避免 $(...) 命令替换捕获污染), 不影响 fallback 行为只加可观测性, 6 新单测(1 source-level guard + 1 marker + 4 behavior-level subprocess heredoc 真跑验证 stdout 不污染) (2) #2 第三个 convergence spec openclaw_config_to_runtime: V37.9.20 named-dispatch 第二次扩展验证(framework 真扩展性持久非一次性巧合), 新增 _extract_json_file_paths extractor 通用 JSON config 文件读取 + path-syntax 提取, 抽出 _walk_json_paths_to_set 共用 helper 让 V37.9.20 _parse_json_set_union 改用之(MR-8 单一真理源正向兑现 — extractor declared side + parser observed side 走同一 path-syntax impl), spec yaml 默认观察 openclaw.json version 顶层字段(V37.9.20 path 语法只支持 field/field[], 嵌套 V37.9.23+ 扩展), drift_action=alert_only_permanent(operator 决策不能 machine 自动同步), FAIL-OPEN on missing file(dev 环境无 openclaw.json 返回 set() 不报警), file 损坏时 raise RuntimeError 区分缺失 vs 损坏. INV-CONVERGENCE-OPENCLAW-001 加入(meta_rule=MR-17, severity=high, declaration+runtime, 13 checks: 5 dispatch + 7 yaml structural + 1 runtime python_assert subprocess 跑 V37.9.22 4 测试类). 33 新单测 4 类 (TestWalkJsonPathsToSet 12 含 helper 边界 + TestExtractJsonFilePaths 9 含 ~/$HOME 展开 + 相对路径解析 + TestVerifyOpenclawConfigToRuntimeIntegration 5 含真 spec dev 不崩溃 + TestOpenclawSpecSourceGuards 12 含 yaml/code 守卫). MR-17 derivative_invariants 升级 [INV-CONVERGENCE-CRON-001, INV-CONVERGENCE-PROVIDERS-001] → [..., INV-CONVERGENCE-OPENCLAW-001]. 累计 47→48 suites / 1600→1644 tests (+44, V37.9.22 +6 + +38) / 0 fail / governance v3.34→v3.35 / 63→64 invariants (+1) / 337→350 checks (+13) / 17 meta rules / 安全 95/100 / VERSION 0.37.9.21 → 0.37.9.22. 同时 OpenClaw 升级评估三次评估完成(早上做): 用户授权 WebFetch 实证查 #59265 已 closed at 4/25 但 NO PR / NO release notes mention(closed 状态变化但实质未修复) + 发现 v2026.4.26 新硬阻塞 #73358 (silent OpenAI codex/gpt-5.5 default 升级即业务中断) → 引入 Tripwire 决策框架(6 条触发器: 时间180天/版本差距50个/EOL/WhatsApp破坏性/CVE人工/业务痛点) 替代被动评估模式, check_upgrade.sh 重写 88→248 行 dev环境降级支持. 元价值: V37.9.22 是 V37.9.20 framework extensibility 第二次实测验证(继 V37.9.20 第一次), proves named-dispatch 不是空头承诺 — 添加新 spec 类型只需 yaml 声明 + 注册新函数零 framework 改动, V3 路标 pip install ontology-engine 终极目标硬证据持续累积.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-04-27",
-      "what": "V37.9.21 Mac Mini 生产 E2E 完美通过 + 完整收工 — 用户实测 WhatsApp 收到 Part [1/2] (Sections 1-4 核心论点+论证链+实验/证据+局限性, 含 link) + Part [2/2] (Section 5 对本项目启发完整两条建议, 无 link 节省字数), 边界选中 ## 5. heading 前的 \\n\\n 零内容丢失没有句子被切两段. V37.9.20 的省略号截断从此消失, 每天深度分析在手机上完整可读. 用户视角 → 24h 闭环 (MR-7 第 3 次正向兑现)。同时观察到 22:55:59 那次 silent fail (~3min 跑) 是 auto_deploy 2min 轮询的部署不一致期副作用 — 当时 ~/kb_deep_dive.sh 已是 V37.9.21 (新 shell) 但 ~/kb_deep_dive.py 还是旧版 (py 文件晚到几秒), 新 shell 调旧 py 在 set -e 下静默退出, 几秒后 auto_deploy 同步 py 后自愈. 这是 MR-4 silent-failure 第 17 次演出的新形态: 跨文件部署不一致期的窗口 (新 shell + 旧 py 临时混合). V37.9.22 nice-to-have 候选: 当 collector 输出无 wa_parts 字段时 shell 应 log WARN 而不是静默走 fallback 单段路径, 让运维知道部署不一致 (非紧急, 已自愈). 累计今日: V37.9.20 (上午 providers_to_adapter 第二个 spec) + V37.9.21 (晚上 WhatsApp 多窗口分片) 一日双版本 / 48 suites / 1542→1600 tests (+58, V37.9.20 +35 + V37.9.21 +23) / 0 fail / 安全 95/100 / VERSION 0.37.9.19→0.37.9.21 跳两位.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -264,10 +264,10 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 1902,
-    "last_regression": "2026-05-06 01:30 pass",
+    "test_count": 1937,
+    "last_regression": "2026-05-07 01:01 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-05-06 01:30",
+    "security_score_time": "2026-05-07 01:01",
     "test_suites": 52,
     "governance_invariants": "64/64",
     "governance_checks": "350/350",
@@ -335,7 +335,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.27 收工 — B 问题真正修复 (helper jitter+retry 替代 20 inline sites) 全栈生产生效 (~/.openclaw/jobs/ + ~/movespeed_rsync_helper.sh) / 1822 tests / 51 suites / 69 inv / 424 checks / VERSION 0.37.9.27. V37.9.x 完整自我修正闭环 (取证→主动告警→主动修复). 一周观察期 5/4 baseline → 5/11 决策窗口验证 24h incident <1.",
+  "focus": "V37.9.30 收工 — V37.9.29 假说部分证伪后扩展 incident_capture 第 9-11 维度 (ACL/xattr + lsof handles + TM snapshots) + 35 新单测 + 3 新决策提示分支 (ACL deny/daemon dominated/snapshot accumulated). 52 suites / 1937 tests / 0 fail / VERSION 0.37.9.30. 下一硬卡: 24-48h 后让 V37.9.30 新维度数据告诉我们 ACL deny vs daemon contention vs snapshot 谁是 EPERM 真根因, 不再凭推测改代码.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",

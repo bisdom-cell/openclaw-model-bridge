@@ -105,6 +105,24 @@ sw_vers > "$_TMP/sw_vers" 2>/dev/null || uname -a > "$_TMP/sw_vers" 2>/dev/null
 stat -f "%u:%g" /Volumes/MOVESPEED > "$_TMP/ownership_top" 2>/dev/null
 stat -f "%u:%g" /Volumes/MOVESPEED/KB > "$_TMP/ownership_kb" 2>/dev/null
 
+# V37.9.30: ACL + xattr + open-handle + TM-snapshot forensics
+# Why: V37.9.29 path D' chown verified working (19/21 records show 501:20
+# bisdom:staff) but EPERM 100% persists (24h still 21 incidents). The
+# ownership-misalignment hypothesis is partially falsified — UID was a real
+# bug but not the EPERM root cause. New hypotheses to differentiate:
+#   (a) ACL deny rules surviving chown (chown changes owner but ACLs persist)
+#   (b) macOS daemons holding I/O handles at incident moment
+#   (c) Time Machine local snapshots locking metadata (TM exclude doesn't
+#       prevent local snapshots from being created)
+# Each of these would leave a fingerprint that ownership-only forensics miss.
+# Best-effort: missing tool / hang / non-macOS = empty field, never blocks.
+ls -le@ /Volumes/MOVESPEED/ > "$_TMP/acl_top" 2>/dev/null
+ls -le@ /Volumes/MOVESPEED/KB/ > "$_TMP/acl_kb" 2>/dev/null
+# lsof can hang on macOS under contention; head -50 caps both runtime and bytes.
+( lsof /Volumes/MOVESPEED 2>/dev/null | head -50 ) > "$_TMP/lsof" 2>/dev/null
+# Local snapshots are per-volume on macOS (root volume listing covers all APFS).
+tmutil listlocalsnapshots / 2>/dev/null | head -20 > "$_TMP/snapshots" 2>/dev/null
+
 # --- Build JSON via python3 (argv parameters are escape-safe) ---
 python3 - "$_TS" "$CALLER" "$EXIT_CODE" "$_TMP" <<'PYEOF' >> "$INCIDENT_FILE" 2>/dev/null
 import json
@@ -141,6 +159,10 @@ rec = {
     "os": read_file("sw_vers", 200),
     "ownership_top": read_file("ownership_top", 50),  # V37.9.29 (b): real UID:GID at top level
     "ownership_kb": read_file("ownership_kb", 50),    # V37.9.29 (b): real UID:GID at /KB
+    "acl_top": read_file("acl_top", 1500),            # V37.9.30: ACL + xattr at top
+    "acl_kb": read_file("acl_kb", 2500),              # V37.9.30: ACL + xattr at /KB
+    "lsof": read_file("lsof", 2000),                  # V37.9.30: open file handles on volume
+    "snapshots": read_file("snapshots", 800),         # V37.9.30: TM local snapshots
     "env": {
         "user": os.environ.get("USER", ""),
         "home": os.environ.get("HOME", ""),
