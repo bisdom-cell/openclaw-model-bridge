@@ -327,5 +327,64 @@ class TestV37933Step8BackwardCompat(unittest.TestCase):
         )
 
 
+class TestV37934BashQuoteEscaping(unittest.TestCase):
+    """V37.9.34 regression guard: PROMPT="..." 内嵌 ASCII 双引号必须用 \\\" 转义.
+
+    Blood lesson 2026-05-07: V37.9.33 在 LLM prompt 内嵌入 `输出"📊 X"` 形式
+    (line 222/229). bash 把 `"` 当成 PROMPT 字符串的关闭符 → 字符串提前终止 →
+    后续中文被当成命令解析 → "No such file or directory".
+
+    V25 原 prompt 用单引号 `'行业信号'` 没此 bug; V37.9.33 引入 ASCII 双引号导致
+    回归. V37.9.34 hotfix 改用 `\\"X\\"` 转义.
+
+    本守卫扫源码: PROMPT="..." 字符串体内不允许有未转义的 ASCII `"` (但允许
+    内部命令替换 $(python3 -c "...") 中的双引号, 那些是合法的子表达式).
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.script = RUN_FREIGHT.read_text(encoding="utf-8")
+
+    def test_no_unescaped_double_quote_after_chu(self):
+        """禁止 `输出"X"` 字面量出现 — 必须用 `输出\\"X\\"` 或单引号 `'X'`."""
+        # Pattern: 输出 followed by ASCII " (not preceded by \)
+        # In source code, the character sequence to detect is: 输出"
+        # Must NOT match: 输出\"
+        import re
+        # Find all 输出 followed by ASCII "
+        # Use negative look-behind for backslash
+        pattern = re.compile(r'(?<!\\)输出"')
+        matches = pattern.findall(self.script)
+        self.assertEqual(
+            len(matches), 0,
+            f"V37.9.34 regression: found {len(matches)} unescaped 输出\" "
+            f"in script. Bash will interpret \" as PROMPT closer, breaking "
+            f"the script. Use 输出\\\" (backslash-escape) or 输出'X' (single quote).",
+        )
+
+    def test_section_empty_signals_use_escape(self):
+        """三层"如本期无相关信号，输出 X" 块必须用转义双引号或单引号."""
+        # The 3 sections should output empty signals if no data
+        # 📊 → "📊 本期无显著经济晴雨表信号"
+        # 🏢 → "🏢 本期无显著运营信号"
+        # 🚢 → "🚢 本期无显著商机条目"
+        # All MUST be escaped or single-quoted
+        for section in ["经济晴雨表", "运营信号", "商机条目"]:
+            # The signal phrase MUST appear (section header must instruct empty handling)
+            empty_keyword = f"本期无显著{section}信号" if section != "商机条目" else f"本期无显著{section}"
+            if empty_keyword in self.script:
+                # Find the surrounding context to verify escape style
+                idx = self.script.index(empty_keyword)
+                # Look 5 chars before for either \" or '
+                context_before = self.script[max(0, idx - 5):idx]
+                has_safe_quote = ('\\"' in context_before or "'" in context_before
+                                  or '"' in context_before)  # full-width also OK
+                self.assertTrue(
+                    has_safe_quote,
+                    f"V37.9.34: section {section} empty signal must use \\\" / "
+                    f"single quote / full-width quote. Context: {context_before!r}",
+                )
+
+
 if __name__ == "__main__":
     unittest.main()
