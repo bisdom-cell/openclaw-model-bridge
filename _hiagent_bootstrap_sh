@@ -46,6 +46,14 @@ echo "[bootstrap] python3:     $PYTHON3"
 echo "[bootstrap] cloudflared: $CLOUDFLARED"
 echo "[bootstrap] sidecar bin: $SIDECAR_BIN"
 
+# ── capture relevant API keys from current shell env (subprocess inheritance) ──
+GEMINI_KEY="${GEMINI_API_KEY:-}"
+REMOTE_KEY="${REMOTE_API_KEY:-}"
+if [ -z "$GEMINI_KEY" ]; then
+  echo "[bootstrap] WARN: GEMINI_API_KEY not set in shell env — mm_search will fail" >&2
+  echo "[bootstrap]       run: export GEMINI_API_KEY=... before bootstrap" >&2
+fi
+
 if [ ! -f "$SIDECAR_BIN" ]; then
   echo "ERROR: sidecar bin missing at $SIDECAR_BIN" >&2
   echo "Pull it first: cd ~/openclaw-model-bridge && git fetch origin claude/tech-discussion-isXvn && git show origin/claude/tech-discussion-isXvn:_hiagent_sidecar_transfer_only > $SIDECAR_BIN" >&2
@@ -96,6 +104,10 @@ cat > "$PLIST_SIDECAR" <<PLIST_EOF
     <string>en_US.UTF-8</string>
     <key>PYTHONIOENCODING</key>
     <string>utf-8</string>
+    <key>GEMINI_API_KEY</key>
+    <string>${GEMINI_KEY}</string>
+    <key>REMOTE_API_KEY</key>
+    <string>${REMOTE_KEY}</string>
   </dict>
   <key>WorkingDirectory</key>
   <string>${HOME}</string>
