@@ -17,7 +17,7 @@ from urllib.parse import urlparse, parse_qs
 
 PORT    = int(os.environ.get("HIAGENT_PLUGIN_PORT", 5003))
 TOKEN   = os.environ.get("HIAGENT_PLUGIN_KEY", "").strip()
-TIMEOUT = int(os.environ.get("HIAGENT_PLUGIN_TIMEOUT", 30))
+TIMEOUT = int(os.environ.get("HIAGENT_PLUGIN_TIMEOUT", 90))
 REPO    = os.environ.get("HIAGENT_PLUGIN_REPO_DIR",
                           os.path.expanduser("~/openclaw-model-bridge"))
 

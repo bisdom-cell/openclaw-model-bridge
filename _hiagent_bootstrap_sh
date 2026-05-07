@@ -104,7 +104,7 @@ cat > "$PLIST_SIDECAR" <<PLIST_EOF
   <key>StandardErrorPath</key>
   <string>${SIDECAR_LOG}</string>
   <key>ProcessType</key>
-  <string>Background</string>
+  <string>Interactive</string>
   <key>ThrottleInterval</key>
   <integer>10</integer>
 </dict>
