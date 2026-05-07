@@ -47,6 +47,11 @@ from typing import Any
 DEFAULT_INCIDENT_FILE = os.path.expanduser("~/.kb/movespeed_incidents.jsonl")
 PROC_KEYWORDS = ["backupd", "mds_stores", "mds", "Spotlight", "fseventsd", "tmutil"]
 
+# V37.9.30: daemon process keywords expected to appear in lsof if a daemon
+# holds I/O handles on /Volumes/MOVESPEED. Order matters: longer first to
+# avoid 'mds' matching 'mds_stores' substring.
+LSOF_DAEMON_KEYWORDS = ["mds_stores", "backupd", "fseventsd", "Spotlight", "mds", "mdworker"]
+
 
 def parse_iso_to_dt(ts_iso: str) -> datetime | None:
     """Parse ISO timestamp to UTC datetime; None on failure."""
@@ -163,6 +168,93 @@ def extract_concurrent_procs(procs_str: str) -> set[str]:
     return found
 
 
+def classify_acl_anomaly(acl_str: str) -> str:
+    """V37.9.30: classify ACL/xattr field as anomaly bucket.
+
+    macOS `ls -le@` output contains:
+      - explicit ACL lines like ' 0: group:everyone deny ...'
+      - xattr lines like '\tcom.apple.quarantine     38'
+      - just regular `ls -l` rows when no ACL/xattr present
+    Returns one of: "acl_deny" / "xattr_only" / "normal" / "empty".
+    """
+    if not isinstance(acl_str, str) or not acl_str.strip():
+        return "empty"
+    lower = acl_str.lower()
+    # ACL deny rule = strongest EPERM signal (chown does NOT clear these)
+    if " deny " in lower or "\tdeny" in lower or ": group:" in lower or ": user:" in lower:
+        # macOS ACL line format: " 0: group:everyone deny add_file"
+        # Match either explicit deny or any structured ACL line presence.
+        if " deny " in lower or "\tdeny" in lower:
+            return "acl_deny"
+        return "acl_present"
+    # xattr-only: lines starting with tab (xattr indented) but no ACL
+    has_xattr = any(line.startswith("\t") and len(line.strip()) > 0
+                    for line in acl_str.splitlines())
+    if has_xattr:
+        return "xattr_only"
+    return "normal"
+
+
+def classify_handle_holders(lsof_str: str) -> str:
+    """V37.9.30: classify lsof field as handle-holder pattern.
+
+    Returns one of: "daemon_dominated" / "user_only" / "mixed" / "empty".
+
+    daemon_dominated = ≥1 daemon keyword found AND no clearly non-daemon
+                       process cmd lines (cmd like rsync/python/etc.)
+    mixed            = both daemon and user processes present
+    user_only        = only user-side processes (rsync/python/cp/etc.)
+    empty            = no records or unparseable
+    """
+    if not isinstance(lsof_str, str) or not lsof_str.strip():
+        return "empty"
+    lines = [l for l in lsof_str.splitlines() if l.strip() and not l.startswith("COMMAND")]
+    if not lines:
+        return "empty"
+    has_daemon = False
+    has_user = False
+    user_cmds = ("rsync", "python", "cp ", "tar ", "bash", "zsh")
+    for line in lines:
+        # lsof format: COMMAND PID USER FD TYPE DEVICE SIZE/OFF NODE NAME
+        cmd_token = line.split(None, 1)[0] if line.split() else ""
+        cmd_lower = cmd_token.lower()
+        for kw in LSOF_DAEMON_KEYWORDS:
+            if kw.lower() in cmd_lower:
+                has_daemon = True
+                break
+        for uc in user_cmds:
+            if uc.strip() in cmd_lower:
+                has_user = True
+                break
+    if has_daemon and not has_user:
+        return "daemon_dominated"
+    if has_daemon and has_user:
+        return "mixed"
+    if has_user and not has_daemon:
+        return "user_only"
+    return "empty"
+
+
+def classify_snapshot_count(snap_str: str) -> str:
+    """V37.9.30: classify TM snapshot count as bucket.
+
+    Returns one of: "snap_0" / "snap_1_5" / "snap_6_plus" / "empty".
+
+    Each snapshot line on macOS has format:
+      'com.apple.TimeMachine.YYYY-MM-DD-HHMMSS.local'
+    """
+    if not isinstance(snap_str, str) or not snap_str.strip():
+        return "empty"
+    lines = snap_str.splitlines()
+    snap_lines = [l for l in lines if "com.apple.TimeMachine" in l]
+    n = len(snap_lines)
+    if n == 0:
+        return "snap_0"
+    if n <= 5:
+        return "snap_1_5"
+    return "snap_6_plus"
+
+
 def analyze(records: list[dict[str, Any]], top_n: int = 5) -> dict[str, Any]:
     """Compute aggregate analysis."""
     n = len(records)
@@ -243,6 +335,37 @@ def analyze(records: list[dict[str, Any]], top_n: int = 5) -> dict[str, Any]:
         pair = f"top={top or '?'} kb={kb or '?'}"
         ownership_pair_counter[pair] += 1
 
+    # V37.9.30: ACL/xattr anomaly distribution (9th dimension)
+    # V37.9.29 假说部分证伪后, 寻找 EPERM 真因. ACL deny 是 chown 不能清的
+    # 强阻塞模式 (chown 改 owner 但 ACL/xattr 留下). xattr_only = 弱信号.
+    # Backward compat: pre-V37.9.30 records lack acl_top/_kb → 'empty' bucket.
+    acl_anomaly_counter: Counter[str] = Counter()
+    for r in records:
+        # Use top + kb merged: any side showing acl_deny is enough
+        cls_top = classify_acl_anomaly(r.get("acl_top", ""))
+        cls_kb = classify_acl_anomaly(r.get("acl_kb", ""))
+        # Strongest signal across the two probes wins (deny > acl_present > xattr_only > normal > empty)
+        priority = {"acl_deny": 4, "acl_present": 3, "xattr_only": 2, "normal": 1, "empty": 0}
+        winner = cls_top if priority.get(cls_top, 0) >= priority.get(cls_kb, 0) else cls_kb
+        if winner == "empty":
+            acl_anomaly_counter["empty (pre-V37.9.30 records)"] += 1
+        else:
+            acl_anomaly_counter[winner] += 1
+
+    # V37.9.30: lsof handle holder pattern (10th dimension)
+    # 5 daemon 100% 共现 (V37.9.29 数据) 但不知 daemon 是否真持有 SSD I/O 句柄.
+    # daemon_dominated = 强信号支持 daemon contention 假说 → path B 调度避峰
+    # user_only / mixed = daemon 共现但不持有句柄 → 真因可能在文件系统层
+    handle_pattern_counter: Counter[str] = Counter()
+    for r in records:
+        handle_pattern_counter[classify_handle_holders(r.get("lsof", ""))] += 1
+
+    # V37.9.30: TM local snapshot count bucket (11th dimension)
+    # 即使 TM exclude 也可能有 local snapshots 锁 metadata. snap_6_plus = 强信号.
+    snapshot_bucket_counter: Counter[str] = Counter()
+    for r in records:
+        snapshot_bucket_counter[classify_snapshot_count(r.get("snapshots", ""))] += 1
+
     return {
         "count": n,
         "time_coverage": {"earliest": earliest, "latest": latest},
@@ -254,6 +377,9 @@ def analyze(records: list[dict[str, Any]], top_n: int = 5) -> dict[str, Any]:
         "by_hour_utc": dict(sorted(hour_counter.items())),
         "by_mount_state": dict(mount_state_counter),
         "by_ownership": dict(ownership_pair_counter.most_common(top_n)),
+        "by_acl_anomaly": dict(acl_anomaly_counter),
+        "by_handle_pattern": dict(handle_pattern_counter),
+        "by_snapshot_bucket": dict(snapshot_bucket_counter),
     }
 
 
@@ -317,6 +443,49 @@ def format_text_report(analysis: dict[str, Any], window_label: str) -> str:
         for k, v in by_ownership.items():
             lines.append(f"  {v:>3}  {k}")
 
+    # V37.9.30: ACL/xattr anomaly distribution (9th dimension)
+    by_acl = analysis.get("by_acl_anomaly", {})
+    if by_acl:
+        lines.append("\n🛡️ ACL/xattr 异常分布 (V37.9.30 — chown 不能清的强阻塞模式):")
+        acl_explain = {
+            "acl_deny": "ACL deny 规则 (chown 改 owner 但 ACL 留下, 强 EPERM 信号)",
+            "acl_present": "ACL 存在 (非 deny, 可能仍阻塞特定操作)",
+            "xattr_only": "仅 xattr (com.apple.quarantine 等, 弱信号)",
+            "normal": "无 ACL/xattr (正常)",
+            "empty (pre-V37.9.30 records)": "旧记录无 acl_top/_kb 字段",
+        }
+        for k, v in by_acl.items():
+            explain = acl_explain.get(k, "")
+            lines.append(f"  {v:>3}  {k}  — {explain}")
+
+    # V37.9.30: lsof handle holder pattern (10th dimension)
+    by_handle = analysis.get("by_handle_pattern", {})
+    if by_handle:
+        lines.append("\n📂 句柄持有者模式 (V37.9.30 — 谁在持有 SSD I/O):")
+        handle_explain = {
+            "daemon_dominated": "macOS daemon 主导 (mds_stores/backupd/etc), 强 daemon contention 信号",
+            "user_only": "仅用户进程 (rsync/python), 真因不在 daemon",
+            "mixed": "daemon + 用户混合, 部分 daemon 持有句柄",
+            "empty": "lsof 空或缺失 (旧记录或工具不可用)",
+        }
+        for k, v in by_handle.items():
+            explain = handle_explain.get(k, "")
+            lines.append(f"  {v:>3}  {k}  — {explain}")
+
+    # V37.9.30: TM local snapshot count bucket (11th dimension)
+    by_snap = analysis.get("by_snapshot_bucket", {})
+    if by_snap:
+        lines.append("\n📸 TM Snapshot 分布 (V37.9.30 — 本地快照锁 metadata 候选):")
+        snap_explain = {
+            "snap_0": "0 个本地快照 (TM exclude 完全生效)",
+            "snap_1_5": "1-5 个 (轻度积累)",
+            "snap_6_plus": "6+ 个 (强信号: snapshot 锁 metadata 候选)",
+            "empty": "snapshots 字段缺失 (旧记录或非 macOS)",
+        }
+        for k, v in by_snap.items():
+            explain = snap_explain.get(k, "")
+            lines.append(f"  {v:>3}  {k}  — {explain}")
+
     # 决策提示
     lines.append("\n---\n💡 决策提示 (基于本输出回答 F2 最小修复方案):")
     fm = analysis.get("by_failure_mode", {})
@@ -361,6 +530,46 @@ def format_text_report(analysis: dict[str, Any], window_label: str) -> str:
             "     - 若修复后仍有此 pattern → 假说错或回退, 立即 R1 回滚:\n"
             "       sudo mount -u -o noowners /Volumes/MOVESPEED\n"
             "       sudo diskutil disableOwnership /Volumes/MOVESPEED"
+        )
+
+    # V37.9.30: ACL deny alert (chown 不能清, 强 EPERM 信号)
+    by_acl_local = analysis.get("by_acl_anomaly", {})
+    acl_deny_count = by_acl_local.get("acl_deny", 0)
+    if acl_deny_count > 0:
+        lines.append(
+            f"\n  🛡️ ACL deny 警告 (V37.9.30): {acl_deny_count} incidents 检测到 ACL deny 规则\n"
+            "     - chown 修复 owner 但 ACL 不会被 chown 改变, 这是 V37.9.29 假说\n"
+            "       证伪后的强候选根因 (chown 真生效但 EPERM 100% 持平)\n"
+            "     - 修复建议: sudo ls -le@ /Volumes/MOVESPEED 看完整 ACL\n"
+            "       然后 sudo chmod -RN /Volumes/MOVESPEED 清除所有 ACL"
+        )
+
+    # V37.9.30: Handle holder pattern hint (daemon contention 假说判定)
+    by_handle_local = analysis.get("by_handle_pattern", {})
+    daemon_count = by_handle_local.get("daemon_dominated", 0)
+    user_count = by_handle_local.get("user_only", 0)
+    if daemon_count > user_count and daemon_count >= 3:
+        lines.append(
+            f"\n  📂 句柄持有 (V37.9.30): {daemon_count}/{analysis['count']} incidents daemon 主导\n"
+            "     - 验证 V37.9.29 数据揭示的 5 daemon 100% 共现是 contention 而非相关\n"
+            "     - 修复建议 (path B): cron 调度避峰 (12:00 UTC = HKT 20:00 是峰值)\n"
+            "       将主要 cron job 移到非 daemon 维护时段 (避开 HKT 8/14/20 点)"
+        )
+    elif user_count > daemon_count and user_count >= 3:
+        lines.append(
+            f"\n  📂 句柄持有 (V37.9.30): {user_count}/{analysis['count']} incidents 仅用户进程持有\n"
+            "     - 反证 daemon contention 假说 — 真因更可能在文件系统层 (APFS/ACL)"
+        )
+
+    # V37.9.30: Snapshot accumulation hint (TM 本地快照锁 metadata 候选)
+    by_snap_local = analysis.get("by_snapshot_bucket", {})
+    snap_high = by_snap_local.get("snap_6_plus", 0)
+    if snap_high > 0:
+        lines.append(
+            f"\n  📸 Snapshot 警告 (V37.9.30): {snap_high} incidents 时有 6+ TM 本地快照\n"
+            "     - 即使 TM exclude /Volumes/MOVESPEED, macOS 仍可能创建本地快照\n"
+            "     - 修复建议: sudo tmutil deletelocalsnapshots / 清除积累\n"
+            "       并设置 sudo tmutil disablelocal 关闭本地快照机制"
         )
 
     return "\n".join(lines)
