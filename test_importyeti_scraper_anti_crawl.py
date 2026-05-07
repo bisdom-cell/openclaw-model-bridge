@@ -324,6 +324,41 @@ class TestSourceLevelGuards(unittest.TestCase):
         self.assertIn("playwright_stealth", self.source)
         self.assertIn("ImportError", self.source)
 
+    def test_v37_9_32_uses_2x_api_first(self):
+        """V37.9.32: 必须先 try import 2.x API (Stealth class), 后 fallback 1.x."""
+        # 2.x import must come first
+        idx_stealth = self.source.find("from playwright_stealth import Stealth")
+        idx_stealth_sync = self.source.find("from playwright_stealth import stealth_sync")
+        self.assertGreater(idx_stealth, 0, "V37.9.32: must import Stealth class (2.x API)")
+        self.assertGreater(
+            idx_stealth_sync, idx_stealth,
+            "V37.9.32: 2.x Stealth import must precede 1.x stealth_sync fallback",
+        )
+
+    def test_v37_9_32_uses_apply_stealth_sync_method(self):
+        """V37.9.32: 2.x API 必须用 .apply_stealth_sync(page) 方法."""
+        self.assertIn("apply_stealth_sync(page)", self.source,
+                      "V37.9.32: must call Stealth().apply_stealth_sync(page) for 2.x API")
+
+    def test_v37_9_32_call_site_uses_api_agnostic_helper(self):
+        """V37.9.32: 调用点必须用 _stealth_apply helper (不直接调 stealth_sync)."""
+        # The active call site (inside the if stealth_available block) should
+        # use _stealth_apply, not stealth_sync directly. stealth_sync should
+        # only appear in 1.x fallback def, not in the call site.
+        # Find the "if stealth_available" block and check what it calls
+        import re
+        m = re.search(
+            r'if stealth_available[^\n]*:\s*\n\s*try:\s*\n\s*([_a-zA-Z]+)\(page\)',
+            self.source,
+        )
+        self.assertIsNotNone(m, "if stealth_available try-block not found")
+        called_fn = m.group(1)
+        self.assertEqual(
+            called_fn, "_stealth_apply",
+            f"V37.9.32: call site must use _stealth_apply helper, got {called_fn}. "
+            f"Direct stealth_sync() call breaks 2.x compat.",
+        )
+
     def test_manual_fallback_present(self):
         """playwright-stealth 缺失时必须有 manual fallback."""
         self.assertIn("manual stealth fallback", self.source.lower())

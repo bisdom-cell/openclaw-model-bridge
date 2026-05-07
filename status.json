@@ -1,5 +1,5 @@
 {
-  "updated": "2026-05-07 01:41:24",
+  "updated": "2026-05-07 03:05:39",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-05-07",
+      "what": "V37.9.32 — playwright-stealth API 兼容修复 (Mac Mini 实测发现). V37.9.31 上线后用户合并 + Mac Mini cp 文件 + bash run_freight.sh 验证: ✅ last_run.json {time, status:ok, new:3, sent:true, deep_dive:ok} 历史性首次 (5/4 后第一次), Step 8-10 全跑完 (OMI 高星 → ImportYeti 查询 → 客户画像 LLM 生成 + 推送), rsync helper 错峰 sleep 178s + 36s 后脚本继续 (V37.9.31 fail-open 真生效), Preflight 通过 82/失败 0/警告 2 (零失败历史新高). 1 次要问题: scraper stderr WARN playwright-stealth 未安装 但 pip 显示 Requirement already satisfied 2.0.2, 矛盾根因 = V37.9.31 用 stealth_sync 1.x API, 2.x 改 Stealth class. V37.9.32 修复: 三档 fallback (2.x Stealth().apply_stealth_sync(page) → 1.x stealth_sync → manual STEALTH_JS) + _stealth_apply API 版本无关 helper + stealth_api_version 启动日志可观测. 3 新 source-level 守卫单测 (test_v37_9_32_uses_2x_api_first / test_uses_apply_stealth_sync_method / test_call_site_uses_api_agnostic_helper). 54 suites / 1990→1993 tests (+3) / 0 fail / 安全 95/100 / VERSION 0.37.9.31 → 0.37.9.32. 原则 #13 用户视角观察第 5 次正向兑现 — 单测全过 + Preflight 0 fail, 但用户实际跑 stderr 才暴露 import 路径错配.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-05-07",
       "what": "V37.9.31 — V37.9.27 rsync_helper 回归修复 + 货代 schema 完整 + ImportYeti 反爬升级. 真根因: V37.9.27 movespeed_rsync_helper.sh line 116 exit \"$EXIT_CODE\" 透传 rsync 失败码 + run_freight.sh set -eo pipefail → V37.9.30 EPERM 100% 持平后每次都杀 20 set -e caller mid-script (MR-4 第 24 次演出: 修复引入更深 silent failure). 5 fix: F1 helper line 116 exit 0 + 详细注释 + V37.9.4-V37.9.26 invariant 恢复, F2 run_freight.sh 4 exit path 都写 deep_dive (skipped_no_news/skipped_llm_failed/skipped_parse_low/pending), F3 preflight 容忍新 status (skipped_no_news pass / pending warn含 V37.9.31 上下文 / missing 升 fail), F4 importyeti_scraper.py 反爬升级 (4 modern Chrome UA 跨 macOS+Windows 轮换 + 5 真实 viewport + sec-ch-ua/sec-fetch-* + Cloudflare 检测纯函数 + backoff [30,60,120]s + delay 5-12s + playwright-stealth 50+ patches 自动 fallback manual STEALTH_JS), F5 53 新单测 (test_freight_schema_v9_31 13 + test_importyeti_scraper_anti_crawl 39 + helper test 1 set -e caller subprocess 真验证). governance INV-RETRY-001 扩展 V37.9.31 fail-open contract 叙事 + 2 新 declaration check. 54 suites (+2) / 1937→1990 tests (+53) / 0 fail / 506 checks (+2) / 安全 95/100 / VERSION 0.37.9.30 → 0.37.9.31. 用户确认反爬方案 = playwright-stealth (Mac Mini 需 pip3 install). 下一硬卡: 明日 8:00 freight cron 真跑验证 deep_dive=ok 全链路闭环 + V37.9.30 24-48h ACL/lsof/snapshot 数据回归.",
       "by": "claude_code"
     },
@@ -194,11 +199,6 @@
       "date": "2026-05-04",
       "what": "V37.9.23: jobs_to_crontab → machine_sync 升级 (Plan B 渐进 dry-run) + spec yaml command 字段读取层 mock 化测试加固 (V37.9.22 hotfix 教训闭环). 5/3 决策窗口到达, baseline 4/26 + 7d 一周观察期内 declared=36 observed=36 零漂移零误报. drift_action 从 alert_only 升级为 machine_sync, framework 内部新增 _format_cron_line + _apply_machine_sync + _is_dry_run, 通过 crontab_safe.sh add helper 真同步 cron line. 默认 dry-run 模式 (CONVERGENCE_DRY_RUN env 控制), V37.9.24+ 一周后切关 dry-run 真激活. ConvergenceResult namedtuple 加 3 字段 (applied_actions/apply_dry_run/apply_errors) 默认值向后兼容. governance INV-CONVERGENCE-CRON-001 +8 declaration grep guards (新 helpers/常量/yaml v37_9_23_changelog/dry_run_default 字面量). governance_checker print_convergence_results 显示 apply[dry-run]=36 apply_errors=0 可观测. 同时 V37.9.23 加固 (TestKbSourcesToIndexCommandRuntime 6 单测): mock meta.json + monkey-patch HOME + 真跑 spec yaml python oneliner subprocess. 反向验证已确认两层守卫真有效 (字段名回归 + drift_action 回归立即抓). 累计: 47→47 suites / 1670→1712 tests (+42, V37.9.23 plan B 6+11+5+6+5+8+1) / 0 fail / governance 66 inv 不变 / 372→380 checks (+8) / 17 meta rules / 安全 95/100 / VERSION 0.37.9.22→0.37.9.23.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-04-29",
-      "what": "V37.9.22 hotfix 9d60dd3 — kb_sources_to_index spec yaml 字段名 source_file → file. Mac Mini 第一次 production 实测 framework 暴露字段名假设 bug — meta.json 实际字段是 file 不是 source_file. dev 1664 tests + 372 governance checks + preflight 81/0/3 全过但生产实测才暴露 (原则 #15 第三层 WhatsApp 业务验证教训延续 V37.8.4). 一行字面值修复 + 文档同步, 142 tests + 372 checks 仍全过. V37.9.23 加固候选: spec 单测 mock 一个 meta.json 跑 spec 实际 command 验证字段读取正确(覆盖 observer command 这个语义层而不只是 extractor 逻辑层).",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -264,14 +264,14 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 1990,
-    "last_regression": "2026-05-07 01:39 pass",
+    "test_count": 1993,
+    "last_regression": "2026-05-07 03:04 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-05-07 01:39",
+    "security_score_time": "2026-05-07 03:04",
     "test_suites": 54,
     "governance_invariants": "64/64",
     "governance_checks": "350/350",
-    "version": "0.37.9.30"
+    "version": "0.37.9.31"
   },
   "incidents": [
     {
@@ -335,7 +335,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.31 收工 — V37.9.27 rsync_helper 回归修复 (fail-open exit 0) + 货代 last_run.json schema 完整 + ImportYeti 反爬升级 (playwright-stealth + multi-UA + Cloudflare backoff). 真根因: rsync_helper exit 非 0 + set -e 杀 20 caller mid-script (MR-4 第 24 次演出: 修复引入更深 silent failure). 54 suites / 1990 tests (+53) / 0 fail / VERSION 0.37.9.31. 下一硬卡: Mac Mini pip3 install playwright-stealth + 明日 8:00 freight cron 验证 last_run.json 含 deep_dive=ok 全链路真闭环.",
+  "focus": "V37.9.32 收工 — Mac Mini V37.9.31 实测验证全链路 + playwright-stealth 1.x→2.x API 兼容修复. 硬实证: last_run.json 含 deep_dive=ok (历史性首次), Step 8-10 全跑完, OMI 客户画像 WhatsApp 推送成功, Preflight 通过 82/0/2 (零失败). 1 次要发现: stealth_sync 在 2.x 已删, 改用三档 fallback (2.x Stealth class → 1.x stealth_sync → manual). 54 suites / 1993 tests (+3) / 0 fail / VERSION 0.37.9.32. 原则 #13 用户视角观察第 5 次正向兑现.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
