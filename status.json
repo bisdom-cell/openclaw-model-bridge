@@ -1,5 +1,5 @@
 {
-  "updated": "2026-05-07 05:20:31",
+  "updated": "2026-05-07 14:06:17",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-05-07",
+      "what": "V37.9.36 — rss_blogs LLM fail-fast 闭环 (MR-4 silent-failure 第 26 次演出 + 用户视角 #13 第 8 次正向兑现). 触发: V37.9.35 budget 升级当晚用户 WhatsApp 收到 18:00 推送 3 篇全部占位符 \"要点：技术深度文章 / 价值：⭐⭐⭐\". Mac Mini 取证: llm_raw_last.txt 含 502/upstream primary 301+gemini 503 双 provider 故障 / llm_content.txt 空 / last_run.json 谎报 status:ok. 三层根因: 双 provider 同时故障 + 三层宽容 (except pass 吞 KeyError → log WARN 不 exit → emit 硬编码占位符) + 谎报+零 [SYSTEM_ALERT]. 修复 (V37.5/V37.8.10/V37.9.16 同款 fail-fast): source notify.sh + send_alert helper + LLM 三层检测 (HTTP error / parse fail / empty content) + 任一触发 → [SYSTEM_ALERT] + status:llm_failed + exit 1 + 删除 emit 占位符 fallback 改为显式 \"（本篇 LLM 摘要缺失）\" 标记. 27 新单测 4 类含血案场景复现 + 反向验证守卫真有效. INV-RSSBLOGS-001 新增 (MR-4, high, 15 checks: 9 declaration + 3 python_assert + 3 runtime subprocess). 56 suites (+1) / 2021→2048 tests (+27) / 0 fail / governance 506→523 checks (+17) / 69→70 invariants (+1) / MRD-LAYER-002 40/40 high ≥2 层 / 安全 95/100 / VERSION 0.37.9.35 → 0.37.9.36. 元教训: V37.5/V37.8.10/V37.9.16 三次升级时应同步扫所有 LLM 调用 job 是否对齐 fail-fast (MR-8 跨 job 不同步也是 copy-paste-is-a-bug-class). V37.9.37 候选 audit: 扫所有调 LLM 的 cron job 是否都对齐.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-05-07",
       "what": "V37.9.35 — WhatsApp 客户端显示折叠架构发现 + Path A 保守路径实施. V37.9.33 freight 三层 LLM 输出 8131 字单条消息, 用户观察分两气泡 + 时间戳相同 = 单条消息客户端折叠. 5 层切片排查 (原则 #28): OpenClaw 主 bundle / runtime-whatsapp-outbound lazy loader / openclaw.json channels.whatsapp / Baileys 7.0.0-rc.9 / WhatsApp 客户端 — 前 4 层全部空命中, 第 5 层确认 = WhatsApp 手机客户端 ~4000-5000 字符自动分气泡显示 (与 Telegram 4096 限制接近). Path A 实施: budget 1400→4000 在 3 source + 3 test (kb_review_collect/kb_evening_collect/kb_deep_dive constants + tests + input 长度调整). 保留 V37.9.21 手动分屏代码作为防御 fallback (跨平台保险 + 极长内容 >8000 仍触发 + MR-7 不删除已验证边界). 影响 3 task 信息密度 2.86x (kb_review/kb_evening/kb_deep_dive). 完整案例文档 whatsapp_client_display_folding_case.md (5 层排查矩阵 + V37.9.21 假设来源 + 4 元教训). 55 suites / 2021 tests 不变 / 0 fail / 安全 95/100 / VERSION 0.37.9.34 → 0.37.9.35. 用户视角原则 #13 第 7 次正向兑现 — 自动化测试全过 + 用户实测才推翻 1400 字假设.",
       "by": "claude_code"
     },
@@ -194,11 +199,6 @@
       "date": "2026-05-04",
       "what": "V37.9.26: watchdog 主动告警升级 — 24h 窗口 ≥5 条 MOVESPEED incident 推 [SYSTEM_ALERT] (V37.9.15 候选 watchdog 部分闭环). 新文件 movespeed_incident_monitor.py 纯函数模块 (parse_iso_to_epoch / extract_caller_basename / count_recent_incidents 24h 窗口 / format_watchdog_output pipe 输出 / CLI FAIL-OPEN). job_watchdog.sh 第 9 维度集成 (从 8 大维度扩展到 9), 阈值 INCIDENT_24H_THRESHOLD=5 (噪声 +2σ). MR-8 单一真理源正向兑现: 不内嵌 heredoc, 抽到独立模块, 单测直接 import. INV-INCIDENT-001 新增 (meta_rule=MR-4, 10 checks: 4 monitor.py declaration + 5 watchdog.sh declaration + 1 FILE_MAP + 1 runtime 36 单测). 与 INV-BACKUP-001 sibling 关系 (前者守证据收集, 后者守证据消费产告警, 一起覆盖 declared→runtime→alert 完整链路). 36 新单测 7 类 (含反向验证 + 阈值边界 + watchdog 集成守卫). 同时修 INV-BACKUP-001 检测器豁免 watchdog (V37.9.26 watchdog 加告警消息含 rsync+MOVESPEED 字样误判, 按原则 #28 最小修复加 monitor consumer 豁免, 不破坏 V37.9.14 的检测目的). 累计 48→49 suites / 1762→1798 tests (+36) / 0 fail / governance 67→68 invariants (+1) / 403→413 checks (+10) / 17 meta rules / 安全 95/100 / VERSION 0.37.9.25→0.37.9.26.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-05-04",
-      "what": "V37.9.25: 第 5 个 convergence spec services_to_launchd 上线 — V37.9.13 候选 launchd plist 持久化方向闭环. 新增 services_registry.yaml (与 jobs_registry.yaml 平行的独立 declared source, 3 个 service: com.openclaw.adapter / com.openclaw.proxy / ai.openclaw.gateway). convergence.py 注册 _extract_services_from_registry extractor 到 _DECLARED_EXTRACTORS dict (第 5 次 named-dispatch 扩展验证, 镜像 V37.9.22 kb_sources_to_index minimal-extension 路径 — 只新加 1 extractor, 复用 V37.9.19 shell_command observer + line_contains_identifier parser). spec drift_action: alert_only 起步 (V37.9.19 同款保守路线), V37.9.26+ 一周观察后考虑 machine_sync 升级 (planned_helper: bash $HOME/restart.sh + per-service launchctl bootstrap). INV-CONVERGENCE-SERVICES-001 新增 (meta_rule=MR-17, severity=high, 16 checks: 14 declaration + 1 runtime python_assert subprocess 跑 V37.9.25 3 测试类). MR-17 derivative_invariants 升级 [..., INV-CONVERGENCE-SERVICES-001]. 新增 23 单测 3 类 (TestExtractServicesFromRegistry 4 + TestVerifyServicesToLaunchdIntegration 6 + TestServicesSpecSourceGuards 13). 反向验证: yaml label 改坏 (com.openclaw.adapter → com.openclaw.adapter_RENAMED) 立即抓. yaml meta version 0.6 → 0.7-fifth-spec-services-to-launchd. auto_deploy FILE_MAP 加 services_registry.yaml 部署. dev 环境跑通: declared=3 (com.openclaw.adapter/proxy/gateway), launchctl 不存在 → observer_failed FAIL-OPEN → missing=3 alert_only 输出. 累计 47→48 suites / 1739→1762 tests (+23) / 0 fail / governance 66→67 invariants (+1) / 387→403 checks (+16) / 17 meta rules / 安全 95/100 / VERSION 0.37.9.24 → 0.37.9.25 / convergence specs 4→5.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -268,14 +268,14 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 2021,
-    "last_regression": "2026-05-07 05:00 pass",
+    "test_count": 2048,
+    "last_regression": "2026-05-07 14:04 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-05-07 05:00",
-    "test_suites": 55,
+    "security_score_time": "2026-05-07 14:04",
+    "test_suites": 56,
     "governance_invariants": "64/64",
     "governance_checks": "350/350",
-    "version": "0.37.9.34"
+    "version": "0.37.9.35"
   },
   "incidents": [
     {
@@ -339,7 +339,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.35 收工 — WhatsApp 客户端显示折叠架构发现 + budget 1400→4000 (Path A 保守路径). 触发: V37.9.33 freight 8131 字单条消息分两气泡显示但时间戳相同 → 5 层切片排查证实 = WhatsApp 手机客户端折叠 (非协议层切片). 影响: kb_review/kb_evening/kb_deep_dive 信息密度立即提升 2.86x. 保留手动分屏作为防御 fallback (跨平台保险 + MR-7 不删除安全边界). 55 suites / 2021 tests / 0 fail / VERSION 0.37.9.35. 用户视角原则 #13 第 7 次正向兑现.",
+  "focus": "V37.9.36 收工 — rss_blogs LLM fail-fast 闭环. 用户 WhatsApp 实测发现 18:00 推送 3 篇全部占位符. Mac Mini 取证: 502/primary 301+gemini 503 双 provider 故障. 与 V37.5/V37.8.10/V37.9.16 同款模式: source notify.sh + send_alert + 三层检测 + status:llm_failed + 删除占位符. 27 新单测 + INV-RSSBLOGS-001 (15 checks). 56 suites / 2048 tests / 0 fail / 523 checks / 70 inv / 安全 95/100 / VERSION 0.37.9.36. MR-4 第 26 次演出 + 用户视角 #13 第 8 次正向兑现.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
