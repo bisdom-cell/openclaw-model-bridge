@@ -514,8 +514,11 @@ def build_wa_message(
         f"（{days}天 | KB总条目 {index_total} | 本期笔记 {note_count}篇 "
         f"| 覆盖 {sources_count} 源）"
     )
-    # Truncate LLM content for WhatsApp
-    body = llm_content[:1400] if len(llm_content) > 1400 else llm_content
+    # V37.9.35: bump budget 1400→4000 — WhatsApp client display folding
+    # confirmed working (V37.9.33 freight 8131-char single send → 2 bubbles).
+    # Path A conservative: 4000 fits within most clients' folding threshold,
+    # information density 2.86x while preserving cross-platform consistency.
+    body = llm_content[:4000] if len(llm_content) > 4000 else llm_content
     return f"{header}\n\n{body}"
 
 

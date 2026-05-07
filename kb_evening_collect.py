@@ -179,7 +179,8 @@ def build_evening_wa_message(
         f"（KB 总条目 {index_total} | 笔记总数 {note_count} "
         f"| 今日新增 {today_note_count} 篇 | 覆盖 {sources_count} 源）"
     )
-    body = llm_content[:1400] if len(llm_content) > 1400 else llm_content
+    # V37.9.35: bump budget 1400→4000 — see kb_review_collect.py same change
+    body = llm_content[:4000] if len(llm_content) > 4000 else llm_content
     return f"{header}\n\n{body}"
 
 
