@@ -5750,6 +5750,231 @@ invariants:
               f"framework raised exception:\n{proc.stderr[-800:]}"
           )
 
+  - id: INV-RSSBLOGS-001
+    name: rss-blogs-fails-loud-not-silent
+    meta_rule: MR-4
+    verification_layer: [declaration, runtime]
+    severity: high
+    declaration: |
+      run_rss_blogs.sh 必须 fail-fast：LLM HTTP 错误 / JSON 解析失败 / content 空
+      任一触发 → 推送 [SYSTEM_ALERT] + status:llm_failed + exit 1。
+      绝不允许"技术深度文章 ⭐⭐⭐"占位符 fallback 静默推送伪造数据。
+      emit 端 partial parser fallback 必须用显式 "（本篇 LLM 摘要缺失）" 标记,
+      让用户感知层不被欺骗 (V37.5/V37.8.10/V37.9.16 同款 fail-fast 模式对齐)。
+    design_decision: |
+      2026-05-07 18:00 血案 (用户视角 #13 第 8 次正向兑现): 用户收到 3 条全是
+      "要点：技术深度文章 / 价值：⭐⭐⭐"占位符的博客推送, last_run.json 谎报
+      status:ok。Mac Mini cache 揭示真相:
+        - llm_raw_last.txt = '{"error":"HTTP 502 | upstream: primary 301; gemini 503"}'
+        - llm_content.txt = 1 byte (空)
+        - rss_message.txt 全部 3 篇 fallback "技术深度文章 ⭐⭐⭐"
+        - last_run.json status:ok, sent:true ← 谎报
+
+      MR-4 silent-failure 第 26 次演出新形态:
+        - 触发器: Qwen3 主+gemini fallback 双 provider 同时故障 (基础设施层)
+        - 放大器: 三层宽容 (except pass 吞 KeyError → log WARN 不 exit →
+          emit 硬编码占位符)
+        - 掩护者: last_run.json 谎报 status:ok + 零 [SYSTEM_ALERT] 推送
+        rss_blogs 是 V36 之前老代码, V37.5/V37.8.10/V37.9.16 同款 fail-fast 模式
+        从未对齐。
+
+      V37.9.36 结构性修复:
+        (a) source notify.sh + send_alert helper 走统一 [SYSTEM_ALERT] 通道
+        (b) LLM 响应三层检测 (HTTP error / JSON parse fail / empty content)
+        (c) 任一失败 → fail-fast: 推 [SYSTEM_ALERT] + status:llm_failed + exit 1
+        (d) emit 端删除 "要点：技术深度文章" + "价值：⭐⭐⭐" 占位符 fallback
+        (e) partial parse fallback 改为 "（本篇 LLM 摘要缺失，参见原文链接）"
+            显式标记缺失而非伪造数据
+    lesson: |
+      原则 #13 (定期像用户用) 第 8 次正向兑现 — V37.9.35 budget 升级后用户立即
+      在 WhatsApp 发现 3 条占位符推送, 单测 / 治理 / preflight 全过但用户感知
+      质量为零。这是测试三层 "WhatsApp 业务验证" (原则 #15) 在 rss_blogs 老代码
+      上的首次暴露 — V37.5 (kb_review) / V37.8.10 (kb_evening) / V37.9.16
+      (kb_deep_dive) 都已对齐 fail-fast 模式, 但 rss_blogs 一直是 V36 前老代码。
+
+      MR-8 反例提醒: 如果 V37.5 / V37.8.10 / V37.9.16 三次修复时同步扫描所有
+      LLM 调用 job 是否有同款反模式, 这次血案在 V37.9.16 时就能预防。这是
+      MR-8 copy-paste-is-a-bug-class 的反向案例 — 不只跨文件复制造 bug,
+      跨 job 没及时同步 fail-fast 升级也是 bug。
+    checks:
+      # ── declaration layer (源码级守卫) ────────────────────────────────
+      - name: "run_rss_blogs.sh 标注 V37.9.36 fail-fast 版本"
+        check_type: file_contains
+        file: jobs/rss_blogs/run_rss_blogs.sh
+        pattern: "V37.9.36"
+      - name: "run_rss_blogs.sh 推送 [SYSTEM_ALERT] 标记"
+        check_type: file_contains
+        file: jobs/rss_blogs/run_rss_blogs.sh
+        pattern: '\[SYSTEM_ALERT\]'
+      - name: "run_rss_blogs.sh 定义 send_alert helper"
+        check_type: file_contains
+        file: jobs/rss_blogs/run_rss_blogs.sh
+        pattern: "send_alert\\(\\)"
+      - name: "run_rss_blogs.sh source notify.sh (统一告警通道)"
+        check_type: file_contains
+        file: jobs/rss_blogs/run_rss_blogs.sh
+        pattern: 'source\s+"\$NOTIFY_SH"'
+      - name: "run_rss_blogs.sh 含 LLM HTTP 错误检测 marker"
+        check_type: file_contains
+        file: jobs/rss_blogs/run_rss_blogs.sh
+        pattern: "__LLM_HTTP_ERROR__"
+      - name: "run_rss_blogs.sh 含 LLM JSON 解析失败检测 marker"
+        check_type: file_contains
+        file: jobs/rss_blogs/run_rss_blogs.sh
+        pattern: "__LLM_PARSE_FAIL__"
+      - name: "run_rss_blogs.sh last_run.json schema 含 status:llm_failed"
+        check_type: file_contains
+        file: jobs/rss_blogs/run_rss_blogs.sh
+        pattern: '"status":"llm_failed"'
+      - name: "run_rss_blogs.sh emit 端用显式 LLM 摘要缺失标记 (替代占位符 fallback)"
+        check_type: file_contains
+        file: jobs/rss_blogs/run_rss_blogs.sh
+        pattern: "LLM 摘要缺失"
+      - name: "run_rss_blogs.sh 不再含 V37.9.36 前 silent warn 反模式"
+        check_type: file_not_contains
+        file: jobs/rss_blogs/run_rss_blogs.sh
+        pattern: "使用原始标题推送"
+
+      # ── declaration layer (Python AST/grep 级深度检查) ─────────────────
+      - name: "run_rss_blogs.sh 执行代码不得含'技术深度文章'占位符 (跳过注释)"
+        check_type: python_assert
+        assertion: |
+          # V37.9.36 反模式守卫: 占位符 fallback 不得出现在执行代码中
+          # 跳过 # 开头的 shell 注释行允许文档描述反模式 (V37.5 同款模式)
+          src_path = "jobs/rss_blogs/run_rss_blogs.sh"
+          with open(src_path, encoding="utf-8") as f:
+              content = f.read()
+          for lineno, line in enumerate(content.splitlines(), start=1):
+              stripped = line.lstrip()
+              if stripped.startswith("#"):
+                  continue
+              assert "要点：技术深度文章" not in line, (
+                  f"{src_path}:{lineno} 不得使用占位符 fallback 字面量 "
+                  f"'要点：技术深度文章' (V37.9.36 反模式禁止). 行内容: {line!r}"
+              )
+      - name: "run_rss_blogs.sh HTTP error 分支后 500 字符内必须 exit 1 (fail-fast 顺序锁)"
+        check_type: python_assert
+        assertion: |
+          src = open("jobs/rss_blogs/run_rss_blogs.sh", encoding="utf-8").read()
+          # 找第二个 __LLM_HTTP_ERROR__ 出现 (第一个在 detection snippet 内, 第二个在 if-branch)
+          first = src.find("__LLM_HTTP_ERROR__")
+          assert first != -1, "缺少 __LLM_HTTP_ERROR__ 检测"
+          branch = src.find("__LLM_HTTP_ERROR__", first + 1)
+          assert branch != -1, "缺少 HTTP error if-branch"
+          exit_idx = src.find("exit 1", branch)
+          assert exit_idx != -1, "HTTP error 分支后未找到 exit 1"
+          gap = exit_idx - branch
+          assert gap < 500, f"HTTP error 分支必须立即 fail-fast exit 1, 距离 {gap} 字符"
+      - name: "run_rss_blogs.sh 空 content 分支后 500 字符内必须 exit 1"
+        check_type: python_assert
+        assertion: |
+          src = open("jobs/rss_blogs/run_rss_blogs.sh", encoding="utf-8").read()
+          empty_idx = src.find("LLM 返回空内容")
+          assert empty_idx != -1, "缺少空内容检测分支"
+          exit_idx = src.find("exit 1", empty_idx)
+          assert exit_idx != -1, "空内容分支后未找到 exit 1"
+          gap = exit_idx - empty_idx
+          assert gap < 500, f"空内容分支必须立即 exit 1, 距离 {gap} 字符"
+
+      # ── runtime layer (subprocess 真跑端到端验证) ─────────────────────
+      - name: "RUNTIME: 复现 2026-05-07 18:00 血案场景 — LLM 502 响应触发 fail-fast 检测"
+        check_type: python_assert
+        assertion: |
+          # 把 V37.9.36 detection snippet (run_rss_blogs.sh 内嵌) 提出来 subprocess 真跑
+          # 输入实际血案 LLM_RESP, 断言 stderr 含 __LLM_HTTP_ERROR__ marker
+          import subprocess, sys
+          snippet = """
+          import json, sys
+          try:
+              d = json.load(sys.stdin)
+          except Exception as e:
+              print(f'__LLM_PARSE_FAIL__:bad_json:{type(e).__name__}', file=sys.stderr)
+              sys.exit(0)
+          if isinstance(d, dict) and 'error' in d:
+              err_msg = str(d['error'])[:500].replace(chr(10), ' ')
+              print(f'__LLM_HTTP_ERROR__:{err_msg}', file=sys.stderr)
+              sys.exit(0)
+          try:
+              content = d['choices'][0]['message']['content']
+          except (KeyError, IndexError, TypeError) as e:
+              print(f'__LLM_PARSE_FAIL__:no_choices:{type(e).__name__}', file=sys.stderr)
+              sys.exit(0)
+          print(content)
+          """
+          # 实际血案数据 (来自 Mac Mini 2026-05-07 18:00 cache/llm_raw_last.txt)
+          actual_resp = '{"error":"HTTP Error 502: Bad Gateway | upstream: primary: HTTP Error 301: Moved Permanently; gemini: HTTP Error 503"}'
+          result = subprocess.run(
+              [sys.executable, "-c", snippet],
+              input=actual_resp,
+              capture_output=True, text=True, timeout=10,
+          )
+          assert "__LLM_HTTP_ERROR__" in result.stderr, (
+              f"detection 应识别 502 error: stderr={result.stderr!r}"
+          )
+          assert "primary: HTTP Error 301" in result.stderr
+          assert "gemini: HTTP Error 503" in result.stderr
+          assert result.stdout == "", "HTTP error 不应输出 content 到 stdout"
+      - name: "RUNTIME: emit 端 partial parser 用显式缺失标记 (不写'技术深度文章'占位符)"
+        check_type: python_assert
+        assertion: |
+          # 提取 emit 端 Python 块运行, 断言 LLM_CONTENT 空时输出含 "LLM 摘要缺失"
+          # 而非任何形式的占位符
+          import subprocess, sys, json, tempfile, os, shutil
+          snippet = open("jobs/rss_blogs/run_rss_blogs.sh", encoding="utf-8").read()
+          # 提取 PYEOF 之间的 emit 块 (其中含 V37.9.36 修复)
+          marker_start = snippet.find("$PYTHON3 - \"$ALL_NEW_FILE\" \"$CACHE/llm_content.txt\"")
+          assert marker_start != -1, "emit block marker not found"
+          py_start = snippet.find("<< 'PYEOF'", marker_start)
+          py_block_start = snippet.find("\n", py_start) + 1
+          py_block_end = snippet.find("\nPYEOF", py_block_start)
+          emit_code = snippet[py_block_start:py_block_end]
+          assert "LLM 摘要缺失" in emit_code, "emit code 必须含显式缺失标记"
+          assert "技术深度文章" not in emit_code, "emit code 严禁占位符"
+          # 端到端运行: 2 篇 article + 空 LLM content → 两篇都标缺失
+          tmpdir = tempfile.mkdtemp(prefix="rss_inv_")
+          try:
+              articles_file = os.path.join(tmpdir, "articles.jsonl")
+              llm_file = os.path.join(tmpdir, "llm.txt")
+              msg_file = os.path.join(tmpdir, "msg.txt")
+              with open(articles_file, "w") as f:
+                  for i in range(2):
+                      f.write(json.dumps({
+                          "title": f"T{i}",
+                          "link": f"https://x/{i}",
+                          "feed_label": "L",
+                          "pub_date": "2026-05-07T12:00",
+                      }, ensure_ascii=False) + "\n")
+              with open(llm_file, "w") as f:
+                  f.write("")
+              subprocess.run(
+                  [sys.executable, "-c", emit_code, articles_file, llm_file,
+                   "2026-05-07", msg_file],
+                  check=True, timeout=10, capture_output=True,
+              )
+              with open(msg_file) as f:
+                  out = f.read()
+              assert out.count("LLM 摘要缺失") == 2, (
+                  f"两篇都应标缺失: out={out!r}"
+              )
+              assert "技术深度文章" not in out, "输出严禁占位符"
+              assert "价值：⭐⭐⭐\n" not in out, "输出严禁裸 ⭐⭐⭐ fallback"
+          finally:
+              shutil.rmtree(tmpdir, ignore_errors=True)
+      - name: "RUNTIME: test_run_rss_blogs.py 27 单测端到端覆盖"
+        check_type: python_assert
+        assertion: |
+          import subprocess, sys, os
+          repo_root = os.environ.get("OPENCLAW_REPO_ROOT", os.getcwd())
+          proc = subprocess.run(
+              [sys.executable, "test_run_rss_blogs.py"],
+              capture_output=True, text=True, timeout=60,
+              cwd=repo_root,
+          )
+          assert proc.returncode == 0, (
+              f"test_run_rss_blogs.py 失败 rc={proc.returncode}\n"
+              f"stderr tail:\n{proc.stderr[-1500:]}"
+          )
+
 # ═══════════════════════════════════════════════════════════════════════
 # 4. 可执行元规则（Phase 0）— 自动发现缺失不变式
 #    只扫描结构化数据源，不解析自然语言

@@ -25,6 +25,35 @@ STATUS_FILE="$CACHE/last_run.json"
 
 log() { echo "[$TS] rss_blogs: $1" >&2; }
 
+# V37.9.36: source notify.sh 让 fail-fast alert 走统一 [SYSTEM_ALERT] 通道
+# (与 V37.5 kb_review / V37.8.10 kb_evening / V37.9.16 kb_deep_dive 同款模式)
+NOTIFY_SH=""
+for candidate in "$HOME/openclaw-model-bridge/notify.sh" "$HOME/notify.sh"; do
+    if [ -f "$candidate" ]; then
+        NOTIFY_SH="$candidate"
+        break
+    fi
+done
+if [ -n "$NOTIFY_SH" ]; then
+    # shellcheck disable=SC1090
+    source "$NOTIFY_SH" || true
+fi
+
+# V37.9.36: fail-fast alert helper — LLM 失败时推 [SYSTEM_ALERT] 给 Discord #alerts
+send_alert() {
+    local reason="$1"
+    local msg="[SYSTEM_ALERT] rss_blogs LLM 失败
+时间: $TS
+原因: $reason
+降级处理: 今日未推送博客精选 (避免占位符污染)
+建议: 查 Adapter/Proxy 状态 + ${LLM_RAW:-llm_raw_last.txt}"
+    if command -v notify >/dev/null 2>&1; then
+        notify "$msg" --topic alerts >/dev/null 2>&1 || true
+    else
+        "$OPENCLAW" message send --channel whatsapp --target "$TO" --message "$msg" --json >/dev/null 2>&1 || true
+    fi
+}
+
 mkdir -p "$CACHE" "${KB_BASE:-$HOME/.kb}/sources"
 test -f "$KB_SRC" || echo "# RSS 博客订阅" > "$KB_SRC"
 
@@ -221,18 +250,57 @@ LLM_RESP=$(curl -s --max-time 120 \
 
 echo "$LLM_RESP" > "$LLM_RAW"
 
-LLM_CONTENT=$(echo "$LLM_RESP" | $PYTHON3 -c "
+# V37.9.36 fail-fast 三层检测 (V37.5/V37.8.10/V37.9.16 同款模式):
+# 层 1: HTTP 错误响应 ({"error": "HTTP 502 ..."}) — Qwen3 主+gemini fallback 双故障的典型特征
+# 层 2: 响应 JSON 缺 choices 字段 (display 解析失败)
+# 层 3: choices 存在但 content 为空字符串
+# 任一触发 → [SYSTEM_ALERT] + status:llm_failed + exit 1, 绝不发占位符消息
+
+LLM_PARSE_OUT=$(echo "$LLM_RESP" | $PYTHON3 -c "
 import json, sys
 try:
     d = json.load(sys.stdin)
-    print(d['choices'][0]['message']['content'])
-except Exception:
-    pass
-" 2>/dev/null || true)
+except Exception as e:
+    print(f'__LLM_PARSE_FAIL__:bad_json:{type(e).__name__}', file=sys.stderr)
+    sys.exit(0)
+if isinstance(d, dict) and 'error' in d:
+    err_msg = str(d['error'])[:500].replace(chr(10), ' ')
+    print(f'__LLM_HTTP_ERROR__:{err_msg}', file=sys.stderr)
+    sys.exit(0)
+try:
+    content = d['choices'][0]['message']['content']
+except (KeyError, IndexError, TypeError) as e:
+    print(f'__LLM_PARSE_FAIL__:no_choices:{type(e).__name__}', file=sys.stderr)
+    sys.exit(0)
+print(content)
+" 2>"$CACHE/llm_parse.err" || true)
+
+PARSE_ERR="$(cat "$CACHE/llm_parse.err" 2>/dev/null || true)"
+
+if echo "$PARSE_ERR" | grep -q '__LLM_HTTP_ERROR__'; then
+    UPSTREAM_ERR=$(echo "$PARSE_ERR" | sed -n 's/.*__LLM_HTTP_ERROR__://p' | head -c 400)
+    log "ERROR: LLM HTTP 错误: $UPSTREAM_ERR"
+    send_alert "LLM HTTP 错误: $UPSTREAM_ERR"
+    REASON_ESCAPED=$(echo "$UPSTREAM_ERR" | tr '"' "'" | tr '\n' ' ' | head -c 200)
+    printf '{"time":"%s","status":"llm_failed","new":%d,"sent":false,"reason":"%s"}\n' "$TS" "$TOTAL_NEW" "$REASON_ESCAPED" > "$STATUS_FILE"
+    exit 1
+fi
+
+if echo "$PARSE_ERR" | grep -q '__LLM_PARSE_FAIL__'; then
+    PARSE_DETAIL=$(echo "$PARSE_ERR" | sed -n 's/.*__LLM_PARSE_FAIL__://p' | head -c 200)
+    log "ERROR: LLM 响应 JSON 解析失败: $PARSE_DETAIL"
+    send_alert "LLM 响应解析失败 (无 choices 或 bad json): $PARSE_DETAIL"
+    printf '{"time":"%s","status":"llm_failed","new":%d,"sent":false,"reason":"parse_error_%s"}\n' "$TS" "$TOTAL_NEW" "$PARSE_DETAIL" > "$STATUS_FILE"
+    exit 1
+fi
+
+LLM_CONTENT="$LLM_PARSE_OUT"
 
 if [ -z "${LLM_CONTENT// }" ]; then
-    log "WARN: LLM调用失败，使用原始标题推送"
-    LLM_CONTENT=""
+    log "ERROR: LLM 返回空内容"
+    send_alert "LLM 返回空内容 (响应解析成功但 content 为空)"
+    printf '{"time":"%s","status":"llm_failed","new":%d,"sent":false,"reason":"empty_content"}\n' "$TS" "$TOTAL_NEW" > "$STATUS_FILE"
+    exit 1
 fi
 
 echo "$LLM_CONTENT" > "$CACHE/llm_content.txt"
@@ -300,10 +368,14 @@ for i, article in enumerate(articles):
         highlight, stars = parsed_blocks[i]
         if highlight:
             msg_lines.append(highlight)
-        msg_lines.append(stars)
+        if stars:
+            msg_lines.append(stars)
     else:
-        msg_lines.append("要点：技术深度文章")
-        msg_lines.append("价值：⭐⭐⭐")
+        # V37.9.36: 删除 "（本篇 LLM 摘要缺失，参见原文链接）" + "价值：⭐⭐⭐" 占位符 fallback
+        # (V37.5/V37.8.10/V37.9.16 同款反模式禁止). LLM 全失败应在上游 fail-fast,
+        # 走到这里只发生在 LLM 部分解析 (如 3 篇 article LLM 只返回 2 个 block).
+        # 显式标记缺失而非伪造数据, 让用户感知层不被欺骗.
+        msg_lines.append("（本篇 LLM 摘要缺失，参见原文链接）")
 
     msg_lines.append("")
 
