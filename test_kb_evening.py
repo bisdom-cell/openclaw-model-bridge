@@ -259,13 +259,17 @@ class TestBuildEveningWaMessage(unittest.TestCase):
         self.assertIn("晚间整理", msg)
         self.assertIn("20260411", msg)
 
-    def test_body_truncated_at_1400(self):
-        long = "x" * 5000
+    def test_body_truncated_at_4000(self):
+        # V37.9.35: bumped from 1400 → 4000 (WhatsApp client folding handles 8000+)
+        long = "x" * 8000
         msg = ev.build_evening_wa_message(
             "20260411", 1, 100, 298, 5, long, 3
         )
-        # Header + \n\n + truncated body
-        self.assertLess(len(msg), 1500 + 200)  # header buffer
+        # Header + \n\n + truncated body (4000 + ~200 header buffer)
+        self.assertLess(len(msg), 4000 + 300)
+        # Sanity: must NOT truncate at old 1400 boundary
+        self.assertGreater(len(msg), 1500,
+                           "V37.9.35: body must NOT truncate at 1400 anymore")
 
     def test_header_distinguishes_total_vs_today(self):
         """V37.7 label bug fix: header 必须同时显示"笔记总数 298 | 今日新增 5"

@@ -407,7 +407,8 @@ class TestOutputBuilders(unittest.TestCase):
     def test_wa_message_bounded(self):
         long_content = "a" * 5000
         wa = m.build_deep_dive_wa(self._entry(), "full_text", long_content, "2026-04-24")
-        self.assertLessEqual(len(wa), 1450)
+        # V37.9.35: budget bumped 1400→4000 (WhatsApp client folding confirmed); +50 buffer
+        self.assertLessEqual(len(wa), 4050)
 
     def test_discord_has_markdown_formatting(self):
         disc = m.build_deep_dive_discord(
@@ -510,7 +511,9 @@ class TestBuildDeepDiveWaParts(unittest.TestCase):
         self.assertIn("arxiv.org", parts[0])
 
     def test_long_content_multi_part(self):
-        long_content = "段落内容。" * 500  # ~3000 chars
+        # V37.9.35: bumped budget 1400→4000, need longer content to trigger split.
+        # Each "段落内容。" is 5 chars, 1500 × 5 = 7500 chars > 3800 body budget.
+        long_content = "段落内容。" * 1500  # ~7500 chars
         parts = m.build_deep_dive_wa_parts(
             self._entry(), "full_text", long_content, "2026-04-27"
         )
@@ -552,7 +555,8 @@ class TestBuildDeepDiveWaParts(unittest.TestCase):
                 f"Part {idx} exceeds budget: {len(part)} > {m._WA_BUDGET_PER_PART}")
 
     def test_abstract_mode_tag_on_each_part(self):
-        long_content = "段落。" * 500
+        # V37.9.35: longer content for new 4000 budget
+        long_content = "段落。" * 1500  # ~4500 chars
         parts = m.build_deep_dive_wa_parts(
             self._entry(), "abstract_only", long_content, "2026-04-27"
         )
@@ -688,14 +692,15 @@ class TestRunOrchestrator(unittest.TestCase):
         self.assertEqual(out["status"], "collector_failed")
 
     def test_ok_path_returns_wa_parts_list(self):
-        """V37.9.21: run() must return wa_parts as list[str] for multi-part send."""
+        """V37.9.21: run() must return wa_parts as list[str] for multi-part send.
+        V37.9.35: bumped content from ~2400 → ~7000 chars after budget 1400→4000."""
         self._write_arxiv_source(
             "*Long paper analysis*\n"
             "链接：https://arxiv.org/abs/2401.99999\n"
             "贡献：详细贡献\n"
             "价值：⭐⭐⭐⭐⭐"
         )
-        long_llm = "深度分析段落。\n\n" * 200  # ~2400 chars guaranteed multi-part
+        long_llm = "深度分析段落。\n\n" * 600  # ~7200 chars guaranteed multi-part at new budget
         out = m.run(
             self.kb_dir, self.registry_path, today=self.today,
             llm_caller=lambda p: (True, long_llm, ""),

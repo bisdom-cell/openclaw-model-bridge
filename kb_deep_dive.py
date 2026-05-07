@@ -591,14 +591,18 @@ def build_deep_dive_wa(entry, mode, llm_content, date_str):
     return parts[0] if parts else ""
 
 
-# V37.9.21: WhatsApp single-bubble character budget (matches original
-# build_deep_dive_wa cap to preserve historical formatting tests).
-_WA_BUDGET_PER_PART = 1400
+# V37.9.21: WhatsApp single-bubble character budget.
+# V37.9.35: bumped 1400→4000 after V37.9.33 freight discovery — WhatsApp client
+# display folding handles 8131-char single message gracefully (auto-splits into
+# bubbles, same timestamp = single protocol-level message). 4000 stays within
+# folding threshold for cross-client consistency. Manual chunking retained as
+# defensive fallback for extremely long content (>8000 chars).
+_WA_BUDGET_PER_PART = 4000
 
 # Per-part header takes ~80-150 chars depending on title; leave generous buffer
-# for the body. Splitter targets body ~1200 chars per part with header overhead
-# kept under ~200 chars.
-_WA_BODY_BUDGET_PER_PART = 1200
+# for the body. V37.9.35: body budget proportionally bumped to 3800 (header
+# ~200 buffer preserved).
+_WA_BODY_BUDGET_PER_PART = 3800
 
 
 def _split_text_into_chunks(text, max_chunk):

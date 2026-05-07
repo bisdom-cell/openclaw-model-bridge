@@ -582,9 +582,10 @@ class TestBuildOutputs(unittest.TestCase):
         msg = m.build_wa_message(
             "20260411", 7, 100, 5, long, 3,
         )
-        # body truncated to 1400 chars
+        # V37.9.35: body truncated to 4000 chars (was 1400, bumped after WhatsApp
+        # client display folding confirmed working with 8131-char messages)
         body_part = msg.split("\n\n", 1)[1]
-        self.assertLessEqual(len(body_part), 1400)
+        self.assertLessEqual(len(body_part), 4000)
 
     def test_wa_message_no_dangling_promise(self):
         msg = m.build_wa_message(
