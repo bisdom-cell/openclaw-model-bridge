@@ -83,6 +83,9 @@ fi
 if [ -f test_importyeti_scraper_anti_crawl.py ]; then
     run_suite "importyeti_scraper (V37.9.31 — playwright-stealth + multi-UA + Cloudflare backoff)" "python3 test_importyeti_scraper_anti_crawl.py"
 fi
+if [ -f test_freight_v9_33.py ]; then
+    run_suite "freight_v9_33 (V37.9.33 — Tier 1/2 权威源扩展 + LLM 三层深度分析 + Step 8 向后兼容)" "python3 test_freight_v9_33.py"
+fi
 if [ -f test_movespeed_incident_analyzer.py ]; then
     run_suite "movespeed_incident_analyzer (V37.9.28 F2 — 数据驱动诊断分析工具)" "python3 test_movespeed_incident_analyzer.py"
 fi
