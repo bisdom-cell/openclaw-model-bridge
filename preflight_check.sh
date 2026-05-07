@@ -507,13 +507,28 @@ except Exception:
                 pass "货代 deep_dive 状态正常"
                 ;;
             no_data)
-                warn "货代 deep_dive: ImportYeti 无数据返回（可能被 Cloudflare 拦截）"
+                warn "货代 deep_dive: ImportYeti 无数据返回（可能被 Cloudflare 拦截，scraper.log 看证据）"
                 ;;
             skipped)
                 warn "货代 deep_dive: 被跳过（检查 run_freight.sh 日志）"
                 ;;
+            # V37.9.31: 三个新合法 status — RSS/LLM/解析失败时合法跳过 step 9
+            skipped_no_news)
+                pass "货代 deep_dive 合法跳过（无新商机，本轮无 step 9 需求）"
+                ;;
+            skipped_llm_failed)
+                warn "货代 deep_dive 合法跳过（LLM 失败，已发告警 — 检查 llm_raw_last.txt）"
+                ;;
+            skipped_parse_low)
+                warn "货代 deep_dive 合法跳过（LLM 解析率 < 50%，已发告警）"
+                ;;
+            pending)
+                # V37.9.31: pending = Step 5 写了但 Step 9 未到达 (set -e 杀 / OOM / 崩溃)
+                warn "货代 deep_dive=pending（Step 9 未到达，scraper 未跑 — V37.9.31 前 rsync_helper 杀 set -e caller，已修）"
+                ;;
             missing)
-                warn "货代 deep_dive: last_run.json 无 deep_dive 字段（旧版本脚本？）"
+                # V37.9.31: 所有合法 path 都写 deep_dive，missing = 真异常
+                fail "货代 deep_dive: last_run.json 无 deep_dive 字段（V37.9.31 后此为真异常）"
                 ;;
             *)
                 fail "货代 deep_dive: 状态异常 ($DEEP_DIVE)"

@@ -4459,6 +4459,15 @@ invariants:
 
       所有 20 个 EXPECTED rsync site 必须用 helper, 不再用 V37.9.4/V37.9.14
       的 inline `rsync ... 2>&1 || { capture; }` 模式 (V37.9.27 完全替代).
+
+      V37.9.31 fail-open contract 修正: helper 全 retry 失败时 exit 0 (而非
+      透传 rsync exit code). 原因 — V37.9.30 EPERM 100% 持平数据后, V37.9.27
+      的 exit "$EXIT_CODE" 让 20 个 set -e caller 每天被杀 mid-script (e.g.
+      freight Step 8-10 / kb_dream Reduce 全部静默丢失). V37.9.31 恢复 V37.9.4-
+      V37.9.26 的 inline pattern `rsync ... || echo WARN` 同款 invariant: 失败
+      时通过 stderr WARN: SSD + JSONL forensic + watchdog ≥5 alert 三路 fail-
+      loud, 不杀 caller. MR-4 silent-failure 第 24 次演出 — 修复 (V37.9.27
+      retry helper) 引入更深的 silent failure (20 caller daily silent loss).
     lesson: |
       V37.9.4 修文件系统层不修调度层 = 误判闭环. V37.9.14 取证不告警 = 60 天
       silent failure 潜伏. V37.9.26 watchdog 主动消费 = 真相浮现. V37.9.27
@@ -4523,6 +4532,15 @@ invariants:
         check_type: file_contains
         file: movespeed_rsync_helper.sh
         pattern: 'movespeed_incident_capture\.sh'
+      # V37.9.31: fail-open exit 0 — 20 caller set -e 安全
+      - name: "V37.9.31 fail-open: helper 末尾 exit 0 (恢复 V37.9.4 invariant)"
+        check_type: file_contains
+        file: movespeed_rsync_helper.sh
+        pattern: 'V37\.9\.31: fail-open exit 0'
+      - name: "V37.9.31 文档说明 set -e contract"
+        check_type: file_contains
+        file: movespeed_rsync_helper.sh
+        pattern: 'set -e contract'
       - name: "helper env override: MOVESPEED_RSYNC_NO_SLEEP (testability)"
         check_type: file_contains
         file: movespeed_rsync_helper.sh
