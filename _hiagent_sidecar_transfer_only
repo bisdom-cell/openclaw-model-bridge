@@ -108,21 +108,21 @@ def h_metrics():
 
 
 def h_kb_search(q, limit=5):
-    rc, out, err = _run(["python3", "kb_rag.py", "--json", q,
+    rc, out, err = _run([sys.executable, "kb_rag.py", "--json", q,
                          "--top", str(int(limit))])
     if rc != 0:
-        return 500, {"error": f"kb_rag exit {rc}", "stderr": err}
+        return 500, {"error": f"kb_rag exit {rc}", "stdout": out, "stderr": err}
     return 200, _json_or_wrap(out, err)
 
 
 def h_memory(q, layer="all"):
-    cmd = ["python3", "memory_plane.py", "query", "--json"]
+    cmd = [sys.executable, "memory_plane.py", "query", "--json"]
     if layer and layer != "all":
         cmd += ["--layers", layer]
     cmd.append(q)
     rc, out, err = _run(cmd)
     if rc != 0:
-        return 500, {"error": f"memory_plane exit {rc}", "stderr": err}
+        return 500, {"error": f"memory_plane exit {rc}", "stdout": out, "stderr": err}
     return 200, _parse_last_json(out, err)
 
 
@@ -157,20 +157,20 @@ def _parse_mm_search_text(raw):
 
 
 def h_mm_search(q, top_k=5):
-    rc, out, err = _run(["python3", "mm_search.py", q,
+    rc, out, err = _run([sys.executable, "mm_search.py", q,
                          "--top", str(int(top_k))])
     if rc != 0:
-        return 500, {"error": f"mm_search exit {rc}", "stderr": err}
+        return 500, {"error": f"mm_search exit {rc}", "stdout": out, "stderr": err}
     return 200, {"query": q, "results": _parse_mm_search_text(out)}
 
 
 def h_dc_profile(path, fmt="text"):
     if not path:
         return 400, {"error": "path required"}
-    rc, out, err = _run(["python3", "data_clean.py", "profile",
+    rc, out, err = _run([sys.executable, "data_clean.py", "profile",
                          path, "--format", fmt])
     if rc != 0:
-        return 500, {"error": f"data_clean exit {rc}", "stderr": err}
+        return 500, {"error": f"data_clean exit {rc}", "stdout": out, "stderr": err}
     if fmt == "json":
         return 200, _json_or_wrap(out, err)
     return 200, {"result": out, "stderr": err}
@@ -182,10 +182,10 @@ def h_dc_execute(path, ops):
     ops_list = [op.strip() for op in ops.split(",") if op.strip()]
     if not ops_list:
         return 400, {"error": "ops cannot be empty after split"}
-    rc, out, err = _run(["python3", "data_clean.py", "execute",
+    rc, out, err = _run([sys.executable, "data_clean.py", "execute",
                          path, "--ops"] + ops_list)
     if rc != 0:
-        return 500, {"error": f"data_clean exit {rc}", "stderr": err}
+        return 500, {"error": f"data_clean exit {rc}", "stdout": out, "stderr": err}
     return 200, _json_or_wrap(out, err)
 
 
