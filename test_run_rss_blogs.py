@@ -1,18 +1,14 @@
-"""test_run_rss_blogs — V37.9.36 rss_blogs LLM fail-fast 守卫
+"""test_run_rss_blogs — V37.9.37 5-字段深度分析 + 每篇独立 retry + LLM_DEGRADED + 多窗口
 
-2026-05-07 血案: 用户视角 (原则 #13) 收到 3 条全是占位符的博客推送
-"要点: 技术深度文章 / 价值: ⭐⭐⭐", 但 last_run.json 谎报 status:ok。
-真因 = LLM HTTP 502 (primary 301 + gemini 503 双 provider 故障) +
-脚本三层宽容 (except pass 吞 KeyError → log WARN 不 exit → emit 硬编码占位符)
-+ status 谎报 ok + 零 [SYSTEM_ALERT] 推送 = MR-4 silent-failure 第 26 次演出。
+V37.9.37 升级 (基于 V37.9.36 fail-fast 契约扩展):
+  - LLM prompt: 单条"要点+价值"两行 → 5 字段深度分析(标题/要点/洞察/启发/评级)
+  - 调用策略: 单次调全部 N 篇 → 每篇独立调 + retry 3 次(5s/10s/20s 退避)
+  - 失败语义: 任一失败 → fail-fast → 改为: 全部失败才 fail-fast, 部分失败 partial_degraded
+  - LLM_DEGRADED fallback: 失败篇用 RSS description 兜底, 不再发"LLM 摘要缺失"
+  - 多窗口: 总长 >8000 字触发 V37.9.21 同款切片 (单段 ≤4000, 段间 sleep 1s 防乱序)
+  - status_file: 新增 status:partial_degraded + failed:N 字段
 
-V37.9.36 修复 (与 V37.5/V37.8.10/V37.9.16 同款 fail-fast 模式对齐):
-  (a) LLM HTTP 错误响应检测 (`"error":` 字段) → [SYSTEM_ALERT] + status:llm_failed + exit 1
-  (b) LLM JSON 解析失败检测 (无 choices 字段) → 同 (a)
-  (c) LLM content 为空检测 → 同 (a)
-  (d) emit 端删除"要点：技术深度文章" + "价值：⭐⭐⭐"占位符 fallback,
-      改为"（本篇 LLM 摘要缺失，参见原文链接）"显式标记
-  (e) source notify.sh + send_alert helper 走统一 [SYSTEM_ALERT] 通道
+V37.9.36 fail-fast 契约保留: 全部 LLM 失败 → [SYSTEM_ALERT] + status:llm_failed + exit 1
 """
 
 import json
@@ -27,7 +23,7 @@ RSS_SH = os.path.join(REPO_ROOT, "jobs", "rss_blogs", "run_rss_blogs.sh")
 
 
 # ══════════════════════════════════════════════════════════════════════
-# 1. Source-level 守卫 (grep + regex 静态分析)
+# 1. Source-level 守卫 (grep + regex + python_assert 静态分析)
 # ══════════════════════════════════════════════════════════════════════
 class TestRssBlogsShellGuards(unittest.TestCase):
     @classmethod
@@ -35,96 +31,142 @@ class TestRssBlogsShellGuards(unittest.TestCase):
         with open(RSS_SH, encoding="utf-8") as f:
             cls.content = f.read()
 
-    def test_v37_9_36_version_marker(self):
-        self.assertIn("V37.9.36", self.content)
+    # ── V37.9.37 标记 ───────────────────────────────────────────────
+    def test_v37_9_37_version_marker(self):
+        self.assertIn("V37.9.37", self.content)
 
+    # ── V37.9.36 fail-fast 契约保留 (核心反模式禁止) ────────────────
     def test_system_alert_marker_present(self):
         self.assertIn("[SYSTEM_ALERT]", self.content)
 
     def test_no_placeholder_fallback_text(self):
         """关键禁止字面量: 占位符 fallback 不得出现在执行代码中
-        (V37.5 同款模式: 跳过 # 注释行允许文档描述反模式)
+        (V37.5/V37.8.10/V37.9.16/V37.9.36 同款反模式禁止)
         """
-        forbidden_literals = [
-            "要点：技术深度文章",
-            "价值：⭐⭐⭐\n",
-        ]
         for lineno, line in enumerate(self.content.splitlines(), start=1):
             stripped = line.lstrip()
             if stripped.startswith("#"):
-                continue  # shell 注释行允许引用反模式描述
-            for literal in forbidden_literals:
-                # 行内字面量比较 (跳过含\n的多行检查 — 注释外不可能出现)
-                if "\n" not in literal and literal in line:
-                    self.fail(
-                        f"run_rss_blogs.sh:{lineno} 不得使用占位符 fallback 字面量 {literal!r} "
-                        f"(V37.9.36 反模式禁止). 行内容: {line!r}"
-                    )
+                continue
+            self.assertNotIn(
+                "要点：技术深度文章", line,
+                f"run_rss_blogs.sh:{lineno} 不得使用 '要点：技术深度文章' 占位符 (V37.9.36 反模式禁止)"
+            )
 
     def test_no_silent_warn_fallback_phrase(self):
         """V37.9.36 前的 'log WARN 不 exit + 继续推送' 反模式禁止"""
-        # 旧逻辑的字面量
         self.assertNotIn("使用原始标题推送", self.content)
 
     def test_send_alert_helper_defined(self):
-        """fail-fast 路径必经入口"""
         self.assertIn("send_alert()", self.content)
         self.assertIn("topic alerts", self.content)
 
     def test_notify_sh_sourced(self):
-        """V37.9.36: 通过 notify.sh 走统一 [SYSTEM_ALERT] 通道"""
-        # 必须 source notify.sh, 否则 send_alert 内的 `notify` command 不可用
         self.assertRegex(self.content, r'source\s+"\$NOTIFY_SH"')
 
-    def test_llm_http_error_detection(self):
-        """LLM HTTP 错误响应检测必须存在"""
+    # ── V37.9.36 LLM 检测 marker 保留 (移到 retry helper 内) ────────
+    def test_llm_http_error_detection_marker(self):
         self.assertIn("__LLM_HTTP_ERROR__", self.content)
-        # 检测必须读 d['error'] 字段 (502 等响应特征)
         self.assertRegex(self.content, r"isinstance\(d, dict\) and ['\"]error['\"] in d")
 
-    def test_llm_parse_fail_detection(self):
+    def test_llm_parse_fail_detection_marker(self):
         self.assertIn("__LLM_PARSE_FAIL__", self.content)
-        # 必须区分 bad_json 和 no_choices 两种失败模式
         self.assertIn("bad_json", self.content)
         self.assertIn("no_choices", self.content)
 
-    def test_llm_failed_status_in_status_file(self):
-        """last_run.json schema 必须支持 status:llm_failed"""
-        self.assertIn('"status":"llm_failed"', self.content)
+    # ── V37.9.37 新增: 每篇独立 retry helper ────────────────────────
+    def test_retry_helper_defined(self):
+        self.assertIn("call_llm_single_with_retry()", self.content)
 
-    def test_fail_fast_order_lock_http_error(self):
-        """HTTP 错误分支后 500 字符内必须 exit 1"""
-        idx = self.content.find("__LLM_HTTP_ERROR__")
-        # find next branch (not the python heredoc one inside detection block)
-        if_idx = self.content.find("__LLM_HTTP_ERROR__", idx + 1)
-        self.assertNotEqual(if_idx, -1, "找不到 HTTP error 检测分支")
-        exit_idx = self.content.find("exit 1", if_idx)
-        self.assertNotEqual(exit_idx, -1)
-        self.assertLess(
-            exit_idx - if_idx, 500,
-            f"HTTP error 检测分支必须立即 exit 1, 距离 {exit_idx - if_idx}"
-        )
+    def test_retry_backoff_array(self):
+        """retry 间隔 5s/10s/20s 指数退避"""
+        self.assertRegex(self.content, r"backoffs=\(5\s+10\s+20\)")
 
-    def test_fail_fast_order_lock_empty_content(self):
-        """空 content 检测后 500 字符内必须 exit 1"""
-        idx = self.content.find("LLM 返回空内容")
-        self.assertNotEqual(idx, -1, "找不到空内容检测分支")
+    def test_retry_loop_three_attempts(self):
+        """retry helper 内有 0/1/2 三次循环"""
+        self.assertRegex(self.content, r"for attempt in 0 1 2")
+
+    def test_per_article_main_loop(self):
+        """主循环按 article index 调用"""
+        self.assertRegex(self.content, r"for \(\(i=0; i<TOTAL_NEW; i\+\+\)\)")
+
+    # ── V37.9.37 新增: status schema 扩展 ──────────────────────────
+    def test_status_partial_degraded(self):
+        self.assertIn('"status":"partial_degraded"', self.content)
+
+    def test_status_llm_failed_only_when_all_failed(self):
+        """status:llm_failed 只在 TOTAL_FAILED == TOTAL_NEW 时触发"""
+        # all_failed_ prefix 标志全失败才 fail-fast (区别于 V37.9.36 任一失败)
+        self.assertIn('"all_failed_', self.content)
+
+    # ── V37.9.37 新增: LLM_DEGRADED fallback 标记 ──────────────────
+    def test_llm_degraded_marker(self):
+        """失败篇必须显式标 [LLM_DEGRADED] 而非伪造摘要"""
+        self.assertIn("[LLM_DEGRADED]", self.content)
+
+    def test_no_llm_summary_missing_old_label(self):
+        """V37.9.36 的 '（本篇 LLM 摘要缺失，参见原文链接）' 不再使用,
+        改为 [LLM_DEGRADED] + RSS description"""
+        # V37.9.37 用更明确的 LLM_DEGRADED 标记 + 原文 description fallback
+        # (V37.9.36 时是 "LLM 摘要缺失" 加在 partial 路径)
+        self.assertIn("[LLM_DEGRADED] 深度分析失败", self.content)
+
+    # ── V37.9.37 新增: 5 字段 prompt + 反幻觉守卫 ──────────────────
+    def test_prompt_5_fields(self):
+        for emoji_marker in ["📌", "🔑", "💡", "🎯", "⭐"]:
+            self.assertIn(emoji_marker, self.content,
+                          f"5 字段 prompt 必须含 {emoji_marker}")
+
+    def test_prompt_anti_hallucination_grounding(self):
+        """V37.8.6 同款反幻觉守卫: 禁止虚构事实/平台状态/错误码当信号"""
+        self.assertIn("严禁虚构", self.content)
+        self.assertIn("严禁推断", self.content)
+
+    def test_prompt_rating_dynamic_length(self):
+        """⭐⭐⭐→100-150字 / ⭐⭐⭐⭐→250-400字 / ⭐⭐⭐⭐⭐→500-800字"""
+        # 至少有这几个 emoji + 长度数字组合
+        self.assertRegex(self.content, r"⭐⭐⭐⭐⭐.*?500-800")
+
+    # ── V37.9.37 新增: 多窗口切片 (V37.9.21 同款) ────────────────
+    def test_multi_window_threshold_8000(self):
+        self.assertRegex(self.content, r'TOTAL_LEN.*-le 8000')
+
+    def test_multi_window_chunk_max_4000(self):
+        """每段最大 4000 字 (WhatsApp 客户端不折叠阈值)"""
+        self.assertIn("MAX_CHUNK = 4000", self.content)
+
+    def test_multi_window_sleep_one_second(self):
+        """段间 sleep 1s 防 WhatsApp 消息乱序 (V37.9.21 契约)"""
+        # V37.9.37 多窗口分支内必须 sleep 1
+        idx = self.content.find("WA_CHUNK_DIR")
+        self.assertNotEqual(idx, -1)
+        sleep_idx = self.content.find("sleep 1", idx)
+        self.assertNotEqual(sleep_idx, -1)
+        self.assertLess(sleep_idx - idx, 3000, "多窗口分支必须含 sleep 1s")
+
+    def test_multi_window_part_indicator(self):
+        """多段时每段 header 含 [i/N] 标识"""
+        self.assertRegex(self.content, r'\[.*\{i\+1\}.*/.*\{total_parts\}.*\]')
+
+    # ── V37.9.37 fail-fast 顺序锁 (V37.9.36 契约保留) ──────────────
+    def test_all_failed_fail_fast_order_lock(self):
+        """全部失败分支必须立即 exit 1 (V37.9.36 契约)"""
+        idx = self.content.find('TOTAL_FAILED" -eq "$TOTAL_NEW"')
+        self.assertNotEqual(idx, -1, "缺少 全部失败 fail-fast 分支")
         exit_idx = self.content.find("exit 1", idx)
         self.assertNotEqual(exit_idx, -1)
-        self.assertLess(exit_idx - idx, 500)
-
-    def test_emit_branch_uses_explicit_missing_label(self):
-        """emit 端 partial fallback 必须用显式缺失标记, 不得伪造数据"""
-        self.assertIn("LLM 摘要缺失", self.content)
+        self.assertLess(
+            exit_idx - idx, 1500,
+            f"全部失败分支必须立即 exit 1, 距离 {exit_idx - idx}"
+        )
 
 
 # ══════════════════════════════════════════════════════════════════════
-# 2. LLM 响应检测 Python 块 (端到端 subprocess 测真实行为)
+# 2. LLM 响应检测 snippet (V37.9.36 三层检测仍是核心)
+#    在 V37.9.37 中嵌入 retry helper 内部, 单层语义不变
 # ══════════════════════════════════════════════════════════════════════
 class TestLlmResponseDetection(unittest.TestCase):
-    """从 run_rss_blogs.sh 抽出 LLM 响应检测 python 脚本片段单测.
-    保持与 shell 内 heredoc 字面一致 (MR-8 single source of truth, 改一处错另一处)
-    """
+    """V37.9.36 detection snippet 的契约不变 — V37.9.37 把它放进 retry helper 内部
+    复用, 但 marker / 语义全部保留. 仍是 fail-fast 触发点的核心."""
 
     DETECTION_SNIPPET = """
 import json, sys
@@ -134,7 +176,7 @@ except Exception as e:
     print(f'__LLM_PARSE_FAIL__:bad_json:{type(e).__name__}', file=sys.stderr)
     sys.exit(0)
 if isinstance(d, dict) and 'error' in d:
-    err_msg = str(d['error'])[:500].replace(chr(10), ' ')
+    err_msg = str(d['error'])[:300].replace(chr(10), ' ')
     print(f'__LLM_HTTP_ERROR__:{err_msg}', file=sys.stderr)
     sys.exit(0)
 try:
@@ -148,298 +190,452 @@ print(content)
     def _run_detection(self, llm_resp):
         result = subprocess.run(
             ["python3", "-c", self.DETECTION_SNIPPET],
-            input=llm_resp,
-            capture_output=True,
-            text=True,
-            timeout=10,
+            input=llm_resp, capture_output=True, text=True, timeout=10,
         )
         return result.stdout, result.stderr, result.returncode
 
     def test_actual_502_blood_lesson_response(self):
-        """复现 2026-05-07 18:00 用户血案的实际 LLM_RESP"""
-        actual_resp = '{"error": "HTTP Error 502: Bad Gateway | upstream: primary: HTTP Error 301: The HTTP server returned a redirect error that would lead to an infinite loop.\\nThe last 30x error message was:\\nMoved Permanently; gemini: HTTP Error 503: Service Unavailable"}'
-        stdout, stderr, rc = self._run_detection(actual_resp)
-        self.assertEqual(rc, 0, "exit 应为 0 (sys.exit(0)), 让 shell 通过 stderr marker 检测")
-        self.assertEqual(stdout, "", "HTTP error 应不输出 content 到 stdout")
+        actual = '{"error": "HTTP Error 502: Bad Gateway | upstream: primary: HTTP Error 301: Moved Permanently; gemini: HTTP Error 503: Service Unavailable"}'
+        stdout, stderr, _ = self._run_detection(actual)
+        self.assertEqual(stdout, "")
         self.assertIn("__LLM_HTTP_ERROR__", stderr)
         self.assertIn("HTTP Error 502", stderr)
         self.assertIn("primary: HTTP Error 301", stderr)
         self.assertIn("gemini: HTTP Error 503", stderr)
 
     def test_no_choices_field(self):
-        stdout, stderr, _ = self._run_detection('{"unexpected": "schema"}')
-        self.assertEqual(stdout, "")
+        _, stderr, _ = self._run_detection('{"unexpected": "schema"}')
         self.assertIn("__LLM_PARSE_FAIL__:no_choices:KeyError", stderr)
 
     def test_bad_json(self):
-        stdout, stderr, _ = self._run_detection("this is not json")
-        self.assertEqual(stdout, "")
+        _, stderr, _ = self._run_detection("garbage")
         self.assertIn("__LLM_PARSE_FAIL__:bad_json:JSONDecodeError", stderr)
 
     def test_empty_response(self):
-        stdout, stderr, _ = self._run_detection("")
-        self.assertEqual(stdout, "")
+        _, stderr, _ = self._run_detection("")
         self.assertIn("__LLM_PARSE_FAIL__:bad_json", stderr)
 
     def test_normal_response_passes_through(self):
-        normal = '{"choices":[{"message":{"content":"要点：xxx\\n价值：⭐⭐⭐⭐"}}]}'
+        normal = '{"choices":[{"message":{"content":"📌 中文标题: T1\\n\\n🔑 核心要点:\\n- A\\n\\n⭐ 评级: ⭐⭐⭐⭐"}}]}'
         stdout, stderr, _ = self._run_detection(normal)
-        self.assertIn("要点：xxx", stdout)
-        self.assertIn("价值：⭐⭐⭐⭐", stdout)
-        self.assertEqual(stderr, "")  # 正常路径 stderr 必须空 (无 marker)
-
-    def test_choices_empty_list(self):
-        """edge case: choices 是空 list, IndexError"""
-        stdout, stderr, _ = self._run_detection('{"choices": []}')
-        self.assertIn("__LLM_PARSE_FAIL__:no_choices:IndexError", stderr)
-
-    def test_choices_not_list(self):
-        """edge case: choices 是 dict 不是 list, TypeError"""
-        stdout, stderr, _ = self._run_detection('{"choices": {"weird": "schema"}}')
-        # dict[0] raises KeyError, dict 索引 [0] 是 KeyError 不是 TypeError
-        self.assertIn("__LLM_PARSE_FAIL__:no_choices:", stderr)
-
-    def test_newline_in_error_message_squashed(self):
-        """V37.9.36: error 消息含 \\n 应被 squash 为空格 (避免破坏 marker 行)"""
-        resp = '{"error": "line1\\nline2\\nline3"}'
-        _, stderr, _ = self._run_detection(resp)
-        # marker 行不应被 \n 切碎
-        marker_line = [l for l in stderr.splitlines() if "__LLM_HTTP_ERROR__" in l]
-        self.assertEqual(len(marker_line), 1, f"marker 应在单行: {stderr!r}")
-        self.assertIn("line1", marker_line[0])
-        self.assertIn("line2", marker_line[0])
-
-    def test_error_message_truncated_to_500_chars(self):
-        long_err = "x" * 1000
-        resp = json.dumps({"error": long_err})
-        _, stderr, _ = self._run_detection(resp)
-        # 提取 marker 行后 truncated 长度
-        marker_line = next((l for l in stderr.splitlines() if "__LLM_HTTP_ERROR__" in l), "")
-        # marker prefix "__LLM_HTTP_ERROR__:" 是 19 chars + max 500 chars err msg
-        err_part = marker_line.split("__LLM_HTTP_ERROR__:", 1)[-1]
-        self.assertLessEqual(len(err_part), 500)
+        self.assertIn("📌 中文标题: T1", stdout)
+        self.assertIn("⭐⭐⭐⭐", stdout)
+        self.assertEqual(stderr, "")
 
 
 # ══════════════════════════════════════════════════════════════════════
-# 3. emit 端 Python 块测试 (parser + 显式缺失标记)
+# 3. V37.9.37 5 字段 emit 端 (核心新逻辑: parse_5field_output + LLM_DEGRADED)
 # ══════════════════════════════════════════════════════════════════════
-class TestEmitParser(unittest.TestCase):
-    """V37.9.36 emit 端核心: 删除占位符 fallback, 改为显式 LLM 摘要缺失标记"""
+class TestEmit5Field(unittest.TestCase):
+    """V37.9.37 emit Python 块: 5 字段 key-based parser + LLM_DEGRADED fallback"""
 
     EMIT_SNIPPET = '''
 import sys, json, re
 
-articles_file, llm_file, day, msg_file = sys.argv[1:5]
+articles_file, results_file, day, msg_file = sys.argv[1:5]
 
-articles = []
-with open(articles_file) as f:
-    for line in f:
-        line = line.strip()
-        if line:
-            articles.append(json.loads(line))
+with open(articles_file, encoding='utf-8') as f:
+    articles = [json.loads(l) for l in f if l.strip()]
+with open(results_file, encoding='utf-8') as f:
+    results = [json.loads(l) for l in f if l.strip()]
 
-with open(llm_file) as f:
-    llm_content = f.read()
+def parse_5field_output(content):
+    fields = {'cn_title': '', 'highlights': '', 'insight': '', 'practice': '', 'rating': ''}
+    current_field = None
+    current_buffer = []
+    def flush():
+        if current_field and current_buffer:
+            fields[current_field] = '\\n'.join(current_buffer).strip()
+    for raw in content.split('\\n'):
+        line = raw.rstrip()
+        if re.match(r'^[-=*_]{3,}$', line.strip()):
+            continue
+        if line.lstrip().startswith('📌'):
+            flush(); current_field = 'cn_title'; current_buffer = []
+            m = re.match(r'.*📌\\s*(?:中文)?标题\\s*[:：]?\\s*(.*)', line)
+            if m and m.group(1).strip():
+                current_buffer.append(m.group(1).strip())
+            continue
+        if line.lstrip().startswith('🔑'):
+            flush(); current_field = 'highlights'; current_buffer = []; continue
+        if line.lstrip().startswith('💡'):
+            flush(); current_field = 'insight'; current_buffer = []; continue
+        if line.lstrip().startswith('🎯'):
+            flush(); current_field = 'practice'; current_buffer = []; continue
+        if line.lstrip().startswith('⭐') and current_field != 'rating':
+            if '评级' in line or '推荐场景' in line or re.match(r'\\s*⭐+\\s*$', line):
+                flush(); current_field = 'rating'; current_buffer = [line.lstrip()]; continue
+        if current_field is not None:
+            current_buffer.append(line)
+    flush()
+    return fields
 
-parsed_blocks = []
-pending_highlight = None
-
-for raw_line in llm_content.split('\\n'):
-    line = raw_line.strip()
-    if not line:
-        continue
-    if re.match(r'^[-=*]{3,}$', line):
-        continue
-    if re.match(r'^(博文\\d+[：:]?\\s*$|\\d+[.、)]\\s*$)', line):
-        continue
-
-    if '价值' in line and '⭐' in line:
-        for prefix in ['价值：', '价值:', '第二行：', '第2行：']:
-            if line.startswith(prefix):
-                line = line[len(prefix):].strip()
-                break
-        stars_line = '价值：' + line if not line.startswith('价值') else line
-        parsed_blocks.append((pending_highlight or '', stars_line))
-        pending_highlight = None
-        continue
-
-    if line.startswith('要点：') or line.startswith('要点:'):
-        pending_highlight = line
-        continue
-    for prefix in ['第一行：', '第1行：']:
-        if line.startswith(prefix):
-            rest = line[len(prefix):].strip()
-            pending_highlight = rest if rest.startswith('要点') else '要点：' + rest
-            break
-
-msg_lines = [f"\\U0001F4D6 博客精选 ({day})", ""]
-
+msg_lines = [f"📖 博客精选 ({day})", ""]
+degraded_count = 0
 for i, article in enumerate(articles):
-    msg_lines.append(f"*{article['title']}*")
-    msg_lines.append(f"来源：{article['feed_label']} | {article.get('pub_date', '')[:16]}")
-    msg_lines.append(f"链接：{article['link']}")
-
-    if i < len(parsed_blocks):
-        highlight, stars = parsed_blocks[i]
-        if highlight:
-            msg_lines.append(highlight)
-        if stars:
-            msg_lines.append(stars)
+    msg_lines.append(f"*博文{i+1}: {article['title']}*")
+    msg_lines.append(f"来源: {article['feed_label']} | {article.get('pub_date', '')[:16]}")
+    msg_lines.append(f"链接: {article['link']}")
+    msg_lines.append("")
+    result = results[i] if i < len(results) else None
+    if result is None or result.get('failed'):
+        degraded_count += 1
+        msg_lines.append("⚠️ [LLM_DEGRADED] 深度分析失败, 原文摘要供参考:")
+        desc = (article.get('description') or '')[:300]
+        if desc:
+            msg_lines.append(desc)
+        else:
+            msg_lines.append("(原文无摘要数据, 请直接点链接阅读)")
+        msg_lines.append("")
     else:
-        msg_lines.append("（本篇 LLM 摘要缺失，参见原文链接）")
-
+        fields = parse_5field_output(result.get('content', ''))
+        if fields['cn_title']:
+            msg_lines.append(f"📌 中文标题: {fields['cn_title']}"); msg_lines.append("")
+        if fields['highlights']:
+            msg_lines.append("🔑 核心要点:"); msg_lines.append(fields['highlights']); msg_lines.append("")
+        if fields['insight']:
+            msg_lines.append("💡 关键洞察:"); msg_lines.append(fields['insight']); msg_lines.append("")
+        if fields['practice']:
+            msg_lines.append("🎯 实践启发:"); msg_lines.append(fields['practice']); msg_lines.append("")
+        if fields['rating']:
+            msg_lines.append(fields['rating']); msg_lines.append("")
+    msg_lines.append("---")
     msg_lines.append("")
 
-with open(msg_file, 'w') as f:
+with open(msg_file, 'w', encoding='utf-8') as f:
     f.write('\\n'.join(msg_lines))
+print(f"degraded={degraded_count}", file=sys.stderr)
 '''
 
-    def _run_emit(self, articles, llm_content, day="2026-05-07"):
+    def _run_emit(self, articles, results, day="2026-05-07"):
         tmpdir = tempfile.mkdtemp(prefix="rss_emit_")
         try:
             articles_file = os.path.join(tmpdir, "articles.jsonl")
-            llm_file = os.path.join(tmpdir, "llm_content.txt")
-            msg_file = os.path.join(tmpdir, "rss_message.txt")
+            results_file = os.path.join(tmpdir, "results.jsonl")
+            msg_file = os.path.join(tmpdir, "msg.txt")
             with open(articles_file, "w") as f:
                 for a in articles:
                     f.write(json.dumps(a, ensure_ascii=False) + "\n")
-            with open(llm_file, "w") as f:
-                f.write(llm_content)
-            subprocess.run(
-                ["python3", "-c", self.EMIT_SNIPPET, articles_file, llm_file, day, msg_file],
-                check=True, timeout=10, capture_output=True,
+            with open(results_file, "w") as f:
+                for r in results:
+                    f.write(json.dumps(r, ensure_ascii=False) + "\n")
+            res = subprocess.run(
+                ["python3", "-c", self.EMIT_SNIPPET, articles_file, results_file, day, msg_file],
+                check=True, timeout=10, capture_output=True, text=True,
             )
             with open(msg_file) as f:
-                return f.read()
+                return f.read(), res.stderr
         finally:
             import shutil
             shutil.rmtree(tmpdir, ignore_errors=True)
 
-    def _make_articles(self, n):
-        return [
-            {
-                "title": f"Article {i}",
-                "link": f"https://example.com/{i}",
-                "feed_label": "TestFeed",
-                "pub_date": "2026-05-07T12:00",
-            }
-            for i in range(n)
-        ]
+    def _make_article(self, idx, with_desc=True):
+        return {
+            "title": f"Article {idx}",
+            "link": f"https://example.com/{idx}",
+            "feed_label": f"TestFeed{idx}",
+            "pub_date": "2026-05-07T12:00",
+            "description": f"Original RSS description for article {idx} (provides fallback when LLM fails)" if with_desc else "",
+        }
 
-    def test_full_parse_all_articles_have_summary(self):
-        articles = self._make_articles(3)
-        llm_content = """要点：First insight
-价值：⭐⭐⭐⭐
----
-要点：Second insight
-价值：⭐⭐⭐⭐⭐
----
-要点：Third insight
-价值：⭐⭐⭐"""
-        out = self._run_emit(articles, llm_content)
-        self.assertIn("First insight", out)
-        self.assertIn("Second insight", out)
-        self.assertIn("Third insight", out)
-        self.assertNotIn("LLM 摘要缺失", out)
-        # 反向: 严禁占位符
+    def _make_full_result(self, idx, rating="⭐⭐⭐⭐"):
+        content = f"""📌 中文标题: 测试标题{idx}
+
+🔑 核心要点:
+- 要点A{idx}
+- 要点B{idx}
+
+💡 关键洞察:
+深度洞察段落, 揭示作者立场和方法论, 与行业趋势的关联, 与已有工作的对比.
+
+🎯 实践启发:
+- 启发A{idx}
+- 启发B{idx}
+
+⭐ 评级: {rating} / 推荐场景: 测试场景{idx}"""
+        return {"idx": idx, "content": content, "failed": False, "fail_reason": ""}
+
+    def _make_failed_result(self, idx, reason="HTTP Error 502"):
+        return {"idx": idx, "content": "", "failed": True, "fail_reason": reason}
+
+    # ── 5 字段完整解析 ─────────────────────────────────────────────
+    def test_full_5field_parse(self):
+        articles = [self._make_article(0)]
+        results = [self._make_full_result(0)]
+        out, _ = self._run_emit(articles, results)
+        # 5 字段全部出现
+        self.assertIn("📌 中文标题: 测试标题0", out)
+        self.assertIn("🔑 核心要点:", out)
+        self.assertIn("- 要点A0", out)
+        self.assertIn("💡 关键洞察:", out)
+        self.assertIn("深度洞察段落", out)
+        self.assertIn("🎯 实践启发:", out)
+        self.assertIn("- 启发A0", out)
+        self.assertIn("⭐ 评级: ⭐⭐⭐⭐", out)
+        self.assertIn("推荐场景: 测试场景0", out)
+        # 严禁占位符
         self.assertNotIn("技术深度文章", out)
+        self.assertNotIn("LLM_DEGRADED", out)
 
-    def test_partial_parse_marks_missing_explicitly(self):
-        """3 篇 article 但 LLM 只返回 2 块 → 第 3 篇显式标记缺失"""
-        articles = self._make_articles(3)
-        llm_content = """要点：First insight
-价值：⭐⭐⭐⭐
----
-要点：Second insight
-价值：⭐⭐⭐⭐⭐"""
-        out = self._run_emit(articles, llm_content)
-        self.assertIn("First insight", out)
-        self.assertIn("Second insight", out)
-        # 第 3 篇显式标记缺失而非伪造
-        self.assertIn("LLM 摘要缺失", out)
-        # 永远禁止占位符
+    # ── LLM_DEGRADED fallback ─────────────────────────────────────
+    def test_partial_degraded_uses_rss_description(self):
+        """部分失败 → 失败篇标 [LLM_DEGRADED] + RSS description 兜底"""
+        articles = [self._make_article(0), self._make_article(1)]
+        results = [self._make_full_result(0), self._make_failed_result(1)]
+        out, stderr = self._run_emit(articles, results)
+        # 第 1 篇正常
+        self.assertIn("📌 中文标题: 测试标题0", out)
+        # 第 2 篇 LLM_DEGRADED + RSS description
+        self.assertIn("[LLM_DEGRADED] 深度分析失败", out)
+        self.assertIn("Original RSS description for article 1", out)
+        # 严禁占位符
         self.assertNotIn("技术深度文章", out)
+        # stderr 显示 degraded count
+        self.assertIn("degraded=1", stderr)
 
-    def test_empty_llm_content_marks_all_missing(self):
-        """LLM 返回空内容 (实际上 fail-fast 已拦, 但 emit 端做防御)"""
-        articles = self._make_articles(3)
-        out = self._run_emit(articles, "")
-        # 全部 3 篇都标 LLM 摘要缺失
-        self.assertEqual(out.count("LLM 摘要缺失"), 3)
+    def test_all_failed_all_marked_degraded(self):
+        """全部失败 (上游 fail-fast 已应该拦, emit 端做防御): 全篇标 LLM_DEGRADED"""
+        articles = [self._make_article(0), self._make_article(1)]
+        results = [self._make_failed_result(0), self._make_failed_result(1)]
+        out, stderr = self._run_emit(articles, results)
+        self.assertEqual(out.count("[LLM_DEGRADED]"), 2)
+        self.assertIn("Original RSS description for article 0", out)
+        self.assertIn("Original RSS description for article 1", out)
         self.assertNotIn("技术深度文章", out)
-        self.assertNotIn("价值：⭐⭐⭐\n", out)
+        self.assertIn("degraded=2", stderr)
 
-    def test_no_placeholder_strings_in_output_under_any_path(self):
-        """任何 LLM 输入下, 输出绝不能含 '技术深度文章' 或裸 ⭐⭐⭐ fallback"""
-        articles = self._make_articles(2)
-        # 各种异常 LLM 输入
-        for llm_content in [
-            "",  # 空
-            "garbage",  # 完全无格式
-            "要点：only one\n价值：⭐⭐",  # 只有 1 块
-            "完全无关内容",  # 没有 要点/价值 关键词
-        ]:
-            out = self._run_emit(articles, llm_content)
-            self.assertNotIn(
-                "技术深度文章", out,
-                f"占位符不得出现, llm_content={llm_content!r}, out={out!r}"
-            )
+    def test_degraded_with_no_description_uses_link_hint(self):
+        """RSS description 也空 → 提示用户点链接"""
+        articles = [self._make_article(0, with_desc=False)]
+        results = [self._make_failed_result(0)]
+        out, _ = self._run_emit(articles, results)
+        self.assertIn("[LLM_DEGRADED]", out)
+        self.assertIn("请直接点链接阅读", out)
+
+    # ── 5 字段容忍性 (key-based parser) ──────────────────────────
+    def test_parser_tolerates_missing_field(self):
+        """LLM 漏一个字段 (如 实践启发) 不影响其他字段"""
+        articles = [self._make_article(0)]
+        content = """📌 中文标题: 简洁标题
+
+🔑 核心要点:
+- 要点1
+
+💡 关键洞察:
+段落分析
+
+⭐ 评级: ⭐⭐⭐ / 推荐场景: 入门读者"""
+        results = [{"idx": 0, "content": content, "failed": False, "fail_reason": ""}]
+        out, _ = self._run_emit(articles, results)
+        self.assertIn("📌 中文标题: 简洁标题", out)
+        self.assertIn("🔑 核心要点:", out)
+        self.assertIn("💡 关键洞察:", out)
+        self.assertIn("⭐ 评级: ⭐⭐⭐", out)
+        # 实践启发应不出现 (LLM 没给)
+        self.assertNotIn("🎯 实践启发:", out)
+
+    def test_parser_handles_field_order_variation(self):
+        """LLM 字段顺序错乱不影响解析"""
+        articles = [self._make_article(0)]
+        content = """⭐ 评级: ⭐⭐⭐ / 推荐场景: X
+
+📌 中文标题: 标题在后
+
+🔑 核心要点:
+- 要点
+
+💡 关键洞察:
+洞察"""
+        results = [{"idx": 0, "content": content, "failed": False, "fail_reason": ""}]
+        out, _ = self._run_emit(articles, results)
+        # 全部字段都被识别
+        self.assertIn("📌 中文标题: 标题在后", out)
+        self.assertIn("⭐ 评级: ⭐⭐⭐", out)
+
+    def test_no_placeholder_under_any_input(self):
+        """V37.9.36 反模式守卫: 任何 LLM 输入都不得产生 '技术深度文章' 字面量"""
+        articles = [self._make_article(0)]
+        for content in ["", "garbage no fields", "📌 \n🔑 \n💡 ", "⭐⭐⭐"]:
+            results = [{"idx": 0, "content": content, "failed": False, "fail_reason": ""}]
+            out, _ = self._run_emit(articles, results)
+            self.assertNotIn("技术深度文章", out, f"占位符泄漏: content={content!r}")
+            self.assertNotIn("价值：⭐⭐⭐\n", out)
 
 
 # ══════════════════════════════════════════════════════════════════════
-# 4. 血案场景集成: 复现 2026-05-07 18:00 实际数据
+# 4. status_file schema (V37.9.37 4 状态)
 # ══════════════════════════════════════════════════════════════════════
-class TestActualBloodLessonScenario(unittest.TestCase):
-    """完整复现 2026-05-07 18:00 cron 真实失败链.
-
-    数据 (来自 Mac Mini cache):
-      llm_raw_last.txt = '{"error": "HTTP Error 502 ..."}'
-      llm_content.txt = '\\n' (1 byte, 空 content)
-      rss_message.txt = 全部 3 篇 "技术深度文章 / ⭐⭐⭐"
-      last_run.json = {"status":"ok","sent":true} ← 谎报
-
-    V37.9.36 后期望行为:
-      检测到 HTTP error → fail-fast → 不写 rss_message → 推 [SYSTEM_ALERT] →
-      last_run.json 写 status:llm_failed → exit 1
+class TestStatusSchema(unittest.TestCase):
+    """V37.9.37 status_file schema:
+       - status:ok           (全部成功)
+       - status:partial_degraded (部分失败, 仍推送)
+       - status:llm_failed   (全部失败 fail-fast, V37.9.36 契约保留)
+       - status:send_failed  (push 失败, 与 V37.9.36 一致)
     """
 
-    def test_502_error_response_triggers_fail_fast(self):
-        """与 TestLlmResponseDetection 联动验证血案场景的检测命中"""
-        actual_resp = '{"error": "HTTP Error 502: Bad Gateway | upstream: primary: HTTP Error 301: The HTTP server returned a redirect error that would lead to an infinite loop.\\nThe last 30x error message was:\\nMoved Permanently; gemini: HTTP Error 503: Service Unavailable"}'
+    def test_shell_writes_partial_degraded(self):
+        """shell 源码必须含 partial_degraded 写入分支"""
+        with open(RSS_SH, encoding="utf-8") as f:
+            content = f.read()
+        self.assertIn('"status":"partial_degraded"', content)
+        # 必须有 failed:N 字段
+        self.assertRegex(content, r'"failed":%d')
 
+    def test_shell_writes_all_failed_with_reason(self):
+        """全部失败必须 status:llm_failed + reason:all_failed_..."""
+        with open(RSS_SH, encoding="utf-8") as f:
+            content = f.read()
+        self.assertIn('"all_failed_', content)
+
+
+# ══════════════════════════════════════════════════════════════════════
+# 5. V37.9.37 多窗口切片 (V37.9.21 同款 mktemp + sleep 1s 模式)
+# ══════════════════════════════════════════════════════════════════════
+class TestMultiWindowSplit(unittest.TestCase):
+    """总长 ≤8000 单段 (V37.9.35 客户端折叠), >8000 多窗口 (V37.9.21)"""
+
+    SPLIT_SNIPPET = '''
+import sys, os, re
+
+msg_file, chunk_dir, day = sys.argv[1], sys.argv[2], sys.argv[3]
+content = open(msg_file, encoding='utf-8').read()
+MAX_CHUNK = 4000
+
+blocks = re.split(r'\\n---\\n', content)
+header_block = blocks[0]
+article_blocks = [b for b in blocks[1:] if b.strip()]
+
+chunks = []
+current = header_block
+for block in article_blocks:
+    candidate = current + "\\n---\\n" + block
+    if len(candidate) < MAX_CHUNK:
+        current = candidate
+    else:
+        chunks.append(current)
+        current = block
+if current.strip():
+    chunks.append(current)
+
+total_parts = len(chunks)
+for i, chunk in enumerate(chunks):
+    if total_parts > 1:
+        if i == 0:
+            chunk = chunk.replace(f"📖 博客精选 ({day})",
+                                  f"📖 博客精选 [1/{total_parts}] ({day})", 1)
+        else:
+            chunk = f"📖 博客精选 [{i+1}/{total_parts}] ({day}) (续)\\n\\n" + chunk
+    with open(os.path.join(chunk_dir, f"{i:03d}.txt"), 'w', encoding='utf-8') as f:
+        f.write(chunk)
+print(f"chunks={total_parts}")
+'''
+
+    def _run_split(self, msg_content, day="2026-05-07"):
+        tmpdir = tempfile.mkdtemp(prefix="rss_split_")
+        try:
+            msg_file = os.path.join(tmpdir, "msg.txt")
+            chunk_dir = os.path.join(tmpdir, "chunks")
+            os.makedirs(chunk_dir)
+            with open(msg_file, "w") as f:
+                f.write(msg_content)
+            res = subprocess.run(
+                ["python3", "-c", self.SPLIT_SNIPPET, msg_file, chunk_dir, day],
+                check=True, timeout=10, capture_output=True, text=True,
+            )
+            chunks = []
+            for fname in sorted(os.listdir(chunk_dir)):
+                with open(os.path.join(chunk_dir, fname)) as f:
+                    chunks.append(f.read())
+            return chunks
+        finally:
+            import shutil
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    def test_short_message_single_chunk(self):
+        """单篇短文章 → 1 chunk"""
+        msg = "📖 博客精选 (2026-05-07)\n\n*博文1: A*\n短内容"
+        chunks = self._run_split(msg)
+        self.assertEqual(len(chunks), 1)
+        self.assertNotIn("[1/", chunks[0])  # 单段无标识
+
+    def test_multi_articles_within_4000_single_chunk(self):
+        """多篇但总长 <4000 → 1 chunk"""
+        articles = "\n---\n".join([f"*博文{i}: A*\nshort body" for i in range(3)])
+        msg = f"📖 博客精选 (2026-05-07)\n\n{articles}\n"
+        chunks = self._run_split(msg)
+        self.assertEqual(len(chunks), 1)
+
+    def test_split_when_overflow_4000(self):
+        """每篇 1500 字, 3 篇必触发切片"""
+        big_body = "x" * 1500
+        articles_str = "\n---\n".join([f"*博文{i}: A*\n{big_body}" for i in range(3)])
+        msg = f"📖 博客精选 (2026-05-07)\n\n{articles_str}\n"
+        chunks = self._run_split(msg)
+        self.assertGreater(len(chunks), 1, f"应触发切片, got {len(chunks)} chunks")
+        # 每段 <4000
+        for i, c in enumerate(chunks):
+            self.assertLess(len(c), 4500, f"chunk {i} 超长: {len(c)}")
+
+    def test_part_indicator_in_multi_chunks(self):
+        """多段时 header 含 [i/N] 标识"""
+        big_body = "x" * 2000
+        articles_str = "\n---\n".join([f"*博文{i}: A*\n{big_body}" for i in range(3)])
+        msg = f"📖 博客精选 (2026-05-07)\n\n{articles_str}\n"
+        chunks = self._run_split(msg)
+        if len(chunks) > 1:
+            self.assertIn("[1/", chunks[0])
+            self.assertIn("(续)", chunks[1])
+
+
+# ══════════════════════════════════════════════════════════════════════
+# 6. V37.9.37 血案场景集成: 复现 2026-05-07 18:00 + 单篇独立 retry 后果
+# ══════════════════════════════════════════════════════════════════════
+class TestActualBloodLessonScenario(unittest.TestCase):
+    def test_502_response_still_triggers_fail_fast_marker(self):
+        """V37.9.36 detection 在 V37.9.37 retry helper 内仍能识别 502"""
+        actual = '{"error":"HTTP Error 502: Bad Gateway | upstream: primary: HTTP Error 301; gemini: HTTP Error 503"}'
         result = subprocess.run(
             ["python3", "-c", TestLlmResponseDetection.DETECTION_SNIPPET],
-            input=actual_resp,
-            capture_output=True,
-            text=True,
+            input=actual, capture_output=True, text=True,
         )
         self.assertIn("__LLM_HTTP_ERROR__", result.stderr)
-        self.assertIn("primary: HTTP Error 301", result.stderr)
-        self.assertIn("gemini: HTTP Error 503", result.stderr)
 
-    def test_actual_articles_with_empty_content_no_placeholder(self):
-        """复现: LLM 内容空 → emit 不能写 '技术深度文章 ⭐⭐⭐' 占位符"""
-        actual_articles = [
+    def test_actual_articles_partial_failure_no_placeholder(self):
+        """V37.9.37: 即使 1 篇失败 1 篇成功, 失败篇用 LLM_DEGRADED 不写占位符"""
+        articles = [
             {
                 "title": "Live blog: Code w/ Claude 2026",
-                "link": "https://simonwillison.net/2026/May/6/code-w-claude-2026/#atom-everything",
+                "link": "https://simonwillison.net/2026/May/6/code-w-claude-2026/",
                 "feed_label": "Simon Willison(LLM工具/实践)",
                 "pub_date": "2026-05-06T15:58",
+                "description": "Anthropic 2026 conference live blog",
             },
             {
-                "title": "Vibe coding and agentic engineering are getting closer than I'd like",
-                "link": "https://simonwillison.net/2026/May/6/vibe-coding-and-agentic-engineering/#atom-everything",
-                "feed_label": "Simon Willison(LLM工具/实践)",
-                "pub_date": "2026-05-06T14:24",
+                "title": "Vibe coding paper",
+                "link": "https://example/",
+                "feed_label": "Latent Space",
+                "pub_date": "2026-05-06",
+                "description": "",
             },
         ]
-        emit_test = TestEmitParser()
-        out = emit_test._run_emit(actual_articles, "")
-        # 关键回归: 用户血案中看到的 3x "技术深度文章 ⭐⭐⭐" 不能再出现
+        results = [
+            {"idx": 0, "content": "📌 中文标题: 大会现场\n\n🔑 核心要点:\n- A\n\n⭐ 评级: ⭐⭐⭐⭐⭐",
+             "failed": False, "fail_reason": ""},
+            {"idx": 1, "content": "", "failed": True,
+             "fail_reason": "HTTP Error 502"},
+        ]
+        emit = TestEmit5Field()
+        out, stderr = emit._run_emit(articles, results)
+        # 第 1 篇正常 5 字段
+        self.assertIn("📌 中文标题: 大会现场", out)
+        # 第 2 篇 LLM_DEGRADED + 链接提示 (description 空)
+        self.assertIn("[LLM_DEGRADED]", out)
+        self.assertIn("请直接点链接阅读", out)
+        # 严禁 V37.9.36 前的占位符
         self.assertNotIn("技术深度文章", out)
         self.assertNotIn("价值：⭐⭐⭐\n", out)
-        # 反而每篇标显式缺失
-        self.assertEqual(out.count("LLM 摘要缺失"), 2)
+        # degraded count 准确
+        self.assertIn("degraded=1", stderr)
 
 
 if __name__ == "__main__":

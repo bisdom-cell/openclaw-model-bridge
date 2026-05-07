@@ -1,5 +1,5 @@
 {
-  "updated": "2026-05-07 14:06:17",
+  "updated": "2026-05-07 14:40:46",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-05-07",
+      "what": "V37.9.37 — rss_blogs 深度分析升级 (用户反馈博客精选都是值得读的好文章不能只是题目摘要 + V37.9.36 fail-fast 契约保留). 用户视角原则 #13 第 9 次正向兑现. 5 字段 prompt: 中文标题 / 核心要点 / 关键洞察 / 实践启发 / 评级 (按 ⭐⭐⭐→100-150 / ⭐⭐⭐⭐→250-400 / ⭐⭐⭐⭐⭐→500-800 字动态调长度 + V37.8.6 反幻觉守卫 + 摘要 300→600 字). LLM 调用每篇独立 + retry 3 次 (5/10/20s 退避). 失败语义三档: ok / partial_degraded (部分失败 + RSS description fallback 标 [LLM_DEGRADED]) / llm_failed (全部失败 fail-fast V37.9.36 契约保留). emit 端 5 字段 key-based parser + V37.9.21 多窗口切片 (>8000 字才触发 + sleep 1s 防乱序 + [i/N] header). 44 单测 6 类 (V37.9.36 27→44, 含 5 字段完整解析 + 部分失败 LLM_DEGRADED + 多窗口 + 反向验证). INV-RSSBLOGS-001 扩展 14→28 checks (含 V37.9.37 retry helper + LLM_DEGRADED + 多窗口 + 5 字段 prompt + 评级动态长度 + 全部失败 fail-fast 顺序锁). 56 suites / 2048→2065 tests (+17) / 0 fail / governance 523→535 checks (+12) / 70 inv 不变 / 17 MR / 安全 95/100 / VERSION 0.37.9.36 → 0.37.9.37. 典型推送 3 篇混合评级 ~2700 字单段直发. 3 篇旗舰 ⭐⭐⭐⭐⭐ ~4500 字触发多窗口 2 段. 元价值: 同日内 V37.9.36 闭环 fail-fast + V37.9.37 闭环产品深度 double 兑现 — 验证 V37.9.35 budget + V37.9.21 多窗口底层框架的真实价值. 原则 #18 补证据而非补功能 兑现 — 不增 cron 但 rss_blogs 单 job 产出价值从 题目+一句话+⭐⭐⭐ 升级为 5 字段深度分析, 信息密度跃升一个数量级.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-05-07",
       "what": "V37.9.36 — rss_blogs LLM fail-fast 闭环 (MR-4 silent-failure 第 26 次演出 + 用户视角 #13 第 8 次正向兑现). 触发: V37.9.35 budget 升级当晚用户 WhatsApp 收到 18:00 推送 3 篇全部占位符 \"要点：技术深度文章 / 价值：⭐⭐⭐\". Mac Mini 取证: llm_raw_last.txt 含 502/upstream primary 301+gemini 503 双 provider 故障 / llm_content.txt 空 / last_run.json 谎报 status:ok. 三层根因: 双 provider 同时故障 + 三层宽容 (except pass 吞 KeyError → log WARN 不 exit → emit 硬编码占位符) + 谎报+零 [SYSTEM_ALERT]. 修复 (V37.5/V37.8.10/V37.9.16 同款 fail-fast): source notify.sh + send_alert helper + LLM 三层检测 (HTTP error / parse fail / empty content) + 任一触发 → [SYSTEM_ALERT] + status:llm_failed + exit 1 + 删除 emit 占位符 fallback 改为显式 \"（本篇 LLM 摘要缺失）\" 标记. 27 新单测 4 类含血案场景复现 + 反向验证守卫真有效. INV-RSSBLOGS-001 新增 (MR-4, high, 15 checks: 9 declaration + 3 python_assert + 3 runtime subprocess). 56 suites (+1) / 2021→2048 tests (+27) / 0 fail / governance 506→523 checks (+17) / 69→70 invariants (+1) / MRD-LAYER-002 40/40 high ≥2 层 / 安全 95/100 / VERSION 0.37.9.35 → 0.37.9.36. 元教训: V37.5/V37.8.10/V37.9.16 三次升级时应同步扫所有 LLM 调用 job 是否对齐 fail-fast (MR-8 跨 job 不同步也是 copy-paste-is-a-bug-class). V37.9.37 候选 audit: 扫所有调 LLM 的 cron job 是否都对齐.",
       "by": "claude_code"
     },
@@ -194,11 +199,6 @@
       "date": "2026-05-04",
       "what": "V37.9.27: B 问题真正修复 — movespeed_rsync_helper.sh (jitter+retry+fail-loud+capture wrapper) 替代 20 个 inline rsync site. V37.9.26 watchdog 主动告警立即抓出 24h 19 条 incident 真相 (V37.9.4 闭环假设失败, MR-4 第 18 次演出: 架构假设级 silent failure 60 天). V37.9.27 三层修复: Phase 1 错峰 30-180s 抖动 (避多 cron 同秒抢 SSD I/O) + Phase 2 retry 3 次 10s/20s 指数退避 (transient EPERM 30s 内自愈) + Phase 3 全部失败才 fail-loud + capture. 预期 incident 从 ~19/24h 降到 <1/24h (95%+ 减少). MR-8 单一真理源: helper 独立模块, 20 个 site 改 1 行调用, 单测可端到端 (24 单测含 mock fake rsync). INV-RETRY-001 新增 (meta_rule=MR-4, 10 checks: 8 declaration helper 设计常量 + 1 auto_deploy + 1 runtime). 与 INV-BACKUP-001 (V37.9.4 fail-loud) + INV-INCIDENT-001 (V37.9.26 主动告警) 形成三阶段防御: 失败时取证 → 累积时告警 → 主动修复减少失败. INV-BACKUP-001 检测器扩展豁免 helper-using sites (MR-8: site 通过 helper 间接获得 capture wiring 视为合规). 累计 49→50 suites / 1798→1822 tests (+24, V37.9.27 24 单测) / 0 fail / governance 68→69 invariants (+1) / 413→423 checks (+10) / 17 meta rules / 安全 95/100 / VERSION 0.37.9.26→0.37.9.27.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-05-04",
-      "what": "V37.9.26: watchdog 主动告警升级 — 24h 窗口 ≥5 条 MOVESPEED incident 推 [SYSTEM_ALERT] (V37.9.15 候选 watchdog 部分闭环). 新文件 movespeed_incident_monitor.py 纯函数模块 (parse_iso_to_epoch / extract_caller_basename / count_recent_incidents 24h 窗口 / format_watchdog_output pipe 输出 / CLI FAIL-OPEN). job_watchdog.sh 第 9 维度集成 (从 8 大维度扩展到 9), 阈值 INCIDENT_24H_THRESHOLD=5 (噪声 +2σ). MR-8 单一真理源正向兑现: 不内嵌 heredoc, 抽到独立模块, 单测直接 import. INV-INCIDENT-001 新增 (meta_rule=MR-4, 10 checks: 4 monitor.py declaration + 5 watchdog.sh declaration + 1 FILE_MAP + 1 runtime 36 单测). 与 INV-BACKUP-001 sibling 关系 (前者守证据收集, 后者守证据消费产告警, 一起覆盖 declared→runtime→alert 完整链路). 36 新单测 7 类 (含反向验证 + 阈值边界 + watchdog 集成守卫). 同时修 INV-BACKUP-001 检测器豁免 watchdog (V37.9.26 watchdog 加告警消息含 rsync+MOVESPEED 字样误判, 按原则 #28 最小修复加 monitor consumer 豁免, 不破坏 V37.9.14 的检测目的). 累计 48→49 suites / 1762→1798 tests (+36) / 0 fail / governance 67→68 invariants (+1) / 403→413 checks (+10) / 17 meta rules / 安全 95/100 / VERSION 0.37.9.25→0.37.9.26.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -268,14 +268,14 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 2048,
-    "last_regression": "2026-05-07 14:04 pass",
+    "test_count": 2065,
+    "last_regression": "2026-05-07 14:38 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-05-07 14:04",
+    "security_score_time": "2026-05-07 14:38",
     "test_suites": 56,
     "governance_invariants": "64/64",
     "governance_checks": "350/350",
-    "version": "0.37.9.35"
+    "version": "0.37.9.36"
   },
   "incidents": [
     {
@@ -339,7 +339,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.36 收工 — rss_blogs LLM fail-fast 闭环. 用户 WhatsApp 实测发现 18:00 推送 3 篇全部占位符. Mac Mini 取证: 502/primary 301+gemini 503 双 provider 故障. 与 V37.5/V37.8.10/V37.9.16 同款模式: source notify.sh + send_alert + 三层检测 + status:llm_failed + 删除占位符. 27 新单测 + INV-RSSBLOGS-001 (15 checks). 56 suites / 2048 tests / 0 fail / 523 checks / 70 inv / 安全 95/100 / VERSION 0.37.9.36. MR-4 第 26 次演出 + 用户视角 #13 第 8 次正向兑现.",
+  "focus": "V37.9.37 收工 — rss_blogs 5 字段深度分析升级. 用户反馈\"博客精选不能只是题目摘要\"立即闭环. 5 字段 prompt + 按评级动态长度 + 每篇独立 retry + LLM_DEGRADED RSS description fallback + V37.9.21 多窗口切片. 44 单测 (V37.9.36 27→44) + INV-RSSBLOGS-001 扩展 28 checks + 反向验证守卫真有效. 56 suites / 2065 tests / 0 fail / 535 checks / 70 inv / 17 MR / 安全 95/100 / VERSION 0.37.9.37. 同日 V37.9.36 fail-fast + V37.9.37 产品深度 double 兑现, 用户视角 #13 第 8/9 次连续正向兑现.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",

@@ -5759,8 +5759,15 @@ invariants:
       run_rss_blogs.sh 必须 fail-fast：LLM HTTP 错误 / JSON 解析失败 / content 空
       任一触发 → 推送 [SYSTEM_ALERT] + status:llm_failed + exit 1。
       绝不允许"技术深度文章 ⭐⭐⭐"占位符 fallback 静默推送伪造数据。
-      emit 端 partial parser fallback 必须用显式 "（本篇 LLM 摘要缺失）" 标记,
-      让用户感知层不被欺骗 (V37.5/V37.8.10/V37.9.16 同款 fail-fast 模式对齐)。
+      emit 端 partial parser fallback 必须用显式 [LLM_DEGRADED] 标记 + RSS description
+      兜底, 让用户感知层不被欺骗 (V37.5/V37.8.10/V37.9.16 同款 fail-fast 模式对齐)。
+
+      V37.9.37 升级 (产品深度): 单条"要点+价值"两行 → 5 字段深度分析
+      (📌 中文标题 / 🔑 核心要点 / 💡 关键洞察 / 🎯 实践启发 / ⭐ 评级);
+      调用策略从单次调用全部 N 篇 → 每篇独立调 + retry 3 次(5/10/20s 退避);
+      失败语义从"任一失败 fail-fast"细化为"全部失败才 fail-fast, 部分失败
+      partial_degraded 仍推送其余篇"; 多窗口切片 (>8000 字触发 V37.9.21 同款)
+      让深度分析能充分展开 (3 篇 ⭐⭐⭐⭐⭐ 旗舰文章 ~4500 字也能完整推送)。
     design_decision: |
       2026-05-07 18:00 血案 (用户视角 #13 第 8 次正向兑现): 用户收到 3 条全是
       "要点：技术深度文章 / 价值：⭐⭐⭐"占位符的博客推送, last_run.json 谎报
@@ -5826,10 +5833,8 @@ invariants:
         check_type: file_contains
         file: jobs/rss_blogs/run_rss_blogs.sh
         pattern: '"status":"llm_failed"'
-      - name: "run_rss_blogs.sh emit 端用显式 LLM 摘要缺失标记 (替代占位符 fallback)"
-        check_type: file_contains
-        file: jobs/rss_blogs/run_rss_blogs.sh
-        pattern: "LLM 摘要缺失"
+      # V37.9.37 升级: "LLM 摘要缺失" → "[LLM_DEGRADED]" 标记 (LLM_DEGRADED 守卫见后)
+      # 旧守卫已被 V37.9.37 升级层中的 "emit 端 LLM_DEGRADED 标记替代占位符" 等效替代
       - name: "run_rss_blogs.sh 不再含 V37.9.36 前 silent warn 反模式"
         check_type: file_not_contains
         file: jobs/rss_blogs/run_rss_blogs.sh
@@ -5914,27 +5919,29 @@ invariants:
           assert "primary: HTTP Error 301" in result.stderr
           assert "gemini: HTTP Error 503" in result.stderr
           assert result.stdout == "", "HTTP error 不应输出 content 到 stdout"
-      - name: "RUNTIME: emit 端 partial parser 用显式缺失标记 (不写'技术深度文章'占位符)"
+      - name: "RUNTIME: emit 端 V37.9.37 5 字段 + LLM_DEGRADED + RSS description fallback (不写'技术深度文章'占位符)"
         check_type: python_assert
         assertion: |
-          # 提取 emit 端 Python 块运行, 断言 LLM_CONTENT 空时输出含 "LLM 摘要缺失"
-          # 而非任何形式的占位符
+          # V37.9.37 升级: emit 端从两元组 → 5 字段, fallback 从"LLM 摘要缺失" → [LLM_DEGRADED] + RSS description
+          # 提取 emit Python 块运行, 端到端验证: 全部失败时每篇标 [LLM_DEGRADED] + RSS desc fallback
           import subprocess, sys, json, tempfile, os, shutil
           snippet = open("jobs/rss_blogs/run_rss_blogs.sh", encoding="utf-8").read()
-          # 提取 PYEOF 之间的 emit 块 (其中含 V37.9.36 修复)
-          marker_start = snippet.find("$PYTHON3 - \"$ALL_NEW_FILE\" \"$CACHE/llm_content.txt\"")
-          assert marker_start != -1, "emit block marker not found"
+          # V37.9.37: emit 块标志变为 "$RESULTS_FILE"
+          marker_start = snippet.find("$PYTHON3 - \"$ALL_NEW_FILE\" \"$RESULTS_FILE\"")
+          assert marker_start != -1, "V37.9.37 emit block marker not found (expected $RESULTS_FILE)"
           py_start = snippet.find("<< 'PYEOF'", marker_start)
           py_block_start = snippet.find("\n", py_start) + 1
           py_block_end = snippet.find("\nPYEOF", py_block_start)
           emit_code = snippet[py_block_start:py_block_end]
-          assert "LLM 摘要缺失" in emit_code, "emit code 必须含显式缺失标记"
+          # V37.9.37: emit 必须含 [LLM_DEGRADED] 标记 + parse_5field_output 函数
+          assert "[LLM_DEGRADED]" in emit_code, "emit code 必须含 LLM_DEGRADED 标记"
+          assert "parse_5field_output" in emit_code, "emit code 必须含 5 字段 parser"
           assert "技术深度文章" not in emit_code, "emit code 严禁占位符"
-          # 端到端运行: 2 篇 article + 空 LLM content → 两篇都标缺失
+          # 端到端运行: 2 篇 article 都失败 → 两篇都标 [LLM_DEGRADED] + RSS description
           tmpdir = tempfile.mkdtemp(prefix="rss_inv_")
           try:
               articles_file = os.path.join(tmpdir, "articles.jsonl")
-              llm_file = os.path.join(tmpdir, "llm.txt")
+              results_file = os.path.join(tmpdir, "results.jsonl")
               msg_file = os.path.join(tmpdir, "msg.txt")
               with open(articles_file, "w") as f:
                   for i in range(2):
@@ -5943,24 +5950,33 @@ invariants:
                           "link": f"https://x/{i}",
                           "feed_label": "L",
                           "pub_date": "2026-05-07T12:00",
+                          "description": f"RSS desc for article {i}",
                       }, ensure_ascii=False) + "\n")
-              with open(llm_file, "w") as f:
-                  f.write("")
+              with open(results_file, "w") as f:
+                  for i in range(2):
+                      f.write(json.dumps({
+                          "idx": i, "content": "", "failed": True,
+                          "fail_reason": "HTTP Error 502",
+                      }, ensure_ascii=False) + "\n")
               subprocess.run(
-                  [sys.executable, "-c", emit_code, articles_file, llm_file,
+                  [sys.executable, "-c", emit_code, articles_file, results_file,
                    "2026-05-07", msg_file],
                   check=True, timeout=10, capture_output=True,
               )
               with open(msg_file) as f:
                   out = f.read()
-              assert out.count("LLM 摘要缺失") == 2, (
-                  f"两篇都应标缺失: out={out!r}"
+              # V37.9.37 契约: 两篇都标 [LLM_DEGRADED] + RSS description 兜底
+              assert out.count("[LLM_DEGRADED]") == 2, (
+                  f"V37.9.37: 两篇都应标 [LLM_DEGRADED]: out={out!r}"
               )
+              assert "RSS desc for article 0" in out, "RSS description 0 应作为 fallback"
+              assert "RSS desc for article 1" in out, "RSS description 1 应作为 fallback"
+              # 反模式守卫: 严禁占位符回归
               assert "技术深度文章" not in out, "输出严禁占位符"
               assert "价值：⭐⭐⭐\n" not in out, "输出严禁裸 ⭐⭐⭐ fallback"
           finally:
               shutil.rmtree(tmpdir, ignore_errors=True)
-      - name: "RUNTIME: test_run_rss_blogs.py 27 单测端到端覆盖"
+      - name: "RUNTIME: test_run_rss_blogs.py 44 单测端到端覆盖 (V37.9.37: 27→44)"
         check_type: python_assert
         assertion: |
           import subprocess, sys, os
@@ -5973,6 +5989,94 @@ invariants:
           assert proc.returncode == 0, (
               f"test_run_rss_blogs.py 失败 rc={proc.returncode}\n"
               f"stderr tail:\n{proc.stderr[-1500:]}"
+          )
+
+      # ── V37.9.37 升级层 declaration 守卫 ──────────────────────
+      - name: "V37.9.37: 标记版本"
+        check_type: file_contains
+        file: jobs/rss_blogs/run_rss_blogs.sh
+        pattern: "V37.9.37"
+      - name: "V37.9.37: call_llm_single_with_retry helper 定义"
+        check_type: file_contains
+        file: jobs/rss_blogs/run_rss_blogs.sh
+        pattern: "call_llm_single_with_retry\\(\\)"
+      - name: "V37.9.37: retry 间隔数组 (5s/10s/20s 指数退避)"
+        check_type: file_contains
+        file: jobs/rss_blogs/run_rss_blogs.sh
+        pattern: "backoffs=\\(5\\s+10\\s+20\\)"
+      - name: "V37.9.37: status_file schema 含 partial_degraded"
+        check_type: file_contains
+        file: jobs/rss_blogs/run_rss_blogs.sh
+        pattern: '"status":"partial_degraded"'
+      - name: "V37.9.37: 全部失败 fail-fast reason 前缀 all_failed_"
+        check_type: file_contains
+        file: jobs/rss_blogs/run_rss_blogs.sh
+        pattern: '"all_failed_'
+      - name: "V37.9.37: emit 端 LLM_DEGRADED 标记替代占位符"
+        check_type: file_contains
+        file: jobs/rss_blogs/run_rss_blogs.sh
+        pattern: "\\[LLM_DEGRADED\\]"
+      - name: "V37.9.37: 5 字段 prompt 结构 (5 个 emoji marker)"
+        check_type: python_assert
+        assertion: |
+          src = open("jobs/rss_blogs/run_rss_blogs.sh", encoding="utf-8").read()
+          for marker in ["📌", "🔑", "💡", "🎯", "⭐"]:
+              assert marker in src, f"5 字段 prompt 缺少 {marker}"
+      - name: "V37.9.37: prompt 反幻觉守卫 (V37.8.6 同款)"
+        check_type: file_contains
+        file: jobs/rss_blogs/run_rss_blogs.sh
+        pattern: "严禁虚构"
+      - name: "V37.9.37: 评级动态长度规则 (⭐⭐⭐⭐⭐→500-800字)"
+        check_type: file_contains
+        file: jobs/rss_blogs/run_rss_blogs.sh
+        pattern: '⭐⭐⭐⭐⭐.*?500-800'
+      - name: "V37.9.37: 多窗口切片阈值 8000"
+        check_type: python_assert
+        assertion: |
+          import re
+          src = open("jobs/rss_blogs/run_rss_blogs.sh", encoding="utf-8").read()
+          assert re.search(r'TOTAL_LEN.*-le 8000', src), "缺少 8000 字阈值判断"
+          assert "MAX_CHUNK = 4000" in src, "缺少 4000 字切片大小"
+      - name: "V37.9.37: 多窗口分支必须含 sleep 1s 防 WhatsApp 乱序"
+        check_type: python_assert
+        assertion: |
+          src = open("jobs/rss_blogs/run_rss_blogs.sh", encoding="utf-8").read()
+          idx = src.find("WA_CHUNK_DIR")
+          assert idx != -1
+          sleep_idx = src.find("sleep 1", idx)
+          assert sleep_idx != -1, "多窗口分支必须 sleep 1s"
+          assert sleep_idx - idx < 3000, f"sleep 1s 距离过远 {sleep_idx - idx}"
+
+      # ── V37.9.37 升级层 runtime 守卫 ──────────────────────────
+      - name: "RUNTIME V37.9.37: 全部失败分支立即 exit 1 (V37.9.36 fail-fast 契约保留)"
+        check_type: python_assert
+        assertion: |
+          src = open("jobs/rss_blogs/run_rss_blogs.sh", encoding="utf-8").read()
+          idx = src.find('TOTAL_FAILED" -eq "$TOTAL_NEW"')
+          assert idx != -1, "缺少全部失败 fail-fast 分支"
+          exit_idx = src.find("exit 1", idx)
+          assert exit_idx != -1
+          assert exit_idx - idx < 1500, (
+              f"全部失败分支必须立即 exit 1, 距离 {exit_idx - idx}"
+          )
+      - name: "RUNTIME V37.9.37: 5 字段 emit + LLM_DEGRADED fallback 端到端验证"
+        check_type: python_assert
+        assertion: |
+          # 直接调 test_run_rss_blogs.TestEmit5Field 关键测试
+          # 验证 V37.9.37 emit 端在部分失败场景下:
+          #   (1) 成功篇输出 5 字段
+          #   (2) 失败篇输出 [LLM_DEGRADED] + RSS description
+          #   (3) 严禁占位符
+          import subprocess, sys, os
+          repo_root = os.environ.get("OPENCLAW_REPO_ROOT", os.getcwd())
+          proc = subprocess.run(
+              [sys.executable, "test_run_rss_blogs.py", "-k",
+               "TestEmit5Field.test_partial_degraded_uses_rss_description"],
+              capture_output=True, text=True, timeout=30,
+              cwd=repo_root,
+          )
+          assert proc.returncode == 0, (
+              f"5 字段 + LLM_DEGRADED 端到端验证失败:\n{proc.stderr[-1000:]}"
           )
 
 # ═══════════════════════════════════════════════════════════════════════
