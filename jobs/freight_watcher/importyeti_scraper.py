@@ -283,25 +283,40 @@ def main() -> int:
         )
         return 1
 
-    # V37.9.31: playwright-stealth is highly recommended but optional.
-    # Without it, manual stealth still applies (UA + viewport + headers).
+    # V37.9.32: playwright-stealth API compatibility (1.x → 2.x).
+    # 2.x replaced the `stealth_sync` function with a `Stealth` class.
+    # Try 2.x first (recommended), fall back to 1.x for legacy installs.
+    # If neither available, manual STEALTH_JS init script applies (V37.9.31).
+    _stealth_apply = None
     try:
-        from playwright_stealth import stealth_sync  # type: ignore
+        from playwright_stealth import Stealth  # 2.x API
+        def _stealth_apply(page):  # type: ignore[no-redef]
+            Stealth().apply_stealth_sync(page)
         stealth_available = True
+        stealth_api_version = "2.x"
     except ImportError:
-        stealth_available = False
-        print(
-            "[importyeti] WARN: playwright-stealth 未安装 "
-            "(pip3 install playwright-stealth)，使用 manual stealth fallback",
-            file=sys.stderr,
-        )
+        try:
+            from playwright_stealth import stealth_sync  # 1.x API
+            def _stealth_apply(page):  # type: ignore[no-redef]
+                stealth_sync(page)
+            stealth_available = True
+            stealth_api_version = "1.x"
+        except ImportError:
+            stealth_available = False
+            stealth_api_version = "none"
+            print(
+                "[importyeti] WARN: playwright-stealth 未安装 "
+                "(pip3 install playwright-stealth)，使用 manual stealth fallback",
+                file=sys.stderr,
+            )
 
     chosen_ua = _pick_user_agent()
     chosen_viewport = _pick_viewport()
     print(
-        f"[importyeti] V37.9.31 stealth: ua={chosen_ua[:50]}... "
+        f"[importyeti] V37.9.32 stealth: ua={chosen_ua[:50]}... "
         f"viewport={chosen_viewport['width']}x{chosen_viewport['height']} "
-        f"stealth_lib={'on' if stealth_available else 'off (manual fallback)'}",
+        f"stealth_lib={stealth_api_version} "
+        f"({'on' if stealth_available else 'off — manual fallback'})",
         file=sys.stderr,
     )
 
@@ -327,15 +342,17 @@ def main() -> int:
 
         page = context.new_page()
 
-        # V37.9.31: apply playwright-stealth if available (50+ patches),
-        # else fall back to manual STEALTH_JS init script.
-        if stealth_available:
+        # V37.9.32: apply playwright-stealth via API-version-aware helper
+        # (_stealth_apply selected at import time: 2.x Stealth().apply_stealth_sync,
+        # 1.x stealth_sync, or None → manual fallback). Keeps call site agnostic
+        # of the API version that's actually installed on the runtime host.
+        if stealth_available and _stealth_apply is not None:
             try:
-                stealth_sync(page)
+                _stealth_apply(page)
             except Exception as e:
                 print(
-                    f"[importyeti] WARN: playwright-stealth apply failed ({e})，"
-                    f"fallback manual STEALTH_JS",
+                    f"[importyeti] WARN: playwright-stealth apply failed "
+                    f"(api={stealth_api_version}, err={e})，fallback manual STEALTH_JS",
                     file=sys.stderr,
                 )
                 stealth_available = False
