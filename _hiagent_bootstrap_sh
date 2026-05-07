@@ -88,6 +88,14 @@ cat > "$PLIST_SIDECAR" <<PLIST_EOF
     <string>${HOME}/openclaw-model-bridge</string>
     <key>PATH</key>
     <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+    <key>KMP_DUPLICATE_LIB_OK</key>
+    <string>TRUE</string>
+    <key>LANG</key>
+    <string>en_US.UTF-8</string>
+    <key>LC_ALL</key>
+    <string>en_US.UTF-8</string>
+    <key>PYTHONIOENCODING</key>
+    <string>utf-8</string>
   </dict>
   <key>WorkingDirectory</key>
   <string>${HOME}</string>
