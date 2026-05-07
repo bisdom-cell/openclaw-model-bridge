@@ -1,0 +1,247 @@
+# OpenClaw → HiAgent 集成 SOP
+
+> 把 openclaw-model-bridge 项目能力（KB-RAG / Memory Plane / 多模态 / 数据清洗）
+> 暴露给字节 HiAgent 平台作为插件后端。
+>
+> 状态：PoC 完成，6 工具全通，端到端验证 6/6。
+
+---
+
+## 1. 架构总览
+
+```
+┌────────────┐  https + Bearer    ┌──────────────────┐
+│  HiAgent   │ ─────────────────▶│ Cloudflare Tunnel│
+│ (云端平台) │                    │ (trycloudflare)  │
+└────────────┘                    └────────┬─────────┘
+                                           │ http
+                                           ▼
+                                  ┌────────────────────┐
+                                  │  Mac Mini 内网      │
+                                  │  ─────────         │
+                                  │  cloudflared       │ launchd
+                                  │  ──→ :5003         │ (com.bisdom.hiagent_tunnel)
+                                  │                    │
+                                  │  hiagent_sidecar   │ launchd
+                                  │  ──→ subprocess    │ (com.bisdom.hiagent_sidecar)
+                                  │                    │
+                                  │  ↓                 │
+                                  │  openclaw 项目     │
+                                  │  - kb_rag.py       │
+                                  │  - memory_plane.py │
+                                  │  - mm_search.py    │
+                                  │  - data_clean.py   │
+                                  └────────────────────┘
+```
+
+**核心约束**：
+- sidecar 是独立文件 `~/hiagent_sidecar`（无 `.py` 扩展名规避剪贴板转换 bug）
+- 主项目 openclaw-model-bridge **零改动**——sidecar 只通过 `subprocess.run()` 调既有 CLI
+- 所有外暴端口（5003）均要求 Bearer Token（`HIAGENT_PLUGIN_KEY`）
+- `/health` 公开（liveness probe），其余端点强制 auth
+
+---
+
+## 2. HiAgent 端配置
+
+### 2.1 插件级（Plugin）
+| 字段 | 值 |
+|------|---|
+| 名称 | `OpenClaw Bridge` |
+| URL | `https://<动态>.trycloudflare.com`（每次 cloudflared 重启会变） |
+| 鉴权 | Bearer Token |
+| Token | `hiagent2026` |
+
+### 2.2 工具级（6 个）
+
+| 工具名 | Method | 路径 | 入参（type/位置/默认） |
+|--------|--------|------|----------------------|
+| `health_check` | GET | `/health` | （无） |
+| `kb_search` | GET | `/kb/search` | q (string/query/必填), limit (int/query/5) |
+| `memory_query` | GET | `/memory/query` | q (string/query/必填), layer (string/query/all) |
+| `mm_search` | GET | `/mm/search` | q (string/query/必填), top_k (int/query/5) |
+| `dc_profile` | POST | `/data_clean/profile` | path (string/body/必填), format (string/body/text) |
+| `dc_execute` | POST | `/data_clean/execute` | path (string/body/必填), ops (string/body/必填，逗号分隔) |
+
+### 2.3 Agent 系统提示词
+
+见仓库的 `_hiagent_setup_doc` 内的"# 角色 / ## 目标 / ## 技能流程 / ## 输出格式 / ## 限制"五段（HiAgent 推荐格式）。
+
+---
+
+## 3. Mac Mini 端首次部署
+
+### 3.1 安装 cloudflared
+
+```
+brew install cloudflared
+```
+
+### 3.2 拉取 sidecar 文件
+
+```
+cd ~/openclaw-model-bridge
+git fetch origin claude/tech-discussion-isXvn
+git show origin/claude/tech-discussion-isXvn:_hiagent_sidecar_transfer_only > ~/hiagent_sidecar
+```
+
+### 3.3 跑 bootstrap 脚本
+
+```
+git show origin/claude/tech-discussion-isXvn:_hiagent_bootstrap_sh > ~/_hiagent_bootstrap
+bash ~/_hiagent_bootstrap
+```
+
+bootstrap 会自动：
+- 写入两个 LaunchAgent plist
+- 写入 `~/get_tunnel_url` 助手
+- 杀死手动跑的进程
+- bootstrap 两个 launchd agent
+- 输出当前 tunnel URL
+
+### 3.4 更新 HiAgent 插件 URL
+
+把 bootstrap 末尾输出的 `https://...trycloudflare.com` URL 填到 HiAgent 插件管理 → OpenClaw Bridge → URL 字段 → 保存。
+
+---
+
+## 4. 日常运维
+
+### 4.1 查看状态
+
+```
+launchctl list | grep hiagent
+```
+两行都应显示 PID（非 `-`）。
+
+### 4.2 查看当前 tunnel URL
+
+```
+~/get_tunnel_url
+```
+打印当前 trycloudflare URL。**Mac Mini 重启或 cloudflared 崩溃后 URL 会变**，需手动同步到 HiAgent。
+
+### 4.3 查看访问日志
+
+```
+tail -50 ~/hiagent_plugin.log
+```
+每行 `[access] <时间> <method> <path> <status> <耗时>ms` 形式。
+
+### 4.4 查看调用统计
+
+```
+curl -s -H "Authorization: Bearer hiagent2026" http://localhost:5003/metrics | python3 -m json.tool
+```
+输出含：uptime、total_calls、各 endpoint 调用数、各 HTTP 状态码计数。
+
+### 4.5 重启 sidecar（不影响 tunnel）
+
+```
+launchctl kickstart -k gui/$(id -u)/com.bisdom.hiagent_sidecar
+```
+
+### 4.6 重启 tunnel（URL 会变，需更新 HiAgent）
+
+```
+launchctl kickstart -k gui/$(id -u)/com.bisdom.hiagent_tunnel
+sleep 5
+~/get_tunnel_url
+```
+
+### 4.7 完全停止两者
+
+```
+launchctl bootout gui/$(id -u)/com.bisdom.hiagent_sidecar
+launchctl bootout gui/$(id -u)/com.bisdom.hiagent_tunnel
+```
+
+### 4.8 重新启用
+
+```
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.bisdom.hiagent_sidecar.plist
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.bisdom.hiagent_tunnel.plist
+```
+
+---
+
+## 5. 故障排查
+
+| 症状 | 排查路径 |
+|------|---------|
+| HiAgent 工具调用 `502/503` | (1) `~/get_tunnel_url` 看 URL 是否还在；(2) `curl http://localhost:5003/health` 看 sidecar 是否活；(3) 看 `~/hiagent_plugin.log` |
+| HiAgent 工具调用 `407 Egress denied` | URL 没更新到 HiAgent，或者 cloudflared 重启后 URL 变了 |
+| HiAgent 工具调用 `401 unauthorized` | Token 不对，HiAgent 插件级配置检查 Bearer Token = `hiagent2026` |
+| sidecar 不停 crash | `tail -50 ~/hiagent_plugin.log` 看 stack trace，常见是 KB/MM 索引文件丢失 |
+| tunnel 进程不在 | `launchctl list \| grep tunnel` 看状态，crash 重启后会有新 PID + 新 URL |
+| 主项目升级后 sidecar 报 ImportError 之类 | 运行 `python3 -c "from kb_rag import search"` 等试导入；如有缺失依赖，sidecar 不需要装新依赖（subprocess 调用，跟 sidecar Python 环境无关） |
+
+---
+
+## 6. 升级 sidecar
+
+每次 sidecar 代码改动（修 bug / 加端点）流程：
+
+```
+cd ~/openclaw-model-bridge
+git fetch origin claude/tech-discussion-isXvn
+git show origin/claude/tech-discussion-isXvn:_hiagent_sidecar_transfer_only > ~/hiagent_sidecar
+launchctl kickstart -k gui/$(id -u)/com.bisdom.hiagent_sidecar
+```
+
+tunnel 不用动（tunnel 只 forward 流量到 :5003，sidecar 重启后 URL 不变）。
+
+---
+
+## 7. 完全卸载
+
+```
+launchctl bootout gui/$(id -u)/com.bisdom.hiagent_sidecar
+launchctl bootout gui/$(id -u)/com.bisdom.hiagent_tunnel
+rm ~/Library/LaunchAgents/com.bisdom.hiagent_sidecar.plist
+rm ~/Library/LaunchAgents/com.bisdom.hiagent_tunnel.plist
+rm ~/hiagent_sidecar ~/hiagent_plugin.log ~/hiagent_plugin.pid
+rm ~/hiagent_tunnel.log ~/get_tunnel_url
+```
+
+主项目（openclaw-model-bridge）零残留——卸载完系统回到集成前的状态。
+
+---
+
+## 8. 安全考量
+
+- **Token 轮换**：`HIAGENT_PLUGIN_KEY` 改动后需同步：(1) `~/Library/LaunchAgents/com.bisdom.hiagent_sidecar.plist` 里的 EnvironmentVariables；(2) HiAgent 插件级 Bearer Token；(3) `launchctl kickstart -k`
+- **Token 泄漏防御**：trycloudflare URL + Token 即可访问，公网可达。Token 用强随机串（不要用 `hiagent2026` 这种）
+- **数据边界**：sidecar 调 `kb_rag/memory_plane/mm_search/data_clean` 只读 KB 内容，**不会**修改主项目运行状态
+- **`dc_execute` 是写操作**：用户给路径 → 该路径文件会被改写。Agent prompt 已限制到用户明确指令才调用，但仍要警惕路径注入。生产环境建议加路径白名单
+- **`/metrics` 端点要求 auth**：避免泄漏使用模式
+
+---
+
+## 9. 已知限制
+
+- trycloudflare URL 不持久（cloudflared 进程重启 = 新 URL）。生产环境应升级到 Cloudflare 命名隧道（A1 路径）或 HiAgent 内网白名单（A3 路径）
+- sidecar 单线程 HTTPServer（`http.server.HTTPServer`）。并发高时改用 `ThreadingHTTPServer`
+- subprocess 调用每次启动 Python 解释器，约 300-1000ms 启动开销。高频调用考虑长连接 worker
+- 没有访问审计的链式哈希（不像主项目 `audit_log.py`）。生产化时考虑接入
+
+---
+
+## 10. 验证清单（部署后跑一遍）
+
+```
+launchctl list | grep hiagent
+curl -s http://localhost:5003/health
+~/get_tunnel_url
+curl -s -H "Authorization: Bearer hiagent2026" http://localhost:5003/metrics
+curl -s -H "Authorization: Bearer hiagent2026" "http://localhost:5003/kb/search?q=test&limit=1"
+```
+
+5 个命令应分别返回：
+1. 两行 PID 数值
+2. `{"status":"ok",...}`
+3. `https://...trycloudflare.com`
+4. `{"uptime_sec":...,"total_calls":...}`
+5. KB 搜索 JSON
+
+全过 → 集成正常工作。

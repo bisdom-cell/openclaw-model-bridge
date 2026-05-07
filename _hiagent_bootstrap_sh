@@ -1,0 +1,189 @@
+#!/bin/bash
+# HiAgent integration bootstrap (B + A2 in one shot)
+# Run on Mac Mini: bash _hiagent_bootstrap_sh
+#
+# What it does:
+#   - Stops manual sidecar / cloudflared processes
+#   - Installs ~/Library/LaunchAgents/com.bisdom.hiagent_sidecar.plist  (B)
+#   - Installs ~/Library/LaunchAgents/com.bisdom.hiagent_tunnel.plist   (A2)
+#   - Installs ~/get_tunnel_url helper script
+#   - Bootstraps both via launchctl
+#   - Verifies sidecar /health + extracts tunnel URL
+#
+# Idempotent: re-run anytime; existing agents are bootout'd then bootstrap'd.
+# Does NOT modify openclaw-model-bridge main project.
+
+set -e
+
+LABEL_SIDECAR="com.bisdom.hiagent_sidecar"
+LABEL_TUNNEL="com.bisdom.hiagent_tunnel"
+LA_DIR="$HOME/Library/LaunchAgents"
+PLIST_SIDECAR="$LA_DIR/${LABEL_SIDECAR}.plist"
+PLIST_TUNNEL="$LA_DIR/${LABEL_TUNNEL}.plist"
+HELPER="$HOME/get_tunnel_url"
+SIDECAR_LOG="$HOME/hiagent_plugin.log"
+TUNNEL_LOG="$HOME/hiagent_tunnel.log"
+SIDECAR_BIN="$HOME/hiagent_sidecar"
+TOKEN="${HIAGENT_PLUGIN_KEY:-hiagent2026}"
+
+mkdir -p "$LA_DIR"
+
+# ── locate dependencies ────────────────────────────────────────────────────
+PYTHON3="$(command -v python3 || true)"
+[ -z "$PYTHON3" ] && PYTHON3="/usr/bin/python3"
+CLOUDFLARED="$(command -v cloudflared || true)"
+if [ -z "$CLOUDFLARED" ]; then
+  for p in /opt/homebrew/bin/cloudflared /usr/local/bin/cloudflared; do
+    [ -x "$p" ] && CLOUDFLARED="$p" && break
+  done
+fi
+if [ -z "$CLOUDFLARED" ]; then
+  echo "ERROR: cloudflared not found. brew install cloudflared first." >&2
+  exit 1
+fi
+
+echo "[bootstrap] python3:     $PYTHON3"
+echo "[bootstrap] cloudflared: $CLOUDFLARED"
+echo "[bootstrap] sidecar bin: $SIDECAR_BIN"
+
+if [ ! -f "$SIDECAR_BIN" ]; then
+  echo "ERROR: sidecar bin missing at $SIDECAR_BIN" >&2
+  echo "Pull it first: cd ~/openclaw-model-bridge && git fetch origin claude/tech-discussion-isXvn && git show origin/claude/tech-discussion-isXvn:_hiagent_sidecar_transfer_only > $SIDECAR_BIN" >&2
+  exit 1
+fi
+
+# ── stop manual processes ──────────────────────────────────────────────────
+echo "[bootstrap] stopping manual processes (if any)..."
+pkill -f "hiagent_sidecar" 2>/dev/null || true
+pkill -f "cloudflared tunnel" 2>/dev/null || true
+sleep 1
+
+# ── boot out existing agents (clean slate) ─────────────────────────────────
+GUI="gui/$(id -u)"
+launchctl bootout "$GUI/$LABEL_SIDECAR" 2>/dev/null || true
+launchctl bootout "$GUI/$LABEL_TUNNEL"  2>/dev/null || true
+
+# ── write sidecar plist ────────────────────────────────────────────────────
+cat > "$PLIST_SIDECAR" <<PLIST_EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>${LABEL_SIDECAR}</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>${PYTHON3}</string>
+    <string>${SIDECAR_BIN}</string>
+  </array>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>HIAGENT_PLUGIN_KEY</key>
+    <string>${TOKEN}</string>
+    <key>HIAGENT_PLUGIN_PORT</key>
+    <string>5003</string>
+    <key>HIAGENT_PLUGIN_REPO_DIR</key>
+    <string>${HOME}/openclaw-model-bridge</string>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+  </dict>
+  <key>WorkingDirectory</key>
+  <string>${HOME}</string>
+  <key>StandardOutPath</key>
+  <string>${SIDECAR_LOG}</string>
+  <key>StandardErrorPath</key>
+  <string>${SIDECAR_LOG}</string>
+  <key>ProcessType</key>
+  <string>Background</string>
+  <key>ThrottleInterval</key>
+  <integer>10</integer>
+</dict>
+</plist>
+PLIST_EOF
+
+# ── write tunnel plist ─────────────────────────────────────────────────────
+cat > "$PLIST_TUNNEL" <<PLIST_EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>${LABEL_TUNNEL}</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>${CLOUDFLARED}</string>
+    <string>tunnel</string>
+    <string>--url</string>
+    <string>http://localhost:5003</string>
+  </array>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>WorkingDirectory</key>
+  <string>${HOME}</string>
+  <key>StandardOutPath</key>
+  <string>${TUNNEL_LOG}</string>
+  <key>StandardErrorPath</key>
+  <string>${TUNNEL_LOG}</string>
+  <key>ProcessType</key>
+  <string>Background</string>
+  <key>ThrottleInterval</key>
+  <integer>30</integer>
+</dict>
+</plist>
+PLIST_EOF
+
+# ── write helper ───────────────────────────────────────────────────────────
+cat > "$HELPER" <<'HELPER_EOF'
+#!/bin/bash
+# Print current cloudflared tunnel URL (parses ~/hiagent_tunnel.log).
+LOG="${1:-$HOME/hiagent_tunnel.log}"
+if [ ! -f "$LOG" ]; then
+  echo "tunnel log not found: $LOG" >&2
+  exit 2
+fi
+URL=$(grep -oE "https://[a-z0-9-]+\.trycloudflare\.com" "$LOG" | tail -1)
+if [ -z "$URL" ]; then
+  echo "(no URL in log yet — tunnel still starting?)" >&2
+  exit 1
+fi
+echo "$URL"
+HELPER_EOF
+chmod +x "$HELPER"
+
+# ── bootstrap into launchd ─────────────────────────────────────────────────
+launchctl bootstrap "$GUI" "$PLIST_SIDECAR"
+launchctl bootstrap "$GUI" "$PLIST_TUNNEL"
+
+echo "[bootstrap] launchctl agents bootstrapped, waiting 5s for startup..."
+sleep 5
+
+echo
+echo "=== launchctl list ==="
+launchctl list | grep -E "$LABEL_SIDECAR|$LABEL_TUNNEL" || echo "(none — bootstrap may have failed)"
+
+echo
+echo "=== sidecar /health ==="
+curl -s --max-time 3 http://localhost:5003/health || echo "(sidecar not responding yet)"
+
+echo
+echo "=== tunnel URL (waiting up to 15s for tunnel to come up) ==="
+URL=""
+for i in 1 2 3 4 5 6 7 8 9 10; do
+  sleep 1
+  URL=$(grep -oE "https://[a-z0-9-]+\.trycloudflare\.com" "$TUNNEL_LOG" 2>/dev/null | tail -1)
+  [ -n "$URL" ] && break
+done
+if [ -n "$URL" ]; then
+  echo "$URL"
+  echo
+  echo ">>> Update HiAgent plugin URL to: $URL"
+else
+  echo "(tunnel URL not found yet; run later: bash $HELPER)"
+fi
+echo
+echo "=== /metrics (should require auth) ==="
+curl -s --max-time 3 -H "Authorization: Bearer $TOKEN" http://localhost:5003/metrics || echo "(failed)"
+echo
+echo "[bootstrap] done. agents will auto-start on login + auto-restart on crash."
