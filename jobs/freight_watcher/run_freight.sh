@@ -78,8 +78,24 @@ FREIGHT_KW   = ["freight","forwarder","logistics","shipping","cargo","import","e
                  "supply chain","ocean freight","air freight","customs","tariff"]
 EXPANSION_KW = ["expand","acquisition","new facility","warehouse","distribution center",
                  "manufacturing","production","sourcing china","china supplier"]
+# V37.9.33: 全球航运经济晴雨表关键词集 — 用户论点 "货代是 1-3 个月领先经济指标"
+# Tier 1/2 权威源不直连 (反爬 + GeoIP 限制), 通过 Google News RSS 精确搜索 indexed 内容
+INDEX_KW     = ["index","rate","spot rate","container rate","freight rate","shipping cost",
+                 "scfi","ccfi","fbx","wci","bdi","tac","baltic","drewry","freightos",
+                 "运价","指数","集装箱","船运"]
+CARRIER_KW   = ["maersk","cma cgm","msc","hapag-lloyd","cosco","evergreen","yang ming",
+                 "one network","hmm","blank sailing","capacity","alliance","vessel",
+                 "船公司","班轮","运力","空班"]
+PORT_KW      = ["port of","shanghai port","ningbo","los angeles port","long beach",
+                 "rotterdam","singapore port","hamburg","antwerp","throughput",
+                 "congestion","teu","container terminal",
+                 "港口","吞吐量","拥堵","集装箱码头"]
+CUSTOMS_KW   = ["customs","exports","imports","trade data","trade balance",
+                 "trade volume","gtas","fts900","pmi",
+                 "海关","进出口","贸易数据","贸易顺差","贸易逆差"]
 
 SOURCES = [
+    # === Tier 3: 行业新闻 RSS (V25-V37 已有) =================================
     ("https://www.freightwaves.com/news/feed",   FREIGHT_KW),
     ("https://theloadstar.com/feed/",             FREIGHT_KW),
     ("https://www.aircargonews.net/feed/",        FREIGHT_KW),
@@ -87,7 +103,7 @@ SOURCES = [
     ("https://www.chinadaily.com.cn/rss/bizchina_rss.xml", EXPANSION_KW),
     ("https://www.scmp.com/rss/91/feed",          EXPANSION_KW),
     ("https://www.prnewswire.com/rss/news-releases-list.rss", EXPANSION_KW),
-    # Google News — 原有
+    # Google News — 原有 (V3-V37 已有)
     ("https://news.google.com/rss/search?q=freight+forwarder+china&hl=en-US&gl=US&ceid=US:en", FREIGHT_KW),
     ("https://news.google.com/rss/search?q=importing+from+china+logistics&hl=en-US&gl=US&ceid=US:en", FREIGHT_KW),
     ("https://news.google.com/rss/search?q=supply+chain+china+expansion&hl=en-US&gl=US&ceid=US:en", EXPANSION_KW),
@@ -95,6 +111,27 @@ SOURCES = [
     ("https://news.google.com/rss/search?q=%22looking+for+freight+forwarder%22+OR+%22logistics+partner%22+OR+%22shipping+partner%22&hl=en-US&gl=US&ceid=US:en", FREIGHT_KW),
     ("https://news.google.com/rss/search?q=%22new+warehouse%22+OR+%22fulfillment+center%22+china&hl=en-US&gl=US&ceid=US:en", EXPANSION_KW),
     ("https://news.google.com/rss/search?q=%22FBA%22+%22freight+forwarder%22+OR+%22ocean+freight%22+rate&hl=en-US&gl=US&ceid=US:en", FREIGHT_KW),
+
+    # === V37.9.33 新增：Tier 1/2 权威经济晴雨表 ============================
+    # 集装箱运价指数 (周更, 经济温度计)
+    ("https://news.google.com/rss/search?q=%22SCFI%22+OR+%22Shanghai+Containerized+Freight+Index%22&hl=en-US&gl=US&ceid=US:en", INDEX_KW),
+    ("https://news.google.com/rss/search?q=%22Drewry%22+%22World+Container+Index%22+OR+%22WCI%22&hl=en-US&gl=US&ceid=US:en", INDEX_KW),
+    ("https://news.google.com/rss/search?q=%22Freightos+Baltic+Index%22+OR+%22FBX%22+container&hl=en-US&gl=US&ceid=US:en", INDEX_KW),
+    # 散货 + 油轮指数 (大宗商品晴雨表)
+    ("https://news.google.com/rss/search?q=%22Baltic+Dry+Index%22+OR+%22BDI%22&hl=en-US&gl=US&ceid=US:en", INDEX_KW),
+    # 空运指数
+    ("https://news.google.com/rss/search?q=%22TAC+Index%22+OR+%22air+cargo+rate%22+OR+%22IATA+CASS%22&hl=en-US&gl=US&ceid=US:en", INDEX_KW),
+    # 班轮公司动态 (运营信号 — 缩舱/空班/航线调整领先 1-2 个月反映需求)
+    ("https://news.google.com/rss/search?q=%22Maersk%22+%22blank+sailing%22+OR+capacity+OR+rate&hl=en-US&gl=US&ceid=US:en", CARRIER_KW),
+    ("https://news.google.com/rss/search?q=%22CMA+CGM%22+OR+%22MSC%22+OR+%22Hapag-Lloyd%22+capacity+OR+route&hl=en-US&gl=US&ceid=US:en", CARRIER_KW),
+    ("https://news.google.com/rss/search?q=%22COSCO%22+OR+%22Evergreen%22+OR+%22Yang+Ming%22+route+OR+capacity&hl=en-US&gl=US&ceid=US:en", CARRIER_KW),
+    # 港口吞吐量 (实时拥堵 + 月度吞吐数据)
+    ("https://news.google.com/rss/search?q=%22Port+of+Los+Angeles%22+OR+%22Long+Beach%22+volume+OR+throughput&hl=en-US&gl=US&ceid=US:en", PORT_KW),
+    ("https://news.google.com/rss/search?q=%22Shanghai+port%22+OR+%22Ningbo+port%22+container+volume&hl=en-US&gl=US&ceid=US:en", PORT_KW),
+    ("https://news.google.com/rss/search?q=%22port+congestion%22+OR+%22container+throughput%22+%22TEU%22&hl=en-US&gl=US&ceid=US:en", PORT_KW),
+    # 海关 / 贸易数据 (月度经济宏观信号)
+    ("https://news.google.com/rss/search?q=%22China+exports%22+OR+%22China+trade+balance%22+monthly&hl=en-US&gl=US&ceid=US:en", CUSTOMS_KW),
+    ("https://news.google.com/rss/search?q=%22US+imports%22+OR+%22US+trade+deficit%22+%22Census+Bureau%22&hl=en-US&gl=US&ceid=US:en", CUSTOMS_KW),
 ]
 
 results = []
@@ -124,12 +161,13 @@ for url, kws in SOURCES:
     except Exception as e:
         print(f"[freight] WARN: {url[:60]} -> {e}", file=sys.stderr)
 
-# 去重 + 限制10条
+# V37.9.33: 去重 + 限制15条 (从10→15, 给新增 12 个权威 Tier 1/2 源留空间)
+# 防止 Tier 3 行业新闻挤掉 SCFI/BDI/FBX 等运价指数 (这些源每周才出一条但价值最高)
 seen = set()
 with open(OUT_FILE, "w") as f:
     count = 0
     for r in results:
-        if r["url"] not in seen and count < 10:
+        if r["url"] not in seen and count < 15:
             seen.add(r["url"])
             f.write(json.dumps(r, ensure_ascii=False) + "\n")
             count += 1
@@ -157,8 +195,13 @@ while IFS= read -r line; do
     [ -n "$url" ] && echo "- $url" >> "$KB_INBOX"
 done < "$NEW_FILE"
 
-# ── 3. 单次批量LLM调用（L1告警：失败时WhatsApp⚠️）────────────────────
-PROMPT="你是货代行业分析师。以下是${NEW_COUNT}条行业新闻，请逐条分析：
+# ── 3. 单次批量LLM调用（V37.9.33 三层深度分析: 经济晴雨表 + 运营信号 + 商机）─────
+# 用户论点 (V37.9.33): "全球发货信息是经济晴雨表, 比专家智囊更值得信赖"
+# 三层分类让 LLM 把权威 Tier 1/2 数据 (SCFI/BDI/FBX/班轮/港口) 从 Tier 3 行业新闻中
+# 区分出来, 输出可执行的经济判断 + 业务行动建议. Step 8 ImportYeti 提取 regex
+# 仍只匹配"企业信号:" 前缀, 不会误捕"经济信号"/"动作"块 (向后兼容).
+PROMPT="你是货代行业资深分析师 + 全球贸易经济分析师。以下是${NEW_COUNT}条权威信源新闻，
+请按主题分类做深度分析（不只是逐条陈述，要做交叉判断）：
 
 $(python3 -c "
 import json, sys
@@ -169,10 +212,34 @@ for i, l in enumerate(lines, 1):
     print(f'   来源：{d[\"source\"]}')
 " 2>/dev/null)
 
-请严格按以下格式输出，每条之间空一行：
-序号. 企业信号：[企业名] — [≤25字需求描述]（无明确企业时写'行业信号 — 描述'）
+请严格按以下三层格式输出（每段标题独占一行，每条之间空一行）：
+
+📊 【第一层：经济晴雨表】运价指数 / 港口吞吐量 / 海关数据
+（货代是 1-3 个月领先经济指标；提取关键数字+方向，给出经济信号判断）
+格式：序号. 指数：[指数名] [当前值或方向] — [来源标题摘要≤20字]
+解读：[≤40字 — 这反映了什么经济动向？对货代业务意味着什么？]
+评级：⭐（5星=强信号，1星=噪声）
+（如本期无相关信号，输出"📊 本期无显著经济晴雨表信号"）
+
+🏢 【第二层：运营信号】班轮公司 / 港口拥堵 / 路线变化
+（运营动作领先 1-2 个月反映需求变化；如 MAERSK blank sailing = 需求疲软）
+格式：序号. 动作：[公司或港口] - [具体动作≤30字]
+影响：[≤30字 — 对运价/航线/客户成本的影响]
+评级：⭐（1-5个星）
+（如本期无相关信号，输出"🏢 本期无显著运营信号"）
+
+🚢 【第三层：商机条目】具体客户/采购信号
+（V25 原格式保留, 是 Step 8 ImportYeti 深挖入口；企业名必须在'企业信号：'后）
+格式：序号. 企业信号：[企业名] — [≤25字需求描述]（无明确企业时写'行业信号 — 描述'）
 行动：[≤30字可执行行动建议]
-评级：⭐（1-5个星）"
+评级：⭐（1-5个星）
+（如本期无具体企业，输出'🚢 本期无显著商机条目'）
+
+⚠️ 严格约束：
+1. 三层独立分类，不要在一段里混合（避免 Step 8 误提取）
+2. 每段最多输出 5 条（防 WhatsApp 推送超长）
+3. 评级⭐≥4 的'企业信号'会被自动深挖客户画像（ImportYeti 海关数据查询）
+4. 严禁虚构具体数字（运价/港口吞吐量 必须来自原文，无则写'未提供'）"
 
 # 规则 #27: 纯推理直接 curl proxy:5002，禁止用 openclaw agent（#94教训）
 LLM_PAYLOAD=$(python3 -c "
@@ -229,36 +296,38 @@ if [ "$PARSE_OK" -lt $(( NEW_COUNT / 2 )) ] && [ "$NEW_COUNT" -gt 2 ]; then
     exit 2
 fi
 
-# ── 4. 组装WhatsApp消息 ─────────────────────────────────────────────────
+# ── 4. 组装WhatsApp消息（V37.9.33 三层结构化推送：经济晴雨表 + 运营信号 + 商机）──
 MSG_FILE="$CACHE/system_message_freight.txt"
 {
     echo "🚢 货代商机速报 (${DAY})"
     echo ""
-    # 将LLM输出与原始条目对应，追加链接
+    # V37.9.33: passthrough 三层 LLM 输出 + ⭐≥4 商机条目附 ImportYeti 链接.
+    # URL 1:1 关联在三层重排后失效, 改为末尾"完整新闻链接"段一次性输出 (15 条).
     python3 - "$NEW_FILE" "$LLM_RAW" << 'PYEOF2'
 import sys, json, re, urllib.parse
 
+# Load original news items for KB full-link footer
 lines_file = open(sys.argv[1]).readlines()
-urls = []
-titles = []
+news_items = []  # list of (title, url, source)
 for l in lines_file:
     try:
         d = json.loads(l)
-        urls.append(d.get("url",""))
-        titles.append(d.get("title",""))
+        news_items.append((
+            d.get("title", "")[:80],
+            d.get("url", ""),
+            d.get("source", ""),
+        ))
     except Exception:
-        urls.append("")
-        titles.append("")
+        pass
 
 def extract_company(block):
-    """从'企业信号：XX — 描述'提取企业名"""
+    """从'企业信号：XX — 描述'提取企业名 (Step 8 兼容: 仅匹配 V25 原前缀)."""
     m = re.search(r'企业信号：(.+)', block)
     if not m:
         return None
     signal = m.group(1).strip()
     if signal.startswith("行业信号"):
         return None
-    # 按 — 或 - 分隔，取企业名部分
     parts = re.split(r'\s*[—–-]\s*', signal, maxsplit=1)
     company = parts[0].strip()
     if len(company) < 2 or len(company) > 30:
@@ -266,34 +335,67 @@ def extract_company(block):
     return company
 
 def count_stars(block):
-    """统计评级星数"""
     m = re.search(r'评级：(⭐+)', block)
     return len(m.group(1)) if m else 0
 
 def importyeti_url(company):
-    """生成 ImportYeti 查询链接"""
     q = urllib.parse.quote(company)
     return f"https://www.importyeti.com/search?q={q}"
 
-# 读LLM原始输出（从stdout部分）
+# Read LLM 3-section output
 raw = open(sys.argv[2]).read()
 stdout_part = raw.split("--- stdout ---")[-1] if "--- stdout ---" in raw else raw
+text = stdout_part.strip()
 
-blocks = re.split(r'\n(?=\d+\.)', stdout_part.strip())
-for i, block in enumerate(blocks):
-    if not block.strip():
+# Pass-through LLM output but enhance ⭐≥4 "企业信号" blocks with ImportYeti.
+# Section headers (📊/🏢/🚢) print as-is. Numbered entries split by `\n\d+\.`.
+# Track current section so ImportYeti enhancement only fires inside 🚢 section.
+current_section = None  # None / "index" / "ops" / "business"
+
+# Split text into chunks: section headers + numbered blocks
+# Match either a section header (📊/🏢/🚢) line, or `\n\d+\.` numbered block start.
+chunks = re.split(r'(?=\n📊|\n🏢|\n🚢|\n\d+\.)', '\n' + text)
+
+for chunk in chunks:
+    chunk = chunk.strip()
+    if not chunk:
         continue
-    url = urls[i] if i < len(urls) else ""
-    print(block.strip())
-    if url:
-        print(f"链接：{url}")
-    # V2: 4星+条目自动附加 ImportYeti 查询链接
-    stars = count_stars(block)
-    if stars >= 4:
-        company = extract_company(block)
-        if company:
-            print(f"📦 ImportYeti：{importyeti_url(company)}")
+    # Section header detection (preserve LLM-generated header lines verbatim)
+    if chunk.startswith("📊"):
+        current_section = "index"
+        print(chunk)
+        print("")
+        continue
+    if chunk.startswith("🏢"):
+        current_section = "ops"
+        print(chunk)
+        print("")
+        continue
+    if chunk.startswith("🚢"):
+        current_section = "business"
+        print(chunk)
+        print("")
+        continue
+    # Numbered block — output as-is
+    print(chunk)
+    # ImportYeti enhancement only inside 🚢 business section + ⭐≥4 + has 企业信号
+    if current_section == "business" and "企业信号：" in chunk:
+        stars = count_stars(chunk)
+        if stars >= 4:
+            company = extract_company(chunk)
+            if company:
+                print(f"📦 ImportYeti：{importyeti_url(company)}")
     print("")
+
+# V37.9.33: footer — full news links for KB traceability + WhatsApp transparency
+# (15 items max per 1-source dedup cap, fits comfortably in WhatsApp single message)
+if news_items:
+    print("---")
+    print(f"📚 本期数据来源 ({len(news_items)} 条权威信源)：")
+    for i, (title, url, source) in enumerate(news_items, 1):
+        if url:
+            print(f"  {i}. [{source}] {title[:50]}")
+            print(f"     {url}")
 PYEOF2
 } > "$MSG_FILE"
 
