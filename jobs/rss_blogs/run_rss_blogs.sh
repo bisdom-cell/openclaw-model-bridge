@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # cron 环境 PATH 极简，必须显式声明
 export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
-# RSS 博客订阅监控 v1
+# RSS 博客订阅监控 v2 (V37.9.37 深度分析升级)
 # 每天 2 次（08:00, 18:00 HKT）由系统 crontab 触发
 # 支持多个 RSS 源，按需扩展
 set -eo pipefail
@@ -201,62 +201,51 @@ if [ "$TOTAL_NEW" -eq 0 ]; then
 fi
 echo "[rss] 共 ${TOTAL_NEW} 篇新文章"
 
-# ── 构建LLM prompt ───────────────────────────────────────────────────
-PROMPT_FILE="$CACHE/llm_prompt.txt"
-$PYTHON3 - "$ALL_NEW_FILE" << 'PYEOF' > "$PROMPT_FILE"
-import sys, json
+# ── V37.9.37: 每篇独立调 LLM (5 字段深度分析 + 按评级调长度 + retry 3 次) ─
+# 老 V37.9.36: 单次调用全部 N 篇, 一次失败 = 全篇失败
+# 新 V37.9.37: 每篇独立调用 + 独立 retry (5s/10s/20s), 部分失败走 partial_degraded
+# 全部失败 → 仍 fail-fast (V37.9.36 契约保留)
 
-articles = []
-with open(sys.argv[1]) as f:
-    for line in f:
-        line = line.strip()
-        if line:
-            articles.append(json.loads(line))
+LLM_RAW="$CACHE/llm_raw_last.txt"   # 兼容: 保留上一次失败响应做 forensic
+> "$LLM_RAW"
+RESULTS_FILE="$CACHE/llm_results.jsonl"
+> "$RESULTS_FILE"
 
-prompt = """你是技术博客编辑。对以下每篇博文严格输出两行（不要输出任何其他内容）：
-第一行：要点：[1句话≤60字，说明核心内容]
-第二行：价值：⭐（1到5个星，评估对AI从业者的参考价值）
-每篇之间用一行 --- 分隔。不要输出序号。
+# ── helper: 单篇 LLM 调用 + retry ───────────────────────────────────
+# 输入: $1 = single_article_prompt 文件路径, $2 = article_idx
+# 输出: stdout = 成功时 LLM content; 失败 → exit 1, 全局 LAST_LLM_FAIL_REASON 含原因
+call_llm_single_with_retry() {
+    local prompt_file="$1"
+    local idx="$2"
+    LAST_LLM_FAIL_REASON=""
+    local backoffs=(5 10 20)
 
-"""
-for i, a in enumerate(articles, 1):
-    prompt += f"博文{i}：{a['title']}\n"
-    if a.get('description'):
-        prompt += f"摘要：{a['description'][:300]}\n"
-    prompt += "\n"
-
-print(prompt)
-PYEOF
-
-# ── 调用LLM ──────────────────────────────────────────────────────────
-LLM_RAW="$CACHE/llm_raw_last.txt"
-PAYLOAD_FILE="$CACHE/llm_payload.json"
-$PYTHON3 -c "
+    for attempt in 0 1 2; do
+        local payload_file="$CACHE/llm_payload_${idx}_a${attempt}.json"
+        $PYTHON3 -c "
 import json
-prompt = open('$CACHE/llm_prompt.txt').read()
-with open('$CACHE/llm_payload.json', 'w') as f:
+prompt = open('$prompt_file', encoding='utf-8').read()
+with open('$payload_file', 'w', encoding='utf-8') as f:
     json.dump({
         'model': 'Qwen3-235B-A22B-Instruct-2507-W8A8',
         'messages': [{'role': 'user', 'content': prompt}],
-        'max_tokens': 4096,
+        'max_tokens': 2500,
         'temperature': 0.3
     }, f)
 "
+        local llm_resp
+        llm_resp=$(curl -s --max-time 90 \
+            -H "Content-Type: application/json" \
+            -d "@$payload_file" \
+            http://127.0.0.1:5002/v1/chat/completions 2>/dev/null || true)
 
-LLM_RESP=$(curl -s --max-time 120 \
-    -H "Content-Type: application/json" \
-    -d "@$PAYLOAD_FILE" \
-    http://127.0.0.1:5002/v1/chat/completions 2>"$LLM_RAW.stderr" || true)
+        # 保存最后一次响应做 forensic (覆盖式, 仅最后一次)
+        echo "$llm_resp" > "$LLM_RAW"
 
-echo "$LLM_RESP" > "$LLM_RAW"
-
-# V37.9.36 fail-fast 三层检测 (V37.5/V37.8.10/V37.9.16 同款模式):
-# 层 1: HTTP 错误响应 ({"error": "HTTP 502 ..."}) — Qwen3 主+gemini fallback 双故障的典型特征
-# 层 2: 响应 JSON 缺 choices 字段 (display 解析失败)
-# 层 3: choices 存在但 content 为空字符串
-# 任一触发 → [SYSTEM_ALERT] + status:llm_failed + exit 1, 绝不发占位符消息
-
-LLM_PARSE_OUT=$(echo "$LLM_RESP" | $PYTHON3 -c "
+        # V37.9.36 三层检测 (HTTP error / parse fail / empty content)
+        local parse_err_file="$CACHE/llm_parse_${idx}_a${attempt}.err"
+        local parse_out
+        parse_out=$(echo "$llm_resp" | $PYTHON3 -c "
 import json, sys
 try:
     d = json.load(sys.stdin)
@@ -264,7 +253,7 @@ except Exception as e:
     print(f'__LLM_PARSE_FAIL__:bad_json:{type(e).__name__}', file=sys.stderr)
     sys.exit(0)
 if isinstance(d, dict) and 'error' in d:
-    err_msg = str(d['error'])[:500].replace(chr(10), ' ')
+    err_msg = str(d['error'])[:300].replace(chr(10), ' ')
     print(f'__LLM_HTTP_ERROR__:{err_msg}', file=sys.stderr)
     sys.exit(0)
 try:
@@ -273,127 +262,345 @@ except (KeyError, IndexError, TypeError) as e:
     print(f'__LLM_PARSE_FAIL__:no_choices:{type(e).__name__}', file=sys.stderr)
     sys.exit(0)
 print(content)
-" 2>"$CACHE/llm_parse.err" || true)
+" 2>"$parse_err_file" || true)
 
-PARSE_ERR="$(cat "$CACHE/llm_parse.err" 2>/dev/null || true)"
+        local parse_err
+        parse_err="$(cat "$parse_err_file" 2>/dev/null || true)"
 
-if echo "$PARSE_ERR" | grep -q '__LLM_HTTP_ERROR__'; then
-    UPSTREAM_ERR=$(echo "$PARSE_ERR" | sed -n 's/.*__LLM_HTTP_ERROR__://p' | head -c 400)
-    log "ERROR: LLM HTTP 错误: $UPSTREAM_ERR"
-    send_alert "LLM HTTP 错误: $UPSTREAM_ERR"
-    REASON_ESCAPED=$(echo "$UPSTREAM_ERR" | tr '"' "'" | tr '\n' ' ' | head -c 200)
-    printf '{"time":"%s","status":"llm_failed","new":%d,"sent":false,"reason":"%s"}\n' "$TS" "$TOTAL_NEW" "$REASON_ESCAPED" > "$STATUS_FILE"
-    exit 1
-fi
+        if echo "$parse_err" | grep -q '__LLM_HTTP_ERROR__\|__LLM_PARSE_FAIL__'; then
+            LAST_LLM_FAIL_REASON=$(echo "$parse_err" | head -c 200 | tr '\n' ' ')
+            log "WARN: 篇 $idx attempt $((attempt+1))/3: $LAST_LLM_FAIL_REASON"
+            if [ $attempt -lt 2 ]; then
+                sleep "${backoffs[$attempt]}"
+            fi
+            continue
+        fi
 
-if echo "$PARSE_ERR" | grep -q '__LLM_PARSE_FAIL__'; then
-    PARSE_DETAIL=$(echo "$PARSE_ERR" | sed -n 's/.*__LLM_PARSE_FAIL__://p' | head -c 200)
-    log "ERROR: LLM 响应 JSON 解析失败: $PARSE_DETAIL"
-    send_alert "LLM 响应解析失败 (无 choices 或 bad json): $PARSE_DETAIL"
-    printf '{"time":"%s","status":"llm_failed","new":%d,"sent":false,"reason":"parse_error_%s"}\n' "$TS" "$TOTAL_NEW" "$PARSE_DETAIL" > "$STATUS_FILE"
-    exit 1
-fi
+        if [ -z "${parse_out// }" ]; then
+            LAST_LLM_FAIL_REASON="empty_content"
+            log "WARN: 篇 $idx attempt $((attempt+1))/3: empty content"
+            if [ $attempt -lt 2 ]; then
+                sleep "${backoffs[$attempt]}"
+            fi
+            continue
+        fi
 
-LLM_CONTENT="$LLM_PARSE_OUT"
+        # 成功 → 返回 content
+        echo "$parse_out"
+        return 0
+    done
 
-if [ -z "${LLM_CONTENT// }" ]; then
-    log "ERROR: LLM 返回空内容"
-    send_alert "LLM 返回空内容 (响应解析成功但 content 为空)"
-    printf '{"time":"%s","status":"llm_failed","new":%d,"sent":false,"reason":"empty_content"}\n' "$TS" "$TOTAL_NEW" > "$STATUS_FILE"
-    exit 1
-fi
+    # 所有 retry 都失败
+    return 1
+}
 
-echo "$LLM_CONTENT" > "$CACHE/llm_content.txt"
+# ── 主循环: 每篇文章独立调 LLM ────────────────────────────────────
+TOTAL_FAILED=0
+LAST_FAIL_REASON=""
 
-# ── 组装消息 ──────────────────────────────────────────────────────────
-MSG_FILE="$CACHE/rss_message.txt"
-$PYTHON3 - "$ALL_NEW_FILE" "$CACHE/llm_content.txt" "$DAY" "$MSG_FILE" << 'PYEOF'
-import sys, json, re
+for ((i=0; i<TOTAL_NEW; i++)); do
+    SINGLE_PROMPT="$CACHE/llm_single_prompt_${i}.txt"
+    $PYTHON3 - "$ALL_NEW_FILE" "$i" << 'PYEOF' > "$SINGLE_PROMPT"
+import sys, json
 
-articles_file, llm_file, day, msg_file = sys.argv[1:5]
+articles_file, idx = sys.argv[1], int(sys.argv[2])
+with open(articles_file, encoding='utf-8') as f:
+    articles = [json.loads(l) for l in f if l.strip()]
+a = articles[idx]
+title = a['title']
+desc = a.get('description', '')[:600]
 
-articles = []
-with open(articles_file) as f:
-    for line in f:
-        line = line.strip()
-        if line:
-            articles.append(json.loads(line))
+prompt = """你是技术博客深度分析师。对以下博文输出 5 字段中文分析:
 
-with open(llm_file) as f:
-    llm_content = f.read()
+📌 中文标题: 信达雅翻译, 不超过 25 字 (如原文已是中文则简化精炼)
+🔑 核心要点: 3-5 条 bullet, 每条 1 句 ≤ 60 字, 列出文章最重要的发现/论点/事实
+💡 关键洞察: 揭示作者立场 / 方法论 / 与行业趋势的关联 / 与已有工作的对比 / 局限性
+   长度按评级动态调整: ⭐⭐⭐→100-150字 / ⭐⭐⭐⭐→250-400字 / ⭐⭐⭐⭐⭐→500-800字 (旗舰级文章充分展开)
+🎯 实践启发: 1-3 条对 AI 工程师/创业者/架构师的具体行动建议, 每条 ≤ 80 字
+⭐ 评级: ⭐ × N (1-5 个) + 推荐场景 (谁应该读 / 何时读 / 配什么场景)
 
-# 解析 LLM 输出（要点/价值两行一组）
-parsed_blocks = []
-pending_highlight = None
+⚠️ 严格约束 (违反则整份输出作废):
+- 只使用上方提供的标题和摘要中的信息, 严禁虚构作者未提及的事实/数据/链接
+- 如摘要不足以判断深度, 标⭐较低 + 写"基于摘要的初步判断"
+- 严禁推断 Hugging Face / OpenAI / GitHub 等平台的具体内部状态除非原文提及
+- 严禁把 HTTP 错误码 / Python 异常 / 错误日志当外部信号
 
-for raw_line in llm_content.split('\n'):
-    line = raw_line.strip()
-    if not line:
-        continue
-    if re.match(r'^[-=*]{3,}$', line):
-        continue
-    if re.match(r'^(博文\d+[：:]?\s*$|\d+[.、)]\s*$)', line):
-        continue
+输出格式 (严格按此 5 字段, 字段间用空行分隔):
 
-    if '价值' in line and '⭐' in line:
-        for prefix in ['价值：', '价值:', '第二行：', '第2行：']:
-            if line.startswith(prefix):
-                line = line[len(prefix):].strip()
-                break
-        stars_line = '价值：' + line if not line.startswith('价值') else line
-        parsed_blocks.append((
-            pending_highlight or '',
-            stars_line
-        ))
-        pending_highlight = None
-        continue
+📌 中文标题: <你的翻译>
 
-    if line.startswith('要点：') or line.startswith('要点:'):
-        pending_highlight = line
-        continue
-    for prefix in ['第一行：', '第1行：']:
-        if line.startswith(prefix):
-            rest = line[len(prefix):].strip()
-            pending_highlight = rest if rest.startswith('要点') else '要点：' + rest
-            break
+🔑 核心要点:
+- 要点1
+- 要点2
 
-msg_lines = [f"\U0001F4D6 博客精选 ({day})", ""]
+💡 关键洞察:
+<段落, 长度按上述评级规则>
 
-for i, article in enumerate(articles):
-    msg_lines.append(f"*{article['title']}*")
-    msg_lines.append(f"来源：{article['feed_label']} | {article.get('pub_date', '')[:16]}")
-    msg_lines.append(f"链接：{article['link']}")
+🎯 实践启发:
+- 启发1
+- 启发2
 
-    if i < len(parsed_blocks):
-        highlight, stars = parsed_blocks[i]
-        if highlight:
-            msg_lines.append(highlight)
-        if stars:
-            msg_lines.append(stars)
-    else:
-        # V37.9.36: 删除 "（本篇 LLM 摘要缺失，参见原文链接）" + "价值：⭐⭐⭐" 占位符 fallback
-        # (V37.5/V37.8.10/V37.9.16 同款反模式禁止). LLM 全失败应在上游 fail-fast,
-        # 走到这里只发生在 LLM 部分解析 (如 3 篇 article LLM 只返回 2 个 block).
-        # 显式标记缺失而非伪造数据, 让用户感知层不被欺骗.
-        msg_lines.append("（本篇 LLM 摘要缺失，参见原文链接）")
+⭐ 评级: ⭐⭐⭐⭐ / 推荐场景: <场景描述>
 
-    msg_lines.append("")
+---
 
-with open(msg_file, 'w') as f:
-    f.write('\n'.join(msg_lines))
-
-print(f"[rss] 消息组装完成: {len(articles)} 篇", file=sys.stderr)
+"""
+prompt += f"博文标题: {title}\n"
+if desc:
+    prompt += f"原文摘要:\n{desc}\n"
+print(prompt)
 PYEOF
 
-# ── 推送WhatsApp ─────────────────────────────────────────────────────
-MSG_CONTENT="$(head -c 4000 "$MSG_FILE")"
+    log "调用 LLM 分析篇 $((i+1))/$TOTAL_NEW"
+    if RESULT=$(call_llm_single_with_retry "$SINGLE_PROMPT" "$i"); then
+        # 成功
+        $PYTHON3 -c "
+import json, sys
+result = sys.stdin.read()
+print(json.dumps({'idx': $i, 'content': result, 'failed': False, 'fail_reason': ''}, ensure_ascii=False))
+" <<< "$RESULT" >> "$RESULTS_FILE"
+    else
+        # 全 retry 失败 → 标 degraded, 不阻塞其他篇
+        TOTAL_FAILED=$((TOTAL_FAILED + 1))
+        LAST_FAIL_REASON="$LAST_LLM_FAIL_REASON"
+        log "FAIL: 篇 $((i+1)) 全 retry 失败 — $LAST_LLM_FAIL_REASON"
+        $PYTHON3 -c "
+import json, sys
+print(json.dumps({'idx': $i, 'content': '', 'failed': True, 'fail_reason': '''$LAST_LLM_FAIL_REASON'''}, ensure_ascii=False))
+" >> "$RESULTS_FILE"
+    fi
+done
+
+# ── 决定整体 status (V37.9.36 fail-fast 契约保留) ──────────────────
+if [ "$TOTAL_FAILED" -eq "$TOTAL_NEW" ]; then
+    # 全部失败 → fail-fast (V37.9.36 同款)
+    log "ERROR: 全部 $TOTAL_NEW 篇 LLM 分析失败 (last reason: $LAST_FAIL_REASON)"
+    send_alert "全部 $TOTAL_NEW 篇 LLM 分析失败 (last reason: $LAST_FAIL_REASON)"
+    REASON_ESCAPED=$(echo "$LAST_FAIL_REASON" | tr '"' "'" | tr '\n' ' ' | head -c 200)
+    printf '{"time":"%s","status":"llm_failed","new":%d,"sent":false,"reason":"all_failed_%s"}\n' "$TS" "$TOTAL_NEW" "$REASON_ESCAPED" > "$STATUS_FILE"
+    exit 1
+elif [ "$TOTAL_FAILED" -gt 0 ]; then
+    log "WARN: $TOTAL_FAILED/$TOTAL_NEW 篇失败 — 走 partial_degraded (失败篇标 [LLM_DEGRADED] + RSS 摘要 fallback)"
+    send_alert "$TOTAL_FAILED/$TOTAL_NEW 篇 LLM 部分失败 (其余正常推送, 失败篇标 [LLM_DEGRADED])"
+fi
+
+# ── V37.9.37: 组装消息 (5 字段解析 + LLM_DEGRADED fallback + 多窗口切片) ──
+MSG_FILE="$CACHE/rss_message.txt"
+$PYTHON3 - "$ALL_NEW_FILE" "$RESULTS_FILE" "$DAY" "$MSG_FILE" << 'PYEOF'
+import sys, json, re
+
+articles_file, results_file, day, msg_file = sys.argv[1:5]
+
+with open(articles_file, encoding='utf-8') as f:
+    articles = [json.loads(l) for l in f if l.strip()]
+with open(results_file, encoding='utf-8') as f:
+    results = [json.loads(l) for l in f if l.strip()]
+
+# V37.9.37 5 字段 key-based parser (V37.8.7 ontology_parser 同款模式)
+# 容忍 LLM 输出的字段顺序、单字段缺失、prefix 变体
+def parse_5field_output(content):
+    """从 LLM 输出解析 5 字段, key-based + tolerant.
+
+    返回 dict: cn_title / highlights / insight / practice / rating
+    """
+    fields = {
+        'cn_title': '',
+        'highlights': '',
+        'insight': '',
+        'practice': '',
+        'rating': '',
+    }
+    current_field = None
+    current_buffer = []
+
+    def flush():
+        if current_field and current_buffer:
+            fields[current_field] = '\n'.join(current_buffer).strip()
+
+    for raw in content.split('\n'):
+        line = raw.rstrip()
+        # 跳过分隔符
+        if re.match(r'^[-=*_]{3,}$', line.strip()):
+            continue
+
+        # 字段头识别 (key-based, 不依赖位置)
+        # 📌 中文标题
+        if line.lstrip().startswith('📌'):
+            flush()
+            current_field = 'cn_title'
+            current_buffer = []
+            # 提取冒号后的内容作为单行 title 值
+            m = re.match(r'.*📌\s*(?:中文)?标题\s*[:：]?\s*(.*)', line)
+            if m and m.group(1).strip():
+                current_buffer.append(m.group(1).strip())
+            continue
+        # 🔑 核心要点
+        if line.lstrip().startswith('🔑'):
+            flush()
+            current_field = 'highlights'
+            current_buffer = []
+            continue
+        # 💡 关键洞察
+        if line.lstrip().startswith('💡'):
+            flush()
+            current_field = 'insight'
+            current_buffer = []
+            continue
+        # 🎯 实践启发
+        if line.lstrip().startswith('🎯'):
+            flush()
+            current_field = 'practice'
+            current_buffer = []
+            continue
+        # ⭐ 评级
+        if line.lstrip().startswith('⭐') and current_field != 'rating':
+            # 仅当遇到独立的"⭐ 评级"行时切换 (而不是 highlights/insight 中可能含 ⭐)
+            # 启发式: 行首字符是 ⭐ + 含"评级"或"推荐场景"
+            if '评级' in line or '推荐场景' in line or re.match(r'\s*⭐+\s*$', line):
+                flush()
+                current_field = 'rating'
+                current_buffer = [line.lstrip()]
+                continue
+        # 普通行 → append 到 current_field
+        if current_field is not None:
+            current_buffer.append(line)
+        elif line.strip():
+            # 字段头之前的非空行 (LLM 偶尔多嘴) → 静默丢弃
+            pass
+
+    flush()
+    return fields
+
+
+msg_lines = [f"📖 博客精选 ({day})", ""]
+
+degraded_count = 0
+for i, article in enumerate(articles):
+    msg_lines.append(f"*博文{i+1}: {article['title']}*")
+    msg_lines.append(f"来源: {article['feed_label']} | {article.get('pub_date', '')[:16]}")
+    msg_lines.append(f"链接: {article['link']}")
+    msg_lines.append("")
+
+    result = results[i] if i < len(results) else None
+    if result is None or result.get('failed'):
+        # LLM_DEGRADED: 用 RSS description 给用户最低保障
+        degraded_count += 1
+        msg_lines.append("⚠️ [LLM_DEGRADED] 深度分析失败, 原文摘要供参考:")
+        desc = (article.get('description') or '')[:300]
+        if desc:
+            msg_lines.append(desc)
+        else:
+            msg_lines.append("(原文无摘要数据, 请直接点链接阅读)")
+        msg_lines.append("")
+    else:
+        # 解析 5 字段
+        fields = parse_5field_output(result.get('content', ''))
+        if fields['cn_title']:
+            msg_lines.append(f"📌 中文标题: {fields['cn_title']}")
+            msg_lines.append("")
+        if fields['highlights']:
+            msg_lines.append("🔑 核心要点:")
+            msg_lines.append(fields['highlights'])
+            msg_lines.append("")
+        if fields['insight']:
+            msg_lines.append("💡 关键洞察:")
+            msg_lines.append(fields['insight'])
+            msg_lines.append("")
+        if fields['practice']:
+            msg_lines.append("🎯 实践启发:")
+            msg_lines.append(fields['practice'])
+            msg_lines.append("")
+        if fields['rating']:
+            # rating 行不重复加 ⭐ 前缀 (LLM 输出已含)
+            msg_lines.append(fields['rating'])
+            msg_lines.append("")
+
+    msg_lines.append("---")
+    msg_lines.append("")
+
+with open(msg_file, 'w', encoding='utf-8') as f:
+    f.write('\n'.join(msg_lines))
+
+print(f"[rss] 消息组装完成: {len(articles)} 篇 ({degraded_count} 篇 degraded)", file=sys.stderr)
+PYEOF
+
+# ── 推送 WhatsApp + Discord (V37.9.37 多窗口分片: >8000 字才切, ≤8000 单段发) ─
 SEND_ERR=$(mktemp)
-if "$OPENCLAW" message send --channel whatsapp --target "$TO" --message "$MSG_CONTENT" --json >/dev/null 2>"$SEND_ERR"; then
-    log "已推送 ${TOTAL_NEW} 篇文章"
-    "$OPENCLAW" message send --channel discord --target "${DISCORD_CH_TECH:-}" --message "$MSG_CONTENT" --json >/dev/null 2>&1 || true
+TOTAL_LEN=$(wc -c < "$MSG_FILE" | tr -d ' ')
+WA_SENT=false
+
+if [ "$TOTAL_LEN" -le 8000 ]; then
+    # 单段直发 (≤4000 不折叠 / 4000-8000 客户端自动折叠 2 气泡, V37.9.35 已验证)
+    MSG_CONTENT="$(cat "$MSG_FILE")"
+    if "$OPENCLAW" message send --channel whatsapp --target "$TO" --message "$MSG_CONTENT" --json >/dev/null 2>"$SEND_ERR"; then
+        log "已推送 ${TOTAL_NEW} 篇 (单段, $TOTAL_LEN 字)"
+        WA_SENT=true
+        "$OPENCLAW" message send --channel discord --target "${DISCORD_CH_TECH:-}" --message "$MSG_CONTENT" --json >/dev/null 2>&1 || true
+    else
+        log "ERROR: 推送失败: $(cat "$SEND_ERR" | head -3)"
+    fi
+else
+    # 总长 >8000 → 多窗口切片 (V37.9.21 同款 mktemp + sleep 1s 防乱序)
+    WA_CHUNK_DIR=$(mktemp -d)
+    trap 'rm -rf "$WA_CHUNK_DIR"' EXIT INT TERM
+
+    $PYTHON3 - "$MSG_FILE" "$WA_CHUNK_DIR" "$DAY" << 'PYEOF'
+import sys, os, re
+
+msg_file, chunk_dir, day = sys.argv[1], sys.argv[2], sys.argv[3]
+content = open(msg_file, encoding='utf-8').read()
+MAX_CHUNK = 4000
+
+# 按 "\n---\n" 切分文章块, 第一块是 header "📖 博客精选 (date)"
+blocks = re.split(r'\n---\n', content)
+header_block = blocks[0]
+article_blocks = [b for b in blocks[1:] if b.strip()]
+
+chunks = []
+current = header_block
+for block in article_blocks:
+    candidate = current + "\n---\n" + block
+    if len(candidate) < MAX_CHUNK:
+        current = candidate
+    else:
+        chunks.append(current)
+        current = block
+if current.strip():
+    chunks.append(current)
+
+total_parts = len(chunks)
+for i, chunk in enumerate(chunks):
+    if total_parts > 1:
+        # 给每段加 [i/N] 标识让用户知道是连续的
+        if i == 0:
+            chunk = chunk.replace(f"📖 博客精选 ({day})",
+                                  f"📖 博客精选 [1/{total_parts}] ({day})", 1)
+        else:
+            chunk = f"📖 博客精选 [{i+1}/{total_parts}] ({day}) (续)\n\n" + chunk
+    with open(os.path.join(chunk_dir, f"{i:03d}.txt"), 'w', encoding='utf-8') as f:
+        f.write(chunk)
+PYEOF
+
+    WA_PARTS_TOTAL=$(ls "$WA_CHUNK_DIR"/*.txt 2>/dev/null | wc -l | tr -d ' ')
+    WA_SENT_OK=0
+    for chunk_file in "$WA_CHUNK_DIR"/*.txt; do
+        CHUNK_CONTENT="$(cat "$chunk_file")"
+        if "$OPENCLAW" message send --channel whatsapp --target "$TO" --message "$CHUNK_CONTENT" --json >/dev/null 2>>"$SEND_ERR"; then
+            WA_SENT_OK=$((WA_SENT_OK + 1))
+        fi
+        "$OPENCLAW" message send --channel discord --target "${DISCORD_CH_TECH:-}" --message "$CHUNK_CONTENT" --json >/dev/null 2>&1 || true
+        sleep 1  # 防 WhatsApp 消息乱序 (V37.9.21 契约)
+    done
+    log "已推送 ${TOTAL_NEW} 篇 (多窗口 ${WA_SENT_OK}/${WA_PARTS_TOTAL} 段, 共 $TOTAL_LEN 字)"
+    if [ "$WA_SENT_OK" -gt 0 ]; then
+        WA_SENT=true
+    fi
+fi
+
+if [ "$WA_SENT" = "true" ]; then
     # 标记为已发送
     $PYTHON3 -c "
-import json, sys
+import json
 with open('$ALL_NEW_FILE') as f:
     for line in f:
         line = line.strip()
@@ -401,9 +608,14 @@ with open('$ALL_NEW_FILE') as f:
             d = json.loads(line)
             print(d.get('link', ''))
 " >> "$SEEN_FILE"
-    printf '{"time":"%s","status":"ok","new":%d,"sent":true}\n' "$TS" "$TOTAL_NEW" > "$STATUS_FILE"
+    # status 区分 ok / partial_degraded
+    if [ "$TOTAL_FAILED" -gt 0 ]; then
+        printf '{"time":"%s","status":"partial_degraded","new":%d,"failed":%d,"sent":true}\n' "$TS" "$TOTAL_NEW" "$TOTAL_FAILED" > "$STATUS_FILE"
+    else
+        printf '{"time":"%s","status":"ok","new":%d,"sent":true}\n' "$TS" "$TOTAL_NEW" > "$STATUS_FILE"
+    fi
 else
-    log "ERROR: 推送失败: $(cat "$SEND_ERR" | head -3)"
+    log "ERROR: 推送全失败: $(cat "$SEND_ERR" | head -3)"
     printf '{"time":"%s","status":"send_failed","new":%d,"sent":false}\n' "$TS" "$TOTAL_NEW" > "$STATUS_FILE"
 fi
 
