@@ -8,7 +8,10 @@ import json
 import os
 import subprocess
 import sys
+import threading
 import time
+from collections import defaultdict
+from datetime import datetime
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import urlparse, parse_qs
 
@@ -17,6 +20,22 @@ TOKEN   = os.environ.get("HIAGENT_PLUGIN_KEY", "").strip()
 TIMEOUT = int(os.environ.get("HIAGENT_PLUGIN_TIMEOUT", 30))
 REPO    = os.environ.get("HIAGENT_PLUGIN_REPO_DIR",
                           os.path.expanduser("~/openclaw-model-bridge"))
+
+# ── observability state (D: access log + counter) ───────────────────────────
+_COUNTERS = defaultdict(int)
+_COUNTER_LOCK = threading.Lock()
+_START_TIME = time.time()
+
+
+def _bump_counter(key):
+    with _COUNTER_LOCK:
+        _COUNTERS[key] += 1
+
+
+def _log_access(method, path, status, duration_ms):
+    ts = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+    print(f"[access] {ts} {method} {path} {status} {duration_ms}ms",
+          file=sys.stderr, flush=True)
 
 
 def _run(cmd, stdin_data=None):
@@ -71,6 +90,21 @@ def _parse_last_json(raw_stdout, stderr=""):
 def h_health():
     return 200, {"status": "ok", "service": "hiagent-plugin",
                  "ts": int(time.time()), "port": PORT}
+
+
+def h_metrics():
+    with _COUNTER_LOCK:
+        snap = dict(_COUNTERS)
+    endpoints = {k: v for k, v in snap.items()
+                 if not k.startswith("status_") and k != "__total__"}
+    statuses = {k.removeprefix("status_"): v for k, v in snap.items()
+                if k.startswith("status_")}
+    return 200, {
+        "uptime_sec": int(time.time() - _START_TIME),
+        "total_calls": snap.get("__total__", 0),
+        "calls_by_endpoint": endpoints,
+        "calls_by_status": statuses,
+    }
 
 
 def h_kb_search(q, limit=5):
@@ -159,7 +193,7 @@ def h_dc_execute(path, ops):
 
 class PluginHandler(BaseHTTPRequestHandler):
 
-    def log_message(self, fmt, *args):  # quiet normal access log
+    def log_message(self, fmt, *args):  # quiet stdlib log; we have our own
         pass
 
     def _auth(self):
@@ -168,6 +202,7 @@ class PluginHandler(BaseHTTPRequestHandler):
         return self.headers.get("Authorization", "") == f"Bearer {TOKEN}"
 
     def _send(self, code, obj):
+        self._last_code = code
         body = json.dumps(obj, ensure_ascii=False).encode()
         self.send_response(code)
         self.send_header("Content-Type", "application/json; charset=utf-8")
@@ -187,61 +222,83 @@ class PluginHandler(BaseHTTPRequestHandler):
                 return {}
         return {}
 
-    def do_GET(self):
+    def _record_access(self, method, start_ns):
         path = urlparse(self.path).path
+        code = getattr(self, "_last_code", 0)
+        duration_ms = int((time.time_ns() - start_ns) / 1_000_000)
+        _bump_counter(f"{method} {path}")
+        _bump_counter(f"status_{code}")
+        _bump_counter("__total__")
+        _log_access(method, path, code, duration_ms)
 
-        if path == "/health":
-            code, obj = h_health()
+    def do_GET(self):
+        start_ns = time.time_ns()
+        try:
+            path = urlparse(self.path).path
+
+            if path == "/health":
+                code, obj = h_health()
+                self._send(code, obj)
+                return
+
+            if not self._auth():
+                self._send(401, {"error": "unauthorized"})
+                return
+
+            if path == "/metrics":
+                code, obj = h_metrics()
+                self._send(code, obj)
+                return
+
+            qs = self._qs()
+
+            if path == "/kb/search":
+                q = (qs.get("q") or [""])[0]
+                limit = (qs.get("limit") or ["5"])[0]
+                code, obj = h_kb_search(q, limit)
+
+            elif path == "/memory/query":
+                q = (qs.get("q") or [""])[0]
+                layer = (qs.get("layer") or ["all"])[0]
+                code, obj = h_memory(q, layer)
+
+            elif path == "/mm/search":
+                q = (qs.get("q") or [""])[0]
+                top_k = (qs.get("top_k") or ["5"])[0]
+                code, obj = h_mm_search(q, top_k)
+
+            else:
+                code, obj = 404, {"error": f"unknown path {path}"}
+
             self._send(code, obj)
-            return
-
-        if not self._auth():
-            self._send(401, {"error": "unauthorized"})
-            return
-
-        qs = self._qs()
-
-        if path == "/kb/search":
-            q = (qs.get("q") or [""])[0]
-            limit = (qs.get("limit") or ["5"])[0]
-            code, obj = h_kb_search(q, limit)
-
-        elif path == "/memory/query":
-            q = (qs.get("q") or [""])[0]
-            layer = (qs.get("layer") or ["all"])[0]
-            code, obj = h_memory(q, layer)
-
-        elif path == "/mm/search":
-            q = (qs.get("q") or [""])[0]
-            top_k = (qs.get("top_k") or ["5"])[0]
-            code, obj = h_mm_search(q, top_k)
-
-        else:
-            code, obj = 404, {"error": f"unknown path {path}"}
-
-        self._send(code, obj)
+        finally:
+            self._record_access("GET", start_ns)
 
     def do_POST(self):
-        path = urlparse(self.path).path
+        start_ns = time.time_ns()
+        try:
+            path = urlparse(self.path).path
 
-        if not self._auth():
-            self._send(401, {"error": "unauthorized"})
-            return
+            if not self._auth():
+                self._send(401, {"error": "unauthorized"})
+                return
 
-        body = self._body()
+            body = self._body()
 
-        if path == "/data_clean/profile":
-            code, obj = h_dc_profile(body.get("path", ""),
-                                     body.get("format", "text"))
+            if path == "/data_clean/profile":
+                code, obj = h_dc_profile(body.get("path", ""),
+                                         body.get("format", "text"))
 
-        elif path == "/data_clean/execute":
-            code, obj = h_dc_execute(body.get("path", ""),
-                                     body.get("ops", ""))
+            elif path == "/data_clean/execute":
+                code, obj = h_dc_execute(body.get("path", ""),
+                                         body.get("ops", ""))
 
-        else:
-            code, obj = 404, {"error": f"unknown path {path}"}
+            else:
+                code, obj = 404, {"error": f"unknown path {path}"}
 
-        self._send(code, obj)
+            self._send(code, obj)
+        finally:
+            self._record_access("POST", start_ns)
 
 
 # ── entry point ───────────────────────────────────────────────────────────────
