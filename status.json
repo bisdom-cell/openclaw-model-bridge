@@ -1,6 +1,6 @@
 {
-  "updated": "2026-05-07 04:01:07",
-  "updated_by": "claude_code",
+  "updated": "2026-05-07 04:16:31",
+  "updated_by": "full_regression",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-05-07",
+      "what": "V37.9.34 — V37.9.33 PROMPT 内嵌 ASCII 双引号导致 bash 字符串提前终止 hotfix. 触发: Mac Mini cp run_freight.sh 后立即跑 bash 报 line 222: 本期无显著经济晴雨表信号）... No such file or directory. RSS 抓取成功 15 条但 LLM 调用从未发生. 真根因: V37.9.33 prompt 内 输出\"📊 X\" + 输出\"🏢 X\" 两处 ASCII 双引号被 bash 当成 PROMPT=\"...\" 字符串关闭符 → 后续中文当 shell 命令. V25 原用单引号没此 bug. MR-4 silent-failure 第 25 次演出: 26 单测全过 + bash -n 语法检查过, 但 bash -n 看不到字符串嵌套语义问题, 实际运行才暴露. 修复: line 222/229 输出\\\"X\\\" 反斜杠转义. 2 新单测 TestV37934BashQuoteEscaping (test_no_unescaped_double_quote_after_chu 负向回顾正则守卫 + test_section_empty_signals_use_escape 5 字符上下文检查). 55 suites 不变 / 2019→2021 tests (+2) / 0 fail / 安全 95/100 / VERSION 0.37.9.33 → 0.37.9.34. 元教训: bash 字符串嵌套是运行时语义问题不是语法问题, 用户视角实测 (原则 #13/#15) 第 6 次正向兑现.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-05-07",
       "what": "V37.9.33 — 货代任务深度优化. 用户论点: 全球发货是经济 1-3 个月领先指标, 比咨询机构事后判断更可靠. 不新增 cron 直接深化 freight_watcher: SOURCES 19→27 (+12 Tier 1/2 权威源 via Google News RSS 精确搜索: SCFI/CCFI/Drewry WCI/FBX 运价 + BDI 散货 + TAC 空运 + MAERSK/CMA/COSCO 班轮动态 + LA/Long Beach/Shanghai/Ningbo/Rotterdam 港口 + China exports/US imports 海关数据), 关键词集 +4 (INDEX_KW/CARRIER_KW/PORT_KW/CUSTOMS_KW 中英双语), 抓取上限 10→15 防 Tier 3 挤占, LLM prompt 升级三层结构化 (📊 经济晴雨表 用 指数: / 🏢 运营信号 用 动作: / 🚢 商机条目 保留 V25 企业信号: 格式), MSG_FILE section-aware 切块 + ImportYeti 仅 🚢 段触发, 末尾追加 15 条原始权威链接 footer. 26 新单测 6 类含 Step 8 backward compat 守卫 (simulated 3-section input 仅提取 🚢 企业, 📊 SCFI 数字 + 🏢 MAERSK 公司名都被过滤). 55 suites (+1) / 1993→2019 tests (+26) / 0 fail / 安全 95/100 / VERSION 0.37.9.32 → 0.37.9.33. 元价值: 不增加 cron 数量但 freight 产出价值翻倍 (单层商机 → 三层结构化分析), 原则 #18 补证据而非补功能兑现.",
       "by": "claude_code"
     },
@@ -194,11 +199,6 @@
       "date": "2026-05-04",
       "what": "V37.9.24 立场文章三渠道发布完成 (Stage 2 第 5 篇资产话语权输出兑现): 知乎中文版 (你的控制平面是收敛引擎，不只是策略引擎) + dev.to 英文版 (Why Your Control Plane Is a Convergence Engine, Not a Policy Engine) + Reddit 投递. 三件套并行收官: (B) framework 演进可扩展性证据 (C) V37.9.22 hotfix 教训横向加固 (A) framework 演进升级为对外可复述叙事. 累计 Stage 2 资产 5 篇 (why_control_plane / why_control_plane_zh / audit_is_regression_not_prevention / seven_failure_scenarios / why_control_plane_is_convergence_engine + en). V3 路标 pip install ontology-engine 终极目标的话语权层素材已完整沉淀.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-05-04",
-      "what": "V37.9.24: kb_sources_to_index machine_sync 升级 (named-dispatch refactor + Plan B 渐进 dry-run) + openclaw_config_to_runtime mock 化加固 + 立场文章 Why Control Plane = Convergence Engine. 三件套并行: (B) named-dispatch 重构 _apply_machine_sync 为顶层 dispatcher, _APPLY_FUNCTIONS dict 路由 jobs_to_crontab_per_entry / kb_embed_incremental, kb_sources_to_index drift_action alert_only → machine_sync (one-shot pattern: 单次 kb_embed.py incremental subprocess 覆盖所有 missing sources, 与 jobs_to_crontab 的 per-entry pattern 不同). (C) TestOpenclawConfigToRuntimeMockRuntime 6 单测: mock ~/.openclaw/openclaw.json + monkey-patch HOME + 真跑 verify_convergence (V37.9.22 hotfix 教训横向扩展). (A) docs/articles/why_control_plane_is_convergence_engine.md 304 行立场文章: 2 错觉 + V37.9.19~24 工程证据 + drift_action 4 档洞察 + OPA/Kyverno 对比 + V3 路标 pip install ontology-engine + 5 条可落地原则. 反向验证: yaml apply_function 改坏 → 立即抓; spec yaml json_paths 改坏 → 立即抓. 累计: 48 suites / 1712→1739 tests (+27, V37.9.24 6+7+4+8+2=27 单测) / 0 fail / governance 66 inv / 380→387 checks (+7) / 17 meta rules / 安全 95/100 / VERSION 0.37.9.23→0.37.9.24. machine_sync spec 数 1→2.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -264,14 +264,14 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 2019,
-    "last_regression": "2026-05-07 03:59 pass",
+    "test_count": 2021,
+    "last_regression": "2026-05-07 04:16 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-05-07 03:59",
+    "security_score_time": "2026-05-07 04:16",
     "test_suites": 55,
     "governance_invariants": "64/64",
     "governance_checks": "350/350",
-    "version": "0.37.9.32"
+    "version": "0.37.9.34"
   },
   "incidents": [
     {
@@ -335,7 +335,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.33 收工 — 货代任务深度优化: Tier 1/2 权威源扩展 +12 (SCFI/BDI/FBX/WCI/TAC 运价指数 + MAERSK/CMA/COSCO 班轮 + LA/Shanghai 港口 + China/US 海关) + LLM 三层深度分析 (经济晴雨表 + 运营信号 + 商机条目). 用户论点: 货代是经济 1-3 个月领先指标, 比咨询机构事后判断更可靠. 不新增 cron, 直接深化现有 job. 55 suites / 2019 tests / 0 fail / VERSION 0.37.9.33. 下一硬卡: Mac Mini cp run_freight.sh 后明日 8:00 cron 实测三层输出.",
+  "focus": "V37.9.34 收工 — V37.9.33 PROMPT 内嵌 ASCII 双引号 hotfix (Mac Mini 实测立即发现, MR-4 第 25 次演出 — bash -n 静态检查盲区). line 222/229 改用反斜杠转义双引号. 2 source-level 守卫单测防回退. 55 suites / 2021 tests / 0 fail / VERSION 0.37.9.34. 用户视角原则 #13 第 6 次正向兑现.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
