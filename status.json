@@ -1,5 +1,5 @@
 {
-  "updated": "2026-05-07 01:03:21",
+  "updated": "2026-05-07 01:41:24",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-05-07",
+      "what": "V37.9.31 — V37.9.27 rsync_helper 回归修复 + 货代 schema 完整 + ImportYeti 反爬升级. 真根因: V37.9.27 movespeed_rsync_helper.sh line 116 exit \"$EXIT_CODE\" 透传 rsync 失败码 + run_freight.sh set -eo pipefail → V37.9.30 EPERM 100% 持平后每次都杀 20 set -e caller mid-script (MR-4 第 24 次演出: 修复引入更深 silent failure). 5 fix: F1 helper line 116 exit 0 + 详细注释 + V37.9.4-V37.9.26 invariant 恢复, F2 run_freight.sh 4 exit path 都写 deep_dive (skipped_no_news/skipped_llm_failed/skipped_parse_low/pending), F3 preflight 容忍新 status (skipped_no_news pass / pending warn含 V37.9.31 上下文 / missing 升 fail), F4 importyeti_scraper.py 反爬升级 (4 modern Chrome UA 跨 macOS+Windows 轮换 + 5 真实 viewport + sec-ch-ua/sec-fetch-* + Cloudflare 检测纯函数 + backoff [30,60,120]s + delay 5-12s + playwright-stealth 50+ patches 自动 fallback manual STEALTH_JS), F5 53 新单测 (test_freight_schema_v9_31 13 + test_importyeti_scraper_anti_crawl 39 + helper test 1 set -e caller subprocess 真验证). governance INV-RETRY-001 扩展 V37.9.31 fail-open contract 叙事 + 2 新 declaration check. 54 suites (+2) / 1937→1990 tests (+53) / 0 fail / 506 checks (+2) / 安全 95/100 / VERSION 0.37.9.30 → 0.37.9.31. 用户确认反爬方案 = playwright-stealth (Mac Mini 需 pip3 install). 下一硬卡: 明日 8:00 freight cron 真跑验证 deep_dive=ok 全链路闭环 + V37.9.30 24-48h ACL/lsof/snapshot 数据回归.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-05-07",
       "what": "V37.9.30 — V37.9.29 24h 验证窗口数据出: 21 incidents (>15 R1 阈值) / 19/21 ownership=501:20 chown 真生效 / EPERM 100% 持平 V37.9.28 → V37.9.29 假说部分证伪 (UID 错位是真 bug 但非 EPERM 根因). 用户决策 Path C (不回滚, 进入新诊断). incident_capture.sh 加 4 新字段 (acl_top/acl_kb/lsof/snapshots), incident_analyzer.py 加 3 个分类纯函数 + 3 个新维度 + 3 个新决策提示分支 (ACL deny → chmod -RN / daemon dominated ≥3 → path B 调度避峰 / snap_6_plus → tmutil deletelocalsnapshots). 35 新单测 5 类 (TestV37930ClassifyAclAnomaly 7 + TestV37930ClassifyHandleHolders 6 + TestV37930ClassifySnapshotCount 6 + TestV37930ForensicAnalysisIntegration 10 + TestV37930CaptureScriptIntegrity 6) 镜像 V37.9.29 b 模式. backward compat 保留 (旧记录无新字段 → empty 桶). 52 suites / 1902→1937 tests (+35) / 0 fail / governance 69 inv 不变 (候选 INV-FORENSIC-001 待 24-48h 真实数据后再立) / 安全 95/100 / VERSION 0.37.9.29 → 0.37.9.30. MR-4 silent-failure 第 23 次演出新形态 (修复成功+验证生效+但目标问题没改善). 数据驱动诊断方法论加固第 6 步 (V37.9.14 取证 → V37.9.26 主动告警 → V37.9.27 主动修复 → V37.9.28 数据驱动诊断工具 → V37.9.29 ownership 维度 → V37.9.30 ACL/handle/snapshot 维度).",
       "by": "claude_code"
     },
@@ -194,11 +199,6 @@
       "date": "2026-04-29",
       "what": "V37.9.22 hotfix 9d60dd3 — kb_sources_to_index spec yaml 字段名 source_file → file. Mac Mini 第一次 production 实测 framework 暴露字段名假设 bug — meta.json 实际字段是 file 不是 source_file. dev 1664 tests + 372 governance checks + preflight 81/0/3 全过但生产实测才暴露 (原则 #15 第三层 WhatsApp 业务验证教训延续 V37.8.4). 一行字面值修复 + 文档同步, 142 tests + 372 checks 仍全过. V37.9.23 加固候选: spec 单测 mock 一个 meta.json 跑 spec 实际 command 验证字段读取正确(覆盖 observer command 这个语义层而不只是 extractor 逻辑层).",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-04-29",
-      "what": "V37.9.22 双小迭代收工 — (1) #6 kb_deep_dive.sh wa_parts 字段缺失 stderr WARN: V37.9.21 部署不一致期 silent fail 教训(MR-4 第 17 次新形态 — 跨文件部署窗口)闭合, heredoc 内 in 检测 wa_parts not in data → stderr WARN(file=sys.stderr 避免 $(...) 命令替换捕获污染), 不影响 fallback 行为只加可观测性, 6 新单测(1 source-level guard + 1 marker + 4 behavior-level subprocess heredoc 真跑验证 stdout 不污染) (2) #2 第三个 convergence spec openclaw_config_to_runtime: V37.9.20 named-dispatch 第二次扩展验证(framework 真扩展性持久非一次性巧合), 新增 _extract_json_file_paths extractor 通用 JSON config 文件读取 + path-syntax 提取, 抽出 _walk_json_paths_to_set 共用 helper 让 V37.9.20 _parse_json_set_union 改用之(MR-8 单一真理源正向兑现 — extractor declared side + parser observed side 走同一 path-syntax impl), spec yaml 默认观察 openclaw.json version 顶层字段(V37.9.20 path 语法只支持 field/field[], 嵌套 V37.9.23+ 扩展), drift_action=alert_only_permanent(operator 决策不能 machine 自动同步), FAIL-OPEN on missing file(dev 环境无 openclaw.json 返回 set() 不报警), file 损坏时 raise RuntimeError 区分缺失 vs 损坏. INV-CONVERGENCE-OPENCLAW-001 加入(meta_rule=MR-17, severity=high, declaration+runtime, 13 checks: 5 dispatch + 7 yaml structural + 1 runtime python_assert subprocess 跑 V37.9.22 4 测试类). 33 新单测 4 类 (TestWalkJsonPathsToSet 12 含 helper 边界 + TestExtractJsonFilePaths 9 含 ~/$HOME 展开 + 相对路径解析 + TestVerifyOpenclawConfigToRuntimeIntegration 5 含真 spec dev 不崩溃 + TestOpenclawSpecSourceGuards 12 含 yaml/code 守卫). MR-17 derivative_invariants 升级 [INV-CONVERGENCE-CRON-001, INV-CONVERGENCE-PROVIDERS-001] → [..., INV-CONVERGENCE-OPENCLAW-001]. 累计 47→48 suites / 1600→1644 tests (+44, V37.9.22 +6 + +38) / 0 fail / governance v3.34→v3.35 / 63→64 invariants (+1) / 337→350 checks (+13) / 17 meta rules / 安全 95/100 / VERSION 0.37.9.21 → 0.37.9.22. 同时 OpenClaw 升级评估三次评估完成(早上做): 用户授权 WebFetch 实证查 #59265 已 closed at 4/25 但 NO PR / NO release notes mention(closed 状态变化但实质未修复) + 发现 v2026.4.26 新硬阻塞 #73358 (silent OpenAI codex/gpt-5.5 default 升级即业务中断) → 引入 Tripwire 决策框架(6 条触发器: 时间180天/版本差距50个/EOL/WhatsApp破坏性/CVE人工/业务痛点) 替代被动评估模式, check_upgrade.sh 重写 88→248 行 dev环境降级支持. 元价值: V37.9.22 是 V37.9.20 framework extensibility 第二次实测验证(继 V37.9.20 第一次), proves named-dispatch 不是空头承诺 — 添加新 spec 类型只需 yaml 声明 + 注册新函数零 framework 改动, V3 路标 pip install ontology-engine 终极目标硬证据持续累积.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -264,14 +264,14 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 1937,
-    "last_regression": "2026-05-07 01:01 pass",
+    "test_count": 1990,
+    "last_regression": "2026-05-07 01:39 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-05-07 01:01",
-    "test_suites": 52,
+    "security_score_time": "2026-05-07 01:39",
+    "test_suites": 54,
     "governance_invariants": "64/64",
     "governance_checks": "350/350",
-    "version": "0.37.9.29"
+    "version": "0.37.9.30"
   },
   "incidents": [
     {
@@ -335,7 +335,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.30 收工 — V37.9.29 假说部分证伪后扩展 incident_capture 第 9-11 维度 (ACL/xattr + lsof handles + TM snapshots) + 35 新单测 + 3 新决策提示分支 (ACL deny/daemon dominated/snapshot accumulated). 52 suites / 1937 tests / 0 fail / VERSION 0.37.9.30. 下一硬卡: 24-48h 后让 V37.9.30 新维度数据告诉我们 ACL deny vs daemon contention vs snapshot 谁是 EPERM 真根因, 不再凭推测改代码.",
+  "focus": "V37.9.31 收工 — V37.9.27 rsync_helper 回归修复 (fail-open exit 0) + 货代 last_run.json schema 完整 + ImportYeti 反爬升级 (playwright-stealth + multi-UA + Cloudflare backoff). 真根因: rsync_helper exit 非 0 + set -e 杀 20 caller mid-script (MR-4 第 24 次演出: 修复引入更深 silent failure). 54 suites / 1990 tests (+53) / 0 fail / VERSION 0.37.9.31. 下一硬卡: Mac Mini pip3 install playwright-stealth + 明日 8:00 freight cron 验证 last_run.json 含 deep_dive=ok 全链路真闭环.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",

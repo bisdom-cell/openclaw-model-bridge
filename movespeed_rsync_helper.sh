@@ -25,9 +25,21 @@
 #   MOVESPEED_RSYNC_BACKOFF_BASE=N override base backoff seconds (default 10)
 #
 # Exit codes:
-#   0    rsync succeeded (possibly after retry)
+#   0    rsync succeeded (possibly after retry) OR all retries failed
+#        (V37.9.31: fail-open — see "set -e contract" below)
 #   2    usage error (missing args / no -- separator)
-#   N    rsync's exit code if all retries failed
+#
+# set -e contract (V37.9.31 — restored V37.9.4-V37.9.26 invariant):
+#   Helper ALWAYS exits 0 even when rsync fails. fail-loud is achieved via:
+#     (1) "WARN: SSD ..." line on stderr (V37.9.4 INV-BACKUP-001 contract)
+#     (2) JSONL forensic record via movespeed_incident_capture.sh
+#     (3) V37.9.26 watchdog 24h ≥5 alert chain
+#   Reason: 20 callers use `set -eo pipefail`; if helper exited non-zero on
+#   rsync failure, set -e would kill the caller mid-script. V37.9.27 introduced
+#   this regression by passthrough exit code; V37.9.30 EPERM 100% data showed
+#   ~20 callers daily losing post-rsync logic silently (freight_watcher Step
+#   8-10 / kb_dream Reduce / etc.). Fail-open preserves caller liveness while
+#   keeping all observability paths intact.
 #
 # Output:
 #   stdout: rsync's normal output (transparent passthrough)
@@ -113,4 +125,13 @@ elif [ -f "$CAPTURE_HELPER" ]; then
     bash "$CAPTURE_HELPER" "$EXIT_CODE" "$CALLER" || true
 fi
 
-exit "$EXIT_CODE"
+# V37.9.31: fail-open exit 0 — preserves caller's set -e liveness.
+# rsync failure is communicated via:
+#   - stderr "WARN: SSD ..." line (still printed above for INV-BACKUP-001)
+#   - JSONL forensic record (capture helper above)
+#   - V37.9.26 watchdog 24h ≥5 alert chain
+# DO NOT exit non-zero here: 20 callers use `set -eo pipefail` and a non-zero
+# exit kills them mid-script (V37.9.27 regression confirmed on 5/7 freight
+# Step 8-10 silent loss when EPERM hit 100%). Restore V37.9.4-V37.9.26
+# invariant where `rsync ... 2>&1 || echo WARN` always returned 0 to caller.
+exit 0

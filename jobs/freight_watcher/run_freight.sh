@@ -143,7 +143,11 @@ fi
 NEW_COUNT="$(wc -l < "$NEW_FILE" | tr -d ' ')"
 if [ "$NEW_COUNT" -eq 0 ]; then
     log "暂无新商机，本轮跳过。"
-    printf '{"time":"%s","status":"ok","new":0}\n' "$TS" > "$STATUS_FILE"
+    # V37.9.31: deep_dive=skipped_no_news so preflight knows this is legitimate
+    # (NEW_COUNT=0 means no triggers for high-star extraction → step 9 skipped
+    # by design, not a fault). Without this field, preflight reports "missing
+    # — 旧版本脚本？" false alarm.
+    printf '{"time":"%s","status":"ok","new":0,"deep_dive":"skipped_no_news"}\n' "$TS" > "$STATUS_FILE"
     exit 0
 fi
 
@@ -208,6 +212,8 @@ if [ -z "${LLM_OUT// }" ]; then
     echo "$ERR_MSG"
     "$OPENCLAW" message send --channel whatsapp --target "$TO" --message "$ERR_MSG" --json >/dev/null 2>&1 || true
     "$OPENCLAW" message send --channel discord --target "${DISCORD_CH_ALERTS:-}" --message "$ERR_MSG" --json >/dev/null 2>&1 || true
+    # V37.9.31: deep_dive=skipped_llm_failed so preflight reports legitimate skip
+    printf '{"time":"%s","status":"llm_failed","new":%d,"deep_dive":"skipped_llm_failed"}\n' "$TS" "$NEW_COUNT" > "$STATUS_FILE"
     exit 1
 fi
 
@@ -218,6 +224,8 @@ if [ "$PARSE_OK" -lt $(( NEW_COUNT / 2 )) ] && [ "$NEW_COUNT" -gt 2 ]; then
     echo "$WARN_MSG"
     "$OPENCLAW" message send --channel whatsapp --target "$TO" --message "$WARN_MSG" --json >/dev/null 2>&1 || true
     "$OPENCLAW" message send --channel discord --target "${DISCORD_CH_ALERTS:-}" --message "$WARN_MSG" --json >/dev/null 2>&1 || true
+    # V37.9.31: deep_dive=skipped_parse_low so preflight reports legitimate skip
+    printf '{"time":"%s","status":"parse_low","new":%d,"parse_ok":%d,"deep_dive":"skipped_parse_low"}\n' "$TS" "$NEW_COUNT" "$PARSE_OK" > "$STATUS_FILE"
     exit 2
 fi
 
@@ -294,10 +302,16 @@ SEND_ERR=$(mktemp)
 if "$OPENCLAW" message send --channel whatsapp --target "$TO" --message "$(cat "$MSG_FILE")" --json >/dev/null 2>"$SEND_ERR"; then
     log "已推送 ${NEW_COUNT} 条商机（${DAY}）"
     "$OPENCLAW" message send --channel discord --target "${DISCORD_CH_FREIGHT:-}" --message "$(cat "$MSG_FILE")" --json >/dev/null 2>&1 || true
-    printf '{"time":"%s","status":"ok","new":%d,"sent":true}\n' "$TS" "$NEW_COUNT" > "$STATUS_FILE"
+    # V37.9.31: deep_dive=pending here. Step 9 will overwrite with ok/no_data/skipped
+    # if it runs. If Step 7/8 exits early (set -e + rsync fail pre-V37.9.31, or
+    # other future failure modes), pending is the honest answer that preflight
+    # can flag as "Step 9 unreached" rather than the bogus "missing — 旧版本脚本？".
+    printf '{"time":"%s","status":"ok","new":%d,"sent":true,"deep_dive":"pending"}\n' "$TS" "$NEW_COUNT" > "$STATUS_FILE"
 else
     log "ERROR: 推送失败（${NEW_COUNT} 条待发）: $(cat "$SEND_ERR" | head -3)"
-    printf '{"time":"%s","status":"send_failed","new":%d,"sent":false}\n' "$TS" "$NEW_COUNT" > "$STATUS_FILE"
+    # V37.9.31: send_failed = WhatsApp delivery failed but data is ready.
+    # deep_dive remains pending because Step 9 might still run if set -e doesn't kill.
+    printf '{"time":"%s","status":"send_failed","new":%d,"sent":false,"deep_dive":"pending"}\n' "$TS" "$NEW_COUNT" > "$STATUS_FILE"
 fi
 
 # ── 6. KB归档 ───────────────────────────────────────────────────────────

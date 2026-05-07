@@ -121,7 +121,9 @@ class TestEnvOverrides(unittest.TestCase):
             },
             args=["/test/caller.sh", "--", "-a", "/src/", "/dst/"],
         )
-        self.assertEqual(rc, 1)
+        # V37.9.31: helper exits 0 on all-retry-fail (fail-open contract)
+        self.assertEqual(rc, 0,
+                         "V37.9.31: helper exits 0 on rsync fail (was rsync exit code)")
         attempts = int(count_file.read_text().strip())
         self.assertEqual(attempts, 1, "NO_RETRY=1 should run rsync exactly once")
 
@@ -275,7 +277,13 @@ class TestRsyncRetryRecovers(unittest.TestCase):
 
 
 class TestRsyncAllRetriesFail(unittest.TestCase):
-    """All attempts fail → fail-loud WARN: SSD + exit non-zero."""
+    """All attempts fail → fail-loud WARN: SSD + V37.9.31 fail-open exit 0.
+
+    V37.9.31: helper now exits 0 on all-retry-fail to preserve caller's
+    `set -e` liveness. Fail-loud WARN + capture remain intact. This restores
+    the V37.9.4-V37.9.26 invariant where `rsync ... 2>&1 || echo WARN`
+    always returned 0 to caller.
+    """
 
     def setUp(self):
         self._td = tempfile.mkdtemp(prefix="rsync_helper_fail_")
@@ -283,7 +291,8 @@ class TestRsyncAllRetriesFail(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self._td, ignore_errors=True)
 
-    def test_all_fail_emits_warn_ssd_and_exits_nonzero(self):
+    def test_all_fail_emits_warn_ssd_and_exits_zero_v37_9_31(self):
+        """V37.9.31: helper exits 0 (was rsync exit code) — caller's set -e safe."""
         path = _make_fake_rsync(self._td, 'echo "always fail"; exit 23')
         rc, _, err = _run_helper(
             env_extra={
@@ -293,10 +302,53 @@ class TestRsyncAllRetriesFail(unittest.TestCase):
             },
             args=["/test/caller.sh", "--", "-a", "/src/", "/dst/"],
         )
-        self.assertEqual(rc, 23, "Exit code should propagate from rsync")
-        self.assertIn("WARN: SSD", err)
+        self.assertEqual(
+            rc, 0,
+            "V37.9.31: helper MUST exit 0 even when rsync fails (fail-open). "
+            "If non-zero, callers with `set -e` (20 sites) will be killed "
+            "mid-script — that's the V37.9.27 regression fixed in V37.9.31.",
+        )
+        # Fail-loud signals MUST still be present — observability unchanged
+        self.assertIn("WARN: SSD", err, "INV-BACKUP-001 WARN string contract")
         self.assertIn("after 3 retries", err)
-        self.assertIn("exit=23", err)
+        self.assertIn("exit=23", err, "rsync exit code reported in WARN message")
+
+    def test_caller_with_set_e_survives_rsync_failure_v37_9_31(self):
+        """V37.9.31: simulate `set -e` caller; helper must NOT kill it."""
+        path = _make_fake_rsync(self._td, 'echo "always fail"; exit 12')
+        # Build a minimal caller that uses set -e and expects to continue
+        caller_script = Path(self._td) / "caller.sh"
+        caller_script.write_text(textwrap.dedent("""\
+            #!/usr/bin/env bash
+            set -eo pipefail
+            bash {helper} "$0" -- -a /src/ /dst/
+            # If we reach here, set -e didn't kill us — V37.9.31 contract holds
+            echo "POST_RSYNC_REACHED"
+            exit 99
+        """).format(helper=str(HELPER)), encoding="utf-8")
+        caller_script.chmod(0o755)
+        proc = subprocess.run(
+            ["bash", str(caller_script)],
+            capture_output=True,
+            text=True,
+            env={
+                **os.environ,
+                "PATH": path,
+                "MOVESPEED_RSYNC_NO_SLEEP": "1",
+                "MOVESPEED_RSYNC_BACKOFF_BASE": "0",
+            },
+            timeout=30,
+        )
+        self.assertIn(
+            "POST_RSYNC_REACHED",
+            proc.stdout,
+            "V37.9.31 fail-open: caller's set -e MUST NOT kill it on rsync fail. "
+            "If POST_RSYNC_REACHED missing, V37.9.27 regression has returned.",
+        )
+        self.assertEqual(
+            proc.returncode, 99,
+            "Caller's own exit code (99) propagates, not rsync's (12)",
+        )
 
 
 class TestCaptureHelperWired(unittest.TestCase):
@@ -351,7 +403,11 @@ class TestCaptureHelperWired(unittest.TestCase):
              "/some/caller.sh", "--", "-a", "/src/", "/dst/"],
             capture_output=True, text=True, env=env, timeout=15,
         )
-        self.assertNotEqual(proc.returncode, 0)
+        # V37.9.31: helper now exits 0 (fail-open) — capture helper still invoked
+        self.assertEqual(
+            proc.returncode, 0,
+            "V37.9.31: helper exits 0 fail-open (was non-zero); capture still runs",
+        )
         self.assertTrue(marker.exists(),
             f"Capture helper should be invoked on final failure. stderr={proc.stderr}")
         marker_content = marker.read_text()

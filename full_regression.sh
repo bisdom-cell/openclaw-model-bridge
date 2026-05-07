@@ -75,7 +75,13 @@ if [ -f test_movespeed_incident_monitor.py ]; then
     run_suite "movespeed_incident_monitor (V37.9.26 watchdog 24h ≥5 incident 主动告警 + INV-INCIDENT-001)" "python3 test_movespeed_incident_monitor.py"
 fi
 if [ -f test_movespeed_rsync_helper.py ]; then
-    run_suite "movespeed_rsync_helper (V37.9.27 jitter+retry+fail-loud+capture wrapper + INV-RETRY-001)" "python3 test_movespeed_rsync_helper.py"
+    run_suite "movespeed_rsync_helper (V37.9.27 jitter+retry+fail-loud+capture wrapper + V37.9.31 fail-open contract + INV-RETRY-001)" "python3 test_movespeed_rsync_helper.py"
+fi
+if [ -f test_freight_schema_v9_31.py ]; then
+    run_suite "freight_schema (V37.9.31 — last_run.json deep_dive 字段 schema 完整性 + preflight 容忍新 status)" "python3 test_freight_schema_v9_31.py"
+fi
+if [ -f test_importyeti_scraper_anti_crawl.py ]; then
+    run_suite "importyeti_scraper (V37.9.31 — playwright-stealth + multi-UA + Cloudflare backoff)" "python3 test_importyeti_scraper_anti_crawl.py"
 fi
 if [ -f test_movespeed_incident_analyzer.py ]; then
     run_suite "movespeed_incident_analyzer (V37.9.28 F2 — 数据驱动诊断分析工具)" "python3 test_movespeed_incident_analyzer.py"
