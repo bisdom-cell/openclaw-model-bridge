@@ -5,20 +5,23 @@
 ## 概览
 
 - 候选脚本总数：21
-- ✅ 已对齐：5（V37.5 / V37.8.10 / V37.9.16 / V37.9.36-37）
-- ❌ 未对齐：16（含占位符或缺 fail-fast 标志）
+- ✅ 已对齐：8（V37.5 / V37.8.10 / V37.9.16 / V37.9.36-37）
+- ❌ 未对齐：13（含占位符或缺 fail-fast 标志）
 - ⚠️ 缺失文件：0
-- 📌 占位符 finding 总数：12
+- 📌 占位符 finding 总数：10
 
 ## ✅ 已对齐脚本（视为合规）
 
 | 脚本 | 对齐版本 | 占位符数 | SYSTEM_ALERT | send_alert | status:failed | exit 1 |
 |---|---|---|---|---|---|---|
 | `./jobs/semantic_scholar/run_semantic_scholar.sh` | V37.9.39 | 0 | ✓ | ✓ | ✓ | ✗ |
+| `./jobs/dblp/run_dblp.sh` | V37.9.40 | 0 | ✓ | ✓ | ✓ | ✗ |
 | `./jobs/rss_blogs/run_rss_blogs.sh` | V37.9.36-37 | 0 | ✓ | ✓ | ✓ | ✗ |
+| `./jobs/ai_leaders_x/run_ai_leaders_x.sh` | V37.9.40 | 0 | ✓ | ✓ | ✓ | ✗ |
 | `./kb_evening.sh` | V37.8.10 | 0 | ✓ | ✓ | ✗ | ✗ |
 | `./kb_review.sh` | V37.5 | 0 | ✓ | ✓ | ✗ | ✗ |
 | `./kb_deep_dive.sh` | V37.9.16 | 0 | ✓ | ✓ | ✗ | ✓ |
+| `./run_hn_fixed.sh` | V37.9.41 | 0 | ✓ | ✓ | ✓ | ✗ |
 
 ## ❌ 未对齐脚本（V37.9.38+ 修复目标）
 
@@ -31,10 +34,7 @@
 | `./jobs/openclaw_official/run.sh` | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | 1 | 1/6 |
 | `./jobs/openclaw_official/run_discussions.sh` | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | 1 | 1/6 |
 | `./jobs/acl_anthology/run_acl_anthology.sh` | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | 1 | 0/6 |
-| `./jobs/ai_leaders_x/run_ai_leaders_x.sh` | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | 1 | 0/6 |
-| `./jobs/dblp/run_dblp.sh` | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | 1 | 0/6 |
 | `./jobs/karpathy_x/run_karpathy_x.sh` | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | 1 | 0/6 |
-| `./run_hn_fixed.sh` | ✓ | ✓ | ✗ | ✗ | ✓ | ✗ | 0 | 3/6 |
 | `./jobs/finance_news/run_finance_news.sh` | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | 0 | 2/6 |
 | `./jobs/freight_watcher/run_freight.sh` | ✓ | ✗ | ✗ | ✗ | ✓ | ✗ | 0 | 2/6 |
 | `./kb_dream.sh` | ✓ | ✗ | ✗ | ✗ | ✓ | ✗ | 0 | 2/6 |
@@ -63,20 +63,10 @@
 - **L362** 命中 `价值：⭐⭐⭐`
   - 上下文: `[quoted_inline_dq] stars = "价值：⭐⭐⭐"`
 
-### `./jobs/dblp/run_dblp.sh`
-
-- **L358** 命中 `价值：⭐⭐⭐`
-  - 上下文: `[quoted_inline_dq] stars = "价值：⭐⭐⭐"`
-
 ### `./jobs/acl_anthology/run_acl_anthology.sh`
 
 - **L341** 命中 `价值：⭐⭐⭐`
   - 上下文: `[quoted_inline_dq] stars = "价值：⭐⭐⭐"`
-
-### `./jobs/ai_leaders_x/run_ai_leaders_x.sh`
-
-- **L352** 命中 `价值：⭐⭐⭐`
-  - 上下文: `[quoted_inline_dq] msg_lines.append("价值：⭐⭐⭐")`
 
 ### `./jobs/karpathy_x/run_karpathy_x.sh`
 
@@ -105,14 +95,11 @@
 
 **P2 — 单 finding**：
 - `./jobs/acl_anthology/run_acl_anthology.sh` — score 0/6
-- `./jobs/ai_leaders_x/run_ai_leaders_x.sh` — score 0/6
-- `./jobs/dblp/run_dblp.sh` — score 0/6
 - `./jobs/karpathy_x/run_karpathy_x.sh` — score 0/6
 - `./jobs/openclaw_official/run.sh` — score 1/6
 - `./jobs/openclaw_official/run_discussions.sh` — score 1/6
 
 **P3 — 无占位符 finding 但缺 fail-fast 标志（潜在静默风险）**：
-- `./run_hn_fixed.sh` — score 3/6
 - `./jobs/freight_watcher/run_freight.sh` — score 2/6
 - `./jobs/finance_news/run_finance_news.sh` — score 2/6
 - `./kb_dream.sh` — score 2/6

@@ -1,5 +1,5 @@
 {
-  "updated": "2026-05-08 05:02:59",
+  "updated": "2026-05-08 13:30:55",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-05-08",
+      "what": "V37.9.41 — HN 5 字段深度迁移 (V37.9.40 同款扩展). 用户视角原则 #13 第 12 次. HN 老 V38 batch + 4 字段 + stars=⭐⭐⭐ silent fallback. 迁移 (385→578 行 +50%): NOTIFY_SH + send_alert helper / 替换 line 131-298 Python heredoc 为 call_llm_single_with_retry + per-item 5 字段 prompt + 基于标题与摘要推断 caveat (HN 摘要常缺失同 DBLP) / parse_5field_output emit + LLM_DEGRADED 用 desc 兜底 + 多窗口. 21 单测 3 类. ALIGNED_SCRIPTS 7→8. governance INV-QUOTA-001 老 LLM_FAILED pattern 升级为 V37.9.36 三层 regex. test_tool_proxy V37.4.3 历史 test 放宽兼容 V37.9.41 helper 字面量. 61 suites / 2171→2192 tests (+21) / 0 fail / 551→552 checks / 安全 95/100 / VERSION 0.37.9.40→0.37.9.41",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-05-08",
       "what": "V37.9.40 — DBLP + AI Leaders X 双脚本批次 5 字段深度迁移. 镜像 V37.9.36-37/V37.9.39 完整模式: source notify.sh + send_alert + LLM 三层检测 + per-item retry 5/10/20s × 3 + 5 字段 emoji + key-based parser + LLM_DEGRADED + 多窗口切片. DBLP 适配无 abstract: prompt 加 基于标题推断 caveat + LLM_DEGRADED 用 标题+venue 元数据兜底. AI Leaders X 适配 tweet: 📌中文主题(≤15字) + 🔑核心观点 + 💡技术深度解读 + 🎯系统启示 + ⭐评级 + LLM_DEGRADED 用推文原文兜底. 17 新单测 3 类 (TestDblpV9_40Guards/TestAiLeadersV9_40Guards/TestV9_40InAuditAlignedScripts). ALIGNED_SCRIPTS 5→7. audit 12→10 findings. 用户视角原则 #13 第 11 次正向兑现 + 24h 内 V37.9.38(audit)→V37.9.39(S2)→V37.9.40(DBLP+AI Leaders X) 三阶段连环兑现 framework 驱动器价值. 60 suites / 2154→2171 tests / 0 fail / 550→551 checks / 安全 95/100 / VERSION 0.37.9.39→0.37.9.40",
       "by": "claude_code"
     },
@@ -193,11 +198,6 @@
     {
       "date": "2026-05-05",
       "what": "V37.9.28 F2 收尾 — 数据驱动诊断揭示真相后犯 4 次诊断错误的元教训登记. 真相: 23/23 incidents in 24h 是 EPERM (exit=1), Volume mounted (df+当前 ls 证实) 但 incident 时 ls 显示 total 0 + touch 返回 EPERM. 4 次诊断错误链: (1) 假设 EOF (错, 实是 EPERM) (2) 假设 Volume Unmounted (错, 实 mounted but state 异常) (3) 假设 Spotlight+TM 锁是充分原因 (部分对但不充分) (4) mount 字段 0/233 误读为 unmount evidence (实是 incident_capture read_file 400 字符截断 bug). 已执行 macOS 修复: sudo mdutil -i off /Volumes/MOVESPEED + tmutil addexclusion /Volumes/MOVESPEED (Spotlight + Time Machine 排除). 等 5/6 24h 数据看效果. 登记 3 个 V37.9.29+ 候选: (a) incident_capture 截断 bug 修复 (b) analyzer 失败模式细分类 (c) 修复效果观察决策点. 元教训: 按原则 #28 修复前必答三问的纪律必须严格执行, 凭推测连续 4 次错误判定让 session 浪费 ~30min. 数据驱动诊断不是终点是起点, 还需让证据自洽再下结论.",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-05-05",
-      "what": "V37.9.28 周一观察 5 finding 单日全闭环 (F1-F5) — 5 commits (4aa9aa0/7d19abe/0666885/e21813e/c7f70fd) 推送到 claude/start-daily-work-cFjWk. 52 suites / 1822→1884 tests (+62) / 0 fail / VERSION 0.37.9.27→0.37.9.28. F1 scan_logs 告警子条目时间戳分布 (最早 X, 最新 Y) 三档格式. F2 数据驱动诊断工具 movespeed_incident_analyzer.py 7 维度 (Mac Mini 跑后再决定 helper 修复, 不推测). F3 HN watchdog 阈值 7h→14h V37.8.7 同款 schedule drift. F4 slo_checker 3/5 metric direction 显示反, 改为每 metric 显式 direction 字段. F5 ai_leaders 4 天前时间戳是 F1 symptom F1 修复后自愈. 因果链发现: F1+F2 互锁, 先修 F1 才能看清 F2 真相. MR-7 用户视角→24h 闭环第 4 次正向兑现 (V37.9.16/17/21/28 链). 原则 #32 周一用户视角观察制度首次实证: 30min 用户视角发现 5 类问题, 同日修 4 个根因 + 1 个 F1 symptom 自愈, framework 用户感知=一等可观测信号硬证据.",
       "by": "claude_code"
     }
   ],
@@ -306,14 +306,14 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 2171,
-    "last_regression": "2026-05-08 04:49 pass",
+    "test_count": 2192,
+    "last_regression": "2026-05-08 13:29 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-05-08 04:49",
-    "test_suites": 60,
+    "security_score_time": "2026-05-08 13:29",
+    "test_suites": 61,
     "governance_invariants": "64/64",
     "governance_checks": "350/350",
-    "version": "0.37.9.39"
+    "version": "0.37.9.40"
   },
   "incidents": [
     {
@@ -377,7 +377,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.40 收工 — DBLP + AI Leaders X 双脚本 5 字段深度迁移 (V37.9.39 同款 V37.9.36-37 模式横向扩展, 用户视角原则 #13 第 11 次正向兑现). DBLP 适配无 abstract (基于标题推断 caveat). AI Leaders X 适配 tweet 上下文 (主题/观点/深度/启示/评级). 17 新单测 3 类 + 2 脚本 audit aligned=True V37.9.40 锚点. ALIGNED_SCRIPTS 5→7 (audit 报告 12→10 findings). 60 suites / 2171 tests / 0 fail / 551 checks / 71 inv / 安全 95/100 / VERSION 0.37.9.40.",
+  "focus": "V37.9.41 收工 — HN 5 字段深度迁移 (V37.9.40 同款扩展, ALIGNED_SCRIPTS 7→8). 用户视角原则 #13 第 12 次正向兑现. HN 适配: max 5 items/run + 基于标题与摘要推断 caveat (因 HN 摘要常缺失) + LLM_DEGRADED 用 desc 兜底 (替代老 stars='⭐⭐⭐' 占位符) + Qwen3 <think>/ANSI 清理保留. 21 新单测 3 类. INV-LLMCRON-AUDIT-001 扩展 16→17. audit 7→8 已对齐. 61 suites / 2192 tests / 0 fail / 552 checks / 安全 95/100 / VERSION 0.37.9.41. 同日 V37.9.38→39→40→41 = 24h 四阶段连环, ALIGNED_SCRIPTS 4→5→7→8 是机器化进度。",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",

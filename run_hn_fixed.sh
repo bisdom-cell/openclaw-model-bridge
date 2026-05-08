@@ -34,6 +34,35 @@ STATUS_FILE="$CACHE_DIR/last_run.json"
 
 log() { echo "[$TS] hn_watcher: $1" >&2; }
 
+# V37.9.41: source notify.sh 让 fail-fast alert 走统一 [SYSTEM_ALERT] 通道
+# (与 V37.5/V37.8.10/V37.9.16/V37.9.36-37/V37.9.39/V37.9.40 同款模式)
+NOTIFY_SH=""
+for candidate in "$HOME/openclaw-model-bridge/notify.sh" "$HOME/notify.sh"; do
+    if [ -f "$candidate" ]; then
+        NOTIFY_SH="$candidate"
+        break
+    fi
+done
+if [ -n "$NOTIFY_SH" ]; then
+    # shellcheck disable=SC1090
+    source "$NOTIFY_SH" || true
+fi
+
+# V37.9.41: fail-fast alert helper
+send_alert() {
+    local reason="$1"
+    local msg="[SYSTEM_ALERT] hn_watcher LLM 失败
+时间: $TS
+原因: $reason
+降级处理: 今日未推送 HN 头版精选 (避免占位符污染)
+建议: 查 Adapter/Proxy 状态 + ${LLM_RAW_LOG:-llm_raw_last.txt}"
+    if command -v notify >/dev/null 2>&1; then
+        notify "$msg" --topic alerts >/dev/null 2>&1 || true
+    else
+        openclaw message send --channel whatsapp --target "$TO" --message "$msg" --json >/dev/null 2>&1 || true
+    fi
+}
+
 mkdir -p "$CACHE_DIR"
 touch "$INBOX"
 touch "$KB_SOURCE"
@@ -128,259 +157,423 @@ fi
 
 TODAY=$(date '+%Y-%m-%d')
 
-# 用Python读取所有条目，构建批量Prompt，一次LLM调用处理全部
-RESULT=$($PYTHON3 - << 'PYEOF'
-import json, os, re, sys
+# ── V37.9.41: 每条独立调 LLM (5 字段深度分析 + 按评级动态调长度 + retry 3 次) ─
+# 老 V38: 单次批量调用全部 N 条 + 4 字段 (zh_title/point/stars) + stars='⭐⭐⭐' silent fallback
+# 新 V37.9.41: 每条独立调用 + 独立 retry (5s/10s/20s) + 5 字段深度
+#   📌 中文标题 / 🔑 核心要点 / 💡 技术深度解读 / 🎯 实践启发 / ⭐ 评级
+# 全部失败 → fail-fast (V37.9.36 契约保留)
+# 部分失败 → partial_degraded + 失败条标 [LLM_DEGRADED] + HN description 兜底
 
-new_file = os.path.expanduser("~/.openclaw/jobs/hn_watcher/cache/hn_new.jsonl")
-llm_raw_log = os.path.expanduser("~/.openclaw/jobs/hn_watcher/cache/llm_raw_last.txt")
+LLM_RAW="$LLM_RAW_LOG"
+> "$LLM_RAW"
+RESULTS_FILE="$CACHE_DIR/llm_results.jsonl"
+> "$RESULTS_FILE"
+
+# ── helper: 单条 LLM 调用 + retry (V37.9.39/V37.9.40 同款) ───────────
+call_llm_single_with_retry() {
+    local prompt_file="$1"
+    local idx="$2"
+    LAST_LLM_FAIL_REASON=""
+    local backoffs=(5 10 20)
+
+    for attempt in 0 1 2; do
+        local payload_file="$CACHE_DIR/llm_payload_${idx}_a${attempt}.json"
+        $PYTHON3 -c "
+import json
+prompt = open('$prompt_file', encoding='utf-8').read()
+with open('$payload_file', 'w', encoding='utf-8') as f:
+    json.dump({
+        'model': 'Qwen3-235B-A22B-Instruct-2507-W8A8',
+        'messages': [{'role': 'user', 'content': prompt}],
+        'max_tokens': 2500,
+        'temperature': 0.3
+    }, f)
+"
+        local llm_resp
+        llm_resp=$(curl -s --max-time 90 \
+            -H "Content-Type: application/json" \
+            -d "@$payload_file" \
+            http://127.0.0.1:5002/v1/chat/completions 2>/dev/null || true)
+
+        echo "$llm_resp" > "$LLM_RAW"
+
+        # V37.9.36 三层检测 + Qwen3 <think>/ANSI 清理
+        local parse_err_file="$CACHE_DIR/llm_parse_${idx}_a${attempt}.err"
+        local parse_out
+        parse_out=$(echo "$llm_resp" | $PYTHON3 -c "
+import json, sys, re
+try:
+    d = json.load(sys.stdin)
+except Exception as e:
+    print(f'__LLM_PARSE_FAIL__:bad_json:{type(e).__name__}', file=sys.stderr)
+    sys.exit(0)
+if isinstance(d, dict) and 'error' in d:
+    err_msg = str(d['error'])[:300].replace(chr(10), ' ')
+    print(f'__LLM_HTTP_ERROR__:{err_msg}', file=sys.stderr)
+    sys.exit(0)
+try:
+    content = d['choices'][0]['message']['content']
+except (KeyError, IndexError, TypeError) as e:
+    print(f'__LLM_PARSE_FAIL__:no_choices:{type(e).__name__}', file=sys.stderr)
+    sys.exit(0)
+content = re.sub(r'\x1b\[[0-9;]*[a-zA-Z]', '', content)  # ANSI
+content = re.sub(r'<think>.*?</think>', '', content, flags=re.DOTALL).strip()  # Qwen3
+print(content)
+" 2>"$parse_err_file" || true)
+
+        local parse_err
+        parse_err="$(cat "$parse_err_file" 2>/dev/null || true)"
+
+        if echo "$parse_err" | grep -q '__LLM_HTTP_ERROR__\|__LLM_PARSE_FAIL__'; then
+            LAST_LLM_FAIL_REASON=$(echo "$parse_err" | head -c 200 | tr '\n' ' ')
+            log "WARN: 条 $idx attempt $((attempt+1))/3: $LAST_LLM_FAIL_REASON"
+            if [ $attempt -lt 2 ]; then sleep "${backoffs[$attempt]}"; fi
+            continue
+        fi
+
+        if [ -z "${parse_out// }" ]; then
+            LAST_LLM_FAIL_REASON="empty_content"
+            log "WARN: 条 $idx attempt $((attempt+1))/3: empty content"
+            if [ $attempt -lt 2 ]; then sleep "${backoffs[$attempt]}"; fi
+            continue
+        fi
+
+        echo "$parse_out"
+        return 0
+    done
+    return 1
+}
+
+# ── 主循环: 每条 HN post 独立调 LLM (5 字段深度) ──────────────────────
+TOTAL_NEW="$NEW_COUNT"
+TOTAL_FAILED=0
+LAST_FAIL_REASON=""
+
+for ((i=0; i<TOTAL_NEW; i++)); do
+    SINGLE_PROMPT="$CACHE_DIR/llm_single_prompt_${i}.txt"
+    $PYTHON3 - "$NEW_FILE" "$i" << 'PYEOF' > "$SINGLE_PROMPT"
+import sys, json, re
+
+new_file, idx = sys.argv[1], int(sys.argv[2])
 items = []
-with open(new_file) as f:
+with open(new_file, encoding='utf-8') as f:
     for line in f:
         line = line.strip()
-        if not line:
-            continue
-        try:
-            items.append(json.loads(line))
-        except (json.JSONDecodeError, ValueError):
-            continue
+        if line:
+            try:
+                items.append(json.loads(line))
+            except (json.JSONDecodeError, ValueError):
+                continue
+p = items[idx]
+title = p['title']
+desc = p.get('desc', '').strip()
+desc = re.sub(r'<[^>]+>', '', desc).strip()  # HTML 清理
+desc = desc[:600]
 
-if not items:
-    sys.exit(0)
+prompt = """你是技术新闻深度分析师。对以下 Hacker News 帖子输出 5 字段中文分析:
 
-# 构建批量Prompt — 包含 description 以生成有意义的要点，要求 JSON 输出避免正则解析
-items_text = ""
-for i, item in enumerate(items):
-    desc = item.get('desc', '').strip()
-    # 清理 HTML 标签
-    desc = re.sub(r'<[^>]+>', '', desc).strip()
-    if desc:
-        items_text += f"\n{i}. {item['title']}\n   摘要：{desc[:300]}\n"
-    else:
-        items_text += f"\n{i}. {item['title']}\n"
+📌 中文标题: 信达雅翻译, 不超过 25 字 (技术术语保持精确)
+🔑 核心要点: 3-5 条 bullet, 每条 1 句 ≤ 60 字, 列出帖子最重要的发现/技术声明/新闻事实
+💡 技术深度解读: 揭示作者立场 / 技术背景 / 为什么 HN 社区关注 / 与已有讨论关联 / 局限性
+   长度按评级动态调整: ⭐⭐⭐→100-150字 / ⭐⭐⭐⭐→250-400字 / ⭐⭐⭐⭐⭐→500-800字
+   注意: HN 摘要常较短或缺失, 数据不足时显式标注 "(基于标题与摘要推断)"
+🎯 实践启发: 1-3 条对开发者 / 工程师 / 架构师的具体建议, 每条 ≤ 80 字
+⭐ 评级: ⭐ × N (1-5 个) + 推荐场景 (谁应该读 / 何时读 / 用于什么场景)
 
-prompt = f"""将以下{len(items)}条英文科技新闻翻译并提炼要点。
+⚠️ 严格约束 (违反则整份输出作废):
+- 只使用上方提供的标题和摘要中的信息, 严禁虚构帖子未提及的事实/数据/链接
+- HN 摘要不足以判断时显式标注 "(基于标题与摘要推断)"
+- 严禁推断 Hugging Face / OpenAI / GitHub 等平台的具体内部状态除非原文提及
+- 严禁把 HTTP 错误码 / Python 异常 / 错误日志当外部信号
 
-{items_text}
+输出格式 (严格按此 5 字段, 字段间用空行分隔):
 
-请以 JSON 数组格式输出，每个元素包含3个字段：
-- zh_title: 中文标题
-- point: 核心要点（15-25字，必须具体，禁止"详见原文"等空话）
-- stars: 价值评级（⭐到⭐⭐⭐⭐⭐）
+📌 中文标题: <你的翻译>
 
-只输出 JSON 数组，不要其他文字。示例格式：
-[{{"zh_title":"中文标题","point":"具体技术要点","stars":"⭐⭐⭐"}}]"""
+🔑 核心要点:
+- 要点1
+- 要点2
 
-# 规则 #27: 纯推理直接 curl proxy:5002，禁止用 openclaw agent（#94教训）
-import urllib.request
-payload = json.dumps({
-    "model": "Qwen3-235B-A22B-Instruct-2507-W8A8",
-    "messages": [{"role": "user", "content": prompt}],
-    "max_tokens": 4096,
-    "temperature": 0.3
-}).encode()
+💡 技术深度解读:
+<段落, 长度按评级规则>
 
-llm_out = ""
-llm_err = ""
-llm_failed = False
-for _attempt in range(3):
-    try:
-        req = urllib.request.Request(
-            "http://127.0.0.1:5002/v1/chat/completions",
-            data=payload,
-            headers={"Content-Type": "application/json"}
-        )
-        with urllib.request.urlopen(req, timeout=120) as resp:
-            resp_data = json.loads(resp.read())
-            llm_out = resp_data["choices"][0]["message"]["content"]
-            break  # 成功，退出重试
-    except Exception as e:
-        llm_err = str(e)
-        print(f"[hn_watcher] LLM调用失败 (attempt {_attempt+1}/3): {e}", file=sys.stderr)
-        if _attempt < 2:
-            import time as _t
-            _wait = 15 * (_attempt + 1)  # 15s, 30s
-            print(f"[hn_watcher] 等待 {_wait}s 后重试...", file=sys.stderr)
-            _t.sleep(_wait)
+🎯 实践启发:
+- 启发1
 
-if not llm_out:
-    llm_failed = True
-    print(f"[hn_watcher] LLM_FAILED=true (3次重试全部失败)", file=sys.stderr)
+⭐ 评级: ⭐⭐⭐⭐ / 推荐场景: <场景描述>
 
-# LLM原始输出写入日志，方便排查格式匹配问题
-try:
-    with open(llm_raw_log, 'w') as f:
-        f.write(f"=== {__import__('datetime').datetime.now()} ===\n")
-        f.write(f"items: {len(items)}\n")
-        f.write(f"stdout_len: {len(llm_out)}\n")
-        f.write("--- stdout ---\n")
-        f.write(llm_out[:3000])
-        f.write("\n--- error ---\n")
-        f.write(llm_err[:500])
-except OSError as e:
-    print(f"[hn_watcher] WARN: 无法写入 llm_raw_log: {e}", file=sys.stderr)
+---
 
-# 去除ANSI转义码和 Qwen3 <think> 标签
-llm_out = re.sub(r'\x1b\[[0-9;]*[a-zA-Z]', '', llm_out)
-llm_out = re.sub(r'<think>.*?</think>', '', llm_out, flags=re.DOTALL).strip()
-
-# ★ V38: JSON 优先解析，正则兜底
-parsed_items = []
-
-# 尝试1: 直接 JSON 解析
-try:
-    # 提取 JSON 数组（可能被 ```json 包裹）
-    json_text = llm_out
-    json_match = re.search(r'\[.*\]', json_text, re.DOTALL)
-    if json_match:
-        parsed_items = json.loads(json_match.group())
-except (json.JSONDecodeError, ValueError):
-    pass
-
-# 尝试2: 如果 JSON 失败，回退到正则解析（向后兼容旧格式）
-if not parsed_items:
-    parsed = {}
-    for line in llm_out.splitlines():
-        line = line.strip()
-        m = re.match(
-            r'^(\d+)[\.。]?\s*[【\*]*(中文标题|要点|价值|zh_title|point|stars)[】\*]*\s*[：:]\s*(.+)$',
-            line
-        )
-        if m:
-            idx, key, val = m.group(1), m.group(2), m.group(3).strip()
-            val = re.sub(r'^\*+|\*+$', '', val).strip()
-            if idx not in parsed:
-                parsed[idx] = {}
-            # 统一 key 名
-            key_map = {'中文标题': 'zh_title', '要点': 'point', '价值': 'stars'}
-            parsed[idx][key_map.get(key, key)] = val
-    # 转换为列表格式
-    for i in range(len(items)):
-        if str(i) in parsed:
-            parsed_items.append(parsed[str(i)])
-        else:
-            parsed_items.append({})
-
-# 统计解析成功率（写入日志）
-success_count = sum(1 for p in parsed_items if p.get('zh_title') or p.get('point'))
-try:
-    with open(llm_raw_log, 'a') as f:
-        f.write(f"\n--- parsed ---\n")
-        f.write(f"method: {'json' if parsed_items and isinstance(parsed_items[0], dict) and 'zh_title' in parsed_items[0] else 'regex_fallback'}\n")
-        f.write(f"success: {success_count}/{len(items)}\n")
-        f.write(json.dumps(parsed_items, ensure_ascii=False, indent=2)[:1000])
-except OSError as e:
-    print(f"[hn_watcher] WARN: 无法追加解析日志: {e}", file=sys.stderr)
-
-# LLM 完全失败时，输出特殊标记让 shell 层知道（而不是输出回退垃圾）
-if llm_failed:
-    print("__LLM_FAILED__")
-    sys.exit(0)
-
-# 输出结果供shell使用
-for i, item in enumerate(items):
-    p = parsed_items[i] if i < len(parsed_items) else {}
-    zh_title = p.get('zh_title') or p.get('中文标题') or item['title']
-    point    = p.get('point') or p.get('要点') or ''
-    stars    = p.get('stars') or p.get('价值') or '⭐⭐⭐'
-    # 过滤空话要点：如果要点是空的或含"详见原文"，用标题自动生成
-    if not point or '详见原文' in point or len(point) < 4:
-        # 从标题推断一个基本要点
-        point = zh_title[:25] if zh_title != item['title'] else item['title'][:40]
-    print(json.dumps({
-        'zh_title': zh_title,
-        'point': point,
-        'stars': stars,
-        'title': item['title'],
-        'hn_url': item['hn_url'],
-    }, ensure_ascii=False))
+"""
+prompt += f"原文标题: {title}\n"
+if desc:
+    prompt += f"摘要: {desc}\n"
+print(prompt)
 PYEOF
-)
 
-if [ -z "$RESULT" ]; then
-    # V37.4.3: 告警消息加 [SYSTEM_ALERT] 隔离标记
-    ERR_MSG="[SYSTEM_ALERT]
-⚠️ HN Watcher LLM调用失败（$(date '+%Y-%m-%d %H:%M')），请检查 $LLM_RAW_LOG"
-    echo "$ERR_MSG"
-    openclaw message send --channel whatsapp --target "$TO" --message "$ERR_MSG" --json >/dev/null 2>&1 || true
-    openclaw message send --channel discord --target "${DISCORD_CH_ALERTS:-}" --message "$ERR_MSG" --json >/dev/null 2>&1 || true
-    exit 1
-fi
-
-# LLM 全部失败检测（3次重试后仍失败）— 不推送垃圾，而是告警
-if echo "$RESULT" | grep -q "__LLM_FAILED__"; then
-    log "⚠️ LLM 3次重试全部失败，跳过本轮推送（不发送回退文案）"
-    printf '{"time":"%s","status":"llm_failed","new":%d}\n' "$TS" "$(echo "$RESULT" | grep -v __LLM_FAILED__ | wc -l)" > "$STATUS_FILE"
-    exit 0
-fi
-
-# 429限流检测：防止把错误文案推送到WhatsApp
-if echo "$RESULT" | grep -q "429"; then
-    echo "$(date '+%Y-%m-%d %H:%M:%S') hn_watcher: ⚠️ 检测到429限流，跳过本轮推送。"
-    exit 0
-fi
-
-printf "💻 HN 头版精选 (%s)\n\n" "$TODAY" > "$MSG_FILE"
-
-# 单次 Python 调用处理全部结果，避免每条数据重复启动 5 个子进程
-# 注意：不能用 python3 - <<heredoc <<<data，heredoc 会耗尽 stdin 导致 data 丢失
-SENT_COUNT=$(echo "$RESULT" | $PYTHON3 -c '
+    log "调用 LLM 分析条 $((i+1))/$TOTAL_NEW"
+    if RESULT=$(call_llm_single_with_retry "$SINGLE_PROMPT" "$i"); then
+        $PYTHON3 -c "
 import json, sys
+result = sys.stdin.read()
+print(json.dumps({'idx': $i, 'content': result, 'failed': False, 'fail_reason': ''}, ensure_ascii=False))
+" <<< "$RESULT" >> "$RESULTS_FILE"
+    else
+        TOTAL_FAILED=$((TOTAL_FAILED + 1))
+        LAST_FAIL_REASON="$LAST_LLM_FAIL_REASON"
+        log "FAIL: 条 $((i+1)) 全 retry 失败 — $LAST_LLM_FAIL_REASON"
+        $PYTHON3 -c "
+import json, sys
+print(json.dumps({'idx': $i, 'content': '', 'failed': True, 'fail_reason': '''$LAST_LLM_FAIL_REASON'''}, ensure_ascii=False))
+" >> "$RESULTS_FILE"
+    fi
+done
 
-today, msg_file, kb_source = sys.argv[1], sys.argv[2], sys.argv[3]
+# ── 决定整体 status (V37.9.36 fail-fast 契约保留) ──────────────────
+if [ "$TOTAL_FAILED" -eq "$TOTAL_NEW" ]; then
+    log "ERROR: 全部 $TOTAL_NEW 条 LLM 分析失败 (last reason: $LAST_FAIL_REASON)"
+    send_alert "全部 $TOTAL_NEW 条 LLM 分析失败 (last reason: $LAST_FAIL_REASON)"
+    REASON_ESCAPED=$(echo "$LAST_FAIL_REASON" | tr '"' "'" | tr '\n' ' ' | head -c 200)
+    printf '{"time":"%s","status":"llm_failed","new":%d,"sent":false,"reason":"all_failed_%s"}\n' "$TS" "$TOTAL_NEW" "$REASON_ESCAPED" > "$STATUS_FILE"
+    exit 1
+elif [ "$TOTAL_FAILED" -gt 0 ]; then
+    log "WARN: $TOTAL_FAILED/$TOTAL_NEW 条失败 — 走 partial_degraded (失败条标 [LLM_DEGRADED])"
+    send_alert "$TOTAL_FAILED/$TOTAL_NEW 条 LLM 部分失败 (其余正常推送, 失败条标 [LLM_DEGRADED])"
+fi
+echo "[hn] LLM 调用完成: 成功 $((TOTAL_NEW - TOTAL_FAILED))/$TOTAL_NEW"
+
+# ── V37.9.41: 5 字段 emit (key-based parser + LLM_DEGRADED + 多窗口切片) ──
+$PYTHON3 - "$NEW_FILE" "$RESULTS_FILE" "$TODAY" "$MSG_FILE" "$KB_SOURCE" << 'PYEOF'
+import sys, json, re
+
+new_file, results_file, today, msg_file, kb_source = sys.argv[1:6]
+
+items = []
+with open(new_file, encoding='utf-8') as f:
+    for line in f:
+        line = line.strip()
+        if line:
+            try:
+                items.append(json.loads(line))
+            except (json.JSONDecodeError, ValueError):
+                continue
+with open(results_file, encoding='utf-8') as f:
+    results = [json.loads(l) for l in f if l.strip()]
+
+# V37.9.39 同款 5 字段 key-based parser
+def parse_5field_output(content):
+    fields = {
+        'cn_title': '', 'highlights': '', 'insight': '', 'practice': '', 'rating': '',
+    }
+    current_field = None
+    current_buffer = []
+
+    def flush():
+        if current_field and current_buffer:
+            fields[current_field] = '\n'.join(current_buffer).strip()
+
+    for raw in content.split('\n'):
+        line = raw.rstrip()
+        if re.match(r'^[-=*_]{3,}$', line.strip()):
+            continue
+        if line.lstrip().startswith('📌'):
+            flush()
+            current_field = 'cn_title'
+            current_buffer = []
+            m = re.match(r'.*📌\s*(?:中文)?标题\s*[:：]?\s*(.*)', line)
+            if m and m.group(1).strip():
+                current_buffer.append(m.group(1).strip())
+            continue
+        if line.lstrip().startswith('🔑'):
+            flush()
+            current_field = 'highlights'
+            current_buffer = []
+            continue
+        if line.lstrip().startswith('💡'):
+            flush()
+            current_field = 'insight'
+            current_buffer = []
+            continue
+        if line.lstrip().startswith('🎯'):
+            flush()
+            current_field = 'practice'
+            current_buffer = []
+            continue
+        if line.lstrip().startswith('⭐') and current_field != 'rating':
+            if '评级' in line or '推荐场景' in line or re.match(r'\s*⭐+\s*$', line):
+                flush()
+                current_field = 'rating'
+                current_buffer = [line.lstrip()]
+                continue
+        if current_field is not None:
+            current_buffer.append(line)
+        elif line.strip():
+            pass
+
+    flush()
+    return fields
+
+
+msg_lines = [f"💻 HN 头版精选 ({today})", ""]
+
+degraded_count = 0
+llm_ok_count = 0
 sent = 0
-for line in sys.stdin:
-    line = line.strip()
-    if not line:
+for i, item in enumerate(items):
+    title = item['title']
+    hn_url = item.get('hn_url', '').strip()
+    if not hn_url:
         continue
-    try:
-        d = json.loads(line)
-    except (json.JSONDecodeError, ValueError):
-        continue
-    hn_url   = d.get("hn_url", "").strip()
-    if not hn_url:           # Fix3：HN_URL空值保护
-        continue
-    zh_title = d.get("zh_title") or d.get("title", "")
-    point    = d.get("point")    or d.get("title", "")[:40]
-    stars    = d.get("stars")    or "⭐⭐⭐"
-    title    = d.get("title", zh_title)
-    with open(msg_file, "a") as f:
-        f.write(f"{zh_title}\n链接：{hn_url}\n要点：{point}\n价值：{stars}\n\n")
-    with open(kb_source, "a") as f:
-        f.write(f"- **[{title}]({hn_url})** | {today} | 要点：{point} | {stars}\n")
+
+    result = results[i] if i < len(results) else None
+    if result is None or result.get('failed'):
+        # LLM_DEGRADED: HN description 兜底 (替代 V37.9.36 占位符 stars='⭐⭐⭐')
+        degraded_count += 1
+        msg_lines.append(f"*{title}*")
+        msg_lines.append(f"链接: {hn_url}")
+        msg_lines.append("")
+        msg_lines.append("⚠️ [LLM_DEGRADED] 深度分析失败, 原文摘要供参考:")
+        desc = item.get('desc', '')
+        desc = re.sub(r'<[^>]+>', '', desc).strip()[:300]
+        if desc:
+            msg_lines.append(desc)
+        else:
+            msg_lines.append("(HN 无摘要数据, 请直接点链接阅读)")
+        msg_lines.append("")
+    else:
+        fields = parse_5field_output(result.get('content', ''))
+        title_display = fields['cn_title'] or title
+        msg_lines.append(f"*{title_display}*")
+        msg_lines.append(f"链接: {hn_url}")
+        msg_lines.append("")
+        if fields['highlights']:
+            msg_lines.append("🔑 核心要点:")
+            msg_lines.append(fields['highlights'])
+            msg_lines.append("")
+        if fields['insight']:
+            msg_lines.append("💡 技术深度解读:")
+            msg_lines.append(fields['insight'])
+            msg_lines.append("")
+        if fields['practice']:
+            msg_lines.append("🎯 实践启发:")
+            msg_lines.append(fields['practice'])
+            msg_lines.append("")
+        if fields['rating']:
+            msg_lines.append(fields['rating'])
+            msg_lines.append("")
+        if fields['cn_title'] or fields['highlights'] or fields['insight']:
+            llm_ok_count += 1
+        # KB source line
+        rating_short = (fields['rating'][:30] if fields['rating'] else '') or '—'
+        with open(kb_source, "a") as f:
+            f.write(f"- **[{title}]({hn_url})** | {today} | {rating_short}\n")
+
+    msg_lines.append("---")
+    msg_lines.append("")
     sent += 1
-print(sent)
-' "$TODAY" "$MSG_FILE" "$KB_SOURCE")
 
-if [ "$SENT_COUNT" -gt 0 ]; then
-    SEND_ERR=$(mktemp)
-    if openclaw message send --channel whatsapp --target "$TO" --message "$(cat "$MSG_FILE")" --json >/dev/null 2>"$SEND_ERR"; then
-        log "已推送 ${SENT_COUNT} 条AI/Tech精选（单次批量LLM）。"
-        openclaw message send --channel discord --target "${DISCORD_CH_TECH:-}" --message "$(cat "$MSG_FILE")" --json >/dev/null 2>&1 || true
-        printf '{"time":"%s","status":"ok","new":%d,"sent":true}\n' "$TS" "$SENT_COUNT" > "$STATUS_FILE"
-        # 写入 KB notes（与其他 10 个 job 对齐双写模式）
-        bash "$KB_WRITE_SCRIPT" "# HN AI/Tech精选 $(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M')
+with open(msg_file, 'w', encoding='utf-8') as f:
+    f.write('\n'.join(msg_lines))
 
-$(cat "$MSG_FILE")" "hn-tech" "note" 2>/dev/null || true
+print(f"[hn] 消息组装: {len(items)} 条 (LLM 解析成功 {llm_ok_count}, degraded {degraded_count}, sent {sent})", file=sys.stderr)
+PYEOF
+
+SENT_COUNT=$(grep -c "^---$" "$MSG_FILE" 2>/dev/null || echo 0)
+
+# ── 推送 WhatsApp + Discord (V37.9.21/V37.9.40 多窗口分片: >8000 字才切, ≤8000 单段) ─
+SEND_ERR=$(mktemp)
+TOTAL_LEN=$(wc -c < "$MSG_FILE" | tr -d ' ')
+WA_SENT=false
+
+if [ "$SENT_COUNT" -eq 0 ]; then
+    log "无有效条目, 跳过推送"
+    printf '{"time":"%s","status":"ok","new":0}\n' "$TS" > "$STATUS_FILE"
+elif [ "$TOTAL_LEN" -le 8000 ]; then
+    MSG_CONTENT="$(cat "$MSG_FILE")"
+    if openclaw message send --channel whatsapp --target "$TO" --message "$MSG_CONTENT" --json >/dev/null 2>"$SEND_ERR"; then
+        log "已推送 ${SENT_COUNT} 条 (单段, $TOTAL_LEN 字)"
+        WA_SENT=true
+        openclaw message send --channel discord --target "${DISCORD_CH_TECH:-}" --message "$MSG_CONTENT" --json >/dev/null 2>&1 || true
     else
         # 过滤已知无害警告（feishu 插件 duplicate id、plugins.allow empty）
         REAL_ERR=$(grep -v -E "feishu|plugin.*duplicate|plugins\.allow|Config warnings" "$SEND_ERR" 2>/dev/null || true)
         if [ -z "$REAL_ERR" ]; then
-            # 只有无害警告，实际推送可能成功了
-            log "已推送 ${SENT_COUNT} 条AI/Tech精选（单次批量LLM，忽略插件警告）。"
-            openclaw message send --channel discord --target "${DISCORD_CH_TECH:-}" --message "$(cat "$MSG_FILE")" --json >/dev/null 2>&1 || true
-            printf '{"time":"%s","status":"ok","new":%d,"sent":true}\n' "$TS" "$SENT_COUNT" > "$STATUS_FILE"
-            bash "$KB_WRITE_SCRIPT" "# HN AI/Tech精选 $(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M')
-
-$(cat "$MSG_FILE")" "hn-tech" "note" 2>/dev/null || true
+            log "已推送 ${SENT_COUNT} 条 (单段, 忽略插件警告)"
+            WA_SENT=true
+            openclaw message send --channel discord --target "${DISCORD_CH_TECH:-}" --message "$MSG_CONTENT" --json >/dev/null 2>&1 || true
         else
-            log "ERROR: 推送失败（${SENT_COUNT} 条待发）: $(echo "$REAL_ERR" | head -3)"
-            printf '{"time":"%s","status":"send_failed","new":%d,"sent":false}\n' "$TS" "$SENT_COUNT" > "$STATUS_FILE"
+            log "ERROR: 推送失败: $(cat "$SEND_ERR" | head -3)"
         fi
     fi
 else
-    log "LLM解析完成但无有效条目。"
-    printf '{"time":"%s","status":"ok","new":0}\n' "$TS" > "$STATUS_FILE"
+    # 总长 >8000 → 多窗口切片 (V37.9.21 同款 mktemp + sleep 1s 防乱序)
+    WA_CHUNK_DIR=$(mktemp -d)
+    trap 'rm -rf "$WA_CHUNK_DIR"; rmdir "$LOCK" 2>/dev/null' EXIT INT TERM
+
+    $PYTHON3 - "$MSG_FILE" "$WA_CHUNK_DIR" "$TODAY" << 'PYEOF'
+import sys, os, re
+
+msg_file, chunk_dir, today = sys.argv[1], sys.argv[2], sys.argv[3]
+content = open(msg_file, encoding='utf-8').read()
+MAX_CHUNK = 4000
+
+blocks = re.split(r'\n---\n', content)
+header_block = blocks[0]
+article_blocks = [b for b in blocks[1:] if b.strip()]
+
+chunks = []
+current = header_block
+for block in article_blocks:
+    candidate = current + "\n---\n" + block
+    if len(candidate) < MAX_CHUNK:
+        current = candidate
+    else:
+        chunks.append(current)
+        current = block
+if current.strip():
+    chunks.append(current)
+
+total_parts = len(chunks)
+for i, chunk in enumerate(chunks):
+    if total_parts > 1:
+        if i == 0:
+            chunk = chunk.replace(f"💻 HN 头版精选 ({today})",
+                                  f"💻 HN 头版精选 [1/{total_parts}] ({today})", 1)
+        else:
+            chunk = f"💻 HN 头版精选 [{i+1}/{total_parts}] ({today}) (续)\n\n" + chunk
+    with open(os.path.join(chunk_dir, f"{i:03d}.txt"), 'w', encoding='utf-8') as f:
+        f.write(chunk)
+PYEOF
+
+    WA_PARTS_TOTAL=$(ls "$WA_CHUNK_DIR"/*.txt 2>/dev/null | wc -l | tr -d ' ')
+    WA_SENT_OK=0
+    for chunk_file in "$WA_CHUNK_DIR"/*.txt; do
+        CHUNK_CONTENT="$(cat "$chunk_file")"
+        if openclaw message send --channel whatsapp --target "$TO" --message "$CHUNK_CONTENT" --json >/dev/null 2>>"$SEND_ERR"; then
+            WA_SENT_OK=$((WA_SENT_OK + 1))
+        fi
+        openclaw message send --channel discord --target "${DISCORD_CH_TECH:-}" --message "$CHUNK_CONTENT" --json >/dev/null 2>&1 || true
+        sleep 1  # 防 WhatsApp 消息乱序 (V37.9.21 契约)
+    done
+    log "已推送 ${SENT_COUNT} 条 (多窗口 ${WA_SENT_OK}/${WA_PARTS_TOTAL} 段, 共 $TOTAL_LEN 字)"
+    if [ "$WA_SENT_OK" -gt 0 ]; then
+        WA_SENT=true
+    fi
 fi
+
+if [ "$WA_SENT" = "true" ]; then
+    if [ "$TOTAL_FAILED" -gt 0 ]; then
+        printf '{"time":"%s","status":"partial_degraded","new":%d,"failed":%d,"sent":true}\n' "$TS" "$TOTAL_NEW" "$TOTAL_FAILED" > "$STATUS_FILE"
+    else
+        printf '{"time":"%s","status":"ok","new":%d,"sent":true}\n' "$TS" "$TOTAL_NEW" > "$STATUS_FILE"
+    fi
+    bash "$KB_WRITE_SCRIPT" "# HN AI/Tech精选 $(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M')
+
+$(cat "$MSG_FILE")" "hn-tech" "note" 2>/dev/null || true
+elif [ "$SENT_COUNT" -gt 0 ]; then
+    log "ERROR: 推送全失败"
+    printf '{"time":"%s","status":"send_failed","new":%d,"sent":false}\n' "$TS" "$TOTAL_NEW" > "$STATUS_FILE"
+fi
+rm -f "$SEND_ERR"
 
 bash "$HOME/movespeed_rsync_helper.sh" "$0" -- -a "$KB_DIR/" "$SSD_BACKUP"  # V37.9.27 jitter+retry+fail-loud+capture (replaces V37.9.4/V37.9.14 inline pattern)

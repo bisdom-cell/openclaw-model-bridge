@@ -1160,13 +1160,20 @@ class TestNotifyShAlertMarker(unittest.TestCase):
                       "auto_deploy.sh quiet_alert 缺少 [SYSTEM_ALERT] 前缀注入")
 
     def test_hn_err_path_has_marker(self):
-        """run_hn_fixed.sh 的 ERR_MSG 告警路径必须加 [SYSTEM_ALERT] 前缀"""
+        """run_hn_fixed.sh 的 ERR_MSG 告警路径必须加 [SYSTEM_ALERT] 前缀
+
+        V37.9.41 升级: 旧 inline ERR_MSG ("HN Watcher LLM调用失败") → send_alert
+        helper 含 "[SYSTEM_ALERT] hn_watcher LLM 失败" (与 S2/DBLP/AI Leaders 同款 helper).
+        放宽断言为接受两种字面量任一存在.
+        """
         with open("run_hn_fixed.sh") as f:
             src = f.read()
-        # LLM调用失败 的 ERR_MSG 块
         self.assertIn("[SYSTEM_ALERT]", src,
                       "run_hn_fixed.sh 告警路径缺少 [SYSTEM_ALERT] 前缀")
-        self.assertIn("HN Watcher LLM调用失败", src)
+        # V37.9.41: 接受 V37.9.41 send_alert helper 字面量, 或 V37.4.3 旧 inline 字面量
+        ok = ("hn_watcher LLM 失败" in src) or ("HN Watcher LLM调用失败" in src)
+        self.assertTrue(ok,
+            "run_hn_fixed.sh 缺少 V37.4.3 inline 或 V37.9.41 helper 风格的 LLM 失败字面量")
 
     def test_discussions_err_paths_have_marker(self):
         """run_discussions.sh 的 2 处 ERR_MSG 都必须加 [SYSTEM_ALERT] 前缀"""

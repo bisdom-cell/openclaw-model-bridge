@@ -1211,9 +1211,12 @@ invariants:
     source_case: "ontology/docs/cases/dream_quota_blast_radius_case.md"
     checks:
       - name: "HN 有 LLM 失败检测"
+        # V37.9.41: 老 __LLM_FAILED__ marker 已被 V37.9.36 三层检测替换
+        # (__LLM_HTTP_ERROR__ / __LLM_PARSE_FAIL__) + status:llm_failed
+        # 所以 pattern 改为兼容 V37.9.41 任一标志
         check_type: file_contains
         file: run_hn_fixed.sh
-        pattern: "LLM_FAILED"
+        pattern: '(?:__LLM_HTTP_ERROR__|__LLM_PARSE_FAIL__|"status":"llm_failed")'
 
   - id: INV-COST-001
     name: retry-ceiling-capped
@@ -6152,6 +6155,10 @@ invariants:
         check_type: file_contains
         file: ontology/llm_cron_audit.py
         pattern: '"V37.9.40"'
+      - name: "ALIGNED_SCRIPTS 含 V37.9.41 HN 锚点 (V37.9.41 第 8 个对齐脚本)"
+        check_type: file_contains
+        file: ontology/llm_cron_audit.py
+        pattern: '"V37.9.41"'
       - name: "PLACEHOLDER_PATTERNS 含 V37.9.36 血案 3 个核心字符串"
         check_type: python_assert
         assertion: |
