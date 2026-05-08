@@ -27,6 +27,34 @@ STATUS_FILE="$CACHE/last_run.json"
 JOB_TAG="ai_leaders"
 log() { echo "[$TS] ${JOB_TAG}: $1" >&2; }
 
+# V37.9.40: source notify.sh 让 fail-fast alert 走统一 [SYSTEM_ALERT] 通道
+NOTIFY_SH=""
+for candidate in "$HOME/openclaw-model-bridge/notify.sh" "$HOME/notify.sh"; do
+    if [ -f "$candidate" ]; then
+        NOTIFY_SH="$candidate"
+        break
+    fi
+done
+if [ -n "$NOTIFY_SH" ]; then
+    # shellcheck disable=SC1090
+    source "$NOTIFY_SH" || true
+fi
+
+# V37.9.40: fail-fast alert helper
+send_alert() {
+    local reason="$1"
+    local msg="[SYSTEM_ALERT] ai_leaders_x LLM 失败
+时间: $TS
+原因: $reason
+降级处理: 今日未推送 AI Leaders 技术洞察 (避免占位符污染)
+建议: 查 Adapter/Proxy 状态 + ${LLM_RAW:-llm_raw_last.txt}"
+    if command -v notify >/dev/null 2>&1; then
+        notify "$msg" --topic alerts >/dev/null 2>&1 || true
+    else
+        "$OPENCLAW" message send --channel whatsapp --target "$TO" --message "$msg" --json >/dev/null 2>&1 || true
+    fi
+}
+
 mkdir -p "$CACHE/raw" "${KB_BASE:-$HOME/.kb}/sources"
 test -f "$KB_SRC" || echo "# AI Leaders X 技术洞察" > "$KB_SRC"
 
@@ -206,113 +234,252 @@ if [ "$TOTAL_NEW" -gt "$MAX_TOTAL" ]; then
     log "截取前 ${MAX_TOTAL} 条推文送 LLM 分析"
 fi
 
-# ── 2. 构建 LLM 深度分析 Prompt ─────────────────────────────────────
-PROMPT_FILE="$CACHE/llm_prompt.txt"
-$PYTHON3 - "$ALL_TWEETS" << 'PYEOF' > "$PROMPT_FILE"
-import sys, json
+# ── V37.9.40: 每条推文独立调 LLM (5 字段深度分析 + 按评级动态调长度 + retry 3 次) ──
+# 老 V37.8: 单次调用全部 N 条 + 5 行格式 (主题/深度分析/系统启示/行动建议/价值) + 失败 silent fallback
+# 新 V37.9.40: 每条独立调用 + 独立 retry (5s/10s/20s) + 5 字段 emoji 格式 (与 S2/rss_blogs 统一)
+#   📌 中文主题 / 🔑 核心观点 / 💡 技术深度解读 / 🎯 系统启示 / ⭐ 评级
+# 全部失败 → fail-fast (V37.9.36 契约保留)
+# 部分失败 → partial_degraded + 失败篇标 [LLM_DEGRADED] + 推文原文兜底
 
-tweets = []
-with open(sys.argv[1]) as f:
-    for line in f:
-        line = line.strip()
-        if line:
-            tweets.append(json.loads(line))
-
-prompt = """你是一位资深AI系统架构师。以下是多位AI技术领袖在X平台的最新推文。
-请对每条推文进行深度技术分析，严格按以下格式输出（不要输出任何其他内容）：
-
-每条推文输出5行：
-第1行：主题：[用≤15字概括核心主题]
-第2行：深度分析：[100-200字技术深度解读，包含：核心观点是什么、技术背景、为什么重要]
-第3行：系统启示：[50-100字，对Agent Runtime/Control Plane/Memory系统的具体启示]
-第4行：行动建议：[1句话≤40字，我们可以做什么]
-第5行：价值：⭐（1到5个星，评估对AI系统架构的参考价值）
-每条之间用一行 --- 分隔。
-
-"""
-for i, t in enumerate(tweets, 1):
-    prompt += f"推文{i}（{t['author']}，{t['label']}）：\n{t['text']}\n\n"
-
-print(prompt)
-PYEOF
-
-# ── 3. 调用 LLM ─────────────────────────────────────────────────────
 LLM_RAW="$CACHE/llm_raw_last.txt"
-$PYTHON3 -c "
+> "$LLM_RAW"
+RESULTS_FILE="$CACHE/llm_results.jsonl"
+> "$RESULTS_FILE"
+
+# ── helper: 单条 LLM 调用 + retry ───────────────────────────────────
+call_llm_single_with_retry() {
+    local prompt_file="$1"
+    local idx="$2"
+    LAST_LLM_FAIL_REASON=""
+    local backoffs=(5 10 20)
+
+    for attempt in 0 1 2; do
+        local payload_file="$CACHE/llm_payload_${idx}_a${attempt}.json"
+        $PYTHON3 -c "
 import json
-prompt = open('$CACHE/llm_prompt.txt').read()
-with open('$CACHE/llm_payload.json', 'w') as f:
+prompt = open('$prompt_file', encoding='utf-8').read()
+with open('$payload_file', 'w', encoding='utf-8') as f:
     json.dump({
         'model': 'Qwen3-235B-A22B-Instruct-2507-W8A8',
         'messages': [{'role': 'user', 'content': prompt}],
-        'max_tokens': 8192,
+        'max_tokens': 2500,
         'temperature': 0.3
     }, f)
 "
+        local llm_resp
+        llm_resp=$(curl -s --max-time 90 \
+            -H "Content-Type: application/json" \
+            -d "@$payload_file" \
+            http://127.0.0.1:5002/v1/chat/completions 2>/dev/null || true)
 
-LLM_RESP=$(curl -s --max-time 300 \
-    -H "Content-Type: application/json" \
-    -d "@$CACHE/llm_payload.json" \
-    http://127.0.0.1:5002/v1/chat/completions 2>"$LLM_RAW.stderr" || true)
+        echo "$llm_resp" > "$LLM_RAW"
 
-echo "$LLM_RESP" > "$LLM_RAW"
-
-LLM_CONTENT=$($PYTHON3 -c "
+        # V37.9.36 三层检测
+        local parse_err_file="$CACHE/llm_parse_${idx}_a${attempt}.err"
+        local parse_out
+        parse_out=$(echo "$llm_resp" | $PYTHON3 -c "
 import json, sys
 try:
-    d = json.loads(sys.stdin.read())
-    print(d['choices'][0]['message']['content'])
-except Exception:
-    pass
-" <<< "$LLM_RESP" 2>/dev/null || true)
+    d = json.load(sys.stdin)
+except Exception as e:
+    print(f'__LLM_PARSE_FAIL__:bad_json:{type(e).__name__}', file=sys.stderr)
+    sys.exit(0)
+if isinstance(d, dict) and 'error' in d:
+    err_msg = str(d['error'])[:300].replace(chr(10), ' ')
+    print(f'__LLM_HTTP_ERROR__:{err_msg}', file=sys.stderr)
+    sys.exit(0)
+try:
+    content = d['choices'][0]['message']['content']
+except (KeyError, IndexError, TypeError) as e:
+    print(f'__LLM_PARSE_FAIL__:no_choices:{type(e).__name__}', file=sys.stderr)
+    sys.exit(0)
+print(content)
+" 2>"$parse_err_file" || true)
 
-if [ -z "${LLM_CONTENT// }" ]; then
-    log "WARN: LLM调用失败，使用原始推文推送"
-    LLM_CONTENT=""
-fi
+        local parse_err
+        parse_err="$(cat "$parse_err_file" 2>/dev/null || true)"
 
-echo "$LLM_CONTENT" > "$CACHE/llm_content.txt"
+        if echo "$parse_err" | grep -q '__LLM_HTTP_ERROR__\|__LLM_PARSE_FAIL__'; then
+            LAST_LLM_FAIL_REASON=$(echo "$parse_err" | head -c 200 | tr '\n' ' ')
+            log "WARN: 条 $idx attempt $((attempt+1))/3: $LAST_LLM_FAIL_REASON"
+            if [ $attempt -lt 2 ]; then sleep "${backoffs[$attempt]}"; fi
+            continue
+        fi
 
-# ── 4. 组装消息 ──────────────────────────────────────────────────────
-MSG_FILE="$CACHE/ai_leaders_message.txt"
-$PYTHON3 - "$ALL_TWEETS" "$CACHE/llm_content.txt" "$DAY" "$MSG_FILE" << 'PYEOF'
-import sys, json, re
+        if [ -z "${parse_out// }" ]; then
+            LAST_LLM_FAIL_REASON="empty_content"
+            log "WARN: 条 $idx attempt $((attempt+1))/3: empty content"
+            if [ $attempt -lt 2 ]; then sleep "${backoffs[$attempt]}"; fi
+            continue
+        fi
 
-tweets_file, llm_file, day, msg_file = sys.argv[1:5]
+        echo "$parse_out"
+        return 0
+    done
+    return 1
+}
 
+# ── 主循环: 每条推文独立调 LLM (5 字段深度) ──────────────────────────
+TOTAL_FAILED=0
+LAST_FAIL_REASON=""
+
+for ((i=0; i<TOTAL_NEW; i++)); do
+    SINGLE_PROMPT="$CACHE/llm_single_prompt_${i}.txt"
+    $PYTHON3 - "$ALL_TWEETS" "$i" << 'PYEOF' > "$SINGLE_PROMPT"
+import sys, json
+
+tweets_file, idx = sys.argv[1], int(sys.argv[2])
 tweets = []
-with open(tweets_file) as f:
+with open(tweets_file, encoding='utf-8') as f:
     for line in f:
         line = line.strip()
         if line:
             tweets.append(json.loads(line))
+t = tweets[idx]
+text = t['text']
+author = t['author']
+label = t['label']
 
-with open(llm_file) as f:
-    llm_content = f.read()
+prompt = """你是资深 AI 系统架构师。对以下 X 推文做 5 字段深度技术分析:
 
-# 解析 LLM 输出（5行一组，--- 分隔）
-analyses = []
-current = {}
-for raw_line in llm_content.split('\n'):
-    line = raw_line.strip()
-    if not line:
-        continue
-    if re.match(r'^[-=]{3,}$', line):
-        if current:
-            analyses.append(current)
-            current = {}
-        continue
-    for key in ['主题', '深度分析', '系统启示', '行动建议', '价值']:
-        prefix = key + '：'
-        alt_prefix = key + ':'
-        if line.startswith(prefix):
-            current[key] = line[len(prefix):].strip()
-            break
-        elif line.startswith(alt_prefix):
-            current[key] = line[len(alt_prefix):].strip()
-            break
-if current:
-    analyses.append(current)
+📌 中文主题: 用 ≤15 字概括推文核心主题 (信达雅, 不直译)
+🔑 核心观点: 3-5 条 bullet, 每条 1 句 ≤ 50 字, 列出推文作者的关键论点/事实/技术声明
+💡 技术深度解读: 揭示作者立场 / 技术背景 / 为什么重要 / 与已有讨论的关联 / 局限性
+   长度按评级动态调整: ⭐⭐⭐→100-150字 / ⭐⭐⭐⭐→250-400字 / ⭐⭐⭐⭐⭐→500-800字 (深度推文充分展开)
+🎯 系统启示: 1-3 条对 Agent Runtime / Control Plane / Memory 系统的具体启示, 每条 ≤ 80 字
+⭐ 评级: ⭐ × N (1-5 个) + 推荐场景 (谁应该读 / 何时读 / 用于什么场景)
+
+⚠️ 严格约束 (违反则整份输出作废):
+- 只使用上方提供的推文文本中的信息, 严禁虚构作者未提及的事实/数据/链接
+- 推文短不足以判断深度时, 标⭐较低 + 写"基于推文片段的初步判断"
+- 严禁推断 Hugging Face / OpenAI / GitHub 等平台的具体内部状态除非原文提及
+- 严禁把 HTTP 错误码 / Python 异常 / 错误日志当外部信号
+
+输出格式 (严格按此 5 字段, 字段间用空行分隔):
+
+📌 中文主题: <你的概括>
+
+🔑 核心观点:
+- 观点1
+- 观点2
+
+💡 技术深度解读:
+<段落, 长度按评级规则>
+
+🎯 系统启示:
+- 启示1
+- 启示2
+
+⭐ 评级: ⭐⭐⭐⭐ / 推荐场景: <场景描述>
+
+---
+
+"""
+prompt += f"作者: {author} ({label})\n"
+prompt += f"推文原文:\n{text}\n"
+print(prompt)
+PYEOF
+
+    log "调用 LLM 分析条 $((i+1))/$TOTAL_NEW"
+    if RESULT=$(call_llm_single_with_retry "$SINGLE_PROMPT" "$i"); then
+        $PYTHON3 -c "
+import json, sys
+result = sys.stdin.read()
+print(json.dumps({'idx': $i, 'content': result, 'failed': False, 'fail_reason': ''}, ensure_ascii=False))
+" <<< "$RESULT" >> "$RESULTS_FILE"
+    else
+        TOTAL_FAILED=$((TOTAL_FAILED + 1))
+        LAST_FAIL_REASON="$LAST_LLM_FAIL_REASON"
+        log "FAIL: 条 $((i+1)) 全 retry 失败 — $LAST_LLM_FAIL_REASON"
+        $PYTHON3 -c "
+import json, sys
+print(json.dumps({'idx': $i, 'content': '', 'failed': True, 'fail_reason': '''$LAST_LLM_FAIL_REASON'''}, ensure_ascii=False))
+" >> "$RESULTS_FILE"
+    fi
+done
+
+# ── 决定整体 status (V37.9.36 fail-fast 契约保留) ──────────────────
+if [ "$TOTAL_FAILED" -eq "$TOTAL_NEW" ]; then
+    log "ERROR: 全部 $TOTAL_NEW 条 LLM 分析失败 (last reason: $LAST_FAIL_REASON)"
+    send_alert "全部 $TOTAL_NEW 条 LLM 分析失败 (last reason: $LAST_FAIL_REASON)"
+    REASON_ESCAPED=$(echo "$LAST_FAIL_REASON" | tr '"' "'" | tr '\n' ' ' | head -c 200)
+    printf '{"time":"%s","status":"llm_failed","new":%d,"sent":false,"reason":"all_failed_%s"}\n' "$TS" "$TOTAL_NEW" "$REASON_ESCAPED" > "$STATUS_FILE"
+    exit 1
+elif [ "$TOTAL_FAILED" -gt 0 ]; then
+    log "WARN: $TOTAL_FAILED/$TOTAL_NEW 条失败 — 走 partial_degraded (失败条标 [LLM_DEGRADED])"
+    send_alert "$TOTAL_FAILED/$TOTAL_NEW 条 LLM 部分失败 (其余正常推送, 失败条标 [LLM_DEGRADED])"
+fi
+echo "[ai_leaders] LLM 调用完成: 成功 $((TOTAL_NEW - TOTAL_FAILED))/$TOTAL_NEW"
+
+# ── V37.9.40: 5 字段 emit (5-field key-based parser + LLM_DEGRADED fallback + 多窗口切片) ──
+MSG_FILE="$CACHE/ai_leaders_message.txt"
+$PYTHON3 - "$ALL_TWEETS" "$RESULTS_FILE" "$DAY" "$MSG_FILE" << 'PYEOF'
+import sys, json, re
+
+tweets_file, results_file, day, msg_file = sys.argv[1:5]
+
+tweets = []
+with open(tweets_file, encoding='utf-8') as f:
+    for line in f:
+        line = line.strip()
+        if line:
+            tweets.append(json.loads(line))
+with open(results_file, encoding='utf-8') as f:
+    results = [json.loads(l) for l in f if l.strip()]
+
+# V37.9.39 同款 5 字段 key-based parser
+def parse_5field_output(content):
+    fields = {
+        'cn_title': '', 'highlights': '', 'insight': '', 'practice': '', 'rating': '',
+    }
+    current_field = None
+    current_buffer = []
+
+    def flush():
+        if current_field and current_buffer:
+            fields[current_field] = '\n'.join(current_buffer).strip()
+
+    for raw in content.split('\n'):
+        line = raw.rstrip()
+        if re.match(r'^[-=*_]{3,}$', line.strip()):
+            continue
+        if line.lstrip().startswith('📌'):
+            flush()
+            current_field = 'cn_title'
+            current_buffer = []
+            m = re.match(r'.*📌\s*(?:中文)?主题\s*[:：]?\s*(.*)', line)
+            if m and m.group(1).strip():
+                current_buffer.append(m.group(1).strip())
+            continue
+        if line.lstrip().startswith('🔑'):
+            flush()
+            current_field = 'highlights'
+            current_buffer = []
+            continue
+        if line.lstrip().startswith('💡'):
+            flush()
+            current_field = 'insight'
+            current_buffer = []
+            continue
+        if line.lstrip().startswith('🎯'):
+            flush()
+            current_field = 'practice'
+            current_buffer = []
+            continue
+        if line.lstrip().startswith('⭐') and current_field != 'rating':
+            if '评级' in line or '推荐场景' in line or re.match(r'\s*⭐+\s*$', line):
+                flush()
+                current_field = 'rating'
+                current_buffer = [line.lstrip()]
+                continue
+        if current_field is not None:
+            current_buffer.append(line)
+        elif line.strip():
+            pass
+
+    flush()
+    return fields
+
 
 # 按作者分组统计
 author_counts = {}
@@ -320,92 +487,134 @@ for t in tweets:
     author_counts[t['author']] = author_counts.get(t['author'], 0) + 1
 authors_summary = ', '.join(f"{k}({v})" for k, v in author_counts.items())
 
-msg_lines = [f"\U0001F9E0 AI Leaders 技术洞察 ({day})",
-             f"来源：{authors_summary}", ""]
+msg_lines = [f"🧠 AI Leaders 技术洞察 ({day})",
+             f"来源: {authors_summary}", ""]
 
+degraded_count = 0
+llm_ok_count = 0
 for i, tweet in enumerate(tweets):
     text_preview = tweet['text'][:200]
     if len(tweet['text']) > 200:
         text_preview += '...'
-    msg_lines.append(f"━━━ [{tweet['author']}] ━━━")
-    msg_lines.append(f"_{text_preview}_")
-
+    author = tweet['author']
     link = tweet.get('link', '')
-    if link:
-        msg_lines.append(f"链接：{link}")
-    msg_lines.append("")
 
-    if i < len(analyses):
-        a = analyses[i]
-        if a.get('主题'):
-            msg_lines.append(f"*{a['主题']}*")
-        if a.get('深度分析'):
-            msg_lines.append(f"分析：{a['深度分析']}")
-        if a.get('系统启示'):
-            msg_lines.append(f"启示：{a['系统启示']}")
-        if a.get('行动建议'):
-            msg_lines.append(f"行动：{a['行动建议']}")
-        if a.get('价值'):
-            msg_lines.append(f"价值：{a['价值']}")
+    result = results[i] if i < len(results) else None
+    if result is None or result.get('failed'):
+        # LLM_DEGRADED: 推文原文兜底 (替代 V37.9.36 占位符反模式)
+        degraded_count += 1
+        msg_lines.append(f"━━━ [{author}] ━━━")
+        msg_lines.append(f"_{text_preview}_")
+        if link:
+            msg_lines.append(f"链接: {link}")
+        msg_lines.append("")
+        msg_lines.append("⚠️ [LLM_DEGRADED] 深度分析失败, 推文原文供参考 (见上)")
+        msg_lines.append("")
     else:
-        msg_lines.append("*技术分享*")
-        msg_lines.append("价值：⭐⭐⭐")
+        fields = parse_5field_output(result.get('content', ''))
+        title_display = fields['cn_title'] or f"{author} 技术分享"
+        msg_lines.append(f"━━━ [{author}] {title_display} ━━━")
+        msg_lines.append(f"_{text_preview}_")
+        if link:
+            msg_lines.append(f"链接: {link}")
+        msg_lines.append("")
+        if fields['highlights']:
+            msg_lines.append("🔑 核心观点:")
+            msg_lines.append(fields['highlights'])
+            msg_lines.append("")
+        if fields['insight']:
+            msg_lines.append("💡 技术深度解读:")
+            msg_lines.append(fields['insight'])
+            msg_lines.append("")
+        if fields['practice']:
+            msg_lines.append("🎯 系统启示:")
+            msg_lines.append(fields['practice'])
+            msg_lines.append("")
+        if fields['rating']:
+            msg_lines.append(fields['rating'])
+            msg_lines.append("")
+        if fields['cn_title'] or fields['highlights'] or fields['insight']:
+            llm_ok_count += 1
 
+    msg_lines.append("---")
     msg_lines.append("")
 
-msg_lines.append("深度分析 by Qwen3-235B")
-
-with open(msg_file, 'w') as f:
+with open(msg_file, 'w', encoding='utf-8') as f:
     f.write('\n'.join(msg_lines))
 
-print(f"[ai_leaders] 消息组装: {len(tweets)} 条推文, {len(analyses)} 条分析", file=sys.stderr)
+print(f"[ai_leaders] 消息组装完成: {len(tweets)} 条 (LLM 解析成功 {llm_ok_count}, degraded {degraded_count})", file=sys.stderr)
 PYEOF
 
-# ── 5. 推送（WhatsApp + Discord #技术）──────────────────────────────
-# WhatsApp 单消息限 4000 字，超长时分段发送
-MSG_FULL="$(cat "$MSG_FILE")"
-MSG_LEN=${#MSG_FULL}
-
-send_msg() {
-    local content="$1"
-    "$OPENCLAW" message send --channel whatsapp --target "$TO" --message "$content" --json >/dev/null 2>&1
-}
-
+# ── 推送 WhatsApp + Discord (V37.9.21/V37.9.37 多窗口分片: >8000 字才切, ≤8000 单段) ─
 SEND_ERR=$(mktemp)
-if [ "$MSG_LEN" -le 4000 ]; then
-    # 单次发送
-    if send_msg "$MSG_FULL" 2>"$SEND_ERR"; then
-        SEND_OK=true
+TOTAL_LEN=$(wc -c < "$MSG_FILE" | tr -d ' ')
+WA_SENT=false
+
+if [ "$TOTAL_LEN" -le 8000 ]; then
+    MSG_CONTENT="$(cat "$MSG_FILE")"
+    if "$OPENCLAW" message send --channel whatsapp --target "$TO" --message "$MSG_CONTENT" --json >/dev/null 2>"$SEND_ERR"; then
+        log "已推送 ${TOTAL_NEW} 条 (单段, $TOTAL_LEN 字)"
+        WA_SENT=true
+        "$OPENCLAW" message send --channel discord --target "${DISCORD_CH_TECH:-}" --message "$MSG_CONTENT" --json >/dev/null 2>&1 || true
     else
-        SEND_OK=false
+        log "ERROR: 推送失败: $(cat "$SEND_ERR" | head -3)"
     fi
 else
-    # 分段发送（按 3500 字切分，留 buffer）
-    SEND_OK=true
-    PART=1
-    REMAINING="$MSG_FULL"
-    while [ -n "$REMAINING" ]; do
-        CHUNK="$(echo "$REMAINING" | head -c 3500)"
-        REMAINING="$(echo "$REMAINING" | tail -c +3501)"
-        if [ -n "$REMAINING" ]; then
-            CHUNK="${CHUNK}
+    WA_CHUNK_DIR=$(mktemp -d)
+    trap 'rm -rf "$WA_CHUNK_DIR"; rmdir "$LOCK" 2>/dev/null' EXIT INT TERM
 
-... (续 ${PART}) ..."
+    $PYTHON3 - "$MSG_FILE" "$WA_CHUNK_DIR" "$DAY" << 'PYEOF'
+import sys, os, re
+
+msg_file, chunk_dir, day = sys.argv[1], sys.argv[2], sys.argv[3]
+content = open(msg_file, encoding='utf-8').read()
+MAX_CHUNK = 4000
+
+blocks = re.split(r'\n---\n', content)
+header_block = blocks[0]
+article_blocks = [b for b in blocks[1:] if b.strip()]
+
+chunks = []
+current = header_block
+for block in article_blocks:
+    candidate = current + "\n---\n" + block
+    if len(candidate) < MAX_CHUNK:
+        current = candidate
+    else:
+        chunks.append(current)
+        current = block
+if current.strip():
+    chunks.append(current)
+
+total_parts = len(chunks)
+for i, chunk in enumerate(chunks):
+    if total_parts > 1:
+        if i == 0:
+            chunk = chunk.replace(f"🧠 AI Leaders 技术洞察 ({day})",
+                                  f"🧠 AI Leaders 技术洞察 [1/{total_parts}] ({day})", 1)
+        else:
+            chunk = f"🧠 AI Leaders 技术洞察 [{i+1}/{total_parts}] ({day}) (续)\n\n" + chunk
+    with open(os.path.join(chunk_dir, f"{i:03d}.txt"), 'w', encoding='utf-8') as f:
+        f.write(chunk)
+PYEOF
+
+    WA_PARTS_TOTAL=$(ls "$WA_CHUNK_DIR"/*.txt 2>/dev/null | wc -l | tr -d ' ')
+    WA_SENT_OK=0
+    for chunk_file in "$WA_CHUNK_DIR"/*.txt; do
+        CHUNK_CONTENT="$(cat "$chunk_file")"
+        if "$OPENCLAW" message send --channel whatsapp --target "$TO" --message "$CHUNK_CONTENT" --json >/dev/null 2>>"$SEND_ERR"; then
+            WA_SENT_OK=$((WA_SENT_OK + 1))
         fi
-        if ! send_msg "$CHUNK" 2>>"$SEND_ERR"; then
-            SEND_OK=false
-            break
-        fi
-        PART=$((PART + 1))
-        sleep 2
+        "$OPENCLAW" message send --channel discord --target "${DISCORD_CH_TECH:-}" --message "$CHUNK_CONTENT" --json >/dev/null 2>&1 || true
+        sleep 1  # 防 WhatsApp 消息乱序 (V37.9.21 契约)
     done
+    log "已推送 ${TOTAL_NEW} 条 (多窗口 ${WA_SENT_OK}/${WA_PARTS_TOTAL} 段, 共 $TOTAL_LEN 字)"
+    if [ "$WA_SENT_OK" -gt 0 ]; then
+        WA_SENT=true
+    fi
 fi
 
-if [ "$SEND_OK" = true ]; then
-    log "已推送 ${TOTAL_NEW} 条 AI Leaders 推文分析"
-    # Discord 只发前 4000 字
-    "$OPENCLAW" message send --channel discord --target "${DISCORD_CH_TECH:-}" \
-        --message "$(echo "$MSG_FULL" | head -c 4000)" --json >/dev/null 2>&1 || true
+if [ "$WA_SENT" = "true" ]; then
     # 标记已发送
     $PYTHON3 -c "
 import json, sys
@@ -416,12 +625,14 @@ with open('$ALL_TWEETS') as f:
             d = json.loads(line)
             print(d.get('id', ''))
 " >> "$SEEN_FILE"
-    printf '{"time":"%s","status":"ok","new":%d,"sent":true,"stats":"%s"}\n' \
-        "$TS" "$TOTAL_NEW" "$FETCH_STATS" > "$STATUS_FILE"
+    if [ "$TOTAL_FAILED" -gt 0 ]; then
+        printf '{"time":"%s","status":"partial_degraded","new":%d,"failed":%d,"sent":true,"stats":"%s"}\n' "$TS" "$TOTAL_NEW" "$TOTAL_FAILED" "$FETCH_STATS" > "$STATUS_FILE"
+    else
+        printf '{"time":"%s","status":"ok","new":%d,"sent":true,"stats":"%s"}\n' "$TS" "$TOTAL_NEW" "$FETCH_STATS" > "$STATUS_FILE"
+    fi
 else
-    log "ERROR: 推送失败: $(head -3 "$SEND_ERR")"
-    printf '{"time":"%s","status":"send_failed","new":%d,"sent":false}\n' \
-        "$TS" "$TOTAL_NEW" > "$STATUS_FILE"
+    log "ERROR: 推送全失败: $(cat "$SEND_ERR" | head -3)"
+    printf '{"time":"%s","status":"send_failed","new":%d,"sent":false}\n' "$TS" "$TOTAL_NEW" > "$STATUS_FILE"
 fi
 rm -f "$SEND_ERR"
 
