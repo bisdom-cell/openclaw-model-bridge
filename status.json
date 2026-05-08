@@ -1,6 +1,6 @@
 {
-  "updated": "2026-05-08 04:50:47",
-  "updated_by": "security_score",
+  "updated": "2026-05-08 05:02:59",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -284,7 +284,8 @@
       "V37.9.39+ P3 fix chaspark / github_trending / ontology_sources / kb_inject / kb_dream / freight_watcher / finance_news / run_hn_fixed (无 placeholder finding 但 SYSTEM_ALERT/send_alert/status:failed/exit 1 不齐). 风险等级低于 P1/P2 但同款 V37.9.36 反模式",
       "V37.9.40+ P1 续: hf_papers / arxiv_monitor (各 3 placeholder findings, 与 V37.9.39 S2 完全同款 copy-paste 模式 — 机械迁移即可: 同款 send_alert + call_llm_single_with_retry + 5 字段 prompt + LLM_DEGRADED + 多窗口). 一次一个 + 单测 + Mac Mini E2E 真跑数据回归后再下一个",
       "V37.9.40+ S2 推送质量观察 (V37.9.39 首次真实推送 4/4 papers 材料上成功, vs 昨日 10x 信息密度提升, 但发现 3 观察项需多日真跑数据回归): (1) Paper 4 ⭐⭐⭐⭐⭐ 💡 块开头 prompt 指令字面量泄漏 '⭐⭐⭐⭐⭐（500-800字）' (LLM 把字数规则当输出格式), 修法 prompt 改 inline 字面量为 prose; (2) Paper 1, 2 ⭐⭐⭐⭐ 完全跳过 💡 关键方法字段 vs Paper 3 ⭐⭐⭐⭐ 完整 (LLM variance, 修法 prompt 加'必填'强制); (3) Paper 1 作者名重复 'Himanshu Gautam Himanshu Gautam 等' (S2 API 上游数据问题, 修法 emit 端去重). 决策按 MR-10 三问: 不今天动手, 等明日 11:00 cron + 后续 3 天数据看 reproducible 程度再决定 V37.9.40 prompt 微调还是 LLM behavior 接受范围内 noise",
-      "V37.9.41+ P1 续: hf_papers / arxiv_monitor (各 3 placeholder findings, 与 V37.9.39 S2/V37.9.40 DBLP 完全同款机械迁移). 一次一个 + 单测 + Mac Mini E2E 数据回归后再下一个"
+      "V37.9.41+ P1 续: hf_papers / arxiv_monitor (各 3 placeholder findings, 与 V37.9.39 S2/V37.9.40 DBLP 完全同款机械迁移). 一次一个 + 单测 + Mac Mini E2E 数据回归后再下一个",
+      "V37.9.41+ 候选: auto_deploy.sh FILE_MAP cp 原子性 — V37.9.40 部署后 Mac Mini 用户手动触发 DBLP 报 'line 96 syntax error near done' 但同款脚本 12:00 cron 成功 + AI Leaders X 同期 cron 成功. 时序: 12:43 V37.9.40 push → 12:53 preflight 报 4 项 cron job 文件不一致 → 12:54 用户手动 bash dblp.sh 失败. 真因: auto_deploy cp 非原子, 用户手动跑时遇到 cp 中途态 (老结构 + 新结构混合 → 不匹配的 done token). 修法: auto_deploy FILE_MAP 同步改为 cp \"$SRC\" \"$DST.tmp.$$\" + mv -f \"$DST.tmp.$$\" \"$DST\" 原子模式. 影响: 任何高频 cron job + 大量 file 同步时窗口都可能再次出现. 优先级 P2 (单次时序事件, 可手动 cp 应急)"
     ],
     "open_prs": "",
     "blocked_on": "",
