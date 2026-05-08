@@ -1,6 +1,6 @@
 {
-  "updated": "2026-05-08 16:14:44",
-  "updated_by": "full_regression",
+  "updated": "2026-05-08 16:23:49",
+  "updated_by": "security_score",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -105,6 +105,11 @@
   ],
   "recent_changes": [
     {
+      "date": "2026-05-09",
+      "what": "V37.9.42 hotfix — HN V37.9.41 三个 bash 整数处理 bug 修复 (Mac Mini 23:51 实测发现): (a) BSD wc -l NEW_COUNT 含前导空格 → tr -d [:space:] (b) dedup print(\\n.join([])) 输出空行让 wc -l=1 但实际无 JSON → 新增 NEW_JSON_COUNT=$(grep -c ^{) early-exit (c) SENT_COUNT 0\\n0 双输出 → SENT_COUNT=$(grep -c) || SENT_COUNT=0. bash -n + full_regression 61/0/2192 通过. Mac Mini 实测 V37.9.42 推送 1 条 2153 字 5 字段深度 + (基于标题与摘要推断) caveat 完美兑现. line 582 syntax error 是 auto_deploy cp 原子性 timing race (V37.9.41+ 候选已登记 升级 P1). VERSION 0.37.9.41 → 0.37.9.42",
+      "by": "claude_code"
+    },
+    {
       "date": "2026-05-08",
       "what": "V37.9.41 — HN 5 字段深度迁移 (V37.9.40 同款扩展). 用户视角原则 #13 第 12 次. HN 老 V38 batch + 4 字段 + stars=⭐⭐⭐ silent fallback. 迁移 (385→578 行 +50%): NOTIFY_SH + send_alert helper / 替换 line 131-298 Python heredoc 为 call_llm_single_with_retry + per-item 5 字段 prompt + 基于标题与摘要推断 caveat (HN 摘要常缺失同 DBLP) / parse_5field_output emit + LLM_DEGRADED 用 desc 兜底 + 多窗口. 21 单测 3 类. ALIGNED_SCRIPTS 7→8. governance INV-QUOTA-001 老 LLM_FAILED pattern 升级为 V37.9.36 三层 regex. test_tool_proxy V37.4.3 历史 test 放宽兼容 V37.9.41 helper 字面量. 61 suites / 2171→2192 tests (+21) / 0 fail / 551→552 checks / 安全 95/100 / VERSION 0.37.9.40→0.37.9.41",
       "by": "claude_code"
@@ -194,11 +199,6 @@
       "date": "2026-05-05",
       "what": "🚨 V37.9.28 收尾揭示重大真相 — MOVESPEED 备份连续 8 天 100% 失败 (4/27 → 5/5). 用户实测: 关键 source 文件 (hn_daily.md / arxiv_daily.md / finance_daily.md / status.json) MOVESPEED mtime 全部停在 4/27, 本地正常更新到 5/5. V37.9.27 helper retry+jitter 设计假设 transient EPERM 自愈错误 — 实际是 macOS 系统服务 (Spotlight/mds_stores/backupd/fseventsd) 持续 lock SSD, retry 3 次完全无效. MR-4 silent-failure 第 21 次演出 (前 20 次包括今日 4 次诊断错误): helper 看似工作 (rsync retry 都跑) 但结果是零数据被同步. 用户手动 rsync -av --delete 已一次性补齐 3679 文件 / 71.9MB + 删 4000+ stale 文件, MOVESPEED 现在 100% 镜像本地. 但下次 cron rsync 仍会失败直到 macOS 修复 (Spotlight 禁用 + TM 排除) 生效. P0 紧急: 加每日 04:00 强制全量 sync cron 作为兜底 (crontab_safe.sh add 0 4 * * * rsync -av --delete ...). 元教训之最: 1) 之前 70-80% rsync 成功估算完全错误, 推测脱离数据导致严重低估问题严重性. 2) MOVESPEED 是数据安全最后屏障, 连续 8d 0 同步是数据丢失风险敞口. 3) V37.9.27 helper 没缓解任何 incident — 当 root cause 是持久 lock 而非 transient, retry+jitter 设计假设根本失效. 这是设计假设级 silent failure (与 V37.9.4 APFS 同款) — 假设 EPERM transient 持续 60 天直到今日数据揭示.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-05-05",
-      "what": "V37.9.28 F2 收尾 — 数据驱动诊断揭示真相后犯 4 次诊断错误的元教训登记. 真相: 23/23 incidents in 24h 是 EPERM (exit=1), Volume mounted (df+当前 ls 证实) 但 incident 时 ls 显示 total 0 + touch 返回 EPERM. 4 次诊断错误链: (1) 假设 EOF (错, 实是 EPERM) (2) 假设 Volume Unmounted (错, 实 mounted but state 异常) (3) 假设 Spotlight+TM 锁是充分原因 (部分对但不充分) (4) mount 字段 0/233 误读为 unmount evidence (实是 incident_capture read_file 400 字符截断 bug). 已执行 macOS 修复: sudo mdutil -i off /Volumes/MOVESPEED + tmutil addexclusion /Volumes/MOVESPEED (Spotlight + Time Machine 排除). 等 5/6 24h 数据看效果. 登记 3 个 V37.9.29+ 候选: (a) incident_capture 截断 bug 修复 (b) analyzer 失败模式细分类 (c) 修复效果观察决策点. 元教训: 按原则 #28 修复前必答三问的纪律必须严格执行, 凭推测连续 4 次错误判定让 session 浪费 ~30min. 数据驱动诊断不是终点是起点, 还需让证据自洽再下结论.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -285,7 +285,8 @@
       "V37.9.40+ P1 续: hf_papers / arxiv_monitor (各 3 placeholder findings, 与 V37.9.39 S2 完全同款 copy-paste 模式 — 机械迁移即可: 同款 send_alert + call_llm_single_with_retry + 5 字段 prompt + LLM_DEGRADED + 多窗口). 一次一个 + 单测 + Mac Mini E2E 真跑数据回归后再下一个",
       "V37.9.40+ S2 推送质量观察 (V37.9.39 首次真实推送 4/4 papers 材料上成功, vs 昨日 10x 信息密度提升, 但发现 3 观察项需多日真跑数据回归): (1) Paper 4 ⭐⭐⭐⭐⭐ 💡 块开头 prompt 指令字面量泄漏 '⭐⭐⭐⭐⭐（500-800字）' (LLM 把字数规则当输出格式), 修法 prompt 改 inline 字面量为 prose; (2) Paper 1, 2 ⭐⭐⭐⭐ 完全跳过 💡 关键方法字段 vs Paper 3 ⭐⭐⭐⭐ 完整 (LLM variance, 修法 prompt 加'必填'强制); (3) Paper 1 作者名重复 'Himanshu Gautam Himanshu Gautam 等' (S2 API 上游数据问题, 修法 emit 端去重). 决策按 MR-10 三问: 不今天动手, 等明日 11:00 cron + 后续 3 天数据看 reproducible 程度再决定 V37.9.40 prompt 微调还是 LLM behavior 接受范围内 noise",
       "V37.9.41+ P1 续: hf_papers / arxiv_monitor (各 3 placeholder findings, 与 V37.9.39 S2/V37.9.40 DBLP 完全同款机械迁移). 一次一个 + 单测 + Mac Mini E2E 数据回归后再下一个",
-      "V37.9.41+ 候选: auto_deploy.sh FILE_MAP cp 原子性 — V37.9.40 部署后 Mac Mini 用户手动触发 DBLP 报 'line 96 syntax error near done' 但同款脚本 12:00 cron 成功 + AI Leaders X 同期 cron 成功. 时序: 12:43 V37.9.40 push → 12:53 preflight 报 4 项 cron job 文件不一致 → 12:54 用户手动 bash dblp.sh 失败. 真因: auto_deploy cp 非原子, 用户手动跑时遇到 cp 中途态 (老结构 + 新结构混合 → 不匹配的 done token). 修法: auto_deploy FILE_MAP 同步改为 cp \"$SRC\" \"$DST.tmp.$$\" + mv -f \"$DST.tmp.$$\" \"$DST\" 原子模式. 影响: 任何高频 cron job + 大量 file 同步时窗口都可能再次出现. 优先级 P2 (单次时序事件, 可手动 cp 应急)"
+      "V37.9.41+ 候选: auto_deploy.sh FILE_MAP cp 原子性 — V37.9.40 部署后 Mac Mini 用户手动触发 DBLP 报 'line 96 syntax error near done' 但同款脚本 12:00 cron 成功 + AI Leaders X 同期 cron 成功. 时序: 12:43 V37.9.40 push → 12:53 preflight 报 4 项 cron job 文件不一致 → 12:54 用户手动 bash dblp.sh 失败. 真因: auto_deploy cp 非原子, 用户手动跑时遇到 cp 中途态 (老结构 + 新结构混合 → 不匹配的 done token). 修法: auto_deploy FILE_MAP 同步改为 cp \"$SRC\" \"$DST.tmp.$$\" + mv -f \"$DST.tmp.$$\" \"$DST\" 原子模式. 影响: 任何高频 cron job + 大量 file 同步时窗口都可能再次出现. 优先级 P2 (单次时序事件, 可手动 cp 应急)",
+      "V37.9.43+ 候选 [P2 — HN HTML metadata 泄漏到 LLM]: HN RSS description 含评论页 metadata (例 \"stefanpie\" username + 评论日期 \"Hacker News•昨天6:22\"), 当前脚本已有 re.sub HTML 标签清理但 entities/换行 metadata 仍泄漏到 LLM 输出. 修法: prompt 构建时加入 re.sub(r\"\\\\s*Hacker News.\\d+\\\\s*\", \"\") + re.sub(r\"^\\\\s*\\\\w+\\\\s*\\\\n\", \"\") 强清洗. 2026-05-09 V37.9.42 验证推送实证 — Canvas/ShinyHunters 推送底部混入 stefanpie + Hacker News•昨天6:22 metadata. 影响: 用户体验降级但内容仍可读, 不阻塞"
     ],
     "open_prs": "",
     "blocked_on": "",
@@ -377,7 +378,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.41 收工 — HN 5 字段深度迁移 (V37.9.40 同款扩展, ALIGNED_SCRIPTS 7→8). 用户视角原则 #13 第 12 次正向兑现. HN 适配: max 5 items/run + 基于标题与摘要推断 caveat (因 HN 摘要常缺失) + LLM_DEGRADED 用 desc 兜底 (替代老 stars='⭐⭐⭐' 占位符) + Qwen3 <think>/ANSI 清理保留. 21 新单测 3 类. INV-LLMCRON-AUDIT-001 扩展 16→17. audit 7→8 已对齐. 61 suites / 2192 tests / 0 fail / 552 checks / 安全 95/100 / VERSION 0.37.9.41. 同日 V37.9.38→39→40→41 = 24h 四阶段连环, ALIGNED_SCRIPTS 4→5→7→8 是机器化进度。",
+  "focus": "V37.9.42 收工 — 24h 内 8 阶段连环兑现 (V37.9.38 audit→V37.9.39 S2→V37.9.40 DBLP+AI Leaders→V37.9.41 HN→V37.9.42 hotfix). ALIGNED_SCRIPTS 4→8 (rss_blogs/kb_evening/kb_review/kb_deep_dive/S2/DBLP/AI Leaders X/HN). 4 个 PoC 真实生产推送验证 (rss_blogs 5 字段 + S2 4 papers + DBLP 10 papers 3 段 20258 字 + HN 1 条 2153 字 含 caveat). V37.9.42 hotfix 修 V37.9.41 三个 bash 整数处理 bug (BSD wc -l 前导空格 / dedup 空行 IndexError / SENT_COUNT '0\\n0' 双输出). 用户视角原则 #13 第 8-12 次连续兑现. 61 suites / 2192 tests / 0 fail / 552 checks / 71 inv / 安全 95/100 / VERSION 0.37.9.42.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
