@@ -6079,6 +6079,125 @@ invariants:
               f"5 字段 + LLM_DEGRADED 端到端验证失败:\n{proc.stderr[-1000:]}"
           )
 
+  # ──────────────────────────────────────────────────────────────────
+  # INV-LLMCRON-AUDIT-001 (V37.9.38)
+  # ──────────────────────────────────────────────────────────────────
+  - id: INV-LLMCRON-AUDIT-001
+    name: llm-cron-jobs-fail-fast-audit-coverage
+    meta_rule: MR-8
+    verification_layer: [declaration, runtime]
+    severity: high
+    declaration: |
+      所有调用 LLM 的 cron 脚本（`jobs/**/run_*.sh` + 主仓库 LLM thin wrapper）
+      必须在 ontology/llm_cron_audit.py 的 LLM_CRON_CANDIDATES 清单中登记，
+      且其合规状态可由 audit_script() 自动扫描。21 个候选脚本中至少 4 个
+      已对齐脚本（V37.5 kb_review / V37.8.10 kb_evening / V37.9.16 kb_deep_dive /
+      V37.9.36-37 rss_blogs）必须保持合规（aligned=True）。
+    design_decision: |
+      V37.9.38 audit 视野 + 预防 + PoC 三件套交付：
+        (a) ontology/llm_cron_audit.py — pure Python 扫描器, 行级启发式
+            识别 V37.9.36 同款占位符反模式 (贡献：AI领域相关研究 / 价值：⭐⭐⭐ /
+            要点：技术深度文章) + prompt 模板豁免 + 三种字面量上下文
+            (quoted_inline / shell_multiline_close / py_assignment_open)
+        (b) docs/llm_cron_fail_fast_audit.md — 21 脚本扫描报告, 显示
+            P1 (≥2 findings) / P2 (1 finding) / P3 (0 findings 但缺标志)
+            三档优先级, 是 V37.9.39+ 修复路线图的真理源
+        (c) MR-8 兑现 (跨 job 同步 fail-fast 升级 = copy-paste-is-a-bug-class
+            的反向案例): V37.5 / V37.8.10 / V37.9.16 三次同款修复都没扫
+            其他 LLM cron 是否有同款反模式, 直到 V37.9.36 血案才浮现。
+            audit 模块让未来 fail-fast 升级时 grep 范围一目了然。
+        (d) ALIGNED_SCRIPTS 4 entry 是 V37.9.38 的合规黄金标准, 任何这 4 个
+            脚本失去 aligned=True 状态 → 立即告警 (V37.9.39+ 各次升级都
+            必须保持已对齐脚本不退化)
+    lesson: |
+      V37.9.36 血案教训: 跨 job 没及时同步 fail-fast 升级 = MR-8 反向案例。
+      audit 模块把这种"全局视野"从单次回顾升级为持续 governance check —
+      下次新增 LLM cron 或修改既有 fail-fast 模式时, governance 立即告知
+      "21 个候选脚本中 X 个未对齐, 风险 P1/P2/P3 分布如下"。
+
+      MR-10 (理解再动手) 兑现: V37.9.38 没有一次性修 17 个脚本 (会引入
+      V37.9.34 同款 cascade 修复 bug)。今日交付仅 PoC + audit + 路线图,
+      让 V37.9.39+ 每次 1-2 个脚本逐个验证, 配合 Mac Mini E2E 真跑数据。
+    checks:
+      # ── declaration: audit 模块文件 + 关键 API 守卫 ──────────────────
+      - name: "audit 模块标 V37.9.38 版本"
+        check_type: file_contains
+        file: ontology/llm_cron_audit.py
+        pattern: "V37.9.38"
+      - name: "audit 模块定义 audit_script() 公开 API"
+        check_type: file_contains
+        file: ontology/llm_cron_audit.py
+        pattern: "def audit_script\\(path\\)"
+      - name: "audit 模块定义 find_placeholder_findings() 扫描器"
+        check_type: file_contains
+        file: ontology/llm_cron_audit.py
+        pattern: "def find_placeholder_findings\\(src\\)"
+      - name: "audit 模块定义 _is_prompt_template_line() 豁免函数 (防 prompt 模板误报)"
+        check_type: file_contains
+        file: ontology/llm_cron_audit.py
+        pattern: "def _is_prompt_template_line\\(line\\)"
+      - name: "ALIGNED_SCRIPTS 含 V37.9.36-37 rss_blogs 锚点"
+        check_type: file_contains
+        file: ontology/llm_cron_audit.py
+        pattern: "V37.9.36-37"
+      - name: "ALIGNED_SCRIPTS 含 V37.5 kb_review 锚点"
+        check_type: file_contains
+        file: ontology/llm_cron_audit.py
+        pattern: '"V37.5"'
+      - name: "PLACEHOLDER_PATTERNS 含 V37.9.36 血案 3 个核心字符串"
+        check_type: python_assert
+        assertion: |
+          src = open("ontology/llm_cron_audit.py", encoding="utf-8").read()
+          for s in ("贡献：AI领域相关研究", "价值：⭐⭐⭐", "要点：技术深度文章"):
+              assert s in src, f"PLACEHOLDER_PATTERNS 必须含 V37.9.36 血案字符串: {s!r}"
+
+      # ── declaration: 报告文件 + 测试文件存在 + 关键内容检查 ──────────
+      - name: "audit 报告 markdown 已落盘 + 显示 21 个候选脚本扫描结果"
+        check_type: file_contains
+        file: docs/llm_cron_fail_fast_audit.md
+        pattern: "候选脚本总数：21"
+      - name: "audit 报告含 V37.9.38+ 修复路线图"
+        check_type: file_contains
+        file: docs/llm_cron_fail_fast_audit.md
+        pattern: "V37.9.38\\+ 修复路线图"
+      - name: "test_llm_cron_audit.py 单测文件标 V37.9.38 版本"
+        check_type: file_contains
+        file: test_llm_cron_audit.py
+        pattern: "V37.9.38"
+
+      # ── runtime: subprocess 真跑 audit 模块 + 单测 ──────────────────
+      - name: "audit_all() 在真实 repo 跑通 + 至少 4 个 ALIGNED 脚本被识别"
+        check_type: python_assert
+        assertion: |
+          import subprocess, sys, os
+          repo_root = os.path.dirname(os.path.abspath(__file__))
+          # subprocess 跑 audit_script 端到端
+          proc = subprocess.run(
+              [sys.executable, "ontology/llm_cron_audit.py", "--report"],
+              capture_output=True, text=True, timeout=20, cwd=repo_root,
+          )
+          assert proc.returncode == 0, f"audit --report 失败: {proc.stderr[-500:]}"
+          assert "V37.9.36-37" in proc.stdout, "rss_blogs V37.9.36-37 未识别"
+          assert "V37.5" in proc.stdout, "kb_review V37.5 未识别"
+          assert "V37.8.10" in proc.stdout, "kb_evening V37.8.10 未识别"
+          assert "V37.9.16" in proc.stdout, "kb_deep_dive V37.9.16 未识别"
+      - name: "test_llm_cron_audit.py 26 单测全过 (V37.9.38 守卫闭环)"
+        check_type: python_assert
+        assertion: |
+          import subprocess, sys, os
+          repo_root = os.path.dirname(os.path.abspath(__file__))
+          proc = subprocess.run(
+              [sys.executable, "-m", "unittest", "test_llm_cron_audit", "-v"],
+              capture_output=True, text=True, timeout=60, cwd=repo_root,
+          )
+          assert proc.returncode == 0, (
+              f"test_llm_cron_audit.py 单测失败:\n{proc.stderr[-1500:]}"
+          )
+          # 输出 "Ran 26 tests" — V37.9.38 26 single-test guarantee
+          assert "Ran 26 tests" in proc.stderr or "Ran 26 tests" in proc.stdout, (
+              f"应跑 26 单测, 实际输出: {proc.stderr[-300:]}"
+          )
+
 # ═══════════════════════════════════════════════════════════════════════
 # 4. 可执行元规则（Phase 0）— 自动发现缺失不变式
 #    只扫描结构化数据源，不解析自然语言
@@ -6474,8 +6593,8 @@ audit_metadata:
     v3.12 → v3.13: V37.8.7 ontology_sources 推送格式错位血案 — INV-ONTOLOGY-001 新增 (ontology-sources-parser-must-be-key-based-not-positional, meta_rule=MR-4, severity=high, verification_layer=[declaration, runtime], 7 checks). 2026-04-15 用户 WhatsApp 收到 ontology_sources 推送严重错位：第 2 篇 cn_title 显示为 *---*、第 3 篇 cn_title 显示为 *价值：⭐⭐⭐⭐*。根因：原解析器用严格位置 (lines[i], lines[i+1], lines[i+2]) + i+=3 步进 — LLM 漏一行"要点"或多一行空白就让所有后续条目的 cn_title/highlight/stars 全部右移一格级联污染。修复：抽到独立模块 jobs/ontology_sources/ontology_parser.py（纯函数 parse_llm_blocks 可单测，避开 V37.5 heredoc-only 不可测血案），按 separator 切块 + 块内 key-based prefix 解析，单块缺行不影响其他块。runtime python_assert 真跑用户实际看到的污染场景断言"缺要点不级联"。24 单测 (test_ontology_parser.py)：TestNormalCases(4) + TestBloodLessonRegression(5) + TestSeparatorVariants(5) + TestLLMOutputVariants(5) + TestShellScriptIntegration(4) + TestActualBloodLessonScenario(1)。MR-4 silent-failure 第 8 次演出（输出"看起来正常" 6 字段都在但语义错乱）。auto_deploy FILE_MAP 补齐 ontology_parser.py。
     v3.11 → v3.12: V37.8.6 Dream 自引用幻觉血案 — INV-DREAM-003 新增 (dream-log-cannot-pollute-cache-nor-fabricate-platform-crises, meta_rule=MR-4, severity=critical, verification_layer=[declaration, runtime], 16 checks). 2026-04-15 03:00 Dream run 出现 4 次 Bad JSON 400 (adapter 收到破损 JSON)，但 Dream 仍产出完整"Hugging Face 平台危机"分析，用户察觉 Signal(Papers with Code 沉默)↔Action(监控 Hugging Face) 主题断裂后上报。三层根因：(a) scraped 内容含 surrogate UTF-8 → json.dump + utf-8 file write → UnicodeEncodeError → body_file 截断 → adapter.py:386 返回 400 Bad JSON (b) kb_dream.sh log() 用 `echo` 写 stdout → signals=$(llm_call ...) 命令替换捕获 log 行进 signals → cache file 被"LLM raw response: Error code 400 Bad JSON..."污染 (c) Reduce cache-only fast path 把错误日志注入 LLM 上下文 → LLM 基于这些字样自动编造"Hugging Face 危机"叙事 = 原则 #23 链式幻觉 + MR-4 silent failure 第 7 次演出。四层结构修复（defense-in-depth）：log→stderr 阻断 stdout 污染通道 + _sanitize(U+D800-U+DFFF → U+FFFD) 防编码炸裂 + file open 显式 encoding='utf-8' errors='replace' 第二防线 + REDUCE/CHUNK1/2/3 system prompt 四块加反污染守卫 (禁止把 HTTP 错误码/Python 异常/错误页 HTML/U+FFFD 当外部信号，禁止基于这些字样推断 Hugging Face/GitHub/npm 等平台状态)。runtime python_assert 真跑 sanitize 五场景 (孤立高位/低位代理/正常串/代理范围边界/sanitize 后 json+utf-8 编码不炸)。19 单测 (TestLogGoesToStderr×2 + TestSanitizeSurrogates×7 + TestShellSanitizeImplementation×5 + TestAntiPollutionSystemPrompt×3 + TestShellScriptIntegrity×1 + TestLogDefHasCommentMeta×1)。
     v3.10 → v3.11: V37.8.5 INV-X-001 升级三层检测 (血案二次演出: V37.8.4 修复本身埋盲区) — V37.8.4 收工 Mac Mini E2E 即发现 2 个边缘：CNS1952 98/99 超窗口 + 1 过短老化率 99% 但未触发严格 old==total (MR-10 第 2 次演出：修复会埋坑)；SingTaoDaily 0-tweet stub (embed disabled 返回空骨架) 被 total>0 门槛绕过完全不标记。V37.8.5 修复：(1) 检测逻辑独立为 jobs/finance_news/finance_news_zombie.py 纯函数模块 (classify_zombie(diag, count)); (2) 三层 tier: "stub" (no_data=0 + total=0) + "stale" (≥90% 老化 + count=0 守卫防止低频活跃误报)，整数比较 old*10 >= total*9 避免浮点; (3) 24 单测锁定三层 + 守卫 + shell 集成 + auto_deploy FILE_MAP; (4) verification_layer 从 [declaration] 升级到 [declaration, runtime] (MR-6 遵循: INV-X-001 现在有 python_assert 真跑 5 个 tier 场景); (5) shell 脚本禁止内嵌 inline fallback (防模块缺失时静默降级回 V37.8.4 逻辑 — MR-8 copy-paste-is-a-bug-class 兑现)。诊断行 tier 区分 ⚠️ ZOMBIE嫌疑[stub] vs [stale]，便于日志定位。
-  total_invariants: 63  # V37.9.20: +INV-CONVERGENCE-PROVIDERS-001 (MR-17 second spec via named-dispatch extension, Phase 4 Layer 5 reusability proof)
-  total_checks: 337     # V37.9.20: +14 INV-CONVERGENCE-PROVIDERS-001 checks (5 dispatch registration + 8 yaml structural + 1 runtime test class subset)
+  total_invariants: 71  # V37.9.38: +INV-LLMCRON-AUDIT-001 (MR-8 audit visibility for LLM cron fail-fast alignment, V37.9.36 cross-job copy-paste counterexample)
+  total_checks: 549     # V37.9.38: +14 INV-LLMCRON-AUDIT-001 checks (12 declaration file/python_assert + 2 runtime subprocess) on top of V37.9.37 535
   meta_rules: 16        # MR-1~MR-16 (MR-16 security-governance-alignment: V37.9)
   meta_rule_discovery_count: 6   # Phase 0: registry + env + notify-topic + layer-depth + error-suppression + notify-activity
   check_types_used: [python_assert, file_contains, file_not_contains, env_var_exists, command_succeeds, log_activity_check]
