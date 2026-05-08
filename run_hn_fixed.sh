@@ -148,7 +148,18 @@ if new_inbox_lines:
 print('\n'.join(results))
 PYEOF
 
-NEW_COUNT=$(wc -l < "$NEW_FILE" 2>/dev/null || echo 0)
+NEW_COUNT=$(wc -l < "$NEW_FILE" 2>/dev/null | tr -d '[:space:]' || echo 0)
+NEW_COUNT="${NEW_COUNT:-0}"
+# V37.9.42 hotfix: dedup Python 在 results=[] 时 print('\n'.join([])) 输出 '\n' (空行),
+# wc -l 数到 1 但 grep -c '^{' 为 0 (无 JSON). 用 JSON 起始符精确计数避开此空行陷阱.
+NEW_JSON_COUNT=$(grep -c '^{' "$NEW_FILE" 2>/dev/null | tr -d '[:space:]' || echo 0)
+NEW_JSON_COUNT="${NEW_JSON_COUNT:-0}"
+if [ "$NEW_JSON_COUNT" -lt 1 ]; then
+    log "无新AI/Tech内容 (NEW_FILE 无有效 JSON 条目)。"
+    printf '{"time":"%s","status":"ok","new":0}\n' "$TS" > "$STATUS_FILE"
+    exit 0
+fi
+NEW_COUNT="$NEW_JSON_COUNT"
 if [ "$NEW_COUNT" -eq 0 ]; then
     log "暂无新AI/Tech内容。"
     printf '{"time":"%s","status":"ok","new":0}\n' "$TS" > "$STATUS_FILE"
@@ -478,7 +489,10 @@ with open(msg_file, 'w', encoding='utf-8') as f:
 print(f"[hn] 消息组装: {len(items)} 条 (LLM 解析成功 {llm_ok_count}, degraded {degraded_count}, sent {sent})", file=sys.stderr)
 PYEOF
 
-SENT_COUNT=$(grep -c "^---$" "$MSG_FILE" 2>/dev/null || echo 0)
+SENT_COUNT=$(grep -c "^---$" "$MSG_FILE" 2>/dev/null) || SENT_COUNT=0
+SENT_COUNT="${SENT_COUNT:-0}"
+SENT_COUNT="$(echo "$SENT_COUNT" | tr -d '[:space:]')"
+SENT_COUNT="${SENT_COUNT:-0}"
 
 # ── 推送 WhatsApp + Discord (V37.9.21/V37.9.40 多窗口分片: >8000 字才切, ≤8000 单段) ─
 SEND_ERR=$(mktemp)
