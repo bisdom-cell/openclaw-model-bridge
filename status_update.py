@@ -105,7 +105,15 @@ DEFAULT_STATUS = {
 
 
 def load_status():
-    """加载 status.json，不存在则返回默认结构。"""
+    """加载 status.json，不存在则返回默认结构。
+
+    V37.9.38: 加载时把遗留的顶层 ``data["unfinished"]`` 数组合并迁移到
+    ``data["session_context"]["unfinished"]``（schema 真理源），去重后删除顶层。
+    背景：V37.9.36 候选登记的双路径 bug —— ``--add unfinished`` 历史上写顶层
+    （32 项），但 ``--read --human`` 只读 ``session_context.unfinished``（13 项），
+    导致开工读不到收工写的内容。in-memory 迁移让 ``--read`` 立刻看到正确视图，
+    下一次任何 save 持久化为单一路径。
+    """
     try:
         with open(STATUS_FILE) as f:
             data = json.load(f)
@@ -117,9 +125,60 @@ def load_status():
                 for kk, vv in v.items():
                     if kk not in data[k]:
                         data[k][kk] = vv
+        _migrate_top_level_unfinished(data)
         return data
     except (OSError, json.JSONDecodeError):
         return dict(DEFAULT_STATUS)
+
+
+def _migrate_top_level_unfinished(data):
+    """V37.9.38: 把顶层 ``data["unfinished"]`` 列表合并进 session_context.unfinished。
+
+    去重保留 session_context 优先（更新），顶层条目附加在后（更旧）。完成后
+    删除顶层键，使下一次 save_status() 写出干净的单一路径状态。
+    Idempotent：顶层为空/不存在/非 list 时直接返回。
+    """
+    top = data.get("unfinished")
+    if not isinstance(top, list) or not top:
+        # 即使顶层是空 list 也清理掉，避免 schema 漂移持续存在
+        if isinstance(top, list) and not top and "unfinished" in data:
+            del data["unfinished"]
+        return
+    ctx = data.setdefault("session_context", {})
+    cur = ctx.get("unfinished")
+    # 历史 schema 把 session_context.unfinished 当字符串（DEFAULT_STATUS line 78）
+    # 当前实测已是 list；遇旧字符串迁移为 list（非空字符串当一项保留）
+    if not isinstance(cur, list):
+        ctx["unfinished"] = [cur] if (isinstance(cur, str) and cur.strip()) else []
+    seen = set()
+    merged = []
+    for item in (ctx["unfinished"] + top):
+        try:
+            key = json.dumps(item, sort_keys=True, ensure_ascii=False) if isinstance(item, (dict, list)) else str(item)
+        except (TypeError, ValueError):
+            key = repr(item)
+        if key in seen:
+            continue
+        seen.add(key)
+        merged.append(item)
+    ctx["unfinished"] = merged
+    del data["unfinished"]
+
+
+def _resolve_array_target(data, array_name):
+    """V37.9.38: 解析 --add/--pop/--clear 的真实操作目标。
+
+    ``unfinished`` 特例：schema 真理源是 ``session_context.unfinished``，必须
+    重定向；否则会重新制造 V37.9.36 双路径 bug。其他数组照常走顶层。
+    返回 ``(parent_dict, key)``，调用方用 ``parent[key]`` 取/写数组。
+    """
+    if array_name == "unfinished":
+        ctx = data.setdefault("session_context", {})
+        cur = ctx.get("unfinished")
+        if not isinstance(cur, list):
+            ctx["unfinished"] = [cur] if (isinstance(cur, str) and cur.strip()) else []
+        return ctx, "unfinished"
+    return data, array_name
 
 
 def save_status(data, updated_by="unknown", audit_action="", audit_target="", audit_summary=""):
@@ -183,8 +242,26 @@ def format_human(data):
         lines.append("🔄 开发连续性:")
         if ctx.get("last_session"):
             lines.append(f"  上次 session: {ctx['last_session']}")
-        if ctx.get("unfinished"):
-            lines.append(f"  未完成: {ctx['unfinished']}")
+        unfinished = ctx.get("unfinished")
+        if unfinished:
+            # V37.9.38: list 类型逐项展开，避免 Python repr 把整个列表挤成一行
+            if isinstance(unfinished, list):
+                lines.append(f"  未完成 ({len(unfinished)} 项):")
+                for i, item in enumerate(unfinished[:12]):
+                    if isinstance(item, str):
+                        text = item
+                    else:
+                        try:
+                            text = json.dumps(item, ensure_ascii=False)
+                        except (TypeError, ValueError):
+                            text = str(item)
+                    if len(text) > 220:
+                        text = text[:220] + "…"
+                    lines.append(f"    {i}. {text}")
+                if len(unfinished) > 12:
+                    lines.append(f"    … 还有 {len(unfinished) - 12} 项")
+            else:
+                lines.append(f"  未完成: {unfinished}")
         if ctx.get("open_prs"):
             for pr in ctx["open_prs"]:
                 lines.append(f"  PR: {pr}")
@@ -311,9 +388,11 @@ def main():
 
     if args.add:
         array_name, item_str = args.add
-        if array_name not in data:
-            data[array_name] = []
-        if not isinstance(data[array_name], list):
+        # V37.9.38: 解析真实目标（unfinished → session_context.unfinished）
+        parent, key = _resolve_array_target(data, array_name)
+        if key not in parent:
+            parent[key] = []
+        if not isinstance(parent[key], list):
             print(f"ERROR: {array_name} is not an array", file=sys.stderr)
             sys.exit(1)
         # 尝试 JSON 解析，失败则当字符串
@@ -332,30 +411,34 @@ def main():
         }
         # recent_changes / incidents 插入到开头
         if array_name in ("recent_changes", "incidents"):
-            data[array_name].insert(0, item)
+            parent[key].insert(0, item)
         else:
-            data[array_name].append(item)
+            parent[key].append(item)
         # 按上限截断
         limit = ARRAY_LIMITS.get(array_name)
         if limit:
-            data[array_name] = data[array_name][:limit]
+            parent[key] = parent[key][:limit]
         changed = True
 
     if args.pop:
         array_name, idx_str = args.pop
         try:
             idx = int(idx_str)
-            if array_name in data and isinstance(data[array_name], list):
-                if 0 <= idx < len(data[array_name]):
-                    removed = data[array_name].pop(idx)
+            # V37.9.38: 解析真实目标（unfinished → session_context.unfinished）
+            parent, key = _resolve_array_target(data, array_name)
+            if key in parent and isinstance(parent[key], list):
+                if 0 <= idx < len(parent[key]):
+                    removed = parent[key].pop(idx)
                     print(json.dumps(removed, ensure_ascii=False) if isinstance(removed, dict) else removed)
                     changed = True
         except (ValueError, IndexError):
             pass
 
     if args.clear:
-        if args.clear in data and isinstance(data[args.clear], list):
-            data[args.clear] = []
+        # V37.9.38: 解析真实目标（unfinished → session_context.unfinished）
+        parent, key = _resolve_array_target(data, args.clear)
+        if key in parent and isinstance(parent[key], list):
+            parent[key] = []
             changed = True
 
     if args.update_priority:
