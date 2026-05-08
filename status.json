@@ -1,6 +1,6 @@
 {
-  "updated": "2026-05-08 04:34:04",
-  "updated_by": "claude_code",
+  "updated": "2026-05-08 04:50:47",
+  "updated_by": "security_score",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-05-08",
+      "what": "V37.9.40 — DBLP + AI Leaders X 双脚本批次 5 字段深度迁移. 镜像 V37.9.36-37/V37.9.39 完整模式: source notify.sh + send_alert + LLM 三层检测 + per-item retry 5/10/20s × 3 + 5 字段 emoji + key-based parser + LLM_DEGRADED + 多窗口切片. DBLP 适配无 abstract: prompt 加 基于标题推断 caveat + LLM_DEGRADED 用 标题+venue 元数据兜底. AI Leaders X 适配 tweet: 📌中文主题(≤15字) + 🔑核心观点 + 💡技术深度解读 + 🎯系统启示 + ⭐评级 + LLM_DEGRADED 用推文原文兜底. 17 新单测 3 类 (TestDblpV9_40Guards/TestAiLeadersV9_40Guards/TestV9_40InAuditAlignedScripts). ALIGNED_SCRIPTS 5→7. audit 12→10 findings. 用户视角原则 #13 第 11 次正向兑现 + 24h 内 V37.9.38(audit)→V37.9.39(S2)→V37.9.40(DBLP+AI Leaders X) 三阶段连环兑现 framework 驱动器价值. 60 suites / 2154→2171 tests / 0 fail / 550→551 checks / 安全 95/100 / VERSION 0.37.9.39→0.37.9.40",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-05-08",
       "what": "V37.9.39 Mac Mini E2E 真实生产推送验证: bash ~/.openclaw/jobs/semantic_scholar/run_semantic_scholar.sh 手动触发 → 4 papers 完整 5 字段深度推送到 WhatsApp + Discord. Per-paper retry 4/4 成功 (Qwen 已恢复). 单段 6551 字 < 8000 多窗口未触发. 信息密度 vs 昨日 10x 跃迁 (每篇 ~60 字 → ~400-800 字). Paper 3 ⭐⭐⭐⭐⭐ 输出质量满分参考. 3 观察项已登记 V37.9.40+ unfinished (prompt 字面量泄漏 + 缺 💡 字段 + 作者重名), 按 MR-10 三问不今天动手等多日数据回归",
       "by": "claude_code"
     },
@@ -194,11 +199,6 @@
       "date": "2026-05-05",
       "what": "V37.9.28 周一观察 5 finding 单日全闭环 (F1-F5) — 5 commits (4aa9aa0/7d19abe/0666885/e21813e/c7f70fd) 推送到 claude/start-daily-work-cFjWk. 52 suites / 1822→1884 tests (+62) / 0 fail / VERSION 0.37.9.27→0.37.9.28. F1 scan_logs 告警子条目时间戳分布 (最早 X, 最新 Y) 三档格式. F2 数据驱动诊断工具 movespeed_incident_analyzer.py 7 维度 (Mac Mini 跑后再决定 helper 修复, 不推测). F3 HN watchdog 阈值 7h→14h V37.8.7 同款 schedule drift. F4 slo_checker 3/5 metric direction 显示反, 改为每 metric 显式 direction 字段. F5 ai_leaders 4 天前时间戳是 F1 symptom F1 修复后自愈. 因果链发现: F1+F2 互锁, 先修 F1 才能看清 F2 真相. MR-7 用户视角→24h 闭环第 4 次正向兑现 (V37.9.16/17/21/28 链). 原则 #32 周一用户视角观察制度首次实证: 30min 用户视角发现 5 类问题, 同日修 4 个根因 + 1 个 F1 symptom 自愈, framework 用户感知=一等可观测信号硬证据.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-05-05",
-      "what": "原则 #32 周一用户视角观察 (周二补做, 30min): 用户体感 3/5 分. 5 个 findings: F1[medium 告警 UX] job_watchdog 子条目缺时间戳 (arxiv_monitor 日志: 12条错误 看不出何时) / F2[P0 critical] V37.9.27 helper 实测不灵 — MOVESPEED 24h 仍 20 次 (V37.9.27 承诺 <1) 但错误模式从 EPERM 变 unexpected end of file, MR-4 第 19 次演出新形态 (修复换了失败形式) / F3[P0] HN 热帖 11h stale 业务停摆 / F4[high] latency_p95: 54040ms 严重违反 SLO 或阈值方向写反 / F5[low] ai_leaders_x 4 天前 429 仍在显示是 F1 symptom. 因果链发现: F1 + F2 互锁, 先修 F1 才能看清 F2 真相. 元价值: 周一用户视角观察发现系统监控产出降级到无法判断真伪, 比单点修复重要. 按原则 #32 守观察—登记—择机修边界, 不当场修. weekly_observation 类目.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -283,7 +283,8 @@
       "V37.9.39+ P2 fix dblp / acl_anthology / ai_leaders_x / karpathy_x / openclaw_official run.sh / openclaw_official run_discussions.sh (各 1 placeholder finding). 同款 V37.9.36-37 fail-fast 模式",
       "V37.9.39+ P3 fix chaspark / github_trending / ontology_sources / kb_inject / kb_dream / freight_watcher / finance_news / run_hn_fixed (无 placeholder finding 但 SYSTEM_ALERT/send_alert/status:failed/exit 1 不齐). 风险等级低于 P1/P2 但同款 V37.9.36 反模式",
       "V37.9.40+ P1 续: hf_papers / arxiv_monitor (各 3 placeholder findings, 与 V37.9.39 S2 完全同款 copy-paste 模式 — 机械迁移即可: 同款 send_alert + call_llm_single_with_retry + 5 字段 prompt + LLM_DEGRADED + 多窗口). 一次一个 + 单测 + Mac Mini E2E 真跑数据回归后再下一个",
-      "V37.9.40+ S2 推送质量观察 (V37.9.39 首次真实推送 4/4 papers 材料上成功, vs 昨日 10x 信息密度提升, 但发现 3 观察项需多日真跑数据回归): (1) Paper 4 ⭐⭐⭐⭐⭐ 💡 块开头 prompt 指令字面量泄漏 '⭐⭐⭐⭐⭐（500-800字）' (LLM 把字数规则当输出格式), 修法 prompt 改 inline 字面量为 prose; (2) Paper 1, 2 ⭐⭐⭐⭐ 完全跳过 💡 关键方法字段 vs Paper 3 ⭐⭐⭐⭐ 完整 (LLM variance, 修法 prompt 加'必填'强制); (3) Paper 1 作者名重复 'Himanshu Gautam Himanshu Gautam 等' (S2 API 上游数据问题, 修法 emit 端去重). 决策按 MR-10 三问: 不今天动手, 等明日 11:00 cron + 后续 3 天数据看 reproducible 程度再决定 V37.9.40 prompt 微调还是 LLM behavior 接受范围内 noise"
+      "V37.9.40+ S2 推送质量观察 (V37.9.39 首次真实推送 4/4 papers 材料上成功, vs 昨日 10x 信息密度提升, 但发现 3 观察项需多日真跑数据回归): (1) Paper 4 ⭐⭐⭐⭐⭐ 💡 块开头 prompt 指令字面量泄漏 '⭐⭐⭐⭐⭐（500-800字）' (LLM 把字数规则当输出格式), 修法 prompt 改 inline 字面量为 prose; (2) Paper 1, 2 ⭐⭐⭐⭐ 完全跳过 💡 关键方法字段 vs Paper 3 ⭐⭐⭐⭐ 完整 (LLM variance, 修法 prompt 加'必填'强制); (3) Paper 1 作者名重复 'Himanshu Gautam Himanshu Gautam 等' (S2 API 上游数据问题, 修法 emit 端去重). 决策按 MR-10 三问: 不今天动手, 等明日 11:00 cron + 后续 3 天数据看 reproducible 程度再决定 V37.9.40 prompt 微调还是 LLM behavior 接受范围内 noise",
+      "V37.9.41+ P1 续: hf_papers / arxiv_monitor (各 3 placeholder findings, 与 V37.9.39 S2/V37.9.40 DBLP 完全同款机械迁移). 一次一个 + 单测 + Mac Mini E2E 数据回归后再下一个"
     ],
     "open_prs": "",
     "blocked_on": "",
@@ -304,14 +305,14 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 2154,
-    "last_regression": "2026-05-08 04:03 pass",
+    "test_count": 2171,
+    "last_regression": "2026-05-08 04:49 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-05-08 04:03",
-    "test_suites": 59,
+    "security_score_time": "2026-05-08 04:49",
+    "test_suites": 60,
     "governance_invariants": "64/64",
     "governance_checks": "350/350",
-    "version": "0.37.9.38"
+    "version": "0.37.9.39"
   },
   "incidents": [
     {
@@ -375,7 +376,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.39 收工 — semantic_scholar 5 字段深度迁移 (V37.9.36-37 rss_blogs 模式横向扩展, 用户视角原则 #13 第 10 次正向兑现). V37.9.38 audit 部署后 <6h 即驱动第一个 PoC fix. 5 阶段迁移: source notify.sh + send_alert helper / call_llm_single_with_retry 5/10/20s × 3 + V37.9.36 三层检测 / 5 字段 prompt (📌🔑💡🎯⭐) + 按评级动态长度 / parse_5field_output emit + LLM_DEGRADED + tldr/abstract 兜底 / 多窗口切片 (>8000). 37 新单测 4 类含血案场景反向验证. ALIGNED_SCRIPTS 4→5. audit 报告 15→12 findings. 59 suites / 2154 tests / 0 fail / 550 checks / 71 inv / 安全 95/100 / VERSION 0.37.9.39.",
+  "focus": "V37.9.40 收工 — DBLP + AI Leaders X 双脚本 5 字段深度迁移 (V37.9.39 同款 V37.9.36-37 模式横向扩展, 用户视角原则 #13 第 11 次正向兑现). DBLP 适配无 abstract (基于标题推断 caveat). AI Leaders X 适配 tweet 上下文 (主题/观点/深度/启示/评级). 17 新单测 3 类 + 2 脚本 audit aligned=True V37.9.40 锚点. ALIGNED_SCRIPTS 5→7 (audit 报告 12→10 findings). 60 suites / 2171 tests / 0 fail / 551 checks / 71 inv / 安全 95/100 / VERSION 0.37.9.40.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",

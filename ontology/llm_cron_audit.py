@@ -109,6 +109,8 @@ ALIGNED_SCRIPTS = {
     "kb_review.sh":                      "V37.5",
     "kb_deep_dive.sh":                   "V37.9.16",
     "jobs/semantic_scholar/run_semantic_scholar.sh": "V37.9.39",  # 5 字段深度 + per-paper retry + LLM_DEGRADED + 多窗口
+    "jobs/dblp/run_dblp.sh":             "V37.9.40",  # 5 字段适配无 abstract (基于标题/venue 推断, 显式标注)
+    "jobs/ai_leaders_x/run_ai_leaders_x.sh": "V37.9.40",  # 5 字段适配 tweet 上下文 (主题/观点/深度解读/系统启示/评级)
 }
 
 

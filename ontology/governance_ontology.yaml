@@ -6148,6 +6148,10 @@ invariants:
         check_type: file_contains
         file: ontology/llm_cron_audit.py
         pattern: '"V37.9.39"'
+      - name: "ALIGNED_SCRIPTS 含 V37.9.40 DBLP + AI Leaders X 锚点 (V37.9.40 双脚本批次)"
+        check_type: file_contains
+        file: ontology/llm_cron_audit.py
+        pattern: '"V37.9.40"'
       - name: "PLACEHOLDER_PATTERNS 含 V37.9.36 血案 3 个核心字符串"
         check_type: python_assert
         assertion: |
