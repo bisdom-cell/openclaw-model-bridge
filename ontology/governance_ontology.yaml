@@ -6144,6 +6144,10 @@ invariants:
         check_type: file_contains
         file: ontology/llm_cron_audit.py
         pattern: '"V37.5"'
+      - name: "ALIGNED_SCRIPTS 含 V37.9.39 semantic_scholar 锚点 (V37.9.38 audit P1 → V37.9.39 PoC fix)"
+        check_type: file_contains
+        file: ontology/llm_cron_audit.py
+        pattern: '"V37.9.39"'
       - name: "PLACEHOLDER_PATTERNS 含 V37.9.36 血案 3 个核心字符串"
         check_type: python_assert
         assertion: |

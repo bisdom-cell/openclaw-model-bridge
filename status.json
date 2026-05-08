@@ -1,5 +1,5 @@
 {
-  "updated": "2026-05-08 03:26:06",
+  "updated": "2026-05-08 04:05:32",
   "updated_by": "security_score",
   "priorities": [
     {
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-05-08",
+      "what": "V37.9.39 — semantic_scholar 5 字段深度迁移 (V37.9.38 audit 部署后 <6h 用户视角驱动第一个 PoC fix). 镜像 V37.9.36-37 rss_blogs 完整模式: source notify.sh + send_alert + LLM 三层检测 + per-paper retry 5/10/20s × 3 + 5 字段 prompt (📌中文标题/🔑核心贡献/💡关键方法/🎯实践启发/⭐评级) + 按评级动态调长度 + key-based parser + LLM_DEGRADED + tldr/abstract 兜底 (替代 V37.9.36 占位符反模式 贡献：AI领域相关研究/价值：⭐⭐⭐) + 多窗口切片 (>8000 字 + sleep 1s + [i/N] + 续). S2 422→695 行 (+65%). 37 新单测 4 类 + 反向验证守卫真有效. ALIGNED_SCRIPTS 4→5. audit findings 15→12. INV-LLMCRON-AUDIT-001 14→15 checks. 用户视角原则 #13 第 10 次正向兑现 + MR-8 跨 job 同步 fail-fast 兑现. 59 suites / 2117→2154 tests (+37) / 0 fail / 549→550 checks / 71 inv / 安全 95/100 / VERSION 0.37.9.38→0.37.9.39",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-05-08",
       "what": "V37.9.38 双交付：P1 status_update.py 双路径 bug 闭环 (V37.9.36 候选 _resolve_array_target+_migrate_top_level_unfinished helpers + 26 单测含血案场景复现 + 反向验证守卫真有效) + P2 LLM cron fail-fast audit 视野+预防+路线图三件套 (ontology/llm_cron_audit.py 扫描器扫 21 脚本 + docs/llm_cron_fail_fast_audit.md 完整报告 + INV-LLMCRON-AUDIT-001 13 checks + 26 单测). 4 已对齐 vs 17 未对齐含 15 findings (arxiv_monitor/hf_papers/semantic_scholar 各 3 P1 + 6 P2 + 8 P3). MR-8 兑现 (跨 job 不同步是 copy-paste-is-a-bug-class). PoC fix 推迟 V37.9.39+ (MR-10 三问: 不引入新 bug). 58 suites / 2065→2117 tests (+52) / 0 fail / 535→549 checks (+14) / 70→71 inv (+1) / 安全 95/100 / VERSION 0.37.9.37→0.37.9.38",
       "by": "claude_code"
     },
@@ -194,11 +199,6 @@
       "date": "2026-05-05",
       "what": "V37.9.27+ 第四次 OpenClaw 升级评估 + 文档全面刷新 (Tripwire 框架首次复评实践). Tripwire 0/6 触发自动 hold. 实证 WebFetch 关键发现: ✅ #73358 codex/gpt-5.5 silent default V37.9.22 三次评估硬阻塞 dealbreaker 已在 v2026.4.27 release notes 显式修复 (require explicit skills.entries.coding-agent.enabled before exposing bundled coding-agent skill). 战略局面变化: 4/29 hold indefinitely → 5/5 hold tactically (路径已开). 上游 v2026.4.26 → v2026.5.3-1 7 天 5 个新 stable + 5.x 是日历版本号 (年.月.patch) 非 semver major bump. 新增两个中风险点: v2026.4.29 tools.exec/tools.fs 不再隐式扩展 restrictive profile + v2026.5.2 强制 plugin manifest contracts.tools ownership 契约. #59265 Agent actions 不可见仍无 verified fix evidence (issue page 仍无 PR). 推荐方案 C: 等 4-8 周 (~2026-06-15) 让 5.x 沉淀社区验证累积充分后阶梯升 v2026.4.27 (含 #73358 fix 的最早稳定). 文档刷新 5 文件: docs/gateway_upgrade_eval_v2026.4.md (新增第十三节 4 次评估完整记录) + check_upgrade.sh (LAST_EVAL_DATE 4/29 → 5/5 重置时间 tripwire) + docs/config.md (顶部 OpenClaw 升级状态行重写) + SOUL.md (Gateway hold 条件升级理由) + status.json (本条 recent_changes + V37.9.28+ unfinished 登记). 元价值: V37.9.22 Tripwire 框架首次复评验证 framework 核心承诺 — 不再陷入二元决策疲劳, 实证调查替代节奏推断, 决策矩阵让 hold 理由透明可追溯. 未来 framework 可优化: 加 tripwire #7 检测上游已修复关键 bug (如 #73358) 作为正向触发, 让自动化能识破 hold 已过期. 无 VERSION bump (0.37.9.27 不变, 纯文档刷新非代码变更, 无新 INV/test).",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-05-04",
-      "what": "V37.9.27 安全事件闭环 (单日响应): preflight 在 Mac Mini 上抓出 deploy/install_openclaw_macmini.sh 中明文 API Key + 真实手机号泄漏 (commits d6ef9bd/51181c1 已 merge 到 main = commit 0d8cd8d)。三步处置: (1) 用户立即 rotate Qwen3 API key (sk-P4Ca...→新 key) (2) 替换源码占位符 sk-REPLACE-ME-WITH-YOUR-KEY + +85200000000, 加占位符兜底校验脚本 entry 拒绝继续防 silent failure (3) git filter-repo --replace-text 清 file 内容 + --replace-message 清 commit message, force-push main + claude/start-daily-work-iBA8O 到 5edb151. 全 history + 60+ remote 分支扫描验证无泄漏. Mac Mini auto_deploy reset --hard origin/main 已同步. 残余风险: GitHub 90 天孤立 commit GC 窗口 (key 已废, 不可利用). 副产品: deploy/install_openclaw_macmini.sh + docs/articles/why_control_plane_is_convergence_engine_devto.md (dev.to schema 优化版) 留作未来部署素材. 用户决策: 新 Mac Mini 部署推迟, pre-commit hook 不装 (preflight + auto_deploy 兜底证明工作只是晚一步).",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -281,7 +281,8 @@
       "V37.9.38 候选 [P0 audit]: 扫描所有调 LLM 的 cron job 对齐 V37.5/V37.8.10/V37.9.16/V37.9.36 fail-fast 标准模式. 检测项: ① 推送 [SYSTEM_ALERT] 前缀 (走 notify.sh send_alert) ② last_run_*.json 写 status:llm_failed 不谎报 ok ③ 不发占位符 fallback ④ 完整 upstream chain (含 primary 301/gemini 503 等) ⑤ 三层检测 (HTTP error / parse fail / empty content). 实证: 2026-05-07 22:00 LLM 双 provider 故障时 4 条告警同时触发, 3 条 (kb_evening/kb_deep_dive/rss_blogs) 已对齐, 但 arxiv_monitor 仍是旧结构 (缺 [SYSTEM_ALERT] 前缀 + 缺降级说明 + 缺完整 upstream chain). 候选 job 清单 (~14 个 cron 调 LLM): arxiv_monitor (确认未对齐) / hf_papers / dblp / semantic_scholar / acl_anthology / pwc / github_trending / ai_leaders_x / chaspark / finance_news / ontology_sources / openclaw_official run/discussions / freight (V37.9.33 已部分对齐). 修复模式与 V37.9.36 同 (source notify.sh + send_alert helper + 三层检测 + status schema 统一). MR-8 反例: V37.5/V37.8.10/V37.9.16/V37.9.36 四次升级都漏扫某些 job, 跨 job 不同步也是 copy-paste-is-a-bug-class. 工作量预估: 每 job ~20min audit + 修复, 14 job ~5h, 可分批做.",
       "V37.9.39+ P1 fix arxiv_monitor / hf_papers / semantic_scholar (各 3 placeholder findings, daily cron 高频用户可见). 参考 V37.9.36-37 rss_blogs PoC: source notify.sh + send_alert helper + LLM 三层检测 + status:llm_failed + exit 1 + emit 端禁占位符改 [LLM_DEGRADED] + RSS desc fallback. 每个脚本独立单测 + Mac Mini E2E 真跑数据回归后再下一个 (避免 V37.9.34 cascade hotfix 教训)",
       "V37.9.39+ P2 fix dblp / acl_anthology / ai_leaders_x / karpathy_x / openclaw_official run.sh / openclaw_official run_discussions.sh (各 1 placeholder finding). 同款 V37.9.36-37 fail-fast 模式",
-      "V37.9.39+ P3 fix chaspark / github_trending / ontology_sources / kb_inject / kb_dream / freight_watcher / finance_news / run_hn_fixed (无 placeholder finding 但 SYSTEM_ALERT/send_alert/status:failed/exit 1 不齐). 风险等级低于 P1/P2 但同款 V37.9.36 反模式"
+      "V37.9.39+ P3 fix chaspark / github_trending / ontology_sources / kb_inject / kb_dream / freight_watcher / finance_news / run_hn_fixed (无 placeholder finding 但 SYSTEM_ALERT/send_alert/status:failed/exit 1 不齐). 风险等级低于 P1/P2 但同款 V37.9.36 反模式",
+      "V37.9.40+ P1 续: hf_papers / arxiv_monitor (各 3 placeholder findings, 与 V37.9.39 S2 完全同款 copy-paste 模式 — 机械迁移即可: 同款 send_alert + call_llm_single_with_retry + 5 字段 prompt + LLM_DEGRADED + 多窗口). 一次一个 + 单测 + Mac Mini E2E 真跑数据回归后再下一个"
     ],
     "open_prs": "",
     "blocked_on": "",
@@ -302,14 +303,14 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 2117,
-    "last_regression": "2026-05-08 03:22 pass",
+    "test_count": 2154,
+    "last_regression": "2026-05-08 04:03 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-05-08 03:22",
-    "test_suites": 58,
+    "security_score_time": "2026-05-08 04:03",
+    "test_suites": 59,
     "governance_invariants": "64/64",
     "governance_checks": "350/350",
-    "version": "0.37.9.37"
+    "version": "0.37.9.38"
   },
   "incidents": [
     {
@@ -373,7 +374,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.38 双交付收工 — P1 status_update.py 双路径 bug 闭环 (V37.9.36 候选, 26 新单测) + P2 LLM cron fail-fast audit 三件套 (ontology/llm_cron_audit.py 扫描器 + docs/llm_cron_fail_fast_audit.md 21 候选报告 + INV-LLMCRON-AUDIT-001 13 checks + 26 新单测). 4 已对齐 (rss_blogs/kb_evening/kb_review/kb_deep_dive) + 17 未对齐含 15 placeholder findings, V37.9.39+ 路线图按 P1/P2/P3 三档. arxiv_monitor PoC fix 推迟 V37.9.39 (MR-10 三问严格执行: 350 行脚本一次性大改风险高, V37.9.34 cascade 教训). 58 suites / 2117 tests / 0 fail / 549 checks / 71 inv / 17 MR / 安全 95/100 / VERSION 0.37.9.38.",
+  "focus": "V37.9.39 收工 — semantic_scholar 5 字段深度迁移 (V37.9.36-37 rss_blogs 模式横向扩展, 用户视角原则 #13 第 10 次正向兑现). V37.9.38 audit 部署后 <6h 即驱动第一个 PoC fix. 5 阶段迁移: source notify.sh + send_alert helper / call_llm_single_with_retry 5/10/20s × 3 + V37.9.36 三层检测 / 5 字段 prompt (📌🔑💡🎯⭐) + 按评级动态长度 / parse_5field_output emit + LLM_DEGRADED + tldr/abstract 兜底 / 多窗口切片 (>8000). 37 新单测 4 类含血案场景反向验证. ALIGNED_SCRIPTS 4→5. audit 报告 15→12 findings. 59 suites / 2154 tests / 0 fail / 550 checks / 71 inv / 安全 95/100 / VERSION 0.37.9.39.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",

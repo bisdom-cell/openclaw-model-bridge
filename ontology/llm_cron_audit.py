@@ -108,6 +108,7 @@ ALIGNED_SCRIPTS = {
     "kb_evening.sh":                     "V37.8.10",
     "kb_review.sh":                      "V37.5",
     "kb_deep_dive.sh":                   "V37.9.16",
+    "jobs/semantic_scholar/run_semantic_scholar.sh": "V37.9.39",  # 5 字段深度 + per-paper retry + LLM_DEGRADED + 多窗口
 }
 
 

@@ -224,7 +224,9 @@ class TestAlignedScriptsRecognition(unittest.TestCase):
     """V37.9.38: 4 个已对齐脚本 (V37.5/V37.8.10/V37.9.16/V37.9.36-37) 的归一化"""
 
     def test_aligned_scripts_constant_has_four_entries(self):
-        self.assertEqual(len(_au.ALIGNED_SCRIPTS), 4)
+        # V37.9.38 baseline 4, V37.9.39+ 单调递增（每次 PoC fix 加 1 个 aligned）
+        # 用 >=4 允许后续版本继续加, 同时锁定 V37.9.38 baseline 4 个不能消失
+        self.assertGreaterEqual(len(_au.ALIGNED_SCRIPTS), 4)
         self.assertIn("jobs/rss_blogs/run_rss_blogs.sh", _au.ALIGNED_SCRIPTS)
         self.assertIn("kb_evening.sh", _au.ALIGNED_SCRIPTS)
         self.assertIn("kb_review.sh", _au.ALIGNED_SCRIPTS)
