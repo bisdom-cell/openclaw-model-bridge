@@ -1,5 +1,5 @@
 {
-  "updated": "2026-05-09 09:53:41",
+  "updated": "2026-05-09 10:07:57",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-05-09",
+      "what": "V37.9.43-hotfix2 — wa_e2e_test.sh macOS bash 3.2 全角括号变量解析 bug (Mac Mini 实测发现): line 140 pass \"KB 索引可用（$CHUNK_COUNT）\" + line 146 skip \"KB 索引检查跳过（$KB_RESULT）\" 把全角 `）` (U+FF09) UTF-8 字节当成变量名一部分 → set -u 报 unbound variable → 脚本 exit 1. 自 PR #458 即存在但因脚本长期未部署 (V37.9.43-hotfix W3 修复) 从未在 Mac Mini 真跑过, 是\"长期沉睡的真 bug 在新部署时苏醒\"典型. 修复: ${VAR} 显式 brace 定界变量名. 4 新单测 (TestW4WaE2eBashCjkVarParsing): 反模式扫描 / hotfix2 marker / chunk_count brace / kb_result brace + 反向验证 sabotage 立即 fail. MR-10 三问严格执行. 63 suites / 2230 tests (+4) / 0 fail / 安全 95/100",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-05-09",
       "what": "V37.9.43-hotfix — Mac Mini preflight 81/0/3 三警告闭环 (W1+W3 真 bug, W2 结构性 lag 不修): W1 = freight Step 9 line 639 generic DEEP_DIVE_STATUS=skipped (V37.9.31 漏改条件分支) → skipped_no_high_star + preflight 加 pass case (合法跳过: 无 ⭐≥4 高星条目, Step 9 by-design 不进入). W3 = wa_e2e_test.sh 自 PR #458 即存在仓库但从未在 auto_deploy FILE_MAP 登记 (长期漏部署观察项, 原则 #15 测试三层第三层 WhatsApp 业务验证脚本本体). 12 新单测 3 类 (TestW1FreightSkippedSchemaFix 7 + TestW3WaE2eTestDeployment 3 + TestHotfixDoesNotBreakV37943Main 2). 反向验证守卫真有效 (W1 sabotage 立即 fail / W3 完整 line 删除立即 fail). test_freight_schema_v9_31 同步更新断言 skipped → skipped_no_high_star. Mac Mini 下次 preflight 应 81/0/1 (仅剩 W2 KB 索引结构性 lag). 63 suites / 2226 tests (+12) / 0 fail / 安全 95/100",
       "by": "claude_code"
     },
@@ -197,11 +202,6 @@
     {
       "date": "2026-05-05",
       "what": "V37.9.28 头部版本号漂移修正 (CLAUDE.md + README.md + docs/config.md 三处) — V37.9.28 收工漏改, VERSION 文件已 0.37.9.28 但三处文档头部仍写 v37.9.27/0.37.9.27 (2026-05-04). 1 commit (3c05bd9) 推送到 claude/start-daily-work-KV9z3. 零附带改动. 全仓 grep 验证无遗漏 v37.9.27 顶部声明. 收工 A-D 全过 (53 suites / 1884 tests / 0 fail / 安全 95/100 / 治理 dev 模式所有不变式 + convergence 5 spec 符合 FAIL-OPEN 契约).",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-05-05",
-      "what": "V37.9.28 兜底 cron 调度调整: 04:00 → 23:30 (用户决策, 选项 B). 数据驱动: incident_analyzer 7d 数据显示 00:00 UTC 是失败高峰 (25 incidents) > 12:00 (24) > 06:00 (20) > 04:00 (13). 23:30 选址理由: (a) 仍属晚间不占凌晨 1-5 时段 (用户希望凌晨给更重要事项) (b) 避开 00:00 整点 macOS maintenance 高峰 (Spotlight/mds_stores/backupd 唤醒) (c) 与 22:00 kb_evening / 22:30 kb_deep_dive / 00:00 dream Map sources 不撞车 (d) 23:30 是 22:30 之后 30min, 00:00 之前 30min, 双向 buffer. 用户已 crontab 替换原子操作 + 验证 grep movespeed 显示 30 23 * * *. 24h RPO 兜底保障保持. 5/6 验证: tail ~/.kb/movespeed_daily_sync.log 应有 23:30 sync 记录.",
       "by": "claude_code"
     }
   ],
@@ -311,10 +311,10 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 2226,
-    "last_regression": "2026-05-09 09:53 pass",
+    "test_count": 2230,
+    "last_regression": "2026-05-09 10:07 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-05-09 09:53",
+    "security_score_time": "2026-05-09 10:07",
     "test_suites": 63,
     "governance_invariants": "64/64",
     "governance_checks": "350/350",
@@ -382,7 +382,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.43-hotfix 收工 — Mac Mini preflight 三警告闭环 (W1 freight schema + W3 wa_e2e 部署). 真 bug: V37.9.31 漏改 + 长期漏部署. 反向验证守卫真有效. 63 suites / 2226 tests / 0 fail. 下次 Mac Mini preflight 应 81/0/1 (W2 KB lag 自愈). VERSION 0.37.9.43 不变 (hotfix 不 bump 主版本).",
+  "focus": "V37.9.43-hotfix2 收工 — wa_e2e_test.sh macOS bash 3.2 全角括号变量解析 bug 修复 (Mac Mini 实测发现真 bug, 自 PR #458 沉睡 N session). 4 新单测 + 反向验证. 同 session 累积修复 W1+W3+W4 (3/4 警告闭环). W2 KB lag 结构性自愈 / W5 SLO 真实 latency_p95 长期登记. 63 suites / 2230 tests / 0 fail / VERSION 0.37.9.43 不变.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",

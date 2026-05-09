@@ -137,13 +137,16 @@ except Exception as e:
 case "$KB_RESULT" in
     OK:*)
         CHUNK_COUNT="${KB_RESULT#OK:}"
-        pass "KB 索引可用（$CHUNK_COUNT）"
+        # V37.9.43-hotfix2: 用 ${VAR} 显式 brace 避免 macOS bash 3.2 把全角 `）`
+        # 的 UTF-8 字节当作变量名一部分 (set -u 下报 unbound variable)
+        pass "KB 索引可用（${CHUNK_COUNT}）"
         ;;
     EMPTY)
         fail "KB 索引为空（需运行 python3 kb_embed.py --reindex）"
         ;;
     *)
-        skip "KB 索引检查跳过（$KB_RESULT）"
+        # V37.9.43-hotfix2: 同上, ${KB_RESULT} 显式 brace
+        skip "KB 索引检查跳过（${KB_RESULT}）"
         ;;
 esac
 
