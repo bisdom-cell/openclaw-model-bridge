@@ -5,6 +5,15 @@ export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
 # 每3小时整点 HKT 由系统crontab触发（与 HN 错开45分钟）
 # 合并原 monitor-arxiv-ai-models + kb-save-arxiv 两个 openclaw cron 任务
 # 设计原则：结构化数据(作者/链接/日期)由XML提取，LLM只负责翻译+评价
+#
+# V37.9.43 fail-fast 升级 (V37.9.39 S2 / V37.9.40 DBLP+AI Leaders X / V37.9.41 HN 同款机械迁移):
+#   - source notify.sh + send_alert() helper ([SYSTEM_ALERT] 前缀走 Discord #alerts)
+#   - LLM 三层检测 (HTTP error / parse fail / empty content)
+#   - per-paper 独立 LLM 调用 + retry 5/10/20s × 3 (替代单次 batch + 占位符 fallback)
+#   - 5 字段深度 prompt (📌 标题 / 🔑 核心贡献 / 💡 关键方法 / 🎯 实践启发 / ⭐ 评级)
+#   - LLM_DEGRADED fallback 用 arxiv abstract 兜底 (替代 V37.9.36 占位符反模式)
+#   - 多窗口切片 (>8000 字 + sleep 1s + [i/N] + 续段, V37.9.21 同款)
+#   - 三档 status: ok / partial_degraded / llm_failed (全失败 → exit 1 fail-fast)
 set -eo pipefail
 
 # 防重叠执行（mkdir 原子锁，macOS 兼容）
@@ -28,6 +37,37 @@ TS="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')"
 STATUS_FILE="$CACHE/last_run.json"
 
 log() { echo "[$TS] arxiv: $1" >&2; }
+
+# V37.9.43: source notify.sh 让 fail-fast alert 走统一 [SYSTEM_ALERT] 通道
+# (与 V37.5 kb_review / V37.8.10 kb_evening / V37.9.16 kb_deep_dive /
+#  V37.9.36-37 rss_blogs / V37.9.39 S2 / V37.9.40 DBLP+AI Leaders X /
+#  V37.9.41 HN 同款模式)
+NOTIFY_SH=""
+for candidate in "$HOME/openclaw-model-bridge/notify.sh" "$HOME/notify.sh"; do
+    if [ -f "$candidate" ]; then
+        NOTIFY_SH="$candidate"
+        break
+    fi
+done
+if [ -n "$NOTIFY_SH" ]; then
+    # shellcheck disable=SC1090
+    source "$NOTIFY_SH" || true
+fi
+
+# V37.9.43: fail-fast alert helper — LLM 失败时推 [SYSTEM_ALERT] 给 Discord #alerts
+send_alert() {
+    local reason="$1"
+    local msg="[SYSTEM_ALERT] arxiv_monitor LLM 失败
+时间: $TS
+原因: $reason
+降级处理: 今日未推送 arxiv 论文精选 (避免占位符污染)
+建议: 查 Adapter/Proxy 状态 + ${LLM_RAW:-llm_raw_last.txt}"
+    if command -v notify >/dev/null 2>&1; then
+        notify "$msg" --topic alerts >/dev/null 2>&1 || true
+    else
+        "$OPENCLAW" message send --channel whatsapp --target "$TO" --message "$msg" --json >/dev/null 2>&1 || true
+    fi
+}
 
 mkdir -p "$CACHE" "${KB_BASE:-$HOME/.kb}/sources"
 test -f "$KB_SRC" || echo "# ArXiv AI论文监控" > "$KB_SRC"
@@ -173,222 +213,443 @@ if [ "$PAPER_COUNT" -eq 0 ]; then
 fi
 echo "[arxiv] 新论文: ${PAPER_COUNT} 篇"
 
-# ── 3. 构建LLM prompt（只要求翻译+贡献+评级，结构化数据由脚本填充）───
-PROMPT_FILE="$CACHE/llm_prompt.txt"
-python3 - "$PAPERS_FILE" << 'PYEOF' > "$PROMPT_FILE"
-import sys, json
+# ── 3-4. V37.9.43: 每篇独立调 LLM (5 字段深度分析 + 按评级动态调长度 + retry 3 次) ─
+# 老 V37.8: 单次调用全部 N 篇 + 3 字段输出 + 失败硬编码占位符 (V37.9.36 反模式)
+# 新 V37.9.43: 每篇独立调用 + 独立 retry (5s/10s/20s) + 5 字段深度
+#   📌 中文标题 / 🔑 核心贡献 / 💡 关键方法 / 🎯 实践启发 / ⭐ 评级
+# 全部失败 → fail-fast (V37.9.36 契约保留)
+# 部分失败 → partial_degraded + 失败篇标 [LLM_DEGRADED] + arxiv 摘要 fallback
 
-papers = []
-with open(sys.argv[1]) as f:
-    for line in f:
-        line = line.strip()
-        if line and not line.startswith("["):
-            papers.append(json.loads(line))
+LLM_RAW="$CACHE/llm_raw_last.txt"   # 兼容: 保留上一次失败响应做 forensic
+> "$LLM_RAW"
+RESULTS_FILE="$CACHE/llm_results.jsonl"
+> "$RESULTS_FILE"
 
-prompt = """你是AI论文编辑。对以下每篇论文严格输出三行（不要输出任何其他内容）：
-第一行：中文标题（≤25字，翻译或意译，不加任何前缀标签）
-第二行：贡献：[1句话≤50字，说明核心贡献]
-第三行：价值：⭐（1到5个星，评估对AI从业者的参考价值）
-每篇之间用一行 --- 分隔。不要输出序号。
+# ── helper: 单篇 LLM 调用 + retry ───────────────────────────────────
+# 输入: $1 = single_paper_prompt 文件路径, $2 = paper_idx
+# 输出: stdout = 成功时 LLM content; 失败 → return 1, 全局 LAST_LLM_FAIL_REASON 含原因
+call_llm_single_with_retry() {
+    local prompt_file="$1"
+    local idx="$2"
+    LAST_LLM_FAIL_REASON=""
+    local backoffs=(5 10 20)
 
-"""
-for i, p in enumerate(papers, 1):
-    prompt += f"论文{i}：{p['title']}\n摘要：{p['abstract']}\n\n"
-
-print(prompt)
-PYEOF
-
-# ── 4. 调用LLM（纯推理，直接curl proxy:5002，原则#27）─────────────────
-PAYLOAD_FILE="$CACHE/llm_payload.json"
-python3 -c "
+    for attempt in 0 1 2; do
+        local payload_file="$CACHE/llm_payload_${idx}_a${attempt}.json"
+        python3 -c "
 import json
-prompt = open('$CACHE/llm_prompt.txt').read()
-with open('$CACHE/llm_payload.json', 'w') as f:
+prompt = open('$prompt_file', encoding='utf-8').read()
+with open('$payload_file', 'w', encoding='utf-8') as f:
     json.dump({
         'model': 'Qwen3-235B-A22B-Instruct-2507-W8A8',
         'messages': [{'role': 'user', 'content': prompt}],
-        'max_tokens': 4096,
+        'max_tokens': 2500,
         'temperature': 0.3
     }, f)
 "
+        local llm_resp
+        llm_resp=$(curl -s --max-time 90 \
+            -H "Content-Type: application/json" \
+            -d "@$payload_file" \
+            http://127.0.0.1:5002/v1/chat/completions 2>/dev/null || true)
 
-LLM_RESP=$(curl -s --max-time 120 \
-    -H "Content-Type: application/json" \
-    -d "@$PAYLOAD_FILE" \
-    http://127.0.0.1:5002/v1/chat/completions 2>"$LLM_RAW.stderr" || true)
+        # 保存最后一次响应做 forensic (覆盖式)
+        echo "$llm_resp" > "$LLM_RAW"
 
-echo "$LLM_RESP" > "$LLM_RAW"
-
-LLM_CONTENT=$(echo "$LLM_RESP" | python3 -c "
+        # V37.9.36 三层检测 (HTTP error / parse fail / empty content)
+        local parse_err_file="$CACHE/llm_parse_${idx}_a${attempt}.err"
+        local parse_out
+        parse_out=$(echo "$llm_resp" | python3 -c "
 import json, sys
 try:
     d = json.load(sys.stdin)
-    print(d['choices'][0]['message']['content'])
-except Exception:
-    pass
-" 2>/dev/null || true)
+except Exception as e:
+    print(f'__LLM_PARSE_FAIL__:bad_json:{type(e).__name__}', file=sys.stderr)
+    sys.exit(0)
+if isinstance(d, dict) and 'error' in d:
+    err_msg = str(d['error'])[:300].replace(chr(10), ' ')
+    print(f'__LLM_HTTP_ERROR__:{err_msg}', file=sys.stderr)
+    sys.exit(0)
+try:
+    content = d['choices'][0]['message']['content']
+except (KeyError, IndexError, TypeError) as e:
+    print(f'__LLM_PARSE_FAIL__:no_choices:{type(e).__name__}', file=sys.stderr)
+    sys.exit(0)
+print(content)
+" 2>"$parse_err_file" || true)
 
-# L1检查：LLM输出为空
-if [ -z "${LLM_CONTENT// }" ]; then
-    ERR_MSG="⚠️ ArXiv监控 LLM调用失败（${DAY}），请检查 $LLM_RAW"
-    echo "$ERR_MSG"
-    "$OPENCLAW" message send --channel whatsapp --target "$TO" --message "$ERR_MSG" --json >/dev/null 2>&1 || true
-    "$OPENCLAW" message send --channel discord --target "${DISCORD_CH_ALERTS:-}" --message "$ERR_MSG" --json >/dev/null 2>&1 || true
-    exit 1
-fi
+        local parse_err
+        parse_err="$(cat "$parse_err_file" 2>/dev/null || true)"
 
-echo "$LLM_CONTENT" > "$CACHE/llm_content.txt"
-echo "[arxiv] LLM调用成功"
+        if echo "$parse_err" | grep -q '__LLM_HTTP_ERROR__\|__LLM_PARSE_FAIL__'; then
+            LAST_LLM_FAIL_REASON=$(echo "$parse_err" | head -c 200 | tr '\n' ' ')
+            log "WARN: 篇 $idx attempt $((attempt+1))/3: $LAST_LLM_FAIL_REASON"
+            if [ $attempt -lt 2 ]; then
+                sleep "${backoffs[$attempt]}"
+            fi
+            continue
+        fi
 
-# ── 5. 组装消息（脚本控制格式，结构化数据从XML，翻译从LLM）──────────
-MSG_FILE="$CACHE/arxiv_message.txt"
-ASSEMBLE_ERR="$CACHE/assemble.stderr"
-python3 - "$PAPERS_FILE" "$CACHE/llm_content.txt" "$DAY" "$MSG_FILE" 2>"$ASSEMBLE_ERR" << 'PYEOF'
-import sys, json, re
+        if [ -z "${parse_out// }" ]; then
+            LAST_LLM_FAIL_REASON="empty_content"
+            log "WARN: 篇 $idx attempt $((attempt+1))/3: empty content"
+            if [ $attempt -lt 2 ]; then
+                sleep "${backoffs[$attempt]}"
+            fi
+            continue
+        fi
 
-papers_file, llm_file, day, msg_file = sys.argv[1:5]
+        # 成功 → 返回 content
+        echo "$parse_out"
+        return 0
+    done
 
+    return 1
+}
+
+# ── 主循环: 每篇论文独立调 LLM (5 字段深度) ──────────────────────────
+TOTAL_FAILED=0
+LAST_FAIL_REASON=""
+TOTAL_NEW="$PAPER_COUNT"
+
+for ((i=0; i<TOTAL_NEW; i++)); do
+    SINGLE_PROMPT="$CACHE/llm_single_prompt_${i}.txt"
+    python3 - "$PAPERS_FILE" "$i" << 'PYEOF' > "$SINGLE_PROMPT"
+import sys, json
+
+papers_file, idx = sys.argv[1], int(sys.argv[2])
 papers = []
-with open(papers_file) as f:
+with open(papers_file, encoding='utf-8') as f:
     for line in f:
         line = line.strip()
         if line and not line.startswith("["):
             papers.append(json.loads(line))
+p = papers[idx]
+title = p['title']
+date_str = p.get('date', '')
+abstract = p.get('abstract', '')[:600]
 
-with open(llm_file) as f:
-    llm_content = f.read()
+prompt = """你是 AI 论文深度分析师。对以下 ArXiv 论文输出 5 字段中文分析:
 
-# ── 按行模式匹配解析 LLM 输出（不依赖 --- 分隔符）──────────────────
-# 策略：逐行扫描，用"贡献："和"价值：⭐"前缀识别行类型，
-#   三行为一组（标题→贡献→价值），自动忽略分隔符/空行/序号行。
-def clean_prefix(line, prefixes):
-    """去除 LLM 可能添加的格式前缀"""
-    for p in prefixes:
-        if line.startswith(p):
-            return line[len(p):].strip()
-    return line
+📌 中文标题: 信达雅翻译, 不超过 25 字 (技术术语保持精确)
+🔑 核心贡献: 3-5 条 bullet, 每条 1 句 ≤ 60 字, 列出论文做了什么 / 解决了什么问题 / 关键创新
+💡 关键方法: 揭示论文方法论 / 实验设计 / 与已有工作对比 / 结果对比 / 局限性
+   长度按评级动态调整: ⭐⭐⭐ 写约 100-150 字 / ⭐⭐⭐⭐ 写约 250-400 字 / ⭐⭐⭐⭐⭐ 写约 500-800 字 (旗舰论文充分展开)
+🎯 实践启发: 1-3 条对 AI 工程师 / 研究者 / 架构师的具体行动建议, 每条 ≤ 80 字
+⭐ 评级: ⭐ × N (1-5 个) + 推荐场景 (谁应该读 / 何时读 / 用于什么场景)
 
-TITLE_PREFIXES = ['第一行：', '第1行：', '标题：', '中文标题：']
-CONTRIB_PREFIXES = ['第二行：', '第2行：']
-STARS_PREFIXES = ['第三行：', '第3行：']
+⚠️ 严格约束 (违反则整份输出作废):
+- 只使用上方提供的标题和摘要中的信息, 严禁虚构论文未提及的事实/数据/链接
+- 如摘要不足以判断, 标⭐较低 + 写"基于摘要的初步判断"
+- 严禁推断 Hugging Face / OpenAI / GitHub 等平台的具体内部状态除非原文提及
+- 严禁把 HTTP 错误码 / Python 异常 / 错误日志当外部信号
 
-# 分类所有非空行
-parsed_blocks = []  # list of (cn_title, contrib, stars)
-pending_title = None
-pending_contrib = None
+输出格式 (严格按此 5 字段, 字段间用空行分隔):
 
-for raw_line in llm_content.split('\n'):
-    line = raw_line.strip()
-    if not line:
-        continue
-    # 跳过分隔符行（---、===、***等）
-    if re.match(r'^[-=*]{3,}$', line):
-        continue
-    # 跳过纯序号行（如 "论文1："、"1."、"Paper 1:"）
-    if re.match(r'^(论文\d+[：:]?\s*$|\d+[.、)]\s*$|Paper\s+\d+[：:]?\s*$)', line):
-        continue
+📌 中文标题: <你的翻译>
 
-    # 检测"价值："行 → 结束一个 block
-    if '价值' in line and '⭐' in line:
-        stars_line = clean_prefix(line, STARS_PREFIXES)
-        if not stars_line.startswith('价值：') and not stars_line.startswith('价值:'):
-            stars_line = '价值：' + stars_line.lstrip('价值：').lstrip('价值:')
-        # 确保格式统一
-        if not stars_line.startswith('价值：'):
-            stars_line = '价值：' + stars_line
-        parsed_blocks.append((
-            pending_title or '',
-            pending_contrib or '贡献：AI领域相关研究',
-            stars_line
-        ))
-        pending_title = None
-        pending_contrib = None
-        continue
+🔑 核心贡献:
+- 贡献1
+- 贡献2
 
-    # 检测"贡献："行
-    if line.startswith('贡献：') or line.startswith('贡献:'):
-        pending_contrib = clean_prefix(line, CONTRIB_PREFIXES)
-        if not pending_contrib.startswith('贡献：'):
-            pending_contrib = '贡献：' + pending_contrib
-        continue
-    # 带前缀的贡献行
-    stripped = clean_prefix(line, CONTRIB_PREFIXES)
-    if stripped != line and ('贡献' in stripped[:3]):
-        pending_contrib = stripped if stripped.startswith('贡献：') else '贡献：' + stripped
-        continue
+💡 关键方法:
+<段落, 长度按上述评级规则>
 
-    # 其余非空行视为标题（取每个 block 的第一个标题行）
-    if pending_title is None:
-        title = clean_prefix(line, TITLE_PREFIXES)
-        # 去除序号前缀（如 "1. xxx"、"1、xxx"）
-        title = re.sub(r'^\d+[.、)\]]\s*', '', title)
-        title = title.strip('*').strip()
-        pending_title = title
+🎯 实践启发:
+- 启发1
+- 启发2
 
-# 匹配 LLM 解析结果到论文
-llm_ok = 0
-msg_lines = [f"\U0001F4DA 今日arXiv精选 ({day})", ""]
+⭐ 评级: ⭐⭐⭐⭐ / 推荐场景: <场景描述>
 
+---
+
+"""
+prompt += f"论文标题: {title}\n"
+if date_str:
+    prompt += f"发表日期: {date_str}\n"
+if abstract:
+    prompt += f"论文摘要:\n{abstract}\n"
+print(prompt)
+PYEOF
+
+    log "调用 LLM 分析篇 $((i+1))/$TOTAL_NEW"
+    if RESULT=$(call_llm_single_with_retry "$SINGLE_PROMPT" "$i"); then
+        # 成功
+        python3 -c "
+import json, sys
+result = sys.stdin.read()
+print(json.dumps({'idx': $i, 'content': result, 'failed': False, 'fail_reason': ''}, ensure_ascii=False))
+" <<< "$RESULT" >> "$RESULTS_FILE"
+    else
+        # 全 retry 失败 → 标 degraded, 不阻塞其他篇
+        TOTAL_FAILED=$((TOTAL_FAILED + 1))
+        LAST_FAIL_REASON="$LAST_LLM_FAIL_REASON"
+        log "FAIL: 篇 $((i+1)) 全 retry 失败 — $LAST_LLM_FAIL_REASON"
+        python3 -c "
+import json, sys
+print(json.dumps({'idx': $i, 'content': '', 'failed': True, 'fail_reason': '''$LAST_LLM_FAIL_REASON'''}, ensure_ascii=False))
+" >> "$RESULTS_FILE"
+    fi
+done
+
+# ── 决定整体 status (V37.9.36 fail-fast 契约保留) ──────────────────
+if [ "$TOTAL_FAILED" -eq "$TOTAL_NEW" ]; then
+    # 全部失败 → fail-fast (V37.9.36 同款)
+    log "ERROR: 全部 $TOTAL_NEW 篇 LLM 分析失败 (last reason: $LAST_FAIL_REASON)"
+    send_alert "全部 $TOTAL_NEW 篇 LLM 分析失败 (last reason: $LAST_FAIL_REASON)"
+    REASON_ESCAPED=$(echo "$LAST_FAIL_REASON" | tr '"' "'" | tr '\n' ' ' | head -c 200)
+    printf '{"time":"%s","status":"llm_failed","new":%d,"sent":false,"reason":"all_failed_%s"}\n' "$TS" "$TOTAL_NEW" "$REASON_ESCAPED" > "$STATUS_FILE"
+    exit 1
+elif [ "$TOTAL_FAILED" -gt 0 ]; then
+    log "WARN: $TOTAL_FAILED/$TOTAL_NEW 篇失败 — 走 partial_degraded (失败篇标 [LLM_DEGRADED] + arxiv 摘要 fallback)"
+    send_alert "$TOTAL_FAILED/$TOTAL_NEW 篇 LLM 部分失败 (其余正常推送, 失败篇标 [LLM_DEGRADED])"
+fi
+echo "[arxiv] LLM 调用完成: 成功 $((TOTAL_NEW - TOTAL_FAILED))/$TOTAL_NEW"
+
+# ── 5. V37.9.43: 5 字段 emit (5-field key-based parser + LLM_DEGRADED fallback + 多窗口切片) ──
+MSG_FILE="$CACHE/arxiv_message.txt"
+python3 - "$PAPERS_FILE" "$RESULTS_FILE" "$DAY" "$MSG_FILE" << 'PYEOF'
+import sys, json, re
+
+papers_file, results_file, day, msg_file = sys.argv[1:5]
+
+papers = []
+with open(papers_file, encoding='utf-8') as f:
+    for line in f:
+        line = line.strip()
+        if line and not line.startswith("["):
+            papers.append(json.loads(line))
+with open(results_file, encoding='utf-8') as f:
+    results = [json.loads(l) for l in f if l.strip()]
+
+# V37.9.37/V37.9.39 5 字段 key-based parser (V37.8.7 ontology_parser 同款模式)
+# 容忍 LLM 输出的字段顺序、单字段缺失、prefix 变体
+def parse_5field_output(content):
+    """从 LLM 输出解析 5 字段, key-based + tolerant.
+
+    返回 dict: cn_title / highlights / insight / practice / rating
+    """
+    fields = {
+        'cn_title': '',
+        'highlights': '',
+        'insight': '',
+        'practice': '',
+        'rating': '',
+    }
+    current_field = None
+    current_buffer = []
+
+    def flush():
+        if current_field and current_buffer:
+            fields[current_field] = '\n'.join(current_buffer).strip()
+
+    for raw in content.split('\n'):
+        line = raw.rstrip()
+        if re.match(r'^[-=*_]{3,}$', line.strip()):
+            continue
+
+        # 字段头识别 (key-based, 不依赖位置)
+        # 📌 中文标题
+        if line.lstrip().startswith('📌'):
+            flush()
+            current_field = 'cn_title'
+            current_buffer = []
+            m = re.match(r'.*📌\s*(?:中文)?标题\s*[:：]?\s*(.*)', line)
+            if m and m.group(1).strip():
+                current_buffer.append(m.group(1).strip())
+            continue
+        # 🔑 核心贡献 (论文场景)
+        if line.lstrip().startswith('🔑'):
+            flush()
+            current_field = 'highlights'
+            current_buffer = []
+            continue
+        # 💡 关键方法 (论文场景)
+        if line.lstrip().startswith('💡'):
+            flush()
+            current_field = 'insight'
+            current_buffer = []
+            continue
+        # 🎯 实践启发
+        if line.lstrip().startswith('🎯'):
+            flush()
+            current_field = 'practice'
+            current_buffer = []
+            continue
+        # ⭐ 评级
+        if line.lstrip().startswith('⭐') and current_field != 'rating':
+            if '评级' in line or '推荐场景' in line or re.match(r'\s*⭐+\s*$', line):
+                flush()
+                current_field = 'rating'
+                current_buffer = [line.lstrip()]
+                continue
+        # 普通行 → append 到 current_field
+        if current_field is not None:
+            current_buffer.append(line)
+        elif line.strip():
+            pass
+
+    flush()
+    return fields
+
+
+msg_lines = [f"📚 今日arXiv精选 ({day})", ""]
+
+degraded_count = 0
+llm_ok_count = 0
 for i, paper in enumerate(papers):
-    if i < len(parsed_blocks):
-        cn_title, contrib, stars = parsed_blocks[i]
-        if cn_title:
-            llm_ok += 1
-        else:
-            cn_title = paper['title']
-    else:
-        cn_title = paper['title']
-        contrib = "贡献：AI领域相关研究"
-        stars = "价值：⭐⭐⭐"
+    title = paper['title']
+    arxiv_id = paper.get('arxiv_id', '')
+    first_author = paper.get('first_author', 'Unknown')
+    date_str = paper.get('date', '')
+    link = f"https://arxiv.org/abs/{arxiv_id}" if arxiv_id else ''
 
-    # 脚本控制的严格 5 行格式
-    msg_lines.append(f"*{cn_title}*")
-    msg_lines.append(f"作者：{paper['first_author']} 等 | 日期：{paper['date']}")
-    msg_lines.append(f"链接：https://arxiv.org/abs/{paper['arxiv_id']}")
-    msg_lines.append(contrib)
-    msg_lines.append(stars)
+    result = results[i] if i < len(results) else None
+    if result is None or result.get('failed'):
+        # LLM_DEGRADED: 用 arxiv abstract 给用户最低保障 (替代 V37.9.36 占位符反模式)
+        degraded_count += 1
+        msg_lines.append(f"*{title}*")
+        author_meta = f"作者: {first_author} 等"
+        if date_str:
+            author_meta += f" | 日期: {date_str}"
+        msg_lines.append(author_meta)
+        if link:
+            msg_lines.append(f"链接: {link}")
+        msg_lines.append("")
+        msg_lines.append("⚠️ [LLM_DEGRADED] 深度分析失败, 论文摘要供参考:")
+        fallback = paper.get('abstract', '')
+        fallback = fallback[:300] if fallback else ''
+        if fallback:
+            msg_lines.append(fallback)
+        else:
+            msg_lines.append("(arxiv 无摘要数据, 请直接点链接阅读)")
+        msg_lines.append("")
+    else:
+        # 解析 5 字段
+        fields = parse_5field_output(result.get('content', ''))
+        title_display = fields['cn_title'] or title
+        msg_lines.append(f"*{title_display}*")
+        author_meta = f"作者: {first_author} 等"
+        if date_str:
+            author_meta += f" | 日期: {date_str}"
+        msg_lines.append(author_meta)
+        if link:
+            msg_lines.append(f"链接: {link}")
+        msg_lines.append("")
+        if fields['highlights']:
+            msg_lines.append("🔑 核心贡献:")
+            msg_lines.append(fields['highlights'])
+            msg_lines.append("")
+        if fields['insight']:
+            msg_lines.append("💡 关键方法:")
+            msg_lines.append(fields['insight'])
+            msg_lines.append("")
+        if fields['practice']:
+            msg_lines.append("🎯 实践启发:")
+            msg_lines.append(fields['practice'])
+            msg_lines.append("")
+        if fields['rating']:
+            # rating 行不重复加 ⭐ 前缀 (LLM 输出已含)
+            msg_lines.append(fields['rating'])
+            msg_lines.append("")
+        # 至少保证有 cn_title 才算 LLM 解析成功
+        if fields['cn_title'] or fields['highlights'] or fields['insight']:
+            llm_ok_count += 1
+
+    msg_lines.append("---")
     msg_lines.append("")
 
-with open(msg_file, 'w') as f:
+with open(msg_file, 'w', encoding='utf-8') as f:
     f.write('\n'.join(msg_lines))
 
-# L2检查：解析成功率
-total = len(papers)
-rate = llm_ok / total if total else 0
-if total > 0 and rate < 0.5:
-    print(f"[arxiv] WARNING: LLM解析成功率过低 {llm_ok}/{total} ({rate:.0%})，可能格式异常", file=sys.stderr)
-else:
-    print(f"[arxiv] 消息组装完成: {total} 篇，LLM解析成功 {llm_ok}/{total}", file=sys.stderr)
+print(f"[arxiv] 消息组装完成: {len(papers)} 篇 (LLM 解析成功 {llm_ok_count}, degraded {degraded_count})", file=sys.stderr)
 PYEOF
-ASSEMBLE_EXIT=$?
 
-# L2检查：Python脚本检测到解析成功率过低时输出WARNING到stderr
-if [ -f "$ASSEMBLE_ERR" ] && grep -q "WARNING.*解析成功率过低" "$ASSEMBLE_ERR" 2>/dev/null; then
-    L2_MSG="⚠️ ArXiv监控 LLM解析异常（${DAY}）: $(grep 'WARNING' "$ASSEMBLE_ERR" | head -1)，请检查 $CACHE/llm_content.txt"
-    log "$L2_MSG"
-    "$OPENCLAW" message send --channel whatsapp --target "$TO" --message "$L2_MSG" --json >/dev/null 2>&1 || true
-    "$OPENCLAW" message send --channel discord --target "${DISCORD_CH_ALERTS:-}" --message "$L2_MSG" --json >/dev/null 2>&1 || true
-    printf '{"time":"%s","status":"parse_quality_low","new":%d}\n' "$TS" "$PAPER_COUNT" > "$STATUS_FILE"
-    exit 2
+# ── 6. 推送 WhatsApp + Discord (V37.9.21/V37.9.37 多窗口分片: >8000 字才切, ≤8000 单段发) ─
+SEND_ERR=$(mktemp)
+TOTAL_LEN=$(wc -c < "$MSG_FILE" | tr -d ' ')
+WA_SENT=false
+
+if [ "$TOTAL_LEN" -le 8000 ]; then
+    # 单段直发 (≤4000 不折叠 / 4000-8000 客户端自动折叠 2 气泡, V37.9.35 已验证)
+    MSG_CONTENT="$(cat "$MSG_FILE")"
+    if "$OPENCLAW" message send --channel whatsapp --target "$TO" --message "$MSG_CONTENT" --json >/dev/null 2>"$SEND_ERR"; then
+        log "已推送 ${PAPER_COUNT} 篇 (单段, $TOTAL_LEN 字)"
+        WA_SENT=true
+        "$OPENCLAW" message send --channel discord --target "${DISCORD_CH_PAPERS:-}" --message "$MSG_CONTENT" --json >/dev/null 2>&1 || true
+    else
+        log "ERROR: 推送失败: $(cat "$SEND_ERR" | head -3)"
+    fi
+else
+    # 总长 >8000 → 多窗口切片 (V37.9.21 同款 mktemp + sleep 1s 防乱序)
+    WA_CHUNK_DIR=$(mktemp -d)
+    trap 'rm -rf "$WA_CHUNK_DIR"' EXIT INT TERM
+
+    python3 - "$MSG_FILE" "$WA_CHUNK_DIR" "$DAY" << 'PYEOF'
+import sys, os, re
+
+msg_file, chunk_dir, day = sys.argv[1], sys.argv[2], sys.argv[3]
+content = open(msg_file, encoding='utf-8').read()
+MAX_CHUNK = 4000
+
+# 按 "\n---\n" 切分文章块, 第一块是 header "📚 今日arXiv精选 (date)"
+blocks = re.split(r'\n---\n', content)
+header_block = blocks[0]
+article_blocks = [b for b in blocks[1:] if b.strip()]
+
+chunks = []
+current = header_block
+for block in article_blocks:
+    candidate = current + "\n---\n" + block
+    if len(candidate) < MAX_CHUNK:
+        current = candidate
+    else:
+        chunks.append(current)
+        current = block
+if current.strip():
+    chunks.append(current)
+
+total_parts = len(chunks)
+for i, chunk in enumerate(chunks):
+    if total_parts > 1:
+        if i == 0:
+            chunk = chunk.replace(f"📚 今日arXiv精选 ({day})",
+                                  f"📚 今日arXiv精选 [1/{total_parts}] ({day})", 1)
+        else:
+            chunk = f"📚 今日arXiv精选 [{i+1}/{total_parts}] ({day}) (续)\n\n" + chunk
+    with open(os.path.join(chunk_dir, f"{i:03d}.txt"), 'w', encoding='utf-8') as f:
+        f.write(chunk)
+PYEOF
+
+    WA_PARTS_TOTAL=$(ls "$WA_CHUNK_DIR"/*.txt 2>/dev/null | wc -l | tr -d ' ')
+    WA_SENT_OK=0
+    for chunk_file in "$WA_CHUNK_DIR"/*.txt; do
+        CHUNK_CONTENT="$(cat "$chunk_file")"
+        if "$OPENCLAW" message send --channel whatsapp --target "$TO" --message "$CHUNK_CONTENT" --json >/dev/null 2>>"$SEND_ERR"; then
+            WA_SENT_OK=$((WA_SENT_OK + 1))
+        fi
+        "$OPENCLAW" message send --channel discord --target "${DISCORD_CH_PAPERS:-}" --message "$CHUNK_CONTENT" --json >/dev/null 2>&1 || true
+        sleep 1  # 防 WhatsApp 消息乱序 (V37.9.21 契约)
+    done
+    log "已推送 ${PAPER_COUNT} 篇 (多窗口 ${WA_SENT_OK}/${WA_PARTS_TOTAL} 段, 共 $TOTAL_LEN 字)"
+    if [ "$WA_SENT_OK" -gt 0 ]; then
+        WA_SENT=true
+    fi
 fi
 
-# ── 6. 推送WhatsApp ─────────────────────────────────────────────────────
-# 消息过长时截断（WhatsApp 单条上限约 65000 字符，留 buffer 取 4000）
-MSG_CONTENT="$(head -c 4000 "$MSG_FILE")"
-SEND_ERR=$(mktemp)
-if "$OPENCLAW" message send --channel whatsapp --target "$TO" --message "$MSG_CONTENT" --json >/dev/null 2>"$SEND_ERR"; then
-    log "已推送 ${PAPER_COUNT} 篇论文"
-    "$OPENCLAW" message send --channel discord --target "${DISCORD_CH_PAPERS:-}" --message "$MSG_CONTENT" --json >/dev/null 2>&1 || true
-    # 推送成功后才标记为已发送（防止推送失败后论文被跳过）
+if [ "$WA_SENT" = "true" ]; then
     if [ -f "$NEW_IDS_FILE" ]; then
         cat "$NEW_IDS_FILE" >> "$SEEN_FILE"
         log "已标记 ${PAPER_COUNT} 篇为已发送"
     fi
-    printf '{"time":"%s","status":"ok","new":%d,"sent":true}\n' "$TS" "$PAPER_COUNT" > "$STATUS_FILE"
+    # status 区分 ok / partial_degraded
+    if [ "$TOTAL_FAILED" -gt 0 ]; then
+        printf '{"time":"%s","status":"partial_degraded","new":%d,"failed":%d,"sent":true}\n' "$TS" "$PAPER_COUNT" "$TOTAL_FAILED" > "$STATUS_FILE"
+    else
+        printf '{"time":"%s","status":"ok","new":%d,"sent":true}\n' "$TS" "$PAPER_COUNT" > "$STATUS_FILE"
+    fi
 else
-    log "ERROR: 推送失败（${PAPER_COUNT} 篇待发）: $(cat "$SEND_ERR" | head -3)"
-    log "MSG_FILE size: $(wc -c < "$MSG_FILE") bytes"
-    log "NOTE: 未标记已发送，下次运行将重试这 ${PAPER_COUNT} 篇论文"
+    log "ERROR: 推送全失败: $(cat "$SEND_ERR" | head -3)"
     printf '{"time":"%s","status":"send_failed","new":%d,"sent":false}\n' "$TS" "$PAPER_COUNT" > "$STATUS_FILE"
 fi
 
