@@ -114,6 +114,7 @@ ALIGNED_SCRIPTS = {
     "run_hn_fixed.sh":                   "V37.9.41",  # 5 字段适配 HN posts (基于标题与摘要推断 caveat, 同 DBLP 模式)
     "jobs/arxiv_monitor/run_arxiv.sh":   "V37.9.43",  # 5 字段 + per-paper retry + LLM_DEGRADED 用 arxiv abstract 兜底 (V37.9.39 S2 同款)
     "jobs/github_trending/run_github_trending.sh": "V37.9.44",  # 5 字段适配 GitHub repo metadata (📌 项目名/🔑 核心功能/💡 技术亮点/🎯 实践启发/⭐ 评级) + LLM_DEGRADED 用 description 兜底
+    "jobs/hf_papers/run_hf_papers.sh":   "V37.9.45",  # 6 字段 PoC (V37.9.43 arxiv 同款 + 加 🎚️ 项目对齐度, Opportunity Radar #2) + 保留 Step 2.5 GitHub repo enrichment
 }
 
 
