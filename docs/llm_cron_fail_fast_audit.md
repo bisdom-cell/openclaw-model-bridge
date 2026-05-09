@@ -5,8 +5,8 @@
 ## 概览
 
 - 候选脚本总数：21
-- ✅ 已对齐：9（V37.5 / V37.8.10 / V37.9.16 / V37.9.36-37）
-- ❌ 未对齐：12（含占位符或缺 fail-fast 标志）
+- ✅ 已对齐：10（V37.5 / V37.8.10 / V37.9.16 / V37.9.36-37）
+- ❌ 未对齐：11（含占位符或缺 fail-fast 标志）
 - ⚠️ 缺失文件：0
 - 📌 占位符 finding 总数：7
 
@@ -17,6 +17,7 @@
 | `./jobs/arxiv_monitor/run_arxiv.sh` | V37.9.43 | 0 | ✓ | ✓ | ✓ | ✗ |
 | `./jobs/semantic_scholar/run_semantic_scholar.sh` | V37.9.39 | 0 | ✓ | ✓ | ✓ | ✗ |
 | `./jobs/dblp/run_dblp.sh` | V37.9.40 | 0 | ✓ | ✓ | ✓ | ✗ |
+| `./jobs/github_trending/run_github_trending.sh` | V37.9.44 | 0 | ✓ | ✓ | ✓ | ✗ |
 | `./jobs/rss_blogs/run_rss_blogs.sh` | V37.9.36-37 | 0 | ✓ | ✓ | ✓ | ✗ |
 | `./jobs/ai_leaders_x/run_ai_leaders_x.sh` | V37.9.40 | 0 | ✓ | ✓ | ✓ | ✗ |
 | `./kb_evening.sh` | V37.8.10 | 0 | ✓ | ✓ | ✗ | ✗ |
@@ -39,7 +40,6 @@
 | `./jobs/freight_watcher/run_freight.sh` | ✓ | ✗ | ✗ | ✗ | ✓ | ✗ | 0 | 2/6 |
 | `./kb_dream.sh` | ✓ | ✗ | ✗ | ✗ | ✓ | ✗ | 0 | 2/6 |
 | `./jobs/chaspark/run_chaspark.sh` | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | 0 | 1/6 |
-| `./jobs/github_trending/run_github_trending.sh` | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | 0 | 1/6 |
 | `./jobs/ontology_sources/run_ontology_sources.sh` | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | 0 | 1/6 |
 | `./kb_inject.sh` | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | 0 | 1/6 |
 
@@ -93,7 +93,6 @@
 - `./jobs/freight_watcher/run_freight.sh` — score 2/6
 - `./jobs/finance_news/run_finance_news.sh` — score 2/6
 - `./kb_dream.sh` — score 2/6
-- `./jobs/github_trending/run_github_trending.sh` — score 1/6
 - `./jobs/ontology_sources/run_ontology_sources.sh` — score 1/6
 - `./jobs/chaspark/run_chaspark.sh` — score 1/6
 - `./kb_inject.sh` — score 1/6
