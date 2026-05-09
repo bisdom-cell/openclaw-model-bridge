@@ -145,6 +145,61 @@ class TestW3WaE2eTestDeployment(unittest.TestCase):
         )
 
 
+class TestW4WaE2eBashCjkVarParsing(unittest.TestCase):
+    """W4 (V37.9.43-hotfix2): wa_e2e_test.sh 全角括号紧贴变量 bash 解析 bug.
+
+    Mac Mini 实测发现 (V37.9.43-hotfix 部署后首次运行):
+      L140: pass "KB 索引可用（$CHUNK_COUNT）"
+      → macOS bash 3.2 把全角 `）` (U+FF09) 的 UTF-8 字节视为变量名一部分
+      → set -u 报 'CHUNK_COUNT�: unbound variable' (脚本 exit 1)
+
+    自 PR #458 即存在但因 wa_e2e_test.sh 长期未部署 (V37.9.43-hotfix W3 修复)
+    所以从未在 Mac Mini 真跑过, 这是"长期沉睡的真 bug 在新部署时苏醒"典型案例.
+
+    修复: 用 ${VAR} 显式 brace 定界变量名, 防 bash 跨 ASCII/UTF-8 边界混淆.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.wa_e2e_src = _read(WA_E2E_SH)
+
+    def test_no_unbraced_var_adjacent_to_fullwidth_paren(self):
+        """禁止 $VAR 紧贴全角括号 / 中文标点等 (macOS bash 3.2 set -u unbound)"""
+        # 匹配 $VAR (无 {}) 后紧跟 CJK / 全角字符 (U+4E00-U+9FFF / U+FF00-U+FFFF)
+        pattern = re.compile(r'\$([A-Z_][A-Z_0-9]*)([一-鿿＀-￿])')
+        violations = []
+        for line_no, line in enumerate(self.wa_e2e_src.splitlines(), start=1):
+            if line.lstrip().startswith("#"):
+                continue
+            for m in pattern.finditer(line):
+                violations.append(
+                    f"L{line_no}: ${m.group(1)} 紧贴 '{m.group(2)}' "
+                    f"(应改为 ${{{m.group(1)}}}): {line.strip()[:80]!r}"
+                )
+        self.assertEqual(
+            violations, [],
+            msg=(
+                "wa_e2e_test.sh 仍有 $VAR 紧贴 CJK 字符的 bash 解析 bug "
+                "(V37.9.43-hotfix2 修复, 必须用 ${VAR} 显式 brace):\n  "
+                + "\n  ".join(violations)
+            )
+        )
+
+    def test_v37_9_43_hotfix2_marker_present(self):
+        """V37.9.43-hotfix2 注释必须存在 (溯源)"""
+        self.assertIn("V37.9.43-hotfix2", self.wa_e2e_src)
+
+    def test_chunk_count_uses_brace(self):
+        """L140 pass 行必须用 ${CHUNK_COUNT} 显式 brace"""
+        self.assertIn("${CHUNK_COUNT}", self.wa_e2e_src)
+        # 反向: 不能存在裸 $CHUNK_COUNT 紧贴全角 `）`
+        self.assertNotIn("$CHUNK_COUNT）", self.wa_e2e_src)
+
+    def test_kb_result_uses_brace(self):
+        """L146 skip 行必须用 ${KB_RESULT} 显式 brace"""
+        self.assertNotIn("$KB_RESULT）", self.wa_e2e_src)
+
+
 class TestHotfixDoesNotBreakV37943Main(unittest.TestCase):
     """hotfix 不得破坏 V37.9.43 主交付 — arxiv_monitor 仍正常"""
 
