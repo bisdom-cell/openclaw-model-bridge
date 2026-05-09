@@ -1,0 +1,89 @@
+# project_concepts.yaml — OpenClaw 项目核心概念清单
+#
+# 用于 LLM 评分"这条信息与本项目的相关度" (#2 项目对齐度评分, V37.9.45 PoC)
+# 维护: Claude Code 收工时同步本周新增概念
+# Schema 来自 docs/opportunity_radar_design.md 4.1 节
+#
+# 使用:
+#   - V37.9.45 PoC: hf_papers 单脚本 prompt 注入 (LLM 主观评分, 暂无 rule_check 验证层)
+#   - V37.9.46 Stage 2 完整: 加 project_alignment_scorer.py rule_check 验证层 + 9 个对齐脚本同步加第 6 字段
+#   - V37.9.49 Stage 5: kb_radar.sh 06:00 早晨"高对齐 Top 5"段消费
+
+version: "0.1-poc"  # V37.9.45 PoC. 升级到 0.2 时 Stage 2 启用全量加 6 字段
+last_updated: "2026-05-09"
+
+project:
+  name: openclaw-model-bridge
+  current_version: 0.37.9.44
+  strategic_position: Agent Runtime Control Plane
+
+# ── 核心三平面 (V35-V36 战略复盘确立) ───────────────────────────────────
+core_planes:
+  control_plane:
+    desc: "治理 / 限流 / 降级 / 观测 / 审计"
+    keywords: [governance, audit, fail-fast, slo, circuit breaker, fallback,
+               rate limiting, observability, ontology, policy engine,
+               control plane, agent runtime, convergence framework,
+               drift detection, machine sync, declared state]
+    weight: 5  # 最高优先级
+  capability_plane:
+    desc: "模型路由 / 工具编排 / 多模态"
+    keywords: [provider abstraction, tool calling, multimodal routing,
+               function calling, agent orchestration, tool plugin,
+               capability based routing, fallback chain]
+    weight: 4
+  memory_plane:
+    desc: "知识沉淀 / 冲突消解 / 可信度评分"
+    keywords: [vector index, RAG, semantic search, embedding,
+               knowledge graph, KB harvest, dedup, memory plane,
+               long term memory, conflict resolution]
+    weight: 5
+
+# ── 当前活跃研究方向 (V37.9.x) ─────────────────────────────────────────
+active_research_directions:
+  ontology:
+    desc: "Phase 4-5 ontology engine 产品化"
+    keywords: [tool ontology, declarative policy, semantic reasoning,
+               domain ontology, governance checker, BFO, DOLCE, UFO,
+               ontology engine, three gate, policy ontology]
+    weight: 5
+  agent_reliability:
+    desc: "V2 Agent Reliability Bench"
+    keywords: [scenario testing, failure injection, gameday, recovery time,
+               resilience, chaos engineering, blood lesson,
+               silent failure, fault injection]
+    weight: 4
+  data_compounding:
+    desc: "数据复利与机会点雷达"
+    keywords: [knowledge accumulation, signal aggregation, weak signal,
+               trend acceleration, opportunity radar, cross source resonance,
+               project alignment, opportunity mining]
+    weight: 5
+
+# ── 明确不感兴趣的主题 (即使关键词命中也降权) ──────────────────────────
+excluded_topics:
+  pure_finetuning:
+    desc: "纯 NLP fine-tuning 细节 (不是 control plane 关注点)"
+    keywords: [LoRA optimization details, distillation tricks,
+               hyperparameter sweep, prompt template engineering]
+    weight: -2  # 命中扣分
+  pure_hardware:
+    desc: "纯硬件优化 (我们不接 GPU 内核)"
+    keywords: [CUDA kernel, GPU sharding, hardware specific optimization,
+               NVLink, tensor core programming]
+    weight: -2
+
+# ── 评分指南 (供 LLM 在 prompt 中读取) ─────────────────────────────────
+scoring_guide:
+  star_5: "与 control plane / agent runtime / ontology 等核心方向直接相关 (作者明确提到 governance / drift / agent orchestration / declarative policy 等)"
+  star_4: "间接相关 (如 tool plugin / memory plane / multimodal routing 演进, 与已有方向呼应)"
+  star_3: "一般 AI/ML 趋势 (可借鉴但非核心, 如新模型架构 / 训练技巧 / benchmark)"
+  star_2: "无明显关联 (但可能未来有用, 比如纯 NLP 任务)"
+  star_1: "完全无关 (噪声, 比如硬件细节 / 单纯学术 paper 无工程价值)"
+
+# ── 元规则 ─────────────────────────────────────────────────────────────
+meta_rules:
+  - "本配置文件是 LLM 评分的 ground truth, 收工时如发现项目方向变化必须同步"
+  - "excluded_topics 是显式黑名单, 命中关键词即使其他维度高也降权"
+  - "weight 字段是相对排序权重 (5 最高), 不是绝对加分"
+  - "V37.9.46 Stage 2 时 project_alignment_scorer.py 用 rule_check 验证 LLM 评分与关键词命中率一致性"

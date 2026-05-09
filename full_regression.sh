@@ -56,6 +56,7 @@ run_suite "v37_9_41_hn (V37.9.41 HN 5 字段深度迁移)" "python3 test_v37_9_4
 run_suite "v37_9_43_arxiv (V37.9.43 arxiv_monitor 5 字段深度迁移)" "python3 test_v37_9_43_arxiv.py"
 run_suite "v37_9_43_hotfix (V37.9.43-hotfix preflight 3 警告闭环 — W1 freight schema + W3 wa_e2e FILE_MAP)" "python3 test_v37_9_43_hotfix.py"
 run_suite "v37_9_44_github_trending (V37.9.44 github_trending 5 字段深度迁移)" "python3 test_v37_9_44_github_trending.py"
+run_suite "v37_9_45_hf_papers (V37.9.45 hf_papers 6 字段 + Opportunity Radar #2 PoC)" "python3 test_v37_9_45_hf_papers.py"
 run_suite "adapter (路由/Fallback/认证)" "python3 test_adapter.py"
 run_suite "providers (Provider Compatibility Layer)" "python3 test_providers.py"
 run_suite "kb_business (KB全业务逻辑)" "python3 test_kb_business.py"

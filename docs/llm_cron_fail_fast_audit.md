@@ -5,16 +5,17 @@
 ## 概览
 
 - 候选脚本总数：21
-- ✅ 已对齐：10（V37.5 / V37.8.10 / V37.9.16 / V37.9.36-37）
-- ❌ 未对齐：11（含占位符或缺 fail-fast 标志）
+- ✅ 已对齐：11（V37.5 / V37.8.10 / V37.9.16 / V37.9.36-37）
+- ❌ 未对齐：10（含占位符或缺 fail-fast 标志）
 - ⚠️ 缺失文件：0
-- 📌 占位符 finding 总数：7
+- 📌 占位符 finding 总数：4
 
 ## ✅ 已对齐脚本（视为合规）
 
 | 脚本 | 对齐版本 | 占位符数 | SYSTEM_ALERT | send_alert | status:failed | exit 1 |
 |---|---|---|---|---|---|---|
 | `./jobs/arxiv_monitor/run_arxiv.sh` | V37.9.43 | 0 | ✓ | ✓ | ✓ | ✗ |
+| `./jobs/hf_papers/run_hf_papers.sh` | V37.9.45 | 0 | ✓ | ✓ | ✓ | ✗ |
 | `./jobs/semantic_scholar/run_semantic_scholar.sh` | V37.9.39 | 0 | ✓ | ✓ | ✓ | ✗ |
 | `./jobs/dblp/run_dblp.sh` | V37.9.40 | 0 | ✓ | ✓ | ✓ | ✗ |
 | `./jobs/github_trending/run_github_trending.sh` | V37.9.44 | 0 | ✓ | ✓ | ✓ | ✗ |
@@ -31,7 +32,6 @@
 
 | 脚本 | LLM | SYSTEM_ALERT | source_notify | send_alert | status:failed | exit 1 | 占位符数 | 评分 |
 |---|:---:|:---:|:---:|:---:|:---:|:---:|---:|---:|
-| `./jobs/hf_papers/run_hf_papers.sh` | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | 3 | 0/6 |
 | `./jobs/openclaw_official/run.sh` | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | 1 | 1/6 |
 | `./jobs/openclaw_official/run_discussions.sh` | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | 1 | 1/6 |
 | `./jobs/acl_anthology/run_acl_anthology.sh` | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | 1 | 0/6 |
@@ -44,15 +44,6 @@
 | `./kb_inject.sh` | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | 0 | 1/6 |
 
 ## 占位符反模式 findings 详情
-
-### `./jobs/hf_papers/run_hf_papers.sh`
-
-- **L325** 命中 `贡献：AI领域相关研究`
-  - 上下文: `[quoted_inline_sq] pending_contrib or '贡献：AI领域相关研究',`
-- **L361** 命中 `贡献：AI领域相关研究`
-  - 上下文: `[quoted_inline_dq] contrib = "贡献：AI领域相关研究"`
-- **L362** 命中 `价值：⭐⭐⭐`
-  - 上下文: `[quoted_inline_dq] stars = "价值：⭐⭐⭐"`
 
 ### `./jobs/acl_anthology/run_acl_anthology.sh`
 
@@ -79,9 +70,6 @@
 **今日 V37.9.38 完成**：MRD-LLM-PLACEHOLDER-FALLBACK-001 扫描器 + audit 报告 + arxiv_monitor PoC fix + INV-LLMCRON-AUDIT-001。
 
 **V37.9.39+ 候选脚本**（按风险优先级，逐次 1-2 个收敛）：
-
-**P1 — 多 finding 高风险（同款 V37.9.36 血案模式）**：
-- `./jobs/hf_papers/run_hf_papers.sh` — 3 findings, score 0/6
 
 **P2 — 单 finding**：
 - `./jobs/acl_anthology/run_acl_anthology.sh` — score 0/6

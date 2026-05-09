@@ -1,5 +1,5 @@
 {
-  "updated": "2026-05-09 10:45:00",
+  "updated": "2026-05-09 11:09:33",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-05-09",
+      "what": "V37.9.45 — hf_papers 6 字段深度迁移 (audit P1 完结, ALIGNED_SCRIPTS 10→11) + Opportunity Radar #2 PoC 单点验证. 用户 V37.9.44 后明确指令'现在就开始做不留尾巴, 下次 session 开始执行 Stage 1'. 双交付: (1) hf_papers V37.9.43 arxiv 同款机械迁移 (433→771 行 +78%, 保留 Step 2.5 GitHub repo enrichment) + (2) #2 PoC 单点验证 (project_concepts.yaml + LLM prompt 加第 6 字段 🎚️ 项目对齐度 + parse_5field_output → parse_6field_output + emit 显示对齐度 + 末尾高对齐统计). MR-10 三问严格执行: 不加 rule_check 验证层 (Stage 2 责任) + 不批量推其他脚本 (Stage 2 责任) + 不加 Dream/Radar 高对齐 Top 5 段 (Stage 2 责任). 27 新单测 4 类 (含 TestProjectAlignmentField 5 测试 #2 PoC) + 反向验证两层守卫真有效 (sed 占位符 / Python 移除 🎚️ 字段都立即 fail). 65 suites / 2280 tests (+27) / 0 fail / governance 555 checks (+1) / 71 inv / 16 meta rules / 安全 95/100 / VERSION 0.37.9.44→0.37.9.45. audit P1 路径完结 (剩 P2 4 + P3 8). 七阶段连环兑现 V37.9.36→39→40→41→43→44→45.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-05-09",
       "what": "V37.9.44 — github_trending 5 字段深度迁移 (用户视角原则 #13 第 15 次兑现, ALIGNED_SCRIPTS 9→10). 用户 V37.9.43-hotfix2 收工后立即 WhatsApp 看到 14:00 cron 老 V37.8 4 字段浅表推送, 直接要求按 S2 同款格式优化. 完整 V37.9.39/V37.9.40/V37.9.41/V37.9.43 同款机械迁移 (423→677 行 +60%, Write 全量重写避开 Edit 工具诡异行为): 头部 NOTIFY_SH + send_alert helper / call_llm_single_with_retry helper + per-repo retry 5/10/20s × 3 + V37.9.36 三层检测 / 5 字段 prompt 适配项目场景 (📌 中文项目名/🔑 核心功能/💡 技术亮点/🎯 实践启发/⭐ 评级) + 按评级动态长度 / parse_5field_output emit + LLM_DEGRADED 用 GitHub repo description 兜底 + 多窗口切片 + 三档 status. github_trending-specific: html_url URL / DISCORD_CH_TECH 频道 (技术 vs 论文区分) / repo metadata badge (⭐stars/主语言/创建日期). 23 新单测 3 类 + 反向验证守卫真有效 (sed 注入占位符 → L518 立即 fail). 64 suites / 2253 tests (+23) / 0 fail / governance 554 checks (+1) / 71 inv / 安全 95/100 / VERSION 0.37.9.43→0.37.9.44. 48h 六阶段连环兑现 (V37.9.36→39→40→41→43→44, ALIGNED 4→5→7→8→9→10).",
       "by": "claude_code"
     },
@@ -197,11 +202,6 @@
     {
       "date": "2026-05-06",
       "what": "V37.9.29 (b) — incident_capture 加 ownership 字段 (同日加固). capture.sh stat -f %u:%g /Volumes/MOVESPEED + /KB → rec dict 加 ownership_top + ownership_kb 两字段 (limit 50 chars). analyzer.py analyze() 加第 8 维度 by_ownership (ownership_pair_counter 统计 top=X kb=Y pair 分布, 向后兼容旧 records 归入 empty pre-V37.9.29(b) 桶) + format_text_report() 加 🔐 Ownership 分布段 + 决策提示新增 ownership misalignment 警告 (检测到 0:0 / 99:99 任一 → 提示 R1 回滚命令). 14 新单测 (TestV37929BOwnershipAnalysis 10 + TestV37929BCaptureScriptIntegrity 4) 含 backward compat / 错位 pair 计数 / 一致 pair 计数 / partial field handling / non-string field 健壮性 / 警告触发. 意义: 让未来类似 ownership 错位问题在 1 天内发现而不是 60 天. 52 suites / 1888→1902 tests (+14) / 0 fail / 95/100.",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-05-06",
-      "what": "V37.9.29 — MOVESPEED EPERM 60 天 silent failure 真因终于触底 + 24h 验证窗口至 5/7 早 8:00 HKT。① incident_analyzer 揭示 V37.9.28 macOS 修复完全无效 (24h 仍 21 incidents). ② Path A 4 轮诊断锁定真凶: noowners flag (V37.9.4 APFS 重建副作用) + 原始 file ownership root:wheel + _unknown:_unknown (UID 99) + bisdom UID 501 完全错位 + macOS daemon (mds_stores UID 89, backupd UID 200) metadata access 触发跨 UID ACL 拒绝 → bisdom cron 同时段 EPERM. ③ Path D 第一次错序 (第 6 次诊断错误): chown(noowners 模式) → enableOwnership → mount owners → bisdom 失访 ~10 分钟. 根因: macOS APFS 隐含规则 — noowners 模式下 sudo chown 被静默吃掉 (教科书 sudo bypass 假设错). ④ R2 抢救正确顺序: enableOwnership → mount owners → chown → 真生效, UID 全变 bisdom:staff, rsync 67MB 0 EPERM. ⑤ V37.9.29 (a) parallel 独立工作: incident_capture mount 字段 grep -e Volumes 移除 + limit 400→800, 4 新单测 (TestV37929MountFieldFix). ⑥ 完整案例文档 movespeed_noowners_uid_mismatch_case.md (~520 行, 四维度因果链 + 三层根因 + 6 条件组合分析 + chown 操作顺序硬规则 + MR-4 第 22 次演出). ⑦ 24h 可证伪验证窗口: incidents < 5 = ✅ 立 INV-OWNERSHIP-001 / 15+ = ❌ R1 回滚 + path B 调度避峰. ⑧ 累计 52 suites / 1887 tests (+4) / 0 fail / 69 inv / 423 checks / 安全 95/100 / VERSION 0.37.9.28 → 0.37.9.29.",
       "by": "claude_code"
     }
   ],
@@ -314,14 +314,14 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 2253,
-    "last_regression": "2026-05-09 10:26 pass",
+    "test_count": 2280,
+    "last_regression": "2026-05-09 11:07 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-05-09 10:26",
-    "test_suites": 64,
+    "security_score_time": "2026-05-09 11:07",
+    "test_suites": 65,
     "governance_invariants": "64/64",
     "governance_checks": "350/350",
-    "version": "0.37.9.43"
+    "version": "0.37.9.44"
   },
   "incidents": [
     {
@@ -385,7 +385,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.44 收工 + V37.9.45+ Opportunity Radar 三件套战略设计完成 (今日累积 5 阶段交付: V37.9.43 + hotfix1 + hotfix2 + V37.9.44 + 战略设计文档 580 行). 用户决策三件套合并交付, 下次 session 按 Stage 1-6 路径直接实施 (无需再做高层决策). 主战场转向'机会点雷达'(从广度数据复利升级为深度机会点挖掘). 三件套交集 = 跨 source 共振 × 项目对齐度 × 趋势加速度 = 早 30 天发现风口前的弱信号. 64 suites / 2253 tests / 0 fail / VERSION 0.37.9.44.",
+  "focus": "V37.9.45 收工 — hf_papers 6 字段 (audit P1 完结) + Opportunity Radar #2 PoC 单点验证. 27 新单测 + 反向验证两层守卫真有效. 用户'不留尾巴'指令兑现. 下次 session 干净启动 Opportunity Radar Stage 1 (#1 跨 source 弱信号聚合, 33 单测, sentence-transformer + DBSCAN). ALIGNED_SCRIPTS 4→5→7→8→9→10→11 (七阶段连环兑现完结). 65 suites / 2280 tests / 0 fail. project_concepts.yaml 已就位 V37.9.46 Stage 2 全量加 6 字段 + rule_check 验证层时直接消费.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
