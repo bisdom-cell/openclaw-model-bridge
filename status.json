@@ -1,6 +1,6 @@
 {
-  "updated": "2026-05-08 16:23:49",
-  "updated_by": "security_score",
+  "updated": "2026-05-09 09:39:01",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-05-09",
+      "what": "V37.9.43 — arxiv_monitor 5 字段深度迁移 (V37.9.41 HN audit P1 续, ALIGNED_SCRIPTS 8→9). audit P1 剩 hf_papers 1 个. arxiv 老 V37.8 单 batch + 3 字段 (cn_title/贡献/价值) + 占位符 fallback (贡献：AI领域相关研究 / 价值：⭐⭐⭐) silent fallback. 迁移 (443→704 行 +59%): NOTIFY_SH + send_alert helper / 替换 LLM section line 216-393 (217 行 → 330 行) 为 call_llm_single_with_retry helper (5/10/20s × 3 + V37.9.36 三层检测) + per-paper 5 字段 prompt + LLM_DEGRADED 用 arxiv abstract 兜底 + 多窗口切片 (>8000 字 + sleep 1s + [i/N] + 续段, V37.9.21 同款) + 三档 status (ok/partial_degraded/llm_failed) + L2 解析率检查废弃 (partial_degraded 替代). 22 新单测 3 类 (TestArxivV9_43ShellGuards 17 + TestArxivLlmDegradedFallback 3 + TestArxivInAuditAligned 3). 反向验证守卫真有效 (sed 注入占位符 → L519 立即 fail + 行号定位 → 还原 22/22 全过). ALIGNED_SCRIPTS 8→9 V37.9.43 锚点 governance INV-LLMCRON-AUDIT-001 +1 check (552→553 declared / 469 dev pass). 用户视角原则 #13 第 13 次正向兑现. MR-8 跨 job 同步 fail-fast 兑现 (V37.9.36/37/38/39/40/41/43 七阶段连环). 62 suites / 2214 tests (+22) / 0 fail / 71 inv / 16 meta rules / 安全 95/100 / VERSION 0.37.9.42→0.37.9.43",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-05-09",
       "what": "V37.9.42 hotfix — HN V37.9.41 三个 bash 整数处理 bug 修复 (Mac Mini 23:51 实测发现): (a) BSD wc -l NEW_COUNT 含前导空格 → tr -d [:space:] (b) dedup print(\\n.join([])) 输出空行让 wc -l=1 但实际无 JSON → 新增 NEW_JSON_COUNT=$(grep -c ^{) early-exit (c) SENT_COUNT 0\\n0 双输出 → SENT_COUNT=$(grep -c) || SENT_COUNT=0. bash -n + full_regression 61/0/2192 通过. Mac Mini 实测 V37.9.42 推送 1 条 2153 字 5 字段深度 + (基于标题与摘要推断) caveat 完美兑现. line 582 syntax error 是 auto_deploy cp 原子性 timing race (V37.9.41+ 候选已登记 升级 P1). VERSION 0.37.9.41 → 0.37.9.42",
       "by": "claude_code"
     },
@@ -194,12 +199,7 @@
       "what": "V37.9.28 兜底 cron 调度调整: 04:00 → 23:30 (用户决策, 选项 B). 数据驱动: incident_analyzer 7d 数据显示 00:00 UTC 是失败高峰 (25 incidents) > 12:00 (24) > 06:00 (20) > 04:00 (13). 23:30 选址理由: (a) 仍属晚间不占凌晨 1-5 时段 (用户希望凌晨给更重要事项) (b) 避开 00:00 整点 macOS maintenance 高峰 (Spotlight/mds_stores/backupd 唤醒) (c) 与 22:00 kb_evening / 22:30 kb_deep_dive / 00:00 dream Map sources 不撞车 (d) 23:30 是 22:30 之后 30min, 00:00 之前 30min, 双向 buffer. 用户已 crontab 替换原子操作 + 验证 grep movespeed 显示 30 23 * * *. 24h RPO 兜底保障保持. 5/6 验证: tail ~/.kb/movespeed_daily_sync.log 应有 23:30 sync 记录.",
       "by": "claude_code"
     },
-    "{\"date\":\"2026-05-05\",\"what\":\"V37.9.28 真正闭环 — 用户成功注册每日 04:00 强制 sync cron 作为 MOVESPEED 数据安全硬兜底. crontab -l 验证: 0 4 * * * bash -c rsync -av --delete \\$HOME/.kb/ /Volumes/MOVESPEED/KB/ >> \\$HOME/.kb/movespeed_daily_sync.log 2>&1. 即使 V37.9.27 helper 持续失败 / Spotlight+TM 修复无效, 这条独立 cron 能保证 24h RPO. 凌晨 04:00 远离 macOS 整点维护尖峰 (00/06/12), 大概率成功. V37.9.29 follow-up [P1] 登记: 升级 inline → 标准 job (脚本 + registry + watchdog). 当前累积今日 V37.9.28 5 commit (F1-F5 + cleanup + truth + cron 兜底) 全部 push 完成. 真正收工.\",\"by\":\"claude_code\"}",
-    {
-      "date": "2026-05-05",
-      "what": "🚨 V37.9.28 收尾揭示重大真相 — MOVESPEED 备份连续 8 天 100% 失败 (4/27 → 5/5). 用户实测: 关键 source 文件 (hn_daily.md / arxiv_daily.md / finance_daily.md / status.json) MOVESPEED mtime 全部停在 4/27, 本地正常更新到 5/5. V37.9.27 helper retry+jitter 设计假设 transient EPERM 自愈错误 — 实际是 macOS 系统服务 (Spotlight/mds_stores/backupd/fseventsd) 持续 lock SSD, retry 3 次完全无效. MR-4 silent-failure 第 21 次演出 (前 20 次包括今日 4 次诊断错误): helper 看似工作 (rsync retry 都跑) 但结果是零数据被同步. 用户手动 rsync -av --delete 已一次性补齐 3679 文件 / 71.9MB + 删 4000+ stale 文件, MOVESPEED 现在 100% 镜像本地. 但下次 cron rsync 仍会失败直到 macOS 修复 (Spotlight 禁用 + TM 排除) 生效. P0 紧急: 加每日 04:00 强制全量 sync cron 作为兜底 (crontab_safe.sh add 0 4 * * * rsync -av --delete ...). 元教训之最: 1) 之前 70-80% rsync 成功估算完全错误, 推测脱离数据导致严重低估问题严重性. 2) MOVESPEED 是数据安全最后屏障, 连续 8d 0 同步是数据丢失风险敞口. 3) V37.9.27 helper 没缓解任何 incident — 当 root cause 是持久 lock 而非 transient, retry+jitter 设计假设根本失效. 这是设计假设级 silent failure (与 V37.9.4 APFS 同款) — 假设 EPERM transient 持续 60 天直到今日数据揭示.",
-      "by": "claude_code"
-    }
+    "{\"date\":\"2026-05-05\",\"what\":\"V37.9.28 真正闭环 — 用户成功注册每日 04:00 强制 sync cron 作为 MOVESPEED 数据安全硬兜底. crontab -l 验证: 0 4 * * * bash -c rsync -av --delete \\$HOME/.kb/ /Volumes/MOVESPEED/KB/ >> \\$HOME/.kb/movespeed_daily_sync.log 2>&1. 即使 V37.9.27 helper 持续失败 / Spotlight+TM 修复无效, 这条独立 cron 能保证 24h RPO. 凌晨 04:00 远离 macOS 整点维护尖峰 (00/06/12), 大概率成功. V37.9.29 follow-up [P1] 登记: 升级 inline → 标准 job (脚本 + registry + watchdog). 当前累积今日 V37.9.28 5 commit (F1-F5 + cleanup + truth + cron 兜底) 全部 push 完成. 真正收工.\",\"by\":\"claude_code\"}"
   ],
   "feedback": [
     {
@@ -307,14 +307,14 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 2192,
-    "last_regression": "2026-05-08 16:14 pass",
+    "test_count": 2214,
+    "last_regression": "2026-05-09 09:36 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-05-08 16:14",
-    "test_suites": 61,
+    "security_score_time": "2026-05-09 09:36",
+    "test_suites": 62,
     "governance_invariants": "64/64",
     "governance_checks": "350/350",
-    "version": "0.37.9.41"
+    "version": "0.37.9.42"
   },
   "incidents": [
     {
@@ -378,7 +378,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.42 收工 — 24h 内 8 阶段连环兑现 (V37.9.38 audit→V37.9.39 S2→V37.9.40 DBLP+AI Leaders→V37.9.41 HN→V37.9.42 hotfix). ALIGNED_SCRIPTS 4→8 (rss_blogs/kb_evening/kb_review/kb_deep_dive/S2/DBLP/AI Leaders X/HN). 4 个 PoC 真实生产推送验证 (rss_blogs 5 字段 + S2 4 papers + DBLP 10 papers 3 段 20258 字 + HN 1 条 2153 字 含 caveat). V37.9.42 hotfix 修 V37.9.41 三个 bash 整数处理 bug (BSD wc -l 前导空格 / dedup 空行 IndexError / SENT_COUNT '0\\n0' 双输出). 用户视角原则 #13 第 8-12 次连续兑现. 61 suites / 2192 tests / 0 fail / 552 checks / 71 inv / 安全 95/100 / VERSION 0.37.9.42.",
+  "focus": "V37.9.43 收工 — arxiv_monitor audit P1 续 (V37.9.41 同款 PoC 模式机械迁移). ALIGNED_SCRIPTS 8→9 / placeholder findings 10→7. audit P1 剩 hf_papers 1 个 (3 findings, V37.9.44 候选). 22 新单测 + 反向验证守卫真有效 (L519 立即 fail). MR-8 跨 job 同步 fail-fast 兑现 (V37.9.36→37→38→39→40→41→43 七阶段连环). 62 suites / 2214 tests / 0 fail / 71 inv / 16 meta rules / 安全 95/100 / VERSION 0.37.9.43.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
