@@ -13,8 +13,9 @@ V37.9.31 双层修复:
      - NEW_COUNT=0 → deep_dive=skipped_no_news
      - LLM 失败 → deep_dive=skipped_llm_failed
      - LLM 解析率 < 50% → deep_dive=skipped_parse_low
-     - Step 5 (推送成功) → deep_dive=pending (Step 9 覆盖为 ok/no_data/skipped)
-     - Step 9 完成 → deep_dive=ok / no_data / skipped (覆盖 pending)
+     - Step 5 (推送成功) → deep_dive=pending (Step 9 覆盖为 ok/no_data/skipped_no_high_star)
+     - Step 9 完成 → deep_dive=ok / no_data / skipped_no_high_star (覆盖 pending; V37.9.43-hotfix
+       把 generic 'skipped' 重命名为 'skipped_no_high_star' 让 preflight 识别为合法跳过)
 
 本测试是 source-level 守卫 (grep run_freight.sh 字面量), 防止未来重构遗漏字段.
 """
@@ -126,15 +127,20 @@ class TestFreightStatusFileSchemaV9_31(unittest.TestCase):
         )
 
     def test_step_9_status_values_complete(self):
-        """DEEP_DIVE_STATUS 三档赋值齐全 (ok / no_data / skipped)."""
-        for status in ("ok", "no_data", "skipped"):
+        """DEEP_DIVE_STATUS 三档赋值齐全 (ok / no_data / skipped_no_high_star).
+
+        V37.9.43-hotfix: generic 'skipped' 升级为 skipped_no_high_star
+        让 preflight 识别为合法跳过 (无 ⭐≥4 高星条目, Step 9 by-design 不进入).
+        语义不变 (仍是三档输出), 只是 label 更具体.
+        """
+        for status in ("ok", "no_data", "skipped_no_high_star"):
             m = re.search(
                 rf'DEEP_DIVE_STATUS="{status}"',
                 self.script,
             )
             self.assertIsNotNone(
                 m,
-                f'V37.9.31: DEEP_DIVE_STATUS="{status}" 必须存在 — Step 9 三档输出',
+                f'V37.9.43-hotfix: DEEP_DIVE_STATUS="{status}" 必须存在 — Step 9 三档输出',
             )
 
     def test_v37_9_31_marker_in_script(self):

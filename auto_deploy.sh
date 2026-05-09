@@ -155,6 +155,9 @@ declare -a FILE_MAP=(
     "kb_inject.sh|$HOME/kb_inject.sh"
     "job_watchdog.sh|$HOME/job_watchdog.sh"
     "wa_keepalive.sh|$HOME/wa_keepalive.sh"
+    # V37.9.43-hotfix: wa_e2e_test.sh — WhatsApp E2E 业务验证脚本 (原则 #15 测试三层第三层)
+    # 长期漏部署观察项闭环: 文件存在仓库自 PR #458, 但从未在 FILE_MAP 登记
+    "wa_e2e_test.sh|$HOME/wa_e2e_test.sh"
 
     # 独立 Watcher 脚本
     "run_hn_fixed.sh|$HOME/.openclaw/jobs/hn_watcher/run_hn_fixed.sh"

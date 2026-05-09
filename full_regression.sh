@@ -54,6 +54,7 @@ run_suite "run_semantic_scholar_v9_39 (V37.9.39 S2 5 字段深度 + per-paper re
 run_suite "v37_9_40_dblp_ailead (V37.9.40 DBLP + AI Leaders X 5 字段深度迁移)" "python3 test_v37_9_40_dblp_ailead.py"
 run_suite "v37_9_41_hn (V37.9.41 HN 5 字段深度迁移)" "python3 test_v37_9_41_hn.py"
 run_suite "v37_9_43_arxiv (V37.9.43 arxiv_monitor 5 字段深度迁移)" "python3 test_v37_9_43_arxiv.py"
+run_suite "v37_9_43_hotfix (V37.9.43-hotfix preflight 3 警告闭环 — W1 freight schema + W3 wa_e2e FILE_MAP)" "python3 test_v37_9_43_hotfix.py"
 run_suite "adapter (路由/Fallback/认证)" "python3 test_adapter.py"
 run_suite "providers (Provider Compatibility Layer)" "python3 test_providers.py"
 run_suite "kb_business (KB全业务逻辑)" "python3 test_kb_business.py"
