@@ -636,7 +636,11 @@ ${PROFILE_OUT}
         DEEP_DIVE_STATUS="no_data"
     fi
 else
-    DEEP_DIVE_STATUS="skipped"
+    # V37.9.43-hotfix: rename generic 'skipped' → 'skipped_no_high_star'
+    # 让 preflight 识别为合法跳过 (无 ⭐≥4 高星条目, Step 9 by-design 不进入).
+    # V37.9.31 设计了 skipped_no_news / skipped_llm_failed / skipped_parse_low 三档,
+    # 但漏改 Step 9 条件分支的"无高星"路径, 导致 preflight 误报 warn.
+    DEEP_DIVE_STATUS="skipped_no_high_star"
 fi
 
 # 更新 status_file 追加 deep_dive 状态（覆盖 Step 5 写入的版本）

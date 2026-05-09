@@ -510,7 +510,12 @@ except Exception:
                 warn "货代 deep_dive: ImportYeti 无数据返回（可能被 Cloudflare 拦截，scraper.log 看证据）"
                 ;;
             skipped)
-                warn "货代 deep_dive: 被跳过（检查 run_freight.sh 日志）"
+                warn "货代 deep_dive: 被跳过（generic skipped — 应升级为 V37.9.31 三档具体 status, 检查 run_freight.sh 日志）"
+                ;;
+            # V37.9.43-hotfix: skipped_no_high_star 合法跳过 (无 ⭐≥4 高星条目, Step 9 by-design 不进入)
+            # V37.9.31 漏改的 freight Step 9 条件分支, V37.9.43-hotfix 补齐
+            skipped_no_high_star)
+                pass "货代 deep_dive 合法跳过（无 ⭐≥4 高星条目，Step 9 by-design 不进入）"
                 ;;
             # V37.9.31: 三个新合法 status — RSS/LLM/解析失败时合法跳过 step 9
             skipped_no_news)
