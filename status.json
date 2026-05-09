@@ -1,5 +1,5 @@
 {
-  "updated": "2026-05-09 11:09:33",
+  "updated": "2026-05-09 11:33:04",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -293,7 +293,11 @@
       "V37.9.43+ 候选 [P2 — HN HTML metadata 泄漏到 LLM]: HN RSS description 含评论页 metadata (例 \"stefanpie\" username + 评论日期 \"Hacker News•昨天6:22\"), 当前脚本已有 re.sub HTML 标签清理但 entities/换行 metadata 仍泄漏到 LLM 输出. 修法: prompt 构建时加入 re.sub(r\"\\\\s*Hacker News.\\d+\\\\s*\", \"\") + re.sub(r\"^\\\\s*\\\\w+\\\\s*\\\\n\", \"\") 强清洗. 2026-05-09 V37.9.42 验证推送实证 — Canvas/ShinyHunters 推送底部混入 stefanpie + Hacker News•昨天6:22 metadata. 影响: 用户体验降级但内容仍可读, 不阻塞",
       "V37.9.43-hotfix2 后 SLO p95 46493ms 长期登记 (V37.9.28 commit e21813e 同款, 真实 latency 非 metric direction 问题): Mac Mini 实测 latency_p95: 46493ms (目标<30000ms), proxy_stats.json 在 ~/proxy_stats.json (非 ~/.openclaw/proxy_stats.json). 可能根因: (a) Qwen3 上游某些请求拉慢 p95 (b) gemini fallback 高 latency 拉高 (c) 大文档 search_kb / multimodal LLM 调用. 修复方向 (V37.9.44+ 候选): 区分 endpoint 级 p95 (chat vs tool_call vs multimodal) / proxy_stats 加 endpoint breakdown / SLO 阈值按 endpoint 设. 当前不修 — 优先 V37.9.44+ hf_papers P1 audit 续.",
       "V37.9.43-hotfix1 W1 货代 deep_dive=skipped 等 20:00 HKT freight cron 自愈观察 (写新 skipped_no_high_star schema). 如下次 preflight 仍 warn → 检查 cron 是否真跑 (crontab -l + freight_watcher.log mtime).",
-      "V37.9.45+ Opportunity Radar 三件套实施 (今日 V37.9.44 后用户战略请求, 已出完整设计文档 docs/opportunity_radar_design.md): Stage 1 V37.9.45 #1 跨 source 弱信号聚合 (sentence-transformer + DBSCAN + 跨 source 检测, 33 单测) → Stage 2 V37.9.46 #2 项目对齐度评分 (project_concepts.yaml + LLM 6 字段 prompt + rule_check 验证, 31 单测) → Stage 3 V37.9.47 #3 趋势加速检测 (kb_trend.py 扩展为加速度版, 28 单测) → Stage 4 V37.9.48 三件套协同 → Stage 5 V37.9.49 kb_radar.sh 06:00 cron 新 job → Stage 6 V37.9.50 数据可视化 + INV-RADAR-001 governance. 总估算 6 session / 20-30h / 跨 1-2 周. 与 audit P1+P2+P3 续 (hf_papers 等 11 个) 并行不冲突 (可在 V37.9.45+ 迁移时同步加 #2 6 字段). 战略愿景: 从信息推送升级为决策支持 (注意力杠杆 10x), 真正实现数据复利 (KB 从冰库变雷达基础设施)."
+      "V37.9.45+ Opportunity Radar 三件套实施 (今日 V37.9.44 后用户战略请求, 已出完整设计文档 docs/opportunity_radar_design.md): Stage 1 V37.9.45 #1 跨 source 弱信号聚合 (sentence-transformer + DBSCAN + 跨 source 检测, 33 单测) → Stage 2 V37.9.46 #2 项目对齐度评分 (project_concepts.yaml + LLM 6 字段 prompt + rule_check 验证, 31 单测) → Stage 3 V37.9.47 #3 趋势加速检测 (kb_trend.py 扩展为加速度版, 28 单测) → Stage 4 V37.9.48 三件套协同 → Stage 5 V37.9.49 kb_radar.sh 06:00 cron 新 job → Stage 6 V37.9.50 数据可视化 + INV-RADAR-001 governance. 总估算 6 session / 20-30h / 跨 1-2 周. 与 audit P1+P2+P3 续 (hf_papers 等 11 个) 并行不冲突 (可在 V37.9.45+ 迁移时同步加 #2 6 字段). 战略愿景: 从信息推送升级为决策支持 (注意力杠杆 10x), 真正实现数据复利 (KB 从冰库变雷达基础设施).",
+      "V37.9.46 候选 [P1 — Opportunity Radar Stage 1, 下次 session 干净启动]: 实施 #1 cross_source_signal_aggregator.py PoC. 设计文档 docs/opportunity_radar_design.md 第三节已就位. 关键路径: scan_today_notes → embed_notes (sentence-transformer all-MiniLM-L6-v2) → cluster_dbscan (min_samples=3, eps=0.35) → filter_cross_source (unique_sources≥2) → rank_signals + emit ~/.kb/radar/daily_signals_DATE.json. 33 单测 (TestScanTodayNotes 5 / TestEmbedNotes 4 / TestClusterDbscan 5 / TestFilterCrossSource 4 / TestRankSignals 3 / TestEmitRadarJson 3 / TestFailOpenContract 4 / TestSourceLevelGuards 5). Mac Mini 需 pip3 install scikit-learn. FAIL-OPEN 契约: 任意环节失败 → 写空数组到 daily_signals.json + log WARN, 不阻塞下游.",
+      "V37.9.45 PoC 观察项 [hf_papers 6 字段 + 🎚️ 项目对齐度生产推送质量 24-72h]: 等明日 5/10 10:00 / 20:00 HKT hf_papers cron 真跑. 验证项: (1) LLM 是否真在 prompt 引导下输出 🎚️ 字段 (2) 评分是否符合 OpenClaw 项目方向 (3) 末尾'本轮高对齐论文'统计是否触发 (4) Mac Mini 实跑 stderr 是否有 6 字段 prompt 字面量泄漏 (V37.9.40 AI Leaders X 同款风险) (5) 多窗口分片是否触发. 如 OK → V37.9.46 Stage 2 信心十足全量推 + 加 project_alignment_scorer.py rule_check 验证层. 如 LLM 评分不稳定 → 紧急加 rule_check 兜底.",
+      "V37.9.46+ Opportunity Radar Stage 2 [#2 项目对齐度评分全量推]: 验证 V37.9.45 hf_papers PoC 24-72h 后, 把 6 字段批量推到其他 10 个已对齐脚本 (rss_blogs/kb_evening/kb_review/kb_deep_dive/S2/DBLP/AI Leaders X/HN/arxiv/github_trending). 加 project_alignment_scorer.py rule_check 验证层 (LLM 评分 vs 关键词命中率交叉验证, 不一致时显式 ⚠️ 标记). MR-18 候选元规则 'opportunity-radar-must-cross-validate-llm-vs-rule' 立案. 31 新单测 (TestProjectConceptsYaml 5 + TestKeywordHitCounting 6 + TestExpectedScoreRange 4 + TestValidateAlignmentScore 4 + TestPromptInjection 3 + TestParse6FieldOutput 5 + TestSourceLevelGuards 4).",
+      "V37.9.46+ audit P2 (1 finding each): acl_anthology / karpathy_x / openclaw_official run.sh / openclaw_official run_discussions.sh — 同款 V37.9.39 S2 / V37.9.43 arxiv 机械迁移 + (Stage 2 启用后) 同步加 6 字段. P3 (0 findings 但缺 fail-fast 标志): chaspark / ontology_sources / kb_inject / kb_dream / freight_watcher / finance_news / 2 others. audit P1 已完结 (V37.9.45)."
     ],
     "open_prs": "",
     "blocked_on": "",
@@ -315,13 +319,13 @@
   "quality": {
     "security_score": 95,
     "test_count": 2280,
-    "last_regression": "2026-05-09 11:07 pass",
+    "last_regression": "2026-05-09 11:29 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-05-09 11:07",
-    "test_suites": 65,
+    "security_score_time": "2026-05-09 11:29",
+    "test_suites": 66,
     "governance_invariants": "64/64",
     "governance_checks": "350/350",
-    "version": "0.37.9.44"
+    "version": "0.37.9.45"
   },
   "incidents": [
     {
