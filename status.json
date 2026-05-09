@@ -1,5 +1,5 @@
 {
-  "updated": "2026-05-09 10:11:45",
+  "updated": "2026-05-09 10:28:24",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-05-09",
+      "what": "V37.9.44 — github_trending 5 字段深度迁移 (用户视角原则 #13 第 15 次兑现, ALIGNED_SCRIPTS 9→10). 用户 V37.9.43-hotfix2 收工后立即 WhatsApp 看到 14:00 cron 老 V37.8 4 字段浅表推送, 直接要求按 S2 同款格式优化. 完整 V37.9.39/V37.9.40/V37.9.41/V37.9.43 同款机械迁移 (423→677 行 +60%, Write 全量重写避开 Edit 工具诡异行为): 头部 NOTIFY_SH + send_alert helper / call_llm_single_with_retry helper + per-repo retry 5/10/20s × 3 + V37.9.36 三层检测 / 5 字段 prompt 适配项目场景 (📌 中文项目名/🔑 核心功能/💡 技术亮点/🎯 实践启发/⭐ 评级) + 按评级动态长度 / parse_5field_output emit + LLM_DEGRADED 用 GitHub repo description 兜底 + 多窗口切片 + 三档 status. github_trending-specific: html_url URL / DISCORD_CH_TECH 频道 (技术 vs 论文区分) / repo metadata badge (⭐stars/主语言/创建日期). 23 新单测 3 类 + 反向验证守卫真有效 (sed 注入占位符 → L518 立即 fail). 64 suites / 2253 tests (+23) / 0 fail / governance 554 checks (+1) / 71 inv / 安全 95/100 / VERSION 0.37.9.43→0.37.9.44. 48h 六阶段连环兑现 (V37.9.36→39→40→41→43→44, ALIGNED 4→5→7→8→9→10).",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-05-09",
       "what": "V37.9.43-hotfix2 — wa_e2e_test.sh macOS bash 3.2 全角括号变量解析 bug (Mac Mini 实测发现): line 140 pass \"KB 索引可用（$CHUNK_COUNT）\" + line 146 skip \"KB 索引检查跳过（$KB_RESULT）\" 把全角 `）` (U+FF09) UTF-8 字节当成变量名一部分 → set -u 报 unbound variable → 脚本 exit 1. 自 PR #458 即存在但因脚本长期未部署 (V37.9.43-hotfix W3 修复) 从未在 Mac Mini 真跑过, 是\"长期沉睡的真 bug 在新部署时苏醒\"典型. 修复: ${VAR} 显式 brace 定界变量名. 4 新单测 (TestW4WaE2eBashCjkVarParsing): 反模式扫描 / hotfix2 marker / chunk_count brace / kb_result brace + 反向验证 sabotage 立即 fail. MR-10 三问严格执行. 63 suites / 2230 tests (+4) / 0 fail / 安全 95/100",
       "by": "claude_code"
     },
@@ -197,11 +202,6 @@
     {
       "date": "2026-05-06",
       "what": "V37.9.29 — MOVESPEED EPERM 60 天 silent failure 真因终于触底 + 24h 验证窗口至 5/7 早 8:00 HKT。① incident_analyzer 揭示 V37.9.28 macOS 修复完全无效 (24h 仍 21 incidents). ② Path A 4 轮诊断锁定真凶: noowners flag (V37.9.4 APFS 重建副作用) + 原始 file ownership root:wheel + _unknown:_unknown (UID 99) + bisdom UID 501 完全错位 + macOS daemon (mds_stores UID 89, backupd UID 200) metadata access 触发跨 UID ACL 拒绝 → bisdom cron 同时段 EPERM. ③ Path D 第一次错序 (第 6 次诊断错误): chown(noowners 模式) → enableOwnership → mount owners → bisdom 失访 ~10 分钟. 根因: macOS APFS 隐含规则 — noowners 模式下 sudo chown 被静默吃掉 (教科书 sudo bypass 假设错). ④ R2 抢救正确顺序: enableOwnership → mount owners → chown → 真生效, UID 全变 bisdom:staff, rsync 67MB 0 EPERM. ⑤ V37.9.29 (a) parallel 独立工作: incident_capture mount 字段 grep -e Volumes 移除 + limit 400→800, 4 新单测 (TestV37929MountFieldFix). ⑥ 完整案例文档 movespeed_noowners_uid_mismatch_case.md (~520 行, 四维度因果链 + 三层根因 + 6 条件组合分析 + chown 操作顺序硬规则 + MR-4 第 22 次演出). ⑦ 24h 可证伪验证窗口: incidents < 5 = ✅ 立 INV-OWNERSHIP-001 / 15+ = ❌ R1 回滚 + path B 调度避峰. ⑧ 累计 52 suites / 1887 tests (+4) / 0 fail / 69 inv / 423 checks / 安全 95/100 / VERSION 0.37.9.28 → 0.37.9.29.",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-05-05",
-      "what": "V37.9.28 头部版本号漂移修正 (CLAUDE.md + README.md + docs/config.md 三处) — V37.9.28 收工漏改, VERSION 文件已 0.37.9.28 但三处文档头部仍写 v37.9.27/0.37.9.27 (2026-05-04). 1 commit (3c05bd9) 推送到 claude/start-daily-work-KV9z3. 零附带改动. 全仓 grep 验证无遗漏 v37.9.27 顶部声明. 收工 A-D 全过 (53 suites / 1884 tests / 0 fail / 安全 95/100 / 治理 dev 模式所有不变式 + convergence 5 spec 符合 FAIL-OPEN 契约).",
       "by": "claude_code"
     }
   ],
@@ -313,11 +313,11 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 2230,
-    "last_regression": "2026-05-09 10:07 pass",
+    "test_count": 2253,
+    "last_regression": "2026-05-09 10:26 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-05-09 10:07",
-    "test_suites": 63,
+    "security_score_time": "2026-05-09 10:26",
+    "test_suites": 64,
     "governance_invariants": "64/64",
     "governance_checks": "350/350",
     "version": "0.37.9.43"
@@ -384,7 +384,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.43 + V37.9.43-hotfix1 + V37.9.43-hotfix2 三阶段交付完成 (一日内). Mac Mini 79/0/3/1 验证通过. arxiv_monitor V37.9.43 五字段迁移 (audit ALIGNED 8→9, P1 剩 hf_papers 1 个) + W1 freight schema + W3 wa_e2e FILE_MAP + W4 macOS bash 3.2 全角变量解析. 用户视角原则 #13 第 13/14 次正向兑现 (Mac Mini 实跑暴露 hotfix1 的 W1+W3 真 bug + hotfix2 的 W4 沉睡 bug). 63 suites / 2230 tests (+38) / 0 fail / 16 元规则 / 安全 95/100. 剩 W5 SLO p95 long-term log / W1 等 20:00 cron 自愈.",
+  "focus": "V37.9.44 收工 — github_trending 5 字段深度迁移 (用户视角原则 #13 第 15 次兑现, ALIGNED_SCRIPTS 9→10). 一日内累积 6 阶段连环兑现: V37.9.43 主 + hotfix1 + hotfix2 + V37.9.44. Mac Mini 79/0/3/1 V37.9.43 验证通过. 64 suites / 2253 tests (+38 今日) / 0 fail. 下次 V37.9.45+ 候选: P1 hf_papers (3 findings, 与 S2 同款), 5/9 早 V37.9.30 EPERM 数据回归, 5/11 决策窗口.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",

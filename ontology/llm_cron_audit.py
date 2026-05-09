@@ -113,6 +113,7 @@ ALIGNED_SCRIPTS = {
     "jobs/ai_leaders_x/run_ai_leaders_x.sh": "V37.9.40",  # 5 字段适配 tweet 上下文 (主题/观点/深度解读/系统启示/评级)
     "run_hn_fixed.sh":                   "V37.9.41",  # 5 字段适配 HN posts (基于标题与摘要推断 caveat, 同 DBLP 模式)
     "jobs/arxiv_monitor/run_arxiv.sh":   "V37.9.43",  # 5 字段 + per-paper retry + LLM_DEGRADED 用 arxiv abstract 兜底 (V37.9.39 S2 同款)
+    "jobs/github_trending/run_github_trending.sh": "V37.9.44",  # 5 字段适配 GitHub repo metadata (📌 项目名/🔑 核心功能/💡 技术亮点/🎯 实践启发/⭐ 评级) + LLM_DEGRADED 用 description 兜底
 }
 
 
