@@ -1,5 +1,5 @@
 {
-  "updated": "2026-05-09 10:07:57",
+  "updated": "2026-05-09 10:11:45",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -290,7 +290,9 @@
       "V37.9.40+ S2 推送质量观察 (V37.9.39 首次真实推送 4/4 papers 材料上成功, vs 昨日 10x 信息密度提升, 但发现 3 观察项需多日真跑数据回归): (1) Paper 4 ⭐⭐⭐⭐⭐ 💡 块开头 prompt 指令字面量泄漏 '⭐⭐⭐⭐⭐（500-800字）' (LLM 把字数规则当输出格式), 修法 prompt 改 inline 字面量为 prose; (2) Paper 1, 2 ⭐⭐⭐⭐ 完全跳过 💡 关键方法字段 vs Paper 3 ⭐⭐⭐⭐ 完整 (LLM variance, 修法 prompt 加'必填'强制); (3) Paper 1 作者名重复 'Himanshu Gautam Himanshu Gautam 等' (S2 API 上游数据问题, 修法 emit 端去重). 决策按 MR-10 三问: 不今天动手, 等明日 11:00 cron + 后续 3 天数据看 reproducible 程度再决定 V37.9.40 prompt 微调还是 LLM behavior 接受范围内 noise",
       "V37.9.41+ P1 续: hf_papers / arxiv_monitor (各 3 placeholder findings, 与 V37.9.39 S2/V37.9.40 DBLP 完全同款机械迁移). 一次一个 + 单测 + Mac Mini E2E 数据回归后再下一个",
       "V37.9.41+ 候选: auto_deploy.sh FILE_MAP cp 原子性 — V37.9.40 部署后 Mac Mini 用户手动触发 DBLP 报 'line 96 syntax error near done' 但同款脚本 12:00 cron 成功 + AI Leaders X 同期 cron 成功. 时序: 12:43 V37.9.40 push → 12:53 preflight 报 4 项 cron job 文件不一致 → 12:54 用户手动 bash dblp.sh 失败. 真因: auto_deploy cp 非原子, 用户手动跑时遇到 cp 中途态 (老结构 + 新结构混合 → 不匹配的 done token). 修法: auto_deploy FILE_MAP 同步改为 cp \"$SRC\" \"$DST.tmp.$$\" + mv -f \"$DST.tmp.$$\" \"$DST\" 原子模式. 影响: 任何高频 cron job + 大量 file 同步时窗口都可能再次出现. 优先级 P2 (单次时序事件, 可手动 cp 应急)",
-      "V37.9.43+ 候选 [P2 — HN HTML metadata 泄漏到 LLM]: HN RSS description 含评论页 metadata (例 \"stefanpie\" username + 评论日期 \"Hacker News•昨天6:22\"), 当前脚本已有 re.sub HTML 标签清理但 entities/换行 metadata 仍泄漏到 LLM 输出. 修法: prompt 构建时加入 re.sub(r\"\\\\s*Hacker News.\\d+\\\\s*\", \"\") + re.sub(r\"^\\\\s*\\\\w+\\\\s*\\\\n\", \"\") 强清洗. 2026-05-09 V37.9.42 验证推送实证 — Canvas/ShinyHunters 推送底部混入 stefanpie + Hacker News•昨天6:22 metadata. 影响: 用户体验降级但内容仍可读, 不阻塞"
+      "V37.9.43+ 候选 [P2 — HN HTML metadata 泄漏到 LLM]: HN RSS description 含评论页 metadata (例 \"stefanpie\" username + 评论日期 \"Hacker News•昨天6:22\"), 当前脚本已有 re.sub HTML 标签清理但 entities/换行 metadata 仍泄漏到 LLM 输出. 修法: prompt 构建时加入 re.sub(r\"\\\\s*Hacker News.\\d+\\\\s*\", \"\") + re.sub(r\"^\\\\s*\\\\w+\\\\s*\\\\n\", \"\") 强清洗. 2026-05-09 V37.9.42 验证推送实证 — Canvas/ShinyHunters 推送底部混入 stefanpie + Hacker News•昨天6:22 metadata. 影响: 用户体验降级但内容仍可读, 不阻塞",
+      "V37.9.43-hotfix2 后 SLO p95 46493ms 长期登记 (V37.9.28 commit e21813e 同款, 真实 latency 非 metric direction 问题): Mac Mini 实测 latency_p95: 46493ms (目标<30000ms), proxy_stats.json 在 ~/proxy_stats.json (非 ~/.openclaw/proxy_stats.json). 可能根因: (a) Qwen3 上游某些请求拉慢 p95 (b) gemini fallback 高 latency 拉高 (c) 大文档 search_kb / multimodal LLM 调用. 修复方向 (V37.9.44+ 候选): 区分 endpoint 级 p95 (chat vs tool_call vs multimodal) / proxy_stats 加 endpoint breakdown / SLO 阈值按 endpoint 设. 当前不修 — 优先 V37.9.44+ hf_papers P1 audit 续.",
+      "V37.9.43-hotfix1 W1 货代 deep_dive=skipped 等 20:00 HKT freight cron 自愈观察 (写新 skipped_no_high_star schema). 如下次 preflight 仍 warn → 检查 cron 是否真跑 (crontab -l + freight_watcher.log mtime)."
     ],
     "open_prs": "",
     "blocked_on": "",
@@ -382,7 +384,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.43-hotfix2 收工 — wa_e2e_test.sh macOS bash 3.2 全角括号变量解析 bug 修复 (Mac Mini 实测发现真 bug, 自 PR #458 沉睡 N session). 4 新单测 + 反向验证. 同 session 累积修复 W1+W3+W4 (3/4 警告闭环). W2 KB lag 结构性自愈 / W5 SLO 真实 latency_p95 长期登记. 63 suites / 2230 tests / 0 fail / VERSION 0.37.9.43 不变.",
+  "focus": "V37.9.43 + V37.9.43-hotfix1 + V37.9.43-hotfix2 三阶段交付完成 (一日内). Mac Mini 79/0/3/1 验证通过. arxiv_monitor V37.9.43 五字段迁移 (audit ALIGNED 8→9, P1 剩 hf_papers 1 个) + W1 freight schema + W3 wa_e2e FILE_MAP + W4 macOS bash 3.2 全角变量解析. 用户视角原则 #13 第 13/14 次正向兑现 (Mac Mini 实跑暴露 hotfix1 的 W1+W3 真 bug + hotfix2 的 W4 沉睡 bug). 63 suites / 2230 tests (+38) / 0 fail / 16 元规则 / 安全 95/100. 剩 W5 SLO p95 long-term log / W1 等 20:00 cron 自愈.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
