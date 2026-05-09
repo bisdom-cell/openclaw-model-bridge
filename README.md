@@ -13,8 +13,8 @@
 [![Fail-Fast](https://img.shields.io/badge/LLM%20cron%20fail--fast-10%2F21%20aligned-yellow.svg)]()
 [![Notifications](https://img.shields.io/badge/notifications-WhatsApp%20%2B%20Discord-informational.svg)]()
 
-> **Current version:** `v37.9.44` / `0.37.9.44` (2026-05-09) — see [`CLAUDE.md`](CLAUDE.md) for full changelog.
-> **Latest milestone:** V37.9.36–44 — *48h six-stage cross-job fail-fast migration* (rss_blogs → S2 → DBLP+AI Leaders X → HN → arxiv → github_trending), ALIGNED_SCRIPTS 4→10. Next: V37.9.45+ Opportunity Radar 三件套 (see [design doc](docs/opportunity_radar_design.md)).
+> **Current version:** `v37.9.45` / `0.37.9.45` (2026-05-09) — see [`CLAUDE.md`](CLAUDE.md) for full changelog.
+> **Latest milestone:** V37.9.36–45 — *48h seven-stage cross-job fail-fast migration audit P1 closure* (rss_blogs → S2 → DBLP+AI Leaders X → HN → arxiv → github_trending → **hf_papers**), ALIGNED_SCRIPTS 4→11. **V37.9.45 also marks Opportunity Radar #2 PoC** (project alignment scoring, 6-field prompt). Next: V37.9.46+ Opportunity Radar Stage 1 (#1 cross-source weak signal aggregation, see [design doc](docs/opportunity_radar_design.md)).
 
 ## V37.9.x Series Highlights (2026-05)
 
