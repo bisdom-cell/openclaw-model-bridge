@@ -64,6 +64,7 @@ run_suite "kb_review (V37.5 fail-fast + registry-driven)" "python3 test_kb_revie
 run_suite "kb_evening (V37.6 import reuse + V37.7 today-count)" "python3 test_kb_evening.py"
 run_suite "kb_deep_dive (V37.9.16 picker+fetcher+prompt+shell guards)" "python3 test_kb_deep_dive.py"
 run_suite "cross_source_signal_aggregator (V37.9.46 Opportunity Radar Stage 1 PoC)" "python3 test_cross_source_signal_aggregator.py"
+run_suite "project_alignment_scorer (V37.9.47 Opportunity Radar Stage 2 rule_check)" "python3 test_project_alignment_scorer.py"
 run_suite "run_rss_blogs (V37.9.36 LLM fail-fast + 占位符 fallback 禁止)" "python3 test_run_rss_blogs.py"
 run_suite "v37_9_18_cron_strict_checks (V37.9.18 preflight 双 warning + crontab_safe 退出码)" "python3 test_v37_9_18_cron_strict_checks.py"
 run_suite "convergence (V37.9.19 Phase 4 Layer 5 — declared→runtime convergence framework + jobs_to_crontab spec)" "python3 test_convergence.py"

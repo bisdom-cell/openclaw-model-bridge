@@ -464,9 +464,24 @@ echo "[hf_papers] LLM 调用完成: 成功 $((TOTAL_NEW - TOTAL_FAILED))/$TOTAL_
 # ── 5. V37.9.45: 6 字段 emit (6-field key-based parser + LLM_DEGRADED + 多窗口切片) ──
 MSG_FILE="$CACHE/hf_message.txt"
 python3 - "$PAPERS_FILE" "$RESULTS_FILE" "$DAY" "$MSG_FILE" << 'PYEOF'
-import sys, json, re
+import sys, json, re, os
 
 papers_file, results_file, day, msg_file = sys.argv[1:5]
+
+# V37.9.47 Stage 2: lazy import project_alignment_scorer for rule_check
+# 部署在 $HOME (auto_deploy FILE_MAP) 或 dev 仓库根. FAIL-OPEN: 缺模块 → 跳过验证.
+sys.path.insert(0, os.path.expanduser("~"))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+try:
+    import project_alignment_scorer as _pas
+    _alignment_concepts = _pas.load_project_concepts()
+    _alignment_available = bool(_alignment_concepts.get("core_planes"))
+except Exception as _e:
+    print(f"[hf_papers] WARN: project_alignment_scorer unavailable, skip rule_check: {_e}",
+          file=sys.stderr)
+    _alignment_available = False
+    _alignment_concepts = None
+    _pas = None
 
 papers = []
 with open(papers_file, encoding='utf-8') as f:
@@ -630,11 +645,24 @@ for i, paper in enumerate(papers):
         if fields['rating']:
             msg_lines.append(fields['rating'])
             msg_lines.append("")
-        # V37.9.45 新增: 项目对齐度展示
+        # V37.9.45 新增: 项目对齐度展示 / V37.9.47 Stage 2: 加 rule_check 验证
         if fields['alignment']:
             msg_lines.append(f"🎚️ 项目对齐度: {fields['alignment']}")
+            # V37.9.47 Stage 2: rule_check 验证 LLM 评分 vs keyword 命中
+            if _alignment_available:
+                _llm_stars = _pas.extract_star_count(fields['alignment'])
+                if _llm_stars > 0:
+                    # paper content = title + tldr + abstract (足够 keyword match)
+                    _paper_content = (paper.get('title', '') + ' ' +
+                                      paper.get('tldr', '') + ' ' +
+                                      paper.get('abstract', ''))
+                    _validation = _pas.validate_alignment_score(
+                        _paper_content, _llm_stars, _alignment_concepts)
+                    _marker = _pas.format_validation_marker(_validation)
+                    if _marker:
+                        msg_lines.append(_marker)
             msg_lines.append("")
-            # 统计 ⭐≥4 (粗略匹配 4-5 颗星, V37.9.46 Stage 2 加 rule_check 精确化)
+            # 统计 ⭐≥4 (粗略匹配 4-5 颗星, V37.9.47 Stage 2 验证已加 rule_check 精确化)
             if '⭐⭐⭐⭐' in fields['alignment']:  # 4 或 5 颗星都含 ⭐⭐⭐⭐
                 high_alignment_count += 1
         if fields['cn_title'] or fields['highlights'] or fields['insight']:
