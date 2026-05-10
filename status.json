@@ -1,5 +1,5 @@
 {
-  "updated": "2026-05-10 05:17:22",
+  "updated": "2026-05-10 05:42:00",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-05-10",
+      "what": "V37.9.50-hotfix2 — openclaw_run 日落 (用户日落法则 + 不增加新任务原则). 软删除路径: jobs_registry.yaml enabled true→false + job_watchdog.sh 同步删除 JOBS entry (V37.8.13 cross-file guard 强制) + 保留代码备 revert (auto_deploy FILE_MAP 不动). Mac Mini 操作: crontab -l | grep -v 过滤 + crontab <file> 加载 (绕过 INV-DEPLOY-002 echo|crontab- 禁令), defense-in-depth 5 步验证 + 备份 .crontab_backups/crontab_2026-05-10_133905.bak (37 active entries 备份, revert 用). 49→48 行 + openclaw_official/run.sh 残留 0 验证通过. 明天 09:00 HKT 不再推送. 70 suites / 2403 tests / 0 fail / VERSION 0.37.9.50 不变 (hotfix2 不 bump). 减法 vs 加法平衡兑现.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-05-10",
       "what": "V37.9.50-hotfix2 — openclaw_run 日落 (disable, 软删除保留代码). 用户基于日落法则 + 不增加新任务原则要求删除. 理由: (1) V37.9.22 Tripwire 框架已替代 daily releases 推送 (每周自动跑 check_upgrade.sh + 6 触发器分析), 09:00 每日推送是冗余. (2) 推送内容质量低 — 贡献:新增核心功能优化 价值:⭐⭐⭐⭐ 是 V37.9.36 占位符 audit P2 1 finding. 实施: jobs_registry.yaml openclaw_run enabled true→false + job_watchdog.sh 同步删除监控 entry (cross-file guard test_watchdog_only_monitors_enabled_jobs 强制) + 保留代码备 revert. 70 suites / 2403 tests / 0 fail (1 watchdog 同步守卫 trip + fix). 用户合并后 Mac Mini 须 crontab -e 删除对应 cron 行 (auto_deploy 不动 crontab, 这是 INV-DEPLOY-002 设计契约).",
       "by": "claude_code"
     },
@@ -197,11 +202,6 @@
     {
       "date": "2026-05-07",
       "what": "V37.9.37 — rss_blogs 深度分析升级 (用户反馈博客精选都是值得读的好文章不能只是题目摘要 + V37.9.36 fail-fast 契约保留). 用户视角原则 #13 第 9 次正向兑现. 5 字段 prompt: 中文标题 / 核心要点 / 关键洞察 / 实践启发 / 评级 (按 ⭐⭐⭐→100-150 / ⭐⭐⭐⭐→250-400 / ⭐⭐⭐⭐⭐→500-800 字动态调长度 + V37.8.6 反幻觉守卫 + 摘要 300→600 字). LLM 调用每篇独立 + retry 3 次 (5/10/20s 退避). 失败语义三档: ok / partial_degraded (部分失败 + RSS description fallback 标 [LLM_DEGRADED]) / llm_failed (全部失败 fail-fast V37.9.36 契约保留). emit 端 5 字段 key-based parser + V37.9.21 多窗口切片 (>8000 字才触发 + sleep 1s 防乱序 + [i/N] header). 44 单测 6 类 (V37.9.36 27→44, 含 5 字段完整解析 + 部分失败 LLM_DEGRADED + 多窗口 + 反向验证). INV-RSSBLOGS-001 扩展 14→28 checks (含 V37.9.37 retry helper + LLM_DEGRADED + 多窗口 + 5 字段 prompt + 评级动态长度 + 全部失败 fail-fast 顺序锁). 56 suites / 2048→2065 tests (+17) / 0 fail / governance 523→535 checks (+12) / 70 inv 不变 / 17 MR / 安全 95/100 / VERSION 0.37.9.36 → 0.37.9.37. 典型推送 3 篇混合评级 ~2700 字单段直发. 3 篇旗舰 ⭐⭐⭐⭐⭐ ~4500 字触发多窗口 2 段. 元价值: 同日内 V37.9.36 闭环 fail-fast + V37.9.37 闭环产品深度 double 兑现 — 验证 V37.9.35 budget + V37.9.21 多窗口底层框架的真实价值. 原则 #18 补证据而非补功能 兑现 — 不增 cron 但 rss_blogs 单 job 产出价值从 题目+一句话+⭐⭐⭐ 升级为 5 字段深度分析, 信息密度跃升一个数量级.",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-05-07",
-      "what": "V37.9.36 — rss_blogs LLM fail-fast 闭环 (MR-4 silent-failure 第 26 次演出 + 用户视角 #13 第 8 次正向兑现). 触发: V37.9.35 budget 升级当晚用户 WhatsApp 收到 18:00 推送 3 篇全部占位符 \"要点：技术深度文章 / 价值：⭐⭐⭐\". Mac Mini 取证: llm_raw_last.txt 含 502/upstream primary 301+gemini 503 双 provider 故障 / llm_content.txt 空 / last_run.json 谎报 status:ok. 三层根因: 双 provider 同时故障 + 三层宽容 (except pass 吞 KeyError → log WARN 不 exit → emit 硬编码占位符) + 谎报+零 [SYSTEM_ALERT]. 修复 (V37.5/V37.8.10/V37.9.16 同款 fail-fast): source notify.sh + send_alert helper + LLM 三层检测 (HTTP error / parse fail / empty content) + 任一触发 → [SYSTEM_ALERT] + status:llm_failed + exit 1 + 删除 emit 占位符 fallback 改为显式 \"（本篇 LLM 摘要缺失）\" 标记. 27 新单测 4 类含血案场景复现 + 反向验证守卫真有效. INV-RSSBLOGS-001 新增 (MR-4, high, 15 checks: 9 declaration + 3 python_assert + 3 runtime subprocess). 56 suites (+1) / 2021→2048 tests (+27) / 0 fail / governance 506→523 checks (+17) / 69→70 invariants (+1) / MRD-LAYER-002 40/40 high ≥2 层 / 安全 95/100 / VERSION 0.37.9.35 → 0.37.9.36. 元教训: V37.5/V37.8.10/V37.9.16 三次升级时应同步扫所有 LLM 调用 job 是否对齐 fail-fast (MR-8 跨 job 不同步也是 copy-paste-is-a-bug-class). V37.9.37 候选 audit: 扫所有调 LLM 的 cron job 是否都对齐.",
       "by": "claude_code"
     }
   ],
@@ -394,7 +394,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "【V37.9.50 收工】Stage 4a (V37.9.49) + Sub-Stage 4b PoC (V37.9.50) 双交付完结. 5 commits 累计: V37.9.46 #1 cross_source PoC / V37.9.47 #2 project_alignment_scorer rule_check + hf_papers 集成 / V37.9.48 #3 trend_acceleration / V37.9.49 #1+#3 接入 kb_dream/evening 推送链 / V37.9.50 semantic_scholar 5→6 字段 + rule_check (V37.9.45 hf_papers 横向 PoC 验证). 65→70 suites / 2280→2402 tests (+122) / 0 fail / VERSION 0.37.9.45→0.37.9.50. ALIGNED_SCRIPTS 11→12 (semantic_scholar V37.9.39→V37.9.50). 安全 95/100. **下次 V37.9.51+ 候选**: (a) Sub-Stage 4b 续 batch 6 个论文/repo/tweet 类脚本同款机械迁移 (b) Sub-Stage 4c Top 5 高对齐推送段 (c) Stage 5 kb_radar.sh 06:00 cron 综合分析. **Mac Mini 部署效果**: 5/11 08:00 S2 cron 推送首次出现 🎚️ 项目对齐度 + ⚠️ rule_check marker + 高对齐统计; 5/11 03:00 kb_dream 出现 Opportunity Radar #1/#3 双段; 5/11 22:00 kb_evening 加速主题段.",
+  "focus": "【V37.9.50 真终极收工】今日 8 commits 完整闭环: V37.9.46-50 五阶段 PoC + 2 hotfix (os import bug 实测发现 + 修复实证) + 1 日落 (openclaw_run disable Mac Mini cron 删除确认). 65→70 suites / 2280→2403 tests (+123) / VERSION 0.37.9.45→0.37.9.50 / 安全 95/100. **Opportunity Radar 三件套 100% PoC**: #1 cross_source_signal_aggregator (V37.9.46) / #2 project_alignment_scorer rule_check (V37.9.47, hf_papers 集成) / #3 kb_trend_acceleration (V37.9.48) / Stage 4a cascade #1+#3 入推送链 (V37.9.49) / Sub-Stage 4b PoC semantic_scholar 6 字段 (V37.9.50). **Mac Mini 生产实证完整**: V37.9.50 推送 ⚠️ marker + \"本轮高对齐论文 ⭐≥4: 1/2 篇\" 真实统计 + LLM rule_check 防 hallucination 设计目标 100% 达成. **下次 V37.9.51+ 候选**: (a) Sub-Stage 4b 续 batch 6 个论文/repo/tweet 类脚本 (rss_blogs/dblp/arxiv_monitor/github_trending/ai_leaders_x/hn) 同款机械迁移 (b) Sub-Stage 4c Top 5 高对齐推送段 (c) Stage 5 kb_radar.sh 06:00 cron 综合分析 (d) Mac Mini 5/11 cron 自然触发观察 V37.9.49 推送链效果 (e) S2 API 429 限流策略调查 (f) SLO p95 50380ms 调查. **用户视角原则 #13 第 18 次正向兑现** — Wei 30s 实跑 stderr 抓 dev 单测漏的 NameError, hotfix 后 30s 再实跑确认真生效. 真终极收工完成 ✅",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
