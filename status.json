@@ -1,5 +1,5 @@
 {
-  "updated": "2026-05-10 04:13:25",
+  "updated": "2026-05-10 04:36:30",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -301,7 +301,8 @@
       "【V37.9.51+ 候选】Sub-Stage 4b 续 batch 6 个论文/repo/tweet 类脚本同款 V37.9.45 hf_papers / V37.9.50 semantic_scholar 模板机械迁移: rss_blogs / dblp / arxiv_monitor / github_trending / ai_leaders_x / hn (5→6 字段 + alignment + rule_check 集成). 每脚本 30-45min, 总 3-5h. V37.9.50 PoC 验证模板成功后批量推. ALIGNED_SCRIPTS 12→13→14→15→16→17→18 期望.",
       "【V37.9.51+ 候选】Sub-Stage 4c — Top 5 高对齐推送段聚合所有今日 ⭐≥4 alignment paper/repo/tweet → 推到 Dream/Radar/Evening 三处推送. 中工作量 1-2h. 依赖 4b batch 完成后所有论文类脚本都产出 alignment 字段才有数据可聚合.",
       "【Stage 5 候选】kb_radar.sh 06:00 cron 综合分析 LLM prompt + 红/黄/蓝三档机会点推送 (设计文档 6.1 节). 新 cron job + 综合分析三件套 #1+#2+#3 输出 → LLM 综合 → 推送早期机会点. 依赖 4b 完成 (各脚本产 alignment 字段) + 4c 完成 (Top 5 段就位).",
-      "【Mac Mini 验证 (硬卡)】① 装 sklearn (sentence-transformers V29.3 已装) → 跑 cross_source_signal_aggregator V37.9.46 真 KB 数据看 ≥3 跨源共振信号是否达成 Stage 1 成功定义 ② 5/11 决策窗口 jobs_to_crontab + kb_sources_to_index machine_sync 真激活 (V37.9.23/24/25 累积观察期到达) ③ 5/11 03:00 kb_dream cron 真触发 → 看 Phase 1.5 Opportunity Radar #1/#3 双段是否注入推送 ④ 5/11 22:00 kb_evening cron → 看明日关注加速主题段是否注入 ⑤ 5/11 08:00 semantic_scholar cron → 看 V37.9.50 6 字段 + 🎚️ 项目对齐度 + ⚠️ rule_check marker + 高对齐统计是否符合预期."
+      "【Mac Mini 验证 (硬卡)】① 装 sklearn (sentence-transformers V29.3 已装) → 跑 cross_source_signal_aggregator V37.9.46 真 KB 数据看 ≥3 跨源共振信号是否达成 Stage 1 成功定义 ② 5/11 决策窗口 jobs_to_crontab + kb_sources_to_index machine_sync 真激活 (V37.9.23/24/25 累积观察期到达) ③ 5/11 03:00 kb_dream cron 真触发 → 看 Phase 1.5 Opportunity Radar #1/#3 双段是否注入推送 ④ 5/11 22:00 kb_evening cron → 看明日关注加速主题段是否注入 ⑤ 5/11 08:00 semantic_scholar cron → 看 V37.9.50 6 字段 + 🎚️ 项目对齐度 + ⚠️ rule_check marker + 高对齐统计是否符合预期.",
+      "【V37.9.51+ 候选】SLO p95: 50380ms 严重超阈值 (目标 <30000ms, ~67% 超额) 调查 — Mac Mini 5/10 12:18 preflight 实测发现. 长期存在非 V37.9.50 引入. 候选根因: (a) 真实远程 LLM (Qwen3 hkagentx) 高负载延迟 (b) stale data — proxy_stats.json 是历史聚合可能含 old slow request (c) Mac Mini 网络波动. 调查路径: 看 proxy_stats.json 时间窗口 + 是否最近请求或历史累积 + 对比 dev SLO benchmark. 不阻塞 V37.9.50 部署但应在 V37.9.51 工作流验证."
     ],
     "open_prs": "",
     "blocked_on": "",
