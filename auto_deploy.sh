@@ -219,6 +219,9 @@ declare -a FILE_MAP=(
     "kb_evening_collect.py|$HOME/kb_evening_collect.py"
     "kb_deep_dive.py|$HOME/kb_deep_dive.py"
     "kb_autotag.py|$HOME/kb_autotag.py"
+    # V37.9.46 Opportunity Radar Stage 1 PoC (cross-source weak signal aggregator)
+    "cross_source_signal_aggregator.py|$HOME/cross_source_signal_aggregator.py"
+    "project_concepts.yaml|$HOME/project_concepts.yaml"
 
     # KB 趋势报告 + 状态共享 + 安全
     "kb_trend.py|$HOME/kb_trend.py"
