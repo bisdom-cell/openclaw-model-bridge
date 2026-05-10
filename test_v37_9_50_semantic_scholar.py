@@ -123,6 +123,23 @@ class TestV37950ShellGuards(unittest.TestCase):
         self.assertIn("extract_star_count", self.SRC)
         self.assertIn("format_validation_marker", self.SRC)
 
+    def test_v37_9_50_hotfix_emit_heredoc_imports_os(self):
+        """V37.9.50-hotfix: emit heredoc 顶部必须 import os (lazy import 用 os.environ/os.path)."""
+        # 找 emit heredoc 起点 + 检查顶部 import 行包含 os
+        # Pattern: 'python3 - "$PAPERS_FILE" "$RESULTS_FILE" "$DAY" "$MSG_FILE" << '\''PYEOF'\''
+        marker = 'python3 - "$PAPERS_FILE" "$RESULTS_FILE" "$DAY" "$MSG_FILE" << \'PYEOF\''
+        idx = self.SRC.find(marker)
+        self.assertGreater(idx, 0, "emit heredoc 起点未找到")
+        # 取后续 100 字符内必须含 'import' + 'os'
+        ctx = self.SRC[idx:idx + 200]
+        # 必须有 import 行包含 os (V37.9.50 之前 emit heredoc 缺 os 导致 lazy import name not defined)
+        # alternatives: 'import os' 单独 / 'import sys, json, re, os' / 'import os, sys, ...' 等
+        import_lines = re.findall(r"^import\s+[\w,\s]+", ctx, re.MULTILINE)
+        os_imported = any("os" in line.replace(" ", "").split(",") or "os" in re.split(r"[,\s]+", line)
+                          for line in import_lines)
+        self.assertTrue(os_imported,
+                        f"emit heredoc 顶部 import 行必须含 os (V37.9.50-hotfix), 找到: {import_lines!r}")
+
     def test_rule_check_call_structure(self):
         """rule_check 必须 (a) 检查 4 个 helper 都加载 (b) try/except 包装."""
         # 4 个 helper 加载守卫

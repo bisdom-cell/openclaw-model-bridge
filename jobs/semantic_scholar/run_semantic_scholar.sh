@@ -417,7 +417,7 @@ echo "[s2] LLM 调用完成: 成功 $((TOTAL_NEW - TOTAL_FAILED))/$TOTAL_NEW"
 # ── V37.9.39: 5 字段 emit (5-field key-based parser + LLM_DEGRADED fallback + 多窗口切片) ──
 MSG_FILE="$CACHE/s2_message.txt"
 python3 - "$PAPERS_FILE" "$RESULTS_FILE" "$DAY" "$MSG_FILE" << 'PYEOF'
-import sys, json, re
+import sys, json, re, os  # V37.9.50-hotfix: os 用于 lazy import project_alignment_scorer 路径解析
 
 papers_file, results_file, day, msg_file = sys.argv[1:5]
 
