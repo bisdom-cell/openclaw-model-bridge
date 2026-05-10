@@ -1,5 +1,5 @@
 {
-  "updated": "2026-05-10 05:42:00",
+  "updated": "2026-05-10 05:59:48",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-05-10",
+      "what": "V37.9.50-hotfix3 — run_discussions 日落 (社区 Issues 监控). 用户继续日落法则减法. 与 V37.9.50-hotfix2 openclaw_run 同源 (jobs/openclaw_official/run_discussions.sh, 每天 4 次 8/12/16/20:15). 推送内容是 V37.9.36 占位符反模式 (贡献：xxx 价值：⭐⭐⭐⭐ 机械文本) + 社区 issue 价值不高. 软删除路径: jobs_registry.yaml enabled true→false + job_watchdog.sh 同步删除 JOBS entry + docs/config.md ⛔ 标记替代 ✅ + line 827 特性矩阵表 strikethrough 避免 drift detector regex 误命中 (\\|\\s*run_discussions.*?✅ 模式) + 保留代码备 revert. 70 suites / 2403 tests / 0 fail / VERSION 0.37.9.50 不变 (hotfix3 不 bump). Mac Mini 操作: 同 hotfix2 同款 grep -v 过滤 + crontab <file> 加载. 一次推送链路彻底清理 (Tripwire 框架接管 OpenClaw 升级监控 + Discord #ontology 接管社区 issue 价值流).",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-05-10",
       "what": "V37.9.50-hotfix2 — openclaw_run 日落 (用户日落法则 + 不增加新任务原则). 软删除路径: jobs_registry.yaml enabled true→false + job_watchdog.sh 同步删除 JOBS entry (V37.8.13 cross-file guard 强制) + 保留代码备 revert (auto_deploy FILE_MAP 不动). Mac Mini 操作: crontab -l | grep -v 过滤 + crontab <file> 加载 (绕过 INV-DEPLOY-002 echo|crontab- 禁令), defense-in-depth 5 步验证 + 备份 .crontab_backups/crontab_2026-05-10_133905.bak (37 active entries 备份, revert 用). 49→48 行 + openclaw_official/run.sh 残留 0 验证通过. 明天 09:00 HKT 不再推送. 70 suites / 2403 tests / 0 fail / VERSION 0.37.9.50 不变 (hotfix2 不 bump). 减法 vs 加法平衡兑现.",
       "by": "claude_code"
     },
@@ -197,11 +202,6 @@
     {
       "date": "2026-05-08",
       "what": "V37.9.38 双交付：P1 status_update.py 双路径 bug 闭环 (V37.9.36 候选 _resolve_array_target+_migrate_top_level_unfinished helpers + 26 单测含血案场景复现 + 反向验证守卫真有效) + P2 LLM cron fail-fast audit 视野+预防+路线图三件套 (ontology/llm_cron_audit.py 扫描器扫 21 脚本 + docs/llm_cron_fail_fast_audit.md 完整报告 + INV-LLMCRON-AUDIT-001 13 checks + 26 单测). 4 已对齐 vs 17 未对齐含 15 findings (arxiv_monitor/hf_papers/semantic_scholar 各 3 P1 + 6 P2 + 8 P3). MR-8 兑现 (跨 job 不同步是 copy-paste-is-a-bug-class). PoC fix 推迟 V37.9.39+ (MR-10 三问: 不引入新 bug). 58 suites / 2065→2117 tests (+52) / 0 fail / 535→549 checks (+14) / 70→71 inv (+1) / 安全 95/100 / VERSION 0.37.9.37→0.37.9.38",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-05-07",
-      "what": "V37.9.37 — rss_blogs 深度分析升级 (用户反馈博客精选都是值得读的好文章不能只是题目摘要 + V37.9.36 fail-fast 契约保留). 用户视角原则 #13 第 9 次正向兑现. 5 字段 prompt: 中文标题 / 核心要点 / 关键洞察 / 实践启发 / 评级 (按 ⭐⭐⭐→100-150 / ⭐⭐⭐⭐→250-400 / ⭐⭐⭐⭐⭐→500-800 字动态调长度 + V37.8.6 反幻觉守卫 + 摘要 300→600 字). LLM 调用每篇独立 + retry 3 次 (5/10/20s 退避). 失败语义三档: ok / partial_degraded (部分失败 + RSS description fallback 标 [LLM_DEGRADED]) / llm_failed (全部失败 fail-fast V37.9.36 契约保留). emit 端 5 字段 key-based parser + V37.9.21 多窗口切片 (>8000 字才触发 + sleep 1s 防乱序 + [i/N] header). 44 单测 6 类 (V37.9.36 27→44, 含 5 字段完整解析 + 部分失败 LLM_DEGRADED + 多窗口 + 反向验证). INV-RSSBLOGS-001 扩展 14→28 checks (含 V37.9.37 retry helper + LLM_DEGRADED + 多窗口 + 5 字段 prompt + 评级动态长度 + 全部失败 fail-fast 顺序锁). 56 suites / 2048→2065 tests (+17) / 0 fail / governance 523→535 checks (+12) / 70 inv 不变 / 17 MR / 安全 95/100 / VERSION 0.37.9.36 → 0.37.9.37. 典型推送 3 篇混合评级 ~2700 字单段直发. 3 篇旗舰 ⭐⭐⭐⭐⭐ ~4500 字触发多窗口 2 段. 元价值: 同日内 V37.9.36 闭环 fail-fast + V37.9.37 闭环产品深度 double 兑现 — 验证 V37.9.35 budget + V37.9.21 多窗口底层框架的真实价值. 原则 #18 补证据而非补功能 兑现 — 不增 cron 但 rss_blogs 单 job 产出价值从 题目+一句话+⭐⭐⭐ 升级为 5 字段深度分析, 信息密度跃升一个数量级.",
       "by": "claude_code"
     }
   ],
@@ -324,9 +324,9 @@
   "quality": {
     "security_score": 95,
     "test_count": 2403,
-    "last_regression": "2026-05-10 05:16 pass",
+    "last_regression": "2026-05-10 05:59 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-05-10 05:16",
+    "security_score_time": "2026-05-10 05:59",
     "test_suites": 70,
     "governance_invariants": "64/64",
     "governance_checks": "350/350",
