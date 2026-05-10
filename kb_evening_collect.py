@@ -68,9 +68,68 @@ def count_today_notes(kb_dir, today=None):
 # 1. Evening-specific prompt — 今日窗口 + 行动导向
 # ══════════════════════════════════════════════════════════════════════
 
+def collect_trend_signals_for_evening(radar_dir=None, max_strong=3, max_decel=2):
+    """V37.9.49 Sub-Stage 4a: 读取最新 weekly_trends_*.json 转格式化 prompt 字符串.
+
+    Args:
+        radar_dir: ~/.kb/radar/ (default)
+        max_strong: top N strong/mild signals
+        max_decel: top N decel/obs signals
+
+    Returns:
+        str: 格式化好的 trend section (空字符串如无数据 / 模块缺失 / 失败)
+
+    FAIL-OPEN: kb_trend_acceleration.py 缺失 / 无 weekly_trends 文件 → 返回空字符串
+                不阻塞 evening 主流程.
+    """
+    if radar_dir is None:
+        kb_dir = os.path.expanduser(os.environ.get("KB_BASE", "~/.kb"))
+        radar_dir = os.path.join(kb_dir, "radar")
+
+    if not os.path.isdir(radar_dir):
+        return ""
+
+    trend_files = sorted(glob.glob(os.path.join(radar_dir, "weekly_trends_*.json")),
+                         reverse=True)
+    if not trend_files:
+        return ""
+
+    try:
+        with open(trend_files[0], "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except (OSError, json.JSONDecodeError):
+        return ""
+
+    signals = data.get("signals", [])
+    if not signals:
+        return ""
+
+    strong_lines = []
+    decel_lines = []
+    for s in signals:
+        cls = s.get("classification", "")
+        kw = s.get("keyword", "")
+        a1 = s.get("accel_1w", 0)
+        if not kw:
+            continue
+        if "strong" in cls or "mild" in cls:
+            if len(strong_lines) < max_strong:
+                strong_lines.append(f"  {cls.split()[0]} {kw}: 本周占比 {a1}x")
+        elif "decel" in cls or "obs" in cls:
+            if len(decel_lines) < max_decel:
+                decel_lines.append(f"  {cls.split()[0]} {kw}: 本周占比 {a1}x")
+
+    parts = []
+    if strong_lines:
+        parts.append("加速主题 (本周关键词占比上升):\n" + "\n".join(strong_lines))
+    if decel_lines:
+        parts.append("减速主题 (本周关键词占比下降):\n" + "\n".join(decel_lines))
+    return "\n\n".join(parts)
+
+
 def build_evening_prompt(
     notes_text, sources_text, days, index_total, note_count,
-    today_note_count, themes,
+    today_note_count, themes, trend_signals=None,
 ):
     """构造晚间整理 prompt。
 
@@ -82,7 +141,21 @@ def build_evening_prompt(
     V37.7: 区分 `note_count` (笔记总数，所有 .md 文件) 和 `today_note_count`
     (今日新增笔记)。V37.6 曾把 note_count 错误标签为"今日笔记"，导致 LLM
     prompt 里给出的统计与"今日"不一致。
+
+    V37.9.49 Sub-Stage 4a (Opportunity Radar): trend_signals 可选参数注入
+    "本周加速主题/减速主题"上下文 (来自 kb_trend_acceleration.py 输出),
+    辅助 LLM 在"明日关注"段给出更有信息密度的趋势判断. None / 空字符串
+    → 不影响 prompt 行为 (向后兼容).
     """
+    trend_block = ""
+    if trend_signals:
+        trend_block = (
+            "\n\n═══ 本周趋势加速度 (V37.9.48 4 周历史) ═══\n"
+            + str(trend_signals)
+            + "\n\n注意: 上述加速主题用于辅助'明日关注'段判断方向, "
+            + "不能直接当今日要闻输出 (必须与今日笔记/来源中具体内容关联才可提及)"
+        )
+
     return f"""你是一位知识管理助手，请基于用户知识库中今天（最近 {days} 天）新增的内容，
 生成一份简洁的晚间整理。用中文回答，总字数 450 内，按以下四节输出：
 
@@ -107,7 +180,7 @@ def build_evening_prompt(
 知识库总条目: {index_total} 条
 笔记总数: {note_count} 篇
 今日新增: {today_note_count} 篇
-活跃标签: {themes}"""
+活跃标签: {themes}{trend_block}"""
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -226,9 +299,11 @@ def run(kb_dir, days, registry_path, today=None, llm_caller=None):
     # Build evening-specific prompt
     prompt_notes = notes_text[:PROMPT_TRUNCATE_NOTES]
     prompt_sources = sources_info["text"][:PROMPT_TRUNCATE_SOURCES]
+    # V37.9.49 Sub-Stage 4a: Opportunity Radar #3 trend acceleration injection
+    trend_signals = collect_trend_signals_for_evening()
     prompt = build_evening_prompt(
         prompt_notes, prompt_sources, days, index_total, note_count,
-        today_note_count, themes,
+        today_note_count, themes, trend_signals=trend_signals,
     )
 
     # Call LLM — 复用 rc.call_llm（同一个 proxy URL/timeout/min-length 契约）
