@@ -1,5 +1,5 @@
 {
-  "updated": "2026-05-10 04:52:42",
+  "updated": "2026-05-10 05:17:22",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-05-10",
+      "what": "V37.9.50-hotfix2 — openclaw_run 日落 (disable, 软删除保留代码). 用户基于日落法则 + 不增加新任务原则要求删除. 理由: (1) V37.9.22 Tripwire 框架已替代 daily releases 推送 (每周自动跑 check_upgrade.sh + 6 触发器分析), 09:00 每日推送是冗余. (2) 推送内容质量低 — 贡献:新增核心功能优化 价值:⭐⭐⭐⭐ 是 V37.9.36 占位符 audit P2 1 finding. 实施: jobs_registry.yaml openclaw_run enabled true→false + job_watchdog.sh 同步删除监控 entry (cross-file guard test_watchdog_only_monitors_enabled_jobs 强制) + 保留代码备 revert. 70 suites / 2403 tests / 0 fail (1 watchdog 同步守卫 trip + fix). 用户合并后 Mac Mini 须 crontab -e 删除对应 cron 行 (auto_deploy 不动 crontab, 这是 INV-DEPLOY-002 设计契约).",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-05-10",
       "what": "V37.9.50-hotfix — emit heredoc 缺 os import 导致 rule_check FAIL-OPEN 跳过 (Mac Mini 实测发现). 用户手动跑 S2 stderr WARN: name os is not defined → rule_check 全跳过 → 高对齐 0 (虚假值, LLM alignment 输出实际正确). 修复: emit heredoc line 420 import sys,json,re → import sys,json,re,os. 1 新源码守卫 test_v37_9_50_hotfix_emit_heredoc_imports_os. 70 suites / 2402→2403 tests / VERSION 0.37.9.50 不变. 用户视角原则 #13 第 17 次正向兑现 — dev 单测全过但实跑 stderr 才暴露 lazy import NameError. WhatsApp/Discord 推送内容质量优秀 (3 篇 ⭐⭐⭐⭐⭐ 全部 alignment 评分精准 直接增强控制平面/agent runtime 角色建模/反馈治理模块化), 用户反馈 \"质量不错\".",
       "by": "claude_code"
     },
@@ -197,11 +202,6 @@
     {
       "date": "2026-05-07",
       "what": "V37.9.36 — rss_blogs LLM fail-fast 闭环 (MR-4 silent-failure 第 26 次演出 + 用户视角 #13 第 8 次正向兑现). 触发: V37.9.35 budget 升级当晚用户 WhatsApp 收到 18:00 推送 3 篇全部占位符 \"要点：技术深度文章 / 价值：⭐⭐⭐\". Mac Mini 取证: llm_raw_last.txt 含 502/upstream primary 301+gemini 503 双 provider 故障 / llm_content.txt 空 / last_run.json 谎报 status:ok. 三层根因: 双 provider 同时故障 + 三层宽容 (except pass 吞 KeyError → log WARN 不 exit → emit 硬编码占位符) + 谎报+零 [SYSTEM_ALERT]. 修复 (V37.5/V37.8.10/V37.9.16 同款 fail-fast): source notify.sh + send_alert helper + LLM 三层检测 (HTTP error / parse fail / empty content) + 任一触发 → [SYSTEM_ALERT] + status:llm_failed + exit 1 + 删除 emit 占位符 fallback 改为显式 \"（本篇 LLM 摘要缺失）\" 标记. 27 新单测 4 类含血案场景复现 + 反向验证守卫真有效. INV-RSSBLOGS-001 新增 (MR-4, high, 15 checks: 9 declaration + 3 python_assert + 3 runtime subprocess). 56 suites (+1) / 2021→2048 tests (+27) / 0 fail / governance 506→523 checks (+17) / 69→70 invariants (+1) / MRD-LAYER-002 40/40 high ≥2 层 / 安全 95/100 / VERSION 0.37.9.35 → 0.37.9.36. 元教训: V37.5/V37.8.10/V37.9.16 三次升级时应同步扫所有 LLM 调用 job 是否对齐 fail-fast (MR-8 跨 job 不同步也是 copy-paste-is-a-bug-class). V37.9.37 候选 audit: 扫所有调 LLM 的 cron job 是否都对齐.",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-05-07",
-      "what": "V37.9.35 — WhatsApp 客户端显示折叠架构发现 + Path A 保守路径实施. V37.9.33 freight 三层 LLM 输出 8131 字单条消息, 用户观察分两气泡 + 时间戳相同 = 单条消息客户端折叠. 5 层切片排查 (原则 #28): OpenClaw 主 bundle / runtime-whatsapp-outbound lazy loader / openclaw.json channels.whatsapp / Baileys 7.0.0-rc.9 / WhatsApp 客户端 — 前 4 层全部空命中, 第 5 层确认 = WhatsApp 手机客户端 ~4000-5000 字符自动分气泡显示 (与 Telegram 4096 限制接近). Path A 实施: budget 1400→4000 在 3 source + 3 test (kb_review_collect/kb_evening_collect/kb_deep_dive constants + tests + input 长度调整). 保留 V37.9.21 手动分屏代码作为防御 fallback (跨平台保险 + 极长内容 >8000 仍触发 + MR-7 不删除已验证边界). 影响 3 task 信息密度 2.86x (kb_review/kb_evening/kb_deep_dive). 完整案例文档 whatsapp_client_display_folding_case.md (5 层排查矩阵 + V37.9.21 假设来源 + 4 元教训). 55 suites / 2021 tests 不变 / 0 fail / 安全 95/100 / VERSION 0.37.9.34 → 0.37.9.35. 用户视角原则 #13 第 7 次正向兑现 — 自动化测试全过 + 用户实测才推翻 1400 字假设.",
       "by": "claude_code"
     }
   ],
@@ -324,9 +324,9 @@
   "quality": {
     "security_score": 95,
     "test_count": 2403,
-    "last_regression": "2026-05-10 04:51 pass",
+    "last_regression": "2026-05-10 05:16 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-05-10 04:51",
+    "security_score_time": "2026-05-10 05:16",
     "test_suites": 70,
     "governance_invariants": "64/64",
     "governance_checks": "350/350",

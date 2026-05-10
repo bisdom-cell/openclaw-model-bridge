@@ -80,8 +80,7 @@ JOBS=(
     "run_hn_fixed|$HOME/.openclaw/jobs/hn_watcher/cache/last_run.json|50400|HN热帖抓取|core"
     # Freight: 每天3次(08/14/20) → 最多静默 14h
     "freight_watcher|$HOME/.openclaw/jobs/freight_watcher/cache/last_run.json|50400|货代Watcher|core"
-    # OpenClaw Releases: 每天1次(08:00) → 最多静默 50h
-    "openclaw_run|$HOME/.openclaw/jobs/openclaw_official/cache/last_run.json|180000|OpenClaw版本监控|core"
+    # OpenClaw Releases: V37.9.50-hotfix2 已 disable (registry enabled=false). Tripwire 框架替代 daily 推送, 不再 watchdog 监控
     # Discussions: 每小时 → 最多静默 3h
     "run_discussions|$HOME/.openclaw/jobs/openclaw_official/cache/last_run_discussions.json|10800|Issues监控|auxiliary"
 
