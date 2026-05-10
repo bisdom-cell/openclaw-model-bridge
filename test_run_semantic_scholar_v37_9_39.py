@@ -197,19 +197,23 @@ class TestEmit5FieldParser(unittest.TestCase):
         cls.src = _read_script(S2_SCRIPT)
 
     def test_parse_5field_output_function_defined(self):
-        """parse_5field_output 函数定义存在"""
-        self.assertIn("def parse_5field_output(content):", self.src)
+        """parse_5field_output 或 parse_6field_output 函数定义存在 (V37.9.50 升级支持 6 字段)."""
+        # V37.9.50 alternation: 接受老 5 字段或新 6 字段实现
+        has_5 = "def parse_5field_output(content):" in self.src
+        has_6 = "def parse_6field_output(content):" in self.src
+        self.assertTrue(has_5 or has_6,
+                        "parse_5field_output 或 parse_6field_output 必须定义其一")
 
     def test_parse_returns_dict_with_all_5_keys(self):
-        """parse_5field_output 返回 dict 必须含 5 个 key"""
-        # 提取函数体并 exec 验证
+        """parse_*field_output 返回 dict 必须含 5 字段 key (V37.9.50 加 alignment 第 6 个)."""
+        # V37.9.50 alternation: 同时接受 5/6 字段函数定义
         pattern = re.compile(
-            r"def parse_5field_output\(content\):.*?return fields",
+            r"def parse_[56]field_output\(content\):.*?return fields",
             re.DOTALL,
         )
         m = pattern.search(self.src)
-        self.assertIsNotNone(m, msg="parse_5field_output 函数体未找到")
-        # 验证 fields dict 含 5 个 key
+        self.assertIsNotNone(m, msg="parse_5field_output 或 parse_6field_output 函数体未找到")
+        # 验证 fields dict 含原 5 个 key (V37.9.50 不删字段, 只加 alignment)
         body = m.group(0)
         for key in ("'cn_title'", "'highlights'", "'insight'", "'practice'", "'rating'"):
             self.assertIn(key, body, msg=f"parse 返回 dict 缺少 {key}")
@@ -261,15 +265,15 @@ class TestS2InAuditAlignedScripts(unittest.TestCase):
         spec.loader.exec_module(self.au)
 
     def test_s2_is_in_aligned_scripts_constant(self):
-        """ALIGNED_SCRIPTS 必须含 S2 V37.9.39 锚点"""
+        """ALIGNED_SCRIPTS 必须含 S2 锚点 (V37.9.50 升级后接受 V37.9.39 或 V37.9.50)."""
         self.assertIn(
             "jobs/semantic_scholar/run_semantic_scholar.sh",
             self.au.ALIGNED_SCRIPTS,
         )
-        self.assertEqual(
-            self.au.ALIGNED_SCRIPTS["jobs/semantic_scholar/run_semantic_scholar.sh"],
-            "V37.9.39",
-        )
+        # V37.9.50 alternation: 接受 V37.9.39 (老 5 字段) 或 V37.9.50 (升级 6 字段)
+        version = self.au.ALIGNED_SCRIPTS["jobs/semantic_scholar/run_semantic_scholar.sh"]
+        self.assertIn(version, ("V37.9.39", "V37.9.50"),
+                      msg=f"S2 version 期望 V37.9.39 或 V37.9.50, 实际 {version}")
 
     def test_aligned_scripts_count_5(self):
         """V37.9.39 后 ALIGNED_SCRIPTS 必须从 4 升到 5"""
@@ -277,11 +281,13 @@ class TestS2InAuditAlignedScripts(unittest.TestCase):
                                 msg="V37.9.39 后 ALIGNED_SCRIPTS 应 ≥5")
 
     def test_audit_script_recognizes_s2_aligned(self):
-        """audit_script(S2 path) 必须返回 aligned=True + version='V37.9.39'"""
+        """audit_script(S2 path) 必须返回 aligned=True + version V37.9.39 或 V37.9.50."""
         rep = self.au.audit_script(S2_SCRIPT)
         self.assertTrue(rep.exists)
         self.assertTrue(rep.aligned, msg=f"S2 应识别为 aligned, 但 score={rep.compliance_score}, findings={len(rep.placeholder_findings)}")
-        self.assertEqual(rep.aligned_version, "V37.9.39")
+        # V37.9.50 alternation
+        self.assertIn(rep.aligned_version, ("V37.9.39", "V37.9.50"),
+                      msg=f"S2 version 期望 V37.9.39 或 V37.9.50, 实际 {rep.aligned_version}")
         # 占位符 finding 必须为 0
         self.assertEqual(len(rep.placeholder_findings), 0,
                          msg=f"S2 placeholder findings 应为 0, 实际: {[f.matched for f in rep.placeholder_findings]}")
