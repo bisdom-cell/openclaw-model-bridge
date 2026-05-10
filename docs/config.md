@@ -263,8 +263,8 @@ export GEMINI_API_KEY="AIzaXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"   # V29.1新增
 ### v19新增 + v22扩充 + v26确认：系统crontab任务（`crontab -e`管理，独立于openclaw cron）
 | 任务名 | 触发时间 | 脚本路径 | 日志路径 | 状态 |
 |--------|----------|----------|----------|------|
-| openclaw-releases-watcher | 每天08:00 | `~/.openclaw/jobs/openclaw_official/run.sh` | `~/.openclaw/logs/jobs/openclaw_official.log` | ✅ V28变更：从每小时→每天1次 |
-| openclaw-issues-watcher | 每小时:15分 | `~/.openclaw/jobs/openclaw_official/run_discussions.sh` | `~/.openclaw/logs/jobs/openclaw_discussions.log` | ✅ |
+| openclaw-releases-watcher | 每天08:00 | `~/.openclaw/jobs/openclaw_official/run.sh` | `~/.openclaw/logs/jobs/openclaw_official.log` | ⛔ V37.9.50-hotfix2 已 disable (Tripwire 框架替代) |
+| openclaw-issues-watcher | 每小时:15分 | `~/.openclaw/jobs/openclaw_official/run_discussions.sh` | `~/.openclaw/logs/jobs/openclaw_discussions.log` | ⛔ V37.9.50-hotfix3 已 disable (推送质量低) |
 | hn-watcher | 每3小时:45分 | `run_hn_fixed.sh` | `~/.openclaw/logs/jobs/hn_watcher.log` | ✅ |
 | freight-watcher | 每天08:00/14:00/20:00 | `~/.openclaw/jobs/freight_watcher/run_freight.sh` | `~/.openclaw/logs/jobs/freight_watcher.log` | ✅ v26验证成功 |
 | arxiv-monitor | 每3小时整点 | `~/.openclaw/jobs/arxiv_monitor/run_arxiv.sh` | `~/.openclaw/logs/jobs/arxiv_monitor.log` | ✅ V28新增（替代 monitor-arxiv-ai-models + kb-save-arxiv） |
@@ -824,7 +824,7 @@ tail -30 ~/.kb/sources/freight_daily.md
 | run_freight.sh | ✅ | ✅ | ✅ | ✅ v26首次验证通过 |
 | run_hn_fixed.sh | ✅ | ✅ | ✅ | ✅ |
 | run_blog.sh | ✅（逐条告警+continue） | ✅ | — | ✅ |
-| run_discussions.sh | ✅（逐条告警+continue） | ✅ | — | ✅ |
+| ~~run_discussions.sh~~ (V37.9.50-hotfix3 已 disable) | ✅（逐条告警+continue） | ✅ | — | ✅ |
 
 ### 31.4 新脚本上线检查清单
 - [ ] LLM调用后检查 returncode 和 stdout 是否为空

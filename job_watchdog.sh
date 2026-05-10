@@ -81,8 +81,7 @@ JOBS=(
     # Freight: 每天3次(08/14/20) → 最多静默 14h
     "freight_watcher|$HOME/.openclaw/jobs/freight_watcher/cache/last_run.json|50400|货代Watcher|core"
     # OpenClaw Releases: V37.9.50-hotfix2 已 disable (registry enabled=false). Tripwire 框架替代 daily 推送, 不再 watchdog 监控
-    # Discussions: 每小时 → 最多静默 3h
-    "run_discussions|$HOME/.openclaw/jobs/openclaw_official/cache/last_run_discussions.json|10800|Issues监控|auxiliary"
+    # Discussions: V37.9.50-hotfix3 已 disable (registry enabled=false). 与 openclaw_run hotfix2 同源减法, 社区 issue 推送价值不高
 
     # ── KB 处理 ──
     # KB Evening: 每天22:00 → 最多静默 50h
