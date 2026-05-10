@@ -222,6 +222,10 @@ declare -a FILE_MAP=(
     # V37.9.46 Opportunity Radar Stage 1 PoC (cross-source weak signal aggregator)
     "cross_source_signal_aggregator.py|$HOME/cross_source_signal_aggregator.py"
     "project_concepts.yaml|$HOME/project_concepts.yaml"
+    # V37.9.47 Opportunity Radar Stage 2 (project alignment scorer rule_check)
+    "project_alignment_scorer.py|$HOME/project_alignment_scorer.py"
+    # V37.9.48 Opportunity Radar Stage 3 (weekly trend acceleration 5-archetype classifier)
+    "kb_trend_acceleration.py|$HOME/kb_trend_acceleration.py"
 
     # KB 趋势报告 + 状态共享 + 安全
     "kb_trend.py|$HOME/kb_trend.py"

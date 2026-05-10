@@ -870,6 +870,108 @@ if [ "$FAST_MODE" = false ] && [ -z "${MAP_SIGNALS// }" ] && [ -z "${NOTES_SIGNA
     dream_fail_alert "Reduce 降级为 Fast 模式 — Map 缓存为空（00:00 预热可能失败），梦境质量将降低"
 fi
 
+# ═══════════════════════════════════════════════════════════════════
+# 4.5. Phase 1.5 (V37.9.49 Sub-Stage 4a) — Opportunity Radar 三件套信号
+#    输入: 已有 KB notes/sources
+#    输出: 跨 source 共振信号 (#1) + 趋势加速度 (#3) → 注入 Reduce LLM prompt
+#    设计文档: docs/opportunity_radar_design.md 3.3 + 5.2 节
+#    FAIL-OPEN: 任意脚本失败 → 信号设为空字符串不阻塞 Reduce
+# ═══════════════════════════════════════════════════════════════════
+log "Phase 1.5 (Opportunity Radar): 采集跨 source 信号 + 趋势加速度..."
+
+RADAR_SIGNALS_BLOCK=""
+TREND_SIGNALS_BLOCK=""
+
+# Locate scorers (deploy 在 $HOME 或 dev 仓库根)
+RADAR_SCORER="${HOME}/cross_source_signal_aggregator.py"
+TREND_SCORER="${HOME}/kb_trend_acceleration.py"
+[ -f "$RADAR_SCORER" ] || RADAR_SCORER="$(dirname "$0")/cross_source_signal_aggregator.py"
+[ -f "$TREND_SCORER" ] || TREND_SCORER="$(dirname "$0")/kb_trend_acceleration.py"
+
+# #1 cross_source_signal_aggregator → daily_signals JSON → top 5 共振 block
+if [ -f "$RADAR_SCORER" ]; then
+    _RADAR_TMP=$(mktemp 2>/dev/null) || _RADAR_TMP=/tmp/dream_radar_$$.json
+    if python3 "$RADAR_SCORER" --json > "$_RADAR_TMP" 2>/dev/null; then
+        RADAR_SIGNALS_BLOCK=$(python3 - "$_RADAR_TMP" << 'PYEOF' 2>/dev/null || echo ""
+import json, os, sys
+try:
+    with open(sys.argv[1]) as f:
+        d = json.load(f)
+    path = d.get("output_path", "")
+    if not path or not os.path.isfile(path):
+        sys.exit(0)
+    with open(path) as f:
+        data = json.load(f)
+    signals = data.get("signals", [])[:5]
+    if not signals:
+        print("(今日无跨 source 共振信号)")
+    else:
+        out = ["# 今日跨 source 共振信号 (V37.9.46 #1, top 5)"]
+        for s in signals:
+            topic = (s.get("suggested_topic", "") or "")[:60]
+            sources = ", ".join(s.get("sources", [])[:5])
+            note_count = s.get("note_count", 0)
+            src_count = s.get("source_count", 0)
+            out.append(f"- {topic} | 跨 {src_count} 源 ({sources}) | {note_count} 篇")
+        print("\n".join(out))
+except Exception:
+    pass
+PYEOF
+)
+    else
+        log "Phase 1.5: cross_source_signal_aggregator 调用失败 (FAIL-OPEN)"
+    fi
+    rm -f "$_RADAR_TMP" 2>/dev/null
+fi
+
+# #3 kb_trend_acceleration → weekly_trends JSON → top archetypes block
+if [ -f "$TREND_SCORER" ]; then
+    _TREND_TMP=$(mktemp 2>/dev/null) || _TREND_TMP=/tmp/dream_trend_$$.json
+    if python3 "$TREND_SCORER" --json > "$_TREND_TMP" 2>/dev/null; then
+        TREND_SIGNALS_BLOCK=$(python3 - "$_TREND_TMP" << 'PYEOF' 2>/dev/null || echo ""
+import json, os, sys
+from collections import defaultdict
+try:
+    with open(sys.argv[1]) as f:
+        d = json.load(f)
+    path = d.get("output_path", "")
+    if not path or not os.path.isfile(path):
+        sys.exit(0)
+    with open(path) as f:
+        data = json.load(f)
+    signals = data.get("signals", [])
+    groups = defaultdict(list)
+    for s in signals:
+        groups[s.get("classification", "")].append(s)
+    out = []
+    for cls in ("\U0001F680 strong_acceleration",
+                "\U0001F4C8 mild_acceleration",
+                "⚰️ obsolescence"):
+        entries = groups.get(cls, [])[:3]
+        if entries:
+            for e in entries:
+                kw = e.get("keyword", "")
+                a1 = e.get("accel_1w", 0)
+                emoji = cls.split()[0] if " " in cls else cls
+                out.append(f"- {emoji} {kw}: 本周 {a1}x")
+    if out:
+        print("# 本周趋势加速度 (V37.9.48 #3, 4 周历史)")
+        print("\n".join(out))
+    else:
+        print("(无显著趋势变化)")
+except Exception:
+    pass
+PYEOF
+)
+    else
+        log "Phase 1.5: kb_trend_acceleration 调用失败 (FAIL-OPEN)"
+    fi
+    rm -f "$_TREND_TMP" 2>/dev/null
+fi
+
+[ -n "$RADAR_SIGNALS_BLOCK" ] && log "Phase 1.5: 雷达信号采集完成 (#1)"
+[ -n "$TREND_SIGNALS_BLOCK" ] && log "Phase 1.5: 趋势加速度采集完成 (#3)"
+
 log "Phase 2 (Reduce): 开始跨领域关联..."
 
 # 组装 Reduce 素材
@@ -931,6 +1033,26 @@ $STATUS_CONTEXT
 # 本周趋势
 $TREND_CONTEXT
 "
+
+# V37.9.49 Sub-Stage 4a (Opportunity Radar 三件套): 注入跨 source 雷达 + 趋势加速度
+# 让 Reduce LLM 在跨域关联中识别"早期机会点"
+if [ -n "$RADAR_SIGNALS_BLOCK" ]; then
+    REDUCE_DATA+="
+
+═══ Opportunity Radar #1 (跨 source 共振信号) ═══
+$RADAR_SIGNALS_BLOCK
+"
+fi
+if [ -n "$TREND_SIGNALS_BLOCK" ]; then
+    REDUCE_DATA+="
+
+═══ Opportunity Radar #3 (本周趋势加速度) ═══
+$TREND_SIGNALS_BLOCK
+
+注意: 上述 Radar 信号用于辅助识别'早期机会点', 标 🚨 在输出中.
+但只有当今日笔记/sources 中有具体内容支持时, 才能在最终结论里展开.
+"
+fi
 
 # 截断 Reduce 素材到 80K chars（直接调 Adapter，无 Proxy 200KB 限制）
 # Qwen3-235B 262K context，80K chars ≈ 25-30K tokens，留足空间给 prompt + 8K output

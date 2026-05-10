@@ -6147,10 +6147,10 @@ invariants:
         check_type: file_contains
         file: ontology/llm_cron_audit.py
         pattern: '"V37.5"'
-      - name: "ALIGNED_SCRIPTS 含 V37.9.39 semantic_scholar 锚点 (V37.9.38 audit P1 → V37.9.39 PoC fix)"
+      - name: "ALIGNED_SCRIPTS 含 V37.9.50 semantic_scholar 锚点 (V37.9.45 hf_papers PoC → V37.9.50 Sub-Stage 4b 6 字段升级)"
         check_type: file_contains
         file: ontology/llm_cron_audit.py
-        pattern: '"V37.9.39"'
+        pattern: '"V37.9.50"'
       - name: "ALIGNED_SCRIPTS 含 V37.9.40 DBLP + AI Leaders X 锚点 (V37.9.40 双脚本批次)"
         check_type: file_contains
         file: ontology/llm_cron_audit.py

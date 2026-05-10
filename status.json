@@ -1,6 +1,6 @@
 {
-  "updated": "2026-05-10 02:35:20",
-  "updated_by": "full_regression",
+  "updated": "2026-05-10 04:13:25",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -105,6 +105,31 @@
   ],
   "recent_changes": [
     {
+      "date": "2026-05-10",
+      "what": "V37.9.46 — Opportunity Radar Stage 1: 跨 source 弱信号聚合器 (DBSCAN 跨 14 sources + 290 notes/day). 设计文档 7.1 节 Stage 1 PoC = 仅交付独立模块 + 33 单测, 不集成下游 (Stage 4 才集成). 新文件 cross_source_signal_aggregator.py (~410 行 6 函数 + run/main CLI): scan_today_notes (frontmatter parse + tags 单值/list 双格式) / embed_notes (lazy numpy + local_embed.embed_texts + content_hash 16-char cache key) / cluster_dbscan (lazy sklearn + DBSCAN min_samples=3/eps=0.35/metric=cosine) / filter_cross_source (unique_sources≥2 跨源契约 + suggested_topic 中英文 regex top-3 keywords) / rank_signals (score=source_count×2+note_count+avg_intra_similarity×5) / emit_radar_json. FAIL-OPEN 全链路 (V37.4 同款 lazy import): numpy/sklearn/sentence_transformers 缺失 → status=fail_open_no_deps 不阻塞下游. MR-11 兑现: log() 写 stderr 防 $(...) 命令替换污染. 33 新单测 8 类 + 反向验证守卫真有效 (DBSCAN_MIN_SAMPLES=3→1 立即 AssertionError; 模块顶部加 import numpy → ModuleNotFoundError 在 import 时立即触发). 66 suites / 2313 tests (+33) / 0 fail / VERSION 0.37.9.45→0.37.9.46.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-05-10",
+      "what": "V37.9.47 — Opportunity Radar Stage 2: project_alignment_scorer rule_check 验证层 + hf_papers 集成 (单脚本灰度). 设计文档 4 节锁定: #2 项目对齐度评分 = LLM 主观 ⭐ 数 + 离线 keyword-based rule_check 双层验证. 防 V37.9.45 hf_papers PoC 单 LLM 评分 hallucination. 新文件 project_alignment_scorer.py (~430 行 7 函数): load_project_concepts (轻 YAML parse + 行尾注释剥离) / count_keyword_hits (大小写不敏感 + 中英 substring + dedup + excluded × -2 降权) / compute_expected_range (5 档锁定: <0/0/1-2/3-4/5+ → ⭐1-2/2-3/3-4/4-5) / validate_alignment_score (LLM ⭐ vs expected_range 一致性 + 偏高/偏低 reason) / parse_6field_output (MR-8 与 hf_papers inline 行为一致) / extract_star_count / format_validation_marker. FAIL-OPEN 缺模块/yaml 跳过 rule_check 不阻塞 cron. hf_papers emit-stage 集成: lazy import + per-paper validate_alignment_score + 不一致时 ⚠️ <reason> 加入推送. 31 新单测 7 类 + 反向验证守卫真有效 (sed 阈值反转立即 fail). 67 suites / 2344 tests (+31) / 0 fail / VERSION 0.37.9.46→0.37.9.47.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-05-10",
+      "what": "V37.9.48 — Opportunity Radar Stage 3: 趋势加速检测 (4 周历史关键词加速度 + 5 档分类). 设计文档 docs/opportunity_radar_design.md 5 节锁定 = #3 趋势加速度 = kb_trend.py 仅算本周 vs 上周, 加速度是二阶导数. 三件套时间维度补全. 新文件 kb_trend_acceleration.py (~390 行 5 函数 + run/main CLI): extract_keywords_per_week (复用 kb_trend.py + lazy import + FAIL-OPEN) / compute_acceleration (输入 dict {1: w1_kw, 2: w2_kw, 3: w3_kw} + 用占比 pct 而非原始 freq 防总数差距失真 + w2=0 新词 skip + min_freq_pct=0.005 噪声门槛) / classify (5 档锁定 🚀 strong: a1≥1.5 AND a2≥1.5 / ⚰️ obs: a1<0.5 AND a2<0.5 / 📈 mild: a1≥1.5 / 💧 decel: a1<0.7 / 📊 stable / 顺序锁定 strong > obs > mild > decel > stable / 非数字 fallback STABLE) / rank_signals (按 archetype priority 分桶 + |a1-1| desc 排 / total max 18 signals) / emit_radar_json. FAIL-OPEN 缺 kb_trend → emit_radar_json([]) 不阻塞. 28 新单测 7 类 + 反向验证守卫真有效 (sed 阈值 1.5 → 0.5 立即 AssertionError). 不集成下游 (Stage 4 才集成 kb_dream/kb_evening). 68 suites / 2372 tests (+28) / 0 fail / VERSION 0.37.9.47→0.37.9.48.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-05-10",
+      "what": "V37.9.49 — Stage 4a cascade: #1 + #3 接入 kb_dream/evening 推送链. 用户 V37.9.48 收工后选 Stage 4 cascade 路径. MR-10 三问严格执行不一次性大爆炸 → 拆 4a/4b/4c. scope V37.9.49 = Sub-Stage 4a only: kb_dream.sh Phase 1.5 集成 cross_source_signal_aggregator (#1) + kb_trend_acceleration (#3) → REDUCE_DATA 注入 Opportunity Radar #1/#3 双段; kb_evening_collect.py 加 collect_trend_signals_for_evening helper + build_evening_prompt(trend_signals=...) 参数. 不做 (4b/4c): 11 脚本批量 6 字段 / Top 5 推送段 / LLM-driven topic summary. FAIL-OPEN 全链路: scorer 不存在/调用失败/JSON 解析失败 → 信号设空不阻塞 Reduce. 9 新单测 2 类. 69 suites / 2381 tests (+9) / 0 fail / VERSION 0.37.9.48→0.37.9.49.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-05-10",
+      "what": "V37.9.50 — Sub-Stage 4b 1 脚本 PoC: semantic_scholar 5→6 字段 + rule_check (V37.9.45 hf_papers 横向迁移). V37.9.49 Sub-Stage 4a 完成后用户选 4b 续推进, 7 脚本一次性 batch ≈ 3500+ 行 / 5-10h 超出剩余 session 时间, 用户 push back 选 1-2 脚本 PoC 验证. scope: 选 semantic_scholar (论文类与 hf_papers 结构最近 + daily 08:00 HKT cron 用户立即感知). prompt 加 🎚️ 项目对齐度 + 5 档评分指南 + 反幻觉守卫. parse_5field_output → parse_6field_output (含 🎚 fallback 兼容 variation selector). emit lazy import project_alignment_scorer + per-paper rule_check + ⚠️ marker + 高对齐统计 (⭐≥4 N/M 篇). 21 新单测 3 类 + V37.9.39 老 test 套 alternation 兼容. ALIGNED_SCRIPTS V37.9.39→V37.9.50. INV-LLMCRON-AUDIT-001 V37.9.39 守卫升级为 V37.9.50 字面量. 70 suites / 2402 tests (+21) / 0 fail / governance 555 checks 不变 / 71 inv / 16 MR / 安全 95/100 / VERSION 0.37.9.49→0.37.9.50.",
+      "by": "claude_code"
+    },
+    {
       "date": "2026-05-09",
       "what": "V37.9.45 — hf_papers 6 字段深度迁移 (audit P1 完结, ALIGNED_SCRIPTS 10→11) + Opportunity Radar #2 PoC 单点验证. 用户 V37.9.44 后明确指令'现在就开始做不留尾巴, 下次 session 开始执行 Stage 1'. 双交付: (1) hf_papers V37.9.43 arxiv 同款机械迁移 (433→771 行 +78%, 保留 Step 2.5 GitHub repo enrichment) + (2) #2 PoC 单点验证 (project_concepts.yaml + LLM prompt 加第 6 字段 🎚️ 项目对齐度 + parse_5field_output → parse_6field_output + emit 显示对齐度 + 末尾高对齐统计). MR-10 三问严格执行: 不加 rule_check 验证层 (Stage 2 责任) + 不批量推其他脚本 (Stage 2 责任) + 不加 Dream/Radar 高对齐 Top 5 段 (Stage 2 责任). 27 新单测 4 类 (含 TestProjectAlignmentField 5 测试 #2 PoC) + 反向验证两层守卫真有效 (sed 占位符 / Python 移除 🎚️ 字段都立即 fail). 65 suites / 2280 tests (+27) / 0 fail / governance 555 checks (+1) / 71 inv / 16 meta rules / 安全 95/100 / VERSION 0.37.9.44→0.37.9.45. audit P1 路径完结 (剩 P2 4 + P3 8). 七阶段连环兑现 V37.9.36→39→40→41→43→44→45.",
       "by": "claude_code"
@@ -177,31 +202,6 @@
     {
       "date": "2026-05-07",
       "what": "V37.9.34 — V37.9.33 PROMPT 内嵌 ASCII 双引号导致 bash 字符串提前终止 hotfix. 触发: Mac Mini cp run_freight.sh 后立即跑 bash 报 line 222: 本期无显著经济晴雨表信号）... No such file or directory. RSS 抓取成功 15 条但 LLM 调用从未发生. 真根因: V37.9.33 prompt 内 输出\"📊 X\" + 输出\"🏢 X\" 两处 ASCII 双引号被 bash 当成 PROMPT=\"...\" 字符串关闭符 → 后续中文当 shell 命令. V25 原用单引号没此 bug. MR-4 silent-failure 第 25 次演出: 26 单测全过 + bash -n 语法检查过, 但 bash -n 看不到字符串嵌套语义问题, 实际运行才暴露. 修复: line 222/229 输出\\\"X\\\" 反斜杠转义. 2 新单测 TestV37934BashQuoteEscaping (test_no_unescaped_double_quote_after_chu 负向回顾正则守卫 + test_section_empty_signals_use_escape 5 字符上下文检查). 55 suites 不变 / 2019→2021 tests (+2) / 0 fail / 安全 95/100 / VERSION 0.37.9.33 → 0.37.9.34. 元教训: bash 字符串嵌套是运行时语义问题不是语法问题, 用户视角实测 (原则 #13/#15) 第 6 次正向兑现.",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-05-07",
-      "what": "V37.9.33 — 货代任务深度优化. 用户论点: 全球发货是经济 1-3 个月领先指标, 比咨询机构事后判断更可靠. 不新增 cron 直接深化 freight_watcher: SOURCES 19→27 (+12 Tier 1/2 权威源 via Google News RSS 精确搜索: SCFI/CCFI/Drewry WCI/FBX 运价 + BDI 散货 + TAC 空运 + MAERSK/CMA/COSCO 班轮动态 + LA/Long Beach/Shanghai/Ningbo/Rotterdam 港口 + China exports/US imports 海关数据), 关键词集 +4 (INDEX_KW/CARRIER_KW/PORT_KW/CUSTOMS_KW 中英双语), 抓取上限 10→15 防 Tier 3 挤占, LLM prompt 升级三层结构化 (📊 经济晴雨表 用 指数: / 🏢 运营信号 用 动作: / 🚢 商机条目 保留 V25 企业信号: 格式), MSG_FILE section-aware 切块 + ImportYeti 仅 🚢 段触发, 末尾追加 15 条原始权威链接 footer. 26 新单测 6 类含 Step 8 backward compat 守卫 (simulated 3-section input 仅提取 🚢 企业, 📊 SCFI 数字 + 🏢 MAERSK 公司名都被过滤). 55 suites (+1) / 1993→2019 tests (+26) / 0 fail / 安全 95/100 / VERSION 0.37.9.32 → 0.37.9.33. 元价值: 不增加 cron 数量但 freight 产出价值翻倍 (单层商机 → 三层结构化分析), 原则 #18 补证据而非补功能兑现.",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-05-07",
-      "what": "V37.9.32 — playwright-stealth API 兼容修复 (Mac Mini 实测发现). V37.9.31 上线后用户合并 + Mac Mini cp 文件 + bash run_freight.sh 验证: ✅ last_run.json {time, status:ok, new:3, sent:true, deep_dive:ok} 历史性首次 (5/4 后第一次), Step 8-10 全跑完 (OMI 高星 → ImportYeti 查询 → 客户画像 LLM 生成 + 推送), rsync helper 错峰 sleep 178s + 36s 后脚本继续 (V37.9.31 fail-open 真生效), Preflight 通过 82/失败 0/警告 2 (零失败历史新高). 1 次要问题: scraper stderr WARN playwright-stealth 未安装 但 pip 显示 Requirement already satisfied 2.0.2, 矛盾根因 = V37.9.31 用 stealth_sync 1.x API, 2.x 改 Stealth class. V37.9.32 修复: 三档 fallback (2.x Stealth().apply_stealth_sync(page) → 1.x stealth_sync → manual STEALTH_JS) + _stealth_apply API 版本无关 helper + stealth_api_version 启动日志可观测. 3 新 source-level 守卫单测 (test_v37_9_32_uses_2x_api_first / test_uses_apply_stealth_sync_method / test_call_site_uses_api_agnostic_helper). 54 suites / 1990→1993 tests (+3) / 0 fail / 安全 95/100 / VERSION 0.37.9.31 → 0.37.9.32. 原则 #13 用户视角观察第 5 次正向兑现 — 单测全过 + Preflight 0 fail, 但用户实际跑 stderr 才暴露 import 路径错配.",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-05-07",
-      "what": "V37.9.31 — V37.9.27 rsync_helper 回归修复 + 货代 schema 完整 + ImportYeti 反爬升级. 真根因: V37.9.27 movespeed_rsync_helper.sh line 116 exit \"$EXIT_CODE\" 透传 rsync 失败码 + run_freight.sh set -eo pipefail → V37.9.30 EPERM 100% 持平后每次都杀 20 set -e caller mid-script (MR-4 第 24 次演出: 修复引入更深 silent failure). 5 fix: F1 helper line 116 exit 0 + 详细注释 + V37.9.4-V37.9.26 invariant 恢复, F2 run_freight.sh 4 exit path 都写 deep_dive (skipped_no_news/skipped_llm_failed/skipped_parse_low/pending), F3 preflight 容忍新 status (skipped_no_news pass / pending warn含 V37.9.31 上下文 / missing 升 fail), F4 importyeti_scraper.py 反爬升级 (4 modern Chrome UA 跨 macOS+Windows 轮换 + 5 真实 viewport + sec-ch-ua/sec-fetch-* + Cloudflare 检测纯函数 + backoff [30,60,120]s + delay 5-12s + playwright-stealth 50+ patches 自动 fallback manual STEALTH_JS), F5 53 新单测 (test_freight_schema_v9_31 13 + test_importyeti_scraper_anti_crawl 39 + helper test 1 set -e caller subprocess 真验证). governance INV-RETRY-001 扩展 V37.9.31 fail-open contract 叙事 + 2 新 declaration check. 54 suites (+2) / 1937→1990 tests (+53) / 0 fail / 506 checks (+2) / 安全 95/100 / VERSION 0.37.9.30 → 0.37.9.31. 用户确认反爬方案 = playwright-stealth (Mac Mini 需 pip3 install). 下一硬卡: 明日 8:00 freight cron 真跑验证 deep_dive=ok 全链路闭环 + V37.9.30 24-48h ACL/lsof/snapshot 数据回归.",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-05-07",
-      "what": "V37.9.30 — V37.9.29 24h 验证窗口数据出: 21 incidents (>15 R1 阈值) / 19/21 ownership=501:20 chown 真生效 / EPERM 100% 持平 V37.9.28 → V37.9.29 假说部分证伪 (UID 错位是真 bug 但非 EPERM 根因). 用户决策 Path C (不回滚, 进入新诊断). incident_capture.sh 加 4 新字段 (acl_top/acl_kb/lsof/snapshots), incident_analyzer.py 加 3 个分类纯函数 + 3 个新维度 + 3 个新决策提示分支 (ACL deny → chmod -RN / daemon dominated ≥3 → path B 调度避峰 / snap_6_plus → tmutil deletelocalsnapshots). 35 新单测 5 类 (TestV37930ClassifyAclAnomaly 7 + TestV37930ClassifyHandleHolders 6 + TestV37930ClassifySnapshotCount 6 + TestV37930ForensicAnalysisIntegration 10 + TestV37930CaptureScriptIntegrity 6) 镜像 V37.9.29 b 模式. backward compat 保留 (旧记录无新字段 → empty 桶). 52 suites / 1902→1937 tests (+35) / 0 fail / governance 69 inv 不变 (候选 INV-FORENSIC-001 待 24-48h 真实数据后再立) / 安全 95/100 / VERSION 0.37.9.29 → 0.37.9.30. MR-4 silent-failure 第 23 次演出新形态 (修复成功+验证生效+但目标问题没改善). 数据驱动诊断方法论加固第 6 步 (V37.9.14 取证 → V37.9.26 主动告警 → V37.9.27 主动修复 → V37.9.28 数据驱动诊断工具 → V37.9.29 ownership 维度 → V37.9.30 ACL/handle/snapshot 维度).",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-05-06",
-      "what": "V37.9.29 (b) — incident_capture 加 ownership 字段 (同日加固). capture.sh stat -f %u:%g /Volumes/MOVESPEED + /KB → rec dict 加 ownership_top + ownership_kb 两字段 (limit 50 chars). analyzer.py analyze() 加第 8 维度 by_ownership (ownership_pair_counter 统计 top=X kb=Y pair 分布, 向后兼容旧 records 归入 empty pre-V37.9.29(b) 桶) + format_text_report() 加 🔐 Ownership 分布段 + 决策提示新增 ownership misalignment 警告 (检测到 0:0 / 99:99 任一 → 提示 R1 回滚命令). 14 新单测 (TestV37929BOwnershipAnalysis 10 + TestV37929BCaptureScriptIntegrity 4) 含 backward compat / 错位 pair 计数 / 一致 pair 计数 / partial field handling / non-string field 健壮性 / 警告触发. 意义: 让未来类似 ownership 错位问题在 1 天内发现而不是 60 天. 52 suites / 1888→1902 tests (+14) / 0 fail / 95/100.",
       "by": "claude_code"
     }
   ],
@@ -297,7 +297,11 @@
       "V37.9.46 候选 [P1 — Opportunity Radar Stage 1, 下次 session 干净启动]: 实施 #1 cross_source_signal_aggregator.py PoC. 设计文档 docs/opportunity_radar_design.md 第三节已就位. 关键路径: scan_today_notes → embed_notes (sentence-transformer all-MiniLM-L6-v2) → cluster_dbscan (min_samples=3, eps=0.35) → filter_cross_source (unique_sources≥2) → rank_signals + emit ~/.kb/radar/daily_signals_DATE.json. 33 单测 (TestScanTodayNotes 5 / TestEmbedNotes 4 / TestClusterDbscan 5 / TestFilterCrossSource 4 / TestRankSignals 3 / TestEmitRadarJson 3 / TestFailOpenContract 4 / TestSourceLevelGuards 5). Mac Mini 需 pip3 install scikit-learn. FAIL-OPEN 契约: 任意环节失败 → 写空数组到 daily_signals.json + log WARN, 不阻塞下游.",
       "V37.9.45 PoC 观察项 [hf_papers 6 字段 + 🎚️ 项目对齐度生产推送质量 24-72h]: 等明日 5/10 10:00 / 20:00 HKT hf_papers cron 真跑. 验证项: (1) LLM 是否真在 prompt 引导下输出 🎚️ 字段 (2) 评分是否符合 OpenClaw 项目方向 (3) 末尾'本轮高对齐论文'统计是否触发 (4) Mac Mini 实跑 stderr 是否有 6 字段 prompt 字面量泄漏 (V37.9.40 AI Leaders X 同款风险) (5) 多窗口分片是否触发. 如 OK → V37.9.46 Stage 2 信心十足全量推 + 加 project_alignment_scorer.py rule_check 验证层. 如 LLM 评分不稳定 → 紧急加 rule_check 兜底.",
       "V37.9.46+ Opportunity Radar Stage 2 [#2 项目对齐度评分全量推]: 验证 V37.9.45 hf_papers PoC 24-72h 后, 把 6 字段批量推到其他 10 个已对齐脚本 (rss_blogs/kb_evening/kb_review/kb_deep_dive/S2/DBLP/AI Leaders X/HN/arxiv/github_trending). 加 project_alignment_scorer.py rule_check 验证层 (LLM 评分 vs 关键词命中率交叉验证, 不一致时显式 ⚠️ 标记). MR-18 候选元规则 'opportunity-radar-must-cross-validate-llm-vs-rule' 立案. 31 新单测 (TestProjectConceptsYaml 5 + TestKeywordHitCounting 6 + TestExpectedScoreRange 4 + TestValidateAlignmentScore 4 + TestPromptInjection 3 + TestParse6FieldOutput 5 + TestSourceLevelGuards 4).",
-      "V37.9.46+ audit P2 (1 finding each): acl_anthology / karpathy_x / openclaw_official run.sh / openclaw_official run_discussions.sh — 同款 V37.9.39 S2 / V37.9.43 arxiv 机械迁移 + (Stage 2 启用后) 同步加 6 字段. P3 (0 findings 但缺 fail-fast 标志): chaspark / ontology_sources / kb_inject / kb_dream / freight_watcher / finance_news / 2 others. audit P1 已完结 (V37.9.45)."
+      "V37.9.46+ audit P2 (1 finding each): acl_anthology / karpathy_x / openclaw_official run.sh / openclaw_official run_discussions.sh — 同款 V37.9.39 S2 / V37.9.43 arxiv 机械迁移 + (Stage 2 启用后) 同步加 6 字段. P3 (0 findings 但缺 fail-fast 标志): chaspark / ontology_sources / kb_inject / kb_dream / freight_watcher / finance_news / 2 others. audit P1 已完结 (V37.9.45).",
+      "【V37.9.51+ 候选】Sub-Stage 4b 续 batch 6 个论文/repo/tweet 类脚本同款 V37.9.45 hf_papers / V37.9.50 semantic_scholar 模板机械迁移: rss_blogs / dblp / arxiv_monitor / github_trending / ai_leaders_x / hn (5→6 字段 + alignment + rule_check 集成). 每脚本 30-45min, 总 3-5h. V37.9.50 PoC 验证模板成功后批量推. ALIGNED_SCRIPTS 12→13→14→15→16→17→18 期望.",
+      "【V37.9.51+ 候选】Sub-Stage 4c — Top 5 高对齐推送段聚合所有今日 ⭐≥4 alignment paper/repo/tweet → 推到 Dream/Radar/Evening 三处推送. 中工作量 1-2h. 依赖 4b batch 完成后所有论文类脚本都产出 alignment 字段才有数据可聚合.",
+      "【Stage 5 候选】kb_radar.sh 06:00 cron 综合分析 LLM prompt + 红/黄/蓝三档机会点推送 (设计文档 6.1 节). 新 cron job + 综合分析三件套 #1+#2+#3 输出 → LLM 综合 → 推送早期机会点. 依赖 4b 完成 (各脚本产 alignment 字段) + 4c 完成 (Top 5 段就位).",
+      "【Mac Mini 验证 (硬卡)】① 装 sklearn (sentence-transformers V29.3 已装) → 跑 cross_source_signal_aggregator V37.9.46 真 KB 数据看 ≥3 跨源共振信号是否达成 Stage 1 成功定义 ② 5/11 决策窗口 jobs_to_crontab + kb_sources_to_index machine_sync 真激活 (V37.9.23/24/25 累积观察期到达) ③ 5/11 03:00 kb_dream cron 真触发 → 看 Phase 1.5 Opportunity Radar #1/#3 双段是否注入推送 ④ 5/11 22:00 kb_evening cron → 看明日关注加速主题段是否注入 ⑤ 5/11 08:00 semantic_scholar cron → 看 V37.9.50 6 字段 + 🎚️ 项目对齐度 + ⚠️ rule_check marker + 高对齐统计是否符合预期."
     ],
     "open_prs": "",
     "blocked_on": "",
@@ -318,14 +322,14 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 2313,
-    "last_regression": "2026-05-10 02:35 pass",
+    "test_count": 2402,
+    "last_regression": "2026-05-10 04:09 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-05-10 02:35",
-    "test_suites": 66,
+    "security_score_time": "2026-05-10 04:09",
+    "test_suites": 71,
     "governance_invariants": "64/64",
     "governance_checks": "350/350",
-    "version": "0.37.9.45"
+    "version": "0.37.9.50"
   },
   "incidents": [
     {
@@ -389,7 +393,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.45 收工 — hf_papers 6 字段 (audit P1 完结) + Opportunity Radar #2 PoC 单点验证. 27 新单测 + 反向验证两层守卫真有效. 用户'不留尾巴'指令兑现. 下次 session 干净启动 Opportunity Radar Stage 1 (#1 跨 source 弱信号聚合, 33 单测, sentence-transformer + DBSCAN). ALIGNED_SCRIPTS 4→5→7→8→9→10→11 (七阶段连环兑现完结). 65 suites / 2280 tests / 0 fail. project_concepts.yaml 已就位 V37.9.46 Stage 2 全量加 6 字段 + rule_check 验证层时直接消费.",
+  "focus": "【V37.9.50 收工】Stage 4a (V37.9.49) + Sub-Stage 4b PoC (V37.9.50) 双交付完结. 5 commits 累计: V37.9.46 #1 cross_source PoC / V37.9.47 #2 project_alignment_scorer rule_check + hf_papers 集成 / V37.9.48 #3 trend_acceleration / V37.9.49 #1+#3 接入 kb_dream/evening 推送链 / V37.9.50 semantic_scholar 5→6 字段 + rule_check (V37.9.45 hf_papers 横向 PoC 验证). 65→70 suites / 2280→2402 tests (+122) / 0 fail / VERSION 0.37.9.45→0.37.9.50. ALIGNED_SCRIPTS 11→12 (semantic_scholar V37.9.39→V37.9.50). 安全 95/100. **下次 V37.9.51+ 候选**: (a) Sub-Stage 4b 续 batch 6 个论文/repo/tweet 类脚本同款机械迁移 (b) Sub-Stage 4c Top 5 高对齐推送段 (c) Stage 5 kb_radar.sh 06:00 cron 综合分析. **Mac Mini 部署效果**: 5/11 08:00 S2 cron 推送首次出现 🎚️ 项目对齐度 + ⚠️ rule_check marker + 高对齐统计; 5/11 03:00 kb_dream 出现 Opportunity Radar #1/#3 双段; 5/11 22:00 kb_evening 加速主题段.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
