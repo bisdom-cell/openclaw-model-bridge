@@ -184,11 +184,11 @@ jobs:
     interval: "0 9 * * *"           # 每天 09:00 HKT（避开08:00高峰）
     log: ~/.openclaw/logs/jobs/openclaw_official.log
     needs_api_key: true
-    enabled: true
+    enabled: false                   # V37.9.50-hotfix2 日落: 推送质量低 (V37.9.36 占位符 audit P2) + V37.9.22 Tripwire 框架已替代 daily releases 推送
     tier: core                       # 上游依赖监控
     kb_source_file: openclaw_official.md
     kb_source_label: ⚙️ OpenClaw Releases
-    description: OpenClaw Releases Watcher（版本更新+LLM中文摘要）
+    description: OpenClaw Releases Watcher（版本更新+LLM中文摘要）— V37.9.50-hotfix2 已 disable, 保留代码备 revert
 
   # openclaw_discussions 已删除 — 与 run_discussions (id: run_discussions) 完全重复
 
