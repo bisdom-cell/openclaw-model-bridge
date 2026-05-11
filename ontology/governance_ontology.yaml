@@ -3585,6 +3585,137 @@ invariants:
               "adapter 调用必须用 || _ad_rc=$? 捕获返回码（set -e 安全）"
           assert re.search(r'restart_via_launchd\s+"com\.openclaw\.proxy".*\|\|\s+_px_rc=\$\?', src), \
               "proxy 调用必须用 || _px_rc=$? 捕获返回码"
+      # V37.9.54 扩展: marker-based plist reload (修复 V37.9.13/V37.9.53 kickstart -k 不重读 plist 问题)
+      - name: "V37.9.54: PLIST_LOAD_MARKER_DIR 常量定义"
+        check_type: file_contains
+        file: restart.sh
+        pattern: 'PLIST_LOAD_MARKER_DIR='
+      - name: "V37.9.54: helper 内含 plist mtime vs marker mtime 比较逻辑"
+        check_type: file_contains
+        file: restart.sh
+        pattern: 'plist_mtime'
+      - name: "V37.9.54: 加载成功后 touch marker 记录"
+        check_type: file_contains
+        file: restart.sh
+        pattern: 'touch\s+"\$marker"'
+      - name: "V37.9.54: 强制 bootout+bootstrap 路径标识"
+        check_type: file_contains
+        file: restart.sh
+        pattern: 'need_full_reload'
+      - name: "V37.9.54 runtime: marker 路径写正确, 需 plist 在 marker 之后才触发 bootout/bootstrap"
+        check_type: python_assert
+        code: |
+          import re
+          src = open("restart.sh").read()
+          # 关键不变式: marker mtime ≥ plist mtime 时走 kickstart -k, 否则走 bootout+bootstrap
+          assert 'marker_mtime' in src and 'plist_mtime' in src, "V37.9.54 marker 比较逻辑必须存在"
+          # 关键不变式: touch marker 必须在 health verification 成功 (HTTP 200) 后
+          # 防止 daemon 启动失败但 marker 被误更新, 下次重启走 kickstart 跳过 plist reload
+          m_touch = re.search(r'touch\s+"\$marker"', src)
+          assert m_touch, "touch marker 必须存在"
+          # touch 之前 200 字符内必须有 'HTTP $_code' 或 'healthy' 字样
+          ctx_before = src[max(0, m_touch.start() - 400): m_touch.start()]
+          assert ("healthy" in ctx_before) or ('200' in ctx_before), \
+              "V37.9.54 touch marker 必须在健康验证 HTTP 200 之后, 防失败误更新"
+
+  # --- V37.9.54 新增: plist EnvironmentVariables 必须含所有声明的 provider api_key_env ---
+  # 触发: V37.9.53 doubao 接入 + 加 plist 后实测发现 adapter daemon 仍只 fallback ['gemini'],
+  # 因 launchctl kickstart -k 不重读 plist (修复路径见 INV-RESTART-001 V37.9.54 marker
+  # checks). 但更上游问题是: provider 声明 api_key_env 但 plist 缺该 env 项 → daemon
+  # 拿不到 → ProviderRegistry.available() 误判 → fallback chain 跳过 → silent failure.
+  # 本 INV 把 provider 声明态(api_key_env)与运行时态(plist EnvironmentVariables)同步
+  # 升级为治理可监控.
+  - id: INV-PLIST-ENV-001
+    name: plist-env-must-contain-all-provider-api-keys
+    meta_rule: MR-4
+    verification_layer: [declaration, runtime]
+    severity: high
+    declaration: |
+      所有 provider (built-in in providers.py + plugin in providers.d/) 通过
+      `api_key_env` 字段声明 daemon 启动时需要的 env var. adapter 通过 launchd
+      启动, 仅能拿到 ~/Library/LaunchAgents/com.openclaw.adapter.plist 的
+      EnvironmentVariables dict 中声明的 env. 若 provider 声明了 api_key_env
+      但 plist 没有对应 env, adapter 启动时 ProviderRegistry.available() 会
+      因 os.environ.get 为空把该 provider 误判为不可用, fallback chain 跳过
+      → silent failure (V37.9.53 doubao 实测案例).
+    design_decision: |
+      V37.9.53 doubao 接入后实测踩坑: 用户 zsh export ARK_API_KEY 后跑 restart.sh,
+      adapter daemon 仍 fallback_chain=['gemini']. 根因: launchctl 启动的 daemon
+      不继承 zsh session 的 export env, 必须通过 plist EnvironmentVariables 持久
+      化. V37.9.53 hotfix 是 PlistBuddy 手动加 ARK_API_KEY + ARK_ENDPOINT_ID.
+      V37.9.54 升级: 让 governance 主动监控 plist 内容 vs provider 声明的同步.
+    blood_lessons:
+      - "V37.9.53: doubao 接入 plist 缺 ARK_API_KEY, fallback chain 静默跳过"
+      - "V37.9.12.1: proxy plist 缺 ONTOLOGY_MODE=on env, shadow 模式静默生效"
+      - "通用模式: launchd daemon 不继承 shell session env, plist 必须显式声明"
+    checks:
+      - name: "providers.py 必须定义 api_key_env 字段"
+        check_type: file_contains
+        file: providers.py
+        pattern: 'api_key_env'
+      - name: "doubao plugin 声明 ARK_API_KEY"
+        check_type: file_contains
+        file: providers.d/doubao_provider.py
+        pattern: 'api_key_env = "ARK_API_KEY"'
+      - name: "INV-PLIST-ENV-001 V37.9.54 marker 存在"
+        check_type: file_contains
+        file: ontology/governance_ontology.yaml
+        pattern: "V37.9.54 新增"
+      - name: "V37.9.54 runtime: declared api_key_env 在 providers 源码集合中可解析"
+        check_type: python_assert
+        code: |
+          import re, os
+          declared = set()
+          # providers.py 内 built-in
+          src = open("providers.py").read()
+          for m in re.finditer(r'api_key_env\s*=\s*"(\w+)"', src):
+              declared.add(m.group(1))
+          # providers.d/*.py plugins
+          plugin_dir = "providers.d"
+          if os.path.isdir(plugin_dir):
+              for fn in os.listdir(plugin_dir):
+                  if fn.startswith("_") or not fn.endswith(".py"):
+                      continue
+                  src = open(os.path.join(plugin_dir, fn)).read()
+                  for m in re.finditer(r'api_key_env\s*=\s*"(\w+)"', src):
+                      declared.add(m.group(1))
+          # 已知应有的 env (V37.9.54 baseline)
+          required = {"REMOTE_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY",
+                      "ANTHROPIC_API_KEY", "MOONSHOT_API_KEY", "MINIMAX_API_KEY",
+                      "GLM_API_KEY", "ARK_API_KEY"}
+          assert required.issubset(declared), \
+              f"V37.9.54 baseline: declared {declared} 必须 ⊇ {required}, missing: {required - declared}"
+      - name: "V37.9.54 runtime: --full mode adapter plist EnvironmentVariables 与 declared api_key_env 比对"
+        check_type: python_assert
+        code: |
+          import plistlib, re, os
+          from pathlib import Path
+          plist_path = Path.home() / "Library/LaunchAgents/com.openclaw.adapter.plist"
+          # dev 环境无 plist → 静默通过 (V37.9.54 runtime check 只在 Mac Mini --full 真验证 plist)
+          # 不抛 AssertionError = pass; 这是合法 skip 因为没有 plist 就没有 silent failure 风险
+          if plist_path.exists():
+              with open(plist_path, "rb") as f:
+                  plist_data = plistlib.load(f)
+              plist_envs = set(plist_data.get("EnvironmentVariables", {}).keys())
+              # 收集所有 provider 声明的 api_key_env
+              declared = set()
+              for src_path in ["providers.py"]:
+                  src = open(src_path).read()
+                  for m in re.finditer(r'api_key_env\s*=\s*"(\w+)"', src):
+                      declared.add(m.group(1))
+              plugin_dir = "providers.d"
+              if os.path.isdir(plugin_dir):
+                  for fn in os.listdir(plugin_dir):
+                      if fn.startswith("_") or not fn.endswith(".py"):
+                          continue
+                      src = open(os.path.join(plugin_dir, fn)).read()
+                      for m in re.finditer(r'api_key_env\s*=\s*"(\w+)"', src):
+                          declared.add(m.group(1))
+              # V37.9.54 baseline: 至少 V37.9.53 已加的 3 个核心 env 必须在 plist
+              critical = {"REMOTE_API_KEY", "GEMINI_API_KEY", "ARK_API_KEY"} & declared
+              critical_missing = critical - plist_envs
+              assert not critical_missing, \
+                  f"V37.9.54 critical missing in plist: {critical_missing} (V37.9.53 doubao 类 silent failure 风险)"
 
   # --- V37.8.16 新增：HEARTBEAT.md 保留文件写入拦截（MR-15 落地）---
 
@@ -6590,9 +6721,10 @@ security_config:
 # 6. 审计元数据
 # ═══════════════════════════════════════════════════════════════════════
 audit_metadata:
-  version: "3.34"
+  version: "3.35"
   created: "2026-04-07"
   upgraded: |
+    v3.34 → v3.35: V37.9.54 ABC 三件套同 PR — A: restart.sh marker-based plist mtime 检测 + bootout/bootstrap 自动 fallback (修复 V37.9.13 launchctl kickstart -k 不重读 plist + V37.9.53 同款踩坑); B: doubao verified_vision=True (Mac Mini curl 实测 OpenAI Chat Completions vision schema 兼容, image_url content block 工作正常); C: 新 INV-PLIST-ENV-001 治理 plist EnvironmentVariables 与 provider api_key_env 同步 (declaration 4 checks + runtime 1 python_assert --full mode 真读 ~/Library/LaunchAgents/com.openclaw.adapter.plist 用 plistlib 解析 EnvironmentVariables 与所有 providers.py + providers.d/*.py 声明的 api_key_env 集合比对). 同时扩展 INV-RESTART-001 加 V37.9.54 marker reload checks (5 个新 checks 含 PLIST_LOAD_MARKER_DIR 常量 / plist_mtime 字面量 / touch marker 字面量 / need_full_reload 标识 / runtime python_assert 守 marker 必须在 health 200 验证之后才 touch 防失败误更新). 累计 71→72 invariants (+1 INV-PLIST-ENV-001) / 552→562 checks (+10: INV-RESTART-001 +5 + INV-PLIST-ENV-001 +5). 元价值: V37.9.13 (双管理修复) → V37.9.53 (plist env 缺失) 同款 launchd 配置 silent failure 第三次浮现, V37.9.54 加治理监控让未来加新 provider 时 plist 同步成为 governance check, 不再靠程序员记忆.
     v3.33 → v3.34: V37.9.20 第二个 convergence spec providers_to_adapter — Phase 4 Layer 5 named-dispatch 扩展性首次兑现 (MR-8 copy-paste-is-a-bug-class 正向案例). V37.9.19 framework 用 named-dispatch 三表 (_DECLARED_EXTRACTORS / _RUNTIME_OBSERVERS / _IDENTIFIER_PARSERS) 镜像 V37.9.13 _CONTEXT_EVALUATORS / V37.9.15 _STATIC_SIGNAL_KEYS 模式承诺 "添加新 spec 类型只需 yaml + 注册新函数零 framework 改动"。V37.9.20 是首次兑现: zero changes to verify_convergence orchestrator + 3 个新 dispatch 函数 (`_extract_providers_from_registry` 读 providers.ProviderRegistry.list_names() 含 7 built-in + auto-discovered providers.d/ 插件 / `_observe_http_endpoint` 用 stdlib urllib GET 5s timeout + FAIL-OPEN 包装所有 URLError/HTTPError/timeout 为 RuntimeError 让 framework 转 observer_failed / `_parse_json_set_union` 走 spec.json_paths 配置 (`field` 标量 / `field[]` list) 取 union 后与 declared 求交保持 V37.9.19 "observed ⊆ declared" 契约) + convergence_ontology.yaml `providers_to_adapter` spec (alert_only_permanent 永久结构性决策因 API key 不能 machine 自动 provision)。INV-CONVERGENCE-PROVIDERS-001 新增 (meta_rule=MR-17, severity=high, verification_layer=[declaration, runtime], 14 checks: 5 dispatch registration 守卫 + 8 yaml structural 守卫 + 1 runtime python_assert 跑 V37.9.20 5 个测试类 35 单测端到端). 35 新单测 5 类 (TestExtractProvidersFromRegistry 3 / TestObserveHttpEndpoint 6 含 mock urlopen 200/500/timeout/connection_refused / TestParseJsonSetUnion 12 含 list_path_with_non_list/null_elements/non_string_path 边界 / TestVerifyProvidersToAdapterIntegration 3 含 happy_path/full_visibility 真 mock / TestProvidersSpecSourceGuards 11 含 alert_only_permanent 永久守卫 + machine_sync 禁字面量). 累计 47→48 suites (+1, test_convergence.py 49→84 tests, +35) / 1542→1577 tests / 0 fail / governance v3.33→v3.34 / 62→63 invariants (+1) / 311→337 checks (+14, declaration 13 + runtime 1) / 17 meta rules 不变 / 安全 95/100. MR-17 derivative_invariants 升级 [INV-CONVERGENCE-CRON-001] → [..., INV-CONVERGENCE-PROVIDERS-001]。**元价值**: V37.9.19 framework 一周内首次扩展, 证明 named-dispatch 不是空头承诺 — V37.9.21+ 添加 openclaw_config_to_runtime / kb_sources_to_index 同样零 framework 改动。Phase 4 Layer 5 从"单 spec demo"升级为"可扩展 control plane 抽象"。
     v3.32 → v3.33: V37.9.19 Phase 4 Layer 5 Convergence Framework + MR-17 立案 + 第一个 spec jobs_to_crontab — declared→runtime 同步从靠记忆升级为机器化。
     v3.31 → v3.32: V37.9.15 Phase 4 P3 三阶段门控 shadow wiring — INV-GATE-001 新增 (three-gate-wiring-observability, meta_rule=MR-7, severity=high, verification_layer=[declaration, runtime], 14 checks). V37.9.12 P1 + V37.9.13 P2 只在启动期解析 static policy 阈值缓存到模块常量; contextual/temporal policy 有 6 个 context evaluator 已注册但生产环境零调用——只被单测覆盖。P3 把 evaluate_policy() 接到真实请求路径: (1) ontology/three_gate.py 新模块 (纯函数 + namedtuple GateFinding + ONTOLOGY_GATES_MODE env 三档 off/shadow/on, 默认 shadow) 导出 pre_check / runtime_gate / post_verify 三 gate, 每 gate 遍历对应 policy_pairs 查 evaluate_policy + 静态 policy 提取 signal 比对 limit 产 pass/flag verdict; FAIL-OPEN 契约所有异常经 _safe_evaluate_policy 捕获返回 None 让 gate 降级为 pass + reason=engine_unavailable 绝不冒泡。(2) tool_proxy.py lazy-load three_gate (importlib.util + exists() 检查 + ontology/ 缺失不崩) + _run_gate 帮助函数 (log [gate:*] 单行格式化 + Exception 兜底) + do_POST 两处调用点: after json.dumps(body) 调 pre_check + runtime_gate (pass messages/tool_count/body_bytes/hour), after json.loads(resp_body) 调 post_verify (pass response=rj) 必须在 fix_tool_args 之前. (3) policy_ontology.yaml meta 0.2-p2-partial → 0.3-p3-partial, status=gates_wired_shadow_mode, phase=Phase 4 P3 (three-gate scaffolding, shadow-only). (4) 66 新单测: ontology/tests/test_three_gate.py 57 tests (TestGatesMode 7 含默认 shadow/case-insensitive/whitespace + TestGateFinding 3 含 immutable + TestOffModeShortCircuit 4 含 off 不调 engine + TestShadowModeNeverEnforces 2 + TestPreCheck 8 含 alert/quiet-hours context 全分支 + TestRuntimeGate 6 含 signal≤limit/signal>limit 边界 + TestPostVerify 5 含 alert echo 检测 + TestFailOpen 4 真 monkey-patch engine 抛异常 + TestExtractSignal 7 含 bool excluded from int + TestExtractAssistantText 6 + TestFormatFindingsForLog 3 + TestModuleIntegration 2) + test_tool_proxy.py TestThreeGateWiring 9 tests (lazy-load / _run_gate / 三处调用点 / post_verify 顺序锁 / Phase 4 P3 日志标记 / 默认 shadow / shadow 不 enforce). (5) MR-8 正面兑现: gate 逻辑统一走 _collect_findings 共享 helper, 每 gate 独立 policy_pairs 配置 — 不 copy-paste 三份遍历循环。governance v3.31→v3.32 / 60→61 inv (+1) / 273→287 checks (+14) / 16 meta rules (MR-16 计入). MR-7 兑现: policy 引擎从"可查询"升级到"请求路径被调用并产 [gate:*] 可观测 log"—为 V37.9.16+ 切 on 模式 + P4 四耦合点铺路。下次 Mac Mini --full 跑会看到 [proxy] three_gate loaded (mode=shadow) 启动日志 + 每请求末尾 [gate:pre_check] / [gate:runtime_gate] / [gate:post_verify] 三行 findings.
@@ -6627,8 +6759,8 @@ audit_metadata:
     v3.12 → v3.13: V37.8.7 ontology_sources 推送格式错位血案 — INV-ONTOLOGY-001 新增 (ontology-sources-parser-must-be-key-based-not-positional, meta_rule=MR-4, severity=high, verification_layer=[declaration, runtime], 7 checks). 2026-04-15 用户 WhatsApp 收到 ontology_sources 推送严重错位：第 2 篇 cn_title 显示为 *---*、第 3 篇 cn_title 显示为 *价值：⭐⭐⭐⭐*。根因：原解析器用严格位置 (lines[i], lines[i+1], lines[i+2]) + i+=3 步进 — LLM 漏一行"要点"或多一行空白就让所有后续条目的 cn_title/highlight/stars 全部右移一格级联污染。修复：抽到独立模块 jobs/ontology_sources/ontology_parser.py（纯函数 parse_llm_blocks 可单测，避开 V37.5 heredoc-only 不可测血案），按 separator 切块 + 块内 key-based prefix 解析，单块缺行不影响其他块。runtime python_assert 真跑用户实际看到的污染场景断言"缺要点不级联"。24 单测 (test_ontology_parser.py)：TestNormalCases(4) + TestBloodLessonRegression(5) + TestSeparatorVariants(5) + TestLLMOutputVariants(5) + TestShellScriptIntegration(4) + TestActualBloodLessonScenario(1)。MR-4 silent-failure 第 8 次演出（输出"看起来正常" 6 字段都在但语义错乱）。auto_deploy FILE_MAP 补齐 ontology_parser.py。
     v3.11 → v3.12: V37.8.6 Dream 自引用幻觉血案 — INV-DREAM-003 新增 (dream-log-cannot-pollute-cache-nor-fabricate-platform-crises, meta_rule=MR-4, severity=critical, verification_layer=[declaration, runtime], 16 checks). 2026-04-15 03:00 Dream run 出现 4 次 Bad JSON 400 (adapter 收到破损 JSON)，但 Dream 仍产出完整"Hugging Face 平台危机"分析，用户察觉 Signal(Papers with Code 沉默)↔Action(监控 Hugging Face) 主题断裂后上报。三层根因：(a) scraped 内容含 surrogate UTF-8 → json.dump + utf-8 file write → UnicodeEncodeError → body_file 截断 → adapter.py:386 返回 400 Bad JSON (b) kb_dream.sh log() 用 `echo` 写 stdout → signals=$(llm_call ...) 命令替换捕获 log 行进 signals → cache file 被"LLM raw response: Error code 400 Bad JSON..."污染 (c) Reduce cache-only fast path 把错误日志注入 LLM 上下文 → LLM 基于这些字样自动编造"Hugging Face 危机"叙事 = 原则 #23 链式幻觉 + MR-4 silent failure 第 7 次演出。四层结构修复（defense-in-depth）：log→stderr 阻断 stdout 污染通道 + _sanitize(U+D800-U+DFFF → U+FFFD) 防编码炸裂 + file open 显式 encoding='utf-8' errors='replace' 第二防线 + REDUCE/CHUNK1/2/3 system prompt 四块加反污染守卫 (禁止把 HTTP 错误码/Python 异常/错误页 HTML/U+FFFD 当外部信号，禁止基于这些字样推断 Hugging Face/GitHub/npm 等平台状态)。runtime python_assert 真跑 sanitize 五场景 (孤立高位/低位代理/正常串/代理范围边界/sanitize 后 json+utf-8 编码不炸)。19 单测 (TestLogGoesToStderr×2 + TestSanitizeSurrogates×7 + TestShellSanitizeImplementation×5 + TestAntiPollutionSystemPrompt×3 + TestShellScriptIntegrity×1 + TestLogDefHasCommentMeta×1)。
     v3.10 → v3.11: V37.8.5 INV-X-001 升级三层检测 (血案二次演出: V37.8.4 修复本身埋盲区) — V37.8.4 收工 Mac Mini E2E 即发现 2 个边缘：CNS1952 98/99 超窗口 + 1 过短老化率 99% 但未触发严格 old==total (MR-10 第 2 次演出：修复会埋坑)；SingTaoDaily 0-tweet stub (embed disabled 返回空骨架) 被 total>0 门槛绕过完全不标记。V37.8.5 修复：(1) 检测逻辑独立为 jobs/finance_news/finance_news_zombie.py 纯函数模块 (classify_zombie(diag, count)); (2) 三层 tier: "stub" (no_data=0 + total=0) + "stale" (≥90% 老化 + count=0 守卫防止低频活跃误报)，整数比较 old*10 >= total*9 避免浮点; (3) 24 单测锁定三层 + 守卫 + shell 集成 + auto_deploy FILE_MAP; (4) verification_layer 从 [declaration] 升级到 [declaration, runtime] (MR-6 遵循: INV-X-001 现在有 python_assert 真跑 5 个 tier 场景); (5) shell 脚本禁止内嵌 inline fallback (防模块缺失时静默降级回 V37.8.4 逻辑 — MR-8 copy-paste-is-a-bug-class 兑现)。诊断行 tier 区分 ⚠️ ZOMBIE嫌疑[stub] vs [stale]，便于日志定位。
-  total_invariants: 71  # V37.9.51: 不变 (Sub-Stage 4b 6 脚本批量机械迁移 V37.9.45/V37.9.50 同款模板, INV-LLMCRON-AUDIT-001 reused; previous baseline V37.9.45 +0)
-  total_checks: 552     # V37.9.51: -3 checks (V37.9.45 555 → V37.9.51 552: 合并 V37.9.40/41/43/44/36-37 共 5 个老锚点为 1 个 V37.9.51 file_contains + 1 个 V37.9.51 python_assert 端到端验证 = 8 entries 替换 5 entries 净 -3)
+  total_invariants: 72  # V37.9.54: +1 INV-PLIST-ENV-001 (V37.9.51 baseline 71 → 72)
+  total_checks: 562     # V37.9.54: +10 (INV-RESTART-001 扩展 +5 V37.9.54 marker reload + INV-PLIST-ENV-001 新增 +5)
   meta_rules: 16        # MR-1~MR-16 (MR-16 security-governance-alignment: V37.9)
   meta_rule_discovery_count: 6   # Phase 0: registry + env + notify-topic + layer-depth + error-suppression + notify-activity
   check_types_used: [python_assert, file_contains, file_not_contains, env_var_exists, command_succeeds, log_activity_check]

@@ -14,27 +14,61 @@ export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 OPENCLAW="${OPENCLAW:-$(command -v openclaw 2>/dev/null || echo /opt/homebrew/bin/openclaw)}"
 LAUNCH_AGENTS="$HOME/Library/LaunchAgents"
+# V37.9.54: marker dir 追踪每个 label 的"上次成功加载 plist 时间"
+# 用于检测 plist mtime > marker → 走 bootout/bootstrap 强制重读 plist 路径
+PLIST_LOAD_MARKER_DIR="$HOME/.openclaw/restart_markers"
+mkdir -p "$PLIST_LOAD_MARKER_DIR" 2>/dev/null || true
 
 # Helper: restart a service under launchd management.
 #   Signature: restart_via_launchd <label> <port> <plist> <display>
 #   Returns: 0 success, 1 launchd failure, 2 launchd unavailable (caller fallback)
-# Uses `launchctl kickstart -k` (modern idempotent API). Falls back to
-# bootout+bootstrap if the service isn't loaded yet. Applies V37.8.13 post-
-# start health verification loop (5×2s curl probe).
+#
+# V37.9.13 引入 `launchctl kickstart -k` (modern idempotent API).
+# V37.9.54: kickstart -k 不重读 plist (V37.9.13 + V37.9.53 两次踩坑),
+# 改用 plist mtime vs marker file mtime 判断是否需要 bootout/bootstrap 重读:
+#   - plist 比 marker 新 (含无 marker, 视为首次启动) → 强制 bootout + bootstrap
+#     (慢 ~1s 但保证 env 同步)
+#   - plist 不比 marker 新 → kickstart -k 快路径 (V37.9.13 性能)
+# 加载成功后 touch marker 记录时间. Marker 假设 restart.sh 是 plist 加载唯一入口.
+# Applies V37.8.13 post-start health verification loop (5×2s curl probe).
 restart_via_launchd() {
     local label="$1" port="$2" plist="$3" display="$4"
     if ! command -v launchctl >/dev/null 2>&1 || [ ! -f "$plist" ]; then
         return 2
     fi
-    echo "[restart] $display: launchctl kickstart -k gui/$(id -u)/$label"
-    if ! launchctl kickstart -k "gui/$(id -u)/$label" 2>/dev/null; then
-        # Not loaded — register via bootstrap
+
+    # V37.9.54: plist mtime > marker mtime → 需要 bootout/bootstrap 重读 plist
+    local marker="$PLIST_LOAD_MARKER_DIR/${label}.loaded"
+    local need_full_reload=1  # 默认 safe path (无 marker = 首次启动视为需重读)
+    if [ -f "$marker" ]; then
+        local plist_mtime marker_mtime
+        plist_mtime=$(stat -f %m "$plist" 2>/dev/null || echo 0)
+        marker_mtime=$(stat -f %m "$marker" 2>/dev/null || echo 0)
+        if [ "$marker_mtime" -ge "$plist_mtime" ]; then
+            need_full_reload=0  # marker 比 plist 新 → daemon 已加载该 plist 版本
+        fi
+    fi
+
+    if [ "$need_full_reload" -eq 1 ]; then
+        echo "[restart] $display: plist 更新于上次加载之后, bootout+bootstrap 重读 plist"
         launchctl bootout "gui/$(id -u)/$label" 2>/dev/null || true
+        sleep 1
         if ! launchctl bootstrap "gui/$(id -u)" "$plist" 2>/dev/null; then
             echo "[restart] ⚠️ $display bootstrap failed (label=$label)"
             return 1
         fi
+    else
+        echo "[restart] $display: launchctl kickstart -k gui/$(id -u)/$label (plist 无变化)"
+        if ! launchctl kickstart -k "gui/$(id -u)/$label" 2>/dev/null; then
+            # kickstart 失败 — 服务可能未注册, fallback 到 bootstrap
+            launchctl bootout "gui/$(id -u)/$label" 2>/dev/null || true
+            if ! launchctl bootstrap "gui/$(id -u)" "$plist" 2>/dev/null; then
+                echo "[restart] ⚠️ $display bootstrap failed (label=$label)"
+                return 1
+            fi
+        fi
     fi
+
     # Health verification (V37.8.13 pattern extended from Gateway to adapter/proxy)
     local _attempt _code
     for _attempt in 1 2 3 4 5; do
@@ -43,6 +77,8 @@ restart_via_launchd() {
             "http://localhost:$port/health" 2>/dev/null || echo "000")
         if [ "$_code" = "200" ]; then
             echo "[restart] $display healthy (HTTP $_code after ${_attempt}×2s)"
+            # V37.9.54: 加载成功后更新 marker 记录"该 plist 已加载到 daemon"
+            touch "$marker" 2>/dev/null || true
             return 0
         fi
     done

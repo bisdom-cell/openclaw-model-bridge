@@ -1,5 +1,5 @@
 {
-  "updated": "2026-05-11 10:28:43",
+  "updated": "2026-05-11 10:48:26",
   "updated_by": "full_regression",
   "priorities": [
     {
@@ -307,7 +307,7 @@
     ],
     "open_prs": "",
     "blocked_on": "",
-    "focus": "V37.8.7 ontology_sources 推送格式错位血案闭环 — 同日 V37.8.6+V37.8.7 双 MR-4 演出。位置解析 i+=3 → separator 切块 + key-based prefix 解析，单块缺行不级联。INV-ONTOLOGY-001 (high, declaration+runtime) + 24 单测 + 案例 ontology_sources_positional_parser_cascade_case.md。1018 tests / 38/38 invariants. 待观察: 下次 ontology_sources 10:00/20:00 cron 推送格式正确无错位",
+    "focus": "【V37.9.54 收工】ABC 三件套同 PR 完成 + Mac Mini 二次验证待执行. V37.9.53 doubao 接入 + 实测发现 launchctl kickstart -k 不重读 plist 问题被 V37.9.54 ABC 完整解决: A restart.sh marker-based plist mtime 检测自动 bootout/bootstrap fallback / B verified_vision=True (Mac Mini image_url 实测) / C INV-PLIST-ENV-001 治理 plist env 同步. 74 suites / 2515 tests / 0 fail / 72 invariants / 562 checks / VERSION 0.37.9.54. Mac Mini 验证待办: (1) bash ~/auto_deploy.sh 同步 (2) 首次 bash ~/restart.sh 应自动 bootout+bootstrap (marker 不存在) (3) 第二次 restart.sh 应走 kickstart -k 快路径 (marker 已存在) (4) python3 ~/ontology/governance_checker.py --full 应 INV-PLIST-ENV-001 ✅. 下次 V37.9.55+ 候选: 真 fallback fire 测试 (Qwen3 失败时 doubao 接管) → flip verified_fallback / tool_calling E2E → flip verified_tool_calling / streaming E2E → flip verified_streaming.",
     "current_focus": "V37.8 MR-6 深度补齐生产硬验证通过 (35/35 inv / 136/136 checks / 9/9 MR 全绿). 下一步: V37.8.1 修复 MRD-NOTIFY-002 activity 层假阳性 (topic→job log 映射扫 mtime) 或 Ontology Phase 3 渐进替换 (ONTOLOGY_MODE=on) 或 Tool Policy Plugin V3 路标",
     "recent_changes": [
       {
@@ -319,6 +319,11 @@
         "date": "2026-05-11",
         "what": "V37.9.53 — Doubao Seed 2.0 Pro flip verified + reasoning capability 落地. Mac Mini curl 实测 /chat/completions HTTP 200 + 兼容 OpenAI JSON + 完整 content + 额外 reasoning_content 字段 (doubao seed 2.0 是 reasoning model 类似 o1/DeepSeek-R1). framework 扩展: ProviderCapabilities 加 reasoning + verified_reasoning 字段, _capability_score 从 7 升 8 维度 + verified 从 5 升 6 维度, verified_features() 输出含 reasoning. doubao plugin flip verified_text=True + reasoning=True + verified_reasoning=True (其他 4 个 verified 守 False 等 V37.9.54+ vision/tool_calling/streaming/fallback E2E 后再 flip). 结果: doubao cap_score 升至 10 vs gemini 9, build_fallback_chain(qwen) 自动排 doubao 第 1 位 (取代 gemini), 与 Qwen3 同级诉求通过 framework 自然推导达成, 零 adapter.py 改动. 25 新单测 6 类 + 修 V37.9.52 verified test + 修 test_providers.py overlap 7-8 维度. 累计 72->73 suites / 2463->2488 tests / 0 fail / VERSION 0.37.9.52->0.37.9.53 / 安全 95/100. Mac Mini 部署后 bash ~/restart.sh 重启 adapter 让 doubao 进 FALLBACK_CHAIN 第 1 位 (V37 _build_fallback_chain require_available=True 已自动).",
         "by": "claude_code"
+      },
+      {
+        "date": "2026-05-11",
+        "what": "V37.9.54 ABC 三件套同 PR. A: restart.sh marker-based plist mtime 检测 + bootout/bootstrap 自动 fallback (修复 V37.9.13 + V37.9.53 同款 kickstart -k 不重读 plist 问题). 新 PLIST_LOAD_MARKER_DIR + helper 内 stat -f %m 比较 plist mtime vs marker mtime / plist 比 marker 新 → 强制 bootout+bootstrap (慢 ~1s 但保证 env 同步) / plist 不新 → kickstart -k 快路径 / 加载成功 + HTTP 200 健康验证后才 touch marker (顺序锁防失败误更新). B: doubao verified_vision=True (Mac Mini curl image_url + text content list 实测通过 + 完整中文图片描述 + reasoning_content), cap_score 升至 12 (10+2) 仍排 fallback chain 第 1. C: 新 INV-PLIST-ENV-001 治理 (meta_rule=MR-4, severity=high, declaration+runtime) 守 plist EnvironmentVariables 含所有 provider api_key_env, runtime python_assert 真读 plist 比对 critical envs {REMOTE/GEMINI/ARK} 全在 (dev 静默跳过). 同时扩展 INV-RESTART-001 加 V37.9.54 marker reload 5 checks. 27 新单测 5 类 + 修适 V37.9.53/V37.9.52 5 处 cascading lock. 累计 73->74 suites / 2488->2515 tests / 0 fail / governance v3.34->v3.35 / 71->72 invariants (+INV-PLIST-ENV-001) / 552->562 checks (+10) / VERSION 0.37.9.53->0.37.9.54 / 安全 95/100. Mac Mini 部署后: 首次 bash ~/restart.sh marker 不存在走 bootout+bootstrap; 第二次 marker 已存在 plist 未变走 kickstart -k 快路径; 改 plist 后再跑 restart 自动 bootout+bootstrap. python3 ~/ontology/governance_checker.py --full 应 INV-PLIST-ENV-001 ✅. 三层防御覆盖运维盲区 — V37.9.13 双管理修复 + V37.9.53 plist env 缺失 + V37.9.54 ABC 同 PR 修 = MR-4 silent-failure 元规则在 plist 场域完整闭环.",
+        "by": "claude_code"
       }
     ],
     "last_session_ended": "2026-04-20",
@@ -329,14 +334,14 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 2488,
-    "last_regression": "2026-05-11 10:28 pass",
+    "test_count": 2515,
+    "last_regression": "2026-05-11 10:48 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-05-11 10:28",
-    "test_suites": 73,
+    "security_score_time": "2026-05-11 10:48",
+    "test_suites": 74,
     "governance_invariants": "64/64",
     "governance_checks": "350/350",
-    "version": "0.37.9.53"
+    "version": "0.37.9.54"
   },
   "incidents": [
     {
