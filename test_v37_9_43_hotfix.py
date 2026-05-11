@@ -211,13 +211,17 @@ class TestHotfixDoesNotBreakV37943Main(unittest.TestCase):
         self.assertIn("[LLM_DEGRADED]", arxiv_src)
 
     def test_aligned_scripts_v37_9_43_arxiv_intact(self):
-        """ALIGNED_SCRIPTS 仍含 arxiv_monitor V37.9.43"""
+        """ALIGNED_SCRIPTS 仍含 arxiv_monitor (版本 V37.9.43 或 V37.9.51 Sub-Stage 4b 升级)"""
         audit_src = _read(os.path.join(REPO_ROOT, "ontology", "llm_cron_audit.py"))
         self.assertIn(
             'jobs/arxiv_monitor/run_arxiv.sh',
             audit_src
         )
-        self.assertIn('"V37.9.43"', audit_src)
+        # V37.9.51 兼容: arxiv 从 V37.9.43 升级到 V37.9.51 (Sub-Stage 4b 6 字段 + rule_check)
+        self.assertTrue(
+            ('"V37.9.43"' in audit_src) or ('"V37.9.51"' in audit_src),
+            "ALIGNED_SCRIPTS 应含 arxiv_monitor 的 V37.9.43 或 V37.9.51 字面量"
+        )
 
 
 if __name__ == "__main__":

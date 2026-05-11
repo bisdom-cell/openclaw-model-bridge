@@ -156,9 +156,12 @@ class TestHnInAuditAligned(unittest.TestCase):
         sys.modules["_au_v9_41"] = self.au
         spec.loader.exec_module(self.au)
 
-    def test_hn_in_aligned_with_v37_9_41(self):
+    def test_hn_in_aligned_with_v37_9_41_or_later(self):
+        """HN 必须在 ALIGNED_SCRIPTS, V37.9.41 (原) 或 V37.9.51 (Sub-Stage 4b 升级)"""
         self.assertIn("run_hn_fixed.sh", self.au.ALIGNED_SCRIPTS)
-        self.assertEqual(self.au.ALIGNED_SCRIPTS["run_hn_fixed.sh"], "V37.9.41")
+        version = self.au.ALIGNED_SCRIPTS["run_hn_fixed.sh"]
+        self.assertIn(version, ("V37.9.41", "V37.9.51"),
+                      f"HN 应映射 V37.9.41 或 V37.9.51, 实际 {version!r}")
 
     def test_aligned_scripts_count_at_least_8(self):
         """V37.9.41 后 ALIGNED_SCRIPTS ≥8 (V37.9.40 7 + HN)"""
@@ -168,7 +171,9 @@ class TestHnInAuditAligned(unittest.TestCase):
         rep = self.au.audit_script(HN_SCRIPT)
         self.assertTrue(rep.exists)
         self.assertTrue(rep.aligned, msg=f"HN 应识别为 aligned, score {rep.compliance_score}")
-        self.assertEqual(rep.aligned_version, "V37.9.41")
+        # V37.9.51 兼容: HN 从 V37.9.41 升级到 V37.9.51 (Sub-Stage 4b)
+        self.assertIn(rep.aligned_version, ("V37.9.41", "V37.9.51"),
+                      f"aligned_version 应为 V37.9.41 或 V37.9.51, 实际 {rep.aligned_version!r}")
         self.assertEqual(len(rep.placeholder_findings), 0)
 
 

@@ -196,11 +196,12 @@ class TestGhTrendingInAuditAligned(unittest.TestCase):
         sys.modules["_au_v9_44"] = self.au
         spec.loader.exec_module(self.au)
 
-    def test_github_trending_in_aligned_with_v37_9_44(self):
+    def test_github_trending_in_aligned_with_v37_9_44_or_later(self):
+        """github_trending 必须在 ALIGNED_SCRIPTS, V37.9.44 (原) 或 V37.9.51 (Sub-Stage 4b 升级)"""
         self.assertIn("jobs/github_trending/run_github_trending.sh", self.au.ALIGNED_SCRIPTS)
-        self.assertEqual(
-            self.au.ALIGNED_SCRIPTS["jobs/github_trending/run_github_trending.sh"], "V37.9.44"
-        )
+        version = self.au.ALIGNED_SCRIPTS["jobs/github_trending/run_github_trending.sh"]
+        self.assertIn(version, ("V37.9.44", "V37.9.51"),
+                      f"github_trending 应映射 V37.9.44 或 V37.9.51, 实际 {version!r}")
 
     def test_aligned_scripts_count_at_least_10(self):
         """V37.9.44 后 ALIGNED_SCRIPTS ≥10 (V37.9.43 9 + github_trending)"""
@@ -212,7 +213,9 @@ class TestGhTrendingInAuditAligned(unittest.TestCase):
         self.assertTrue(
             rep.aligned, msg=f"github_trending 应识别为 aligned, score {rep.compliance_score}"
         )
-        self.assertEqual(rep.aligned_version, "V37.9.44")
+        # V37.9.51 兼容: github_trending 从 V37.9.44 升级到 V37.9.51 (Sub-Stage 4b)
+        self.assertIn(rep.aligned_version, ("V37.9.44", "V37.9.51"),
+                      f"aligned_version 应为 V37.9.44 或 V37.9.51, 实际 {rep.aligned_version!r}")
         self.assertEqual(len(rep.placeholder_findings), 0)
 
 

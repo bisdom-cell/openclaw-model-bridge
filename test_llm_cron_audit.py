@@ -252,10 +252,16 @@ class TestAlignedScriptsRecognition(unittest.TestCase):
                             for r in reports if r.aligned and r.aligned_version}
         # 路径以 ./jobs/... 开头（audit_all 拼出的相对路径），归一化后能匹配
         # 确保 4 个 ALIGNED_SCRIPTS 都被命中（counted by version 字段非空）
-        self.assertIn("V37.9.36-37", aligned_versions.values())
-        self.assertIn("V37.8.10", aligned_versions.values())
-        self.assertIn("V37.5", aligned_versions.values())
-        self.assertIn("V37.9.16", aligned_versions.values())
+        # V37.9.51: rss_blogs 从 V37.9.36-37 升级到 V37.9.51 (Sub-Stage 4b),
+        # 但 rss_blogs 仍在 ALIGNED_SCRIPTS 中, 只是 version 字符串变了。
+        # 用 alternation 接受新旧两种版本字符串
+        all_versions = aligned_versions.values()
+        rss_blogs_aligned = any(v in ("V37.9.36-37", "V37.9.51") for v in all_versions)
+        self.assertTrue(rss_blogs_aligned,
+                        f"rss_blogs 应对齐为 V37.9.36-37 或 V37.9.51, 实际 versions: {list(all_versions)}")
+        self.assertIn("V37.8.10", all_versions)
+        self.assertIn("V37.5", all_versions)
+        self.assertIn("V37.9.16", all_versions)
 
 
 class TestMarkdownReport(unittest.TestCase):
@@ -272,8 +278,11 @@ class TestMarkdownReport(unittest.TestCase):
         self.assertIn("## ❌ 未对齐脚本", md)
         self.assertIn("## V37.9.38+ 修复路线图", md)
         self.assertIn("## 合规标准", md)
-        # 4 个对齐脚本版本号显示
-        self.assertIn("V37.9.36-37", md)
+        # 4 个对齐脚本版本号显示 — V37.9.51 后 rss_blogs 升级 V37.9.51, alternation 兼容
+        self.assertTrue(
+            ("V37.9.36-37" in md) or ("V37.9.51" in md),
+            "rss_blogs 应显示为 V37.9.36-37 或 V37.9.51"
+        )
         self.assertIn("V37.8.10", md)
 
 
@@ -322,9 +331,19 @@ class TestSourceLevelGuards(unittest.TestCase):
         self.assertIn("V37.9.38", self.src)
 
     def test_aligned_scripts_has_four(self):
-        """ALIGNED_SCRIPTS 必须含 4 个 entry（版本字符串）"""
-        for marker in ("V37.5", "V37.8.10", "V37.9.16", "V37.9.36-37"):
+        """ALIGNED_SCRIPTS 必须含 4 个 entry（版本字符串）
+
+        V37.9.51: rss_blogs 升级到 V37.9.51 (Sub-Stage 4b), V37.9.36-37 字面量被替换。
+        用 alternation 兼容新旧版本字符串。
+        """
+        # 不变的 3 个 baseline 锚点
+        for marker in ("V37.5", "V37.8.10", "V37.9.16"):
             self.assertIn(marker, self.src)
+        # rss_blogs 版本字符串: V37.9.36-37 (旧) 或 V37.9.51 (V37.9.51 Sub-Stage 4b 升级)
+        self.assertTrue(
+            ("V37.9.36-37" in self.src) or ("V37.9.51" in self.src),
+            "ALIGNED_SCRIPTS 应至少含 rss_blogs 的版本字符串 (V37.9.36-37 或 V37.9.51)"
+        )
 
     def test_normalize_path_helper_exists(self):
         self.assertIn("def _normalize_path(path)", self.src)

@@ -1,5 +1,5 @@
 {
-  "updated": "2026-05-10 05:59:48",
+  "updated": "2026-05-11 01:06:17",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -105,6 +105,11 @@
   ],
   "recent_changes": [
     {
+      "date": "2026-05-11",
+      "what": "V37.9.51 — Sub-Stage 4b 续 batch: 6 论文/repo/tweet 类脚本 (rss_blogs/dblp/arxiv_monitor/github_trending/ai_leaders_x/hn) 批量 5→6 字段 + rule_check 机械迁移 (V37.9.45 hf_papers / V37.9.50 semantic_scholar PoC 模板横向应用). 每脚本统一改动 8 处: prompt 5→6 字段 + 🎚️ 项目对齐度 + 5 档评分指南 + 反幻觉守卫 + emit heredoc imports os (V37.9.50-hotfix 同款) + parse_5→parse_6field + lazy import scorer + per-paper rule_check + high_alignment_count 统计 + 末尾高对齐汇总行. 新增 test_v37_9_51_sub_stage_4b_batch.py (28 单测 / 3 类) + 5 老测试 alternation 更新 (V37.9.40/41/43/44 或 V37.9.51 兼容). ontology/llm_cron_audit.py ALIGNED_SCRIPTS 6 脚本统一升级 V37.9.51. governance 合并 5 老锚点为 1 V37.9.51 file_contains + 1 python_assert. 反向验证守卫真有效 (sabotage 立即 3 FAIL). 累计 70→71 suites / 2403→2431 tests (+28) / 0 fail / 71 inv 不变 / 555→552 checks / 安全 95/100 / VERSION 0.37.9.50→0.37.9.51. Mac Mini 部署后 6 脚本下次 cron 自动用新 6 字段 + 🎚️ + ⚠️ marker + 高对齐统计 (audit P1/P2 路径完整闭环, 11/21 ALIGNED 视野不变但深度升级).",
+      "by": "claude_code"
+    },
+    {
       "date": "2026-05-10",
       "what": "V37.9.50-hotfix3 — run_discussions 日落 (社区 Issues 监控). 用户继续日落法则减法. 与 V37.9.50-hotfix2 openclaw_run 同源 (jobs/openclaw_official/run_discussions.sh, 每天 4 次 8/12/16/20:15). 推送内容是 V37.9.36 占位符反模式 (贡献：xxx 价值：⭐⭐⭐⭐ 机械文本) + 社区 issue 价值不高. 软删除路径: jobs_registry.yaml enabled true→false + job_watchdog.sh 同步删除 JOBS entry + docs/config.md ⛔ 标记替代 ✅ + line 827 特性矩阵表 strikethrough 避免 drift detector regex 误命中 (\\|\\s*run_discussions.*?✅ 模式) + 保留代码备 revert. 70 suites / 2403 tests / 0 fail / VERSION 0.37.9.50 不变 (hotfix3 不 bump). Mac Mini 操作: 同 hotfix2 同款 grep -v 过滤 + crontab <file> 加载. 一次推送链路彻底清理 (Tripwire 框架接管 OpenClaw 升级监控 + Discord #ontology 接管社区 issue 价值流).",
       "by": "claude_code"
@@ -197,11 +202,6 @@
     {
       "date": "2026-05-08",
       "what": "V37.9.39 — semantic_scholar 5 字段深度迁移 (V37.9.38 audit 部署后 <6h 用户视角驱动第一个 PoC fix). 镜像 V37.9.36-37 rss_blogs 完整模式: source notify.sh + send_alert + LLM 三层检测 + per-paper retry 5/10/20s × 3 + 5 字段 prompt (📌中文标题/🔑核心贡献/💡关键方法/🎯实践启发/⭐评级) + 按评级动态调长度 + key-based parser + LLM_DEGRADED + tldr/abstract 兜底 (替代 V37.9.36 占位符反模式 贡献：AI领域相关研究/价值：⭐⭐⭐) + 多窗口切片 (>8000 字 + sleep 1s + [i/N] + 续). S2 422→695 行 (+65%). 37 新单测 4 类 + 反向验证守卫真有效. ALIGNED_SCRIPTS 4→5. audit findings 15→12. INV-LLMCRON-AUDIT-001 14→15 checks. 用户视角原则 #13 第 10 次正向兑现 + MR-8 跨 job 同步 fail-fast 兑现. 59 suites / 2117→2154 tests (+37) / 0 fail / 549→550 checks / 71 inv / 安全 95/100 / VERSION 0.37.9.38→0.37.9.39",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-05-08",
-      "what": "V37.9.38 双交付：P1 status_update.py 双路径 bug 闭环 (V37.9.36 候选 _resolve_array_target+_migrate_top_level_unfinished helpers + 26 单测含血案场景复现 + 反向验证守卫真有效) + P2 LLM cron fail-fast audit 视野+预防+路线图三件套 (ontology/llm_cron_audit.py 扫描器扫 21 脚本 + docs/llm_cron_fail_fast_audit.md 完整报告 + INV-LLMCRON-AUDIT-001 13 checks + 26 单测). 4 已对齐 vs 17 未对齐含 15 findings (arxiv_monitor/hf_papers/semantic_scholar 各 3 P1 + 6 P2 + 8 P3). MR-8 兑现 (跨 job 不同步是 copy-paste-is-a-bug-class). PoC fix 推迟 V37.9.39+ (MR-10 三问: 不引入新 bug). 58 suites / 2065→2117 tests (+52) / 0 fail / 535→549 checks (+14) / 70→71 inv (+1) / 安全 95/100 / VERSION 0.37.9.37→0.37.9.38",
       "by": "claude_code"
     }
   ],
@@ -323,11 +323,11 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 2403,
-    "last_regression": "2026-05-10 05:59 pass",
+    "test_count": 2431,
+    "last_regression": "2026-05-11 00:58 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-05-10 05:59",
-    "test_suites": 70,
+    "security_score_time": "2026-05-11 00:58",
+    "test_suites": 71,
     "governance_invariants": "64/64",
     "governance_checks": "350/350",
     "version": "0.37.9.50"
@@ -394,7 +394,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "【V37.9.50 真终极收工】今日 8 commits 完整闭环: V37.9.46-50 五阶段 PoC + 2 hotfix (os import bug 实测发现 + 修复实证) + 1 日落 (openclaw_run disable Mac Mini cron 删除确认). 65→70 suites / 2280→2403 tests (+123) / VERSION 0.37.9.45→0.37.9.50 / 安全 95/100. **Opportunity Radar 三件套 100% PoC**: #1 cross_source_signal_aggregator (V37.9.46) / #2 project_alignment_scorer rule_check (V37.9.47, hf_papers 集成) / #3 kb_trend_acceleration (V37.9.48) / Stage 4a cascade #1+#3 入推送链 (V37.9.49) / Sub-Stage 4b PoC semantic_scholar 6 字段 (V37.9.50). **Mac Mini 生产实证完整**: V37.9.50 推送 ⚠️ marker + \"本轮高对齐论文 ⭐≥4: 1/2 篇\" 真实统计 + LLM rule_check 防 hallucination 设计目标 100% 达成. **下次 V37.9.51+ 候选**: (a) Sub-Stage 4b 续 batch 6 个论文/repo/tweet 类脚本 (rss_blogs/dblp/arxiv_monitor/github_trending/ai_leaders_x/hn) 同款机械迁移 (b) Sub-Stage 4c Top 5 高对齐推送段 (c) Stage 5 kb_radar.sh 06:00 cron 综合分析 (d) Mac Mini 5/11 cron 自然触发观察 V37.9.49 推送链效果 (e) S2 API 429 限流策略调查 (f) SLO p95 50380ms 调查. **用户视角原则 #13 第 18 次正向兑现** — Wei 30s 实跑 stderr 抓 dev 单测漏的 NameError, hotfix 后 30s 再实跑确认真生效. 真终极收工完成 ✅",
+  "focus": "【V37.9.51 收工】Sub-Stage 4b 续 batch 完成: 6 论文/repo/tweet 类脚本 (rss_blogs/dblp/arxiv_monitor/github_trending/ai_leaders_x/hn) 批量 5→6 字段 + rule_check 机械迁移 (V37.9.45/V37.9.50 PoC 模板横向覆盖). 70→71 suites / 2403→2431 tests (+28) / VERSION 0.37.9.50→0.37.9.51 / 安全 95/100. 决策窗口保留 dry-run 默认 (用户决策, Mac Mini 手动验证零漂移后再激活, 防 V37.9.23/24/25 累积期意外漂移). 周一用户视角观察延后至 5/18. **下次 V37.9.52+ 候选**: (a) Sub-Stage 4c Top 5 高对齐推送段聚合 (b) Stage 5 kb_radar.sh 06:00 cron 综合分析 (c) Mac Mini machine_sync 零漂移验证后激活 (d) SLO p95 50380ms 调查. **用户视角原则 #13 兑现**: 用户合并后 Mac Mini 自动 deploy → 下次 cron (今晚/明早) 6 脚本同步生效, 推送中应首次出现 🎚️ 项目对齐度 + ⚠️ rule_check marker + 末尾高对齐 ⭐≥4: N/M 统计行 横向覆盖论文/repo/tweet 类推送.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",

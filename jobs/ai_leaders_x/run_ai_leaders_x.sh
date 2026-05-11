@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # cron 环境 PATH 极简，必须显式声明
 export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
-# AI Leaders X/Twitter 技术洞察追踪 v2
+# AI Leaders X/Twitter 技术洞察追踪 v2 (V37.9.51 — 6 字段 + rule_check 升级,
+# V37.9.40 深度 5 字段基础 + V37.9.45 hf_papers / V37.9.50 semantic_scholar
+# 同款 Opportunity Radar #2 模板横向迁移, Sub-Stage 4b 5/6)
 # 每天 2 次（09:00, 21:00 HKT）由系统 crontab 触发
 # 追踪 9 位 AI 技术领袖的 X 动态，深度分析并归档到 KB
 # 数据源：Twitter Syndication API（无需认证，用于 embed widget）
@@ -340,7 +342,7 @@ text = t['text']
 author = t['author']
 label = t['label']
 
-prompt = """你是资深 AI 系统架构师。对以下 X 推文做 5 字段深度技术分析:
+prompt = """你是资深 AI 系统架构师 (兼 OpenClaw 项目对齐评估师)。对以下 X 推文做 6 字段深度技术分析:
 
 📌 中文主题: 用 ≤15 字概括推文核心主题 (信达雅, 不直译)
 🔑 核心观点: 3-5 条 bullet, 每条 1 句 ≤ 50 字, 列出推文作者的关键论点/事实/技术声明
@@ -348,14 +350,24 @@ prompt = """你是资深 AI 系统架构师。对以下 X 推文做 5 字段深�
    长度按评级动态调整: ⭐⭐⭐→100-150字 / ⭐⭐⭐⭐→250-400字 / ⭐⭐⭐⭐⭐→500-800字 (深度推文充分展开)
 🎯 系统启示: 1-3 条对 Agent Runtime / Control Plane / Memory 系统的具体启示, 每条 ≤ 80 字
 ⭐ 评级: ⭐ × N (1-5 个) + 推荐场景 (谁应该读 / 何时读 / 用于什么场景)
+🎚️ 项目对齐度: ⭐ × N (1-5 个) + 一句话原因 (≤ 30 字)
+   ━ V37.9.51 新增 (V37.9.45 hf_papers / V37.9.50 semantic_scholar 同款 Opportunity Radar #2 模板, 用于过滤 OpenClaw 高价值信号) ━
+
+OpenClaw 项目方向 (参考评分):
+   ⭐⭐⭐⭐⭐ = 直接相关 (control plane / agent runtime / ontology / governance / convergence framework / fail-fast / memory plane / multimodal routing / opportunity radar)
+   ⭐⭐⭐⭐  = 间接相关 (tool plugin / KB RAG / semantic search / drift detection / declarative policy / agent reliability)
+   ⭐⭐⭐    = 一般 AI/ML 趋势 (可借鉴但非核心, 如新模型架构 / training tricks / benchmark)
+   ⭐⭐     = 无明显关联 (但可能未来有用, 比如纯 NLP 任务)
+   ⭐      = 完全无关 (噪声, 比如硬件细节 / GPU kernel / 单纯学术 paper)
 
 ⚠️ 严格约束 (违反则整份输出作废):
 - 只使用上方提供的推文文本中的信息, 严禁虚构作者未提及的事实/数据/链接
 - 推文短不足以判断深度时, 标⭐较低 + 写"基于推文片段的初步判断"
+- 项目对齐度评分必须基于"是否能为 OpenClaw 控制平面 / 记忆平面 / ontology engine 提供有价值的借鉴", 而非泛泛 AI 相关
 - 严禁推断 Hugging Face / OpenAI / GitHub 等平台的具体内部状态除非原文提及
 - 严禁把 HTTP 错误码 / Python 异常 / 错误日志当外部信号
 
-输出格式 (严格按此 5 字段, 字段间用空行分隔):
+输出格式 (严格按此 6 字段, 字段间用空行分隔):
 
 📌 中文主题: <你的概括>
 
@@ -371,6 +383,8 @@ prompt = """你是资深 AI 系统架构师。对以下 X 推文做 5 字段深�
 - 启示2
 
 ⭐ 评级: ⭐⭐⭐⭐ / 推荐场景: <场景描述>
+
+🎚️ 项目对齐度: ⭐⭐⭐ / <一句话原因, ≤ 30 字>
 
 ---
 
@@ -414,7 +428,7 @@ echo "[ai_leaders] LLM 调用完成: 成功 $((TOTAL_NEW - TOTAL_FAILED))/$TOTAL
 # ── V37.9.40: 5 字段 emit (5-field key-based parser + LLM_DEGRADED fallback + 多窗口切片) ──
 MSG_FILE="$CACHE/ai_leaders_message.txt"
 $PYTHON3 - "$ALL_TWEETS" "$RESULTS_FILE" "$DAY" "$MSG_FILE" << 'PYEOF'
-import sys, json, re
+import sys, json, re, os  # V37.9.51: os 用于 lazy import project_alignment_scorer 路径解析 (V37.9.50-hotfix 同款)
 
 tweets_file, results_file, day, msg_file = sys.argv[1:5]
 
@@ -427,10 +441,11 @@ with open(tweets_file, encoding='utf-8') as f:
 with open(results_file, encoding='utf-8') as f:
     results = [json.loads(l) for l in f if l.strip()]
 
-# V37.9.39 同款 5 字段 key-based parser
-def parse_5field_output(content):
+# V37.9.51 6 字段 key-based parser (V37.9.45 hf_papers / V37.9.50 semantic_scholar 同款 Opportunity Radar #2)
+def parse_6field_output(content):
     fields = {
         'cn_title': '', 'highlights': '', 'insight': '', 'practice': '', 'rating': '',
+        'alignment': '',  # V37.9.51 新增
     }
     current_field = None
     current_buffer = []
@@ -466,6 +481,16 @@ def parse_5field_output(content):
             current_field = 'practice'
             current_buffer = []
             continue
+        # 🎚️ 项目对齐度 (V37.9.51 新增, fallback 🎚 if no variation selector)
+        stripped = line.lstrip()
+        if stripped.startswith('🎚️') or stripped.startswith('🎚'):
+            flush()
+            current_field = 'alignment'
+            current_buffer = []
+            m = re.match(r'.*🎚️?\s*(?:项目)?对齐度?\s*[:：]?\s*(.*)', stripped)
+            if m and m.group(1).strip():
+                current_buffer.append(m.group(1).strip())
+            continue
         if line.lstrip().startswith('⭐') and current_field != 'rating':
             if '评级' in line or '推荐场景' in line or re.match(r'\s*⭐+\s*$', line):
                 flush()
@@ -490,8 +515,32 @@ authors_summary = ', '.join(f"{k}({v})" for k, v in author_counts.items())
 msg_lines = [f"🧠 AI Leaders 技术洞察 ({day})",
              f"来源: {authors_summary}", ""]
 
+# V37.9.51: lazy import project_alignment_scorer + load concepts (V37.9.45 hf_papers / V37.9.50 同款 rule_check)
+# FAIL-OPEN: 模块缺失 / yaml 缺失 → 跳过 rule_check 不阻塞 cron
+_concepts = None
+_validate_alignment_score = None
+_extract_star_count = None
+_format_validation_marker = None
+try:
+    sys.path.insert(0, os.environ.get('HOME', os.path.expanduser('~')))
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) if '__file__' in dir() else '.')
+    from project_alignment_scorer import (
+        load_project_concepts,
+        validate_alignment_score,
+        extract_star_count,
+        format_validation_marker,
+    )
+    _concepts = load_project_concepts()
+    _validate_alignment_score = validate_alignment_score
+    _extract_star_count = extract_star_count
+    _format_validation_marker = format_validation_marker
+    print("[ai_leaders] V37.9.51 project_alignment_scorer 加载成功 (rule_check 启用)", file=sys.stderr)
+except Exception as _e:
+    print(f"[ai_leaders] V37.9.51 project_alignment_scorer 缺失或失败: {_e} (rule_check 跳过, FAIL-OPEN)", file=sys.stderr)
+
 degraded_count = 0
 llm_ok_count = 0
+high_alignment_count = 0  # V37.9.51: ⭐≥4 alignment 计数 (Opportunity Radar #2)
 for i, tweet in enumerate(tweets):
     text_preview = tweet['text'][:200]
     if len(tweet['text']) > 200:
@@ -511,7 +560,8 @@ for i, tweet in enumerate(tweets):
         msg_lines.append("⚠️ [LLM_DEGRADED] 深度分析失败, 推文原文供参考 (见上)")
         msg_lines.append("")
     else:
-        fields = parse_5field_output(result.get('content', ''))
+        # V37.9.51: 解析 6 字段 (V37.9.45 hf_papers / V37.9.50 同款 Opportunity Radar #2)
+        fields = parse_6field_output(result.get('content', ''))
         title_display = fields['cn_title'] or f"{author} 技术分享"
         msg_lines.append(f"━━━ [{author}] {title_display} ━━━")
         msg_lines.append(f"_{text_preview}_")
@@ -533,16 +583,41 @@ for i, tweet in enumerate(tweets):
         if fields['rating']:
             msg_lines.append(fields['rating'])
             msg_lines.append("")
+        # V37.9.51: 🎚️ 项目对齐度展示 + rule_check 验证 (V37.9.45 hf_papers / V37.9.50 同款)
+        if fields['alignment']:
+            msg_lines.append(f"🎚️ 项目对齐度: {fields['alignment']}")
+            # rule_check: LLM ⭐ 评分 vs keyword-based rule 一致性
+            if _validate_alignment_score and _concepts and _extract_star_count and _format_validation_marker:
+                try:
+                    llm_stars = _extract_star_count(fields['alignment'])
+                    if llm_stars > 0:
+                        # rule_content = author + text (V37.9.47 hf_papers 同款模式适配 tweet 场景)
+                        rule_content = tweet.get('author', '') + ' ' + tweet.get('text', '')
+                        validation = _validate_alignment_score(rule_content, llm_stars, _concepts)
+                        marker = _format_validation_marker(validation)
+                        if marker:  # validated=False 时返回 ⚠️ <reason>
+                            msg_lines.append(marker)
+                        if llm_stars >= 4:
+                            high_alignment_count += 1
+                except Exception as _e:
+                    print(f"[ai_leaders] V37.9.51 rule_check 失败 tweet={i}: {_e} (FAIL-OPEN)", file=sys.stderr)
+            msg_lines.append("")
         if fields['cn_title'] or fields['highlights'] or fields['insight']:
             llm_ok_count += 1
 
     msg_lines.append("---")
     msg_lines.append("")
 
+# V37.9.51: 末尾追加高对齐统计 (Opportunity Radar #2)
+total_tweets = len(tweets)
+if total_tweets > 0:
+    msg_lines.append(f"━━━ 本轮高对齐推文 (项目对齐度 ⭐≥4): {high_alignment_count}/{total_tweets} 条 ━━━")
+    msg_lines.append("")
+
 with open(msg_file, 'w', encoding='utf-8') as f:
     f.write('\n'.join(msg_lines))
 
-print(f"[ai_leaders] 消息组装完成: {len(tweets)} 条 (LLM 解析成功 {llm_ok_count}, degraded {degraded_count})", file=sys.stderr)
+print(f"[ai_leaders] 消息组装完成: {len(tweets)} 条 (LLM 解析成功 {llm_ok_count}, degraded {degraded_count}, 高对齐 {high_alignment_count})", file=sys.stderr)
 PYEOF
 
 # ── 推送 WhatsApp + Discord (V37.9.21/V37.9.37 多窗口分片: >8000 字才切, ≤8000 单段) ─
