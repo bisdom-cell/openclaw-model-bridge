@@ -1,11 +1,11 @@
 # openclaw-model-bridge
 
-> **Agent Runtime Control Plane** — Connect any LLM to [OpenClaw](https://github.com/openclaw/openclaw) with one command. Zero dependencies, 7 providers, multimodal support.
-> 将任意大模型（Qwen / OpenAI / Gemini / Claude / Kimi / MiniMax / GLM）一键接入 OpenClaw — 零第三方依赖、支持多模态、10 分钟跑通。
+> **Agent Runtime Control Plane** — Connect any LLM to [OpenClaw](https://github.com/openclaw/openclaw) with one command. Zero dependencies, **8 providers** (含豆包 Seed 2.0 主力), multimodal support, reasoning capability.
+> 将任意大模型（Qwen / OpenAI / Gemini / Claude / Kimi / MiniMax / GLM / **Doubao Seed 2.0**）一键接入 OpenClaw — 零第三方依赖、支持多模态、10 分钟跑通。
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-2253%20passed-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-2515%20passed-brightgreen.svg)]()
 [![Providers](https://img.shields.io/badge/providers-7%20supported-orange.svg)]()
 [![Governance](https://img.shields.io/badge/invariants-71%2F71%20%2B%2016%20MR-blueviolet.svg)]()
 [![Security](https://img.shields.io/badge/security-95%2F100-green.svg)]()
