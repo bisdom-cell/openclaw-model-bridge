@@ -72,6 +72,7 @@ run_suite "v37_9_51_sub_stage_4b_batch (V37.9.51 Sub-Stage 4b 6 脚本批量 6�
 run_suite "v37_9_52_doubao_provider (V37.9.52 Doubao Seed 2.0 Pro 第 8 个 provider + module 重入 bug fix)" "python3 test_v37_9_52_doubao_provider.py"
 run_suite "v37_9_53_doubao_verified (V37.9.53 flip verified_text + reasoning capability + fallback chain 排名前移)" "python3 test_v37_9_53_doubao_verified.py"
 run_suite "v37_9_54_abc (V37.9.54 ABC: restart.sh marker-based plist reload + verified_vision + INV-PLIST-ENV-001)" "python3 test_v37_9_54_abc.py"
+run_suite "v37_9_55_doubao_more_verified (V37.9.55 flip verified_tool_calling + verified_streaming, cap_score 12→16 超 Qwen3 14)" "python3 test_v37_9_55_doubao_more_verified.py"
 run_suite "run_rss_blogs (V37.9.36 LLM fail-fast + 占位符 fallback 禁止)" "python3 test_run_rss_blogs.py"
 run_suite "v37_9_18_cron_strict_checks (V37.9.18 preflight 双 warning + crontab_safe 退出码)" "python3 test_v37_9_18_cron_strict_checks.py"
 run_suite "convergence (V37.9.19 Phase 4 Layer 5 — declared→runtime convergence framework + jobs_to_crontab spec)" "python3 test_convergence.py"

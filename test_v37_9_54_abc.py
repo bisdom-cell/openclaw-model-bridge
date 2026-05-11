@@ -150,19 +150,21 @@ class TestDoubaoVerifiedVision(unittest.TestCase):
                       "verified_vision=True 应反映在 verified_features 列表")
 
     def test_verified_features_v37_9_54_complete_set(self):
-        """V37.9.54 doubao verified_features = [text, vision, reasoning]."""
+        """V37.9.54 baseline 含 text+vision+reasoning.
+        V37.9.55 加 tool_calling + streaming = 5 features."""
         features = self.d.capabilities.verified_features()
+        self.assertTrue({"text", "vision", "reasoning"}.issubset(set(features)))
         self.assertEqual(
-            set(features), {"text", "vision", "reasoning"},
-            f"V37.9.54 doubao verified_features 锁定为 [text, vision, reasoning], got {features}",
+            set(features),
+            {"text", "vision", "tool_calling", "streaming", "reasoning"},
+            f"V37.9.55 doubao verified_features 锁定 5 项, got {features}",
         )
 
     def test_unverified_flags_still_false(self):
-        """V37.9.54 仍守 verified_tool_calling / streaming / fallback = False."""
+        """V37.9.55 仅 verified_fallback 守 False (剩生产真 fire 后再 flip).
+        verified_tool_calling/streaming 已在 V37.9.55 flip True (Mac Mini E2E)."""
         c = self.d.capabilities
-        self.assertFalse(c.verified_tool_calling, "tool_calling 未测")
-        self.assertFalse(c.verified_streaming, "streaming 未测")
-        self.assertFalse(c.verified_fallback, "fallback 未在生产真 fire")
+        self.assertFalse(c.verified_fallback, "fallback 未在生产真 fire (V37.9.56+)")
 
     def test_plugin_source_has_v37_9_54_marker(self):
         with open(DOUBAO_PLUGIN, encoding="utf-8") as f:
@@ -183,12 +185,15 @@ class TestDoubaoCapScoreUpRanking(unittest.TestCase):
         self.reg = self.providers.get_registry()
 
     def test_doubao_cap_score_v37_9_54(self):
-        """V37.9.54: doubao cap_score = 6 base + 3 verified*2 = 12."""
+        """V37.9.54: doubao cap_score = 6 base + 3 verified*2 = 12.
+        V37.9.55 flip tool_calling + streaming 让 cap_score 升至 16.
+        本 test 锁定 V37.9.54 baseline >= 12 + V37.9.55 当前精确值 16."""
         doubao = self.reg.get("doubao")
         score = self.reg._capability_score(doubao)
+        self.assertGreaterEqual(score, 12, f"V37.9.54 baseline >= 12, got {score}")
         self.assertEqual(
-            score, 12,
-            f"V37.9.54 doubao cap_score 应升至 12 (6 base + 3 verified*2: text+vision+reasoning), got {score}",
+            score, 16,
+            f"V37.9.55 doubao cap_score 锁定 16 (6 base + 5 verified*2), got {score}",
         )
 
     def test_doubao_remains_first_in_fallback_chain(self):
@@ -268,10 +273,16 @@ class TestPlistEnvGovernance(unittest.TestCase):
 class TestV37954VersionMarker(unittest.TestCase):
     """整体 V37.9.54 版本标记一致性."""
 
-    def test_version_file_is_v37_9_54(self):
+    def test_version_file_is_v37_9_54_or_later(self):
+        """V37.9.54 引入这些 ABC checks. 后续 V37.9.55+ 版本号继续推进, 不应让此 test fail.
+        改为不等式断言: VERSION 必须 >= 0.37.9.54 (字符串比较 lex 顺序在 0.37.x 范围正确)."""
         with open(os.path.join(REPO_ROOT, "VERSION"), encoding="utf-8") as f:
             content = f.read().strip()
-        self.assertEqual(content, "0.37.9.54")
+        # 接受 0.37.9.54 / 0.37.9.55 / 0.37.9.56 / etc.
+        self.assertTrue(
+            content.startswith("0.37.9.") and int(content.split(".")[-1]) >= 54,
+            f"VERSION 必须 >= 0.37.9.54, got {content}",
+        )
 
     def test_restart_sh_has_v37_9_54_marker(self):
         with open(RESTART_SH, encoding="utf-8") as f:
