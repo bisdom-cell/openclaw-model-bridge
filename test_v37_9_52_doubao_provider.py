@@ -155,17 +155,13 @@ class TestDoubaoCapabilities(unittest.TestCase):
         self.assertEqual(self.d.capabilities.context_window, 262144)
 
     def test_verified_state_evolution(self):
-        """V37.9.52 引入 doubao (全 verified_*=False), V37.9.53 flip text + reasoning,
-        V37.9.54 flip vision. 本 test 锁定 V37.9.54 后仍未实测的 flags.
-        详细 V37.9.53 状态守卫见 test_v37_9_53_doubao_verified.py.
-        详细 V37.9.54 状态守卫见 test_v37_9_54_abc.py.
-        未来 V37.9.55+ flip tool_calling/streaming/fallback 时同步更新本断言."""
+        """V37.9.52 引入 doubao (全 verified_*=False), V37.9.53 flip text+reasoning,
+        V37.9.54 flip vision, V37.9.55 flip tool_calling+streaming.
+        本 test 锁定 V37.9.55 后仍未实测的 flags (仅 verified_fallback).
+        详细 V37.9.55 状态守卫见 test_v37_9_55_doubao_more_verified.py."""
         c = self.d.capabilities
-        # V37.9.54 后实测通过的: verified_text + verified_reasoning + verified_vision
-        # 仍未实测的: verified_tool_calling / verified_streaming / verified_fallback
-        self.assertFalse(c.verified_tool_calling, "verified_tool_calling 未测 (待 V37.9.55+)")
-        self.assertFalse(c.verified_streaming, "verified_streaming 未测 (待 V37.9.55+)")
-        self.assertFalse(c.verified_fallback, "verified_fallback 未在生产 fire (待 V37.9.55+)")
+        # 仅 verified_fallback 仍未实测 (V37.9.56+ 生产真 fire 后 flip)
+        self.assertFalse(c.verified_fallback, "verified_fallback 未在生产 fire (待 V37.9.56+)")
 
     def test_default_model_is_vision_capable(self):
         """doubao seed 2.0 是多模态主力, 默认 model 同时承担 text + vision."""

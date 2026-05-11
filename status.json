@@ -1,6 +1,6 @@
 {
-  "updated": "2026-05-11 11:21:09",
-  "updated_by": "security_score",
+  "updated": "2026-05-11 11:36:26",
+  "updated_by": "full_regression",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -307,7 +307,7 @@
     ],
     "open_prs": "",
     "blocked_on": "",
-    "focus": "【2026-05-11 收工】今日三连发 V37.9.52 + V37.9.53 + V37.9.54: doubao Seed 2.0 Pro 接入 → flip verified_text+reasoning → flip verified_vision + restart.sh marker plist reload + INV-PLIST-ENV-001 治理. **Mac Mini A+B 实证完整闭环** (双路径 restart + /health fallback_chain=[doubao,gemini] + version=0.37.9.54). 累计 71→74 suites (+3) / 2431→2515 tests (+84) / 71→72 invariants (+1 INV-PLIST-ENV-001) / 552→562 checks (+10) / providers 7→8 / VERSION 0.37.9.51→0.37.9.54 / 安全 95/100. V37 Provider Plugin Interface 首个真实插件 + module 重入 bug 修复 + ARK_ENDPOINT_ID env 灵活管理 + reasoning capability framework 扩展 (cap_score 7→8 + verified 5→6 维度) + V37 deployment debt 闭环 (providers.d/ 加入 FILE_MAP) + V37.9.13/V37.9.53 launchd plist reload 同款血案彻底治理. **下次 V37.9.55+ 候选**: (a) doubao 真 fallback fire 测试 (stub Qwen3 失败让 doubao 接管 → flip verified_fallback) (b) tool_calling E2E (curl 带 tools schema → flip verified_tool_calling) (c) streaming E2E (curl stream=true → flip verified_streaming) (d) Mac Mini governance dev 模式跑卡调查 (dev/full 都 3+ 分钟无 log, V37.9.55+ 调查是哪个 invariant python_assert 慢) (e) SLO p95 50380ms 调查 (从 V37.9.50 候选积累).",
+    "focus": "【V37.9.55 收工】用户战略询问 'doubao 性能更好建议为主' → 推 4 风险表 + 渐进切换方案 → 用户决策 V37.9.55 完成能力实测不切 primary. Mac Mini curl tool_calling (finish_reason=tool_calls + tool_calls schema 完整) + streaming (SSE chunks + delta.content + delta.reasoning_content) 双 E2E 实测通过. flip verified_tool_calling=True + verified_streaming=True. cap_score 12→16, doubao (16) > Qwen3 (14) framework 视角已最强 provider. 但 adapter PROVIDER_NAME env=qwen 不动, Qwen3 仍是 primary, doubao 仍在 fallback chain 第 1. **V37.9.56+ 用户决策**: (a) 单 cron 试水 hf_papers 或 rss_blogs (Volcengine quota 充裕, 推荐先小范围实战 3-7 天看推送质量) (b) 全切 primary adapter PROVIDER_NAME=doubao + plist 同步 + 重启 adapter (Qwen3 自动退为 fallback) (c) doubao reasoning_content 是否 expose 给用户 (产品决策) (d) 等真 fallback fire (Qwen3 quota/宕机) → 自然 flip verified_fallback. **累计今日**: 71→75 suites (+4: v37_9_52/53/54/55_*) / 2431→2530 tests (+99) / 71→72 invariants (+1 INV-PLIST-ENV-001) / 552→562 checks (+10) / providers 7→8 (+doubao) / VERSION 0.37.9.51→0.37.9.55 / governance v3.34→v3.35 / 安全 95/100. doubao verified_features 完整集合 [text, vision, tool_calling, streaming, reasoning], 仅 verified_fallback 仍 False 守诚实语义.",
     "current_focus": "V37.8 MR-6 深度补齐生产硬验证通过 (35/35 inv / 136/136 checks / 9/9 MR 全绿). 下一步: V37.8.1 修复 MRD-NOTIFY-002 activity 层假阳性 (topic→job log 映射扫 mtime) 或 Ontology Phase 3 渐进替换 (ONTOLOGY_MODE=on) 或 Tool Policy Plugin V3 路标",
     "recent_changes": [
       {
@@ -329,6 +329,11 @@
         "date": "2026-05-11",
         "what": "📊 今日收工 — 三连发 V37.9.52/53/54 全部 Mac Mini E2E 实证. V37.9.52 接入 doubao + 修 V37 Plugin module 重入 bug (32 tests). V37.9.53 flip verified_text + reasoning capability 加入 framework, doubao 自动排 fallback chain 第 1 (25 tests). V37.9.54 ABC 三件: A restart.sh marker plist reload (修 V37.9.13+V37.9.53 同款血案 — 双路径自动切换), B verified_vision flip (Mac Mini image_url E2E 实测), C INV-PLIST-ENV-001 治理 plist EnvironmentVariables 同步 (27 tests). 累计 71→74 suites / 2431→2515 tests (+84) / 71→72 invariants / 552→562 checks / providers 7→8 / VERSION 0.37.9.51→0.37.9.54 / 安全 95/100. Mac Mini A 双路径 ✓ + B /health doubao 第 1 + version 0.37.9.54 ✓. C governance --full Mac Mini 跑卡 (dev 跑 ✓), V37.9.55+ 调查不阻塞当前交付. 元价值: 用户提供豆包 demo → 1 session 内完成 8 个 provider 接入 + framework 扩展 (reasoning) + 3 个 launchd silent failure 血案集中治理. MR-4 silent-failure 元规则在 plist 场域完整闭环.",
         "by": "claude_code"
+      },
+      {
+        "date": "2026-05-11",
+        "what": "V37.9.55 — doubao flip verified_tool_calling + verified_streaming (Mac Mini E2E 双 capability 实测通过). 关键证据: tool_calling curl finish_reason=tool_calls + message.tool_calls=[{function:{name,arguments}}] + arguments 合法 JSON / streaming curl SSE chat.completion.chunk + delta.content + delta.reasoning_content 双字段. 100% OpenAI schema 兼容. cap_score 12→16 (6 base + 5 verified*2), doubao 16 > Qwen3 14, framework 视角已最强 provider. 但 primary 仍是 Qwen3 (用户战略决策渐进切换, V37.9.55 仅完成实测不切 primary). 15 新单测 6 类 + 修 V37.9.52/53/54 cascading 8 处 (cap_score 锁 12→16 / verified_features 集合扩 5 项 / unverified flags 只剩 verified_fallback / VERSION 不等式断言). 额外发现: doubao 流式输出同时流送 delta.reasoning_content + delta.content 双字段, V37.9.56+ 需决策是否 expose reasoning 给 OpenClaw/WhatsApp. 剩 verified_fallback 守 False 等生产真 fire (诚实语义). 累计 74→75 suites / 2515→2530 tests (+15) / VERSION 0.37.9.54→0.37.9.55 / 0 fail. 元价值: V37 capability routing framework 真实压力测试 — V37.9.52→55 五版本 doubao cap_score 5→10→12→16, 每次升级 fallback chain 自动重排, 零 adapter.py 改动. V3 路标 declarative framework 工作的硬证据.",
+        "by": "claude_code"
       }
     ],
     "last_session_ended": "2026-04-20",
@@ -339,14 +344,14 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 2515,
-    "last_regression": "2026-05-11 10:48 pass",
+    "test_count": 2530,
+    "last_regression": "2026-05-11 11:36 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-05-11 10:48",
-    "test_suites": 74,
+    "security_score_time": "2026-05-11 11:36",
+    "test_suites": 75,
     "governance_invariants": "64/64",
     "governance_checks": "350/350",
-    "version": "0.37.9.54"
+    "version": "0.37.9.55"
   },
   "incidents": [
     {
