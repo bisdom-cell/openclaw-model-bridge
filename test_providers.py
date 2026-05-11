@@ -1268,8 +1268,9 @@ class TestCapabilityOverlap(unittest.TestCase):
     def test_overlap_has_all_capability_fields(self):
         from providers import get_registry
         overlap = get_registry().capability_overlap("qwen", "openai")
+        # V37.9.53: capability_overlap 维度从 7 扩展到 8 (加 reasoning)
         expected_keys = {"text", "vision", "audio", "video",
-                         "tool_calling", "streaming", "json_mode"}
+                         "tool_calling", "streaming", "json_mode", "reasoning"}
         self.assertEqual(set(overlap.keys()), expected_keys)
 
     def test_overlap_audio_qwen_vs_openai(self):

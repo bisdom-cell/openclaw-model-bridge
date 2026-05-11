@@ -1,6 +1,6 @@
 {
-  "updated": "2026-05-11 10:09:38",
-  "updated_by": "claude_code",
+  "updated": "2026-05-11 10:28:43",
+  "updated_by": "full_regression",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -314,6 +314,11 @@
         "date": "2026-04-15",
         "what": "V37.8.6/8.7/8.8/8.9 四连发同日上线 — (1) V37.8.6 Dream log→stderr 阻断 stdout 污染 cache 的 LLM 幻觉链 + sanitize U+D800-U+DFFF 孤立代理 + REDUCE/CHUNK system prompt 反污染守卫，INV-DREAM-003 critical 双层 16 checks (2) V37.8.7 ontology_sources 推送格式错位修复，抽 ontology_parser.py 用 separator 切块 + key-based prefix 解析，单块缺行不级联，INV-ONTOLOGY-001 high 双层 7 checks (3) V37.8.8 MR-11 (log→stderr) + MR-12 (llm-parser-key-based) 正式立案为 ontology 元规则 (4) V37.8.9 MRD-LOG-STDERR-001 + MRD-LLM-PARSER-POSITIONAL-001 运行时扫描器落地，批量 sed 修复 19 个 job 脚本 log() 写 >&2，元规则覆盖率 10/12→12/12。MR-4 silent-failure 第 7+8 次演出 + 原则 #23 链式幻觉典型实证 (Hugging Face 编造案例)。governance v3.11→v3.15。35 suites / 1050 tests / 0 fail / 38 invariants / 168 checks / 安全 93。Mac Mini E2E preflight 77/0/3。VERSION 0.37.8.5→0.37.8.9。",
         "by": "claude_code"
+      },
+      {
+        "date": "2026-05-11",
+        "what": "V37.9.53 — Doubao Seed 2.0 Pro flip verified + reasoning capability 落地. Mac Mini curl 实测 /chat/completions HTTP 200 + 兼容 OpenAI JSON + 完整 content + 额外 reasoning_content 字段 (doubao seed 2.0 是 reasoning model 类似 o1/DeepSeek-R1). framework 扩展: ProviderCapabilities 加 reasoning + verified_reasoning 字段, _capability_score 从 7 升 8 维度 + verified 从 5 升 6 维度, verified_features() 输出含 reasoning. doubao plugin flip verified_text=True + reasoning=True + verified_reasoning=True (其他 4 个 verified 守 False 等 V37.9.54+ vision/tool_calling/streaming/fallback E2E 后再 flip). 结果: doubao cap_score 升至 10 vs gemini 9, build_fallback_chain(qwen) 自动排 doubao 第 1 位 (取代 gemini), 与 Qwen3 同级诉求通过 framework 自然推导达成, 零 adapter.py 改动. 25 新单测 6 类 + 修 V37.9.52 verified test + 修 test_providers.py overlap 7-8 维度. 累计 72->73 suites / 2463->2488 tests / 0 fail / VERSION 0.37.9.52->0.37.9.53 / 安全 95/100. Mac Mini 部署后 bash ~/restart.sh 重启 adapter 让 doubao 进 FALLBACK_CHAIN 第 1 位 (V37 _build_fallback_chain require_available=True 已自动).",
+        "by": "claude_code"
       }
     ],
     "last_session_ended": "2026-04-20",
@@ -324,14 +329,14 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 2463,
-    "last_regression": "2026-05-11 10:08 pass",
+    "test_count": 2488,
+    "last_regression": "2026-05-11 10:28 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-05-11 10:08",
-    "test_suites": 72,
+    "security_score_time": "2026-05-11 10:28",
+    "test_suites": 73,
     "governance_invariants": "64/64",
     "governance_checks": "350/350",
-    "version": "0.37.9.51"
+    "version": "0.37.9.53"
   },
   "incidents": [
     {
