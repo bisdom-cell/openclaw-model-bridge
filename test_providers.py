@@ -205,9 +205,10 @@ class TestProviderRegistry(unittest.TestCase):
     """注册表测试"""
 
     def test_default_registry_has_7_providers(self):
+        # V37.9.52: doubao plugin 加入后总数 8 (7 built-in + 1 真插件)
         from providers import get_registry
         reg = get_registry()
-        self.assertEqual(len(reg.list_names()), 7)
+        self.assertEqual(len(reg.list_names()), 8)
 
     def test_get_existing_provider(self):
         from providers import get_registry
@@ -243,9 +244,10 @@ class TestProviderRegistry(unittest.TestCase):
             self.assertIn("model_id", cfg)
 
     def test_compatibility_matrix(self):
+        # V37.9.52: 8 行 (7 built-in + doubao plugin)
         from providers import get_registry
         matrix = get_registry().compatibility_matrix()
-        self.assertEqual(len(matrix), 7)
+        self.assertEqual(len(matrix), 8)
         for row in matrix:
             self.assertIn("provider", row)
             self.assertIn("models", row)
@@ -288,9 +290,10 @@ class TestBackwardCompatibility(unittest.TestCase):
     """向后兼容性测试 — 确保 adapter.py 无缝切换"""
 
     def test_providers_dict_exported(self):
+        # V37.9.52: legacy PROVIDERS dict 含 8 entries (7 built-in + doubao plugin)
         from providers import PROVIDERS
         self.assertIsInstance(PROVIDERS, dict)
-        self.assertEqual(len(PROVIDERS), 7)
+        self.assertEqual(len(PROVIDERS), 8)
 
     def test_providers_dict_matches_old_format(self):
         """PROVIDERS dict 的格式与旧版 adapter.py 完全一致"""
@@ -411,7 +414,8 @@ class TestCLIOutput(unittest.TestCase):
         self.assertEqual(result.returncode, 0)
         data = json.loads(result.stdout)
         self.assertIsInstance(data, list)
-        self.assertEqual(len(data), 7)
+        # V37.9.52: 8 行 (7 built-in + doubao plugin)
+        self.assertEqual(len(data), 8)
 
 
 class TestChineseProviders(unittest.TestCase):
@@ -1348,10 +1352,11 @@ class TestDefaultRegistryPluginDir(unittest.TestCase):
         """Files starting with _ in providers.d/ should not be loaded."""
         from providers import get_registry
         names = get_registry().list_names()
-        # _example.yaml should be skipped
+        # _example.yaml should be skipped (V37.9.52: 仍验证 _ 前缀豁免, deepseek 永不被加载)
         self.assertNotIn("deepseek", names)
-        # Only built-in providers should be present
-        self.assertEqual(len(names), 7)
+        # V37.9.52: 7 built-in + 1 真插件 doubao = 8 (_example.* 仍被跳过, 这是该测试本质契约)
+        self.assertEqual(len(names), 8)
+        self.assertIn("doubao", names, "V37.9.52 doubao 真插件必须加载 (与 _example 被跳过形成对照)")
 
     def test_providers_d_exists(self):
         """providers.d/ directory should exist for plugin discovery."""

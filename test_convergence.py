@@ -779,8 +779,8 @@ class TestVerifyProvidersToAdapterIntegration(unittest.TestCase):
 
     def test_full_visibility_no_drift(self):
         from unittest.mock import patch, MagicMock
-        # Synthesize /health that lists all 7 builtin providers
-        all_known = {"qwen", "openai", "gemini", "claude", "kimi", "minimax", "glm"}
+        # V37.9.52: doubao plugin 加入后 declared 集合应含 8 个 provider (7 built-in + 1 真插件)
+        all_known = {"qwen", "openai", "gemini", "claude", "kimi", "minimax", "glm", "doubao"}
         body = json.dumps({
             "provider": "qwen",
             "fallback": "gemini",
