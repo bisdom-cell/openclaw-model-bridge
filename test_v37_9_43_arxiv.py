@@ -182,11 +182,12 @@ class TestArxivInAuditAligned(unittest.TestCase):
         sys.modules["_au_v9_43"] = self.au
         spec.loader.exec_module(self.au)
 
-    def test_arxiv_in_aligned_with_v37_9_43(self):
+    def test_arxiv_in_aligned_with_v37_9_43_or_later(self):
+        """arxiv_monitor 必须在 ALIGNED_SCRIPTS, 版本字符串 V37.9.43 (原) 或 V37.9.51 (Sub-Stage 4b 升级)"""
         self.assertIn("jobs/arxiv_monitor/run_arxiv.sh", self.au.ALIGNED_SCRIPTS)
-        self.assertEqual(
-            self.au.ALIGNED_SCRIPTS["jobs/arxiv_monitor/run_arxiv.sh"], "V37.9.43"
-        )
+        version = self.au.ALIGNED_SCRIPTS["jobs/arxiv_monitor/run_arxiv.sh"]
+        self.assertIn(version, ("V37.9.43", "V37.9.51"),
+                      f"arxiv_monitor 应映射 V37.9.43 或 V37.9.51, 实际 {version!r}")
 
     def test_aligned_scripts_count_at_least_9(self):
         """V37.9.43 后 ALIGNED_SCRIPTS ≥9 (V37.9.41 8 + arxiv_monitor)"""
@@ -198,7 +199,9 @@ class TestArxivInAuditAligned(unittest.TestCase):
         self.assertTrue(
             rep.aligned, msg=f"arxiv 应识别为 aligned, score {rep.compliance_score}"
         )
-        self.assertEqual(rep.aligned_version, "V37.9.43")
+        # V37.9.51 兼容: arxiv 从 V37.9.43 升级到 V37.9.51 (Sub-Stage 4b)
+        self.assertIn(rep.aligned_version, ("V37.9.43", "V37.9.51"),
+                      f"aligned_version 应为 V37.9.43 或 V37.9.51, 实际 {rep.aligned_version!r}")
         self.assertEqual(len(rep.placeholder_findings), 0)
 
 

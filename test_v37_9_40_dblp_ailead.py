@@ -233,20 +233,27 @@ class TestV9_40InAuditAlignedScripts(unittest.TestCase):
         self.assertGreaterEqual(len(self.au.ALIGNED_SCRIPTS), 7,
                                 msg=f"V37.9.40 ALIGNED_SCRIPTS 应 ≥7, 实际 {len(self.au.ALIGNED_SCRIPTS)}")
 
-    def test_dblp_in_aligned_with_v37_9_40(self):
+    def test_dblp_in_aligned_with_v37_9_40_or_later(self):
+        """DBLP 必须在 ALIGNED_SCRIPTS, V37.9.40 (原) 或 V37.9.51 (Sub-Stage 4b 升级)"""
         self.assertIn("jobs/dblp/run_dblp.sh", self.au.ALIGNED_SCRIPTS)
-        self.assertEqual(self.au.ALIGNED_SCRIPTS["jobs/dblp/run_dblp.sh"], "V37.9.40")
+        version = self.au.ALIGNED_SCRIPTS["jobs/dblp/run_dblp.sh"]
+        self.assertIn(version, ("V37.9.40", "V37.9.51"),
+                      f"DBLP 应映射 V37.9.40 或 V37.9.51, 实际 {version!r}")
 
-    def test_aileaders_in_aligned_with_v37_9_40(self):
+    def test_aileaders_in_aligned_with_v37_9_40_or_later(self):
+        """AI Leaders X 必须在 ALIGNED_SCRIPTS, V37.9.40 (原) 或 V37.9.51 (Sub-Stage 4b 升级)"""
         self.assertIn("jobs/ai_leaders_x/run_ai_leaders_x.sh", self.au.ALIGNED_SCRIPTS)
-        self.assertEqual(self.au.ALIGNED_SCRIPTS["jobs/ai_leaders_x/run_ai_leaders_x.sh"],
-                         "V37.9.40")
+        version = self.au.ALIGNED_SCRIPTS["jobs/ai_leaders_x/run_ai_leaders_x.sh"]
+        self.assertIn(version, ("V37.9.40", "V37.9.51"),
+                      f"AI Leaders X 应映射 V37.9.40 或 V37.9.51, 实际 {version!r}")
 
     def test_audit_dblp_aligned_True(self):
         rep = self.au.audit_script(DBLP_SCRIPT)
         self.assertTrue(rep.exists)
         self.assertTrue(rep.aligned, msg=f"DBLP 应识别为 aligned, score {rep.compliance_score}")
-        self.assertEqual(rep.aligned_version, "V37.9.40")
+        # V37.9.51 兼容: DBLP 从 V37.9.40 升级到 V37.9.51 (Sub-Stage 4b)
+        self.assertIn(rep.aligned_version, ("V37.9.40", "V37.9.51"),
+                      f"aligned_version 应为 V37.9.40 或 V37.9.51, 实际 {rep.aligned_version!r}")
         self.assertEqual(len(rep.placeholder_findings), 0,
                          msg=f"DBLP findings 应为 0, 实际: {[f.matched for f in rep.placeholder_findings]}")
 
@@ -254,7 +261,9 @@ class TestV9_40InAuditAlignedScripts(unittest.TestCase):
         rep = self.au.audit_script(AILEAD_SCRIPT)
         self.assertTrue(rep.exists)
         self.assertTrue(rep.aligned, msg=f"AI Leaders X 应识别为 aligned, score {rep.compliance_score}")
-        self.assertEqual(rep.aligned_version, "V37.9.40")
+        # V37.9.51 兼容: AI Leaders X 从 V37.9.40 升级到 V37.9.51 (Sub-Stage 4b)
+        self.assertIn(rep.aligned_version, ("V37.9.40", "V37.9.51"),
+                      f"aligned_version 应为 V37.9.40 或 V37.9.51, 实际 {rep.aligned_version!r}")
         self.assertEqual(len(rep.placeholder_findings), 0,
                          msg=f"AI Leaders X findings 应为 0, 实际: {[f.matched for f in rep.placeholder_findings]}")
 

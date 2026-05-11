@@ -13,6 +13,13 @@ export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
 #   - 5 字段深度 prompt (📌 标题 / 🔑 核心贡献 / 💡 关键方法 / 🎯 实践启发 / ⭐ 评级)
 #   - LLM_DEGRADED fallback 用 arxiv abstract 兜底 (替代 V37.9.36 占位符反模式)
 #   - 多窗口切片 (>8000 字 + sleep 1s + [i/N] + 续段, V37.9.21 同款)
+#
+# V37.9.51 6 字段 + rule_check 升级 (V37.9.45 hf_papers / V37.9.50 semantic_scholar 同款 Opportunity Radar #2 模板):
+#   - 第 6 字段 🎚️ 项目对齐度 (⭐ × N + 一句话原因, OpenClaw 5 档评分指南)
+#   - parse_5field_output → parse_6field_output (新增 alignment 字段)
+#   - lazy import project_alignment_scorer (rule_check FAIL-OPEN)
+#   - rule_check: LLM ⭐ vs keyword 一致性, 偏离时显示 ⚠️ <reason>
+#   - 末尾追加"本轮高对齐论文 ⭐≥4: N/M 篇"统计 (Stage 2 PoC 简化版)
 #   - 三档 status: ok / partial_degraded / llm_failed (全失败 → exit 1 fail-fast)
 set -eo pipefail
 
@@ -329,7 +336,7 @@ title = p['title']
 date_str = p.get('date', '')
 abstract = p.get('abstract', '')[:600]
 
-prompt = """你是 AI 论文深度分析师。对以下 ArXiv 论文输出 5 字段中文分析:
+prompt = """你是 AI 论文深度分析师 (兼 OpenClaw 项目对齐评估师)。对以下 ArXiv 论文输出 6 字段中文分析:
 
 📌 中文标题: 信达雅翻译, 不超过 25 字 (技术术语保持精确)
 🔑 核心贡献: 3-5 条 bullet, 每条 1 句 ≤ 60 字, 列出论文做了什么 / 解决了什么问题 / 关键创新
@@ -337,14 +344,24 @@ prompt = """你是 AI 论文深度分析师。对以下 ArXiv 论文输出 5 字
    长度按评级动态调整: ⭐⭐⭐ 写约 100-150 字 / ⭐⭐⭐⭐ 写约 250-400 字 / ⭐⭐⭐⭐⭐ 写约 500-800 字 (旗舰论文充分展开)
 🎯 实践启发: 1-3 条对 AI 工程师 / 研究者 / 架构师的具体行动建议, 每条 ≤ 80 字
 ⭐ 评级: ⭐ × N (1-5 个) + 推荐场景 (谁应该读 / 何时读 / 用于什么场景)
+🎚️ 项目对齐度: ⭐ × N (1-5 个) + 一句话原因 (≤ 30 字)
+   ━ V37.9.51 新增 (V37.9.45 hf_papers / V37.9.50 semantic_scholar 同款 Opportunity Radar #2 模板, 用于过滤 OpenClaw 高价值信号) ━
+
+OpenClaw 项目方向 (参考评分):
+   ⭐⭐⭐⭐⭐ = 直接相关 (control plane / agent runtime / ontology / governance / convergence framework / fail-fast / memory plane / multimodal routing / opportunity radar)
+   ⭐⭐⭐⭐  = 间接相关 (tool plugin / KB RAG / semantic search / drift detection / declarative policy / agent reliability)
+   ⭐⭐⭐    = 一般 AI/ML 趋势 (可借鉴但非核心, 如新模型架构 / training tricks / benchmark)
+   ⭐⭐     = 无明显关联 (但可能未来有用, 比如纯 NLP 任务)
+   ⭐      = 完全无关 (噪声, 比如硬件细节 / GPU kernel / 单纯学术 paper)
 
 ⚠️ 严格约束 (违反则整份输出作废):
 - 只使用上方提供的标题和摘要中的信息, 严禁虚构论文未提及的事实/数据/链接
 - 如摘要不足以判断, 标⭐较低 + 写"基于摘要的初步判断"
+- 项目对齐度评分必须基于"是否能为 OpenClaw 控制平面 / 记忆平面 / ontology engine 提供有价值的借鉴", 而非泛泛 AI 相关
 - 严禁推断 Hugging Face / OpenAI / GitHub 等平台的具体内部状态除非原文提及
 - 严禁把 HTTP 错误码 / Python 异常 / 错误日志当外部信号
 
-输出格式 (严格按此 5 字段, 字段间用空行分隔):
+输出格式 (严格按此 6 字段, 字段间用空行分隔):
 
 📌 中文标题: <你的翻译>
 
@@ -360,6 +377,8 @@ prompt = """你是 AI 论文深度分析师。对以下 ArXiv 论文输出 5 字
 - 启发2
 
 ⭐ 评级: ⭐⭐⭐⭐ / 推荐场景: <场景描述>
+
+🎚️ 项目对齐度: ⭐⭐⭐ / <一句话原因, ≤ 30 字>
 
 ---
 
@@ -409,7 +428,7 @@ echo "[arxiv] LLM 调用完成: 成功 $((TOTAL_NEW - TOTAL_FAILED))/$TOTAL_NEW"
 # ── 5. V37.9.43: 5 字段 emit (5-field key-based parser + LLM_DEGRADED fallback + 多窗口切片) ──
 MSG_FILE="$CACHE/arxiv_message.txt"
 python3 - "$PAPERS_FILE" "$RESULTS_FILE" "$DAY" "$MSG_FILE" << 'PYEOF'
-import sys, json, re
+import sys, json, re, os  # V37.9.51: os 用于 lazy import project_alignment_scorer 路径解析 (V37.9.50-hotfix 同款)
 
 papers_file, results_file, day, msg_file = sys.argv[1:5]
 
@@ -422,12 +441,13 @@ with open(papers_file, encoding='utf-8') as f:
 with open(results_file, encoding='utf-8') as f:
     results = [json.loads(l) for l in f if l.strip()]
 
-# V37.9.37/V37.9.39 5 字段 key-based parser (V37.8.7 ontology_parser 同款模式)
+# V37.9.51 6 字段 key-based parser (V37.9.45 hf_papers / V37.9.50 semantic_scholar 同款 Opportunity Radar #2)
 # 容忍 LLM 输出的字段顺序、单字段缺失、prefix 变体
-def parse_5field_output(content):
-    """从 LLM 输出解析 5 字段, key-based + tolerant.
+def parse_6field_output(content):
+    """从 LLM 输出解析 6 字段, key-based + tolerant.
 
-    返回 dict: cn_title / highlights / insight / practice / rating
+    返回 dict: cn_title / highlights / insight / practice / rating / alignment
+    V37.9.51: alignment 字段新增 (Opportunity Radar #2 PoC, V37.9.45/V37.9.50 同款模板)
     """
     fields = {
         'cn_title': '',
@@ -435,6 +455,7 @@ def parse_5field_output(content):
         'insight': '',
         'practice': '',
         'rating': '',
+        'alignment': '',
     }
     current_field = None
     current_buffer = []
@@ -476,6 +497,16 @@ def parse_5field_output(content):
             current_field = 'practice'
             current_buffer = []
             continue
+        # 🎚️ 项目对齐度 (V37.9.51 新增, fallback 🎚 if no variation selector)
+        stripped = line.lstrip()
+        if stripped.startswith('🎚️') or stripped.startswith('🎚'):
+            flush()
+            current_field = 'alignment'
+            current_buffer = []
+            m = re.match(r'.*🎚️?\s*(?:项目)?对齐度?\s*[:：]?\s*(.*)', stripped)
+            if m and m.group(1).strip():
+                current_buffer.append(m.group(1).strip())
+            continue
         # ⭐ 评级
         if line.lstrip().startswith('⭐') and current_field != 'rating':
             if '评级' in line or '推荐场景' in line or re.match(r'\s*⭐+\s*$', line):
@@ -495,8 +526,32 @@ def parse_5field_output(content):
 
 msg_lines = [f"📚 今日arXiv精选 ({day})", ""]
 
+# V37.9.51: lazy import project_alignment_scorer + load concepts (V37.9.45 hf_papers / V37.9.50 同款 rule_check)
+# FAIL-OPEN: 模块缺失 / yaml 缺失 → 跳过 rule_check 不阻塞 cron
+_concepts = None
+_validate_alignment_score = None
+_extract_star_count = None
+_format_validation_marker = None
+try:
+    sys.path.insert(0, os.environ.get('HOME', os.path.expanduser('~')))
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) if '__file__' in dir() else '.')
+    from project_alignment_scorer import (
+        load_project_concepts,
+        validate_alignment_score,
+        extract_star_count,
+        format_validation_marker,
+    )
+    _concepts = load_project_concepts()
+    _validate_alignment_score = validate_alignment_score
+    _extract_star_count = extract_star_count
+    _format_validation_marker = format_validation_marker
+    print("[arxiv] V37.9.51 project_alignment_scorer 加载成功 (rule_check 启用)", file=sys.stderr)
+except Exception as _e:
+    print(f"[arxiv] V37.9.51 project_alignment_scorer 缺失或失败: {_e} (rule_check 跳过, FAIL-OPEN)", file=sys.stderr)
+
 degraded_count = 0
 llm_ok_count = 0
+high_alignment_count = 0  # V37.9.51: ⭐≥4 alignment 计数 (Opportunity Radar #2)
 for i, paper in enumerate(papers):
     title = paper['title']
     arxiv_id = paper.get('arxiv_id', '')
@@ -525,8 +580,8 @@ for i, paper in enumerate(papers):
             msg_lines.append("(arxiv 无摘要数据, 请直接点链接阅读)")
         msg_lines.append("")
     else:
-        # 解析 5 字段
-        fields = parse_5field_output(result.get('content', ''))
+        # V37.9.51: 解析 6 字段 (V37.9.45 hf_papers / V37.9.50 同款 Opportunity Radar #2)
+        fields = parse_6field_output(result.get('content', ''))
         title_display = fields['cn_title'] or title
         msg_lines.append(f"*{title_display}*")
         author_meta = f"作者: {first_author} 等"
@@ -552,6 +607,25 @@ for i, paper in enumerate(papers):
             # rating 行不重复加 ⭐ 前缀 (LLM 输出已含)
             msg_lines.append(fields['rating'])
             msg_lines.append("")
+        # V37.9.51: 🎚️ 项目对齐度展示 + rule_check 验证 (V37.9.45 hf_papers / V37.9.50 同款)
+        if fields['alignment']:
+            msg_lines.append(f"🎚️ 项目对齐度: {fields['alignment']}")
+            # rule_check: LLM ⭐ 评分 vs keyword-based rule 一致性
+            if _validate_alignment_score and _concepts and _extract_star_count and _format_validation_marker:
+                try:
+                    llm_stars = _extract_star_count(fields['alignment'])
+                    if llm_stars > 0:
+                        # rule_content = title + abstract (V37.9.43 fallback 用 abstract, 这里同款)
+                        rule_content = paper.get('title', '') + ' ' + paper.get('abstract', '')
+                        validation = _validate_alignment_score(rule_content, llm_stars, _concepts)
+                        marker = _format_validation_marker(validation)
+                        if marker:  # validated=False 时返回 ⚠️ <reason>
+                            msg_lines.append(marker)
+                        if llm_stars >= 4:
+                            high_alignment_count += 1
+                except Exception as _e:
+                    print(f"[arxiv] V37.9.51 rule_check 失败 paper={i}: {_e} (FAIL-OPEN)", file=sys.stderr)
+            msg_lines.append("")
         # 至少保证有 cn_title 才算 LLM 解析成功
         if fields['cn_title'] or fields['highlights'] or fields['insight']:
             llm_ok_count += 1
@@ -559,10 +633,16 @@ for i, paper in enumerate(papers):
     msg_lines.append("---")
     msg_lines.append("")
 
+# V37.9.51: 末尾追加高对齐统计 (Opportunity Radar #2)
+total_papers = len(papers)
+if total_papers > 0:
+    msg_lines.append(f"━━━ 本轮高对齐论文 (项目对齐度 ⭐≥4): {high_alignment_count}/{total_papers} 篇 ━━━")
+    msg_lines.append("")
+
 with open(msg_file, 'w', encoding='utf-8') as f:
     f.write('\n'.join(msg_lines))
 
-print(f"[arxiv] 消息组装完成: {len(papers)} 篇 (LLM 解析成功 {llm_ok_count}, degraded {degraded_count})", file=sys.stderr)
+print(f"[arxiv] 消息组装完成: {len(papers)} 篇 (LLM 解析成功 {llm_ok_count}, degraded {degraded_count}, 高对齐 {high_alignment_count})", file=sys.stderr)
 PYEOF
 
 # ── 6. 推送 WhatsApp + Discord (V37.9.21/V37.9.37 多窗口分片: >8000 字才切, ≤8000 单段发) ─

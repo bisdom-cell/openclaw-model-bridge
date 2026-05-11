@@ -3,7 +3,9 @@
 export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
 # 加载环境变量（cron 环境中 OPENCLAW_PHONE/DISCORD_CH_* 等必须从 profile 获取）
 source "$HOME/.bash_profile" 2>/dev/null || source "$HOME/.env_shared" 2>/dev/null || true
-# DBLP CS论文索引监控 v1
+# DBLP CS论文索引监控 v1 (V37.9.51 — 6 字段 + rule_check 升级,
+# V37.9.40 深度 5 字段基础 + V37.9.45 hf_papers / V37.9.50 semantic_scholar
+# 同款 Opportunity Radar #2 模板横向迁移, Sub-Stage 4b 2/6)
 # 每天 12:00 HKT 由系统 crontab 触发
 # 搜索 AI 相关关键词，按年份过滤当年论文，去重推送
 # 使用 DBLP Search API (免费，CC0 开放数据，无需认证)
@@ -328,7 +330,7 @@ venue = p.get('venue', '')
 year = p.get('year', '')
 first_author = p.get('first_author', 'Unknown')
 
-prompt = """你是 AI/CS 论文深度分析师。对以下论文输出 5 字段中文分析:
+prompt = """你是 AI/CS 论文深度分析师 (兼 OpenClaw 项目对齐评估师)。对以下论文输出 6 字段中文分析:
 
 📌 中文标题: 信达雅翻译, 不超过 25 字 (技术术语保持精确)
 🔑 核心贡献: 3-5 条 bullet, 每条 1 句 ≤ 60 字 (基于标题与会议推断, 不虚构)
@@ -337,14 +339,24 @@ prompt = """你是 AI/CS 论文深度分析师。对以下论文输出 5 字段�
    注意: DBLP 不提供摘要, 此处仅基于标题/会议做合理技术推断, 必须显式标注 "(基于标题推断)"
 🎯 实践启发: 1-3 条对 AI 工程师 / 研究者的具体建议, 每条 ≤ 80 字
 ⭐ 评级: ⭐ × N (1-5 个) + 推荐场景 (谁应该读 / 何时读 / 用于什么场景)
+🎚️ 项目对齐度: ⭐ × N (1-5 个) + 一句话原因 (≤ 30 字)
+   ━ V37.9.51 新增 (V37.9.45 hf_papers / V37.9.50 semantic_scholar 同款 Opportunity Radar #2 模板, 用于过滤 OpenClaw 高价值信号) ━
+
+OpenClaw 项目方向 (参考评分):
+   ⭐⭐⭐⭐⭐ = 直接相关 (control plane / agent runtime / ontology / governance / convergence framework / fail-fast / memory plane / multimodal routing / opportunity radar)
+   ⭐⭐⭐⭐  = 间接相关 (tool plugin / KB RAG / semantic search / drift detection / declarative policy / agent reliability)
+   ⭐⭐⭐    = 一般 AI/ML 趋势 (可借鉴但非核心, 如新模型架构 / training tricks / benchmark)
+   ⭐⭐     = 无明显关联 (但可能未来有用, 比如纯 NLP 任务)
+   ⭐      = 完全无关 (噪声, 比如硬件细节 / GPU kernel / 单纯学术 paper)
 
 ⚠️ 严格约束 (违反则整份输出作废):
 - DBLP 数据仅含标题与会议, 严禁虚构论文中的具体数据 / 实验结果 / 方法细节
 - 推断时必须显式标注 "基于标题推断" 或 "推测" 让用户知道置信度
+- 项目对齐度评分必须基于"是否能为 OpenClaw 控制平面 / 记忆平面 / ontology engine 提供有价值的借鉴", 而非泛泛 AI 相关
 - 严禁推断 Hugging Face / OpenAI / GitHub 等平台的具体内部状态
 - 严禁把 HTTP 错误码 / Python 异常 / 错误日志当外部信号
 
-输出格式 (严格按此 5 字段, 字段间用空行分隔):
+输出格式 (严格按此 6 字段, 字段间用空行分隔):
 
 📌 中文标题: <你的翻译>
 
@@ -359,6 +371,8 @@ prompt = """你是 AI/CS 论文深度分析师。对以下论文输出 5 字段�
 - 启发1
 
 ⭐ 评级: ⭐⭐⭐⭐ / 推荐场景: <场景描述>
+
+🎚️ 项目对齐度: ⭐⭐⭐ / <一句话原因, ≤ 30 字>
 
 ---
 
@@ -404,7 +418,7 @@ echo "[dblp] LLM 调用完成: 成功 $((TOTAL_NEW - TOTAL_FAILED))/$TOTAL_NEW"
 # ── V37.9.40: 5 字段 emit (5-field key-based parser + LLM_DEGRADED fallback + 多窗口切片) ──
 MSG_FILE="$CACHE/dblp_message.txt"
 python3 - "$PAPERS_FILE" "$RESULTS_FILE" "$DAY" "$MSG_FILE" << 'PYEOF'
-import sys, json, re
+import sys, json, re, os  # V37.9.51: os 用于 lazy import project_alignment_scorer 路径解析 (V37.9.50-hotfix 同款)
 
 papers_file, results_file, day, msg_file = sys.argv[1:5]
 
@@ -417,10 +431,11 @@ with open(papers_file, encoding='utf-8') as f:
 with open(results_file, encoding='utf-8') as f:
     results = [json.loads(l) for l in f if l.strip()]
 
-# V37.9.39 同款 5 字段 key-based parser (V37.8.7 ontology_parser 同款模式)
-def parse_5field_output(content):
+# V37.9.51 6 字段 key-based parser (V37.9.45 hf_papers / V37.9.50 semantic_scholar 同款 Opportunity Radar #2)
+def parse_6field_output(content):
     fields = {
         'cn_title': '', 'highlights': '', 'insight': '', 'practice': '', 'rating': '',
+        'alignment': '',  # V37.9.51 新增
     }
     current_field = None
     current_buffer = []
@@ -456,6 +471,16 @@ def parse_5field_output(content):
             current_field = 'practice'
             current_buffer = []
             continue
+        # 🎚️ 项目对齐度 (V37.9.51 新增, fallback 🎚 if no variation selector)
+        stripped = line.lstrip()
+        if stripped.startswith('🎚️') or stripped.startswith('🎚'):
+            flush()
+            current_field = 'alignment'
+            current_buffer = []
+            m = re.match(r'.*🎚️?\s*(?:项目)?对齐度?\s*[:：]?\s*(.*)', stripped)
+            if m and m.group(1).strip():
+                current_buffer.append(m.group(1).strip())
+            continue
         if line.lstrip().startswith('⭐') and current_field != 'rating':
             if '评级' in line or '推荐场景' in line or re.match(r'\s*⭐+\s*$', line):
                 flush()
@@ -473,8 +498,32 @@ def parse_5field_output(content):
 
 msg_lines = [f"📚 DBLP CS 论文精选 ({day})", ""]
 
+# V37.9.51: lazy import project_alignment_scorer + load concepts (V37.9.45 hf_papers / V37.9.50 同款 rule_check)
+# FAIL-OPEN: 模块缺失 / yaml 缺失 → 跳过 rule_check 不阻塞 cron
+_concepts = None
+_validate_alignment_score = None
+_extract_star_count = None
+_format_validation_marker = None
+try:
+    sys.path.insert(0, os.environ.get('HOME', os.path.expanduser('~')))
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) if '__file__' in dir() else '.')
+    from project_alignment_scorer import (
+        load_project_concepts,
+        validate_alignment_score,
+        extract_star_count,
+        format_validation_marker,
+    )
+    _concepts = load_project_concepts()
+    _validate_alignment_score = validate_alignment_score
+    _extract_star_count = extract_star_count
+    _format_validation_marker = format_validation_marker
+    print("[dblp] V37.9.51 project_alignment_scorer 加载成功 (rule_check 启用)", file=sys.stderr)
+except Exception as _e:
+    print(f"[dblp] V37.9.51 project_alignment_scorer 缺失或失败: {_e} (rule_check 跳过, FAIL-OPEN)", file=sys.stderr)
+
 degraded_count = 0
 llm_ok_count = 0
+high_alignment_count = 0  # V37.9.51: ⭐≥4 alignment 计数 (Opportunity Radar #2)
 for i, paper in enumerate(papers):
     venue = paper.get('venue', '')
     year = paper.get('year', '')
@@ -502,7 +551,8 @@ for i, paper in enumerate(papers):
         msg_lines.append(f"(DBLP 数据库不含摘要, 请直接点链接阅读全文)")
         msg_lines.append("")
     else:
-        fields = parse_5field_output(result.get('content', ''))
+        # V37.9.51: 解析 6 字段 (V37.9.45 hf_papers / V37.9.50 同款 Opportunity Radar #2)
+        fields = parse_6field_output(result.get('content', ''))
         title_display = fields['cn_title'] or paper['title']
         msg_lines.append(f"*{title_display}*")
         msg_lines.append("  | ".join(meta_parts))
@@ -524,10 +574,35 @@ for i, paper in enumerate(papers):
         if fields['rating']:
             msg_lines.append(fields['rating'])
             msg_lines.append("")
+        # V37.9.51: 🎚️ 项目对齐度展示 + rule_check 验证 (V37.9.45 hf_papers / V37.9.50 同款)
+        if fields['alignment']:
+            msg_lines.append(f"🎚️ 项目对齐度: {fields['alignment']}")
+            # rule_check: LLM ⭐ 评分 vs keyword-based rule 一致性
+            if _validate_alignment_score and _concepts and _extract_star_count and _format_validation_marker:
+                try:
+                    llm_stars = _extract_star_count(fields['alignment'])
+                    if llm_stars > 0:
+                        # rule_content = title + venue (DBLP 无 abstract, 用 venue 元数据作 fallback)
+                        rule_content = paper.get('title', '') + ' ' + paper.get('venue', '')
+                        validation = _validate_alignment_score(rule_content, llm_stars, _concepts)
+                        marker = _format_validation_marker(validation)
+                        if marker:  # validated=False 时返回 ⚠️ <reason>
+                            msg_lines.append(marker)
+                        if llm_stars >= 4:
+                            high_alignment_count += 1
+                except Exception as _e:
+                    print(f"[dblp] V37.9.51 rule_check 失败 paper={i}: {_e} (FAIL-OPEN)", file=sys.stderr)
+            msg_lines.append("")
         if fields['cn_title'] or fields['highlights'] or fields['insight']:
             llm_ok_count += 1
 
     msg_lines.append("---")
+    msg_lines.append("")
+
+# V37.9.51: 末尾追加高对齐统计 (Opportunity Radar #2)
+total_papers = len(papers)
+if total_papers > 0:
+    msg_lines.append(f"━━━ 本轮高对齐论文 (项目对齐度 ⭐≥4): {high_alignment_count}/{total_papers} 篇 ━━━")
     msg_lines.append("")
 
 with open(msg_file, 'w', encoding='utf-8') as f:
