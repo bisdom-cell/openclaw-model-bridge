@@ -48,6 +48,8 @@ class ProviderCapabilities:
     tool_calling: bool = False
     streaming: bool = False
     json_mode: bool = False
+    # V37.9.53: reasoning model 声明 (返回 reasoning_content 字段, 类似 o1 / DeepSeek-R1 / Doubao Seed 2.0)
+    reasoning: bool = False
 
     # 限制
     context_window: int = 0          # 最大上下文窗口 (tokens)
@@ -60,6 +62,7 @@ class ProviderCapabilities:
     verified_tool_calling: bool = False
     verified_streaming: bool = False
     verified_fallback: bool = False
+    verified_reasoning: bool = False  # V37.9.53: reasoning capability 实测通过
 
     def supported_modalities(self) -> List[str]:
         """返回支持的模态列表。"""
@@ -78,6 +81,7 @@ class ProviderCapabilities:
         if self.verified_tool_calling: features.append("tool_calling")
         if self.verified_streaming: features.append("streaming")
         if self.verified_fallback: features.append("fallback")
+        if self.verified_reasoning: features.append("reasoning")  # V37.9.53
         return features
 
 
@@ -808,12 +812,14 @@ class ProviderRegistry:
         """Score a provider by total capability count (for ranking)."""
         caps = provider.capabilities
         score = 0
+        # V37.9.53: reasoning 加入能力维度 (与 json_mode 同档 +1)
         for attr in ('text', 'vision', 'audio', 'video',
-                     'tool_calling', 'streaming', 'json_mode'):
+                     'tool_calling', 'streaming', 'json_mode', 'reasoning'):
             if getattr(caps, attr, False):
                 score += 1
+        # V37.9.53: verified_reasoning 加入 verified 维度 (与其他 verified 同档 +2)
         for attr in ('verified_text', 'verified_vision', 'verified_tool_calling',
-                     'verified_streaming', 'verified_fallback'):
+                     'verified_streaming', 'verified_fallback', 'verified_reasoning'):
             if getattr(caps, attr, False):
                 score += 2  # verified features weigh more
         return score
@@ -821,8 +827,9 @@ class ProviderRegistry:
     def _capability_overlap(self, a: BaseProvider, b: BaseProvider) -> int:
         """Count shared capabilities between two providers."""
         overlap = 0
+        # V37.9.53: reasoning 进入 overlap 维度 (reasoning model 之间互为 fallback 优先)
         for attr in ('text', 'vision', 'audio', 'video',
-                     'tool_calling', 'streaming', 'json_mode'):
+                     'tool_calling', 'streaming', 'json_mode', 'reasoning'):
             if getattr(a.capabilities, attr, False) and getattr(b.capabilities, attr, False):
                 overlap += 1
         return overlap
@@ -873,8 +880,9 @@ class ProviderRegistry:
         if not a or not b:
             return {}
         result = {}
+        # V37.9.53: reasoning 加入 overlap 维度 (公开接口与 _capability_overlap 内部维度对齐)
         for attr in ('text', 'vision', 'audio', 'video',
-                     'tool_calling', 'streaming', 'json_mode'):
+                     'tool_calling', 'streaming', 'json_mode', 'reasoning'):
             a_has = getattr(a.capabilities, attr, False)
             b_has = getattr(b.capabilities, attr, False)
             result[attr] = a_has and b_has
