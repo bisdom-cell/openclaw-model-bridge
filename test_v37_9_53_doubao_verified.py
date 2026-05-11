@@ -104,12 +104,13 @@ class TestDoubaoVerifiedFlagsV9_53(unittest.TestCase):
         )
 
     def test_unverified_flags_still_false(self):
-        """V37.9.53 仅 flip text + reasoning, 其他守 False 等下次 fire/E2E."""
+        """V37.9.53 flip text + reasoning, V37.9.54 flip vision.
+        仍未实测的 flags 守 False 等 V37.9.55+ fire/E2E."""
         c = self.d.capabilities
-        self.assertFalse(c.verified_vision, "未测 image_url, 留 V37.9.54+")
-        self.assertFalse(c.verified_tool_calling, "未测 tools 调用, 留 V37.9.54+")
-        self.assertFalse(c.verified_streaming, "未测 stream=True, 留 V37.9.54+")
-        self.assertFalse(c.verified_fallback, "未在生产 fallback 真 fire, 留 V37.9.54+")
+        # V37.9.54 verified_vision 已 flip 到 True (Mac Mini image_url 实测通过)
+        self.assertFalse(c.verified_tool_calling, "未测 tools 调用, 留 V37.9.55+")
+        self.assertFalse(c.verified_streaming, "未测 stream=True, 留 V37.9.55+")
+        self.assertFalse(c.verified_fallback, "未在生产 fallback 真 fire, 留 V37.9.55+")
 
 
 class TestDoubaoCapScoreRanking(unittest.TestCase):
@@ -136,11 +137,17 @@ class TestDoubaoCapScoreRanking(unittest.TestCase):
     def test_doubao_cap_score_specific_value(self):
         doubao = self.reg.get("doubao")
         score = self.reg._capability_score(doubao)
-        # 6 base (text+vision+tool_calling+streaming+json_mode+reasoning)
-        # + 2 verified*2 (verified_text + verified_reasoning) = 10
-        self.assertEqual(
+        # V37.9.53: 6 base + 2 verified*2 = 10 (verified_text + verified_reasoning)
+        # V37.9.54: 6 base + 3 verified*2 = 12 (+ verified_vision)
+        # 不变式: doubao cap_score 必须 >= 10 (V37.9.53 baseline) — V37.9.55+ flip 更多 flags 会继续上升
+        self.assertGreaterEqual(
             score, 10,
-            f"V37.9.53 doubao cap_score 锁定为 10 (6 base + 2 verified*2), got {score}",
+            f"doubao cap_score 必须 >= 10 (V37.9.53 baseline 6+2*2), got {score}",
+        )
+        # V37.9.54 当前精确值 12
+        self.assertEqual(
+            score, 12,
+            f"V37.9.54 doubao cap_score 锁定为 12 (6 base + 3 verified*2: text/vision/reasoning), got {score}",
         )
 
     def test_gemini_cap_score_unchanged(self):
@@ -167,10 +174,15 @@ class TestVerifiedFeaturesIncludesReasoning(unittest.TestCase):
     def test_doubao_verified_features_exact_v9_53(self):
         d = self.providers.get_provider("doubao")
         features = d.capabilities.verified_features()
-        # V37.9.53: 只 text + reasoning, 其他守 False
+        # V37.9.53: text + reasoning
+        # V37.9.54: + vision (Mac Mini image_url E2E flip)
+        # 不变式: features 必须包含 V37.9.53 baseline {text, reasoning}
+        self.assertIn("text", features, "V37.9.53 baseline: verified_text=True")
+        self.assertIn("reasoning", features, "V37.9.53 baseline: verified_reasoning=True")
+        # V37.9.54 当前完整集合
         self.assertEqual(
-            set(features), {"text", "reasoning"},
-            f"V37.9.53 doubao verified_features 锁定为 [text, reasoning], got {features}",
+            set(features), {"text", "vision", "reasoning"},
+            f"V37.9.54 doubao verified_features 锁定 [text, vision, reasoning], got {features}",
         )
 
     def test_other_providers_no_reasoning_in_verified(self):
@@ -281,14 +293,15 @@ class TestSourceLevelGuardsV9_53(unittest.TestCase):
         )
 
     def test_doubao_plugin_unverified_flags_still_false(self):
-        """V37.9.53 守 verified_vision/tool_calling/streaming/fallback=False."""
-        # 这些必须保持 False 等 V37.9.54+ 真测后才能改
-        for flag in ("verified_vision", "verified_tool_calling",
-                     "verified_streaming", "verified_fallback"):
+        """V37.9.53 守 verified_tool_calling/streaming/fallback=False.
+        V37.9.54 flip verified_vision=True (从此列表移除).
+        V37.9.55+ flip tool_calling/streaming/fallback 时同步更新本断言."""
+        # 这些必须保持 False 等 V37.9.55+ 真测后才能改
+        for flag in ("verified_tool_calling", "verified_streaming", "verified_fallback"):
             self.assertRegex(
                 self.plugin_src,
                 rf"{flag}\s*=\s*False",
-                f"V37.9.53 守 {flag}=False (未实测/未 fire, V37.9.54+ flip)",
+                f"守 {flag}=False (未实测/未 fire, V37.9.55+ flip)",
             )
 
 
