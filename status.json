@@ -1,5 +1,5 @@
 {
-  "updated": "2026-05-11 01:06:17",
+  "updated": "2026-05-11 10:09:38",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-05-11",
+      "what": "V37.9.52 — Doubao Seed 2.0 Pro 接入第 8 个 provider (主力级 LLM, 与 Qwen3 同级). 新文件 providers.d/doubao_provider.py (Python plugin, ARK_API_KEY + ARK_ENDPOINT_ID env, fallback 公开 model 标识符 doubao-seed-2-0-pro). 选 OpenAI Chat Completions 兼容路径 (零 adapter.py 改动), Mac Mini 实测后 V37.9.53+ 若失败则进 Responses API translator. **V37 Provider Plugin Interface 首个真实插件触发 module 重入 bug** — python3 providers.py 直接执行时 plugin 内 from providers import 触发二次加载产生两份 BaseProvider 类 → issubclass 失败. 最小修复: providers.py 顶部 sys.modules alias. 32 新单测 5 类 (注册/env handling/能力/fallback chain/module 重入守卫/source-level guards) + 反向验证 (sabotage alias 立即 fail / 用户专属 endpoint ID 写代码立即 fail). auto_deploy FILE_MAP 加 providers.d/doubao_provider.py (V37 deployment debt 闭环). 累计 71→72 suites / 2431→2463 tests / 0 fail / 71 inv / 552 checks / providers 总数 7→8 / VERSION 0.37.9.51→0.37.9.52 / 安全 95/100. verified_*=False 待 Mac Mini 实测 (curl /chat/completions 探测 + WhatsApp 图片 E2E) 后 V37.9.53+ flip + fallback chain 优先级提升.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-05-11",
       "what": "V37.9.51 — Sub-Stage 4b 续 batch: 6 论文/repo/tweet 类脚本 (rss_blogs/dblp/arxiv_monitor/github_trending/ai_leaders_x/hn) 批量 5→6 字段 + rule_check 机械迁移 (V37.9.45 hf_papers / V37.9.50 semantic_scholar PoC 模板横向应用). 每脚本统一改动 8 处: prompt 5→6 字段 + 🎚️ 项目对齐度 + 5 档评分指南 + 反幻觉守卫 + emit heredoc imports os (V37.9.50-hotfix 同款) + parse_5→parse_6field + lazy import scorer + per-paper rule_check + high_alignment_count 统计 + 末尾高对齐汇总行. 新增 test_v37_9_51_sub_stage_4b_batch.py (28 单测 / 3 类) + 5 老测试 alternation 更新 (V37.9.40/41/43/44 或 V37.9.51 兼容). ontology/llm_cron_audit.py ALIGNED_SCRIPTS 6 脚本统一升级 V37.9.51. governance 合并 5 老锚点为 1 V37.9.51 file_contains + 1 python_assert. 反向验证守卫真有效 (sabotage 立即 3 FAIL). 累计 70→71 suites / 2403→2431 tests (+28) / 0 fail / 71 inv 不变 / 555→552 checks / 安全 95/100 / VERSION 0.37.9.50→0.37.9.51. Mac Mini 部署后 6 脚本下次 cron 自动用新 6 字段 + 🎚️ + ⚠️ marker + 高对齐统计 (audit P1/P2 路径完整闭环, 11/21 ALIGNED 视野不变但深度升级).",
       "by": "claude_code"
     },
@@ -197,11 +202,6 @@
     {
       "date": "2026-05-08",
       "what": "V37.9.39 Mac Mini E2E 真实生产推送验证: bash ~/.openclaw/jobs/semantic_scholar/run_semantic_scholar.sh 手动触发 → 4 papers 完整 5 字段深度推送到 WhatsApp + Discord. Per-paper retry 4/4 成功 (Qwen 已恢复). 单段 6551 字 < 8000 多窗口未触发. 信息密度 vs 昨日 10x 跃迁 (每篇 ~60 字 → ~400-800 字). Paper 3 ⭐⭐⭐⭐⭐ 输出质量满分参考. 3 观察项已登记 V37.9.40+ unfinished (prompt 字面量泄漏 + 缺 💡 字段 + 作者重名), 按 MR-10 三问不今天动手等多日数据回归",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-05-08",
-      "what": "V37.9.39 — semantic_scholar 5 字段深度迁移 (V37.9.38 audit 部署后 <6h 用户视角驱动第一个 PoC fix). 镜像 V37.9.36-37 rss_blogs 完整模式: source notify.sh + send_alert + LLM 三层检测 + per-paper retry 5/10/20s × 3 + 5 字段 prompt (📌中文标题/🔑核心贡献/💡关键方法/🎯实践启发/⭐评级) + 按评级动态调长度 + key-based parser + LLM_DEGRADED + tldr/abstract 兜底 (替代 V37.9.36 占位符反模式 贡献：AI领域相关研究/价值：⭐⭐⭐) + 多窗口切片 (>8000 字 + sleep 1s + [i/N] + 续). S2 422→695 行 (+65%). 37 新单测 4 类 + 反向验证守卫真有效. ALIGNED_SCRIPTS 4→5. audit findings 15→12. INV-LLMCRON-AUDIT-001 14→15 checks. 用户视角原则 #13 第 10 次正向兑现 + MR-8 跨 job 同步 fail-fast 兑现. 59 suites / 2117→2154 tests (+37) / 0 fail / 549→550 checks / 71 inv / 安全 95/100 / VERSION 0.37.9.38→0.37.9.39",
       "by": "claude_code"
     }
   ],
@@ -302,7 +302,8 @@
       "【V37.9.51+ 候选】Sub-Stage 4c — Top 5 高对齐推送段聚合所有今日 ⭐≥4 alignment paper/repo/tweet → 推到 Dream/Radar/Evening 三处推送. 中工作量 1-2h. 依赖 4b batch 完成后所有论文类脚本都产出 alignment 字段才有数据可聚合.",
       "【Stage 5 候选】kb_radar.sh 06:00 cron 综合分析 LLM prompt + 红/黄/蓝三档机会点推送 (设计文档 6.1 节). 新 cron job + 综合分析三件套 #1+#2+#3 输出 → LLM 综合 → 推送早期机会点. 依赖 4b 完成 (各脚本产 alignment 字段) + 4c 完成 (Top 5 段就位).",
       "【Mac Mini 验证 (硬卡)】① 装 sklearn (sentence-transformers V29.3 已装) → 跑 cross_source_signal_aggregator V37.9.46 真 KB 数据看 ≥3 跨源共振信号是否达成 Stage 1 成功定义 ② 5/11 决策窗口 jobs_to_crontab + kb_sources_to_index machine_sync 真激活 (V37.9.23/24/25 累积观察期到达) ③ 5/11 03:00 kb_dream cron 真触发 → 看 Phase 1.5 Opportunity Radar #1/#3 双段是否注入推送 ④ 5/11 22:00 kb_evening cron → 看明日关注加速主题段是否注入 ⑤ 5/11 08:00 semantic_scholar cron → 看 V37.9.50 6 字段 + 🎚️ 项目对齐度 + ⚠️ rule_check marker + 高对齐统计是否符合预期.",
-      "【V37.9.51+ 候选】SLO p95: 50380ms 严重超阈值 (目标 <30000ms, ~67% 超额) 调查 — Mac Mini 5/10 12:18 preflight 实测发现. 长期存在非 V37.9.50 引入. 候选根因: (a) 真实远程 LLM (Qwen3 hkagentx) 高负载延迟 (b) stale data — proxy_stats.json 是历史聚合可能含 old slow request (c) Mac Mini 网络波动. 调查路径: 看 proxy_stats.json 时间窗口 + 是否最近请求或历史累积 + 对比 dev SLO benchmark. 不阻塞 V37.9.50 部署但应在 V37.9.51 工作流验证."
+      "【V37.9.51+ 候选】SLO p95: 50380ms 严重超阈值 (目标 <30000ms, ~67% 超额) 调查 — Mac Mini 5/10 12:18 preflight 实测发现. 长期存在非 V37.9.50 引入. 候选根因: (a) 真实远程 LLM (Qwen3 hkagentx) 高负载延迟 (b) stale data — proxy_stats.json 是历史聚合可能含 old slow request (c) Mac Mini 网络波动. 调查路径: 看 proxy_stats.json 时间窗口 + 是否最近请求或历史累积 + 对比 dev SLO benchmark. 不阻塞 V37.9.50 部署但应在 V37.9.51 工作流验证.",
+      "V37.9.52 Mac Mini 验证待办: 设 ARK_API_KEY + ARK_ENDPOINT_ID env → python3 providers.py --validate 应看 OK doubao → curl /chat/completions Volcengine 端点真探测. 端点成功则 V37.9.53 flip verified_text=True 进生产 fallback chain; 端点 404/415 则 V37.9.53 加 Responses API translator (adapter.py messages↔input + image_url↔input_image 双向转换, 工作量 3-4h)."
     ],
     "open_prs": "",
     "blocked_on": "",
@@ -323,14 +324,14 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 2431,
-    "last_regression": "2026-05-11 00:58 pass",
+    "test_count": 2463,
+    "last_regression": "2026-05-11 10:08 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-05-11 00:58",
-    "test_suites": 71,
+    "security_score_time": "2026-05-11 10:08",
+    "test_suites": 72,
     "governance_invariants": "64/64",
     "governance_checks": "350/350",
-    "version": "0.37.9.50"
+    "version": "0.37.9.51"
   },
   "incidents": [
     {
@@ -394,7 +395,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "【V37.9.51 收工】Sub-Stage 4b 续 batch 完成: 6 论文/repo/tweet 类脚本 (rss_blogs/dblp/arxiv_monitor/github_trending/ai_leaders_x/hn) 批量 5→6 字段 + rule_check 机械迁移 (V37.9.45/V37.9.50 PoC 模板横向覆盖). 70→71 suites / 2403→2431 tests (+28) / VERSION 0.37.9.50→0.37.9.51 / 安全 95/100. 决策窗口保留 dry-run 默认 (用户决策, Mac Mini 手动验证零漂移后再激活, 防 V37.9.23/24/25 累积期意外漂移). 周一用户视角观察延后至 5/18. **下次 V37.9.52+ 候选**: (a) Sub-Stage 4c Top 5 高对齐推送段聚合 (b) Stage 5 kb_radar.sh 06:00 cron 综合分析 (c) Mac Mini machine_sync 零漂移验证后激活 (d) SLO p95 50380ms 调查. **用户视角原则 #13 兑现**: 用户合并后 Mac Mini 自动 deploy → 下次 cron (今晚/明早) 6 脚本同步生效, 推送中应首次出现 🎚️ 项目对齐度 + ⚠️ rule_check marker + 末尾高对齐 ⭐≥4: N/M 统计行 横向覆盖论文/repo/tweet 类推送.",
+  "focus": "【V37.9.52 接入 Doubao Seed 2.0 Pro】用户提供 ARK_API_KEY + ARK_ENDPOINT_ID + 模型 ID doubao-seed-2-0-pro-260215, 要求接入与 Qwen3 同级别 LLM. 单 session 完成: (1) providers.d/doubao_provider.py 新 Python plugin (env var 读 endpoint ID, fallback 公开标识符, API key 严绝不入代码) (2) **V37 Provider Plugin Interface 隐藏 bug 首次暴露 + 修复**: python3 providers.py 直接执行模式 plugin 子类 issubclass 检查失败 (module 重入产生两份 BaseProvider) → providers.py 顶部 sys.modules alias (3) 32 新单测 5 类含 module 重入回归守卫 + 反向验证两层 sabotage 立即 fail (4) auto_deploy FILE_MAP 加 providers.d/doubao_provider.py 闭环 V37 deployment debt (providers.d/ 目录从未在 FILE_MAP, V37 plugin 系统从未真激活) (5) full_regression 72/0/2463 全过 (修 5 处 hardcoded provider count 7→8 + convergence mock declared 加 doubao). providers 总数 7→8. **Mac Mini 验证待办**: (a) ~/.zshrc 加 ARK_API_KEY + ARK_ENDPOINT_ID 双 env (b) git fetch + reset 同步 (c) python3 ~/providers.py --validate 应看 'OK doubao' (d) python3 ~/providers.py --fallback-chain qwen 应看 doubao + Available=yes (e) curl /chat/completions 探测端点是否真支持 OpenAI 兼容. **V37.9.53+ 路径分叉**: 端点 200 OK → flip verified_text=True + 进生产 fallback chain (与 Qwen3 同级); 端点 404/415 → Responses API translator 工作量 3-4h.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",

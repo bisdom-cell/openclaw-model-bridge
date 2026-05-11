@@ -69,6 +69,7 @@ run_suite "kb_trend_acceleration (V37.9.48 Opportunity Radar Stage 3 5-archetype
 run_suite "v37_9_49_radar_integration (V37.9.49 Sub-Stage 4a #1+#3 kb_dream/evening 集成)" "python3 test_v37_9_49_radar_integration.py"
 run_suite "v37_9_50_semantic_scholar (V37.9.50 Sub-Stage 4b 1 脚本 PoC 6字段 + rule_check)" "python3 test_v37_9_50_semantic_scholar.py"
 run_suite "v37_9_51_sub_stage_4b_batch (V37.9.51 Sub-Stage 4b 6 脚本批量 6字段+rule_check 机械迁移)" "python3 test_v37_9_51_sub_stage_4b_batch.py"
+run_suite "v37_9_52_doubao_provider (V37.9.52 Doubao Seed 2.0 Pro 第 8 个 provider + module 重入 bug fix)" "python3 test_v37_9_52_doubao_provider.py"
 run_suite "run_rss_blogs (V37.9.36 LLM fail-fast + 占位符 fallback 禁止)" "python3 test_run_rss_blogs.py"
 run_suite "v37_9_18_cron_strict_checks (V37.9.18 preflight 双 warning + crontab_safe 退出码)" "python3 test_v37_9_18_cron_strict_checks.py"
 run_suite "convergence (V37.9.19 Phase 4 Layer 5 — declared→runtime convergence framework + jobs_to_crontab spec)" "python3 test_convergence.py"

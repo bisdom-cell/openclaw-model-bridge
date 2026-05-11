@@ -15,9 +15,19 @@ providers.py — Provider Compatibility Layer (V34: Stage2)
 import importlib.util
 import logging
 import os
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple
+
+# V37.9.52: 当此文件以 `python3 providers.py` 直接执行时, __name__ == '__main__'.
+# 若 providers.d/*.py plugin 内 `from providers import BaseProvider`, Python 会
+# 把 providers 当作独立模块**二次加载**, 触发 fresh top-level execution. 结果是
+# plugin 子类继承的 BaseProvider 与 PluginLoader.from_python 闭包引用的 BaseProvider
+# 是**不同对象** (id_a vs id_b), issubclass 检查永远失败 → "No BaseProvider subclass found".
+# 此 alias 让 __main__ 模式下 sys.modules['providers'] 直接指向当前 module, 避免重入.
+if __name__ == "__main__" and "providers" not in sys.modules:
+    sys.modules["providers"] = sys.modules[__name__]
 
 logger = logging.getLogger(__name__)
 
