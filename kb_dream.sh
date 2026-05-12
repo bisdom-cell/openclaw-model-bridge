@@ -871,22 +871,26 @@ if [ "$FAST_MODE" = false ] && [ -z "${MAP_SIGNALS// }" ] && [ -z "${NOTES_SIGNA
 fi
 
 # ═══════════════════════════════════════════════════════════════════
-# 4.5. Phase 1.5 (V37.9.49 Sub-Stage 4a) — Opportunity Radar 三件套信号
-#    输入: 已有 KB notes/sources
-#    输出: 跨 source 共振信号 (#1) + 趋势加速度 (#3) → 注入 Reduce LLM prompt
+# 4.5. Phase 1.5 (V37.9.49 Sub-Stage 4a + V37.9.56 Sub-Stage 4c) — Opportunity Radar 三件套
+#    输入: 已有 KB notes/sources + 8 ALIGNED source 今日 llm_results.jsonl
+#    输出: 跨 source 共振信号 (#1) + 趋势加速度 (#3) + 高对齐 Top 5 (#2)
+#         → 注入 Reduce LLM prompt
 #    设计文档: docs/opportunity_radar_design.md 3.3 + 5.2 节
 #    FAIL-OPEN: 任意脚本失败 → 信号设为空字符串不阻塞 Reduce
 # ═══════════════════════════════════════════════════════════════════
-log "Phase 1.5 (Opportunity Radar): 采集跨 source 信号 + 趋势加速度..."
+log "Phase 1.5 (Opportunity Radar): 采集跨 source 信号 + 趋势加速度 + 今日高对齐..."
 
 RADAR_SIGNALS_BLOCK=""
 TREND_SIGNALS_BLOCK=""
+TOP_ALIGNMENT_BLOCK=""  # V37.9.56 #2: 今日 ⭐≥4 高对齐 Top 5
 
 # Locate scorers (deploy 在 $HOME 或 dev 仓库根)
 RADAR_SCORER="${HOME}/cross_source_signal_aggregator.py"
 TREND_SCORER="${HOME}/kb_trend_acceleration.py"
+ALIGNMENT_PICKER="${HOME}/top_alignment_picker.py"  # V37.9.56
 [ -f "$RADAR_SCORER" ] || RADAR_SCORER="$(dirname "$0")/cross_source_signal_aggregator.py"
 [ -f "$TREND_SCORER" ] || TREND_SCORER="$(dirname "$0")/kb_trend_acceleration.py"
+[ -f "$ALIGNMENT_PICKER" ] || ALIGNMENT_PICKER="$(dirname "$0")/top_alignment_picker.py"  # V37.9.56
 
 # #1 cross_source_signal_aggregator → daily_signals JSON → top 5 共振 block
 if [ -f "$RADAR_SCORER" ]; then
@@ -969,6 +973,15 @@ PYEOF
     rm -f "$_TREND_TMP" 2>/dev/null
 fi
 
+# #2 top_alignment_picker → 今日 ⭐≥4 高对齐 Top 5 block (V37.9.56 Sub-Stage 4c)
+# 直接用 --block-only 模式取 markdown 段, 不需 inline Python parse JSON
+if [ -f "$ALIGNMENT_PICKER" ]; then
+    # 仓库根: dev 取 $(dirname "$ALIGNMENT_PICKER"), Mac Mini 取 $HOME
+    _PICKER_REPO=$(dirname "$ALIGNMENT_PICKER")
+    TOP_ALIGNMENT_BLOCK=$(python3 "$ALIGNMENT_PICKER" --repo-root "$_PICKER_REPO" --block-only 2>/dev/null || echo "")
+    [ -n "$TOP_ALIGNMENT_BLOCK" ] && log "Phase 1.5: 今日高对齐 Top 5 采集完成 (#2)"
+fi
+
 [ -n "$RADAR_SIGNALS_BLOCK" ] && log "Phase 1.5: 雷达信号采集完成 (#1)"
 [ -n "$TREND_SIGNALS_BLOCK" ] && log "Phase 1.5: 趋势加速度采集完成 (#3)"
 
@@ -1034,13 +1047,21 @@ $STATUS_CONTEXT
 $TREND_CONTEXT
 "
 
-# V37.9.49 Sub-Stage 4a (Opportunity Radar 三件套): 注入跨 source 雷达 + 趋势加速度
+# V37.9.49 Sub-Stage 4a + V37.9.56 Sub-Stage 4c (Opportunity Radar 三件套全量):
+# 注入跨 source 雷达 (#1) + 今日高对齐 Top 5 (#2) + 趋势加速度 (#3)
 # 让 Reduce LLM 在跨域关联中识别"早期机会点"
 if [ -n "$RADAR_SIGNALS_BLOCK" ]; then
     REDUCE_DATA+="
 
 ═══ Opportunity Radar #1 (跨 source 共振信号) ═══
 $RADAR_SIGNALS_BLOCK
+"
+fi
+if [ -n "$TOP_ALIGNMENT_BLOCK" ]; then
+    REDUCE_DATA+="
+
+═══ Opportunity Radar #2 (今日高对齐 Top 5, ⭐≥4) ═══
+$TOP_ALIGNMENT_BLOCK
 "
 fi
 if [ -n "$TREND_SIGNALS_BLOCK" ]; then
