@@ -1,5 +1,5 @@
 {
-  "updated": "2026-05-12 05:15:02",
+  "updated": "2026-05-12 06:54:29",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-05-12",
+      "what": "V37.9.58-hotfix: V37.9.57 自动注入工具盲点 8 ALIGNED jobs HG_LEVEL_4_TEXT 注入未补 import os 血案修复 (与 V37.9.50-hotfix 同款 NameError fix 但 V37.9.57 注入到不同 heredoc 未同步补齐). 用户视角发现 HN 14:45 cron 推送格式异常 (只有英文标题+链接, 无 6 字段 + 末尾高对齐 0/5 虚假统计). 取证 ~/.openclaw/jobs/hn_watcher/cache/hn_watcher.log 揭示 NameError: name os is not defined line 70 in stdin × 5 次 + [hn] 消息组装 LLM 解析成功 0 (但脚本误报 LLM 调用完成 成功 5/5 因 retry 把 NameError 当成功). 真因: V37.9.57 inject_level_4_to_aligned_jobs.py 给 8 jobs LLM call heredoc 末尾加 prompt += os.environ.get(HG_LEVEL_4_TEXT) 但顶部 import sys, json 缺 os. V37.9.50-hotfix 修过 emit heredoc 但 V37.9.57 引入第二处缺漏未察觉. 修复: 8/8 ALIGNED jobs heredoc 顶部 import sys, json → import sys, json, os + V37.9.58-hotfix marker. 加 test_v37_9_58_hotfix.py 4 tests source-level 守卫 (反向验证 sabotage 立即抓出 broken heredoc 还原全过). full_regression 接入 78 suites / 2671 tests / 0 fail. 原则 #28 三问严格 + MR-10 understand-before-fix 兑现. 元教训: 自动注入工具是 MR-4 silent-failure 第 N 次演出新形态 — batch 注入引入跨多 jobs 系统性 bug, 单次 fix HN 但需要 source-level 守卫 7 个其他 jobs 才闭环.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-05-12",
       "what": "V37.9.58 Plan B 渐进 escalation 终态兑现 — machine_sync 真激活: convergence.py _is_dry_run() 默认值反转 (旧默认 dry-run / 新默认 real apply, 仅 CONVERGENCE_DRY_RUN=1 才回到 dry-run) + yaml 两 spec dry_run_default: true→false + meta version 0.7→0.8-machine-sync-activated + v37_9_58_changelog 段记录终态 + governance INV-CONVERGENCE-CRON-001 守卫 V37.9.58 升级 (3 新 checks: yaml false / py 默认值反转 / changelog / meta version) + 测试反转 TestIsDryRun 5 个 + alternation 接受 V37.9.58 新值 + TestV37958DryRunActivation 新单测类 14 tests (7 分类含反向验证守卫 + 真激活契约). 一周观察期数据: jobs_to_crontab declared=36 observed=36 / kb_sources_to_index declared=14 observed=14 双 spec 全周零漂移零误报. typo-safe direction 反转: 旧 V37.9.23 typo→保守 / 新 V37.9.58 typo→兑现承诺. 反向验证 sabotage 立即多个 V37.9.58 测试 fail, 还原全过. MR-17 真正兑现: alert_only (机器可检测) → machine_sync+dry_run (机器可同步但不默认同步) → V37.9.58 切关 (机器可同步且默认同步) ← 终态. 累计 77 suites / 2651→2667 tests (+16) / 0 fail / governance v3.35→v3.36 / 72 invariants 不变 / 562→565 checks (+3) / 17 meta rules / 安全 95/100 / VERSION 0.37.9.57→0.37.9.58.",
       "by": "claude_code"
     },
@@ -201,11 +206,6 @@
     {
       "date": "2026-05-09",
       "what": "V37.9.44 — github_trending 5 字段深度迁移 (用户视角原则 #13 第 15 次兑现, ALIGNED_SCRIPTS 9→10). 用户 V37.9.43-hotfix2 收工后立即 WhatsApp 看到 14:00 cron 老 V37.8 4 字段浅表推送, 直接要求按 S2 同款格式优化. 完整 V37.9.39/V37.9.40/V37.9.41/V37.9.43 同款机械迁移 (423→677 行 +60%, Write 全量重写避开 Edit 工具诡异行为): 头部 NOTIFY_SH + send_alert helper / call_llm_single_with_retry helper + per-repo retry 5/10/20s × 3 + V37.9.36 三层检测 / 5 字段 prompt 适配项目场景 (📌 中文项目名/🔑 核心功能/💡 技术亮点/🎯 实践启发/⭐ 评级) + 按评级动态长度 / parse_5field_output emit + LLM_DEGRADED 用 GitHub repo description 兜底 + 多窗口切片 + 三档 status. github_trending-specific: html_url URL / DISCORD_CH_TECH 频道 (技术 vs 论文区分) / repo metadata badge (⭐stars/主语言/创建日期). 23 新单测 3 类 + 反向验证守卫真有效 (sed 注入占位符 → L518 立即 fail). 64 suites / 2253 tests (+23) / 0 fail / governance 554 checks (+1) / 71 inv / 安全 95/100 / VERSION 0.37.9.43→0.37.9.44. 48h 六阶段连环兑现 (V37.9.36→39→40→41→43→44, ALIGNED 4→5→7→8→9→10).",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-05-09",
-      "what": "V37.9.43-hotfix2 — wa_e2e_test.sh macOS bash 3.2 全角括号变量解析 bug (Mac Mini 实测发现): line 140 pass \"KB 索引可用（$CHUNK_COUNT）\" + line 146 skip \"KB 索引检查跳过（$KB_RESULT）\" 把全角 `）` (U+FF09) UTF-8 字节当成变量名一部分 → set -u 报 unbound variable → 脚本 exit 1. 自 PR #458 即存在但因脚本长期未部署 (V37.9.43-hotfix W3 修复) 从未在 Mac Mini 真跑过, 是\"长期沉睡的真 bug 在新部署时苏醒\"典型. 修复: ${VAR} 显式 brace 定界变量名. 4 新单测 (TestW4WaE2eBashCjkVarParsing): 反模式扫描 / hotfix2 marker / chunk_count brace / kb_result brace + 反向验证 sabotage 立即 fail. MR-10 三问严格执行. 63 suites / 2230 tests (+4) / 0 fail / 安全 95/100",
       "by": "claude_code"
     }
   ],
@@ -348,14 +348,14 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 2667,
-    "last_regression": "2026-05-12 05:11 pass",
+    "test_count": 2671,
+    "last_regression": "2026-05-12 06:53 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-05-12 05:11",
-    "test_suites": 77,
+    "security_score_time": "2026-05-12 06:53",
+    "test_suites": 78,
     "governance_invariants": "64/64",
     "governance_checks": "350/350",
-    "version": "0.37.9.57"
+    "version": "0.37.9.58"
   },
   "incidents": [
     {
@@ -419,7 +419,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "【V37.9.58 Plan B 渐进 escalation 终态兑现 — machine_sync 真激活已部署】2026-05-12 一周观察期 (5/3-5/11) 双 spec 零漂移确认后, 兑现 V37.9.23/24 收工承诺切关 CONVERGENCE_DRY_RUN 默认 — convergence.py _is_dry_run() 默认值反转 + yaml dry_run_default false + meta version 0.8-machine-sync-activated. MR-17 (declared-state-must-converge-to-runtime-via-machine-not-memory) 真正兑现: 从机器可检测升级到机器可同步且默认同步, 完成 V3 路标 pip install ontology-engine 关键里程碑. 77 suites / 2667 tests / 0 fail / governance v3.36 / 72 invariants / 565 checks / 安全 95/100. **观察窗口**: Mac Mini 部署后下次 governance audit cron (每日 07:00 自动) 真激活效果观察 — 若 jobs_to_crontab missing=0 / kb_sources_to_index missing=0 → 零操作符合一周观察期数据预期; 任一 spec 漂移 → framework 立即真同步 (crontab_safe.sh add / kb_embed.py 增量). 30 秒回滚预案: cron 加 export CONVERGENCE_DRY_RUN=1 或 git revert. **下次 V37.9.59+ 候选**: (a) Mac Mini 真激活效果一周观察后立 INV-CONVERGENCE-ACTIVATED-001 守卫 \"default real apply 不可回退\" (b) services_to_launchd (V37.9.25 alert_only) 评估是否进入 Plan B 升级 (c) SLO p95 严重超阈值调查 (需 Mac Mini proxy_stats.json 数据) (d) LEVEL_6 sub-agent / multi-agent dispatch 反幻觉守卫. 同步本周焦点: V37.9.57 反幻觉守卫一周生产观察 (今晚 22:00 evening + 明早 03:00 dream + 明天 8 ALIGNED jobs 真跑) 仍在进行中.",
+  "focus": "【V37.9.58-hotfix: V37.9.57 注入工具盲点 — 8 ALIGNED jobs HG_LEVEL_4_TEXT 注入未补 import os 血案修复】2026-05-12 14:45 用户 WhatsApp 发现 HN 推送格式异常 (只有英文标题+链接, 无 6 字段 + 末尾高对齐 0/5 虚假统计). 取证发现 NameError: name os is not defined 5 次. 真因: V37.9.57 inject_level_4_to_aligned_jobs.py batch 注入 prompt += os.environ.get(HG_LEVEL_4_TEXT) 但顶部 import 未补 os. 修复 8/8 ALIGNED jobs + test_v37_9_58_hotfix.py 4 tests source-level 守卫 + 反向验证守卫真有效. 78 suites / 2671 tests / 0 fail. **V37.9.58 主交付 + V37.9.58-hotfix 同日双发**: 主 = Plan B escalation 终态兑现 (machine_sync 真激活, declared→runtime 默认同步); hotfix = V37.9.57 自动注入工具系统性 bug 修复 (同款 V37.9.50-hotfix). **观察窗口下次 cron**: HN 20:45 / hf_papers 20:00 / s2 11:00 (明) / dblp 12:00 (明) / arxiv 每 3h / 等 — 部署后立即生效, 用户视角验证 6 字段 + 项目对齐度真出现. **下次候选**: (a) Mac Mini 部署后下次 HN/hf/s2/dblp cron 用户视角验证 6 字段 + 高对齐统计真有效 (b) 加 INV-V37958-HOTFIX-001 governance 一周观察后立 (c) inject_level_4_to_aligned_jobs.py 加 lint check 防未来同款 batch 注入 import 漏补 (d) V37.9.58 主 machine_sync 一周真激活效果观察 + INV-CONVERGENCE-ACTIVATED-001 候选 (e) SLO p95 调查 (f) LEVEL_6 sub-agent.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
