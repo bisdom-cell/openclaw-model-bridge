@@ -1,5 +1,5 @@
 {
-  "updated": "2026-05-12 03:10:01",
+  "updated": "2026-05-12 03:31:22",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -307,7 +307,8 @@
       "【Stage 5 候选】kb_radar.sh 06:00 cron 综合分析 LLM prompt + 红/黄/蓝三档机会点推送 (设计文档 6.1 节). 新 cron job + 综合分析三件套 #1+#2+#3 输出 → LLM 综合 → 推送早期机会点. 依赖 4b 完成 (各脚本产 alignment 字段) + 4c 完成 (Top 5 段就位).",
       "【Mac Mini 验证 (硬卡)】① 装 sklearn (sentence-transformers V29.3 已装) → 跑 cross_source_signal_aggregator V37.9.46 真 KB 数据看 ≥3 跨源共振信号是否达成 Stage 1 成功定义 ② 5/11 决策窗口 jobs_to_crontab + kb_sources_to_index machine_sync 真激活 (V37.9.23/24/25 累积观察期到达) ③ 5/11 03:00 kb_dream cron 真触发 → 看 Phase 1.5 Opportunity Radar #1/#3 双段是否注入推送 ④ 5/11 22:00 kb_evening cron → 看明日关注加速主题段是否注入 ⑤ 5/11 08:00 semantic_scholar cron → 看 V37.9.50 6 字段 + 🎚️ 项目对齐度 + ⚠️ rule_check marker + 高对齐统计是否符合预期.",
       "【V37.9.51+ 候选】SLO p95: 50380ms 严重超阈值 (目标 <30000ms, ~67% 超额) 调查 — Mac Mini 5/10 12:18 preflight 实测发现. 长期存在非 V37.9.50 引入. 候选根因: (a) 真实远程 LLM (Qwen3 hkagentx) 高负载延迟 (b) stale data — proxy_stats.json 是历史聚合可能含 old slow request (c) Mac Mini 网络波动. 调查路径: 看 proxy_stats.json 时间窗口 + 是否最近请求或历史累积 + 对比 dev SLO benchmark. 不阻塞 V37.9.50 部署但应在 V37.9.51 工作流验证.",
-      "V37.9.52 Mac Mini 验证待办: 设 ARK_API_KEY + ARK_ENDPOINT_ID env → python3 providers.py --validate 应看 OK doubao → curl /chat/completions Volcengine 端点真探测. 端点成功则 V37.9.53 flip verified_text=True 进生产 fallback chain; 端点 404/415 则 V37.9.53 加 Responses API translator (adapter.py messages↔input + image_url↔input_image 双向转换, 工作量 3-4h)."
+      "V37.9.52 Mac Mini 验证待办: 设 ARK_API_KEY + ARK_ENDPOINT_ID env → python3 providers.py --validate 应看 OK doubao → curl /chat/completions Volcengine 端点真探测. 端点成功则 V37.9.53 flip verified_text=True 进生产 fallback chain; 端点 404/415 则 V37.9.53 加 Responses API translator (adapter.py messages↔input + image_url↔input_image 双向转换, 工作量 3-4h).",
+      "V37.9.58 候选 (按优先级): (a) **观察期**: 今晚 22:00 evening + 明早 03:00 dream + 明天 8 ALIGNED jobs cron 真跑 (08:00-21:00) 用户视角验证 LEVEL_4/5 守卫一周生产效果 — 7 天内若零编造血案 → 立 INV-HALLUCINATION-001 (反 inline 守卫 + import get_guard 强制契约) (b) **SLO p95 59542ms 调查** — preflight 实测 latency p95 = 59.5s 严重超阈值 30s, 可能根因: V37.9.55 doubao 接入后某 fallback chain 路径慢 / 8 ALIGNED jobs LEVEL_4 注入后 LLM prompt 变长 / cache 命中不足. 需 slo_benchmark.py 分析 V37.9.55 → V37.9.57 趋势 + per-job latency 分布 (c) **LEVEL_6 候选** for sub-agent / multi-agent dispatch 场景 (Phase 4 P5 续推进) (d) **5/11 决策窗口续**: V37.9.23/24/25 jobs_to_crontab + kb_sources_to_index + services_to_launchd machine_sync dry-run → 真激活 (累积观察期到达) (e) **kb_review LEVEL_3 prompt-side 集成验证**: V37.9.57 仅 import get_guard, prompt builder build_prompt 已在 docstring 行后追加 {get_guard(LEVEL_3_STRICT)} f-string interpolation, 周日 kb_review 真跑后验证守卫文本真出现在 LLM prompt."
     ],
     "open_prs": "",
     "blocked_on": "",
@@ -419,7 +420,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "【V37.9.56 Opportunity Radar Sub-Stage 4c Top 5 高对齐推送完整兑现】新建 top_alignment_picker.py (~340 行纯 Python, 8 ALIGNED source 聚合 ⭐≥4 picks + 3 档排序 tie-break + FAIL-OPEN 契约 + 55 单测含反向验证三层守卫) + kb_dream.sh Phase 1.5+ 集成 #2 段 + kb_evening_collect.py build_evening_prompt 新增 top_alignment_picks 可选参数 + 5 测试守卫 evening 集成. Opportunity Radar 三件套 #1+#2+#3 从'独立组件 PoC' → 'V37.9.49 #1+#3 集成' → V37.9.56 #2 完整全量信号链. 累计 76 suites / 2590 tests (+60) / 0 fail / governance 72 inv 562 checks 不变 (PoC 不立 INV, INV-RADAR-001 留 Stage 6) / VERSION 0.37.9.55→0.37.9.56 / 安全 95/100. **Mac Mini 部署效果**: 22:00 kb_evening 推送'今日要闻'段之前首次出现'Top 5 高对齐'前置 listing + 03:00 kb_dream Reduce 看 #1+#2+#3 三件套全量信号融合. **下次候选**: (a) Mac Mini 跑 22:00 evening 看真实数据 (b) Sub-Stage 4b 续推 P2/P3 audit 脚本 (c) Stage 5 kb_radar.sh 06:00 综合分析 (d) 5/11 决策窗口 machine_sync 真激活 (需 Mac Mini 一周漂移数据).",
+  "focus": "【V37.9.57 架构级公共反幻觉守卫模板 + 9 task 全量接入 已部署 + 真生产实证 PASS】2026-05-12 11:24 Mac Mini 手动触发 kb_evening 推送 evening_20260512.md, V37.9.57 LEVEL_5 守卫真生效: 零血案字眼 (OpenClaw 社区发布/v26/项目里程碑 全部不出现) / 来源标签真实 ([HF]/[HN]/[货代] 全在 sources_used) / 今日要闻 4 条全 grounded / 行动建议真实业务可执行 (Kuehne+Nagel 南亚网络) / 健康度评分逻辑清晰 ⭐⭐⭐⭐. 用户视角 5/5 验证清单全 PASS = V37.9.56-hotfix3 → V37.9.57 架构修复链路的最终硬证据. Preflight 80 通过 / 0 失败 / 2 警告 (KB 索引 99% 结构性自愈 + SLO p95 59.5s 严重超阈值, V37.9.58 候选). 累计 77 suites / 2651 tests / 0 fail / VERSION 0.37.9.57 / 安全 95/100. **观察窗口**: 今晚 22:00 evening + 明早 03:00 dream + 明天 8 ALIGNED jobs (08-21 HKT) 真跑用户视角验证一周生产效果 → 7 天零血案 → 立 INV-HALLUCINATION-001 governance. **下次候选** (按优先级): SLO p95 调查 / LEVEL_6 sub-agent / 5/11 决策窗口续 (machine_sync 真激活).",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
