@@ -74,19 +74,71 @@ DEFAULT_TOP_N = 5
 
 # Source registry: 8 ALIGNED sources (V37.9.45/50/51 全量迁移完毕)
 # priority 数字越小越高: 论文类 1-3 > repo 类 4 > 博客 5 > tweet 类 6-7
+#
+# V37.9.57 hotfix: cache_paths list 替代 cache_dir_rel (单路径)
+# 真实部署差异 (V37.9.56 Mac Mini 实测发现 0 picks bug):
+#   - dev mode: jobs/X/cache (相对 repo_root)
+#   - Mac Mini production: ~/.openclaw/jobs/X/cache (auto_deploy FILE_MAP 真路径)
+#   - HN 例外: dev=repo_root/cache, prod=~/.openclaw/jobs/hn_watcher/cache (子目录名差异)
+# Picker 按 cache_paths 顺序 try, 第一个存在的目录就用 (FAIL-OPEN: 全空时返回首个候选).
 ALIGNED_SOURCES: list[dict[str, Any]] = [
-    {"id": "hf_papers", "display": "HF精选", "cache_dir_rel": "jobs/hf_papers/cache", "priority": 1},
-    {"id": "semantic_scholar", "display": "S2引用", "cache_dir_rel": "jobs/semantic_scholar/cache", "priority": 2},
-    {"id": "arxiv", "display": "ArXiv", "cache_dir_rel": "jobs/arxiv_monitor/cache", "priority": 3},
-    {"id": "dblp", "display": "DBLP", "cache_dir_rel": "jobs/dblp/cache", "priority": 3},
-    {"id": "github_trending", "display": "GitHub", "cache_dir_rel": "jobs/github_trending/cache", "priority": 4},
-    {"id": "rss_blogs", "display": "博客", "cache_dir_rel": "jobs/rss_blogs/cache", "priority": 5},
-    {"id": "ai_leaders_x", "display": "AI Leaders", "cache_dir_rel": "jobs/ai_leaders_x/cache", "priority": 6},
-    {"id": "hn", "display": "HN", "cache_dir_rel": "cache", "priority": 7},
+    {"id": "hf_papers", "display": "HF精选", "priority": 1,
+     "cache_paths": ["jobs/hf_papers/cache", "~/.openclaw/jobs/hf_papers/cache"]},
+    {"id": "semantic_scholar", "display": "S2引用", "priority": 2,
+     "cache_paths": ["jobs/semantic_scholar/cache", "~/.openclaw/jobs/semantic_scholar/cache"]},
+    {"id": "arxiv", "display": "ArXiv", "priority": 3,
+     "cache_paths": ["jobs/arxiv_monitor/cache", "~/.openclaw/jobs/arxiv_monitor/cache"]},
+    {"id": "dblp", "display": "DBLP", "priority": 3,
+     "cache_paths": ["jobs/dblp/cache", "~/.openclaw/jobs/dblp/cache"]},
+    {"id": "github_trending", "display": "GitHub", "priority": 4,
+     "cache_paths": ["jobs/github_trending/cache", "~/.openclaw/jobs/github_trending/cache"]},
+    {"id": "rss_blogs", "display": "博客", "priority": 5,
+     "cache_paths": ["jobs/rss_blogs/cache", "~/.openclaw/jobs/rss_blogs/cache"]},
+    {"id": "ai_leaders_x", "display": "AI Leaders", "priority": 6,
+     "cache_paths": ["jobs/ai_leaders_x/cache", "~/.openclaw/jobs/ai_leaders_x/cache"]},
+    {"id": "hn", "display": "HN", "priority": 7,
+     "cache_paths": ["cache", "~/.openclaw/jobs/hn_watcher/cache"]},
 ]
 
 # llm_results.jsonl 文件名 (V37.9.45+ 8 source 统一使用)
 RESULTS_FILENAME = "llm_results.jsonl"
+
+
+def _resolve_cache_dir(repo_root: str, src: dict[str, Any]) -> str:
+    """V37.9.57: 按 cache_paths 顺序选第一个存在的目录.
+
+    Args:
+        repo_root: 仓库根目录 (相对路径基准)
+        src: ALIGNED_SOURCES 条目, 含 cache_paths list
+
+    Returns:
+        str: 第一个 isdir 为真的候选 (展开 ~ + 拼接相对路径).
+             全部不存在 → 返回首个候选 (FAIL-OPEN, scan_source_results 会返回空 list).
+             cache_paths 缺失/空 → 返回 "" (FAIL-OPEN).
+
+    路径解析规则:
+        - 以 `~` 开头 → os.path.expanduser
+        - 绝对路径 → 直接用
+        - 相对路径 → os.path.join(repo_root, ...)
+    """
+    candidates = src.get("cache_paths") or []
+    if not candidates:
+        return ""
+
+    def _expand(cand: str) -> str:
+        if cand.startswith("~"):
+            return os.path.expanduser(cand)
+        if os.path.isabs(cand):
+            return cand
+        return os.path.join(repo_root, cand)
+
+    # 先 try 找存在的目录
+    for cand in candidates:
+        full = _expand(cand)
+        if os.path.isdir(full):
+            return full
+    # FAIL-OPEN: 全部不存在 → 返回首个候选 (展开后)
+    return _expand(candidates[0])
 
 
 def log(msg: str) -> None:
@@ -265,7 +317,8 @@ def collect_all_picks(repo_root: str | None = None,
 
     picks: list[dict[str, Any]] = []
     for src in sources:
-        cache_dir = os.path.join(repo_root, src["cache_dir_rel"])
+        # V37.9.57: 通过 _resolve_cache_dir 支持 dev + Mac Mini 两种 layout
+        cache_dir = _resolve_cache_dir(repo_root, src)
         results = scan_source_results(cache_dir)
         for entry in results:
             parsed = parse_alignment_from_content(entry["content"])

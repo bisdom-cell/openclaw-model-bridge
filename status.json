@@ -1,6 +1,6 @@
 {
-  "updated": "2026-05-12 00:42:10",
-  "updated_by": "full_regression",
+  "updated": "2026-05-12 01:19:33",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -106,6 +106,12 @@
   "recent_changes": [
     {
       "date": "2026-05-12",
+      "version": "V37.9.56-hotfix",
+      "what": "V37.9.56 picker cache_paths 多 layout 修复 — Mac Mini 实测 0 picks 死局闭环 (MR-10 understand-before-fix 严格兑现). 真因: Mac Mini auto_deploy FILE_MAP 真实部署路径 ~/.openclaw/jobs/X/ (不是 ~/jobs/ 也不是 ~/openclaw-model-bridge/jobs/) + HN 例外 hn_watcher 子目录. ALIGNED_SOURCES schema cache_dir_rel (单路径) → cache_paths list (dev + Mac Mini 双候选 顺序优先 try) + _resolve_cache_dir() 纯函数 + 12 新单测 2 类 (TestV9_57MacMiniLayout + TestV9_57SchemaGuards) + 反向验证两层守卫真有效. 76 suites / 2590→2602 tests (+12) / 0 fail / VERSION 0.37.9.56 不变 (hotfix 不 bump). 元教训: 测试三层契约 (单测/dev/Mac Mini 真实部署) — deployment-specific 假设必须在 target env 验证, 否则 dev 全绿但生产 0 输出. MR-15 候选 deployment-layout-must-be-tested-on-target-not-tempdir.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-05-12",
       "version": "V37.9.56",
       "what": "Sub-Stage 4c Top 5 高对齐推送 picker 完整兑现 — Opportunity Radar #2 三件套全量集成. 新文件 top_alignment_picker.py (~340 行纯 Python, 8 ALIGNED source 聚合 + 3 档排序 + FAIL-OPEN + log MR-11 stderr + lazy import project_alignment_scorer fallback 到 inline regex) + kb_dream.sh Phase 1.5 集成 #2 段 + kb_evening_collect.py build_evening_prompt 新增 top_alignment_picks 可选参数 + 60 新单测 (55 picker 含反向验证三层守卫 + 5 evening integration 守卫). auto_deploy FILE_MAP + full_regression 接入. PoC 阶段不立 INV (V37.9.46/47/48/49 同款 pattern, INV-RADAR-001 留 Stage 6). 累计 75→76 suites / 2530→2590 tests / 0 fail / governance v3.35 不变 / VERSION 0.37.9.55→0.37.9.56 / 安全 95/100. Mac Mini 部署后下次 22:00 evening / 03:00 kb_dream cron 自动用 #1+#2+#3 完整三件套. 数据复利路线从信息洪流升级为高价值早期信号 Top 5 前置 listing.",
       "by": "claude_code"
@@ -198,11 +204,6 @@
     {
       "date": "2026-05-08",
       "what": "V37.9.41 — HN 5 字段深度迁移 (V37.9.40 同款扩展). 用户视角原则 #13 第 12 次. HN 老 V38 batch + 4 字段 + stars=⭐⭐⭐ silent fallback. 迁移 (385→578 行 +50%): NOTIFY_SH + send_alert helper / 替换 line 131-298 Python heredoc 为 call_llm_single_with_retry + per-item 5 字段 prompt + 基于标题与摘要推断 caveat (HN 摘要常缺失同 DBLP) / parse_5field_output emit + LLM_DEGRADED 用 desc 兜底 + 多窗口. 21 单测 3 类. ALIGNED_SCRIPTS 7→8. governance INV-QUOTA-001 老 LLM_FAILED pattern 升级为 V37.9.36 三层 regex. test_tool_proxy V37.4.3 历史 test 放宽兼容 V37.9.41 helper 字面量. 61 suites / 2171→2192 tests (+21) / 0 fail / 551→552 checks / 安全 95/100 / VERSION 0.37.9.40→0.37.9.41",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-05-08",
-      "what": "V37.9.40 — DBLP + AI Leaders X 双脚本批次 5 字段深度迁移. 镜像 V37.9.36-37/V37.9.39 完整模式: source notify.sh + send_alert + LLM 三层检测 + per-item retry 5/10/20s × 3 + 5 字段 emoji + key-based parser + LLM_DEGRADED + 多窗口切片. DBLP 适配无 abstract: prompt 加 基于标题推断 caveat + LLM_DEGRADED 用 标题+venue 元数据兜底. AI Leaders X 适配 tweet: 📌中文主题(≤15字) + 🔑核心观点 + 💡技术深度解读 + 🎯系统启示 + ⭐评级 + LLM_DEGRADED 用推文原文兜底. 17 新单测 3 类 (TestDblpV9_40Guards/TestAiLeadersV9_40Guards/TestV9_40InAuditAlignedScripts). ALIGNED_SCRIPTS 5→7. audit 12→10 findings. 用户视角原则 #13 第 11 次正向兑现 + 24h 内 V37.9.38(audit)→V37.9.39(S2)→V37.9.40(DBLP+AI Leaders X) 三阶段连环兑现 framework 驱动器价值. 60 suites / 2154→2171 tests / 0 fail / 550→551 checks / 安全 95/100 / VERSION 0.37.9.39→0.37.9.40",
       "by": "claude_code"
     }
   ],
@@ -345,10 +346,10 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 2590,
-    "last_regression": "2026-05-12 00:42 pass",
+    "test_count": 2602,
+    "last_regression": "2026-05-12 01:18 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-05-12 00:42",
+    "security_score_time": "2026-05-12 01:18",
     "test_suites": 76,
     "governance_invariants": "64/64",
     "governance_checks": "350/350",
