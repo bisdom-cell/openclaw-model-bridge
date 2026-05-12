@@ -233,7 +233,7 @@ log "共 ${TOTAL_NEW} 篇新文章"
 # ── 构建 LLM prompt ──────────────────────────────────────────────────
 PROMPT_FILE="$CACHE/llm_prompt.txt"
 $PYTHON3 - "$ALL_NEW_FILE" << 'PYEOF' > "$PROMPT_FILE"
-import sys, json, re
+import sys, json, re, os  # V37.9.58-hotfix2: os 用于 V37.9.57 LEVEL_2 注入 prompt += os.environ.get('HG_GUARD_TEXT')
 
 articles = []
 with open(sys.argv[1]) as f:
