@@ -360,9 +360,9 @@ class TestPickTopAlignedOrchestrator(unittest.TestCase):
                 ("rss_blogs", "Blog Top", 4),
                 ("hn", "HN Top", 5),
             ]:
-                # find cache_dir_rel
+                # V37.9.57: use cache_paths[0] (dev mode, relative to repo_root)
                 src_meta = next(s for s in tap.ALIGNED_SOURCES if s["id"] == src_id)
-                cache_dir = os.path.join(tmp, src_meta["cache_dir_rel"])
+                cache_dir = os.path.join(tmp, src_meta["cache_paths"][0])
                 os.makedirs(cache_dir)
                 star_emoji = "⭐" * stars
                 with open(os.path.join(cache_dir, "llm_results.jsonl"), "w", encoding="utf-8") as f:
@@ -480,6 +480,159 @@ class TestSourceLevelGuards(unittest.TestCase):
         # 检查方式: 顶部 60 行内不应出现 "import project_alignment_scorer"
         first_60_lines = "\n".join(self.src.split("\n")[:60])
         self.assertNotIn("import project_alignment_scorer", first_60_lines)
+
+
+class TestV9_57MacMiniLayout(unittest.TestCase):
+    """V37.9.57 hotfix: Mac Mini production layout (~/.openclaw/jobs/X/cache).
+
+    Mac Mini auto_deploy FILE_MAP 实际部署:
+      - paper/repo/tweet jobs: ~/.openclaw/jobs/X/run_X.sh + cache 同目录
+      - HN 例外: ~/.openclaw/jobs/hn_watcher/cache (子目录名 hn_watcher 而非 hn)
+      - top_alignment_picker.py: ~/top_alignment_picker.py (顶层)
+
+    V37.9.56 picker 默认 repo_root=$HOME, cache_dir_rel="jobs/X/cache" → 找 ~/jobs/X/cache
+    完全错配, Mac Mini 0 picks 而 dev 单测全过. V37.9.57 cache_paths list 修复双 layout.
+    """
+
+    def test_resolve_cache_dir_dev_layout(self):
+        """Dev layout: cache_paths[0] 相对 repo_root 存在 → 用它."""
+        with tempfile.TemporaryDirectory() as tmp:
+            cache = os.path.join(tmp, "jobs/hf_papers/cache")
+            os.makedirs(cache)
+            src = next(s for s in tap.ALIGNED_SOURCES if s["id"] == "hf_papers")
+            resolved = tap._resolve_cache_dir(tmp, src)
+            self.assertEqual(resolved, cache)
+
+    def test_resolve_cache_dir_mac_mini_layout(self):
+        """Mac Mini layout: cache_paths[0] 不存在 → fallback 到 cache_paths[1] (~/.openclaw/jobs/X/cache)."""
+        import shutil
+        original_home = os.environ.get("HOME", "")
+        fake_home = tempfile.mkdtemp()
+        try:
+            os.environ["HOME"] = fake_home
+            mac_cache = os.path.expanduser("~/.openclaw/jobs/hf_papers/cache")
+            os.makedirs(mac_cache)
+            with tempfile.TemporaryDirectory() as tmp:
+                # tmp 下没建 jobs/hf_papers/cache → 应自动 fallback Mac Mini path
+                src = next(s for s in tap.ALIGNED_SOURCES if s["id"] == "hf_papers")
+                resolved = tap._resolve_cache_dir(tmp, src)
+                self.assertEqual(resolved, mac_cache)
+        finally:
+            os.environ["HOME"] = original_home
+            shutil.rmtree(fake_home, ignore_errors=True)
+
+    def test_resolve_cache_dir_hn_subdir_hn_watcher(self):
+        """HN 例外: Mac Mini cache 在 ~/.openclaw/jobs/hn_watcher/cache (子目录名差异)."""
+        import shutil
+        original_home = os.environ.get("HOME", "")
+        fake_home = tempfile.mkdtemp()
+        try:
+            os.environ["HOME"] = fake_home
+            mac_hn_cache = os.path.expanduser("~/.openclaw/jobs/hn_watcher/cache")
+            os.makedirs(mac_hn_cache)
+            with tempfile.TemporaryDirectory() as tmp:
+                src = next(s for s in tap.ALIGNED_SOURCES if s["id"] == "hn")
+                resolved = tap._resolve_cache_dir(tmp, src)
+                self.assertEqual(resolved, mac_hn_cache)
+                # 验证不是 ~/cache (那是 dev layout)
+                self.assertNotEqual(resolved, os.path.expanduser("~/cache"))
+        finally:
+            os.environ["HOME"] = original_home
+            shutil.rmtree(fake_home, ignore_errors=True)
+
+    def test_resolve_cache_dir_fail_open_all_missing(self):
+        """FAIL-OPEN: 所有 candidates 都不存在 → 返回首个候选 (展开后) 让 scan 返回空 list."""
+        with tempfile.TemporaryDirectory() as tmp:
+            src = next(s for s in tap.ALIGNED_SOURCES if s["id"] == "hf_papers")
+            resolved = tap._resolve_cache_dir(tmp, src)
+            # 首个候选 = "jobs/hf_papers/cache" 相对 tmp
+            self.assertEqual(resolved, os.path.join(tmp, "jobs/hf_papers/cache"))
+            self.assertFalse(os.path.isdir(resolved))
+
+    def test_resolve_cache_dir_empty_paths(self):
+        """cache_paths 缺失/空 → 返回 "" 不抛 (FAIL-OPEN)."""
+        with tempfile.TemporaryDirectory() as tmp:
+            # 模拟 schema 缺失的边缘 case
+            empty_src = {"id": "test", "display": "Test", "priority": 99, "cache_paths": []}
+            self.assertEqual(tap._resolve_cache_dir(tmp, empty_src), "")
+            no_paths_src = {"id": "test", "display": "Test", "priority": 99}
+            self.assertEqual(tap._resolve_cache_dir(tmp, no_paths_src), "")
+
+    def test_end_to_end_mac_mini_layout_picks_collected(self):
+        """V37.9.57 端到端: 在 Mac Mini layout 下 picker 真能找到 picks."""
+        import shutil
+        original_home = os.environ.get("HOME", "")
+        fake_home = tempfile.mkdtemp()
+        try:
+            os.environ["HOME"] = fake_home
+            # 构造 Mac Mini layout cache + 1 个 ⭐⭐⭐⭐⭐ alignment
+            mac_cache = os.path.expanduser("~/.openclaw/jobs/hf_papers/cache")
+            os.makedirs(mac_cache)
+            with open(os.path.join(mac_cache, "llm_results.jsonl"), "w", encoding="utf-8") as f:
+                f.write(json.dumps({
+                    "idx": 0,
+                    "content": "📌 标题: Mac Mini Test Paper\n🎚️ 项目对齐度: ⭐⭐⭐⭐⭐ / V37.9.57 hotfix verified",
+                    "failed": False,
+                }) + "\n")
+            # repo_root 用空 tmpdir, picker 应自动 fallback Mac Mini path
+            with tempfile.TemporaryDirectory() as tmp:
+                result = tap.pick_top_aligned(repo_root=tmp)
+                self.assertEqual(result["status"], "ok")
+                self.assertEqual(result["picks_total"], 1)
+                self.assertIn("Mac Mini Test Paper", result["block"])
+        finally:
+            os.environ["HOME"] = original_home
+            shutil.rmtree(fake_home, ignore_errors=True)
+
+
+class TestV9_57SchemaGuards(unittest.TestCase):
+    """V37.9.57 schema 守卫: cache_paths list 锁定 + Mac Mini path 字面量存在."""
+
+    def setUp(self):
+        with open(os.path.join(REPO_ROOT, "top_alignment_picker.py"), encoding="utf-8") as f:
+            self.src = f.read()
+
+    def test_aligned_sources_use_cache_paths_not_cache_dir_rel(self):
+        """V37.9.57 schema: 所有 source 必须用 cache_paths list, 禁止 cache_dir_rel 单值字段."""
+        for src in tap.ALIGNED_SOURCES:
+            self.assertIn("cache_paths", src,
+                f'source {src["id"]} 缺 cache_paths 字段')
+            self.assertIsInstance(src["cache_paths"], list,
+                f'source {src["id"]}.cache_paths 必须是 list')
+            self.assertGreaterEqual(len(src["cache_paths"]), 2,
+                f'source {src["id"]}.cache_paths 必须 >= 2 候选 (dev + Mac Mini)')
+            self.assertNotIn("cache_dir_rel", src,
+                f'source {src["id"]} 还保留 cache_dir_rel 反模式 (应已重命名为 cache_paths)')
+
+    def test_mac_mini_path_pattern_present(self):
+        """V37.9.57: ALIGNED_SOURCES 每个 source 第二个候选必须是 ~/.openclaw/jobs/...path."""
+        for src in tap.ALIGNED_SOURCES:
+            mac_paths = [p for p in src["cache_paths"] if p.startswith("~/.openclaw/jobs/")]
+            self.assertEqual(len(mac_paths), 1,
+                f'source {src["id"]} 缺 ~/.openclaw/jobs/ Mac Mini 路径')
+
+    def test_hn_uses_hn_watcher_subdir_on_mac_mini(self):
+        """V37.9.57 HN 例外: Mac Mini 路径必须是 hn_watcher 子目录 (FILE_MAP 部署位置)."""
+        hn = next(s for s in tap.ALIGNED_SOURCES if s["id"] == "hn")
+        mac_paths = [p for p in hn["cache_paths"] if p.startswith("~/.openclaw/jobs/")]
+        self.assertEqual(len(mac_paths), 1)
+        self.assertIn("hn_watcher", mac_paths[0],
+            f'HN Mac Mini 路径必须含 hn_watcher 子目录, got {mac_paths[0]}')
+
+    def test_resolve_cache_dir_function_defined(self):
+        """V37.9.57 helper 函数定义必须存在."""
+        self.assertIn("def _resolve_cache_dir(", self.src)
+        self.assertTrue(callable(tap._resolve_cache_dir))
+
+    def test_collect_all_picks_uses_resolve_cache_dir(self):
+        """collect_all_picks 必须调 _resolve_cache_dir, 不直接 os.path.join(repo_root, cache_dir_rel)."""
+        self.assertIn("_resolve_cache_dir(repo_root, src)", self.src)
+        # 反模式守卫: 不应残留 src["cache_dir_rel"] 直接索引
+        self.assertNotIn('src["cache_dir_rel"]', self.src)
+        self.assertNotIn("src['cache_dir_rel']", self.src)
+
+    def test_v37_9_57_marker_present(self):
+        self.assertIn("V37.9.57", self.src)
 
 
 class TestV9_56IntegrationContracts(unittest.TestCase):
