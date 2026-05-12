@@ -344,7 +344,7 @@ LAST_FAIL_REASON=""
 for ((i=0; i<TOTAL_NEW; i++)); do
     SINGLE_PROMPT="$CACHE/llm_single_prompt_${i}.txt"
     $PYTHON3 - "$ALL_TWEETS" "$i" << 'PYEOF' > "$SINGLE_PROMPT"
-import sys, json
+import sys, json, os  # V37.9.58-hotfix: os 用于 V37.9.57 注入 HG_LEVEL_4_TEXT (line ~411) NameError fix
 
 tweets_file, idx = sys.argv[1], int(sys.argv[2])
 tweets = []

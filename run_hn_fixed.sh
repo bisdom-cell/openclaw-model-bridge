@@ -280,7 +280,7 @@ LAST_FAIL_REASON=""
 for ((i=0; i<TOTAL_NEW; i++)); do
     SINGLE_PROMPT="$CACHE_DIR/llm_single_prompt_${i}.txt"
     $PYTHON3 - "$NEW_FILE" "$i" << 'PYEOF' > "$SINGLE_PROMPT"
-import sys, json, re
+import sys, json, re, os  # V37.9.58-hotfix: os 用于 V37.9.57 注入 prompt += os.environ.get('HG_LEVEL_4_TEXT', '') (line ~352), V37.9.50-hotfix 同款 NameError fix 但 V37.9.57 注入到不同 heredoc 未同步补齐
 
 new_file, idx = sys.argv[1], int(sys.argv[2])
 items = []
