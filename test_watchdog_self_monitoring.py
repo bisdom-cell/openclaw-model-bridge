@@ -305,8 +305,9 @@ class TestReverseVerificationGuardsAreReal(unittest.TestCase):
             f.write(self.backup)
 
     def _sabotage(self, old, new):
-        """临时把 old 替换为 new."""
-        src = self.backup.replace(old, new, 1)
+        """临时把 old 替换为 new (V37.9.59: replace 所有出现, 防 V37.9.59+ 加重复字面量
+        让 sabotage 单点替换无效)."""
+        src = self.backup.replace(old, new)  # V37.9.59: 不传 count, replace 所有
         if src == self.backup:
             self.skipTest(f"sabotage target '{old[:40]}' 未找到")
         with open(WATCHDOG_SH, "w", encoding="utf-8") as f:
