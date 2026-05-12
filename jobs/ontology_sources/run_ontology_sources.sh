@@ -33,6 +33,20 @@ test -f "$KB_SRC" || echo "# Ontology Sources Watcher" > "$KB_SRC"
 
 # ── 加载 notify.sh ────────────────────────────────────────────────────
 NOTIFY_LOADED=false
+
+# V37.9.57: 公共反幻觉守卫 LEVEL_2_STANDARD (MR-8 single-source-of-truth)
+# FAIL-OPEN: hallucination_guards 模块缺失 → 空字符串, 不阻塞 prompt 主流程
+HG_GUARD_TEXT=$(python3 -c "
+import sys, os
+sys.path.insert(0, os.path.expanduser('~'))
+sys.path.insert(0, '$(cd \"$(dirname \"$0\")\" && pwd)')
+try:
+    import hallucination_guards as hg
+    print(hg.get_guard('LEVEL_2_STANDARD'))
+except Exception:
+    print('')
+" 2>/dev/null)
+export HG_GUARD_TEXT
 for _np in "$HOME/openclaw-model-bridge/notify.sh" "$HOME/notify.sh"; do
     if [ -f "$_np" ]; then
         source "$_np"
@@ -253,6 +267,10 @@ for i, a in enumerate(articles, 1):
     if desc:
         prompt += f"摘要：{desc[:150]}\n"
     prompt += "\n"
+
+# V37.9.57: append 反幻觉守卫 (MR-8 single-source-of-truth via env var)
+
+prompt += os.environ.get('HG_GUARD_TEXT', '')
 
 print(prompt)
 PYEOF

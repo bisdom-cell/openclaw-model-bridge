@@ -8,6 +8,20 @@
 export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
 set -eo pipefail
 
+# V37.9.57: 公共反幻觉守卫 LEVEL_2_STANDARD (MR-8 single-source-of-truth)
+# FAIL-OPEN: hallucination_guards 模块缺失 → 空字符串, 不阻塞 prompt 主流程
+HG_GUARD_TEXT=$(python3 -c "
+import sys, os
+sys.path.insert(0, os.path.expanduser('~'))
+sys.path.insert(0, '$(cd \"$(dirname \"$0\")\" && pwd)')
+try:
+    import hallucination_guards as hg
+    print(hg.get_guard('LEVEL_2_STANDARD'))
+except Exception:
+    print('')
+" 2>/dev/null)
+export HG_GUARD_TEXT
+
 # 防重叠执行（mkdir 原子锁，macOS 兼容）
 LOCK="/tmp/freight_watcher.lockdir"
 mkdir "$LOCK" 2>/dev/null || { echo "[freight] Already running, skip"; exit 0; }
@@ -239,7 +253,7 @@ for i, l in enumerate(lines, 1):
 1. 三层独立分类，不要在一段里混合（避免 Step 8 误提取）
 2. 每段最多输出 5 条（防 WhatsApp 推送超长）
 3. 评级⭐≥4 的'企业信号'会被自动深挖客户画像（ImportYeti 海关数据查询）
-4. 严禁虚构具体数字（运价/港口吞吐量 必须来自原文，无则写'未提供'）"
+4. 严禁虚构具体数字（运价/港口吞吐量 必须来自原文，无则写'未提供'）${HG_GUARD_TEXT}"
 
 # 规则 #27: 纯推理直接 curl proxy:5002，禁止用 openclaw agent（#94教训）
 LLM_PAYLOAD=$(python3 -c "

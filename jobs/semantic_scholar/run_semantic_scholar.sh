@@ -8,6 +8,22 @@ export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
 # 搜索多个 AI 关键词，按 citationCount 降序，去重取 top N
 set -eo pipefail
 
+# V37.9.57: 公共反幻觉守卫 LEVEL_4_PROJECT_AWARE (MR-8 single-source-of-truth)
+# 8 ALIGNED jobs 的 per-paper LLM prompt 已有 inline 反幻觉守卫, V37.9.57 追加
+# LEVEL_4 含 V37.9.56-hotfix3 具体血案字眼 (禁"OpenClaw 社区发布"/"v26"/"[openclaw]")
+# 防 alignment 评分输出"一句话原因"段编造项目动态. FAIL-OPEN: 模块缺失 → 空字符串
+HG_LEVEL_4_TEXT=$(python3 -c "
+import sys, os
+sys.path.insert(0, os.path.expanduser('~'))
+sys.path.insert(0, '$(cd "$(dirname "$0")" && pwd)')
+try:
+    import hallucination_guards as hg
+    print(hg.get_guard('LEVEL_4_PROJECT_AWARE'))
+except Exception:
+    print('')
+" 2>/dev/null)
+export HG_LEVEL_4_TEXT
+
 # 防重叠执行
 LOCK="/tmp/semantic_scholar.lockdir"
 mkdir "$LOCK" 2>/dev/null || { echo "[s2] Already running, skip"; exit 0; }
@@ -125,6 +141,7 @@ touch "$SEEN_FILE"
 NEW_IDS_FILE="$CACHE/new_ids.txt"
 
 if ! python3 - "$RAW_DIR" "$MAX_PAPERS" "$SEEN_FILE" "$NEW_IDS_FILE" << 'PYEOF' > "$PAPERS_FILE"
+import os  # V37.9.57: read HG_LEVEL_4_TEXT env var
 import sys, json, os, glob
 
 raw_dir = sys.argv[1]
@@ -377,6 +394,8 @@ prompt += f"论文标题: {title}\n"
 prompt += f"引用次数: {citations}\n"
 if summary:
     prompt += f"论文摘要:\n{summary}\n"
+# V37.9.57: append LEVEL_4 反幻觉守卫 (MR-8 single-source-of-truth via env var)
+prompt += os.environ.get('HG_LEVEL_4_TEXT', '')
 print(prompt)
 PYEOF
 

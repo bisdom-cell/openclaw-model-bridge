@@ -44,6 +44,7 @@ run_suite() {
 # 第一层：单元测试（纯逻辑，无外部依赖）
 # ═══════════════════════════════════════════════════════════════
 echo "📋 第一层：单元测试"
+run_suite "hallucination_guards (V37.9.57 公共反幻觉守卫 5 档模板)" "python3 test_hallucination_guards.py"
 run_suite "proxy_filters (工具过滤/截断/SSE)" "python3 test_tool_proxy.py"
 run_suite "check_registry (注册表校验器)" "python3 test_check_registry.py"
 run_suite "cron_health (锁/心跳/告警/完整性)" "python3 test_cron_health.py"
