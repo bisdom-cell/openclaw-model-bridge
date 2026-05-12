@@ -87,21 +87,26 @@ _MACHINE_SYNC_TIMEOUT_SEC = 15
 _KB_EMBED_TIMEOUT_SEC = 300
 
 # V37.9.23 — Default dry-run for machine_sync. Read from env var so audit
-# can be flipped to "real apply" mode without code change. Any value other
-# than "0" (including unset, "1", "true", "yes") = dry-run (safe default).
-# This is the renewable safety knob for one-week observation window before
-# fully activating machine_sync (V37.9.23 → V37.9.24+ planned escalation).
+# V37.9.58 切关 escalation 兑现 (2026-05-12): 一周观察期到期 (5/3-5/11 零漂移),
+# V37.9.23/24 yaml meta 收工承诺 "V37.9.24+ (一周后): 切关 CONVERGENCE_DRY_RUN
+# 默认 → 真激活 machine_sync (default=不要 dry-run, 必须 CONVERGENCE_DRY_RUN=1
+# 才 dry-run)" 兑现. typo-safe direction 反转: 旧 V37.9.23 typo→dry-run (保守);
+# 新 V37.9.58 typo→real apply (兑现 escalation 承诺).
+# Only literal "1" enables dry-run — all other values (unset, "0", "true",
+# anything) trigger real machine_sync.
 _DRY_RUN_ENV_VAR = "CONVERGENCE_DRY_RUN"
 
 
 def _is_dry_run():
-    """Read CONVERGENCE_DRY_RUN env var. Default True (safe).
-    Only the literal "0" disables dry-run — all other values (unset, "1",
-    "true", anything) keep dry-run enabled. This is intentional for the
-    V37.9.23 → V37.9.24 escalation window: operator must explicitly set
-    CONVERGENCE_DRY_RUN=0 to flip to real apply, no accidental activation.
+    """Read CONVERGENCE_DRY_RUN env var. V37.9.58 切关后默认 False (real apply).
+    Only the literal "1" enables dry-run — all other values (unset, "0",
+    "true", anything) trigger real machine_sync. Operator must explicitly set
+    CONVERGENCE_DRY_RUN=1 to flip back to dry-run for observation/debugging.
+    V37.9.23/24 yaml meta 一周观察期到期 → 切关 dry-run, MR-17 (declared-state-
+    must-converge-to-runtime-via-machine-not-memory) 真正兑现 — 从"机器可检测"
+    升级到"机器可同步"且"默认同步".
     """
-    return os.environ.get(_DRY_RUN_ENV_VAR, "1") != "0"
+    return os.environ.get(_DRY_RUN_ENV_VAR, "0") == "1"
 
 # ── Result type ───────────────────────────────────────────────────────────
 

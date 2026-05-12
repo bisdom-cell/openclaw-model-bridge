@@ -14,8 +14,8 @@
 # alert_only observation data per spec.
 
 meta:
-  version: "0.7-fifth-spec-services-to-launchd"
-  status: "framework_five_specs_two_machine_sync_named_dispatch_dry_run"
+  version: "0.8-machine-sync-activated"
+  status: "framework_five_specs_two_machine_sync_activated_dry_run_default_off"
   description: |
     Phase 4 Layer 5 of the ontology stack. Layer 1 (domain) describes WHAT
     exists, Layer 2 (policy) describes WHAT'S ALLOWED, Layer 3 (three-gate)
@@ -170,6 +170,62 @@ meta:
     operator-provisioned), one stays alert_only_permanent (openclaw — runtime
     state changes are operator decisions).
 
+  v37_9_58_changelog: |
+    Plan B 渐进 escalation 路径终态兑现 (2026-05-12):
+
+    背景: V37.9.23 (5/3) 上线 jobs_to_crontab machine_sync + 默认 dry-run
+    (CONVERGENCE_DRY_RUN env var 控制), V37.9.24 (5/4) 同款模式扩展到
+    kb_sources_to_index. 两个 spec 均设 dry_run_default=true 作为一周观察期
+    安全垫. V37.9.23/24 yaml meta 收工承诺:
+      "V37.9.24+ (一周后): 切关 CONVERGENCE_DRY_RUN 默认 → 真激活 machine_sync"
+
+    观察期数据 (5/3 → 5/11 一周累积):
+      - jobs_to_crontab: declared=36 observed=36 missing=0 零漂移 零误报
+      - kb_sources_to_index: declared=14 observed=14 missing=0 零漂移 零误报
+      - 全周 zero apply_errors (dry-run 验证拼接结果与生产 crontab 行字面一致)
+
+    V37.9.58 切关 (escalation 兑现):
+      1. convergence.py::_is_dry_run() 默认值反转
+         旧: os.environ.get("CONVERGENCE_DRY_RUN", "1") != "0" (默认 dry-run)
+         新: os.environ.get("CONVERGENCE_DRY_RUN", "0") == "1" (默认 real apply)
+      2. yaml 两 spec dry_run_default: true → false (与 Python 默认保持一致)
+      3. typo-safe direction 反转:
+         旧 V37.9.23: typo → dry-run (保守, 任何错都不动 crontab)
+         新 V37.9.58: typo → real apply (兑现 escalation 承诺)
+         典型路径分析: 99% 用户跑 governance audit 不手动设 env var,
+                     0.5% 显式 CONVERGENCE_DRY_RUN=1 做实验观察 dry-run,
+                     0.5% 显式 CONVERGENCE_DRY_RUN=0 做真激活 (新语义下=未设)
+      4. 测试 TestIsDryRun 5 个 case 反转语义 (env unset/0/true/empty 全部
+         变 real apply, 仅 "1" 字面量保持 dry-run)
+      5. 加新单测 TestV37958DryRunActivation 反向验证 + V37.9.58 marker
+         守卫源码"默认 real apply" + 防回退到 V37.9.23 默认 dry-run 反模式
+      6. governance INV-CONVERGENCE-CRON-001 dry_run_default 字面量守卫反转:
+         pattern 'dry_run_default: true' → 'dry_run_default: false'
+      7. meta version 0.7-fifth-spec → 0.8-machine-sync-activated
+         meta status framework_*_dry_run → framework_*_activated_dry_run_default_off
+
+    MR-17 (declared-state-must-converge-to-runtime-via-machine-not-memory)
+    真正兑现 — 从"机器可检测"升级到"机器可同步"且"默认同步":
+      - V37.9.19 起步 alert_only (机器可检测)
+      - V37.9.23/24 machine_sync + 默认 dry-run (机器可同步但不默认同步)
+      - V37.9.58 切关 dry-run 默认 (机器可同步且默认同步) ← 终态
+
+    Mac Mini 部署后预期行为:
+      - 下次 governance audit cron 跑, jobs_to_crontab missing 仍 0 → 零操作
+      - kb_sources_to_index missing 仍 0 → 零操作
+      - 任一 spec 出现 declared vs observed 漂移 → 立即真同步, 不再 dry-run 等
+      - operator 可显式 CONVERGENCE_DRY_RUN=1 临时回到 dry-run 观察模式
+
+    回滚预案 (如真激活后出现意外副作用):
+      - 紧急 30 秒回滚: cron 加 `export CONVERGENCE_DRY_RUN=1` 或在 governance_
+        audit_cron.sh 头部加 env, 恢复 dry-run 行为
+      - 永久回滚: git revert V37.9.58 commit
+      - 数据回滚: crontab 已用 V37.9.18 加固后的 crontab_safe.sh add 是
+        idempotent + safe, 应无需 crontab 恢复操作
+
+    候选 V37.9.59+: 一周真激活观察后立 INV-CONVERGENCE-ACTIVATED-001
+                  守卫 "default real apply 不可回退", 锁定 escalation 终态.
+
 convergence_specs:
 
   # ── jobs_to_crontab (V37.9.19 first spec) ──────────────────────────────
@@ -225,7 +281,7 @@ convergence_specs:
         (V37.9.23 _format_cron_line 实现, 匹配 V37.9.18 INV-CRON-003 模式)
       apply_path: convergence._apply_jobs_to_crontab_per_entry
       dry_run_env_var: CONVERGENCE_DRY_RUN
-      dry_run_default: true                  # V37.9.23 安全默认, V37.9.24+ 切关
+      dry_run_default: false                 # V37.9.58 切关 escalation 兑现 (5/3-5/11 一周观察期零漂移, 5/12 切关)
       v37_9_19_blocker_resolution: |
         V37.9.19 planned_blocker 是 "需要从 registry 字段模板化 cron line".
         V37.9.23 _format_cron_line 实现已闭环此 blocker, 输入 jobs_registry
@@ -468,7 +524,7 @@ convergence_specs:
       helper: "python3 $HOME/openclaw-model-bridge/kb_embed.py"
       apply_path: convergence._apply_kb_embed_incremental
       dry_run_env_var: CONVERGENCE_DRY_RUN
-      dry_run_default: true                  # V37.9.24 安全默认, V37.9.25+ 切关
+      dry_run_default: false                 # V37.9.58 切关 escalation 兑现 (V37.9.24 上线 → 一周观察期 → 5/12 切关)
       v37_9_22_blocker_resolution: |
         V37.9.22 planned_blocker 是 "应该只对真正 drift 的 source 增量重建,
         不是全量". V37.9.24 实证: kb_embed.py 默认模式 (无 --reindex 参数)

@@ -466,17 +466,32 @@ class TestRealJobsToCrontabSpec(unittest.TestCase):
         self.assertEqual(r.spec_id, "jobs_to_crontab")
         self.assertEqual(r.drift_action, "machine_sync",
             "V37.9.23: jobs_to_crontab spec drift_action 已升级到 machine_sync")
-        # In dev (no crontab), all 36 declared jobs missing → dry-run apply
-        # 应产出 36 个 "DRY-RUN would apply: ..." 行 + 0 errors
+        # V37.9.58 切关 escalation 兑现 (5/12): 默认 _is_dry_run()=False (real apply).
+        # In dev (no crontab), all 36 declared jobs missing → 实际走 real apply 但
+        # dev 无 ~/crontab_safe.sh → apply_errors 收集每个 missing entry.
+        # 旧 V37.9.23 时代默认 dry-run=True 走 "DRY-RUN would apply:" 路径,
+        # 新 V37.9.58 时代默认 dry-run=False 走 apply_errors 路径 (crontab_safe.sh
+        # 不存在或 mock subprocess 失败).
         if r.missing_in_runtime:
-            self.assertTrue(r.apply_dry_run,
-                "默认 CONVERGENCE_DRY_RUN!=0 必须 dry-run, 防意外修改 dev crontab")
-            self.assertEqual(len(r.applied_actions), len(r.missing_in_runtime),
-                "每个 missing entry 应在 dry-run 应产出一行 would-apply 字面量")
-            # dry-run 输出必须包含字面量前缀
+            self.assertFalse(r.apply_dry_run,
+                "V37.9.58 切关 escalation 兑现: 默认 (CONVERGENCE_DRY_RUN 未设) "
+                "必须 apply_dry_run=False (real apply mode). 旧 V37.9.23 默认 True 已废弃.")
+            # V37.9.58: real apply 模式下 dev 无 crontab_safe.sh, 走 apply_errors
+            # 总条目数 = missing entries 数 (每个 missing 触发一次 apply 尝试)
+            self.assertEqual(len(r.applied_actions) + len(r.apply_errors), len(r.missing_in_runtime),
+                "每个 missing entry 触发一次 apply 尝试 (real apply 模式下 success 入 applied, "
+                "failure 入 apply_errors)")
+            # dev 环境 ~/crontab_safe.sh 通常不存在, 应 fallback 到 errors
+            # (除非 dev 机器恰好有, 那么走 applied 也合法)
+            self.assertTrue(r.applied_actions or r.apply_errors,
+                "V37.9.58 real apply 模式必产 applied 或 errors 之一")
+            # V37.9.58: real apply 前缀 'applied:' (或显式 dry-run env 时仍可能 'DRY-RUN')
             for action in r.applied_actions:
-                self.assertTrue(action.startswith("DRY-RUN would apply:"),
-                    f"dry-run action 应以前缀 'DRY-RUN would apply:' 开头, got: {action!r}")
+                self.assertTrue(
+                    action.startswith("applied:") or action.startswith("DRY-RUN would apply:"),
+                    f"V37.9.58 action 前缀必须 'applied:' (默认 real apply) 或 "
+                    f"'DRY-RUN would apply:' (显式 CONVERGENCE_DRY_RUN=1 时), got: {action!r}"
+                )
         # 结构契约 (与异常区分)
         self.assertIsInstance(r, cv.ConvergenceResult)
 
@@ -541,8 +556,9 @@ class TestSourceLevelGuards(unittest.TestCase):
         # V37.9.23 升级守卫
         self.assertIn("drift_action: machine_sync", jc_block,
             "V37.9.23 jobs_to_crontab 必须升级到 machine_sync (Plan B 决策窗口已到达)")
-        self.assertIn("dry_run_default: true", jc_block,
-            "V37.9.23 Plan B 安全契约: 默认 dry-run 必须显式声明在 spec 内")
+        self.assertIn("dry_run_default: false", jc_block,
+            "V37.9.58 切关 escalation 兑现: 默认 dry_run_default false "
+            "(Plan B 一周观察期到期, V37.9.23 收工承诺兑现)")
         # 反例守卫: 不应出现遗留 alert_only 字面量 (在本 spec 块内)
         # 注意: rationale 段可能引用历史"alert_only" 上下文, 用更精确的 drift_action: 行查
         for line in jc_block.split("\n"):
@@ -1435,13 +1451,15 @@ class TestKbSpecSourceGuards(unittest.TestCase):
     def test_yaml_meta_version_advanced_to_fourth(self):
         # V37.9.22 起步 0.4-fourth-spec; V37.9.23 升级到 0.5-machine-sync-dry-run;
         # V37.9.24 升级到 0.6-named-dispatch-apply-functions;
-        # V37.9.25 升级到 0.7-fifth-spec-services-to-launchd.
+        # V37.9.25 升级到 0.7-fifth-spec-services-to-launchd;
+        # V37.9.58 升级到 0.8-machine-sync-activated.
         # 守卫: 必须 ≥ 0.4 且消除旧 0.3.
         version_tokens = (
             "0.4-fourth-spec",
             "0.5-machine-sync-dry-run",
             "0.6-named-dispatch-apply-functions",
             "0.7-fifth-spec-services-to-launchd",
+            "0.8-machine-sync-activated",
         )
         self.assertTrue(
             any(tok in self.yaml_src for tok in version_tokens),
@@ -1632,7 +1650,10 @@ class TestFormatCronLine(unittest.TestCase):
 
 
 class TestIsDryRun(unittest.TestCase):
-    """V37.9.23 — _is_dry_run() 读 CONVERGENCE_DRY_RUN env var (默认安全 True)."""
+    """V37.9.23 → V37.9.58 — _is_dry_run() 读 CONVERGENCE_DRY_RUN env var.
+    V37.9.58 切关 escalation 兑现: 默认值反转 (旧 typo→dry-run 保守 ↔
+    新 typo→real apply 兑现 escalation 承诺). 仅 "1" 字面量保持 dry-run.
+    """
 
     def setUp(self):
         # 隔离 env (test 之间不互相污染)
@@ -1644,29 +1665,38 @@ class TestIsDryRun(unittest.TestCase):
         else:
             os.environ.pop("CONVERGENCE_DRY_RUN", None)
 
-    def test_unset_defaults_to_dry_run(self):
+    def test_unset_defaults_to_real_apply_v37_9_58(self):
+        """V37.9.58 切关: env 未设置 → 默认 real apply (machine_sync 真激活)."""
         os.environ.pop("CONVERGENCE_DRY_RUN", None)
-        self.assertTrue(cv._is_dry_run(),
-            "env 未设置 → 必须 dry-run (V37.9.23 安全默认)")
+        self.assertFalse(cv._is_dry_run(),
+            "V37.9.58 escalation 兑现: env 未设置 → 默认 real apply, "
+            "Plan B 一周观察期到期 (5/3-5/11 零漂移) 切关 dry-run 默认")
 
-    def test_value_zero_disables_dry_run(self):
+    def test_value_zero_is_real_apply_v37_9_58(self):
+        """V37.9.58 切关: '0' 也是 real apply (不再是唯一关闭 dry-run 的字面量)."""
         os.environ["CONVERGENCE_DRY_RUN"] = "0"
         self.assertFalse(cv._is_dry_run(),
-            "CONVERGENCE_DRY_RUN=0 是唯一关闭 dry-run 的字面量")
+            "V37.9.58: '0' 与未设置同语义 — real apply")
 
     def test_value_one_keeps_dry_run(self):
+        """V37.9.58 切关后 '1' 成为唯一开启 dry-run 的字面量."""
         os.environ["CONVERGENCE_DRY_RUN"] = "1"
-        self.assertTrue(cv._is_dry_run())
-
-    def test_value_true_keeps_dry_run(self):
-        # 任何非 "0" 都视为 dry-run (防 typo / case 混乱)
-        os.environ["CONVERGENCE_DRY_RUN"] = "true"
         self.assertTrue(cv._is_dry_run(),
-            "非 '0' 字面量 → dry-run (typo 也安全)")
+            "V37.9.58 切关后: '1' 是唯一开启 dry-run 的字面量 (operator "
+            "临时回到 dry-run 观察模式)")
 
-    def test_empty_string_keeps_dry_run(self):
+    def test_value_true_is_real_apply_v37_9_58(self):
+        """V37.9.58 切关: typo-safe direction 反转, 非 '1' 字面量都 real apply."""
+        os.environ["CONVERGENCE_DRY_RUN"] = "true"
+        self.assertFalse(cv._is_dry_run(),
+            "V37.9.58: 非 '1' 字面量 → real apply (typo-safe direction 反转, "
+            "兑现 V37.9.23 收工承诺 'V37.9.24+ 切关 dry-run 默认')")
+
+    def test_empty_string_is_real_apply_v37_9_58(self):
+        """V37.9.58 切关: 空字符串也是 real apply."""
         os.environ["CONVERGENCE_DRY_RUN"] = ""
-        self.assertTrue(cv._is_dry_run())
+        self.assertFalse(cv._is_dry_run(),
+            "V37.9.58: 空字符串与未设置同语义 — real apply")
 
 
 class TestApplyMachineSyncDryRun(unittest.TestCase):
@@ -2022,7 +2052,7 @@ class TestV37923SourceLevelGuards(unittest.TestCase):
             next_idx = len(self.yaml_src)
         block = self.yaml_src[jc_idx:next_idx]
         self.assertIn("implemented: machine_sync_via_helper", block)
-        self.assertIn("dry_run_default: true", block)
+        self.assertIn("dry_run_default: false", block)  # V37.9.58 切关
         # V37.9.24: 接受新旧两种 apply_path 字面量 (向前兼容)
         self.assertTrue(
             "apply_path: convergence._apply_jobs_to_crontab_per_entry" in block
@@ -2333,7 +2363,7 @@ class TestV37924SourceLevelGuards(unittest.TestCase):
             next_idx = len(self.yaml_src)
         block = self.yaml_src[kb_idx:next_idx]
         self.assertIn("apply_function: kb_embed_incremental", block)
-        self.assertIn("dry_run_default: true", block)
+        self.assertIn("dry_run_default: false", block)  # V37.9.58 切关
         self.assertIn("implemented: machine_sync_via_helper", block)
 
     def test_yaml_jobs_to_crontab_apply_function(self):
@@ -2901,10 +2931,12 @@ class TestServicesSpecSourceGuards(unittest.TestCase):
         self.assertIn("id: services_to_launchd", self.yaml_src)
 
     def test_yaml_meta_version_advanced_to_fifth(self):
-        """V37.9.25 meta version 升级到 0.7-fifth-spec-services-to-launchd."""
+        """V37.9.25 meta version 升级到 0.7-fifth-spec-services-to-launchd;
+        V37.9.58 升级到 0.8-machine-sync-activated (Plan B escalation 兑现)."""
         version_tokens = (
             "0.6-named-dispatch-apply-functions",
             "0.7-fifth-spec-services-to-launchd",
+            "0.8-machine-sync-activated",
         )
         self.assertTrue(
             any(tok in self.yaml_src for tok in version_tokens),
@@ -2963,6 +2995,229 @@ class TestServicesSpecSourceGuards(unittest.TestCase):
             end = idx + 5000
         mr17_block = self.gov_src[idx:end]
         self.assertIn("INV-CONVERGENCE-SERVICES-001", mr17_block)
+
+
+class TestV37958DryRunActivation(unittest.TestCase):
+    """V37.9.58 — Plan B 渐进 escalation 终态兑现守卫.
+
+    一周观察期 (5/3-5/11) 零漂移零误报 → 切关 CONVERGENCE_DRY_RUN 默认值,
+    V37.9.23/24 yaml meta 收工承诺真兑现. 本测试类锁定:
+      (1) 源码 _is_dry_run() 默认值反转 (literal "1" 才 dry-run)
+      (2) yaml 两 spec dry_run_default false (与 Python 默认保持一致)
+      (3) yaml meta v37_9_58_changelog + meta version 0.8
+      (4) governance INV-CONVERGENCE-CRON-001 V37.9.58 守卫存在
+      (5) 反向验证: 防回退到 V37.9.23 旧默认 (typo→dry-run 保守) 反模式
+      (6) 端到端: 默认 (不设 env) 跑 verify_convergence missing 时 apply_dry_run=False
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        # 加载源码用于字面量守卫
+        cls.cv_src = Path(cv.__file__).read_text(encoding="utf-8")
+        yaml_path = Path(__file__).resolve().parent / "ontology" / "convergence_ontology.yaml"
+        cls.yaml_src = yaml_path.read_text(encoding="utf-8")
+        gov_path = Path(__file__).resolve().parent / "ontology" / "governance_ontology.yaml"
+        cls.gov_src = gov_path.read_text(encoding="utf-8")
+
+    # ── 源码字面量守卫 (1) _is_dry_run() 默认值反转 ────────────────────────
+
+    def test_is_dry_run_default_reversed_to_v37_9_58(self):
+        """V37.9.58 _is_dry_run() 默认值反转: literal '1' 才 dry-run.
+        新模式: os.environ.get(_DRY_RUN_ENV_VAR, "0") == "1"
+        旧模式: os.environ.get(_DRY_RUN_ENV_VAR, "1") != "0"
+        """
+        self.assertIn(
+            'os.environ.get(_DRY_RUN_ENV_VAR, "0") == "1"',
+            self.cv_src,
+            "V37.9.58 切关: _is_dry_run() 必须用 '0' 默认 + '== \"1\"' 比较"
+        )
+
+    def test_v37_9_58_marker_in_convergence_py(self):
+        """convergence.py 必须含 V37.9.58 marker (escalation 兑现注释)."""
+        self.assertIn("V37.9.58", self.cv_src,
+            "V37.9.58 marker 必须在 convergence.py 中可追溯 (escalation 历史)")
+
+    def test_v37_9_58_escalation_rationale_in_docstring(self):
+        """_is_dry_run() docstring 必须解释 V37.9.58 escalation 兑现."""
+        self.assertIn("escalation", self.cv_src.lower(),
+            "_is_dry_run() docstring 必须解释 escalation 兑现路径")
+        self.assertIn("V37.9.23", self.cv_src,
+            "V37.9.58 docstring 必须引用 V37.9.23 历史 (escalation 起点)")
+
+    # ── 反向验证守卫 — 防回退到 V37.9.23 旧默认反模式 ──────────────────────
+
+    def test_no_old_default_pattern_v37_9_23_regression_guard(self):
+        """反向验证: 防止未来重构回退到 V37.9.23 默认 dry-run 反模式.
+        旧反模式字面量 `os.environ.get(_DRY_RUN_ENV_VAR, "1") != "0"` 在 V37.9.58
+        切关后必须永不出现在源码中 (除注释段引用历史)."""
+        # 扫描非注释行
+        for lineno, line in enumerate(self.cv_src.split("\n"), 1):
+            stripped = line.strip()
+            # 跳过注释行 (# 开头) 和 docstring 内的引用 (难精确判断, 用启发式)
+            if stripped.startswith("#"):
+                continue
+            # 真代码行不应含老反模式 (含 quoted 字符串作为字面量)
+            self.assertNotIn(
+                'os.environ.get(_DRY_RUN_ENV_VAR, "1") != "0"',
+                line,
+                f"V37.9.58 反向验证失败: line {lineno} 含 V37.9.23 旧默认反模式, "
+                f"escalation 已兑现, 默认值不允许回退到 dry-run."
+            )
+
+    # ── (2) yaml 两 spec dry_run_default false ───────────────────────────
+
+    def test_yaml_jobs_to_crontab_dry_run_default_false(self):
+        """jobs_to_crontab spec dry_run_default 必须为 false (V37.9.58 切关)."""
+        jc_idx = self.yaml_src.find("- id: jobs_to_crontab")
+        self.assertGreater(jc_idx, 0)
+        next_idx = self.yaml_src.find("\n  - id: ", jc_idx + 10)
+        if next_idx < 0:
+            next_idx = len(self.yaml_src)
+        block = self.yaml_src[jc_idx:next_idx]
+        self.assertIn("dry_run_default: false", block,
+            "V37.9.58: jobs_to_crontab dry_run_default 必须 false (escalation 兑现)")
+        # 反向: 不应再含 true 字面量 (除非在注释内 — 字段值层面)
+        # 用更精确的"字段定义行"检测而非全文搜
+        for line in block.split("\n"):
+            stripped = line.strip()
+            if stripped.startswith("dry_run_default:"):
+                self.assertIn("false", stripped,
+                    f"V37.9.58 反向验证: dry_run_default 字段值必须 false, got: {stripped!r}")
+
+    def test_yaml_kb_sources_to_index_dry_run_default_false(self):
+        """kb_sources_to_index spec dry_run_default 必须为 false (V37.9.58 切关)."""
+        kb_idx = self.yaml_src.find("- id: kb_sources_to_index")
+        self.assertGreater(kb_idx, 0)
+        next_idx = self.yaml_src.find("\n  - id: ", kb_idx + 10)
+        if next_idx < 0:
+            next_idx = len(self.yaml_src)
+        block = self.yaml_src[kb_idx:next_idx]
+        self.assertIn("dry_run_default: false", block,
+            "V37.9.58: kb_sources_to_index dry_run_default 必须 false")
+        for line in block.split("\n"):
+            stripped = line.strip()
+            if stripped.startswith("dry_run_default:"):
+                self.assertIn("false", stripped,
+                    f"V37.9.58: dry_run_default 字段值必须 false, got: {stripped!r}")
+
+    # ── (3) yaml meta v37_9_58_changelog + version 0.8 ───────────────────
+
+    def test_yaml_meta_version_0_8_machine_sync_activated(self):
+        """yaml meta version 升级到 0.8-machine-sync-activated."""
+        self.assertIn('version: "0.8-machine-sync-activated"', self.yaml_src,
+            "V37.9.58: yaml meta version 必须为 0.8-machine-sync-activated")
+
+    def test_yaml_meta_status_activated(self):
+        """yaml meta status 升级反映 escalation 终态."""
+        self.assertIn("activated_dry_run_default_off", self.yaml_src,
+            "V37.9.58: yaml meta status 必须含 activated_dry_run_default_off")
+
+    def test_yaml_v37_9_58_changelog_segment_exists(self):
+        """yaml meta 必须含 v37_9_58_changelog 段."""
+        self.assertIn("v37_9_58_changelog:", self.yaml_src,
+            "V37.9.58: yaml meta 必须含 v37_9_58_changelog 段记录终态兑现")
+
+    def test_yaml_v37_9_58_changelog_documents_escalation(self):
+        """v37_9_58_changelog 段必须含 escalation + 一周观察期数据."""
+        cl_idx = self.yaml_src.find("v37_9_58_changelog:")
+        self.assertGreater(cl_idx, 0)
+        # 取 changelog 段内容 (到下个顶层 key 或文档结束)
+        end_idx = self.yaml_src.find("\nconvergence_specs:", cl_idx)
+        if end_idx < 0:
+            end_idx = cl_idx + 8000
+        cl_block = self.yaml_src[cl_idx:end_idx]
+        # 必须含的内容关键字 (escalation 路径完整性证据)
+        self.assertIn("5/3", cl_block, "v37_9_58_changelog 必须含 5/3 baseline")
+        self.assertIn("5/11", cl_block, "v37_9_58_changelog 必须含 5/11 决策窗口")
+        self.assertIn("零漂移", cl_block, "v37_9_58_changelog 必须证明一周观察期零漂移")
+        self.assertIn("MR-17", cl_block, "v37_9_58_changelog 必须引用 MR-17 兑现")
+        self.assertIn("escalation", cl_block.lower(),
+            "v37_9_58_changelog 必须明示 escalation 兑现路径")
+
+    # ── (4) governance INV-CONVERGENCE-CRON-001 V37.9.58 守卫 ──────────────
+
+    def test_governance_inv_convergence_cron_001_has_v37_9_58_guards(self):
+        """INV-CONVERGENCE-CRON-001 必须含 V37.9.58 dry_run_default false 守卫."""
+        # 查 INV-CONVERGENCE-CRON-001 块
+        idx = self.gov_src.find("- id: INV-CONVERGENCE-CRON-001")
+        self.assertGreater(idx, 0)
+        end = self.gov_src.find("\n  - id:", idx + 10)
+        if end < 0:
+            end = idx + 10000
+        inv_block = self.gov_src[idx:end]
+        # V37.9.58 守卫: yaml dry_run_default: false
+        self.assertIn("dry_run_default: false", inv_block,
+            "INV-CONVERGENCE-CRON-001 必须有 V37.9.58 yaml dry_run_default false 守卫")
+        # V37.9.58 守卫: convergence.py _is_dry_run 默认值反转
+        self.assertIn("V37.9.58", inv_block,
+            "INV-CONVERGENCE-CRON-001 必须含 V37.9.58 marker (切关守卫)")
+        # 反向: 不应再有旧 'dry_run_default: true' 守卫字面量 (在本 INV 块内)
+        # (yaml file 内可能有历史 changelog 引用 'dry_run_default: true' 字符串,
+        # 但 governance pattern 字段必须用新值)
+        for line in inv_block.split("\n"):
+            stripped = line.strip()
+            if stripped.startswith("pattern:") and "dry_run_default" in stripped:
+                self.assertIn("false", stripped,
+                    f"V37.9.58 反向验证: governance pattern 字段 dry_run_default "
+                    f"必须查 false 字面量, got: {stripped!r}")
+
+    # ── (5) audit_metadata 版本升级 v3.36 ─────────────────────────────────
+
+    def test_audit_metadata_version_v3_36(self):
+        """audit_metadata.version 升级到 3.36."""
+        self.assertIn('version: "3.36"', self.gov_src,
+            "V37.9.58: governance audit_metadata.version 必须升到 3.36")
+
+    def test_audit_metadata_v3_36_changelog_documents_escalation(self):
+        """audit_metadata.upgraded 必须含 V37.9.58 escalation 兑现记录."""
+        self.assertIn("v3.35 → v3.36", self.gov_src,
+            "V37.9.58: audit_metadata.upgraded 必须含 v3.35 → v3.36 跃迁记录")
+
+    # ── (6) 端到端: 默认 env 真激活 (verify_convergence apply_dry_run=False) ──
+
+    def setUp(self):
+        # 隔离 env (用例之间不互相污染)
+        self._saved = os.environ.pop("CONVERGENCE_DRY_RUN", None)
+
+    def tearDown(self):
+        if self._saved is not None:
+            os.environ["CONVERGENCE_DRY_RUN"] = self._saved
+        else:
+            os.environ.pop("CONVERGENCE_DRY_RUN", None)
+
+    def test_e2e_default_no_env_runs_real_apply(self):
+        """V37.9.58 端到端: env 未设置 → verify_convergence missing 时 apply_dry_run=False.
+
+        Dev 环境无 crontab + 无 ~/crontab_safe.sh → 走 apply_errors 分支,
+        但关键守卫 apply_dry_run=False 证明默认已切关 dry-run.
+        """
+        os.environ.pop("CONVERGENCE_DRY_RUN", None)
+        r = cv.verify_convergence("jobs_to_crontab")
+        # 若 missing 不为空, 必须真激活 (apply_dry_run=False)
+        if r.missing_in_runtime:
+            self.assertFalse(r.apply_dry_run,
+                "V37.9.58 切关后: 默认 (env 未设) 必须 apply_dry_run=False (real apply).")
+        # 兜底 (无 missing 情况)
+        self.assertIsInstance(r, cv.ConvergenceResult)
+
+    def test_e2e_explicit_dry_run_env_re_enables_dry_run(self):
+        """V37.9.58 切关后 operator 仍可显式 CONVERGENCE_DRY_RUN=1 回到 dry-run."""
+        os.environ["CONVERGENCE_DRY_RUN"] = "1"
+        r = cv.verify_convergence("jobs_to_crontab")
+        if r.missing_in_runtime:
+            self.assertTrue(r.apply_dry_run,
+                "V37.9.58 切关后: CONVERGENCE_DRY_RUN=1 仍可显式开启 dry-run 观察")
+
+    def test_e2e_kb_sources_default_also_real_apply(self):
+        """V37.9.58: kb_sources_to_index 第二个 machine_sync spec 也默认 real apply."""
+        os.environ.pop("CONVERGENCE_DRY_RUN", None)
+        r = cv.verify_convergence("kb_sources_to_index")
+        self.assertIsInstance(r, cv.ConvergenceResult)
+        # kb_sources_to_index drift_action 是 machine_sync (V37.9.24)
+        self.assertEqual(r.drift_action, "machine_sync")
+        if r.missing_in_runtime:
+            self.assertFalse(r.apply_dry_run,
+                "V37.9.58: kb_sources_to_index 也默认 real apply")
 
 
 if __name__ == "__main__":
