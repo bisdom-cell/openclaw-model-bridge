@@ -582,6 +582,90 @@ meta_rules:
       详见 V37.9.58-hotfix2 commit + test_heredoc_import_scanner.py 反向验证
       sabotage 守卫真有效证据.
 
+  - id: MR-19
+    name: monitor-must-self-alarm-on-silent-abort
+    description: |
+      任何 "silent failure 监控工具" (watchdog 类) 必须满足三个自监控契约,
+      防止 watchdog **自身**变成 silent failure (元监控盲区):
+
+      (1) **awk / 子进程容错**: 任何子进程错误退出不得让 set -e abort 整脚本.
+          典型场景 macOS bsd awk 处理含无效 UTF-8 字节的日志 → multibyte
+          conversion failure → exit 1 → pipefail → set -e abort.
+          合规模式: 子进程加 `LC_ALL=C cmd ... 2>/dev/null || true` 容错.
+      (2) **ERR trap 主动告警**: set -e 触发 abort 前必须有 `trap ERR` handler
+          推送 [SYSTEM_ALERT] 到 Discord, 让 watchdog 自身死亡可见.
+          合规模式: `_fatal_handler()` 函数 + `trap '_fatal_handler $LINENO' ERR`.
+      (3) **Canary heartbeat 推送**: EXIT trap 在正常完成时写 canary 文件 +
+          (可选) 推送 "alive" 消息. 让长时 silent 可被外部检测.
+          合规模式: ~/<tool>_canary.json 写时间戳 + alerts=0 时推 alive 消息.
+
+      核心论断: **监控工具的可观察性必须比业务工具更强**, 因为它失败是元级别
+      失败 — 业务工具死了 watchdog 报警; watchdog 死了, 谁报警? 答案: watchdog
+      自己必须主动告诉 Discord 自己死了, 用 ERR trap + canary 双层防御.
+
+      MR-19 与其他元规则关系:
+        - MR-4 (silent-failure-is-a-bug) MR-19 是 MR-4 的元层应用 — 不仅业务
+          层 silent 是 bug, 监控层 silent 也是 bug (实际更严重, 因为掩盖了
+          所有下游业务 silent)
+        - MR-7 (governance-execution-is-self-observable) MR-19 是 MR-7 在
+          运维监控层的具体兑现 — 治理自观察 + 监控自报警
+        - MR-17 (declared-state-must-converge-to-runtime) 关心 declared 与
+          runtime 同步, MR-19 关心 runtime 监控自身死活的同步
+
+      实施路径:
+        Step 1 (V37.9.58-hotfix3): job_watchdog.sh + INV-WATCHDOG-SELF-001
+          作为 MR-19 第一个 derivative_invariant.
+        Step 2 (V37.9.59+): 扫所有 cron 触发的监控类脚本 (preflight_check /
+          governance_audit_cron / wa_keepalive / job_watchdog) 是否都满足
+          MR-19 三契约. 如有 silent abort 风险都按同款模式补.
+        Step 3 (V3 路标): ontology-engine pip 包暴露 monitor_self_observability
+          通用模块 (ERR trap helper + canary writer), 让任何用户自己的 monitor
+          一行 source 就获得 MR-19 合规.
+
+      合规模式 (每个 monitor 都需要):
+        - awk_safe: LC_ALL=C cmd ... 2>/dev/null || true (容错子进程)
+        - err_trap_handler: trap '_fatal_handler $LINENO' ERR (主动告警)
+        - canary_writer: EXIT trap 写 ~/<tool>_canary.json (元监控钩子)
+        - governance_invariant: 对应 INV-* (本 invariant 守卫)
+
+      违反即触发 MR-4 + MR-7 双演出 (silent + 治理自观察盲区).
+
+    enforcement:
+      - "job_watchdog.sh 顶部装 _watchdog_fatal_handler + trap ERR"
+      - "INV-WATCHDOG-SELF-001 守 declarative checks + runtime python_assert"
+      - "新增监控类 cron 脚本时, 必须配套 ERR trap 否则视为 MR-19 违反"
+
+    derivative_invariants: [INV-WATCHDOG-SELF-001]
+
+    blood_lessons: |
+      2026-05-12 V37.9.58-hotfix3 立案: job_watchdog.sh 从 2026-05-05 16:30 起
+      静默 abort 7 天. 根因:
+        - line 264 `tail -200 "$logfile" | awk -v cutoff=... '...'`
+        - 某 log 文件含无效 UTF-8 字节 (surrogate / mojibake)
+        - macOS bsd awk: `towc: multibyte conversion failure on: '?'` exit 1
+        - `set -eo pipefail` → pipe exit 1 → watchdog 整脚本 abort exit 2
+        - 没 ERR trap → 没主动告警 → cron log 仅 heartbeat 一行 + awk error 几行
+        - 没 canary 推送 → 没人发现 watchdog 死了
+        - 累积影响: hf_papers / s2 / rss_blogs / github_trending lockdir 残留
+          (没人清), MOVESPEED 24h 21 次 rsync 失败告警 (没推送), SLO p95 54s
+          严重超阈值 (没推送), KB 摘要 29h 未更新告警 (没推送) — 全部 silent.
+        - 用户视角发现: 5/12 反馈"今天只收到 HN+HF" → 我深度诊断 →
+          手动跑 watchdog 暴露 awk multibyte error → 真因揭晓.
+
+      教训:
+        - 5/5 12:30 watchdog 最后一次正常 → 5/5 16:30 起 silent → 用户 5/12
+          才发现 = silent failure 持续 7 天没人监控
+        - Q1 之前存在? ✓ (5/5 16:30+) / Q2 我引入? ✗ (历史遗留) / Q3 最小
+          修复? = LC_ALL=C + ERR trap + canary
+        - V37.9.50-hotfix → V37.9.58-hotfix → V37.9.58-hotfix2 → V37.9.58-hotfix3:
+          一日内四个连续 hotfix, 每个都把 silent failure 向上一层抽象修复.
+          最深层 = MR-19 监控自身死活监控.
+        - 这次也是用户视角原则 #13 兑现 — 单测 + governance + preflight 全绿
+          + Mac Mini cron 实际跑了 7 天 + 但用户没收到业务推送才发现.
+
+      详 V37.9.58-hotfix3 commit + ontology/docs/cases/watchdog_silent_abort_case.md
+      (V37.9.59 候选完整四维度因果链文档化).
+
 # ═══════════════════════════════════════════════════════════════════════
 # 3. 不变式（Invariants）— 可执行的声明-执行-验证三元组
 # ═══════════════════════════════════════════════════════════════════════
@@ -6517,6 +6601,95 @@ invariants:
               f"抓到任何 .sh heredoc 内 import 不一致"
           )
 
+  # ── V37.9.58-hotfix3: INV-WATCHDOG-SELF-001 ──────────────────────────
+  - id: INV-WATCHDOG-SELF-001
+    name: monitor-must-self-alarm-on-silent-abort
+    meta_rule: MR-19
+    verification_layer: [declaration, runtime]
+    severity: critical
+    declaration: |
+      job_watchdog.sh 自身必须满足三个自监控契约 (V37.9.58-hotfix3 血案立案):
+
+      (1) **awk multibyte 容错**: 所有 awk pipe 必须 LC_ALL=C + `|| true` 防止
+          macOS bsd awk 处理 surrogate / 无效 UTF-8 时 NameError abort 整脚本.
+      (2) **ERR trap 主动告警**: set -e 触发 abort 前必须有 trap ERR handler
+          推送 [SYSTEM_ALERT] 到 Discord, 让 watchdog 自身死亡可见.
+      (3) **Canary heartbeat 推送**: EXIT trap 在正常完成时写
+          ~/watchdog_canary.json + 当 ALERTS 为空时推一条 "alive" 到 Discord,
+          让长时 silent 可被外部检测.
+
+      血案 (2026-05-12 V37.9.58-hotfix3 立案): watchdog 5/5 16:30 起因
+      `awk: towc: multibyte conversion failure on: '?'` 错误 + set -eo pipefail
+      + 没 ERR trap = 静默 abort 7 天. 期间 hf_papers / s2 / rss_blogs /
+      github_trending lockdir 累计残留, MOVESPEED 24h 21 次 rsync 失败累积告警,
+      SLO p95 54s 严重超阈值告警, KB 摘要 29h 未更新告警 — 全部 silent.
+      用户 5/12 视角发现"今天只收到 HN+HF"才暴露 watchdog 自身死亡.
+      详 ontology/docs/cases/watchdog_silent_abort_case.md (V37.9.59 候选)
+    # MR-6 合规: declaration (源码字面量) + runtime (subprocess 真跑 watchdog 验证)
+    checks:
+      # declaration layer
+      - name: "watchdog awk 必须 LC_ALL=C 防 multibyte abort"
+        check_type: file_contains
+        file: job_watchdog.sh
+        pattern: 'LC_ALL=C awk'
+      - name: "watchdog awk pipe 必须有 `|| true` 容错 (V37.9.58-hotfix3)"
+        check_type: file_contains
+        file: job_watchdog.sh
+        pattern: '2>/dev/null \|\| true\)'
+      - name: "watchdog 必须有 ERR trap handler (_watchdog_fatal_handler)"
+        check_type: file_contains
+        file: job_watchdog.sh
+        pattern: '_watchdog_fatal_handler'
+      - name: "watchdog ERR trap 注册 (trap ... LINENO ERR)"
+        check_type: file_contains
+        file: job_watchdog.sh
+        pattern: "trap '_watchdog_fatal_handler"
+      - name: "ERR trap 必须推送 [SYSTEM_ALERT] 关键字 (silent abort 变 loud)"
+        check_type: file_contains
+        file: job_watchdog.sh
+        pattern: '\[SYSTEM_ALERT\] watchdog FATAL'
+      - name: "EXIT trap 必须写 watchdog_canary.json (canary 文件)"
+        check_type: file_contains
+        file: job_watchdog.sh
+        pattern: 'watchdog_canary.json'
+      - name: "EXIT trap 必须在 ALERTS=0 时推 alive canary (元监控)"
+        check_type: file_contains
+        file: job_watchdog.sh
+        pattern: 'watchdog alive'
+      - name: "STALE_LOCK_DIRS 必须含 rss_blogs (V37.9.58-hotfix3 补齐 5 jobs)"
+        check_type: file_contains
+        file: job_watchdog.sh
+        pattern: '/tmp/rss_blogs\.lockdir'
+      - name: "STALE_LOCK_DIRS 必须含 github_trending"
+        check_type: file_contains
+        file: job_watchdog.sh
+        pattern: '/tmp/github_trending\.lockdir'
+      - name: "STALE_LOCK_DIRS 必须含 ai_leaders_x"
+        check_type: file_contains
+        file: job_watchdog.sh
+        pattern: '/tmp/ai_leaders_x\.lockdir'
+      - name: "V37.9.58-hotfix3 marker 在源码 (历史追溯)"
+        check_type: file_contains
+        file: job_watchdog.sh
+        pattern: 'V37.9.58-hotfix3'
+      # runtime layer: 真跑单测套件
+      - name: "RUNTIME: test_watchdog_self_monitoring 全套通过"
+        check_type: python_assert
+        assertion: |
+          import subprocess, os, sys
+          repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) \
+              if "ontology" in os.path.abspath(__file__) \
+              else os.path.dirname(os.path.abspath(__file__))
+          result = subprocess.run(
+              [sys.executable, "test_watchdog_self_monitoring.py"],
+              cwd=repo_root, capture_output=True, text=True, timeout=60
+          )
+          assert result.returncode == 0, (
+              f"INV-WATCHDOG-SELF-001 单测违反:\n"
+              f"stdout=\n{result.stdout}\n\nstderr=\n{result.stderr}\n"
+              f"血案: V37.9.58-hotfix3 立案 — watchdog 不能 silent abort"
+          )
+
 # ═══════════════════════════════════════════════════════════════════════
 # 4. 可执行元规则（Phase 0）— 自动发现缺失不变式
 #    只扫描结构化数据源，不解析自然语言
@@ -6875,9 +7048,10 @@ security_config:
 # 6. 审计元数据
 # ═══════════════════════════════════════════════════════════════════════
 audit_metadata:
-  version: "3.37"
+  version: "3.38"
   created: "2026-04-07"
   upgraded: |
+    v3.37 → v3.38: V37.9.58-hotfix3 治本 watchdog silent abort 7 天血案 — MR-19 立案 + INV-WATCHDOG-SELF-001 framework 级监控自观察. 用户 5/12 视角发现"今天只收到 HN+HF" → 深度诊断 → watchdog 自身从 2026-05-05 16:30 起静默 abort 7 天累积告警未推送. 真因: macOS bsd awk 处理含无效 UTF-8 字节 log → `awk: towc: multibyte conversion failure on: '?'` exit 1 → pipefail + set -e → watchdog 整脚本 abort exit 2 → 没 ERR trap → silent. 累积影响: hf_papers / s2 / rss_blogs / github_trending lockdir 残留 (没人清), MOVESPEED 24h 21 次 rsync 失败告警 (没推送), SLO p95 54s 严重超阈值 (没推送), KB 摘要 29h 未更新 (没推送) — 全部 silent. **V37.9.58-hotfix3 治本三层**: (A) **awk LC_ALL=C + 容错**: tail | LC_ALL=C awk ... 2>/dev/null || true 防 macOS bsd awk multibyte abort (B) **ERR trap 主动告警**: _watchdog_fatal_handler $LINENO → trap ERR 推送 [SYSTEM_ALERT] watchdog FATAL 到 Discord (FAIL-OPEN 三层 fallback: notify / openclaw / local file) (C) **EXIT trap canary heartbeat**: 正常完成时写 ~/watchdog_canary.json + ALERTS=0 时推 "alive" 消息 (元监控钩子). **STALE_LOCK_DIRS 补 5 个 jobs** (rss_blogs/github_trending/ai_leaders_x/finance_news/ontology_sources — 5/12 诊断发现 rss_blogs.lockdir 残留 45h 没人管). **MR-19 立案** `monitor-must-self-alarm-on-silent-abort` (governance_ontology.yaml meta_rules): 任何 silent failure 监控工具必须三契约 — awk_safe + err_trap_handler + canary_writer. 关联 MR-4 (silent-failure 元层) + MR-7 (治理自观察) + MR-17 (declared 与 runtime 同步). derivative: INV-WATCHDOG-SELF-001. blood_lessons 详记 V37.9.58-hotfix3 完整因果链 + Q1/Q2/Q3 三问. **INV-WATCHDOG-SELF-001** (meta_rule=MR-19, severity=critical, verification_layer=[declaration, runtime], **12 checks**): 11 declaration (awk LC_ALL=C / `|| true` 容错 / _watchdog_fatal_handler / trap ERR 注册 / [SYSTEM_ALERT] 字面量 / watchdog_canary.json / 'watchdog alive' / rss/gh/ai_leaders STALE 补齐 / V37.9.58-hotfix3 marker) + 1 runtime (subprocess 跑 test_watchdog_self_monitoring). **test_watchdog_self_monitoring.py 单测** + 反向验证 sabotage 守卫真有效. 累计 79→80 suites (+1) / 2704→2740 tests (+36 V37.9.58-hotfix3 单测) / 0 fail / governance v3.37→v3.38 / 73→74 invariants (+1 INV-WATCHDOG-SELF-001) / 570→582 checks (+12) / 18→19 meta rules (+1 MR-19) / 安全 95/100 / VERSION 0.37.9.58 不变 (hotfix 不 bump). **元价值** (今日四件套闭环): 一天内 V37.9.58 主交付 (machine_sync 真激活) + V37.9.58-hotfix (8 ALIGNED jobs import os 批量) + V37.9.58-hotfix2 (MR-18 + scanner) + V37.9.58-hotfix3 (MR-19 + watchdog 自观察) 四个版本每个都把 silent failure 向上一层抽象修. hotfix3 是最深层 — 监控自身死活监控. V3 路标 `pip install ontology-engine` 终极目标的核心交付之一. MR-19 让"watchdog 自身死亡 7 天无人发现"从靠记忆运维升级为机器化主动告警 + canary 双层防御.
     v3.36 → v3.37: V37.9.58-hotfix2 治理债清零 — MR-18 立案 + INV-HEREDOC-IMPORT-001 framework 级预防. 血案谱系: V37.9.50-hotfix (2026-05-10) semantic_scholar emit heredoc 顶部 `import sys, json, re` 缺 `os`, lazy import 调 os.environ → NameError → 单点 fix 没提炼治理. V37.9.58-hotfix (2026-05-12) V37.9.57 inject_level_4_to_aligned_jobs.py 自动批量给 8 ALIGNED jobs LLM call heredoc 加 `prompt += os.environ.get('HG_LEVEL_4_TEXT')` 但未补 import os → 8/8 重演同款 bug 8 倍放大 → 用户视角发现. **V37.9.58-hotfix2 治本**: (1) **heredoc_import_scanner.py** 纯 Python AST scanner — extract_heredocs / collect_imported_names / collect_locally_defined_names (含函数参数/lambda/with as/except/海象/推导式/global/nonlocal) / collect_referenced_names (Name Load + Attribute root) / scan_heredoc_imports 端到端纯函数 + scan_repo 整 repo / main CLI (--scan-all / --file) FAIL-CLOSE exit 1 if violation. **dev scan 立即发现 V37.9.58-hotfix 遗漏的 2 个 LEVEL_2 jobs** (finance_news:631 + ontology_sources:236) 同款盲点 — V37.9.57 LEVEL_2 注入 `prompt += os.environ.get('HG_GUARD_TEXT')` 但 heredoc 顶部 import 没补 os, scanner 真有效证据. (2) **MR-18 立案** auto-batch-injection-must-validate-runtime-semantics — 任何自动批量改多文件工具必须 (a) 注入前 dry-run AST (b) 注入后 semantic validation (c) 失败整批 rollback. derivative: INV-HEREDOC-IMPORT-001. 血案教训: 自动批量工具是 bug 放大器 — 单点设计错误立即传播到 N 文件, bash -n 永远查不到 Python heredoc 内部 NameError. (3) **INV-HEREDOC-IMPORT-001** (meta_rule=MR-18, severity=critical, verification_layer=[declaration, runtime], 5 checks): scan_heredoc_imports 函数定义 / FAIL-CLOSE 契约 / V37.9.50-hotfix 血案引用 / 单测 TestRepoScanIntegration 类 / runtime python_assert scanner --scan-all exit 0. (4) **test_heredoc_import_scanner.py 33 单测**: TestExtractHeredocs(4 含 unclosed/non-pyeof skip) + TestCollectImportedNames(4) + TestCollectLocallyDefinedNames(5) + TestCollectReferencedNames(2) + TestScanHeredocImports(7 含 V37.9.50/58-hotfix 双血案重现 + builtin/locally defined 豁免 + __import__ dynamic 豁免 + AST parse error skip) + TestRepoScanIntegration(3 含 0 violations 状态 + **反向验证 sabotage run_hn_fixed.sh 移除 import os → scanner 立即抓到 missing ['os']**) + TestCliBehavior(3) + TestSourceLevelGuards(5 V37.9.58-hotfix2/50-hotfix marker + MR-18 引用 + FAIL-CLOSE 契约 + INV-HEREDOC-IMPORT-001 引用). 累计 78→79 suites (+1) / 2671→2704 tests (+33 单测) / 0 fail / governance 72→73 invariants (+1 INV-HEREDOC-IMPORT-001) / 565→570 checks (+5) / **17→18 meta rules (+1 MR-18, 顺便修 V37.9.19 立 MR-17 时漏更新 audit_metadata.meta_rules 计数器**) / 安全 95/100. **元价值** (反思转化为机制): V37.9.50-hotfix → V37.9.58-hotfix 同款 bug 8 天间隔重演证明"单点修复 + 不立元规则 + 不加 framework 守卫" = 必然 MR-4 第 N 次演出. V37.9.58-hotfix2 是用户问"为什么本次错误不应该发生"驱动的治本路径 — 把"自动批量工具的安全垫"从"下次 Claude Code 记得"升级为"机器化契约 + governance audit 主动监控". MR-18 是 framework 进化关键里程碑, 让自动注入工具 (V37 Provider Plugin 同类) 演进方向有明确的治理边界 — V3 路标 pip install ontology-engine 必须包含此能力.
     v3.35 → v3.36: V37.9.58 Plan B 渐进 escalation 路径终态兑现 — jobs_to_crontab + kb_sources_to_index 一周观察期 (5/3-5/11) 零漂移零误报后, V37.9.23/24 yaml meta 收工承诺"V37.9.24+ (一周后): 切关 CONVERGENCE_DRY_RUN 默认 → 真激活 machine_sync" 兑现. **convergence.py _is_dry_run() 默认值反转** (`os.environ.get(_DRY_RUN_ENV_VAR, "1") != "0"` → `os.environ.get(_DRY_RUN_ENV_VAR, "0") == "1"`): 旧默认 True (任何 typo→dry-run 保守) → 新默认 False (任何 typo→real apply 兑现 escalation 承诺), 唯有显式 `CONVERGENCE_DRY_RUN=1` 才回到 dry-run 观察模式. **yaml 两 spec dry_run_default: true → false** + meta version `0.7-fifth-spec-services-to-launchd → 0.8-machine-sync-activated` + status `framework_*_dry_run → framework_*_activated_dry_run_default_off` + v37_9_58_changelog 段记录终态完整时间线. **INV-CONVERGENCE-CRON-001 守卫升级** (3 个新 declaration checks + 1 旧守卫字面量反转): yaml `dry_run_default: false` 字面量守卫 + convergence.py `_is_dry_run()` 默认值 regex 守卫 (`os.environ.get\(_DRY_RUN_ENV_VAR, "0"\) == "1"`) + v37_9_58_changelog 段守卫 + meta version 0.8 升级守卫. **test_convergence.py TestIsDryRun 5 个测试反转语义** (env unset/0/true/empty 全部从 dry-run 改为 real apply, 仅 "1" 字面量保持 dry-run) + 加新单测类 TestV37958DryRunActivation 反向验证 + V37.9.58 marker. **MR-17 (declared-state-must-converge-to-runtime-via-machine-not-memory) 真正兑现** — 从"机器可检测"升级到"机器可同步"且"默认同步": V37.9.19 起步 alert_only (机器可检测) → V37.9.23/24 machine_sync + 默认 dry-run (机器可同步但不默认同步) → V37.9.58 切关 dry-run 默认 (机器可同步且默认同步) ← 终态. Mac Mini 部署后预期: 下次 governance audit cron 跑 missing=0 (零漂移) → 零操作; 任一 spec 出现漂移 → 立即真同步, 不再 dry-run 等. 回滚预案 30 秒: cron 加 `export CONVERGENCE_DRY_RUN=1` 或 git revert V37.9.58. 累计 72 invariants 不变 (本次只升级 INV-CONVERGENCE-CRON-001 内涵) / 562 → 565 checks (+3, INV-CONVERGENCE-CRON-001 V37.9.58 新增守卫).
     v3.34 → v3.35: V37.9.54 ABC 三件套同 PR — A: restart.sh marker-based plist mtime 检测 + bootout/bootstrap 自动 fallback (修复 V37.9.13 launchctl kickstart -k 不重读 plist + V37.9.53 同款踩坑); B: doubao verified_vision=True (Mac Mini curl 实测 OpenAI Chat Completions vision schema 兼容, image_url content block 工作正常); C: 新 INV-PLIST-ENV-001 治理 plist EnvironmentVariables 与 provider api_key_env 同步 (declaration 4 checks + runtime 1 python_assert --full mode 真读 ~/Library/LaunchAgents/com.openclaw.adapter.plist 用 plistlib 解析 EnvironmentVariables 与所有 providers.py + providers.d/*.py 声明的 api_key_env 集合比对). 同时扩展 INV-RESTART-001 加 V37.9.54 marker reload checks (5 个新 checks 含 PLIST_LOAD_MARKER_DIR 常量 / plist_mtime 字面量 / touch marker 字面量 / need_full_reload 标识 / runtime python_assert 守 marker 必须在 health 200 验证之后才 touch 防失败误更新). 累计 71→72 invariants (+1 INV-PLIST-ENV-001) / 552→562 checks (+10: INV-RESTART-001 +5 + INV-PLIST-ENV-001 +5). 元价值: V37.9.13 (双管理修复) → V37.9.53 (plist env 缺失) 同款 launchd 配置 silent failure 第三次浮现, V37.9.54 加治理监控让未来加新 provider 时 plist 同步成为 governance check, 不再靠程序员记忆.
@@ -6915,9 +7089,9 @@ audit_metadata:
     v3.12 → v3.13: V37.8.7 ontology_sources 推送格式错位血案 — INV-ONTOLOGY-001 新增 (ontology-sources-parser-must-be-key-based-not-positional, meta_rule=MR-4, severity=high, verification_layer=[declaration, runtime], 7 checks). 2026-04-15 用户 WhatsApp 收到 ontology_sources 推送严重错位：第 2 篇 cn_title 显示为 *---*、第 3 篇 cn_title 显示为 *价值：⭐⭐⭐⭐*。根因：原解析器用严格位置 (lines[i], lines[i+1], lines[i+2]) + i+=3 步进 — LLM 漏一行"要点"或多一行空白就让所有后续条目的 cn_title/highlight/stars 全部右移一格级联污染。修复：抽到独立模块 jobs/ontology_sources/ontology_parser.py（纯函数 parse_llm_blocks 可单测，避开 V37.5 heredoc-only 不可测血案），按 separator 切块 + 块内 key-based prefix 解析，单块缺行不影响其他块。runtime python_assert 真跑用户实际看到的污染场景断言"缺要点不级联"。24 单测 (test_ontology_parser.py)：TestNormalCases(4) + TestBloodLessonRegression(5) + TestSeparatorVariants(5) + TestLLMOutputVariants(5) + TestShellScriptIntegration(4) + TestActualBloodLessonScenario(1)。MR-4 silent-failure 第 8 次演出（输出"看起来正常" 6 字段都在但语义错乱）。auto_deploy FILE_MAP 补齐 ontology_parser.py。
     v3.11 → v3.12: V37.8.6 Dream 自引用幻觉血案 — INV-DREAM-003 新增 (dream-log-cannot-pollute-cache-nor-fabricate-platform-crises, meta_rule=MR-4, severity=critical, verification_layer=[declaration, runtime], 16 checks). 2026-04-15 03:00 Dream run 出现 4 次 Bad JSON 400 (adapter 收到破损 JSON)，但 Dream 仍产出完整"Hugging Face 平台危机"分析，用户察觉 Signal(Papers with Code 沉默)↔Action(监控 Hugging Face) 主题断裂后上报。三层根因：(a) scraped 内容含 surrogate UTF-8 → json.dump + utf-8 file write → UnicodeEncodeError → body_file 截断 → adapter.py:386 返回 400 Bad JSON (b) kb_dream.sh log() 用 `echo` 写 stdout → signals=$(llm_call ...) 命令替换捕获 log 行进 signals → cache file 被"LLM raw response: Error code 400 Bad JSON..."污染 (c) Reduce cache-only fast path 把错误日志注入 LLM 上下文 → LLM 基于这些字样自动编造"Hugging Face 危机"叙事 = 原则 #23 链式幻觉 + MR-4 silent failure 第 7 次演出。四层结构修复（defense-in-depth）：log→stderr 阻断 stdout 污染通道 + _sanitize(U+D800-U+DFFF → U+FFFD) 防编码炸裂 + file open 显式 encoding='utf-8' errors='replace' 第二防线 + REDUCE/CHUNK1/2/3 system prompt 四块加反污染守卫 (禁止把 HTTP 错误码/Python 异常/错误页 HTML/U+FFFD 当外部信号，禁止基于这些字样推断 Hugging Face/GitHub/npm 等平台状态)。runtime python_assert 真跑 sanitize 五场景 (孤立高位/低位代理/正常串/代理范围边界/sanitize 后 json+utf-8 编码不炸)。19 单测 (TestLogGoesToStderr×2 + TestSanitizeSurrogates×7 + TestShellSanitizeImplementation×5 + TestAntiPollutionSystemPrompt×3 + TestShellScriptIntegrity×1 + TestLogDefHasCommentMeta×1)。
     v3.10 → v3.11: V37.8.5 INV-X-001 升级三层检测 (血案二次演出: V37.8.4 修复本身埋盲区) — V37.8.4 收工 Mac Mini E2E 即发现 2 个边缘：CNS1952 98/99 超窗口 + 1 过短老化率 99% 但未触发严格 old==total (MR-10 第 2 次演出：修复会埋坑)；SingTaoDaily 0-tweet stub (embed disabled 返回空骨架) 被 total>0 门槛绕过完全不标记。V37.8.5 修复：(1) 检测逻辑独立为 jobs/finance_news/finance_news_zombie.py 纯函数模块 (classify_zombie(diag, count)); (2) 三层 tier: "stub" (no_data=0 + total=0) + "stale" (≥90% 老化 + count=0 守卫防止低频活跃误报)，整数比较 old*10 >= total*9 避免浮点; (3) 24 单测锁定三层 + 守卫 + shell 集成 + auto_deploy FILE_MAP; (4) verification_layer 从 [declaration] 升级到 [declaration, runtime] (MR-6 遵循: INV-X-001 现在有 python_assert 真跑 5 个 tier 场景); (5) shell 脚本禁止内嵌 inline fallback (防模块缺失时静默降级回 V37.8.4 逻辑 — MR-8 copy-paste-is-a-bug-class 兑现)。诊断行 tier 区分 ⚠️ ZOMBIE嫌疑[stub] vs [stale]，便于日志定位。
-  total_invariants: 73  # V37.9.58-hotfix2: +1 INV-HEREDOC-IMPORT-001 (V37.9.58 baseline 72 → 73)
-  total_checks: 570     # V37.9.58-hotfix2: +5 (INV-HEREDOC-IMPORT-001 5 checks: scanner def / FAIL-CLOSE 契约 / V37.9.50-hotfix marker / 单测类 / runtime exit 0)
-  meta_rules: 18        # MR-1~MR-18 (V37.9.19 立 MR-17 declared-state-must-converge-to-runtime / V37.9.58-hotfix2 立 MR-18 auto-batch-injection-must-validate-runtime-semantics; 旧值 16 是 V37.9.19 漏更新, V37.9.58-hotfix2 顺便修复计数器)
+  total_invariants: 74  # V37.9.58-hotfix3: +1 INV-WATCHDOG-SELF-001 (V37.9.58-hotfix2 baseline 73 → 74)
+  total_checks: 582     # V37.9.58-hotfix3: +12 (INV-WATCHDOG-SELF-001 12 checks: 11 declaration awk LC_ALL=C/容错/ERR trap/canary + 1 runtime subprocess test_watchdog_self_monitoring)
+  meta_rules: 19        # MR-1~MR-19 (V37.9.58-hotfix3 立 MR-19 monitor-must-self-alarm-on-silent-abort, watchdog 自身 7 天 silent abort 血案立案)
   meta_rule_discovery_count: 6   # Phase 0: registry + env + notify-topic + layer-depth + error-suppression + notify-activity
   check_types_used: [python_assert, file_contains, file_not_contains, env_var_exists, command_succeeds, log_activity_check]
   verification_layers_used: [declaration, runtime, effect]  # v3.1: 效果层启动

@@ -1,5 +1,5 @@
 {
-  "updated": "2026-05-12 07:29:42",
+  "updated": "2026-05-12 08:40:24",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-05-12",
+      "what": "V37.9.58-hotfix3 治本 watchdog silent abort 7 天血案 — MR-19 立案 + INV-WATCHDOG-SELF-001 framework 级监控自观察. 用户深问为什么静默失败不提前告警驱动. 真因: watchdog 5/5 16:30 起因 macOS bsd awk towc multibyte conversion failure + set -eo pipefail + 无 ERR trap = 静默 abort 7 天累积告警未推送 (hf/s2/rss/gh lockdir 残留 + MOVESPEED 24h 21 次 rsync 失败 + SLO p95 54s + KB 摘要 29h 未更新全部 silent). V37.9.58-hotfix3 治本三层: (A) awk LC_ALL=C + 容错防 set -e abort (B) ERR trap _watchdog_fatal_handler 主动推 [SYSTEM_ALERT] 到 Discord (三层 FAIL-OPEN: notify/openclaw/local) (C) EXIT trap canary heartbeat 写 ~/watchdog_canary.json + ALERTS=0 时推 alive 元监控. STALE_LOCK_DIRS 补 5 jobs (rss_blogs/github_trending/ai_leaders_x/finance_news/ontology_sources). MR-19 立案 monitor-must-self-alarm-on-silent-abort (3 契约: awk_safe + err_trap_handler + canary_writer). INV-WATCHDOG-SELF-001 (12 checks, declaration + runtime). test_watchdog_self_monitoring.py 29 单测 7 类 + 反向验证 sabotage 守卫真有效 (移除 LC_ALL=C / trap ERR / canary 立即 fail 还原全过). audit_metadata 3.37→3.38 + total_invariants 73→74 + total_checks 570→582 + meta_rules 18→19. 累计 80 suites / 2733 tests / 0 fail / 安全 95/100 / VERSION 0.37.9.58 不变. 今日 V37.9.58 四件套闭环: 主 (machine_sync 真激活) + hotfix (业务层 silent) + hotfix2 (治理层 silent) + hotfix3 (监控层 silent, 最深层 元监控). V3 路标 pip install ontology-engine 核心交付之一. 把 watchdog 自身死亡 7 天无人发现 从靠运维记忆升级为机器化主动告警 + canary 双层防御.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-05-12",
       "what": "V37.9.58-hotfix2 治理债清零 — MR-18 立案 + INV-HEREDOC-IMPORT-001 framework 级 import 一致性 scanner (V37.9.58-hotfix 反思转化为机制). 用户问为什么本次错误不应该发生驱动治本路径. 新文件 heredoc_import_scanner.py (~280 行纯 AST scanner, FAIL-CLOSE 契约) + test_heredoc_import_scanner.py 33 单测 (含反向验证 sabotage 守卫真有效). dev scan 立即抓出 V37.9.58-hotfix 遗漏的 2 个 LEVEL_2 jobs (finance_news + ontology_sources) 同款盲点 — scanner 真有效证据. MR-18 立 auto-batch-injection-must-validate-runtime-semantics — 任何自动批量改多文件工具必须三层契约 (注入前 dry-run AST + 注入后 semantic validation + 失败整批 rollback). 关联 MR-4/MR-6/MR-8/MR-10. derivative INV-HEREDOC-IMPORT-001 (severity=critical, declaration+runtime, 5 checks). governance audit_metadata 3.36→3.37 + total_invariants 72→73 + total_checks 565→570 + meta_rules 16→18 (修 V37.9.19 漏更新 + 加 MR-18). full_regression 79 suites / 2704 tests / 0 fail. VERSION 0.37.9.58 不变 (hotfix 不 bump). 元价值: V37.9.50-hotfix → V37.9.58-hotfix 8 天间隔重演证明单点修复不立元规则必然 MR-4 第 N 次演出. V37.9.58-hotfix2 把自动批量工具的安全垫从下次 Claude Code 记得升级为机器化契约 + governance audit 主动监控. V3 路标 pip install ontology-engine 核心交付方向 — declarative governance framework 用机器化契约取代记忆维护成本.",
       "by": "claude_code"
     },
@@ -201,11 +206,6 @@
     {
       "date": "2026-05-10",
       "what": "V37.9.50 — Sub-Stage 4b 1 脚本 PoC: semantic_scholar 5→6 字段 + rule_check (V37.9.45 hf_papers 横向迁移). V37.9.49 Sub-Stage 4a 完成后用户选 4b 续推进, 7 脚本一次性 batch ≈ 3500+ 行 / 5-10h 超出剩余 session 时间, 用户 push back 选 1-2 脚本 PoC 验证. scope: 选 semantic_scholar (论文类与 hf_papers 结构最近 + daily 08:00 HKT cron 用户立即感知). prompt 加 🎚️ 项目对齐度 + 5 档评分指南 + 反幻觉守卫. parse_5field_output → parse_6field_output (含 🎚 fallback 兼容 variation selector). emit lazy import project_alignment_scorer + per-paper rule_check + ⚠️ marker + 高对齐统计 (⭐≥4 N/M 篇). 21 新单测 3 类 + V37.9.39 老 test 套 alternation 兼容. ALIGNED_SCRIPTS V37.9.39→V37.9.50. INV-LLMCRON-AUDIT-001 V37.9.39 守卫升级为 V37.9.50 字面量. 70 suites / 2402 tests (+21) / 0 fail / governance 555 checks 不变 / 71 inv / 16 MR / 安全 95/100 / VERSION 0.37.9.49→0.37.9.50.",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-05-09",
-      "what": "V37.9.45 — hf_papers 6 字段深度迁移 (audit P1 完结, ALIGNED_SCRIPTS 10→11) + Opportunity Radar #2 PoC 单点验证. 用户 V37.9.44 后明确指令'现在就开始做不留尾巴, 下次 session 开始执行 Stage 1'. 双交付: (1) hf_papers V37.9.43 arxiv 同款机械迁移 (433→771 行 +78%, 保留 Step 2.5 GitHub repo enrichment) + (2) #2 PoC 单点验证 (project_concepts.yaml + LLM prompt 加第 6 字段 🎚️ 项目对齐度 + parse_5field_output → parse_6field_output + emit 显示对齐度 + 末尾高对齐统计). MR-10 三问严格执行: 不加 rule_check 验证层 (Stage 2 责任) + 不批量推其他脚本 (Stage 2 责任) + 不加 Dream/Radar 高对齐 Top 5 段 (Stage 2 责任). 27 新单测 4 类 (含 TestProjectAlignmentField 5 测试 #2 PoC) + 反向验证两层守卫真有效 (sed 占位符 / Python 移除 🎚️ 字段都立即 fail). 65 suites / 2280 tests (+27) / 0 fail / governance 555 checks (+1) / 71 inv / 16 meta rules / 安全 95/100 / VERSION 0.37.9.44→0.37.9.45. audit P1 路径完结 (剩 P2 4 + P3 8). 七阶段连环兑现 V37.9.36→39→40→41→43→44→45.",
       "by": "claude_code"
     }
   ],
@@ -350,11 +350,11 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 2704,
-    "last_regression": "2026-05-12 07:13 pass",
+    "test_count": 2733,
+    "last_regression": "2026-05-12 08:38 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-05-12 07:13",
-    "test_suites": 79,
+    "security_score_time": "2026-05-12 08:38",
+    "test_suites": 80,
     "governance_invariants": "64/64",
     "governance_checks": "350/350",
     "version": "0.37.9.58"
@@ -421,7 +421,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "【V37.9.58-hotfix2 治理债清零 — MR-18 立案 + INV-HEREDOC-IMPORT-001 framework 级 import 一致性 scanner】2026-05-12 用户问\"为什么本次错误不应该发生\"驱动反思转治本. V37.9.50-hotfix → V37.9.58-hotfix 8 天间隔同款 import 缺漏重演 = 治理债证明. V37.9.58-hotfix2 立 framework 级预防: heredoc_import_scanner.py 纯 AST scanner (FAIL-CLOSE, 33 单测, 反向验证守卫真有效) + MR-18 auto-batch-injection-must-validate-runtime-semantics + INV-HEREDOC-IMPORT-001 governance audit 主动监控. dev scan 立即抓出 V37.9.58-hotfix 遗漏的 2 个 LEVEL_2 jobs (finance_news + ontology_sources) 真有效. 79 suites / 2704 tests / 0 fail / governance 73 invariants / 18 meta rules / 安全 95/100. **下次 V37.9.59+ 候选**: (a) inject_level_4_to_aligned_jobs.py 自治化 (注入前后内嵌 scanner check + 失败整批 rollback) (b) governance audit cron 集成 INV-HEREDOC-IMPORT-001 主动告警 (一周生效后立 INV-AUTO-INJECT-001 上游守卫) (c) audit 同款盲点扫: 是否还有其他批量注入跨多 jobs 但漏依赖的 pattern (d) Mac Mini 三件套 (V37.9.58 主 + hotfix + hotfix2) 全量真激活一周观察期. 同步 V37.9.58 主 machine_sync 真激活第二天观察 (今日凌晨已部署, 7 天到 5/19 立 INV-CONVERGENCE-ACTIVATED-001). 同步 V37.9.57 LEVEL_5 守卫一周生产观察 (Mac Mini 真验证).",
+  "focus": "【V37.9.58-hotfix3 治本 watchdog silent abort 7 天血案】2026-05-12 用户深问为什么静默失败不提前告警驱动治本. 真因: macOS bsd awk multibyte + set -eo pipefail + 无 ERR trap = watchdog 静默 abort 7 天累积告警全部未推送. V37.9.58-hotfix3 治本三层 (LC_ALL=C 容错 + ERR trap 主动推送 + canary heartbeat 元监控) + STALE_LOCK 补 5 jobs + MR-19 立案 + INV-WATCHDOG-SELF-001 (12 checks) + 29 单测 7 类含反向验证. 80 suites / 2733 tests / 0 fail / governance v3.38 / 74 invariants / 582 checks / 19 meta rules / 安全 95/100. 今日 V37.9.58 四件套一日闭环: 主 (machine_sync 真激活) + hotfix (业务层 silent 8 jobs import os) + hotfix2 (治理层 silent MR-18 scanner) + hotfix3 (监控层 silent MR-19 watchdog 自观察 元监控). **Mac Mini 部署后立即行动**: (1) git fetch + reset 同步 V37.9.58-hotfix3 (2) 手动清 4 个残留 lockdir 让今晚 18:00+ cron 能跑 (3) 观察今晚 16:30 / 20:30 watchdog cron 真激活效果 (推 canary alive + 累积告警). **下次 V37.9.59 候选**: (a) 一周观察 watchdog 健康 (Discord 应每 4h 收到 canary alive) (b) trap unlock 8 ALIGNED jobs 普遍不执行 (hotfix3 候选未修) (c) X 429 全 19 账号失败 调查 (d) 扫所有 cron 监控脚本是否满足 MR-19 三契约.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
