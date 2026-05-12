@@ -3161,12 +3161,16 @@ class TestV37958DryRunActivation(unittest.TestCase):
                     f"V37.9.58 反向验证: governance pattern 字段 dry_run_default "
                     f"必须查 false 字面量, got: {stripped!r}")
 
-    # ── (5) audit_metadata 版本升级 v3.36 ─────────────────────────────────
+    # ── (5) audit_metadata 版本升级 v3.36+ (alternation 接受后续版本) ──────
 
-    def test_audit_metadata_version_v3_36(self):
-        """audit_metadata.version 升级到 3.36."""
-        self.assertIn('version: "3.36"', self.gov_src,
-            "V37.9.58: governance audit_metadata.version 必须升到 3.36")
+    def test_audit_metadata_version_v3_36_or_later(self):
+        """audit_metadata.version 升级到 3.36+ (V37.9.58-hotfix2 升到 3.37 也合规)."""
+        valid_versions = ('version: "3.36"', 'version: "3.37"')
+        self.assertTrue(
+            any(v in self.gov_src for v in valid_versions),
+            f"V37.9.58+: governance audit_metadata.version 必须 ≥ 3.36, "
+            f"接受 {valid_versions} 之一"
+        )
 
     def test_audit_metadata_v3_36_changelog_documents_escalation(self):
         """audit_metadata.upgraded 必须含 V37.9.58 escalation 兑现记录."""
