@@ -33,11 +33,66 @@ if [ -d "$LOCK" ]; then
     fi
 fi
 mkdir "$LOCK" 2>/dev/null || { echo "[watchdog] Already running, skip"; exit 0; }
-trap 'rmdir "$LOCK" 2>/dev/null' EXIT
 
 OPENCLAW="${OPENCLAW:-/opt/homebrew/bin/openclaw}"
 TO="${OPENCLAW_PHONE:-+85200000000}"
 TS="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')"
+
+# ════════════════════════════════════════════════════════════════════
+# V37.9.58-hotfix3: 提前 source notify.sh + 装 ERR trap (silent abort 变 loud)
+# ════════════════════════════════════════════════════════════════════
+# 血案: 5/5 16:30 起 watchdog 因 awk multibyte 错误 + set -e 静默 abort 7 天,
+# 用户 5/12 视角发现. MR-19 候选 monitor-must-self-alarm-on-silent-abort 兑现.
+NOTIFY_SCRIPT="$(cd "$(dirname "$0")" && pwd)/notify.sh"
+if [ -f "$NOTIFY_SCRIPT" ]; then
+    # shellcheck disable=SC1090
+    source "$NOTIFY_SCRIPT" 2>/dev/null || true
+fi
+
+# ERR trap: set -e abort 前主动推送告警, 防 silent failure 第 18 次演出
+_watchdog_fatal_handler() {
+    local exit_code=$?
+    local line_no="${1:-unknown}"
+    local fatal_msg="[SYSTEM_ALERT] watchdog FATAL abort exit=${exit_code} line=${line_no} — 监控自身死亡! 5/5-5/12 silent 7 天血案防回归. ssh 排查 ~/job_watchdog.log + 跑 bash -x ~/job_watchdog.sh 定位."
+    # 写 stderr (cron log)
+    echo "[watchdog] 🚨 FATAL exit=${exit_code} at line=${line_no} (set -e abort)" >&2
+    # 写本地告警文件 (即使推送失败也有证据)
+    echo "[$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')] watchdog FATAL abort exit=${exit_code} line=${line_no}" >> "$HOME/.openclaw_alerts.log" 2>/dev/null || true
+    # 主动推送 Discord (FAIL-OPEN: notify 不可用 / 推送失败都不让 trap 自身崩)
+    if command -v notify >/dev/null 2>&1; then
+        notify "$fatal_msg" --topic alerts 2>/dev/null || true
+    elif [ -x "$OPENCLAW" ]; then
+        "$OPENCLAW" message send --channel discord --channel-id "${DISCORD_CH_ALERTS:-}" --content "$fatal_msg" 2>/dev/null || true
+    fi
+    # trap EXIT 仍会执行 rmdir LOCK (链式 trap)
+}
+
+# EXIT trap: rmdir + canary heartbeat 推送 (V37.9.58-hotfix3 元监控)
+_watchdog_exit_handler() {
+    local final_exit=$?
+    rmdir "$LOCK" 2>/dev/null || true
+    # V37.9.58-hotfix3 Canary: 写本地状态 + 仅在正常完成时推 canary (避免 abort 时双重推送)
+    if [ "$final_exit" -eq 0 ]; then
+        local canary_ts="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')"
+        cat > "$HOME/watchdog_canary.json" <<EOF 2>/dev/null
+{
+  "last_completed": "$canary_ts",
+  "checks": ${STATS_PASS:-0},
+  "warns": ${STATS_WARN:-0},
+  "alerts": ${#ALERTS[@]}
+}
+EOF
+        # 仅当 ALERTS 为空时推 canary "alive" (有 alert 时主推送通道已推送告警, 不重复)
+        # 这让 watchdog 自身死活可被检测: 用户超过 12h 没收到 alert 也没收到 canary → watchdog 死了
+        if [ "${#ALERTS[@]}" -eq 0 ] && command -v notify >/dev/null 2>&1; then
+            local canary_msg="✅ [watchdog alive @ $canary_ts] checks=${STATS_PASS:-0} alerts=0 (no issues)"
+            # canary 走 alerts topic 但内容是 alive 而非 alert, 频率: 每 4h 一次 cron 跑 = 每天 4 条
+            notify "$canary_msg" --topic alerts 2>/dev/null || true
+        fi
+    fi
+}
+trap '_watchdog_fatal_handler $LINENO' ERR
+trap '_watchdog_exit_handler' EXIT
 
 # 心跳日志：每次运行都记录
 echo "[watchdog] $TS heartbeat — 8-dimension health check"
@@ -260,8 +315,12 @@ scan_logs() {
     # 抓 tail -200（拉宽窗口防错过近时刻多错误），先按行级时间戳留 24h 内，再 grep 错误
     # 行级时间戳格式 [YYYY-MM-DD HH:MM:SS] 或 [YYYY-MM-DDTHH:MM:SS] 出现在行首附近
     # 无时间戳的行（如 Python Traceback 多行）保留以免漏关键上下文
+    # V37.9.58-hotfix3 (2026-05-12): LC_ALL=C 防 macOS awk multibyte conversion failure +
+    #   `|| true` 防 set -eo pipefail 让 watchdog silent abort. 5/5 16:30 起 watchdog
+    #   每次 cron 触发都因某 log 含无效 UTF-8 字节 awk 崩溃 → set -e abort → 7 天 silent
+    #   failure 累积 (用户 5/12 视角发现). 详 ontology/docs/cases/watchdog_silent_abort_case.md.
     local recent_window
-    recent_window=$(tail -200 "$logfile" 2>/dev/null | awk -v cutoff="$cutoff_date" -v today="$today_date" '
+    recent_window=$(tail -200 "$logfile" 2>/dev/null | LC_ALL=C awk -v cutoff="$cutoff_date" -v today="$today_date" '
         /\[([0-9]{4}-[0-9]{2}-[0-9]{2})/ {
             if (match($0, /[0-9]{4}-[0-9]{2}-[0-9]{2}/)) {
                 ts_date = substr($0, RSTART, RLENGTH)
@@ -276,7 +335,7 @@ scan_logs() {
         }
         # 无时间戳行: 跟随上一行状态（Traceback 多行连续输出场景）
         in_recent { print }
-    ')
+    ' 2>/dev/null || true)
 
     local recent_fails
     recent_fails=$(echo "$recent_window" | grep -ciE "$err_pattern" || true)
@@ -391,6 +450,12 @@ STALE_LOCK_DIRS=(
     "/tmp/run_discussions.lockdir|Issues监控(alt)"
     "/tmp/kb_review.lockdir|KB回顾"
     "/tmp/kb_evening.lockdir|KB晚间"
+    # V37.9.58-hotfix3: 补齐 5 个监控盲区 (5/12 诊断发现 rss_blogs.lockdir 残留 45h 没人管)
+    "/tmp/rss_blogs.lockdir|RSS博客"
+    "/tmp/github_trending.lockdir|GitHub热门"
+    "/tmp/ai_leaders_x.lockdir|AI领袖X"
+    "/tmp/finance_news.lockdir|财经新闻"
+    "/tmp/ontology_sources.lockdir|本体论信息源"
 )
 
 STALE_CLEANED=0

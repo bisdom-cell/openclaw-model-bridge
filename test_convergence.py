@@ -3164,8 +3164,8 @@ class TestV37958DryRunActivation(unittest.TestCase):
     # ── (5) audit_metadata 版本升级 v3.36+ (alternation 接受后续版本) ──────
 
     def test_audit_metadata_version_v3_36_or_later(self):
-        """audit_metadata.version 升级到 3.36+ (V37.9.58-hotfix2 升到 3.37 也合规)."""
-        valid_versions = ('version: "3.36"', 'version: "3.37"')
+        """audit_metadata.version 升级到 3.36+ (V37.9.58-hotfix2 → 3.37 / hotfix3 → 3.38)."""
+        valid_versions = ('version: "3.36"', 'version: "3.37"', 'version: "3.38"')
         self.assertTrue(
             any(v in self.gov_src for v in valid_versions),
             f"V37.9.58+: governance audit_metadata.version 必须 ≥ 3.36, "
