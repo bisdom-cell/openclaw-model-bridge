@@ -1,5 +1,5 @@
 {
-  "updated": "2026-05-12 01:33:07",
+  "updated": "2026-05-12 01:58:15",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -106,6 +106,12 @@
   "recent_changes": [
     {
       "date": "2026-05-12",
+      "version": "V37.9.56-hotfix3",
+      "what": "kb_evening LLM 编造 OpenClaw v26 幻觉血案修复 — V37.9.56 链式幻觉副作用 (原则 #23 典型实证). 触发: V37.9.56-hotfix 部署后 9:41 evening 推送编造 \"OpenClaw 社区发布 v26\" 给 WhatsApp + Discord 用户. 因果: Top 5 提到三平面对齐 + 今日笔记少 + LLM 训练倾向 → 编造项目动态. 三层修复: (a) alignment_block 软化注入 (新段头\"近期高对齐参考阅读 Top 5\"+ 跨多天累积 + 绝不应硬引用) (b) prompt 模板加反幻觉具体字面禁令 (禁 OpenClaw 社区发布/v26/[openclaw] 等 5 个血案字眼) (c) 源码注释含血案精确字眼便于 grep. 6 新单测 1 类 (TestV9_56Hotfix3AntiHallucinationGuards) + 修适 3 老测试 + 反向验证 sabotage 立即 3 failures 还原全过. 76 suites / 2607→2613 tests / 0 fail / VERSION 0.37.9.56 不变 (hotfix 惯例). MR-15 候选元规则强化: llm-prompt-injection-must-anticipate-hallucination-vector. Stage 2 文章候选: LLM prompt 注入即幻觉注入.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-05-12",
       "version": "V37.9.56-hotfix2",
       "what": "kb_evening.sh DAYS 数字校验防御 — V37.9.56 诊断暴露的 zsh # 注释坑 root-cause fix. 真因: zsh interactive_comments 默认 OFF, # 被当 $1 传给 bash → DAYS=# → int(#) ValueError. 修复: kb_evening.sh 加 regex ^[0-9]+$ 校验, 非数字 fallback 1 + WARN 日志. 5 新单测 1 类 (含 subprocess 真跑血案场景 # → fallback 1 + 反向验证 sabotage 删校验立即 4 failures / 改 regex 立即 2 failures). 累计 76 suites / 2602→2607 tests / 0 fail / VERSION 0.37.9.56 不变 (hotfix 惯例). 元教训: 同 session 修小 bug 比下次 session 重新拉起上下文成本更低. 原则 #28 严格执行 (Q1/Q2/Q3 三问).",
       "by": "claude_code"
@@ -200,11 +206,6 @@
     {
       "date": "2026-05-09",
       "what": "V37.9.43 — arxiv_monitor 5 字段深度迁移 (V37.9.41 HN audit P1 续, ALIGNED_SCRIPTS 8→9). audit P1 剩 hf_papers 1 个. arxiv 老 V37.8 单 batch + 3 字段 (cn_title/贡献/价值) + 占位符 fallback (贡献：AI领域相关研究 / 价值：⭐⭐⭐) silent fallback. 迁移 (443→704 行 +59%): NOTIFY_SH + send_alert helper / 替换 LLM section line 216-393 (217 行 → 330 行) 为 call_llm_single_with_retry helper (5/10/20s × 3 + V37.9.36 三层检测) + per-paper 5 字段 prompt + LLM_DEGRADED 用 arxiv abstract 兜底 + 多窗口切片 (>8000 字 + sleep 1s + [i/N] + 续段, V37.9.21 同款) + 三档 status (ok/partial_degraded/llm_failed) + L2 解析率检查废弃 (partial_degraded 替代). 22 新单测 3 类 (TestArxivV9_43ShellGuards 17 + TestArxivLlmDegradedFallback 3 + TestArxivInAuditAligned 3). 反向验证守卫真有效 (sed 注入占位符 → L519 立即 fail + 行号定位 → 还原 22/22 全过). ALIGNED_SCRIPTS 8→9 V37.9.43 锚点 governance INV-LLMCRON-AUDIT-001 +1 check (552→553 declared / 469 dev pass). 用户视角原则 #13 第 13 次正向兑现. MR-8 跨 job 同步 fail-fast 兑现 (V37.9.36/37/38/39/40/41/43 七阶段连环). 62 suites / 2214 tests (+22) / 0 fail / 71 inv / 16 meta rules / 安全 95/100 / VERSION 0.37.9.42→0.37.9.43",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-05-09",
-      "what": "V37.9.42 hotfix — HN V37.9.41 三个 bash 整数处理 bug 修复 (Mac Mini 23:51 实测发现): (a) BSD wc -l NEW_COUNT 含前导空格 → tr -d [:space:] (b) dedup print(\\n.join([])) 输出空行让 wc -l=1 但实际无 JSON → 新增 NEW_JSON_COUNT=$(grep -c ^{) early-exit (c) SENT_COUNT 0\\n0 双输出 → SENT_COUNT=$(grep -c) || SENT_COUNT=0. bash -n + full_regression 61/0/2192 通过. Mac Mini 实测 V37.9.42 推送 1 条 2153 字 5 字段深度 + (基于标题与摘要推断) caveat 完美兑现. line 582 syntax error 是 auto_deploy cp 原子性 timing race (V37.9.41+ 候选已登记 升级 P1). VERSION 0.37.9.41 → 0.37.9.42",
       "by": "claude_code"
     }
   ],
@@ -347,10 +348,10 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 2607,
-    "last_regression": "2026-05-12 01:32 pass",
+    "test_count": 2613,
+    "last_regression": "2026-05-12 01:57 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-05-12 01:32",
+    "security_score_time": "2026-05-12 01:57",
     "test_suites": 76,
     "governance_invariants": "64/64",
     "governance_checks": "350/350",

@@ -200,12 +200,18 @@ def build_evening_prompt(
     alignment_block = ""
     # V37.9.56: strip() 守卫防止 whitespace-only 字符串 (如 picker 输出末尾换行)
     # 触发误注入空 block, 让 prompt 出现空"今日高对齐"段.
+    # V37.9.56-hotfix3 (2026-05-12 血案修): 旧设计"在'今日要闻'段优先引用"指令在 LLM
+    # 训练倾向下触发链式幻觉 — 9:41 evening 编造"OpenClaw 社区发布 v26" 推送给用户.
+    # 真因: Top 5 提到"OpenClaw 项目对齐"+ 今日笔记少 → LLM 合理化"项目必然有版本更新"
+    # → 编造来源标签 [openclaw] + 虚构事件. 修复: 注入软化 + 具体字面禁令.
     if top_alignment_picks and str(top_alignment_picks).strip():
         alignment_block = (
-            "\n\n═══ 今日高对齐 Top 5 (V37.9.56 #2, ⭐≥4 项目对齐度) ═══\n"
+            "\n\n═══ 近期高对齐参考阅读 Top 5 (V37.9.56 #2, ⭐≥4 项目对齐度, 跨多天累积) ═══\n"
             + str(top_alignment_picks).strip()
-            + "\n\n注意: 上述 Top 5 是今日所有 source 中与项目方向最相关的内容, "
-            + "在'今日要闻'段优先引用 (但仍需在下方笔记/来源中找到具体内容支持才能展开)"
+            + "\n\n注意 (V37.9.56-hotfix3): 上述仅为'外部参考阅读列表', **不是今日发生的事件**. "
+            + "8 个论文/repo/blog source 的**多日累积**高对齐内容 (非今日新闻). "
+            + "你**绝不应**在'今日要闻'/'明日关注'段硬性引用上述条目, "
+            + "除非今日笔记/来源中**实际出现**对应内容. Top 5 仅作为'背景知识参考', 不作为'新闻事件'."
         )
 
     return f"""你是一位知识管理助手，请基于用户知识库中今天（最近 {days} 天）新增的内容，
@@ -221,6 +227,11 @@ def build_evening_prompt(
 - 每条要闻必须能在下方原文中找到对应段落，标注来源标签
 - 严禁虚构任何发布公告、开源事件、产品发布、人物言论
 - 如果某个领域今天无数据，直接跳过，不要编造
+- **V37.9.56-hotfix3 反幻觉字面禁令** (2026-05-12 evening 编造 "OpenClaw 社区发布 v26" 血案规则):
+  · 禁字面: "OpenClaw 社区发布"、"OpenClaw v26"、"v26/v27/v37 版本更新"、"项目里程碑"、"开源 X 上线"
+  · 禁来源标签: [openclaw] / [OpenClaw] / [社区] — 除非 sources_used 中**真实存在**对应字面量
+  · "近期高对齐参考阅读 Top 5" 段是**外部** paper/repo/blog 跨多天累积，**不是**本项目动态来源
+  · 严禁"基于 Top 5 推断本项目状态" / "基于 paper 推断 OpenClaw 版本"等链式推论
 
 ═══ 今日笔记 ═══
 {notes_text or '（今日无新增笔记）'}
