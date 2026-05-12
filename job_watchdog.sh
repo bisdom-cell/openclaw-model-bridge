@@ -14,7 +14,14 @@ source "$HOME/.bash_profile" 2>/dev/null || source "$HOME/.env_shared" 2>/dev/nu
 # V31: 从6个job扩展到15个 + 服务健康 + 磁盘 + KB新鲜度 + crontab条目数 + 日志扫描加强
 # cron 环境 PATH 极简，必须显式声明（规则 #13）
 export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
-set -eo pipefail
+# V37.9.58-hotfix4 (2026-05-12): set -E (errtrace) 让 ERR trap 在 function 内部生效.
+# 血案: V37.9.58-hotfix3 加 trap ERR 但漏 set -E → bash 默认 function 内 fail 不
+# propagate ERR trap → fatal_handler 不触发 → silent abort 仍然发生 (16:45 实测).
+# `set -eEo pipefail` 三选项缺一不可:
+#   -e: errexit, 任一命令失败立即 abort (但 function 内 fail 默认不传播)
+#   -E: errtrace (V37.9.58-hotfix4 新增), function 内 fail 真触发 ERR trap
+#   -o pipefail: pipe 任一段 fail = pipe fail (防 silent)
+set -eEo pipefail
 
 # 防重叠执行（mkdir 原子锁，macOS 兼容）
 # 自身锁文件加陈旧检测——超过30分钟则强制清理（防止 watchdog 自身被锁死）
@@ -341,16 +348,21 @@ scan_logs() {
     recent_fails=$(echo "$recent_window" | grep -ciE "$err_pattern" || true)
     if [ "$recent_fails" -gt 0 ]; then
         local last_err
-        last_err=$(echo "$recent_window" | grep -iE "$err_pattern" | tail -1 | head -c 120)
+        # V37.9.58-hotfix4: head -c N + SIGPIPE 关 stdin 可能让 grep 收到 SIGPIPE exit 非 0
+        # → pipefail + set -e abort. 加 `|| true` 兜底.
+        last_err=$(echo "$recent_window" | grep -iE "$err_pattern" | tail -1 | head -c 120 || true)
 
         # V37.9.28 F1: 提取错误行的时间戳分布（最早/最新），让告警可读
         # 之前 bug: 只显示 "12条错误 → last_err" 看不出 12 条是分布的还是集中的
         # 用户 5/5 周一观察反馈："主要是一些 health 监控推送没有严格的时间戳"
         # 修复: grep -oE 提取 [YYYY-MM-DD HH:MM] 模式, sort -u 去重, head/tail 取最早最新
         # 边界: 全是 Traceback 多行无时间戳行 → "(时间戳缺失)" 标记
+        # V37.9.58-hotfix4 (2026-05-12): 加 `|| true` 兜底 — grep 无匹配 exit 1 +
+        #   pipefail + set -e = 整 watchdog abort. 5/5 16:30 起 + V37.9.58-hotfix3
+        #   16:45 实测两次重演. 这是 V37.9.28 F1 加 err_ts 时漏的 set-e 容错.
         local err_ts oldest newest ts_info
         err_ts=$(echo "$recent_window" | grep -iE "$err_pattern" | \
-                 grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}[T ][0-9]{2}:[0-9]{2}' | sort -u)
+                 grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}[T ][0-9]{2}:[0-9]{2}' | sort -u 2>/dev/null || true)
         if [ -n "$err_ts" ]; then
             oldest=$(echo "$err_ts" | head -1)
             newest=$(echo "$err_ts" | tail -1)
@@ -396,7 +408,11 @@ HOME_LOGS=(
 )
 for entry in "${HOME_LOGS[@]}"; do
     IFS='|' read -r logfile job_name <<< "$entry"
-    scan_logs "$logfile" "$job_name"
+    # V37.9.58-hotfix4 (2026-05-12): scan_logs 内部偶尔 fail (V37.9.28 F1 加 err_ts pipe
+    # 引入未防御 grep -oE → 无匹配时 pipefail + set -e abort). caller || ALERT 让
+    # scan_logs internal fail 可观察但**不让整 watchdog abort**, 让后续 7 个维度
+    # (服务健康/磁盘/lockdir/SLO/cron 心跳/Proxy 监控/KB 新鲜度) 都能跑.
+    scan_logs "$logfile" "$job_name" || ALERTS+=("$job_name: scan_logs 内部异常 (V37.9.58-hotfix4: function 内部某 pipe 缺 \`|| true\` 兜底, 追踪中, watchdog 继续跑后续维度)")
 done
 
 # Adapter 日志特殊扫描（FALLBACK ALSO FAILED = 双路径全挂）

@@ -237,28 +237,57 @@ class TestWatchdogSyntaxAndIntegration(unittest.TestCase):
             f"bash -n 语法检查失败: {result.stderr}")
 
     def test_set_eo_pipefail_present(self):
-        """set -eo pipefail 必须保留 (V37.9.58-hotfix3 不能因为加 trap 就移除 set -e)."""
+        """set -eEo pipefail 必须保留 (V37.9.58-hotfix4: 加 -E errtrace 让 ERR trap 在 function 内生效).
+
+        历史: V37.9.58-hotfix3 用 set -eo pipefail (无 -E) → ERR trap 在 function
+        内 fail 不触发 → silent abort 仍存在. V37.9.58-hotfix4 加 -E (errtrace).
+        """
         with open(WATCHDOG_SH, "r") as f:
             src = f.read()
-        self.assertIn("set -eo pipefail", src,
-            "V37.9.58-hotfix3 必须保留 set -eo pipefail (ERR trap 是补充而非替代)")
+        # alternation: 接受 set -eEo pipefail (V37.9.58-hotfix4) 或 set -eo pipefail (V37.9.58-hotfix3 旧)
+        self.assertTrue(
+            "set -eEo pipefail" in src or "set -eo pipefail" in src,
+            "V37.9.58-hotfix3/4 必须保留 set -e* pipefail (ERR trap 是补充而非替代)"
+        )
+
+    def test_set_E_errtrace_present_v37_9_58_hotfix4(self):
+        """V37.9.58-hotfix4: set -E (errtrace) 必须加 — 让 ERR trap 在 function 内生效."""
+        with open(WATCHDOG_SH, "r") as f:
+            src = f.read()
+        self.assertIn("set -eEo pipefail", src,
+            "V37.9.58-hotfix4: 必须 set -eEo (含 -E errtrace) 让 ERR trap 在 function 内 fail 时真触发. "
+            "5/12 16:45 实测 V37.9.58-hotfix3 (无 -E) ERR trap 仍 silent.")
+
+    def test_scan_logs_caller_has_alert_fallback_v37_9_58_hotfix4(self):
+        """V37.9.58-hotfix4: scan_logs caller 必须 || ALERTS+= 兜底, 防 scan_logs internal fail 杀整 watchdog."""
+        with open(WATCHDOG_SH, "r") as f:
+            src = f.read()
+        # 匹配 caller `scan_logs ... || ALERTS+=`
+        self.assertRegex(
+            src,
+            r'scan_logs\s+"\$logfile"\s+"\$job_name"\s+\|\|\s+ALERTS\+=',
+            "V37.9.58-hotfix4: scan_logs caller 必须有 || ALERTS+= 兜底 (scan_logs internal fail 不杀脚本)"
+        )
 
     def test_trap_err_after_set_e(self):
-        """trap ERR 必须在 set -e 之后定义 (set -e 之前 trap ERR 无效)."""
+        """trap ERR 必须在 set -e* 之后定义 (set -e 之前 trap ERR 无效).
+        V37.9.58-hotfix4 alternation: 接受 set -eEo pipefail (含 errtrace) 或旧 set -eo pipefail.
+        """
         with open(WATCHDOG_SH, "r") as f:
             lines = f.readlines()
         set_e_line = None
         trap_err_line = None
         for i, line in enumerate(lines):
-            if "set -eo pipefail" in line:
+            # V37.9.58-hotfix4 alternation: set -eEo (含 -E) 优先, fallback set -eo
+            if "set -eEo pipefail" in line or "set -eo pipefail" in line:
                 set_e_line = i
             if "trap '_watchdog_fatal_handler" in line:
                 trap_err_line = i
                 break
-        self.assertIsNotNone(set_e_line, "set -eo pipefail 行未找到")
+        self.assertIsNotNone(set_e_line, "set -e* pipefail 行未找到")
         self.assertIsNotNone(trap_err_line, "trap ERR 行未找到")
         self.assertGreater(trap_err_line, set_e_line,
-            "V37.9.58-hotfix3: trap ERR 必须在 set -e 之后注册 (否则 trap 无效)")
+            "V37.9.58-hotfix3/4: trap ERR 必须在 set -e* 之后注册 (否则 trap 无效)")
 
 
 # ── Tier 6: 反向验证 sabotage 守卫真有效 ────────────────────────────
