@@ -95,9 +95,14 @@ EXIT_CODE=0
 ATTEMPT=0
 while [ "$ATTEMPT" -lt "$MAX_ATTEMPTS" ]; do
     ATTEMPT=$((ATTEMPT + 1))
-    # Run rsync — preserve original 2>&1 behavior (caller's existing pattern)
-    rsync "$@" 2>&1
-    EXIT_CODE=$?
+    # V37.9.58-hotfix5 (2026-05-12): rsync 自身 stderr 行无时间戳前缀 (e.g.
+    # "rsync(47596): error: ..."), 进 caller log 后 job_watchdog scan_logs 无法
+    # 提取时间戳分布, 告警显示 "(时间戳缺失)" 让用户无法判断错误真实时间. 用
+    # awk pipe 加 [YYYY-MM-DD HH:MM:SS] prefix; PIPESTATUS[0] 保 rsync exit code.
+    # 用户 5/12 16:56 watchdog 告警敏锐发现 "时间戳却是？？？" 提问驱动此修复.
+    RSYNC_TS="$(date '+%Y-%m-%d %H:%M:%S')"
+    rsync "$@" 2>&1 | awk -v ts="$RSYNC_TS" '{print "[" ts "] " $0}'
+    EXIT_CODE=${PIPESTATUS[0]}  # rsync 的 exit code, 不是 awk 的
     if [ "$EXIT_CODE" -eq 0 ]; then
         if [ "$ATTEMPT" -gt 1 ]; then
             echo "[$(basename "$CALLER")] rsync recovered on attempt ${ATTEMPT}/${MAX_ATTEMPTS}" >&2
