@@ -168,6 +168,50 @@ JOBS=(
     "kb_harvest_chat|$HOME/.kb/last_run_harvest_chat.json|180000|对话精华提炼|core"
     # V37.8.13 原计划加入 pwc 但 registry 中 enabled=false (已停用: API 302 重定向到 HF,
     # 功能合并到 hf_papers)。保持 watchdog 不监控已停用 job 的契约。
+
+    # ── V37.9.59 新增：补齐 watchdog 监控盲区 (16→21 jobs, 47%→62%) ──
+    # 用户 5/12 17:30 询问 watchdog 是否监控所有任务 + 是否准确上报 — 真实数据显示
+    # 仅监控 16/34 (47%). 漏监控的 18 个 jobs 任何 silent failure 都不会上报. V37.9.59
+    # 立即补齐有 last_run.json 写入的 5 个核心 jobs + V37.9.59 新加 LOG_FRESHNESS_JOBS
+    # 数组覆盖剩余仅有 log 的 jobs.
+    # KB Deep Dive: 每天22:30 → 最多静默 50h (V37.9.16 新增, 漏监控至 V37.9.58 后)
+    "kb_deep_dive|$HOME/.kb/last_run_deep_dive.json|180000|KB每日深度|core"
+    # KB Dream: 每天03:00 + 子阶段 map_sources(00:00) + map_notes(00:40) → 最多静默 50h
+    "kb_dream|$HOME/.kb/last_run_dream.json|180000|Agent Dream|core"
+    # Chaspark: 每天11:00 学术抓取 → 最多静默 50h
+    "chaspark|$HOME/.openclaw/jobs/chaspark/cache/last_run.json|180000|Chaspark学术|auxiliary"
+    # Governance Audit: 每天07:00 → 最多静默 50h
+    "governance_audit_cron|$HOME/.kb/last_run_governance_audit.json|180000|治理审计|core"
+)
+
+# ── V37.9.59 新增：LOG_FRESHNESS_JOBS — 仅有 log 没 last_run.json 的 jobs ──
+# 9 个 jobs (kb_embed/kb_trend/preference_learner/auto_deploy/wa_keepalive/mm_index/
+# daily_ops_report/openclaw_backup/health_check/cron_canary). 用 log mtime 替代
+# last_run.json (粗粒度新鲜度, 无法区分 跑了但失败 vs 没跑, 但比完全不监控好).
+# Format: "job_id|log_path|max_silence_seconds|display_name|tier"
+LOG_FRESHNESS_JOBS=(
+    # auto_deploy: 每 2min → 最多静默 10min (5 周期)
+    "auto_deploy|$HOME/.openclaw/logs/auto_deploy.log|600|自动部署|core"
+    # wa_keepalive: 每 30min → 最多静默 1.5h (3 周期)
+    "wa_keepalive|$HOME/wa_keepalive.log|5400|WhatsApp保活|core"
+    # cron_canary: 每 10min → 最多静默 30min (3 周期), V37.8.13 后核心
+    "cron_canary|$HOME/.cron_canary|1800|cron心跳|core"
+    # kb_status_refresh: 每 1h → 最多静默 2h (2 周期)
+    "kb_status_refresh|$HOME/kb_status_refresh.log|7200|状态刷新|auxiliary"
+    # mm_index: 每 2h → 最多静默 4h
+    "mm_index|$HOME/.openclaw/logs/jobs/mm_index.log|14400|多模态索引|auxiliary"
+    # kb_embed: 每天03:30 → 最多静默 50h
+    "kb_embed|$HOME/kb_embed.log|180000|KB向量索引|core"
+    # daily_ops_report: 每天08:15 → 最多静默 50h
+    "daily_ops_report|$HOME/daily_ops_report.log|180000|每日运维|auxiliary"
+    # openclaw_backup: 每天03:00 → 最多静默 50h
+    "openclaw_backup|$HOME/openclaw_backup.log|180000|每日备份|auxiliary"
+    # preference_learner: 每天07:30 → 最多静默 50h
+    "preference_learner|$HOME/preference_learner.log|180000|偏好学习|auxiliary"
+    # kb_trend: 每周六09:00 → 最多静默 14d (336h)
+    "kb_trend|$HOME/kb_trend.log|1209600|KB周趋势|auxiliary"
+    # health_check: 每周一09:00 → 最多静默 14d
+    "health_check|$HOME/health_check.log|1209600|健康周报|auxiliary"
 )
 
 CORE_ALERTS=()
@@ -415,6 +459,53 @@ for entry in "${HOME_LOGS[@]}"; do
     scan_logs "$logfile" "$job_name" || ALERTS+=("$job_name: scan_logs 内部异常 (V37.9.58-hotfix4: function 内部某 pipe 缺 \`|| true\` 兜底, 追踪中, watchdog 继续跑后续维度)")
 done
 
+# ════════════════════════════════════════════════════════════════════
+# V37.9.59 新增: 日志 mtime 新鲜度检查 (LOG_FRESHNESS_JOBS)
+# ════════════════════════════════════════════════════════════════════
+# 9-11 个 jobs 没有 last_run.json 写入 (kb_embed/kb_trend/preference_learner/
+# auto_deploy/wa_keepalive/mm_index/daily_ops_report/openclaw_backup/health_check/
+# cron_canary/kb_status_refresh). 用 log mtime 替代 last_run 时间戳 — 粗粒度
+# (无法区分跑了但失败 vs 没跑), 但比完全不监控好.
+# V37.9.58-hotfix4 + V37.9.59 后 watchdog 监控覆盖率从 47% → ~92% (16+11/34).
+check_log_freshness() {
+    local logfile="$1"
+    local max_silence="$2"
+    local display_name="$3"
+    local tier="$4"
+    if [ ! -f "$logfile" ]; then
+        # 文件不存在不一定是错 (如 health_check 周一才写). 静默跳过.
+        return 0
+    fi
+    local LOG_MOD
+    if [ "$(uname)" = "Darwin" ]; then
+        LOG_MOD=$(stat -f %m "$logfile" 2>/dev/null || echo "0")
+    else
+        LOG_MOD=$(stat -c %Y "$logfile" 2>/dev/null || echo "0")
+    fi
+    local ELAPSED=$(( NOW_EPOCH - LOG_MOD ))
+    if [ "$ELAPSED" -gt "$max_silence" ]; then
+        local ELAPSED_HOURS=$(( ELAPSED / 3600 ))
+        local MAX_HOURS=$(( max_silence / 3600 ))
+        local msg="${display_name}: log ${ELAPSED_HOURS}h 未更新 (阈值 ${MAX_HOURS}h, 仅有 log mtime 监控, V37.9.59)"
+        case "$tier" in
+            core) CORE_ALERTS+=("🔴 ${msg}") ;;
+            auxiliary) AUX_ALERTS+=("🟡 ${msg}") ;;
+            *) EXP_ALERTS+=("⚪ ${msg}") ;;
+        esac
+        ALERTS+=("${display_name}: log ${ELAPSED_HOURS}h 未更新（阈值 ${MAX_HOURS}h）")
+        STATS_WARN=$((STATS_WARN + 1))
+    else
+        STATS_PASS=$((STATS_PASS + 1))
+    fi
+    return 0
+}
+
+for entry in "${LOG_FRESHNESS_JOBS[@]}"; do
+    IFS='|' read -r job_id logfile max_silence display_name tier <<< "$entry"
+    check_log_freshness "$logfile" "$max_silence" "$display_name" "$tier" || \
+        ALERTS+=("$job_id: log_freshness check 内部异常 (V37.9.59)")
+done
+
 # Adapter 日志特殊扫描（FALLBACK ALSO FAILED = 双路径全挂）
 ADAPTER_LOG="$HOME/adapter.log"
 if [ -f "$ADAPTER_LOG" ]; then
@@ -472,6 +563,9 @@ STALE_LOCK_DIRS=(
     "/tmp/ai_leaders_x.lockdir|AI领袖X"
     "/tmp/finance_news.lockdir|财经新闻"
     "/tmp/ontology_sources.lockdir|本体论信息源"
+    # V37.9.59: 加 kb_dream lockdir (kb_dream 是唯一其他用 lockdir 的 KB job, dev grep 确认)
+    "/tmp/kb_dream.lockdir|Agent Dream"
+    "/tmp/chaspark.lockdir|Chaspark学术"
 )
 
 STALE_CLEANED=0
@@ -516,6 +610,33 @@ if [ -f "$CANARY_FILE" ]; then
     fi
 else
     ALERTS+=("⚠️ Cron 心跳文件不存在（cron_canary.sh 未配置？）")
+fi
+
+# 5c. V37.9.59 watchdog 自监控 — 检查上次自己的 canary 时间戳
+# 元监控盲区: V37.9.58-hotfix3 加 canary 但只是文件写入, 没有"watchdog 自身死亡"
+# 检测路径. V37.9.59 加自检: 上次 watchdog canary 是否在合理周期内 (cron 每 4h 触发,
+# 阈值 12h = 3 周期 slack). 若 watchdog 因新 silent bug 死亡, 自监控立即告警.
+# 注意: 这是 chicken-and-egg, 若 watchdog 自身彻底死亡此检查也不会跑.
+# 真正的元监控应该是 cron_canary.sh / kb_status_refresh.sh 等外部 cron 检查
+# watchdog_canary.json mtime, 但避免引入新依赖, V37.9.59 先做 watchdog 内部自检.
+WATCHDOG_CANARY="$HOME/watchdog_canary.json"
+if [ -f "$WATCHDOG_CANARY" ]; then
+    WD_CANARY_MTIME=$(stat -f %m "$WATCHDOG_CANARY" 2>/dev/null || echo "0")
+    WD_CANARY_AGE=$(( NOW_EPOCH - WD_CANARY_MTIME ))
+    # 阈值: 12h (watchdog cron 每 4h 触发, 允许 2 次 miss 后告警)
+    if [ "$WD_CANARY_AGE" -gt 43200 ]; then
+        WD_CANARY_HOURS=$(( WD_CANARY_AGE / 3600 ))
+        # 注意: 上次 watchdog 跑后, 这次本身就在更新 canary, 所以正常情况下 age 应该
+        # 远小于 4h (距上次 cron). 若 > 12h 说明上次或多次 cron 触发 watchdog 但
+        # silent abort 没写 canary, 是 V37.9.58-hotfix4 set -E + caller || ALERT 后
+        # 仍有未捕获的 silent failure 路径. MR-19 第二次演出.
+        ALERTS+=("🚨 watchdog 自身: canary ${WD_CANARY_HOURS}h 未更新 (阈值 12h, 上次 cron 后未写 canary, 疑似 V37.9.58-hotfix4 之后仍有 silent abort 路径). MR-19 第二次演出, V37.9.59+ 治本候选")
+    else
+        STATS_PASS=$((STATS_PASS + 1))
+    fi
+else
+    # canary 不存在: 可能 V37.9.58-hotfix3/4 还没部署, 或 watchdog 从未正常完成过
+    ALERTS+=("⚠️ watchdog 自身: canary 文件不存在 (~/watchdog_canary.json), V37.9.58-hotfix3 元监控未就位或 watchdog 从未正常完成")
 fi
 
 # 5b. Crontab 条目数检查（V30 事故防护：crontab 被意外清空）

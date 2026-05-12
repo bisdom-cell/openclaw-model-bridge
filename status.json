@@ -1,6 +1,6 @@
 {
-  "updated": "2026-05-12 09:13:42",
-  "updated_by": "security_score",
+  "updated": "2026-05-12 09:54:40",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-05-12",
+      "what": "V37.9.59 watchdog 监控覆盖率扩展 47%→74%+ — 用户 5/12 17:30 询问 watchdog 是否监控所有任务驱动. JOBS 数组 +4 jobs (kb_deep_dive/kb_dream/chaspark/governance_audit, 都有 last_run.json 写入). 新加 LOG_FRESHNESS_JOBS 数组 +11 jobs (auto_deploy/wa_keepalive/cron_canary/kb_embed/kb_trend/kb_status_refresh/mm_index/daily_ops_report/openclaw_backup/preference_learner/health_check, 用 log mtime 替代 last_run — 粗粒度但比完全不监控好). check_log_freshness() 函数实现核心逻辑: stat -f %m + tier 分级 + ALERTS 追加. STALE_LOCK_DIRS 补 kb_dream + chaspark (18→20). Watchdog 自监控 — V37.9.58-hotfix3 元监控盲区上游: 检查 ~/watchdog_canary.json mtime > 12h 触发 [SYSTEM_ALERT] watchdog 自身 canary X 小时未更新, MR-19 第二次演出可追溯. 22 单测 test_watchdog_coverage.py 6 类 (JOBS expansion / LOG_FRESHNESS / self-monitor / STALE_LOCK / 覆盖率 ≥25 / source-level marker). 反向验证: V37.9.58-hotfix3 sabotage 测试改 replace 所有出现 (V37.9.59 加重复字面量后单点 replace 失效). 累计 81 suites / 2757 tests (+22) / 0 fail / governance v3.38 不变 (V37.9.60+ 立 INV-WATCHDOG-COVERAGE-001 PoC 阶段) / 安全 95/100 / VERSION 0.37.9.58→0.37.9.59. 元价值: V37.9.58 五件套主要修 watchdog 自身 silent abort, V37.9.59 治理 watchdog 监控盲区. V37.9.58 + V37.9.59 共同闭环今日用户两个深问 (为什么不告警 + 是否监控所有任务). 下次 V37.9.60+ 候选: (a) 监控覆盖率达 100% (剩 4 个: openclaw_official/discussions 已 disable / hn_watcher 已含 / 等) (b) 立 INV-WATCHDOG-COVERAGE-001 + MR-21 candidate monitor-coverage-must-track-registry (一周观察后) (c) 元监控 cron_canary 外部检测 watchdog_canary.json 真正 chicken-and-egg 防御.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-05-12",
       "what": "V37.9.58-hotfix3 治本 watchdog silent abort 7 天血案 — MR-19 立案 + INV-WATCHDOG-SELF-001 framework 级监控自观察. 用户深问为什么静默失败不提前告警驱动. 真因: watchdog 5/5 16:30 起因 macOS bsd awk towc multibyte conversion failure + set -eo pipefail + 无 ERR trap = 静默 abort 7 天累积告警未推送 (hf/s2/rss/gh lockdir 残留 + MOVESPEED 24h 21 次 rsync 失败 + SLO p95 54s + KB 摘要 29h 未更新全部 silent). V37.9.58-hotfix3 治本三层: (A) awk LC_ALL=C + 容错防 set -e abort (B) ERR trap _watchdog_fatal_handler 主动推 [SYSTEM_ALERT] 到 Discord (三层 FAIL-OPEN: notify/openclaw/local) (C) EXIT trap canary heartbeat 写 ~/watchdog_canary.json + ALERTS=0 时推 alive 元监控. STALE_LOCK_DIRS 补 5 jobs (rss_blogs/github_trending/ai_leaders_x/finance_news/ontology_sources). MR-19 立案 monitor-must-self-alarm-on-silent-abort (3 契约: awk_safe + err_trap_handler + canary_writer). INV-WATCHDOG-SELF-001 (12 checks, declaration + runtime). test_watchdog_self_monitoring.py 29 单测 7 类 + 反向验证 sabotage 守卫真有效 (移除 LC_ALL=C / trap ERR / canary 立即 fail 还原全过). audit_metadata 3.37→3.38 + total_invariants 73→74 + total_checks 570→582 + meta_rules 18→19. 累计 80 suites / 2733 tests / 0 fail / 安全 95/100 / VERSION 0.37.9.58 不变. 今日 V37.9.58 四件套闭环: 主 (machine_sync 真激活) + hotfix (业务层 silent) + hotfix2 (治理层 silent) + hotfix3 (监控层 silent, 最深层 元监控). V3 路标 pip install ontology-engine 核心交付之一. 把 watchdog 自身死亡 7 天无人发现 从靠运维记忆升级为机器化主动告警 + canary 双层防御.",
       "by": "claude_code"
     },
@@ -201,11 +206,6 @@
     {
       "date": "2026-05-10",
       "what": "V37.9.49 — Stage 4a cascade: #1 + #3 接入 kb_dream/evening 推送链. 用户 V37.9.48 收工后选 Stage 4 cascade 路径. MR-10 三问严格执行不一次性大爆炸 → 拆 4a/4b/4c. scope V37.9.49 = Sub-Stage 4a only: kb_dream.sh Phase 1.5 集成 cross_source_signal_aggregator (#1) + kb_trend_acceleration (#3) → REDUCE_DATA 注入 Opportunity Radar #1/#3 双段; kb_evening_collect.py 加 collect_trend_signals_for_evening helper + build_evening_prompt(trend_signals=...) 参数. 不做 (4b/4c): 11 脚本批量 6 字段 / Top 5 推送段 / LLM-driven topic summary. FAIL-OPEN 全链路: scorer 不存在/调用失败/JSON 解析失败 → 信号设空不阻塞 Reduce. 9 新单测 2 类. 69 suites / 2381 tests (+9) / 0 fail / VERSION 0.37.9.48→0.37.9.49.",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-05-10",
-      "what": "V37.9.50 — Sub-Stage 4b 1 脚本 PoC: semantic_scholar 5→6 字段 + rule_check (V37.9.45 hf_papers 横向迁移). V37.9.49 Sub-Stage 4a 完成后用户选 4b 续推进, 7 脚本一次性 batch ≈ 3500+ 行 / 5-10h 超出剩余 session 时间, 用户 push back 选 1-2 脚本 PoC 验证. scope: 选 semantic_scholar (论文类与 hf_papers 结构最近 + daily 08:00 HKT cron 用户立即感知). prompt 加 🎚️ 项目对齐度 + 5 档评分指南 + 反幻觉守卫. parse_5field_output → parse_6field_output (含 🎚 fallback 兼容 variation selector). emit lazy import project_alignment_scorer + per-paper rule_check + ⚠️ marker + 高对齐统计 (⭐≥4 N/M 篇). 21 新单测 3 类 + V37.9.39 老 test 套 alternation 兼容. ALIGNED_SCRIPTS V37.9.39→V37.9.50. INV-LLMCRON-AUDIT-001 V37.9.39 守卫升级为 V37.9.50 字面量. 70 suites / 2402 tests (+21) / 0 fail / governance 555 checks 不变 / 71 inv / 16 MR / 安全 95/100 / VERSION 0.37.9.49→0.37.9.50.",
       "by": "claude_code"
     }
   ],
@@ -352,10 +352,10 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 2735,
-    "last_regression": "2026-05-12 09:13 pass",
+    "test_count": 2757,
+    "last_regression": "2026-05-12 09:53 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-05-12 09:13",
+    "security_score_time": "2026-05-12 09:53",
     "test_suites": 81,
     "governance_invariants": "64/64",
     "governance_checks": "350/350",
