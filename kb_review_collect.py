@@ -30,6 +30,10 @@ import urllib.request
 from collections import Counter
 from datetime import datetime, timedelta
 
+# V37.9.57: 公共反幻觉守卫模板 (MR-8 single-source-of-truth)
+# LEVEL_3_STRICT 适用于本模块 LLM prompt (跨域回顾性 / per-paper alignment etc.)
+from hallucination_guards import get_guard
+
 
 # ══════════════════════════════════════════════════════════════════════
 # 1. Registry 加载 — 单一真理源
@@ -346,7 +350,7 @@ def build_prompt(notes_text, sources_text, days, index_total, note_count, themes
 ═══ 统计信息 ═══
 知识库总条目: {index_total} 条
 本期笔记: {note_count} 篇
-活跃标签: {themes}"""
+活跃标签: {themes}{get_guard("LEVEL_3_STRICT")}"""
 
 
 # V37.8.10: max bytes to attach upstream body to reason (WhatsApp alert budget)

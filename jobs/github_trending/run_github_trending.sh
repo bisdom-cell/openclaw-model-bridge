@@ -23,6 +23,22 @@ export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
 #   - 三档 status: ok / partial_degraded / llm_failed (全失败 → exit 1 fail-fast)
 set -eo pipefail
 
+# V37.9.57: 公共反幻觉守卫 LEVEL_4_PROJECT_AWARE (MR-8 single-source-of-truth)
+# 8 ALIGNED jobs 的 per-paper LLM prompt 已有 inline 反幻觉守卫, V37.9.57 追加
+# LEVEL_4 含 V37.9.56-hotfix3 具体血案字眼 (禁"OpenClaw 社区发布"/"v26"/"[openclaw]")
+# 防 alignment 评分输出"一句话原因"段编造项目动态. FAIL-OPEN: 模块缺失 → 空字符串
+HG_LEVEL_4_TEXT=$(python3 -c "
+import sys, os
+sys.path.insert(0, os.path.expanduser('~'))
+sys.path.insert(0, '$(cd "$(dirname "$0")" && pwd)')
+try:
+    import hallucination_guards as hg
+    print(hg.get_guard('LEVEL_4_PROJECT_AWARE'))
+except Exception:
+    print('')
+" 2>/dev/null)
+export HG_LEVEL_4_TEXT
+
 # 防重叠执行
 LOCK="/tmp/github_trending.lockdir"
 mkdir "$LOCK" 2>/dev/null || { echo "[gh_trending] Already running, skip"; exit 0; }
@@ -130,6 +146,7 @@ touch "$SEEN_FILE"
 NEW_IDS_FILE="$CACHE/new_ids.txt"
 
 if ! $PYTHON3 - "$FEED_FILE" "$MAX_REPOS" "$SEEN_FILE" "$NEW_IDS_FILE" << 'PYEOF' > "$REPOS_FILE"
+import os  # V37.9.57: read HG_LEVEL_4_TEXT env var
 import sys, json
 
 feed_file = sys.argv[1]
@@ -382,6 +399,8 @@ if topics:
     prompt += f"标签: {', '.join(topics[:5])}\n"
 if description:
     prompt += f"项目描述:\n{description}\n"
+# V37.9.57: append LEVEL_4 反幻觉守卫 (MR-8 single-source-of-truth via env var)
+prompt += os.environ.get('HG_LEVEL_4_TEXT', '')
 print(prompt)
 PYEOF
 

@@ -37,6 +37,11 @@ from datetime import datetime
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import kb_review_collect as rc
 
+# V37.9.57: 公共反幻觉守卫模板 (MR-8 single-source-of-truth, 替代 V37.9.56-hotfix3 inline)
+# kb_evening 需要 LEVEL_5_RADAR_AWARE: 含 V37.9.56-hotfix3 OpenClaw 项目动态编造禁令
+# + Opportunity Radar 三件套信号源契约 (Top 5/cross_source/trend 跨多天非今日事件)
+from hallucination_guards import get_guard
+
 
 # ══════════════════════════════════════════════════════════════════════
 # 0. Today-scoped helpers — V37.7 label semantics fix
@@ -227,11 +232,7 @@ def build_evening_prompt(
 - 每条要闻必须能在下方原文中找到对应段落，标注来源标签
 - 严禁虚构任何发布公告、开源事件、产品发布、人物言论
 - 如果某个领域今天无数据，直接跳过，不要编造
-- **V37.9.56-hotfix3 反幻觉字面禁令** (2026-05-12 evening 编造 "OpenClaw 社区发布 v26" 血案规则):
-  · 禁字面: "OpenClaw 社区发布"、"OpenClaw v26"、"v26/v27/v37 版本更新"、"项目里程碑"、"开源 X 上线"
-  · 禁来源标签: [openclaw] / [OpenClaw] / [社区] — 除非 sources_used 中**真实存在**对应字面量
-  · "近期高对齐参考阅读 Top 5" 段是**外部** paper/repo/blog 跨多天累积，**不是**本项目动态来源
-  · 严禁"基于 Top 5 推断本项目状态" / "基于 paper 推断 OpenClaw 版本"等链式推论
+{get_guard("LEVEL_5_RADAR_AWARE")}
 
 ═══ 今日笔记 ═══
 {notes_text or '（今日无新增笔记）'}

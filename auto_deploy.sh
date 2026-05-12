@@ -135,6 +135,7 @@ fi
 declare -a FILE_MAP=(
     # 核心服务（Proxy + Adapter）
     "proxy_filters.py|$HOME/proxy_filters.py"
+    "hallucination_guards.py|$HOME/hallucination_guards.py"  # V37.9.57 — 公共反幻觉守卫 5 档模板 (MR-8 single-source-of-truth, 9 task 共用)
     "tool_proxy.py|$HOME/tool_proxy.py"
     "adapter.py|$HOME/adapter.py"
     "providers.py|$HOME/providers.py"

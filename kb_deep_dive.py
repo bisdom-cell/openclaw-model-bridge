@@ -39,6 +39,10 @@ from datetime import datetime, timedelta
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import kb_review_collect as rc
 
+# V37.9.57: 公共反幻觉守卫模板 (MR-8 single-source-of-truth)
+# LEVEL_3_STRICT 适用于本模块 LLM prompt (跨域回顾性 / per-paper alignment etc.)
+from hallucination_guards import get_guard
+
 
 # ══════════════════════════════════════════════════════════════════════
 # 1. 源分层（决定抓取策略）
@@ -504,7 +508,7 @@ def build_full_text_prompt(entry, full_text):
 星级: {"⭐" * entry["stars"]} ({entry["stars"]}/5)
 
 ═══ 原文（完整） ═══
-{full_text}"""
+{full_text}{get_guard("LEVEL_3_STRICT")}"""
 
 
 def build_abstract_only_prompt(entry, abstract):
@@ -537,7 +541,7 @@ def build_abstract_only_prompt(entry, abstract):
 星级: {"⭐" * entry["stars"]} ({entry["stars"]}/5)
 
 ═══ 摘要 ═══
-{abstract or "(摘要为空)"}"""
+{abstract or "(摘要为空)"}{get_guard("LEVEL_3_STRICT")}"""
 
 
 def build_prompt_for_entry(entry, mode, text):

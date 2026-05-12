@@ -306,19 +306,28 @@ class TestV9_56Hotfix3AntiHallucinationGuards(unittest.TestCase):
     """
 
     def test_anti_hallucination_block_in_template(self):
-        """V37.9.56-hotfix3 反幻觉禁令必须始终在 prompt 模板中, 不依赖 Top 5 注入."""
+        """V37.9.56-hotfix3 反幻觉禁令必须始终在 prompt 模板中, 不依赖 Top 5 注入.
+
+        V37.9.57 升级: 字面禁令已迁移到 hallucination_guards.LEVEL_5_RADAR_AWARE
+        通用模板. 测试接受迁移后的等价字面 (V37.9.56-hotfix3 marker + 5 个具体
+        血案字眼 + Top 5 语义定位仍显式出现).
+        """
         # 即使无 top_alignment_picks 参数, 禁令也应在 prompt 模板里
         prompt = ev.build_evening_prompt("n", "s", 1, 100, 50, 5, "AI")
-        self.assertIn("V37.9.56-hotfix3 反幻觉字面禁令", prompt,
-            "V37.9.56-hotfix3 禁令段必须在所有 evening prompt 中")
+        self.assertIn("V37.9.56-hotfix3", prompt,
+            "V37.9.56-hotfix3 marker (lineage 可追) 必须在所有 evening prompt 中")
         self.assertIn("OpenClaw 社区发布", prompt,
             "禁字面 'OpenClaw 社区发布' 必须显式列出")
         self.assertIn("OpenClaw v26", prompt,
             "禁字面 'OpenClaw v26' 必须显式列出 (血案精确场景)")
         self.assertIn("[openclaw]", prompt,
             "禁来源标签 '[openclaw]' 必须显式列出")
-        self.assertIn("外部** paper/repo/blog 跨多天累积", prompt,
-            "Top 5 语义定位 (外部累积非项目动态) 必须显式")
+        # V37.9.57: Top 5 语义定位字面迁移到 LEVEL_5 Radar context, 改用通用断言
+        # "外部数据" 字眼 + Opportunity Radar 显式出现 (跨多天累积 / 非今日事件)
+        self.assertIn("外部数据", prompt,
+            "V37.9.57 LEVEL_5: Top 5/Radar 信号必须标 '外部数据' (非项目动态)")
+        self.assertIn("Opportunity Radar", prompt,
+            "V37.9.57 LEVEL_5: Radar 三件套显式出现")
 
     def test_alignment_block_uses_soft_injection_not_hard_quote_instruction(self):
         """V37.9.56-hotfix3 软化注入: alignment_block 不应再含'优先引用'硬指令."""
@@ -360,12 +369,19 @@ class TestV9_56Hotfix3AntiHallucinationGuards(unittest.TestCase):
                 f"禁字面 '{blocked_phrase}' 必须显式列在禁令清单中")
 
     def test_chain_inference_banned(self):
-        """V37.9.56-hotfix3 链式推论禁令: 不允许 Top 5 → 项目动态 推断."""
+        """V37.9.56-hotfix3 链式推论禁令: 不允许 Top 5 → 项目动态 推断.
+
+        V37.9.57 升级: 链式推论禁令字面已迁移到 LEVEL_5 通用模板, 测试接受
+        迁移后等价 wording — 'X 段提到 Y → 推论 Z' 通用模式 + 'paper 提到
+        OpenClaw → 本项目必有相关动态' 具体血案场景禁令.
+        """
         prompt = ev.build_evening_prompt("n", "s", 1, 100, 50, 5, "AI")
-        self.assertIn("基于 Top 5 推断本项目状态", prompt,
-            "链式推论禁令必须显式")
-        self.assertIn("基于 paper 推断 OpenClaw 版本", prompt,
-            "paper → 项目版本链式推论必须显式禁止")
+        # V37.9.57 LEVEL_3 通用反链式推论
+        self.assertIn("反链式推论", prompt,
+            "反链式推论禁令必须显式 (V37.9.57 LEVEL_3+)")
+        # V37.9.57 LEVEL_5 具体血案场景禁令: paper → 项目动态
+        self.assertIn("高对齐 paper 提到 OpenClaw", prompt,
+            "paper → 本项目动态 链式推论必须显式禁止 (V37.9.57 LEVEL_5)")
 
     def test_v9_56_hotfix3_marker_in_source(self):
         """V37.9.56-hotfix3 marker 必须在源码 (锁定来源 + 防漂移)."""

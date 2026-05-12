@@ -8,6 +8,22 @@ export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
 # 支持多个 RSS 源，按需扩展
 set -eo pipefail
 
+# V37.9.57: 公共反幻觉守卫 LEVEL_4_PROJECT_AWARE (MR-8 single-source-of-truth)
+# 8 ALIGNED jobs 的 per-paper LLM prompt 已有 inline 反幻觉守卫, V37.9.57 追加
+# LEVEL_4 含 V37.9.56-hotfix3 具体血案字眼 (禁"OpenClaw 社区发布"/"v26"/"[openclaw]")
+# 防 alignment 评分输出"一句话原因"段编造项目动态. FAIL-OPEN: 模块缺失 → 空字符串
+HG_LEVEL_4_TEXT=$(python3 -c "
+import sys, os
+sys.path.insert(0, os.path.expanduser('~'))
+sys.path.insert(0, '$(cd "$(dirname "$0")" && pwd)')
+try:
+    import hallucination_guards as hg
+    print(hg.get_guard('LEVEL_4_PROJECT_AWARE'))
+except Exception:
+    print('')
+" 2>/dev/null)
+export HG_LEVEL_4_TEXT
+
 # 防重叠执行
 LOCK="/tmp/rss_blogs.lockdir"
 mkdir "$LOCK" 2>/dev/null || { echo "[rss] Already running, skip"; exit 0; }
@@ -362,6 +378,8 @@ OpenClaw 项目方向 (参考评分):
 prompt += f"博文标题: {title}\n"
 if desc:
     prompt += f"原文摘要:\n{desc}\n"
+# V37.9.57: append LEVEL_4 反幻觉守卫 (MR-8 single-source-of-truth via env var)
+prompt += os.environ.get('HG_LEVEL_4_TEXT', '')
 print(prompt)
 PYEOF
 
