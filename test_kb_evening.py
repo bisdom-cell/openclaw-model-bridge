@@ -197,6 +197,61 @@ class TestBuildEveningPrompt(unittest.TestCase):
 
 
 # ══════════════════════════════════════════════════════════════════════
+# 3.5 V37.9.56 Sub-Stage 4c — top_alignment_picks 注入契约
+# ══════════════════════════════════════════════════════════════════════
+class TestEveningTopAlignmentInjection(unittest.TestCase):
+    """V37.9.56: top_alignment_picks 参数可选注入 + 向后兼容."""
+
+    def test_backward_compat_no_alignment_block(self):
+        """无 top_alignment_picks 参数 → prompt 不含 V37.9.56 marker."""
+        prompt = ev.build_evening_prompt("n", "s", 1, 100, 50, 5, "AI")
+        self.assertNotIn("V37.9.56", prompt)
+        self.assertNotIn("今日高对齐 Top 5", prompt)
+
+    def test_alignment_block_injected_when_provided(self):
+        """提供 top_alignment_picks 字符串 → prompt 含 V37.9.56 段."""
+        picks = "- ⭐⭐⭐⭐⭐ [HF精选] Test Paper / agent runtime"
+        prompt = ev.build_evening_prompt(
+            "n", "s", 1, 100, 50, 5, "AI", top_alignment_picks=picks
+        )
+        self.assertIn("V37.9.56 #2", prompt)
+        self.assertIn("今日高对齐 Top 5", prompt)
+        self.assertIn("Test Paper", prompt)
+
+    def test_empty_alignment_does_not_inject_block(self):
+        """top_alignment_picks=空字符串 / None → 不注入."""
+        for empty in (None, "", " "):
+            prompt = ev.build_evening_prompt(
+                "n", "s", 1, 100, 50, 5, "AI", top_alignment_picks=empty
+            )
+            # 空字符串 / None / 空白都不应触发 alignment_block 注入
+            if empty and empty.strip():
+                continue
+            self.assertNotIn("V37.9.56 #2", prompt,
+                             f"empty value {empty!r} should not inject block")
+
+    def test_alignment_and_trend_signals_coexist(self):
+        """V37.9.56 + V37.9.49: 两个 Opportunity Radar 段同时注入不冲突."""
+        prompt = ev.build_evening_prompt(
+            "n", "s", 1, 100, 50, 5, "AI",
+            trend_signals="加速主题: agent_runtime 2.5x",
+            top_alignment_picks="- ⭐⭐⭐⭐⭐ [HF精选] X",
+        )
+        self.assertIn("V37.9.48", prompt)  # trend block
+        self.assertIn("V37.9.56", prompt)  # alignment block
+        self.assertIn("本周趋势加速度", prompt)
+        self.assertIn("今日高对齐 Top 5", prompt)
+
+    def test_collect_top_alignment_picks_for_evening_no_picker(self):
+        """V37.9.56: top_alignment_picker 缺失 → 返回空字符串 (FAIL-OPEN)."""
+        # 真实环境下 picker 已部署, 这里直接调验证返回类型
+        result = ev.collect_top_alignment_picks_for_evening()
+        self.assertIsInstance(result, str)
+        # Dev 环境无 cache 文件 → 空字符串
+        # (Mac Mini 部署后有 cache, 返回有内容)
+
+
+# ══════════════════════════════════════════════════════════════════════
 # 4. Evening markdown 输出格式
 # ══════════════════════════════════════════════════════════════════════
 class TestBuildEveningMarkdown(unittest.TestCase):

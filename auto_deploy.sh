@@ -227,6 +227,8 @@ declare -a FILE_MAP=(
     "project_alignment_scorer.py|$HOME/project_alignment_scorer.py"
     # V37.9.48 Opportunity Radar Stage 3 (weekly trend acceleration 5-archetype classifier)
     "kb_trend_acceleration.py|$HOME/kb_trend_acceleration.py"
+    # V37.9.56 Sub-Stage 4c Top 5 高对齐推送 picker (Opportunity Radar #2 兑现)
+    "top_alignment_picker.py|$HOME/top_alignment_picker.py"
 
     # KB 趋势报告 + 状态共享 + 安全
     "kb_trend.py|$HOME/kb_trend.py"

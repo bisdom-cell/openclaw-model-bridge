@@ -127,9 +127,44 @@ def collect_trend_signals_for_evening(radar_dir=None, max_strong=3, max_decel=2)
     return "\n\n".join(parts)
 
 
+def collect_top_alignment_picks_for_evening(repo_root=None, min_stars=4, top_n=5):
+    """V37.9.56 Sub-Stage 4c: 读今日 8 ALIGNED source 高对齐 Top N → 推送段.
+
+    Args:
+        repo_root: 仓库根目录 (None → 取本脚本所在目录, Mac Mini 是 $HOME)
+        min_stars: 入选最低 ⭐ 数阈值 (默认 4, 与 top_alignment_picker 同款)
+        top_n: 取 Top N (默认 5)
+
+    Returns:
+        str: 格式化好的 alignment section (空字符串如无 picks / 模块缺失)
+
+    FAIL-OPEN: top_alignment_picker 缺失 / 无 picks / 异常 → 返回空字符串
+                不阻塞 evening 主流程.
+    """
+    try:
+        import top_alignment_picker as _tap
+    except Exception:
+        return ""
+
+    try:
+        result = _tap.pick_top_aligned(
+            repo_root=repo_root, min_stars=min_stars, top_n=top_n,
+        )
+    except Exception:
+        return ""
+
+    if not isinstance(result, dict) or result.get("status") != "ok":
+        return ""
+
+    block = result.get("block", "")
+    if not block:
+        return ""
+    return block
+
+
 def build_evening_prompt(
     notes_text, sources_text, days, index_total, note_count,
-    today_note_count, themes, trend_signals=None,
+    today_note_count, themes, trend_signals=None, top_alignment_picks=None,
 ):
     """构造晚间整理 prompt。
 
@@ -146,6 +181,12 @@ def build_evening_prompt(
     "本周加速主题/减速主题"上下文 (来自 kb_trend_acceleration.py 输出),
     辅助 LLM 在"明日关注"段给出更有信息密度的趋势判断. None / 空字符串
     → 不影响 prompt 行为 (向后兼容).
+
+    V37.9.56 Sub-Stage 4c (Opportunity Radar #2): top_alignment_picks 可选参数
+    注入"今日高对齐 Top 5"上下文 (来自 top_alignment_picker.py 输出, ⭐≥4 过滤
+    后排序的 paper/repo/blog/tweet markdown 段). 辅助 LLM 在"今日要闻"段优先
+    引用真正与项目方向直接相关的内容, 减少信息洪流稀释. None / 空字符串
+    → 不影响 prompt 行为 (向后兼容).
     """
     trend_block = ""
     if trend_signals:
@@ -154,6 +195,17 @@ def build_evening_prompt(
             + str(trend_signals)
             + "\n\n注意: 上述加速主题用于辅助'明日关注'段判断方向, "
             + "不能直接当今日要闻输出 (必须与今日笔记/来源中具体内容关联才可提及)"
+        )
+
+    alignment_block = ""
+    # V37.9.56: strip() 守卫防止 whitespace-only 字符串 (如 picker 输出末尾换行)
+    # 触发误注入空 block, 让 prompt 出现空"今日高对齐"段.
+    if top_alignment_picks and str(top_alignment_picks).strip():
+        alignment_block = (
+            "\n\n═══ 今日高对齐 Top 5 (V37.9.56 #2, ⭐≥4 项目对齐度) ═══\n"
+            + str(top_alignment_picks).strip()
+            + "\n\n注意: 上述 Top 5 是今日所有 source 中与项目方向最相关的内容, "
+            + "在'今日要闻'段优先引用 (但仍需在下方笔记/来源中找到具体内容支持才能展开)"
         )
 
     return f"""你是一位知识管理助手，请基于用户知识库中今天（最近 {days} 天）新增的内容，
@@ -180,7 +232,7 @@ def build_evening_prompt(
 知识库总条目: {index_total} 条
 笔记总数: {note_count} 篇
 今日新增: {today_note_count} 篇
-活跃标签: {themes}{trend_block}"""
+活跃标签: {themes}{alignment_block}{trend_block}"""
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -301,9 +353,12 @@ def run(kb_dir, days, registry_path, today=None, llm_caller=None):
     prompt_sources = sources_info["text"][:PROMPT_TRUNCATE_SOURCES]
     # V37.9.49 Sub-Stage 4a: Opportunity Radar #3 trend acceleration injection
     trend_signals = collect_trend_signals_for_evening()
+    # V37.9.56 Sub-Stage 4c: Opportunity Radar #2 high-alignment Top 5 injection
+    top_alignment_picks = collect_top_alignment_picks_for_evening()
     prompt = build_evening_prompt(
         prompt_notes, prompt_sources, days, index_total, note_count,
         today_note_count, themes, trend_signals=trend_signals,
+        top_alignment_picks=top_alignment_picks,
     )
 
     # Call LLM — 复用 rc.call_llm（同一个 proxy URL/timeout/min-length 契约）

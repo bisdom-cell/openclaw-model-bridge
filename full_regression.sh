@@ -66,6 +66,7 @@ run_suite "kb_deep_dive (V37.9.16 picker+fetcher+prompt+shell guards)" "python3 
 run_suite "cross_source_signal_aggregator (V37.9.46 Opportunity Radar Stage 1 PoC)" "python3 test_cross_source_signal_aggregator.py"
 run_suite "project_alignment_scorer (V37.9.47 Opportunity Radar Stage 2 rule_check)" "python3 test_project_alignment_scorer.py"
 run_suite "kb_trend_acceleration (V37.9.48 Opportunity Radar Stage 3 5-archetype trend)" "python3 test_kb_trend_acceleration.py"
+run_suite "top_alignment_picker (V37.9.56 Sub-Stage 4c Opportunity Radar #2 Top 5 高对齐 picker)" "python3 test_top_alignment_picker.py"
 run_suite "v37_9_49_radar_integration (V37.9.49 Sub-Stage 4a #1+#3 kb_dream/evening 集成)" "python3 test_v37_9_49_radar_integration.py"
 run_suite "v37_9_50_semantic_scholar (V37.9.50 Sub-Stage 4b 1 脚本 PoC 6字段 + rule_check)" "python3 test_v37_9_50_semantic_scholar.py"
 run_suite "v37_9_51_sub_stage_4b_batch (V37.9.51 Sub-Stage 4b 6 脚本批量 6字段+rule_check 机械迁移)" "python3 test_v37_9_51_sub_stage_4b_batch.py"

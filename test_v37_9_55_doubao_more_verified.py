@@ -187,9 +187,14 @@ class TestPluginSourceV9_55(unittest.TestCase):
 
 
 class TestV37955VersionMarker(unittest.TestCase):
-    def test_version_file_is_v37_9_55(self):
+    def test_version_file_is_v37_9_55_or_later(self):
+        """V37.9.56 cascading lock relax: 接受 0.37.9.55 / 0.37.9.56 / 后续版本号."""
         with open(os.path.join(REPO_ROOT, "VERSION"), encoding="utf-8") as f:
-            self.assertEqual(f.read().strip(), "0.37.9.55")
+            ver = f.read().strip()
+        # 拆分版本号比较, 接受 V37.9.55+
+        parts = [int(x) for x in ver.split(".")]
+        self.assertGreaterEqual(parts, [0, 37, 9, 55],
+            f"VERSION 必须 ≥ 0.37.9.55 (当前 {ver})")
 
 
 if __name__ == "__main__":

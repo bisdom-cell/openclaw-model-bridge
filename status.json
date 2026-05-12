@@ -1,5 +1,5 @@
 {
-  "updated": "2026-05-11 11:36:26",
+  "updated": "2026-05-12 00:42:10",
   "updated_by": "full_regression",
   "priorities": [
     {
@@ -105,6 +105,12 @@
   ],
   "recent_changes": [
     {
+      "date": "2026-05-12",
+      "version": "V37.9.56",
+      "what": "Sub-Stage 4c Top 5 高对齐推送 picker 完整兑现 — Opportunity Radar #2 三件套全量集成. 新文件 top_alignment_picker.py (~340 行纯 Python, 8 ALIGNED source 聚合 + 3 档排序 + FAIL-OPEN + log MR-11 stderr + lazy import project_alignment_scorer fallback 到 inline regex) + kb_dream.sh Phase 1.5 集成 #2 段 + kb_evening_collect.py build_evening_prompt 新增 top_alignment_picks 可选参数 + 60 新单测 (55 picker 含反向验证三层守卫 + 5 evening integration 守卫). auto_deploy FILE_MAP + full_regression 接入. PoC 阶段不立 INV (V37.9.46/47/48/49 同款 pattern, INV-RADAR-001 留 Stage 6). 累计 75→76 suites / 2530→2590 tests / 0 fail / governance v3.35 不变 / VERSION 0.37.9.55→0.37.9.56 / 安全 95/100. Mac Mini 部署后下次 22:00 evening / 03:00 kb_dream cron 自动用 #1+#2+#3 完整三件套. 数据复利路线从信息洪流升级为高价值早期信号 Top 5 前置 listing.",
+      "by": "claude_code"
+    },
+    {
       "date": "2026-05-11",
       "what": "V37.9.52 — Doubao Seed 2.0 Pro 接入第 8 个 provider (主力级 LLM, 与 Qwen3 同级). 新文件 providers.d/doubao_provider.py (Python plugin, ARK_API_KEY + ARK_ENDPOINT_ID env, fallback 公开 model 标识符 doubao-seed-2-0-pro). 选 OpenAI Chat Completions 兼容路径 (零 adapter.py 改动), Mac Mini 实测后 V37.9.53+ 若失败则进 Responses API translator. **V37 Provider Plugin Interface 首个真实插件触发 module 重入 bug** — python3 providers.py 直接执行时 plugin 内 from providers import 触发二次加载产生两份 BaseProvider 类 → issubclass 失败. 最小修复: providers.py 顶部 sys.modules alias. 32 新单测 5 类 (注册/env handling/能力/fallback chain/module 重入守卫/source-level guards) + 反向验证 (sabotage alias 立即 fail / 用户专属 endpoint ID 写代码立即 fail). auto_deploy FILE_MAP 加 providers.d/doubao_provider.py (V37 deployment debt 闭环). 累计 71→72 suites / 2431→2463 tests / 0 fail / 71 inv / 552 checks / providers 总数 7→8 / VERSION 0.37.9.51→0.37.9.52 / 安全 95/100. verified_*=False 待 Mac Mini 实测 (curl /chat/completions 探测 + WhatsApp 图片 E2E) 后 V37.9.53+ flip + fallback chain 优先级提升.",
       "by": "claude_code"
@@ -197,11 +203,6 @@
     {
       "date": "2026-05-08",
       "what": "V37.9.40 — DBLP + AI Leaders X 双脚本批次 5 字段深度迁移. 镜像 V37.9.36-37/V37.9.39 完整模式: source notify.sh + send_alert + LLM 三层检测 + per-item retry 5/10/20s × 3 + 5 字段 emoji + key-based parser + LLM_DEGRADED + 多窗口切片. DBLP 适配无 abstract: prompt 加 基于标题推断 caveat + LLM_DEGRADED 用 标题+venue 元数据兜底. AI Leaders X 适配 tweet: 📌中文主题(≤15字) + 🔑核心观点 + 💡技术深度解读 + 🎯系统启示 + ⭐评级 + LLM_DEGRADED 用推文原文兜底. 17 新单测 3 类 (TestDblpV9_40Guards/TestAiLeadersV9_40Guards/TestV9_40InAuditAlignedScripts). ALIGNED_SCRIPTS 5→7. audit 12→10 findings. 用户视角原则 #13 第 11 次正向兑现 + 24h 内 V37.9.38(audit)→V37.9.39(S2)→V37.9.40(DBLP+AI Leaders X) 三阶段连环兑现 framework 驱动器价值. 60 suites / 2154→2171 tests / 0 fail / 550→551 checks / 安全 95/100 / VERSION 0.37.9.39→0.37.9.40",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-05-08",
-      "what": "V37.9.39 Mac Mini E2E 真实生产推送验证: bash ~/.openclaw/jobs/semantic_scholar/run_semantic_scholar.sh 手动触发 → 4 papers 完整 5 字段深度推送到 WhatsApp + Discord. Per-paper retry 4/4 成功 (Qwen 已恢复). 单段 6551 字 < 8000 多窗口未触发. 信息密度 vs 昨日 10x 跃迁 (每篇 ~60 字 → ~400-800 字). Paper 3 ⭐⭐⭐⭐⭐ 输出质量满分参考. 3 观察项已登记 V37.9.40+ unfinished (prompt 字面量泄漏 + 缺 💡 字段 + 作者重名), 按 MR-10 三问不今天动手等多日数据回归",
       "by": "claude_code"
     }
   ],
@@ -344,14 +345,14 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 2530,
-    "last_regression": "2026-05-11 11:36 pass",
+    "test_count": 2590,
+    "last_regression": "2026-05-12 00:42 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-05-11 11:36",
-    "test_suites": 75,
+    "security_score_time": "2026-05-12 00:42",
+    "test_suites": 76,
     "governance_invariants": "64/64",
     "governance_checks": "350/350",
-    "version": "0.37.9.55"
+    "version": "0.37.9.56"
   },
   "incidents": [
     {
@@ -415,7 +416,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "【V37.9.52 接入 Doubao Seed 2.0 Pro】用户提供 ARK_API_KEY + ARK_ENDPOINT_ID + 模型 ID doubao-seed-2-0-pro-260215, 要求接入与 Qwen3 同级别 LLM. 单 session 完成: (1) providers.d/doubao_provider.py 新 Python plugin (env var 读 endpoint ID, fallback 公开标识符, API key 严绝不入代码) (2) **V37 Provider Plugin Interface 隐藏 bug 首次暴露 + 修复**: python3 providers.py 直接执行模式 plugin 子类 issubclass 检查失败 (module 重入产生两份 BaseProvider) → providers.py 顶部 sys.modules alias (3) 32 新单测 5 类含 module 重入回归守卫 + 反向验证两层 sabotage 立即 fail (4) auto_deploy FILE_MAP 加 providers.d/doubao_provider.py 闭环 V37 deployment debt (providers.d/ 目录从未在 FILE_MAP, V37 plugin 系统从未真激活) (5) full_regression 72/0/2463 全过 (修 5 处 hardcoded provider count 7→8 + convergence mock declared 加 doubao). providers 总数 7→8. **Mac Mini 验证待办**: (a) ~/.zshrc 加 ARK_API_KEY + ARK_ENDPOINT_ID 双 env (b) git fetch + reset 同步 (c) python3 ~/providers.py --validate 应看 'OK doubao' (d) python3 ~/providers.py --fallback-chain qwen 应看 doubao + Available=yes (e) curl /chat/completions 探测端点是否真支持 OpenAI 兼容. **V37.9.53+ 路径分叉**: 端点 200 OK → flip verified_text=True + 进生产 fallback chain (与 Qwen3 同级); 端点 404/415 → Responses API translator 工作量 3-4h.",
+  "focus": "【V37.9.56 Opportunity Radar Sub-Stage 4c Top 5 高对齐推送完整兑现】新建 top_alignment_picker.py (~340 行纯 Python, 8 ALIGNED source 聚合 ⭐≥4 picks + 3 档排序 tie-break + FAIL-OPEN 契约 + 55 单测含反向验证三层守卫) + kb_dream.sh Phase 1.5+ 集成 #2 段 + kb_evening_collect.py build_evening_prompt 新增 top_alignment_picks 可选参数 + 5 测试守卫 evening 集成. Opportunity Radar 三件套 #1+#2+#3 从'独立组件 PoC' → 'V37.9.49 #1+#3 集成' → V37.9.56 #2 完整全量信号链. 累计 76 suites / 2590 tests (+60) / 0 fail / governance 72 inv 562 checks 不变 (PoC 不立 INV, INV-RADAR-001 留 Stage 6) / VERSION 0.37.9.55→0.37.9.56 / 安全 95/100. **Mac Mini 部署效果**: 22:00 kb_evening 推送'今日要闻'段之前首次出现'Top 5 高对齐'前置 listing + 03:00 kb_dream Reduce 看 #1+#2+#3 三件套全量信号融合. **下次候选**: (a) Mac Mini 跑 22:00 evening 看真实数据 (b) Sub-Stage 4b 续推 P2/P3 audit 脚本 (c) Stage 5 kb_radar.sh 06:00 综合分析 (d) 5/11 决策窗口 machine_sync 真激活 (需 Mac Mini 一周漂移数据).",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
