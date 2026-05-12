@@ -204,10 +204,18 @@ class TestEveningTopAlignmentInjection(unittest.TestCase):
     """V37.9.56: top_alignment_picks 参数可选注入 + 向后兼容."""
 
     def test_backward_compat_no_alignment_block(self):
-        """无 top_alignment_picks 参数 → prompt 不含 V37.9.56 marker."""
+        """无 top_alignment_picks 参数 → prompt 不含 alignment 段头.
+
+        V37.9.56-hotfix3: 反幻觉字面禁令现在是 prompt 模板级 (即使无 Top 5 也注入),
+        所以"V37.9.56" 字面会出现在禁令段. 但 alignment 段头 "Top 5" + V37.9.56 #2 不应注入.
+        """
         prompt = ev.build_evening_prompt("n", "s", 1, 100, 50, 5, "AI")
-        self.assertNotIn("V37.9.56", prompt)
-        self.assertNotIn("今日高对齐 Top 5", prompt)
+        self.assertNotIn("V37.9.56 #2", prompt,
+            "无 picks 时不应注入 V37.9.56 #2 alignment 段")
+        self.assertNotIn("不是今日发生的事件", prompt,
+            "无 picks 时不应注入 alignment 段语义提示")
+        self.assertNotIn("今日高对齐 Top 5", prompt,
+            "向后兼容: 旧段头也不应出现")
 
     def test_alignment_block_injected_when_provided(self):
         """提供 top_alignment_picks 字符串 → prompt 含 V37.9.56 段."""
@@ -216,11 +224,20 @@ class TestEveningTopAlignmentInjection(unittest.TestCase):
             "n", "s", 1, 100, 50, 5, "AI", top_alignment_picks=picks
         )
         self.assertIn("V37.9.56 #2", prompt)
-        self.assertIn("今日高对齐 Top 5", prompt)
+        # V37.9.56-hotfix3: 新段头 "近期高对齐参考阅读 Top 5" 替代旧 "今日高对齐 Top 5"
+        # (旧措辞让 LLM 误以为 Top 5 是"今日新闻", 触发幻觉编造 OpenClaw v26)
+        self.assertIn("近期高对齐参考阅读 Top 5", prompt)
         self.assertIn("Test Paper", prompt)
+        # V37.9.56-hotfix3 软化注入守卫: 不应再含旧"优先引用"硬指令
+        self.assertNotIn("在'今日要闻'段优先引用", prompt,
+            "V37.9.56-hotfix3: 旧'优先引用'硬指令必须移除 (它触发了 OpenClaw v26 幻觉)")
 
     def test_empty_alignment_does_not_inject_block(self):
-        """top_alignment_picks=空字符串 / None → 不注入."""
+        """top_alignment_picks=空字符串 / None / 空白 → 不注入 alignment 段.
+
+        V37.9.56-hotfix3: 反幻觉字面禁令现在是 prompt 模板级, 即使无 picks 也注入,
+        所以 V37.9.56 字面会在禁令段. 但 V37.9.56 #2 (alignment 段独有 marker) 不应出现.
+        """
         for empty in (None, "", " "):
             prompt = ev.build_evening_prompt(
                 "n", "s", 1, 100, 50, 5, "AI", top_alignment_picks=empty
@@ -228,20 +245,29 @@ class TestEveningTopAlignmentInjection(unittest.TestCase):
             # 空字符串 / None / 空白都不应触发 alignment_block 注入
             if empty and empty.strip():
                 continue
+            # V37.9.56 #2 是 alignment 段独有 marker (V37.9.56-hotfix3 后).
+            # 注意: 反幻觉禁令段引用了 "近期高对齐参考阅读 Top 5" 字面 (在引号内),
+            # 所以不能用 Top 5 字面判定 — 必须用 "V37.9.56 #2" 这个精确 alignment marker.
             self.assertNotIn("V37.9.56 #2", prompt,
-                             f"empty value {empty!r} should not inject block")
+                             f"empty value {empty!r} should not inject alignment block")
+            # 也不应有 alignment block 的具体注入语 "不是今日发生的事件" (这是 alignment 段独有)
+            self.assertNotIn("不是今日发生的事件", prompt,
+                             f"empty value {empty!r} should not inject alignment semantic block")
 
     def test_alignment_and_trend_signals_coexist(self):
-        """V37.9.56 + V37.9.49: 两个 Opportunity Radar 段同时注入不冲突."""
+        """V37.9.56 + V37.9.49: 两个 Opportunity Radar 段同时注入不冲突.
+
+        V37.9.56-hotfix3: alignment 段头从 '今日高对齐 Top 5' → '近期高对齐参考阅读 Top 5'.
+        """
         prompt = ev.build_evening_prompt(
             "n", "s", 1, 100, 50, 5, "AI",
             trend_signals="加速主题: agent_runtime 2.5x",
             top_alignment_picks="- ⭐⭐⭐⭐⭐ [HF精选] X",
         )
         self.assertIn("V37.9.48", prompt)  # trend block
-        self.assertIn("V37.9.56", prompt)  # alignment block
+        self.assertIn("V37.9.56 #2", prompt)  # alignment block (V37.9.56 也在反幻觉禁令段)
         self.assertIn("本周趋势加速度", prompt)
-        self.assertIn("今日高对齐 Top 5", prompt)
+        self.assertIn("近期高对齐参考阅读 Top 5", prompt)  # V37.9.56-hotfix3 新段头
 
     def test_collect_top_alignment_picks_for_evening_no_picker(self):
         """V37.9.56: top_alignment_picker 缺失 → 返回空字符串 (FAIL-OPEN)."""
@@ -250,6 +276,107 @@ class TestEveningTopAlignmentInjection(unittest.TestCase):
         self.assertIsInstance(result, str)
         # Dev 环境无 cache 文件 → 空字符串
         # (Mac Mini 部署后有 cache, 返回有内容)
+
+
+# ══════════════════════════════════════════════════════════════════════
+# 3.7 V37.9.56-hotfix3 — 反幻觉具体字面禁令 (2026-05-12 OpenClaw v26 幻觉血案)
+# ══════════════════════════════════════════════════════════════════════
+class TestV9_56Hotfix3AntiHallucinationGuards(unittest.TestCase):
+    """V37.9.56-hotfix3: kb_evening prompt 反幻觉具体字面禁令.
+
+    血案场景 (2026-05-12 09:41 Mac Mini evening 推送):
+      - V37.9.56-hotfix 部署后 picker 找到 31 picks Top 5 注入 evening prompt
+      - LLM 看 Top 5 提到 "OpenClaw 项目对齐" + 今日笔记少
+      - 训练倾向 (合理化 + 连接相关概念) 下编造:
+        "OpenClaw 社区发布新版本 v26, 验证货代Watcher上线及SSH远程部署流程..."
+      - 来源标签 [openclaw] 自造 (sources_used 实际只有货代+HN)
+      - WhatsApp + Discord 推送虚假信息给用户
+
+    根因 (原则 #23 链式幻觉):
+      - V37.9.56 原 alignment_block 指令 "在'今日要闻'段优先引用 Top 5"
+      - + Top 5 提到 "OpenClaw 三平面对齐"
+      - + 今日 sources_used.count < 5
+      - = LLM 推断 "用户在做 OpenClaw 项目 + Top 5 必引用 + 必有项目动态"
+      - 编造 OpenClaw v26 / [openclaw] 标签 / 项目里程碑
+
+    修复:
+      - 软化注入: "在今日要闻段优先引用" → "外部参考阅读 不应硬性引用"
+      - 段头改名: "今日高对齐 Top 5" → "近期高对齐参考阅读 Top 5 (跨多天累积)"
+      - 加具体字面禁令: OpenClaw 社区发布 / v26 / [openclaw] / 项目里程碑等
+    """
+
+    def test_anti_hallucination_block_in_template(self):
+        """V37.9.56-hotfix3 反幻觉禁令必须始终在 prompt 模板中, 不依赖 Top 5 注入."""
+        # 即使无 top_alignment_picks 参数, 禁令也应在 prompt 模板里
+        prompt = ev.build_evening_prompt("n", "s", 1, 100, 50, 5, "AI")
+        self.assertIn("V37.9.56-hotfix3 反幻觉字面禁令", prompt,
+            "V37.9.56-hotfix3 禁令段必须在所有 evening prompt 中")
+        self.assertIn("OpenClaw 社区发布", prompt,
+            "禁字面 'OpenClaw 社区发布' 必须显式列出")
+        self.assertIn("OpenClaw v26", prompt,
+            "禁字面 'OpenClaw v26' 必须显式列出 (血案精确场景)")
+        self.assertIn("[openclaw]", prompt,
+            "禁来源标签 '[openclaw]' 必须显式列出")
+        self.assertIn("外部** paper/repo/blog 跨多天累积", prompt,
+            "Top 5 语义定位 (外部累积非项目动态) 必须显式")
+
+    def test_alignment_block_uses_soft_injection_not_hard_quote_instruction(self):
+        """V37.9.56-hotfix3 软化注入: alignment_block 不应再含'优先引用'硬指令."""
+        sample = "- ⭐⭐⭐⭐⭐ [HF精选] Test / agent runtime"
+        prompt = ev.build_evening_prompt(
+            "n", "s", 1, 100, 50, 5, "AI", top_alignment_picks=sample
+        )
+        # 反模式守卫: 旧硬指令必须移除
+        self.assertNotIn("在'今日要闻'段优先引用", prompt,
+            "V37.9.56-hotfix3: 旧硬指令必须移除 (触发了 OpenClaw v26 幻觉)")
+        self.assertNotIn("优先引用真正与项目方向直接相关", prompt,
+            "V37.9.56 原 docstring 措辞应已更新")
+
+    def test_alignment_block_new_header_and_semantic_repositioning(self):
+        """V37.9.56-hotfix3 新段头 + 语义重定位为'外部参考阅读'."""
+        sample = "- ⭐⭐⭐⭐⭐ [HF精选] Test / agent runtime"
+        prompt = ev.build_evening_prompt(
+            "n", "s", 1, 100, 50, 5, "AI", top_alignment_picks=sample
+        )
+        self.assertIn("近期高对齐参考阅读 Top 5", prompt,
+            "新段头必须含 '参考阅读' 字样")
+        self.assertIn("跨多天累积", prompt, "必须显式说明跨多天累积语义")
+        self.assertIn("不是今日发生的事件", prompt, "必须显式声明非今日事件")
+        self.assertIn("绝不应", prompt, "必须含硬约束 '绝不应'")
+        self.assertIn("背景知识参考", prompt, "Top 5 定位为背景知识")
+
+    def test_blood_lesson_blocked_phrases_must_be_listed(self):
+        """V37.9.56-hotfix3 血案精确字面禁令必须显式列出 (供未来 LLM 直接看到)."""
+        prompt = ev.build_evening_prompt("n", "s", 1, 100, 50, 5, "AI")
+        # 血案精确编造字眼
+        for blocked_phrase in [
+            "OpenClaw 社区发布",
+            "OpenClaw v26",
+            "项目里程碑",
+            "开源 X 上线",
+            "v26/v27/v37 版本更新",
+        ]:
+            self.assertIn(blocked_phrase, prompt,
+                f"禁字面 '{blocked_phrase}' 必须显式列在禁令清单中")
+
+    def test_chain_inference_banned(self):
+        """V37.9.56-hotfix3 链式推论禁令: 不允许 Top 5 → 项目动态 推断."""
+        prompt = ev.build_evening_prompt("n", "s", 1, 100, 50, 5, "AI")
+        self.assertIn("基于 Top 5 推断本项目状态", prompt,
+            "链式推论禁令必须显式")
+        self.assertIn("基于 paper 推断 OpenClaw 版本", prompt,
+            "paper → 项目版本链式推论必须显式禁止")
+
+    def test_v9_56_hotfix3_marker_in_source(self):
+        """V37.9.56-hotfix3 marker 必须在源码 (锁定来源 + 防漂移)."""
+        repo_root = os.path.dirname(os.path.abspath(__file__))
+        with open(os.path.join(repo_root, "kb_evening_collect.py"), encoding="utf-8") as f:
+            src = f.read()
+        self.assertIn("V37.9.56-hotfix3", src,
+            "kb_evening_collect.py 必须含 V37.9.56-hotfix3 marker")
+        # 源码注释必须引用 blood lesson 上下文
+        self.assertIn("OpenClaw 社区发布 v26", src,
+            "源码注释必须引用具体血案精确字眼便于未来运维 grep")
 
 
 # ══════════════════════════════════════════════════════════════════════
