@@ -45,6 +45,21 @@ mkdir -p "$KB_DIR/daily"
 
 log() { echo "[$TS] kb_evening: $1" >&2; }
 
+# V37.9.57-hotfix2: DAYS 数字校验 (防 zsh interactive_comments OFF 时 # 注释坑 +
+# 防任何 caller 传非数字垃圾值导致 collector kb_evening_collect.py:413
+# `days = int(os.environ.get("DAYS") or "1")` 抛 ValueError).
+#
+# 血案触发场景 (2026-05-12 V37.9.56 部署诊断时暴露):
+#   zsh: bash ~/kb_evening.sh   # 22:00 触发  ← `#` 没被 zsh 视为注释 (默认 OFF)
+#   → bash 收到 `#` 作 $1 → DAYS="${1:-1}" 拿 "#" (非空通过 :- 默认)
+#   → collector 内 int("#") ValueError + 终端 Python traceback
+#
+# 修复: 强制 DAYS 必须 ^[0-9]+$ 匹配, 否则 log WARN + fallback 1, 让 cron 继续跑而不是炸.
+if ! [[ "$DAYS" =~ ^[0-9]+$ ]]; then
+    log "WARN: DAYS arg '$DAYS' non-numeric, falling back to 1 (V37.9.57-hotfix2 defensive)"
+    DAYS=1
+fi
+
 # Try to source notify.sh so we can use notify() with --topic daily/alerts
 NOTIFY_SH=""
 for candidate in "$SCRIPT_DIR/notify.sh" "$HOME/openclaw-model-bridge/notify.sh" "$HOME/notify.sh"; do
