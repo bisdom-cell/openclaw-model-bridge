@@ -1,5 +1,5 @@
 {
-  "updated": "2026-05-12 03:37:53",
+  "updated": "2026-05-12 05:15:02",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-05-12",
+      "what": "V37.9.58 Plan B 渐进 escalation 终态兑现 — machine_sync 真激活: convergence.py _is_dry_run() 默认值反转 (旧默认 dry-run / 新默认 real apply, 仅 CONVERGENCE_DRY_RUN=1 才回到 dry-run) + yaml 两 spec dry_run_default: true→false + meta version 0.7→0.8-machine-sync-activated + v37_9_58_changelog 段记录终态 + governance INV-CONVERGENCE-CRON-001 守卫 V37.9.58 升级 (3 新 checks: yaml false / py 默认值反转 / changelog / meta version) + 测试反转 TestIsDryRun 5 个 + alternation 接受 V37.9.58 新值 + TestV37958DryRunActivation 新单测类 14 tests (7 分类含反向验证守卫 + 真激活契约). 一周观察期数据: jobs_to_crontab declared=36 observed=36 / kb_sources_to_index declared=14 observed=14 双 spec 全周零漂移零误报. typo-safe direction 反转: 旧 V37.9.23 typo→保守 / 新 V37.9.58 typo→兑现承诺. 反向验证 sabotage 立即多个 V37.9.58 测试 fail, 还原全过. MR-17 真正兑现: alert_only (机器可检测) → machine_sync+dry_run (机器可同步但不默认同步) → V37.9.58 切关 (机器可同步且默认同步) ← 终态. 累计 77 suites / 2651→2667 tests (+16) / 0 fail / governance v3.35→v3.36 / 72 invariants 不变 / 562→565 checks (+3) / 17 meta rules / 安全 95/100 / VERSION 0.37.9.57→0.37.9.58.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-05-12",
       "what": "V37.9.57 架构级公共反幻觉守卫模板 + 9 task 全量接入: hallucination_guards.py 5 档严格度 (MINIMAL/STANDARD/STRICT/PROJECT_AWARE/RADAR_AWARE) + 38 单测 + 反向验证 3 sabotage 场景守卫真有效. 9 task 全量集成: kb_evening_collect.py 替换 V37.9.56-hotfix3 inline → get_guard(LEVEL_5_RADAR_AWARE) / kb_dream.sh Reduce 加 LEVEL_5 (V37.8.6 反污染守卫互补) / 8 ALIGNED jobs (hf/s2/dblp/arxiv/gh/rss/ai_leaders/hn) 批量注入 LEVEL_4 V37.9.56-hotfix3 血案精确字眼 / freight+finance+ontology LEVEL_2 来源标签校验 / kb_review_collect.py + kb_deep_dive.py 三个 build_*_prompt LEVEL_3 反链式推论. auto_deploy FILE_MAP + full_regression suite 接入. MR-8 single-source-of-truth + MR-7 治理自观察兑现. 77 suites / 2651 tests / 0 fail / VERSION 0.37.9.56→0.37.9.57 / 安全 95/100. 这是 V37.9.56-hotfix3 单点修复的真正结构性升级 (架构契约 + 横向部署), V3 路标 framework 突破 — 任何新 LLM-calling task 只需引用即获最新反幻觉守卫, 零血案记忆维护成本.",
       "by": "claude_code"
     },
@@ -202,11 +207,6 @@
       "date": "2026-05-09",
       "what": "V37.9.43-hotfix2 — wa_e2e_test.sh macOS bash 3.2 全角括号变量解析 bug (Mac Mini 实测发现): line 140 pass \"KB 索引可用（$CHUNK_COUNT）\" + line 146 skip \"KB 索引检查跳过（$KB_RESULT）\" 把全角 `）` (U+FF09) UTF-8 字节当成变量名一部分 → set -u 报 unbound variable → 脚本 exit 1. 自 PR #458 即存在但因脚本长期未部署 (V37.9.43-hotfix W3 修复) 从未在 Mac Mini 真跑过, 是\"长期沉睡的真 bug 在新部署时苏醒\"典型. 修复: ${VAR} 显式 brace 定界变量名. 4 新单测 (TestW4WaE2eBashCjkVarParsing): 反模式扫描 / hotfix2 marker / chunk_count brace / kb_result brace + 反向验证 sabotage 立即 fail. MR-10 三问严格执行. 63 suites / 2230 tests (+4) / 0 fail / 安全 95/100",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-05-09",
-      "what": "V37.9.43-hotfix — Mac Mini preflight 81/0/3 三警告闭环 (W1+W3 真 bug, W2 结构性 lag 不修): W1 = freight Step 9 line 639 generic DEEP_DIVE_STATUS=skipped (V37.9.31 漏改条件分支) → skipped_no_high_star + preflight 加 pass case (合法跳过: 无 ⭐≥4 高星条目, Step 9 by-design 不进入). W3 = wa_e2e_test.sh 自 PR #458 即存在仓库但从未在 auto_deploy FILE_MAP 登记 (长期漏部署观察项, 原则 #15 测试三层第三层 WhatsApp 业务验证脚本本体). 12 新单测 3 类 (TestW1FreightSkippedSchemaFix 7 + TestW3WaE2eTestDeployment 3 + TestHotfixDoesNotBreakV37943Main 2). 反向验证守卫真有效 (W1 sabotage 立即 fail / W3 完整 line 删除立即 fail). test_freight_schema_v9_31 同步更新断言 skipped → skipped_no_high_star. Mac Mini 下次 preflight 应 81/0/1 (仅剩 W2 KB 索引结构性 lag). 63 suites / 2226 tests (+12) / 0 fail / 安全 95/100",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -254,7 +254,6 @@
       "V37.9.15 候选: job_watchdog.sh 或 kb_status_refresh.sh 消费 movespeed_incidents.jsonl — 24h 内 ≥5 条 incident 触发连续性告警, 升级从被动收证据到主动感知异常。",
       "V37.9.35 推送质量观察 (24-48h ~ 1 周): kb_evening (每日 22:00) / kb_deep_dive (每日 22:30) / kb_review (每周日) 在 4000 字 budget 下推送质量是否显著提升. 验证方法: 每日 WhatsApp 用户视角观察 + KB note 长度统计. 如显著 (信息密度 2.86x 兑现 + 内容真深度) → V37.9.36+ 评估 Path B 移除 kb_deep_dive V37.9.21 手动分屏代码; 如某平台 (Web/Desktop/旧版手机) 折叠阈值不一致 → 维持 Path A 并把异常登记到 whatsapp_client_display_folding_case.md.",
       "V37.9.30 真实 EPERM 数据回归 (24-48h, 截止 2026-05-09 早): Mac Mini 跑 python3 ~/movespeed_incident_analyzer.py --window 24h, 看 V37.9.30 新 3 维度 (🛡️ ACL/xattr / 📂 Handle holders / 📸 TM Snapshots) 真实数据揭示 EPERM 真根因. 三个候选: ACL deny rules (chown 不清, 强 EPERM 信号, 修复 sudo chmod -RN) / macOS daemon contention (5 daemon 100% 共现, 修复 path B 调度避峰) / APFS 内部锁/快照 (exfat→APFS 转换可能未稳定, 修复 sudo tmutil deletelocalsnapshots /). V37.9.36+ 候选: 立 INV-ACL-001 / INV-DAEMON-001 / INV-SNAPSHOT-001 之一并实施针对性修复.",
-      "5/11 决策窗口 (4 天后, 2026-05-11): jobs_to_crontab + kb_sources_to_index machine_sync dry-run 真激活 (V37.9.23/V37.9.24/V37.9.25 累积观察期到达). 当前状态: 三 spec 都在 dry-run 阶段, 验证一周后无 declared-vs-runtime 漂移则切关 dry-run 真激活 machine_sync (declared-state-converges-to-runtime 完整链路闭环). 验证方法: governance_checker.py 跑 verify_convergence 看 三 spec 都 declared==observed 零漂移. 如有漂移 → 调查根因 (registry 漏报? observer 误报? observer_failed?). 如零漂移 → 修改 _is_dry_run() 默认值激活. 这是 MR-17 (declared-state-must-converge-to-runtime-via-machine-not-memory) 的真正兑现.",
       "V37.9.36 候选 [P2 — status_update.py 双路径 bug]: --add unfinished <str> 默认写顶层 data[\"unfinished\"] (30 项), 但 --read --human 显示的是 data[\"session_context\"][\"unfinished\"] (9 项, 较老快照). 两个路径不一致导致 V37.9.35 收工时 add 的 3 个 todo 没在 --read 显示, 需手动 Python patch 同步. 修复方向: status_update.py args.add 处理段 (line 312-342) 加特殊 case — 当 array_name == \"unfinished\" 时同时写两个路径; 或在 _save() 时镜像同步; 或废弃顶层 unfinished 字段统一用 session_context.unfinished. 影响: 收工流程 --add 命令 (Claude Code / cron) 应保证开工 --read --human 能看到. 不是阻塞问题, 但破坏了\"开工读到收工写的\"开工/收工原则 #2/#9 闭环.",
       {
         "what": "X 僵尸观察: 7 新嫌疑 (ReutersBiz/XHNews/CGTNOfficial/globaltimesnews 2天, PDChina/CNS1952/SingTaoDaily 1天) — 2026-04-18 3天窗口到期决策",
@@ -269,9 +268,6 @@
       "V37.9.18 候选 (观察后决策): kb_deep_dive 一周 mode 分布观察 — 今天 Mac Mini V37.9.17 首跑方案 C 已验证正确生效 (picker 从 TIER 3 ai_leaders_x ⭐5 换到 TIER 2 ontology_sources ⭐4), 但因选中 URL 是 ScienceDirect 反爬站 HTML fetch 失败 degrade 到 abstract_only. 观察策略: 等 7 天 cron 自动触发统计 last_run_deep_dive.json 的 mode 字段分布. 决策点: (a) 如 full_text ≥50% → 接受现状(预期 arxiv/hf cron 日常有 ⭐4+ 可抓) (b) 如 full_text <30% → V37.9.18 实施方案 B (TIER-2-paywalled 细化, 把 sciencedirect.com/nature.com/science.org/ieee.org/acm.org 等反爬域名列表加 score 扣分) (c) 如观察发现更多反爬变种 → 方案 C fetch-aware picker (实时 fetch top N 候选取第一个成功者). 预期数据到位日期: 2026-05-01.",
       "V37.9.20 Mac Mini missing=5 [claude,glm,kimi,minimax,openai] 处理决策: (a) 接受现状 alert_only 永久 — 这 5 个 provider 不需要立即配 API key, 仅 informational 用于 V37.8.10 类血案预警 (b) 部分配置 — 选 ≥1 个最高价值 fallback (推荐 claude 因 Anthropic SDK 已熟) 配 API key 让 fallback_chain 从 [gemini] 扩到 [gemini,claude] 真韧性提升, 与 V37.8.10 血案的根因修复完全对齐 (c) 全配 — 7 provider 全 wire 但成本/合规/SLA 复杂度上升. 用户决策需求: 是否做 (b) 配 ANTHROPIC_API_KEY 扩 fallback_chain 到 ≥2 provider — 登记 V37.9.21 候选",
       "V37.9.22 nice-to-have: kb_deep_dive.sh 在 collector JSON 输出无 wa_parts 字段时应 log WARN '[deploy_inconsistency] wa_parts missing, fallback to wa_message — likely auto_deploy py file lag' 而不是静默走 fallback 单段路径。让 MR-4 silent-failure 第 17 次演出的部署不一致期 (新 shell + 旧 py 临时混合) 可观测。非紧急 — 已自愈，下次 auto_deploy 改 FILE_MAP 时一并加",
-      "V37.9.24 候选: 一周 dry-run 观察期收集 cron line 拼接结果, 验证 _format_cron_line 输出与 Mac Mini 真实 crontab 行字面一致后, 切关 CONVERGENCE_DRY_RUN env 默认值让 machine_sync 真激活. 预计决策窗口 2026-05-11. 在 Mac Mini 跑 'CONVERGENCE_DRY_RUN=0 python3 -m governance_checker' 试运行验证后修改 _is_dry_run 默认值.",
-      "V37.9.25 候选: 一周 dry-run 观察期 (5/4 baseline → 5/11 决策窗口) 收集两个 machine_sync spec 的 apply 字面量验证. jobs_to_crontab 验证 cron line 拼接结果与生产 crontab 行字面一致, kb_sources_to_index 验证 kb_embed.py 增量调用产 'applied: kb_embed.py incremental (N missing sources)' 真同步成功. 都符合预期后切关 _is_dry_run() 默认值让 CONVERGENCE_DRY_RUN=1 才 dry-run, 真激活 machine_sync.",
-      "V37.9.28 候选 (5/4-5/11 一周观察期 + 决策窗口三件套): (1) 验证 V37.9.27 retry 实战效果 — 24h incident 数应从 ~19 降到 <1 (95%+ 减少). (2) 5/11 决策窗口三 spec 同步切关 dry-run 真激活 machine_sync (jobs_to_crontab + kb_sources_to_index + services_to_launchd). 修改 _is_dry_run() 默认让 CONVERGENCE_DRY_RUN=1 才 dry-run, 未设/=0 都激活. Plan B → Plan C 过渡. (3) 立场文章第 6 篇候选: \"我以为闭环了\" — 60 天架构假设级 silent failure 教训 (V37.9.4 → V37.9.26 → V37.9.27 时间线).",
       "V37.9.28+ 候选 (软性触发 ~2026-06-15, 4-8 周 5.x 沉淀观察期到达): OpenClaw 升级第五次评估. 届时 5.x 已稳定 6 周, 社区验证累积充分. 评估重点: (a) v2026.5.x 是否仍持续高频迭代或已稳定收敛 (b) #59265 Agent actions 不可见是否在某版本 release notes 显式修复 (有 PR + 版本 mention 双证据) (c) v2026.4.29 tools.exec/tools.fs restrictive profile 收紧对我们 proxy_filters 工具白名单是否影响 — dev 验证 12 工具集 (data_clean / search_kb / read_file / write_file / etc.) 在升级后是否仍可见 (d) v2026.5.2 plugin manifest contracts.tools ownership 强制对 qwen-local provider 注册路径 (adapter.py 启动时如何向 Gateway 注册) 是否破坏. 如所有阻塞解除则推荐阶梯升 v2026.4.27 (V37.9.27+ 评估认定为含 #73358 fix 的最早稳定 + 避开 4.29/5.x 累积变更面). 升级 SOP: 备份 openclaw.json + bash check_upgrade.sh 重新跑 + dev 验证两个新中风险点 + 维护窗口深夜 + 30 秒回滚预案 + WhatsApp 立即可用性 E2E. 升级成功后更新 LAST_EVAL_DATE 为升级日期重置时间 tripwire (180 天硬性上限到 2026-12 后)",
       "[CLOSED V37.9.28 commit 4aa9aa0] F1 [周一观察 medium 告警 UX] job_watchdog.sh::scan_logs() 推送的告警子条目缺时间戳 — arxiv_monitor 日志: 12条错误 → rsync(PID): error 看不出何时发生, 混淆陈旧 vs 新增. 假设根因: scan_logs 只 grep 错误行末, 未提取行首 [YYYY-MM-DD ...] 时间戳聚合到摘要. 修复方向: scan_logs 在每条错误行抽 [\\\\d{4}-\\\\d{2}-\\\\d{2} \\\\d{2}:\\\\d{2}] 前缀, 在告警里展示 (oldest, newest) 时间戳对; 如缺时间戳显式标注 [no_ts]. 与 V37.9.6 INV-WATCHDOG-FRESHNESS-001 互补 (前者过滤陈旧整文件, 后者修可读性). 与 F2 强因果: 不修 F1 看不见 F2 真相. 来源: 2026-05-05 周一观察补做.",
       "[CLOSED V37.9.28 commit 7d19abe] F2 [周一观察 P0 CRITICAL — V37.9.27 helper 实战破证] MOVESPEED 24h 仍 20 次 rsync 失败 (V37.9.27 承诺 <1/24h, 95%+ 减少). 但错误模式从 V37.9.4 EPERM (Operation not permitted) 变成 unexpected end of file (EOF). MR-4 silent-failure 第 19 次演出新形态: 修复看似生效, 实际换了一种失败形式 — retry+jitter 对 EPERM 有效但对 EOF 无效或放大 (rsync stream 中断 / 短读 / 源文件并发改写). 待查: (a) cat ~/.kb/movespeed_incidents.jsonl | grep \"2026-05-04\\\\|2026-05-05\" 看 V37.9.27 部署后 incident 数 (b) 错误样本 grep \"unexpected end of file\" 看是否所有 EOF 都是 rsync stream 问题 (c) helper retry 是否在 EOF 上仍 retry 3 次浪费 (d) 是否需要 INV-RETRY-002 区分 EOF vs EPERM 错误类. 来源: 2026-05-05 周一观察补做. 严重度: V37.9.27 上线 1 天即破证, 无需等观察期, 列 V37.9.28 主硬卡.",
@@ -309,7 +305,9 @@
       "【V37.9.51+ 候选】SLO p95: 50380ms 严重超阈值 (目标 <30000ms, ~67% 超额) 调查 — Mac Mini 5/10 12:18 preflight 实测发现. 长期存在非 V37.9.50 引入. 候选根因: (a) 真实远程 LLM (Qwen3 hkagentx) 高负载延迟 (b) stale data — proxy_stats.json 是历史聚合可能含 old slow request (c) Mac Mini 网络波动. 调查路径: 看 proxy_stats.json 时间窗口 + 是否最近请求或历史累积 + 对比 dev SLO benchmark. 不阻塞 V37.9.50 部署但应在 V37.9.51 工作流验证.",
       "V37.9.52 Mac Mini 验证待办: 设 ARK_API_KEY + ARK_ENDPOINT_ID env → python3 providers.py --validate 应看 OK doubao → curl /chat/completions Volcengine 端点真探测. 端点成功则 V37.9.53 flip verified_text=True 进生产 fallback chain; 端点 404/415 则 V37.9.53 加 Responses API translator (adapter.py messages↔input + image_url↔input_image 双向转换, 工作量 3-4h).",
       "V37.9.58 候选 (按优先级): (a) **观察期**: 今晚 22:00 evening + 明早 03:00 dream + 明天 8 ALIGNED jobs cron 真跑 (08:00-21:00) 用户视角验证 LEVEL_4/5 守卫一周生产效果 — 7 天内若零编造血案 → 立 INV-HALLUCINATION-001 (反 inline 守卫 + import get_guard 强制契约) (b) **SLO p95 59542ms 调查** — preflight 实测 latency p95 = 59.5s 严重超阈值 30s, 可能根因: V37.9.55 doubao 接入后某 fallback chain 路径慢 / 8 ALIGNED jobs LEVEL_4 注入后 LLM prompt 变长 / cache 命中不足. 需 slo_benchmark.py 分析 V37.9.55 → V37.9.57 趋势 + per-job latency 分布 (c) **LEVEL_6 候选** for sub-agent / multi-agent dispatch 场景 (Phase 4 P5 续推进) (d) **5/11 决策窗口续**: V37.9.23/24/25 jobs_to_crontab + kb_sources_to_index + services_to_launchd machine_sync dry-run → 真激活 (累积观察期到达) (e) **kb_review LEVEL_3 prompt-side 集成验证**: V37.9.57 仅 import get_guard, prompt builder build_prompt 已在 docstring 行后追加 {get_guard(LEVEL_3_STRICT)} f-string interpolation, 周日 kb_review 真跑后验证守卫文本真出现在 LLM prompt.",
-      "README.md 版本滞后 V37.9.45 (12 版本未同步, 历史性而非 V37.9.57 引入). 下次 session batch 更新 V37.9.46-57 milestones + 当前 framework 状态 (77 suites/2651 tests/72 inv/478 checks). 推荐做法: 用 CLAUDE.md changelog 表里 V37.9.46-57 章节内容压缩为 README.md highlights 段更新."
+      "README.md 版本滞后 V37.9.45 (12 版本未同步, 历史性而非 V37.9.57 引入). 下次 session batch 更新 V37.9.46-57 milestones + 当前 framework 状态 (77 suites/2651 tests/72 inv/478 checks). 推荐做法: 用 CLAUDE.md changelog 表里 V37.9.46-57 章节内容压缩为 README.md highlights 段更新.",
+      "V37.9.59 候选: machine_sync 真激活效果观察 + INV-CONVERGENCE-ACTIVATED-001 立案. Mac Mini 部署 V37.9.58 后下次 governance audit cron (每日 07:00 自动) 真激活验证: 若 jobs_to_crontab + kb_sources_to_index 两 spec 全周 missing=0 (符合一周观察期数据预期) → 立 INV-CONVERGENCE-ACTIVATED-001 (severity=high, default real apply 不可回退, regex 守卫 _is_dry_run 必须 == \"1\" 模式禁止回退到 != \"0\" V37.9.23 旧反模式). 30 秒回滚预案 (cron 加 CONVERGENCE_DRY_RUN=1 / git revert) 备用. 关联: V37.9.58 兑现 Plan B escalation 终态.",
+      "V37.9.59+ 候选: services_to_launchd (V37.9.25 alert_only 第 5 spec) Plan B 升级评估. 当前 drift_action=alert_only baseline 5/4 → 一周观察期已到 (5/4-5/11), V37.9.58 兑现 jobs_to_crontab + kb_sources_to_index Plan B 终态后, services_to_launchd 可参考同款路径升级: alert_only → machine_sync + 默认 dry-run → 一周观察 → 切关. 实现路径 _apply_services_launchctl_bootstrap helper (复用 V37.9.13 restart.sh kickstart -k 模式 + per-service plist 解析). 决策点: 用户授权后启动."
     ],
     "open_prs": "",
     "blocked_on": "",
@@ -350,14 +348,14 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 2651,
-    "last_regression": "2026-05-12 03:07 pass",
+    "test_count": 2667,
+    "last_regression": "2026-05-12 05:11 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-05-12 03:07",
+    "security_score_time": "2026-05-12 05:11",
     "test_suites": 77,
     "governance_invariants": "64/64",
     "governance_checks": "350/350",
-    "version": "0.37.9.56"
+    "version": "0.37.9.57"
   },
   "incidents": [
     {
@@ -421,7 +419,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "【V37.9.57 架构级公共反幻觉守卫模板 + 9 task 全量接入 已部署 + 真生产实证 PASS】2026-05-12 11:24 Mac Mini 手动触发 kb_evening 推送 evening_20260512.md, V37.9.57 LEVEL_5 守卫真生效: 零血案字眼 (OpenClaw 社区发布/v26/项目里程碑 全部不出现) / 来源标签真实 ([HF]/[HN]/[货代] 全在 sources_used) / 今日要闻 4 条全 grounded / 行动建议真实业务可执行 (Kuehne+Nagel 南亚网络) / 健康度评分逻辑清晰 ⭐⭐⭐⭐. 用户视角 5/5 验证清单全 PASS = V37.9.56-hotfix3 → V37.9.57 架构修复链路的最终硬证据. Preflight 80 通过 / 0 失败 / 2 警告 (KB 索引 99% 结构性自愈 + SLO p95 59.5s 严重超阈值, V37.9.58 候选). 累计 77 suites / 2651 tests / 0 fail / VERSION 0.37.9.57 / 安全 95/100. **观察窗口**: 今晚 22:00 evening + 明早 03:00 dream + 明天 8 ALIGNED jobs (08-21 HKT) 真跑用户视角验证一周生产效果 → 7 天零血案 → 立 INV-HALLUCINATION-001 governance. **下次候选** (按优先级): SLO p95 调查 / LEVEL_6 sub-agent / 5/11 决策窗口续 (machine_sync 真激活).",
+  "focus": "【V37.9.58 Plan B 渐进 escalation 终态兑现 — machine_sync 真激活已部署】2026-05-12 一周观察期 (5/3-5/11) 双 spec 零漂移确认后, 兑现 V37.9.23/24 收工承诺切关 CONVERGENCE_DRY_RUN 默认 — convergence.py _is_dry_run() 默认值反转 + yaml dry_run_default false + meta version 0.8-machine-sync-activated. MR-17 (declared-state-must-converge-to-runtime-via-machine-not-memory) 真正兑现: 从机器可检测升级到机器可同步且默认同步, 完成 V3 路标 pip install ontology-engine 关键里程碑. 77 suites / 2667 tests / 0 fail / governance v3.36 / 72 invariants / 565 checks / 安全 95/100. **观察窗口**: Mac Mini 部署后下次 governance audit cron (每日 07:00 自动) 真激活效果观察 — 若 jobs_to_crontab missing=0 / kb_sources_to_index missing=0 → 零操作符合一周观察期数据预期; 任一 spec 漂移 → framework 立即真同步 (crontab_safe.sh add / kb_embed.py 增量). 30 秒回滚预案: cron 加 export CONVERGENCE_DRY_RUN=1 或 git revert. **下次 V37.9.59+ 候选**: (a) Mac Mini 真激活效果一周观察后立 INV-CONVERGENCE-ACTIVATED-001 守卫 \"default real apply 不可回退\" (b) services_to_launchd (V37.9.25 alert_only) 评估是否进入 Plan B 升级 (c) SLO p95 严重超阈值调查 (需 Mac Mini proxy_stats.json 数据) (d) LEVEL_6 sub-agent / multi-agent dispatch 反幻觉守卫. 同步本周焦点: V37.9.57 反幻觉守卫一周生产观察 (今晚 22:00 evening + 明早 03:00 dream + 明天 8 ALIGNED jobs 真跑) 仍在进行中.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",

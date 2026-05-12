@@ -5125,10 +5125,22 @@ invariants:
         check_type: file_contains
         file: ontology/convergence_ontology.yaml
         pattern: 'implemented: machine_sync_via_helper'
-      - name: "V37.9.23: convergence_ontology.yaml dry_run_default 安全默认"
+      - name: "V37.9.58: convergence_ontology.yaml dry_run_default 切关 escalation 兑现"
         check_type: file_contains
         file: ontology/convergence_ontology.yaml
-        pattern: 'dry_run_default: true'
+        pattern: 'dry_run_default: false'
+      - name: "V37.9.58: convergence.py _is_dry_run() 默认值反转 (literal 1 才 dry-run)"
+        check_type: file_contains
+        file: ontology/convergence.py
+        pattern: 'os.environ.get\(_DRY_RUN_ENV_VAR, "0"\) == "1"'
+      - name: "V37.9.58: convergence_ontology.yaml v37_9_58_changelog 段记录切关"
+        check_type: file_contains
+        file: ontology/convergence_ontology.yaml
+        pattern: 'v37_9_58_changelog'
+      - name: "V37.9.58: convergence_ontology.yaml meta version 升级到 0.8-machine-sync-activated"
+        check_type: file_contains
+        file: ontology/convergence_ontology.yaml
+        pattern: '0.8-machine-sync-activated'
       - name: "V37.9.23: convergence_ontology.yaml v37_9_23_changelog 段记录升级"
         check_type: file_contains
         file: ontology/convergence_ontology.yaml
@@ -5552,11 +5564,11 @@ invariants:
         check_type: file_contains
         file: ontology/convergence_ontology.yaml
         pattern: 'governance_invariant: INV-CONVERGENCE-KB-001'
-      - name: "convergence_ontology meta version 升级到 ≥ 0.4 (V37.9.22 0.4 → V37.9.25 0.7-fifth-spec-services-to-launchd)"
+      - name: "convergence_ontology meta version 升级到 ≥ 0.4 (V37.9.22 0.4 → V37.9.25 0.7 → V37.9.58 0.8-machine-sync-activated)"
         check_type: file_contains
         file: ontology/convergence_ontology.yaml
         # regex alternation: 任一字面量出现即 pass (向前兼容下个 minor 版本升级)
-        pattern: '0\.4-fourth-spec|0\.5-machine-sync-dry-run|0\.6-named-dispatch-apply-functions|0\.7-fifth-spec-services-to-launchd'
+        pattern: '0\.4-fourth-spec|0\.5-machine-sync-dry-run|0\.6-named-dispatch-apply-functions|0\.7-fifth-spec-services-to-launchd|0\.8-machine-sync-activated'
       - name: "convergence_ontology meta 引用本 INV (related_invariants)"
         check_type: file_contains
         file: ontology/convergence_ontology.yaml
@@ -5706,10 +5718,10 @@ invariants:
         check_type: file_contains
         file: ontology/convergence_ontology.yaml
         pattern: 'parser: line_contains_identifier'
-      - name: "convergence_ontology meta version 升级到 ≥ 0.7 (V37.9.25 fifth-spec)"
+      - name: "convergence_ontology meta version 升级到 ≥ 0.7 (V37.9.25 fifth-spec → V37.9.58 0.8 machine-sync-activated)"
         check_type: file_contains
         file: ontology/convergence_ontology.yaml
-        pattern: '0\.6-named-dispatch-apply-functions|0\.7-fifth-spec-services-to-launchd'
+        pattern: '0\.6-named-dispatch-apply-functions|0\.7-fifth-spec-services-to-launchd|0\.8-machine-sync-activated'
       - name: "convergence_ontology meta 引用本 INV (related_invariants)"
         check_type: file_contains
         file: ontology/convergence_ontology.yaml
@@ -6721,9 +6733,10 @@ security_config:
 # 6. 审计元数据
 # ═══════════════════════════════════════════════════════════════════════
 audit_metadata:
-  version: "3.35"
+  version: "3.36"
   created: "2026-04-07"
   upgraded: |
+    v3.35 → v3.36: V37.9.58 Plan B 渐进 escalation 路径终态兑现 — jobs_to_crontab + kb_sources_to_index 一周观察期 (5/3-5/11) 零漂移零误报后, V37.9.23/24 yaml meta 收工承诺"V37.9.24+ (一周后): 切关 CONVERGENCE_DRY_RUN 默认 → 真激活 machine_sync" 兑现. **convergence.py _is_dry_run() 默认值反转** (`os.environ.get(_DRY_RUN_ENV_VAR, "1") != "0"` → `os.environ.get(_DRY_RUN_ENV_VAR, "0") == "1"`): 旧默认 True (任何 typo→dry-run 保守) → 新默认 False (任何 typo→real apply 兑现 escalation 承诺), 唯有显式 `CONVERGENCE_DRY_RUN=1` 才回到 dry-run 观察模式. **yaml 两 spec dry_run_default: true → false** + meta version `0.7-fifth-spec-services-to-launchd → 0.8-machine-sync-activated` + status `framework_*_dry_run → framework_*_activated_dry_run_default_off` + v37_9_58_changelog 段记录终态完整时间线. **INV-CONVERGENCE-CRON-001 守卫升级** (3 个新 declaration checks + 1 旧守卫字面量反转): yaml `dry_run_default: false` 字面量守卫 + convergence.py `_is_dry_run()` 默认值 regex 守卫 (`os.environ.get\(_DRY_RUN_ENV_VAR, "0"\) == "1"`) + v37_9_58_changelog 段守卫 + meta version 0.8 升级守卫. **test_convergence.py TestIsDryRun 5 个测试反转语义** (env unset/0/true/empty 全部从 dry-run 改为 real apply, 仅 "1" 字面量保持 dry-run) + 加新单测类 TestV37958DryRunActivation 反向验证 + V37.9.58 marker. **MR-17 (declared-state-must-converge-to-runtime-via-machine-not-memory) 真正兑现** — 从"机器可检测"升级到"机器可同步"且"默认同步": V37.9.19 起步 alert_only (机器可检测) → V37.9.23/24 machine_sync + 默认 dry-run (机器可同步但不默认同步) → V37.9.58 切关 dry-run 默认 (机器可同步且默认同步) ← 终态. Mac Mini 部署后预期: 下次 governance audit cron 跑 missing=0 (零漂移) → 零操作; 任一 spec 出现漂移 → 立即真同步, 不再 dry-run 等. 回滚预案 30 秒: cron 加 `export CONVERGENCE_DRY_RUN=1` 或 git revert V37.9.58. 累计 72 invariants 不变 (本次只升级 INV-CONVERGENCE-CRON-001 内涵) / 562 → 565 checks (+3, INV-CONVERGENCE-CRON-001 V37.9.58 新增守卫).
     v3.34 → v3.35: V37.9.54 ABC 三件套同 PR — A: restart.sh marker-based plist mtime 检测 + bootout/bootstrap 自动 fallback (修复 V37.9.13 launchctl kickstart -k 不重读 plist + V37.9.53 同款踩坑); B: doubao verified_vision=True (Mac Mini curl 实测 OpenAI Chat Completions vision schema 兼容, image_url content block 工作正常); C: 新 INV-PLIST-ENV-001 治理 plist EnvironmentVariables 与 provider api_key_env 同步 (declaration 4 checks + runtime 1 python_assert --full mode 真读 ~/Library/LaunchAgents/com.openclaw.adapter.plist 用 plistlib 解析 EnvironmentVariables 与所有 providers.py + providers.d/*.py 声明的 api_key_env 集合比对). 同时扩展 INV-RESTART-001 加 V37.9.54 marker reload checks (5 个新 checks 含 PLIST_LOAD_MARKER_DIR 常量 / plist_mtime 字面量 / touch marker 字面量 / need_full_reload 标识 / runtime python_assert 守 marker 必须在 health 200 验证之后才 touch 防失败误更新). 累计 71→72 invariants (+1 INV-PLIST-ENV-001) / 552→562 checks (+10: INV-RESTART-001 +5 + INV-PLIST-ENV-001 +5). 元价值: V37.9.13 (双管理修复) → V37.9.53 (plist env 缺失) 同款 launchd 配置 silent failure 第三次浮现, V37.9.54 加治理监控让未来加新 provider 时 plist 同步成为 governance check, 不再靠程序员记忆.
     v3.33 → v3.34: V37.9.20 第二个 convergence spec providers_to_adapter — Phase 4 Layer 5 named-dispatch 扩展性首次兑现 (MR-8 copy-paste-is-a-bug-class 正向案例). V37.9.19 framework 用 named-dispatch 三表 (_DECLARED_EXTRACTORS / _RUNTIME_OBSERVERS / _IDENTIFIER_PARSERS) 镜像 V37.9.13 _CONTEXT_EVALUATORS / V37.9.15 _STATIC_SIGNAL_KEYS 模式承诺 "添加新 spec 类型只需 yaml + 注册新函数零 framework 改动"。V37.9.20 是首次兑现: zero changes to verify_convergence orchestrator + 3 个新 dispatch 函数 (`_extract_providers_from_registry` 读 providers.ProviderRegistry.list_names() 含 7 built-in + auto-discovered providers.d/ 插件 / `_observe_http_endpoint` 用 stdlib urllib GET 5s timeout + FAIL-OPEN 包装所有 URLError/HTTPError/timeout 为 RuntimeError 让 framework 转 observer_failed / `_parse_json_set_union` 走 spec.json_paths 配置 (`field` 标量 / `field[]` list) 取 union 后与 declared 求交保持 V37.9.19 "observed ⊆ declared" 契约) + convergence_ontology.yaml `providers_to_adapter` spec (alert_only_permanent 永久结构性决策因 API key 不能 machine 自动 provision)。INV-CONVERGENCE-PROVIDERS-001 新增 (meta_rule=MR-17, severity=high, verification_layer=[declaration, runtime], 14 checks: 5 dispatch registration 守卫 + 8 yaml structural 守卫 + 1 runtime python_assert 跑 V37.9.20 5 个测试类 35 单测端到端). 35 新单测 5 类 (TestExtractProvidersFromRegistry 3 / TestObserveHttpEndpoint 6 含 mock urlopen 200/500/timeout/connection_refused / TestParseJsonSetUnion 12 含 list_path_with_non_list/null_elements/non_string_path 边界 / TestVerifyProvidersToAdapterIntegration 3 含 happy_path/full_visibility 真 mock / TestProvidersSpecSourceGuards 11 含 alert_only_permanent 永久守卫 + machine_sync 禁字面量). 累计 47→48 suites (+1, test_convergence.py 49→84 tests, +35) / 1542→1577 tests / 0 fail / governance v3.33→v3.34 / 62→63 invariants (+1) / 311→337 checks (+14, declaration 13 + runtime 1) / 17 meta rules 不变 / 安全 95/100. MR-17 derivative_invariants 升级 [INV-CONVERGENCE-CRON-001] → [..., INV-CONVERGENCE-PROVIDERS-001]。**元价值**: V37.9.19 framework 一周内首次扩展, 证明 named-dispatch 不是空头承诺 — V37.9.21+ 添加 openclaw_config_to_runtime / kb_sources_to_index 同样零 framework 改动。Phase 4 Layer 5 从"单 spec demo"升级为"可扩展 control plane 抽象"。
     v3.32 → v3.33: V37.9.19 Phase 4 Layer 5 Convergence Framework + MR-17 立案 + 第一个 spec jobs_to_crontab — declared→runtime 同步从靠记忆升级为机器化。
@@ -6759,8 +6772,8 @@ audit_metadata:
     v3.12 → v3.13: V37.8.7 ontology_sources 推送格式错位血案 — INV-ONTOLOGY-001 新增 (ontology-sources-parser-must-be-key-based-not-positional, meta_rule=MR-4, severity=high, verification_layer=[declaration, runtime], 7 checks). 2026-04-15 用户 WhatsApp 收到 ontology_sources 推送严重错位：第 2 篇 cn_title 显示为 *---*、第 3 篇 cn_title 显示为 *价值：⭐⭐⭐⭐*。根因：原解析器用严格位置 (lines[i], lines[i+1], lines[i+2]) + i+=3 步进 — LLM 漏一行"要点"或多一行空白就让所有后续条目的 cn_title/highlight/stars 全部右移一格级联污染。修复：抽到独立模块 jobs/ontology_sources/ontology_parser.py（纯函数 parse_llm_blocks 可单测，避开 V37.5 heredoc-only 不可测血案），按 separator 切块 + 块内 key-based prefix 解析，单块缺行不影响其他块。runtime python_assert 真跑用户实际看到的污染场景断言"缺要点不级联"。24 单测 (test_ontology_parser.py)：TestNormalCases(4) + TestBloodLessonRegression(5) + TestSeparatorVariants(5) + TestLLMOutputVariants(5) + TestShellScriptIntegration(4) + TestActualBloodLessonScenario(1)。MR-4 silent-failure 第 8 次演出（输出"看起来正常" 6 字段都在但语义错乱）。auto_deploy FILE_MAP 补齐 ontology_parser.py。
     v3.11 → v3.12: V37.8.6 Dream 自引用幻觉血案 — INV-DREAM-003 新增 (dream-log-cannot-pollute-cache-nor-fabricate-platform-crises, meta_rule=MR-4, severity=critical, verification_layer=[declaration, runtime], 16 checks). 2026-04-15 03:00 Dream run 出现 4 次 Bad JSON 400 (adapter 收到破损 JSON)，但 Dream 仍产出完整"Hugging Face 平台危机"分析，用户察觉 Signal(Papers with Code 沉默)↔Action(监控 Hugging Face) 主题断裂后上报。三层根因：(a) scraped 内容含 surrogate UTF-8 → json.dump + utf-8 file write → UnicodeEncodeError → body_file 截断 → adapter.py:386 返回 400 Bad JSON (b) kb_dream.sh log() 用 `echo` 写 stdout → signals=$(llm_call ...) 命令替换捕获 log 行进 signals → cache file 被"LLM raw response: Error code 400 Bad JSON..."污染 (c) Reduce cache-only fast path 把错误日志注入 LLM 上下文 → LLM 基于这些字样自动编造"Hugging Face 危机"叙事 = 原则 #23 链式幻觉 + MR-4 silent failure 第 7 次演出。四层结构修复（defense-in-depth）：log→stderr 阻断 stdout 污染通道 + _sanitize(U+D800-U+DFFF → U+FFFD) 防编码炸裂 + file open 显式 encoding='utf-8' errors='replace' 第二防线 + REDUCE/CHUNK1/2/3 system prompt 四块加反污染守卫 (禁止把 HTTP 错误码/Python 异常/错误页 HTML/U+FFFD 当外部信号，禁止基于这些字样推断 Hugging Face/GitHub/npm 等平台状态)。runtime python_assert 真跑 sanitize 五场景 (孤立高位/低位代理/正常串/代理范围边界/sanitize 后 json+utf-8 编码不炸)。19 单测 (TestLogGoesToStderr×2 + TestSanitizeSurrogates×7 + TestShellSanitizeImplementation×5 + TestAntiPollutionSystemPrompt×3 + TestShellScriptIntegrity×1 + TestLogDefHasCommentMeta×1)。
     v3.10 → v3.11: V37.8.5 INV-X-001 升级三层检测 (血案二次演出: V37.8.4 修复本身埋盲区) — V37.8.4 收工 Mac Mini E2E 即发现 2 个边缘：CNS1952 98/99 超窗口 + 1 过短老化率 99% 但未触发严格 old==total (MR-10 第 2 次演出：修复会埋坑)；SingTaoDaily 0-tweet stub (embed disabled 返回空骨架) 被 total>0 门槛绕过完全不标记。V37.8.5 修复：(1) 检测逻辑独立为 jobs/finance_news/finance_news_zombie.py 纯函数模块 (classify_zombie(diag, count)); (2) 三层 tier: "stub" (no_data=0 + total=0) + "stale" (≥90% 老化 + count=0 守卫防止低频活跃误报)，整数比较 old*10 >= total*9 避免浮点; (3) 24 单测锁定三层 + 守卫 + shell 集成 + auto_deploy FILE_MAP; (4) verification_layer 从 [declaration] 升级到 [declaration, runtime] (MR-6 遵循: INV-X-001 现在有 python_assert 真跑 5 个 tier 场景); (5) shell 脚本禁止内嵌 inline fallback (防模块缺失时静默降级回 V37.8.4 逻辑 — MR-8 copy-paste-is-a-bug-class 兑现)。诊断行 tier 区分 ⚠️ ZOMBIE嫌疑[stub] vs [stale]，便于日志定位。
-  total_invariants: 72  # V37.9.54: +1 INV-PLIST-ENV-001 (V37.9.51 baseline 71 → 72)
-  total_checks: 562     # V37.9.54: +10 (INV-RESTART-001 扩展 +5 V37.9.54 marker reload + INV-PLIST-ENV-001 新增 +5)
+  total_invariants: 72  # V37.9.58: 72 不变 (INV-CONVERGENCE-CRON-001 内涵升级非新增)
+  total_checks: 565     # V37.9.58: +3 (INV-CONVERGENCE-CRON-001 V37.9.58 守卫 — yaml dry_run_default false + convergence.py _is_dry_run 默认值反转 + meta version 0.8)
   meta_rules: 16        # MR-1~MR-16 (MR-16 security-governance-alignment: V37.9)
   meta_rule_discovery_count: 6   # Phase 0: registry + env + notify-topic + layer-depth + error-suppression + notify-activity
   check_types_used: [python_assert, file_contains, file_not_contains, env_var_exists, command_succeeds, log_activity_check]
