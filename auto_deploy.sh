@@ -4,7 +4,8 @@
 # 使用方式：加入系统 crontab，每 2 分钟执行一次
 # crontab: */2 * * * * bash ~/openclaw-model-bridge/auto_deploy.sh
 
-set -euo pipefail
+# V37.9.60 MR-19 err_trap_handler 契约: -E (errtrace) 让 function 内 fail 也触发 ERR trap
+set -eEuo pipefail
 
 # 防重叠执行（mkdir 原子锁，macOS 兼容）
 LOCK="/tmp/auto_deploy.lockdir"
@@ -17,6 +18,29 @@ export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 REPO_DIR="$HOME/openclaw-model-bridge"
 LOG="$HOME/.openclaw/logs/auto_deploy.log"
 mkdir -p "$(dirname "$LOG")"
+
+# ════════════════════════════════════════════════════════════════════
+# V37.9.60 MR-19 ERR trap: silent abort 变 loud
+# ════════════════════════════════════════════════════════════════════
+# 血案模式: auto_deploy 每 2min cron 跑 set -euo + 只有 trap EXIT 清锁, 无 trap ERR.
+# 若 git fetch fail / cp 错误 / md5 mismatch 流程异常 set -e abort, lockdir 被 EXIT
+# trap 正确清理, 但 [SYSTEM_ALERT] 不推送 → 高频 cron silent failures 累积无人察觉.
+# V37.9.60 加 ERR trap 链式 (与现有 EXIT trap 独立, bash trap 是 per-signal 独立).
+OPENCLAW_BIN="${OPENCLAW:-/opt/homebrew/bin/openclaw}"
+
+_auto_deploy_fatal_handler() {
+    local exit_code=$?
+    local line_no="${1:-unknown}"
+    local fatal_msg="[SYSTEM_ALERT] auto_deploy FATAL abort exit=${exit_code} line=${line_no} — 部署同步死亡! 每 2min cron silent 累积风险. V37.9.60 MR-19 横向推广. 排查 ${LOG} + bash -x ~/openclaw-model-bridge/auto_deploy.sh"
+    echo "[auto_deploy] 🚨 FATAL exit=${exit_code} at line=${line_no} (set -e abort)" >&2
+    echo "[$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')] auto_deploy FATAL abort exit=${exit_code} line=${line_no}" >> "$HOME/.openclaw_alerts.log" 2>/dev/null || true
+    # 三层 FAIL-OPEN: openclaw 直发 (auto_deploy 早期 stage notify.sh 可能未 source)
+    if [ -x "$OPENCLAW_BIN" ]; then
+        "$OPENCLAW_BIN" message send --channel discord --target "${DISCORD_CH_ALERTS:-}" --message "$fatal_msg" --json >/dev/null 2>&1 || true
+    fi
+    # trap EXIT 仍会执行 rmdir LOCK (链式 trap, 不需在 ERR handler 中重复清锁)
+}
+trap '_auto_deploy_fatal_handler $LINENO' ERR
 
 # 凌晨静默期：00:00-07:00 不推送告警（deploy/sync 照常，只是不发通知）
 is_quiet_hours() {

@@ -49,6 +49,7 @@ run_suite "v37_9_58_hotfix (V37.9.58-hotfix 8 ALIGNED jobs HG_LEVEL_4_TEXT 注�
 run_suite "heredoc_import_scanner (V37.9.58-hotfix2 MR-18 + INV-HEREDOC-IMPORT-001 framework 级 import 一致性 scanner)" "python3 test_heredoc_import_scanner.py"
 run_suite "watchdog_self_monitoring (V37.9.58-hotfix3 MR-19 + INV-WATCHDOG-SELF-001 watchdog silent abort 7 天血案 治本)" "python3 test_watchdog_self_monitoring.py"
 run_suite "watchdog_coverage (V37.9.59 watchdog 监控覆盖率 47%→74%+ JOBS +4 + LOG_FRESHNESS +11 + 自监控)" "python3 test_watchdog_coverage.py"
+run_suite "cron_monitor_scanner (V37.9.60 MR-19 err_trap_handler 契约横向推广 + INV-CRON-MONITOR-001 4 个 governed 监控脚本)" "python3 test_cron_monitor_scanner.py"
 run_suite "proxy_filters (工具过滤/截断/SSE)" "python3 test_tool_proxy.py"
 run_suite "check_registry (注册表校验器)" "python3 test_check_registry.py"
 run_suite "cron_health (锁/心跳/告警/完整性)" "python3 test_cron_health.py"
