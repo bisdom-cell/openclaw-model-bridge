@@ -1,5 +1,5 @@
 {
-  "updated": "2026-05-13 08:15:15",
+  "updated": "2026-05-13 08:52:15",
   "updated_by": "full_regression",
   "priorities": [
     {
@@ -106,6 +106,16 @@
   "recent_changes": [
     {
       "date": "2026-05-13",
+      "what": "V37.9.66-hotfix watchdog:721 bash quirk false-positive FATAL 修复 (V37.9.60-hotfix 同款反模式横向漏 audit). Mac Mini 5/13 16:30 实测触发 line 721 abort exit=2: bash quirk cmd && X || Y + set -eE + ERR trap 即使 set -e 在 && 上下文豁免不杀脚本, ERR trap 仍触发推 [SYSTEM_ALERT]. 改用 if-then-else (bash 文档明确豁免). 修 watchdog:721 + auto_deploy:520 两个 governed cron. 反向验证 sabotage → 1 fail / 还原 → 54/54 OK. 登记 7 处低风险 V37.9.67+ 候选. 元价值: V37.9.58-hotfix3 立 MR-19 trap ERR 让 silent abort 变 loud — 今天 alert 本身就是治理体系工作的硬实证, 同款反模式漏 audit 1 周后真激活才暴露 (反思文档类别 A OS quirk 第 N+1 次演出).",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-05-13",
+      "what": "复杂性 Bug 反思沉淀: ontology/docs/reflections/2026-05-13_complexity_bug_taxonomy.md. 5 大 bug 类别 (OS quirk / 设计假设错配 / 自动批量盲点 / 静默失败链 / 修复引入新 bug) + 三层防御 (架构/测试/ontology) + 5 个具体行动登记 V37.9.67+ 候选. 反思本身从 session 内对话升级为可查 framework 资产, ontology 治理体系扩展到 reflections/ 类别.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-05-13",
       "what": "V37.9.66 convergence framework 双向 sync primitives + _format_cron_line .openclaw/ path bug 修复. V37.9.65 用户 Mac Mini 实测发现 framework 单向 gap (line_contains_identifier 不检 interval/log) + 潜伏 path bug (拼 ~/jobs/ 实际跑 ~/.openclaw/jobs/). 5 层修复: path fix + extra_in_runtime 字段 + jobs_to_full_cron_lines extractor + cron_lines_set_diff parser + _apply remove_extras 调 V37.9.65 helper. spec yaml 暂不切换避免 34 job 路径 audit 风暴 (V37.9.67+ 候选). 20 新单测含反向验证 sabotage 真有效 (path fix 还原 → 4 fail / 删字段 → 5 fail + 30 errors). INV-CONVERGENCE-CRON-001 +10 checks. 83 suites/2853 tests/0 fail/governance v3.41→v3.42/75 inv/619→629 checks/安全 95/100/VERSION 0.37.9.65→0.37.9.66.",
       "by": "claude_code"
     },
@@ -195,17 +205,6 @@
       "date": "2026-05-12",
       "version": "V37.9.56-hotfix",
       "what": "V37.9.56 picker cache_paths 多 layout 修复 — Mac Mini 实测 0 picks 死局闭环 (MR-10 understand-before-fix 严格兑现). 真因: Mac Mini auto_deploy FILE_MAP 真实部署路径 ~/.openclaw/jobs/X/ (不是 ~/jobs/ 也不是 ~/openclaw-model-bridge/jobs/) + HN 例外 hn_watcher 子目录. ALIGNED_SOURCES schema cache_dir_rel (单路径) → cache_paths list (dev + Mac Mini 双候选 顺序优先 try) + _resolve_cache_dir() 纯函数 + 12 新单测 2 类 (TestV9_57MacMiniLayout + TestV9_57SchemaGuards) + 反向验证两层守卫真有效. 76 suites / 2590→2602 tests (+12) / 0 fail / VERSION 0.37.9.56 不变 (hotfix 不 bump). 元教训: 测试三层契约 (单测/dev/Mac Mini 真实部署) — deployment-specific 假设必须在 target env 验证, 否则 dev 全绿但生产 0 输出. MR-15 候选 deployment-layout-must-be-tested-on-target-not-tempdir.",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-05-12",
-      "version": "V37.9.56",
-      "what": "Sub-Stage 4c Top 5 高对齐推送 picker 完整兑现 — Opportunity Radar #2 三件套全量集成. 新文件 top_alignment_picker.py (~340 行纯 Python, 8 ALIGNED source 聚合 + 3 档排序 + FAIL-OPEN + log MR-11 stderr + lazy import project_alignment_scorer fallback 到 inline regex) + kb_dream.sh Phase 1.5 集成 #2 段 + kb_evening_collect.py build_evening_prompt 新增 top_alignment_picks 可选参数 + 60 新单测 (55 picker 含反向验证三层守卫 + 5 evening integration 守卫). auto_deploy FILE_MAP + full_regression 接入. PoC 阶段不立 INV (V37.9.46/47/48/49 同款 pattern, INV-RADAR-001 留 Stage 6). 累计 75→76 suites / 2530→2590 tests / 0 fail / governance v3.35 不变 / VERSION 0.37.9.55→0.37.9.56 / 安全 95/100. Mac Mini 部署后下次 22:00 evening / 03:00 kb_dream cron 自动用 #1+#2+#3 完整三件套. 数据复利路线从信息洪流升级为高价值早期信号 Top 5 前置 listing.",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-05-11",
-      "what": "V37.9.52 — Doubao Seed 2.0 Pro 接入第 8 个 provider (主力级 LLM, 与 Qwen3 同级). 新文件 providers.d/doubao_provider.py (Python plugin, ARK_API_KEY + ARK_ENDPOINT_ID env, fallback 公开 model 标识符 doubao-seed-2-0-pro). 选 OpenAI Chat Completions 兼容路径 (零 adapter.py 改动), Mac Mini 实测后 V37.9.53+ 若失败则进 Responses API translator. **V37 Provider Plugin Interface 首个真实插件触发 module 重入 bug** — python3 providers.py 直接执行时 plugin 内 from providers import 触发二次加载产生两份 BaseProvider 类 → issubclass 失败. 最小修复: providers.py 顶部 sys.modules alias. 32 新单测 5 类 (注册/env handling/能力/fallback chain/module 重入守卫/source-level guards) + 反向验证 (sabotage alias 立即 fail / 用户专属 endpoint ID 写代码立即 fail). auto_deploy FILE_MAP 加 providers.d/doubao_provider.py (V37 deployment debt 闭环). 累计 71→72 suites / 2431→2463 tests / 0 fail / 71 inv / 552 checks / providers 总数 7→8 / VERSION 0.37.9.51→0.37.9.52 / 安全 95/100. verified_*=False 待 Mac Mini 实测 (curl /chat/completions 探测 + WhatsApp 图片 E2E) 后 V37.9.53+ flip + fallback chain 优先级提升.",
       "by": "claude_code"
     }
   ],
@@ -320,7 +319,13 @@
       "V37.9.63+ 候选: (a) 6 脚本 Mac Mini cron 真激活验证 (ACL 周三 09:30 / karpathy_x 09:00,21:00 / openclaw_official 每日 / ontology_sources 10:00,20:00 / chaspark 11:00) (b) finance/freight/kb_dream/kb_inject by design 排除评估 (c) MR-8 抽 cron_monitor_fatal_handler.sh 公共 helper (V37.9.61 7 governed scripts copy-paste 是 MR-8 反例信号)",
       "V37.9.65 候选: convergence framework jobs_to_crontab spec 加 remove_extra 双向 sync — 当前 _apply_jobs_to_crontab_per_entry 只 add missing entries 不 remove extras, 改 yaml 后用户必须手动 crontab -e 删多余行. 升级路径: crontab_safe.sh 加 remove command + convergence.py 加 _identify_extra_entries 函数 + 配合 crontab_safe.sh remove 调用. 已知影响: V37.9.64 freight 改 3次→1次 用户必须手动删 2 行.",
       "V37.9.66 候选: convergence framework jobs_to_crontab spec 升级 line_contains_identifier 到完整 cron 行比较 — 当前只检 entry 字符串包含, 不检 interval/log 字段一致性. 后果: V37.9.64 改 yaml interval 0 14 * * * 后, framework 报 declared=N observed=N ok 零漂移, 但真 cron 仍是 0 8,14,20. 用户必须手动 remove+add. 升级路径: 在 _identifier_parsers 加 'cron_line_exact_match' 解析器 + jobs_to_crontab spec 改用 + _apply_jobs_to_crontab_per_entry 也支持 remove_extra (V37.9.65 crontab_safe.sh remove 已上线可调). 实际场景实证 V37.9.65 用户 freight 改频率发现.",
-      "V37.9.67 候选: convergence framework spec yaml jobs_to_crontab 切换 parser=cron_lines_set_diff + extractor=jobs_to_full_cron_lines 真激活双向 sync (V37.9.66 framework primitives 已就绪). 前置条件: 34 job 路径一致性 audit (yaml entry vs auto_deploy FILE_MAP 部署目标 vs Mac Mini runtime crontab path 三方对齐). 风险: 老 V27 脚本 entry=script.sh vs 新 V30+ entry=jobs/X/run_X.sh, _format_cron_line V37.9.66 path fix 已处理但需 audit 所有 34 job 验证拼出 cron 与 Mac Mini 真实行字面一致. 切换后 framework 改 yaml interval 自动 sync 不需用户手动 remove+add."
+      "V37.9.67 候选: convergence framework spec yaml jobs_to_crontab 切换 parser=cron_lines_set_diff + extractor=jobs_to_full_cron_lines 真激活双向 sync (V37.9.66 framework primitives 已就绪). 前置条件: 34 job 路径一致性 audit (yaml entry vs auto_deploy FILE_MAP 部署目标 vs Mac Mini runtime crontab path 三方对齐). 风险: 老 V27 脚本 entry=script.sh vs 新 V30+ entry=jobs/X/run_X.sh, _format_cron_line V37.9.66 path fix 已处理但需 audit 所有 34 job 验证拼出 cron 与 Mac Mini 真实行字面一致. 切换后 framework 改 yaml interval 自动 sync 不需用户手动 remove+add.",
+      "V37.9.67 P0: INV-CROSS-OS-001 跨 OS 测试矩阵 — dev 环境 BSD-mode 模拟 + 关键 cron 脚本 OS-specific 单测 (LC_ALL=C + set -eEo pipefail) + scanner 扫 awk/sed/date OS-portable 选项 + shell 函数禁 zsh-specific 语法. 防御本周 V37.9.58-hotfix3 / V37.9.60-hotfix / V37.9.56-hotfix2 等 OS quirk 类 bug. 见 ontology/docs/reflections/2026-05-13_complexity_bug_taxonomy.md 行动 1.",
+      "V37.9.67 P0: INV-PATH-CONSISTENCY-001 路径一致性 audit + 真激活 framework 双向 sync — scanner 守 34 jobs 三方对齐 (yaml entry ∈ FILE_MAP src 且 _format_cron_line({entry}) ∈ Mac Mini runtime crontab line). 不对齐 governance audit fail. 顺便完成 V37.9.67 候选 (spec yaml 切换 cron_lines_set_diff 真激活双向 sync, 前置条件 path audit). 防御 V37.9.66 类 path bug. 见 reflection 行动 2.",
+      "V37.9.67+ P1 (一周内): failure_modes_catalog.md 失败模式库 — ontology/docs/failure_modes_catalog.md 分类索引 ontology/docs/cases/ 17 个血案 + 元规则 + INV + 已发生次数 + 防御策略. 5 大类别 (A OS quirk / B 设计假设 / C 自动批量盲点 / D 静默失败链 / E 修复引入). 新 session 开工读 catalog 看类似工作前先查防御. 见 reflection 行动 3.",
+      "V37.9.67+ P1 (一周内): MR-18 真激活 + INV-AUTO-INJECT-001 — V37.9.58-hotfix2 立 MR-18 + heredoc_import_scanner 但 inject_*.py 工具没自己集成 scanner 还靠 governance audit 事后抓. 每个 inject_*/migrate_*/batch_*.py 工具必须: (a) 注入前 dry-run AST 解析 (b) 注入后内嵌 scanner self-validate (c) 失败整批 rollback. 工具自身加 source-level 守卫 import scanner 必须出现. 防御 V37.9.57 类自动批量工具盲点 (8 jobs NameError). 见 reflection 行动 4.",
+      "V37.9.67+ P2 (4 周观察后立 INV): 原则 #32 用户视角观察制度真执行 — 每周一开工第一件事 30min 不写代码不修 bug, 检查 4 维度 (告警噪声/推送延迟/信息密度/PA 表现). 发现项即 status_update.py --add unfinished 不当场修. 持续 4 周后立 INV-WEEKLY-USER-OBSERVATION-001 守卫周一观察项必有. 把 reactive feedback 升级为 proactive observation. 防御 vim 体验差 / freight 过频 / framework 零漂移真激活漏报 类用户视角 gap. 见 reflection 行动 5.",
+      "V37.9.67+ P1: 7 处同款 'cmd && X || Y' bash quirk 反模式 audit + 修齐 — V37.9.66-hotfix 已修 watchdog:721 + auto_deploy:520 两个 governed cron (有 trap ERR 真有 false-positive FATAL 风险), 漏 7 处低风险 (无 trap ERR 但未来加可能爆): preflight_check.sh:382/390/809/918/945 + gameday.sh:236/257 + smoke_test.sh:62. 全部改 if-then-else 形式. 顺便加 cron_monitor_scanner 全 repo 扫 'cmd && X || Y' 反模式, 作为 INV-CROSS-OS-001 一部分. 见 ontology/docs/reflections/2026-05-13_complexity_bug_taxonomy.md 类别 A OS quirk 第 N+1 次演出."
     ],
     "open_prs": "",
     "blocked_on": "",
@@ -361,10 +366,10 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 2853,
-    "last_regression": "2026-05-13 08:15 pass",
+    "test_count": 2855,
+    "last_regression": "2026-05-13 08:52 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-05-13 08:15",
+    "security_score_time": "2026-05-13 08:52",
     "test_suites": 83,
     "governance_invariants": "64/64",
     "governance_checks": "350/350",

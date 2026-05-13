@@ -517,7 +517,13 @@ if $HAS_NEW_COMMITS; then
         echo "$(date) 运行 preflight_check..." >> "$LOG"
         # V37.8.15: SKIP_PUSH_TEST=1 跳过 WhatsApp/Discord push test 实际发送
         # auto_deploy 有自己的告警通道(quiet_alert)，不需要 preflight 额外发送测试消息
-        PREFLIGHT_OUT=$(SKIP_PUSH_TEST=1 bash "$PREFLIGHT" --full 2>&1) && PREFLIGHT_RC=0 || PREFLIGHT_RC=$?
+        # V37.9.66-hotfix: bash quirk `cmd && X || Y` + set -eE + ERR trap 触发 false-positive FATAL.
+        # watchdog:721 同款 pattern 已在 5/13 16:30 实测触发. 改用 if-then-else 避免 ERR trap.
+        if PREFLIGHT_OUT=$(SKIP_PUSH_TEST=1 bash "$PREFLIGHT" --full 2>&1); then
+            PREFLIGHT_RC=0
+        else
+            PREFLIGHT_RC=$?
+        fi
         if [ $PREFLIGHT_RC -ne 0 ]; then
             # 提取失败项（只保留 ❌ 行）
             # V37.9.60-hotfix: grep no-match → pipefail + set -eE 让 ERR trap 误触发, 加 || true 容错
