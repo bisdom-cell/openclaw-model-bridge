@@ -1,6 +1,6 @@
 {
-  "updated": "2026-05-13 01:29:29",
-  "updated_by": "full_regression",
+  "updated": "2026-05-13 02:05:25",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -106,6 +106,16 @@
   "recent_changes": [
     {
       "date": "2026-05-13",
+      "what": "V37.9.61 MR-19 扩到 LLM-task 类 — V37.9.60-hotfix3 揭露 framework gap 闭环. SCRIPTS_REQUIRING_ERR_TRAP 从 4 → 7 (+3 LLM-task: kb_deep_dive/kb_evening/kb_review). kb_dream 不在 scope (严格 #28 最小修复: 仅 set -o pipefail 无 -e). 3 脚本各加 set -eEuo + inline _<script>_fatal_handler + trap ERR + 三层 FAIL-OPEN (notify→openclaw→.openclaw_alerts.log). INV-CRON-MONITOR-001 +9 declaration (3 脚本 × 3: fatal_handler + V37.9.61 marker + set -eEuo). test_cron_monitor_scanner.py +3 守卫 + 反向验证 sabotage 真有效 (3 fail/还原 OK). alternation 修 test_kb_deep_dive set -euo → set -e[E]uo + test_convergence audit_metadata 接受 v3.40. 累计 81 suites / 2782→2785 tests (+3) / 0 fail / governance v3.39→v3.40 / 75 inv 不变 (INV 内涵扩) / 600→609 checks / 19 meta rules / 安全 95/100 / VERSION 0.37.9.60→0.37.9.61. 元价值: 今日 5 commits 闭环 silent monitor 防御 framework 三阶段 (V37.9.58-hotfix3 单点 watchdog → V37.9.60 cron 聚合监控 → V37.9.61 LLM-task), V3 路标 pip install ontology-engine framework 边界进一步清晰.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-05-13",
+      "what": "V37.9.60-hotfix3: kb_deep_dive 5/8-5/12 5 天 silent abort 血案根治 — V37.9.21 我引入的 bash quirk (send_wa_parts 函数末尾 `[ X -lt Y ] && sleep 1` 单段时短路返回 1 → 函数 implicit return 1 → set -e 杀 caller → write_status/rsync 全 silent → last_run 停 5/7). 数据驱动诊断 5 个独立数据点定位 (fallback_chain doubao 已激活 / log 5 天markdown 真生成 / bash -x trace no_candidates 路径 / deep_dives/*.md 5 个文件存在 / crontab 2>&1 stderr 已捕获). 最小修复 2 行 return 0 + 注释引用血案锚点 + 4 反向验证守卫 (sabotage→fail/还原→OK). kb_dream.sh:1474 同款字面量但 main scope for 循环不杀 caller, 不需修. 揭露 V37.9.60 framework 设计 gap: SCRIPTS_REQUIRING_ERR_TRAP 只覆盖 cron 聚合监控类, 遗漏 LLM-task 类, V37.9.61 候选扩 MR-19 到 kb_deep_dive/kb_dream/kb_evening/kb_review. 累计 81 suites / 2778→2782 tests (+4) / 0 fail / VERSION 0.37.9.60 不变.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-05-13",
       "what": "V37.9.60-hotfix: bash quirk false-positive FATAL 横向修复 (V37.9.58-hotfix4 同款 grep | head pipe + set -eE 联合反模式) — Mac Mini 部署 V37.9.60 后用户跑 governance_audit_cron 立即触发 [SYSTEM_ALERT] FATAL × 2 推送 Discord. 真根因: governance_audit_cron line 76 GOV_VIOLATIONS=$(... grep \"❌\" | head -5) 无 || true 兜底; governance_checker.py 全过 (527/527 通过) 无 ❌ 输出 → grep no-match exit 1 → pipefail → set -eE + ERR trap 触发 false-positive FATAL. 同款反模式扫描出 3 文件 6 处: governance_audit_cron 3 处 (GOV_SUMMARY/VIOLATIONS/WARNINGS) + daily_ops_report 2 处 (CONV_REPORT/TOKEN_REPORT grep -v) + auto_deploy 2 处 (FAIL_LINES grep ❌ + CRON_COUNT crontab|grep|wc|tr). 全部加 || true 兜底 + V37.9.60-hotfix marker 注释. 3 个新 source-level 守卫加入 test_cron_monitor_scanner.py (49 tests, 反向验证 sabotage 真有效 sabotage→fail 还原→pass). 累计 81 suites / 2775 tests / 0 fail / 安全 95/100 / VERSION 0.37.9.60 不变 (hotfix 不 bump). 教训: V37.9.58-hotfix4 已警告此 quirk 但 V37.9.60 framework 化推广时未横向扫 grep pipe pattern (MR-10 understand-before-fix 第 N 次违反). MR-19 framework scanner 应将来加 grep_pipe_or_true 契约扫.",
       "by": "claude_code"
     },
@@ -196,16 +206,6 @@
     {
       "date": "2026-05-10",
       "what": "V37.9.50-hotfix — emit heredoc 缺 os import 导致 rule_check FAIL-OPEN 跳过 (Mac Mini 实测发现). 用户手动跑 S2 stderr WARN: name os is not defined → rule_check 全跳过 → 高对齐 0 (虚假值, LLM alignment 输出实际正确). 修复: emit heredoc line 420 import sys,json,re → import sys,json,re,os. 1 新源码守卫 test_v37_9_50_hotfix_emit_heredoc_imports_os. 70 suites / 2402→2403 tests / VERSION 0.37.9.50 不变. 用户视角原则 #13 第 17 次正向兑现 — dev 单测全过但实跑 stderr 才暴露 lazy import NameError. WhatsApp/Discord 推送内容质量优秀 (3 篇 ⭐⭐⭐⭐⭐ 全部 alignment 评分精准 直接增强控制平面/agent runtime 角色建模/反馈治理模块化), 用户反馈 \"质量不错\".",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-05-10",
-      "what": "V37.9.46 — Opportunity Radar Stage 1: 跨 source 弱信号聚合器 (DBSCAN 跨 14 sources + 290 notes/day). 设计文档 7.1 节 Stage 1 PoC = 仅交付独立模块 + 33 单测, 不集成下游 (Stage 4 才集成). 新文件 cross_source_signal_aggregator.py (~410 行 6 函数 + run/main CLI): scan_today_notes (frontmatter parse + tags 单值/list 双格式) / embed_notes (lazy numpy + local_embed.embed_texts + content_hash 16-char cache key) / cluster_dbscan (lazy sklearn + DBSCAN min_samples=3/eps=0.35/metric=cosine) / filter_cross_source (unique_sources≥2 跨源契约 + suggested_topic 中英文 regex top-3 keywords) / rank_signals (score=source_count×2+note_count+avg_intra_similarity×5) / emit_radar_json. FAIL-OPEN 全链路 (V37.4 同款 lazy import): numpy/sklearn/sentence_transformers 缺失 → status=fail_open_no_deps 不阻塞下游. MR-11 兑现: log() 写 stderr 防 $(...) 命令替换污染. 33 新单测 8 类 + 反向验证守卫真有效 (DBSCAN_MIN_SAMPLES=3→1 立即 AssertionError; 模块顶部加 import numpy → ModuleNotFoundError 在 import 时立即触发). 66 suites / 2313 tests (+33) / 0 fail / VERSION 0.37.9.45→0.37.9.46.",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-05-10",
-      "what": "V37.9.47 — Opportunity Radar Stage 2: project_alignment_scorer rule_check 验证层 + hf_papers 集成 (单脚本灰度). 设计文档 4 节锁定: #2 项目对齐度评分 = LLM 主观 ⭐ 数 + 离线 keyword-based rule_check 双层验证. 防 V37.9.45 hf_papers PoC 单 LLM 评分 hallucination. 新文件 project_alignment_scorer.py (~430 行 7 函数): load_project_concepts (轻 YAML parse + 行尾注释剥离) / count_keyword_hits (大小写不敏感 + 中英 substring + dedup + excluded × -2 降权) / compute_expected_range (5 档锁定: <0/0/1-2/3-4/5+ → ⭐1-2/2-3/3-4/4-5) / validate_alignment_score (LLM ⭐ vs expected_range 一致性 + 偏高/偏低 reason) / parse_6field_output (MR-8 与 hf_papers inline 行为一致) / extract_star_count / format_validation_marker. FAIL-OPEN 缺模块/yaml 跳过 rule_check 不阻塞 cron. hf_papers emit-stage 集成: lazy import + per-paper validate_alignment_score + 不一致时 ⚠️ <reason> 加入推送. 31 新单测 7 类 + 反向验证守卫真有效 (sed 阈值反转立即 fail). 67 suites / 2344 tests (+31) / 0 fail / VERSION 0.37.9.46→0.37.9.47.",
       "by": "claude_code"
     }
   ],
@@ -314,7 +314,9 @@
       "V37.9.58-hotfix5+ 候选: 反思 V37.9.58-hotfix3 → hotfix4 增量修复模式 = MR-20 候选立案 \"framework-level fix must validate in target environment, not dev\". 今日 hotfix3 设计三契约 (LC_ALL=C + ERR trap + canary) dev 29 单测全过 + 反向验证守卫真有效, 但 bash 3.2 quirk (set -e + function 内 fail 不传播 ERR trap, 必须 set -E) 在 Mac Mini 才暴露. V37.9.58-hotfix4 加 set -E + caller || 才真激活. 这是 MR-15 deployment-layout-must-be-tested-on-target 的姊妹版 — bash 版本/行为差异类似 layout 差异. 一周观察后立 MR-20.",
       "V37.9.60 部署后一周观察 (5/13-5/20): 3 个新 trap ERR 真激活效果 — governance_audit_cron / daily_ops_report / auto_deploy 任一 silent abort 时 Discord 应收到 [SYSTEM_ALERT] FATAL alert. 同时观察 V37.9.59 watchdog canary alive 每 4h 推送是否正常.",
       "V37.9.61+ 候选 [MR-8 single-source-of-truth]: 若未来扩展到 N 个监控考虑抽 cron_monitor_fatal_handler.sh 公共 helper. V37.9.60 PoC 选 inline 模式 (4 个脚本 copy-paste 可接受), 但每加 1 个监控就要复制 ~15 行 handler 是 MR-8 反例信号.",
-      "V37.9.60+ 候选 [MR-21 monitor-coverage-must-track-registry]: V37.9.59 立案准备 (watchdog 监控覆盖率 47%→74%+), baseline 5/12 + 7d = 5/19 一周观察后立 INV-WATCHDOG-COVERAGE-001. 任何新增 enabled job 必须 in JOBS 或 LOG_FRESHNESS_JOBS."
+      "V37.9.60+ 候选 [MR-21 monitor-coverage-must-track-registry]: V37.9.59 立案准备 (watchdog 监控覆盖率 47%→74%+), baseline 5/12 + 7d = 5/19 一周观察后立 INV-WATCHDOG-COVERAGE-001. 任何新增 enabled job 必须 in JOBS 或 LOG_FRESHNESS_JOBS.",
+      "V37.9.61 候选 [P1 — 扩 MR-19 到 LLM-task 类]: SCRIPTS_REQUIRING_ERR_TRAP 加 kb_deep_dive/kb_dream/kb_evening/kb_review (set -euo + 缺 trap ERR, V37.9.60-hotfix3 揭露的 framework 设计 gap). 每个加 inline _<script>_fatal_handler + trap ERR mirror V37.9.60 模式. 让 V37.9.21 同款 silent abort 未来直接被 scanner 抓, 不再靠 watchdog last_run 兜底发现.",
+      "V37.9.60+ 真激活观察 (今晚 5/13 22:30 + 明早 5/14 07:00): (a) kb_deep_dive 22:30 cron: 如有 ⭐≥4 候选应推送成功 + last_run 真更新到 5/13 22:30 status:ok (验证 hotfix3 修复) (b) governance_audit 07:00 cron: 不应再推 [SYSTEM_ALERT] FATAL false-positive (验证 hotfix1 修复) (c) watchdog 12:30 cron 应消失 kb_dream 状态不存在 + 治理审计 769h + auto_deploy 0h 三条误报 (验证 hotfix2 路径修正 + 整数除法 UX) (d) Discord canary alive 每 4h 推送验证 V37.9.59 watchdog 监控覆盖率扩展 + V37.9.58-hotfix3 元监控."
     ],
     "open_prs": "",
     "blocked_on": "",
@@ -355,10 +357,10 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 2782,
-    "last_regression": "2026-05-13 01:29 pass",
+    "test_count": 2785,
+    "last_regression": "2026-05-13 01:42 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-05-13 01:29",
+    "security_score_time": "2026-05-13 01:42",
     "test_suites": 81,
     "governance_invariants": "64/64",
     "governance_checks": "350/350",
@@ -426,7 +428,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "【V37.9.60 MR-19 err_trap_handler 契约横向推广】2026-05-13 用户 5/13 开工选 MR-19 三契约扫描路径推进 (V37.9.58-hotfix3 收工承诺兑现). scope 收敛: err_trap_handler 一个契约横向 (awk_safe/canary_writer 是 watchdog-specific 不普适). MR-19 治理对象 4 个: job_watchdog.sh (已合规) + governance_audit_cron.sh + daily_ops_report.sh + auto_deploy.sh. **不适用 4 个**: wa_keepalive (V37.9.59 LOG_FRESHNESS 已覆盖) / cron_canary (heartbeat writer) / health_check (周报无 set -e) / preflight_check (user-interactive). 新文件 cron_monitor_scanner.py + 3 个脚本 inline 加 set -eE* + fatal_handler + trap ERR. 46 单测 8 类含反向验证守卫. INV-CRON-MONITOR-001 立 (meta=MR-19, severity=high, decl+runtime, 18 checks). 82 suites / 2803 tests / 0 fail / governance v3.39 / 75 invariants (+1) / 600 checks (+18) / 19 meta rules (MR-19 在 V37.9.58-hotfix3 立案) / 安全 95/100 / VERSION 0.37.9.59→0.37.9.60. **Mac Mini 部署后立即行动**: (1) git fetch + reset 同步 V37.9.60 (2) 观察今晚/明早各 cron 触发 (governance_audit 07:00 / daily_ops 08:15 / auto_deploy 每 2min): 如任一 silent abort, ERR trap 主动推 [SYSTEM_ALERT] 到 Discord (不再 silent). **下次 V37.9.61+ 候选**: (a) 一周观察 trap ERR 真激活效果 (b) MR-8 抽 cron_monitor_fatal_handler.sh 公共 helper (c) MR-21 monitor-coverage-must-track-registry 立 INV-WATCHDOG-COVERAGE-001 (V37.9.59 baseline 5/12 + 7d = 5/19) (d) 元监控 cron_canary 外部检测 watchdog_canary.json (e) V37.9.30 EPERM + V37.9.35 推送质量观察.",
+  "focus": "【V37.9.61 MR-19 扩到 LLM-task 类】2026-05-13 一日内闭环 V37.9.60 + 3 hotfix + V37.9.61 五件套. V37.9.60-hotfix3 揭露的 framework gap 闭环: SCRIPTS_REQUIRING_ERR_TRAP 从 4 (cron 聚合监控类) 扩到 7 (+3 LLM-task: kb_deep_dive/kb_evening/kb_review). kb_dream 不在 scope (严格 #28: 仅 set -o pipefail 无 -e). 3 脚本加 set -eEuo + inline _<script>_fatal_handler + trap ERR 注册 + 三层 FAIL-OPEN. INV-CRON-MONITOR-001 +9 declaration / governance v3.39→v3.40 / 81 suites / 2785 tests / 0 fail / 75 invariants / 609 checks / VERSION 0.37.9.60→0.37.9.61. **Mac Mini 部署后立即行动**: (1) git fetch + reset 同步 V37.9.61 (2) 今晚 22:00 kb_evening + 22:30 kb_deep_dive cron 触发后, 任何 silent abort 立即推 [SYSTEM_ALERT] 到 Discord 不再 invisible. **下次 V37.9.62+ 候选**: (a) MR-8 抽 cron_monitor_fatal_handler.sh 公共 helper (现 7 脚本 copy-paste handler 是 MR-8 反例信号) (b) MR-19 grep_pipe_or_true 契约扩 scanner (V37.9.58-hotfix4 + V37.9.60-hotfix 同款 quirk 两次复演该 framework 化) (c) 元监控 cron_canary 外部检测 watchdog_canary.json (d) 5/19 立 INV-WATCHDOG-COVERAGE-001 + MR-21 candidate (V37.9.59 baseline 5/12 + 7d) (e) 5/20 V37.9.60 一周观察期截止评估.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",

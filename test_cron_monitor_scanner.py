@@ -205,17 +205,23 @@ class TestScanRepoIntegration(unittest.TestCase):
         self.assertEqual(findings, [], msg)
 
     def test_governed_scripts_list_locked(self):
-        """SCRIPTS_REQUIRING_ERR_TRAP 必须含 4 个核心脚本 (防漂移)"""
+        """SCRIPTS_REQUIRING_ERR_TRAP 必须含 7 个核心脚本 (V37.9.60 4 个 cron 聚合 + V37.9.61 3 个 LLM-task)"""
         required = {
+            # V37.9.58-hotfix3 / V37.9.60: cron 类聚合监控
             "job_watchdog.sh",
             "governance_audit_cron.sh",
             "daily_ops_report.sh",
             "auto_deploy.sh",
+            # V37.9.61: LLM-task 类 (V37.9.60-hotfix3 kb_deep_dive 5/8-5/12 血案揭露 framework gap)
+            "kb_deep_dive.sh",
+            "kb_evening.sh",
+            "kb_review.sh",
+            # kb_dream.sh 不在 (仅 set -o pipefail 无 -e, silent abort 不会发生)
         }
         self.assertEqual(
             set(scanner.SCRIPTS_REQUIRING_ERR_TRAP),
             required,
-            "SCRIPTS_REQUIRING_ERR_TRAP 漂移. V37.9.60 锁定 4 个 cron 类聚合监控",
+            "SCRIPTS_REQUIRING_ERR_TRAP 漂移. V37.9.61 锁定 7 个 governed scripts",
         )
 
 
@@ -378,9 +384,13 @@ class TestSourceLevelGuards(unittest.TestCase):
 
     def test_governed_scripts_have_eE_errtrace(self):
         """V37.9.58-hotfix4 教训: set -e* 加 -E 让 function 内 fail 传播 ERR trap"""
+        # V37.9.61 扩展: LLM-task 类 (kb_deep_dive/kb_evening/kb_review) 同款合规
         for script in ["governance_audit_cron.sh",
                        "daily_ops_report.sh",
-                       "auto_deploy.sh"]:
+                       "auto_deploy.sh",
+                       "kb_deep_dive.sh",
+                       "kb_evening.sh",
+                       "kb_review.sh"]:
             path = os.path.join(REPO_ROOT, script)
             with open(path, "r", encoding="utf-8") as f:
                 content = f.read()
@@ -393,6 +403,55 @@ class TestSourceLevelGuards(unittest.TestCase):
                 has_errtrace,
                 f"{script} 必须含 -E (errtrace) 选项 — V37.9.58-hotfix4 教训",
             )
+
+    def test_v37_9_61_llm_task_scripts_have_fatal_handler(self):
+        """V37.9.61: 3 个 LLM-task 脚本必须有 _<script>_fatal_handler 函数
+
+        揭露原因: V37.9.60-hotfix3 抓到 kb_deep_dive 5/8-5/12 5 天 silent abort,
+        scope 收敛为 framework 化预防 — 同款 set -euo + 缺 trap ERR + 推 [SYSTEM_ALERT]
+        的 LLM-task 脚本都加 trap ERR + handler.
+        """
+        expected_handlers = {
+            "kb_deep_dive.sh": "_kb_deep_dive_fatal_handler",
+            "kb_evening.sh": "_kb_evening_fatal_handler",
+            "kb_review.sh": "_kb_review_fatal_handler",
+        }
+        for script, handler in expected_handlers.items():
+            path = os.path.join(REPO_ROOT, script)
+            with open(path, "r", encoding="utf-8") as f:
+                content = f.read()
+            self.assertIn(
+                handler, content,
+                f"V37.9.61: {script} 必须含 {handler} 函数定义",
+            )
+            # 必须注册 trap ERR
+            self.assertIn(
+                f"trap '{handler} $LINENO' ERR", content,
+                f"V37.9.61: {script} 必须注册 trap '{handler} $LINENO' ERR",
+            )
+
+    def test_v37_9_61_llm_task_scripts_have_v37_9_61_marker(self):
+        """V37.9.61 marker 必须在 3 个 LLM-task 脚本中可追溯"""
+        for script in ["kb_deep_dive.sh", "kb_evening.sh", "kb_review.sh"]:
+            path = os.path.join(REPO_ROOT, script)
+            with open(path, "r", encoding="utf-8") as f:
+                content = f.read()
+            self.assertIn(
+                "V37.9.61", content,
+                f"V37.9.61: {script} 必须含 V37.9.61 marker (framework 化 LLM-task 类血案 lineage)",
+            )
+
+    def test_kb_dream_not_in_governed_scripts(self):
+        """kb_dream 不应在 SCRIPTS_REQUIRING_ERR_TRAP (仅 set -o pipefail 无 -e)
+
+        kb_dream.sh 行为不同于其他 LLM-task 脚本: 不启用 set -e, 命令失败不会杀脚本.
+        silent abort 风险不存在 (从 set -e 角度), 不需 trap ERR.
+        V37.9.61 严格 #28 最小修复原则 — 不无端加防御.
+        """
+        self.assertNotIn(
+            "kb_dream.sh", scanner.SCRIPTS_REQUIRING_ERR_TRAP,
+            "kb_dream.sh 仅 set -o pipefail, 不需 trap ERR (V37.9.61 严格 scope)",
+        )
 
     def test_governance_audit_grep_head_pipes_have_or_true(self):
         """V37.9.60-hotfix 反向守卫: grep | head subshell pipe 必须 || true 容错
