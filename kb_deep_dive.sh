@@ -210,6 +210,10 @@ send_wa_parts_via_notify() {
         # 段间间隔 1 秒，避免消息乱序（Dream 同款）
         [ "$WA_PART_IDX" -lt "$WA_PARTS_TOTAL" ] && sleep 1
     done
+    # V37.9.60-hotfix3: 防 bash quirk 单段时 `[ X -lt Y ] && sleep 1` 短路返回 1
+    # 让函数 implicit return 1 → set -e 杀 caller → write_status "ok" 不跑 → last_run 停滞
+    # 血案 (5/8-5/12 5 天 silent): markdown 写盘成功, 推送也成功, 但 last_run 没更新
+    return 0
 }
 
 send_wa_parts_via_openclaw() {
@@ -224,6 +228,8 @@ send_wa_parts_via_openclaw() {
         fi
         [ "$WA_PART_IDX" -lt "$WA_PARTS_TOTAL" ] && sleep 1
     done
+    # V37.9.60-hotfix3: 同款 bash quirk 防御 (镜像 send_wa_parts_via_notify)
+    return 0
 }
 
 if command -v notify >/dev/null 2>&1; then
