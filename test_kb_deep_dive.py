@@ -927,5 +927,68 @@ class TestV37_9_22_WaPartsMissingWarn(unittest.TestCase):
         self.assertNotIn("WARN", proc.stdout)
 
 
+class TestV37960Hotfix3SilentAbortFix(unittest.TestCase):
+    """V37.9.60-hotfix3 反向验证守卫:
+    send_wa_parts_via_notify / send_wa_parts_via_openclaw 函数末尾必须 `return 0`,
+    防 V37.9.21 引入的 bash quirk: `[ X -lt Y ] && sleep 1` 单段时短路返回 1,
+    函数 implicit return 1 → set -e 杀 caller → write_status 不跑 → last_run 停滞.
+
+    5/8-5/12 5 天血案: kb_deep_dive cron 每天 LLM ok → markdown 写盘 → 推送成功,
+    但 last_run.json 停在 5/7 22:30 status:llm_failed (前一次失败) 因为
+    write_status "ok" 在 send_wa_parts 后, 被 silent abort 杀.
+    """
+
+    def setUp(self):
+        self.script_path = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), "kb_deep_dive.sh"
+        )
+        with open(self.script_path, "r", encoding="utf-8") as f:
+            self.content = f.read()
+
+    def test_send_wa_parts_via_notify_ends_with_return_0(self):
+        """送 notify 函数末尾必须显式 `return 0` 防 bash quirk."""
+        # 找函数定义到下一个 `}` 之间的内容
+        import re
+        m = re.search(
+            r'send_wa_parts_via_notify\(\)\s*\{(.+?)^\}',
+            self.content, re.DOTALL | re.MULTILINE
+        )
+        self.assertIsNotNone(m, "找不到 send_wa_parts_via_notify 函数定义")
+        body = m.group(1)
+        self.assertIn("return 0", body,
+            "V37.9.60-hotfix3: send_wa_parts_via_notify 末尾必须 `return 0` 防 bash quirk 单段时 "
+            "`[ X -lt Y ] && sleep 1` 短路返回 1 → set -e 杀 caller. "
+            "血案 5/8-5/12 5 天 kb_deep_dive last_run 不更新.")
+
+    def test_send_wa_parts_via_openclaw_ends_with_return_0(self):
+        """送 openclaw 函数末尾同款保护."""
+        import re
+        m = re.search(
+            r'send_wa_parts_via_openclaw\(\)\s*\{(.+?)^\}',
+            self.content, re.DOTALL | re.MULTILINE
+        )
+        self.assertIsNotNone(m, "找不到 send_wa_parts_via_openclaw 函数定义")
+        body = m.group(1)
+        self.assertIn("return 0", body,
+            "V37.9.60-hotfix3: send_wa_parts_via_openclaw 末尾必须 `return 0` 防 bash quirk")
+
+    def test_v37_9_60_hotfix3_marker_present(self):
+        """V37.9.60-hotfix3 marker 必须在源码中可追溯."""
+        self.assertIn("V37.9.60-hotfix3", self.content,
+            "V37.9.60-hotfix3 marker 必须在 kb_deep_dive.sh 注释中追溯血案")
+
+    def test_blood_lesson_references_silent_abort(self):
+        """注释必须引用 5/8-5/12 silent 血案 + V37.9.21 quirk 来源."""
+        self.assertIn("bash quirk", self.content,
+            "V37.9.60-hotfix3: 必须引用 bash quirk 作为根因")
+        # 引用 silent + last_run 或 5/8-5/12 之一作为血案证据
+        has_blood_marker = any(
+            keyword in self.content for keyword in
+            ["silent", "5/8-5/12", "set -e 杀 caller", "last_run 停滞", "implicit return"]
+        )
+        self.assertTrue(has_blood_marker,
+            "V37.9.60-hotfix3: 必须含血案锚点 (silent / 5/8-5/12 / set -e 杀 / etc)")
+
+
 if __name__ == "__main__":
     unittest.main()
