@@ -177,7 +177,9 @@ JOBS=(
     # KB Deep Dive: 每天22:30 → 最多静默 50h (V37.9.16 新增, 漏监控至 V37.9.58 后)
     "kb_deep_dive|$HOME/.kb/last_run_deep_dive.json|180000|KB每日深度|core"
     # KB Dream: 每天03:00 + 子阶段 map_sources(00:00) + map_notes(00:40) → 最多静默 50h
-    "kb_dream|$HOME/.kb/last_run_dream.json|180000|Agent Dream|core"
+    # V37.9.60-hotfix2: kb_dream.sh:103 实际写 $DREAM_DIR/.last_run.json (= ~/.kb/dreams/.last_run.json)
+    #   V37.9.59 假设 ~/.kb/last_run_dream.json 路径错配, 导致 watchdog 永远 "状态文件不存在" 误报
+    "kb_dream|$HOME/.kb/dreams/.last_run.json|180000|Agent Dream|core"
     # Chaspark: 每天11:00 学术抓取 → 最多静默 50h
     "chaspark|$HOME/.openclaw/jobs/chaspark/cache/last_run.json|180000|Chaspark学术|auxiliary"
     # Governance Audit: 每天07:00 → 最多静默 50h
@@ -484,15 +486,26 @@ check_log_freshness() {
     fi
     local ELAPSED=$(( NOW_EPOCH - LOG_MOD ))
     if [ "$ELAPSED" -gt "$max_silence" ]; then
-        local ELAPSED_HOURS=$(( ELAPSED / 3600 ))
-        local MAX_HOURS=$(( max_silence / 3600 ))
-        local msg="${display_name}: log ${ELAPSED_HOURS}h 未更新 (阈值 ${MAX_HOURS}h, 仅有 log mtime 监控, V37.9.59)"
+        # V37.9.60-hotfix2: 整数除法 UX 修复 — max_silence=600s 在 V37.9.59 永远显示 "0h 阈值 0h"
+        # 修法: ELAPSED >= 3600 显示 h, 否则显示 m; max_silence 同理
+        local ELAPSED_UNIT MAX_UNIT
+        if [ "$ELAPSED" -ge 3600 ]; then
+            ELAPSED_UNIT="$(( ELAPSED / 3600 ))h"
+        else
+            ELAPSED_UNIT="$(( ELAPSED / 60 ))m"
+        fi
+        if [ "$max_silence" -ge 3600 ]; then
+            MAX_UNIT="$(( max_silence / 3600 ))h"
+        else
+            MAX_UNIT="$(( max_silence / 60 ))m"
+        fi
+        local msg="${display_name}: log ${ELAPSED_UNIT} 未更新 (阈值 ${MAX_UNIT}, 仅有 log mtime 监控, V37.9.59)"
         case "$tier" in
             core) CORE_ALERTS+=("🔴 ${msg}") ;;
             auxiliary) AUX_ALERTS+=("🟡 ${msg}") ;;
             *) EXP_ALERTS+=("⚪ ${msg}") ;;
         esac
-        ALERTS+=("${display_name}: log ${ELAPSED_HOURS}h 未更新（阈值 ${MAX_HOURS}h）")
+        ALERTS+=("${display_name}: log ${ELAPSED_UNIT} 未更新（阈值 ${MAX_UNIT}）")
         STATS_WARN=$((STATS_WARN + 1))
     else
         STATS_PASS=$((STATS_PASS + 1))

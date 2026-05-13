@@ -52,10 +52,21 @@ class TestV37959JobsArrayExpansion(unittest.TestCase):
         )
 
     def test_kb_dream_in_jobs(self):
-        """kb_dream (Agent Dream Reduce 03:00) 必须在 JOBS 数组."""
+        """kb_dream (Agent Dream Reduce 03:00) 必须在 JOBS 数组.
+
+        V37.9.60-hotfix2: 路径修正为 kb_dream.sh:103 实际写入的
+        $DREAM_DIR/.last_run.json (= ~/.kb/dreams/.last_run.json).
+        V37.9.59 假设 ~/.kb/last_run_dream.json 路径错配, 导致 watchdog 永远
+        "状态文件不存在" 误报触发 core alert.
+        """
         self.assertIn(
+            "kb_dream|$HOME/.kb/dreams/.last_run.json", self.src,
+            "V37.9.60-hotfix2: kb_dream 路径必须匹配 kb_dream.sh:103 STATUS_FILE"
+        )
+        # 反向守卫: 旧 V37.9.59 错配路径不得回归
+        self.assertNotIn(
             "kb_dream|$HOME/.kb/last_run_dream.json", self.src,
-            "V37.9.59: kb_dream 必须加入 JOBS 数组"
+            "V37.9.60-hotfix2: 禁止回退到 V37.9.59 错配路径 ~/.kb/last_run_dream.json"
         )
 
     def test_chaspark_in_jobs(self):
@@ -277,6 +288,39 @@ class TestSourceLevelGuards(unittest.TestCase):
             "V37.9.58-hotfix4 marker 必须保留")
         self.assertIn("set -eEo pipefail", self.src,
             "V37.9.58-hotfix4 set -eEo pipefail 必须保留")
+
+    def test_v37_9_60_hotfix2_marker_present(self):
+        """V37.9.60-hotfix2: 修 V37.9.59 我引入的两个 bug (kb_dream 路径 + 整数除法 UX)."""
+        self.assertIn("V37.9.60-hotfix2", self.src,
+            "V37.9.60-hotfix2 marker 必须在 watchdog 中可追溯")
+
+    def test_v37_9_60_hotfix2_check_log_freshness_uses_minutes(self):
+        """V37.9.60-hotfix2: check_log_freshness 必须根据 ELAPSED/max_silence 大小动态切换单位.
+
+        V37.9.59 整数除法 bug — max_silence=600s 永远显示 "0h 阈值 0h" 用户无法判断严重度.
+        修法: ELAPSED >= 3600 显示 h, 否则显示 m; max_silence 同理.
+        """
+        self.assertIn("ELAPSED_UNIT", self.src,
+            "V37.9.60-hotfix2: check_log_freshness 必须用 ELAPSED_UNIT 动态单位变量")
+        self.assertIn("MAX_UNIT", self.src,
+            "V37.9.60-hotfix2: check_log_freshness 必须用 MAX_UNIT 动态单位变量")
+        # 反向守卫: 旧整数除法字面量不得回归
+        self.assertNotIn('ELAPSED_HOURS=$(( ELAPSED / 3600 ))', self.src,
+            "V37.9.60-hotfix2: 禁止回退到 V37.9.59 整数除法 (max_silence < 3600 时永远显示 0h)")
+        self.assertNotIn('MAX_HOURS=$(( max_silence / 3600 ))', self.src,
+            "V37.9.60-hotfix2: 禁止回退到 V37.9.59 max_silence 整数除法")
+
+    def test_v37_9_60_hotfix2_alert_message_uses_dynamic_unit(self):
+        """V37.9.60-hotfix2: ALERTS+= 推送消息也必须用 ELAPSED_UNIT/MAX_UNIT."""
+        # 找含 ALERTS+ 且 含 "log" 且 含 "未更新" 的行 (check_log_freshness 内的 ALERTS+=)
+        found_dynamic_unit_in_alerts = False
+        for line in self.src.split("\n"):
+            if "ALERTS+=" in line and "log " in line and "未更新" in line:
+                if "ELAPSED_UNIT" in line and "MAX_UNIT" in line:
+                    found_dynamic_unit_in_alerts = True
+                    break
+        self.assertTrue(found_dynamic_unit_in_alerts,
+            "V37.9.60-hotfix2: ALERTS+= 推送消息必须用 ELAPSED_UNIT + MAX_UNIT 而非硬编码 h")
 
 
 if __name__ == "__main__":
