@@ -117,15 +117,18 @@ ConvergenceResult = namedtuple(
         "declared",           # frozenset[str] — identifiers declared in source
         "observed",           # frozenset[str] — identifiers found in runtime
         "missing_in_runtime", # frozenset[str] — declared but not observed (drift)
-        "drift_detected",     # bool — True iff missing_in_runtime is non-empty
+        "drift_detected",     # bool — True iff missing_in_runtime OR extra_in_runtime non-empty (V37.9.66)
         "drift_action",       # str — from spec (alert_only by default)
         "error",              # str | None — FAIL-OPEN: non-None means partial result
         # V37.9.23 — machine_sync apply tracking (defaults preserve V37.9.22 contract):
         "applied_actions",    # tuple[str] — what was applied (or "would apply" if dry-run)
         "apply_dry_run",      # bool — True iff machine_sync ran in dry-run mode
         "apply_errors",       # tuple[str] — per-missing-entry apply failures (machine_sync only)
+        # V37.9.66 — extra_in_runtime for bidirectional sync (defaults preserve V37.9.23 contract):
+        "extra_in_runtime",   # frozenset[str] — observed but not declared (V37.9.66 双向 sync, 默认 frozenset())
     ],
-    defaults=((), True, ()),  # only last 3 fields have defaults — preserves backward-compat
+    # defaults align to last N fields — V37.9.23 added 3, V37.9.66 added 1 (4 total)
+    defaults=((), True, (), frozenset()),
 )
 
 
@@ -141,6 +144,7 @@ def _empty_result(spec_id, error=None, drift_action=_DEFAULT_DRIFT_ACTION):
         applied_actions=(),
         apply_dry_run=True,
         apply_errors=(),
+        extra_in_runtime=frozenset(),  # V37.9.66
     )
 
 
@@ -424,10 +428,51 @@ def _extract_providers_from_registry(spec):
     return {str(n) for n in (names or []) if n}
 
 
+# V37.9.66: 新 extractor — 输出每个 enabled+system job 的完整 cron line (用 _format_cron_line).
+# 用途: 配合 cron_lines_set_diff parser 实现完整 cron 行精确匹配 (V37.9.65 line_contains_identifier 升级版),
+# 让 framework 检测 interval/log 字段漂移 (当前 line_contains_identifier 只检 entry 包含, 漏掉 interval 改动).
+# V37.9.66 实施: extractor 已注册可用, 但 jobs_to_crontab spec yaml 暂不切换 (避免 34 job 路径一致性 audit 风暴,
+# V37.9.67+ 候选). _format_cron_line V37.9.66 已修 jobs/ entry .openclaw/ 前缀确保拼出 path 与 runtime 一致.
+def _extract_jobs_to_full_cron_lines(spec):
+    """V37.9.66 extractor: yield full cron lines for each enabled+system job.
+
+    Returns: set[str] of full cron lines (each formatted by _format_cron_line).
+    Skips jobs that fail _format_cron_line validation (malformed registry entry).
+    Skips jobs with scheduler != "system" or enabled != True.
+
+    FAIL-OPEN: registry load failure → raise RuntimeError, framework 转 extractor_failed.
+    Individual malformed jobs are silently skipped (defensive — single bad job not
+    halt extraction of others).
+    """
+    decl = spec.get("declaration", {})
+    src = decl.get("source", "jobs_registry.yaml")
+    src_path = Path(__file__).resolve().parent.parent / src
+    try:
+        data = _load_yaml(src_path)
+    except Exception as e:
+        raise RuntimeError(f"registry load failed for cron-line extractor: {e}")
+
+    lines = set()
+    for job in data.get("jobs", []) or []:
+        if not job.get("enabled"):
+            continue
+        if job.get("scheduler") != "system":
+            continue
+        try:
+            line = _format_cron_line(job)
+            lines.add(line)
+        except ValueError:
+            # malformed job (missing fields / bad metachar) — skip silently,
+            # other jobs continue. INV-CRON-003 守卫单独校验 job format.
+            continue
+    return lines
+
+
 _DECLARED_EXTRACTORS = {
     "registry_enabled_system_jobs": _extract_registry_enabled_system_jobs,
     "registry_kb_source_files": _extract_registry_kb_source_files,
     "providers_from_registry": _extract_providers_from_registry,
+    "jobs_to_full_cron_lines": _extract_jobs_to_full_cron_lines,  # V37.9.66
     "json_file_paths": _extract_json_file_paths,
     "services_from_registry": _extract_services_from_registry,  # V37.9.25 — fifth spec
 }
@@ -627,10 +672,34 @@ def _parse_json_set_union(spec, raw, declared):
     return union & set(declared)
 
 
+# V37.9.66: 新 parser — 输出 raw 中所有非注释/非空行作为 set, 不与 declared 求交.
+# 用途: 配合 jobs_to_full_cron_lines extractor 实现完整 cron 行精确匹配 (declared 是完整 cron lines,
+# observed 是 raw cron 行 set, missing = declared - observed, extra = observed - declared).
+# 关键差异 vs line_contains_identifier: 不丢 observed extras (V37.9.65 line_contains_identifier
+# 是 framework "observed ⊆ declared" 单向 sync, 漏检 runtime 多余行).
+# 与 ConvergenceResult.extra_in_runtime 字段 (V37.9.66 新增) 配套使用.
+def _parse_cron_lines_set_diff(spec, raw, declared):
+    """V37.9.66 parser: return all non-comment/non-empty raw lines as set.
+
+    Does NOT intersect with declared (V37.9.66 deliberate — 让 verify_convergence
+    顶层计算 missing = declared - observed AND extra = observed - declared 实现双向 sync).
+    """
+    if not raw:
+        return set()
+    observed = set()
+    for line in raw.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        observed.add(stripped)
+    return observed
+
+
 _IDENTIFIER_PARSERS = {
     "line_contains_identifier": _parse_line_contains_identifier,
     "line_contains_word_boundary": _parse_line_contains_word_boundary,
     "json_set_union": _parse_json_set_union,
+    "cron_lines_set_diff": _parse_cron_lines_set_diff,  # V37.9.66
 }
 
 
@@ -748,8 +817,18 @@ def _format_cron_line(job):
         # accept bare path by adding ~/ for compatibility.
         log_resolved = "~/" + log
 
+    # V37.9.66: jobs/ 开头的 entry 部署到 ~/.openclaw/{entry} (auto_deploy FILE_MAP 约定),
+    # 其他 entry (老 V27 系统脚本如 health_check.sh) 部署到 ~/{entry} 直接保留.
+    # 之前 _format_cron_line 一律拼 ~/{entry}, framework 未来真激活 add 时会拼错路径
+    # (~/jobs/... 不存在文件, 真实路径是 ~/.openclaw/jobs/...). 潜伏 bug, 当前因
+    # missing=0 没触发. V37.9.66 修复确保未来真激活时拼路径与 Mac Mini runtime 一致.
+    if entry.startswith("jobs/"):
+        entry_runtime = ".openclaw/" + entry
+    else:
+        entry_runtime = entry
+
     # Match V37.9.18 INV-CRON-003 pattern: bash -lc 'bash ~/{entry} >> {log} 2>&1'
-    return f"{interval} bash -lc 'bash ~/{entry} >> {log_resolved} 2>&1'"
+    return f"{interval} bash -lc 'bash ~/{entry_runtime} >> {log_resolved} 2>&1'"
 
 
 def _load_jobs_registry_index(spec):
@@ -775,16 +854,21 @@ def _load_jobs_registry_index(spec):
     return by_entry
 
 
-def _apply_jobs_to_crontab_per_entry(spec, missing_entries, dry_run):
+def _apply_jobs_to_crontab_per_entry(spec, missing_entries, dry_run, extra_entries=frozenset()):
     """V37.9.23 jobs_to_crontab apply path — per-entry crontab_safe.sh add.
+    V37.9.66: 加 extra_entries 参数支持双向 sync (调 crontab_safe.sh remove).
 
     For each missing entry, look up the corresponding job in jobs_registry,
     format a cron line via _format_cron_line, and (in real mode) invoke
     crontab_safe.sh add. dry-run mode emits "DRY-RUN would apply: <line>"
     instead of executing subprocess.
 
-    FAIL-OPEN: per-entry errors (registry mismatch / format failure / subprocess
-    failure) become individual entries in apply_errors. Other entries continue.
+    V37.9.66: For each extra_entry (full cron line in runtime but not declared),
+    invoke crontab_safe.sh remove with the cron line as pattern (grep -F 固定字符串).
+    dry-run mode emits "DRY-RUN would remove: <line>".
+
+    FAIL-OPEN: per-entry errors become individual entries in apply_errors.
+    Other entries continue. extra_entries 默认 frozenset() — 向后兼容 V37.9.23 调用.
     """
     try:
         by_entry = _load_jobs_registry_index(spec)
@@ -794,41 +878,42 @@ def _apply_jobs_to_crontab_per_entry(spec, missing_entries, dry_run):
     applied = []
     errors = []
 
+    # V37.9.23 — Add missing entries (declared 中有 runtime 中缺)
     for entry in sorted(missing_entries):
-        job = by_entry.get(entry)
-        if job is None:
-            # Missing identifier doesn't correspond to a current registry job —
-            # registry was edited between extraction and apply, OR identifier
-            # is stale. Don't fabricate cron lines.
-            errors.append(f"{entry}: not in current registry (stale identifier?)")
-            continue
-
-        try:
-            cron_line = _format_cron_line(job)
-        except ValueError as e:
-            errors.append(f"{entry}: format_cron_line failed: {e}")
-            continue
+        # V37.9.66: 若 missing_entries 是完整 cron lines (cron_lines_set_diff parser 输出),
+        # 直接用 entry 作 cron line; 否则 (line_contains_identifier 旧 parser) 查 registry.
+        if entry.startswith(("@", "0", "1", "2", "3", "4", "5", "*")) and " " in entry:
+            # 看起来是完整 cron line (以时间字段开头 + 含空格), V37.9.66 cron_lines_set_diff 路径
+            cron_line = entry
+        else:
+            # entry 是 identifier (registry entry field), V37.9.65 line_contains_identifier 路径
+            job = by_entry.get(entry)
+            if job is None:
+                errors.append(f"{entry}: not in current registry (stale identifier?)")
+                continue
+            try:
+                cron_line = _format_cron_line(job)
+            except ValueError as e:
+                errors.append(f"{entry}: format_cron_line failed: {e}")
+                continue
 
         if dry_run:
             applied.append(f"DRY-RUN would apply: {cron_line}")
             continue
 
-        # Real apply path — call crontab_safe.sh add via subprocess.
         helper = os.path.expanduser("~/crontab_safe.sh")
         if not os.path.exists(helper):
-            # Defensive: dev environments without crontab_safe.sh deployed.
             errors.append(f"{entry}: crontab_safe.sh not found at {helper}")
             continue
 
         try:
             proc = subprocess.run(
                 ["bash", helper, "add", cron_line],
-                capture_output=True,
-                text=True,
+                capture_output=True, text=True,
                 timeout=_MACHINE_SYNC_TIMEOUT_SEC,
             )
         except subprocess.TimeoutExpired:
-            errors.append(f"{entry}: crontab_safe.sh timed out after {_MACHINE_SYNC_TIMEOUT_SEC}s")
+            errors.append(f"{entry}: crontab_safe.sh add timed out after {_MACHINE_SYNC_TIMEOUT_SEC}s")
             continue
         except FileNotFoundError as e:
             errors.append(f"{entry}: bash binary missing: {e}")
@@ -843,14 +928,52 @@ def _apply_jobs_to_crontab_per_entry(spec, missing_entries, dry_run):
                 f"stderr={proc.stderr[:200].strip()}"
             )
             continue
-
         applied.append(f"applied: {cron_line}")
+
+    # V37.9.66 — Remove extra entries (runtime 中有 declared 中没的) via crontab_safe.sh remove
+    # 注意: extra_entries 仅在 spec 用 cron_lines_set_diff parser 时非空; V37.9.65
+    # line_contains_identifier 路径下 framework 保证 observed ⊆ declared 始终 extra 空.
+    for extra_line in sorted(extra_entries):
+        if dry_run:
+            applied.append(f"DRY-RUN would remove: {extra_line}")
+            continue
+
+        helper = os.path.expanduser("~/crontab_safe.sh")
+        if not os.path.exists(helper):
+            errors.append(f"extra_remove: crontab_safe.sh not found at {helper}")
+            continue
+
+        # V37.9.65 cmd_remove 用 grep -F 固定字符串匹配整个 cron line
+        try:
+            proc = subprocess.run(
+                ["bash", helper, "remove", extra_line],
+                capture_output=True, text=True,
+                timeout=_MACHINE_SYNC_TIMEOUT_SEC,
+            )
+        except subprocess.TimeoutExpired:
+            errors.append(f"extra_remove: crontab_safe.sh remove timed out after {_MACHINE_SYNC_TIMEOUT_SEC}s")
+            continue
+        except FileNotFoundError as e:
+            errors.append(f"extra_remove: bash binary missing: {e}")
+            continue
+        except Exception as e:
+            errors.append(f"extra_remove: subprocess unexpected error: {type(e).__name__}: {e}")
+            continue
+
+        if proc.returncode != 0:
+            errors.append(
+                f"extra_remove: crontab_safe.sh remove exit={proc.returncode}: "
+                f"stderr={proc.stderr[:200].strip()}"
+            )
+            continue
+        applied.append(f"removed: {extra_line}")
 
     return tuple(applied), tuple(errors), dry_run
 
 
-def _apply_kb_embed_incremental(spec, missing_entries, dry_run):
+def _apply_kb_embed_incremental(spec, missing_entries, dry_run, extra_entries=frozenset()):
     """V37.9.24 kb_sources_to_index apply path — single kb_embed.py incremental call.
+    V37.9.66: accept extra_entries parameter (ignored — kb_embed.py 没有 remove indexed sources 语义).
 
     Unlike jobs_to_crontab (per-entry helper call), kb_embed.py is invoked
     ONCE per machine_sync trigger regardless of how many sources are missing.
@@ -934,41 +1057,37 @@ _APPLY_FUNCTIONS = {
 }
 
 
-def _apply_machine_sync(spec, missing_entries, dry_run=None):
+def _apply_machine_sync(spec, missing_entries, extra_entries=frozenset(), dry_run=None):
     """Top-level machine_sync dispatcher — route to spec-specific apply path.
 
-    V37.9.23 introduced this helper as a single-spec implementation
-    (jobs_to_crontab only). V37.9.24 refactored it into a named-dispatch
-    top-level router; the original logic moved to
-    _apply_jobs_to_crontab_per_entry. spec yaml's
-    convergence_method.apply_function field selects the dispatcher.
+    V37.9.23 introduced this helper as a single-spec implementation. V37.9.24
+    refactored it into a named-dispatch top-level router via apply_function field.
+    V37.9.66: 加 extra_entries 参数支持双向 sync. apply functions 接受 4 个参数:
+    (spec, missing_entries, dry_run, extra_entries=frozenset()).
 
     Args:
         spec: convergence spec dict
-        missing_entries: iterable of identifier strings (e.g. {"kb_deep_dive.sh"}
-            for jobs_to_crontab, or {"arxiv_daily.md"} for kb_sources_to_index)
+        missing_entries: iterable — declared 中有 runtime 中缺的 identifiers
+        extra_entries: V37.9.66 — runtime 中有 declared 中缺的 identifiers (双向 sync)
+            默认 frozenset() — 向后兼容 V37.9.23 调用 (line_contains_identifier 单向 parser
+            自动保证 observed ⊆ declared, 所以 extra 永远空, 无需此参数)
         dry_run: explicit override; if None, reads CONVERGENCE_DRY_RUN env
 
     Returns:
         (applied_actions: tuple[str], apply_errors: tuple[str], dry_run: bool)
 
     FAIL-OPEN: unknown apply_function → apply_errors entry, dry_run preserved.
-    Missing apply_function → apply_errors. All sub-dispatcher failures are
-    caught here as defense-in-depth.
     """
     if dry_run is None:
         dry_run = _is_dry_run()
 
-    if not missing_entries:
+    # V37.9.66: 任一非空触发 apply (missing OR extra)
+    if not missing_entries and not extra_entries:
         return (), (), dry_run
 
     method = spec.get("convergence_method") or {}
     apply_fn_name = method.get("apply_function") or ""
 
-    # V37.9.24: spec yaml may not yet declare apply_function for legacy specs.
-    # Default to spec.id-based fallback for backward compat (V37.9.23 jobs_to_crontab
-    # spec was deployed before apply_function field existed). New specs MUST
-    # declare apply_function explicitly in yaml (validated by governance).
     if not apply_fn_name:
         legacy_id_fallback = {
             "jobs_to_crontab": "jobs_to_crontab_per_entry",
@@ -983,10 +1102,9 @@ def _apply_machine_sync(spec, missing_entries, dry_run=None):
         ), dry_run
 
     try:
-        return fn(spec, missing_entries, dry_run)
+        # V37.9.66: 传 extra_entries 给 apply function (kwarg 形式向后兼容 V37.9.23 函数签名)
+        return fn(spec, missing_entries, dry_run, extra_entries=extra_entries)
     except Exception as e:
-        # Defense-in-depth: sub-dispatcher should be FAIL-OPEN already, but
-        # if it raises by mistake we don't let it bubble to verify_convergence.
         return (), (
             f"apply_function {apply_fn_name!r} raised: {type(e).__name__}: {e}",
         ), dry_run
@@ -1060,17 +1178,24 @@ def verify_convergence(spec_id, specs=None, path=None):
         )
     observed_fs = frozenset(observed)
 
-    # 5. Compute drift
+    # 5. Compute drift (V37.9.66: 双向 sync — missing AND extra)
     missing = declared_fs - observed_fs
+    # V37.9.66: extra_in_runtime — observed 中有但 declared 中没有的 (runtime 多余项)
+    # 仅当 parser 输出真"set diff" 形式 (e.g. cron_lines_set_diff) 时有意义。
+    # line_contains_identifier / json_set_union 等 V37.9.65 旧 parser 自己做 observed ⊆ declared
+    # 求交, observed_fs ⊆ declared_fs 始终成立, extra 永远 frozenset() — 向后兼容.
+    extra = observed_fs - declared_fs
 
     # 6. V37.9.23 — machine_sync apply (only if drift_action says so AND drift detected)
+    # V37.9.66: drift_detected 现在含 extra (双向 sync), apply 路径也接受 extra 触发
     applied_actions = ()
     apply_dry_run = True
     apply_errors = ()
-    if missing and drift_action == "machine_sync":
+    if (missing or extra) and drift_action == "machine_sync":
         try:
+            # V37.9.66: 新签名 _apply_machine_sync(spec, missing, extra, dry_run=None)
             applied_actions, apply_errors, apply_dry_run = _apply_machine_sync(
-                spec, missing
+                spec, missing, extra_entries=extra
             )
         except Exception as e:
             # _apply_machine_sync is supposed to be FAIL-OPEN, but defense-in-depth.
@@ -1082,12 +1207,13 @@ def verify_convergence(spec_id, specs=None, path=None):
         declared=declared_fs,
         observed=observed_fs,
         missing_in_runtime=missing,
-        drift_detected=bool(missing),
+        drift_detected=bool(missing or extra),  # V37.9.66 双向
         drift_action=drift_action,
         error=None,
         applied_actions=applied_actions,
         apply_dry_run=apply_dry_run,
         apply_errors=apply_errors,
+        extra_in_runtime=extra,  # V37.9.66
     )
 
 

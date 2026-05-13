@@ -80,11 +80,12 @@ class TestConvergenceResult(unittest.TestCase):
     def test_field_order_stable(self):
         # Stable field order is part of the contract — downstream callers
         # may unpack positionally or compare against tuple literals.
-        # V37.9.23: 加 3 个 machine_sync apply tracking 字段 (向后兼容,
-        # 后置末尾 + 默认值, 现有 kwargs 构造不破坏).
+        # V37.9.23: 加 3 个 machine_sync apply tracking 字段 (向后兼容).
+        # V37.9.66: 加 extra_in_runtime 字段支持双向 sync (向后兼容默认 frozenset()).
         expected = ("spec_id", "declared", "observed", "missing_in_runtime",
                     "drift_detected", "drift_action", "error",
-                    "applied_actions", "apply_dry_run", "apply_errors")
+                    "applied_actions", "apply_dry_run", "apply_errors",
+                    "extra_in_runtime")
         self.assertEqual(cv.ConvergenceResult._fields, expected)
 
     def test_result_is_immutable(self):
@@ -1538,7 +1539,9 @@ class TestFormatCronLine(unittest.TestCase):
         )
 
     def test_jobs_subdir_entry(self):
-        """jobs_registry 大量 entries 是 jobs/X/run_X.sh 形式 → bash ~/jobs/X/run_X.sh"""
+        """V37.9.66: jobs/ 开头的 entry 部署在 ~/.openclaw/{entry} (auto_deploy FILE_MAP 约定),
+        cron line 必须拼 ~/.openclaw/jobs/X/run_X.sh 才能与 Mac Mini runtime 一致.
+        之前 V37.9.23 拼 ~/jobs/... 是潜伏 path bug (V37.9.66 修复)."""
         cmd = cv._format_cron_line({
             "id": "arxiv_monitor",
             "interval": "0 8,20 * * *",
@@ -1547,8 +1550,35 @@ class TestFormatCronLine(unittest.TestCase):
         })
         self.assertEqual(
             cmd,
-            "0 8,20 * * * bash -lc 'bash ~/jobs/arxiv_monitor/run_arxiv.sh >> ~/.openclaw/logs/jobs/arxiv_monitor.log 2>&1'"
+            "0 8,20 * * * bash -lc 'bash ~/.openclaw/jobs/arxiv_monitor/run_arxiv.sh >> ~/.openclaw/logs/jobs/arxiv_monitor.log 2>&1'"
         )
+
+    def test_jobs_subdir_entry_v37_9_66_path_fix(self):
+        """V37.9.66 守卫: jobs/ 开头 entry 必须拼 .openclaw/ 前缀 (反 V37.9.23 buggy ~/jobs/...)"""
+        cmd = cv._format_cron_line({
+            "id": "freight",
+            "interval": "0 14 * * *",
+            "entry": "jobs/freight_watcher/run_freight.sh",
+            "log": "~/.openclaw/logs/jobs/freight_watcher.log",
+        })
+        self.assertIn("~/.openclaw/jobs/freight_watcher", cmd,
+                      "V37.9.66: jobs/ entry 必须拼 .openclaw/ 前缀")
+        self.assertNotIn("'bash ~/jobs/freight_watcher", cmd,
+                         "V37.9.66: 反 V37.9.23 buggy ~/jobs/... 路径 (会跑错路径)")
+
+    def test_non_jobs_entry_keeps_home_root(self):
+        """V37.9.66 不破坏 V27 老 system 脚本 (health_check.sh / cron_canary.sh)
+        这类 entry 没有 jobs/ 前缀, 部署在 ~/{entry} 不带 .openclaw/."""
+        cmd = cv._format_cron_line({
+            "id": "health_check",
+            "interval": "0 9 * * 1",
+            "entry": "health_check.sh",
+            "log": "~/health_check.log",
+        })
+        # 必须保留 ~/health_check.sh, 不能加 .openclaw/ 前缀
+        self.assertIn("bash ~/health_check.sh", cmd)
+        self.assertNotIn(".openclaw/health_check.sh", cmd,
+                         "V37.9.66 path fix 只对 jobs/ 开头 entry 生效, 老路径不受影响")
 
     def test_v37_9_18_inv_cron_003_pattern_match(self):
         """V37.9.18 INV-CRON-003 _cron_cmd_invokes 模式: bash -lc 'bash ~/X >> Y 2>&1'."""
@@ -3172,6 +3202,7 @@ class TestV37958DryRunActivation(unittest.TestCase):
             'version: "3.39"',  # V37.9.60 MR-19 横向推广
             'version: "3.40"',  # V37.9.61 MR-19 扩 LLM-task 类
             'version: "3.41"',  # V37.9.63 MR-8 抽公共 fatal_handler helper
+            'version: "3.42"',  # V37.9.66 convergence framework 双向 sync primitives + path bug 修复
         )
         self.assertTrue(
             any(v in self.gov_src for v in valid_versions),
@@ -3229,6 +3260,176 @@ class TestV37958DryRunActivation(unittest.TestCase):
         if r.missing_in_runtime:
             self.assertFalse(r.apply_dry_run,
                 "V37.9.58: kb_sources_to_index 也默认 real apply")
+
+
+# ════════════════════════════════════════════════════════════════════
+# V37.9.66 — Framework primitives for bidirectional sync (cron_lines_set_diff)
+# ════════════════════════════════════════════════════════════════════
+# V37.9.66 加 framework 能力 (extractor + parser + ConvergenceResult.extra_in_runtime
+# + _apply remove_extras 路径) 让 framework 支持双向 sync. spec yaml jobs_to_crontab
+# 暂不切换 (避免 34 job 路径一致性 audit 风暴, V37.9.67+ 候选), 但 framework 已就绪.
+
+class TestV37966Primitives(unittest.TestCase):
+    """V37.9.66 framework primitives 真存在 + 注册 + 行为契约"""
+
+    def test_extra_in_runtime_field_exists(self):
+        """ConvergenceResult 必须含 extra_in_runtime 字段 (V37.9.66 双向 sync)"""
+        self.assertIn("extra_in_runtime", cv.ConvergenceResult._fields)
+
+    def test_extra_in_runtime_default_empty_frozenset(self):
+        """默认 frozenset() — 向后兼容 V37.9.23 不传此字段的调用"""
+        r = cv._empty_result("test")
+        self.assertEqual(r.extra_in_runtime, frozenset())
+        self.assertIsInstance(r.extra_in_runtime, frozenset)
+
+    def test_extractor_jobs_to_full_cron_lines_registered(self):
+        self.assertIn("jobs_to_full_cron_lines", cv._DECLARED_EXTRACTORS)
+
+    def test_parser_cron_lines_set_diff_registered(self):
+        self.assertIn("cron_lines_set_diff", cv._IDENTIFIER_PARSERS)
+
+    def test_extractor_outputs_full_cron_lines(self):
+        """新 extractor 真输出每个 enabled+system job 完整 cron line"""
+        spec = {"declaration": {"source": "jobs_registry.yaml"}}
+        lines = cv._extract_jobs_to_full_cron_lines(spec)
+        # 至少包含一些 jobs (>=10 dev 环境合理下限)
+        self.assertGreater(len(lines), 10)
+        # 每行必须是合法 cron 行 (5-field interval + bash -lc 模式)
+        for line in lines:
+            self.assertRegex(line, r"^\S+ \S+ \S+ \S+ \S+ bash -lc 'bash ~/")
+
+    def test_parser_cron_lines_set_diff_returns_raw_lines_set(self):
+        """新 parser 输出 raw cron 行 set (跳过 # 注释 / 空行)"""
+        raw = "0 14 * * * bash X\n# this is comment\n\n0 9 * * 1 bash Y\n"
+        obs = cv._parse_cron_lines_set_diff({}, raw, frozenset())
+        self.assertEqual(obs, {"0 14 * * * bash X", "0 9 * * 1 bash Y"})
+
+    def test_parser_cron_lines_set_diff_empty_raw(self):
+        """空 raw → 空 set"""
+        self.assertEqual(cv._parse_cron_lines_set_diff({}, "", frozenset()), set())
+        self.assertEqual(cv._parse_cron_lines_set_diff({}, None, frozenset()), set())
+
+
+class TestV37966FormatCronLinePathFix(unittest.TestCase):
+    """V37.9.66 _format_cron_line 修 .openclaw/ 路径 bug + 不破坏 V27 老脚本"""
+
+    def test_jobs_entry_gets_openclaw_prefix(self):
+        cmd = cv._format_cron_line({
+            "id": "test", "interval": "0 14 * * *",
+            "entry": "jobs/freight_watcher/run_freight.sh",
+            "log": "~/.openclaw/logs/jobs/freight_watcher.log",
+        })
+        self.assertIn("~/.openclaw/jobs/freight_watcher/", cmd)
+        self.assertNotIn("'bash ~/jobs/freight_watcher", cmd)
+
+    def test_non_jobs_entry_keeps_home(self):
+        """V27 老 system 脚本 (health_check.sh / cron_canary.sh) 路径不变"""
+        cmd = cv._format_cron_line({
+            "id": "test", "interval": "0 9 * * 1",
+            "entry": "cron_canary.sh", "log": "~/cron_canary.log",
+        })
+        self.assertIn("bash ~/cron_canary.sh", cmd)
+        self.assertNotIn(".openclaw/cron_canary.sh", cmd)
+
+    def test_mac_mini_real_freight_line_matches(self):
+        """V37.9.66 修复后 _format_cron_line 输出与 Mac Mini 真实 cron 行字面完全一致.
+
+        Mac Mini 真实行 (用户 V37.9.65 实测):
+          0 14 * * * bash -lc 'bash ~/.openclaw/jobs/freight_watcher/run_freight.sh
+          >> ~/.openclaw/logs/jobs/freight_watcher.log 2>&1'
+        """
+        cmd = cv._format_cron_line({
+            "id": "freight_watcher",
+            "interval": "0 14 * * *",
+            "entry": "jobs/freight_watcher/run_freight.sh",
+            "log": "~/.openclaw/logs/jobs/freight_watcher.log",
+        })
+        expected = ("0 14 * * * bash -lc "
+                    "'bash ~/.openclaw/jobs/freight_watcher/run_freight.sh "
+                    ">> ~/.openclaw/logs/jobs/freight_watcher.log 2>&1'")
+        self.assertEqual(cmd, expected)
+
+
+class TestV37966ApplyRemoveExtras(unittest.TestCase):
+    """V37.9.66 _apply_jobs_to_crontab_per_entry 支持 extra_entries (调 crontab_safe.sh remove)"""
+
+    def test_signature_accepts_extra_entries_kwarg(self):
+        """函数签名必须接受 extra_entries (向后兼容默认 frozenset())"""
+        import inspect
+        sig = inspect.signature(cv._apply_jobs_to_crontab_per_entry)
+        self.assertIn("extra_entries", sig.parameters)
+        self.assertEqual(sig.parameters["extra_entries"].default, frozenset())
+
+    def test_empty_missing_and_extra_returns_empty(self):
+        """missing + extra 都空 → 不调任何 helper, 返回空 tuples"""
+        applied, errors, _ = cv._apply_jobs_to_crontab_per_entry(
+            {"id": "test"}, set(), dry_run=True, extra_entries=set()
+        )
+        self.assertEqual(applied, ())
+        self.assertEqual(errors, ())
+
+    def test_extra_entries_in_dry_run_emits_would_remove(self):
+        """dry_run + extra 非空 → 'DRY-RUN would remove' 输出 (不实际调 helper)"""
+        applied, errors, dry_run = cv._apply_jobs_to_crontab_per_entry(
+            {"id": "test", "declaration": {"source": "jobs_registry.yaml"}},
+            set(), dry_run=True,
+            extra_entries={"0 8 * * * bash -lc 'fake_extra_line'"}
+        )
+        self.assertTrue(dry_run)
+        applied_text = " ".join(applied)
+        self.assertIn("DRY-RUN would remove", applied_text)
+        self.assertIn("fake_extra_line", applied_text)
+
+
+class TestV37966VerifyConvergenceBidirectional(unittest.TestCase):
+    """V37.9.66 verify_convergence 计算 extra (双向 sync) + drift_detected 含 extra"""
+
+    def test_extra_in_runtime_computed_when_parser_outputs_set_diff(self):
+        """当 spec 用 cron_lines_set_diff parser 时 verify_convergence 计算 extra."""
+        # 模拟一个 spec 用新 parser. dev 环境无 crontab, 仍可测 framework primitive
+        # extra_in_runtime 计算逻辑 (verify_convergence 中 extra = observed - declared).
+        # 这里直接测 _parse_cron_lines_set_diff + ConvergenceResult.extra_in_runtime 真集成.
+        raw = "0 14 * * * decl_line\n0 8 * * * extra_line"
+        observed = cv._parse_cron_lines_set_diff({}, raw, {"0 14 * * * decl_line"})
+        # parser 不丢 observed extras (V37.9.66 关键差异 vs line_contains_identifier)
+        self.assertIn("0 8 * * * extra_line", observed)
+
+    def test_apply_machine_sync_signature_includes_extra_entries(self):
+        """_apply_machine_sync 必须接受 extra_entries 参数"""
+        import inspect
+        sig = inspect.signature(cv._apply_machine_sync)
+        self.assertIn("extra_entries", sig.parameters)
+
+
+class TestV37966SourceLevelGuards(unittest.TestCase):
+    """V37.9.66 源码级守卫 — 防 future 重构回退 V37.9.66 路径修复 + framework primitives"""
+
+    def setUp(self):
+        with open(REPO_ROOT / "ontology" / "convergence.py") as f:
+            self.src = f.read()
+
+    def test_v37_9_66_marker_present(self):
+        self.assertIn("V37.9.66", self.src,
+                      "convergence.py 必须含 V37.9.66 marker (path bug 修复 + 双向 sync primitives)")
+
+    def test_format_cron_line_handles_jobs_prefix(self):
+        """_format_cron_line 必须含 jobs/ 开头 entry → .openclaw/ 前缀逻辑 (反 V37.9.23 buggy)"""
+        # 简化检查: 必须出现 .openclaw/ + jobs/ 字面量在源码中
+        self.assertIn('.openclaw/', self.src)
+        self.assertIn('entry.startswith("jobs/")', self.src,
+                      "V37.9.66 path fix 守卫: 必须用 startswith 'jobs/' 判定")
+
+    def test_extra_in_runtime_field_in_namedtuple(self):
+        self.assertIn('"extra_in_runtime"', self.src,
+                      "ConvergenceResult 必须声明 extra_in_runtime 字段")
+
+    def test_jobs_to_full_cron_lines_extractor_registered(self):
+        self.assertIn('"jobs_to_full_cron_lines"', self.src)
+        self.assertIn('def _extract_jobs_to_full_cron_lines', self.src)
+
+    def test_cron_lines_set_diff_parser_registered(self):
+        self.assertIn('"cron_lines_set_diff"', self.src)
+        self.assertIn('def _parse_cron_lines_set_diff', self.src)
 
 
 if __name__ == "__main__":
