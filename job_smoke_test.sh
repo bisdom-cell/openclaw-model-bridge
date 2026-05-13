@@ -85,7 +85,7 @@ while IFS='|' read -r job_id entry log_path interval needs_key description; do
     # ── 2. Crontab 注册检查 ──
     entry_basename=$(basename "$entry_script")
     if echo "$CRONTAB" | grep -q "$entry_basename"; then
-        CRON_LINE=$(echo "$CRONTAB" | grep "$entry_basename" | head -1)
+        CRON_LINE=$(echo "$CRONTAB" | grep "$entry_basename" | head -1 || true)
         pass "crontab 已注册"
     else
         fail "crontab 中未找到 $entry_basename"
@@ -95,7 +95,7 @@ while IFS='|' read -r job_id entry log_path interval needs_key description; do
     # ── 3. 运行时脚本存在性（crontab 实际指向的路径）──
     CRON_LINE=""
     if echo "$CRONTAB" | grep -q "$entry_basename"; then
-        CRON_LINE=$(echo "$CRONTAB" | grep "$entry_basename" | head -1)
+        CRON_LINE=$(echo "$CRONTAB" | grep "$entry_basename" | head -1 || true)
     fi
     if [ -n "$CRON_LINE" ]; then
         # crontab 格式: ... bash -lc 'bash ~/path/script.sh >> log'
