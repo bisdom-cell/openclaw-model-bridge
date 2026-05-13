@@ -1,5 +1,5 @@
 {
-  "updated": "2026-05-13 02:05:25",
+  "updated": "2026-05-13 03:17:54",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -358,13 +358,13 @@
   "quality": {
     "security_score": 95,
     "test_count": 2785,
-    "last_regression": "2026-05-13 01:42 pass",
+    "last_regression": "2026-05-13 03:17 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-05-13 01:42",
+    "security_score_time": "2026-05-13 03:17",
     "test_suites": 81,
     "governance_invariants": "64/64",
     "governance_checks": "350/350",
-    "version": "0.37.9.60"
+    "version": "0.37.9.62"
   },
   "incidents": [
     {
@@ -428,7 +428,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "【V37.9.61 MR-19 扩到 LLM-task 类】2026-05-13 一日内闭环 V37.9.60 + 3 hotfix + V37.9.61 五件套. V37.9.60-hotfix3 揭露的 framework gap 闭环: SCRIPTS_REQUIRING_ERR_TRAP 从 4 (cron 聚合监控类) 扩到 7 (+3 LLM-task: kb_deep_dive/kb_evening/kb_review). kb_dream 不在 scope (严格 #28: 仅 set -o pipefail 无 -e). 3 脚本加 set -eEuo + inline _<script>_fatal_handler + trap ERR 注册 + 三层 FAIL-OPEN. INV-CRON-MONITOR-001 +9 declaration / governance v3.39→v3.40 / 81 suites / 2785 tests / 0 fail / 75 invariants / 609 checks / VERSION 0.37.9.60→0.37.9.61. **Mac Mini 部署后立即行动**: (1) git fetch + reset 同步 V37.9.61 (2) 今晚 22:00 kb_evening + 22:30 kb_deep_dive cron 触发后, 任何 silent abort 立即推 [SYSTEM_ALERT] 到 Discord 不再 invisible. **下次 V37.9.62+ 候选**: (a) MR-8 抽 cron_monitor_fatal_handler.sh 公共 helper (现 7 脚本 copy-paste handler 是 MR-8 反例信号) (b) MR-19 grep_pipe_or_true 契约扩 scanner (V37.9.58-hotfix4 + V37.9.60-hotfix 同款 quirk 两次复演该 framework 化) (c) 元监控 cron_canary 外部检测 watchdog_canary.json (d) 5/19 立 INV-WATCHDOG-COVERAGE-001 + MR-21 candidate (V37.9.59 baseline 5/12 + 7d) (e) 5/20 V37.9.60 一周观察期截止评估.",
+  "focus": "【V37.9.62 6 脚本 batch 升级 — 用户视角 ACL 推送质量 + 100% 彻底处理】2026-05-13 用户视角发现 ACL Anthology 推送只有浅 3 字段, 要求按 S2 (V37.9.39+) 6 字段格式 + 100% 彻底处理. 6 脚本 batch 升级: ACL Anthology (papers 含 abstract) / karpathy_x (tweets) / openclaw_official/run.sh (releases) / openclaw_official/run_discussions.sh (issues) / ontology_sources (4 RSS + parser 扩) / chaspark (混合设计 Phase A 6 字段 + Phase B 跨域分析). 4 P1 机械迁移 V37.9.51 模板 + ontology_sources 扩 parser + chaspark 混合定制. ALIGNED_SCRIPTS 11→17 (21 候选 - 4 by design 排除 = 17 应对齐). 测试 alternation 修 (test_ontology_parser + test_llm_cron_audit + governance INV-ONTOLOGY-001). 81 suites / 2785 tests / 0 fail / 安全 95/100 / VERSION 0.37.9.61→0.37.9.62. **Mac Mini 部署后立即行动**: (1) git fetch + reset 同步 V37.9.62 (2) ACL Anthology 下次周三 09:30 cron 触发推送应**首次出现** 📌中文标题/🔑核心贡献/💡关键方法/🎯实践启发/⭐评级/🎚️项目对齐度 6 字段 + 高对齐统计. karpathy_x 09:00 / openclaw_official 同款 / ontology_sources 10:00 / chaspark 11:00 都升级. **下次 V37.9.63+ 候选**: (a) Mac Mini 全部 6 脚本真激活验证用户视角推送质量 (b) finance_news/freight/kb_dream/kb_inject 4 个 by design 排除是否需重新评估 (c) MR-8 抽 cron_monitor_fatal_handler.sh 公共 helper (V37.9.61 7 governed scripts copy-paste).",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",

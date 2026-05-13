@@ -241,10 +241,19 @@ class TestShellScriptIntegration(unittest.TestCase):
                      "shell 必须 export ONTOLOGY_JOBS_DIR")
 
     def test_shell_imports_ontology_parser(self):
-        """heredoc 必须 from ontology_parser import parse_llm_blocks"""
+        """heredoc 必须 from ontology_parser import parse_llm_blocks OR parse_6field_output
+
+        V37.9.62 升级: ontology_parser.py 扩展加 parse_6field_output (V37.9.51 6 字段同款).
+        run_ontology_sources.sh V37.9.62 用 parse_6field_output 而不是老 parse_llm_blocks.
+        V37.8.7 separator 切块设计完整保留 (ontology 血案防线), 仅函数名换.
+        """
         with open(self.SHELL_PATH, "r", encoding="utf-8") as f:
             content = f.read()
-        self.assertIn("from ontology_parser import parse_llm_blocks", content)
+        has_v37_8_7_import = "from ontology_parser import parse_llm_blocks" in content
+        has_v37_9_62_import = "from ontology_parser import parse_6field_output" in content
+        self.assertTrue(has_v37_8_7_import or has_v37_9_62_import,
+            "shell 必须 from ontology_parser import parse_llm_blocks (V37.8.7) "
+            "或 parse_6field_output (V37.9.62) — 任一即合规, 保留 separator 切块设计")
 
     def test_shell_no_inline_positional_parser(self):
         """V37.8.7 修复后 shell 的可执行代码不应再含 i += 3 / lines[i+1] / lines[i+2]
