@@ -521,6 +521,51 @@ class TestSourceLevelGuards(unittest.TestCase):
                     f"必须 || true. line: {line!r}"
                 )
 
+    def test_v37_9_66_hotfix_watchdog_slo_uses_if_not_andor(self):
+        """V37.9.66-hotfix 反向守卫: watchdog SLO 检查必须用 if-then-else 不用 cmd && X || Y.
+
+        Mac Mini 5/13 16:30 实测触发 line 721 abort exit=2: bash quirk
+        `cmd && X || Y` + set -eE + ERR trap, 即使 set -e 在 && 上下文豁免不杀脚本,
+        ERR trap 仍触发产 false-positive FATAL alert. V37.9.66-hotfix 改 if-then-else
+        (bash 文档明确 if condition + set -e + ERR trap 豁免).
+
+        防回归: SLO 检查段必须用 'if SLO_ALERT=$(...)' 不是 'SLO_ALERT=$(...) && SLO_RC=0 || SLO_RC=$?'.
+        """
+        wd_path = os.path.join(REPO_ROOT, "job_watchdog.sh")
+        with open(wd_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        # 必须出现 if-then-else 形式
+        self.assertIn(
+            "if SLO_ALERT=$(python3", content,
+            "V37.9.66-hotfix: watchdog SLO 检查必须用 'if SLO_ALERT=$(python3 ...)' 形式 "
+            "(bash 文档豁免 set -e + ERR trap), 不得用 'cmd && X || Y' 反模式"
+        )
+        # 同时禁 buggy pattern 回归
+        self.assertNotIn(
+            "SLO_ALERT=$(python3 \"$SLO_SCRIPT\" --alert 2>/dev/null) && SLO_RC=0 || SLO_RC=",
+            content,
+            "V37.9.66-hotfix 反向守卫: watchdog 禁回退到 'cmd && X || Y' 反模式"
+        )
+
+    def test_v37_9_66_hotfix_auto_deploy_preflight_uses_if_not_andor(self):
+        """V37.9.66-hotfix: auto_deploy PREFLIGHT_OUT 同款反模式横向修齐.
+
+        auto_deploy.sh 是 governed cron (V37.9.60 装 trap ERR), 同款 cmd && X || Y
+        pattern 高频 2min cron 触发, 必须同步修.
+        """
+        ad_path = os.path.join(REPO_ROOT, "auto_deploy.sh")
+        with open(ad_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        self.assertIn(
+            "if PREFLIGHT_OUT=$(SKIP_PUSH_TEST=1", content,
+            "V37.9.66-hotfix: auto_deploy PREFLIGHT_OUT 必须用 if-then-else 形式"
+        )
+        self.assertNotIn(
+            "PREFLIGHT_OUT=$(SKIP_PUSH_TEST=1 bash \"$PREFLIGHT\" --full 2>&1) && PREFLIGHT_RC=0 ||",
+            content,
+            "V37.9.66-hotfix 反向守卫: auto_deploy 禁回退到 'cmd && X || Y' 反模式"
+        )
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

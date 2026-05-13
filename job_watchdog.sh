@@ -718,7 +718,16 @@ except Exception as e:
     # SLO 合规检查（V33: 接入 slo_checker.py）
     SLO_SCRIPT="$HOME/slo_checker.py"
     if [ -f "$SLO_SCRIPT" ]; then
-        SLO_ALERT=$(python3 "$SLO_SCRIPT" --alert 2>/dev/null) && SLO_RC=0 || SLO_RC=$?
+        # V37.9.66-hotfix: bash quirk `cmd && X || Y` + set -eE + ERR trap 即使 set -e 豁免不杀
+        # 脚本, ERR trap 仍触发产 false-positive FATAL. 5/13 16:30 实测真触发 line 721 abort.
+        # 改用 if-then-else (bash 文档明确豁免 if condition + set -e + ERR trap).
+        # V37.9.60-hotfix 修过 governance_audit/daily_ops/auto_deploy 的同款 grep|head pattern,
+        # 当时漏了 watchdog 自己的 cmd && X || Y pattern. V37.9.66-hotfix 横向修齐.
+        if SLO_ALERT=$(python3 "$SLO_SCRIPT" --alert 2>/dev/null); then
+            SLO_RC=0
+        else
+            SLO_RC=$?
+        fi
         if [ "$SLO_RC" -eq 2 ] && [ -n "$SLO_ALERT" ]; then
             while IFS= read -r line; do
                 [ -n "$line" ] && ALERTS+=("$line")

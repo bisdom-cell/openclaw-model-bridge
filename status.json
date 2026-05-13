@@ -1,6 +1,6 @@
 {
-  "updated": "2026-05-13 08:44:20",
-  "updated_by": "claude_code",
+  "updated": "2026-05-13 08:52:15",
+  "updated_by": "full_regression",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-05-13",
+      "what": "V37.9.66-hotfix watchdog:721 bash quirk false-positive FATAL 修复 (V37.9.60-hotfix 同款反模式横向漏 audit). Mac Mini 5/13 16:30 实测触发 line 721 abort exit=2: bash quirk cmd && X || Y + set -eE + ERR trap 即使 set -e 在 && 上下文豁免不杀脚本, ERR trap 仍触发推 [SYSTEM_ALERT]. 改用 if-then-else (bash 文档明确豁免). 修 watchdog:721 + auto_deploy:520 两个 governed cron. 反向验证 sabotage → 1 fail / 还原 → 54/54 OK. 登记 7 处低风险 V37.9.67+ 候选. 元价值: V37.9.58-hotfix3 立 MR-19 trap ERR 让 silent abort 变 loud — 今天 alert 本身就是治理体系工作的硬实证, 同款反模式漏 audit 1 周后真激活才暴露 (反思文档类别 A OS quirk 第 N+1 次演出).",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-05-13",
       "what": "复杂性 Bug 反思沉淀: ontology/docs/reflections/2026-05-13_complexity_bug_taxonomy.md. 5 大 bug 类别 (OS quirk / 设计假设错配 / 自动批量盲点 / 静默失败链 / 修复引入新 bug) + 三层防御 (架构/测试/ontology) + 5 个具体行动登记 V37.9.67+ 候选. 反思本身从 session 内对话升级为可查 framework 资产, ontology 治理体系扩展到 reflections/ 类别.",
       "by": "claude_code"
     },
@@ -200,12 +205,6 @@
       "date": "2026-05-12",
       "version": "V37.9.56-hotfix",
       "what": "V37.9.56 picker cache_paths 多 layout 修复 — Mac Mini 实测 0 picks 死局闭环 (MR-10 understand-before-fix 严格兑现). 真因: Mac Mini auto_deploy FILE_MAP 真实部署路径 ~/.openclaw/jobs/X/ (不是 ~/jobs/ 也不是 ~/openclaw-model-bridge/jobs/) + HN 例外 hn_watcher 子目录. ALIGNED_SOURCES schema cache_dir_rel (单路径) → cache_paths list (dev + Mac Mini 双候选 顺序优先 try) + _resolve_cache_dir() 纯函数 + 12 新单测 2 类 (TestV9_57MacMiniLayout + TestV9_57SchemaGuards) + 反向验证两层守卫真有效. 76 suites / 2590→2602 tests (+12) / 0 fail / VERSION 0.37.9.56 不变 (hotfix 不 bump). 元教训: 测试三层契约 (单测/dev/Mac Mini 真实部署) — deployment-specific 假设必须在 target env 验证, 否则 dev 全绿但生产 0 输出. MR-15 候选 deployment-layout-must-be-tested-on-target-not-tempdir.",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-05-12",
-      "version": "V37.9.56",
-      "what": "Sub-Stage 4c Top 5 高对齐推送 picker 完整兑现 — Opportunity Radar #2 三件套全量集成. 新文件 top_alignment_picker.py (~340 行纯 Python, 8 ALIGNED source 聚合 + 3 档排序 + FAIL-OPEN + log MR-11 stderr + lazy import project_alignment_scorer fallback 到 inline regex) + kb_dream.sh Phase 1.5 集成 #2 段 + kb_evening_collect.py build_evening_prompt 新增 top_alignment_picks 可选参数 + 60 新单测 (55 picker 含反向验证三层守卫 + 5 evening integration 守卫). auto_deploy FILE_MAP + full_regression 接入. PoC 阶段不立 INV (V37.9.46/47/48/49 同款 pattern, INV-RADAR-001 留 Stage 6). 累计 75→76 suites / 2530→2590 tests / 0 fail / governance v3.35 不变 / VERSION 0.37.9.55→0.37.9.56 / 安全 95/100. Mac Mini 部署后下次 22:00 evening / 03:00 kb_dream cron 自动用 #1+#2+#3 完整三件套. 数据复利路线从信息洪流升级为高价值早期信号 Top 5 前置 listing.",
       "by": "claude_code"
     }
   ],
@@ -325,7 +324,8 @@
       "V37.9.67 P0: INV-PATH-CONSISTENCY-001 路径一致性 audit + 真激活 framework 双向 sync — scanner 守 34 jobs 三方对齐 (yaml entry ∈ FILE_MAP src 且 _format_cron_line({entry}) ∈ Mac Mini runtime crontab line). 不对齐 governance audit fail. 顺便完成 V37.9.67 候选 (spec yaml 切换 cron_lines_set_diff 真激活双向 sync, 前置条件 path audit). 防御 V37.9.66 类 path bug. 见 reflection 行动 2.",
       "V37.9.67+ P1 (一周内): failure_modes_catalog.md 失败模式库 — ontology/docs/failure_modes_catalog.md 分类索引 ontology/docs/cases/ 17 个血案 + 元规则 + INV + 已发生次数 + 防御策略. 5 大类别 (A OS quirk / B 设计假设 / C 自动批量盲点 / D 静默失败链 / E 修复引入). 新 session 开工读 catalog 看类似工作前先查防御. 见 reflection 行动 3.",
       "V37.9.67+ P1 (一周内): MR-18 真激活 + INV-AUTO-INJECT-001 — V37.9.58-hotfix2 立 MR-18 + heredoc_import_scanner 但 inject_*.py 工具没自己集成 scanner 还靠 governance audit 事后抓. 每个 inject_*/migrate_*/batch_*.py 工具必须: (a) 注入前 dry-run AST 解析 (b) 注入后内嵌 scanner self-validate (c) 失败整批 rollback. 工具自身加 source-level 守卫 import scanner 必须出现. 防御 V37.9.57 类自动批量工具盲点 (8 jobs NameError). 见 reflection 行动 4.",
-      "V37.9.67+ P2 (4 周观察后立 INV): 原则 #32 用户视角观察制度真执行 — 每周一开工第一件事 30min 不写代码不修 bug, 检查 4 维度 (告警噪声/推送延迟/信息密度/PA 表现). 发现项即 status_update.py --add unfinished 不当场修. 持续 4 周后立 INV-WEEKLY-USER-OBSERVATION-001 守卫周一观察项必有. 把 reactive feedback 升级为 proactive observation. 防御 vim 体验差 / freight 过频 / framework 零漂移真激活漏报 类用户视角 gap. 见 reflection 行动 5."
+      "V37.9.67+ P2 (4 周观察后立 INV): 原则 #32 用户视角观察制度真执行 — 每周一开工第一件事 30min 不写代码不修 bug, 检查 4 维度 (告警噪声/推送延迟/信息密度/PA 表现). 发现项即 status_update.py --add unfinished 不当场修. 持续 4 周后立 INV-WEEKLY-USER-OBSERVATION-001 守卫周一观察项必有. 把 reactive feedback 升级为 proactive observation. 防御 vim 体验差 / freight 过频 / framework 零漂移真激活漏报 类用户视角 gap. 见 reflection 行动 5.",
+      "V37.9.67+ P1: 7 处同款 'cmd && X || Y' bash quirk 反模式 audit + 修齐 — V37.9.66-hotfix 已修 watchdog:721 + auto_deploy:520 两个 governed cron (有 trap ERR 真有 false-positive FATAL 风险), 漏 7 处低风险 (无 trap ERR 但未来加可能爆): preflight_check.sh:382/390/809/918/945 + gameday.sh:236/257 + smoke_test.sh:62. 全部改 if-then-else 形式. 顺便加 cron_monitor_scanner 全 repo 扫 'cmd && X || Y' 反模式, 作为 INV-CROSS-OS-001 一部分. 见 ontology/docs/reflections/2026-05-13_complexity_bug_taxonomy.md 类别 A OS quirk 第 N+1 次演出."
     ],
     "open_prs": "",
     "blocked_on": "",
@@ -366,10 +366,10 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 2853,
-    "last_regression": "2026-05-13 08:15 pass",
+    "test_count": 2855,
+    "last_regression": "2026-05-13 08:52 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-05-13 08:15",
+    "security_score_time": "2026-05-13 08:52",
     "test_suites": 83,
     "governance_invariants": "64/64",
     "governance_checks": "350/350",
