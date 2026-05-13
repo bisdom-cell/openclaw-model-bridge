@@ -1,6 +1,6 @@
 {
-  "updated": "2026-05-13 07:44:31",
-  "updated_by": "claude_code",
+  "updated": "2026-05-13 08:15:15",
+  "updated_by": "full_regression",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-05-13",
+      "what": "V37.9.66 convergence framework 双向 sync primitives + _format_cron_line .openclaw/ path bug 修复. V37.9.65 用户 Mac Mini 实测发现 framework 单向 gap (line_contains_identifier 不检 interval/log) + 潜伏 path bug (拼 ~/jobs/ 实际跑 ~/.openclaw/jobs/). 5 层修复: path fix + extra_in_runtime 字段 + jobs_to_full_cron_lines extractor + cron_lines_set_diff parser + _apply remove_extras 调 V37.9.65 helper. spec yaml 暂不切换避免 34 job 路径 audit 风暴 (V37.9.67+ 候选). 20 新单测含反向验证 sabotage 真有效 (path fix 还原 → 4 fail / 删字段 → 5 fail + 30 errors). INV-CONVERGENCE-CRON-001 +10 checks. 83 suites/2853 tests/0 fail/governance v3.41→v3.42/75 inv/619→629 checks/安全 95/100/VERSION 0.37.9.65→0.37.9.66.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-05-13",
       "what": "V37.9.65 crontab_safe.sh 加 remove command — V37.9.64 用户痛点 (不需 vim) 闭环 + convergence framework 双向 sync 下半截. cmd_remove 镜像 cmd_add 安全机制 (backup + 严格 count 验证 + 拒绝全清空 + 失败自动回滚). 16 单测 4 类含反向验证 sabotage 真有效. 83 suites/2831 tests/0 fail/安全 95/100/VERSION 0.37.9.64→0.37.9.65. Mac Mini 一行命令删 freight 多余 cron 不需 vim.",
       "by": "claude_code"
     },
@@ -201,11 +206,6 @@
     {
       "date": "2026-05-11",
       "what": "V37.9.52 — Doubao Seed 2.0 Pro 接入第 8 个 provider (主力级 LLM, 与 Qwen3 同级). 新文件 providers.d/doubao_provider.py (Python plugin, ARK_API_KEY + ARK_ENDPOINT_ID env, fallback 公开 model 标识符 doubao-seed-2-0-pro). 选 OpenAI Chat Completions 兼容路径 (零 adapter.py 改动), Mac Mini 实测后 V37.9.53+ 若失败则进 Responses API translator. **V37 Provider Plugin Interface 首个真实插件触发 module 重入 bug** — python3 providers.py 直接执行时 plugin 内 from providers import 触发二次加载产生两份 BaseProvider 类 → issubclass 失败. 最小修复: providers.py 顶部 sys.modules alias. 32 新单测 5 类 (注册/env handling/能力/fallback chain/module 重入守卫/source-level guards) + 反向验证 (sabotage alias 立即 fail / 用户专属 endpoint ID 写代码立即 fail). auto_deploy FILE_MAP 加 providers.d/doubao_provider.py (V37 deployment debt 闭环). 累计 71→72 suites / 2431→2463 tests / 0 fail / 71 inv / 552 checks / providers 总数 7→8 / VERSION 0.37.9.51→0.37.9.52 / 安全 95/100. verified_*=False 待 Mac Mini 实测 (curl /chat/completions 探测 + WhatsApp 图片 E2E) 后 V37.9.53+ flip + fallback chain 优先级提升.",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-05-11",
-      "what": "V37.9.51 — Sub-Stage 4b 续 batch: 6 论文/repo/tweet 类脚本 (rss_blogs/dblp/arxiv_monitor/github_trending/ai_leaders_x/hn) 批量 5→6 字段 + rule_check 机械迁移 (V37.9.45 hf_papers / V37.9.50 semantic_scholar PoC 模板横向应用). 每脚本统一改动 8 处: prompt 5→6 字段 + 🎚️ 项目对齐度 + 5 档评分指南 + 反幻觉守卫 + emit heredoc imports os (V37.9.50-hotfix 同款) + parse_5→parse_6field + lazy import scorer + per-paper rule_check + high_alignment_count 统计 + 末尾高对齐汇总行. 新增 test_v37_9_51_sub_stage_4b_batch.py (28 单测 / 3 类) + 5 老测试 alternation 更新 (V37.9.40/41/43/44 或 V37.9.51 兼容). ontology/llm_cron_audit.py ALIGNED_SCRIPTS 6 脚本统一升级 V37.9.51. governance 合并 5 老锚点为 1 V37.9.51 file_contains + 1 python_assert. 反向验证守卫真有效 (sabotage 立即 3 FAIL). 累计 70→71 suites / 2403→2431 tests (+28) / 0 fail / 71 inv 不变 / 555→552 checks / 安全 95/100 / VERSION 0.37.9.50→0.37.9.51. Mac Mini 部署后 6 脚本下次 cron 自动用新 6 字段 + 🎚️ + ⚠️ marker + 高对齐统计 (audit P1/P2 路径完整闭环, 11/21 ALIGNED 视野不变但深度升级).",
       "by": "claude_code"
     }
   ],
@@ -319,7 +319,8 @@
       "V37.9.60+ 真激活观察 (今晚 5/13 22:30 + 明早 5/14 07:00): (a) kb_deep_dive 22:30 cron: 如有 ⭐≥4 候选应推送成功 + last_run 真更新到 5/13 22:30 status:ok (验证 hotfix3 修复) (b) governance_audit 07:00 cron: 不应再推 [SYSTEM_ALERT] FATAL false-positive (验证 hotfix1 修复) (c) watchdog 12:30 cron 应消失 kb_dream 状态不存在 + 治理审计 769h + auto_deploy 0h 三条误报 (验证 hotfix2 路径修正 + 整数除法 UX) (d) Discord canary alive 每 4h 推送验证 V37.9.59 watchdog 监控覆盖率扩展 + V37.9.58-hotfix3 元监控.",
       "V37.9.63+ 候选: (a) 6 脚本 Mac Mini cron 真激活验证 (ACL 周三 09:30 / karpathy_x 09:00,21:00 / openclaw_official 每日 / ontology_sources 10:00,20:00 / chaspark 11:00) (b) finance/freight/kb_dream/kb_inject by design 排除评估 (c) MR-8 抽 cron_monitor_fatal_handler.sh 公共 helper (V37.9.61 7 governed scripts copy-paste 是 MR-8 反例信号)",
       "V37.9.65 候选: convergence framework jobs_to_crontab spec 加 remove_extra 双向 sync — 当前 _apply_jobs_to_crontab_per_entry 只 add missing entries 不 remove extras, 改 yaml 后用户必须手动 crontab -e 删多余行. 升级路径: crontab_safe.sh 加 remove command + convergence.py 加 _identify_extra_entries 函数 + 配合 crontab_safe.sh remove 调用. 已知影响: V37.9.64 freight 改 3次→1次 用户必须手动删 2 行.",
-      "V37.9.66 候选: convergence framework jobs_to_crontab spec 升级 line_contains_identifier 到完整 cron 行比较 — 当前只检 entry 字符串包含, 不检 interval/log 字段一致性. 后果: V37.9.64 改 yaml interval 0 14 * * * 后, framework 报 declared=N observed=N ok 零漂移, 但真 cron 仍是 0 8,14,20. 用户必须手动 remove+add. 升级路径: 在 _identifier_parsers 加 'cron_line_exact_match' 解析器 + jobs_to_crontab spec 改用 + _apply_jobs_to_crontab_per_entry 也支持 remove_extra (V37.9.65 crontab_safe.sh remove 已上线可调). 实际场景实证 V37.9.65 用户 freight 改频率发现."
+      "V37.9.66 候选: convergence framework jobs_to_crontab spec 升级 line_contains_identifier 到完整 cron 行比较 — 当前只检 entry 字符串包含, 不检 interval/log 字段一致性. 后果: V37.9.64 改 yaml interval 0 14 * * * 后, framework 报 declared=N observed=N ok 零漂移, 但真 cron 仍是 0 8,14,20. 用户必须手动 remove+add. 升级路径: 在 _identifier_parsers 加 'cron_line_exact_match' 解析器 + jobs_to_crontab spec 改用 + _apply_jobs_to_crontab_per_entry 也支持 remove_extra (V37.9.65 crontab_safe.sh remove 已上线可调). 实际场景实证 V37.9.65 用户 freight 改频率发现.",
+      "V37.9.67 候选: convergence framework spec yaml jobs_to_crontab 切换 parser=cron_lines_set_diff + extractor=jobs_to_full_cron_lines 真激活双向 sync (V37.9.66 framework primitives 已就绪). 前置条件: 34 job 路径一致性 audit (yaml entry vs auto_deploy FILE_MAP 部署目标 vs Mac Mini runtime crontab path 三方对齐). 风险: 老 V27 脚本 entry=script.sh vs 新 V30+ entry=jobs/X/run_X.sh, _format_cron_line V37.9.66 path fix 已处理但需 audit 所有 34 job 验证拼出 cron 与 Mac Mini 真实行字面一致. 切换后 framework 改 yaml interval 自动 sync 不需用户手动 remove+add."
     ],
     "open_prs": "",
     "blocked_on": "",
@@ -360,14 +361,14 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 2831,
-    "last_regression": "2026-05-13 07:38 pass",
+    "test_count": 2853,
+    "last_regression": "2026-05-13 08:15 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-05-13 07:38",
+    "security_score_time": "2026-05-13 08:15",
     "test_suites": 83,
     "governance_invariants": "64/64",
     "governance_checks": "350/350",
-    "version": "0.37.9.65"
+    "version": "0.37.9.66"
   },
   "incidents": [
     {
