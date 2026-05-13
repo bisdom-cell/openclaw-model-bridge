@@ -59,7 +59,8 @@ fi
 # --- 4. Tool Proxy 连通性 ---
 echo ""
 echo "📋 4/5 Tool Proxy 健康检查 (localhost:5002)"
-HEALTH_RESP=$(curl -s --max-time 5 http://localhost:5002/health 2>/dev/null) && RC=0 || RC=$?
+# V37.9.67: cmd_and_or_chain → if-then-else (INV-CROSS-OS-001)
+if HEALTH_RESP=$(curl -s --max-time 5 http://localhost:5002/health 2>/dev/null); then RC=0; else RC=$?; fi
 if [ $RC -ne 0 ]; then
     warn "Proxy 5002" "无法连接（服务未启动或不在本机运行）"
 else

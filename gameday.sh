@@ -233,7 +233,8 @@ print('yes' if 'slo' in d else 'no')
             return
         fi
 
-        SLO_OUT=$(python3 "$HOME/slo_checker.py" 2>&1) && SLO_RC=0 || SLO_RC=$?
+        # V37.9.67: cmd_and_or_chain → if-then-else (INV-CROSS-OS-001)
+        if SLO_OUT=$(python3 "$HOME/slo_checker.py" 2>&1); then SLO_RC=0; else SLO_RC=$?; fi
 
         if [ $SLO_RC -eq 0 ]; then
             pass "SLO 全部达标"
@@ -254,7 +255,8 @@ except: pass
         fi
 
         # 验证 --alert 模式
-        ALERT_OUT=$(python3 "$HOME/slo_checker.py" --alert 2>&1) && ALERT_RC=0 || ALERT_RC=$?
+        # V37.9.67: cmd_and_or_chain → if-then-else (INV-CROSS-OS-001)
+        if ALERT_OUT=$(python3 "$HOME/slo_checker.py" --alert 2>&1); then ALERT_RC=0; else ALERT_RC=$?; fi
         if [ $ALERT_RC -eq 0 ] || [ $ALERT_RC -eq 2 ]; then
             pass "SLO --alert 模式正常 (rc=$ALERT_RC)"
         else

@@ -1,6 +1,6 @@
 {
-  "updated": "2026-05-13 08:52:15",
-  "updated_by": "full_regression",
+  "updated": "2026-05-13 09:08:33",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-05-13",
+      "what": "V37.9.67 P0 行动 1 兑现: INV-CROSS-OS-001 跨 OS quirk scanner. 新文件 cross_os_quirk_scanner.py 4 quirk pattern (cmd&&||/grep|head/awk LC_ALL/zsh-specific). dev scan 抓 16 violations 跨 6 文件全修齐. 21 单测 6 类含反向验证. INV +7 checks. 84 suites/2876 tests/0 fail/76 invariants/636 checks/安全 95/100/VERSION 0.37.9.66→0.37.9.67. 元价值: 同日 V37.9.66-hotfix 血案 → 反思登记 → P0 立即执行 → INV 上线, 闭环 <4h. 反思文档行动 1 真兑现.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-05-13",
       "what": "V37.9.66-hotfix watchdog:721 bash quirk false-positive FATAL 修复 (V37.9.60-hotfix 同款反模式横向漏 audit). Mac Mini 5/13 16:30 实测触发 line 721 abort exit=2: bash quirk cmd && X || Y + set -eE + ERR trap 即使 set -e 在 && 上下文豁免不杀脚本, ERR trap 仍触发推 [SYSTEM_ALERT]. 改用 if-then-else (bash 文档明确豁免). 修 watchdog:721 + auto_deploy:520 两个 governed cron. 反向验证 sabotage → 1 fail / 还原 → 54/54 OK. 登记 7 处低风险 V37.9.67+ 候选. 元价值: V37.9.58-hotfix3 立 MR-19 trap ERR 让 silent abort 变 loud — 今天 alert 本身就是治理体系工作的硬实证, 同款反模式漏 audit 1 周后真激活才暴露 (反思文档类别 A OS quirk 第 N+1 次演出).",
       "by": "claude_code"
     },
@@ -199,12 +204,6 @@
       "date": "2026-05-12",
       "version": "V37.9.56-hotfix2",
       "what": "kb_evening.sh DAYS 数字校验防御 — V37.9.56 诊断暴露的 zsh # 注释坑 root-cause fix. 真因: zsh interactive_comments 默认 OFF, # 被当 $1 传给 bash → DAYS=# → int(#) ValueError. 修复: kb_evening.sh 加 regex ^[0-9]+$ 校验, 非数字 fallback 1 + WARN 日志. 5 新单测 1 类 (含 subprocess 真跑血案场景 # → fallback 1 + 反向验证 sabotage 删校验立即 4 failures / 改 regex 立即 2 failures). 累计 76 suites / 2602→2607 tests / 0 fail / VERSION 0.37.9.56 不变 (hotfix 惯例). 元教训: 同 session 修小 bug 比下次 session 重新拉起上下文成本更低. 原则 #28 严格执行 (Q1/Q2/Q3 三问).",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-05-12",
-      "version": "V37.9.56-hotfix",
-      "what": "V37.9.56 picker cache_paths 多 layout 修复 — Mac Mini 实测 0 picks 死局闭环 (MR-10 understand-before-fix 严格兑现). 真因: Mac Mini auto_deploy FILE_MAP 真实部署路径 ~/.openclaw/jobs/X/ (不是 ~/jobs/ 也不是 ~/openclaw-model-bridge/jobs/) + HN 例外 hn_watcher 子目录. ALIGNED_SOURCES schema cache_dir_rel (单路径) → cache_paths list (dev + Mac Mini 双候选 顺序优先 try) + _resolve_cache_dir() 纯函数 + 12 新单测 2 类 (TestV9_57MacMiniLayout + TestV9_57SchemaGuards) + 反向验证两层守卫真有效. 76 suites / 2590→2602 tests (+12) / 0 fail / VERSION 0.37.9.56 不变 (hotfix 不 bump). 元教训: 测试三层契约 (单测/dev/Mac Mini 真实部署) — deployment-specific 假设必须在 target env 验证, 否则 dev 全绿但生产 0 输出. MR-15 候选 deployment-layout-must-be-tested-on-target-not-tempdir.",
       "by": "claude_code"
     }
   ],
@@ -366,11 +365,11 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 2855,
-    "last_regression": "2026-05-13 08:52 pass",
+    "test_count": 2876,
+    "last_regression": "2026-05-13 09:07 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-05-13 08:52",
-    "test_suites": 83,
+    "security_score_time": "2026-05-13 09:07",
+    "test_suites": 84,
     "governance_invariants": "64/64",
     "governance_checks": "350/350",
     "version": "0.37.9.66"

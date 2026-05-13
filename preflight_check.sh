@@ -379,7 +379,12 @@ echo "📋 8/19 服务连通性"
 
 if $FULL_MODE; then
     # Adapter :5001
-    ADAPTER_RESP=$(curl -s --max-time 5 http://localhost:5001/health 2>/dev/null) && RC=0 || RC=$?
+    # V37.9.67: cmd_and_or_chain → if-then-else (INV-CROSS-OS-001 防 bash quirk)
+    if ADAPTER_RESP=$(curl -s --max-time 5 http://localhost:5001/health 2>/dev/null); then
+        RC=0
+    else
+        RC=$?
+    fi
     if [ $RC -eq 0 ] && echo "$ADAPTER_RESP" | python3 -c "import json,sys; d=json.load(sys.stdin); assert d.get('ok')" 2>/dev/null; then
         pass "Adapter :5001 /health OK"
     else
@@ -387,7 +392,12 @@ if $FULL_MODE; then
     fi
 
     # Tool Proxy :5002
-    PROXY_RESP=$(curl -s --max-time 5 http://localhost:5002/health 2>/dev/null) && RC=0 || RC=$?
+    # V37.9.67: cmd_and_or_chain → if-then-else (INV-CROSS-OS-001)
+    if PROXY_RESP=$(curl -s --max-time 5 http://localhost:5002/health 2>/dev/null); then
+        RC=0
+    else
+        RC=$?
+    fi
     if [ $RC -eq 0 ] && echo "$PROXY_RESP" | python3 -c "import json,sys; d=json.load(sys.stdin); assert d.get('ok')" 2>/dev/null; then
         pass "Tool Proxy :5002 /health OK"
     else
@@ -806,7 +816,8 @@ if $FULL_MODE; then
     else
         # 验证 openclaw message send 命令可用且无配置错误
         PUSH_ERR=$(mktemp)
-        PUSH_TEST=$(openclaw message send --channel whatsapp --target "${OPENCLAW_PHONE:-+85200000000}" --message "🔧 preflight push test $(date '+%H:%M')" --json 2>"$PUSH_ERR") && PUSH_RC=0 || PUSH_RC=$?
+        # V37.9.67: cmd_and_or_chain → if-then-else (INV-CROSS-OS-001)
+        if PUSH_TEST=$(openclaw message send --channel whatsapp --target "${OPENCLAW_PHONE:-+85200000000}" --message "🔧 preflight push test $(date '+%H:%M')" --json 2>"$PUSH_ERR"); then PUSH_RC=0; else PUSH_RC=$?; fi
 
         PUSH_STDERR=$(cat "$PUSH_ERR" 2>/dev/null)
         rm -f "$PUSH_ERR"
@@ -854,11 +865,11 @@ if $FULL_MODE; then
         VERIFY_OUT=$(python3 "$HOME/kb_embed.py" --verify 2>/dev/null) || VERIFY_RC=$?
 
         # 提取关键指标
-        FILE_COV=$(echo "$VERIFY_OUT" | grep -o '文件覆盖.*' | head -1)
-        CHAR_COV=$(echo "$VERIFY_OUT" | grep -o '字符覆盖.*' | head -1)
-        VEC_OK=$(echo "$VERIFY_OUT" | grep -o '向量一致.*' | head -1)
-        CHUNKS=$(echo "$VERIFY_OUT" | grep -o '总 chunks.*' | head -1)
-        STALE=$(echo "$VERIFY_OUT" | grep -o '过期索引.*' | head -1)
+        FILE_COV=$(echo "$VERIFY_OUT" | grep -o '文件覆盖.*' | head -1 || true)
+        CHAR_COV=$(echo "$VERIFY_OUT" | grep -o '字符覆盖.*' | head -1 || true)
+        VEC_OK=$(echo "$VERIFY_OUT" | grep -o '向量一致.*' | head -1 || true)
+        CHUNKS=$(echo "$VERIFY_OUT" | grep -o '总 chunks.*' | head -1 || true)
+        STALE=$(echo "$VERIFY_OUT" | grep -o '过期索引.*' | head -1 || true)
 
         if [ $VERIFY_RC -eq 0 ]; then
             pass "KB 索引 100% 覆盖 ($FILE_COV, $CHUNKS)"
@@ -915,7 +926,8 @@ echo "📋 18/19 旅程级 E2E 测试"
 if $FULL_MODE; then
     E2E_SCRIPT="$HOME/wa_e2e_test.sh"
     if [ -f "$E2E_SCRIPT" ]; then
-        E2E_OUT=$(bash "$E2E_SCRIPT" 2>&1) && E2E_RC=0 || E2E_RC=$?
+        # V37.9.67: cmd_and_or_chain → if-then-else (INV-CROSS-OS-001)
+        if E2E_OUT=$(bash "$E2E_SCRIPT" 2>&1); then E2E_RC=0; else E2E_RC=$?; fi
         E2E_PASS=$(echo "$E2E_OUT" | grep -c "✅\|PASS" || true)
         E2E_FAIL=$(echo "$E2E_OUT" | grep -c "❌\|FAIL" || true)
         if [ $E2E_RC -eq 0 ]; then
@@ -942,7 +954,8 @@ echo "📋 19/19 SLO 合规检查"
 if $FULL_MODE; then
     SLO_SCRIPT="$HOME/slo_checker.py"
     if [ -f "$SLO_SCRIPT" ]; then
-        SLO_OUT=$(python3 "$SLO_SCRIPT" --alert 2>&1) && SLO_RC=0 || SLO_RC=$?
+        # V37.9.67: cmd_and_or_chain → if-then-else (INV-CROSS-OS-001)
+        if SLO_OUT=$(python3 "$SLO_SCRIPT" --alert 2>&1); then SLO_RC=0; else SLO_RC=$?; fi
         if [ $SLO_RC -eq 0 ]; then
             pass "SLO 全部达标"
         elif [ $SLO_RC -eq 2 ]; then
