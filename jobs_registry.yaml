@@ -169,7 +169,7 @@ jobs:
   - id: freight_watcher
     scheduler: system
     entry: jobs/freight_watcher/run_freight.sh
-    interval: "0 8,14,20 * * *"     # 每天 08:00/14:00/20:00
+    interval: "0 14 * * *"           # V37.9.64: 每天 1 次 14:00 (用户决策, 之前 "0 8,14,20" 一天 3 次冗余)
     log: ~/.openclaw/logs/jobs/freight_watcher.log
     needs_api_key: true
     enabled: true

@@ -136,8 +136,8 @@ JOBS=(
     # (overnight 20:45 → 次日 08:45). 7h 阈值导致 overnight 必报警 (用户 5/5 观察现场).
     # 14h = 12h max gap + 2h slack, 与 freight_watcher (3次同款 schedule) 阈值对齐.
     "run_hn_fixed|$HOME/.openclaw/jobs/hn_watcher/cache/last_run.json|50400|HN热帖抓取|core"
-    # Freight: 每天3次(08/14/20) → 最多静默 14h
-    "freight_watcher|$HOME/.openclaw/jobs/freight_watcher/cache/last_run.json|50400|货代Watcher|core"
+    # Freight: V37.9.64 每天 1 次(14:00) → 最多静默 50h (24h max gap + 26h slack)
+    "freight_watcher|$HOME/.openclaw/jobs/freight_watcher/cache/last_run.json|180000|货代Watcher|core"
     # OpenClaw Releases: V37.9.50-hotfix2 已 disable (registry enabled=false). Tripwire 框架替代 daily 推送, 不再 watchdog 监控
     # Discussions: V37.9.50-hotfix3 已 disable (registry enabled=false). 与 openclaw_run hotfix2 同源减法, 社区 issue 推送价值不高
 
