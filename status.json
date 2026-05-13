@@ -1,5 +1,5 @@
 {
-  "updated": "2026-05-13 09:08:33",
+  "updated": "2026-05-13 09:36:48",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -104,6 +104,7 @@
     }
   ],
   "recent_changes": [
+    "{\"date\": \"2026-05-13\", \"what\": \"**今日完美收工** — 一日 6 版本 (V37.9.63 MR-8 helper / V37.9.64 货代 / V37.9.65 crontab_safe remove / V37.9.66 framework 双向 sync / V37.9.66-hotfix watchdog quirk / **V37.9.67 P0 INV-CROSS-OS-001 scanner**) + 反思文档沉淀 + Mac Mini 真激活验证. 收工 A-I 9 项全过. 累计 85 suites/2876 tests/0 fail/76 inv/636 checks/安全 95/100. 元价值: 反思文档\"血案→反思→P0→framework 化预防\"迭代机制硬实证, V3 路标 pip install ontology-engine 核心交付方向. V37.9.68+ 候选: 4 行动登记 unfinished.\", \"by\": \"claude_code\"}",
     {
       "date": "2026-05-13",
       "what": "V37.9.67 P0 行动 1 兑现: INV-CROSS-OS-001 跨 OS quirk scanner. 新文件 cross_os_quirk_scanner.py 4 quirk pattern (cmd&&||/grep|head/awk LC_ALL/zsh-specific). dev scan 抓 16 violations 跨 6 文件全修齐. 21 单测 6 类含反向验证. INV +7 checks. 84 suites/2876 tests/0 fail/76 invariants/636 checks/安全 95/100/VERSION 0.37.9.66→0.37.9.67. 元价值: 同日 V37.9.66-hotfix 血案 → 反思登记 → P0 立即执行 → INV 上线, 闭环 <4h. 反思文档行动 1 真兑现.",
@@ -198,12 +199,6 @@
       "date": "2026-05-12",
       "version": "V37.9.56-hotfix3",
       "what": "kb_evening LLM 编造 OpenClaw v26 幻觉血案修复 — V37.9.56 链式幻觉副作用 (原则 #23 典型实证). 触发: V37.9.56-hotfix 部署后 9:41 evening 推送编造 \"OpenClaw 社区发布 v26\" 给 WhatsApp + Discord 用户. 因果: Top 5 提到三平面对齐 + 今日笔记少 + LLM 训练倾向 → 编造项目动态. 三层修复: (a) alignment_block 软化注入 (新段头\"近期高对齐参考阅读 Top 5\"+ 跨多天累积 + 绝不应硬引用) (b) prompt 模板加反幻觉具体字面禁令 (禁 OpenClaw 社区发布/v26/[openclaw] 等 5 个血案字眼) (c) 源码注释含血案精确字眼便于 grep. 6 新单测 1 类 (TestV9_56Hotfix3AntiHallucinationGuards) + 修适 3 老测试 + 反向验证 sabotage 立即 3 failures 还原全过. 76 suites / 2607→2613 tests / 0 fail / VERSION 0.37.9.56 不变 (hotfix 惯例). MR-15 候选元规则强化: llm-prompt-injection-must-anticipate-hallucination-vector. Stage 2 文章候选: LLM prompt 注入即幻觉注入.",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-05-12",
-      "version": "V37.9.56-hotfix2",
-      "what": "kb_evening.sh DAYS 数字校验防御 — V37.9.56 诊断暴露的 zsh # 注释坑 root-cause fix. 真因: zsh interactive_comments 默认 OFF, # 被当 $1 传给 bash → DAYS=# → int(#) ValueError. 修复: kb_evening.sh 加 regex ^[0-9]+$ 校验, 非数字 fallback 1 + WARN 日志. 5 新单测 1 类 (含 subprocess 真跑血案场景 # → fallback 1 + 反向验证 sabotage 删校验立即 4 failures / 改 regex 立即 2 failures). 累计 76 suites / 2602→2607 tests / 0 fail / VERSION 0.37.9.56 不变 (hotfix 惯例). 元教训: 同 session 修小 bug 比下次 session 重新拉起上下文成本更低. 原则 #28 严格执行 (Q1/Q2/Q3 三问).",
       "by": "claude_code"
     }
   ],
@@ -366,13 +361,13 @@
   "quality": {
     "security_score": 95,
     "test_count": 2876,
-    "last_regression": "2026-05-13 09:07 pass",
+    "last_regression": "2026-05-13 09:34 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-05-13 09:07",
-    "test_suites": 84,
+    "security_score_time": "2026-05-13 09:34",
+    "test_suites": 85,
     "governance_invariants": "64/64",
     "governance_checks": "350/350",
-    "version": "0.37.9.66"
+    "version": "0.37.9.67"
   },
   "incidents": [
     {
@@ -436,7 +431,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "【V37.9.62 6 脚本 batch 升级 — 用户视角 ACL 推送质量 + 100% 彻底处理】2026-05-13 用户视角发现 ACL Anthology 推送只有浅 3 字段, 要求按 S2 (V37.9.39+) 6 字段格式 + 100% 彻底处理. 6 脚本 batch 升级: ACL Anthology (papers 含 abstract) / karpathy_x (tweets) / openclaw_official/run.sh (releases) / openclaw_official/run_discussions.sh (issues) / ontology_sources (4 RSS + parser 扩) / chaspark (混合设计 Phase A 6 字段 + Phase B 跨域分析). 4 P1 机械迁移 V37.9.51 模板 + ontology_sources 扩 parser + chaspark 混合定制. ALIGNED_SCRIPTS 11→17 (21 候选 - 4 by design 排除 = 17 应对齐). 测试 alternation 修 (test_ontology_parser + test_llm_cron_audit + governance INV-ONTOLOGY-001). 81 suites / 2785 tests / 0 fail / 安全 95/100 / VERSION 0.37.9.61→0.37.9.62. **Mac Mini 部署后立即行动**: (1) git fetch + reset 同步 V37.9.62 (2) ACL Anthology 下次周三 09:30 cron 触发推送应**首次出现** 📌中文标题/🔑核心贡献/💡关键方法/🎯实践启发/⭐评级/🎚️项目对齐度 6 字段 + 高对齐统计. karpathy_x 09:00 / openclaw_official 同款 / ontology_sources 10:00 / chaspark 11:00 都升级. **下次 V37.9.63+ 候选**: (a) Mac Mini 全部 6 脚本真激活验证用户视角推送质量 (b) finance_news/freight/kb_dream/kb_inject 4 个 by design 排除是否需重新评估 (c) MR-8 抽 cron_monitor_fatal_handler.sh 公共 helper (V37.9.61 7 governed scripts copy-paste).",
+  "focus": "今日完整闭环 (V37.9.62→V37.9.67 6 commits): MR-8 helper / 货代频率 / crontab_safe remove / framework 双向 sync + path bug / watchdog quirk / **P0 行动 1: INV-CROSS-OS-001 cross_os_quirk_scanner**. 反思文档 ontology/docs/reflections/2026-05-13_complexity_bug_taxonomy.md 沉淀 5 大 bug 类别 + 5 P0/P1/P2 行动 + 闭环 <6h 从血案到 framework 级预防. 累计 85 suites/2876 tests/0 fail/76 inv/636 checks/安全 95/100/VERSION 0.37.9.62→0.37.9.67. 下次 V37.9.68+ 候选: P0 行动 2 INV-PATH-CONSISTENCY-001 + framework 双向 sync 真激活 / P1 failure_modes_catalog.md / P1 MR-18 真激活 + INV-AUTO-INJECT-001 / P2 原则#32 用户视角观察制度 4 周后立 INV.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
