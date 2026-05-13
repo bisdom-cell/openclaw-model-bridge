@@ -1,5 +1,5 @@
 {
-  "updated": "2026-05-13 07:39:19",
+  "updated": "2026-05-13 07:44:31",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -318,7 +318,8 @@
       "V37.9.61 候选 [P1 — 扩 MR-19 到 LLM-task 类]: SCRIPTS_REQUIRING_ERR_TRAP 加 kb_deep_dive/kb_dream/kb_evening/kb_review (set -euo + 缺 trap ERR, V37.9.60-hotfix3 揭露的 framework 设计 gap). 每个加 inline _<script>_fatal_handler + trap ERR mirror V37.9.60 模式. 让 V37.9.21 同款 silent abort 未来直接被 scanner 抓, 不再靠 watchdog last_run 兜底发现.",
       "V37.9.60+ 真激活观察 (今晚 5/13 22:30 + 明早 5/14 07:00): (a) kb_deep_dive 22:30 cron: 如有 ⭐≥4 候选应推送成功 + last_run 真更新到 5/13 22:30 status:ok (验证 hotfix3 修复) (b) governance_audit 07:00 cron: 不应再推 [SYSTEM_ALERT] FATAL false-positive (验证 hotfix1 修复) (c) watchdog 12:30 cron 应消失 kb_dream 状态不存在 + 治理审计 769h + auto_deploy 0h 三条误报 (验证 hotfix2 路径修正 + 整数除法 UX) (d) Discord canary alive 每 4h 推送验证 V37.9.59 watchdog 监控覆盖率扩展 + V37.9.58-hotfix3 元监控.",
       "V37.9.63+ 候选: (a) 6 脚本 Mac Mini cron 真激活验证 (ACL 周三 09:30 / karpathy_x 09:00,21:00 / openclaw_official 每日 / ontology_sources 10:00,20:00 / chaspark 11:00) (b) finance/freight/kb_dream/kb_inject by design 排除评估 (c) MR-8 抽 cron_monitor_fatal_handler.sh 公共 helper (V37.9.61 7 governed scripts copy-paste 是 MR-8 反例信号)",
-      "V37.9.65 候选: convergence framework jobs_to_crontab spec 加 remove_extra 双向 sync — 当前 _apply_jobs_to_crontab_per_entry 只 add missing entries 不 remove extras, 改 yaml 后用户必须手动 crontab -e 删多余行. 升级路径: crontab_safe.sh 加 remove command + convergence.py 加 _identify_extra_entries 函数 + 配合 crontab_safe.sh remove 调用. 已知影响: V37.9.64 freight 改 3次→1次 用户必须手动删 2 行."
+      "V37.9.65 候选: convergence framework jobs_to_crontab spec 加 remove_extra 双向 sync — 当前 _apply_jobs_to_crontab_per_entry 只 add missing entries 不 remove extras, 改 yaml 后用户必须手动 crontab -e 删多余行. 升级路径: crontab_safe.sh 加 remove command + convergence.py 加 _identify_extra_entries 函数 + 配合 crontab_safe.sh remove 调用. 已知影响: V37.9.64 freight 改 3次→1次 用户必须手动删 2 行.",
+      "V37.9.66 候选: convergence framework jobs_to_crontab spec 升级 line_contains_identifier 到完整 cron 行比较 — 当前只检 entry 字符串包含, 不检 interval/log 字段一致性. 后果: V37.9.64 改 yaml interval 0 14 * * * 后, framework 报 declared=N observed=N ok 零漂移, 但真 cron 仍是 0 8,14,20. 用户必须手动 remove+add. 升级路径: 在 _identifier_parsers 加 'cron_line_exact_match' 解析器 + jobs_to_crontab spec 改用 + _apply_jobs_to_crontab_per_entry 也支持 remove_extra (V37.9.65 crontab_safe.sh remove 已上线可调). 实际场景实证 V37.9.65 用户 freight 改频率发现."
     ],
     "open_prs": "",
     "blocked_on": "",
