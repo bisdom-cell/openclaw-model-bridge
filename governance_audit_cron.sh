@@ -18,7 +18,9 @@
 export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
 source "$HOME/.bash_profile" 2>/dev/null || source "$HOME/.env_shared" 2>/dev/null || true
 
-set -euo pipefail
+# V37.9.60 MR-19 err_trap_handler 契约横向推广 (V37.9.58-hotfix3 watchdog 同款模式)
+# 注: -E (errtrace) 让 ERR trap 在 function 内 fail 也触发, 防 bash 默认作用域陷阱
+set -eEuo pipefail
 
 TS="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')"
 REPO_DIR="$HOME/openclaw-model-bridge"
@@ -27,7 +29,7 @@ LOG_PREFIX="[$TS] governance_audit"
 
 log() { echo "$LOG_PREFIX: $1"; }
 
-# ── 加载 notify.sh ───────────────────────────────────────────────────
+# ── 加载 notify.sh (提前 source 让 ERR trap 可用) ────────────────────
 NOTIFY_LOADED=false
 for _np in "$REPO_DIR/notify.sh" "$HOME/notify.sh"; do
     if [ -f "$_np" ]; then
@@ -36,6 +38,32 @@ for _np in "$REPO_DIR/notify.sh" "$HOME/notify.sh"; do
         break
     fi
 done
+
+# ════════════════════════════════════════════════════════════════════
+# V37.9.60 MR-19 ERR trap: silent abort 变 loud
+# ════════════════════════════════════════════════════════════════════
+# 血案模式: governance_audit 每日 07:00 cron 跑 set -euo + 无 trap ERR.
+# 若 python3 ontology/governance_checker.py 不可执行 / module 缺失 / mkdir fail 等,
+# set -e abort 整脚本死, STATUS_FILE 不写, [SYSTEM_ALERT] 不推 → 累积 silent.
+# V37.9.60 复用 V37.9.58-hotfix3 watchdog 同款三层 FAIL-OPEN 推送.
+OPENCLAW_BIN="${OPENCLAW:-/opt/homebrew/bin/openclaw}"
+
+_governance_audit_fatal_handler() {
+    local exit_code=$?
+    local line_no="${1:-unknown}"
+    local fatal_msg="[SYSTEM_ALERT] governance_audit FATAL abort exit=${exit_code} line=${line_no} — 治理审计自身死亡, governance 不变式当日未跑! V37.9.60 MR-19 横向推广防回归. 排查 ~/governance_audit.log + bash -x ~/governance_audit_cron.sh"
+    # stderr 写错误日志 (cron log)
+    echo "[governance_audit] 🚨 FATAL exit=${exit_code} at line=${line_no} (set -e abort)" >&2
+    # 本地告警文件 (即使推送失败也有证据)
+    echo "[$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')] governance_audit FATAL abort exit=${exit_code} line=${line_no}" >> "$HOME/.openclaw_alerts.log" 2>/dev/null || true
+    # 三层 FAIL-OPEN 推送 (notify → openclaw 直发 → 本地 log 已写)
+    if command -v notify >/dev/null 2>&1; then
+        notify "$fatal_msg" --topic alerts 2>/dev/null || true
+    elif [ -x "$OPENCLAW_BIN" ]; then
+        "$OPENCLAW_BIN" message send --channel discord --channel-id "${DISCORD_CH_ALERTS:-}" --content "$fatal_msg" 2>/dev/null || true
+    fi
+}
+trap '_governance_audit_fatal_handler $LINENO' ERR
 
 # ── 1. Governance Checker（不变式 + 元发现）────────────────────────────
 log "开始 governance_checker.py --full"
