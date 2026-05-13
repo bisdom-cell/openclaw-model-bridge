@@ -283,7 +283,7 @@ class TestJobWatchdogAlerts(unittest.TestCase):
         thresholds = {
             "arxiv_monitor": 25200,     # 7h (3h × 2 + 1h)
             "run_hn_fixed": 25200,      # 7h
-            "freight_watcher": 50400,   # 14h (8h × 2 - 2h)
+            "freight_watcher": 180000,  # V37.9.64: 50h (一天1次 14:00, 24h max gap + 26h slack)
             "openclaw_run": 180000,     # 50h
             "run_discussions": 10800,   # 3h (1h × 2 + 1h)
             "kb_evening": 180000,       # 50h
