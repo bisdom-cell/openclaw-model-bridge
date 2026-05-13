@@ -28,19 +28,18 @@ mkdir -p "$(dirname "$LOG")"
 # V37.9.60 加 ERR trap 链式 (与现有 EXIT trap 独立, bash trap 是 per-signal 独立).
 OPENCLAW_BIN="${OPENCLAW:-/opt/homebrew/bin/openclaw}"
 
-_auto_deploy_fatal_handler() {
-    local exit_code=$?
-    local line_no="${1:-unknown}"
-    local fatal_msg="[SYSTEM_ALERT] auto_deploy FATAL abort exit=${exit_code} line=${line_no} — 部署同步死亡! 每 2min cron silent 累积风险. V37.9.60 MR-19 横向推广. 排查 ${LOG} + bash -x ~/openclaw-model-bridge/auto_deploy.sh"
-    echo "[auto_deploy] 🚨 FATAL exit=${exit_code} at line=${line_no} (set -e abort)" >&2
-    echo "[$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')] auto_deploy FATAL abort exit=${exit_code} line=${line_no}" >> "$HOME/.openclaw_alerts.log" 2>/dev/null || true
-    # 三层 FAIL-OPEN: openclaw 直发 (auto_deploy 早期 stage notify.sh 可能未 source)
-    if [ -x "$OPENCLAW_BIN" ]; then
-        "$OPENCLAW_BIN" message send --channel discord --target "${DISCORD_CH_ALERTS:-}" --message "$fatal_msg" --json >/dev/null 2>&1 || true
-    fi
-    # trap EXIT 仍会执行 rmdir LOCK (链式 trap, 不需在 ERR handler 中重复清锁)
-}
-trap '_auto_deploy_fatal_handler $LINENO' ERR
+# V37.9.63: ERR trap 走公共 helper (MR-8 抽公共 — 之前 V37.9.60 inline _auto_deploy_fatal_handler)
+# auto_deploy 早期 stage notify.sh 可能未 source, helper 内 FAIL-OPEN 仍走 openclaw 直发兜底.
+HELPER_DIR="$(cd "$(dirname "$0")" && pwd)"
+if [ -f "$HELPER_DIR/cron_monitor_fatal_handler.sh" ]; then
+    # shellcheck disable=SC1091
+    source "$HELPER_DIR/cron_monitor_fatal_handler.sh"
+    CRON_FATAL_LABEL="auto_deploy"
+    CRON_FATAL_LOG="$LOG"
+    CRON_FATAL_BASH_X="bash -x ~/openclaw-model-bridge/auto_deploy.sh"
+    CRON_FATAL_REASON="部署同步死亡! 每 2min cron silent 累积风险. V37.9.60 MR-19 横向推广."
+fi
+trap '_cron_monitor_fatal_handler $LINENO' ERR
 
 # 凌晨静默期：00:00-07:00 不推送告警（deploy/sync 照常，只是不发通知）
 is_quiet_hours() {
@@ -226,6 +225,9 @@ declare -a FILE_MAP=(
     "movespeed_incident_monitor.py|$HOME/movespeed_incident_monitor.py"  # V37.9.26 — watchdog 主动告警 helper
     "movespeed_rsync_helper.sh|$HOME/movespeed_rsync_helper.sh"  # V37.9.27 — jitter+retry+fail-loud+capture wrapper
     "movespeed_incident_analyzer.py|$HOME/movespeed_incident_analyzer.py"  # V37.9.28 F2 — 数据驱动诊断分析工具
+
+    # MR-19 fatal handler helper（V37.9.63 — 7 个 governed scripts 共享 fatal handler, MR-8 抽公共）
+    "cron_monitor_fatal_handler.sh|$HOME/cron_monitor_fatal_handler.sh"
 
     # 体检 & 验证脚本（V37.8.3: 确保 Mac Mini ~/preflight 是最新版）
     "preflight_check.sh|$HOME/preflight_check.sh"

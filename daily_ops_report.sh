@@ -25,19 +25,17 @@ OPENCLAW_BIN="${OPENCLAW:-/opt/homebrew/bin/openclaw}"
 NOTIFY_SH="${HOME}/notify.sh"
 [ -f "$NOTIFY_SH" ] && source "$NOTIFY_SH" 2>/dev/null || true
 
-_daily_ops_fatal_handler() {
-    local exit_code=$?
-    local line_no="${1:-unknown}"
-    local fatal_msg="[SYSTEM_ALERT] daily_ops_report FATAL abort exit=${exit_code} line=${line_no} — 运维日报当日丢失! V37.9.60 MR-19 横向推广. 排查 ~/daily_ops_report.log + bash -x ~/daily_ops_report.sh"
-    echo "[daily_ops_report] 🚨 FATAL exit=${exit_code} at line=${line_no} (set -e abort)" >&2
-    echo "[$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')] daily_ops_report FATAL abort exit=${exit_code} line=${line_no}" >> "$HOME/.openclaw_alerts.log" 2>/dev/null || true
-    if command -v notify >/dev/null 2>&1; then
-        notify "$fatal_msg" --topic alerts 2>/dev/null || true
-    elif [ -x "$OPENCLAW_BIN" ]; then
-        "$OPENCLAW_BIN" message send --channel discord --channel-id "${DISCORD_CH_ALERTS:-}" --content "$fatal_msg" 2>/dev/null || true
-    fi
-}
-trap '_daily_ops_fatal_handler $LINENO' ERR
+# V37.9.63: ERR trap 走公共 helper (MR-8 抽公共 — 之前 V37.9.60 inline _daily_ops_fatal_handler)
+HELPER_DIR="$(cd "$(dirname "$0")" && pwd)"
+if [ -f "$HELPER_DIR/cron_monitor_fatal_handler.sh" ]; then
+    # shellcheck disable=SC1091
+    source "$HELPER_DIR/cron_monitor_fatal_handler.sh"
+    CRON_FATAL_LABEL="daily_ops_report"
+    CRON_FATAL_LOG="$HOME/daily_ops_report.log"
+    CRON_FATAL_BASH_X="bash -x ~/daily_ops_report.sh"
+    CRON_FATAL_REASON="运维日报当日丢失! V37.9.60 MR-19 横向推广."
+fi
+trap '_cron_monitor_fatal_handler $LINENO' ERR
 
 # ── 1. 运行 conv_quality（不推送，仅输出报告）──────────────────────
 CONV_REPORT=""

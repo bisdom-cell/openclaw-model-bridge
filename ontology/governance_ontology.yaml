@@ -6638,18 +6638,62 @@ invariants:
         check_type: file_contains
         file: job_watchdog.sh
         pattern: '2>/dev/null \|\| true\)'
-      - name: "watchdog 必须有 ERR trap handler (_watchdog_fatal_handler)"
-        check_type: file_contains
-        file: job_watchdog.sh
-        pattern: '_watchdog_fatal_handler'
-      - name: "watchdog ERR trap 注册 (trap ... LINENO ERR)"
-        check_type: file_contains
-        file: job_watchdog.sh
-        pattern: "trap '_watchdog_fatal_handler"
-      - name: "ERR trap 必须推送 [SYSTEM_ALERT] 关键字 (silent abort 变 loud)"
-        check_type: file_contains
-        file: job_watchdog.sh
-        pattern: '\[SYSTEM_ALERT\] watchdog FATAL'
+      # V37.9.63: 接受 helper 模式 (V37.9.63 抽公共) — alternation 用 python_assert 双路径
+      - name: "watchdog 必须有 ERR trap handler (inline OR V37.9.63 helper)"
+        check_type: python_assert
+        assertion: |
+          import os
+          repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) \
+              if "ontology" in os.path.abspath(__file__) \
+              else os.path.dirname(os.path.abspath(__file__))
+          with open(os.path.join(repo, "job_watchdog.sh"), "r", encoding="utf-8") as f:
+              content = f.read()
+          # 接受任一形态:
+          #   (legacy) inline _watchdog_fatal_handler 函数定义 + trap 字面量
+          #   (V37.9.63 helper) source cron_monitor_fatal_handler.sh + trap _cron_monitor_fatal_handler
+          has_inline = (
+              "_watchdog_fatal_handler" in content
+              and "trap '_watchdog_fatal_handler" in content
+          )
+          has_helper = (
+              "source" in content
+              and "cron_monitor_fatal_handler.sh" in content
+              and "trap '_cron_monitor_fatal_handler" in content
+          )
+          assert has_inline or has_helper, (
+              f"INV-WATCHDOG-SELF-001: watchdog 必须有 ERR trap handler. "
+              f"inline 模式 (legacy V37.9.58-hotfix3) 或 V37.9.63 helper 模式 任一即可. "
+              f"has_inline={has_inline}, has_helper={has_helper}"
+          )
+      - name: "ERR trap 必须推送 [SYSTEM_ALERT] 关键字 (silent abort 变 loud; inline OR V37.9.63 helper)"
+        check_type: python_assert
+        assertion: |
+          import os
+          repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) \
+              if "ontology" in os.path.abspath(__file__) \
+              else os.path.dirname(os.path.abspath(__file__))
+          watchdog_path = os.path.join(repo, "job_watchdog.sh")
+          with open(watchdog_path, "r", encoding="utf-8") as f:
+              content = f.read()
+          # V37.9.58-hotfix3 inline 模式: watchdog 自身含 [SYSTEM_ALERT] watchdog FATAL 字面量
+          inline_alert = "[SYSTEM_ALERT] watchdog FATAL" in content
+          # V37.9.63 helper 模式: watchdog source helper + helper 自身含 [SYSTEM_ALERT] 字面量
+          if not inline_alert:
+              helper_path = os.path.join(repo, "cron_monitor_fatal_handler.sh")
+              uses_helper = (
+                  "source" in content and "cron_monitor_fatal_handler.sh" in content
+              )
+              helper_has_alert = False
+              if uses_helper and os.path.exists(helper_path):
+                  with open(helper_path, "r", encoding="utf-8") as f:
+                      helper_content = f.read()
+                  helper_has_alert = "[SYSTEM_ALERT]" in helper_content
+              assert uses_helper and helper_has_alert, (
+                  f"INV-WATCHDOG-SELF-001: watchdog 必须把 silent abort 变 loud. "
+                  f"inline 模式 (含 '[SYSTEM_ALERT] watchdog FATAL') 或 V37.9.63 helper 模式 "
+                  f"(source helper + helper 自身含 '[SYSTEM_ALERT]') 任一即可. "
+                  f"inline_alert={inline_alert}, uses_helper={uses_helper}, helper_has_alert={helper_has_alert}"
+              )
       - name: "EXIT trap 必须写 watchdog_canary.json (canary 文件)"
         check_type: file_contains
         file: job_watchdog.sh
@@ -6836,6 +6880,42 @@ invariants:
         check_type: file_contains
         file: kb_review.sh
         pattern: 'set -eEuo pipefail'
+      # ── V37.9.63 抽公共 helper (MR-8 single-source-of-truth 正向兑现) ──
+      # V37.9.60+V37.9.61 7 governed scripts inline copy-paste fatal_handler ~210 行 → 抽到
+      # cron_monitor_fatal_handler.sh, 7 scripts 改为 source helper + 4 个 CRON_FATAL_* 变量 + trap.
+      # 顺势修复 V37.9.60 6 个 fatal_handler 第二层 FAIL-OPEN CLI bug (--channel-id/--content → canonical --target/--message/--json).
+      - name: "cron_monitor_fatal_handler.sh helper 文件必须存在"
+        check_type: file_contains
+        file: cron_monitor_fatal_handler.sh
+        pattern: 'V37.9.63'
+      - name: "helper 必须定义 _cron_monitor_fatal_handler() 函数 (公共入口)"
+        check_type: file_contains
+        file: cron_monitor_fatal_handler.sh
+        pattern: '_cron_monitor_fatal_handler()'
+      - name: "helper 必须用 canonical CLI --target (修 V37.9.60 6 个 fatal_handler CLI bug)"
+        check_type: file_contains
+        file: cron_monitor_fatal_handler.sh
+        pattern: '--target'
+      - name: "helper 必须用 canonical CLI --message"
+        check_type: file_contains
+        file: cron_monitor_fatal_handler.sh
+        pattern: '--message'
+      - name: "helper 必须用 canonical CLI --json"
+        check_type: file_contains
+        file: cron_monitor_fatal_handler.sh
+        pattern: '--json'
+      - name: "helper 必须引用 MR-8 single-source-of-truth (设计意图溯源)"
+        check_type: file_contains
+        file: cron_monitor_fatal_handler.sh
+        pattern: 'MR-8'
+      - name: "cron_monitor_scanner.py 必须含 V37.9.63 helper 模式 alternation"
+        check_type: file_contains
+        file: cron_monitor_scanner.py
+        pattern: 'uses_shared_fatal_handler_helper'
+      - name: "auto_deploy.sh FILE_MAP 必须含 cron_monitor_fatal_handler.sh 部署"
+        check_type: file_contains
+        file: auto_deploy.sh
+        pattern: '"cron_monitor_fatal_handler.sh|$HOME/cron_monitor_fatal_handler.sh"'
       # runtime layer: 真跑 scanner + 单测
       - name: "RUNTIME: cron_monitor_scanner.py 全量扫描 exit 0 (0 violations)"
         check_type: python_assert
@@ -6853,7 +6933,7 @@ invariants:
               f"stdout=\n{result.stdout}\n\nstderr=\n{result.stderr}\n"
               f"V37.9.60 任一 governed 脚本必须满足 err_trap_handler 契约"
           )
-      - name: "RUNTIME: test_cron_monitor_scanner.py 46 单测全过"
+      - name: "RUNTIME: test_cron_monitor_scanner.py 单测全过"
         check_type: python_assert
         assertion: |
           import subprocess, os, sys
@@ -6868,6 +6948,22 @@ invariants:
               f"INV-CRON-MONITOR-001 单测违反:\n"
               f"stdout=\n{result.stdout}\n\nstderr=\n{result.stderr}\n"
               f"V37.9.60 MR-19 框架化推广测试套件失败"
+          )
+      - name: "RUNTIME: test_cron_monitor_fatal_handler.py 30 helper 单测全过 (V37.9.63)"
+        check_type: python_assert
+        assertion: |
+          import subprocess, os, sys
+          repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) \
+              if "ontology" in os.path.abspath(__file__) \
+              else os.path.dirname(os.path.abspath(__file__))
+          result = subprocess.run(
+              [sys.executable, "test_cron_monitor_fatal_handler.py"],
+              cwd=repo_root, capture_output=True, text=True, timeout=60
+          )
+          assert result.returncode == 0, (
+              f"INV-CRON-MONITOR-001 V37.9.63 helper 单测违反:\n"
+              f"stdout=\n{result.stdout}\n\nstderr=\n{result.stderr}\n"
+              f"V37.9.63 MR-8 抽公共 helper 守卫失败"
           )
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -7228,9 +7324,10 @@ security_config:
 # 6. 审计元数据
 # ═══════════════════════════════════════════════════════════════════════
 audit_metadata:
-  version: "3.40"
+  version: "3.41"
   created: "2026-04-07"
   upgraded: |
+    v3.40 → v3.41: V37.9.63 MR-8 抽公共 fatal_handler helper — MR-19 framework 化推广后第一次 MR-8 正向兑现 + 顺势修复 V37.9.60 6 个 fatal_handler 第二层 FAIL-OPEN CLI 参数 bug. **触发**: V37.9.61 收工承诺登记 V37.9.63+ 候选 "MR-8 抽 cron_monitor_fatal_handler.sh 公共 helper (V37.9.60+V37.9.61 7 governed scripts copy-paste)"。**audit 7 个 inline _<script>_fatal_handler 真实代码** 发现 99% 同款 (三层 FAIL-OPEN 共有: stderr 写错误 / 本地 .openclaw_alerts.log 追加 / notify→openclaw 直发) + 6 处差异 (caller name / reason 文案 / log path / bash_x hint / OPENCLAW 变量名 / auto_deploy CLI 参数风格). **关键意外发现**: V37.9.60 我写的 6 个 fatal_handler 第二层 FAIL-OPEN 用了 `--channel-id` + `--content` 但 canonical CLI (notify.sh / auto_deploy 主告警 / watchdog 主告警同款) 是 `--target` + `--message` + `--json`. 6 个 fatal_handler 第二层 FAIL-OPEN 在 notify 不可用时**实际是死代码**. 顺势统一到 canonical CLI 风格. **新文件 cron_monitor_fatal_handler.sh** (~80 行 helper, sentinel CRON_MONITOR_FATAL_HANDLER_LOADED="V37.9.63"): 单函数 `_cron_monitor_fatal_handler()` 读 4 个 caller 变量 (CRON_FATAL_LABEL / CRON_FATAL_LOG / CRON_FATAL_BASH_X / CRON_FATAL_REASON) + 三层 FAIL-OPEN 同款 + canonical CLI + 三档 OPENCLAW 变量 fallback (${OPENCLAW_BIN:-${OPENCLAW:-/opt/homebrew/bin/openclaw}}). **7 个 governed scripts 迁移**: 每个删除 ~20 行 inline _<script>_fatal_handler 函数 + 加 7 行 (source helper + 4 个 CRON_FATAL_* 变量 + trap '_cron_monitor_fatal_handler $LINENO' ERR), 净减少 ~13 行 × 7 = **~90 行 copy-paste 消除**. watchdog 保留 _watchdog_exit_handler (canary heartbeat) 不动 — 它不是 fatal handler. **test_cron_monitor_fatal_handler.py 30 单测 7 测试类** + 反向验证守卫真有效: TestHelperSyntaxAndStructure(6) + TestHelperCanonicalCli(2 含反 V37.9.60 buggy CLI 守卫) + TestHelperRuntimeBehavior(5 含 subprocess 真跑 set -e caller + handler 自身不冒泡契约) + TestSevenScriptsIntegration(7 含 LABEL 唯一性) + TestInlineHandlersRemoved(2 含 watchdog 保 EXIT trap) + TestReverseVerificationSabotage(3 含 sabotage helper → 13 failures / sabotage script source → integration 守卫立即抓) + TestV37963SourceLevelMarkers(5 含 FILE_MAP 部署 + MR-8 引用). **cron_monitor_scanner.py 升级**: 新增 `uses_shared_fatal_handler_helper()` 函数 (检测 source helper + trap helper 函数双条件), scan_script 加 alternation — [SYSTEM_ALERT] marker OR V37.9.63 helper 模式 任一满足即合规. **test_cron_monitor_scanner.py V37.9.61 守卫升级 alternation**: 接受 inline trap (legacy V37.9.61) OR helper 模式 (V37.9.63), 52/52 仍全过. **INV-CRON-MONITOR-001 扩 +9 declaration checks** (V37.9.63 helper 段): helper 文件存在 + V37.9.63 marker + 公共函数定义 + canonical CLI (--target/--message/--json) + MR-8 引用 + scanner V37.9.63 helper 模式 alternation + auto_deploy FILE_MAP 部署. **+1 runtime python_assert**: subprocess 跑 test_cron_monitor_fatal_handler.py 全过. **MR-8 single-source-of-truth 兑现** — 修改 fatal_handler 行为现在只需改 helper 一处, 7 个 governed scripts 自动 propagate. 未来加新 governed cron 类聚合监控只需 source helper + 4 变量 + trap, 不再 copy-paste. **元价值**: V37.9.58-hotfix3 单点 MR-19 → V37.9.60 framework 化 (4 cron) → V37.9.61 LLM-task 扩展 (7 总) → V37.9.63 MR-8 抽公共 — silent monitor 防御 framework 四阶段闭环. 同时修 V37.9.60 隐藏 CLI 参数 bug, 用 audit 工作意外发现并顺势统一. 累计 82 suites 不变 (test_cron_monitor_fatal_handler.py 加入 full_regression) → 83 suites (+1) / 2785 tests + 30 V37.9.63 helper 单测 + 1 alternation 升级 → ~2816 tests / 0 fail / governance v3.40 → v3.41 / 75 invariants 不变 (INV-CRON-MONITOR-001 内涵扩) / 609 → 619 checks (+10) / 19 meta rules 不变 / 安全 95/100 / VERSION 0.37.9.62 → 0.37.9.63.
     v3.39 → v3.40: V37.9.61 MR-19 扩展到 LLM-task 类脚本 — V37.9.60-hotfix3 揭露 framework gap 闭环. **触发**: V37.9.60-hotfix3 (2026-05-13 同日早) 用数据驱动定位 V37.9.21 我引入的 silent abort 真因 (send_wa_parts 函数末尾 `[ X -lt Y ] && sleep 1` 短路返回 1 → set -e 杀 caller → kb_deep_dive 5/8-5/12 5 天 last_run 不更新). 揭露 V37.9.60 framework scope 设计缺口 — SCRIPTS_REQUIRING_ERR_TRAP 只覆盖 cron 聚合监控类 (job_watchdog/governance_audit/daily_ops/auto_deploy), 遗漏 LLM-task 类 (kb_deep_dive/kb_dream/kb_evening/kb_review). **V37.9.61 修复 3 脚本** (kb_deep_dive/kb_evening/kb_review): set -euo → set -eEuo (含 -E errtrace V37.9.58-hotfix4 教训) + inline _<script>_fatal_handler 函数推 [SYSTEM_ALERT] 三层 FAIL-OPEN (notify → openclaw → 本地 .openclaw_alerts.log) + trap '_<script>_fatal_handler $LINENO' ERR 注册 + V37.9.61 marker 注释引用 V37.9.21 血案 lineage. **kb_dream 不在 scope** (严格 #28 最小修复): 仅 set -o pipefail 无 -e, silent abort 不会发生从 set -e 角度. **scanner 重扫 7 个 governed scripts** 全合规 (V37.9.60 4 个 + V37.9.61 3 个). **INV-CRON-MONITOR-001 declaration 扩 +9 守卫** (3 LLM-task 脚本 × 3 守卫: fatal_handler 名 + V37.9.61 marker + set -eEuo). **test_cron_monitor_scanner.py +3 新守卫**: test_v37_9_61_llm_task_scripts_have_fatal_handler (3 脚本 + trap 注册) + test_v37_9_61_llm_task_scripts_have_v37_9_61_marker + test_kb_dream_not_in_governed_scripts (严格 scope 守卫) + SCRIPTS list 锁定 7 个 + governed_scripts_have_eE_errtrace 扩到 6 个. **反向验证**: sabotage kb_deep_dive 移除 trap ERR → 3 测试立即 fail, 还原 → 52/52 OK. 累计 81 suites 不变 (test 内部扩) / 2782→2785 tests (+3 V37.9.61 守卫) / 0 fail / governance v3.39→v3.40 / 75 invariants 不变 (INV-CRON-MONITOR-001 内涵扩) / 600→609 checks (+9) / 19 meta rules 不变 (V37.9.61 框架化扩展不立新元规则) / 安全 95/100 / VERSION 0.37.9.60 不变 (hotfix 范畴 LLM-task framework 化, 不 bump version). **元价值**: 一日内闭环 V37.9.60 主交付 → 3 hotfix → V37.9.61 framework 扩 LLM-task — V37.9.60 framework 真激活硬实证, watchdog 推 "KB每日深度 130h 未更新" → 数据驱动诊断 → 抓出 V37.9.21 我引入的 silent abort → 修真因 + 同款 framework 化扩展防未来回归. SCRIPTS_REQUIRING_ERR_TRAP 现已覆盖 cron 聚合 + LLM-task 两大主要类型, 任何新增同款脚本只需注册即被 governance audit 强制 enforce — V3 路标 pip install ontology-engine 终极目标的 framework 边界进一步清晰.
     v3.38 → v3.39: V37.9.60 MR-19 err_trap_handler 契约横向推广 — V37.9.58-hotfix3 立 MR-19 时只把 job_watchdog.sh 升级为合规, V37.9.60 把契约从单点扩展到所有 cron 类聚合监控脚本 (mirror V37.9.58-hotfix2 MR-18 framework scanner 模式). **触发**: V37.9.58-hotfix3 收工承诺 "扫所有 cron 监控脚本是否满足 MR-19 三契约". 用户 5/13 开工时选 "MR-19 三契约扫描" 路径推进. **扫描结果**: dev scan 抓到 3 个真实 violations — governance_audit_cron.sh (set -euo + 推送 alerts 但无 trap ERR) / daily_ops_report.sh (set -eo + 无 trap ERR) / auto_deploy.sh (set -euo + 有 trap EXIT 但无 trap ERR), 都是 V37.9.58-hotfix3 同款盲点。**scope 收敛**: V37.9.60 = err_trap_handler 一个契约横向推广 (awk_safe / canary_writer 是 watchdog-specific 不普适)。**修复内容**: (1) **cron_monitor_scanner.py** (~200 行纯 Python AST-free 启发式 scanner, FAIL-CLOSE 契约): SCRIPTS_REQUIRING_ERR_TRAP 锁 4 个 governed 脚本; has_set_e_strict / has_err_trap / has_system_alert_marker 三个纯函数; scan_script / scan_repo / main CLI (--list / --file / 默认全量); 任一 violation 必须 exit 1. (2) **3 个脚本修复**: 每个加 _<script>_fatal_handler 函数推 [SYSTEM_ALERT] + 三层 FAIL-OPEN (notify.sh / openclaw 直发 / .openclaw_alerts.log) + `trap '_<script>_fatal_handler $LINENO' ERR` 注册 + set -e* 升级到 set -eE* (含 -E errtrace 修 V37.9.58-hotfix4 同款 bash 作用域陷阱). (3) **MR-8 单一真理源讨论**: V37.9.60 PoC 选 inline 模式 (4 脚本 copy-paste 可接受), 未来扩展到 N 个监控时考虑抽 helper (V37.9.61+ 候选). **INV-CRON-MONITOR-001** 新增 (meta_rule=MR-19, severity=high, verification_layer=[declaration, runtime], **18 checks**): 16 declaration (scanner 6 守卫 SCRIPTS list + V37.9.60 marker + FAIL-CLOSE + MR-19 引用 + 3 脚本各 3 守卫 fatal_handler + V37.9.60 marker + set -eE*) + 2 runtime python_assert (subprocess 跑 scanner 必须 0 violations + subprocess 跑 46 单测全过). **test_cron_monitor_scanner.py 46 单测 8 类** + 反向验证 4 类 (sabotage 4 个 governed 脚本 trap ERR 立即抓到 violation, 还原后再次合规, V37.9.58-hotfix2 同款模式): TestHasSetEStrict(11) + TestHasErrTrap(9) + TestHasSystemAlertMarker(4) + TestScanScript(5) + TestScanRepoIntegration(2) + **TestReverseVerificationGuardsAreReal(4 反向验证)** + TestCliBehavior(3) + TestSourceLevelGuards(8). 累计 81→82 suites (+1: cron_monitor_scanner) / 2757→2803 tests (+46) / 0 fail / governance v3.38→v3.39 / 74→75 invariants (+1 INV-CRON-MONITOR-001) / 582→600 checks (+18) / 19 meta rules 不变 (MR-19 已在 V37.9.58-hotfix3 立案) / 安全 95/100 / VERSION 0.37.9.59→0.37.9.60. **元价值**: V37.9.58-hotfix3 立 MR-19 + V37.9.59 watchdog 覆盖率扩展 + V37.9.60 MR-19 框架化推广 = 三阶段闭环 silent monitor 防御 framework. 任何未来新增 cron 类聚合监控只需注册到 SCRIPTS_REQUIRING_ERR_TRAP 即被 governance audit 强制 enforce, V3 路标 pip install ontology-engine 核心交付方向 — declarative monitor governance 用机器化契约取代记忆维护成本.
     v3.37 → v3.38: V37.9.58-hotfix3 治本 watchdog silent abort 7 天血案 — MR-19 立案 + INV-WATCHDOG-SELF-001 framework 级监控自观察. 用户 5/12 视角发现"今天只收到 HN+HF" → 深度诊断 → watchdog 自身从 2026-05-05 16:30 起静默 abort 7 天累积告警未推送. 真因: macOS bsd awk 处理含无效 UTF-8 字节 log → `awk: towc: multibyte conversion failure on: '?'` exit 1 → pipefail + set -e → watchdog 整脚本 abort exit 2 → 没 ERR trap → silent. 累积影响: hf_papers / s2 / rss_blogs / github_trending lockdir 残留 (没人清), MOVESPEED 24h 21 次 rsync 失败告警 (没推送), SLO p95 54s 严重超阈值 (没推送), KB 摘要 29h 未更新 (没推送) — 全部 silent. **V37.9.58-hotfix3 治本三层**: (A) **awk LC_ALL=C + 容错**: tail | LC_ALL=C awk ... 2>/dev/null || true 防 macOS bsd awk multibyte abort (B) **ERR trap 主动告警**: _watchdog_fatal_handler $LINENO → trap ERR 推送 [SYSTEM_ALERT] watchdog FATAL 到 Discord (FAIL-OPEN 三层 fallback: notify / openclaw / local file) (C) **EXIT trap canary heartbeat**: 正常完成时写 ~/watchdog_canary.json + ALERTS=0 时推 "alive" 消息 (元监控钩子). **STALE_LOCK_DIRS 补 5 个 jobs** (rss_blogs/github_trending/ai_leaders_x/finance_news/ontology_sources — 5/12 诊断发现 rss_blogs.lockdir 残留 45h 没人管). **MR-19 立案** `monitor-must-self-alarm-on-silent-abort` (governance_ontology.yaml meta_rules): 任何 silent failure 监控工具必须三契约 — awk_safe + err_trap_handler + canary_writer. 关联 MR-4 (silent-failure 元层) + MR-7 (治理自观察) + MR-17 (declared 与 runtime 同步). derivative: INV-WATCHDOG-SELF-001. blood_lessons 详记 V37.9.58-hotfix3 完整因果链 + Q1/Q2/Q3 三问. **INV-WATCHDOG-SELF-001** (meta_rule=MR-19, severity=critical, verification_layer=[declaration, runtime], **12 checks**): 11 declaration (awk LC_ALL=C / `|| true` 容错 / _watchdog_fatal_handler / trap ERR 注册 / [SYSTEM_ALERT] 字面量 / watchdog_canary.json / 'watchdog alive' / rss/gh/ai_leaders STALE 补齐 / V37.9.58-hotfix3 marker) + 1 runtime (subprocess 跑 test_watchdog_self_monitoring). **test_watchdog_self_monitoring.py 单测** + 反向验证 sabotage 守卫真有效. 累计 79→80 suites (+1) / 2704→2740 tests (+36 V37.9.58-hotfix3 单测) / 0 fail / governance v3.37→v3.38 / 73→74 invariants (+1 INV-WATCHDOG-SELF-001) / 570→582 checks (+12) / 18→19 meta rules (+1 MR-19) / 安全 95/100 / VERSION 0.37.9.58 不变 (hotfix 不 bump). **元价值** (今日四件套闭环): 一天内 V37.9.58 主交付 (machine_sync 真激活) + V37.9.58-hotfix (8 ALIGNED jobs import os 批量) + V37.9.58-hotfix2 (MR-18 + scanner) + V37.9.58-hotfix3 (MR-19 + watchdog 自观察) 四个版本每个都把 silent failure 向上一层抽象修. hotfix3 是最深层 — 监控自身死活监控. V3 路标 `pip install ontology-engine` 终极目标的核心交付之一. MR-19 让"watchdog 自身死亡 7 天无人发现"从靠记忆运维升级为机器化主动告警 + canary 双层防御.
@@ -7271,9 +7368,9 @@ audit_metadata:
     v3.12 → v3.13: V37.8.7 ontology_sources 推送格式错位血案 — INV-ONTOLOGY-001 新增 (ontology-sources-parser-must-be-key-based-not-positional, meta_rule=MR-4, severity=high, verification_layer=[declaration, runtime], 7 checks). 2026-04-15 用户 WhatsApp 收到 ontology_sources 推送严重错位：第 2 篇 cn_title 显示为 *---*、第 3 篇 cn_title 显示为 *价值：⭐⭐⭐⭐*。根因：原解析器用严格位置 (lines[i], lines[i+1], lines[i+2]) + i+=3 步进 — LLM 漏一行"要点"或多一行空白就让所有后续条目的 cn_title/highlight/stars 全部右移一格级联污染。修复：抽到独立模块 jobs/ontology_sources/ontology_parser.py（纯函数 parse_llm_blocks 可单测，避开 V37.5 heredoc-only 不可测血案），按 separator 切块 + 块内 key-based prefix 解析，单块缺行不影响其他块。runtime python_assert 真跑用户实际看到的污染场景断言"缺要点不级联"。24 单测 (test_ontology_parser.py)：TestNormalCases(4) + TestBloodLessonRegression(5) + TestSeparatorVariants(5) + TestLLMOutputVariants(5) + TestShellScriptIntegration(4) + TestActualBloodLessonScenario(1)。MR-4 silent-failure 第 8 次演出（输出"看起来正常" 6 字段都在但语义错乱）。auto_deploy FILE_MAP 补齐 ontology_parser.py。
     v3.11 → v3.12: V37.8.6 Dream 自引用幻觉血案 — INV-DREAM-003 新增 (dream-log-cannot-pollute-cache-nor-fabricate-platform-crises, meta_rule=MR-4, severity=critical, verification_layer=[declaration, runtime], 16 checks). 2026-04-15 03:00 Dream run 出现 4 次 Bad JSON 400 (adapter 收到破损 JSON)，但 Dream 仍产出完整"Hugging Face 平台危机"分析，用户察觉 Signal(Papers with Code 沉默)↔Action(监控 Hugging Face) 主题断裂后上报。三层根因：(a) scraped 内容含 surrogate UTF-8 → json.dump + utf-8 file write → UnicodeEncodeError → body_file 截断 → adapter.py:386 返回 400 Bad JSON (b) kb_dream.sh log() 用 `echo` 写 stdout → signals=$(llm_call ...) 命令替换捕获 log 行进 signals → cache file 被"LLM raw response: Error code 400 Bad JSON..."污染 (c) Reduce cache-only fast path 把错误日志注入 LLM 上下文 → LLM 基于这些字样自动编造"Hugging Face 危机"叙事 = 原则 #23 链式幻觉 + MR-4 silent failure 第 7 次演出。四层结构修复（defense-in-depth）：log→stderr 阻断 stdout 污染通道 + _sanitize(U+D800-U+DFFF → U+FFFD) 防编码炸裂 + file open 显式 encoding='utf-8' errors='replace' 第二防线 + REDUCE/CHUNK1/2/3 system prompt 四块加反污染守卫 (禁止把 HTTP 错误码/Python 异常/错误页 HTML/U+FFFD 当外部信号，禁止基于这些字样推断 Hugging Face/GitHub/npm 等平台状态)。runtime python_assert 真跑 sanitize 五场景 (孤立高位/低位代理/正常串/代理范围边界/sanitize 后 json+utf-8 编码不炸)。19 单测 (TestLogGoesToStderr×2 + TestSanitizeSurrogates×7 + TestShellSanitizeImplementation×5 + TestAntiPollutionSystemPrompt×3 + TestShellScriptIntegrity×1 + TestLogDefHasCommentMeta×1)。
     v3.10 → v3.11: V37.8.5 INV-X-001 升级三层检测 (血案二次演出: V37.8.4 修复本身埋盲区) — V37.8.4 收工 Mac Mini E2E 即发现 2 个边缘：CNS1952 98/99 超窗口 + 1 过短老化率 99% 但未触发严格 old==total (MR-10 第 2 次演出：修复会埋坑)；SingTaoDaily 0-tweet stub (embed disabled 返回空骨架) 被 total>0 门槛绕过完全不标记。V37.8.5 修复：(1) 检测逻辑独立为 jobs/finance_news/finance_news_zombie.py 纯函数模块 (classify_zombie(diag, count)); (2) 三层 tier: "stub" (no_data=0 + total=0) + "stale" (≥90% 老化 + count=0 守卫防止低频活跃误报)，整数比较 old*10 >= total*9 避免浮点; (3) 24 单测锁定三层 + 守卫 + shell 集成 + auto_deploy FILE_MAP; (4) verification_layer 从 [declaration] 升级到 [declaration, runtime] (MR-6 遵循: INV-X-001 现在有 python_assert 真跑 5 个 tier 场景); (5) shell 脚本禁止内嵌 inline fallback (防模块缺失时静默降级回 V37.8.4 逻辑 — MR-8 copy-paste-is-a-bug-class 兑现)。诊断行 tier 区分 ⚠️ ZOMBIE嫌疑[stub] vs [stale]，便于日志定位。
-  total_invariants: 75  # V37.9.61: 不变 (INV-CRON-MONITOR-001 内涵扩 LLM-task 类非新增)
-  total_checks: 609     # V37.9.61: +9 (INV-CRON-MONITOR-001 加 3 LLM-task 脚本 × 3 守卫: fatal_handler + V37.9.61 marker + set -eEuo)
-  meta_rules: 19        # MR-1~MR-19 不变 (V37.9.61 框架化扩展, 不立新元规则)
+  total_invariants: 75  # V37.9.63: 不变 (INV-CRON-MONITOR-001 内涵扩 V37.9.63 helper 段非新增)
+  total_checks: 619     # V37.9.63: +10 (INV-CRON-MONITOR-001 加 9 declaration helper 守卫 + 1 runtime helper 单测全过)
+  meta_rules: 19        # MR-1~MR-19 不变 (V37.9.63 是 MR-8 正向兑现, 不立新元规则)
   meta_rule_discovery_count: 6   # Phase 0: registry + env + notify-topic + layer-depth + error-suppression + notify-activity
   check_types_used: [python_assert, file_contains, file_not_contains, env_var_exists, command_succeeds, log_activity_check]
   verification_layers_used: [declaration, runtime, effect]  # v3.1: 效果层启动
