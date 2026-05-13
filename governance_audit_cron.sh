@@ -72,9 +72,13 @@ GOV_RC=0
 GOV_OUTPUT=$(cd "$REPO_DIR" && python3 ontology/governance_checker.py --full 2>&1) || GOV_RC=$?
 
 # 提取摘要行
-GOV_SUMMARY=$(echo "$GOV_OUTPUT" | grep -E "通过:|不变式:" | head -2 | tr '\n' ' ')
-GOV_VIOLATIONS=$(echo "$GOV_OUTPUT" | grep "❌" | head -5)
-GOV_WARNINGS=$(echo "$GOV_OUTPUT" | grep "⚠️" | head -5)
+# V37.9.60-hotfix: grep | head subshell pipe 必须 || true 容错
+# 否则 grep no-match exit 1 → pipefail → set -eE 让 ERR trap 触发 false-positive FATAL
+# (governance_audit 实际成功跑完, 但 grep "❌" no match 时 ERR trap 误触发推 [SYSTEM_ALERT])
+# V37.9.58-hotfix4 同款 bash quirk 横向修复
+GOV_SUMMARY=$(echo "$GOV_OUTPUT" | grep -E "通过:|不变式:" | head -2 | tr '\n' ' ' || true)
+GOV_VIOLATIONS=$(echo "$GOV_OUTPUT" | grep "❌" | head -5 || true)
+GOV_WARNINGS=$(echo "$GOV_OUTPUT" | grep "⚠️" | head -5 || true)
 
 log "governance_checker 完成: rc=$GOV_RC $GOV_SUMMARY"
 

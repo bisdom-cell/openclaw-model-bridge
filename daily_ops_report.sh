@@ -43,12 +43,13 @@ trap '_daily_ops_fatal_handler $LINENO' ERR
 CONV_REPORT=""
 CONV_OUTPUT=$(python3 ~/conv_quality.py --no-push 2>&1) || true
 # 提取报告内容（跳过 [conv_quality] 前缀的日志行）
-CONV_REPORT=$(echo "$CONV_OUTPUT" | grep -v '^\[conv_quality\]')
+# V37.9.60-hotfix: grep -v 全匹配时 exit 1 → pipefail + set -eE 让 ERR trap 误触发, 加 || true 容错
+CONV_REPORT=$(echo "$CONV_OUTPUT" | grep -v '^\[conv_quality\]' || true)
 
 # ── 2. 运行 token_report（不推送，仅输出报告）──────────────────────
 TOKEN_REPORT=""
 TOKEN_OUTPUT=$(python3 ~/token_report.py --no-push 2>&1) || true
-TOKEN_REPORT=$(echo "$TOKEN_OUTPUT" | grep -v '^\[token_report\]')
+TOKEN_REPORT=$(echo "$TOKEN_OUTPUT" | grep -v '^\[token_report\]' || true)
 
 # ── 3. 组装合并消息 ───────────────────────────────────────────────
 MSG=""

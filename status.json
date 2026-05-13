@@ -1,5 +1,5 @@
 {
-  "updated": "2026-05-13 00:42:53",
+  "updated": "2026-05-13 00:53:03",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-05-13",
+      "what": "V37.9.60-hotfix: bash quirk false-positive FATAL 横向修复 (V37.9.58-hotfix4 同款 grep | head pipe + set -eE 联合反模式) — Mac Mini 部署 V37.9.60 后用户跑 governance_audit_cron 立即触发 [SYSTEM_ALERT] FATAL × 2 推送 Discord. 真根因: governance_audit_cron line 76 GOV_VIOLATIONS=$(... grep \"❌\" | head -5) 无 || true 兜底; governance_checker.py 全过 (527/527 通过) 无 ❌ 输出 → grep no-match exit 1 → pipefail → set -eE + ERR trap 触发 false-positive FATAL. 同款反模式扫描出 3 文件 6 处: governance_audit_cron 3 处 (GOV_SUMMARY/VIOLATIONS/WARNINGS) + daily_ops_report 2 处 (CONV_REPORT/TOKEN_REPORT grep -v) + auto_deploy 2 处 (FAIL_LINES grep ❌ + CRON_COUNT crontab|grep|wc|tr). 全部加 || true 兜底 + V37.9.60-hotfix marker 注释. 3 个新 source-level 守卫加入 test_cron_monitor_scanner.py (49 tests, 反向验证 sabotage 真有效 sabotage→fail 还原→pass). 累计 81 suites / 2775 tests / 0 fail / 安全 95/100 / VERSION 0.37.9.60 不变 (hotfix 不 bump). 教训: V37.9.58-hotfix4 已警告此 quirk 但 V37.9.60 framework 化推广时未横向扫 grep pipe pattern (MR-10 understand-before-fix 第 N 次违反). MR-19 framework scanner 应将来加 grep_pipe_or_true 契约扫.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-05-13",
       "what": "V37.9.60 MR-19 err_trap_handler 契约横向推广 — V37.9.58-hotfix3 立 MR-19 (monitor-must-self-alarm-on-silent-abort) 时只 job_watchdog.sh 合规, V37.9.60 把契约推广到所有 cron 类聚合监控. scope 收敛: 仅 err_trap_handler (awk_safe/canary_writer 是 watchdog-specific 不普适). MR-19 治理对象 4 个 (job_watchdog/governance_audit_cron/daily_ops_report/auto_deploy), 不适用 4 个 (wa_keepalive/cron_canary/health_check/preflight_check). 新文件 cron_monitor_scanner.py (~200 行启发式 scanner, FAIL-CLOSE) + 3 个脚本 inline 加 set -eE* (含 -E errtrace, V37.9.58-hotfix4 教训) + _<script>_fatal_handler 推 [SYSTEM_ALERT] (三层 FAIL-OPEN) + trap ERR 注册. dev scan 立即抓 3 violations + 修复后 0 violations. INV-CRON-MONITOR-001 (meta=MR-19, severity=high, decl+runtime, 18 checks). test_cron_monitor_scanner.py 46 单测 8 类含反向验证 4 类 (sabotage 4 个 governed 脚本立即触发 violation 还原后合规). full_regression 接入 cron_monitor_scanner suite. 不加 FILE_MAP (V37.9.58-hotfix2 heredoc_import_scanner 同款模式, governance audit 从 repo dir 跑). 累计 81→82 suites / 2757→2803 tests / 0 fail / governance v3.38→v3.39 / 74→75 invariants / 582→600 checks / 19 meta rules / 安全 95/100 / VERSION 0.37.9.59→0.37.9.60. **元价值**: V37.9.58-hotfix3 (watchdog 单点) + V37.9.59 (LOG_FRESHNESS 覆盖率) + V37.9.60 (MR-19 framework 化) = silent monitor 防御 framework 三阶段闭环. mirror V37.9.58-hotfix2 MR-18 + heredoc_import_scanner 同款模式.",
       "by": "claude_code"
     },
@@ -201,11 +206,6 @@
     {
       "date": "2026-05-10",
       "what": "V37.9.47 — Opportunity Radar Stage 2: project_alignment_scorer rule_check 验证层 + hf_papers 集成 (单脚本灰度). 设计文档 4 节锁定: #2 项目对齐度评分 = LLM 主观 ⭐ 数 + 离线 keyword-based rule_check 双层验证. 防 V37.9.45 hf_papers PoC 单 LLM 评分 hallucination. 新文件 project_alignment_scorer.py (~430 行 7 函数): load_project_concepts (轻 YAML parse + 行尾注释剥离) / count_keyword_hits (大小写不敏感 + 中英 substring + dedup + excluded × -2 降权) / compute_expected_range (5 档锁定: <0/0/1-2/3-4/5+ → ⭐1-2/2-3/3-4/4-5) / validate_alignment_score (LLM ⭐ vs expected_range 一致性 + 偏高/偏低 reason) / parse_6field_output (MR-8 与 hf_papers inline 行为一致) / extract_star_count / format_validation_marker. FAIL-OPEN 缺模块/yaml 跳过 rule_check 不阻塞 cron. hf_papers emit-stage 集成: lazy import + per-paper validate_alignment_score + 不一致时 ⚠️ <reason> 加入推送. 31 新单测 7 类 + 反向验证守卫真有效 (sed 阈值反转立即 fail). 67 suites / 2344 tests (+31) / 0 fail / VERSION 0.37.9.46→0.37.9.47.",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-05-10",
-      "what": "V37.9.48 — Opportunity Radar Stage 3: 趋势加速检测 (4 周历史关键词加速度 + 5 档分类). 设计文档 docs/opportunity_radar_design.md 5 节锁定 = #3 趋势加速度 = kb_trend.py 仅算本周 vs 上周, 加速度是二阶导数. 三件套时间维度补全. 新文件 kb_trend_acceleration.py (~390 行 5 函数 + run/main CLI): extract_keywords_per_week (复用 kb_trend.py + lazy import + FAIL-OPEN) / compute_acceleration (输入 dict {1: w1_kw, 2: w2_kw, 3: w3_kw} + 用占比 pct 而非原始 freq 防总数差距失真 + w2=0 新词 skip + min_freq_pct=0.005 噪声门槛) / classify (5 档锁定 🚀 strong: a1≥1.5 AND a2≥1.5 / ⚰️ obs: a1<0.5 AND a2<0.5 / 📈 mild: a1≥1.5 / 💧 decel: a1<0.7 / 📊 stable / 顺序锁定 strong > obs > mild > decel > stable / 非数字 fallback STABLE) / rank_signals (按 archetype priority 分桶 + |a1-1| desc 排 / total max 18 signals) / emit_radar_json. FAIL-OPEN 缺 kb_trend → emit_radar_json([]) 不阻塞. 28 新单测 7 类 + 反向验证守卫真有效 (sed 阈值 1.5 → 0.5 立即 AssertionError). 不集成下游 (Stage 4 才集成 kb_dream/kb_evening). 68 suites / 2372 tests (+28) / 0 fail / VERSION 0.37.9.47→0.37.9.48.",
       "by": "claude_code"
     }
   ],
@@ -355,14 +355,14 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 2772,
-    "last_regression": "2026-05-13 00:39 pass",
+    "test_count": 2775,
+    "last_regression": "2026-05-13 00:52 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-05-13 00:39",
+    "security_score_time": "2026-05-13 00:52",
     "test_suites": 81,
     "governance_invariants": "64/64",
     "governance_checks": "350/350",
-    "version": "0.37.9.59"
+    "version": "0.37.9.60"
   },
   "incidents": [
     {

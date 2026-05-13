@@ -394,6 +394,68 @@ class TestSourceLevelGuards(unittest.TestCase):
                 f"{script} 必须含 -E (errtrace) 选项 — V37.9.58-hotfix4 教训",
             )
 
+    def test_governance_audit_grep_head_pipes_have_or_true(self):
+        """V37.9.60-hotfix 反向守卫: grep | head subshell pipe 必须 || true 容错
+
+        V37.9.58-hotfix4 同款 bash quirk: set -eE + grep no-match exit 1 +
+        pipefail 让 subshell exit 1 + ERR trap 触发 false-positive FATAL.
+        V37.9.60 实测真激活 (governance_audit Mac Mini 上 line 76 推 [SYSTEM_ALERT] 两次).
+        防回归: 任何 `=$(... | grep ... | head ...)` 模式必须 || true 兜底.
+        """
+        gov_path = os.path.join(REPO_ROOT, "governance_audit_cron.sh")
+        with open(gov_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        # 三个 grep | head pipe 必须都有 || true (line 75/76/77 模式)
+        for keyword in ["GOV_SUMMARY", "GOV_VIOLATIONS", "GOV_WARNINGS"]:
+            # 找该变量赋值行
+            for line in content.split("\n"):
+                if line.startswith(f"{keyword}=$(echo") and "grep" in line:
+                    self.assertIn(
+                        "|| true", line,
+                        f"V37.9.60-hotfix 反向守卫: governance_audit_cron.sh "
+                        f"{keyword} 赋值的 grep | head pipe 必须 || true 兜底, "
+                        f"否则 set -eE + grep no-match → ERR trap 触发 false-positive FATAL. "
+                        f"line: {line!r}"
+                    )
+                    break
+
+    def test_auto_deploy_grep_pipes_have_or_true(self):
+        """V37.9.60-hotfix: auto_deploy 同款反模式守卫 (FAIL_LINES / CRON_COUNT)"""
+        ad_path = os.path.join(REPO_ROOT, "auto_deploy.sh")
+        with open(ad_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        # FAIL_LINES line 519: grep "❌" | head -10 必须 || true
+        for line in content.split("\n"):
+            if "FAIL_LINES=" in line and "grep" in line and "head" in line:
+                self.assertIn(
+                    "|| true", line,
+                    f"V37.9.60-hotfix: auto_deploy.sh FAIL_LINES grep | head "
+                    f"必须 || true. line: {line!r}"
+                )
+                break
+        # CRON_COUNT line 456: crontab -l | grep | wc | tr 必须 || true
+        for line in content.split("\n"):
+            if line.lstrip().startswith("CRON_COUNT=$(crontab -l"):
+                self.assertIn(
+                    "|| true", line,
+                    f"V37.9.60-hotfix: auto_deploy.sh CRON_COUNT pipeline "
+                    f"必须 || true. line: {line!r}"
+                )
+                break
+
+    def test_daily_ops_grep_v_pipes_have_or_true(self):
+        """V37.9.60-hotfix: daily_ops_report grep -v 全匹配时 exit 1 同款守卫"""
+        dop_path = os.path.join(REPO_ROOT, "daily_ops_report.sh")
+        with open(dop_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        for line in content.split("\n"):
+            if "REPORT=$(echo" in line and "grep -v" in line:
+                self.assertIn(
+                    "|| true", line,
+                    f"V37.9.60-hotfix: daily_ops_report.sh grep -v subshell pipe "
+                    f"必须 || true. line: {line!r}"
+                )
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

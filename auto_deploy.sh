@@ -453,7 +453,9 @@ ${CRONTAB_ISSUES}
     fi
 
     # ── 3d. Crontab 条目数监控（V30新增：防止意外清空）─────────────────
-    CRON_COUNT=$(crontab -l 2>/dev/null | grep -v '^#' | grep -v '^$' | wc -l | tr -d ' ')
+    # V37.9.60-hotfix: crontab -l 失败 / grep no-match → pipefail + set -eE 让 ERR trap 误触发, 加 || true 容错
+    CRON_COUNT=$(crontab -l 2>/dev/null | grep -v '^#' | grep -v '^$' | wc -l | tr -d ' ' || true)
+    CRON_COUNT="${CRON_COUNT:-0}"  # 防 empty crontab 时 CRON_COUNT 空字符串
     CRON_COUNT_FILE="$HOME/.crontab_entry_count"
     CRON_MIN_ENTRIES=10  # 正常应有 ~20 条，低于 10 条说明出了问题
 
@@ -516,7 +518,8 @@ if $HAS_NEW_COMMITS; then
         PREFLIGHT_OUT=$(SKIP_PUSH_TEST=1 bash "$PREFLIGHT" --full 2>&1) && PREFLIGHT_RC=0 || PREFLIGHT_RC=$?
         if [ $PREFLIGHT_RC -ne 0 ]; then
             # 提取失败项（只保留 ❌ 行）
-            FAIL_LINES=$(echo "$PREFLIGHT_OUT" | grep "❌" | head -10)
+            # V37.9.60-hotfix: grep no-match → pipefail + set -eE 让 ERR trap 误触发, 加 || true 容错
+            FAIL_LINES=$(echo "$PREFLIGHT_OUT" | grep "❌" | head -10 || true)
             ALERT_MSG="🔴 部署后体检失败 (commit: $NEW_COMMIT)
 
 $FAIL_LINES
