@@ -51,6 +51,7 @@ run_suite "watchdog_self_monitoring (V37.9.58-hotfix3 MR-19 + INV-WATCHDOG-SELF-
 run_suite "watchdog_coverage (V37.9.59 watchdog 监控覆盖率 47%→74%+ JOBS +4 + LOG_FRESHNESS +11 + 自监控)" "python3 test_watchdog_coverage.py"
 run_suite "cron_monitor_scanner (V37.9.60 MR-19 err_trap_handler 契约横向推广 + INV-CRON-MONITOR-001 4 个 governed 监控脚本)" "python3 test_cron_monitor_scanner.py"
 run_suite "cron_monitor_fatal_handler (V37.9.63 MR-8 抽公共 helper + 顺势修 V37.9.60 CLI bug + 7 governed scripts 迁移)" "python3 test_cron_monitor_fatal_handler.py"
+run_suite "crontab_safe_remove (V37.9.65 cmd_remove + 严格 count + 拒绝全清空 + V37.9.64 freight 用户痛点闭环)" "python3 test_crontab_safe_remove.py"
 run_suite "proxy_filters (工具过滤/截断/SSE)" "python3 test_tool_proxy.py"
 run_suite "check_registry (注册表校验器)" "python3 test_check_registry.py"
 run_suite "cron_health (锁/心跳/告警/完整性)" "python3 test_cron_health.py"
