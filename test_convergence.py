@@ -3164,13 +3164,14 @@ class TestV37958DryRunActivation(unittest.TestCase):
     # ── (5) audit_metadata 版本升级 v3.36+ (alternation 接受后续版本) ──────
 
     def test_audit_metadata_version_v3_36_or_later(self):
-        """audit_metadata.version 升级到 3.36+ (V37.9.58-hotfix2 → 3.37 / hotfix3 → 3.38 / V37.9.60 → 3.39 / V37.9.61 → 3.40)."""
+        """audit_metadata.version 升级到 3.36+ (V37.9.58-hotfix2 → 3.37 / hotfix3 → 3.38 / V37.9.60 → 3.39 / V37.9.61 → 3.40 / V37.9.63 → 3.41)."""
         valid_versions = (
             'version: "3.36"',
             'version: "3.37"',
             'version: "3.38"',
             'version: "3.39"',  # V37.9.60 MR-19 横向推广
             'version: "3.40"',  # V37.9.61 MR-19 扩 LLM-task 类
+            'version: "3.41"',  # V37.9.63 MR-8 抽公共 fatal_handler helper
         )
         self.assertTrue(
             any(v in self.gov_src for v in valid_versions),

@@ -1,6 +1,6 @@
 {
-  "updated": "2026-05-13 03:57:26",
-  "updated_by": "claude_code",
+  "updated": "2026-05-13 06:37:08",
+  "updated_by": "full_regression",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-05-13",
+      "what": "V37.9.63 MR-8 抽公共 fatal_handler helper — MR-19 framework 化推广后第一次 MR-8 正向兑现 + 顺势修 V37.9.60 6 个 fatal_handler 第二层 FAIL-OPEN CLI 参数 bug. **触发**: V37.9.61 收工承诺 V37.9.63+ 候选 (MR-8 抽 cron_monitor_fatal_handler.sh 公共 helper, V37.9.60+V37.9.61 7 governed scripts copy-paste). audit 揭示 99% 同款 + 6 处差异 + **意外发现 V37.9.60 6 个 fatal_handler 第二层 FAIL-OPEN CLI 参数 bug** (用 --channel-id/--content, canonical 是 --target/--message/--json), 顺势统一. **新文件 cron_monitor_fatal_handler.sh** (~80 行 helper) 单函数读 4 个 caller 变量 (CRON_FATAL_LABEL/LOG/BASH_X/REASON) + 三层 FAIL-OPEN + canonical CLI. **7 个 governed scripts 迁移**: 每个删 ~20 行 inline handler + 加 7 行 (source + 4 vars + trap), 净减 ~90 行 copy-paste. watchdog 保 _watchdog_exit_handler (canary heartbeat) 不动. **test_cron_monitor_fatal_handler.py 30 单测 7 类** + 反向验证守卫真有效 (sabotage helper → 13 failures, 还原 30/30 OK). **cron_monitor_scanner.py 升级**: 新增 uses_shared_fatal_handler_helper() 函数, scan_script 加 alternation (inline [SYSTEM_ALERT] OR V37.9.63 helper 模式). test_cron_monitor_scanner V37.9.61 守卫升级 alternation. **INV-CRON-MONITOR-001 扩 +10 checks** (9 declaration helper + 1 runtime). **INV-WATCHDOG-SELF-001 修 alternation** (V37.9.63 后 watchdog inline handler 已移除, 两个字面量守卫升级为 python_assert 双路径). MR-8 single-source-of-truth 兑现 — 修改 handler 行为现只需改 helper 一处, 7 scripts 自动 propagate. 累计 81→82 suites (+1) / 2785→2815 tests (+30) / 0 fail / governance v3.40→v3.41 / 75 invariants 不变 / 609→619 checks (+10) / 19 meta rules 不变 / 安全 95/100 / VERSION 0.37",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-05-13",
       "what": "V37.9.62 收工: 6 脚本 batch 升级 6 字段 + ACL Anthology 用户痛点闭环. 82 suites/2785 tests/0 fail. ALIGNED_SCRIPTS 11→17 (81% LLM cron 覆盖). CLAUDE.md 补 V37.9.61+V37.9.62 entries + 头部版本升级.",
       "by": "claude_code"
     },
@@ -201,11 +206,6 @@
     {
       "date": "2026-05-10",
       "what": "V37.9.50-hotfix2 — openclaw_run 日落 (用户日落法则 + 不增加新任务原则). 软删除路径: jobs_registry.yaml enabled true→false + job_watchdog.sh 同步删除 JOBS entry (V37.8.13 cross-file guard 强制) + 保留代码备 revert (auto_deploy FILE_MAP 不动). Mac Mini 操作: crontab -l | grep -v 过滤 + crontab <file> 加载 (绕过 INV-DEPLOY-002 echo|crontab- 禁令), defense-in-depth 5 步验证 + 备份 .crontab_backups/crontab_2026-05-10_133905.bak (37 active entries 备份, revert 用). 49→48 行 + openclaw_official/run.sh 残留 0 验证通过. 明天 09:00 HKT 不再推送. 70 suites / 2403 tests / 0 fail / VERSION 0.37.9.50 不变 (hotfix2 不 bump). 减法 vs 加法平衡兑现.",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-05-10",
-      "what": "V37.9.50-hotfix2 — openclaw_run 日落 (disable, 软删除保留代码). 用户基于日落法则 + 不增加新任务原则要求删除. 理由: (1) V37.9.22 Tripwire 框架已替代 daily releases 推送 (每周自动跑 check_upgrade.sh + 6 触发器分析), 09:00 每日推送是冗余. (2) 推送内容质量低 — 贡献:新增核心功能优化 价值:⭐⭐⭐⭐ 是 V37.9.36 占位符 audit P2 1 finding. 实施: jobs_registry.yaml openclaw_run enabled true→false + job_watchdog.sh 同步删除监控 entry (cross-file guard test_watchdog_only_monitors_enabled_jobs 强制) + 保留代码备 revert. 70 suites / 2403 tests / 0 fail (1 watchdog 同步守卫 trip + fix). 用户合并后 Mac Mini 须 crontab -e 删除对应 cron 行 (auto_deploy 不动 crontab, 这是 INV-DEPLOY-002 设计契约).",
       "by": "claude_code"
     }
   ],
@@ -358,14 +358,14 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 2785,
-    "last_regression": "2026-05-13 03:54 pass",
+    "test_count": 2815,
+    "last_regression": "2026-05-13 06:37 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-05-13 03:54",
+    "security_score_time": "2026-05-13 06:37",
     "test_suites": 82,
     "governance_invariants": "64/64",
     "governance_checks": "350/350",
-    "version": "0.37.9.62"
+    "version": "0.37.9.63"
   },
   "incidents": [
     {

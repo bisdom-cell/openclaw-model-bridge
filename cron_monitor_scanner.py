@@ -117,6 +117,41 @@ def has_system_alert_marker(content):
     return _SYSTEM_ALERT_MARKER in content
 
 
+# V37.9.63: helper 抽公共模式 — scripts 通过 source cron_monitor_fatal_handler.sh
+# 获得 _cron_monitor_fatal_handler 函数 (helper 内含 [SYSTEM_ALERT] 推送), 不需 script 自身含 marker.
+_HELPER_TRAP_PATTERN = re.compile(
+    r"trap\s+['\"]_cron_monitor_fatal_handler\s+\$LINENO['\"]\s+ERR"
+)
+_HELPER_SOURCE_PATTERN = re.compile(
+    r"source\s+[\"']?\S*cron_monitor_fatal_handler\.sh[\"']?"
+)
+
+
+def uses_shared_fatal_handler_helper(content):
+    """检查脚本是否通过 V37.9.63 helper 获得 fatal handler.
+
+    条件 (两者都满足):
+      1. source cron_monitor_fatal_handler.sh (helper 已加载)
+      2. trap '_cron_monitor_fatal_handler $LINENO' ERR (helper 函数被注册为 ERR trap)
+
+    如果两者都满足, 视为合规 — 即使 script 自身不含 [SYSTEM_ALERT] marker,
+    helper 内含且推送 (helper 自身的契约由 test_cron_monitor_fatal_handler.py 守).
+    """
+    if not content:
+        return False
+    has_helper_source = False
+    has_helper_trap = False
+    for line in content.split("\n"):
+        stripped = line.lstrip()
+        if stripped.startswith("#"):
+            continue  # 跳过注释行
+        if _HELPER_SOURCE_PATTERN.search(line):
+            has_helper_source = True
+        if _HELPER_TRAP_PATTERN.search(line):
+            has_helper_trap = True
+    return has_helper_source and has_helper_trap
+
+
 def scan_script(script_path):
     """扫描单脚本, 返回 violation 列表。
 
@@ -147,14 +182,17 @@ def scan_script(script_path):
         ))
         return findings
 
-    if not has_system_alert_marker(content):
+    # V37.9.63: 允许走 helper 模式 — script source helper + trap helper 函数 = 合规
+    # helper 自身的 [SYSTEM_ALERT] 推送由 test_cron_monitor_fatal_handler.py 守.
+    if not has_system_alert_marker(content) and not uses_shared_fatal_handler_helper(content):
         findings.append((
             script_path,
             "trap_handler_no_alert",
-            "ERR trap registered but no [SYSTEM_ALERT] marker found in script. "
+            "ERR trap registered but no [SYSTEM_ALERT] marker found in script "
+            "AND not using V37.9.63 shared helper (cron_monitor_fatal_handler.sh). "
             "Handler must push alert to convert silent abort into loud failure. "
-            "Fix: ensure handler function includes [SYSTEM_ALERT] notification "
-            "(via notify.sh, openclaw send, or local fallback log)."
+            "Fix EITHER: ensure handler function includes [SYSTEM_ALERT] notification "
+            "OR: source cron_monitor_fatal_handler.sh + trap '_cron_monitor_fatal_handler $LINENO' ERR."
         ))
 
     return findings

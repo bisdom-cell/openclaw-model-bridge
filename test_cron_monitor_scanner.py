@@ -405,29 +405,35 @@ class TestSourceLevelGuards(unittest.TestCase):
             )
 
     def test_v37_9_61_llm_task_scripts_have_fatal_handler(self):
-        """V37.9.61: 3 个 LLM-task 脚本必须有 _<script>_fatal_handler 函数
+        """V37.9.61: 3 个 LLM-task 脚本必须有 fatal handler.
 
         揭露原因: V37.9.60-hotfix3 抓到 kb_deep_dive 5/8-5/12 5 天 silent abort,
         scope 收敛为 framework 化预防 — 同款 set -euo + 缺 trap ERR + 推 [SYSTEM_ALERT]
         的 LLM-task 脚本都加 trap ERR + handler.
+
+        V37.9.63 alternation: 接受 (A) inline _<script>_fatal_handler (legacy V37.9.61)
+        OR (B) source cron_monitor_fatal_handler.sh + trap '_cron_monitor_fatal_handler' (V37.9.63 helper 模式).
         """
         expected_handlers = {
             "kb_deep_dive.sh": "_kb_deep_dive_fatal_handler",
             "kb_evening.sh": "_kb_evening_fatal_handler",
             "kb_review.sh": "_kb_review_fatal_handler",
         }
-        for script, handler in expected_handlers.items():
+        for script, legacy_handler in expected_handlers.items():
             path = os.path.join(REPO_ROOT, script)
             with open(path, "r", encoding="utf-8") as f:
                 content = f.read()
-            self.assertIn(
-                handler, content,
-                f"V37.9.61: {script} 必须含 {handler} 函数定义",
+            # alternation: 必须满足任一模式
+            has_inline_trap = f"trap '{legacy_handler} $LINENO' ERR" in content
+            has_helper_trap = (
+                "source" in content
+                and "cron_monitor_fatal_handler.sh" in content
+                and "trap '_cron_monitor_fatal_handler $LINENO' ERR" in content
             )
-            # 必须注册 trap ERR
-            self.assertIn(
-                f"trap '{handler} $LINENO' ERR", content,
-                f"V37.9.61: {script} 必须注册 trap '{handler} $LINENO' ERR",
+            self.assertTrue(
+                has_inline_trap or has_helper_trap,
+                f"V37.9.61: {script} 必须有 (A) inline trap '{legacy_handler}' "
+                f"OR (B) V37.9.63 helper 模式 (source helper + trap _cron_monitor_fatal_handler)",
             )
 
     def test_v37_9_61_llm_task_scripts_have_v37_9_61_marker(self):

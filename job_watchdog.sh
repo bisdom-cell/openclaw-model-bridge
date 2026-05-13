@@ -56,23 +56,18 @@ if [ -f "$NOTIFY_SCRIPT" ]; then
     source "$NOTIFY_SCRIPT" 2>/dev/null || true
 fi
 
-# ERR trap: set -e abort 前主动推送告警, 防 silent failure 第 18 次演出
-_watchdog_fatal_handler() {
-    local exit_code=$?
-    local line_no="${1:-unknown}"
-    local fatal_msg="[SYSTEM_ALERT] watchdog FATAL abort exit=${exit_code} line=${line_no} — 监控自身死亡! 5/5-5/12 silent 7 天血案防回归. ssh 排查 ~/job_watchdog.log + 跑 bash -x ~/job_watchdog.sh 定位."
-    # 写 stderr (cron log)
-    echo "[watchdog] 🚨 FATAL exit=${exit_code} at line=${line_no} (set -e abort)" >&2
-    # 写本地告警文件 (即使推送失败也有证据)
-    echo "[$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')] watchdog FATAL abort exit=${exit_code} line=${line_no}" >> "$HOME/.openclaw_alerts.log" 2>/dev/null || true
-    # 主动推送 Discord (FAIL-OPEN: notify 不可用 / 推送失败都不让 trap 自身崩)
-    if command -v notify >/dev/null 2>&1; then
-        notify "$fatal_msg" --topic alerts 2>/dev/null || true
-    elif [ -x "$OPENCLAW" ]; then
-        "$OPENCLAW" message send --channel discord --channel-id "${DISCORD_CH_ALERTS:-}" --content "$fatal_msg" 2>/dev/null || true
-    fi
-    # trap EXIT 仍会执行 rmdir LOCK (链式 trap)
-}
+# V37.9.63: ERR trap 走公共 helper cron_monitor_fatal_handler.sh (MR-8/MR-19 抽公共)
+# 之前: V37.9.58-hotfix3 inline _watchdog_fatal_handler (V37.9.63 已抽到 helper)
+# helper 内含三层 FAIL-OPEN (stderr / 本地告警文件 / notify→openclaw 直发 canonical CLI)
+HELPER_DIR="$(cd "$(dirname "$0")" && pwd)"
+if [ -f "$HELPER_DIR/cron_monitor_fatal_handler.sh" ]; then
+    # shellcheck disable=SC1091
+    source "$HELPER_DIR/cron_monitor_fatal_handler.sh"
+    CRON_FATAL_LABEL="watchdog"
+    CRON_FATAL_LOG="$HOME/job_watchdog.log"
+    CRON_FATAL_BASH_X="bash -x ~/job_watchdog.sh"
+    CRON_FATAL_REASON="监控自身死亡! 5/5-5/12 silent 7 天血案防回归."
+fi
 
 # EXIT trap: rmdir + canary heartbeat 推送 (V37.9.58-hotfix3 元监控)
 _watchdog_exit_handler() {
@@ -98,7 +93,8 @@ EOF
         fi
     fi
 }
-trap '_watchdog_fatal_handler $LINENO' ERR
+# V37.9.63: trap ERR 调公共 helper (caller 配置 CRON_FATAL_* 4 变量); EXIT 保留 watchdog-specific
+trap '_cron_monitor_fatal_handler $LINENO' ERR
 trap '_watchdog_exit_handler' EXIT
 
 # 心跳日志：每次运行都记录

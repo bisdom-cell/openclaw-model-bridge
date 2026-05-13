@@ -80,19 +80,17 @@ send_alert() {
 # kb_review 同款 set -euo + 缺 trap ERR 风险, V37.9.61 framework 化预防同款回归.
 OPENCLAW_BIN="${OPENCLAW:-/opt/homebrew/bin/openclaw}"
 
-_kb_review_fatal_handler() {
-    local exit_code=$?
-    local line_no="${1:-unknown}"
-    local fatal_msg="[SYSTEM_ALERT] kb_review FATAL abort exit=${exit_code} line=${line_no} — silent abort 防 V37.9.21 同款回归! V37.9.61 MR-19 扩 LLM-task. 排查 ~/kb_review.log + bash -x ~/kb_review.sh"
-    echo "[kb_review] 🚨 FATAL exit=${exit_code} at line=${line_no} (set -e abort)" >&2
-    echo "[$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')] kb_review FATAL abort exit=${exit_code} line=${line_no}" >> "$HOME/.openclaw_alerts.log" 2>/dev/null || true
-    if command -v notify >/dev/null 2>&1; then
-        notify "$fatal_msg" --topic alerts 2>/dev/null || true
-    elif [ -x "$OPENCLAW_BIN" ]; then
-        "$OPENCLAW_BIN" message send --channel discord --channel-id "${DISCORD_CH_ALERTS:-}" --content "$fatal_msg" 2>/dev/null || true
-    fi
-}
-trap '_kb_review_fatal_handler $LINENO' ERR
+# V37.9.63: ERR trap 走公共 helper (MR-8 抽公共 — 之前 V37.9.61 inline _kb_review_fatal_handler)
+HELPER_DIR="$(cd "$(dirname "$0")" && pwd)"
+if [ -f "$HELPER_DIR/cron_monitor_fatal_handler.sh" ]; then
+    # shellcheck disable=SC1091
+    source "$HELPER_DIR/cron_monitor_fatal_handler.sh"
+    CRON_FATAL_LABEL="kb_review"
+    CRON_FATAL_LOG="$HOME/kb_review.log"
+    CRON_FATAL_BASH_X="bash -x ~/kb_review.sh"
+    CRON_FATAL_REASON="silent abort 防 V37.9.21 同款回归! V37.9.61 MR-19 扩 LLM-task."
+fi
+trap '_cron_monitor_fatal_handler $LINENO' ERR
 
 write_status() {
     local status="$1"
