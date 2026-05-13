@@ -35,10 +35,19 @@ import sys
 # MR-19 治理对象: 必须满足 err_trap_handler 契约
 # 路径相对仓库根目录, 按 V37.9.58-hotfix3 起步顺序排列
 SCRIPTS_REQUIRING_ERR_TRAP = (
+    # ─── V37.9.58-hotfix3 / V37.9.60 起步: cron 类聚合监控脚本 ───
     "job_watchdog.sh",            # V37.9.58-hotfix3 立案的标杆 (already compliant)
     "governance_audit_cron.sh",   # V37.9.60 加入 (set -euo + 推送 alerts, V37.9.58-hotfix3 同款盲点)
     "daily_ops_report.sh",        # V37.9.60 加入 (set -eo + ops 报告聚合)
     "auto_deploy.sh",             # V37.9.60 加入 (set -euo + 高频 2min cron)
+    # ─── V37.9.61 扩展: LLM-task 类脚本 ───
+    # 揭露原因: V37.9.60-hotfix3 抓到 kb_deep_dive 5/8-5/12 5 天 silent abort 血案
+    # (V37.9.21 send_wa_parts 函数末尾 `[ X -lt Y ] && sleep 1` 短路返回 1 → set -e 杀 caller).
+    # 这些脚本都 set -euo + 推 [SYSTEM_ALERT] + 缺 trap ERR, 同款 silent abort 风险.
+    # kb_dream.sh 不在 (仅 set -o pipefail 无 -e, silent abort 不会发生).
+    "kb_deep_dive.sh",            # V37.9.61 加入 (set -euo + LLM-task + 5/8-5/12 血案 lineage)
+    "kb_evening.sh",              # V37.9.61 加入 (set -euo + LLM-task + V37.5/V37.6 起未防)
+    "kb_review.sh",               # V37.9.61 加入 (set -euo + LLM-task + V37.5 起未防)
 )
 
 

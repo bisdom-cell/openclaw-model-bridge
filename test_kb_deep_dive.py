@@ -744,7 +744,12 @@ class TestKbDeepDiveShellGuards(unittest.TestCase):
         self.assertIn("notify.sh", self.content)
 
     def test_script_has_set_euo_pipefail(self):
-        self.assertIn("set -euo pipefail", self.content)
+        # V37.9.61 升级到 set -eEuo pipefail (加 -E errtrace, V37.9.58-hotfix4 教训)
+        # alternation 接受 set -euo / set -eEuo 两种形式 (向后兼容)
+        has_set_e = any(marker in self.content for marker in
+                        ["set -euo pipefail", "set -eEuo pipefail"])
+        self.assertTrue(has_set_e,
+            "kb_deep_dive.sh 必须含 set -euo pipefail 或 set -eEuo pipefail (V37.9.61 升级)")
 
     def test_script_writes_status_file(self):
         self.assertIn("last_run_deep_dive.json", self.content)

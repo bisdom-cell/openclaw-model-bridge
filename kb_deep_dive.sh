@@ -13,7 +13,9 @@
 #
 # cron 环境 PATH 极简，必须显式声明（原则 #13）
 export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
-set -euo pipefail
+# V37.9.61 MR-19 err_trap_handler 契约 (V37.9.60 framework 横向扩展到 LLM-task 类)
+# 注: -E (errtrace) 让 ERR trap 在 function 内 fail 也触发, 防 bash 默认作用域陷阱 (V37.9.58-hotfix4 教训)
+set -eEuo pipefail
 
 DATE=$(date +%Y-%m-%d)
 KB_DIR="${KB_BASE:-$HOME/.kb}"
@@ -67,6 +69,29 @@ send_alert() {
         openclaw message send --channel whatsapp --target "$PHONE" --message "$msg" --json >/dev/null 2>&1 || true
     fi
 }
+
+# ════════════════════════════════════════════════════════════════════
+# V37.9.61 MR-19 ERR trap: silent abort 变 loud (V37.9.60 framework 扩 LLM-task 类)
+# ════════════════════════════════════════════════════════════════════
+# 血案 lineage: V37.9.21 引入 send_wa_parts 函数末尾 `[ X -lt Y ] && sleep 1` 短路返回 1 →
+# set -e 杀 caller → 5/8-5/12 5 天 last_run 不更新 (V37.9.60-hotfix3 修).
+# V37.9.61 加 trap ERR 让任何未来同款 silent abort 路径主动推 [SYSTEM_ALERT], 不靠
+# watchdog last_run 兜底发现. 三层 FAIL-OPEN 推送 (notify → openclaw → local log).
+OPENCLAW_BIN="${OPENCLAW:-/opt/homebrew/bin/openclaw}"
+
+_kb_deep_dive_fatal_handler() {
+    local exit_code=$?
+    local line_no="${1:-unknown}"
+    local fatal_msg="[SYSTEM_ALERT] kb_deep_dive FATAL abort exit=${exit_code} line=${line_no} — silent abort 防 V37.9.21 同款回归! V37.9.61 MR-19 扩 LLM-task. 排查 ~/kb_deep_dive.log + bash -x ~/kb_deep_dive.sh"
+    echo "[kb_deep_dive] 🚨 FATAL exit=${exit_code} at line=${line_no} (set -e abort)" >&2
+    echo "[$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')] kb_deep_dive FATAL abort exit=${exit_code} line=${line_no}" >> "$HOME/.openclaw_alerts.log" 2>/dev/null || true
+    if command -v notify >/dev/null 2>&1; then
+        notify "$fatal_msg" --topic alerts 2>/dev/null || true
+    elif [ -x "$OPENCLAW_BIN" ]; then
+        "$OPENCLAW_BIN" message send --channel discord --channel-id "${DISCORD_CH_ALERTS:-}" --content "$fatal_msg" 2>/dev/null || true
+    fi
+}
+trap '_kb_deep_dive_fatal_handler $LINENO' ERR
 
 write_status() {
     local status="$1"

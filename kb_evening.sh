@@ -17,7 +17,9 @@
 export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
 # 加载环境变量（cron 环境中 OPENCLAW_PHONE/DISCORD_CH_* 等必须从 profile 获取）
 source "$HOME/.bash_profile" 2>/dev/null || source "$HOME/.env_shared" 2>/dev/null || true
-set -euo pipefail
+# V37.9.61 MR-19 err_trap_handler 契约 (V37.9.60 framework 横向扩展到 LLM-task 类)
+# 注: -E (errtrace) 让 ERR trap 在 function 内 fail 也触发 (V37.9.58-hotfix4 教训)
+set -eEuo pipefail
 
 DATE=$(date +%Y%m%d)
 DAYS="${1:-1}"
@@ -86,6 +88,27 @@ send_alert() {
         openclaw message send --channel whatsapp --target "$PHONE" --message "$msg" --json >/dev/null 2>&1 || true
     fi
 }
+
+# ════════════════════════════════════════════════════════════════════
+# V37.9.61 MR-19 ERR trap: silent abort 变 loud (V37.9.60 framework 扩 LLM-task 类)
+# ════════════════════════════════════════════════════════════════════
+# 血案 lineage: V37.9.21 send_wa_parts && sleep 短路 (V37.9.60-hotfix3 修 kb_deep_dive).
+# kb_evening 同款 set -euo + 缺 trap ERR 风险, V37.9.61 framework 化预防同款回归.
+OPENCLAW_BIN="${OPENCLAW:-/opt/homebrew/bin/openclaw}"
+
+_kb_evening_fatal_handler() {
+    local exit_code=$?
+    local line_no="${1:-unknown}"
+    local fatal_msg="[SYSTEM_ALERT] kb_evening FATAL abort exit=${exit_code} line=${line_no} — silent abort 防 V37.9.21 同款回归! V37.9.61 MR-19 扩 LLM-task. 排查 ~/kb_evening.log + bash -x ~/kb_evening.sh"
+    echo "[kb_evening] 🚨 FATAL exit=${exit_code} at line=${line_no} (set -e abort)" >&2
+    echo "[$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')] kb_evening FATAL abort exit=${exit_code} line=${line_no}" >> "$HOME/.openclaw_alerts.log" 2>/dev/null || true
+    if command -v notify >/dev/null 2>&1; then
+        notify "$fatal_msg" --topic alerts 2>/dev/null || true
+    elif [ -x "$OPENCLAW_BIN" ]; then
+        "$OPENCLAW_BIN" message send --channel discord --channel-id "${DISCORD_CH_ALERTS:-}" --content "$fatal_msg" 2>/dev/null || true
+    fi
+}
+trap '_kb_evening_fatal_handler $LINENO' ERR
 
 write_status() {
     local status="$1"
