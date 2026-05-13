@@ -4,6 +4,7 @@
 #
 # 用法：
 #   bash crontab_safe.sh add '*/10 * * * * bash ~/cron_canary.sh'   # 安全添加一行
+#   bash crontab_safe.sh remove '<固定字符串 pattern>'                # V37.9.65 新增 — 安全删除匹配行
 #   bash crontab_safe.sh backup                                      # 手动备份
 #   bash crontab_safe.sh restore                                     # 从最新备份恢复
 #   bash crontab_safe.sh restore 2026-03-25                          # 从指定日期恢复
@@ -11,8 +12,8 @@
 #
 # 安全机制：
 #   1. 每次修改前自动备份到 ~/.crontab_backups/
-#   2. 添加后验证条目数 >= 修改前，否则自动回滚
-#   3. 禁止条目数减少到 0
+#   2. add 后验证条目数 = 修改前 + 1, remove 后验证 = 修改前 - matched (不一致自动回滚)
+#   3. remove 拒绝全清空操作 (pattern 匹配所有行时拒绝执行)
 #   4. 保留最近 30 天备份
 export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
 set -uo pipefail
@@ -103,6 +104,77 @@ cmd_add() {
     echo "   $new_line"
 }
 
+# ── remove: 安全删除匹配行 (V37.9.65 — convergence framework 双向 sync 下半截) ──
+# 用 grep -F (固定字符串) 匹配, pattern 出现在行内任何位置都会被删
+# 安全机制: backup + 严格 count 验证 (count_before - matched) + 拒绝全清空 + 失败自动回滚
+cmd_remove() {
+    local pattern="$1"
+
+    if [ -z "$pattern" ]; then
+        echo "❌ 用法: bash crontab_safe.sh remove '<固定字符串 pattern>'"
+        echo "   示例: bash crontab_safe.sh remove \"0 8 * * * bash -lc 'bash ~/jobs/freight_watcher/run_freight.sh\""
+        echo "   注意: pattern 用 grep -F (固定字符串) 匹配, 出现在行内任何位置都被删除"
+        echo "         所有匹配行都会被删除 — pattern 必须精确以避免误删"
+        echo "         拒绝全清空操作 (pattern 匹配所有行时拒绝执行)"
+        exit 1
+    fi
+
+    # 计算匹配行数 (grep -c 已输出 0 当无匹配, || true 仅安抚 pipefail 不再额外 echo)
+    local matched_count
+    matched_count=$(crontab -l 2>/dev/null | grep -cF -- "$pattern" || true)
+    matched_count=$(echo "$matched_count" | tr -d ' \n')
+
+    if [ "$matched_count" -eq 0 ]; then
+        echo "[crontab_safe] 未找到匹配 '$pattern' 的行, 跳过"
+        return 0
+    fi
+
+    echo "[crontab_safe] 匹配到 $matched_count 行将被删除:"
+    crontab -l 2>/dev/null | grep -F -- "$pattern" | sed 's/^/   - /'
+
+    # 备份当前状态
+    local count_before
+    count_before=$(count_entries)
+    do_backup
+
+    # 安全删除: 写临时文件
+    local tmp_file
+    tmp_file=$(mktemp /tmp/crontab_safe.XXXXXX)
+    crontab -l 2>/dev/null | grep -vF -- "$pattern" > "$tmp_file" || true
+
+    # 强制保护: 拒绝全清空 (pattern 匹配所有行)
+    local new_active_count
+    new_active_count=$(grep -v '^#' "$tmp_file" | grep -v '^$' | wc -l | tr -d ' ')
+    if [ "$new_active_count" -eq 0 ]; then
+        rm -f "$tmp_file"
+        echo "❌ 拒绝操作: 删除后 crontab 将完全清空 (pattern '$pattern' 匹配所有活跃行)"
+        echo "   提示: 用更精确的 pattern 只匹配目标行"
+        exit 1
+    fi
+
+    # 安装 + 严格退出码检查
+    if ! crontab "$tmp_file" 2>&1; then
+        local rc=$?
+        rm -f "$tmp_file"
+        echo "❌ crontab 安装失败 — 退出码: $rc"
+        exit 1
+    fi
+    rm -f "$tmp_file"
+
+    # 严格相等验证 (cmd_add 同款契约 — 防 35→35 谎报 ✅ 类血案)
+    local count_after
+    count_after=$(count_entries)
+    local expected=$((count_before - matched_count))
+
+    if [ "$count_after" -ne "$expected" ]; then
+        echo "❌ 严重错误: 预期 $expected 条但实际 $count_after 条 (之前 $count_before, 应删 $matched_count), 自动回滚！"
+        cmd_restore
+        exit 1
+    fi
+
+    echo "✅ 已删除 $matched_count 条 (${count_before} → ${count_after} 条)"
+}
+
 # ── backup: 手动备份 ─────────────────────────────────────────────
 cmd_backup() {
     do_backup
@@ -172,6 +244,9 @@ case "${1:-help}" in
     add)
         cmd_add "${2:-}"
         ;;
+    remove)
+        cmd_remove "${2:-}"
+        ;;
     backup)
         cmd_backup
         ;;
@@ -185,12 +260,13 @@ case "${1:-help}" in
         echo "crontab_safe.sh — 安全的 crontab 操作工具"
         echo ""
         echo "用法："
-        echo "  bash crontab_safe.sh add '<cron行>'    安全添加（自动备份+验证）"
-        echo "  bash crontab_safe.sh backup            手动备份"
-        echo "  bash crontab_safe.sh restore [日期]    从备份恢复"
-        echo "  bash crontab_safe.sh verify            验证条目数"
+        echo "  bash crontab_safe.sh add '<cron行>'                 安全添加（自动备份+验证）"
+        echo "  bash crontab_safe.sh remove '<固定字符串 pattern>'  V37.9.65 安全删除匹配行（拒绝全清空）"
+        echo "  bash crontab_safe.sh backup                         手动备份"
+        echo "  bash crontab_safe.sh restore [日期]                 从备份恢复"
+        echo "  bash crontab_safe.sh verify                         验证条目数"
         echo ""
         echo "⚠️  禁止使用 'echo ... | crontab -'（会清空所有条目）"
-        echo "    始终使用本工具添加 cron 条目"
+        echo "    始终使用本工具操作 cron 条目"
         ;;
 esac

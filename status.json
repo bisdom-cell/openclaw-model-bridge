@@ -1,6 +1,6 @@
 {
-  "updated": "2026-05-13 06:55:46",
-  "updated_by": "full_regression",
+  "updated": "2026-05-13 07:39:19",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-05-13",
+      "what": "V37.9.65 crontab_safe.sh 加 remove command — V37.9.64 用户痛点 (不需 vim) 闭环 + convergence framework 双向 sync 下半截. cmd_remove 镜像 cmd_add 安全机制 (backup + 严格 count 验证 + 拒绝全清空 + 失败自动回滚). 16 单测 4 类含反向验证 sabotage 真有效. 83 suites/2831 tests/0 fail/安全 95/100/VERSION 0.37.9.64→0.37.9.65. Mac Mini 一行命令删 freight 多余 cron 不需 vim.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-05-13",
       "what": "V37.9.64 货代 Watcher 频率 3次/天→1次/天14:00 (用户视角原则#13 减少告警疲劳). 改 jobs_registry/watchdog 阈值/test_cron_health, framework 单向 sync 限制揭示需用户手动 crontab -e 删多余 2 行, V37.9.65 候选: convergence machine_sync 加 remove_extra 支持双向 sync. 82 suites/2815 tests/0 fail/安全 95/100/VERSION 0.37.9.63→0.37.9.64.",
       "by": "claude_code"
     },
@@ -201,11 +206,6 @@
     {
       "date": "2026-05-11",
       "what": "V37.9.51 — Sub-Stage 4b 续 batch: 6 论文/repo/tweet 类脚本 (rss_blogs/dblp/arxiv_monitor/github_trending/ai_leaders_x/hn) 批量 5→6 字段 + rule_check 机械迁移 (V37.9.45 hf_papers / V37.9.50 semantic_scholar PoC 模板横向应用). 每脚本统一改动 8 处: prompt 5→6 字段 + 🎚️ 项目对齐度 + 5 档评分指南 + 反幻觉守卫 + emit heredoc imports os (V37.9.50-hotfix 同款) + parse_5→parse_6field + lazy import scorer + per-paper rule_check + high_alignment_count 统计 + 末尾高对齐汇总行. 新增 test_v37_9_51_sub_stage_4b_batch.py (28 单测 / 3 类) + 5 老测试 alternation 更新 (V37.9.40/41/43/44 或 V37.9.51 兼容). ontology/llm_cron_audit.py ALIGNED_SCRIPTS 6 脚本统一升级 V37.9.51. governance 合并 5 老锚点为 1 V37.9.51 file_contains + 1 python_assert. 反向验证守卫真有效 (sabotage 立即 3 FAIL). 累计 70→71 suites / 2403→2431 tests (+28) / 0 fail / 71 inv 不变 / 555→552 checks / 安全 95/100 / VERSION 0.37.9.50→0.37.9.51. Mac Mini 部署后 6 脚本下次 cron 自动用新 6 字段 + 🎚️ + ⚠️ marker + 高对齐统计 (audit P1/P2 路径完整闭环, 11/21 ALIGNED 视野不变但深度升级).",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-05-10",
-      "what": "V37.9.50-hotfix3 — run_discussions 日落 (社区 Issues 监控). 用户继续日落法则减法. 与 V37.9.50-hotfix2 openclaw_run 同源 (jobs/openclaw_official/run_discussions.sh, 每天 4 次 8/12/16/20:15). 推送内容是 V37.9.36 占位符反模式 (贡献：xxx 价值：⭐⭐⭐⭐ 机械文本) + 社区 issue 价值不高. 软删除路径: jobs_registry.yaml enabled true→false + job_watchdog.sh 同步删除 JOBS entry + docs/config.md ⛔ 标记替代 ✅ + line 827 特性矩阵表 strikethrough 避免 drift detector regex 误命中 (\\|\\s*run_discussions.*?✅ 模式) + 保留代码备 revert. 70 suites / 2403 tests / 0 fail / VERSION 0.37.9.50 不变 (hotfix3 不 bump). Mac Mini 操作: 同 hotfix2 同款 grep -v 过滤 + crontab <file> 加载. 一次推送链路彻底清理 (Tripwire 框架接管 OpenClaw 升级监控 + Discord #ontology 接管社区 issue 价值流).",
       "by": "claude_code"
     }
   ],
@@ -359,14 +359,14 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 2815,
-    "last_regression": "2026-05-13 06:55 pass",
+    "test_count": 2831,
+    "last_regression": "2026-05-13 07:38 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-05-13 06:55",
-    "test_suites": 82,
+    "security_score_time": "2026-05-13 07:38",
+    "test_suites": 83,
     "governance_invariants": "64/64",
     "governance_checks": "350/350",
-    "version": "0.37.9.64"
+    "version": "0.37.9.65"
   },
   "incidents": [
     {
