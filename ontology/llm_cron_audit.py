@@ -115,6 +115,12 @@ ALIGNED_SCRIPTS = {
     "jobs/arxiv_monitor/run_arxiv.sh":   "V37.9.51",  # V37.9.51 Sub-Stage 4b 3/6: 6 字段 + rule_check (rule_content 用 title + abstract, V37.9.43 fallback 同款)
     "jobs/github_trending/run_github_trending.sh": "V37.9.51",  # V37.9.51 Sub-Stage 4b 4/6: 6 字段 + rule_check (repo 场景, rule_content 用 full_name + description + topics)
     "jobs/hf_papers/run_hf_papers.sh":   "V37.9.45",  # 6 字段 PoC (V37.9.43 arxiv 同款 + 加 🎚️ 项目对齐度, Opportunity Radar #2) + 保留 Step 2.5 GitHub repo enrichment
+    "jobs/acl_anthology/run_acl_anthology.sh": "V37.9.62",  # V37.9.62 Sub-Stage 4b 续 (ACL audit P3 升级): 6 字段 + rule_check (V37.9.51 dblp 同款模板, ACL 有 abstract, rule_content 用 title + abstract + venue)
+    "jobs/karpathy_x/run_karpathy_x.sh":  "V37.9.62",  # V37.9.62 Sub-Stage 4b 续: 6 字段 + rule_check (V37.9.51 ai_leaders_x 同款 tweets 模板, rule_content 用 author + text)
+    "jobs/openclaw_official/run.sh":     "V37.9.62",  # V37.9.62 Sub-Stage 4b 续 (OpenClaw releases): 6 字段 + rule_check (V37.9.51 rss_blogs 同款 blogs 模板, rule_content 用 title + body)
+    "jobs/openclaw_official/run_discussions.sh": "V37.9.62",  # V37.9.62 Sub-Stage 4b 续 (OpenClaw issues/discussions): 6 字段 + rule_check (V37.9.51 hn 同款 threads 模板, rule_content 用 title + body)
+    "jobs/ontology_sources/run_ontology_sources.sh": "V37.9.62",  # V37.9.62 Sub-Stage 4b 续 (V37.8.7 separator 切块设计保留 + 扩展 parse_6field_output): 6 字段 + rule_check (V37.9.51 rss_blogs 同款模板, rule_content 用 title + description)
+    "jobs/chaspark/run_chaspark.sh":     "V37.9.62",  # V37.9.62 Sub-Stage 4b 续 (混合设计 Phase A+B): per-article 6 字段 (V37.9.51 rss_blogs) + Phase B 跨域分析保留 chaspark 特色 (V37.9.33 freight 混合启发), rule_content 用 title + domains
 }
 
 

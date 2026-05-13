@@ -3294,10 +3294,12 @@ invariants:
         check_type: file_contains
         file: jobs/ontology_sources/run_ontology_sources.sh
         pattern: 'export ONTOLOGY_JOBS_DIR='
-      - name: "shell heredoc import parse_llm_blocks"
+      - name: "shell heredoc import parse_llm_blocks 或 parse_6field_output (V37.9.62 升级)"
         check_type: file_contains
         file: jobs/ontology_sources/run_ontology_sources.sh
-        pattern: 'from ontology_parser import parse_llm_blocks'
+        # V37.9.62: 接受 V37.8.7 parse_llm_blocks (3 字段) 或 V37.9.62 parse_6field_output (6 字段)
+        # 两者都从 ontology_parser 模块 import, separator 切块设计完整保留
+        pattern: 'from ontology_parser import parse_(llm_blocks|6field_output)'
       - name: "auto_deploy FILE_MAP 含 ontology_parser.py"
         check_type: file_contains
         file: auto_deploy.sh

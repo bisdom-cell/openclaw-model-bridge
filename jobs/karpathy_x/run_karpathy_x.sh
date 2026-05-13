@@ -1,11 +1,28 @@
 #!/usr/bin/env bash
 # cron 环境 PATH 极简，必须显式声明
 export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
-# Andrej Karpathy X/Twitter 技术分享追踪 v1
+# Andrej Karpathy X/Twitter 技术分享追踪 v2 (V37.9.62 — 6 字段 + rule_check 升级,
+# 机械迁移 V37.9.51 ai_leaders_x 同款模板 + V37.9.45 hf_papers / V37.9.50 semantic_scholar
+# 同款 Opportunity Radar #2, Sub-Stage 4b 2/6)
 # 每天 2 次（09:00, 21:00 HKT）由系统 crontab 触发
-# 数据源：Twitter Syndication API（无需认证，用于 embed widget）
-# 分析深度：LLM 深度技术分析 + 与我们系统演进的关联评估
+# 数据源：Twitter Syndication API (主) + xcancel RSS (fallback)
+# 分析深度：6 字段 LLM 深度技术分析 + OpenClaw 项目对齐评分 + rule_check 验证
 set -eo pipefail
+
+# V37.9.62: 公共反幻觉守卫 LEVEL_4_PROJECT_AWARE (MR-8 single-source-of-truth)
+# V37.9.57 LEVEL_4 含 V37.9.56-hotfix3 具体血案字眼 (禁"OpenClaw 社区发布"/"v26"/"[openclaw]")
+# 防 alignment 评分输出"一句话原因"段编造项目动态. FAIL-OPEN: 模块缺失 → 空字符串
+HG_LEVEL_4_TEXT=$(python3 -c "
+import sys, os
+sys.path.insert(0, os.path.expanduser('~'))
+sys.path.insert(0, '$(cd "$(dirname "$0")" && pwd)')
+try:
+    import hallucination_guards as hg
+    print(hg.get_guard('LEVEL_4_PROJECT_AWARE'))
+except Exception:
+    print('')
+" 2>/dev/null)
+export HG_LEVEL_4_TEXT
 
 # 防重叠执行
 LOCK="/tmp/karpathy_x.lockdir"
@@ -24,7 +41,37 @@ TS="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')"
 DAY="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d')"
 STATUS_FILE="$CACHE/last_run.json"
 
-log() { echo "[$TS] karpathy_x: $1" >&2; }
+JOB_TAG="karpathy_x"
+log() { echo "[$TS] ${JOB_TAG}: $1" >&2; }
+
+# V37.9.62: source notify.sh 让 fail-fast alert 走统一 [SYSTEM_ALERT] 通道
+# (机械迁移 V37.9.40 ai_leaders_x send_alert 模式)
+NOTIFY_SH=""
+for candidate in "$HOME/openclaw-model-bridge/notify.sh" "$HOME/notify.sh"; do
+    if [ -f "$candidate" ]; then
+        NOTIFY_SH="$candidate"
+        break
+    fi
+done
+if [ -n "$NOTIFY_SH" ]; then
+    # shellcheck disable=SC1090
+    source "$NOTIFY_SH" || true
+fi
+
+# V37.9.62: fail-fast alert helper
+send_alert() {
+    local reason="$1"
+    local msg="[SYSTEM_ALERT] karpathy_x LLM 失败
+时间: $TS
+原因: $reason
+降级处理: 今日未推送 Karpathy 技术洞察 (避免占位符污染)
+建议: 查 Adapter/Proxy 状态 + ${LLM_RAW:-llm_raw_last.txt}"
+    if command -v notify >/dev/null 2>&1; then
+        notify "$msg" --topic alerts >/dev/null 2>&1 || true
+    else
+        "$OPENCLAW" message send --channel whatsapp --target "$TO" --message "$msg" --json >/dev/null 2>&1 || true
+    fi
+}
 
 mkdir -p "$CACHE/raw" "${KB_BASE:-$HOME/.kb}/sources"
 test -f "$KB_SRC" || echo "# Andrej Karpathy X 技术分享" > "$KB_SRC"
@@ -139,6 +186,8 @@ if os.path.exists(html_file) and os.path.getsize(html_file) > 500:
                         "text": unescape(text),
                         "date": created_at,
                         "link": link,
+                        "author": "Andrej Karpathy",
+                        "label": "前OpenAI/Tesla AI负责人，AI教育家",
                         "is_retweet": screen_name not in ("karpathy", ""),
                         "source": "syndication_json"
                     })
@@ -156,6 +205,8 @@ if os.path.exists(html_file) and os.path.getsize(html_file) > 500:
             if text and len(text) > 20:
                 tweets.append({"id": str(tid), "text": text,
                                "date": "", "link": f"https://x.com/karpathy/status/{tid}",
+                               "author": "Andrej Karpathy",
+                               "label": "前OpenAI/Tesla AI负责人，AI教育家",
                                "is_retweet": False, "source": "syndication_html"})
 
 # ── 方式 B：解析 xcancel RSS（fallback）──
@@ -186,6 +237,8 @@ if not tweets and os.path.exists(rss_file) and os.path.getsize(rss_file) > 100:
             if text and len(text) > 20:
                 tweets.append({"id": tid, "text": unescape(text),
                                "date": pub_date, "link": link,
+                               "author": "Andrej Karpathy",
+                               "label": "前OpenAI/Tesla AI负责人，AI教育家",
                                "source": "xcancel_rss"})
     except ET.ParseError:
         print("[karpathy_x] ERROR: xcancel RSS XML 解析失败", file=sys.stderr)
@@ -217,164 +270,460 @@ if [ "$TOTAL_NEW" -eq 0 ]; then
 fi
 log "发现 ${TOTAL_NEW} 条新推文"
 
-# ── 3. 构建 LLM 深度分析 Prompt ─────────────────────────────────────
-PROMPT_FILE="$CACHE/llm_prompt.txt"
-$PYTHON3 - "$TWEETS_FILE" << 'PYEOF' > "$PROMPT_FILE"
-import sys, json
+# ── V37.9.62: 每条推文独立调 LLM (6 字段深度分析 + retry 3 次 + Opportunity Radar #2) ──
+# 老 V37.8: 单次调用全部 N 条 + 5 行格式 (主题/深度分析/系统启示/行动建议/价值) + 失败 silent fallback
+# 新 V37.9.62: 每条独立调用 + 独立 retry (5s/10s/20s) + 6 字段 emoji 格式 (与 ai_leaders_x V37.9.51 统一)
+#   📌 中文主题 / 🔑 核心观点 / 💡 技术深度解读 / 🎯 系统启示 / ⭐ 评级 / 🎚️ 项目对齐度
+# 全部失败 → fail-fast (V37.9.36 契约保留)
+# 部分失败 → partial_degraded + 失败篇标 [LLM_DEGRADED] + 推文原文兜底
 
-tweets = []
-with open(sys.argv[1]) as f:
-    for line in f:
-        line = line.strip()
-        if line:
-            tweets.append(json.loads(line))
-
-prompt = """你是一位资深AI系统架构师。以下是 Andrej Karpathy（前OpenAI/Tesla AI负责人）最新发布的推文。
-请对每条推文进行深度技术分析，严格按以下格式输出（不要输出任何其他内容）：
-
-每条推文输出5行：
-第1行：主题：[用≤15字概括核心主题]
-第2行：深度分析：[100-200字技术深度解读，包含：核心观点是什么、技术背景、为什么重要]
-第3行：系统启示：[50-100字，对Agent Runtime/Control Plane/Memory系统的具体启示]
-第4行：行动建议：[1句话≤40字，我们可以做什么]
-第5行：价值：⭐（1到5个星，评估对AI系统架构的参考价值）
-每条之间用一行 --- 分隔。
-
-"""
-for i, t in enumerate(tweets, 1):
-    prompt += f"推文{i}：\n{t['text']}\n\n"
-
-print(prompt)
-PYEOF
-
-# ── 4. 调用 LLM ─────────────────────────────────────────────────────
 LLM_RAW="$CACHE/llm_raw_last.txt"
-$PYTHON3 -c "
+> "$LLM_RAW"
+RESULTS_FILE="$CACHE/llm_results.jsonl"
+> "$RESULTS_FILE"
+
+# ── helper: 单条 LLM 调用 + retry ───────────────────────────────────
+call_llm_single_with_retry() {
+    local prompt_file="$1"
+    local idx="$2"
+    LAST_LLM_FAIL_REASON=""
+    local backoffs=(5 10 20)
+
+    for attempt in 0 1 2; do
+        local payload_file="$CACHE/llm_payload_${idx}_a${attempt}.json"
+        $PYTHON3 -c "
 import json
-prompt = open('$CACHE/llm_prompt.txt').read()
-with open('$CACHE/llm_payload.json', 'w') as f:
+prompt = open('$prompt_file', encoding='utf-8').read()
+with open('$payload_file', 'w', encoding='utf-8') as f:
     json.dump({
         'model': 'Qwen3-235B-A22B-Instruct-2507-W8A8',
         'messages': [{'role': 'user', 'content': prompt}],
-        'max_tokens': 8192,
+        'max_tokens': 2500,
         'temperature': 0.3
     }, f)
 "
+        local llm_resp
+        llm_resp=$(curl -s --max-time 90 \
+            -H "Content-Type: application/json" \
+            -d "@$payload_file" \
+            http://127.0.0.1:5002/v1/chat/completions 2>/dev/null || true)
 
-LLM_RESP=$(curl -s --max-time 180 \
-    -H "Content-Type: application/json" \
-    -d "@$CACHE/llm_payload.json" \
-    http://127.0.0.1:5002/v1/chat/completions 2>"$LLM_RAW.stderr" || true)
+        echo "$llm_resp" > "$LLM_RAW"
 
-echo "$LLM_RESP" > "$LLM_RAW"
-
-LLM_CONTENT=$($PYTHON3 -c "
+        # V37.9.36 三层检测
+        local parse_err_file="$CACHE/llm_parse_${idx}_a${attempt}.err"
+        local parse_out
+        parse_out=$(echo "$llm_resp" | $PYTHON3 -c "
 import json, sys
 try:
-    d = json.loads(sys.stdin.read())
-    print(d['choices'][0]['message']['content'])
-except Exception:
-    pass
-" <<< "$LLM_RESP" 2>/dev/null || true)
+    d = json.load(sys.stdin)
+except Exception as e:
+    print(f'__LLM_PARSE_FAIL__:bad_json:{type(e).__name__}', file=sys.stderr)
+    sys.exit(0)
+if isinstance(d, dict) and 'error' in d:
+    err_msg = str(d['error'])[:300].replace(chr(10), ' ')
+    print(f'__LLM_HTTP_ERROR__:{err_msg}', file=sys.stderr)
+    sys.exit(0)
+try:
+    content = d['choices'][0]['message']['content']
+except (KeyError, IndexError, TypeError) as e:
+    print(f'__LLM_PARSE_FAIL__:no_choices:{type(e).__name__}', file=sys.stderr)
+    sys.exit(0)
+print(content)
+" 2>"$parse_err_file" || true)
 
-if [ -z "${LLM_CONTENT// }" ]; then
-    log "WARN: LLM调用失败，使用原始推文推送"
-    LLM_CONTENT=""
-fi
+        local parse_err
+        parse_err="$(cat "$parse_err_file" 2>/dev/null || true)"
 
-echo "$LLM_CONTENT" > "$CACHE/llm_content.txt"
+        if echo "$parse_err" | grep -q '__LLM_HTTP_ERROR__\|__LLM_PARSE_FAIL__'; then
+            LAST_LLM_FAIL_REASON=$(echo "$parse_err" | head -c 200 | tr '\n' ' ')
+            log "WARN: 条 $idx attempt $((attempt+1))/3: $LAST_LLM_FAIL_REASON"
+            if [ $attempt -lt 2 ]; then sleep "${backoffs[$attempt]}"; fi
+            continue
+        fi
 
-# ── 5. 组装消息 ──────────────────────────────────────────────────────
-MSG_FILE="$CACHE/karpathy_message.txt"
-$PYTHON3 - "$TWEETS_FILE" "$CACHE/llm_content.txt" "$DAY" "$MSG_FILE" << 'PYEOF'
-import sys, json, re
+        if [ -z "${parse_out// }" ]; then
+            LAST_LLM_FAIL_REASON="empty_content"
+            log "WARN: 条 $idx attempt $((attempt+1))/3: empty content"
+            if [ $attempt -lt 2 ]; then sleep "${backoffs[$attempt]}"; fi
+            continue
+        fi
 
-tweets_file, llm_file, day, msg_file = sys.argv[1:5]
+        echo "$parse_out"
+        return 0
+    done
+    return 1
+}
 
+# ── 主循环: 每条推文独立调 LLM (6 字段深度) ──────────────────────────
+TOTAL_FAILED=0
+LAST_FAIL_REASON=""
+
+for ((i=0; i<TOTAL_NEW; i++)); do
+    SINGLE_PROMPT="$CACHE/llm_single_prompt_${i}.txt"
+    $PYTHON3 - "$TWEETS_FILE" "$i" << 'PYEOF' > "$SINGLE_PROMPT"
+import sys, json, os  # V37.9.62: os 用于 V37.9.57 注入 HG_LEVEL_4_TEXT (V37.9.58-hotfix os import 同款)
+
+tweets_file, idx = sys.argv[1], int(sys.argv[2])
 tweets = []
-with open(tweets_file) as f:
+with open(tweets_file, encoding='utf-8') as f:
     for line in f:
         line = line.strip()
         if line:
             tweets.append(json.loads(line))
+t = tweets[idx]
+text = t['text']
+author = t.get('author', 'Andrej Karpathy')
+label = t.get('label', '前OpenAI/Tesla AI负责人，AI教育家')
 
-with open(llm_file) as f:
-    llm_content = f.read()
+prompt = """你是资深 AI 系统架构师 (兼 OpenClaw 项目对齐评估师)。对以下 Andrej Karpathy 的 X 推文做 6 字段深度技术分析:
 
-# 解析 LLM 输出（5行一组，--- 分隔）
-analyses = []
-current = {}
-for raw_line in llm_content.split('\n'):
-    line = raw_line.strip()
-    if not line:
-        continue
-    if re.match(r'^[-=]{3,}$', line):
-        if current:
-            analyses.append(current)
-            current = {}
-        continue
-    for key in ['主题', '深度分析', '系统启示', '行动建议', '价值']:
-        prefix = key + '：'
-        alt_prefix = key + ':'
-        if line.startswith(prefix):
-            current[key] = line[len(prefix):].strip()
-            break
-        elif line.startswith(alt_prefix):
-            current[key] = line[len(alt_prefix):].strip()
-            break
-if current:
-    analyses.append(current)
+📌 中文主题: 用 ≤15 字概括推文核心主题 (信达雅, 不直译)
+🔑 核心观点: 3-5 条 bullet, 每条 1 句 ≤ 50 字, 列出 Karpathy 的关键论点/事实/技术声明
+💡 技术深度解读: 揭示作者立场 / 技术背景 / 为什么重要 / 与已有讨论的关联 / 局限性
+   长度按评级动态调整: ⭐⭐⭐→100-150字 / ⭐⭐⭐⭐→250-400字 / ⭐⭐⭐⭐⭐→500-800字 (深度推文充分展开)
+🎯 系统启示: 1-3 条对 Agent Runtime / Control Plane / Memory 系统的具体启示, 每条 ≤ 80 字
+⭐ 评级: ⭐ × N (1-5 个) + 推荐场景 (谁应该读 / 何时读 / 用于什么场景)
+🎚️ 项目对齐度: ⭐ × N (1-5 个) + 一句话原因 (≤ 30 字)
+   ━ V37.9.62 新增 (V37.9.51 ai_leaders_x 同款 Opportunity Radar #2 模板, 用于过滤 OpenClaw 高价值信号) ━
+
+OpenClaw 项目方向 (参考评分):
+   ⭐⭐⭐⭐⭐ = 直接相关 (control plane / agent runtime / ontology / governance / convergence framework / fail-fast / memory plane / multimodal routing / opportunity radar)
+   ⭐⭐⭐⭐  = 间接相关 (tool plugin / KB RAG / semantic search / drift detection / declarative policy / agent reliability)
+   ⭐⭐⭐    = 一般 AI/ML 趋势 (可借鉴但非核心, 如新模型架构 / training tricks / benchmark)
+   ⭐⭐     = 无明显关联 (但可能未来有用, 比如纯 NLP 任务)
+   ⭐      = 完全无关 (噪声, 比如硬件细节 / GPU kernel / 单纯学术 paper)
+
+⚠️ 严格约束 (违反则整份输出作废):
+- 只使用上方提供的推文文本中的信息, 严禁虚构作者未提及的事实/数据/链接
+- 推文短不足以判断深度时, 标⭐较低 + 写"基于推文片段的初步判断"
+- 项目对齐度评分必须基于"是否能为 OpenClaw 控制平面 / 记忆平面 / ontology engine 提供有价值的借鉴", 而非泛泛 AI 相关
+- 严禁推断 Hugging Face / OpenAI / GitHub 等平台的具体内部状态除非原文提及
+- 严禁把 HTTP 错误码 / Python 异常 / 错误日志当外部信号
+
+输出格式 (严格按此 6 字段, 字段间用空行分隔):
+
+📌 中文主题: <你的概括>
+
+🔑 核心观点:
+- 观点1
+- 观点2
+
+💡 技术深度解读:
+<段落, 长度按评级规则>
+
+🎯 系统启示:
+- 启示1
+- 启示2
+
+⭐ 评级: ⭐⭐⭐⭐ / 推荐场景: <场景描述>
+
+🎚️ 项目对齐度: ⭐⭐⭐ / <一句话原因, ≤ 30 字>
+
+---
+
+"""
+prompt += f"作者: {author} ({label})\n"
+prompt += f"推文原文:\n{text}\n"
+# V37.9.62: append LEVEL_4 反幻觉守卫 (MR-8 single-source-of-truth via env var)
+prompt += os.environ.get('HG_LEVEL_4_TEXT', '')
+print(prompt)
+PYEOF
+
+    log "调用 LLM 分析条 $((i+1))/$TOTAL_NEW"
+    if RESULT=$(call_llm_single_with_retry "$SINGLE_PROMPT" "$i"); then
+        $PYTHON3 -c "
+import json, sys
+result = sys.stdin.read()
+print(json.dumps({'idx': $i, 'content': result, 'failed': False, 'fail_reason': ''}, ensure_ascii=False))
+" <<< "$RESULT" >> "$RESULTS_FILE"
+    else
+        TOTAL_FAILED=$((TOTAL_FAILED + 1))
+        LAST_FAIL_REASON="$LAST_LLM_FAIL_REASON"
+        log "FAIL: 条 $((i+1)) 全 retry 失败 — $LAST_LLM_FAIL_REASON"
+        $PYTHON3 -c "
+import json, sys
+print(json.dumps({'idx': $i, 'content': '', 'failed': True, 'fail_reason': '''$LAST_LLM_FAIL_REASON'''}, ensure_ascii=False))
+" >> "$RESULTS_FILE"
+    fi
+done
+
+# ── 决定整体 status (V37.9.36 fail-fast 契约保留) ──────────────────
+if [ "$TOTAL_FAILED" -eq "$TOTAL_NEW" ]; then
+    log "ERROR: 全部 $TOTAL_NEW 条 LLM 分析失败 (last reason: $LAST_FAIL_REASON)"
+    send_alert "全部 $TOTAL_NEW 条 LLM 分析失败 (last reason: $LAST_FAIL_REASON)"
+    REASON_ESCAPED=$(echo "$LAST_FAIL_REASON" | tr '"' "'" | tr '\n' ' ' | head -c 200)
+    printf '{"time":"%s","status":"llm_failed","new":%d,"sent":false,"reason":"all_failed_%s"}\n' "$TS" "$TOTAL_NEW" "$REASON_ESCAPED" > "$STATUS_FILE"
+    exit 1
+elif [ "$TOTAL_FAILED" -gt 0 ]; then
+    log "WARN: $TOTAL_FAILED/$TOTAL_NEW 条失败 — 走 partial_degraded (失败条标 [LLM_DEGRADED])"
+    send_alert "$TOTAL_FAILED/$TOTAL_NEW 条 LLM 部分失败 (其余正常推送, 失败条标 [LLM_DEGRADED])"
+fi
+echo "[karpathy_x] LLM 调用完成: 成功 $((TOTAL_NEW - TOTAL_FAILED))/$TOTAL_NEW"
+
+# ── V37.9.62: 6 字段 emit (key-based parser + LLM_DEGRADED fallback + Opportunity Radar #2) ──
+MSG_FILE="$CACHE/karpathy_message.txt"
+$PYTHON3 - "$TWEETS_FILE" "$RESULTS_FILE" "$DAY" "$MSG_FILE" << 'PYEOF'
+import sys, json, re, os  # V37.9.62: os 用于 lazy import project_alignment_scorer 路径解析 (V37.9.50-hotfix 同款)
+
+tweets_file, results_file, day, msg_file = sys.argv[1:5]
+
+tweets = []
+with open(tweets_file, encoding='utf-8') as f:
+    for line in f:
+        line = line.strip()
+        if line:
+            tweets.append(json.loads(line))
+with open(results_file, encoding='utf-8') as f:
+    results = [json.loads(l) for l in f if l.strip()]
+
+# V37.9.62 6 字段 key-based parser (V37.9.51 ai_leaders_x 同款 Opportunity Radar #2)
+def parse_6field_output(content):
+    fields = {
+        'cn_title': '', 'highlights': '', 'insight': '', 'practice': '', 'rating': '',
+        'alignment': '',  # V37.9.62 新增
+    }
+    current_field = None
+    current_buffer = []
+
+    def flush():
+        if current_field and current_buffer:
+            fields[current_field] = '\n'.join(current_buffer).strip()
+
+    for raw in content.split('\n'):
+        line = raw.rstrip()
+        if re.match(r'^[-=*_]{3,}$', line.strip()):
+            continue
+        if line.lstrip().startswith('📌'):
+            flush()
+            current_field = 'cn_title'
+            current_buffer = []
+            m = re.match(r'.*📌\s*(?:中文)?主题\s*[:：]?\s*(.*)', line)
+            if m and m.group(1).strip():
+                current_buffer.append(m.group(1).strip())
+            continue
+        if line.lstrip().startswith('🔑'):
+            flush()
+            current_field = 'highlights'
+            current_buffer = []
+            continue
+        if line.lstrip().startswith('💡'):
+            flush()
+            current_field = 'insight'
+            current_buffer = []
+            continue
+        if line.lstrip().startswith('🎯'):
+            flush()
+            current_field = 'practice'
+            current_buffer = []
+            continue
+        # 🎚️ 项目对齐度 (V37.9.62 新增, fallback 🎚 if no variation selector)
+        stripped = line.lstrip()
+        if stripped.startswith('🎚️') or stripped.startswith('🎚'):
+            flush()
+            current_field = 'alignment'
+            current_buffer = []
+            m = re.match(r'.*🎚️?\s*(?:项目)?对齐度?\s*[:：]?\s*(.*)', stripped)
+            if m and m.group(1).strip():
+                current_buffer.append(m.group(1).strip())
+            continue
+        if line.lstrip().startswith('⭐') and current_field != 'rating':
+            if '评级' in line or '推荐场景' in line or re.match(r'\s*⭐+\s*$', line):
+                flush()
+                current_field = 'rating'
+                current_buffer = [line.lstrip()]
+                continue
+        if current_field is not None:
+            current_buffer.append(line)
+        elif line.strip():
+            pass
+
+    flush()
+    return fields
+
 
 msg_lines = [f"\U0001F9E0 Karpathy 技术洞察 ({day})", ""]
 
+# V37.9.62: lazy import project_alignment_scorer + load concepts (V37.9.51 ai_leaders_x 同款 rule_check)
+# FAIL-OPEN: 模块缺失 / yaml 缺失 → 跳过 rule_check 不阻塞 cron
+_concepts = None
+_validate_alignment_score = None
+_extract_star_count = None
+_format_validation_marker = None
+try:
+    sys.path.insert(0, os.environ.get('HOME', os.path.expanduser('~')))
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) if '__file__' in dir() else '.')
+    from project_alignment_scorer import (
+        load_project_concepts,
+        validate_alignment_score,
+        extract_star_count,
+        format_validation_marker,
+    )
+    _concepts = load_project_concepts()
+    _validate_alignment_score = validate_alignment_score
+    _extract_star_count = extract_star_count
+    _format_validation_marker = format_validation_marker
+    print("[karpathy_x] V37.9.62 project_alignment_scorer 加载成功 (rule_check 启用)", file=sys.stderr)
+except Exception as _e:
+    print(f"[karpathy_x] V37.9.62 project_alignment_scorer 缺失或失败: {_e} (rule_check 跳过, FAIL-OPEN)", file=sys.stderr)
+
+degraded_count = 0
+llm_ok_count = 0
+high_alignment_count = 0  # V37.9.62: ⭐≥4 alignment 计数 (Opportunity Radar #2)
 for i, tweet in enumerate(tweets):
-    # 推文原文（截取前200字）
     text_preview = tweet['text'][:200]
     if len(tweet['text']) > 200:
         text_preview += '...'
-    msg_lines.append(f"━━━ 推文 {i+1} ━━━")
-    msg_lines.append(f"_{text_preview}_")
-
+    author = tweet.get('author', 'Andrej Karpathy')
     link = tweet.get('link', '')
     if not link and tweet.get('id', '').isdigit():
         link = f"https://x.com/karpathy/status/{tweet['id']}"
-    if link:
-        msg_lines.append(f"链接：{link}")
+
+    result = results[i] if i < len(results) else None
+    if result is None or result.get('failed'):
+        # LLM_DEGRADED: 推文原文兜底 (替代 V37.9.36 占位符反模式)
+        degraded_count += 1
+        msg_lines.append(f"━━━ 推文 {i+1} ━━━")
+        msg_lines.append(f"_{text_preview}_")
+        if link:
+            msg_lines.append(f"链接: {link}")
+        msg_lines.append("")
+        msg_lines.append("⚠️ [LLM_DEGRADED] 深度分析失败, 推文原文供参考 (见上)")
+        msg_lines.append("")
+    else:
+        # V37.9.62: 解析 6 字段 (V37.9.51 ai_leaders_x 同款 Opportunity Radar #2)
+        fields = parse_6field_output(result.get('content', ''))
+        title_display = fields['cn_title'] or f"推文 {i+1}"
+        msg_lines.append(f"━━━ {title_display} ━━━")
+        msg_lines.append(f"_{text_preview}_")
+        if link:
+            msg_lines.append(f"链接: {link}")
+        msg_lines.append("")
+        if fields['highlights']:
+            msg_lines.append("🔑 核心观点:")
+            msg_lines.append(fields['highlights'])
+            msg_lines.append("")
+        if fields['insight']:
+            msg_lines.append("💡 技术深度解读:")
+            msg_lines.append(fields['insight'])
+            msg_lines.append("")
+        if fields['practice']:
+            msg_lines.append("🎯 系统启示:")
+            msg_lines.append(fields['practice'])
+            msg_lines.append("")
+        if fields['rating']:
+            msg_lines.append(fields['rating'])
+            msg_lines.append("")
+        # V37.9.62: 🎚️ 项目对齐度展示 + rule_check 验证 (V37.9.51 ai_leaders_x 同款)
+        if fields['alignment']:
+            msg_lines.append(f"🎚️ 项目对齐度: {fields['alignment']}")
+            # rule_check: LLM ⭐ 评分 vs keyword-based rule 一致性
+            if _validate_alignment_score and _concepts and _extract_star_count and _format_validation_marker:
+                try:
+                    llm_stars = _extract_star_count(fields['alignment'])
+                    if llm_stars > 0:
+                        # rule_content = author + text (V37.9.51 ai_leaders_x 同款模式)
+                        rule_content = tweet.get('author', '') + ' ' + tweet.get('text', '')
+                        validation = _validate_alignment_score(rule_content, llm_stars, _concepts)
+                        marker = _format_validation_marker(validation)
+                        if marker:  # validated=False 时返回 ⚠️ <reason>
+                            msg_lines.append(marker)
+                        if llm_stars >= 4:
+                            high_alignment_count += 1
+                except Exception as _e:
+                    print(f"[karpathy_x] V37.9.62 rule_check 失败 tweet={i}: {_e} (FAIL-OPEN)", file=sys.stderr)
+            msg_lines.append("")
+        if fields['cn_title'] or fields['highlights'] or fields['insight']:
+            llm_ok_count += 1
+
+    msg_lines.append("---")
     msg_lines.append("")
 
-    if i < len(analyses):
-        a = analyses[i]
-        if a.get('主题'):
-            msg_lines.append(f"*{a['主题']}*")
-        if a.get('深度分析'):
-            msg_lines.append(f"分析：{a['深度分析']}")
-        if a.get('系统启示'):
-            msg_lines.append(f"启示：{a['系统启示']}")
-        if a.get('行动建议'):
-            msg_lines.append(f"行动：{a['行动建议']}")
-        if a.get('价值'):
-            msg_lines.append(f"价值：{a['价值']}")
-    else:
-        msg_lines.append("*技术分享*")
-        msg_lines.append("价值：⭐⭐⭐")
-
+# V37.9.62: 末尾追加高对齐统计 (Opportunity Radar #2)
+total_tweets = len(tweets)
+if total_tweets > 0:
+    msg_lines.append(f"━━━ 本轮高对齐推文 (项目对齐度 ⭐≥4): {high_alignment_count}/{total_tweets} 条 ━━━")
     msg_lines.append("")
 
 msg_lines.append("来源：@karpathy on X | 深度分析 by Qwen3-235B")
 
-with open(msg_file, 'w') as f:
+with open(msg_file, 'w', encoding='utf-8') as f:
     f.write('\n'.join(msg_lines))
 
-print(f"[karpathy_x] 消息组装完成: {len(tweets)} 条推文, {len(analyses)} 条分析", file=sys.stderr)
+print(f"[karpathy_x] 消息组装完成: {len(tweets)} 条 (LLM 解析成功 {llm_ok_count}, degraded {degraded_count}, 高对齐 {high_alignment_count})", file=sys.stderr)
 PYEOF
 
-# ── 6. 推送（WhatsApp + Discord #技术）──────────────────────────────
-MSG_CONTENT="$(head -c 4000 "$MSG_FILE")"
+# ── 推送 WhatsApp + Discord (V37.9.21/V37.9.37 多窗口分片: >8000 字才切, ≤8000 单段) ─
 SEND_ERR=$(mktemp)
-if "$OPENCLAW" message send --channel whatsapp --target "$TO" --message "$MSG_CONTENT" --json >/dev/null 2>"$SEND_ERR"; then
-    log "已推送 ${TOTAL_NEW} 条 Karpathy 推文分析"
-    "$OPENCLAW" message send --channel discord --target "${DISCORD_CH_TECH:-}" --message "$MSG_CONTENT" --json >/dev/null 2>&1 || true
-    # 标记为已发送（推送成功后才标记）
+TOTAL_LEN=$(wc -c < "$MSG_FILE" | tr -d ' ')
+WA_SENT=false
+
+if [ "$TOTAL_LEN" -le 8000 ]; then
+    MSG_CONTENT="$(cat "$MSG_FILE")"
+    if "$OPENCLAW" message send --channel whatsapp --target "$TO" --message "$MSG_CONTENT" --json >/dev/null 2>"$SEND_ERR"; then
+        log "已推送 ${TOTAL_NEW} 条 (单段, $TOTAL_LEN 字)"
+        WA_SENT=true
+        "$OPENCLAW" message send --channel discord --target "${DISCORD_CH_TECH:-}" --message "$MSG_CONTENT" --json >/dev/null 2>&1 || true
+    else
+        log "ERROR: 推送失败: $(cat "$SEND_ERR" | head -3)"
+    fi
+else
+    WA_CHUNK_DIR=$(mktemp -d)
+    trap 'rm -rf "$WA_CHUNK_DIR"; rmdir "$LOCK" 2>/dev/null' EXIT INT TERM
+
+    $PYTHON3 - "$MSG_FILE" "$WA_CHUNK_DIR" "$DAY" << 'PYEOF'
+import sys, os, re
+
+msg_file, chunk_dir, day = sys.argv[1], sys.argv[2], sys.argv[3]
+content = open(msg_file, encoding='utf-8').read()
+MAX_CHUNK = 4000
+
+blocks = re.split(r'\n---\n', content)
+header_block = blocks[0]
+article_blocks = [b for b in blocks[1:] if b.strip()]
+
+chunks = []
+current = header_block
+for block in article_blocks:
+    candidate = current + "\n---\n" + block
+    if len(candidate) < MAX_CHUNK:
+        current = candidate
+    else:
+        chunks.append(current)
+        current = block
+if current.strip():
+    chunks.append(current)
+
+total_parts = len(chunks)
+for i, chunk in enumerate(chunks):
+    if total_parts > 1:
+        if i == 0:
+            chunk = chunk.replace(f"\U0001F9E0 Karpathy 技术洞察 ({day})",
+                                  f"\U0001F9E0 Karpathy 技术洞察 [1/{total_parts}] ({day})", 1)
+        else:
+            chunk = f"\U0001F9E0 Karpathy 技术洞察 [{i+1}/{total_parts}] ({day}) (续)\n\n" + chunk
+    with open(os.path.join(chunk_dir, f"{i:03d}.txt"), 'w', encoding='utf-8') as f:
+        f.write(chunk)
+PYEOF
+
+    WA_PARTS_TOTAL=$(ls "$WA_CHUNK_DIR"/*.txt 2>/dev/null | wc -l | tr -d ' ')
+    WA_SENT_OK=0
+    for chunk_file in "$WA_CHUNK_DIR"/*.txt; do
+        CHUNK_CONTENT="$(cat "$chunk_file")"
+        if "$OPENCLAW" message send --channel whatsapp --target "$TO" --message "$CHUNK_CONTENT" --json >/dev/null 2>>"$SEND_ERR"; then
+            WA_SENT_OK=$((WA_SENT_OK + 1))
+        fi
+        "$OPENCLAW" message send --channel discord --target "${DISCORD_CH_TECH:-}" --message "$CHUNK_CONTENT" --json >/dev/null 2>&1 || true
+        sleep 1  # 防 WhatsApp 消息乱序 (V37.9.21 契约)
+    done
+    log "已推送 ${TOTAL_NEW} 条 (多窗口 ${WA_SENT_OK}/${WA_PARTS_TOTAL} 段, 共 $TOTAL_LEN 字)"
+    if [ "$WA_SENT_OK" -gt 0 ]; then
+        WA_SENT=true
+    fi
+fi
+
+if [ "$WA_SENT" = "true" ]; then
+    # 标记已发送
     $PYTHON3 -c "
 import json, sys
 with open('$TWEETS_FILE') as f:
@@ -384,14 +733,18 @@ with open('$TWEETS_FILE') as f:
             d = json.loads(line)
             print(d.get('id', ''))
 " >> "$SEEN_FILE"
-    printf '{"time":"%s","status":"ok","new":%d,"sent":true}\n' "$TS" "$TOTAL_NEW" > "$STATUS_FILE"
+    if [ "$TOTAL_FAILED" -gt 0 ]; then
+        printf '{"time":"%s","status":"partial_degraded","new":%d,"failed":%d,"sent":true}\n' "$TS" "$TOTAL_NEW" "$TOTAL_FAILED" > "$STATUS_FILE"
+    else
+        printf '{"time":"%s","status":"ok","new":%d,"sent":true}\n' "$TS" "$TOTAL_NEW" > "$STATUS_FILE"
+    fi
 else
-    log "ERROR: 推送失败: $(cat "$SEND_ERR" | head -3)"
+    log "ERROR: 推送全失败: $(cat "$SEND_ERR" | head -3)"
     printf '{"time":"%s","status":"send_failed","new":%d,"sent":false}\n' "$TS" "$TOTAL_NEW" > "$STATUS_FILE"
 fi
 rm -f "$SEND_ERR"
 
-# ── 7. KB 深度归档 ──────────────────────────────────────────────────
+# ── KB 深度归档 ─────────────────────────────────────────────────────
 FULL_ANALYSIS="$(cat "$MSG_FILE")"
 if [ -n "$FULL_ANALYSIS" ]; then
     DATE_KB=$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M')
@@ -402,7 +755,7 @@ ${FULL_ANALYSIS}"
     log "KB写入完成"
 fi
 
-# ── 8. 永久归档（源文件） ────────────────────────────────────────────
+# ── 永久归档（源文件） ───────────────────────────────────────────────
 # V37.6: idempotent H2-dedup append — 同一天多次运行不会产生重复 section
 {
     echo ""
@@ -410,11 +763,11 @@ fi
     cat "$MSG_FILE"
 } | bash "$HOME/kb_append_source.sh" "$KB_SRC" "## ${DAY}"
 
-# ── 9. 清理 seen 缓存 ───────────────────────────────────────────────
+# ── 清理 seen 缓存 ───────────────────────────────────────────────
 if [ "$(wc -l < "$SEEN_FILE" | tr -d ' ')" -gt 500 ]; then
     tail -300 "$SEEN_FILE" > "$SEEN_FILE.tmp" && mv "$SEEN_FILE.tmp" "$SEEN_FILE"
 fi
 
-# ── 10. rsync 备份 ──────────────────────────────────────────────────
+# ── rsync 备份 ──────────────────────────────────────────────────────
 bash "$HOME/movespeed_rsync_helper.sh" "$0" -- -a "$HOME/.kb/" "/Volumes/MOVESPEED/KB/"  # V37.9.27 jitter+retry+fail-loud+capture (replaces V37.9.4/V37.9.14 inline pattern)
 log "完成"
