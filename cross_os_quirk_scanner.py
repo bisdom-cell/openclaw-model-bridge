@@ -67,13 +67,24 @@ _QUIRK_ZSH_SPECIFIC = re.compile(
     r'^\s*(typeset\s+-A|autoload\s+|setopt\s+|zmodload\s+|\$\([^)]*\^\^)'
 )
 
+# ── Quirk 5: head -c N | tr 切多字节 UTF-8 中间 (V37.9.68 教训) ──
+# `head -c N` 按**字节**切, 中文 UTF-8 是 3 bytes/char, 在多字节字符中间截断后 tr
+# 看到 incomplete byte sequence 报 "tr: Illegal byte sequence" (macOS bsd LC_CTYPE=UTF-8).
+# 不阻塞功能但污染日志. 修复: tr 前加 `LC_ALL=C` 绕过 multibyte 校验.
+# 反模式: `head -c N | tr` 无 LC_ALL=C
+# 合规: `head -c N | LC_ALL=C tr ...`
+_QUIRK_HEAD_BYTE_TR = re.compile(
+    r'head\s+-c\s+\d+[^|]*\|\s*tr\s+'
+)
 
-# 4 个 quirk 检查器统一注册
+
+# 5 个 quirk 检查器统一注册
 _QUIRK_CHECKERS = (
     ("cmd_and_or_chain", "bash `cmd && X || Y` + set -eE + ERR trap false-positive FATAL"),
     ("grep_head_no_or_true", "bash `grep | head` + pipefail + set -eE 无 `|| true` 兜底"),
     ("awk_log_no_lc_all", "awk 处理 log 缺 `LC_ALL=C` 前缀 (macOS bsd multibyte 风险)"),
     ("zsh_specific_in_sh", "zsh-specific 语法在 cron .sh (POSIX sh 跑会失败)"),
+    ("head_byte_tr_no_lc_all", "`head -c N | tr` 切多字节 UTF-8 在中间, macOS bsd tr 报 Illegal byte sequence (V37.9.68 教训)"),
 )
 
 
@@ -145,6 +156,25 @@ def detect_zsh_specific_in_sh(content):
     return findings
 
 
+def detect_head_byte_tr_no_lc_all(content):
+    """检测 `head -c N | tr` 缺 LC_ALL=C (V37.9.68 教训).
+
+    macOS bsd `tr` 默认 LC_CTYPE=UTF-8, 看到 incomplete multibyte sequence 报
+    "tr: Illegal byte sequence". `head -c N` 按字节切而非字符, 中文 UTF-8 3 bytes/char,
+    在 N 处可能正好把字符切断. 修复: tr 前加 `LC_ALL=C` 绕过 multibyte 校验.
+    """
+    findings = []
+    for ln, line in enumerate(content.split("\n"), 1):
+        if _is_in_comment_or_string(line):
+            continue
+        # 匹配 `head -c <数字> [...] | tr ...` (tr 前可有空格)
+        if _QUIRK_HEAD_BYTE_TR.search(line):
+            # 豁免: tr 前紧邻 LC_ALL=C
+            if "LC_ALL=C tr" not in line:
+                findings.append((ln, "head_byte_tr_no_lc_all", line.strip()))
+    return findings
+
+
 def scan_file(path):
     """扫单文件返回所有 findings: [(line_no, quirk_name, line_text), ...]"""
     content = _read(path)
@@ -156,6 +186,7 @@ def scan_file(path):
     findings.extend(detect_grep_head_no_or_true(content))
     findings.extend(detect_awk_log_no_lc_all(content))
     findings.extend(detect_zsh_specific_in_sh(content))
+    findings.extend(detect_head_byte_tr_no_lc_all(content))
     return findings
 
 
