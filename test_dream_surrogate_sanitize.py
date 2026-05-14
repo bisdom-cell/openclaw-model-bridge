@@ -228,14 +228,23 @@ class TestAntiPollutionSystemPrompt(unittest.TestCase):
                      "必须至少举例 Hugging Face 作为禁止编造的对象")
 
     def test_chunk_systems_all_have_anti_pollution(self):
-        """CHUNK1/2/3 三个 system prompt 都必须有反污染标记"""
-        chunk_systems = re.findall(
-            r'CHUNK[123]_SYSTEM="([^"]+)"', self.src)
-        self.assertEqual(len(chunk_systems), 3,
-                        "必须找到 3 个 CHUNK_SYSTEM")
-        for i, chunk in enumerate(chunk_systems, 1):
-            self.assertIn("V37.8.6 反污染", chunk,
-                         f"CHUNK{i}_SYSTEM 必须含 V37.8.6 反污染标记")
+        """V37.9.68 架构迁移: CHUNK1/2/3_SYSTEM (V37.8.3) → DEEP_SYSTEM + WIDE_RADAR_SYSTEM (V37.9.68)
+
+        V37.8.6 反污染语义不丢，只是从 3 个 CHUNK system prompt 搬到 2 个新 system prompt。
+        测试更新为锁定 V37.9.68 两个新 system prompt 都含 V37.8.6 反污染条款。
+        """
+        # 新设计：DEEP_SYSTEM + WIDE_RADAR_SYSTEM 两个 system prompt
+        new_systems = re.findall(
+            r'(DEEP_SYSTEM|WIDE_RADAR_SYSTEM)="([^"]+)"', self.src)
+        self.assertEqual(len(new_systems), 2,
+                        "V37.9.68 后必须找到 DEEP_SYSTEM + WIDE_RADAR_SYSTEM 共 2 个 system prompt")
+        for name, prompt_text in new_systems:
+            self.assertIn("V37.8.6 反污染", prompt_text,
+                         f"{name} 必须含 V37.8.6 反污染标记（V37.9.68 架构迁移后语义保留）")
+        # 反向验证：老 CHUNK1/2/3_SYSTEM 必须清除
+        old_chunks = re.findall(r'CHUNK[123]_SYSTEM="', self.src)
+        self.assertEqual(len(old_chunks), 0,
+                        "V37.8.3 老 CHUNK1/2/3_SYSTEM 必须已被 V37.9.68 替换")
 
 
 # ═══════════════════════════════════════════════════════════════════

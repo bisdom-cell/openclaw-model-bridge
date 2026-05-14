@@ -1,6 +1,6 @@
 {
-  "updated": "2026-05-13 09:36:48",
-  "updated_by": "claude_code",
+  "updated": "2026-05-14 01:16:30",
+  "updated_by": "full_regression",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -105,6 +105,11 @@
   ],
   "recent_changes": [
     "{\"date\": \"2026-05-13\", \"what\": \"**今日完美收工** — 一日 6 版本 (V37.9.63 MR-8 helper / V37.9.64 货代 / V37.9.65 crontab_safe remove / V37.9.66 framework 双向 sync / V37.9.66-hotfix watchdog quirk / **V37.9.67 P0 INV-CROSS-OS-001 scanner**) + 反思文档沉淀 + Mac Mini 真激活验证. 收工 A-I 9 项全过. 累计 85 suites/2876 tests/0 fail/76 inv/636 checks/安全 95/100. 元价值: 反思文档\"血案→反思→P0→framework 化预防\"迭代机制硬实证, V3 路标 pip install ontology-engine 核心交付方向. V37.9.68+ 候选: 4 行动登记 unfinished.\", \"by\": \"claude_code\"}",
+    {
+      "date": "2026-05-14",
+      "what": "V37.9.68 Agent Dream 三阶推送重设计: 用户视角原则 #13 兑现 — WhatsApp 连续几周 Qwen-BIM 重复推送血案闭环. 根因 6 因子叠加涌现行为 (用户 ⭐⭐⭐⭐⭐ 反复 × content-stable cache × LLM prompt 偏好 × mtime 倒序 × dedup 不按主题 × PREV_THEMES 3 天太短). MR-4 第 26 次新形态. 4 用户决策方案 C: 2 LLM 调用 / 14 天 / WIDE 5+RADAR 5 / DEEP 必过. **kb_dream_helpers.py 新模块** 8 纯函数 + 68 单测含血案回归. **kb_dream.sh** PREV_THEMES 3→14 天 + BANNED_THEMES_BLOCK + DEEP fail-fast (MIN_DEEP_CHARS=1200) + WIDE_RADAR 单 LLM 产 2 段 + 总览规则提取 + 4 段 ## header 多窗口. status.json schema 升级 multitheme/deep_chars/wide_status/radar_status. **INV-DREAM-MULTITHEME-001** 新增 (MR-4 high 19 checks) + **INV-DREAM-003 架构迁移** CHUNK1/2/3 → DEEP/WIDE_RADAR. auto_deploy FILE_MAP 加 kb_dream_helpers.py. 85 suites/2944 tests/0 fail/77 inv/655 checks/VERSION 0.37.9.67→0.37.9.68. Mac Mini bash ~/kb_dream.sh 手动验证 4 段独立窗口产出 + 14 天 ban-list 生产效果",
+      "by": "claude_code"
+    },
     {
       "date": "2026-05-13",
       "what": "V37.9.67 P0 行动 1 兑现: INV-CROSS-OS-001 跨 OS quirk scanner. 新文件 cross_os_quirk_scanner.py 4 quirk pattern (cmd&&||/grep|head/awk LC_ALL/zsh-specific). dev scan 抓 16 violations 跨 6 文件全修齐. 21 单测 6 类含反向验证. INV +7 checks. 84 suites/2876 tests/0 fail/76 invariants/636 checks/安全 95/100/VERSION 0.37.9.66→0.37.9.67. 元价值: 同日 V37.9.66-hotfix 血案 → 反思登记 → P0 立即执行 → INV 上线, 闭环 <4h. 反思文档行动 1 真兑现.",
@@ -360,14 +365,14 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 2876,
-    "last_regression": "2026-05-13 09:34 pass",
+    "test_count": 2944,
+    "last_regression": "2026-05-14 01:16 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-05-13 09:34",
-    "test_suites": 85,
+    "security_score_time": "2026-05-14 01:16",
+    "test_suites": 86,
     "governance_invariants": "64/64",
     "governance_checks": "350/350",
-    "version": "0.37.9.67"
+    "version": "0.37.9.68"
   },
   "incidents": [
     {
@@ -431,7 +436,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "今日完整闭环 (V37.9.62→V37.9.67 6 commits): MR-8 helper / 货代频率 / crontab_safe remove / framework 双向 sync + path bug / watchdog quirk / **P0 行动 1: INV-CROSS-OS-001 cross_os_quirk_scanner**. 反思文档 ontology/docs/reflections/2026-05-13_complexity_bug_taxonomy.md 沉淀 5 大 bug 类别 + 5 P0/P1/P2 行动 + 闭环 <6h 从血案到 framework 级预防. 累计 85 suites/2876 tests/0 fail/76 inv/636 checks/安全 95/100/VERSION 0.37.9.62→0.37.9.67. 下次 V37.9.68+ 候选: P0 行动 2 INV-PATH-CONSISTENCY-001 + framework 双向 sync 真激活 / P1 failure_modes_catalog.md / P1 MR-18 真激活 + INV-AUTO-INJECT-001 / P2 原则#32 用户视角观察制度 4 周后立 INV.",
+  "focus": "【V37.9.68 Agent Dream 三阶推送重设计 — Qwen-BIM 连续几周血案闭环】2026-05-14 用户视角原则 #13 兑现: WhatsApp 连续几周收到同款 Qwen-BIM 推送, 单测/治理/preflight 全过但内容无价值. 根因 6 因子叠加涌现行为 (用户 ⭐⭐⭐⭐⭐ 反复保存 × content-stable cache × LLM prompt 偏好 × mtime 倒序 × signal-hash dedup 不按主题 × PREV_THEMES 3 天太短 + prompt 后门). MR-4 第 26 次新形态. 4 用户决策方案 C: 2 LLM 调用 (DEEP 独立 + WIDE+RADAR 合一) / 14 天主题防衰减 / WIDE 5 + RADAR 5 / DEEP 必过 + WIDE+RADAR 独立降级. **kb_dream_helpers.py 新纯函数模块** 8 函数 + 68 单测含血案场景回归 + 反向验证. **kb_dream.sh 替换 V37.8.3 chunked 3 段 (161 行)** → V37.9.68 三阶推送 (260 行): PREV_THEMES 14 天 + BANNED_THEMES_BLOCK 硬规则 + DEEP fail-fast (MIN_DEEP_CHARS=1200) + WIDE_RADAR_PROMPT 单 LLM 产 2 段 + 总览规则提取 + 4 段 ## header 复用 V37.9.21 多窗口. **status.json schema 升级** multitheme/deep_chars/wide_status/radar_status 段独立可观测. **INV-DREAM-MULTITHEME-001** 新增 (MR-4 high, 19 checks 含 17 declaration + 2 runtime, DEEP fail-fast 顺序锁 + 端到端 68 单测). **INV-DREAM-003 架构迁移** CHUNK1/2/3 守卫 → DEEP/WIDE_RADAR 守卫, V37.8.6 反污染语义保留. **auto_deploy FILE_MAP** 加 kb_dream_helpers.py. 85 suites/2944 tests/0 fail/governance v3.42→v3.43/77 inv/655 checks/安全 95/100/VERSION 0.37.9.67→0.37.9.68. **Mac Mini 部署后必须 bash ~/kb_dream.sh 手动验证** 4 段独立窗口产出 + 14 天 ban-list 阻止 Qwen-BIM 类重复. **元价值**: V37.9.x 第一次涌现行为防御 (前 25+ 次 MR-4 都是单点 bug). 用户视角原则 #13 第 19 次正向兑现. **下次 V37.9.69+ 候选**: (a) Mac Mini 5/15 03:00 cron 真激活验证 (b) DEEP 主题归一化效果调优 (c) WIDE/RADAR 5 数量观察 (d) 反思文档行动 2 INV-PATH-CONSISTENCY-001.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
