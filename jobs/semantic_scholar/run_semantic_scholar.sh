@@ -292,7 +292,7 @@ print(content)
         parse_err="$(cat "$parse_err_file" 2>/dev/null || true)"
 
         if echo "$parse_err" | grep -q '__LLM_HTTP_ERROR__\|__LLM_PARSE_FAIL__'; then
-            LAST_LLM_FAIL_REASON=$(echo "$parse_err" | head -c 200 | tr '\n' ' ')
+            LAST_LLM_FAIL_REASON=$(echo "$parse_err" | head -c 200 | LC_ALL=C tr '\n' ' ')
             log "WARN: 篇 $idx attempt $((attempt+1))/3: $LAST_LLM_FAIL_REASON"
             if [ $attempt -lt 2 ]; then
                 sleep "${backoffs[$attempt]}"

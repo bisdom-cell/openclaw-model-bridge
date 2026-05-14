@@ -158,7 +158,51 @@ esac'''
 
 
 # ════════════════════════════════════════════════════════════════════
-# 5. 全 repo 集成 + 反向验证
+# 5. V37.9.68 教训: head -c N | tr 切多字节 UTF-8 (Mac Mini bsd tr 报警)
+# ════════════════════════════════════════════════════════════════════
+class TestQuirkHeadByteTrNoLcAll(unittest.TestCase):
+    def _scan(self, content):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("scanner", SCANNER_PATH)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod.detect_head_byte_tr_no_lc_all(content)
+
+    def test_detect_head_byte_tr_no_lc_all(self):
+        """V37.9.68 血案模式: echo $x | head -c 120 | tr '\\n' ' ' → 违反"""
+        content = 'HEAD=$(echo "$DEEP_RESULT" | head -c 120 | tr \'\\n\' \' \')'
+        findings = self._scan(content)
+        self.assertEqual(len(findings), 1)
+
+    def test_detect_head_byte_tr_with_other_byte_count(self):
+        """head -c 200 | tr 同款违反 (V37.9.40-44 LAST_LLM_FAIL_REASON pattern)"""
+        content = 'LAST_LLM_FAIL_REASON=$(echo "$parse_err" | head -c 200 | tr \'\\n\' \' \')'
+        findings = self._scan(content)
+        self.assertEqual(len(findings), 1)
+
+    def test_lc_all_c_tr_exempt(self):
+        """合规模式: head -c N | LC_ALL=C tr → 不报 (V37.9.68 修复模式)"""
+        content = 'HEAD=$(echo "$x" | head -c 120 | LC_ALL=C tr \'\\n\' \' \')'
+        self.assertEqual(self._scan(content), [])
+
+    def test_no_false_positive_on_head_alone(self):
+        """head -c 不跟 tr → 不报"""
+        content = 'X=$(cat file.txt | head -c 100)'
+        self.assertEqual(self._scan(content), [])
+
+    def test_no_false_positive_on_tr_without_head(self):
+        """tr 不跟 head -c → 不报"""
+        content = 'X=$(echo "abc" | tr a-z A-Z)'
+        self.assertEqual(self._scan(content), [])
+
+    def test_comment_line_exempt(self):
+        """注释里的反模式不报 (避免血案文档触发)"""
+        content = '# 反模式: echo $x | head -c 120 | tr \'\\n\' \' \''
+        self.assertEqual(self._scan(content), [])
+
+
+# ════════════════════════════════════════════════════════════════════
+# 6. 全 repo 集成 + 反向验证
 # ════════════════════════════════════════════════════════════════════
 class TestRepoIntegration(unittest.TestCase):
     def test_repo_scan_zero_violations(self):

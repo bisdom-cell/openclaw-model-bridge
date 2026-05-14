@@ -318,7 +318,7 @@ print(content)
         parse_err="$(cat "$parse_err_file" 2>/dev/null || true)"
 
         if echo "$parse_err" | grep -q '__LLM_HTTP_ERROR__\|__LLM_PARSE_FAIL__'; then
-            LAST_LLM_FAIL_REASON=$(echo "$parse_err" | head -c 200 | tr '\n' ' ')
+            LAST_LLM_FAIL_REASON=$(echo "$parse_err" | head -c 200 | LC_ALL=C tr '\n' ' ')
             log "WARN: 条 $idx attempt $((attempt+1))/3: $LAST_LLM_FAIL_REASON"
             if [ $attempt -lt 2 ]; then sleep "${backoffs[$attempt]}"; fi
             continue
@@ -640,7 +640,7 @@ PYEOF
 
 # ── 推送 WhatsApp + Discord (V37.9.21/V37.9.37 多窗口分片: >8000 字才切, ≤8000 单段) ─
 SEND_ERR=$(mktemp)
-TOTAL_LEN=$(wc -c < "$MSG_FILE" | tr -d ' ')
+TOTAL_LEN=$(wc -c < "$MSG_FILE" | LC_ALL=C tr -d ' ')
 WA_SENT=false
 
 if [ "$TOTAL_LEN" -le 8000 ]; then

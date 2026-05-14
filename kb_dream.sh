@@ -1306,7 +1306,7 @@ ${BANNED_THEMES_BLOCK}
 log "LLM 调用 1/2 (DEEP): 单主题深挖 + 14 天 ban-list → 发送..."
 DEEP_RESULT=$(llm_call "$DEEP_PROMPT" 5000 0.85 300 "$DEEP_SYSTEM" || true)
 DEEP_CHARS=$(echo "$DEEP_RESULT" | wc -c | tr -d ' ')
-DEEP_HEAD=$(echo "$DEEP_RESULT" | head -c 120 | tr '\n' ' ')
+DEEP_HEAD=$(echo "$DEEP_RESULT" | head -c 120 | LC_ALL=C tr '\n' ' ')
 log "DEEP 完成: ${DEEP_CHARS} chars, head: ${DEEP_HEAD}"
 
 # DEEP fail-fast 验证（V37.9.68 用户决策：DEEP 必过，不及格 exit 1）
@@ -1390,7 +1390,7 @@ $REDUCE_MULTI_MATERIAL
 log "LLM 调用 2/2 (WIDE+RADAR): 跨领域 5 + 准期 5 → 发送..."
 WIDE_RADAR_RESULT=$(llm_call "$WIDE_RADAR_PROMPT" 6000 0.8 300 "$WIDE_RADAR_SYSTEM" || true)
 WIDE_RADAR_CHARS=$(echo "$WIDE_RADAR_RESULT" | wc -c | tr -d ' ')
-WIDE_RADAR_HEAD=$(echo "$WIDE_RADAR_RESULT" | head -c 120 | tr '\n' ' ')
+WIDE_RADAR_HEAD=$(echo "$WIDE_RADAR_RESULT" | head -c 120 | LC_ALL=C tr '\n' ' ')
 log "WIDE+RADAR 完成: ${WIDE_RADAR_CHARS} chars, head: ${WIDE_RADAR_HEAD}"
 
 # 拆分 WIDE 与 RADAR 两段（用户决策：可独立降级）
