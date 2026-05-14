@@ -87,6 +87,21 @@ def _parse_last_json(raw_stdout, stderr=""):
 
 # ── capability handlers ──────────────────────────────────────────────────────
 
+def _decode_subprocess_error(stdout, stderr):
+    """Subprocess errored — try to surface a useful error message.
+    data_clean.py prints JSON errors to stdout like {"error": "文件不存在"}.
+    Fallback to raw stdout/stderr."""
+    if stdout:
+        try:
+            data = json.loads(stdout.strip())
+            if isinstance(data, dict) and "error" in data:
+                return str(data["error"])
+        except Exception:
+            pass
+    text = (stdout or "").strip() or (stderr or "").strip()
+    return text or "unknown subprocess error"
+
+
 def h_health():
     return 200, {"status": "ok", "service": "hiagent-plugin",
                  "ts": int(time.time()), "port": PORT}
@@ -111,7 +126,7 @@ def h_kb_search(q, limit=5):
     rc, out, err = _run([sys.executable, "kb_rag.py", "--json", q,
                          "--top", str(int(limit))])
     if rc != 0:
-        return 500, {"error": f"kb_rag exit {rc}", "stdout": out, "stderr": err}
+        return 200, {"error": _decode_subprocess_error(out, err), "tool": "kb_search"}
     return 200, _json_or_wrap(out, err)
 
 
@@ -122,7 +137,7 @@ def h_memory(q, layer="all"):
     cmd.append(q)
     rc, out, err = _run(cmd)
     if rc != 0:
-        return 500, {"error": f"memory_plane exit {rc}", "stdout": out, "stderr": err}
+        return 200, {"error": _decode_subprocess_error(out, err), "tool": "memory_query"}
     return 200, _parse_last_json(out, err)
 
 
@@ -160,17 +175,17 @@ def h_mm_search(q, top_k=5):
     rc, out, err = _run([sys.executable, "mm_search.py", q,
                          "--top", str(int(top_k))])
     if rc != 0:
-        return 500, {"error": f"mm_search exit {rc}", "stdout": out, "stderr": err}
+        return 200, {"error": _decode_subprocess_error(out, err), "tool": "mm_search"}
     return 200, {"query": q, "results": _parse_mm_search_text(out)}
 
 
 def h_dc_profile(path, fmt="text"):
     if not path:
-        return 400, {"error": "path required"}
+        return 200, {"error": "path required - 请提供文件路径", "tool": "dc_profile"}
     rc, out, err = _run([sys.executable, "data_clean.py", "profile",
                          path, "--format", fmt])
     if rc != 0:
-        return 500, {"error": f"data_clean exit {rc}", "stdout": out, "stderr": err}
+        return 200, {"error": _decode_subprocess_error(out, err), "tool": "dc_profile"}
     if fmt == "json":
         return 200, _json_or_wrap(out, err)
     return 200, {"result": out, "stderr": err}
@@ -178,14 +193,14 @@ def h_dc_profile(path, fmt="text"):
 
 def h_dc_execute(path, ops):
     if not path or not ops:
-        return 400, {"error": "path and ops required"}
+        return 200, {"error": "path and ops required - 请提供文件路径和操作", "tool": "dc_execute"}
     ops_list = [op.strip() for op in ops.split(",") if op.strip()]
     if not ops_list:
-        return 400, {"error": "ops cannot be empty after split"}
+        return 200, {"error": "ops cannot be empty after split", "tool": "dc_execute"}
     rc, out, err = _run([sys.executable, "data_clean.py", "execute",
                          path, "--ops"] + ops_list)
     if rc != 0:
-        return 500, {"error": f"data_clean exit {rc}", "stdout": out, "stderr": err}
+        return 200, {"error": _decode_subprocess_error(out, err), "tool": "dc_execute"}
     return 200, _json_or_wrap(out, err)
 
 
