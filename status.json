@@ -1,6 +1,6 @@
 {
-  "updated": "2026-05-13 09:08:33",
-  "updated_by": "claude_code",
+  "updated": "2026-05-14 01:02:05",
+  "updated_by": "full_regression",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -105,6 +105,11 @@
   ],
   "recent_changes": [
     {
+      "date": "2026-05-14",
+      "what": "V37.9.68 Agent Dream 三阶推送重设计: 用户视角原则 #13 兑现 — WhatsApp 连续几周 Qwen-BIM 重复推送血案闭环. 根因 6 因子叠加涌现行为 (用户 ⭐⭐⭐⭐⭐ 反复 × content-stable cache × LLM prompt 偏好 × mtime 倒序 × dedup 不按主题 × PREV_THEMES 3 天太短). MR-4 第 26 次新形态. 4 用户决策方案 C: 2 LLM 调用 / 14 天 / WIDE 5+RADAR 5 / DEEP 必过. **kb_dream_helpers.py 新模块** 8 纯函数 + 68 单测含血案回归. **kb_dream.sh** PREV_THEMES 3→14 天 + BANNED_THEMES_BLOCK + DEEP fail-fast (MIN_DEEP_CHARS=1200) + WIDE_RADAR 单 LLM 产 2 段 + 总览规则提取 + 4 段 ## header 多窗口. status.json schema 升级 multitheme/deep_chars/wide_status/radar_status. **INV-DREAM-MULTITHEME-001** 新增 (MR-4 high 19 checks) + **INV-DREAM-003 架构迁移** CHUNK1/2/3 → DEEP/WIDE_RADAR. auto_deploy FILE_MAP 加 kb_dream_helpers.py. 85 suites/2944 tests/0 fail/77 inv/655 checks/VERSION 0.37.9.67→0.37.9.68. Mac Mini bash ~/kb_dream.sh 手动验证 4 段独立窗口产出 + 14 天 ban-list 生产效果",
+      "by": "claude_code"
+    },
+    {
       "date": "2026-05-13",
       "what": "V37.9.67 P0 行动 1 兑现: INV-CROSS-OS-001 跨 OS quirk scanner. 新文件 cross_os_quirk_scanner.py 4 quirk pattern (cmd&&||/grep|head/awk LC_ALL/zsh-specific). dev scan 抓 16 violations 跨 6 文件全修齐. 21 单测 6 类含反向验证. INV +7 checks. 84 suites/2876 tests/0 fail/76 invariants/636 checks/安全 95/100/VERSION 0.37.9.66→0.37.9.67. 元价值: 同日 V37.9.66-hotfix 血案 → 反思登记 → P0 立即执行 → INV 上线, 闭环 <4h. 反思文档行动 1 真兑现.",
       "by": "claude_code"
@@ -198,12 +203,6 @@
       "date": "2026-05-12",
       "version": "V37.9.56-hotfix3",
       "what": "kb_evening LLM 编造 OpenClaw v26 幻觉血案修复 — V37.9.56 链式幻觉副作用 (原则 #23 典型实证). 触发: V37.9.56-hotfix 部署后 9:41 evening 推送编造 \"OpenClaw 社区发布 v26\" 给 WhatsApp + Discord 用户. 因果: Top 5 提到三平面对齐 + 今日笔记少 + LLM 训练倾向 → 编造项目动态. 三层修复: (a) alignment_block 软化注入 (新段头\"近期高对齐参考阅读 Top 5\"+ 跨多天累积 + 绝不应硬引用) (b) prompt 模板加反幻觉具体字面禁令 (禁 OpenClaw 社区发布/v26/[openclaw] 等 5 个血案字眼) (c) 源码注释含血案精确字眼便于 grep. 6 新单测 1 类 (TestV9_56Hotfix3AntiHallucinationGuards) + 修适 3 老测试 + 反向验证 sabotage 立即 3 failures 还原全过. 76 suites / 2607→2613 tests / 0 fail / VERSION 0.37.9.56 不变 (hotfix 惯例). MR-15 候选元规则强化: llm-prompt-injection-must-anticipate-hallucination-vector. Stage 2 文章候选: LLM prompt 注入即幻觉注入.",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-05-12",
-      "version": "V37.9.56-hotfix2",
-      "what": "kb_evening.sh DAYS 数字校验防御 — V37.9.56 诊断暴露的 zsh # 注释坑 root-cause fix. 真因: zsh interactive_comments 默认 OFF, # 被当 $1 传给 bash → DAYS=# → int(#) ValueError. 修复: kb_evening.sh 加 regex ^[0-9]+$ 校验, 非数字 fallback 1 + WARN 日志. 5 新单测 1 类 (含 subprocess 真跑血案场景 # → fallback 1 + 反向验证 sabotage 删校验立即 4 failures / 改 regex 立即 2 failures). 累计 76 suites / 2602→2607 tests / 0 fail / VERSION 0.37.9.56 不变 (hotfix 惯例). 元教训: 同 session 修小 bug 比下次 session 重新拉起上下文成本更低. 原则 #28 严格执行 (Q1/Q2/Q3 三问).",
       "by": "claude_code"
     }
   ],
@@ -365,14 +364,14 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 2876,
-    "last_regression": "2026-05-13 09:07 pass",
+    "test_count": 2944,
+    "last_regression": "2026-05-14 01:01 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-05-13 09:07",
-    "test_suites": 84,
+    "security_score_time": "2026-05-14 01:01",
+    "test_suites": 85,
     "governance_invariants": "64/64",
     "governance_checks": "350/350",
-    "version": "0.37.9.66"
+    "version": "0.37.9.68"
   },
   "incidents": [
     {
@@ -436,7 +435,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "【V37.9.62 6 脚本 batch 升级 — 用户视角 ACL 推送质量 + 100% 彻底处理】2026-05-13 用户视角发现 ACL Anthology 推送只有浅 3 字段, 要求按 S2 (V37.9.39+) 6 字段格式 + 100% 彻底处理. 6 脚本 batch 升级: ACL Anthology (papers 含 abstract) / karpathy_x (tweets) / openclaw_official/run.sh (releases) / openclaw_official/run_discussions.sh (issues) / ontology_sources (4 RSS + parser 扩) / chaspark (混合设计 Phase A 6 字段 + Phase B 跨域分析). 4 P1 机械迁移 V37.9.51 模板 + ontology_sources 扩 parser + chaspark 混合定制. ALIGNED_SCRIPTS 11→17 (21 候选 - 4 by design 排除 = 17 应对齐). 测试 alternation 修 (test_ontology_parser + test_llm_cron_audit + governance INV-ONTOLOGY-001). 81 suites / 2785 tests / 0 fail / 安全 95/100 / VERSION 0.37.9.61→0.37.9.62. **Mac Mini 部署后立即行动**: (1) git fetch + reset 同步 V37.9.62 (2) ACL Anthology 下次周三 09:30 cron 触发推送应**首次出现** 📌中文标题/🔑核心贡献/💡关键方法/🎯实践启发/⭐评级/🎚️项目对齐度 6 字段 + 高对齐统计. karpathy_x 09:00 / openclaw_official 同款 / ontology_sources 10:00 / chaspark 11:00 都升级. **下次 V37.9.63+ 候选**: (a) Mac Mini 全部 6 脚本真激活验证用户视角推送质量 (b) finance_news/freight/kb_dream/kb_inject 4 个 by design 排除是否需重新评估 (c) MR-8 抽 cron_monitor_fatal_handler.sh 公共 helper (V37.9.61 7 governed scripts copy-paste).",
+  "focus": "【V37.9.68 Agent Dream 三阶推送重设计 — Qwen-BIM 连续几周血案闭环】2026-05-14 用户视角原则 #13 兑现: WhatsApp 连续几周收到同款 Qwen-BIM 推送, 单测/治理/preflight 全过但内容无价值. 根因 6 因子叠加涌现行为 (用户 ⭐⭐⭐⭐⭐ 反复保存 × content-stable cache × LLM prompt 偏好 × mtime 倒序 × signal-hash dedup 不按主题 × PREV_THEMES 3 天太短 + prompt 后门). MR-4 第 26 次新形态. 4 用户决策方案 C: 2 LLM 调用 (DEEP 独立 + WIDE+RADAR 合一) / 14 天主题防衰减 / WIDE 5 + RADAR 5 / DEEP 必过 + WIDE+RADAR 独立降级. **kb_dream_helpers.py 新纯函数模块** 8 函数 + 68 单测含血案场景回归 + 反向验证. **kb_dream.sh 替换 V37.8.3 chunked 3 段 (161 行)** → V37.9.68 三阶推送 (260 行): PREV_THEMES 14 天 + BANNED_THEMES_BLOCK 硬规则 + DEEP fail-fast (MIN_DEEP_CHARS=1200) + WIDE_RADAR_PROMPT 单 LLM 产 2 段 + 总览规则提取 + 4 段 ## header 复用 V37.9.21 多窗口. **status.json schema 升级** multitheme/deep_chars/wide_status/radar_status 段独立可观测. **INV-DREAM-MULTITHEME-001** 新增 (MR-4 high, 19 checks 含 17 declaration + 2 runtime, DEEP fail-fast 顺序锁 + 端到端 68 单测). **INV-DREAM-003 架构迁移** CHUNK1/2/3 守卫 → DEEP/WIDE_RADAR 守卫, V37.8.6 反污染语义保留. **auto_deploy FILE_MAP** 加 kb_dream_helpers.py. 85 suites/2944 tests/0 fail/governance v3.42→v3.43/77 inv/655 checks/安全 95/100/VERSION 0.37.9.67→0.37.9.68. **Mac Mini 部署后必须 bash ~/kb_dream.sh 手动验证** 4 段独立窗口产出 + 14 天 ban-list 阻止 Qwen-BIM 类重复. **元价值**: V37.9.x 第一次涌现行为防御 (前 25+ 次 MR-4 都是单点 bug). 用户视角原则 #13 第 19 次正向兑现. **下次 V37.9.69+ 候选**: (a) Mac Mini 5/15 03:00 cron 真激活验证 (b) DEEP 主题归一化效果调优 (c) WIDE/RADAR 5 数量观察 (d) 反思文档行动 2 INV-PATH-CONSISTENCY-001.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",

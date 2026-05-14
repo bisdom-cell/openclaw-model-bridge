@@ -280,14 +280,10 @@ class TestV37_4_2_CacheReadStructureAndRetryVariation(unittest.TestCase):
             "will look like 22 duplicate sections to Qwen3.",
         )
 
+    @unittest.skip("V37.9.68 architecture migration: V37.8.3 CHUNK1/2/3 replaced by DEEP+WIDE_RADAR (see test_kb_dream_helpers.py + INV-DREAM-MULTITHEME-001)")
     def test_chunked_generation_replaces_retry_loop(self):
-        """V37.8.3: Chunked generation replaced the single-shot retry loop.
-        The code must have CHUNK1/CHUNK2/CHUNK3 calls."""
-        src = _read_kb_dream()
-        self.assertIn("CHUNK1_RESULT", src,
-                       "Chunked generation not found — old retry loop still in use")
-        self.assertIn("CHUNK2_RESULT", src)
-        self.assertIn("CHUNK3_RESULT", src)
+        """V37.8.3 chunked → V37.9.68 三阶推送 (DEEP / WIDE / RADAR / Overview)."""
+        pass
 
 
 class TestDynamicTimeoutBudget(unittest.TestCase):
@@ -383,12 +379,11 @@ class TestFlushPendingBatchHelper(unittest.TestCase):
         )
 
 
+@unittest.skip("V37.9.68 architecture migration: V37.8.3 chunked design replaced by DEEP+WIDE_RADAR 三阶推送. See test_kb_dream_helpers.py for new design守卫 + INV-DREAM-MULTITHEME-001 governance.")
 class TestReduceChunkedGeneration(unittest.TestCase):
-    """V37.8.3: Chunked generation replaces single-shot retry loop.
-    Root cause: Qwen3 <think> tags consuming tokens + 80KB prompt causing
-    system-role length instruction attention decay → model defaults to ~900
-    char short summaries. Fix: strip <think>, /no_think, explicit length
-    requirements at prompt end, split into 3 focused LLM calls."""
+    """V37.8.3 (deprecated by V37.9.68): Chunked generation replaces single-shot retry loop.
+    V37.9.68 进一步替换为 DEEP + WIDE+RADAR 两 LLM 调用 (避免 V37.8.3 同主题深挖
+    在用户视角下连续几周重复 Qwen-BIM 类血案). 保留作为架构历史记录."""
 
     def test_min_acceptable_chars_floor(self):
         """Chunked generation must have a floor below which we give up."""
@@ -481,6 +476,7 @@ class TestReduceChunkedGeneration(unittest.TestCase):
         )
 
 
+@unittest.skip("V37.9.68 architecture migration: V37.8.3 chunked design replaced by DEEP+WIDE_RADAR 三阶推送. See test_kb_dream_helpers.py + INV-DREAM-MULTITHEME-001.")
 class TestV37_8_3_ChunkedGenerationStructure(unittest.TestCase):
     """V37.8.3: Chunked generation structure tests.
     Each chunk must pass system message to llm_call and log its output size."""
@@ -549,6 +545,7 @@ class TestV37_8_3_ChunkedGenerationStructure(unittest.TestCase):
                          "Chunked material should be truncated to 30000")
 
 
+@unittest.skip("V37.9.68 architecture migration: V37.8.3 chunked design replaced by DEEP+WIDE_RADAR 三阶推送. See test_kb_dream_helpers.py + INV-DREAM-MULTITHEME-001.")
 class TestV37_8_3_SystemUserMessageSplit(unittest.TestCase):
     """V37.8.3: System+user message split + chunked generation.
     Root cause: Qwen3 <think> tags + 80KB prompt attention decay.
@@ -648,6 +645,7 @@ class TestV37_8_3_SystemUserMessageSplit(unittest.TestCase):
             )
 
 
+@unittest.skip("V37.9.68 architecture migration: V37.8.3 chunked design replaced by DEEP+WIDE_RADAR 三阶推送. See test_kb_dream_helpers.py + INV-DREAM-MULTITHEME-001.")
 class TestV37_8_3_ThinkTagAndNoThink(unittest.TestCase):
     """V37.8.3: Qwen3 <think> tag handling + /no_think in Dream.
     Root cause revised: Qwen3 thinking mode embeds <think>...</think> in
@@ -719,6 +717,7 @@ class TestBash32Compat(unittest.TestCase):
     then use simple $VAR expansion inside the string assignments.
     """
 
+    @unittest.skip("V37.9.68 architecture migration: V37.8.3 CHUNK_PROMPT replaced by DEEP_PROMPT + WIDE_RADAR_PROMPT")
     def test_no_dollar_paren_in_chunk_prompts(self):
         """CHUNK{1,2,3}_PROMPT must NOT contain $() inline.
 
@@ -760,6 +759,7 @@ class TestBash32Compat(unittest.TestCase):
             "use _REDUCE_PREV_SECTION pre-computed variable.",
         )
 
+    @unittest.skip("V37.9.68 architecture migration: V37.8.3 CHUNK_PROMPT replaced by DEEP_PROMPT + WIDE_RADAR_PROMPT")
     def test_precomputed_helpers_exist(self):
         """Pre-computed helper variables must exist for the extracted $()."""
         src = _read_kb_dream()

@@ -291,6 +291,9 @@ declare -a FILE_MAP=(
     # Agent 做梦引擎（V32）
     "kb_dream.sh|$HOME/kb_dream.sh"
 
+    # Dream 三阶推送辅助纯函数模块（V37.9.68: PREV_THEMES 14 天 + 主题归一化 + WIDE/RADAR 拆分 + 总览段）
+    "kb_dream_helpers.py|$HOME/kb_dream_helpers.py"
+
     # 对话精华提炼（V37）
     "kb_harvest_chat.py|$HOME/kb_harvest_chat.py"
 

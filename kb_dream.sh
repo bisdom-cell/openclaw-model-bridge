@@ -355,15 +355,35 @@ fi
 # 2. 历史梦境 + 项目状态（两个阶段都需要）
 # ═══════════════════════════════════════════════════════════════════
 
-# 最近 3 次梦境的主题（用于去重）
+# V37.9.68: 最近 14 天梦境主题 + 主题归一化硬约束（从 V37.4 的 3 天扩展）
+# 用户视角原则 #13 兑现：用户反馈"连续几周 Qwen-BIM 重复推送"，根因之一是
+# PREV_THEMES 只看 3 天 + 提示留后门"同主题新角度可深挖"。
+# V37.9.68 修：扩 14 天 + Python helper 归一化主题关键词 + DEEP 硬规则禁止重复。
 PREV_THEMES=""
+BANNED_THEMES_BLOCK=""
 if [ -d "$DREAM_DIR" ]; then
-    PREV_FILES=$(ls -t "$DREAM_DIR"/*.md 2>/dev/null | head -3 || true)
+    # V37.9.68 主要防御：调 kb_dream_helpers 提取 14 天主题（含关键词归一化）
+    # FAIL-OPEN: helper 模块缺失或解析失败 → BANNED_THEMES_BLOCK 为空，
+    #            DEEP prompt 退回到无 ban-list 模式（不阻塞梦境主流程）
+    BANNED_THEMES_BLOCK=$(python3 -c "
+import sys, os
+sys.path.insert(0, os.path.expanduser('~'))
+sys.path.insert(0, '$SCRIPT_DIR')
+try:
+    from kb_dream_helpers import extract_recent_themes, format_banned_themes_block
+    themes = extract_recent_themes('$DREAM_DIR', days=14)
+    print(format_banned_themes_block(themes))
+except Exception as e:
+    sys.stderr.write(f'WARN: kb_dream_helpers V37.9.68 加载失败: {e}\\n')
+" 2>/dev/null || echo "")
+
+    # 旧 PREV_THEMES 字符串（保留用于 user message 显示，但不再作为硬约束）
+    PREV_FILES=$(ls -t "$DREAM_DIR"/*.md 2>/dev/null | head -14 || true)
     if [ -n "$PREV_FILES" ]; then
         while IFS= read -r pf; do
             [ -z "$pf" ] || [ ! -f "$pf" ] && continue
             pdate=$(basename "$pf" .md)
-            themes=$(grep -E '^(##|###|\*\*|[*] )' "$pf" 2>/dev/null | head -12 | head -c 400)
+            themes=$(grep -E '^(##|###|\*\*|[*] )' "$pf" 2>/dev/null | head -3 | head -c 200)
             PREV_THEMES+="[$pdate] $themes
 "
         done <<< "$PREV_FILES"
@@ -1213,168 +1233,266 @@ $REDUCE_MATERIAL
     log "回退后 prompt: ${PROMPT_BYTES} bytes"
 fi
 
-# V37.8.3: 分段生成（Chunked Generation）+ <think> 剥离 + /no_think
-# 根因（双层叠加）：
-#   1. Qwen3 thinking 模式在 content 中嵌入 <think>...</think> 推理块，消耗 token 但
-#      对 Dream 无用（run_hn_fixed.sh 已有同款处理，kb_dream.sh 缺失）
-#   2. 80KB user message 导致 system role 中的长度指令注意力衰减，模型默认产出短摘要
-#      （V37.4.2 变体 prompt 把 "不少于 2500 汉字" 放 user message 开头才生效）
-# 修复三层：
-#   A. llm_call 剥离 <think> 标签（回收被思考占用的 token）
-#   B. /no_think 在 system message 中禁用 Qwen3 思考模式
-#   C. 每个 chunk prompt 末尾加硬性字数要求（利用 recency bias）
-#   D. 6 章节拆成 3 次 LLM 调用，每次只写 2 章节（缩小 prompt = 更强注意力）
-CHUNKED_MATERIAL=$(echo "$REDUCE_DATA" | utf8_truncate 30000)
-CHUNKED_CHARS=$(echo "$CHUNKED_MATERIAL" | wc -c | tr -d ' ')
-log "分段生成模式: 素材 ${CHUNKED_CHARS} bytes, 3 次 LLM 调用"
+# V37.9.68: 三阶推送（DEEP + WIDE + RADAR + Overview）— 替代 V37.8.3 chunked 单主题深挖
+# 用户视角原则 #13 兑现（2026-05-14）：用户反馈"连续几周 Qwen-BIM 重复推送"
+# 根因 6 因子叠加（详见 kb_dream_helpers.py 注释）：
+#   1. 用户笔记反复 ⭐⭐⭐⭐⭐ Qwen-BIM 主动保存
+#   2. Phase 1b prompt 偏好"重复出现=持续关注"
+#   3. content-stable cache 锁定 signals
+#   4. mtime 倒序处理 + user notes 静态
+#   5. NOTES_SIGNALS 按 signal-hash dedup 但不按主题
+#   6. PREV_THEMES 只看 3 天 + prompt 留后门"同主题新角度"
+#
+# V37.9.68 设计:
+#   - DEEP (LLM 调用 1): 1500 字单主题深挖 + 14 天 ban-list 硬规则
+#   - WIDE+RADAR (LLM 调用 2): 单 LLM 调用产 2 段
+#       · WIDE: 5 个跨领域"鲜人知"信号 × 200 字 (≈1000 字)
+#       · RADAR: 5 个"准期信号"（今日 1 份证据但累积有趋势）× 300 字 (≈1500 字)
+#   - 总览 (规则提取): build_overview_block() 不调 LLM
+#
+# 失败降级（用户决策：DEEP 必过 / WIDE+RADAR 独立降级）:
+#   - DEEP 失败 → exit 1 fail-fast (推 [SYSTEM_ALERT])
+#   - WIDE/RADAR 单段失败 → 该段标 [DEGRADED] 但不阻塞推送 DEEP + 其他段
+#
+# 推送多窗口（4 段独立 ## header → V37.9.21 多窗口分片机制 split by `\n## ` 自然切 4 窗口）
 
-# --- 第 1 段：选题 + 发现过程 + 隐藏关联 ---
-CHUNK1_SYSTEM="/no_think
-你是专业数据分析师。从提供的多源数据中选出一个最有价值的发现，写出两个章节。
-要求：
-1. 选题要有扎实的多源证据链（至少 3 个不同数据源互相印证）
-2. 每个章节至少 400 字，引用具体数据源名称和日期
-3. 两个章节合计不少于 800 字
-4. Markdown 格式，直接输出内容，不要多余的开头和结尾
-5. V37.8.6 反污染：输入若含 HTTP 状态码报错/Python 异常名/错误页 HTML/U+FFFD(�)/curl 命令残留，
-   绝不作为事实证据引用，也不将其归因为外部平台（如 Hugging Face/GitHub）故障——
-   这些是内部运行时痕迹，不是业务信号"
+REDUCE_MULTI_MATERIAL=$(echo "$REDUCE_DATA" | utf8_truncate 30000)
+REDUCE_MULTI_CHARS=$(echo "$REDUCE_MULTI_MATERIAL" | wc -c | tr -d ' ')
+log "V37.9.68 三阶推送: 素材 ${REDUCE_MULTI_CHARS} bytes, 2 次 LLM 调用 + 1 规则提取"
 
-_CHUNK1_PREV=""
-if [ -n "$PREV_THEMES" ]; then
-    _CHUNK1_PREV="最近梦境主题（避免重复）：$PREV_THEMES
+# ─── LLM 调用 1: DEEP（单主题深挖，14 天 ban-list 硬规则）───
+DEEP_SYSTEM="/no_think
+你是专业数据分析师。从多源信号中选出 1 个**未在过去 14 天 dream 中出现过的全新主题**进行深度分析。
 
-"
-fi
+【V37.9.68 主题去重硬规则 — 违反整份输出作废】
+- 14 天 ban-list 中的主题（关键词集合）不得作为选题
+- 即使数据中相同主题信号最强，也必须选**完全不同维度的新主题**
+- 不接受'同主题新角度'
 
-CHUNK1_PROMPT="$REDUCE_INTRO
+【输出格式硬要求】
+- 必须以 '## 🌙 今日深度: <主题名>' 为第一行
+- 后续 3 章节：### 发现过程 / ### 隐藏关联 / ### 行动建议
+- 每章节 ≥ 400 字，全段 ≥ 1400 字
+- Markdown 格式，引用具体数据源名称和日期
+
+【V37.8.6 反污染】禁止把 HTTP 错误码 / Python 异常 / 错误页 HTML / U+FFFD(�) 当外部信号
+${DREAM_HG_GUARD}"
+
+DEEP_PROMPT="$REDUCE_INTRO
 
 ---
-$CHUNKED_MATERIAL
+$REDUCE_MULTI_MATERIAL
 ---
 
-${_CHUNK1_PREV}请写出以下两个章节：
+${BANNED_THEMES_BLOCK}
 
-## 🌙 今日深度发现：[一句话主题]
+第一步：从所有信号中选出 1 个**完全未在 14 天 ban-list 中出现**的主题。
+
+第二步：围绕这个新主题写 3 章节：
+
+## 🌙 今日深度: [主题名]
 
 ### 发现过程
-像侦探一样描述：哪些数据源的哪些条目最先引起注意？信号是如何从不同数据源中逐步浮现并互相印证的？
+像侦探一样描述：哪些数据源的哪些条目最先引起注意？信号是如何从不同数据源中逐步浮现并互相印证的？(≥400 字)
 
 ### 🔗 隐藏关联
-围绕这个主题，列出 3-5 个隐藏的关联，每个标注证据链：A事实([数据源, 日期]) → B事实([数据源, 日期]) → 因此C
+列出 3-5 个隐藏的关联：A事实([数据源, 日期]) → B事实([数据源, 日期]) → 因此C (≥400 字)
 
-【硬性要求：以上两个章节合计不少于 800 字，每个章节至少 400 字。少于 800 字视为不合格。】"
+### 🎯 行动建议
+给出 3-5 个具体可执行的建议: 做什么 / 为什么现在做 / 怎么验证 / 预期产出 (≥400 字)
 
-log "Chunk 1/3: 选题+发现+关联 → 发送 LLM..."
-CHUNK1_RESULT=$(llm_call "$CHUNK1_PROMPT" 4000 0.85 300 "$CHUNK1_SYSTEM" || true)
-CHUNK1_CHARS=$(echo "$CHUNK1_RESULT" | wc -c | tr -d ' ')
-CHUNK1_HEAD=$(echo "$CHUNK1_RESULT" | head -c 120 | tr '\n' ' ')
-log "Chunk 1/3: ${CHUNK1_CHARS} chars, head: ${CHUNK1_HEAD}"
+【硬性要求：合计 ≥ 1400 字。少于 1200 字视为失败 (fail-fast exit 1)。主题如与 ban-list 任一关键词重叠 ≥2 视为失败。】"
 
-# 从第 1 段提取主题（用于后续章节保持一致）
-DREAM_THEME=$(echo "$CHUNK1_RESULT" | head -3 | grep -o '今日深度发现：.*' | head -1 || echo "")
-[ -z "$DREAM_THEME" ] && DREAM_THEME="（延续第一段主题）"
+log "LLM 调用 1/2 (DEEP): 单主题深挖 + 14 天 ban-list → 发送..."
+DEEP_RESULT=$(llm_call "$DEEP_PROMPT" 5000 0.85 300 "$DEEP_SYSTEM" || true)
+DEEP_CHARS=$(echo "$DEEP_RESULT" | wc -c | tr -d ' ')
+DEEP_HEAD=$(echo "$DEEP_RESULT" | head -c 120 | tr '\n' ' ')
+log "DEEP 完成: ${DEEP_CHARS} chars, head: ${DEEP_HEAD}"
 
-# --- 第 2 段：趋势推演 + 被忽视的信号 ---
-CHUNK2_SYSTEM="/no_think
-你是专业数据分析师。基于已选主题继续深度分析，写出两个章节。
-要求：每个章节至少 400 字，两个章节合计不少于 800 字。引用具体数据源名称和日期。Markdown 格式。
-V37.8.6 反污染：禁止把 HTTP 错误码/Python 异常/错误页 HTML/U+FFFD(�) 当作外部平台事件推断。"
-
-_CHUNK2_MATERIAL=$(echo "$CHUNKED_MATERIAL" | utf8_truncate 15000)
-
-CHUNK2_PROMPT="当前分析主题：$DREAM_THEME
-
-数据素材摘要：
----
-$_CHUNK2_MATERIAL
----
-
-请写出以下两个章节（紧扣上述主题）：
-
-### 🔮 趋势推演
-基于证据推演 2-3 个未来走向，每个包含：趋势名 / 数据证据（具体引用） / 推演逻辑 / 时间窗口 / 影响
-
-### 💎 被忽视的信号
-找出 2-3 个容易被忽略的信号，每个包含：是什么 / 在哪发现的 / 为什么被忽视 / 为什么值得关注
-
-【硬性要求：以上两个章节合计不少于 800 字，每个章节至少 400 字。少于 800 字视为不合格。】"
-
-log "Chunk 2/3: 趋势+信号 → 发送 LLM..."
-CHUNK2_RESULT=$(llm_call "$CHUNK2_PROMPT" 4000 0.75 300 "$CHUNK2_SYSTEM" || true)
-CHUNK2_CHARS=$(echo "$CHUNK2_RESULT" | wc -c | tr -d ' ')
-CHUNK2_HEAD=$(echo "$CHUNK2_RESULT" | head -c 120 | tr '\n' ' ')
-log "Chunk 2/3: ${CHUNK2_CHARS} chars, head: ${CHUNK2_HEAD}"
-
-# --- 第 3 段：行动建议 + 数据质量备注 ---
-CHUNK3_SYSTEM="/no_think
-你是专业数据分析师。基于前面的分析写出行动建议和数据质量评估。
-要求：两个章节合计不少于 600 字。建议必须具体到本周可执行。Markdown 格式。
-V37.8.6 反污染：行动建议不得针对 HTTP 错误码/内部异常/替换字符（�）指向的'平台故障'——
-这些是内部运行时痕迹，不是真实业务事件。只对业务领域（AI 研究、产品、市场）提建议。"
-
-_CHUNK3_CTX1=$(echo "$CHUNK1_RESULT" | tail -20 | utf8_truncate 2000)
-_CHUNK3_CTX2=$(echo "$CHUNK2_RESULT" | tail -20 | utf8_truncate 2000)
-
-CHUNK3_PROMPT="当前分析主题：$DREAM_THEME
-
-前面的关键发现摘要：
-$_CHUNK3_CTX1
-$_CHUNK3_CTX2
-
-请写出以下两个章节：
-
-### 🎯 行动建议（按优先级排列）
-给出 3-5 个具体可执行的建议，每个包含：做什么 / 为什么现在做 / 怎么验证 / 预期产出
-
-### 📊 数据质量备注
-哪些数据源贡献了关键证据？哪些信息密度低？存在哪些信息盲区？
-
-【硬性要求：以上两个章节合计不少于 600 字。少于 600 字视为不合格。】"
-
-log "Chunk 3/3: 建议+质量 → 发送 LLM..."
-CHUNK3_RESULT=$(llm_call "$CHUNK3_PROMPT" 4000 0.7 300 "$CHUNK3_SYSTEM" || true)
-CHUNK3_CHARS=$(echo "$CHUNK3_RESULT" | wc -c | tr -d ' ')
-CHUNK3_HEAD=$(echo "$CHUNK3_RESULT" | head -c 120 | tr '\n' ' ')
-log "Chunk 3/3: ${CHUNK3_CHARS} chars, head: ${CHUNK3_HEAD}"
-log "Chunk 3/3: ${CHUNK3_CHARS} chars"
-
-# --- 拼接结果 ---
-DREAM_RESULT=""
-DREAM_CHARS=0
-SUCCESSFUL_CHUNKS=0
-
-for chunk_var in CHUNK1_RESULT CHUNK2_RESULT CHUNK3_RESULT; do
-    chunk_content="${!chunk_var}"
-    chunk_len=$(echo "$chunk_content" | wc -c | tr -d ' ')
-    if [ -n "${chunk_content// }" ] && [ "$chunk_len" -gt 50 ]; then
-        if [ -n "$DREAM_RESULT" ]; then
-            DREAM_RESULT="$DREAM_RESULT
-
-$chunk_content"
-        else
-            DREAM_RESULT="$chunk_content"
-        fi
-        SUCCESSFUL_CHUNKS=$((SUCCESSFUL_CHUNKS + 1))
-    fi
-done
-
-DREAM_CHARS=$(echo "$DREAM_RESULT" | wc -c | tr -d ' ')
-log "分段拼接完成: ${SUCCESSFUL_CHUNKS}/3 段成功, 总计 ${DREAM_CHARS} chars"
-
-# 最低要求：至少 2 段成功且总字节数 > MIN_ACCEPTABLE_CHARS
-# 注意：wc -c 计算 UTF-8 字节数，中文每字 3 字节，3000 bytes ≈ 1000 汉字
-MIN_ACCEPTABLE_CHARS=3000
-
-if [ "$SUCCESSFUL_CHUNKS" -lt 2 ] || [ "$DREAM_CHARS" -lt "$MIN_ACCEPTABLE_CHARS" ]; then
-    log "ERROR: 分段生成失败 (${SUCCESSFUL_CHUNKS}/3 段, ${DREAM_CHARS} chars < ${MIN_ACCEPTABLE_CHARS})"
-    printf '{"time":"%s","status":"llm_failed","phase":"reduce_chunked","chunks_ok":%d,"total_chars":%d,"prompt_bytes":%d}\n' \
-        "$TS" "$SUCCESSFUL_CHUNKS" "$DREAM_CHARS" "$CHUNKED_CHARS" > "$STATUS_FILE"
-    dream_fail_alert "Phase 2 分段生成失败 (${SUCCESSFUL_CHUNKS}/3 段, ${DREAM_CHARS} chars, material=${CHUNKED_CHARS}B)"
+# DEEP fail-fast 验证（V37.9.68 用户决策：DEEP 必过，不及格 exit 1）
+MIN_DEEP_CHARS=1200  # UTF-8 字节, ≈400 汉字最低
+if [ -z "${DEEP_RESULT// }" ] || [ "$DEEP_CHARS" -lt "$MIN_DEEP_CHARS" ]; then
+    log "ERROR: DEEP 生成失败 (${DEEP_CHARS} chars < ${MIN_DEEP_CHARS})"
+    printf '{"time":"%s","status":"llm_failed","phase":"deep","deep_chars":%d,"min_required":%d,"prompt_bytes":%d}\n' \
+        "$TS" "$DEEP_CHARS" "$MIN_DEEP_CHARS" "$REDUCE_MULTI_CHARS" > "$STATUS_FILE"
+    dream_fail_alert "V37.9.68 DEEP 段失败 (${DEEP_CHARS} chars < ${MIN_DEEP_CHARS}) — fail-fast，跳过 WIDE+RADAR"
     exit 1
 fi
 
-log "最终梦境: ${DREAM_CHARS} chars (${SUCCESSFUL_CHUNKS}/3 段)"
+# 从 DEEP 输出提取主题（用于 WIDE+RADAR 排除 + 总览段）
+DEEP_THEME=$(python3 -c "
+import sys, os
+sys.path.insert(0, os.path.expanduser('~'))
+sys.path.insert(0, '$SCRIPT_DIR')
+try:
+    from kb_dream_helpers import extract_deep_theme_from_chunk
+    print(extract_deep_theme_from_chunk(sys.stdin.read()))
+except Exception:
+    print('(未识别主题)')
+" <<< "$DEEP_RESULT" 2>/dev/null || echo "(未识别主题)")
+log "DEEP 主题: $DEEP_THEME"
+
+# ─── LLM 调用 2: WIDE+RADAR（单调用产 2 段）───
+WIDE_RADAR_SYSTEM="/no_think
+你是专业数据分析师。在多源信号中识别两类**互不重复**的视野信号：
+- WIDE: 跨领域'鲜人知'（用户日常关注外的信号，多源证据但被埋没）
+- RADAR: '准期信号'（今日仅 1 份证据但背后可能酝酿趋势的早期信号）
+
+【V37.9.68 硬要求】
+- 必须输出 2 段，第一段 '## 🌐 跨领域鲜人知 × 5'，第二段 '## 📡 准期信号 × 5'
+- 每段恰好 5 条目，每条目独立 '- **<标题>**:' 起首
+- WIDE 每条 ≈200 字 (1000 字总), RADAR 每条 ≈300 字 (1500 字总)
+- 必须**排除 DEEP 主题**: ${DEEP_THEME}
+- WIDE 与 RADAR 不重复
+- Markdown 格式，每条引用具体数据源名称和日期
+
+【V37.8.6 反污染】禁止把 HTTP 错误码 / Python 异常 / 错误页 HTML / U+FFFD(�) 当外部信号
+${DREAM_HG_GUARD}"
+
+WIDE_RADAR_PROMPT="$REDUCE_INTRO
+
+---
+$REDUCE_MULTI_MATERIAL
+---
+
+【今日 DEEP 主题】${DEEP_THEME} (避免重复，本段必须选其他维度)
+
+【WIDE 选材标准】
+- 跨领域：今日数据中至少 2 个不同数据源都提到
+- 鲜人知：用户日常关注外的信号（不在 status.json 当前活跃任务范围）
+- 多角度: 5 条目跨不同领域 (技术/行业/学术/工程实践等)
+
+【RADAR 选材标准】
+- 准期：今日仅出现 1 次但有 trend acceleration 历史或前瞻意义
+- 早期：可能 1-3 个月后变成主流但现在还小众
+- 跨度: 5 条目可能从不同维度（技术信号/政策信号/资本信号/社区信号等）
+
+请按以下结构输出：
+
+## 🌐 跨领域鲜人知 × 5
+
+- **[主题 1 标题]**: 一段 200 字分析，含证据链 + 跨领域解读
+- **[主题 2 标题]**: ...
+- **[主题 3 标题]**: ...
+- **[主题 4 标题]**: ...
+- **[主题 5 标题]**: ...
+
+## 📡 准期信号 × 5
+
+- **[信号 1 标题]**: 300 字分析，含证据 + 为什么是早期 + 时间窗口推断
+- **[信号 2 标题]**: ...
+- **[信号 3 标题]**: ...
+- **[信号 4 标题]**: ...
+- **[信号 5 标题]**: ...
+
+【硬性要求：WIDE 段 ≈1000 字 (5×200), RADAR 段 ≈1500 字 (5×300), 合计 ≥ 2200 字。少于 1800 字视为不合格（独立降级，不重试）。】"
+
+log "LLM 调用 2/2 (WIDE+RADAR): 跨领域 5 + 准期 5 → 发送..."
+WIDE_RADAR_RESULT=$(llm_call "$WIDE_RADAR_PROMPT" 6000 0.8 300 "$WIDE_RADAR_SYSTEM" || true)
+WIDE_RADAR_CHARS=$(echo "$WIDE_RADAR_RESULT" | wc -c | tr -d ' ')
+WIDE_RADAR_HEAD=$(echo "$WIDE_RADAR_RESULT" | head -c 120 | tr '\n' ' ')
+log "WIDE+RADAR 完成: ${WIDE_RADAR_CHARS} chars, head: ${WIDE_RADAR_HEAD}"
+
+# 拆分 WIDE 与 RADAR 两段（用户决策：可独立降级）
+WIDE_BLOCK=""
+RADAR_BLOCK=""
+WIDE_STATUS="degraded"
+RADAR_STATUS="degraded"
+WIDE_BLOCK_CHARS=0
+RADAR_BLOCK_CHARS=0
+MIN_SECTION_CHARS=600  # UTF-8 ≈200 汉字（最低可接受）
+
+if [ -n "${WIDE_RADAR_RESULT// }" ]; then
+    SPLIT_RESULT=$(python3 -c "
+import sys, os
+sys.path.insert(0, os.path.expanduser('~'))
+sys.path.insert(0, '$SCRIPT_DIR')
+try:
+    from kb_dream_helpers import split_wide_radar_output
+    w, r = split_wide_radar_output(sys.stdin.read())
+    print('===WIDE_START===')
+    print(w)
+    print('===WIDE_END===')
+    print('===RADAR_START===')
+    print(r)
+    print('===RADAR_END===')
+except Exception as e:
+    sys.stderr.write(f'WARN: split_wide_radar_output 失败: {e}\\n')
+" <<< "$WIDE_RADAR_RESULT" 2>/dev/null || echo "")
+
+    WIDE_BLOCK=$(echo "$SPLIT_RESULT" | awk '/===WIDE_START===/{flag=1;next} /===WIDE_END===/{flag=0} flag')
+    RADAR_BLOCK=$(echo "$SPLIT_RESULT" | awk '/===RADAR_START===/{flag=1;next} /===RADAR_END===/{flag=0} flag')
+
+    WIDE_BLOCK_CHARS=$(echo "$WIDE_BLOCK" | wc -c | tr -d ' ')
+    RADAR_BLOCK_CHARS=$(echo "$RADAR_BLOCK" | wc -c | tr -d ' ')
+    [ "$WIDE_BLOCK_CHARS" -ge "$MIN_SECTION_CHARS" ] && WIDE_STATUS="ok"
+    [ "$RADAR_BLOCK_CHARS" -ge "$MIN_SECTION_CHARS" ] && RADAR_STATUS="ok"
+    log "WIDE 段: ${WIDE_BLOCK_CHARS} chars (status=${WIDE_STATUS}), RADAR 段: ${RADAR_BLOCK_CHARS} chars (status=${RADAR_STATUS})"
+fi
+
+# 单段失败用 [DEGRADED] 标记但不阻塞推送（用户决策：DEEP 必过 / WIDE+RADAR 独立降级）
+if [ "$WIDE_STATUS" = "degraded" ]; then
+    WIDE_BLOCK="## 🌐 跨领域鲜人知 × 5
+
+⚠️ [DEGRADED] WIDE 段本日生成失败 (${WIDE_BLOCK_CHARS} chars < ${MIN_SECTION_CHARS}). DEEP 主题段仍有效, 明日重试。"
+    dream_fail_alert "V37.9.68 WIDE 段降级 (${WIDE_BLOCK_CHARS} chars)，DEEP 推送不阻塞"
+fi
+if [ "$RADAR_STATUS" = "degraded" ]; then
+    RADAR_BLOCK="## 📡 准期信号 × 5
+
+⚠️ [DEGRADED] RADAR 段本日生成失败 (${RADAR_BLOCK_CHARS} chars < ${MIN_SECTION_CHARS}). DEEP 主题段仍有效, 明日重试。"
+    dream_fail_alert "V37.9.68 RADAR 段降级 (${RADAR_BLOCK_CHARS} chars)，DEEP 推送不阻塞"
+fi
+
+# ─── 总览段（规则提取，不调 LLM）───
+OVERVIEW_BLOCK=$(WIDE_INPUT="$WIDE_BLOCK" RADAR_INPUT="$RADAR_BLOCK" DEEP_TH="$DEEP_THEME" SRC_C="$SRC_COUNT" NOTE_C="$NOTE_COUNT" KB_KB="$((TOTAL_KB_BYTES / 1024))" REDUCE_C="$REDUCE_CHARS" python3 -c "
+import sys, os
+sys.path.insert(0, os.path.expanduser('~'))
+sys.path.insert(0, '$SCRIPT_DIR')
+try:
+    from kb_dream_helpers import build_overview_block, extract_section_titles
+    wide_md = os.environ.get('WIDE_INPUT', '')
+    radar_md = os.environ.get('RADAR_INPUT', '')
+    wide_titles = extract_section_titles(wide_md, max_n=5)
+    radar_titles = extract_section_titles(radar_md, max_n=5)
+    overview = build_overview_block(
+        deep_theme=os.environ.get('DEEP_TH', ''),
+        wide_themes=wide_titles,
+        radar_themes=radar_titles,
+        kb_stats={
+            'sources_count': int(os.environ.get('SRC_C', '0') or '0'),
+            'notes_count': int(os.environ.get('NOTE_C', '0') or '0'),
+            'kb_kbytes': int(os.environ.get('KB_KB', '0') or '0'),
+            'reduce_chars': int(os.environ.get('REDUCE_C', '0') or '0'),
+        },
+    )
+    print(overview)
+except Exception as e:
+    sys.stderr.write(f'WARN: build_overview_block 失败: {e}\\n')
+    print('## 📋 今日连动 + 明日关注\\n\\n(总览段生成失败)')
+" 2>/dev/null || echo "## 📋 今日连动 + 明日关注
+
+(总览段生成失败)")
+log "总览段构造完成"
+
+# ─── 拼接 4 段 DREAM_RESULT ───
+DREAM_RESULT="$DEEP_RESULT
+
+$WIDE_BLOCK
+
+$RADAR_BLOCK
+
+$OVERVIEW_BLOCK"
+DREAM_CHARS=$(echo "$DREAM_RESULT" | wc -c | tr -d ' ')
+
+# 段成功率统计（兼容旧 SUCCESSFUL_CHUNKS 命名）
+SUCCESSFUL_SECTIONS=1  # DEEP 必过（已 fail-fast 守过）
+[ "$WIDE_STATUS" = "ok" ] && SUCCESSFUL_SECTIONS=$((SUCCESSFUL_SECTIONS + 1))
+[ "$RADAR_STATUS" = "ok" ] && SUCCESSFUL_SECTIONS=$((SUCCESSFUL_SECTIONS + 1))
+SUCCESSFUL_SECTIONS=$((SUCCESSFUL_SECTIONS + 1))  # 总览（规则提取永远成功）
+SUCCESSFUL_CHUNKS=$SUCCESSFUL_SECTIONS  # V37.9.68 向后兼容旧 status.json schema
+
+log "三阶推送完成: ${SUCCESSFUL_SECTIONS}/4 段成功 (DEEP / WIDE=${WIDE_STATUS} / RADAR=${RADAR_STATUS} / Overview), 总计 ${DREAM_CHARS} chars"
 
 # ═══════════════════════════════════════════════════════════════════
 # 6. 输出"梦境"
@@ -1492,12 +1610,16 @@ else
     log "WARN: notify.sh 未找到，跳过推送"
 fi
 
-# 状态记录（Reduce 写 .last_run.json，Map 写 .last_map.json — 互不覆盖，INV-JOB-001）
-printf '{"time":"%s","status":"ok","mode":"%s","map_count":%d,"sources":%d,"notes":%d,"kb_bytes":%d,"reduce_chars":%d,"dream_bytes":%d,"sent":%s,"map_degraded":%s}\n' \
+# 状态记录（V37.9.68: schema 升级含三段独立 status）
+# Reduce 写 .last_run.json，Map 写 .last_map.json — 互不覆盖，INV-JOB-001
+# V37.9.68 字段：deep_chars / wide_status / radar_status / wide_chars / radar_chars / multitheme
+printf '{"time":"%s","status":"ok","mode":"%s","multitheme":true,"map_count":%d,"sources":%d,"notes":%d,"kb_bytes":%d,"reduce_chars":%d,"dream_bytes":%d,"deep_chars":%d,"wide_status":"%s","wide_chars":%d,"radar_status":"%s","radar_chars":%d,"sent":%s,"map_degraded":%s}\n' \
     "$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')" \
     "$([ "$FAST_MODE" = true ] && echo 'fast' || echo 'mapreduce')" \
     "$MAP_COUNT" "$SRC_COUNT" "$NOTE_COUNT" "$TOTAL_KB_BYTES" "$REDUCE_CHARS" \
-    "$(wc -c < "$DREAM_FILE" | tr -d ' ')" "$SENT" "$MAP_DEGRADED" > "$STATUS_FILE"
+    "$(wc -c < "$DREAM_FILE" | tr -d ' ')" \
+    "${DEEP_CHARS:-0}" "${WIDE_STATUS:-unknown}" "${WIDE_BLOCK_CHARS:-0}" "${RADAR_STATUS:-unknown}" "${RADAR_BLOCK_CHARS:-0}" \
+    "$SENT" "$MAP_DEGRADED" > "$STATUS_FILE"
 
 # 清理过期 map 缓存（保留 3 天）
 find "$MAP_DIR" -name "*.txt" -mtime +3 -delete 2>/dev/null || true
