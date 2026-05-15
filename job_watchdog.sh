@@ -188,8 +188,10 @@ JOBS=(
 # last_run.json (粗粒度新鲜度, 无法区分 跑了但失败 vs 没跑, 但比完全不监控好).
 # Format: "job_id|log_path|max_silence_seconds|display_name|tier"
 LOG_FRESHNESS_JOBS=(
-    # auto_deploy: 每 2min → 最多静默 10min (5 周期)
-    "auto_deploy|$HOME/.openclaw/logs/auto_deploy.log|600|自动部署|core"
+    # auto_deploy: 每 2min 触发但 V37.9.8 仅在整点 (minute<2) 写心跳 → log mtime 最长 60min 静默.
+    # V37.9.72 (i) 修: 阈值 600 (10min) → 4200 (70min, 60min 心跳间隔 + 10min slack).
+    # 触发: 今早 watchdog 报 "auto_deploy log 29m 未更新" — watchdog 8:30 跑, auto_deploy 心跳 8:00 写, 8:30-8:00=29min 必然超 10min 阈值, 是 V37.9.59 阈值与 V37.9.8 心跳错配设计 bug.
+    "auto_deploy|$HOME/.openclaw/logs/auto_deploy.log|4200|自动部署|core"
     # wa_keepalive: 每 30min → 最多静默 1.5h (3 周期)
     "wa_keepalive|$HOME/wa_keepalive.log|5400|WhatsApp保活|core"
     # cron_canary: 每 10min → 最多静默 30min (3 周期), V37.8.13 后核心

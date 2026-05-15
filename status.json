@@ -1,5 +1,5 @@
 {
-  "updated": "2026-05-15 04:22:00",
+  "updated": "2026-05-15 04:47:38",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -104,6 +104,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-05-15",
+      "what": "**V37.9.72 (i) CORE 项调查闭环** — 今早 watchdog 报 2 个 CORE 项真因定位 + 双修 + 守卫. 触发: 2026-05-15 08:30 watchdog 推 [SYSTEM_ALERT] 含 (a) 🔴 治理审计: 异常状态 (pass) (b) 🔴 自动部署 log 29m 未更新 阈值 10m. 按原则 #28 三问严格执行: 先调查再动手不盲改. **项 1 真根因 = 跨脚本契约不一致**: governance_audit_cron.sh:87 OVERALL=\"pass\" 写入 last_run.json status:\"pass\", watchdog line 280 期望 \"ok\\|unknown\" 作正常状态 → default 分支 line 297 误报 \"异常状态 (pass)\". 7+ 其他 ALIGNED jobs (V37.5/V37.8.10/V37.9.16/V37.9.39/40/41/43/44/45/50/51/62) 都用 \"ok\". governance_checker.py 内部 \"pass\" 是 check 状态真理源 (8+ 处使用), 与 last_run.json 外部契约**解耦**不动. **修复 1**: governance_audit_cron.sh:87 OVERALL=\"pass\" → \"ok\". fail 不动维持 watchdog default 分支告警目的 (gov_violations / engine_failed 真失败时仍正确告警). 单字符串改动 + V37.9.72 marker 注释引用 watchdog 契约 + ALIGNED jobs 对齐血案. **项 2 真根因 = V37.9.59 阈值与 V37.9.8 心跳设计错配**: auto_deploy V37.9.8 写心跳策略 = 仅整点 (minute<2) 写 1 行 = 24 行/天 (低噪声 + 60min 静默上限). watchdog V37.9.59 LOG_FRESHNESS_JOBS 阈值 600s = 10min → 非整点 watchdog 跑时 log mtime 必然 10-60min 超阈值. 今早 8:30 watchdog 跑 + auto_deploy 8:00 心跳 = 29min 超阈值, 完美匹配. **修复 2**: job_watchdog.sh:192 阈值 600 → 4200 (60min 心跳间隔 + 10min slack). 与 V37.9.8 设计原意对齐. 其他 LOG_FRESHNESS_JOBS 阈值不动 (wa_keepalive 5400 等 V37.9.59 原值正确). **新文件 test_v37_9_72.py (12 单测 / 3 类 + 反向验证守卫真有效)**: TestV37972ProjItemOneGovAuditContract(5 含 OVERALL=ok 默认 + 反 buggy pass 残留 + fail 分支不动维持目的 + V37.9.72 marker + 注释引用 watchdog 契约) + TestV37972ProjItemTwoAutoDeployThreshold(5 含阈值=4200 + 反 buggy 600 残留 + V37.9.72 marker + V37.9.8 心跳引用 + 其他阈值不改 scope 控制) + TestV37972IntegrationContracts(2 含 governance_checker.py 内部 pass 不动 + 两项修复都可 grep V37.9.72 审计). **反向验证守卫真有效**: 项 1 sed OVERALL=ok → pass → 2 failures (test_overall_default_is_ok_not_pass + test_no_legacy_pass_default), 还原后 12/12 OK. 项 2 sed 4200 → 600 → 2 failures (test_auto_deploy_threshold_is_4200 + test_no_legacy_600_threshold), 还原后 12/12 OK. **接入 full_regression**: +1 suite v37_9_72. 累计 87→88 suites (+1) / 3006→3018 tests (+12) / 0 fail / 安全 95/100. **元价值**: 单 session 内 4 个 commit 真完整闭环 V37.9.69 测试漂移 + V37.9.70 外部评审 P0 + V37.9.71 doc rot + V37.9.72 CORE 项调查. CORE 项调查证明 watchdog 系统告警**有真问题但都是 framework 内部契约错配**, 不是生产 bug, 不影响业务. 跨脚本契约不一致是 framework 演进过程中典型问题 (V37.9.59 引入 LOG_FRESHNESS_JOBS 时未对齐 V37.9.8 心跳设计). 原则 #28 严格执行: 调查 → 三问 → 最小修复 → 守卫 → 反向验证 一次完整诊疗循环. **下次 V37.9.73+ 候选**: (d) 反思文档行动 2 INV-PATH-CONSISTENCY-001 (f) 反思文档行动 3 failure_modes_catalog.md (h) SLO p95 71958ms 数字恶化调查 (54s→72s).",
+      "by": "claude_code"
+    },
     "{\"date\":\"2026-05-15\",\"what\":\"**V37.9.71 (g) README 其他 badge 数字漂移修复 — long-term doc rot 清零** — 触发: V37.9.70 (e) 推送后用户继续推进 (g) 候选 (README 其他 badge 漂移). 按原则 #28 三问严格执行: Q1 ✓ 多个 V37.9.x 版本累积 doc rot / Q2 ✗ V37.9.71 不引入 / Q3 最小修复 = 精确 grep + 字面量 edit, 不全局 sed. **dev scan 抓 15 处漂移 (status.json focus 估计的范围)**: badge 2 处 (line 8 tests-2515→3006 / line 10 invariants-71/71+16 MR→77/77+19 MR) + governance 元数据 7 处 (line 127 yaml v3.31→v3.42 / line 128 60不变式+273检查+15元规则+13 MRD→77+662+19+14 / line 129 MR-4 演出 15→27 / line 365 governance_audit_cron 元数据 / line 407 governance_checker.py 元数据 / line 408 governance_ontology.yaml 元数据 / line 438 Ontology Plane 摘要) + ALIGNED_SCRIPTS 2 处 (line 26 cross-job fail-fast V37.9.44 10→V37.9.62 17 / line 409 llm_cron_audit.py 元数据 + V37.9.62 batch 6 详细 + by-design 排除) + 案例统计 2 处 (line 413 15 case studies→21 / line 632 17→21) + full_regression 数字 1 处 (line 569 V37.9.44: 64 suites/2253 tests→V37.9.69: 87/3006) + Capability Plane 1 处 (line 436 V37.9.70 修过的 8-provider 不动). **line 634 历史快照保留**: Audit Coverage Retrospective 引用 V37.9.1 时刻\"15 blood lessons\" 是历史快照非 doc rot, 保留语义正确不动. **修复**: 15 处 Edit 替换包含真实数字 + 加入 V37.9.51 batch 6 / V37.9.62 batch 6 / V37.9.68 标识 + 4 by-design 排除说明 + line 408 加 INV-DREAM-MULTITHEME-001 V37.9.68 14 天 ban-list + MR-19 monitor-must-self-alarm-on-silent-abort 引用 + line 413 加 Dream Map budget chain / kb_evening fallback quota chain / MOVESPEED 60-day silent / V37.9.68 Qwen-BIM 涌现行为防御. **验证**: 2 轮 grep 完全 0 残留. **全量回归**: 87/3006/0 fail 无副作用. **元价值**: 单 session 内连续 3 commit (V37.9.69 双修 + V37.9.70 e 8 providers + V37.9.71 g doc rot 清零). README 现在准确反映项目实际状态 (87 suites / 3006 tests / 77 inv / 19 MR / 14 MRD / 662 checks / 21 case studies / 27 MR-4 演出 / 17 ALIGNED_SCRIPTS / 8 providers). 外部评审 P0 + long-term doc rot 双闭环. VERSION 0.37.9.68 不变. **下次 V37.9.72+ 候选**: (d) 反思文档行动 2 INV-PATH-CONSISTENCY-001 (f) 反思文档行动 3 failure_modes_catalog.md (h) SLO p95 71958ms 数字恶化调查 (i) CORE 项调查.\",\"by\":\"claude_code\"}",
     {
       "date": "2026-05-15",
@@ -189,11 +194,6 @@
     {
       "date": "2026-05-13",
       "what": "V37.9.60 MR-19 err_trap_handler 契约横向推广 — V37.9.58-hotfix3 立 MR-19 (monitor-must-self-alarm-on-silent-abort) 时只 job_watchdog.sh 合规, V37.9.60 把契约推广到所有 cron 类聚合监控. scope 收敛: 仅 err_trap_handler (awk_safe/canary_writer 是 watchdog-specific 不普适). MR-19 治理对象 4 个 (job_watchdog/governance_audit_cron/daily_ops_report/auto_deploy), 不适用 4 个 (wa_keepalive/cron_canary/health_check/preflight_check). 新文件 cron_monitor_scanner.py (~200 行启发式 scanner, FAIL-CLOSE) + 3 个脚本 inline 加 set -eE* (含 -E errtrace, V37.9.58-hotfix4 教训) + _<script>_fatal_handler 推 [SYSTEM_ALERT] (三层 FAIL-OPEN) + trap ERR 注册. dev scan 立即抓 3 violations + 修复后 0 violations. INV-CRON-MONITOR-001 (meta=MR-19, severity=high, decl+runtime, 18 checks). test_cron_monitor_scanner.py 46 单测 8 类含反向验证 4 类 (sabotage 4 个 governed 脚本立即触发 violation 还原后合规). full_regression 接入 cron_monitor_scanner suite. 不加 FILE_MAP (V37.9.58-hotfix2 heredoc_import_scanner 同款模式, governance audit 从 repo dir 跑). 累计 81→82 suites / 2757→2803 tests / 0 fail / governance v3.38→v3.39 / 74→75 invariants / 582→600 checks / 19 meta rules / 安全 95/100 / VERSION 0.37.9.59→0.37.9.60. **元价值**: V37.9.58-hotfix3 (watchdog 单点) + V37.9.59 (LOG_FRESHNESS 覆盖率) + V37.9.60 (MR-19 framework 化) = silent monitor 防御 framework 三阶段闭环. mirror V37.9.58-hotfix2 MR-18 + heredoc_import_scanner 同款模式.",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-05-12",
-      "what": "V37.9.59 watchdog 监控覆盖率扩展 47%→74%+ — 用户 5/12 17:30 询问 watchdog 是否监控所有任务驱动. JOBS 数组 +4 jobs (kb_deep_dive/kb_dream/chaspark/governance_audit, 都有 last_run.json 写入). 新加 LOG_FRESHNESS_JOBS 数组 +11 jobs (auto_deploy/wa_keepalive/cron_canary/kb_embed/kb_trend/kb_status_refresh/mm_index/daily_ops_report/openclaw_backup/preference_learner/health_check, 用 log mtime 替代 last_run — 粗粒度但比完全不监控好). check_log_freshness() 函数实现核心逻辑: stat -f %m + tier 分级 + ALERTS 追加. STALE_LOCK_DIRS 补 kb_dream + chaspark (18→20). Watchdog 自监控 — V37.9.58-hotfix3 元监控盲区上游: 检查 ~/watchdog_canary.json mtime > 12h 触发 [SYSTEM_ALERT] watchdog 自身 canary X 小时未更新, MR-19 第二次演出可追溯. 22 单测 test_watchdog_coverage.py 6 类 (JOBS expansion / LOG_FRESHNESS / self-monitor / STALE_LOCK / 覆盖率 ≥25 / source-level marker). 反向验证: V37.9.58-hotfix3 sabotage 测试改 replace 所有出现 (V37.9.59 加重复字面量后单点 replace 失效). 累计 81 suites / 2757 tests (+22) / 0 fail / governance v3.38 不变 (V37.9.60+ 立 INV-WATCHDOG-COVERAGE-001 PoC 阶段) / 安全 95/100 / VERSION 0.37.9.58→0.37.9.59. 元价值: V37.9.58 五件套主要修 watchdog 自身 silent abort, V37.9.59 治理 watchdog 监控盲区. V37.9.58 + V37.9.59 共同闭环今日用户两个深问 (为什么不告警 + 是否监控所有任务). 下次 V37.9.60+ 候选: (a) 监控覆盖率达 100% (剩 4 个: openclaw_official/discussions 已 disable / hn_watcher 已含 / 等) (b) 立 INV-WATCHDOG-COVERAGE-001 + MR-21 candidate monitor-coverage-must-track-registry (一周观察后) (c) 元监控 cron_canary 外部检测 watchdog_canary.json 真正 chicken-and-egg 防御.",
       "by": "claude_code"
     }
   ],
@@ -360,11 +360,11 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 3006,
-    "last_regression": "2026-05-15 04:21 pass",
+    "test_count": 3018,
+    "last_regression": "2026-05-15 04:47 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-05-15 04:21",
-    "test_suites": 87,
+    "security_score_time": "2026-05-15 04:47",
+    "test_suites": 88,
     "governance_invariants": "64/64",
     "governance_checks": "350/350",
     "version": "0.37.9.68"
