@@ -1,5 +1,5 @@
 {
-  "updated": "2026-05-15 04:47:38",
+  "updated": "2026-05-15 04:59:01",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -323,7 +323,7 @@
     ],
     "open_prs": "",
     "blocked_on": "",
-    "focus": "【V37.9.55 收工】用户战略询问 'doubao 性能更好建议为主' → 推 4 风险表 + 渐进切换方案 → 用户决策 V37.9.55 完成能力实测不切 primary. Mac Mini curl tool_calling (finish_reason=tool_calls + tool_calls schema 完整) + streaming (SSE chunks + delta.content + delta.reasoning_content) 双 E2E 实测通过. flip verified_tool_calling=True + verified_streaming=True. cap_score 12→16, doubao (16) > Qwen3 (14) framework 视角已最强 provider. 但 adapter PROVIDER_NAME env=qwen 不动, Qwen3 仍是 primary, doubao 仍在 fallback chain 第 1. **V37.9.56+ 用户决策**: (a) 单 cron 试水 hf_papers 或 rss_blogs (Volcengine quota 充裕, 推荐先小范围实战 3-7 天看推送质量) (b) 全切 primary adapter PROVIDER_NAME=doubao + plist 同步 + 重启 adapter (Qwen3 自动退为 fallback) (c) doubao reasoning_content 是否 expose 给用户 (产品决策) (d) 等真 fallback fire (Qwen3 quota/宕机) → 自然 flip verified_fallback. **累计今日**: 71→75 suites (+4: v37_9_52/53/54/55_*) / 2431→2530 tests (+99) / 71→72 invariants (+1 INV-PLIST-ENV-001) / 552→562 checks (+10) / providers 7→8 (+doubao) / VERSION 0.37.9.51→0.37.9.55 / governance v3.34→v3.35 / 安全 95/100. doubao verified_features 完整集合 [text, vision, tool_calling, streaming, reasoning], 仅 verified_fallback 仍 False 守诚实语义.",
+    "focus": "【V37.9.69-V37.9.72 一日 5 commit 收工】2026-05-15 真饱和交付: (1) V37.9.68-hotfix Mac Mini 5/15 03:00 cron 真激活验证成功 [4/4] 4 独立窗口完美兑现设计 — 用户视角原则 #13 第 20 次正向兑现, MR-4 silent-failure 第 27 次新形态闭环 (2) V37.9.69 B+C 双修 — B 项 test_watchdog_self_monitoring.py 5 个测试漂移修 alternation 接受 V37.9.63 helper OR V37.9.58-hotfix3 inline + C 项 full_regression.sh line 30 bash 计数 bug 修 tail -n1 + ${count:-0} 兜底 (13 单测 + 反向验证 legacy buggy 真抛 syntax error 证明 fix 必要性) (3) V37.9.70 (e) README 8 providers 漂移修 — 外部评审 P0 (2026-04-17) 闭环 10 处 7→8 + line 163 加 Doubao Seed 2.0 Pro (4) V37.9.71 (g) README long-term doc rot 清零 — 15 处数字漂移 (badge tests/invariants/MR + governance 元数据 v3.31→v3.42 / 60→77 inv / 15→19 MR / 13→14 MRD / 273→662 checks + ALIGNED_SCRIPTS 10→17 + 案例 15→21 + MR-4 演出 15→27) (5) V37.9.72 (i) CORE 项调查闭环 — 项 1 治理审计契约不一致 governance_audit OVERALL pass→ok 与 7+ ALIGNED jobs 对齐 + 项 2 V37.9.59 阈值 600 与 V37.9.8 心跳 60min 设计错配 调宽 4200 (12 单测 + 反向验证 2 项 sed sabotage 各 2 fail 还原 12/12 OK). 累计 86→89 suites / 2962→3018 tests (+56) / 0 fail / 安全 95/100. 原则 #28 调查→三问→最小修复→守卫→反向验证 5 次完整诊疗循环兑现. **V37.9.73+ 候选 (新 session 开工时按 #1~#3 完整清单后再选)**: (d) 反思文档行动 2 INV-PATH-CONSISTENCY-001 路径一致性 audit (f) 反思文档行动 3 failure_modes_catalog.md 失败模式库 (h) SLO p95 71958ms 数字恶化调查 (V37.9.58 54s → V37.9.69 72s).",
     "current_focus": "V37.8 MR-6 深度补齐生产硬验证通过 (35/35 inv / 136/136 checks / 9/9 MR 全绿). 下一步: V37.8.1 修复 MRD-NOTIFY-002 activity 层假阳性 (topic→job log 映射扫 mtime) 或 Ontology Phase 3 渐进替换 (ONTOLOGY_MODE=on) 或 Tool Policy Plugin V3 路标",
     "recent_changes": [
       {
@@ -361,10 +361,10 @@
   "quality": {
     "security_score": 95,
     "test_count": 3018,
-    "last_regression": "2026-05-15 04:47 pass",
+    "last_regression": "2026-05-15 04:57 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-05-15 04:47",
-    "test_suites": 88,
+    "security_score_time": "2026-05-15 04:57",
+    "test_suites": 89,
     "governance_invariants": "64/64",
     "governance_checks": "350/350",
     "version": "0.37.9.68"
