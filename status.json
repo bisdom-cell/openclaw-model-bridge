@@ -1,5 +1,5 @@
 {
-  "updated": "2026-05-15 04:13:57",
+  "updated": "2026-05-15 04:22:00",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -104,6 +104,7 @@
     }
   ],
   "recent_changes": [
+    "{\"date\":\"2026-05-15\",\"what\":\"**V37.9.71 (g) README 其他 badge 数字漂移修复 — long-term doc rot 清零** — 触发: V37.9.70 (e) 推送后用户继续推进 (g) 候选 (README 其他 badge 漂移). 按原则 #28 三问严格执行: Q1 ✓ 多个 V37.9.x 版本累积 doc rot / Q2 ✗ V37.9.71 不引入 / Q3 最小修复 = 精确 grep + 字面量 edit, 不全局 sed. **dev scan 抓 15 处漂移 (status.json focus 估计的范围)**: badge 2 处 (line 8 tests-2515→3006 / line 10 invariants-71/71+16 MR→77/77+19 MR) + governance 元数据 7 处 (line 127 yaml v3.31→v3.42 / line 128 60不变式+273检查+15元规则+13 MRD→77+662+19+14 / line 129 MR-4 演出 15→27 / line 365 governance_audit_cron 元数据 / line 407 governance_checker.py 元数据 / line 408 governance_ontology.yaml 元数据 / line 438 Ontology Plane 摘要) + ALIGNED_SCRIPTS 2 处 (line 26 cross-job fail-fast V37.9.44 10→V37.9.62 17 / line 409 llm_cron_audit.py 元数据 + V37.9.62 batch 6 详细 + by-design 排除) + 案例统计 2 处 (line 413 15 case studies→21 / line 632 17→21) + full_regression 数字 1 处 (line 569 V37.9.44: 64 suites/2253 tests→V37.9.69: 87/3006) + Capability Plane 1 处 (line 436 V37.9.70 修过的 8-provider 不动). **line 634 历史快照保留**: Audit Coverage Retrospective 引用 V37.9.1 时刻\"15 blood lessons\" 是历史快照非 doc rot, 保留语义正确不动. **修复**: 15 处 Edit 替换包含真实数字 + 加入 V37.9.51 batch 6 / V37.9.62 batch 6 / V37.9.68 标识 + 4 by-design 排除说明 + line 408 加 INV-DREAM-MULTITHEME-001 V37.9.68 14 天 ban-list + MR-19 monitor-must-self-alarm-on-silent-abort 引用 + line 413 加 Dream Map budget chain / kb_evening fallback quota chain / MOVESPEED 60-day silent / V37.9.68 Qwen-BIM 涌现行为防御. **验证**: 2 轮 grep 完全 0 残留. **全量回归**: 87/3006/0 fail 无副作用. **元价值**: 单 session 内连续 3 commit (V37.9.69 双修 + V37.9.70 e 8 providers + V37.9.71 g doc rot 清零). README 现在准确反映项目实际状态 (87 suites / 3006 tests / 77 inv / 19 MR / 14 MRD / 662 checks / 21 case studies / 27 MR-4 演出 / 17 ALIGNED_SCRIPTS / 8 providers). 外部评审 P0 + long-term doc rot 双闭环. VERSION 0.37.9.68 不变. **下次 V37.9.72+ 候选**: (d) 反思文档行动 2 INV-PATH-CONSISTENCY-001 (f) 反思文档行动 3 failure_modes_catalog.md (h) SLO p95 71958ms 数字恶化调查 (i) CORE 项调查.\",\"by\":\"claude_code\"}",
     {
       "date": "2026-05-15",
       "what": "**V37.9.70 (e) README 8 providers 漂移修复 — 外部评审 P0 兑现** — 触发: status.json focus 段登记 V37.9.69+ 候选 (e) 外部评审吸收 P0 README 6 处 7 providers → 8 providers 漂移 (V37.9.52 doubao 加入但 README 未刷新). 用户开工选 V37.9.70 (e) 继续推进 (低风险 5-10 分钟工作量). 严格按原则 #28 三问: Q1 ✓ V37.9.52 加 doubao 时未同步 README / Q2 ✗ V37.9.70 不引入 / Q3 最小修复 = grep + 精确 edit 不全局 sed. **dev scan 实际抓 10 处 (status.json 估 6 处低估)**: line 3 (页头摘要) + line 9 (badge) + line 48 (architecture diagram) + line 158 + line 163 (含 provider 列表) + line 244 + line 272 + line 273 + line 420 + line 436 + line 590. **修复**: 9 处 `7 provider* → 8 provider*` 字面量精确替换 + line 163 provider 列表加 `**Doubao Seed 2.0 Pro** (Volcengine, V37.9.52)` 8 个 provider 完整列出 + line 273 加 `(7 built-in + Doubao plugin)` 注释清晰区分内置 + 插件. **验证**: grep 后 0 处 7 provider* 残留 + 10 处 8 provider* 全显示 (badge / diagram / table / CLI / capability plane / file table). **governance 安全**: governance_ontology.yaml 不引用 README provider 数字, 无守卫破坏风险. **全量回归**: 87/3006/0 fail 无副作用. **scope 严格控制**: 不顺带改其他 README badge 漂移 (line 8 tests-2515 / line 10 invariants-71+16 MR / line 408 v3.34 / line 413 15 case studies / line 628 5 specs / line 632 17 case studies). 这些是 long-term doc rot 登记为 V37.9.71+ 候选 (g). **元价值**: 外部代码级评审 P0 任务 (2026-04-17 反馈) 在 V37.9.70 内闭环, 单 session 内 (a) B+C 双修测试漂移 + (b) README provider 漂移 双交付. 原则 #28 第三问严格执行不超出 scope. VERSION 0.37.9.68 不变 (V37.9.70 仅文档修, 不涉及代码). **下次 V37.9.71+ 候选**: (g) README 其他 badge 数字漂移 (tests/invariants/MR/case studies 多处) (d) 反思文档行动 2 INV-PATH-CONSISTENCY-001 (f) 反思文档行动 3 failure_modes_catalog.md (h) SLO p95 71958ms 严重超阈值数字恶化调查 (V37.9.58 54s → V37.9.69 72s) (i) CORE 项调查 治理审计 异常状态 + auto_deploy log 29m 真实原因.",
@@ -193,11 +194,6 @@
     {
       "date": "2026-05-12",
       "what": "V37.9.59 watchdog 监控覆盖率扩展 47%→74%+ — 用户 5/12 17:30 询问 watchdog 是否监控所有任务驱动. JOBS 数组 +4 jobs (kb_deep_dive/kb_dream/chaspark/governance_audit, 都有 last_run.json 写入). 新加 LOG_FRESHNESS_JOBS 数组 +11 jobs (auto_deploy/wa_keepalive/cron_canary/kb_embed/kb_trend/kb_status_refresh/mm_index/daily_ops_report/openclaw_backup/preference_learner/health_check, 用 log mtime 替代 last_run — 粗粒度但比完全不监控好). check_log_freshness() 函数实现核心逻辑: stat -f %m + tier 分级 + ALERTS 追加. STALE_LOCK_DIRS 补 kb_dream + chaspark (18→20). Watchdog 自监控 — V37.9.58-hotfix3 元监控盲区上游: 检查 ~/watchdog_canary.json mtime > 12h 触发 [SYSTEM_ALERT] watchdog 自身 canary X 小时未更新, MR-19 第二次演出可追溯. 22 单测 test_watchdog_coverage.py 6 类 (JOBS expansion / LOG_FRESHNESS / self-monitor / STALE_LOCK / 覆盖率 ≥25 / source-level marker). 反向验证: V37.9.58-hotfix3 sabotage 测试改 replace 所有出现 (V37.9.59 加重复字面量后单点 replace 失效). 累计 81 suites / 2757 tests (+22) / 0 fail / governance v3.38 不变 (V37.9.60+ 立 INV-WATCHDOG-COVERAGE-001 PoC 阶段) / 安全 95/100 / VERSION 0.37.9.58→0.37.9.59. 元价值: V37.9.58 五件套主要修 watchdog 自身 silent abort, V37.9.59 治理 watchdog 监控盲区. V37.9.58 + V37.9.59 共同闭环今日用户两个深问 (为什么不告警 + 是否监控所有任务). 下次 V37.9.60+ 候选: (a) 监控覆盖率达 100% (剩 4 个: openclaw_official/discussions 已 disable / hn_watcher 已含 / 等) (b) 立 INV-WATCHDOG-COVERAGE-001 + MR-21 candidate monitor-coverage-must-track-registry (一周观察后) (c) 元监控 cron_canary 外部检测 watchdog_canary.json 真正 chicken-and-egg 防御.",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-05-12",
-      "what": "V37.9.58-hotfix3 治本 watchdog silent abort 7 天血案 — MR-19 立案 + INV-WATCHDOG-SELF-001 framework 级监控自观察. 用户深问为什么静默失败不提前告警驱动. 真因: watchdog 5/5 16:30 起因 macOS bsd awk towc multibyte conversion failure + set -eo pipefail + 无 ERR trap = 静默 abort 7 天累积告警未推送 (hf/s2/rss/gh lockdir 残留 + MOVESPEED 24h 21 次 rsync 失败 + SLO p95 54s + KB 摘要 29h 未更新全部 silent). V37.9.58-hotfix3 治本三层: (A) awk LC_ALL=C + 容错防 set -e abort (B) ERR trap _watchdog_fatal_handler 主动推 [SYSTEM_ALERT] 到 Discord (三层 FAIL-OPEN: notify/openclaw/local) (C) EXIT trap canary heartbeat 写 ~/watchdog_canary.json + ALERTS=0 时推 alive 元监控. STALE_LOCK_DIRS 补 5 jobs (rss_blogs/github_trending/ai_leaders_x/finance_news/ontology_sources). MR-19 立案 monitor-must-self-alarm-on-silent-abort (3 契约: awk_safe + err_trap_handler + canary_writer). INV-WATCHDOG-SELF-001 (12 checks, declaration + runtime). test_watchdog_self_monitoring.py 29 单测 7 类 + 反向验证 sabotage 守卫真有效 (移除 LC_ALL=C / trap ERR / canary 立即 fail 还原全过). audit_metadata 3.37→3.38 + total_invariants 73→74 + total_checks 570→582 + meta_rules 18→19. 累计 80 suites / 2733 tests / 0 fail / 安全 95/100 / VERSION 0.37.9.58 不变. 今日 V37.9.58 四件套闭环: 主 (machine_sync 真激活) + hotfix (业务层 silent) + hotfix2 (治理层 silent) + hotfix3 (监控层 silent, 最深层 元监控). V3 路标 pip install ontology-engine 核心交付之一. 把 watchdog 自身死亡 7 天无人发现 从靠运维记忆升级为机器化主动告警 + canary 双层防御.",
       "by": "claude_code"
     }
   ],
@@ -365,9 +361,9 @@
   "quality": {
     "security_score": 95,
     "test_count": 3006,
-    "last_regression": "2026-05-15 04:13 pass",
+    "last_regression": "2026-05-15 04:21 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-05-15 04:13",
+    "security_score_time": "2026-05-15 04:21",
     "test_suites": 87,
     "governance_invariants": "64/64",
     "governance_checks": "350/350",

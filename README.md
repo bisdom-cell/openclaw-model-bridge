@@ -5,9 +5,9 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-2515%20passed-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-3006%20passed-brightgreen.svg)]()
 [![Providers](https://img.shields.io/badge/providers-8%20supported-orange.svg)]()
-[![Governance](https://img.shields.io/badge/invariants-71%2F71%20%2B%2016%20MR-blueviolet.svg)]()
+[![Governance](https://img.shields.io/badge/invariants-77%2F77%20%2B%2019%20MR-blueviolet.svg)]()
 [![Security](https://img.shields.io/badge/security-95%2F100-green.svg)]()
 [![Jobs](https://img.shields.io/badge/cron%20jobs-36%20active-blue.svg)]()
 [![Fail-Fast](https://img.shields.io/badge/LLM%20cron%20fail--fast-10%2F21%20aligned-yellow.svg)]()
@@ -23,7 +23,7 @@
 | **MOVESPEED EPERM 60-day silent backup failure** | V37.9.4 → V37.9.31 | exfat→APFS conversion + 20 rsync sites fail-loud + JSONL forensic + retry helper + ownership/ACL/handle/snapshot 11-dimension data-driven analyzer + `noowners + UID mismatch` true root cause finally identified |
 | **Phase 4 Layer 5: Convergence Framework** | V37.9.19 → V37.9.25 | Declared-state ↔ runtime drift detection lifted from "靠记忆" to "机器化". 5 specs running, 2 升级 `machine_sync` (Plan B 渐进 dry-run). MR-17 立案 (`declared-state-must-converge-via-machine-not-memory`). |
 | **Phase 4 P3: Three-stage gates shadow wiring** | V37.9.15 | `pre_check → runtime_gate → post_verify` 3 gates wired into request pipeline (shadow mode), policy engine 从"可查询"升级为"在请求路径上被调用产 `[gate:*]` log"。FAIL-OPEN 契约 + 与 `ONTOLOGY_MODE` 解耦. |
-| **Cross-job fail-fast migration** | V37.9.36 → V37.9.44 | 6 scripts upgraded to **5-field deep prompt** (📌 / 🔑 / 💡 / 🎯 / ⭐ + dynamic length by rating) + per-item retry (5/10/20s × 3 + V37.9.36 三层检测) + LLM_DEGRADED fallback (replaced placeholder anti-pattern) + multi-window split (>8000 chars). ALIGNED_SCRIPTS 4 → 10. |
+| **Cross-job fail-fast migration** | V37.9.36 → V37.9.62 | 13 scripts upgraded to **6-field deep prompt** (📌 / 🔑 / 💡 / 🎯 / ⭐ / 🎚️ project alignment, dynamic length by rating) + per-item retry (5/10/20s × 3 + V37.9.36 三层检测) + LLM_DEGRADED fallback (replaced placeholder anti-pattern) + multi-window split (>8000 chars) + rule_check 验证层 (V37.9.47 + V37.9.51 batch). ALIGNED_SCRIPTS 4 → **17**. |
 | **kb_deep_dive daily deep-dive job** | V37.9.16 → V37.9.21 | New 22:30 HKT cron: picker selects ⭐≥4 candidate from today's notes → fetches PDF/HTML full text → 5-field LLM analysis → multi-window WhatsApp + Discord push. **Tier-aware fallback** (V37.9.17): TIER 1/2 papers prioritized over TIER 3 X tweets. |
 | **WhatsApp client folding architecture discovery** | V37.9.35 | 5-layer empirical investigation revealed WA client auto-folds at ~4000 chars (not protocol limit). Budget upgraded 1400→4000 across `kb_review` / `kb_evening` / `kb_deep_dive` (信息密度 2.86×). |
 | **Opportunity Radar design** | V37.9.45+ | Strategic design for "early signal radar" — 3 components: cross-source weak signal aggregation × project alignment scoring × trend acceleration detection. Goal: discover technical opportunities **30 days before** they become trends. See [`docs/opportunity_radar_design.md`](docs/opportunity_radar_design.md) (699 lines, 13 sections, 6-stage roadmap). |
@@ -124,9 +124,9 @@
 │    engine.py ←→ policy_ontology.yaml (10 策略，V37.9.13)         │
 │      └→ static (3) + temporal (2) + contextual (5)              │
 │      └→ 2 条已 wire: max-tools-per-agent / max-tool-calls       │
-│    governance_checker.py ←→ governance_ontology.yaml v3.31      │
-│      └→ 60不变式 + 273检查 + 15元规则 + 13 MRD 扫描器           │
-│      └→ MR-4 silent-failure (15 次演出) / MR-6 critical≥2层     │
+│    governance_checker.py ←→ governance_ontology.yaml v3.42      │
+│      └→ 77不变式 + 662检查 + 19元规则 + 14 MRD 扫描器           │
+│      └→ MR-4 silent-failure (27 次演出) / MR-6 critical≥2层     │
 │      └→ MR-7 治理自观察 / MR-8 copy-paste / MR-9 single-manager │
 │      └→ MR-15 reserved-files / MR-16 security 双轨统一          │
 │    diff.py: engine ↔ proxy_filters 一致性校验 (81/81=100%)      │
@@ -362,7 +362,7 @@ All jobs registered in `jobs_registry.yaml`. Validate: `python3 check_registry.p
 | `wa_keepalive.sh` | Every 30 min | WhatsApp session probe + escalation to Discord |
 | `kb_trend.py` | Sat 09:00 | Weekly AI trend report (keyword trends + LLM analysis) |
 | `kb_status_refresh.sh` | Hourly | Status.json health refresh (three-party sync) |
-| `governance_audit_cron.sh` | Daily 07:00 | **V37.1→V37.9.13** Governance audit — 60 invariants + 15 meta rules + 13 MRD scanners + 273 checks |
+| `governance_audit_cron.sh` | Daily 07:00 | **V37.1→V37.9.68** Governance audit — 77 invariants + 19 meta rules + 14 MRD scanners + 662 checks |
 | `preference_learner.py` | Daily 07:30 | User preference auto-learning |
 | `cron_canary.sh` | Every 10 min | Cron heartbeat canary |
 | `kb_integrity.py` | (on-demand) | KB file integrity checker (SHA256) |
@@ -404,13 +404,13 @@ All jobs registered in `jobs_registry.yaml`. Validate: `python3 check_registry.p
 | `ontology/tool_ontology.yaml` | **V36.2** Declarative tool rules — 81 rules (filters, injections, truncation, SSE, media) |
 | `ontology/domain_ontology.yaml` | **V37.9.9→V37.9.12** Layer 1 — six-domain conceptual model (Actor / Tool / Resource / Task / Provider / Memory) + inter-domain relations, queryable via `find_by_domain()` |
 | `ontology/policy_ontology.yaml` | **V37.9.15** Layer 2 — 10 declarative policies: 3 static + 2 temporal + 5 contextual + ordering constraints + V37.9.15 P3 gate wiring observability declared |
-| `ontology/governance_checker.py` | **V36.3→V37.9.22** Governance execution engine — 71 invariants + 554 checks + 16 meta rules + 13 MRD scanners + 5 check types + integrated `verify_convergence` calls (Phase 4 Layer 5 audit consumption) |
-| `ontology/governance_ontology.yaml` | **V37.9.44** Governance Ontology v3.34 — 71 invariants (incl. INV-GATE-001 three-gate observability, INV-CONVERGENCE-CRON/PROVIDERS/OPENCLAW/KB/INTEGRATION/SERVICES-001 5 convergence specs, INV-LLMCRON-AUDIT-001 cross-job fail-fast audit), 16 meta rules (incl. MR-17 declared-state-must-converge-via-machine-not-memory) |
-| `ontology/llm_cron_audit.py` | **V37.9.38→V37.9.44** Cross-job fail-fast scanner — 21 candidate scripts / **10 aligned** (V37.9.36-37 rss_blogs / V37.5 kb_review / V37.8.10 kb_evening / V37.9.16 kb_deep_dive / V37.9.39 S2 / V37.9.40 DBLP+AI Leaders X / V37.9.41 HN / V37.9.43 arxiv / V37.9.44 github_trending) / 11 unaligned with V37.9.45+ migration roadmap |
+| `ontology/governance_checker.py` | **V36.3→V37.9.68** Governance execution engine — 77 invariants + 662 checks + 19 meta rules + 14 MRD scanners + 5 check types + integrated `verify_convergence` calls (Phase 4 Layer 5 audit consumption) |
+| `ontology/governance_ontology.yaml` | **V37.9.68** Governance Ontology v3.42 — 77 invariants (incl. INV-GATE-001 three-gate observability, INV-CONVERGENCE-CRON/PROVIDERS/OPENCLAW/KB/INTEGRATION/SERVICES-001 5 convergence specs, INV-LLMCRON-AUDIT-001 cross-job fail-fast audit, INV-DREAM-MULTITHEME-001 V37.9.68 14天ban-list), 19 meta rules (incl. MR-17 declared-state-must-converge-via-machine-not-memory, MR-19 monitor-must-self-alarm-on-silent-abort) |
+| `ontology/llm_cron_audit.py` | **V37.9.38→V37.9.62** Cross-job fail-fast scanner — 21 candidate scripts / **17 aligned** (V37.9.36-37 rss_blogs / V37.5 kb_review / V37.8.10 kb_evening / V37.9.16 kb_deep_dive / V37.9.39 S2 / V37.9.40 DBLP+AI Leaders X / V37.9.41 HN / V37.9.43 arxiv / V37.9.44 github_trending / V37.9.45 hf_papers / V37.9.50 semantic_scholar / V37.9.51 batch 6 / V37.9.62 batch 6 含 acl/karpathy/openclaw_official×2/ontology_sources/chaspark) / 4 by design 排除 (finance_news/freight/kb_dream/kb_inject) |
 | `ontology/diff.py` | **V36.2** Consistency checker — engine vs proxy_filters (81/81 = 100%) |
 | `ontology/CONSTITUTION.md` | **V36.2** Ontology Constitution — 6 articles + Supreme Article (project isolation) |
 | `ontology/tests/` | Engine + governance tests — `test_engine_phase4.py` (75 tests, V37.9.13), `test_governance_*`, `test_dream_cache_stability`, `test_audit_perf_dimensions` |
-| `ontology/docs/cases/` | **V37.3→V37.8.16** 15 blood lesson case studies (MR-4 silent failure × 15 appearances, including HEARTBEAT.md self-silencing → MR-15 new meta-rule) |
+| `ontology/docs/cases/` | **V37.3→V37.9.68** 21 blood lesson case studies (MR-4 silent failure × 27 appearances, including HEARTBEAT.md self-silencing → MR-15, Dream Map budget chain, kb_evening fallback quota chain, MOVESPEED 60-day silent backup, V37.9.68 Qwen-BIM 涌现行为防御) |
 | `ontology/docs/architecture/` | Industrial AI paradigm, target architecture (Phase 3-5 roadmap) |
 
 ### Documentation
@@ -435,7 +435,7 @@ All jobs registered in `jobs_registry.yaml`. Validate: `python3 check_registry.p
 - **Control Plane** (90%): Provider Compatibility Layer, SLO 5-metric monitoring, centralized thresholds, 19-check preflight, incident snapshots, circuit breaker + audit logging (fsync + atomic snapshot), 60-invariant governance, single-manager process ownership (V37.9.13)
 - **Capability Plane** (85%): 8-provider routing + capability-based fallback chain, multimodal (text+vision), tool governance (≤12, policy-driven via V37.9.12), data cleaning, search_kb hybrid retrieval
 - **Memory Plane** (75%): KB RAG (local sentence-transformers), trend analysis, preference learning, multimodal memory, Memory Plane v2 (dedup + confidence + conflict resolution), Agent Dream v2 MapReduce
-- **Ontology Plane** (Phase 4 P2 active): 4 YAML ontologies (tool/domain/policy/governance), Tool Ontology Engine (81 rules, ONTOLOGY_MODE=on), Governance Ontology v3.31 (60 invariants + 15 meta rules + 13 MRD scanners), 2 policies wired via `evaluate_policy()`, 15 blood lesson cases
+- **Ontology Plane** (Phase 4 P2 active): 4 YAML ontologies (tool/domain/policy/governance), Tool Ontology Engine (81 rules, ONTOLOGY_MODE=on), Governance Ontology v3.42 (77 invariants + 19 meta rules + 14 MRD scanners), 2 policies wired via `evaluate_policy()`, 21 blood lesson cases
 
 ### Ontology: What's Declaratively Defined (Phase 4 P2)
 
@@ -566,7 +566,7 @@ The `auto_deploy.sh` script maps 84 repo files to runtime locations (V37.9.43-ho
 ## Testing
 
 ```bash
-# Full regression (V37.9.44: 64 suites / 2253 tests / 0 fail; must ALL pass before push)
+# Full regression (V37.9.69: 87 suites / 3006 tests / 0 fail; must ALL pass before push)
 bash full_regression.sh
 
 # Individual test suites (run full_regression.sh for totals)
@@ -624,12 +624,12 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 | **Reliability Bench** | `docs/reliability_bench_report.md` | `python3 reliability_bench.py --save` |
 | **Resilience Report** | `docs/resilience_report.md` | 7 fault injection experiments |
 | **Security Boundaries** | `docs/security_boundaries.md` | 8-section security analysis |
-| **Governance Audit** | `ontology/governance_checker.py` | `python3 ontology/governance_checker.py` (71/71 invariants, 16 MR, 13 MRD scanners, 554 checks) |
+| **Governance Audit** | `ontology/governance_checker.py` | `python3 ontology/governance_checker.py` (77/77 invariants, 19 MR, 14 MRD scanners, 662 checks) |
 | **Convergence Framework** | `ontology/convergence.py` | `python3 ontology/convergence.py --all` (Phase 4 Layer 5: 5 specs, 2 machine_sync, MR-17) |
 | **LLM Cron Fail-Fast Audit** | `ontology/llm_cron_audit.py` | `python3 ontology/llm_cron_audit.py --report` (10/21 aligned with V37.9.36+ fail-fast pattern) |
 | **Tool Ontology** | `ontology/` | `python3 ontology/diff.py` (81/81 consistency) |
 | **Policy Engine (Phase 4 P3 shadow)** | `ontology/policy_ontology.yaml` + `ontology/three_gate.py` | `python3 ontology/engine.py --policies` (10 declared, 2 wired via proxy_filters, 6 context evaluators, 3 gates wired into request pipeline shadow mode) |
-| **Blood Lesson Cases** | `ontology/docs/cases/` | 17 case studies documenting MR-4 silent failure patterns (incl. MOVESPEED 60-day silent backup, kb_evening fallback quota chain, Dream self-referential hallucination) |
+| **Blood Lesson Cases** | `ontology/docs/cases/` | 21 case studies documenting MR-4 silent failure patterns (27 演出, incl. MOVESPEED 60-day silent backup, kb_evening fallback quota chain, Dream self-referential hallucination, V37.9.68 Qwen-BIM 涌现行为) |
 | **Opportunity Radar Design** | `docs/opportunity_radar_design.md` | V37.9.45+ strategic design (699 lines, 13 sections) — cross-source weak signal × project alignment × trend acceleration |
 | **Audit Coverage Retrospective** | `ontology/docs/audit_coverage_retrospective.md` | Stage 2 Route A — 15 blood lessons × Q1/Q2/Q3 = 0% prevention / 87% regression / 80% blind spot categories (V37.9.1) |
 
