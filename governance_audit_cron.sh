@@ -84,7 +84,12 @@ ENGINE_SUMMARY=$(echo "$ENGINE_OUTPUT" | tail -1)
 log "engine_check 完成: rc=$ENGINE_RC $ENGINE_SUMMARY"
 
 # ── 3. 结果判定 + 告警 ───────────────────────────────────────────────
-OVERALL="pass"
+# V37.9.72 (i): OVERALL="ok" 替代 "pass" — watchdog line 280 期望 "ok|unknown" 作正常状态,
+# 实际写 "pass" 让 watchdog default 分支报"治理审计: 异常状态 (pass)" 误告警.
+# 跨脚本契约对齐: 与 7+ 其他 ALIGNED jobs (V37.5/V37.8.10/V37.9.16/V37.9.39/40/41/43/44/45 等) 一致.
+# governance_checker.py 内部 "pass" 是 check 状态真理源, 与本字面量解耦不动.
+# 失败状态 "fail" (line 91/101) 不动 — 维持告警目的 (watchdog default 分支正确触发).
+OVERALL="ok"
 ALERT_MSG=""
 
 if [ "$GOV_RC" -ne 0 ]; then
