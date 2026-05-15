@@ -44,6 +44,7 @@ from kb_dream_helpers import (
     extract_section_titles,
     format_banned_themes_block,
     normalize_theme_keywords,
+    split_dream_into_chunks,
     split_wide_radar_output,
     themes_overlap,
 )
@@ -597,6 +598,148 @@ class TestCli(unittest.TestCase):
         self.assertIn("usage", result.stdout.lower())
 
 
+class TestSplitDreamIntoChunks(unittest.TestCase):
+    """V37.9.68-hotfix split_dream_into_chunks 纯函数单测。
+
+    根因: V37.9.68 设计预期 4 段 ## header 各自独立成 4 chunks，
+    但 V37.9.21 旧合并算法 (current + piece <= max_chunk 就合并) 把小段合并，
+    导致 Mac Mini 5/15 03:00 cron 真激活时只产 3 chunks (WIDE+RADAR 合并)。
+    属 V37.9.66 案例库 类别 B "设计假设错配"。
+
+    新算法契约:
+    - 每个 ## header 段独立成 chunk (不合并)
+    - header 段 (首个 ## 之前) 合并到第一个 ## 段作 prefix
+    - 单段超 max_chunk 时按 \\n 内部切分
+    """
+
+    def test_empty_returns_empty_list(self):
+        self.assertEqual(split_dream_into_chunks(""), [])
+        self.assertEqual(split_dream_into_chunks("   \n  \n"), [])
+
+    def test_non_string_returns_empty(self):
+        self.assertEqual(split_dream_into_chunks(None), [])  # type: ignore
+        self.assertEqual(split_dream_into_chunks(123), [])  # type: ignore
+
+    def test_v37_9_68_blood_lesson_four_section_independent_chunks(self):
+        """V37.9.68-hotfix 血案场景回归: 4 段每段 < max_chunk 必产 4 chunks.
+
+        模拟 5/15 真实 dream 数据形状 (DEEP / WIDE / RADAR / 总览),
+        每段都 < max_chunk 但旧算法会合并成 3 chunks.
+        """
+        text = "# 🌙 Agent Dream — 2026-05-15\n\n"
+        text += "> 模式: MapReduce 全量\n> 覆盖: 17 sources\n\n"
+        text += "## 🌙 今日深度: 测试主题\n" + ("内容" * 500) + "\n\n"  # ~1500 chars
+        text += "## 🌐 跨领域 × 5\n" + ("内容" * 500) + "\n\n"  # ~1500 chars
+        text += "## 📡 准期信号 × 5\n" + ("内容" * 300) + "\n\n"  # ~900 chars
+        text += "## 📋 今日连动\n" + ("内容" * 100)  # ~300 chars
+
+        chunks = split_dream_into_chunks(text, max_chunk=4000)
+        self.assertEqual(
+            len(chunks), 4,
+            f"V37.9.68 设计预期 4 段 ## header 独立成 4 chunks, 实际 {len(chunks)} (V37.9.66 类别 B 血案回归)"
+        )
+        # 每段独立验证
+        self.assertIn("今日深度", chunks[0])
+        self.assertIn("Agent Dream", chunks[0], "header 应合并到第一段作 prefix")
+        self.assertIn("跨领域", chunks[1])
+        self.assertIn("准期信号", chunks[2])
+        self.assertIn("今日连动", chunks[3])
+        # 反向验证: WIDE 段不应被合并到 RADAR 段
+        self.assertNotIn("跨领域", chunks[2], "WIDE 段不应混入 RADAR chunk (旧合并算法 bug)")
+        # 反向验证: RADAR 段不应被合并到总览段
+        self.assertNotIn("准期信号", chunks[3], "RADAR 段不应混入总览 chunk")
+
+    def test_header_merged_into_first_section(self):
+        """header 部分（首个 ## 之前）应合并到第一个 ## 段作 prefix."""
+        text = "# 🌙 Header\n\n> 元数据行\n\n## 第一段\n内容A"
+        chunks = split_dream_into_chunks(text, max_chunk=4000)
+        self.assertEqual(len(chunks), 1)
+        # 第一个 chunk 必含 header + 第一段
+        self.assertIn("🌙 Header", chunks[0])
+        self.assertIn("元数据行", chunks[0])
+        self.assertIn("第一段", chunks[0])
+        self.assertIn("内容A", chunks[0])
+
+    def test_oversized_section_internal_split(self):
+        """单段超 max_chunk 仍内部按 \\n 切分, 不影响其他段独立."""
+        text = "# Header\n\n"
+        text += "## DEEP 大段\n"
+        # 5500 chars 超 max_chunk=4000, 用 \n 让切分有 boundary
+        big_lines = "\n".join("DEEP 段第 {} 行内容".format(i) for i in range(400))
+        text += big_lines + "\n\n"
+        text += "## WIDE\n" + ("WIDE 内容" * 200) + "\n\n"
+        text += "## RADAR\n" + ("RADAR 内容" * 100) + "\n\n"
+        text += "## 总览\n" + ("总览 内容" * 30)
+
+        chunks = split_dream_into_chunks(text, max_chunk=4000)
+        # DEEP 应被切成 ≥2 sub-chunks; WIDE/RADAR/总览 仍各自独立
+        self.assertGreaterEqual(len(chunks), 4)
+        # 每段不超 max_chunk
+        for c in chunks:
+            self.assertLessEqual(len(c), 4000, f"chunk 超 max_chunk: {len(c)} chars")
+        # WIDE/RADAR/总览 仍各占独立 chunk
+        wide_chunks = [i for i, c in enumerate(chunks) if "WIDE" in c]
+        radar_chunks = [i for i, c in enumerate(chunks) if "RADAR" in c]
+        overview_chunks = [i for i, c in enumerate(chunks) if "总览" in c]
+        self.assertEqual(len(wide_chunks), 1, "WIDE 应仅在 1 个 chunk")
+        self.assertEqual(len(radar_chunks), 1, "RADAR 应仅在 1 个 chunk")
+        self.assertEqual(len(overview_chunks), 1, "总览 应仅在 1 个 chunk")
+        # 顺序保持 DEEP < WIDE < RADAR < 总览
+        self.assertLess(wide_chunks[0], radar_chunks[0])
+        self.assertLess(radar_chunks[0], overview_chunks[0])
+
+    def test_no_section_headers_text_returned_as_single_chunk(self):
+        """退化场景: text 完全没 ## header, 整段作为单 chunk."""
+        text = "# Just header\n\nSome plain text without sections."
+        chunks = split_dream_into_chunks(text, max_chunk=4000)
+        self.assertEqual(len(chunks), 1)
+        self.assertIn("Just header", chunks[0])
+        self.assertIn("plain text", chunks[0])
+
+    def test_max_chunk_too_small_defaults_to_4000(self):
+        """防御: max_chunk < 100 视为无效 fallback 到 4000."""
+        text = "## A\n" + ("x" * 200) + "\n\n## B\n" + ("y" * 200)
+        chunks_invalid = split_dream_into_chunks(text, max_chunk=10)
+        # max_chunk 太小被 fallback 到 4000, 4 段 (实际只有 2) 都独立
+        chunks_valid = split_dream_into_chunks(text, max_chunk=4000)
+        self.assertEqual(len(chunks_invalid), len(chunks_valid))
+
+    def test_empty_sections_skipped(self):
+        """空段静默跳过, 不产空 chunk."""
+        text = "# H\n\n## A\nx\n\n## \n\n## B\ny"
+        chunks = split_dream_into_chunks(text, max_chunk=4000)
+        # 空段 "## \n\n" 不应产 chunk
+        for c in chunks:
+            self.assertTrue(c.strip(), f"chunk 不应为空: {repr(c)}")
+
+    def test_real_2026_05_15_layout_produces_4_chunks(self):
+        """V37.9.68-hotfix Mac Mini 真实 5/15 dream 文件 layout 模拟.
+
+        实际 17119 bytes / 4 个 ## header / DEEP 偏大但加 header 仍 < 4000
+        （header ~150 + DEEP 实际生产 LLM 输出可能波动 1500-3500 chars）.
+        """
+        # 模拟 V37.9.68 设计字数（DEEP ~1800 / WIDE ~1700 / RADAR ~900 / 总览 ~400）
+        text = "# 🌙 Agent Dream — 2026-05-15\n\n"
+        text += "> 模式: MapReduce 全量（17 源）\n"
+        text += "> 覆盖: 17 sources (8312KB) + 829 notes\n"
+        text += "> Reduce 素材: 153351 chars\n"
+        text += "> 生成时间: 2026-05-15 03:11:15\n\n"
+        text += "## 🌙 今日深度: 测试\n"
+        text += "### 发现过程\n" + ("a" * 600) + "\n\n"
+        text += "### 🔗 隐藏关联\n" + ("b" * 700) + "\n\n"
+        text += "### 🎯 行动建议\n" + ("c" * 500) + "\n\n"
+        text += "## 🌐 跨领域 × 5\n" + ("d" * 1700) + "\n\n"
+        text += "## 📡 准期信号 × 5\n" + ("e" * 900) + "\n\n"
+        text += "## 📋 今日连动\n" + ("f" * 350)
+
+        chunks = split_dream_into_chunks(text, max_chunk=4000)
+        # DEEP 段 ~150+1800 < 4000 → 1 chunk; WIDE/RADAR/总览 各 1 → 共 4 chunks
+        self.assertEqual(
+            len(chunks), 4,
+            f"V37.9.68 4 段设计预期 4 chunks, 实际 {len(chunks)} (V37.9.68-hotfix 守卫)"
+        )
+
+
 class TestKbDreamShellGuards(unittest.TestCase):
     """V37.9.68 kb_dream.sh 源码级守卫：防止未来重构回退新设计。
 
@@ -700,6 +843,39 @@ class TestKbDreamShellGuards(unittest.TestCase):
         # 主体 kb_dream.sh 不需要 V37.4.2 字面量（已被 V37.9.68 替代）
         # 但 V37.9.68 改动的复杂性教训应在 helper 中文档化（已有 "用户视角原则 #13"）
         pass  # 历史教训在 helpers.py 中
+
+    def test_v37_9_68_hotfix_uses_split_dream_into_chunks_helper(self):
+        """V37.9.68-hotfix 守卫: kb_dream.sh 用 helper 而非 inline 合并算法.
+
+        Mac Mini 5/15 03:00 cron 实测发现旧 inline 合并算法导致 4 段被合并成 3 chunks.
+        修复后必须改用 kb_dream_helpers.split_dream_into_chunks (MR-8 single-source-of-truth).
+        """
+        # 必须含 helper import
+        self.assertIn("from kb_dream_helpers import split_dream_into_chunks", self.src,
+                      "V37.9.68-hotfix 必须改用 split_dream_into_chunks helper")
+        # 必须调用 helper
+        self.assertIn("split_dream_into_chunks(text, max_chunk=", self.src,
+                      "V37.9.68-hotfix 必须真正调用 helper, 而非仅 import")
+
+    def test_v37_9_68_hotfix_no_inline_merge_algorithm_regression(self):
+        """V37.9.68-hotfix 反向守卫: 旧合并算法字面量必须被消除.
+
+        防止未来重构回退到 'current + piece <= max_chunk 就合并' 反模式.
+        本守卫是 V37.9.66 案例库 类别 B "设计假设错配" 的硬防御.
+        """
+        # 旧合并算法的标志: current 变量累积 + 合并条件
+        # 不应再出现完整模式 (允许 helper 内部 docstring 提到为反例)
+        merge_pattern = "if len(current) + len(piece) + 1 <= max_chunk:"
+        self.assertNotIn(merge_pattern, self.src,
+                         f"V37.9.68-hotfix 必须消除旧合并算法 '{merge_pattern}' (V37.9.66 类别 B)")
+        # 旧 inline `current = ... + piece` 累积模式
+        self.assertNotIn("current = current + '\\n' + piece if current else piece", self.src,
+                         "V37.9.68-hotfix 必须消除 current 累积变量")
+
+    def test_v37_9_68_hotfix_marker_present(self):
+        """V37.9.68-hotfix marker 必须在 shell 文件中可 grep."""
+        self.assertIn("V37.9.68-hotfix", self.src,
+                      "V37.9.68-hotfix marker 必须存在便于运维 grep")
 
 
 if __name__ == "__main__":

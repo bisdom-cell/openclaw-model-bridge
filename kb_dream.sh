@@ -1528,34 +1528,26 @@ SENT=false
 if $_DREAM_NOTIFY_LOADED; then
     log "推送开始: OPENCLAW_PHONE=${OPENCLAW_PHONE:-(unset)} DISCORD_CH_DAILY=${DISCORD_CH_DAILY:-(unset)}"
 
-    # 用 Python 按章节智能分段，写入临时文件
+    # 用 helper 函数按章节智能分段，写入临时文件
+    # V37.9.68-hotfix: 改用 kb_dream_helpers.split_dream_into_chunks (MR-8 single-source-of-truth)
+    # 修复 V37.9.68 设计假设错配 (类别 B): 旧合并算法把 WIDE+RADAR 等小段合并成 1 chunk
+    # 导致 Mac Mini 5/15 03:00 cron 推送 [3/3] 而非 [4/4]
     CHUNK_DIR=$(mktemp -d)
     TOTAL_PARTS=$(python3 -c "
 import sys, os
+sys.path.insert(0, os.path.expanduser('~'))
+sys.path.insert(0, '$SCRIPT_DIR')
+try:
+    from kb_dream_helpers import split_dream_into_chunks
+except ImportError as e:
+    sys.stderr.write(f'FATAL: kb_dream_helpers.split_dream_into_chunks import 失败: {e}\\n')
+    sys.exit(1)
 
 text = sys.stdin.read()
 chunk_dir = '$CHUNK_DIR'
 max_chunk = 4000
-sections = text.split('\n## ')
-chunks = []
-current = ''
 
-for i, sec in enumerate(sections):
-    piece = sec if i == 0 else '## ' + sec
-    if len(current) + len(piece) + 1 <= max_chunk:
-        current = current + '\n' + piece if current else piece
-    else:
-        if current:
-            chunks.append(current.strip())
-        while len(piece) > max_chunk:
-            cut = piece[:max_chunk].rfind('\n')
-            if cut < int(max_chunk * 0.5):
-                cut = max_chunk
-            chunks.append(piece[:cut].strip())
-            piece = piece[cut:].strip()
-        current = piece
-if current.strip():
-    chunks.append(current.strip())
+chunks = split_dream_into_chunks(text, max_chunk=max_chunk)
 
 for idx, chunk in enumerate(chunks):
     with open(os.path.join(chunk_dir, f'{idx:03d}.txt'), 'w') as f:
