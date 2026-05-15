@@ -1,5 +1,5 @@
 {
-  "updated": "2026-05-15 00:56:38",
+  "updated": "2026-05-15 01:55:24",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-05-15",
+      "what": "**V37.9.68-hotfix Mac Mini 真激活验证成功** — 用户视角原则 #13 第 20 次正向兑现完整闭环。用户开工 9:32 报告 [3/3] 而非 [4/4] → 9:41 代码层根因诊断 + Mac Mini 数据层确认 → 10:30 hotfix 提交 (kb_dream_helpers split_dream_into_chunks 纯函数 + 12 单测含血案场景回归 + 反向验证两层 sabotage 真有效) → PR #561 合并 → Mac Mini git fetch + reset + bash ~/kb_dream.sh 手动触发 → log: 三阶推送完成 4/4 段成功 (DEEP/WIDE/RADAR/Overview) + 梦境已推送 4/4 段到 WhatsApp + Discord → WhatsApp 真收到 4 个 [N/4] 独立窗口完美匹配 V37.9.68 设计预期 → **闭环时间 < 1.5 小时从用户视角发现到生产真激活验证**。DEEP 主题 Papers with Code 平台异常沉默 (新颖, 14 天 ban-list 持续有效, 非 Qwen-BIM 类). MR-4 silent-failure 第 27 次新形态 (设计假设与算法实现不一致) 完整 framework 级修复 + 用户视角硬实证. 元价值: V37.9.21 多窗口分片机制 4 个版本演进 (单大段切→多段合并→多段独立) 彻底完成. 用户视角原则 #13 + 原则 #15 测试三层 + 原则 #28 理解再动手三问 + MR-8 single-source-of-truth + MR-4 silent-failure 上游预防层 + V37.9.66 类别 B 设计假设错配防御 — 多 framework 协同发力 1.5h 闭环 (vs V37.9.4→V37.9.29 同款 60 天潜伏对比硬实证). V37.9.69+ 候选 (a) Mac Mini 真激活验证 — **已兑现**.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-05-15",
       "what": "V37.9.68-hotfix Mac Mini 5/15 03:00 cron 真激活验证发现 Dream 推送收到 [3/3] 而非 [4/4] — 4 段被合并成 3 chunks 血案修复 (用户视角原则 #13 第 20 次正向兑现)。**根因**: V37.9.68 changelog 说 4 段 ## header 自然复用 V37.9.21 多窗口分片, 但 V37.9.21 实际是 current+piece <= max_chunk 就合并 算法。V37.9.68 4 段大小不均匀 (DEEP ~5000 / WIDE ~1700 / RADAR ~900 / 总览 ~400), WIDE+RADAR (~2600) 被合并成 1 chunk。属 V37.9.66 案例库 类别 B 设计假设错配, MR-4 silent-failure 第 27 次新形态 (设计文档说 4 段独立但代码无强制保证)。**修复**: kb_dream_helpers.py 加 split_dream_into_chunks(text, max_chunk) 纯函数 (每个 ## 段独立成 chunk + header 合并到第一段 + 单段超 max_chunk 内部 \\n 切, MR-8 single-source-of-truth)。kb_dream.sh 改用 helper (替换 35 行 inline Python 为 7 行调用)。**12 新单测** TestSplitDreamIntoChunks 8 (空/非string/血案场景回归 4 段必产 4 chunks/header 合并/超大段内部切/无 ## 段单 chunk/max_chunk 防御/空段跳过 + 5/15 真实 layout 测试) + TestKbDreamShellGuards 4 (helper import 守卫/真调用/反向消除旧合并算法/V37.9.68-hotfix marker)。**反向验证两层守卫真有效**: sabotage helper while 循环 → 1 fail / sabotage 回退到旧合并算法 → 5 fail (含血案场景回归 + 5/15 真实 layout 模拟)。**INV-DREAM-MULTITHEME-001 内涵扩展含 5 新 V37.9.68-hotfix check** (helper 函数定义 + helper import 守卫 + 真调用守卫 + V37.9.68-hotfix marker + 反向反合并算法 python_assert)。**接近真实数据模拟验证** Mac Mini 5/15 dream 文件 layout (含 ### 三子段) → V37.9.68-hotfix 后产 [1/4] DEEP+header 2132 chars / [2/4] WIDE 1417 / [3/4] RADAR 615 / [4/4] 总览 141 = 4 chunks 完美匹配设计预期。累计 86 suites 不变 / 2950→2962 tests (+12) / 0 fail / governance v3.43→v3.44 / 77 inv 不变 / 655→660 checks (+5) / 安全 95/100 / VERSION 0.37.9.68 不变 (hotfix 不 bump)。Mac Mini 部署后预期: 5/16 03:00 cron 自动推送 4 个独立 WhatsApp 窗口 (DEEP/WIDE/RADAR/总览), DEEP 段超 4000 时仍内部切但不影响其他 3 段独立性。**元价值**: V37.9.21 多窗口分片机制经 V37.9.21→V37.9.35→V37.9.68→V37.9.68-hotfix 4 个版本演进 (单大段切 → 多段合并 → 多段独立), 验证原则 #15 测试三层第三层不可替代 — 单测全绿+治理全绿+用户实际收到 [3/3] 才暴露 V37.9.68 设计假设错配。同时发现 V37.9.63 抽 cron_monitor_fatal_handler.sh 后 test_watchdog_self_monitoring.py 有 5 个测试漂移 (TestStepBErrTrapSilentAbort/TestWatchdogSyntaxAndIntegration), 已登记 V37.9.69+ 候选 (非 V37.9.68-hotfix 引入), full_regression.sh line 30 bash 计数 bug 也登记。",
       "by": "claude_code"
     },
@@ -193,11 +198,6 @@
     {
       "date": "2026-05-12",
       "what": "V37.9.58-hotfix: V37.9.57 自动注入工具盲点 8 ALIGNED jobs HG_LEVEL_4_TEXT 注入未补 import os 血案修复 (与 V37.9.50-hotfix 同款 NameError fix 但 V37.9.57 注入到不同 heredoc 未同步补齐). 用户视角发现 HN 14:45 cron 推送格式异常 (只有英文标题+链接, 无 6 字段 + 末尾高对齐 0/5 虚假统计). 取证 ~/.openclaw/jobs/hn_watcher/cache/hn_watcher.log 揭示 NameError: name os is not defined line 70 in stdin × 5 次 + [hn] 消息组装 LLM 解析成功 0 (但脚本误报 LLM 调用完成 成功 5/5 因 retry 把 NameError 当成功). 真因: V37.9.57 inject_level_4_to_aligned_jobs.py 给 8 jobs LLM call heredoc 末尾加 prompt += os.environ.get(HG_LEVEL_4_TEXT) 但顶部 import sys, json 缺 os. V37.9.50-hotfix 修过 emit heredoc 但 V37.9.57 引入第二处缺漏未察觉. 修复: 8/8 ALIGNED jobs heredoc 顶部 import sys, json → import sys, json, os + V37.9.58-hotfix marker. 加 test_v37_9_58_hotfix.py 4 tests source-level 守卫 (反向验证 sabotage 立即抓出 broken heredoc 还原全过). full_regression 接入 78 suites / 2671 tests / 0 fail. 原则 #28 三问严格 + MR-10 understand-before-fix 兑现. 元教训: 自动注入工具是 MR-4 silent-failure 第 N 次演出新形态 — batch 注入引入跨多 jobs 系统性 bug, 单次 fix HN 但需要 source-level 守卫 7 个其他 jobs 才闭环.",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-05-12",
-      "what": "V37.9.58 Plan B 渐进 escalation 终态兑现 — machine_sync 真激活: convergence.py _is_dry_run() 默认值反转 (旧默认 dry-run / 新默认 real apply, 仅 CONVERGENCE_DRY_RUN=1 才回到 dry-run) + yaml 两 spec dry_run_default: true→false + meta version 0.7→0.8-machine-sync-activated + v37_9_58_changelog 段记录终态 + governance INV-CONVERGENCE-CRON-001 守卫 V37.9.58 升级 (3 新 checks: yaml false / py 默认值反转 / changelog / meta version) + 测试反转 TestIsDryRun 5 个 + alternation 接受 V37.9.58 新值 + TestV37958DryRunActivation 新单测类 14 tests (7 分类含反向验证守卫 + 真激活契约). 一周观察期数据: jobs_to_crontab declared=36 observed=36 / kb_sources_to_index declared=14 observed=14 双 spec 全周零漂移零误报. typo-safe direction 反转: 旧 V37.9.23 typo→保守 / 新 V37.9.58 typo→兑现承诺. 反向验证 sabotage 立即多个 V37.9.58 测试 fail, 还原全过. MR-17 真正兑现: alert_only (机器可检测) → machine_sync+dry_run (机器可同步但不默认同步) → V37.9.58 切关 (机器可同步且默认同步) ← 终态. 累计 77 suites / 2651→2667 tests (+16) / 0 fail / governance v3.35→v3.36 / 72 invariants 不变 / 562→565 checks (+3) / 17 meta rules / 安全 95/100 / VERSION 0.37.9.57→0.37.9.58.",
       "by": "claude_code"
     }
   ],
