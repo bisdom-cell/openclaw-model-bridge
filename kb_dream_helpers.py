@@ -452,6 +452,74 @@ def extract_section_titles(section_md: str, max_n: int = 10) -> list[str]:
 
 
 # ─────────────────────────────────────────────────────────────────────
+# 多窗口分片（V37.9.68-hotfix）
+# ─────────────────────────────────────────────────────────────────────
+
+
+def split_dream_into_chunks(text: str, max_chunk: int = 4000) -> list[str]:
+    """把 dream md 切分为 WhatsApp 推送 chunks。
+
+    V37.9.68-hotfix 设计契约（修复 V37.9.68 设计假设错配）：
+    - **每个 `## ` header 段独立成 chunk，不合并小段**
+    - header 部分（首个 `## ` 之前的内容，含 `# 🌙 Agent Dream` + 元数据）
+      合并到第一个 `## ` 段作 prefix（让用户在第一个推送窗口看到 Dream 标识）
+    - 单段超 max_chunk 时按 `\\n` 内部切分
+    - 空段静默跳过
+
+    **修复历史**: V37.9.68 changelog 说"4 段 ## header 自然复用 V37.9.21 多窗口分片，
+    推送 4 个独立 WhatsApp 窗口"，但 V37.9.21 实际是"≤ max_chunk 就合并"算法。
+    V37.9.68 的 4 段大小不均匀（DEEP ~1500-5000 / WIDE ~1700 / RADAR ~900 / 总览 ~400），
+    导致 WIDE+RADAR 等小段被合并成 1 chunk，最终只产 3 chunks 而非 4 chunks。
+    Mac Mini 5/15 03:00 cron 实测确认：用户收到 [3/3] 而非 [4/4]。
+    根因属 V37.9.66 案例库 类别 B "设计假设错配"。
+
+    Returns:
+        list[str]: 每个 chunk 是独立的 ≤ max_chunk 字符的 markdown 段。
+                   空 text 返回 []。
+    """
+    if not isinstance(text, str) or not text.strip():
+        return []
+    if max_chunk < 100:
+        # 防御: max_chunk 太小无意义, 但不抛 (caller 可能传 env var)
+        max_chunk = 4000
+
+    sections = text.split("\n## ")
+    if not sections:
+        return []
+
+    # 提取 header 段（首个 ## 之前的部分）+ 收集所有 ## 段
+    header_part = sections[0].rstrip()
+    ordered_sections: list[str] = []
+    for i, sec in enumerate(sections):
+        if i == 0:
+            continue  # header 单独处理
+        ordered_sections.append("## " + sec)
+
+    # header 合并到第一个 ## 段（让用户在第一个窗口看到 Dream 标识）
+    if ordered_sections and header_part:
+        ordered_sections[0] = (header_part + "\n\n" + ordered_sections[0]).strip()
+    elif header_part and not ordered_sections:
+        # 退化场景: text 没有 ## header, header 自身作为唯一段
+        ordered_sections.append(header_part)
+
+    # 每段独立成 chunk; 仅当单段 > max_chunk 时内部按 \n 切分
+    chunks: list[str] = []
+    for piece in ordered_sections:
+        piece = piece.strip()
+        if not piece:
+            continue
+        while len(piece) > max_chunk:
+            cut = piece[:max_chunk].rfind("\n")
+            if cut < int(max_chunk * 0.5):
+                cut = max_chunk  # hard cut 保底
+            chunks.append(piece[:cut].strip())
+            piece = piece[cut:].strip()
+        if piece:
+            chunks.append(piece)
+    return chunks
+
+
+# ─────────────────────────────────────────────────────────────────────
 # CLI（运维查询用）
 # ─────────────────────────────────────────────────────────────────────
 
