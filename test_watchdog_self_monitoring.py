@@ -30,11 +30,39 @@ from pathlib import Path
 
 REPO_ROOT = os.path.dirname(os.path.abspath(__file__))
 WATCHDOG_SH = os.path.join(REPO_ROOT, "job_watchdog.sh")
+HELPER_SH = os.path.join(REPO_ROOT, "cron_monitor_fatal_handler.sh")
 
 
 def _read_src():
     with open(WATCHDOG_SH, "r", encoding="utf-8") as f:
         return f.read()
+
+
+def _read_helper_src():
+    """V37.9.69: V37.9.63 抽 helper 后, fatal handler 字面量在 helper 文件.
+
+    若 helper 不存在 (legacy V37.9.58-hotfix3 状态), 返回空串. alternation
+    守卫接受 watchdog 内 inline OR helper 内 helper 任一形式.
+    """
+    if not os.path.isfile(HELPER_SH):
+        return ""
+    with open(HELPER_SH, "r", encoding="utf-8") as f:
+        return f.read()
+
+
+def _watchdog_uses_v37_9_63_helper(src):
+    """V37.9.69: 判定 watchdog 是否使用 V37.9.63 公共 helper 模式.
+
+    V37.9.63 helper 模式硬契约 (任一缺失即非 helper 模式):
+      1. source cron_monitor_fatal_handler.sh
+      2. CRON_FATAL_LABEL="watchdog" 配置
+      3. trap '_cron_monitor_fatal_handler $LINENO' ERR
+    """
+    return (
+        "cron_monitor_fatal_handler.sh" in src
+        and 'CRON_FATAL_LABEL="watchdog"' in src
+        and "_cron_monitor_fatal_handler" in src
+    )
 
 
 # ── Tier 1: Step A - awk LC_ALL=C 容错 ───────────────────────────────
@@ -88,24 +116,54 @@ class TestStepBErrTrapSilentAbortBecomesLoud(unittest.TestCase):
         cls.src = _read_src()
 
     def test_fatal_handler_function_defined(self):
-        """_watchdog_fatal_handler() 函数必须定义."""
-        self.assertIn("_watchdog_fatal_handler", self.src,
-            "V37.9.58-hotfix3 Step B: ERR trap handler 函数必须存在")
-        self.assertRegex(self.src, r"_watchdog_fatal_handler\(\)\s*\{",
-            "_watchdog_fatal_handler 必须有标准 bash 函数定义语法")
+        """V37.9.69 alternation: ERR trap handler 函数必须存在 (inline OR V37.9.63 helper).
+
+        V37.9.58-hotfix3 inline 模式: watchdog 含 `_watchdog_fatal_handler() {`
+        V37.9.63 helper 模式: watchdog source helper + helper 含 `_cron_monitor_fatal_handler() {`
+        """
+        if _watchdog_uses_v37_9_63_helper(self.src):
+            helper_src = _read_helper_src()
+            self.assertTrue(helper_src,
+                "V37.9.69: watchdog 用 V37.9.63 helper 模式但 cron_monitor_fatal_handler.sh 不存在")
+            self.assertRegex(helper_src, r"_cron_monitor_fatal_handler\(\)\s*\{",
+                "V37.9.63 helper: _cron_monitor_fatal_handler 必须在 helper 中定义")
+        else:
+            # legacy V37.9.58-hotfix3 inline 模式
+            self.assertIn("_watchdog_fatal_handler", self.src,
+                "V37.9.58-hotfix3 Step B: ERR trap handler 函数必须存在")
+            self.assertRegex(self.src, r"_watchdog_fatal_handler\(\)\s*\{",
+                "_watchdog_fatal_handler 必须有标准 bash 函数定义语法")
 
     def test_err_trap_registered(self):
-        """trap ERR 必须注册 _watchdog_fatal_handler $LINENO."""
-        self.assertIn("trap '_watchdog_fatal_handler", self.src,
-            "trap ERR 必须注册 _watchdog_fatal_handler")
-        # LINENO 必须传给 handler 供精确定位
-        self.assertRegex(self.src, r"_watchdog_fatal_handler\s+\$LINENO",
-            "ERR trap 必须传 $LINENO 给 handler 供 abort 行号定位")
+        """V37.9.69 alternation: trap ERR 必须注册 fatal handler 并传 $LINENO."""
+        if _watchdog_uses_v37_9_63_helper(self.src):
+            self.assertIn("trap '_cron_monitor_fatal_handler", self.src,
+                "V37.9.63 helper: trap ERR 必须注册 _cron_monitor_fatal_handler")
+            self.assertRegex(self.src, r"_cron_monitor_fatal_handler\s+\$LINENO",
+                "V37.9.63 helper: ERR trap 必须传 $LINENO 给 handler")
+        else:
+            self.assertIn("trap '_watchdog_fatal_handler", self.src,
+                "trap ERR 必须注册 _watchdog_fatal_handler")
+            self.assertRegex(self.src, r"_watchdog_fatal_handler\s+\$LINENO",
+                "ERR trap 必须传 $LINENO 给 handler 供 abort 行号定位")
 
     def test_fatal_handler_pushes_system_alert(self):
-        """ERR trap handler 必须推 [SYSTEM_ALERT] 关键字."""
-        self.assertIn("[SYSTEM_ALERT] watchdog FATAL", self.src,
-            "V37.9.58-hotfix3: ERR trap 必须推 [SYSTEM_ALERT] watchdog FATAL")
+        """V37.9.69 alternation: ERR trap handler 必须推 [SYSTEM_ALERT].
+
+        V37.9.63 helper: helper 内含 `[SYSTEM_ALERT] ${label} FATAL` (动态 label),
+        watchdog caller 设 CRON_FATAL_LABEL=watchdog → 运行时拼成 `[SYSTEM_ALERT] watchdog FATAL`.
+        """
+        if _watchdog_uses_v37_9_63_helper(self.src):
+            helper_src = _read_helper_src()
+            self.assertIn("[SYSTEM_ALERT]", helper_src,
+                "V37.9.63 helper: [SYSTEM_ALERT] 字面量必须在 helper 中")
+            self.assertIn("FATAL", helper_src,
+                "V37.9.63 helper: FATAL 字面量必须在 helper 中")
+            self.assertIn('CRON_FATAL_LABEL="watchdog"', self.src,
+                "V37.9.63 helper: watchdog 必须设 CRON_FATAL_LABEL=watchdog 让运行时拼成 [SYSTEM_ALERT] watchdog FATAL")
+        else:
+            self.assertIn("[SYSTEM_ALERT] watchdog FATAL", self.src,
+                "V37.9.58-hotfix3: ERR trap 必须推 [SYSTEM_ALERT] watchdog FATAL")
 
     def test_fatal_handler_has_three_layer_fallback(self):
         """ERR trap 推送必须有 FAIL-OPEN 三层 fallback (notify/openclaw/local file)."""
@@ -272,6 +330,7 @@ class TestWatchdogSyntaxAndIntegration(unittest.TestCase):
     def test_trap_err_after_set_e(self):
         """trap ERR 必须在 set -e* 之后定义 (set -e 之前 trap ERR 无效).
         V37.9.58-hotfix4 alternation: 接受 set -eEo pipefail (含 errtrace) 或旧 set -eo pipefail.
+        V37.9.69 alternation: 接受 trap '_cron_monitor_fatal_handler (V37.9.63 helper) 或 trap '_watchdog_fatal_handler (V37.9.58-hotfix3 inline).
         """
         with open(WATCHDOG_SH, "r") as f:
             lines = f.readlines()
@@ -281,13 +340,14 @@ class TestWatchdogSyntaxAndIntegration(unittest.TestCase):
             # V37.9.58-hotfix4 alternation: set -eEo (含 -E) 优先, fallback set -eo
             if "set -eEo pipefail" in line or "set -eo pipefail" in line:
                 set_e_line = i
-            if "trap '_watchdog_fatal_handler" in line:
+            # V37.9.69 alternation: V37.9.63 helper 或 V37.9.58-hotfix3 inline
+            if "trap '_cron_monitor_fatal_handler" in line or "trap '_watchdog_fatal_handler" in line:
                 trap_err_line = i
                 break
         self.assertIsNotNone(set_e_line, "set -e* pipefail 行未找到")
         self.assertIsNotNone(trap_err_line, "trap ERR 行未找到")
         self.assertGreater(trap_err_line, set_e_line,
-            "V37.9.58-hotfix3/4: trap ERR 必须在 set -e* 之后注册 (否则 trap 无效)")
+            "V37.9.58-hotfix3/4 + V37.9.69: trap ERR 必须在 set -e* 之后注册 (否则 trap 无效)")
 
 
 # ── Tier 6: 反向验证 sabotage 守卫真有效 ────────────────────────────
@@ -326,11 +386,21 @@ class TestReverseVerificationGuardsAreReal(unittest.TestCase):
             f"sabotage LC_ALL=C 后守卫应立即 fail, got returncode={result.returncode}\n{result.stderr}")
 
     def test_sabotage_remove_err_trap_caught(self):
-        """sabotage 移除 trap ERR 注册 → test_err_trap_registered 立即 fail."""
-        self._sabotage(
-            "trap '_watchdog_fatal_handler $LINENO' ERR",
-            "# SABOTAGED: removed trap ERR registration"
-        )
+        """sabotage 移除 trap ERR 注册 → test_err_trap_registered 立即 fail.
+
+        V37.9.69 alternation: V37.9.63 helper 模式 sabotage `trap '_cron_monitor_fatal_handler`
+        OR V37.9.58-hotfix3 inline 模式 sabotage `trap '_watchdog_fatal_handler`.
+        """
+        if _watchdog_uses_v37_9_63_helper(self.backup):
+            self._sabotage(
+                "trap '_cron_monitor_fatal_handler $LINENO' ERR",
+                "# SABOTAGED: removed V37.9.63 helper trap ERR registration"
+            )
+        else:
+            self._sabotage(
+                "trap '_watchdog_fatal_handler $LINENO' ERR",
+                "# SABOTAGED: removed inline trap ERR registration"
+            )
         result = subprocess.run(
             [sys.executable, "-m", "unittest",
              "test_watchdog_self_monitoring.TestStepBErrTrapSilentAbortBecomesLoud"],
@@ -383,9 +453,20 @@ class TestGovernanceLinkage(unittest.TestCase):
             "INV-WATCHDOG-SELF-001 必须 critical 级别 (silent 监控是高风险)")
 
     def test_audit_metadata_v3_38(self):
-        """audit_metadata.version 升级到 3.38 (V37.9.58-hotfix3 兑现)."""
-        self.assertIn('version: "3.38"', self.gov_src,
-            "V37.9.58-hotfix3: audit_metadata.version 必须升 3.38")
+        """V37.9.69 alternation: audit_metadata.version 必须 ≥ 3.38 (V37.9.58-hotfix3 baseline).
+
+        V37.9.58-hotfix3 立 INV-WATCHDOG-SELF-001 时 yaml 升到 v3.38, 之后 yaml 持续演进
+        (v3.38 → v3.39 → ... → v3.42+). 守卫不应锁死单一 v3.38, 改为 semver-style ≥ 3.38.
+        """
+        m = re.search(r'version:\s*"(\d+)\.(\d+)"', self.gov_src)
+        self.assertIsNotNone(m, "audit_metadata.version 字面量未找到 (格式 version: \"X.Y\")")
+        major, minor = int(m.group(1)), int(m.group(2))
+        version_tuple = (major, minor)
+        baseline = (3, 38)
+        self.assertGreaterEqual(version_tuple, baseline,
+            f"V37.9.69 alternation: audit_metadata.version={major}.{minor} 必须 ≥ 3.38 "
+            f"(V37.9.58-hotfix3 立 INV-WATCHDOG-SELF-001 时立的 baseline). "
+            f"yaml 持续演进允许版本号上升, 但不允许低于 baseline.")
 
     def test_audit_metadata_meta_rules_19(self):
         """audit_metadata.meta_rules 升级到 19 (MR-1~MR-19)."""

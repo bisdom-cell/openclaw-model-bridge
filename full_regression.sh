@@ -25,8 +25,12 @@ run_suite() {
     echo -n "  🧪 $name ... "
     output=$(eval "$cmd" 2>&1)
     rc=$?
-    # 提取测试数量
-    count=$(echo "$output" | grep -oE 'Ran [0-9]+ test' | grep -oE '[0-9]+' || echo "0")
+    # V37.9.69 fix C: 提取测试数量, 取末行 (unittest summary 永远在 stdout 末尾)
+    # 防多匹配 (子进程跑别的 unittest 或代码 print "Ran X test" 字样) 让 count 含多行 →
+    # `$((TOTAL_TESTS + count))` syntax error → TOTAL_TESTS 计数失真. tail -n1 保证 count
+    # 是单一整数. 算术兜底 ${count:-0} 防 count 空串.
+    count=$(echo "$output" | grep -oE 'Ran [0-9]+ test' | tail -n1 | grep -oE '[0-9]+' | head -n1 || echo "0")
+    count="${count:-0}"
     TOTAL_TESTS=$((TOTAL_TESTS + count))
     if [ "$rc" -eq 0 ]; then
         echo "✅ ($count tests)"
@@ -53,6 +57,7 @@ run_suite "cron_monitor_scanner (V37.9.60 MR-19 err_trap_handler 契约横向推
 run_suite "cron_monitor_fatal_handler (V37.9.63 MR-8 抽公共 helper + 顺势修 V37.9.60 CLI bug + 7 governed scripts 迁移)" "python3 test_cron_monitor_fatal_handler.py"
 run_suite "cross_os_quirk_scanner (V37.9.67 INV-CROSS-OS-001 P0 — cmd&&||/grep|head/awk LC_ALL/zsh-specific 4 quirk 主动检测)" "python3 test_cross_os_quirk_scanner.py"
 run_suite "kb_dream_helpers (V37.9.68 INV-DREAM-MULTITHEME-001 — Qwen-BIM 连续几周血案防御 + 14 天 ban-list + 主题归一化 + 三阶推送 helper)" "python3 test_kb_dream_helpers.py"
+run_suite "v37_9_69 (V37.9.69 双修 — B 项 watchdog test alternation + C 项 full_regression count bug 修复)" "python3 test_v37_9_69.py"
 run_suite "crontab_safe_remove (V37.9.65 cmd_remove + 严格 count + 拒绝全清空 + V37.9.64 freight 用户痛点闭环)" "python3 test_crontab_safe_remove.py"
 run_suite "proxy_filters (工具过滤/截断/SSE)" "python3 test_tool_proxy.py"
 run_suite "check_registry (注册表校验器)" "python3 test_check_registry.py"

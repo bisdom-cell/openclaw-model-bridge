@@ -1,5 +1,5 @@
 {
-  "updated": "2026-05-15 01:55:24",
+  "updated": "2026-05-15 03:02:06",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-05-15",
+      "what": "**V37.9.69 双修闭环 (B+C 同 PR)** — V37.9.69+ 候选 (b)(c) 兑现, 短工作量低风险高确定性双修. **B 项 (test_watchdog_self_monitoring.py 5 个测试漂移修)**: V37.9.63 抽 cron_monitor_fatal_handler.sh helper 后, watchdog.sh 改用 `trap _cron_monitor_fatal_handler` 替代 inline `_watchdog_fatal_handler`, 5 个测试守卫漂移 (fatal_handler_function_defined / err_trap_registered / fatal_handler_pushes_system_alert / trap_err_after_set_e / audit_metadata_v3_38). 修复: 加 _watchdog_uses_v37_9_63_helper() helper 函数 + _read_helper_src() 读 helper 内容 + 5 测试加 alternation 分支接受 V37.9.63 helper OR V37.9.58-hotfix3 inline 任一形式 + audit_metadata 改用 semver-style ≥3.38 baseline (yaml 持续演进至 3.42+ 允许版本上升). **C 项 (full_regression.sh line 30 bash 计数 bug)**: 旧 `count=$(... | grep -oE [0-9]+ || echo 0)` 多匹配场景下 count 多行 → `$((TOTAL_TESTS + count))` syntax error → TOTAL_TESTS 计数失真. 修复: 加 `tail -n1` 取末行 (unittest summary 永远在 stdout 末尾) + `head -n1` 防护 + `${count:-0}` 算术兜底. **新文件 test_v37_9_69.py** (13 单测 / 3 类): TestWatchdogTestAlternationGuards(6 含 helper 函数定义 / _read_helper_src / V37.9.69 marker / 3 测试用 alternation / semver baseline / 31/31 OK 集成验证) + TestFullRegressionCountFix(6 含 marker / tail -n1 / ${count:-0} / 反 buggy 守卫 / **行为层 multi-line 不抛 syntax error** + **反向验证 legacy buggy 模式确实抛 syntax error** 证明 fix 必要性) + TestV37969Integration(1 bash -n). **反向验证守卫真有效**: B 项 sabotage `_cron_monitor_fatal_handler` → 4 failures + 1 skip (还原后 31/31 OK 0 skip) / C 项 legacy buggy 模式 subprocess 真跑断言 stderr 含 syntax error. **接入 full_regression.sh**: 加 suite v37_9_69. **累计**: 86→87 suites (+1) / 2962→3006 tests (+44, V37.9.69 13 + watchdog test 5 个 fail 转 pass + 其他 alternation 升级回归) / 0 fail / 安全 95/100 / governance 662 checks / VERSION 0.37.9.68 不变 (V37.9.69 仅测试守卫层修, 不涉及生产代码语义). **元价值**: 同日 V37.9.68-hotfix Mac Mini 真激活兑现 + V37.9.69 历史遗留测试漂移双修. V37.9.69 严格遵守 #28 三问最小修复 (Q1 ✓ V37.9.63 抽 helper 时遗留 / Q2 ✗ 非 V37.9.68 引入 / Q3 alternation 守卫接受两种形式). MR-8 single-source-of-truth 兑现: helper 模式让 fatal_handler 行为只在 cron_monitor_fatal_handler.sh 一处修改, 7 governed scripts 自动 propagate (V37.9.63 抽 helper 价值再次实证). **下次 V37.9.70+ 候选** (今日 status.json 焦点未完成项): (d) 反思文档行动 2: INV-PATH-CONSISTENCY-001 路径一致性 audit (e) 外部评审 P0: README 6 处 7 providers → 8 providers 漂移 (f) 反思文档行动 3: failure_modes_catalog.md (g) 治理审计 异常状态 + 自动部署 log 29m CORE 项调查.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-05-15",
       "what": "**V37.9.68-hotfix Mac Mini 真激活验证成功** — 用户视角原则 #13 第 20 次正向兑现完整闭环。用户开工 9:32 报告 [3/3] 而非 [4/4] → 9:41 代码层根因诊断 + Mac Mini 数据层确认 → 10:30 hotfix 提交 (kb_dream_helpers split_dream_into_chunks 纯函数 + 12 单测含血案场景回归 + 反向验证两层 sabotage 真有效) → PR #561 合并 → Mac Mini git fetch + reset + bash ~/kb_dream.sh 手动触发 → log: 三阶推送完成 4/4 段成功 (DEEP/WIDE/RADAR/Overview) + 梦境已推送 4/4 段到 WhatsApp + Discord → WhatsApp 真收到 4 个 [N/4] 独立窗口完美匹配 V37.9.68 设计预期 → **闭环时间 < 1.5 小时从用户视角发现到生产真激活验证**。DEEP 主题 Papers with Code 平台异常沉默 (新颖, 14 天 ban-list 持续有效, 非 Qwen-BIM 类). MR-4 silent-failure 第 27 次新形态 (设计假设与算法实现不一致) 完整 framework 级修复 + 用户视角硬实证. 元价值: V37.9.21 多窗口分片机制 4 个版本演进 (单大段切→多段合并→多段独立) 彻底完成. 用户视角原则 #13 + 原则 #15 测试三层 + 原则 #28 理解再动手三问 + MR-8 single-source-of-truth + MR-4 silent-failure 上游预防层 + V37.9.66 类别 B 设计假设错配防御 — 多 framework 协同发力 1.5h 闭环 (vs V37.9.4→V37.9.29 同款 60 天潜伏对比硬实证). V37.9.69+ 候选 (a) Mac Mini 真激活验证 — **已兑现**.",
       "by": "claude_code"
     },
@@ -193,11 +198,6 @@
     {
       "date": "2026-05-12",
       "what": "V37.9.58-hotfix2 治理债清零 — MR-18 立案 + INV-HEREDOC-IMPORT-001 framework 级 import 一致性 scanner (V37.9.58-hotfix 反思转化为机制). 用户问为什么本次错误不应该发生驱动治本路径. 新文件 heredoc_import_scanner.py (~280 行纯 AST scanner, FAIL-CLOSE 契约) + test_heredoc_import_scanner.py 33 单测 (含反向验证 sabotage 守卫真有效). dev scan 立即抓出 V37.9.58-hotfix 遗漏的 2 个 LEVEL_2 jobs (finance_news + ontology_sources) 同款盲点 — scanner 真有效证据. MR-18 立 auto-batch-injection-must-validate-runtime-semantics — 任何自动批量改多文件工具必须三层契约 (注入前 dry-run AST + 注入后 semantic validation + 失败整批 rollback). 关联 MR-4/MR-6/MR-8/MR-10. derivative INV-HEREDOC-IMPORT-001 (severity=critical, declaration+runtime, 5 checks). governance audit_metadata 3.36→3.37 + total_invariants 72→73 + total_checks 565→570 + meta_rules 16→18 (修 V37.9.19 漏更新 + 加 MR-18). full_regression 79 suites / 2704 tests / 0 fail. VERSION 0.37.9.58 不变 (hotfix 不 bump). 元价值: V37.9.50-hotfix → V37.9.58-hotfix 8 天间隔重演证明单点修复不立元规则必然 MR-4 第 N 次演出. V37.9.58-hotfix2 把自动批量工具的安全垫从下次 Claude Code 记得升级为机器化契约 + governance audit 主动监控. V3 路标 pip install ontology-engine 核心交付方向 — declarative governance framework 用机器化契约取代记忆维护成本.",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-05-12",
-      "what": "V37.9.58-hotfix: V37.9.57 自动注入工具盲点 8 ALIGNED jobs HG_LEVEL_4_TEXT 注入未补 import os 血案修复 (与 V37.9.50-hotfix 同款 NameError fix 但 V37.9.57 注入到不同 heredoc 未同步补齐). 用户视角发现 HN 14:45 cron 推送格式异常 (只有英文标题+链接, 无 6 字段 + 末尾高对齐 0/5 虚假统计). 取证 ~/.openclaw/jobs/hn_watcher/cache/hn_watcher.log 揭示 NameError: name os is not defined line 70 in stdin × 5 次 + [hn] 消息组装 LLM 解析成功 0 (但脚本误报 LLM 调用完成 成功 5/5 因 retry 把 NameError 当成功). 真因: V37.9.57 inject_level_4_to_aligned_jobs.py 给 8 jobs LLM call heredoc 末尾加 prompt += os.environ.get(HG_LEVEL_4_TEXT) 但顶部 import sys, json 缺 os. V37.9.50-hotfix 修过 emit heredoc 但 V37.9.57 引入第二处缺漏未察觉. 修复: 8/8 ALIGNED jobs heredoc 顶部 import sys, json → import sys, json, os + V37.9.58-hotfix marker. 加 test_v37_9_58_hotfix.py 4 tests source-level 守卫 (反向验证 sabotage 立即抓出 broken heredoc 还原全过). full_regression 接入 78 suites / 2671 tests / 0 fail. 原则 #28 三问严格 + MR-10 understand-before-fix 兑现. 元教训: 自动注入工具是 MR-4 silent-failure 第 N 次演出新形态 — batch 注入引入跨多 jobs 系统性 bug, 单次 fix HN 但需要 source-level 守卫 7 个其他 jobs 才闭环.",
       "by": "claude_code"
     }
   ],
@@ -364,11 +364,11 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 2962,
-    "last_regression": "2026-05-15 00:53 pass",
+    "test_count": 3006,
+    "last_regression": "2026-05-15 03:01 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-05-15 00:53",
-    "test_suites": 85,
+    "security_score_time": "2026-05-15 03:01",
+    "test_suites": 87,
     "governance_invariants": "64/64",
     "governance_checks": "350/350",
     "version": "0.37.9.68"
