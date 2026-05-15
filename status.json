@@ -1,5 +1,5 @@
 {
-  "updated": "2026-05-15 03:02:06",
+  "updated": "2026-05-15 04:13:57",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-05-15",
+      "what": "**V37.9.70 (e) README 8 providers 漂移修复 — 外部评审 P0 兑现** — 触发: status.json focus 段登记 V37.9.69+ 候选 (e) 外部评审吸收 P0 README 6 处 7 providers → 8 providers 漂移 (V37.9.52 doubao 加入但 README 未刷新). 用户开工选 V37.9.70 (e) 继续推进 (低风险 5-10 分钟工作量). 严格按原则 #28 三问: Q1 ✓ V37.9.52 加 doubao 时未同步 README / Q2 ✗ V37.9.70 不引入 / Q3 最小修复 = grep + 精确 edit 不全局 sed. **dev scan 实际抓 10 处 (status.json 估 6 处低估)**: line 3 (页头摘要) + line 9 (badge) + line 48 (architecture diagram) + line 158 + line 163 (含 provider 列表) + line 244 + line 272 + line 273 + line 420 + line 436 + line 590. **修复**: 9 处 `7 provider* → 8 provider*` 字面量精确替换 + line 163 provider 列表加 `**Doubao Seed 2.0 Pro** (Volcengine, V37.9.52)` 8 个 provider 完整列出 + line 273 加 `(7 built-in + Doubao plugin)` 注释清晰区分内置 + 插件. **验证**: grep 后 0 处 7 provider* 残留 + 10 处 8 provider* 全显示 (badge / diagram / table / CLI / capability plane / file table). **governance 安全**: governance_ontology.yaml 不引用 README provider 数字, 无守卫破坏风险. **全量回归**: 87/3006/0 fail 无副作用. **scope 严格控制**: 不顺带改其他 README badge 漂移 (line 8 tests-2515 / line 10 invariants-71+16 MR / line 408 v3.34 / line 413 15 case studies / line 628 5 specs / line 632 17 case studies). 这些是 long-term doc rot 登记为 V37.9.71+ 候选 (g). **元价值**: 外部代码级评审 P0 任务 (2026-04-17 反馈) 在 V37.9.70 内闭环, 单 session 内 (a) B+C 双修测试漂移 + (b) README provider 漂移 双交付. 原则 #28 第三问严格执行不超出 scope. VERSION 0.37.9.68 不变 (V37.9.70 仅文档修, 不涉及代码). **下次 V37.9.71+ 候选**: (g) README 其他 badge 数字漂移 (tests/invariants/MR/case studies 多处) (d) 反思文档行动 2 INV-PATH-CONSISTENCY-001 (f) 反思文档行动 3 failure_modes_catalog.md (h) SLO p95 71958ms 严重超阈值数字恶化调查 (V37.9.58 54s → V37.9.69 72s) (i) CORE 项调查 治理审计 异常状态 + auto_deploy log 29m 真实原因.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-05-15",
       "what": "**V37.9.69 双修闭环 (B+C 同 PR)** — V37.9.69+ 候选 (b)(c) 兑现, 短工作量低风险高确定性双修. **B 项 (test_watchdog_self_monitoring.py 5 个测试漂移修)**: V37.9.63 抽 cron_monitor_fatal_handler.sh helper 后, watchdog.sh 改用 `trap _cron_monitor_fatal_handler` 替代 inline `_watchdog_fatal_handler`, 5 个测试守卫漂移 (fatal_handler_function_defined / err_trap_registered / fatal_handler_pushes_system_alert / trap_err_after_set_e / audit_metadata_v3_38). 修复: 加 _watchdog_uses_v37_9_63_helper() helper 函数 + _read_helper_src() 读 helper 内容 + 5 测试加 alternation 分支接受 V37.9.63 helper OR V37.9.58-hotfix3 inline 任一形式 + audit_metadata 改用 semver-style ≥3.38 baseline (yaml 持续演进至 3.42+ 允许版本上升). **C 项 (full_regression.sh line 30 bash 计数 bug)**: 旧 `count=$(... | grep -oE [0-9]+ || echo 0)` 多匹配场景下 count 多行 → `$((TOTAL_TESTS + count))` syntax error → TOTAL_TESTS 计数失真. 修复: 加 `tail -n1` 取末行 (unittest summary 永远在 stdout 末尾) + `head -n1` 防护 + `${count:-0}` 算术兜底. **新文件 test_v37_9_69.py** (13 单测 / 3 类): TestWatchdogTestAlternationGuards(6 含 helper 函数定义 / _read_helper_src / V37.9.69 marker / 3 测试用 alternation / semver baseline / 31/31 OK 集成验证) + TestFullRegressionCountFix(6 含 marker / tail -n1 / ${count:-0} / 反 buggy 守卫 / **行为层 multi-line 不抛 syntax error** + **反向验证 legacy buggy 模式确实抛 syntax error** 证明 fix 必要性) + TestV37969Integration(1 bash -n). **反向验证守卫真有效**: B 项 sabotage `_cron_monitor_fatal_handler` → 4 failures + 1 skip (还原后 31/31 OK 0 skip) / C 项 legacy buggy 模式 subprocess 真跑断言 stderr 含 syntax error. **接入 full_regression.sh**: 加 suite v37_9_69. **累计**: 86→87 suites (+1) / 2962→3006 tests (+44, V37.9.69 13 + watchdog test 5 个 fail 转 pass + 其他 alternation 升级回归) / 0 fail / 安全 95/100 / governance 662 checks / VERSION 0.37.9.68 不变 (V37.9.69 仅测试守卫层修, 不涉及生产代码语义). **元价值**: 同日 V37.9.68-hotfix Mac Mini 真激活兑现 + V37.9.69 历史遗留测试漂移双修. V37.9.69 严格遵守 #28 三问最小修复 (Q1 ✓ V37.9.63 抽 helper 时遗留 / Q2 ✗ 非 V37.9.68 引入 / Q3 alternation 守卫接受两种形式). MR-8 single-source-of-truth 兑现: helper 模式让 fatal_handler 行为只在 cron_monitor_fatal_handler.sh 一处修改, 7 governed scripts 自动 propagate (V37.9.63 抽 helper 价值再次实证). **下次 V37.9.70+ 候选** (今日 status.json 焦点未完成项): (d) 反思文档行动 2: INV-PATH-CONSISTENCY-001 路径一致性 audit (e) 外部评审 P0: README 6 处 7 providers → 8 providers 漂移 (f) 反思文档行动 3: failure_modes_catalog.md (g) 治理审计 异常状态 + 自动部署 log 29m CORE 项调查.",
       "by": "claude_code"
     },
@@ -193,11 +198,6 @@
     {
       "date": "2026-05-12",
       "what": "V37.9.58-hotfix3 治本 watchdog silent abort 7 天血案 — MR-19 立案 + INV-WATCHDOG-SELF-001 framework 级监控自观察. 用户深问为什么静默失败不提前告警驱动. 真因: watchdog 5/5 16:30 起因 macOS bsd awk towc multibyte conversion failure + set -eo pipefail + 无 ERR trap = 静默 abort 7 天累积告警未推送 (hf/s2/rss/gh lockdir 残留 + MOVESPEED 24h 21 次 rsync 失败 + SLO p95 54s + KB 摘要 29h 未更新全部 silent). V37.9.58-hotfix3 治本三层: (A) awk LC_ALL=C + 容错防 set -e abort (B) ERR trap _watchdog_fatal_handler 主动推 [SYSTEM_ALERT] 到 Discord (三层 FAIL-OPEN: notify/openclaw/local) (C) EXIT trap canary heartbeat 写 ~/watchdog_canary.json + ALERTS=0 时推 alive 元监控. STALE_LOCK_DIRS 补 5 jobs (rss_blogs/github_trending/ai_leaders_x/finance_news/ontology_sources). MR-19 立案 monitor-must-self-alarm-on-silent-abort (3 契约: awk_safe + err_trap_handler + canary_writer). INV-WATCHDOG-SELF-001 (12 checks, declaration + runtime). test_watchdog_self_monitoring.py 29 单测 7 类 + 反向验证 sabotage 守卫真有效 (移除 LC_ALL=C / trap ERR / canary 立即 fail 还原全过). audit_metadata 3.37→3.38 + total_invariants 73→74 + total_checks 570→582 + meta_rules 18→19. 累计 80 suites / 2733 tests / 0 fail / 安全 95/100 / VERSION 0.37.9.58 不变. 今日 V37.9.58 四件套闭环: 主 (machine_sync 真激活) + hotfix (业务层 silent) + hotfix2 (治理层 silent) + hotfix3 (监控层 silent, 最深层 元监控). V3 路标 pip install ontology-engine 核心交付之一. 把 watchdog 自身死亡 7 天无人发现 从靠运维记忆升级为机器化主动告警 + canary 双层防御.",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-05-12",
-      "what": "V37.9.58-hotfix2 治理债清零 — MR-18 立案 + INV-HEREDOC-IMPORT-001 framework 级 import 一致性 scanner (V37.9.58-hotfix 反思转化为机制). 用户问为什么本次错误不应该发生驱动治本路径. 新文件 heredoc_import_scanner.py (~280 行纯 AST scanner, FAIL-CLOSE 契约) + test_heredoc_import_scanner.py 33 单测 (含反向验证 sabotage 守卫真有效). dev scan 立即抓出 V37.9.58-hotfix 遗漏的 2 个 LEVEL_2 jobs (finance_news + ontology_sources) 同款盲点 — scanner 真有效证据. MR-18 立 auto-batch-injection-must-validate-runtime-semantics — 任何自动批量改多文件工具必须三层契约 (注入前 dry-run AST + 注入后 semantic validation + 失败整批 rollback). 关联 MR-4/MR-6/MR-8/MR-10. derivative INV-HEREDOC-IMPORT-001 (severity=critical, declaration+runtime, 5 checks). governance audit_metadata 3.36→3.37 + total_invariants 72→73 + total_checks 565→570 + meta_rules 16→18 (修 V37.9.19 漏更新 + 加 MR-18). full_regression 79 suites / 2704 tests / 0 fail. VERSION 0.37.9.58 不变 (hotfix 不 bump). 元价值: V37.9.50-hotfix → V37.9.58-hotfix 8 天间隔重演证明单点修复不立元规则必然 MR-4 第 N 次演出. V37.9.58-hotfix2 把自动批量工具的安全垫从下次 Claude Code 记得升级为机器化契约 + governance audit 主动监控. V3 路标 pip install ontology-engine 核心交付方向 — declarative governance framework 用机器化契约取代记忆维护成本.",
       "by": "claude_code"
     }
   ],
@@ -365,9 +365,9 @@
   "quality": {
     "security_score": 95,
     "test_count": 3006,
-    "last_regression": "2026-05-15 03:01 pass",
+    "last_regression": "2026-05-15 04:13 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-05-15 03:01",
+    "security_score_time": "2026-05-15 04:13",
     "test_suites": 87,
     "governance_invariants": "64/64",
     "governance_checks": "350/350",

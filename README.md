@@ -6,7 +6,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![Tests](https://img.shields.io/badge/tests-2515%20passed-brightgreen.svg)]()
-[![Providers](https://img.shields.io/badge/providers-7%20supported-orange.svg)]()
+[![Providers](https://img.shields.io/badge/providers-8%20supported-orange.svg)]()
 [![Governance](https://img.shields.io/badge/invariants-71%2F71%20%2B%2016%20MR-blueviolet.svg)]()
 [![Security](https://img.shields.io/badge/security-95%2F100-green.svg)]()
 [![Jobs](https://img.shields.io/badge/cron%20jobs-36%20active-blue.svg)]()
@@ -45,7 +45,7 @@
 │  ① 核心数据通路（实时对话 + 多模态 + SLO 监控）                   │
 │                                                                  │
 │  WhatsApp ←┐                                                     │
-│  Discord  ←┼→ Gateway (:18789) ←→ Proxy (:5002) ←→ Adapter (:5001) ←→ LLM (7 Providers) │
+│  Discord  ←┼→ Gateway (:18789) ←→ Proxy (:5002) ←→ Adapter (:5001) ←→ LLM (8 Providers) │
 │            │  [launchd]           [策略过滤+监控]    [认证+Fallback]    [Qwen3-235B]       │
 │            │  [媒体存储]          [图片base64注入]   [VL模型路由]       [+6 more providers] │
 │  notify.sh ┘  [双通道推送]        [自定义工具注入]    [→Gemini降级]                        │
@@ -155,12 +155,12 @@
 |-----------|------|-------|------|
 | OpenClaw Gateway | 18789 | npm global | WhatsApp integration, media storage, tool execution, session management |
 | Tool Proxy | 5002 | `tool_proxy.py` + `proxy_filters.py` | Tool filtering (24→12), **custom tools** (data_clean + search_kb hybrid search), **image base64 injection**, SSE conversion, truncation, token monitoring, **SLO metrics collection**, **incident snapshots** |
-| Adapter | 5001 | `adapter.py` + `providers.py` | **7-provider** forwarding, auth, **multimodal routing** (text→Qwen3, image→Qwen2.5-VL), fallback degradation |
+| Adapter | 5001 | `adapter.py` + `providers.py` | **8-provider** forwarding, auth, **multimodal routing** (text→Qwen3, image→Qwen2.5-VL), fallback degradation |
 | Config Center | — | `config.yaml` + `config_loader.py` | Centralized thresholds (70+ params, 9 sections: SLO/proxy/tokens/alerts/routing/truncation/watchdog/incidents/jobs) |
 | SLO Benchmark | — | `slo_benchmark.py` | SLO compliance — 5 metrics, real production data reports (p95=459ms, 5/5 PASS) |
 | Notifications | — | `notify.sh` | **Dual-channel push**: WhatsApp + Discord (6 topic channels: papers/freight/alerts/daily/tech/DM) |
 | Local Embedding | — | `local_embed.py` | sentence-transformers (384-dim, 50+ languages), zero API calls |
-| Remote LLM | — | 7 providers | Qwen3-235B / GPT-4o / Gemini 2.5 / Claude Sonnet / Kimi K2.5 / MiniMax M2.7 / GLM-5 |
+| Remote LLM | — | 8 providers | Qwen3-235B / GPT-4o / Gemini 2.5 / Claude Sonnet / Kimi K2.5 / MiniMax M2.7 / GLM-5 / **Doubao Seed 2.0 Pro** (Volcengine, V37.9.52) |
 
 ## Supported Providers (7)
 
@@ -241,7 +241,7 @@ python3 slo_benchmark.py --json   # JSON format for CI
 python3 slo_benchmark.py --save   # Save to docs/slo_benchmark_report.md
 
 # Provider compatibility matrix
-python3 providers.py              # Markdown table (7 providers)
+python3 providers.py              # Markdown table (8 providers)
 python3 providers.py --json       # JSON format
 
 # GameDay fault injection drill
@@ -269,8 +269,8 @@ Core services (`tool_proxy.py`, `adapter.py`, `proxy_filters.py`) use **only Pyt
 |------|-------------|
 | `tool_proxy.py` | HTTP layer — request/response routing, **custom tool execution** (data_clean + search_kb), **media injection**, followup LLM calls, logging, health cascade |
 | `proxy_filters.py` | Policy layer — tool filtering, **custom tool injection** (data_clean + search_kb), **image base64 injection** (`<media:image>` → `image_url`), param fixing, truncation, SSE conversion |
-| `adapter.py` | API adapter — **7-provider** forwarding, auth, **multimodal routing** (text→Qwen3, image→Qwen2.5-VL), fallback degradation |
-| `providers.py` | **V34** Provider Compatibility Layer — BaseProvider abstraction, 7 concrete providers, ProviderRegistry, capability declaration, CLI matrix |
+| `adapter.py` | API adapter — **8-provider** forwarding, auth, **multimodal routing** (text→Qwen3, image→Qwen2.5-VL), fallback degradation |
+| `providers.py` | **V34** Provider Compatibility Layer — BaseProvider abstraction, 8 concrete providers (7 built-in + Doubao plugin), ProviderRegistry, capability declaration, CLI matrix |
 | `slo_benchmark.py` | **V35** SLO Benchmark report generator — reads proxy_stats.json → Markdown/JSON report (latency p50/p95/p99, success rate, degradation) |
 | `quickstart.sh` | **V35** One-click Quick Start — 4 phases (prerequisites → services → health → golden test), provider auto-detection |
 | `notify.sh` | **V33** Unified notification — WhatsApp + Discord dual-channel push, 6 topic channels |
@@ -417,7 +417,7 @@ All jobs registered in `jobs_registry.yaml`. Validate: `python3 check_registry.p
 
 | File | Description |
 |------|-------------|
-| `docs/compatibility_matrix.md` | **V35** Provider compatibility matrix — 7 providers, verification status, degradation paths |
+| `docs/compatibility_matrix.md` | **V35** Provider compatibility matrix — 8 providers, verification status, degradation paths |
 | `docs/slo_benchmark_report.md` | **V35** SLO Benchmark production report — 5/5 PASS, p95=459ms |
 | `docs/golden_trace.json` | **V35** Golden Test Trace — real request/response through full stack (521ms, reproducible) |
 | `docs/strategic_review_20260403.md` | **V34** Strategic review — Stage2 positioning, V1-V3 roadmap, methodology |
@@ -433,7 +433,7 @@ All jobs registered in `jobs_registry.yaml`. Validate: `python3 check_registry.p
 
 **Four-Plane Architecture**:
 - **Control Plane** (90%): Provider Compatibility Layer, SLO 5-metric monitoring, centralized thresholds, 19-check preflight, incident snapshots, circuit breaker + audit logging (fsync + atomic snapshot), 60-invariant governance, single-manager process ownership (V37.9.13)
-- **Capability Plane** (85%): 7-provider routing + capability-based fallback chain, multimodal (text+vision), tool governance (≤12, policy-driven via V37.9.12), data cleaning, search_kb hybrid retrieval
+- **Capability Plane** (85%): 8-provider routing + capability-based fallback chain, multimodal (text+vision), tool governance (≤12, policy-driven via V37.9.12), data cleaning, search_kb hybrid retrieval
 - **Memory Plane** (75%): KB RAG (local sentence-transformers), trend analysis, preference learning, multimodal memory, Memory Plane v2 (dedup + confidence + conflict resolution), Agent Dream v2 MapReduce
 - **Ontology Plane** (Phase 4 P2 active): 4 YAML ontologies (tool/domain/policy/governance), Tool Ontology Engine (81 rules, ONTOLOGY_MODE=on), Governance Ontology v3.31 (60 invariants + 15 meta rules + 13 MRD scanners), 2 policies wired via `evaluate_policy()`, 15 blood lesson cases
 
@@ -587,7 +587,7 @@ python3 slo_benchmark.py                # Markdown: 5/5 PASS, p95=459ms
 python3 slo_benchmark.py --save         # Save to docs/
 
 # Provider compatibility matrix
-python3 providers.py                    # 7-provider matrix
+python3 providers.py                    # 8-provider matrix
 python3 providers.py --json             # JSON for CI
 
 # GameDay fault injection (5 scenarios)
