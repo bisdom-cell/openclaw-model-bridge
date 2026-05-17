@@ -487,20 +487,32 @@ def split_dream_into_chunks(text: str, max_chunk: int = 4000) -> list[str]:
     if not sections:
         return []
 
-    # 提取 header 段（首个 ## 之前的部分）+ 收集所有 ## 段
-    header_part = sections[0].rstrip()
+    # V37.9.73 修复（V37.9.68-hotfix 设计假设错配 — V37.9.66 类别 B 第 N+1 次演出）：
+    # sections[0] 可能是 header 段（如 "# 🌙 Agent Dream\n> 元数据..."）或第一个 ## 段。
+    # 判定规则：lstrip 后以 "## " 开头 → 是第一个 ## 段（生产 caller `<<< $DREAM_RESULT` 形态，
+    # 见 kb_dream.sh:1557）；否则是 header 段（测试场景或 dream 文件写入场景）。
+    # 2026-05-16/17 连续两天 Mac Mini cron 实测 [3/3] 血案 = 错把 DEEP 段当 header_part 与 WIDE 合并。
+    first_is_h2 = sections[0].lstrip().startswith("## ")
     ordered_sections: list[str] = []
-    for i, sec in enumerate(sections):
-        if i == 0:
-            continue  # header 单独处理
-        ordered_sections.append("## " + sec)
-
-    # header 合并到第一个 ## 段（让用户在第一个窗口看到 Dream 标识）
-    if ordered_sections and header_part:
-        ordered_sections[0] = (header_part + "\n\n" + ordered_sections[0]).strip()
-    elif header_part and not ordered_sections:
-        # 退化场景: text 没有 ## header, header 自身作为唯一段
-        ordered_sections.append(header_part)
+    if first_is_h2:
+        # 生产场景：text 开头就是 "## DEEP"，sections[0] 已是第一个 ## 段，保留原 "## " 前缀
+        for i, sec in enumerate(sections):
+            if i == 0:
+                ordered_sections.append(sec.strip())
+            else:
+                ordered_sections.append("## " + sec)
+    else:
+        # 测试/dream-file 场景：text 开头是 "# Agent Dream" header + 元数据
+        header_part = sections[0].rstrip()
+        for i, sec in enumerate(sections):
+            if i == 0:
+                continue
+            ordered_sections.append("## " + sec)
+        if ordered_sections and header_part:
+            ordered_sections[0] = (header_part + "\n\n" + ordered_sections[0]).strip()
+        elif header_part and not ordered_sections:
+            # 退化场景: text 没有 ## header, header 自身作为唯一段
+            ordered_sections.append(header_part)
 
     # 每段独立成 chunk; 仅当单段 > max_chunk 时内部按 \n 切分
     chunks: list[str] = []
