@@ -1004,5 +1004,144 @@ class TestKbDreamShellGuards(unittest.TestCase):
                       "V37.9.68-hotfix marker 必须存在便于运维 grep")
 
 
+class TestV37974RadarRetryAndPromptHardening(unittest.TestCase):
+    """V37.9.74 RADAR LLM drift 修复 (方案 2 prompt 强化 + 方案 3 retry 兜底).
+
+    背景: 2026-05-16 + 5/17 连续两天 Mac Mini cron LLM drift 漏 ## 📡 RADAR header
+    → RADAR_BLOCK="" → wc -c = 1 → < MIN_SECTION_CHARS=600 → DEGRADED 占位符推送.
+    用户视角 [3/3] 血案的 LLM 输出 drift 根因 (chunk 切分由 V37.9.73 修, drift 本身 V37.9.74 修).
+
+    方案 2 (prompt 强化): WIDE_RADAR_SYSTEM 加 V37.9.74 硬要求 + WIDE_RADAR_PROMPT 加输出自检 checklist.
+    方案 3 (retry 兜底): 当 WIDE ok 但 RADAR 缺失时, 主动调一次 LLM 只产 RADAR 段, 失败仍走 DEGRADED.
+    用户决策 V37.9.74 retry 走默认 primary (Qwen3), doubao 试水留 V37.9.75 (B 候选, 需 adapter ?provider= 支持).
+
+    多层防御: prompt 强化 (预防) + retry 兜底 (恢复) + DEGRADED 占位符 (最后兜底). 不依赖任一层 100%.
+    """
+
+    def setUp(self):
+        repo_root = os.path.dirname(os.path.abspath(__file__))
+        with open(os.path.join(repo_root, "kb_dream.sh")) as f:
+            self.src = f.read()
+
+    # === 方案 2: prompt 强化守卫 ===
+
+    def test_v37_9_74_marker_in_source(self):
+        """V37.9.74 marker 必须在 shell 文件可 grep."""
+        self.assertIn("V37.9.74", self.src, "V37.9.74 marker 必须存在")
+
+    def test_wide_radar_system_strict_two_section_requirement(self):
+        """WIDE_RADAR_SYSTEM prompt 强化: 必须输出完整 2 段 + RADAR header 字面量."""
+        self.assertIn("**必须**输出完整 2 段", self.src,
+                      "V37.9.74: WIDE_RADAR_SYSTEM 必须有'必须输出完整 2 段'硬约束 (markdown bold 强调)")
+        self.assertIn("写完 WIDE 第 5 条后", self.src,
+                      "V37.9.74: 必须有'写完 WIDE 后必须立即接 RADAR'约束 (防 LLM drift 提前收尾)")
+
+    def test_wide_radar_prompt_self_check_checklist(self):
+        """WIDE_RADAR_PROMPT 强化: 含 V37.9.74 输出自检 checklist."""
+        self.assertIn("V37.9.74 输出自检", self.src,
+                      "V37.9.74: prompt 必须含'输出自检'段")
+        # 5 项 checklist 应都在
+        self.assertIn("第一段开头是字面量", self.src)
+        self.assertIn("第二段开头是字面量", self.src)
+        self.assertIn("没有写完 WIDE 就直接收尾", self.src,
+                      "V37.9.74: checklist 必须显式提示 5/16+5/17 真实 drift 模式")
+
+    def test_prompt_mentions_v37_9_74_retry_in_hard_requirement(self):
+        """硬性要求段必须提示 V37.9.74 retry 机制 (告诉 LLM 不合格会触发 retry)."""
+        self.assertIn("V37.9.74 会自动 retry RADAR 一次", self.src,
+                      "V37.9.74: 硬性要求必须告知 LLM retry 机制 (防 LLM 误以为 unrecoverable)")
+
+    # === 方案 3: retry 兜底逻辑守卫 ===
+
+    def test_radar_retry_block_exists(self):
+        """V37.9.74 RADAR retry 兜底逻辑必须存在."""
+        # 触发条件: WIDE ok + RADAR degraded
+        self.assertIn('[ "$RADAR_STATUS" = "degraded" ] && [ "$WIDE_STATUS" = "ok" ]', self.src,
+                      "V37.9.74: retry 必须仅在 WIDE ok + RADAR degraded 时触发")
+        # retry-only prompt 标识
+        self.assertIn("RADAR_RETRY_SYSTEM", self.src, "V37.9.74: RADAR_RETRY_SYSTEM 变量必须定义")
+        self.assertIn("RADAR_RETRY_PROMPT", self.src, "V37.9.74: RADAR_RETRY_PROMPT 变量必须定义")
+        # llm_call 真调用
+        self.assertIn('llm_call "$RADAR_RETRY_PROMPT"', self.src,
+                      "V37.9.74: retry 必须真调用 llm_call")
+
+    def test_retry_validates_both_chars_and_header(self):
+        """V37.9.74 retry 结果必须双重验证: chars >= MIN + 含 ## 📡 header.
+
+        防止 LLM 产出 1500 字垃圾文本但仍漏 RADAR header 的 corner case.
+        """
+        self.assertIn('RADAR_RETRY_HAS_HEADER', self.src,
+                      "V37.9.74: retry 必须验证 RADAR header 字面量存在")
+        # 双重验证: chars + header
+        self.assertIn('[ "$RADAR_RETRY_CHARS" -ge "$MIN_SECTION_CHARS" ]', self.src,
+                      "V37.9.74: retry 必须验证 chars 阈值")
+        self.assertIn('[ "$RADAR_RETRY_HAS_HEADER" = "true" ]', self.src,
+                      "V37.9.74: retry 必须验证 has_header=true (双重防御)")
+
+    def test_retry_success_sets_status_ok_for_downstream_compat(self):
+        """retry 成功必须 RADAR_STATUS='ok' (下游零改动 — total counter / SUCCESSFUL_SECTIONS 等)."""
+        # retry success 分支必须设 RADAR_STATUS="ok" (不是 "ok_via_retry" 避免下游 if 漏判)
+        # 在 retry block 内部检查
+        retry_idx = self.src.find('V37.9.74 RADAR retry 成功')
+        self.assertGreater(retry_idx, 0, "V37.9.74: retry 成功日志字面量必须存在")
+        # 在该日志前 500 字符内必须有 RADAR_STATUS="ok"
+        window = self.src[max(0, retry_idx - 500):retry_idx]
+        self.assertIn('RADAR_STATUS="ok"', window,
+                      "V37.9.74: retry 成功后 RADAR_STATUS 必须设 'ok' (下游兼容)")
+
+    def test_retry_failure_falls_through_to_v37_9_73_degraded(self):
+        """retry 失败必须 fall-through 到 V37.9.73 DEGRADED 兜底 (不阻塞 DEEP 推送)."""
+        # 即使 retry 失败也不 exit, 由后续 DEGRADED 块处理
+        # 检查 retry 失败日志后没有 exit 1
+        retry_fail_idx = self.src.find('V37.9.74 RADAR retry 失败')
+        self.assertGreater(retry_fail_idx, 0, "retry 失败日志必须存在")
+        # 失败日志后 200 字符内不应有 exit
+        window = self.src[retry_fail_idx:retry_fail_idx + 200]
+        self.assertNotIn("exit 1", window,
+                         "V37.9.74: retry 失败不应 exit (走 V37.9.73 DEGRADED 兜底, DEEP 推送不阻塞)")
+
+    def test_retry_prompt_excludes_deep_theme_and_wide_block(self):
+        """retry prompt 必须显式排除 DEEP 主题 + WIDE 已覆盖主题 (防 LLM 重复)."""
+        self.assertIn('严禁重复】${DEEP_THEME}', self.src,
+                      "V37.9.74: retry 必须显式排除 DEEP 主题")
+        self.assertIn('上次 WIDE 已覆盖主题', self.src,
+                      "V37.9.74: retry 必须告知 LLM WIDE 已覆盖主题")
+        self.assertIn('${WIDE_BLOCK}', self.src,
+                      "V37.9.74: retry prompt 必须注入 WIDE_BLOCK 防重复")
+
+    # === schema 升级守卫 ===
+
+    def test_status_json_schema_includes_radar_retried_field(self):
+        """status.json 必须含 radar_retried + radar_retry_chars 字段 (运维可观测).
+
+        Mac Mini 部署后通过 last_run.json `radar_retried` 字段统计 LLM drift 频率.
+        """
+        self.assertIn('"radar_retried":%s', self.src,
+                      "V37.9.74: status.json schema 必须含 radar_retried 字段")
+        self.assertIn('"radar_retry_chars":%d', self.src,
+                      "V37.9.74: status.json schema 必须含 radar_retry_chars 字段")
+        # printf 参数顺序必须对应
+        self.assertIn('"${RADAR_RETRIED:-false}"', self.src,
+                      "V37.9.74: status.json 必须用 RADAR_RETRIED 变量 (defaults to false)")
+
+    def test_radar_retried_initialized_false_before_retry_block(self):
+        """RADAR_RETRIED 变量必须在 retry block 之前初始化 false (防止 set -u 未定义错误)."""
+        # 初始化必须在 retry block 之前
+        init_idx = self.src.find('RADAR_RETRIED=false')
+        retry_block_idx = self.src.find('主动 retry RADAR-only')
+        self.assertGreater(init_idx, 0, "RADAR_RETRIED=false 初始化必须存在")
+        self.assertLess(init_idx, retry_block_idx,
+                        "V37.9.74: RADAR_RETRIED 必须先初始化 false 再用 (顺序锁)")
+
+    # === V37.9.75 候选 B 占位守卫 (doubao 试水路径登记) ===
+
+    def test_v37_9_75_doubao_candidate_documented_in_comment(self):
+        """V37.9.74 注释必须登记 V37.9.75 候选 B (doubao 试水) — 防止候选丢失."""
+        self.assertIn("V37.9.75+ 候选 B", self.src,
+                      "V37.9.74 注释必须显式登记 V37.9.75 doubao 试水候选")
+        self.assertIn("doubao", self.src,
+                      "V37.9.74 注释必须提到 doubao (V37.9.55 试水承诺路径)")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

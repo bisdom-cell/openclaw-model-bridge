@@ -232,15 +232,31 @@ class TestAntiPollutionSystemPrompt(unittest.TestCase):
 
         V37.8.6 反污染语义不丢，只是从 3 个 CHUNK system prompt 搬到 2 个新 system prompt。
         测试更新为锁定 V37.9.68 两个新 system prompt 都含 V37.8.6 反污染条款。
+
+        V37.9.74 更新: WIDE_RADAR_SYSTEM 内引入 escaped ASCII 双引号 (`\\"## 🌐 ...\\"`),
+        让旧 regex [^"]* 在第一个未转义 " 处提前终止. 改用 python 字符串扫描找未转义 " 边界.
         """
-        # 新设计：DEEP_SYSTEM + WIDE_RADAR_SYSTEM 两个 system prompt
-        new_systems = re.findall(
-            r'(DEEP_SYSTEM|WIDE_RADAR_SYSTEM)="([^"]+)"', self.src)
-        self.assertEqual(len(new_systems), 2,
-                        "V37.9.68 后必须找到 DEEP_SYSTEM + WIDE_RADAR_SYSTEM 共 2 个 system prompt")
-        for name, prompt_text in new_systems:
-            self.assertIn("V37.8.6 反污染", prompt_text,
-                         f"{name} 必须含 V37.8.6 反污染标记（V37.9.68 架构迁移后语义保留）")
+        # V37.9.74 兼容: 用 python 找未转义 " 边界, 不用 regex
+        def _extract_var_block(src: str, var_name: str) -> str:
+            marker = f'{var_name}="'
+            start = src.find(marker)
+            if start < 0:
+                return ""
+            i = start + len(marker)
+            while i < len(src):
+                if src[i] == '"' and (i == 0 or src[i - 1] != '\\'):
+                    break
+                i += 1
+            return src[start + len(marker):i]
+
+        deep_block = _extract_var_block(self.src, "DEEP_SYSTEM")
+        wide_block = _extract_var_block(self.src, "WIDE_RADAR_SYSTEM")
+        self.assertTrue(deep_block, "V37.9.68 DEEP_SYSTEM 必须存在")
+        self.assertTrue(wide_block, "V37.9.68 WIDE_RADAR_SYSTEM 必须存在")
+        self.assertIn("V37.8.6 反污染", deep_block,
+                     "DEEP_SYSTEM 必须含 V37.8.6 反污染标记（V37.9.68 架构迁移后语义保留）")
+        self.assertIn("V37.8.6 反污染", wide_block,
+                     "WIDE_RADAR_SYSTEM 必须含 V37.8.6 反污染标记 (V37.9.74 兼容 escaped quotes)")
         # 反向验证：老 CHUNK1/2/3_SYSTEM 必须清除
         old_chunks = re.findall(r'CHUNK[123]_SYSTEM="', self.src)
         self.assertEqual(len(old_chunks), 0,
