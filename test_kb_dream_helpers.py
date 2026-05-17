@@ -740,6 +740,132 @@ class TestSplitDreamIntoChunks(unittest.TestCase):
         )
 
 
+class TestSplitDreamProductionCallerFormat(unittest.TestCase):
+    """V37.9.73 血案回归: 覆盖生产 caller 真实 input 形态 (V37.9.68-hotfix 测试盲区).
+
+    V37.9.68-hotfix 12 个测试全部用 text = '# 🌙 Agent Dream — DATE\\n\\n> 模式: ...\\n\\n## DEEP'
+    形态作为 input, 完全没覆盖生产 caller kb_dream.sh:1557 实际推的 DREAM_RESULT 形态
+    (直接以 '## DEEP' 开头, 没有 '# Agent Dream' header).
+
+    Mac Mini 2026-05-16 + 5/17 连续两天 cron 产 [3/3] 血案的真根因:
+    split_dream_into_chunks 把 sections[0] (DEEP 段) 误当 header_part → 跟 WIDE 合并.
+
+    V37.9.73 修复: 主动判断 sections[0] 是否以 '## ' 开头, 决定是 header 还是第一个 ## 段.
+    本测试类锁定生产 caller 真实形态必须产 4 chunks, 防未来回归.
+
+    MR-15 测试三层第三层不可替代: 单测全过 + 治理全过 + 用户连续两天 [3/3] 才暴露.
+    MR-6 critical-invariants-need-depth: 测试 input 必须覆盖真实生产路径.
+    """
+
+    def test_v37_9_73_blood_lesson_no_header_4_chunks(self):
+        """V37.9.73 血案直接复现: text 开头是 '## DEEP' (无 # Agent Dream header).
+
+        镜像 kb_dream.sh:1479 DREAM_RESULT 拼接逻辑:
+            DREAM_RESULT="$DEEP_RESULT\\n\\n$WIDE_BLOCK\\n\\n$RADAR_BLOCK\\n\\n$OVERVIEW_BLOCK"
+        每段以 '## ' 开头, 整个 DREAM_RESULT 以 '## ' 开头.
+        """
+        # DEEP_RESULT (LLM 调用 1 真实形态)
+        deep = "## 🌙 今日深度: 编译器反馈闭环提升LLM代码生成可信度\n"
+        deep += "### 发现过程\n" + ("a" * 600) + "\n\n"
+        deep += "### 🔗 隐藏关联\n" + ("b" * 800) + "\n\n"
+        deep += "### 🎯 行动建议\n" + ("c" * 500)
+        # WIDE_BLOCK (LLM 调用 2 拆出的第一段)
+        wide = "## 🌐 跨领域鲜人知 × 5\n\n"
+        wide += "- **地缘政治冲突对全球供应链与宏观经济的连锁效应**: " + ("d" * 600)
+        # RADAR_BLOCK (LLM 漏 ## 📡 header 导致 DEGRADED 占位)
+        radar = "## 📡 准期信号 × 5\n\n⚠️ [DEGRADED] RADAR 段本日生成失败 (1 chars < 600)."
+        # OVERVIEW_BLOCK (规则提取)
+        overview = "## 📋 今日连动 + 明日关注\n\n- 🌙 **DEEP 主题**: 编译器反馈闭环"
+
+        # 生产 caller 拼接: 没有 '# Agent Dream' header
+        dream_result = f"{deep}\n\n{wide}\n\n{radar}\n\n{overview}"
+        self.assertTrue(
+            dream_result.startswith("## "),
+            "前置: DREAM_RESULT 必须以 '## ' 开头 (镜像 kb_dream.sh:1479)"
+        )
+
+        chunks = split_dream_into_chunks(dream_result, max_chunk=4000)
+        self.assertEqual(
+            len(chunks), 4,
+            f"V37.9.73 血案回归: 生产 caller 形态必须产 4 chunks, 实际 {len(chunks)}. "
+            f"chunk 内容: {[c[:50] for c in chunks]}"
+        )
+        # 每段独立验证
+        self.assertIn("今日深度", chunks[0])
+        self.assertNotIn("跨领域", chunks[0], "DEEP chunk 不应混入 WIDE (5/16-17 血案核心)")
+        self.assertIn("跨领域", chunks[1])
+        self.assertNotIn("准期信号", chunks[1], "WIDE chunk 不应混入 RADAR")
+        self.assertIn("准期信号", chunks[2])
+        self.assertIn("DEGRADED", chunks[2], "RADAR DEGRADED 占位符必须独立成 chunk")
+        self.assertIn("今日连动", chunks[3])
+
+    def test_v37_9_73_starts_with_double_hash_no_metadata(self):
+        """text 以 '## A' 开头无任何 metadata, sections[0] 必为第一段而非空 header."""
+        text = "## A\n" + ("内容" * 200) + "\n\n## B\n" + ("内容" * 200) + "\n\n## C\n" + ("内容" * 100)
+        chunks = split_dream_into_chunks(text, max_chunk=4000)
+        self.assertEqual(len(chunks), 3, f"3 段独立 ## header 必产 3 chunks, 实际 {len(chunks)}")
+        self.assertIn("## A", chunks[0])
+        self.assertIn("## B", chunks[1])
+        self.assertIn("## C", chunks[2])
+
+    def test_v37_9_73_backward_compat_with_header_preserved(self):
+        """V37.9.68-hotfix 测试场景 (text 开头有 # Agent Dream header) 必须仍工作."""
+        text = "# 🌙 Agent Dream — 2026-05-17\n\n> 模式: MapReduce\n\n"
+        text += "## A\n" + ("x" * 500) + "\n\n## B\n" + ("y" * 500)
+        chunks = split_dream_into_chunks(text, max_chunk=4000)
+        self.assertEqual(len(chunks), 2, "向后兼容: header + 2 段 → 2 chunks (header 合并到第一段)")
+        self.assertIn("Agent Dream", chunks[0], "header 应合并到第一段 (向后兼容)")
+        self.assertIn("## A", chunks[0])
+        self.assertIn("## B", chunks[1])
+        self.assertNotIn("## A", chunks[1])
+
+    def test_v37_9_73_production_layout_5_16_5_17_real_sizes(self):
+        """模拟用户实际 5/17 推送的真实段大小 (DEEP ~2400 / WIDE ~700 / RADAR ~78 / 总览 ~70)."""
+        # DEEP ~2400 chars
+        deep = "## 🌙 今日深度: 编译器反馈闭环\n" + ("内容" * 600)
+        # WIDE ~700 chars (LLM 只产 1 主题)
+        wide = "## 🌐 跨领域鲜人知 × 5\n\n- **地缘政治冲突**: " + ("分析" * 100)
+        # RADAR ~78 chars (DEGRADED 占位)
+        radar = "## 📡 准期信号 × 5\n\n⚠️ [DEGRADED] RADAR 段本日生成失败 (1 chars < 600). DEEP 主题段仍有效, 明日重试。"
+        # 总览 ~70 chars
+        overview = "## 📋 今日连动 + 明日关注\n\n- 🌙 **DEEP 主题**: 编译器反馈闭环"
+
+        dream_result = f"{deep}\n\n{wide}\n\n{radar}\n\n{overview}"
+        chunks = split_dream_into_chunks(dream_result, max_chunk=4000)
+        self.assertEqual(
+            len(chunks), 4,
+            f"5/17 真实 layout 必产 4 chunks, 实际 {len(chunks)} (V37.9.73 守卫 [3/3] 血案)"
+        )
+
+    def test_v37_9_73_first_is_h2_detection(self):
+        """lstrip 后 '## ' 开头判定: 容错前导空白."""
+        # 真生产: 直接 ## 开头
+        c1 = split_dream_into_chunks("## A\n内容A\n\n## B\n内容B", max_chunk=4000)
+        self.assertEqual(len(c1), 2)
+        # 容错: 前导空白 + ## 开头
+        c2 = split_dream_into_chunks("  \n## A\n内容A\n\n## B\n内容B", max_chunk=4000)
+        self.assertEqual(len(c2), 2, "lstrip 后判定 '## ' 开头, 不应被前导空白影响")
+
+    def test_v37_9_73_sabotage_revert_to_pre_fix_fails_loud(self):
+        """反向验证守卫真有效: 模拟回退到 V37.9.68-hotfix 旧逻辑 (无 first_is_h2 判定),
+        必须能立即被 test_v37_9_73_blood_lesson_no_header_4_chunks 抓到.
+
+        本测试 grep 源码确认 V37.9.73 'first_is_h2' 字面量存在 (反向守卫).
+        """
+        import os
+        repo_root = os.path.dirname(os.path.abspath(__file__))
+        with open(os.path.join(repo_root, "kb_dream_helpers.py")) as f:
+            src = f.read()
+        self.assertIn(
+            "first_is_h2", src,
+            "V37.9.73 修复必须含 first_is_h2 判定 (防止回退到 V37.9.68-hotfix bug)"
+        )
+        self.assertIn(
+            "V37.9.73", src,
+            "V37.9.73 marker 必须在 kb_dream_helpers.py 源码 (审计可追)"
+        )
+
+
 class TestKbDreamShellGuards(unittest.TestCase):
     """V37.9.68 kb_dream.sh 源码级守卫：防止未来重构回退新设计。
 
