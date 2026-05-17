@@ -3218,10 +3218,27 @@ invariants:
         check_type: file_contains
         file: kb_dream.sh
         pattern: 'DEEP_SYSTEM="[^"]*V37.8.6 反污染'
-      - name: "kb_dream.sh WIDE_RADAR_SYSTEM 含反污染条款 (V37.9.68 替代 CHUNK2/3)"
-        check_type: file_contains
-        file: kb_dream.sh
-        pattern: 'WIDE_RADAR_SYSTEM="[^"]*V37.8.6 反污染'
+      - name: "kb_dream.sh WIDE_RADAR_SYSTEM 含反污染条款 (V37.9.68 替代 CHUNK2/3 / V37.9.74 兼容 escaped quotes)"
+        check_type: python_assert
+        assertion: |
+          # V37.9.74 修: WIDE_RADAR_SYSTEM 内含 \"## 🌐 ...\" 等 escaped ASCII 双引号字面量
+          # 让旧 regex [^"]*V37.8.6 反污染 提前终止 (regex 在第一个未转义 " 处停).
+          # 改用 python 字符串搜索: 找 WIDE_RADAR_SYSTEM=" 到下一个未转义 " 之间是否含反污染条款.
+          with open("kb_dream.sh") as _f:
+              _src = _f.read()
+          _start = _src.find('WIDE_RADAR_SYSTEM="')
+          assert _start >= 0, "WIDE_RADAR_SYSTEM 变量赋值必须存在"
+          _i = _start + len('WIDE_RADAR_SYSTEM="')
+          # 找下一个未被反斜杠转义的 "
+          while _i < len(_src):
+              if _src[_i] == '"' and (_i == 0 or _src[_i - 1] != '\\'):
+                  break
+              _i += 1
+          _block = _src[_start:_i]
+          assert "V37.8.6 反污染" in _block, (
+              "INV-DREAM-003: WIDE_RADAR_SYSTEM 赋值块内必须含 'V37.8.6 反污染' 条款 "
+              "(防 LLM 把 HTTP 错误码 / Python 异常当外部信号)"
+          )
       - name: "V37.8.6 runtime: sanitize 等价实现正确去除孤立代理"
         check_type: python_assert
         code: |
@@ -7278,6 +7295,52 @@ invariants:
           assert "今日深度" in _chunks[0] and "跨领域" not in _chunks[0], (
               "V37.9.73: DEEP chunk 不应混入 WIDE (5/16-17 血案核心 — split header_part 误合并)"
           )
+      # === V37.9.74: RADAR LLM drift 修复 (方案 2 prompt 强化 + 方案 3 retry 兜底) ===
+      # 触发: 2026-05-16+17 连续两天 Mac Mini cron LLM drift 漏 ## 📡 header → RADAR 段空
+      # 修复: WIDE_RADAR_SYSTEM 加 RADAR header 必字面量约束 + RADAR retry 兜底 (走默认 primary)
+      - name: "V37.9.74 marker 在 kb_dream.sh (审计可追)"
+        check_type: file_contains
+        file: kb_dream.sh
+        pattern: 'V37.9.74'
+      - name: "V37.9.74 prompt 强化: WIDE_RADAR_SYSTEM 含'必须输出完整 2 段'硬约束"
+        check_type: file_contains
+        file: kb_dream.sh
+        pattern: '必须\*\*输出完整 2 段'
+      - name: "V37.9.74 retry 兜底: RADAR_RETRY_SYSTEM 变量必须定义"
+        check_type: file_contains
+        file: kb_dream.sh
+        pattern: 'RADAR_RETRY_SYSTEM='
+      - name: "V37.9.74 retry 触发条件: WIDE ok + RADAR degraded"
+        check_type: python_assert
+        assertion: |
+          # V37.9.74 守卫: retry 必须仅在 WIDE 段 ok + RADAR 段 degraded 时触发
+          # 反向 sabotage: sed 删除整个 retry block → 7 个 V37.9.74 测试立即 fail
+          with open("kb_dream.sh") as _f:
+              _src = _f.read()
+          _trigger = '[ "$RADAR_STATUS" = "degraded" ] && [ "$WIDE_STATUS" = "ok" ]'
+          assert _trigger in _src, (
+              "INV-DREAM-MULTITHEME-001 V37.9.74: retry 触发条件必须是 WIDE ok + RADAR degraded "
+              "(防止 WIDE 也失败时连环 retry 浪费 LLM quota)"
+          )
+      - name: "V37.9.74 retry 结果双重验证 (chars + header)"
+        check_type: python_assert
+        assertion: |
+          # V37.9.74 守卫: retry 成功必须双重验证 — chars >= MIN + 含 ## 📡 字面量
+          # 防 LLM 产 1500 字垃圾但仍漏 header 的 corner case
+          with open("kb_dream.sh") as _f:
+              _src = _f.read()
+          assert 'RADAR_RETRY_HAS_HEADER' in _src, "V37.9.74: 必须有 has_header 验证变量"
+          assert '[ "$RADAR_RETRY_HAS_HEADER" = "true" ]' in _src, (
+              "INV-DREAM-MULTITHEME-001 V37.9.74: retry 成功必须双重验证 (chars + header)"
+          )
+      - name: "V37.9.74 status.json schema 含 radar_retried 字段 (运维可观测 LLM drift 频率)"
+        check_type: file_contains
+        file: kb_dream.sh
+        pattern: '"radar_retried":%s'
+      - name: "V37.9.75 候选 B (doubao 试水) 必须登记在 V37.9.74 注释 (防止候选丢失)"
+        check_type: file_contains
+        file: kb_dream.sh
+        pattern: 'V37.9.75\+ 候选 B'
       # === 运行时层 ===
       - name: "DEEP fail-fast 顺序锁 (失败必 exit 1)"
         check_type: python_assert
@@ -7716,8 +7779,8 @@ audit_metadata:
     v3.12 → v3.13: V37.8.7 ontology_sources 推送格式错位血案 — INV-ONTOLOGY-001 新增 (ontology-sources-parser-must-be-key-based-not-positional, meta_rule=MR-4, severity=high, verification_layer=[declaration, runtime], 7 checks). 2026-04-15 用户 WhatsApp 收到 ontology_sources 推送严重错位：第 2 篇 cn_title 显示为 *---*、第 3 篇 cn_title 显示为 *价值：⭐⭐⭐⭐*。根因：原解析器用严格位置 (lines[i], lines[i+1], lines[i+2]) + i+=3 步进 — LLM 漏一行"要点"或多一行空白就让所有后续条目的 cn_title/highlight/stars 全部右移一格级联污染。修复：抽到独立模块 jobs/ontology_sources/ontology_parser.py（纯函数 parse_llm_blocks 可单测，避开 V37.5 heredoc-only 不可测血案），按 separator 切块 + 块内 key-based prefix 解析，单块缺行不影响其他块。runtime python_assert 真跑用户实际看到的污染场景断言"缺要点不级联"。24 单测 (test_ontology_parser.py)：TestNormalCases(4) + TestBloodLessonRegression(5) + TestSeparatorVariants(5) + TestLLMOutputVariants(5) + TestShellScriptIntegration(4) + TestActualBloodLessonScenario(1)。MR-4 silent-failure 第 8 次演出（输出"看起来正常" 6 字段都在但语义错乱）。auto_deploy FILE_MAP 补齐 ontology_parser.py。
     v3.11 → v3.12: V37.8.6 Dream 自引用幻觉血案 — INV-DREAM-003 新增 (dream-log-cannot-pollute-cache-nor-fabricate-platform-crises, meta_rule=MR-4, severity=critical, verification_layer=[declaration, runtime], 16 checks). 2026-04-15 03:00 Dream run 出现 4 次 Bad JSON 400 (adapter 收到破损 JSON)，但 Dream 仍产出完整"Hugging Face 平台危机"分析，用户察觉 Signal(Papers with Code 沉默)↔Action(监控 Hugging Face) 主题断裂后上报。三层根因：(a) scraped 内容含 surrogate UTF-8 → json.dump + utf-8 file write → UnicodeEncodeError → body_file 截断 → adapter.py:386 返回 400 Bad JSON (b) kb_dream.sh log() 用 `echo` 写 stdout → signals=$(llm_call ...) 命令替换捕获 log 行进 signals → cache file 被"LLM raw response: Error code 400 Bad JSON..."污染 (c) Reduce cache-only fast path 把错误日志注入 LLM 上下文 → LLM 基于这些字样自动编造"Hugging Face 危机"叙事 = 原则 #23 链式幻觉 + MR-4 silent failure 第 7 次演出。四层结构修复（defense-in-depth）：log→stderr 阻断 stdout 污染通道 + _sanitize(U+D800-U+DFFF → U+FFFD) 防编码炸裂 + file open 显式 encoding='utf-8' errors='replace' 第二防线 + REDUCE/CHUNK1/2/3 system prompt 四块加反污染守卫 (禁止把 HTTP 错误码/Python 异常/错误页 HTML/U+FFFD 当外部信号，禁止基于这些字样推断 Hugging Face/GitHub/npm 等平台状态)。runtime python_assert 真跑 sanitize 五场景 (孤立高位/低位代理/正常串/代理范围边界/sanitize 后 json+utf-8 编码不炸)。19 单测 (TestLogGoesToStderr×2 + TestSanitizeSurrogates×7 + TestShellSanitizeImplementation×5 + TestAntiPollutionSystemPrompt×3 + TestShellScriptIntegrity×1 + TestLogDefHasCommentMeta×1)。
     v3.10 → v3.11: V37.8.5 INV-X-001 升级三层检测 (血案二次演出: V37.8.4 修复本身埋盲区) — V37.8.4 收工 Mac Mini E2E 即发现 2 个边缘：CNS1952 98/99 超窗口 + 1 过短老化率 99% 但未触发严格 old==total (MR-10 第 2 次演出：修复会埋坑)；SingTaoDaily 0-tweet stub (embed disabled 返回空骨架) 被 total>0 门槛绕过完全不标记。V37.8.5 修复：(1) 检测逻辑独立为 jobs/finance_news/finance_news_zombie.py 纯函数模块 (classify_zombie(diag, count)); (2) 三层 tier: "stub" (no_data=0 + total=0) + "stale" (≥90% 老化 + count=0 守卫防止低频活跃误报)，整数比较 old*10 >= total*9 避免浮点; (3) 24 单测锁定三层 + 守卫 + shell 集成 + auto_deploy FILE_MAP; (4) verification_layer 从 [declaration] 升级到 [declaration, runtime] (MR-6 遵循: INV-X-001 现在有 python_assert 真跑 5 个 tier 场景); (5) shell 脚本禁止内嵌 inline fallback (防模块缺失时静默降级回 V37.8.4 逻辑 — MR-8 copy-paste-is-a-bug-class 兑现)。诊断行 tier 区分 ⚠️ ZOMBIE嫌疑[stub] vs [stale]，便于日志定位。
-  total_invariants: 77  # V37.9.73: 不变 (INV-DREAM-MULTITHEME-001 内涵扩展含 V37.9.73 3 新 check, 非新 INV)
-  total_checks: 663     # V37.9.73: +3 (split_dream_into_chunks first_is_h2 字面量 + V37.9.73 marker + 生产 caller 形态 runtime python_assert)
+  total_invariants: 77  # V37.9.74: 不变 (INV-DREAM-MULTITHEME-001 内涵扩展含 V37.9.74 7 新 check, 非新 INV)
+  total_checks: 670     # V37.9.74: +7 (V37.9.74 marker + 必须 2 段约束 + RADAR_RETRY_SYSTEM + retry 触发条件 + retry 双重验证 + radar_retried schema + V37.9.75 候选 B 登记)
   meta_rules: 19        # MR-1~MR-19 不变 (V37.9.68-hotfix 是 V37.9.66 类别 B 设计假设错配的单点修复, 不立新元规则)
   meta_rule_discovery_count: 6   # Phase 0: registry + env + notify-topic + layer-depth + error-suppression + notify-activity
   check_types_used: [python_assert, file_contains, file_not_contains, env_var_exists, command_succeeds, log_activity_check]

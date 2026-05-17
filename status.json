@@ -1,5 +1,5 @@
 {
-  "updated": "2026-05-17 03:49:51",
+  "updated": "2026-05-17 04:35:12",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-05-17",
+      "what": "V37.9.74 RADAR LLM drift 修复 (方案 2 prompt 强化 + 方案 3 retry 兜底, 用户决策 A 路径). 触发: 用户问 5/16+5/17 [3/3] 后续为什么 chars<600, 根因 = LLM 单次 WIDE+RADAR 调用偶尔漏 ## 📡 RADAR header (Qwen3 输出 drift 随机性, 温度 0.8 + 30K 素材稀释 + /no_think 副作用). 修复: (方案 2) WIDE_RADAR_SYSTEM 加 RADAR header 必字面量约束 + WIDE_RADAR_PROMPT 加 5 项输出自检 checklist (写完 WIDE 必接 RADAR 显式禁止 drift) (方案 3) 加 RADAR retry 兜底: WIDE ok + RADAR degraded 时主动调一次 LLM 只产 RADAR 段, 走默认 primary (Qwen3, doubao 试水留 V37.9.75 B), 双重验证 chars>=600 + 含 ## 📡 字面量, 失败 fall-through 到 V37.9.73 DEGRADED. status.json schema +radar_retried +radar_retry_chars 字段 (运维监控 LLM drift 频率). 11 新单测 TestV37974RadarRetryAndPromptHardening 含 retry 触发条件 / 双重验证 / 成功设 ok / 失败 fall-through / prompt 排除 DEEP+WIDE / schema 字段 / RADAR_RETRIED 初始化 / V37.9.75 doubao 候选登记. 反向 sabotage: 删 retry block (2339 chars) → 7 测试立即 fail, 还原后 98/98 OK. governance INV-DREAM-MULTITHEME-001 +7 V37.9.74 checks + INV-DREAM-003 修 regex escaped quotes 兼容 (file_contains→python_assert 找未转义 \" 边界). test_dream_surrogate_sanitize 同款 _extract_var_block helper 修. 多层防御: prompt 预防 + retry 恢复 + DEGRADED 兜底, 不依赖任一层 100%. 88 suites / 3024→3036 tests (+12) / 0 fail / 660→670 checks (+10) / 安全 95/100 / VERSION 0.37.9.68 不变. Mac Mini 部署后预期: 下次 RADAR drift 触发时 last_run.json radar_retried=true + radar_retry_chars 显示 retry 真激活, 用户连续两天 [3/3] 血案根因彻底闭环.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-05-17",
       "what": "V37.9.73 kb_dream split_dream_into_chunks 生产 caller 形态修复 (V37.9.68-hotfix 测试盲区闭环) — 用户开工立即报告连续 2 天 Mac Mini cron 产 [3/3] 而非 [4/4] (5/16+5/17). 真根因: V37.9.68-hotfix header_part = sections[0] 假设 text 开头有 # Agent Dream header, 但生产 caller kb_dream.sh:1557 `<<< $DREAM_RESULT` 真实形态直接以 ## 开头 → DEEP 段被误当 header_part 与 WIDE 合并 → chunks = [DEEP+WIDE, RADAR_DEGRADED, OVERVIEW]. MR-4 silent-failure 第 28 次演出 (修复了一个类别 B 错配却引入另一个) + V37.9.66 类别 B 第 N+1 次演出. 修复: split_dream_into_chunks 主动判断 first_is_h2 分两路径处理. 6 新单测 TestSplitDreamProductionCallerFormat 含血案直接复现 + 5/17 真实 layout + 向后兼容 + 反向 sabotage 守卫. 反向验证: sed first_is_h2 = False → 4 测试立即 fail. INV-DREAM-MULTITHEME-001 +3 checks (V37.9.73 marker + first_is_h2 字面量 + 1 runtime python_assert 真跑生产 caller 形态). 88 suites / 3018→3024 tests (+6) / 0 fail / 660→663 checks (+3) / 安全 95/100 / VERSION 0.37.9.68 不变. 用户视角原则 #13 第 21 次正向兑现, 闭环时间 < 1.5h.",
       "by": "claude_code"
     },
@@ -189,11 +194,6 @@
     {
       "date": "2026-05-13",
       "what": "V37.9.60-hotfix3: kb_deep_dive 5/8-5/12 5 天 silent abort 血案根治 — V37.9.21 我引入的 bash quirk (send_wa_parts 函数末尾 `[ X -lt Y ] && sleep 1` 单段时短路返回 1 → 函数 implicit return 1 → set -e 杀 caller → write_status/rsync 全 silent → last_run 停 5/7). 数据驱动诊断 5 个独立数据点定位 (fallback_chain doubao 已激活 / log 5 天markdown 真生成 / bash -x trace no_candidates 路径 / deep_dives/*.md 5 个文件存在 / crontab 2>&1 stderr 已捕获). 最小修复 2 行 return 0 + 注释引用血案锚点 + 4 反向验证守卫 (sabotage→fail/还原→OK). kb_dream.sh:1474 同款字面量但 main scope for 循环不杀 caller, 不需修. 揭露 V37.9.60 framework 设计 gap: SCRIPTS_REQUIRING_ERR_TRAP 只覆盖 cron 聚合监控类, 遗漏 LLM-task 类, V37.9.61 候选扩 MR-19 到 kb_deep_dive/kb_dream/kb_evening/kb_review. 累计 81 suites / 2778→2782 tests (+4) / 0 fail / VERSION 0.37.9.60 不变.",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-05-13",
-      "what": "V37.9.60-hotfix: bash quirk false-positive FATAL 横向修复 (V37.9.58-hotfix4 同款 grep | head pipe + set -eE 联合反模式) — Mac Mini 部署 V37.9.60 后用户跑 governance_audit_cron 立即触发 [SYSTEM_ALERT] FATAL × 2 推送 Discord. 真根因: governance_audit_cron line 76 GOV_VIOLATIONS=$(... grep \"❌\" | head -5) 无 || true 兜底; governance_checker.py 全过 (527/527 通过) 无 ❌ 输出 → grep no-match exit 1 → pipefail → set -eE + ERR trap 触发 false-positive FATAL. 同款反模式扫描出 3 文件 6 处: governance_audit_cron 3 处 (GOV_SUMMARY/VIOLATIONS/WARNINGS) + daily_ops_report 2 处 (CONV_REPORT/TOKEN_REPORT grep -v) + auto_deploy 2 处 (FAIL_LINES grep ❌ + CRON_COUNT crontab|grep|wc|tr). 全部加 || true 兜底 + V37.9.60-hotfix marker 注释. 3 个新 source-level 守卫加入 test_cron_monitor_scanner.py (49 tests, 反向验证 sabotage 真有效 sabotage→fail 还原→pass). 累计 81 suites / 2775 tests / 0 fail / 安全 95/100 / VERSION 0.37.9.60 不变 (hotfix 不 bump). 教训: V37.9.58-hotfix4 已警告此 quirk 但 V37.9.60 framework 化推广时未横向扫 grep pipe pattern (MR-10 understand-before-fix 第 N 次违反). MR-19 framework scanner 应将来加 grep_pipe_or_true 契约扫.",
       "by": "claude_code"
     }
   ],
@@ -320,7 +320,8 @@
       "V37.9.69+ 候选 [P0 — Mac Mini 真激活验证]: V37.9.68-hotfix 部署后 5/16 03:00 dream cron 真激活, 用户视角观察是否真产 4 个独立 WhatsApp 窗口 (DEEP/WIDE/RADAR/总览). 如真激活 → 立 INV-DREAM-CHUNK-INDEPENDENT-001 守卫 'Mac Mini cron 必须产 ≥4 chunks per dream'. 如仍出问题立即 hotfix2.",
       "V37.9.69+ 候选 [P1 — test_watchdog_self_monitoring 5 个测试漂移修]: V37.9.63 抽 cron_monitor_fatal_handler.sh 公共 helper 后, watchdog 不再 inline 定义 _watchdog_fatal_handler. 但 test_watchdog_self_monitoring.py TestStepBErrTrapSilentAbort + TestWatchdogSyntaxAndIntegration + TestGovernanceLinkage(test_audit_metadata_v3_38) 5 个测试仍断言 inline 定义存在导致 fail. 修复方向: 测试改为 grep cron_monitor_fatal_handler.sh source / trap call helper 模式 alternation (V37.9.63 同款) 或彻底删除已不适用的断言. 历史问题非 V37.9.68-hotfix 引入.",
       "V37.9.69+ 候选 [P1 — full_regression.sh line 30 bash 计数 bug]: count=$(... grep -oE 'Ran [0-9]+ test' | grep -oE '[0-9]+') 在 unittest fail 时输出格式异常导致 count 含多行数字, $((TOTAL_TESTS + count)) bash 报 'line 30: 26: command not found' 但 PASS=$((PASS+1)) 仍执行. 让 watchdog_self_monitoring 5 个 fail 被 full_regression 错误地报告为 PASS. 修复: count='$(... | head -1)' 或显式只取第一个数字.",
-      "V37.9.73+ 候选 (按今日 status.json focus 段 V37.9.73+ 排序): (d) 反思文档行动 2 INV-PATH-CONSISTENCY-001 路径一致性 audit 防 V37.9.56-hotfix 同款路径假设错配 (~/jobs/X/ vs ~/.openclaw/jobs/X/) [1-2h 中等工作量] (f) 反思文档行动 3 failure_modes_catalog.md 失败模式库 (27 次 MR-4 silent-failure 演出 + 案例库类别 A/B 整理) [2-3h 中等工作量] (h) SLO p95 71958ms 数字恶化调查 (V37.9.58 54s → V37.9.69 72s 持续恶化) [不定工作量]. 今日 5 commit 真饱和交付 (V37.9.68-hotfix+V37.9.69+V37.9.70+V37.9.71+V37.9.72), 86→89 suites / 2962→3018 tests / +56 tests. 明日新 session 开工时按原则 #1~#3 完整开工清单跑过后再选."
+      "V37.9.73+ 候选 (按今日 status.json focus 段 V37.9.73+ 排序): (d) 反思文档行动 2 INV-PATH-CONSISTENCY-001 路径一致性 audit 防 V37.9.56-hotfix 同款路径假设错配 (~/jobs/X/ vs ~/.openclaw/jobs/X/) [1-2h 中等工作量] (f) 反思文档行动 3 failure_modes_catalog.md 失败模式库 (27 次 MR-4 silent-failure 演出 + 案例库类别 A/B 整理) [2-3h 中等工作量] (h) SLO p95 71958ms 数字恶化调查 (V37.9.58 54s → V37.9.69 72s 持续恶化) [不定工作量]. 今日 5 commit 真饱和交付 (V37.9.68-hotfix+V37.9.69+V37.9.70+V37.9.71+V37.9.72), 86→89 suites / 2962→3018 tests / +56 tests. 明日新 session 开工时按原则 #1~#3 完整开工清单跑过后再选.",
+      "V37.9.75+ 候选 B (doubao 试水): kb_dream RADAR retry 路径切换走 doubao (V37.9.55 收工承诺兑现). 当前 V37.9.74 retry 走默认 primary Qwen3 (用户决策 2026-05-17). 实施工作量 2-3h: (1) adapter.py 加 ?provider=X query 参数支持 + 单测 (~1.5h) (2) kb_dream.sh retry 加 DREAM_RADAR_PROVIDER=doubao env var 可配 (~30min) (3) Mac Mini 部署 + adapter 重启 + 3-7 天试水观察 (V37.9.55 verified_fallback=False → True flip 数据). 收益: doubao reasoning_content 特性观察 + 真实 fallback 试水 + V37.9.55 试水承诺真兑现."
     ],
     "open_prs": "",
     "blocked_on": "",
@@ -361,10 +362,10 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 3024,
-    "last_regression": "2026-05-17 03:47 pass",
+    "test_count": 3036,
+    "last_regression": "2026-05-17 04:34 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-05-17 03:47",
+    "security_score_time": "2026-05-17 04:34",
     "test_suites": 88,
     "governance_invariants": "64/64",
     "governance_checks": "350/350",
@@ -432,7 +433,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.73 split_dream_into_chunks 生产 caller 形态修复完成 (2026-05-17 开工 1.5h 闭环). 用户视角原则 #13 第 21 次正向兑现 — 连续 2 天 Mac Mini cron 产 [3/3] 而非 [4/4] (5/16+5/17), V37.9.68-hotfix 测试盲区直接命中. 真根因: header_part 假设错配 (text 开头有 # Agent Dream header) vs 生产 caller  真实形态 (直接以 ## 开头). MR-4 silent-failure 第 28 次演出 + V37.9.66 类别 B 第 N+1 次演出 (修复一个错配引入另一个). 修复: split_dream_into_chunks 主动 first_is_h2 判定分两路径 + 6 新单测 (TestSplitDreamProductionCallerFormat 含血案直接复现 + 5/17 真实 layout + 向后兼容 + 反向 sabotage 守卫) + INV-DREAM-MULTITHEME-001 +3 checks. 88 suites / 3024 tests / 663 governance checks / 0 fail / 安全 95/100 / VERSION 0.37.9.68 不变. Mac Mini 部署后 5/18 03:00 cron 应**首次**产 4 独立 WhatsApp 窗口. **下次 V37.9.74+ 候选**: (a) 5/18 03:00 cron 真激活验证 [4/4] (b) RADAR LLM drift 修复 (强化 prompt 让 LLM 必产 ## 📡 header) (c) 反思文档行动 2 INV-PATH-CONSISTENCY-001 (d) SLO p95 71958ms 调查 (e) failure_modes_catalog.md (含第 28 次 MR-4 演出案例).",
+  "focus": "V37.9.74 RADAR LLM drift 修复完成 (用户决策 A 路径). 方案 2 prompt 强化 (WIDE_RADAR_SYSTEM 加 RADAR header 必字面量 + 5 项自检 checklist) + 方案 3 RADAR retry 兜底 (走默认 primary Qwen3, doubao 试水留 V37.9.75 B). 多层防御: prompt 预防 + retry 恢复 + DEGRADED 兜底. status.json schema +radar_retried 字段运维可观测 LLM drift 频率. 11 新单测 + 反向 sabotage 真有效 (删 retry block → 7 测试立即 fail). governance +7 V37.9.74 checks + INV-DREAM-003 修 escaped quotes 兼容. 88 suites / 3036 tests / 670 checks / 0 fail / 安全 95/100 / VERSION 0.37.9.68 不变. **下次 V37.9.75+ 候选**: (a) Mac Mini 部署后下次 RADAR drift 真激活验证 retry 工作 (last_run.json radar_retried 字段) (b) V37.9.75 候选 B: doubao 试水 — adapter ?provider= 路由 + retry 路径 DREAM_RADAR_PROVIDER env 可配 + V37.9.55 verified_fallback flip (c) 反思文档行动 2 INV-PATH-CONSISTENCY-001 (d) SLO p95 33-72s 调查 (e) failure_modes_catalog.md (含 V37.9.73+V37.9.74 第 28+29 次 MR-4 演出).",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",

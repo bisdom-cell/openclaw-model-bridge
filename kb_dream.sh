@@ -1333,14 +1333,19 @@ except Exception:
 log "DEEP 主题: $DEEP_THEME"
 
 # ─── LLM 调用 2: WIDE+RADAR（单调用产 2 段）───
+# V37.9.74 prompt 强化 (方案 2): 加强 RADAR header 必须字面量 + 两段完整性约束
+# 触发: 2026-05-16+17 连续两天 Mac Mini cron LLM drift 漏 ## 📡 RADAR header → RADAR 段空
 WIDE_RADAR_SYSTEM="/no_think
 你是专业数据分析师。在多源信号中识别两类**互不重复**的视野信号：
 - WIDE: 跨领域'鲜人知'（用户日常关注外的信号，多源证据但被埋没）
 - RADAR: '准期信号'（今日仅 1 份证据但背后可能酝酿趋势的早期信号）
 
-【V37.9.68 硬要求】
-- 必须输出 2 段，第一段 '## 🌐 跨领域鲜人知 × 5'，第二段 '## 📡 准期信号 × 5'
-- 每段恰好 5 条目，每条目独立 '- **<标题>**:' 起首
+【V37.9.74 硬要求 — 缺任一段视为失败】
+- **必须**输出完整 2 段, 不允许写完 WIDE 就结束
+- 第一段开头**必须**是字面量行 \"## 🌐 跨领域鲜人知 × 5\"
+- 第二段开头**必须**是字面量行 \"## 📡 准期信号 × 5\"
+- 写完 WIDE 第 5 条后, **必须立即换行接 RADAR header**, 不允许直接收尾
+- 每段恰好 5 条目, 每条目独立 '- **<标题>**:' 起首
 - WIDE 每条 ≈200 字 (1000 字总), RADAR 每条 ≈300 字 (1500 字总)
 - 必须**排除 DEEP 主题**: ${DEEP_THEME}
 - WIDE 与 RADAR 不重复
@@ -1385,7 +1390,14 @@ $REDUCE_MULTI_MATERIAL
 - **[信号 4 标题]**: ...
 - **[信号 5 标题]**: ...
 
-【硬性要求：WIDE 段 ≈1000 字 (5×200), RADAR 段 ≈1500 字 (5×300), 合计 ≥ 2200 字。少于 1800 字视为不合格（独立降级，不重试）。】"
+【V37.9.74 输出自检 — 提交前对照】
+1. 第一段开头是字面量 \"## 🌐 跨领域鲜人知 × 5\" ?
+2. WIDE 5 条都写了, 每条 ≈200 字 ?
+3. 第二段开头是字面量 \"## 📡 准期信号 × 5\" ?
+4. RADAR 5 条都写了, 每条 ≈300 字 ?
+5. 没有写完 WIDE 就直接收尾 (常见漂移, 严禁) ?
+
+【硬性要求：WIDE 段 ≈1000 字 (5×200), RADAR 段 ≈1500 字 (5×300), 合计 ≥ 2200 字。少于 1800 字或缺任一段视为不合格（V37.9.74 会自动 retry RADAR 一次, retry 仍失败则该段独立降级）。】"
 
 log "LLM 调用 2/2 (WIDE+RADAR): 跨领域 5 + 准期 5 → 发送..."
 WIDE_RADAR_RESULT=$(llm_call "$WIDE_RADAR_PROMPT" 6000 0.8 300 "$WIDE_RADAR_SYSTEM" || true)
@@ -1430,6 +1442,69 @@ except Exception as e:
     log "WIDE 段: ${WIDE_BLOCK_CHARS} chars (status=${WIDE_STATUS}), RADAR 段: ${RADAR_BLOCK_CHARS} chars (status=${RADAR_STATUS})"
 fi
 
+# V37.9.74 RADAR retry 兜底 (方案 3): 当 WIDE 段 ok 但 RADAR 段缺失时, 主动调一次 LLM 只产 RADAR
+# 触发场景: 2026-05-16+17 LLM drift 漏 ## 📡 header → RADAR_BLOCK="" → wc -c = 1 (echo "" 加换行)
+# retry 走默认 primary (Qwen3), 失败仍走 V37.9.73 DEGRADED 兜底, 多层防御不依赖任一层 100%
+# V37.9.75+ 候选 B: retry 路径切走 doubao (需 adapter 加 ?provider= 路由参数支持)
+RADAR_RETRIED=false
+RADAR_RETRY_CHARS=0
+if [ "$RADAR_STATUS" = "degraded" ] && [ "$WIDE_STATUS" = "ok" ]; then
+    log "V37.9.74: RADAR 段缺失 (${RADAR_BLOCK_CHARS} chars < ${MIN_SECTION_CHARS}), 主动 retry RADAR-only (LLM drift 兜底)..."
+    RADAR_RETRIED=true
+
+    RADAR_RETRY_SYSTEM="/no_think
+你是数据分析师。RADAR_RETRY 模式: 只产出 1 段【准期信号 × 5】, 不要 WIDE 段。
+
+【V37.9.74 retry 硬要求 — 违反整份输出作废】
+- 第一行**必须**是字面量 \"## 📡 准期信号 × 5\"
+- 5 条目, 每条 '- **<标题>**: <300 字分析>'
+- 总长 ≥ 1500 字
+- 必须**排除主题**: ${DEEP_THEME} (DEEP 已用) + WIDE 已覆盖主题
+
+【V37.8.6 反污染】严禁把 HTTP 错误码 / Python 异常 / 错误页 HTML 当外部信号
+${DREAM_HG_GUARD}"
+
+    RADAR_RETRY_PROMPT="上一次 WIDE+RADAR LLM 调用只产了 WIDE 段, 漏了 RADAR 段。
+现在请只产 RADAR (准期信号 × 5), 不要重复 WIDE 已覆盖内容。
+
+【RADAR 选材标准】
+- 准期: 今日仅出现 1 次但有 trend acceleration 历史或前瞻意义
+- 早期: 可能 1-3 个月后变成主流但现在还小众
+- 跨度: 5 条目跨不同维度 (技术信号 / 政策信号 / 资本信号 / 社区信号等)
+
+【今日 DEEP 主题, 严禁重复】${DEEP_THEME}
+
+【上次 WIDE 已覆盖主题, 避免重复】
+${WIDE_BLOCK}
+
+请直接输出, 第一行必须是字面量 \"## 📡 准期信号 × 5\":
+
+## 📡 准期信号 × 5
+
+- **[信号 1 标题]**: 300 字分析, 含证据 + 为什么是早期 + 时间窗口推断
+- **[信号 2 标题]**: ...
+- **[信号 3 标题]**: ...
+- **[信号 4 标题]**: ...
+- **[信号 5 标题]**: ...
+
+【硬性要求: 总长 ≥ 1500 字。少于 1200 字或缺 RADAR header 视为失败 (走 V37.9.73 DEGRADED 占位)。】"
+
+    RADAR_RETRY_RESULT=$(llm_call "$RADAR_RETRY_PROMPT" 3000 0.8 200 "$RADAR_RETRY_SYSTEM" || true)
+    RADAR_RETRY_CHARS=$(echo "$RADAR_RETRY_RESULT" | wc -c | tr -d ' ')
+    RADAR_RETRY_HAS_HEADER=false
+    echo "$RADAR_RETRY_RESULT" | grep -q '## 📡' && RADAR_RETRY_HAS_HEADER=true
+    log "V37.9.74 RADAR retry 完成: ${RADAR_RETRY_CHARS} chars, has_header=${RADAR_RETRY_HAS_HEADER}"
+
+    if [ "$RADAR_RETRY_CHARS" -ge "$MIN_SECTION_CHARS" ] && [ "$RADAR_RETRY_HAS_HEADER" = "true" ]; then
+        RADAR_BLOCK="$RADAR_RETRY_RESULT"
+        RADAR_BLOCK_CHARS=$RADAR_RETRY_CHARS
+        RADAR_STATUS="ok"   # retry 成功, 下游零改动
+        log "V37.9.74 RADAR retry 成功: ${RADAR_BLOCK_CHARS} chars → status=ok (retry-recovered)"
+    else
+        log "V37.9.74 RADAR retry 失败 (${RADAR_RETRY_CHARS} chars / has_header=${RADAR_RETRY_HAS_HEADER}), 走 V37.9.73 DEGRADED 兜底"
+    fi
+fi
+
 # 单段失败用 [DEGRADED] 标记但不阻塞推送（用户决策：DEEP 必过 / WIDE+RADAR 独立降级）
 if [ "$WIDE_STATUS" = "degraded" ]; then
     WIDE_BLOCK="## 🌐 跨领域鲜人知 × 5
@@ -1440,8 +1515,8 @@ fi
 if [ "$RADAR_STATUS" = "degraded" ]; then
     RADAR_BLOCK="## 📡 准期信号 × 5
 
-⚠️ [DEGRADED] RADAR 段本日生成失败 (${RADAR_BLOCK_CHARS} chars < ${MIN_SECTION_CHARS}). DEEP 主题段仍有效, 明日重试。"
-    dream_fail_alert "V37.9.68 RADAR 段降级 (${RADAR_BLOCK_CHARS} chars)，DEEP 推送不阻塞"
+⚠️ [DEGRADED] RADAR 段本日生成失败 (${RADAR_BLOCK_CHARS} chars < ${MIN_SECTION_CHARS}, V37.9.74 retry 也失败). DEEP 主题段仍有效, 明日重试。"
+    dream_fail_alert "V37.9.74 RADAR 段双失败 (原始 chars + retry chars 都 < ${MIN_SECTION_CHARS})，DEEP 推送不阻塞"
 fi
 
 # ─── 总览段（规则提取，不调 LLM）───
@@ -1605,12 +1680,14 @@ fi
 # 状态记录（V37.9.68: schema 升级含三段独立 status）
 # Reduce 写 .last_run.json，Map 写 .last_map.json — 互不覆盖，INV-JOB-001
 # V37.9.68 字段：deep_chars / wide_status / radar_status / wide_chars / radar_chars / multitheme
-printf '{"time":"%s","status":"ok","mode":"%s","multitheme":true,"map_count":%d,"sources":%d,"notes":%d,"kb_bytes":%d,"reduce_chars":%d,"dream_bytes":%d,"deep_chars":%d,"wide_status":"%s","wide_chars":%d,"radar_status":"%s","radar_chars":%d,"sent":%s,"map_degraded":%s}\n' \
+# V37.9.74 新增：radar_retried / radar_retry_chars — RADAR retry 真激活可观测 (LLM drift 频率监测)
+printf '{"time":"%s","status":"ok","mode":"%s","multitheme":true,"map_count":%d,"sources":%d,"notes":%d,"kb_bytes":%d,"reduce_chars":%d,"dream_bytes":%d,"deep_chars":%d,"wide_status":"%s","wide_chars":%d,"radar_status":"%s","radar_chars":%d,"radar_retried":%s,"radar_retry_chars":%d,"sent":%s,"map_degraded":%s}\n' \
     "$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')" \
     "$([ "$FAST_MODE" = true ] && echo 'fast' || echo 'mapreduce')" \
     "$MAP_COUNT" "$SRC_COUNT" "$NOTE_COUNT" "$TOTAL_KB_BYTES" "$REDUCE_CHARS" \
     "$(wc -c < "$DREAM_FILE" | tr -d ' ')" \
     "${DEEP_CHARS:-0}" "${WIDE_STATUS:-unknown}" "${WIDE_BLOCK_CHARS:-0}" "${RADAR_STATUS:-unknown}" "${RADAR_BLOCK_CHARS:-0}" \
+    "${RADAR_RETRIED:-false}" "${RADAR_RETRY_CHARS:-0}" \
     "$SENT" "$MAP_DEGRADED" > "$STATUS_FILE"
 
 # 清理过期 map 缓存（保留 3 天）
