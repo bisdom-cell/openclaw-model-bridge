@@ -1,6 +1,6 @@
 {
-  "updated": "2026-05-17 04:49:04",
-  "updated_by": "security_score",
+  "updated": "2026-05-18 00:43:13",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -105,6 +105,11 @@
   ],
   "recent_changes": [
     {
+      "date": "2026-05-18",
+      "what": "V37.9.75 kb_dream DEEP LLM partial content 修复 — DEEP retry 兜底 (镜像 V37.9.74 RADAR retry 模式, 用户决策 Option B). 触发: 2026-05-18 03:02 Mac Mini cron [SYSTEM_ALERT] DEEP 段失败 (823 chars < 1200) — fail-fast 跳过 WIDE+RADAR 用户零内容. 完整因果链分析: 5/15-17 三天稳定 6314-7125 chars / 100-113s, 5/18 突然 823 chars / 214s (2x 时长 1/8 内容) + head 显示 header 完整但章节中途截断 = LLM provider stream 异常 partial. 三层根因: 触发器 (LLM provider 偶发 partial) + 放大器 (llm_call 只检非空不检最低字数 0 次 retry) + 掩护者 (V37.9.68 fail-fast 设计跳过 WIDE+RADAR 用户零内容). MR-4 silent-failure 新形态: llm_call 把客观异常 partial 当正常短答返回. 修复 kb_dream.sh 加 53 行 retry block: 触发条件 -n DEEP_RESULT && DEEP_CHARS<MIN (仅 partial 时 retry, 完全空 skip) / DEEP_RETRY_SYSTEM 严格度不降明确告知上次 partial / DEEP_RETRY_PROMPT 保留 ban-list + 引用上次 chars + V37.9.74 同款 5 项输出自检 checklist / 双重验证 chars+header 字面量 / 成功路径用 retry 结果继续 WIDE+RADAR / 失败路径 fall-through V37.9.68 fail-fast (DEEP 必过原则不破). status.json schema +deep_retried +deep_retry_chars 双字段 (运维监控激活率). fail-fast 告警分支区分 retry 已尝试 vs 未触发. 16 新单测 TestV37975DeepRetryFallback + 反向 sabotage 三轮守卫真有效 (移除触发条件/双验证/初始化各 1 fail). V37.9.68 历史 fail-fast 顺序锁 500→1000 chars 扩窗容纳合法演进. governance INV-DREAM-MULTITHEME-001 +8 checks. 88 suites / 3036→3052 tests (+16) / 0 fail / governance v3.44→v3.45 / 77 inv 不变 / 670→678 checks (+8) / 19 MR 不变 / 安全 95/100 / VERSION 0.37.9.68 不变 (hotfix). 原则 #28 三问全过 (之前 5/15-17 不存在, 5/18 LLM 异常引入, 最小修复 retry 不破 fail-fast 原则). 用户视角原则 #13 第 N+1 次正向兑现.",
+      "by": "claude_code"
+    },
+    {
       "date": "2026-05-17",
       "what": "V37.9.74 RADAR LLM drift 修复 (方案 2 prompt 强化 + 方案 3 retry 兜底, 用户决策 A 路径). 触发: 用户问 5/16+5/17 [3/3] 后续为什么 chars<600, 根因 = LLM 单次 WIDE+RADAR 调用偶尔漏 ## 📡 RADAR header (Qwen3 输出 drift 随机性, 温度 0.8 + 30K 素材稀释 + /no_think 副作用). 修复: (方案 2) WIDE_RADAR_SYSTEM 加 RADAR header 必字面量约束 + WIDE_RADAR_PROMPT 加 5 项输出自检 checklist (写完 WIDE 必接 RADAR 显式禁止 drift) (方案 3) 加 RADAR retry 兜底: WIDE ok + RADAR degraded 时主动调一次 LLM 只产 RADAR 段, 走默认 primary (Qwen3, doubao 试水留 V37.9.75 B), 双重验证 chars>=600 + 含 ## 📡 字面量, 失败 fall-through 到 V37.9.73 DEGRADED. status.json schema +radar_retried +radar_retry_chars 字段 (运维监控 LLM drift 频率). 11 新单测 TestV37974RadarRetryAndPromptHardening 含 retry 触发条件 / 双重验证 / 成功设 ok / 失败 fall-through / prompt 排除 DEEP+WIDE / schema 字段 / RADAR_RETRIED 初始化 / V37.9.75 doubao 候选登记. 反向 sabotage: 删 retry block (2339 chars) → 7 测试立即 fail, 还原后 98/98 OK. governance INV-DREAM-MULTITHEME-001 +7 V37.9.74 checks + INV-DREAM-003 修 regex escaped quotes 兼容 (file_contains→python_assert 找未转义 \" 边界). test_dream_surrogate_sanitize 同款 _extract_var_block helper 修. 多层防御: prompt 预防 + retry 恢复 + DEGRADED 兜底, 不依赖任一层 100%. 88 suites / 3024→3036 tests (+12) / 0 fail / 660→670 checks (+10) / 安全 95/100 / VERSION 0.37.9.68 不变. Mac Mini 部署后预期: 下次 RADAR drift 触发时 last_run.json radar_retried=true + radar_retry_chars 显示 retry 真激活, 用户连续两天 [3/3] 血案根因彻底闭环.",
       "by": "claude_code"
@@ -189,11 +194,6 @@
     {
       "date": "2026-05-13",
       "what": "V37.9.61 MR-19 扩到 LLM-task 类 — V37.9.60-hotfix3 揭露 framework gap 闭环. SCRIPTS_REQUIRING_ERR_TRAP 从 4 → 7 (+3 LLM-task: kb_deep_dive/kb_evening/kb_review). kb_dream 不在 scope (严格 #28 最小修复: 仅 set -o pipefail 无 -e). 3 脚本各加 set -eEuo + inline _<script>_fatal_handler + trap ERR + 三层 FAIL-OPEN (notify→openclaw→.openclaw_alerts.log). INV-CRON-MONITOR-001 +9 declaration (3 脚本 × 3: fatal_handler + V37.9.61 marker + set -eEuo). test_cron_monitor_scanner.py +3 守卫 + 反向验证 sabotage 真有效 (3 fail/还原 OK). alternation 修 test_kb_deep_dive set -euo → set -e[E]uo + test_convergence audit_metadata 接受 v3.40. 累计 81 suites / 2782→2785 tests (+3) / 0 fail / governance v3.39→v3.40 / 75 inv 不变 (INV 内涵扩) / 600→609 checks / 19 meta rules / 安全 95/100 / VERSION 0.37.9.60→0.37.9.61. 元价值: 今日 5 commits 闭环 silent monitor 防御 framework 三阶段 (V37.9.58-hotfix3 单点 watchdog → V37.9.60 cron 聚合监控 → V37.9.61 LLM-task), V3 路标 pip install ontology-engine framework 边界进一步清晰.",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-05-13",
-      "what": "V37.9.60-hotfix3: kb_deep_dive 5/8-5/12 5 天 silent abort 血案根治 — V37.9.21 我引入的 bash quirk (send_wa_parts 函数末尾 `[ X -lt Y ] && sleep 1` 单段时短路返回 1 → 函数 implicit return 1 → set -e 杀 caller → write_status/rsync 全 silent → last_run 停 5/7). 数据驱动诊断 5 个独立数据点定位 (fallback_chain doubao 已激活 / log 5 天markdown 真生成 / bash -x trace no_candidates 路径 / deep_dives/*.md 5 个文件存在 / crontab 2>&1 stderr 已捕获). 最小修复 2 行 return 0 + 注释引用血案锚点 + 4 反向验证守卫 (sabotage→fail/还原→OK). kb_dream.sh:1474 同款字面量但 main scope for 循环不杀 caller, 不需修. 揭露 V37.9.60 framework 设计 gap: SCRIPTS_REQUIRING_ERR_TRAP 只覆盖 cron 聚合监控类, 遗漏 LLM-task 类, V37.9.61 候选扩 MR-19 到 kb_deep_dive/kb_dream/kb_evening/kb_review. 累计 81 suites / 2778→2782 tests (+4) / 0 fail / VERSION 0.37.9.60 不变.",
       "by": "claude_code"
     }
   ],
@@ -322,7 +322,9 @@
       "V37.9.69+ 候选 [P1 — full_regression.sh line 30 bash 计数 bug]: count=$(... grep -oE 'Ran [0-9]+ test' | grep -oE '[0-9]+') 在 unittest fail 时输出格式异常导致 count 含多行数字, $((TOTAL_TESTS + count)) bash 报 'line 30: 26: command not found' 但 PASS=$((PASS+1)) 仍执行. 让 watchdog_self_monitoring 5 个 fail 被 full_regression 错误地报告为 PASS. 修复: count='$(... | head -1)' 或显式只取第一个数字.",
       "V37.9.73+ 候选 (按今日 status.json focus 段 V37.9.73+ 排序): (d) 反思文档行动 2 INV-PATH-CONSISTENCY-001 路径一致性 audit 防 V37.9.56-hotfix 同款路径假设错配 (~/jobs/X/ vs ~/.openclaw/jobs/X/) [1-2h 中等工作量] (f) 反思文档行动 3 failure_modes_catalog.md 失败模式库 (27 次 MR-4 silent-failure 演出 + 案例库类别 A/B 整理) [2-3h 中等工作量] (h) SLO p95 71958ms 数字恶化调查 (V37.9.58 54s → V37.9.69 72s 持续恶化) [不定工作量]. 今日 5 commit 真饱和交付 (V37.9.68-hotfix+V37.9.69+V37.9.70+V37.9.71+V37.9.72), 86→89 suites / 2962→3018 tests / +56 tests. 明日新 session 开工时按原则 #1~#3 完整开工清单跑过后再选.",
       "V37.9.75+ 候选 B (doubao 试水): kb_dream RADAR retry 路径切换走 doubao (V37.9.55 收工承诺兑现). 当前 V37.9.74 retry 走默认 primary Qwen3 (用户决策 2026-05-17). 实施工作量 2-3h: (1) adapter.py 加 ?provider=X query 参数支持 + 单测 (~1.5h) (2) kb_dream.sh retry 加 DREAM_RADAR_PROVIDER=doubao env var 可配 (~30min) (3) Mac Mini 部署 + adapter 重启 + 3-7 天试水观察 (V37.9.55 verified_fallback=False → True flip 数据). 收益: doubao reasoning_content 特性观察 + 真实 fallback 试水 + V37.9.55 试水承诺真兑现.",
-      "**V37.9.75 主交付: Capability-Based Dynamic Router PoC (下次 session 干净启动)** — 4-6h 工作量, V3 路标核心交付方向. **Step 1 (1h)**: jobs_registry.yaml schema 加 3 个可选字段: required_capabilities (list[str], 硬性要求, 缺则 router 跳过 provider) / prefer (list[str], 软优先, 命中加分) / cost_tier (low/mid/high, 影响 provider 选择). 向后兼容: 缺字段 fall-back current behavior. **Step 2 (1.5h)**: providers.py 加 find_best_provider(required_caps, prefer=None, exclude=None) 纯函数: 筛 candidates (has all required_caps) → 评分 (cap_score + sum(10 if has(pref)) for pref in prefer) → max() 返回. **15-20 单测**: empty required / hard filter / prefer 加分 / exclude 工作 / cap_score tie-break / 无候选 raise / verified flag 影响. **Step 3 (1.5h)**: 切 2 个低风险 cron 通过 router 选 provider: (a) kb_dream.sh RADAR retry 路径 (V37.9.74 已铺路, env var DREAM_RADAR_PROVIDER → 改为调 find_best_provider) (b) hf_papers.sh (cost_tier=low + required=[text], 让 router 选). **不切高频 cron** (avoid blast radius). **Step 4 (1.5h)**: 运行时观测 router_decisions.jsonl: append {ts, task, chosen, candidates, latency_ms, success, cap_score_at_decision_time}. 一周后跑 analyzer script 统计 task × provider 真实 quality matrix, 反馈调 cap_score. **不做** (V37.9.76+): per-request 路由 (改 adapter) / LLM-as-router / 反馈环自动调 cap_score / 切 7-8 cron. **PoC 通过验证后**: 立 INV-ROUTER-001 守卫 jobs_registry 新增字段 schema + find_best_provider 函数定义 + 2 cron 真用 router. **依赖**: V37.9.74 retry 路径 (已就位) + V37.9.55 doubao 接入 (已就位). **风险**: jobs_registry schema 变更可能影响 check_registry.py 校验, 需要同步加 schema 容错."
+      "**V37.9.75 主交付: Capability-Based Dynamic Router PoC (下次 session 干净启动)** — 4-6h 工作量, V3 路标核心交付方向. **Step 1 (1h)**: jobs_registry.yaml schema 加 3 个可选字段: required_capabilities (list[str], 硬性要求, 缺则 router 跳过 provider) / prefer (list[str], 软优先, 命中加分) / cost_tier (low/mid/high, 影响 provider 选择). 向后兼容: 缺字段 fall-back current behavior. **Step 2 (1.5h)**: providers.py 加 find_best_provider(required_caps, prefer=None, exclude=None) 纯函数: 筛 candidates (has all required_caps) → 评分 (cap_score + sum(10 if has(pref)) for pref in prefer) → max() 返回. **15-20 单测**: empty required / hard filter / prefer 加分 / exclude 工作 / cap_score tie-break / 无候选 raise / verified flag 影响. **Step 3 (1.5h)**: 切 2 个低风险 cron 通过 router 选 provider: (a) kb_dream.sh RADAR retry 路径 (V37.9.74 已铺路, env var DREAM_RADAR_PROVIDER → 改为调 find_best_provider) (b) hf_papers.sh (cost_tier=low + required=[text], 让 router 选). **不切高频 cron** (avoid blast radius). **Step 4 (1.5h)**: 运行时观测 router_decisions.jsonl: append {ts, task, chosen, candidates, latency_ms, success, cap_score_at_decision_time}. 一周后跑 analyzer script 统计 task × provider 真实 quality matrix, 反馈调 cap_score. **不做** (V37.9.76+): per-request 路由 (改 adapter) / LLM-as-router / 反馈环自动调 cap_score / 切 7-8 cron. **PoC 通过验证后**: 立 INV-ROUTER-001 守卫 jobs_registry 新增字段 schema + find_best_provider 函数定义 + 2 cron 真用 router. **依赖**: V37.9.74 retry 路径 (已就位) + V37.9.55 doubao 接入 (已就位). **风险**: jobs_registry schema 变更可能影响 check_registry.py 校验, 需要同步加 schema 容错.",
+      "V37.9.76+ 候选: V37.9.74 doubao 试水路径 (候选 B) 继续推进 — adapter ?provider=X 路由参数支持 + kb_dream.sh retry 加 DREAM_RADAR_PROVIDER/DREAM_DEEP_PROVIDER env var 可配 + Mac Mini 3-7 天试水观察. V37.9.55 verified_fallback flip 数据 + V37.9.55 收工承诺真兑现路径. 2-3h 工作量单独 PR 隔离风险.",
+      "V37.9.75 主硬卡: Mac Mini 部署后等下次 LLM DEEP partial content 真激活验证 retry 工作 (通过 last_run.json deep_retried=true 字段确认). 如频繁触发 (>30% runs) → V37.9.76+ 评估 doubao 试水或方案 D (DEEP fail-soft)."
     ],
     "open_prs": "",
     "blocked_on": "",
@@ -363,10 +365,10 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 3036,
-    "last_regression": "2026-05-17 04:34 pass",
+    "test_count": 3052,
+    "last_regression": "2026-05-18 00:39 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-05-17 04:34",
+    "security_score_time": "2026-05-18 00:39",
     "test_suites": 88,
     "governance_invariants": "64/64",
     "governance_checks": "350/350",
