@@ -1576,6 +1576,17 @@ ${WIDE_BLOCK}
 
 【硬性要求: 总长 ≥ 1500 字。少于 1200 字或缺 RADAR header 视为失败 (走 V37.9.73 DEGRADED 占位)。】"
 
+    # V37.9.76 Capability Router (shadow 模式): 记录决策不改 LLM 路由行为
+    # 一周观察 ~/.kb/router_decisions.jsonl 数据后, V37.9.77+ 评估 enforcement (adapter ?provider= 支持)
+    # FAIL-OPEN: router_decide.py 缺失/异常不阻塞 retry, ROUTER_CHOICE 留空即可
+    if [ -x "$HOME/router_decide.py" ]; then
+        ROUTER_CHOICE=$(python3 "$HOME/router_decide.py" --job-id kb_dream --task radar_retry 2>/dev/null || true)
+    elif [ -f "$SCRIPT_DIR/router_decide.py" ]; then
+        ROUTER_CHOICE=$(python3 "$SCRIPT_DIR/router_decide.py" --job-id kb_dream --task radar_retry 2>/dev/null || true)
+    else
+        ROUTER_CHOICE=""
+    fi
+    log "V37.9.76 router (shadow): chosen=${ROUTER_CHOICE:-unknown} (decision logged, not enforced — adapter PROVIDER_NAME 真实路由不变)"
     RADAR_RETRY_RESULT=$(llm_call "$RADAR_RETRY_PROMPT" 3000 0.8 200 "$RADAR_RETRY_SYSTEM" || true)
     RADAR_RETRY_CHARS=$(echo "$RADAR_RETRY_RESULT" | wc -c | tr -d ' ')
     RADAR_RETRY_HAS_HEADER=false

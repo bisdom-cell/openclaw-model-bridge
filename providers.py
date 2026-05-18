@@ -870,6 +870,73 @@ class ProviderRegistry:
 
         return sorted(candidates, key=sort_key)
 
+    def find_best_provider(
+        self,
+        required: Optional[Dict[str, bool]] = None,
+        prefer: Optional[List[str]] = None,
+        exclude: Optional[List[str]] = None,
+        require_available: bool = True,
+    ) -> Optional["BaseProvider"]:
+        """V37.9.76 capability-based router — pick best provider for task needs.
+
+        Used by Capability-Based Dynamic Router PoC (V37.9.76). Reads task's
+        capability requirements + preferences, returns best matching provider
+        based on hard filter (required) + scored ranking (cap_score + prefer).
+
+        Args:
+            required: dict of must-have capabilities (e.g. {"text": True, "vision": True}).
+                All keys must be supported (hard filter). Missing/None → no hard filter.
+            prefer: optional list of preferred capability names (e.g. ["reasoning"]).
+                Each match adds +10 to score (tie-breaker for similar-capability providers).
+            exclude: optional list of provider names to exclude (e.g. already failed).
+            require_available: if True (default), only include providers with API key set.
+
+        Returns:
+            Best matching provider, or None if no provider matches.
+
+        Scoring order (descending):
+            1. All required capabilities supported (HARD filter, no score)
+            2. Capability score (cap_score: more capabilities + more verified → higher)
+            3. Each prefer match adds +10
+            4. Registration order (stable tie-break)
+
+        Example:
+            # Task needs vision + tool_calling, prefers reasoning model
+            best = registry.find_best_provider(
+                required={"vision": True, "tool_calling": True},
+                prefer=["reasoning"],
+            )
+        """
+        candidates = list(self._providers.values())
+        if require_available:
+            candidates = [p for p in candidates if os.environ.get(p.api_key_env, "")]
+        if exclude:
+            exclude_set = set(exclude)
+            candidates = [p for p in candidates if p.name not in exclude_set]
+        # Hard filter: must support ALL required capabilities
+        if required:
+            def _matches(p):
+                caps = p.capabilities
+                for key, expected in required.items():
+                    if not hasattr(caps, key):
+                        return False
+                    if getattr(caps, key) != expected:
+                        return False
+                return True
+            candidates = [p for p in candidates if _matches(p)]
+        if not candidates:
+            return None
+
+        def score(p):
+            s = self._capability_score(p)
+            if prefer:
+                for pref in prefer:
+                    if getattr(p.capabilities, pref, False):
+                        s += 10
+            return -s  # negative for descending sort
+
+        return sorted(candidates, key=score)[0]
+
     def capability_overlap(self, name_a: str, name_b: str) -> Dict[str, bool]:
         """Compare capabilities between two providers.
 

@@ -163,6 +163,7 @@ declare -a FILE_MAP=(
     "adapter.py|$HOME/adapter.py"
     "providers.py|$HOME/providers.py"
     "providers.d/doubao_provider.py|$HOME/providers.d/doubao_provider.py"  # V37.9.52 — Doubao Seed 2.0 Pro plugin (auto-discovered by providers.py)
+    "router_decide.py|$HOME/router_decide.py"  # V37.9.76 — Capability Router shadow mode decision logger
     "memory_plane.py|$HOME/memory_plane.py"
     "VERSION|$HOME/VERSION"
     "services_registry.yaml|$HOME/services_registry.yaml"  # V37.9.25 — 第 5 个 convergence spec data source

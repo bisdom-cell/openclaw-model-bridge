@@ -49,6 +49,11 @@ jobs:
     kb_source_file: hf_papers_daily.md
     kb_source_label: 🤗 HuggingFace 论文
     description: Hugging Face Daily Papers 社区精选论文监控
+    # V37.9.76 Capability Router PoC — shadow 模式声明
+    # 论文 metadata 解析 + 6 字段中文分析 = 标准 text 任务, 无 reasoning 偏好.
+    # cost_tier: low — 高频 (per-paper 单独调 LLM ~10 次/天), 成本敏感度更高.
+    required_capabilities: [text]
+    cost_tier: low
 
   - id: semantic_scholar
     scheduler: system
@@ -433,6 +438,13 @@ jobs:
     enabled: true
     tier: experiment                 # 实验性：Agent 跨领域探索
     description: "Agent 做梦引擎 — Map 缓存命中后 Reduce 跨域关联 + 推送梦境（00:00 已预热缓存，03:00 仅需 ~3.5min）"
+    # V37.9.76 Capability Router PoC — shadow 模式声明（决策可见但不强制）
+    # Dream 三阶 LLM 调用（DEEP / WIDE+RADAR / RADAR retry）都是中长 reasoning 任务,
+    # 偏好 reasoning model (Qwen3 thinking / doubao reasoning_content) 提升输出质量.
+    # cost_tier: low — 每日 1-2 次调用, 单次 LLM 调用成本不敏感.
+    required_capabilities: [text]
+    prefer: [reasoning]
+    cost_tier: low
 
   - id: kb_harvest_chat
     scheduler: system

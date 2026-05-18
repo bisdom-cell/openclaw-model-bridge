@@ -1,5 +1,5 @@
 {
-  "updated": "2026-05-18 00:43:13",
+  "updated": "2026-05-18 01:20:23",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -106,6 +106,16 @@
   "recent_changes": [
     {
       "date": "2026-05-18",
+      "what": "🎯 V37.9.76 Capability-Based Dynamic Router PoC (shadow mode) — V3 路标 declarative capability framework 落地. 同 PR 4 步全做 4-6h. Step 1 jobs_registry kb_dream+hf_papers 加 required_capabilities/prefer/cost_tier 3 字段无破坏性 fall-back. Step 2 providers.py find_best_provider 70 行纯函数 (硬过滤+cap_score+prefer 加权+exclude+require_available). Step 3 新文件 router_decide.py shadow 模式 CLI ~280 行 stdlib only (lazy import yaml/providers + FAIL-OPEN + MR-11 stderr + 13 字段 JSONL schema), 集成 kb_dream RADAR retry + hf_papers per_paper LLM 调用前 (shadow log 不改路由). Step 4 ~/.kb/router_decisions.jsonl append-only observability mkdir+UTF-8+readonly path fail-open. 关键设计: shadow 模式 decision logged 不改 LLM 路由行为 (caller 仍走 adapter PROVIDER_NAME 默认主路径), 镜像 V37.9.19→V37.9.23→V37.9.58 Plan B 同款渐进策略 (declarative→shadow→on). dev smoke test: kb_dream → doubao (cap_score=16, V37.9.55+ doubao 试水承诺自然兑现 — task 声明 reasoning+cost_tier=low → router 自动选 doubao, 不硬编码). 43 新单测 8 测试类 + 反向 sabotage 三轮守卫真有效 (移除 find_best_provider → 18 fail, 删 kb_dream router → 1 fail, log 改 stdout MR-11 → 1 fail). INV-ROUTER-001 新增 (meta_rule=MR-7, severity=high, declaration+runtime, 12 checks). auto_deploy FILE_MAP 加 router_decide.py 部署 Mac Mini. full_regression +1 suite. 88→89 suites / 3052→3095 tests (+43) / 0 fail / governance v3.45→v3.46 / 77→78 inv (+1 INV-ROUTER-001) / 678→690 checks (+12) / 19 MR 不变 / 安全 95/100 / VERSION 0.37.9.68 不变 (PoC shadow mode 不 bump). Mac Mini 部署后预期: 5/19 03:00 kb_dream cron 自动追加 router_decisions.jsonl + 5/19 10:00 hf_papers per_paper 记录, LLM 真实路由不变, 一周观察 (5/25) 数据反馈调 cap_score. 元价值: V3 路标 pip install ontology-engine 核心交付 — declarative capability framework 真正能做到 task 声明→router 选择→observability 反馈完整闭环, 与 V37.9.19+ Convergence Framework 是 framework 双胞胎. 同日内 V37.9.74 RADAR retry 首次生产激活成功闭环 + V37.9.75 DEEP retry 部署 + V37.9.76 capability router PoC 三件套交付.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-05-18",
+      "what": "🎯 V37.9.74 主硬卡闭环 — RADAR retry 首次生产激活成功. 用户 5/18 08:50 Mac Mini 手动 bash ~/kb_dream.sh 真激活验证: WIDE 870 chars ok / RADAR 段 1 char (LLM drift 漏 ## 📡 header) → V37.9.74 retry 自动触发: 主动调 LLM 只产 RADAR → retry 4949 chars + has_header=true 双重验证通过 → status=ok (retry-recovered) → 三阶推送 4/4 段完整 → 用户收到完整 DEEP+WIDE+RADAR+总览 (而非 5/16-17 血案的 [3/3] DEGRADED 占位). V37.9.74 部署 5/17 → 首次激活 5/18 = 闭环时间 < 24h. status_file ~/.kb/dreams/.last_run.json (非之前误指 ~/.kb/cache/last_run.json) 含 radar_retried:true + radar_retry_chars:4949 字段决定性证据. V37.9.75 同时已部署 (代码 5/18 push, 上午合并), 今天 DEEP 5637 chars > 1200 阈值 → V37.9.75 retry 未触发 (正常路径). 等下次 LLM partial 真发生时验证 V37.9.75 DEEP retry. 副发现: Mac Mini adapter /health version=0.37.9.54 不是最新 0.37.9.68 (V37.9.74/75 仅改 kb_dream.sh 客户端逻辑不依赖 adapter 版本, 不影响功能). 用户视角原则 #13 第 N+2 次正向兑现: 单次手动 dream 验证同时闭环 V37.9.74 (首次激活) + 验证 V37.9.75 (部署 OK).",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-05-18",
       "what": "V37.9.75 kb_dream DEEP LLM partial content 修复 — DEEP retry 兜底 (镜像 V37.9.74 RADAR retry 模式, 用户决策 Option B). 触发: 2026-05-18 03:02 Mac Mini cron [SYSTEM_ALERT] DEEP 段失败 (823 chars < 1200) — fail-fast 跳过 WIDE+RADAR 用户零内容. 完整因果链分析: 5/15-17 三天稳定 6314-7125 chars / 100-113s, 5/18 突然 823 chars / 214s (2x 时长 1/8 内容) + head 显示 header 完整但章节中途截断 = LLM provider stream 异常 partial. 三层根因: 触发器 (LLM provider 偶发 partial) + 放大器 (llm_call 只检非空不检最低字数 0 次 retry) + 掩护者 (V37.9.68 fail-fast 设计跳过 WIDE+RADAR 用户零内容). MR-4 silent-failure 新形态: llm_call 把客观异常 partial 当正常短答返回. 修复 kb_dream.sh 加 53 行 retry block: 触发条件 -n DEEP_RESULT && DEEP_CHARS<MIN (仅 partial 时 retry, 完全空 skip) / DEEP_RETRY_SYSTEM 严格度不降明确告知上次 partial / DEEP_RETRY_PROMPT 保留 ban-list + 引用上次 chars + V37.9.74 同款 5 项输出自检 checklist / 双重验证 chars+header 字面量 / 成功路径用 retry 结果继续 WIDE+RADAR / 失败路径 fall-through V37.9.68 fail-fast (DEEP 必过原则不破). status.json schema +deep_retried +deep_retry_chars 双字段 (运维监控激活率). fail-fast 告警分支区分 retry 已尝试 vs 未触发. 16 新单测 TestV37975DeepRetryFallback + 反向 sabotage 三轮守卫真有效 (移除触发条件/双验证/初始化各 1 fail). V37.9.68 历史 fail-fast 顺序锁 500→1000 chars 扩窗容纳合法演进. governance INV-DREAM-MULTITHEME-001 +8 checks. 88 suites / 3036→3052 tests (+16) / 0 fail / governance v3.44→v3.45 / 77 inv 不变 / 670→678 checks (+8) / 19 MR 不变 / 安全 95/100 / VERSION 0.37.9.68 不变 (hotfix). 原则 #28 三问全过 (之前 5/15-17 不存在, 5/18 LLM 异常引入, 最小修复 retry 不破 fail-fast 原则). 用户视角原则 #13 第 N+1 次正向兑现.",
       "by": "claude_code"
     },
@@ -184,16 +194,6 @@
     {
       "date": "2026-05-13",
       "what": "V37.9.63 MR-8 抽公共 fatal_handler helper — MR-19 framework 化推广后第一次 MR-8 正向兑现 + 顺势修 V37.9.60 6 个 fatal_handler 第二层 FAIL-OPEN CLI 参数 bug. **触发**: V37.9.61 收工承诺 V37.9.63+ 候选 (MR-8 抽 cron_monitor_fatal_handler.sh 公共 helper, V37.9.60+V37.9.61 7 governed scripts copy-paste). audit 揭示 99% 同款 + 6 处差异 + **意外发现 V37.9.60 6 个 fatal_handler 第二层 FAIL-OPEN CLI 参数 bug** (用 --channel-id/--content, canonical 是 --target/--message/--json), 顺势统一. **新文件 cron_monitor_fatal_handler.sh** (~80 行 helper) 单函数读 4 个 caller 变量 (CRON_FATAL_LABEL/LOG/BASH_X/REASON) + 三层 FAIL-OPEN + canonical CLI. **7 个 governed scripts 迁移**: 每个删 ~20 行 inline handler + 加 7 行 (source + 4 vars + trap), 净减 ~90 行 copy-paste. watchdog 保 _watchdog_exit_handler (canary heartbeat) 不动. **test_cron_monitor_fatal_handler.py 30 单测 7 类** + 反向验证守卫真有效 (sabotage helper → 13 failures, 还原 30/30 OK). **cron_monitor_scanner.py 升级**: 新增 uses_shared_fatal_handler_helper() 函数, scan_script 加 alternation (inline [SYSTEM_ALERT] OR V37.9.63 helper 模式). test_cron_monitor_scanner V37.9.61 守卫升级 alternation. **INV-CRON-MONITOR-001 扩 +10 checks** (9 declaration helper + 1 runtime). **INV-WATCHDOG-SELF-001 修 alternation** (V37.9.63 后 watchdog inline handler 已移除, 两个字面量守卫升级为 python_assert 双路径). MR-8 single-source-of-truth 兑现 — 修改 handler 行为现只需改 helper 一处, 7 scripts 自动 propagate. 累计 81→82 suites (+1) / 2785→2815 tests (+30) / 0 fail / governance v3.40→v3.41 / 75 invariants 不变 / 609→619 checks (+10) / 19 meta rules 不变 / 安全 95/100 / VERSION 0.37",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-05-13",
-      "what": "V37.9.62 收工: 6 脚本 batch 升级 6 字段 + ACL Anthology 用户痛点闭环. 82 suites/2785 tests/0 fail. ALIGNED_SCRIPTS 11→17 (81% LLM cron 覆盖). CLAUDE.md 补 V37.9.61+V37.9.62 entries + 头部版本升级.",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-05-13",
-      "what": "V37.9.61 MR-19 扩到 LLM-task 类 — V37.9.60-hotfix3 揭露 framework gap 闭环. SCRIPTS_REQUIRING_ERR_TRAP 从 4 → 7 (+3 LLM-task: kb_deep_dive/kb_evening/kb_review). kb_dream 不在 scope (严格 #28 最小修复: 仅 set -o pipefail 无 -e). 3 脚本各加 set -eEuo + inline _<script>_fatal_handler + trap ERR + 三层 FAIL-OPEN (notify→openclaw→.openclaw_alerts.log). INV-CRON-MONITOR-001 +9 declaration (3 脚本 × 3: fatal_handler + V37.9.61 marker + set -eEuo). test_cron_monitor_scanner.py +3 守卫 + 反向验证 sabotage 真有效 (3 fail/还原 OK). alternation 修 test_kb_deep_dive set -euo → set -e[E]uo + test_convergence audit_metadata 接受 v3.40. 累计 81 suites / 2782→2785 tests (+3) / 0 fail / governance v3.39→v3.40 / 75 inv 不变 (INV 内涵扩) / 600→609 checks / 19 meta rules / 安全 95/100 / VERSION 0.37.9.60→0.37.9.61. 元价值: 今日 5 commits 闭环 silent monitor 防御 framework 三阶段 (V37.9.58-hotfix3 单点 watchdog → V37.9.60 cron 聚合监控 → V37.9.61 LLM-task), V3 路标 pip install ontology-engine framework 边界进一步清晰.",
       "by": "claude_code"
     }
   ],
@@ -324,7 +324,9 @@
       "V37.9.75+ 候选 B (doubao 试水): kb_dream RADAR retry 路径切换走 doubao (V37.9.55 收工承诺兑现). 当前 V37.9.74 retry 走默认 primary Qwen3 (用户决策 2026-05-17). 实施工作量 2-3h: (1) adapter.py 加 ?provider=X query 参数支持 + 单测 (~1.5h) (2) kb_dream.sh retry 加 DREAM_RADAR_PROVIDER=doubao env var 可配 (~30min) (3) Mac Mini 部署 + adapter 重启 + 3-7 天试水观察 (V37.9.55 verified_fallback=False → True flip 数据). 收益: doubao reasoning_content 特性观察 + 真实 fallback 试水 + V37.9.55 试水承诺真兑现.",
       "**V37.9.75 主交付: Capability-Based Dynamic Router PoC (下次 session 干净启动)** — 4-6h 工作量, V3 路标核心交付方向. **Step 1 (1h)**: jobs_registry.yaml schema 加 3 个可选字段: required_capabilities (list[str], 硬性要求, 缺则 router 跳过 provider) / prefer (list[str], 软优先, 命中加分) / cost_tier (low/mid/high, 影响 provider 选择). 向后兼容: 缺字段 fall-back current behavior. **Step 2 (1.5h)**: providers.py 加 find_best_provider(required_caps, prefer=None, exclude=None) 纯函数: 筛 candidates (has all required_caps) → 评分 (cap_score + sum(10 if has(pref)) for pref in prefer) → max() 返回. **15-20 单测**: empty required / hard filter / prefer 加分 / exclude 工作 / cap_score tie-break / 无候选 raise / verified flag 影响. **Step 3 (1.5h)**: 切 2 个低风险 cron 通过 router 选 provider: (a) kb_dream.sh RADAR retry 路径 (V37.9.74 已铺路, env var DREAM_RADAR_PROVIDER → 改为调 find_best_provider) (b) hf_papers.sh (cost_tier=low + required=[text], 让 router 选). **不切高频 cron** (avoid blast radius). **Step 4 (1.5h)**: 运行时观测 router_decisions.jsonl: append {ts, task, chosen, candidates, latency_ms, success, cap_score_at_decision_time}. 一周后跑 analyzer script 统计 task × provider 真实 quality matrix, 反馈调 cap_score. **不做** (V37.9.76+): per-request 路由 (改 adapter) / LLM-as-router / 反馈环自动调 cap_score / 切 7-8 cron. **PoC 通过验证后**: 立 INV-ROUTER-001 守卫 jobs_registry 新增字段 schema + find_best_provider 函数定义 + 2 cron 真用 router. **依赖**: V37.9.74 retry 路径 (已就位) + V37.9.55 doubao 接入 (已就位). **风险**: jobs_registry schema 变更可能影响 check_registry.py 校验, 需要同步加 schema 容错.",
       "V37.9.76+ 候选: V37.9.74 doubao 试水路径 (候选 B) 继续推进 — adapter ?provider=X 路由参数支持 + kb_dream.sh retry 加 DREAM_RADAR_PROVIDER/DREAM_DEEP_PROVIDER env var 可配 + Mac Mini 3-7 天试水观察. V37.9.55 verified_fallback flip 数据 + V37.9.55 收工承诺真兑现路径. 2-3h 工作量单独 PR 隔离风险.",
-      "V37.9.75 主硬卡: Mac Mini 部署后等下次 LLM DEEP partial content 真激活验证 retry 工作 (通过 last_run.json deep_retried=true 字段确认). 如频繁触发 (>30% runs) → V37.9.76+ 评估 doubao 试水或方案 D (DEEP fail-soft)."
+      "V37.9.75 主硬卡: Mac Mini 部署后等下次 LLM DEEP partial content 真激活验证 retry 工作 (通过 last_run.json deep_retried=true 字段确认). 如频繁触发 (>30% runs) → V37.9.76+ 评估 doubao 试水或方案 D (DEEP fail-soft).",
+      "V37.9.76 PoC 主硬卡: Mac Mini 部署后 1-2 天验证 router_decide.py shadow 模式真激活. 命令: cat ~/.kb/router_decisions.jsonl | jq .chosen | sort | uniq -c. 5/19 03:00 kb_dream cron + 5/19 10:00 hf_papers 应自动累积决策记录. 一周观察期 (5/25) 后数据分析 chosen 分布反馈调 cap_score.",
+      "V37.9.77+ enforcement 评估: 一周观察 (5/25) router_decisions.jsonl 数据后, adapter.py 加 ?provider=X query 参数支持 (V37.9.55+ 候选 B 真兑现) + caller pass router chosen → adapter 真路由切换 + mode shadow→on. 同时扩展 capability profile 到更多 ALIGNED job (arxiv_monitor / dblp / acl_anthology 等)."
     ],
     "open_prs": "",
     "blocked_on": "",
@@ -365,11 +367,11 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 3052,
-    "last_regression": "2026-05-18 00:39 pass",
+    "test_count": 3095,
+    "last_regression": "2026-05-18 01:18 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-05-18 00:39",
-    "test_suites": 88,
+    "security_score_time": "2026-05-18 01:18",
+    "test_suites": 89,
     "governance_invariants": "64/64",
     "governance_checks": "350/350",
     "version": "0.37.9.68"
@@ -436,7 +438,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "**V37.9.75 主交付锁定: Capability-Based Dynamic Router PoC** (V37 capability framework 演进 V3 路标 `pip install ontology-engine` 终极目标核心交付方向) — 用户 2026-05-17 决策锁定. 实施: 把 V37.9.55+ doubao 单 cron 试水承诺**升级**为 capability router framework PoC. **基础设施已 70% 就位** (providers.py: ProviderCapabilities + cap_score + find_by_capability + build_fallback_chain / adapter.py 已消费 fallback_chain). **缺最后两块**: (1) task 侧 capability requirement 声明 (jobs_registry 加 required_capabilities 字段) (2) per-task router helper (providers.py 加 find_best_provider). **4 步 PoC 路径** (4-6h 工作量, 单独 PR 隔离风险): Step 1 jobs_registry.yaml schema 加 required_capabilities/prefer/cost_tier 字段 (无破坏性, 缺字段 fall-back 当前行为) Step 2 providers.py 加 find_best_provider(required_caps, prefer, exclude) 30 行纯函数 Step 3 切 1-2 个低风险 cron (RADAR retry / hf_papers) 通过 router 选 provider 替代启动期 fixed PROVIDER_NAME, V37.9.74 RADAR retry 路径自然成为试水载体 Step 4 观测层 ~/.kb/router_decisions.jsonl append-only (ts/task/chosen/alternatives/latency_ms/success) — 一周回看真实路由数据反馈调 cap_score. **关键设计决策**: router 实现 = 规则评分 (V37 cap_score 已具备, 不用 LLM-as-router 避免增加 latency+成本+不可解释) / 路由决策点 = per-task (cron job 启动时选一次, 不改 adapter) / 试水范围 = 1-2 个 cron (blast radius 可控) / observability = jsonl append-only (不上 Prometheus 太重). **V37.9.55+ doubao 试水承诺自然兑现**: 不再硬编码 'doubao 走 RADAR retry', 而是 'task 声明需要 reasoning + cost_tier=low → router 自动选 doubao'. **下次 session 干净启动**: 直接进 V37.9.75 capability router PoC, 不需推导已锁定. **当前主硬卡**: V37.9.74 已 push 待合并 + Mac Mini 同步, 下次 RADAR drift 真激活验证 retry 工作 (通过 last_run.json radar_retried 字段确认).",
+  "focus": "**V37.9.76 主交付锁定: Capability-Based Dynamic Router PoC** (V37.9.75 capability router PoC 被 5/18 DEEP blood lesson 打断后改版本号续推进). V37.9.74 RADAR retry 主硬卡 5/18 08:50 首次生产激活成功闭环 (radar_retried:true + 4949 chars retry-recovered, status_file ~/.kb/dreams/.last_run.json). V37.9.75 DEEP retry 同款模式部署 OK (5637 chars 正常路径不触发 retry, 等下次 LLM DEEP partial 验证). **V37.9.76 路径不变** — 4 步 PoC (4-6h 工作量): Step 1 jobs_registry.yaml 加 required_capabilities/prefer/cost_tier 字段 / Step 2 providers.py 加 find_best_provider 30 行纯函数 / Step 3 切 1-2 低风险 cron 试水 (RADAR retry / hf_papers, V37.9.74 retry 路径自然成为试水载体) / Step 4 ~/.kb/router_decisions.jsonl 观测. **V37.9.55+ doubao 试水承诺自然兑现**: 不硬编码 doubao 路径, 而是 task 声明 reasoning+cost_tier=low → router 自动选 doubao. **当前主硬卡**: 等用户决策 V37.9.76 启动节奏 (分阶段先 Step 1+2 还是单 session 4 步全做). **副发现**: Mac Mini adapter /health version=0.37.9.54 不是最新 0.37.9.68 (不影响功能因 V37.9.74/75 仅改 kb_dream.sh 客户端逻辑, 但适合 V37.9.76+ 顺手重启 adapter 拿最新 version).",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
