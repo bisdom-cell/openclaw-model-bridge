@@ -1309,13 +1309,100 @@ DEEP_CHARS=$(echo "$DEEP_RESULT" | wc -c | tr -d ' ')
 DEEP_HEAD=$(echo "$DEEP_RESULT" | head -c 120 | LC_ALL=C tr '\n' ' ')
 log "DEEP 完成: ${DEEP_CHARS} chars, head: ${DEEP_HEAD}"
 
-# DEEP fail-fast 验证（V37.9.68 用户决策：DEEP 必过，不及格 exit 1）
+# DEEP fail-fast 阈值（必须在 V37.9.75 retry block 之前定义供 retry 触发条件用）
 MIN_DEEP_CHARS=1200  # UTF-8 字节, ≈400 汉字最低
+
+# V37.9.75 DEEP retry 兜底 (镜像 V37.9.74 RADAR retry 同款模式)
+# 触发场景: 2026-05-18 03:02 Mac Mini cron LLM provider 端返回 823 chars partial content
+#   - 5/15-17 三天 DEEP 稳定 6314-7125 chars / 100-113s 时长
+#   - 5/18 突然 823 chars / 214s 时长 (慢一倍 + 短 1/8) = LLM provider 端 stream 异常截断
+#   - head 显示 header 完整 "## 🌙 今日深度: ..." 但 "### 发现过程" 章节刚开头就停
+# 用户决策 V37.9.75 retry 走默认 primary (Qwen3), 失败仍 fail-fast (V37.9.68 DEEP 必过原则不破)
+# 多层防御: prompt 强 (预防) + retry 一次 (恢复) + fail-fast (兜底) 三层
+# V37.9.75+ 候选 (V37.9.76+ 评估): retry 路径切走 doubao (需 adapter ?provider= 支持, V37.9.55+ 承诺)
+DEEP_RETRIED=false
+DEEP_RETRY_CHARS=0
+# 仅在 LLM 真返回内容但偏短时 retry (partial content). 空字符串视为 LLM 完全失败, 不浪费 retry token.
+if [ -n "${DEEP_RESULT// }" ] && [ "$DEEP_CHARS" -lt "$MIN_DEEP_CHARS" ]; then
+    log "V37.9.75: DEEP 段过短 (${DEEP_CHARS} chars < ${MIN_DEEP_CHARS}), 主动 retry (LLM partial content 兜底)..."
+    DEEP_RETRIED=true
+
+    DEEP_RETRY_SYSTEM="/no_think
+你是专业数据分析师。DEEP_RETRY 模式: 上次 DEEP 段产出过短 (partial content), 现在重新产 1 个完整的深度分析主题。
+
+【V37.9.75 retry 硬要求 — 违反整份输出作废】
+- 总长**必须 ≥ 1400 字** (上次只有 ${DEEP_CHARS} 字, 远不达标, 这次不能再短)
+- 第一行**必须**是字面量 \"## 🌙 今日深度: <主题名>\"
+- 必须含 3 章节: ### 发现过程 / ### 🔗 隐藏关联 / ### 🎯 行动建议
+- 每章节 ≥ 400 字, 章节间换行清晰
+
+【V37.9.68 主题去重硬规则 — ban-list 仍生效】
+- 14 天 ban-list 中的主题（关键词集合）不得作为选题
+- 即使数据中相同主题信号最强, 也必须选**完全不同维度的新主题**
+
+【V37.8.6 反污染】禁止把 HTTP 错误码 / Python 异常 / 错误页 HTML / U+FFFD(�) 当外部信号
+${DREAM_HG_GUARD}"
+
+    DEEP_RETRY_PROMPT="上一次 DEEP LLM 调用产出过短 (${DEEP_CHARS} 字, 远低于 1200 字最低要求)。
+现在请重新产出**完整**深度分析, 不允许再次截断。
+
+---
+$REDUCE_MULTI_MATERIAL
+---
+
+${BANNED_THEMES_BLOCK}
+
+第一步：从所有信号中选出 1 个**完全未在 14 天 ban-list 中出现**的主题。
+
+第二步：围绕这个新主题写 3 章节, 每章节 ≥ 400 字, 合计 ≥ 1400 字：
+
+## 🌙 今日深度: [主题名]
+
+### 发现过程
+像侦探一样描述：哪些数据源的哪些条目最先引起注意？信号是如何从不同数据源中逐步浮现并互相印证的？(≥400 字)
+
+### 🔗 隐藏关联
+列出 3-5 个隐藏的关联：A事实([数据源, 日期]) → B事实([数据源, 日期]) → 因此C (≥400 字)
+
+### 🎯 行动建议
+给出 3-5 个具体可执行的建议: 做什么 / 为什么现在做 / 怎么验证 / 预期产出 (≥400 字)
+
+【V37.9.75 retry 输出自检 — 提交前对照】
+1. 是否以 \"## 🌙 今日深度:\" 开头？
+2. 三章节都齐备且 ≥400 字？
+3. 合计 ≥ 1400 字 (上次只有 ${DEEP_CHARS} 字, 这次不能再短)？
+4. 主题与 14 天 ban-list 任一关键词重叠 < 2？
+5. 没有写到一半截断？
+
+【硬性要求：合计 ≥ 1400 字。少于 1200 字或缺 \"## 🌙 今日深度\" header 视为 retry 失败 (走 V37.9.68 fail-fast exit 1)。】"
+
+    DEEP_RETRY_RESULT=$(llm_call "$DEEP_RETRY_PROMPT" 5000 0.85 300 "$DEEP_RETRY_SYSTEM" || true)
+    DEEP_RETRY_CHARS=$(echo "$DEEP_RETRY_RESULT" | wc -c | tr -d ' ')
+    DEEP_RETRY_HAS_HEADER=false
+    echo "$DEEP_RETRY_RESULT" | grep -q '## 🌙 今日深度' && DEEP_RETRY_HAS_HEADER=true
+    log "V37.9.75 DEEP retry 完成: ${DEEP_RETRY_CHARS} chars, has_header=${DEEP_RETRY_HAS_HEADER}"
+
+    # 双重验证: chars >= MIN + 含 ## 🌙 今日深度 header (防 LLM 产 1400 字垃圾但漏 header)
+    if [ "$DEEP_RETRY_CHARS" -ge "$MIN_DEEP_CHARS" ] && [ "$DEEP_RETRY_HAS_HEADER" = "true" ]; then
+        DEEP_RESULT="$DEEP_RETRY_RESULT"
+        DEEP_CHARS=$DEEP_RETRY_CHARS
+        log "V37.9.75 DEEP retry 成功: ${DEEP_CHARS} chars → 继续 WIDE+RADAR (retry-recovered)"
+    else
+        log "V37.9.75 DEEP retry 失败 (${DEEP_RETRY_CHARS} chars / has_header=${DEEP_RETRY_HAS_HEADER}), 走 V37.9.68 fail-fast"
+    fi
+fi
+
+# DEEP fail-fast 验证（V37.9.68 用户决策：DEEP 必过，不及格 exit 1）
+# V37.9.75 升级: retry 已尝试过 (若适用), 此时仍不达标 = 真实 LLM 故障, fail-fast 保 V37.9.68 设计原则
 if [ -z "${DEEP_RESULT// }" ] || [ "$DEEP_CHARS" -lt "$MIN_DEEP_CHARS" ]; then
-    log "ERROR: DEEP 生成失败 (${DEEP_CHARS} chars < ${MIN_DEEP_CHARS})"
-    printf '{"time":"%s","status":"llm_failed","phase":"deep","deep_chars":%d,"min_required":%d,"prompt_bytes":%d}\n' \
-        "$TS" "$DEEP_CHARS" "$MIN_DEEP_CHARS" "$REDUCE_MULTI_CHARS" > "$STATUS_FILE"
-    dream_fail_alert "V37.9.68 DEEP 段失败 (${DEEP_CHARS} chars < ${MIN_DEEP_CHARS}) — fail-fast，跳过 WIDE+RADAR"
+    log "ERROR: DEEP 生成失败 (${DEEP_CHARS} chars < ${MIN_DEEP_CHARS}, retried=${DEEP_RETRIED})"
+    printf '{"time":"%s","status":"llm_failed","phase":"deep","deep_chars":%d,"min_required":%d,"prompt_bytes":%d,"deep_retried":%s,"deep_retry_chars":%d}\n' \
+        "$TS" "$DEEP_CHARS" "$MIN_DEEP_CHARS" "$REDUCE_MULTI_CHARS" "$DEEP_RETRIED" "$DEEP_RETRY_CHARS" > "$STATUS_FILE"
+    if [ "$DEEP_RETRIED" = "true" ]; then
+        dream_fail_alert "V37.9.75 DEEP 段双失败 (原始 ${DEEP_CHARS} chars + retry ${DEEP_RETRY_CHARS} chars 都 < ${MIN_DEEP_CHARS}) — fail-fast，跳过 WIDE+RADAR"
+    else
+        dream_fail_alert "V37.9.68 DEEP 段失败 (${DEEP_CHARS} chars < ${MIN_DEEP_CHARS}, retry 未触发因 LLM 完全空) — fail-fast，跳过 WIDE+RADAR"
+    fi
     exit 1
 fi
 
@@ -1681,12 +1768,14 @@ fi
 # Reduce 写 .last_run.json，Map 写 .last_map.json — 互不覆盖，INV-JOB-001
 # V37.9.68 字段：deep_chars / wide_status / radar_status / wide_chars / radar_chars / multitheme
 # V37.9.74 新增：radar_retried / radar_retry_chars — RADAR retry 真激活可观测 (LLM drift 频率监测)
-printf '{"time":"%s","status":"ok","mode":"%s","multitheme":true,"map_count":%d,"sources":%d,"notes":%d,"kb_bytes":%d,"reduce_chars":%d,"dream_bytes":%d,"deep_chars":%d,"wide_status":"%s","wide_chars":%d,"radar_status":"%s","radar_chars":%d,"radar_retried":%s,"radar_retry_chars":%d,"sent":%s,"map_degraded":%s}\n' \
+# V37.9.75 新增：deep_retried / deep_retry_chars — DEEP retry 真激活可观测 (LLM partial content 频率监测)
+printf '{"time":"%s","status":"ok","mode":"%s","multitheme":true,"map_count":%d,"sources":%d,"notes":%d,"kb_bytes":%d,"reduce_chars":%d,"dream_bytes":%d,"deep_chars":%d,"deep_retried":%s,"deep_retry_chars":%d,"wide_status":"%s","wide_chars":%d,"radar_status":"%s","radar_chars":%d,"radar_retried":%s,"radar_retry_chars":%d,"sent":%s,"map_degraded":%s}\n' \
     "$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')" \
     "$([ "$FAST_MODE" = true ] && echo 'fast' || echo 'mapreduce')" \
     "$MAP_COUNT" "$SRC_COUNT" "$NOTE_COUNT" "$TOTAL_KB_BYTES" "$REDUCE_CHARS" \
     "$(wc -c < "$DREAM_FILE" | tr -d ' ')" \
-    "${DEEP_CHARS:-0}" "${WIDE_STATUS:-unknown}" "${WIDE_BLOCK_CHARS:-0}" "${RADAR_STATUS:-unknown}" "${RADAR_BLOCK_CHARS:-0}" \
+    "${DEEP_CHARS:-0}" "${DEEP_RETRIED:-false}" "${DEEP_RETRY_CHARS:-0}" \
+    "${WIDE_STATUS:-unknown}" "${WIDE_BLOCK_CHARS:-0}" "${RADAR_STATUS:-unknown}" "${RADAR_BLOCK_CHARS:-0}" \
     "${RADAR_RETRIED:-false}" "${RADAR_RETRY_CHARS:-0}" \
     "$SENT" "$MAP_DEGRADED" > "$STATUS_FILE"
 

@@ -902,12 +902,19 @@ class TestKbDreamShellGuards(unittest.TestCase):
         self.assertIn("WIDE_RADAR_RESULT", self.src)
 
     def test_deep_must_pass_fail_fast(self):
-        """守卫：DEEP fail-fast 顺序锁 — 失败必 exit 1，不允许静默继续。"""
+        """守卫：DEEP fail-fast 顺序锁 — 失败必 exit 1，不允许静默继续。
+
+        V37.9.68: 500 chars 窗口已够 (printf + status_file + alert + exit 1).
+        V37.9.75: 扩到 1000 chars 容纳 retry vs not-retry 告警双分支 (DEEP_RETRIED true/false 区分):
+            原 ~300 → printf + status + alert + exit 1
+            V37.9.75 ~570 → printf + status (含 deep_retried/deep_retry_chars) + if/else 双 alert + exit 1
+        语义不变: exit 1 必须在 status:llm_failed marker 后立即出现, 不允许漂移到不相关位置.
+        """
         # 找 DEEP fail 分支
         idx = self.src.find('"status":"llm_failed","phase":"deep"')
         self.assertGreater(idx, 0, "DEEP fail 状态写入分支应存在")
-        # 该分支后 500 字符内必须有 exit 1
-        after = self.src[idx : idx + 500]
+        # 该分支后 1000 字符内必须有 exit 1 (V37.9.75 扩窗容纳双告警分支)
+        after = self.src[idx : idx + 1000]
         self.assertIn("exit 1", after, "DEEP 失败后必须立即 exit 1 fail-fast")
 
     def test_wide_radar_independent_degradation(self):
@@ -1141,6 +1148,210 @@ class TestV37974RadarRetryAndPromptHardening(unittest.TestCase):
                       "V37.9.74 注释必须显式登记 V37.9.75 doubao 试水候选")
         self.assertIn("doubao", self.src,
                       "V37.9.74 注释必须提到 doubao (V37.9.55 试水承诺路径)")
+
+
+class TestV37975DeepRetryFallback(unittest.TestCase):
+    """V37.9.75 DEEP retry 兜底 (LLM partial content 修复, 镜像 V37.9.74 RADAR retry 同款模式).
+
+    背景: 2026-05-18 03:02 Mac Mini cron LLM provider 端返回 823 chars partial content,
+    head 显示 header 完整但 "### 发现过程" 章节刚开头就停 (5/15-17 三天稳定 6314-7125 chars).
+    时长 214s vs 前三天 100-113s = LLM 用 2x 时间产 1/8 内容 → LLM stream 端异常截断.
+
+    用户决策 Option B: DEEP 加 retry 兜底 (镜像 V37.9.74 RADAR retry 模式).
+    多层防御: prompt 强 (V37.9.68 已有) + retry 一次 (V37.9.75 新增) + fail-fast (V37.9.68 兜底).
+    """
+
+    def setUp(self):
+        repo_root = os.path.dirname(os.path.abspath(__file__))
+        with open(os.path.join(repo_root, "kb_dream.sh")) as f:
+            self.src = f.read()
+
+    # === V37.9.75 marker + 血案溯源守卫 ===
+
+    def test_v37_9_75_marker_in_source(self):
+        """V37.9.75 marker 必须在 shell 文件可 grep (审计追溯)."""
+        self.assertIn("V37.9.75", self.src, "V37.9.75 marker 必须存在")
+
+    def test_blood_lesson_evidence_documented(self):
+        """V37.9.75 注释必须显式记录 5/18 血案触发数据 (5/15-17 vs 5/18 对比)."""
+        self.assertIn("2026-05-18", self.src, "V37.9.75 注释必须含血案日期 2026-05-18")
+        self.assertIn("823 chars", self.src, "V37.9.75 注释必须含实际 partial chars 数 (823)")
+        self.assertIn("5/15-17", self.src, "V37.9.75 注释必须对比 5/15-17 稳定数据")
+
+    # === retry 触发条件守卫 ===
+
+    def test_deep_retry_trigger_only_on_partial_not_empty(self):
+        """retry 只在 LLM 返回 partial (非空但短) 时触发, 完全空时跳过 (不浪费 token)."""
+        # 触发条件: -n DEEP_RESULT (非空) AND DEEP_CHARS < MIN_DEEP_CHARS (短)
+        self.assertIn('[ -n "${DEEP_RESULT// }" ] && [ "$DEEP_CHARS" -lt "$MIN_DEEP_CHARS" ]', self.src,
+                      "V37.9.75: retry 必须仅在 LLM 真返回 partial content 时触发")
+
+    def test_deep_retry_block_exists(self):
+        """V37.9.75 DEEP retry 兜底逻辑必须存在."""
+        self.assertIn("DEEP_RETRY_SYSTEM", self.src, "V37.9.75: DEEP_RETRY_SYSTEM 变量必须定义")
+        self.assertIn("DEEP_RETRY_PROMPT", self.src, "V37.9.75: DEEP_RETRY_PROMPT 变量必须定义")
+        self.assertIn('llm_call "$DEEP_RETRY_PROMPT"', self.src,
+                      "V37.9.75: retry 必须真调用 llm_call")
+
+    # === retry 双重验证守卫 ===
+
+    def test_retry_validates_both_chars_and_header(self):
+        """V37.9.75 retry 结果必须双重验证: chars >= MIN_DEEP_CHARS + 含 ## 🌙 今日深度 header.
+
+        防止 LLM 产 1400 字垃圾文本但漏 header 的 corner case.
+        """
+        self.assertIn('DEEP_RETRY_HAS_HEADER', self.src,
+                      "V37.9.75: retry 必须验证 DEEP header 字面量存在")
+        self.assertIn('[ "$DEEP_RETRY_CHARS" -ge "$MIN_DEEP_CHARS" ]', self.src,
+                      "V37.9.75: retry 必须验证 chars >= MIN_DEEP_CHARS")
+        self.assertIn('[ "$DEEP_RETRY_HAS_HEADER" = "true" ]', self.src,
+                      "V37.9.75: retry 必须验证 has_header=true (双重防御)")
+        # header 字面量必须是 "## 🌙 今日深度" (与 V37.9.68 DEEP prompt 输出格式硬要求对齐)
+        self.assertIn("'## 🌙 今日深度'", self.src,
+                      "V37.9.75: header 验证字面量必须是 '## 🌙 今日深度' (V37.9.68 prompt 硬要求)")
+
+    # === retry 成功 / 失败路径守卫 ===
+
+    def test_retry_success_uses_retry_result_continues_pipeline(self):
+        """retry 成功必须用 retry 结果 + 继续 WIDE+RADAR (用户能拿到完整梦境)."""
+        retry_success_idx = self.src.find('V37.9.75 DEEP retry 成功')
+        self.assertGreater(retry_success_idx, 0, "V37.9.75: retry 成功日志字面量必须存在")
+        # 成功路径前 300 字符内必须有 DEEP_RESULT="$DEEP_RETRY_RESULT" (用 retry 结果)
+        window = self.src[max(0, retry_success_idx - 300):retry_success_idx]
+        self.assertIn('DEEP_RESULT="$DEEP_RETRY_RESULT"', window,
+                      "V37.9.75: retry 成功后 DEEP_RESULT 必须替换为 retry 结果")
+        self.assertIn('DEEP_CHARS=$DEEP_RETRY_CHARS', window,
+                      "V37.9.75: retry 成功后 DEEP_CHARS 必须更新为 retry chars")
+
+    def test_retry_failure_falls_through_to_v37_9_68_fail_fast(self):
+        """retry 失败必须 fall-through 到 V37.9.68 fail-fast (DEEP 必过原则不破).
+
+        检查 retry 失败 log 出现后到 retry block 结束 (`fi\nfi`) 之间没有 exit 1 语句调用.
+        (容忍后续注释里"不及格 exit 1"字面量, 那是文档不是控制流)
+        """
+        retry_fail_idx = self.src.find('V37.9.75 DEEP retry 失败')
+        self.assertGreater(retry_fail_idx, 0, "V37.9.75: retry 失败日志必须存在")
+        # 从 retry 失败 log 开始, 取到 retry block 闭合后立即出现的 `# DEEP fail-fast` 注释
+        block_end_idx = self.src.find('# DEEP fail-fast', retry_fail_idx)
+        self.assertGreater(block_end_idx, retry_fail_idx,
+                           "retry block 后必须有 V37.9.68 fail-fast 注释作 marker")
+        window = self.src[retry_fail_idx:block_end_idx]
+        # 用 regex 找独立的 `exit 1` 语句 (非注释), 而不是子串匹配
+        # 注释行 (# ...) 里出现 "exit 1" 字面量是合法 (V37.9.68 设计文档)
+        import re as _re_test
+        for ln in window.split("\n"):
+            stripped = ln.strip()
+            if stripped.startswith("#"):
+                continue  # 注释行豁免
+            if _re_test.search(r"\bexit\s+1\b", stripped):
+                self.fail(f"V37.9.75: retry 失败到 fail-fast 之间发现 'exit 1' 控制流语句 (走 V37.9.68 兜底原则): {stripped}")
+
+    # === retry prompt 设计守卫 ===
+
+    def test_retry_prompt_mentions_previous_partial_chars(self):
+        """retry prompt 必须显式告知 LLM 上次产 partial (引用具体字数让 LLM 重视)."""
+        self.assertIn('${DEEP_CHARS} 字', self.src,
+                      "V37.9.75: retry prompt 必须引用上次 DEEP_CHARS (告知 LLM 上次 partial)")
+        self.assertIn('partial content', self.src,
+                      "V37.9.75: retry SYSTEM 必须含 'partial content' 描述")
+
+    def test_retry_prompt_preserves_ban_list_quality(self):
+        """retry prompt 必须保留 ban-list (质量优先于成功率).
+
+        不放弃 V37.9.68 14 天 ban-list 硬规则——retry 不是降级模式, 是修复模式.
+        """
+        # retry PROMPT 必须 inject BANNED_THEMES_BLOCK
+        retry_prompt_idx = self.src.find("DEEP_RETRY_PROMPT=")
+        self.assertGreater(retry_prompt_idx, 0, "DEEP_RETRY_PROMPT 必须存在")
+        # 从 DEEP_RETRY_PROMPT 开始 2000 字符内必须 inject BANNED_THEMES_BLOCK
+        window = self.src[retry_prompt_idx:retry_prompt_idx + 2000]
+        self.assertIn('${BANNED_THEMES_BLOCK}', window,
+                      "V37.9.75: retry prompt 必须保留 ban-list (V37.9.68 主题去重不放弃)")
+
+    def test_retry_prompt_has_output_self_check_checklist(self):
+        """retry prompt 必须含 5 项输出自检 checklist (镜像 V37.9.74 同款防 drift 模式).
+
+        shell 文件中 retry prompt 是 heredoc-like 双引号字符串, 内部 `"` 用 `\\"` 转义.
+        所以 assertion 用源码字面量 `\\"## 🌙 今日深度:\\"` 而非已 unescape 字符串.
+        """
+        self.assertIn("V37.9.75 retry 输出自检", self.src,
+                      "V37.9.75: retry prompt 必须含'输出自检'段")
+        # 5 项 checklist (镜像 V37.9.74 WIDE+RADAR 的输出自检模式)
+        # shell 源码字面量含 \" 转义符
+        self.assertIn(r'\"## 🌙 今日深度:\" 开头', self.src,
+                      "V37.9.75: checklist 必须含 header 字面量检查 (shell escape 形式)")
+        self.assertIn('1400 字', self.src,
+                      "V37.9.75: checklist 必须含字数检查 (上次过短 → 这次必须够)")
+        self.assertIn('没有写到一半截断', self.src,
+                      "V37.9.75: checklist 必须显式提示 5/18 真实 partial drift 模式")
+
+    # === fail-fast 升级守卫 ===
+
+    def test_fail_fast_status_file_includes_retry_metadata(self):
+        """fail-fast 时 status.json 必须含 deep_retried + deep_retry_chars (运维可观测)."""
+        # llm_failed 分支的 printf 必须含新字段
+        self.assertIn('"deep_retried":%s,"deep_retry_chars":%d', self.src,
+                      "V37.9.75: fail-fast status_file 必须含 deep_retried + deep_retry_chars 字段")
+        self.assertIn('"$DEEP_RETRIED" "$DEEP_RETRY_CHARS"', self.src,
+                      "V37.9.75: fail-fast printf 必须传 DEEP_RETRIED + DEEP_RETRY_CHARS 变量")
+
+    def test_fail_fast_alert_distinguishes_retry_attempted_vs_skipped(self):
+        """fail-fast 告警必须区分 retry 已尝试 vs retry 未触发 (运维诊断辅助)."""
+        # retry 已尝试: "V37.9.75 DEEP 段双失败 (原始 ... + retry ...)"
+        self.assertIn("V37.9.75 DEEP 段双失败", self.src,
+                      "V37.9.75: retry 尝试后告警必须显示'双失败'区分")
+        # retry 未触发 (DEEP_RESULT 空): "V37.9.68 DEEP 段失败 (..., retry 未触发因 LLM 完全空)"
+        self.assertIn('retry 未触发因 LLM 完全空', self.src,
+                      "V37.9.75: retry 未触发场景必须有专门告警语义")
+        # 条件分支判断 DEEP_RETRIED
+        self.assertIn('if [ "$DEEP_RETRIED" = "true" ]; then', self.src,
+                      "V37.9.75: 告警分支必须根据 DEEP_RETRIED 区分")
+
+    # === schema 升级守卫 (成功路径 status.json) ===
+
+    def test_success_status_json_includes_deep_retried_field(self):
+        """成功路径 status.json 必须含 deep_retried + deep_retry_chars 字段.
+
+        Mac Mini 部署后通过 last_run.json deep_retried 字段统计 LLM partial content 频率.
+        """
+        self.assertIn('"deep_retried":%s', self.src,
+                      "V37.9.75: success status.json schema 必须含 deep_retried 字段")
+        self.assertIn('"deep_retry_chars":%d', self.src,
+                      "V37.9.75: success status.json schema 必须含 deep_retry_chars 字段")
+        # printf 参数顺序必须用 DEEP_RETRIED 变量 (defaults to false)
+        self.assertIn('"${DEEP_RETRIED:-false}"', self.src,
+                      "V37.9.75: success status.json 必须用 DEEP_RETRIED 变量 (defaults to false)")
+
+    def test_deep_retried_initialized_false_before_retry_block(self):
+        """DEEP_RETRIED 变量必须在 retry block 之前初始化 false (顺序锁防 set -u 未定义错误)."""
+        init_idx = self.src.find('DEEP_RETRIED=false')
+        retry_block_idx = self.src.find('主动 retry (LLM partial content 兜底)')
+        self.assertGreater(init_idx, 0, "DEEP_RETRIED=false 初始化必须存在")
+        self.assertLess(init_idx, retry_block_idx,
+                        "V37.9.75: DEEP_RETRIED 必须先初始化 false 再用 (顺序锁)")
+
+    # === MIN_DEEP_CHARS 提前定义守卫 ===
+
+    def test_min_deep_chars_defined_before_retry_block(self):
+        """MIN_DEEP_CHARS 必须在 retry block 之前定义 (retry 触发条件依赖它).
+
+        原 V37.9.68 把 MIN_DEEP_CHARS=1200 放在 fail-fast if 内, V37.9.75 移到 retry 之前.
+        """
+        min_chars_idx = self.src.find('MIN_DEEP_CHARS=1200')
+        retry_trigger_idx = self.src.find('[ "$DEEP_CHARS" -lt "$MIN_DEEP_CHARS" ]')
+        self.assertGreater(min_chars_idx, 0, "MIN_DEEP_CHARS=1200 必须定义")
+        self.assertGreater(retry_trigger_idx, 0, "retry 触发条件必须用 $MIN_DEEP_CHARS")
+        self.assertLess(min_chars_idx, retry_trigger_idx,
+                        "V37.9.75: MIN_DEEP_CHARS 必须先定义再被 retry 触发条件使用")
+
+    # === V37.9.76+ 候选登记 ===
+
+    def test_v37_9_76_doubao_candidate_documented_in_comment(self):
+        """V37.9.75 注释必须登记 V37.9.76+ 候选 (doubao 试水路径, V37.9.55+ 承诺继续)."""
+        self.assertIn("V37.9.76+", self.src,
+                      "V37.9.75 注释必须登记 V37.9.76+ 候选 (doubao 试水)")
+        # V37.9.75 retry 仍走 primary, doubao 试水留 V37.9.76+
+        # (与 V37.9.74 RADAR retry 同款留候选 B 模式对齐)
 
 
 if __name__ == "__main__":
