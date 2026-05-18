@@ -12,7 +12,7 @@ try:
         _VERSION = _vf.read().strip()
 except OSError:
     _VERSION = "unknown"
-from urllib.parse import urlparse
+from urllib.parse import urlparse, parse_qs
 
 # ---------------------------------------------------------------------------
 # Load fallback config from config.yaml (optional, graceful fallback)
@@ -368,14 +368,63 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
             log(f"GET error: {e}")
             self.send_error(502, str(e))
 
+    def _resolve_primary_provider(self):
+        """V37.9.77 enforcement: 解析 ?provider=X query 参数, 返回 (base_url, model_id, auth_style, api_key, name).
+
+        FAIL-OPEN 契约:
+        - 缺 ?provider=X → 返回默认 (PROVIDER_NAME 全局)
+        - ?provider=X 但 X 不在 PROVIDERS → 返回默认 (silent fallback)
+        - ?provider=X 但 X 缺 API key → 返回默认 (避免认证失败)
+        - ROUTER_ENFORCE=off (默认) → 忽略 ?provider= 强制走默认 (PoC 安全网)
+
+        V37.9.77 设计: enforcement 是 opt-in (ROUTER_ENFORCE=on env var), 默认仍是 V37.9.76 shadow 行为.
+        Mac Mini operator 可单独 flip env var 启用 enforcement 一周观察后再永久 on.
+        """
+        # ROUTER_ENFORCE feature flag — 默认 off (V37.9.77 PoC 安全网, V37.9.78+ 评估默认 on)
+        enforce = os.environ.get("ROUTER_ENFORCE", "off").lower() in ("on", "true", "1", "yes")
+        if not enforce:
+            return TARGET_BASE, REAL_MODEL_ID, AUTH_STYLE, API_KEY, PROVIDER_NAME
+        try:
+            parsed = urlparse(self.path)
+            qs = parse_qs(parsed.query)
+            override = (qs.get("provider", [None])[0] or "").strip()
+        except (ValueError, AttributeError):
+            return TARGET_BASE, REAL_MODEL_ID, AUTH_STYLE, API_KEY, PROVIDER_NAME
+        if not override or override not in PROVIDERS:
+            return TARGET_BASE, REAL_MODEL_ID, AUTH_STYLE, API_KEY, PROVIDER_NAME
+        ovr = PROVIDERS[override]
+        ovr_api_key = os.environ.get(ovr.get("api_key_env", ""), "")
+        if not ovr_api_key:
+            # 选了一个没配 API key 的 provider, 回退默认 (避免 401)
+            return TARGET_BASE, REAL_MODEL_ID, AUTH_STYLE, API_KEY, PROVIDER_NAME
+        return (
+            ovr["base_url"],
+            ovr.get("model_id", REAL_MODEL_ID),
+            ovr.get("auth_style", "bearer"),
+            ovr_api_key,
+            override,
+        )
+
     def do_POST(self):
         rid = self.headers.get("X-Request-ID", "")
         tag = f"[{rid}] " if rid else ""
         t0 = time.monotonic()
         length = int(self.headers.get("Content-Length", 0))
         raw = self.rfile.read(length)
-        path = self.path.replace("/v1", "", 1) if self.path.startswith("/v1") else self.path
-        url = f"{TARGET_BASE}{path}"
+        # V37.9.77 enforcement: 先 strip query string 再拼 forward URL (provider API 不识别 ?provider=)
+        try:
+            _parsed_path = urlparse(self.path)
+            _clean_path = _parsed_path.path  # 不含 query
+        except (ValueError, AttributeError):
+            _clean_path = self.path
+        path = _clean_path.replace("/v1", "", 1) if _clean_path.startswith("/v1") else _clean_path
+        # V37.9.77 enforcement: 解析 ?provider=X 走 override; 默认仍用 PROVIDER_NAME (向后兼容)
+        primary_base, primary_model_id, primary_auth_style, primary_api_key, primary_name = (
+            self._resolve_primary_provider()
+        )
+        url = f"{primary_base}{path}"
+        if primary_name != PROVIDER_NAME:
+            log(f"{tag}V37.9.77 ROUTER OVERRIDE: provider={primary_name} (default={PROVIDER_NAME})")
         log(f"{tag}POST {url} ({length} bytes)")
 
         if "/chat/completions" in self.path:
@@ -428,7 +477,12 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                 clean_msgs.append(clean_msg)
 
             # Build clean request — route to VL model if multimodal content detected
-            use_model = VL_MODEL_ID if (has_multimodal and VL_MODEL_ID) else REAL_MODEL_ID
+            # V37.9.77 enforcement: override provider 时直接用 override.model_id (不走 VL_MODEL_ID 路径)
+            # VL 路由仅适用于默认 PROVIDER_NAME 路径 (向后兼容现有多模态行为)
+            if primary_name != PROVIDER_NAME:
+                use_model = primary_model_id  # override path: 用 router 选的 provider 的 model_id
+            else:
+                use_model = VL_MODEL_ID if (has_multimodal and VL_MODEL_ID) else REAL_MODEL_ID
             if has_multimodal:
                 log(f"{tag}MULTIMODAL detected -> model: {use_model}")
             clean = {"model": use_model, "messages": clean_msgs}
@@ -449,10 +503,12 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
             log(f"{tag}MSG COUNT: {len(clean_msgs)}, ROLES: {[m['role'] for m in clean_msgs]}")
 
             # --- Smart routing: simple queries → fast model ---
+            # V37.9.77 enforcement: override provider 时禁用 fast route — 尊重 router 选择
             use_fast = False
             if (FAST_ROUTE and classify_complexity
                     and not has_multimodal
-                    and use_model == REAL_MODEL_ID):
+                    and use_model == REAL_MODEL_ID
+                    and primary_name == PROVIDER_NAME):  # 仅默认 provider 启用 fast route
                 complexity = classify_complexity(clean_msgs, has_tools="tools" in clean)
                 if complexity == "simple":
                     use_fast = True
@@ -472,7 +528,9 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                 url = fast_url
                 data = fast_data
             else:
-                primary_auth = _make_auth_headers(AUTH_STYLE, API_KEY)
+                # V37.9.77 enforcement: 用 _resolve_primary_provider 解析的 auth
+                # (override 时是 override 的 auth, 否则是默认 AUTH_STYLE/API_KEY)
+                primary_auth = _make_auth_headers(primary_auth_style, primary_api_key)
 
             # Circuit breaker: 短路时跳过 primary，直接走 fallback chain
             cb_open = FALLBACK_CHAIN and _circuit_breaker.is_open()
@@ -562,13 +620,15 @@ _chain_names = [fb["name"] for fb in FALLBACK_CHAIN]
 fb_info = f" (fallback chain: {' -> '.join(_chain_names)})" if FALLBACK_CHAIN else " (no fallback)"
 vl_info = f" (VL: {VL_MODEL_ID})" if VL_MODEL_ID else ""
 fast_info = f" (fast: {FAST_ROUTE['name']}/{FAST_ROUTE['model_id']})" if FAST_ROUTE else ""
-reload_info = f" (hot-reload: every {_HOT_RELOAD_INTERVAL}s)" if _HOT_RELOAD_ENABLED else ""
 BIND_ADDR = os.environ.get("BIND_ADDR", "127.0.0.1")
-log(f"Starting on {BIND_ADDR}:{PORT} -> {TARGET_BASE} (model: {REAL_MODEL_ID}){vl_info}{fb_info}{fast_info}{reload_info}")
-sys.stdout.flush()
 class ThreadedServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
     daemon_threads = True
     allow_reuse_address = True
 
-with ThreadedServer((BIND_ADDR, PORT), ProxyHandler) as httpd:
-    httpd.serve_forever()
+# V37.9.77: server startup 移到 __main__ 块, 让 test 可 import adapter 不绑端口
+if __name__ == "__main__":
+    reload_info = f" (hot-reload: every {_HOT_RELOAD_INTERVAL}s)" if _HOT_RELOAD_ENABLED else ""
+    log(f"Starting on {BIND_ADDR}:{PORT} -> {TARGET_BASE} (model: {REAL_MODEL_ID}){vl_info}{fb_info}{fast_info}{reload_info}")
+    sys.stdout.flush()
+    with ThreadedServer((BIND_ADDR, PORT), ProxyHandler) as httpd:
+        httpd.serve_forever()

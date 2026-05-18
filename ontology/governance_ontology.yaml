@@ -7525,6 +7525,75 @@ invariants:
           assert "[JOBS_REGISTRY_PATH, JOBS_REGISTRY_MAC_MINI, JOBS_REGISTRY_FALLBACK]" in _src, (
               "INV-ROUTER-001 V37.9.76-hotfix: candidates 列表顺序锁 PATH→MAC_MINI→FALLBACK"
           )
+      # === V37.9.77 enforcement (adapter ?provider=X + ROUTER_ENFORCE env feature flag) ===
+      # 设计: enforcement opt-in via ROUTER_ENFORCE=on env (默认 off = V37.9.76 shadow 行为)
+      # 三方契约: adapter._resolve_primary_provider / kb_dream.sh llm_call 6th 参数 / router_decide._resolve_mode
+      - name: "V37.9.77 adapter._resolve_primary_provider 方法定义"
+        check_type: file_contains
+        file: adapter.py
+        pattern: 'def _resolve_primary_provider\(self\):'
+      - name: "V37.9.77 ROUTER_ENFORCE feature flag 默认 off (PoC 安全网, V37.9.78+ 评估默认 on)"
+        check_type: python_assert
+        assertion: |
+          # V37.9.77 守卫: adapter / kb_dream / router_decide 三方都用 ROUTER_ENFORCE="off" 默认
+          # 反向 sabotage 任一处 → 立即 fail
+          for _path, _expected in [
+              ("adapter.py", '"ROUTER_ENFORCE", "off"'),
+              ("kb_dream.sh", "ROUTER_ENFORCE:-off"),
+              ("router_decide.py", '"ROUTER_ENFORCE", "off"'),
+          ]:
+              with open(_path) as _f:
+                  _src = _f.read()
+              assert _expected in _src, (
+                  f"INV-ROUTER-001 V37.9.77: {_path} 必须用 ROUTER_ENFORCE 默认 off"
+              )
+      - name: "V37.9.77 adapter 必须 strip query string 再 forward provider URL"
+        check_type: python_assert
+        assertion: |
+          # V37.9.77 守卫: provider API 不识别 ?provider= query, 必须先 urlparse 后用 .path
+          with open("adapter.py") as _f:
+              _src = _f.read()
+          assert "_parsed_path = urlparse(self.path)" in _src, (
+              "INV-ROUTER-001 V37.9.77: 必须 urlparse self.path"
+          )
+          assert "_clean_path = _parsed_path.path" in _src, (
+              "INV-ROUTER-001 V37.9.77: 必须用 _parsed_path.path 不含 query 拼 forward URL"
+          )
+      - name: "V37.9.77 kb_dream llm_call 必须接受 provider_override 第 6 参数"
+        check_type: file_contains
+        file: kb_dream.sh
+        pattern: 'local provider_override="\$\{6:-\}"'
+      - name: "V37.9.77 kb_dream curl 必须用 effective_url (允许 ?provider= 生效)"
+        check_type: file_contains
+        file: kb_dream.sh
+        pattern: 'curl -sS --max-time "\$timeout" "\$effective_url"'
+      - name: "V37.9.77 router_decide._resolve_mode 函数定义 + mode 字段动态化"
+        check_type: python_assert
+        assertion: |
+          # V37.9.77 守卫: mode 字段必须由 _resolve_mode() 动态决定, 不能硬编码 "shadow"
+          with open("router_decide.py") as _f:
+              _src = _f.read()
+          assert "def _resolve_mode()" in _src, (
+              "INV-ROUTER-001 V37.9.77: _resolve_mode 函数必须存在"
+          )
+          assert '"mode": _resolve_mode()' in _src, (
+              "INV-ROUTER-001 V37.9.77: record mode 字段必须调 _resolve_mode() 而非硬编码"
+          )
+      - name: "V37.9.77 反向 sabotage 守卫: 27 个 V37.9.77 单测全过"
+        check_type: python_assert
+        assertion: |
+          # 守卫: 端到端真跑 test_v37_9_77_enforcement.py 全部单测
+          import os as _os
+          import subprocess as _sub
+          _repo = _os.environ.get("OPENCLAW_REPO_ROOT", _os.getcwd())
+          _result = _sub.run(
+              ["python3", "test_v37_9_77_enforcement.py"],
+              cwd=_repo, capture_output=True, text=True, timeout=60,
+          )
+          assert _result.returncode == 0, (
+              f"INV-ROUTER-001 V37.9.77 enforcement 单测失败:\n"
+              f"{_result.stdout[-500:]}\n{_result.stderr[-500:]}"
+          )
       # === 声明层: jobs_registry capability profile ===
       - name: "V37.9.76 kb_dream 必须有 required_capabilities/prefer/cost_tier 三字段"
         check_type: python_assert
@@ -8016,9 +8085,9 @@ audit_metadata:
     v3.12 → v3.13: V37.8.7 ontology_sources 推送格式错位血案 — INV-ONTOLOGY-001 新增 (ontology-sources-parser-must-be-key-based-not-positional, meta_rule=MR-4, severity=high, verification_layer=[declaration, runtime], 7 checks). 2026-04-15 用户 WhatsApp 收到 ontology_sources 推送严重错位：第 2 篇 cn_title 显示为 *---*、第 3 篇 cn_title 显示为 *价值：⭐⭐⭐⭐*。根因：原解析器用严格位置 (lines[i], lines[i+1], lines[i+2]) + i+=3 步进 — LLM 漏一行"要点"或多一行空白就让所有后续条目的 cn_title/highlight/stars 全部右移一格级联污染。修复：抽到独立模块 jobs/ontology_sources/ontology_parser.py（纯函数 parse_llm_blocks 可单测，避开 V37.5 heredoc-only 不可测血案），按 separator 切块 + 块内 key-based prefix 解析，单块缺行不影响其他块。runtime python_assert 真跑用户实际看到的污染场景断言"缺要点不级联"。24 单测 (test_ontology_parser.py)：TestNormalCases(4) + TestBloodLessonRegression(5) + TestSeparatorVariants(5) + TestLLMOutputVariants(5) + TestShellScriptIntegration(4) + TestActualBloodLessonScenario(1)。MR-4 silent-failure 第 8 次演出（输出"看起来正常" 6 字段都在但语义错乱）。auto_deploy FILE_MAP 补齐 ontology_parser.py。
     v3.11 → v3.12: V37.8.6 Dream 自引用幻觉血案 — INV-DREAM-003 新增 (dream-log-cannot-pollute-cache-nor-fabricate-platform-crises, meta_rule=MR-4, severity=critical, verification_layer=[declaration, runtime], 16 checks). 2026-04-15 03:00 Dream run 出现 4 次 Bad JSON 400 (adapter 收到破损 JSON)，但 Dream 仍产出完整"Hugging Face 平台危机"分析，用户察觉 Signal(Papers with Code 沉默)↔Action(监控 Hugging Face) 主题断裂后上报。三层根因：(a) scraped 内容含 surrogate UTF-8 → json.dump + utf-8 file write → UnicodeEncodeError → body_file 截断 → adapter.py:386 返回 400 Bad JSON (b) kb_dream.sh log() 用 `echo` 写 stdout → signals=$(llm_call ...) 命令替换捕获 log 行进 signals → cache file 被"LLM raw response: Error code 400 Bad JSON..."污染 (c) Reduce cache-only fast path 把错误日志注入 LLM 上下文 → LLM 基于这些字样自动编造"Hugging Face 危机"叙事 = 原则 #23 链式幻觉 + MR-4 silent failure 第 7 次演出。四层结构修复（defense-in-depth）：log→stderr 阻断 stdout 污染通道 + _sanitize(U+D800-U+DFFF → U+FFFD) 防编码炸裂 + file open 显式 encoding='utf-8' errors='replace' 第二防线 + REDUCE/CHUNK1/2/3 system prompt 四块加反污染守卫 (禁止把 HTTP 错误码/Python 异常/错误页 HTML/U+FFFD 当外部信号，禁止基于这些字样推断 Hugging Face/GitHub/npm 等平台状态)。runtime python_assert 真跑 sanitize 五场景 (孤立高位/低位代理/正常串/代理范围边界/sanitize 后 json+utf-8 编码不炸)。19 单测 (TestLogGoesToStderr×2 + TestSanitizeSurrogates×7 + TestShellSanitizeImplementation×5 + TestAntiPollutionSystemPrompt×3 + TestShellScriptIntegrity×1 + TestLogDefHasCommentMeta×1)。
     v3.10 → v3.11: V37.8.5 INV-X-001 升级三层检测 (血案二次演出: V37.8.4 修复本身埋盲区) — V37.8.4 收工 Mac Mini E2E 即发现 2 个边缘：CNS1952 98/99 超窗口 + 1 过短老化率 99% 但未触发严格 old==total (MR-10 第 2 次演出：修复会埋坑)；SingTaoDaily 0-tweet stub (embed disabled 返回空骨架) 被 total>0 门槛绕过完全不标记。V37.8.5 修复：(1) 检测逻辑独立为 jobs/finance_news/finance_news_zombie.py 纯函数模块 (classify_zombie(diag, count)); (2) 三层 tier: "stub" (no_data=0 + total=0) + "stale" (≥90% 老化 + count=0 守卫防止低频活跃误报)，整数比较 old*10 >= total*9 避免浮点; (3) 24 单测锁定三层 + 守卫 + shell 集成 + auto_deploy FILE_MAP; (4) verification_layer 从 [declaration] 升级到 [declaration, runtime] (MR-6 遵循: INV-X-001 现在有 python_assert 真跑 5 个 tier 场景); (5) shell 脚本禁止内嵌 inline fallback (防模块缺失时静默降级回 V37.8.4 逻辑 — MR-8 copy-paste-is-a-bug-class 兑现)。诊断行 tier 区分 ⚠️ ZOMBIE嫌疑[stub] vs [stale]，便于日志定位。
-  total_invariants: 78  # V37.9.76: +1 INV-ROUTER-001 (Capability-Based Dynamic Router shadow mode deployed)
-  total_checks: 691     # V37.9.76-hotfix: +1 (Mac Mini canonical repo 路径必须在候选列表 — 09:29 实测发现 PATH+FALLBACK 重合 silent fail)
-  meta_rules: 19        # MR-1~MR-19 不变 (V37.9.76 PoC + hotfix 都不立新元规则)
+  total_invariants: 78  # V37.9.77: 不变 (INV-ROUTER-001 内涵扩 V37.9.77 enforcement 7 checks, 非新 INV)
+  total_checks: 698     # V37.9.77: +7 (_resolve_primary_provider + ROUTER_ENFORCE 三方 off 默认 + strip query + llm_call 6th 参数 + curl effective_url + _resolve_mode + 27 单测全过)
+  meta_rules: 19        # MR-1~MR-19 不变 (V37.9.77 enforcement opt-in framework, 不立新元规则)
   meta_rule_discovery_count: 6   # Phase 0: registry + env + notify-topic + layer-depth + error-suppression + notify-activity
   check_types_used: [python_assert, file_contains, file_not_contains, env_var_exists, command_succeeds, log_activity_check]
   verification_layers_used: [declaration, runtime, effect]  # v3.1: 效果层启动

@@ -423,14 +423,18 @@ class TestKbDreamShadowIntegration(unittest.TestCase):
             self.src = f.read()
 
     def test_router_decide_called_before_radar_retry_llm_call(self):
-        """V37.9.76 router_decide.py 调用必须在 RADAR retry llm_call 之前 (shadow log 先)."""
+        """V37.9.76 router_decide.py 调用必须在 RADAR retry llm_call 之前 (shadow log 先).
+
+        V37.9.77 扩窗 500→1000: ROUTER_ENFORCE 块插入推开 router_decide 到 llm_call 距离 (合法演进).
+        语义不变: router_decide 必须在 llm_call 之前出现, 不允许漂移到无关位置.
+        """
         # 找 RADAR_RETRY_RESULT=$(llm_call ...) 行
         retry_call_idx = self.src.find('RADAR_RETRY_RESULT=$(llm_call "$RADAR_RETRY_PROMPT"')
         self.assertGreater(retry_call_idx, 0, "RADAR retry llm_call 必须存在")
-        # retry_call_idx 之前 500 字符内必须有 router_decide.py 调用
-        window = self.src[max(0, retry_call_idx - 500):retry_call_idx]
+        # retry_call_idx 之前 1000 字符内必须有 router_decide.py 调用 (V37.9.77 扩窗容纳 enforcement 块)
+        window = self.src[max(0, retry_call_idx - 1000):retry_call_idx]
         self.assertIn("router_decide.py", window,
-                      "V37.9.76: router_decide.py 调用必须在 RADAR retry llm_call 之前 500 字符内")
+                      "V37.9.76: router_decide.py 调用必须在 RADAR retry llm_call 之前 1000 字符内")
         self.assertIn("ROUTER_CHOICE", window,
                       "V37.9.76: 必须用 ROUTER_CHOICE 变量捕获决策")
 
