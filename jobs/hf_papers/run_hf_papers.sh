@@ -446,7 +446,17 @@ prompt += os.environ.get('HG_LEVEL_4_TEXT', '')
 print(prompt)
 PYEOF
 
-    log "调用 LLM 分析 paper $((i+1))/$TOTAL_NEW"
+    # V37.9.76 Capability Router (shadow 模式): 每 paper LLM 调用前记录路由决策, 不改实际路由行为
+    # 一周观察 ~/.kb/router_decisions.jsonl 数据反馈调 cap_score, V37.9.77+ 评估 enforcement
+    # FAIL-OPEN: router_decide.py 缺失/异常不阻塞 caller LLM 调用
+    if [ -x "$HOME/router_decide.py" ]; then
+        ROUTER_CHOICE=$(python3 "$HOME/router_decide.py" --job-id hf_papers --task per_paper 2>/dev/null || true)
+    elif [ -f "$(dirname "$0")/../../router_decide.py" ]; then
+        ROUTER_CHOICE=$(python3 "$(dirname "$0")/../../router_decide.py" --job-id hf_papers --task per_paper 2>/dev/null || true)
+    else
+        ROUTER_CHOICE=""
+    fi
+    log "调用 LLM 分析 paper $((i+1))/$TOTAL_NEW (V37.9.76 router shadow: chosen=${ROUTER_CHOICE:-unknown})"
     if RESULT=$(call_llm_single_with_retry "$SINGLE_PROMPT" "$i"); then
         # 成功
         python3 -c "
