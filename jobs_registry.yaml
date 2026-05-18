@@ -353,6 +353,22 @@ jobs:
     tier: core                       # 三方宪法实时同步
     description: 每小时刷新 status.json 系统健康字段（三层服务/模型ID/KB统计/过期job），补齐三方宪法实时同步需求
 
+  # V37.9.79 新增 — SLO history 快照采集
+  # 真因: V36 设计 slo_dashboard.py --snapshot 写 ~/.kb/slo_history.jsonl, 但从未注册 cron,
+  #       所以 trend_24h/trend_7d 永远是空 dict, p95 趋势对比无数据.
+  #       2026-05-18 Mac Mini 实测 `History: 0 snapshots` + `~/.kb/slo_history.jsonl` 不存在.
+  # 注册 cron 后: 一周后能看 SLO 趋势, 数据驱动决策是否调阈值 / multi-provider 路径.
+  # 用 .sh wrapper (kb_status_refresh.sh 同款) 而非直接 .py — _format_cron_line 假设 bash exec.
+  - id: slo_snapshot
+    scheduler: system
+    entry: slo_snapshot.sh
+    interval: "5 * * * *"            # 每小时 :05 分（错开 kb_status_refresh 整点峰值）
+    log: ~/slo_snapshot.log
+    needs_api_key: false
+    enabled: true
+    tier: auxiliary                   # SLO 历史采集
+    description: V37.9.79 — SLO history 快照采集，每小时 :05 写 ~/.kb/slo_history.jsonl, 让 trend_24h/trend_7d 真有数据驱动决策
+
   - id: governance_audit
     scheduler: system
     entry: governance_audit_cron.sh

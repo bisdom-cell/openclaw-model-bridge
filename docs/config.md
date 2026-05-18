@@ -284,6 +284,7 @@ export GEMINI_API_KEY="AIzaXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"   # V29.1新增
 | kb-trend | 每周六09:00 | `~/kb_trend.py` | `~/kb_trend.log` | ✅ V29.5新增：KB周趋势报告（本周vs上周关键词+LLM分析+WhatsApp推送） |
 | cron-canary | 每10分钟 | `~/cron_canary.sh` | 无（写 `~/.cron_canary`） | ✅ V30新增：Cron心跳金丝雀（零依赖、零锁文件、原子写入），供watchdog/doctor检测cron daemon存活 |
 | kb-status-refresh | 每小时整点 | `~/kb_status_refresh.sh` | `~/kb_status_refresh.log` | ✅ V30.1新增：每小时刷新status.json系统健康字段（三层服务/模型ID/KB统计/过期job） |
+| slo-snapshot | 每小时:05 | `~/slo_snapshot.sh` | `~/slo_snapshot.log` | ✅ V37.9.79新增：SLO history 快照采集，每小时写 ~/.kb/slo_history.jsonl，让 trend_24h/trend_7d 真有数据 |
 | auto-deploy | 每2分钟 | `~/openclaw-model-bridge/auto_deploy.sh` | `~/.openclaw/logs/auto_deploy.log` | ✅ V27.1新增+V28.1：部署后自动体检 |
 | weekly-health-check | 每周一09:00 | `~/health_check.sh` | `~/health_check.log` | ✅ V29.1：从openclaw cron迁移至系统crontab，直接执行不经LLM |
 | ~~pwc~~ | ~~每天13:00~~ | `~/.openclaw/jobs/pwc/run_pwc.sh` | `~/.openclaw/logs/jobs/pwc.log` | ❌ **已停用**（V31：API 302→HF，功能合并到 hf_papers 增强） |

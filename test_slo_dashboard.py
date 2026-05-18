@@ -212,7 +212,9 @@ class TestBuildDashboard(unittest.TestCase):
         self.assertEqual(dashboard["overall"], "ALL PASS")
 
     def test_latency_violation(self):
-        stats = _make_stats(total=100, errors=0, p95=50000)
+        # V37.9.79: 阈值调整 30000 → 50000ms, 输入需 > 50000ms 才触发 FAIL
+        # 用 60000ms (Mac Mini 实测 p99=53339ms 量级, 是真实 violation 场景)
+        stats = _make_stats(total=100, errors=0, p95=60000)
         dashboard = build_dashboard(stats=stats, history=[])
         self.assertEqual(dashboard["verdicts"]["latency"], "FAIL")
 

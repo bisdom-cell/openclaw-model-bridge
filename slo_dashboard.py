@@ -82,6 +82,7 @@ def extract_snapshot(stats):
         "fallback_count": slo.get("fallback_count", 0),
         "degradation_pct": slo.get("degradation_rate_pct", 0),
         "tool_success_pct": slo.get("tool_success_rate_pct", 100),
+        "tool_calls_total": slo.get("tool_calls_total", 0),  # V37.9.79: 让 verdict 能区分"0 工具调用"(N/A) vs "调用了但失败" (FAIL)
         "timeout_pct": slo.get("timeout_rate_pct", 0),
         "prompt_tokens": stats.get("prompt_tokens", 0),
         "total_tokens": stats.get("total_tokens", 0),
@@ -241,14 +242,33 @@ def build_dashboard(stats=None, history=None, config=None):
 
     # SLO verdicts (current)
     if current:
+        # V37.9.79: tools verdict 三档 PASS/FAIL/N/A — tool_calls_total==0 时不算 FAIL
+        # 真因: 2026-05-18 Mac Mini 实测 37 请求 0 工具调用 → tool_success_pct=0/0=0%
+        # → V36 verdict FAIL → 拉 overall=VIOLATIONS. 但 Qwen3 不主动调工具是已知行为,
+        # 不应误报 FAIL. slo_checker.py:71 已正确处理 (tool_total==0 豁免), 这里对齐.
+        tool_calls = current.get("tool_calls_total", 0)
+        if tool_calls == 0:
+            tools_verdict = "N/A"  # 无工具调用样本, 不可评判
+        elif current["tool_success_pct"] >= slo_cfg.get("tool_success_rate_pct", 95.0):
+            tools_verdict = "PASS"
+        else:
+            tools_verdict = "FAIL"
+
         dashboard["verdicts"] = {
             "latency": "PASS" if current["p95_ms"] <= slo_cfg.get("latency_p95_ms", 30000) or current["p95_ms"] == 0 else "FAIL",
             "success": "PASS" if current["success_pct"] >= (100 - slo_cfg.get("timeout_rate_pct", 3.0)) or current["requests"] == 0 else "FAIL",
-            "tools": "PASS" if current["tool_success_pct"] >= slo_cfg.get("tool_success_rate_pct", 95.0) or current["requests"] < 5 else "FAIL",
+            "tools": tools_verdict,
             "degradation": "PASS" if current["degradation_pct"] <= slo_cfg.get("degradation_rate_pct", 5.0) else "FAIL",
         }
         verdicts = dashboard["verdicts"]
-        dashboard["overall"] = "ALL PASS" if all(v == "PASS" for v in verdicts.values()) else "VIOLATIONS"
+        # V37.9.79: overall 计算时 N/A 不算 FAIL (跳过), 所有非 N/A 都 PASS 才 ALL PASS
+        non_na_verdicts = [v for v in verdicts.values() if v != "N/A"]
+        if not non_na_verdicts:
+            dashboard["overall"] = "N/A"  # 全 N/A 无可评判
+        elif all(v == "PASS" for v in non_na_verdicts):
+            dashboard["overall"] = "ALL PASS"
+        else:
+            dashboard["overall"] = "VIOLATIONS"
     else:
         dashboard["verdicts"] = {}
         dashboard["overall"] = "NO DATA"

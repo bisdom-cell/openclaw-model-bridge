@@ -164,6 +164,9 @@ fi
 if [ -f test_health_check_v37_9_78.py ]; then
     run_suite "health_check_v37_9_78 (V37.9.78 系统证据周报 v2.0: 9 段证据 + safe_call + FAIL-OPEN + INV-HEALTHCHECK-001)" "python3 test_health_check_v37_9_78.py"
 fi
+if [ -f test_v37_9_79_slo.py ]; then
+    run_suite "v37_9_79_slo (V37.9.79 SLO 三项: tool 0/0→N/A + p95 阈值 50000 + slo_snapshot cron)" "python3 test_v37_9_79_slo.py"
+fi
 
 # 条件性测试（仅当文件存在时运行）
 for tf in test_conv_quality.py test_kb_autotag.py test_kb_dedup.py test_token_report.py test_arxiv_parser.py test_shell_antipatterns.py; do
