@@ -256,12 +256,46 @@ class TestRouterDecideModule(unittest.TestCase):
         self.assertFalse(ok, "V37.9.76: 写失败应返回 False 不抛异常")
 
     def test_load_profile_returns_none_for_missing_yaml(self):
-        """yaml 缺失时 _load_yaml_job_profile 返回 None (FAIL-OPEN)."""
-        # monkey-patch yaml 路径到不存在
+        """yaml 缺失时 _load_yaml_job_profile 返回 None (FAIL-OPEN).
+
+        V37.9.76-hotfix: 三档候选路径都要 patch (PATH + MAC_MINI + FALLBACK), 否则
+        Mac Mini canonical 路径 ~/openclaw-model-bridge/jobs_registry.yaml 真存在
+        会让 FAIL-OPEN 守卫失效.
+        """
+        # monkey-patch yaml 路径到不存在 (含 V37.9.76-hotfix 新加的 MAC_MINI 候选)
         with patch.object(self.router_decide, "JOBS_REGISTRY_PATH", "/nonexistent/foo.yaml"), \
+             patch.object(self.router_decide, "JOBS_REGISTRY_MAC_MINI", "/nonexistent/baz.yaml"), \
              patch.object(self.router_decide, "JOBS_REGISTRY_FALLBACK", "/nonexistent/bar.yaml"):
             profile = self.router_decide._load_yaml_job_profile("kb_dream")
             self.assertIsNone(profile)
+
+    def test_v37_9_76_hotfix_mac_mini_repo_path_candidate(self):
+        """V37.9.76-hotfix: JOBS_REGISTRY_MAC_MINI 必须指向 Mac Mini canonical repo 路径.
+
+        触发: 2026-05-18 09:29 Mac Mini 首跑实测发现 PATH + FALLBACK 都重合到 $HOME/jobs_registry.yaml
+        (因 router_decide.py 部署到 ~/, dirname(__file__) = ~), yaml 找不到 → chosen=null silent.
+        修复: 加 ~/openclaw-model-bridge/jobs_registry.yaml 作第二候选 (auto_deploy 同步源).
+        """
+        self.assertTrue(hasattr(self.router_decide, "JOBS_REGISTRY_MAC_MINI"),
+                        "V37.9.76-hotfix: JOBS_REGISTRY_MAC_MINI 常量必须存在")
+        expected = os.path.expanduser("~/openclaw-model-bridge/jobs_registry.yaml")
+        self.assertEqual(self.router_decide.JOBS_REGISTRY_MAC_MINI, expected,
+                         "V37.9.76-hotfix: 必须指向 ~/openclaw-model-bridge/jobs_registry.yaml")
+
+    def test_v37_9_76_hotfix_three_candidates_in_search_order(self):
+        """V37.9.76-hotfix: _load_yaml_job_profile 必须按 PATH → MAC_MINI → FALLBACK 顺序搜索.
+
+        反向 sabotage: 若回退到 2 候选 (PATH + FALLBACK), Mac Mini 部署 router_decide 到 ~/
+        会让两候选完全重合, silent fail. 守卫 candidates list 含 MAC_MINI.
+        """
+        with open(os.path.join(_REPO_ROOT, "router_decide.py")) as f:
+            src = f.read()
+        # candidates list 必须含三个常量
+        self.assertIn("JOBS_REGISTRY_MAC_MINI", src,
+                      "V37.9.76-hotfix: 必须用 JOBS_REGISTRY_MAC_MINI 常量")
+        # 找 candidates 列表声明
+        self.assertIn("[JOBS_REGISTRY_PATH, JOBS_REGISTRY_MAC_MINI, JOBS_REGISTRY_FALLBACK]", src,
+                      "V37.9.76-hotfix: candidates 必须三档顺序锁 PATH→MAC_MINI→FALLBACK")
 
 
 class TestRouterDecideCli(unittest.TestCase):
