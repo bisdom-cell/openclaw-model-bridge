@@ -25,7 +25,7 @@ PA: 已收到系统告警跟进任务，正在跟进。
 这是一次严重的**答非所问幻觉**：
 - 用户问的是哲学/架构话题（本体论 × 随机过程 × 贝叶斯推断）
 - PA 回复的是 macOS 系统运维指令
-- **而且技术细节完全错误**：macOS 的 cron 由 launchd 管理，从来不需要"完全磁盘访问权限"。这是编造的。
+- ~~而且技术细节完全错误：macOS 的 cron 由 launchd 管理，从来不需要"完全磁盘访问权限"。这是编造的。~~ ← **V37.9.80 更新 (2026-05-18)**: 本判定错了！V37.9.80 调查 MOVESPEED 60 天血案抓 `log show --predicate 'eventMessage CONTAINS "Sandbox"'` macOS 系统日志，**kernel + Sandbox + System Policy: rsync deny(1) /Volumes/MOVESPEED/KB 字面量铁证**说明 macOS Big Sur+ TCC Sandbox **真的会拒绝 cron 派生进程访问外置卷**，**给 /usr/sbin/cron 加 FDA 是正确修复方向**。V37.4.3 PA 当时回复**场景错配** (看到无关告警乱回复 FDA), 但**FDA 这个修复方向本身是对的**, 只是恰好套到错误场景。详见 `movespeed_tcc_sandbox_blood_case.md`. 元教训: PA 回复含 "表面错乱 + 局部真值" 时, 不能因为表面错乱就否定局部真值; 也不能因 LLM 当时说错时机就永久否定该技术细节.
 
 用户追问三次后，PA 才意识到自己答非所问。
 

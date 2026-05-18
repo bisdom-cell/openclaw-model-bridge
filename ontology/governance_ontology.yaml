@@ -7789,6 +7789,88 @@ invariants:
               f"health_check.sh v2.0 9 段证据契约测试套件失败"
           )
 
+  # ── V37.9.80: INV-MOVESPEED-TCC-001 ──────────────────────────────────
+  - id: INV-MOVESPEED-TCC-001
+    name: movespeed-tcc-sandbox-blood-case-documented
+    meta_rule: MR-4  # silent-failure (60 天 6 个假说全证伪, 真因在 macOS 系统日志中)
+    verification_layer: [declaration, runtime]
+    # severity=high (非 critical) — 修复在 macOS 系统 GUI 操作不在代码层,
+    # 但文档+认知修正的工程严肃性通过 7 declaration + 1 runtime python_assert 锁定.
+    severity: high
+    declaration: |
+      V37.9.80 终结 V37.9.4 起 60 天 MOVESPEED EPERM 血案 — 真因 = macOS TCC Sandbox
+      拒绝 cron 派生进程访问外置卷 /Volumes/MOVESPEED. 不是 fskit / ACL / ownership /
+      TM snapshot / SSD 物理掉线 (全 6 个假说被 V37.9.30 累积数据证伪).
+
+      铁证: macOS 系统日志含 `kernel (Sandbox) System Policy: rsync deny(1)
+      file-read-data /Volumes/MOVESPEED/KB` 字面量, V37.9.30 取证扩展 lsof/ACL
+      自身也被 sandbox 拒绝产 empty.
+
+      修复路径 (用户手动): 系统设置 → 隐私与安全性 → 完全磁盘访问权限 → 添加
+      /usr/sbin/cron. 验证 24h 后 incidents 应从 ~13/24h → 0 或 ≤2/24h.
+
+      INV 守 (1) 案例文档存在 (movespeed_tcc_sandbox_blood_case.md) (2) V37.4.3
+      案例 (pa_alert_contamination_case.md) 加入 V37.9.80 修正备注承认当时
+      "FDA 修复方向 60 天后证实是对的, PA 场景错配但局部真值正确".
+    checks:
+      # declaration layer
+      - name: "V37.9.80 案例文档存在 + 真因 TCC Sandbox"
+        check_type: file_contains
+        file: ontology/docs/cases/movespeed_tcc_sandbox_blood_case.md
+        pattern: "macOS TCC Sandbox"
+      - name: "案例文档铁证字面量 kernel + Sandbox + deny"
+        check_type: file_contains
+        file: ontology/docs/cases/movespeed_tcc_sandbox_blood_case.md
+        pattern: "kernel \\(Sandbox\\) System Policy: rsync"
+      - name: "案例文档含 60 天 6 假说证伪表"
+        check_type: file_contains
+        file: ontology/docs/cases/movespeed_tcc_sandbox_blood_case.md
+        pattern: "6 个假说全证伪"
+      - name: "案例文档含 V37.9.30 取证盲区分析 (lsof/ACL 采集自身被 sandbox 拒绝)"
+        check_type: file_contains
+        file: ontology/docs/cases/movespeed_tcc_sandbox_blood_case.md
+        pattern: "采集自身被 sandbox"
+      - name: "案例文档含修复路径 /usr/sbin/cron FDA"
+        check_type: file_contains
+        file: ontology/docs/cases/movespeed_tcc_sandbox_blood_case.md
+        pattern: "/usr/sbin/cron"
+      - name: "V37.4.3 案例加 V37.9.80 修正备注 (FDA 方向当时判定错)"
+        check_type: file_contains
+        file: ontology/docs/cases/pa_alert_contamination_case.md
+        pattern: "V37.9.80 更新"
+      - name: "V37.4.3 案例修正引用 movespeed_tcc_sandbox_blood_case"
+        check_type: file_contains
+        file: ontology/docs/cases/pa_alert_contamination_case.md
+        pattern: "movespeed_tcc_sandbox_blood_case"
+      # runtime layer (MR-6 ≥2 层硬强制): 真读 case doc 验证 6 个核心字面量同时出现
+      - name: "RUNTIME: case doc 6 个核心字面量同时存在 (V37.9.80 真因 + 证据 + 修复)"
+        check_type: python_assert
+        assertion: |
+          import os
+          _repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) \
+              if "ontology" in os.path.abspath(__file__) \
+              else os.path.dirname(os.path.abspath(__file__))
+          _case_path = os.path.join(_repo, "ontology", "docs", "cases",
+                                    "movespeed_tcc_sandbox_blood_case.md")
+          assert os.path.exists(_case_path), \
+              f"V37.9.80 case doc 不存在: {_case_path}"
+          with open(_case_path, "r", encoding="utf-8") as f:
+              _content = f.read()
+          # 6 个核心字面量必须同时存在 (真因 + 证据 + 修复 + 教训 + V37.4.3 修正 + MR-10 反向)
+          _required = [
+              "macOS TCC Sandbox",       # 真因关键词
+              "kernel (Sandbox)",         # 系统日志铁证
+              "60 天",                    # 时间跨度
+              "/usr/sbin/cron",           # 修复路径
+              "V37.4.3 案例",             # 历史认知修正
+              "MR-10",                    # 元规则反向兑现
+          ]
+          _missing = [k for k in _required if k not in _content]
+          assert not _missing, (
+              f"V37.9.80 case doc 缺少核心字面量: {_missing}"
+              f" (V37.9.80 主交付契约: 真因+证据+修复+教训+认知修正+MR 引用 6 项齐全)"
+          )
+
 
 # ═══════════════════════════════════════════════════════════════════════
 # 4. 可执行元规则（Phase 0）— 自动发现缺失不变式

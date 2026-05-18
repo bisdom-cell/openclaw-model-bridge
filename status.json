@@ -1,6 +1,6 @@
 {
-  "updated": "2026-05-18 07:50:51",
-  "updated_by": "full_regression",
+  "updated": "2026-05-18 08:32:41",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-05-18",
+      "what": "🎯 V37.9.80 MOVESPEED EPERM 60 天血案真因终结 — macOS TCC Sandbox 拒绝 cron 派生进程访问外置卷. 触发: V37.9.79 完成后用户推进 #3, V37.9.30 incident_analyzer 累积 110 incident 7d. 数据驱动诊断 — 6 个假说全证伪 (APFS exfat fskit/noowners UID 错位/ACL deny/macOS daemon 抢占/TM 快照锁/SSD 物理 unmount). 铁证: macOS 系统日志含 kernel (Sandbox) System Policy: rsync deny(1) file-read-data /Volumes/MOVESPEED/KB + touch deny + ls deny 字面量, V37.9.30 lsof/ACL 取证 100% empty 也是采集自身被 sandbox 拒绝的间接证据. 真因: macOS Big Sur+ TCC 默认拒绝所有进程访问受保护位置, cron daemon 作为 launchd 子进程默认无 FDA, 派生进程 (rsync/ls/touch/lsof) 全部被 kernel sandbox 拒绝. V37.4.3 案例认知反而错了 (PA 编造 FDA 当时判定错): 修正 pa_alert_contamination_case.md 加 V37.9.80 备注 — PA 当时场景错配但 FDA 修复方向本身是对的 60 天后证实. 新案例文档 movespeed_tcc_sandbox_blood_case.md (~220 行): TL;DR + 决定性铁证 + 6 假说证伪表 + 完整因果链架构图 (60 天潜伏→9 轮诊断错→首跑 log show 终结) + 三层根因 + 修复路径 + 5 元教训. INV-MOVESPEED-TCC-001 (meta_rule=MR-4, severity=high, declaration+runtime, 8 checks: 7 declaration file_contains + 1 runtime python_assert 真读 case doc 验证 6 核心字面量 macOS TCC Sandbox/kernel Sandbox/60 天/usr/sbin/cron/V37.4.3 案例/MR-10 同时存在). 修复路径用户手动 GUI: 系统设置→隐私与安全性→完全磁盘访问权限→添加 /usr/sbin/cron. 累计 93 suites 不变/3203 tests 不变/0 fail/governance 79→80 invariants (+1)/715→723 checks (+8)/19 MR 不变/安全 95/100/VERSION 0.37.9.68 不变 (V37.9.80 是发现+案例+修正认知 修复在 macOS GUI 不在代码). Mac Mini 用户验证状态: FDA 已加 (在 GUI 系统设置), launchctl bootout/bootstrap 报 SIP Input/output error 不必要 — FDA 加上后下次 cron 触发自动用新 TCC profile. 验证 24h 后 incident_analyzer --window 24h 应从 ~13→0 或 ≤2. V37.9.81+ 候选 (a) 主硬卡 5/19 24h 后验证 FDA 真生效 (b) capture.sh V37.9.81 显式区分未采集 vs 采集到空 (lsof/ACL 空值标 sandbox_denied 不标 empty/normal) (c) MR-16 候选立 macos-cron-derived-processes-need-fda 元规则 (一周观察 FDA 效果稳定后立) (d) 其他 60 天潜伏问题 audit. 5 元教训: MR-16 候选/MR-10 反向第 5 次 (60 天 6 假说全错 因为从未跑 log show 系统日志)/取证维度盲区 (采集器自身被沙箱)/V37.4.3 案例错误判定纠正/用户视角原则 #13 第 N+5 次 (V37.9.78/79/79-hotfix/80 同 session 四阶段闭环全部数据驱动). 元价值 V3 路标 framework 关键拐点: 60 天血案真因终结+修正历史认知+立 INV 守+启发新元规则 — framework 反思转化机制硬实证.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-05-18",
       "what": "📊 V37.9.79 SLO 三项修复 (主交付) — 数据驱动诊断 9 轮无盲改, V37.9.78 周报暴露的 3 个用户感知矛盾数据闭环. 触发: V37.9.78-hotfix Mac Mini 真激活后周报显示 SLO p95=37570ms | 成功=100.0% | 工具=0.0% | overall=VIOLATIONS 三矛盾数据. 9 轮数据驱动诊断 (5 项取证 + minimal repro eval vs bash -c + inline vs 变量) 锁定真因. 修 #1 真 bug: slo_dashboard.py extract_snapshot 加 tool_calls_total 字段 + verdict 三档 PASS/FAIL/N/A (tool_calls_total==0 时 N/A 不算 FAIL, slo_checker.py:71 已正确对齐) + overall 计算跳过 N/A. 修 #2 阈值: config.yaml latency_p95_ms 30000 → 50000ms 加详细注释 Mac Mini 真实 Qwen3 baseline p95=37s/proxy.log 29.7s + 长期目标 multi-provider 后恢复 30000. 修 #3 设计 debt: jobs_registry.yaml 新 slo_snapshot job (每小时 :05) + 新 slo_snapshot.sh wrapper (kb_status_refresh.sh 同款 .sh 包装规避 _format_cron_line bash exec 假设) + auto_deploy FILE_MAP 加 slo_snapshot.sh + slo_dashboard.py (V36 历史 debt) + docs/config.md 漂移修补. 16 新单测 4 类 + 反向 sabotage 三轮守卫真有效. 修 2 regression (test_slo_dashboard latency_violation p95 50000→60000 + docs/config.md slo-snapshot 行). 累计 91→92 suites (+1) / 3158→3174 tests (+16) / 0 fail / governance 79 inv / 715 checks 不变 / 安全 95/100 / VERSION 0.37.9.68 不变. Mac Mini 部署后预期: SLO 段 verdict ALL PASS (tools=N/A 不算 FAIL) + 每小时 :05 写 slo_history.jsonl + 一周后看真 trend_24h/trend_7d. 用户需手动 crontab_safe.sh add slo_snapshot 行. 元价值: 9 轮数据驱动 + 0 次盲改 (对比 V37.9.28 4 轮诊断错/V37.9.29 6 轮假说错五) — MR-10 understand-before-fix 第 N 次正向兑现, 原则 #28 严格执行. V37.9.80+ 候选: (a) 5/19 09:00 cron 真激活验证 (b) 5/25 一周后 168 快照真趋势 (c) MOVESPEED EPERM 真根因调查 (V37.9.30 取证维度 8/9 数据回归) (d) 阈值数据驱动 50000→30000 (e) ROUTER_ENFORCE=on 试水.",
       "by": "claude_code"
     },
@@ -189,11 +194,6 @@
     {
       "date": "2026-05-13",
       "what": "V37.9.67 P0 行动 1 兑现: INV-CROSS-OS-001 跨 OS quirk scanner. 新文件 cross_os_quirk_scanner.py 4 quirk pattern (cmd&&||/grep|head/awk LC_ALL/zsh-specific). dev scan 抓 16 violations 跨 6 文件全修齐. 21 单测 6 类含反向验证. INV +7 checks. 84 suites/2876 tests/0 fail/76 invariants/636 checks/安全 95/100/VERSION 0.37.9.66→0.37.9.67. 元价值: 同日 V37.9.66-hotfix 血案 → 反思登记 → P0 立即执行 → INV 上线, 闭环 <4h. 反思文档行动 1 真兑现.",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-05-13",
-      "what": "V37.9.66-hotfix watchdog:721 bash quirk false-positive FATAL 修复 (V37.9.60-hotfix 同款反模式横向漏 audit). Mac Mini 5/13 16:30 实测触发 line 721 abort exit=2: bash quirk cmd && X || Y + set -eE + ERR trap 即使 set -e 在 && 上下文豁免不杀脚本, ERR trap 仍触发推 [SYSTEM_ALERT]. 改用 if-then-else (bash 文档明确豁免). 修 watchdog:721 + auto_deploy:520 两个 governed cron. 反向验证 sabotage → 1 fail / 还原 → 54/54 OK. 登记 7 处低风险 V37.9.67+ 候选. 元价值: V37.9.58-hotfix3 立 MR-19 trap ERR 让 silent abort 变 loud — 今天 alert 本身就是治理体系工作的硬实证, 同款反模式漏 audit 1 周后真激活才暴露 (反思文档类别 A OS quirk 第 N+1 次演出).",
       "by": "claude_code"
     }
   ],
@@ -370,9 +370,9 @@
   "quality": {
     "security_score": 95,
     "test_count": 3203,
-    "last_regression": "2026-05-18 07:50 pass",
+    "last_regression": "2026-05-18 08:30 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-05-18 07:50",
+    "security_score_time": "2026-05-18 08:30",
     "test_suites": 93,
     "governance_invariants": "64/64",
     "governance_checks": "350/350",
