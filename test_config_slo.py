@@ -25,10 +25,12 @@ class TestConfigLoader(unittest.TestCase):
             self.assertIn(section, cfg, f"Missing section: {section}")
 
     def test_slo_values(self):
+        # V37.9.79: latency_p95_ms 30000 → 50000ms (config.yaml 注释解释 Mac Mini Qwen3 真 baseline,
+        # 长期目标待 multi-provider 后恢复 30000)
         from config_loader import load_config
         cfg = load_config()
         slo = cfg["slo"]
-        self.assertEqual(slo["latency_p95_ms"], 30000)
+        self.assertEqual(slo["latency_p95_ms"], 50000)
         self.assertEqual(slo["tool_success_rate_pct"], 95.0)
         self.assertEqual(slo["degradation_rate_pct"], 5.0)
         self.assertEqual(slo["timeout_rate_pct"], 3.0)
@@ -99,10 +101,12 @@ class TestSloChecker(unittest.TestCase):
             self.assertTrue(r["ok"], f"SLO {r['name']} should be ok")
 
     def test_latency_violation(self):
+        # V37.9.79: 阈值 30000 → 50000ms, 输入需 > 50000ms 才触发 violation
+        # 用 60000ms (Mac Mini 实测 p99=53339ms 量级, 真实 violation 场景)
         from slo_checker import check_slo
         from config_loader import load_config
         stats = self._make_stats(slo={
-            "latency": {"p50": 5000, "p95": 35000, "p99": 40000, "max": 50000, "count": 100},
+            "latency": {"p50": 5000, "p95": 60000, "p99": 70000, "max": 80000, "count": 100},
             "errors_by_type": {"timeout": 0, "context_overflow": 0, "backend": 0, "other": 0},
             "tool_success_rate_pct": 100.0,
             "degradation_rate_pct": 0.0,
@@ -113,7 +117,7 @@ class TestSloChecker(unittest.TestCase):
         self.assertFalse(all_ok)
         latency = [r for r in results if r["name"] == "latency_p95"][0]
         self.assertFalse(latency["ok"])
-        self.assertEqual(latency["value"], 35000)
+        self.assertEqual(latency["value"], 60000)
 
     def test_low_sample_count_skips_latency(self):
         from slo_checker import check_slo

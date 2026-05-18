@@ -167,6 +167,10 @@ fi
 if [ -f test_v37_9_79_slo.py ]; then
     run_suite "v37_9_79_slo (V37.9.79 SLO 三项: tool 0/0→N/A + p95 阈值 50000 + slo_snapshot cron)" "python3 test_v37_9_79_slo.py"
 fi
+# V37.9.79-hotfix: test_config_slo 一直只在 CI 跑没在 full_regression, 引发 V37.9.79 CI fail
+if [ -f test_config_slo.py ]; then
+    run_suite "config_slo (config_loader + slo_checker, V37.9.79-hotfix 闭环 CI/dev 测试覆盖差异)" "python3 test_config_slo.py"
+fi
 
 # 条件性测试（仅当文件存在时运行）
 for tf in test_conv_quality.py test_kb_autotag.py test_kb_dedup.py test_token_report.py test_arxiv_parser.py test_shell_antipatterns.py; do
