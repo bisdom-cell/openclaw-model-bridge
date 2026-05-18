@@ -63,6 +63,10 @@ from typing import Any
 # Constants locked V37.9.76 PoC
 JSONL_PATH = os.path.expanduser("~/.kb/router_decisions.jsonl")
 JOBS_REGISTRY_PATH = os.path.expanduser("~/jobs_registry.yaml")
+# V37.9.76-hotfix: Mac Mini 部署后 router_decide.py 在 ~/, dirname(__file__) = ~,
+# 让 FALLBACK 与 PATH 重合 → yaml 找不到 → chosen=None silent failure.
+# 加 Mac Mini canonical repo 路径作第二候选, 部署不必 deploy yaml 到 ~/.
+JOBS_REGISTRY_MAC_MINI = os.path.expanduser("~/openclaw-model-bridge/jobs_registry.yaml")
 JOBS_REGISTRY_FALLBACK = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "jobs_registry.yaml"
 )
@@ -96,8 +100,11 @@ def _load_yaml_job_profile(job_id: str) -> dict | None:
         log("WARN: PyYAML not installed, router cannot read profile")
         return None
 
-    # 找 jobs_registry.yaml: 优先 $HOME (Mac Mini deploy), fallback dev repo
-    candidates = [JOBS_REGISTRY_PATH, JOBS_REGISTRY_FALLBACK]
+    # 找 jobs_registry.yaml 三档候选 (V37.9.76-hotfix Mac Mini layout 修复):
+    #   1. $HOME/jobs_registry.yaml — 若 FILE_MAP 添加部署到 ~ (当前未加)
+    #   2. $HOME/openclaw-model-bridge/jobs_registry.yaml — Mac Mini canonical repo (auto_deploy 同步源)
+    #   3. dirname(__file__)/jobs_registry.yaml — dev 环境 router_decide.py 在 repo 同目录
+    candidates = [JOBS_REGISTRY_PATH, JOBS_REGISTRY_MAC_MINI, JOBS_REGISTRY_FALLBACK]
     yaml_path = next((p for p in candidates if os.path.isfile(p)), None)
     if yaml_path is None:
         log(f"WARN: jobs_registry.yaml not found in {candidates}")
