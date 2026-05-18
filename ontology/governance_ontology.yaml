@@ -7671,6 +7671,124 @@ invariants:
               f"{_result.stdout[-500:]}\n{_result.stderr[-500:]}"
           )
 
+  # ── V37.9.78: INV-HEALTHCHECK-001 ────────────────────────────────────
+  - id: INV-HEALTHCHECK-001
+    name: health-check-evidence-report-multi-section
+    meta_rule: MR-8  # single-source-of-truth (复用 V35-V37 工具不内嵌采集逻辑)
+    verification_layer: [declaration, runtime]
+    severity: high
+    declaration: |
+      health_check.sh (每周一 09:00 cron) 从 v1.1 单薄状态汇报升级为 v2.0
+      "系统证据周报", 必须满足 5 个契约 (V37.9.78 立案):
+
+      (1) **9 段证据 emoji marker 完整**: 🖥服务 / 🤖模型 / 📊SLO /
+          🛡安全评分 / 🏛治理审计 / 🛟MOVESPEED / 🐦X监控 / 📚知识库 /
+          💾SSD — 任一缺失即治理 fail.
+      (2) **MR-8 single-source-of-truth**: SLO/安全/治理/MOVESPEED 数据
+          走外部工具 (slo_dashboard.py / security_score.py /
+          .audit_metrics.jsonl / movespeed_incident_monitor.py),
+          不内嵌采集逻辑. 任何工具的字段名或接口变化只需改一处.
+      (3) **safe_call helper 三层 FAIL-OPEN**: 工具不存在 / timeout /
+          parse 失败都降级显示"暂无/不可用"不阻塞推送. 周报型 auxiliary
+          tier fail-open (与 kb_review V37.5 fail-fast 区分).
+      (4) **推送优先 notify.sh --topic daily** (重试+队列), fallback
+          openclaw 直推保留 (双通道独立, V37.8.13 教训告警链不依赖
+          失效主体自身).
+      (5) **health_status.json 机器可读契约保留** (HEALTH_JSON_PATH env,
+          version 字段 v37.9.78, 含 services/model/kb/ssd 五字段),
+          供 watchdog / status_refresh 消费.
+
+      v1.1 → v2.0 迁移 (V37.9.78): 移除 2 段冗余 (任务统计与 daily_ops_report
+      重叠 / Session 历史大小低价值), 新增 5 段证据 = 信息密度从近 0
+      → 多维度可决策. 触发: 2026-05-18 用户视角原则 #13 第 N+2 次兑现
+      (单测/治理/preflight 全过但用户实际收到推送觉得"太单薄" — 类比
+      V37.8.11 drift 噪声告警 / V37.9.68 Qwen-BIM 连续重复).
+    # MR-6 合规: declaration (源码字面量) + runtime (subprocess 真跑单测)
+    checks:
+      # declaration layer
+      - name: "V37.9.78 marker 在 header"
+        check_type: file_contains
+        file: health_check.sh
+        pattern: "V37.9.78"
+      - name: "v2.0 重定位文案: 系统证据周报"
+        check_type: file_contains
+        file: health_check.sh
+        pattern: "系统证据周报"
+      - name: "safe_call helper 函数定义"
+        check_type: file_contains
+        file: health_check.sh
+        pattern: 'safe_call\(\) \{'
+      - name: "📊 SLO 段 emoji marker"
+        check_type: file_contains
+        file: health_check.sh
+        pattern: "📊 SLO"
+      - name: "🛡 安全评分段 emoji marker"
+        check_type: file_contains
+        file: health_check.sh
+        pattern: "🛡 安全评分"
+      - name: "🏛 治理审计段 emoji marker"
+        check_type: file_contains
+        file: health_check.sh
+        pattern: "🏛 治理审计"
+      - name: "🛟 MOVESPEED 段 emoji marker"
+        check_type: file_contains
+        file: health_check.sh
+        pattern: "🛟 MOVESPEED"
+      - name: "🐦 X 监控段 emoji marker"
+        check_type: file_contains
+        file: health_check.sh
+        pattern: "🐦 X 监控"
+      - name: "MR-8 单一真理源: slo_dashboard.py 调用 (不内嵌)"
+        check_type: file_contains
+        file: health_check.sh
+        pattern: "slo_dashboard.py' --dashboard --json"
+      - name: "MR-8 单一真理源: security_score.py 调用"
+        check_type: file_contains
+        file: health_check.sh
+        pattern: "security_score.py' --json"
+      - name: "MR-8 单一真理源: audit_metrics.jsonl 读取"
+        check_type: file_contains
+        file: health_check.sh
+        pattern: ".audit_metrics.jsonl"
+      - name: "MR-8 单一真理源: incident_monitor 调用"
+        check_type: file_contains
+        file: health_check.sh
+        pattern: "movespeed_incident_monitor.py"
+      - name: "推送优先 notify.sh --topic daily"
+        check_type: file_contains
+        file: health_check.sh
+        pattern: "--topic daily"
+      - name: "v1.1 反模式: 任务统计段已移除"
+        check_type: file_not_contains
+        file: health_check.sh
+        pattern: "任务统计（近7天）"
+      - name: "v1.1 反模式: Session 历史段已移除"
+        check_type: file_not_contains
+        file: health_check.sh
+        pattern: "Session历史"
+      - name: "v1.1 反模式: 错配字段名 current_metrics 已禁用"
+        check_type: file_not_contains
+        file: health_check.sh
+        pattern: 'current_metrics'
+      # runtime layer
+      - name: "RUNTIME: test_health_check_v37_9_78.py 32 单测全过"
+        check_type: python_assert
+        assertion: |
+          import subprocess, os, sys
+          _repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) \
+              if "ontology" in os.path.abspath(__file__) \
+              else os.path.dirname(os.path.abspath(__file__))
+          _result = subprocess.run(
+              [sys.executable, "test_health_check_v37_9_78.py"],
+              cwd=_repo, capture_output=True, text=True, timeout=180
+          )
+          assert _result.returncode == 0, (
+              f"INV-HEALTHCHECK-001 V37.9.78 单测违反:\n"
+              f"stdout=\n{_result.stdout[-1500:]}\n\n"
+              f"stderr=\n{_result.stderr[-1500:]}\n"
+              f"health_check.sh v2.0 9 段证据契约测试套件失败"
+          )
+
 
 # ═══════════════════════════════════════════════════════════════════════
 # 4. 可执行元规则（Phase 0）— 自动发现缺失不变式
@@ -8085,9 +8203,9 @@ audit_metadata:
     v3.12 → v3.13: V37.8.7 ontology_sources 推送格式错位血案 — INV-ONTOLOGY-001 新增 (ontology-sources-parser-must-be-key-based-not-positional, meta_rule=MR-4, severity=high, verification_layer=[declaration, runtime], 7 checks). 2026-04-15 用户 WhatsApp 收到 ontology_sources 推送严重错位：第 2 篇 cn_title 显示为 *---*、第 3 篇 cn_title 显示为 *价值：⭐⭐⭐⭐*。根因：原解析器用严格位置 (lines[i], lines[i+1], lines[i+2]) + i+=3 步进 — LLM 漏一行"要点"或多一行空白就让所有后续条目的 cn_title/highlight/stars 全部右移一格级联污染。修复：抽到独立模块 jobs/ontology_sources/ontology_parser.py（纯函数 parse_llm_blocks 可单测，避开 V37.5 heredoc-only 不可测血案），按 separator 切块 + 块内 key-based prefix 解析，单块缺行不影响其他块。runtime python_assert 真跑用户实际看到的污染场景断言"缺要点不级联"。24 单测 (test_ontology_parser.py)：TestNormalCases(4) + TestBloodLessonRegression(5) + TestSeparatorVariants(5) + TestLLMOutputVariants(5) + TestShellScriptIntegration(4) + TestActualBloodLessonScenario(1)。MR-4 silent-failure 第 8 次演出（输出"看起来正常" 6 字段都在但语义错乱）。auto_deploy FILE_MAP 补齐 ontology_parser.py。
     v3.11 → v3.12: V37.8.6 Dream 自引用幻觉血案 — INV-DREAM-003 新增 (dream-log-cannot-pollute-cache-nor-fabricate-platform-crises, meta_rule=MR-4, severity=critical, verification_layer=[declaration, runtime], 16 checks). 2026-04-15 03:00 Dream run 出现 4 次 Bad JSON 400 (adapter 收到破损 JSON)，但 Dream 仍产出完整"Hugging Face 平台危机"分析，用户察觉 Signal(Papers with Code 沉默)↔Action(监控 Hugging Face) 主题断裂后上报。三层根因：(a) scraped 内容含 surrogate UTF-8 → json.dump + utf-8 file write → UnicodeEncodeError → body_file 截断 → adapter.py:386 返回 400 Bad JSON (b) kb_dream.sh log() 用 `echo` 写 stdout → signals=$(llm_call ...) 命令替换捕获 log 行进 signals → cache file 被"LLM raw response: Error code 400 Bad JSON..."污染 (c) Reduce cache-only fast path 把错误日志注入 LLM 上下文 → LLM 基于这些字样自动编造"Hugging Face 危机"叙事 = 原则 #23 链式幻觉 + MR-4 silent failure 第 7 次演出。四层结构修复（defense-in-depth）：log→stderr 阻断 stdout 污染通道 + _sanitize(U+D800-U+DFFF → U+FFFD) 防编码炸裂 + file open 显式 encoding='utf-8' errors='replace' 第二防线 + REDUCE/CHUNK1/2/3 system prompt 四块加反污染守卫 (禁止把 HTTP 错误码/Python 异常/错误页 HTML/U+FFFD 当外部信号，禁止基于这些字样推断 Hugging Face/GitHub/npm 等平台状态)。runtime python_assert 真跑 sanitize 五场景 (孤立高位/低位代理/正常串/代理范围边界/sanitize 后 json+utf-8 编码不炸)。19 单测 (TestLogGoesToStderr×2 + TestSanitizeSurrogates×7 + TestShellSanitizeImplementation×5 + TestAntiPollutionSystemPrompt×3 + TestShellScriptIntegrity×1 + TestLogDefHasCommentMeta×1)。
     v3.10 → v3.11: V37.8.5 INV-X-001 升级三层检测 (血案二次演出: V37.8.4 修复本身埋盲区) — V37.8.4 收工 Mac Mini E2E 即发现 2 个边缘：CNS1952 98/99 超窗口 + 1 过短老化率 99% 但未触发严格 old==total (MR-10 第 2 次演出：修复会埋坑)；SingTaoDaily 0-tweet stub (embed disabled 返回空骨架) 被 total>0 门槛绕过完全不标记。V37.8.5 修复：(1) 检测逻辑独立为 jobs/finance_news/finance_news_zombie.py 纯函数模块 (classify_zombie(diag, count)); (2) 三层 tier: "stub" (no_data=0 + total=0) + "stale" (≥90% 老化 + count=0 守卫防止低频活跃误报)，整数比较 old*10 >= total*9 避免浮点; (3) 24 单测锁定三层 + 守卫 + shell 集成 + auto_deploy FILE_MAP; (4) verification_layer 从 [declaration] 升级到 [declaration, runtime] (MR-6 遵循: INV-X-001 现在有 python_assert 真跑 5 个 tier 场景); (5) shell 脚本禁止内嵌 inline fallback (防模块缺失时静默降级回 V37.8.4 逻辑 — MR-8 copy-paste-is-a-bug-class 兑现)。诊断行 tier 区分 ⚠️ ZOMBIE嫌疑[stub] vs [stale]，便于日志定位。
-  total_invariants: 78  # V37.9.77: 不变 (INV-ROUTER-001 内涵扩 V37.9.77 enforcement 7 checks, 非新 INV)
-  total_checks: 698     # V37.9.77: +7 (_resolve_primary_provider + ROUTER_ENFORCE 三方 off 默认 + strip query + llm_call 6th 参数 + curl effective_url + _resolve_mode + 27 单测全过)
-  meta_rules: 19        # MR-1~MR-19 不变 (V37.9.77 enforcement opt-in framework, 不立新元规则)
+  total_invariants: 79  # V37.9.78: +1 INV-HEALTHCHECK-001 (health-check-evidence-report-multi-section, meta_rule=MR-8, severity=high, declaration+runtime)
+  total_checks: 715     # V37.9.78: +17 (INV-HEALTHCHECK-001: 16 declaration file_contains/file_not_contains + 1 runtime python_assert subprocess 跑 32 单测)
+  meta_rules: 19        # MR-1~MR-19 不变 (V37.9.78 复用 MR-8 single-source-of-truth, 不立新元规则)
   meta_rule_discovery_count: 6   # Phase 0: registry + env + notify-topic + layer-depth + error-suppression + notify-activity
   check_types_used: [python_assert, file_contains, file_not_contains, env_var_exists, command_succeeds, log_activity_check]
   verification_layers_used: [declaration, runtime, effect]  # v3.1: 效果层启动

@@ -1,5 +1,5 @@
 {
-  "updated": "2026-05-18 02:10:26",
+  "updated": "2026-05-18 06:18:06",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-05-18",
+      "what": "🩺 V37.9.78 health_check 周报 v1.1→v2.0 \"系统证据周报\" — 用户视角原则 #13 第 N+2 次正向兑现 + INV-HEALTHCHECK-001 立. 触发: 用户开工后 WhatsApp 主动报告周报\"太单薄\"决定增强或删除. 审视后发现 v1.1 5 段(任务统计/服务/模型/KB/SSD)中 3 段与现有 cron 重叠 + 真正盲区 5 个 (SLO/安全评分/治理审计/MOVESPEED 24h/X 监控质量) 从未汇总到周报. 用户决策方案 A 重定位为证据周报. v2.0 设计契约: 9 段 emoji marker (🖥服务+🤖模型+📊SLO+🛡安全+🏛治理+🛟MOVESPEED+🐦X监控+📚KB+💾SSD) + MR-8 single-source-of-truth (走 slo_dashboard.py/security_score.py/.audit_metrics.jsonl/movespeed_incident_monitor.py 4 外部工具不内嵌) + safe_call helper 三层 FAIL-OPEN (工具不存在/timeout/parse 失败降级显示不阻塞) + 推送优先 notify.sh --topic daily (重试+队列+双通道独立) fallback openclaw 直推保留 + health_status.json 机器可读契约保留 (version=v37.9.78). 32 新单测 5 类 + 反向 sabotage 三轮守卫真有效 (marker/SLO 段/字段名/safe_call helper 移除立即抓). INV-HEALTHCHECK-001 (meta_rule=MR-8, severity=high, declaration+runtime, 17 checks: 16 declaration 文件守卫 + 1 runtime subprocess 跑 32 单测全过). dev 实跑 9 段全输出 + FAIL-OPEN 工作正常. 关键 bug 修复 — SLO 段字段名错配 + CLI 调用方式: slo_dashboard.py --json 单参数不输出 (需 --dashboard --json), JSON 真实字段是 current.p95_ms/success_pct/trend_24h/overall (非 current_metrics/p95_latency_ms/success_rate_pct/trend/history_count). 接入 full_regression suite. 累计 90→91 suites (+1) / 3124→3156 tests (+32) / 0 fail / governance 698→715 checks (+17) / 78→79 invariants (+1) / 19 MR 不变 / 安全 95/100 / VERSION 0.37.9.68 不变 (V37.9.78 重构现有 cron 不增功能不 bump). Mac Mini 部署后预期: 5/19 周一 09:00 cron 自动用新 9 段证据周报推送, 用户首次看到 SLO p95 实时/95/100 评分/79 inv pass/MOVESPEED 24h 真计数/X 僵尸账号数. V37.9.79+ 候选 (a) 主硬卡 5/19 09:00 真激活验证用户视角对 v2.0 质量评价 (b) 从 _PUSH_ROUTE_WHITELIST 移除 health_check (已走 notify.sh 不再需要白名单豁免) (c) kb_trend/kb_review 周报型任务同款 v2.0 风格升级评估 (d) V37.9.77 ROUTER_ENFORCE=on 试水 (e) tool_proxy:5002 透传 ?provider=. 元价值: V2 路标证据密度兑现 — 不只是有 SLO/governance/security 数据 (V35-V37 都有), 还要把数据汇总成可决策周度证据流, 用户每周一上午一条消息就能判断系统真实健康度, 数据复利从采集升级为消费的关键拐点.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-05-18",
       "what": "🚀 V37.9.77 Capability Router enforcement framework — ?provider=X query param + ROUTER_ENFORCE env feature flag (默认 off PoC 安全网). V37.9.76 shadow → V37.9.77 enforcement opt-in (Plan B 渐进路径). adapter._resolve_primary_provider 方法 + urlparse query 解析 + strip query 拼 forward URL + 三阶 FAIL-OPEN (off/unknown provider/missing API key 都 silent fallback default). kb_dream llm_call 6th 参数 provider_override + effective_url 拼 ?provider= + curl 用 effective_url + RADAR retry ROUTER_ENFORCE 门控 (默认 off 行为同 V37.9.76 shadow). router_decide._resolve_mode 函数读 ROUTER_ENFORCE env (大小写不敏感 + 未知值 fallback shadow FAIL-CLOSED). 三方契约一致性: adapter/kb_dream/router_decide 都用 ROUTER_ENFORCE 默认 off + 三处 V37.9.77 marker. 27 新单测 5 测试类 + 反向 sabotage 三轮守卫真有效 (adapter enforce=True 硬编码 → 1 fail / kb_dream 删 ROUTER_ENFORCE 门控 → 1 fail / curl 仍用 LLM_URL → 1 fail). adapter.py 副红利: server startup 移到 if __name__ 块, import adapter 不 bind port (修长期可测性 debt). dev 环境意外发现 lingering pid 5695 (V37.9.77 早期 import 实验留下) kill 后 convergence test 恢复 baseline. 90 suites / 3097→3124 tests (+27) / 0 fail / governance v3.46 不变 (INV-ROUTER-001 内涵扩) / 691→698 checks (+7) / VERSION 0.37.9.68 不变 (enforcement opt-in framework, ROUTER_ENFORCE=on 才真激活). Mac Mini 部署后行为不变 (默认 off), operator 可 ROUTER_ENFORCE=on 试水 1-3 天观察后决定 V37.9.78+ 默认 on. V37.9.78+ 候选: tool_proxy:5002 透传 ?provider= 让 hf_papers 也能 enforcement + 一周观察 + 扩展 capability profile 到更多 ALIGNED job. 同日 5 件套完整交付 (V37.9.74 首次激活闭环 + V37.9.75 DEEP retry + V37.9.76 PoC + V37.9.76-hotfix + V37.9.77 enforcement framework).",
       "by": "claude_code"
     },
@@ -189,11 +194,6 @@
     {
       "date": "2026-05-13",
       "what": "V37.9.66 convergence framework 双向 sync primitives + _format_cron_line .openclaw/ path bug 修复. V37.9.65 用户 Mac Mini 实测发现 framework 单向 gap (line_contains_identifier 不检 interval/log) + 潜伏 path bug (拼 ~/jobs/ 实际跑 ~/.openclaw/jobs/). 5 层修复: path fix + extra_in_runtime 字段 + jobs_to_full_cron_lines extractor + cron_lines_set_diff parser + _apply remove_extras 调 V37.9.65 helper. spec yaml 暂不切换避免 34 job 路径 audit 风暴 (V37.9.67+ 候选). 20 新单测含反向验证 sabotage 真有效 (path fix 还原 → 4 fail / 删字段 → 5 fail + 30 errors). INV-CONVERGENCE-CRON-001 +10 checks. 83 suites/2853 tests/0 fail/governance v3.41→v3.42/75 inv/619→629 checks/安全 95/100/VERSION 0.37.9.65→0.37.9.66.",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-05-13",
-      "what": "V37.9.65 crontab_safe.sh 加 remove command — V37.9.64 用户痛点 (不需 vim) 闭环 + convergence framework 双向 sync 下半截. cmd_remove 镜像 cmd_add 安全机制 (backup + 严格 count 验证 + 拒绝全清空 + 失败自动回滚). 16 单测 4 类含反向验证 sabotage 真有效. 83 suites/2831 tests/0 fail/安全 95/100/VERSION 0.37.9.64→0.37.9.65. Mac Mini 一行命令删 freight 多余 cron 不需 vim.",
       "by": "claude_code"
     }
   ],
@@ -369,11 +369,11 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 3124,
-    "last_regression": "2026-05-18 02:08 pass",
+    "test_count": 3156,
+    "last_regression": "2026-05-18 06:14 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-05-18 02:08",
-    "test_suites": 90,
+    "security_score_time": "2026-05-18 06:14",
+    "test_suites": 91,
     "governance_invariants": "64/64",
     "governance_checks": "350/350",
     "version": "0.37.9.68"
