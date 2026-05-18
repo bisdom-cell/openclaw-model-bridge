@@ -71,7 +71,18 @@ JOBS_REGISTRY_FALLBACK = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "jobs_registry.yaml"
 )
 _VERSION_MARKER = "V37.9.76"
-_MODE_DEFAULT = "shadow"  # V37.9.77+ 切换为 "on" 启用 enforcement
+_MODE_DEFAULT = "shadow"  # V37.9.77 ROUTER_ENFORCE=on env 切换为 "on" 启用真路由
+
+
+def _resolve_mode() -> str:
+    """V37.9.77: 读 ROUTER_ENFORCE env 决定 mode 字段.
+
+    返回 "on" 当 ROUTER_ENFORCE=on/true/1/yes (大小写不敏感), 否则 "shadow".
+    Mode 字段写入 JSONL record, 运维通过 grep mode 区分 shadow vs 真路由阶段.
+    与 caller (kb_dream.sh) 的 ROUTER_ENFORCE 检查独立, 两侧需同步 env (FAIL-OPEN).
+    """
+    enforce = os.environ.get("ROUTER_ENFORCE", "off").strip().lower()
+    return "on" if enforce in ("on", "true", "1", "yes") else _MODE_DEFAULT
 
 
 def log(msg: str) -> None:
@@ -226,7 +237,7 @@ def decide(
         "chosen": None,
         "chosen_cap_score": None,
         "alternatives": [],
-        "mode": _MODE_DEFAULT,
+        "mode": _resolve_mode(),  # V37.9.77: shadow / on 跟随 ROUTER_ENFORCE env
         "reason": "ok",
         "v37_9_76": True,
     }

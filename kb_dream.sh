@@ -180,12 +180,19 @@ llm_call() {
     local max_tokens="${2:-1500}"
     local temp="${3:-0.8}"
     local timeout="${4:-120}"
-    local system_msg="${5:-}"   # V37.8.3: 可选 system message（拆分元指令与数据）
+    local system_msg="${5:-}"          # V37.8.3: 可选 system message（拆分元指令与数据）
+    local provider_override="${6:-}"   # V37.9.77 enforcement: optional ?provider=X 路由覆盖
     local result=""
     local raw=""
     local attempt=0
     local err_file=$(mktemp)
     local body_file=$(mktemp)
+    # V37.9.77 enforcement: 如有 provider_override 则追加 ?provider= 让 adapter 用指定 provider
+    # FAIL-OPEN: adapter 不识别 / 缺 API key 时自动 fallback 默认 PROVIDER_NAME (adapter._resolve_primary_provider)
+    local effective_url="$LLM_URL"
+    if [ -n "$provider_override" ]; then
+        effective_url="${LLM_URL}?provider=${provider_override}"
+    fi
 
     while [ $attempt -lt $LLM_CALL_MAX_RETRIES ]; do
         # 用 Python 安全构造 JSON（处理所有 Unicode/转义/控制字符）
@@ -229,7 +236,7 @@ with open('$body_file', 'w', encoding='utf-8', errors='replace') as f:
     json.dump(body, f, ensure_ascii=False)
 " <<< "$prompt"
 
-        raw=$(curl -sS --max-time "$timeout" "$LLM_URL" \
+        raw=$(curl -sS --max-time "$timeout" "$effective_url" \
             -H 'Content-Type: application/json' \
             -d @"$body_file" \
             2>"$err_file" || true)
@@ -1586,8 +1593,19 @@ ${WIDE_BLOCK}
     else
         ROUTER_CHOICE=""
     fi
-    log "V37.9.76 router (shadow): chosen=${ROUTER_CHOICE:-unknown} (decision logged, not enforced — adapter PROVIDER_NAME 真实路由不变)"
-    RADAR_RETRY_RESULT=$(llm_call "$RADAR_RETRY_PROMPT" 3000 0.8 200 "$RADAR_RETRY_SYSTEM" || true)
+    # V37.9.77 enforcement: 默认 ROUTER_ENFORCE=off → 行为同 V37.9.76 shadow (向后兼容).
+    # ROUTER_ENFORCE=on env 时把 ROUTER_CHOICE 通过 ?provider=X 传给 adapter, 真路由切换.
+    # FAIL-OPEN: 如 chosen=no_router_profile/unknown 或 adapter 不识别 → adapter 自动回退默认 provider.
+    EFFECTIVE_PROVIDER=""
+    if [ "${ROUTER_ENFORCE:-off}" = "on" ] && [ -n "$ROUTER_CHOICE" ] \
+       && [ "$ROUTER_CHOICE" != "unknown" ] && [ "$ROUTER_CHOICE" != "no_router_profile" ] \
+       && [ "$ROUTER_CHOICE" != "no_matching_provider" ]; then
+        EFFECTIVE_PROVIDER="$ROUTER_CHOICE"
+        log "V37.9.77 enforcement: ROUTER_ENFORCE=on → 走 ?provider=$EFFECTIVE_PROVIDER (router 真路由)"
+    else
+        log "V37.9.76 router (shadow): chosen=${ROUTER_CHOICE:-unknown} (decision logged, not enforced — adapter PROVIDER_NAME 真实路由不变)"
+    fi
+    RADAR_RETRY_RESULT=$(llm_call "$RADAR_RETRY_PROMPT" 3000 0.8 200 "$RADAR_RETRY_SYSTEM" "$EFFECTIVE_PROVIDER" || true)
     RADAR_RETRY_CHARS=$(echo "$RADAR_RETRY_RESULT" | wc -c | tr -d ' ')
     RADAR_RETRY_HAS_HEADER=false
     echo "$RADAR_RETRY_RESULT" | grep -q '## 📡' && RADAR_RETRY_HAS_HEADER=true
