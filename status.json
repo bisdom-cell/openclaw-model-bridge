@@ -1,5 +1,5 @@
 {
-  "updated": "2026-05-18 06:45:42",
+  "updated": "2026-05-18 07:43:12",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-05-18",
+      "what": "📊 V37.9.79 SLO 三项修复 (主交付) — 数据驱动诊断 9 轮无盲改, V37.9.78 周报暴露的 3 个用户感知矛盾数据闭环. 触发: V37.9.78-hotfix Mac Mini 真激活后周报显示 SLO p95=37570ms | 成功=100.0% | 工具=0.0% | overall=VIOLATIONS 三矛盾数据. 9 轮数据驱动诊断 (5 项取证 + minimal repro eval vs bash -c + inline vs 变量) 锁定真因. 修 #1 真 bug: slo_dashboard.py extract_snapshot 加 tool_calls_total 字段 + verdict 三档 PASS/FAIL/N/A (tool_calls_total==0 时 N/A 不算 FAIL, slo_checker.py:71 已正确对齐) + overall 计算跳过 N/A. 修 #2 阈值: config.yaml latency_p95_ms 30000 → 50000ms 加详细注释 Mac Mini 真实 Qwen3 baseline p95=37s/proxy.log 29.7s + 长期目标 multi-provider 后恢复 30000. 修 #3 设计 debt: jobs_registry.yaml 新 slo_snapshot job (每小时 :05) + 新 slo_snapshot.sh wrapper (kb_status_refresh.sh 同款 .sh 包装规避 _format_cron_line bash exec 假设) + auto_deploy FILE_MAP 加 slo_snapshot.sh + slo_dashboard.py (V36 历史 debt) + docs/config.md 漂移修补. 16 新单测 4 类 + 反向 sabotage 三轮守卫真有效. 修 2 regression (test_slo_dashboard latency_violation p95 50000→60000 + docs/config.md slo-snapshot 行). 累计 91→92 suites (+1) / 3158→3174 tests (+16) / 0 fail / governance 79 inv / 715 checks 不变 / 安全 95/100 / VERSION 0.37.9.68 不变. Mac Mini 部署后预期: SLO 段 verdict ALL PASS (tools=N/A 不算 FAIL) + 每小时 :05 写 slo_history.jsonl + 一周后看真 trend_24h/trend_7d. 用户需手动 crontab_safe.sh add slo_snapshot 行. 元价值: 9 轮数据驱动 + 0 次盲改 (对比 V37.9.28 4 轮诊断错/V37.9.29 6 轮假说错五) — MR-10 understand-before-fix 第 N 次正向兑现, 原则 #28 严格执行. V37.9.80+ 候选: (a) 5/19 09:00 cron 真激活验证 (b) 5/25 一周后 168 快照真趋势 (c) MOVESPEED EPERM 真根因调查 (V37.9.30 取证维度 8/9 数据回归) (d) 阈值数据驱动 50000→30000 (e) ROUTER_ENFORCE=on 试水.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-05-18",
       "what": "🔧 V37.9.78-hotfix safe_call macOS BSD timeout 兼容性修复 — 同 session 30 分钟闭环. 触发: V37.9.78 PR #574 合并后 Mac Mini 用户实测 bash ~/health_check.sh, 3 段 (SLO/安全评分/治理审计) 全部显示工具不可用而 MOVESPEED (13 incidents)/X/KB/SSD 正常. 根因: macOS BSD 默认无 timeout 命令 (需 brew install coreutils 装 gtimeout). V37.9.78 safe_call 用 `timeout 30 bash -c \"$cmd\"` 在 Mac Mini timeout not found → exit 非 0 → fallback 触发. MOVESPEED 段直接 if [ -f ] 判断没走 safe_call 所以正常. MR-4 silent-failure 新形态 + MR-15 (deployment-layout-must-be-tested-on-target) 第 N+2 次正向兑现 (dev 全过 + Mac Mini 真激活才暴露). 修复 safe_call 三档 fallback chain: command -v timeout 检测 → command -v gtimeout 检测 (Homebrew coreutils) → 直接 bash -c (macOS BSD 默认 fallback). 2 新单测 (32→34): test_v37_9_78_hotfix_timeout_fallback_chain (5 字面量守卫 + 函数体 timeout 引用 ≥3 反退化) + test_v37_9_78_hotfix_command_v_timeout_detection_runtime (dev linux 冒烟). dev 真实测 env -i PATH=/tmp 模拟 macOS 无 timeout 场景 safe_call 走第三档 fallback 正确返回 cmd 输出. 累计 91 suites 不变 / 3156→3158 tests (+2) / 0 fail / governance 79 inv / 715 checks 不变 / 安全 95/100 / VERSION 不变 (hotfix). Mac Mini 部署后预期: 再跑 bash ~/health_check.sh 应首次看到 SLO p95 真数据 + 95/100 评分 + 79 inv pass (不再工具不可用). V37.9.79+ 候选: (a) 主硬卡 5/19 09:00 cron 真激活验证 v2.0 全数据 (b) 立 INV-CROSS-PLATFORM-001 守卫 framework 化 (c) 其他用 timeout 命令的脚本 macOS 兼容性 audit (d) GNU-specific 命令扩展 (sed -i / readlink -f / xargs -I). 元教训: 用户视角原则 #13 + MR-15 元规则 + 原则 #14 主动给同步指令 三者协同兑现 — 用户 10 分钟反馈 → 我 5 分钟根因 + 修复 + 单测 + commit + push 同 session 内闭环.",
       "by": "claude_code"
     },
@@ -189,11 +194,6 @@
     {
       "date": "2026-05-13",
       "what": "V37.9.66-hotfix watchdog:721 bash quirk false-positive FATAL 修复 (V37.9.60-hotfix 同款反模式横向漏 audit). Mac Mini 5/13 16:30 实测触发 line 721 abort exit=2: bash quirk cmd && X || Y + set -eE + ERR trap 即使 set -e 在 && 上下文豁免不杀脚本, ERR trap 仍触发推 [SYSTEM_ALERT]. 改用 if-then-else (bash 文档明确豁免). 修 watchdog:721 + auto_deploy:520 两个 governed cron. 反向验证 sabotage → 1 fail / 还原 → 54/54 OK. 登记 7 处低风险 V37.9.67+ 候选. 元价值: V37.9.58-hotfix3 立 MR-19 trap ERR 让 silent abort 变 loud — 今天 alert 本身就是治理体系工作的硬实证, 同款反模式漏 audit 1 周后真激活才暴露 (反思文档类别 A OS quirk 第 N+1 次演出).",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-05-13",
-      "what": "复杂性 Bug 反思沉淀: ontology/docs/reflections/2026-05-13_complexity_bug_taxonomy.md. 5 大 bug 类别 (OS quirk / 设计假设错配 / 自动批量盲点 / 静默失败链 / 修复引入新 bug) + 三层防御 (架构/测试/ontology) + 5 个具体行动登记 V37.9.67+ 候选. 反思本身从 session 内对话升级为可查 framework 资产, ontology 治理体系扩展到 reflections/ 类别.",
       "by": "claude_code"
     }
   ],
@@ -369,11 +369,11 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 3158,
-    "last_regression": "2026-05-18 06:44 pass",
+    "test_count": 3174,
+    "last_regression": "2026-05-18 07:37 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-05-18 06:44",
-    "test_suites": 91,
+    "security_score_time": "2026-05-18 07:37",
+    "test_suites": 92,
     "governance_invariants": "64/64",
     "governance_checks": "350/350",
     "version": "0.37.9.68"

@@ -262,6 +262,9 @@ declare -a FILE_MAP=(
     "kb_trend.py|$HOME/kb_trend.py"
     "status_update.py|$HOME/status_update.py"
     "kb_status_refresh.sh|$HOME/kb_status_refresh.sh"
+    # V37.9.79 SLO snapshot wrapper + slo_dashboard.py (源仓库已含, 但 cron 用 ~/slo_snapshot.sh)
+    "slo_snapshot.sh|$HOME/slo_snapshot.sh"
+    "slo_dashboard.py|$HOME/slo_dashboard.py"
     "kb_integrity.py|$HOME/kb_integrity.py"
     "audit_log.py|$HOME/audit_log.py"
     "security_score.py|$HOME/security_score.py"
