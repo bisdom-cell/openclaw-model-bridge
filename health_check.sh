@@ -26,11 +26,21 @@ KB_DIR="${KB_BASE:-$HOME/.kb}"
 # V37.9.78 三层 FAIL-OPEN: 工具不存在 / timeout / parse 失败 → 输出 fallback
 # 用法: result=$(safe_call "cmd" "fallback_text")
 # 契约: 不抛异常, 不阻塞 caller (周报型任务 fail-open 不 fail-fast)
+# V37.9.78-hotfix: macOS BSD 默认无 timeout 命令 (Mac Mini 实测发现 SLO/安全/治理全 fallback),
+#   三档检测 timeout / gtimeout (Homebrew coreutils) / 直接跑 (依赖 cmd 自身超时机制).
 safe_call() {
   local cmd="$1"
   local fallback="$2"
   local result
-  result=$(timeout 30 bash -c "$cmd" 2>/dev/null) || result=""
+  if command -v timeout >/dev/null 2>&1; then
+    result=$(timeout 30 bash -c "$cmd" 2>/dev/null) || result=""
+  elif command -v gtimeout >/dev/null 2>&1; then
+    # macOS Homebrew coreutils 提供 gtimeout
+    result=$(gtimeout 30 bash -c "$cmd" 2>/dev/null) || result=""
+  else
+    # macOS BSD 默认无 timeout/gtimeout, 直接跑 (周报 cron 每周一次, 极少挂)
+    result=$(bash -c "$cmd" 2>/dev/null) || result=""
+  fi
   [ -z "$result" ] && result="$fallback"
   echo "$result"
 }

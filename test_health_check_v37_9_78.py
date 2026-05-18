@@ -186,6 +186,35 @@ class TestSourceGuards(unittest.TestCase):
         self.assertIn("暂无", self.src, "必须有'暂无...'降级文案 (历史快照)")
         self.assertIn("解析失败", self.src, "必须有'解析失败'降级文案")
 
+    def test_v37_9_78_hotfix_timeout_fallback_chain(self):
+        """V37.9.78-hotfix: safe_call 必须三档 fallback (timeout / gtimeout / 直接跑)
+        防 macOS BSD 无 timeout 命令时 SLO/安全/治理全 fallback 到"工具不可用".
+
+        Mac Mini 实测发现 (2026-05-18): macOS 默认无 timeout 命令, 导致 safe_call
+        所有调用走 fallback 路径. 修复: command -v 检测三档.
+        """
+        # 必须含 V37.9.78-hotfix marker
+        self.assertIn("V37.9.78-hotfix", self.src,
+                      "V37.9.78-hotfix marker 必须在 safe_call 注释中")
+        # 必须检测 timeout 命令存在性 (不是无条件用)
+        self.assertIn("command -v timeout", self.src,
+                      "必须用 command -v 检测 timeout 命令是否存在")
+        # 必须含 gtimeout fallback (Homebrew coreutils)
+        self.assertIn("command -v gtimeout", self.src,
+                      "第二档 fallback 必须用 gtimeout (Homebrew coreutils 装的版本)")
+        # 必须含 macOS BSD 注释说明
+        self.assertIn("macOS BSD", self.src,
+                      "必须显式注释 macOS BSD 默认无 timeout 的根因")
+        # 反模式守卫: safe_call 函数体内禁止仅有"无条件 timeout 30"行
+        # (不应回退到 V37.9.78 原始无 fallback 版本)
+        sc_start = self.src.find("safe_call() {")
+        sc_end = self.src.find("}\n", sc_start)
+        sc_body = self.src[sc_start:sc_end]
+        # 函数体必须含至少 2 个 timeout 引用 (timeout 自身 + command -v timeout 检测)
+        timeout_refs = sc_body.count("timeout")
+        self.assertGreaterEqual(timeout_refs, 3,
+                                f"safe_call 函数体应含 timeout/gtimeout/检测多处引用, 实际={timeout_refs}")
+
 
 class TestSafeCallHelper(unittest.TestCase):
     """safe_call helper 函数运行时契约: timeout / fallback / 异常吞掉."""
@@ -238,6 +267,29 @@ echo "caller_survived: $result"
         self.assertEqual(proc.returncode, 0,
                          "set -e caller 不应被 safe_call 杀掉")
         self.assertIn("caller_survived: OK_FALLBACK", proc.stdout)
+
+    def test_v37_9_78_hotfix_command_v_timeout_detection_runtime(self):
+        """V37.9.78-hotfix runtime 守卫: 函数体执行 `command -v timeout` 真返回 OK
+        (dev linux 有 timeout), 走第一档. 防 helper 内部逻辑被偶发回退.
+
+        注: dev linux 无法真实模拟 macOS 无 timeout 场景 (dev /bin/timeout 存在).
+        Mac Mini 真实激活验证由 source-level 守卫 + 部署后 9 段 SLO/安全/治理段不再
+        显示"工具不可用"间接证明. 此处只做 runtime 冒烟 — 让 safe_call 真跑一次确保
+        没有 syntax error / 函数体能正常执行.
+        """
+        script = f"""
+{_read_script_safe_call_only()}
+# dev linux 有 timeout, 应走第一档
+result=$(safe_call 'echo SAFE_CALL_RUNTIME_OK' 'FALLBACK_BAD')
+echo "$result"
+"""
+        proc = subprocess.run(
+            ["bash", "-c", script], capture_output=True, text=True, timeout=60
+        )
+        self.assertEqual(proc.returncode, 0,
+                         f"safe_call 不应崩, stderr={proc.stderr}")
+        self.assertIn("SAFE_CALL_RUNTIME_OK", proc.stdout,
+                      f"safe_call dev 跑应回 cmd 输出, 实际={proc.stdout}")
 
 
 def _read_script_safe_call_only():
