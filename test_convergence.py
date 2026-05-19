@@ -3194,7 +3194,7 @@ class TestV37958DryRunActivation(unittest.TestCase):
     # ── (5) audit_metadata 版本升级 v3.36+ (alternation 接受后续版本) ──────
 
     def test_audit_metadata_version_v3_36_or_later(self):
-        """audit_metadata.version 升级到 3.36+ (V37.9.58-hotfix2 → 3.37 / hotfix3 → 3.38 / V37.9.60 → 3.39 / V37.9.61 → 3.40 / V37.9.63 → 3.41)."""
+        """audit_metadata.version 升级到 3.36+ (V37.9.58-hotfix2 → 3.37 / hotfix3 → 3.38 / V37.9.60 → 3.39 / V37.9.61 → 3.40 / V37.9.63 → 3.41 / V37.9.66 → 3.42 / V37.9.81 → 3.47)."""
         valid_versions = (
             'version: "3.36"',
             'version: "3.37"',
@@ -3203,6 +3203,11 @@ class TestV37958DryRunActivation(unittest.TestCase):
             'version: "3.40"',  # V37.9.61 MR-19 扩 LLM-task 类
             'version: "3.41"',  # V37.9.63 MR-8 抽公共 fatal_handler helper
             'version: "3.42"',  # V37.9.66 convergence framework 双向 sync primitives + path bug 修复
+            'version: "3.43"',  # V37.9.x 中间版本 (gap-filler — yaml meta 漂移修复时跳过号段)
+            'version: "3.44"',
+            'version: "3.45"',
+            'version: "3.46"',
+            'version: "3.47"',  # V37.9.81 (A + B) MOVESPEED FDA 真生效闭环 + V37.9.30 取证盲区根因修复
         )
         self.assertTrue(
             any(v in self.gov_src for v in valid_versions),
