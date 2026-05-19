@@ -172,6 +172,11 @@ if [ -f test_config_slo.py ]; then
     run_suite "config_slo (config_loader + slo_checker, V37.9.79-hotfix 闭环 CI/dev 测试覆盖差异)" "python3 test_config_slo.py"
 fi
 
+# V37.9.82: INV-PATH-CONSISTENCY-001 三方对齐 audit (jobs_registry ↔ FILE_MAP ↔ V37.9.66 path convention)
+if [ -f test_path_consistency_scanner.py ]; then
+    run_suite "path_consistency_scanner (V37.9.82 INV-PATH-CONSISTENCY-001: 防 V37.9.56-hotfix/V37.9.66 同款 Class B 路径假设错配)" "python3 test_path_consistency_scanner.py"
+fi
+
 # 条件性测试（仅当文件存在时运行）
 for tf in test_conv_quality.py test_kb_autotag.py test_kb_dedup.py test_token_report.py test_arxiv_parser.py test_shell_antipatterns.py; do
     if [ -f "$tf" ]; then
