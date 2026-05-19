@@ -8009,6 +8009,102 @@ invariants:
               f"可能原因: macOS 升级 reset TCC / FDA 被手动移除 / 其他外置卷 sandbox 问题."
           )
 
+  # ── V37.9.82: INV-PATH-CONSISTENCY-001 ──────────────────────────────
+  - id: INV-PATH-CONSISTENCY-001
+    name: jobs-registry-and-auto-deploy-paths-must-be-consistent
+    meta_rule: MR-8  # copy-paste-is-a-bug-class (跨脚本路径假设是 copy-paste 反例)
+    verification_layer: [declaration, runtime]
+    severity: high  # 路径错配让 Mac Mini 部署后 cron 找不到文件, 但不破坏 dev 测试
+    declaration: |
+      V37.9.82 立 INV 防御 V37.9.56-hotfix (top_alignment_picker cache_paths 多 layout)
+      + V37.9.66 (_format_cron_line jobs/ → .openclaw/ path bug) 同款 Class B (设计假设
+      错配) 血案 — 跨脚本路径假设不一致, dev 通过但 Mac Mini 部署后才暴露.
+
+      Scanner: path_consistency_scanner.py 三方一致性 audit:
+        (1) jobs_registry.yaml entry → auto_deploy.sh FILE_MAP src 必须存在
+        (2) FILE_MAP src → dst 符合 V37.9.66 约定 (jobs/X → $HOME/.openclaw/jobs/X,
+            其他 → $HOME/X) 或在 ALLOWED_NON_STANDARD_DST 豁免清单中 (含 reason)
+        (3) FILE_MAP src 文件必须存在于 repo (防 entry 拼错 / 重命名后未同步)
+
+      豁免清单 (10 项合法非常规部署): SOUL.md (workspace) / ops_soul.md / status.json
+      (.kb/) / CLAUDE.md+docs/ (.kb/docs/) / mm_index/search/cron (V29.1 历史) /
+      run_hn_fixed.sh (V37 命名遗留). 每条豁免必须含 reason 字段, 长度 ≥10 字符
+      强迫文档化设计意图.
+
+      FAIL-CLOSE: 任一 violation → exit 1, 阻止 PR 合并. CI/CD 主动捕获.
+
+      价值: 把 V37.9.56-hotfix 同款"路径假设错配"从下次血案降级为 governance audit
+      主动捕获 + 让任何新加 FILE_MAP entry 必须显式登记豁免 (or 符合约定).
+    checks:
+      - name: "V37.9.82 path_consistency_scanner.py 文件存在"
+        check_type: file_contains
+        file: path_consistency_scanner.py
+        pattern: "V37.9.82"
+      - name: "scanner 含 scan_path_consistency 主函数定义"
+        check_type: file_contains
+        file: path_consistency_scanner.py
+        pattern: "def scan_path_consistency"
+      - name: "scanner 含 ALLOWED_NON_STANDARD_DST 豁免清单"
+        check_type: file_contains
+        file: path_consistency_scanner.py
+        pattern: "ALLOWED_NON_STANDARD_DST"
+      - name: "scanner 含 FAIL-CLOSE 契约声明"
+        check_type: file_contains
+        file: path_consistency_scanner.py
+        pattern: "FAIL-CLOSE"
+      - name: "scanner 引用 V37.9.56-hotfix lineage (Class B 同款血案)"
+        check_type: file_contains
+        file: path_consistency_scanner.py
+        pattern: "V37.9.56-hotfix"
+      - name: "scanner 引用 V37.9.66 path bug lineage"
+        check_type: file_contains
+        file: path_consistency_scanner.py
+        pattern: "V37.9.66"
+      - name: "test_path_consistency_scanner.py 单测套件存在"
+        check_type: file_contains
+        file: test_path_consistency_scanner.py
+        pattern: "V37.9.82"
+      # ── runtime: 真跑 scanner 必须 0 violations (当前 repo baseline) ──
+      - name: "RUNTIME: scanner --json 真跑当前 repo 必须 0 violations"
+        check_type: python_assert
+        assertion: |
+          import os, json, subprocess, sys
+          _repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) \
+              if "ontology" in os.path.abspath(__file__) \
+              else os.path.dirname(os.path.abspath(__file__))
+          _scanner = os.path.join(_repo, "path_consistency_scanner.py")
+          assert os.path.exists(_scanner), \
+              f"V37.9.82 scanner not found at {_scanner}"
+          _result = subprocess.run(
+              [sys.executable, _scanner, "--json", "--repo-dir", _repo],
+              capture_output=True, text=True, timeout=30
+          )
+          assert _result.returncode == 0, (
+              f"V37.9.82 scanner exit={_result.returncode} (expected 0 = clean). "
+              f"stdout: {_result.stdout[:500]}, stderr: {_result.stderr[:500]}"
+          )
+          _data = json.loads(_result.stdout)
+          assert _data.get("violation_count") == 0, (
+              f"V37.9.82 INV-PATH-CONSISTENCY-001 violations: "
+              f"{_data.get('violation_count')} — see scanner output for details"
+          )
+      - name: "RUNTIME: 26 单测全过 (scanner 行为 + 反向 sabotage 守卫真有效)"
+        check_type: python_assert
+        assertion: |
+          import os, subprocess, sys
+          _repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) \
+              if "ontology" in os.path.abspath(__file__) \
+              else os.path.dirname(os.path.abspath(__file__))
+          _test = os.path.join(_repo, "test_path_consistency_scanner.py")
+          _result = subprocess.run(
+              [sys.executable, _test],
+              capture_output=True, text=True, timeout=60, cwd=_repo
+          )
+          assert _result.returncode == 0, (
+              f"V37.9.82 test_path_consistency_scanner.py exit={_result.returncode}, "
+              f"stderr tail: {_result.stderr[-1500:]}"
+          )
+
 
 # ═══════════════════════════════════════════════════════════════════════
 # 4. 可执行元规则（Phase 0）— 自动发现缺失不变式
@@ -8368,9 +8464,11 @@ security_config:
 # 6. 审计元数据
 # ═══════════════════════════════════════════════════════════════════════
 audit_metadata:
-  version: "3.47"
+  version: "3.48"
   created: "2026-04-07"
   upgraded: |
+    v3.47 → v3.48: V37.9.82 INV-PATH-CONSISTENCY-001 立 — 防 V37.9.56-hotfix / V37.9.66 同款 Class B (failure_modes_catalog 设计假设错配) 血案. **触发**: 今日 V37.9.81 收工后用户选 Tier 2 任务. failure_modes_catalog.md Class B 已索引 "preflight_cascading_fix / governance_silent_error / ontology_sources_positional_parser_cascade" 3 案例 + V37.9.56-hotfix top_alignment_picker cache_paths + V37.9.66 _format_cron_line jobs/ → .openclaw/ path bug 两个**未独立成 case 但属同款血案模式**. **scanner path_consistency_scanner.py** (~290 行, 纯 Python + lazy yaml): 三方一致性 audit. (1) jobs_registry.yaml entry → auto_deploy.sh FILE_MAP src 必须存在 (entry 含 CLI args 时 split 第一段, e.g. 'kb_dream.sh --map-sources' → 'kb_dream.sh') (2) FILE_MAP src → dst 符合 V37.9.66 约定 (jobs/X/ → $HOME/.openclaw/jobs/X/, 其他 → $HOME/X) 或在 ALLOWED_NON_STANDARD_DST 豁免清单 (3) FILE_MAP src 文件必须存在于 repo. **dev 真跑初始 12 violations** 揭示 2 真 (kb_dream CLI args / run_hn_fixed.sh 命名遗留) + 10 合法非常规部署 (SOUL.md→workspace/ V30.4 / status.json→.kb/ V30.4 / CLAUDE.md+docs→.kb/docs/ V29 kb_inject / ops_soul.md→.openclaw/ V31 Ops Agent / mm_index/search/cron V29.1 历史 / run_hn_fixed.sh V37 命名遗留). **豁免清单 10 项** 每条 dst+reason 双字段 (reason 长度 ≥10 字符强迫文档化设计意图, 防"无理由豁免成漏洞兜底"). 修后 0 violations baseline. **EXEMPTION_DST_DRIFT 反向守卫**: 豁免登记 dst 与 FILE_MAP 实际 dst 不匹配时立即抓到 (防有人改 SOUL.md dst 但忘改豁免登记). **FAIL-CLOSE 契约**: 任一 violation exit 1. **26 新单测 5 类** test_path_consistency_scanner.py: TestExpectedDstForSrc(4 含 jobs/ 前缀 + 根目录 + 嵌套子目录 + 空 string 边界) + TestParseFileMap(4 含 minimal/comment 行跳过/trailing comment/missing FILE_MAP 抛异常) + TestScanIntegration(5 含 all_consistent/MISSING_FILE_MAP/DST_MISMATCH/CLI args 剥离/disabled job 不检查) + TestAllowedNonStandardDst(3 含豁免 dict 结构完整 + critical 豁免登记 + EXEMPTION_DST_DRIFT 检测) + TestRealRepoBaseline(3 含当前 0 violations baseline + CLI exit 0 + JSON 输出有效) + TestReverseSabotage(1 SOUL.md dst 改非豁免位置必抓) + TestSourceLevelGuards(5 V37.9.82 marker + 血案 lineage + FAIL-CLOSE + 常量 + INV 引用). **反向 sabotage 验证守卫真有效**: TestReverseSabotage.test_sabotage_unauthorized_dst_change_caught 真模拟 SOUL.md dst 被改到非豁免位置, scanner 立即抓 EXEMPTION_DST_DRIFT / DST_MISMATCH. **INV-PATH-CONSISTENCY-001** (meta_rule=MR-8 copy-paste-is-a-bug-class, severity=high, declaration+runtime, 9 checks): 7 declaration file_contains (V37.9.82 marker + scan_path_consistency 函数 + ALLOWED_NON_STANDARD_DST + FAIL-CLOSE + V37.9.56-hotfix lineage + V37.9.66 lineage + 测试文件) + 2 runtime python_assert (subprocess 真跑 scanner --json 必须 0 violations + 真跑 26 单测全过). **audit_metadata** total_invariants 80→81 / total_checks 731→740 (+9) / 19 MR 不变 (MR-16 候选一周观察后立, V37.9.82 用 MR-8 copy-paste-is-a-bug-class). **未来保护**: 任何新加 FILE_MAP entry 或 jobs_registry job 时 scanner 主动验证, 任何路径假设错配 → governance audit 立即 fail-close. V3 路标 framework 关键资产 — "34 jobs 路径假设错配" 从 6 个月一次血案降级为 PR 级 CI 守卫. **元价值**: V37.9.81 立 INV-MOVESPEED-TCC-001 把 60 天血案的"发现+教训"作为永久治理记录, V37.9.82 把"未独立成 case 但反复出现的 Class B 模式"作为 scanner 主动预防. failure_modes_catalog Class B 防御直接兑现.
+
     v3.46 → v3.47: V37.9.81 (A + B 同 PR) MOVESPEED FDA 真生效闭环 + V37.9.30 取证盲区根因修复. **A 部分 (24h 数据回归 + 机器化判定守卫)**: V37.9.80 (2026-05-18) 终结 60 天 MOVESPEED EPERM 血案后, 收工承诺 24h 后验证 incident 数 ~13 → ≤2. V37.9.81 (2026-05-19) Mac Mini 真实数据回归: 12h 窗口 = 0 incidents / FDA 后 ~19h 累积 0 incidents / macOS kernel sandbox deny 过去 12h 0 条 — **铁证 FDA 真在 kernel 层生效**. INV-MOVESPEED-TCC-001 加新 runtime python_assert 真扫 ~/.kb/movespeed_incidents.jsonl ISO 8601 timestamp + 24h rolling window count + assert <= 2. FAIL-OPEN 三层契约 (dev 无 jsonl silent pass / 文件损坏单行 skip / IO 错误 silent pass). **B 部分 (V37.9.30 取证盲区根因修复)**: V37.9.81 数据回归过程再次发现 acl_top="total 0" / lsof="" 仍是采集器自身被 sandbox 拒绝, V37.9.30 用 `2>/dev/null` 吞 stderr 让"采集失败"和"真空"无法区分, 6 周被误判为 normal/empty. **B 修复 4 层**: (1) **capture.sh** 4 处采集命令 `2>/dev/null` → `2> "$_TMP/X_err"` (acl_top/acl_kb/lsof/snapshots 各加独立 stderr 文件) (2) **Python heredoc 加 read_file_with_stderr helper** 检测 stderr 含 "operation not permitted"/"permission denied"/"sandbox" → 在 stdout 字段值前加 `[sandbox_denied] ` 前缀; 检测 "command not found"/"no such file or directory" → 加 `[tool_unavailable] ` 前缀; 空 stderr 走旧路径 (向后兼容 462 条历史 records 不带 marker → 旧桶分类). (3) **analyzer.py classify_acl_anomaly / classify_handle_holders / classify_snapshot_count** 三个函数顶部加 marker 检测分支, 优先于内容分类; priority dict 加 `sandbox_denied: 6` (最高优先级, 超过 acl_deny=4) — sandbox-deny 是 V37.9.80 真因的直接 EPERM 证据, 比 acl_deny 假说更可信. (4) **format_text_report** 三个 explain dict 加 sandbox_denied / tool_unavailable 说明 + 新增 V37.9.81 B 决策提示段 "🚨 Sandbox 拒绝警告 (V37.9.81 B)" 含修复路径"系统设置 → 隐私与安全性 → FDA → /usr/sbin/cron" (引用 V37.9.80 同款修复方案). **新单测 19 个 2 测试类** TestV37981BCaptureSandboxStderr(6 含 4 stderr file 字面量 + helper 函数定义 + V37.9.81 B marker 含 V37.9.30/V37.9.80 lineage + priority 顺序锁 sandbox 优先于 tool_unavailable) + TestV37981BAnalyzerSandboxBuckets(13 含 3 个 classify 函数 sandbox/tool_unavailable marker 识别 + 向后兼容老桶 + analyze priority dict sandbox 胜 acl_deny 端到端 + 决策提示文本含 /usr/sbin/cron + 无 sandbox 时不误报). **V37.9.30 守卫单测升级 alternation**: `test_capture_script_rec_dict_includes_v37_9_30_fields` 接受 V37.9.30 旧 `read_file("acl_top"` OR V37.9.81 B 新 `read_file_with_stderr("acl_top"` 字面量 (MR-8 单一真理源 alternation 模式). **102/102 tests pass**: V37.9.30 83 + V37.9.81 B 19. **价值**: 把"V37.9.30 取证盲区"从"靠 Claude Code 记得不可信任 lsof=空"升级为"capture.sh 主动 + analyzer 主动 + governance audit 主动"三层防御. 未来同款 macOS sandbox 问题 → V37.9.81 B 第一次采集就识别 + 立即报警, 不再 6 周潜伏. **A + B 同时修 audit_metadata 漂移**: V37.9.80 实际加 INV-MOVESPEED-TCC-001 (8 checks) 但 meta 未同步, V37.9.81 一并修齐到 80/731/19. **dev governance audit 全过**: 638/638 checks (含 V37.9.81 A + B 共 14 个新 declaration + 2 个新 runtime check 在 dev 全 silent pass / 真激活在 Mac Mini --full). **元价值**: V37.9.80 真因发现 (1 day) + V37.9.81 A FDA 守卫 + V37.9.81 B 取证盲区根因修复 = 60 天血案的真正"上层建筑级"闭环. 不仅修一个 bug, 还把发现 (TCC sandbox) + 工程教训 (stderr 必须独立捕获不能吞) 作为 framework 级永久记录入治理体系. V3 路标 framework "反思转化机制" + MR-7 治理自观察 + MR-10 understand-before-fix 三元规则同时硬实证. **下次 V37.9.82+ 候选**: (a) **主硬卡**: Mac Mini 部署 V37.9.81 (A+B) 后等 24-48h, 跑 `python3 ~/movespeed_incident_analyzer.py --window 24h` 看 (i) governance audit incidents.jsonl runtime check 真激活生产环境通过 (ii) 即使 FDA 已加 sandbox_denied 桶若仍出现说明 lsof/tmutil 自身需独立 FDA (b) MR-16 候选 `macos-cron-derived-processes-need-fda` 元规则 (一周观察 FDA 效果稳定后立) (c) 同款 audit 扩展 — 其他可能 60 天潜伏的 macOS 系统层问题 / 跨平台采集器 stderr 吞掉模式扫描. 累计 93 suites 不变 (test_movespeed_incident_analyzer.py 内继续扩展类) / 3203 → 3222 tests (+19 V37.9.81 B 单测) / 0 fail / governance v3.46 → v3.47 / **79 → 80 invariants** (修 V37.9.80 audit_metadata 漂移补齐) / **715 → 731 checks** (V37.9.80 +8 + V37.9.81 A +1 + V37.9.81 B +7) / 19 meta rules 不变 (MR-16 候选一周观察后立) / 安全 95/100 / VERSION 0.37.9.68 不变 (V37.9.81 是治理层固化 + V37.9.30 盲区根因修复, 不涉及业务语义).
 
     v3.45 → v3.46: V37.9.76 Capability-Based Dynamic Router PoC (shadow mode) — INV-ROUTER-001 新增 capability-router-shadow-mode-deployed (meta_rule=MR-7, severity=high, verification_layer=[declaration, runtime], 12 checks). 用户 2026-05-18 决策启动 V37.9.76 4 步 PoC (V37.9.75 capability router 原方向被 5/18 DEEP blood lesson 打断后改 V37.9.76 版本号续推进). **4 步 PoC 同 PR 全做 4-6h 工作量**: Step 1 jobs_registry.yaml schema 加 required_capabilities/prefer/cost_tier 三可选字段 (kb_dream + hf_papers 两试水 job, 无破坏性, 缺失 fall-back 当前行为) / Step 2 providers.py 加 find_best_provider(required, prefer, exclude, require_available) 70 行纯函数 (硬过滤 + cap_score 排序 + prefer +10 加权 + exclude 排除 + require_available 可选过滤) / Step 3 新文件 router_decide.py shadow 模式 CLI + 集成 kb_dream.sh RADAR retry + jobs/hf_papers/run_hf_papers.sh per_paper LLM 调用前 (FAIL-OPEN 双路径 fallback $HOME/+SCRIPT_DIR/) / Step 4 ~/.kb/router_decisions.jsonl append-only observability (mkdir -p 自动 + 13 字段 schema 含 chosen+alternatives+cap_score+mode 含 v37_9_76 marker). **关键设计决策 — shadow mode 不强制路由**: decision logged 不改 LLM 路由行为, caller 仍走 adapter PROVIDER_NAME 默认路径. 镜像 V37.9.19 → V37.9.23 → V37.9.58 Plan B 同款渐进策略 (declarative → shadow → on), 一周观察期数据反馈调 cap_score, V37.9.77+ 评估 enforcement (adapter ?provider= 支持, V37.9.55+ 候选 B 继续). **MR-11 stderr 防 \\$() 命令替换污染**: log() 显式 file=sys.stderr, stdout 留给 caller 取 chosen name (反向 sabotage 验证: 改 sys.stdout → 1 fail). **FAIL-OPEN 契约**: yaml/providers/registry 缺失或异常 → 返回 record with reason="no_router_profile" / "no_matching_provider", 永不阻塞 caller LLM 调用 (lazy import yaml + lazy import providers + 顶层 try/except). **dev smoke test 验证**: kb_dream/radar_retry → chosen=doubao (cap_score=16, V37.9.55+ doubao 试水承诺自然兑现 — task 声明 reasoning+cost_tier=low → router 自动选 doubao, 不硬编码) / hf_papers exclude doubao → chosen=qwen (next best cap_score=14) / arxiv_monitor (无 profile) → no_router_profile / 未知 job → no_router_profile / JSONL 真写入 13 字段记录. **43 新单测 test_v37_9_76_router.py 8 测试类** + 反向 sabotage 三轮守卫真有效: TestFindBestProvider(10 含 required text/vision 硬过滤 / nonexistent capability → None / exclude / prefer 加权 / require_available True/False / empty dict 等同 None / exclude all → None) + TestRouterDecideModule(8 含 decide known/unknown job / no profile / exclude / profile_override / record schema 稳定性 / append_jsonl mkdir+append / fail-open readonly path / load_profile missing yaml) + TestRouterDecideCli(5 含 subprocess 真跑 basic/json/fail-open unknown/MR-11 stderr/exclude param) + TestJobsRegistrySchemaExtension(3 含 kb_dream profile 字段 + hf_papers profile + arxiv_monitor 暂不声明 V37.9.77+ 扩展) + TestKbDreamShadowIntegration(5 含 router 调用在 llm_call 前 / job_id+task 正确 / FAIL-OPEN 2>/dev/null + || true / 双路径 fallback / shadow 模式日志显式) + TestHfPapersShadowIntegration(3) + TestAutoDeployFileMap(1) + TestV37976SourceLevelGuards(7 含 find_best_provider 签名锁定 / V37.9.76 marker / shadow 默认 / MR-11 stderr / lazy import / JSONL 路径锁定). **反向 sabotage 三轮**: (a) 移除 find_best_provider → 18 failures+errors (b) 删 kb_dream router 整段调用 → 1 fail (test_shadow_mode_explicit_in_log) (c) log 写 stdout → 1 fail (MR-11 守卫). 还原后 43/43 全过. **集成入 full_regression.sh**: +1 suite v37_9_76_router. 累计 88→89 suites (+1) / 3052→3095 tests (+43) / 0 fail / governance v3.45→v3.46 / 77→78 invariants (+1 INV-ROUTER-001) / 678→690 checks (+12) / 19 meta rules 不变 / 安全 95/100 / VERSION 0.37.9.68 不变 (V37.9.76 PoC shadow mode, 不 bump version). **Mac Mini 部署后预期**: (a) auto_deploy 同步 router_decide.py 到 $HOME/ (FILE_MAP 已加) (b) 下次 kb_dream cron 触发时 (每天 03:00) ~/.kb/router_decisions.jsonl 自动累积每次 RADAR retry 决策 (含 chosen + alternatives + cap_score) (c) 下次 hf_papers cron 触发时 (每天 10:00) 每 paper LLM 调用前都记录决策 (d) **关键**: LLM 真实路由行为不变, adapter PROVIDER_NAME 仍是默认主路径. router_decide.py 是观察者不是 enforcer. (e) 一周观察后 cat ~/.kb/router_decisions.jsonl | jq .chosen | sort | uniq -c 看 router 对不同 task 的偏好分布, 反馈调 cap_score 或 capability profile. **元价值**: V37.9.55+ doubao 试水承诺从"硬编码 doubao 路径"升级为"task 声明 capability requirements → router 自动选择"声明式 framework. V3 路标 pip install ontology-engine 终极目标的核心交付方向 — declarative capability framework 真正能做到 "task 声明 → router 选择 → observability 反馈" 完整闭环. **下次 V37.9.77+ 候选**: (a) Mac Mini 部署后 1-2 天验证 router_decide.py shadow 模式真激活 (cat ~/.kb/router_decisions.jsonl 看数据) (b) 一周观察后 (5/25) 数据分析: chosen 分布 / cap_score 趋势 / 是否需要新 prefer 维度 (c) V37.9.77+ enforcement 评估: adapter.py 加 ?provider=X 支持 + caller pass chosen → adapter 真路由切换. (d) 扩展 capability profile 到更多 job (arxiv_monitor / dblp / acl_anthology 等).
@@ -8425,9 +8523,9 @@ audit_metadata:
     v3.12 → v3.13: V37.8.7 ontology_sources 推送格式错位血案 — INV-ONTOLOGY-001 新增 (ontology-sources-parser-must-be-key-based-not-positional, meta_rule=MR-4, severity=high, verification_layer=[declaration, runtime], 7 checks). 2026-04-15 用户 WhatsApp 收到 ontology_sources 推送严重错位：第 2 篇 cn_title 显示为 *---*、第 3 篇 cn_title 显示为 *价值：⭐⭐⭐⭐*。根因：原解析器用严格位置 (lines[i], lines[i+1], lines[i+2]) + i+=3 步进 — LLM 漏一行"要点"或多一行空白就让所有后续条目的 cn_title/highlight/stars 全部右移一格级联污染。修复：抽到独立模块 jobs/ontology_sources/ontology_parser.py（纯函数 parse_llm_blocks 可单测，避开 V37.5 heredoc-only 不可测血案），按 separator 切块 + 块内 key-based prefix 解析，单块缺行不影响其他块。runtime python_assert 真跑用户实际看到的污染场景断言"缺要点不级联"。24 单测 (test_ontology_parser.py)：TestNormalCases(4) + TestBloodLessonRegression(5) + TestSeparatorVariants(5) + TestLLMOutputVariants(5) + TestShellScriptIntegration(4) + TestActualBloodLessonScenario(1)。MR-4 silent-failure 第 8 次演出（输出"看起来正常" 6 字段都在但语义错乱）。auto_deploy FILE_MAP 补齐 ontology_parser.py。
     v3.11 → v3.12: V37.8.6 Dream 自引用幻觉血案 — INV-DREAM-003 新增 (dream-log-cannot-pollute-cache-nor-fabricate-platform-crises, meta_rule=MR-4, severity=critical, verification_layer=[declaration, runtime], 16 checks). 2026-04-15 03:00 Dream run 出现 4 次 Bad JSON 400 (adapter 收到破损 JSON)，但 Dream 仍产出完整"Hugging Face 平台危机"分析，用户察觉 Signal(Papers with Code 沉默)↔Action(监控 Hugging Face) 主题断裂后上报。三层根因：(a) scraped 内容含 surrogate UTF-8 → json.dump + utf-8 file write → UnicodeEncodeError → body_file 截断 → adapter.py:386 返回 400 Bad JSON (b) kb_dream.sh log() 用 `echo` 写 stdout → signals=$(llm_call ...) 命令替换捕获 log 行进 signals → cache file 被"LLM raw response: Error code 400 Bad JSON..."污染 (c) Reduce cache-only fast path 把错误日志注入 LLM 上下文 → LLM 基于这些字样自动编造"Hugging Face 危机"叙事 = 原则 #23 链式幻觉 + MR-4 silent failure 第 7 次演出。四层结构修复（defense-in-depth）：log→stderr 阻断 stdout 污染通道 + _sanitize(U+D800-U+DFFF → U+FFFD) 防编码炸裂 + file open 显式 encoding='utf-8' errors='replace' 第二防线 + REDUCE/CHUNK1/2/3 system prompt 四块加反污染守卫 (禁止把 HTTP 错误码/Python 异常/错误页 HTML/U+FFFD 当外部信号，禁止基于这些字样推断 Hugging Face/GitHub/npm 等平台状态)。runtime python_assert 真跑 sanitize 五场景 (孤立高位/低位代理/正常串/代理范围边界/sanitize 后 json+utf-8 编码不炸)。19 单测 (TestLogGoesToStderr×2 + TestSanitizeSurrogates×7 + TestShellSanitizeImplementation×5 + TestAntiPollutionSystemPrompt×3 + TestShellScriptIntegrity×1 + TestLogDefHasCommentMeta×1)。
     v3.10 → v3.11: V37.8.5 INV-X-001 升级三层检测 (血案二次演出: V37.8.4 修复本身埋盲区) — V37.8.4 收工 Mac Mini E2E 即发现 2 个边缘：CNS1952 98/99 超窗口 + 1 过短老化率 99% 但未触发严格 old==total (MR-10 第 2 次演出：修复会埋坑)；SingTaoDaily 0-tweet stub (embed disabled 返回空骨架) 被 total>0 门槛绕过完全不标记。V37.8.5 修复：(1) 检测逻辑独立为 jobs/finance_news/finance_news_zombie.py 纯函数模块 (classify_zombie(diag, count)); (2) 三层 tier: "stub" (no_data=0 + total=0) + "stale" (≥90% 老化 + count=0 守卫防止低频活跃误报)，整数比较 old*10 >= total*9 避免浮点; (3) 24 单测锁定三层 + 守卫 + shell 集成 + auto_deploy FILE_MAP; (4) verification_layer 从 [declaration] 升级到 [declaration, runtime] (MR-6 遵循: INV-X-001 现在有 python_assert 真跑 5 个 tier 场景); (5) shell 脚本禁止内嵌 inline fallback (防模块缺失时静默降级回 V37.8.4 逻辑 — MR-8 copy-paste-is-a-bug-class 兑现)。诊断行 tier 区分 ⚠️ ZOMBIE嫌疑[stub] vs [stale]，便于日志定位。
-  total_invariants: 80  # V37.9.81: 修 V37.9.80 audit_metadata 漂移 — 实际 V37.9.80 已加 INV-MOVESPEED-TCC-001 但 meta 未同步, V37.9.81 一并修齐 79→80
-  total_checks: 731     # V37.9.81: V37.9.80 +8 (INV-MOVESPEED-TCC-001 7 declaration + 1 runtime) + V37.9.81 A +1 (RUNTIME incidents.jsonl 24h ≤ 2) + V37.9.81 B +7 (6 declaration: capture.sh/analyzer.py 字面量守卫 + V37.9.81 B marker + 1 runtime classify_* + priority dict 顺序锁) = 715→731
-  meta_rules: 19        # MR-1~MR-19 不变 (V37.9.81 是 V37.9.80 收工承诺兑现 + meta 漂移修齐 + V37.9.30 取证盲区根因修复, 不立新元规则; MR-16 候选一周观察后立)
+  total_invariants: 81  # V37.9.82: +1 INV-PATH-CONSISTENCY-001 (jobs-registry-and-auto-deploy-paths-must-be-consistent, meta_rule=MR-8, severity=high, declaration+runtime)
+  total_checks: 740     # V37.9.82: +9 (INV-PATH-CONSISTENCY-001: 7 declaration file_contains + 2 runtime python_assert subprocess 跑 scanner 0 violations + 26 单测全过) = 731→740
+  meta_rules: 19        # MR-1~MR-19 不变 (V37.9.82 用 MR-8 copy-paste-is-a-bug-class 元规则, MR-16 候选一周观察后立)
   meta_rule_discovery_count: 6   # Phase 0: registry + env + notify-topic + layer-depth + error-suppression + notify-activity
   check_types_used: [python_assert, file_contains, file_not_contains, env_var_exists, command_succeeds, log_activity_check]
   verification_layers_used: [declaration, runtime, effect]  # v3.1: 效果层启动
