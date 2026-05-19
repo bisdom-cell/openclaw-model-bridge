@@ -867,10 +867,16 @@ class TestV37930CaptureScriptIntegrity(unittest.TestCase):
         cap_path = os.path.join(_HERE, "movespeed_incident_capture.sh")
         with open(cap_path, "r", encoding="utf-8") as fp:
             content = fp.read()
-        self.assertIn('"acl_top": read_file("acl_top"', content)
-        self.assertIn('"acl_kb": read_file("acl_kb"', content)
-        self.assertIn('"lsof": read_file("lsof"', content)
-        self.assertIn('"snapshots": read_file("snapshots"', content)
+        # V37.9.81 B alternation: accept legacy read_file (V37.9.30)
+        # OR read_file_with_stderr (V37.9.81 B — stderr-aware marker reads).
+        # Both forms write the same field name, the marker is just an upgrade
+        # to distinguish sandbox-denied empty from genuinely-empty output.
+        for field in ("acl_top", "acl_kb", "lsof", "snapshots"):
+            self.assertTrue(
+                f'"{field}": read_file("{field}"' in content
+                or f'"{field}": read_file_with_stderr("{field}"' in content,
+                f"capture.sh must include {field} via read_file or read_file_with_stderr",
+            )
 
     def test_capture_script_v37_9_30_marker(self):
         """Attribution comment for V37.9.30 must exist in capture.sh."""
@@ -883,6 +889,222 @@ class TestV37930CaptureScriptIntegrity(unittest.TestCase):
         # observability — capture.sh attribution carries causal narrative).
         self.assertIn("partially falsified", content.lower()
                       .replace("hypothesis is partially falsified", "partially falsified"))
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# V37.9.81 B — capture.sh "未采集 vs 采集到空" 显式区分
+# ═══════════════════════════════════════════════════════════════════════
+# V37.9.30 取证维度盲区: lsof/ACL 采集器自身被 macOS TCC sandbox 拒绝时,
+# stderr 含 "Operation not permitted" 但 `2>/dev/null` 吞掉 → stdout 文件空
+# → Python read_file 返回 "" → analyzer 分类为 normal/empty (误读为正常).
+# V37.9.80 真因 (60 天血案: macOS TCC Sandbox) 锁定后, V37.9.81 B 修复采集器
+# 让 stderr 被独立捕获 + Python 加 [sandbox_denied] / [tool_unavailable] marker.
+
+class TestV37981BCaptureSandboxStderr(unittest.TestCase):
+    """V37.9.81 B: capture.sh 必须把 4 个采集命令的 stderr 引导到独立文件
+    (而非 2>/dev/null 吞掉), Python 端必须读 stderr 文件加 sandbox_denied marker.
+    """
+
+    def setUp(self):
+        cap_path = os.path.join(_HERE, "movespeed_incident_capture.sh")
+        with open(cap_path, "r", encoding="utf-8") as fp:
+            self.content = fp.read()
+
+    def test_acl_top_stderr_captured_to_file(self):
+        """ls -le@ /Volumes/MOVESPEED/ 必须把 stderr 重定向到 acl_top_err 文件."""
+        self.assertIn('2> "$_TMP/acl_top_err"', self.content,
+                      "V37.9.81 B: acl_top stderr must capture to file (not /dev/null)")
+
+    def test_acl_kb_stderr_captured_to_file(self):
+        self.assertIn('2> "$_TMP/acl_kb_err"', self.content,
+                      "V37.9.81 B: acl_kb stderr must capture to file")
+
+    def test_lsof_stderr_captured_to_file(self):
+        self.assertIn('lsof /Volumes/MOVESPEED 2> "$_TMP/lsof_err"', self.content,
+                      "V37.9.81 B: lsof stderr must capture to file")
+
+    def test_snapshots_stderr_captured_to_file(self):
+        self.assertIn('tmutil listlocalsnapshots / 2> "$_TMP/snapshots_err"', self.content,
+                      "V37.9.81 B: tmutil snapshots stderr must capture to file")
+
+    def test_python_heredoc_has_read_file_with_stderr_helper(self):
+        """V37.9.81 B: Python heredoc must define read_file_with_stderr helper."""
+        self.assertIn("def read_file_with_stderr(", self.content,
+                      "V37.9.81 B helper function definition missing")
+        self.assertIn("[sandbox_denied]", self.content,
+                      "V37.9.81 B sandbox_denied marker prefix string missing")
+        self.assertIn("[tool_unavailable]", self.content,
+                      "V37.9.81 B tool_unavailable marker prefix string missing")
+
+    def test_v37_9_81_b_marker_in_capture_script(self):
+        """V37.9.81 B attribution comment must exist for future readers."""
+        self.assertIn("V37.9.81 B", self.content,
+                      "V37.9.81 B marker comment missing")
+        # Causal narrative: must explain V37.9.30 blind spot was the trigger
+        self.assertIn("V37.9.30", self.content,
+                      "V37.9.81 B must reference V37.9.30 lineage (取证盲区)")
+        # Must reference V37.9.80 TCC root cause that motivated the fix
+        self.assertIn("V37.9.80", self.content,
+                      "V37.9.81 B must reference V37.9.80 TCC sandbox root cause")
+
+    def test_python_helper_priority_order_sandbox_first(self):
+        """V37.9.81 B: sandbox-deny detection MUST take priority over tool-unavailable.
+
+        Both 'Operation not permitted' (sandbox) and 'not found' (tool) can
+        coexist in stderr. The V37.9.80 root cause is TCC sandbox, so the
+        marker assignment ordering must prefer [sandbox_denied] when both
+        patterns match. Source-level guard: 'operation not permitted' check
+        must appear before 'command not found' check in the helper function.
+        """
+        # Extract the helper body (rough heuristic: between def read_file_with_stderr and next def)
+        start = self.content.find("def read_file_with_stderr(")
+        self.assertGreater(start, 0, "helper not found")
+        end = self.content.find("rec = {", start)
+        self.assertGreater(end, start, "helper end not found")
+        helper_body = self.content[start:end]
+        sandbox_pos = helper_body.find("operation not permitted")
+        tool_pos = helper_body.find("command not found")
+        self.assertGreater(sandbox_pos, 0, "sandbox check missing in helper")
+        self.assertGreater(tool_pos, 0, "tool check missing in helper")
+        self.assertLess(sandbox_pos, tool_pos,
+                        "V37.9.81 B: sandbox_denied check must precede tool_unavailable check")
+
+
+class TestV37981BAnalyzerSandboxBuckets(unittest.TestCase):
+    """V37.9.81 B: analyzer classify_* 函数必须识别 [sandbox_denied] /
+    [tool_unavailable] marker 并产生独立桶, 不再误判为 normal/empty.
+    """
+
+    def test_classify_acl_anomaly_sandbox_marker(self):
+        """[sandbox_denied] prefix → sandbox_denied bucket (overrides any content)."""
+        from movespeed_incident_analyzer import classify_acl_anomaly
+        # Even if stdout content looks like a normal "total 0" line, the marker
+        # takes priority because sandbox-deny IS the EPERM cause.
+        self.assertEqual(
+            classify_acl_anomaly("[sandbox_denied] total 0"),
+            "sandbox_denied",
+        )
+        self.assertEqual(
+            classify_acl_anomaly("[sandbox_denied] ls: Operation not permitted"),
+            "sandbox_denied",
+        )
+
+    def test_classify_acl_anomaly_tool_unavailable_marker(self):
+        from movespeed_incident_analyzer import classify_acl_anomaly
+        self.assertEqual(
+            classify_acl_anomaly("[tool_unavailable] command not found"),
+            "tool_unavailable",
+        )
+
+    def test_classify_acl_anomaly_backward_compat_no_marker(self):
+        """V37.9.30 era records (no marker) must continue to work as before."""
+        from movespeed_incident_analyzer import classify_acl_anomaly
+        self.assertEqual(classify_acl_anomaly("total 0"), "normal")
+        self.assertEqual(
+            classify_acl_anomaly("0: group:everyone deny add_file"),
+            "acl_deny",
+        )
+        self.assertEqual(classify_acl_anomaly(""), "empty")
+
+    def test_classify_handle_holders_sandbox_marker(self):
+        from movespeed_incident_analyzer import classify_handle_holders
+        self.assertEqual(
+            classify_handle_holders("[sandbox_denied] lsof: Operation not permitted"),
+            "sandbox_denied",
+        )
+
+    def test_classify_handle_holders_tool_unavailable_marker(self):
+        from movespeed_incident_analyzer import classify_handle_holders
+        self.assertEqual(
+            classify_handle_holders("[tool_unavailable] lsof: command not found"),
+            "tool_unavailable",
+        )
+
+    def test_classify_handle_holders_backward_compat(self):
+        """Daemon dominance / user_only must still work post-V37.9.81 B."""
+        from movespeed_incident_analyzer import classify_handle_holders
+        daemon_only = "mds_stores 555 root  txt REG  ...\nbackupd 548 root  txt REG  ..."
+        self.assertEqual(classify_handle_holders(daemon_only), "daemon_dominated")
+        self.assertEqual(classify_handle_holders(""), "empty")
+
+    def test_classify_snapshot_count_sandbox_marker(self):
+        from movespeed_incident_analyzer import classify_snapshot_count
+        self.assertEqual(
+            classify_snapshot_count("[sandbox_denied] tmutil: Operation not permitted"),
+            "sandbox_denied",
+        )
+
+    def test_classify_snapshot_count_tool_unavailable_marker(self):
+        from movespeed_incident_analyzer import classify_snapshot_count
+        self.assertEqual(
+            classify_snapshot_count("[tool_unavailable] tmutil: command not found"),
+            "tool_unavailable",
+        )
+
+    def test_classify_snapshot_count_backward_compat(self):
+        """snap_0 / snap_1_5 / snap_6_plus / empty must still work."""
+        from movespeed_incident_analyzer import classify_snapshot_count
+        self.assertEqual(classify_snapshot_count("Snapshots for disk /:"), "snap_0")
+        self.assertEqual(classify_snapshot_count(""), "empty")
+        self.assertEqual(
+            classify_snapshot_count("com.apple.TimeMachine.2026-05-19-080000.local"),
+            "snap_1_5",
+        )
+
+    def test_analyze_sandbox_priority_over_acl_deny(self):
+        """V37.9.81 B priority dict: sandbox_denied must beat acl_deny.
+
+        Rationale: sandbox-deny is direct evidence of the kernel-level EPERM
+        cause (V37.9.80 TCC sandbox), while acl_deny is a hypothesis. When
+        both signals appear across top vs kb, sandbox wins.
+        """
+        from movespeed_incident_analyzer import analyze
+        records = [{
+            "timestamp_iso": "2026-05-19T01:00:00Z",
+            "caller": "test.sh",
+            "exit_code": "1",
+            "acl_top": "[sandbox_denied] ls: Operation not permitted",
+            "acl_kb": "0: group:everyone deny add_file",  # acl_deny
+        }]
+        result = analyze(records)
+        by_acl = result.get("by_acl_anomaly", {})
+        # sandbox_denied must win over acl_deny in priority dict
+        self.assertEqual(by_acl.get("sandbox_denied", 0), 1,
+                         f"sandbox should win over acl_deny: got {by_acl}")
+        self.assertEqual(by_acl.get("acl_deny", 0), 0,
+                         f"acl_deny should be suppressed: got {by_acl}")
+
+    def test_analyze_text_report_sandbox_decision_hint(self):
+        """V37.9.81 B: when sandbox_denied detected, decision hint must reference V37.9.80 FDA fix."""
+        from movespeed_incident_analyzer import analyze, format_text_report
+        records = [{
+            "timestamp_iso": "2026-05-19T01:00:00Z",
+            "caller": "test.sh",
+            "exit_code": "1",
+            "lsof": "[sandbox_denied] lsof: Operation not permitted",
+        }]
+        result = analyze(records)
+        report = format_text_report(result, "test")
+        self.assertIn("Sandbox 拒绝警告", report,
+                      "V37.9.81 B sandbox decision hint header missing")
+        self.assertIn("/usr/sbin/cron", report,
+                      "V37.9.81 B decision hint must reference V37.9.80 FDA fix path")
+        self.assertIn("V37.9.81 B", report,
+                      "V37.9.81 B marker missing in decision hint")
+
+    def test_analyze_no_sandbox_no_hint_regression(self):
+        """If no sandbox_denied detected, V37.9.81 B hint must NOT appear (avoid false alerts)."""
+        from movespeed_incident_analyzer import analyze, format_text_report
+        records = [{
+            "timestamp_iso": "2026-05-19T01:00:00Z",
+            "caller": "test.sh",
+            "exit_code": "1",
+            "acl_top": "total 0",  # normal
+        }]
+        result = analyze(records)
+        report = format_text_report(result, "test")
+        self.assertNotIn("Sandbox 拒绝警告", report,
+                         "V37.9.81 B sandbox hint must not fire when no sandbox_denied")
 
 
 if __name__ == "__main__":

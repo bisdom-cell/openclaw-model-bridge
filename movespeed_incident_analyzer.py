@@ -175,10 +175,24 @@ def classify_acl_anomaly(acl_str: str) -> str:
       - explicit ACL lines like ' 0: group:everyone deny ...'
       - xattr lines like '\tcom.apple.quarantine     38'
       - just regular `ls -l` rows when no ACL/xattr present
-    Returns one of: "acl_deny" / "xattr_only" / "normal" / "empty".
+    Returns one of: "acl_deny" / "acl_present" / "xattr_only" / "normal" / "empty" /
+                    "sandbox_denied" / "tool_unavailable".
+
+    V37.9.81 B: detect [sandbox_denied] / [tool_unavailable] marker prefix
+    written by capture.sh read_file_with_stderr. V37.9.30 had a 6-week blind
+    spot where ls -le@ being denied by TCC sandbox produced empty stdout that
+    was misclassified as "normal" (the 60-day MOVESPEED EPERM blood case ended
+    in V37.9.80 by adding /usr/sbin/cron to FDA). New marker buckets close the
+    采集失败 vs 真空 ambiguity.
     """
     if not isinstance(acl_str, str) or not acl_str.strip():
         return "empty"
+    # V37.9.81 B: marker takes precedence — 采集器自身被拒, 不分类内容
+    stripped = acl_str.lstrip()
+    if stripped.startswith("[sandbox_denied]"):
+        return "sandbox_denied"
+    if stripped.startswith("[tool_unavailable]"):
+        return "tool_unavailable"
     lower = acl_str.lower()
     # ACL deny rule = strongest EPERM signal (chown does NOT clear these)
     if " deny " in lower or "\tdeny" in lower or ": group:" in lower or ": user:" in lower:
@@ -198,16 +212,29 @@ def classify_acl_anomaly(acl_str: str) -> str:
 def classify_handle_holders(lsof_str: str) -> str:
     """V37.9.30: classify lsof field as handle-holder pattern.
 
-    Returns one of: "daemon_dominated" / "user_only" / "mixed" / "empty".
+    Returns one of: "daemon_dominated" / "user_only" / "mixed" / "empty" /
+                    "sandbox_denied" / "tool_unavailable".
 
     daemon_dominated = ≥1 daemon keyword found AND no clearly non-daemon
                        process cmd lines (cmd like rsync/python/etc.)
     mixed            = both daemon and user processes present
     user_only        = only user-side processes (rsync/python/cp/etc.)
     empty            = no records or unparseable
+
+    V37.9.81 B: detect [sandbox_denied] / [tool_unavailable] marker prefix —
+    V37.9.30 blind spot where lsof itself was sandbox-denied (lsof needs FDA
+    on macOS to read /Volumes/X file handles) produced empty output that was
+    classified as "empty" (looked like no contention). New buckets separate
+    "采集器自身被拒" from "真没句柄".
     """
     if not isinstance(lsof_str, str) or not lsof_str.strip():
         return "empty"
+    # V37.9.81 B: marker takes precedence
+    stripped = lsof_str.lstrip()
+    if stripped.startswith("[sandbox_denied]"):
+        return "sandbox_denied"
+    if stripped.startswith("[tool_unavailable]"):
+        return "tool_unavailable"
     lines = [l for l in lsof_str.splitlines() if l.strip() and not l.startswith("COMMAND")]
     if not lines:
         return "empty"
@@ -238,13 +265,25 @@ def classify_handle_holders(lsof_str: str) -> str:
 def classify_snapshot_count(snap_str: str) -> str:
     """V37.9.30: classify TM snapshot count as bucket.
 
-    Returns one of: "snap_0" / "snap_1_5" / "snap_6_plus" / "empty".
+    Returns one of: "snap_0" / "snap_1_5" / "snap_6_plus" / "empty" /
+                    "sandbox_denied" / "tool_unavailable".
 
     Each snapshot line on macOS has format:
       'com.apple.TimeMachine.YYYY-MM-DD-HHMMSS.local'
+
+    V37.9.81 B: detect [sandbox_denied] / [tool_unavailable] marker prefix —
+    tmutil listlocalsnapshots may itself be sandbox-denied or unavailable on
+    non-macOS systems. New buckets prevent misclassification as "snap_0"
+    (which would falsely confirm "TM exclude fully working").
     """
     if not isinstance(snap_str, str) or not snap_str.strip():
         return "empty"
+    # V37.9.81 B: marker takes precedence
+    stripped = snap_str.lstrip()
+    if stripped.startswith("[sandbox_denied]"):
+        return "sandbox_denied"
+    if stripped.startswith("[tool_unavailable]"):
+        return "tool_unavailable"
     lines = snap_str.splitlines()
     snap_lines = [l for l in lines if "com.apple.TimeMachine" in l]
     n = len(snap_lines)
@@ -344,8 +383,19 @@ def analyze(records: list[dict[str, Any]], top_n: int = 5) -> dict[str, Any]:
         # Use top + kb merged: any side showing acl_deny is enough
         cls_top = classify_acl_anomaly(r.get("acl_top", ""))
         cls_kb = classify_acl_anomaly(r.get("acl_kb", ""))
-        # Strongest signal across the two probes wins (deny > acl_present > xattr_only > normal > empty)
-        priority = {"acl_deny": 4, "acl_present": 3, "xattr_only": 2, "normal": 1, "empty": 0}
+        # Strongest signal across the two probes wins.
+        # V37.9.81 B: sandbox_denied takes top priority — 采集器自身被拒是直接 EPERM
+        # 证据 (V37.9.80 TCC sandbox 真因), 比 acl_deny 假说更直接.
+        # tool_unavailable 比 empty 更高 (已知工具问题, 不是"没采到").
+        priority = {
+            "sandbox_denied": 6,   # V37.9.81 B: direct EPERM evidence
+            "acl_deny": 4,
+            "acl_present": 3,
+            "xattr_only": 2,
+            "tool_unavailable": 1,  # V37.9.81 B: known tool failure (e.g. non-macOS)
+            "normal": 1,
+            "empty": 0,
+        }
         winner = cls_top if priority.get(cls_top, 0) >= priority.get(cls_kb, 0) else cls_kb
         if winner == "empty":
             acl_anomaly_counter["empty (pre-V37.9.30 records)"] += 1
@@ -448,9 +498,11 @@ def format_text_report(analysis: dict[str, Any], window_label: str) -> str:
     if by_acl:
         lines.append("\n🛡️ ACL/xattr 异常分布 (V37.9.30 — chown 不能清的强阻塞模式):")
         acl_explain = {
+            "sandbox_denied": "🚨 采集器自身被 TCC sandbox 拒绝 (V37.9.81 B — 这是 V37.9.80 TCC 真因的直接证据)",
             "acl_deny": "ACL deny 规则 (chown 改 owner 但 ACL 留下, 强 EPERM 信号)",
             "acl_present": "ACL 存在 (非 deny, 可能仍阻塞特定操作)",
             "xattr_only": "仅 xattr (com.apple.quarantine 等, 弱信号)",
+            "tool_unavailable": "ls -le@ 工具不可用 (非 macOS / 缺权限)",
             "normal": "无 ACL/xattr (正常)",
             "empty (pre-V37.9.30 records)": "旧记录无 acl_top/_kb 字段",
         }
@@ -463,9 +515,11 @@ def format_text_report(analysis: dict[str, Any], window_label: str) -> str:
     if by_handle:
         lines.append("\n📂 句柄持有者模式 (V37.9.30 — 谁在持有 SSD I/O):")
         handle_explain = {
+            "sandbox_denied": "🚨 lsof 自身被 TCC sandbox 拒绝 (V37.9.81 B — 之前 V37.9.30 6 周误判 empty 为正常)",
             "daemon_dominated": "macOS daemon 主导 (mds_stores/backupd/etc), 强 daemon contention 信号",
             "user_only": "仅用户进程 (rsync/python), 真因不在 daemon",
             "mixed": "daemon + 用户混合, 部分 daemon 持有句柄",
+            "tool_unavailable": "lsof 工具不可用 (非 macOS / 缺权限)",
             "empty": "lsof 空或缺失 (旧记录或工具不可用)",
         }
         for k, v in by_handle.items():
@@ -477,9 +531,11 @@ def format_text_report(analysis: dict[str, Any], window_label: str) -> str:
     if by_snap:
         lines.append("\n📸 TM Snapshot 分布 (V37.9.30 — 本地快照锁 metadata 候选):")
         snap_explain = {
+            "sandbox_denied": "🚨 tmutil 自身被 TCC sandbox 拒绝 (V37.9.81 B)",
             "snap_0": "0 个本地快照 (TM exclude 完全生效)",
             "snap_1_5": "1-5 个 (轻度积累)",
             "snap_6_plus": "6+ 个 (强信号: snapshot 锁 metadata 候选)",
+            "tool_unavailable": "tmutil 工具不可用 (非 macOS)",
             "empty": "snapshots 字段缺失 (旧记录或非 macOS)",
         }
         for k, v in by_snap.items():
@@ -532,8 +588,25 @@ def format_text_report(analysis: dict[str, Any], window_label: str) -> str:
             "       sudo diskutil disableOwnership /Volumes/MOVESPEED"
         )
 
-    # V37.9.30: ACL deny alert (chown 不能清, 强 EPERM 信号)
+    # V37.9.81 B: Sandbox-denied 警告 — 采集器自身被拒是 V37.9.80 TCC 真因的直接证据
+    # 任一维度 (ACL/lsof/snapshots) 出现 sandbox_denied 都触发, 因为这意味着
+    # cron 派生进程访问 /Volumes/MOVESPEED 在 kernel 层被拒, FDA 未生效或被回退.
     by_acl_local = analysis.get("by_acl_anomaly", {})
+    by_handle_local = analysis.get("by_handle_pattern", {})
+    by_snap_local = analysis.get("by_snapshot_bucket", {})
+    sandbox_total = (by_acl_local.get("sandbox_denied", 0)
+                     + by_handle_local.get("sandbox_denied", 0)
+                     + by_snap_local.get("sandbox_denied", 0))
+    if sandbox_total > 0:
+        lines.append(
+            f"\n  🚨 Sandbox 拒绝警告 (V37.9.81 B): {sandbox_total} 个维度检测到采集器自身被 TCC sandbox 拒绝\n"
+            "     - 这是 V37.9.80 真因 (macOS TCC Sandbox 拒绝 cron 派生进程访问外置卷) 的直接证据\n"
+            "     - 之前 V37.9.30 6 周误判: lsof/ACL 空内容被当 'normal/empty', 实为采集失败\n"
+            "     - 修复路径: 系统设置 → 隐私与安全性 → 完全磁盘访问权限 → 添加 /usr/sbin/cron\n"
+            "     - 验证: 添加后 24h 重跑 incident_analyzer, sandbox_denied 应降至 0"
+        )
+
+    # V37.9.30: ACL deny alert (chown 不能清, 强 EPERM 信号)
     acl_deny_count = by_acl_local.get("acl_deny", 0)
     if acl_deny_count > 0:
         lines.append(
@@ -545,7 +618,7 @@ def format_text_report(analysis: dict[str, Any], window_label: str) -> str:
         )
 
     # V37.9.30: Handle holder pattern hint (daemon contention 假说判定)
-    by_handle_local = analysis.get("by_handle_pattern", {})
+    # by_handle_local already defined above for V37.9.81 sandbox alert
     daemon_count = by_handle_local.get("daemon_dominated", 0)
     user_count = by_handle_local.get("user_only", 0)
     if daemon_count > user_count and daemon_count >= 3:
@@ -562,7 +635,7 @@ def format_text_report(analysis: dict[str, Any], window_label: str) -> str:
         )
 
     # V37.9.30: Snapshot accumulation hint (TM 本地快照锁 metadata 候选)
-    by_snap_local = analysis.get("by_snapshot_bucket", {})
+    # by_snap_local already defined above for V37.9.81 sandbox alert
     snap_high = by_snap_local.get("snap_6_plus", 0)
     if snap_high > 0:
         lines.append(

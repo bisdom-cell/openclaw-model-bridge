@@ -116,12 +116,24 @@ stat -f "%u:%g" /Volumes/MOVESPEED/KB > "$_TMP/ownership_kb" 2>/dev/null
 #       prevent local snapshots from being created)
 # Each of these would leave a fingerprint that ownership-only forensics miss.
 # Best-effort: missing tool / hang / non-macOS = empty field, never blocks.
-ls -le@ /Volumes/MOVESPEED/ > "$_TMP/acl_top" 2>/dev/null
-ls -le@ /Volumes/MOVESPEED/KB/ > "$_TMP/acl_kb" 2>/dev/null
+#
+# V37.9.81 B: capture stderr to separate files instead of swallowing with
+# 2>/dev/null. V37.9.30 had a critical observability blind spot — when ls -le@
+# / lsof / tmutil themselves are denied by macOS TCC Sandbox (the exact root
+# cause V37.9.80 ended after 60 days), their stderr would say "Operation not
+# permitted" but the redirect 2>/dev/null swallowed it. The empty stdout file
+# then read by Python returned "" → analyzer classified it as "empty/normal".
+# Six weeks of "采集器自身被沙箱拒绝" were misread as "no anomaly". V37.9.81 B
+# captures each tool's stderr to "${field}_err" file so Python can detect the
+# difference between "tool succeeded but produced empty output" (truly normal)
+# vs "tool was sandbox-denied" (采集失败 — different bucket).
+ls -le@ /Volumes/MOVESPEED/ > "$_TMP/acl_top" 2> "$_TMP/acl_top_err"
+ls -le@ /Volumes/MOVESPEED/KB/ > "$_TMP/acl_kb" 2> "$_TMP/acl_kb_err"
 # lsof can hang on macOS under contention; head -50 caps both runtime and bytes.
-( lsof /Volumes/MOVESPEED 2>/dev/null | head -50 ) > "$_TMP/lsof" 2>/dev/null
+# V37.9.81 B: capture lsof's stderr (e.g. "lsof: WARNING" or sandbox-deny) to file
+( lsof /Volumes/MOVESPEED 2> "$_TMP/lsof_err" | head -50 ) > "$_TMP/lsof" 2>/dev/null
 # Local snapshots are per-volume on macOS (root volume listing covers all APFS).
-tmutil listlocalsnapshots / 2>/dev/null | head -20 > "$_TMP/snapshots" 2>/dev/null
+tmutil listlocalsnapshots / 2> "$_TMP/snapshots_err" | head -20 > "$_TMP/snapshots" 2>/dev/null
 
 # --- Build JSON via python3 (argv parameters are escape-safe) ---
 python3 - "$_TS" "$CALLER" "$EXIT_CODE" "$_TMP" <<'PYEOF' >> "$INCIDENT_FILE" 2>/dev/null
@@ -144,6 +156,43 @@ def read_file(name, limit=2000):
         return ""
 
 
+def read_file_with_stderr(name, stderr_name, limit=2000):
+    """V37.9.81 B: read stdout + detect stderr to distinguish 采集失败 vs 真空.
+
+    Returns stdout content with a prefix marker when stderr indicates failure:
+      - sandbox denied (V37.9.80 TCC main case)    → "[sandbox_denied] " prefix
+      - tool unavailable (Linux / missing binary)  → "[tool_unavailable] " prefix
+      - empty/unrecognized stderr                  → no prefix (legacy behavior)
+
+    Backward compat: if stderr_name doesn't exist (very old paths or first run
+    after upgrade), behaves identically to read_file. Analyzer's classify_*
+    functions detect the prefix marker; pre-V37.9.81 records without marker
+    continue to fall through to the legacy empty/normal classification bucket.
+    """
+    stdout_content = read_file(name, limit)
+    stderr_path = os.path.join(td, stderr_name)
+    try:
+        if not os.path.exists(stderr_path):
+            return stdout_content
+        with open(stderr_path, "r", encoding="utf-8", errors="replace") as fp:
+            err_lower = fp.read(300).lower()
+    except (IOError, OSError):
+        return stdout_content
+    if not err_lower.strip():
+        return stdout_content
+    # Sandbox-deny patterns take priority (V37.9.80 TCC root cause).
+    if ("operation not permitted" in err_lower
+            or "permission denied" in err_lower
+            or "sandbox" in err_lower):
+        return "[sandbox_denied] " + stdout_content
+    # Tool unavailability (Linux / dev environment / missing binary).
+    if ("command not found" in err_lower
+            or "no such file or directory" in err_lower
+            or "not found" in err_lower):
+        return "[tool_unavailable] " + stdout_content
+    return stdout_content
+
+
 rec = {
     "timestamp_iso": ts,
     "caller": caller,
@@ -159,10 +208,12 @@ rec = {
     "os": read_file("sw_vers", 200),
     "ownership_top": read_file("ownership_top", 50),  # V37.9.29 (b): real UID:GID at top level
     "ownership_kb": read_file("ownership_kb", 50),    # V37.9.29 (b): real UID:GID at /KB
-    "acl_top": read_file("acl_top", 1500),            # V37.9.30: ACL + xattr at top
-    "acl_kb": read_file("acl_kb", 2500),              # V37.9.30: ACL + xattr at /KB
-    "lsof": read_file("lsof", 2000),                  # V37.9.30: open file handles on volume
-    "snapshots": read_file("snapshots", 800),         # V37.9.30: TM local snapshots
+    # V37.9.81 B: stderr-aware reads to distinguish sandbox-denied (V37.9.80
+    # TCC blind spot) from "tool ran fine and output was empty/normal".
+    "acl_top": read_file_with_stderr("acl_top", "acl_top_err", 1500),  # V37.9.30 + V37.9.81 B
+    "acl_kb": read_file_with_stderr("acl_kb", "acl_kb_err", 2500),    # V37.9.30 + V37.9.81 B
+    "lsof": read_file_with_stderr("lsof", "lsof_err", 2000),          # V37.9.30 + V37.9.81 B
+    "snapshots": read_file_with_stderr("snapshots", "snapshots_err", 800),  # V37.9.30 + V37.9.81 B
     "env": {
         "user": os.environ.get("USER", ""),
         "home": os.environ.get("HOME", ""),
