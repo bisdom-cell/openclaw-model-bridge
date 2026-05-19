@@ -1,6 +1,6 @@
 {
-  "updated": "2026-05-19 07:10:37",
-  "updated_by": "full_regression",
+  "updated": "2026-05-19 07:55:38",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-05-19",
+      "what": "V37.9.82 INV-PATH-CONSISTENCY-001 三方对齐 scanner 立 — 防 V37.9.56-hotfix/V37.9.66 同款 Class B 路径假设错配血案 (path_consistency_scanner.py 290 行 + 26 单测 + ALLOWED_NON_STANDARD_DST 10 项豁免清单 + FAIL-CLOSE + Mac Mini 真激活 9/9 ✅). 同日累计: V37.9.81 (A+B) 60 天血案完整闭环 + README 漂移修复 + failure_modes_catalog.md (V3 路标资产) + V37.9.82 scanner = 4 PR 同 session 闭环. 累计 95 suites / 3247 tests / 0 fail / 81 inv / 740 checks / 19 MR / 安全 95/100.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-05-19",
       "what": "🎯 V37.9.81 (A + B) MOVESPEED FDA 真生效闭环 + V37.9.30 取证盲区根因修复 (V37.9.80 收工承诺 24h 数据回归窗口兑现). **A 部分 (24h 数据回归 + 机器化判定守卫)**: Mac Mini 12h 窗口 = 0 incidents / FDA 后 ~19h 累积 0 incidents / macOS kernel sandbox deny 过去 12h 0 条 — 铁证 FDA 真在 kernel 层生效. V37.9.80 收工承诺 24h ≤ 2 判定窗口达成. INV-MOVESPEED-TCC-001 加新 runtime python_assert 真扫 ~/.kb/movespeed_incidents.jsonl ISO 8601 timestamp + 24h rolling window count + assert <= 2. FAIL-OPEN 三层契约 (dev 无 jsonl silent pass / 损坏 JSON 单行 skip / IO 错误 silent pass). 把 V37.9.80 FDA 修复有效性从靠 Claude Code 周期性记忆升级为 governance audit cron 每日 07:00 主动检查. **B 部分 (V37.9.30 取证盲区根因修复)**: V37.9.81 数据回归过程再次发现 acl_top=total 0 / lsof=空 仍是采集器自身被 sandbox 拒绝 — V37.9.30 用 2>/dev/null 吞 stderr 让采集失败和真空无法区分 6 周潜伏. 四层修复: (1) capture.sh 4 处采集命令 stderr 重定向到独立 _err 文件 (acl_top/acl_kb/lsof/snapshots) (2) Python heredoc 加 read_file_with_stderr helper 检测 stderr 含 operation not permitted/permission denied/sandbox 关键字 → 字段值前加 [sandbox_denied] 前缀; 检测 command not found → [tool_unavailable] 前缀 (3) analyzer.py 3 个 classify 函数 (acl_anomaly / handle_holders / snapshot_count) 顶部加 marker 检测分支 + priority dict 加 sandbox_denied=6 最高优先级超过 acl_deny=4 (sandbox-deny 是直接 EPERM 证据比 acl_deny 假说更可信) (4) format_text_report 三个 explain dict 加新桶说明 + 新增 V37.9.81 B 决策提示段 🚨 Sandbox 拒绝警告 含 V37.9.80 同款 /usr/sbin/cron FDA 修复路径. **19 新单测 2 测试类** TestV37981BCaptureSandboxStderr(6 含 4 stderr file 字面量 + helper 函数定义 + V37.9.81 B marker 含 V37.9.30/V37.9.80 lineage + priority 顺序锁 sandbox 优先于 tool_unavailable) + TestV37981BAnalyzerSandboxBuckets(13 含 3 个 classify 函数 sandbox/tool_unavailable marker 识别 + 向后兼容老桶 + analyze priority dict sandbox 胜 acl_deny 端到端 + 决策提示文本含 /usr/sbin/cron + 无 sandbox 时不误报). **V37.9.30 守卫单测升级 alternation**: test_capture_script_rec_dict_includes_v37_9_30_fields 接受 V37.9.30 旧 read_file OR V37.9.81 B 新 read_file_with_stderr 字面量. **反向 sabotage 两层守卫真有效**: 改 capture.sh acl_top stderr 回 /dev/null → governance audit 立即抓到 ❌ / 删 read_file_with_stderr helper → 单测立即 2 fail. 还原后 102/102 test 全过 + 645/645 governance check 全过. **INV-MOVESPEED-TCC-001 升级 hard 守卫**: 7 declaration → 14 declaration (V37.9.81 B 加 6: capture.sh 4 stderr file + helper 定义 + sandbox_denied marker / analyzer.py sandbox_denied 桶 / V37.9.81 B marker) + 1 runtime → 3 runtime (V37.9.81 A incidents.jsonl 24h ≤ 2 + V37.9.81 B classify_* + priority 顺序锁端到端). **audit_metadata 漂移修复**: V37.9.80 加 INV-MOVESPEED-TCC-001 (8 checks) 但 meta 未同步, V37.9.81 一并修齐 79→80 inv / 715→731 checks / 19 MR 不变 (MR-16 候选一周观察后立). 累计 92→93 suites 不变 / 3203→3222 tests (+19) / 0 fail / governance v3.46→v3.47 / 79→80 invariants / 715→731 checks / 19 MR / 安全 95/100 / VERSION 0.37.9.68 不变 (治理层固化 + 取证盲区根因修复, 不涉及业务语义). **元价值**: V37.9.80 真因发现 (1 day) + V37.9.81 A FDA 守卫 + V37.9.81 B 取证盲区根因修复 = 60 天血案的真正上层建筑级闭环. 不仅修 1 个 bug, 还把发现 (TCC sandbox) + 工程教训 (stderr 必须独立捕获不能吞) 作为 framework 级永久记录入治理体系. V3 路标 framework 反思转化机制 + MR-7 治理自观察 + MR-10 understand-before-fix 三元规则同时硬实证. **下次 V37.9.82+ 候选**: (a) 主硬卡 Mac Mini 部署 V37.9.81 (A+B) 后等 24-48h 跑 incident_analyzer --window 24h 看 (i) governance audit incidents.jsonl runtime check 真激活生产环境通过 (ii) 即使 FDA 已加 sandbox_denied 桶若仍出现说明 lsof/tmutil 自身需独立 FDA (b) MR-16 候选 macos-cron-derived-processes-need-fda 元规则一周观察后立 (c) 同款 audit 扩展其他可能 60 天潜伏的 macOS 系统层问题 / 跨平台采集器 stderr 吞掉模式扫描.",
       "by": "claude_code"
     },
@@ -190,12 +195,7 @@
       "what": "V37.9.68-hotfix Mac Mini 5/15 03:00 cron 真激活验证发现 Dream 推送收到 [3/3] 而非 [4/4] — 4 段被合并成 3 chunks 血案修复 (用户视角原则 #13 第 20 次正向兑现)。**根因**: V37.9.68 changelog 说 4 段 ## header 自然复用 V37.9.21 多窗口分片, 但 V37.9.21 实际是 current+piece <= max_chunk 就合并 算法。V37.9.68 4 段大小不均匀 (DEEP ~5000 / WIDE ~1700 / RADAR ~900 / 总览 ~400), WIDE+RADAR (~2600) 被合并成 1 chunk。属 V37.9.66 案例库 类别 B 设计假设错配, MR-4 silent-failure 第 27 次新形态 (设计文档说 4 段独立但代码无强制保证)。**修复**: kb_dream_helpers.py 加 split_dream_into_chunks(text, max_chunk) 纯函数 (每个 ## 段独立成 chunk + header 合并到第一段 + 单段超 max_chunk 内部 \\n 切, MR-8 single-source-of-truth)。kb_dream.sh 改用 helper (替换 35 行 inline Python 为 7 行调用)。**12 新单测** TestSplitDreamIntoChunks 8 (空/非string/血案场景回归 4 段必产 4 chunks/header 合并/超大段内部切/无 ## 段单 chunk/max_chunk 防御/空段跳过 + 5/15 真实 layout 测试) + TestKbDreamShellGuards 4 (helper import 守卫/真调用/反向消除旧合并算法/V37.9.68-hotfix marker)。**反向验证两层守卫真有效**: sabotage helper while 循环 → 1 fail / sabotage 回退到旧合并算法 → 5 fail (含血案场景回归 + 5/15 真实 layout 模拟)。**INV-DREAM-MULTITHEME-001 内涵扩展含 5 新 V37.9.68-hotfix check** (helper 函数定义 + helper import 守卫 + 真调用守卫 + V37.9.68-hotfix marker + 反向反合并算法 python_assert)。**接近真实数据模拟验证** Mac Mini 5/15 dream 文件 layout (含 ### 三子段) → V37.9.68-hotfix 后产 [1/4] DEEP+header 2132 chars / [2/4] WIDE 1417 / [3/4] RADAR 615 / [4/4] 总览 141 = 4 chunks 完美匹配设计预期。累计 86 suites 不变 / 2950→2962 tests (+12) / 0 fail / governance v3.43→v3.44 / 77 inv 不变 / 655→660 checks (+5) / 安全 95/100 / VERSION 0.37.9.68 不变 (hotfix 不 bump)。Mac Mini 部署后预期: 5/16 03:00 cron 自动推送 4 个独立 WhatsApp 窗口 (DEEP/WIDE/RADAR/总览), DEEP 段超 4000 时仍内部切但不影响其他 3 段独立性。**元价值**: V37.9.21 多窗口分片机制经 V37.9.21→V37.9.35→V37.9.68→V37.9.68-hotfix 4 个版本演进 (单大段切 → 多段合并 → 多段独立), 验证原则 #15 测试三层第三层不可替代 — 单测全绿+治理全绿+用户实际收到 [3/3] 才暴露 V37.9.68 设计假设错配。同时发现 V37.9.63 抽 cron_monitor_fatal_handler.sh 后 test_watchdog_self_monitoring.py 有 5 个测试漂移 (TestStepBErrTrapSilentAbort/TestWatchdogSyntaxAndIntegration), 已登记 V37.9.69+ 候选 (非 V37.9.68-hotfix 引入), full_regression.sh line 30 bash 计数 bug 也登记。",
       "by": "claude_code"
     },
-    "{\"date\": \"2026-05-13\", \"what\": \"**今日完美收工** — 一日 6 版本 (V37.9.63 MR-8 helper / V37.9.64 货代 / V37.9.65 crontab_safe remove / V37.9.66 framework 双向 sync / V37.9.66-hotfix watchdog quirk / **V37.9.67 P0 INV-CROSS-OS-001 scanner**) + 反思文档沉淀 + Mac Mini 真激活验证. 收工 A-I 9 项全过. 累计 85 suites/2876 tests/0 fail/76 inv/636 checks/安全 95/100. 元价值: 反思文档\"血案→反思→P0→framework 化预防\"迭代机制硬实证, V3 路标 pip install ontology-engine 核心交付方向. V37.9.68+ 候选: 4 行动登记 unfinished.\", \"by\": \"claude_code\"}",
-    {
-      "date": "2026-05-14",
-      "what": "V37.9.68 Agent Dream 三阶推送重设计: 用户视角原则 #13 兑现 — WhatsApp 连续几周 Qwen-BIM 重复推送血案闭环. 根因 6 因子叠加涌现行为 (用户 ⭐⭐⭐⭐⭐ 反复 × content-stable cache × LLM prompt 偏好 × mtime 倒序 × dedup 不按主题 × PREV_THEMES 3 天太短). MR-4 第 26 次新形态. 4 用户决策方案 C: 2 LLM 调用 / 14 天 / WIDE 5+RADAR 5 / DEEP 必过. **kb_dream_helpers.py 新模块** 8 纯函数 + 68 单测含血案回归. **kb_dream.sh** PREV_THEMES 3→14 天 + BANNED_THEMES_BLOCK + DEEP fail-fast (MIN_DEEP_CHARS=1200) + WIDE_RADAR 单 LLM 产 2 段 + 总览规则提取 + 4 段 ## header 多窗口. status.json schema 升级 multitheme/deep_chars/wide_status/radar_status. **INV-DREAM-MULTITHEME-001** 新增 (MR-4 high 19 checks) + **INV-DREAM-003 架构迁移** CHUNK1/2/3 → DEEP/WIDE_RADAR. auto_deploy FILE_MAP 加 kb_dream_helpers.py. 85 suites/2944 tests/0 fail/77 inv/655 checks/VERSION 0.37.9.67→0.37.9.68. Mac Mini bash ~/kb_dream.sh 手动验证 4 段独立窗口产出 + 14 天 ban-list 生产效果",
-      "by": "claude_code"
-    }
+    "{\"date\": \"2026-05-13\", \"what\": \"**今日完美收工** — 一日 6 版本 (V37.9.63 MR-8 helper / V37.9.64 货代 / V37.9.65 crontab_safe remove / V37.9.66 framework 双向 sync / V37.9.66-hotfix watchdog quirk / **V37.9.67 P0 INV-CROSS-OS-001 scanner**) + 反思文档沉淀 + Mac Mini 真激活验证. 收工 A-I 9 项全过. 累计 85 suites/2876 tests/0 fail/76 inv/636 checks/安全 95/100. 元价值: 反思文档\"血案→反思→P0→framework 化预防\"迭代机制硬实证, V3 路标 pip install ontology-engine 核心交付方向. V37.9.68+ 候选: 4 行动登记 unfinished.\", \"by\": \"claude_code\"}"
   ],
   "feedback": [
     {
@@ -328,7 +328,12 @@
       "V37.9.76 PoC 主硬卡: Mac Mini 部署后 1-2 天验证 router_decide.py shadow 模式真激活. 命令: cat ~/.kb/router_decisions.jsonl | jq .chosen | sort | uniq -c. 5/19 03:00 kb_dream cron + 5/19 10:00 hf_papers 应自动累积决策记录. 一周观察期 (5/25) 后数据分析 chosen 分布反馈调 cap_score.",
       "V37.9.77+ enforcement 评估: 一周观察 (5/25) router_decisions.jsonl 数据后, adapter.py 加 ?provider=X query 参数支持 (V37.9.55+ 候选 B 真兑现) + caller pass router chosen → adapter 真路由切换 + mode shadow→on. 同时扩展 capability profile 到更多 ALIGNED job (arxiv_monitor / dblp / acl_anthology 等).",
       "V37.9.77 主硬卡: Mac Mini operator 决策 ROUTER_ENFORCE=on 试水时机. 推荐 1-3 天观察 (chosen=doubao 真激活 + LLM 调用成功率). 启用方法: 加 'export ROUTER_ENFORCE=on' 到 kb_dream cron 任务环境或 ~/.bash_profile. 验证: 跑 ROUTER_ENFORCE=on python3 ~/router_decide.py --job-id kb_dream --task test --json | jq .mode 应输出 on. 一周观察后评估 V37.9.78+ 默认 on (Plan B 渐进终态).",
-      "V37.9.78+ 主交付候选: tool_proxy:5002 透传 ?provider= 让 hf_papers 经 proxy 也能 enforcement (V37.9.77 仅 kb_dream 直连 adapter 集成, hf_papers 走 proxy:5002 需要 proxy 透传). 工作量 ~1-2h (proxy do_POST 解析 ?provider= 转发到 adapter URL). 完成后 hf_papers per_paper LLM 调用也能用 router enforcement."
+      "V37.9.78+ 主交付候选: tool_proxy:5002 透传 ?provider= 让 hf_papers 经 proxy 也能 enforcement (V37.9.77 仅 kb_dream 直连 adapter 集成, hf_papers 走 proxy:5002 需要 proxy 透传). 工作量 ~1-2h (proxy do_POST 解析 ?provider= 转发到 adapter URL). 完成后 hf_papers per_paper LLM 调用也能用 router enforcement.",
+      "V37.9.83+ Mac Mini 周一上午用户视角观察 V37.9.78 v2.0 周报首推质量 (验证 8 段全数据 + Discord/WhatsApp 优先路径 + 凡 FAIL-OPEN 工具不可用降级文案)",
+      "V37.9.83+ MR-18 真激活立 (V37.9.82 scanner Mac Mini 一周稳定后)",
+      "V37.9.83+ mm_index/search/cron V29.1 历史路径迁移评估 (减少 ALLOWED_NON_STANDARD_DST 豁免清单)",
+      "V37.9.83+ run_hn_fixed.sh 重命名 src 为 jobs/hn_watcher/run_hn_fixed.sh (需同步 jobs_registry + 单测)",
+      "V37.9.83+ scanner runtime check 扩 Mac Mini crontab line 真扫 (V37.9.66 _format_cron_line 输出 vs 真 crontab -l 一致性)"
     ],
     "open_prs": "",
     "blocked_on": "",
@@ -370,10 +375,10 @@
   "quality": {
     "security_score": 95,
     "test_count": 3247,
-    "last_regression": "2026-05-19 07:10 pass",
+    "last_regression": "2026-05-19 07:53 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-05-19 07:10",
-    "test_suites": 94,
+    "security_score_time": "2026-05-19 07:53",
+    "test_suites": 95,
     "governance_invariants": "64/64",
     "governance_checks": "350/350",
     "version": "0.37.9.68"
@@ -440,7 +445,9 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "**V37.9.76 主交付锁定: Capability-Based Dynamic Router PoC** (V37.9.75 capability router PoC 被 5/18 DEEP blood lesson 打断后改版本号续推进). V37.9.74 RADAR retry 主硬卡 5/18 08:50 首次生产激活成功闭环 (radar_retried:true + 4949 chars retry-recovered, status_file ~/.kb/dreams/.last_run.json). V37.9.75 DEEP retry 同款模式部署 OK (5637 chars 正常路径不触发 retry, 等下次 LLM DEEP partial 验证). **V37.9.76 路径不变** — 4 步 PoC (4-6h 工作量): Step 1 jobs_registry.yaml 加 required_capabilities/prefer/cost_tier 字段 / Step 2 providers.py 加 find_best_provider 30 行纯函数 / Step 3 切 1-2 低风险 cron 试水 (RADAR retry / hf_papers, V37.9.74 retry 路径自然成为试水载体) / Step 4 ~/.kb/router_decisions.jsonl 观测. **V37.9.55+ doubao 试水承诺自然兑现**: 不硬编码 doubao 路径, 而是 task 声明 reasoning+cost_tier=low → router 自动选 doubao. **当前主硬卡**: 等用户决策 V37.9.76 启动节奏 (分阶段先 Step 1+2 还是单 session 4 步全做). **副发现**: Mac Mini adapter /health version=0.37.9.54 不是最新 0.37.9.68 (不影响功能因 V37.9.74/75 仅改 kb_dream.sh 客户端逻辑, 但适合 V37.9.76+ 顺手重启 adapter 拿最新 version).",
+  "focus": {
+    "this_week": "V37.9.83+ 候选: (a) Mac Mini 周一上午用户视角观察 V37.9.78 v2.0 周报本周首次推送质量 + V37.9.82 scanner 一周稳定后立 MR-18 真激活 (b) mm_index/search/cron V29.1 历史路径迁移评估 (c) run_hn_fixed.sh 重命名 src 进 jobs/hn_watcher/ (d) scanner runtime check 扩 Mac Mini crontab line 真扫 (V37.9.66 _format_cron_line vs 真 crontab -l)"
+  },
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
