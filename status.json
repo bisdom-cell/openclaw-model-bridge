@@ -1,5 +1,5 @@
 {
-  "updated": "2026-05-19 07:55:38",
+  "updated": "2026-05-20 10:11:04",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -105,6 +105,11 @@
   ],
   "recent_changes": [
     {
+      "date": "2026-05-20",
+      "what": "V37.9.83 AI Partnership 战略沉淀 — 写思想升华文档 docs/articles/ai_partnership_first_principles_zh.md (Stage 2 第 6 篇立场文章, ~600 行). 三大第一性原理刻入项目灵魂: (1) 协作本质是边界不是信任 boundaries > trust, 100% 权限假设的根本反挑战, MR-4 silent-failure 28+ 次演出都是好意图+边界不清晰的组合 (2) 系统自我成长 = 用户视角机器化 70% 真问题来自用户 WhatsApp 反馈, daily LLM observer 输出 read-only proposal 是最直接路径 (3) LLM 判断三层 工作记忆已解决/判断模式可部分蒸馏/协作惯性几乎不可持久化. 三战略方向 (Daily Self-Critique Recommended / Claude Escalation Capability / Red Team Sandbox) 登记 deferred unfinished 待用户启动. 今日不动代码, 把第一性原理刻入项目灵魂. Stage 2 → Stage 3 拐点: AI Partnership Framework — 不只是工具系统, 是 AI 合伙人 + 人类伙伴协同工程范式. 累计 95 suites / 3247 tests / 0 fail / 81 inv / 740 checks / 19 MR / 安全 95/100 / VERSION 0.37.9.68 不变 (V37.9.83 是治理思想层固化非业务语义).",
+      "by": "claude_code"
+    },
+    {
       "date": "2026-05-19",
       "what": "V37.9.82 INV-PATH-CONSISTENCY-001 三方对齐 scanner 立 — 防 V37.9.56-hotfix/V37.9.66 同款 Class B 路径假设错配血案 (path_consistency_scanner.py 290 行 + 26 单测 + ALLOWED_NON_STANDARD_DST 10 项豁免清单 + FAIL-CLOSE + Mac Mini 真激活 9/9 ✅). 同日累计: V37.9.81 (A+B) 60 天血案完整闭环 + README 漂移修复 + failure_modes_catalog.md (V3 路标资产) + V37.9.82 scanner = 4 PR 同 session 闭环. 累计 95 suites / 3247 tests / 0 fail / 81 inv / 740 checks / 19 MR / 安全 95/100.",
       "by": "claude_code"
@@ -194,8 +199,7 @@
       "date": "2026-05-15",
       "what": "V37.9.68-hotfix Mac Mini 5/15 03:00 cron 真激活验证发现 Dream 推送收到 [3/3] 而非 [4/4] — 4 段被合并成 3 chunks 血案修复 (用户视角原则 #13 第 20 次正向兑现)。**根因**: V37.9.68 changelog 说 4 段 ## header 自然复用 V37.9.21 多窗口分片, 但 V37.9.21 实际是 current+piece <= max_chunk 就合并 算法。V37.9.68 4 段大小不均匀 (DEEP ~5000 / WIDE ~1700 / RADAR ~900 / 总览 ~400), WIDE+RADAR (~2600) 被合并成 1 chunk。属 V37.9.66 案例库 类别 B 设计假设错配, MR-4 silent-failure 第 27 次新形态 (设计文档说 4 段独立但代码无强制保证)。**修复**: kb_dream_helpers.py 加 split_dream_into_chunks(text, max_chunk) 纯函数 (每个 ## 段独立成 chunk + header 合并到第一段 + 单段超 max_chunk 内部 \\n 切, MR-8 single-source-of-truth)。kb_dream.sh 改用 helper (替换 35 行 inline Python 为 7 行调用)。**12 新单测** TestSplitDreamIntoChunks 8 (空/非string/血案场景回归 4 段必产 4 chunks/header 合并/超大段内部切/无 ## 段单 chunk/max_chunk 防御/空段跳过 + 5/15 真实 layout 测试) + TestKbDreamShellGuards 4 (helper import 守卫/真调用/反向消除旧合并算法/V37.9.68-hotfix marker)。**反向验证两层守卫真有效**: sabotage helper while 循环 → 1 fail / sabotage 回退到旧合并算法 → 5 fail (含血案场景回归 + 5/15 真实 layout 模拟)。**INV-DREAM-MULTITHEME-001 内涵扩展含 5 新 V37.9.68-hotfix check** (helper 函数定义 + helper import 守卫 + 真调用守卫 + V37.9.68-hotfix marker + 反向反合并算法 python_assert)。**接近真实数据模拟验证** Mac Mini 5/15 dream 文件 layout (含 ### 三子段) → V37.9.68-hotfix 后产 [1/4] DEEP+header 2132 chars / [2/4] WIDE 1417 / [3/4] RADAR 615 / [4/4] 总览 141 = 4 chunks 完美匹配设计预期。累计 86 suites 不变 / 2950→2962 tests (+12) / 0 fail / governance v3.43→v3.44 / 77 inv 不变 / 655→660 checks (+5) / 安全 95/100 / VERSION 0.37.9.68 不变 (hotfix 不 bump)。Mac Mini 部署后预期: 5/16 03:00 cron 自动推送 4 个独立 WhatsApp 窗口 (DEEP/WIDE/RADAR/总览), DEEP 段超 4000 时仍内部切但不影响其他 3 段独立性。**元价值**: V37.9.21 多窗口分片机制经 V37.9.21→V37.9.35→V37.9.68→V37.9.68-hotfix 4 个版本演进 (单大段切 → 多段合并 → 多段独立), 验证原则 #15 测试三层第三层不可替代 — 单测全绿+治理全绿+用户实际收到 [3/3] 才暴露 V37.9.68 设计假设错配。同时发现 V37.9.63 抽 cron_monitor_fatal_handler.sh 后 test_watchdog_self_monitoring.py 有 5 个测试漂移 (TestStepBErrTrapSilentAbort/TestWatchdogSyntaxAndIntegration), 已登记 V37.9.69+ 候选 (非 V37.9.68-hotfix 引入), full_regression.sh line 30 bash 计数 bug 也登记。",
       "by": "claude_code"
-    },
-    "{\"date\": \"2026-05-13\", \"what\": \"**今日完美收工** — 一日 6 版本 (V37.9.63 MR-8 helper / V37.9.64 货代 / V37.9.65 crontab_safe remove / V37.9.66 framework 双向 sync / V37.9.66-hotfix watchdog quirk / **V37.9.67 P0 INV-CROSS-OS-001 scanner**) + 反思文档沉淀 + Mac Mini 真激活验证. 收工 A-I 9 项全过. 累计 85 suites/2876 tests/0 fail/76 inv/636 checks/安全 95/100. 元价值: 反思文档\"血案→反思→P0→framework 化预防\"迭代机制硬实证, V3 路标 pip install ontology-engine 核心交付方向. V37.9.68+ 候选: 4 行动登记 unfinished.\", \"by\": \"claude_code\"}"
+    }
   ],
   "feedback": [
     {
@@ -333,7 +337,10 @@
       "V37.9.83+ MR-18 真激活立 (V37.9.82 scanner Mac Mini 一周稳定后)",
       "V37.9.83+ mm_index/search/cron V29.1 历史路径迁移评估 (减少 ALLOWED_NON_STANDARD_DST 豁免清单)",
       "V37.9.83+ run_hn_fixed.sh 重命名 src 为 jobs/hn_watcher/run_hn_fixed.sh (需同步 jobs_registry + 单测)",
-      "V37.9.83+ scanner runtime check 扩 Mac Mini crontab line 真扫 (V37.9.66 _format_cron_line 输出 vs 真 crontab -l 一致性)"
+      "V37.9.83+ scanner runtime check 扩 Mac Mini crontab line 真扫 (V37.9.66 _format_cron_line 输出 vs 真 crontab -l 一致性)",
+      "V37.9.83 战略方向 1 (Daily Self-Critique, RECOMMENDED): daily_observer.py cron 每日 LLM 扫前日所有推送 (WhatsApp + Discord) 给第三方评分, 输出 read-only proposal 写 status.json unfinished 永不直接改代码. 检测重复/噪声/V37.9.x 已知血案模式违反. 风险最低 (read-only) ROI 最高 (把用户视角持久化). PoC 工程量 3-5 天. 失败成本最小: 一个 cron + 一份 markdown 报告. 详细 design doc 见 docs/articles/ai_partnership_first_principles_zh.md 第四节方向 1.",
+      "V37.9.83 战略方向 2 (Claude Escalation Capability): 双层 agent stack, PA 检测复杂判断时调 Claude API (SDK 直接调用 非新 Claude Code session), Claude 拿 status.json + 相关 case docs + 14 天 changelog 作 context 即时回答, 输出 read-only proposal. 解决 Claude 不在场时系统判断力不够痛点. 触发条件必须 SOUL.md 显式触发词 (CLAUDE.md 原则 #24, SOUL.md 触发词是唯一可靠工具调用机制). 中等风险 (成本 + 幻觉 + fallback chain 交互复杂度). PoC 3-7 天. design doc 见 ai_partnership_first_principles_zh.md 第四节方向 2.",
+      "V37.9.83 战略方向 3 (Red Team Sandbox): red/blue/judge multi-agent dev sandbox 自我博弈. PoC 价值高生产价值低 (围棋 self-play 有效因博弈空间封闭+胜负函数明确, 我们系统输入空间开放无 ground truth 评分函数). 短期不启动. 但子能力 red_team_audit.py 每周对抗思维扫描有真实价值 — 是 V37.9 adversarial_chaos_audit.py (16/16 已实现) 的延伸. design doc 见 ai_partnership_first_principles_zh.md 第四节方向 3."
     ],
     "open_prs": "",
     "blocked_on": "",
@@ -445,9 +452,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": {
-    "this_week": "V37.9.83+ 候选: (a) Mac Mini 周一上午用户视角观察 V37.9.78 v2.0 周报本周首次推送质量 + V37.9.82 scanner 一周稳定后立 MR-18 真激活 (b) mm_index/search/cron V29.1 历史路径迁移评估 (c) run_hn_fixed.sh 重命名 src 进 jobs/hn_watcher/ (d) scanner runtime check 扩 Mac Mini crontab line 真扫 (V37.9.66 _format_cron_line vs 真 crontab -l)"
-  },
+  "focus": "V37.9.83 AI Partnership 战略沉淀完成 (思想升华文档已写). 等待用户决策启动三战略方向之一 (Daily Self-Critique / Claude Escalation / Red Team Sandbox). 持续运转: 95 suites / 3247 tests / 81 inv / V37.9.81 FDA 24h 数据回归 + 周一观察制度 + 治理 audit cron.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
