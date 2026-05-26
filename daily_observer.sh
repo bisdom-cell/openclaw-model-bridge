@@ -127,12 +127,15 @@ python3 "$OBSERVER_PY" $DATE_ARG > "$REPORT_FILE" 2>/dev/null || {
     log "WARN: failed to write report file, continuing"
 }
 
-# -- push to Discord only (not WhatsApp, observer is operator tool) --
-if [ -n "$DISCORD_SUMMARY" ] && $NOTIFY_LOADED; then
-    log "pushing to Discord #daily"
-    notify "$DISCORD_SUMMARY" --topic daily 2>/dev/null || {
-        log "WARN: Discord push failed (non-fatal)"
-    }
+# -- push full report to WhatsApp + Discord dual-channel --
+if [ -f "$REPORT_FILE" ] && $NOTIFY_LOADED; then
+    REPORT_CONTENT=$(cat "$REPORT_FILE" 2>/dev/null || echo "")
+    if [ -n "$REPORT_CONTENT" ]; then
+        log "pushing full report to dual-channel (--topic daily)"
+        notify "$REPORT_CONTENT" --topic daily 2>/dev/null || {
+            log "WARN: push failed (non-fatal)"
+        }
+    fi
 fi
 
 # -- status file --

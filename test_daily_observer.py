@@ -502,10 +502,10 @@ class TestShellGuards(unittest.TestCase):
     def test_system_alert_prefix(self):
         self.assertIn("[SYSTEM_ALERT] daily_observer", self.src)
 
-    def test_discord_only_not_whatsapp(self):
+    def test_pushes_full_report_via_notify(self):
         self.assertIn("--topic daily", self.src)
-        self.assertNotIn("--topic whatsapp", self.src)
-        self.assertNotIn("--channel whatsapp", self.src)
+        self.assertIn("REPORT_CONTENT", self.src)
+        self.assertIn('cat "$REPORT_FILE"', self.src)
 
     def test_read_only_marker(self):
         self.assertIn("READ-ONLY", self.src.upper() + self.src)
