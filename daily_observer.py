@@ -52,6 +52,25 @@ JOBS_SUBDIRS = [
     "chaspark",
 ]
 
+# V37.9.56-hotfix same pattern: Mac Mini deploys to ~/.openclaw/jobs/
+# HN special case: subdirectory is hn_watcher not run_hn_fixed
+_MAC_MINI_JOBS_DIR = os.path.expanduser("~/.openclaw/jobs")
+
+
+def _resolve_last_run_path(jobs_dir, job_id):
+    """Find last_run.json across dev + Mac Mini candidate paths.
+
+    Returns: path if found, else None.
+    """
+    candidates = [
+        os.path.join(jobs_dir, job_id, "cache", "last_run.json"),
+        os.path.join(_MAC_MINI_JOBS_DIR, job_id, "cache", "last_run.json"),
+    ]
+    for c in candidates:
+        if os.path.isfile(c):
+            return c
+    return None
+
 
 def scan_job_statuses(jobs_dir, target_date):
     """Scan last_run.json from all known job subdirectories.
@@ -61,10 +80,10 @@ def scan_job_statuses(jobs_dir, target_date):
     """
     results = []
     for job_id in JOBS_SUBDIRS:
-        lr_path = os.path.join(jobs_dir, job_id, "cache", "last_run.json")
+        lr_path = _resolve_last_run_path(jobs_dir, job_id)
         entry = {"job_id": job_id, "found": False, "status": "unknown",
                  "time": "", "new": 0, "reason": ""}
-        if not os.path.isfile(lr_path):
+        if lr_path is None:
             results.append(entry)
             continue
         try:
