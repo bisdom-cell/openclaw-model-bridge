@@ -26,7 +26,7 @@ REPO_ROOT = os.path.dirname(os.path.abspath(__file__))
 
 # V37.9.57 注入的 8 个 ALIGNED jobs (清单与 inject_level_4_to_aligned_jobs.py 同源)
 ALIGNED_JOB_SCRIPTS = [
-    "run_hn_fixed.sh",
+    "jobs/hn_watcher/run_hn_fixed.sh",
     "jobs/hf_papers/run_hf_papers.sh",
     "jobs/arxiv_monitor/run_arxiv.sh",
     "jobs/semantic_scholar/run_semantic_scholar.sh",
@@ -110,7 +110,7 @@ class TestV37958HotfixOsImport(unittest.TestCase):
 
     def test_hn_specific_fix_at_line_283(self):
         """V37.9.58-hotfix 锁定 HN 修复点 — line 283 必须含 import os."""
-        fp = os.path.join(REPO_ROOT, "run_hn_fixed.sh")
+        fp = os.path.join(REPO_ROOT, "jobs/hn_watcher/run_hn_fixed.sh")
         with open(fp, "r") as f:
             lines = f.readlines()
         # heredoc 起点 line 282 (HN 仅一个 HG_LEVEL_4_TEXT 注入)

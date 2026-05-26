@@ -22,7 +22,7 @@ import unittest
 
 
 REPO_ROOT = os.path.dirname(os.path.abspath(__file__))
-HN_SCRIPT = os.path.join(REPO_ROOT, "run_hn_fixed.sh")
+HN_SCRIPT = os.path.join(REPO_ROOT, "jobs", "hn_watcher", "run_hn_fixed.sh")
 
 
 def _read(path):
@@ -158,8 +158,8 @@ class TestHnInAuditAligned(unittest.TestCase):
 
     def test_hn_in_aligned_with_v37_9_41_or_later(self):
         """HN 必须在 ALIGNED_SCRIPTS, V37.9.41 (原) 或 V37.9.51 (Sub-Stage 4b 升级)"""
-        self.assertIn("run_hn_fixed.sh", self.au.ALIGNED_SCRIPTS)
-        version = self.au.ALIGNED_SCRIPTS["run_hn_fixed.sh"]
+        self.assertIn("jobs/hn_watcher/run_hn_fixed.sh", self.au.ALIGNED_SCRIPTS)
+        version = self.au.ALIGNED_SCRIPTS["jobs/hn_watcher/run_hn_fixed.sh"]
         self.assertIn(version, ("V37.9.41", "V37.9.51"),
                       f"HN 应映射 V37.9.41 或 V37.9.51, 实际 {version!r}")
 

@@ -186,7 +186,7 @@ declare -a FILE_MAP=(
     "wa_e2e_test.sh|$HOME/wa_e2e_test.sh"
 
     # 独立 Watcher 脚本
-    "run_hn_fixed.sh|$HOME/.openclaw/jobs/hn_watcher/run_hn_fixed.sh"
+    "jobs/hn_watcher/run_hn_fixed.sh|$HOME/.openclaw/jobs/hn_watcher/run_hn_fixed.sh"
 
     # OpenClaw 官方 Watcher
     "jobs/openclaw_official/run.sh|$HOME/.openclaw/jobs/openclaw_official/run.sh"
@@ -235,9 +235,9 @@ declare -a FILE_MAP=(
     "job_smoke_test.sh|$HOME/job_smoke_test.sh"
 
     # Multimodal Memory
-    "mm_index.py|$HOME/openclaw-model-bridge/mm_index.py"
-    "mm_search.py|$HOME/openclaw-model-bridge/mm_search.py"
-    "mm_index_cron.sh|$HOME/openclaw-model-bridge/mm_index_cron.sh"
+    "mm_index.py|$HOME/mm_index.py"
+    "mm_search.py|$HOME/mm_search.py"
+    "mm_index_cron.sh|$HOME/mm_index_cron.sh"
 
     # 监控 & 维护（conv_quality+token_report 合并为 daily_ops_report）
     "daily_ops_report.sh|$HOME/daily_ops_report.sh"

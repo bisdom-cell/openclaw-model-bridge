@@ -312,7 +312,7 @@ class TestRepoScanIntegration(unittest.TestCase):
 
     def test_scanner_catches_sabotaged_import_immediately(self):
         """反向验证: sabotage 已修文件移除 import → scanner 立即抓到."""
-        target = os.path.join(REPO_ROOT, "run_hn_fixed.sh")
+        target = os.path.join(REPO_ROOT, "jobs", "hn_watcher", "run_hn_fixed.sh")
         with open(target, "r", encoding="utf-8") as f:
             original = f.read()
         # 找 V37.9.58-hotfix 修的 import 行 (line ~283)

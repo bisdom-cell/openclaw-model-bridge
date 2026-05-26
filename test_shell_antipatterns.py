@@ -26,7 +26,7 @@ REPO_ROOT = os.path.dirname(os.path.abspath(__file__))
 # All shell scripts that run as cron jobs
 JOB_SCRIPTS = []
 for pattern in [
-    "run_hn_fixed.sh",
+    "jobs/hn_watcher/run_hn_fixed.sh",
     "jobs/*/run*.sh",
     "jobs/*/*.sh",
     "kb_*.sh",

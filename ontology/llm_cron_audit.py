@@ -51,7 +51,7 @@ LLM_CRON_CANDIDATES = (
     "kb_deep_dive.sh",
     "kb_inject.sh",
     "kb_dream.sh",
-    "run_hn_fixed.sh",
+    "jobs/hn_watcher/run_hn_fixed.sh",
 )
 
 # 已知占位符反模式
@@ -111,7 +111,7 @@ ALIGNED_SCRIPTS = {
     "jobs/semantic_scholar/run_semantic_scholar.sh": "V37.9.50",  # 6 字段 + alignment + rule_check (V37.9.45 hf_papers PoC 横向 Sub-Stage 4b 模板验证)
     "jobs/dblp/run_dblp.sh":             "V37.9.51",  # V37.9.51 Sub-Stage 4b 2/6: 6 字段 + rule_check (DBLP 无 abstract, rule_content 用 title + venue)
     "jobs/ai_leaders_x/run_ai_leaders_x.sh": "V37.9.51",  # V37.9.51 Sub-Stage 4b 5/6: 6 字段 + rule_check (tweet 场景, rule_content 用 author + text)
-    "run_hn_fixed.sh":                   "V37.9.51",  # V37.9.51 Sub-Stage 4b 6/6: 6 字段 + rule_check (HN 场景, rule_content 用 title + desc 清理 HTML)
+    "jobs/hn_watcher/run_hn_fixed.sh":                   "V37.9.51",  # V37.9.51 Sub-Stage 4b 6/6: 6 字段 + rule_check (HN 场景, rule_content 用 title + desc 清理 HTML)
     "jobs/arxiv_monitor/run_arxiv.sh":   "V37.9.51",  # V37.9.51 Sub-Stage 4b 3/6: 6 字段 + rule_check (rule_content 用 title + abstract, V37.9.43 fallback 同款)
     "jobs/github_trending/run_github_trending.sh": "V37.9.51",  # V37.9.51 Sub-Stage 4b 4/6: 6 字段 + rule_check (repo 场景, rule_content 用 full_name + description + topics)
     "jobs/hf_papers/run_hf_papers.sh":   "V37.9.45",  # 6 字段 PoC (V37.9.43 arxiv 同款 + 加 🎚️ 项目对齐度, Opportunity Radar #2) + 保留 Step 2.5 GitHub repo enrichment

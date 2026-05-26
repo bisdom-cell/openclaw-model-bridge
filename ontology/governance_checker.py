@@ -1084,7 +1084,7 @@ def _discover_llm_parser_positional_violations(severity):
         "jobs/*/run_*.sh",
         "kb_*.py",
         "kb_*.sh",
-        "run_hn_fixed.sh",
+        "jobs/hn_watcher/run_hn_fixed.sh",
     ]:
         targets.update(glob_mod.glob(os.path.join(_PROJECT_ROOT, patt)))
     # 也扫 jobs 下的其他 .py 解析模块
@@ -1454,7 +1454,7 @@ def _discover_silent_except_violations(severity):
 # 新增脚本推送必须走 notify.sh，否则加入白名单需 review
 _PUSH_ROUTE_WHITELIST = {
     "notify.sh",           # 路由层自身
-    "run_hn_fixed.sh",     # 历史合法直推（V27 前已稳定）
+    "jobs/hn_watcher/run_hn_fixed.sh",     # 历史合法直推（V27 前已稳定）
     "wa_keepalive.sh",     # 告警升级走 openclaw 直发 Discord
     "job_watchdog.sh",     # watchdog 告警直发
     "auto_deploy.sh",      # quiet_alert 实现层

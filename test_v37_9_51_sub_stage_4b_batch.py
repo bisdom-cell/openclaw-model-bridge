@@ -46,7 +46,7 @@ SUB_STAGE_4B_SCRIPTS = [
     ("arxiv_monitor", "jobs/arxiv_monitor/run_arxiv.sh"),
     ("github_trending", "jobs/github_trending/run_github_trending.sh"),
     ("ai_leaders_x", "jobs/ai_leaders_x/run_ai_leaders_x.sh"),
-    ("hn", "run_hn_fixed.sh"),
+    ("hn", "jobs/hn_watcher/run_hn_fixed.sh"),
 ]
 
 
@@ -258,7 +258,7 @@ class TestV37951PerScriptRuleContent(unittest.TestCase):
 
     def test_hn_uses_title_plus_desc_cleaned(self):
         """hn: rule_content = title + desc (HTML 清理后)."""
-        src = _read(os.path.join(REPO_ROOT, "run_hn_fixed.sh"))
+        src = _read(os.path.join(REPO_ROOT, "jobs", "hn_watcher", "run_hn_fixed.sh"))
         # HN desc 含 HTML, 必须 re.sub 清理
         self.assertIn("item.get('title', '')", src)
         # HTML 清理 (V37.9.41 模式)
@@ -273,7 +273,7 @@ class TestV37951PerScriptRuleContent(unittest.TestCase):
             "jobs/arxiv_monitor/run_arxiv.sh": "total_papers",
             "jobs/github_trending/run_github_trending.sh": "total_repos",
             "jobs/ai_leaders_x/run_ai_leaders_x.sh": "total_tweets",
-            "run_hn_fixed.sh": "total_items",
+            "jobs/hn_watcher/run_hn_fixed.sh": "total_items",
         }
         for rel_path, var in expected.items():
             with self.subTest(script=rel_path, var=var):
@@ -312,7 +312,7 @@ class TestV37951AlignedScriptsAudit(unittest.TestCase):
             "jobs/arxiv_monitor/run_arxiv.sh",
             "jobs/github_trending/run_github_trending.sh",
             "jobs/ai_leaders_x/run_ai_leaders_x.sh",
-            "run_hn_fixed.sh",
+            "jobs/hn_watcher/run_hn_fixed.sh",
         }
         for path in expected_paths:
             with self.subTest(script=path):
@@ -330,7 +330,7 @@ class TestV37951AlignedScriptsAudit(unittest.TestCase):
             "jobs/arxiv_monitor/run_arxiv.sh",
             "jobs/github_trending/run_github_trending.sh",
             "jobs/ai_leaders_x/run_ai_leaders_x.sh",
-            "run_hn_fixed.sh",
+            "jobs/hn_watcher/run_hn_fixed.sh",
         ]
         for rel in scripts:
             full = os.path.join(REPO_ROOT, rel)
