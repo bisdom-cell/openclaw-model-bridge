@@ -84,12 +84,11 @@ fi
 log "starting daily_observer.py ${DATE_ARG:-'(default yesterday)'}"
 
 OBSERVER_OUTPUT=""
-# V37.5.1 env-var heredoc 模式: 不用 pipe, 用环境变量传参
-OBSERVER_OUTPUT=$(python3 "$OBSERVER_PY" --json $DATE_ARG 2>&1) || {
+# stdout = JSON 输出, stderr = log 信息 (流向 cron log, 不混入 JSON)
+OBSERVER_OUTPUT=$(python3 "$OBSERVER_PY" --json $DATE_ARG) || {
     _rc=$?
     log "observer failed (exit=$_rc)"
     send_alert "observer.py 执行失败 (exit=$_rc)"
-    echo "$OBSERVER_OUTPUT" >&2
     exit 1
 }
 
