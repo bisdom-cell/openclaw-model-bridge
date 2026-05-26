@@ -481,6 +481,114 @@ class TestCLI(unittest.TestCase):
         self.assertEqual(result.returncode, 1)
 
 
+class TestScoreHistory(unittest.TestCase):
+    """Score history append + load."""
+
+    def test_append_and_load(self):
+        with tempfile.TemporaryDirectory() as td:
+            os.makedirs(os.path.join(td, "self_critique"))
+            obs.append_score_history(
+                td, datetime(2026, 5, 25), 4.0,
+                [{"severity": "HIGH", "category": "x", "message": "y"}],
+                [{"job_id": "hf", "status": "ok", "new": 5,
+                  "found": True, "time": "", "reason": ""}],
+                {"evening": {"found": True}}, "ok")
+            history = obs.load_score_history(td)
+            self.assertEqual(len(history), 1)
+            self.assertEqual(history[0]["overall_score"], 4.0)
+            self.assertEqual(history[0]["anomalies_high"], 1)
+            self.assertEqual(history[0]["jobs_ok"], 1)
+
+    def test_multiple_days_dedup(self):
+        with tempfile.TemporaryDirectory() as td:
+            os.makedirs(os.path.join(td, "self_critique"))
+            for day in (24, 25, 25):  # 25 appears twice
+                obs.append_score_history(
+                    td, datetime(2026, 5, day), 3.0, [], [], {}, "ok")
+            history = obs.load_score_history(td)
+            self.assertEqual(len(history), 2)  # deduped by date
+
+    def test_load_empty(self):
+        with tempfile.TemporaryDirectory() as td:
+            history = obs.load_score_history(td)
+            self.assertEqual(history, [])
+
+    def test_load_corrupted_lines(self):
+        with tempfile.TemporaryDirectory() as td:
+            path = os.path.join(td, "self_critique", "score_history.jsonl")
+            os.makedirs(os.path.dirname(path))
+            with open(path, "w") as f:
+                f.write('{"date":"2026-05-25","overall_score":4}\n')
+                f.write('bad json\n')
+                f.write('{"date":"2026-05-24","overall_score":3}\n')
+            history = obs.load_score_history(td)
+            self.assertEqual(len(history), 2)
+
+
+class TestTrendAnalysis(unittest.TestCase):
+    """Trend section builder."""
+
+    def test_insufficient_data(self):
+        self.assertEqual(obs.build_trend_section([]), "")
+        self.assertEqual(obs.build_trend_section(
+            [{"overall_score": 4}]), "")
+
+    def test_improvement_detected(self):
+        history = [
+            {"overall_score": 4.0, "date": "2026-05-25",
+             "anomalies_high": 0, "jobs_ok": 14, "jobs_total": 15},
+            {"overall_score": 3.0, "date": "2026-05-24",
+             "anomalies_high": 2, "jobs_ok": 12, "jobs_total": 15},
+        ]
+        section = obs.build_trend_section(history)
+        self.assertIn("improved", section)
+        self.assertIn("+1.0", section)
+
+    def test_decline_detected(self):
+        history = [
+            {"overall_score": 2.0, "date": "2026-05-25",
+             "anomalies_high": 3, "jobs_ok": 10, "jobs_total": 15},
+            {"overall_score": 4.0, "date": "2026-05-24",
+             "anomalies_high": 0, "jobs_ok": 15, "jobs_total": 15},
+        ]
+        section = obs.build_trend_section(history)
+        self.assertIn("declined", section)
+        self.assertIn("-2.0", section)
+
+    def test_stable(self):
+        history = [
+            {"overall_score": 4.0, "date": "2026-05-25",
+             "anomalies_high": 0, "jobs_ok": 14, "jobs_total": 15},
+            {"overall_score": 4.0, "date": "2026-05-24",
+             "anomalies_high": 0, "jobs_ok": 14, "jobs_total": 15},
+        ]
+        section = obs.build_trend_section(history)
+        self.assertIn("stable", section)
+
+    def test_avg_computed(self):
+        history = [
+            {"overall_score": 5.0, "date": "d3",
+             "anomalies_high": 0, "jobs_ok": 15, "jobs_total": 15},
+            {"overall_score": 3.0, "date": "d2",
+             "anomalies_high": 0, "jobs_ok": 15, "jobs_total": 15},
+            {"overall_score": 4.0, "date": "d1",
+             "anomalies_high": 0, "jobs_ok": 15, "jobs_total": 15},
+        ]
+        section = obs.build_trend_section(history)
+        self.assertIn("4.0", section)  # avg of 5+3+4=4.0
+
+    def test_discord_suffix_improved(self):
+        history = [
+            {"overall_score": 4.0},
+            {"overall_score": 3.0},
+        ]
+        suffix = obs.build_trend_discord_suffix(history)
+        self.assertIn("+1", suffix)
+
+    def test_discord_suffix_empty_when_no_history(self):
+        self.assertEqual(obs.build_trend_discord_suffix([]), "")
+
+
 class TestShellGuards(unittest.TestCase):
     """Source-level guards for daily_observer.sh."""
 
