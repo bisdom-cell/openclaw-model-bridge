@@ -430,7 +430,7 @@ def parse_overall_score(llm_content):
 
 def build_report_markdown(target_date, job_statuses, push_outputs,
                           source_sections, anomalies, llm_critique,
-                          overall_score):
+                          overall_score, trend_section=""):
     """Build the final markdown report."""
     date_str = target_date.strftime("%Y-%m-%d")
 
@@ -485,6 +485,10 @@ def build_report_markdown(target_date, job_statuses, push_outputs,
             lines.append(f"- [{a['severity']}] {a['category']}: {a['message']}")
         lines.append("")
 
+    # Trend analysis
+    if trend_section:
+        lines.append(trend_section)
+
     # LLM critique
     if llm_critique:
         lines.append("## 🤖 LLM Quality Assessment\n")
@@ -500,7 +504,8 @@ def build_report_markdown(target_date, job_statuses, push_outputs,
     return "\n".join(lines)
 
 
-def build_discord_summary(target_date, overall_score, anomalies, job_statuses):
+def build_discord_summary(target_date, overall_score, anomalies, job_statuses,
+                          trend_suffix=""):
     """Build a short Discord push summary."""
     date_str = target_date.strftime("%Y-%m-%d")
     ok_count = sum(1 for j in job_statuses
@@ -512,13 +517,148 @@ def build_discord_summary(target_date, overall_score, anomalies, job_statuses):
     med_issues = sum(1 for a in anomalies if a["severity"] == "MED")
 
     lines = [f"🔍 Daily Self-Critique {date_str}"]
-    lines.append(f"综合: {score_str} | Jobs: {ok_count}/{total}")
+    lines.append(f"综合: {score_str} | Jobs: {ok_count}/{total}{trend_suffix}")
     if high_issues or med_issues:
         lines.append(f"Issues: {high_issues} HIGH / {med_issues} MED")
     if not high_issues and not med_issues:
         lines.append("No significant issues found.")
 
     return "\n".join(lines)
+
+
+# ══════════════════════════════════════════════════════════════════════
+# 6b. Score History + Trend Analysis
+# ══════════════════════════════════════════════════════════════════════
+
+SCORE_HISTORY_FILENAME = "score_history.jsonl"
+TREND_WINDOW_DAYS = 7
+
+
+def _score_history_path(kb_dir):
+    return os.path.join(kb_dir, "self_critique", SCORE_HISTORY_FILENAME)
+
+
+def append_score_history(kb_dir, target_date, overall_score, anomalies,
+                         job_statuses, push_outputs, status):
+    """Append one record to score_history.jsonl. FAIL-OPEN."""
+    path = _score_history_path(kb_dir)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+
+    ok_jobs = sum(1 for j in job_statuses
+                  if j["status"] in ("ok", "partial_degraded"))
+    high = sum(1 for a in anomalies if a["severity"] == "HIGH")
+    med = sum(1 for a in anomalies if a["severity"] == "MED")
+    outputs_found = sum(1 for v in push_outputs.values() if v.get("found"))
+
+    record = {
+        "date": target_date.strftime("%Y-%m-%d"),
+        "overall_score": overall_score,
+        "jobs_ok": ok_jobs,
+        "jobs_total": len(job_statuses),
+        "outputs_found": outputs_found,
+        "anomalies_high": high,
+        "anomalies_med": med,
+        "status": status,
+    }
+    try:
+        with open(path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(record, ensure_ascii=False) + "\n")
+    except OSError:
+        pass
+
+
+def load_score_history(kb_dir, max_days=TREND_WINDOW_DAYS):
+    """Load recent score history records.
+
+    Returns: list of dicts, most recent first, up to max_days entries.
+    """
+    path = _score_history_path(kb_dir)
+    if not os.path.isfile(path):
+        return []
+    records = []
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    records.append(json.loads(line))
+                except json.JSONDecodeError:
+                    continue
+    except OSError:
+        return []
+    seen = set()
+    deduped = []
+    for r in reversed(records):
+        d = r.get("date", "")
+        if d not in seen:
+            seen.add(d)
+            deduped.append(r)
+        if len(deduped) >= max_days:
+            break
+    return deduped
+
+
+def build_trend_section(history):
+    """Build trend analysis section from score history.
+
+    Returns: markdown string, or "" if insufficient data.
+    """
+    scored = [h for h in history if h.get("overall_score") is not None]
+    if len(scored) < 2:
+        return ""
+
+    latest = scored[0]
+    prev = scored[1]
+
+    lines = ["## 📈 Trend (last 7 days)\n"]
+
+    scores = [h["overall_score"] for h in scored]
+    avg = sum(scores) / len(scores)
+    delta = latest["overall_score"] - prev["overall_score"]
+
+    if delta > 0:
+        trend_icon = "📈"
+        trend_word = "improved"
+    elif delta < 0:
+        trend_icon = "📉"
+        trend_word = "declined"
+    else:
+        trend_icon = "➡️"
+        trend_word = "stable"
+
+    lines.append(f"- Today: ⭐{latest['overall_score']} | "
+                 f"Previous: ⭐{prev['overall_score']} | "
+                 f"{trend_icon} {trend_word} ({delta:+.1f})")
+    lines.append(f"- 7-day avg: ⭐{avg:.1f} ({len(scored)} data points)")
+
+    high_counts = [h.get("anomalies_high", 0) for h in scored]
+    if sum(high_counts) > 0:
+        lines.append(f"- HIGH anomalies: {' → '.join(str(c) for c in high_counts)}")
+
+    job_rates = [f"{h.get('jobs_ok', 0)}/{h.get('jobs_total', 0)}"
+                 for h in scored[:3]]
+    lines.append(f"- Job success: {' → '.join(job_rates)}")
+
+    lines.append("")
+    return "\n".join(lines)
+
+
+def build_trend_discord_suffix(history):
+    """Build a short trend suffix for discord summary.
+
+    Returns: string like " | 📈 +1 vs yesterday" or "".
+    """
+    scored = [h for h in history if h.get("overall_score") is not None]
+    if len(scored) < 2:
+        return ""
+    delta = scored[0]["overall_score"] - scored[1]["overall_score"]
+    if delta > 0:
+        return f" | 📈 +{delta:.0f} vs prev"
+    elif delta < 0:
+        return f" | 📉 {delta:.0f} vs prev"
+    return ""
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -608,14 +748,23 @@ def run(kb_dir=None, jobs_dir=None, target_date=None, dry_run=False,
         else:
             log(f"LLM critique failed: {llm_reason}")
 
+    status = "ok" if llm_ok else ("no_outputs" if not has_content else "llm_failed")
+
+    # Score history + trend analysis
+    append_score_history(kb_dir, target_date, overall_score, anomalies,
+                         job_statuses, push_outputs, status)
+    history = load_score_history(kb_dir)
+    trend_section = build_trend_section(history)
+    trend_suffix = build_trend_discord_suffix(history)
+
     report = build_report_markdown(
         target_date, job_statuses, push_outputs,
-        source_sections, anomalies, llm_content, overall_score)
+        source_sections, anomalies, llm_content, overall_score,
+        trend_section=trend_section)
 
     discord = build_discord_summary(
-        target_date, overall_score, anomalies, job_statuses)
-
-    status = "ok" if llm_ok else ("no_outputs" if not has_content else "llm_failed")
+        target_date, overall_score, anomalies, job_statuses,
+        trend_suffix=trend_suffix)
 
     return {
         "status": status,
