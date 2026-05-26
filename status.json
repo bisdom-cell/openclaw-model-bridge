@@ -1,6 +1,6 @@
 {
-  "updated": "2026-05-26 05:14:57",
-  "updated_by": "full_regression",
+  "updated": "2026-05-26 05:20:55",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -105,6 +105,11 @@
   ],
   "recent_changes": [
     {
+      "date": "2026-05-26",
+      "what": "V37.9.84 六件套: (1) Daily Self-Critique Observer 上线 (daily_observer.py+.sh, 73单测, cron 06:30 LLM-as-judge) (2) kb_evening job failure visibility (observer提案真修) (3) observer score history + 7-day trend (4) mm_index路径迁移 (5) run_hn_fixed重命名到jobs/hn_watcher/ (6) unfinished清理103→60. 全量96/0/3328.",
+      "by": "claude_code"
+    },
+    {
       "date": "2026-05-20",
       "what": "V37.9.83 AI Partnership 战略沉淀 — 写思想升华文档 docs/articles/ai_partnership_first_principles_zh.md (Stage 2 第 6 篇立场文章, ~600 行). 三大第一性原理刻入项目灵魂: (1) 协作本质是边界不是信任 boundaries > trust, 100% 权限假设的根本反挑战, MR-4 silent-failure 28+ 次演出都是好意图+边界不清晰的组合 (2) 系统自我成长 = 用户视角机器化 70% 真问题来自用户 WhatsApp 反馈, daily LLM observer 输出 read-only proposal 是最直接路径 (3) LLM 判断三层 工作记忆已解决/判断模式可部分蒸馏/协作惯性几乎不可持久化. 三战略方向 (Daily Self-Critique Recommended / Claude Escalation Capability / Red Team Sandbox) 登记 deferred unfinished 待用户启动. 今日不动代码, 把第一性原理刻入项目灵魂. Stage 2 → Stage 3 拐点: AI Partnership Framework — 不只是工具系统, 是 AI 合伙人 + 人类伙伴协同工程范式. 累计 95 suites / 3247 tests / 0 fail / 81 inv / 740 checks / 19 MR / 安全 95/100 / VERSION 0.37.9.68 不变 (V37.9.83 是治理思想层固化非业务语义).",
       "by": "claude_code"
@@ -193,11 +198,6 @@
     {
       "date": "2026-05-15",
       "what": "**V37.9.68-hotfix Mac Mini 真激活验证成功** — 用户视角原则 #13 第 20 次正向兑现完整闭环。用户开工 9:32 报告 [3/3] 而非 [4/4] → 9:41 代码层根因诊断 + Mac Mini 数据层确认 → 10:30 hotfix 提交 (kb_dream_helpers split_dream_into_chunks 纯函数 + 12 单测含血案场景回归 + 反向验证两层 sabotage 真有效) → PR #561 合并 → Mac Mini git fetch + reset + bash ~/kb_dream.sh 手动触发 → log: 三阶推送完成 4/4 段成功 (DEEP/WIDE/RADAR/Overview) + 梦境已推送 4/4 段到 WhatsApp + Discord → WhatsApp 真收到 4 个 [N/4] 独立窗口完美匹配 V37.9.68 设计预期 → **闭环时间 < 1.5 小时从用户视角发现到生产真激活验证**。DEEP 主题 Papers with Code 平台异常沉默 (新颖, 14 天 ban-list 持续有效, 非 Qwen-BIM 类). MR-4 silent-failure 第 27 次新形态 (设计假设与算法实现不一致) 完整 framework 级修复 + 用户视角硬实证. 元价值: V37.9.21 多窗口分片机制 4 个版本演进 (单大段切→多段合并→多段独立) 彻底完成. 用户视角原则 #13 + 原则 #15 测试三层 + 原则 #28 理解再动手三问 + MR-8 single-source-of-truth + MR-4 silent-failure 上游预防层 + V37.9.66 类别 B 设计假设错配防御 — 多 framework 协同发力 1.5h 闭环 (vs V37.9.4→V37.9.29 同款 60 天潜伏对比硬实证). V37.9.69+ 候选 (a) Mac Mini 真激活验证 — **已兑现**.",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-05-15",
-      "what": "V37.9.68-hotfix Mac Mini 5/15 03:00 cron 真激活验证发现 Dream 推送收到 [3/3] 而非 [4/4] — 4 段被合并成 3 chunks 血案修复 (用户视角原则 #13 第 20 次正向兑现)。**根因**: V37.9.68 changelog 说 4 段 ## header 自然复用 V37.9.21 多窗口分片, 但 V37.9.21 实际是 current+piece <= max_chunk 就合并 算法。V37.9.68 4 段大小不均匀 (DEEP ~5000 / WIDE ~1700 / RADAR ~900 / 总览 ~400), WIDE+RADAR (~2600) 被合并成 1 chunk。属 V37.9.66 案例库 类别 B 设计假设错配, MR-4 silent-failure 第 27 次新形态 (设计文档说 4 段独立但代码无强制保证)。**修复**: kb_dream_helpers.py 加 split_dream_into_chunks(text, max_chunk) 纯函数 (每个 ## 段独立成 chunk + header 合并到第一段 + 单段超 max_chunk 内部 \\n 切, MR-8 single-source-of-truth)。kb_dream.sh 改用 helper (替换 35 行 inline Python 为 7 行调用)。**12 新单测** TestSplitDreamIntoChunks 8 (空/非string/血案场景回归 4 段必产 4 chunks/header 合并/超大段内部切/无 ## 段单 chunk/max_chunk 防御/空段跳过 + 5/15 真实 layout 测试) + TestKbDreamShellGuards 4 (helper import 守卫/真调用/反向消除旧合并算法/V37.9.68-hotfix marker)。**反向验证两层守卫真有效**: sabotage helper while 循环 → 1 fail / sabotage 回退到旧合并算法 → 5 fail (含血案场景回归 + 5/15 真实 layout 模拟)。**INV-DREAM-MULTITHEME-001 内涵扩展含 5 新 V37.9.68-hotfix check** (helper 函数定义 + helper import 守卫 + 真调用守卫 + V37.9.68-hotfix marker + 反向反合并算法 python_assert)。**接近真实数据模拟验证** Mac Mini 5/15 dream 文件 layout (含 ### 三子段) → V37.9.68-hotfix 后产 [1/4] DEEP+header 2132 chars / [2/4] WIDE 1417 / [3/4] RADAR 615 / [4/4] 总览 141 = 4 chunks 完美匹配设计预期。累计 86 suites 不变 / 2950→2962 tests (+12) / 0 fail / governance v3.43→v3.44 / 77 inv 不变 / 655→660 checks (+5) / 安全 95/100 / VERSION 0.37.9.68 不变 (hotfix 不 bump)。Mac Mini 部署后预期: 5/16 03:00 cron 自动推送 4 个独立 WhatsApp 窗口 (DEEP/WIDE/RADAR/总览), DEEP 段超 4000 时仍内部切但不影响其他 3 段独立性。**元价值**: V37.9.21 多窗口分片机制经 V37.9.21→V37.9.35→V37.9.68→V37.9.68-hotfix 4 个版本演进 (单大段切 → 多段合并 → 多段独立), 验证原则 #15 测试三层第三层不可替代 — 单测全绿+治理全绿+用户实际收到 [3/3] 才暴露 V37.9.68 设计假设错配。同时发现 V37.9.63 抽 cron_monitor_fatal_handler.sh 后 test_watchdog_self_monitoring.py 有 5 个测试漂移 (TestStepBErrTrapSilentAbort/TestWatchdogSyntaxAndIntegration), 已登记 V37.9.69+ 候选 (非 V37.9.68-hotfix 引入), full_regression.sh line 30 bash 计数 bug 也登记。",
       "by": "claude_code"
     }
   ],
@@ -339,10 +339,10 @@
   "quality": {
     "security_score": 95,
     "test_count": 3328,
-    "last_regression": "2026-05-26 05:14 pass",
+    "last_regression": "2026-05-26 05:20 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-05-26 05:14",
-    "test_suites": 95,
+    "security_score_time": "2026-05-26 05:20",
+    "test_suites": 96,
     "governance_invariants": "64/64",
     "governance_checks": "350/350",
     "version": "0.37.9.68"
@@ -409,7 +409,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.83 AI Partnership 战略沉淀完成 (思想升华文档已写). 等待用户决策启动三战略方向之一 (Daily Self-Critique / Claude Escalation / Red Team Sandbox). 持续运转: 95 suites / 3247 tests / 81 inv / V37.9.81 FDA 24h 数据回归 + 周一观察制度 + 治理 audit cron.",
+  "focus": "V37.9.84 Daily Self-Critique Observer 上线 + 短任务清零 (mm_index 路径迁移 + run_hn 重命名 + unfinished 103→60 清理). 下次候选: #99 scanner crontab check / 方向 2 Claude Escalation / observer 趋势数据积累 3 天后看.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
