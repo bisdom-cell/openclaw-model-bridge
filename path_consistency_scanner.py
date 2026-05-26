@@ -72,20 +72,7 @@ ALLOWED_NON_STANDARD_DST: dict[str, dict[str, str]] = {
         "dst": "$HOME/.kb/docs/config.md",
         "reason": "V29 kb_inject 让 PA 可查文档",
     },
-    # MM (Multimodal Memory) V29.1 历史遗留 — 部署到 repo 目录而非 $HOME.
-    # V37.9.82+ 候选: 评估迁移到 $HOME/ 标准约定 (or 加 .openclaw/ 前缀).
-    "mm_index.py": {
-        "dst": "$HOME/openclaw-model-bridge/mm_index.py",
-        "reason": "V29.1 MM 索引器历史遗留 — 仓库目录运行约定 (V37.9.82+ 候选: 评估迁移)",
-    },
-    "mm_search.py": {
-        "dst": "$HOME/openclaw-model-bridge/mm_search.py",
-        "reason": "V29.1 MM 搜索历史遗留 — 同 mm_index.py",
-    },
-    "mm_index_cron.sh": {
-        "dst": "$HOME/openclaw-model-bridge/mm_index_cron.sh",
-        "reason": "V29.1 MM cron wrapper 历史遗留 — 同 mm_index.py",
-    },
+    # V37.9.84: mm_index/mm_search/mm_index_cron 已迁移到 $HOME/ 标准约定 (从 V29.1 repo 目录历史遗留)
     # V37 历史: HN 脚本 src 命名 run_hn_fixed.sh 但部署到 jobs/hn_watcher/
     # 子目录. V37.9.82+ 候选: 重命名 src 为 jobs/hn_watcher/run_hn_fixed.sh
     # (需同步 jobs_registry + 单测), 但当前历史保留豁免.
