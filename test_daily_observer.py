@@ -22,6 +22,64 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import daily_observer as obs
 
 
+class TestResolveLastRunPath(unittest.TestCase):
+    """Multi-candidate path resolution (V37.9.56-hotfix same pattern)."""
+
+    def test_finds_in_primary_jobs_dir(self):
+        with tempfile.TemporaryDirectory() as td:
+            job_dir = os.path.join(td, "hf_papers", "cache")
+            os.makedirs(job_dir)
+            lr = os.path.join(job_dir, "last_run.json")
+            with open(lr, "w") as f:
+                f.write("{}")
+            result = obs._resolve_last_run_path(td, "hf_papers")
+            self.assertEqual(result, lr)
+
+    def test_falls_back_to_mac_mini_path(self):
+        """When primary path missing, finds ~/.openclaw/jobs/X/cache/."""
+        with tempfile.TemporaryDirectory() as td:
+            mac_dir = os.path.join(td, "mac_openclaw", "jobs",
+                                   "hf_papers", "cache")
+            os.makedirs(mac_dir)
+            lr = os.path.join(mac_dir, "last_run.json")
+            with open(lr, "w") as f:
+                f.write("{}")
+            original = obs._MAC_MINI_JOBS_DIR
+            try:
+                obs._MAC_MINI_JOBS_DIR = os.path.join(
+                    td, "mac_openclaw", "jobs")
+                result = obs._resolve_last_run_path(
+                    os.path.join(td, "nonexistent"), "hf_papers")
+                self.assertEqual(result, lr)
+            finally:
+                obs._MAC_MINI_JOBS_DIR = original
+
+    def test_returns_none_when_all_missing(self):
+        with tempfile.TemporaryDirectory() as td:
+            result = obs._resolve_last_run_path(td, "nonexistent_job")
+            self.assertIsNone(result)
+
+    def test_primary_takes_precedence(self):
+        """Primary dir wins even if Mac Mini path also exists."""
+        with tempfile.TemporaryDirectory() as td:
+            primary = os.path.join(td, "primary", "dblp", "cache")
+            os.makedirs(primary)
+            with open(os.path.join(primary, "last_run.json"), "w") as f:
+                json.dump({"status": "primary"}, f)
+            mac = os.path.join(td, "mac", "dblp", "cache")
+            os.makedirs(mac)
+            with open(os.path.join(mac, "last_run.json"), "w") as f:
+                json.dump({"status": "mac"}, f)
+            original = obs._MAC_MINI_JOBS_DIR
+            try:
+                obs._MAC_MINI_JOBS_DIR = os.path.join(td, "mac")
+                result = obs._resolve_last_run_path(
+                    os.path.join(td, "primary"), "dblp")
+                self.assertIn("primary", result)
+            finally:
+                obs._MAC_MINI_JOBS_DIR = original
+
+
 class TestScanJobStatuses(unittest.TestCase):
     """Scan last_run.json from job cache directories."""
 
@@ -511,6 +569,14 @@ class TestSourceLevelGuards(unittest.TestCase):
 
     def test_default_kb_dir(self):
         self.assertIn("~/.kb", self.src)
+
+    def test_mac_mini_jobs_path_candidate(self):
+        """V37.9.56-hotfix same pattern: Mac Mini path must be a candidate."""
+        self.assertIn("_MAC_MINI_JOBS_DIR", self.src)
+        self.assertIn(".openclaw/jobs", self.src)
+
+    def test_resolve_last_run_path_helper(self):
+        self.assertIn("def _resolve_last_run_path(", self.src)
 
     def test_jobs_subdirs_defined(self):
         self.assertIn("JOBS_SUBDIRS", self.src)
