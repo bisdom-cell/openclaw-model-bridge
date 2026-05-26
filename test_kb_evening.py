@@ -896,5 +896,96 @@ class TestKbEveningShellRuntime(unittest.TestCase):
         self.assertIn("晚间整理", content)
 
 
+class TestJobFailureVisibility(unittest.TestCase):
+    """V37.9.84 observer proposal: job failures visible in evening report."""
+
+    def test_collect_job_failures_finds_failed_jobs(self):
+        with tempfile.TemporaryDirectory() as td:
+            cache = os.path.join(td, "pwc", "cache")
+            os.makedirs(cache)
+            with open(os.path.join(cache, "last_run.json"), "w") as f:
+                json.dump({"status": "fetch_failed", "reason": "HTTP 403"}, f)
+            original = ev._JOBS_CACHE_PATHS
+            try:
+                ev._JOBS_CACHE_PATHS = [td]
+                failures = ev.collect_job_failures()
+                self.assertEqual(len(failures), 1)
+                self.assertEqual(failures[0]["job_id"], "pwc")
+                self.assertEqual(failures[0]["status"], "fetch_failed")
+                self.assertIn("403", failures[0]["reason"])
+            finally:
+                ev._JOBS_CACHE_PATHS = original
+
+    def test_collect_job_failures_ignores_ok_jobs(self):
+        with tempfile.TemporaryDirectory() as td:
+            cache = os.path.join(td, "hf_papers", "cache")
+            os.makedirs(cache)
+            with open(os.path.join(cache, "last_run.json"), "w") as f:
+                json.dump({"status": "ok", "new": 10}, f)
+            original = ev._JOBS_CACHE_PATHS
+            try:
+                ev._JOBS_CACHE_PATHS = [td]
+                failures = ev.collect_job_failures()
+                self.assertEqual(len(failures), 0)
+            finally:
+                ev._JOBS_CACHE_PATHS = original
+
+    def test_collect_job_failures_empty_dir(self):
+        with tempfile.TemporaryDirectory() as td:
+            original = ev._JOBS_CACHE_PATHS
+            try:
+                ev._JOBS_CACHE_PATHS = [td]
+                failures = ev.collect_job_failures()
+                self.assertEqual(failures, [])
+            finally:
+                ev._JOBS_CACHE_PATHS = original
+
+    def test_format_job_failures_block_empty(self):
+        self.assertEqual(ev.format_job_failures_block([]), "")
+
+    def test_format_job_failures_block_with_failures(self):
+        failures = [
+            {"job_id": "pwc", "status": "fetch_failed", "reason": "HTTP 403"},
+            {"job_id": "finance_news", "status": "llm_failed", "reason": ""},
+        ]
+        block = ev.format_job_failures_block(failures)
+        self.assertIn("pwc", block)
+        self.assertIn("fetch_failed", block)
+        self.assertIn("finance_news", block)
+        self.assertIn("任务异常", block)
+
+    def test_failures_injected_into_prompt(self):
+        failures_block = ev.format_job_failures_block([
+            {"job_id": "pwc", "status": "fetch_failed", "reason": "HTTP 403"},
+        ])
+        prompt = ev.build_evening_prompt(
+            "notes", "sources", 1, 100, 50, 5, "AI",
+            job_failures_block=failures_block,
+        )
+        self.assertIn("pwc", prompt)
+        self.assertIn("fetch_failed", prompt)
+        self.assertIn("任务异常", prompt)
+
+    def test_no_failures_prompt_unchanged(self):
+        prompt_without = ev.build_evening_prompt(
+            "notes", "sources", 1, 100, 50, 5, "AI",
+        )
+        prompt_with_empty = ev.build_evening_prompt(
+            "notes", "sources", 1, 100, 50, 5, "AI",
+            job_failures_block="",
+        )
+        self.assertEqual(prompt_without, prompt_with_empty)
+
+    def test_source_level_guards(self):
+        src_path = os.path.join(os.path.dirname(__file__),
+                                "kb_evening_collect.py")
+        with open(src_path, "r", encoding="utf-8") as f:
+            src = f.read()
+        self.assertIn("def collect_job_failures(", src)
+        self.assertIn("def format_job_failures_block(", src)
+        self.assertIn("_FAILURE_STATUSES", src)
+        self.assertIn("V37.9.84", src)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

@@ -44,7 +44,77 @@ from hallucination_guards import get_guard
 
 
 # ══════════════════════════════════════════════════════════════════════
-# 0. Today-scoped helpers — V37.7 label semantics fix
+# 0a. Job failure scanner — V37.9.84 observer proposal #3/#5 (failure impact)
+# ══════════════════════════════════════════════════════════════════════
+
+_JOBS_CACHE_PATHS = [
+    os.path.expanduser("~/.openclaw/jobs"),
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "jobs"),
+]
+
+_FAILURE_STATUSES = {"llm_failed", "fetch_failed", "send_failed", "partial_degraded"}
+
+
+def collect_job_failures(today=None):
+    """Scan last_run.json from all job cache dirs, return failures.
+
+    Returns:
+        list of dict: [{job_id, status, reason}, ...] for non-ok jobs.
+        Empty list if all ok or no cache found (FAIL-OPEN).
+    """
+    if today is None:
+        today = datetime.now()
+    failures = []
+    seen = set()
+    for base in _JOBS_CACHE_PATHS:
+        if not os.path.isdir(base):
+            continue
+        try:
+            subdirs = os.listdir(base)
+        except OSError:
+            continue
+        for job_id in subdirs:
+            if job_id in seen:
+                continue
+            lr = os.path.join(base, job_id, "cache", "last_run.json")
+            if not os.path.isfile(lr):
+                continue
+            seen.add(job_id)
+            try:
+                with open(lr, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                status = data.get("status", "")
+                if status in _FAILURE_STATUSES:
+                    failures.append({
+                        "job_id": job_id,
+                        "status": status,
+                        "reason": data.get("reason", ""),
+                    })
+            except (OSError, json.JSONDecodeError):
+                continue
+    return failures
+
+
+def format_job_failures_block(failures):
+    """Format job failures as a prompt injection block.
+
+    Returns empty string if no failures (backward compatible).
+    """
+    if not failures:
+        return ""
+    lines = ["\n\n═══ 今日任务异常 (自动检测) ═══"]
+    for f in failures:
+        reason = f" ({f['reason'][:80]})" if f.get("reason") else ""
+        lines.append(f"- {f['job_id']}: {f['status']}{reason}")
+    lines.append(
+        "\n注意: 如果上述异常影响了信源覆盖 (如某个论文源抓取失败), "
+        "请在'今日要闻'或'健康度'段简要提及, 让用户了解今日信息可能不完整的领域."
+    )
+    return "\n".join(lines)
+
+
+# ══════════════════════════════════════════════════════════════════════
+# 0b. Today-scoped helpers — V37.7 label semantics fix
 # ══════════════════════════════════════════════════════════════════════
 
 def count_today_notes(kb_dir, today=None):
@@ -170,6 +240,7 @@ def collect_top_alignment_picks_for_evening(repo_root=None, min_stars=4, top_n=5
 def build_evening_prompt(
     notes_text, sources_text, days, index_total, note_count,
     today_note_count, themes, trend_signals=None, top_alignment_picks=None,
+    job_failures_block="",
 ):
     """构造晚间整理 prompt。
 
@@ -244,7 +315,7 @@ def build_evening_prompt(
 知识库总条目: {index_total} 条
 笔记总数: {note_count} 篇
 今日新增: {today_note_count} 篇
-活跃标签: {themes}{alignment_block}{trend_block}"""
+活跃标签: {themes}{alignment_block}{trend_block}{job_failures_block}"""
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -367,10 +438,14 @@ def run(kb_dir, days, registry_path, today=None, llm_caller=None):
     trend_signals = collect_trend_signals_for_evening()
     # V37.9.56 Sub-Stage 4c: Opportunity Radar #2 high-alignment Top 5 injection
     top_alignment_picks = collect_top_alignment_picks_for_evening()
+    # V37.9.84: job failure visibility (observer proposal #3/#5)
+    job_failures = collect_job_failures(today=today)
+    job_failures_block = format_job_failures_block(job_failures)
     prompt = build_evening_prompt(
         prompt_notes, prompt_sources, days, index_total, note_count,
         today_note_count, themes, trend_signals=trend_signals,
         top_alignment_picks=top_alignment_picks,
+        job_failures_block=job_failures_block,
     )
 
     # Call LLM — 复用 rc.call_llm（同一个 proxy URL/timeout/min-length 契约）
