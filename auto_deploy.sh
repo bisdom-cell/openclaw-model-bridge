@@ -186,7 +186,7 @@ declare -a FILE_MAP=(
     "wa_e2e_test.sh|$HOME/wa_e2e_test.sh"
 
     # 独立 Watcher 脚本
-    "run_hn_fixed.sh|$HOME/.openclaw/jobs/hn_watcher/run_hn_fixed.sh"
+    "jobs/hn_watcher/run_hn_fixed.sh|$HOME/.openclaw/jobs/hn_watcher/run_hn_fixed.sh"
 
     # OpenClaw 官方 Watcher
     "jobs/openclaw_official/run.sh|$HOME/.openclaw/jobs/openclaw_official/run.sh"

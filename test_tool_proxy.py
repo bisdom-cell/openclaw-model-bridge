@@ -5,6 +5,7 @@ Run: python3 -m pytest test_tool_proxy.py -v
   or: python3 test_tool_proxy.py
 """
 import json
+import os
 import unittest
 
 # V27: import directly from the filters module (no more inline copy)
@@ -1166,7 +1167,7 @@ class TestNotifyShAlertMarker(unittest.TestCase):
         helper 含 "[SYSTEM_ALERT] hn_watcher LLM 失败" (与 S2/DBLP/AI Leaders 同款 helper).
         放宽断言为接受两种字面量任一存在.
         """
-        with open("run_hn_fixed.sh") as f:
+        with open(os.path.join(os.path.dirname(__file__), "jobs", "hn_watcher", "run_hn_fixed.sh")) as f:
             src = f.read()
         self.assertIn("[SYSTEM_ALERT]", src,
                       "run_hn_fixed.sh 告警路径缺少 [SYSTEM_ALERT] 前缀")

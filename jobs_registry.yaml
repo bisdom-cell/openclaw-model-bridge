@@ -233,7 +233,7 @@ jobs:
 
   - id: run_hn_fixed
     scheduler: system
-    entry: run_hn_fixed.sh
+    entry: jobs/hn_watcher/run_hn_fixed.sh
     interval: "45 8,14,20 * * *"    # 每天3次（HN实时性不强，从8次降到3次）
     log: ~/.openclaw/logs/jobs/hn_watcher.log
     needs_api_key: false

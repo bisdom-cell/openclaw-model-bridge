@@ -31,7 +31,7 @@ EXPECTED_RSYNC_SITES = [
     "kb_inject.sh",
     "kb_review.sh",
     "kb_deep_dive.sh",
-    "run_hn_fixed.sh",
+    "jobs/hn_watcher/run_hn_fixed.sh",
     "jobs/hf_papers/run_hf_papers.sh",
     "jobs/semantic_scholar/run_semantic_scholar.sh",
     "jobs/dblp/run_dblp.sh",

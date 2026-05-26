@@ -419,7 +419,7 @@ class TestSitesMigrationGuard(unittest.TestCase):
 
     EXPECTED_SITES = [
         "kb_save_arxiv.sh", "kb_dream.sh", "kb_evening.sh", "kb_inject.sh",
-        "kb_review.sh", "kb_deep_dive.sh", "run_hn_fixed.sh",
+        "kb_review.sh", "kb_deep_dive.sh", "jobs/hn_watcher/run_hn_fixed.sh",
         "jobs/hf_papers/run_hf_papers.sh",
         "jobs/semantic_scholar/run_semantic_scholar.sh",
         "jobs/dblp/run_dblp.sh",

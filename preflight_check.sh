@@ -448,7 +448,7 @@ echo "📋 10/19 Job 数据流 smoke test"
 # 10a. 反模式扫描：heredoc 结束符后紧跟 <<< 会导致 stdin 被 heredoc 耗尽
 #      python3 - <<'PYEOF' ... PYEOF; <<< "$DATA" → DATA 永远读不到
 ANTIPATTERN_FOUND=false
-for script in run_hn_fixed.sh jobs/*/run*.sh jobs/*/*.sh; do
+for script in jobs/*/run*.sh jobs/*/*.sh; do
     [ -f "$SCRIPT_DIR/$script" ] || continue
     # 检测：heredoc 结束标记（独占一行）的下一行含 <<<
     if grep -A1 -n "^PYEOF$\|^PYEOF2$\|^EOF$\|^ENDPY$" "$SCRIPT_DIR/$script" 2>/dev/null | grep -q "<<<"; then
