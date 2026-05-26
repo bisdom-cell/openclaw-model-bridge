@@ -247,6 +247,9 @@ declare -a FILE_MAP=(
     "kb_review_collect.py|$HOME/kb_review_collect.py"
     "kb_evening_collect.py|$HOME/kb_evening_collect.py"
     "kb_deep_dive.py|$HOME/kb_deep_dive.py"
+    # V37.9.84 Daily Self-Critique Observer (方向 1 Daily Self-Critique)
+    "daily_observer.py|$HOME/daily_observer.py"
+    "daily_observer.sh|$HOME/daily_observer.sh"
     "kb_autotag.py|$HOME/kb_autotag.py"
     # V37.9.46 Opportunity Radar Stage 1 PoC (cross-source weak signal aggregator)
     "cross_source_signal_aggregator.py|$HOME/cross_source_signal_aggregator.py"

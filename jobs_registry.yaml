@@ -217,6 +217,18 @@ jobs:
     tier: auxiliary                   # 每日深度分析（V37.9.16）
     description: "每日深度分析（V37.9.16: 挑选今日⭐≥4 论文/文章 + 一档 PDF/二档 HTML 抓取 + 论证链分析 + WhatsApp简版 + Discord #daily 完整版 + ~/.kb/deep_dives/ 归档）"
 
+  # ---- Daily Self-Critique Observer（V37.9.84） ----
+
+  - id: daily_observer
+    scheduler: system
+    entry: daily_observer.sh
+    interval: "30 6 * * *"            # 每天 06:30 HKT（所有夜间 job 完成后、用户起床前）
+    log: ~/daily_observer.log
+    needs_api_key: true
+    enabled: true
+    tier: auxiliary                     # 系统质量自审（V37.9.84 方向 1 Daily Self-Critique）
+    description: "每日自审（V37.9.84: LLM-as-judge 扫前日推送输出 + 评分 + read-only 改进提案，永不直接改代码。推 Discord #daily only。失败成本: 一个 cron + 一份 markdown）"
+
   # ---- HN 讨论抓取（独立脚本） ----
 
   - id: run_hn_fixed
