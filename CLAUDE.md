@@ -931,7 +931,7 @@ HH:MM  [组件D] 下游事件
 ## 远程连接（本机）
 
 ```bash
-ssh bisdom@10.102.0.217      # 办公室内网
+ssh bisdom@10.102.0.23       # 办公室内网（en1 Wi-Fi, V37.9.84+ DHCP 更新）
 ssh bisdom@10.120.230.23     # ZeroTier（回家后）
 ```
 
