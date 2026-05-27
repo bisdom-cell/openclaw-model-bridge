@@ -32,6 +32,7 @@ import argparse
 import json
 import os
 import re
+import subprocess
 import sys
 from typing import Any
 
@@ -254,6 +255,70 @@ def scan_path_consistency(repo_dir: str) -> list[dict[str, str]]:
     return findings
 
 
+def scan_crontab_consistency(repo_dir: str) -> list[dict[str, str]]:
+    """V37.9.85: verify _format_cron_line output matches real crontab -l.
+
+    Only meaningful on Mac Mini (--full mode). In dev, crontab -l returns
+    empty or error → 0 findings (FAIL-OPEN, not a false alarm).
+
+    For each enabled system job with entry+interval+log, generates the
+    expected cron line via convergence._format_cron_line and checks if
+    it exists in crontab -l output.
+
+    Returns list of finding dicts with type=CRON_LINE_MISSING.
+    """
+    findings: list[dict[str, str]] = []
+
+    # Load convergence._format_cron_line — lazy to avoid hard dep
+    try:
+        sys.path.insert(0, os.path.join(repo_dir, "ontology"))
+        from convergence import _format_cron_line
+    except (ImportError, Exception):
+        return findings  # FAIL-OPEN: convergence not available
+
+    # Get real crontab
+    try:
+        result = subprocess.run(
+            ["crontab", "-l"],
+            capture_output=True, text=True, timeout=5,
+        )
+        crontab_lines = result.stdout.strip()
+    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+        return findings  # FAIL-OPEN: no crontab command or timeout
+
+    if not crontab_lines:
+        return findings  # FAIL-OPEN: empty crontab (dev environment)
+
+    enabled_jobs = load_jobs_registry(repo_dir)
+    for job in enabled_jobs:
+        scheduler = job.get("scheduler", "")
+        if scheduler != "system":
+            continue
+        entry = job.get("entry", "")
+        interval = job.get("interval", "")
+        log = job.get("log", "")
+        if not entry or not interval or not log:
+            continue
+
+        try:
+            expected_line = _format_cron_line(job)
+        except (ValueError, Exception):
+            continue  # malformed job, already caught by scan_path_consistency
+
+        if expected_line not in crontab_lines:
+            findings.append({
+                "type": "CRON_LINE_MISSING",
+                "job_id": job.get("id", "?"),
+                "detail": (
+                    f"expected cron line not found in crontab -l: "
+                    f"{expected_line!r}"
+                ),
+                "expected_line": expected_line,
+            })
+
+    return findings
+
+
 def format_findings_human(findings: list[dict[str, str]]) -> str:
     """Format findings list as human-readable multi-line text."""
     if not findings:
@@ -278,7 +343,7 @@ def format_findings_human(findings: list[dict[str, str]]) -> str:
 
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(
-        description="V37.9.82 INV-PATH-CONSISTENCY-001 scanner"
+        description="V37.9.82+V37.9.85 INV-PATH-CONSISTENCY-001 scanner"
     )
     parser.add_argument(
         "--repo-dir",
@@ -289,6 +354,11 @@ def main(argv: list[str]) -> int:
         "--json",
         action="store_true",
         help="JSON output (machine-readable)",
+    )
+    parser.add_argument(
+        "--full",
+        action="store_true",
+        help="V37.9.85: include crontab -l consistency check (Mac Mini only)",
     )
     args = parser.parse_args(argv)
 
@@ -301,16 +371,28 @@ def main(argv: list[str]) -> int:
         )
         return 2
 
+    # V37.9.85: --full mode adds crontab consistency check
+    if args.full:
+        cron_findings = scan_crontab_consistency(args.repo_dir)
+        findings.extend(cron_findings)
+
     if args.json:
         print(json.dumps({
-            "version": "V37.9.82",
+            "version": "V37.9.85",
             "invariant": "INV-PATH-CONSISTENCY-001",
             "repo_dir": args.repo_dir,
+            "full_mode": args.full,
             "violation_count": len(findings),
             "findings": findings,
         }, ensure_ascii=False, indent=2))
     else:
         print(format_findings_human(findings))
+        if args.full and not any(f["type"] == "CRON_LINE_MISSING" for f in findings):
+            cron_jobs_count = len([
+                j for j in load_jobs_registry(args.repo_dir)
+                if j.get("scheduler") == "system" and j.get("entry")
+            ])
+            print(f"  ✅ crontab consistency: all {cron_jobs_count} system jobs match")
 
     # FAIL-CLOSE: any violation → exit 1
     return 1 if findings else 0
