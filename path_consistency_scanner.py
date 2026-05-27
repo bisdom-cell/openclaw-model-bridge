@@ -289,8 +289,14 @@ def scan_crontab_consistency(repo_dir: str) -> list[dict[str, str]]:
     if not crontab_lines:
         return findings  # FAIL-OPEN: empty crontab (dev environment)
 
-    # V37.9.85: normalize $HOME/ ↔ ~/ for comparison (semantically identical)
-    crontab_normalized = crontab_lines.replace("$HOME/", "~/")
+    # V37.9.85: normalize for comparison — these are semantically equivalent:
+    #   $HOME/ ↔ ~/
+    #   single quotes ↔ double quotes in bash -lc context
+    #   mkdir -p ...; bash -lc '...' wrapper (substring match)
+    def _normalize(text):
+        return text.replace("$HOME/", "~/").replace('"', "'")
+
+    crontab_normalized = _normalize(crontab_lines)
 
     enabled_jobs = load_jobs_registry(repo_dir)
     for job in enabled_jobs:
@@ -308,9 +314,27 @@ def scan_crontab_consistency(repo_dir: str) -> list[dict[str, str]]:
         except (ValueError, Exception):
             continue  # malformed job, already caught by scan_path_consistency
 
-        expected_normalized = expected_line.replace("$HOME/", "~/")
+        expected_normalized = _normalize(expected_line)
 
-        if expected_normalized not in crontab_normalized:
+        if expected_normalized in crontab_normalized:
+            continue  # exact match (best case)
+
+        # Fallback: check if interval + entry basename both appear in the
+        # same crontab line. This catches "job IS registered but with format
+        # drift" (mkdir wrapper, missing inner bash, different quoting, etc.)
+        entry_file = entry.split(None, 1)[0]
+        entry_basename = os.path.basename(entry_file)
+        interval_str = interval.strip()
+        found_by_basename = False
+        for cron_line in crontab_normalized.splitlines():
+            line_stripped = cron_line.strip()
+            if not line_stripped or line_stripped.startswith("#"):
+                continue
+            if line_stripped.startswith(interval_str) and entry_basename in line_stripped:
+                found_by_basename = True
+                break
+
+        if not found_by_basename:
             findings.append({
                 "type": "CRON_LINE_MISSING",
                 "job_id": job.get("id", "?"),
