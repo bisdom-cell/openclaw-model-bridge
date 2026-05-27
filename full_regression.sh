@@ -231,7 +231,8 @@ else
 fi
 
 echo -n "  🔒 手机号泄漏扫描 ... "
-PHONE_LEAKED=$(grep -r "+852[0-9]\{8\}" . --include="*.py" --include="*.sh" 2>/dev/null | grep -v ".git" | grep -v "+85200000000" | grep -v "test_" || true)
+# V37.9.85: +85200000001 是 governance_ontology.yaml 内嵌单测 fixture (非泄漏)
+PHONE_LEAKED=$(grep -r "+852[0-9]\{8\}" . --include="*.py" --include="*.sh" 2>/dev/null | grep -v ".git" | grep -v "+85200000000\|+85200000001" | grep -v "test_" || true)
 if [ -z "$PHONE_LEAKED" ]; then
     echo "✅"
     PASS=$((PASS + 1))

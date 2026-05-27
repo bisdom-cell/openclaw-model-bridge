@@ -198,7 +198,9 @@ PICK_TITLE=$(echo "$COLLECTOR_OUTPUT" | python3 -c 'import json,sys; print(json.
 WA_CHUNK_DIR=$(mktemp -d -t kb_deep_dive_wa_XXXXXX)
 trap 'rm -rf "$WA_CHUNK_DIR"' EXIT
 
-WA_PARTS_TOTAL=$(COLLECTOR_OUTPUT="$COLLECTOR_OUTPUT" CHUNK_DIR="$WA_CHUNK_DIR" python3 << 'PYEOF'
+# V37.9.85: 用临时文件捕获 Python stderr, 便于 shell log 记录部署不一致警告
+_WA_PARTS_ERR=$(mktemp)
+WA_PARTS_TOTAL=$(COLLECTOR_OUTPUT="$COLLECTOR_OUTPUT" CHUNK_DIR="$WA_CHUNK_DIR" python3 2>"$_WA_PARTS_ERR" << 'PYEOF'
 import json, os, sys
 data = json.loads(os.environ["COLLECTOR_OUTPUT"])
 # V37.9.22: 检测部署不一致期 (新 shell + 旧 py 临时混合) — wa_parts 是 V37.9.21 引入的新字段
@@ -213,6 +215,11 @@ for idx, part in enumerate(parts):
 print(len(parts))
 PYEOF
 )
+# V37.9.85: forward Python stderr WARN to shell log (MR-4 防 silent deploy inconsistency)
+if [ -s "$_WA_PARTS_ERR" ]; then
+    log "WARN: [deploy_inconsistency] $(cat "$_WA_PARTS_ERR")"
+fi
+rm -f "$_WA_PARTS_ERR"
 
 # ── 7. 推送 ──
 # topic=deep_dive 路由到 Discord #daily（保留主 daily 频道作为深度分析归属）

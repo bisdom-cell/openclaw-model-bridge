@@ -133,7 +133,15 @@ for item in items[:50]:
     title    = (item.findtext('title')    or '').strip()
     link     = (item.findtext('link')     or '').strip()
     comments = (item.findtext('comments') or link).strip()
-    desc     = (item.findtext('description') or '').strip()[:400]
+    desc_raw = (item.findtext('description') or '').strip()
+    # V37.9.85: strip HN comment metadata that leaks into LLM prompt as noise
+    # hnrss.org descriptions contain: "username | Hacker News•昨天6:22" comment attribution
+    import re as _re
+    desc_raw = _re.sub(r'<[^>]+>', ' ', desc_raw)              # strip HTML tags
+    desc_raw = _re.sub(r'Hacker News\s*[•·]\s*\S+', '', desc_raw)  # "Hacker News•昨天6:22"
+    desc_raw = _re.sub(r'\b\d+\s*(?:points?|comments?)\b', '', desc_raw, flags=_re.IGNORECASE)  # "123 points", "45 comments"
+    desc_raw = _re.sub(r'\s{2,}', ' ', desc_raw)               # collapse whitespace
+    desc     = desc_raw.strip()[:400]
     pubdate  = (item.findtext('pubDate')  or '').strip()
 
     if not title or not link:

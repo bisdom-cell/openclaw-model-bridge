@@ -432,7 +432,8 @@ else
 fi
 
 # 真实手机号检查（排除占位号，只扫描 git 跟踪的文件）
-LEAK_PHONE=$(git grep -n "+852[0-9]\{8\}" -- "*.py" "*.sh" "*.md" 2>/dev/null | grep -v "+85200000000" || true)
+# V37.9.85: +85200000001 是 governance_ontology.yaml 内嵌单测 fixture (非泄漏)
+LEAK_PHONE=$(git grep -n "+852[0-9]\{8\}" -- "*.py" "*.sh" "*.md" 2>/dev/null | grep -v "+85200000000\|+85200000001" || true)
 if [ -z "$LEAK_PHONE" ]; then
     pass "无真实手机号泄漏"
 else

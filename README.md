@@ -5,11 +5,11 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-3222%20passed-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-3346%20passed-brightgreen.svg)]()
 [![Providers](https://img.shields.io/badge/providers-8%20supported-orange.svg)]()
-[![Governance](https://img.shields.io/badge/invariants-80%2F80%20%2B%2019%20MR-blueviolet.svg)]()
+[![Governance](https://img.shields.io/badge/invariants-82%2F82%20%2B%2019%20MR-blueviolet.svg)]()
 [![Security](https://img.shields.io/badge/security-95%2F100-green.svg)]()
-[![Jobs](https://img.shields.io/badge/cron%20jobs-35%20active-blue.svg)]()
+[![Jobs](https://img.shields.io/badge/cron%20jobs-36%20active-blue.svg)]()
 [![Fail-Fast](https://img.shields.io/badge/LLM%20cron%20fail--fast-17%2F21%20aligned-brightgreen.svg)]()
 [![Notifications](https://img.shields.io/badge/notifications-WhatsApp%20%2B%20Discord-informational.svg)]()
 
