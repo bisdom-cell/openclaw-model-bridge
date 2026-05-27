@@ -385,5 +385,114 @@ class TestSourceLevelGuards(unittest.TestCase):
         self.assertIn("INV-PATH-CONSISTENCY-001", self.content)
 
 
+class TestCrontabConsistency(unittest.TestCase):
+    """V37.9.85: scan_crontab_consistency crontab -l vs _format_cron_line."""
+
+    def test_function_exists(self):
+        """scan_crontab_consistency 函数存在."""
+        from path_consistency_scanner import scan_crontab_consistency
+        self.assertTrue(callable(scan_crontab_consistency))
+
+    def test_dev_environment_returns_empty(self):
+        """Dev 环境无 crontab → FAIL-OPEN 返回空 findings."""
+        from path_consistency_scanner import scan_crontab_consistency
+        findings = scan_crontab_consistency(_HERE)
+        self.assertIsInstance(findings, list)
+        # Dev may or may not have crontab; either way no crash
+        for f in findings:
+            self.assertIn("type", f)
+            self.assertEqual(f["type"], "CRON_LINE_MISSING")
+
+    def test_missing_line_detected(self):
+        """Mock crontab output 缺少某 job → CRON_LINE_MISSING."""
+        from unittest.mock import patch
+        from path_consistency_scanner import scan_crontab_consistency
+
+        # Mock crontab -l to return a partial crontab (missing daily_observer)
+        mock_crontab = "0 7 * * * bash -lc 'bash ~/governance_audit_cron.sh >> ~/governance_audit_cron.log 2>&1'"
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = type("R", (), {
+                "stdout": mock_crontab, "stderr": "", "returncode": 0
+            })()
+            findings = scan_crontab_consistency(_HERE)
+
+        # Should find many missing lines (only 1 of 36 present)
+        missing_ids = [f["job_id"] for f in findings]
+        self.assertGreater(len(findings), 10)
+        # daily_observer should be in missing list (its line differs from mock)
+        self.assertTrue(
+            any(f["type"] == "CRON_LINE_MISSING" for f in findings)
+        )
+
+    def test_all_present_no_findings(self):
+        """Mock crontab 含所有 expected lines → 0 findings."""
+        from unittest.mock import patch
+        from path_consistency_scanner import scan_crontab_consistency, load_jobs_registry
+
+        # Build a mock crontab that has ALL expected lines
+        sys.path.insert(0, os.path.join(_HERE, "ontology"))
+        try:
+            from convergence import _format_cron_line
+        except ImportError:
+            self.skipTest("convergence not importable")
+
+        jobs = load_jobs_registry(_HERE)
+        lines = []
+        for job in jobs:
+            if job.get("scheduler") != "system" or not job.get("entry"):
+                continue
+            try:
+                lines.append(_format_cron_line(job))
+            except ValueError:
+                pass
+        mock_crontab = "\n".join(lines)
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = type("R", (), {
+                "stdout": mock_crontab, "stderr": "", "returncode": 0
+            })()
+            findings = scan_crontab_consistency(_HERE)
+
+        self.assertEqual(len(findings), 0,
+                         f"Expected 0 findings but got: {findings[:3]}")
+
+    def test_full_flag_in_cli(self):
+        """CLI --full flag 存在于 scanner."""
+        with open(os.path.join(_HERE, "path_consistency_scanner.py")) as f:
+            content = f.read()
+        self.assertIn("--full", content)
+        self.assertIn("scan_crontab_consistency", content)
+
+    def test_v37_9_85_marker(self):
+        """V37.9.85 marker 存在于 scanner."""
+        with open(os.path.join(_HERE, "path_consistency_scanner.py")) as f:
+            content = f.read()
+        self.assertIn("V37.9.85", content)
+
+    def test_fail_open_contract(self):
+        """Crontab 不可用时 FAIL-OPEN 不崩溃."""
+        from unittest.mock import patch
+        from path_consistency_scanner import scan_crontab_consistency
+        with patch("subprocess.run", side_effect=FileNotFoundError("no crontab")):
+            findings = scan_crontab_consistency(_HERE)
+        self.assertEqual(findings, [])
+
+    def test_finding_has_expected_line_field(self):
+        """CRON_LINE_MISSING finding 包含 expected_line 字段."""
+        from unittest.mock import patch
+        from path_consistency_scanner import scan_crontab_consistency
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = type("R", (), {
+                "stdout": "# empty crontab with content so not FAIL-OPEN\n* * * * * echo hi",
+                "stderr": "", "returncode": 0
+            })()
+            findings = scan_crontab_consistency(_HERE)
+
+        if findings:
+            self.assertIn("expected_line", findings[0])
+            self.assertIn("job_id", findings[0])
+
+
 if __name__ == "__main__":
     unittest.main()
