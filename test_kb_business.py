@@ -475,7 +475,8 @@ class TestSecurityPatterns(unittest.TestCase):
             import re
             # 匹配 +852XXXXXXXX 格式但排除占位符 +85200000000
             phones = re.findall(r'\+852\d{8}', content)
-            real = [p for p in phones if p != "+85200000000"]
+            # V37.9.85: +85200000001 是 governance_ontology.yaml 内嵌单测 fixture
+            real = [p for p in phones if p not in ("+85200000000", "+85200000001")]
             self.assertEqual(real, [], f"{f} contains real phone number")
 
     def test_no_pipe_crontab_pattern(self):

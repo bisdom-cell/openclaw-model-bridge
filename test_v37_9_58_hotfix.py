@@ -109,20 +109,24 @@ class TestV37958HotfixOsImport(unittest.TestCase):
         )
 
     def test_hn_specific_fix_at_line_283(self):
-        """V37.9.58-hotfix 锁定 HN 修复点 — line 283 必须含 import os."""
+        """V37.9.58-hotfix 锁定 HN 修复点 — prompt heredoc import 必须含 os."""
         fp = os.path.join(REPO_ROOT, "jobs/hn_watcher/run_hn_fixed.sh")
         with open(fp, "r") as f:
             lines = f.readlines()
-        # heredoc 起点 line 282 (HN 仅一个 HG_LEVEL_4_TEXT 注入)
-        # import 行是 line 283 (1-indexed) → idx 282 (0-indexed)
-        import_line = lines[282]
-        self.assertIn("import sys, json", import_line, "HN line 283 应是 import sys, json 行")
-        code_part = import_line.split("#", 1)[0]
-        self.assertRegex(
-            code_part, r"\bos\b",
-            f"V37.9.58-hotfix: HN line 283 必须含 os import (V37.9.57 注入 prompt += os.environ.get) — "
-            f"got: {import_line.strip()[:80]!r}"
-        )
+        # V37.9.85: HN metadata cleanup 加了行, import 位置漂移.
+        # 改为按内容查找: 第一个 "import sys, json" 行必须含 os
+        found = False
+        for i, line in enumerate(lines):
+            if "import sys, json" in line and not line.strip().startswith("#"):
+                code_part = line.split("#", 1)[0]
+                self.assertRegex(
+                    code_part, r"\bos\b",
+                    f"V37.9.58-hotfix: HN import line (L{i+1}) 必须含 os — "
+                    f"got: {line.strip()[:80]!r}"
+                )
+                found = True
+                break
+        self.assertTrue(found, "HN script 未找到 'import sys, json' 行")
 
     def test_v37_9_58_hotfix_marker_in_at_least_one_fix(self):
         """至少一个 V37.9.58-hotfix 修复点应有 marker 注释便于运维 grep / 历史追溯."""
