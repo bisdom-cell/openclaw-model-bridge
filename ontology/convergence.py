@@ -827,8 +827,11 @@ def _format_cron_line(job):
     else:
         entry_runtime = entry
 
-    # Match V37.9.18 INV-CRON-003 pattern: bash -lc 'bash ~/{entry} >> {log} 2>&1'
-    return f"{interval} bash -lc 'bash ~/{entry_runtime} >> {log_resolved} 2>&1'"
+    # V37.9.85: .py entries use python3, .sh entries use bash
+    runner = "python3" if entry_runtime.endswith(".py") else "bash"
+
+    # Match V37.9.18 INV-CRON-003 pattern: bash -lc '{runner} ~/{entry} >> {log} 2>&1'
+    return f"{interval} bash -lc '{runner} ~/{entry_runtime} >> {log_resolved} 2>&1'"
 
 
 def _load_jobs_registry_index(spec):
