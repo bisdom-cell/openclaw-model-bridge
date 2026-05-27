@@ -3303,7 +3303,8 @@ class TestV37966Primitives(unittest.TestCase):
         self.assertGreater(len(lines), 10)
         # 每行必须是合法 cron 行 (5-field interval + bash -lc 模式)
         for line in lines:
-            self.assertRegex(line, r"^\S+ \S+ \S+ \S+ \S+ bash -lc 'bash ~/")
+            # V37.9.85: .py entries use python3, .sh use bash
+            self.assertRegex(line, r"^\S+ \S+ \S+ \S+ \S+ bash -lc '(?:bash|python3) ~/")
 
     def test_parser_cron_lines_set_diff_returns_raw_lines_set(self):
         """新 parser 输出 raw cron 行 set (跳过 # 注释 / 空行)"""

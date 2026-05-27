@@ -289,6 +289,9 @@ def scan_crontab_consistency(repo_dir: str) -> list[dict[str, str]]:
     if not crontab_lines:
         return findings  # FAIL-OPEN: empty crontab (dev environment)
 
+    # V37.9.85: normalize $HOME/ ↔ ~/ for comparison (semantically identical)
+    crontab_normalized = crontab_lines.replace("$HOME/", "~/")
+
     enabled_jobs = load_jobs_registry(repo_dir)
     for job in enabled_jobs:
         scheduler = job.get("scheduler", "")
@@ -305,7 +308,9 @@ def scan_crontab_consistency(repo_dir: str) -> list[dict[str, str]]:
         except (ValueError, Exception):
             continue  # malformed job, already caught by scan_path_consistency
 
-        if expected_line not in crontab_lines:
+        expected_normalized = expected_line.replace("$HOME/", "~/")
+
+        if expected_normalized not in crontab_normalized:
             findings.append({
                 "type": "CRON_LINE_MISSING",
                 "job_id": job.get("id", "?"),
