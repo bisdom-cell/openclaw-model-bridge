@@ -276,6 +276,7 @@ export GEMINI_API_KEY="AIzaXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"   # V29.1新增
 | wa-keepalive | 每30分钟 | `~/wa_keepalive.sh` | `~/wa_keepalive.log` | ✅ V28.1新增：真实发送零宽字符验证WhatsApp通道 |
 | kb-inject | 每天07:00 | `~/kb_inject.sh` | `~/kb_inject.log` | ✅ V29新增：每日KB摘要生成，供LLM对话查阅 |
 | openclaw-backup | 每天03:00 | `~/openclaw_backup.sh` | `~/openclaw_backup.log` | ✅ V29.1新增：每日备份Gateway state到SSD，保留7天 |
+| movespeed-daily-sync | 每天04:00 | `~/movespeed_daily_sync.sh` | `~/movespeed_daily_sync.log` | ✅ V37.9.86新增：KB全量同步到外挂SSD（~/.kb/→/Volumes/MOVESPEED/KB/） |
 | mm-index | 每2小时 | `~/openclaw-model-bridge/mm_index_cron.sh` | `~/.openclaw/logs/jobs/mm_index.log` | ✅ V29.1新增：Multimodal Memory索引（Gemini Embedding 2） |
 | daily-ops-report | 每天08:15 | `~/daily_ops_report.sh` | `~/daily_ops_report.log` | ✅ V36.2新增：运维日报（合并conv_quality+token_report为一条推送） |
 | ~~conv-quality~~ | ~~每天08:15~~ | `~/conv_quality.py` | `~/conv_quality.log` | 🔀 V36.2合并到daily-ops-report（--no-push模式，仍生成JSON） |
@@ -318,6 +319,7 @@ export GEMINI_API_KEY="AIzaXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"   # V29.1新增
 0 9 * * 1 bash -lc '$HOME/health_check.sh >> $HOME/health_check.log 2>&1'
 0 7 * * * bash ~/kb_inject.sh >> ~/kb_inject.log 2>&1
 0 3 * * * bash -lc "$HOME/openclaw_backup.sh >> $HOME/openclaw_backup.log 2>&1"
+0 4 * * * bash -lc "bash ~/movespeed_daily_sync.sh >> ~/movespeed_daily_sync.log 2>&1"
 0 9 * * 6 bash -lc '$HOME/kb_trend.py >> $HOME/kb_trend.log 2>&1'
 */10 * * * * bash -lc 'bash $HOME/cron_canary.sh'
 0 * * * * bash -lc 'bash $HOME/kb_status_refresh.sh >> $HOME/kb_status_refresh.log 2>&1'
