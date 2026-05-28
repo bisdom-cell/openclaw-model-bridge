@@ -675,7 +675,8 @@ if [ "$TOTAL_LEN" -le 8000 ]; then
 else
     # 总长 >8000 → 多窗口切片 (V37.9.21 同款 mktemp + sleep 1s 防乱序)
     WA_CHUNK_DIR=$(mktemp -d)
-    trap 'rm -rf "$WA_CHUNK_DIR"' EXIT INT TERM
+    # V37.9.86: 合并 lock cleanup 防 bash trap override (lockdir 残留血案)
+    trap 'rmdir "$LOCK" 2>/dev/null; rm -rf "$WA_CHUNK_DIR"' EXIT INT TERM
 
     $PYTHON3 - "$MSG_FILE" "$WA_CHUNK_DIR" "$DAY" << 'PYEOF'
 import sys, os, re
