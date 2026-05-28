@@ -220,6 +220,7 @@ declare -a FILE_MAP=(
 
     # 备份脚本
     "openclaw_backup.sh|$HOME/openclaw_backup.sh"
+    "movespeed_daily_sync.sh|$HOME/movespeed_daily_sync.sh"  # V37.9.86: KB→SSD 日同步标准化
 
     # 事故取证 helper（V37.9.14 — 20 个 SSD 备份 fail-loud 站点共享, INV-BACKUP-001 check 4）
     "movespeed_incident_capture.sh|$HOME/movespeed_incident_capture.sh"

@@ -303,6 +303,16 @@ jobs:
     tier: core                       # 数据安全
     description: 每日备份 OpenClaw state（config/sessions/memory）到外挂 SSD，保留7天
 
+  - id: movespeed_daily_sync
+    scheduler: system
+    entry: movespeed_daily_sync.sh
+    interval: "0 4 * * *"              # 每天 04:00（openclaw_backup 03:00 之后）
+    log: ~/movespeed_daily_sync.log
+    needs_api_key: false
+    enabled: true
+    tier: auxiliary                     # KB 备份（V37.9.86: inline crontab → 标准 job）
+    description: 每日 KB 全量同步到外挂 SSD（~/.kb/ → /Volumes/MOVESPEED/KB/）
+
   - id: mm_index
     scheduler: system
     entry: mm_index_cron.sh
