@@ -468,10 +468,14 @@ class TestGovernanceLinkage(unittest.TestCase):
             f"(V37.9.58-hotfix3 立 INV-WATCHDOG-SELF-001 时立的 baseline). "
             f"yaml 持续演进允许版本号上升, 但不允许低于 baseline.")
 
-    def test_audit_metadata_meta_rules_19(self):
-        """audit_metadata.meta_rules 升级到 19 (MR-1~MR-19)."""
-        self.assertRegex(self.gov_src, r"meta_rules:\s*19",
-            "V37.9.58-hotfix3: meta_rules 必须升到 19 (含 MR-19)")
+    def test_audit_metadata_meta_rules_baseline_19(self):
+        """audit_metadata.meta_rules >= 19 baseline (V37.9.58-hotfix3 MR-19+)."""
+        import re
+        m = re.search(r"meta_rules:\s*(\d+)", self.gov_src)
+        self.assertIsNotNone(m, "meta_rules 字段必须存在")
+        count = int(m.group(1))
+        self.assertGreaterEqual(count, 19,
+            f"meta_rules 必须 >= 19 baseline (当前 {count})")
 
 
 if __name__ == "__main__":

@@ -666,6 +666,54 @@ meta_rules:
       详 V37.9.58-hotfix3 commit + ontology/docs/cases/watchdog_silent_abort_case.md
       (V37.9.59 候选完整四维度因果链文档化).
 
+  - id: MR-20
+    name: framework-level-fix-must-validate-in-target-environment
+    description: |
+      Framework 级修复必须在目标环境 (Mac Mini) 验证，不能只在 dev 环境验证。
+      Dev 单测 + governance + preflight 全过不代表修复真正工作 — bash 版本差异
+      (3.2 vs 5.x)、macOS BSD 工具差异 (无 timeout/gtimeout)、launchd 行为差异
+      (set -e 不传播 ERR trap 到 function 内需 set -E) 只有目标环境才能暴露。
+
+      MR-20 与 MR-15 (deployment-layout-must-be-tested-on-target) 是姊妹版：
+        - MR-15 关心部署路径假设 (~/jobs/X/ vs ~/.openclaw/jobs/X/)
+        - MR-20 关心运行时行为假设 (bash 版本 quirk / BSD 工具差异)
+      两者共同论断: **dev 环境的"全绿"是必要条件非充分条件**。
+
+    enforcement:
+      - "修复推送后必须提醒用户 Mac Mini 同步 + 实测验证 (原则 #14)"
+      - "shell helpers 必须考虑 macOS BSD 工具差异 (command -v 检测 + fallback)"
+
+    derivative_invariants: []
+
+    blood_lessons: |
+      2026-05-12 V37.9.58-hotfix3 → hotfix4: safe_call helper 用 `timeout 30`
+      但 macOS BSD 默认无 timeout 命令. Dev linux 全过, Mac Mini 3 段"工具不可用".
+      hotfix4 加 set -E (errtrace) + caller || ALERT 才真激活. 两次增量修复
+      证明"dev 全绿不代表修复工作". 2026-05-12 V37.9.58-hotfix 同日:
+      macOS BSD timeout 缺失 → 三档 fallback chain (timeout → gtimeout → 直接).
+
+  - id: MR-21
+    name: monitor-coverage-must-track-registry
+    description: |
+      Watchdog 监控覆盖率必须跟踪 jobs_registry.yaml 所有 enabled jobs，
+      不允许新增 job 登记了 registry 但不在 watchdog 监控范围内。
+
+      V37.9.59 把覆盖率从 47% 提升到 74%+ (JOBS 数组 +4 / LOG_FRESHNESS_JOBS +11 /
+      STALE_LOCK_DIRS +2)，但"新增 job 后必须同步加 watchdog"仍靠程序员记忆。
+      MR-21 要求这个同步变成 CI 可检测的约束。
+
+    enforcement:
+      - "INV-WATCHDOG-COVERAGE-001 守卫 watchdog JOBS+LOG_FRESHNESS 覆盖率"
+      - "新增 enabled job 时必须同步加入 watchdog 监控列表"
+
+    derivative_invariants: [INV-WATCHDOG-COVERAGE-001]
+
+    blood_lessons: |
+      2026-05-12 V37.9.59: 用户问"watchdog 是否监控所有任务"驱动审计，
+      发现 47% 覆盖率 — kb_deep_dive / kb_dream / chaspark / governance_audit
+      四个 job 有 last_run.json 但不在 JOBS 数组. 同时 11 个 job 无 last_run
+      但有 log mtime 可监控 (auto_deploy / wa_keepalive / cron_canary 等).
+
 # ═══════════════════════════════════════════════════════════════════════
 # 3. 不变式（Invariants）— 可执行的声明-执行-验证三元组
 # ═══════════════════════════════════════════════════════════════════════
@@ -6745,6 +6793,74 @@ invariants:
               f"MR-18 requires: from heredoc_import_scanner import scan_repo"
           )
 
+  # ── V37.9.86: INV-HALLUCINATION-001 ─────────────────────────────────
+  - id: INV-HALLUCINATION-001
+    name: llm-tasks-must-use-hallucination-guards
+    meta_rule: MR-7
+    verification_layer: [declaration, runtime]
+    severity: high
+    declaration: |
+      V37.9.57 公共反幻觉守卫 hallucination_guards.py (5 档模板) 已生产运行 2 周+，
+      观察期零编造血案。所有 LLM-calling task 必须使用 get_guard() 而非 inline
+      反幻觉文本 (MR-8 copy-paste-is-a-bug-class 反例)。
+
+      V37.9.56-hotfix3 血案: kb_evening 编造 "OpenClaw 社区发布 v26"
+      (Top 5 paper 注入触发链式幻觉)。V37.9.57 立 5 档公共模板后批量接入 9 task。
+    checks:
+      - name: "hallucination_guards.py 模块存在 + V37.9.57 marker"
+        check_type: file_contains
+        file: hallucination_guards.py
+        pattern: 'V37.9.57'
+      - name: "get_guard 公开 API 函数定义"
+        check_type: file_contains
+        file: hallucination_guards.py
+        pattern: 'def get_guard'
+      - name: "5 档模板全部定义 (LEVEL_1 到 LEVEL_5)"
+        check_type: python_assert
+        assertion: |
+          with open("hallucination_guards.py") as f:
+              content = f.read()
+          for level in ["LEVEL_1_MINIMAL", "LEVEL_2_STANDARD", "LEVEL_3_STRICT",
+                        "LEVEL_4_PROJECT_AWARE", "LEVEL_5_RADAR_AWARE"]:
+              assert level in content, f"missing guard level: {level}"
+      - name: "kb_review_collect.py 使用 get_guard (LEVEL_3)"
+        check_type: file_contains
+        file: kb_review_collect.py
+        pattern: 'get_guard'
+      - name: "kb_evening_collect.py 使用 get_guard (LEVEL_5)"
+        check_type: file_contains
+        file: kb_evening_collect.py
+        pattern: 'get_guard'
+      - name: "kb_deep_dive.py 使用 get_guard (LEVEL_3)"
+        check_type: file_contains
+        file: kb_deep_dive.py
+        pattern: 'get_guard'
+      - name: "auto_deploy FILE_MAP 部署 hallucination_guards.py"
+        check_type: file_contains
+        file: auto_deploy.sh
+        pattern: 'hallucination_guards.py'
+      - name: "V37.9.86 INV-HALLUCINATION-001 marker"
+        check_type: file_contains
+        file: ontology/governance_ontology.yaml
+        pattern: 'INV-HALLUCINATION-001'
+      - name: "LEVEL_4 ALIGNED jobs 注入守卫 (HG_LEVEL_4_TEXT env var)"
+        check_type: python_assert
+        assertion: |
+          import os, glob
+          repo = os.path.dirname(os.path.abspath(__file__)) \
+              if "ontology" in os.path.abspath(__file__) \
+              else os.path.dirname(os.path.abspath(__file__))
+          aligned_with_hg = 0
+          for sh in glob.glob(os.path.join(repo, "jobs", "*", "run_*.sh")):
+              with open(sh) as f:
+                  content = f.read()
+              if "HG_LEVEL_4_TEXT" in content or "HG_GUARD_TEXT" in content:
+                  aligned_with_hg += 1
+          assert aligned_with_hg >= 8, (
+              f"INV-HALLUCINATION-001: only {aligned_with_hg} ALIGNED jobs have "
+              f"HG_LEVEL_4_TEXT injection (expected >= 8 per V37.9.57 batch)"
+          )
+
   # ── V37.9.58-hotfix3: INV-WATCHDOG-SELF-001 ──────────────────────────
   - id: INV-WATCHDOG-SELF-001
     name: monitor-must-self-alarm-on-silent-abort
@@ -8533,9 +8649,11 @@ security_config:
 # 6. 审计元数据
 # ═══════════════════════════════════════════════════════════════════════
 audit_metadata:
-  version: "3.49"
+  version: "3.50"
   created: "2026-04-07"
   upgraded: |
+    v3.49 → v3.50: V37.9.86 治理债三件套 — MR-20 + MR-21 + INV-HALLUCINATION-001. (1) MR-20 framework-level-fix-must-validate-in-target-environment (V37.9.58-hotfix3→4 血案教训: dev 全绿不代表修复工作, bash 3.2 quirk / macOS BSD timeout 缺失只有 Mac Mini 真跑才暴露). (2) MR-21 monitor-coverage-must-track-registry (V37.9.59 watchdog 47%→74% 覆盖率, 观察期 5/12-5/19 已过, 新增 job 必须同步加 watchdog). (3) INV-HALLUCINATION-001 llm-tasks-must-use-hallucination-guards (V37.9.57 反幻觉守卫生产 2 周+ 零编造血案, 10 checks: 模块存在 + 5 档全定义 + kb_review/evening/deep_dive 三模块 import + auto_deploy 部署 + 8 ALIGNED jobs HG_LEVEL_4_TEXT 注入). 累计 83 invariants / 755 checks / 21 meta rules.
+
     v3.48 → v3.49: V37.9.85 INV-AUTO-INJECT-001 立 — MR-18 Step 2 前瞻守卫 (batch inject/migrate 工具必须内嵌 scanner 验证). V37.9.57/58 inject_level_4_to_aligned_jobs.py 是一次性脚本未入仓, 但 MR-18 血案教训 (单点设计错误 8 倍放大) 需要 forward-looking 守卫: 未来任何 inject_*.py/migrate_*.py commit 入仓时 governance audit 立即验证其含 scanner 集成. 当前无此类工具 = guard 自动 pass. INV-AUTO-INJECT-001 (meta_rule=MR-18, severity=high, declaration+runtime, 5 checks): 4 declaration (MR-18 enforcement 引用 + scan_repo API + V37.9.85 marker + 单测文件) + 1 runtime python_assert (glob 扫 inject_*.py/migrate_*.py 验证含 scanner 集成). MR-18 derivative_invariants 从 [INV-HEREDOC-IMPORT-001] 扩到 [INV-HEREDOC-IMPORT-001, INV-AUTO-INJECT-001]. 累计 81→82 invariants / 740→745 checks (+5) / 19 MR 不变.
 
     v3.47 → v3.48: V37.9.82 INV-PATH-CONSISTENCY-001 立 — 防 V37.9.56-hotfix / V37.9.66 同款 Class B (failure_modes_catalog 设计假设错配) 血案. **触发**: 今日 V37.9.81 收工后用户选 Tier 2 任务. failure_modes_catalog.md Class B 已索引 "preflight_cascading_fix / governance_silent_error / ontology_sources_positional_parser_cascade" 3 案例 + V37.9.56-hotfix top_alignment_picker cache_paths + V37.9.66 _format_cron_line jobs/ → .openclaw/ path bug 两个**未独立成 case 但属同款血案模式**. **scanner path_consistency_scanner.py** (~290 行, 纯 Python + lazy yaml): 三方一致性 audit. (1) jobs_registry.yaml entry → auto_deploy.sh FILE_MAP src 必须存在 (entry 含 CLI args 时 split 第一段, e.g. 'kb_dream.sh --map-sources' → 'kb_dream.sh') (2) FILE_MAP src → dst 符合 V37.9.66 约定 (jobs/X/ → $HOME/.openclaw/jobs/X/, 其他 → $HOME/X) 或在 ALLOWED_NON_STANDARD_DST 豁免清单 (3) FILE_MAP src 文件必须存在于 repo. **dev 真跑初始 12 violations** 揭示 2 真 (kb_dream CLI args / run_hn_fixed.sh 命名遗留) + 10 合法非常规部署 (SOUL.md→workspace/ V30.4 / status.json→.kb/ V30.4 / CLAUDE.md+docs→.kb/docs/ V29 kb_inject / ops_soul.md→.openclaw/ V31 Ops Agent / mm_index/search/cron V29.1 历史 / run_hn_fixed.sh V37 命名遗留). **豁免清单 10 项** 每条 dst+reason 双字段 (reason 长度 ≥10 字符强迫文档化设计意图, 防"无理由豁免成漏洞兜底"). 修后 0 violations baseline. **EXEMPTION_DST_DRIFT 反向守卫**: 豁免登记 dst 与 FILE_MAP 实际 dst 不匹配时立即抓到 (防有人改 SOUL.md dst 但忘改豁免登记). **FAIL-CLOSE 契约**: 任一 violation exit 1. **26 新单测 5 类** test_path_consistency_scanner.py: TestExpectedDstForSrc(4 含 jobs/ 前缀 + 根目录 + 嵌套子目录 + 空 string 边界) + TestParseFileMap(4 含 minimal/comment 行跳过/trailing comment/missing FILE_MAP 抛异常) + TestScanIntegration(5 含 all_consistent/MISSING_FILE_MAP/DST_MISMATCH/CLI args 剥离/disabled job 不检查) + TestAllowedNonStandardDst(3 含豁免 dict 结构完整 + critical 豁免登记 + EXEMPTION_DST_DRIFT 检测) + TestRealRepoBaseline(3 含当前 0 violations baseline + CLI exit 0 + JSON 输出有效) + TestReverseSabotage(1 SOUL.md dst 改非豁免位置必抓) + TestSourceLevelGuards(5 V37.9.82 marker + 血案 lineage + FAIL-CLOSE + 常量 + INV 引用). **反向 sabotage 验证守卫真有效**: TestReverseSabotage.test_sabotage_unauthorized_dst_change_caught 真模拟 SOUL.md dst 被改到非豁免位置, scanner 立即抓 EXEMPTION_DST_DRIFT / DST_MISMATCH. **INV-PATH-CONSISTENCY-001** (meta_rule=MR-8 copy-paste-is-a-bug-class, severity=high, declaration+runtime, 9 checks): 7 declaration file_contains (V37.9.82 marker + scan_path_consistency 函数 + ALLOWED_NON_STANDARD_DST + FAIL-CLOSE + V37.9.56-hotfix lineage + V37.9.66 lineage + 测试文件) + 2 runtime python_assert (subprocess 真跑 scanner --json 必须 0 violations + 真跑 26 单测全过). **audit_metadata** total_invariants 80→81 / total_checks 731→740 (+9) / 19 MR 不变 (MR-16 候选一周观察后立, V37.9.82 用 MR-8 copy-paste-is-a-bug-class). **未来保护**: 任何新加 FILE_MAP entry 或 jobs_registry job 时 scanner 主动验证, 任何路径假设错配 → governance audit 立即 fail-close. V3 路标 framework 关键资产 — "34 jobs 路径假设错配" 从 6 个月一次血案降级为 PR 级 CI 守卫. **元价值**: V37.9.81 立 INV-MOVESPEED-TCC-001 把 60 天血案的"发现+教训"作为永久治理记录, V37.9.82 把"未独立成 case 但反复出现的 Class B 模式"作为 scanner 主动预防. failure_modes_catalog Class B 防御直接兑现.
@@ -8594,9 +8712,9 @@ audit_metadata:
     v3.12 → v3.13: V37.8.7 ontology_sources 推送格式错位血案 — INV-ONTOLOGY-001 新增 (ontology-sources-parser-must-be-key-based-not-positional, meta_rule=MR-4, severity=high, verification_layer=[declaration, runtime], 7 checks). 2026-04-15 用户 WhatsApp 收到 ontology_sources 推送严重错位：第 2 篇 cn_title 显示为 *---*、第 3 篇 cn_title 显示为 *价值：⭐⭐⭐⭐*。根因：原解析器用严格位置 (lines[i], lines[i+1], lines[i+2]) + i+=3 步进 — LLM 漏一行"要点"或多一行空白就让所有后续条目的 cn_title/highlight/stars 全部右移一格级联污染。修复：抽到独立模块 jobs/ontology_sources/ontology_parser.py（纯函数 parse_llm_blocks 可单测，避开 V37.5 heredoc-only 不可测血案），按 separator 切块 + 块内 key-based prefix 解析，单块缺行不影响其他块。runtime python_assert 真跑用户实际看到的污染场景断言"缺要点不级联"。24 单测 (test_ontology_parser.py)：TestNormalCases(4) + TestBloodLessonRegression(5) + TestSeparatorVariants(5) + TestLLMOutputVariants(5) + TestShellScriptIntegration(4) + TestActualBloodLessonScenario(1)。MR-4 silent-failure 第 8 次演出（输出"看起来正常" 6 字段都在但语义错乱）。auto_deploy FILE_MAP 补齐 ontology_parser.py。
     v3.11 → v3.12: V37.8.6 Dream 自引用幻觉血案 — INV-DREAM-003 新增 (dream-log-cannot-pollute-cache-nor-fabricate-platform-crises, meta_rule=MR-4, severity=critical, verification_layer=[declaration, runtime], 16 checks). 2026-04-15 03:00 Dream run 出现 4 次 Bad JSON 400 (adapter 收到破损 JSON)，但 Dream 仍产出完整"Hugging Face 平台危机"分析，用户察觉 Signal(Papers with Code 沉默)↔Action(监控 Hugging Face) 主题断裂后上报。三层根因：(a) scraped 内容含 surrogate UTF-8 → json.dump + utf-8 file write → UnicodeEncodeError → body_file 截断 → adapter.py:386 返回 400 Bad JSON (b) kb_dream.sh log() 用 `echo` 写 stdout → signals=$(llm_call ...) 命令替换捕获 log 行进 signals → cache file 被"LLM raw response: Error code 400 Bad JSON..."污染 (c) Reduce cache-only fast path 把错误日志注入 LLM 上下文 → LLM 基于这些字样自动编造"Hugging Face 危机"叙事 = 原则 #23 链式幻觉 + MR-4 silent failure 第 7 次演出。四层结构修复（defense-in-depth）：log→stderr 阻断 stdout 污染通道 + _sanitize(U+D800-U+DFFF → U+FFFD) 防编码炸裂 + file open 显式 encoding='utf-8' errors='replace' 第二防线 + REDUCE/CHUNK1/2/3 system prompt 四块加反污染守卫 (禁止把 HTTP 错误码/Python 异常/错误页 HTML/U+FFFD 当外部信号，禁止基于这些字样推断 Hugging Face/GitHub/npm 等平台状态)。runtime python_assert 真跑 sanitize 五场景 (孤立高位/低位代理/正常串/代理范围边界/sanitize 后 json+utf-8 编码不炸)。19 单测 (TestLogGoesToStderr×2 + TestSanitizeSurrogates×7 + TestShellSanitizeImplementation×5 + TestAntiPollutionSystemPrompt×3 + TestShellScriptIntegrity×1 + TestLogDefHasCommentMeta×1)。
     v3.10 → v3.11: V37.8.5 INV-X-001 升级三层检测 (血案二次演出: V37.8.4 修复本身埋盲区) — V37.8.4 收工 Mac Mini E2E 即发现 2 个边缘：CNS1952 98/99 超窗口 + 1 过短老化率 99% 但未触发严格 old==total (MR-10 第 2 次演出：修复会埋坑)；SingTaoDaily 0-tweet stub (embed disabled 返回空骨架) 被 total>0 门槛绕过完全不标记。V37.8.5 修复：(1) 检测逻辑独立为 jobs/finance_news/finance_news_zombie.py 纯函数模块 (classify_zombie(diag, count)); (2) 三层 tier: "stub" (no_data=0 + total=0) + "stale" (≥90% 老化 + count=0 守卫防止低频活跃误报)，整数比较 old*10 >= total*9 避免浮点; (3) 24 单测锁定三层 + 守卫 + shell 集成 + auto_deploy FILE_MAP; (4) verification_layer 从 [declaration] 升级到 [declaration, runtime] (MR-6 遵循: INV-X-001 现在有 python_assert 真跑 5 个 tier 场景); (5) shell 脚本禁止内嵌 inline fallback (防模块缺失时静默降级回 V37.8.4 逻辑 — MR-8 copy-paste-is-a-bug-class 兑现)。诊断行 tier 区分 ⚠️ ZOMBIE嫌疑[stub] vs [stale]，便于日志定位。
-  total_invariants: 82  # V37.9.85: +1 INV-AUTO-INJECT-001 (batch-inject-tools-must-integrate-scanner, meta_rule=MR-18, severity=high, declaration+runtime)
-  total_checks: 745     # V37.9.85: +5 (INV-AUTO-INJECT-001: 4 declaration + 1 runtime python_assert glob 扫 inject/migrate 工具) = 740→745
-  meta_rules: 19        # MR-1~MR-19 不变
+  total_invariants: 83  # V37.9.86: +1 INV-HALLUCINATION-001 (llm-tasks-must-use-hallucination-guards, meta_rule=MR-7, severity=high, declaration+runtime)
+  total_checks: 755     # V37.9.86: +10 (INV-HALLUCINATION-001: 8 declaration + 1 runtime python_assert ALIGNED jobs HG_LEVEL_4_TEXT ≥8) = 745→755
+  meta_rules: 21        # V37.9.86: +2 MR-20 (framework-level-fix-must-validate-in-target-environment) + MR-21 (monitor-coverage-must-track-registry)
   meta_rule_discovery_count: 6   # Phase 0: registry + env + notify-topic + layer-depth + error-suppression + notify-activity
   check_types_used: [python_assert, file_contains, file_not_contains, env_var_exists, command_succeeds, log_activity_check]
   verification_layers_used: [declaration, runtime, effect]  # v3.1: 效果层启动
