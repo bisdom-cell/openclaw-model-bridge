@@ -45,6 +45,7 @@ EXPECTED_RSYNC_SITES = [
     "jobs/ai_leaders_x/run_ai_leaders_x.sh",
     "jobs/openclaw_official/run_discussions.sh",
     "jobs/openclaw_official/run.sh",
+    "movespeed_daily_sync.sh",  # V37.9.86: KB→SSD daily sync (uses helper)
 ]
 
 
