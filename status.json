@@ -1,5 +1,5 @@
 {
-  "updated": "2026-05-28 04:04:04",
+  "updated": "2026-05-29 01:30:02",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -239,6 +239,10 @@
   "session_context": {
     "last_session": "2026-04-17 V37.8.14 (15 commits)",
     "unfinished": [
+      "V37.9.89+ 一周观察: Mac Mini 5/30 起 3:00 cron 真激活 LEVEL_6. 跑 5 天后比对 (5/30-6/3) dream 推送中 '因此 X' / '必然 X' / 多跳因果链句式频次. 期望大幅下降 + 出现 [强证据]/[弱关联] tag + 📭 fallback. 数据稳定后 V37.9.90 立 INV-DREAM-CROSS-DOMAIN-001.",
+      "V37.9.90 候选: observer 'proposal #2' — 源可信度评级 (区分 V37.9.89 关联可信度). observer 5/28 LLM critique 提议 '所有非主流学术源 (如 chaspark) 在首次引用时需附带来源可信度评级 — 是否同行评审 / 是否有 DOI / 是否可公开验证'. 设计: 给每个 ALIGNED source 加 source_credibility 字段 ([学术同行评审/工业实践/会议预印本/博客/社媒]) + dream/evening prompt 注入要求 LLM 在引用时标注. 工作量 2-3h.",
+      "V37.9.90 候选: Semantic Scholar API key 申请 + 集成. 上游 unauthenticated tier = 1 req/5sec, 已观察 5/27-5/28 连续 6 关键词 429. 免费 key 100 req/sec at semanticscholar.org/product/api. 集成 ~30min (S2_API_KEY env header). 等用户申请.",
+      "V37.9.90 候选 (一周观察后): INV-OBSERVER-001 立 governance — Phase 0 meta-rule discovery 已识别 daily_observer 缺 INV. 7-8 个 check: V37.9.87 single-call invariant (1 OBSERVER_PY invocation) + --json 含 report_markdown + V37.9.88 registry filter applied + stale detection function defined + runtime python_assert 跑 121 单测. 等 V37.9.87/88 Mac Mini 真激活 + 一周稳定后立. 关闭 Phase 0 自主发现的'daily_observer 缺 INV'缺口.",
       "V3 路标 backlog: Tool Policy Plugin + Memory Plane Plugin + Job Template SDK + pip install ontology-engine",
       "WhatsApp 入站路由到 research agent 而非 main（4/10 WhatsApp plugin 安装副作用）: main/sessions.json mtime 从 Mar 30 起 dormant, 但 HEARTBEAT.md 修复后 research 正常响应不致命. 长期考虑: channels.whatsapp.agent 显式配置 / agents.list 顺序调整 / 验证 WhatsApp plugin inbound handler routing 逻辑",
       "V37.9.28+ 候选 (软性触发 ~2026-06-15, 4-8 周 5.x 沉淀观察期到达): OpenClaw 升级第五次评估. 届时 5.x 已稳定 6 周, 社区验证累积充分. 评估重点: (a) v2026.5.x 是否仍持续高频迭代或已稳定收敛 (b) #59265 Agent actions 不可见是否在某版本 release notes 显式修复 (有 PR + 版本 mention 双证据) (c) v2026.4.29 tools.exec/tools.fs restrictive profile 收紧对我们 proxy_filters 工具白名单是否影响 — dev 验证 12 工具集 (data_clean / search_kb / read_file / write_file / etc.) 在升级后是否仍可见 (d) v2026.5.2 plugin manifest contracts.tools ownership 强制对 qwen-local provider 注册路径 (adapter.py 启动时如何向 Gateway 注册) 是否破坏. 如所有阻塞解除则推荐阶梯升 v2026.4.27 (V37.9.27+ 评估认定为含 #73358 fix 的最早稳定 + 避开 4.29/5.x 累积变更面). 升级 SOP: 备份 openclaw.json + bash check_upgrade.sh 重新跑 + dev 验证两个新中风险点 + 维护窗口深夜 + 30 秒回滚预案 + WhatsApp 立即可用性 E2E. 升级成功后更新 LAST_EVAL_DATE 为升级日期重置时间 tripwire (180 天硬性上限到 2026-12 后)",
@@ -255,9 +259,24 @@
     ],
     "open_prs": "",
     "blocked_on": "",
-    "focus": "V37.9.86 完整交付: trap override 修复 + unfinished 50→12 + MR-20/21 + INV-HALLUCINATION-001 + movespeed_daily_sync 标准 job + failure_modes_catalog. governance v3.50: 83 inv / 755 checks / 21 MR. 97 suites / 3354 tests / 0 fail.",
+    "focus": "V37.9.87 + V37.9.88 + V37.9.89 三件套交付: (1) daily_observer single-call architecture 修双写血案 (BUG #1+#2) — 1 cron=1 LLM=1 append + last_run/history 同源 (2) observer registry-driven enabled filter + stale last_run 检测 — 闭环 pwc 2 月静默假警 + 检出(3) LEVEL_6_DREAM_CROSS_DOMAIN_AWARE 反链式幻觉守卫 — 闭环 5/28 'A→B→因此 C' 模式. 全量 98/0/3416 / 安全 95/100 / governance 0 fail. 下次候选: INV-OBSERVER-001 立 governance (一周观察后) / Semantic Scholar API key 申请 + 集成 / observer #2 proposal (源可信度评级, 区分本案 V37.9.89 关联可信度) / Mac Mini 5/30 dream 真激活验证 LEVEL_6 效果.",
     "current_focus": "V37.8 MR-6 深度补齐生产硬验证通过 (35/35 inv / 136/136 checks / 9/9 MR 全绿). 下一步: V37.8.1 修复 MRD-NOTIFY-002 activity 层假阳性 (topic→job log 映射扫 mtime) 或 Ontology Phase 3 渐进替换 (ONTOLOGY_MODE=on) 或 Tool Policy Plugin V3 路标",
     "recent_changes": [
+      {
+        "date": "2026-05-29",
+        "what": "V37.9.89 LEVEL_6_DREAM_CROSS_DOMAIN_AWARE — Dream 反链式幻觉手术. Trigger: observer 在 5/28 dream 中发现 '光子计算 → 心理导航' 必然推论链幻觉 + 5/29 dream 实测 4 个 🔗 隐藏关联全部 'A→B→因此 C' 模式. V37.9.57 LEVEL_5 已含 '严禁推测' 但 Qwen3 狭隘解读未拦住. Fix: 新 LEVEL_6 累积式扩展 LEVEL_5 + 每条 🔗 隐藏关联强制 [强证据]/[弱关联] tag + 禁 '因此/必然/为 X 提供路径' 句式 + 禁多跳因果链 + 📭 无足够信号 fallback. 仅升级 kb_dream.sh DREAM_HG_GUARD (LEVEL_5→LEVEL_6), kb_evening 不动. +11 新单测.",
+        "by": "claude_code"
+      },
+      {
+        "date": "2026-05-29",
+        "what": "V37.9.88 observer registry-driven enabled filter + stale last_run 检测. 发现: observer 硬编码 JOBS_SUBDIRS drift from jobs_registry.yaml — pwc 停用 V31 (2026-03), 脚本删 V37.8.13, last_run.json 2026-03-31 残留. observer 当作今日 fetch_failed 误报 2 个月. Fix LAYER 1: _filter_enabled_jobs reads registry, FAIL-OPEN. LAYER 2: _is_stale_last_run 7d 阈值 + detect_anomalies 发 MED stale_job 并抑制 HIGH job_failure (stale 状态不可信). 5/28 anomalies_high 从 2 (1 真+1 假) → 1 真 + 1 MED stale. MR-8 SoT 兑现. +37 新单测.",
+        "by": "claude_code"
+      },
+      {
+        "date": "2026-05-29",
+        "what": "V37.9.87 daily_observer single-call architecture (P0 双写血案修). BUG #1: wrapper 每 cron 调 Python 两次 → 2 append/day. BUG #2: 两次 LLM stochasticity 让 last_run.json (call 1) vs score_history (call 2 最新) 分数不一致. Fix: --json 输出含 report_markdown, wrapper 单 fork 解析 + 写报告. 1 cron=1 LLM=1 append invariant. 84/84 → 121/121 tests (含 V37.9.88 续).",
+        "by": "claude_code"
+      },
       {
         "date": "2026-04-15",
         "what": "V37.8.6/8.7/8.8/8.9 四连发同日上线 — (1) V37.8.6 Dream log→stderr 阻断 stdout 污染 cache 的 LLM 幻觉链 + sanitize U+D800-U+DFFF 孤立代理 + REDUCE/CHUNK system prompt 反污染守卫，INV-DREAM-003 critical 双层 16 checks (2) V37.8.7 ontology_sources 推送格式错位修复，抽 ontology_parser.py 用 separator 切块 + key-based prefix 解析，单块缺行不级联，INV-ONTOLOGY-001 high 双层 7 checks (3) V37.8.8 MR-11 (log→stderr) + MR-12 (llm-parser-key-based) 正式立案为 ontology 元规则 (4) V37.8.9 MRD-LOG-STDERR-001 + MRD-LLM-PARSER-POSITIONAL-001 运行时扫描器落地，批量 sed 修复 19 个 job 脚本 log() 写 >&2，元规则覆盖率 10/12→12/12。MR-4 silent-failure 第 7+8 次演出 + 原则 #23 链式幻觉典型实证 (Hugging Face 编造案例)。governance v3.11→v3.15。35 suites / 1050 tests / 0 fail / 38 invariants / 168 checks / 安全 93。Mac Mini E2E preflight 77/0/3。VERSION 0.37.8.5→0.37.8.9。",
@@ -292,11 +311,11 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 3354,
-    "last_regression": "2026-05-28 01:55 pass",
+    "test_count": 3416,
+    "last_regression": "2026-05-29 01:29 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-05-28 01:55",
-    "test_suites": 97,
+    "security_score_time": "2026-05-29 01:29",
+    "test_suites": 98,
     "governance_invariants": "64/64",
     "governance_checks": "350/350",
     "version": "0.37.9.68"
@@ -380,5 +399,13 @@
     "V37.9.20 主选 [需 A 闭环后启动]: kb_deep_dive Python 环境结构化修复 — (a) venv 隔离: 创建 ~/.openclaw_venv (Homebrew Python 创建) + ~/.openclaw_venv/bin/pip install pdfplumber beautifulsoup4 + 改 kb_deep_dive.sh 顶部加 PYTHON_BIN=${HOME}/.openclaw_venv/bin/python3 (含 fallback) + 全部 python3 改成 PYTHON_BIN 变量 + auto_deploy 加 venv bootstrap (b) 新增 INV-DEEP-002 deep-dive-script-env-has-deps 守卫 (declaration scan PYTHON_BIN 字面量 + runtime python_assert 真跑 venv subprocess 验证 import pdfplumber/bs4) (c) fetch_pdf_text/fetch_html_text ImportError 改 fail-loud (环境配错该 [SYSTEM_ALERT] 而非静默 degrade) (d) WA 摘要重构: 让 LLM 同时产 1000 字完整版 (Discord) + 章节级摘要 (WA 1300 字内含核心论点+启发, 跳过中间论证细节), build_deep_dive_wa 改读 LLM 的 WA-summary 字段而非 substring 截断 — 避免 V37.9.19 hot patch 后 full_text 触发的 WA 截断",
     "V37.9.21 候选 [V37.9.20 完成后]: kb_deep_dive TIER 1 设计 vs 实现鸿沟修复 — 现状: TIER_1_SOURCES 声明 6 源 (arxiv/acl/hf_papers/dblp/pwc/s2) PDF 可抓, 但 fetch_pdf_text 实现只识别 arxiv.org/abs + aclanthology.org + .pdf 三种 URL 形态 -> hf_papers (huggingface.co/papers/) / dblp (doi.org/) / s2 (部分 fallback URL) 都 degrade. 修复: 扩展 fetch_pdf_text — (a) hf_papers 提取 paper_id 当 arxiv ID 转 arxiv URL (b) dblp doi.org HEAD follow redirect 找真实 PDF host (arxiv/acl/publisher) (c) s2 fallback URL handle (s2 已用 arxiv_id 优先, 兜底 paper_url 时 graceful degrade) (d) 加单测覆盖每种 URL 转换路径 (e) 更新 INV-DEEP-* 守卫. 另: pwc 在 V37.8.13 已停用 (jobs/pwc 目录不存在), 应从 TIER_1_SOURCES 移除避免误导."
   ],
-  "last_updated": "2026-04-23 06:11:34 UTC by claude_code"
+  "last_updated": "2026-04-23 06:11:34 UTC by claude_code",
+  "updated_at": "2026-05-29 01:31:19",
+  "system_health": {
+    "test_count": 3416,
+    "suites": 98,
+    "security_score": 95,
+    "last_regression": "2026-05-29 01:31:19",
+    "last_regression_status": "pass"
+  }
 }
