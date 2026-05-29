@@ -1,5 +1,5 @@
 {
-  "updated": "2026-05-29 09:57:00",
+  "updated": "2026-05-29 10:13:05",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-05-29",
+      "what": "V37.9.91 WhatsApp 端到端真生产闭环铁证 (Doubao 自我深度判断 V37.9.92 候选). 用户在 WhatsApp 发深度判断请求给 PA → PA 真识别 SOUL 规则 12 触发词 → 真调 expert_escalate → tool_proxy 拦截 → lazy import escalate → Doubao Seed 2.0 Pro 真返回 → PA 转发. 真实 audit: status=ok / input=37461 / output=1360 / cache_read=0 (首调) / reasoning=3852 chars. Doubao proposal 准确提出 V37.9.92 4 步执行路径 (review FILE_MAP / 检查 auto_deploy 日志 / 加 INV 守 ARK env 持有 / 备份当前 working plist) + rationale 引用 MR-4 silent failure + MR-15 deployment-layout + V37.9.76-hotfix 历史案例 (CLAUDE.md changelog 真理解). 完整端到端 wiring 实证: SOUL 规则 12 触发 → PA 自主调用 → proxy 拦截 → escalate → Doubao → PA 转发 五段全通. V37.9.83 AI Partnership Framework Stage 3 方向 2 真生产闭环 — capability framework 不只声明 + 接入, 真有 PA 复杂判断时可调用的 expert backend.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-05-29",
       "what": "V37.9.91 Mac Mini 真生产闭环验证通过 (同 session 14:00 → 17:30 完整 wiring → 部署 → 真调用 < 4h). PR #609 合并到 main + auto_deploy FILE_MAP 同步 expert_escalation.py + proxy_filters.py + tool_proxy.py + ontology yaml 到 $HOME + plist 注入 ARK_API_KEY+ARK_ENDPOINT_ID + launchctl bootout/bootstrap 让 launchd 重读. 真调 Doubao Seed 2.0 Pro: status=ok / input_tokens=37524 / output_tokens=2060 / reasoning_chars=6923 / cache_read=0 (首调预期) / context_chars=80040 (含 changelog 67452). Doubao 输出质量优秀: proposal 准确识别 wiring 6 个验证点 + refs 引用 5 个真实文件 (V37.9.90-r1/V37.9.91/auto_deploy.sh/proxy_filters.py/tool_proxy.py) + rationale 引用 INV-PLIST-ENV-001/V37.9.76-hotfix/28+ MR-4 silent failures. Doubao 主动提示 V37.9.92 候选风险点: proxy plist drift (auto_deploy 未来轮询可能覆盖手动注入的 ARK env). 同时 V37.9.92+ CLAUDE.md 路径错配候选已证伪 (Mac Mini 上 $HOME/CLAUDE.md 真存在, FILE_MAP 部署 CLAUDE.md 到 $HOME).",
       "by": "claude_code"
     },
@@ -198,11 +203,6 @@
       "date": "2026-05-18",
       "what": "V37.9.75 kb_dream DEEP LLM partial content 修复 — DEEP retry 兜底 (镜像 V37.9.74 RADAR retry 模式, 用户决策 Option B). 触发: 2026-05-18 03:02 Mac Mini cron [SYSTEM_ALERT] DEEP 段失败 (823 chars < 1200) — fail-fast 跳过 WIDE+RADAR 用户零内容. 完整因果链分析: 5/15-17 三天稳定 6314-7125 chars / 100-113s, 5/18 突然 823 chars / 214s (2x 时长 1/8 内容) + head 显示 header 完整但章节中途截断 = LLM provider stream 异常 partial. 三层根因: 触发器 (LLM provider 偶发 partial) + 放大器 (llm_call 只检非空不检最低字数 0 次 retry) + 掩护者 (V37.9.68 fail-fast 设计跳过 WIDE+RADAR 用户零内容). MR-4 silent-failure 新形态: llm_call 把客观异常 partial 当正常短答返回. 修复 kb_dream.sh 加 53 行 retry block: 触发条件 -n DEEP_RESULT && DEEP_CHARS<MIN (仅 partial 时 retry, 完全空 skip) / DEEP_RETRY_SYSTEM 严格度不降明确告知上次 partial / DEEP_RETRY_PROMPT 保留 ban-list + 引用上次 chars + V37.9.74 同款 5 项输出自检 checklist / 双重验证 chars+header 字面量 / 成功路径用 retry 结果继续 WIDE+RADAR / 失败路径 fall-through V37.9.68 fail-fast (DEEP 必过原则不破). status.json schema +deep_retried +deep_retry_chars 双字段 (运维监控激活率). fail-fast 告警分支区分 retry 已尝试 vs 未触发. 16 新单测 TestV37975DeepRetryFallback + 反向 sabotage 三轮守卫真有效 (移除触发条件/双验证/初始化各 1 fail). V37.9.68 历史 fail-fast 顺序锁 500→1000 chars 扩窗容纳合法演进. governance INV-DREAM-MULTITHEME-001 +8 checks. 88 suites / 3036→3052 tests (+16) / 0 fail / governance v3.44→v3.45 / 77 inv 不变 / 670→678 checks (+8) / 19 MR 不变 / 安全 95/100 / VERSION 0.37.9.68 不变 (hotfix). 原则 #28 三问全过 (之前 5/15-17 不存在, 5/18 LLM 异常引入, 最小修复 retry 不破 fail-fast 原则). 用户视角原则 #13 第 N+1 次正向兑现.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-05-17",
-      "what": "V37.9.74 RADAR LLM drift 修复 (方案 2 prompt 强化 + 方案 3 retry 兜底, 用户决策 A 路径). 触发: 用户问 5/16+5/17 [3/3] 后续为什么 chars<600, 根因 = LLM 单次 WIDE+RADAR 调用偶尔漏 ## 📡 RADAR header (Qwen3 输出 drift 随机性, 温度 0.8 + 30K 素材稀释 + /no_think 副作用). 修复: (方案 2) WIDE_RADAR_SYSTEM 加 RADAR header 必字面量约束 + WIDE_RADAR_PROMPT 加 5 项输出自检 checklist (写完 WIDE 必接 RADAR 显式禁止 drift) (方案 3) 加 RADAR retry 兜底: WIDE ok + RADAR degraded 时主动调一次 LLM 只产 RADAR 段, 走默认 primary (Qwen3, doubao 试水留 V37.9.75 B), 双重验证 chars>=600 + 含 ## 📡 字面量, 失败 fall-through 到 V37.9.73 DEGRADED. status.json schema +radar_retried +radar_retry_chars 字段 (运维监控 LLM drift 频率). 11 新单测 TestV37974RadarRetryAndPromptHardening 含 retry 触发条件 / 双重验证 / 成功设 ok / 失败 fall-through / prompt 排除 DEEP+WIDE / schema 字段 / RADAR_RETRIED 初始化 / V37.9.75 doubao 候选登记. 反向 sabotage: 删 retry block (2339 chars) → 7 测试立即 fail, 还原后 98/98 OK. governance INV-DREAM-MULTITHEME-001 +7 V37.9.74 checks + INV-DREAM-003 修 regex escaped quotes 兼容 (file_contains→python_assert 找未转义 \" 边界). test_dream_surrogate_sanitize 同款 _extract_var_block helper 修. 多层防御: prompt 预防 + retry 恢复 + DEGRADED 兜底, 不依赖任一层 100%. 88 suites / 3024→3036 tests (+12) / 0 fail / 660→670 checks (+10) / 安全 95/100 / VERSION 0.37.9.68 不变. Mac Mini 部署后预期: 下次 RADAR drift 触发时 last_run.json radar_retried=true + radar_retry_chars 显示 retry 真激活, 用户连续两天 [3/3] 血案根因彻底闭环.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -262,7 +262,7 @@
     ],
     "open_prs": "",
     "blocked_on": "",
-    "focus": "V37.9.91 Expert Escalation wiring 真生产闭环验证通过 (Mac Mini 真调 Doubao status=ok / 37524 input_tokens / 6923 reasoning_chars / context 80040 含 67452 changelog). Doubao 主动识别 V37.9.92 候选: proxy plist drift 需立 INV-PROXY-PLIST-ENV-001 守. CLAUDE.md 路径错配候选已证伪. 剩下 WhatsApp 真用户调用验证 (PA SOUL 规则 12 触发词识别 → expert_escalate → proxy 拦截 → escalate).",
+    "focus": "V37.9.91 完整端到端真生产闭环 (代码 + 部署 + Mac Mini 真调 + WhatsApp 真用户调用). Doubao 自我深度判断 V37.9.92 候选 (proxy plist drift INV-PROXY-PLIST-ENV-001 + auto_deploy FILE_MAP 守 plist 不被同步). 下次 session: V37.9.92 立 INV + Doubao 提议 4 步 (FILE_MAP audit / auto_deploy 日志 / INV / 备份) / V37.9.93 一周观察后立 INV-EXPERT-ESCALATION-001 真生产稳定性证据.",
     "current_focus": "V37.8 MR-6 深度补齐生产硬验证通过 (35/35 inv / 136/136 checks / 9/9 MR 全绿). 下一步: V37.8.1 修复 MRD-NOTIFY-002 activity 层假阳性 (topic→job log 映射扫 mtime) 或 Ontology Phase 3 渐进替换 (ONTOLOGY_MODE=on) 或 Tool Policy Plugin V3 路标",
     "recent_changes": [
       {
@@ -325,10 +325,10 @@
   "quality": {
     "security_score": 95,
     "test_count": 3537,
-    "last_regression": "2026-05-29 07:16 pass",
+    "last_regression": "2026-05-29 10:11 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-05-29 07:16",
-    "test_suites": 99,
+    "security_score_time": "2026-05-29 10:11",
+    "test_suites": 100,
     "governance_invariants": "64/64",
     "governance_checks": "350/350",
     "version": "0.37.9.68"
