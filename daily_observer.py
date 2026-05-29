@@ -44,6 +44,11 @@ def log(msg):
 # 1. Job Status Scanner — 读 last_run.json
 # ══════════════════════════════════════════════════════════════════════
 
+# Observer scans these data-source jobs for status. Infrastructure jobs
+# (kb_embed, mm_index, governance_audit, etc.) are NOT scanned here —
+# they're tracked elsewhere (job_watchdog, governance, kb_status_refresh).
+# This is the *maximum possible set*. V37.9.88 filters down to enabled-only
+# at scan time using jobs_registry.yaml as single source of truth (MR-8).
 JOBS_SUBDIRS = [
     "hf_papers", "arxiv_monitor", "semantic_scholar", "dblp",
     "acl_anthology", "pwc", "github_trending", "rss_blogs",
@@ -52,9 +57,21 @@ JOBS_SUBDIRS = [
     "chaspark",
 ]
 
+# V37.9.88: stale last_run.json detection — if a job's last_run timestamp
+# is older than this many days before target_date, observer flags it as
+# MED "stale_job" anomaly and SUPPRESSES the HIGH job_failure anomaly
+# (the status data itself is untrustworthy when stale). Without this,
+# disabled/dormant jobs with old last_run.json poison anomaly counts
+# (e.g. pwc disabled V31, last_run 2026-03-31, observer flagged it as
+# today's HIGH fetch_failed for 2 months — discovered 2026-05-29).
+STALE_LAST_RUN_MAX_DAYS = 7
+
 # V37.9.56-hotfix same pattern: Mac Mini deploys to ~/.openclaw/jobs/
 # HN special case: subdirectory is hn_watcher not run_hn_fixed
 _MAC_MINI_JOBS_DIR = os.path.expanduser("~/.openclaw/jobs")
+
+# V37.9.88: env var override for tests to inject mock registry path
+_REGISTRY_ENV_VAR = "OBSERVER_REGISTRY_PATH"
 
 
 def _resolve_last_run_path(jobs_dir, job_id):
@@ -72,17 +89,187 @@ def _resolve_last_run_path(jobs_dir, job_id):
     return None
 
 
-def scan_job_statuses(jobs_dir, target_date):
-    """Scan last_run.json from all known job subdirectories.
+# ══════════════════════════════════════════════════════════════════════
+# 1b. V37.9.88 Registry-driven enabled job filter (MR-8 SoT)
+# ══════════════════════════════════════════════════════════════════════
+#
+# Background (discovered 2026-05-29 during V37.9.84 trend review):
+#   Observer's hardcoded JOBS_SUBDIRS drifted from jobs_registry.yaml in
+#   3 ways:
+#     - 2 disabled jobs (pwc V31-disabled / karpathy_x disabled) still
+#       scanned → stale last_run.json reported as today's HIGH anomaly
+#     - 25 enabled jobs NOT in hardcoded list — by design (infra jobs)
+#     - 1 ID inconsistency (openclaw_official)
+#   The pwc bug was active for 2 months before V37.9.84 observer surfaced
+#   it as a recurring fetch_failed HIGH anomaly. False positives erode
+#   operator trust in the observer.
+#
+# Fix (V37.9.88):
+#   _filter_enabled_jobs() reads jobs_registry.yaml, returns subset of
+#   JOBS_SUBDIRS where enabled=true. FAIL-OPEN: if registry can't be
+#   loaded (parser error / missing file), returns subdirs unchanged so
+#   observer still runs but logs WARN.
+#
+# Single source of truth (MR-8): jobs_registry.yaml is the only place
+# that decides "is this job enabled". JOBS_SUBDIRS hardcoded list is
+# now just the "data-source job category whitelist" (so infra jobs like
+# kb_embed are still excluded).
+
+
+def _resolve_registry_path():
+    """Determine registry path. Test override via OBSERVER_REGISTRY_PATH
+    env var, then $HOME/jobs_registry.yaml, then script-adjacent."""
+    env_override = os.environ.get(_REGISTRY_ENV_VAR)
+    if env_override:
+        return env_override
+    candidates = [
+        os.path.expanduser("~/jobs_registry.yaml"),
+        os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                     "jobs_registry.yaml"),
+    ]
+    for c in candidates:
+        if os.path.isfile(c):
+            return c
+    return None
+
+
+def _load_enabled_job_ids_from_registry(registry_path=None):
+    """Parse jobs_registry.yaml minimally (no PyYAML dependency).
 
     Returns:
-        list of dict: [{job_id, status, time, new, reason, found}, ...]
+      set[str] of job IDs where enabled=true, OR None on parse failure
+      (caller treats None as "use fallback / no filter").
+
+    Mirrors kb_review_collect.load_sources_from_registry parser style.
+    """
+    if registry_path is None:
+        registry_path = _resolve_registry_path()
+    if registry_path is None or not os.path.isfile(registry_path):
+        return None
+    try:
+        with open(registry_path, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+    except OSError:
+        return None
+
+    enabled_ids = set()
+    current_id = None
+    current_enabled = None
+    for raw_line in lines:
+        line = raw_line.rstrip("\n")
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        if stripped.startswith("- id:"):
+            # Finalize previous record
+            if current_id is not None and current_enabled is True:
+                enabled_ids.add(current_id)
+            current_id = stripped.split(":", 1)[1].strip()
+            current_enabled = None
+            continue
+        if current_id is None:
+            continue
+        if ":" in stripped:
+            key, val = stripped.split(":", 1)
+            key = key.strip()
+            val = val.strip()
+            if "#" in val:
+                val = val[: val.index("#")].strip()
+            val = val.strip('"').strip("'")
+            if key == "enabled":
+                current_enabled = (val.lower() == "true")
+    # Finalize last record
+    if current_id is not None and current_enabled is True:
+        enabled_ids.add(current_id)
+    return enabled_ids
+
+
+def _filter_enabled_jobs(subdirs, registry_path=None):
+    """Filter JOBS_SUBDIRS to only those enabled in registry.
+
+    FAIL-OPEN: registry unreadable → return subdirs unchanged + log WARN.
+    """
+    enabled = _load_enabled_job_ids_from_registry(registry_path)
+    if enabled is None:
+        log("WARN: V37.9.88 registry filter fallback — jobs_registry.yaml "
+            "not loadable, using full JOBS_SUBDIRS (may include disabled)")
+        return list(subdirs)
+    filtered = [j for j in subdirs if j in enabled]
+    excluded = [j for j in subdirs if j not in enabled]
+    if excluded:
+        log(f"V37.9.88 registry filter: excluded {len(excluded)} disabled "
+            f"job(s) from scan: {','.join(excluded)}")
+    return filtered
+
+
+# ══════════════════════════════════════════════════════════════════════
+# 1c. V37.9.88 Stale last_run.json detection
+# ══════════════════════════════════════════════════════════════════════
+
+
+def _parse_lr_time(time_str):
+    """Parse last_run.json 'time' field. Handles multiple formats:
+       - '2026-05-28 11:00:00' (s2/pwc style)
+       - '2026-05-28T11:00:00Z' (ISO UTC)
+       - '2026-05-28T11:00:00' (ISO local)
+
+    Returns: naive datetime, or None on parse failure.
+    """
+    if not time_str or not isinstance(time_str, str):
+        return None
+    s = time_str.strip()
+    # Strip trailing Z (treat as UTC = naive for comparison purposes)
+    if s.endswith("Z"):
+        s = s[:-1]
+    # Try ISO formats
+    for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S",
+                "%Y-%m-%d", "%Y/%m/%d %H:%M:%S"):
+        try:
+            return datetime.strptime(s, fmt)
+        except ValueError:
+            continue
+    return None
+
+
+def _is_stale_last_run(time_str, target_date,
+                      max_age_days=STALE_LAST_RUN_MAX_DAYS):
+    """True if last_run time is older than max_age_days before target_date.
+
+    Uses calendar-date subtraction (ignores time-of-day) so "March 31 →
+    May 28" reads as 58 days the way a human counts calendar days.
+
+    Returns: (bool stale, int days_old or None on parse fail).
+    target_date is the date observer is auditing (typically yesterday).
+    """
+    lr_time = _parse_lr_time(time_str)
+    if lr_time is None:
+        return False, None
+    target_d = (target_date.date() if isinstance(target_date, datetime)
+                else target_date)
+    lr_d = lr_time.date()
+    days_old = (target_d - lr_d).days
+    return (days_old > max_age_days), days_old
+
+
+def scan_job_statuses(jobs_dir, target_date, registry_path=None):
+    """Scan last_run.json from all known job subdirectories.
+
+    V37.9.88: filters JOBS_SUBDIRS by registry-declared enabled=true
+    (MR-8 SoT) and computes stale flag (last_run > 7d before target_date).
+    Stale entries get their status data flagged as untrustworthy in
+    detect_anomalies (suppresses HIGH job_failure, emits MED stale_job).
+
+    Returns:
+        list of dict: [{job_id, status, time, new, reason, found,
+                        stale, stale_days}, ...]
     """
     results = []
-    for job_id in JOBS_SUBDIRS:
+    subdirs = _filter_enabled_jobs(JOBS_SUBDIRS, registry_path=registry_path)
+    for job_id in subdirs:
         lr_path = _resolve_last_run_path(jobs_dir, job_id)
         entry = {"job_id": job_id, "found": False, "status": "unknown",
-                 "time": "", "new": 0, "reason": ""}
+                 "time": "", "new": 0, "reason": "",
+                 "stale": False, "stale_days": None}
         if lr_path is None:
             results.append(entry)
             continue
@@ -96,6 +283,10 @@ def scan_job_statuses(jobs_dir, target_date):
             entry["reason"] = data.get("reason", "")
             if isinstance(entry["new"], bool):
                 entry["new"] = 1 if entry["new"] else 0
+            # V37.9.88 stale detection
+            stale, days_old = _is_stale_last_run(entry["time"], target_date)
+            entry["stale"] = stale
+            entry["stale_days"] = days_old
         except (OSError, json.JSONDecodeError):
             entry["found"] = True
             entry["status"] = "parse_error"
@@ -215,8 +406,26 @@ def detect_anomalies(job_statuses, push_outputs, source_sections):
     """
     anomalies = []
 
+    # V37.9.88: emit MED stale_job for any job whose last_run is >7d old.
+    # SUPPRESS the HIGH job_failure for stale entries (the status data
+    # itself is untrustworthy when stale — e.g. pwc disabled V31-V37.8.13
+    # had last_run.json from 2026-03-31 reported as today's fetch_failed
+    # for 2 months until V37.9.88 fix).
+    stale_jobs = [j for j in job_statuses if j.get("stale")]
+    stale_job_ids = {j["job_id"] for j in stale_jobs}
+    for j in stale_jobs:
+        days = j.get("stale_days")
+        days_str = f"{days}d" if days is not None else "unknown age"
+        anomalies.append({
+            "severity": "MED",
+            "category": "stale_job",
+            "message": (f"{j['job_id']}: last_run is {days_str} old "
+                        f"(stale, status={j['status']} untrustworthy)"),
+        })
+
     failed_jobs = [j for j in job_statuses
-                   if j["status"] in ("llm_failed", "fetch_failed", "send_failed")]
+                   if j["status"] in ("llm_failed", "fetch_failed", "send_failed")
+                   and j["job_id"] not in stale_job_ids]
     for j in failed_jobs:
         reason = f" ({j['reason']})" if j["reason"] else ""
         anomalies.append({
@@ -810,9 +1019,16 @@ def main():
     )
 
     if args.json:
-        safe = {k: v for k, v in result.items() if k != "report_markdown"}
-        safe["report_length"] = len(result.get("report_markdown", ""))
-        print(json.dumps(safe, ensure_ascii=False, indent=2))
+        # V37.9.87: include report_markdown in JSON output so wrapper can
+        # extract it without a second observer invocation. Eliminates the
+        # double-write bug to score_history.jsonl (BUG #1) and the
+        # last_run.json vs score_history score mismatch (BUG #2).
+        # Pre-V37.9.87 wrapper called run() twice (once --json, once for
+        # markdown); each call appended to score_history.jsonl with
+        # potentially different LLM scores.
+        output = dict(result)
+        output["report_length"] = len(result.get("report_markdown", ""))
+        print(json.dumps(output, ensure_ascii=False, indent=2))
     else:
         print(result["report_markdown"])
 

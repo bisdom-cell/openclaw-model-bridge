@@ -25,12 +25,13 @@ REPO_ROOT = os.path.dirname(os.path.abspath(__file__))
 class TestGuardLevels(unittest.TestCase):
     """5 档守卫存在性 + 累积式结构契约."""
 
-    def test_5_levels_registered(self):
-        """必须 5 档: MINIMAL / STANDARD / STRICT / PROJECT_AWARE / RADAR_AWARE."""
+    def test_6_levels_registered(self):
+        """V37.9.89: 6 档 — 1-5 (V37.9.57) + 6 (V37.9.89 Dream cross-domain)."""
         levels = hg.list_levels()
-        self.assertEqual(len(levels), 5)
+        self.assertEqual(len(levels), 6)
         expected = ["LEVEL_1_MINIMAL", "LEVEL_2_STANDARD", "LEVEL_3_STRICT",
-                    "LEVEL_4_PROJECT_AWARE", "LEVEL_5_RADAR_AWARE"]
+                    "LEVEL_4_PROJECT_AWARE", "LEVEL_5_RADAR_AWARE",
+                    "LEVEL_6_DREAM_CROSS_DOMAIN_AWARE"]
         self.assertEqual(levels, expected)
 
     def test_all_levels_non_empty(self):
@@ -205,12 +206,14 @@ class TestCliInterface(unittest.TestCase):
             capture_output=True, text=True, timeout=10,
         )
 
-    def test_cli_list_outputs_5_levels(self):
+    def test_cli_list_outputs_6_levels(self):
+        """V37.9.89: CLI --list 输出 6 档 (含 LEVEL_6_DREAM_CROSS_DOMAIN_AWARE)."""
         r = self._run("--list")
         self.assertEqual(r.returncode, 0)
         lines = [l for l in r.stdout.strip().split("\n") if l]
-        self.assertEqual(len(lines), 5)
+        self.assertEqual(len(lines), 6)
         self.assertIn("LEVEL_5_RADAR_AWARE", lines)
+        self.assertIn("LEVEL_6_DREAM_CROSS_DOMAIN_AWARE", lines)
 
     def test_cli_blocked_phrases_outputs_phrases(self):
         r = self._run("--blocked-phrases")
@@ -279,6 +282,145 @@ class TestSourceLevelGuards(unittest.TestCase):
             "模块必须声明 MR-8 兑现")
         self.assertIn("single-source-of-truth", self.src,
             "MR-8 single-source-of-truth 字面必须在源码")
+
+
+class TestV37_9_89_Level6CrossDomain(unittest.TestCase):
+    """V37.9.89 LEVEL_6_DREAM_CROSS_DOMAIN_AWARE — Dream 专用反链式幻觉.
+
+    触发血案 (2026-05-29 V37.9.84 observer 在 5/28 dream 推送中发现):
+      "将'心理导航'与'软光子学全光逻辑开关'强行关联，并推导出
+       '光子计算架构可能为心理导航提供物理实现路径'"
+
+    2026-05-29 dream 4 个 🔗 隐藏关联全部 'A → B → 因此 C' 模式 (例:
+      "用户提出 1/W 定律 → 推测解码突破 → 因此边云协同成为必要")
+    """
+
+    def test_level_6_registered(self):
+        """LEVEL_6 必须在 GUARDS dict 和 list_levels()."""
+        self.assertIn("LEVEL_6_DREAM_CROSS_DOMAIN_AWARE", hg.GUARDS)
+        self.assertIn("LEVEL_6_DREAM_CROSS_DOMAIN_AWARE", hg.list_levels())
+
+    def test_level_6_contains_level_5_core(self):
+        """累积式契约: LEVEL_6 必须保留 LEVEL_5 全部反虚构 / 反项目动态 /
+        Radar 信号源契约约束 (LEVEL_5 引用即可，不必字面 inline)."""
+        l6 = hg.get_guard("LEVEL_6_DREAM_CROSS_DOMAIN_AWARE")
+        # LEVEL_5 引用
+        self.assertIn("LEVEL_5", l6,
+            "LEVEL_6 必须显式引用 LEVEL_5 表明累积式")
+        # 关键 LEVEL_5 字面
+        self.assertIn("严禁虚构", l6)
+        self.assertIn("Opportunity Radar", l6)
+
+    def test_level_6_requires_evidence_tag(self):
+        """V37.9.89 核心契约: 每条 🔗 隐藏关联必须 [强证据] 或 [弱关联] tag."""
+        l6 = hg.get_guard("LEVEL_6_DREAM_CROSS_DOMAIN_AWARE")
+        self.assertIn("[强证据]", l6,
+            "LEVEL_6 必须含 [强证据] tag 模板")
+        self.assertIn("[弱关联]", l6,
+            "LEVEL_6 必须含 [弱关联] tag 模板")
+        self.assertIn("[推测]", l6,
+            "LEVEL_6 必须显式禁止 [推测] tag")
+
+    def test_level_6_bans_necessary_inference_phrases(self):
+        """V37.9.89 必然推论句式禁令 (来自 2026-05-29 dream 实测)."""
+        l6 = hg.get_guard("LEVEL_6_DREAM_CROSS_DOMAIN_AWARE")
+        # 至少 3 个核心血案句式必须显式禁止
+        forbidden_phrases = ["因此", "必然", "暗示", "为 X 提供"]
+        found = 0
+        for phrase in forbidden_phrases:
+            if phrase in l6:
+                found += 1
+        self.assertGreaterEqual(found, 3,
+            f"LEVEL_6 必须列出至少 3 个必然推论句式禁令 "
+            f"(found {found} of {forbidden_phrases})")
+
+    def test_level_6_bans_multi_hop_causal_chain(self):
+        """V37.9.89: 必须禁止 A → B → C 多跳因果链 (每跳累积幻觉指数)."""
+        l6 = hg.get_guard("LEVEL_6_DREAM_CROSS_DOMAIN_AWARE")
+        self.assertIn("A → B → ", l6,
+            "LEVEL_6 必须含多跳因果链句式禁令")
+        # 或类似表达
+        self.assertIn("多跳", l6)
+
+    def test_level_6_offers_no_signal_fallback(self):
+        """V37.9.89: 当今日无足够跨域信号时, 必须有合规输出回退 (📭)."""
+        l6 = hg.get_guard("LEVEL_6_DREAM_CROSS_DOMAIN_AWARE")
+        self.assertIn("📭", l6,
+            "LEVEL_6 必须提供 📭 无足够信号 fallback 模板")
+        self.assertIn("不足", l6)
+
+    def test_level_6_self_check_checklist(self):
+        """V37.9.89: 必须含 LLM 输出自检 checklist (提交前对照)."""
+        l6 = hg.get_guard("LEVEL_6_DREAM_CROSS_DOMAIN_AWARE")
+        self.assertIn("checklist", l6)
+        self.assertIn("[ ]", l6,
+            "checklist 必须用 markdown checkbox 格式让 LLM 视觉化对照")
+
+    def test_level_6_v37_9_89_marker(self):
+        """V37.9.89 marker 必须在守卫文本中可被 grep 追踪."""
+        l6 = hg.get_guard("LEVEL_6_DREAM_CROSS_DOMAIN_AWARE")
+        self.assertIn("V37.9.89", l6)
+
+    def test_level_6_blood_lesson_reference(self):
+        """V37.9.89: 必须引用 V37.9.84 observer 5/28 血案场景."""
+        l6 = hg.get_guard("LEVEL_6_DREAM_CROSS_DOMAIN_AWARE")
+        # 引用 V37.9.84 observer 或 5/28 / 2026-05-29 时间锚
+        markers = ["V37.9.84", "2026-05-29", "observer", "心理导航",
+                   "5/28", "光子"]
+        found = sum(1 for m in markers if m in l6)
+        self.assertGreaterEqual(found, 2,
+            f"LEVEL_6 必须含 ≥2 血案引用 marker (found {found} of {markers})")
+
+    def test_level_5_unchanged_by_level_6_addition(self):
+        """V37.9.89 不应改 LEVEL_5 内容 (向后兼容)."""
+        l5 = hg.get_guard("LEVEL_5_RADAR_AWARE")
+        # LEVEL_5 必须保留 V37.9.57 marker 不应被改为 V37.9.89
+        self.assertIn("V37.9.57", l5)
+        # LEVEL_5 不应包含 V37.9.89 LEVEL_6 新增的 [强证据] tag (那是 LEVEL_6 才有)
+        self.assertNotIn("[强证据]", l5,
+            "V37.9.89: LEVEL_5 不应被 V37.9.89 修改, [强证据] tag 是 LEVEL_6 新加")
+
+
+class TestV37_9_89_KbDreamIntegration(unittest.TestCase):
+    """V37.9.89: kb_dream.sh 必须升级到 LEVEL_6."""
+
+    @classmethod
+    def setUpClass(cls):
+        sh_path = os.path.join(REPO_ROOT, "kb_dream.sh")
+        with open(sh_path, "r", encoding="utf-8") as f:
+            cls.src = f.read()
+
+    def test_kb_dream_uses_level_6(self):
+        """kb_dream.sh DREAM_HG_GUARD 必须用 LEVEL_6, 不用 LEVEL_5."""
+        # LEVEL_6 字面量必须出现 (实际调用)
+        self.assertIn("LEVEL_6_DREAM_CROSS_DOMAIN_AWARE", self.src,
+            "kb_dream.sh 必须使用 LEVEL_6 (V37.9.89 升级)")
+
+    def test_kb_dream_no_active_level_5_call(self):
+        """V37.9.89 反退回守卫: kb_dream.sh 不得在生产路径调用 LEVEL_5.
+        允许在注释 / 历史记录中提及 LEVEL_5 (V37.9.57 → V37.9.89 演进)."""
+        # 找 hg.get_guard('LEVEL_5_RADAR_AWARE') 字面量在非注释行
+        active_level_5_calls = 0
+        for line in self.src.split("\n"):
+            stripped = line.strip()
+            if stripped.startswith("#"):
+                continue
+            if "get_guard('LEVEL_5_RADAR_AWARE')" in stripped:
+                active_level_5_calls += 1
+            if 'get_guard("LEVEL_5_RADAR_AWARE")' in stripped:
+                active_level_5_calls += 1
+        self.assertEqual(active_level_5_calls, 0,
+            "kb_dream.sh 不得在非注释行调用 LEVEL_5 (V37.9.89 升级 LEVEL_6)")
+
+    def test_v37_9_89_marker_in_kb_dream(self):
+        """kb_dream.sh 必须含 V37.9.89 marker 标记升级历史."""
+        self.assertIn("V37.9.89", self.src,
+            "kb_dream.sh 必须含 V37.9.89 marker 锚定升级原因")
+
+    def test_v37_9_57_marker_preserved(self):
+        """V37.9.89 升级不应删除 V37.9.57 marker (历史可追)."""
+        self.assertIn("V37.9.57", self.src,
+            "V37.9.57 marker 必须保留作演进锚点")
 
 
 class TestV37957Contracts(unittest.TestCase):

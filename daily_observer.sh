@@ -1,11 +1,19 @@
 #!/usr/bin/env bash
-# daily_observer.sh -- V37.9.84 Daily Self-Critique thin wrapper
+# daily_observer.sh -- V37.9.87 Daily Self-Critique thin wrapper
 #
 # Cron 06:30 calls daily_observer.py, pushes to Discord #daily only.
 # Observer is for operator quality audit, not end-user push.
 #
 # V37.5.1 env-var heredoc pattern (no pipe+heredoc stdin conflict).
 # V37.9.63 cron_monitor_fatal_handler helper (ERR trap alert).
+# V37.9.84 initial release.
+# V37.9.87 single-call architecture: pre-V37.9.87 ran daily_observer.py TWICE
+#   per cron (once --json for JSON parse, once for markdown report). Each
+#   invocation called run() → append_score_history() → DOUBLE history rows
+#   + inconsistent scores between last_run.json (first call) and
+#   score_history.jsonl most-recent (second call, LLM stochasticity).
+#   Fix: --json output now includes report_markdown; Python parses fields
+#   + writes report file in ONE fork. 1 cron = 1 append, 1 LLM call.
 
 set -eEuo pipefail
 
@@ -91,20 +99,39 @@ OBSERVER_OUTPUT=$(python3 "$OBSERVER_PY" --json $DATE_ARG) || {
     exit 1
 }
 
-# -- parse all fields in one Python call (avoid 3 forks) --
+# -- save report path (read-only: observer writes only to its own dir) --
+CRITIQUE_DIR="${KB_DIR:-$HOME/.kb}/self_critique"
+mkdir -p "$CRITIQUE_DIR"
+
+REPORT_DATE="${TARGET_DATE:-$(date -d 'yesterday' '+%Y%m%d' 2>/dev/null || date -v-1d '+%Y%m%d' 2>/dev/null || date '+%Y%m%d')}"
+REPORT_FILE="$CRITIQUE_DIR/daily_critique_${REPORT_DATE}.md"
+
+# -- V37.9.87 single-call architecture --
+# Parse JSON + write report file + emit short fields in ONE fork.
+# Eliminates pre-V37.9.87 double-write bug (BUG #1) and
+# last_run.json↔score_history score mismatch (BUG #2). 1 cron = 1 LLM call.
 PARSED=""
-PARSED=$(echo "$OBSERVER_OUTPUT" | python3 -c "
-import json, sys
+PARSED=$(echo "$OBSERVER_OUTPUT" | REPORT_FILE="$REPORT_FILE" python3 -c "
+import json, sys, os
 try:
     d = json.load(sys.stdin)
     status = d.get('status', 'unknown')
     score = d.get('overall_score')
     score_str = str(score) if score is not None else 'N/A'
     discord = d.get('discord_summary', '')
+    report = d.get('report_markdown', '')
+    report_file = os.environ.get('REPORT_FILE', '')
+    if report_file and report:
+        try:
+            with open(report_file, 'w', encoding='utf-8') as f:
+                f.write(report)
+        except OSError as e:
+            print(f'WARN: report write failed: {e}', file=sys.stderr)
     print(status)
     print(score_str)
     print(discord)
-except Exception:
+except Exception as e:
+    print(f'WARN: observer JSON parse failed: {e}', file=sys.stderr)
     print('parse_error')
     print('N/A')
     print('')
@@ -115,17 +142,6 @@ OVERALL_SCORE=$(echo "$PARSED" | sed -n '2p')
 DISCORD_SUMMARY=$(echo "$PARSED" | tail -n +3)
 
 log "status=$STATUS overall_score=$OVERALL_SCORE"
-
-# -- save report (read-only: writes only to its own directory) --
-CRITIQUE_DIR="${KB_DIR:-$HOME/.kb}/self_critique"
-mkdir -p "$CRITIQUE_DIR"
-
-REPORT_DATE="${TARGET_DATE:-$(date -d 'yesterday' '+%Y%m%d' 2>/dev/null || date -v-1d '+%Y%m%d' 2>/dev/null || date '+%Y%m%d')}"
-REPORT_FILE="$CRITIQUE_DIR/daily_critique_${REPORT_DATE}.md"
-
-python3 "$OBSERVER_PY" $DATE_ARG > "$REPORT_FILE" 2>/dev/null || {
-    log "WARN: failed to write report file, continuing"
-}
 
 # -- push full report to WhatsApp + Discord dual-channel --
 if [ -f "$REPORT_FILE" ] && $NOTIFY_LOADED; then
@@ -147,7 +163,7 @@ d = {
     'status': '$STATUS',
     'overall_score': '$OVERALL_SCORE',
     'report_file': '$REPORT_FILE',
-    'version': 'V37.9.84'
+    'version': 'V37.9.87'
 }
 json.dump(d, sys.stdout, ensure_ascii=False)
 " > "$STATUS_FILE" 2>/dev/null || true

@@ -1113,16 +1113,24 @@ log "Reduce 素材: ${REDUCE_CHARS} bytes (截断前 $(echo "$REDUCE_DATA" | wc 
 # Qwen3 在长 prompt 下摘要收敛到 ~900 chars（completion_tokens 仅 328/8000）。
 # 修复：system role 携带元指令（角色+长度硬限+格式），模型注意力最高位置；
 # user role 只携带数据和分析结构模板。
-# V37.9.57: 公共反幻觉守卫 LEVEL_5_RADAR_AWARE (MR-8 single-source-of-truth)
+# V37.9.57: 公共反幻觉守卫 (MR-8 single-source-of-truth)
+# V37.9.89: 升级 LEVEL_5_RADAR_AWARE → LEVEL_6_DREAM_CROSS_DOMAIN_AWARE
+#   - 触发: 2026-05-29 V37.9.84 observer 在 5/28 dream 中发现 "光子计算 →
+#     心理导航" 链式幻觉血案 (基于弱信号的"创造性跨域桥接", LEVEL_5 没
+#     拦住)
+#   - 2026-05-29 dream 4 个 🔗 隐藏关联全部 `A → B → 因此 C` 模式
+#   - LEVEL_6 强制 Dream cross-domain 段位每条隐藏关联标 [强证据]/[弱关联]
+#     tag, 禁 "因此/必然/为 X 提供路径" 等无源支持的"必然推论"句式
+#   - LEVEL_5 全部约束 (反虚构 + 反项目动态 + Radar 信号源契约) 完整保留
 # Reduce 注入 Opportunity Radar #1+#2+#3 三件套, 必须用最高严格度防止 LLM
 # 编造"项目动态"或链式推论. V37.8.6 反污染守卫保留 (互补层: V37.8.6 防错误日志
-# 被当外部信号, V37.9.57 防项目动态 + Radar 信号源混淆).
+# 被当外部信号, V37.9.89 防跨域链式幻觉).
 DREAM_HG_GUARD=$(python3 -c "
 import sys, os
 sys.path.insert(0, os.path.expanduser('~'))
 sys.path.insert(0, '$SCRIPT_DIR')
 import hallucination_guards as hg
-print(hg.get_guard('LEVEL_5_RADAR_AWARE'))
+print(hg.get_guard('LEVEL_6_DREAM_CROSS_DOMAIN_AWARE'))
 " 2>/dev/null || echo "")
 [ -z "$DREAM_HG_GUARD" ] && log "WARN: hallucination_guards 模块加载失败, 使用 V37.8.6 inline 守卫 fallback"
 
