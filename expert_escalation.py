@@ -1,35 +1,41 @@
 """
-claude_escalation.py — V37.9.90 Claude Escalation Capability PoC
+expert_escalation.py — V37.9.90-r1 Expert Escalation Capability
 
-Direction 2 from V37.9.83 strategic sediment ("AI Partnership framework").
+V37.9.83 Direction 2 (AI Partnership Framework) — redesigned 2026-05-29 to
+route via Doubao Seed 2.0 Pro (already running in production, V37.9.55) instead
+of Anthropic SDK (Claude pending future-flip when API key + integration ready).
 
-Architecture:
-- PA (Qwen3-235B Mac Mini) detects "complex judgment needed" via SOUL.md rule 12
-  trigger words (CLAUDE.md 原则 #24: SOUL.md 触发词是唯一可靠的工具调用机制)
-- PA invokes `escalate(question)` as a custom tool
-- This module performs a one-shot Anthropic SDK call (NOT a new Claude Code session)
-- Context block (status.json + 14d CLAUDE.md changelog + relevant case docs) is cached
-  via prompt caching (V37.9.83 第二原理 "系统自我成长" 在 framework 层的延伸 — Claude
-  judgment is now machine-invokable, not session-dependent)
+Why Doubao first:
+- Already integrated: V37.9.52 接入 + V37.9.55 flip verified_text/streaming/
+  tool_calling/reasoning (cap_score=16, framework视角 > Qwen3 cap_score=14)
+- Already paid: ARK_API_KEY + ARK_ENDPOINT_ID already in plist (no new key mgmt)
+- 10-30x cheaper than Claude Opus 4.7 (~$0.01-0.02/call vs ~$0.47 首调)
+- Volcengine Context Cache: automatic prompt caching for prefix ≥ 1024 tokens
+  (no manual cache_control needed; we keep stable prefix structure to benefit)
+- Reasoning model: doubao-seed-2-0-pro returns `reasoning_content` field
+  (similar surface to Claude adaptive thinking)
+- Zero new dependency: uses stdlib urllib (no openai / anthropic / requests)
+
+Architecture (unchanged from v1):
+- PA (Qwen3-235B Mac Mini) detects "复杂判断" via SOUL.md 规则 12 trigger words
+- PA invokes `expert_escalate(question)` as custom tool
+- One-shot Volcengine Ark Chat Completions call (NOT a multi-turn agent loop)
+- Context block (status.json + 14d CLAUDE.md changelog + relevant case docs)
+  benefits from Volcengine Context Cache automatically
 - Returns structured JSON proposal (read-only — no embedded shell commands)
-- Audit logged per call
+- Audit logged per call; daily quota guards cost
 
-Design contracts:
-1. FAIL-CLOSE on missing API key — no silent fallback to Qwen3 (boundaries > trust)
-2. Read-only output enforcement — Claude proposes, human/PA decides
-3. Daily quota — prevents runaway cost
-4. Mockable transport — dev environment without ANTHROPIC_API_KEY can run --dry-run
-5. Prompt caching on context block — ~90% cost reduction across repeated calls
+Backend selector:
+- backend="doubao"  → primary (this PR, V37.9.90-r1)
+- backend="claude_pending" → returns status=claude_pending error (future flip)
 
 V37.9.83 alignment:
-- 方向 1 (Daily Self-Critique Observer V37.9.84) → 已落地
-- 方向 2 (this) → V37.9.90 PoC, Mac Mini 集成留 V37.9.91+
-- 方向 3 (Red Team Sandbox) → deferred
+- 方向 1 Daily Self-Critique Observer → V37.9.84 已上线 (3 天数据)
+- 方向 2 Expert Escalation → V37.9.90-r1 (this PR; Claude path stubbed)
+- 方向 3 Red Team Sandbox → deferred
 
-Skill: claude-api (Python SDK), prompt caching, structured outputs.
-
-CLI:
-    python3 claude_escalation.py --question "..." [--kb-dir ~/.kb] [--dry-run] [--json]
+CLI usage:
+    python3 expert_escalation.py --question "..." [--dry-run] [--json] [--backend doubao]
 """
 
 import argparse
@@ -37,6 +43,8 @@ import json
 import os
 import re
 import sys
+import urllib.error
+import urllib.request
 from datetime import datetime, timezone, timedelta
 
 
@@ -44,19 +52,32 @@ from datetime import datetime, timezone, timedelta
 # Constants
 # ══════════════════════════════════════════════════════════════════════
 
-# User explicitly named opus-4.7 first, sonnet-4.6 fallback (V37.9.90 design).
-# Note: skill default is claude-opus-4-8; we respect explicit user choice.
-DEFAULT_MODEL_PRIORITY = ("claude-opus-4-7", "claude-sonnet-4-6")
+# Backend selection — V37.9.90-r1 routes to Doubao (already running).
+# Claude path stubbed as future-flip when ANTHROPIC_API_KEY + integration ready.
+BACKEND_DOUBAO = "doubao"
+BACKEND_CLAUDE_PENDING = "claude_pending"
+DEFAULT_BACKEND = BACKEND_DOUBAO
 
-DEFAULT_MAX_TOKENS = 4000           # response cap; per-call cost ceiling
-DEFAULT_CHANGELOG_DAYS = 14          # CLAUDE.md window
-DEFAULT_DAILY_QUOTA = 10             # max escalations per day (cost guard)
+# Volcengine Ark — V37.9.52 plugin registered, V37.9.55 verified.
+# OpenAI Chat Completions compatible — no custom client needed.
+DOUBAO_BASE_URL = "https://ark.cn-beijing.volces.com/api/v3"
+DOUBAO_ENDPOINT_URL = DOUBAO_BASE_URL + "/chat/completions"
+DOUBAO_API_KEY_ENV = "ARK_API_KEY"
+DOUBAO_ENDPOINT_ID_ENV = "ARK_ENDPOINT_ID"
+# Public model identifier — fallback when ARK_ENDPOINT_ID env missing (dev safe).
+# In production ARK_ENDPOINT_ID = "ep-20260511174451-dlhm8" (user-specific).
+DOUBAO_DEFAULT_MODEL_ID = "doubao-seed-2-0-pro"
+DOUBAO_REQUEST_TIMEOUT_SEC = 60
+
+DEFAULT_MAX_TOKENS = 4000          # response cap; per-call cost ceiling
+DEFAULT_CHANGELOG_DAYS = 14         # CLAUDE.md window
+# Doubao cost ~$0.01-0.02/call → daily quota can be more generous than Claude's 10.
+DEFAULT_DAILY_QUOTA = 30
 DEFAULT_KB_DIR = os.path.expanduser("~/.kb")
-DEFAULT_AUDIT_LOG = os.path.expanduser("~/.kb/audit/claude_escalations.jsonl")
-DEFAULT_MAX_CONTEXT_CHARS = 80000    # context block ceiling (cache budget)
+DEFAULT_AUDIT_LOG = os.path.expanduser("~/.kb/audit/expert_escalations.jsonl")
+DEFAULT_MAX_CONTEXT_CHARS = 80000   # Volcengine context window allows much more
 
-# Read-only output contract enforcement (V37.9.90 invariant: Claude proposes,
-# human decides — never embed actual command lines for execution).
+# Read-only output contract enforcement.
 _SHELL_FENCE_RE = re.compile(r"```(?:bash|sh|shell|zsh|fish)\b", re.IGNORECASE)
 _SHELL_SUBST_RE = re.compile(r"\$\(|`[^`]{2,}`")
 _DANGEROUS_TOKENS = (
@@ -72,7 +93,7 @@ _DANGEROUS_TOKENS = (
     "eval $(",
 )
 
-SYSTEM_PROMPT = """You are Claude, an expert consultant called by PA (the project author's WhatsApp PA agent, Qwen3-235B running on Mac Mini) for complex judgments that exceed PA's confidence.
+SYSTEM_PROMPT = """You are an expert consultant called by PA (the project author's WhatsApp PA agent, Qwen3-235B running on Mac Mini) for complex judgments that exceed PA's confidence.
 
 Your role: read-only advisor. You propose; the human or PA decides what to act on.
 
@@ -92,7 +113,8 @@ Strict rules:
 4. Brevity: if 3 sentences suffice, give 3 sentences. Don't pad.
 5. No shell metachars: no `$()`, no backtick command substitution, no fenced shell blocks. If discussing a command, write it in plain text only.
 
-Context provided to you (cached via prompt caching, reused across calls):
+Context provided to you (benefits from Volcengine automatic context cache,
+~10-25% input cost when prefix is stable across calls):
 - status.json — current project state, priorities, unfinished items, recent changes
 - CLAUDE.md recent changelog — last 14 days of major versions
 - Relevant case docs — selected by keyword match against the question
@@ -101,7 +123,7 @@ The PA's specific question follows in the next user turn."""
 
 
 # ══════════════════════════════════════════════════════════════════════
-# Exceptions (structured failure)
+# Exceptions
 # ══════════════════════════════════════════════════════════════════════
 
 
@@ -114,15 +136,12 @@ class QuotaExceededError(EscalationError):
 
 
 # ══════════════════════════════════════════════════════════════════════
-# Context loaders (status / changelog / case docs)
+# Context loaders
 # ══════════════════════════════════════════════════════════════════════
 
 
 def load_status(kb_dir):
-    """Load status.json from kb_dir, $HOME, or repo root (in order).
-
-    Returns dict on success, None if no candidate found / unparseable.
-    """
+    """Load status.json from kb_dir, $HOME, or repo root (in order)."""
     if kb_dir is None:
         kb_dir = DEFAULT_KB_DIR
     candidates = [
@@ -143,13 +162,7 @@ def load_status(kb_dir):
 def load_changelog_window(claude_md_path, days=DEFAULT_CHANGELOG_DAYS, today=None):
     """Extract recent N days of changelog from CLAUDE.md.
 
-    Parses the version table format `| Vx.y.z | YYYY-MM-DD | body |`.
-    Returns markdown string (possibly empty if no rows in window).
-
-    Args:
-        claude_md_path: path to CLAUDE.md
-        days: window size (default 14)
-        today: date object for testing (defaults to UTC today)
+    Parses `| Vx.y.z | YYYY-MM-DD | body |` rows.
     """
     if not claude_md_path or not os.path.isfile(claude_md_path):
         return ""
@@ -162,7 +175,6 @@ def load_changelog_window(claude_md_path, days=DEFAULT_CHANGELOG_DAYS, today=Non
     except OSError:
         return ""
 
-    # Pattern: | V37.9.X | YYYY-MM-DD | body |
     line_re = re.compile(
         r"^\|\s*(V[\d.]+(?:[-+][a-z0-9]+)?)\s*\|\s*(\d{4}-\d{2}-\d{2})\s*\|\s*(.+)\s*\|\s*$"
     )
@@ -174,7 +186,6 @@ def load_changelog_window(claude_md_path, days=DEFAULT_CHANGELOG_DAYS, today=Non
             continue
         if not in_changelog:
             continue
-        # End of changelog section
         if line.startswith("## ") and "版本" not in line and "Version" not in line:
             break
         m = line_re.match(line)
@@ -186,34 +197,28 @@ def load_changelog_window(claude_md_path, days=DEFAULT_CHANGELOG_DAYS, today=Non
         except ValueError:
             continue
         if row_date >= cutoff:
-            # Truncate huge bodies (V37.9.83 has 600+ word entries)
             if len(body) > 4000:
                 body = body[:4000] + "... (truncated)"
-            rows.append(f"| {version} | {date_str} | {body} |")
+            rows.append("| " + version + " | " + date_str + " | " + body + " |")
 
     if not rows:
         return ""
     return (
-        "## CLAUDE.md changelog (last {} days, {} entries)\n\n"
-        "| 版本 | 日期 | 关键变更 |\n"
-        "|------|------|----------|\n"
-        "{}\n"
-    ).format(days, len(rows), "\n".join(rows))
+        "## CLAUDE.md changelog (last "
+        + str(days) + " days, " + str(len(rows)) + " entries)\n\n"
+        + "| 版本 | 日期 | 关键变更 |\n"
+        + "|------|------|----------|\n"
+        + "\n".join(rows) + "\n"
+    )
 
 
 def select_relevant_case_docs(question, cases_dir, max_docs=3):
-    """Keyword-match question against case doc filename + first 1KB of content.
-
-    Returns list of (path, content) tuples, sorted by score (descending).
-    Empty if no matches or cases_dir missing.
-    """
+    """Keyword-match question against case doc filename + first 1KB content."""
     if not cases_dir or not os.path.isdir(cases_dir):
         return []
 
     q_lower = question.lower()
-    # Extract keywords (length >= 4, alphanumeric)
     q_words = set(re.findall(r"[a-z_-][\w-]{3,}", q_lower))
-    # Also try Chinese substring matching (2+ char sequences)
     q_zh = re.findall(r"[一-鿿]{2,}", question)
 
     scored = []
@@ -222,9 +227,7 @@ def select_relevant_case_docs(question, cases_dir, max_docs=3):
             continue
         path = os.path.join(cases_dir, fname)
         fname_lower = fname.lower()
-        # Filename score
         score = sum(2 for w in q_words if w in fname_lower)
-        # Content score (head only — full scan is expensive)
         try:
             with open(path, "r", encoding="utf-8") as f:
                 head = f.read(1024)
@@ -249,10 +252,10 @@ def select_relevant_case_docs(question, cases_dir, max_docs=3):
 
 
 def build_context_block(status, changelog, case_docs, max_chars=DEFAULT_MAX_CONTEXT_CHARS):
-    """Assemble the stable context block for prompt caching.
+    """Assemble the stable context block.
 
-    Layout: status.json → changelog → case docs.
-    Truncates each section + overall to stay under max_chars.
+    Volcengine Context Cache benefits from stable prefix bytes across calls.
+    Layout: status.json → changelog → case docs (most stable first).
     """
     parts = []
     if status is not None:
@@ -287,13 +290,7 @@ def build_context_block(status, changelog, case_docs, max_chars=DEFAULT_MAX_CONT
 
 
 def validate_read_only(proposal_dict):
-    """Scan all string fields recursively for shell command patterns.
-
-    Returns list of violations. Each violation:
-        {"field": "field.path[idx]", "pattern": "...", "snippet": "..."}
-
-    Empty list = clean. V37.9.90 read-only contract enforcement.
-    """
+    """Scan all string fields recursively for shell command patterns."""
     violations = []
 
     def _scan_value(field, value):
@@ -344,10 +341,7 @@ def validate_read_only(proposal_dict):
 
 
 def check_daily_quota(audit_log_path, max_daily=DEFAULT_DAILY_QUOTA, today=None):
-    """Count escalations today from audit log. Raise QuotaExceededError if over.
-
-    Returns current count if under quota.
-    """
+    """Count escalations today. Raise QuotaExceededError if over."""
     if today is None:
         today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     if not audit_log_path or not os.path.isfile(audit_log_path):
@@ -377,7 +371,7 @@ def check_daily_quota(audit_log_path, max_daily=DEFAULT_DAILY_QUOTA, today=None)
 
 
 def write_audit_record(audit_log_path, record):
-    """Append JSONL record. FAIL-OPEN on IO error (log to stderr, never crash caller)."""
+    """Append JSONL record. FAIL-OPEN on IO error."""
     if not audit_log_path:
         return
     try:
@@ -387,72 +381,142 @@ def write_audit_record(audit_log_path, record):
         with open(audit_log_path, "a", encoding="utf-8") as f:
             f.write(json.dumps(record, ensure_ascii=False) + "\n")
     except OSError as e:
-        print("[claude_escalation] WARN: audit write failed: " + str(e), file=sys.stderr)
+        print("[expert_escalation] WARN: audit write failed: " + str(e), file=sys.stderr)
 
 
 # ══════════════════════════════════════════════════════════════════════
-# Anthropic API call (with prompt caching + adaptive thinking)
+# Doubao (Volcengine Ark) HTTP transport
 # ══════════════════════════════════════════════════════════════════════
 
 
-def call_claude(client, model, system_blocks, user_message, max_tokens):
-    """Call Anthropic SDK messages.create with prompt caching.
+class DoubaoTransport:
+    """Volcengine Ark HTTP transport using stdlib urllib (zero new deps).
 
-    Returns (success: bool, text: str, usage: dict, error: str).
-
-    Uses:
-    - System blocks with cache_control on last (stable context) block
-    - Adaptive thinking (off by default on Opus 4.7; we set explicitly)
-    - effort=high (recommended minimum on Opus 4.7 / Sonnet 4.6)
+    OpenAI Chat Completions compatible API. Mockable: subclass override _post()
+    in tests to inject responses, or pass to escalate() directly.
     """
-    try:
-        response = client.messages.create(
-            model=model,
-            max_tokens=max_tokens,
-            system=system_blocks,
-            messages=[{"role": "user", "content": user_message}],
-            thinking={"type": "adaptive"},
-            output_config={"effort": "high"},
+
+    def __init__(self, api_key=None, endpoint_id=None, base_url=DOUBAO_BASE_URL,
+                 timeout=DOUBAO_REQUEST_TIMEOUT_SEC):
+        self.api_key = api_key or os.environ.get(DOUBAO_API_KEY_ENV, "")
+        # endpoint_id is user-specific (e.g. ep-20260511174451-dlhm8) in production;
+        # falls back to public model identifier in dev (safe — won't auth without key).
+        self.endpoint_id = (endpoint_id
+                            or os.environ.get(DOUBAO_ENDPOINT_ID_ENV, "")
+                            or DOUBAO_DEFAULT_MODEL_ID)
+        self.base_url = base_url
+        self.endpoint_url = base_url + "/chat/completions"
+        self.timeout = timeout
+
+    def is_configured(self):
+        """True if API key present. Endpoint ID falls back to public default."""
+        return bool(self.api_key)
+
+    def _post(self, payload):
+        """POST JSON to endpoint_url. Returns (success, response_dict, error_str).
+
+        Override in test subclasses to inject mock responses.
+        """
+        data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        req = urllib.request.Request(
+            self.endpoint_url,
+            data=data,
+            method="POST",
+            headers={
+                "Authorization": "Bearer " + self.api_key,
+                "Content-Type": "application/json",
+            },
         )
-    except Exception as e:
-        return False, "", {}, type(e).__name__ + ": " + str(e)
+        try:
+            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+                body = resp.read().decode("utf-8", errors="replace")
+                return True, json.loads(body), ""
+        except urllib.error.HTTPError as e:
+            try:
+                err_body = e.read().decode("utf-8", errors="replace")
+            except Exception:
+                err_body = ""
+            return False, {}, (
+                "HTTPError " + str(e.code) + ": " + str(e.reason)
+                + (" | " + err_body[:300] if err_body else "")
+            )
+        except urllib.error.URLError as e:
+            return False, {}, "URLError: " + str(e.reason)
+        except Exception as e:
+            return False, {}, type(e).__name__ + ": " + str(e)
 
-    # Extract text content blocks
-    text_parts = []
-    for block in getattr(response, "content", []) or []:
-        if getattr(block, "type", None) == "text":
-            text_parts.append(getattr(block, "text", ""))
-    text = "\n".join(text_parts).strip()
+    def call(self, system_prompt, context_md, user_message, max_tokens):
+        """Call Doubao with structured messages.
 
-    # Usage metrics (for audit + cost tracking)
-    usage = {}
-    if hasattr(response, "usage"):
-        u = response.usage
-        usage = {
-            "input_tokens": getattr(u, "input_tokens", 0),
-            "output_tokens": getattr(u, "output_tokens", 0),
-            "cache_read_input_tokens": getattr(u, "cache_read_input_tokens", 0),
-            "cache_creation_input_tokens": getattr(u, "cache_creation_input_tokens", 0),
+        Volcengine Context Cache automatically caches stable prefix when ≥ 1024
+        tokens — no manual cache_control needed. We keep stable prefix structure
+        (system_prompt + context_md concatenated) to maximize cache hits.
+
+        Returns (success: bool, text: str, usage: dict, error: str).
+        """
+        if not self.is_configured():
+            return False, "", {}, (
+                "ARK_API_KEY not set (configure in plist EnvironmentVariables on Mac Mini)"
+            )
+
+        # Concatenate system_prompt + context_md as a single system message.
+        # Stable bytes across calls → Volcengine Context Cache auto applies.
+        full_system = system_prompt + "\n\n" + context_md
+
+        payload = {
+            "model": self.endpoint_id,
+            "messages": [
+                {"role": "system", "content": full_system},
+                {"role": "user", "content": user_message},
+            ],
+            "max_tokens": max_tokens,
+            # Doubao supports temperature (unlike Claude Opus 4.7/4.8).
+            # 0.3 = low variance, more deterministic for expert advisory.
+            "temperature": 0.3,
         }
 
-    return True, text, usage, ""
+        ok, response, err = self._post(payload)
+        if not ok:
+            return False, "", {}, err
+
+        # Extract content from OpenAI-compatible response
+        choices = response.get("choices", [])
+        if not choices:
+            return False, "", {}, "no choices in response: " + json.dumps(response)[:200]
+        message = choices[0].get("message", {})
+        text = message.get("content", "")
+        # Doubao seed reasoning model also returns reasoning_content (captured
+        # for audit visibility; future analysis may want it)
+        reasoning_chars = len(message.get("reasoning_content", "") or "")
+
+        usage_raw = response.get("usage", {}) or {}
+        # Volcengine returns cached_tokens in prompt_tokens_details when cache hits
+        cache_read = 0
+        pt_details = usage_raw.get("prompt_tokens_details")
+        if isinstance(pt_details, dict):
+            cache_read = pt_details.get("cached_tokens", 0)
+        usage = {
+            "input_tokens": usage_raw.get("prompt_tokens", 0),
+            "output_tokens": usage_raw.get("completion_tokens", 0),
+            "cache_read_input_tokens": cache_read,
+            "reasoning_chars": reasoning_chars,
+            "finish_reason": choices[0].get("finish_reason", "unknown"),
+        }
+        return True, text, usage, ""
 
 
 def parse_response_json(text):
-    """Extract JSON object from Claude's response text.
+    """Extract JSON object from response text.
 
-    Tries direct json.loads first, then first {...} block via regex.
-    Raises ValueError on failure.
+    Tries direct json.loads, then first {...} block via regex.
     """
     if not text:
         raise ValueError("empty response")
     text = text.strip()
-    # Direct parse
     try:
         return json.loads(text)
     except json.JSONDecodeError:
         pass
-    # Try first {...} block (greedy match for nested objects)
     m = re.search(r"\{.*\}", text, re.DOTALL)
     if m:
         try:
@@ -473,40 +537,43 @@ def escalate(
     claude_md_path=None,
     cases_dir=None,
     audit_log_path=None,
-    client=None,
-    model_priority=None,
+    transport=None,
+    backend=DEFAULT_BACKEND,
     max_tokens=DEFAULT_MAX_TOKENS,
     max_daily=DEFAULT_DAILY_QUOTA,
     dry_run=False,
     today_for_test=None,
 ):
-    """One-shot Claude escalation.
+    """One-shot expert escalation (V37.9.90-r1 Doubao backend).
 
-    Args:
-        question: str, non-empty. The PA's question.
-        kb_dir: ~/.kb path.
-        claude_md_path: CLAUDE.md path (default repo CLAUDE.md).
-        cases_dir: ontology/docs/cases/ path.
-        audit_log_path: JSONL audit log path.
-        client: optional anthropic.Anthropic instance (for testing).
-        model_priority: tuple of model IDs (default opus-4.7, sonnet-4.6).
-        max_tokens: response token cap.
-        max_daily: daily escalation quota.
-        dry_run: if True, returns synthetic response without API call.
-        today_for_test: YYYY-MM-DD override (quota tests).
-
-    Returns dict with keys:
+    Returns dict:
         status: "ok" | "quota_exceeded" | "no_context" | "api_unavailable"
               | "parse_failed" | "read_only_violation" | "dry_run"
-        model_used, proposal, rationale, confidence, refs, usage,
-        violations (only on read_only_violation),
-        error (on failure).
+              | "claude_pending" | "unknown_backend"
+        backend, proposal, rationale, confidence, refs, usage,
+        violations (only on read_only_violation), error (on failure).
     """
-    # Input validation
     if not question or not isinstance(question, str) or not question.strip():
         return {
             "status": "no_context",
             "error": "question must be non-empty string",
+        }
+
+    # Backend gate (Claude pending; future-flip when API key + integration ready)
+    if backend == BACKEND_CLAUDE_PENDING:
+        return {
+            "status": "claude_pending",
+            "backend": BACKEND_CLAUDE_PENDING,
+            "error": (
+                "Claude backend deferred to V37.9.91+ (awaiting ANTHROPIC_API_KEY "
+                "+ Mac Mini integration). Currently routing via Doubao."
+            ),
+        }
+    if backend != BACKEND_DOUBAO:
+        return {
+            "status": "unknown_backend",
+            "error": "unknown backend: " + repr(backend)
+                     + " (supported: doubao, claude_pending)",
         }
 
     # Resolve paths
@@ -519,16 +586,14 @@ def escalate(
         cases_dir = os.path.join(repo_root, "ontology", "docs", "cases")
     if audit_log_path is None:
         audit_log_path = DEFAULT_AUDIT_LOG
-    if model_priority is None:
-        model_priority = DEFAULT_MODEL_PRIORITY
 
-    # Quota check (BEFORE loading context — fail fast)
+    # Quota check (FAIL-CLOSE before loading context)
     try:
         check_daily_quota(audit_log_path, max_daily, today=today_for_test)
     except QuotaExceededError as e:
-        return {"status": "quota_exceeded", "error": str(e)}
+        return {"status": "quota_exceeded", "backend": backend, "error": str(e)}
 
-    # Load context (status + changelog + case docs)
+    # Load context
     status_data = load_status(kb_dir)
     changelog = load_changelog_window(claude_md_path)
     case_docs = select_relevant_case_docs(question, cases_dir)
@@ -536,6 +601,7 @@ def escalate(
     if status_data is None and not changelog and not case_docs:
         return {
             "status": "no_context",
+            "backend": backend,
             "error": (
                 "could not load any context (no status.json, no CLAUDE.md changelog, "
                 "no matching case docs)"
@@ -543,30 +609,19 @@ def escalate(
         }
 
     context_md = build_context_block(status_data, changelog, case_docs)
-
-    # Build system blocks with prompt caching on the context block (stable)
-    system_blocks = [
-        {"type": "text", "text": SYSTEM_PROMPT},
-        {
-            "type": "text",
-            "text": context_md,
-            "cache_control": {"type": "ephemeral"},
-        },
-    ]
-
     user_message = (
         "Question from PA:\n\n"
         + question.strip()
         + "\n\nRespond as a JSON object with the fields described in your system prompt."
     )
 
-    # Dry-run path — dev environment without ANTHROPIC_API_KEY
+    # Dry-run path
     if dry_run:
         synthetic = {
             "proposal": "[DRY RUN] No API call made. Question recorded for review.",
             "rationale": (
-                "Dry-run mode: returning synthetic response. In production this would "
-                "consult Claude " + model_priority[0] + " with prompt caching on context."
+                "Dry-run mode: synthetic response. In production this would route via "
+                "Doubao Seed 2.0 Pro on Volcengine Ark with automatic context cache."
             ),
             "confidence": "low",
             "refs": [],
@@ -575,8 +630,8 @@ def escalate(
             "timestamp_iso": today_for_test or datetime.now(timezone.utc).strftime(
                 "%Y-%m-%dT%H:%M:%SZ"
             ),
+            "backend": backend,
             "question_preview": question[:500],
-            "model_used": None,
             "status": "dry_run",
             "usage": {},
             "context_chars": len(context_md),
@@ -584,103 +639,110 @@ def escalate(
         write_audit_record(audit_log_path, record)
         return {
             "status": "dry_run",
-            "model_used": None,
+            "backend": backend,
             "usage": {},
             **synthetic,
         }
 
-    # Acquire client (lazy import so dev env without anthropic package can still run --dry-run)
-    if client is None:
-        try:
-            import anthropic
-            client = anthropic.Anthropic()
-        except ImportError as e:
-            return {
-                "status": "api_unavailable",
-                "error": "anthropic SDK not installed: " + str(e),
-            }
-        except Exception as e:
-            return {
-                "status": "api_unavailable",
-                "error": "client init failed (likely missing ANTHROPIC_API_KEY): " + str(e),
-            }
+    # Acquire transport (Doubao). Mockable via subclass.
+    if transport is None:
+        transport = DoubaoTransport()
 
-    # Try models in priority order (opus-4.7, then sonnet-4.6 for cost fallback)
-    last_error = ""
-    for model in model_priority:
-        ok, text, usage, err = call_claude(
-            client, model, system_blocks, user_message, max_tokens
-        )
-        if not ok:
-            last_error = err
-            continue
+    if not transport.is_configured():
+        return {
+            "status": "api_unavailable",
+            "backend": backend,
+            "error": (
+                DOUBAO_API_KEY_ENV + " not set. Configure in Mac Mini plist "
+                "EnvironmentVariables (V37.9.55 same path as adapter). "
+                "Use --dry-run for dev validation."
+            ),
+        }
 
-        # Parse JSON
-        try:
-            proposal_dict = parse_response_json(text)
-        except ValueError as e:
-            last_error = "parse_failed on " + model + ": " + str(e)
-            continue
-
-        # Validate read-only contract
-        violations = validate_read_only(proposal_dict)
-        if violations:
-            record = {
-                "timestamp_iso": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-                "question_preview": question[:500],
-                "model_used": model,
-                "status": "read_only_violation",
-                "violations_count": len(violations),
-                "usage": usage,
-                "context_chars": len(context_md),
-            }
-            write_audit_record(audit_log_path, record)
-            return {
-                "status": "read_only_violation",
-                "model_used": model,
-                "violations": violations,
-                "usage": usage,
-                "error": (
-                    str(len(violations)) + " read-only contract violations detected; "
-                    "response rejected"
-                ),
-            }
-
-        # Success
+    # Make the call
+    ok, text, usage, err = transport.call(
+        SYSTEM_PROMPT, context_md, user_message, max_tokens
+    )
+    if not ok:
         record = {
             "timestamp_iso": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "backend": backend,
             "question_preview": question[:500],
-            "model_used": model,
-            "status": "ok",
-            "usage": usage,
+            "status": "api_unavailable",
+            "error": err[:300],
             "context_chars": len(context_md),
-            "confidence": proposal_dict.get("confidence", "unknown"),
         }
         write_audit_record(audit_log_path, record)
         return {
-            "status": "ok",
-            "model_used": model,
-            "proposal": proposal_dict.get("proposal", ""),
-            "rationale": proposal_dict.get("rationale", ""),
-            "confidence": proposal_dict.get("confidence", "low"),
-            "refs": proposal_dict.get("refs", []),
+            "status": "api_unavailable",
+            "backend": backend,
+            "error": err,
+        }
+
+    # Parse JSON
+    try:
+        proposal_dict = parse_response_json(text)
+    except ValueError as e:
+        record = {
+            "timestamp_iso": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "backend": backend,
+            "question_preview": question[:500],
+            "status": "parse_failed",
+            "error": str(e)[:300],
+            "usage": usage,
+            "context_chars": len(context_md),
+        }
+        write_audit_record(audit_log_path, record)
+        return {
+            "status": "parse_failed",
+            "backend": backend,
+            "error": str(e),
             "usage": usage,
         }
 
-    # All models failed
+    # Validate read-only contract
+    violations = validate_read_only(proposal_dict)
+    if violations:
+        record = {
+            "timestamp_iso": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "backend": backend,
+            "question_preview": question[:500],
+            "status": "read_only_violation",
+            "violations_count": len(violations),
+            "usage": usage,
+            "context_chars": len(context_md),
+        }
+        write_audit_record(audit_log_path, record)
+        return {
+            "status": "read_only_violation",
+            "backend": backend,
+            "violations": violations,
+            "usage": usage,
+            "error": (
+                str(len(violations))
+                + " read-only contract violations detected; response rejected"
+            ),
+        }
+
+    # Success
     record = {
         "timestamp_iso": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "backend": backend,
         "question_preview": question[:500],
-        "model_used": None,
-        "status": "api_unavailable",
-        "error": last_error[:300],
+        "status": "ok",
+        "usage": usage,
         "context_chars": len(context_md),
+        "confidence": proposal_dict.get("confidence", "unknown"),
     }
     write_audit_record(audit_log_path, record)
     return {
-        "status": "api_unavailable",
-        "model_used": None,
-        "error": last_error,
+        "status": "ok",
+        "backend": backend,
+        "proposal": proposal_dict.get("proposal", ""),
+        "rationale": proposal_dict.get("rationale", ""),
+        "confidence": proposal_dict.get("confidence", "low"),
+        "refs": proposal_dict.get("refs", []),
+        "usage": usage,
     }
 
 
@@ -691,21 +753,26 @@ def escalate(
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Claude Escalation Capability (V37.9.90 PoC) — "
-                    "one-shot Anthropic SDK call with context + read-only output."
+        description="Expert Escalation Capability (V37.9.90-r1 — Doubao backend, "
+                    "Claude pending) — one-shot Volcengine Ark Chat Completions call "
+                    "with structured context + read-only output enforcement."
     )
-    parser.add_argument("--question", required=True, help="Question for Claude")
+    parser.add_argument("--question", required=True, help="Question for the expert")
     parser.add_argument("--kb-dir", help="KB directory (default ~/.kb)")
+    parser.add_argument("--backend", default=DEFAULT_BACKEND,
+                        choices=[BACKEND_DOUBAO, BACKEND_CLAUDE_PENDING],
+                        help="Backend (default: doubao; claude_pending returns stub)")
     parser.add_argument("--max-tokens", type=int, default=DEFAULT_MAX_TOKENS)
     parser.add_argument("--max-daily", type=int, default=DEFAULT_DAILY_QUOTA)
     parser.add_argument("--dry-run", action="store_true",
-                        help="Skip API call (dev mode without ANTHROPIC_API_KEY)")
+                        help="Skip API call (dev mode without ARK_API_KEY)")
     parser.add_argument("--json", action="store_true", help="JSON output")
     args = parser.parse_args()
 
     result = escalate(
         question=args.question,
         kb_dir=args.kb_dir,
+        backend=args.backend,
         max_tokens=args.max_tokens,
         max_daily=args.max_daily,
         dry_run=args.dry_run,
@@ -715,8 +782,8 @@ def main():
         print(json.dumps(result, ensure_ascii=False, indent=2))
     else:
         print("Status: " + result["status"])
-        if result.get("model_used"):
-            print("Model: " + result["model_used"])
+        if result.get("backend"):
+            print("Backend: " + result["backend"])
         if "proposal" in result:
             print("\n--- Proposal ---\n" + result["proposal"])
             print("\n--- Rationale ---\n" + result.get("rationale", ""))
@@ -728,7 +795,8 @@ def main():
             u = result["usage"]
             print("\nUsage: input=" + str(u.get("input_tokens", 0))
                   + " output=" + str(u.get("output_tokens", 0))
-                  + " cache_read=" + str(u.get("cache_read_input_tokens", 0)))
+                  + " cache_read=" + str(u.get("cache_read_input_tokens", 0))
+                  + " reasoning_chars=" + str(u.get("reasoning_chars", 0)))
         if "error" in result:
             print("\nError: " + result["error"])
         if result.get("violations"):
