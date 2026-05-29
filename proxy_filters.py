@@ -193,6 +193,7 @@ TOOL_PARAMS = {
     "browser_snapshot": {"profile", "target"},
     "data_clean": {"action", "file", "ops", "fix_case_cols", "fix_date_cols"},
     "search_kb": {"query", "source", "recent_hours"},
+    "expert_escalate": {"question", "backend"},  # V37.9.91 expert escalation (Doubao backend)
 }
 
 # 浏览器合法 profile
@@ -390,6 +391,40 @@ CUSTOM_TOOLS = [
                     },
                 },
                 "required": ["query"],
+                "additionalProperties": False,
+            }
+        }
+    },
+    # V37.9.91 Expert Escalation (V37.9.90-r1 Direction 2 兑现, AI Partnership Framework Stage 3)
+    # 当问题超出 PA (Qwen3-235B) 置信范围时, 路由到 Doubao Seed 2.0 Pro 做深度判断.
+    # SOUL.md 规则 12 列出触发词清单 (让 Claude 看看 / 深度判断 / 拿不准 / 帮我决定 等).
+    # Backend: doubao (默认, 已运行 V37.9.55 verified) / claude_pending (future-flip stub).
+    # 返回 read-only proposal (proposal/rationale/confidence/refs), shell-fence + 命令替换 FAIL-CLOSE.
+    {
+        "type": "function",
+        "function": {
+            "name": "expert_escalate",
+            "description": "当问题超出 PA 置信范围时，调用 expert 模型 (Doubao Seed 2.0 Pro) 做深度判断。"
+                           "触发场景：① 用户说\"让 Claude 看看\"/\"深度判断\"/\"帮我决定\"/\"哪个方案好\"/\"拿不准\"/\"帮我反过来想\"等；"
+                           "② 复杂取舍 / 跨案例推理 / 批判性反问。"
+                           "工具喂入 status.json + 14 天 CLAUDE.md changelog + 相关 case docs，"
+                           "返回 read-only proposal（含 proposal/rationale/confidence/refs）。"
+                           "PA 必须传 question=用户原话，禁止自己加工。"
+                           "每日配额 30 次，超出返回 quota_exceeded。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "question": {
+                        "type": "string",
+                        "description": "用户的原始问题。PA 必须传用户原话，不要自己加工 / 概括 / 翻译。"
+                    },
+                    "backend": {
+                        "type": "string",
+                        "enum": ["doubao", "claude_pending"],
+                        "description": "backend 选择。默认 doubao (V37.9.55 verified production)。claude_pending 是 future-flip stub，未配齐 ANTHROPIC_API_KEY 前返回 stub status。"
+                    },
+                },
+                "required": ["question"],
                 "additionalProperties": False,
             }
         }

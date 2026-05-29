@@ -286,6 +286,11 @@ declare -a FILE_MAP=(
     # 数据清洗工具
     "data_clean.py|$HOME/data_clean.py"
 
+    # V37.9.91 Expert Escalation (V37.9.90-r1 Direction 2, Doubao backend)
+    # Custom tool 由 tool_proxy._execute_custom_tool 拦截, lazy import 调 escalate().
+    # SOUL.md 规则 12 触发词清单驱动 PA 调用.
+    "expert_escalation.py|$HOME/expert_escalation.py"
+
     # 用户偏好自动学习
     "preference_learner.py|$HOME/preference_learner.py"
 

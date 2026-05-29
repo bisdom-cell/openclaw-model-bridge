@@ -666,6 +666,69 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
 
             return self._search_kb(query_lower, source, recent_hours=recent_hours)
 
+        # V37.9.91 expert_escalate (V37.9.90-r1 Direction 2 wiring) — Doubao backend
+        # Lazy import 让 dev 环境 + Mac Mini 未部署时 fail-closed 返回明确状态而非崩溃.
+        # 路径解析顺序: 同目录 → $HOME (FILE_MAP 部署位置). 与 V37.9.15 three_gate 同款模式.
+        if name == "expert_escalate":
+            try:
+                args = json.loads(arguments) if isinstance(arguments, str) else arguments
+            except json.JSONDecodeError:
+                return json.dumps({"error": f"参数解析失败: {arguments}"})
+
+            question = args.get("question", "")
+            if not isinstance(question, str) or not question.strip():
+                return json.dumps({
+                    "status": "no_context",
+                    "error": "缺少 question 参数或非字符串",
+                }, ensure_ascii=False)
+            question = question.strip()
+
+            backend = args.get("backend", "doubao")
+            if backend not in ("doubao", "claude_pending"):
+                return json.dumps({
+                    "status": "unknown_backend",
+                    "error": f"backend 必须为 doubao 或 claude_pending, 收到: {backend!r}",
+                }, ensure_ascii=False)
+
+            # Lazy import expert_escalation (脚本目录 → $HOME fallback)
+            try:
+                import importlib.util as _ee_imp
+                _ee_path = os.path.join(
+                    os.path.dirname(os.path.abspath(__file__)),
+                    "expert_escalation.py",
+                )
+                if not os.path.exists(_ee_path):
+                    _ee_path = os.path.expanduser("~/expert_escalation.py")
+                if not os.path.exists(_ee_path):
+                    log(f"[expert_escalate] 模块未部署: {_ee_path}")
+                    return json.dumps({
+                        "status": "api_unavailable",
+                        "error": "expert_escalation.py 未部署 (FILE_MAP 同步未到达)",
+                    }, ensure_ascii=False)
+                _ee_spec = _ee_imp.spec_from_file_location("_expert_escalation", _ee_path)
+                _ee_mod = _ee_imp.module_from_spec(_ee_spec)
+                _ee_spec.loader.exec_module(_ee_mod)
+                _ee_escalate = _ee_mod.escalate
+            except Exception as e:
+                log(f"[expert_escalate] 模块加载失败: {e}")
+                return json.dumps({
+                    "status": "api_unavailable",
+                    "error": f"expert_escalation 模块加载失败: {e}",
+                }, ensure_ascii=False)
+
+            try:
+                log(f"[expert_escalate] question='{question[:80]}{'...' if len(question)>80 else ''}' backend={backend}")
+                result = _ee_escalate(question=question, backend=backend)
+                # 返回完整 dict (PA 看 status 字段决定回复模板, 见 SOUL.md 规则 12).
+                # ensure_ascii=False 保留中文, indent=2 便于 PA 解析.
+                return json.dumps(result, ensure_ascii=False, indent=2)
+            except Exception as e:
+                log(f"[expert_escalate] 调用失败: {e}")
+                return json.dumps({
+                    "status": "api_unavailable",
+                    "error": f"escalate() 调用失败: {e}",
+                }, ensure_ascii=False)
+
         return json.dumps({"error": f"未知自定义工具: {name}"})
 
     def _handle_custom_tool_calls(self, rj, original_body, rid):

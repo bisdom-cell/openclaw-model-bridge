@@ -84,6 +84,7 @@ run_suite "kb_evening (V37.6 import reuse + V37.7 today-count)" "python3 test_kb
 run_suite "kb_deep_dive (V37.9.16 picker+fetcher+prompt+shell guards)" "python3 test_kb_deep_dive.py"
 run_suite "daily_observer (V37.9.84 Daily Self-Critique Observer)" "python3 test_daily_observer.py"
 run_suite "expert_escalation (V37.9.90-r1 Expert Escalation Capability — Doubao backend)" "python3 test_expert_escalation.py"
+run_suite "v37_9_91_expert_escalate_wiring (V37.9.91 Expert Escalation wiring — proxy_filters CUSTOM_TOOLS + tool_proxy 分支 + FILE_MAP + ontology yaml)" "python3 test_v37_9_91_expert_escalate_wiring.py"
 run_suite "cross_source_signal_aggregator (V37.9.46 Opportunity Radar Stage 1 PoC)" "python3 test_cross_source_signal_aggregator.py"
 run_suite "project_alignment_scorer (V37.9.47 Opportunity Radar Stage 2 rule_check)" "python3 test_project_alignment_scorer.py"
 run_suite "kb_trend_acceleration (V37.9.48 Opportunity Radar Stage 3 5-archetype trend)" "python3 test_kb_trend_acceleration.py"
