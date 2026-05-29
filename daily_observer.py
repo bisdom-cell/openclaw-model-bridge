@@ -810,9 +810,16 @@ def main():
     )
 
     if args.json:
-        safe = {k: v for k, v in result.items() if k != "report_markdown"}
-        safe["report_length"] = len(result.get("report_markdown", ""))
-        print(json.dumps(safe, ensure_ascii=False, indent=2))
+        # V37.9.87: include report_markdown in JSON output so wrapper can
+        # extract it without a second observer invocation. Eliminates the
+        # double-write bug to score_history.jsonl (BUG #1) and the
+        # last_run.json vs score_history score mismatch (BUG #2).
+        # Pre-V37.9.87 wrapper called run() twice (once --json, once for
+        # markdown); each call appended to score_history.jsonl with
+        # potentially different LLM scores.
+        output = dict(result)
+        output["report_length"] = len(result.get("report_markdown", ""))
+        print(json.dumps(output, ensure_ascii=False, indent=2))
     else:
         print(result["report_markdown"])
 

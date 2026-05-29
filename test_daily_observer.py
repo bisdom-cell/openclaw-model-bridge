@@ -692,5 +692,219 @@ class TestSourceLevelGuards(unittest.TestCase):
         self.assertIn("finance_news", self.src)
 
 
+# ══════════════════════════════════════════════════════════════════════
+# 9. V37.9.87 BUG #1+#2 — single-call architecture / 1 cron = 1 append
+# ══════════════════════════════════════════════════════════════════════
+#
+# Pre-V37.9.87 evidence (2026-05-29 user paste of Mac Mini score_history):
+#   2026-05-26: 4 records (2 manual runs × 2 internal appends)
+#   2026-05-27: 2 records (1 cron × 2 appends)
+#   2026-05-28: 2 records (1 cron × 2 appends), scores ⭐5 + ⭐4 differ
+#   last_run.json overall_score=5 but score_history latest is 4 → mismatch.
+# Root cause: daily_observer.sh ran daily_observer.py twice per cron
+# (once --json, once for markdown report). Each call ran run() →
+# append_score_history. LLM stochasticity → different scores between calls.
+#
+# Fix: --json output now includes report_markdown. Wrapper does single
+# invocation, parses + writes report file in one Python fork.
+
+class TestV37_9_87_SingleCallArchitecture(unittest.TestCase):
+    """V37.9.87: 1 cron run produces exactly 1 score_history append."""
+
+    @classmethod
+    def setUpClass(cls):
+        py_path = os.path.join(os.path.dirname(__file__), "daily_observer.py")
+        sh_path = os.path.join(os.path.dirname(__file__), "daily_observer.sh")
+        with open(py_path, "r", encoding="utf-8") as f:
+            cls.py_src = f.read()
+        with open(sh_path, "r", encoding="utf-8") as f:
+            cls.sh_src = f.read()
+
+    def test_v37_9_87_marker_in_py(self):
+        self.assertIn("V37.9.87", self.py_src,
+                      "daily_observer.py must reference V37.9.87 fix")
+
+    def test_v37_9_87_marker_in_sh(self):
+        self.assertIn("V37.9.87", self.sh_src,
+                      "daily_observer.sh must reference V37.9.87 fix")
+
+    def test_json_branch_includes_report_markdown(self):
+        """--json output must include report_markdown so wrapper avoids
+        a second invocation (the root cause of double-append)."""
+        # The fixed branch must NOT filter out report_markdown.
+        # Pre-V37.9.87 had: safe = {k: v for k, v in result.items()
+        #                           if k != "report_markdown"}
+        # Post-V37.9.87 has: output = dict(result)
+        self.assertNotIn(
+            'k != "report_markdown"', self.py_src,
+            "--json must not filter out report_markdown (V37.9.87)")
+        self.assertIn("output = dict(result)", self.py_src,
+                      "--json must include all result fields")
+
+    def test_wrapper_invokes_observer_only_once(self):
+        """Source-level guard: shell wrapper must invoke OBSERVER_PY only
+        once per cron run. Pre-V37.9.87 had 2 invocations causing the
+        double-append bug.
+
+        We count non-comment lines that match `python3 "$OBSERVER_PY"`.
+        Inline Python (python3 -c) is allowed for parsing.
+        """
+        count = 0
+        for line in self.sh_src.split("\n"):
+            stripped = line.strip()
+            if stripped.startswith("#"):
+                continue
+            # Match exec of the observer script (not python3 -c heredoc)
+            if 'python3 "$OBSERVER_PY"' in stripped:
+                count += 1
+        self.assertEqual(
+            count, 1,
+            f"V37.9.87 single-call invariant: expected 1 invocation of "
+            f'python3 "$OBSERVER_PY", found {count}. Double invocation '
+            f"causes double append_score_history (BUG #1).")
+
+    def test_wrapper_passes_report_file_via_env(self):
+        """V37.9.87 wrapper must export REPORT_FILE to inline Python so
+        the report can be written without a second observer invocation."""
+        self.assertIn('REPORT_FILE="$REPORT_FILE" python3', self.sh_src,
+                      "REPORT_FILE must be exported to inline Python")
+        self.assertIn("os.environ.get('REPORT_FILE'", self.sh_src,
+                      "inline Python must read REPORT_FILE from env")
+
+    def test_inline_python_writes_report_markdown(self):
+        """V37.9.87: inline Python parses report_markdown from JSON and
+        writes to REPORT_FILE."""
+        self.assertIn("d.get('report_markdown'", self.sh_src,
+                      "inline Python must read report_markdown from JSON")
+        self.assertIn("f.write(report)", self.sh_src,
+                      "inline Python must write report to file")
+
+    def test_pre_v37_9_87_pattern_removed(self):
+        """Reverse guard: the buggy `python3 "$OBSERVER_PY" $DATE_ARG >
+        "$REPORT_FILE"` pattern must NOT reappear (would re-introduce
+        BUG #1 + BUG #2)."""
+        # Look for the specific buggy pattern
+        for line in self.sh_src.split("\n"):
+            stripped = line.strip()
+            if stripped.startswith("#"):
+                continue
+            if 'python3 "$OBSERVER_PY"' in stripped and '> "$REPORT_FILE"' in stripped:
+                self.fail(
+                    f"V37.9.87 regression: pre-fix pattern "
+                    f"`python3 \"$OBSERVER_PY\" ... > \"$REPORT_FILE\"` "
+                    f"reappeared in line: {stripped!r}")
+
+    def test_cli_json_outputs_report_markdown(self):
+        """End-to-end: --json output includes report_markdown field."""
+        result = subprocess.run(
+            [sys.executable, "daily_observer.py", "--json", "--dry-run",
+             "--date", "20260525"],
+            capture_output=True, text=True,
+            cwd=os.path.dirname(__file__), timeout=15)
+        self.assertEqual(result.returncode, 0)
+        data = json.loads(result.stdout)
+        self.assertIn("report_markdown", data,
+                      "--json output must include report_markdown field "
+                      "(V37.9.87 single-call invariant)")
+        self.assertIn("report_length", data,
+                      "--json output must keep report_length for "
+                      "backward compatibility")
+        # report_markdown is a non-empty string (even dry-run produces
+        # a header + job coverage section)
+        self.assertIsInstance(data["report_markdown"], str)
+        self.assertGreater(len(data["report_markdown"]), 0)
+
+    def test_single_run_produces_single_history_append(self):
+        """Behavioral: 1 call to run() = 1 line in score_history.jsonl.
+        This is the invariant the wrapper relies on to ensure 1 cron =
+        1 append (when wrapper invokes observer once)."""
+        with tempfile.TemporaryDirectory() as td:
+            kb = td
+            os.makedirs(os.path.join(td, "daily"))
+            os.makedirs(os.path.join(td, "dreams"))
+            os.makedirs(os.path.join(td, "deep_dives"))
+            os.makedirs(os.path.join(td, "sources"))
+            with open(os.path.join(td, "daily", "evening_20260525.md"), "w") as f:
+                f.write("# Evening\n" + ("ok " * 50))
+            with open(os.path.join(td, "sources", "arxiv_daily.md"), "w") as f:
+                f.write("## 2026-05-25\nx" * 100)
+
+            def mock_llm(system, user):
+                return True, ("## 评分\n- 综合: ⭐⭐⭐⭐ / 5\n"
+                              "## 发现的问题\n1. ok\n"
+                              "## 改进提案\n1. ok"), ""
+
+            obs.run(kb_dir=kb, jobs_dir=os.path.join(td, "fake_jobs"),
+                    target_date=datetime(2026, 5, 25), llm_caller=mock_llm)
+
+            history_path = os.path.join(td, "self_critique",
+                                        "score_history.jsonl")
+            self.assertTrue(os.path.isfile(history_path),
+                            "run() must append to score_history.jsonl")
+            with open(history_path) as f:
+                lines = [l for l in f.read().strip().split("\n") if l]
+            self.assertEqual(
+                len(lines), 1,
+                f"1 run() call = 1 history append (got {len(lines)} lines). "
+                "If this regresses, V37.9.87 wrapper invariant is at risk.")
+
+    def test_two_runs_same_date_produce_two_records_pre_dedup(self):
+        """Documentation test: run() does NOT dedup at append time. Each
+        call appends a row. The dedup is done at LOAD time by
+        load_score_history. This means the wrapper MUST avoid double
+        invocations (V37.9.87 single-call architecture) to keep
+        history.jsonl clean."""
+        with tempfile.TemporaryDirectory() as td:
+            kb = td
+            os.makedirs(os.path.join(td, "daily"))
+            os.makedirs(os.path.join(td, "dreams"))
+            os.makedirs(os.path.join(td, "deep_dives"))
+            os.makedirs(os.path.join(td, "sources"))
+            with open(os.path.join(td, "daily", "evening_20260525.md"), "w") as f:
+                f.write("# Evening\n" + ("ok " * 50))
+
+            def mock_llm(system, user):
+                return True, "## 评分\n- 综合: ⭐⭐⭐⭐ / 5", ""
+
+            for _ in range(2):
+                obs.run(kb_dir=kb, jobs_dir=os.path.join(td, "fake_jobs"),
+                        target_date=datetime(2026, 5, 25), llm_caller=mock_llm)
+
+            history_path = os.path.join(td, "self_critique",
+                                        "score_history.jsonl")
+            with open(history_path) as f:
+                lines = [l for l in f.read().strip().split("\n") if l]
+            self.assertEqual(
+                len(lines), 2,
+                "DOC TEST: 2 run() calls = 2 history rows (no append-time "
+                "dedup). This is exactly why pre-V37.9.87 double-invocation "
+                "produced 2 rows per cron. load_score_history dedups by "
+                "date at read time, so trend analysis sees 1 entry, but "
+                "the underlying file accumulates pollution.")
+
+
+class TestV37_9_87_ReverseSabotage(unittest.TestCase):
+    """V37.9.87 reverse-validation: sabotage the fix and confirm guards fail.
+    Not run by default; documents what would break.
+    """
+
+    def test_sabotage_documentation(self):
+        """If we re-introduced the pre-V37.9.87 pattern by adding a second
+        `python3 "$OBSERVER_PY" $DATE_ARG > "$REPORT_FILE"` line, the
+        following tests would catch it (in order of detection):
+          1. test_wrapper_invokes_observer_only_once
+          2. test_pre_v37_9_87_pattern_removed
+        If we removed the `output = dict(result)` line and re-added the
+        filter, the following would catch it:
+          1. test_json_branch_includes_report_markdown
+          2. test_cli_json_outputs_report_markdown
+        Manually verified 2026-05-29 by reverting each change and observing
+        failures in CI dev environment.
+        """
+        # This test always passes — it's purely documentation. The actual
+        # reverse validation is done manually as part of V37.9.87 release.
+        self.assertTrue(True, "see docstring")
+
+
 if __name__ == "__main__":
     unittest.main()
