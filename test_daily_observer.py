@@ -883,6 +883,432 @@ class TestV37_9_87_SingleCallArchitecture(unittest.TestCase):
                 "the underlying file accumulates pollution.")
 
 
+# ══════════════════════════════════════════════════════════════════════
+# 10. V37.9.88 — registry-driven enabled filter + stale last_run detection
+# ══════════════════════════════════════════════════════════════════════
+#
+# Discovered 2026-05-29 during V37.9.84 observer trend review:
+#   pwc disabled since V31 (2026-03), deleted V37.8.13, but observer's
+#   hardcoded JOBS_SUBDIRS still contained "pwc". For 2 months observer
+#   read pwc's stale last_run.json (timestamp 2026-03-31, status=fetch_failed)
+#   and flagged it as today's HIGH anomaly. Same drift potential for
+#   karpathy_x (V34 merged to ai_leaders_x) and openclaw_official (no
+#   matching enabled job ID in registry).
+#
+# Fix:
+#   - _filter_enabled_jobs reads jobs_registry.yaml at scan time
+#   - JOBS_SUBDIRS becomes the data-source category whitelist (max set)
+#   - registry filters down to enabled=true → MR-8 single source of truth
+#   - Stale last_run detection: time > 7d before target_date → MED
+#     anomaly "stale_job" + SUPPRESS HIGH "job_failure" (status untrustworthy)
+
+class TestV37_9_88_LoadEnabledJobIds(unittest.TestCase):
+    """V37.9.88: parse jobs_registry.yaml minimally without PyYAML."""
+
+    def _make_registry(self, td, content):
+        path = os.path.join(td, "jobs_registry.yaml")
+        with open(path, "w") as f:
+            f.write(content)
+        return path
+
+    def test_parses_enabled_true_jobs(self):
+        with tempfile.TemporaryDirectory() as td:
+            path = self._make_registry(td, """
+  - id: hf_papers
+    enabled: true
+    interval: "0 10 * * *"
+
+  - id: pwc
+    enabled: false
+    description: V31 disabled
+
+  - id: arxiv_monitor
+    enabled: true
+""")
+            result = obs._load_enabled_job_ids_from_registry(path)
+            self.assertEqual(result, {"hf_papers", "arxiv_monitor"})
+
+    def test_missing_file_returns_none(self):
+        result = obs._load_enabled_job_ids_from_registry("/nonexistent/x.yaml")
+        self.assertIsNone(result)
+
+    def test_inline_comment_stripped(self):
+        with tempfile.TemporaryDirectory() as td:
+            path = self._make_registry(td, """
+  - id: pwc
+    enabled: false  # V31 disabled, V37.8.13 deleted
+
+  - id: hf_papers
+    enabled: true  # working
+""")
+            result = obs._load_enabled_job_ids_from_registry(path)
+            self.assertEqual(result, {"hf_papers"})
+
+    def test_skips_comment_only_lines(self):
+        with tempfile.TemporaryDirectory() as td:
+            path = self._make_registry(td, """
+  # ┌─ Data Sources ─┐
+  - id: hf_papers
+    enabled: true
+  # ┌─ Disabled ─┐
+  - id: pwc
+    enabled: false
+""")
+            result = obs._load_enabled_job_ids_from_registry(path)
+            self.assertEqual(result, {"hf_papers"})
+
+    def test_quoted_enabled_value(self):
+        with tempfile.TemporaryDirectory() as td:
+            path = self._make_registry(td, """
+  - id: hf_papers
+    enabled: "true"
+
+  - id: pwc
+    enabled: 'false'
+""")
+            result = obs._load_enabled_job_ids_from_registry(path)
+            self.assertEqual(result, {"hf_papers"})
+
+    def test_real_registry_excludes_pwc(self):
+        """Source-level guard: against the actual repo jobs_registry.yaml,
+        pwc must be excluded (the V37.9.88 trigger case)."""
+        result = obs._load_enabled_job_ids_from_registry()
+        # FAIL-OPEN: registry may not be at expected path in some test envs.
+        # Skip if registry not found.
+        if result is None:
+            self.skipTest("registry not found at default paths")
+        self.assertNotIn("pwc", result,
+                         "V37.9.88 invariant: pwc must be excluded "
+                         "(disabled V31, deleted V37.8.13)")
+        # Sanity: hf_papers (enabled) must be in
+        self.assertIn("hf_papers", result)
+
+
+class TestV37_9_88_FilterEnabledJobs(unittest.TestCase):
+    """V37.9.88: filter JOBS_SUBDIRS using registry, FAIL-OPEN."""
+
+    def test_filter_removes_disabled(self):
+        with tempfile.TemporaryDirectory() as td:
+            path = os.path.join(td, "r.yaml")
+            with open(path, "w") as f:
+                f.write("""
+  - id: hf_papers
+    enabled: true
+
+  - id: pwc
+    enabled: false
+
+  - id: arxiv_monitor
+    enabled: true
+""")
+            subdirs = ["hf_papers", "pwc", "arxiv_monitor"]
+            result = obs._filter_enabled_jobs(subdirs, registry_path=path)
+            self.assertEqual(result, ["hf_papers", "arxiv_monitor"])
+
+    def test_fail_open_on_missing_registry(self):
+        """FAIL-OPEN: missing registry returns subdirs unchanged."""
+        subdirs = ["hf_papers", "pwc", "arxiv_monitor"]
+        result = obs._filter_enabled_jobs(
+            subdirs, registry_path="/nonexistent/x.yaml")
+        self.assertEqual(result, subdirs)
+
+    def test_preserves_order(self):
+        with tempfile.TemporaryDirectory() as td:
+            path = os.path.join(td, "r.yaml")
+            with open(path, "w") as f:
+                f.write("""
+  - id: hf_papers
+    enabled: true
+
+  - id: dblp
+    enabled: true
+
+  - id: arxiv_monitor
+    enabled: true
+""")
+            # subdirs in different order than registry
+            subdirs = ["arxiv_monitor", "hf_papers", "dblp"]
+            result = obs._filter_enabled_jobs(subdirs, registry_path=path)
+            self.assertEqual(result, subdirs,
+                             "subdirs order must be preserved")
+
+    def test_env_var_override(self):
+        """OBSERVER_REGISTRY_PATH env var injection for tests."""
+        with tempfile.TemporaryDirectory() as td:
+            path = os.path.join(td, "r.yaml")
+            with open(path, "w") as f:
+                f.write("  - id: only_one\n    enabled: true\n")
+            old = os.environ.get(obs._REGISTRY_ENV_VAR)
+            os.environ[obs._REGISTRY_ENV_VAR] = path
+            try:
+                resolved = obs._resolve_registry_path()
+                self.assertEqual(resolved, path)
+            finally:
+                if old is None:
+                    del os.environ[obs._REGISTRY_ENV_VAR]
+                else:
+                    os.environ[obs._REGISTRY_ENV_VAR] = old
+
+
+class TestV37_9_88_ParseLrTime(unittest.TestCase):
+    """V37.9.88: parse last_run.json 'time' field variants."""
+
+    def test_space_separated(self):
+        result = obs._parse_lr_time("2026-05-28 11:00:00")
+        self.assertEqual(result, datetime(2026, 5, 28, 11, 0, 0))
+
+    def test_iso_t_separator(self):
+        result = obs._parse_lr_time("2026-05-28T11:00:00")
+        self.assertEqual(result, datetime(2026, 5, 28, 11, 0, 0))
+
+    def test_iso_with_z_suffix(self):
+        result = obs._parse_lr_time("2026-05-28T11:00:00Z")
+        self.assertEqual(result, datetime(2026, 5, 28, 11, 0, 0))
+
+    def test_date_only(self):
+        result = obs._parse_lr_time("2026-05-28")
+        self.assertEqual(result, datetime(2026, 5, 28, 0, 0, 0))
+
+    def test_empty_string_returns_none(self):
+        self.assertIsNone(obs._parse_lr_time(""))
+
+    def test_invalid_string_returns_none(self):
+        self.assertIsNone(obs._parse_lr_time("not a time"))
+
+    def test_none_input_returns_none(self):
+        self.assertIsNone(obs._parse_lr_time(None))
+
+    def test_non_string_input_returns_none(self):
+        self.assertIsNone(obs._parse_lr_time(12345))
+
+
+class TestV37_9_88_IsStaleLastRun(unittest.TestCase):
+    """V37.9.88: stale detection boundary cases."""
+
+    def test_fresh_today(self):
+        # last_run today, target_date today → fresh
+        stale, days = obs._is_stale_last_run(
+            "2026-05-28 11:00:00", datetime(2026, 5, 28))
+        self.assertFalse(stale)
+
+    def test_one_day_old_fresh(self):
+        stale, days = obs._is_stale_last_run(
+            "2026-05-27 11:00:00", datetime(2026, 5, 28))
+        self.assertFalse(stale, "1d old is fresh (<7d threshold)")
+
+    def test_seven_days_old_boundary_fresh(self):
+        """boundary: exactly 7d old = fresh (only >7d is stale)."""
+        stale, days = obs._is_stale_last_run(
+            "2026-05-21 12:00:00", datetime(2026, 5, 28))
+        self.assertFalse(stale, "7d old is boundary fresh (>7d is stale)")
+
+    def test_eight_days_old_stale(self):
+        stale, days = obs._is_stale_last_run(
+            "2026-05-20 11:00:00", datetime(2026, 5, 28))
+        self.assertTrue(stale)
+        self.assertEqual(days, 8)
+
+    def test_blood_lesson_pwc_2_months_stale(self):
+        """Real V37.9.88 trigger: pwc last_run 2026-03-31, target_date
+        2026-05-28 → 58 days old → stale."""
+        stale, days = obs._is_stale_last_run(
+            "2026-03-31 16:54:03", datetime(2026, 5, 28))
+        self.assertTrue(stale)
+        self.assertEqual(days, 58)
+
+    def test_unparseable_time_not_stale(self):
+        """If time can't be parsed, do NOT flag as stale (FAIL-OPEN)."""
+        stale, days = obs._is_stale_last_run(
+            "garbage", datetime(2026, 5, 28))
+        self.assertFalse(stale)
+        self.assertIsNone(days)
+
+    def test_custom_max_age(self):
+        # 3d old, max_age=2 → stale
+        stale, days = obs._is_stale_last_run(
+            "2026-05-25 11:00:00", datetime(2026, 5, 28), max_age_days=2)
+        self.assertTrue(stale)
+
+
+class TestV37_9_88_DetectAnomalies(unittest.TestCase):
+    """V37.9.88: stale_job MED anomaly + HIGH job_failure suppression."""
+
+    def _job(self, job_id, status, stale=False, stale_days=None):
+        return {"job_id": job_id, "status": status, "time": "x", "new": 0,
+                "reason": "", "found": True,
+                "stale": stale, "stale_days": stale_days}
+
+    def test_stale_job_emits_med_anomaly(self):
+        statuses = [self._job("pwc", "fetch_failed", stale=True, stale_days=58)]
+        anomalies = obs.detect_anomalies(statuses, {}, ["x"])
+        stale_a = [a for a in anomalies if a["category"] == "stale_job"]
+        self.assertEqual(len(stale_a), 1)
+        self.assertEqual(stale_a[0]["severity"], "MED")
+        self.assertIn("58d", stale_a[0]["message"])
+        self.assertIn("pwc", stale_a[0]["message"])
+        self.assertIn("untrustworthy", stale_a[0]["message"])
+
+    def test_stale_job_suppresses_high_job_failure(self):
+        """V37.9.88 invariant: stale jobs do NOT emit HIGH job_failure.
+        Status data is itself stale, can't be trusted as 'today's failure'."""
+        statuses = [self._job("pwc", "fetch_failed", stale=True, stale_days=58)]
+        anomalies = obs.detect_anomalies(statuses, {}, ["x"])
+        high_failure = [a for a in anomalies
+                        if a["category"] == "job_failure"
+                        and a["severity"] == "HIGH"]
+        self.assertEqual(len(high_failure), 0,
+                         "stale job_failure must be suppressed (status "
+                         "data is untrustworthy)")
+
+    def test_non_stale_failure_still_emits_high(self):
+        statuses = [self._job("s2", "fetch_failed", stale=False)]
+        anomalies = obs.detect_anomalies(statuses, {}, ["x"])
+        high_failure = [a for a in anomalies
+                        if a["category"] == "job_failure"
+                        and a["severity"] == "HIGH"]
+        self.assertEqual(len(high_failure), 1,
+                         "non-stale fresh failure still HIGH")
+        self.assertIn("s2", high_failure[0]["message"])
+
+    def test_blood_lesson_5_28_correct_anomaly_split(self):
+        """Real V37.9.88 scenario: 5/28 observer reported anomalies_high=2
+        (s2 + pwc). After V37.9.88: 1 HIGH (s2 real) + 1 MED (pwc stale)."""
+        statuses = [
+            self._job("semantic_scholar", "fetch_failed", stale=False),
+            self._job("pwc", "fetch_failed", stale=True, stale_days=58),
+        ]
+        anomalies = obs.detect_anomalies(statuses, {}, ["x"])
+        high = [a for a in anomalies if a["severity"] == "HIGH"]
+        med_stale = [a for a in anomalies if a["category"] == "stale_job"]
+        # Filter out source/output anomalies for clarity (those depend on
+        # push_outputs/source_sections, here both passed minimal).
+        high_failure = [a for a in high if a["category"] == "job_failure"]
+        self.assertEqual(len(high_failure), 1,
+                         "only s2 (real fresh failure) is HIGH")
+        self.assertEqual(len(med_stale), 1,
+                         "pwc 58d stale → MED stale_job")
+
+
+class TestV37_9_88_ScanJobStatusesIntegration(unittest.TestCase):
+    """V37.9.88 end-to-end: scan_job_statuses applies filter + stale check."""
+
+    def test_excludes_disabled_jobs_via_registry(self):
+        with tempfile.TemporaryDirectory() as td:
+            # Create mock last_run.json for both enabled + disabled
+            jobs_dir = os.path.join(td, "jobs")
+            for jid in ("hf_papers", "pwc"):
+                d = os.path.join(jobs_dir, jid, "cache")
+                os.makedirs(d)
+                with open(os.path.join(d, "last_run.json"), "w") as f:
+                    json.dump({"time": "2026-05-28 11:00:00",
+                               "status": "ok", "new": 5}, f)
+            # Mock registry: only hf_papers enabled
+            registry_path = os.path.join(td, "r.yaml")
+            with open(registry_path, "w") as f:
+                f.write("""
+  - id: hf_papers
+    enabled: true
+
+  - id: pwc
+    enabled: false
+""")
+            # Need to monkey-patch JOBS_SUBDIRS to just these two
+            old = obs.JOBS_SUBDIRS[:]
+            obs.JOBS_SUBDIRS[:] = ["hf_papers", "pwc"]
+            try:
+                results = obs.scan_job_statuses(
+                    jobs_dir, datetime(2026, 5, 28),
+                    registry_path=registry_path)
+            finally:
+                obs.JOBS_SUBDIRS[:] = old
+            job_ids = [r["job_id"] for r in results]
+            self.assertEqual(job_ids, ["hf_papers"],
+                             "pwc must be filtered out")
+
+    def test_marks_stale_entries(self):
+        with tempfile.TemporaryDirectory() as td:
+            jobs_dir = os.path.join(td, "jobs")
+            # hf_papers fresh, pwc 2-month stale
+            for jid, ts in [("hf_papers", "2026-05-28 11:00:00"),
+                            ("pwc", "2026-03-31 16:54:03")]:
+                d = os.path.join(jobs_dir, jid, "cache")
+                os.makedirs(d)
+                with open(os.path.join(d, "last_run.json"), "w") as f:
+                    json.dump({"time": ts, "status": "ok"}, f)
+            # Disable filter — pretend BOTH are enabled to test stale check
+            registry_path = os.path.join(td, "r.yaml")
+            with open(registry_path, "w") as f:
+                f.write("""
+  - id: hf_papers
+    enabled: true
+
+  - id: pwc
+    enabled: true
+""")
+            old = obs.JOBS_SUBDIRS[:]
+            obs.JOBS_SUBDIRS[:] = ["hf_papers", "pwc"]
+            try:
+                results = obs.scan_job_statuses(
+                    jobs_dir, datetime(2026, 5, 28),
+                    registry_path=registry_path)
+            finally:
+                obs.JOBS_SUBDIRS[:] = old
+            by_id = {r["job_id"]: r for r in results}
+            self.assertFalse(by_id["hf_papers"]["stale"])
+            self.assertTrue(by_id["pwc"]["stale"])
+            self.assertEqual(by_id["pwc"]["stale_days"], 58)
+
+
+class TestV37_9_88_SourceLevelGuards(unittest.TestCase):
+    """V37.9.88 source-level: prevent regression of hardcoded drift."""
+
+    @classmethod
+    def setUpClass(cls):
+        py_path = os.path.join(os.path.dirname(__file__), "daily_observer.py")
+        with open(py_path, "r", encoding="utf-8") as f:
+            cls.src = f.read()
+
+    def test_v37_9_88_marker(self):
+        self.assertIn("V37.9.88", self.src)
+
+    def test_filter_function_defined(self):
+        self.assertIn("def _filter_enabled_jobs(", self.src)
+        self.assertIn("def _load_enabled_job_ids_from_registry(", self.src)
+
+    def test_stale_functions_defined(self):
+        self.assertIn("def _is_stale_last_run(", self.src)
+        self.assertIn("def _parse_lr_time(", self.src)
+        self.assertIn("STALE_LAST_RUN_MAX_DAYS = 7", self.src)
+
+    def test_scan_uses_filter(self):
+        """scan_job_statuses must use _filter_enabled_jobs."""
+        # Source-level: both definitions and a call must exist
+        self.assertIn("def scan_job_statuses(", self.src)
+        # The call to _filter_enabled_jobs must appear (in scan body)
+        self.assertIn("_filter_enabled_jobs(JOBS_SUBDIRS", self.src,
+                      "scan_job_statuses must apply registry filter")
+
+    def test_anomaly_suppression_logic_present(self):
+        """detect_anomalies must skip HIGH for stale jobs."""
+        self.assertIn("def detect_anomalies(", self.src)
+        self.assertIn("stale_job_ids", self.src,
+                      "stale jobs must be tracked for HIGH suppression")
+        self.assertIn('"stale_job"', self.src,
+                      "stale_job category must be emitted")
+        self.assertIn('j["job_id"] not in stale_job_ids', self.src,
+                      "HIGH job_failure must skip stale entries")
+
+    def test_blood_lesson_reference(self):
+        """V37.9.88 must reference the pwc 2-month blood lesson."""
+        # Either V37.9.88 + pwc + V31, or explicit "blood lesson" reference
+        self.assertIn("pwc", self.src)
+        # Reference to disabled-job drift (any of these is sufficient)
+        markers = ["V31", "stale", "untrustworthy"]
+        found = sum(1 for m in markers if m in self.src)
+        self.assertGreaterEqual(found, 2,
+            "V37.9.88 must reference the drift case in comments")
+
+
 class TestV37_9_87_ReverseSabotage(unittest.TestCase):
     """V37.9.87 reverse-validation: sabotage the fix and confirm guards fail.
     Not run by default; documents what would break.
