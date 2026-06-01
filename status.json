@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-01 04:08:13",
+  "updated": "2026-06-01 04:20:07",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -267,7 +267,8 @@
       "V37.9.93+ 候选 (Mac Mini 部署 V37.9.92 + 7 天观察后): (a) 立 INV-OBSERVER-001 governance 守 daily_observer 全套契约 (7-8 checks: _resolve_registry_path 4 candidates / _write_observer_to_status helper / run() 调用 + 顺序锁 / FAIL-OPEN ImportError + Exception / quality.observer payload schema / V37.9.92 marker / blood lesson 引用). (b) 立 INV-CROSS-ENV-PATH-001 (MR-15 第 4 次演出已达门槛): 守所有 _resolve_*_path() 函数必须含 ~/openclaw-model-bridge/ Mac Mini canonical candidate, 全 repo scan. 同款 V37.9.67 cross_os_quirk_scanner 模式. (c) 写 ontology/docs/cases/v37_9_92_observer_path_blood_case.md 记录 5 天潜伏 + MR-15 第 4 次演出 + 双 silent failure 协同模式.",
       "V37.9.94+ 候选 (Mac Mini 部署 V37.9.93 一周观察后, ~6/8): 立 INV-OBSERVER-SAMPLING-001 governance 守 _read_file_sample 必须使用 smart sampling (head+marker+tail, 不能回退到 content[:max_chars]) + CRITIQUE_SYSTEM 必含采样说明段. 5-6 checks 设计就绪. 防止未来重构误回到 V37.9.84 pre-smart-sampling 行为. 一周观察期同时验证下次 06:30 cron 推送 daily_critique 不再含 false truncation report.",
       "V37.9.95+ 候选 (Mac Mini 部署 V37.9.94 + 一周观察后): (a) 立 INV-OBSERVER-001 — 守 Observer 全契约 (V37.9.92 status.json closure + V37.9.88 registry filter + V37.9.87 single-call architecture, 7-8 checks). (b) 立 INV-OBSERVER-SAMPLING-001 — 守 V37.9.93 smart sampling 不退化 + CRITIQUE_SYSTEM 必含采样说明段 + LLM 不再误报 dream truncation. (c) Observer-of-Observer 候选: 第二个 cron 主动监控 daily_observer.log fallback warn 累计 ≥ N 升 [SYSTEM_ALERT] (反思方法论提到的元元层防御). (d) 验证 cross_env_path_scanner 在 Mac Mini 真生产 governance audit cron 07:00 0 violations.",
-      "V37.9.96+ 候选 (Mac Mini 部署 V37.9.95 + 1-2 天观察后): (a) 新增 12 账号活跃度复盘 — 哪些是僵尸 (newest_tweet > 7d) 从列表移除. fetch_stats log 含 0 条的 handle 候选清理. (b) 评估 promote V37.8.4 ZOMBIE detection 同款机制到 ai_leaders_x (currently 仅 WARN log). (c) 周一 #32 制度化 — 如果连续 3-4 周都产生 actionable feedback, 立 INV-WEEKLY-USER-OBSERVATION-001 守 weekly observation 必有产出 (即时记录到 status.json feedback 字段). (d) 评估推送内容质量 — 跨派别观点是否真带来'AI 大神不同观点'的用户感知."
+      "V37.9.96+ 候选 (Mac Mini 部署 V37.9.95 + 1-2 天观察后): (a) 新增 12 账号活跃度复盘 — 哪些是僵尸 (newest_tweet > 7d) 从列表移除. fetch_stats log 含 0 条的 handle 候选清理. (b) 评估 promote V37.8.4 ZOMBIE detection 同款机制到 ai_leaders_x (currently 仅 WARN log). (c) 周一 #32 制度化 — 如果连续 3-4 周都产生 actionable feedback, 立 INV-WEEKLY-USER-OBSERVATION-001 守 weekly observation 必有产出 (即时记录到 status.json feedback 字段). (d) 评估推送内容质量 — 跨派别观点是否真带来'AI 大神不同观点'的用户感知.",
+      "V37.9.96+ 候选 (历史 doc rot 治理债): README.md 显示 'v37.9.81 / 0.37.9.68 (2026-05-19)' 实际版本已到 v37.9.95 / 2026-06-01. Tests badge '3346 passed' 实际 3635. Invariants badge '82/82 + 19 MR' — 当前是 81/81 + 17 MR (V37.9.94 加 INV-CROSS-ENV-PATH-001 是 81). docs/config.md 头部停在 v37.9.68-hotfix 2026-05-15, 漏 V37.9.69-95 累积 26+ 版本. 工作量 ~30min 全更新 (badges + 版本号 + 日期), 非阻塞但用户/外部访问者看到的是 stale 视图. 不是今日引入, V37.9.96+ 候选."
     ],
     "open_prs": "",
     "blocked_on": "",
@@ -334,10 +335,10 @@
   "quality": {
     "security_score": 95,
     "test_count": 3635,
-    "last_regression": "2026-06-01 04:06 pass",
+    "last_regression": "2026-06-01 04:18 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-01 04:06",
-    "test_suites": 101,
+    "security_score_time": "2026-06-01 04:18",
+    "test_suites": 102,
     "governance_invariants": "64/64",
     "governance_checks": "350/350",
     "version": "0.37.9.68",
