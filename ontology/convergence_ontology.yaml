@@ -14,8 +14,8 @@
 # alert_only observation data per spec.
 
 meta:
-  version: "0.8-machine-sync-activated"
-  status: "framework_five_specs_two_machine_sync_activated_dry_run_default_off"
+  version: "0.9-services-machine-sync-dry-run"
+  status: "framework_five_specs_three_machine_sync_services_dry_run_first"
   description: |
     Phase 4 Layer 5 of the ontology stack. Layer 1 (domain) describes WHAT
     exists, Layer 2 (policy) describes WHAT'S ALLOWED, Layer 3 (three-gate)
@@ -225,6 +225,52 @@ meta:
 
     候选 V37.9.59+: 一周真激活观察后立 INV-CONVERGENCE-ACTIVATED-001
                   守卫 "default real apply 不可回退", 锁定 escalation 终态.
+
+  v37_9_97_changelog: |
+    services_to_launchd Plan B 升级 — 第 5 个也是最后一个 alert_only spec 进入
+    machine_sync (2026-06-01):
+
+    背景: services_to_launchd (V37.9.25 第 5 spec) 自 5/4 起 alert_only, 是 5 个
+    spec 中唯一未升 machine_sync 的 (jobs_to_crontab + kb_sources_to_index 已在
+    V37.9.58 终态). 4 周观察期 (5/4-6/1) zero drift, Mac Mini 6/1 实测
+    declared=3 observed=3 no drift, 基线干净.
+
+    V37.9.97 升级:
+      1. drift_action: alert_only → machine_sync
+      2. convergence_method: planned → implemented + apply_function:
+         services_launchctl_bootstrap (V37.9.24 named-dispatch 第 3 个 apply 函数)
+      3. 新 apply 函数 _apply_services_launchctl_bootstrap (per-service, 镜像
+         _apply_jobs_to_crontab_per_entry): 对每个 missing label 查 services_registry
+         的 plist, real 模式跑 `launchctl bootstrap gui/<uid> ~/Library/LaunchAgents/<plist>`,
+         dry-run 模式发 "DRY-RUN would bootstrap: ...". FAIL-OPEN per-service.
+      4. _load_services_registry_index helper (label→service dict, 镜像
+         _load_jobs_registry_index)
+
+    关键设计 — per-spec dry-run (V37.9.97 让 dry_run_default 字段真正生效):
+      问题: V37.9.58 切关后全局 _is_dry_run() 默认 real-apply, spec 的
+            dry_run_default 字段纯文档性 (apply 路径不读它, verify_convergence
+            传 dry_run=None → 全局 env). services bootstrap blast-radius 高于
+            crontab/kb_embed, Plan B 应先 dry-run 观察一周.
+      修复: 新 _resolve_dry_run_for_spec(spec) — 三档优先级:
+            (1) CONVERGENCE_DRY_RUN env 显式设 → operator override 胜
+            (2) spec convergence_method.dry_run_default → per-spec 默认
+            (3) framework 默认 False (real-apply)
+            verify_convergence 改传 dry_run=_resolve_dry_run_for_spec(spec).
+      效果: services (dry_run_default: true) 先 dry-run 观察, jobs/kb
+            (dry_run_default: false) 保持 real-apply, 全部无需 env var.
+            向后兼容: jobs/kb 行为不变 (dry_run_default: false → False).
+            dry_run_default 字段从"文档性"升级为"功能性" — 未来 spec 可独立
+            staging (Plan B 渐进路径正需要这个).
+
+    apply 只在真实漂移 (declared service 不在 launchctl list) 触发 = 服务真宕/
+    plist 未 bootstrap, 此时 auto-bootstrap 是期望恢复行为. 已加载 service 不碰
+    (convergence 只传 missing labels). 不做 bootout (移除运行 service 是 operator
+    决策, 与 bootstrap 不对称, 非安全 auto-sync).
+
+    候选 V37.9.97+: services dry-run 一周观察 "would bootstrap" 动作正确后,
+                   flip dry_run_default: false (镜像 V37.9.58 jobs/kb 切关).
+                   此后 5 个 spec 全部 machine_sync 真激活 (除 providers/openclaw
+                   是 alert_only 因 API key/version 无法 machine 自动 provision).
 
 convergence_specs:
 
@@ -558,10 +604,10 @@ convergence_specs:
       会丢失. 本 spec 不直接守 plist 文件存在性 (那是 deploy/recovery
       问题), 而是守 "声明的 service 是否真在 launchd 注册" 这一更上游事实.
 
-      Drift signals (alert_only):
+      Drift signals (V37.9.97 machine_sync, dry-run first):
         (a) services_registry 声明 label 但 launchctl list 没看到 →
             plist 误删 / launchctl bootout 后未 bootstrap / macOS 重启后
-            launchd cache 异常
+            launchd cache 异常 → machine_sync auto-bootstrap (dry-run 观察期内仅 would-bootstrap)
         (b) launchctl list 不可用 (dev 环境无 launchctl) → observer_failed
             FAIL-OPEN 不阻塞 audit
 
@@ -587,26 +633,30 @@ convergence_specs:
         behavior). Mac Mini production sees full list of bootstrapped
         services; OpenClaw labels appear if their plist is loaded.
 
-    drift_action: alert_only
+    drift_action: machine_sync
     drift_action_rationale: |
-      V37.9.25 起步 alert_only — 与 V37.9.19 jobs_to_crontab 同款保守路线.
-      machine_sync 升级延后到 V37.9.26+ 一周观察期之后, 如出现真实漂移
-      (plist 误删 / bootstrap 失败) 才考虑自动 helper:
-        - bash $HOME/restart.sh 已含 launchctl kickstart -k 路径 (V37.9.13)
-        - V37.9.26+ 可加 _apply_services_launchctl_bootstrap 或重用 restart.sh
-      但首期重点是 detection (drift visibility), 不是 enforcement.
+      V37.9.25 起步 alert_only (5/4 baseline) → 4 周观察期 (5/4-6/1) zero drift
+      (Mac Mini 6/1 实测 declared=3 observed=3 no drift) → V37.9.97 升级 machine_sync.
+      与 V37.9.58 jobs_to_crontab + kb_sources_to_index 同款 Plan B 渐进路径, 但
+      因 launchctl bootstrap blast-radius 高于 crontab/kb_embed, dry_run_default: true
+      让 services 先在 dry-run 模式观察 "would bootstrap" 动作正确一周, 再 V37.9.97+
+      flip dry_run_default: false (或 operator 设 CONVERGENCE_DRY_RUN=0 提前激活).
+      apply 仅在真实漂移 (declared service 不在 launchctl list) 时触发 — 即服务真宕
+      / plist 未 bootstrap, 此时 auto-bootstrap 是期望的恢复行为 (镜像 restart.sh
+      V37.9.13 bootstrap fallback). 已加载 service 不会被 apply (convergence 只传
+      missing labels), 自动满足 V37.9.25 "先检查是否已 list 中" 设计要求.
 
     convergence_method:
-      planned: machine_sync_via_helper
-      planned_helper: "bash $HOME/restart.sh (or per-service launchctl bootstrap)"
-      planned_blocker: |
-        V37.9.25 一周观察期内 alert_only. 如果观察期 zero drift, V37.9.26+ 升级:
-        - per-service: launchctl bootstrap "gui/$(id -u)" "<plist_path>"
-        - 但 plist_path 解析需要 services_registry 加 plist 字段 (已在 schema)
-          + Mac Mini 路径 ~/Library/LaunchAgents/<plist>
-        - 风险评估: bootstrap 已加载的 service 会失败 (vs idempotent),
-          所以 dispatcher 应该先检查是否已 list 中再决定 bootstrap
-        Plan B 渐进 dry-run 模式 (V37.9.23 同款) 是默认路径.
+      implemented: machine_sync_via_helper        # V37.9.97 落地, 替代 V37.9.25 planned
+      apply_function: services_launchctl_bootstrap  # V37.9.97 named-dispatch (V37.9.24 模式)
+      dry_run_default: true                        # V37.9.97 起步 dry-run (一周观察后 V37.9.97+ flip false)
+      apply_path: convergence._apply_services_launchctl_bootstrap
+      apply_detail: |
+        per-service: launchctl bootstrap "gui/$(id -u)" "~/Library/LaunchAgents/<plist>"
+        plist 从 services_registry 的 plist 字段解析 (已在 schema). 只 bootstrap
+        missing labels (不在 launchctl list 的), 已加载 service 不碰 — missing_entries
+        即 not-in-list 集合, 自动满足 V37.9.25 "先检查" 要求. 不做 bootout (移除运行
+        service 是 operator 决策, 非安全 auto-sync, 与 bootstrap 不对称).
 
     governance_invariant: INV-CONVERGENCE-SERVICES-001
     blood_lesson_link: docs/config.md  # V37.9.13 candidate 登记于 docs/config.md "launchd plist 持久化"

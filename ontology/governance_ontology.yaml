@@ -6115,6 +6115,43 @@ invariants:
         check_type: file_contains
         file: ontology/governance_ontology.yaml
         pattern: 'INV-CONVERGENCE-SERVICES-001'
+      # ── V37.9.97: services Plan B 升级 machine_sync (per-spec dry-run) ──
+      - name: "V37.9.97: services spec 声明 apply_function services_launchctl_bootstrap (machine_sync 升级)"
+        check_type: file_contains
+        file: ontology/convergence_ontology.yaml
+        pattern: 'apply_function: services_launchctl_bootstrap'
+      - name: "V37.9.97: services spec dry_run_default: true (Plan B dry-run first, blast-radius 高于 crontab)"
+        check_type: file_contains
+        file: ontology/convergence_ontology.yaml
+        pattern: 'dry_run_default: true'
+      - name: "V37.9.97: convergence.py 定义 _apply_services_launchctl_bootstrap per-service apply 函数"
+        check_type: file_contains
+        file: ontology/convergence.py
+        pattern: 'def _apply_services_launchctl_bootstrap\('
+      - name: "V37.9.97: convergence.py 定义 _load_services_registry_index (label→service 映射)"
+        check_type: file_contains
+        file: ontology/convergence.py
+        pattern: 'def _load_services_registry_index\('
+      - name: "V37.9.97: convergence.py 注册 services_launchctl_bootstrap 到 _APPLY_FUNCTIONS"
+        check_type: file_contains
+        file: ontology/convergence.py
+        pattern: '"services_launchctl_bootstrap": _apply_services_launchctl_bootstrap'
+      - name: "V37.9.97: convergence.py 定义 _resolve_dry_run_for_spec (per-spec dry-run, dry_run_default 功能化)"
+        check_type: file_contains
+        file: ontology/convergence.py
+        pattern: 'def _resolve_dry_run_for_spec\(spec\):'
+      - name: "V37.9.97: verify_convergence 用 per-spec dry-run 解析 (不再单一全局 _is_dry_run)"
+        check_type: file_contains
+        file: ontology/convergence.py
+        pattern: '_resolve_dry_run_for_spec\(spec\)'
+      - name: "V37.9.97: bootstrap 命令形态 launchctl bootstrap domain plist_path"
+        check_type: file_contains
+        file: ontology/convergence.py
+        pattern: '"launchctl", "bootstrap", domain, plist_path'
+      - name: "V37.9.97: convergence_ontology v37_9_97_changelog 段记录 services Plan B 升级"
+        check_type: file_contains
+        file: ontology/convergence_ontology.yaml
+        pattern: 'v37_9_97_changelog'
       # ── runtime layer: V37.9.25 services spec 测试类端到端通过 ────────
       - name: "RUNTIME: test_convergence.py V37.9.25 services spec 测试类全部通过 (TestExtractServicesFromRegistry + TestVerifyServicesToLaunchdIntegration + TestServicesSpecSourceGuards)"
         check_type: python_assert
@@ -6129,6 +6166,10 @@ invariants:
               "TestExtractServicesFromRegistry",
               "TestVerifyServicesToLaunchdIntegration",
               "TestServicesSpecSourceGuards",
+              # V37.9.97 — services Plan B 升级 machine_sync + per-spec dry-run
+              "TestResolveDryRunForSpec",
+              "TestApplyServicesLaunchctlBootstrap",
+              "TestV37997ServicesSourceGuards",
           ]
           targets = [f"test_convergence.{c}" for c in v9_25_services_classes]
           proc = subprocess.run(
@@ -8833,9 +8874,30 @@ security_config:
 # 6. 审计元数据
 # ═══════════════════════════════════════════════════════════════════════
 audit_metadata:
-  version: "3.51"
+  version: "3.52"
   created: "2026-04-07"
   upgraded: |
+    v3.51 → v3.52: V37.9.97 services_to_launchd Plan B 升级 — convergence framework
+    第 5 个也是最后一个 alert_only spec 进入 machine_sync (dry-run first). INV-CONVERGENCE-
+    SERVICES-001 扩 +9 declaration checks (apply_function: services_launchctl_bootstrap /
+    dry_run_default: true / convergence.py _apply_services_launchctl_bootstrap +
+    _load_services_registry_index + _resolve_dry_run_for_spec 定义 / _APPLY_FUNCTIONS 注册 /
+    verify_convergence 用 per-spec dry-run / bootstrap 命令形态 / v37_9_97_changelog 段). 触发:
+    services_to_launchd (V37.9.25 第 5 spec) 自 5/4 起 alert_only 4 周观察 (5/4-6/1) zero drift
+    (Mac Mini 6/1 实测 declared=3 observed=3) → V37.9.97 升级 machine_sync. 关键 framework 增强:
+    新 _resolve_dry_run_for_spec(spec) 让 spec 的 dry_run_default 字段从"纯文档性"升级为"功能性"
+    (三档优先级: CONVERGENCE_DRY_RUN env override > spec dry_run_default > framework 默认 False).
+    services (dry_run_default: true, bootstrap blast-radius 高于 crontab) 先 dry-run 观察一周,
+    jobs/kb (dry_run_default: false) 保持 real-apply, 全部无需 env var. 向后兼容: jobs/kb
+    行为不变. 新 apply 函数 _apply_services_launchctl_bootstrap per-service (镜像
+    _apply_jobs_to_crontab_per_entry): 对每个 missing label 查 services_registry plist, real
+    模式跑 launchctl bootstrap gui/<uid> ~/Library/LaunchAgents/<plist> (镜像 restart.sh
+    V37.9.13 bootstrap fallback), dry-run 发 "DRY-RUN would bootstrap". 只 bootstrap missing
+    labels (已加载 service 不碰), 不做 bootout (移除运行 service 非安全 auto-sync). 26 新单测
+    test_convergence.py (TestResolveDryRunForSpec 8 + TestApplyServicesLaunchctlBootstrap 10 +
+    TestV37997ServicesSourceGuards 7 + yaml apply_function 1). 反向验证: 假 plist 缺/exit≠0/
+    timeout 全 FAIL-OPEN per-service error. 累计 85 invariants (不变, INV-CONVERGENCE-SERVICES-001
+    扩展非新增) / 790 checks (781+9) / 21 meta rules.
     v3.50 → v3.51: V37.9.96 INV-PROXY-PLIST-ENV-001 (proxy-plist-env-must-contain-ark-expert-escalate-keys, meta_rule=MR-4, severity=high, verification_layer=[declaration, runtime], 7 checks). 触发: V37.9.91 Doubao expert_escalate 真生产闭环. tool_proxy.py 的 expert_escalate 自定义工具分支 lazy-import expert_escalation.py 经 Volcengine Ark 调 Doubao 用 ARK_API_KEY (DOUBAO_API_KEY_ENV) + ARK_ENDPOINT_ID (DOUBAO_ENDPOINT_ID_ENV). proxy daemon (com.openclaw.proxy.plist) 跑 tool_proxy.py, 必须从 plist EnvironmentVariables 拿到这两个 env. V37.9.91 实测: proxy plist 当时无 ARK env, 手动从 adapter plist 复制 + bootout/bootstrap 才生效. V37.9.54 INV-PLIST-ENV-001 只守 adapter plist → 若 Mac Mini 重装 / auto_deploy 覆盖 plist, proxy ARK env 静默丢失 → expert_escalate 返回 "ARK_API_KEY not set" silent failure. 注意 ARK_ENDPOINT_ID 不是任何 provider 的 api_key_env (是 endpoint ID 不是 key), INV-PLIST-ENV-001 的 api_key_env 集合检查覆盖不到 → 本 INV 填补真缺口. Doubao 自己在 V37.9.91 escalate 响应中识别此风险 ("proxy plist drift: periodic auto-deploy may overwrite manually injected ARK_API_KEY"). checks: 5 file_contains (tool_proxy expert_escalate 分支 / expert_escalation ARK_API_KEY+ARK_ENDPOINT_ID 双绑定 / fail-loud 指引 / V37.9.96 marker) + 2 python_assert (declaration 依赖链可解析 + runtime --full mode 真读 com.openclaw.proxy.plist via plistlib, dev 无 plist silent pass / Mac Mini 缺 ARK env fail-loud). 22 单测 test_v37_9_96_proxy_plist_env.py (TestProxyPlistEnvGovernance 8 yaml 守卫 + TestProxyPlistEnvRuntimeBehavior 5 直接 exec yaml 真 runtime code + patched HOME 假 plist 验证 fail-loud/pass/dev-safe 零 drift + TestProxyPlistEnvDeclarationCheck 1 真 exec declaration + TestProxyPlistEnvDependencyChain 5 生产依赖链 + TestV37996Marker 3 标记+计数自洽). 反向验证: 假 proxy plist 缺 ARK_ENDPOINT_ID → runtime check 正确 AssertionError fail-loud, 完整 ARK env → pass, 无 plist → silent pass. **顺手修 audit_metadata invariant 计数漂移**: total_invariants 83 → 85 (V37.9.94 +1 INV-CROSS-ENV-PATH-001 从未记入 yaml changelog 留下 stale -1, 实际 grep '- id: INV-' = 84+1 mine = 85). 新增 test_actual_invariant_count_matches_metadata 自洽守卫防未来再漂移 (MR-7 治理自观察). total_checks 755 → 781 (对齐 governance_checker 运行时权威计数 "781 checks pass", 修 V37.9.86 起多版本累积漂移 + 本次 +7). 累计 85 invariants / 781 checks / 21 meta rules.
     v3.49 → v3.50: V37.9.86 治理债三件套 — MR-20 + MR-21 + INV-HALLUCINATION-001. (1) MR-20 framework-level-fix-must-validate-in-target-environment (V37.9.58-hotfix3→4 血案教训: dev 全绿不代表修复工作, bash 3.2 quirk / macOS BSD timeout 缺失只有 Mac Mini 真跑才暴露). (2) MR-21 monitor-coverage-must-track-registry (V37.9.59 watchdog 47%→74% 覆盖率, 观察期 5/12-5/19 已过, 新增 job 必须同步加 watchdog). (3) INV-HALLUCINATION-001 llm-tasks-must-use-hallucination-guards (V37.9.57 反幻觉守卫生产 2 周+ 零编造血案, 10 checks: 模块存在 + 5 档全定义 + kb_review/evening/deep_dive 三模块 import + auto_deploy 部署 + 8 ALIGNED jobs HG_LEVEL_4_TEXT 注入). 累计 83 invariants / 755 checks / 21 meta rules.
 
@@ -8898,7 +8960,7 @@ audit_metadata:
     v3.11 → v3.12: V37.8.6 Dream 自引用幻觉血案 — INV-DREAM-003 新增 (dream-log-cannot-pollute-cache-nor-fabricate-platform-crises, meta_rule=MR-4, severity=critical, verification_layer=[declaration, runtime], 16 checks). 2026-04-15 03:00 Dream run 出现 4 次 Bad JSON 400 (adapter 收到破损 JSON)，但 Dream 仍产出完整"Hugging Face 平台危机"分析，用户察觉 Signal(Papers with Code 沉默)↔Action(监控 Hugging Face) 主题断裂后上报。三层根因：(a) scraped 内容含 surrogate UTF-8 → json.dump + utf-8 file write → UnicodeEncodeError → body_file 截断 → adapter.py:386 返回 400 Bad JSON (b) kb_dream.sh log() 用 `echo` 写 stdout → signals=$(llm_call ...) 命令替换捕获 log 行进 signals → cache file 被"LLM raw response: Error code 400 Bad JSON..."污染 (c) Reduce cache-only fast path 把错误日志注入 LLM 上下文 → LLM 基于这些字样自动编造"Hugging Face 危机"叙事 = 原则 #23 链式幻觉 + MR-4 silent failure 第 7 次演出。四层结构修复（defense-in-depth）：log→stderr 阻断 stdout 污染通道 + _sanitize(U+D800-U+DFFF → U+FFFD) 防编码炸裂 + file open 显式 encoding='utf-8' errors='replace' 第二防线 + REDUCE/CHUNK1/2/3 system prompt 四块加反污染守卫 (禁止把 HTTP 错误码/Python 异常/错误页 HTML/U+FFFD 当外部信号，禁止基于这些字样推断 Hugging Face/GitHub/npm 等平台状态)。runtime python_assert 真跑 sanitize 五场景 (孤立高位/低位代理/正常串/代理范围边界/sanitize 后 json+utf-8 编码不炸)。19 单测 (TestLogGoesToStderr×2 + TestSanitizeSurrogates×7 + TestShellSanitizeImplementation×5 + TestAntiPollutionSystemPrompt×3 + TestShellScriptIntegrity×1 + TestLogDefHasCommentMeta×1)。
     v3.10 → v3.11: V37.8.5 INV-X-001 升级三层检测 (血案二次演出: V37.8.4 修复本身埋盲区) — V37.8.4 收工 Mac Mini E2E 即发现 2 个边缘：CNS1952 98/99 超窗口 + 1 过短老化率 99% 但未触发严格 old==total (MR-10 第 2 次演出：修复会埋坑)；SingTaoDaily 0-tweet stub (embed disabled 返回空骨架) 被 total>0 门槛绕过完全不标记。V37.8.5 修复：(1) 检测逻辑独立为 jobs/finance_news/finance_news_zombie.py 纯函数模块 (classify_zombie(diag, count)); (2) 三层 tier: "stub" (no_data=0 + total=0) + "stale" (≥90% 老化 + count=0 守卫防止低频活跃误报)，整数比较 old*10 >= total*9 避免浮点; (3) 24 单测锁定三层 + 守卫 + shell 集成 + auto_deploy FILE_MAP; (4) verification_layer 从 [declaration] 升级到 [declaration, runtime] (MR-6 遵循: INV-X-001 现在有 python_assert 真跑 5 个 tier 场景); (5) shell 脚本禁止内嵌 inline fallback (防模块缺失时静默降级回 V37.8.4 逻辑 — MR-8 copy-paste-is-a-bug-class 兑现)。诊断行 tier 区分 ⚠️ ZOMBIE嫌疑[stub] vs [stale]，便于日志定位。
   total_invariants: 85  # V37.9.96: +1 INV-PROXY-PLIST-ENV-001 (proxy-plist-env-must-contain-ark-expert-escalate-keys, MR-4, high, declaration+runtime). 同时修 V37.9.94 漏更新的 +1 (INV-CROSS-ENV-PATH-001): 实际 grep '- id: INV-' = 85, 之前字段 83 stale -2 → 84 actual+1 mine = 85
-  total_checks: 781     # V37.9.96: 对齐 governance_checker 运行时权威计数 (full_regression "781 checks pass", 0 fail = 全过即总数). 修历史漂移: 旧字段 755 (V37.9.86) 落后真实 ~26 (V37.9.87-95 多版本累积未同步) + 本次 INV-PROXY-PLIST-ENV-001 7 checks. 注: 真实 check_type 行数 grep=688 < 781 因 governance_checker 还计 14 MRD discovery + preflight/env 等非 check_type 定义项 — 781 是操作权威数 (系统真跑真报)
+  total_checks: 790     # V37.9.97: 781 → 790 (+9 INV-CONVERGENCE-SERVICES-001 V37.9.97 services Plan B declaration checks). 对齐 governance_checker 运行时权威计数 (full_regression "790 checks pass"). V37.9.96 曾对齐 781 (修 V37.9.86 起累积漂移); V37.9.97 +9 = 790. 注: 真实 check_type 行数 grep < 790 因 governance_checker 还计 14 MRD discovery + preflight/env 等非 check_type 定义项 — 790 是操作权威数 (系统真跑真报)
   meta_rules: 21        # V37.9.86: +2 MR-20 (framework-level-fix-must-validate-in-target-environment) + MR-21 (monitor-coverage-must-track-registry)
   meta_rule_discovery_count: 6   # Phase 0: registry + env + notify-topic + layer-depth + error-suppression + notify-activity
   check_types_used: [python_assert, file_contains, file_not_contains, env_var_exists, command_succeeds, log_activity_check]

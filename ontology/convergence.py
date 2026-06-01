@@ -108,6 +108,39 @@ def _is_dry_run():
     """
     return os.environ.get(_DRY_RUN_ENV_VAR, "0") == "1"
 
+
+def _resolve_dry_run_for_spec(spec):
+    """V37.9.97 — per-spec dry-run resolution with global env override.
+
+    Precedence:
+      1. CONVERGENCE_DRY_RUN env explicitly set → operator override wins
+         (V37.9.58 semantics: only literal "1" = dry-run, all else = real)
+      2. spec's convergence_method.dry_run_default → per-spec default
+      3. framework default (False = real-apply, V37.9.58 切关后)
+
+    Why this exists: before V37.9.97 the spec-level `dry_run_default` field was
+    purely documentary — verify_convergence passed dry_run=None so all specs
+    shared the single global _is_dry_run() default. That worked when all
+    machine_sync specs were at the same maturity stage. But services_to_launchd
+    (V37.9.97) has higher blast-radius (launchctl bootstrap) and should observe
+    a week in dry-run while jobs_to_crontab / kb_sources_to_index stay real-apply
+    (their dry_run_default: false). Making dry_run_default functional lets each
+    spec stage independently — exactly what the Plan B 渐进 path needs.
+
+    Backward-compatible: jobs/kb have dry_run_default: false → returns False
+    (real-apply, same as before). Operator env override (CONVERGENCE_DRY_RUN=1)
+    still force-flips any spec to dry-run for debugging.
+    """
+    env_val = os.environ.get(_DRY_RUN_ENV_VAR)
+    if env_val is not None:
+        # Operator explicit override wins (any value; only "1" means dry-run)
+        return env_val == "1"
+    method = spec.get("convergence_method") or {}
+    if "dry_run_default" in method:
+        return bool(method["dry_run_default"])
+    return False
+
+
 # ── Result type ───────────────────────────────────────────────────────────
 
 ConvergenceResult = namedtuple(
@@ -1047,6 +1080,112 @@ def _apply_kb_embed_incremental(spec, missing_entries, dry_run, extra_entries=fr
     return (f"applied: kb_embed.py incremental ({summary})",), (), dry_run
 
 
+def _load_services_registry_index(spec):
+    """V37.9.97 — Load services_registry.yaml and return label→service dict.
+
+    Used by _apply_services_launchctl_bootstrap to find the plist filename for
+    each missing service label (the identifier_field for services_to_launchd is
+    'label'; we need the corresponding service dict to access 'plist').
+    """
+    decl = spec.get("declaration", {})
+    src = decl.get("source", "services_registry.yaml")
+    src_path = Path(__file__).resolve().parent.parent / src
+    data = _load_yaml(src_path)
+    by_label = {}
+    for svc in (data.get("services") or []):
+        label = svc.get("label") or ""
+        if label:
+            by_label[label] = svc
+    return by_label
+
+
+def _apply_services_launchctl_bootstrap(spec, missing_entries, dry_run, extra_entries=frozenset()):
+    """V37.9.97 services_to_launchd apply path — per-service launchctl bootstrap.
+
+    For each missing service label (declared in services_registry but absent
+    from `launchctl list`), look up its plist and (real mode) run
+    `launchctl bootstrap gui/<uid> ~/Library/LaunchAgents/<plist>` to load it.
+    Mirrors restart.sh's bootstrap fallback path (V37.9.13). dry-run emits
+    "DRY-RUN would bootstrap: ..." without executing.
+
+    Why per-service (mirrors _apply_jobs_to_crontab_per_entry, NOT the
+    _apply_kb_embed_incremental one-shot): each service has its own plist;
+    bootstrap is a per-plist operation. convergence only passes MISSING labels
+    (those NOT in launchctl list), so we never bootstrap an already-loaded
+    service — that closes V37.9.25 planned_blocker's "先检查是否已 list 中" note
+    automatically (missing_entries已经是 not-in-list 的集合).
+
+    V37.9.66: extra_entries ignored — line_contains_identifier parser guarantees
+    observed ⊆ declared, so extra is always empty. We deliberately do NOT bootout
+    services the framework doesn't know about — removing a running service is an
+    operator decision, not safe auto-sync (asymmetric with bootstrap, which only
+    restores declared services).
+
+    FAIL-OPEN: per-service errors become individual apply_errors entries; other
+    services continue. Missing plist field / plist file absent / subprocess
+    timeout / non-zero exit all become errors, never raise.
+    """
+    if not missing_entries:
+        return (), (), dry_run
+
+    try:
+        by_label = _load_services_registry_index(spec)
+    except Exception as e:
+        return (), (f"services_registry_load_failed: {e}",), dry_run
+
+    applied = []
+    errors = []
+    uid = os.getuid()
+    domain = f"gui/{uid}"
+
+    for label in sorted(missing_entries):
+        svc = by_label.get(label)
+        if svc is None:
+            errors.append(f"{label}: not in current services_registry (stale identifier?)")
+            continue
+        plist_name = (svc.get("plist") or "").strip()
+        if not plist_name:
+            errors.append(f"{label}: no plist declared in services_registry, cannot bootstrap")
+            continue
+        plist_path = os.path.expanduser(f"~/Library/LaunchAgents/{plist_name}")
+
+        if dry_run:
+            applied.append(
+                f"DRY-RUN would bootstrap: launchctl bootstrap {domain} {plist_path} (service {label})"
+            )
+            continue
+
+        if not os.path.exists(plist_path):
+            errors.append(f"{label}: plist not found at {plist_path}, cannot bootstrap")
+            continue
+
+        try:
+            proc = subprocess.run(
+                ["launchctl", "bootstrap", domain, plist_path],
+                capture_output=True, text=True,
+                timeout=_MACHINE_SYNC_TIMEOUT_SEC,
+            )
+        except subprocess.TimeoutExpired:
+            errors.append(f"{label}: launchctl bootstrap timed out after {_MACHINE_SYNC_TIMEOUT_SEC}s")
+            continue
+        except FileNotFoundError as e:
+            errors.append(f"{label}: launchctl binary missing: {e}")
+            continue
+        except Exception as e:
+            errors.append(f"{label}: subprocess unexpected error: {type(e).__name__}: {e}")
+            continue
+
+        if proc.returncode != 0:
+            errors.append(
+                f"{label}: launchctl bootstrap exit={proc.returncode}: "
+                f"stderr={proc.stderr[:200].strip()}"
+            )
+            continue
+        applied.append(f"applied: launchctl bootstrap {domain} {plist_path} (service {label})")
+
+    return tuple(applied), tuple(errors), dry_run
+
+
 # V37.9.24 — Apply-function named dispatch (mirrors V37.9.20 _DECLARED_EXTRACTORS
 # / V37.9.13 _CONTEXT_EVALUATORS pattern). Each spec yaml's
 # convergence_method.apply_function field selects which apply path runs.
@@ -1057,6 +1196,7 @@ def _apply_kb_embed_incremental(spec, missing_entries, dry_run, extra_entries=fr
 _APPLY_FUNCTIONS = {
     "jobs_to_crontab_per_entry": _apply_jobs_to_crontab_per_entry,
     "kb_embed_incremental": _apply_kb_embed_incremental,
+    "services_launchctl_bootstrap": _apply_services_launchctl_bootstrap,  # V37.9.97
 }
 
 
@@ -1195,15 +1335,21 @@ def verify_convergence(spec_id, specs=None, path=None):
     apply_dry_run = True
     apply_errors = ()
     if (missing or extra) and drift_action == "machine_sync":
+        # V37.9.97: per-spec dry-run resolution — dry_run_default field now
+        # functional. services_to_launchd (dry_run_default: true) stages in
+        # dry-run while jobs/kb (dry_run_default: false) stay real-apply, all
+        # without an env var. Operator CONVERGENCE_DRY_RUN=1 still force-overrides.
+        spec_dry_run = _resolve_dry_run_for_spec(spec)
         try:
             # V37.9.66: 新签名 _apply_machine_sync(spec, missing, extra, dry_run=None)
+            # V37.9.97: 传 spec_dry_run 让 per-spec dry_run_default 生效
             applied_actions, apply_errors, apply_dry_run = _apply_machine_sync(
-                spec, missing, extra_entries=extra
+                spec, missing, extra_entries=extra, dry_run=spec_dry_run
             )
         except Exception as e:
             # _apply_machine_sync is supposed to be FAIL-OPEN, but defense-in-depth.
             apply_errors = (f"apply_machine_sync raised: {type(e).__name__}: {e}",)
-            apply_dry_run = _is_dry_run()
+            apply_dry_run = spec_dry_run
 
     return ConvergenceResult(
         spec_id=spec_id,

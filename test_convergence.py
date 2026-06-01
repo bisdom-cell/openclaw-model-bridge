@@ -2872,11 +2872,17 @@ class TestVerifyServicesToLaunchdIntegration(unittest.TestCase):
         # 任一情况都不应抛异常
         self.assertIsInstance(result, cv.ConvergenceResult)
 
-    def test_spec_drift_action_alert_only(self):
-        """V37.9.25 起步保守 alert_only — 与 V37.9.19 jobs_to_crontab 同款."""
+    def test_spec_drift_action_machine_sync_v37_9_97(self):
+        """V37.9.97 升级 machine_sync — services 第 5 spec Plan B (dry-run first).
+        V37.9.25 起步 alert_only (5/4) → 4 周观察 (5/4-6/1) zero drift → V37.9.97 升级."""
         spec = cv.get_spec("services_to_launchd")
-        self.assertEqual(spec["drift_action"], "alert_only",
-            "V37.9.25 起步保守, V37.9.26+ 一周观察后再考虑 machine_sync")
+        self.assertEqual(spec["drift_action"], "machine_sync",
+            "V37.9.97 升级 machine_sync (V37.9.25 起步 alert_only, 4 周观察后)")
+        method = spec["convergence_method"]
+        self.assertEqual(method["apply_function"], "services_launchctl_bootstrap",
+            "V37.9.97 named-dispatch apply_function")
+        self.assertTrue(method["dry_run_default"],
+            "V37.9.97 起步 dry-run (bootstrap blast-radius 高于 crontab, 一周观察后 flip)")
 
     def test_spec_uses_services_from_registry_extractor(self):
         spec = cv.get_spec("services_to_launchd")
@@ -2961,12 +2967,13 @@ class TestServicesSpecSourceGuards(unittest.TestCase):
         self.assertIn("id: services_to_launchd", self.yaml_src)
 
     def test_yaml_meta_version_advanced_to_fifth(self):
-        """V37.9.25 meta version 升级到 0.7-fifth-spec-services-to-launchd;
-        V37.9.58 升级到 0.8-machine-sync-activated (Plan B escalation 兑现)."""
+        """V37.9.25 → 0.7-fifth-spec; V37.9.58 → 0.8-machine-sync-activated;
+        V37.9.97 → 0.9-services-machine-sync-dry-run (services Plan B 升级)."""
         version_tokens = (
             "0.6-named-dispatch-apply-functions",
             "0.7-fifth-spec-services-to-launchd",
             "0.8-machine-sync-activated",
+            "0.9-services-machine-sync-dry-run",
         )
         self.assertTrue(
             any(tok in self.yaml_src for tok in version_tokens),
@@ -2985,8 +2992,8 @@ class TestServicesSpecSourceGuards(unittest.TestCase):
         self.assertIn("services_to_launchd", self.yaml_src)
         self.assertIn("services_from_registry", self.yaml_src)
 
-    def test_yaml_services_spec_drift_action_alert_only(self):
-        """V37.9.25 起步保守 alert_only — 块内字面量守卫."""
+    def test_yaml_services_spec_drift_action_machine_sync_v37_9_97(self):
+        """V37.9.97 升级 machine_sync — 块内字面量守卫 (V37.9.25 起步 alert_only 已废)."""
         idx = self.yaml_src.find("id: services_to_launchd")
         self.assertGreater(idx, 0)
         # 找下一个 spec 起点 (或 EOF)
@@ -2994,16 +3001,29 @@ class TestServicesSpecSourceGuards(unittest.TestCase):
         if next_idx < 0:
             next_idx = len(self.yaml_src)
         block = self.yaml_src[idx:next_idx]
-        # 块内必须含 drift_action: alert_only
+        # 块内 drift_action: 行 (非 rationale) 必须含 machine_sync
         for line in block.split("\n"):
             stripped = line.strip()
             if stripped.startswith("drift_action:") and "rationale" not in stripped:
-                self.assertIn("alert_only", stripped,
-                    f"V37.9.25 services_to_launchd 起步保守 alert_only, got: {stripped!r}")
-                self.assertNotIn("machine_sync", stripped,
-                    "V37.9.25 不应直接升 machine_sync (V37.9.26+ 一周观察后再考虑)")
+                self.assertIn("machine_sync", stripped,
+                    f"V37.9.97 services_to_launchd 升级 machine_sync, got: {stripped!r}")
+                self.assertNotIn("alert_only", stripped,
+                    "V37.9.97 已从 alert_only 升级 (V37.9.25 起步, 4 周观察后)")
                 return
         self.fail("drift_action: line not found in services_to_launchd spec")
+        # V37.9.97: 块内必须含 apply_function + dry_run_default: true (dry-run first)
+
+    def test_yaml_services_spec_apply_function_and_dry_run_v37_9_97(self):
+        """V37.9.97 — services spec 块内含 apply_function + dry_run_default: true."""
+        idx = self.yaml_src.find("id: services_to_launchd")
+        next_idx = self.yaml_src.find("\n  - id: ", idx + 10)
+        if next_idx < 0:
+            next_idx = len(self.yaml_src)
+        block = self.yaml_src[idx:next_idx]
+        self.assertIn("apply_function: services_launchctl_bootstrap", block,
+            "V37.9.97 services spec 必须声明 apply_function: services_launchctl_bootstrap")
+        self.assertIn("dry_run_default: true", block,
+            "V37.9.97 services 起步 dry-run (一周观察后 V37.9.97+ flip false)")
 
     def test_yaml_services_spec_command_is_launchctl_list(self):
         idx = self.yaml_src.find("id: services_to_launchd")
@@ -3133,9 +3153,15 @@ class TestV37958DryRunActivation(unittest.TestCase):
     # ── (3) yaml meta v37_9_58_changelog + version 0.8 ───────────────────
 
     def test_yaml_meta_version_0_8_machine_sync_activated(self):
-        """yaml meta version 升级到 0.8-machine-sync-activated."""
-        self.assertIn('version: "0.8-machine-sync-activated"', self.yaml_src,
-            "V37.9.58: yaml meta version 必须为 0.8-machine-sync-activated")
+        """yaml meta version 升级到 0.8-machine-sync-activated (V37.9.58);
+        V37.9.97 升级到 0.9-services-machine-sync-dry-run (services Plan B)."""
+        version_tokens = (
+            'version: "0.8-machine-sync-activated"',
+            'version: "0.9-services-machine-sync-dry-run"',
+        )
+        self.assertTrue(
+            any(tok in self.yaml_src for tok in version_tokens),
+            f"yaml meta version 必须 ≥ 0.8 含 {version_tokens} 之一")
 
     def test_yaml_meta_status_activated(self):
         """yaml meta status 升级反映 escalation 终态."""
@@ -3212,6 +3238,7 @@ class TestV37958DryRunActivation(unittest.TestCase):
             'version: "3.49"',  # V37.9.85 INV-AUTO-INJECT-001 MR-18 Step 2 前瞻守卫
             'version: "3.50"',  # V37.9.86 MR-20 + MR-21 + INV-HALLUCINATION-001
             'version: "3.51"',  # V37.9.96 INV-PROXY-PLIST-ENV-001 (proxy plist ARK env 守卫)
+            'version: "3.52"',  # V37.9.97 services_to_launchd Plan B 升级 machine_sync
         )
         self.assertTrue(
             any(v in self.gov_src for v in valid_versions),
@@ -3440,6 +3467,213 @@ class TestV37966SourceLevelGuards(unittest.TestCase):
     def test_cron_lines_set_diff_parser_registered(self):
         self.assertIn('"cron_lines_set_diff"', self.src)
         self.assertIn('def _parse_cron_lines_set_diff', self.src)
+
+
+# V37.9.97 — services_to_launchd Plan B 升级 (machine_sync + per-spec dry-run)
+# ───────────────────────────────────────────────────────────────────────────
+
+class TestResolveDryRunForSpec(unittest.TestCase):
+    """V37.9.97 — per-spec dry-run 解析 (dry_run_default 字段从文档性→功能性)."""
+
+    def setUp(self):
+        self._saved = os.environ.pop("CONVERGENCE_DRY_RUN", None)
+
+    def tearDown(self):
+        if self._saved is not None:
+            os.environ["CONVERGENCE_DRY_RUN"] = self._saved
+        else:
+            os.environ.pop("CONVERGENCE_DRY_RUN", None)
+
+    def test_env_override_one_forces_dry_run(self):
+        os.environ["CONVERGENCE_DRY_RUN"] = "1"
+        spec = {"convergence_method": {"dry_run_default": False}}
+        self.assertTrue(cv._resolve_dry_run_for_spec(spec),
+            "env=1 必须 override per-spec dry_run_default=false")
+
+    def test_env_override_zero_forces_real(self):
+        os.environ["CONVERGENCE_DRY_RUN"] = "0"
+        spec = {"convergence_method": {"dry_run_default": True}}
+        self.assertFalse(cv._resolve_dry_run_for_spec(spec),
+            "env=0 必须 override per-spec dry_run_default=true (V37.9.58 语义: 非 '1' = real)")
+
+    def test_per_spec_true_when_no_env(self):
+        spec = {"convergence_method": {"dry_run_default": True}}
+        self.assertTrue(cv._resolve_dry_run_for_spec(spec),
+            "无 env → 用 per-spec dry_run_default=true")
+
+    def test_per_spec_false_when_no_env(self):
+        spec = {"convergence_method": {"dry_run_default": False}}
+        self.assertFalse(cv._resolve_dry_run_for_spec(spec),
+            "无 env → 用 per-spec dry_run_default=false")
+
+    def test_framework_default_false_when_no_field(self):
+        spec = {"convergence_method": {}}
+        self.assertFalse(cv._resolve_dry_run_for_spec(spec),
+            "无 env + 无 per-spec field → framework 默认 False (V37.9.58 real-apply)")
+
+    def test_no_convergence_method_safe(self):
+        self.assertFalse(cv._resolve_dry_run_for_spec({}),
+            "无 convergence_method → 默认 False, 不崩")
+
+    def test_services_real_spec_dry_run_no_env(self):
+        """真 services spec (dry_run_default: true) 无 env → dry-run (Plan B 观察)."""
+        spec = cv.get_spec("services_to_launchd")
+        self.assertTrue(cv._resolve_dry_run_for_spec(spec))
+
+    def test_jobs_real_spec_real_no_env(self):
+        """真 jobs spec (dry_run_default: false) 无 env → real-apply (向后兼容)."""
+        spec = cv.get_spec("jobs_to_crontab")
+        self.assertFalse(cv._resolve_dry_run_for_spec(spec))
+
+
+class TestApplyServicesLaunchctlBootstrap(unittest.TestCase):
+    """V37.9.97 — _apply_services_launchctl_bootstrap per-service bootstrap."""
+
+    def _spec(self):
+        return cv.get_spec("services_to_launchd")
+
+    def test_empty_missing_returns_empty(self):
+        applied, errors, dry = cv._apply_services_launchctl_bootstrap(
+            self._spec(), set(), dry_run=True)
+        self.assertEqual(applied, ())
+        self.assertEqual(errors, ())
+
+    def test_dry_run_emits_would_bootstrap_per_service(self):
+        applied, errors, dry = cv._apply_services_launchctl_bootstrap(
+            self._spec(), {"com.openclaw.adapter", "com.openclaw.proxy"}, dry_run=True)
+        self.assertEqual(errors, ())
+        self.assertEqual(len(applied), 2, "每个 missing service 一条 would-bootstrap")
+        for a in applied:
+            self.assertIn("DRY-RUN would bootstrap: launchctl bootstrap gui/", a)
+            self.assertIn("Library/LaunchAgents/", a)
+
+    def test_dry_run_resolves_plist_from_registry(self):
+        applied, _, _ = cv._apply_services_launchctl_bootstrap(
+            self._spec(), {"com.openclaw.adapter"}, dry_run=True)
+        self.assertEqual(len(applied), 1)
+        self.assertIn("com.openclaw.adapter.plist", applied[0],
+            "应从 services_registry plist 字段解析 adapter plist")
+
+    def test_unknown_label_is_error_not_crash(self):
+        applied, errors, _ = cv._apply_services_launchctl_bootstrap(
+            self._spec(), {"com.bogus.notreal"}, dry_run=True)
+        self.assertEqual(applied, ())
+        self.assertEqual(len(errors), 1)
+        self.assertIn("not in current services_registry", errors[0])
+
+    def test_label_without_plist_is_error(self):
+        from unittest import mock
+        with mock.patch.object(cv, "_load_services_registry_index",
+                               return_value={"com.x.noplist": {"label": "com.x.noplist"}}):
+            applied, errors, _ = cv._apply_services_launchctl_bootstrap(
+                {"declaration": {"source": "services_registry.yaml"}},
+                {"com.x.noplist"}, dry_run=True)
+        self.assertEqual(applied, ())
+        self.assertIn("no plist declared", errors[0])
+
+    def test_real_mode_success_via_mock(self):
+        from unittest import mock
+        fake = mock.Mock(returncode=0, stdout="", stderr="")
+        with mock.patch.object(cv, "_load_services_registry_index",
+                  return_value={"com.x.svc": {"label": "com.x.svc", "plist": "com.x.svc.plist"}}), \
+             mock.patch("os.path.exists", return_value=True), \
+             mock.patch("subprocess.run", return_value=fake) as m:
+            applied, errors, dry = cv._apply_services_launchctl_bootstrap(
+                {"declaration": {"source": "services_registry.yaml"}},
+                {"com.x.svc"}, dry_run=False)
+        self.assertEqual(errors, ())
+        self.assertEqual(len(applied), 1)
+        self.assertIn("applied: launchctl bootstrap", applied[0])
+        cmd = m.call_args[0][0]
+        self.assertEqual(cmd[0:2], ["launchctl", "bootstrap"],
+            "真 apply 必须调 launchctl bootstrap")
+
+    def test_real_mode_nonzero_exit_is_error(self):
+        from unittest import mock
+        fake = mock.Mock(returncode=5, stdout="", stderr="boot fail")
+        with mock.patch.object(cv, "_load_services_registry_index",
+                  return_value={"com.x.svc": {"label": "com.x.svc", "plist": "com.x.svc.plist"}}), \
+             mock.patch("os.path.exists", return_value=True), \
+             mock.patch("subprocess.run", return_value=fake):
+            applied, errors, _ = cv._apply_services_launchctl_bootstrap(
+                {"declaration": {"source": "services_registry.yaml"}},
+                {"com.x.svc"}, dry_run=False)
+        self.assertEqual(applied, ())
+        self.assertIn("exit=5", errors[0])
+
+    def test_real_mode_missing_plist_file_is_error(self):
+        from unittest import mock
+        with mock.patch.object(cv, "_load_services_registry_index",
+                  return_value={"com.x.svc": {"label": "com.x.svc", "plist": "com.x.svc.plist"}}), \
+             mock.patch("os.path.exists", return_value=False):
+            applied, errors, _ = cv._apply_services_launchctl_bootstrap(
+                {"declaration": {"source": "services_registry.yaml"}},
+                {"com.x.svc"}, dry_run=False)
+        self.assertEqual(applied, ())
+        self.assertIn("plist not found", errors[0])
+
+    def test_registered_in_apply_functions(self):
+        self.assertIn("services_launchctl_bootstrap", cv._APPLY_FUNCTIONS)
+        self.assertIs(cv._APPLY_FUNCTIONS["services_launchctl_bootstrap"],
+                      cv._apply_services_launchctl_bootstrap)
+
+    def test_end_to_end_via_verify_convergence_dry_run(self):
+        """端到端: verify_convergence(services) dev 环境 → dry-run would-bootstrap."""
+        saved = os.environ.pop("CONVERGENCE_DRY_RUN", None)
+        try:
+            r = cv.verify_convergence("services_to_launchd")
+            self.assertEqual(r.drift_action, "machine_sync")
+            self.assertTrue(r.apply_dry_run,
+                "services dry_run_default=true → apply_dry_run=True (无 env)")
+            # dev 无 launchctl → observer_failed → 3 declared 全 missing → 3 would-bootstrap
+            self.assertEqual(r.apply_errors, ())
+            for a in r.applied_actions:
+                self.assertIn("DRY-RUN would bootstrap", a)
+        finally:
+            if saved is not None:
+                os.environ["CONVERGENCE_DRY_RUN"] = saved
+
+
+class TestV37997ServicesSourceGuards(unittest.TestCase):
+    """V37.9.97 source-level 守卫 (convergence.py + yaml)."""
+
+    @classmethod
+    def setUpClass(cls):
+        base = os.path.dirname(os.path.abspath(__file__))
+        with open(os.path.join(base, "ontology", "convergence.py"), encoding="utf-8") as f:
+            cls.py = f.read()
+        with open(os.path.join(base, "ontology", "convergence_ontology.yaml"), encoding="utf-8") as f:
+            cls.yaml = f.read()
+
+    def test_resolve_dry_run_for_spec_defined(self):
+        self.assertIn("def _resolve_dry_run_for_spec(spec):", self.py)
+
+    def test_apply_services_and_loader_defined(self):
+        self.assertIn("def _apply_services_launchctl_bootstrap(", self.py)
+        self.assertIn("def _load_services_registry_index(", self.py)
+
+    def test_verify_convergence_uses_per_spec_dry_run(self):
+        self.assertIn("_resolve_dry_run_for_spec(spec)", self.py,
+            "verify_convergence 必须用 per-spec dry-run (V37.9.97)")
+
+    def test_bootstrap_command_shape_in_source(self):
+        self.assertIn('"launchctl", "bootstrap", domain, plist_path', self.py)
+
+    def test_apply_function_registered_in_dispatch_source(self):
+        self.assertIn('"services_launchctl_bootstrap": _apply_services_launchctl_bootstrap', self.py)
+
+    def test_yaml_changelog_v37_9_97(self):
+        self.assertIn("v37_9_97_changelog", self.yaml)
+        self.assertIn("services_launchctl_bootstrap", self.yaml)
+
+    def test_no_bootout_in_apply_source(self):
+        """V37.9.97 不做 bootout — 守卫 apply 函数不含 launchctl bootout (非安全 auto-sync)."""
+        # 提取 _apply_services_launchctl_bootstrap 函数体
+        idx = self.py.find("def _apply_services_launchctl_bootstrap(")
+        end = self.py.find("\n\ndef ", idx + 10)
+        body = self.py[idx:end if end > 0 else len(self.py)]
+        self.assertNotIn('"bootout"', body,
+            "V37.9.97 apply 只 bootstrap missing, 不 bootout (移除运行 service 非安全 auto-sync)")
 
 
 if __name__ == "__main__":
