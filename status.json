@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-01 00:57:15",
+  "updated": "2026-06-01 01:12:04",
   "updated_by": "full_regression",
   "priorities": [
     {
@@ -107,6 +107,11 @@
     {
       "date": "2026-06-01",
       "what": "V37.9.92 双 bug 闭环: (1) V37.9.88 _resolve_registry_path 加 4th candidate ~/openclaw-model-bridge/jobs_registry.yaml — Mac Mini 5/29-6/1 connected fallback warn 治本 (MR-15 第 4 次演出). (2) 新增 _write_observer_to_status() helper 在 run() 调用 — 写 quality.observer 到 status.json, 闭环 V37.9.84 三方共享意识锚点承诺 (5 天 quality.observer={} 治本). 27 新单测 4 类含反向 sabotage (subprocess 真实验证守卫真有效). 99 suites / 3537→3564 tests / 0 fail / governance 762 checks / 安全 95/100 / VERSION 0.37.9.68 不变. Mac Mini 部署后 06:30 cron 应首次显示 jobs:12 scanned + quality.observer 不再 {}. ",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-05-29",
+      "what": "V37.9.91 WhatsApp 端到端真生产闭环铁证 (Doubao 自我深度判断 V37.9.92 候选). 用户在 WhatsApp 发深度判断请求给 PA → PA 真识别 SOUL 规则 12 触发词 → 真调 expert_escalate → tool_proxy 拦截 → lazy import escalate → Doubao Seed 2.0 Pro 真返回 → PA 转发. 真实 audit: status=ok / input=37461 / output=1360 / cache_read=0 (首调) / reasoning=3852 chars. Doubao proposal 准确提出 V37.9.92 4 步执行路径 (review FILE_MAP / 检查 auto_deploy 日志 / 加 INV 守 ARK env 持有 / 备份当前 working plist) + rationale 引用 MR-4 silent failure + MR-15 deployment-layout + V37.9.76-hotfix 历史案例 (CLAUDE.md changelog 真理解). 完整端到端 wiring 实证: SOUL 规则 12 触发 → PA 自主调用 → proxy 拦截 → escalate → Doubao → PA 转发 五段全通. V37.9.83 AI Partnership Framework Stage 3 方向 2 真生产闭环 — capability framework 不只声明 + 接入, 真有 PA 复杂判断时可调用的 expert backend.",
       "by": "claude_code"
     },
     {
@@ -263,7 +268,7 @@
     ],
     "open_prs": "",
     "blocked_on": "",
-    "focus": "V37.9.91 Expert Escalation wiring 真生产闭环验证通过 (Mac Mini 真调 Doubao status=ok / 37524 input_tokens / 6923 reasoning_chars / context 80040 含 67452 changelog). Doubao 主动识别 V37.9.92 候选: proxy plist drift 需立 INV-PROXY-PLIST-ENV-001 守. CLAUDE.md 路径错配候选已证伪. 剩下 WhatsApp 真用户调用验证 (PA SOUL 规则 12 触发词识别 → expert_escalate → proxy 拦截 → escalate).",
+    "focus": "V37.9.91 完整端到端真生产闭环 (代码 + 部署 + Mac Mini 真调 + WhatsApp 真用户调用). Doubao 自我深度判断 V37.9.92 候选 (proxy plist drift INV-PROXY-PLIST-ENV-001 + auto_deploy FILE_MAP 守 plist 不被同步). 下次 session: V37.9.92 立 INV + Doubao 提议 4 步 (FILE_MAP audit / auto_deploy 日志 / INV / 备份) / V37.9.93 一周观察后立 INV-EXPERT-ESCALATION-001 真生产稳定性证据.",
     "current_focus": "V37.8 MR-6 深度补齐生产硬验证通过 (35/35 inv / 136/136 checks / 9/9 MR 全绿). 下一步: V37.8.1 修复 MRD-NOTIFY-002 activity 层假阳性 (topic→job log 映射扫 mtime) 或 Ontology Phase 3 渐进替换 (ONTOLOGY_MODE=on) 或 Tool Policy Plugin V3 路标",
     "recent_changes": [
       {
@@ -326,24 +331,14 @@
   "quality": {
     "security_score": 95,
     "test_count": 3564,
-    "last_regression": "2026-06-01 00:57 pass",
+    "last_regression": "2026-06-01 01:11 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-01 00:57",
+    "security_score_time": "2026-06-01 01:11",
     "test_suites": 99,
     "governance_invariants": "64/64",
     "governance_checks": "350/350",
     "version": "0.37.9.68",
-    "observer": {
-      "score": 4,
-      "status": "ok",
-      "anomalies_high": 0,
-      "anomalies_med": 3,
-      "jobs_ok": 0,
-      "jobs_total": 12,
-      "last_run_date": "2026-06-01",
-      "last_updated_at": "2026-06-01T00:56:17",
-      "v37_9_92": true
-    }
+    "observer": {}
   },
   "incidents": [
     {

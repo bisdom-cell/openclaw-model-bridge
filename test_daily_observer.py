@@ -311,7 +311,24 @@ class TestBuildCritiquePrompt(unittest.TestCase):
 
 
 class TestRunOrchestrator(unittest.TestCase):
-    """End-to-end orchestrator tests with mock LLM."""
+    """End-to-end orchestrator tests with mock LLM.
+
+    V37.9.92 isolation: run() now calls _write_observer_to_status() which
+    invokes status_update.save_status() — that uses module-level
+    STATUS_FILE constant and writes to repo's real status.json. Without
+    setUp patching, every run() test pollutes status.json. We patch the
+    helper to a no-op for the entire class (other V37.9.92 tests have
+    their own mocks and aren't affected).
+    """
+
+    def setUp(self):
+        from unittest.mock import patch
+        self._patcher = patch.object(obs, "_write_observer_to_status",
+                                     return_value=True)
+        self._patcher.start()
+
+    def tearDown(self):
+        self._patcher.stop()
 
     def _setup_kb(self, td, date_ymd="20260525", date_dash="2026-05-25"):
         os.makedirs(os.path.join(td, "daily"))
@@ -709,7 +726,12 @@ class TestSourceLevelGuards(unittest.TestCase):
 # invocation, parses + writes report file in one Python fork.
 
 class TestV37_9_87_SingleCallArchitecture(unittest.TestCase):
-    """V37.9.87: 1 cron run produces exactly 1 score_history append."""
+    """V37.9.87: 1 cron run produces exactly 1 score_history append.
+
+    V37.9.92 isolation: per-test patch of _write_observer_to_status to
+    prevent run() from polluting repo's real status.json (status_update
+    uses module-level STATUS_FILE which doesn't honor kb_dir param).
+    """
 
     @classmethod
     def setUpClass(cls):
@@ -719,6 +741,15 @@ class TestV37_9_87_SingleCallArchitecture(unittest.TestCase):
             cls.py_src = f.read()
         with open(sh_path, "r", encoding="utf-8") as f:
             cls.sh_src = f.read()
+
+    def setUp(self):
+        from unittest.mock import patch
+        self._patcher = patch.object(obs, "_write_observer_to_status",
+                                     return_value=True)
+        self._patcher.start()
+
+    def tearDown(self):
+        self._patcher.stop()
 
     def test_v37_9_87_marker_in_py(self):
         self.assertIn("V37.9.87", self.py_src,
@@ -1688,7 +1719,13 @@ class TestV37_9_92_StatusJsonClosure(unittest.TestCase):
 
     def test_run_calls_write_observer_after_append_score_history(self):
         """V37.9.92: ordering matters — quality.observer must reflect the
-        SAME run as score_history. Verify both helpers called in run()."""
+        SAME run as score_history. Verify both helpers called in run().
+
+        V37.9.92 isolation: tracers RECORD call order only, do NOT invoke
+        the real `_write_observer_to_status` (which would write to the
+        repo's real status.json — discovered as test pollution during
+        merge resolution).
+        """
         from unittest.mock import patch
         kb_dir = tempfile.mkdtemp()
         jobs_dir = tempfile.mkdtemp()
@@ -1705,15 +1742,18 @@ class TestV37_9_92_StatusJsonClosure(unittest.TestCase):
 
             call_order = []
             real_append = obs.append_score_history
-            real_write = obs._write_observer_to_status
 
             def trace_append(*a, **k):
                 call_order.append("append_score_history")
+                # Safe to invoke real append — writes to tempdir
                 return real_append(*a, **k)
 
             def trace_write(*a, **k):
+                # RECORD ONLY — do NOT invoke real _write_observer_to_status
+                # (which uses status_update.STATUS_FILE → repo status.json).
+                # Order verification doesn't need the real write to happen.
                 call_order.append("_write_observer_to_status")
-                return real_write(*a, **k)
+                return True
 
             with patch.object(obs, "append_score_history",
                               side_effect=trace_append) as _, \
