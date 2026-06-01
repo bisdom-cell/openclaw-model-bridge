@@ -1,6 +1,6 @@
 {
-  "updated": "2026-05-29 09:57:00",
-  "updated_by": "claude_code",
+  "updated": "2026-06-01 00:57:15",
+  "updated_by": "full_regression",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -105,6 +105,11 @@
   ],
   "recent_changes": [
     {
+      "date": "2026-06-01",
+      "what": "V37.9.92 双 bug 闭环: (1) V37.9.88 _resolve_registry_path 加 4th candidate ~/openclaw-model-bridge/jobs_registry.yaml — Mac Mini 5/29-6/1 connected fallback warn 治本 (MR-15 第 4 次演出). (2) 新增 _write_observer_to_status() helper 在 run() 调用 — 写 quality.observer 到 status.json, 闭环 V37.9.84 三方共享意识锚点承诺 (5 天 quality.observer={} 治本). 27 新单测 4 类含反向 sabotage (subprocess 真实验证守卫真有效). 99 suites / 3537→3564 tests / 0 fail / governance 762 checks / 安全 95/100 / VERSION 0.37.9.68 不变. Mac Mini 部署后 06:30 cron 应首次显示 jobs:12 scanned + quality.observer 不再 {}. ",
+      "by": "claude_code"
+    },
+    {
       "date": "2026-05-29",
       "what": "V37.9.91 Mac Mini 真生产闭环验证通过 (同 session 14:00 → 17:30 完整 wiring → 部署 → 真调用 < 4h). PR #609 合并到 main + auto_deploy FILE_MAP 同步 expert_escalation.py + proxy_filters.py + tool_proxy.py + ontology yaml 到 $HOME + plist 注入 ARK_API_KEY+ARK_ENDPOINT_ID + launchctl bootout/bootstrap 让 launchd 重读. 真调 Doubao Seed 2.0 Pro: status=ok / input_tokens=37524 / output_tokens=2060 / reasoning_chars=6923 / cache_read=0 (首调预期) / context_chars=80040 (含 changelog 67452). Doubao 输出质量优秀: proposal 准确识别 wiring 6 个验证点 + refs 引用 5 个真实文件 (V37.9.90-r1/V37.9.91/auto_deploy.sh/proxy_filters.py/tool_proxy.py) + rationale 引用 INV-PLIST-ENV-001/V37.9.76-hotfix/28+ MR-4 silent failures. Doubao 主动提示 V37.9.92 候选风险点: proxy plist drift (auto_deploy 未来轮询可能覆盖手动注入的 ARK env). 同时 V37.9.92+ CLAUDE.md 路径错配候选已证伪 (Mac Mini 上 $HOME/CLAUDE.md 真存在, FILE_MAP 部署 CLAUDE.md 到 $HOME).",
       "by": "claude_code"
@@ -198,11 +203,6 @@
       "date": "2026-05-18",
       "what": "V37.9.75 kb_dream DEEP LLM partial content 修复 — DEEP retry 兜底 (镜像 V37.9.74 RADAR retry 模式, 用户决策 Option B). 触发: 2026-05-18 03:02 Mac Mini cron [SYSTEM_ALERT] DEEP 段失败 (823 chars < 1200) — fail-fast 跳过 WIDE+RADAR 用户零内容. 完整因果链分析: 5/15-17 三天稳定 6314-7125 chars / 100-113s, 5/18 突然 823 chars / 214s (2x 时长 1/8 内容) + head 显示 header 完整但章节中途截断 = LLM provider stream 异常 partial. 三层根因: 触发器 (LLM provider 偶发 partial) + 放大器 (llm_call 只检非空不检最低字数 0 次 retry) + 掩护者 (V37.9.68 fail-fast 设计跳过 WIDE+RADAR 用户零内容). MR-4 silent-failure 新形态: llm_call 把客观异常 partial 当正常短答返回. 修复 kb_dream.sh 加 53 行 retry block: 触发条件 -n DEEP_RESULT && DEEP_CHARS<MIN (仅 partial 时 retry, 完全空 skip) / DEEP_RETRY_SYSTEM 严格度不降明确告知上次 partial / DEEP_RETRY_PROMPT 保留 ban-list + 引用上次 chars + V37.9.74 同款 5 项输出自检 checklist / 双重验证 chars+header 字面量 / 成功路径用 retry 结果继续 WIDE+RADAR / 失败路径 fall-through V37.9.68 fail-fast (DEEP 必过原则不破). status.json schema +deep_retried +deep_retry_chars 双字段 (运维监控激活率). fail-fast 告警分支区分 retry 已尝试 vs 未触发. 16 新单测 TestV37975DeepRetryFallback + 反向 sabotage 三轮守卫真有效 (移除触发条件/双验证/初始化各 1 fail). V37.9.68 历史 fail-fast 顺序锁 500→1000 chars 扩窗容纳合法演进. governance INV-DREAM-MULTITHEME-001 +8 checks. 88 suites / 3036→3052 tests (+16) / 0 fail / governance v3.44→v3.45 / 77 inv 不变 / 670→678 checks (+8) / 19 MR 不变 / 安全 95/100 / VERSION 0.37.9.68 不变 (hotfix). 原则 #28 三问全过 (之前 5/15-17 不存在, 5/18 LLM 异常引入, 最小修复 retry 不破 fail-fast 原则). 用户视角原则 #13 第 N+1 次正向兑现.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-05-17",
-      "what": "V37.9.74 RADAR LLM drift 修复 (方案 2 prompt 强化 + 方案 3 retry 兜底, 用户决策 A 路径). 触发: 用户问 5/16+5/17 [3/3] 后续为什么 chars<600, 根因 = LLM 单次 WIDE+RADAR 调用偶尔漏 ## 📡 RADAR header (Qwen3 输出 drift 随机性, 温度 0.8 + 30K 素材稀释 + /no_think 副作用). 修复: (方案 2) WIDE_RADAR_SYSTEM 加 RADAR header 必字面量约束 + WIDE_RADAR_PROMPT 加 5 项输出自检 checklist (写完 WIDE 必接 RADAR 显式禁止 drift) (方案 3) 加 RADAR retry 兜底: WIDE ok + RADAR degraded 时主动调一次 LLM 只产 RADAR 段, 走默认 primary (Qwen3, doubao 试水留 V37.9.75 B), 双重验证 chars>=600 + 含 ## 📡 字面量, 失败 fall-through 到 V37.9.73 DEGRADED. status.json schema +radar_retried +radar_retry_chars 字段 (运维监控 LLM drift 频率). 11 新单测 TestV37974RadarRetryAndPromptHardening 含 retry 触发条件 / 双重验证 / 成功设 ok / 失败 fall-through / prompt 排除 DEEP+WIDE / schema 字段 / RADAR_RETRIED 初始化 / V37.9.75 doubao 候选登记. 反向 sabotage: 删 retry block (2339 chars) → 7 测试立即 fail, 还原后 98/98 OK. governance INV-DREAM-MULTITHEME-001 +7 V37.9.74 checks + INV-DREAM-003 修 regex escaped quotes 兼容 (file_contains→python_assert 找未转义 \" 边界). test_dream_surrogate_sanitize 同款 _extract_var_block helper 修. 多层防御: prompt 预防 + retry 恢复 + DEGRADED 兜底, 不依赖任一层 100%. 88 suites / 3024→3036 tests (+12) / 0 fail / 660→670 checks (+10) / 安全 95/100 / VERSION 0.37.9.68 不变. Mac Mini 部署后预期: 下次 RADAR drift 触发时 last_run.json radar_retried=true + radar_retry_chars 显示 retry 真激活, 用户连续两天 [3/3] 血案根因彻底闭环.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -258,7 +258,8 @@
       "【Stage 2→3 话语权输出】ArXiv 论文创作 — 与用户共创高质量科技论文影响学术界. 候选方向 (按工程证据密度排): (1) Silent Failures Taxonomy from 28+ Production Incidents — 基于 failure_modes_catalog.md 32 案例/5 类+21 元规则+83 不变式, 真实生产 50 天数据非 toy example, 这是稀缺的 (2) Convergence Framework for Declarative Agent Systems — V37.9.19+ 5 spec Plan B 渐进路径 (alert_only→shadow→machine_sync), 50 天 0 漂移生产证据 (3) Hallucination Prevention via Layered Anti-Fabrication Guards — V37.9.57 5 档模板 9 task 集成 2 周+ 零编造血案 + V37.9.56-hotfix3 血案案例溯源. 时机选择: V3 路标 ontology-engine pip 包就位后投稿 (有可分发开源 artifact 配套提高引用率), 或 Stage 2 终态收尾时. 协作模式: 用户提供领域洞察+学术经验, Claude 提供工程数据整理+论文结构组织. 关联资产: docs/articles/audit_is_regression_not_prevention.md (已是立场型文章, 可作论文基底) + docs/articles/why_control_plane.md + ai_partnership_first_principles_zh.md (Stage 2 第 6 篇英译版可作论文哲学层) + ontology/docs/cases/*.md (22 案例文档全部可作 supplementary material). 战略意义: 把\"系统建造者\"升级为\"被引用的方法论原作者\", AI Partnership Framework 从内部哲学升级为可公开 cite 的范式.",
       "V37.9.91 Mac Mini 部署后真生产验证: git fetch+reset 同步 V37.9.91 → 等 auto_deploy 2min 轮询 cp expert_escalation.py 到 $HOME → bash ~/restart.sh 让新 CUSTOM_TOOLS 生效 → echo $ARK_API_KEY 确认 plist env 注入 proxy 进程 → WhatsApp 第一次真调用 (发\"让 Claude 看看 V37.9.85 INV-AUTO-INJECT-001 设计有什么风险\"给 PA, PA 应识别触发词 → 调 expert_escalate → Doubao → 返回 proposal + rationale + confidence + refs, PA 转发标注\"(来自 Doubao Seed 2.0 Pro V37.9.55 verified reasoning model)\") → cat ~/.kb/audit/expert_escalations.jsonl 验证 audit record (含 backend/status/confidence/usage.cached_tokens). 真激活后 V37.9.92+ 立 INV-EXPERT-ESCALATION-001 (一周观察期).",
       "V37.9.92+ 候选: expert_escalation.py CLAUDE.md 路径错配修复. Mac Mini 部署后 expert_escalation.py 位于 $HOME, repo_root=$HOME, 但 CLAUDE.md 实际在 $HOME/openclaw-model-bridge/CLAUDE.md — load_changelog_window 可能返回空 (status.json 通过 DEFAULT_KB_DIR=~/.kb 工作 / cases_dir 通过 V37.9.12.1 ontology symlink 工作 / 仅 CLAUDE.md 路径错配). 若用户报 escalate 返回 no_context 状态 → 加 CLAUDE.md 三档 fallback ($HOME/CLAUDE.md → $HOME/openclaw-model-bridge/CLAUDE.md → empty). V37.9.91 按原则 #28 最小修复不动 expert_escalation.py 本体, 留 V37.9.92+ Mac Mini 真激活后验证才动手.",
-      "V37.9.92 候选: INV-PROXY-PLIST-ENV-001 立 governance — 守 com.openclaw.proxy.plist EnvironmentVariables 必含 ARK_API_KEY + ARK_ENDPOINT_ID (镜像 V37.9.54 INV-PLIST-ENV-001 守 adapter plist 模式). V37.9.91 真激活 Doubao 时主动识别的风险点 (proxy plist drift) + 我自己也判断该入治理. runtime python_assert 真读 plist (dev 环境 plist 不存在 silent pass / Mac Mini fail-loud). 与 V37.9.13 双管理冲突教训保持兼容 (auto_deploy 不动 plist, 只 alert 漂移). 同时关闭 V37.9.92+ CLAUDE.md 路径错配候选 (已证伪 - changelog 67452 chars 真 load)."
+      "V37.9.92 候选: INV-PROXY-PLIST-ENV-001 立 governance — 守 com.openclaw.proxy.plist EnvironmentVariables 必含 ARK_API_KEY + ARK_ENDPOINT_ID (镜像 V37.9.54 INV-PLIST-ENV-001 守 adapter plist 模式). V37.9.91 真激活 Doubao 时主动识别的风险点 (proxy plist drift) + 我自己也判断该入治理. runtime python_assert 真读 plist (dev 环境 plist 不存在 silent pass / Mac Mini fail-loud). 与 V37.9.13 双管理冲突教训保持兼容 (auto_deploy 不动 plist, 只 alert 漂移). 同时关闭 V37.9.92+ CLAUDE.md 路径错配候选 (已证伪 - changelog 67452 chars 真 load).",
+      "V37.9.93+ 候选 (Mac Mini 部署 V37.9.92 + 7 天观察后): (a) 立 INV-OBSERVER-001 governance 守 daily_observer 全套契约 (7-8 checks: _resolve_registry_path 4 candidates / _write_observer_to_status helper / run() 调用 + 顺序锁 / FAIL-OPEN ImportError + Exception / quality.observer payload schema / V37.9.92 marker / blood lesson 引用). (b) 立 INV-CROSS-ENV-PATH-001 (MR-15 第 4 次演出已达门槛): 守所有 _resolve_*_path() 函数必须含 ~/openclaw-model-bridge/ Mac Mini canonical candidate, 全 repo scan. 同款 V37.9.67 cross_os_quirk_scanner 模式. (c) 写 ontology/docs/cases/v37_9_92_observer_path_blood_case.md 记录 5 天潜伏 + MR-15 第 4 次演出 + 双 silent failure 协同模式."
     ],
     "open_prs": "",
     "blocked_on": "",
@@ -324,14 +325,25 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 3537,
-    "last_regression": "2026-05-29 07:16 pass",
+    "test_count": 3564,
+    "last_regression": "2026-06-01 00:57 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-05-29 07:16",
+    "security_score_time": "2026-06-01 00:57",
     "test_suites": 99,
     "governance_invariants": "64/64",
     "governance_checks": "350/350",
-    "version": "0.37.9.68"
+    "version": "0.37.9.68",
+    "observer": {
+      "score": 4,
+      "status": "ok",
+      "anomalies_high": 0,
+      "anomalies_med": 3,
+      "jobs_ok": 0,
+      "jobs_total": 12,
+      "last_run_date": "2026-06-01",
+      "last_updated_at": "2026-06-01T00:56:17",
+      "v37_9_92": true
+    }
   },
   "incidents": [
     {
@@ -395,7 +407,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.84 Daily Self-Critique Observer 上线 + 短任务清零 (mm_index 路径迁移 + run_hn 重命名 + unfinished 103→60 清理). 下次候选: #99 scanner crontab check / 方向 2 Claude Escalation / observer 趋势数据积累 3 天后看.",
+  "focus": "V37.9.92 闭环 V37.9.88 path bug + V37.9.84 status.json 三方共享意识承诺. 周一 Observer 数据驱动复盘发现两个真问题同日修. 27 新单测含 sabotage 反向验证守卫真有效. 下次候选: Mac Mini 部署后等 06:30 cron 触发观察 (1) jobs:12 不再 fallback warn (2) quality.observer 不再空 / 7 天稳定后立 INV-OBSERVER-001 + INV-CROSS-ENV-PATH-001 (MR-15 4 次达门槛).",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
