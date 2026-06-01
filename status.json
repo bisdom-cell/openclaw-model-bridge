@@ -1,6 +1,6 @@
 {
-  "updated": "2026-06-01 06:51:56",
-  "updated_by": "full_regression",
+  "updated": "2026-06-01 08:07:26",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-06-01",
+      "what": "V37.9.96 立 INV-PROXY-PLIST-ENV-001 (proxy-plist-env-must-contain-ark-expert-escalate-keys, MR-4, high, 7 checks) 守 com.openclaw.proxy.plist 必含 ARK_API_KEY+ARK_ENDPOINT_ID — V37.9.91 Doubao expert_escalate 真生产时 proxy plist 缺 ARK env 手动修, V37.9.54 INV-PLIST-ENV-001 只守 adapter plist 留真缺口 (ARK_ENDPOINT_ID 非 api_key_env 故 adapter INV 覆盖不到). runtime python_assert 真读 proxy plist via plistlib (dev silent pass/Mac Mini fail-loud). 22 新单测含直接 exec yaml 真 runtime code 零 drift + 反向验证 (假 plist 缺 ARK env → fail-loud). 顺手修开工健康检查发现的 audit_metadata 漂移: total_invariants 83→85 (V37.9.94 +INV-CROSS-ENV-PATH-001 漏记 stale -1 + 本次) + total_checks 755→781 (对齐 governance_checker 运行时权威计数) + 新增 test_actual_invariant_count_matches_metadata 自洽守卫 (MR-7 治理自观察). governance v3.50→v3.51. 102 suites/3657 tests/0 fail/781 checks/95 安全/VERSION 0.37.9.68 不变. 周一开工选 #19 (观察窗口型硬卡 6/2-6/3 才 ready). 兑现 V37.9.91/92 已登记候选 (Doubao 自己 escalate 中提议 proxy plist drift INV).",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-01",
       "what": "V37.9.95 ai_leaders_x 多元化 19→31 跨 12 派别. 用户周一 #32 观察反馈 AI 大神不同观点不足 → 同 session 加 12 候选 (Hassabis/Dario/Yudkowsky/Hinton/Fei-Fei/Abbeel/Soumith/Olah/AndrewYNg/YiTay/ClementDelangue/+5 派别 fresh entries). MAX_PER_PERSON 5→3 + MAX_TOTAL 30→40 多元化优先. V37.8.4 INV-X-001 兼容 — ai_leaders_x 已有 WARN-on-zero-tweets 容错路径, 僵尸账号自动暴露. 14 新单测 5 类 + 反向 sabotage 守卫真有效. 101 suites / 3635 tests / 0 fail. V37.9.92/93/94/95 同 session 四阶段闭环 (修血案 → 自我修复 → framework 化 → 用户反馈兑现). 原则 #32 制度第一次正向兑现.",
       "by": "claude_code"
     },
@@ -198,11 +203,6 @@
       "date": "2026-05-18",
       "what": "🩺 V37.9.78 health_check 周报 v1.1→v2.0 \"系统证据周报\" — 用户视角原则 #13 第 N+2 次正向兑现 + INV-HEALTHCHECK-001 立. 触发: 用户开工后 WhatsApp 主动报告周报\"太单薄\"决定增强或删除. 审视后发现 v1.1 5 段(任务统计/服务/模型/KB/SSD)中 3 段与现有 cron 重叠 + 真正盲区 5 个 (SLO/安全评分/治理审计/MOVESPEED 24h/X 监控质量) 从未汇总到周报. 用户决策方案 A 重定位为证据周报. v2.0 设计契约: 9 段 emoji marker (🖥服务+🤖模型+📊SLO+🛡安全+🏛治理+🛟MOVESPEED+🐦X监控+📚KB+💾SSD) + MR-8 single-source-of-truth (走 slo_dashboard.py/security_score.py/.audit_metrics.jsonl/movespeed_incident_monitor.py 4 外部工具不内嵌) + safe_call helper 三层 FAIL-OPEN (工具不存在/timeout/parse 失败降级显示不阻塞) + 推送优先 notify.sh --topic daily (重试+队列+双通道独立) fallback openclaw 直推保留 + health_status.json 机器可读契约保留 (version=v37.9.78). 32 新单测 5 类 + 反向 sabotage 三轮守卫真有效 (marker/SLO 段/字段名/safe_call helper 移除立即抓). INV-HEALTHCHECK-001 (meta_rule=MR-8, severity=high, declaration+runtime, 17 checks: 16 declaration 文件守卫 + 1 runtime subprocess 跑 32 单测全过). dev 实跑 9 段全输出 + FAIL-OPEN 工作正常. 关键 bug 修复 — SLO 段字段名错配 + CLI 调用方式: slo_dashboard.py --json 单参数不输出 (需 --dashboard --json), JSON 真实字段是 current.p95_ms/success_pct/trend_24h/overall (非 current_metrics/p95_latency_ms/success_rate_pct/trend/history_count). 接入 full_regression suite. 累计 90→91 suites (+1) / 3124→3156 tests (+32) / 0 fail / governance 698→715 checks (+17) / 78→79 invariants (+1) / 19 MR 不变 / 安全 95/100 / VERSION 0.37.9.68 不变 (V37.9.78 重构现有 cron 不增功能不 bump). Mac Mini 部署后预期: 5/19 周一 09:00 cron 自动用新 9 段证据周报推送, 用户首次看到 SLO p95 实时/95/100 评分/79 inv pass/MOVESPEED 24h 真计数/X 僵尸账号数. V37.9.79+ 候选 (a) 主硬卡 5/19 09:00 真激活验证用户视角对 v2.0 质量评价 (b) 从 _PUSH_ROUTE_WHITELIST 移除 health_check (已走 notify.sh 不再需要白名单豁免) (c) kb_trend/kb_review 周报型任务同款 v2.0 风格升级评估 (d) V37.9.77 ROUTER_ENFORCE=on 试水 (e) tool_proxy:5002 透传 ?provider=. 元价值: V2 路标证据密度兑现 — 不只是有 SLO/governance/security 数据 (V35-V37 都有), 还要把数据汇总成可决策周度证据流, 用户每周一上午一条消息就能判断系统真实健康度, 数据复利从采集升级为消费的关键拐点.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-05-18",
-      "what": "🚀 V37.9.77 Capability Router enforcement framework — ?provider=X query param + ROUTER_ENFORCE env feature flag (默认 off PoC 安全网). V37.9.76 shadow → V37.9.77 enforcement opt-in (Plan B 渐进路径). adapter._resolve_primary_provider 方法 + urlparse query 解析 + strip query 拼 forward URL + 三阶 FAIL-OPEN (off/unknown provider/missing API key 都 silent fallback default). kb_dream llm_call 6th 参数 provider_override + effective_url 拼 ?provider= + curl 用 effective_url + RADAR retry ROUTER_ENFORCE 门控 (默认 off 行为同 V37.9.76 shadow). router_decide._resolve_mode 函数读 ROUTER_ENFORCE env (大小写不敏感 + 未知值 fallback shadow FAIL-CLOSED). 三方契约一致性: adapter/kb_dream/router_decide 都用 ROUTER_ENFORCE 默认 off + 三处 V37.9.77 marker. 27 新单测 5 测试类 + 反向 sabotage 三轮守卫真有效 (adapter enforce=True 硬编码 → 1 fail / kb_dream 删 ROUTER_ENFORCE 门控 → 1 fail / curl 仍用 LLM_URL → 1 fail). adapter.py 副红利: server startup 移到 if __name__ 块, import adapter 不 bind port (修长期可测性 debt). dev 环境意外发现 lingering pid 5695 (V37.9.77 早期 import 实验留下) kill 后 convergence test 恢复 baseline. 90 suites / 3097→3124 tests (+27) / 0 fail / governance v3.46 不变 (INV-ROUTER-001 内涵扩) / 691→698 checks (+7) / VERSION 0.37.9.68 不变 (enforcement opt-in framework, ROUTER_ENFORCE=on 才真激活). Mac Mini 部署后行为不变 (默认 off), operator 可 ROUTER_ENFORCE=on 试水 1-3 天观察后决定 V37.9.78+ 默认 on. V37.9.78+ 候选: tool_proxy:5002 透传 ?provider= 让 hf_papers 也能 enforcement + 一周观察 + 扩展 capability profile 到更多 ALIGNED job. 同日 5 件套完整交付 (V37.9.74 首次激活闭环 + V37.9.75 DEEP retry + V37.9.76 PoC + V37.9.76-hotfix + V37.9.77 enforcement framework).",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -263,12 +263,10 @@
       "【Stage 2→3 话语权输出】ArXiv 论文创作 — 与用户共创高质量科技论文影响学术界. 候选方向 (按工程证据密度排): (1) Silent Failures Taxonomy from 28+ Production Incidents — 基于 failure_modes_catalog.md 32 案例/5 类+21 元规则+83 不变式, 真实生产 50 天数据非 toy example, 这是稀缺的 (2) Convergence Framework for Declarative Agent Systems — V37.9.19+ 5 spec Plan B 渐进路径 (alert_only→shadow→machine_sync), 50 天 0 漂移生产证据 (3) Hallucination Prevention via Layered Anti-Fabrication Guards — V37.9.57 5 档模板 9 task 集成 2 周+ 零编造血案 + V37.9.56-hotfix3 血案案例溯源. 时机选择: V3 路标 ontology-engine pip 包就位后投稿 (有可分发开源 artifact 配套提高引用率), 或 Stage 2 终态收尾时. 协作模式: 用户提供领域洞察+学术经验, Claude 提供工程数据整理+论文结构组织. 关联资产: docs/articles/audit_is_regression_not_prevention.md (已是立场型文章, 可作论文基底) + docs/articles/why_control_plane.md + ai_partnership_first_principles_zh.md (Stage 2 第 6 篇英译版可作论文哲学层) + ontology/docs/cases/*.md (22 案例文档全部可作 supplementary material). 战略意义: 把\"系统建造者\"升级为\"被引用的方法论原作者\", AI Partnership Framework 从内部哲学升级为可公开 cite 的范式.",
       "V37.9.91 Mac Mini 部署后真生产验证: git fetch+reset 同步 V37.9.91 → 等 auto_deploy 2min 轮询 cp expert_escalation.py 到 $HOME → bash ~/restart.sh 让新 CUSTOM_TOOLS 生效 → echo $ARK_API_KEY 确认 plist env 注入 proxy 进程 → WhatsApp 第一次真调用 (发\"让 Claude 看看 V37.9.85 INV-AUTO-INJECT-001 设计有什么风险\"给 PA, PA 应识别触发词 → 调 expert_escalate → Doubao → 返回 proposal + rationale + confidence + refs, PA 转发标注\"(来自 Doubao Seed 2.0 Pro V37.9.55 verified reasoning model)\") → cat ~/.kb/audit/expert_escalations.jsonl 验证 audit record (含 backend/status/confidence/usage.cached_tokens). 真激活后 V37.9.92+ 立 INV-EXPERT-ESCALATION-001 (一周观察期).",
       "V37.9.92+ 候选: expert_escalation.py CLAUDE.md 路径错配修复. Mac Mini 部署后 expert_escalation.py 位于 $HOME, repo_root=$HOME, 但 CLAUDE.md 实际在 $HOME/openclaw-model-bridge/CLAUDE.md — load_changelog_window 可能返回空 (status.json 通过 DEFAULT_KB_DIR=~/.kb 工作 / cases_dir 通过 V37.9.12.1 ontology symlink 工作 / 仅 CLAUDE.md 路径错配). 若用户报 escalate 返回 no_context 状态 → 加 CLAUDE.md 三档 fallback ($HOME/CLAUDE.md → $HOME/openclaw-model-bridge/CLAUDE.md → empty). V37.9.91 按原则 #28 最小修复不动 expert_escalation.py 本体, 留 V37.9.92+ Mac Mini 真激活后验证才动手.",
-      "V37.9.92 候选: INV-PROXY-PLIST-ENV-001 立 governance — 守 com.openclaw.proxy.plist EnvironmentVariables 必含 ARK_API_KEY + ARK_ENDPOINT_ID (镜像 V37.9.54 INV-PLIST-ENV-001 守 adapter plist 模式). V37.9.91 真激活 Doubao 时主动识别的风险点 (proxy plist drift) + 我自己也判断该入治理. runtime python_assert 真读 plist (dev 环境 plist 不存在 silent pass / Mac Mini fail-loud). 与 V37.9.13 双管理冲突教训保持兼容 (auto_deploy 不动 plist, 只 alert 漂移). 同时关闭 V37.9.92+ CLAUDE.md 路径错配候选 (已证伪 - changelog 67452 chars 真 load).",
       "V37.9.93+ 候选 (Mac Mini 部署 V37.9.92 + 7 天观察后): (a) 立 INV-OBSERVER-001 governance 守 daily_observer 全套契约 (7-8 checks: _resolve_registry_path 4 candidates / _write_observer_to_status helper / run() 调用 + 顺序锁 / FAIL-OPEN ImportError + Exception / quality.observer payload schema / V37.9.92 marker / blood lesson 引用). (b) 立 INV-CROSS-ENV-PATH-001 (MR-15 第 4 次演出已达门槛): 守所有 _resolve_*_path() 函数必须含 ~/openclaw-model-bridge/ Mac Mini canonical candidate, 全 repo scan. 同款 V37.9.67 cross_os_quirk_scanner 模式. (c) 写 ontology/docs/cases/v37_9_92_observer_path_blood_case.md 记录 5 天潜伏 + MR-15 第 4 次演出 + 双 silent failure 协同模式.",
       "V37.9.94+ 候选 (Mac Mini 部署 V37.9.93 一周观察后, ~6/8): 立 INV-OBSERVER-SAMPLING-001 governance 守 _read_file_sample 必须使用 smart sampling (head+marker+tail, 不能回退到 content[:max_chars]) + CRITIQUE_SYSTEM 必含采样说明段. 5-6 checks 设计就绪. 防止未来重构误回到 V37.9.84 pre-smart-sampling 行为. 一周观察期同时验证下次 06:30 cron 推送 daily_critique 不再含 false truncation report.",
       "V37.9.95+ 候选 (Mac Mini 部署 V37.9.94 + 一周观察后): (a) 立 INV-OBSERVER-001 — 守 Observer 全契约 (V37.9.92 status.json closure + V37.9.88 registry filter + V37.9.87 single-call architecture, 7-8 checks). (b) 立 INV-OBSERVER-SAMPLING-001 — 守 V37.9.93 smart sampling 不退化 + CRITIQUE_SYSTEM 必含采样说明段 + LLM 不再误报 dream truncation. (c) Observer-of-Observer 候选: 第二个 cron 主动监控 daily_observer.log fallback warn 累计 ≥ N 升 [SYSTEM_ALERT] (反思方法论提到的元元层防御). (d) 验证 cross_env_path_scanner 在 Mac Mini 真生产 governance audit cron 07:00 0 violations.",
-      "V37.9.96+ 候选 (Mac Mini 部署 V37.9.95 + 1-2 天观察后): (a) 新增 12 账号活跃度复盘 — 哪些是僵尸 (newest_tweet > 7d) 从列表移除. fetch_stats log 含 0 条的 handle 候选清理. (b) 评估 promote V37.8.4 ZOMBIE detection 同款机制到 ai_leaders_x (currently 仅 WARN log). (c) 周一 #32 制度化 — 如果连续 3-4 周都产生 actionable feedback, 立 INV-WEEKLY-USER-OBSERVATION-001 守 weekly observation 必有产出 (即时记录到 status.json feedback 字段). (d) 评估推送内容质量 — 跨派别观点是否真带来'AI 大神不同观点'的用户感知.",
-      "V37.9.96+ 候选 (历史 doc rot 治理债): README.md 显示 'v37.9.81 / 0.37.9.68 (2026-05-19)' 实际版本已到 v37.9.95 / 2026-06-01. Tests badge '3346 passed' 实际 3635. Invariants badge '82/82 + 19 MR' — 当前是 81/81 + 17 MR (V37.9.94 加 INV-CROSS-ENV-PATH-001 是 81). docs/config.md 头部停在 v37.9.68-hotfix 2026-05-15, 漏 V37.9.69-95 累积 26+ 版本. 工作量 ~30min 全更新 (badges + 版本号 + 日期), 非阻塞但用户/外部访问者看到的是 stale 视图. 不是今日引入, V37.9.96+ 候选."
+      "V37.9.96+ 候选 (Mac Mini 部署 V37.9.95 + 1-2 天观察后): (a) 新增 12 账号活跃度复盘 — 哪些是僵尸 (newest_tweet > 7d) 从列表移除. fetch_stats log 含 0 条的 handle 候选清理. (b) 评估 promote V37.8.4 ZOMBIE detection 同款机制到 ai_leaders_x (currently 仅 WARN log). (c) 周一 #32 制度化 — 如果连续 3-4 周都产生 actionable feedback, 立 INV-WEEKLY-USER-OBSERVATION-001 守 weekly observation 必有产出 (即时记录到 status.json feedback 字段). (d) 评估推送内容质量 — 跨派别观点是否真带来'AI 大神不同观点'的用户感知."
     ],
     "open_prs": "",
     "blocked_on": "",
@@ -334,13 +332,13 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 3635,
-    "last_regression": "2026-06-01 06:51 pass",
+    "test_count": 3657,
+    "last_regression": "2026-06-01 08:02 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-01 06:51",
-    "test_suites": 101,
-    "governance_invariants": "64/64",
-    "governance_checks": "350/350",
+    "security_score_time": "2026-06-01 08:02",
+    "test_suites": 102,
+    "governance_invariants": "85/85",
+    "governance_checks": "781/781",
     "version": "0.37.9.68",
     "observer": {}
   },
@@ -406,7 +404,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.95 ai_leaders_x 多元化扩展 19→31 跨 12 派别 — 周一 #32 用户视角反馈第一次正向兑现. 加 Anthropic+DeepMind+Safety 极致悲观+元老+Fei-Fei Li+Robotics+开源派+架构创新派 (12 新). MAX_PER_PERSON 5→3, MAX_TOTAL 30→40. V37.9.92/93/94/95 同 session 四阶段闭环 (修血案+自我修复+framework 化+用户反馈兑现). 下次候选: Mac Mini 部署后 1-2 天观察新账号活跃度 + 评估 ZOMBIE detection promote / 周一 #32 持续制度化.",
+  "focus": "V37.9.96 立 INV-PROXY-PLIST-ENV-001 守 proxy plist ARK env (V37.9.91 Doubao expert_escalate 真生产缺口闭环, 镜像 V37.9.54 adapter plist 模式). MR-4/high/7 checks (runtime 真读 com.openclaw.proxy.plist via plistlib, dev silent pass/Mac Mini fail-loud). 22 新单测含直接 exec yaml 真 runtime code 零 drift. 顺手修 audit_metadata 漂移: total_invariants 83→85 (V37.9.94 漏记+本次) + total_checks 755→781 (对齐运行时权威计数) + 新增自洽守卫. 85 INV/781 checks/3657 tests/0 fail. 周一开工选 #19 (观察窗口型硬卡 6/2-6/3 才 ready). 下次候选: 6/2-6/3 LEVEL_6 dream+ai_leaders 新账号观察 / INV-OBSERVER-001 (V37.9.84 一周后) / 周一 #32 持续.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
