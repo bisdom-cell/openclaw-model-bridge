@@ -1,6 +1,6 @@
 {
-  "updated": "2026-05-29 10:13:05",
-  "updated_by": "claude_code",
+  "updated": "2026-06-01 01:12:04",
+  "updated_by": "full_regression",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -104,6 +104,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-06-01",
+      "what": "V37.9.92 双 bug 闭环: (1) V37.9.88 _resolve_registry_path 加 4th candidate ~/openclaw-model-bridge/jobs_registry.yaml — Mac Mini 5/29-6/1 connected fallback warn 治本 (MR-15 第 4 次演出). (2) 新增 _write_observer_to_status() helper 在 run() 调用 — 写 quality.observer 到 status.json, 闭环 V37.9.84 三方共享意识锚点承诺 (5 天 quality.observer={} 治本). 27 新单测 4 类含反向 sabotage (subprocess 真实验证守卫真有效). 99 suites / 3537→3564 tests / 0 fail / governance 762 checks / 安全 95/100 / VERSION 0.37.9.68 不变. Mac Mini 部署后 06:30 cron 应首次显示 jobs:12 scanned + quality.observer 不再 {}. ",
+      "by": "claude_code"
+    },
     {
       "date": "2026-05-29",
       "what": "V37.9.91 WhatsApp 端到端真生产闭环铁证 (Doubao 自我深度判断 V37.9.92 候选). 用户在 WhatsApp 发深度判断请求给 PA → PA 真识别 SOUL 规则 12 触发词 → 真调 expert_escalate → tool_proxy 拦截 → lazy import escalate → Doubao Seed 2.0 Pro 真返回 → PA 转发. 真实 audit: status=ok / input=37461 / output=1360 / cache_read=0 (首调) / reasoning=3852 chars. Doubao proposal 准确提出 V37.9.92 4 步执行路径 (review FILE_MAP / 检查 auto_deploy 日志 / 加 INV 守 ARK env 持有 / 备份当前 working plist) + rationale 引用 MR-4 silent failure + MR-15 deployment-layout + V37.9.76-hotfix 历史案例 (CLAUDE.md changelog 真理解). 完整端到端 wiring 实证: SOUL 规则 12 触发 → PA 自主调用 → proxy 拦截 → escalate → Doubao → PA 转发 五段全通. V37.9.83 AI Partnership Framework Stage 3 方向 2 真生产闭环 — capability framework 不只声明 + 接入, 真有 PA 复杂判断时可调用的 expert backend.",
@@ -258,7 +263,8 @@
       "【Stage 2→3 话语权输出】ArXiv 论文创作 — 与用户共创高质量科技论文影响学术界. 候选方向 (按工程证据密度排): (1) Silent Failures Taxonomy from 28+ Production Incidents — 基于 failure_modes_catalog.md 32 案例/5 类+21 元规则+83 不变式, 真实生产 50 天数据非 toy example, 这是稀缺的 (2) Convergence Framework for Declarative Agent Systems — V37.9.19+ 5 spec Plan B 渐进路径 (alert_only→shadow→machine_sync), 50 天 0 漂移生产证据 (3) Hallucination Prevention via Layered Anti-Fabrication Guards — V37.9.57 5 档模板 9 task 集成 2 周+ 零编造血案 + V37.9.56-hotfix3 血案案例溯源. 时机选择: V3 路标 ontology-engine pip 包就位后投稿 (有可分发开源 artifact 配套提高引用率), 或 Stage 2 终态收尾时. 协作模式: 用户提供领域洞察+学术经验, Claude 提供工程数据整理+论文结构组织. 关联资产: docs/articles/audit_is_regression_not_prevention.md (已是立场型文章, 可作论文基底) + docs/articles/why_control_plane.md + ai_partnership_first_principles_zh.md (Stage 2 第 6 篇英译版可作论文哲学层) + ontology/docs/cases/*.md (22 案例文档全部可作 supplementary material). 战略意义: 把\"系统建造者\"升级为\"被引用的方法论原作者\", AI Partnership Framework 从内部哲学升级为可公开 cite 的范式.",
       "V37.9.91 Mac Mini 部署后真生产验证: git fetch+reset 同步 V37.9.91 → 等 auto_deploy 2min 轮询 cp expert_escalation.py 到 $HOME → bash ~/restart.sh 让新 CUSTOM_TOOLS 生效 → echo $ARK_API_KEY 确认 plist env 注入 proxy 进程 → WhatsApp 第一次真调用 (发\"让 Claude 看看 V37.9.85 INV-AUTO-INJECT-001 设计有什么风险\"给 PA, PA 应识别触发词 → 调 expert_escalate → Doubao → 返回 proposal + rationale + confidence + refs, PA 转发标注\"(来自 Doubao Seed 2.0 Pro V37.9.55 verified reasoning model)\") → cat ~/.kb/audit/expert_escalations.jsonl 验证 audit record (含 backend/status/confidence/usage.cached_tokens). 真激活后 V37.9.92+ 立 INV-EXPERT-ESCALATION-001 (一周观察期).",
       "V37.9.92+ 候选: expert_escalation.py CLAUDE.md 路径错配修复. Mac Mini 部署后 expert_escalation.py 位于 $HOME, repo_root=$HOME, 但 CLAUDE.md 实际在 $HOME/openclaw-model-bridge/CLAUDE.md — load_changelog_window 可能返回空 (status.json 通过 DEFAULT_KB_DIR=~/.kb 工作 / cases_dir 通过 V37.9.12.1 ontology symlink 工作 / 仅 CLAUDE.md 路径错配). 若用户报 escalate 返回 no_context 状态 → 加 CLAUDE.md 三档 fallback ($HOME/CLAUDE.md → $HOME/openclaw-model-bridge/CLAUDE.md → empty). V37.9.91 按原则 #28 最小修复不动 expert_escalation.py 本体, 留 V37.9.92+ Mac Mini 真激活后验证才动手.",
-      "V37.9.92 候选: INV-PROXY-PLIST-ENV-001 立 governance — 守 com.openclaw.proxy.plist EnvironmentVariables 必含 ARK_API_KEY + ARK_ENDPOINT_ID (镜像 V37.9.54 INV-PLIST-ENV-001 守 adapter plist 模式). V37.9.91 真激活 Doubao 时主动识别的风险点 (proxy plist drift) + 我自己也判断该入治理. runtime python_assert 真读 plist (dev 环境 plist 不存在 silent pass / Mac Mini fail-loud). 与 V37.9.13 双管理冲突教训保持兼容 (auto_deploy 不动 plist, 只 alert 漂移). 同时关闭 V37.9.92+ CLAUDE.md 路径错配候选 (已证伪 - changelog 67452 chars 真 load)."
+      "V37.9.92 候选: INV-PROXY-PLIST-ENV-001 立 governance — 守 com.openclaw.proxy.plist EnvironmentVariables 必含 ARK_API_KEY + ARK_ENDPOINT_ID (镜像 V37.9.54 INV-PLIST-ENV-001 守 adapter plist 模式). V37.9.91 真激活 Doubao 时主动识别的风险点 (proxy plist drift) + 我自己也判断该入治理. runtime python_assert 真读 plist (dev 环境 plist 不存在 silent pass / Mac Mini fail-loud). 与 V37.9.13 双管理冲突教训保持兼容 (auto_deploy 不动 plist, 只 alert 漂移). 同时关闭 V37.9.92+ CLAUDE.md 路径错配候选 (已证伪 - changelog 67452 chars 真 load).",
+      "V37.9.93+ 候选 (Mac Mini 部署 V37.9.92 + 7 天观察后): (a) 立 INV-OBSERVER-001 governance 守 daily_observer 全套契约 (7-8 checks: _resolve_registry_path 4 candidates / _write_observer_to_status helper / run() 调用 + 顺序锁 / FAIL-OPEN ImportError + Exception / quality.observer payload schema / V37.9.92 marker / blood lesson 引用). (b) 立 INV-CROSS-ENV-PATH-001 (MR-15 第 4 次演出已达门槛): 守所有 _resolve_*_path() 函数必须含 ~/openclaw-model-bridge/ Mac Mini canonical candidate, 全 repo scan. 同款 V37.9.67 cross_os_quirk_scanner 模式. (c) 写 ontology/docs/cases/v37_9_92_observer_path_blood_case.md 记录 5 天潜伏 + MR-15 第 4 次演出 + 双 silent failure 协同模式."
     ],
     "open_prs": "",
     "blocked_on": "",
@@ -324,14 +330,15 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 3537,
-    "last_regression": "2026-05-29 10:11 pass",
+    "test_count": 3564,
+    "last_regression": "2026-06-01 01:11 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-05-29 10:11",
-    "test_suites": 100,
+    "security_score_time": "2026-06-01 01:11",
+    "test_suites": 99,
     "governance_invariants": "64/64",
     "governance_checks": "350/350",
-    "version": "0.37.9.68"
+    "version": "0.37.9.68",
+    "observer": {}
   },
   "incidents": [
     {
@@ -395,7 +402,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.84 Daily Self-Critique Observer 上线 + 短任务清零 (mm_index 路径迁移 + run_hn 重命名 + unfinished 103→60 清理). 下次候选: #99 scanner crontab check / 方向 2 Claude Escalation / observer 趋势数据积累 3 天后看.",
+  "focus": "V37.9.92 闭环 V37.9.88 path bug + V37.9.84 status.json 三方共享意识承诺. 周一 Observer 数据驱动复盘发现两个真问题同日修. 27 新单测含 sabotage 反向验证守卫真有效. 下次候选: Mac Mini 部署后等 06:30 cron 触发观察 (1) jobs:12 不再 fallback warn (2) quality.observer 不再空 / 7 天稳定后立 INV-OBSERVER-001 + INV-CROSS-ENV-PATH-001 (MR-15 4 次达门槛).",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",

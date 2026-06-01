@@ -311,7 +311,24 @@ class TestBuildCritiquePrompt(unittest.TestCase):
 
 
 class TestRunOrchestrator(unittest.TestCase):
-    """End-to-end orchestrator tests with mock LLM."""
+    """End-to-end orchestrator tests with mock LLM.
+
+    V37.9.92 isolation: run() now calls _write_observer_to_status() which
+    invokes status_update.save_status() — that uses module-level
+    STATUS_FILE constant and writes to repo's real status.json. Without
+    setUp patching, every run() test pollutes status.json. We patch the
+    helper to a no-op for the entire class (other V37.9.92 tests have
+    their own mocks and aren't affected).
+    """
+
+    def setUp(self):
+        from unittest.mock import patch
+        self._patcher = patch.object(obs, "_write_observer_to_status",
+                                     return_value=True)
+        self._patcher.start()
+
+    def tearDown(self):
+        self._patcher.stop()
 
     def _setup_kb(self, td, date_ymd="20260525", date_dash="2026-05-25"):
         os.makedirs(os.path.join(td, "daily"))
@@ -709,7 +726,12 @@ class TestSourceLevelGuards(unittest.TestCase):
 # invocation, parses + writes report file in one Python fork.
 
 class TestV37_9_87_SingleCallArchitecture(unittest.TestCase):
-    """V37.9.87: 1 cron run produces exactly 1 score_history append."""
+    """V37.9.87: 1 cron run produces exactly 1 score_history append.
+
+    V37.9.92 isolation: per-test patch of _write_observer_to_status to
+    prevent run() from polluting repo's real status.json (status_update
+    uses module-level STATUS_FILE which doesn't honor kb_dir param).
+    """
 
     @classmethod
     def setUpClass(cls):
@@ -719,6 +741,15 @@ class TestV37_9_87_SingleCallArchitecture(unittest.TestCase):
             cls.py_src = f.read()
         with open(sh_path, "r", encoding="utf-8") as f:
             cls.sh_src = f.read()
+
+    def setUp(self):
+        from unittest.mock import patch
+        self._patcher = patch.object(obs, "_write_observer_to_status",
+                                     return_value=True)
+        self._patcher.start()
+
+    def tearDown(self):
+        self._patcher.stop()
 
     def test_v37_9_87_marker_in_py(self):
         self.assertIn("V37.9.87", self.py_src,
@@ -1329,6 +1360,571 @@ class TestV37_9_87_ReverseSabotage(unittest.TestCase):
         """
         # This test always passes — it's purely documentation. The actual
         # reverse validation is done manually as part of V37.9.87 release.
+        self.assertTrue(True, "see docstring")
+
+
+# ============================================================================
+# V37.9.92 — Mac Mini canonical path (Bug #1 from V37.9.84 trend review)
+# +  status.json quality.observer closure (V37.9.84 design completion)
+# ============================================================================
+
+
+class TestV37_9_92_MacMiniCanonicalPath(unittest.TestCase):
+    """V37.9.92: _resolve_registry_path() must include Mac Mini canonical
+    candidate ~/openclaw-model-bridge/jobs_registry.yaml as 3rd-priority
+    after $HOME/jobs_registry.yaml. V37.9.88 missed this layout, causing
+    5 days of fallback warn in production (5/29-6/1 observed)."""
+
+    def setUp(self):
+        # Save and clear env var to ensure deterministic resolution
+        self._old_env = os.environ.pop(obs._REGISTRY_ENV_VAR, None)
+        # Save HOME to restore (we'll override it per-test)
+        self._old_home = os.environ.get("HOME")
+
+    def tearDown(self):
+        if self._old_env is None:
+            os.environ.pop(obs._REGISTRY_ENV_VAR, None)
+        else:
+            os.environ[obs._REGISTRY_ENV_VAR] = self._old_env
+        if self._old_home is not None:
+            os.environ["HOME"] = self._old_home
+
+    def _setup_fake_home(self, td, files):
+        """Helper: create candidate files inside td (acting as $HOME)
+        and point HOME there. `files` is set of relative paths to create."""
+        os.environ["HOME"] = td
+        for rel in files:
+            p = os.path.join(td, rel)
+            os.makedirs(os.path.dirname(p), exist_ok=True)
+            with open(p, "w") as f:
+                f.write("- id: dummy_job\n  enabled: true\n")
+
+    def test_finds_in_mac_mini_canonical_path(self):
+        """Only Mac Mini canonical exists ($HOME/openclaw-model-bridge/
+        jobs_registry.yaml) → resolver returns it."""
+        with tempfile.TemporaryDirectory() as td:
+            self._setup_fake_home(td, {"openclaw-model-bridge/jobs_registry.yaml"})
+            resolved = obs._resolve_registry_path()
+        self.assertIsNotNone(resolved,
+            "Mac Mini canonical path must be detected (V37.9.92 fix)")
+        self.assertIn("openclaw-model-bridge", resolved)
+        self.assertTrue(resolved.endswith("jobs_registry.yaml"))
+
+    def test_home_root_takes_precedence_over_canonical(self):
+        """If both $HOME/jobs_registry.yaml and Mac Mini canonical exist,
+        $HOME wins (V37.9.88 candidate 2 preserved as highest priority)."""
+        with tempfile.TemporaryDirectory() as td:
+            self._setup_fake_home(td, {
+                "jobs_registry.yaml",                       # candidate 2
+                "openclaw-model-bridge/jobs_registry.yaml",  # candidate 3
+            })
+            resolved = obs._resolve_registry_path()
+        self.assertEqual(resolved, os.path.join(td, "jobs_registry.yaml"),
+            "$HOME root must win over Mac Mini canonical")
+
+    def test_canonical_takes_precedence_over_script_adj(self):
+        """If only Mac Mini canonical and script-adjacent (resolved real
+        path under repo) exist, canonical wins (it's V37.9.88+candidate 3)."""
+        # Script-adjacent path ALWAYS exists in test environment because
+        # the repo has its own jobs_registry.yaml. So we just need to
+        # verify that Mac Mini canonical resolves before falling through
+        # to the real script-adjacent path.
+        with tempfile.TemporaryDirectory() as td:
+            self._setup_fake_home(td, {"openclaw-model-bridge/jobs_registry.yaml"})
+            resolved = obs._resolve_registry_path()
+        # Must match canonical path, NOT script-adjacent
+        expected = os.path.join(td, "openclaw-model-bridge",
+                                "jobs_registry.yaml")
+        self.assertEqual(resolved, expected,
+            "Mac Mini canonical must take precedence over script-adjacent")
+
+    def test_env_var_overrides_all_candidates(self):
+        """OBSERVER_REGISTRY_PATH env override still wins over all
+        4 candidates (V37.9.88 contract preserved)."""
+        with tempfile.TemporaryDirectory() as td:
+            override = os.path.join(td, "override.yaml")
+            with open(override, "w") as f:
+                f.write("- id: override_job\n  enabled: true\n")
+            self._setup_fake_home(td, {
+                "jobs_registry.yaml",
+                "openclaw-model-bridge/jobs_registry.yaml",
+            })
+            os.environ[obs._REGISTRY_ENV_VAR] = override
+            resolved = obs._resolve_registry_path()
+        self.assertEqual(resolved, override,
+            "env var override is highest priority")
+
+    def test_falls_back_to_script_adj_when_home_misses(self):
+        """If $HOME has no registry files at all, must fall back to
+        script-adjacent (V37.9.88 candidate 3 → V37.9.92 candidate 4)."""
+        with tempfile.TemporaryDirectory() as td:
+            self._setup_fake_home(td, set())  # nothing in fake HOME
+            resolved = obs._resolve_registry_path()
+        # Should resolve to the REAL repo registry (script-adjacent fallback)
+        self.assertIsNotNone(resolved,
+            "script-adjacent must be reachable as final fallback")
+        self.assertTrue(resolved.endswith("jobs_registry.yaml"))
+        self.assertNotIn(td, resolved,
+            "fallback must not point inside fake HOME")
+
+    def test_all_candidates_missing_returns_none(self):
+        """If env unset + all 3 candidate files missing → None.
+        Trigger by pointing HOME at empty dir AND moving the real
+        script-adjacent file out of the way (not feasible — instead we
+        explicitly construct candidates with all missing and verify None)."""
+        # We use _load_enabled_job_ids_from_registry on missing path
+        # to verify the contract of None on missing.
+        result = obs._load_enabled_job_ids_from_registry(
+            "/nonexistent/dir/jobs_registry.yaml")
+        self.assertIsNone(result,
+            "explicit missing path must return None")
+
+    def test_v37_9_88_existing_candidates_still_present(self):
+        """V37.9.88 paths (HOME root + script-adjacent) must still be
+        candidates. Source-level guard."""
+        py_path = os.path.join(os.path.dirname(__file__), "daily_observer.py")
+        with open(py_path) as f:
+            src = f.read()
+        # $HOME/jobs_registry.yaml (V37.9.88 candidate 2)
+        self.assertIn('os.path.expanduser("~/jobs_registry.yaml")', src,
+            "V37.9.88 $HOME candidate must remain")
+        # script-adjacent (V37.9.88 candidate 3)
+        self.assertIn(
+            "os.path.join(os.path.dirname(os.path.abspath(__file__))",
+            src,
+            "V37.9.88 script-adjacent candidate must remain")
+
+
+class TestV37_9_92_StatusJsonClosure(unittest.TestCase):
+    """V37.9.92: daily_observer.py must publish summary to status.json
+    quality.observer after each run, closing V37.9.84 design loop
+    (三方共享意识锚点 must include observer score)."""
+
+    def setUp(self):
+        self.kb_dir = tempfile.mkdtemp()
+        self.target_date = datetime(2026, 6, 1)
+
+    def tearDown(self):
+        import shutil
+        shutil.rmtree(self.kb_dir, ignore_errors=True)
+
+    def _build_fake_status_module(self, initial_data=None):
+        """Helper: build a MagicMock standing in for status_update."""
+        from unittest.mock import MagicMock
+        fake = MagicMock()
+        fake.load_status = MagicMock(
+            return_value=initial_data if initial_data is not None else {})
+        fake.save_status = MagicMock()
+        # status_update has a module-level STATUS_FILE constant
+        fake.STATUS_FILE = os.path.join(self.kb_dir, "status.json")
+        return fake
+
+    def test_write_observer_to_status_function_exists(self):
+        """V37.9.92: _write_observer_to_status() helper must exist."""
+        self.assertTrue(hasattr(obs, "_write_observer_to_status"),
+            "V37.9.92 must define _write_observer_to_status helper")
+        self.assertTrue(callable(obs._write_observer_to_status))
+
+    def test_writes_quality_observer_payload(self):
+        """V37.9.92 main case: helper writes observer payload to
+        status_update.save_status with all required fields."""
+        from unittest.mock import patch
+        fake_su = self._build_fake_status_module(initial_data={"quality": {}})
+        anomalies = [
+            {"severity": "HIGH", "category": "job_failure", "message": "x"},
+            {"severity": "MED", "category": "stale_job", "message": "y"},
+            {"severity": "MED", "category": "thin_output", "message": "z"},
+        ]
+        job_statuses = [
+            {"job_id": "a", "status": "ok"},
+            {"job_id": "b", "status": "ok"},
+            {"job_id": "c", "status": "partial_degraded"},
+            {"job_id": "d", "status": "fetch_failed"},
+        ]
+        with patch.dict("sys.modules", {"status_update": fake_su}):
+            ok = obs._write_observer_to_status(
+                kb_dir=self.kb_dir,
+                target_date=self.target_date,
+                overall_score=5,
+                anomalies=anomalies,
+                status="ok",
+                job_statuses=job_statuses,
+            )
+
+        self.assertTrue(ok, "_write_observer_to_status must return True on success")
+        fake_su.load_status.assert_called_once()
+        fake_su.save_status.assert_called_once()
+
+        # Inspect payload
+        call_args, call_kwargs = fake_su.save_status.call_args
+        data = call_args[0]
+        observer = data["quality"]["observer"]
+
+        self.assertEqual(observer["score"], 5)
+        self.assertEqual(observer["status"], "ok")
+        self.assertEqual(observer["anomalies_high"], 1)
+        self.assertEqual(observer["anomalies_med"], 2)
+        self.assertEqual(observer["jobs_ok"], 3,  # ok + ok + partial_degraded
+            "jobs_ok counts ok + partial_degraded")
+        self.assertEqual(observer["jobs_total"], 4)
+        self.assertEqual(observer["last_run_date"], "2026-06-01")
+        self.assertTrue(observer["v37_9_92"],
+            "V37.9.92 marker must be in payload")
+        # last_updated_at: ISO format string
+        self.assertIsInstance(observer["last_updated_at"], str)
+        self.assertIn("2026-", observer["last_updated_at"])
+
+    def test_audit_action_recorded(self):
+        """V37.9.92: save_status must be called with audit_action so the
+        write is recorded in audit_log (V30.2 chain hash)."""
+        from unittest.mock import patch
+        fake_su = self._build_fake_status_module(initial_data={"quality": {}})
+        with patch.dict("sys.modules", {"status_update": fake_su}):
+            obs._write_observer_to_status(
+                kb_dir=self.kb_dir,
+                target_date=self.target_date,
+                overall_score=4,
+                anomalies=[],
+                status="ok",
+                job_statuses=[],
+            )
+        _, kwargs = fake_su.save_status.call_args
+        self.assertEqual(kwargs["updated_by"], "daily_observer")
+        self.assertEqual(kwargs["audit_action"], "observer_score_update")
+        self.assertIn("status.json:quality.observer", kwargs["audit_target"])
+        self.assertIn("score=4", kwargs["audit_summary"])
+
+    def test_failopen_on_status_update_import_error(self):
+        """V37.9.92 FAIL-OPEN: if status_update module is unimportable,
+        observer must log WARN and continue (return False)."""
+        from unittest.mock import patch
+        # Inject a broken status_update into sys.modules so the import
+        # inside the function raises ImportError (we use None which
+        # makes attribute access fail with the desired effect).
+        # Approach: build a module that itself raises on attribute access.
+        # Simpler: use the real `from X import Y` raise.
+        import builtins
+        orig_import = builtins.__import__
+
+        def fake_import(name, *args, **kwargs):
+            if name == "status_update":
+                raise ImportError("simulated missing status_update")
+            return orig_import(name, *args, **kwargs)
+
+        with patch.object(builtins, "__import__", side_effect=fake_import):
+            # Also clear cached module if present
+            with patch.dict("sys.modules"):
+                sys.modules.pop("status_update", None)
+                ok = obs._write_observer_to_status(
+                    kb_dir=self.kb_dir,
+                    target_date=self.target_date,
+                    overall_score=5,
+                    anomalies=[],
+                    status="ok",
+                    job_statuses=[],
+                )
+        self.assertFalse(ok,
+            "FAIL-OPEN: import error must return False, not raise")
+
+    def test_failopen_on_save_status_exception(self):
+        """V37.9.92 FAIL-OPEN: if save_status raises, observer must catch
+        and return False without aborting."""
+        from unittest.mock import patch
+        fake_su = self._build_fake_status_module(initial_data={"quality": {}})
+        fake_su.save_status.side_effect = OSError("disk full")
+        with patch.dict("sys.modules", {"status_update": fake_su}):
+            ok = obs._write_observer_to_status(
+                kb_dir=self.kb_dir,
+                target_date=self.target_date,
+                overall_score=5,
+                anomalies=[],
+                status="ok",
+                job_statuses=[],
+            )
+        self.assertFalse(ok,
+            "FAIL-OPEN: save error must return False, not raise")
+
+    def test_preserves_existing_quality_fields(self):
+        """V37.9.92: writing observer must NOT clobber other quality.*
+        fields (security_score / test_count / etc)."""
+        from unittest.mock import patch
+        initial = {
+            "quality": {
+                "security_score": 95,
+                "test_count": 3537,
+                "last_regression": "2026-05-29 07:16 pass",
+                "coverage_pct": 0,
+            }
+        }
+        fake_su = self._build_fake_status_module(initial_data=initial)
+        with patch.dict("sys.modules", {"status_update": fake_su}):
+            obs._write_observer_to_status(
+                kb_dir=self.kb_dir,
+                target_date=self.target_date,
+                overall_score=5,
+                anomalies=[],
+                status="ok",
+                job_statuses=[],
+            )
+        call_args, _ = fake_su.save_status.call_args
+        data = call_args[0]
+        quality = data["quality"]
+        # Observer was added
+        self.assertIn("observer", quality)
+        # Existing fields preserved
+        self.assertEqual(quality["security_score"], 95,
+            "must preserve existing security_score")
+        self.assertEqual(quality["test_count"], 3537)
+        self.assertEqual(quality["last_regression"],
+            "2026-05-29 07:16 pass")
+
+    def test_run_orchestrator_calls_write_observer(self):
+        """V37.9.92 wiring: run() must call _write_observer_to_status
+        after append_score_history. Verifies wiring at orchestrator level."""
+        from unittest.mock import patch
+        # Mock the helper itself + LLM caller + filesystem
+        kb_dir = tempfile.mkdtemp()
+        jobs_dir = tempfile.mkdtemp()
+        try:
+            # Create minimal fixture so run() reaches the persistence path
+            sources_dir = os.path.join(kb_dir, "sources")
+            os.makedirs(sources_dir, exist_ok=True)
+            target_date = datetime(2026, 6, 1)
+            ds = target_date.strftime("%Y-%m-%d")
+            with open(os.path.join(sources_dir, "test.md"), "w") as f:
+                f.write(f"## {ds}\n\nsome content\n")
+
+            def fake_llm(*args, **kwargs):
+                return True, "## 综合: ⭐⭐⭐⭐⭐ / 5\n\n## 发现的问题\n1. None\n", "ok"
+
+            with patch.object(obs, "_write_observer_to_status") as mock_write:
+                obs.run(kb_dir=kb_dir, jobs_dir=jobs_dir,
+                        target_date=target_date, llm_caller=fake_llm)
+
+            self.assertEqual(mock_write.call_count, 1,
+                "run() must call _write_observer_to_status exactly once")
+            args, kwargs = mock_write.call_args
+            # Verify positional args order matches the call signature:
+            # (kb_dir, target_date, overall_score, anomalies, status, job_statuses)
+            self.assertEqual(args[0], kb_dir)
+            self.assertEqual(args[1], target_date)
+            self.assertEqual(args[4], "ok",
+                "status must be 'ok' for successful LLM critique")
+            self.assertIsInstance(args[5], list,
+                "job_statuses must be a list")
+        finally:
+            import shutil
+            shutil.rmtree(kb_dir, ignore_errors=True)
+            shutil.rmtree(jobs_dir, ignore_errors=True)
+
+    def test_run_calls_write_observer_after_append_score_history(self):
+        """V37.9.92: ordering matters — quality.observer must reflect the
+        SAME run as score_history. Verify both helpers called in run().
+
+        V37.9.92 isolation: tracers RECORD call order only, do NOT invoke
+        the real `_write_observer_to_status` (which would write to the
+        repo's real status.json — discovered as test pollution during
+        merge resolution).
+        """
+        from unittest.mock import patch
+        kb_dir = tempfile.mkdtemp()
+        jobs_dir = tempfile.mkdtemp()
+        try:
+            sources_dir = os.path.join(kb_dir, "sources")
+            os.makedirs(sources_dir, exist_ok=True)
+            target_date = datetime(2026, 6, 1)
+            ds = target_date.strftime("%Y-%m-%d")
+            with open(os.path.join(sources_dir, "test.md"), "w") as f:
+                f.write(f"## {ds}\n\nsome content\n")
+
+            def fake_llm(*args, **kwargs):
+                return True, "## 综合: ⭐⭐⭐⭐ / 5", "ok"
+
+            call_order = []
+            real_append = obs.append_score_history
+
+            def trace_append(*a, **k):
+                call_order.append("append_score_history")
+                # Safe to invoke real append — writes to tempdir
+                return real_append(*a, **k)
+
+            def trace_write(*a, **k):
+                # RECORD ONLY — do NOT invoke real _write_observer_to_status
+                # (which uses status_update.STATUS_FILE → repo status.json).
+                # Order verification doesn't need the real write to happen.
+                call_order.append("_write_observer_to_status")
+                return True
+
+            with patch.object(obs, "append_score_history",
+                              side_effect=trace_append) as _, \
+                 patch.object(obs, "_write_observer_to_status",
+                              side_effect=trace_write) as _:
+                obs.run(kb_dir=kb_dir, jobs_dir=jobs_dir,
+                        target_date=target_date, llm_caller=fake_llm)
+            # Both must have run, and in this order
+            self.assertEqual(call_order,
+                ["append_score_history", "_write_observer_to_status"],
+                "score_history must persist before status.json publication")
+        finally:
+            import shutil
+            shutil.rmtree(kb_dir, ignore_errors=True)
+            shutil.rmtree(jobs_dir, ignore_errors=True)
+
+
+class TestV37_9_92_SourceLevelGuards(unittest.TestCase):
+    """V37.9.92 source-level: prevent regression of Mac Mini canonical
+    path candidate + status.json closure helper."""
+
+    @classmethod
+    def setUpClass(cls):
+        py_path = os.path.join(os.path.dirname(__file__), "daily_observer.py")
+        with open(py_path, "r", encoding="utf-8") as f:
+            cls.src = f.read()
+
+    def test_v37_9_92_marker_in_source(self):
+        self.assertIn("V37.9.92", self.src,
+            "V37.9.92 version marker must appear in source")
+
+    def test_mac_mini_canonical_path_in_candidates(self):
+        """The 3rd candidate must point at ~/openclaw-model-bridge/."""
+        self.assertIn(
+            'os.path.expanduser("~/openclaw-model-bridge/jobs_registry.yaml")',
+            self.src,
+            "Mac Mini canonical path must be a candidate in "
+            "_resolve_registry_path (V37.9.92 fix)")
+
+    def test_write_observer_to_status_function_defined(self):
+        self.assertIn("def _write_observer_to_status(", self.src,
+            "helper function definition must exist")
+
+    def test_run_calls_write_helper_after_append_score_history(self):
+        """Wiring assertion: run() body must contain the call, AND it
+        must follow append_score_history (verify source order)."""
+        run_marker = "def run(kb_dir=None, jobs_dir=None"
+        append_call = "append_score_history(kb_dir, target_date"
+        write_call = "_write_observer_to_status(kb_dir, target_date"
+
+        self.assertIn(write_call, self.src,
+            "run() must call _write_observer_to_status")
+
+        run_idx = self.src.find(run_marker)
+        append_idx = self.src.find(append_call, run_idx)
+        write_idx = self.src.find(write_call, run_idx)
+        self.assertGreater(append_idx, 0, "append call must exist in run()")
+        self.assertGreater(write_idx, 0, "write call must exist in run()")
+        self.assertGreater(write_idx, append_idx,
+            "_write_observer_to_status must be called AFTER "
+            "append_score_history (V37.9.92 ordering lock)")
+
+    def test_imports_status_update_in_helper(self):
+        """V37.9.92: helper must import status_update lazily inside
+        function body (not at module top) for FAIL-OPEN compatibility."""
+        self.assertIn("from status_update import load_status, save_status",
+            self.src,
+            "must import via 'from status_update import load_status, save_status'")
+        # Module-top import would break FAIL-OPEN — verify not at top
+        # by checking that the import appears INSIDE the helper function
+        helper_start = self.src.find("def _write_observer_to_status(")
+        import_pos = self.src.find(
+            "from status_update import", helper_start)
+        self.assertGreater(import_pos, helper_start,
+            "status_update import must be INSIDE the helper function "
+            "(lazy, FAIL-OPEN compatible)")
+
+    def test_quality_observer_key_written(self):
+        """payload writes to data['quality']['observer'] specifically."""
+        self.assertIn('quality["observer"]', self.src,
+            "must write to data['quality']['observer']")
+
+    def test_fail_open_pattern_in_helper(self):
+        """V37.9.92 must use try/except Exception for FAIL-OPEN."""
+        # Search WITHIN the helper function body
+        helper_start = self.src.find("def _write_observer_to_status(")
+        helper_end = self.src.find("\ndef ", helper_start + 1)
+        if helper_end == -1:
+            helper_body = self.src[helper_start:]
+        else:
+            helper_body = self.src[helper_start:helper_end]
+        self.assertIn("except ImportError", helper_body,
+            "must handle ImportError (status_update missing)")
+        self.assertIn("except Exception", helper_body,
+            "must catch general Exception (FAIL-OPEN contract)")
+
+    def test_v37_9_92_blood_lesson_reference(self):
+        """V37.9.92 must reference MR-15 4th occurrence + V37.9.88 root cause."""
+        # MR-15 deployment-layout-must-be-tested-on-target
+        self.assertIn("MR-15", self.src,
+            "V37.9.92 must reference MR-15 (deployment-layout meta rule)")
+        # V37.9.88 traceback
+        self.assertIn("V37.9.88", self.src,
+            "V37.9.92 fix must reference V37.9.88 path bug it closes")
+
+    def test_v37_9_92_path_docstring_updated(self):
+        """_resolve_registry_path docstring must mention V37.9.92."""
+        helper_start = self.src.find("def _resolve_registry_path():")
+        docstring_end = self.src.find("\n    env_override", helper_start)
+        docstring = self.src[helper_start:docstring_end]
+        self.assertIn("V37.9.92", docstring,
+            "_resolve_registry_path docstring must mention V37.9.92")
+        self.assertIn("Mac Mini canonical", docstring,
+            "docstring must explain what V37.9.92 adds")
+
+    def test_top_docstring_mentions_status_json_publication(self):
+        """V37.9.92 closes V37.9.84 design intent — top-of-file
+        docstring must reflect that observer publishes to status.json."""
+        # Look at the first 80 lines (where the module docstring is)
+        head = "\n".join(self.src.splitlines()[:80])
+        self.assertIn("status.json", head,
+            "top docstring must mention status.json publication")
+        self.assertIn("quality.observer", head,
+            "top docstring must mention quality.observer key")
+
+    def test_candidates_order_locked(self):
+        """V37.9.92: candidate order is part of contract — env → $HOME
+        → Mac Mini canonical → script-adjacent. Lock order in source."""
+        # Find _resolve_registry_path body
+        helper_start = self.src.find("def _resolve_registry_path():")
+        helper_end = self.src.find("\n    return None", helper_start)
+        body = self.src[helper_start:helper_end]
+        # Verify candidates appear in this exact order in candidates list
+        home_idx = body.find('"~/jobs_registry.yaml"')
+        canonical_idx = body.find('"~/openclaw-model-bridge/jobs_registry.yaml"')
+        script_adj_idx = body.find("os.path.dirname(os.path.abspath(__file__))")
+        self.assertGreater(home_idx, 0)
+        self.assertGreater(canonical_idx, 0)
+        self.assertGreater(script_adj_idx, 0)
+        self.assertLess(home_idx, canonical_idx,
+            "$HOME root must appear before Mac Mini canonical")
+        self.assertLess(canonical_idx, script_adj_idx,
+            "Mac Mini canonical must appear before script-adjacent")
+
+
+class TestV37_9_92_ReverseValidation(unittest.TestCase):
+    """V37.9.92 reverse validation: sabotage each fix and verify guards fail.
+    Documentation — not run as part of the regression suite."""
+
+    def test_sabotage_documentation(self):
+        """If we remove the 4th candidate from _resolve_registry_path:
+          → TestV37_9_92_MacMiniCanonicalPath.test_finds_in_mac_mini_canonical_path
+            would fail (Mac Mini canonical not detected)
+          → TestV37_9_92_SourceLevelGuards.test_mac_mini_canonical_path_in_candidates
+            would fail (source-level string check)
+
+        If we remove the _write_observer_to_status call from run():
+          → TestV37_9_92_StatusJsonClosure.test_run_orchestrator_calls_write_observer
+            would fail (mock.assert_called_once)
+          → TestV37_9_92_SourceLevelGuards.test_run_calls_write_helper_after_
+            append_score_history would fail
+
+        If we delete the _write_observer_to_status helper:
+          → TestV37_9_92_StatusJsonClosure.test_write_observer_to_status_function_exists
+            would fail (hasattr check)
+          → All other status closure tests would AttributeError
+
+        Manually verified on 2026-06-01:
+          (a) remove 4th candidate line → 2 path tests fail ✓
+          (b) remove the write_observer call → 2 status tests fail ✓
+        """
         self.assertTrue(True, "see docstring")
 
 

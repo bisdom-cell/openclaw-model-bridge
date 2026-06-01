@@ -6,10 +6,13 @@ daily_observer.py — V37.9.84 Daily Self-Critique Observer
 永不直接修改任何生产文件/代码/配置。
 
 设计契约 (V37.9.83 三大第一性原理 方向 1 兑现):
-  - READ-ONLY: 只读取 ~/.kb/ 和 jobs/*/cache/ 数据，零写入生产文件
+  - READ-ONLY for production code/config: 不修改任何 job 脚本/部署/配置
   - FAIL-OPEN: observer 失败不影响任何生产 cron
   - LLM-as-judge: 用第三方视角评估推送质量，不是自评
-  - 输出: ~/.kb/self_critique/daily_critique_YYYYMMDD.md
+  - 观察结果发布到 (V37.9.92 闭环):
+    * ~/.kb/self_critique/daily_critique_YYYYMMDD.md  (V37.9.84)
+    * ~/.kb/self_critique/score_history.jsonl          (V37.9.84)
+    * ~/.kb/status.json `quality.observer`             (V37.9.92 — 三方共享锚点)
 
 数据源:
   - jobs/*/cache/last_run.json — 各 job 执行状态
@@ -118,12 +121,25 @@ def _resolve_last_run_path(jobs_dir, job_id):
 
 def _resolve_registry_path():
     """Determine registry path. Test override via OBSERVER_REGISTRY_PATH
-    env var, then $HOME/jobs_registry.yaml, then script-adjacent."""
+    env var, then $HOME/jobs_registry.yaml, then Mac Mini canonical
+    ($HOME/openclaw-model-bridge/jobs_registry.yaml — V37.9.92 added),
+    then script-adjacent (dev fallback).
+
+    V37.9.92: 4th candidate (~/openclaw-model-bridge/jobs_registry.yaml)
+    added because auto_deploy FILE_MAP on Mac Mini doesn't copy
+    jobs_registry.yaml to $HOME — files stay in the git checkout dir.
+    Without this, V37.9.88 LAYER 1 (registry filter) silently fell back
+    to JOBS_SUBDIRS hardcoded list for 5 days (5/29-6/1 observed in
+    `~/daily_observer.log` repeated WARN). Same blood lesson as
+    V37.9.56-hotfix / V37.9.76-hotfix / V37.9.78-hotfix (MR-15
+    deployment-layout-must-be-tested-on-target, 4th occurrence).
+    """
     env_override = os.environ.get(_REGISTRY_ENV_VAR)
     if env_override:
         return env_override
     candidates = [
         os.path.expanduser("~/jobs_registry.yaml"),
+        os.path.expanduser("~/openclaw-model-bridge/jobs_registry.yaml"),
         os.path.join(os.path.dirname(os.path.abspath(__file__)),
                      "jobs_registry.yaml"),
     ]
@@ -776,6 +792,88 @@ def append_score_history(kb_dir, target_date, overall_score, anomalies,
         pass
 
 
+# ══════════════════════════════════════════════════════════════════════
+# 6b. V37.9.92 — status.json quality.observer publication (V37.9.84 closure)
+# ══════════════════════════════════════════════════════════════════════
+#
+# Background (V37.9.92 observed 2026-06-01):
+#   V37.9.84 design contract promised "三方共享意识锚点" — observer score
+#   should be visible to PA / kb_status_refresh / health_check via
+#   ~/.kb/status.json `quality.observer` field. But for 5+ days post-
+#   launch the field stayed `{}` because daily_observer.py never wrote
+#   to status.json. The score lived only in score_history.jsonl and
+#   the daily critique markdown — invisible to other 三方 consumers.
+#
+# Fix (V37.9.92 Tier 2):
+#   _write_observer_to_status() publishes daily summary to status.json
+#   quality.observer after each successful run. Uses status_update
+#   module (atomic tmpfile + os.replace via save_status — MR-9 helper
+#   compliant). FAIL-OPEN: import or write failure logs WARN and
+#   continues; observer never aborts on publication failure.
+#
+# Read-only contract clarification:
+#   V37.9.84 promised "READ-ONLY for production files". status.json is
+#   the 三方共享意识锚点 — explicitly a write target for cron / PA /
+#   Claude Code (kb_status_refresh writes health.*, status_update CLI
+#   writes priorities/recent_changes/etc). Publishing observer summary
+#   here is the same mechanism kb_status_refresh uses, not a violation
+#   of the read-only contract.
+
+
+def _write_observer_to_status(kb_dir, target_date, overall_score, anomalies,
+                              status, job_statuses):
+    """V37.9.92: Surface daily observer summary to status.json
+    quality.observer (V37.9.84 design closure).
+
+    FAIL-OPEN: any failure (import error, file IO, schema corruption)
+    logs WARN and returns; observer run continues. status.json write
+    goes through status_update.save_status() (atomic tmpfile +
+    os.replace, MR-9 compliant).
+    """
+    try:
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        from status_update import load_status, save_status
+    except ImportError as e:
+        log(f"WARN: V37.9.92 status_update not importable ({e}), "
+            f"skipping quality.observer write")
+        return False
+
+    try:
+        data = load_status()
+        anomalies_high = sum(1 for a in anomalies
+                             if a.get("severity") == "HIGH")
+        anomalies_med = sum(1 for a in anomalies
+                            if a.get("severity") == "MED")
+        jobs_ok = sum(1 for j in job_statuses
+                      if j.get("status") in ("ok", "partial_degraded"))
+
+        quality = data.setdefault("quality", {})
+        quality["observer"] = {
+            "score": overall_score,
+            "status": status,
+            "anomalies_high": anomalies_high,
+            "anomalies_med": anomalies_med,
+            "jobs_ok": jobs_ok,
+            "jobs_total": len(job_statuses),
+            "last_run_date": target_date.strftime("%Y-%m-%d"),
+            "last_updated_at": datetime.now().isoformat(timespec="seconds"),
+            "v37_9_92": True,
+        }
+
+        save_status(data, updated_by="daily_observer",
+                    audit_action="observer_score_update",
+                    audit_target="status.json:quality.observer",
+                    audit_summary=(
+                        f"score={overall_score} "
+                        f"high={anomalies_high} med={anomalies_med} "
+                        f"jobs={jobs_ok}/{len(job_statuses)} "
+                        f"date={target_date.strftime('%Y-%m-%d')}"))
+        return True
+    except Exception as e:
+        log(f"WARN: V37.9.92 failed to write quality.observer: {e}")
+        return False
+
+
 def load_score_history(kb_dir, max_days=TREND_WINDOW_DAYS):
     """Load recent score history records.
 
@@ -962,6 +1060,10 @@ def run(kb_dir=None, jobs_dir=None, target_date=None, dry_run=False,
     # Score history + trend analysis
     append_score_history(kb_dir, target_date, overall_score, anomalies,
                          job_statuses, push_outputs, status)
+    # V37.9.92: surface observer summary to status.json quality.observer
+    # for 三方共享意识 (PA / kb_status_refresh / health_check). FAIL-OPEN.
+    _write_observer_to_status(kb_dir, target_date, overall_score, anomalies,
+                              status, job_statuses)
     history = load_score_history(kb_dir)
     trend_section = build_trend_section(history)
     trend_suffix = build_trend_discord_suffix(history)
