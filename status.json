@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-01 03:24:04",
+  "updated": "2026-06-01 03:49:49",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-06-01",
+      "what": "V37.9.94 双交付完成: (1) cross_env_path_scanner.py (~250 行 AST scanner) + INV-CROSS-ENV-PATH-001 (9 checks, MR-15) + 39 单测 — framework 化预防 MR-15 第 5 次 occurrence (V37.9.56h/76h/78h/92 已 4 次). 首扫立即抓 V37.9.91 expert_escalation.load_status 隐藏 near-miss (script-adj + $HOME 重合, 缺 ~/openclaw-model-bridge/status.json canonical), 顺手修 4th candidate. (2) ontology/docs/cases/v37_9_92_observer_path_blood_case.md (~370 行综合案例) — TL;DR/影响/时间线/完整因果链架构图/三层根因/多条件分析/5 元教训/8 案例对照/反思方法论 元元层. V3 路标话语权输出素材. 累计 99→100 suites / 3582→3621 tests / 0 fail / governance 80→81 INV (+INV-CROSS-ENV-PATH-001) / 762→771 checks / VERSION 0.37.9.68. V37.9.92→93→94 同 session 三阶段闭环兑现 — 修血案 + 自我修复 + framework 化 + 文档化.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-01",
       "what": "V37.9.93 Observer 采样 false-positive 修复 (V37.9.92 同 session 双闭环). 5/31 Observer LLM 报 [MED] dream truncation 实为 _read_file_sample MAX_SAMPLE_CHARS=2000 截断让 LLM 看不到 footer 误判. 修复: smart head+tail sampling (1400+marker+500 三段 ≤ MAX) + CRITIQUE_SYSTEM 加 V37.9.93 采样说明段明示 LLM 不要把 sampling 截断当文件截断. 18 新单测 3 类 + 反向 sabotage 双层守卫真有效. 99 suites / 3582 tests / 0 fail / VERSION 0.37.9.68. MR-7 治理自观察新粒度 — Observer 自己发现自己 bug.",
       "by": "claude_code"
     },
@@ -198,11 +203,6 @@
       "date": "2026-05-18",
       "what": "V37.9.76-hotfix: router_decide.py deployment-layout 修复. Mac Mini 09:29 首激活 V37.9.76 smoke test 实测发现 PATH 和 FALLBACK 两候选完全重合 (因 router_decide 部署到 $HOME/, dirname=$HOME), yaml 找不到 → chosen=null silent fail. 修复加 JOBS_REGISTRY_MAC_MINI 常量指向 ~/openclaw-model-bridge/jobs_registry.yaml (auto_deploy 同步源), candidates 顺序 PATH→MAC_MINI→FALLBACK. +2 V37.9.76-hotfix 守卫单测 + 反向 sabotage 验证. governance INV-ROUTER-001 +1 check. MR-15 (deployment-layout-must-be-tested-on-target) 第 N+1 次正向兑现 — dev 单测 43/43 + Mac Mini preflight 全过, 只有 Mac Mini 真激活 router 才暴露路径假设错配. 累计 89 suites 不变 / 3095→3097 tests (+2) / 0 fail / 690→691 checks (+1) / 78 inv 不变 / VERSION 不变 (hotfix).",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-05-18",
-      "what": "🎯 V37.9.76 Capability-Based Dynamic Router PoC (shadow mode) — V3 路标 declarative capability framework 落地. 同 PR 4 步全做 4-6h. Step 1 jobs_registry kb_dream+hf_papers 加 required_capabilities/prefer/cost_tier 3 字段无破坏性 fall-back. Step 2 providers.py find_best_provider 70 行纯函数 (硬过滤+cap_score+prefer 加权+exclude+require_available). Step 3 新文件 router_decide.py shadow 模式 CLI ~280 行 stdlib only (lazy import yaml/providers + FAIL-OPEN + MR-11 stderr + 13 字段 JSONL schema), 集成 kb_dream RADAR retry + hf_papers per_paper LLM 调用前 (shadow log 不改路由). Step 4 ~/.kb/router_decisions.jsonl append-only observability mkdir+UTF-8+readonly path fail-open. 关键设计: shadow 模式 decision logged 不改 LLM 路由行为 (caller 仍走 adapter PROVIDER_NAME 默认主路径), 镜像 V37.9.19→V37.9.23→V37.9.58 Plan B 同款渐进策略 (declarative→shadow→on). dev smoke test: kb_dream → doubao (cap_score=16, V37.9.55+ doubao 试水承诺自然兑现 — task 声明 reasoning+cost_tier=low → router 自动选 doubao, 不硬编码). 43 新单测 8 测试类 + 反向 sabotage 三轮守卫真有效 (移除 find_best_provider → 18 fail, 删 kb_dream router → 1 fail, log 改 stdout MR-11 → 1 fail). INV-ROUTER-001 新增 (meta_rule=MR-7, severity=high, declaration+runtime, 12 checks). auto_deploy FILE_MAP 加 router_decide.py 部署 Mac Mini. full_regression +1 suite. 88→89 suites / 3052→3095 tests (+43) / 0 fail / governance v3.45→v3.46 / 77→78 inv (+1 INV-ROUTER-001) / 678→690 checks (+12) / 19 MR 不变 / 安全 95/100 / VERSION 0.37.9.68 不变 (PoC shadow mode 不 bump). Mac Mini 部署后预期: 5/19 03:00 kb_dream cron 自动追加 router_decisions.jsonl + 5/19 10:00 hf_papers per_paper 记录, LLM 真实路由不变, 一周观察 (5/25) 数据反馈调 cap_score. 元价值: V3 路标 pip install ontology-engine 核心交付 — declarative capability framework 真正能做到 task 声明→router 选择→observability 反馈完整闭环, 与 V37.9.19+ Convergence Framework 是 framework 双胞胎. 同日内 V37.9.74 RADAR retry 首次生产激活成功闭环 + V37.9.75 DEEP retry 部署 + V37.9.76 capability router PoC 三件套交付.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -260,7 +260,8 @@
       "V37.9.92+ 候选: expert_escalation.py CLAUDE.md 路径错配修复. Mac Mini 部署后 expert_escalation.py 位于 $HOME, repo_root=$HOME, 但 CLAUDE.md 实际在 $HOME/openclaw-model-bridge/CLAUDE.md — load_changelog_window 可能返回空 (status.json 通过 DEFAULT_KB_DIR=~/.kb 工作 / cases_dir 通过 V37.9.12.1 ontology symlink 工作 / 仅 CLAUDE.md 路径错配). 若用户报 escalate 返回 no_context 状态 → 加 CLAUDE.md 三档 fallback ($HOME/CLAUDE.md → $HOME/openclaw-model-bridge/CLAUDE.md → empty). V37.9.91 按原则 #28 最小修复不动 expert_escalation.py 本体, 留 V37.9.92+ Mac Mini 真激活后验证才动手.",
       "V37.9.92 候选: INV-PROXY-PLIST-ENV-001 立 governance — 守 com.openclaw.proxy.plist EnvironmentVariables 必含 ARK_API_KEY + ARK_ENDPOINT_ID (镜像 V37.9.54 INV-PLIST-ENV-001 守 adapter plist 模式). V37.9.91 真激活 Doubao 时主动识别的风险点 (proxy plist drift) + 我自己也判断该入治理. runtime python_assert 真读 plist (dev 环境 plist 不存在 silent pass / Mac Mini fail-loud). 与 V37.9.13 双管理冲突教训保持兼容 (auto_deploy 不动 plist, 只 alert 漂移). 同时关闭 V37.9.92+ CLAUDE.md 路径错配候选 (已证伪 - changelog 67452 chars 真 load).",
       "V37.9.93+ 候选 (Mac Mini 部署 V37.9.92 + 7 天观察后): (a) 立 INV-OBSERVER-001 governance 守 daily_observer 全套契约 (7-8 checks: _resolve_registry_path 4 candidates / _write_observer_to_status helper / run() 调用 + 顺序锁 / FAIL-OPEN ImportError + Exception / quality.observer payload schema / V37.9.92 marker / blood lesson 引用). (b) 立 INV-CROSS-ENV-PATH-001 (MR-15 第 4 次演出已达门槛): 守所有 _resolve_*_path() 函数必须含 ~/openclaw-model-bridge/ Mac Mini canonical candidate, 全 repo scan. 同款 V37.9.67 cross_os_quirk_scanner 模式. (c) 写 ontology/docs/cases/v37_9_92_observer_path_blood_case.md 记录 5 天潜伏 + MR-15 第 4 次演出 + 双 silent failure 协同模式.",
-      "V37.9.94+ 候选 (Mac Mini 部署 V37.9.93 一周观察后, ~6/8): 立 INV-OBSERVER-SAMPLING-001 governance 守 _read_file_sample 必须使用 smart sampling (head+marker+tail, 不能回退到 content[:max_chars]) + CRITIQUE_SYSTEM 必含采样说明段. 5-6 checks 设计就绪. 防止未来重构误回到 V37.9.84 pre-smart-sampling 行为. 一周观察期同时验证下次 06:30 cron 推送 daily_critique 不再含 false truncation report."
+      "V37.9.94+ 候选 (Mac Mini 部署 V37.9.93 一周观察后, ~6/8): 立 INV-OBSERVER-SAMPLING-001 governance 守 _read_file_sample 必须使用 smart sampling (head+marker+tail, 不能回退到 content[:max_chars]) + CRITIQUE_SYSTEM 必含采样说明段. 5-6 checks 设计就绪. 防止未来重构误回到 V37.9.84 pre-smart-sampling 行为. 一周观察期同时验证下次 06:30 cron 推送 daily_critique 不再含 false truncation report.",
+      "V37.9.95+ 候选 (Mac Mini 部署 V37.9.94 + 一周观察后): (a) 立 INV-OBSERVER-001 — 守 Observer 全契约 (V37.9.92 status.json closure + V37.9.88 registry filter + V37.9.87 single-call architecture, 7-8 checks). (b) 立 INV-OBSERVER-SAMPLING-001 — 守 V37.9.93 smart sampling 不退化 + CRITIQUE_SYSTEM 必含采样说明段 + LLM 不再误报 dream truncation. (c) Observer-of-Observer 候选: 第二个 cron 主动监控 daily_observer.log fallback warn 累计 ≥ N 升 [SYSTEM_ALERT] (反思方法论提到的元元层防御). (d) 验证 cross_env_path_scanner 在 Mac Mini 真生产 governance audit cron 07:00 0 violations."
     ],
     "open_prs": "",
     "blocked_on": "",
@@ -326,11 +327,11 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 3582,
-    "last_regression": "2026-06-01 03:22 pass",
+    "test_count": 3621,
+    "last_regression": "2026-06-01 03:48 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-01 03:22",
-    "test_suites": 99,
+    "security_score_time": "2026-06-01 03:48",
+    "test_suites": 100,
     "governance_invariants": "64/64",
     "governance_checks": "350/350",
     "version": "0.37.9.68",
@@ -398,7 +399,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.93 Observer 采样 false-positive 修复 — smart head+tail sampling + CRITIQUE_SYSTEM 明示采样 双层防御. V37.9.84 Observer 自己发现自己限制 (5/31 'AgentScope 1' truncation 实是 sampling 截断) + V37.9.93 同 session 自我修复. 下次候选: V37.9.94+ 一周观察后 INV-OBSERVER-SAMPLING-001 / 立 INV-CROSS-ENV-PATH-001 (MR-15 4 次达门槛) / Stage 5 kb_radar / 周一 #32 用户视角观察.",
+  "focus": "V37.9.94 双交付 — INV-CROSS-ENV-PATH-001 + scanner (framework 化 MR-15 防 5th occurrence) + V37.9.92 血案文档 (370 行综合 case doc). scanner 首扫即抓 V37.9.91 expert_escalation 隐藏 near-miss 顺手修. V37.9.92 → 93 → 94 同 session 三阶段闭环 — 修血案 + 自我修复 + framework 化 + 文档化. 100 suites / 3621 tests / 0 fail. 下次候选: Mac Mini 部署后 6/2 06:30 cron 实证 + 一周观察后立 INV-OBSERVER-001/INV-OBSERVER-SAMPLING-001 governance. 周一 #32 用户视角观察今日仍待你手动 30min 做.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",

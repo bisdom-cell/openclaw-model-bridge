@@ -7293,6 +7293,100 @@ invariants:
               f"INV-CROSS-OS-001 单测失败:\n{result.stdout[-500:]}\n{result.stderr[-500:]}"
           )
 
+  # ── V37.9.94 INV-CROSS-ENV-PATH-001 跨环境路径主动检测 (MR-15 5th 防御) ──
+  - id: INV-CROSS-ENV-PATH-001
+    name: cross-env-path-must-include-mac-mini-canonical
+    meta_rule: MR-15  # deployment-layout-must-be-tested-on-target
+    verification_layer: [declaration, runtime]
+    severity: high
+    declaration: |
+      血案谱系 (MR-15 deployment-layout 已 4 次演出, 达"立 INV 防 5th 门槛"):
+        V37.9.56-hotfix: top_alignment_picker.py (~/.openclaw/jobs/ vs FILE_MAP ~/jobs/)
+        V37.9.76-hotfix: router_decide._load_yaml_job_profile (PATH+FALLBACK 重合)
+        V37.9.78-hotfix: health_check.sh (macOS BSD timeout 缺失)
+        V37.9.92:        daily_observer._resolve_registry_path (3 candidates 全 miss)
+
+      共同模式: 函数 resolve config/registry/data file 时, 候选列表只有
+      `~/X` (HOME root) + 'script-adj' (`dirname(__file__)/X`), Mac Mini 真
+      生产部署到 `$HOME/openclaw-model-bridge/` 时两个候选都 miss 真位置,
+      静默 fallback 行为偏离设计意图. 5+ 天潜伏才被发现.
+
+      V37.9.94 cross_env_path_scanner.py 主动检测此 pattern:
+        - Detect `_resolve_*_path`-style functions with `~/<config>.yaml` AND
+          script-adjacent fallback (`os.path.dirname(os.path.abspath(__file__))`)
+        - For each such function, verify it includes
+          `~/openclaw-model-bridge/<same_file>` as Mac Mini canonical candidate
+        - FAIL-CLOSE: any violation → exit 1
+
+      首次扫描即抓到 1 个潜在 V37.9.94 第 5 次演出 violation
+      (expert_escalation.load_status), 已修复. Scanner 自此守护未来 5+ 次
+      不再发生.
+    checks:
+      - name: "scanner 文件存在"
+        check_type: file_contains
+        file: cross_env_path_scanner.py
+        pattern: 'V37.9.94'
+      - name: "scanner FAIL-CLOSE 契约文档化"
+        check_type: file_contains
+        file: cross_env_path_scanner.py
+        pattern: 'FAIL-CLOSE'
+      - name: "scanner 引用 MR-15 元规则"
+        check_type: file_contains
+        file: cross_env_path_scanner.py
+        pattern: 'MR-15'
+      - name: "scanner 引用所有 4 个血案演出 (溯源)"
+        check_type: python_assert
+        assertion: |
+          src = open('cross_env_path_scanner.py').read()
+          for ver in ('V37.9.56-hotfix', 'V37.9.76-hotfix',
+                      'V37.9.78-hotfix', 'V37.9.92'):
+              assert ver in src, \
+                  f"scanner must reference blood lesson {ver}"
+      - name: "scanner 含 EXCLUDED_FILES 守卫"
+        check_type: file_contains
+        file: cross_env_path_scanner.py
+        pattern: 'EXCLUDED_FILES'
+      - name: "scanner 排除 V37.9.67 sister scanner"
+        check_type: file_contains
+        file: cross_env_path_scanner.py
+        pattern: 'cross_os_quirk_scanner.py'
+      - name: "scanner CONFIG_FILE_SUFFIXES 含 4 类 (yaml/yml/json/md)"
+        check_type: python_assert
+        assertion: |
+          src = open('cross_env_path_scanner.py').read()
+          for suf in (".yaml", ".yml", ".json", ".md"):
+              assert suf in src, f"CONFIG_FILE_SUFFIXES missing {suf}"
+      - name: "RUNTIME: cross_env_path_scanner 全 repo scan 0 violations"
+        check_type: python_assert
+        assertion: |
+          import subprocess, os, sys
+          repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) \
+              if "ontology" in os.path.abspath(__file__) \
+              else os.path.dirname(os.path.abspath(__file__))
+          result = subprocess.run(
+              [sys.executable, "cross_env_path_scanner.py"],
+              cwd=repo_root, capture_output=True, text=True, timeout=15
+          )
+          assert result.returncode == 0, (
+              f"INV-CROSS-ENV-PATH-001 scan 失败:\n"
+              f"{result.stdout}\n{result.stderr}"
+          )
+      - name: "RUNTIME: test_cross_env_path_scanner.py 39 单测全过"
+        check_type: python_assert
+        assertion: |
+          import subprocess, os, sys
+          repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) \
+              if "ontology" in os.path.abspath(__file__) \
+              else os.path.dirname(os.path.abspath(__file__))
+          result = subprocess.run(
+              [sys.executable, "test_cross_env_path_scanner.py"],
+              cwd=repo_root, capture_output=True, text=True, timeout=30
+          )
+          assert result.returncode == 0, (
+              f"INV-CROSS-ENV-PATH-001 单测失败:\n"
+              f"{result.stdout[-500:]}\n{result.stderr[-500:]}"
+          )
+
   # --- 2026-05-14 新增：Dream 三阶推送血案防御（V37.9.68）---
 
   - id: INV-DREAM-MULTITHEME-001
