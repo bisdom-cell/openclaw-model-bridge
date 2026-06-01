@@ -3211,6 +3211,7 @@ class TestV37958DryRunActivation(unittest.TestCase):
             'version: "3.48"',  # V37.9.82 INV-PATH-CONSISTENCY-001
             'version: "3.49"',  # V37.9.85 INV-AUTO-INJECT-001 MR-18 Step 2 前瞻守卫
             'version: "3.50"',  # V37.9.86 MR-20 + MR-21 + INV-HALLUCINATION-001
+            'version: "3.51"',  # V37.9.96 INV-PROXY-PLIST-ENV-001 (proxy plist ARK env 守卫)
         )
         self.assertTrue(
             any(v in self.gov_src for v in valid_versions),

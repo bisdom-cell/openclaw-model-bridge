@@ -3950,6 +3950,96 @@ invariants:
               assert not critical_missing, \
                   f"V37.9.54 critical missing in plist: {critical_missing} (V37.9.53 doubao 类 silent failure 风险)"
 
+  # --- V37.9.96 新增：proxy plist ARK env 守卫 (INV-PLIST-ENV-001 sibling, MR-4) ---
+  # 触发: V37.9.91 Doubao expert_escalate 真生产闭环. tool_proxy.py 的 expert_escalate
+  # 自定义工具分支 (V37.9.91 wiring) lazy-import expert_escalation.py, 后者经 Volcengine
+  # Ark 调 Doubao Seed 2.0 Pro 用 ARK_API_KEY (DOUBAO_API_KEY_ENV) + ARK_ENDPOINT_ID
+  # (DOUBAO_ENDPOINT_ID_ENV). proxy daemon (com.openclaw.proxy.plist) 跑 tool_proxy.py,
+  # 必须从 plist EnvironmentVariables 拿到这两个 env. V37.9.91 实测: proxy plist 当时
+  # 无 ARK env, 手动从 adapter plist 复制 + bootout/bootstrap 才生效. 但 V37.9.54
+  # INV-PLIST-ENV-001 只守 adapter plist, 不守 proxy plist → 若 Mac Mini 重装 /
+  # auto_deploy 覆盖 plist, proxy ARK env 静默丢失 → expert_escalate 返回
+  # "ARK_API_KEY not set" silent failure. 注意 ARK_ENDPOINT_ID 不是任何 provider 的
+  # api_key_env (它是 endpoint ID 不是 key), 所以 INV-PLIST-ENV-001 的 api_key_env
+  # 集合检查覆盖不到它 → 这是本 INV 填补的真缺口.
+  - id: INV-PROXY-PLIST-ENV-001
+    name: proxy-plist-env-must-contain-ark-expert-escalate-keys
+    meta_rule: MR-4
+    verification_layer: [declaration, runtime]
+    severity: high
+    declaration: |
+      tool_proxy.py 的 expert_escalate 自定义工具 (V37.9.91 wiring) lazy-import
+      expert_escalation.py 经 Volcengine Ark 调 Doubao Seed 2.0 Pro 作 PA 复杂判断
+      的 expert backend. proxy daemon 通过 launchd (com.openclaw.proxy.plist) 启动,
+      仅能拿到 plist EnvironmentVariables 声明的 env. expert_escalation.py 读
+      ARK_API_KEY (DOUBAO_API_KEY_ENV) + ARK_ENDPOINT_ID (DOUBAO_ENDPOINT_ID_ENV).
+      若 proxy plist 缺这两个 env, expert_escalate 返回 "ARK_API_KEY not set"
+      → PA 复杂判断时无可用 expert backend → silent failure (用户感知不到 PA 没真调 Doubao).
+    design_decision: |
+      V37.9.91 Doubao 真生产闭环时实测: proxy plist 当时无 ARK env (V37.9.54
+      INV-PLIST-ENV-001 只守 adapter plist), 手动从 adapter plist 复制 ARK_API_KEY +
+      ARK_ENDPOINT_ID 到 com.openclaw.proxy.plist + launchctl bootout/bootstrap 才生效.
+      Doubao 自己在 V37.9.91 escalate 响应中识别此风险: "proxy plist drift: periodic
+      auto-deploy runs may overwrite the manually injected ARK_API_KEY entry".
+      V37.9.96 把 proxy plist 的 ARK env 持有从"手动加 + 靠记忆"升级为 governance
+      可监控 (镜像 V37.9.54 INV-PLIST-ENV-001 守 adapter plist 模式). 注意
+      ARK_ENDPOINT_ID 不是任何 provider 的 api_key_env, INV-PLIST-ENV-001 的
+      api_key_env 集合检查覆盖不到它 → 本 INV 填补真缺口.
+    blood_lessons:
+      - "V37.9.91: proxy plist 缺 ARK env, expert_escalate 第一次真调前需手动注入"
+      - "V37.9.54: adapter plist 同款 silent failure (provider 声明 api_key_env 但 plist 缺)"
+      - "通用模式: launchd daemon 不继承 shell session env, plist 必须显式声明"
+    checks:
+      - name: "tool_proxy.py 必须有 expert_escalate 自定义工具分支 (V37.9.91 wiring)"
+        check_type: file_contains
+        file: tool_proxy.py
+        pattern: 'name == "expert_escalate"'
+      - name: "expert_escalation.py 把 ARK_API_KEY 绑定到 DOUBAO_API_KEY_ENV"
+        check_type: file_contains
+        file: expert_escalation.py
+        pattern: 'DOUBAO_API_KEY_ENV = "ARK_API_KEY"'
+      - name: "expert_escalation.py 把 ARK_ENDPOINT_ID 绑定到 DOUBAO_ENDPOINT_ID_ENV"
+        check_type: file_contains
+        file: expert_escalation.py
+        pattern: 'DOUBAO_ENDPOINT_ID_ENV = "ARK_ENDPOINT_ID"'
+      - name: "expert_escalation.py 保留 fail-loud 指引 (ARK_API_KEY 缺失提示配 plist)"
+        check_type: file_contains
+        file: expert_escalation.py
+        pattern: "configure in plist EnvironmentVariables"
+      - name: "INV-PROXY-PLIST-ENV-001 V37.9.96 marker 存在"
+        check_type: file_contains
+        file: ontology/governance_ontology.yaml
+        pattern: "V37.9.96 新增"
+      - name: "V37.9.96 declaration: expert_escalate 依赖链可解析 (proxy → expert_escalation → ARK env)"
+        check_type: python_assert
+        code: |
+          tp = open("tool_proxy.py").read()
+          assert 'name == "expert_escalate"' in tp, \
+              "tool_proxy.py 必须有 expert_escalate 分支 (V37.9.91 wiring)"
+          assert "expert_escalation" in tp, \
+              "expert_escalate 分支必须 lazy-import expert_escalation"
+          ee = open("expert_escalation.py").read()
+          assert 'DOUBAO_API_KEY_ENV = "ARK_API_KEY"' in ee, \
+              "expert_escalation 必须把 ARK_API_KEY 绑定到 DOUBAO_API_KEY_ENV"
+          assert 'DOUBAO_ENDPOINT_ID_ENV = "ARK_ENDPOINT_ID"' in ee, \
+              "expert_escalation 必须把 ARK_ENDPOINT_ID 绑定到 DOUBAO_ENDPOINT_ID_ENV"
+      - name: "V37.9.96 runtime: --full mode proxy plist EnvironmentVariables 必含 ARK_API_KEY + ARK_ENDPOINT_ID"
+        check_type: python_assert
+        code: |
+          import plistlib
+          from pathlib import Path
+          plist_path = Path.home() / "Library/LaunchAgents/com.openclaw.proxy.plist"
+          # dev 环境无 proxy plist → 静默通过 (V37.9.54 INV-PLIST-ENV-001 同款 dev-safe).
+          # 不抛 AssertionError = pass; 没 plist 就没 silent failure 风险.
+          if plist_path.exists():
+              with open(plist_path, "rb") as f:
+                  plist_data = plistlib.load(f)
+              proxy_envs = set(plist_data.get("EnvironmentVariables", {}).keys())
+              required = {"ARK_API_KEY", "ARK_ENDPOINT_ID"}
+              missing = required - proxy_envs
+              assert not missing, \
+                  f"V37.9.96 proxy plist 缺 {missing} → expert_escalate silent failure 风险 (V37.9.91 实测案例)"
+
   # --- V37.8.16 新增：HEARTBEAT.md 保留文件写入拦截（MR-15 落地）---
 
   - id: INV-HB-001
@@ -8743,9 +8833,10 @@ security_config:
 # 6. 审计元数据
 # ═══════════════════════════════════════════════════════════════════════
 audit_metadata:
-  version: "3.50"
+  version: "3.51"
   created: "2026-04-07"
   upgraded: |
+    v3.50 → v3.51: V37.9.96 INV-PROXY-PLIST-ENV-001 (proxy-plist-env-must-contain-ark-expert-escalate-keys, meta_rule=MR-4, severity=high, verification_layer=[declaration, runtime], 7 checks). 触发: V37.9.91 Doubao expert_escalate 真生产闭环. tool_proxy.py 的 expert_escalate 自定义工具分支 lazy-import expert_escalation.py 经 Volcengine Ark 调 Doubao 用 ARK_API_KEY (DOUBAO_API_KEY_ENV) + ARK_ENDPOINT_ID (DOUBAO_ENDPOINT_ID_ENV). proxy daemon (com.openclaw.proxy.plist) 跑 tool_proxy.py, 必须从 plist EnvironmentVariables 拿到这两个 env. V37.9.91 实测: proxy plist 当时无 ARK env, 手动从 adapter plist 复制 + bootout/bootstrap 才生效. V37.9.54 INV-PLIST-ENV-001 只守 adapter plist → 若 Mac Mini 重装 / auto_deploy 覆盖 plist, proxy ARK env 静默丢失 → expert_escalate 返回 "ARK_API_KEY not set" silent failure. 注意 ARK_ENDPOINT_ID 不是任何 provider 的 api_key_env (是 endpoint ID 不是 key), INV-PLIST-ENV-001 的 api_key_env 集合检查覆盖不到 → 本 INV 填补真缺口. Doubao 自己在 V37.9.91 escalate 响应中识别此风险 ("proxy plist drift: periodic auto-deploy may overwrite manually injected ARK_API_KEY"). checks: 5 file_contains (tool_proxy expert_escalate 分支 / expert_escalation ARK_API_KEY+ARK_ENDPOINT_ID 双绑定 / fail-loud 指引 / V37.9.96 marker) + 2 python_assert (declaration 依赖链可解析 + runtime --full mode 真读 com.openclaw.proxy.plist via plistlib, dev 无 plist silent pass / Mac Mini 缺 ARK env fail-loud). 22 单测 test_v37_9_96_proxy_plist_env.py (TestProxyPlistEnvGovernance 8 yaml 守卫 + TestProxyPlistEnvRuntimeBehavior 5 直接 exec yaml 真 runtime code + patched HOME 假 plist 验证 fail-loud/pass/dev-safe 零 drift + TestProxyPlistEnvDeclarationCheck 1 真 exec declaration + TestProxyPlistEnvDependencyChain 5 生产依赖链 + TestV37996Marker 3 标记+计数自洽). 反向验证: 假 proxy plist 缺 ARK_ENDPOINT_ID → runtime check 正确 AssertionError fail-loud, 完整 ARK env → pass, 无 plist → silent pass. **顺手修 audit_metadata invariant 计数漂移**: total_invariants 83 → 85 (V37.9.94 +1 INV-CROSS-ENV-PATH-001 从未记入 yaml changelog 留下 stale -1, 实际 grep '- id: INV-' = 84+1 mine = 85). 新增 test_actual_invariant_count_matches_metadata 自洽守卫防未来再漂移 (MR-7 治理自观察). total_checks 755 → 781 (对齐 governance_checker 运行时权威计数 "781 checks pass", 修 V37.9.86 起多版本累积漂移 + 本次 +7). 累计 85 invariants / 781 checks / 21 meta rules.
     v3.49 → v3.50: V37.9.86 治理债三件套 — MR-20 + MR-21 + INV-HALLUCINATION-001. (1) MR-20 framework-level-fix-must-validate-in-target-environment (V37.9.58-hotfix3→4 血案教训: dev 全绿不代表修复工作, bash 3.2 quirk / macOS BSD timeout 缺失只有 Mac Mini 真跑才暴露). (2) MR-21 monitor-coverage-must-track-registry (V37.9.59 watchdog 47%→74% 覆盖率, 观察期 5/12-5/19 已过, 新增 job 必须同步加 watchdog). (3) INV-HALLUCINATION-001 llm-tasks-must-use-hallucination-guards (V37.9.57 反幻觉守卫生产 2 周+ 零编造血案, 10 checks: 模块存在 + 5 档全定义 + kb_review/evening/deep_dive 三模块 import + auto_deploy 部署 + 8 ALIGNED jobs HG_LEVEL_4_TEXT 注入). 累计 83 invariants / 755 checks / 21 meta rules.
 
     v3.48 → v3.49: V37.9.85 INV-AUTO-INJECT-001 立 — MR-18 Step 2 前瞻守卫 (batch inject/migrate 工具必须内嵌 scanner 验证). V37.9.57/58 inject_level_4_to_aligned_jobs.py 是一次性脚本未入仓, 但 MR-18 血案教训 (单点设计错误 8 倍放大) 需要 forward-looking 守卫: 未来任何 inject_*.py/migrate_*.py commit 入仓时 governance audit 立即验证其含 scanner 集成. 当前无此类工具 = guard 自动 pass. INV-AUTO-INJECT-001 (meta_rule=MR-18, severity=high, declaration+runtime, 5 checks): 4 declaration (MR-18 enforcement 引用 + scan_repo API + V37.9.85 marker + 单测文件) + 1 runtime python_assert (glob 扫 inject_*.py/migrate_*.py 验证含 scanner 集成). MR-18 derivative_invariants 从 [INV-HEREDOC-IMPORT-001] 扩到 [INV-HEREDOC-IMPORT-001, INV-AUTO-INJECT-001]. 累计 81→82 invariants / 740→745 checks (+5) / 19 MR 不变.
@@ -8806,8 +8897,8 @@ audit_metadata:
     v3.12 → v3.13: V37.8.7 ontology_sources 推送格式错位血案 — INV-ONTOLOGY-001 新增 (ontology-sources-parser-must-be-key-based-not-positional, meta_rule=MR-4, severity=high, verification_layer=[declaration, runtime], 7 checks). 2026-04-15 用户 WhatsApp 收到 ontology_sources 推送严重错位：第 2 篇 cn_title 显示为 *---*、第 3 篇 cn_title 显示为 *价值：⭐⭐⭐⭐*。根因：原解析器用严格位置 (lines[i], lines[i+1], lines[i+2]) + i+=3 步进 — LLM 漏一行"要点"或多一行空白就让所有后续条目的 cn_title/highlight/stars 全部右移一格级联污染。修复：抽到独立模块 jobs/ontology_sources/ontology_parser.py（纯函数 parse_llm_blocks 可单测，避开 V37.5 heredoc-only 不可测血案），按 separator 切块 + 块内 key-based prefix 解析，单块缺行不影响其他块。runtime python_assert 真跑用户实际看到的污染场景断言"缺要点不级联"。24 单测 (test_ontology_parser.py)：TestNormalCases(4) + TestBloodLessonRegression(5) + TestSeparatorVariants(5) + TestLLMOutputVariants(5) + TestShellScriptIntegration(4) + TestActualBloodLessonScenario(1)。MR-4 silent-failure 第 8 次演出（输出"看起来正常" 6 字段都在但语义错乱）。auto_deploy FILE_MAP 补齐 ontology_parser.py。
     v3.11 → v3.12: V37.8.6 Dream 自引用幻觉血案 — INV-DREAM-003 新增 (dream-log-cannot-pollute-cache-nor-fabricate-platform-crises, meta_rule=MR-4, severity=critical, verification_layer=[declaration, runtime], 16 checks). 2026-04-15 03:00 Dream run 出现 4 次 Bad JSON 400 (adapter 收到破损 JSON)，但 Dream 仍产出完整"Hugging Face 平台危机"分析，用户察觉 Signal(Papers with Code 沉默)↔Action(监控 Hugging Face) 主题断裂后上报。三层根因：(a) scraped 内容含 surrogate UTF-8 → json.dump + utf-8 file write → UnicodeEncodeError → body_file 截断 → adapter.py:386 返回 400 Bad JSON (b) kb_dream.sh log() 用 `echo` 写 stdout → signals=$(llm_call ...) 命令替换捕获 log 行进 signals → cache file 被"LLM raw response: Error code 400 Bad JSON..."污染 (c) Reduce cache-only fast path 把错误日志注入 LLM 上下文 → LLM 基于这些字样自动编造"Hugging Face 危机"叙事 = 原则 #23 链式幻觉 + MR-4 silent failure 第 7 次演出。四层结构修复（defense-in-depth）：log→stderr 阻断 stdout 污染通道 + _sanitize(U+D800-U+DFFF → U+FFFD) 防编码炸裂 + file open 显式 encoding='utf-8' errors='replace' 第二防线 + REDUCE/CHUNK1/2/3 system prompt 四块加反污染守卫 (禁止把 HTTP 错误码/Python 异常/错误页 HTML/U+FFFD 当外部信号，禁止基于这些字样推断 Hugging Face/GitHub/npm 等平台状态)。runtime python_assert 真跑 sanitize 五场景 (孤立高位/低位代理/正常串/代理范围边界/sanitize 后 json+utf-8 编码不炸)。19 单测 (TestLogGoesToStderr×2 + TestSanitizeSurrogates×7 + TestShellSanitizeImplementation×5 + TestAntiPollutionSystemPrompt×3 + TestShellScriptIntegrity×1 + TestLogDefHasCommentMeta×1)。
     v3.10 → v3.11: V37.8.5 INV-X-001 升级三层检测 (血案二次演出: V37.8.4 修复本身埋盲区) — V37.8.4 收工 Mac Mini E2E 即发现 2 个边缘：CNS1952 98/99 超窗口 + 1 过短老化率 99% 但未触发严格 old==total (MR-10 第 2 次演出：修复会埋坑)；SingTaoDaily 0-tweet stub (embed disabled 返回空骨架) 被 total>0 门槛绕过完全不标记。V37.8.5 修复：(1) 检测逻辑独立为 jobs/finance_news/finance_news_zombie.py 纯函数模块 (classify_zombie(diag, count)); (2) 三层 tier: "stub" (no_data=0 + total=0) + "stale" (≥90% 老化 + count=0 守卫防止低频活跃误报)，整数比较 old*10 >= total*9 避免浮点; (3) 24 单测锁定三层 + 守卫 + shell 集成 + auto_deploy FILE_MAP; (4) verification_layer 从 [declaration] 升级到 [declaration, runtime] (MR-6 遵循: INV-X-001 现在有 python_assert 真跑 5 个 tier 场景); (5) shell 脚本禁止内嵌 inline fallback (防模块缺失时静默降级回 V37.8.4 逻辑 — MR-8 copy-paste-is-a-bug-class 兑现)。诊断行 tier 区分 ⚠️ ZOMBIE嫌疑[stub] vs [stale]，便于日志定位。
-  total_invariants: 83  # V37.9.86: +1 INV-HALLUCINATION-001 (llm-tasks-must-use-hallucination-guards, meta_rule=MR-7, severity=high, declaration+runtime)
-  total_checks: 755     # V37.9.86: +10 (INV-HALLUCINATION-001: 8 declaration + 1 runtime python_assert ALIGNED jobs HG_LEVEL_4_TEXT ≥8) = 745→755
+  total_invariants: 85  # V37.9.96: +1 INV-PROXY-PLIST-ENV-001 (proxy-plist-env-must-contain-ark-expert-escalate-keys, MR-4, high, declaration+runtime). 同时修 V37.9.94 漏更新的 +1 (INV-CROSS-ENV-PATH-001): 实际 grep '- id: INV-' = 85, 之前字段 83 stale -2 → 84 actual+1 mine = 85
+  total_checks: 781     # V37.9.96: 对齐 governance_checker 运行时权威计数 (full_regression "781 checks pass", 0 fail = 全过即总数). 修历史漂移: 旧字段 755 (V37.9.86) 落后真实 ~26 (V37.9.87-95 多版本累积未同步) + 本次 INV-PROXY-PLIST-ENV-001 7 checks. 注: 真实 check_type 行数 grep=688 < 781 因 governance_checker 还计 14 MRD discovery + preflight/env 等非 check_type 定义项 — 781 是操作权威数 (系统真跑真报)
   meta_rules: 21        # V37.9.86: +2 MR-20 (framework-level-fix-must-validate-in-target-environment) + MR-21 (monitor-coverage-must-track-registry)
   meta_rule_discovery_count: 6   # Phase 0: registry + env + notify-topic + layer-depth + error-suppression + notify-activity
   check_types_used: [python_assert, file_contains, file_not_contains, env_var_exists, command_succeeds, log_activity_check]
