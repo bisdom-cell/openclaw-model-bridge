@@ -141,12 +141,25 @@ class QuotaExceededError(EscalationError):
 
 
 def load_status(kb_dir):
-    """Load status.json from kb_dir, $HOME, or repo root (in order)."""
+    """Load status.json from kb_dir, $HOME, Mac Mini canonical, or repo root.
+
+    V37.9.94: 4th candidate (~/openclaw-model-bridge/status.json) added —
+    auto_deploy FILE_MAP deploys this script to $HOME, so `dirname(__file__)`
+    resolves to `$HOME/status.json` (collapses with candidate 2). Without
+    the canonical path, fresh Mac Mini installs (no ~/.kb/status.json yet)
+    or `kb_dir` misconfigured cases silently fall back to non-existent paths.
+    Same blood lesson as V37.9.56-hotfix / V37.9.76-hotfix / V37.9.78-hotfix
+    / V37.9.92 (MR-15 5th near-miss, caught by cross_env_path_scanner first
+    scan).
+    """
     if kb_dir is None:
         kb_dir = DEFAULT_KB_DIR
     candidates = [
         os.path.join(kb_dir, "status.json"),
         os.path.expanduser("~/status.json"),
+        # V37.9.94: Mac Mini canonical (auto_deploy doesn't copy yaml/md/json
+        # to $HOME, repo lives in $HOME/openclaw-model-bridge/)
+        os.path.expanduser("~/openclaw-model-bridge/status.json"),
         os.path.join(os.path.dirname(os.path.abspath(__file__)), "status.json"),
     ]
     for path in candidates:
