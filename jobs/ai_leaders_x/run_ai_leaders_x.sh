@@ -80,31 +80,83 @@ SEEN_FILE="$CACHE/seen_ids.txt"
 touch "$SEEN_FILE"
 
 # ── 追踪列表（handle|显示名|身份标签）──────────────────────────────────
-# 每个 handle 独立抓取，每人最多取 5 条新推文，总计上限 20 条送 LLM
+# V37.9.95: 32 accounts 跨 12 派别 — 用户视角原则 #32 周一观察反馈
+# "加入更多 ai_leaders_x 的观点，尤其是更多 AI 大神的不同观点"
+# 每人独立抓取，MAX_PER_PERSON=3（从 5 降，多元化优先），MAX_TOTAL=40
+#
+# 派别分布:
+#   OpenAI 主流派 (5):    karpathy, lilianweng, _jasonwei, hwchung27, drfeifei (HAI)
+#   Meta/开源派 (3):     ylecun, soumithchintala, ClementDelangue
+#   NVIDIA/Hardware (1): DrJimFan
+#   Anthropic/Safety 派 (3): DarioAmodei, jackclarkSF, ch402 (Chris Olah)
+#   DeepMind/Alphabet (1): demishassabis
+#   AI Safety 极致悲观派 (1): ESYudkowsky
+#   元老派 (1):          geoffreyhinton (Nobel 2024)
+#   学术应用派 (1):       AndrewYNg
+#   Robotics/Embodied (1): pabbeel
+#   评测/抽象派 (2):     fchollet (ARC), swyx
+#   Agent 工具派 (1):    hwchase17 (LangChain)
+#   Symbolic/Critical (1): GaryMarcus
+#   架构创新派 (1):       YiTayML (Reka, ex-Google)
+#   Graph/KG (2):       juaborges (Leskovec), Michael_Witbrock (Cyc)
+#   企业 Ontology 派 (3): PalantirTech, AlexKarp, ShyamSankar
+#   形式本体论奠基 (4):   BarrySmith46, gaborguizzardi, pascal_hitzler, IanHorrocks
+#
+# 健康验证: V37.8.4 INV-X-001 教训 — 新增账号若 newest_tweet > 7 天
+# 视为僵尸, 真实生产时 fetch 0 条 WARN log 自动暴露, 之后从列表移除.
 LEADERS=(
+    # ── OpenAI 主流派 ──
     "karpathy|Andrej Karpathy|前OpenAI/Tesla AI负责人，AI教育家"
-    "DrJimFan|Jim Fan|NVIDIA高级研究员，Foundation Agents/具身智能"
-    "ylecun|Yann LeCun|Meta首席AI科学家，深度学习先驱"
-    "fchollet|François Chollet|Keras创建者，ARC Benchmark，智能评测"
-    "swyx|Swyx|Latent Space主播，AI Engineering实践"
     "lilianweng|Lilian Weng|OpenAI，LLM/Agent/RAG综述专家"
     "_jasonwei|Jason Wei|OpenAI，Chain-of-Thought推理研究"
     "hwchung27|Hyung Won Chung|OpenAI，Scaling Laws/训练洞察"
+    "drfeifei|Fei-Fei Li|Stanford HAI，Human-centered AI"
+    # ── Meta / 开源派 ──
+    "ylecun|Yann LeCun|Meta首席AI科学家，深度学习先驱"
+    "soumithchintala|Soumith Chintala|Meta，PyTorch创建者，开源基础设施"
+    "ClementDelangue|Clement Delangue|Hugging Face CEO，开源生态领导者"
+    # ── NVIDIA / Hardware ──
+    "DrJimFan|Jim Fan|NVIDIA高级研究员，Foundation Agents/具身智能"
+    # ── Anthropic / Safety 派 ──
+    "DarioAmodei|Dario Amodei|Anthropic CEO，Constitutional AI/Claude"
+    "jackclarkSF|Jack Clark|Anthropic 联合创始人，AI Index/政策"
+    "ch402|Chris Olah|Anthropic，可解释性/Mechanistic Interpretability"
+    # ── DeepMind / Alphabet ──
+    "demishassabis|Demis Hassabis|DeepMind CEO，AlphaFold/Gemini，谨慎科学派"
+    # ── AI Safety 极致悲观派 ──
+    "ESYudkowsky|Eliezer Yudkowsky|MIRI，AI doom 极致悲观派"
+    # ── 元老派 ──
+    "geoffreyhinton|Geoffrey Hinton|AI Godfather，2024 Nobel，Safety 转变派"
+    # ── 学术应用派 ──
+    "AndrewYNg|Andrew Ng|DeepLearning.ai/Coursera，教育与应用"
+    # ── Robotics / Embodied ──
+    "pabbeel|Pieter Abbeel|UC Berkeley + Covariant，机器人学习"
+    # ── 评测 / 抽象派 ──
+    "fchollet|François Chollet|Keras创建者，ARC Benchmark，智能评测"
+    "swyx|Swyx|Latent Space主播，AI Engineering实践"
+    # ── Agent 工具派 ──
     "hwchase17|Harrison Chase|LangChain创建者，Agent编排/工具链"
+    # ── Symbolic / Critical ──
     "GaryMarcus|Gary Marcus|Neuro-Symbolic AI倡导者，Rebooting AI作者"
+    # ── 架构创新派 (非美企背景) ──
+    "YiTayML|Yi Tay|Reka AI联合创始人，前Google Brain 架构创新"
+    # ── Graph / KG ──
     "juaborges|Jure Leskovec|Stanford，图神经网络/知识图谱推理"
     "Michael_Witbrock|Michael Witbrock|Cycorp/Cyc知识库，常识推理先驱"
+    # ── 企业 Ontology 派 ──
     "PalantirTech|Palantir Technologies|企业AI平台/Ontology+AIP/数据治理"
     "AlexKarp|Alex Karp|Palantir CEO，企业AI+本体论落地实践"
     "ShyamSankar|Shyam Sankar|Palantir CTO，Foundry Ontology架构师"
+    # ── 形式本体论奠基 ──
     "BarrySmith46|Barry Smith|BFO创建者，形式本体论奠基人"
     "gaborguizzardi|Giancarlo Guizzardi|UFO/OntoUML创建者，概念建模"
     "pascal_hitzler|Pascal Hitzler|Kansas State，Knowledge Graph/语义网"
     "IanHorrocks|Ian Horrocks|Oxford，OWL/Description Logic奠基人"
 )
 
-MAX_PER_PERSON=5
-MAX_TOTAL=30
+# V37.9.95: 32 accounts × 3 tweets/person = ~96 max raw, top 40 → LLM
+MAX_PER_PERSON=3
+MAX_TOTAL=40
 ALL_TWEETS="$CACHE/all_tweets.jsonl"
 > "$ALL_TWEETS"
 FETCH_STATS=""
