@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-01 09:40:46",
+  "updated": "2026-06-02 01:11:37",
   "updated_by": "security_score",
   "priorities": [
     {
@@ -105,6 +105,11 @@
   ],
   "recent_changes": [
     {
+      "date": "2026-06-02",
+      "what": "V37.9.98 来源可信度评级 source_credibility.py (observer 5/28 LLM critique proposal #2 兑现, MR-7 治理自观察延伸). 周二开工多数候选(INV-OBSERVER/services flip)要~6/8满一周观察硬卡+LEVEL_6/ai_leaders观察需Mac Mini数据→用户选#1源可信度评级(设计就绪纯dev可做). 新模块~230行纯stdlib镜像hallucination_guards.py PoC模式: 5档tier(学术同行评审/会议预印本/工业实践/博客含chaspark/社媒按可信度递减)+SOURCE_CREDIBILITY 14源映射(MR-8单一真理源↔jobs_registry drift guard id+label双匹配)+get_credibility()FAIL-OPEN未知源→社媒+format_credibility_block()动态生成+CLI. wire进kb_dream.sh(DREAM_CREDIBILITY同DREAM_HG_GUARD 5注入点)+kb_evening_collect.py(build_evening_prompt注入get_guard后/今日笔记前). 与hallucination_guards互补双可信度轴: HG守内容真实性+跨域推论可信度, credibility守出处权威性. 56新单测10类+反向验证(sabotage chaspark→学术4 fail/删ontology_sources→drift guard fail, 还原56/56). 不立INV(PoC, INV-SOURCE-CREDIBILITY-001留Mac Mini一周观察后). auto_deploy FILE_MAP+full_regression接入. 103 suites/3739 tests/0 fail/governance v3.52不变/85 INV/790 checks/安全95/VERSION 0.37.9.68不变. observer从被动评分→主动提议产品改进=系统自我成长第二原理硬实证.",
+      "by": "claude_code"
+    },
+    {
       "date": "2026-06-01",
       "what": "V37.9.97 services_to_launchd Plan B 升级 machine_sync (convergence framework 最后一个 alert_only spec 收尾, V37.9.96 后同日第 2 个治理交付, 用户问下一个遗留任务选 #8). 核心 framework 增强: 新 _resolve_dry_run_for_spec(spec) 让 spec 的 dry_run_default 字段从纯文档性升级功能性 — 三档优先级 (CONVERGENCE_DRY_RUN env override > spec dry_run_default > framework 默认 False). services (dry_run_default:true, bootstrap blast-radius 高于 crontab) 先 dry-run 观察一周, jobs/kb (false) 保持 real-apply 向后兼容. 新 _apply_services_launchctl_bootstrap per-service (查 services_registry plist, launchctl bootstrap missing labels 镜像 restart.sh V37.9.13, 不 bootout=移除运行 service 非安全 auto-sync) + _load_services_registry_index, 注册 _APPLY_FUNCTIONS (V37.9.24 named-dispatch 第3个). convergence_ontology services spec drift_action alert_only→machine_sync + dry_run_default:true, meta 0.8→0.9. 26 新单测 3 类 + 反向验证 (mock launchctl fail-loud/pass/dev-safe). INV-CONVERGENCE-SERVICES-001 扩 +9 checks. governance v3.51→v3.52 / 85 INV / 781→790 checks / 3657→3683 tests / 0 fail / 95 安全 / VERSION 0.37.9.68 不变. dev 实测 services verify_convergence → machine_sync + apply_dry_run=True + 3 DRY-RUN would bootstrap + 0 errors.",
       "by": "claude_code"
@@ -198,11 +203,6 @@
       "date": "2026-05-18",
       "what": "📊 V37.9.79 SLO 三项修复 (主交付) — 数据驱动诊断 9 轮无盲改, V37.9.78 周报暴露的 3 个用户感知矛盾数据闭环. 触发: V37.9.78-hotfix Mac Mini 真激活后周报显示 SLO p95=37570ms | 成功=100.0% | 工具=0.0% | overall=VIOLATIONS 三矛盾数据. 9 轮数据驱动诊断 (5 项取证 + minimal repro eval vs bash -c + inline vs 变量) 锁定真因. 修 #1 真 bug: slo_dashboard.py extract_snapshot 加 tool_calls_total 字段 + verdict 三档 PASS/FAIL/N/A (tool_calls_total==0 时 N/A 不算 FAIL, slo_checker.py:71 已正确对齐) + overall 计算跳过 N/A. 修 #2 阈值: config.yaml latency_p95_ms 30000 → 50000ms 加详细注释 Mac Mini 真实 Qwen3 baseline p95=37s/proxy.log 29.7s + 长期目标 multi-provider 后恢复 30000. 修 #3 设计 debt: jobs_registry.yaml 新 slo_snapshot job (每小时 :05) + 新 slo_snapshot.sh wrapper (kb_status_refresh.sh 同款 .sh 包装规避 _format_cron_line bash exec 假设) + auto_deploy FILE_MAP 加 slo_snapshot.sh + slo_dashboard.py (V36 历史 debt) + docs/config.md 漂移修补. 16 新单测 4 类 + 反向 sabotage 三轮守卫真有效. 修 2 regression (test_slo_dashboard latency_violation p95 50000→60000 + docs/config.md slo-snapshot 行). 累计 91→92 suites (+1) / 3158→3174 tests (+16) / 0 fail / governance 79 inv / 715 checks 不变 / 安全 95/100 / VERSION 0.37.9.68 不变. Mac Mini 部署后预期: SLO 段 verdict ALL PASS (tools=N/A 不算 FAIL) + 每小时 :05 写 slo_history.jsonl + 一周后看真 trend_24h/trend_7d. 用户需手动 crontab_safe.sh add slo_snapshot 行. 元价值: 9 轮数据驱动 + 0 次盲改 (对比 V37.9.28 4 轮诊断错/V37.9.29 6 轮假说错五) — MR-10 understand-before-fix 第 N 次正向兑现, 原则 #28 严格执行. V37.9.80+ 候选: (a) 5/19 09:00 cron 真激活验证 (b) 5/25 一周后 168 快照真趋势 (c) MOVESPEED EPERM 真根因调查 (V37.9.30 取证维度 8/9 数据回归) (d) 阈值数据驱动 50000→30000 (e) ROUTER_ENFORCE=on 试水.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-05-18",
-      "what": "🔧 V37.9.78-hotfix safe_call macOS BSD timeout 兼容性修复 — 同 session 30 分钟闭环. 触发: V37.9.78 PR #574 合并后 Mac Mini 用户实测 bash ~/health_check.sh, 3 段 (SLO/安全评分/治理审计) 全部显示工具不可用而 MOVESPEED (13 incidents)/X/KB/SSD 正常. 根因: macOS BSD 默认无 timeout 命令 (需 brew install coreutils 装 gtimeout). V37.9.78 safe_call 用 `timeout 30 bash -c \"$cmd\"` 在 Mac Mini timeout not found → exit 非 0 → fallback 触发. MOVESPEED 段直接 if [ -f ] 判断没走 safe_call 所以正常. MR-4 silent-failure 新形态 + MR-15 (deployment-layout-must-be-tested-on-target) 第 N+2 次正向兑现 (dev 全过 + Mac Mini 真激活才暴露). 修复 safe_call 三档 fallback chain: command -v timeout 检测 → command -v gtimeout 检测 (Homebrew coreutils) → 直接 bash -c (macOS BSD 默认 fallback). 2 新单测 (32→34): test_v37_9_78_hotfix_timeout_fallback_chain (5 字面量守卫 + 函数体 timeout 引用 ≥3 反退化) + test_v37_9_78_hotfix_command_v_timeout_detection_runtime (dev linux 冒烟). dev 真实测 env -i PATH=/tmp 模拟 macOS 无 timeout 场景 safe_call 走第三档 fallback 正确返回 cmd 输出. 累计 91 suites 不变 / 3156→3158 tests (+2) / 0 fail / governance 79 inv / 715 checks 不变 / 安全 95/100 / VERSION 不变 (hotfix). Mac Mini 部署后预期: 再跑 bash ~/health_check.sh 应首次看到 SLO p95 真数据 + 95/100 评分 + 79 inv pass (不再工具不可用). V37.9.79+ 候选: (a) 主硬卡 5/19 09:00 cron 真激活验证 v2.0 全数据 (b) 立 INV-CROSS-PLATFORM-001 守卫 framework 化 (c) 其他用 timeout 命令的脚本 macOS 兼容性 audit (d) GNU-specific 命令扩展 (sed -i / readlink -f / xargs -I). 元教训: 用户视角原则 #13 + MR-15 元规则 + 原则 #14 主动给同步指令 三者协同兑现 — 用户 10 分钟反馈 → 我 5 分钟根因 + 修复 + 单测 + commit + push 同 session 内闭环.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -245,7 +245,6 @@
     "last_session": "2026-04-17 V37.8.14 (15 commits)",
     "unfinished": [
       "V37.9.89+ 一周观察: Mac Mini 5/30 起 3:00 cron 真激活 LEVEL_6. 跑 5 天后比对 (5/30-6/3) dream 推送中 '因此 X' / '必然 X' / 多跳因果链句式频次. 期望大幅下降 + 出现 [强证据]/[弱关联] tag + 📭 fallback. 数据稳定后 V37.9.90 立 INV-DREAM-CROSS-DOMAIN-001.",
-      "V37.9.90 候选: observer 'proposal #2' — 源可信度评级 (区分 V37.9.89 关联可信度). observer 5/28 LLM critique 提议 '所有非主流学术源 (如 chaspark) 在首次引用时需附带来源可信度评级 — 是否同行评审 / 是否有 DOI / 是否可公开验证'. 设计: 给每个 ALIGNED source 加 source_credibility 字段 ([学术同行评审/工业实践/会议预印本/博客/社媒]) + dream/evening prompt 注入要求 LLM 在引用时标注. 工作量 2-3h.",
       "V37.9.90 候选: Semantic Scholar API key 申请 + 集成. 上游 unauthenticated tier = 1 req/5sec, 已观察 5/27-5/28 连续 6 关键词 429. 免费 key 100 req/sec at semanticscholar.org/product/api. 集成 ~30min (S2_API_KEY env header). 等用户申请.",
       "V37.9.90 候选 (一周观察后): INV-OBSERVER-001 立 governance — Phase 0 meta-rule discovery 已识别 daily_observer 缺 INV. 7-8 个 check: V37.9.87 single-call invariant (1 OBSERVER_PY invocation) + --json 含 report_markdown + V37.9.88 registry filter applied + stale detection function defined + runtime python_assert 跑 121 单测. 等 V37.9.87/88 Mac Mini 真激活 + 一周稳定后立. 关闭 Phase 0 自主发现的'daily_observer 缺 INV'缺口.",
       "V3 路标 backlog: Tool Policy Plugin + Memory Plane Plugin + Job Template SDK + pip install ontology-engine",
@@ -263,7 +262,8 @@
       "V37.9.94+ 候选 (Mac Mini 部署 V37.9.93 一周观察后, ~6/8): 立 INV-OBSERVER-SAMPLING-001 governance 守 _read_file_sample 必须使用 smart sampling (head+marker+tail, 不能回退到 content[:max_chars]) + CRITIQUE_SYSTEM 必含采样说明段. 5-6 checks 设计就绪. 防止未来重构误回到 V37.9.84 pre-smart-sampling 行为. 一周观察期同时验证下次 06:30 cron 推送 daily_critique 不再含 false truncation report.",
       "V37.9.95+ 候选 (Mac Mini 部署 V37.9.94 + 一周观察后): (a) 立 INV-OBSERVER-001 — 守 Observer 全契约 (V37.9.92 status.json closure + V37.9.88 registry filter + V37.9.87 single-call architecture, 7-8 checks). (b) 立 INV-OBSERVER-SAMPLING-001 — 守 V37.9.93 smart sampling 不退化 + CRITIQUE_SYSTEM 必含采样说明段 + LLM 不再误报 dream truncation. (c) Observer-of-Observer 候选: 第二个 cron 主动监控 daily_observer.log fallback warn 累计 ≥ N 升 [SYSTEM_ALERT] (反思方法论提到的元元层防御). (d) 验证 cross_env_path_scanner 在 Mac Mini 真生产 governance audit cron 07:00 0 violations.",
       "V37.9.96+ 候选 (Mac Mini 部署 V37.9.95 + 1-2 天观察后): (a) 新增 12 账号活跃度复盘 — 哪些是僵尸 (newest_tweet > 7d) 从列表移除. fetch_stats log 含 0 条的 handle 候选清理. (b) 评估 promote V37.8.4 ZOMBIE detection 同款机制到 ai_leaders_x (currently 仅 WARN log). (c) 周一 #32 制度化 — 如果连续 3-4 周都产生 actionable feedback, 立 INV-WEEKLY-USER-OBSERVATION-001 守 weekly observation 必有产出 (即时记录到 status.json feedback 字段). (d) 评估推送内容质量 — 跨派别观点是否真带来'AI 大神不同观点'的用户感知.",
-      "V37.9.98 候选 (services dry-run 一周观察后 ~6/8): services_to_launchd flip dry_run_default: false 真激活 machine_sync (镜像 V37.9.58 jobs/kb 切关). 前置: 观察一周 governance audit cron 的 services would-bootstrap 动作 (只在某 service 真宕时出现) 确认 launchctl bootstrap gui/<uid> <plist> 命令形态正确. flip 后 5 spec 中 3 个 machine_sync 真激活. 同时可立 INV-CONVERGENCE-SERVICES-ACTIVATED-001 守 default real apply 不可回退 (镜像 V37.9.59 候选)."
+      "V37.9.98 候选 (services dry-run 一周观察后 ~6/8): services_to_launchd flip dry_run_default: false 真激活 machine_sync (镜像 V37.9.58 jobs/kb 切关). 前置: 观察一周 governance audit cron 的 services would-bootstrap 动作 (只在某 service 真宕时出现) 确认 launchctl bootstrap gui/<uid> <plist> 命令形态正确. flip 后 5 spec 中 3 个 machine_sync 真激活. 同时可立 INV-CONVERGENCE-SERVICES-ACTIVATED-001 守 default real apply 不可回退 (镜像 V37.9.59 候选).",
+      "V37.9.98 源可信度评级 已实现 (source_credibility.py + dream/evening wire + 56 单测). 候选 (Mac Mini 部署一周观察后, ~6/9): (a) 立 INV-SOURCE-CREDIBILITY-001 governance 守全契约 (SOURCE_CREDIBILITY↔jobs_registry 14 源 drift + format_credibility_block 5 dream 注入点 + evening 注入 + FAIL-OPEN 未知源→社媒, 7-8 checks). (b) Mac Mini 22:00 evening + 03:00 dream 真激活验证用户视角推送中 [可信度: <等级>] 标注真出现, 尤其 chaspark 引用带'博客级需独立验证'. (c) 可选: get_credibility() 升级为 per-citation 标注 (当前是 prompt-level 注入, 未来可在 emit 端对每条来源自动加 tier 后缀)."
     ],
     "open_prs": "",
     "blocked_on": "",
@@ -329,11 +329,11 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 3683,
-    "last_regression": "2026-06-01 09:40 pass",
+    "test_count": 3739,
+    "last_regression": "2026-06-02 01:06 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-01 09:40",
-    "test_suites": 102,
+    "security_score_time": "2026-06-02 01:06",
+    "test_suites": 103,
     "governance_invariants": "85/85",
     "governance_checks": "790/790",
     "version": "0.37.9.68",
@@ -401,7 +401,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.97 services_to_launchd Plan B 升级 machine_sync — convergence framework 最后一个 alert_only spec 收尾. 新 _resolve_dry_run_for_spec 让 dry_run_default 字段功能化 (per-spec dry-run + 全局 env override): services (dry_run_default:true, bootstrap blast-radius 高) 先 dry-run 观察一周, jobs/kb (false) 保持 real-apply, 向后兼容. 新 _apply_services_launchctl_bootstrap per-service (launchctl bootstrap missing labels, 不 bootout). INV-CONVERGENCE-SERVICES-001 扩 +9 checks. governance v3.51→v3.52 / 85 INV / 790 checks / 3683 tests / 0 fail. 周一 V37.9.96(proxy plist)+V37.9.97(services) 双治理交付. 下次: 6/2-6/3 LEVEL_6 dream+ai_leaders 新账号观察 / services dry-run 一周后 V37.9.98 flip real / INV-OBSERVER-001.",
+  "focus": "V37.9.98 来源可信度评级 source_credibility.py (observer 5/28 proposal #2 兑现, MR-7 治理自观察延伸 + V37.9.83 AI Partnership 闭环: observer 自己提议→Claude 实施). 5 档 tier (🥇学术同行评审/🥈会议预印本/🥉工业实践/📝博客含 chaspark/💬社媒, 按引用断言无需独立验证可信程度递减) + SOURCE_CREDIBILITY 14 源映射 (MR-8 单一真理源↔jobs_registry drift guard) + format_credibility_block() 注入 kb_dream 5 点 + kb_evening. 与 hallucination_guards 互补双可信度轴 (HG 守内容真实性, credibility 守出处权威性). 56 新单测 10 类 + 反向验证 (sabotage chaspark/删源→drift guard fail, 还原 56/56). 不立 INV (PoC, INV-SOURCE-CREDIBILITY-001 留一周观察后). 103 suites/3739 tests/0 fail/安全 95/VERSION 0.37.9.68 不变. 注意 services flip 候选顺延 V37.9.99+ (本次 V37.9.98 用于 source credibility). 下次: Mac Mini 部署后 22:00 evening+03:00 dream 验证 [可信度] 标注真生效 / 6/8 后 services flip + INV-OBSERVER-001 + INV-SOURCE-CREDIBILITY-001 / LEVEL_6 dream + ai_leaders 观察需 Mac Mini 数据.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",

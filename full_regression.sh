@@ -49,6 +49,7 @@ run_suite() {
 # ═══════════════════════════════════════════════════════════════
 echo "📋 第一层：单元测试"
 run_suite "hallucination_guards (V37.9.57 公共反幻觉守卫 5 档模板)" "python3 test_hallucination_guards.py"
+run_suite "source_credibility (V37.9.98 来源可信度评级 — observer proposal #2, dream/evening 注入 + MR-8 drift guard)" "python3 test_source_credibility.py"
 run_suite "v37_9_58_hotfix (V37.9.58-hotfix 8 ALIGNED jobs HG_LEVEL_4_TEXT 注入必配 import os 守卫)" "python3 test_v37_9_58_hotfix.py"
 run_suite "heredoc_import_scanner (V37.9.58-hotfix2 MR-18 + INV-HEREDOC-IMPORT-001 framework 级 import 一致性 scanner)" "python3 test_heredoc_import_scanner.py"
 run_suite "auto_inject_guard (V37.9.85 MR-18 Step 2 + INV-AUTO-INJECT-001 batch inject/migrate 前瞻守卫)" "python3 test_auto_inject_guard.py"
