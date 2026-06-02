@@ -34,8 +34,27 @@ _AUDIT_SESSION_START = time.time()
 # 反映 YAML 解析 + module import + MRD 运行的启动开销
 _AUDIT_FIRST_CHECK_TIME = None
 
-_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-_ONTOLOGY_DIR = os.path.dirname(os.path.abspath(__file__))
+# V37.9.99-pkg: config-root + project-root 可注入（pip 包化 keystone）
+#   ONTOLOGY_PROJECT_ROOT — 被审计项目的根目录（file_contains / python_assert
+#                           的相对路径基准；pip 安装后指向消费方项目）
+#   ONTOLOGY_CONFIG_DIR   — governance_ontology.yaml 所在目录（与 engine.py 共享同名 env）
+# 默认 = 引擎代码所在仓库（向后兼容：当前直接 cd repo 跑 audit 行为不变）。
+def _resolve_project_root():
+    env_root = os.environ.get("ONTOLOGY_PROJECT_ROOT", "").strip()
+    if env_root:
+        return os.path.abspath(os.path.expanduser(env_root))
+    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def _resolve_ontology_dir():
+    env_dir = os.environ.get("ONTOLOGY_CONFIG_DIR", "").strip()
+    if env_dir:
+        return os.path.abspath(os.path.expanduser(env_dir))
+    return os.path.dirname(os.path.abspath(__file__))
+
+
+_PROJECT_ROOT = _resolve_project_root()
+_ONTOLOGY_DIR = _resolve_ontology_dir()
 
 FULL_MODE = "--full" in sys.argv
 JSON_MODE = "--json" in sys.argv
@@ -1902,7 +1921,12 @@ def _write_audit_metrics(results, discovery):
         pass
 
 
-if __name__ == "__main__":
+def main():
+    """治理审计 console 入口（V37.9.99-pkg: pip console_scripts 用）。
+
+    行为与历史 __main__ 块完全一致，返回进程退出码（0=全过，1=有 fail/error）。
+    cron / full_regression 仍走 __main__ → main()，行为不变。
+    """
     data = _load()
     results = run_all(data)
     discovery = run_meta_discovery(data)
@@ -1925,4 +1949,8 @@ if __name__ == "__main__":
         }
         print(json.dumps(combined, indent=2, ensure_ascii=False))
 
-    sys.exit(1 if fails else 0)
+    return 1 if fails else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

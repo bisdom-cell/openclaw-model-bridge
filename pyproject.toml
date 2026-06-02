@@ -1,0 +1,61 @@
+# pyproject.toml — openclaw-ontology-engine (Layer 1: 项目无关的治理 + 工具本体引擎)
+#
+# V37.9.99-pkg (2026-06-02): pip 包化第一块 — 把 ontology/ 引擎声明为可独立安装的
+# Python 包。二层架构:
+#   Layer 1 (本包) = 项目无关的引擎代码:
+#       ToolOntology / evaluate_policy / find_by_domain (engine.py)
+#       + 5 个 check executor + MRD 框架 + run_all/run_meta_discovery (governance_checker.py)
+#       + convergence framework (convergence.py) + 三阶段门控 (three_gate.py)
+#   Layer 2 (消费方) = 项目特定的 YAML 配置:
+#       tool_ontology.yaml / governance_ontology.yaml / domain_ontology.yaml /
+#       policy_ontology.yaml / convergence_ontology.yaml
+#       通过 ONTOLOGY_CONFIG_DIR (+ governance 的 ONTOLOGY_PROJECT_ROOT) env 注入。
+#
+# 本仓库内: `pip install -e .` 后 `import ontology` 仍指向 ontology/ (向后兼容,
+# proxy_filters lazy-load + Mac Mini symlink + governance_audit_cron 行为不变)。
+#
+# 已登记决策 (见 docs/ontology_engine_packaging.md):
+#   - 分发名 = openclaw-ontology-engine (公共 PyPI `ontology-engine` 0.1.0 已被他人占用)
+#   - import 名暂保持 `ontology` (去泛化重命名是 chunk-2 破坏性变更, 涉及 proxy_filters
+#     lazy-load + symlink + 全部 import, 第一块不动以保"删除后原系统正常"宪法)
+#   - license / readme 待发布前补 (chunk-1 不发布, 仅建立 in-repo 包结构)
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "openclaw-ontology-engine"
+version = "0.1.0"
+description = "Declarative governance + tool-ontology engine for Agent Runtime control planes — bring your own YAML (Layer 2), get tool governance + semantic query + governance audit (Layer 1)."
+requires-python = ">=3.9"
+authors = [{ name = "bisdom" }]
+keywords = [
+    "ontology",
+    "governance",
+    "agent-runtime",
+    "control-plane",
+    "llm",
+    "tool-calling",
+    "policy-engine",
+]
+dependencies = ["pyyaml>=5.4"]
+
+[project.urls]
+Homepage = "https://github.com/bisdom-cell/openclaw-model-bridge"
+Documentation = "https://github.com/bisdom-cell/openclaw-model-bridge/blob/main/docs/ontology_engine_packaging.md"
+
+[project.scripts]
+# 命名空间化命令名, 避免与消费方环境冲突 (chunk-1 in-repo 也可用)
+openclaw-ontology-audit = "ontology.governance_checker:main"
+openclaw-ontology-query = "ontology.engine:main"
+
+[tool.setuptools]
+# 只打包引擎 (ontology 包)。仓库顶层 proxy_filters.py / adapter.py 等是消费方
+# 应用代码, 不属于引擎包。ontology/tests/ 是子包, 默认不随 dist 安装。
+packages = ["ontology"]
+
+[tool.setuptools.package-data]
+# 随包附带"默认参考配置"(Layer 2 示例) + 宪法。消费方可用 ONTOLOGY_CONFIG_DIR
+# 覆盖指向自己的 YAML。
+ontology = ["*.yaml", "CONSTITUTION.md"]

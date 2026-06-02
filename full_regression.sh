@@ -190,6 +190,10 @@ if [ -f test_path_consistency_scanner.py ]; then
     run_suite "path_consistency_scanner (V37.9.82 INV-PATH-CONSISTENCY-001: 防 V37.9.56-hotfix/V37.9.66 同款 Class B 路径假设错配)" "python3 test_path_consistency_scanner.py"
 fi
 run_suite "v37_9_86_trap_override (V37.9.86 bash trap override lockdir 残留: 5 脚本修复 + 行为层反向/正向验证)" "python3 test_v37_9_86_trap_override.py"
+# V37.9.99-pkg: ontology-engine pip 包化第一块 — config-injection keystone + pyproject + 二层契约
+if [ -f test_ontology_packaging.py ]; then
+    run_suite "ontology_packaging (V37.9.99-pkg Phase 5 chunk1: ONTOLOGY_CONFIG_DIR 注入 + pyproject + console 入口 + 宪法删除安全)" "python3 test_ontology_packaging.py"
+fi
 
 # 条件性测试（仅当文件存在时运行）
 for tf in test_conv_quality.py test_kb_autotag.py test_kb_dedup.py test_token_report.py test_arxiv_parser.py test_shell_antipatterns.py; do

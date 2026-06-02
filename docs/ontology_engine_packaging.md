@@ -1,0 +1,143 @@
+# Ontology Engine 包化设计 — 二层架构与迁移路标
+
+> **V37.9.99-pkg / 2026-06-02 · Phase 5 第一块 (chunk 1)**
+> 终极目标 `pip install <ontology-engine>` + 项目级 YAML 配置的奠基文档。
+> 当前基础: Phase 3 ONTOLOGY_MODE=on / Phase 4 P1-P3 evaluate_policy + three_gate / 85 不变式 / 21 元规则 / 89 引擎单测。
+
+---
+
+## 1. 终极目标
+
+让**任何 Agent Runtime 项目**只需：
+
+```bash
+pip install openclaw-ontology-engine        # 装引擎 (Layer 1)
+export ONTOLOGY_CONFIG_DIR=/myproject/ontology   # 指向自己的 YAML (Layer 2)
+openclaw-ontology-audit                      # 跑治理审计
+```
+
+就获得**工具治理 + 语义查询 + governance 审计**能力，**无需理解引擎内部**。
+
+核心价值不是"最强 LLM"，而是 **control plane 让任何 LLM 都能安全运行**——这是 V3 路标"别人会扩展"的终极交付物，也是 `docs/articles/ai_partnership_first_principles_zh.md` 第一性原理"协作本质是边界不是信任"的工程兑现。
+
+---
+
+## 2. 二层架构
+
+| 层 | 内容 | 归属 | 当前位置 |
+|---|---|---|---|
+| **Layer 1 — 引擎 (项目无关)** | `ToolOntology` 类 / `evaluate_policy` / `find_by_domain` / 6 context evaluator dispatch · 5 个 check executor (`file_contains`/`file_not_contains`/`python_assert`/`env_var_exists`/`command_succeeds`) + `run_all` / `run_meta_discovery` MRD 框架 · convergence framework · 三阶段门控 three_gate · 三档特性开关 (off/shadow/on) | **本 pip 包** | `ontology/{engine,governance_checker,convergence,three_gate,diff}.py` |
+| **Layer 2 — 配置 (项目特定)** | `tool_ontology.yaml` (工具声明) · `governance_ontology.yaml` (不变式 + 元规则 + check 定义) · `domain_ontology.yaml` · `policy_ontology.yaml` · `convergence_ontology.yaml` · 项目特定 MRD 扫描模式 (jobs_registry / notify.sh 路径等) | **消费方项目** | `ontology/*.yaml` (本仓库自带, 作默认参考) |
+
+**关键判据**：代码是否含**项目特定知识**？
+- `_exec_file_contains(check)` 执行 check 定义里的 pattern → 项目无关 → Layer 1
+- `governance_ontology.yaml` 里 `INV-MOVESPEED-TCC-001` 守的是本项目的 MOVESPEED 备份 → 项目特定 → Layer 2
+
+---
+
+## 3. Config-Injection 契约（chunk 1 的 keystone）
+
+引擎代码**不绑定**配置所在位置。解析优先级（两个 env 共享语义）：
+
+| 环境变量 | 控制 | 默认 (向后兼容) |
+|---|---|---|
+| `ONTOLOGY_CONFIG_DIR` | 所有 YAML (`tool_ontology.yaml` / `governance_ontology.yaml` / `domain` / `policy`) 所在目录 | 引擎代码同目录 (`dirname(__file__)`) |
+| `ONTOLOGY_PROJECT_ROOT` | governance 的 `file_contains` / `python_assert` 相对路径基准 + MRD 扫描根 | 引擎代码仓库根 (`dirname(dirname(__file__))`) |
+
+```python
+# engine.py
+def _resolve_config_dir():
+    env_dir = os.environ.get("ONTOLOGY_CONFIG_DIR", "").strip()
+    return os.path.abspath(os.path.expanduser(env_dir)) if env_dir \
+        else os.path.dirname(os.path.abspath(__file__))
+
+# governance_checker.py — 同款 + _resolve_project_root()
+```
+
+**细粒度覆盖仍可用**：`ToolOntology(path=...)` / `evaluate_policy(..., path=...)` / `find_by_domain(..., path=...)` 的 `path` 参数优先于 `ONTOLOGY_CONFIG_DIR`，env 只是"未指定 path 时"的兜底。
+
+**为什么这是 keystone**：没有它，pip 装的引擎只能读引擎自己目录下的 YAML（= 本项目的 YAML），消费方无法用自己的配置。有了它，"装引擎 + 指向我的 YAML" 才成立。chunk 1 之后的所有包化工作都建立在这个抽象上。
+
+---
+
+## 4. chunk 1 已交付（本 session）
+
+1. **engine.py**: `_resolve_config_dir()` + `ONTOLOGY_CONFIG_DIR` env 注入（模块级 `_ONTOLOGY_FILE` 等通过它解析）。向后兼容（默认 = 当前 ontology/）。
+2. **governance_checker.py**: `_resolve_config_dir()` + `_resolve_project_root()` + `ONTOLOGY_PROJECT_ROOT` env。`__main__` 块抽出 `main()`（行为不变，cron 仍走 `__main__ → main()`）供 console 入口。
+3. **pyproject.toml**: 声明 `openclaw-ontology-engine` 0.1.0，`packages=["ontology"]`，`package-data` 含 YAML + CONSTITUTION.md，console_scripts `openclaw-ontology-audit` / `openclaw-ontology-query`。`pip install -e .` 后 `import ontology` 工作。
+4. **本文档** + `test_ontology_packaging.py`（注入单测 + 反向验证）。
+5. **验证**: full_regression 0 fail + governance 全绿 + **删除 ontology 后 proxy FAIL-OPEN 正常**（宪法第一条）。
+
+---
+
+## 5. 已知耦合（诚实登记，迁移时处理）
+
+| 耦合 | 位置 | 性质 | 处理 |
+|---|---|---|---|
+| `from proxy_filters import ALLOWED_TOOLS,...` | `engine.py::main()` 的一致性 diff CLI | **lazy + try-guarded**，仅 CLI `--diff` 功能用，核心引擎不依赖 | 包内 `--diff` 无 proxy_filters 时 try 失败优雅降级；属 Layer 2 消费方耦合，记录即可 |
+| `import convergence` / `from ontology import convergence` | `governance_checker.py::run_convergence_specs()` | convergence 是 `ontology` 子模块，双 fallback 已 package-aware | `packages=["ontology"]` 自动含，无需处理 |
+| MRD 扫描模式 (`jobs_registry.yaml` / `notify.sh` / `jobs/*/run_*.sh`) | `governance_checker.py::_discover_*()` | **框架项目无关，但扫描的文件名是本项目特定** | chunk-3 参数化：MRD 模式表移到 Layer 2 配置，框架只读模式 |
+| `governance_ontology.yaml` 的 python_assert 引用项目文件 | Layer 2 配置内 | 本就是 Layer 2（项目特定不变式） | 无需处理，消费方写自己的 |
+
+---
+
+## 6. 迁移路标
+
+| chunk | 内容 | 风险 | 状态 |
+|---|---|---|---|
+| **1 (本次)** | config-injection keystone + pyproject + 二层契约文档 + 包结构 | 低（向后兼容） | ✅ 完成 |
+| 2 | import 名去泛化 (`ontology` → `ontology_engine` 或命名空间)：改 proxy_filters lazy-load 路径 + Mac Mini symlink + 全部 import + tests | **高**（破坏性，触发"删除后正常"宪法全验证） | 待启动 |
+| 3 | MRD 扫描模式参数化：把 `jobs_registry`/`notify.sh` 等项目特定模式从代码移到 Layer 2 配置；framework 只读模式表 | 中 | 待启动 |
+| 4 | 真 sdist/wheel 构建 + `pip install` (非 editable) 冒烟 + Extension Guide (消费方接入 60 秒指南，镜像 provider_plugin_guide.md) | 中 | 待启动 |
+| 5 (Phase 5 终态) | 发布决策 (PyPI 名 / license / readme) + 版本治理 (semver) + 第三方项目接入验证 | — | 待启动 |
+
+---
+
+## 7. 开放决策（发布前必答）
+
+1. **import 名**: `ontology` 太泛化（消费方 env 易冲突）。候选 `ontology_engine` / `openclaw_ontology` / `ocre`。**chunk 1 刻意不改**——它是破坏性变更（proxy_filters `spec_from_file_location("ontology/engine.py")` + Mac Mini `$HOME/ontology` symlink + `from ontology import convergence` + `ontology/tests/`），违反"第一块要安全"。留 chunk 2 专门做 + 全宪法验证。
+2. **分发名**: `ontology-engine` 0.1.0 公共 PyPI 已被他人占用（status.json 已登记撞名）。chunk 1 用 `openclaw-ontology-engine`。是否申请 scoped / 改名 = 发布时决定。
+3. **license**: 仓库未声明 license。chunk 1 pyproject 不写 license 字段（避免错误断言）。发布前补。
+4. **readme**: chunk 1 不设 `readme`（避免 build 脆弱）。发布前指向本文档或专门 README。
+
+---
+
+## 8. 向后兼容 & 宪法（删除后原系统正常）
+
+chunk 1 **零破坏**：
+- 无 env 时所有路径解析 = 当前行为（`dirname(__file__)`），Mac Mini / dev / cron 行为不变。
+- `proxy_filters.py` 仍 lazy-load `ontology/engine.py`（`spec_from_file_location`），env 未设 → 默认 → 正常；**删除整个 `ontology/` → proxy FAIL-OPEN 回退 config**（宪法第一条，chunk 1 未触碰此机制）。
+- `governance_audit_cron.sh` 仍 `cd repo && python3 ontology/governance_checker.py --full` → `__main__ → main()` → 行为不变。
+- `pyproject.toml` 是**新增**文件，不被任何现有运行时读取（仅 `pip install` 时用），对生产零影响。
+
+---
+
+## 9. 用法
+
+### 本仓库内（chunk 1 已可用）
+
+```bash
+pip install -e .                              # editable, import ontology 指向 ontology/
+openclaw-ontology-audit                       # = python3 ontology/governance_checker.py
+ONTOLOGY_CONFIG_DIR=/other/cfg openclaw-ontology-query --json   # 引擎指向别处 YAML
+```
+
+### 未来消费方（chunk 4 Extension Guide 完整化后）
+
+```bash
+pip install openclaw-ontology-engine
+mkdir myproject/ontology && cp <templates> myproject/ontology/
+export ONTOLOGY_CONFIG_DIR=$PWD/myproject/ontology
+export ONTOLOGY_PROJECT_ROOT=$PWD/myproject
+openclaw-ontology-audit                       # 审计 myproject 的不变式
+```
+
+---
+
+## 参考
+
+- `ontology/CONSTITUTION.md` — Ontology 宪法（最高条款：删除后原系统正常）
+- `ontology/engine.py` / `governance_checker.py` — Layer 1 引擎
+- `docs/provider_plugin_guide.md` — Provider Plugin 模式（chunk 4 Extension Guide 的镜像模板）
+- `docs/strategic_review_20260403.md` — V3 路标"别人会扩展"
+- `docs/articles/ai_partnership_first_principles_zh.md` — control plane = 边界系统的第一性原理
