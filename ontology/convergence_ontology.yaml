@@ -296,6 +296,15 @@ convergence_specs:
       method: shell_command
       command: "crontab -l"
       parser: line_contains_identifier
+      # V37.9.98 审计决策 (2026-06-02): 不切换到 V37.9.66 cron_lines_set_diff 全行比较 parser.
+      # Mac Mini 真 crontab 审计 declared=37 observed=38 missing=17 extra=18 —— 17 missing
+      # 逐一配对 18 extra 全是功能等价格式变体 (单/双引号 7 / 缺 redirect 2 / ~vs$HOME 1 /
+      # mkdir 前缀 3 / cd 前缀 2 / repo路径 1) + 2 真差异 (preference_learner --apply --days 7
+      # registry 未记 / 30 23 手动 rsync), 0 条"脚本真缺失". 切换会 false-drift 风暴 +
+      # machine_sync 搞坏 crontab. 根因: registry entry 字段是简化, _format_cron_line 无法
+      # 逐字重建手工演化的异构 crontab. identifier 匹配免疫格式变体 + 精确抓脚本缺失 (V37.9.18
+      # 血案类) = 务实最优解. 详见 ontology/docs/cases/cron_line_full_comparison_audit_2026_06_02.md
+      # V37.9.66 primitives 保留作未来 fuzzy-match parser (需先做 registry↔crontab 命令对账) 的基础.
       notes: |
         crontab -l exits non-zero when no crontab is installed on this user;
         observer treats that as "empty observed" rather than hard error
