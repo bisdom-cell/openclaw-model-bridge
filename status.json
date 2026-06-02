@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-02 03:44:24",
+  "updated": "2026-06-02 03:49:10",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-06-02",
+      "what": "V37.9.99 S2 key 批准后微调: S2 邮件确认限额 1 request/second 且明确要求设到阈值以下 (印证 V37.9.99 修正的独占 1 RPS 非 100/sec). 认证模式间隔 S2_KW_SLEEP 1s→2s 安全余量 (6 关键词仅多 6s, 避免恰好在 1 RPS 阈值偶发 429). 更新 test_v37_9_98_s2_api_key 断言 1→2. 安全: key 只存 env 永不入仓库 (grep s2k- 确认 0 泄漏), 用户在 Mac Mini 加 S2_API_KEY 到 cron env (REMOTE_API_KEY 同处). VERSION 0.37.9.68 不变.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-02",
       "what": "V37.9.99 #14 ai_leaders 复盘 + 429 节流修复 (用户拉 Mac Mini 6/1+6/2 fetch log). 关键发现: 不是僵尸问题, 是 V37.9.95 账号 19→31 翻倍后撞 X Syndication HTTP 429 限流 — ~16/31(21:00)/~11/31(09:00) fail, 且失败账号两次 run 轮换 (AndrewYNg/BarrySmith46/IanHorrocks 一次 fail 一次 ok = 账号活着非僵尸, 原 #14 清僵尸框架不适用). 真因: 旧 inter-account sleep 3 只在成功路径 (失败 continue 跳过) → 限流命中后失败账号 rapid-fire (16 WARN 挤 21:00:02 同一秒). 修复 (原则#28三问: V37.9.95翻倍引入/最小修复=节流移循环顶部): AI_LEADERS_FETCH_DELAY 默认5s + FETCH_IDX 守卫移到循环顶部 (第一个不sleep, 对成功+失败账号都生效, 31×5s≈155s摊开远低于限流阈值), 删旧成功路径 sleep 3. 不回退 31 账号 (修节流非账号数). 8 新单测 (节流在fetch前+在continue前+旧sleep3移除+31账号保留) + 反向验证 (移回成功路径→fail). 次要观察待后续: 所有 ok 账号都0条新推文 (可能 seen-dedup 正常 / 可能 14天窗口+dedup 问题, 不盲改). VERSION 0.37.9.68 不变.",
       "by": "claude_code"
     },
@@ -197,11 +202,6 @@
     {
       "date": "2026-05-28",
       "what": "V37.9.86 trap override lockdir 残留修复 — bash trap 覆盖血案闭环 + 3 stale unfinished 清理. 根因: bash trap 是覆盖式非追加式, multi-chunk 分支 trap rm -rf WA_CHUNK_DIR EXIT 完全覆盖前面的 trap rmdir LOCK EXIT, >8000 字消息时 lockdir 不清理. 5 个脚本批量修 (arxiv/github_trending/hf_papers/rss_blogs/semantic_scholar), 合并两个 cleanup 到同一 trap. 8 新单测含行为层反向验证 (standalone trap 确实覆盖前一个) + 正向验证 (合并 trap 同时清理两目录) + repo 扫描守卫. 同时确认 SLO bash quirk (unfinished #26) 已在 V37.9.66-hotfix 修, cmd&&X||Y 7 处 (#37) 已在 V37.9.67 修, 清除 3 个 stale unfinished. 全量 97/0/3354.",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-05-27",
-      "what": "V37.9.85 八件套: (1) INV-AUTO-INJECT-001 MR-18 Step 2 前瞻守卫 +10 tests (2) scanner --full crontab runtime check +8 tests (3) _format_cron_line .py→python3 bug fix (4) scanner 归一化 quotes+$HOME+basename fallback 18→0 violations (5) HN metadata 泄漏清理 (6) README badges 3346/82/36 (7) 安全扫描 grep +85200000001 排除 CI+preflight+regression+test 四处同步 (8) kb_deep_dive wa_parts WARN stderr→log. Observer 首跑验证 06:30 cron OK + score_history 累积. unfinished 60→53. 全量 96/0/3346.",
       "by": "claude_code"
     }
   ],

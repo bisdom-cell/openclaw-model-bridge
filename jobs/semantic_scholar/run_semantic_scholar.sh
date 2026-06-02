@@ -98,7 +98,7 @@ FETCH_ERRORS=0
 S2_CURL_AUTH=()
 if [ -n "${S2_API_KEY:-}" ]; then
   S2_CURL_AUTH=(-H "x-api-key: $S2_API_KEY")
-  S2_KW_SLEEP=1
+  S2_KW_SLEEP=2   # V37.9.99: 2s 安全余量 (S2 邮件确认限额 1 RPS 且要求"设到阈值以下"; 6 关键词仅多 6s)
   log "S2 API key 已配置 (认证模式, 间隔 ${S2_KW_SLEEP}s)"
 else
   S2_KW_SLEEP=30
