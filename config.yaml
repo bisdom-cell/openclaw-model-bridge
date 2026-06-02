@@ -21,6 +21,10 @@ slo:
   timeout_rate_pct: 3.0        # 超时率 < 3%
   auto_recovery_rate_pct: 90.0 # 连续错误后自动恢复率 > 90%
   evaluation_window_minutes: 60  # SLO 评估滑动窗口
+  # V37.9.99 (外部评审 P0): slo_benchmark.py 样本门槛 — 样本 < 此值时 verdict=OBSERVING
+  # (观察中, 不判定 PASS), 防止低流量/demo trace samples=1 误标 ALL PASS. 默认 200
+  # (= 延迟 rolling buffer 满). 低流量个人系统可调低 (如 30) 让报告能判定 PASS.
+  min_sample_count: 200
 
 # ---------------------------------------------------------------------------
 # Proxy 请求限制
