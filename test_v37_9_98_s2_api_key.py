@@ -2,7 +2,7 @@
 """V37.9.98 Semantic Scholar API key 集成单测 (unfinished #2 候选兑现).
 
 集成: jobs/semantic_scholar/run_semantic_scholar.sh 加 S2_API_KEY 认证 header.
-- 有 S2_API_KEY → 认证模式 (x-api-key header, 100 req/sec, 间隔 1s) 规避 V37.8.13 起
+- 有 S2_API_KEY → 认证模式 (x-api-key header, 独占 1 RPS, 间隔 2s 安全余量) 规避 V37.8.13 起
   的 429 daily limit (5/27-5/28 连续 6 关键词 429 全失败).
 - FAIL-OPEN: 无 key → 无认证模式 (空 header, 保守 30s 间隔), 当前行为完全不变.
 
@@ -67,9 +67,10 @@ class TestS2ApiKeySourceGuards(unittest.TestCase):
         self.assertNotIn("&& sleep 30", loop_region,
                          "for 循环内不应残留硬编码 sleep 30 (应用 $S2_KW_SLEEP)")
 
-    def test_authenticated_uses_1s_unauthenticated_30s(self):
+    def test_authenticated_uses_2s_unauthenticated_30s(self):
+        # V37.9.99: 认证 1s→2s (S2 邮件确认 1 RPS 且要求"设到阈值以下")
         block = _extract_detection_block(self.src)
-        self.assertIn("S2_KW_SLEEP=1", block)
+        self.assertIn("S2_KW_SLEEP=2", block)
         self.assertIn("S2_KW_SLEEP=30", block)
 
     def test_fail_open_documented(self):
@@ -111,7 +112,7 @@ class TestS2ApiKeyBehavior(unittest.TestCase):
     def test_with_key_authenticated(self):
         r = self._run({"S2_API_KEY": "fake-test-key-123"})
         self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertIn("SLEEP=1", r.stdout)         # 认证模式快速间隔
+        self.assertIn("SLEEP=2", r.stdout)         # 认证模式 2s 间隔 (1 RPS 安全余量)
         self.assertIn("AUTHCOUNT=2", r.stdout)     # -H + "x-api-key: KEY"
         self.assertIn("x-api-key: fake-test-key-123", r.stdout)
 

@@ -177,6 +177,7 @@ declare -a FILE_MAP=(
     "kb_review.sh|$HOME/kb_review.sh"
     "kb_evening.sh|$HOME/kb_evening.sh"
     "kb_deep_dive.sh|$HOME/kb_deep_dive.sh"
+    "kb_radar.sh|$HOME/kb_radar.sh"  # V37.9.99 — Opportunity Radar Stage 5 每日机会点雷达 06:00
     "kb_save_arxiv.sh|$HOME/kb_save_arxiv.sh"
     "kb_search.sh|$HOME/kb_search.sh"
     "kb_inject.sh|$HOME/kb_inject.sh"
@@ -249,6 +250,7 @@ declare -a FILE_MAP=(
     "kb_review_collect.py|$HOME/kb_review_collect.py"
     "kb_evening_collect.py|$HOME/kb_evening_collect.py"
     "kb_deep_dive.py|$HOME/kb_deep_dive.py"
+    "kb_radar_collect.py|$HOME/kb_radar_collect.py"  # V37.9.99 — Opportunity Radar Stage 5 collector
     # V37.9.84 Daily Self-Critique Observer (方向 1 Daily Self-Critique)
     "daily_observer.py|$HOME/daily_observer.py"
     "daily_observer.sh|$HOME/daily_observer.sh"

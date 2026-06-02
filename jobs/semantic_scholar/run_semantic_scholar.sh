@@ -91,14 +91,14 @@ mkdir -p "$RAW_DIR"
 
 FETCH_ERRORS=0
 # V37.9.98: Semantic Scholar API key 集成 (unfinished #2 候选兑现).
-# 有 S2_API_KEY → 认证模式 (100 req/sec, 规避 V37.8.13 起的 429 daily limit, 5/27-5/28
+# 有 S2_API_KEY → 认证模式 (独占 1 RPS 不抢匿名池, 规避 V37.8.13 起的 429 daily limit, 5/27-5/28
 # 连续 6 关键词 429 全失败). FAIL-OPEN: 无 key → 无认证模式 (保守 30s 间隔, 当前行为不变).
 # 申请免费 key: https://www.semanticscholar.org/product/api (即时发放).
 # bash 3.2 兼容: 脚本 set -eo (无 -u), 空数组 "${arr[@]}" 安全展开.
 S2_CURL_AUTH=()
 if [ -n "${S2_API_KEY:-}" ]; then
   S2_CURL_AUTH=(-H "x-api-key: $S2_API_KEY")
-  S2_KW_SLEEP=1
+  S2_KW_SLEEP=2   # V37.9.99: 2s 安全余量 (S2 邮件确认限额 1 RPS 且要求"设到阈值以下"; 6 关键词仅多 6s)
   log "S2 API key 已配置 (认证模式, 间隔 ${S2_KW_SLEEP}s)"
 else
   S2_KW_SLEEP=30

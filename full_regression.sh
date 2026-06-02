@@ -60,6 +60,7 @@ run_suite "cron_monitor_fatal_handler (V37.9.63 MR-8 抽公共 helper + 顺势�
 run_suite "cross_os_quirk_scanner (V37.9.67 INV-CROSS-OS-001 P0 — cmd&&||/grep|head/awk LC_ALL/zsh-specific 4 quirk 主动检测)" "python3 test_cross_os_quirk_scanner.py"
 run_suite "cross_env_path_scanner (V37.9.94 INV-CROSS-ENV-PATH-001 — MR-15 deployment-layout 第 4 次演出后立 framework, 防 5th _resolve_*_path 漏 Mac Mini canonical)" "python3 test_cross_env_path_scanner.py"
 run_suite "v37_9_95_ai_leaders (V37.9.95 ai_leaders_x 多元化 19→31 跨 12 派别 — 周一 #32 用户视角反馈驱动)" "python3 test_v37_9_95_ai_leaders.py"
+run_suite "v37_9_99_ai_leaders_throttle (V37.9.99 #14 inter-account 节流防 429 — 31 账号翻倍撞限流修复)" "python3 test_v37_9_99_ai_leaders_throttle.py"
 run_suite "v37_9_96_proxy_plist_env (V37.9.96 INV-PROXY-PLIST-ENV-001 — 守 proxy plist ARK_API_KEY+ARK_ENDPOINT_ID, V37.9.91 Doubao expert_escalate 真生产缺口, 镜像 V37.9.54 adapter plist 模式)" "python3 test_v37_9_96_proxy_plist_env.py"
 run_suite "kb_dream_helpers (V37.9.68 INV-DREAM-MULTITHEME-001 — Qwen-BIM 连续几周血案防御 + 14 天 ban-list + 主题归一化 + 三阶推送 helper)" "python3 test_kb_dream_helpers.py"
 run_suite "v37_9_69 (V37.9.69 双修 — B 项 watchdog test alternation + C 项 full_regression count bug 修复)" "python3 test_v37_9_69.py"
@@ -86,6 +87,7 @@ run_suite "kb_business (KB全业务逻辑)" "python3 test_kb_business.py"
 run_suite "kb_review (V37.5 fail-fast + registry-driven)" "python3 test_kb_review.py"
 run_suite "kb_evening (V37.6 import reuse + V37.7 today-count)" "python3 test_kb_evening.py"
 run_suite "kb_deep_dive (V37.9.16 picker+fetcher+prompt+shell guards)" "python3 test_kb_deep_dive.py"
+run_suite "kb_radar (V37.9.99 Opportunity Radar Stage 5 — 件套交集红/黄/蓝 + shell guards)" "python3 test_kb_radar.py"
 run_suite "daily_observer (V37.9.84 Daily Self-Critique Observer)" "python3 test_daily_observer.py"
 run_suite "expert_escalation (V37.9.90-r1 Expert Escalation Capability — Doubao backend)" "python3 test_expert_escalation.py"
 run_suite "v37_9_91_expert_escalate_wiring (V37.9.91 Expert Escalation wiring — proxy_filters CUSTOM_TOOLS + tool_proxy 分支 + FILE_MAP + ontology yaml)" "python3 test_v37_9_91_expert_escalate_wiring.py"
@@ -97,6 +99,7 @@ run_suite "v37_9_49_radar_integration (V37.9.49 Sub-Stage 4a #1+#3 kb_dream/even
 run_suite "v37_9_50_semantic_scholar (V37.9.50 Sub-Stage 4b 1 脚本 PoC 6字段 + rule_check)" "python3 test_v37_9_50_semantic_scholar.py"
 run_suite "v37_9_51_sub_stage_4b_batch (V37.9.51 Sub-Stage 4b 6 脚本批量 6字段+rule_check 机械迁移)" "python3 test_v37_9_51_sub_stage_4b_batch.py"
 run_suite "v37_9_98_s2_api_key (V37.9.98 Semantic Scholar API key 认证 header 集成 + FAIL-OPEN)" "python3 test_v37_9_98_s2_api_key.py"
+run_suite "gen_readme_badges (V37.9.99 README 徽章自动生成/漂移守卫 — 外部评审 P0)" "python3 test_gen_readme_badges.py"
 run_suite "v37_9_52_doubao_provider (V37.9.52 Doubao Seed 2.0 Pro 第 8 个 provider + module 重入 bug fix)" "python3 test_v37_9_52_doubao_provider.py"
 run_suite "v37_9_53_doubao_verified (V37.9.53 flip verified_text + reasoning capability + fallback chain 排名前移)" "python3 test_v37_9_53_doubao_verified.py"
 run_suite "v37_9_54_abc (V37.9.54 ABC: restart.sh marker-based plist reload + verified_vision + INV-PLIST-ENV-001)" "python3 test_v37_9_54_abc.py"
@@ -108,6 +111,7 @@ run_suite "audit_log (审计日志/链式哈希)" "python3 test_audit_log.py"
 run_suite "reliability_bench (故障场景评测)" "python3 test_reliability_bench.py"
 run_suite "memory_plane (统一记忆平面)" "python3 test_memory_plane.py"
 run_suite "slo_dashboard (SLO仪表盘)" "python3 test_slo_dashboard.py"
+run_suite "slo_benchmark (V37.9.99 样本门槛三态 OBSERVING/PASS/FAIL)" "python3 test_slo_benchmark.py"
 run_suite "finance_news_zombie (V37.8.5 三层僵尸检测)" "python3 test_finance_news_zombie.py"
 run_suite "dream_surrogate_sanitize (V37.8.6 log→stderr + surrogate 清洗 + 反污染 prompt)" "python3 test_dream_surrogate_sanitize.py"
 run_suite "ontology_parser (V37.8.7 separator+key-based 解析，防级联错位)" "python3 test_ontology_parser.py"
@@ -219,6 +223,17 @@ else
     python3 gen_jobs_doc.py --check 2>&1
     FAIL=$((FAIL + 1))
     FAILED_SUITES+=("config drift")
+fi
+
+echo -n "  🏷️  README 徽章漂移检测 (V37.9.99) ... "
+if python3 gen_readme_badges.py --check >/dev/null 2>&1; then
+    echo "✅"
+    PASS=$((PASS + 1))
+else
+    echo "❌"
+    python3 gen_readme_badges.py --check 2>&1 | tail -3
+    FAIL=$((FAIL + 1))
+    FAILED_SUITES+=("README badge drift")
 fi
 echo ""
 
