@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-02 02:03:51",
+  "updated": "2026-06-02 02:09:27",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-06-02",
+      "what": "V37.9.98 #4: Semantic Scholar API key 集成代码就绪 (FAIL-OPEN). run_semantic_scholar.sh 加 S2_CURL_AUTH 数组 + x-api-key header 注入两处 curl + 条件间隔 (有 key 1s / 无 key 保守 30s). 有 S2_API_KEY → 认证模式 100 req/sec 规避 V37.8.13 起 429 daily limit (5/27-5/28 6 关键词全 429). 无 key → 当前无认证行为完全不变 (空数组 set -eo 无 -u bash 3.2 安全). 12 新单测 (8 source 守卫 + 4 行为: 提取真实检测块 exec 验证有/无/空 key 三态零 drift) + 反向验证 (删 auth 注入→fail). 既有 S2 3 套测试无回归. 待用户: 申请免费 key (semanticscholar.org/product/api 即时) + 加 S2_API_KEY 到 com.openclaw.proxy/adapter plist 或 cron env, 即从无认证升认证.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-02",
       "what": "V37.9.98 续: #2 LEVEL_6 dream 句式复盘 (3 天预览, Mac Mini 数据) 强阳性 — 因此句式 4→1 (↓70%) / 为X提供 ~2.5→~1 (↓60%) / [强证据]+[弱关联] tag 0→9-12 条/天 / 定性 6/1 每条隐藏关联正确分级 (强证据带论文DOI引用, 弱关联带无因果证据caveat). V37.9.89 修复方向完全正确, 完整 5 天判定 6/4 后立 INV-DREAM-CROSS-DOMAIN-001. #3 convergence cron 行审计 (Mac Mini 真 crontab): declared=37 observed=38 missing=17 extra=18, 17 missing 配对 18 extra 全是功能等价格式变体 (单/双引号7/缺redirect2/~vs$HOME1/mkdir前缀3/cd前缀2/repo路径1)+2真差异(preference_learner --apply --days 7 registry未记 / 30 23 手动rsync与0 4 movespeed重复), 0条脚本真缺失. 数据驱动决策: 不切换 cron_lines_set_diff (会 false-drift风暴+machine_sync搞坏crontab), 保持 line_contains_identifier. 验证 V37.9.66 不切判断正确. case doc + spec 注释记录决策.",
       "by": "claude_code"
     },
@@ -198,11 +203,6 @@
       "date": "2026-05-19",
       "what": "V37.9.82 INV-PATH-CONSISTENCY-001 三方对齐 scanner 立 — 防 V37.9.56-hotfix/V37.9.66 同款 Class B 路径假设错配血案 (path_consistency_scanner.py 290 行 + 26 单测 + ALLOWED_NON_STANDARD_DST 10 项豁免清单 + FAIL-CLOSE + Mac Mini 真激活 9/9 ✅). 同日累计: V37.9.81 (A+B) 60 天血案完整闭环 + README 漂移修复 + failure_modes_catalog.md (V3 路标资产) + V37.9.82 scanner = 4 PR 同 session 闭环. 累计 95 suites / 3247 tests / 0 fail / 81 inv / 740 checks / 19 MR / 安全 95/100.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-05-19",
-      "what": "🎯 V37.9.81 (A + B) MOVESPEED FDA 真生效闭环 + V37.9.30 取证盲区根因修复 (V37.9.80 收工承诺 24h 数据回归窗口兑现). **A 部分 (24h 数据回归 + 机器化判定守卫)**: Mac Mini 12h 窗口 = 0 incidents / FDA 后 ~19h 累积 0 incidents / macOS kernel sandbox deny 过去 12h 0 条 — 铁证 FDA 真在 kernel 层生效. V37.9.80 收工承诺 24h ≤ 2 判定窗口达成. INV-MOVESPEED-TCC-001 加新 runtime python_assert 真扫 ~/.kb/movespeed_incidents.jsonl ISO 8601 timestamp + 24h rolling window count + assert <= 2. FAIL-OPEN 三层契约 (dev 无 jsonl silent pass / 损坏 JSON 单行 skip / IO 错误 silent pass). 把 V37.9.80 FDA 修复有效性从靠 Claude Code 周期性记忆升级为 governance audit cron 每日 07:00 主动检查. **B 部分 (V37.9.30 取证盲区根因修复)**: V37.9.81 数据回归过程再次发现 acl_top=total 0 / lsof=空 仍是采集器自身被 sandbox 拒绝 — V37.9.30 用 2>/dev/null 吞 stderr 让采集失败和真空无法区分 6 周潜伏. 四层修复: (1) capture.sh 4 处采集命令 stderr 重定向到独立 _err 文件 (acl_top/acl_kb/lsof/snapshots) (2) Python heredoc 加 read_file_with_stderr helper 检测 stderr 含 operation not permitted/permission denied/sandbox 关键字 → 字段值前加 [sandbox_denied] 前缀; 检测 command not found → [tool_unavailable] 前缀 (3) analyzer.py 3 个 classify 函数 (acl_anomaly / handle_holders / snapshot_count) 顶部加 marker 检测分支 + priority dict 加 sandbox_denied=6 最高优先级超过 acl_deny=4 (sandbox-deny 是直接 EPERM 证据比 acl_deny 假说更可信) (4) format_text_report 三个 explain dict 加新桶说明 + 新增 V37.9.81 B 决策提示段 🚨 Sandbox 拒绝警告 含 V37.9.80 同款 /usr/sbin/cron FDA 修复路径. **19 新单测 2 测试类** TestV37981BCaptureSandboxStderr(6 含 4 stderr file 字面量 + helper 函数定义 + V37.9.81 B marker 含 V37.9.30/V37.9.80 lineage + priority 顺序锁 sandbox 优先于 tool_unavailable) + TestV37981BAnalyzerSandboxBuckets(13 含 3 个 classify 函数 sandbox/tool_unavailable marker 识别 + 向后兼容老桶 + analyze priority dict sandbox 胜 acl_deny 端到端 + 决策提示文本含 /usr/sbin/cron + 无 sandbox 时不误报). **V37.9.30 守卫单测升级 alternation**: test_capture_script_rec_dict_includes_v37_9_30_fields 接受 V37.9.30 旧 read_file OR V37.9.81 B 新 read_file_with_stderr 字面量. **反向 sabotage 两层守卫真有效**: 改 capture.sh acl_top stderr 回 /dev/null → governance audit 立即抓到 ❌ / 删 read_file_with_stderr helper → 单测立即 2 fail. 还原后 102/102 test 全过 + 645/645 governance check 全过. **INV-MOVESPEED-TCC-001 升级 hard 守卫**: 7 declaration → 14 declaration (V37.9.81 B 加 6: capture.sh 4 stderr file + helper 定义 + sandbox_denied marker / analyzer.py sandbox_denied 桶 / V37.9.81 B marker) + 1 runtime → 3 runtime (V37.9.81 A incidents.jsonl 24h ≤ 2 + V37.9.81 B classify_* + priority 顺序锁端到端). **audit_metadata 漂移修复**: V37.9.80 加 INV-MOVESPEED-TCC-001 (8 checks) 但 meta 未同步, V37.9.81 一并修齐 79→80 inv / 715→731 checks / 19 MR 不变 (MR-16 候选一周观察后立). 累计 92→93 suites 不变 / 3203→3222 tests (+19) / 0 fail / governance v3.46→v3.47 / 79→80 invariants / 715→731 checks / 19 MR / 安全 95/100 / VERSION 0.37.9.68 不变 (治理层固化 + 取证盲区根因修复, 不涉及业务语义). **元价值**: V37.9.80 真因发现 (1 day) + V37.9.81 A FDA 守卫 + V37.9.81 B 取证盲区根因修复 = 60 天血案的真正上层建筑级闭环. 不仅修 1 个 bug, 还把发现 (TCC sandbox) + 工程教训 (stderr 必须独立捕获不能吞) 作为 framework 级永久记录入治理体系. V3 路标 framework 反思转化机制 + MR-7 治理自观察 + MR-10 understand-before-fix 三元规则同时硬实证. **下次 V37.9.82+ 候选**: (a) 主硬卡 Mac Mini 部署 V37.9.81 (A+B) 后等 24-48h 跑 incident_analyzer --window 24h 看 (i) governance audit incidents.jsonl runtime check 真激活生产环境通过 (ii) 即使 FDA 已加 sandbox_denied 桶若仍出现说明 lsof/tmutil 自身需独立 FDA (b) MR-16 候选 macos-cron-derived-processes-need-fda 元规则一周观察后立 (c) 同款 audit 扩展其他可能 60 天潜伏的 macOS 系统层问题 / 跨平台采集器 stderr 吞掉模式扫描.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -245,7 +245,6 @@
     "last_session": "2026-04-17 V37.8.14 (15 commits)",
     "unfinished": [
       "V37.9.89+ 一周观察: Mac Mini 5/30 起 3:00 cron 真激活 LEVEL_6. 跑 5 天后比对 (5/30-6/3) dream 推送中 '因此 X' / '必然 X' / 多跳因果链句式频次. 期望大幅下降 + 出现 [强证据]/[弱关联] tag + 📭 fallback. 数据稳定后 V37.9.90 立 INV-DREAM-CROSS-DOMAIN-001.",
-      "V37.9.90 候选: Semantic Scholar API key 申请 + 集成. 上游 unauthenticated tier = 1 req/5sec, 已观察 5/27-5/28 连续 6 关键词 429. 免费 key 100 req/sec at semanticscholar.org/product/api. 集成 ~30min (S2_API_KEY env header). 等用户申请.",
       "V37.9.90 候选 (一周观察后): INV-OBSERVER-001 立 governance — Phase 0 meta-rule discovery 已识别 daily_observer 缺 INV. 7-8 个 check: V37.9.87 single-call invariant (1 OBSERVER_PY invocation) + --json 含 report_markdown + V37.9.88 registry filter applied + stale detection function defined + runtime python_assert 跑 121 单测. 等 V37.9.87/88 Mac Mini 真激活 + 一周稳定后立. 关闭 Phase 0 自主发现的'daily_observer 缺 INV'缺口.",
       "V3 路标 backlog: Tool Policy Plugin + Memory Plane Plugin + Job Template SDK + pip install ontology-engine",
       "WhatsApp 入站路由到 research agent 而非 main（4/10 WhatsApp plugin 安装副作用）: main/sessions.json mtime 从 Mar 30 起 dormant, 但 HEARTBEAT.md 修复后 research 正常响应不致命. 长期考虑: channels.whatsapp.agent 显式配置 / agents.list 顺序调整 / 验证 WhatsApp plugin inbound handler routing 逻辑",
@@ -262,7 +261,8 @@
       "V37.9.96+ 候选 (Mac Mini 部署 V37.9.95 + 1-2 天观察后): (a) 新增 12 账号活跃度复盘 — 哪些是僵尸 (newest_tweet > 7d) 从列表移除. fetch_stats log 含 0 条的 handle 候选清理. (b) 评估 promote V37.8.4 ZOMBIE detection 同款机制到 ai_leaders_x (currently 仅 WARN log). (c) 周一 #32 制度化 — 如果连续 3-4 周都产生 actionable feedback, 立 INV-WEEKLY-USER-OBSERVATION-001 守 weekly observation 必有产出 (即时记录到 status.json feedback 字段). (d) 评估推送内容质量 — 跨派别观点是否真带来'AI 大神不同观点'的用户感知.",
       "V37.9.98 候选 (services dry-run 一周观察后 ~6/8): services_to_launchd flip dry_run_default: false 真激活 machine_sync (镜像 V37.9.58 jobs/kb 切关). 前置: 观察一周 governance audit cron 的 services would-bootstrap 动作 (只在某 service 真宕时出现) 确认 launchctl bootstrap gui/<uid> <plist> 命令形态正确. flip 后 5 spec 中 3 个 machine_sync 真激活. 同时可立 INV-CONVERGENCE-SERVICES-ACTIVATED-001 守 default real apply 不可回退 (镜像 V37.9.59 候选).",
       "V37.9.98 源可信度评级 已实现 (source_credibility.py + dream/evening wire + 56 单测). 候选 (Mac Mini 部署一周观察后, ~6/9): (a) 立 INV-SOURCE-CREDIBILITY-001 governance 守全契约 (SOURCE_CREDIBILITY↔jobs_registry 14 源 drift + format_credibility_block 5 dream 注入点 + evening 注入 + FAIL-OPEN 未知源→社媒, 7-8 checks). (b) Mac Mini 22:00 evening + 03:00 dream 真激活验证用户视角推送中 [可信度: <等级>] 标注真出现, 尤其 chaspark 引用带'博客级需独立验证'. (c) 可选: get_credibility() 升级为 per-citation 标注 (当前是 prompt-level 注入, 未来可在 emit 端对每条来源自动加 tier 后缀).",
-      "convergence cron 行全行比较: 2026-06-02 审计已决定不切换 (case doc cron_line_full_comparison_audit_2026_06_02.md). Mac Mini 真 crontab missing=17 extra=18 全是格式变体 0 脚本缺失, 切换会 false-drift 风暴. 保持 line_contains_identifier (务实最优). 未来候选 (非高优): (a) fuzzy-match parser 归一化引号/~/root/redirect 后比较, 但需先做 registry↔crontab 命令完整性对账 (registry entry 不记 args/cd/真实路径). (b) 2 真差异待用户决定: preference_learner registry entry 补 --apply --days 7 args? / 30 23 手动 rsync→MOVESPEED 是否与 0 4 movespeed_daily_sync 冗余需清理?"
+      "convergence cron 行全行比较: 2026-06-02 审计已决定不切换 (case doc cron_line_full_comparison_audit_2026_06_02.md). Mac Mini 真 crontab missing=17 extra=18 全是格式变体 0 脚本缺失, 切换会 false-drift 风暴. 保持 line_contains_identifier (务实最优). 未来候选 (非高优): (a) fuzzy-match parser 归一化引号/~/root/redirect 后比较, 但需先做 registry↔crontab 命令完整性对账 (registry entry 不记 args/cd/真实路径). (b) 2 真差异待用户决定: preference_learner registry entry 补 --apply --days 7 args? / 30 23 手动 rsync→MOVESPEED 是否与 0 4 movespeed_daily_sync 冗余需清理?",
+      "Semantic Scholar API key: 集成代码已就绪 (V37.9.98, FAIL-OPEN, run_semantic_scholar.sh 加 x-api-key header + 条件间隔). 待用户动作: (1) 去 semanticscholar.org/product/api 申请免费 key (即时发放, 100 req/sec). (2) 加 S2_API_KEY 到 cron 环境 (~/.zshrc 或 launchd plist EnvironmentVariables, 同 ARK_API_KEY 模式). 加完下次 11:00 S2 cron 自动从无认证(30s间隔)升认证(1s间隔)规避 429. 未加 key 时当前行为不变 (FAIL-OPEN). 可选后续: 有 key 后关键词 6→12 恢复更多覆盖 (V37.8.13 因 429 砍半)."
     ],
     "open_prs": "",
     "blocked_on": "",

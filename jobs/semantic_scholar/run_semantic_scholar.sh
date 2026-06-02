@@ -90,15 +90,30 @@ RAW_DIR="$CACHE/raw"
 mkdir -p "$RAW_DIR"
 
 FETCH_ERRORS=0
+# V37.9.98: Semantic Scholar API key 集成 (unfinished #2 候选兑现).
+# 有 S2_API_KEY → 认证模式 (100 req/sec, 规避 V37.8.13 起的 429 daily limit, 5/27-5/28
+# 连续 6 关键词 429 全失败). FAIL-OPEN: 无 key → 无认证模式 (保守 30s 间隔, 当前行为不变).
+# 申请免费 key: https://www.semanticscholar.org/product/api (即时发放).
+# bash 3.2 兼容: 脚本 set -eo (无 -u), 空数组 "${arr[@]}" 安全展开.
+S2_CURL_AUTH=()
+if [ -n "${S2_API_KEY:-}" ]; then
+  S2_CURL_AUTH=(-H "x-api-key: $S2_API_KEY")
+  S2_KW_SLEEP=1
+  log "S2 API key 已配置 (认证模式, 间隔 ${S2_KW_SLEEP}s)"
+else
+  S2_KW_SLEEP=30
+  log "S2 API key 未配置 (无认证模式, 保守 ${S2_KW_SLEEP}s 间隔规避 429; 申请见 semanticscholar.org/product/api)"
+fi
 for i in "${!KEYWORDS[@]}"; do
   KW="${KEYWORDS[$i]}"
   OUTFILE="$RAW_DIR/search_${i}.json"
   ENCODED_KW=$(python3 -c "import urllib.parse; print(urllib.parse.quote('$KW'))")
 
   # V37.8.13: 关键词间隔 30s（原 5s 触发 S2 429 daily limit）
-  [ "$i" -gt 0 ] && sleep 30
+  # V37.9.98: 有 S2_API_KEY 时 1s, 无 key 保持 30s 保守 (FAIL-OPEN)
+  [ "$i" -gt 0 ] && sleep "$S2_KW_SLEEP"
 
-  HTTP_CODE=$(curl -sSL --max-time 30 -w '%{http_code}' \
+  HTTP_CODE=$(curl -sSL --max-time 30 -w '%{http_code}' "${S2_CURL_AUTH[@]}" \
     -H "User-Agent: openclaw-s2-monitor/1.0" \
     "${S2_API}?query=${ENCODED_KW}&fields=${FIELDS}&limit=20&publicationDateOrYear=${DATE_FROM}:${DATE_TO}&fieldsOfStudy=Computer+Science" \
     -o "$OUTFILE" 2>"$CACHE/curl_s2.err") || HTTP_CODE="000"
@@ -110,7 +125,7 @@ for i in "${!KEYWORDS[@]}"; do
     for RETRY in 60 120; do
       log "WARN: S2 API 429 for '$KW'，等待 ${RETRY}s 重试"
       sleep "$RETRY"
-      HTTP_CODE=$(curl -sSL --max-time 30 -w '%{http_code}' \
+      HTTP_CODE=$(curl -sSL --max-time 30 -w '%{http_code}' "${S2_CURL_AUTH[@]}" \
         -H "User-Agent: openclaw-s2-monitor/1.0" \
         "${S2_API}?query=${ENCODED_KW}&fields=${FIELDS}&limit=20&publicationDateOrYear=${DATE_FROM}:${DATE_TO}&fieldsOfStudy=Computer+Science" \
         -o "$OUTFILE" 2>"$CACHE/curl_s2.err") || HTTP_CODE="000"
