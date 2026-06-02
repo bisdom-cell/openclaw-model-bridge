@@ -217,6 +217,16 @@ jobs:
     tier: auxiliary                   # 每日深度分析（V37.9.16）
     description: "每日深度分析（V37.9.16: 挑选今日⭐≥4 论文/文章 + 一档 PDF/二档 HTML 抓取 + 论证链分析 + WhatsApp简版 + Discord #daily 完整版 + ~/.kb/deep_dives/ 归档）"
 
+  - id: kb_radar
+    scheduler: system
+    entry: kb_radar.sh
+    interval: "0 6 * * *"            # 每天 06:00 HKT（早晨上班前看夜间累积的机会点雷达扫描）
+    log: ~/.openclaw/logs/jobs/kb_radar.log
+    needs_api_key: false             # V37.9.99: 规则化件套交集, 不调 LLM (更鲁棒+零 token)
+    enabled: true
+    tier: auxiliary                   # Opportunity Radar Stage 5（V37.9.99）
+    description: "每日机会点雷达（V37.9.99 Opportunity Radar Stage 5: 消费三件套 #1跨源共振/#2项目高对齐/#3趋势加速 → 规则化件套交集分 红/黄/蓝 三档机会点 → 仅 red+yellow>0 才双通道推送(低噪声) + ~/.kb/radar/daily_briefing_ 归档。设计文档 6.1 节）"
+
   # ---- Daily Self-Critique Observer（V37.9.84） ----
 
   - id: daily_observer

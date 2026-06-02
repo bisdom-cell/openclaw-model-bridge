@@ -272,6 +272,7 @@ export GEMINI_API_KEY="AIzaXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"   # V29.1新增
 | kb-evening | 每天22:00 | `kb_evening.sh` | `~/kb_evening.log` | ✅ 晚间 KB 整理 |
 | kb-deep-dive | 每天22:30 HKT | `kb_deep_dive.sh` | `~/kb_deep_dive.log` | ✅ V37.9.16新增：每日深度分析（⭐≥4 论文/文章 + 一档 PDF/二档 HTML 抓取 + 论证链分析 + WhatsApp简版 + Discord #daily 完整版 + ~/.kb/deep_dives/ 归档） |
 | daily-observer | 每天06:30 HKT | `daily_observer.sh` | `~/daily_observer.log` | ✅ V37.9.84新增：每日自审 LLM-as-judge（扫前日推送输出+评分+read-only 改进提案，推 Discord #daily only，永不直接改代码） |
+| kb-radar | 每天06:00 HKT | `kb_radar.sh` | `~/.openclaw/logs/jobs/kb_radar.log` | ✅ V37.9.99新增：Opportunity Radar Stage 5 每日机会点雷达（消费三件套 #1跨源/#2对齐/#3趋势 → 规则化件套交集分 红/黄/蓝 三档 → 仅 red+yellow>0 才推送低噪声 + ~/.kb/radar/daily_briefing_ 归档，无 LLM 调用） |
 | session-cleanup | 每6小时 04/10/16/22:00 | 直接rm命令（无脚本） | `~/.openclaw/logs/session_cleanup.log` | ✅ v24变更：从每天1次→每6小时1次 |
 | wa-keepalive | 每30分钟 | `~/wa_keepalive.sh` | `~/wa_keepalive.log` | ✅ V28.1新增：真实发送零宽字符验证WhatsApp通道 |
 | kb-inject | 每天07:00 | `~/kb_inject.sh` | `~/kb_inject.log` | ✅ V29新增：每日KB摘要生成，供LLM对话查阅 |

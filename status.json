@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-02 03:17:35",
+  "updated": "2026-06-02 03:29:30",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-06-02",
+      "what": "V37.9.98 续(全部执行): #5 Opportunity Radar Stage 5 kb_radar 上线(设计文档6.1节兑现). 新 kb_radar_collect.py(纯Python collector) + kb_radar.sh(thin wrapper 06:00 cron). 消费三件套(#1跨源共振daily_signals/#2项目高对齐top_alignment_picker/#3趋势加速weekly_trends) → 规则化件套交集分红/黄/蓝三档: 红=三件套交集(跨源∩高对齐⭐≥4∩趋势加速)/黄=二件套/蓝=单件套趋势观察(加速+减速主题). 关键判断: 红黄蓝是规则化交集非LLM(三件套各自已做LLM分析), 用规则更鲁棒(确定性+无06:00 LLM fail-fast吵醒+零token), LLM prose润色留V+1. 复用kb_dream_helpers.themes_overlap(主题跨源匹配)+top_alignment_picker(MR-8不copy-paste). 修themes_overlap调用bug(接受set非str, 先normalize). 跨语言局限(英文keyword vs中文cn_title): themes_overlap同语言可靠+子串fallback覆盖英文术语嵌中文标题, RED跨语言命名较难触发是已知限制V+1加embedding. 推送决策: 仅red+yellow>0(可操作机会点)才双通道推送, 否则只归档KB(原则#32低噪声, radar无信号非故障不报[SYSTEM_ALERT]). collector_failed→[SYSTEM_ALERT]+exit1真故障fail-fast. 30新单测(read FAIL-OPEN/topic match/红黄蓝交集/briefing/orchestrator/shell守卫)+反向验证(sabotage退回str传themes_overlap→跨件套交集失效). jobs_registry kb_radar(0 6 * * *, needs_api_key=false) + auto_deploy FILE_MAP×2 + docs/config.md + full_regression. dev端到端: no_actionable只归档exit0/有信号ok. VERSION 0.37.9.68不变(规则化合成job无新capability). 待用户Mac Mini: crontab_safe.sh add 0 6 cron注册.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-02",
       "what": "V37.9.98 续(全部执行): #7外部评审P0 README徽章自动生成 — gen_readme_badges.py 从权威源生成4个徽章(tests←status.json quality.test_count / governance←audit_metadata total_invariants+meta_rules / version←CLAUDE.md v-label+VERSION+date / providers←providers.py --json len), --check漂移守卫(exit 1)+--write一键同步. 接入full_regression doc-drift层(README漂移=CI fail)=评审要的pre-commit等价物. 立即修了真漂移: README tests徽章停在3739实际3751(评审说的漂移问题实证). providers徽章纳入管理(8). 删脆弱散文扫描(python3 providers→误报3 providers). 21新单测(compute_facts真仓库+apply_badges 4徽章+FAIL-OPEN+--check真跑exit0+幂等+源守卫)+反向(stale徽章检测CHANGED). 外部评审2026-04-17 P0(a)事实单一来源兑现.",
       "by": "claude_code"
     },
@@ -198,11 +203,6 @@
       "date": "2026-05-27",
       "what": "V37.9.85: INV-AUTO-INJECT-001 MR-18 Step 2 前瞻守卫立案 (batch inject/migrate 工具必须内嵌 scanner 验证, 当前无此类工具=pass, 未来 commit 入仓立即 governance 抓). MR-18 derivative_invariants 扩 [HEREDOC+AUTO-INJECT]. 10 新单测 + unfinished 清理 60→56. 全量 96/0/3338.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-05-26",
-      "what": "V37.9.84 六件套: (1) Daily Self-Critique Observer 上线 (daily_observer.py+.sh, 73单测, cron 06:30 LLM-as-judge) (2) kb_evening job failure visibility (observer提案真修) (3) observer score history + 7-day trend (4) mm_index路径迁移 (5) run_hn_fixed重命名到jobs/hn_watcher/ (6) unfinished清理103→60. 全量96/0/3328.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -248,7 +248,6 @@
       "V3 路标 backlog: Tool Policy Plugin + Memory Plane Plugin + Job Template SDK + pip install ontology-engine",
       "WhatsApp 入站路由到 research agent 而非 main（4/10 WhatsApp plugin 安装副作用）: main/sessions.json mtime 从 Mar 30 起 dormant, 但 HEARTBEAT.md 修复后 research 正常响应不致命. 长期考虑: channels.whatsapp.agent 显式配置 / agents.list 顺序调整 / 验证 WhatsApp plugin inbound handler routing 逻辑",
       "V37.9.28+ 候选 (软性触发 ~2026-06-15, 4-8 周 5.x 沉淀观察期到达): OpenClaw 升级第五次评估. 届时 5.x 已稳定 6 周, 社区验证累积充分. 评估重点: (a) v2026.5.x 是否仍持续高频迭代或已稳定收敛 (b) #59265 Agent actions 不可见是否在某版本 release notes 显式修复 (有 PR + 版本 mention 双证据) (c) v2026.4.29 tools.exec/tools.fs restrictive profile 收紧对我们 proxy_filters 工具白名单是否影响 — dev 验证 12 工具集 (data_clean / search_kb / read_file / write_file / etc.) 在升级后是否仍可见 (d) v2026.5.2 plugin manifest contracts.tools ownership 强制对 qwen-local provider 注册路径 (adapter.py 启动时如何向 Gateway 注册) 是否破坏. 如所有阻塞解除则推荐阶梯升 v2026.4.27 (V37.9.27+ 评估认定为含 #73358 fix 的最早稳定 + 避开 4.29/5.x 累积变更面). 升级 SOP: 备份 openclaw.json + bash check_upgrade.sh 重新跑 + dev 验证两个新中风险点 + 维护窗口深夜 + 30 秒回滚预案 + WhatsApp 立即可用性 E2E. 升级成功后更新 LAST_EVAL_DATE 为升级日期重置时间 tripwire (180 天硬性上限到 2026-12 后)",
-      "【Stage 5 候选】kb_radar.sh 06:00 cron 综合分析 LLM prompt + 红/黄/蓝三档机会点推送 (设计文档 6.1 节). 新 cron job + 综合分析三件套 #1+#2+#3 输出 → LLM 综合 → 推送早期机会点. 依赖 4b 完成 (各脚本产 alignment 字段) + 4c 完成 (Top 5 段就位).",
       "V37.9.67+ P2 (4 周观察后立 INV): 原则 #32 用户视角观察制度真执行 — 每周一开工第一件事 30min 不写代码不修 bug, 检查 4 维度 (告警噪声/推送延迟/信息密度/PA 表现). 发现项即 status_update.py --add unfinished 不当场修. 持续 4 周后立 INV-WEEKLY-USER-OBSERVATION-001 守卫周一观察项必有. 把 reactive feedback 升级为 proactive observation. 防御 vim 体验差 / freight 过频 / framework 零漂移真激活漏报 类用户视角 gap. 见 reflection 行动 5.",
       "【V37.9.69+ 外部评审吸收 — P0/P1/P2 候选 (2026-05-14 收工后吸收)】**评审来源**: 外部专业评审客观评价整个项目 (架构层次 + 治理 + 配置抽象 + 安全边界 4 项已肯定; 短板 4 项: 文档漂移 / SLO 样本不足 / 过度脚本化 / 模型效果经验驱动). **两个真漂移已核实** (评审点准确非误解): (1) README L3 '8 providers' vs L9/L48/L158/L163/L165/L244 共 6 处残留 '7 providers' 字面量 — V37.9.52 加 doubao 时只改 L3 漏改 6 处. (2) docs/slo_benchmark_report.md samples=1 标 PASS — V35 一次 demo trace 非 statistical sample, p95=459ms 是 functional smoke. **评审 P0 (2 周内) 候选**: (a) 事实单一来源 — README 徽章自动生成脚本 (provider 数 / 版本 / 测试数 from VERSION + providers.py --json + status.json) 接入 pre-commit hook 防漂移. 工作量 1-2h. (b) SLO 样本门槛 — slo_benchmark.py 加  (默认 200) + 不达标输出 'OBSERVING 观察中不判定 PASS' 而非 PASS. 工作量 30min. (c) PA 价值黄金指标 — success@task / first_response_latency / fallback_rate / tool_chain_depth / **human_accept_rate** (核心) 五指标定义 + 量化方法 + WhatsApp 推送反馈采集. 工作量 1 周 (新设计). **评审 P1 (1-2 月) 候选**: (a) 动态路由器 — 从 V37 capability_routing static 升级为 task_type × cost × latency × success_rate 评分路由, 复用 V37.9.55 doubao cap_score 模式. (b) 故障注入证据密度 — V36 reliability_bench 已就位 (7场景47检查) 但仅 mock-based, 加生产真实运行 + sample 累积. (c) 质量评估管线 — golden set 标注 (50-100 条典型 PA 对话) + rubric 评分 + 离线/在线分支 (采纳率/追问率/纠错率) + 模型升级证据链. **评审 P2 (季度级) 候选**: (a) Ontology 引擎产品化 — V3 路标 `pip install ontology-engine` 已是终极目标, 加版本化 + 迁移说明 + 兼容矩阵 + 平台组件叙事. (b) 策略发布机制 — V37.9.19 convergence framework alert_only→machine_sync+dry_run→activated 三阶段 = 实质 canary 路径, 加强对外叙事让外部评审者 visible. (c) 可观测性标准化 — 统一 trace_id 跨 Proxy/Adapter/Job, 接入同一时序系统. **评审核心洞察 (最值得吸收)**: '度量体系偏系统健康偏少任务价值闭环' — 我们 86 suites / 2950 tests / 77 invariants 全量化系统健康, 但 PA 输出采纳率/误报率/决策影响力业务价值度量从未建立. 每次 V37.9.x 修血案补'系统能跑'没补'产出值得用'. V3 路标新维度: **task value plane**. **评审三层路线建议** (实用): 层 1 稳定运行 (错误恢复+升级回滚+指标可信) → 层 2 能力可控 (路由可解释+策略可审计+风险前置) → 层 3 价值可证 (每周洞察可被采纳带行动). 当前在层 1.5 (从'系统能跑'跃迁到'系统能持续创造决策价值'). **不立即实施 — V37.9.69 session 用户决定优先级**.",
       "V37.9.83 战略方向 3 (Red Team Sandbox): red/blue/judge multi-agent dev sandbox 自我博弈. PoC 价值高生产价值低 (围棋 self-play 有效因博弈空间封闭+胜负函数明确, 我们系统输入空间开放无 ground truth 评分函数). 短期不启动. 但子能力 red_team_audit.py 每周对抗思维扫描有真实价值 — 是 V37.9 adversarial_chaos_audit.py (16/16 已实现) 的延伸. design doc 见 ai_partnership_first_principles_zh.md 第四节方向 3.",
