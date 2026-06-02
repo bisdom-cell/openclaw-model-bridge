@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-02 03:11:19",
+  "updated": "2026-06-02 03:17:35",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-06-02",
+      "what": "V37.9.98 续(全部执行): #7外部评审P0 README徽章自动生成 — gen_readme_badges.py 从权威源生成4个徽章(tests←status.json quality.test_count / governance←audit_metadata total_invariants+meta_rules / version←CLAUDE.md v-label+VERSION+date / providers←providers.py --json len), --check漂移守卫(exit 1)+--write一键同步. 接入full_regression doc-drift层(README漂移=CI fail)=评审要的pre-commit等价物. 立即修了真漂移: README tests徽章停在3739实际3751(评审说的漂移问题实证). providers徽章纳入管理(8). 删脆弱散文扫描(python3 providers→误报3 providers). 21新单测(compute_facts真仓库+apply_badges 4徽章+FAIL-OPEN+--check真跑exit0+幂等+源守卫)+反向(stale徽章检测CHANGED). 外部评审2026-04-17 P0(a)事实单一来源兑现.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-02",
       "what": "V37.9.98 续(全部执行批次): 🧹清理 unfinished — INV-OBSERVER-001 三条重复(V37.9.90/93/95累积)合并成1条 + 移除#8(全行crontab扫描已被今天#3否决) + 确认INV-CROSS-ENV-PATH-001已V37.9.94完成, unfinished 19→17. #7外部评审P0 SLO样本门槛: slo_benchmark.py 加 MIN_SAMPLE_THRESHOLD=200 + _verdict() 三态helper(OBSERVING/PASS/FAIL) — 样本<门槛报OBSERVING不误标PASS, 修V35 golden trace samples=1标ALL PASS统计无意义(外部评审准确指出). 每check用各自样本基数(latency.count/total/tool_total/streaks), overall三态优先级FAIL>OBSERVING>PASS. config.yaml加slo.min_sample_count可调. test_slo_benchmark 17→25(+8 OBSERVING测试含血案samples=1场景+helper三态+可配门槛) + 补进full_regression(此前从未注册gap). dev CLI实测现报OBSERVING(诚实, 无足够样本不假PASS). VERSION 0.37.9.68不变(observability精炼).",
       "by": "claude_code"
     },
@@ -197,11 +202,6 @@
     {
       "date": "2026-05-26",
       "what": "V37.9.84 六件套: (1) Daily Self-Critique Observer 上线 (daily_observer.py+.sh, 73单测, cron 06:30 LLM-as-judge) (2) kb_evening job failure visibility (observer提案真修) (3) observer score history + 7-day trend (4) mm_index路径迁移 (5) run_hn_fixed重命名到jobs/hn_watcher/ (6) unfinished清理103→60. 全量96/0/3328.",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-05-20",
-      "what": "V37.9.83 AI Partnership 战略沉淀 — 写思想升华文档 docs/articles/ai_partnership_first_principles_zh.md (Stage 2 第 6 篇立场文章, ~600 行). 三大第一性原理刻入项目灵魂: (1) 协作本质是边界不是信任 boundaries > trust, 100% 权限假设的根本反挑战, MR-4 silent-failure 28+ 次演出都是好意图+边界不清晰的组合 (2) 系统自我成长 = 用户视角机器化 70% 真问题来自用户 WhatsApp 反馈, daily LLM observer 输出 read-only proposal 是最直接路径 (3) LLM 判断三层 工作记忆已解决/判断模式可部分蒸馏/协作惯性几乎不可持久化. 三战略方向 (Daily Self-Critique Recommended / Claude Escalation Capability / Red Team Sandbox) 登记 deferred unfinished 待用户启动. 今日不动代码, 把第一性原理刻入项目灵魂. Stage 2 → Stage 3 拐点: AI Partnership Framework — 不只是工具系统, 是 AI 合伙人 + 人类伙伴协同工程范式. 累计 95 suites / 3247 tests / 0 fail / 81 inv / 740 checks / 19 MR / 安全 95/100 / VERSION 0.37.9.68 不变 (V37.9.83 是治理思想层固化非业务语义).",
       "by": "claude_code"
     }
   ],
