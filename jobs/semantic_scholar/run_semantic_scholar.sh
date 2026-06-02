@@ -91,7 +91,7 @@ mkdir -p "$RAW_DIR"
 
 FETCH_ERRORS=0
 # V37.9.98: Semantic Scholar API key 集成 (unfinished #2 候选兑现).
-# 有 S2_API_KEY → 认证模式 (100 req/sec, 规避 V37.8.13 起的 429 daily limit, 5/27-5/28
+# 有 S2_API_KEY → 认证模式 (独占 1 RPS 不抢匿名池, 规避 V37.8.13 起的 429 daily limit, 5/27-5/28
 # 连续 6 关键词 429 全失败). FAIL-OPEN: 无 key → 无认证模式 (保守 30s 间隔, 当前行为不变).
 # 申请免费 key: https://www.semanticscholar.org/product/api (即时发放).
 # bash 3.2 兼容: 脚本 set -eo (无 -u), 空数组 "${arr[@]}" 安全展开.

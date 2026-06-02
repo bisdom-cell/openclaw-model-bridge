@@ -2,7 +2,7 @@
 """V37.9.98 Semantic Scholar API key 集成单测 (unfinished #2 候选兑现).
 
 集成: jobs/semantic_scholar/run_semantic_scholar.sh 加 S2_API_KEY 认证 header.
-- 有 S2_API_KEY → 认证模式 (x-api-key header, 100 req/sec, 间隔 1s) 规避 V37.8.13 起
+- 有 S2_API_KEY → 认证模式 (x-api-key header, 独占 1 RPS, 间隔 1s) 规避 V37.8.13 起
   的 429 daily limit (5/27-5/28 连续 6 关键词 429 全失败).
 - FAIL-OPEN: 无 key → 无认证模式 (空 header, 保守 30s 间隔), 当前行为完全不变.
 
