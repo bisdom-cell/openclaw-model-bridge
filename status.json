@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-02 03:35:33",
+  "updated": "2026-06-02 03:44:24",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-06-02",
+      "what": "V37.9.99 #14 ai_leaders 复盘 + 429 节流修复 (用户拉 Mac Mini 6/1+6/2 fetch log). 关键发现: 不是僵尸问题, 是 V37.9.95 账号 19→31 翻倍后撞 X Syndication HTTP 429 限流 — ~16/31(21:00)/~11/31(09:00) fail, 且失败账号两次 run 轮换 (AndrewYNg/BarrySmith46/IanHorrocks 一次 fail 一次 ok = 账号活着非僵尸, 原 #14 清僵尸框架不适用). 真因: 旧 inter-account sleep 3 只在成功路径 (失败 continue 跳过) → 限流命中后失败账号 rapid-fire (16 WARN 挤 21:00:02 同一秒). 修复 (原则#28三问: V37.9.95翻倍引入/最小修复=节流移循环顶部): AI_LEADERS_FETCH_DELAY 默认5s + FETCH_IDX 守卫移到循环顶部 (第一个不sleep, 对成功+失败账号都生效, 31×5s≈155s摊开远低于限流阈值), 删旧成功路径 sleep 3. 不回退 31 账号 (修节流非账号数). 8 新单测 (节流在fetch前+在continue前+旧sleep3移除+31账号保留) + 反向验证 (移回成功路径→fail). 次要观察待后续: 所有 ok 账号都0条新推文 (可能 seen-dedup 正常 / 可能 14天窗口+dedup 问题, 不盲改). VERSION 0.37.9.68 不变.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-02",
       "what": "V37.9.98 续(全部执行): #5 Opportunity Radar Stage 5 kb_radar 上线(设计文档6.1节兑现). 新 kb_radar_collect.py(纯Python collector) + kb_radar.sh(thin wrapper 06:00 cron). 消费三件套(#1跨源共振daily_signals/#2项目高对齐top_alignment_picker/#3趋势加速weekly_trends) → 规则化件套交集分红/黄/蓝三档: 红=三件套交集(跨源∩高对齐⭐≥4∩趋势加速)/黄=二件套/蓝=单件套趋势观察(加速+减速主题). 关键判断: 红黄蓝是规则化交集非LLM(三件套各自已做LLM分析), 用规则更鲁棒(确定性+无06:00 LLM fail-fast吵醒+零token), LLM prose润色留V+1. 复用kb_dream_helpers.themes_overlap(主题跨源匹配)+top_alignment_picker(MR-8不copy-paste). 修themes_overlap调用bug(接受set非str, 先normalize). 跨语言局限(英文keyword vs中文cn_title): themes_overlap同语言可靠+子串fallback覆盖英文术语嵌中文标题, RED跨语言命名较难触发是已知限制V+1加embedding. 推送决策: 仅red+yellow>0(可操作机会点)才双通道推送, 否则只归档KB(原则#32低噪声, radar无信号非故障不报[SYSTEM_ALERT]). collector_failed→[SYSTEM_ALERT]+exit1真故障fail-fast. 30新单测(read FAIL-OPEN/topic match/红黄蓝交集/briefing/orchestrator/shell守卫)+反向验证(sabotage退回str传themes_overlap→跨件套交集失效). jobs_registry kb_radar(0 6 * * *, needs_api_key=false) + auto_deploy FILE_MAP×2 + docs/config.md + full_regression. dev端到端: no_actionable只归档exit0/有信号ok. VERSION 0.37.9.68不变(规则化合成job无新capability). 待用户Mac Mini: crontab_safe.sh add 0 6 cron注册.",
       "by": "claude_code"
     },
@@ -197,11 +202,6 @@
     {
       "date": "2026-05-27",
       "what": "V37.9.85 八件套: (1) INV-AUTO-INJECT-001 MR-18 Step 2 前瞻守卫 +10 tests (2) scanner --full crontab runtime check +8 tests (3) _format_cron_line .py→python3 bug fix (4) scanner 归一化 quotes+$HOME+basename fallback 18→0 violations (5) HN metadata 泄漏清理 (6) README badges 3346/82/36 (7) 安全扫描 grep +85200000001 排除 CI+preflight+regression+test 四处同步 (8) kb_deep_dive wa_parts WARN stderr→log. Observer 首跑验证 06:30 cron OK + score_history 累积. unfinished 60→53. 全量 96/0/3346.",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-05-27",
-      "what": "V37.9.85: INV-AUTO-INJECT-001 MR-18 Step 2 前瞻守卫立案 (batch inject/migrate 工具必须内嵌 scanner 验证, 当前无此类工具=pass, 未来 commit 入仓立即 governance 抓). MR-18 derivative_invariants 扩 [HEREDOC+AUTO-INJECT]. 10 新单测 + unfinished 清理 60→56. 全量 96/0/3338.",
       "by": "claude_code"
     }
   ],
@@ -325,11 +325,11 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 3827,
-    "last_regression": "2026-06-02 03:34 pass",
+    "test_count": 3835,
+    "last_regression": "2026-06-02 03:43 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-02 03:34",
-    "test_suites": 108,
+    "security_score_time": "2026-06-02 03:43",
+    "test_suites": 109,
     "governance_invariants": "85/85",
     "governance_checks": "790/790",
     "version": "0.37.9.68",
@@ -397,7 +397,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.99 全部执行批次 (用户 6/2 全部执行清除所有能处理待办指令): 单 session 清掉 7 项 — 🧹清理(INV-OBSERVER三重复合并+移除#8被否决+剥离status.json pip日志污染, unfinished 19→16) + #7 SLO样本门槛(slo_benchmark OBSERVING三态, 修samples=1标PASS, 外部评审P0) + #7 README徽章自动生成(gen_readme_badges从权威源+--check漂移守卫接入full_regression=CI级, 外部评审P0, 立即修tests-3739→3827真漂移) + #5 Opportunity Radar Stage 5 kb_radar(消费三件套规则化件套交集红/黄/蓝三档机会点, 06:00 cron, 复用themes_overlap+top_alignment_picker, 仅red+yellow>0才推送低噪声, 30单测) + #2 LEVEL_6 3天预览(强阳性因此↓70%+tag 0→9-12) + #3 convergence cron审计(数据驱动决定不切换, case doc) + #4 S2 key集成(FAIL-OPEN, 已申请等审核). 累计 108 suites/3827 tests/0 fail/安全95/governance v3.52 85INV 790checks/VERSION 0.37.9.68不变(全PoC/observability/审计/清理无新capability). 日期硬卡项诚实跳过(INV-OBSERVER/services flip/INV-SOURCE-CREDIBILITY ~6/8-9, LEVEL_6完整判定6/4, OpenClaw评估6/15). 下次: Mac Mini kb_radar cron注册+S2 key+#14 ai_leaders僵尸复盘(拉fetch log) / 6/4 LEVEL_6立INV-DREAM-CROSS-DOMAIN-001 / 6/8后 services flip+INV-OBSERVER-001+INV-SOURCE-CREDIBILITY-001.",
+  "focus": "V37.9.99 全部执行批次完成 (用户 6/2 全部执行清除所有能处理待办). 单 session 清 8 项: 🧹清理(INV-OBSERVER三重复合并+移除#8+剥离status.json pip污染 19→16) + #7 SLO样本门槛OBSERVING三态 + #7 README徽章自动生成+CI漂移守卫 + #5 Opportunity Radar Stage 5 kb_radar(三件套规则化交集红/黄/蓝 06:00 cron) + #2 LEVEL_6 3天预览强阳性 + #3 cron审计决定不切换 + #4 S2 key集成 + #14 ai_leaders 429节流修复(非僵尸是V37.9.95翻倍撞限流). 109 suites/3835 tests/0 fail/安全95/governance v3.52(85INV/790checks)/VERSION 0.37.9.68不变(全PoC/observability/审计/清理/bugfix无新capability). 日期硬卡诚实跳过. 下次: Mac Mini kb_radar cron注册+S2 key+验证ai_leaders 429修复 / 6/4 LEVEL_6立INV-DREAM-CROSS-DOMAIN-001 / 6/8后 services flip+INV-OBSERVER-001+INV-SOURCE-CREDIBILITY-001 / 6/15 OpenClaw第五次评估.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",

@@ -60,6 +60,7 @@ run_suite "cron_monitor_fatal_handler (V37.9.63 MR-8 抽公共 helper + 顺势�
 run_suite "cross_os_quirk_scanner (V37.9.67 INV-CROSS-OS-001 P0 — cmd&&||/grep|head/awk LC_ALL/zsh-specific 4 quirk 主动检测)" "python3 test_cross_os_quirk_scanner.py"
 run_suite "cross_env_path_scanner (V37.9.94 INV-CROSS-ENV-PATH-001 — MR-15 deployment-layout 第 4 次演出后立 framework, 防 5th _resolve_*_path 漏 Mac Mini canonical)" "python3 test_cross_env_path_scanner.py"
 run_suite "v37_9_95_ai_leaders (V37.9.95 ai_leaders_x 多元化 19→31 跨 12 派别 — 周一 #32 用户视角反馈驱动)" "python3 test_v37_9_95_ai_leaders.py"
+run_suite "v37_9_99_ai_leaders_throttle (V37.9.99 #14 inter-account 节流防 429 — 31 账号翻倍撞限流修复)" "python3 test_v37_9_99_ai_leaders_throttle.py"
 run_suite "v37_9_96_proxy_plist_env (V37.9.96 INV-PROXY-PLIST-ENV-001 — 守 proxy plist ARK_API_KEY+ARK_ENDPOINT_ID, V37.9.91 Doubao expert_escalate 真生产缺口, 镜像 V37.9.54 adapter plist 模式)" "python3 test_v37_9_96_proxy_plist_env.py"
 run_suite "kb_dream_helpers (V37.9.68 INV-DREAM-MULTITHEME-001 — Qwen-BIM 连续几周血案防御 + 14 天 ban-list + 主题归一化 + 三阶推送 helper)" "python3 test_kb_dream_helpers.py"
 run_suite "v37_9_69 (V37.9.69 双修 — B 项 watchdog test alternation + C 项 full_regression count bug 修复)" "python3 test_v37_9_69.py"

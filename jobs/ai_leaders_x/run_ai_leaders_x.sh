@@ -162,9 +162,18 @@ ALL_TWEETS="$CACHE/all_tweets.jsonl"
 FETCH_STATS=""
 
 # ── 1. 逐账号抓取推文 ──────────────────────────────────────────────────
+# V37.9.99: inter-account 节流防 429 (V37.9.95 账号 19→31 翻倍后撞 X Syndication 限流,
+# ~16/31 fail HTTP 429, 失败账号轮换=非僵尸). 移到循环顶部对所有账号生效 — 旧 sleep 3
+# 仅成功路径, 失败 continue 跳过 → 限流后 rapid-fire (16 WARN 挤同一秒). 默认 5s ×31≈155s
+# 把 fetch 摊开, 远低于限流阈值. env AI_LEADERS_FETCH_DELAY 可调.
+AI_LEADERS_FETCH_DELAY="${AI_LEADERS_FETCH_DELAY:-5}"
+FETCH_IDX=0
 for leader_entry in "${LEADERS[@]}"; do
     IFS='|' read -r HANDLE DISPLAY_NAME LABEL <<< "$leader_entry"
     RAW_HTML="$CACHE/raw/${HANDLE}.html"
+    # 每账号 fetch 前节流 (第一个不 sleep), 成功+失败都生效防限流填满
+    [ "$FETCH_IDX" -gt 0 ] && sleep "$AI_LEADERS_FETCH_DELAY"
+    FETCH_IDX=$((FETCH_IDX + 1))
 
     # 抓取 Syndication API
     FETCH_OK=false
@@ -284,8 +293,7 @@ print(f"[ai_leaders] {handle}: {len(tweets)} 条新推文", file=sys.stderr)
 PYEOF
 
     FETCH_STATS="${FETCH_STATS}${HANDLE}:ok "
-    # 请求间隔，避免被限速
-    sleep 3
+    # V37.9.99: inter-account 节流已移到循环顶部 (对成功+失败账号都生效防 429)
 done
 
 TOTAL_NEW="$(wc -l < "$ALL_TWEETS" | tr -d ' ')"
