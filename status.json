@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-02 03:49:10",
+  "updated": "2026-06-02 06:05:22",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-06-02",
+      "what": "V37.9.99-docs: failure_modes_catalog 单一权威版整合 — 开工核实发现 catalog 已存在但两份分叉副本 (docs/ V37.9.86 机制分类 32 案例 + ontology/docs/ V37.9.81 位置分类 21 案例, 分类法不兼容+都 stale = MR-8 copy-paste + 外部评审点名的 doc-drift, 记录失败模式的文档自己是失败模式). 用户选单一权威版+删副本 (宪法删前 surface 确认). 以 ontology/docs/ 为 canonical 重写机制导向 5 类 (A环境Quirk/B设计假设错配/C错误吞噬稀释/D链式幻觉编造/E运维遗漏取证盲区), 22 真案例 (24文件−openclaw_as_ontology架构−cron_line_audit决策) + 新增 v37_9_92_observer_path, 更新到 V37.9.99 (85INV/21MR/15MRD/790checks/v3.52). 删 docs/ 分叉副本. 史料修正: MR-16=security-dimensions-governed-by-invariants 非旧catalog误记的 macos-fda 候选. 话语权增强 (ArXiv Silent Failures Taxonomy 论文前置): 横向洞察=潜伏期分布+发现渠道分布(用户视角~70%)+三层根因模式+防御三步跃迁(单点→元规则→MRD扫描器)+MR-4 ~28次演出时间线. README 4处stale同步 (v3.47→v3.52/80→85INV/19→21MR/14→15MRD/731→790checks/21→22案例+链接修正). 验证: full_regression 109/3835/0fail + governance 693/693所有不变式成立 + path_consistency 0violations + gen_readme_badges无漂移 + 无断引用. VERSION 0.37.9.68不变(doc整合零代码零新INV/MR).",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-02",
       "what": "V37.9.99 S2 key 批准后微调: S2 邮件确认限额 1 request/second 且明确要求设到阈值以下 (印证 V37.9.99 修正的独占 1 RPS 非 100/sec). 认证模式间隔 S2_KW_SLEEP 1s→2s 安全余量 (6 关键词仅多 6s, 避免恰好在 1 RPS 阈值偶发 429). 更新 test_v37_9_98_s2_api_key 断言 1→2. 安全: key 只存 env 永不入仓库 (grep s2k- 确认 0 泄漏), 用户在 Mac Mini 加 S2_API_KEY 到 cron env (REMOTE_API_KEY 同处). VERSION 0.37.9.68 不变.",
       "by": "claude_code"
     },
@@ -197,11 +202,6 @@
     {
       "date": "2026-05-28",
       "what": "V37.9.86 六件套交付 + unfinished 50→12 大扫除. (1) trap override lockdir 修复 5 脚本 + 8 单测 (bash trap 覆盖血案根因) (2) MR-20 framework-level-fix-must-validate-in-target-environment + MR-21 monitor-coverage-must-track-registry 双元规则立案 (3) INV-HALLUCINATION-001 10 checks 反幻觉守卫覆盖 (4) movespeed_daily_sync.sh 标准 job (inline crontab→wrapper+registry+FILE_MAP) (5) failure_modes_catalog.md 32 失败案例 5 类结构化目录 (V3 资产) (6) unfinished 50→12 (provider deferred + 18 stale 清除 + 7 合并 + 5 解决). governance v3.50: 83 inv / 755 checks / 21 MR. 全量 97/0/3354.",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-05-28",
-      "what": "V37.9.86 trap override lockdir 残留修复 — bash trap 覆盖血案闭环 + 3 stale unfinished 清理. 根因: bash trap 是覆盖式非追加式, multi-chunk 分支 trap rm -rf WA_CHUNK_DIR EXIT 完全覆盖前面的 trap rmdir LOCK EXIT, >8000 字消息时 lockdir 不清理. 5 个脚本批量修 (arxiv/github_trending/hf_papers/rss_blogs/semantic_scholar), 合并两个 cleanup 到同一 trap. 8 新单测含行为层反向验证 (standalone trap 确实覆盖前一个) + 正向验证 (合并 trap 同时清理两目录) + repo 扫描守卫. 同时确认 SLO bash quirk (unfinished #26) 已在 V37.9.66-hotfix 修, cmd&&X||Y 7 处 (#37) 已在 V37.9.67 修, 清除 3 个 stale unfinished. 全量 97/0/3354.",
       "by": "claude_code"
     }
   ],
@@ -326,9 +326,9 @@
   "quality": {
     "security_score": 95,
     "test_count": 3835,
-    "last_regression": "2026-06-02 03:43 pass",
+    "last_regression": "2026-06-02 06:02 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-02 03:43",
+    "security_score_time": "2026-06-02 06:02",
     "test_suites": 109,
     "governance_invariants": "85/85",
     "governance_checks": "790/790",
@@ -397,7 +397,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.99 全部执行批次完成 (用户 6/2 全部执行清除所有能处理待办). 单 session 清 8 项: 🧹清理(INV-OBSERVER三重复合并+移除#8+剥离status.json pip污染 19→16) + #7 SLO样本门槛OBSERVING三态 + #7 README徽章自动生成+CI漂移守卫 + #5 Opportunity Radar Stage 5 kb_radar(三件套规则化交集红/黄/蓝 06:00 cron) + #2 LEVEL_6 3天预览强阳性 + #3 cron审计决定不切换 + #4 S2 key集成 + #14 ai_leaders 429节流修复(非僵尸是V37.9.95翻倍撞限流). 109 suites/3835 tests/0 fail/安全95/governance v3.52(85INV/790checks)/VERSION 0.37.9.68不变(全PoC/observability/审计/清理/bugfix无新capability). 日期硬卡诚实跳过. 下次: Mac Mini kb_radar cron注册+S2 key+验证ai_leaders 429修复 / 6/4 LEVEL_6立INV-DREAM-CROSS-DOMAIN-001 / 6/8后 services flip+INV-OBSERVER-001+INV-SOURCE-CREDIBILITY-001 / 6/15 OpenClaw第五次评估.",
+  "focus": "V37.9.99-docs (6/2 续): failure_modes_catalog 单一权威版整合完成 — 删两份分叉副本 (MR-8 单一真理源 + 回应外部评审 doc-drift, 记录失败模式的文档自己不能是失败模式), 以 ontology/docs/ 为 canonical 重写机制导向 5 类 (A环境/B设计/C吞噬/D幻觉/E运维取证) 22 真案例 + 新增 v37_9_92_observer_path, 更新到 V37.9.99 (85INV/21MR/15MRD/790checks/v3.52). 修史料 (MR-16=security-dimensions-governed-by-invariants 非旧记的 macos-fda 候选). 加横向洞察 (潜伏期/发现渠道~70%用户视角/三层根因/防御三步跃迁/MR-4 ~28次演出) 作 ArXiv Silent Failures Taxonomy 论文前置. README 4处stale同步. full_regression 109/3835/0fail + governance 693/693 + path_consistency 0 violations. VERSION 0.37.9.68 不变. | 前序 V37.9.99 全部执行批次 (单session清8项待办). 下次硬卡: Mac Mini git fetch+reset 同步 + kb_radar cron 注册 + S2 key / 6/4 LEVEL_6 立 INV-DREAM-CROSS-DOMAIN-001 (5天数据) / 6/8后 services flip+INV-OBSERVER-001+INV-SOURCE-CREDIBILITY-001 (一周观察) / 6/15 OpenClaw 第五次评估. 多数候选日期硬卡诚实跳过.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
