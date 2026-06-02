@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-02 03:29:30",
+  "updated": "2026-06-02 03:35:33",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -325,11 +325,11 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 3751,
-    "last_regression": "2026-06-02 02:13 pass",
+    "test_count": 3827,
+    "last_regression": "2026-06-02 03:34 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-02 02:13",
-    "test_suites": 105,
+    "security_score_time": "2026-06-02 03:34",
+    "test_suites": 108,
     "governance_invariants": "85/85",
     "governance_checks": "790/790",
     "version": "0.37.9.68",
@@ -397,7 +397,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.98 来源可信度评级 source_credibility.py (observer 5/28 proposal #2 兑现, MR-7 治理自观察延伸 + V37.9.83 AI Partnership 闭环: observer 自己提议→Claude 实施). 5 档 tier (🥇学术同行评审/🥈会议预印本/🥉工业实践/📝博客含 chaspark/💬社媒, 按引用断言无需独立验证可信程度递减) + SOURCE_CREDIBILITY 14 源映射 (MR-8 单一真理源↔jobs_registry drift guard) + format_credibility_block() 注入 kb_dream 5 点 + kb_evening. 与 hallucination_guards 互补双可信度轴 (HG 守内容真实性, credibility 守出处权威性). 56 新单测 10 类 + 反向验证 (sabotage chaspark/删源→drift guard fail, 还原 56/56). 不立 INV (PoC, INV-SOURCE-CREDIBILITY-001 留一周观察后). 103 suites/3739 tests/0 fail/安全 95/VERSION 0.37.9.68 不变. 注意 services flip 候选顺延 V37.9.99+ (本次 V37.9.98 用于 source credibility). 下次: Mac Mini 部署后 22:00 evening+03:00 dream 验证 [可信度] 标注真生效 / 6/8 后 services flip + INV-OBSERVER-001 + INV-SOURCE-CREDIBILITY-001 / LEVEL_6 dream + ai_leaders 观察需 Mac Mini 数据.",
+  "focus": "V37.9.99 全部执行批次 (用户 6/2 全部执行清除所有能处理待办指令): 单 session 清掉 7 项 — 🧹清理(INV-OBSERVER三重复合并+移除#8被否决+剥离status.json pip日志污染, unfinished 19→16) + #7 SLO样本门槛(slo_benchmark OBSERVING三态, 修samples=1标PASS, 外部评审P0) + #7 README徽章自动生成(gen_readme_badges从权威源+--check漂移守卫接入full_regression=CI级, 外部评审P0, 立即修tests-3739→3827真漂移) + #5 Opportunity Radar Stage 5 kb_radar(消费三件套规则化件套交集红/黄/蓝三档机会点, 06:00 cron, 复用themes_overlap+top_alignment_picker, 仅red+yellow>0才推送低噪声, 30单测) + #2 LEVEL_6 3天预览(强阳性因此↓70%+tag 0→9-12) + #3 convergence cron审计(数据驱动决定不切换, case doc) + #4 S2 key集成(FAIL-OPEN, 已申请等审核). 累计 108 suites/3827 tests/0 fail/安全95/governance v3.52 85INV 790checks/VERSION 0.37.9.68不变(全PoC/observability/审计/清理无新capability). 日期硬卡项诚实跳过(INV-OBSERVER/services flip/INV-SOURCE-CREDIBILITY ~6/8-9, LEVEL_6完整判定6/4, OpenClaw评估6/15). 下次: Mac Mini kb_radar cron注册+S2 key+#14 ai_leaders僵尸复盘(拉fetch log) / 6/4 LEVEL_6立INV-DREAM-CROSS-DOMAIN-001 / 6/8后 services flip+INV-OBSERVER-001+INV-SOURCE-CREDIBILITY-001.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",

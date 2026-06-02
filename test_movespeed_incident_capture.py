@@ -46,6 +46,7 @@ EXPECTED_RSYNC_SITES = [
     "jobs/openclaw_official/run_discussions.sh",
     "jobs/openclaw_official/run.sh",
     "movespeed_daily_sync.sh",  # V37.9.86: KB→SSD daily sync (uses helper)
+    "kb_radar.sh",  # V37.9.99: Opportunity Radar Stage 5 radar/ 备份 (uses helper)
 ]
 
 
