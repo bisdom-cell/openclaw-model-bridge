@@ -42,6 +42,10 @@ import kb_review_collect as rc
 # + Opportunity Radar 三件套信号源契约 (Top 5/cross_source/trend 跨多天非今日事件)
 from hallucination_guards import get_guard
 
+# V37.9.98: 来源可信度评级 (observer 5/28 proposal #2). 与 get_guard 互补 —
+# guard 守内容真实性, credibility 守出处权威性 (非主流源如 chaspark 须标注可信度).
+from source_credibility import format_credibility_block
+
 
 # ══════════════════════════════════════════════════════════════════════
 # 0a. Job failure scanner — V37.9.84 observer proposal #3/#5 (failure impact)
@@ -303,7 +307,7 @@ def build_evening_prompt(
 - 每条要闻必须能在下方原文中找到对应段落，标注来源标签
 - 严禁虚构任何发布公告、开源事件、产品发布、人物言论
 - 如果某个领域今天无数据，直接跳过，不要编造
-{get_guard("LEVEL_5_RADAR_AWARE")}
+{get_guard("LEVEL_5_RADAR_AWARE")}{format_credibility_block()}
 
 ═══ 今日笔记 ═══
 {notes_text or '（今日无新增笔记）'}
