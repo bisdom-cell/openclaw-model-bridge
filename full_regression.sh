@@ -96,6 +96,7 @@ run_suite "top_alignment_picker (V37.9.56 Sub-Stage 4c Opportunity Radar #2 Top 
 run_suite "v37_9_49_radar_integration (V37.9.49 Sub-Stage 4a #1+#3 kb_dream/evening 集成)" "python3 test_v37_9_49_radar_integration.py"
 run_suite "v37_9_50_semantic_scholar (V37.9.50 Sub-Stage 4b 1 脚本 PoC 6字段 + rule_check)" "python3 test_v37_9_50_semantic_scholar.py"
 run_suite "v37_9_51_sub_stage_4b_batch (V37.9.51 Sub-Stage 4b 6 脚本批量 6字段+rule_check 机械迁移)" "python3 test_v37_9_51_sub_stage_4b_batch.py"
+run_suite "v37_9_98_s2_api_key (V37.9.98 Semantic Scholar API key 认证 header 集成 + FAIL-OPEN)" "python3 test_v37_9_98_s2_api_key.py"
 run_suite "v37_9_52_doubao_provider (V37.9.52 Doubao Seed 2.0 Pro 第 8 个 provider + module 重入 bug fix)" "python3 test_v37_9_52_doubao_provider.py"
 run_suite "v37_9_53_doubao_verified (V37.9.53 flip verified_text + reasoning capability + fallback chain 排名前移)" "python3 test_v37_9_53_doubao_verified.py"
 run_suite "v37_9_54_abc (V37.9.54 ABC: restart.sh marker-based plist reload + verified_vision + INV-PLIST-ENV-001)" "python3 test_v37_9_54_abc.py"
