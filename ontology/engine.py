@@ -27,9 +27,25 @@ except ImportError:
     yaml = None
 
 # ---------------------------------------------------------------------------
-# 本体文件路径
+# 本体文件路径（V37.9.99-pkg: config-root 可注入 — pip 包化 keystone）
 # ---------------------------------------------------------------------------
-_ONTOLOGY_DIR = os.path.dirname(os.path.abspath(__file__))
+# Layer 1 (引擎代码) 与 Layer 2 (项目 YAML 配置) 解耦的关键：配置目录由
+# 消费方决定，不绑定引擎代码所在位置。解析优先级：
+#   1) ONTOLOGY_CONFIG_DIR 环境变量（pip 安装后由消费项目指定其 YAML 目录）
+#   2) 默认 = 引擎代码同目录（向后兼容：当前 ontology/ 自带配置不变）
+# 这让 `pip install <engine>` 后，消费项目用自己的 tool_ontology.yaml /
+# domain_ontology.yaml / policy_ontology.yaml 而无需改引擎代码。
+# 注意：ToolOntology(path=...) / evaluate_policy(..., path=...) 等的 path 参数
+# 仍可逐次覆盖此默认（更细粒度），本变量只是"未指定 path 时"的兜底。
+def _resolve_config_dir():
+    """解析本体配置目录（ONTOLOGY_CONFIG_DIR env 优先，默认引擎同目录）。"""
+    env_dir = os.environ.get("ONTOLOGY_CONFIG_DIR", "").strip()
+    if env_dir:
+        return os.path.abspath(os.path.expanduser(env_dir))
+    return os.path.dirname(os.path.abspath(__file__))
+
+
+_ONTOLOGY_DIR = _resolve_config_dir()
 _ONTOLOGY_FILE = os.path.join(_ONTOLOGY_DIR, "tool_ontology.yaml")
 _DOMAIN_ONTOLOGY_FILE = os.path.join(_ONTOLOGY_DIR, "domain_ontology.yaml")
 _POLICY_ONTOLOGY_FILE = os.path.join(_ONTOLOGY_DIR, "policy_ontology.yaml")

@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-02 06:05:22",
+  "updated": "2026-06-02 07:20:25",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-06-02",
+      "what": "V37.9.99-pkg: ontology-engine pip 包化第一块 (Phase 5 chunk 1, 终极目标奠基). keystone=config-injection: engine.py _resolve_config_dir()+ONTOLOGY_CONFIG_DIR env / governance_checker _resolve_project_root()+_resolve_ontology_dir()+ONTOLOGY_PROJECT_ROOT env — pip 装的引擎指向消费方 YAML 而非引擎自带, 向后兼容(无 env=默认引擎目录, Mac Mini/cron 不变). 二层架构: Layer1 项目无关引擎(ToolOntology/evaluate_policy/5 check executor/MRD/convergence/three_gate)=pip 包, Layer2 项目 YAML=消费方. governance __main__ 抽 main() 供 console. pyproject.toml openclaw-ontology-engine 0.1.0 (PyPI ontology-engine 已被占用) packages=[ontology]+console_scripts openclaw-ontology-audit/query — pip install -e . 真装成功+命令注册到 bin+卸载干净. docs/ontology_engine_packaging.md 二层架构+config 契约+已知耦合诚实登记+chunk2-5 迁移路标. test_ontology_packaging.py 23 单测+反向 sabotage 真有效(退回硬编码立即 fail). 验证: full_regression 109→110 suites/3835→3858 tests/0fail + governance 789 + 宪法第一条 proxy 不依赖 ontology(删除后 FAIL-OPEN). VERSION 0.37.9.68 不变. chunk2 候选: import 名 ontology→去泛化(破坏性, 涉 proxy lazy-load+symlink+全 import).",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-02",
       "what": "V37.9.99-docs: failure_modes_catalog 单一权威版整合 — 开工核实发现 catalog 已存在但两份分叉副本 (docs/ V37.9.86 机制分类 32 案例 + ontology/docs/ V37.9.81 位置分类 21 案例, 分类法不兼容+都 stale = MR-8 copy-paste + 外部评审点名的 doc-drift, 记录失败模式的文档自己是失败模式). 用户选单一权威版+删副本 (宪法删前 surface 确认). 以 ontology/docs/ 为 canonical 重写机制导向 5 类 (A环境Quirk/B设计假设错配/C错误吞噬稀释/D链式幻觉编造/E运维遗漏取证盲区), 22 真案例 (24文件−openclaw_as_ontology架构−cron_line_audit决策) + 新增 v37_9_92_observer_path, 更新到 V37.9.99 (85INV/21MR/15MRD/790checks/v3.52). 删 docs/ 分叉副本. 史料修正: MR-16=security-dimensions-governed-by-invariants 非旧catalog误记的 macos-fda 候选. 话语权增强 (ArXiv Silent Failures Taxonomy 论文前置): 横向洞察=潜伏期分布+发现渠道分布(用户视角~70%)+三层根因模式+防御三步跃迁(单点→元规则→MRD扫描器)+MR-4 ~28次演出时间线. README 4处stale同步 (v3.47→v3.52/80→85INV/19→21MR/14→15MRD/731→790checks/21→22案例+链接修正). 验证: full_regression 109/3835/0fail + governance 693/693所有不变式成立 + path_consistency 0violations + gen_readme_badges无漂移 + 无断引用. VERSION 0.37.9.68不变(doc整合零代码零新INV/MR).",
       "by": "claude_code"
     },
@@ -197,11 +202,6 @@
     {
       "date": "2026-05-29",
       "what": "V37.9.91 Expert Escalation wiring 落地 — V37.9.90-r1 部署 checklist 兑现 (代码就绪 → 真生产可用). 三处 wiring 完成: (A) proxy_filters.py CUSTOM_TOOLS 第 3 个 entry + TOOL_PARAMS args 集合 (question required string + backend optional enum [doubao, claude_pending], description 含 6 个 SOUL 规则 12 触发词 + Doubao + PA caller). (B) tool_proxy.py _execute_custom_tool 新增 expert_escalate 分支 (~80 行): V37.9.15 three_gate 同款 importlib.util.spec_from_file_location lazy import + 双路径 fallback (脚本同目录 dev → $HOME FILE_MAP 部署位置), FAIL-CLOSED 三档 no_context/unknown_backend/api_unavailable, MR-11 stderr log 防 $(...)污染, ensure_ascii=False 保留中文. (C) auto_deploy.sh FILE_MAP 加 expert_escalation.py 部署条目 + V37.9.91 注释 marker. (D) ontology/tool_ontology.yaml custom.expert_escalate 段让 ONTOLOGY_MODE=on 路径也注册 (V37.9.85 INV-AUTO-INJECT-001 必经路径). 三模式 off/on/shadow 验证 expert_escalate ∈ CUSTOM_TOOL_NAMES. 32 新单测 7 类 (含 3 端到端 dry_run subprocess 真跑 escalate + 6 source-level lazy import 模式守卫). 反向 sabotage 3 处触发 18 failures 证明守卫真有效. 99 suites / 3537 tests / 0 fail / governance 762 checks / 安全 95/100. 不立 INV (V37.9.90-r1 承诺 V37.9.92+ 一周观察期后立 INV-EXPERT-ESCALATION-001). 下次 Mac Mini 部署后用户验证: git fetch+reset → 等 auto_deploy 同步 → restart proxy → WhatsApp 发\"让 Claude 看看 ...\"触发 SOUL 规则 12 → expert_escalate → Doubao → audit log JSONL.",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-05-28",
-      "what": "V37.9.86 六件套交付 + unfinished 50→12 大扫除. (1) trap override lockdir 修复 5 脚本 + 8 单测 (bash trap 覆盖血案根因) (2) MR-20 framework-level-fix-must-validate-in-target-environment + MR-21 monitor-coverage-must-track-registry 双元规则立案 (3) INV-HALLUCINATION-001 10 checks 反幻觉守卫覆盖 (4) movespeed_daily_sync.sh 标准 job (inline crontab→wrapper+registry+FILE_MAP) (5) failure_modes_catalog.md 32 失败案例 5 类结构化目录 (V3 资产) (6) unfinished 50→12 (provider deferred + 18 stale 清除 + 7 合并 + 5 解决). governance v3.50: 83 inv / 755 checks / 21 MR. 全量 97/0/3354.",
       "by": "claude_code"
     }
   ],
@@ -325,11 +325,11 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 3835,
-    "last_regression": "2026-06-02 06:02 pass",
+    "test_count": 3858,
+    "last_regression": "2026-06-02 07:18 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-02 06:02",
-    "test_suites": 109,
+    "security_score_time": "2026-06-02 07:18",
+    "test_suites": 110,
     "governance_invariants": "85/85",
     "governance_checks": "790/790",
     "version": "0.37.9.68",
@@ -397,7 +397,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.99-docs (6/2 续): failure_modes_catalog 单一权威版整合完成 — 删两份分叉副本 (MR-8 单一真理源 + 回应外部评审 doc-drift, 记录失败模式的文档自己不能是失败模式), 以 ontology/docs/ 为 canonical 重写机制导向 5 类 (A环境/B设计/C吞噬/D幻觉/E运维取证) 22 真案例 + 新增 v37_9_92_observer_path, 更新到 V37.9.99 (85INV/21MR/15MRD/790checks/v3.52). 修史料 (MR-16=security-dimensions-governed-by-invariants 非旧记的 macos-fda 候选). 加横向洞察 (潜伏期/发现渠道~70%用户视角/三层根因/防御三步跃迁/MR-4 ~28次演出) 作 ArXiv Silent Failures Taxonomy 论文前置. README 4处stale同步. full_regression 109/3835/0fail + governance 693/693 + path_consistency 0 violations. VERSION 0.37.9.68 不变. | 前序 V37.9.99 全部执行批次 (单session清8项待办). 下次硬卡: Mac Mini git fetch+reset 同步 + kb_radar cron 注册 + S2 key / 6/4 LEVEL_6 立 INV-DREAM-CROSS-DOMAIN-001 (5天数据) / 6/8后 services flip+INV-OBSERVER-001+INV-SOURCE-CREDIBILITY-001 (一周观察) / 6/15 OpenClaw 第五次评估. 多数候选日期硬卡诚实跳过.",
+  "focus": "V37.9.99-pkg (6/2): ontology-engine pip 包化第一块完成 (Phase 5 chunk 1, 终极目标奠基) — keystone=config-injection (ONTOLOGY_CONFIG_DIR/ONTOLOGY_PROJECT_ROOT env 注入, 向后兼容默认引擎目录), 二层架构确立 (Layer1 项目无关引擎包/Layer2 项目 YAML), pyproject.toml openclaw-ontology-engine 0.1.0 pip install -e 真装成功+console_scripts 注册, governance __main__ 抽 main(), 23 单测+反向 sabotage. full_regression 110/3858/0fail + 宪法删除安全✅ proxy 不依赖 ontology. VERSION 0.37.9.68 不变. | 前序 6/2: V37.9.99-docs failure_modes_catalog 单一权威版整合 + V37.9.99 全部执行批次. | V3 pip 包化 chunk2-5 路标 (docs/ontology_engine_packaging.md): chunk2 import 名去泛化(破坏性,涉 proxy lazy-load+symlink+全 import)/chunk3 MRD 参数化/chunk4 sdist+Extension Guide/chunk5 发布决策(import名/分发名/license). | 日期硬卡: 6/4 LEVEL_6 立 INV-DREAM-CROSS-DOMAIN-001 / 6/8后 services flip+INV-OBSERVER-001+INV-SOURCE-CREDIBILITY-001 / 6/15 OpenClaw 第五次评估.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
