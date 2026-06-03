@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-02 07:20:25",
+  "updated": "2026-06-03 00:18:00",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -259,7 +259,8 @@
       "convergence cron 行全行比较: 2026-06-02 审计已决定不切换 (case doc cron_line_full_comparison_audit_2026_06_02.md). Mac Mini 真 crontab missing=17 extra=18 全是格式变体 0 脚本缺失, 切换会 false-drift 风暴. 保持 line_contains_identifier (务实最优). 未来候选 (非高优): (a) fuzzy-match parser 归一化引号/~/root/redirect 后比较, 但需先做 registry↔crontab 命令完整性对账 (registry entry 不记 args/cd/真实路径). (b) 2 真差异待用户决定: preference_learner registry entry 补 --apply --days 7 args? / 30 23 手动 rsync→MOVESPEED 是否与 0 4 movespeed_daily_sync 冗余需清理?",
       "Semantic Scholar API key: 集成代码已就绪 (V37.9.98, FAIL-OPEN, run_semantic_scholar.sh 加 x-api-key header + 条件间隔). 待用户动作: (1) 去 semanticscholar.org/product/api 申请免费 key (审核制邮件发放约几天, 带 key 独占 1 RPS 规避匿名池 429). (2) 加 S2_API_KEY 到 cron 环境 (~/.zshrc 或 launchd plist EnvironmentVariables, 同 ARK_API_KEY 模式). 加完下次 11:00 S2 cron 自动从无认证(30s间隔)升认证(1s间隔)规避 429. 未加 key 时当前行为不变 (FAIL-OPEN). 可选后续: 有 key 后关键词 6→12 恢复更多覆盖 (V37.8.13 因 429 砍半).",
       "INV-OBSERVER-001 立 governance (Mac Mini 部署 V37.9.92/93 + 一周观察后 ~6/8; 合并自 V37.9.90/93/95 三次重复登记). 守 daily_observer 全契约 7-8 checks: V37.9.87 single-call (1 OBSERVER_PY invocation + --json 含 report_markdown) + V37.9.88 registry filter applied + stale detection function + V37.9.92 _resolve_registry_path 4 candidates + _write_observer_to_status helper + run() 顺序锁 + FAIL-OPEN ImportError/Exception + quality.observer payload schema + runtime python_assert 跑全单测. 关闭 Phase 0 自主发现的 'daily_observer 缺 INV' 缺口. (注: #11(b) INV-CROSS-ENV-PATH-001 已 V37.9.94 完成, 不再列)",
-      "Observer-of-Observer 候选 (V37.9.95+ 登记, 低优): 第二个 cron 主动监控 daily_observer.log 的 fallback warn, 累计 ≥ N 次升 [SYSTEM_ALERT] (元监控, MR-7 治理自观察延伸)."
+      "Observer-of-Observer 候选 (V37.9.95+ 登记, 低优): 第二个 cron 主动监控 daily_observer.log 的 fallback warn, 累计 ≥ N 次升 [SYSTEM_ALERT] (元监控, MR-7 治理自观察延伸).",
+      "ontology-engine pip 包化 chunk 2-5 遗留路标 (V37.9.99-pkg chunk 1 已完成 config-injection keystone + pyproject + 二层架构 + pip install -e 真装). 完整路标 + 推荐顺序见 docs/ontology_engine_packaging.md 第 6/6.1 节. **专业建议推进顺序: chunk 4 → 2 → 3 → 5** (先证明价值再做破坏性投入). ① chunk 4 (Extension Guide + 最小可跑 demo) 先做: 风险最低纯新增, 价值最直观 — 第一个真实消费方端到端验证 config-injection + 七大能力, 引擎的'Doubao 时刻'(Provider Plugin 直到 V37.9.52 Doubao 真接入才证明可扩展). demo 用当前 import ontology 标注临时. ② chunk 2 (import 名 ontology→去泛化) 次之: 最高风险破坏性 (proxy lazy-load + Mac Mini symlink + 全 import + tests), 全宪法验证(删除后正常+full_regression), 被 demo 去风险后再做, 绝不第一个做. ③ chunk 3 (MRD 项目特定模式 jobs_registry/notify.sh 参数化进 Layer 2): demo 会暴露哪些硬编码. ④ chunk 5 (发布: 分发名/license/PyPI + sdist/wheel + semver). 核心智慧: 先 spike 验证再破坏性重构 (原则 #18 补证据 + Provider Plugin 真消费方驱动)."
     ],
     "open_prs": "",
     "blocked_on": "",
