@@ -1,6 +1,6 @@
 {
-  "updated": "2026-06-03 08:02:44",
-  "updated_by": "claude_code",
+  "updated": "2026-06-03 09:28:50",
+  "updated_by": "full_regression",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-06-03",
+      "what": "V37.9.103: 冻结≠死亡血案修复, finance_news+ai_leaders 两 job clean+reduce (用户选不花钱接受 X 退化). V37.9.102 揭示 Syndication 平台退化把天天发推活账号(XHNews/CGTN/karpathy)快照冻结 6-10 月前, V37.8.5 stale=可移除在退化下错杀活账号(V37.8.14 移除的都是活机构). finance_news_zombie.py 四档重构(stub/dead≥730天/frozen<730天/alive), is_zombie_suspect=stub OR dead 但 frozen 永远 False; run_finance_news frozen 分流 degraded_file 仅 🧊 可观测不告警; ai_leaders_rotation classify_account 拆 frozen/dead 预防 #18 错杀; ai_leaders 降频 2→1/天 + watchdog 50400→180000. 跨模块 DEAD_AGE_DAYS=730 一致(test 守卫). INV-X-001 扩四档+防错杀层. 111 suites/3911 tests(+19)/0 fail/governance 87 inv/805 checks/安全 95.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-03",
       "what": "V37.9.102: ai_leaders_x 替代数据源评估报告 (docs/ai_leaders_source_alternatives.md). Syndication API 退化战略调研 — 续诊断揭示 fetch 成功但仍 0 推文因快照冻结 6-10 月前. WebSearch 5 方案: TwitterAPI.io 第三方 ~$1-6/月(首选, 比官方便宜96%) / 官方 X API $100-200/月 / Nitter 死 / RSSHub 同病 / 现状产0. 待用户决策换源",
       "by": "claude_code"
     },
@@ -198,11 +203,6 @@
       "date": "2026-06-01",
       "what": "V37.9.93 Observer 采样 false-positive 修复 (V37.9.92 同 session 双闭环). 5/31 Observer LLM 报 [MED] dream truncation 实为 _read_file_sample MAX_SAMPLE_CHARS=2000 截断让 LLM 看不到 footer 误判. 修复: smart head+tail sampling (1400+marker+500 三段 ≤ MAX) + CRITIQUE_SYSTEM 加 V37.9.93 采样说明段明示 LLM 不要把 sampling 截断当文件截断. 18 新单测 3 类 + 反向 sabotage 双层守卫真有效. 99 suites / 3582 tests / 0 fail / VERSION 0.37.9.68. MR-7 治理自观察新粒度 — Observer 自己发现自己 bug.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-06-01",
-      "what": "V37.9.92 双 bug 闭环: (1) V37.9.88 _resolve_registry_path 加 4th candidate ~/openclaw-model-bridge/jobs_registry.yaml — Mac Mini 5/29-6/1 connected fallback warn 治本 (MR-15 第 4 次演出). (2) 新增 _write_observer_to_status() helper 在 run() 调用 — 写 quality.observer 到 status.json, 闭环 V37.9.84 三方共享意识锚点承诺 (5 天 quality.observer={} 治本). 27 新单测 4 类含反向 sabotage (subprocess 真实验证守卫真有效). 99 suites / 3537→3564 tests / 0 fail / governance 762 checks / 安全 95/100 / VERSION 0.37.9.68 不变. Mac Mini 部署后 06:30 cron 应首次显示 jobs:12 scanned + quality.observer 不再 {}. ",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -263,8 +263,8 @@
       "INV-GOV-FIELD-001 一周观察后评估: 是否把 67 个 assertion: 字段统一迁移成 code: (当前 _check_code 双字段兼容, 迁移是 cosmetic 非紧急; meta-guard 已防再漂移)",
       "V37.9.101 部署验证: Mac Mini 同步后 21:00 cron 真激活轮换 — 应 log 'V37.9.101 轮换 idx=N batch=11 抓 11/31' + fetch 成功率大升 (11 请求 vs 31). 若 11 请求仍 429 → IP 硬标记, V37.9.102+ 转策略 (降 batch / 认证版 X API / 替代源)",
       "V37.9.101 follow-up (rotation 21:00 验证工作后): (a) 重跑复盘诊断 → 真僵尸 stale>7d 移除 LEADERS (b) 完整 zombie loop-wiring — parser 发 newest_age + per-account classify_account + 3 天连续 ZOMBIE 嫌疑告警 (镜像 finance_news, 模块已建+测就绪)",
-      "V37.9.103+ ai_leaders_x 换源决策待用户定 (docs/ai_leaders_source_alternatives.md): 选项 (a) TwitterAPI.io ~/月 第三方 REST 替代 Syndication (迁移路径已写, 免费额度先试) (b) 清 6 死账号+降频接受退化 (c) disable. Syndication API 退化产 ~0 推文是真因, 轮换(V37.9.101)只修 429 表层",
-      "finance_news 同用 X Syndication API 同面临退化风险 (V37.9.102 评估报告元教训) — 待评估其 21 个 X 账号是否也快照冻结. 若是同样需换源/降频"
+      "V37.9.103 部署验证 (clean+reduce 冻结≠死亡): Mac Mini git fetch+reset 同步 + auto_deploy 同步 finance_news_zombie.py/run_finance_news.sh/ai_leaders_rotation.py/jobs_registry.yaml/job_watchdog.sh. (a) 下次 07:30 finance cron 应首次出现 🧊 X 渠道退化日志(frozen 账号零产出, 不再 [SYSTEM_ALERT] 建议移除活账号 XHNews/CGTN 类). (b) 下次 09:00 ai_leaders cron 1/天生效. (c) crontab 更新 ai_leaders 频率 0 9,21→0 9 (bash ~/crontab_safe.sh 或手动). (d) 一周观察 frozen 账号确实零产出后, 考虑立 INV-FROZEN-NOT-DEAD-001 把跨模块 frozen≠死亡契约升级为独立 governance INV (当前在 INV-X-001 内). (e) 换源决策已定 clean+reduce 接受退化, TwitterAPI.io 路径留 docs/ai_leaders_source_alternatives.md 备查若未来重启",
+      "#18 ai_leaders zombie loop-wiring 现已安全 (V37.9.103): classify_account 已拆 frozen/dead, is_zombie_suspect 仅 stub+dead, 将来 wire 进 run 脚本不会错杀 karpathy 类冻结活账号. 仍 deferred 待 Mac Mini rotation 验证工作后做 (parser 发 newest_age + per-account classify + 3 天连续 ZOMBIE 告警, 镜像 finance_news degraded 分流)"
     ],
     "open_prs": "",
     "blocked_on": "",
@@ -330,10 +330,10 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 3892,
-    "last_regression": "2026-06-03 05:22 pass",
+    "test_count": 3911,
+    "last_regression": "2026-06-03 09:28 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-03 05:22",
+    "security_score_time": "2026-06-03 09:28",
     "test_suites": 111,
     "governance_invariants": "85/85",
     "governance_checks": "790/790",
@@ -402,7 +402,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.101 ai_leaders 轮换抓取防 429 完成 (复盘揭示真问题是限流非僵尸). 待 Mac Mini 21:00 cron 验证轮换 fetch 成功率. 上一版 V37.9.100 治理执行器空跑血案修复 + 2 INV 立案",
+  "focus": "V37.9.103 冻结≠死亡血案修复完成 (两 job clean+reduce): finance_news_zombie 四档(frozen 绝不移除) + ai_leaders classify_account 同款拆分 + 降频 2→1/天. 待 Mac Mini 同步验证下次 07:30 finance / 09:00 ai_leaders cron + crontab 频率更新. 上一版 V37.9.102 换源评估报告 (用户选 clean+reduce 非 TwitterAPI.io)",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",

@@ -152,8 +152,8 @@ JOBS=(
     "github_trending|$HOME/.openclaw/jobs/github_trending/cache/last_run.json|100800|GitHub热门仓库|auxiliary"
     # RSS Blogs: 每天2次(07/19) → 最多静默 28h
     "rss_blogs|$HOME/.openclaw/jobs/rss_blogs/cache/last_run.json|100800|RSS技术博客|auxiliary"
-    # AI Leaders X: 每天3次(09/15/21) → 最多静默 14h
-    "ai_leaders_x|$HOME/.openclaw/jobs/ai_leaders_x/cache/last_run.json|50400|AI领袖X动态|core"
+    # AI Leaders X: V37.9.103 降频 每天1次(09:00) → 最多静默 50h (2→1/天, 接受 X 退化; 与 finance_news 1/天阈值对齐)
+    "ai_leaders_x|$HOME/.openclaw/jobs/ai_leaders_x/cache/last_run.json|180000|AI领袖X动态|core"
     # KB Inject: 每天2次(07/19) → 最多静默 28h
     "kb_inject|$HOME/.kb/last_run_inject.json|100800|KB每日摘要注入|core"
     # Finance News: 每天07:30 → 最多静默 50h

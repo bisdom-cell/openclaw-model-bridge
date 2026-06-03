@@ -10,23 +10,36 @@
   - 轮换抓取: 每 run 只抓 ~11 个账号子集（按 rotation_idx 轮换 + 环绕），3 run 覆盖
     全部 31。单 run 请求量 31→11 降到限流阈值下，配合 5s 节流 = 55s 摊开。
   - 健康分类: 区分 rate_limited(429/no_data，**瞬态不误杀**) / stub(embed-disabled
-    空壳) / stale(newest_tweet > 7d 真僵尸) / alive。这是把 V37.8.4 finance_news
-    ZOMBIE 检测 promote 到 ai_leaders 的关键适配——research 账号低频，必须用
-    newest-age 判据（而非 finance_news 的高频老化比例），且**429 绝不判僵尸**
-    （避免限流期间误杀活账号，V37.8.4 promote 盲区）。
+    空壳) / frozen / dead / alive。这是把 V37.8.4 finance_news ZOMBIE 检测 promote 到
+    ai_leaders 的关键适配——research 账号低频，必须用 newest-age 判据（而非 finance_news
+    的高频老化比例），且**429 绝不判僵尸**（避免限流期间误杀活账号，V37.8.4 promote 盲区）。
+
+V37.9.103（冻结≠死亡，来自 V37.9.102 ai_leaders_x 复盘 + 用户 clean+reduce 决策）:
+  V37.9.102 实测发现 X Syndication API 平台级退化——把天天发推的活账号(karpathy/LeCun/
+  Hinton)快照冻结在 6-10 月前。原 STATUS_STALE(newest>7d=真僵尸)会让这些活账号在 7d 窗口下
+  全被判僵尸。修复：拆成 STATUS_FROZEN(7d<newest<730d，冻结/低频，活账号勿移除) vs
+  STATUS_DEAD(newest≥730d，真死/改名可移除)。is_zombie_suspect 仅含 stub+dead，frozen 不判。
+  这是预防 #18 zombie loop-wiring（尚未接入 run 脚本）将来错杀活账号的防线，且与
+  finance_news_zombie.py 的 frozen/dead 语义保持一致（DEAD_AGE_DAYS=ZOMBIE_DEAD_DAYS=730）。
 
 纯函数零 I/O：rotation 状态文件读写 + 抓取由 shell 负责，本模块只算"抓哪些 + 是否僵尸"。
 """
 
 import math
 
-DEFAULT_BATCH_SIZE = 11   # 每 run 抓取账号数 (31/11 = 3 batch 全覆盖, 2 run/天 → 每账号每 1.5 天)
-ZOMBIE_STALE_DAYS = 7     # newest_tweet > 7d = 僵尸嫌疑 (task 锁定阈值)
+DEFAULT_BATCH_SIZE = 11   # 每 run 抓取账号数 (31/11 = 3 batch 全覆盖, 1 run/天 → 每账号每 3 天)
+ZOMBIE_STALE_DAYS = 7     # newest_tweet > 7d = 超活跃窗口 (task 锁定阈值)
+# V37.9.103: 区分 frozen(冻结/低频,活账号勿移除) vs dead(真死,可移除) 的最新推文年龄阈值(天)。
+# 与 jobs/finance_news/finance_news_zombie.py 的 DEAD_AGE_DAYS 保持一致(跨模块, test 守卫)。
+# 保守 730 天(~2 年)远超 V37.9.102 实测 Syndication 冻结范围(6-10 月)，确保天天发推但快照被
+# 冻结的活账号(karpathy/LeCun/Hinton)不被 7d 窗口误判为可移除(#18 wiring 错杀防线)。
+ZOMBIE_DEAD_DAYS = 730
 
 # 健康状态常量
 STATUS_RATE_LIMITED = "rate_limited"  # 429 / 无 __NEXT_DATA__ / 抓取失败 — 瞬态非僵尸
-STATUS_STUB = "stub"                  # HTML 结构完整但 0 本人推文 — embed-disabled 空壳
-STATUS_STALE = "stale"                # 最新推文 > 7d — 真僵尸
+STATUS_STUB = "stub"                  # HTML 结构完整但 0 本人推文 — embed-disabled 空壳, 可移除
+STATUS_FROZEN = "frozen"              # 7d < 最新推文 < 730d — 冻结/低频, 账号可能活着, **勿移除**
+STATUS_DEAD = "dead"                  # 最新推文 ≥ 730d — 真死/改名, 可移除
 STATUS_ALIVE = "alive"                # 最新推文 ≤ 7d — 活跃
 
 
@@ -68,27 +81,34 @@ def classify_account(http_ok, has_next_data, tweet_count, newest_age_days):
         newest_age_days: 最新本人推文距今天数 (int 或 None)
 
     Returns:
-        STATUS_RATE_LIMITED / STATUS_STUB / STATUS_STALE / STATUS_ALIVE
+        STATUS_RATE_LIMITED / STATUS_STUB / STATUS_FROZEN / STATUS_DEAD / STATUS_ALIVE
 
     关键设计:
-        rate_limited (429/无 NEXT_DATA/抓取失败) **绝不判僵尸** — 瞬态, 不误杀活账号
-        (V37.8.4 promote 盲区: 限流期间 no_data 全 100% 会让 naive 检测误杀全部).
+        - rate_limited (429/无 NEXT_DATA/抓取失败) **绝不判僵尸** — 瞬态, 不误杀活账号
+          (V37.8.4 promote 盲区: 限流期间 no_data 全 100% 会让 naive 检测误杀全部).
+        - V37.9.103 (冻结≠死亡, 来自 V37.9.102 复盘): 7d < newest < 730d 判 frozen 而非
+          僵尸——Syndication 把天天发推的活账号(karpathy/LeCun/Hinton)快照冻结在 6-10 月前,
+          7d 窗口若直接判僵尸会误杀活账号. 仅 newest ≥ 730d (年久真死/改名) 才判 dead 可移除.
     """
     if not http_ok or not has_next_data:
         return STATUS_RATE_LIMITED
     if tweet_count == 0:
         return STATUS_STUB
+    if newest_age_days is not None and newest_age_days >= ZOMBIE_DEAD_DAYS:
+        return STATUS_DEAD
     if newest_age_days is not None and newest_age_days > ZOMBIE_STALE_DAYS:
-        return STATUS_STALE
+        return STATUS_FROZEN
     return STATUS_ALIVE
 
 
 def is_zombie_suspect(status):
-    """stub/stale 是僵尸嫌疑; rate_limited/alive 不是。
+    """stub/dead 是可移除候选; rate_limited/frozen/alive 不是。
 
-    rate_limited 不判僵尸是核心契约 — 429 限流期间不能误杀活账号。
+    V37.9.103: frozen 永远不判僵尸——Syndication 拿不到有老推文的活账号 ≠ 账号死亡
+    (V37.9.102 核心血案: XHNews/CGTN 类被错杀). rate_limited 不判僵尸是 V37.9.101 核心契约
+    (429 限流期间不能误杀活账号). 仅 stub(embed-disabled 永久无用) + dead(年久真死) 可移除。
     """
-    return status in (STATUS_STUB, STATUS_STALE)
+    return status in (STATUS_STUB, STATUS_DEAD)
 
 
 # ─────────────────────────────────────────────────────────────────────────

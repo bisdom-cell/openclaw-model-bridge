@@ -2996,18 +2996,23 @@ invariants:
     verification_layer: [declaration, runtime]
     severity: high
     declaration: |
-      任何使用 Twitter Syndication API 抓取账号的 job（当前：finance_news）
-      必须具备僵尸账号静默失败检测：
-        (1) 解析层：三层检测（V37.8.5 从严格相等升级）
-            - Tier 1 "stub": no_data=0 + total=0 = 返回空 HTML 骨架（SingTaoDaily）
-            - Tier 2 "stale 100%": old == total = V37.8.4 原始强制条件（Reuters 等）
-            - Tier 3 "stale ≥90%": old/total >= 0.9 + count=0 = 近僵尸（CNS1952 98/99）
-        (2) 诊断层：诊断输出行带 ⚠️ ZOMBIE嫌疑[tier] 前缀区分 stub/stale
-        (3) 持久化层：嫌疑 handle 写入 cache/zombies_${DAY}.txt 独立文件
-        (4) 告警层：后处理 3 天连续命中 → log warning 建议人工复核
-        (5) 移除层：V37.8.4 已确认的 7 个僵尸账号不得再出现在账号列表中
-        (6) 可测性层（V37.8.5 新增）：检测逻辑必须从 finance_news_zombie 模块导入，
-            shell 脚本不得内嵌 inline fallback（防止模块缺失时静默降级回 V37.8.4）
+      任何使用 Twitter Syndication API 抓取账号的 job（finance_news + ai_leaders_x）
+      必须具备僵尸账号静默失败检测，且区分「冻结(活账号)」vs「真死」(V37.9.103)：
+        (1) 解析层：四档检测（V37.8.5 三层 → V37.9.103「冻结≠死亡」）
+            - stub: no_data=0 + total=0 = embed-disabled 空壳, Syndication 永久无用 → 可移除
+            - frozen: stale(≥90% 超窗口) + newest_tweet < 730 天 = 快照冻结/低频, 活账号 → **勿移除**
+            - dead: stale + newest_tweet ≥ 730 天 = 真死/改名 → 可移除
+            - alive: count>0 或不满足 stale
+        (2) 诊断层：诊断输出行带 ⚠️ 可移除[tier] / 🧊 冻结[frozen] 前缀区分
+        (3) 持久化层：可移除(stub+dead) 写 cache/zombies_${DAY}.txt；
+            frozen 写 cache/degraded_${DAY}.txt（活账号勿移除, 仅可观测）
+        (4) 告警层：后处理 3 天连续命中 → SYSTEM_ALERT 建议移除（仅 stub+dead）；
+            frozen 只汇总 log 不告警（用户已接受 X 退化, 避免原则 #32 告警疲劳）
+        (5) 移除层：V37.8.4 已确认的年久真死账号不得再出现在账号列表中
+        (6) 可测性层（V37.8.5）：检测逻辑必须从 finance_news_zombie / ai_leaders_rotation
+            模块导入，shell 脚本不得内嵌 inline fallback（防模块缺失静默降级）
+        (7) 防错杀层（V37.9.103 核心）：is_zombie_suspect 绝不含 frozen——Syndication 拿不到
+            有老推文的活账号 ≠ 账号死亡（XHNews/CGTN 错杀血案）；DEAD_AGE_DAYS=730 跨两 job 一致
     design_decision: |
       2026-04-14 血案（V37.8.4）：V37.8.3 修复把 3 个 X handle 改为 caixin/yicaichina/straits_times，
       HTTP 200 + 可解析 HTML + 有推文数据三层都绿，但最新推文停更 2227/3364/420 天。
@@ -3024,6 +3029,7 @@ invariants:
     blood_lessons:
       - "2026-04-14 V37.8.4: V37.8.3 改 handle 次日即暴露僵尸问题；HTTP 协议层/内容层不一致静默失败"
       - "2026-04-14 V37.8.5: V37.8.4 修复本身的边缘盲区（CNS1952 99% + SingTaoDaily stub）收工 E2E 即被发现；修复会埋坑"
+      - "2026-06-03 V37.9.103: V37.9.102 复盘揭示 Syndication 平台级退化把天天发推的活账号(XHNews/CGTN/karpathy)快照冻结 6-10 月前；V37.8.5 的 stale=可移除在退化下错杀活账号(V37.8.14 移除 ReutersBiz/XHNews/CGTN/globaltimes 97-100/全都是活机构)。修复：frozen(newest<730d)绝不可移除，仅 dead(≥730d 真死)+stub(embed-disabled)可移除。MR-10 第三层演出：V37.8.5 的修复在更深环境变化下成为新 bug"
     checks:
       - name: "run_finance_news.sh 声明 ZOMBIE_FILE"
         check_type: file_contains
@@ -3057,10 +3063,34 @@ invariants:
         check_type: file_contains
         file: jobs/finance_news/run_finance_news.sh
         pattern: 'with open\(zombie_file, .a.\) as f'
-      - name: "run_finance_news.sh 诊断行有 ⚠️ ZOMBIE嫌疑[tier] 前缀"
+      - name: "V37.9.103 run_finance_news.sh 诊断行用 可移除[tier]/冻结[ 前缀（ZOMBIE嫌疑已替换）"
         check_type: file_contains
         file: jobs/finance_news/run_finance_news.sh
-        pattern: 'ZOMBIE嫌疑\['
+        pattern: '可移除\['
+      - name: "V37.9.103 run_finance_news.sh parser 捕捉 newest_age_days（区分 frozen vs dead）"
+        check_type: file_contains
+        file: jobs/finance_news/run_finance_news.sh
+        pattern: 'newest_age_days'
+      - name: "V37.9.103 run_finance_news.sh frozen 分流到 degraded_file（勿移除, 仅可观测）"
+        check_type: file_contains
+        file: jobs/finance_news/run_finance_news.sh
+        pattern: 'zombie_tier == "frozen"'
+      - name: "V37.9.103 finance_news_zombie.py frozen 不可移除（newest<730 → False, frozen）"
+        check_type: file_contains
+        file: jobs/finance_news/finance_news_zombie.py
+        pattern: 'return \(False, "frozen"\)'
+      - name: "V37.9.103 finance_news_zombie.py dead 阈值 DEAD_AGE_DAYS=730"
+        check_type: file_contains
+        file: jobs/finance_news/finance_news_zombie.py
+        pattern: 'DEAD_AGE_DAYS = 730'
+      - name: "V37.9.103 ai_leaders_rotation.py classify_account 拆 frozen/dead（预防 #18 错杀）"
+        check_type: file_contains
+        file: jobs/ai_leaders_x/ai_leaders_rotation.py
+        pattern: 'STATUS_FROZEN'
+      - name: "V37.9.103 ai_leaders_rotation.py is_zombie_suspect 仅 stub+dead（frozen 排除）"
+        check_type: file_contains
+        file: jobs/ai_leaders_x/ai_leaders_rotation.py
+        pattern: 'return status in \(STATUS_STUB, STATUS_DEAD\)'
       - name: "run_finance_news.sh 3 天连续命中告警（comm -12 + Y_FILE + DB_FILE）"
         check_type: file_contains
         file: jobs/finance_news/run_finance_news.sh
@@ -3079,19 +3109,35 @@ invariants:
           from finance_news_zombie import classify_zombie
           # Tier 1 stub
           z, t = classify_zombie({"total": 0, "old": 0, "no_data": 0})
-          assert z is True and t == "stub", f"Tier 1 stub failed: ({z}, {t})"
-          # Tier 2 V37.8.4 原始
+          assert z is True and t == "stub", f"stub failed: ({z}, {t})"
+          # V37.9.103: stale 但无 newest_age → frozen 不可移除 (V37.8.4 老 100% 用例现归 frozen)
           z, t = classify_zombie({"total": 10, "old": 10, "no_data": 0})
-          assert z is True and t == "stale", f"Tier 2 stale100 failed: ({z}, {t})"
-          # Tier 3 CNS1952
-          z, t = classify_zombie({"total": 99, "old": 98, "no_data": 0})
-          assert z is True and t == "stale", f"Tier 3 CNS1952 failed: ({z}, {t})"
+          assert z is False and t == "frozen", f"frozen (no age) failed: ({z}, {t})"
+          # V37.9.103 血案核心: CGTN/XHNews 类有老推文快照冻结(newest<730) → frozen 绝不可移除
+          z, t = classify_zombie({"total": 99, "old": 98, "no_data": 0, "newest_age_days": 180})
+          assert z is False and t == "frozen", f"frozen blood lesson failed: ({z}, {t})"
+          # V37.9.103: 年久真死 (newest>=730) → dead 可移除 (caixin 2227 天)
+          z, t = classify_zombie({"total": 99, "old": 98, "no_data": 0, "newest_age_days": 2227})
+          assert z is True and t == "dead", f"dead failed: ({z}, {t})"
+          # V37.9.103: 730/729 边界
+          assert classify_zombie({"total": 5, "old": 5, "no_data": 0, "newest_age_days": 730})[1] == "dead"
+          assert classify_zombie({"total": 5, "old": 5, "no_data": 0, "newest_age_days": 729})[1] == "frozen"
           # count 守卫
-          z, t = classify_zombie({"total": 10, "old": 9, "no_data": 0}, count=1)
+          z, t = classify_zombie({"total": 10, "old": 9, "no_data": 0, "newest_age_days": 100}, count=1)
           assert z is False and t == "alive", f"count guard failed: ({z}, {t})"
           # no_data=1 不误报
           z, t = classify_zombie({"total": 0, "old": 0, "no_data": 1})
           assert z is False and t == "alive", f"no_data=1 false positive: ({z}, {t})"
+          # V37.9.103 跨模块一致: ai_leaders ZOMBIE_DEAD_DAYS == finance DEAD_AGE_DAYS == 730
+          al_dir = os.path.join(os.getcwd(), 'jobs', 'ai_leaders_x')
+          if al_dir not in sys.path:
+              sys.path.insert(0, al_dir)
+          import ai_leaders_rotation as _alr
+          from finance_news_zombie import DEAD_AGE_DAYS as _fdd
+          assert _alr.ZOMBIE_DEAD_DAYS == _fdd == 730, f"cross-module DEAD drift: {_alr.ZOMBIE_DEAD_DAYS} vs {_fdd}"
+          # V37.9.103: ai_leaders frozen 绝不判僵尸 (活账号), dead 才判
+          assert _alr.is_zombie_suspect(_alr.classify_account(True, True, 5, 200)) is False, "ai_leaders frozen must not be zombie"
+          assert _alr.is_zombie_suspect(_alr.classify_account(True, True, 5, 800)) is True, "ai_leaders dead must be zombie"
       - name: "已确认僵尸 Reuters 已从列表移除"
         check_type: file_not_contains
         file: jobs/finance_news/run_finance_news.sh
@@ -3160,10 +3206,10 @@ invariants:
         check_type: file_not_contains
         file: jobs/finance_news/run_finance_news.sh
         pattern: '"SingTaoDaily\|'
-      - name: "V37.8.14 3天连续僵尸检测必须推送告警(MR-4 gap closure)"
+      - name: "V37.8.14 3天连续可移除检测必须推送告警(MR-4 gap closure, V37.9.103 措辞 僵尸→可移除)"
         check_type: file_contains
         file: jobs/finance_news/run_finance_news.sh
-        pattern: 'notify.*僵尸.*--topic alerts'
+        pattern: 'notify.*可移除.*--topic alerts'
       - name: "CLAUDE.md 原则 #27 更新强制 X 账号健康 ≠ HTTP 200"
         check_type: file_contains
         file: CLAUDE.md
