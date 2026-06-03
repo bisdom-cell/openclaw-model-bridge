@@ -391,8 +391,12 @@ fi
 SEEN_X_FILE="$CACHE/seen_x_ids_${DAY}.txt"
 : > "$SEEN_X_FILE"
 # V37.8.4 新增：静默失败检测 — 抓到 HTML 但所有推文都超 72h 的账号 = 僵尸嫌疑
+# V37.9.103: zombie_file 收 stub(embed-disabled,Syndication 永久拿不到) + dead(最新推文 ≥730天,真死/改名)
+# = 真正可移除账号; frozen(有老推文但快照冻结,账号天天发推)写 DEGRADED_FILE(活账号勿移除,仅可观测不告警)
 ZOMBIE_FILE="$CACHE/zombies_${DAY}.txt"
 : > "$ZOMBIE_FILE"
+DEGRADED_FILE="$CACHE/degraded_${DAY}.txt"
+: > "$DEGRADED_FILE"
 X_FETCH_OK=0
 X_FETCH_FAIL=0
 
@@ -421,12 +425,12 @@ for x_entry in "${FINANCE_X_ACCOUNTS[@]}"; do
     fi
 
     # 解析推文 → JSONL
-    $PYTHON3 - "$RAW_HTML" "$SEEN_X_FILE" "$X_HANDLE" "$X_LABEL" "$X_REGION" "$ZOMBIE_FILE" << 'XPYEOF' >> "$ALL_NEW_FILE"
+    $PYTHON3 - "$RAW_HTML" "$SEEN_X_FILE" "$X_HANDLE" "$X_LABEL" "$X_REGION" "$ZOMBIE_FILE" "$DEGRADED_FILE" << 'XPYEOF' >> "$ALL_NEW_FILE"
 import sys, json, re
 from html import unescape
 from datetime import datetime, timedelta, timezone
 
-html_file, seen_file, handle, label, region, zombie_file = sys.argv[1:7]
+html_file, seen_file, handle, label, region, zombie_file, degraded_file = sys.argv[1:8]
 # X 账号用 72h 窗口（覆盖周末，官媒周末发帖少）
 CUTOFF = datetime.now(timezone.utc) - timedelta(hours=72)
 
@@ -438,7 +442,9 @@ with open(html_file, encoding="utf-8", errors="replace") as f:
 
 tweets = []
 # 诊断计数
-diag = {"total": 0, "rt_pure": 0, "short": 0, "seen": 0, "old": 0, "no_data": 0}
+diag = {"total": 0, "rt_pure": 0, "short": 0, "seen": 0, "old": 0, "no_data": 0, "newest_age_days": None}
+# V37.9.103: 追踪最新本人推文时间，classify_zombie 用它区分 frozen(冻结/低频,活账号) vs dead(真死)
+newest_dt = None
 
 next_data = re.search(
     r'<script\s+id="__NEXT_DATA__"\s+type="application/json">(.*?)</script>',
@@ -460,6 +466,15 @@ if next_data:
             tweet_id = str(td.get("id_str", ""))
             created_at = td.get("created_at", "")
             diag["total"] += 1
+
+            # V37.9.103: 在所有过滤之前解析时间追踪最新推文（覆盖 RT/过短/已见/超窗口全部推文，
+            # 区分 frozen 冻结 vs dead 真死需要最新推文绝对年龄，不受下游过滤影响）
+            try:
+                _dt_track = datetime.strptime(created_at, "%a %b %d %H:%M:%S %z %Y")
+                if newest_dt is None or _dt_track > newest_dt:
+                    newest_dt = _dt_track
+            except (ValueError, TypeError):
+                pass
 
             # 跳过纯转推（保留带评论的引用推文）
             if text.startswith("RT @"):
@@ -506,6 +521,10 @@ if next_data:
 else:
     diag["no_data"] = 1
 
+# V37.9.103: 计算最新推文年龄(天) → classify_zombie 区分 frozen(冻结/低频,勿移除) vs dead(真死,可移除)
+if newest_dt is not None:
+    diag["newest_age_days"] = (datetime.now(timezone.utc) - newest_dt).days
+
 # 每账号最多 3 条
 for t in tweets[:3]:
     print(json.dumps(t, ensure_ascii=False))
@@ -522,8 +541,16 @@ if _jobs_dir and _jobs_dir not in _sys.path:
 from finance_news_zombie import classify_zombie  # noqa: E402
 is_zombie_suspect, zombie_tier = classify_zombie(diag, count)
 if is_zombie_suspect:
+    # V37.9.103: stub(embed-disabled,Syndication 永久拿不到) + dead(最新推文 ≥730天,真死/改名)
+    # 进 zombie_file → 3天连续 → "建议移除"告警（真正可移除的账号）
     with open(zombie_file, 'a') as f:
         f.write(f"{handle}\n")
+elif zombie_tier == "frozen":
+    # V37.9.103: frozen(有老推文但快照冻结, 账号天天发推如 XHNews/CGTN)可能活着(V37.9.102 血案核心:
+    # Syndication 把活账号快照冻在 6-10 月前), 绝不建议移除; 写 degraded_file 供 X 渠道退化可观测
+    # (汇总日志, 不推 SYSTEM_ALERT — 用户已接受退化, 避免原则 #32 告警疲劳)
+    with open(degraded_file, 'a') as f:
+        f.write(f"{handle}|{zombie_tier}|{diag.get('newest_age_days')}\n")
 
 # 始终打印诊断（含 0 条时的过滤原因）
 if count > 0:
@@ -543,9 +570,16 @@ else:
     if diag["old"]:
         reasons.append(f"{diag['old']}条超72h")
     reason_str = ", ".join(reasons) if reasons else "未知"
-    # V37.8.5 tier 标记：stub（空骨架）/ stale（≥90% 老化），便于日志定位
-    prefix = f"⚠️ ZOMBIE嫌疑[{zombie_tier}] " if is_zombie_suspect else ""
-    print(f"[finance] X @{handle}: {prefix}0 条（原始{diag['total']}条, 过滤: {reason_str}）", file=sys.stderr)
+    # V37.9.103 tier 标记：stub(embed-disabled,可移除)/dead(真死,可移除)/frozen(冻结/低频,勿移除)
+    if is_zombie_suspect:
+        prefix = f"⚠️ 可移除[{zombie_tier}] "
+    elif zombie_tier == "frozen":
+        prefix = f"🧊 冻结[frozen] "
+    else:
+        prefix = ""
+    _na = diag.get("newest_age_days")
+    age_str = f"最新{_na}天前, " if _na is not None else ""
+    print(f"[finance] X @{handle}: {prefix}0 条（原始{diag['total']}条, {age_str}过滤: {reason_str}）", file=sys.stderr)
 XPYEOF
 
     X_FETCH_OK=$((X_FETCH_OK + 1))
@@ -556,11 +590,21 @@ if [ "$X_FETCH_OK" -gt 0 ] || [ "$X_FETCH_FAIL" -gt 0 ]; then
 fi
 FETCH_ERRORS=$((FETCH_ERRORS + X_FETCH_FAIL))
 
+# V37.9.103: X 渠道退化可观测（frozen 冻结账号汇总——有老推文但快照冻结的活账号）
+# 不推 SYSTEM_ALERT — 用户已接受 X 渠道退化（V37.9.102 决策），仅日志记录避免原则 #32 告警疲劳
+if [ -s "$DEGRADED_FILE" ]; then
+    DEGRADED_COUNT=$(wc -l < "$DEGRADED_FILE" | tr -d ' ')
+    DEGRADED_LIST=$(cut -d'|' -f1 "$DEGRADED_FILE" | tr '\n' ',' | sed 's/,$//')
+    log "🧊 X 渠道退化: ${DEGRADED_COUNT}/${#FINANCE_X_ACCOUNTS[@]} 账号 frozen 零产出 (Syndication 快照冻结非账号死亡, 活账号勿移除): ${DEGRADED_LIST}"
+fi
+
 # V37.8.4 连续 3 天僵尸检测：本次 + 前两天都命中同一个 handle → 告警建议人工复核
 # V37.9.3 加诊断 log：每个跳过分支必须 log 原因，消除"告警路径静默"observability 盲区
+# V37.9.103: zombie_file 含 stub(embed-disabled) + dead(最新推文 ≥730天,真死/改名)=可移除账号，
+# frozen(有老推文快照冻结的活账号)已分流到 DEGRADED_FILE 不进此告警 → 此告警仅对「可安全移除」触发（低噪声）
 if [ -s "$ZOMBIE_FILE" ]; then
     TODAY_COUNT=$(wc -l < "$ZOMBIE_FILE" | tr -d ' ')
-    log "X 僵尸嫌疑今日 ${TODAY_COUNT} 个（详见 $ZOMBIE_FILE）"
+    log "X 可移除账号今日 ${TODAY_COUNT} 个（stub embed-disabled / dead ≥730天真死，详见 $ZOMBIE_FILE）"
 
     # 计算昨天、前天日期（macOS 和 Linux 语法不同，容错处理）
     YESTERDAY=$(date -v-1d +%Y-%m-%d 2>/dev/null || date -d 'yesterday' +%Y-%m-%d 2>/dev/null || echo "")
@@ -582,7 +626,7 @@ if [ -s "$ZOMBIE_FILE" ]; then
         PERSISTENT=$(sort -u "$ZOMBIE_FILE" | comm -12 - <(sort -u "$Y_FILE") | comm -12 - <(sort -u "$DB_FILE") || true)
         if [ -n "$PERSISTENT" ]; then
             COUNT=$(echo "$PERSISTENT" | wc -l | tr -d ' ')
-            log "⚠️ X 账号连续 3 天无新推文（疑似僵尸 ${COUNT} 个）："
+            log "⚠️ X 账号连续 3 天可移除（stub embed-disabled / dead ≥730天真死，${COUNT} 个）："
             ZOMBIE_LIST=""
             echo "$PERSISTENT" | while IFS= read -r h; do
                 [ -z "$h" ] && continue
@@ -592,8 +636,8 @@ if [ -s "$ZOMBIE_FILE" ]; then
             # V37.8.14: 3 天连续检测必须推送告警（MR-4: 检测无通知 = silent failure）
             # V37.9.3: NOTIFY_LOADED=false 必须 log，不得静默吞告警（MR-14: 告警不得依赖失效主体自身）
             if [ "$NOTIFY_LOADED" = true ]; then
-                log "推送 SYSTEM_ALERT 到 --topic alerts（${COUNT} 个僵尸）"
-                notify "[SYSTEM_ALERT] X 僵尸账号连续 3 天检测命中 ${COUNT} 个: ${ZOMBIE_LIST}。建议人工复核后从 FINANCE_X_ACCOUNTS 移除。" --topic alerts || log "⚠️ notify 调用失败（exit=$?）"
+                log "推送 SYSTEM_ALERT 到 --topic alerts（${COUNT} 个可移除账号）"
+                notify "[SYSTEM_ALERT] X 可移除账号连续 3 天检测命中 ${COUNT} 个（stub embed-disabled 空壳 / dead 最新推文 ≥730天真死改名）: ${ZOMBIE_LIST}。可安全移除（注：frozen 快照冻结的活账号 XHNews/CGTN 类已不在此列，V37.9.103 防错杀）。" --topic alerts || log "⚠️ notify 调用失败（exit=$?）"
             else
                 log "⚠️ NOTIFY_LOADED=false，SYSTEM_ALERT 未推送：${COUNT} 个僵尸=${ZOMBIE_LIST}"
             fi

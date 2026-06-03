@@ -294,7 +294,7 @@ export GEMINI_API_KEY="AIzaXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"   # V29.1新增
 | github-trending | 每天14:00 | `~/.openclaw/jobs/github_trending/run_github_trending.sh` | `~/.openclaw/logs/jobs/github_trending.log` | ✅ V31新增：GitHub Trending ML/AI 仓库监控（Search API，从代码端发现趋势） |
 | rss-blogs | 每天08:00,18:00 | `~/.openclaw/jobs/rss_blogs/run_rss_blogs.sh` | `~/.openclaw/logs/jobs/rss_blogs.log` | ✅ V31新增：RSS 博客订阅监控（科学空间等中文技术博客） |
 | ~~karpathy-x~~ | ~~每天09:00,21:00~~ | `~/.openclaw/jobs/karpathy_x/run_karpathy_x.sh` | `~/.openclaw/logs/jobs/karpathy_x.log` | ❌ **已停用**（V34: 合并到 ai_leaders_x 多账号追踪） |
-| ai-leaders-x | 每天09:00,21:00 | `~/.openclaw/jobs/ai_leaders_x/run_ai_leaders_x.sh` | `~/.openclaw/logs/jobs/ai_leaders_x.log` | ✅ V34新增：9位AI大牛X技术洞察追踪（Karpathy/Jim Fan/LeCun/Chollet/Swyx/Lilian Weng/Jason Wei/HW Chung/Harrison Chase，Syndication API+LLM深度分析+KB归档） |
+| ai-leaders-x | 每天09:00 | `~/.openclaw/jobs/ai_leaders_x/run_ai_leaders_x.sh` | `~/.openclaw/logs/jobs/ai_leaders_x.log` | ✅ V34新增→V37.9.95 扩 31 账号 12 派别→**V37.9.103 降频 2→1/天**（接受 X Syndication 退化 + 减半请求防 429），Syndication API+LLM深度分析+KB归档 |
 | preference-learner | 每天07:30 | `~/preference_learner.py` | `~/preference_learner.log` | ✅ V30.4新增：每天从行为数据自动推断用户偏好（活跃时段/工具使用/关注领域），写入status.json→SOUL.md |
 | kb_dream_map_sources | 每天00:00 | `~/kb_dream.sh --map-sources` | `~/kb_dream.log` | ✅ V37.2新增：Dream Sources Map 预热 — 15源×LLM提取信号写缓存（~10min） |
 | kb_dream_map_notes | 每天00:40 | `~/kb_dream.sh --map-notes` | `~/kb_dream.log` | ✅ V37.2新增：Dream Notes Map 预热 — ~16批笔记×LLM提取信号写缓存（~10-15min） |
