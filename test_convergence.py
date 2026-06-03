@@ -3239,6 +3239,7 @@ class TestV37958DryRunActivation(unittest.TestCase):
             'version: "3.50"',  # V37.9.86 MR-20 + MR-21 + INV-HALLUCINATION-001
             'version: "3.51"',  # V37.9.96 INV-PROXY-PLIST-ENV-001 (proxy plist ARK env 守卫)
             'version: "3.52"',  # V37.9.97 services_to_launchd Plan B 升级 machine_sync
+            'version: "3.53"',  # V37.9.100 INV-DREAM-CROSS-DOMAIN-001 + 治理执行器 assertion 字段 bug 修复
         )
         self.assertTrue(
             any(v in self.gov_src for v in valid_versions),

@@ -17,7 +17,7 @@ api_key_env (它是 endpoint ID 不是 key), INV-PLIST-ENV-001 覆盖不到.
   + patched HOME + 假 plist 验证 fail-loud / pass / dev-safe silent pass
 - TestProxyPlistEnvDependencyChain: 生产依赖链真实存在 (proxy → expert_escalation → ARK env)
 - TestProxyPlistEnvDeclarationCheck: 提取 yaml declaration python_assert 真 exec (对真仓库文件)
-- TestV37996Marker: V37.9.96 标记一致性 + audit_metadata total_invariants == 85
+- TestV37996Marker: V37.9.96 标记一致性 + audit_metadata total_invariants == 87 (V37.9.100 bump)
 """
 import os
 import re
@@ -248,11 +248,12 @@ class TestProxyPlistEnvDependencyChain(unittest.TestCase):
 class TestV37996Marker(unittest.TestCase):
     """V37.9.96 标记一致性 + audit_metadata 计数."""
 
-    def test_audit_metadata_total_invariants_85(self):
+    def test_audit_metadata_total_invariants_87(self):
         data = _load_yaml()
         meta = data.get("audit_metadata", {})
-        self.assertEqual(meta.get("total_invariants"), 85,
-                         "V37.9.96 后 total_invariants 必须 == 85 (84 actual + 1 INV-PROXY-PLIST-ENV-001)")
+        self.assertEqual(meta.get("total_invariants"), 87,
+                         "V37.9.100 后 total_invariants 必须 == 87 "
+                         "(85 @ V37.9.96 + INV-DREAM-CROSS-DOMAIN-001 + INV-GOV-FIELD-001)")
 
     def test_actual_invariant_count_matches_metadata(self):
         """grep 真实 INV- 计数必须 == audit_metadata total_invariants (自洽守卫)."""

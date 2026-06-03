@@ -6265,7 +6265,11 @@ invariants:
       # ── runtime layer ──────────────────────────────────────────────────
       - name: "RUNTIME: governance_checker --json 输出 combined dict 含 convergence 键并能跑所有 4 spec"
         check_type: python_assert
-        assertion: |
+        # V37.9.100: requires_full 破递归 — 此 check 跑 subprocess governance_checker, 执行器修好后
+        #   子进程会再跑此 check → 无限递归. requires_full 让子进程 (无 --full) skip 它, 递归终止.
+        #   dev 模式本就每次跑 convergence specs, 集成隐式已验证; 显式 subprocess 仅 --full 需要.
+        requires_full: true
+        code: |
           import subprocess
           import sys
           import json
@@ -6295,7 +6299,9 @@ invariants:
               assert sid in spec_ids, f"missing spec {sid} in audit JSON"
       - name: "RUNTIME: dev mode convergence drift 不影响 exit code (informational only)"
         check_type: python_assert
-        assertion: |
+        # V37.9.100: requires_full 破递归 (同上 — 子进程 governance_checker 会再跑此 check)
+        requires_full: true
+        code: |
           import subprocess
           import sys
           import os
@@ -6425,29 +6431,33 @@ invariants:
                   f"{src_path}:{lineno} 不得使用占位符 fallback 字面量 "
                   f"'要点：技术深度文章' (V37.9.36 反模式禁止). 行内容: {line!r}"
               )
-      - name: "run_rss_blogs.sh HTTP error 分支后 500 字符内必须 exit 1 (fail-fast 顺序锁)"
+      - name: "run_rss_blogs.sh 全部 LLM 失败必须 fail-loud (status:llm_failed + send_alert + exit 1)"
         check_type: python_assert
-        assertion: |
+        code: |
+          # V37.9.100: V37.9.37 把 HTTP-error-立即-exit-1 改为 per-paper retry 模型 —
+          #   单篇 HTTP error 不再立即 exit, 而是 retry → 全部失败才 status:llm_failed + exit 1.
+          #   fail-loud 契约保留 (不静默), 只是机制从 per-error → all-failed. 旧 assertion 找
+          #   第二个 __LLM_HTTP_ERROR__ + 500 内 exit 1 已过时 (现 4290 字符). 改验当前契约.
           src = open("jobs/rss_blogs/run_rss_blogs.sh", encoding="utf-8").read()
-          # 找第二个 __LLM_HTTP_ERROR__ 出现 (第一个在 detection snippet 内, 第二个在 if-branch)
-          first = src.find("__LLM_HTTP_ERROR__")
-          assert first != -1, "缺少 __LLM_HTTP_ERROR__ 检测"
-          branch = src.find("__LLM_HTTP_ERROR__", first + 1)
-          assert branch != -1, "缺少 HTTP error if-branch"
-          exit_idx = src.find("exit 1", branch)
-          assert exit_idx != -1, "HTTP error 分支后未找到 exit 1"
-          gap = exit_idx - branch
-          assert gap < 500, f"HTTP error 分支必须立即 fail-fast exit 1, 距离 {gap} 字符"
-      - name: "run_rss_blogs.sh 空 content 分支后 500 字符内必须 exit 1"
+          idx = src.find('"status":"llm_failed"')
+          assert idx != -1, "缺少 all-failed status:llm_failed 分支"
+          window = src[max(0, idx - 400):idx + 400]
+          assert "all_failed" in window, "all-failed 分支必须含 reason:all_failed"
+          assert "exit 1" in window, "all-failed 分支必须 fail-fast exit 1"
+          # fail-loud: 失败必推 [SYSTEM_ALERT] (不静默)
+          assert "send_alert" in src and "[SYSTEM_ALERT]" in src, (
+              "INV-RSSBLOGS-001: LLM 失败必须 send_alert 推 [SYSTEM_ALERT], 不静默"
+          )
+      - name: "run_rss_blogs.sh 空内容 per-paper 检测 + 失败篇标 [LLM_DEGRADED] (不静默占位符)"
         check_type: python_assert
-        assertion: |
+        code: |
+          # V37.9.100: V37.9.37 per-paper retry — 空内容检测改为 LAST_LLM_FAIL_REASON=empty_content
+          #   (旧字面量 "LLM 返回空内容" 已移除). per-paper 失败 → retry → 全失败 exit 1 /
+          #   部分失败标 [LLM_DEGRADED] + RSS 摘要 fallback (绝不写"技术深度文章"静默占位符).
           src = open("jobs/rss_blogs/run_rss_blogs.sh", encoding="utf-8").read()
-          empty_idx = src.find("LLM 返回空内容")
-          assert empty_idx != -1, "缺少空内容检测分支"
-          exit_idx = src.find("exit 1", empty_idx)
-          assert exit_idx != -1, "空内容分支后未找到 exit 1"
-          gap = exit_idx - empty_idx
-          assert gap < 500, f"空内容分支必须立即 exit 1, 距离 {gap} 字符"
+          assert "empty_content" in src, "缺少空内容检测 (LAST_LLM_FAIL_REASON=empty_content)"
+          assert "[LLM_DEGRADED]" in src, "失败篇必须标 [LLM_DEGRADED] (不静默)"
+          assert "技术深度文章" not in src, "INV-RSSBLOGS-001: 严禁静默占位符 '技术深度文章'"
 
       # ── runtime layer (subprocess 真跑端到端验证) ─────────────────────
       - name: "RUNTIME: 复现 2026-05-07 18:00 血案场景 — LLM 502 响应触发 fail-fast 检测"
@@ -6487,9 +6497,9 @@ invariants:
           assert "primary: HTTP Error 301" in result.stderr
           assert "gemini: HTTP Error 503" in result.stderr
           assert result.stdout == "", "HTTP error 不应输出 content 到 stdout"
-      - name: "RUNTIME: emit 端 V37.9.37 5 字段 + LLM_DEGRADED + RSS description fallback (不写'技术深度文章'占位符)"
+      - name: "RUNTIME: emit 端 6 字段 + LLM_DEGRADED + RSS description fallback (不写'技术深度文章'占位符)"
         check_type: python_assert
-        assertion: |
+        code: |
           # V37.9.37 升级: emit 端从两元组 → 5 字段, fallback 从"LLM 摘要缺失" → [LLM_DEGRADED] + RSS description
           # 提取 emit Python 块运行, 端到端验证: 全部失败时每篇标 [LLM_DEGRADED] + RSS desc fallback
           import subprocess, sys, json, tempfile, os, shutil
@@ -6501,9 +6511,10 @@ invariants:
           py_block_start = snippet.find("\n", py_start) + 1
           py_block_end = snippet.find("\nPYEOF", py_block_start)
           emit_code = snippet[py_block_start:py_block_end]
-          # V37.9.37: emit 必须含 [LLM_DEGRADED] 标记 + parse_5field_output 函数
+          # V37.9.100: emit 必须含 [LLM_DEGRADED] 标记 + parse_6field_output 函数
+          #   (V37.9.51/62 把 rss_blogs 从 5 字段升级到 6 字段, 旧 parse_5field_output 已改名)
           assert "[LLM_DEGRADED]" in emit_code, "emit code 必须含 LLM_DEGRADED 标记"
-          assert "parse_5field_output" in emit_code, "emit code 必须含 5 字段 parser"
+          assert "parse_6field_output" in emit_code, "emit code 必须含 6 字段 parser"
           assert "技术深度文章" not in emit_code, "emit code 严禁占位符"
           # 端到端运行: 2 篇 article 都失败 → 两篇都标 [LLM_DEGRADED] + RSS description
           tmpdir = tempfile.mkdtemp(prefix="rss_inv_")
@@ -6710,7 +6721,8 @@ invariants:
         pattern: '"V37.9.51"'
       - name: "V37.9.51 ALIGNED_SCRIPTS 6 个目标脚本路径 (Sub-Stage 4b batch)"
         check_type: python_assert
-        assertion: |
+        code: |
+          import re
           src = open("ontology/llm_cron_audit.py", encoding="utf-8").read()
           # V37.9.51 Sub-Stage 4b 6 个脚本必须都出现在 ALIGNED_SCRIPTS dict 中
           required_paths = [
@@ -6724,12 +6736,12 @@ invariants:
           for path in required_paths:
               assert path in src, f"V37.9.51: {path} 必须在 llm_cron_audit.py 中声明"
           # 这 6 个脚本应映射到 V37.9.51 (而非历史 V37.9.40/41/43/44 等)
-          import importlib.util
-          spec = importlib.util.spec_from_file_location("llm_cron_audit", "ontology/llm_cron_audit.py")
-          mod = importlib.util.module_from_spec(spec)
-          spec.loader.exec_module(mod)
+          # V37.9.100: 用 regex 验证映射值, 不用 importlib —
+          #   importlib.util.module_from_spec + exec_module 在 exec() 环境下 @dataclass
+          #   (llm_cron_audit.py:78) 触发 'NoneType has no __dict__'. regex 直接读 dict 字面量更稳.
           for path in required_paths:
-              v = mod.ALIGNED_SCRIPTS.get(path)
+              m = re.search(re.escape(path) + r'"\s*:\s*"([^"]+)"', src)
+              v = m.group(1) if m else None
               assert v == "V37.9.51", f"V37.9.51: {path} 应映射 V37.9.51, 实际 {v!r}"
       - name: "ALIGNED_SCRIPTS 含 V37.5 kb_review 锚点"
         check_type: file_contains
@@ -6767,9 +6779,11 @@ invariants:
       # ── runtime: subprocess 真跑 audit 模块 + 单测 ──────────────────
       - name: "audit_all() 在真实 repo 跑通 + 至少 4 个 ALIGNED 脚本被识别"
         check_type: python_assert
-        assertion: |
+        code: |
           import subprocess, sys, os
-          repo_root = os.path.dirname(os.path.abspath(__file__))
+          # V37.9.100: repo_root 用 os.getcwd() (exec 环境已 chdir _PROJECT_ROOT=repo root);
+          #   旧 os.path.dirname(__file__)=ontology/ → cwd=ontology/ → ontology/ontology/... 找不到文件
+          repo_root = os.getcwd()
           # subprocess 跑 audit_script 端到端
           proc = subprocess.run(
               [sys.executable, "ontology/llm_cron_audit.py", "--report"],
@@ -6782,9 +6796,9 @@ invariants:
           assert "V37.9.16" in proc.stdout, "kb_deep_dive V37.9.16 未识别"
       - name: "test_llm_cron_audit.py 26 单测全过 (V37.9.38 守卫闭环)"
         check_type: python_assert
-        assertion: |
+        code: |
           import subprocess, sys, os
-          repo_root = os.path.dirname(os.path.abspath(__file__))
+          repo_root = os.getcwd()  # V37.9.100: exec 环境 cwd=repo root (旧 __file__ → ontology/ 错)
           proc = subprocess.run(
               [sys.executable, "-m", "unittest", "test_llm_cron_audit", "-v"],
               capture_output=True, text=True, timeout=60, cwd=repo_root,
@@ -6976,13 +6990,13 @@ invariants:
         pattern: 'INV-HALLUCINATION-001'
       - name: "LEVEL_4 ALIGNED jobs 注入守卫 (HG_LEVEL_4_TEXT env var)"
         check_type: python_assert
-        assertion: |
-          import os, glob
-          repo = os.path.dirname(os.path.abspath(__file__)) \
-              if "ontology" in os.path.abspath(__file__) \
-              else os.path.dirname(os.path.abspath(__file__))
+        code: |
+          # V37.9.100: 路径 bug 修复 — 旧代码用 os.path.dirname(__file__) 在 exec 环境
+          #   __file__=governance_checker.py → repo=ontology/ → glob ontology/jobs/* 永远空 (0>=8 假阳性).
+          #   _exec_python_assert 已 os.chdir(_PROJECT_ROOT), cwd=repo root, 用 cwd 相对 glob 即可.
+          import glob
           aligned_with_hg = 0
-          for sh in glob.glob(os.path.join(repo, "jobs", "*", "run_*.sh")):
+          for sh in glob.glob("jobs/*/run_*.sh"):
               with open(sh) as f:
                   content = f.read()
               if "HG_LEVEL_4_TEXT" in content or "HG_GUARD_TEXT" in content:
@@ -7821,16 +7835,18 @@ invariants:
       # === 运行时层 ===
       - name: "DEEP fail-fast 顺序锁 (失败必 exit 1)"
         check_type: python_assert
-        assertion: |
-          # 守卫: DEEP fail-fast 顺序锁 — phase":"deep" 字面量后 500 字符内必须含 exit 1
+        code: |
+          # 守卫: DEEP fail-fast 顺序锁 — phase":"deep" 字面量后 800 字符内必须含 exit 1
           # 防回退到"静默继续到 WIDE+RADAR"反模式
+          # V37.9.100: 窗口 500→800 (V37.9.75 加 deep_retried/deep_retry_chars 字段撑长 status
+          #   printf 行, exit 1 实测在 604 字符, 属性仍在只是 status 行变长)
           with open("kb_dream.sh") as _f:
               _src = _f.read()
           _idx = _src.find('"status":"llm_failed","phase":"deep"')
           assert _idx > 0, "INV-DREAM-MULTITHEME-001: DEEP fail-fast 分支必须存在"
-          _window = _src[_idx:_idx + 500]
+          _window = _src[_idx:_idx + 800]
           assert "exit 1" in _window, (
-              "INV-DREAM-MULTITHEME-001: DEEP fail 分支 500 字符内必须 exit 1 fail-fast"
+              "INV-DREAM-MULTITHEME-001: DEEP fail 分支 800 字符内必须 exit 1 fail-fast"
           )
       - name: "kb_dream_helpers 单测 68 个全过"
         check_type: python_assert
@@ -8039,14 +8055,16 @@ invariants:
       # === 声明层: kb_dream.sh RADAR retry 集成 ===
       - name: "V37.9.76 kb_dream RADAR retry 必须调用 router_decide 在 llm_call 之前"
         check_type: python_assert
-        assertion: |
+        code: |
           # 守卫: router_decide.py 调用必须在 RADAR retry llm_call 之前
           # 反向 sabotage: 删除调用 → 立即 fail
+          # V37.9.100: 窗口 500→1200 (V37.9.77 ROUTER_ENFORCE 门控 + 双路径 SCRIPT_DIR fallback
+          #   逻辑撑长, router_decide 调用实测在 retry llm_call 前 924 字符, 属性仍在)
           with open("kb_dream.sh") as _f:
               _src = _f.read()
           _retry_idx = _src.find('RADAR_RETRY_RESULT=$(llm_call "$RADAR_RETRY_PROMPT"')
           assert _retry_idx > 0, "RADAR retry llm_call 必须存在"
-          _window = _src[max(0, _retry_idx - 500):_retry_idx]
+          _window = _src[max(0, _retry_idx - 1200):_retry_idx]
           assert "router_decide.py" in _window, (
               "INV-ROUTER-001 V37.9.76: router_decide.py 调用必须在 RADAR retry llm_call 之前"
           )
@@ -8275,7 +8293,12 @@ invariants:
               "V37.4.3 案例",             # 历史认知修正
               "MR-10",                    # 元规则反向兑现
           ]
-          _missing = [k for k in _required if k not in _content]
+          # V37.9.100: 列表推导 → for-loop. exec() 作用域陷阱 (V37.3 教训) — 推导式在 exec 内
+          #   创建新作用域看不到 exec locals 的 _content/_required → NameError. for-loop 同作用域可见.
+          _missing = []
+          for _k in _required:
+              if _k not in _content:
+                  _missing.append(_k)
           assert not _missing, (
               f"V37.9.80 case doc 缺少核心字面量: {_missing}"
               f" (V37.9.80 主交付契约: 真因+证据+修复+教训+认知修正+MR 引用 6 项齐全)"
@@ -8371,53 +8394,58 @@ invariants:
       # 24h incident > 2 立即被 audit 抓到, 不再依赖人记得每天看 incident_analyzer
       - name: "RUNTIME: incidents.jsonl 24h ≤ 2 (V37.9.80 FDA 修复机器化判定)"
         check_type: python_assert
-        assertion: |
+        # V37.9.100: requires_full — 这是 Mac Mini 生产数据检查 (真 incidents.jsonl ≤2/24h),
+        #   dev 可能有 test fixture 的 ~/.kb/movespeed_incidents.jsonl (4.4MB 历史数据) 触发假阳性.
+        requires_full: true
+        code: |
+          # V37.9.100: 去掉 module 级 return (exec() 环境 'return' outside function 是 SyntaxError),
+          #   改用 if os.path.exists() 嵌套 + _io_ok 标志保持同款 FAIL-OPEN 契约
           import os, json
           from datetime import datetime, timedelta, timezone
           _jsonl_path = os.path.expanduser("~/.kb/movespeed_incidents.jsonl")
           # FAIL-OPEN: dev 无文件 → silent pass (governance dev 不应误报缺生产数据)
-          if not os.path.exists(_jsonl_path):
-              return
-          # 24h 窗口边界
-          _now = datetime.now(timezone.utc)
-          _cutoff = _now - timedelta(hours=24)
-          _count_24h = 0
-          # FAIL-OPEN: 文件损坏单行 skip 不阻塞 governance (V37.9.18 mtime-stable 同款契约)
-          try:
-              with open(_jsonl_path, "r", encoding="utf-8", errors="replace") as f:
-                  for line in f:
-                      line = line.strip()
-                      if not line:
-                          continue
-                      try:
-                          rec = json.loads(line)
-                      except (ValueError, TypeError):
-                          continue
-                      _ts_str = rec.get("timestamp_iso", "")
-                      if not _ts_str:
-                          continue
-                      try:
-                          # ISO 8601 with Z suffix or explicit offset
-                          if _ts_str.endswith("Z"):
-                              _ts = datetime.fromisoformat(_ts_str[:-1]).replace(tzinfo=timezone.utc)
-                          else:
-                              _ts = datetime.fromisoformat(_ts_str)
-                              if _ts.tzinfo is None:
-                                  _ts = _ts.replace(tzinfo=timezone.utc)
-                      except (ValueError, TypeError):
-                          continue
-                      if _ts >= _cutoff:
-                          _count_24h += 1
-          except (IOError, OSError):
-              # FAIL-OPEN: 文件 IO 失败 silent pass (e.g. 权限问题不该阻塞 audit)
-              return
-          # V37.9.80 判定窗口: 24h ≤ 2 = FDA 真生效
-          assert _count_24h <= 2, (
-              f"V37.9.81 MOVESPEED 24h incident 数 = {_count_24h} > 2 "
-              f"(V37.9.80 判定窗口失效, FDA 修复可能回退). "
-              f"立即跑 python3 ~/movespeed_incident_analyzer.py --window 24h 取证. "
-              f"可能原因: macOS 升级 reset TCC / FDA 被手动移除 / 其他外置卷 sandbox 问题."
-          )
+          if os.path.exists(_jsonl_path):
+              _now = datetime.now(timezone.utc)
+              _cutoff = _now - timedelta(hours=24)
+              _count_24h = 0
+              _io_ok = True
+              # FAIL-OPEN: 文件损坏单行 skip 不阻塞 governance (V37.9.18 mtime-stable 同款契约)
+              try:
+                  with open(_jsonl_path, "r", encoding="utf-8", errors="replace") as f:
+                      for line in f:
+                          line = line.strip()
+                          if not line:
+                              continue
+                          try:
+                              rec = json.loads(line)
+                          except (ValueError, TypeError):
+                              continue
+                          _ts_str = rec.get("timestamp_iso", "")
+                          if not _ts_str:
+                              continue
+                          try:
+                              # ISO 8601 with Z suffix or explicit offset
+                              if _ts_str.endswith("Z"):
+                                  _ts = datetime.fromisoformat(_ts_str[:-1]).replace(tzinfo=timezone.utc)
+                              else:
+                                  _ts = datetime.fromisoformat(_ts_str)
+                                  if _ts.tzinfo is None:
+                                      _ts = _ts.replace(tzinfo=timezone.utc)
+                          except (ValueError, TypeError):
+                              continue
+                          if _ts >= _cutoff:
+                              _count_24h += 1
+              except (IOError, OSError):
+                  # FAIL-OPEN: 文件 IO 失败 silent pass (e.g. 权限问题不该阻塞 audit)
+                  _io_ok = False
+              if _io_ok:
+                  # V37.9.80 判定窗口: 24h ≤ 2 = FDA 真生效
+                  assert _count_24h <= 2, (
+                      f"V37.9.81 MOVESPEED 24h incident 数 = {_count_24h} > 2 "
+                      f"(V37.9.80 判定窗口失效, FDA 修复可能回退). "
+                      f"立即跑 python3 ~/movespeed_incident_analyzer.py --window 24h 取证. "
+                      f"可能原因: macOS 升级 reset TCC / FDA 被手动移除 / 其他外置卷 sandbox 问题."
+                  )
 
   # ── V37.9.82: INV-PATH-CONSISTENCY-001 ──────────────────────────────
   - id: INV-PATH-CONSISTENCY-001
@@ -8514,6 +8542,138 @@ invariants:
               f"V37.9.82 test_path_consistency_scanner.py exit={_result.returncode}, "
               f"stderr tail: {_result.stderr[-1500:]}"
           )
+
+  # ── V37.9.100: INV-DREAM-CROSS-DOMAIN-001 ────────────────────────────
+  - id: INV-DREAM-CROSS-DOMAIN-001
+    name: dream-cross-domain-must-use-level6-guard
+    meta_rule: MR-7
+    verification_layer: [declaration, runtime]
+    severity: high
+    declaration: |
+      V37.9.89 LEVEL_6_DREAM_CROSS_DOMAIN_AWARE 反链式幻觉守卫 (dream 专用) 经
+      5 天观察期 (2026-05-30 ~ 06-03) 验证显著生效: 多跳因果链行 4.75→0.4/天
+      (↓92%, 基线 5/26-5/29 vs LEVEL_6 窗口) / 因此句式 3.0→1.4 (↓53%) /
+      [强证据]+[弱关联] tag 0→9.4/天. kb_dream.sh DREAM_HG_GUARD 必须用 LEVEL_6
+      而非 LEVEL_5 — 防回退让 dream 重新产生 "A → B → 因此 C" 链式幻觉
+      (MR-4 silent-failure 新形态: LLM 把两个真存在的弱信号用"必然推论链"硬连,
+      字面合规但跨域桥接无源支撑).
+
+      血案 (2026-05-29): V37.9.84 daily_observer 在 dream 中自发现 "光子计算 →
+      心理导航物理实现路径" 必然推论链幻觉 (基于弱信号的创造性跨域桥接). V37.9.57
+      LEVEL_5 没拦住 (Qwen3 把"推测"狭隘解读为"完全伪造"). LEVEL_6 强制每条
+      🔗 隐藏关联标 [强证据]/[弱关联] tag + 禁必然推论句式 + 禁多跳因果链 +
+      📭 信号不足 fallback. 本 INV 是 MR-7 治理自观察实证: observer (governance
+      观察工具) 观察 dream LLM 输出 → 发现链式幻觉 → LEVEL_6 守卫上线 → 5 天
+      生产数据闭环 → 立案守卫防回退. 与 INV-HALLUCINATION-001 (守 5 档公共模板)
+      互补: 此条专守 dream cross-domain 第 6 档接线 + 防回退.
+    checks:
+      - name: "kb_dream.sh DREAM_HG_GUARD 用 LEVEL_6 (file_contains)"
+        check_type: file_contains
+        file: kb_dream.sh
+        pattern: 'LEVEL_6_DREAM_CROSS_DOMAIN_AWARE'
+      - name: "防回退守卫: DREAM_HG_GUARD get_guard 级别必须是 LEVEL_6 (python_assert)"
+        check_type: python_assert
+        code: |
+          import re
+          with open("kb_dream.sh") as f:
+              content = f.read()
+          m = re.search(
+              r"DREAM_HG_GUARD=\$\(python3.*?get_guard\(['\"]([A-Z0-9_]+)['\"]\)",
+              content, re.DOTALL)
+          assert m is not None, "找不到 DREAM_HG_GUARD get_guard 调用"
+          level = m.group(1)
+          assert level == "LEVEL_6_DREAM_CROSS_DOMAIN_AWARE", (
+              f"INV-DREAM-CROSS-DOMAIN-001: DREAM_HG_GUARD 必须用 LEVEL_6, "
+              f"实际用 {level} (V37.9.89 回退风险 — dream 会重新产生链式幻觉)"
+          )
+      - name: "hallucination_guards.py 含 _LEVEL_6 定义 (file_contains)"
+        check_type: file_contains
+        file: hallucination_guards.py
+        pattern: '_LEVEL_6_DREAM_CROSS_DOMAIN_AWARE'
+      - name: "LEVEL_6 含 tag 模板 + 必然句式禁令 + 信号不足 fallback (python_assert)"
+        check_type: python_assert
+        code: |
+          import hallucination_guards as hg
+          l6 = hg.get_guard("LEVEL_6_DREAM_CROSS_DOMAIN_AWARE")
+          assert "[强证据]" in l6 and "[弱关联]" in l6, "LEVEL_6 缺 tag 模板"
+          assert "因此" in l6, "LEVEL_6 缺必然推论句式禁令"
+          assert "今日跨域信号不足" in l6, "LEVEL_6 缺 信号不足 fallback"
+      - name: "LEVEL_6 累积式继承 LEVEL_5 Radar 契约 (python_assert)"
+        check_type: python_assert
+        code: |
+          import hallucination_guards as hg
+          l6 = hg.get_guard("LEVEL_6_DREAM_CROSS_DOMAIN_AWARE")
+          assert ("LEVEL_5" in l6 or "Radar" in l6), (
+              "LEVEL_6 必须累积式继承 LEVEL_5 (反虚构 + Radar 信号源契约)"
+          )
+      - name: "V37.9.100 INV-DREAM-CROSS-DOMAIN-001 marker (file_contains)"
+        check_type: file_contains
+        file: ontology/governance_ontology.yaml
+        pattern: 'INV-DREAM-CROSS-DOMAIN-001'
+      - name: "RUNTIME: TestV37_9_89_Level6CrossDomain 守卫测试全过 (python_assert)"
+        check_type: python_assert
+        code: |
+          import subprocess, sys
+          r = subprocess.run(
+              [sys.executable, "-m", "unittest",
+               "test_hallucination_guards.TestV37_9_89_Level6CrossDomain", "-v"],
+              capture_output=True, text=True, timeout=60)
+          assert r.returncode == 0, (
+              f"INV-DREAM-CROSS-DOMAIN-001: LEVEL_6 守卫测试失败: {r.stderr[-500:]}"
+          )
+
+  # ── V37.9.100: INV-GOV-FIELD-001 (治理执行器 assertion 字段 bug 防再漂移 meta-guard) ──
+  - id: INV-GOV-FIELD-001
+    name: python-assert-checks-must-not-be-vacuous
+    meta_rule: MR-7
+    verification_layer: [declaration, runtime]
+    severity: critical
+    declaration: |
+      V37.9.100 治理执行器血案: governance_checker._exec_python_assert 历史只读
+      check.get("code"), 但 67 个 python_assert (跨 21 INV) 写成 assertion: 字段 →
+      exec("") vacuous pass. 治理报"✅ 所有不变式成立"但 67 个 check 从未真执行
+      (含 2 critical: INV-DREAM-003 dream 反污染 / INV-WATCHDOG-SELF-001 watchdog 自监控).
+      由 INV-DREAM-CROSS-DOMAIN-001 立案的反向验证暴露 (sabotage 没被抓). 这是教科书级
+      MR-4 silent-failure + MR-7 治理自观察盲区 — 讽刺: 一个 MR-7 INV 暴露了治理执行器
+      自身的 MR-7 盲区. 修复: _check_code(check) helper 读 code OR assertion 双字段
+      (单一真理源, MR-8). 本 meta-guard 守 (1) 执行器读双字段不退回 code-only
+      (2) 无 vacuous python_assert (每个经 _check_code 非空) — 本可一开始就抓住整个 bug 类.
+    checks:
+      - name: "执行器 _check_code helper 读 code OR assertion 双字段 (file_contains)"
+        check_type: file_contains
+        file: ontology/governance_checker.py
+        pattern: 'check\.get\("code"\) or check\.get\("assertion"'
+      - name: "_exec_python_assert 用 _check_code (不退回 check.get(\"code\") only) (python_assert)"
+        check_type: python_assert
+        code: |
+          src = open("ontology/governance_checker.py", encoding="utf-8").read()
+          idx = src.find("def _exec_python_assert")
+          assert idx != -1, "INV-GOV-FIELD-001: _exec_python_assert 必须存在"
+          body = src[idx:idx + 600]
+          assert "_check_code(check)" in body, (
+              "INV-GOV-FIELD-001: _exec_python_assert 必须用 _check_code(check) 读双字段, "
+              "不得退回 check.get('code') only (V37.9.100 血案: 67 check vacuous pass)"
+          )
+      - name: "无 vacuous python_assert check (每个 code+assertion 非空) (python_assert)"
+        check_type: python_assert
+        code: |
+          import yaml
+          data = yaml.safe_load(open("ontology/governance_ontology.yaml", encoding="utf-8"))
+          vacuous = []
+          for inv in data.get("invariants", []):
+              for c in inv.get("checks", []):
+                  if c.get("check_type") == "python_assert":
+                      code_val = c.get("code") or c.get("assertion") or ""
+                      if not str(code_val).strip():
+                          vacuous.append(inv.get("id", "?") + " :: " + str(c.get("name", "?"))[:40])
+          assert not vacuous, (
+              f"INV-GOV-FIELD-001: {len(vacuous)} 个 vacuous python_assert "
+              f"(code+assertion 都空 → exec('') silent pass): {vacuous[:5]}"
+          )
+      - name: "V37.9.100 INV-GOV-FIELD-001 marker (file_contains)"
+        check_type: file_contains
+        file: ontology/governance_ontology.yaml
+        pattern: 'INV-GOV-FIELD-001'
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -8874,7 +9034,7 @@ security_config:
 # 6. 审计元数据
 # ═══════════════════════════════════════════════════════════════════════
 audit_metadata:
-  version: "3.52"
+  version: "3.53"
   created: "2026-04-07"
   upgraded: |
     v3.51 → v3.52: V37.9.97 services_to_launchd Plan B 升级 — convergence framework
@@ -8959,8 +9119,8 @@ audit_metadata:
     v3.12 → v3.13: V37.8.7 ontology_sources 推送格式错位血案 — INV-ONTOLOGY-001 新增 (ontology-sources-parser-must-be-key-based-not-positional, meta_rule=MR-4, severity=high, verification_layer=[declaration, runtime], 7 checks). 2026-04-15 用户 WhatsApp 收到 ontology_sources 推送严重错位：第 2 篇 cn_title 显示为 *---*、第 3 篇 cn_title 显示为 *价值：⭐⭐⭐⭐*。根因：原解析器用严格位置 (lines[i], lines[i+1], lines[i+2]) + i+=3 步进 — LLM 漏一行"要点"或多一行空白就让所有后续条目的 cn_title/highlight/stars 全部右移一格级联污染。修复：抽到独立模块 jobs/ontology_sources/ontology_parser.py（纯函数 parse_llm_blocks 可单测，避开 V37.5 heredoc-only 不可测血案），按 separator 切块 + 块内 key-based prefix 解析，单块缺行不影响其他块。runtime python_assert 真跑用户实际看到的污染场景断言"缺要点不级联"。24 单测 (test_ontology_parser.py)：TestNormalCases(4) + TestBloodLessonRegression(5) + TestSeparatorVariants(5) + TestLLMOutputVariants(5) + TestShellScriptIntegration(4) + TestActualBloodLessonScenario(1)。MR-4 silent-failure 第 8 次演出（输出"看起来正常" 6 字段都在但语义错乱）。auto_deploy FILE_MAP 补齐 ontology_parser.py。
     v3.11 → v3.12: V37.8.6 Dream 自引用幻觉血案 — INV-DREAM-003 新增 (dream-log-cannot-pollute-cache-nor-fabricate-platform-crises, meta_rule=MR-4, severity=critical, verification_layer=[declaration, runtime], 16 checks). 2026-04-15 03:00 Dream run 出现 4 次 Bad JSON 400 (adapter 收到破损 JSON)，但 Dream 仍产出完整"Hugging Face 平台危机"分析，用户察觉 Signal(Papers with Code 沉默)↔Action(监控 Hugging Face) 主题断裂后上报。三层根因：(a) scraped 内容含 surrogate UTF-8 → json.dump + utf-8 file write → UnicodeEncodeError → body_file 截断 → adapter.py:386 返回 400 Bad JSON (b) kb_dream.sh log() 用 `echo` 写 stdout → signals=$(llm_call ...) 命令替换捕获 log 行进 signals → cache file 被"LLM raw response: Error code 400 Bad JSON..."污染 (c) Reduce cache-only fast path 把错误日志注入 LLM 上下文 → LLM 基于这些字样自动编造"Hugging Face 危机"叙事 = 原则 #23 链式幻觉 + MR-4 silent failure 第 7 次演出。四层结构修复（defense-in-depth）：log→stderr 阻断 stdout 污染通道 + _sanitize(U+D800-U+DFFF → U+FFFD) 防编码炸裂 + file open 显式 encoding='utf-8' errors='replace' 第二防线 + REDUCE/CHUNK1/2/3 system prompt 四块加反污染守卫 (禁止把 HTTP 错误码/Python 异常/错误页 HTML/U+FFFD 当外部信号，禁止基于这些字样推断 Hugging Face/GitHub/npm 等平台状态)。runtime python_assert 真跑 sanitize 五场景 (孤立高位/低位代理/正常串/代理范围边界/sanitize 后 json+utf-8 编码不炸)。19 单测 (TestLogGoesToStderr×2 + TestSanitizeSurrogates×7 + TestShellSanitizeImplementation×5 + TestAntiPollutionSystemPrompt×3 + TestShellScriptIntegrity×1 + TestLogDefHasCommentMeta×1)。
     v3.10 → v3.11: V37.8.5 INV-X-001 升级三层检测 (血案二次演出: V37.8.4 修复本身埋盲区) — V37.8.4 收工 Mac Mini E2E 即发现 2 个边缘：CNS1952 98/99 超窗口 + 1 过短老化率 99% 但未触发严格 old==total (MR-10 第 2 次演出：修复会埋坑)；SingTaoDaily 0-tweet stub (embed disabled 返回空骨架) 被 total>0 门槛绕过完全不标记。V37.8.5 修复：(1) 检测逻辑独立为 jobs/finance_news/finance_news_zombie.py 纯函数模块 (classify_zombie(diag, count)); (2) 三层 tier: "stub" (no_data=0 + total=0) + "stale" (≥90% 老化 + count=0 守卫防止低频活跃误报)，整数比较 old*10 >= total*9 避免浮点; (3) 24 单测锁定三层 + 守卫 + shell 集成 + auto_deploy FILE_MAP; (4) verification_layer 从 [declaration] 升级到 [declaration, runtime] (MR-6 遵循: INV-X-001 现在有 python_assert 真跑 5 个 tier 场景); (5) shell 脚本禁止内嵌 inline fallback (防模块缺失时静默降级回 V37.8.4 逻辑 — MR-8 copy-paste-is-a-bug-class 兑现)。诊断行 tier 区分 ⚠️ ZOMBIE嫌疑[stub] vs [stale]，便于日志定位。
-  total_invariants: 85  # V37.9.96: +1 INV-PROXY-PLIST-ENV-001 (proxy-plist-env-must-contain-ark-expert-escalate-keys, MR-4, high, declaration+runtime). 同时修 V37.9.94 漏更新的 +1 (INV-CROSS-ENV-PATH-001): 实际 grep '- id: INV-' = 85, 之前字段 83 stale -2 → 84 actual+1 mine = 85
-  total_checks: 790     # V37.9.97: 781 → 790 (+9 INV-CONVERGENCE-SERVICES-001 V37.9.97 services Plan B declaration checks). 对齐 governance_checker 运行时权威计数 (full_regression "790 checks pass"). V37.9.96 曾对齐 781 (修 V37.9.86 起累积漂移); V37.9.97 +9 = 790. 注: 真实 check_type 行数 grep < 790 因 governance_checker 还计 14 MRD discovery + preflight/env 等非 check_type 定义项 — 790 是操作权威数 (系统真跑真报)
+  total_invariants: 87  # V37.9.100: +2 INV-DREAM-CROSS-DOMAIN-001 (dream-cross-domain-must-use-level6-guard, MR-7, high — 5 天观察 5/30-6/3 LEVEL_6 多跳链↓92% 后立案防回退) + INV-GOV-FIELD-001 (python-assert-checks-must-not-be-vacuous, MR-7, critical — 治理执行器 assertion 字段空跑血案 meta-guard). V37.9.96: +1 INV-PROXY-PLIST-ENV-001. 实际 grep '- id: INV-' = 87
+  total_checks: 801     # V37.9.100: 790 → 801 (+7 INV-DREAM-CROSS-DOMAIN-001 + 4 INV-GOV-FIELD-001). 同 session 修治理执行器血案: _exec_python_assert 只读 code: 让 67 个 assertion: 字段 python_assert 跨 21 INV vacuous pass → _check_code helper 读双字段 + triage 14 个真执行后翻车 (job_watchdog sabotage 还原 / 路径 bug / 阈值 / stale 契约 / exec 作用域陷阱 / requires_full gate). V37.9.97: 781→790. 注: 真实 check_type 行数 grep < total 因 governance_checker 还计 14 MRD discovery + preflight/env 等非 check_type 定义项 — total_checks 是操作权威数 (系统真跑真报)
   meta_rules: 21        # V37.9.86: +2 MR-20 (framework-level-fix-must-validate-in-target-environment) + MR-21 (monitor-coverage-must-track-registry)
   meta_rule_discovery_count: 6   # Phase 0: registry + env + notify-topic + layer-depth + error-suppression + notify-activity
   check_types_used: [python_assert, file_contains, file_not_contains, env_var_exists, command_succeeds, log_activity_check]

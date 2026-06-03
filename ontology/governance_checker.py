@@ -79,9 +79,18 @@ def _load():
 # Check executors — one per check_type
 # ═══════════════════════════════════════════════════════════════════════
 
+def _check_code(check):
+    """V37.9.100: 同时接受 code: 和 assertion: 字段名 (修 67 个 assertion: 空跑 bug).
+    历史上 _exec_python_assert 只读 check.get('code'), 但 21 个 INV 的 67 个
+    python_assert 写成 assertion: 字段 → exec('') vacuous pass (MR-4 silent-failure +
+    MR-7 治理自观察盲区, 由 INV-DREAM-CROSS-DOMAIN-001 立案反向验证暴露). 单一真理源
+    helper (MR-8): 执行器 + MRD 覆盖率收集 + meta-discovery 三处统一读, 前向兼容两种字段名."""
+    return check.get("code") or check.get("assertion", "")
+
+
 def _exec_python_assert(check):
     """Execute Python code in project root context. No exception = pass."""
-    code = check.get("code", "")
+    code = _check_code(check)  # V37.9.100: 接受 code: 或 assertion: 字段名
     old_cwd = os.getcwd()
     old_path = sys.path[:]
     try:
@@ -242,7 +251,7 @@ def _collect_invariant_coverage(data):
     for inv in data.get("invariants", []):
         for check in inv.get("checks", []):
             # 从 python_assert code 中提取引用的文件名/变量名
-            code = check.get("code", "")
+            code = _check_code(check)  # V37.9.100: code: 或 assertion:
             pattern = check.get("pattern", "")
             file_ref = check.get("file", "")
             var_ref = check.get("var", "")
@@ -267,7 +276,7 @@ def run_meta_discovery(data):
     all_check_code = ""
     for inv in data.get("invariants", []):
         for check in inv.get("checks", []):
-            all_check_code += check.get("code", "") + " "
+            all_check_code += _check_code(check) + " "  # V37.9.100: code: 或 assertion:
             all_check_code += check.get("pattern", "") + " "
             all_check_code += check.get("file", "") + " "
 
