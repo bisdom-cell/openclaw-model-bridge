@@ -161,14 +161,38 @@ ALL_TWEETS="$CACHE/all_tweets.jsonl"
 > "$ALL_TWEETS"
 FETCH_STATS=""
 
-# ── 1. 逐账号抓取推文 ──────────────────────────────────────────────────
-# V37.9.99: inter-account 节流防 429 (V37.9.95 账号 19→31 翻倍后撞 X Syndication 限流,
-# ~16/31 fail HTTP 429, 失败账号轮换=非僵尸). 移到循环顶部对所有账号生效 — 旧 sleep 3
-# 仅成功路径, 失败 continue 跳过 → 限流后 rapid-fire (16 WARN 挤同一秒). 默认 5s ×31≈155s
-# 把 fetch 摊开, 远低于限流阈值. env AI_LEADERS_FETCH_DELAY 可调.
+# ── V37.9.101: 轮换抓取防 429 ─────────────────────────────────────────
+# 2026-06-03 复盘实测: 31 账号全 no_data (单条隔离请求都 HTTP:429 SIZE:20, IP 被标记),
+# job 产 0 推文. V37.9.95 把账号 19→31 翻倍后每 run 31 请求超 X Syndication 限流阈值,
+# V37.9.99 5s 节流对单 run 内有帮助但请求总量仍超. 修复: 每 run 只抓 batch 子集
+# (默认 11), 按 rotation_idx 轮换+环绕, ceil(31/11)=3 run 全覆盖. 单 run 请求量 31→11
+# 降到阈值下, 配 5s 节流 = 55s 摊开. 状态文件每 run 递增 (鲁棒于漏跑).
+ROTATION_MOD="$JOB_DIR/ai_leaders_rotation.py"
+ROTATION_FILE="$CACHE/rotation_idx"
+ROTATION_IDX=$(cat "$ROTATION_FILE" 2>/dev/null || echo 0)
+case "$ROTATION_IDX" in *[!0-9]*|"") ROTATION_IDX=0 ;; esac
+AI_LEADERS_BATCH="${AI_LEADERS_BATCH:-11}"
+SELECTED_IDX=""
+if [ -f "$ROTATION_MOD" ]; then
+    # || true: set -eo pipefail 下 python 非零退出不杀脚本 (FAIL-OPEN 下方 -z 兜底)
+    SELECTED_IDX=$(python3 "$ROTATION_MOD" select "${#LEADERS[@]}" "$ROTATION_IDX" "$AI_LEADERS_BATCH" 2>/dev/null || true)
+fi
+# FAIL-OPEN: 模块缺失/异常 → 抓全部 (保持旧行为不阻塞, 但记 WARN 提示 429 风险)
+if [ -z "$SELECTED_IDX" ]; then
+    SELECTED_IDX=$(seq 0 $(( ${#LEADERS[@]} - 1 )))
+    log "WARN: ai_leaders_rotation.py 缺失/异常, FAIL-OPEN 抓全部 ${#LEADERS[@]} 账号 (429 风险)"
+else
+    SEL_N=$(echo $SELECTED_IDX | wc -w | tr -d ' ')
+    log "V37.9.101 轮换: idx=$ROTATION_IDX batch=$AI_LEADERS_BATCH → 本 run 抓 ${SEL_N}/${#LEADERS[@]} 账号 [索引 $SELECTED_IDX]"
+fi
+
+# ── 1. 逐账号抓取推文 (仅本 run 轮换选中的子集) ───────────────────────────
+# 节流移到循环顶部对成功+失败账号都生效 (V37.9.99): 失败 continue 跳过 → 限流后
+# rapid-fire. 默认每账号 5s, env AI_LEADERS_FETCH_DELAY 可调.
 AI_LEADERS_FETCH_DELAY="${AI_LEADERS_FETCH_DELAY:-5}"
 FETCH_IDX=0
-for leader_entry in "${LEADERS[@]}"; do
+for sel in $SELECTED_IDX; do
+    leader_entry="${LEADERS[$sel]}"
     IFS='|' read -r HANDLE DISPLAY_NAME LABEL <<< "$leader_entry"
     RAW_HTML="$CACHE/raw/${HANDLE}.html"
     # 每账号 fetch 前节流 (第一个不 sleep), 成功+失败都生效防限流填满
@@ -295,6 +319,9 @@ PYEOF
     FETCH_STATS="${FETCH_STATS}${HANDLE}:ok "
     # V37.9.99: inter-account 节流已移到循环顶部 (对成功+失败账号都生效防 429)
 done
+
+# V37.9.101: 递增轮换计数器 (鲁棒于漏跑 — 只在真跑时前进, 下 run 抓下一子集)
+echo "$(( ROTATION_IDX + 1 ))" > "$ROTATION_FILE" 2>/dev/null || true
 
 TOTAL_NEW="$(wc -l < "$ALL_TWEETS" | tr -d ' ')"
 log "抓取完成 (${FETCH_STATS}), 共 ${TOTAL_NEW} 条新推文"
