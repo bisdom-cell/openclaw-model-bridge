@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-03 00:26:07",
+  "updated": "2026-06-03 02:46:02",
   "updated_by": "full_regression",
   "priorities": [
     {
@@ -105,6 +105,11 @@
   ],
   "recent_changes": [
     {
+      "date": "2026-06-03",
+      "what": "V37.9.100: INV-DREAM-CROSS-DOMAIN-001 立案 (LEVEL_6 dream 反链式幻觉守卫 5天观察 PASS, 多跳链↓92%) + 治理执行器 assertion 字段空跑血案修复 (67 check/21 INV vacuous pass — _exec_python_assert 只读 code: 让 assertion: 字段 exec(\"\") 空跑, _check_code helper 读双字段修复) + triage 14 翻车 (sabotage残留/路径bug/阈值/stale契约/exec作用域陷阱/递归) + INV-GOV-FIELD-001 meta-guard. 87 inv/801 checks/110 suites/3858 tests/0 fail",
+      "by": "claude_code"
+    },
+    {
       "date": "2026-06-02",
       "what": "V37.9.99-pkg: ontology-engine pip 包化第一块 (Phase 5 chunk 1, 终极目标奠基). keystone=config-injection: engine.py _resolve_config_dir()+ONTOLOGY_CONFIG_DIR env / governance_checker _resolve_project_root()+_resolve_ontology_dir()+ONTOLOGY_PROJECT_ROOT env — pip 装的引擎指向消费方 YAML 而非引擎自带, 向后兼容(无 env=默认引擎目录, Mac Mini/cron 不变). 二层架构: Layer1 项目无关引擎(ToolOntology/evaluate_policy/5 check executor/MRD/convergence/three_gate)=pip 包, Layer2 项目 YAML=消费方. governance __main__ 抽 main() 供 console. pyproject.toml openclaw-ontology-engine 0.1.0 (PyPI ontology-engine 已被占用) packages=[ontology]+console_scripts openclaw-ontology-audit/query — pip install -e . 真装成功+命令注册到 bin+卸载干净. docs/ontology_engine_packaging.md 二层架构+config 契约+已知耦合诚实登记+chunk2-5 迁移路标. test_ontology_packaging.py 23 单测+反向 sabotage 真有效(退回硬编码立即 fail). 验证: full_regression 109→110 suites/3835→3858 tests/0fail + governance 789 + 宪法第一条 proxy 不依赖 ontology(删除后 FAIL-OPEN). VERSION 0.37.9.68 不变. chunk2 候选: import 名 ontology→去泛化(破坏性, 涉 proxy lazy-load+symlink+全 import).",
       "by": "claude_code"
@@ -198,11 +203,6 @@
       "date": "2026-05-29",
       "what": "V37.9.91 Mac Mini 真生产闭环验证通过 (同 session 14:00 → 17:30 完整 wiring → 部署 → 真调用 < 4h). PR #609 合并到 main + auto_deploy FILE_MAP 同步 expert_escalation.py + proxy_filters.py + tool_proxy.py + ontology yaml 到 $HOME + plist 注入 ARK_API_KEY+ARK_ENDPOINT_ID + launchctl bootout/bootstrap 让 launchd 重读. 真调 Doubao Seed 2.0 Pro: status=ok / input_tokens=37524 / output_tokens=2060 / reasoning_chars=6923 / cache_read=0 (首调预期) / context_chars=80040 (含 changelog 67452). Doubao 输出质量优秀: proposal 准确识别 wiring 6 个验证点 + refs 引用 5 个真实文件 (V37.9.90-r1/V37.9.91/auto_deploy.sh/proxy_filters.py/tool_proxy.py) + rationale 引用 INV-PLIST-ENV-001/V37.9.76-hotfix/28+ MR-4 silent failures. Doubao 主动提示 V37.9.92 候选风险点: proxy plist drift (auto_deploy 未来轮询可能覆盖手动注入的 ARK env). 同时 V37.9.92+ CLAUDE.md 路径错配候选已证伪 (Mac Mini 上 $HOME/CLAUDE.md 真存在, FILE_MAP 部署 CLAUDE.md 到 $HOME).",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-05-29",
-      "what": "V37.9.91 Expert Escalation wiring 落地 — V37.9.90-r1 部署 checklist 兑现 (代码就绪 → 真生产可用). 三处 wiring 完成: (A) proxy_filters.py CUSTOM_TOOLS 第 3 个 entry + TOOL_PARAMS args 集合 (question required string + backend optional enum [doubao, claude_pending], description 含 6 个 SOUL 规则 12 触发词 + Doubao + PA caller). (B) tool_proxy.py _execute_custom_tool 新增 expert_escalate 分支 (~80 行): V37.9.15 three_gate 同款 importlib.util.spec_from_file_location lazy import + 双路径 fallback (脚本同目录 dev → $HOME FILE_MAP 部署位置), FAIL-CLOSED 三档 no_context/unknown_backend/api_unavailable, MR-11 stderr log 防 $(...)污染, ensure_ascii=False 保留中文. (C) auto_deploy.sh FILE_MAP 加 expert_escalation.py 部署条目 + V37.9.91 注释 marker. (D) ontology/tool_ontology.yaml custom.expert_escalate 段让 ONTOLOGY_MODE=on 路径也注册 (V37.9.85 INV-AUTO-INJECT-001 必经路径). 三模式 off/on/shadow 验证 expert_escalate ∈ CUSTOM_TOOL_NAMES. 32 新单测 7 类 (含 3 端到端 dry_run subprocess 真跑 escalate + 6 source-level lazy import 模式守卫). 反向 sabotage 3 处触发 18 failures 证明守卫真有效. 99 suites / 3537 tests / 0 fail / governance 762 checks / 安全 95/100. 不立 INV (V37.9.90-r1 承诺 V37.9.92+ 一周观察期后立 INV-EXPERT-ESCALATION-001). 下次 Mac Mini 部署后用户验证: git fetch+reset → 等 auto_deploy 同步 → restart proxy → WhatsApp 发\"让 Claude 看看 ...\"触发 SOUL 规则 12 → expert_escalate → Doubao → audit log JSONL.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -244,7 +244,6 @@
   "session_context": {
     "last_session": "2026-04-17 V37.8.14 (15 commits)",
     "unfinished": [
-      "V37.9.89+ 一周观察: Mac Mini 5/30 起 3:00 cron 真激活 LEVEL_6. 跑 5 天后比对 (5/30-6/3) dream 推送中 '因此 X' / '必然 X' / 多跳因果链句式频次. 期望大幅下降 + 出现 [强证据]/[弱关联] tag + 📭 fallback. 数据稳定后 V37.9.90 立 INV-DREAM-CROSS-DOMAIN-001.",
       "V3 路标 backlog: Tool Policy Plugin + Memory Plane Plugin + Job Template SDK + pip install ontology-engine",
       "WhatsApp 入站路由到 research agent 而非 main（4/10 WhatsApp plugin 安装副作用）: main/sessions.json mtime 从 Mar 30 起 dormant, 但 HEARTBEAT.md 修复后 research 正常响应不致命. 长期考虑: channels.whatsapp.agent 显式配置 / agents.list 顺序调整 / 验证 WhatsApp plugin inbound handler routing 逻辑",
       "V37.9.28+ 候选 (软性触发 ~2026-06-15, 4-8 周 5.x 沉淀观察期到达): OpenClaw 升级第五次评估. 届时 5.x 已稳定 6 周, 社区验证累积充分. 评估重点: (a) v2026.5.x 是否仍持续高频迭代或已稳定收敛 (b) #59265 Agent actions 不可见是否在某版本 release notes 显式修复 (有 PR + 版本 mention 双证据) (c) v2026.4.29 tools.exec/tools.fs restrictive profile 收紧对我们 proxy_filters 工具白名单是否影响 — dev 验证 12 工具集 (data_clean / search_kb / read_file / write_file / etc.) 在升级后是否仍可见 (d) v2026.5.2 plugin manifest contracts.tools ownership 强制对 qwen-local provider 注册路径 (adapter.py 启动时如何向 Gateway 注册) 是否破坏. 如所有阻塞解除则推荐阶梯升 v2026.4.27 (V37.9.27+ 评估认定为含 #73358 fix 的最早稳定 + 避开 4.29/5.x 累积变更面). 升级 SOP: 备份 openclaw.json + bash check_upgrade.sh 重新跑 + dev 验证两个新中风险点 + 维护窗口深夜 + 30 秒回滚预案 + WhatsApp 立即可用性 E2E. 升级成功后更新 LAST_EVAL_DATE 为升级日期重置时间 tripwire (180 天硬性上限到 2026-12 后)",
@@ -260,7 +259,9 @@
       "Semantic Scholar API key: 集成代码已就绪 (V37.9.98, FAIL-OPEN, run_semantic_scholar.sh 加 x-api-key header + 条件间隔). 待用户动作: (1) 去 semanticscholar.org/product/api 申请免费 key (审核制邮件发放约几天, 带 key 独占 1 RPS 规避匿名池 429). (2) 加 S2_API_KEY 到 cron 环境 (~/.zshrc 或 launchd plist EnvironmentVariables, 同 ARK_API_KEY 模式). 加完下次 11:00 S2 cron 自动从无认证(30s间隔)升认证(1s间隔)规避 429. 未加 key 时当前行为不变 (FAIL-OPEN). 可选后续: 有 key 后关键词 6→12 恢复更多覆盖 (V37.8.13 因 429 砍半).",
       "INV-OBSERVER-001 立 governance (Mac Mini 部署 V37.9.92/93 + 一周观察后 ~6/8; 合并自 V37.9.90/93/95 三次重复登记). 守 daily_observer 全契约 7-8 checks: V37.9.87 single-call (1 OBSERVER_PY invocation + --json 含 report_markdown) + V37.9.88 registry filter applied + stale detection function + V37.9.92 _resolve_registry_path 4 candidates + _write_observer_to_status helper + run() 顺序锁 + FAIL-OPEN ImportError/Exception + quality.observer payload schema + runtime python_assert 跑全单测. 关闭 Phase 0 自主发现的 'daily_observer 缺 INV' 缺口. (注: #11(b) INV-CROSS-ENV-PATH-001 已 V37.9.94 完成, 不再列)",
       "Observer-of-Observer 候选 (V37.9.95+ 登记, 低优): 第二个 cron 主动监控 daily_observer.log 的 fallback warn, 累计 ≥ N 次升 [SYSTEM_ALERT] (元监控, MR-7 治理自观察延伸).",
-      "ontology-engine pip 包化 chunk 2-5 遗留路标 (V37.9.99-pkg chunk 1 已完成 config-injection keystone + pyproject + 二层架构 + pip install -e 真装). 完整路标 + 推荐顺序见 docs/ontology_engine_packaging.md 第 6/6.1 节. **专业建议推进顺序: chunk 4 → 2 → 3 → 5** (先证明价值再做破坏性投入). ① chunk 4 (Extension Guide + 最小可跑 demo) 先做: 风险最低纯新增, 价值最直观 — 第一个真实消费方端到端验证 config-injection + 七大能力, 引擎的'Doubao 时刻'(Provider Plugin 直到 V37.9.52 Doubao 真接入才证明可扩展). demo 用当前 import ontology 标注临时. ② chunk 2 (import 名 ontology→去泛化) 次之: 最高风险破坏性 (proxy lazy-load + Mac Mini symlink + 全 import + tests), 全宪法验证(删除后正常+full_regression), 被 demo 去风险后再做, 绝不第一个做. ③ chunk 3 (MRD 项目特定模式 jobs_registry/notify.sh 参数化进 Layer 2): demo 会暴露哪些硬编码. ④ chunk 5 (发布: 分发名/license/PyPI + sdist/wheel + semver). 核心智慧: 先 spike 验证再破坏性重构 (原则 #18 补证据 + Provider Plugin 真消费方驱动)."
+      "ontology-engine pip 包化 chunk 2-5 遗留路标 (V37.9.99-pkg chunk 1 已完成 config-injection keystone + pyproject + 二层架构 + pip install -e 真装). 完整路标 + 推荐顺序见 docs/ontology_engine_packaging.md 第 6/6.1 节. **专业建议推进顺序: chunk 4 → 2 → 3 → 5** (先证明价值再做破坏性投入). ① chunk 4 (Extension Guide + 最小可跑 demo) 先做: 风险最低纯新增, 价值最直观 — 第一个真实消费方端到端验证 config-injection + 七大能力, 引擎的'Doubao 时刻'(Provider Plugin 直到 V37.9.52 Doubao 真接入才证明可扩展). demo 用当前 import ontology 标注临时. ② chunk 2 (import 名 ontology→去泛化) 次之: 最高风险破坏性 (proxy lazy-load + Mac Mini symlink + 全 import + tests), 全宪法验证(删除后正常+full_regression), 被 demo 去风险后再做, 绝不第一个做. ③ chunk 3 (MRD 项目特定模式 jobs_registry/notify.sh 参数化进 Layer 2): demo 会暴露哪些硬编码. ④ chunk 5 (发布: 分发名/license/PyPI + sdist/wheel + semver). 核心智慧: 先 spike 验证再破坏性重构 (原则 #18 补证据 + Provider Plugin 真消费方驱动).",
+      "V37.9.100 部署验证: Mac Mini git fetch+reset 同步后 governance audit cron 07:00 首次真执行 67 个此前空跑的 check (含 2 critical INV-DREAM-003/INV-WATCHDOG-SELF-001) — 验证生产环境 job_watchdog/守护脚本无真退化 (dev 已全绿 87 inv)",
+      "INV-GOV-FIELD-001 一周观察后评估: 是否把 67 个 assertion: 字段统一迁移成 code: (当前 _check_code 双字段兼容, 迁移是 cosmetic 非紧急; meta-guard 已防再漂移)"
     ],
     "open_prs": "",
     "blocked_on": "",
@@ -327,10 +328,10 @@
   "quality": {
     "security_score": 95,
     "test_count": 3858,
-    "last_regression": "2026-06-03 00:26 pass",
+    "last_regression": "2026-06-03 02:45 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-03 00:26",
-    "test_suites": 111,
+    "security_score_time": "2026-06-03 02:45",
+    "test_suites": 110,
     "governance_invariants": "85/85",
     "governance_checks": "790/790",
     "version": "0.37.9.68",
@@ -398,7 +399,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.99-pkg (6/2): ontology-engine pip 包化第一块完成 (Phase 5 chunk 1, 终极目标奠基) — keystone=config-injection (ONTOLOGY_CONFIG_DIR/ONTOLOGY_PROJECT_ROOT env 注入, 向后兼容默认引擎目录), 二层架构确立 (Layer1 项目无关引擎包/Layer2 项目 YAML), pyproject.toml openclaw-ontology-engine 0.1.0 pip install -e 真装成功+console_scripts 注册, governance __main__ 抽 main(), 23 单测+反向 sabotage. full_regression 110/3858/0fail + 宪法删除安全✅ proxy 不依赖 ontology. VERSION 0.37.9.68 不变. | 前序 6/2: V37.9.99-docs failure_modes_catalog 单一权威版整合 + V37.9.99 全部执行批次. | V3 pip 包化 chunk2-5 路标 (docs/ontology_engine_packaging.md): chunk2 import 名去泛化(破坏性,涉 proxy lazy-load+symlink+全 import)/chunk3 MRD 参数化/chunk4 sdist+Extension Guide/chunk5 发布决策(import名/分发名/license). | 日期硬卡: 6/4 LEVEL_6 立 INV-DREAM-CROSS-DOMAIN-001 / 6/8后 services flip+INV-OBSERVER-001+INV-SOURCE-CREDIBILITY-001 / 6/15 OpenClaw 第五次评估.",
+  "focus": "V37.9.100 完成: LEVEL_6 INV 立案 + 治理执行器空跑血案修复 + meta-guard. 待 Mac Mini 同步 + 07:00 governance cron 验证 67 check 真激活",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
