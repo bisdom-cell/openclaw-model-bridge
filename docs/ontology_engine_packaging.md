@@ -93,6 +93,22 @@ def _resolve_config_dir():
 
 ---
 
+## 6.1 推荐推进顺序（专业建议）
+
+> **不按数字顺序推，按"先证明价值、再做破坏性投入"推。**
+> 推荐顺序：**chunk 4 → chunk 2 → chunk 3 → chunk 5**
+
+| 顺位 | chunk | 为什么这个位置 |
+|---|---|---|
+| **① 先做** | **chunk 4** Extension Guide + 最小可跑 demo | **风险最低（纯新增，不改现有代码），价值最直观。** 第一次有"第二个项目"真用引擎 → 端到端验证 config-injection + 七大能力。这是引擎的 **"Doubao 时刻"**：Provider Plugin 直到 Doubao（第 8 个 provider，V37.9.52）真接入才被证明可扩展；引擎同样需要一个真实消费方 demo 来证明抽象正确。demo 用当前 `import ontology`，显式标注"import 名是临时的，chunk 2 会改"。 |
+| **② 次之** | **chunk 2** import 名去泛化 | **最高风险（破坏性：proxy lazy-load + Mac Mini symlink + 全部 import + tests），必须全宪法验证**（删除后正常 + full_regression + 删除安全）。放在 ① 之后是因为：demo 已证明能力成立 → rename 退化为"有明确目标的机械重构"。**绝不第一个做**——在没验证价值前先做破坏性重构，是把风险放在收益前面。 |
+| **③ 第三** | **chunk 3** MRD 模式参数化 | demo（①）会自然暴露哪些 MRD 模式是本项目硬编码的（`jobs_registry` / `notify.sh` 路径）。届时参数化最有的放矢，而非凭空猜哪些要抽。 |
+| **④ 最后** | **chunk 5** 发布 | 需 chunk 2-4 完成 + 名称/license/PyPI 决策 + sdist/wheel 真构建。 |
+
+**核心工程智慧**：先用便宜的 spike/demo 验证整个包化前提，再投入昂贵的破坏性重构——如果 demo 暴露抽象有问题，就避免了白做 chunk 2 的破坏性 rename。这与本项目 **原则 #18（补证据而非补功能）** + **Provider Plugin 由真消费方（V37.9.52 Doubao）驱动** 一脉相承：扩展接口的价值，只有真实消费方接入那一刻才被证明。
+
+---
+
 ## 7. 开放决策（发布前必答）
 
 1. **import 名**: `ontology` 太泛化（消费方 env 易冲突）。候选 `ontology_engine` / `openclaw_ontology` / `ocre`。**chunk 1 刻意不改**——它是破坏性变更（proxy_filters `spec_from_file_location("ontology/engine.py")` + Mac Mini `$HOME/ontology` symlink + `from ontology import convergence` + `ontology/tests/`），违反"第一块要安全"。留 chunk 2 专门做 + 全宪法验证。
