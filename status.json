@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-03 05:25:28",
+  "updated": "2026-06-03 08:02:44",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-06-03",
+      "what": "V37.9.102: ai_leaders_x 替代数据源评估报告 (docs/ai_leaders_source_alternatives.md). Syndication API 退化战略调研 — 续诊断揭示 fetch 成功但仍 0 推文因快照冻结 6-10 月前. WebSearch 5 方案: TwitterAPI.io 第三方 ~$1-6/月(首选, 比官方便宜96%) / 官方 X API $100-200/月 / Nitter 死 / RSSHub 同病 / 现状产0. 待用户决策换源",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-03",
       "what": "V37.9.101: ai_leaders_x 轮换抓取防 429. 12 账号复盘诊断揭示真问题非僵尸而是 X Syndication API 限流瘫痪 (31/31 no_data, 单请求 HTTP:429, job 产 0 推文, V37.9.99 误读成 seen-dedup 纠正). 建 ai_leaders_rotation.py (轮换 ~11/run 3 run 覆盖 31, 单 run 请求 31→11 + 健康分类 429 绝不判僵尸) + wire run_ai_leaders_x.sh + 34 单测. 111 suites/3892 tests/0 fail",
       "by": "claude_code"
     },
@@ -198,11 +203,6 @@
       "date": "2026-06-01",
       "what": "V37.9.92 双 bug 闭环: (1) V37.9.88 _resolve_registry_path 加 4th candidate ~/openclaw-model-bridge/jobs_registry.yaml — Mac Mini 5/29-6/1 connected fallback warn 治本 (MR-15 第 4 次演出). (2) 新增 _write_observer_to_status() helper 在 run() 调用 — 写 quality.observer 到 status.json, 闭环 V37.9.84 三方共享意识锚点承诺 (5 天 quality.observer={} 治本). 27 新单测 4 类含反向 sabotage (subprocess 真实验证守卫真有效). 99 suites / 3537→3564 tests / 0 fail / governance 762 checks / 安全 95/100 / VERSION 0.37.9.68 不变. Mac Mini 部署后 06:30 cron 应首次显示 jobs:12 scanned + quality.observer 不再 {}. ",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-05-29",
-      "what": "V37.9.91 WhatsApp 端到端真生产闭环铁证 (Doubao 自我深度判断 V37.9.92 候选). 用户在 WhatsApp 发深度判断请求给 PA → PA 真识别 SOUL 规则 12 触发词 → 真调 expert_escalate → tool_proxy 拦截 → lazy import escalate → Doubao Seed 2.0 Pro 真返回 → PA 转发. 真实 audit: status=ok / input=37461 / output=1360 / cache_read=0 (首调) / reasoning=3852 chars. Doubao proposal 准确提出 V37.9.92 4 步执行路径 (review FILE_MAP / 检查 auto_deploy 日志 / 加 INV 守 ARK env 持有 / 备份当前 working plist) + rationale 引用 MR-4 silent failure + MR-15 deployment-layout + V37.9.76-hotfix 历史案例 (CLAUDE.md changelog 真理解). 完整端到端 wiring 实证: SOUL 规则 12 触发 → PA 自主调用 → proxy 拦截 → escalate → Doubao → PA 转发 五段全通. V37.9.83 AI Partnership Framework Stage 3 方向 2 真生产闭环 — capability framework 不只声明 + 接入, 真有 PA 复杂判断时可调用的 expert backend.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -262,7 +262,9 @@
       "V37.9.100 部署验证: Mac Mini git fetch+reset 同步后 governance audit cron 07:00 首次真执行 67 个此前空跑的 check (含 2 critical INV-DREAM-003/INV-WATCHDOG-SELF-001) — 验证生产环境 job_watchdog/守护脚本无真退化 (dev 已全绿 87 inv)",
       "INV-GOV-FIELD-001 一周观察后评估: 是否把 67 个 assertion: 字段统一迁移成 code: (当前 _check_code 双字段兼容, 迁移是 cosmetic 非紧急; meta-guard 已防再漂移)",
       "V37.9.101 部署验证: Mac Mini 同步后 21:00 cron 真激活轮换 — 应 log 'V37.9.101 轮换 idx=N batch=11 抓 11/31' + fetch 成功率大升 (11 请求 vs 31). 若 11 请求仍 429 → IP 硬标记, V37.9.102+ 转策略 (降 batch / 认证版 X API / 替代源)",
-      "V37.9.101 follow-up (rotation 21:00 验证工作后): (a) 重跑复盘诊断 → 真僵尸 stale>7d 移除 LEADERS (b) 完整 zombie loop-wiring — parser 发 newest_age + per-account classify_account + 3 天连续 ZOMBIE 嫌疑告警 (镜像 finance_news, 模块已建+测就绪)"
+      "V37.9.101 follow-up (rotation 21:00 验证工作后): (a) 重跑复盘诊断 → 真僵尸 stale>7d 移除 LEADERS (b) 完整 zombie loop-wiring — parser 发 newest_age + per-account classify_account + 3 天连续 ZOMBIE 嫌疑告警 (镜像 finance_news, 模块已建+测就绪)",
+      "V37.9.103+ ai_leaders_x 换源决策待用户定 (docs/ai_leaders_source_alternatives.md): 选项 (a) TwitterAPI.io ~/月 第三方 REST 替代 Syndication (迁移路径已写, 免费额度先试) (b) 清 6 死账号+降频接受退化 (c) disable. Syndication API 退化产 ~0 推文是真因, 轮换(V37.9.101)只修 429 表层",
+      "finance_news 同用 X Syndication API 同面临退化风险 (V37.9.102 评估报告元教训) — 待评估其 21 个 X 账号是否也快照冻结. 若是同样需换源/降频"
     ],
     "open_prs": "",
     "blocked_on": "",
