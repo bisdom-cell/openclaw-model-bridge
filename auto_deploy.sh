@@ -219,6 +219,7 @@ declare -a FILE_MAP=(
     # AI Leaders X 技术洞察追踪（V34: 替代 karpathy_x，9位 AI 大牛）
     "jobs/karpathy_x/run_karpathy_x.sh|$HOME/.openclaw/jobs/karpathy_x/run_karpathy_x.sh"
     "jobs/ai_leaders_x/run_ai_leaders_x.sh|$HOME/.openclaw/jobs/ai_leaders_x/run_ai_leaders_x.sh"
+    "jobs/ai_leaders_x/ai_leaders_rotation.py|$HOME/.openclaw/jobs/ai_leaders_x/ai_leaders_rotation.py"
 
     # 备份脚本
     "openclaw_backup.sh|$HOME/openclaw_backup.sh"

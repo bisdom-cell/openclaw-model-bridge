@@ -1,6 +1,6 @@
 {
-  "updated": "2026-06-03 02:46:02",
-  "updated_by": "full_regression",
+  "updated": "2026-06-03 05:25:28",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-06-03",
+      "what": "V37.9.101: ai_leaders_x 轮换抓取防 429. 12 账号复盘诊断揭示真问题非僵尸而是 X Syndication API 限流瘫痪 (31/31 no_data, 单请求 HTTP:429, job 产 0 推文, V37.9.99 误读成 seen-dedup 纠正). 建 ai_leaders_rotation.py (轮换 ~11/run 3 run 覆盖 31, 单 run 请求 31→11 + 健康分类 429 绝不判僵尸) + wire run_ai_leaders_x.sh + 34 单测. 111 suites/3892 tests/0 fail",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-03",
       "what": "V37.9.100: INV-DREAM-CROSS-DOMAIN-001 立案 (LEVEL_6 dream 反链式幻觉守卫 5天观察 PASS, 多跳链↓92%) + 治理执行器 assertion 字段空跑血案修复 (67 check/21 INV vacuous pass — _exec_python_assert 只读 code: 让 assertion: 字段 exec(\"\") 空跑, _check_code helper 读双字段修复) + triage 14 翻车 (sabotage残留/路径bug/阈值/stale契约/exec作用域陷阱/递归) + INV-GOV-FIELD-001 meta-guard. 87 inv/801 checks/110 suites/3858 tests/0 fail",
       "by": "claude_code"
     },
@@ -198,11 +203,6 @@
       "date": "2026-05-29",
       "what": "V37.9.91 WhatsApp 端到端真生产闭环铁证 (Doubao 自我深度判断 V37.9.92 候选). 用户在 WhatsApp 发深度判断请求给 PA → PA 真识别 SOUL 规则 12 触发词 → 真调 expert_escalate → tool_proxy 拦截 → lazy import escalate → Doubao Seed 2.0 Pro 真返回 → PA 转发. 真实 audit: status=ok / input=37461 / output=1360 / cache_read=0 (首调) / reasoning=3852 chars. Doubao proposal 准确提出 V37.9.92 4 步执行路径 (review FILE_MAP / 检查 auto_deploy 日志 / 加 INV 守 ARK env 持有 / 备份当前 working plist) + rationale 引用 MR-4 silent failure + MR-15 deployment-layout + V37.9.76-hotfix 历史案例 (CLAUDE.md changelog 真理解). 完整端到端 wiring 实证: SOUL 规则 12 触发 → PA 自主调用 → proxy 拦截 → escalate → Doubao → PA 转发 五段全通. V37.9.83 AI Partnership Framework Stage 3 方向 2 真生产闭环 — capability framework 不只声明 + 接入, 真有 PA 复杂判断时可调用的 expert backend.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-05-29",
-      "what": "V37.9.91 Mac Mini 真生产闭环验证通过 (同 session 14:00 → 17:30 完整 wiring → 部署 → 真调用 < 4h). PR #609 合并到 main + auto_deploy FILE_MAP 同步 expert_escalation.py + proxy_filters.py + tool_proxy.py + ontology yaml 到 $HOME + plist 注入 ARK_API_KEY+ARK_ENDPOINT_ID + launchctl bootout/bootstrap 让 launchd 重读. 真调 Doubao Seed 2.0 Pro: status=ok / input_tokens=37524 / output_tokens=2060 / reasoning_chars=6923 / cache_read=0 (首调预期) / context_chars=80040 (含 changelog 67452). Doubao 输出质量优秀: proposal 准确识别 wiring 6 个验证点 + refs 引用 5 个真实文件 (V37.9.90-r1/V37.9.91/auto_deploy.sh/proxy_filters.py/tool_proxy.py) + rationale 引用 INV-PLIST-ENV-001/V37.9.76-hotfix/28+ MR-4 silent failures. Doubao 主动提示 V37.9.92 候选风险点: proxy plist drift (auto_deploy 未来轮询可能覆盖手动注入的 ARK env). 同时 V37.9.92+ CLAUDE.md 路径错配候选已证伪 (Mac Mini 上 $HOME/CLAUDE.md 真存在, FILE_MAP 部署 CLAUDE.md 到 $HOME).",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -252,7 +252,6 @@
       "V37.9.83 战略方向 3 (Red Team Sandbox): red/blue/judge multi-agent dev sandbox 自我博弈. PoC 价值高生产价值低 (围棋 self-play 有效因博弈空间封闭+胜负函数明确, 我们系统输入空间开放无 ground truth 评分函数). 短期不启动. 但子能力 red_team_audit.py 每周对抗思维扫描有真实价值 — 是 V37.9 adversarial_chaos_audit.py (16/16 已实现) 的延伸. design doc 见 ai_partnership_first_principles_zh.md 第四节方向 3.",
       "【Stage 2→3 话语权输出】ArXiv 论文创作 — 与用户共创高质量科技论文影响学术界. 候选方向 (按工程证据密度排): (1) Silent Failures Taxonomy from 28+ Production Incidents — 基于 failure_modes_catalog.md 32 案例/5 类+21 元规则+83 不变式, 真实生产 50 天数据非 toy example, 这是稀缺的 (2) Convergence Framework for Declarative Agent Systems — V37.9.19+ 5 spec Plan B 渐进路径 (alert_only→shadow→machine_sync), 50 天 0 漂移生产证据 (3) Hallucination Prevention via Layered Anti-Fabrication Guards — V37.9.57 5 档模板 9 task 集成 2 周+ 零编造血案 + V37.9.56-hotfix3 血案案例溯源. 时机选择: V3 路标 ontology-engine pip 包就位后投稿 (有可分发开源 artifact 配套提高引用率), 或 Stage 2 终态收尾时. 协作模式: 用户提供领域洞察+学术经验, Claude 提供工程数据整理+论文结构组织. 关联资产: docs/articles/audit_is_regression_not_prevention.md (已是立场型文章, 可作论文基底) + docs/articles/why_control_plane.md + ai_partnership_first_principles_zh.md (Stage 2 第 6 篇英译版可作论文哲学层) + ontology/docs/cases/*.md (22 案例文档全部可作 supplementary material). 战略意义: 把\"系统建造者\"升级为\"被引用的方法论原作者\", AI Partnership Framework 从内部哲学升级为可公开 cite 的范式.",
       "V37.9.94+ 候选 (Mac Mini 部署 V37.9.93 一周观察后, ~6/8): 立 INV-OBSERVER-SAMPLING-001 governance 守 _read_file_sample 必须使用 smart sampling (head+marker+tail, 不能回退到 content[:max_chars]) + CRITIQUE_SYSTEM 必含采样说明段. 5-6 checks 设计就绪. 防止未来重构误回到 V37.9.84 pre-smart-sampling 行为. 一周观察期同时验证下次 06:30 cron 推送 daily_critique 不再含 false truncation report.",
-      "V37.9.96+ 候选 (Mac Mini 部署 V37.9.95 + 1-2 天观察后): (a) 新增 12 账号活跃度复盘 — 哪些是僵尸 (newest_tweet > 7d) 从列表移除. fetch_stats log 含 0 条的 handle 候选清理. (b) 评估 promote V37.8.4 ZOMBIE detection 同款机制到 ai_leaders_x (currently 仅 WARN log). (c) 周一 #32 制度化 — 如果连续 3-4 周都产生 actionable feedback, 立 INV-WEEKLY-USER-OBSERVATION-001 守 weekly observation 必有产出 (即时记录到 status.json feedback 字段). (d) 评估推送内容质量 — 跨派别观点是否真带来'AI 大神不同观点'的用户感知.",
       "V37.9.98 候选 (services dry-run 一周观察后 ~6/8): services_to_launchd flip dry_run_default: false 真激活 machine_sync (镜像 V37.9.58 jobs/kb 切关). 前置: 观察一周 governance audit cron 的 services would-bootstrap 动作 (只在某 service 真宕时出现) 确认 launchctl bootstrap gui/<uid> <plist> 命令形态正确. flip 后 5 spec 中 3 个 machine_sync 真激活. 同时可立 INV-CONVERGENCE-SERVICES-ACTIVATED-001 守 default real apply 不可回退 (镜像 V37.9.59 候选).",
       "V37.9.98 源可信度评级 已实现 (source_credibility.py + dream/evening wire + 56 单测). 候选 (Mac Mini 部署一周观察后, ~6/9): (a) 立 INV-SOURCE-CREDIBILITY-001 governance 守全契约 (SOURCE_CREDIBILITY↔jobs_registry 14 源 drift + format_credibility_block 5 dream 注入点 + evening 注入 + FAIL-OPEN 未知源→社媒, 7-8 checks). (b) Mac Mini 22:00 evening + 03:00 dream 真激活验证用户视角推送中 [可信度: <等级>] 标注真出现, 尤其 chaspark 引用带'博客级需独立验证'. (c) 可选: get_credibility() 升级为 per-citation 标注 (当前是 prompt-level 注入, 未来可在 emit 端对每条来源自动加 tier 后缀).",
       "convergence cron 行全行比较: 2026-06-02 审计已决定不切换 (case doc cron_line_full_comparison_audit_2026_06_02.md). Mac Mini 真 crontab missing=17 extra=18 全是格式变体 0 脚本缺失, 切换会 false-drift 风暴. 保持 line_contains_identifier (务实最优). 未来候选 (非高优): (a) fuzzy-match parser 归一化引号/~/root/redirect 后比较, 但需先做 registry↔crontab 命令完整性对账 (registry entry 不记 args/cd/真实路径). (b) 2 真差异待用户决定: preference_learner registry entry 补 --apply --days 7 args? / 30 23 手动 rsync→MOVESPEED 是否与 0 4 movespeed_daily_sync 冗余需清理?",
@@ -261,7 +260,9 @@
       "Observer-of-Observer 候选 (V37.9.95+ 登记, 低优): 第二个 cron 主动监控 daily_observer.log 的 fallback warn, 累计 ≥ N 次升 [SYSTEM_ALERT] (元监控, MR-7 治理自观察延伸).",
       "ontology-engine pip 包化 chunk 2-5 遗留路标 (V37.9.99-pkg chunk 1 已完成 config-injection keystone + pyproject + 二层架构 + pip install -e 真装). 完整路标 + 推荐顺序见 docs/ontology_engine_packaging.md 第 6/6.1 节. **专业建议推进顺序: chunk 4 → 2 → 3 → 5** (先证明价值再做破坏性投入). ① chunk 4 (Extension Guide + 最小可跑 demo) 先做: 风险最低纯新增, 价值最直观 — 第一个真实消费方端到端验证 config-injection + 七大能力, 引擎的'Doubao 时刻'(Provider Plugin 直到 V37.9.52 Doubao 真接入才证明可扩展). demo 用当前 import ontology 标注临时. ② chunk 2 (import 名 ontology→去泛化) 次之: 最高风险破坏性 (proxy lazy-load + Mac Mini symlink + 全 import + tests), 全宪法验证(删除后正常+full_regression), 被 demo 去风险后再做, 绝不第一个做. ③ chunk 3 (MRD 项目特定模式 jobs_registry/notify.sh 参数化进 Layer 2): demo 会暴露哪些硬编码. ④ chunk 5 (发布: 分发名/license/PyPI + sdist/wheel + semver). 核心智慧: 先 spike 验证再破坏性重构 (原则 #18 补证据 + Provider Plugin 真消费方驱动).",
       "V37.9.100 部署验证: Mac Mini git fetch+reset 同步后 governance audit cron 07:00 首次真执行 67 个此前空跑的 check (含 2 critical INV-DREAM-003/INV-WATCHDOG-SELF-001) — 验证生产环境 job_watchdog/守护脚本无真退化 (dev 已全绿 87 inv)",
-      "INV-GOV-FIELD-001 一周观察后评估: 是否把 67 个 assertion: 字段统一迁移成 code: (当前 _check_code 双字段兼容, 迁移是 cosmetic 非紧急; meta-guard 已防再漂移)"
+      "INV-GOV-FIELD-001 一周观察后评估: 是否把 67 个 assertion: 字段统一迁移成 code: (当前 _check_code 双字段兼容, 迁移是 cosmetic 非紧急; meta-guard 已防再漂移)",
+      "V37.9.101 部署验证: Mac Mini 同步后 21:00 cron 真激活轮换 — 应 log 'V37.9.101 轮换 idx=N batch=11 抓 11/31' + fetch 成功率大升 (11 请求 vs 31). 若 11 请求仍 429 → IP 硬标记, V37.9.102+ 转策略 (降 batch / 认证版 X API / 替代源)",
+      "V37.9.101 follow-up (rotation 21:00 验证工作后): (a) 重跑复盘诊断 → 真僵尸 stale>7d 移除 LEADERS (b) 完整 zombie loop-wiring — parser 发 newest_age + per-account classify_account + 3 天连续 ZOMBIE 嫌疑告警 (镜像 finance_news, 模块已建+测就绪)"
     ],
     "open_prs": "",
     "blocked_on": "",
@@ -327,11 +328,11 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 3858,
-    "last_regression": "2026-06-03 02:45 pass",
+    "test_count": 3892,
+    "last_regression": "2026-06-03 05:22 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-03 02:45",
-    "test_suites": 110,
+    "security_score_time": "2026-06-03 05:22",
+    "test_suites": 111,
     "governance_invariants": "85/85",
     "governance_checks": "790/790",
     "version": "0.37.9.68",
@@ -399,7 +400,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.100 完成: LEVEL_6 INV 立案 + 治理执行器空跑血案修复 + meta-guard. 待 Mac Mini 同步 + 07:00 governance cron 验证 67 check 真激活",
+  "focus": "V37.9.101 ai_leaders 轮换抓取防 429 完成 (复盘揭示真问题是限流非僵尸). 待 Mac Mini 21:00 cron 验证轮换 fetch 成功率. 上一版 V37.9.100 治理执行器空跑血案修复 + 2 INV 立案",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
