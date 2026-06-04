@@ -106,6 +106,7 @@ run_suite "v37_9_53_doubao_verified (V37.9.53 flip verified_text + reasoning cap
 run_suite "v37_9_54_abc (V37.9.54 ABC: restart.sh marker-based plist reload + verified_vision + INV-PLIST-ENV-001)" "python3 test_v37_9_54_abc.py"
 run_suite "v37_9_55_doubao_more_verified (V37.9.55 flip verified_tool_calling + verified_streaming, cap_score 12→16 超 Qwen3 14)" "python3 test_v37_9_55_doubao_more_verified.py"
 run_suite "run_rss_blogs (V37.9.36 LLM fail-fast + 占位符 fallback 禁止)" "python3 test_run_rss_blogs.py"
+run_suite "ai_leaders_blogs (V37.9.108 ai_leaders X→博客/Substack RSS 转向 + feed 不重叠 rss_blogs + 复用管道)" "python3 test_ai_leaders_blogs.py"
 run_suite "v37_9_18_cron_strict_checks (V37.9.18 preflight 双 warning + crontab_safe 退出码)" "python3 test_v37_9_18_cron_strict_checks.py"
 run_suite "convergence (V37.9.19 Phase 4 Layer 5 — declared→runtime convergence framework + jobs_to_crontab spec)" "python3 test_convergence.py"
 run_suite "audit_log (审计日志/链式哈希)" "python3 test_audit_log.py"

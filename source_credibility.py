@@ -62,7 +62,7 @@
 ═══════════════════════════════════════════════════════════════════════════
 契约:
   - SOURCE_CREDIBILITY 是 source→tier 的单一真理源 (MR-8). 必须与
-    jobs_registry.yaml 的 14 个内容源 (含 kb_source_file 字段) 保持一致 —
+    jobs_registry.yaml 的 15 个内容源 (含 kb_source_file 字段) 保持一致 —
     test_source_credibility.TestSourceCoverage 守卫 drift (id + label 双匹配).
   - format_credibility_block() 输出以 \\n\\n 开头便于 append 到 base prompt
   - 守卫块以 "⚠️" 开头让 LLM 注意力高位置识别 (与 hallucination_guards 一致)
@@ -119,7 +119,7 @@ _DEFAULT_TIER = "社媒"
 
 # ════════════════════════════════════════════════════════════════════
 # source → tier 映射 (单一真理源, MR-8)
-# 必须与 jobs_registry.yaml 14 个内容源 (含 kb_source_file) 一致.
+# 必须与 jobs_registry.yaml 15 个内容源 (含 kb_source_file) 一致. (V37.9.108: +ai_leaders_blogs)
 # key = job id (jobs_registry `- id:` 字段)
 # label = kb_source_label (用户在 KB section 看到的标签, 用于 prompt 块显示)
 # ════════════════════════════════════════════════════════════════════
@@ -138,6 +138,9 @@ SOURCE_CREDIBILITY: dict[str, dict] = {
     # 📝 博客 (chaspark = observer 5/28 点名的非主流学术源)
     "rss_blogs": {"label": "📖 RSS 技术博客", "tier": "博客"},
     "chaspark": {"label": "🏠 华为茶思屋科技", "tier": "博客"},
+    # V37.9.108: AI 大神博客/Substack 长文观点 (ai_leaders 从 X 转向非 X 渠道;
+    # 个人学者撰写无正式评审 → 博客 tier, 比 X 推文 ai_leaders_x 社媒档更可信)
+    "ai_leaders_blogs": {"label": "🧠 AI 大神观点", "tier": "博客"},
     # 💬 社媒/资讯
     "ai_leaders_x": {"label": "🐦 AI Leaders X 洞察", "tier": "社媒"},
     "run_hn_fixed": {"label": "🔥 HackerNews 热帖", "tier": "社媒"},

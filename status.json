@@ -1,6 +1,6 @@
 {
-  "updated": "2026-06-04 05:02:31",
-  "updated_by": "security_score",
+  "updated": "2026-06-04 05:53:05",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-06-04",
+      "what": "V37.9.108: ai_leaders X→博客/Substack RSS 转向 (用户主任务: X Syndication 429+冻结退化的非 X 渠道解法). V37.9.102 评估盲区(只看 X 内替代→付费) 经用户目标 reframe(意见≠X) 突破. WebSearch 确认非 X 渠道 2026 真可用 (Bluesky 免费 API+学者迁入 / AI 大神 blog/Substack 长文). 新 job jobs/ai_leaders_blogs/run_ai_leaders_blogs.sh (13:30 1x/天) 紧贴 rss_blogs 管道 (RSS+LLM 6 字段+🎚️ alignment+hallucination_guards LEVEL_4+双通道🧠 AI 大神观点+KB+FAIL-OPEN), 12 策展大神 feed 偏重 contrarian (Marcus/AI Snake Oil/Import AI/Raschka/Lambert/Eugene Yan/Karpathy/Gradient/fast.ai/HF/Anthropic) 不重叠 rss_blogs. feed 可达性 Mac Mini 首跑验证 (原则#33+反馈#1 chaspark: dev 403 不定论). ai_leaders_x 保持 enabled (禁用级联 6 依赖) 注释标记被取代真停用留 follow-up. 新源触发 3 个 MR-8 漂移守卫合理修 (source_credibility 14→15 博客 tier / INV-BACKUP-001 site / config.md). 27 新单测. 112→113 suites/3968→3995 tests/0 fail/governance 805 checks/安全 95/README 同步 3995/VERSION 0.37.9.68 不变.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-04",
       "what": "V37.9.107: ontology-engine 包化 chunk 3a — convergence config-injection (chunk-4 demo 暴露的真 bug 闭环). convergence.py 加 _resolve_config_dir()+_resolve_project_root() (镜像 engine/governance), _DEFAULT_SPEC_PATH 经 _CONFIG_DIR + 9 处源文件/sys.path 解析经 _PROJECT_ROOT; 无 env 默认分支保持 V37.9.19 .resolve() 字节级不变零回归. demo 加 convergence_ontology.yaml+weatherbot_state.json + run_demo.py section 5 端到端验证 (消费方读自己 spec 非 bridge). 17 新单测 (convergence +14 含反向 sabotage parent.parent count≤1, extension_demo +3). 不立新 INV (镜像 chunk1/4 约定). MRD 模式参数化登记 chunk-3b. 112 suites/3951→3968 tests/0 fail/governance 87 inv/安全 95/README 同步 3968/VERSION 0.37.9.68 不变. 生产治理零回归 (bridge 5 specs 正确加载). de-risk chunk 2 (更少东西硬编码到 ontology/ 目录).",
       "by": "claude_code"
     },
@@ -198,11 +203,6 @@
       "date": "2026-06-02",
       "what": "V37.9.98 续: #2 LEVEL_6 dream 句式复盘 (3 天预览, Mac Mini 数据) 强阳性 — 因此句式 4→1 (↓70%) / 为X提供 ~2.5→~1 (↓60%) / [强证据]+[弱关联] tag 0→9-12 条/天 / 定性 6/1 每条隐藏关联正确分级 (强证据带论文DOI引用, 弱关联带无因果证据caveat). V37.9.89 修复方向完全正确, 完整 5 天判定 6/4 后立 INV-DREAM-CROSS-DOMAIN-001. #3 convergence cron 行审计 (Mac Mini 真 crontab): declared=37 observed=38 missing=17 extra=18, 17 missing 配对 18 extra 全是功能等价格式变体 (单/双引号7/缺redirect2/~vs$HOME1/mkdir前缀3/cd前缀2/repo路径1)+2真差异(preference_learner --apply --days 7 registry未记 / 30 23 手动rsync与0 4 movespeed重复), 0条脚本真缺失. 数据驱动决策: 不切换 cron_lines_set_diff (会 false-drift风暴+machine_sync搞坏crontab), 保持 line_contains_identifier. 验证 V37.9.66 不切判断正确. case doc + spec 注释记录决策.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-06-02",
-      "what": "V37.9.98 收工后清理 stale unfinished: (1) pop #9 INV-CROSS-OS-001 (V37.9.67 已落地 scanner 0 violations + INV 6 引用, 列表漏清). (2) #11 外部评审项发现数据污染 — what 字段被嵌入 6679 字符 pip install ontology-engine 日志 (Collecting/Downloading/Successfully installed ontology-engine-0.1.0), 误把 V3 路标 P2(a) 句子劈开. 剥离还原为 V3 路标 pip install ontology-engine 已是终极目标, 保留评审有价值内容 (未 pop, 是多子项 backlog). 未执行该 pip 内容. 发现: PyPI ontology-engine 0.1.0 已被他人占用, V3 终极目标包名撞车, 未来 pip 化可能需换名 (如 openclaw-ontology-engine), 已登记未擅改路标. unfinished 20→19, 原始备份 /tmp/status_backup_pre_cleanup.json.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -267,7 +267,8 @@
       "#18 ai_leaders zombie loop-wiring 现已安全 (V37.9.103): classify_account 已拆 frozen/dead, is_zombie_suspect 仅 stub+dead, 将来 wire 进 run 脚本不会错杀 karpathy 类冻结活账号. 仍 deferred 待 Mac Mini rotation 验证工作后做 (parser 发 newest_age + per-account classify + 3 天连续 ZOMBIE 告警, 镜像 finance_news degraded 分流)",
       "ontology-engine 包化 chunk 4 已完成 (V37.9.104, 取代 #14 的「先做 chunk 4」建议). examples/minimal_consumer/ WeatherBot 真消费方 demo + Extension Guide + 12 端到端单测, dev config-injection 端到端跑通. 下一步按 docs/ontology_engine_packaging.md §6.1 推进顺序 = chunk 2 (import 名 ontology→ontology_engine 去泛化, 破坏性需全宪法验证 — demo 已证明价值故 rename 退化为机械重构, 涉 proxy_filters lazy-load spec_from_file_location + Mac Mini $HOME/ontology symlink + 全 import + ontology/tests/). chunk 4 demo 暴露具体耦合点供 chunk 3: convergence.py::_DEFAULT_SPEC_PATH = Path(__file__).parent/convergence_ontology.yaml 不读 ONTOLOGY_CONFIG_DIR (已登记 packaging.md §5). chunk 5 = sdist/wheel build + pip install 冒烟 + PyPI 名/license/readme 发布决策.",
       "V37.9.106 部署后 24h 验证 (~2026-06-05): 现有 30 条 MOVESPEED TM-争用 incident 老化出 24h 窗口后 INV-MOVESPEED-TCC-001 应自动转绿 → 治理审计 721/721 全绿. 验证: python3 ~/movespeed_incident_analyzer.py --window 24h 应显示 incidents 大降 (tmutil 预检让 TM 备份时 rsync 跳过不产新 incident). 若仍红说明 TM 之外还有 incident 来源待查.",
-      "ontology-engine chunk 3b (聚焦 session): MRD 扫描模式文件名参数化 — governance_checker.py 的 ~10 个 _discover_* 把 jobs_registry.yaml/notify.sh/jobs/*/run_*.sh 文件名模式从代码移到 Layer 2 配置, framework 只读模式表. 注意: 根已 _PROJECT_ROOT 注入 (chunk 3a 之前就有), 仅文件名模式硬编码, 且消费方缺文件已优雅 no-op (非 correctness bug 仅配置化 nicety). 触碰 MR-4 血案防护扫描器, 需单独聚焦 session 不与其他捆绑. 设计: 在 governance_ontology.yaml meta 或新 Layer-2 文件加 mrd_scan_patterns, 向后兼容默认 = 当前 bridge 模式. 见 docs/ontology_engine_packaging.md §5 row 4 + §6 chunk 3b."
+      "ontology-engine chunk 3b (聚焦 session): MRD 扫描模式文件名参数化 — governance_checker.py 的 ~10 个 _discover_* 把 jobs_registry.yaml/notify.sh/jobs/*/run_*.sh 文件名模式从代码移到 Layer 2 配置, framework 只读模式表. 注意: 根已 _PROJECT_ROOT 注入 (chunk 3a 之前就有), 仅文件名模式硬编码, 且消费方缺文件已优雅 no-op (非 correctness bug 仅配置化 nicety). 触碰 MR-4 血案防护扫描器, 需单独聚焦 session 不与其他捆绑. 设计: 在 governance_ontology.yaml meta 或新 Layer-2 文件加 mrd_scan_patterns, 向后兼容默认 = 当前 bridge 模式. 见 docs/ontology_engine_packaging.md §5 row 4 + §6 chunk 3b.",
+      "ai_leaders_blogs (V37.9.108) Mac Mini feed 可达性验证 + 后续: (a) 首跑后看 log WARN 剪死链 (Anthropic news/Karpathy bearblog URL 是 candidate 待验, Substack /feed 标准应可达) + 补可达大神 feed (b) V37.9.109+ Bluesky 免费无认证 API (public.api.bsky.app getAuthorFeed) 加实时短观点维度 — 学者已大规模迁入 (arXiv 2505.24801), 需 handle→DID 解析 + getAuthorFeed 抓取 + 查哪些大神在 Bluesky (c) 验证稳定后真停用 ai_leaders_x: 需同步更新 6 依赖 (kb_review/source_credibility/INV-REVIEW-001/INV-BACKUP-001/config/wa_gateway_resilience 都期望 ai_leaders_x 为内容源) + Mac Mini crontab_safe.sh remove 清 cron 行 (d) ai_leaders_blogs 接入 Opportunity Radar 三件套 (跨源共振 #1 / 项目对齐 #2 / 趋势加速 #3) 作高质量信号源"
     ],
     "open_prs": "",
     "blocked_on": "",
@@ -333,11 +334,11 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 3968,
-    "last_regression": "2026-06-04 04:58 pass",
+    "test_count": 3995,
+    "last_regression": "2026-06-04 05:50 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-04 04:58",
-    "test_suites": 112,
+    "security_score_time": "2026-06-04 05:50",
+    "test_suites": 113,
     "governance_invariants": "85/85",
     "governance_checks": "790/790",
     "version": "0.37.9.68",
@@ -405,7 +406,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.107 (2026-06-04 周四): ontology-engine 包化 chunk 3a — convergence config-injection 闭环 (chunk-4 demo 暴露的真 bug). convergence 现读 ONTOLOGY_CONFIG_DIR spec + ONTOLOGY_PROJECT_ROOT 源文件 (镜像 engine/governance), 默认零回归. demo section 5 端到端验证. de-risk chunk 2. 112 suites/3968 tests/0 fail. 下次候选: chunk 2 (import 名去泛化破坏性 rename, 需定包名+Mac Mini symlink+全宪法验证) / chunk 3b (MRD 文件名模式参数化, ~10 个 MR-4 扫描器聚焦 session) / chunk 5 (sdist build). 日期门控: INV-OBSERVER/services flip ~6/8 / 源可信度 INV ~6/9 / OpenClaw 升级评估 ~6/15. Mac Mini: INV-MOVESPEED-TCC-001 待 24h incident 老化转绿 (V37.9.106 tmutil 预检已部署).",
+  "focus": "V37.9.108 (2026-06-04 周四): ai_leaders X→博客/Substack RSS 转向 (用户主任务). 新 job ai_leaders_blogs 收集 AI 大神长文观点 (12 大神偏重不同意见), 复用 rss_blogs 管道+🎚️ 项目对齐评分. ai_leaders_x 保持 enabled 待 follow-up 真停用. 113 suites/3995 tests/0 fail. **Mac Mini 待用户**: git fetch+reset 同步 + 手动 bash ~/.openclaw/jobs/ai_leaders_blogs/run_ai_leaders_blogs.sh 验证 feed 可达性 (死链剪枝, Anthropic/Karpathy URL 待验) + 收 🧠 AI 大神观点 推送. 下次候选: feed 验证后剪死链补可达大神 / V37.9.109+ Bluesky 免费 API 加实时短观点 / 真停用 ai_leaders_x (同步 6 依赖+crontab remove) / ai_leaders_blogs 接 Opportunity Radar 三件套. 同 session 前半 V37.9.107 chunk 3a convergence config-injection 已完成. 日期门控: INV-OBSERVER/services flip ~6/8 / 源可信度 INV ~6/9 / OpenClaw 升级 ~6/15. Mac Mini: INV-MOVESPEED-TCC-001 待 24h 老化转绿.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",

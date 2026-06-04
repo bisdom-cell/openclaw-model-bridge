@@ -206,6 +206,7 @@ declare -a FILE_MAP=(
     "jobs/acl_anthology/run_acl_anthology.sh|$HOME/.openclaw/jobs/acl_anthology/run_acl_anthology.sh"
     "jobs/github_trending/run_github_trending.sh|$HOME/.openclaw/jobs/github_trending/run_github_trending.sh"
     "jobs/rss_blogs/run_rss_blogs.sh|$HOME/.openclaw/jobs/rss_blogs/run_rss_blogs.sh"
+    "jobs/ai_leaders_blogs/run_ai_leaders_blogs.sh|$HOME/.openclaw/jobs/ai_leaders_blogs/run_ai_leaders_blogs.sh"
     "jobs/ontology_sources/run_ontology_sources.sh|$HOME/.openclaw/jobs/ontology_sources/run_ontology_sources.sh"
     "jobs/ontology_sources/ontology_parser.py|$HOME/.openclaw/jobs/ontology_sources/ontology_parser.py"
 
