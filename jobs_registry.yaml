@@ -127,6 +127,18 @@ jobs:
     kb_source_label: 📖 RSS 技术博客
     description: RSS 博客订阅监控（科学空间等，高质量中文技术博客）
 
+  - id: ai_leaders_blogs
+    scheduler: system
+    entry: jobs/ai_leaders_blogs/run_ai_leaders_blogs.sh
+    interval: "30 13 * * *"             # V37.9.108 每天1次 13:30 HKT（替代退化的 ai_leaders_x）
+    log: ~/.openclaw/logs/jobs/ai_leaders_blogs.log
+    needs_api_key: false               # 走本地 proxy :5002（同 rss_blogs，key 在 proxy 注入）
+    enabled: true
+    tier: auxiliary                    # V37.9.108 验证期保守，feed 全 Mac Mini 验证后可升 core
+    kb_source_file: ai_leaders_blogs.md
+    kb_source_label: 🧠 AI 大神观点
+    description: "AI 大神长文观点（博客/Substack RSS）— ai_leaders 从 X 转向非 X 渠道（V37.9.108，X Syndication 429+冻结退化解法）。Marcus on AI/AI Snake Oil/Import AI/Ahead of AI/Interconnects/Eugene Yan/Karpathy/The Gradient/fast.ai/HF/Anthropic。复用 rss_blogs 管道 + 🎚️ 项目对齐评分。feed 待 Mac Mini 首跑验证"
+
   - id: karpathy_x
     scheduler: system
     entry: jobs/karpathy_x/run_karpathy_x.sh
@@ -143,7 +155,7 @@ jobs:
     interval: "0 9 * * *"               # V37.9.103 降频 2→1/天 (09:00 HKT): 接受 X Syndication 退化 + 减半请求防 429
     log: ~/.openclaw/logs/jobs/ai_leaders_x.log
     needs_api_key: true
-    enabled: true
+    enabled: true                      # V37.9.108 由 ai_leaders_blogs（博客/Substack RSS）补充取代（X Syndication 429+冻结退化产~0，V37.9.101/102/103）。保持 enabled 避免级联（kb_review/source_credibility/INV-REVIEW-001 期望此源）；停用是 follow-up（需同步更新 6 个依赖 + Mac Mini crontab remove）
     tier: core                         # 技术方向参考核心源
     kb_source_file: ai_leaders_x.md
     kb_source_label: 🐦 AI Leaders X 洞察

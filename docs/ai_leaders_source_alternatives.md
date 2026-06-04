@@ -2,10 +2,47 @@
 
 > V37.9.102 — 2026-06-03 调研。触发：V37.9.101 复盘发现 X Syndication API 退化，
 > ai_leaders_x 实际产 ~0 新推文。用户选"调研替代源"。本报告供决策是否换源。
+>
+> **V37.9.108 — 2026-06-04 决策与实施（非 X 渠道转向）。见下方第 0 节。**
 
 ---
 
-## TL;DR — 推荐
+## 0. V37.9.108 决策：转向非 X 渠道（博客/Substack RSS）✅ 已实施
+
+**V37.9.102 的盲区**：本报告（下方第 1-4 节）只评估了"**保留 X 渠道**"的替代
+（TwitterAPI.io / 官方 API / Nitter / RSSHub 全是 X 衍生）。但用户的**真实目标**是
+"收集 AI 学者的不同意见 + 结合项目深度分析发现机会点"——**意见不只活在 X 上**。
+
+**关键 reframe**：AI 大神在 **blog/Substack 发表长文推理观点**，这些是 RSS 可达、
+免费、可靠（无 429、无快照冻结）、且**比 280 字推文远更适合深度分析**的内容。
+
+**2026 调研确认（WebSearch）**：
+- 学术界正大规模从 X 迁移到 **Bluesky**（arXiv 2505.24801《Why Academics Are
+  Leaving Twitter for Bluesky》+ Science.org；~40k 科学家，18% 学者 2023→2025 迁移）。
+  Bluesky 有**免费无认证公开 API**（`public.api.bsky.app/xrpc/...getAuthorFeed`）。
+- AI 学者在 Substack/blog 发长文：Gary Marcus（Marcus on AI）、Jack Clark（Import AI）、
+  Sebastian Raschka（Ahead of AI）、Nathan Lambert（Interconnects）、AI Snake Oil 等。
+
+**用户决策（2026-06-04）**：🥇 **博客/Substack RSS 转向**（免费 + 可靠 + 长文最适合深度分析）。
+
+**实施（V37.9.108）**：
+- 新 job `jobs/ai_leaders_blogs/run_ai_leaders_blogs.sh`（13:30 HKT，1x/天），
+  **复用 rss_blogs 已验证管道**（RSS + LLM 6 字段 + 🎚️ 项目对齐评分 + 双通道 + KB），
+  feed 选不与 rss_blogs 重叠的 AI 大神，偏重"不同意见"（含 contrarian：Gary Marcus /
+  AI Snake Oil）。每 feed FAIL-OPEN（死链 WARN + 跳过）。推送 framing「🧠 AI 大神观点」。
+- `ai_leaders_x`（X 渠道）**停用**（enabled: false）。Mac Mini 需 `crontab_safe.sh remove` 清 cron 行。
+- ⚠️ **feed 可达性必须 Mac Mini 首跑验证**（原则 #33 + 反馈 #1 chaspark 教训：dev sandbox
+  网络 403 不代表 feed 死）。首跑后按 log 剪枝死链。
+
+**Bluesky（免费实时短观点）登记为 V37.9.109+ 候选**：若需补"实时热观点"维度，加 Bluesky
+公开 API 抓学者实时帖（免费无认证，学者已迁入）。当前先用博客长文（更对齐"深度分析"目标）。
+
+**下方第 1-4 节是 V37.9.102 的 X-渠道内评估，保留作历史记录**（结论：X 内免费源全死，
+唯一便宜可靠是付费 TwitterAPI.io；但 V37.9.108 改走非 X 渠道，无需付费）。
+
+---
+
+## TL;DR — 推荐（V37.9.102，X 渠道内评估，已被第 0 节非 X 方案取代）
 
 | 方案 | 月成本 (我们用量) | 可靠性 | 推荐度 |
 |------|------------------|--------|--------|

@@ -38,6 +38,7 @@ EXPECTED_RSYNC_SITES = [
     "jobs/ontology_sources/run_ontology_sources.sh",
     "jobs/karpathy_x/run_karpathy_x.sh",
     "jobs/rss_blogs/run_rss_blogs.sh",
+    "jobs/ai_leaders_blogs/run_ai_leaders_blogs.sh",  # V37.9.108 ai_leaders X→博客/Substack RSS
     "jobs/arxiv_monitor/run_arxiv.sh",
     "jobs/freight_watcher/run_freight.sh",
     "jobs/acl_anthology/run_acl_anthology.sh",
