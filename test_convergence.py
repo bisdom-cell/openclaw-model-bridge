@@ -20,6 +20,7 @@ Covers:
     假设错误 dev 单测全过仅 Mac Mini 实测才暴露). MR-4 silent-failure 防御.
 """
 
+import importlib.util
 import json
 import os
 import subprocess
@@ -30,11 +31,36 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent
 ONTOLOGY_DIR = REPO_ROOT / "ontology"
+_CONV_PATH = str(ONTOLOGY_DIR / "convergence.py")
 
 sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(ONTOLOGY_DIR))
 
 from ontology import convergence as cv  # noqa: E402
+
+
+def _load_fresh_convergence(name, env_overrides=None):
+    """V37.9.107: 全新加载 convergence.py (模块级 _CONFIG_DIR/_PROJECT_ROOT 重新求值),
+    可选 env 覆盖, 结束后还原 env。镜像 test_ontology_packaging.py::_load_fresh。"""
+    saved = {}
+    if env_overrides:
+        for k, v in env_overrides.items():
+            saved[k] = os.environ.get(k)
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+    try:
+        spec = importlib.util.spec_from_file_location(name, _CONV_PATH)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod
+    finally:
+        for k, old in saved.items():
+            if old is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = old
 
 
 # ── helpers ────────────────────────────────────────────────────────────────
@@ -3680,6 +3706,150 @@ class TestV37997ServicesSourceGuards(unittest.TestCase):
         body = self.py[idx:end if end > 0 else len(self.py)]
         self.assertNotIn('"bootout"', body,
             "V37.9.97 apply 只 bootstrap missing, 不 bootout (移除运行 service 非安全 auto-sync)")
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# V37.9.107 chunk-3: convergence config-injection (pip 包化路径参数化)
+#   关闭 chunk-4 demo 暴露的耦合 (packaging.md §5 row 3): convergence 此前始终读
+#   引擎自带 convergence_ontology.yaml + 引擎仓库根的源文件, 消费方无法注入 →
+#   报 false drift。镜像 engine.py / governance_checker.py 的 config-injection。
+# ═══════════════════════════════════════════════════════════════════════════
+class TestConvergenceConfigInjection(unittest.TestCase):
+    """convergence.py 的 ONTOLOGY_CONFIG_DIR + ONTOLOGY_PROJECT_ROOT 注入。"""
+
+    def test_resolve_functions_exist(self):
+        m = _load_fresh_convergence("_cv_a",
+            {"ONTOLOGY_CONFIG_DIR": None, "ONTOLOGY_PROJECT_ROOT": None})
+        self.assertTrue(callable(getattr(m, "_resolve_config_dir", None)),
+                        "convergence 必须有 _resolve_config_dir()")
+        self.assertTrue(callable(getattr(m, "_resolve_project_root", None)),
+                        "convergence 必须有 _resolve_project_root()")
+
+    def test_default_backward_compat_byte_for_byte(self):
+        """无 env → 默认分支保持 V37.9.19 .resolve() 语义字节级不变 (零回归)。"""
+        m = _load_fresh_convergence("_cv_b",
+            {"ONTOLOGY_CONFIG_DIR": None, "ONTOLOGY_PROJECT_ROOT": None})
+        # 默认 config dir = 引擎同目录 (ontology/), 与 V37.9.19 一致
+        self.assertEqual(m._CONFIG_DIR, Path(_CONV_PATH).resolve().parent)
+        # 默认 project root = 仓库根 (引擎目录的父)
+        self.assertEqual(m._PROJECT_ROOT, Path(_CONV_PATH).resolve().parent.parent)
+        # _DEFAULT_SPEC_PATH 仍指向引擎自带 convergence_ontology.yaml
+        self.assertEqual(m._DEFAULT_SPEC_PATH,
+                         Path(_CONV_PATH).resolve().parent / "convergence_ontology.yaml")
+
+    def test_default_loads_bridge_five_specs(self):
+        m = _load_fresh_convergence("_cv_c",
+            {"ONTOLOGY_CONFIG_DIR": None, "ONTOLOGY_PROJECT_ROOT": None})
+        ids = m.list_spec_ids()
+        self.assertIn("jobs_to_crontab", ids)
+        self.assertGreaterEqual(len(ids), 5, "bridge 自带 5 个 convergence specs")
+
+    def test_config_dir_env_override(self):
+        with tempfile.TemporaryDirectory() as td:
+            m = _load_fresh_convergence("_cv_d", {"ONTOLOGY_CONFIG_DIR": td})
+            self.assertEqual(str(m._CONFIG_DIR), os.path.abspath(td),
+                             "ONTOLOGY_CONFIG_DIR 应覆盖 spec 目录")
+            self.assertEqual(m._DEFAULT_SPEC_PATH,
+                             Path(os.path.abspath(td)) / "convergence_ontology.yaml")
+
+    def test_project_root_env_override(self):
+        with tempfile.TemporaryDirectory() as td:
+            m = _load_fresh_convergence("_cv_e", {"ONTOLOGY_PROJECT_ROOT": td})
+            self.assertEqual(str(m._PROJECT_ROOT), os.path.abspath(td),
+                             "ONTOLOGY_PROJECT_ROOT 应覆盖源文件根")
+
+    def test_env_expanduser_applied(self):
+        m = _load_fresh_convergence("_cv_f",
+            {"ONTOLOGY_CONFIG_DIR": "~/somecfg", "ONTOLOGY_PROJECT_ROOT": "~/someroot"})
+        self.assertEqual(str(m._CONFIG_DIR),
+                         os.path.abspath(os.path.expanduser("~/somecfg")))
+        self.assertEqual(str(m._PROJECT_ROOT),
+                         os.path.abspath(os.path.expanduser("~/someroot")))
+
+    def test_empty_env_falls_back_to_default(self):
+        # 空白字符串应回退默认, 不当成 "" 路径
+        m = _load_fresh_convergence("_cv_g",
+            {"ONTOLOGY_CONFIG_DIR": "   ", "ONTOLOGY_PROJECT_ROOT": "  "})
+        self.assertEqual(m._CONFIG_DIR, Path(_CONV_PATH).resolve().parent)
+        self.assertEqual(m._PROJECT_ROOT, Path(_CONV_PATH).resolve().parent.parent)
+
+    def test_end_to_end_injection_loads_alt_specs(self):
+        """真注入: 指向 temp 目录的最小 convergence_ontology.yaml → load_specs 读它。"""
+        with tempfile.TemporaryDirectory() as td:
+            with open(os.path.join(td, "convergence_ontology.yaml"), "w",
+                      encoding="utf-8") as f:
+                f.write("convergence_specs:\n  - id: my-injected-spec\n    enabled: true\n")
+            m = _load_fresh_convergence("_cv_h", {"ONTOLOGY_CONFIG_DIR": td})
+            self.assertEqual(m.list_spec_ids(), ["my-injected-spec"],
+                             "应从注入目录加载 spec, 而非引擎默认 5 个")
+            self.assertNotIn("jobs_to_crontab", m.list_spec_ids())
+
+    def test_end_to_end_injection_resolves_source_relative_to_project_root(self):
+        """源文件 (jobs_registry.yaml 等) 经 ONTOLOGY_PROJECT_ROOT 解析: 注入到
+        temp 项目根 → extractor 读 temp 的 yaml, 不读 bridge 仓库根。"""
+        with tempfile.TemporaryDirectory() as cfg, \
+             tempfile.TemporaryDirectory() as root:
+            # spec: json_file_paths extractor 读项目根的 state.json
+            with open(os.path.join(cfg, "convergence_ontology.yaml"), "w",
+                      encoding="utf-8") as f:
+                f.write(
+                    "convergence_specs:\n"
+                    "  - id: inj-src\n"
+                    "    enabled: true\n"
+                    "    declaration:\n"
+                    "      source: state.json\n"
+                    "      extractor: json_file_paths\n"
+                    "      json_paths: ['units[]']\n"
+                    "    runtime_observable:\n"
+                    "      method: shell_command\n"
+                    "      command: 'echo \"c f\"'\n"
+                    "      parser: line_contains_identifier\n"
+                    "    drift_action: alert_only\n"
+                )
+            with open(os.path.join(root, "state.json"), "w", encoding="utf-8") as f:
+                f.write('{"units": ["c", "f"]}')
+            m = _load_fresh_convergence("_cv_i",
+                {"ONTOLOGY_CONFIG_DIR": cfg, "ONTOLOGY_PROJECT_ROOT": root})
+            r = m.verify_convergence("inj-src")
+            self.assertIsNone(r.error, f"应无 error: {r.error}")
+            self.assertEqual(set(r.declared), {"c", "f"},
+                             "declared 应来自注入项目根的 state.json")
+            self.assertFalse(r.drift_detected)
+
+
+class TestConvergenceConfigInjectionSourceGuards(unittest.TestCase):
+    """V37.9.107 源码级守卫 + 反向 sabotage (防止回退到硬编码)。"""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.src = (ONTOLOGY_DIR / "convergence.py").read_text(encoding="utf-8")
+
+    def test_reads_both_env_vars(self):
+        self.assertIn("ONTOLOGY_CONFIG_DIR", self.src,
+                      "convergence 必须读 ONTOLOGY_CONFIG_DIR")
+        self.assertIn("ONTOLOGY_PROJECT_ROOT", self.src,
+                      "convergence 必须读 ONTOLOGY_PROJECT_ROOT")
+
+    def test_resolver_functions_defined(self):
+        self.assertIn("def _resolve_config_dir", self.src)
+        self.assertIn("def _resolve_project_root", self.src)
+
+    def test_default_spec_path_via_config_dir(self):
+        self.assertIn("_DEFAULT_SPEC_PATH = _CONFIG_DIR", self.src,
+                      "_DEFAULT_SPEC_PATH 必须经 _CONFIG_DIR, 不得硬编码")
+
+    def test_no_hardcoded_parent_parent_for_sources(self):
+        """反向 sabotage 守卫: 源文件解析不得回退到 Path(__file__).resolve().parent.parent。
+        改后仅 1 处出现 (_resolve_project_root 默认分支), 不得在 extractor/apply 里硬编码。
+        回退任一 extractor 到硬编码 → count≥2 → 立即 fail。"""
+        n = self.src.count("Path(__file__).resolve().parent.parent")
+        self.assertLessEqual(n, 1,
+            f"Path(__file__).resolve().parent.parent 仅应在 _resolve_project_root "
+            f"默认分支出现 1 次, 实际 {n} 次 (extractor/apply 应用 _PROJECT_ROOT)")
+
+    def test_v37_9_107_marker(self):
+        self.assertIn("V37.9.107", self.src,
+                      "convergence.py 应有 chunk-3 版本标记")
 
 
 if __name__ == "__main__":

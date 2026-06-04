@@ -32,9 +32,11 @@ echo "  ONTOLOGY_PROJECT_ROOT=$DEMO_DIR openclaw-ontology-query --json"
 echo "  ONTOLOGY_CONFIG_DIR=$DEMO_DIR/ontology \\"
 echo "  ONTOLOGY_PROJECT_ROOT=$DEMO_DIR openclaw-ontology-audit"
 echo
-echo "Note: the convergence phase of openclaw-ontology-audit currently reads the"
-echo "engine-bundled convergence_ontology.yaml (path not yet config-injected)."
-echo "That coupling is documented in docs/ontology_engine_extension_guide.md and"
-echo "is scheduled for chunk 2/3. The invariant + MRD phases ARE config-injected."
+echo "Note (V37.9.107 chunk-3): the convergence phase is now config-injected too —"
+echo "it reads the consumer's convergence_ontology.yaml (via ONTOLOGY_CONFIG_DIR)"
+echo "and resolves declared source files (e.g. weatherbot_state.json) relative to"
+echo "ONTOLOGY_PROJECT_ROOT. Section 5 of the demo exercises it end-to-end. The"
+echo "MRD scan-pattern parameterization (jobs_registry/notify.sh filenames) remains"
+echo "a tracked follow-up (chunk-3b) — those scanners already no-op for consumers."
 
 exit $rc
