@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-04 05:53:05",
+  "updated": "2026-06-04 06:52:49",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-06-04",
+      "what": "V37.9.108-hotfix: ai_leaders_blogs Mac Mini 首跑验证 + 死链剪枝. 9/11 feed 活, 2 死链 (fast.ai Quarto 迁移 RSS 坏 / Anthropic News 无公开 RSS, 均 404) → 换高置信 Substack: One Useful Thing (Ethan Mollick/Wharton 实用乐观派) + Dont Worry About the Vase (Zvi 详尽理性怀疑派). FAIL-OPEN 完美工作 (3 次重试跳过不杀 job). 首跑战果: 45 篇长文全 LLM 解析成功 degraded 0 + 高对齐 25/45 (alignment ⭐≥4) = 结合项目发现机会点引擎生效 + 108829 字印证博客更适合深度分析 + 推 WhatsApp/Discord 14 窗口 + KB 归档. 主任务端到端闭环成功. test 27 仍过 无 test count 变化.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-04",
       "what": "V37.9.108: ai_leaders X→博客/Substack RSS 转向 (用户主任务: X Syndication 429+冻结退化的非 X 渠道解法). V37.9.102 评估盲区(只看 X 内替代→付费) 经用户目标 reframe(意见≠X) 突破. WebSearch 确认非 X 渠道 2026 真可用 (Bluesky 免费 API+学者迁入 / AI 大神 blog/Substack 长文). 新 job jobs/ai_leaders_blogs/run_ai_leaders_blogs.sh (13:30 1x/天) 紧贴 rss_blogs 管道 (RSS+LLM 6 字段+🎚️ alignment+hallucination_guards LEVEL_4+双通道🧠 AI 大神观点+KB+FAIL-OPEN), 12 策展大神 feed 偏重 contrarian (Marcus/AI Snake Oil/Import AI/Raschka/Lambert/Eugene Yan/Karpathy/Gradient/fast.ai/HF/Anthropic) 不重叠 rss_blogs. feed 可达性 Mac Mini 首跑验证 (原则#33+反馈#1 chaspark: dev 403 不定论). ai_leaders_x 保持 enabled (禁用级联 6 依赖) 注释标记被取代真停用留 follow-up. 新源触发 3 个 MR-8 漂移守卫合理修 (source_credibility 14→15 博客 tier / INV-BACKUP-001 site / config.md). 27 新单测. 112→113 suites/3968→3995 tests/0 fail/governance 805 checks/安全 95/README 同步 3995/VERSION 0.37.9.68 不变.",
       "by": "claude_code"
     },
@@ -197,11 +202,6 @@
     {
       "date": "2026-06-02",
       "what": "V37.9.98 #4: Semantic Scholar API key 集成代码就绪 (FAIL-OPEN). run_semantic_scholar.sh 加 S2_CURL_AUTH 数组 + x-api-key header 注入两处 curl + 条件间隔 (有 key 1s / 无 key 保守 30s). 有 S2_API_KEY → 认证模式 独占 1 RPS (规避匿名池 429 contention) V37.8.13 起 429 daily limit (5/27-5/28 6 关键词全 429). 无 key → 当前无认证行为完全不变 (空数组 set -eo 无 -u bash 3.2 安全). 12 新单测 (8 source 守卫 + 4 行为: 提取真实检测块 exec 验证有/无/空 key 三态零 drift) + 反向验证 (删 auth 注入→fail). 既有 S2 3 套测试无回归. 待用户: 申请免费 key (semanticscholar.org/product/api 即时) + 加 S2_API_KEY 到 com.openclaw.proxy/adapter plist 或 cron env, 即从无认证升认证.",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-06-02",
-      "what": "V37.9.98 续: #2 LEVEL_6 dream 句式复盘 (3 天预览, Mac Mini 数据) 强阳性 — 因此句式 4→1 (↓70%) / 为X提供 ~2.5→~1 (↓60%) / [强证据]+[弱关联] tag 0→9-12 条/天 / 定性 6/1 每条隐藏关联正确分级 (强证据带论文DOI引用, 弱关联带无因果证据caveat). V37.9.89 修复方向完全正确, 完整 5 天判定 6/4 后立 INV-DREAM-CROSS-DOMAIN-001. #3 convergence cron 行审计 (Mac Mini 真 crontab): declared=37 observed=38 missing=17 extra=18, 17 missing 配对 18 extra 全是功能等价格式变体 (单/双引号7/缺redirect2/~vs$HOME1/mkdir前缀3/cd前缀2/repo路径1)+2真差异(preference_learner --apply --days 7 registry未记 / 30 23 手动rsync与0 4 movespeed重复), 0条脚本真缺失. 数据驱动决策: 不切换 cron_lines_set_diff (会 false-drift风暴+machine_sync搞坏crontab), 保持 line_contains_identifier. 验证 V37.9.66 不切判断正确. case doc + spec 注释记录决策.",
       "by": "claude_code"
     }
   ],
