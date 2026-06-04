@@ -6309,7 +6309,7 @@ invariants:
         file: ontology/governance_checker.py
         pattern: 'verify_convergence raised'
       # ── runtime layer ──────────────────────────────────────────────────
-      - name: "RUNTIME: governance_checker --json 输出 combined dict 含 convergence 键并能跑所有 4 spec"
+      - name: "RUNTIME: governance_checker --json 输出 combined dict 含 convergence 键并能跑所有 5 spec"
         check_type: python_assert
         # V37.9.100: requires_full 破递归 — 此 check 跑 subprocess governance_checker, 执行器修好后
         #   子进程会再跑此 check → 无限递归. requires_full 让子进程 (无 --full) skip 它, 递归终止.
@@ -6338,10 +6338,14 @@ invariants:
           assert "convergence" in parsed, "JSON output must contain 'convergence' key"
           specs = parsed["convergence"]
           assert isinstance(specs, list)
-          assert len(specs) == 4, f"expected 4 convergence specs, got {len(specs)}"
+          # V37.9.105-hotfix3: stale check 修 — V37.9.25 加第 5 spec services_to_launchd,
+          # 但本 check 仍写死 4. requires_full 让它在 dev 跳过 (dev governance 全过假象),
+          # 只在 Mac Mini --full 跑 → 断言 4 但实际 5 → 失败. (MR-8 单一真理源漂移)
+          assert len(specs) == 5, f"expected 5 convergence specs, got {len(specs)}"
           spec_ids = {s["spec_id"] for s in specs}
           for sid in ["jobs_to_crontab", "providers_to_adapter",
-                      "openclaw_config_to_runtime", "kb_sources_to_index"]:
+                      "openclaw_config_to_runtime", "kb_sources_to_index",
+                      "services_to_launchd"]:
               assert sid in spec_ids, f"missing spec {sid} in audit JSON"
       - name: "RUNTIME: dev mode convergence drift 不影响 exit code (informational only)"
         check_type: python_assert

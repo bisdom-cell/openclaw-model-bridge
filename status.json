@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-04 02:29:45",
+  "updated": "2026-06-04 02:59:17",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-06-04",
+      "what": "V37.9.105-hotfix3: 用户同步后重跑 governance --full 确认 — 原 3 失败 INV-CONVERGENCE-CRON/PROVIDERS/ROUTER-001 全部自愈 (我的 convergence 测试修 + ROUTER 是 07:00 stale 代码). 浮现 3 个 pre-existing (07:00 被 head 截断): (a) INV-CONVERGENCE-INTEGRATION-001 stale 自检已修 — runtime check 写死 len(specs)==4 但 V37.9.25 加第5 spec services_to_launchd, requires_full 让 dev 跳过只 Mac Mini --full 失败, 4→5+加 spec_id, dev --full 验证 ✅; (b) INV-CRON-004 crontab 重复条目 待用户 uniq -d; (c) INV-MOVESPEED-TCC-001 24h incidents=18>2 V37.9.80 FDA 问题待重查. (b)(c) 真 Mac Mini 运维问题非代码. 112 suites/3941 tests/0 fail.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-04",
       "what": "V37.9.105-hotfix: 根因终极确认 + governance FATAL 误报修. (1) health_check 5-6 周报根因 = shell history 实锤用户今天 08:24 手动调试 bash ~/health_check.sh 多次, 每次完整运行触发末尾 notify 真推送 (head 只截断显示不阻止推送), 唯一调用源=周一cron+手动调试无隐藏 launchd. V37.9.105 速率限制根除. (2) governance_audit FATAL line=64 误报修: set -eEuo 的 -E errtrace 让 $(python3) 子shell 继承 ERR trap, governance_checker 退出1时子shell内误触发 FATAL (外层 ||GOV_RC 已捕获脚本继续, 两条告警同源=没真abort铁证). 修 set +E 包裹 line64+81. 7新单测. (3) 遗留: 3真不变式失败 INV-CONVERGENCE/ROUTER runtime check subprocess test_convergence timeout=60, dev 304tests 4.3s过, 疑 Mac Mini 慢硬件+真环境子进程超60s, 待 time python3 test_convergence.py 确认. 112 suites/3941 tests/0 fail.",
       "by": "claude_code"
     },
@@ -197,11 +202,6 @@
     {
       "date": "2026-06-01",
       "what": "V37.9.97 services_to_launchd Plan B 升级 machine_sync (convergence framework 最后一个 alert_only spec 收尾, V37.9.96 后同日第 2 个治理交付, 用户问下一个遗留任务选 #8). 核心 framework 增强: 新 _resolve_dry_run_for_spec(spec) 让 spec 的 dry_run_default 字段从纯文档性升级功能性 — 三档优先级 (CONVERGENCE_DRY_RUN env override > spec dry_run_default > framework 默认 False). services (dry_run_default:true, bootstrap blast-radius 高于 crontab) 先 dry-run 观察一周, jobs/kb (false) 保持 real-apply 向后兼容. 新 _apply_services_launchctl_bootstrap per-service (查 services_registry plist, launchctl bootstrap missing labels 镜像 restart.sh V37.9.13, 不 bootout=移除运行 service 非安全 auto-sync) + _load_services_registry_index, 注册 _APPLY_FUNCTIONS (V37.9.24 named-dispatch 第3个). convergence_ontology services spec drift_action alert_only→machine_sync + dry_run_default:true, meta 0.8→0.9. 26 新单测 3 类 + 反向验证 (mock launchctl fail-loud/pass/dev-safe). INV-CONVERGENCE-SERVICES-001 扩 +9 checks. governance v3.51→v3.52 / 85 INV / 781→790 checks / 3657→3683 tests / 0 fail / 95 安全 / VERSION 0.37.9.68 不变. dev 实测 services verify_convergence → machine_sync + apply_dry_run=True + 3 DRY-RUN would bootstrap + 0 errors.",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-06-01",
-      "what": "V37.9.96 立 INV-PROXY-PLIST-ENV-001 (proxy-plist-env-must-contain-ark-expert-escalate-keys, MR-4, high, 7 checks) 守 com.openclaw.proxy.plist 必含 ARK_API_KEY+ARK_ENDPOINT_ID — V37.9.91 Doubao expert_escalate 真生产时 proxy plist 缺 ARK env 手动修, V37.9.54 INV-PLIST-ENV-001 只守 adapter plist 留真缺口 (ARK_ENDPOINT_ID 非 api_key_env 故 adapter INV 覆盖不到). runtime python_assert 真读 proxy plist via plistlib (dev silent pass/Mac Mini fail-loud). 22 新单测含直接 exec yaml 真 runtime code 零 drift + 反向验证 (假 plist 缺 ARK env → fail-loud). 顺手修开工健康检查发现的 audit_metadata 漂移: total_invariants 83→85 (V37.9.94 +INV-CROSS-ENV-PATH-001 漏记 stale -1 + 本次) + total_checks 755→781 (对齐 governance_checker 运行时权威计数) + 新增 test_actual_invariant_count_matches_metadata 自洽守卫 (MR-7 治理自观察). governance v3.50→v3.51. 102 suites/3657 tests/0 fail/781 checks/95 安全/VERSION 0.37.9.68 不变. 周一开工选 #19 (观察窗口型硬卡 6/2-6/3 才 ready). 兑现 V37.9.91/92 已登记候选 (Doubao 自己 escalate 中提议 proxy plist drift INV).",
       "by": "claude_code"
     }
   ],
@@ -332,9 +332,9 @@
   "quality": {
     "security_score": 95,
     "test_count": 3941,
-    "last_regression": "2026-06-04 02:28 pass",
+    "last_regression": "2026-06-04 02:58 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-04 02:28",
+    "security_score_time": "2026-06-04 02:58",
     "test_suites": 112,
     "governance_invariants": "85/85",
     "governance_checks": "790/790",
