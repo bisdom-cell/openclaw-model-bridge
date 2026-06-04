@@ -52,6 +52,15 @@ def _engine_tools(inject=True):
     return set(eval(r.stdout.strip()))  # noqa: S307 — controlled repr of a list
 
 
+def _convergence_spec_ids(inject=True):
+    """Load convergence in a fresh process with/without injection, return spec-id set."""
+    code = "import ontology.convergence as cv; print(repr(sorted(cv.list_spec_ids())))"
+    r = subprocess.run([sys.executable, "-c", code], env=_env(inject),
+                       capture_output=True, text=True, cwd=REPO, timeout=60)
+    assert r.returncode == 0, f"convergence load failed: {r.stderr}"
+    return set(eval(r.stdout.strip()))  # noqa: S307 — controlled repr of a list
+
+
 # ───────────────────────────────────────────────────────────────────────
 class TestEndToEndDemo(unittest.TestCase):
     """run_demo.sh 真跑端到端。"""
@@ -62,11 +71,13 @@ class TestEndToEndDemo(unittest.TestCase):
         self.assertEqual(r.returncode, 0,
                          f"demo 应 exit 0\nSTDOUT:\n{r.stdout}\nSTDERR:\n{r.stderr}")
         self.assertIn("config-injection works end-to-end", r.stdout)
-        # 4 大能力段都出现
+        # 5 大能力段都出现 (V37.9.107 chunk-3 加 convergence)
         self.assertIn("ToolOntology", r.stdout)
         self.assertIn("find_by_domain", r.stdout)
         self.assertIn("evaluate_policy", r.stdout)
         self.assertIn("governance audit", r.stdout)
+        self.assertIn("convergence", r.stdout)
+        self.assertIn("weatherbot-allowed-units-active", r.stdout)
 
     def test_run_demo_py_executable_and_passes(self):
         r = subprocess.run([sys.executable, RUN_DEMO_PY], env=_env(inject=True),
@@ -102,6 +113,48 @@ class TestReverseValidationInjectionMatters(unittest.TestCase):
         self.assertTrue(
             {"web_fetch", "sessions_spawn", "memory_search"} & tools,
             f"无注入应加载 bridge 工具, 实际 {sorted(tools)}")
+
+
+# ───────────────────────────────────────────────────────────────────────
+class TestConvergenceConfigInjectionDemo(unittest.TestCase):
+    """V37.9.107 chunk-3: convergence 阶段经注入读 demo 的 convergence_ontology.yaml +
+    经 ONTOLOGY_PROJECT_ROOT 解析 demo 的源文件 (weatherbot_state.json)。
+    这是 chunk-4 demo 暴露的耦合 (packaging.md §5 row 3) 的闭环验证。"""
+
+    def test_injected_convergence_loads_weatherbot_spec(self):
+        ids = _convergence_spec_ids(inject=True)
+        self.assertIn("weatherbot-allowed-units-active", ids,
+                      "注入后 convergence 应读 demo 的 spec")
+        self.assertNotIn("jobs_to_crontab", ids,
+                         "不该读 bridge 的 convergence specs")
+
+    def test_without_injection_loads_bridge_specs(self):
+        """反向验证: 不注入 → convergence 读 bridge 5 specs (证明注入真起作用, 非巧合)。"""
+        ids = _convergence_spec_ids(inject=False)
+        self.assertNotIn("weatherbot-allowed-units-active", ids)
+        self.assertIn("jobs_to_crontab", ids,
+                      f"无注入应读 bridge specs, 实际 {sorted(ids)}")
+
+    def test_weatherbot_convergence_runs_clean(self):
+        """demo convergence spec 真跑零 drift 无 error — 端到端证明 spec (CONFIG_DIR) +
+        源文件 (PROJECT_ROOT, weatherbot_state.json) 两条注入路径都生效。"""
+        code = (
+            "import ontology.convergence as cv;"
+            "r=cv.verify_convergence('weatherbot-allowed-units-active');"
+            "import json;"
+            "print(json.dumps({'err':r.error,'drift':r.drift_detected,"
+            "'declared':sorted(r.declared),'observed':sorted(r.observed)}))"
+        )
+        r = subprocess.run([sys.executable, "-c", code], env=_env(inject=True),
+                           capture_output=True, text=True, cwd=REPO, timeout=60)
+        self.assertEqual(r.returncode, 0, f"verify_convergence 失败: {r.stderr}")
+        import json
+        res = json.loads(r.stdout.strip())
+        self.assertIsNone(res["err"], f"应无 error: {res['err']}")
+        self.assertFalse(res["drift"], "WeatherBot units 同步, 应零 drift")
+        # declared 来自 weatherbot_state.json (经 ONTOLOGY_PROJECT_ROOT 解析项目根)
+        self.assertEqual(res["declared"], ["celsius", "fahrenheit"],
+                         "declared 应来自 demo 项目根的 weatherbot_state.json (源文件注入)")
 
 
 # ───────────────────────────────────────────────────────────────────────
@@ -163,10 +216,12 @@ class TestSourceLevelGuards(unittest.TestCase):
     """文件齐备 + run_demo.sh 设双 env + Extension Guide 存在。"""
 
     def test_demo_files_present(self):
-        for f in ["weatherbot.py", "run_demo.sh", "run_demo.py", "README.md"]:
+        for f in ["weatherbot.py", "run_demo.sh", "run_demo.py", "README.md",
+                  "weatherbot_state.json"]:  # V37.9.107 chunk-3: convergence 源文件
             self.assertTrue(os.path.isfile(os.path.join(DEMO_DIR, f)), f"缺 {f}")
         for y in ["tool_ontology.yaml", "domain_ontology.yaml",
-                  "policy_ontology.yaml", "governance_ontology.yaml"]:
+                  "policy_ontology.yaml", "governance_ontology.yaml",
+                  "convergence_ontology.yaml"]:  # V37.9.107 chunk-3
             self.assertTrue(os.path.isfile(os.path.join(DEMO_ONTO, y)), f"缺 {y}")
 
     def test_run_demo_sh_sets_both_env_vars(self):

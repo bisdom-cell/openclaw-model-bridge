@@ -77,8 +77,8 @@ def _resolve_config_dir():
 |---|---|---|---|
 | `from proxy_filters import ALLOWED_TOOLS,...` | `engine.py::main()` 的一致性 diff CLI | **lazy + try-guarded**，仅 CLI `--diff` 功能用，核心引擎不依赖 | 包内 `--diff` 无 proxy_filters 时 try 失败优雅降级；属 Layer 2 消费方耦合，记录即可 |
 | `import convergence` / `from ontology import convergence` | `governance_checker.py::run_convergence_specs()` | convergence 是 `ontology` 子模块，双 fallback 已 package-aware | `packages=["ontology"]` 自动含，无需处理 |
-| **convergence spec 路径不读 `ONTOLOGY_CONFIG_DIR`** | `convergence.py::_DEFAULT_SPEC_PATH = Path(__file__).parent / "convergence_ontology.yaml"` | **chunk-4 demo 暴露的新发现**：convergence 阶段始终读引擎自带的 `convergence_ontology.yaml`，消费方的 specs 无法注入。消费方跑 `openclaw-ontology-audit` 时 convergence 阶段会用 bridge 的 5 个 spec 对消费方项目根求值 → 报 drift。**invariant + MRD 阶段不受影响**（已 config-injected）。 | chunk-3 一并参数化（同 MRD 模式表）：`_DEFAULT_SPEC_PATH` 改走 `_resolve_config_dir()`。当前 demo 用 `run_all` 只跑 invariant 阶段规避；Extension Guide §"Known limitation" 诚实登记 |
-| MRD 扫描模式 (`jobs_registry.yaml` / `notify.sh` / `jobs/*/run_*.sh`) | `governance_checker.py::_discover_*()` | **框架项目无关，但扫描的文件名是本项目特定**（消费方缺这些文件时 MRD 优雅 no-op，demo 已验证） | chunk-3 参数化：MRD 模式表移到 Layer 2 配置，框架只读模式 |
+| ~~**convergence spec 路径不读 `ONTOLOGY_CONFIG_DIR`**~~ ✅ **V37.9.107 chunk-3a 已修复** | `convergence.py` 现有 `_resolve_config_dir()` + `_resolve_project_root()`（镜像 engine.py / governance_checker.py） | **chunk-4 demo 暴露 → chunk-3a 闭环**：convergence 现读 `ONTOLOGY_CONFIG_DIR` 的 spec + 经 `ONTOLOGY_PROJECT_ROOT` 解析源文件（jobs_registry.yaml / *.json）。无 env 时默认分支保持 V37.9.19 `.resolve()` 语义字节级不变（零回归）。 | ✅ 已修。demo 新增 `convergence_ontology.yaml` + `weatherbot_state.json`，run_demo.py section 5 端到端验证（消费方读自己 spec 非 bridge）。14 新单测 + 反向 sabotage 守卫 |
+| MRD 扫描模式 (`jobs_registry.yaml` / `notify.sh` / `jobs/*/run_*.sh`) | `governance_checker.py::_discover_*()` | **根已注入（全部用 `_PROJECT_ROOT`），只是扫描的文件名模式本项目特定**（消费方缺这些文件时 MRD 优雅 no-op，demo 已验证 — 非 correctness bug，仅配置化 nicety） | **chunk-3b 待启动**：把文件名模式表从 ~10 个治理关键扫描器移到 Layer 2 配置。聚焦 session 做（避免 MR-4 血案防护回归），不与 chunk-3a 捆绑 |
 | `governance_ontology.yaml` 的 python_assert 引用项目文件 | Layer 2 配置内 | 本就是 Layer 2（项目特定不变式） | 无需处理，消费方写自己的 |
 
 ---
@@ -90,7 +90,8 @@ def _resolve_config_dir():
 | **1** | config-injection keystone + pyproject + 二层契约文档 + 包结构 | 低（向后兼容） | ✅ 完成 (V37.9.99-pkg) |
 | **4 (本次)** | Extension Guide + 最小可跑 demo (WeatherBot 消费方) + config-injection 端到端验证 + 端到端测试 | 低（纯新增） | ✅ 完成 (V37.9.104) |
 | 2 | import 名去泛化 (`ontology` → `ontology_engine` 或命名空间)：改 proxy_filters lazy-load 路径 + Mac Mini symlink + 全部 import + tests | **高**（破坏性，触发"删除后正常"宪法全验证） | 待启动 |
-| 3 | MRD/convergence 扫描模式参数化：把 `jobs_registry`/`notify.sh` 项目特定模式 + `convergence._DEFAULT_SPEC_PATH`（chunk-4 demo 暴露）从代码移到 Layer 2 配置；framework 只读模式表 | 中 | 待启动（demo 已暴露具体耦合点，见 §5） |
+| **3a (本次)** | **convergence config-injection**：`convergence.py` 加 `_resolve_config_dir()` + `_resolve_project_root()`，spec 路径 + 源文件根（6 src_path + json + 2 sys.path）全经 env 注入。demo 加 `convergence_ontology.yaml` + `weatherbot_state.json` + run_demo.py section 5 端到端验证 | 低（向后兼容，默认 `.resolve()` 字节级不变） | ✅ 完成 (V37.9.107) — chunk-4 demo 暴露的耦合闭环 |
+| 3b | MRD 扫描模式参数化：把 `jobs_registry`/`notify.sh`/`jobs/*/run_*.sh` 文件名模式从 ~10 个治理关键 `_discover_*` 移到 Layer 2 配置；framework 只读模式表（根已 `_PROJECT_ROOT` 注入，仅模式硬编码，且已优雅 no-op） | 中（触碰 MR-4 血案防护扫描器） | 待启动（聚焦 session，不与 3a 捆绑） |
 | 5 (Phase 5 终态) | 真 sdist/wheel 构建 + `pip install` (非 editable) 冒烟 + 发布决策 (PyPI 名 / license / readme) + 版本治理 (semver) + 第三方项目接入验证 | — | 待启动 |
 
 ---
@@ -98,14 +99,16 @@ def _resolve_config_dir():
 ## 6.1 推荐推进顺序（专业建议）
 
 > **不按数字顺序推，按"先证明价值、再做破坏性投入"推。**
-> 推荐顺序：**chunk 4 → chunk 2 → chunk 3 → chunk 5**
+> 推荐顺序：**chunk 4 → chunk 3a → chunk 2 → chunk 3b → chunk 5**
+> （V37.9.107 调整：chunk 3a（convergence config-injection）是 demo 暴露的低风险真 bug 且 de-risk chunk 2（更少东西硬编码到 `ontology/` 目录），提前到 chunk 2 之前做。）
 
 | 顺位 | chunk | 为什么这个位置 |
 |---|---|---|
 | **① 先做** ✅ **V37.9.104 完成** | **chunk 4** Extension Guide + 最小可跑 demo | **风险最低（纯新增，不改现有代码），价值最直观。** 第一次有"第二个项目"真用引擎 → 端到端验证 config-injection + 四大能力（工具查询/域查询/策略评估/治理审计）。这是引擎的 **"Doubao 时刻"**：Provider Plugin 直到 Doubao（第 8 个 provider，V37.9.52）真接入才被证明可扩展；引擎同样需要一个真实消费方 demo 来证明抽象正确。**交付**: `examples/minimal_consumer/` (WeatherBot — 工具/域/策略/不变式全部不同于 bridge) + `run_demo.sh` (端到端跑通) + 12 单测（含反向验证：不注入 env → 引擎读 bridge 配置，证明 demo 通过依赖注入）。**demo 自然暴露 convergence 路径耦合**（§5 新登记），印证 ③ 的预期。demo 用当前 `import ontology`，显式标注"import 名是临时的，chunk 2 会改"。 |
 | **② 次之** | **chunk 2** import 名去泛化 | **最高风险（破坏性：proxy lazy-load + Mac Mini symlink + 全部 import + tests），必须全宪法验证**（删除后正常 + full_regression + 删除安全）。放在 ① 之后是因为：demo 已证明能力成立 → rename 退化为"有明确目标的机械重构"。**绝不第一个做**——在没验证价值前先做破坏性重构，是把风险放在收益前面。 |
-| **③ 第三** | **chunk 3** MRD 模式参数化 | demo（①）会自然暴露哪些 MRD 模式是本项目硬编码的（`jobs_registry` / `notify.sh` 路径）。届时参数化最有的放矢，而非凭空猜哪些要抽。 |
-| **④ 最后** | **chunk 5** 发布 | 需 chunk 2-4 完成 + 名称/license/PyPI 决策 + sdist/wheel 真构建。 |
+| **② 次之** ✅ **V37.9.107 完成** | **chunk 3a** convergence config-injection | demo（①）真实暴露的耦合（convergence 是 demo 唯一规避的阶段）。低风险（向后兼容）、纯 dev、无需定包名/symlink。提前到 chunk 2 之前做因为它 **de-risk chunk 2**：convergence 不再硬编码到 `ontology/` 目录，rename 时更少东西要改。**交付**: `convergence.py` 两 resolver + demo `convergence_ontology.yaml`/`weatherbot_state.json` + run_demo.py section 5 + 14 单测 + 反向 sabotage 守卫。 |
+| **③ 第三** | **chunk 2** import 名去泛化 → **chunk 3b** MRD 模式参数化 | chunk 2 仍是最高风险破坏性 rename（见 ② 原 chunk 2 段，需定包名 + Mac Mini symlink + 全宪法验证）。chunk 3b（MRD 文件名模式 → Layer 2）放最后因为它触碰 ~10 个 MR-4 血案防护扫描器，需聚焦 session，且当前已优雅 no-op（非紧急）。 |
+| **④ 最后** | **chunk 5** 发布 | 需 chunk 2/3 完成 + 名称/license/PyPI 决策 + sdist/wheel 真构建。 |
 
 **核心工程智慧**：先用便宜的 spike/demo 验证整个包化前提，再投入昂贵的破坏性重构——如果 demo 暴露抽象有问题，就避免了白做 chunk 2 的破坏性 rename。这与本项目 **原则 #18（补证据而非补功能）** + **Provider Plugin 由真消费方（V37.9.52 Doubao）驱动** 一脉相承：扩展接口的价值，只有真实消费方接入那一刻才被证明。
 

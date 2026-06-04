@@ -49,6 +49,15 @@ Extending (V37.9.20+):
     - New observer: add to _RUNTIME_OBSERVERS dict
     - New parser: add to _IDENTIFIER_PARSERS dict
     - New spec: append to convergence_ontology.yaml::convergence_specs[]
+
+Config-injection (V37.9.107 chunk-3 — pip 包化路径参数化):
+    - ONTOLOGY_CONFIG_DIR   → spec file (_DEFAULT_SPEC_PATH via _resolve_config_dir())
+    - ONTOLOGY_PROJECT_ROOT → evaluated source files (jobs_registry.yaml / *.json
+      via _PROJECT_ROOT, mirrors engine.py / governance_checker.py)
+    - No env → V37.9.19 .resolve() default preserved byte-for-byte (zero regression).
+    - Closes the chunk-4 demo coupling (packaging.md §5 row 3): consumers running
+      openclaw-ontology-audit now get convergence evaluated against THEIR specs +
+      THEIR source files instead of the engine-bundled ones.
 """
 
 from __future__ import annotations
@@ -60,9 +69,36 @@ import subprocess
 from collections import namedtuple
 from pathlib import Path
 
+# ── Config-injection (V37.9.107 chunk-3: pip 包化路径参数化) ────────────────
+# 镜像 engine.py::_resolve_config_dir() + governance_checker.py::_resolve_project_root()。
+# Layer 1 (引擎代码) 与 Layer 2 (项目 YAML + 被评估源文件) 解耦:
+#   ONTOLOGY_CONFIG_DIR   — convergence_ontology.yaml 所在目录 (spec 声明)
+#   ONTOLOGY_PROJECT_ROOT — 被评估源文件 (jobs_registry.yaml / *.json 等) 的项目根
+# chunk-4 demo (WeatherBot) 暴露的耦合: convergence 阶段此前始终读引擎自带 spec +
+# 引擎仓库根的源文件, 消费方无法注入 → 报 false drift (packaging.md §5 row 3)。
+# 安全契约 (MR-15 部署 layout 教训): 无 env 时默认分支保持 V37.9.19 .resolve() 语义
+# 字节级不变 → Mac Mini symlink ($HOME/ontology → repo) / dev / cron 行为零回归。
+def _resolve_config_dir():
+    """ONTOLOGY_CONFIG_DIR env 优先 (消费方注入), 默认引擎同目录 (.resolve() 不变)。"""
+    env_dir = os.environ.get("ONTOLOGY_CONFIG_DIR", "").strip()
+    if env_dir:
+        return Path(os.path.abspath(os.path.expanduser(env_dir)))
+    return Path(__file__).resolve().parent
+
+
+def _resolve_project_root():
+    """ONTOLOGY_PROJECT_ROOT env 优先 (被评估源文件的根), 默认引擎仓库根 (.resolve() 不变)。"""
+    env_root = os.environ.get("ONTOLOGY_PROJECT_ROOT", "").strip()
+    if env_root:
+        return Path(os.path.abspath(os.path.expanduser(env_root)))
+    return Path(__file__).resolve().parent.parent
+
+
 # ── Constants ─────────────────────────────────────────────────────────────
 
-_DEFAULT_SPEC_PATH = Path(__file__).resolve().parent / "convergence_ontology.yaml"
+_CONFIG_DIR = _resolve_config_dir()
+_PROJECT_ROOT = _resolve_project_root()
+_DEFAULT_SPEC_PATH = _CONFIG_DIR / "convergence_ontology.yaml"
 
 # Valid drift_action values. Order = severity (alert_only weakest).
 _VALID_DRIFT_ACTIONS = ("alert_only", "machine_sync", "block_until_human")
@@ -195,7 +231,7 @@ def _load_yaml(path):
         # Project ships a fallback in check_registry.load_yaml; reuse it.
         try:
             import sys
-            repo_root = str(Path(__file__).resolve().parent.parent)
+            repo_root = str(_PROJECT_ROOT)
             if repo_root not in sys.path:
                 sys.path.insert(0, repo_root)
             from check_registry import load_yaml as _legacy_loader  # type: ignore
@@ -244,7 +280,7 @@ def _extract_registry_enabled_system_jobs(spec):
     decl = spec.get("declaration", {})
     src = decl.get("source", "jobs_registry.yaml")
     # Resolve relative to repo root (ontology/ is one level deep).
-    src_path = Path(__file__).resolve().parent.parent / src
+    src_path = _PROJECT_ROOT / src
     data = _load_yaml(src_path)
     out = set()
     for job in (data.get("jobs") or []):
@@ -341,7 +377,7 @@ def _extract_json_file_paths(spec):
     expanded = os.path.expanduser(os.path.expandvars(src))
     p = Path(expanded)
     if not p.is_absolute():
-        p = Path(__file__).resolve().parent.parent / expanded
+        p = _PROJECT_ROOT / expanded
 
     # FAIL-OPEN on missing file (dev environments)
     if not p.exists():
@@ -382,7 +418,7 @@ def _extract_registry_kb_source_files(spec):
     """
     decl = spec.get("declaration", {})
     src = decl.get("source", "jobs_registry.yaml")
-    src_path = Path(__file__).resolve().parent.parent / src
+    src_path = _PROJECT_ROOT / src
     data = _load_yaml(src_path)
     out = set()
     for job in (data.get("jobs") or []):
@@ -421,7 +457,7 @@ def _extract_services_from_registry(spec):
     """
     decl = spec.get("declaration", {})
     src = decl.get("source", "services_registry.yaml")
-    src_path = Path(__file__).resolve().parent.parent / src
+    src_path = _PROJECT_ROOT / src
     data = _load_yaml(src_path)
     out = set()
     for svc in (data.get("services") or []):
@@ -448,7 +484,7 @@ def _extract_providers_from_registry(spec):
         # Late import — avoid hard dependency at convergence module import time
         # so dev environments without providers.py can still load the framework.
         import sys
-        repo_root = str(Path(__file__).resolve().parent.parent)
+        repo_root = str(_PROJECT_ROOT)
         if repo_root not in sys.path:
             sys.path.insert(0, repo_root)
         from providers import get_registry  # type: ignore
@@ -479,7 +515,7 @@ def _extract_jobs_to_full_cron_lines(spec):
     """
     decl = spec.get("declaration", {})
     src = decl.get("source", "jobs_registry.yaml")
-    src_path = Path(__file__).resolve().parent.parent / src
+    src_path = _PROJECT_ROOT / src
     try:
         data = _load_yaml(src_path)
     except Exception as e:
@@ -876,7 +912,7 @@ def _load_jobs_registry_index(spec):
     """
     decl = spec.get("declaration", {})
     src = decl.get("source", "jobs_registry.yaml")
-    src_path = Path(__file__).resolve().parent.parent / src
+    src_path = _PROJECT_ROOT / src
     data = _load_yaml(src_path)
     by_entry = {}
     for job in (data.get("jobs") or []):
@@ -1089,7 +1125,7 @@ def _load_services_registry_index(spec):
     """
     decl = spec.get("declaration", {})
     src = decl.get("source", "services_registry.yaml")
-    src_path = Path(__file__).resolve().parent.parent / src
+    src_path = _PROJECT_ROOT / src
     data = _load_yaml(src_path)
     by_label = {}
     for svc in (data.get("services") or []):

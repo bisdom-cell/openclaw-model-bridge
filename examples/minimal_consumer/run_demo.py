@@ -11,17 +11,21 @@ load time*, the env MUST be set before these imports — which is exactly what a
 real consumer's process environment does. This is the end-to-end proof that
 config-injection works: the same engine code audits a *different* project.
 
-The four capabilities demonstrated all honor config-injection:
+The five capabilities demonstrated all honor config-injection:
   1. ToolOntology  — allowed_tools query reads consumer's tool_ontology.yaml
   2. find_by_domain — reads consumer's domain_ontology.yaml
   3. evaluate_policy — reads consumer's policy_ontology.yaml
   4. governance run_all — audits consumer's invariants against consumer's files
+  5. convergence — reads consumer's convergence_ontology.yaml + source files
+     (V37.9.107 chunk-3: previously the only phase NOT config-injected; the
+     coupling this very demo exposed in chunk-4, now closed)
 
 Returns process exit code: 0 if the governance audit passes, 1 otherwise.
 """
 import os
 import sys
 
+import ontology.convergence as cv
 import ontology.engine as engine
 import ontology.governance_checker as gov
 
@@ -80,10 +84,24 @@ def main() -> int:
                 if c["status"] != "pass":
                     print(f"         ↳ {c['status']}: {c['name']} — {c['message']}")
 
+    # ── 5. convergence — consumer's specs vs runtime (chunk-3) ─────────
+    _h("5. convergence — consumer's convergence_ontology.yaml (chunk-3)")
+    spec_ids = cv.list_spec_ids()
+    print(f"    consumer convergence specs = {spec_ids}")
+    assert "weatherbot-allowed-units-active" in spec_ids, \
+        "convergence must read THIS consumer's spec, not the engine-bundled 5"
+    assert "jobs_to_crontab" not in spec_ids, \
+        "must NOT be reading openclaw-model-bridge's convergence specs"
+    cres = cv.verify_convergence("weatherbot-allowed-units-active")
+    print(f"    {cv.format_result_for_log(cres)}")
+    assert cres.error is None, f"convergence spec should run cleanly, got {cres.error}"
+    assert not cres.drift_detected, "WeatherBot units are in sync — expected zero drift"
+    print("    ✓ convergence evaluated against THIS project's spec + source files")
+
     _h("Result")
     if failed == 0:
         print("    🎉 WeatherBot audited clean by the *injected* engine — "
-              "config-injection works end-to-end.")
+              "config-injection works end-to-end (incl. convergence, chunk-3).")
         return 0
     print(f"    ⚠️  {failed} invariant(s) failed.")
     return 1

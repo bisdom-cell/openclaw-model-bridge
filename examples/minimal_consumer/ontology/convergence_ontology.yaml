@@ -1,0 +1,36 @@
+# convergence_ontology.yaml — WeatherBot consumer convergence spec (chunk-3 demo).
+#
+# Proves config-injection of the CONVERGENCE phase: the SAME engine
+# (ontology/convergence.py) evaluates THIS spec — not the bridge's 5 specs —
+# AND resolves the declared source file (weatherbot_state.json) relative to the
+# CONSUMER's project root. Both happen purely via ONTOLOGY_CONFIG_DIR +
+# ONTOLOGY_PROJECT_ROOT, with zero engine code changes.
+#
+# Before chunk-3 (V37.9.107) this file was unreachable: convergence always read
+# the engine-bundled convergence_ontology.yaml + the engine's repo root
+# (documented as a known coupling in docs/ontology_engine_packaging.md §5 row 3,
+# surfaced by this very demo in chunk-4 / V37.9.104).
+meta:
+  version: "0.1-weatherbot-demo"
+  note: >
+    chunk-3 made convergence._DEFAULT_SPEC_PATH (via _resolve_config_dir) and the
+    evaluated source-file root (via _resolve_project_root) config-injectable,
+    mirroring engine.py / governance_checker.py.
+
+convergence_specs:
+  # Declared: WeatherBot's allowed temperature units live in the consumer's own
+  # JSON state file. Runtime: a deterministic stand-in for "what the running
+  # WeatherBot reports". A real consumer would query the live service; echo keeps
+  # the demo reproducible (zero drift) across CI / dev. The point is not the
+  # check's sophistication but that the engine reaches THIS spec + THIS file.
+  - id: weatherbot-allowed-units-active
+    enabled: true
+    declaration:
+      source: weatherbot_state.json        # resolved via ONTOLOGY_PROJECT_ROOT
+      extractor: json_file_paths
+      json_paths: ["allowed_units[]"]
+    runtime_observable:
+      method: shell_command
+      command: 'echo "celsius fahrenheit"'
+      parser: line_contains_identifier
+    drift_action: alert_only

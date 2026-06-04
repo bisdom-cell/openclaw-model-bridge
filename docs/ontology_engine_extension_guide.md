@@ -138,32 +138,45 @@ tiny agent runtime, intentionally different from `openclaw-model-bridge` (it has
 `get_forecast` / `save_favorite_city`, not `data_clean` / `search_kb`). It proves
 the engine governs a *second* project, not a copy of the first.
 
-`run_demo.sh` exercises four config-injected capabilities and prints a clean
+`run_demo.sh` exercises five config-injected capabilities and prints a clean
 walkthrough. Expected tail:
 
 ```
-🎉 WeatherBot audited clean by the *injected* engine — config-injection works end-to-end.
+🎉 WeatherBot audited clean by the *injected* engine — config-injection works end-to-end (incl. convergence, chunk-3).
 ```
 
 ---
 
-## Known limitation (honest registry)
+## Config-injected phases
 
 The `openclaw-ontology-audit` console runs three phases: **invariants**, **MRD
-meta-discovery**, and **convergence**.
+meta-discovery**, and **convergence**. As of **V37.9.107 (chunk-3a)** all three
+honor config-injection:
 
-- **invariants** + **MRD** → fully config-injected (read `ONTOLOGY_CONFIG_DIR` /
-  scan `ONTOLOGY_PROJECT_ROOT`). MRD scanners gracefully no-op when a consumer
-  lacks `jobs_registry.yaml` / `notify.sh`.
-- **convergence** → currently reads the engine-bundled `convergence_ontology.yaml`
-  (`Path(__file__).parent / "convergence_ontology.yaml"`), **not** your
-  `ONTOLOGY_CONFIG_DIR`. So for a consumer it runs the bridge's specs against your
-  project root and reports drift. This coupling was surfaced by the chunk-4 demo
-  (exactly its job) and is scheduled for **chunk 3** (MRD/convergence path
-  parameterization). Until then, consumers should rely on the invariant phase
-  (`gov.run_all(gov._load())`) or read convergence output with this caveat in mind.
-  The WeatherBot demo's `run_demo.py` runs the invariant phase directly to keep
-  output clean.
+- **invariants** → reads `ONTOLOGY_CONFIG_DIR` / scans `ONTOLOGY_PROJECT_ROOT`.
+- **MRD** → scans `ONTOLOGY_PROJECT_ROOT`; gracefully no-ops when a consumer lacks
+  `jobs_registry.yaml` / `notify.sh` / `jobs/*/run_*.sh`.
+- **convergence** → reads your `convergence_ontology.yaml` (via `ONTOLOGY_CONFIG_DIR`)
+  and resolves declared source files (`jobs_registry.yaml`, `*.json`, …) relative to
+  `ONTOLOGY_PROJECT_ROOT`. The WeatherBot demo's `convergence_ontology.yaml` +
+  `weatherbot_state.json` exercise this end-to-end (`run_demo.py` section 5). With
+  no env set, the engine preserves its V37.9.19 default byte-for-byte (zero
+  regression for the bridge itself).
+
+> **Writing a convergence spec:** declare a `source` (a file in your project, e.g.
+> `weatherbot_state.json`), an `extractor` (e.g. `json_file_paths` with `json_paths`),
+> a `runtime_observable` (`method: shell_command` + `command` + `parser:
+> line_contains_identifier`), and a `drift_action` (`alert_only` is safest). See
+> `examples/minimal_consumer/ontology/convergence_ontology.yaml`.
+
+### Remaining follow-up (chunk-3b)
+
+The MRD scanners' project-specific *filename patterns* (`jobs_registry.yaml` /
+`notify.sh` / `jobs/*/run_*.sh`) are still hardcoded in the framework. Because the
+scan **root** is already injected (`_PROJECT_ROOT`) and the scanners gracefully
+no-op for consumers, this is a configurability nicety, not a correctness bug —
+parameterizing the pattern table is tracked as chunk-3b (a focused session, to
+avoid regressing the MR-4 blood-lesson scanners).
 
 See `docs/ontology_engine_packaging.md` §5 (known coupling) and §6 (migration
 roadmap) for the full picture.

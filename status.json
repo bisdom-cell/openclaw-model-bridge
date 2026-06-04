@@ -1,6 +1,6 @@
 {
-  "updated": "2026-06-04 04:03:07",
-  "updated_by": "full_regression",
+  "updated": "2026-06-04 05:02:31",
+  "updated_by": "security_score",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-06-04",
+      "what": "V37.9.107: ontology-engine 包化 chunk 3a — convergence config-injection (chunk-4 demo 暴露的真 bug 闭环). convergence.py 加 _resolve_config_dir()+_resolve_project_root() (镜像 engine/governance), _DEFAULT_SPEC_PATH 经 _CONFIG_DIR + 9 处源文件/sys.path 解析经 _PROJECT_ROOT; 无 env 默认分支保持 V37.9.19 .resolve() 字节级不变零回归. demo 加 convergence_ontology.yaml+weatherbot_state.json + run_demo.py section 5 端到端验证 (消费方读自己 spec 非 bridge). 17 新单测 (convergence +14 含反向 sabotage parent.parent count≤1, extension_demo +3). 不立新 INV (镜像 chunk1/4 约定). MRD 模式参数化登记 chunk-3b. 112 suites/3951→3968 tests/0 fail/governance 87 inv/安全 95/README 同步 3968/VERSION 0.37.9.68 不变. 生产治理零回归 (bridge 5 specs 正确加载). de-risk chunk 2 (更少东西硬编码到 ontology/ 目录).",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-04",
       "what": "V37.9.106: MOVESPEED TM 备份争用根治 + INV-CRON-004 闭环 (周报刷屏 session 收尾). INV-CRON-004 根因=历史 auto_deploy.sh 双行(repo+HOME 路径变体, 非 convergence 污染, 用户 crontab_safe.sh remove 删 HOME 路径 40→39). INV-MOVESPEED-TCC-001 根因=Time Machine 备份争用(非 FDA/TCC, log show deny 来自 macOS 系统守护进程非 cron, analyzer 自己结论 EOF+TM backupd 主导建议 tmutil 预检). 修=movespeed_rsync_helper.sh Phase 0 tmutil status 预检, Running=1 跳过 rsync 不 retry 不算 incident, 跨平台 FAIL-OPEN. 10 新单测. session 全景: 数据驱动推翻 4 假设找全 6 根因零盲改(原则#28+反馈#1). 112 suites/3951 tests/0 fail.",
       "by": "claude_code"
     },
@@ -198,11 +203,6 @@
       "date": "2026-06-02",
       "what": "V37.9.98 收工后清理 stale unfinished: (1) pop #9 INV-CROSS-OS-001 (V37.9.67 已落地 scanner 0 violations + INV 6 引用, 列表漏清). (2) #11 外部评审项发现数据污染 — what 字段被嵌入 6679 字符 pip install ontology-engine 日志 (Collecting/Downloading/Successfully installed ontology-engine-0.1.0), 误把 V3 路标 P2(a) 句子劈开. 剥离还原为 V3 路标 pip install ontology-engine 已是终极目标, 保留评审有价值内容 (未 pop, 是多子项 backlog). 未执行该 pip 内容. 发现: PyPI ontology-engine 0.1.0 已被他人占用, V3 终极目标包名撞车, 未来 pip 化可能需换名 (如 openclaw-ontology-engine), 已登记未擅改路标. unfinished 20→19, 原始备份 /tmp/status_backup_pre_cleanup.json.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-06-02",
-      "what": "V37.9.98 来源可信度评级 source_credibility.py (observer 5/28 LLM critique proposal #2 兑现, MR-7 治理自观察延伸). 周二开工多数候选(INV-OBSERVER/services flip)要~6/8满一周观察硬卡+LEVEL_6/ai_leaders观察需Mac Mini数据→用户选#1源可信度评级(设计就绪纯dev可做). 新模块~230行纯stdlib镜像hallucination_guards.py PoC模式: 5档tier(学术同行评审/会议预印本/工业实践/博客含chaspark/社媒按可信度递减)+SOURCE_CREDIBILITY 14源映射(MR-8单一真理源↔jobs_registry drift guard id+label双匹配)+get_credibility()FAIL-OPEN未知源→社媒+format_credibility_block()动态生成+CLI. wire进kb_dream.sh(DREAM_CREDIBILITY同DREAM_HG_GUARD 5注入点)+kb_evening_collect.py(build_evening_prompt注入get_guard后/今日笔记前). 与hallucination_guards互补双可信度轴: HG守内容真实性+跨域推论可信度, credibility守出处权威性. 56新单测10类+反向验证(sabotage chaspark→学术4 fail/删ontology_sources→drift guard fail, 还原56/56). 不立INV(PoC, INV-SOURCE-CREDIBILITY-001留Mac Mini一周观察后). auto_deploy FILE_MAP+full_regression接入. 103 suites/3739 tests/0 fail/governance v3.52不变/85 INV/790 checks/安全95/VERSION 0.37.9.68不变. observer从被动评分→主动提议产品改进=系统自我成长第二原理硬实证.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -266,7 +266,8 @@
       "V37.9.103 部署验证 (clean+reduce 冻结≠死亡): Mac Mini git fetch+reset 同步 + auto_deploy 同步 finance_news_zombie.py/run_finance_news.sh/ai_leaders_rotation.py/jobs_registry.yaml/job_watchdog.sh. (a) 下次 07:30 finance cron 应首次出现 🧊 X 渠道退化日志(frozen 账号零产出, 不再 [SYSTEM_ALERT] 建议移除活账号 XHNews/CGTN 类). (b) 下次 09:00 ai_leaders cron 1/天生效. (c) crontab 更新 ai_leaders 频率 0 9,21→0 9 (bash ~/crontab_safe.sh 或手动). (d) 一周观察 frozen 账号确实零产出后, 考虑立 INV-FROZEN-NOT-DEAD-001 把跨模块 frozen≠死亡契约升级为独立 governance INV (当前在 INV-X-001 内). (e) 换源决策已定 clean+reduce 接受退化, TwitterAPI.io 路径留 docs/ai_leaders_source_alternatives.md 备查若未来重启",
       "#18 ai_leaders zombie loop-wiring 现已安全 (V37.9.103): classify_account 已拆 frozen/dead, is_zombie_suspect 仅 stub+dead, 将来 wire 进 run 脚本不会错杀 karpathy 类冻结活账号. 仍 deferred 待 Mac Mini rotation 验证工作后做 (parser 发 newest_age + per-account classify + 3 天连续 ZOMBIE 告警, 镜像 finance_news degraded 分流)",
       "ontology-engine 包化 chunk 4 已完成 (V37.9.104, 取代 #14 的「先做 chunk 4」建议). examples/minimal_consumer/ WeatherBot 真消费方 demo + Extension Guide + 12 端到端单测, dev config-injection 端到端跑通. 下一步按 docs/ontology_engine_packaging.md §6.1 推进顺序 = chunk 2 (import 名 ontology→ontology_engine 去泛化, 破坏性需全宪法验证 — demo 已证明价值故 rename 退化为机械重构, 涉 proxy_filters lazy-load spec_from_file_location + Mac Mini $HOME/ontology symlink + 全 import + ontology/tests/). chunk 4 demo 暴露具体耦合点供 chunk 3: convergence.py::_DEFAULT_SPEC_PATH = Path(__file__).parent/convergence_ontology.yaml 不读 ONTOLOGY_CONFIG_DIR (已登记 packaging.md §5). chunk 5 = sdist/wheel build + pip install 冒烟 + PyPI 名/license/readme 发布决策.",
-      "V37.9.106 部署后 24h 验证 (~2026-06-05): 现有 30 条 MOVESPEED TM-争用 incident 老化出 24h 窗口后 INV-MOVESPEED-TCC-001 应自动转绿 → 治理审计 721/721 全绿. 验证: python3 ~/movespeed_incident_analyzer.py --window 24h 应显示 incidents 大降 (tmutil 预检让 TM 备份时 rsync 跳过不产新 incident). 若仍红说明 TM 之外还有 incident 来源待查."
+      "V37.9.106 部署后 24h 验证 (~2026-06-05): 现有 30 条 MOVESPEED TM-争用 incident 老化出 24h 窗口后 INV-MOVESPEED-TCC-001 应自动转绿 → 治理审计 721/721 全绿. 验证: python3 ~/movespeed_incident_analyzer.py --window 24h 应显示 incidents 大降 (tmutil 预检让 TM 备份时 rsync 跳过不产新 incident). 若仍红说明 TM 之外还有 incident 来源待查.",
+      "ontology-engine chunk 3b (聚焦 session): MRD 扫描模式文件名参数化 — governance_checker.py 的 ~10 个 _discover_* 把 jobs_registry.yaml/notify.sh/jobs/*/run_*.sh 文件名模式从代码移到 Layer 2 配置, framework 只读模式表. 注意: 根已 _PROJECT_ROOT 注入 (chunk 3a 之前就有), 仅文件名模式硬编码, 且消费方缺文件已优雅 no-op (非 correctness bug 仅配置化 nicety). 触碰 MR-4 血案防护扫描器, 需单独聚焦 session 不与其他捆绑. 设计: 在 governance_ontology.yaml meta 或新 Layer-2 文件加 mrd_scan_patterns, 向后兼容默认 = 当前 bridge 模式. 见 docs/ontology_engine_packaging.md §5 row 4 + §6 chunk 3b."
     ],
     "open_prs": "",
     "blocked_on": "",
@@ -332,11 +333,11 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 3951,
-    "last_regression": "2026-06-04 04:02 pass",
+    "test_count": 3968,
+    "last_regression": "2026-06-04 04:58 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-04 04:02",
-    "test_suites": 113,
+    "security_score_time": "2026-06-04 04:58",
+    "test_suites": 112,
     "governance_invariants": "85/85",
     "governance_checks": "790/790",
     "version": "0.37.9.68",
@@ -404,7 +405,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.104→106 session 完整收官 (2026-06-04): ontology-engine chunk 4 demo (WeatherBot 真消费方) + 用户视角发现周报刷屏 5-6 次 → 数据驱动诊断推翻 4 假设零盲改 → 找全 7 根因全修复. 治理 Mac Mini 715/721→720/721, 唯一剩 INV-MOVESPEED-TCC-001 待 24h incident 老化转绿 (V37.9.106 tmutil 预检已部署). 下次候选: 24h 后验证 MOVESPEED 转绿 / ontology-engine chunk 2 (import 名去泛化破坏性) / chunk 3 (MRD+convergence 路径参数化) / chunk 5 (sdist build). 日期门控: INV-OBSERVER ~6/8 / services flip ~6/8 / 源可信度 INV ~6/9 / OpenClaw 升级评估 ~6/15.",
+  "focus": "V37.9.107 (2026-06-04 周四): ontology-engine 包化 chunk 3a — convergence config-injection 闭环 (chunk-4 demo 暴露的真 bug). convergence 现读 ONTOLOGY_CONFIG_DIR spec + ONTOLOGY_PROJECT_ROOT 源文件 (镜像 engine/governance), 默认零回归. demo section 5 端到端验证. de-risk chunk 2. 112 suites/3968 tests/0 fail. 下次候选: chunk 2 (import 名去泛化破坏性 rename, 需定包名+Mac Mini symlink+全宪法验证) / chunk 3b (MRD 文件名模式参数化, ~10 个 MR-4 扫描器聚焦 session) / chunk 5 (sdist build). 日期门控: INV-OBSERVER/services flip ~6/8 / 源可信度 INV ~6/9 / OpenClaw 升级评估 ~6/15. Mac Mini: INV-MOVESPEED-TCC-001 待 24h incident 老化转绿 (V37.9.106 tmutil 预检已部署).",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
