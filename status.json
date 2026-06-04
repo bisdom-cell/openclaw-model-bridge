@@ -1,6 +1,6 @@
 {
-  "updated": "2026-06-04 03:30:31",
-  "updated_by": "security_score",
+  "updated": "2026-06-04 04:03:07",
+  "updated_by": "full_regression",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -265,7 +265,8 @@
       "V37.9.101 follow-up (rotation 21:00 验证工作后): (a) 重跑复盘诊断 → 真僵尸 stale>7d 移除 LEADERS (b) 完整 zombie loop-wiring — parser 发 newest_age + per-account classify_account + 3 天连续 ZOMBIE 嫌疑告警 (镜像 finance_news, 模块已建+测就绪)",
       "V37.9.103 部署验证 (clean+reduce 冻结≠死亡): Mac Mini git fetch+reset 同步 + auto_deploy 同步 finance_news_zombie.py/run_finance_news.sh/ai_leaders_rotation.py/jobs_registry.yaml/job_watchdog.sh. (a) 下次 07:30 finance cron 应首次出现 🧊 X 渠道退化日志(frozen 账号零产出, 不再 [SYSTEM_ALERT] 建议移除活账号 XHNews/CGTN 类). (b) 下次 09:00 ai_leaders cron 1/天生效. (c) crontab 更新 ai_leaders 频率 0 9,21→0 9 (bash ~/crontab_safe.sh 或手动). (d) 一周观察 frozen 账号确实零产出后, 考虑立 INV-FROZEN-NOT-DEAD-001 把跨模块 frozen≠死亡契约升级为独立 governance INV (当前在 INV-X-001 内). (e) 换源决策已定 clean+reduce 接受退化, TwitterAPI.io 路径留 docs/ai_leaders_source_alternatives.md 备查若未来重启",
       "#18 ai_leaders zombie loop-wiring 现已安全 (V37.9.103): classify_account 已拆 frozen/dead, is_zombie_suspect 仅 stub+dead, 将来 wire 进 run 脚本不会错杀 karpathy 类冻结活账号. 仍 deferred 待 Mac Mini rotation 验证工作后做 (parser 发 newest_age + per-account classify + 3 天连续 ZOMBIE 告警, 镜像 finance_news degraded 分流)",
-      "ontology-engine 包化 chunk 4 已完成 (V37.9.104, 取代 #14 的「先做 chunk 4」建议). examples/minimal_consumer/ WeatherBot 真消费方 demo + Extension Guide + 12 端到端单测, dev config-injection 端到端跑通. 下一步按 docs/ontology_engine_packaging.md §6.1 推进顺序 = chunk 2 (import 名 ontology→ontology_engine 去泛化, 破坏性需全宪法验证 — demo 已证明价值故 rename 退化为机械重构, 涉 proxy_filters lazy-load spec_from_file_location + Mac Mini $HOME/ontology symlink + 全 import + ontology/tests/). chunk 4 demo 暴露具体耦合点供 chunk 3: convergence.py::_DEFAULT_SPEC_PATH = Path(__file__).parent/convergence_ontology.yaml 不读 ONTOLOGY_CONFIG_DIR (已登记 packaging.md §5). chunk 5 = sdist/wheel build + pip install 冒烟 + PyPI 名/license/readme 发布决策."
+      "ontology-engine 包化 chunk 4 已完成 (V37.9.104, 取代 #14 的「先做 chunk 4」建议). examples/minimal_consumer/ WeatherBot 真消费方 demo + Extension Guide + 12 端到端单测, dev config-injection 端到端跑通. 下一步按 docs/ontology_engine_packaging.md §6.1 推进顺序 = chunk 2 (import 名 ontology→ontology_engine 去泛化, 破坏性需全宪法验证 — demo 已证明价值故 rename 退化为机械重构, 涉 proxy_filters lazy-load spec_from_file_location + Mac Mini $HOME/ontology symlink + 全 import + ontology/tests/). chunk 4 demo 暴露具体耦合点供 chunk 3: convergence.py::_DEFAULT_SPEC_PATH = Path(__file__).parent/convergence_ontology.yaml 不读 ONTOLOGY_CONFIG_DIR (已登记 packaging.md §5). chunk 5 = sdist/wheel build + pip install 冒烟 + PyPI 名/license/readme 发布决策.",
+      "V37.9.106 部署后 24h 验证 (~2026-06-05): 现有 30 条 MOVESPEED TM-争用 incident 老化出 24h 窗口后 INV-MOVESPEED-TCC-001 应自动转绿 → 治理审计 721/721 全绿. 验证: python3 ~/movespeed_incident_analyzer.py --window 24h 应显示 incidents 大降 (tmutil 预检让 TM 备份时 rsync 跳过不产新 incident). 若仍红说明 TM 之外还有 incident 来源待查."
     ],
     "open_prs": "",
     "blocked_on": "",
@@ -332,10 +333,10 @@
   "quality": {
     "security_score": 95,
     "test_count": 3951,
-    "last_regression": "2026-06-04 03:28 pass",
+    "last_regression": "2026-06-04 04:02 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-04 03:28",
-    "test_suites": 112,
+    "security_score_time": "2026-06-04 04:02",
+    "test_suites": 113,
     "governance_invariants": "85/85",
     "governance_checks": "790/790",
     "version": "0.37.9.68",
@@ -403,7 +404,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.104→106 session 收尾: ontology-engine chunk 4 demo + 用户视角发现周报刷屏 5-6 次 → 数据驱动诊断推翻 4 假设 → 找全 6 根因全修复. 周报=手动调试(V37.9.105 速率限制) / FATAL line64=errtrace 误报(set +E) / 3 convergence-router 失败=test 环境依赖 localhost:5001 可达 + ROUTER stale 代码(hotfix2) / INTEGRATION=stale 4→5 spec(hotfix3) / INV-CRON-004=历史 auto_deploy 双行(用户删) / INV-MOVESPEED-TCC-001=TM 备份争用非 FDA(V37.9.106 helper tmutil 预检). 112 suites/3951 tests/0 fail. 待 Mac Mini 同步 V37.9.106 + 24h 后 incidents 老化转绿. 治理 715/721→预期 721/721 全绿.",
+  "focus": "V37.9.104→106 session 完整收官 (2026-06-04): ontology-engine chunk 4 demo (WeatherBot 真消费方) + 用户视角发现周报刷屏 5-6 次 → 数据驱动诊断推翻 4 假设零盲改 → 找全 7 根因全修复. 治理 Mac Mini 715/721→720/721, 唯一剩 INV-MOVESPEED-TCC-001 待 24h incident 老化转绿 (V37.9.106 tmutil 预检已部署). 下次候选: 24h 后验证 MOVESPEED 转绿 / ontology-engine chunk 2 (import 名去泛化破坏性) / chunk 3 (MRD+convergence 路径参数化) / chunk 5 (sdist build). 日期门控: INV-OBSERVER ~6/8 / services flip ~6/8 / 源可信度 INV ~6/9 / OpenClaw 升级评估 ~6/15.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
