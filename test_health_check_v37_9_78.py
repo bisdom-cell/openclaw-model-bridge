@@ -492,5 +492,101 @@ class TestGovernanceLineage(unittest.TestCase):
                       "必须引用 V37.8.13 教训")
 
 
+def _read_script_push_guard_only():
+    """提取 health_check.sh 的推送速率限制 vars + _health_push_allowed() 函数 (隔离测试)."""
+    src = _read_script()
+    start = src.find("HEALTH_PUSH_MIN_INTERVAL_SEC=")
+    end = src.find("if _health_push_allowed; then", start)
+    if start < 0 or end < 0:
+        return ""
+    return 'export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"\n' + src[start:end]
+
+
+class TestV37_9_105_PushRateLimit(unittest.TestCase):
+    """V37.9.105 推送幂等性速率限制: health_check 被多次调用只推一次 (防周报刷屏)."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.src = _read_script()
+
+    # ── 源码级守卫 ──
+    def test_v37_9_105_marker_present(self):
+        self.assertIn("V37.9.105", self.src, "推送速率限制 marker 便于追溯")
+
+    def test_push_allowed_helper_defined(self):
+        self.assertIn("_health_push_allowed()", self.src,
+                      "必须定义 _health_push_allowed 速率限制守卫")
+
+    def test_default_interval_20h(self):
+        self.assertIn('HEALTH_PUSH_MIN_INTERVAL_SEC="${HEALTH_PUSH_MIN_INTERVAL_SEC:-72000}"',
+                      self.src, "默认窗口 72000s (20h): 周报恒过, 当日重跑去重")
+
+    def test_marker_path_var(self):
+        self.assertIn("HEALTH_PUSH_MARKER=", self.src)
+        self.assertIn("health_report_last_push", self.src)
+
+    def test_cross_platform_stat(self):
+        """stat 必须跨平台 (macOS BSD -f %m / Linux -c %Y, V37.9.78-hotfix 教训)."""
+        self.assertIn("stat -f %m", self.src)
+        self.assertIn("stat -c %Y", self.src)
+
+    def test_push_block_wrapped_in_guard(self):
+        """推送块 (notify.sh + fallback) 必须包在 if _health_push_allowed 内."""
+        guard_idx = self.src.find("if _health_push_allowed; then")
+        push_idx = self.src.find("notify \"$REPORT\" --topic daily")
+        skip_idx = self.src.find("推送速率限制")
+        self.assertGreater(guard_idx, 0, "守卫必须存在")
+        self.assertGreater(push_idx, guard_idx, "推送必须在守卫之后")
+        self.assertGreater(skip_idx, push_idx, "else 跳过分支必须在推送之后")
+
+    def test_marker_touched_before_push(self):
+        """touch marker 在推送前 (保证一窗口最多一次推送尝试)."""
+        guard_idx = self.src.find("if _health_push_allowed; then")
+        touch_idx = self.src.find('touch "$HEALTH_PUSH_MARKER"', guard_idx)
+        push_idx = self.src.find("notify \"$REPORT\" --topic daily", guard_idx)
+        self.assertGreater(touch_idx, guard_idx)
+        self.assertLess(touch_idx, push_idx, "touch marker 必须在推送之前")
+
+    # ── 运行时行为 (隔离 _health_push_allowed) ──
+    def _run_guard(self, marker_state, interval=None):
+        """marker_state: 'none' / 'fresh' / 'old'; 返回 (rc, stdout)."""
+        import tempfile
+        td = tempfile.mkdtemp()
+        marker = os.path.join(td, "marker")
+        setup = ""
+        if marker_state == "fresh":
+            setup = f'touch "{marker}"\n'
+        elif marker_state == "old":
+            # 设 mtime 为 30h 前 (> 20h 窗口) → 应允许
+            setup = f'touch "{marker}"\ntouch -t $(date -d "30 hours ago" +%Y%m%d%H%M 2>/dev/null || date -v-30H +%Y%m%d%H%M) "{marker}"\n'
+        env_interval = f'export HEALTH_PUSH_MIN_INTERVAL_SEC={interval}\n' if interval is not None else ""
+        script = f"""
+{env_interval}export HEALTH_PUSH_MARKER="{marker}"
+{_read_script_push_guard_only()}
+{setup}
+if _health_push_allowed; then echo "ALLOWED"; else echo "SKIP"; fi
+"""
+        proc = subprocess.run(["bash", "-c", script], capture_output=True,
+                              text=True, timeout=60)
+        return proc.returncode, proc.stdout.strip(), proc.stderr
+
+    def test_no_marker_allows_push(self):
+        rc, out, err = self._run_guard("none")
+        self.assertIn("ALLOWED", out, f"无 marker 应允许推送, stderr={err}")
+
+    def test_fresh_marker_skips_push(self):
+        rc, out, err = self._run_guard("fresh")
+        self.assertIn("SKIP", out, f"刚推过 (age<20h) 应跳过, stderr={err}")
+
+    def test_old_marker_allows_push(self):
+        rc, out, err = self._run_guard("old")
+        self.assertIn("ALLOWED", out, f"距上次 >20h (如下周一 cron) 应允许, stderr={err}")
+
+    def test_interval_zero_always_allows(self):
+        """HEALTH_PUSH_MIN_INTERVAL_SEC=0 → 即使刚推过也允许 (手动强制刷新逃生口)."""
+        rc, out, err = self._run_guard("fresh", interval=0)
+        self.assertIn("ALLOWED", out, f"interval=0 应总允许 (手动测试逃生口), stderr={err}")
+
+
 if __name__ == "__main__":
     unittest.main()

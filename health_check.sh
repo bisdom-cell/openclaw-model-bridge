@@ -233,22 +233,52 @@ data = {
 print(json.dumps(data, indent=2, ensure_ascii=False))
 JSONEOF
 
-# === V37.9.78 推送改造: 优先 notify.sh (双通道独立 + 重试 + 队列), fallback openclaw 直推 ===
-PUSHED=false
-if [ -f "$HOME/notify.sh" ]; then
-  # shellcheck source=/dev/null
-  source "$HOME/notify.sh" 2>/dev/null || true
-  if type notify >/dev/null 2>&1; then
-    if notify "$REPORT" --topic daily 2>>"$HOME/health_check.log"; then
-      PUSHED=true
-      echo "[health] notify.sh 推送成功 (--topic daily)" >&2
+# === V37.9.105 推送幂等性速率限制 (防 health_check 被多次调用导致周报重复刷屏) ===
+# 根因: crontab 单条周一正确 + notify 队列空无重放, 但 health_check.sh 在 cron 之外被
+# 反复调用 (手动 bash ~/health_check.sh 测试 / 部署重跑) → 每次无条件推送一份 → 用户收
+# 到连续 5-6 份相同周报 (2026-06-04 用户视角发现). 周报本应一个时间窗内最多推一次, 无论
+# 脚本被调用几次. 镜像 V37.8.15 给 preflight push-test 加的"每小时速率限制"同款模式.
+# 报告仍每次生成 + echo + 写 health_status.json (调试/契约可见), 仅 user-visible PUSH 受限.
+HEALTH_PUSH_MIN_INTERVAL_SEC="${HEALTH_PUSH_MIN_INTERVAL_SEC:-72000}"   # 默认 20h: 周报(168h)恒过, 当日重跑被去重
+HEALTH_PUSH_MARKER="${HEALTH_PUSH_MARKER:-$HOME/.kb/cache/health_report_last_push}"
+
+_health_push_allowed() {
+  # 返回 0=允许推送, 1=速率限制窗口内跳过. stat 跨平台 (V37.9.78-hotfix 教训):
+  # GNU `stat -c %Y` 在前 (Linux/dev 命中; macOS BSD 不识别 -c → 干净失败 fallback);
+  # BSD `stat -f %m` 在后 (Mac Mini 命中). 注: Linux 上 `stat -f` 是文件系统状态(非 mtime)
+  # 且 exit 0, 若放前面会吞掉 || fallback 返回垃圾 → 必须 -c 在前.
+  [ -f "$HEALTH_PUSH_MARKER" ] || return 0
+  local last now age
+  last=$(stat -c %Y "$HEALTH_PUSH_MARKER" 2>/dev/null || stat -f %m "$HEALTH_PUSH_MARKER" 2>/dev/null || echo 0)
+  now=$(date +%s)
+  age=$(( now - last ))
+  [ "$age" -ge "$HEALTH_PUSH_MIN_INTERVAL_SEC" ]
+}
+
+if _health_push_allowed; then
+  # 先标记本窗口已消费 (推送前 touch, 保证一个窗口最多一次推送尝试; 真失败由 notify.sh 自身队列重试)
+  mkdir -p "$(dirname "$HEALTH_PUSH_MARKER")" 2>/dev/null || true
+  touch "$HEALTH_PUSH_MARKER" 2>/dev/null || true
+
+  # === V37.9.78 推送改造: 优先 notify.sh (双通道独立 + 重试 + 队列), fallback openclaw 直推 ===
+  PUSHED=false
+  if [ -f "$HOME/notify.sh" ]; then
+    # shellcheck source=/dev/null
+    source "$HOME/notify.sh" 2>/dev/null || true
+    if type notify >/dev/null 2>&1; then
+      if notify "$REPORT" --topic daily 2>>"$HOME/health_check.log"; then
+        PUSHED=true
+        echo "[health] notify.sh 推送成功 (--topic daily)" >&2
+      fi
     fi
   fi
-fi
 
-if [ "$PUSHED" = "false" ]; then
-  # Fallback: openclaw 直推 (双通道独立, V37.8.13 教训告警链不依赖失效主体自身)
-  echo "[health] notify.sh 不可用, fallback openclaw 直推" >&2
-  $OPENCLAW message send --channel discord --target "${DISCORD_CH_DAILY:-}" --message "$REPORT" --json >/dev/null 2>&1 || true
-  $OPENCLAW message send --channel whatsapp --target "$PHONE" --message "$REPORT" --json 2>>"$HOME/health_check.log" || true
+  if [ "$PUSHED" = "false" ]; then
+    # Fallback: openclaw 直推 (双通道独立, V37.8.13 教训告警链不依赖失效主体自身)
+    echo "[health] notify.sh 不可用, fallback openclaw 直推" >&2
+    $OPENCLAW message send --channel discord --target "${DISCORD_CH_DAILY:-}" --message "$REPORT" --json >/dev/null 2>&1 || true
+    $OPENCLAW message send --channel whatsapp --target "$PHONE" --message "$REPORT" --json 2>>"$HOME/health_check.log" || true
+  fi
+else
+  echo "[health] 推送速率限制: 距上次推送 < ${HEALTH_PUSH_MIN_INTERVAL_SEC}s, 跳过本次推送 (周报已生成+记录, 防重复刷屏 V37.9.105)" >&2
 fi
