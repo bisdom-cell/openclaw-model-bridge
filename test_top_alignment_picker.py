@@ -5,7 +5,7 @@ Test layers:
   1. parse_alignment_from_content — 6-field LLM output 解析正确性
   2. _fallback_extract_star_count — alignment scorer 缺失时 fallback
   3. scan_source_results — llm_results.jsonl 读取 + FAIL-OPEN
-  4. collect_all_picks — 8 source 聚合 + min_stars 阈值过滤
+  4. collect_all_picks — 9 source 聚合 + min_stars 阈值过滤 (V37.9.108: +ai_leaders_blogs)
   5. rank_picks — 排序契约 (stars desc + priority asc + title len desc)
   6. format_top_picks_block — markdown 段格式 + 标题截断
   7. pick_top_aligned — 端到端 orchestrator + FAIL-OPEN
@@ -433,12 +433,23 @@ class TestSourceLevelGuards(unittest.TestCase):
         self.assertIn("V37.9.56", self.src)
         self.assertIn("Sub-Stage 4c", self.src)
 
-    def test_8_aligned_sources_registered(self):
-        """ALIGNED_SOURCES 必须含全部 8 个 source id."""
+    def test_9_aligned_sources_registered(self):
+        """ALIGNED_SOURCES 必须含全部 9 个 source id (V37.9.108: +ai_leaders_blogs)."""
         for src_id in ["hf_papers", "semantic_scholar", "arxiv", "dblp",
-                       "github_trending", "rss_blogs", "ai_leaders_x", "hn"]:
+                       "github_trending", "rss_blogs", "ai_leaders_blogs",
+                       "ai_leaders_x", "hn"]:
             self.assertIn(f'"id": "{src_id}"', self.src,
                           f"ALIGNED_SOURCES 缺 {src_id}")
+
+    def test_ai_leaders_blogs_is_blog_tier_priority_5(self):
+        """V37.9.108: ai_leaders_blogs (长文学者观点) = 博客档 priority 5 (同 rss_blogs, > tweet 类 6)."""
+        import top_alignment_picker as tap
+        src = next((s for s in tap.ALIGNED_SOURCES if s["id"] == "ai_leaders_blogs"), None)
+        self.assertIsNotNone(src, "ALIGNED_SOURCES 应含 ai_leaders_blogs")
+        self.assertEqual(src["priority"], 5, "博客档 priority 5")
+        self.assertIn("ai_leaders_blogs/cache", str(src["cache_paths"]))
+        # Mac Mini layout (~/.openclaw/jobs/) 候选必须在 (V37.9.57-hotfix 教训)
+        self.assertTrue(any("~/.openclaw/jobs/ai_leaders_blogs" in p for p in src["cache_paths"]))
 
     def test_default_min_stars_is_4(self):
         """V37.9.51 5 档锁定: ⭐≥4 才入选."""
