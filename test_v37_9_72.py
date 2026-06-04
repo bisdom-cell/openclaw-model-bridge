@@ -26,6 +26,7 @@
 """
 from __future__ import annotations
 
+import subprocess
 import os
 import re
 import unittest
@@ -169,6 +170,75 @@ class TestV37972IntegrationContracts(unittest.TestCase):
             "项 1 修复必须含 V37.9.72 marker")
         self.assertIn("V37.9.72", wd_src,
             "项 2 修复必须含 V37.9.72 marker")
+
+
+# ── V37.9.105-hotfix: governance_audit FATAL line=64 误报修复 ──────────
+# 根因: set -eEuo pipefail 的 -E errtrace 让 $(...python3...) 子 shell 继承
+# ERR trap, governance_checker 退出 1 (真发现失败) 时子 shell 内误触发 FATAL,
+# 尽管外层 || GOV_RC=$? 已捕获. 证据: 用户同一次 07:00 run 收到 FATAL + 真失败
+# 两条告警 (若真 abort 不会有第二条). 修复: set +E 包裹两处 python3 命令替换.
+
+class TestV37_9_105_GovAuditFatalFalsePositive(unittest.TestCase):
+    """V37.9.105-hotfix: governance_audit_cron 假 FATAL line=64 误报修复."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.src = _read(GOV_AUDIT_SH)
+
+    def test_v37_9_105_hotfix_marker_present(self):
+        self.assertIn("V37.9.105-hotfix", self.src,
+            "FATAL 误报修复 marker 必须在 governance_audit_cron.sh")
+
+    def test_governance_checker_wrapped_in_set_plus_E(self):
+        """governance_checker.py --full 命令替换前必须 set +E (关 errtrace)."""
+        idx = self.src.find("python3 ontology/governance_checker.py --full 2>&1")
+        self.assertGreater(idx, 0)
+        before = self.src[max(0, idx - 200):idx]
+        self.assertIn("set +E", before,
+            "governance_checker $(...) 前必须 set +E 防子shell ERR trap 误触发")
+
+    def test_engine_check_wrapped_in_set_plus_E(self):
+        """engine.py --check 命令替换前必须 set +E."""
+        idx = self.src.find("python3 ontology/engine.py --check 2>&1")
+        self.assertGreater(idx, 0)
+        before = self.src[max(0, idx - 200):idx]
+        self.assertIn("set +E", before,
+            "engine.py $(...) 前必须 set +E")
+
+    def test_set_E_restored_after_both(self):
+        """两处命令替换后必须 set -E 恢复 errtrace (不能永久关掉)."""
+        # 只数命令行 (strip 后 == "set +E"/"set -E"), 排除注释里的字面量
+        cmd_lines = [ln.strip() for ln in self.src.split("\n")]
+        plus = sum(1 for ln in cmd_lines if ln == "set +E")
+        minus = sum(1 for ln in cmd_lines if ln == "set -E")
+        self.assertEqual(plus, 2, "应恰好 2 处 set +E 命令 (governance + engine)")
+        self.assertEqual(minus, 2, "每个 set +E 必须配对 set -E 恢复 errtrace")
+
+    def test_outer_capture_preserved(self):
+        """外层 || GOV_RC=$? / || ENGINE_RC=$? 退出码捕获必须保留."""
+        self.assertIn("|| GOV_RC=$?", self.src)
+        self.assertIn("|| ENGINE_RC=$?", self.src)
+
+    def test_err_trap_still_registered(self):
+        """ERR trap 仍注册 (修复只关命令替换处, 不删主脚本 trap)."""
+        self.assertIn("trap '_cron_monitor_fatal_handler $LINENO' ERR", self.src)
+
+    def test_set_plus_E_runtime_suppresses_subshell_trap(self):
+        """运行时: set +E 后命令替换内失败不触发 ERR trap (bash 行为契约)."""
+        script = """
+set -eEuo pipefail
+trap 'echo TRAP_FIRED' ERR
+RC=0
+set +E
+OUT=$(python3 -c 'import sys; sys.exit(1)' 2>&1) || RC=$?
+set -E
+echo "RC=$RC DONE"
+"""
+        proc = subprocess.run(["bash", "-c", script], capture_output=True,
+                              text=True, timeout=30)
+        self.assertIn("RC=1 DONE", proc.stdout, f"外层应捕获 rc=1: {proc.stdout}")
+        self.assertNotIn("TRAP_FIRED", proc.stdout,
+            "set +E 后子shell 失败不应触发 ERR trap")
 
 
 if __name__ == "__main__":
