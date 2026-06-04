@@ -99,11 +99,11 @@ RSS_FEEDS=(
     "Andrej Karpathy|https://karpathy.bearblog.dev/feed/|Andrej Karpathy(前OpenAI/Tesla,AI教育)"
     # ── 研究论述 / 综合 essay ──
     "The Gradient|https://thegradient.pub/rss/|The Gradient(AI研究论述/访谈)"
-    "fast.ai|https://www.fast.ai/atom.xml|Jeremy Howard(开放教育/务实派)"
+    # ── 实用 / 多元观点 (V37.9.108-hotfix: 替换 fast.ai/Anthropic 死链, 2026-06-04 Mac Mini 验证 404) ──
+    "One Useful Thing|https://www.oneusefulthing.org/feed|Ethan Mollick/Wharton(实用 AI/Co-Intelligence,乐观派)"
+    "Don't Worry About the Vase|https://thezvi.substack.com/feed|Zvi Mowshowitz(详尽 AI 分析/理性怀疑)"
     # ── 开源生态 ──
     "Hugging Face Blog|https://huggingface.co/blog/feed.xml|Hugging Face(开源生态/模型发布)"
-    # ── candidate (institutional, RSS URL 2026 不确定, FAIL-OPEN 验证) ──
-    "Anthropic News|https://www.anthropic.com/news/rss.xml|Anthropic(研究+政策长文,URL待验)"
 )
 
 SEEN_FILE="$CACHE/seen_urls.txt"
