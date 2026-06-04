@@ -5,7 +5,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-3996%20passed-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-4000%20passed-brightgreen.svg)]()
 [![Providers](https://img.shields.io/badge/providers-8%20supported-orange.svg)]()
 [![Governance](https://img.shields.io/badge/invariants-87%2F87%20%2B%2021%20MR-blueviolet.svg)]()
 [![Security](https://img.shields.io/badge/security-95%2F100-green.svg)]()
@@ -13,7 +13,7 @@
 [![Fail-Fast](https://img.shields.io/badge/LLM%20cron%20fail--fast-17%2F21%20aligned-brightgreen.svg)]()
 [![Notifications](https://img.shields.io/badge/notifications-WhatsApp%20%2B%20Discord-informational.svg)]()
 
-> **Current version:** `v37.9.109` / `0.37.9.68` (2026-06-04) — see [`CLAUDE.md`](CLAUDE.md) for full changelog.
+> **Current version:** `v37.9.110` / `0.37.9.68` (2026-06-04) — see [`CLAUDE.md`](CLAUDE.md) for full changelog.
 > **Latest milestone:** V37.9.92–95 — *Observer + #32 + framework 三件套同日实证 (机器化 + 制度化 + 自我演化)*. V37.9.92 修 V37.9.88 Mac Mini path silent failure 5 天 + V37.9.84 status.json 三方共享意识闭环. V37.9.93 Observer 自我修复 sampling artifact (smart head+tail + critique prompt 明示). V37.9.94 立 INV-CROSS-ENV-PATH-001 framework 化 MR-15 第 4 次演出后预防 (scanner 首扫即抓 V37.9.91 expert_escalation 隐藏 5th near-miss). V37.9.95 周一原则 #32 用户视角反馈第一次正向兑现 — ai_leaders_x 19→31 跨 12 派别 (新增 Anthropic/DeepMind/Safety/元老/Robotics/开源/架构创新派 12 个 handles).
 
 ## V37.9.x Series Highlights (2026-05)
