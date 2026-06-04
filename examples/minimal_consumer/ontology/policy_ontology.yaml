@@ -1,0 +1,31 @@
+# policy_ontology.yaml — WeatherBot consumer project (Layer 2 config)
+#
+# Declarative policies. evaluate_policy("max-cities-per-query") resolves
+# against THIS file when ONTOLOGY_CONFIG_DIR points here.
+
+policy_types:
+  static: "Always-on hard limits"
+  contextual: "Apply only under certain request conditions"
+
+policies:
+  - id: max-cities-per-query
+    type: static
+    scope: [Tool]
+    rule: "|cities| <= 3 per get_forecast call"
+    limit: 3
+    enforcement_site: "weatherbot.py::get_forecast"
+    rationale: "Demo: cap fan-out to upstream weather providers."
+    governance_invariant: INV-WEATHER-CITIES
+    hard_limit: true
+
+  - id: units-whitelist
+    type: static
+    scope: [Tool]
+    rule: "unit in {celsius, fahrenheit}"
+    enforcement_site: "weatherbot.py::ALLOWED_UNITS"
+    rationale: "Demo: reject unknown units early."
+    governance_invariant: INV-WEATHER-UNITS
+    hard_limit: true
+
+meta:
+  project: WeatherBot

@@ -1,0 +1,49 @@
+# governance_ontology.yaml — WeatherBot consumer project (Layer 2 config)
+#
+# A consumer's own invariants. When ONTOLOGY_CONFIG_DIR points here and
+# ONTOLOGY_PROJECT_ROOT points at examples/minimal_consumer, the engine audits
+# WeatherBot's files (weatherbot.py) — NOT openclaw-model-bridge.
+#
+# This is the smallest valid governance ontology: audit_metadata + invariants.
+# Each invariant's checks resolve files relative to ONTOLOGY_PROJECT_ROOT.
+
+audit_metadata:
+  version: "0.1-demo"
+  total_invariants: 2
+  total_checks: 3
+  meta_rules: 0
+
+meta_rules: []
+
+invariants:
+  - id: INV-WEATHER-CITIES
+    name: weatherbot-caps-cities-per-query
+    meta_rule: ""
+    verification_layer: [declaration, runtime]
+    severity: high
+    declaration: "WeatherBot 每次 get_forecast 最多 3 个城市（policy max-cities-per-query）。"
+    checks:
+      - name: "声明层: weatherbot.py 定义 MAX_CITIES_PER_QUERY"
+        check_type: file_contains
+        file: weatherbot.py
+        pattern: "MAX_CITIES_PER_QUERY\\s*=\\s*3"
+      - name: "运行时层: 限额真为 3 且 get_forecast 真 enforce"
+        check_type: python_assert
+        code: |
+          import weatherbot
+          import inspect
+          assert weatherbot.MAX_CITIES_PER_QUERY == 3, "限额必须是 3"
+          src = inspect.getsource(weatherbot.get_forecast)
+          assert "MAX_CITIES_PER_QUERY" in src, "get_forecast 必须引用上限做 enforce"
+
+  - id: INV-WEATHER-UNITS
+    name: weatherbot-units-whitelist
+    meta_rule: ""
+    verification_layer: [declaration]
+    severity: medium
+    declaration: "WeatherBot 只接受 celsius / fahrenheit（policy units-whitelist）。"
+    checks:
+      - name: "声明层: weatherbot.py 含 ALLOWED_UNITS 白名单"
+        check_type: file_contains
+        file: weatherbot.py
+        pattern: 'ALLOWED_UNITS = \("celsius", "fahrenheit"\)'

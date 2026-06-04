@@ -1,0 +1,35 @@
+# tool_ontology.yaml — WeatherBot consumer project (Layer 2 config)
+#
+# This is a *consumer's* tool ontology, intentionally different from
+# openclaw-model-bridge's own ontology/tool_ontology.yaml. It declares the
+# tools WeatherBot's agent is allowed to call. The ontology-engine (Layer 1)
+# reads THIS file when ONTOLOGY_CONFIG_DIR points at this directory.
+
+concepts:
+  Tool:
+    description: "A capability WeatherBot's agent can invoke"
+    subtypes:
+      - BuiltinTool
+      - CustomTool
+
+tools:
+  # Builtin tools — provided by the runtime, allowed through.
+  builtin:
+    get_forecast:
+      description: "Multi-city forecast (capped by max-cities-per-query)"
+      params:
+        cities: { type: array, required: true }
+        unit: { type: string }
+        days: { type: integer }
+    get_current_temp:
+      description: "Single-city current temperature"
+      params:
+        city: { type: string, required: true }
+        unit: { type: string }
+
+  # Custom tools — intercepted/executed by the runtime's proxy layer.
+  custom:
+    save_favorite_city:
+      description: "Persist a user's favorite city"
+      params:
+        city: { type: string, required: true }
