@@ -47,6 +47,26 @@ def _make_fake_rsync(tmpdir, behavior_script):
     return f"{bin_dir}:{os.environ.get('PATH', '')}"
 
 
+def _make_fake_tmutil(tmpdir, running):
+    """Create a fake tmutil in tmpdir/bin emitting 'Running = <running>'.
+
+    Shares the same bin dir as _make_fake_rsync so a single PATH wins both.
+    Call this BEFORE _make_fake_rsync and use the latter's returned PATH.
+    """
+    bin_dir = Path(tmpdir) / "bin"
+    bin_dir.mkdir(parents=True, exist_ok=True)
+    fake = bin_dir / "tmutil"
+    fake.write_text(
+        "#!/bin/bash\n"
+        'echo "Backup session status:"\n'
+        'echo "{"\n'
+        f'echo "    Running = {running};"\n'
+        'echo "}"\n',
+        encoding="utf-8")
+    fake.chmod(0o755)
+    return str(bin_dir)
+
+
 def _run_helper(env_extra=None, args=None, timeout=30):
     """Invoke helper, return (returncode, stdout, stderr)."""
     env = os.environ.copy()
@@ -516,6 +536,103 @@ class TestSourceLevelGuards(unittest.TestCase):
     def test_helper_executable(self):
         self.assertTrue(os.access(HELPER, os.X_OK),
             "Helper must be executable")
+
+
+class TestTmutilPreCheck(unittest.TestCase):
+    """V37.9.106 Phase 0: Time Machine 备份预检 (TM 争用是 36 incidents 主因)."""
+
+    def setUp(self):
+        self._td = tempfile.mkdtemp(prefix="rsync_helper_tmutil_")
+
+    def tearDown(self):
+        shutil.rmtree(self._td, ignore_errors=True)
+
+    def _run(self, running, skip_env=None, extra_env=None):
+        """注入 fake tmutil (Running=<running>) + fake rsync (touch marker), 跑 helper."""
+        marker = Path(self._td) / "rsync_called"
+        _make_fake_tmutil(self._td, running=running)
+        path = _make_fake_rsync(self._td, f'touch "{marker}"; echo ok; exit 0')
+        env = {"PATH": path, "MOVESPEED_RSYNC_NO_SLEEP": "1"}
+        if skip_env is not None:
+            env["MOVESPEED_RSYNC_SKIP_TMUTIL_CHECK"] = skip_env
+        if extra_env:
+            env.update(extra_env)
+        rc, out, err = _run_helper(
+            env_extra=env, args=["/test/caller.sh", "--", "-a", "/src/", "/dst/"])
+        return rc, out, err, marker
+
+    def test_tm_running_skips_rsync(self):
+        """TM 备份中 (Running=1) → 跳过 rsync, exit 0, 不调 rsync."""
+        rc, out, err, marker = self._run(running=1)
+        self.assertEqual(rc, 0, "TM 备份中跳过应 exit 0 (fail-open)")
+        self.assertIn("Time Machine", err)
+        self.assertFalse(marker.exists(),
+            "TM 备份进行中 rsync 不应被调用 (跳过避 EOF 争用)")
+
+    def test_tm_idle_proceeds_to_rsync(self):
+        """TM 空闲 (Running=0) → 正常调 rsync."""
+        rc, out, err, marker = self._run(running=0)
+        self.assertEqual(rc, 0)
+        self.assertTrue(marker.exists(),
+            "TM 空闲时 rsync 应正常被调用")
+        self.assertNotIn("Time Machine 备份进行中", err)
+
+    def test_skip_env_bypasses_tmutil_check(self):
+        """MOVESPEED_RSYNC_SKIP_TMUTIL_CHECK=1 → 即使 TM 备份中也跑 rsync (测试逃生口)."""
+        rc, out, err, marker = self._run(running=1, skip_env="1")
+        self.assertEqual(rc, 0)
+        self.assertTrue(marker.exists(),
+            "SKIP=1 应绕过 tmutil 预检直接跑 rsync")
+        self.assertNotIn("Time Machine 备份进行中", err)
+
+    def test_no_tmutil_proceeds_fail_open(self):
+        """无 tmutil (非 macOS / dev Linux) → command -v 失败 → 照常 rsync (FAIL-OPEN)."""
+        # 不注入 fake tmutil, 但 PATH 仅含 fake rsync bin (无 tmutil)
+        marker = Path(self._td) / "rsync_called"
+        path = _make_fake_rsync(self._td, f'touch "{marker}"; echo ok; exit 0')
+        # 用最小 PATH (仅 fake bin + 基础), 确保无真 tmutil (Linux dev 本就无)
+        rc, out, err = _run_helper(
+            env_extra={"PATH": path, "MOVESPEED_RSYNC_NO_SLEEP": "1"},
+            args=["/test/caller.sh", "--", "-a", "/src/", "/dst/"])
+        self.assertEqual(rc, 0)
+        self.assertTrue(marker.exists(),
+            "无 tmutil 时应 FAIL-OPEN 照常 rsync (跨平台)")
+
+
+class TestTmutilSourceGuards(unittest.TestCase):
+    """V37.9.106 源码级守卫."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.src = HELPER.read_text(encoding="utf-8")
+
+    def test_v37_9_106_marker(self):
+        self.assertIn("V37.9.106", self.src, "Phase 0 marker 便于追溯")
+
+    def test_phase0_before_phase1(self):
+        """Phase 0 tmutil 预检必须在 Phase 1 jitter 之前 (用 ── section header 定位代码段)."""
+        p0 = self.src.find("── Phase 0")
+        p1 = self.src.find("── Phase 1")
+        self.assertGreater(p0, 0, "Phase 0 section header 必须存在")
+        self.assertGreater(p1, p0, "Phase 0 必须在 Phase 1 之前")
+
+    def test_command_v_tmutil_guard(self):
+        """跨平台: command -v tmutil 守卫 (非 macOS / 缺 tmutil → 跳过预检)."""
+        self.assertIn("command -v tmutil", self.src)
+
+    def test_skip_env_override(self):
+        self.assertIn("MOVESPEED_RSYNC_SKIP_TMUTIL_CHECK", self.src)
+
+    def test_running_pattern(self):
+        self.assertIn("Running = 1", self.src,
+            "必须检测 tmutil status 的 Running = 1")
+
+    def test_skip_is_fail_open_exit_0(self):
+        """TM 备份中跳过分支必须 exit 0 (fail-open, 不算 incident)."""
+        idx = self.src.find("Time Machine 备份进行中")
+        self.assertGreater(idx, 0)
+        after = self.src[idx:idx + 200]
+        self.assertIn("exit 0", after, "跳过分支必须 exit 0")
 
 
 if __name__ == "__main__":
