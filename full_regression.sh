@@ -196,6 +196,11 @@ if [ -f test_ontology_packaging.py ]; then
     run_suite "ontology_packaging (V37.9.99-pkg Phase 5 chunk1: ONTOLOGY_CONFIG_DIR 注入 + pyproject + console 入口 + 宪法删除安全)" "python3 test_ontology_packaging.py"
 fi
 
+# V37.9.104: ontology-engine 包化 chunk 4 — 第一个真消费方 demo (WeatherBot) 经 config-injection 被同一引擎治理 (引擎的"Doubao 时刻")
+if [ -f test_ontology_extension_demo.py ]; then
+    run_suite "ontology_extension_demo (V37.9.104 Phase 5 chunk4: WeatherBot 消费方 demo + config-injection 端到端 + 反向验证注入真起作用)" "python3 test_ontology_extension_demo.py"
+fi
+
 # 条件性测试（仅当文件存在时运行）
 for tf in test_conv_quality.py test_kb_autotag.py test_kb_dedup.py test_token_report.py test_arxiv_parser.py test_shell_antipatterns.py; do
     if [ -f "$tf" ]; then

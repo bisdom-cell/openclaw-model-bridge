@@ -1,0 +1,28 @@
+# domain_ontology.yaml — WeatherBot consumer project (Layer 2 config)
+#
+# Six-domain model, consumer-specific. find_by_domain("Actor") returns
+# WeatherBot's actors when the engine reads THIS file (not the bridge's).
+
+domains:
+  Actor:
+    description: "Who participates in WeatherBot"
+    instances:
+      - { id: weather_user, kind: human }
+      - { id: weather_bot, kind: agent }
+      - { id: forecast_proxy, kind: control_plane }
+
+  Resource:
+    description: "What WeatherBot operates on"
+    categories:
+      - { id: ForecastCache, storage: memory }
+      - { id: FavoriteCityStore, storage: sqlite }
+
+  Provider:
+    description: "Upstream weather data providers"
+    types:
+      - open_meteo
+      - noaa
+
+meta:
+  project: WeatherBot
+  note: "Demo consumer for openclaw-ontology-engine config-injection."
