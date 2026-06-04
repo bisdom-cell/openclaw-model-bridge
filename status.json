@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-04 01:23:05",
+  "updated": "2026-06-04 02:08:14",
   "updated_by": "security_score",
   "priorities": [
     {
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-06-04",
+      "what": "V37.9.105: health_check 周报连续重复 5-6 次修复 (用户视角#13/#32). 严格原则#28数据驱动诊断: Mac Mini 两轮取证推翻 notify队列(空,无重放)+crontab(单条周一正确)两假设. 真因 health_check.sh 在单条周一cron外被反复调用(手动/部署重跑不进日志)每次无条件推送, 证据=报告今天06-04但日志停06-01(实时date+新数据). 最小修复推送幂等速率限制(_health_push_allowed+marker+20h窗口, 镜像V37.8.15). 跨平台stat陷阱(GNU -c在前, Linux stat -f 非mtime且exit0吞fallback)dev测试当场抓. 13新单测32→45. 不是cron/notify bug也非我引入(V37.9.104纯新增未碰). 112 suites/3934 tests/0 fail/安全95.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-04",
       "what": "V37.9.104: ontology-engine 包化 chunk 4 (终极目标 pip install ontology-engine 推进, 专业推进顺序 chunk 4 先做). 第一个真消费方 demo examples/minimal_consumer/ (WeatherBot 虚构 Agent Runtime, 工具 get_forecast/域 weather_bot/策略 max-cities-per-query/不变式 INV-WEATHER-* 全部不同于 bridge) 经 ONTOLOGY_CONFIG_DIR+ONTOLOGY_PROJECT_ROOT 被同一引擎治理, 零引擎改动. run_demo.sh 端到端跑通 4 能力 (ToolOntology/find_by_domain/evaluate_policy/governance run_all). docs/ontology_engine_extension_guide.md 60秒接入指南 (镜像 provider_plugin_guide). test_ontology_extension_demo.py 12 单测含反向验证 (不注入 env 引擎读 bridge 配置, 证明 demo 通过依赖注入非巧合). demo 暴露真实耦合 convergence._DEFAULT_SPEC_PATH 不读 ONTOLOGY_CONFIG_DIR (登记 packaging.md chunk 3). 112 suites(+1)/3923 tests(+12)/0 fail/governance 87 inv/安全 95. 引擎的Doubao时刻 — 真消费方接入才证明可扩展. VERSION 0.37.9.68 不变(包化纯新增).",
       "by": "claude_code"
     },
@@ -197,11 +202,6 @@
     {
       "date": "2026-06-01",
       "what": "V37.9.95 ai_leaders_x 多元化 19→31 跨 12 派别. 用户周一 #32 观察反馈 AI 大神不同观点不足 → 同 session 加 12 候选 (Hassabis/Dario/Yudkowsky/Hinton/Fei-Fei/Abbeel/Soumith/Olah/AndrewYNg/YiTay/ClementDelangue/+5 派别 fresh entries). MAX_PER_PERSON 5→3 + MAX_TOTAL 30→40 多元化优先. V37.8.4 INV-X-001 兼容 — ai_leaders_x 已有 WARN-on-zero-tweets 容错路径, 僵尸账号自动暴露. 14 新单测 5 类 + 反向 sabotage 守卫真有效. 101 suites / 3635 tests / 0 fail. V37.9.92/93/94/95 同 session 四阶段闭环 (修血案 → 自我修复 → framework 化 → 用户反馈兑现). 原则 #32 制度第一次正向兑现.",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-06-01",
-      "what": "V37.9.94 双交付完成: (1) cross_env_path_scanner.py (~250 行 AST scanner) + INV-CROSS-ENV-PATH-001 (9 checks, MR-15) + 39 单测 — framework 化预防 MR-15 第 5 次 occurrence (V37.9.56h/76h/78h/92 已 4 次). 首扫立即抓 V37.9.91 expert_escalation.load_status 隐藏 near-miss (script-adj + $HOME 重合, 缺 ~/openclaw-model-bridge/status.json canonical), 顺手修 4th candidate. (2) ontology/docs/cases/v37_9_92_observer_path_blood_case.md (~370 行综合案例) — TL;DR/影响/时间线/完整因果链架构图/三层根因/多条件分析/5 元教训/8 案例对照/反思方法论 元元层. V3 路标话语权输出素材. 累计 99→100 suites / 3582→3621 tests / 0 fail / governance 80→81 INV (+INV-CROSS-ENV-PATH-001) / 762→771 checks / VERSION 0.37.9.68. V37.9.92→93→94 同 session 三阶段闭环兑现 — 修血案 + 自我修复 + framework 化 + 文档化.",
       "by": "claude_code"
     }
   ],
@@ -331,10 +331,10 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 3923,
-    "last_regression": "2026-06-04 01:20 pass",
+    "test_count": 3934,
+    "last_regression": "2026-06-04 02:06 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-04 01:20",
+    "security_score_time": "2026-06-04 02:06",
     "test_suites": 112,
     "governance_invariants": "85/85",
     "governance_checks": "790/790",
@@ -403,7 +403,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.104 ontology-engine 包化 chunk 4 完成 (终极目标 pip install ontology-engine 推进): 第一个真消费方 demo (examples/minimal_consumer/ WeatherBot, 工具/域/策略/不变式全不同于 bridge) + Extension Guide (docs/ontology_engine_extension_guide.md 60秒接入) + 12 端到端单测 (含反向验证注入真起作用). dev 端到端跑通 config-injection. demo 自然暴露 convergence._DEFAULT_SPEC_PATH 不读 ONTOLOGY_CONFIG_DIR 耦合 (登记 chunk 3). 下次候选: chunk 2 (import 名去泛化, demo 已证明价值故 rename 退化为机械重构) / chunk 3 (MRD+convergence 路径参数化) / chunk 5 (sdist build + 发布). 多数日期门控候选 ~6/8-6/15 未到期.",
+  "focus": "V37.9.105 health_check 周报连续重复推送 5-6 次血案修复 (用户视角原则#13/#32发现). 数据驱动诊断推翻 2 假设: notify 队列空无重放(排除A) + crontab 单条周一正确无漂移(排除B). 真因: health_check.sh 在单条周一 cron 外被反复调用(手动测试/部署重跑, 不进日志), 每次无条件推送. 决定性证据: 报告显示今天06-04但日志停06-01(实时date+新数据非重放). 最小修复=推送幂等性速率限制(镜像V37.8.15 preflight push-test, 20h窗口周报恒过当日重跑去重). 跨平台stat陷阱dev测试当场抓(GNU -c 在前). 13新单测. 112 suites/3934 tests/0 fail. 待Mac Mini同步. 上一版V37.9.104 ontology-engine chunk4 demo.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
