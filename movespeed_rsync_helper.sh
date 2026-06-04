@@ -67,6 +67,22 @@ fi
 shift  # consume --
 # Remaining $@ is rsync args
 
+# ── Phase 0: Time Machine 备份预检 (V37.9.106) ────────────────────────────
+# movespeed_incident_analyzer 24h 数据 (2026-06-04): 36 incidents 主导失败模式
+# 是 EOF + Time Machine backupd 高频争用 (ownership 正确 501:20, 非 V37.9.29
+# noowners; Sandbox deny 来自 macOS 系统守护进程非 cron — 排除 FDA/TCC).
+# TM backup 跨度远超 30s retry 窗口 → retry 无效只是浪费 + 污染 incident.
+# 备份进行中直接跳过 rsync (不 retry 不算 incident, 下个 cron 周期自然重试 —
+# KB 数据不丢, 只延迟一个周期). macOS-only (tmutil), 非 macOS / 缺 tmutil →
+# 跳过预检照常 rsync (FAIL-OPEN, V37.9.78-hotfix 跨平台教训).
+if [ "${MOVESPEED_RSYNC_SKIP_TMUTIL_CHECK:-0}" != "1" ] && command -v tmutil >/dev/null 2>&1; then
+    TM_STATUS="$(tmutil status 2>/dev/null || true)"
+    if echo "$TM_STATUS" | grep -q 'Running = 1'; then
+        echo "[$(basename "$CALLER")] movespeed_rsync_helper: Time Machine 备份进行中, 跳过 rsync 避 SSD I/O 争用 EOF (下次 cron 重试, 不算 incident) — V37.9.106" >&2
+        exit 0
+    fi
+fi
+
 # ── Phase 1: 错峰抖动 (30-180s) — 避免多 cron 同秒触发抢 SSD I/O ─────────
 if [ "${MOVESPEED_RSYNC_NO_SLEEP:-0}" != "1" ]; then
     # 30-180s uniform jitter (130s mean) — much shorter than the 5-15min
