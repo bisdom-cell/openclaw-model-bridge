@@ -61,7 +61,14 @@ trap '_cron_monitor_fatal_handler $LINENO' ERR
 log "开始 governance_checker.py --full"
 GOV_OUTPUT=""
 GOV_RC=0
+# V37.9.105-hotfix: set -E (errtrace) 让 $(...) 子 shell 继承 ERR trap, 当
+# governance_checker 退出 1 (真发现不变式失败) 时子 shell 内 python3 失败误触发
+# ERR trap → 假 "FATAL abort line=64" 告警, 尽管外层 || GOV_RC=$? 已正确捕获.
+# (line 67-70 已对 grep|head 修过同款 V37.9.60-hotfix bash quirk, 此处 python3 漏了)
+# 临时 set +E 关 errtrace, 子 shell 不再继承 ERR trap; 外层 || 仍捕获退出码.
+set +E
 GOV_OUTPUT=$(cd "$REPO_DIR" && python3 ontology/governance_checker.py --full 2>&1) || GOV_RC=$?
+set -E
 
 # 提取摘要行
 # V37.9.60-hotfix: grep | head subshell pipe 必须 || true 容错
@@ -78,7 +85,10 @@ log "governance_checker 完成: rc=$GOV_RC $GOV_SUMMARY"
 log "开始 engine.py --check"
 ENGINE_OUTPUT=""
 ENGINE_RC=0
+# V37.9.105-hotfix: 同 line 64 — 关 errtrace 防 $(...) 子 shell ERR trap 误触发 FATAL
+set +E
 ENGINE_OUTPUT=$(cd "$REPO_DIR" && python3 ontology/engine.py --check 2>&1) || ENGINE_RC=$?
+set -E
 
 ENGINE_SUMMARY=$(echo "$ENGINE_OUTPUT" | tail -1)
 log "engine_check 完成: rc=$ENGINE_RC $ENGINE_SUMMARY"
