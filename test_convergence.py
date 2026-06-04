@@ -623,13 +623,18 @@ class TestObserveHttpEndpoint(unittest.TestCase):
 
     def test_invalid_timeout_falls_back_to_default(self):
         # Timeout type-coerced; non-numeric should silently use default
-        # (FAIL-OPEN config tolerance, not strict validation)
-        spec = self._spec(timeout_sec="not_a_number")
-        # We can't easily assert the timeout value used, but at least
-        # the call shouldn't raise ValueError before connection attempt
+        # (FAIL-OPEN config tolerance, not strict validation).
+        # V37.9.105-hotfix2: use a GUARANTEED-unreachable URL (port 1, immediate
+        # connection refused) instead of the default localhost:5001 — that
+        # default is REACHABLE on Mac Mini (adapter runs there), so the GET would
+        # SUCCEED and no RuntimeError raise → test fails only on Mac Mini.
+        # This made governance audit fail INV-CONVERGENCE-CRON-001/PROVIDERS-001
+        # (their runtime check subprocess test_convergence.py). Environment-
+        # independent now: port 1 refuses regardless of running services.
+        spec = self._spec(url="http://localhost:1/should_not_exist",
+                          timeout_sec="not_a_number")
         with self.assertRaises(RuntimeError):
-            # Will fail with connection refused on dev, but past the
-            # timeout-coercion code path
+            # Past the timeout-coercion code path, then connection refused.
             cv._observe_http_endpoint(spec)
 
     def test_connection_refused_raises_runtime_error_not_url_error(self):
