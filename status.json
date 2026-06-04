@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-04 06:52:49",
+  "updated": "2026-06-04 07:49:22",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-06-04",
+      "what": "V37.9.109: ai_leaders_blogs 接入 Opportunity Radar #2 (V37.9.108 自然收口, 用户选). top_alignment_picker ALIGNED_SOURCES 8→9 加 ai_leaders_blogs (博客档 priority 5, dev+Mac Mini 双 cache_paths). #1 跨源共振 (扫所有 KB notes 源无关) + #3 趋势 (KB 关键词) 经 ai-leaders-blogs notes 自动含无需改. 3 消费方 (kb_radar/dream/evening) 经 pick_top_aligned 迭代 ALIGNED_SOURCES 自动 flow 零改. smoke test 验证 ⭐5 pick 进 Top 5 [大神观点] block. 2 新单测 (9 源注册 + 博客档 priority 5 + Mac Mini layout 守卫). 113 suites/3995→3996 tests/0 fail/governance 805/安全 95. ai_leaders 三段式闭环: 收集(blog RSS V37.9.108)→深度分析(LLM 6字段)→机会点雷达(Opportunity Radar #2 高对齐 Top 5 V37.9.109). 实测每轮 25-27 条 ⭐≥4 学者观点进雷达.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-04",
       "what": "V37.9.108-hotfix: ai_leaders_blogs Mac Mini 首跑验证 + 死链剪枝. 9/11 feed 活, 2 死链 (fast.ai Quarto 迁移 RSS 坏 / Anthropic News 无公开 RSS, 均 404) → 换高置信 Substack: One Useful Thing (Ethan Mollick/Wharton 实用乐观派) + Dont Worry About the Vase (Zvi 详尽理性怀疑派). FAIL-OPEN 完美工作 (3 次重试跳过不杀 job). 首跑战果: 45 篇长文全 LLM 解析成功 degraded 0 + 高对齐 25/45 (alignment ⭐≥4) = 结合项目发现机会点引擎生效 + 108829 字印证博客更适合深度分析 + 推 WhatsApp/Discord 14 窗口 + KB 归档. 主任务端到端闭环成功. test 27 仍过 无 test count 变化.",
       "by": "claude_code"
     },
@@ -197,11 +202,6 @@
     {
       "date": "2026-06-02",
       "what": "V37.9.98 续(全部执行批次): 🧹清理 unfinished — INV-OBSERVER-001 三条重复(V37.9.90/93/95累积)合并成1条 + 移除#8(全行crontab扫描已被今天#3否决) + 确认INV-CROSS-ENV-PATH-001已V37.9.94完成, unfinished 19→17. #7外部评审P0 SLO样本门槛: slo_benchmark.py 加 MIN_SAMPLE_THRESHOLD=200 + _verdict() 三态helper(OBSERVING/PASS/FAIL) — 样本<门槛报OBSERVING不误标PASS, 修V35 golden trace samples=1标ALL PASS统计无意义(外部评审准确指出). 每check用各自样本基数(latency.count/total/tool_total/streaks), overall三态优先级FAIL>OBSERVING>PASS. config.yaml加slo.min_sample_count可调. test_slo_benchmark 17→25(+8 OBSERVING测试含血案samples=1场景+helper三态+可配门槛) + 补进full_regression(此前从未注册gap). dev CLI实测现报OBSERVING(诚实, 无足够样本不假PASS). VERSION 0.37.9.68不变(observability精炼).",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-06-02",
-      "what": "V37.9.98 #4: Semantic Scholar API key 集成代码就绪 (FAIL-OPEN). run_semantic_scholar.sh 加 S2_CURL_AUTH 数组 + x-api-key header 注入两处 curl + 条件间隔 (有 key 1s / 无 key 保守 30s). 有 S2_API_KEY → 认证模式 独占 1 RPS (规避匿名池 429 contention) V37.8.13 起 429 daily limit (5/27-5/28 6 关键词全 429). 无 key → 当前无认证行为完全不变 (空数组 set -eo 无 -u bash 3.2 安全). 12 新单测 (8 source 守卫 + 4 行为: 提取真实检测块 exec 验证有/无/空 key 三态零 drift) + 反向验证 (删 auth 注入→fail). 既有 S2 3 套测试无回归. 待用户: 申请免费 key (semanticscholar.org/product/api 即时) + 加 S2_API_KEY 到 com.openclaw.proxy/adapter plist 或 cron env, 即从无认证升认证.",
       "by": "claude_code"
     }
   ],
@@ -334,10 +334,10 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 3995,
-    "last_regression": "2026-06-04 05:50 pass",
+    "test_count": 3996,
+    "last_regression": "2026-06-04 07:47 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-04 05:50",
+    "security_score_time": "2026-06-04 07:47",
     "test_suites": 113,
     "governance_invariants": "85/85",
     "governance_checks": "790/790",
@@ -406,7 +406,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.108 (2026-06-04 周四): ai_leaders X→博客/Substack RSS 转向 (用户主任务). 新 job ai_leaders_blogs 收集 AI 大神长文观点 (12 大神偏重不同意见), 复用 rss_blogs 管道+🎚️ 项目对齐评分. ai_leaders_x 保持 enabled 待 follow-up 真停用. 113 suites/3995 tests/0 fail. **Mac Mini 待用户**: git fetch+reset 同步 + 手动 bash ~/.openclaw/jobs/ai_leaders_blogs/run_ai_leaders_blogs.sh 验证 feed 可达性 (死链剪枝, Anthropic/Karpathy URL 待验) + 收 🧠 AI 大神观点 推送. 下次候选: feed 验证后剪死链补可达大神 / V37.9.109+ Bluesky 免费 API 加实时短观点 / 真停用 ai_leaders_x (同步 6 依赖+crontab remove) / ai_leaders_blogs 接 Opportunity Radar 三件套. 同 session 前半 V37.9.107 chunk 3a convergence config-injection 已完成. 日期门控: INV-OBSERVER/services flip ~6/8 / 源可信度 INV ~6/9 / OpenClaw 升级 ~6/15. Mac Mini: INV-MOVESPEED-TCC-001 待 24h 老化转绿.",
+  "focus": "V37.9.109 (2026-06-04 周四): 今天三件套交付 — chunk 3a (convergence config-injection) + ai_leaders X→博客/Substack RSS 转向 (V37.9.108) + ai_leaders_blogs 接入 Opportunity Radar #2 (V37.9.109). ai_leaders 完整闭环: 收集 blog 长文→LLM 深度分析→机会点雷达 Top 5 (每轮 25-27 条 ⭐≥4 学者观点). 113 suites/3996 tests/0 fail. **Mac Mini 待用户**: git fetch+reset 同步 (top_alignment_picker 走 FILE_MAP) → 下次 kb_radar/dream/evening cron 含大神观点机会点. ai_leaders_blogs cron 13:30 已注册+部署. 下次候选: Bluesky 实时短观点 (学者已迁入) / 真停用退化 ai_leaders_x (同步 6 依赖) / Ontology chunk 2 (import 去泛化破坏性 rename, 需专门 session+包名决策) / chunk 3b (MRD 参数化). 日期门控: INV-OBSERVER/services flip ~6/8 / 源可信度 INV ~6/9 / OpenClaw 升级 ~6/15. Mac Mini: INV-MOVESPEED-TCC-001 待 24h 老化转绿.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",

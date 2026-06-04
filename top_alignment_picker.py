@@ -94,6 +94,10 @@ ALIGNED_SOURCES: list[dict[str, Any]] = [
      "cache_paths": ["jobs/github_trending/cache", "~/.openclaw/jobs/github_trending/cache"]},
     {"id": "rss_blogs", "display": "博客", "priority": 5,
      "cache_paths": ["jobs/rss_blogs/cache", "~/.openclaw/jobs/rss_blogs/cache"]},
+    # V37.9.108: AI 大神长文观点 (博客/Substack RSS, 替代退化的 ai_leaders_x).
+    # 博客档 priority 5 (长文 > tweet), 让 ⭐≥4 学者观点进 Top 5 机会点雷达.
+    {"id": "ai_leaders_blogs", "display": "大神观点", "priority": 5,
+     "cache_paths": ["jobs/ai_leaders_blogs/cache", "~/.openclaw/jobs/ai_leaders_blogs/cache"]},
     {"id": "ai_leaders_x", "display": "AI Leaders", "priority": 6,
      "cache_paths": ["jobs/ai_leaders_x/cache", "~/.openclaw/jobs/ai_leaders_x/cache"]},
     {"id": "hn", "display": "HN", "priority": 7,
