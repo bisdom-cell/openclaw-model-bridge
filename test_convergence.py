@@ -482,43 +482,45 @@ class TestFormatResultForLog(unittest.TestCase):
 class TestRealJobsToCrontabSpec(unittest.TestCase):
     """Sanity: real V37.9.19 jobs_to_crontab spec loads + verify completes."""
 
+    def setUp(self):
+        # V37.9.113 测试隔离 (MR-9 测试污染生产同 V37.9.110 bug 类):
+        # 此类调真 jobs_to_crontab spec (machine_sync). V37.9.58 切关后默认
+        # real apply — 在 Mac Mini 上 governance runtime check 跑此测试会真调
+        # crontab_safe.sh add 改 crontab. 强制 CONVERGENCE_DRY_RUN=1 隔离, apply
+        # 走 dry-run 不触发真 subprocess. real-apply 端到端行为由
+        # TestApplyMachineSyncReal (mock subprocess) + TestV37958 resolver 守卫覆盖.
+        self._saved_dry = os.environ.pop("CONVERGENCE_DRY_RUN", None)
+        os.environ["CONVERGENCE_DRY_RUN"] = "1"
+
+    def tearDown(self):
+        if self._saved_dry is not None:
+            os.environ["CONVERGENCE_DRY_RUN"] = self._saved_dry
+        else:
+            os.environ.pop("CONVERGENCE_DRY_RUN", None)
+
     def test_real_spec_completes_without_raising(self):
-        # V37.9.19 → V37.9.23: drift_action 从 alert_only 升级到 machine_sync
-        # (Plan B 渐进 dry-run, 5/3 决策窗口). In dev environment without
-        # crontab, observer returns empty stdout → all declared jobs reported
-        # as missing → drift_detected=True → V37.9.23 _apply_machine_sync
-        # called in dry-run mode (默认 CONVERGENCE_DRY_RUN!=0). 不应 raise,
-        # 返回结构化 ConvergenceResult (含 V37.9.23 三新字段).
+        # V37.9.19 → V37.9.23: drift_action 从 alert_only 升级到 machine_sync.
+        # V37.9.113: setUp 强制 CONVERGENCE_DRY_RUN=1 隔离 → apply 走 dry-run,
+        # 不触发真 crontab 修改. In dev (no crontab), all declared jobs missing →
+        # drift_detected=True → dry-run apply 每个 missing 产 'DRY-RUN would apply:' 行.
+        # 不应 raise, 返回结构化 ConvergenceResult.
         r = cv.verify_convergence("jobs_to_crontab")
         self.assertEqual(r.spec_id, "jobs_to_crontab")
         self.assertEqual(r.drift_action, "machine_sync",
             "V37.9.23: jobs_to_crontab spec drift_action 已升级到 machine_sync")
-        # V37.9.58 切关 escalation 兑现 (5/12): 默认 _is_dry_run()=False (real apply).
-        # In dev (no crontab), all 36 declared jobs missing → 实际走 real apply 但
-        # dev 无 ~/crontab_safe.sh → apply_errors 收集每个 missing entry.
-        # 旧 V37.9.23 时代默认 dry-run=True 走 "DRY-RUN would apply:" 路径,
-        # 新 V37.9.58 时代默认 dry-run=False 走 apply_errors 路径 (crontab_safe.sh
-        # 不存在或 mock subprocess 失败).
+        # V37.9.113 dry-run 隔离: 镜像 TestVerifyConvergenceMachineSyncIntegration
+        # 已证 dry-run 断言 (apply_dry_run=True, 每个 missing 一个 would-apply 行, 无 errors).
         if r.missing_in_runtime:
-            self.assertFalse(r.apply_dry_run,
-                "V37.9.58 切关 escalation 兑现: 默认 (CONVERGENCE_DRY_RUN 未设) "
-                "必须 apply_dry_run=False (real apply mode). 旧 V37.9.23 默认 True 已废弃.")
-            # V37.9.58: real apply 模式下 dev 无 crontab_safe.sh, 走 apply_errors
-            # 总条目数 = missing entries 数 (每个 missing 触发一次 apply 尝试)
-            self.assertEqual(len(r.applied_actions) + len(r.apply_errors), len(r.missing_in_runtime),
-                "每个 missing entry 触发一次 apply 尝试 (real apply 模式下 success 入 applied, "
-                "failure 入 apply_errors)")
-            # dev 环境 ~/crontab_safe.sh 通常不存在, 应 fallback 到 errors
-            # (除非 dev 机器恰好有, 那么走 applied 也合法)
-            self.assertTrue(r.applied_actions or r.apply_errors,
-                "V37.9.58 real apply 模式必产 applied 或 errors 之一")
-            # V37.9.58: real apply 前缀 'applied:' (或显式 dry-run env 时仍可能 'DRY-RUN')
+            self.assertTrue(r.apply_dry_run,
+                "V37.9.113 测试隔离: 强制 CONVERGENCE_DRY_RUN=1 → apply_dry_run=True "
+                "(不触发真 apply, 防 Mac Mini governance check 改 crontab)")
+            self.assertEqual(len(r.applied_actions), len(r.missing_in_runtime),
+                "dry-run 模式每个 missing entry 产一个 'would apply' 行")
+            self.assertEqual(r.apply_errors, (),
+                "dry-run 模式不触发真 subprocess, 无 apply_errors")
             for action in r.applied_actions:
-                self.assertTrue(
-                    action.startswith("applied:") or action.startswith("DRY-RUN would apply:"),
-                    f"V37.9.58 action 前缀必须 'applied:' (默认 real apply) 或 "
-                    f"'DRY-RUN would apply:' (显式 CONVERGENCE_DRY_RUN=1 时), got: {action!r}"
-                )
+                self.assertTrue(action.startswith("DRY-RUN would apply:"),
+                    f"V37.9.113 dry-run action 前缀必须 'DRY-RUN would apply:', got: {action!r}")
         # 结构契约 (与异常区分)
         self.assertIsInstance(r, cv.ConvergenceResult)
 
@@ -1411,6 +1413,19 @@ class TestVerifyKbSourcesToIndexIntegration(unittest.TestCase):
 
     Verifies framework's fourth extension works: zero changes to verify_convergence
     orchestrator, just dispatch table extension via the new extractor entry."""
+
+    def setUp(self):
+        # V37.9.113 测试隔离: 调真 kb_sources_to_index spec (machine_sync, V37.9.58
+        # 默认 real apply → _apply_kb_embed_incremental 真跑 kb_embed.py). Mac Mini
+        # 上 governance runtime check 跑此测试会真跑 embedding. 强制 dry-run 隔离.
+        self._saved_dry = os.environ.pop("CONVERGENCE_DRY_RUN", None)
+        os.environ["CONVERGENCE_DRY_RUN"] = "1"
+
+    def tearDown(self):
+        if self._saved_dry is not None:
+            os.environ["CONVERGENCE_DRY_RUN"] = self._saved_dry
+        else:
+            os.environ.pop("CONVERGENCE_DRY_RUN", None)
 
     def test_real_spec_dev_environment_does_not_crash(self):
         """dev: ~/.kb/text_index/meta.json absent → command exits 0 with empty
@@ -2632,6 +2647,21 @@ class TestKbSourcesToIndexCommandRuntime(unittest.TestCase):
                     (5) declared 外 basename — line_contains_identifier 框架契约
     """
 
+    def setUp(self):
+        # V37.9.113 测试隔离: _verify_with_mock_meta 调真 kb_sources_to_index spec
+        # (machine_sync). monkey-patch HOME→tempdir 让 observer 读 mock meta.json,
+        # 但 apply (_apply_kb_embed_incremental) 在 V37.9.58 默认 real apply 下仍可能
+        # 真跑 kb_embed.py. 强制 dry-run 隔离 — observer 断言 (declared/observed/missing)
+        # 不受影响 (observer 在 apply 之前), apply 走 dry-run 不真跑 embedding.
+        self._saved_dry = os.environ.pop("CONVERGENCE_DRY_RUN", None)
+        os.environ["CONVERGENCE_DRY_RUN"] = "1"
+
+    def tearDown(self):
+        if self._saved_dry is not None:
+            os.environ["CONVERGENCE_DRY_RUN"] = self._saved_dry
+        else:
+            os.environ.pop("CONVERGENCE_DRY_RUN", None)
+
     def _verify_with_mock_meta(self, meta_content):
         """Helper: 写 mock meta.json + 跑 verify_convergence + 还原 HOME.
 
@@ -3295,39 +3325,41 @@ class TestV37958DryRunActivation(unittest.TestCase):
         else:
             os.environ.pop("CONVERGENCE_DRY_RUN", None)
 
-    def test_e2e_default_no_env_runs_real_apply(self):
-        """V37.9.58 端到端: env 未设置 → verify_convergence missing 时 apply_dry_run=False.
+    def test_e2e_default_no_env_resolves_to_real_apply(self):
+        """V37.9.58/V37.9.113: env 未设 → jobs_to_crontab spec resolve 到 real-apply 模式.
 
-        Dev 环境无 crontab + 无 ~/crontab_safe.sh → 走 apply_errors 分支,
-        但关键守卫 apply_dry_run=False 证明默认已切关 dry-run.
+        V37.9.113 测试隔离 (MR-9 测试污染生产同 V37.9.110 bug 类): 原版调
+        verify_convergence("jobs_to_crontab") 在 Mac Mini 上 (machine_sync + env
+        未设默认 real apply) 会真调 crontab_safe.sh add 改 crontab. 改用纯函数
+        _resolve_dry_run_for_spec 验证 flip — 它正是 verify_convergence 里决定
+        apply_dry_run 的函数 (V37.9.97 起 verify_convergence 用 _resolve_dry_run_for_spec
+        (spec)), 验证它等价于验证 flip, 但零 apply 副作用. real-apply 端到端行为
+        由 TestApplyMachineSyncReal (mock subprocess) 覆盖, env=1→dry-run 端到端
+        由 TestVerifyConvergenceMachineSyncIntegration 覆盖.
         """
         os.environ.pop("CONVERGENCE_DRY_RUN", None)
-        r = cv.verify_convergence("jobs_to_crontab")
-        # 若 missing 不为空, 必须真激活 (apply_dry_run=False)
-        if r.missing_in_runtime:
-            self.assertFalse(r.apply_dry_run,
-                "V37.9.58 切关后: 默认 (env 未设) 必须 apply_dry_run=False (real apply).")
-        # 兜底 (无 missing 情况)
-        self.assertIsInstance(r, cv.ConvergenceResult)
+        spec = cv.get_spec("jobs_to_crontab")
+        self.assertEqual(spec.get("drift_action"), "machine_sync")
+        self.assertFalse(cv._resolve_dry_run_for_spec(spec),
+            "V37.9.58 切关后: 默认 (env 未设) jobs_to_crontab dry_run_default=false → "
+            "_resolve_dry_run_for_spec=False (real apply 模式). 旧 V37.9.23 默认 dry-run 已废弃.")
 
     def test_e2e_explicit_dry_run_env_re_enables_dry_run(self):
-        """V37.9.58 切关后 operator 仍可显式 CONVERGENCE_DRY_RUN=1 回到 dry-run."""
+        """V37.9.58 切关后 operator 仍可显式 CONVERGENCE_DRY_RUN=1 回到 dry-run.
+        V37.9.113: 用 resolver 验证 env override 优先于 spec dry_run_default (不调 apply)."""
         os.environ["CONVERGENCE_DRY_RUN"] = "1"
-        r = cv.verify_convergence("jobs_to_crontab")
-        if r.missing_in_runtime:
-            self.assertTrue(r.apply_dry_run,
-                "V37.9.58 切关后: CONVERGENCE_DRY_RUN=1 仍可显式开启 dry-run 观察")
+        spec = cv.get_spec("jobs_to_crontab")
+        self.assertTrue(cv._resolve_dry_run_for_spec(spec),
+            "CONVERGENCE_DRY_RUN=1 operator override → dry-run (True), 优先于 spec dry_run_default")
 
-    def test_e2e_kb_sources_default_also_real_apply(self):
-        """V37.9.58: kb_sources_to_index 第二个 machine_sync spec 也默认 real apply."""
+    def test_e2e_kb_sources_default_resolves_to_real_apply(self):
+        """V37.9.58: kb_sources_to_index 第二个 machine_sync spec 也默认 real apply.
+        V37.9.113: resolver 验证 flip, 不调 verify_convergence (避免 Mac Mini 真跑 kb_embed)."""
         os.environ.pop("CONVERGENCE_DRY_RUN", None)
-        r = cv.verify_convergence("kb_sources_to_index")
-        self.assertIsInstance(r, cv.ConvergenceResult)
-        # kb_sources_to_index drift_action 是 machine_sync (V37.9.24)
-        self.assertEqual(r.drift_action, "machine_sync")
-        if r.missing_in_runtime:
-            self.assertFalse(r.apply_dry_run,
-                "V37.9.58: kb_sources_to_index 也默认 real apply")
+        spec = cv.get_spec("kb_sources_to_index")
+        self.assertEqual(spec.get("drift_action"), "machine_sync")
+        self.assertFalse(cv._resolve_dry_run_for_spec(spec),
+            "V37.9.58: kb_sources_to_index dry_run_default=false → resolver=False (real apply)")
 
 
 # ════════════════════════════════════════════════════════════════════
@@ -3850,6 +3882,154 @@ class TestConvergenceConfigInjectionSourceGuards(unittest.TestCase):
     def test_v37_9_107_marker(self):
         self.assertIn("V37.9.107", self.src,
                       "convergence.py 应有 chunk-3 版本标记")
+
+
+class TestV37_9_113_ConvergenceTestIsolation(unittest.TestCase):
+    """V37.9.113 — governance-runtime-tests-must-isolate-production-state (MR-9).
+
+    地雷 (V37.9.111-hotfix 登记 follow-up #27 HIGH): governance INV 的 runtime
+    python_assert 用 subprocess 跑 test_convergence.py (whole file) — 含调真
+    jobs_to_crontab / kb_sources_to_index spec (machine_sync) 的测试. V37.9.58
+    切关后默认 real apply → 在 Mac Mini 上 governance audit cron 跑这些测试会真
+    调 crontab_safe.sh add 改 crontab / 真跑 kb_embed.py (与 V37.9.110 测试污染
+    生产 incidents.jsonl 同 MR-9 bug 类, 那次造成真实 watchdog 告警).
+
+    本守卫类 framework 化此 bug 类 (follow-up #26):
+      (1) AST 扫: 每个 verify_convergence("jobs_to_crontab"/"kb_sources_to_index")
+          调用 (无 specs= synthetic override) 必须在有 dry-run setUp 的类里
+          (反回归 — 未来新增危险调用立即被抓).
+      (2) 行为级正/负对照证明: dry-run 隔离下 apply 不调 crontab_safe.sh,
+          real 模式下会调 (镜像 V37.9.110 行为级反向验证).
+      (3) governance subprocess 传 CONVERGENCE_DRY_RUN=1 (Layer B belt-and-suspenders).
+    """
+
+    DANGER_SPECS = ("jobs_to_crontab", "kb_sources_to_index")
+
+    def setUp(self):
+        self.test_src = Path(__file__).read_text(encoding="utf-8")
+        gov_path = Path(__file__).resolve().parent / "ontology" / "governance_ontology.yaml"
+        self.gov_src = gov_path.read_text(encoding="utf-8")
+
+    @staticmethod
+    def _class_setup_forces_dry_run(class_node, src):
+        """类的 setUp 是否设 CONVERGENCE_DRY_RUN=1 (隔离契约)."""
+        import ast as _ast
+        for sub in class_node.body:
+            if isinstance(sub, _ast.FunctionDef) and sub.name == "setUp":
+                body = _ast.get_source_segment(src, sub) or ""
+                return "CONVERGENCE_DRY_RUN" in body and '"1"' in body
+        return False
+
+    def test_v37_9_113_all_danger_spec_verify_calls_isolated(self):
+        """AST 反回归守卫: 每个 verify_convergence(danger_spec) 无 specs= 调用
+        必在有 dry-run setUp 的类里. 防未来新增未隔离危险调用 (MR-9)."""
+        import ast as _ast
+        tree = _ast.parse(self.test_src)
+        violations = []
+        for node in _ast.walk(tree):
+            if not isinstance(node, _ast.ClassDef):
+                continue
+            isolated = self._class_setup_forces_dry_run(node, self.test_src)
+            for sub in _ast.walk(node):
+                if (isinstance(sub, _ast.Call)
+                        and isinstance(sub.func, _ast.Attribute)
+                        and sub.func.attr == "verify_convergence"
+                        and sub.args and isinstance(sub.args[0], _ast.Constant)
+                        and sub.args[0].value in self.DANGER_SPECS
+                        and not any(kw.arg == "specs" for kw in sub.keywords)):
+                    if not isolated:
+                        violations.append(
+                            f"{node.name}:L{sub.lineno} "
+                            f"verify_convergence({sub.args[0].value!r}) 无 dry-run setUp 隔离")
+        self.assertEqual(violations, [],
+            "V37.9.113 MR-9: 调真 machine_sync spec 的测试类必须有 CONVERGENCE_DRY_RUN=1 "
+            "setUp 隔离 (防 Mac Mini governance runtime check 真改 crontab/真跑 kb_embed):\n"
+            + "\n".join(violations))
+
+    def test_v37_9_113_apply_dry_run_does_not_call_crontab_safe(self):
+        """行为级正向证明: dry-run 模式 _apply_jobs_to_crontab_per_entry 不调
+        crontab_safe.sh (continue 在 subprocess 之前). 镜像 V37.9.110 行为验证."""
+        with tempfile.TemporaryDirectory() as home:
+            fake = os.path.join(home, "crontab_safe.sh")
+            sentinel = os.path.join(home, "CALLED")
+            with open(fake, "w", encoding="utf-8") as f:
+                f.write(f'#!/bin/bash\ntouch "{sentinel}"\nexit 0\n')
+            os.chmod(fake, 0o755)
+            cron_line = "0 9 * * * bash ~/v37_9_113_probe.sh >> ~/v37_9_113_probe.log 2>&1"
+            saved_home = os.environ.get("HOME")
+            os.environ["HOME"] = home
+            try:
+                spec = cv.get_spec("jobs_to_crontab")
+                applied, errors, dry = cv._apply_jobs_to_crontab_per_entry(
+                    spec, frozenset({cron_line}), dry_run=True)
+            finally:
+                if saved_home is not None:
+                    os.environ["HOME"] = saved_home
+                else:
+                    os.environ.pop("HOME", None)
+            self.assertFalse(os.path.exists(sentinel),
+                "V37.9.113: dry-run 模式绝不调 crontab_safe.sh (continue 在 subprocess 之前)")
+            self.assertTrue(any(a.startswith("DRY-RUN would apply:") for a in applied),
+                f"dry-run 应产 'DRY-RUN would apply:' 行, got applied={applied}")
+
+    def test_v37_9_113_apply_real_mode_calls_crontab_safe_negative_control(self):
+        """行为级负对照: real 模式 (dry_run=False) 确实调 crontab_safe.sh — 证明
+        正向测试的 sentinel-absent 是 dry-run 隔离的功劳, 不是测试桩失效.
+        (用 fake crontab_safe.sh + tempdir HOME, 不碰真 crontab)."""
+        with tempfile.TemporaryDirectory() as home:
+            fake = os.path.join(home, "crontab_safe.sh")
+            sentinel = os.path.join(home, "CALLED")
+            with open(fake, "w", encoding="utf-8") as f:
+                f.write(f'#!/bin/bash\ntouch "{sentinel}"\nexit 0\n')
+            os.chmod(fake, 0o755)
+            cron_line = "0 9 * * * bash ~/v37_9_113_probe.sh >> ~/v37_9_113_probe.log 2>&1"
+            saved_home = os.environ.get("HOME")
+            os.environ["HOME"] = home
+            try:
+                spec = cv.get_spec("jobs_to_crontab")
+                applied, errors, dry = cv._apply_jobs_to_crontab_per_entry(
+                    spec, frozenset({cron_line}), dry_run=False)
+            finally:
+                if saved_home is not None:
+                    os.environ["HOME"] = saved_home
+                else:
+                    os.environ.pop("HOME", None)
+            self.assertTrue(os.path.exists(sentinel),
+                "V37.9.113 负对照: real 模式 (dry_run=False) 必须调 fake crontab_safe.sh "
+                "(证明正向测试的隔离有意义). 若此处失败说明测试桩本身失效.")
+
+    def test_v37_9_113_governance_subprocess_passes_dry_run_env(self):
+        """源码守卫: governance check 跑 test_convergence.py 的 subprocess 必须传
+        CONVERGENCE_DRY_RUN=1 (Layer B belt-and-suspenders)."""
+        self.assertIn('env={**os.environ, "CONVERGENCE_DRY_RUN": "1"}', self.gov_src,
+            "V37.9.113: governance test_convergence subprocess 必须传 CONVERGENCE_DRY_RUN=1 env")
+        self.assertIn("V37.9.113", self.gov_src,
+            "governance_ontology.yaml 应有 V37.9.113 测试隔离标记")
+
+    def test_v37_9_113_dangerous_e2e_use_resolver_not_verify_convergence(self):
+        """源码守卫 (AST): TestV37958 的 2 个 default-real-apply e2e 测试用纯函数
+        _resolve_dry_run_for_spec 验证 flip, 不调 verify_convergence (避免真 apply)."""
+        import ast as _ast
+        tree = _ast.parse(self.test_src)
+        targets = ("test_e2e_default_no_env_resolves_to_real_apply",
+                   "test_e2e_kb_sources_default_resolves_to_real_apply")
+        found = set()
+        for node in _ast.walk(tree):
+            if isinstance(node, _ast.FunctionDef) and node.name in targets:
+                found.add(node.name)
+                calls = [c for c in _ast.walk(node)
+                         if isinstance(c, _ast.Call) and isinstance(c.func, _ast.Attribute)]
+                attrs = {c.func.attr for c in calls}
+                self.assertNotIn("verify_convergence", attrs,
+                    f"V37.9.113: {node.name} 不得调 verify_convergence (避免真 apply 改 crontab)")
+                self.assertIn("_resolve_dry_run_for_spec", attrs,
+                    f"V37.9.113: {node.name} 必须用 _resolve_dry_run_for_spec 验证 flip")
+        self.assertEqual(found, set(targets),
+            f"V37.9.113: 两个 resolver-based e2e 测试都应存在, found={found}")
+
+    def test_v37_9_113_marker(self):
+        self.assertIn("V37.9.113", self.test_src,
+            "test_convergence.py 应有 V37.9.113 测试隔离标记")
 
 
 if __name__ == "__main__":

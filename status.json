@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-05 04:43:12",
+  "updated": "2026-06-05 05:29:20",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-06-05",
+      "what": "V37.9.113: test_convergence 测试隔离 (follow-up #27 HIGH, MR-9 测试污染生产同 V37.9.110 bug 类闭环). 地雷: governance INV-CONVERGENCE-CRON-001 runtime python_assert subprocess 跑整个 test_convergence.py (含调真 jobs_to_crontab/kb_sources_to_index machine_sync spec 的测试) 不传 CONVERGENCE_DRY_RUN, V37.9.58 切关后默认 real apply → Mac Mini governance audit cron 跑会真改 crontab/真跑 kb_embed. 今天 governance 独立审计 apply[real]=40 实锤. AST 盘点 5 类调危险真 spec (TestRealJobsToCrontab/TestVerifyConvergenceMachineSync 已隔离/TestV37958 2 e2e 核心地雷/TestVerifyKbSourcesToIndex/TestKbSourcesToIndexCommandRuntime). real-apply 已被 mock 覆盖 (TestApplyMachineSyncReal/TestApplyKbEmbedIncremental). 修: (a) 4 类加 setUp/tearDown CONVERGENCE_DRY_RUN=1 隔离 + TestRealJobsToCrontab 断言重写 dry-run (b) TestV37958 2 e2e 改纯函数 _resolve_dry_run_for_spec 验证 flip 不调 verify_convergence (c) Layer B governance subprocess env={..CONVERGENCE_DRY_RUN=1} belt-and-suspenders. TestV37_9_113_ConvergenceTestIsolation 守卫类 6 单测 (AST 反回归扫 verify_convergence(danger) 必有 dry-run setUp + 行为级正向 dry-run 不调 fake crontab_safe.sh sentinel + 负对照 real 模式调 + Layer B env 源码守卫 + e2e resolver 守卫 + marker). 反向验证: sabotage setUp \"1\"→\"0\" → AST 守卫立即抓 TestRealJobsToCrontabSpec:L507 还原零 violation. 双环境验证 (env=1 + env未设) 各 318 全过. 114 suites/4042→4048 tests (+6)/0 fail/governance exit 0/安全 95/README 同步 4048/VERSION 不变. Mac Mini 待 git fetch+reset 同步, 下次 07:00 governance cron 跑 test_convergence 不再真 apply 拆雷. MR-9 测试污染生产 bug 类第 2 次演出 (V37.9.110 test_movespeed 第1次), 主动拆雷非等真告警, 行为级正/负对照+AST 反回归让 bug 类机器化检测.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-05",
       "what": "V37.9.112: ai_leaders_bsky 接入 Opportunity Radar #2 (大神实时短观点→机会点雷达, V37.9.110/111 Bluesky 上线自然收口, 用户从 3 纯 dev 方向选). top_alignment_picker ALIGNED_SOURCES 9→10 加 ai_leaders_bsky (社媒档 prio 6 同 ai_leaders_x tweet 类, dev jobs/ai_leaders_bsky/cache + Mac Mini ~/.openclaw/jobs/ai_leaders_bsky/cache 双 layout). #2 高对齐显式接入; #1 跨源+#3 趋势经 ai-leaders-bsky KB notes 自动含无需改. 3 消费方 (kb_dream Phase 1.5/kb_radar_collect/kb_evening_collect) 经 pick_top_aligned 迭代 ALIGNED_SOURCES 零改 (grep 确认无硬编码 source 列表, picker 单一真理源 MR-8). 下游 100% 复用 blogs 管道 — llm_results.jsonl {idx/content/failed} 与 ai_leaders_blogs 逐字一致 + 启动截断无 stale → picker scan 零改. smoke test: ⭐5 pick 产 - ⭐⭐⭐⭐⭐ [大神实时] ... 进 Top 5 block, ⭐3 被 min_stars=4 过滤. 2 新单测 test_top_alignment_picker 68→69 (test_10_aligned_sources_registered 9→10 + test_ai_leaders_bsky_is_social_tier_priority_6 社媒 prio 6 守卫) + 3 docstring 修漂移 (picker header 8→10 补漏 V37.9.109 ai_leaders_blogs + kb_evening 9→10 + 类 docstring). 114 suites 不变/4041→4042 tests/0 fail/governance 804 checks/安全 95/README 徽章同步 4042/VERSION 0.37.9.68 不变 (source 配置扩展). ai_leaders 三段式机会点引擎全维度闭环: X(V27退化产0)→博客长文(V37.9.108收集→Radar#2 V37.9.109)→Bluesky实时短帖(V37.9.110/111收集→Radar#2 V37.9.112). 复用 blogs 管道零重造仅 ALIGNED_SOURCES 1 条目改 (MR-8). Mac Mini 待用户: git fetch+reset 同步, 下次 kb_radar 06:00/dream 03:00/evening 22:00 cron ⭐≥4 大神实时短观点进 Top 5 雷达+跨源+趋势.",
       "by": "claude_code"
     },
@@ -198,11 +203,6 @@
       "date": "2026-06-02",
       "what": "V37.9.99-docs: failure_modes_catalog 单一权威版整合 — 开工核实发现 catalog 已存在但两份分叉副本 (docs/ V37.9.86 机制分类 32 案例 + ontology/docs/ V37.9.81 位置分类 21 案例, 分类法不兼容+都 stale = MR-8 copy-paste + 外部评审点名的 doc-drift, 记录失败模式的文档自己是失败模式). 用户选单一权威版+删副本 (宪法删前 surface 确认). 以 ontology/docs/ 为 canonical 重写机制导向 5 类 (A环境Quirk/B设计假设错配/C错误吞噬稀释/D链式幻觉编造/E运维遗漏取证盲区), 22 真案例 (24文件−openclaw_as_ontology架构−cron_line_audit决策) + 新增 v37_9_92_observer_path, 更新到 V37.9.99 (85INV/21MR/15MRD/790checks/v3.52). 删 docs/ 分叉副本. 史料修正: MR-16=security-dimensions-governed-by-invariants 非旧catalog误记的 macos-fda 候选. 话语权增强 (ArXiv Silent Failures Taxonomy 论文前置): 横向洞察=潜伏期分布+发现渠道分布(用户视角~70%)+三层根因模式+防御三步跃迁(单点→元规则→MRD扫描器)+MR-4 ~28次演出时间线. README 4处stale同步 (v3.47→v3.52/80→85INV/19→21MR/14→15MRD/731→790checks/21→22案例+链接修正). 验证: full_regression 109/3835/0fail + governance 693/693所有不变式成立 + path_consistency 0violations + gen_readme_badges无漂移 + 无断引用. VERSION 0.37.9.68不变(doc整合零代码零新INV/MR).",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-06-02",
-      "what": "V37.9.99 S2 key 批准后微调: S2 邮件确认限额 1 request/second 且明确要求设到阈值以下 (印证 V37.9.99 修正的独占 1 RPS 非 100/sec). 认证模式间隔 S2_KW_SLEEP 1s→2s 安全余量 (6 关键词仅多 6s, 避免恰好在 1 RPS 阈值偶发 429). 更新 test_v37_9_98_s2_api_key 断言 1→2. 安全: key 只存 env 永不入仓库 (grep s2k- 确认 0 泄漏), 用户在 Mac Mini 加 S2_API_KEY 到 cron env (REMOTE_API_KEY 同处). VERSION 0.37.9.68 不变.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -269,11 +269,10 @@
       "V37.9.106 部署后 24h 验证 (~2026-06-05): 现有 30 条 MOVESPEED TM-争用 incident 老化出 24h 窗口后 INV-MOVESPEED-TCC-001 应自动转绿 → 治理审计 721/721 全绿. 验证: python3 ~/movespeed_incident_analyzer.py --window 24h 应显示 incidents 大降 (tmutil 预检让 TM 备份时 rsync 跳过不产新 incident). 若仍红说明 TM 之外还有 incident 来源待查.",
       "ontology-engine chunk 3b (聚焦 session): MRD 扫描模式文件名参数化 — governance_checker.py 的 ~10 个 _discover_* 把 jobs_registry.yaml/notify.sh/jobs/*/run_*.sh 文件名模式从代码移到 Layer 2 配置, framework 只读模式表. 注意: 根已 _PROJECT_ROOT 注入 (chunk 3a 之前就有), 仅文件名模式硬编码, 且消费方缺文件已优雅 no-op (非 correctness bug 仅配置化 nicety). 触碰 MR-4 血案防护扫描器, 需单独聚焦 session 不与其他捆绑. 设计: 在 governance_ontology.yaml meta 或新 Layer-2 文件加 mrd_scan_patterns, 向后兼容默认 = 当前 bridge 模式. 见 docs/ontology_engine_packaging.md §5 row 4 + §6 chunk 3b.",
       "ai_leaders_blogs (V37.9.108) Mac Mini feed 可达性验证 + 后续: (a) 首跑后看 log WARN 剪死链 (Anthropic news/Karpathy bearblog URL 是 candidate 待验, Substack /feed 标准应可达) + 补可达大神 feed (b) V37.9.109+ Bluesky 免费无认证 API (public.api.bsky.app getAuthorFeed) 加实时短观点维度 — 学者已大规模迁入 (arXiv 2505.24801), 需 handle→DID 解析 + getAuthorFeed 抓取 + 查哪些大神在 Bluesky (c) 验证稳定后真停用 ai_leaders_x: 需同步更新 6 依赖 (kb_review/source_credibility/INV-REVIEW-001/INV-BACKUP-001/config/wa_gateway_resilience 都期望 ai_leaders_x 为内容源) + Mac Mini crontab_safe.sh remove 清 cron 行 (d) ai_leaders_blogs 接入 Opportunity Radar 三件套 (跨源共振 #1 / 项目对齐 #2 / 趋势加速 #3) 作高质量信号源",
-      "V37.9.110 follow-up: (a) MRD scanner governance-runtime-tests-must-isolate-production-state — 扫所有 governance runtime python_assert 跑的测试 (INV-RETRY-001 等) 是否写生产 state 文件 (~/.kb/*.jsonl 等), framework 化测试污染生产 bug 类 (MR-9). 本次只修 test_movespeed_rsync_helper 一个实例, 其他 governance-run 测试可能有同款. (b) 重评 V37.9.106 MOVESPEED 36 incidents 数据真实性 — 剔除 caller.sh 测试污染后看真 Time Machine 争用还剩多少, tmutil 预检修复是否基于污染数据. (c) Mac Mini 清现存 72 条 caller.sh 污染条目 (grep -v 或等 24h 老化).",
-      "V37.9.111-hotfix follow-up A (HIGH, 专门 session): test_convergence.py 隔离 — ~10 处 verify_convergence(jobs_to_crontab/kb_sources_to_index) 无 CONVERGENCE_DRY_RUN 守卫, Mac Mini real apply 真改 crontab/真跑 kb_embed (V37.9.110 test 污染生产同 bug 类, MR-9, V37.9.110 登记的 governance-runtime-tests-must-isolate-production-state). 当前 missing=0 无活跃污染但 latent. 修法: real-spec 测试加 patch.dict CONVERGENCE_DRY_RUN=1 + 改 V37.9.58 real-apply 断言为 dry-run 断言 (多处, 风险高). 评估 MRD scanner framework 化此 bug 类.",
       "V37.9.111-hotfix follow-up B: auto_deploy.sh crontab 双行复发根因 — V37.9.106 删过 HOME 路径行(40→39)又复发(repo 路径 ~/openclaw-model-bridge/auto_deploy.sh + HOME 路径 ~/auto_deploy.sh 都每 2min). 用户已 crontab_safe.sh remove. 查什么再加它 (crontab 重建脚本? backup 恢复? convergence?) 或加 framework 防同脚本双行守卫. 非 convergence machine_sync (两行都含 auto_deploy.sh 被 matched 不 missing).",
       "V37.9.111-hotfix follow-up C: kb_harvest_chat LLM Reduce 超时 — 6/4 对话 163 轮/37.7 万字/9 chunks, 9 Map 全成功但 Reduce 合并 9 段 LLM 失败 (6/3 也 timeout). 大对话日 Reduce 超容量/超时. 数据没丢(在 ~/.kb/conversations/). 修法: chunked Reduce(分批合并) 或 Reduce retry 或减小 Map chunk.",
-      "V37.9.112 已完成 (b) ai_leaders_bsky 接入 Opportunity Radar #2 (top_alignment_picker ALIGNED_SOURCES 9→10, 3 消费方自动生效). 剩余 follow-up (Mac Mini handle 验证后, 非高优): (a) 首跑 log WARN 剪死 handle + 补可达 contrarian 大神 (howard.fm 自定义域名 / garymarcus.bsky.social / emilymbender.bsky.social 候选待验 / fchollet 替代) (c) 2x/天频率评估 (实时短观点价值) + 评估 Bluesky app-password 认证读 login-required 账号"
+      "V37.9.112 已完成 (b) ai_leaders_bsky 接入 Opportunity Radar #2 (top_alignment_picker ALIGNED_SOURCES 9→10, 3 消费方自动生效). 剩余 follow-up (Mac Mini handle 验证后, 非高优): (a) 首跑 log WARN 剪死 handle + 补可达 contrarian 大神 (howard.fm 自定义域名 / garymarcus.bsky.social / emilymbender.bsky.social 候选待验 / fchollet 替代) (c) 2x/天频率评估 (实时短观点价值) + 评估 Bluesky app-password 认证读 login-required 账号",
+      "V37.9.110+113 follow-up (升级版, MR-9 测试污染生产 bug 类 framework 化): V37.9.113 已 framework 化 convergence-specific 部分 (TestV37_9_113 AST 反回归守卫 + 行为级正/负对照 sentinel, 拆 test_convergence 真改 crontab/真跑 kb_embed 地雷). 剩余 (专门 session): (a) 立元规则 MR-22 governance-runtime-tests-must-isolate-production-state — V37.9.110 test_movespeed 写真 incidents.jsonl + V37.9.113 test_convergence 真改 crontab 共 2 实例已达立元规则门槛 (b) generic MRD scanner 扫所有 governance runtime python_assert 跑的测试 (INV-RETRY-001 test_movespeed / INV-CONVERGENCE test_convergence / 等) 是否写生产 state 文件 (~/.kb/*.jsonl / crontab / kb_embed 真跑), 跨多测试文件 framework 化此 bug 类"
     ],
     "open_prs": "",
     "blocked_on": "",
@@ -339,10 +338,10 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 4042,
-    "last_regression": "2026-06-05 04:37 pass",
+    "test_count": 4048,
+    "last_regression": "2026-06-05 05:25 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-05 04:37",
+    "security_score_time": "2026-06-05 05:25",
     "test_suites": 114,
     "governance_invariants": "85/85",
     "governance_checks": "790/790",
@@ -411,7 +410,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.112 (2026-06-05 周五): ai_leaders_bsky 接入 Opportunity Radar #2 (用户选, follow-up #112). V37.9.111-hotfix 首跑验证数据已产 (7/10 handle/17 帖/高对齐 1) → wire. top_alignment_picker ALIGNED_SOURCES 9→10 加 ai_leaders_bsky (社媒档 prio 6 同 ai_leaders_x), 3 消费方 (kb_dream/radar/evening) 经 pick_top_aligned 自动生效零改 (picker 单一真理源 MR-8). 下游 100% 复用 blogs 管道 llm_results.jsonl 逐字一致 → scan 零改. smoke test ⭐5 进 Top 5 [大神实时] + ⭐3 阈值过滤. 2 新单测 + 3 docstring 修漂移. 114 suites/4042 tests/0 fail/governance 804/安全 95/README 徽章同步/VERSION 0.37.9.68 不变. ai_leaders 三段式机会点引擎全维度闭环: X退化→博客长文(Radar#2 V37.9.109)→Bluesky实时短帖(Radar#2 V37.9.112). Mac Mini 待用户: git fetch+reset 同步 (FILE_MAP 部署 top_alignment_picker.py), 下次 kb_radar 06:00/dream 03:00/evening 22:00 cron ⭐≥4 大神实时观点进 Top 5 雷达. 下次候选: test_convergence 隔离 (follow-up #27 HIGH 专门 session, MR-9 测试污染生产同 V37.9.110 bug 类) / kb_harvest Reduce 超时 (#29). 日期门控: INV-OBSERVER/services flip ~6/8 / 源可信度 ~6/9 / OpenClaw ~6/15.",
+  "focus": "V37.9.113 (2026-06-05 周五): test_convergence 测试隔离 (follow-up #27 HIGH, 用户选). 拆除 MR-9 测试污染生产地雷 — governance INV-CONVERGENCE-CRON-001 跑整个 test_convergence.py 含真 jobs_to_crontab/kb_sources_to_index machine_sync spec 测试, Mac Mini V37.9.58 默认 real apply 会真改 crontab/真跑 kb_embed (同 V37.9.110 bug 类). 今天 governance apply[real]=40 实锤. 修: 4 类加 CONVERGENCE_DRY_RUN=1 setUp 隔离 + 2 e2e 改纯函数 _resolve_dry_run_for_spec + Layer B governance subprocess env + TestV37_9_113 守卫类 (AST 反回归 + 行为级正/负对照 sentinel + 反向验证守卫真有效 sabotage→抓). 114 suites/4042→4048 tests/0 fail/governance exit 0/安全 95/README 同步 4048/VERSION 0.37.9.68 不变 (无新 INV, 镜像 V37.9.110 fix+守卫类模式). Mac Mini 待用户 git fetch+reset 同步 (下次 governance audit cron 07:00 跑 test_convergence 不再真 apply 拆雷). 下次候选: MR-22 + generic MRD scanner (扫所有 governance-run 测试是否写生产 state, V37.9.110+113 共 2 实例达立元规则门槛, 跨多测试文件专门 session) / kb_harvest Reduce 超时 (#29) / 日期门控 ~6/8+ (INV-OBSERVER/services flip/源可信度).",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
