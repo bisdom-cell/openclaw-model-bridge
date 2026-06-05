@@ -39,7 +39,7 @@ EXPECTED_RSYNC_SITES = [
     "jobs/karpathy_x/run_karpathy_x.sh",
     "jobs/rss_blogs/run_rss_blogs.sh",
     "jobs/ai_leaders_blogs/run_ai_leaders_blogs.sh",  # V37.9.108 ai_leaders X→博客/Substack RSS
-    "jobs/ai_leaders_bsky/run_ai_leaders_bsky.sh",  # V37.9.110 ai_leaders 加 Bluesky 实时短观点维度
+    "jobs/ai_leaders_bsky/run_ai_leaders_bsky.sh",  # V37.9.111 ai_leaders 加 Bluesky 实时短观点维度
     "jobs/arxiv_monitor/run_arxiv.sh",
     "jobs/freight_watcher/run_freight.sh",
     "jobs/acl_anthology/run_acl_anthology.sh",

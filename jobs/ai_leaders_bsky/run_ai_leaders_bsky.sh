@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # cron 环境 PATH 极简，必须显式声明
 export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
-# AI 大神 Bluesky 实时短观点监控 (V37.9.110 — ai_leaders 加实时短观点维度)
+# AI 大神 Bluesky 实时短观点监控 (V37.9.111 — ai_leaders 加实时短观点维度)
 # 目的: 收集 AI 领域顶尖学者专家在 Bluesky 的实时短帖/观点 (尤其"不同意见"),
 #   补足 ai_leaders_blogs (长文, V37.9.108) + ai_leaders_x (X Syndication 429+冻结
 #   退化产 ~0, V37.9.101/102/103) 的实时短观点维度。
@@ -81,7 +81,7 @@ send_alert() {
 mkdir -p "$CACHE" "${KB_BASE:-$HOME/.kb}/sources"
 test -f "$KB_SRC" || echo "# AI 大神实时观点 (Bluesky)" > "$KB_SRC"
 
-# ── AI 大神 Bluesky 账号 (V37.9.110) ────────────────────────────────
+# ── AI 大神 Bluesky 账号 (V37.9.111) ────────────────────────────────
 # 格式：handle|label
 # 策展原则: (1) AI 领域顶尖个人学者/专家 (2) 不同意见/流派 (偏重 contrarian, 用户核心诉求)
 #   (3) 实时短观点 (与 ai_leaders_blogs 长文互补)。

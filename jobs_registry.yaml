@@ -142,14 +142,14 @@ jobs:
   - id: ai_leaders_bsky
     scheduler: system
     entry: jobs/ai_leaders_bsky/run_ai_leaders_bsky.sh
-    interval: "0 17 * * *"             # V37.9.110 每天1次 17:00 HKT（捕获前一整个美国白天的帖子）
+    interval: "0 17 * * *"             # V37.9.111 每天1次 17:00 HKT（捕获前一整个美国白天的帖子）
     log: ~/.openclaw/logs/jobs/ai_leaders_bsky.log
     needs_api_key: false               # Bluesky 公开 AppView API 无需认证；LLM 走本地 proxy :5002
     enabled: true
-    tier: auxiliary                    # V37.9.110 验证期保守，handle 全 Mac Mini 验证后可升 core
+    tier: auxiliary                    # V37.9.111 验证期保守，handle 全 Mac Mini 验证后可升 core
     kb_source_file: ai_leaders_bsky.md
     kb_source_label: 🦋 AI 大神实时观点
-    description: "AI 大神 Bluesky 实时短观点（V37.9.110）— ai_leaders 加实时短观点维度，补足 blogs 长文（V37.9.108）+ ai_leaders_x（X 429+冻结退化产~0）。Bluesky 公开 AppView getAuthorFeed 无需认证，30 万学者 2023-2025 已迁入（arXiv 2505.24801）。10 大神：LeCun/Chollet/Melanie Mitchell/Kambhampati/Narayanan/Gebru/Margaret Mitchell/Jeremy Howard + Gary Marcus/Emily Bender 候选，偏重 contrarian/不同意见。复用 blogs 管道（LLM 6 字段 + 🎚️ 项目对齐评分）。handle 待 Mac Mini 首跑验证"
+    description: "AI 大神 Bluesky 实时短观点（V37.9.111）— ai_leaders 加实时短观点维度，补足 blogs 长文（V37.9.108）+ ai_leaders_x（X 429+冻结退化产~0）。Bluesky 公开 AppView getAuthorFeed 无需认证，30 万学者 2023-2025 已迁入（arXiv 2505.24801）。10 大神：LeCun/Chollet/Melanie Mitchell/Kambhampati/Narayanan/Gebru/Margaret Mitchell/Jeremy Howard + Gary Marcus/Emily Bender 候选，偏重 contrarian/不同意见。复用 blogs 管道（LLM 6 字段 + 🎚️ 项目对齐评分）。handle 待 Mac Mini 首跑验证"
 
   - id: karpathy_x
     scheduler: system

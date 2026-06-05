@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""test_ai_leaders_bsky.py — V37.9.110 守卫。
+"""test_ai_leaders_bsky.py — V37.9.111 守卫。
 
 ai_leaders 加实时短观点维度: 从 Bluesky 公开 AppView API (getAuthorFeed) 收集 AI
 大神实时短帖, 补足 ai_leaders_blogs (长文, V37.9.108) + ai_leaders_x (X 429+冻结
@@ -183,8 +183,8 @@ class TestIdentitySwap(unittest.TestCase):
         # 短帖防过度膨胀 (V37.9.40 ai_leaders_x 过度分析教训)
         self.assertIn("不要为短帖编造长篇分析", self.src)
 
-    def test_v37_9_110_marker(self):
-        self.assertIn("V37.9.110", self.src)
+    def test_v37_9_111_marker(self):
+        self.assertIn("V37.9.111", self.src)
 
 
 # ───────────────────────────────────────────────────────────────────────
