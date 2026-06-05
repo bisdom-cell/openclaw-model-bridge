@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-05 10:00:44",
+  "updated": "2026-06-05 15:10:26",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-06-05",
+      "what": "V37.9.117: 日落法 (Sunset Law) 立为项目北极星 — 用户在一天五版意外频发后深度反思, 指示反思+MR 都做且未来发展以降复杂度为目标. 核心: 意外真因不是复杂(部件难懂)是组合(简单正确部件交互超线性增长超测试覆盖), 复杂关乎部件意外关乎接缝. 五根因(一物多形/地图≠领土 dev测试 vs production事故接缝/观察者改被观察者 07:00审计real-apply改它审计的crontab+我诊断命令symlink本身是挂死源/不完整修复伪装完整 V37.9.114修单check根在_resolve_project_root/潜伏条件累积). 元层: 治理只验证代码符合规则验证不了规则符合现实, 87不变式全在仓库内层验证仓库自己事故在仓库-MacMini接缝无测试覆盖, 每加一层防御多一事故面(原则#8规模演出 convergence药参与病). 平衡: 很多意外是免疫系统开火零意外可能是免疫瞎了(MOVESPEED潜伏60天). 诚实记录: 两次30min挂死直接触发是我用错symlink路径+一度归因07:00cron部分违反原则#28操作者也是事故源. 交付 case doc(反思型立场型) + MR-22 sunset-over-accretion(日落法3规则) + MR-23 audit-observes-never-mutates(审计只读泛化MR-9 lineage三次演出V37.9.110→113→116) + 原则#34北极星 + #8标注战略升级. 践行日落法: 两MR刻意不铸新不变式复用既有test_v37_9_116+test_convergence隔离守卫, MR 21→23 INV 87不变. 115 suites/4063 tests/0 fail/gov v3.54/安全95/README MR徽章23/VERSION不变. 前进4方向缩小接缝非加治理. 元价值: 项目V1→V37.9.116一路堆叠史首次立反向北极星以变小为目标, 承认靠把意外转规则无法穷尽组合面(规则也是新接缝)必须从加防御转向缩接缝.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-05",
       "what": "V37.9.116: INV-CRON-004 auto_deploy 双行 3 次复发根治 (V37.9.106/111 删了拉倒, 116 找根). 用户合并 V37.9.115 前验证 governance 发现 ❌ auto_deploy x2 (今天第3次). Mac Mini 原子实验铁证 (bash -c 删 line54→确认0→跑 no-dry-run governance→再查): 删除后=0 跑完=1 零歧义证明 no-dry-run governance 重加 line 54. line 54 (~/auto_deploy.sh HOME 裸名) 逐字等于 convergence _format_cron_line(auto_deploy) 输出. 真根因: V37.9.58 切关 dry-run 默认后 governance_audit_cron.sh line 70 跑 --full 不设 CONVERGENCE_DRY_RUN → jobs_to_crontab real-apply, auto_deploy registry entry:auto_deploy.sh 裸名让 _format_cron_line 生成 ~/auto_deploy.sh (HOME) ≠ canonical line 5 ~/openclaw-model-bridge/auto_deploy.sh (repo) 格式错配 → 判 missing → 每次 07:00 审计 real-apply 重加 → 用户删了下次又加无限复发 (dev mock missing=空 Mac Mini 真加, 生产 parser 边界因素, 修复不依赖搞清). 修 (MR-9+V37.9.113 扩生产审计): governance_audit_cron 加 CONVERGENCE_DRY_RUN=1, 生产审计只检测+告警 drift 不静默 mutate crontab, 治理审计是观察者. machine_sync 自愈应 operator 显式动作非审计副作用. 6 新单测 test_v37_9_116 (4 源码守卫含 engine.py 不被误加防过度修复 + 1 行为级 _is_dry_run env 语义 + 1 bash -n) + 反向验证 sed 移除 env→FAIL 还原 OK. 115 suites/4063 tests/0 fail/安全 95/README 4063/VERSION 不变 (cron env tweak+守卫无新 INV 镜像 V37.9.113). Mac Mini 待 git fetch+reset, 同步后 07:00 审计 dry-run 不重加; 用户当下删 line 54 即转绿同步前手动跑仍重加. MR-9 第3次演出 (V37.9.110 test_movespeed→V37.9.113 test_convergence→V37.9.116 生产审计本身), 前两测试污染这次生产审计静默改它审计的系统最深演出. 原则 #28 严格: 原子实验铁证锁死才动手没删了拉倒第4次.",
       "by": "claude_code"
     },
@@ -197,11 +202,6 @@
     {
       "date": "2026-06-03",
       "what": "V37.9.103: 冻结≠死亡血案修复, finance_news+ai_leaders 两 job clean+reduce (用户选不花钱接受 X 退化). V37.9.102 揭示 Syndication 平台退化把天天发推活账号(XHNews/CGTN/karpathy)快照冻结 6-10 月前, V37.8.5 stale=可移除在退化下错杀活账号(V37.8.14 移除的都是活机构). finance_news_zombie.py 四档重构(stub/dead≥730天/frozen<730天/alive), is_zombie_suspect=stub OR dead 但 frozen 永远 False; run_finance_news frozen 分流 degraded_file 仅 🧊 可观测不告警; ai_leaders_rotation classify_account 拆 frozen/dead 预防 #18 错杀; ai_leaders 降频 2→1/天 + watchdog 50400→180000. 跨模块 DEAD_AGE_DAYS=730 一致(test 守卫). INV-X-001 扩四档+防错杀层. 111 suites/3911 tests(+19)/0 fail/governance 87 inv/805 checks/安全 95.",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-06-03",
-      "what": "V37.9.102: ai_leaders_x 替代数据源评估报告 (docs/ai_leaders_source_alternatives.md). Syndication API 退化战略调研 — 续诊断揭示 fetch 成功但仍 0 推文因快照冻结 6-10 月前. WebSearch 5 方案: TwitterAPI.io 第三方 ~$1-6/月(首选, 比官方便宜96%) / 官方 X API $100-200/月 / Nitter 死 / RSSHub 同病 / 现状产0. 待用户决策换源",
       "by": "claude_code"
     }
   ],
@@ -342,9 +342,9 @@
   "quality": {
     "security_score": 95,
     "test_count": 4063,
-    "last_regression": "2026-06-05 09:58 pass",
+    "last_regression": "2026-06-05 15:08 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-05 09:58",
+    "security_score_time": "2026-06-05 15:08",
     "test_suites": 115,
     "governance_invariants": "85/85",
     "governance_checks": "790/790",
@@ -413,7 +413,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.116 (2026-06-05 周五): INV-CRON-004 auto_deploy 双行 3 次复发根治 (V37.9.106/111/116). 用户合并 V37.9.115 前用仓库相对路径验证 governance 发现 ❌ INV-CRON-004 auto_deploy x2 (今天第 3 次). 数据驱动诊断 + Mac Mini 原子实验铁证: line 54 (~/auto_deploy.sh HOME 裸名) 逐字等于 convergence _format_cron_line 输出; 'bash -c 删 line54→确认0→跑 no-dry-run governance --full→再查' 显示 删除后=0 跑完 gov=1 零歧义证明 governance 重加. 真根因: V37.9.58 切关 convergence dry-run 默认后 governance_audit_cron.sh line 70 跑 --full 不设 CONVERGENCE_DRY_RUN → jobs_to_crontab real-apply, auto_deploy registry entry 裸名让 _format_cron_line 生成 HOME 路径 ≠ canonical repo 路径 line 5 格式错配 → 判 missing → 每次审计重加 line 54 → 用户删了又加无限复发. 修: governance_audit_cron.sh 加 CONVERGENCE_DRY_RUN=1 让生产审计只检测告警不静默改 crontab (MR-9 + V37.9.113 扩到生产审计, 治理审计是观察者不 mutate 被审计系统). 6 新单测 test_v37_9_116 (源码守卫 + 行为级 env 语义 + engine.py 不被误加 + 反向验证). 115 suites/4057→4063 tests/0 fail/安全 95/README 4063/VERSION 不变. Mac Mini 待用户 git fetch+reset 同步, 同步后 07:00 审计走 dry-run 不重加; 用户当下删 line 54 即转绿. MR-9 第 3 次演出 (V37.9.110 test_movespeed→V37.9.113 test_convergence→V37.9.116 生产审计), 前两次测试污染这次生产审计本身静默改它审计的系统. 今日全景: V37.9.112 Bluesky→Radar#2 (合并#647) + V37.9.113 test_convergence 隔离 (合并#648) + V37.9.114 glob symlink hang single check (合并#649) + V37.9.115 abspath→realpath 根 (待合并) + V37.9.116 auto_deploy 双行根治 (待推送). 下次候选: dev/Mac Mini parser 判定差异查 / registry entry 格式错配 / yaml abspath checks 改 os.getcwd().",
+  "focus": "V37.9.117 (2026-06-05 周五): 日落法 (Sunset Law) 立为项目北极星 — 用户深度反思后指示'未来发展以降低系统复杂度为目标'. 核心论断: 意外频发真因不是'系统复杂'(部件难懂) 是'系统组合'(简单正确部件交互面积超线性增长超过测试覆盖), 复杂关乎部件意外关乎接缝. 五根因: 一物多形/地图≠领土(测试在 dev 事故在 production 接缝)/观察者改被观察者/不完整修复伪装完整/潜伏条件累积. 元层: 治理验证代码符合规则验证不了规则符合现实, 87 不变式全在仓库内层验证仓库自己事故住在仓库-Mac Mini 接缝. 每加一层防御多一个事故面 (原则 #8 规模演出, convergence 药参与病). 交付: case doc why_so_many_incidents_2026_06_05_reflection.md + MR-22 sunset-over-accretion (日落法北极星 3 规则: 加之前先问能否退役/一物一形/防御是事故面) + MR-23 audit-observes-never-mutates (审计只读泛化 MR-9) + 原则 #34 日落法北极星 + #8 标注战略升级. 践行日落法本身: 两 MR 刻意不铸新不变式复用既有守卫, 元规则 21→23 不变式 87 不变. 115 suites/4063 tests/0 fail/governance v3.54/安全 95/README MR 徽章 23/VERSION 不变. 前进 4 方向缩小接缝(非加治理): 减少一物多形/缩小 dev-production 接缝/观察者只读/加之前先退役. 今日全景 V37.9.112-117: Bluesky→Radar#2 + test_convergence 隔离 + glob hang single + abspath→realpath 根 + auto_deploy 双行根治 + 日落法北极星. 下次: 按日落法挑'能退役什么' (一物多形候选: auto_deploy 两路径统一 / ~/ontology symlink 评估 / yaml ~7 abspath 改 os.getcwd 减表示).",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
