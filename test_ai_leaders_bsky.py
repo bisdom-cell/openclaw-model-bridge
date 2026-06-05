@@ -41,7 +41,8 @@ AUTO_DEPLOY = os.path.join(REPO, "auto_deploy.sh")
 SOURCE_CRED = os.path.join(REPO, "source_credibility.py")
 
 # 用户核心诉求 "不同意见" — 必须含的 contrarian/怀疑派大神 handle
-_CONTRARIAN_HANDLES = ["ylecun", "melaniemitchell", "rao2z", "fchollet", "randomwalker"]
+# V37.9.111-hotfix: ylecun→yann-lecun (handle 漂移修复), fchollet 剪枝 (账号停用)
+_CONTRARIAN_HANDLES = ["yann-lecun", "melaniemitchell", "rao2z", "randomwalker"]
 
 
 def _read(path):
@@ -123,6 +124,25 @@ class TestAccountList(unittest.TestCase):
         self.assertIn("Mac Mini", self.src)
         self.assertIn("FAIL-OPEN", self.src)
         self.assertIn("原则 #33", self.src)
+
+    def test_v37_9_111_hotfix_handle_drift_corrections(self):
+        """V37.9.111-hotfix: 首跑 'Profile not found' handle 漂移修复 + Chollet 剪枝。
+
+        高粉大神迁自定义域名释放 .bsky.social → 旧 handle 404。
+        ylecun→yann-lecun (验证可用) / timnitgebru→timnitgebru.blacksky.app
+        (searchActors 确认) / fchollet 账号停用 → 剪枝。
+        """
+        joined = "\n".join(self.accounts)
+        # 旧错 handle 必须移除 (防回退)
+        self.assertNotIn("ylecun.bsky.social", joined,
+            "ylecun.bsky.social 是错 handle (Profile not found), 应为 yann-lecun.bsky.social")
+        self.assertNotIn("timnitgebru.bsky.social", joined,
+            "timnitgebru.bsky.social 已迁 blacksky.app")
+        self.assertNotIn("fchollet.bsky.social", joined,
+            "fchollet.bsky.social 账号停用 (searchActors 搜不到), 已剪枝")
+        # 现 handle 必须在
+        self.assertIn("yann-lecun.bsky.social", joined, "LeCun 现 handle = yann-lecun.bsky.social")
+        self.assertIn("timnitgebru.blacksky.app", joined, "Gebru 现 handle = timnitgebru.blacksky.app")
 
 
 # ───────────────────────────────────────────────────────────────────────
