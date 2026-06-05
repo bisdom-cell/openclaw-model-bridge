@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-05 05:29:20",
+  "updated": "2026-06-05 08:46:25",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -106,6 +106,16 @@
   "recent_changes": [
     {
       "date": "2026-06-05",
+      "what": "12:30 watchdog 告警诊断闭环: 真实 07:00 治理审计 fail = INV-CRON-004 (auto_deploy.sh 双行, 第3次复发 V37.9.106/111同款), 用户 crontab_safe.sh remove HOME 路径行 42→41 修复 governance 转绿. 复发根因排查: convergence 证伪 (dev 测 parser 正确识别仓库路径行不重加) + grep 无 repo 脚本加此行 (只注释), 剩余候选 crontab backup 恢复/一次性手动 (功能无害非紧急, #28 专门 session). 其余 5 告警项定性: arxiv 429+dblp 500+ai_leaders 429 三外部 API 不稳定 + arxiv 28h 是 429 后果 + 对话精华 #29 Reduce 超时, 全非代码 bug 多数自愈. 我诊断命令用 ~/ontology symlink 路径触发 glob hang 已修 V37.9.114. 6 项零个是今天 V37.9.112/113 引入.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-05",
+      "what": "V37.9.114: governance check glob symlink hang 修复 (12:30 watchdog 告警诊断副产物). 数据驱动诊断 12:30 [SYSTEM_ALERT]: 6 项里 5 项已定性 (arxiv 429+dblp 500+ai_leaders 429 三外部 API 不稳定 / arxiv 28h 是 429 后果 / 对话精华 error = 已登记 #29 Reduce 超时). 诊断第 6 项治理审计 fail 时我的命令用 python3 ~/ontology/governance_checker.py (经 V37.9.12.1 symlink) 触发 30min 挂死 x2. sample 抓栈 CPU=100% 死循环 + SIGINT traceback 精确定位 INV-AUTO-INJECT-001 runtime check 的 glob(repo_root+/**/inject_*.py, recursive=True). 双 bug: abspath(__file__) 经 symlink 调用误解析 repo_root=$HOME + glob($HOME/**, recursive=True) 跟随 symlink 遇环 100% CPU 无限遍历. dev 从仓库跑 repo_root=仓库有界故从不暴露. 关键澄清: 07:00 cron 用 cd $REPO_DIR && ontology/governance_checker.py 仓库相对路径 repo_root=仓库不挂, 那两次 hang 是我诊断命令用错 symlink 路径的副产物非真 07:00 问题, 但歪打正着发现真 bug. 修: realpath(__file__) 解析 symlink + os.walk(followlinks=False) 不跟随 symlink + 跳过 .git/venv/.openclaw/.kb 大目录 + 全 plain for-loop 避 exec 作用域陷阱 (第一版 comprehension 触发 NameError dev 当场抓到). 5 新守卫 test_auto_inject_guard 10→15 (源码 realpath/禁 recursive=True/os.walk followlinks=False + 行为级 symlink 环不挂 signal.alarm 安全网 + 找到 inject_demo.py 非空跑). 114 suites/4048→4053 tests/0 fail/governance exit 0 INV-AUTO-INJECT-001 修复后通过/安全 95/VERSION 不变. Mac Mini 待 git fetch+reset 同步. 真实 07:00 治理审计 fail 仍待正确路径诊断独立于本修复. 元价值: MR-15 deployment-layout 新形态 symlink 下 abspath 不稳健需 realpath (候选元规则 path-resolution-must-use-realpath-under-symlink) + exec 作用域陷阱第 N 次 dev 当场抓 + 数据驱动诊断零盲改同时识别我诊断命令本身是 hang 源避免误改 07:00 cron.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-05",
       "what": "V37.9.113: test_convergence 测试隔离 (follow-up #27 HIGH, MR-9 测试污染生产同 V37.9.110 bug 类闭环). 地雷: governance INV-CONVERGENCE-CRON-001 runtime python_assert subprocess 跑整个 test_convergence.py (含调真 jobs_to_crontab/kb_sources_to_index machine_sync spec 的测试) 不传 CONVERGENCE_DRY_RUN, V37.9.58 切关后默认 real apply → Mac Mini governance audit cron 跑会真改 crontab/真跑 kb_embed. 今天 governance 独立审计 apply[real]=40 实锤. AST 盘点 5 类调危险真 spec (TestRealJobsToCrontab/TestVerifyConvergenceMachineSync 已隔离/TestV37958 2 e2e 核心地雷/TestVerifyKbSourcesToIndex/TestKbSourcesToIndexCommandRuntime). real-apply 已被 mock 覆盖 (TestApplyMachineSyncReal/TestApplyKbEmbedIncremental). 修: (a) 4 类加 setUp/tearDown CONVERGENCE_DRY_RUN=1 隔离 + TestRealJobsToCrontab 断言重写 dry-run (b) TestV37958 2 e2e 改纯函数 _resolve_dry_run_for_spec 验证 flip 不调 verify_convergence (c) Layer B governance subprocess env={..CONVERGENCE_DRY_RUN=1} belt-and-suspenders. TestV37_9_113_ConvergenceTestIsolation 守卫类 6 单测 (AST 反回归扫 verify_convergence(danger) 必有 dry-run setUp + 行为级正向 dry-run 不调 fake crontab_safe.sh sentinel + 负对照 real 模式调 + Layer B env 源码守卫 + e2e resolver 守卫 + marker). 反向验证: sabotage setUp \"1\"→\"0\" → AST 守卫立即抓 TestRealJobsToCrontabSpec:L507 还原零 violation. 双环境验证 (env=1 + env未设) 各 318 全过. 114 suites/4042→4048 tests (+6)/0 fail/governance exit 0/安全 95/README 同步 4048/VERSION 不变. Mac Mini 待 git fetch+reset 同步, 下次 07:00 governance cron 跑 test_convergence 不再真 apply 拆雷. MR-9 测试污染生产 bug 类第 2 次演出 (V37.9.110 test_movespeed 第1次), 主动拆雷非等真告警, 行为级正/负对照+AST 反回归让 bug 类机器化检测.",
       "by": "claude_code"
     },
@@ -193,16 +203,6 @@
       "date": "2026-06-03",
       "what": "V37.9.100: INV-DREAM-CROSS-DOMAIN-001 立案 (LEVEL_6 dream 反链式幻觉守卫 5天观察 PASS, 多跳链↓92%) + 治理执行器 assertion 字段空跑血案修复 (67 check/21 INV vacuous pass — _exec_python_assert 只读 code: 让 assertion: 字段 exec(\"\") 空跑, _check_code helper 读双字段修复) + triage 14 翻车 (sabotage残留/路径bug/阈值/stale契约/exec作用域陷阱/递归) + INV-GOV-FIELD-001 meta-guard. 87 inv/801 checks/110 suites/3858 tests/0 fail",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-06-02",
-      "what": "V37.9.99-pkg: ontology-engine pip 包化第一块 (Phase 5 chunk 1, 终极目标奠基). keystone=config-injection: engine.py _resolve_config_dir()+ONTOLOGY_CONFIG_DIR env / governance_checker _resolve_project_root()+_resolve_ontology_dir()+ONTOLOGY_PROJECT_ROOT env — pip 装的引擎指向消费方 YAML 而非引擎自带, 向后兼容(无 env=默认引擎目录, Mac Mini/cron 不变). 二层架构: Layer1 项目无关引擎(ToolOntology/evaluate_policy/5 check executor/MRD/convergence/three_gate)=pip 包, Layer2 项目 YAML=消费方. governance __main__ 抽 main() 供 console. pyproject.toml openclaw-ontology-engine 0.1.0 (PyPI ontology-engine 已被占用) packages=[ontology]+console_scripts openclaw-ontology-audit/query — pip install -e . 真装成功+命令注册到 bin+卸载干净. docs/ontology_engine_packaging.md 二层架构+config 契约+已知耦合诚实登记+chunk2-5 迁移路标. test_ontology_packaging.py 23 单测+反向 sabotage 真有效(退回硬编码立即 fail). 验证: full_regression 109→110 suites/3835→3858 tests/0fail + governance 789 + 宪法第一条 proxy 不依赖 ontology(删除后 FAIL-OPEN). VERSION 0.37.9.68 不变. chunk2 候选: import 名 ontology→去泛化(破坏性, 涉 proxy lazy-load+symlink+全 import).",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-06-02",
-      "what": "V37.9.99-docs: failure_modes_catalog 单一权威版整合 — 开工核实发现 catalog 已存在但两份分叉副本 (docs/ V37.9.86 机制分类 32 案例 + ontology/docs/ V37.9.81 位置分类 21 案例, 分类法不兼容+都 stale = MR-8 copy-paste + 外部评审点名的 doc-drift, 记录失败模式的文档自己是失败模式). 用户选单一权威版+删副本 (宪法删前 surface 确认). 以 ontology/docs/ 为 canonical 重写机制导向 5 类 (A环境Quirk/B设计假设错配/C错误吞噬稀释/D链式幻觉编造/E运维遗漏取证盲区), 22 真案例 (24文件−openclaw_as_ontology架构−cron_line_audit决策) + 新增 v37_9_92_observer_path, 更新到 V37.9.99 (85INV/21MR/15MRD/790checks/v3.52). 删 docs/ 分叉副本. 史料修正: MR-16=security-dimensions-governed-by-invariants 非旧catalog误记的 macos-fda 候选. 话语权增强 (ArXiv Silent Failures Taxonomy 论文前置): 横向洞察=潜伏期分布+发现渠道分布(用户视角~70%)+三层根因模式+防御三步跃迁(单点→元规则→MRD扫描器)+MR-4 ~28次演出时间线. README 4处stale同步 (v3.47→v3.52/80→85INV/19→21MR/14→15MRD/731→790checks/21→22案例+链接修正). 验证: full_regression 109/3835/0fail + governance 693/693所有不变式成立 + path_consistency 0violations + gen_readme_badges无漂移 + 无断引用. VERSION 0.37.9.68不变(doc整合零代码零新INV/MR).",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -272,7 +272,8 @@
       "V37.9.111-hotfix follow-up B: auto_deploy.sh crontab 双行复发根因 — V37.9.106 删过 HOME 路径行(40→39)又复发(repo 路径 ~/openclaw-model-bridge/auto_deploy.sh + HOME 路径 ~/auto_deploy.sh 都每 2min). 用户已 crontab_safe.sh remove. 查什么再加它 (crontab 重建脚本? backup 恢复? convergence?) 或加 framework 防同脚本双行守卫. 非 convergence machine_sync (两行都含 auto_deploy.sh 被 matched 不 missing).",
       "V37.9.111-hotfix follow-up C: kb_harvest_chat LLM Reduce 超时 — 6/4 对话 163 轮/37.7 万字/9 chunks, 9 Map 全成功但 Reduce 合并 9 段 LLM 失败 (6/3 也 timeout). 大对话日 Reduce 超容量/超时. 数据没丢(在 ~/.kb/conversations/). 修法: chunked Reduce(分批合并) 或 Reduce retry 或减小 Map chunk.",
       "V37.9.112 已完成 (b) ai_leaders_bsky 接入 Opportunity Radar #2 (top_alignment_picker ALIGNED_SOURCES 9→10, 3 消费方自动生效). 剩余 follow-up (Mac Mini handle 验证后, 非高优): (a) 首跑 log WARN 剪死 handle + 补可达 contrarian 大神 (howard.fm 自定义域名 / garymarcus.bsky.social / emilymbender.bsky.social 候选待验 / fchollet 替代) (c) 2x/天频率评估 (实时短观点价值) + 评估 Bluesky app-password 认证读 login-required 账号",
-      "V37.9.110+113 follow-up (升级版, MR-9 测试污染生产 bug 类 framework 化): V37.9.113 已 framework 化 convergence-specific 部分 (TestV37_9_113 AST 反回归守卫 + 行为级正/负对照 sentinel, 拆 test_convergence 真改 crontab/真跑 kb_embed 地雷). 剩余 (专门 session): (a) 立元规则 MR-22 governance-runtime-tests-must-isolate-production-state — V37.9.110 test_movespeed 写真 incidents.jsonl + V37.9.113 test_convergence 真改 crontab 共 2 实例已达立元规则门槛 (b) generic MRD scanner 扫所有 governance runtime python_assert 跑的测试 (INV-RETRY-001 test_movespeed / INV-CONVERGENCE test_convergence / 等) 是否写生产 state 文件 (~/.kb/*.jsonl / crontab / kb_embed 真跑), 跨多测试文件 framework 化此 bug 类"
+      "V37.9.110+113 follow-up (升级版, MR-9 测试污染生产 bug 类 framework 化): V37.9.113 已 framework 化 convergence-specific 部分 (TestV37_9_113 AST 反回归守卫 + 行为级正/负对照 sentinel, 拆 test_convergence 真改 crontab/真跑 kb_embed 地雷). 剩余 (专门 session): (a) 立元规则 MR-22 governance-runtime-tests-must-isolate-production-state — V37.9.110 test_movespeed 写真 incidents.jsonl + V37.9.113 test_convergence 真改 crontab 共 2 实例已达立元规则门槛 (b) generic MRD scanner 扫所有 governance runtime python_assert 跑的测试 (INV-RETRY-001 test_movespeed / INV-CONVERGENCE test_convergence / 等) 是否写生产 state 文件 (~/.kb/*.jsonl / crontab / kb_embed 真跑), 跨多测试文件 framework 化此 bug 类",
+      "#28 auto_deploy crontab 双行复发根因 (07:00 fail 已诊断+修复): 真实 07:00 治理审计 fail = INV-CRON-004 (auto_deploy.sh 双行: 仓库路径 ~/openclaw-model-bridge/auto_deploy.sh + HOME 路径 ~/auto_deploy.sh, endswith matcher 检测同脚本双调用). 第 3 次复发 (V37.9.106/111-hotfix 同款). 用户 6/5 16:44 crontab_safe.sh remove HOME 路径行 42→41 已修. 排查: convergence 证伪 (dev 测 line_contains_identifier 对仓库路径行正确识别 auto_deploy.sh 存在不重加) + grep repo/$HOME *.sh 无脚本加 HOME 路径行 (只注释且注释写仓库路径形式). 剩余根因候选 (专门 session, 功能无害非紧急): (a) crontab backup 恢复 (.crontab_backups/ 旧备份含双行被 restore) (b) 一次性手动 (c) 加 framework 守卫 prevent 同脚本双 crontab 行. 监控: 本次 remove 后观察是否第 4 次复发 + 何时 (correlate 进程)."
     ],
     "open_prs": "",
     "blocked_on": "",
@@ -338,10 +339,10 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 4048,
-    "last_regression": "2026-06-05 05:25 pass",
+    "test_count": 4053,
+    "last_regression": "2026-06-05 08:18 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-05 05:25",
+    "security_score_time": "2026-06-05 08:18",
     "test_suites": 114,
     "governance_invariants": "85/85",
     "governance_checks": "790/790",
@@ -410,7 +411,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.113 (2026-06-05 周五): test_convergence 测试隔离 (follow-up #27 HIGH, 用户选). 拆除 MR-9 测试污染生产地雷 — governance INV-CONVERGENCE-CRON-001 跑整个 test_convergence.py 含真 jobs_to_crontab/kb_sources_to_index machine_sync spec 测试, Mac Mini V37.9.58 默认 real apply 会真改 crontab/真跑 kb_embed (同 V37.9.110 bug 类). 今天 governance apply[real]=40 实锤. 修: 4 类加 CONVERGENCE_DRY_RUN=1 setUp 隔离 + 2 e2e 改纯函数 _resolve_dry_run_for_spec + Layer B governance subprocess env + TestV37_9_113 守卫类 (AST 反回归 + 行为级正/负对照 sentinel + 反向验证守卫真有效 sabotage→抓). 114 suites/4042→4048 tests/0 fail/governance exit 0/安全 95/README 同步 4048/VERSION 0.37.9.68 不变 (无新 INV, 镜像 V37.9.110 fix+守卫类模式). Mac Mini 待用户 git fetch+reset 同步 (下次 governance audit cron 07:00 跑 test_convergence 不再真 apply 拆雷). 下次候选: MR-22 + generic MRD scanner (扫所有 governance-run 测试是否写生产 state, V37.9.110+113 共 2 实例达立元规则门槛, 跨多测试文件专门 session) / kb_harvest Reduce 超时 (#29) / 日期门控 ~6/8+ (INV-OBSERVER/services flip/源可信度).",
+  "focus": "V37.9.114 (2026-06-05 周五): governance check glob symlink hang 修复 (12:30 watchdog 告警诊断副产物). INV-AUTO-INJECT-001 用 abspath(__file__)+glob('**',recursive=True), 经 ~/ontology symlink 调用时 repo_root 误得 $HOME → glob 整个家目录跟随 symlink 遇环 100% CPU 挂死. 修: realpath(__file__) 解析 symlink + os.walk(followlinks=False) 不跟随 symlink + 跳大目录 + 全 for-loop 避 exec 作用域陷阱. 5 新守卫 (源码 + 行为级 symlink 环不挂 signal.alarm). 114 suites/4048→4053 tests/0 fail/governance exit 0/安全 95. 关键: 07:00 cron 用仓库相对路径不挂, 那两次 30min hang 是我诊断命令用错 ~/ontology symlink 路径的副产物. **真实 07:00 治理审计 fail 仍待用户用正确路径诊断** (cd ~/openclaw-model-bridge && python3 ontology/governance_checker.py --full | grep ❌💥), 独立于本 glob 修复. 今日已交付 V37.9.112 (Bluesky→Radar#2, 已合并 PR#647) + V37.9.113 (test_convergence 隔离, 已合并 PR#648) + V37.9.114 (glob hang 修复, 待推送). 下次候选: 真实 07:00 fail 诊断 / MR-22 generic MRD scanner / kb_harvest Reduce 超时 #29.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",

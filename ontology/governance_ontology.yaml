@@ -6968,15 +6968,34 @@ invariants:
       - name: "RUNTIME: 任何 inject_*.py/migrate_*.py 必须含 scanner 集成 (当前无此类文件=pass)"
         check_type: python_assert
         code: |
-          import os, glob, re
-          repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) \
-              if "ontology" in os.path.abspath(__file__) \
-              else os.path.dirname(os.path.abspath(__file__))
+          import os, re, fnmatch
+          # V37.9.114: realpath (非 abspath) 解析 ~/ontology symlink → 仓库根. 原 abspath(__file__)
+          # 在 `python3 ~/ontology/governance_checker.py` (经 V37.9.12.1 symlink) 调用下误解析
+          # repo_root=$HOME → glob($HOME/**, recursive=True) 跟随 symlink 遍历整个家目录
+          # (venv 109M/.openclaw media+logs/.kb) 100% CPU 无限挂死 (V37.9.114 血案).
+          _real = os.path.realpath(__file__)
+          if "ontology" in _real:
+              repo_root = os.path.dirname(os.path.dirname(_real))
+          else:
+              repo_root = os.path.dirname(_real)
+          # V37.9.114: os.walk(followlinks=False) 替代 glob('**', recursive=True) — 后者跟随
+          # symlink 遇环无限遍历挂死; os.walk 默认不跟随 symlink + 跳过大目录有界.
+          # 全用 plain for-loop 不用 comprehension — exec() 作用域陷阱 (V37.3/V37.9.100):
+          # exec'd 代码里 comprehension 新作用域看不到 exec-local 变量 (skip_dirs/patterns) → NameError.
           patterns = ["inject_*.py", "migrate_*.py"]
+          skip_dirs = (".git", "__pycache__", "node_modules", "venv", "venv_pptx", ".kb", ".openclaw")
           found_tools = []
-          for pat in patterns:
-              found_tools.extend(glob.glob(os.path.join(repo_root, pat)))
-              found_tools.extend(glob.glob(os.path.join(repo_root, "**", pat), recursive=True))
+          for dp, dns, fns in os.walk(repo_root, followlinks=False):
+              pruned = []
+              for d in dns:
+                  if d not in skip_dirs:
+                      pruned.append(d)
+              dns[:] = pruned
+              for f in fns:
+                  for pat in patterns:
+                      if fnmatch.fnmatch(f, pat):
+                          found_tools.append(os.path.join(dp, f))
+                          break
           found_tools = [f for f in found_tools
                          if not any(skip in f for skip in ["__pycache__", "test_", ".git"])]
           violations = []
