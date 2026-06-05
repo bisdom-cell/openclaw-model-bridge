@@ -1,6 +1,6 @@
 {
-  "updated": "2026-06-05 03:33:17",
-  "updated_by": "full_regression",
+  "updated": "2026-06-05 04:43:12",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-06-05",
+      "what": "V37.9.112: ai_leaders_bsky 接入 Opportunity Radar #2 (大神实时短观点→机会点雷达, V37.9.110/111 Bluesky 上线自然收口, 用户从 3 纯 dev 方向选). top_alignment_picker ALIGNED_SOURCES 9→10 加 ai_leaders_bsky (社媒档 prio 6 同 ai_leaders_x tweet 类, dev jobs/ai_leaders_bsky/cache + Mac Mini ~/.openclaw/jobs/ai_leaders_bsky/cache 双 layout). #2 高对齐显式接入; #1 跨源+#3 趋势经 ai-leaders-bsky KB notes 自动含无需改. 3 消费方 (kb_dream Phase 1.5/kb_radar_collect/kb_evening_collect) 经 pick_top_aligned 迭代 ALIGNED_SOURCES 零改 (grep 确认无硬编码 source 列表, picker 单一真理源 MR-8). 下游 100% 复用 blogs 管道 — llm_results.jsonl {idx/content/failed} 与 ai_leaders_blogs 逐字一致 + 启动截断无 stale → picker scan 零改. smoke test: ⭐5 pick 产 - ⭐⭐⭐⭐⭐ [大神实时] ... 进 Top 5 block, ⭐3 被 min_stars=4 过滤. 2 新单测 test_top_alignment_picker 68→69 (test_10_aligned_sources_registered 9→10 + test_ai_leaders_bsky_is_social_tier_priority_6 社媒 prio 6 守卫) + 3 docstring 修漂移 (picker header 8→10 补漏 V37.9.109 ai_leaders_blogs + kb_evening 9→10 + 类 docstring). 114 suites 不变/4041→4042 tests/0 fail/governance 804 checks/安全 95/README 徽章同步 4042/VERSION 0.37.9.68 不变 (source 配置扩展). ai_leaders 三段式机会点引擎全维度闭环: X(V27退化产0)→博客长文(V37.9.108收集→Radar#2 V37.9.109)→Bluesky实时短帖(V37.9.110/111收集→Radar#2 V37.9.112). 复用 blogs 管道零重造仅 ALIGNED_SOURCES 1 条目改 (MR-8). Mac Mini 待用户: git fetch+reset 同步, 下次 kb_radar 06:00/dream 03:00/evening 22:00 cron ⭐≥4 大神实时短观点进 Top 5 雷达+跨源+趋势.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-05",
       "what": "V37.9.111-hotfix: Bluesky 首跑 handle 漂移修复 + 生产告警诊断闭环 (用户合并 PR #645 后 Mac Mini 首跑). 🦋 首跑 7/10 handle 活 → 17 帖全解析 → 推 4 窗口 + 🎚️ 高对齐 1 = 管道工作. 3 个 HTTP 400=Profile not found (handle 漂移非隐私, curl body 实证): ylecun→yann-lecun.bsky.social / timnitgebru→timnitgebru.blacksky.app (searchActors 查现 handle) / fchollet 停用→剪枝 (10→9 账号). 生产告警数据驱动诊断 (原则 #28 零盲改): INV-MOVESPEED=caller.sh 测试桩污染(已清+隔离修复生效绿) / INV-ROUTER=07:00 stale 自愈绿 / 2 convergence💥=transient(单跑318 OK)自愈 / INV-CRON-004=auto_deploy 双行(V37.9.106 复发, 用户 crontab_safe.sh remove HOME 行→721/721). 关键发现: test_convergence ~10 处 real-spec verify_convergence 无 dry-run 守卫→Mac Mini real apply 真改 crontab(V37.9.110 test 污染生产同 bug 类, latent landmine, 专门 session 隔离). 114 suites/4040→4041 tests/0 fail/安全 95/VERSION 不变.",
       "by": "claude_code"
     },
@@ -198,11 +203,6 @@
       "date": "2026-06-02",
       "what": "V37.9.99 S2 key 批准后微调: S2 邮件确认限额 1 request/second 且明确要求设到阈值以下 (印证 V37.9.99 修正的独占 1 RPS 非 100/sec). 认证模式间隔 S2_KW_SLEEP 1s→2s 安全余量 (6 关键词仅多 6s, 避免恰好在 1 RPS 阈值偶发 429). 更新 test_v37_9_98_s2_api_key 断言 1→2. 安全: key 只存 env 永不入仓库 (grep s2k- 确认 0 泄漏), 用户在 Mac Mini 加 S2_API_KEY 到 cron env (REMOTE_API_KEY 同处). VERSION 0.37.9.68 不变.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-06-02",
-      "what": "V37.9.99 #14 ai_leaders 复盘 + 429 节流修复 (用户拉 Mac Mini 6/1+6/2 fetch log). 关键发现: 不是僵尸问题, 是 V37.9.95 账号 19→31 翻倍后撞 X Syndication HTTP 429 限流 — ~16/31(21:00)/~11/31(09:00) fail, 且失败账号两次 run 轮换 (AndrewYNg/BarrySmith46/IanHorrocks 一次 fail 一次 ok = 账号活着非僵尸, 原 #14 清僵尸框架不适用). 真因: 旧 inter-account sleep 3 只在成功路径 (失败 continue 跳过) → 限流命中后失败账号 rapid-fire (16 WARN 挤 21:00:02 同一秒). 修复 (原则#28三问: V37.9.95翻倍引入/最小修复=节流移循环顶部): AI_LEADERS_FETCH_DELAY 默认5s + FETCH_IDX 守卫移到循环顶部 (第一个不sleep, 对成功+失败账号都生效, 31×5s≈155s摊开远低于限流阈值), 删旧成功路径 sleep 3. 不回退 31 账号 (修节流非账号数). 8 新单测 (节流在fetch前+在continue前+旧sleep3移除+31账号保留) + 反向验证 (移回成功路径→fail). 次要观察待后续: 所有 ok 账号都0条新推文 (可能 seen-dedup 正常 / 可能 14天窗口+dedup 问题, 不盲改). VERSION 0.37.9.68 不变.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -269,11 +269,11 @@
       "V37.9.106 部署后 24h 验证 (~2026-06-05): 现有 30 条 MOVESPEED TM-争用 incident 老化出 24h 窗口后 INV-MOVESPEED-TCC-001 应自动转绿 → 治理审计 721/721 全绿. 验证: python3 ~/movespeed_incident_analyzer.py --window 24h 应显示 incidents 大降 (tmutil 预检让 TM 备份时 rsync 跳过不产新 incident). 若仍红说明 TM 之外还有 incident 来源待查.",
       "ontology-engine chunk 3b (聚焦 session): MRD 扫描模式文件名参数化 — governance_checker.py 的 ~10 个 _discover_* 把 jobs_registry.yaml/notify.sh/jobs/*/run_*.sh 文件名模式从代码移到 Layer 2 配置, framework 只读模式表. 注意: 根已 _PROJECT_ROOT 注入 (chunk 3a 之前就有), 仅文件名模式硬编码, 且消费方缺文件已优雅 no-op (非 correctness bug 仅配置化 nicety). 触碰 MR-4 血案防护扫描器, 需单独聚焦 session 不与其他捆绑. 设计: 在 governance_ontology.yaml meta 或新 Layer-2 文件加 mrd_scan_patterns, 向后兼容默认 = 当前 bridge 模式. 见 docs/ontology_engine_packaging.md §5 row 4 + §6 chunk 3b.",
       "ai_leaders_blogs (V37.9.108) Mac Mini feed 可达性验证 + 后续: (a) 首跑后看 log WARN 剪死链 (Anthropic news/Karpathy bearblog URL 是 candidate 待验, Substack /feed 标准应可达) + 补可达大神 feed (b) V37.9.109+ Bluesky 免费无认证 API (public.api.bsky.app getAuthorFeed) 加实时短观点维度 — 学者已大规模迁入 (arXiv 2505.24801), 需 handle→DID 解析 + getAuthorFeed 抓取 + 查哪些大神在 Bluesky (c) 验证稳定后真停用 ai_leaders_x: 需同步更新 6 依赖 (kb_review/source_credibility/INV-REVIEW-001/INV-BACKUP-001/config/wa_gateway_resilience 都期望 ai_leaders_x 为内容源) + Mac Mini crontab_safe.sh remove 清 cron 行 (d) ai_leaders_blogs 接入 Opportunity Radar 三件套 (跨源共振 #1 / 项目对齐 #2 / 趋势加速 #3) 作高质量信号源",
-      "V37.9.111 follow-up (Mac Mini handle 验证后): (a) 首跑 log WARN 剪死 handle + 补可达大神 (howard.fm 自定义域名 / garymarcus.bsky.social / emilymbender.bsky.social 候选待验) (b) **V37.9.112 ai_leaders_bsky 接入 Opportunity Radar #2**: top_alignment_picker ALIGNED_SOURCES 9→10 加 ai_leaders_bsky (社媒档 priority, 镜像 V37.9.109 blogs 模式 + dev/Mac Mini 双 cache_paths). 前置: Mac Mini 验证 handle 可达产真 llm_results.jsonl 再 wire (避免未验证源 0 picks). 注意: #1 跨源 (cross_source 扫所有 KB notes) + #3 趋势 (kb_trend KB 关键词) 经 ai-leaders-bsky KB notes 已自动含无需改, 仅 #2 显式 wiring 是 follow-up (c) 2x/天频率评估 (实时短观点价值)",
       "V37.9.110 follow-up: (a) MRD scanner governance-runtime-tests-must-isolate-production-state — 扫所有 governance runtime python_assert 跑的测试 (INV-RETRY-001 等) 是否写生产 state 文件 (~/.kb/*.jsonl 等), framework 化测试污染生产 bug 类 (MR-9). 本次只修 test_movespeed_rsync_helper 一个实例, 其他 governance-run 测试可能有同款. (b) 重评 V37.9.106 MOVESPEED 36 incidents 数据真实性 — 剔除 caller.sh 测试污染后看真 Time Machine 争用还剩多少, tmutil 预检修复是否基于污染数据. (c) Mac Mini 清现存 72 条 caller.sh 污染条目 (grep -v 或等 24h 老化).",
       "V37.9.111-hotfix follow-up A (HIGH, 专门 session): test_convergence.py 隔离 — ~10 处 verify_convergence(jobs_to_crontab/kb_sources_to_index) 无 CONVERGENCE_DRY_RUN 守卫, Mac Mini real apply 真改 crontab/真跑 kb_embed (V37.9.110 test 污染生产同 bug 类, MR-9, V37.9.110 登记的 governance-runtime-tests-must-isolate-production-state). 当前 missing=0 无活跃污染但 latent. 修法: real-spec 测试加 patch.dict CONVERGENCE_DRY_RUN=1 + 改 V37.9.58 real-apply 断言为 dry-run 断言 (多处, 风险高). 评估 MRD scanner framework 化此 bug 类.",
       "V37.9.111-hotfix follow-up B: auto_deploy.sh crontab 双行复发根因 — V37.9.106 删过 HOME 路径行(40→39)又复发(repo 路径 ~/openclaw-model-bridge/auto_deploy.sh + HOME 路径 ~/auto_deploy.sh 都每 2min). 用户已 crontab_safe.sh remove. 查什么再加它 (crontab 重建脚本? backup 恢复? convergence?) 或加 framework 防同脚本双行守卫. 非 convergence machine_sync (两行都含 auto_deploy.sh 被 matched 不 missing).",
-      "V37.9.111-hotfix follow-up C: kb_harvest_chat LLM Reduce 超时 — 6/4 对话 163 轮/37.7 万字/9 chunks, 9 Map 全成功但 Reduce 合并 9 段 LLM 失败 (6/3 也 timeout). 大对话日 Reduce 超容量/超时. 数据没丢(在 ~/.kb/conversations/). 修法: chunked Reduce(分批合并) 或 Reduce retry 或减小 Map chunk."
+      "V37.9.111-hotfix follow-up C: kb_harvest_chat LLM Reduce 超时 — 6/4 对话 163 轮/37.7 万字/9 chunks, 9 Map 全成功但 Reduce 合并 9 段 LLM 失败 (6/3 也 timeout). 大对话日 Reduce 超容量/超时. 数据没丢(在 ~/.kb/conversations/). 修法: chunked Reduce(分批合并) 或 Reduce retry 或减小 Map chunk.",
+      "V37.9.112 已完成 (b) ai_leaders_bsky 接入 Opportunity Radar #2 (top_alignment_picker ALIGNED_SOURCES 9→10, 3 消费方自动生效). 剩余 follow-up (Mac Mini handle 验证后, 非高优): (a) 首跑 log WARN 剪死 handle + 补可达 contrarian 大神 (howard.fm 自定义域名 / garymarcus.bsky.social / emilymbender.bsky.social 候选待验 / fchollet 替代) (c) 2x/天频率评估 (实时短观点价值) + 评估 Bluesky app-password 认证读 login-required 账号"
     ],
     "open_prs": "",
     "blocked_on": "",
@@ -339,10 +339,10 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 4041,
-    "last_regression": "2026-06-05 03:32 pass",
+    "test_count": 4042,
+    "last_regression": "2026-06-05 04:37 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-05 03:32",
+    "security_score_time": "2026-06-05 04:37",
     "test_suites": 114,
     "governance_invariants": "85/85",
     "governance_checks": "790/790",
@@ -411,7 +411,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.110 (2026-06-05 周五): ai_leaders 加 Bluesky 实时短观点维度 (用户选, #32 反馈延续). 新 job ai_leaders_bsky 17:00 HKT, getAuthorFeed JSON 抓取 + 下游 100% 复用 blogs 管道 (MR-8). 10 大神 contrarian 为主 (8 confirmed handle). 114 suites/4036 tests/0 fail/governance 805/安全 95. ai_leaders 三渠道闭环: X(429退化)→博客长文(V37.9.108)→Bluesky实时短观点(V37.9.110). **Mac Mini 待用户**: git fetch+reset 同步 + 注册 17:00 cron (crontab_safe.sh add) + 首跑验证 10 handle 可达性 (FAIL-OPEN 死链剪枝, howard.fm 自定义域名+garymarcus/emilymbender 候选待验) + 收 🦋 推送. **follow-up**: V37.9.111 ai_leaders_bsky 接入 Opportunity Radar #2 (top_alignment_picker 9→10, 需先验证 handle 产真数据再 wire; 今天 KB notes 已自动喂 Radar #1 跨源+#3 趋势). 日期门控: INV-OBSERVER/services flip ~6/8 / 源可信度 INV ~6/9 / OpenClaw ~6/15.",
+  "focus": "V37.9.112 (2026-06-05 周五): ai_leaders_bsky 接入 Opportunity Radar #2 (用户选, follow-up #112). V37.9.111-hotfix 首跑验证数据已产 (7/10 handle/17 帖/高对齐 1) → wire. top_alignment_picker ALIGNED_SOURCES 9→10 加 ai_leaders_bsky (社媒档 prio 6 同 ai_leaders_x), 3 消费方 (kb_dream/radar/evening) 经 pick_top_aligned 自动生效零改 (picker 单一真理源 MR-8). 下游 100% 复用 blogs 管道 llm_results.jsonl 逐字一致 → scan 零改. smoke test ⭐5 进 Top 5 [大神实时] + ⭐3 阈值过滤. 2 新单测 + 3 docstring 修漂移. 114 suites/4042 tests/0 fail/governance 804/安全 95/README 徽章同步/VERSION 0.37.9.68 不变. ai_leaders 三段式机会点引擎全维度闭环: X退化→博客长文(Radar#2 V37.9.109)→Bluesky实时短帖(Radar#2 V37.9.112). Mac Mini 待用户: git fetch+reset 同步 (FILE_MAP 部署 top_alignment_picker.py), 下次 kb_radar 06:00/dream 03:00/evening 22:00 cron ⭐≥4 大神实时观点进 Top 5 雷达. 下次候选: test_convergence 隔离 (follow-up #27 HIGH 专门 session, MR-9 测试污染生产同 V37.9.110 bug 类) / kb_harvest Reduce 超时 (#29). 日期门控: INV-OBSERVER/services flip ~6/8 / 源可信度 ~6/9 / OpenClaw ~6/15.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",

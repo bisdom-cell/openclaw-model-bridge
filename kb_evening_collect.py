@@ -207,7 +207,7 @@ def collect_trend_signals_for_evening(radar_dir=None, max_strong=3, max_decel=2)
 
 
 def collect_top_alignment_picks_for_evening(repo_root=None, min_stars=4, top_n=5):
-    """V37.9.56 Sub-Stage 4c: 读今日 9 ALIGNED source 高对齐 Top N → 推送段 (V37.9.108: +ai_leaders_blogs).
+    """V37.9.56 Sub-Stage 4c: 读今日 10 ALIGNED source 高对齐 Top N → 推送段 (V37.9.112: +ai_leaders_bsky).
 
     Args:
         repo_root: 仓库根目录 (None → 取本脚本所在目录, Mac Mini 是 $HOME)
