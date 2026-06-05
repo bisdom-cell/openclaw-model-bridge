@@ -5,7 +5,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-4040%20passed-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-4041%20passed-brightgreen.svg)]()
 [![Providers](https://img.shields.io/badge/providers-8%20supported-orange.svg)]()
 [![Governance](https://img.shields.io/badge/invariants-87%2F87%20%2B%2021%20MR-blueviolet.svg)]()
 [![Security](https://img.shields.io/badge/security-95%2F100-green.svg)]()

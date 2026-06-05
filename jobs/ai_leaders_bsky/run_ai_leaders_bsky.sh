@@ -81,17 +81,19 @@ send_alert() {
 mkdir -p "$CACHE" "${KB_BASE:-$HOME/.kb}/sources"
 test -f "$KB_SRC" || echo "# AI 大神实时观点 (Bluesky)" > "$KB_SRC"
 
-# ── AI 大神 Bluesky 账号 (V37.9.111) ────────────────────────────────
+# ── AI 大神 Bluesky 账号 (V37.9.111 → V37.9.111-hotfix 首跑剪枝) ──────
 # 格式：handle|label
 # 策展原则: (1) AI 领域顶尖个人学者/专家 (2) 不同意见/流派 (偏重 contrarian, 用户核心诉求)
 #   (3) 实时短观点 (与 ai_leaders_blogs 长文互补)。
-# ⚠️ handle 是 candidate (8 个 confirmed via WebSearch + 2 个高置信待验),
-#   Mac Mini 首跑验证 — 死 handle 会 log "WARN: X Bluesky 抓取失败，跳过" (FAIL-OPEN),
-#   之后剪枝 (V37.9.108-hotfix 同款模式)。Bluesky actor 参数接受 handle 或自定义域名。
+# ⚠️ V37.9.111-hotfix (2026-06-05 Mac Mini 首跑验证): 7/10 首跑可达。3 个 HTTP 400
+#   = "Profile not found" (handle 漂移, 非隐私): 高粉大神常迁自定义域名释放 .bsky.social。
+#   修法 — ylecun→yann-lecun.bsky.social (验证可用) / timnitgebru→timnitgebru.blacksky.app
+#   (searchActors 确认迁 blacksky.app 社区域名) / fchollet 停用 (searchActors 搜不到) → 剪枝。
+#   handle 维护工具: curl public.api.bsky.app/xrpc/app.bsky.actor.searchActors?q=NAME 查现 handle。
+#   每账号 FAIL-OPEN, 死 handle log WARN + 跳过不杀 job (V37.9.108-hotfix 同款剪枝模式)。
 BSKY_ACCOUNTS=(
     # ── 世界模型 / 反 LLM-AGI 路线 ──
-    "ylecun.bsky.social|Yann LeCun(Meta,世界模型派/反LLM-AGI路线)"
-    "fchollet.bsky.social|François Chollet(ARC-AGI/Keras,抽象推理/反scale-is-all)"
+    "yann-lecun.bsky.social|Yann LeCun(Meta,世界模型派/反LLM-AGI路线)"
     # ── AI 理解 / 复杂系统怀疑派 ──
     "melaniemitchell.bsky.social|Melanie Mitchell(Santa Fe,AI理解怀疑/复杂系统)"
     # ── LLM 推理 / 规划怀疑派 ──
@@ -99,13 +101,14 @@ BSKY_ACCOUNTS=(
     # ── 炒作祛魅 / 批判性 AI (实时短观点 vs AI Snake Oil 长文) ──
     "randomwalker.bsky.social|Arvind Narayanan(Princeton,AI炒作祛魅/实时短评)"
     # ── AI 伦理 / 治理 ──
-    "timnitgebru.bsky.social|Timnit Gebru(DAIR,AI伦理/批判)"
+    "timnitgebru.blacksky.app|Timnit Gebru(DAIR,AI伦理/批判)"
     "mmitchell.bsky.social|Margaret Mitchell(HuggingFace,AI伦理/治理)"
     # ── 开源 / 实用 / 民主化派 ──
     "howard.fm|Jeremy Howard(fast.ai,开源/AI民主化/实用派)"
-    # ── 高置信候选 (Mac Mini 验证, FAIL-OPEN 剪枝) ──
+    # ── 神经符号 / NLP 怀疑派 ──
     "garymarcus.bsky.social|Gary Marcus(神经符号/反LLM-AGI,实时短评vs Substack长文)"
     "emilymbender.bsky.social|Emily Bender(UW,NLP/stochastic parrots/反炒作)"
+    # V37.9.111-hotfix 剪枝: fchollet.bsky.social (François Chollet 账号停用, searchActors 搜不到现 handle)
 )
 
 SEEN_FILE="$CACHE/seen_urls.txt"
