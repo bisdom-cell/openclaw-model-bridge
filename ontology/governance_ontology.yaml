@@ -714,6 +714,98 @@ meta_rules:
       四个 job 有 last_run.json 但不在 JOBS 数组. 同时 11 个 job 无 last_run
       但有 log mtime 可监控 (auto_deploy / wa_keepalive / cron_canary 等).
 
+  - id: MR-22
+    name: sunset-over-accretion
+    description: |
+      日落法 (Sunset Law) — 系统演进的默认动作是"退役/合并"，不是"新增"。
+      2026-06-05 确立为项目北极星：未来后续发展以降低系统复杂度为目标。
+
+      核心论断（2026-06-05 深度反思）:
+      意外频发的真因不是"系统复杂"(部件难懂)，是"系统组合"(简单正确的部件，
+      其交互面积超线性增长，超过测试覆盖能力)。每一个意外都是简单正确部件的
+      新组合:
+        - symlink + abspath + 用 ~/ontology 路径调用 = 挂死 (三者缺一不爆)
+        - machine_sync + 裸名 entry + 格式错配 + 审计不 dry-run = 三次复发
+      复杂关乎部件，意外关乎接缝。
+
+      三条操作规则:
+        (1) 加之前先问能否退役 — 每加一层 (新防御/新表示/新路径/新框架) 之前，
+            必须先问"能否退役一个等价的现有机制"。原则 #8 "做减法不做加法" 的
+            战略升级 — 不只是"别加"，是"主动退役"。
+        (2) 一物一形 — 同一逻辑事物只应有一个物理表示。多重表示 (路径/文件/
+            身份) 必然漂移，bug 住在表示之间的缝里 (auto_deploy 两份文件两条
+            crontab 路径 / ~/ontology symlink vs repo 路径)。
+        (3) 防御本身是事故面 — convergence 框架为关闭"声明态-运行时态"缺口而
+            建，却用 machine_sync 改生产成了新事故类 (药参与病)。所以"再加一层
+            治理"往往不是答案，"缩小接缝"才是。
+
+      MR-22 与既有元规则的关系:
+        - MR-8 (copy-paste-is-a-bug-class) 复制是"多表示"的一种特例
+        - MR-15 (deployment-layout) 部署多形 (~/jobs vs ~/.openclaw/jobs) 是漂移源
+        - 原则 #8 (做减法不做加法) MR-22 是其战略化北极星版本
+
+    enforcement:
+      - "加新机制 (脚本/不变式/MR/框架/表示/路径) 前必须在 changelog 说明：能否退役等价旧机制？"
+      - "收工时审视复杂度账本 — suites/invariants/MR 数量增长是否对应价值增长，而非堆叠"
+      - "优先 sunset/merge，不优先 add — 减少一物多形、缩小 dev-production 接缝、让观察者只读"
+
+    derivative_invariants: []  # 战略元规则，刻意不铸新不变式 (践行日落法本身)，靠 changelog + review 纪律执行
+
+    blood_lessons: |
+      2026-06-05 深度反思 (用户问"为什么发生这么多意外？仅因系统变复杂？"):
+      一天五版 (V37.9.112-116) 意外频发。逐层剖析根因:
+        ① 组合非复杂 — 部件都简单正确，意外在新组合 (超线性交互面积 > 测试覆盖)
+        ② 地图≠领土 — 4063 测试全在 dev 跑，事故全在 production 接缝 (真 crontab/
+           symlink/macOS BSD 工具/网络/时间)。dev mock 判 missing=空，Mac Mini 真 apply
+        ③ 观察者改被观察者 — 07:00 审计 real-apply 改它审计的 crontab (MR-9 第3次)；
+           我的诊断命令 (governance via symlink) 本身是 30min 挂死源 (观察制造问题)
+        ④ 不完整修复伪装完整 — V37.9.114 修单 check 过全部测试，根在 _resolve_project_root
+           (V37.9.115)；V37.9.106/111 删 line 54 三次从不找根
+        ⑤ 潜伏条件累积 — 局部正确的旧决策 (symlink V37.9.12.1 / dry-run 切关 V37.9.58)
+           组合成新事故。每个决策局部对，全局加组合面积
+      元层: 治理验证"代码符合规则"，验证不了"规则符合现实/部署符合假设"。87 不变式
+      全在仓库内层验证仓库自己，事故住在仓库-真实 Mac Mini 的接缝里 (无测试覆盖)。
+      平衡视角: 很多"意外"是免疫系统开火 (watchdog 抓重复 / 反向验证抓我的不完整守卫 /
+      原子实验证根)。零意外可能只是免疫系统瞎了 (MOVESPEED 潜伏 60 天)。今天看得狠
+      所以暴露债多 — 这是好的运维卫生，不是退步。
+
+  - id: MR-23
+    name: audit-observes-never-mutates
+    description: |
+      任何治理/审计/监控操作绝不允许 mutate 它所审计的系统状态。自愈 (self-heal)
+      必须是 operator 显式刻意动作，不是审计的副作用。观察者必须与被观察者隔离 —
+      否则观察就变成修改，系统开始制造自己的事故。
+
+      这是把"审计"和"自愈"的范畴错误纠正回来:
+        - 审计 (audit) = 只读观察 + 告警 drift。检测，不改变。
+        - 自愈 (machine_sync apply) = 显式 operator 动作。手动跑/专门 cron，不是审计副作用。
+      把两者混在一个操作里 (07:00 审计顺手 real-apply) 让系统在每次"体检"时被"手术"。
+
+      MR-23 与既有元规则的关系:
+        - MR-7 (governance-execution-is-self-observable) 关心"观察者可被观察"；
+          MR-23 进一步要求"观察者不可改变被观察者"
+        - MR-9 (state-writes-go-through-helper) MR-23 是其在治理层的泛化 —
+          治理运行的东西 (测试/审计) 都不应静默写生产状态
+        - MR-17 (declared→runtime convergence) machine_sync 是兑现 MR-17 的手段，
+          但 MR-23 要求它走"显式动作"路径，不是"审计副作用"路径
+
+    enforcement:
+      - "governance audit cron 跑 convergence 必须 CONVERGENCE_DRY_RUN=1 (V37.9.116, test_v37_9_116 守卫)"
+      - "治理 runtime check 跑的测试必须隔离生产状态 (V37.9.113, test_convergence setUp dry-run)"
+      - "machine_sync apply 是 operator 显式动作 (手动无 env=real-apply)，不是 07:00 审计副作用"
+
+    derivative_invariants: []  # 复用既有守卫 (test_v37_9_116 + test_convergence 隔离类)，不铸新不变式 (践行 MR-22 日落法)
+
+    blood_lessons: |
+      MR-9 "governance-run 不应 mutate 生产" bug 类三次演出 (一次比一次深):
+        V37.9.110 (2026-06-04): test_movespeed 写真 incidents.jsonl → 灌爆假 watchdog 告警
+        V37.9.113 (2026-06-05): test_convergence runtime check 真改 crontab/真跑 kb_embed
+        V37.9.116 (2026-06-05): 07:00 生产审计本身 real-apply crontab → auto_deploy 双行
+                                3 次复发 (V37.9.106/111/116)，每次审计重加 line 54
+      前两次是"测试污染生产"，第三次是"生产审计本身静默改它审计的系统" — 同根最深演出。
+      2026-06-05 反思补充: 我的诊断命令 (python3 ~/ontology/governance_checker.py via
+      symlink，无 dry-run env) 也会 real-apply 重加 line 54 — 观察行为即修改行为。
+
 # ═══════════════════════════════════════════════════════════════════════
 # 3. 不变式（Invariants）— 可执行的声明-执行-验证三元组
 # ═══════════════════════════════════════════════════════════════════════
@@ -9111,7 +9203,7 @@ security_config:
 # 6. 审计元数据
 # ═══════════════════════════════════════════════════════════════════════
 audit_metadata:
-  version: "3.53"
+  version: "3.54"
   created: "2026-04-07"
   upgraded: |
     v3.51 → v3.52: V37.9.97 services_to_launchd Plan B 升级 — convergence framework
@@ -9198,7 +9290,7 @@ audit_metadata:
     v3.10 → v3.11: V37.8.5 INV-X-001 升级三层检测 (血案二次演出: V37.8.4 修复本身埋盲区) — V37.8.4 收工 Mac Mini E2E 即发现 2 个边缘：CNS1952 98/99 超窗口 + 1 过短老化率 99% 但未触发严格 old==total (MR-10 第 2 次演出：修复会埋坑)；SingTaoDaily 0-tweet stub (embed disabled 返回空骨架) 被 total>0 门槛绕过完全不标记。V37.8.5 修复：(1) 检测逻辑独立为 jobs/finance_news/finance_news_zombie.py 纯函数模块 (classify_zombie(diag, count)); (2) 三层 tier: "stub" (no_data=0 + total=0) + "stale" (≥90% 老化 + count=0 守卫防止低频活跃误报)，整数比较 old*10 >= total*9 避免浮点; (3) 24 单测锁定三层 + 守卫 + shell 集成 + auto_deploy FILE_MAP; (4) verification_layer 从 [declaration] 升级到 [declaration, runtime] (MR-6 遵循: INV-X-001 现在有 python_assert 真跑 5 个 tier 场景); (5) shell 脚本禁止内嵌 inline fallback (防模块缺失时静默降级回 V37.8.4 逻辑 — MR-8 copy-paste-is-a-bug-class 兑现)。诊断行 tier 区分 ⚠️ ZOMBIE嫌疑[stub] vs [stale]，便于日志定位。
   total_invariants: 87  # V37.9.100: +2 INV-DREAM-CROSS-DOMAIN-001 (dream-cross-domain-must-use-level6-guard, MR-7, high — 5 天观察 5/30-6/3 LEVEL_6 多跳链↓92% 后立案防回退) + INV-GOV-FIELD-001 (python-assert-checks-must-not-be-vacuous, MR-7, critical — 治理执行器 assertion 字段空跑血案 meta-guard). V37.9.96: +1 INV-PROXY-PLIST-ENV-001. 实际 grep '- id: INV-' = 87
   total_checks: 801     # V37.9.100: 790 → 801 (+7 INV-DREAM-CROSS-DOMAIN-001 + 4 INV-GOV-FIELD-001). 同 session 修治理执行器血案: _exec_python_assert 只读 code: 让 67 个 assertion: 字段 python_assert 跨 21 INV vacuous pass → _check_code helper 读双字段 + triage 14 个真执行后翻车 (job_watchdog sabotage 还原 / 路径 bug / 阈值 / stale 契约 / exec 作用域陷阱 / requires_full gate). V37.9.97: 781→790. 注: 真实 check_type 行数 grep < total 因 governance_checker 还计 14 MRD discovery + preflight/env 等非 check_type 定义项 — total_checks 是操作权威数 (系统真跑真报)
-  meta_rules: 21        # V37.9.86: +2 MR-20 (framework-level-fix-must-validate-in-target-environment) + MR-21 (monitor-coverage-must-track-registry)
+  meta_rules: 23        # V37.9.117: +2 MR-22 (sunset-over-accretion 日落法北极星 — 降复杂度优先于加功能) + MR-23 (audit-observes-never-mutates 审计只读, 泛化 MR-9, 复用 test_v37_9_116/test_convergence 守卫不铸新 INV)
   meta_rule_discovery_count: 6   # Phase 0: registry + env + notify-topic + layer-depth + error-suppression + notify-activity
   check_types_used: [python_assert, file_contains, file_not_contains, env_var_exists, command_succeeds, log_activity_check]
   verification_layers_used: [declaration, runtime, effect]  # v3.1: 效果层启动
