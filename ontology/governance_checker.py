@@ -43,14 +43,20 @@ def _resolve_project_root():
     env_root = os.environ.get("ONTOLOGY_PROJECT_ROOT", "").strip()
     if env_root:
         return os.path.abspath(os.path.expanduser(env_root))
-    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    # V37.9.115: realpath (非 abspath) 解析 symlink. 经 ~/ontology symlink 调用
+    # (python3 ~/ontology/governance_checker.py, V37.9.12.1 部署) 时 abspath(__file__)
+    # 不解析 symlink → _PROJECT_ROOT=$HOME → os.chdir($HOME) → os.walk(".")/glob(
+    # _PROJECT_ROOT/**) 遍历整个家目录挂死. realpath 解析 → 仓库根 (无论经 symlink
+    # 还是仓库相对调用). 仓库相对调用 (cron/dev) 下 realpath==abspath 零回归.
+    return os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 
 
 def _resolve_ontology_dir():
     env_dir = os.environ.get("ONTOLOGY_CONFIG_DIR", "").strip()
     if env_dir:
         return os.path.abspath(os.path.expanduser(env_dir))
-    return os.path.dirname(os.path.abspath(__file__))
+    # V37.9.115: realpath 解析 symlink (同 _resolve_project_root).
+    return os.path.dirname(os.path.realpath(__file__))
 
 
 _PROJECT_ROOT = _resolve_project_root()
