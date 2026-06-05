@@ -6,7 +6,7 @@ Unit tests for movespeed_incident_capture.sh:
   - Helper contract: never-fail, writes valid JSONL, cross-platform degrade
   - Rotation: respects MOVESPEED_INCIDENT_MAX_SIZE
   - Bash 3.2 compat: no bash 4+ syntax (for macOS Mac Mini default bash)
-  - Invariant coverage: all 20 rsync fail-loud sites invoke the helper
+  - Invariant coverage: all 24 rsync fail-loud sites invoke the helper
   - FILE_MAP deployment mapping present
   - INV-BACKUP-001 extended with check 4 (helper invocation guard)
 """
@@ -22,7 +22,7 @@ import unittest
 REPO_ROOT = os.path.dirname(os.path.abspath(__file__))
 HELPER_PATH = os.path.join(REPO_ROOT, "movespeed_incident_capture.sh")
 
-# The 20 rsync fail-loud call sites. If we add/move a site, update this list;
+# The 24 rsync fail-loud call sites. If we add/move a site, update this list;
 # the invariant test will fail fast so we know coverage drifted.
 EXPECTED_RSYNC_SITES = [
     "kb_save_arxiv.sh",
@@ -39,6 +39,7 @@ EXPECTED_RSYNC_SITES = [
     "jobs/karpathy_x/run_karpathy_x.sh",
     "jobs/rss_blogs/run_rss_blogs.sh",
     "jobs/ai_leaders_blogs/run_ai_leaders_blogs.sh",  # V37.9.108 ai_leaders X→博客/Substack RSS
+    "jobs/ai_leaders_bsky/run_ai_leaders_bsky.sh",  # V37.9.111 ai_leaders 加 Bluesky 实时短观点维度
     "jobs/arxiv_monitor/run_arxiv.sh",
     "jobs/freight_watcher/run_freight.sh",
     "jobs/acl_anthology/run_acl_anthology.sh",

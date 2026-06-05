@@ -119,7 +119,7 @@ _DEFAULT_TIER = "社媒"
 
 # ════════════════════════════════════════════════════════════════════
 # source → tier 映射 (单一真理源, MR-8)
-# 必须与 jobs_registry.yaml 15 个内容源 (含 kb_source_file) 一致. (V37.9.108: +ai_leaders_blogs)
+# 必须与 jobs_registry.yaml 16 个内容源 (含 kb_source_file) 一致. (V37.9.108: +ai_leaders_blogs; V37.9.111: +ai_leaders_bsky)
 # key = job id (jobs_registry `- id:` 字段)
 # label = kb_source_label (用户在 KB section 看到的标签, 用于 prompt 块显示)
 # ════════════════════════════════════════════════════════════════════
@@ -143,6 +143,9 @@ SOURCE_CREDIBILITY: dict[str, dict] = {
     "ai_leaders_blogs": {"label": "🧠 AI 大神观点", "tier": "博客"},
     # 💬 社媒/资讯
     "ai_leaders_x": {"label": "🐦 AI Leaders X 洞察", "tier": "社媒"},
+    # V37.9.111: AI 大神 Bluesky 实时短观点 (ai_leaders 加实时短观点维度;
+    # 短帖时效强可靠性参差 → 社媒 tier, 同 X 推文; 长文版在 ai_leaders_blogs 博客档)
+    "ai_leaders_bsky": {"label": "🦋 AI 大神实时观点", "tier": "社媒"},
     "run_hn_fixed": {"label": "🔥 HackerNews 热帖", "tier": "社媒"},
     "freight_watcher": {"label": "🚢 货代动态", "tier": "社媒"},
     "finance_news": {"label": "📊 全球财经/政策", "tier": "社媒"},
