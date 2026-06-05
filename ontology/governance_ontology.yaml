@@ -5531,10 +5531,18 @@ invariants:
           repo_root = os.environ.get("OPENCLAW_REPO_ROOT", os.getcwd())
           test_file = os.path.join(repo_root, "test_convergence.py")
           assert os.path.exists(test_file), f"test_convergence.py 不存在: {test_file}"
+          # V37.9.113 测试隔离 belt-and-suspenders (MR-9 测试污染生产同 V37.9.110 bug 类):
+          # 此 check 跑整个 test_convergence.py, 含调真 jobs_to_crontab/kb_sources_to_index
+          # spec (machine_sync) 的测试. Mac Mini 上 governance audit cron 默认无
+          # CONVERGENCE_DRY_RUN env → V37.9.58 默认 real apply → 真改 crontab/真跑 kb_embed.
+          # 强制 env CONVERGENCE_DRY_RUN=1 让 subprocess 默认 dry-run (与测试类的
+          # setUp 隔离形成双层防护). 测试类的 resolver 测试会 pop env 验证 flip
+          # (不调 apply), 其他危险类 setUp 自设 env=1, 此处 env 是 framework 级兜底.
           proc = subprocess.run(
               [sys.executable, test_file],
               capture_output=True, text=True, timeout=60,
               cwd=repo_root,
+              env={**os.environ, "CONVERGENCE_DRY_RUN": "1"},
           )
           assert proc.returncode == 0, (
               f"test_convergence 单测失败:\n"
