@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-04 07:49:22",
+  "updated": "2026-06-04 09:11:54",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-06-04",
+      "what": "V37.9.110: 测试污染生产 incidents.jsonl 血案修复 (收工后 16:30 watchdog 真告警驱动). 假 CORE governance fail + 假 MOVESPEED 72 rsync 失败告警, 数据驱动诊断 (analyzer 72/72 caller=caller.sh 测试桩+时间窗匹配今天跑测试) 揭示根因: governance INV-RETRY-001 跑 test_movespeed_rsync_helper.py, 15 失败路径测试 + _run_helper 零隔离 → helper incident_capture 写真实 ~/.kb (caller=桩) → 灌爆 INV-MOVESPEED-TCC-001 24h>2 假 fail. 每次 audit 重新污染永不老化转绿 (推翻 V37.9.106 待 24h 假设) + 腐蚀真 MOVESPEED 取证. MR-9 类+MR-7 治理自观察最深演出 (audit 跑的测试腐蚀 audit 查的数据). 修: _run_helper setdefault MOVESPEED_INCIDENT_FILE 到 /tmp + 2 inline subprocess 加隔离 + 4 守卫 (inspect.getsource 避自引用陷阱, reverse-validation 抓到我第一版守卫自引用缺陷 → 改 inspect 真有效). 113 suites/3996→4000 tests/0 fail/governance 805/安全 95. Mac Mini 即时补救: grep -v caller.sh 清 72 条污染 → 告警转绿.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-04",
       "what": "V37.9.109: ai_leaders_blogs 接入 Opportunity Radar #2 (V37.9.108 自然收口, 用户选). top_alignment_picker ALIGNED_SOURCES 8→9 加 ai_leaders_blogs (博客档 priority 5, dev+Mac Mini 双 cache_paths). #1 跨源共振 (扫所有 KB notes 源无关) + #3 趋势 (KB 关键词) 经 ai-leaders-blogs notes 自动含无需改. 3 消费方 (kb_radar/dream/evening) 经 pick_top_aligned 迭代 ALIGNED_SOURCES 自动 flow 零改. smoke test 验证 ⭐5 pick 进 Top 5 [大神观点] block. 2 新单测 (9 源注册 + 博客档 priority 5 + Mac Mini layout 守卫). 113 suites/3995→3996 tests/0 fail/governance 805/安全 95. ai_leaders 三段式闭环: 收集(blog RSS V37.9.108)→深度分析(LLM 6字段)→机会点雷达(Opportunity Radar #2 高对齐 Top 5 V37.9.109). 实测每轮 25-27 条 ⭐≥4 学者观点进雷达.",
       "by": "claude_code"
     },
@@ -198,11 +203,6 @@
       "date": "2026-06-02",
       "what": "V37.9.98 续(全部执行): #7外部评审P0 README徽章自动生成 — gen_readme_badges.py 从权威源生成4个徽章(tests←status.json quality.test_count / governance←audit_metadata total_invariants+meta_rules / version←CLAUDE.md v-label+VERSION+date / providers←providers.py --json len), --check漂移守卫(exit 1)+--write一键同步. 接入full_regression doc-drift层(README漂移=CI fail)=评审要的pre-commit等价物. 立即修了真漂移: README tests徽章停在3739实际3751(评审说的漂移问题实证). providers徽章纳入管理(8). 删脆弱散文扫描(python3 providers→误报3 providers). 21新单测(compute_facts真仓库+apply_badges 4徽章+FAIL-OPEN+--check真跑exit0+幂等+源守卫)+反向(stale徽章检测CHANGED). 外部评审2026-04-17 P0(a)事实单一来源兑现.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-06-02",
-      "what": "V37.9.98 续(全部执行批次): 🧹清理 unfinished — INV-OBSERVER-001 三条重复(V37.9.90/93/95累积)合并成1条 + 移除#8(全行crontab扫描已被今天#3否决) + 确认INV-CROSS-ENV-PATH-001已V37.9.94完成, unfinished 19→17. #7外部评审P0 SLO样本门槛: slo_benchmark.py 加 MIN_SAMPLE_THRESHOLD=200 + _verdict() 三态helper(OBSERVING/PASS/FAIL) — 样本<门槛报OBSERVING不误标PASS, 修V35 golden trace samples=1标ALL PASS统计无意义(外部评审准确指出). 每check用各自样本基数(latency.count/total/tool_total/streaks), overall三态优先级FAIL>OBSERVING>PASS. config.yaml加slo.min_sample_count可调. test_slo_benchmark 17→25(+8 OBSERVING测试含血案samples=1场景+helper三态+可配门槛) + 补进full_regression(此前从未注册gap). dev CLI实测现报OBSERVING(诚实, 无足够样本不假PASS). VERSION 0.37.9.68不变(observability精炼).",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -268,7 +268,8 @@
       "ontology-engine 包化 chunk 4 已完成 (V37.9.104, 取代 #14 的「先做 chunk 4」建议). examples/minimal_consumer/ WeatherBot 真消费方 demo + Extension Guide + 12 端到端单测, dev config-injection 端到端跑通. 下一步按 docs/ontology_engine_packaging.md §6.1 推进顺序 = chunk 2 (import 名 ontology→ontology_engine 去泛化, 破坏性需全宪法验证 — demo 已证明价值故 rename 退化为机械重构, 涉 proxy_filters lazy-load spec_from_file_location + Mac Mini $HOME/ontology symlink + 全 import + ontology/tests/). chunk 4 demo 暴露具体耦合点供 chunk 3: convergence.py::_DEFAULT_SPEC_PATH = Path(__file__).parent/convergence_ontology.yaml 不读 ONTOLOGY_CONFIG_DIR (已登记 packaging.md §5). chunk 5 = sdist/wheel build + pip install 冒烟 + PyPI 名/license/readme 发布决策.",
       "V37.9.106 部署后 24h 验证 (~2026-06-05): 现有 30 条 MOVESPEED TM-争用 incident 老化出 24h 窗口后 INV-MOVESPEED-TCC-001 应自动转绿 → 治理审计 721/721 全绿. 验证: python3 ~/movespeed_incident_analyzer.py --window 24h 应显示 incidents 大降 (tmutil 预检让 TM 备份时 rsync 跳过不产新 incident). 若仍红说明 TM 之外还有 incident 来源待查.",
       "ontology-engine chunk 3b (聚焦 session): MRD 扫描模式文件名参数化 — governance_checker.py 的 ~10 个 _discover_* 把 jobs_registry.yaml/notify.sh/jobs/*/run_*.sh 文件名模式从代码移到 Layer 2 配置, framework 只读模式表. 注意: 根已 _PROJECT_ROOT 注入 (chunk 3a 之前就有), 仅文件名模式硬编码, 且消费方缺文件已优雅 no-op (非 correctness bug 仅配置化 nicety). 触碰 MR-4 血案防护扫描器, 需单独聚焦 session 不与其他捆绑. 设计: 在 governance_ontology.yaml meta 或新 Layer-2 文件加 mrd_scan_patterns, 向后兼容默认 = 当前 bridge 模式. 见 docs/ontology_engine_packaging.md §5 row 4 + §6 chunk 3b.",
-      "ai_leaders_blogs (V37.9.108) Mac Mini feed 可达性验证 + 后续: (a) 首跑后看 log WARN 剪死链 (Anthropic news/Karpathy bearblog URL 是 candidate 待验, Substack /feed 标准应可达) + 补可达大神 feed (b) V37.9.109+ Bluesky 免费无认证 API (public.api.bsky.app getAuthorFeed) 加实时短观点维度 — 学者已大规模迁入 (arXiv 2505.24801), 需 handle→DID 解析 + getAuthorFeed 抓取 + 查哪些大神在 Bluesky (c) 验证稳定后真停用 ai_leaders_x: 需同步更新 6 依赖 (kb_review/source_credibility/INV-REVIEW-001/INV-BACKUP-001/config/wa_gateway_resilience 都期望 ai_leaders_x 为内容源) + Mac Mini crontab_safe.sh remove 清 cron 行 (d) ai_leaders_blogs 接入 Opportunity Radar 三件套 (跨源共振 #1 / 项目对齐 #2 / 趋势加速 #3) 作高质量信号源"
+      "ai_leaders_blogs (V37.9.108) Mac Mini feed 可达性验证 + 后续: (a) 首跑后看 log WARN 剪死链 (Anthropic news/Karpathy bearblog URL 是 candidate 待验, Substack /feed 标准应可达) + 补可达大神 feed (b) V37.9.109+ Bluesky 免费无认证 API (public.api.bsky.app getAuthorFeed) 加实时短观点维度 — 学者已大规模迁入 (arXiv 2505.24801), 需 handle→DID 解析 + getAuthorFeed 抓取 + 查哪些大神在 Bluesky (c) 验证稳定后真停用 ai_leaders_x: 需同步更新 6 依赖 (kb_review/source_credibility/INV-REVIEW-001/INV-BACKUP-001/config/wa_gateway_resilience 都期望 ai_leaders_x 为内容源) + Mac Mini crontab_safe.sh remove 清 cron 行 (d) ai_leaders_blogs 接入 Opportunity Radar 三件套 (跨源共振 #1 / 项目对齐 #2 / 趋势加速 #3) 作高质量信号源",
+      "V37.9.110 follow-up: (a) MRD scanner governance-runtime-tests-must-isolate-production-state — 扫所有 governance runtime python_assert 跑的测试 (INV-RETRY-001 等) 是否写生产 state 文件 (~/.kb/*.jsonl 等), framework 化测试污染生产 bug 类 (MR-9). 本次只修 test_movespeed_rsync_helper 一个实例, 其他 governance-run 测试可能有同款. (b) 重评 V37.9.106 MOVESPEED 36 incidents 数据真实性 — 剔除 caller.sh 测试污染后看真 Time Machine 争用还剩多少, tmutil 预检修复是否基于污染数据. (c) Mac Mini 清现存 72 条 caller.sh 污染条目 (grep -v 或等 24h 老化)."
     ],
     "open_prs": "",
     "blocked_on": "",
@@ -334,10 +335,10 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 3996,
-    "last_regression": "2026-06-04 07:47 pass",
+    "test_count": 4000,
+    "last_regression": "2026-06-04 09:10 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-04 07:47",
+    "security_score_time": "2026-06-04 09:10",
     "test_suites": 113,
     "governance_invariants": "85/85",
     "governance_checks": "790/790",

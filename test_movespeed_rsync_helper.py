@@ -30,6 +30,15 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent
 HELPER = REPO_ROOT / "movespeed_rsync_helper.sh"
 
+# V37.9.110: 隔离 incident 文件, 防失败路径测试污染生产 ~/.kb/movespeed_incidents.jsonl.
+# 血案: governance INV-RETRY-001 runtime check 跑本测试 → 15 个失败路径测试经 helper 的
+# incident_capture 写真实 ~/.kb/movespeed_incidents.jsonl (caller="caller.sh") → 灌爆
+# INV-MOVESPEED-TCC-001 的 24h>2 计数 → 假 CORE governance fail + 假 MOVESPEED watchdog 告警,
+# 且每次 audit 重新污染 (永不"老化转绿") + 腐蚀真实 MOVESPEED 取证数据. MR-9 类: 测试写生产状态.
+# 所有 helper 调用 (含 incident_capture) 经此 env 重定向到 /tmp throwaway, 绝不碰 ~/.kb.
+_ISOLATED_INCIDENT_FILE = os.path.join(tempfile.gettempdir(),
+                                       "test_movespeed_rsync_helper_incidents.jsonl")
+
 
 def _make_fake_rsync(tmpdir, behavior_script):
     """Create a fake rsync binary in tmpdir/bin that follows behavior_script.
@@ -70,6 +79,9 @@ def _make_fake_tmutil(tmpdir, running):
 def _run_helper(env_extra=None, args=None, timeout=30):
     """Invoke helper, return (returncode, stdout, stderr)."""
     env = os.environ.copy()
+    # V37.9.110: isolate incident file (failure-path tests must not pollute the
+    # real ~/.kb/movespeed_incidents.jsonl — see _ISOLATED_INCIDENT_FILE note).
+    env.setdefault("MOVESPEED_INCIDENT_FILE", _ISOLATED_INCIDENT_FILE)
     if env_extra:
         env.update(env_extra)
     cmd = ["bash", str(HELPER)] + (args or [])
@@ -356,6 +368,7 @@ class TestRsyncAllRetriesFail(unittest.TestCase):
                 "PATH": path,
                 "MOVESPEED_RSYNC_NO_SLEEP": "1",
                 "MOVESPEED_RSYNC_BACKOFF_BASE": "0",
+                "MOVESPEED_INCIDENT_FILE": _ISOLATED_INCIDENT_FILE,  # V37.9.110 隔离
             },
             timeout=30,
         )
@@ -417,6 +430,7 @@ class TestCaptureHelperWired(unittest.TestCase):
             "MOVESPEED_RSYNC_NO_SLEEP": "1",
             "MOVESPEED_RSYNC_BACKOFF_BASE": "0",
             "MOVESPEED_RSYNC_NO_RETRY": "1",
+            "MOVESPEED_INCIDENT_FILE": _ISOLATED_INCIDENT_FILE,  # V37.9.110 隔离
         })
         proc = subprocess.run(
             ["bash", str(helper_dir / "movespeed_rsync_helper.sh"),
@@ -633,6 +647,62 @@ class TestTmutilSourceGuards(unittest.TestCase):
         self.assertGreater(idx, 0)
         after = self.src[idx:idx + 200]
         self.assertIn("exit 0", after, "跳过分支必须 exit 0")
+
+
+class TestV37_9_110_IncidentFileIsolation(unittest.TestCase):
+    """V37.9.110: 失败路径测试必须隔离 incident 文件, 不得污染生产 ~/.kb/movespeed_incidents.jsonl.
+
+    血案: governance INV-RETRY-001 runtime check 跑本测试 → 失败路径测试经 helper 的
+    incident_capture 写真实 ~/.kb (caller="caller.sh") → 灌爆 INV-MOVESPEED-TCC-001 24h>2
+    → 假 CORE governance fail + 假 MOVESPEED 告警, 且每次 audit 重新污染 (永不老化转绿).
+    MR-9 类 (测试写生产状态). 反向: 移除隔离 → Mac Mini 真实 ~/.kb 文件会增长 → 行为测试 fail.
+    """
+
+    # 注: 用 inspect.getsource 只查目标函数体, 避免"守卫自己的断言字符串污染 self.src"
+    # 的自引用陷阱 (V37.9.110 reverse-validation 抓到的真坑).
+
+    def test_isolated_file_uses_tempdir_not_real_kb(self):
+        import test_movespeed_rsync_helper as mod
+        iso = mod._ISOLATED_INCIDENT_FILE
+        self.assertIn(tempfile.gettempdir(), iso, "隔离文件必须在 /tmp throwaway")
+        self.assertNotIn("/.kb/", iso, "隔离文件绝不能指向真实 ~/.kb")
+
+    def test_run_helper_setdefaults_incident_file(self):
+        """_run_helper 函数体必须 setdefault MOVESPEED_INCIDENT_FILE (隔离所有 _run_helper 调用)."""
+        import inspect
+        import test_movespeed_rsync_helper as mod
+        fn_src = inspect.getsource(mod._run_helper)
+        self.assertIn("MOVESPEED_INCIDENT_FILE", fn_src,
+                      "_run_helper 必须设 MOVESPEED_INCIDENT_FILE")
+        self.assertIn("setdefault", fn_src)
+        self.assertIn("_ISOLATED_INCIDENT_FILE", fn_src)
+
+    def test_inline_subprocess_calls_isolated(self):
+        """2 个绕过 _run_helper 的 inline subprocess (test_caller_with_set_e +
+        TestCaptureHelperWired) 的函数体也必须含 MOVESPEED_INCIDENT_FILE 隔离."""
+        import inspect
+        import test_movespeed_rsync_helper as mod
+        for fn in (TestRsyncAllRetriesFail.test_caller_with_set_e_survives_rsync_failure_v37_9_31,
+                   mod.TestCaptureHelperWired.test_capture_helper_invoked_on_all_fail):
+            fn_src = inspect.getsource(fn)
+            self.assertIn("MOVESPEED_INCIDENT_FILE", fn_src,
+                          f"{fn.__name__} 的 inline env 必须含 MOVESPEED_INCIDENT_FILE 隔离")
+
+    def test_failure_path_does_not_grow_real_kb_incidents(self):
+        """端到端反向验证: 跑失败 helper 后, 真实 ~/.kb/movespeed_incidents.jsonl 不增长.
+        dev 无 ~/.kb capture → 平凡通过; Mac Mini 真激活 → 隔离移除则此测试 fail (文件增长)."""
+        real_inc = os.path.expanduser("~/.kb/movespeed_incidents.jsonl")
+        before = os.path.getsize(real_inc) if os.path.isfile(real_inc) else -1
+        with tempfile.TemporaryDirectory() as td:
+            path = _make_fake_rsync(td, 'echo "always fail"; exit 23')
+            _run_helper(
+                env_extra={"PATH": path, "MOVESPEED_RSYNC_NO_SLEEP": "1",
+                           "MOVESPEED_RSYNC_BACKOFF_BASE": "0"},
+                args=["/test/caller.sh", "--", "-a", "/src/", "/dst/"])
+        after = os.path.getsize(real_inc) if os.path.isfile(real_inc) else -1
+        self.assertEqual(before, after,
+            "V37.9.110: 失败路径测试不得改动真实 ~/.kb/movespeed_incidents.jsonl "
+            "(隔离移除 → governance INV-RETRY-001 跑本测试会污染 → 假 CORE 告警)")
 
 
 if __name__ == "__main__":
