@@ -245,5 +245,58 @@ class TestV37_9_114_GovGlobSymlinkHangFix(unittest.TestCase):
                 "os.walk(followlinks=False) 应找到 inject_demo.py (终止且非空跑)")
 
 
+class TestV37_9_115_ProjectRootRealpathFix(unittest.TestCase):
+    """V37.9.115 — governance_checker._resolve_project_root realpath 修复守卫.
+
+    V37.9.114 只修了 INV-AUTO-INJECT-001 一个 yaml check 的 glob; 根因更深:
+    governance_checker.py 的 _resolve_project_root() 用 abspath(__file__), 经
+    ~/ontology symlink 调用 (python3 ~/ontology/governance_checker.py) 时
+    _PROJECT_ROOT=$HOME → os.chdir($HOME) → 所有 os.walk(".") + glob(_PROJECT_ROOT/**,
+    recursive=True) 遍历整个家目录挂死. realpath 解析 symlink → 仓库根. 仓库相对
+    调用 (cron/dev) 下 realpath==abspath 零回归 (无 symlink 在路径里).
+    """
+
+    def setUp(self):
+        gov_py = os.path.join(REPO_ROOT, "ontology", "governance_checker.py")
+        with open(gov_py, encoding="utf-8") as f:
+            self.src = f.read()
+
+    def test_v37_9_115_resolve_project_root_uses_realpath(self):
+        idx = self.src.find("def _resolve_project_root")
+        self.assertGreater(idx, -1)
+        body = self.src[idx:idx + 700]
+        self.assertIn("os.path.realpath(__file__)", body,
+            "V37.9.115: _resolve_project_root 必须用 realpath(__file__) 解析 symlink")
+
+    def test_v37_9_115_resolve_ontology_dir_uses_realpath(self):
+        idx = self.src.find("def _resolve_ontology_dir")
+        self.assertGreater(idx, -1)
+        body = self.src[idx:idx + 500]
+        self.assertIn("os.path.realpath(__file__)", body,
+            "V37.9.115: _resolve_ontology_dir 也用 realpath")
+
+    def test_v37_9_115_marker_present(self):
+        self.assertIn("V37.9.115", self.src)
+
+    def test_v37_9_115_symlink_resolves_to_repo_not_parent(self):
+        """行为级反向验证: 经 symlink 指向仓库 ontology/ 时, realpath 解析得仓库根
+        (非 symlink 父目录, abspath 的 bug). 镜像 Mac Mini ~/ontology→repo/ontology."""
+        with tempfile.TemporaryDirectory() as td:
+            link_onto = os.path.join(td, "ontology")
+            try:
+                os.symlink(os.path.join(REPO_ROOT, "ontology"), link_onto)
+            except OSError:
+                self.skipTest("symlink 不支持")
+            via_symlink = os.path.join(link_onto, "governance_checker.py")
+            # 旧 abspath → symlink 父目录 td (错, 会让 os.chdir(td) → 遍历挂死)
+            abspath_root = os.path.dirname(os.path.dirname(os.path.abspath(via_symlink)))
+            self.assertEqual(abspath_root, td,
+                "abspath 经 symlink 应得 symlink 父目录 (证明 bug 真实存在)")
+            # 新 realpath → 仓库根 (对)
+            realpath_root = os.path.dirname(os.path.dirname(os.path.realpath(via_symlink)))
+            self.assertEqual(realpath_root, REPO_ROOT,
+                "V37.9.115: realpath 必须解析 symlink → 仓库根 (非 symlink 父目录)")
+
+
 if __name__ == "__main__":
     unittest.main()
