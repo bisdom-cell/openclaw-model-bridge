@@ -4960,7 +4960,7 @@ invariants:
         bash $HOME/movespeed_rsync_helper.sh <caller> -- <rsync args>
       预期效果: 24h incident 数从 ~19 降到 <1 (95%+ 减少).
 
-      所有 20 个 EXPECTED rsync site 必须用 helper, 不再用 V37.9.4/V37.9.14
+      所有 24 个 EXPECTED rsync site 必须用 helper, 不再用 V37.9.4/V37.9.14
       的 inline `rsync ... 2>&1 || { capture; }` 模式 (V37.9.27 完全替代).
 
       V37.9.31 fail-open contract 修正: helper 全 retry 失败时 exit 0 (而非

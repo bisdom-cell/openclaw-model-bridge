@@ -983,6 +983,7 @@ nohup python3 ~/adapter.py > ~/adapter.log 2>&1 &
 | ✅ | V29 KB每日摘要生成（kb_inject.sh） | 完成 |
 | ✅ | V29 WhatsApp LLM自动查KB（workspace CLAUDE.md指引） | 完成 |
 | ai_leaders_blogs | 30 13 * * * | `jobs/ai_leaders_blogs/run_ai_leaders_blogs.sh` | `~/.openclaw/logs/jobs/ai_leaders_blogs.log` | ✅ 自动添加 | 
+| ai_leaders_bsky | 0 17 * * * | `jobs/ai_leaders_bsky/run_ai_leaders_bsky.sh` | `~/.openclaw/logs/jobs/ai_leaders_bsky.log` | ✅ 自动添加 | 
 | 低 | 探索Claude/GPT-4o替换Qwen3 | ⏳ |
 ---
 ## 十九、工作原则（工作宪法）

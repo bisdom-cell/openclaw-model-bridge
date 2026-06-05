@@ -4,9 +4,9 @@
 覆盖:
   TestCredibilityTiers      — 5 档 tier 语义 + rank 唯一 + 排序
   TestGetCredibility        — 已知/未知/非string source 查询 + FAIL-OPEN
-  TestSourceCoverage        — MR-8 drift guard: SOURCE_CREDIBILITY ↔ jobs_registry 15 源一致
+  TestSourceCoverage        — MR-8 drift guard: SOURCE_CREDIBILITY ↔ jobs_registry 16 源一致
   TestChasparkFlagged       — observer proposal #2 点名的非主流源被正确分级 + block 提示
-  TestFormatBlock           — prompt 注入块完整性 (5 tier + 15 label + 标注指令)
+  TestFormatBlock           — prompt 注入块完整性 (5 tier + 16 label + 标注指令)
   TestCli                   — subprocess CLI (--list/--sources/--block/--source)
   TestDreamWiring           — kb_dream.sh 5 注入点 + import + 反 inline 守卫
   TestEveningWiring         — kb_evening_collect.py import + build_evening_prompt 渲染
@@ -134,10 +134,11 @@ class TestSourceCoverage(unittest.TestCase):
     def setUp(self):
         self.registry = _jobs_registry_content_sources()
 
-    def test_registry_has_15_content_sources(self):
+    def test_registry_has_16_content_sources(self):
         # 防 jobs_registry 漂移 (新增/删除内容源时本测试提醒同步 credibility)
         # V37.9.108: 14 → 15 (新增 ai_leaders_blogs, ai_leaders 从 X 转向博客/Substack RSS)
-        self.assertEqual(len(self.registry), 15, self.registry)
+        # V37.9.110: 15 → 16 (新增 ai_leaders_bsky, ai_leaders 加 Bluesky 实时短观点维度)
+        self.assertEqual(len(self.registry), 16, self.registry)
 
     def test_every_registry_source_has_credibility(self):
         missing = set(self.registry) - set(sc.SOURCE_CREDIBILITY)
@@ -227,7 +228,7 @@ class TestFormatBlock(unittest.TestCase):
         # 单一真理源: source 列表从 SOURCE_CREDIBILITY 动态生成
         # 加一个临时源应出现在 block (通过 _sources_by_tier)
         grouped = sc._sources_by_tier()
-        # 所有 14 个 source 都被分组
+        # 所有 16 个 source 都被分组
         total = sum(len(v) for v in grouped.values())
         self.assertEqual(total, len(sc.SOURCE_CREDIBILITY))
 
