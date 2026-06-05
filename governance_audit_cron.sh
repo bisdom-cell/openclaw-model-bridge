@@ -66,8 +66,18 @@ GOV_RC=0
 # ERR trap → 假 "FATAL abort line=64" 告警, 尽管外层 || GOV_RC=$? 已正确捕获.
 # (line 67-70 已对 grep|head 修过同款 V37.9.60-hotfix bash quirk, 此处 python3 漏了)
 # 临时 set +E 关 errtrace, 子 shell 不再继承 ERR trap; 外层 || 仍捕获退出码.
+#
+# V37.9.116: CONVERGENCE_DRY_RUN=1 — 07:00 生产审计只检测+告警 drift, 不静默改 crontab.
+# 血案: INV-CRON-004 auto_deploy 双行 3 次复发 (V37.9.106/111/V37.9.116). 真根因 = V37.9.58
+# 切关 convergence dry-run 默认后, 此审计的 jobs_to_crontab machine_sync 每次 real-apply 重加
+# line 54 (~/auto_deploy.sh HOME 裸名, _format_cron_line 输出) 与 canonical line 5
+# (~/openclaw-model-bridge/auto_deploy.sh repo 路径) 格式错配 → 用户删了下次审计又加回.
+# Mac Mini 原子实验铁证: 删除后=0 → 跑 no-dry-run governance --full → =1 (governance 重加).
+# 修复原则 (MR-9 + V37.9.113 扩到生产审计): 治理"审计"是观察者, 必须检测+告警, 不静默 mutate
+# 被审计的系统状态. machine_sync 自愈应是"显式刻意动作"(operator 手动跑无此 env 即 real-apply),
+# 不是审计的副作用. drift 仍被检测 (governance 报 ⚠️/❌), 只是不自动 apply.
 set +E
-GOV_OUTPUT=$(cd "$REPO_DIR" && python3 ontology/governance_checker.py --full 2>&1) || GOV_RC=$?
+GOV_OUTPUT=$(cd "$REPO_DIR" && CONVERGENCE_DRY_RUN=1 python3 ontology/governance_checker.py --full 2>&1) || GOV_RC=$?
 set -E
 
 # 提取摘要行

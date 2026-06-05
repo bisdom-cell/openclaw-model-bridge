@@ -66,6 +66,7 @@ run_suite "v37_9_96_proxy_plist_env (V37.9.96 INV-PROXY-PLIST-ENV-001 — 守 pr
 run_suite "kb_dream_helpers (V37.9.68 INV-DREAM-MULTITHEME-001 — Qwen-BIM 连续几周血案防御 + 14 天 ban-list + 主题归一化 + 三阶推送 helper)" "python3 test_kb_dream_helpers.py"
 run_suite "v37_9_69 (V37.9.69 双修 — B 项 watchdog test alternation + C 项 full_regression count bug 修复)" "python3 test_v37_9_69.py"
 run_suite "v37_9_72 (V37.9.72 CORE 项调查 — 治理审计契约对齐 ok 替代 pass + auto_deploy 阈值 600→4200 修 V37.9.59 错配)" "python3 test_v37_9_72.py"
+run_suite "v37_9_116 (V37.9.116 governance_audit CONVERGENCE_DRY_RUN=1 — INV-CRON-004 auto_deploy 双行 3 次复发根治, 生产审计只检测不静默改 crontab)" "python3 test_v37_9_116.py"
 run_suite "v37_9_76_router (V37.9.76 Capability-Based Dynamic Router PoC — providers.find_best_provider + router_decide shadow mode + kb_dream/hf_papers 集成)" "python3 test_v37_9_76_router.py"
 run_suite "v37_9_77_enforcement (V37.9.77 enforcement — adapter ?provider=X + ROUTER_ENFORCE env feature flag + kb_dream RADAR retry 集成 + mode=shadow/on)" "python3 test_v37_9_77_enforcement.py"
 run_suite "crontab_safe_remove (V37.9.65 cmd_remove + 严格 count + 拒绝全清空 + V37.9.64 freight 用户痛点闭环)" "python3 test_crontab_safe_remove.py"
