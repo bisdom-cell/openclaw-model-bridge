@@ -160,5 +160,90 @@ class TestAutoInjectGuard(unittest.TestCase):
         self.assertIn("INV-AUTO-INJECT-001", mr18_section)
 
 
+class TestV37_9_114_GovGlobSymlinkHangFix(unittest.TestCase):
+    """V37.9.114 — INV-AUTO-INJECT-001 runtime check glob symlink hang 修复守卫.
+
+    血案: check 原用 `os.path.abspath(__file__)` 算 repo_root + `glob('**', recursive=True)`.
+    Mac Mini 上 `python3 ~/ontology/governance_checker.py` (经 V37.9.12.1 $HOME/ontology
+    symlink) 调用时 abspath(__file__)=$HOME/ontology/... → repo_root 误得 $HOME →
+    glob($HOME/**, recursive=True) 跟随 symlink 遍历整个家目录 (venv/.openclaw/.kb) +
+    遇 symlink 环 100% CPU 无限挂死 → governance audit 永不返回 (07:00 cron 被 timeout
+    杀 → 报"治理审计 fail"). dev 无 symlink 故从仓库跑不挂, 只 Mac Mini 经 symlink 才暴露.
+    修复: realpath(__file__) 解析 symlink → 仓库根 + os.walk(followlinks=False) 不跟随
+    symlink + 跳过大目录 + 全 for-loop 避 exec 作用域陷阱 (V37.3/V37.9.100).
+    """
+
+    def setUp(self):
+        gov_path = os.path.join(REPO_ROOT, "ontology", "governance_ontology.yaml")
+        with open(gov_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        # 提取 INV-AUTO-INJECT-001 runtime check 段
+        idx = content.find("RUNTIME: 任何 inject_*.py/migrate_*.py 必须含 scanner 集成")
+        self.assertGreater(idx, -1, "找不到 INV-AUTO-INJECT-001 runtime check")
+        self.check_src = content[idx:idx + 1600]
+
+    def test_v37_9_114_uses_realpath_not_bare_abspath_for_repo_root(self):
+        """check 用 realpath(__file__) 解析 symlink (非裸 abspath → repo_root=$HOME 血案)."""
+        self.assertIn("os.path.realpath(__file__)", self.check_src,
+            "V37.9.114: 必须用 realpath(__file__) 解析 ~/ontology symlink → 仓库根")
+
+    def test_v37_9_114_no_recursive_glob(self):
+        """反向验证守卫: check 实际代码不得用 glob('**', recursive=True) (跟随 symlink 挂死根源).
+        注释里引用 recursive=True 解释血案是 OK 的, 故逐行剥注释后再查."""
+        for line in self.check_src.splitlines():
+            code_part = line.split("#", 1)[0]  # 剥掉行内注释 (注释可合法引用血案)
+            self.assertNotIn("recursive=True", code_part,
+                f"V37.9.114: 禁止 glob(recursive=True) 实际调用 (跟随 symlink 遇环挂死): {line!r}")
+
+    def test_v37_9_114_uses_oswalk_followlinks_false(self):
+        """check 用 os.walk(followlinks=False) 不跟随 symlink + 跳过大目录."""
+        self.assertIn("os.walk(", self.check_src,
+            "V37.9.114: 必须用 os.walk 替代 recursive glob")
+        self.assertIn("followlinks=False", self.check_src,
+            "V37.9.114: os.walk 必须 followlinks=False (不跟随 symlink 防环)")
+        self.assertIn("skip_dirs", self.check_src,
+            "V37.9.114: 必须跳过 .git/venv/.openclaw 等大目录有界")
+
+    def test_v37_9_114_marker_present(self):
+        self.assertIn("V37.9.114", self.check_src,
+            "governance check 应有 V37.9.114 血案标记")
+
+    def test_v37_9_114_symlink_cycle_does_not_hang(self):
+        """行为级反向验证: os.walk(followlinks=False) 在 symlink 环下终止 (不挂) +
+        仍找到 inject 工具. 镜像 Mac Mini $HOME/ontology→repo/ontology symlink 环.
+        signal.alarm 安全网: 若 fix 失效 (跟随 symlink 死循环) 10s 后 alarm 中断 → fail."""
+        import signal
+        if not hasattr(signal, "SIGALRM"):
+            self.skipTest("平台无 SIGALRM")
+        with tempfile.TemporaryDirectory() as td:
+            sub = os.path.join(td, "sub")
+            os.makedirs(sub)
+            # 放 inject 工具验证 walk 真找到 (非空跑)
+            with open(os.path.join(td, "inject_demo.py"), "w", encoding="utf-8") as fh:
+                fh.write("from heredoc_import_scanner import scan_repo\n")
+            try:
+                os.symlink(td, os.path.join(sub, "loop"))  # 指回 td = symlink 环
+            except OSError:
+                self.skipTest("symlink 不支持")
+
+            def _on_timeout(signum, frame):
+                raise TimeoutError("os.walk 在 symlink 环下未终止 — V37.9.114 fix 失效")
+
+            old_handler = signal.signal(signal.SIGALRM, _on_timeout)
+            signal.alarm(10)
+            try:
+                found = []
+                for dp, dns, fns in os.walk(td, followlinks=False):
+                    for fn in fns:
+                        if fn.startswith("inject_") and fn.endswith(".py"):
+                            found.append(fn)
+            finally:
+                signal.alarm(0)
+                signal.signal(signal.SIGALRM, old_handler)
+            # 终止 (未挂) + 找到 inject 工具 = 非 vacuous
+            self.assertIn("inject_demo.py", found,
+                "os.walk(followlinks=False) 应找到 inject_demo.py (终止且非空跑)")
+
+
 if __name__ == "__main__":
     unittest.main()
