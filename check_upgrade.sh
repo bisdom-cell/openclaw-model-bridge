@@ -6,7 +6,9 @@ set -euo pipefail
 export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
 
 # ── 配置（升级后须更新 LAST_EVAL_DATE）──
-LAST_EVAL_DATE="${OPENCLAW_LAST_EVAL_DATE:-2026-05-05}"
+# 2026-06-08 第五次评估 (当前数据实证 v2026.6.1 + #59265 仍无 fix + 6.x SQLite/plugin breaking),
+# 用户决策继续 hold 到 6/20 时间表, 目标 v2026.4.27. 详见 docs/gateway_upgrade_eval_v2026.4.md 第十四节.
+LAST_EVAL_DATE="${OPENCLAW_LAST_EVAL_DATE:-2026-06-08}"
 TIME_TRIPWIRE_DAYS="${OPENCLAW_TIME_TRIPWIRE_DAYS:-180}"
 VERSION_GAP_TRIPWIRE="${OPENCLAW_VERSION_GAP_TRIPWIRE:-50}"
 CVE_FILE="${OPENCLAW_CVE_ALERT_FILE:-$HOME/.openclaw_cve_alert}"
