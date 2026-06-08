@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-08 07:14:27",
+  "updated": "2026-06-08 07:22:51",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-06-08",
+      "what": "日落法调查 (无代码改动): proxy_filters/three_gate abspath (定位 engine.py) 候选确认不做. 深查加载机制: 三处 spec_from_file_location 用不同 module 名 (_onto_engine + ontology_engine + _three_gate_engine_lazy) 已 3 独立 engine 实例 path 无关 → 我的双加载担忧不成立. proxy_filters realpath 是 literal no-op (不经 symlink realpath==abspath 仍构建 ~/ontology/engine.py); three_gate realpath cosmetic (同文件经 canonical path). 且是定位 sibling engine.py 不同 concern 非 repo-root realpath 家族. 加之前先问能否退役调查阻止一次 no-op/cosmetic churn = 日落法工作方式. 真一物多形是 3 engine 实例合并但更大 refactor 高风险 deferred. 纠正 CLAUDE.md V37.9.119 误导候选框架.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-08",
       "what": "V37.9.119 日落法退役第二步: engine.py line 19/45 abspath→realpath (与 governance_checker._resolve_project_root V37.9.115 同款 symlink-safe, dev realpath==abspath 零回归). 纠正 offer 不精确: os.getcwd() 只在 chdir 上下文等于仓库根, engine.py 模块级需 realpath 非 getcwd; test_providers.py 780/807/830 是写进临时插件的 fixture 内容非自身 resolution 出 scope. 7064 anti-hash 块尝试改 os.getcwd() 撞 V37.9.114 守卫 (test_v37_9_114_uses_realpath, 本块挂死 Mac Mini 两次) → 守卫开火=免疫系统工作 → REVERT 回 realpath. 关键认知: 真一物一形按 concern 分 (chdir-check→getcwd / __file__-resolution→realpath) 非强行单一形式, 改 7064 getcwd 反制造新一物多形 (vs governance_checker/engine.py realpath). realpath 现统一所有 __file__-resolution. 顺手修 V37.9.118 漏的 README version 徽章 v37.9.117→119 (full_regression 徽章 check 安全网捕获真 drift). 零新 INV/test/机器 (复用 test_ontology_packaging line113 + test_auto_inject_guard V37.9.114 守卫). 115 suites/4063 tests/0 fail/87 inv/安全 95/VERSION 不变. Mac Mini 待 git fetch+reset.",
       "by": "claude_code"
     },
@@ -197,11 +202,6 @@
     {
       "date": "2026-06-04",
       "what": "V37.9.105-hotfix: 根因终极确认 + governance FATAL 误报修. (1) health_check 5-6 周报根因 = shell history 实锤用户今天 08:24 手动调试 bash ~/health_check.sh 多次, 每次完整运行触发末尾 notify 真推送 (head 只截断显示不阻止推送), 唯一调用源=周一cron+手动调试无隐藏 launchd. V37.9.105 速率限制根除. (2) governance_audit FATAL line=64 误报修: set -eEuo 的 -E errtrace 让 $(python3) 子shell 继承 ERR trap, governance_checker 退出1时子shell内误触发 FATAL (外层 ||GOV_RC 已捕获脚本继续, 两条告警同源=没真abort铁证). 修 set +E 包裹 line64+81. 7新单测. (3) 遗留: 3真不变式失败 INV-CONVERGENCE/ROUTER runtime check subprocess test_convergence timeout=60, dev 304tests 4.3s过, 疑 Mac Mini 慢硬件+真环境子进程超60s, 待 time python3 test_convergence.py 确认. 112 suites/3941 tests/0 fail.",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-06-04",
-      "what": "V37.9.105: health_check 周报连续重复 5-6 次修复 (用户视角#13/#32). 严格原则#28数据驱动诊断: Mac Mini 两轮取证推翻 notify队列(空,无重放)+crontab(单条周一正确)两假设. 真因 health_check.sh 在单条周一cron外被反复调用(手动/部署重跑不进日志)每次无条件推送, 证据=报告今天06-04但日志停06-01(实时date+新数据). 最小修复推送幂等速率限制(_health_push_allowed+marker+20h窗口, 镜像V37.8.15). 跨平台stat陷阱(GNU -c在前, Linux stat -f 非mtime且exit0吞fallback)dev测试当场抓. 13新单测32→45. 不是cron/notify bug也非我引入(V37.9.104纯新增未碰). 112 suites/3934 tests/0 fail/安全95.",
       "by": "claude_code"
     }
   ],
@@ -413,7 +413,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.119 (2026-06-08 周一): 日落法退役第二步 — engine.py abspath→realpath 收敛 (与 governance_checker V37.9.115 同款, dev 零回归). 核心认知: 守卫开火纠正过度收敛 — 真一物一形按 concern 分 (chdir-check→os.getcwd() V37.9.118 17块 / __file__-resolution→realpath: governance_checker+7064 anti-hang块+engine.py), 非强行单一 os.getcwd() (改 7064 getcwd 撞 V37.9.114 anti-hang 守卫且制造新一物多形). realpath 现统一所有 __file__-resolution = 真退役一物多形. test_providers.py 出 scope (fixture 内容非自身 resolution). 115 suites/4063 tests/0 fail/87 inv 不变/安全 95/VERSION 不变. 下次日落法候选: auto_deploy 两路径统一 (#32 需 Mac Mini 确认 crontab 真实行) / proxy_filters.py L450/1461+three_gate.py L180 abspath→realpath (定位 engine.py 同 __file__-resolution 家族可纳入 realpath 统一, 纯 dev 低风险) / ~/ontology symlink 评估. 周一 #32 用户视角 30min 观察需 Mac Mini/WhatsApp dev 做不了.",
+  "focus": "V37.9.119 收尾 (2026-06-08 周一): 日落法退役第二步完成 (engine.py abspath→realpath + 7064 守卫开火纠正过度收敛). 加查 proxy_filters/three_gate abspath 候选 → 确认不做 (深查加载机制: 3 处 spec_from_file_location 不同 module 名已 3 独立 engine 实例 path 无关, proxy realpath no-op + three_gate cosmetic + 不同 concern; '加之前先问能否退役'调查阻止 no-op churn = 日落法工作方式). realpath 现统一所有 repo-root __file__-resolution (governance_checker+7064+engine.py) = 真退役一物多形. 115 suites/4063 tests/0 fail/87 inv/安全 95/VERSION 不变. 下次日落法候选 (按价值): auto_deploy 两路径统一 (#32 需 Mac Mini 确认 crontab 真实行) / 真一物多形 3 engine 实例合并 (proxy×2+three_gate×1, 更大 refactor 每 load 有目的高风险) / ~/ontology symlink 评估. 周一 #32 用户视角 30min 观察需 Mac Mini/WhatsApp dev 做不了.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
