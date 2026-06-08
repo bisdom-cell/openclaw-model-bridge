@@ -16,7 +16,10 @@ import os
 import sys
 
 # 确保能导入父目录的模块（proxy_filters 等）
-_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# V37.9.118 日落法: realpath (非 abspath) 解析 ~/ontology symlink → 真实仓库根, 与
+# governance_checker._resolve_project_root (V37.9.115) 同款一物一形. dev/直连路径下
+# realpath==abspath 零回归; symlink 下 import 从真实仓库根而非靠 $HOME FILE_MAP 巧合.
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 if _PROJECT_ROOT not in sys.path:
     sys.path.insert(0, _PROJECT_ROOT)
 
@@ -42,7 +45,9 @@ def _resolve_config_dir():
     env_dir = os.environ.get("ONTOLOGY_CONFIG_DIR", "").strip()
     if env_dir:
         return os.path.abspath(os.path.expanduser(env_dir))
-    return os.path.dirname(os.path.abspath(__file__))
+    # V37.9.118 日落法: realpath 与 _PROJECT_ROOT (line 19) 一致 — 保 _PROJECT_ROOT==dirname(_ONTOLOGY_DIR)
+    # 不变量 (test_ontology_packaging line 113) + symlink-safe. 仅 __file__ 兜底用 realpath, env 路径不变.
+    return os.path.dirname(os.path.realpath(__file__))
 
 
 _ONTOLOGY_DIR = _resolve_config_dir()

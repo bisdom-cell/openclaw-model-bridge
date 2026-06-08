@@ -7061,6 +7061,9 @@ invariants:
           # 在 `python3 ~/ontology/governance_checker.py` (经 V37.9.12.1 symlink) 调用下误解析
           # repo_root=$HOME → glob($HOME/**, recursive=True) 跟随 symlink 遍历整个家目录
           # (venv 109M/.openclaw media+logs/.kb) 100% CPU 无限挂死 (V37.9.114 血案).
+          # V37.9.119 日落法决策: 保留 realpath (非收敛到 os.getcwd()) — 本块有 V37.9.114 anti-hang
+          # 守卫专门 pin realpath, 守卫开火=免疫系统工作; realpath 与 governance_checker._resolve_project_root
+          # /engine.py 统一为 __file__-resolution 单一形式 (一物一形按 resolution 家族, 非按 chdir 上下文).
           _real = os.path.realpath(__file__)
           if "ontology" in _real:
               repo_root = os.path.dirname(os.path.dirname(_real))
