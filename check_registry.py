@@ -245,6 +245,18 @@ def check_filemap_completeness(registry_path):
     except Exception:
         return errors, warnings
 
+    # V37.9.122 日落法收敛: RUNS_FROM_REPO_CLONE 豁免单一真理源 (path_consistency_scanner).
+    # 修 V37.9.120 退役 auto_deploy 出 FILE_MAP 时漏同步本函数的潜伏 bug (check_filemap_completeness
+    # 仍硬性报 'auto_deploy.sh 存在于仓库但不在 FILE_MAP'). 收敛后 3 个 Python 消费者
+    # (此处 + preflight check 15 + path_consistency_scanner) 共读同一豁免集, 加新豁免只需改一处
+    # (原则 #31 跨消费者豁免漏同步血案类). FAIL-OPEN: 导入失败则空集 + warning, 让 auto_deploy
+    # 重新被 flag = 可见信号, 而非静默绕过.
+    try:
+        from path_consistency_scanner import RUNS_FROM_REPO_CLONE as _runs_from_repo_clone
+    except ImportError:
+        _runs_from_repo_clone = {}
+        warnings.append("path_consistency_scanner 导入失败, RUNS_FROM_REPO_CLONE 豁免不可用")
+
     for job in data.get("jobs", []):
         if not job.get("enabled"):
             continue
@@ -255,7 +267,10 @@ def check_filemap_completeness(registry_path):
 
         entry_base = entry.split()[0]  # strip arguments
         entry_path = os.path.join(repo_root, entry_base)
-        if os.path.exists(entry_path) and entry_base not in mapped_sources:
+        # V37.9.122: entry_base in _runs_from_repo_clone → 从 repo clone 跑 (auto_deploy),
+        # 故意不在 FILE_MAP, 跳过 (单一真理源, 不再硬编码 'auto_deploy.sh').
+        if (os.path.exists(entry_path) and entry_base not in mapped_sources
+                and entry_base not in _runs_from_repo_clone):
             errors.append(f"[{jid}] '{entry_base}' 存在于仓库但不在 auto_deploy FILE_MAP 中（不会自动部署！）")
 
         # 检查 jobs/ 子目录下的关联文件（只检查子目录，跳过仓库根目录的开发工具）

@@ -80,6 +80,13 @@ ALLOWED_NON_STANDARD_DST: dict[str, dict[str, str]] = {
 # V37.9.120 日落法: 从 repo clone 跑的 job 豁免 FILE_MAP 登记 (与上方 NON_STANDARD_DST 同款
 # "合法例外必须显式 reason"机制, 但此类不在 FILE_MAP 而非非标准 dst).
 # 每条豁免必须有显式 reason — 拒绝无理由豁免防漏洞兜底.
+#
+# V37.9.122 日落法 #27 收敛: 本豁免集是 FILE_MAP 三个 Python 消费者的【单一真理源】—
+#   (1) path_consistency_scanner.scan_path_consistency (本文件 Check 1)
+#   (2) check_registry.check_filemap_completeness (import 此集, 修 V37.9.120 漏同步潜伏 bug)
+#   (3) preflight_check.sh check 15 inline Python (import 此集)
+# 加新 RUNS_FROM_REPO_CLONE 豁免【只需改此处一行】, 不再各消费者硬编码 'auto_deploy.sh' 字面量.
+# 闭合 V37.8.11/V37.8.13/V37.9.120/V37.9.121-hotfix 反复"跨消费者豁免漏同步"血案类 (原则 #31).
 RUNS_FROM_REPO_CLONE: dict[str, str] = {
     "auto_deploy.sh": (
         "V37.9.120 日落法: auto_deploy 是唯一从 repo clone (~/openclaw-model-bridge/auto_deploy.sh, "
