@@ -400,23 +400,34 @@ fi
 
 if [ -n "$DRIFT_REASON" ]; then
     DRIFT=0
+
+    # V37.9.123 日落法 #27 概念 B: 内容漂移豁免【单一真理源】(path_consistency_scanner
+    # CONTENT_DRIFT_EXEMPT), 不再硬编码 status.json 字面量. CWD 已是 $REPO_DIR (line 70).
+    # FAIL-SAFE (关键路径): 查询失败/空 → 退回安全网 status.json, 绝不静默 overwrite runtime
+    # status.json (防 V37.8.11 血案: 每小时覆盖清空运行时数据). 这是查询失败安全网, 非豁免规则
+    # 硬编码 — 规则在 path_consistency_scanner, 加新内容漂移豁免只需改那一处.
+    CONTENT_DRIFT_EXEMPT="$(python3 "$REPO_DIR/path_consistency_scanner.py" --print-exempt content-drift 2>/dev/null || true)"
+    if [ -z "$CONTENT_DRIFT_EXEMPT" ]; then
+        CONTENT_DRIFT_EXEMPT="status.json"
+        echo "$(date) ⚠️ CONTENT_DRIFT_EXEMPT 单一真理源查询失败, 安全网退回 status.json (防 V37.8.11 覆盖)" >> "$LOG"
+    fi
+
     for mapping in "${FILE_MAP[@]}"; do
         SRC="${mapping%%|*}"
         DST="${mapping##*|}"
 
         [ ! -f "$REPO_DIR/$SRC" ] && continue
 
-        # V37.8.11: status.json 合法分叉豁免（mirror V37.8.1 preflight 豁免）
-        # repo 是 Claude Code 快照，runtime 由 kb_status_refresh cron 每小时
-        # 重写 health/quality 字段 → 两侧设计上永远不一致 → 整文件 md5 比对
-        # 永远 mismatch → 每小时"修复"+ 每小时告警 + 每次覆盖会清空运行时数据。
-        # 修复方法：drift loop 跳过 status.json；Claude Code 的 intent 变更（priorities/
-        # unfinished/recent_changes）通过 new-commit 路径（上方 CHANGED_FILES 循环）
-        # 单向下传，确保 intent 仍能到达运行时。
-        # Blood lesson: 2026-04-15 用户反馈"每小时收到漂移告警"—预期噪声被 [SYSTEM_ALERT]
-        # 前缀显性化后成为干扰。详见 ontology/docs/cases/kb_evening_fallback_quota_chain_case.md
-        # V37.8.11 扩展章节。
-        if [[ "$SRC" == "status.json" ]]; then
+        # V37.8.11 内容漂移豁免（mirror V37.8.1 preflight 豁免）: repo 是 Claude Code 快照,
+        # runtime 由 kb_status_refresh cron 每小时重写 health/quality 字段 → 两侧设计上永远不一致
+        # → 整文件 md5 比对永远 mismatch → 每小时"修复"+ 每小时告警 + 每次覆盖会清空运行时数据。
+        # Claude Code 的 intent 变更（priorities/unfinished/recent_changes）经 new-commit 路径
+        # (上方 CHANGED_FILES 循环) 单向下传, 确保 intent 仍能到达运行时。
+        # Blood lesson: 2026-04-15 用户反馈"每小时收到漂移告警"。详见
+        # ontology/docs/cases/kb_evening_fallback_quota_chain_case.md V37.8.11 章节。
+        # V37.9.123 日落法 #27 概念 B: 不再硬编码 status.json 字面量, 经 CONTENT_DRIFT_EXEMPT
+        # 单一真理源成员检查 (上方 query). 加新内容漂移豁免只需改 path_consistency_scanner 一处。
+        if printf '%s\n' "$CONTENT_DRIFT_EXEMPT" | grep -qxF "$SRC"; then
             continue
         fi
 

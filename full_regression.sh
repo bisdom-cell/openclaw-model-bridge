@@ -197,6 +197,10 @@ fi
 if [ -f test_v37_9_122_filemap_exemption_convergence.py ]; then
     run_suite "v37_9_122_filemap_exemption_convergence (日落法 #27: RUNS_FROM_REPO_CLONE 单一真理源 + 修 check_registry 潜伏 bug + preflight 收敛)" "python3 test_v37_9_122_filemap_exemption_convergence.py"
 fi
+# V37.9.123: 日落法 #27 概念 B — CONTENT_DRIFT_EXEMPT (status.json 内容漂移) 单一真理源 + bash --print-exempt 查询
+if [ -f test_v37_9_123_content_drift_convergence.py ]; then
+    run_suite "v37_9_123_content_drift_convergence (日落法 #27 概念 B: CONTENT_DRIFT_EXEMPT 单一真理源 + auto_deploy FAIL-SAFE / preflight FAIL-OPEN 收敛)" "python3 test_v37_9_123_content_drift_convergence.py"
+fi
 run_suite "v37_9_86_trap_override (V37.9.86 bash trap override lockdir 残留: 5 脚本修复 + 行为层反向/正向验证)" "python3 test_v37_9_86_trap_override.py"
 # V37.9.99-pkg: ontology-engine pip 包化第一块 — config-injection keystone + pyproject + 二层契约
 if [ -f test_ontology_packaging.py ]; then

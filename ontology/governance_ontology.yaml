@@ -3551,64 +3551,66 @@ invariants:
       于是"预期噪声"升级为"需要消除的噪声"。
       修复：auto_deploy.sh drift 循环加同款 `if SRC == status.json then continue`
       豁免；new-commit 路径保留同步（intent 下传）。
+      2026-06-08 V37.9.123 日落法 #27 概念 B: V37.8.11 的"两侧各自硬编码 status.json
+      字面量"本身是一物二形（加新内容漂移豁免要改两处）。收敛到
+      path_consistency_scanner.CONTENT_DRIFT_EXEMPT 单一真理源, bash 经
+      `--print-exempt content-drift` 查询。不同 FAIL 方向是设计: auto_deploy = FAIL-SAFE
+      (查询失败退回 status.json 防覆盖血案) / preflight = FAIL-OPEN (查询失败 md5 比对可见
+      fail 无害)。契约 (status.json 两侧豁免 + 保留 FILE_MAP new-commit 路径) 不变。
     blood_lessons:
       - "2026-04-15 V37.8.11: auto_deploy hourly drift 每小时告警 + 每小时覆盖 runtime status.json；V37.8.1 preflight 已修复同类问题但 auto_deploy 漏改"
+      - "2026-06-08 V37.9.123: V37.8.11 两侧硬编码 status.json 字面量是一物二形 → 收敛到 CONTENT_DRIFT_EXEMPT 单一真理源 + auto_deploy FAIL-SAFE 安全网保留 V37.8.11 防线"
     checks:
-      - name: "preflight_check.sh 豁免 status.json drift"
+      # V37.9.123 日落法 #27 概念 B: status.json 内容漂移豁免从两侧脚本各自硬编码字面量
+      # (if [[ "$SRC" == "status.json" ]]) 收敛到 path_consistency_scanner.CONTENT_DRIFT_EXEMPT
+      # 单一真理源, bash 经 `--print-exempt content-drift` 查询. 不变式契约不变 (status.json 两侧
+      # 豁免 + 保留 FILE_MAP new-commit 路径 + 防 V37.8.11 覆盖), 实现从字面量升级为单一源查询.
+      - name: "V37.9.123: CONTENT_DRIFT_EXEMPT 单一真理源 (path_consistency_scanner)"
+        check_type: file_contains
+        file: path_consistency_scanner.py
+        pattern: 'CONTENT_DRIFT_EXEMPT'
+      - name: "V37.9.123: preflight check 6 查询 CONTENT_DRIFT_EXEMPT 单一源 (不硬编码字面量)"
         check_type: file_contains
         file: preflight_check.sh
-        pattern: 'if \[\[ "\$SRC" == "status\.json" \]\]; then'
-      - name: "preflight_check.sh 豁免含 pass 消息"
-        check_type: file_contains
-        file: preflight_check.sh
-        pattern: 'status\.json.*豁免'
-      - name: "auto_deploy.sh drift 循环豁免 status.json (V37.8.11)"
+        pattern: '--print-exempt content-drift'
+      - name: "V37.9.123: auto_deploy drift 循环查询 CONTENT_DRIFT_EXEMPT 单一源"
         check_type: file_contains
         file: auto_deploy.sh
-        pattern: 'V37\.8\.11.*status\.json'
-      - name: "auto_deploy.sh drift 循环含 if SRC == status.json continue"
+        pattern: '--print-exempt content-drift'
+      - name: "V37.9.123: auto_deploy FAIL-SAFE 安全网 (查询失败退回 status.json 防 V37.8.11 覆盖)"
         check_type: file_contains
         file: auto_deploy.sh
-        pattern: 'if \[\[ "\$SRC" == "status\.json" \]\]; then\s+continue'
+        pattern: 'CONTENT_DRIFT_EXEMPT="status\.json"'
       - name: "auto_deploy.sh FILE_MAP 仍包含 status.json (new-commit 路径 intent 下传)"
         check_type: file_contains
         file: auto_deploy.sh
         pattern: '"status\.json\|\$HOME/\.kb/status\.json"'
-      # V37.9.2: MR-6 深度补齐 runtime 层（原仅 declaration）
-      - name: "V37.9.2 runtime: 两侧脚本里 status.json 豁免紧随 continue 语义正确"
+      # V37.9.2 → V37.9.123 runtime: MR-6 深度补齐, 验证经单一真理源有效豁免 (非字面量)
+      - name: "V37.9.123 runtime: 两侧脚本经 CONTENT_DRIFT_EXEMPT 单一源有效豁免 status.json"
         check_type: python_assert
         code: |
-          # Runtime 层补强: 验证两侧脚本的 status.json 豁免代码结构完整
-          # 豁免 = 识别 + 立即 continue/skip（而非只声明 pattern 不真跳过）
+          # V37.9.123: status.json 内容漂移豁免从硬编码字面量收敛到 CONTENT_DRIFT_EXEMPT 单一源.
+          # Runtime 验证: (a) 单一源含 status.json (b) 两侧脚本查询单一源 + 成员检查消费
+          # (c) auto_deploy FAIL-SAFE 安全网防 V37.8.11 覆盖血案. for-loop 非 comprehension (V37.3 exec 作用域).
           import re
           violations = []
-          scripts = ["preflight_check.sh", "auto_deploy.sh"]
-          for script in scripts:
+          with open("path_consistency_scanner.py", "r", encoding="utf-8") as f:
+              pcs = f.read()
+          m = re.search(r'CONTENT_DRIFT_EXEMPT:\s*dict\[str, str\]\s*=\s*\{(.*?)\n\}', pcs, re.DOTALL)
+          if not m or '"status.json"' not in m.group(1):
+              violations.append("CONTENT_DRIFT_EXEMPT 单一真理源缺 status.json")
+          for script in ["preflight_check.sh", "auto_deploy.sh"]:
               with open(script, "r", encoding="utf-8") as f:
-                  src = f.read()
-              # 找所有 `"status.json"` 出现位置（真实引用，非注释）
-              # pattern: `if [[ "$SRC" == "status.json" ]]; then continue`
-              # 允许 continue 在 status.json 之后 500 字符窗口内（含换行 then fi 等）
-              found_good = False
-              for m in re.finditer(r'"status\.json"', src):
-                  pos = m.start()
-                  # 跳过注释行里的引用
-                  line_start = src.rfind("\n", 0, pos) + 1
-                  line = src[line_start:src.find("\n", pos)]
-                  if line.lstrip().startswith("#"):
-                      continue
-                  # 往后找 500 字符内的 continue
-                  tail = src[pos:pos + 500]
-                  if "continue" in tail:
-                      found_good = True
-                      break
-              if not found_good:
-                  violations.append(
-                      f"{script}: 无 status.json 豁免代码（SRC/path == status.json → continue）"
-                  )
-          assert not violations, (
-              f"drift 豁免代码结构缺失: {violations}"
-          )
+                  s = f.read()
+              if "--print-exempt content-drift" not in s:
+                  violations.append(script + ": 未查询 CONTENT_DRIFT_EXEMPT 单一真理源")
+              if 'grep -qxF "$SRC"' not in s:
+                  violations.append(script + ": 未用成员检查消费豁免集")
+          with open("auto_deploy.sh", "r", encoding="utf-8") as f:
+              ad = f.read()
+          if 'CONTENT_DRIFT_EXEMPT="status.json"' not in ad:
+              violations.append("auto_deploy.sh 缺 FAIL-SAFE 安全网 (查询失败退回 status.json 防 V37.8.11)")
+          assert not violations, ("V37.9.123 内容漂移收敛契约缺失: " + str(violations))
 
   - id: INV-OBSERVABILITY-001
     name: llm-error-chain-is-transparent-across-proxy-and-client
