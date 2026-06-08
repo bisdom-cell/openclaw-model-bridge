@@ -1,6 +1,6 @@
 {
-  "updated": "2026-06-08 07:44:30",
-  "updated_by": "claude_code",
+  "updated": "2026-06-08 08:05:44",
+  "updated_by": "security_score",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -272,8 +272,7 @@
       "V37.9.111-hotfix follow-up B: auto_deploy.sh crontab 双行复发根因 — V37.9.106 删过 HOME 路径行(40→39)又复发(repo 路径 ~/openclaw-model-bridge/auto_deploy.sh + HOME 路径 ~/auto_deploy.sh 都每 2min). 用户已 crontab_safe.sh remove. 查什么再加它 (crontab 重建脚本? backup 恢复? convergence?) 或加 framework 防同脚本双行守卫. 非 convergence machine_sync (两行都含 auto_deploy.sh 被 matched 不 missing).",
       "V37.9.111-hotfix follow-up C: kb_harvest_chat LLM Reduce 超时 — 6/4 对话 163 轮/37.7 万字/9 chunks, 9 Map 全成功但 Reduce 合并 9 段 LLM 失败 (6/3 也 timeout). 大对话日 Reduce 超容量/超时. 数据没丢(在 ~/.kb/conversations/). 修法: chunked Reduce(分批合并) 或 Reduce retry 或减小 Map chunk.",
       "V37.9.112 已完成 (b) ai_leaders_bsky 接入 Opportunity Radar #2 (top_alignment_picker ALIGNED_SOURCES 9→10, 3 消费方自动生效). 剩余 follow-up (Mac Mini handle 验证后, 非高优): (a) 首跑 log WARN 剪死 handle + 补可达 contrarian 大神 (howard.fm 自定义域名 / garymarcus.bsky.social / emilymbender.bsky.social 候选待验 / fchollet 替代) (c) 2x/天频率评估 (实时短观点价值) + 评估 Bluesky app-password 认证读 login-required 账号",
-      "V37.9.110+113 follow-up (升级版, MR-9 测试污染生产 bug 类 framework 化): V37.9.113 已 framework 化 convergence-specific 部分 (TestV37_9_113 AST 反回归守卫 + 行为级正/负对照 sentinel, 拆 test_convergence 真改 crontab/真跑 kb_embed 地雷). 剩余 (专门 session): (a) 立元规则 MR-22 governance-runtime-tests-must-isolate-production-state — V37.9.110 test_movespeed 写真 incidents.jsonl + V37.9.113 test_convergence 真改 crontab 共 2 实例已达立元规则门槛 (b) generic MRD scanner 扫所有 governance runtime python_assert 跑的测试 (INV-RETRY-001 test_movespeed / INV-CONVERGENCE test_convergence / 等) 是否写生产 state 文件 (~/.kb/*.jsonl / crontab / kb_embed 真跑), 跨多测试文件 framework 化此 bug 类",
-      "V37.9.120 Mac Mini 清理待办 (合并+同步后): auto_deploy 双副本退役收尾. 同步后新 auto_deploy.sh 无 FILE_MAP 自部署条目, 然后清 2 副本残留: (1) bash ~/crontab_safe.sh remove 'bash ~/auto_deploy.sh >> ' (删 line 54 HOME 行, grep -F 只命中 HOME 路径不碰 line 5 的 openclaw-model-bridge/) (2) rm ~/auto_deploy.sh (删 HOME 副本). 之后 ONE crontab 行 (line 5 repo) + ONE 副本 (repo clone). 残留 dormant: _format_cron_line(auto_deploy) 仍生成 HOME 路径 line_contains 下不触发已文档化, cron_lines_set_diff future 需特殊处理 (V37.9.66 defer)."
+      "V37.9.110+113 follow-up (升级版, MR-9 测试污染生产 bug 类 framework 化): V37.9.113 已 framework 化 convergence-specific 部分 (TestV37_9_113 AST 反回归守卫 + 行为级正/负对照 sentinel, 拆 test_convergence 真改 crontab/真跑 kb_embed 地雷). 剩余 (专门 session): (a) 立元规则 MR-22 governance-runtime-tests-must-isolate-production-state — V37.9.110 test_movespeed 写真 incidents.jsonl + V37.9.113 test_convergence 真改 crontab 共 2 实例已达立元规则门槛 (b) generic MRD scanner 扫所有 governance runtime python_assert 跑的测试 (INV-RETRY-001 test_movespeed / INV-CONVERGENCE test_convergence / 等) 是否写生产 state 文件 (~/.kb/*.jsonl / crontab / kb_embed 真跑), 跨多测试文件 framework 化此 bug 类"
     ],
     "open_prs": "",
     "blocked_on": "",
@@ -340,10 +339,10 @@
   "quality": {
     "security_score": 95,
     "test_count": 4063,
-    "last_regression": "2026-06-08 07:41 pass",
+    "last_regression": "2026-06-08 08:04 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-08 07:41",
-    "test_suites": 115,
+    "security_score_time": "2026-06-08 08:04",
+    "test_suites": 116,
     "governance_invariants": "85/85",
     "governance_checks": "790/790",
     "version": "0.37.9.68",
