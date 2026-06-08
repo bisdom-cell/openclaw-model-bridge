@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-05 15:38:47",
+  "updated": "2026-06-08 06:52:02",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -105,6 +105,11 @@
   ],
   "recent_changes": [
     {
+      "date": "2026-06-08",
+      "what": "V37.9.118 日落法首个实操退役: governance_ontology.yaml 17 个 check repo_root 从脆弱 abspath+ternary 收敛到单一源 os.getcwd() (一物多形→一物一形, 48 check 已用此源). 修 #30 Mac Mini symlink false-fail (经 ~/ontology symlink 调用 abspath 误得 $HOME, os.getcwd() chdir 后==_PROJECT_ROOT 不受影响). 风险不对称保留 7064 realpath 防挂死块 (abspath 只 false-fail 永不挂死). 零新 INV/零新 test/零新机器 (无测试 grep abspath 故零破坏) — 践行 MR-22 镜像 V37.9.117. count-asserted 脚本断言恰 17 处 + abspath in code 53->0 (剩 2 处非代码). 115 suites/4063 tests/0 fail/governance 87 inv 707 checks/安全 95/VERSION 不变. Mac Mini 待 git fetch+reset 同步后 symlink 路径不再 false-fail.",
+      "by": "claude_code"
+    },
+    {
       "date": "2026-06-05",
       "what": "V37.9.117: 日落法 (Sunset Law) 立为项目北极星 — 用户在一天五版意外频发后深度反思, 指示反思+MR 都做且未来发展以降复杂度为目标. 核心: 意外真因不是复杂(部件难懂)是组合(简单正确部件交互超线性增长超测试覆盖), 复杂关乎部件意外关乎接缝. 五根因(一物多形/地图≠领土 dev测试 vs production事故接缝/观察者改被观察者 07:00审计real-apply改它审计的crontab+我诊断命令symlink本身是挂死源/不完整修复伪装完整 V37.9.114修单check根在_resolve_project_root/潜伏条件累积). 元层: 治理只验证代码符合规则验证不了规则符合现实, 87不变式全在仓库内层验证仓库自己事故在仓库-MacMini接缝无测试覆盖, 每加一层防御多一事故面(原则#8规模演出 convergence药参与病). 平衡: 很多意外是免疫系统开火零意外可能是免疫瞎了(MOVESPEED潜伏60天). 诚实记录: 两次30min挂死直接触发是我用错symlink路径+一度归因07:00cron部分违反原则#28操作者也是事故源. 交付 case doc(反思型立场型) + MR-22 sunset-over-accretion(日落法3规则) + MR-23 audit-observes-never-mutates(审计只读泛化MR-9 lineage三次演出V37.9.110→113→116) + 原则#34北极星 + #8标注战略升级. 践行日落法: 两MR刻意不铸新不变式复用既有test_v37_9_116+test_convergence隔离守卫, MR 21→23 INV 87不变. 115 suites/4063 tests/0 fail/gov v3.54/安全95/README MR徽章23/VERSION不变. 前进4方向缩小接缝非加治理. 元价值: 项目V1→V37.9.116一路堆叠史首次立反向北极星以变小为目标, 承认靠把意外转规则无法穷尽组合面(规则也是新接缝)必须从加防御转向缩接缝.",
       "by": "claude_code"
@@ -198,11 +203,6 @@
       "date": "2026-06-04",
       "what": "V37.9.104: ontology-engine 包化 chunk 4 (终极目标 pip install ontology-engine 推进, 专业推进顺序 chunk 4 先做). 第一个真消费方 demo examples/minimal_consumer/ (WeatherBot 虚构 Agent Runtime, 工具 get_forecast/域 weather_bot/策略 max-cities-per-query/不变式 INV-WEATHER-* 全部不同于 bridge) 经 ONTOLOGY_CONFIG_DIR+ONTOLOGY_PROJECT_ROOT 被同一引擎治理, 零引擎改动. run_demo.sh 端到端跑通 4 能力 (ToolOntology/find_by_domain/evaluate_policy/governance run_all). docs/ontology_engine_extension_guide.md 60秒接入指南 (镜像 provider_plugin_guide). test_ontology_extension_demo.py 12 单测含反向验证 (不注入 env 引擎读 bridge 配置, 证明 demo 通过依赖注入非巧合). demo 暴露真实耦合 convergence._DEFAULT_SPEC_PATH 不读 ONTOLOGY_CONFIG_DIR (登记 packaging.md chunk 3). 112 suites(+1)/3923 tests(+12)/0 fail/governance 87 inv/安全 95. 引擎的Doubao时刻 — 真消费方接入才证明可扩展. VERSION 0.37.9.68 不变(包化纯新增).",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-06-03",
-      "what": "V37.9.103: 冻结≠死亡血案修复, finance_news+ai_leaders 两 job clean+reduce (用户选不花钱接受 X 退化). V37.9.102 揭示 Syndication 平台退化把天天发推活账号(XHNews/CGTN/karpathy)快照冻结 6-10 月前, V37.8.5 stale=可移除在退化下错杀活账号(V37.8.14 移除的都是活机构). finance_news_zombie.py 四档重构(stub/dead≥730天/frozen<730天/alive), is_zombie_suspect=stub OR dead 但 frozen 永远 False; run_finance_news frozen 分流 degraded_file 仅 🧊 可观测不告警; ai_leaders_rotation classify_account 拆 frozen/dead 预防 #18 错杀; ai_leaders 降频 2→1/天 + watchdog 50400→180000. 跨模块 DEAD_AGE_DAYS=730 一致(test 守卫). INV-X-001 扩四档+防错杀层. 111 suites/3911 tests(+19)/0 fail/governance 87 inv/805 checks/安全 95.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -274,7 +274,6 @@
       "V37.9.112 已完成 (b) ai_leaders_bsky 接入 Opportunity Radar #2 (top_alignment_picker ALIGNED_SOURCES 9→10, 3 消费方自动生效). 剩余 follow-up (Mac Mini handle 验证后, 非高优): (a) 首跑 log WARN 剪死 handle + 补可达 contrarian 大神 (howard.fm 自定义域名 / garymarcus.bsky.social / emilymbender.bsky.social 候选待验 / fchollet 替代) (c) 2x/天频率评估 (实时短观点价值) + 评估 Bluesky app-password 认证读 login-required 账号",
       "V37.9.110+113 follow-up (升级版, MR-9 测试污染生产 bug 类 framework 化): V37.9.113 已 framework 化 convergence-specific 部分 (TestV37_9_113 AST 反回归守卫 + 行为级正/负对照 sentinel, 拆 test_convergence 真改 crontab/真跑 kb_embed 地雷). 剩余 (专门 session): (a) 立元规则 MR-22 governance-runtime-tests-must-isolate-production-state — V37.9.110 test_movespeed 写真 incidents.jsonl + V37.9.113 test_convergence 真改 crontab 共 2 实例已达立元规则门槛 (b) generic MRD scanner 扫所有 governance runtime python_assert 跑的测试 (INV-RETRY-001 test_movespeed / INV-CONVERGENCE test_convergence / 等) 是否写生产 state 文件 (~/.kb/*.jsonl / crontab / kb_embed 真跑), 跨多测试文件 framework 化此 bug 类",
       "#28 auto_deploy crontab 双行复发根因 (07:00 fail 已诊断+修复): 真实 07:00 治理审计 fail = INV-CRON-004 (auto_deploy.sh 双行: 仓库路径 ~/openclaw-model-bridge/auto_deploy.sh + HOME 路径 ~/auto_deploy.sh, endswith matcher 检测同脚本双调用). 第 3 次复发 (V37.9.106/111-hotfix 同款). 用户 6/5 16:44 crontab_safe.sh remove HOME 路径行 42→41 已修. 排查: convergence 证伪 (dev 测 line_contains_identifier 对仓库路径行正确识别 auto_deploy.sh 存在不重加) + grep repo/$HOME *.sh 无脚本加 HOME 路径行 (只注释且注释写仓库路径形式). 剩余根因候选 (专门 session, 功能无害非紧急): (a) crontab backup 恢复 (.crontab_backups/ 旧备份含双行被 restore) (b) 一次性手动 (c) 加 framework 守卫 prevent 同脚本双 crontab 行. 监控: 本次 remove 后观察是否第 4 次复发 + 何时 (correlate 进程).",
-      "governance_ontology.yaml ~7 处 declaration python_assert 用 abspath(__file__) 算 repo_root (非 governance_checker.py 模块级 _PROJECT_ROOT). 经 ~/ontology symlink 路径调用时这些 check 的 repo_root 仍误得 $HOME (非挂死, 因不用 recursive glob, 但可能 false-fail). 修法: 改用 os.getcwd() (governance_checker.py V37.9.107 起已在 run_all 前 os.chdir(_PROJECT_ROOT), 故 cwd 永远是仓库根, 比 abspath(__file__) 稳健). 非紧急 (07:00 cron 走仓库相对路径不触发, V37.9.115 已修挂死的 _PROJECT_ROOT 主路径). 候选专门 session 批量改.",
       "follow-up #28 精确根因 (V37.9.115 收尾诊断): INV-CRON-004 auto_deploy 双行复发 (V37.9.106/111/今天 第3次). dev 测决定性: line 54 (HOME 裸名 bash ~/auto_deploy.sh) 逐字等于 convergence _format_cron_line(auto_deploy) 输出, 是唯一产此字符串的源. BUT 用 line 5 真实文本测 line_contains parser → observed={auto_deploy.sh} missing=set() → 只要 line 5 (repo 路径) 在 convergence 就不加. 故 line 54 是历史某时刻 line 5 缺失时 convergence real-apply 加的, 非每次重加. 真根因 = registry entry:auto_deploy.sh 裸名让 _format_cron_line 生成 ~/auto_deploy.sh (HOME) 与 canonical line 5 ~/openclaw-model-bridge/auto_deploy.sh (repo) 格式错配. 用户一锤定音实验 (删 line54 → no-dry-run gov → 看是否回来) 待结果. 候选 fix (专门 session 全回归): (a) registry entry auto_deploy.sh → openclaw-model-bridge/auto_deploy.sh 让 _format_cron_line 生成 repo 路径匹配 line 5 (但动 INV-CRON-004 _cron_cmd_invokes endswith matcher + check_registry 校验 + FILE_MAP, 风险中) (b) governance_audit_cron.sh line 70 加 CONVERGENCE_DRY_RUN=1 让 07:00 审计只告警不真改 crontab (V37.9.113 测试隔离同款原则扩到生产审计, 但 revert V37.9.58 machine_sync 自愈设计) (c) jobs_to_crontab 切 cron_lines_set_diff parser (V37.9.66 候选) 但会触发 34 job 路径 false-drift 风暴. 非阻塞 (auto_deploy 跑两遍只多一次 git pull 无害).",
       "【日落法首个实操候选, V37.9.118+】按 MR-22 日落法北极星, 下次不加治理而是退役一个'一物多形'. 最该先动: auto_deploy 格式错配根治 — entry:auto_deploy.sh 裸名让 _format_cron_line 生成 ~/auto_deploy.sh (HOME) vs canonical crontab line 5 ~/openclaw-model-bridge/auto_deploy.sh (repo) 两条表示并存. V37.9.116 的 CONVERGENCE_DRY_RUN=1 只止血(审计不重加), 真日落法动作 = 统一成一条路径让 _format_cron_line 与 canonical crontab 字节级一致, 一物一形根上消除 bug 类 (从此 convergence 即使 apply 也加对的行). 需动 jobs_registry entry + 验证 INV-CRON-004 _cron_cmd_invokes matcher + check_registry, 全回归. 其他退役候选: ~/ontology symlink 评估 (V37.9.12.1, abspath 隐患源) / governance_ontology.yaml ~7 处 abspath(__file__) → os.getcwd() (减表示, governance 已 chdir _PROJECT_ROOT) / dev-Mac Mini parser 判定差异查 (为何 dev mock missing=空 Mac Mini 真 apply)."
     ],
@@ -343,10 +342,10 @@
   "quality": {
     "security_score": 95,
     "test_count": 4063,
-    "last_regression": "2026-06-05 15:38 pass",
+    "last_regression": "2026-06-08 06:48 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-05 15:38",
-    "test_suites": 116,
+    "security_score_time": "2026-06-08 06:48",
+    "test_suites": 115,
     "governance_invariants": "85/85",
     "governance_checks": "790/790",
     "version": "0.37.9.68",
@@ -414,7 +413,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.117 (2026-06-05 周五): 日落法 (Sunset Law) 立为项目北极星 — 用户深度反思后指示'未来发展以降低系统复杂度为目标'. 核心论断: 意外频发真因不是'系统复杂'(部件难懂) 是'系统组合'(简单正确部件交互面积超线性增长超过测试覆盖), 复杂关乎部件意外关乎接缝. 五根因: 一物多形/地图≠领土(测试在 dev 事故在 production 接缝)/观察者改被观察者/不完整修复伪装完整/潜伏条件累积. 元层: 治理验证代码符合规则验证不了规则符合现实, 87 不变式全在仓库内层验证仓库自己事故住在仓库-Mac Mini 接缝. 每加一层防御多一个事故面 (原则 #8 规模演出, convergence 药参与病). 交付: case doc why_so_many_incidents_2026_06_05_reflection.md + MR-22 sunset-over-accretion (日落法北极星 3 规则: 加之前先问能否退役/一物一形/防御是事故面) + MR-23 audit-observes-never-mutates (审计只读泛化 MR-9) + 原则 #34 日落法北极星 + #8 标注战略升级. 践行日落法本身: 两 MR 刻意不铸新不变式复用既有守卫, 元规则 21→23 不变式 87 不变. 115 suites/4063 tests/0 fail/governance v3.54/安全 95/README MR 徽章 23/VERSION 不变. 前进 4 方向缩小接缝(非加治理): 减少一物多形/缩小 dev-production 接缝/观察者只读/加之前先退役. 今日全景 V37.9.112-117: Bluesky→Radar#2 + test_convergence 隔离 + glob hang single + abspath→realpath 根 + auto_deploy 双行根治 + 日落法北极星. 下次: 按日落法挑'能退役什么' (一物多形候选: auto_deploy 两路径统一 / ~/ontology symlink 评估 / yaml ~7 abspath 改 os.getcwd 减表示).",
+  "focus": "V37.9.118 (2026-06-08 周一): 日落法北极星 (原则#34) 立后第一个真退役动作 — governance_ontology.yaml 17 个 python_assert check 的 repo_root 从脆弱 abspath+ternary 收敛到单一源 os.getcwd() (48 check 已用), 一物多形→一物一形. 修 #30 Mac Mini symlink false-fail (dev pass/production fail 接缝, 五根因之'地图≠领土'). 零新机器纯减表示践行 MR-22. 风险不对称保留 7064 realpath 防挂死块. 115 suites/4063 tests/0 fail/87 inv 不变/安全 95/VERSION 不变. 剩余一物一形 stragglers (低优, 已登记 changelog 非 unfinished): 7064 realpath 块 + engine.py/test_providers.py 自身 abspath (出 #30 scope). 下次日落法候选: auto_deploy 两路径统一 (#32, 需 Mac Mini 配合确认 crontab 真实行) / ~/ontology symlink 评估. 周一 #32 用户视角 30min 观察需 Mac Mini/WhatsApp dev 做不了.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",

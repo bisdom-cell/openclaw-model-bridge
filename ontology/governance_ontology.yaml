@@ -5681,9 +5681,7 @@ invariants:
         check_type: python_assert
         assertion: |
           import os, sys, subprocess
-          repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) \
-              if "ontology" in os.path.abspath(__file__) \
-              else os.path.dirname(os.path.abspath(__file__))
+          repo_root = os.getcwd()  # V37.9.118 日落法 #30: 单一源 (chdir 后==_PROJECT_ROOT), 替代 abspath+ternary
           # 只跑 V37.9.66 系列测试类减少耗时
           proc = subprocess.run(
               [sys.executable, "-m", "unittest",
@@ -7005,9 +7003,7 @@ invariants:
         check_type: python_assert
         code: |
           import subprocess, os, sys
-          repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) \
-              if "ontology" in os.path.abspath(__file__) \
-              else os.path.dirname(os.path.abspath(__file__))
+          repo_root = os.getcwd()  # V37.9.118 日落法 #30: 单一源 (chdir 后==_PROJECT_ROOT), 替代 abspath+ternary
           result = subprocess.run(
               [sys.executable, "heredoc_import_scanner.py", "--scan-all"],
               cwd=repo_root, capture_output=True, text=True, timeout=60
@@ -7215,9 +7211,7 @@ invariants:
         check_type: python_assert
         assertion: |
           import os
-          repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) \
-              if "ontology" in os.path.abspath(__file__) \
-              else os.path.dirname(os.path.abspath(__file__))
+          repo = os.getcwd()  # V37.9.118 日落法 #30: 单一源 (chdir 后==_PROJECT_ROOT), 替代 abspath+ternary
           with open(os.path.join(repo, "job_watchdog.sh"), "r", encoding="utf-8") as f:
               content = f.read()
           # 接受任一形态:
@@ -7241,9 +7235,7 @@ invariants:
         check_type: python_assert
         assertion: |
           import os
-          repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) \
-              if "ontology" in os.path.abspath(__file__) \
-              else os.path.dirname(os.path.abspath(__file__))
+          repo = os.getcwd()  # V37.9.118 日落法 #30: 单一源 (chdir 后==_PROJECT_ROOT), 替代 abspath+ternary
           watchdog_path = os.path.join(repo, "job_watchdog.sh")
           with open(watchdog_path, "r", encoding="utf-8") as f:
               content = f.read()
@@ -7295,9 +7287,7 @@ invariants:
         check_type: python_assert
         assertion: |
           import subprocess, os, sys
-          repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) \
-              if "ontology" in os.path.abspath(__file__) \
-              else os.path.dirname(os.path.abspath(__file__))
+          repo_root = os.getcwd()  # V37.9.118 日落法 #30: 单一源 (chdir 后==_PROJECT_ROOT), 替代 abspath+ternary
           result = subprocess.run(
               [sys.executable, "test_watchdog_self_monitoring.py"],
               cwd=repo_root, capture_output=True, text=True, timeout=60
@@ -7493,9 +7483,7 @@ invariants:
         check_type: python_assert
         assertion: |
           import subprocess, os, sys
-          repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) \
-              if "ontology" in os.path.abspath(__file__) \
-              else os.path.dirname(os.path.abspath(__file__))
+          repo_root = os.getcwd()  # V37.9.118 日落法 #30: 单一源 (chdir 后==_PROJECT_ROOT), 替代 abspath+ternary
           result = subprocess.run(
               [sys.executable, "cron_monitor_scanner.py"],
               cwd=repo_root, capture_output=True, text=True, timeout=15
@@ -7509,9 +7497,7 @@ invariants:
         check_type: python_assert
         assertion: |
           import subprocess, os, sys
-          repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) \
-              if "ontology" in os.path.abspath(__file__) \
-              else os.path.dirname(os.path.abspath(__file__))
+          repo_root = os.getcwd()  # V37.9.118 日落法 #30: 单一源 (chdir 后==_PROJECT_ROOT), 替代 abspath+ternary
           result = subprocess.run(
               [sys.executable, "test_cron_monitor_scanner.py"],
               cwd=repo_root, capture_output=True, text=True, timeout=60
@@ -7525,9 +7511,7 @@ invariants:
         check_type: python_assert
         assertion: |
           import subprocess, os, sys
-          repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) \
-              if "ontology" in os.path.abspath(__file__) \
-              else os.path.dirname(os.path.abspath(__file__))
+          repo_root = os.getcwd()  # V37.9.118 日落法 #30: 单一源 (chdir 后==_PROJECT_ROOT), 替代 abspath+ternary
           result = subprocess.run(
               [sys.executable, "test_cron_monitor_fatal_handler.py"],
               cwd=repo_root, capture_output=True, text=True, timeout=60
@@ -7582,9 +7566,7 @@ invariants:
         check_type: python_assert
         assertion: |
           import subprocess, os, sys
-          repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) \
-              if "ontology" in os.path.abspath(__file__) \
-              else os.path.dirname(os.path.abspath(__file__))
+          repo_root = os.getcwd()  # V37.9.118 日落法 #30: 单一源 (chdir 后==_PROJECT_ROOT), 替代 abspath+ternary
           result = subprocess.run(
               [sys.executable, "cross_os_quirk_scanner.py"],
               cwd=repo_root, capture_output=True, text=True, timeout=15
@@ -7596,9 +7578,7 @@ invariants:
         check_type: python_assert
         assertion: |
           import subprocess, os, sys
-          repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) \
-              if "ontology" in os.path.abspath(__file__) \
-              else os.path.dirname(os.path.abspath(__file__))
+          repo_root = os.getcwd()  # V37.9.118 日落法 #30: 单一源 (chdir 后==_PROJECT_ROOT), 替代 abspath+ternary
           result = subprocess.run(
               [sys.executable, "test_cross_os_quirk_scanner.py"],
               cwd=repo_root, capture_output=True, text=True, timeout=30
@@ -7674,9 +7654,7 @@ invariants:
         check_type: python_assert
         assertion: |
           import subprocess, os, sys
-          repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) \
-              if "ontology" in os.path.abspath(__file__) \
-              else os.path.dirname(os.path.abspath(__file__))
+          repo_root = os.getcwd()  # V37.9.118 日落法 #30: 单一源 (chdir 后==_PROJECT_ROOT), 替代 abspath+ternary
           result = subprocess.run(
               [sys.executable, "cross_env_path_scanner.py"],
               cwd=repo_root, capture_output=True, text=True, timeout=15
@@ -7689,9 +7667,7 @@ invariants:
         check_type: python_assert
         assertion: |
           import subprocess, os, sys
-          repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) \
-              if "ontology" in os.path.abspath(__file__) \
-              else os.path.dirname(os.path.abspath(__file__))
+          repo_root = os.getcwd()  # V37.9.118 日落法 #30: 单一源 (chdir 后==_PROJECT_ROOT), 替代 abspath+ternary
           result = subprocess.run(
               [sys.executable, "test_cross_env_path_scanner.py"],
               cwd=repo_root, capture_output=True, text=True, timeout=30
@@ -8372,9 +8348,7 @@ invariants:
         check_type: python_assert
         assertion: |
           import subprocess, os, sys
-          _repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) \
-              if "ontology" in os.path.abspath(__file__) \
-              else os.path.dirname(os.path.abspath(__file__))
+          _repo = os.getcwd()  # V37.9.118 日落法 #30: 单一源 (chdir 后==_PROJECT_ROOT), 替代 abspath+ternary
           _result = subprocess.run(
               [sys.executable, "test_health_check_v37_9_78.py"],
               cwd=_repo, capture_output=True, text=True, timeout=180
@@ -8444,9 +8418,7 @@ invariants:
         check_type: python_assert
         assertion: |
           import os
-          _repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) \
-              if "ontology" in os.path.abspath(__file__) \
-              else os.path.dirname(os.path.abspath(__file__))
+          _repo = os.getcwd()  # V37.9.118 日落法 #30: 单一源 (chdir 后==_PROJECT_ROOT), 替代 abspath+ternary
           _case_path = os.path.join(_repo, "ontology", "docs", "cases",
                                     "movespeed_tcc_sandbox_blood_case.md")
           assert os.path.exists(_case_path), \
@@ -8508,9 +8480,7 @@ invariants:
         check_type: python_assert
         assertion: |
           import os, sys
-          _repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) \
-              if "ontology" in os.path.abspath(__file__) \
-              else os.path.dirname(os.path.abspath(__file__))
+          _repo = os.getcwd()  # V37.9.118 日落法 #30: 单一源 (chdir 后==_PROJECT_ROOT), 替代 abspath+ternary
           # 临时把 repo root 加到 sys.path 让 import 工作
           _added = False
           if _repo not in sys.path:
@@ -8676,9 +8646,7 @@ invariants:
         check_type: python_assert
         assertion: |
           import os, json, subprocess, sys
-          _repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) \
-              if "ontology" in os.path.abspath(__file__) \
-              else os.path.dirname(os.path.abspath(__file__))
+          _repo = os.getcwd()  # V37.9.118 日落法 #30: 单一源 (chdir 后==_PROJECT_ROOT), 替代 abspath+ternary
           _scanner = os.path.join(_repo, "path_consistency_scanner.py")
           assert os.path.exists(_scanner), \
               f"V37.9.82 scanner not found at {_scanner}"
@@ -8699,9 +8667,7 @@ invariants:
         check_type: python_assert
         assertion: |
           import os, subprocess, sys
-          _repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) \
-              if "ontology" in os.path.abspath(__file__) \
-              else os.path.dirname(os.path.abspath(__file__))
+          _repo = os.getcwd()  # V37.9.118 日落法 #30: 单一源 (chdir 后==_PROJECT_ROOT), 替代 abspath+ternary
           _test = os.path.join(_repo, "test_path_consistency_scanner.py")
           _result = subprocess.run(
               [sys.executable, _test],
