@@ -691,6 +691,17 @@ import sys, os, re, subprocess, yaml
 deploy_script = sys.argv[1]
 registry_file = sys.argv[2] if len(sys.argv) > 2 else None
 
+# V37.9.122 日落法收敛: RUNS_FROM_REPO_CLONE 豁免单一真理源 (path_consistency_scanner),
+# 不再硬编码 'auto_deploy.sh' 字面量 (此前 3 处). 修 V37.9.120/121-hotfix 跨消费者豁免漏同步
+# 血案类 — 加新 RUNS_FROM_REPO_CLONE 豁免只需改 path_consistency_scanner 一处 (原则 #31).
+# FAIL-OPEN: 导入失败则空集 + WARN, 让从 repo clone 跑的 job 重新被 flag = 可见信号.
+sys.path.insert(0, os.path.dirname(os.path.abspath(deploy_script)))
+try:
+    from path_consistency_scanner import RUNS_FROM_REPO_CLONE
+except ImportError:
+    RUNS_FROM_REPO_CLONE = {}
+    print("WARN|path_consistency_scanner 导入失败, RUNS_FROM_REPO_CLONE 豁免不可用")
+
 # ── 解析 FILE_MAP ──
 file_map = {}  # basename → [target1, target2, ...] (V37.8.3: 支持多部署目标)
 file_map_srcs = set()  # full source paths
@@ -740,7 +751,8 @@ for line in crontab_lines:
         # V37.8.13: auto_deploy.sh 是 bootstrap 脚本，git pull 直接更新仓库版本，
         # FILE_MAP 部署到 $HOME 只是 backup 副本。crontab 调用仓库路径是规范，
         # 不应要求 crontab 路径必在 FILE_MAP targets 里。
-        if script_name == 'auto_deploy.sh':
+        # V37.9.122: RUNS_FROM_REPO_CLONE 单一真理源 (不再硬编码 'auto_deploy.sh').
+        if script_name in RUNS_FROM_REPO_CLONE:
             checked += 1
             continue
         # 正向检查：路径一致性（V37.8.3: 支持多部署目标，任一匹配即可）
@@ -753,8 +765,8 @@ for line in crontab_lines:
         # V37.9.121-hotfix 日落法 (V37.9.120 退役 auto_deploy 出 FILE_MAP 的跨消费者同步,
         # 原则 #31): auto_deploy.sh 从 repo clone 跑 (~/openclaw-model-bridge/auto_deploy.sh),
         # 无独立 bootstrap 价值, 故意不在 FILE_MAP. crontab 引用 repo 路径是规范, 不判"未部署".
-        # 与 path_consistency_scanner.py RUNS_FROM_REPO_CLONE 豁免同步.
-        if script_name == 'auto_deploy.sh':
+        # V37.9.122: 收敛到 path_consistency_scanner.py RUNS_FROM_REPO_CLONE 单一真理源.
+        if script_name in RUNS_FROM_REPO_CLONE:
             checked += 1
         else:
             # 反向检查：crontab 引用了 FILE_MAP 中不存在的脚本
@@ -781,9 +793,9 @@ if registry_file and os.path.exists(registry_file):
         if entry_script in seen_scripts:
             continue  # Same script with different args, already checked
         # V37.9.121-hotfix 日落法 (V37.9.120 退役同步, 原则 #31): auto_deploy.sh 从 repo
-        # clone 跑非部署副本, 故意不在 FILE_MAP. 与 path_consistency_scanner RUNS_FROM_REPO_CLONE
-        # + check_registry 豁免同步.
-        if entry_script == 'auto_deploy.sh':
+        # clone 跑非部署副本, 故意不在 FILE_MAP. V37.9.122 收敛到 path_consistency_scanner
+        # RUNS_FROM_REPO_CLONE 单一真理源 (此前 check_registry / preflight 各自硬编码字面量).
+        if entry_script in RUNS_FROM_REPO_CLONE:
             seen_scripts.add(entry_script)
             continue
         if entry_script not in file_map_srcs:

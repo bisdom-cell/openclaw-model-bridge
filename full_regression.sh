@@ -193,6 +193,10 @@ fi
 if [ -f test_path_consistency_scanner.py ]; then
     run_suite "path_consistency_scanner (V37.9.82 INV-PATH-CONSISTENCY-001: 防 V37.9.56-hotfix/V37.9.66 同款 Class B 路径假设错配)" "python3 test_path_consistency_scanner.py"
 fi
+# V37.9.122: 日落法 #27 FILE_MAP 豁免收敛 — RUNS_FROM_REPO_CLONE 单一真理源 (修 V37.9.120 漏同步 check_registry 潜伏 bug)
+if [ -f test_v37_9_122_filemap_exemption_convergence.py ]; then
+    run_suite "v37_9_122_filemap_exemption_convergence (日落法 #27: RUNS_FROM_REPO_CLONE 单一真理源 + 修 check_registry 潜伏 bug + preflight 收敛)" "python3 test_v37_9_122_filemap_exemption_convergence.py"
+fi
 run_suite "v37_9_86_trap_override (V37.9.86 bash trap override lockdir 残留: 5 脚本修复 + 行为层反向/正向验证)" "python3 test_v37_9_86_trap_override.py"
 # V37.9.99-pkg: ontology-engine pip 包化第一块 — config-injection keystone + pyproject + 二层契约
 if [ -f test_ontology_packaging.py ]; then
