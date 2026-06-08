@@ -636,4 +636,62 @@ openclaw message send --channel whatsapp -t "$OPENCLAW_PHONE" -m "回滚完成"
 
 ---
 
+## 十四、第五次评估记录（2026-06-08，当前数据实证 + 用户决策继续 hold）
+
+> 触发：用户主动要求"充分评估升级风险（已推迟 3 个月）"。本次用 WebFetch 实证当前上游状态
+> （上次评估 2026-05-05 已一个月，数据需刷新）。结论：**继续 hold 到文档 6/20 时间表（用户决策）**。
+
+### 14.1 "3 个月推迟"裁决：有理有据，非拖延
+
+核心阻塞是 **#73358**（无 OpenAI key 时 bundled Codex skill silent default → PA 业务静默中断），
+直到 **v2026.4.27（2026-04-29）才修复**。在此之前任何升级都导致业务中断 → 3 个月 hold 是
+evidence-driven 非 procrastination。4/29 后战略路径才打开。
+
+### 14.2 当前上游状态（WebFetch 实证 github.com/openclaw/openclaw/releases）
+
+| 项 | 5/5 第四次评估 | 6/8 本次第五次 | 变化 |
+|----|----------------|----------------|------|
+| 最新稳定版 | v2026.5.3-1 | **v2026.6.1**（6/3 发布） | ↑ +N |
+| 预发布 | — | v2026.6.5-beta.2 / 6.2-beta.1 等 | — |
+| 版本差距 tripwire（50 stable） | 未触发 | **likely 已触发**（文档预测 ~5/26-6/2，3.13→6.1 跨度更大） | 🚨 |
+| #73358 dealbreaker | ✅ v4.27 修复 | ✅ 无变化 | — |
+| #59265 Agent 不可见 | ⚪ closed 无 PR / 无 fix | **WebFetch 再确认仍 closed 无 PR / 无 fix evidence**（last update 4/1） | — |
+| **6.x SQLite migration**（file-based → SQLite state） | N/A | 🟡 **新 breaking**（可能影响 Gateway state 备份 / session 存储 / openclaw_backup.sh） | 新增 |
+| **6.x plugin 安装策略大改**（dangerous-code scanner → operator install policy） | N/A | 🟡 **新 breaking**（plugin 验证模型变更） | 新增 |
+
+### 14.3 关键洞察：保守目标 v2026.4.27 更有理
+
+瞄准 **v2026.4.27**（最早含 #73358 fix）可**避开全部** 4.29/5.x/6.x breaking：
+tools.exec/fs restrictive profile（4.29）+ plugin manifest contracts.tools（5.2）+
+**SQLite migration（6.x）+ plugin policy overhaul（6.x）**。6.x 又加 2 个 breaking →
+保守目标 v2026.4.27 比 5/5 时更有理（升级到最新 6.1 风险面更大）。
+
+### 14.4 v2026.4.27 升级风险矩阵（本次刷新）
+
+- 🟢 **已解除**：WhatsApp plugin（条件 1 满足）/ #73358（4.27 修复）/ API 兼容（OpenAI 格式不变）
+- 🟡 **中风险（须 Mac Mini 验证，3.13→4.27 跨度 19 stable）**：(1) config 迁移 `openclaw doctor --fix`（legacy key 验证变严）(2) trusted-proxy auth 变更（v2026.3.31，影响 Gateway→Proxy:5002）(3) Exec 安全加固（v2026.3.31，我们 12 工具白名单）
+- ⚪ **最大残留风险**：**#59265 Agent actions 不可见**（G2 门不通过 — closed 无 verified fix）。若 4.27 含此 bug，PA(Wei) WhatsApp 回复可能不可见。**自动检查抓不到，只能 WhatsApp E2E 观察 + 30 秒回滚**。这是 13.9.1 G2 失败的文档化路径（目标降级 v4.27 + WhatsApp 立即可用性 E2E 就绪）。
+
+### 14.5 第五次评估结论：**继续 hold 到 6/20 时间表（用户决策）**
+
+本次评估（当前数据）**全面确认文档化方案 C + 时间表**：
+1. 目标 **v2026.4.27** 确认（G2 门 #59265 失败 → 降级目标，避开全部 4.29/5.x/6.x breaking）。
+2. v2026.4.27 已 ~40 天稳定期（4/29 发布），远超 6/20 的"soak"假设 → 技术上已成熟。
+3. 用户看完整风险画面后选**继续 hold 到文档 6/20 时间表**（保守纪律，weekend 回滚窗口 + 6/15 最终前置验证）。
+4. 风险特性**可验证 + 可恢复**（备份 + doctor --fix + WhatsApp/Discord E2E + 30 秒回滚），但执行是 Mac Mini SSH 操作（禁 AI 执行，自杀悖论）。
+
+**已知 framework gap（V37.9.22 登记）**：版本差距 tripwire likely 触发后每周一 cron 会持续告警，
+但我们已评估 + 决策 hold → 6/20 前的 Monday 告警是预期噪声（acknowledged）。未来可加 tripwire #7
+（关键 bug fix 检测）或"已评估决策 hold 期间静默告警"逻辑。
+
+### 14.6 待办（6/15-6/20，用户 Mac Mini）
+
+- **6/15 最终前置验证**：跑 `bash check_upgrade.sh`（看 tripwire 状态）+ WebFetch 确认 #59265 / 6.x 无新 dealbreaker + dev 侧审查 proxy_filters 工具白名单 against v3.31 exec 加固。
+- **~6/20 升级**：按第七节 SOP（备份 → 升 v2026.4.27 → `doctor --fix` → **强制 WhatsApp E2E（PA 回复可见性，#59265 验证）** → 双通道推送验证 → 不可见立即回滚）。
+- 升级成功后按第九节清单更新 docs/config.md + CLAUDE.md + SOUL.md + status.json + LAST_EVAL_DATE。
+
+> 本次 LAST_EVAL_DATE 更新到 **2026-06-08**（第五次评估已做，重置时间 tripwire 计数）。
+
+---
+
 *本文档为评估报告，不执行任何升级操作。升级决策由用户做出。*
