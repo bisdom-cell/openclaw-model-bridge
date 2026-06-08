@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-08 11:46:11",
+  "updated": "2026-06-08 12:15:11",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -104,6 +104,16 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-06-08",
+      "what": "V37.9.124 日落法 #29: INV-OBSERVER-001 runtime check 收窄到契约核心类 (用户选). V37.9.121-hotfix2 血案根因 — governance INV runtime 跑全 test_daily_observer 166 测试, 套件里 env-dependent test (test_missing_last_run _MAC_MINI_JOBS_DIR 读泄漏) 让 INV 在 Mac Mini 误报. 调查 ~13 全套件 runtime check: 唯一已证明 env-dependent 是 test_daily_observer, 其他 env-independent (router patch 隔离+relative-to-HOME 一致/scanner 扫 repo). 只收窄 INV-OBSERVER-001 (原则 #18 补证据非补功能, 不投机收窄其他 12). 收窄: 全文件 → 动态正则发现契约核心类 TestV37_9_87/88/92/93 (16 类/93 测试) + -m unittest, 排除 general 类 (TestResolveLastRunPath/TestScanJobStatuses 触碰 _MAC_MINI_JOBS_DIR). 镜像 INV-DREAM-CROSS-DOMAIN 跑特定类. for-loop 非 comprehension (V37.3). 7 新单测 + sabotage 反向验证真有效. 117→118 suites / 4092→4099 tests / 0 fail / 89 inv 不变 / 安全 95. 缩 dev-production 接缝兑现北极星. 待 Mac Mini git fetch+reset.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-08",
+      "what": "3-engine-merge 风险评估 (用户要求充分评估再决策) → DEFER 不执行 (用户确认). 加深 V37.9.119 调查: 3 个 engine.py 加载点 path-independent 零 correctness bug, 合并仅省 1 次 startup-once 加载 = cosmetic. 动 proxy_filters 每请求工具过滤 + three_gate shadow 门控 + V37.9.15.1 hotfix 加固结构 + governance INV-GATE-001 硬锁 + 4 测试文件 = 高 blast radius 换 cosmetic 收益, 原则 #34 防御本身是事故面. 结论记入 unfinished 防未来重复调查. 零代码改动.",
+      "by": "claude_code"
+    },
     {
       "date": "2026-06-08",
       "what": "V37.9.123 日落法 #27 概念 B: status.json 内容漂移豁免 bash 收敛 (用户选, V37.9.122 同 session follow-up). 真一物二形: status.json 内容漂移豁免 (文件在 FILE_MAP 但内容仓库快照 vs 运行时刷新合法分叉) 散落 preflight check 6 (V37.8.1) + auto_deploy drift loop (V37.8.11) 2 处硬编码 if SRC==status.json. 收敛到 path_consistency_scanner.CONTENT_DRIFT_EXEMPT 单一真理源 + --print-exempt CLI (yaml-independent) + bash grep -qxF 成员检查. 不同 FAIL 方向是设计: auto_deploy FAIL-SAFE (空查询退回 status.json 防 V37.8.11 覆盖血案) / preflight FAIL-OPEN (可见 fail). INV-DEPLOY-003 升级守新 pattern (它硬检查旧字面量, 收敛立即被抓=好信号). 21 新单测 (含 FAIL-SAFE 行为 + sabotage 两层). 先排查 MR-15 接缝确认概念 A 不引入 seam bug (preflight V37.8.3 机制从 $HOME 解析到 repo). 116→117 suites / 4071→4092 tests / 0 fail / 89 inv 不变 / 安全 95. #27 (概念 A+B) 完整闭合. 待 Mac Mini git fetch+reset.",
@@ -242,7 +252,8 @@
       "V37.9.112 已完成 (b) ai_leaders_bsky 接入 Opportunity Radar #2 (top_alignment_picker ALIGNED_SOURCES 9→10, 3 消费方自动生效). 剩余 follow-up (Mac Mini handle 验证后, 非高优): (a) 首跑 log WARN 剪死 handle + 补可达 contrarian 大神 (howard.fm 自定义域名 / garymarcus.bsky.social / emilymbender.bsky.social 候选待验 / fchollet 替代) (c) 2x/天频率评估 (实时短观点价值) + 评估 Bluesky app-password 认证读 login-required 账号",
       "V37.9.110+113 follow-up (升级版, MR-9 测试污染生产 bug 类 framework 化): V37.9.113 已 framework 化 convergence-specific 部分 (TestV37_9_113 AST 反回归守卫 + 行为级正/负对照 sentinel, 拆 test_convergence 真改 crontab/真跑 kb_embed 地雷). 剩余 (专门 session): (a) 立元规则 MR-22 governance-runtime-tests-must-isolate-production-state — V37.9.110 test_movespeed 写真 incidents.jsonl + V37.9.113 test_convergence 真改 crontab 共 2 实例已达立元规则门槛 (b) generic MRD scanner 扫所有 governance runtime python_assert 跑的测试 (INV-RETRY-001 test_movespeed / INV-CONVERGENCE test_convergence / 等) 是否写生产 state 文件 (~/.kb/*.jsonl / crontab / kb_embed 真跑), 跨多测试文件 framework 化此 bug 类",
       "V37.9.120 Mac Mini 残留清理仍待用户 (V37.9.121-hotfix 同步后): bash ~/crontab_safe.sh remove 'bash ~/auto_deploy.sh >> ' (删 HOME 路径 crontab line) + rm ~/auto_deploy.sh (删 HOME 副本) → 之后 ONE crontab 行 (repo) + ONE 副本 (repo clone).",
-      "日落法接缝候选 (V37.9.121-hotfix2 登记): governance INV runtime check 跑全测试套件的 dev-production 接缝 — INV-OBSERVER-001 跑 test_daily_observer 全 166 测试, 全套件里任一 env-dependent test 都让 INV 在 Mac Mini 误报 (本次 test_missing_last_run _MAC_MINI_JOBS_DIR 读泄漏). V37.9.110(写污染)/V37.9.113(test_convergence)/V37.9.121-hotfix2(读泄漏) 同款. 评估: INV runtime 收窄到契约核心 test 类 (镜像 INV-DREAM-CROSS-DOMAIN 跑特定类) vs 跑全套件. 或 framework 级 scanner 扫 governance runtime 跑的测试是否 env-isolated (V37.9.110 登记的 MRD 候选)."
+      "3-engine-merge 已两次评估结论 DEFER (V37.9.119 + 2026-06-08 本 session 加深), 勿再从头调查. **结构**: 3 个 engine.py 加载点 — proxy_filters:452 (_onto_engine, module-level 仅 on/shadow, generate_proxy_data 覆盖 ALLOWED_TOOLS + 保留 _onto_mod 供 evaluate_policy, 每请求工具过滤核心) / proxy_filters:1463 (ontology_engine, _check_ontology_consistency 无条件所有 mode, 一致性诊断) / three_gate:183 (_three_gate_engine_lazy, lazy 首次 gate 评估缓存, _safe_evaluate_policy shadow 门控请求路径). **风险评估**: (a) path-independent 零 correctness bug, 双加载一物二形仅 on/shadow mode 存在 (OFF mode 只 1463 加载), 合并仅省 1 次 startup-once 加载 = cosmetic. (b) Sub-merge A (proxy_filters 452+1463 单文件) 中风险; Sub-merge B (three_gate 跨模块共享单例) 高风险. (c) three_gate._load_engine_module 是 V37.9.15.1 hotfix 加固的三策略 robustness 修复, governance INV-GATE-001 (gov yaml line 5402-5413) 硬锁 _three_gate_engine_lazy 模块名 + _load_engine_module 结构 + 4 测试文件引用 → 合并连带改 governance+测试+风险解开 hotfix 修过的 bug. **决策**: DEFER — 无 incident-causing 接缝 (北极星 V37.9.117 针对造成事故的接缝, 这 3 加载是 cosmetic startup-once 重复), 高 blast radius (每请求工具过滤+shadow 门控) 换 cosmetic 收益, 原则 #34 防御本身是事故面. 若未来真要做: 只考虑 Sub-merge A (单文件缓存 helper), Sub-merge B 不做.",
+      "V37.9.124 #29 follow-up (低优, 防未来重复调查): INV runtime 收窄已完成 INV-OBSERVER-001 (唯一已证明 env-dependent 套件). #29 调查结论: 其他 ~12 全套件 runtime check 的套件 env-independent 已核实 (test_v37_9_76_router 16 env 信号全 patch 隔离 + relative-to-HOME expanduser 一致; scanner 扫 repo 文件; INV-ROUTER false-fail 是 stale code 非套件 env-dependency), 不需收窄 (原则 #18 补证据非补功能, 收窄 env-independent 套件是 churn). #29 收窄约定已立 (test_v37_9_124 docstring): 套件含 env-dependent test 的 INV 跑契约核心类非全套件; 纯逻辑套件跑全 OK. 未来若新 INV 跑的套件含 env-dependent test (读 repo 外真实系统状态), 按此约定收窄到契约核心类 (镜像 INV-OBSERVER-001/INV-DREAM-CROSS-DOMAIN)."
     ],
     "open_prs": "",
     "blocked_on": "",
@@ -308,11 +319,11 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 4092,
-    "last_regression": "2026-06-08 11:44 pass",
+    "test_count": 4099,
+    "last_regression": "2026-06-08 12:12 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-08 11:44",
-    "test_suites": 117,
+    "security_score_time": "2026-06-08 12:12",
+    "test_suites": 118,
     "governance_invariants": "85/85",
     "governance_checks": "790/790",
     "version": "0.37.9.68",
@@ -380,7 +391,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.123 (2026-06-08 周一第三 session): 日落法 #27 概念 B status.json 内容漂移 bash 收敛 (用户选, V37.9.122 同 session follow-up 兑现). 真一物二形 (preflight check 6 + auto_deploy drift loop 2 处硬编码 if SRC==status.json) → CONTENT_DRIFT_EXEMPT 单一真理源 + --print-exempt CLI + grep -qxF 成员检查. 不同 FAIL 方向是设计: auto_deploy FAIL-SAFE (空查询退回 status.json 防 V37.8.11 覆盖血案) / preflight FAIL-OPEN (md5 比对可见 fail). INV-DEPLOY-003 升级 (硬检查旧字面量被收敛抓到=好信号, 守 V37.8.11 防线) + runtime python_assert for-loop. 21 新单测含 FAIL-SAFE 安全网行为 + sabotage 两层真有效. 117 suites/4092 tests/0 fail/89 inv 不变/安全 95/README 同步/VERSION 0.37.9.68 不变. #27 完整闭合 (概念 A V37.9.122 FILE_MAP 成员 + 概念 B V37.9.123 内容漂移). 诚实登记原则 #34 trade-off (概念 B 加机器换单一源+闭合 V37.8.1/11 一物二形). 日落法退役: V37.9.118/119/120/122/123. 下次候选: OpenClaw ~6/15 / 3-engine-merge (高风险 deferred) / ArXiv 论文.",
+  "focus": "V37.9.124 (2026-06-08 周一第四 session): 日落法 #29 INV-OBSERVER-001 runtime check 收窄 (用户选) + 3-engine-merge 先评估后 DEFER. #29 修 V37.9.121-hotfix2 血案根因: governance INV runtime 跑全套件 = dev-production 接缝, 套件里 env-dependent test 让 INV Mac Mini 误报. 调查 ~13 全套件 runtime check, 唯一已证明 env-dependent = test_daily_observer, 只收窄 INV-OBSERVER-001 (其他 env-independent, 原则 #18 不投机收窄). 收窄: 全文件 → 动态正则契约核心类 TestV37_9_87/88/92/93 (16 类/93 测试) + -m unittest, 排除 general env-dependent 类. 镜像 INV-DREAM-CROSS-DOMAIN. #29 约定: 套件含 env-dependent test 的 INV 跑契约核心类非全套件; 纯逻辑套件跑全 OK 不强制 (避 churn). 7 新单测 + sabotage 真有效. 118 suites/4099 tests/0 fail/89 inv 不变/安全 95/README 同步/VERSION 0.37.9.68 不变. 日落法退役 V37.9.118/119/120/122/123/124 + 评估 DEFER 3-engine-merge. 下次候选: OpenClaw ~6/15 / ArXiv 论文.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
