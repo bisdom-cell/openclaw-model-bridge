@@ -95,6 +95,30 @@ RUNS_FROM_REPO_CLONE: dict[str, str] = {
     ),
 }
 
+# V37.9.123 日落法 #27 概念 B 收敛: 内容漂移豁免【单一真理源】.
+# 这些文件【在】FILE_MAP 中部署到 $HOME, 但内容在仓库 (Claude Code 快照) 与运行时
+# (cron 刷新) 之间合法分叉 → 全文件 md5 比对无意义, 应跳过 drift 比对.
+# 与 RUNS_FROM_REPO_CLONE (FILE_MAP 成员豁免) 是【不同 concern】: 此类在 FILE_MAP 只是内容漂移.
+# bash 消费者经 `--print-exempt content-drift` 查询此单一源 (此前各自硬编码 status.json 字面量):
+#   (1) auto_deploy.sh drift loop — FAIL-SAFE: 查询失败退回 status.json, 防 V37.8.11 静默覆盖血案
+#   (2) preflight_check.sh check 6 — FAIL-OPEN: 查询失败 → md5 比对 → 可见 fail (无害)
+# 不同 FAIL 方向是设计 (auto_deploy 覆盖有害须 fail-safe / preflight 可见无害须 fail-open).
+# 每条豁免必须有显式 reason. 加新内容漂移豁免【只需改此处一行】.
+CONTENT_DRIFT_EXEMPT: dict[str, str] = {
+    "status.json": (
+        "V37.8.1/V37.8.11: 仓库是 Claude Code priorities/recent_changes 快照, 运行时 "
+        "~/.kb/status.json 由 kb_status_refresh cron 每小时刷新 health/quality 字段, 两侧设计上"
+        "永远不一致 → 全文件 md5 比对无意义. intent 变更经 new-commit 路径单向下传 (非 drift)."
+    ),
+}
+
+# V37.9.123: 豁免类别 → 集合 映射 (CLI --print-exempt 供 bash 查询单一真理源).
+_EXEMPT_CATEGORIES: dict[str, dict[str, str]] = {
+    "content-drift": CONTENT_DRIFT_EXEMPT,
+    "repo-clone": RUNS_FROM_REPO_CLONE,
+    "non-standard-dst": ALLOWED_NON_STANDARD_DST,
+}
+
 
 def load_jobs_registry(repo_dir: str) -> list[dict[str, Any]]:
     """Load enabled jobs from jobs_registry.yaml.
@@ -410,7 +434,23 @@ def main(argv: list[str]) -> int:
         action="store_true",
         help="V37.9.85: include crontab -l consistency check (Mac Mini only)",
     )
+    parser.add_argument(
+        "--print-exempt",
+        choices=sorted(_EXEMPT_CATEGORIES.keys()),
+        default=None,
+        help=(
+            "V37.9.123: 打印指定豁免类别的 basename (每行一个), 供 bash 消费者读单一真理源. "
+            "不跑扫描器 (无 yaml 依赖, robust)."
+        ),
+    )
     args = parser.parse_args(argv)
+
+    # V37.9.123: --print-exempt 早退 — 打印单一真理源豁免集 (供 auto_deploy/preflight bash 查询).
+    # 不跑扫描器, 无 yaml/I-O 依赖 → 极 robust (只要 Python 能跑就成功). FAIL 方向由调用方决定.
+    if args.print_exempt:
+        for name in _EXEMPT_CATEGORIES[args.print_exempt]:
+            print(name)
+        return 0
 
     try:
         findings = scan_path_consistency(args.repo_dir)

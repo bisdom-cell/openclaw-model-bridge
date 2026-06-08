@@ -227,6 +227,13 @@ with open('$SCRIPT_DIR/auto_deploy.sh') as f:
 " 2>/dev/null)
 
     DRIFT_COUNT=0
+
+    # V37.9.123 日落法 #27 概念 B: 内容漂移豁免【单一真理源】(path_consistency_scanner
+    # CONTENT_DRIFT_EXEMPT), 不再硬编码 status.json 字面量. $SCRIPT_DIR 已 V37.8.3 解析到 repo.
+    # FAIL-OPEN: 查询失败/空 → 不豁免 → status.json 进 md5 比对 → 可见 fail (无害, 信号化
+    # path_consistency_scanner 不可读). auto_deploy 同款豁免是 FAIL-SAFE (覆盖有害), 方向不同是设计.
+    CONTENT_DRIFT_EXEMPT="$(python3 "$SCRIPT_DIR/path_consistency_scanner.py" --print-exempt content-drift 2>/dev/null || true)"
+
     for mapping in "${FILE_MAP[@]}"; do
         SRC="${mapping%%|*}"
         DST="${mapping##*|}"
@@ -235,11 +242,12 @@ with open('$SCRIPT_DIR/auto_deploy.sh') as f:
             continue
         fi
 
-        # V37.8.1: status.json 合法分叉豁免 — repo 是 Claude Code 快照，
-        # runtime 由 cron (kb_status_refresh) 每小时刷新 health/quality 字段，
-        # 两边设计上永远不一致，全文件 md5 比对无意义
-        if [[ "$SRC" == "status.json" ]]; then
-            pass "status.json: 豁免（仓库快照 vs 运行时实时刷新，合法分叉）"
+        # V37.8.1 内容漂移豁免 — repo 是 Claude Code 快照, runtime 由 cron (kb_status_refresh)
+        # 每小时刷新 health/quality 字段, 两边设计上永远不一致, 全文件 md5 比对无意义.
+        # V37.9.123 日落法 #27 概念 B: 不再硬编码 status.json 字面量, 经 CONTENT_DRIFT_EXEMPT
+        # 单一真理源成员检查. 加新内容漂移豁免只需改 path_consistency_scanner 一处.
+        if printf '%s\n' "$CONTENT_DRIFT_EXEMPT" | grep -qxF "$SRC"; then
+            pass "$SRC: 豁免（内容漂移单一真理源 CONTENT_DRIFT_EXEMPT, 仓库快照 vs 运行时实时刷新）"
             continue
         fi
 
