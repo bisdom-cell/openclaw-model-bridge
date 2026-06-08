@@ -154,6 +154,10 @@ fi
 #   - docs/               → 文档（GitHub 在线阅读）
 #   - gameday.sh          → 故障演练（手动执行）
 #   - merge_status_json.py → git merge driver（仓库内使用）
+#   - auto_deploy.sh      → 从 repo clone (~/openclaw-model-bridge/auto_deploy.sh) 跑,
+#                           不需 HOME 副本 (V37.9.120 日落法退役 2 副本一物多形 — auto_deploy
+#                           必须 cd $REPO_DIR git pull, HOME 副本无独立 bootstrap 价值且冗余;
+#                           crontab line 5 用 repo 路径, 旧 HOME line 54 + ~/auto_deploy.sh 待清理)
 #
 declare -a FILE_MAP=(
     # 核心服务（Proxy + Adapter）
@@ -328,11 +332,11 @@ declare -a FILE_MAP=(
     # 三方宪法状态锚点（repo → ~/.kb/，Claude Code 收工写入的变更同步到 PA）
     "status.json|$HOME/.kb/status.json"
 
-    # 自部署（bootstrapping）— 部署到 HOME 目录
-    # V37.8.12: 移除冗余 $HOME/openclaw-model-bridge/auto_deploy.sh 映射——
-    #   当 REPO_DIR==$HOME/openclaw-model-bridge 时是自复制，macOS cp 返回非零 + set -e
-    #   杀脚本，导致 new-commit 同步中途死亡。仓库目录的 auto_deploy.sh 已经由 git pull 更新。
-    "auto_deploy.sh|$HOME/auto_deploy.sh"
+    # V37.9.120 日落法: auto_deploy.sh 移出 FILE_MAP (见上方排除清单) —— 从 repo clone
+    #   (~/openclaw-model-bridge/auto_deploy.sh, crontab line 5) 跑, 不需 HOME 副本.
+    #   退役 2 副本一物多形 (HOME ~/auto_deploy.sh 冗余: auto_deploy 必须 cd $REPO_DIR git pull
+    #   无独立 bootstrap 价值). V37.8.12 已移除自复制映射, V37.9.120 进一步移除 HOME 部署映射.
+    #   旧 convergence 生成的 HOME crontab line 54 + ~/auto_deploy.sh 待 Mac Mini 手动清理.
 
     # PA 灵魂文件（最高优先级上下文）
     "SOUL.md|$HOME/.openclaw/workspace/SOUL.md"

@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-08 07:22:51",
+  "updated": "2026-06-08 07:44:30",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-06-08",
+      "what": "V37.9.120 日落法退役第三步: auto_deploy 双副本一物多形根治 (3 次复发 V37.9.106/111/116 都删了拉倒, V37.9.120 退役 HOME 副本根治). 纠正 V37.9.116 两处错误前提: (1) auto_deploy 确在 FILE_MAP (自复制守卫 REPO/SRC==DST 对它不成立 → 真部署 HOME 副本) → 2 物理副本; (2) 改 entry openclaw-model-bridge/auto_deploy.sh 会 break check_registry (双路径). Mac Mini 诊断确认: line 5 repo (真在跑) + line 54 HOME (逐字=_format_cron_line 输出) 都在, line_contains 匹配 line 5 → 谜团自愈 line 54 stale. 真退役 Option 1a: FILE_MAP 移除 auto_deploy HOME 副本 (从 repo clone 跑必须 cd git pull, HOME 副本无 bootstrap 价值冗余) + 排除注释 + registry 注释 + path_consistency_scanner RUNS_FROM_REPO_CLONE 豁免 (免疫系统开火加合法豁免). entry 保持裸名 (check_registry 满足 + line_contains 匹配). 残留 dormant: _format_cron_line 仍生成 HOME 路径 line_contains 下不触发已文档化. 零新 INV/test (复用 scanner 33 + check_registry). 115 suites/4063 tests/0 fail/governance 805 checks/安全 95/VERSION 不变. Mac Mini 待: 同步后 crontab_safe.sh remove line 54 + rm ~/auto_deploy.sh.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-08",
       "what": "日落法调查 (无代码改动): proxy_filters/three_gate abspath (定位 engine.py) 候选确认不做. 深查加载机制: 三处 spec_from_file_location 用不同 module 名 (_onto_engine + ontology_engine + _three_gate_engine_lazy) 已 3 独立 engine 实例 path 无关 → 我的双加载担忧不成立. proxy_filters realpath 是 literal no-op (不经 symlink realpath==abspath 仍构建 ~/ontology/engine.py); three_gate realpath cosmetic (同文件经 canonical path). 且是定位 sibling engine.py 不同 concern 非 repo-root realpath 家族. 加之前先问能否退役调查阻止一次 no-op/cosmetic churn = 日落法工作方式. 真一物多形是 3 engine 实例合并但更大 refactor 高风险 deferred. 纠正 CLAUDE.md V37.9.119 误导候选框架.",
       "by": "claude_code"
     },
@@ -198,11 +203,6 @@
       "date": "2026-06-04",
       "what": "V37.9.105-hotfix3: 用户同步后重跑 governance --full 确认 — 原 3 失败 INV-CONVERGENCE-CRON/PROVIDERS/ROUTER-001 全部自愈 (我的 convergence 测试修 + ROUTER 是 07:00 stale 代码). 浮现 3 个 pre-existing (07:00 被 head 截断): (a) INV-CONVERGENCE-INTEGRATION-001 stale 自检已修 — runtime check 写死 len(specs)==4 但 V37.9.25 加第5 spec services_to_launchd, requires_full 让 dev 跳过只 Mac Mini --full 失败, 4→5+加 spec_id, dev --full 验证 ✅; (b) INV-CRON-004 crontab 重复条目 待用户 uniq -d; (c) INV-MOVESPEED-TCC-001 24h incidents=18>2 V37.9.80 FDA 问题待重查. (b)(c) 真 Mac Mini 运维问题非代码. 112 suites/3941 tests/0 fail.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-06-04",
-      "what": "V37.9.105-hotfix: 根因终极确认 + governance FATAL 误报修. (1) health_check 5-6 周报根因 = shell history 实锤用户今天 08:24 手动调试 bash ~/health_check.sh 多次, 每次完整运行触发末尾 notify 真推送 (head 只截断显示不阻止推送), 唯一调用源=周一cron+手动调试无隐藏 launchd. V37.9.105 速率限制根除. (2) governance_audit FATAL line=64 误报修: set -eEuo 的 -E errtrace 让 $(python3) 子shell 继承 ERR trap, governance_checker 退出1时子shell内误触发 FATAL (外层 ||GOV_RC 已捕获脚本继续, 两条告警同源=没真abort铁证). 修 set +E 包裹 line64+81. 7新单测. (3) 遗留: 3真不变式失败 INV-CONVERGENCE/ROUTER runtime check subprocess test_convergence timeout=60, dev 304tests 4.3s过, 疑 Mac Mini 慢硬件+真环境子进程超60s, 待 time python3 test_convergence.py 确认. 112 suites/3941 tests/0 fail.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -273,9 +273,7 @@
       "V37.9.111-hotfix follow-up C: kb_harvest_chat LLM Reduce 超时 — 6/4 对话 163 轮/37.7 万字/9 chunks, 9 Map 全成功但 Reduce 合并 9 段 LLM 失败 (6/3 也 timeout). 大对话日 Reduce 超容量/超时. 数据没丢(在 ~/.kb/conversations/). 修法: chunked Reduce(分批合并) 或 Reduce retry 或减小 Map chunk.",
       "V37.9.112 已完成 (b) ai_leaders_bsky 接入 Opportunity Radar #2 (top_alignment_picker ALIGNED_SOURCES 9→10, 3 消费方自动生效). 剩余 follow-up (Mac Mini handle 验证后, 非高优): (a) 首跑 log WARN 剪死 handle + 补可达 contrarian 大神 (howard.fm 自定义域名 / garymarcus.bsky.social / emilymbender.bsky.social 候选待验 / fchollet 替代) (c) 2x/天频率评估 (实时短观点价值) + 评估 Bluesky app-password 认证读 login-required 账号",
       "V37.9.110+113 follow-up (升级版, MR-9 测试污染生产 bug 类 framework 化): V37.9.113 已 framework 化 convergence-specific 部分 (TestV37_9_113 AST 反回归守卫 + 行为级正/负对照 sentinel, 拆 test_convergence 真改 crontab/真跑 kb_embed 地雷). 剩余 (专门 session): (a) 立元规则 MR-22 governance-runtime-tests-must-isolate-production-state — V37.9.110 test_movespeed 写真 incidents.jsonl + V37.9.113 test_convergence 真改 crontab 共 2 实例已达立元规则门槛 (b) generic MRD scanner 扫所有 governance runtime python_assert 跑的测试 (INV-RETRY-001 test_movespeed / INV-CONVERGENCE test_convergence / 等) 是否写生产 state 文件 (~/.kb/*.jsonl / crontab / kb_embed 真跑), 跨多测试文件 framework 化此 bug 类",
-      "#28 auto_deploy crontab 双行复发根因 (07:00 fail 已诊断+修复): 真实 07:00 治理审计 fail = INV-CRON-004 (auto_deploy.sh 双行: 仓库路径 ~/openclaw-model-bridge/auto_deploy.sh + HOME 路径 ~/auto_deploy.sh, endswith matcher 检测同脚本双调用). 第 3 次复发 (V37.9.106/111-hotfix 同款). 用户 6/5 16:44 crontab_safe.sh remove HOME 路径行 42→41 已修. 排查: convergence 证伪 (dev 测 line_contains_identifier 对仓库路径行正确识别 auto_deploy.sh 存在不重加) + grep repo/$HOME *.sh 无脚本加 HOME 路径行 (只注释且注释写仓库路径形式). 剩余根因候选 (专门 session, 功能无害非紧急): (a) crontab backup 恢复 (.crontab_backups/ 旧备份含双行被 restore) (b) 一次性手动 (c) 加 framework 守卫 prevent 同脚本双 crontab 行. 监控: 本次 remove 后观察是否第 4 次复发 + 何时 (correlate 进程).",
-      "follow-up #28 精确根因 (V37.9.115 收尾诊断): INV-CRON-004 auto_deploy 双行复发 (V37.9.106/111/今天 第3次). dev 测决定性: line 54 (HOME 裸名 bash ~/auto_deploy.sh) 逐字等于 convergence _format_cron_line(auto_deploy) 输出, 是唯一产此字符串的源. BUT 用 line 5 真实文本测 line_contains parser → observed={auto_deploy.sh} missing=set() → 只要 line 5 (repo 路径) 在 convergence 就不加. 故 line 54 是历史某时刻 line 5 缺失时 convergence real-apply 加的, 非每次重加. 真根因 = registry entry:auto_deploy.sh 裸名让 _format_cron_line 生成 ~/auto_deploy.sh (HOME) 与 canonical line 5 ~/openclaw-model-bridge/auto_deploy.sh (repo) 格式错配. 用户一锤定音实验 (删 line54 → no-dry-run gov → 看是否回来) 待结果. 候选 fix (专门 session 全回归): (a) registry entry auto_deploy.sh → openclaw-model-bridge/auto_deploy.sh 让 _format_cron_line 生成 repo 路径匹配 line 5 (但动 INV-CRON-004 _cron_cmd_invokes endswith matcher + check_registry 校验 + FILE_MAP, 风险中) (b) governance_audit_cron.sh line 70 加 CONVERGENCE_DRY_RUN=1 让 07:00 审计只告警不真改 crontab (V37.9.113 测试隔离同款原则扩到生产审计, 但 revert V37.9.58 machine_sync 自愈设计) (c) jobs_to_crontab 切 cron_lines_set_diff parser (V37.9.66 候选) 但会触发 34 job 路径 false-drift 风暴. 非阻塞 (auto_deploy 跑两遍只多一次 git pull 无害).",
-      "【日落法首个实操候选, V37.9.118+】按 MR-22 日落法北极星, 下次不加治理而是退役一个'一物多形'. 最该先动: auto_deploy 格式错配根治 — entry:auto_deploy.sh 裸名让 _format_cron_line 生成 ~/auto_deploy.sh (HOME) vs canonical crontab line 5 ~/openclaw-model-bridge/auto_deploy.sh (repo) 两条表示并存. V37.9.116 的 CONVERGENCE_DRY_RUN=1 只止血(审计不重加), 真日落法动作 = 统一成一条路径让 _format_cron_line 与 canonical crontab 字节级一致, 一物一形根上消除 bug 类 (从此 convergence 即使 apply 也加对的行). 需动 jobs_registry entry + 验证 INV-CRON-004 _cron_cmd_invokes matcher + check_registry, 全回归. 其他退役候选: ~/ontology symlink 评估 (V37.9.12.1, abspath 隐患源) / governance_ontology.yaml ~7 处 abspath(__file__) → os.getcwd() (减表示, governance 已 chdir _PROJECT_ROOT) / dev-Mac Mini parser 判定差异查 (为何 dev mock missing=空 Mac Mini 真 apply)."
+      "V37.9.120 Mac Mini 清理待办 (合并+同步后): auto_deploy 双副本退役收尾. 同步后新 auto_deploy.sh 无 FILE_MAP 自部署条目, 然后清 2 副本残留: (1) bash ~/crontab_safe.sh remove 'bash ~/auto_deploy.sh >> ' (删 line 54 HOME 行, grep -F 只命中 HOME 路径不碰 line 5 的 openclaw-model-bridge/) (2) rm ~/auto_deploy.sh (删 HOME 副本). 之后 ONE crontab 行 (line 5 repo) + ONE 副本 (repo clone). 残留 dormant: _format_cron_line(auto_deploy) 仍生成 HOME 路径 line_contains 下不触发已文档化, cron_lines_set_diff future 需特殊处理 (V37.9.66 defer)."
     ],
     "open_prs": "",
     "blocked_on": "",
@@ -342,9 +340,9 @@
   "quality": {
     "security_score": 95,
     "test_count": 4063,
-    "last_regression": "2026-06-08 07:13 pass",
+    "last_regression": "2026-06-08 07:41 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-08 07:13",
+    "security_score_time": "2026-06-08 07:41",
     "test_suites": 115,
     "governance_invariants": "85/85",
     "governance_checks": "790/790",
@@ -413,7 +411,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.119 收尾 (2026-06-08 周一): 日落法退役第二步完成 (engine.py abspath→realpath + 7064 守卫开火纠正过度收敛). 加查 proxy_filters/three_gate abspath 候选 → 确认不做 (深查加载机制: 3 处 spec_from_file_location 不同 module 名已 3 独立 engine 实例 path 无关, proxy realpath no-op + three_gate cosmetic + 不同 concern; '加之前先问能否退役'调查阻止 no-op churn = 日落法工作方式). realpath 现统一所有 repo-root __file__-resolution (governance_checker+7064+engine.py) = 真退役一物多形. 115 suites/4063 tests/0 fail/87 inv/安全 95/VERSION 不变. 下次日落法候选 (按价值): auto_deploy 两路径统一 (#32 需 Mac Mini 确认 crontab 真实行) / 真一物多形 3 engine 实例合并 (proxy×2+three_gate×1, 更大 refactor 每 load 有目的高风险) / ~/ontology symlink 评估. 周一 #32 用户视角 30min 观察需 Mac Mini/WhatsApp dev 做不了.",
+  "focus": "V37.9.120 (2026-06-08 周一): 日落法退役第三步 — auto_deploy 双副本一物多形根治 (闭合 3 次复发 V37.9.106/111/116). 纠正 V37.9.116 两错误前提 (auto_deploy 确在 FILE_MAP 2 副本 / 改 entry break check_registry). 真退役 Option 1a: FILE_MAP 移除 HOME 副本 + entry 保持裸名 (check_registry+line_contains 满足) + path_consistency_scanner RUNS_FROM_REPO_CLONE 豁免 (免疫系统开火加合法豁免). 真退役 (2 副本→1+2 crontab 行→1) 非 no-op. 日落法退役三步: V37.9.118 (17 chdir check os.getcwd) → V37.9.119 (engine.py realpath, 7064 守卫开火 REVERT 纠正过度收敛) → V37.9.120 (auto_deploy 双副本). 免疫系统今日两次开火都正确处理 (7064 REVERT + path_consistency 加豁免). 115 suites/4063 tests/0 fail/87 inv/安全 95/VERSION 不变. Mac Mini 待用户: 同步后清理 crontab line 54 + ~/auto_deploy.sh (unfinished 已登记精确命令). 下次候选: 3 engine 实例合并 (proxy×2+three_gate×1 更大 refactor) / ~/ontology symlink 评估 / convergence cron_lines_set_diff 切换时 auto_deploy 特殊处理. 周一 #32 用户视角观察需 Mac Mini/WhatsApp dev 做不了.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",

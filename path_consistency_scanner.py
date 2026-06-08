@@ -77,6 +77,17 @@ ALLOWED_NON_STANDARD_DST: dict[str, dict[str, str]] = {
     # V37.9.84: run_hn_fixed.sh 已迁移到 jobs/hn_watcher/ (豁免移除)
 }
 
+# V37.9.120 日落法: 从 repo clone 跑的 job 豁免 FILE_MAP 登记 (与上方 NON_STANDARD_DST 同款
+# "合法例外必须显式 reason"机制, 但此类不在 FILE_MAP 而非非标准 dst).
+# 每条豁免必须有显式 reason — 拒绝无理由豁免防漏洞兜底.
+RUNS_FROM_REPO_CLONE: dict[str, str] = {
+    "auto_deploy.sh": (
+        "V37.9.120 日落法: auto_deploy 是唯一从 repo clone (~/openclaw-model-bridge/auto_deploy.sh, "
+        "crontab line 5) 跑的 deployer job, 由 git pull 维护非 FILE_MAP 部署到 $HOME. HOME 副本冗余 "
+        "(auto_deploy 必须 cd $REPO_DIR git pull, 无独立 bootstrap 价值) — 退役 2 副本一物多形."
+    ),
+}
+
 
 def load_jobs_registry(repo_dir: str) -> list[dict[str, Any]]:
     """Load enabled jobs from jobs_registry.yaml.
@@ -191,6 +202,9 @@ def scan_path_consistency(repo_dir: str) -> list[dict[str, str]]:
         # Strip CLI args — entry "kb_dream.sh --map-sources" → "kb_dream.sh"
         entry_file = entry_full.split(None, 1)[0]
         if entry_file not in file_map:
+            # V37.9.120 日落法豁免: 从 repo clone 跑的 job (auto_deploy) 故意不在 FILE_MAP.
+            if entry_file in RUNS_FROM_REPO_CLONE:
+                continue
             findings.append({
                 "type": "MISSING_FILE_MAP",
                 "job_id": job_id,
