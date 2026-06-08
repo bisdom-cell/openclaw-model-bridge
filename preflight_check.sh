@@ -750,8 +750,15 @@ for line in crontab_lines:
             errors.append(f"FAIL|{script_name}: crontab 路径 {cron_path} ≠ FILE_MAP 目标 {targets}")
         checked += 1
     else:
-        # 反向检查：crontab 引用了 FILE_MAP 中不存在的脚本
-        not_in_map.append(script_name)
+        # V37.9.121-hotfix 日落法 (V37.9.120 退役 auto_deploy 出 FILE_MAP 的跨消费者同步,
+        # 原则 #31): auto_deploy.sh 从 repo clone 跑 (~/openclaw-model-bridge/auto_deploy.sh),
+        # 无独立 bootstrap 价值, 故意不在 FILE_MAP. crontab 引用 repo 路径是规范, 不判"未部署".
+        # 与 path_consistency_scanner.py RUNS_FROM_REPO_CLONE 豁免同步.
+        if script_name == 'auto_deploy.sh':
+            checked += 1
+        else:
+            # 反向检查：crontab 引用了 FILE_MAP 中不存在的脚本
+            not_in_map.append(script_name)
 
 # ── 反向检查输出 ──
 if not_in_map:
@@ -773,6 +780,12 @@ if registry_file and os.path.exists(registry_file):
         entry_script = entry.split()[0] if entry else ''
         if entry_script in seen_scripts:
             continue  # Same script with different args, already checked
+        # V37.9.121-hotfix 日落法 (V37.9.120 退役同步, 原则 #31): auto_deploy.sh 从 repo
+        # clone 跑非部署副本, 故意不在 FILE_MAP. 与 path_consistency_scanner RUNS_FROM_REPO_CLONE
+        # + check_registry 豁免同步.
+        if entry_script == 'auto_deploy.sh':
+            seen_scripts.add(entry_script)
+            continue
         if entry_script not in file_map_srcs:
             reg_missing.append(f"{job.get('id','?')}: {entry_script}")
         seen_scripts.add(entry_script)
