@@ -299,13 +299,19 @@ jobs:
 
   - id: auto_deploy
     scheduler: system
+    # V37.9.120 日落法: entry 保持裸名 'auto_deploy.sh' (check_registry 按 repo_root/entry 校验,
+    # repo_root/auto_deploy.sh 存在). 但 auto_deploy 是唯一从 repo clone (~/openclaw-model-bridge/)
+    # 跑的 job (crontab line 5, 见脚本头部注释), 非 FILE_MAP 部署到 $HOME (V37.9.120 已移出 FILE_MAP).
+    # line_contains parser 匹配 'auto_deploy.sh' 子串于 line 5 → 永不判 missing → 不重加.
+    # 残留: _format_cron_line(auto_deploy) 生成 ~/auto_deploy.sh (HOME) 是 dormant quirk (line_contains
+    # 下不触发); 若未来切 cron_lines_set_diff parser 需特殊处理 auto_deploy repo 路径 (V37.9.66 已 defer).
     entry: auto_deploy.sh
     interval: "*/2 * * * *"          # 每 2 分钟轮询 GitHub
     log: ~/.openclaw/logs/auto_deploy.log
     needs_api_key: false
     enabled: true
     tier: core                       # 部署管线，系统基石
-    description: 自动部署 — git pull + 文件同步 + 按需 restart
+    description: 自动部署 — git pull + 文件同步 + 按需 restart (从 repo clone 跑, 非 HOME 副本)
 
   - id: run_discussions
     scheduler: system
