@@ -14,14 +14,14 @@
 [![Notifications](https://img.shields.io/badge/notifications-WhatsApp%20%2B%20Discord-informational.svg)]()
 
 > **Current version:** `v37.9.121` / `0.37.9.68` (2026-06-08) — see [`CLAUDE.md`](CLAUDE.md) for full changelog.
-> **Latest milestone:** V37.9.92–95 — *Observer + #32 + framework 三件套同日实证 (机器化 + 制度化 + 自我演化)*. V37.9.92 修 V37.9.88 Mac Mini path silent failure 5 天 + V37.9.84 status.json 三方共享意识闭环. V37.9.93 Observer 自我修复 sampling artifact (smart head+tail + critique prompt 明示). V37.9.94 立 INV-CROSS-ENV-PATH-001 framework 化 MR-15 第 4 次演出后预防 (scanner 首扫即抓 V37.9.91 expert_escalation 隐藏 5th near-miss). V37.9.95 周一原则 #32 用户视角反馈第一次正向兑现 — ai_leaders_x 19→31 跨 12 派别 (新增 Anthropic/DeepMind/Safety/元老/Robotics/开源/架构创新派 12 个 handles).
+> **Latest milestone:** V37.9.117 → V37.9.121 — *日落法 (Sunset Law) 立为项目北极星 (降复杂度优先于加功能)*. 一天五版意外频发后深度反思: 真因不是"系统复杂"(部件难懂) 而是"系统组合"(简单正确部件交互面积超线性增长超过测试覆盖) — 复杂关乎部件, 意外关乎接缝. MR-22 (sunset-over-accretion) + MR-23 (audit-observes-never-mutates) + 原则 #34 北极星. V37.9.118-120 首批日落法退役 (governance repo_root 一物多形 → os.getcwd / engine.py realpath / auto_deploy 双副本根治). V37.9.121 立 INV-OBSERVER-001 + INV-SOURCE-CREDIBILITY-001 — 在"加治理"任务内仍践行日落法 (候选 2 daily_observer INV 合并为 1 + 退役冗余硬编码守卫).
 
 ## V37.9.x Series Highlights (2026-05)
 
 | Theme | Versions | What it means |
 |-------|----------|---------------|
 | **MOVESPEED EPERM 60-day blood case CLOSED** ⭐ | V37.9.4 → **V37.9.81** | After 60 days + 6 falsified hypotheses, V37.9.80 (5/18) identified the true root cause via `log show --predicate` — **macOS TCC Sandbox denies cron-derived processes accessing external volumes**. Fix = add `/usr/sbin/cron` to FDA. V37.9.81 (5/19) 24h data regression铁证 (12h window = 0 incidents / FDA 后 ~19h = 0 / kernel sandbox deny 0条) + INV-MOVESPEED-TCC-001 hard governance guard (auto-detect 24h ≤ 2 every day) + capture.sh stderr distinction fix (V37.9.30 取证盲区根因修复, 4-layer defense). |
-| **Phase 4 Layer 5: Convergence Framework** | V37.9.19 → V37.9.25 | Declared-state ↔ runtime drift detection lifted from "靠记忆" to "机器化". 5 specs running, 2 升级 `machine_sync` (Plan B 渐进 dry-run). MR-17 立案 (`declared-state-must-converge-via-machine-not-memory`). |
+| **Phase 4 Layer 5: Convergence Framework** | V37.9.19 → V37.9.97 | Declared-state ↔ runtime drift detection lifted from "靠记忆" to "机器化". 5 specs running, 3 升级 `machine_sync` (jobs/kb/services, Plan B 渐进 dry-run). MR-17 立案 (`declared-state-must-converge-via-machine-not-memory`). |
 | **Phase 4 P3: Three-stage gates shadow wiring** | V37.9.15 | `pre_check → runtime_gate → post_verify` 3 gates wired into request pipeline (shadow mode), policy engine 从"可查询"升级为"在请求路径上被调用产 `[gate:*]` log"。FAIL-OPEN 契约 + 与 `ONTOLOGY_MODE` 解耦. |
 | **Cross-job fail-fast migration** | V37.9.36 → V37.9.62 | 17 scripts upgraded to **6-field deep prompt** (📌 / 🔑 / 💡 / 🎯 / ⭐ / 🎚️ project alignment, dynamic length by rating) + per-item retry (5/10/20s × 3 + V37.9.36 三层检测) + LLM_DEGRADED fallback (replaced placeholder anti-pattern) + multi-window split (>8000 chars) + rule_check 验证层 (V37.9.47 + V37.9.51 batch + V37.9.62 batch). ALIGNED_SCRIPTS 4 → **17/21** (81% coverage, remaining 4 by-design excluded). |
 | **kb_deep_dive daily deep-dive job** | V37.9.16 → V37.9.21 | New 22:30 HKT cron: picker selects ⭐≥4 candidate from today's notes → fetches PDF/HTML full text → 5-field LLM analysis → multi-window WhatsApp + Discord push. **Tier-aware fallback** (V37.9.17): TIER 1/2 papers prioritized over TIER 3 X tweets. |
@@ -128,9 +128,9 @@
 │    engine.py ←→ policy_ontology.yaml (10 策略，V37.9.13)         │
 │      └→ static (3) + temporal (2) + contextual (5)              │
 │      └→ 2 条已 wire: max-tools-per-agent / max-tool-calls       │
-│    governance_checker.py ←→ governance_ontology.yaml v3.47      │
-│      └→ 80不变式 + 731检查 + 19元规则 + 14 MRD 扫描器           │
-│      └→ MR-4 silent-failure (27 次演出) / MR-6 critical≥2层     │
+│    governance_checker.py ←→ governance_ontology.yaml v3.55      │
+│      └→ 89不变式 + 818检查 + 23元规则 + 14 MRD 扫描器           │
+│      └→ MR-4 silent-failure (~28 次演出) / MR-6 critical≥2层    │
 │      └→ MR-7 治理自观察 / MR-8 copy-paste / MR-9 single-manager │
 │      └→ MR-15 reserved-files / MR-16 security 双轨统一          │
 │    diff.py: engine ↔ proxy_filters 一致性校验 (81/81=100%)      │
@@ -362,11 +362,11 @@ All jobs registered in `jobs_registry.yaml`. Validate: `python3 check_registry.p
 | `health_check.sh` | Mon 09:00 | Weekly health report |
 | `openclaw_backup.sh` | Daily 03:00 | Gateway state backup |
 | `auto_deploy.sh` | Every 2 min | Git → runtime auto-sync + drift detection |
-| `job_watchdog.sh` | Every 4h:30 | Job health monitoring (19 jobs) |
+| `job_watchdog.sh` | Every 4h:30 | Job health monitoring (23 jobs: 11 last_run + 12 log-freshness) |
 | `wa_keepalive.sh` | Every 30 min | WhatsApp session probe + escalation to Discord |
 | `kb_trend.py` | Sat 09:00 | Weekly AI trend report (keyword trends + LLM analysis) |
 | `kb_status_refresh.sh` | Hourly | Status.json health refresh (three-party sync) |
-| `governance_audit_cron.sh` | Daily 07:00 | **V37.1→V37.9.81** Governance audit — 80 invariants + 19 meta rules + 14 MRD scanners + 731 checks |
+| `governance_audit_cron.sh` | Daily 07:00 | **V37.1→V37.9.121** Governance audit — 89 invariants + 23 meta rules + 14 MRD scanners + 818 checks |
 | `preference_learner.py` | Daily 07:30 | User preference auto-learning |
 | `cron_canary.sh` | Every 10 min | Cron heartbeat canary |
 | `kb_integrity.py` | (on-demand) | KB file integrity checker (SHA256) |
@@ -375,7 +375,7 @@ All jobs registered in `jobs_registry.yaml`. Validate: `python3 check_registry.p
 
 | File | Description |
 |------|-------------|
-| `jobs_registry.yaml` | Unified job registry — 39 jobs (35 active, 4 disabled), system cron |
+| `jobs_registry.yaml` | Unified job registry — 46 jobs (40 active, 6 disabled), system cron |
 | `check_registry.py` | Registry validator — ID uniqueness, paths, fields |
 | `gen_jobs_doc.py` | Auto-generate job docs from registry + drift detection |
 | `test_providers.py` | Unit tests for providers |
@@ -396,7 +396,7 @@ All jobs registered in `jobs_registry.yaml`. Validate: `python3 check_registry.p
 ### Ontology Sub-Project (V36.2 → V37.9.15 Phase 4 P3 shadow)
 
 > **Phase 4 P3 wiring active (shadow mode)**: 3-gate enforcement (`pre_check / runtime_gate / post_verify`) wired into `tool_proxy.py` request pipeline (V37.9.15). `evaluate_policy(policy_id, context)` handles static + 6 contextual/temporal policies (V37.9.13). 2 policies wired through `proxy_filters` (V37.9.12 + V37.9.13).
-> **Phase 4 Layer 5 Convergence Framework (V37.9.19+)**: 5 specs running (`jobs_to_crontab` / `providers_to_adapter` / `openclaw_config_to_runtime` / `kb_sources_to_index` / `services_to_launchd`). `jobs_to_crontab` + `kb_sources_to_index` 已升级 `machine_sync` (Plan B 渐进 dry-run, V37.9.23/24, named-dispatch).
+> **Phase 4 Layer 5 Convergence Framework (V37.9.19+)**: 5 specs running (`jobs_to_crontab` / `providers_to_adapter` / `openclaw_config_to_runtime` / `kb_sources_to_index` / `services_to_launchd`). `jobs_to_crontab` + `kb_sources_to_index` + `services_to_launchd` 已升级 `machine_sync` (3 specs, Plan B 渐进 dry-run, V37.9.23/24/97, named-dispatch).
 > Roadmap: V37.9.45+ Opportunity Radar 三件套 (跨 source 弱信号聚合 / 项目对齐度 / 趋势加速度) → Phase 5 (`pip install ontology-engine`).
 
 | File | Description |
@@ -404,17 +404,17 @@ All jobs registered in `jobs_registry.yaml`. Validate: `python3 check_registry.p
 | `ontology/engine.py` | **V36.2→V37.9.13** Tool Ontology Engine + Domain/Policy APIs — `classify_tool_call()` semantic classification + **V37.9.12 `load_domain_ontology()` / `find_by_domain()` / `evaluate_policy()`** three pure functions + **V37.9.13 six context evaluators** (`_eval_quiet_hours` / `_eval_has_alert` / `_eval_has_image` / `_eval_need_fallback` / `_eval_task_match` / `_eval_data_clean_keywords`) + `_CONTEXT_EVALUATORS` dispatch table |
 | `ontology/three_gate.py` | **V37.9.15** Phase 4 P3 three-stage gate — `pre_check` / `runtime_gate` / `post_verify` pure functions + `GateFinding` namedtuple + `ONTOLOGY_GATES_MODE` env (off/shadow/on, default shadow) + decoupled from `ONTOLOGY_MODE` + FAIL-OPEN contract (engine exception → verdict=pass+reason=engine_unavailable) |
 | `ontology/convergence.py` | **V37.9.19** Phase 4 Layer 5 Convergence Framework — `verify_convergence(spec_id)` declared-state↔runtime drift detection + named-dispatch tables (extractor / observer / parser / apply_function) + `ConvergenceResult` namedtuple + 4 drift_actions (alert_only / alert_only_permanent / machine_sync / block_until_human) + V37.9.23/24 `_apply_machine_sync` + dry-run safety net |
-| `ontology/convergence_ontology.yaml` | **V37.9.25** Phase 4 Layer 5 spec — 5 specs (jobs_to_crontab machine_sync / providers_to_adapter alert_only_permanent / openclaw_config_to_runtime / kb_sources_to_index machine_sync / services_to_launchd) |
+| `ontology/convergence_ontology.yaml` | **V37.9.25→V37.9.97** Phase 4 Layer 5 spec — 5 specs (jobs_to_crontab machine_sync / providers_to_adapter alert_only_permanent / openclaw_config_to_runtime alert_only_permanent / kb_sources_to_index machine_sync / services_to_launchd machine_sync) — 3 machine_sync |
 | `ontology/tool_ontology.yaml` | **V36.2** Declarative tool rules — 81 rules (filters, injections, truncation, SSE, media) |
 | `ontology/domain_ontology.yaml` | **V37.9.9→V37.9.12** Layer 1 — six-domain conceptual model (Actor / Tool / Resource / Task / Provider / Memory) + inter-domain relations, queryable via `find_by_domain()` |
 | `ontology/policy_ontology.yaml` | **V37.9.15** Layer 2 — 10 declarative policies: 3 static + 2 temporal + 5 contextual + ordering constraints + V37.9.15 P3 gate wiring observability declared |
-| `ontology/governance_checker.py` | **V36.3→V37.9.99** Governance execution engine — 85 invariants + 790 checks + 21 meta rules + 15 MRD scanners + 5 check types + integrated `verify_convergence` calls (Phase 4 Layer 5 audit consumption) |
-| `ontology/governance_ontology.yaml` | **V37.9.99** Governance Ontology v3.52 — 85 invariants (incl. **INV-MOVESPEED-TCC-001 V37.9.80-V37.9.81 TCC sandbox 真因+24h≤2 hard guard+V37.9.30 取证盲区根因修复**, INV-HEALTHCHECK-001 V37.9.78 9段证据周报, INV-GATE-001 three-gate observability, INV-CONVERGENCE-CRON/PROVIDERS/OPENCLAW/KB/INTEGRATION/SERVICES-001 5 convergence specs, INV-LLMCRON-AUDIT-001 cross-job fail-fast audit, INV-DREAM-MULTITHEME-001 V37.9.68 14天ban-list), 21 meta rules (incl. MR-17 declared-state-must-converge-via-machine-not-memory, MR-19 monitor-must-self-alarm-on-silent-abort) |
+| `ontology/governance_checker.py` | **V36.3→V37.9.121** Governance execution engine — 89 invariants + 818 checks + 23 meta rules + 14 MRD scanners + 5 check types + integrated `verify_convergence` calls (Phase 4 Layer 5 audit consumption) |
+| `ontology/governance_ontology.yaml` | **V37.9.121** Governance Ontology v3.55 — 89 invariants (incl. **INV-OBSERVER-001 + INV-SOURCE-CREDIBILITY-001 V37.9.121 daily_observer + source_credibility contracts (日落法 MR-22 合并 sampling 候选)**, INV-MOVESPEED-TCC-001 V37.9.80-V37.9.81 TCC sandbox 真因+24h≤2 hard guard, INV-HEALTHCHECK-001 V37.9.78 9段证据周报, INV-GATE-001 three-gate observability, INV-CONVERGENCE-CRON/PROVIDERS/OPENCLAW/KB/INTEGRATION/SERVICES-001 5 convergence specs, INV-LLMCRON-AUDIT-001 cross-job fail-fast audit, INV-DREAM-MULTITHEME-001 V37.9.68 14天ban-list), 23 meta rules (incl. MR-17 declared-state-must-converge-via-machine-not-memory, MR-19 monitor-must-self-alarm-on-silent-abort, MR-22 sunset-over-accretion 日落法北极星, MR-23 audit-observes-never-mutates) |
 | `ontology/llm_cron_audit.py` | **V37.9.38→V37.9.62** Cross-job fail-fast scanner — 21 candidate scripts / **17 aligned** (V37.9.36-37 rss_blogs / V37.5 kb_review / V37.8.10 kb_evening / V37.9.16 kb_deep_dive / V37.9.39 S2 / V37.9.40 DBLP+AI Leaders X / V37.9.41 HN / V37.9.43 arxiv / V37.9.44 github_trending / V37.9.45 hf_papers / V37.9.50 semantic_scholar / V37.9.51 batch 6 / V37.9.62 batch 6 含 acl/karpathy/openclaw_official×2/ontology_sources/chaspark) / 4 by design 排除 (finance_news/freight/kb_dream/kb_inject) |
 | `ontology/diff.py` | **V36.2** Consistency checker — engine vs proxy_filters (81/81 = 100%) |
 | `ontology/CONSTITUTION.md` | **V36.2** Ontology Constitution — 6 articles + Supreme Article (project isolation) |
 | `ontology/tests/` | Engine + governance tests — `test_engine_phase4.py` (75 tests, V37.9.13), `test_governance_*`, `test_dream_cache_stability`, `test_audit_perf_dimensions` |
-| `ontology/docs/cases/` | **V37.3→V37.9.99** 22 blood lesson case studies (MR-4 silent failure × ~28 appearances, including HEARTBEAT.md self-silencing → MR-15, Dream Map budget chain, kb_evening fallback quota chain, MOVESPEED 60-day silent backup, V37.9.68 Qwen-BIM 涌现行为防御) |
+| `ontology/docs/cases/` | **V37.3→V37.9.121** 25 blood lesson case studies (MR-4 silent failure × ~28 appearances, including HEARTBEAT.md self-silencing → MR-15, Dream Map budget chain, kb_evening fallback quota chain, MOVESPEED 60-day silent backup, V37.9.68 Qwen-BIM 涌现行为防御, V37.9.92 observer path silent failure) |
 | `ontology/docs/architecture/` | Industrial AI paradigm, target architecture (Phase 3-5 roadmap) |
 
 ### Documentation
@@ -436,10 +436,10 @@ All jobs registered in `jobs_registry.yaml`. Validate: `python3 check_registry.p
 > "The stronger capabilities get, the harder the system is to control — governance must lead, not follow."
 
 **Four-Plane Architecture**:
-- **Control Plane** (90%): Provider Compatibility Layer, SLO 5-metric monitoring, centralized thresholds, 19-check preflight, incident snapshots, circuit breaker + audit logging (fsync + atomic snapshot), 60-invariant governance, single-manager process ownership (V37.9.13)
+- **Control Plane** (90%): Provider Compatibility Layer, SLO 5-metric monitoring, centralized thresholds, 19-check preflight, incident snapshots, circuit breaker + audit logging (fsync + atomic snapshot), 89-invariant governance, single-manager process ownership (V37.9.13)
 - **Capability Plane** (85%): 8-provider routing + capability-based fallback chain, multimodal (text+vision), tool governance (≤12, policy-driven via V37.9.12), data cleaning, search_kb hybrid retrieval
 - **Memory Plane** (75%): KB RAG (local sentence-transformers), trend analysis, preference learning, multimodal memory, Memory Plane v2 (dedup + confidence + conflict resolution), Agent Dream v2 MapReduce
-- **Ontology Plane** (Phase 4 P2 active): 4 YAML ontologies (tool/domain/policy/governance), Tool Ontology Engine (81 rules, ONTOLOGY_MODE=on), **Governance Ontology v3.52** (85 invariants + 21 meta rules + 15 MRD scanners + 790 checks), 2 policies wired via `evaluate_policy()`, 22 blood lesson cases (see [`ontology/docs/failure_modes_catalog.md`](ontology/docs/failure_modes_catalog.md) for taxonomy)
+- **Ontology Plane** (Phase 4 P2 active): 4 YAML ontologies (tool/domain/policy/governance), Tool Ontology Engine (81 rules, ONTOLOGY_MODE=on), **Governance Ontology v3.55** (89 invariants + 23 meta rules + 14 MRD scanners + 818 checks), 2 policies wired via `evaluate_policy()`, 25 blood lesson cases (see [`ontology/docs/failure_modes_catalog.md`](ontology/docs/failure_modes_catalog.md) for taxonomy)
 
 ### Ontology: What's Declaratively Defined (Phase 4 P2)
 
@@ -570,7 +570,7 @@ The `auto_deploy.sh` script maps 84 repo files to runtime locations (V37.9.43-ho
 ## Testing
 
 ```bash
-# Full regression (V37.9.69: 87 suites / 3006 tests / 0 fail; must ALL pass before push)
+# Full regression (V37.9.121: 115 suites / 4062 tests / 0 fail; must ALL pass before push)
 bash full_regression.sh
 
 # Individual test suites (run full_regression.sh for totals)
@@ -628,12 +628,12 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 | **Reliability Bench** | `docs/reliability_bench_report.md` | `python3 reliability_bench.py --save` |
 | **Resilience Report** | `docs/resilience_report.md` | 7 fault injection experiments |
 | **Security Boundaries** | `docs/security_boundaries.md` | 8-section security analysis |
-| **Governance Audit** | `ontology/governance_checker.py` | `python3 ontology/governance_checker.py` (80/80 invariants, 19 MR, 14 MRD scanners, 731 checks) |
-| **Convergence Framework** | `ontology/convergence.py` | `python3 ontology/convergence.py --all` (Phase 4 Layer 5: 5 specs, 2 machine_sync, MR-17) |
-| **LLM Cron Fail-Fast Audit** | `ontology/llm_cron_audit.py` | `python3 ontology/llm_cron_audit.py --report` (10/21 aligned with V37.9.36+ fail-fast pattern) |
+| **Governance Audit** | `ontology/governance_checker.py` | `python3 ontology/governance_checker.py` (89/89 invariants, 23 MR, 14 MRD scanners, 818 checks) |
+| **Convergence Framework** | `ontology/convergence.py` | `python3 ontology/convergence.py --all` (Phase 4 Layer 5: 5 specs, 3 machine_sync, MR-17) |
+| **LLM Cron Fail-Fast Audit** | `ontology/llm_cron_audit.py` | `python3 ontology/llm_cron_audit.py --report` (17/21 aligned with V37.9.36+ fail-fast pattern) |
 | **Tool Ontology** | `ontology/` | `python3 ontology/diff.py` (81/81 consistency) |
 | **Policy Engine (Phase 4 P3 shadow)** | `ontology/policy_ontology.yaml` + `ontology/three_gate.py` | `python3 ontology/engine.py --policies` (10 declared, 2 wired via proxy_filters, 6 context evaluators, 3 gates wired into request pipeline shadow mode) |
-| **Blood Lesson Cases** | `ontology/docs/cases/` | 21 case studies documenting MR-4 silent failure patterns (27 演出, incl. MOVESPEED 60-day silent backup, kb_evening fallback quota chain, Dream self-referential hallucination, V37.9.68 Qwen-BIM 涌现行为) |
+| **Blood Lesson Cases** | `ontology/docs/cases/` | 25 case studies documenting MR-4 silent failure patterns (~28 演出, incl. MOVESPEED 60-day silent backup, kb_evening fallback quota chain, Dream self-referential hallucination, V37.9.68 Qwen-BIM 涌现行为, V37.9.92 observer path silent failure) |
 | **Opportunity Radar Design** | `docs/opportunity_radar_design.md` | V37.9.45+ strategic design (699 lines, 13 sections) — cross-source weak signal × project alignment × trend acceleration |
 | **Audit Coverage Retrospective** | `ontology/docs/audit_coverage_retrospective.md` | Stage 2 Route A — 15 blood lessons × Q1/Q2/Q3 = 0% prevention / 87% regression / 80% blind spot categories (V37.9.1) |
 
