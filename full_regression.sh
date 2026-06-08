@@ -201,6 +201,10 @@ fi
 if [ -f test_v37_9_123_content_drift_convergence.py ]; then
     run_suite "v37_9_123_content_drift_convergence (日落法 #27 概念 B: CONTENT_DRIFT_EXEMPT 单一真理源 + auto_deploy FAIL-SAFE / preflight FAIL-OPEN 收敛)" "python3 test_v37_9_123_content_drift_convergence.py"
 fi
+# V37.9.124: 日落法 #29 — INV-OBSERVER-001 runtime 收窄到契约核心类 (缩 dev-production env-dependency 接缝)
+if [ -f test_v37_9_124_inv_runtime_narrowing.py ]; then
+    run_suite "v37_9_124_inv_runtime_narrowing (日落法 #29: INV runtime 收窄契约核心类非全套件, 防 V37.9.121-hotfix2 env-dependency 误报)" "python3 test_v37_9_124_inv_runtime_narrowing.py"
+fi
 run_suite "v37_9_86_trap_override (V37.9.86 bash trap override lockdir 残留: 5 脚本修复 + 行为层反向/正向验证)" "python3 test_v37_9_86_trap_override.py"
 # V37.9.99-pkg: ontology-engine pip 包化第一块 — config-injection keystone + pyproject + 二层契约
 if [ -f test_ontology_packaging.py ]; then

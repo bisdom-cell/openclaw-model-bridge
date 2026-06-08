@@ -8950,17 +8950,33 @@ invariants:
               "INV-OBSERVER-001: daily_observer.py 缺 FILE_MAP 部署条目"
           assert "daily_observer.sh|$HOME/daily_observer.sh" in src, \
               "INV-OBSERVER-001: daily_observer.sh 缺 FILE_MAP 部署条目"
-      - name: "RUNTIME: test_daily_observer.py 全单测过 (single-call/sampling/registry/status 端到端)"
+      - name: "RUNTIME: test_daily_observer 契约核心类过 (#29 日落法收窄 — 跑契约类非全套件, 防 env-dependency 接缝)"
         check_type: python_assert
         code: |
-          import os, subprocess, sys
+          # V37.9.124 日落法 #29: INV runtime 从跑全 test_daily_observer (166 测试) 收窄到
+          # 契约核心类 (TestV37_9_87/88/92/93 = single-call/registry/status/sampling),
+          # 镜像 INV-DREAM-CROSS-DOMAIN 跑特定类. 排除 general 类 (TestResolveLastRunPath/
+          # TestScanJobStatuses 触碰 _MAC_MINI_JOBS_DIR env-dependent), 缩 dev-production 接缝.
+          # V37.9.121-hotfix2 血案: 全套件里任一 env-dependent test 让 INV 在 Mac Mini 误报
+          # (test_missing_last_run 泄漏真实 last_run). 契约行为已被本 INV 上方 inline check
+          # 直接验证 (env-independent); full_regression (dev) 仍跑全套件 catch 一切.
+          # 动态正则发现契约类防类名 drift. for-loop 非 comprehension (V37.3 exec 作用域陷阱).
+          import os, re, subprocess, sys
           _repo = os.getcwd()  # 日落法 #30: 单一源 (chdir 后==_PROJECT_ROOT)
-          _test = os.path.join(_repo, "test_daily_observer.py")
+          _src = open(os.path.join(_repo, "test_daily_observer.py"), encoding="utf-8").read()
+          _contract = re.findall(r'^class (TestV37_9_(?:87|88|92|93)_\w+)', _src, re.MULTILINE)
+          assert len(_contract) >= 12, (
+              f"INV-OBSERVER-001: 契约核心类 (TestV37_9_87/88/92/93_*) < 12 "
+              f"(找到 {len(_contract)}) — daily_observer 契约测试类异常缺失"
+          )
+          _targets = []
+          for _c in _contract:
+              _targets.append("test_daily_observer." + _c)
           r = subprocess.run(
-              [sys.executable, _test],
+              [sys.executable, "-m", "unittest"] + _targets,
               capture_output=True, text=True, timeout=120, cwd=_repo)
           assert r.returncode == 0, (
-              f"INV-OBSERVER-001: test_daily_observer.py exit={r.returncode}, "
+              f"INV-OBSERVER-001: 契约核心类测试失败 exit={r.returncode}, "
               f"stderr tail: {r.stderr[-1500:]}"
           )
 
