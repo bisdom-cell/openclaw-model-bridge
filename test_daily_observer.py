@@ -83,6 +83,23 @@ class TestResolveLastRunPath(unittest.TestCase):
 class TestScanJobStatuses(unittest.TestCase):
     """Scan last_run.json from job cache directories."""
 
+    def setUp(self):
+        # V37.9.121-hotfix: isolate from _MAC_MINI_JOBS_DIR fallback.
+        # _resolve_last_run_path falls back to real ~/.openclaw/jobs (V37.9.56-
+        # hotfix, so the observer finds real last_run.json on Mac Mini). That
+        # fallback leaks real Mac Mini state into these temp-dir tests: on
+        # Mac Mini, test_missing_last_run (empty temp dir) fell through to the
+        # real ~/.openclaw/jobs/<job>/cache/last_run.json → found=True →
+        # AssertionError (dev had no such path so passed — dev/production seam,
+        # surfaced by INV-OBSERVER-001 running the suite in 07:00 governance).
+        # Mirror the isolation TestResolveLastRunPath already does (line ~47-55)
+        # but for the whole class so the temp jobs_dir is the only source.
+        self._orig_mac_jobs_dir = obs._MAC_MINI_JOBS_DIR
+        obs._MAC_MINI_JOBS_DIR = "/nonexistent/.openclaw/jobs/test-isolation"
+
+    def tearDown(self):
+        obs._MAC_MINI_JOBS_DIR = self._orig_mac_jobs_dir
+
     def test_reads_ok_status(self):
         with tempfile.TemporaryDirectory() as td:
             job_dir = os.path.join(td, "hf_papers", "cache")
