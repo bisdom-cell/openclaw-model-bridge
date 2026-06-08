@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-08 09:23:18",
+  "updated": "2026-06-08 09:48:23",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -106,11 +106,6 @@
   "recent_changes": [
     {
       "date": "2026-06-05",
-      "what": "V37.9.111-hotfix: Bluesky 首跑 handle 漂移修复 + 生产告警诊断闭环 (用户合并 PR #645 后 Mac Mini 首跑). 🦋 首跑 7/10 handle 活 → 17 帖全解析 → 推 4 窗口 + 🎚️ 高对齐 1 = 管道工作. 3 个 HTTP 400=Profile not found (handle 漂移非隐私, curl body 实证): ylecun→yann-lecun.bsky.social / timnitgebru→timnitgebru.blacksky.app (searchActors 查现 handle) / fchollet 停用→剪枝 (10→9 账号). 生产告警数据驱动诊断 (原则 #28 零盲改): INV-MOVESPEED=caller.sh 测试桩污染(已清+隔离修复生效绿) / INV-ROUTER=07:00 stale 自愈绿 / 2 convergence💥=transient(单跑318 OK)自愈 / INV-CRON-004=auto_deploy 双行(V37.9.106 复发, 用户 crontab_safe.sh remove HOME 行→721/721). 关键发现: test_convergence ~10 处 real-spec verify_convergence 无 dry-run 守卫→Mac Mini real apply 真改 crontab(V37.9.110 test 污染生产同 bug 类, latent landmine, 专门 session 隔离). 114 suites/4040→4041 tests/0 fail/安全 95/VERSION 不变.",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-06-05",
       "what": "V37.9.110: ai_leaders 加 Bluesky 实时短观点维度 (用户从 3 个纯 dev 方向选 Bluesky, #32 反馈延续). 新 job jobs/ai_leaders_bsky/run_ai_leaders_bsky.sh (17:00 HKT 1x/天). WebSearch 双核实: Bluesky 公开 AppView getAuthorFeed 无需认证+带缓存 (docs.bsky.app) + 30 万学者已迁入 (arXiv 2505.24801). 仅抓取层换 RSS→getAuthorFeed JSON (filter=posts_no_replies + skip reasonRepost + MIN_POST_CHARS=50 + at:// URI→web URL + 外链 embed), 下游 100% 复用 blogs 管道 (6 字段+alignment+LEVEL_4+双通道 🦋+KB+多窗口+FAIL-OPEN+fail-fast) = MR-8. 10 大神 contrarian 为主 (8 confirmed: ylecun/fchollet/melaniemitchell/rao2z/randomwalker/timnitgebru/mmitchell/howard.fm + Gary Marcus/Emily Bender 候选). prompt 适配短帖防过度膨胀 (V37.9.40 教训). dev parser 行为验证 (skip 转发/过短+URI→URL+外链+dedup+FAIL-OPEN). 3 MR-8 漂移守卫修 (source_credibility 15→16 社媒 tier / EXPECTED_RSYNC_SITES 23→24 / config.md). 40 新单测 9 类含 runtime parser 行为. 113→114 suites / 3996→4036 tests / 0 fail / governance 805 checks exit0 / 安全 95 / VERSION 0.37.9.68 不变. Mac Mini 待: git fetch+reset + 注册 17:00 cron + 首跑验证 10 handle 可达性 (FAIL-OPEN 剪枝) + 收 🦋 推送. follow-up: V37.9.111 接入 Opportunity Radar #2 (handle 验证产真数据后 wire, 今天 KB notes 已自动喂 Radar #1/#3).",
       "by": "claude_code"
     },
@@ -162,6 +157,11 @@
     {
       "date": "2026-06-08",
       "what": "外部评审 #4 README 文档漂移核查 (评审点名'文档漂移'短板, V37.9.70/71 修 providers/badge, 本次核 governance stats 残留): 对照权威源全面核查 README 656 行所有 stat 声明, 修 ~16 处漂移 — governance v3.47/v3.52→v3.55, 80/85 invariants→89, 731/790 checks→818, 19/21 MR→23, 15 MRD→14, 87 suites→115, 3006 tests→4062, 22/21 cases→25, 27 演出→~28, 2 machine_sync→3 (V37.9.97 services 升级), 39 jobs→46/40 enabled, job_watchdog 19→23 jobs (V37.9.59 扩展), 10/21 aligned→17, 60-invariant→89. 更新 Latest milestone (V37.9.92-95 差 26 版→V37.9.117-121 日落法北极星). providers 全 8 处 + badge 已正确 (V37.9.70/119 held). full_regression 115/0/4062 + 徽章无漂移. 纯 doc 不 bump version. 登记日落法候选: README prose 数字手动复制权威源 = 真一物多形 (gen_readme_badges 只守 badge 不守 prose, 反复漂移).",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-08",
+      "what": "V37.9.121-hotfix2: INV-OBSERVER-001 runtime test Mac Mini 隔离 bug 修复 (07:00 governance cron 实测发现). 数据驱动诊断: 07:00 报 3 INV 失败但'不变式 87'=pre-V37.9.121 stale 代码; 用户同步后 INV-ROUTER-001+INV-CRON-004 自愈 (router stale + crontab auto_deploy 经 V37.9.116 修), 对话精华=已知 kb_harvest #26, dblp 503=外部. 但 INV-OBSERVER-001 真失败 (Mac Mini env-dependency). 根因: runtime 跑 test_daily_observer 全 166 测试, test_missing_last_run 失败 — _resolve_last_run_path 第二候选 _MAC_MINI_JOBS_DIR=~/.openclaw/jobs (V37.9.56-hotfix 真 fallback) 泄漏真实 last_run 进空 temp dir 测试 → found=True. dev 无此路径通过 (MR-15 接缝). 修复: TestScanJobStatuses 加 setUp/tearDown 隔离 _MAC_MINI_JOBS_DIR (镜像 TestResolveLastRunPath 已有隔离, 原则 #31 漏一个类). 反向验证 BUG 复现+FIX 验证. 生产代码不动. dev 166 过 + INV-OBSERVER-001 ✅ 724/724 + full_regression 115/4062/0. VERSION/inv/checks 不变 (test 隔离 hotfix).",
       "by": "claude_code"
     }
   ],
@@ -232,7 +232,8 @@
       "V37.9.112 已完成 (b) ai_leaders_bsky 接入 Opportunity Radar #2 (top_alignment_picker ALIGNED_SOURCES 9→10, 3 消费方自动生效). 剩余 follow-up (Mac Mini handle 验证后, 非高优): (a) 首跑 log WARN 剪死 handle + 补可达 contrarian 大神 (howard.fm 自定义域名 / garymarcus.bsky.social / emilymbender.bsky.social 候选待验 / fchollet 替代) (c) 2x/天频率评估 (实时短观点价值) + 评估 Bluesky app-password 认证读 login-required 账号",
       "V37.9.110+113 follow-up (升级版, MR-9 测试污染生产 bug 类 framework 化): V37.9.113 已 framework 化 convergence-specific 部分 (TestV37_9_113 AST 反回归守卫 + 行为级正/负对照 sentinel, 拆 test_convergence 真改 crontab/真跑 kb_embed 地雷). 剩余 (专门 session): (a) 立元规则 MR-22 governance-runtime-tests-must-isolate-production-state — V37.9.110 test_movespeed 写真 incidents.jsonl + V37.9.113 test_convergence 真改 crontab 共 2 实例已达立元规则门槛 (b) generic MRD scanner 扫所有 governance runtime python_assert 跑的测试 (INV-RETRY-001 test_movespeed / INV-CONVERGENCE test_convergence / 等) 是否写生产 state 文件 (~/.kb/*.jsonl / crontab / kb_embed 真跑), 跨多测试文件 framework 化此 bug 类",
       "日落法候选 (V37.9.121-hotfix 登记, 原则 #31 第 N 次演出): 多个 FILE_MAP 消费者 (path_consistency_scanner.py / preflight_check.sh check 6 + check 15 / job_smoke_test.sh) 各自独立 parse FILE_MAP + 各自维护豁免 = 真一物多形. V37.8.11/V37.8.13/V37.9.120 同款'跨消费者豁免漏同步'反复. 收敛方向: FILE_MAP 豁免逻辑收敛到单一源 (path_consistency_scanner 作权威, 其他消费者复用其豁免清单/parse 函数), 消除'每加豁免改 N 处'递归接缝. 中等 refactor.",
-      "V37.9.120 Mac Mini 残留清理仍待用户 (V37.9.121-hotfix 同步后): bash ~/crontab_safe.sh remove 'bash ~/auto_deploy.sh >> ' (删 HOME 路径 crontab line) + rm ~/auto_deploy.sh (删 HOME 副本) → 之后 ONE crontab 行 (repo) + ONE 副本 (repo clone)."
+      "V37.9.120 Mac Mini 残留清理仍待用户 (V37.9.121-hotfix 同步后): bash ~/crontab_safe.sh remove 'bash ~/auto_deploy.sh >> ' (删 HOME 路径 crontab line) + rm ~/auto_deploy.sh (删 HOME 副本) → 之后 ONE crontab 行 (repo) + ONE 副本 (repo clone).",
+      "日落法接缝候选 (V37.9.121-hotfix2 登记): governance INV runtime check 跑全测试套件的 dev-production 接缝 — INV-OBSERVER-001 跑 test_daily_observer 全 166 测试, 全套件里任一 env-dependent test 都让 INV 在 Mac Mini 误报 (本次 test_missing_last_run _MAC_MINI_JOBS_DIR 读泄漏). V37.9.110(写污染)/V37.9.113(test_convergence)/V37.9.121-hotfix2(读泄漏) 同款. 评估: INV runtime 收窄到契约核心 test 类 (镜像 INV-DREAM-CROSS-DOMAIN 跑特定类) vs 跑全套件. 或 framework 级 scanner 扫 governance runtime 跑的测试是否 env-isolated (V37.9.110 登记的 MRD 候选)."
     ],
     "open_prs": "",
     "blocked_on": "",
@@ -299,9 +300,9 @@
   "quality": {
     "security_score": 95,
     "test_count": 4062,
-    "last_regression": "2026-06-08 09:22 pass",
+    "last_regression": "2026-06-08 09:46 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-08 09:22",
+    "security_score_time": "2026-06-08 09:46",
     "test_suites": 115,
     "governance_invariants": "85/85",
     "governance_checks": "790/790",
