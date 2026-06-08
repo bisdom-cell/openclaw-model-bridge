@@ -32,7 +32,7 @@
 
 ### 我是 **架构师 / 评审者**
 - [docs/strategic_review_20260403.md](strategic_review_20260403.md) — 战略复盘 + V1/V2/V3 路标
-- [docs/compatibility_matrix.md](compatibility_matrix.md) — 7 Provider 兼容性矩阵
+- [docs/compatibility_matrix.md](compatibility_matrix.md) — 8 Provider 兼容性矩阵
 - [docs/security_boundaries.md](security_boundaries.md) — 8 节安全边界分析
 - [docs/memory_plane.md](memory_plane.md) — Memory Plane v1 架构
 

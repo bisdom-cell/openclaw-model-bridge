@@ -1,36 +1,38 @@
 # OpenClaw Model Bridge — 系统特性一览表
 
-> V37.8.13 (2026-04-16) | **1093 tests** / 36 suites / 0 fail | 7 providers | **34 active jobs** | 5 SLO metrics (5/5 PASS) | 19 preflight checks | WhatsApp + Discord dual-channel | **42 governance invariants / 14 meta-rules / 197 checks** | security 93/100 | 13 blood-lesson case docs
+> v37.9.124 (2026-06-08) | **4099 tests** / 118 suites / 0 fail | **8 providers** (含 Doubao Seed 2.0 Pro) | **40 active jobs** | 5 SLO metrics | 19 preflight checks | WhatsApp + Discord dual-channel | **89 governance invariants / 23 meta-rules / 818 checks / 14 MRD scanners** | security 95/100 | 25 blood-lesson case docs
 
 | 分类 | 特性 | 说明 | 核心文件 |
 |------|------|------|----------|
 | **核心服务** | Gateway | WhatsApp 接入、媒体存储、工具执行、会话管理 | npm 全局 (:18789) |
 | | Tool Proxy | 工具过滤(24→12)、自定义工具拦截、图片 base64 注入、SSE 转换、SLO 采集 | `tool_proxy.py` + `proxy_filters.py` (:5002) |
 | | Adapter | 多 Provider 转发、认证、多模态路由(文本→Qwen3, 图片→VL)、Fallback 降级 | `adapter.py` (:5001) |
-| **LLM Provider (7)** | Qwen3-235B (主力) | 文本对话，262K context | `providers.py` + `adapter.py` |
+| **LLM Provider (8)** | Qwen3-235B (主力) | 文本对话，262K context | `providers.py` + `adapter.py` |
 | | Qwen2.5-VL-72B | 图片理解，自动路由 | 检测 image_url 自动切换 |
 | | Gemini Flash (降级) | 主力不可用时自动切换 | FALLBACK_PROVIDER |
 | | OpenAI / Claude | 手动切换备选 | 环境变量 PROVIDER= |
 | | Kimi K2.5 (Moonshot) | 1T MoE 视觉+256K | MOONSHOT_API_KEY |
 | | MiniMax M2.7 | 视觉+200K+131K输出 | MINIMAX_API_KEY |
 | | GLM-5 (Zhipu) | 744B MoE + GLM-5V-Turbo | GLM_API_KEY |
+| | **Doubao Seed 2.0 Pro** | Volcengine Ark，reasoning model，V37.9.52 plugin 接入 | `providers.d/doubao_provider.py` (ARK_API_KEY) |
 | **自定义工具** | search_kb | 混合检索：语义搜索(embedding) + 关键词补充 + source/时间过滤 → followup LLM 解读 | `proxy_filters.py` 注入 |
 | | data_clean | 数据清洗：7 种操作(dedup/trim/fix_dates 等)、5 种格式(CSV/JSON/Excel 等) | `data_clean.py` |
 | **本地 AI** | KB RAG 语义搜索 | sentence-transformers 384 维 50+ 语言，零 API 调用 | `local_embed.py` + `kb_embed.py` + `kb_rag.py` |
 | | 多媒体语义搜索 | Gemini Embedding 2 (768 维) 图片/音频/视频/PDF | `mm_index.py` + `mm_search.py` |
-| **信息采集 (10 源)** | 论文矩阵 (5 源) | ArXiv(3h) + HF Papers + Semantic Scholar + DBLP + ACL Anthology | `jobs/` 目录 |
-| | HackerNews | 每 3h 热帖抓取 | `run_hn_fixed.sh` |
-| | 货代 Watcher | 每天 ×3 ImportYeti 数据 + LLM 分析 | `jobs/freight_watcher/` |
-| | OpenClaw Releases | 每天 GitHub release + LLM 摘要 | `jobs/openclaw_official/` |
-| | GitHub Trending | 每天 ML/AI 热门仓库 | `jobs/github_trending/` |
-| | RSS 博客 | 每天 ×2 技术博客订阅 | `jobs/rss_blogs/` |
+| **信息采集 (15 内容源)** | 论文矩阵 (5 源) | ArXiv(3h) + HF Papers + Semantic Scholar + DBLP + ACL Anthology，6 字段 LLM 分析 + 🎚️ 项目对齐度评分 | `jobs/` 目录 |
+| | HackerNews | 每 3h 热帖抓取 | `jobs/hn_watcher/run_hn_fixed.sh` |
+| | 货代 Watcher | 每天 14:00 ImportYeti 数据 + 三层 LLM 分析（经济晴雨表/运营信号/商机） | `jobs/freight_watcher/` |
+| | 财经新闻 | 每天 07:30 全球财经/政策（8 RSS + X Syndication，冻结≠死亡僵尸检测） | `jobs/finance_news/` |
+| | AI 大神观点 | 博客长文(13:30) + Bluesky 实时短帖(17:00)，contrarian 为主 | `jobs/ai_leaders_blogs/` + `jobs/ai_leaders_bsky/` |
+| | Ontology 信息源 | 每天 ×2 W3C/JWS/DKE/KBS 本体论 RSS | `jobs/ontology_sources/` |
+| | GitHub Trending / RSS 博客 / 茶思屋 | ML/AI 热门仓库 + 技术博客 + 华为茶思屋科技 | `jobs/github_trending/` 等 |
 | **知识处理** | KB 每日摘要 | 每天 07:00 生成 daily_digest.md | `kb_inject.sh` |
 | | KB 向量索引 | 每 4h 增量索引 (本地 embedding) | `kb_embed.py` |
 | | KB 晚间整理 | 每天 22:00 | `kb_evening.sh` |
 | | KB 智能去重 | 每天 23:00 (dry-run) | `kb_dedup.py` |
 | | KB 深度回顾 | 每周五 LLM 跨笔记分析 | `kb_review.sh` |
 | | KB 周趋势报告 | 每周六 关键词频率 + LLM 分析 | `kb_trend.py` |
-| **SLO 监控 (5 指标)** | 延迟 p95 < 30s | 实时延迟百分位追踪 | `proxy_filters.py` ProxyStats |
+| **SLO 监控 (5 指标)** | 延迟 p95 < 50s | 实时延迟百分位追踪 (V37.9.79 阈值 30s→50s, Mac Mini 实测 baseline) | `proxy_filters.py` ProxyStats |
 | | 工具成功率 > 95% | 自定义工具执行结果统计 | record_tool_call() |
 | | 降级率 < 5% | Fallback Provider 触发占比 | record_fallback() |
 | | 超时率 < 3% | 错误自动分类(timeout/context/backend) | record_error() 分类 |
@@ -44,7 +46,10 @@
 | | 对话质量日报 | 响应时间/成功率/工具分布/token 用量 | `conv_quality.py` |
 | | Token 用量日报 | 消耗/分布/context 压力/趋势 | `token_report.py` |
 | | 健康周报 | 每周一服务/任务/KB 综合报告 | `health_check.sh` |
-| **DevOps** | auto_deploy | 每 2min Git→运行时同步(35 文件) + 漂移检测 + 按需 restart | `auto_deploy.sh` |
+| **机会点雷达** | Opportunity Radar | 跨源弱信号聚合(#1) + 项目对齐度评分(#2) + 趋势加速检测(#3) → 每日 06:00 红/黄/蓝三档机会点 | `cross_source_signal_aggregator.py` + `kb_radar.sh` |
+| | 反幻觉守卫 | 5 档严格度公共模板 + 来源可信度评级(5 tier)，注入 9 个 LLM task | `hallucination_guards.py` + `source_credibility.py` |
+| | Daily Observer | 每日 LLM 自评前日推送质量，read-only proposal | `daily_observer.py` |
+| **DevOps** | auto_deploy | 每 2min Git→运行时同步 + md5 漂移检测 + 按需 restart（从 repo clone 跑） | `auto_deploy.sh` |
 | | Preflight 体检 | 19 项检查(单测/注册表/语法/部署/安全/E2E/SLO) | `preflight_check.sh` |
 | | GitHub Actions CI | 9 套单测 + 注册表 + config 校验 + 安全扫描 + bandit | `.github/workflows/ci.yml` |
 | | pre-commit hook | API key/手机号泄漏 + Python 语法检查 | `.githooks/pre-commit` |
@@ -58,7 +63,7 @@
 | | Golden Test Trace | 真实请求穿越全栈的完整记录 (521ms, 可复现) | `docs/golden_trace.json` |
 | | SLO Benchmark | 真实生产数据报告 (5/5 PASS, p95=459ms) | `slo_benchmark.py` |
 | | GameDay 故障演练 | 5 场景故障注入 (GPU 超时/断路器/快照/SLO/Watchdog) | `gameday.sh` |
-| | 兼容性矩阵 | 7 Provider 能力声明 + 验证状态 | `providers.py` + `docs/compatibility_matrix.md` |
-| **测试** | 10 套单测 | 605 用例全部通过 | `test_*.py` |
+| | 兼容性矩阵 | 8 Provider 能力声明 + 验证状态 | `providers.py` + `docs/compatibility_matrix.md` |
+| **测试** | 118 套单测 | 4099 用例全部通过 | `test_*.py` |
 | | 全量回归 | full_regression.sh (单测+注册表+安全+代码质量) | `full_regression.sh` |
 | | E2E Smoke | 基础对话 / 工具注入 / KB 搜索 端到端验证 | `wa_e2e_test.sh` |

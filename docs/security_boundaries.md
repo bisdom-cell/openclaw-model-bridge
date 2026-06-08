@@ -22,7 +22,7 @@ WhatsApp Cloud API ──────► OpenClaw Gateway (:18789)
                               │  [circuit breaker]
                               ▼
                          LLM Providers (HTTPS)
-                         [7 providers, all TLS]
+                         [8 providers, all TLS]
 ```
 
 **All inter-service communication is localhost-only.** No port is exposed to the network.
