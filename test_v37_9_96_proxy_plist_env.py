@@ -248,12 +248,11 @@ class TestProxyPlistEnvDependencyChain(unittest.TestCase):
 class TestV37996Marker(unittest.TestCase):
     """V37.9.96 标记一致性 + audit_metadata 计数."""
 
-    def test_audit_metadata_total_invariants_87(self):
-        data = _load_yaml()
-        meta = data.get("audit_metadata", {})
-        self.assertEqual(meta.get("total_invariants"), 87,
-                         "V37.9.100 后 total_invariants 必须 == 87 "
-                         "(85 @ V37.9.96 + INV-DREAM-CROSS-DOMAIN-001 + INV-GOV-FIELD-001)")
+    # V37.9.121 日落法 MR-22 一物一形: 退役 test_audit_metadata_total_invariants_87
+    # (硬编码 expected=87 的脆弱守卫). 它严格冗余于下方动态守卫
+    # test_actual_invariant_count_matches_metadata (grep == metadata), 且每次加 INV
+    # 都得手改硬编码值 = 递归接缝 (V37.9.96→85 / V37.9.100→87 / 本会再→89...).
+    # 动态守卫已完整覆盖"计数自洽"关注点, 保留它即可. 详见 CLAUDE.md V37.9.121.
 
     def test_actual_invariant_count_matches_metadata(self):
         """grep 真实 INV- 计数必须 == audit_metadata total_invariants (自洽守卫)."""

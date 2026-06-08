@@ -8813,6 +8813,253 @@ invariants:
         file: ontology/governance_ontology.yaml
         pattern: 'INV-GOV-FIELD-001'
 
+  # ── V37.9.121: INV-OBSERVER-001 (daily_observer 全契约, 合并自 V37.9.90/93/95
+  #    三次重复登记 + INV-OBSERVER-SAMPLING-001 候选 — 日落法 MR-22 一物一形:
+  #    两个候选都守 daily_observer.py, 合并成一个 INV 避免治理层一物多形) ──
+  - id: INV-OBSERVER-001
+    name: daily-observer-contract-must-hold
+    meta_rule: MR-7  # 治理自观察: observer 是 governance 观察工具, 它自身契约也需被守
+    verification_layer: [declaration, runtime]
+    severity: high  # observer 静默降级让 false truncation report / 双写污染 / 注册表漂移 不可见
+    declaration: |
+      V37.9.121 立 INV 守 daily_observer 全契约 — 关闭 Phase 0 自主发现的
+      "daily_observer 缺 INV 覆盖" 缺口 (governance summary "7 个 enabled job
+      未被不变式覆盖" 之一). 合并 V37.9.94 候选 INV-OBSERVER-SAMPLING-001 +
+      V37.9.90/93/95 三次登记的 INV-OBSERVER-001 — 日落法 MR-22 一物一形:
+      两候选都守同一个 daily_observer.py, 合并成一个 INV 而非加两个 (避免治理层
+      一物多形增殖). Mac Mini 部署 V37.9.92/93 一周观察 (~6/8) 后立案.
+
+      守的全契约 (按演出版本):
+        - V37.9.87 single-call: daily_observer.sh 单次 $OBSERVER_PY 调用 +
+          --json 含 report_markdown (防 BUG #1 双写 score_history + BUG #2
+          last_run vs score_history 分数不一致).
+        - V37.9.88 registry filter: scan_job_statuses 应用 _filter_enabled_jobs
+          (MR-8 SoT — 排除 disabled jobs, 防 pwc 类 stale last_run 误报 2 个月).
+        - V37.9.92 _resolve_registry_path Mac Mini canonical 路径 (MR-15
+          deployment-layout — registry 不拷到 $HOME, V37.9.88 LAYER 1 静默 fallback
+          5 天血案) + _write_observer_to_status helper (quality.observer 三方共享
+          锚点 + FAIL-OPEN + save_status 原子写) + run() 顺序锁 (write 晚于
+          append_score_history).
+        - V37.9.93 smart sampling: _read_file_sample 用 head+marker+tail
+          (不回退到 content[:max_chars] — V37.9.84 pre-smart-sampling 让 LLM 看不到
+          footer 误报 false truncation) + CRITIQUE_SYSTEM 含采样说明段.
+
+      价值: 把"observer 静默降级"从下次用户视角发现降级为 governance audit
+      主动捕获. 任何重构误删 single-call / smart sampling / registry filter
+      → governance audit 立即 fail. MR-7 治理自观察 — 观察工具自身可被观察.
+    checks:
+      - name: "daily_observer.py V37.9.84 marker (file_contains)"
+        check_type: file_contains
+        file: daily_observer.py
+        pattern: 'V37.9.84 Daily Self-Critique Observer'
+      - name: "_read_file_sample 用 smart sampling head+marker+tail (file_contains, 防回退 content[:max_chars])"
+        check_type: file_contains
+        file: daily_observer.py
+        pattern: 'content\[:head_chars\] \+ marker \+ content\[-tail_chars:\]'
+      - name: "V37.9.93 smart sampling 常量 + 行为 (python_assert, 长文件必产 marker 非截断)"
+        check_type: python_assert
+        code: |
+          import daily_observer as obs
+          import tempfile, os
+          assert obs.SMART_SAMPLE_HEAD_CHARS == 1400, \
+              "INV-OBSERVER-001: SMART_SAMPLE_HEAD_CHARS drift (V37.9.93 = 1400)"
+          assert obs.SMART_SAMPLE_TAIL_CHARS == 500, \
+              "INV-OBSERVER-001: SMART_SAMPLE_TAIL_CHARS drift (V37.9.93 = 500)"
+          assert "NOT file truncation" in obs.SMART_SAMPLE_MARKER_TEMPLATE, \
+              "INV-OBSERVER-001: sampling marker must clarify 'NOT file truncation' (V37.9.93)"
+          fd, p = tempfile.mkstemp(suffix=".md")
+          os.close(fd)
+          try:
+              body = ("HEAD_" * 500) + ("MID_" * 2000) + ("TAIL_" * 200)
+              with open(p, "w", encoding="utf-8") as f:
+                  f.write(body)
+              sample, full = obs._read_file_sample(p)
+              assert full == len(body), "INV-OBSERVER-001: _read_file_sample full length wrong"
+              assert "omitted from middle" in sample, (
+                  "INV-OBSERVER-001: V37.9.84 regression — long file must use smart "
+                  "sampling (head+marker+tail), NOT content[:max_chars]"
+              )
+              assert sample.endswith(body[-500:]), \
+                  "INV-OBSERVER-001: smart sampling tail not preserved"
+          finally:
+              os.remove(p)
+      - name: "CRITIQUE_SYSTEM 含采样说明段 (file_contains, V37.9.93 防 LLM 误判截断)"
+        check_type: file_contains
+        file: daily_observer.py
+        pattern: '采样说明 \(V37.9.93\)'
+      - name: "registry 契约: Mac Mini canonical 路径 + scan_job_statuses 应用 filter (python_assert)"
+        check_type: python_assert
+        code: |
+          src = open("daily_observer.py", encoding="utf-8").read()
+          assert "~/openclaw-model-bridge/jobs_registry.yaml" in src, (
+              "INV-OBSERVER-001: _resolve_registry_path 必须含 Mac Mini canonical 路径 "
+              "(V37.9.92, MR-15 deployment-layout — registry 不拷到 $HOME)"
+          )
+          si = src.find("def scan_job_statuses")
+          assert si != -1, "INV-OBSERVER-001: scan_job_statuses 必须存在"
+          sbody = src[si:si + 1500]
+          assert "_filter_enabled_jobs" in sbody, (
+              "INV-OBSERVER-001: scan_job_statuses 必须应用 _filter_enabled_jobs "
+              "(V37.9.88 registry filter, MR-8 SoT — 排除 disabled jobs)"
+          )
+      - name: "_write_observer_to_status 全契约 + run() 顺序锁 (python_assert, V37.9.92)"
+        check_type: python_assert
+        code: |
+          src = open("daily_observer.py", encoding="utf-8").read()
+          wi = src.find("def _write_observer_to_status")
+          assert wi != -1, "INV-OBSERVER-001: _write_observer_to_status helper 必须存在 (V37.9.92 status closure)"
+          wbody = src[wi:wi + 2200]
+          assert 'quality["observer"]' in wbody, "INV-OBSERVER-001: 缺 quality.observer schema 写入"
+          assert "save_status" in wbody, "INV-OBSERVER-001: 必须经 status_update.save_status 原子写 (MR-9)"
+          assert "except ImportError" in wbody and "except Exception" in wbody, (
+              "INV-OBSERVER-001: _write_observer_to_status 必须 FAIL-OPEN "
+              "(except ImportError + except Exception, 绝不崩 observer run)"
+          )
+          ri = src.find("def run(")
+          rbody = src[ri:ri + 4500]
+          ai = rbody.find("append_score_history")
+          wci = rbody.find("_write_observer_to_status")
+          assert ai != -1 and wci != -1 and ai < wci, (
+              "INV-OBSERVER-001: run() 必须先 append_score_history 再 _write_observer_to_status "
+              "(V37.9.92 顺序锁 — score history 先于 status 写入)"
+          )
+      - name: "daily_observer.sh single-call + --json report_markdown (python_assert, V37.9.87)"
+        check_type: python_assert
+        code: |
+          src = open("daily_observer.sh", encoding="utf-8").read()
+          n = src.count('python3 "$OBSERVER_PY"')
+          assert n == 1, (
+              f"INV-OBSERVER-001: daily_observer.sh 必须仅 1 次调用 $OBSERVER_PY "
+              f"(V37.9.87 single-call, 防 BUG #1 双写 score_history), 实际 {n}"
+          )
+          py = open("daily_observer.py", encoding="utf-8").read()
+          ji = py.find("if args.json:")
+          assert ji != -1, "INV-OBSERVER-001: main() --json 分支必须存在"
+          jbody = py[ji:ji + 700]
+          assert "report_markdown" in jbody, (
+              "INV-OBSERVER-001: --json 输出必须含 report_markdown "
+              "(V37.9.87 single-call: wrapper 从 JSON 提取 markdown 不二次调用)"
+          )
+      - name: "auto_deploy FILE_MAP 部署 daily_observer.py + .sh (python_assert)"
+        check_type: python_assert
+        code: |
+          src = open("auto_deploy.sh", encoding="utf-8").read()
+          assert "daily_observer.py|$HOME/daily_observer.py" in src, \
+              "INV-OBSERVER-001: daily_observer.py 缺 FILE_MAP 部署条目"
+          assert "daily_observer.sh|$HOME/daily_observer.sh" in src, \
+              "INV-OBSERVER-001: daily_observer.sh 缺 FILE_MAP 部署条目"
+      - name: "RUNTIME: test_daily_observer.py 全单测过 (single-call/sampling/registry/status 端到端)"
+        check_type: python_assert
+        code: |
+          import os, subprocess, sys
+          _repo = os.getcwd()  # 日落法 #30: 单一源 (chdir 后==_PROJECT_ROOT)
+          _test = os.path.join(_repo, "test_daily_observer.py")
+          r = subprocess.run(
+              [sys.executable, _test],
+              capture_output=True, text=True, timeout=120, cwd=_repo)
+          assert r.returncode == 0, (
+              f"INV-OBSERVER-001: test_daily_observer.py exit={r.returncode}, "
+              f"stderr tail: {r.stderr[-1500:]}"
+          )
+
+  # ── V37.9.121: INV-SOURCE-CREDIBILITY-001 (source_credibility 全契约) ──
+  - id: INV-SOURCE-CREDIBILITY-001
+    name: source-credibility-contract-must-hold
+    meta_rule: MR-8  # SOURCE_CREDIBILITY ↔ jobs_registry 单一真理源 (drift guard)
+    verification_layer: [declaration, runtime]
+    severity: high  # 可信度评级缺失让用户无法区分学术结论 vs 社区博客断言 (observer proposal #2 盲区)
+    declaration: |
+      V37.9.121 立 INV 守 source_credibility 全契约 — observer 5/28 LLM critique
+      proposal #2 兑现 (与 hallucination_guards 互补: HG 守"内容真实性 + 跨域推论
+      可信度", credibility 守"出处权威性"). Mac Mini 部署 V37.9.98 一周观察
+      (~6/9) 后立案.
+
+      守的契约:
+        - 5 档 tier (学术同行评审/会议预印本/工业实践/博客/社媒) + _DEFAULT_TIER
+          = 社媒 (最保守降级).
+        - get_credibility FAIL-OPEN: 未知源 / 非 string → 社媒最低档 + reason
+          "未分类来源", 永不抛异 (绝不阻塞 dream/evening cron).
+        - SOURCE_CREDIBILITY ↔ jobs_registry 单一真理源 (MR-8, 由 runtime 全单测
+          的 TestSourceCoverage drift guard 守 id+label 双匹配 + 无 orphan).
+        - chaspark = 博客 tier (observer proposal #2 锚点 — 华为茶思屋是非主流源,
+          引用须标注"需独立验证", 不能与 ArXiv 论文等同).
+        - kb_dream 5 注入点 (REDUCE/DEEP/WIDE_RADAR system prompt) + kb_evening
+          注入 + FILE_MAP 部署.
+
+      价值: 把"可信度评级覆盖"从靠记忆维护升级为 governance 主动守. 任何重构误删
+      注入点 / 改 chaspark tier / 破坏 FAIL-OPEN → governance audit 立即 fail.
+    checks:
+      - name: "source_credibility.py V37.9.98 marker (file_contains)"
+        check_type: file_contains
+        file: source_credibility.py
+        pattern: 'V37.9.98 来源可信度评级'
+      - name: "5 档 tier + _DEFAULT_TIER 社媒 + get_credibility FAIL-OPEN (python_assert)"
+        check_type: python_assert
+        code: |
+          import source_credibility as sc
+          assert len(sc._CREDIBILITY_TIERS) == 5, (
+              f"INV-SOURCE-CREDIBILITY-001: 须 5 档 tier, 实际 {len(sc._CREDIBILITY_TIERS)}"
+          )
+          assert sc._DEFAULT_TIER == "社媒", (
+              "INV-SOURCE-CREDIBILITY-001: _DEFAULT_TIER 须为 社媒 (最保守 FAIL-OPEN 降级)"
+          )
+          info = sc.get_credibility("totally_unknown_source_xyz")
+          assert info["tier"] == "社媒", \
+              "INV-SOURCE-CREDIBILITY-001: 未知源须 FAIL-OPEN 到 社媒"
+          assert info["reason"] == "未分类来源", \
+              "INV-SOURCE-CREDIBILITY-001: 未知源 reason 须为 未分类来源"
+          for bad in (None, 123, [], {}):
+              _ = sc.get_credibility(bad)  # 非 string 不得抛异
+      - name: "chaspark = 博客 tier (python_assert, observer proposal #2 锚点)"
+        check_type: python_assert
+        code: |
+          import source_credibility as sc
+          assert "chaspark" in sc.SOURCE_CREDIBILITY, (
+              "INV-SOURCE-CREDIBILITY-001: chaspark 须在 SOURCE_CREDIBILITY "
+              "(observer proposal #2 锚点 — 非主流学术源须标注可信度)"
+          )
+          assert sc.SOURCE_CREDIBILITY["chaspark"]["tier"] == "博客", (
+              "INV-SOURCE-CREDIBILITY-001: chaspark 须为 博客 tier "
+              "(observer proposal #2: 华为茶思屋是非主流源, 引用须标注需独立验证)"
+          )
+      - name: "format_credibility_block 含 observer proposal #2 (file_contains)"
+        check_type: file_contains
+        file: source_credibility.py
+        pattern: 'observer proposal #2'
+      - name: "kb_dream.sh 5 注入点 + import source_credibility (python_assert)"
+        check_type: python_assert
+        code: |
+          src = open("kb_dream.sh", encoding="utf-8").read()
+          n = src.count("${DREAM_HG_GUARD}${DREAM_CREDIBILITY}")
+          assert n == 5, (
+              f"INV-SOURCE-CREDIBILITY-001: DREAM_CREDIBILITY 须注入 5 处 dream "
+              f"system prompt (REDUCE/DEEP/WIDE_RADAR), 实际 {n}"
+          )
+          assert "import source_credibility as sc" in src, (
+              "INV-SOURCE-CREDIBILITY-001: kb_dream.sh 须 import source_credibility"
+          )
+      - name: "kb_evening_collect.py import + 注入 format_credibility_block (file_contains)"
+        check_type: file_contains
+        file: kb_evening_collect.py
+        pattern: 'from source_credibility import format_credibility_block'
+      - name: "auto_deploy FILE_MAP 部署 source_credibility.py (file_contains)"
+        check_type: file_contains
+        file: auto_deploy.sh
+        pattern: 'source_credibility.py\|\$HOME/source_credibility.py'
+      - name: "RUNTIME: test_source_credibility.py 全单测过 (registry drift + wiring + FAIL-OPEN 端到端)"
+        check_type: python_assert
+        code: |
+          import os, subprocess, sys
+          _repo = os.getcwd()  # 日落法 #30: 单一源 (chdir 后==_PROJECT_ROOT)
+          _test = os.path.join(_repo, "test_source_credibility.py")
+          r = subprocess.run(
+              [sys.executable, _test],
+              capture_output=True, text=True, timeout=90, cwd=_repo)
+          assert r.returncode == 0, (
+              f"INV-SOURCE-CREDIBILITY-001: test_source_credibility.py exit={r.returncode}, "
+              f"stderr tail: {r.stderr[-1500:]}"
+          )
+
 
 # ═══════════════════════════════════════════════════════════════════════
 # 4. 可执行元规则（Phase 0）— 自动发现缺失不变式
@@ -9172,9 +9419,36 @@ security_config:
 # 6. 审计元数据
 # ═══════════════════════════════════════════════════════════════════════
 audit_metadata:
-  version: "3.54"
+  version: "3.55"
   created: "2026-04-07"
   upgraded: |
+    v3.54 → v3.55: V37.9.121 (2026-06-08 周一) 日期门控治理 INV 立案 — 2 个 INV 关闭
+    Phase 0 自主发现的 "daily_observer 缺 INV" 缺口 + 守 V37.9.92/93/98 一周观察期
+    已稳定的功能契约. **日落法 MR-22 一物一形应用**: 候选登记的两个 daily_observer
+    INV (INV-OBSERVER-001 + INV-OBSERVER-SAMPLING-001) 合并成一个 INV-OBSERVER-001
+    (避免治理层一物多形, 两 INV 守同一个 daily_observer.py) — honors 用户选的"做
+    日期门控治理"同时 honors 日落法北极星(不增殖 INV, 净 +2 INV 而非 +3).
+    **INV-OBSERVER-001** (daily-observer-contract-must-hold, MR-7 治理自观察, high,
+    declaration+runtime, 9 checks): 守 daily_observer 全契约 — V37.9.87 single-call
+    (daily_observer.sh 单次 $OBSERVER_PY + --json 含 report_markdown 防 BUG#1 双写) +
+    V37.9.88 registry filter (scan_job_statuses 应用 _filter_enabled_jobs) + V37.9.92
+    _resolve_registry_path Mac Mini canonical 路径 + _write_observer_to_status helper
+    (quality.observer schema + FAIL-OPEN + save_status 原子写 + run() 顺序锁 write 晚于
+    append_score_history) + V37.9.93 smart sampling (_read_file_sample head+marker+tail
+    行为级守卫长文件必产 omission marker 非 content[:max_chars] + 常量 1400/500 +
+    CRITIQUE_SYSTEM 采样说明段) + FILE_MAP 部署 + runtime 真跑 test_daily_observer.py
+    166 单测. **INV-SOURCE-CREDIBILITY-001** (source-credibility-contract-must-hold,
+    MR-8 SoT, high, declaration+runtime, 8 checks): 守 source_credibility 全契约 —
+    5 档 tier + _DEFAULT_TIER 社媒 + get_credibility FAIL-OPEN (未知源/非 string→社媒+
+    未分类来源 永不抛异) + chaspark=博客 tier (observer proposal #2 锚点 华为茶思屋非
+    主流源须标注需独立验证) + kb_dream 5 注入点 + kb_evening import + FILE_MAP +
+    runtime 真跑 test_source_credibility.py 56 单测 (含 TestSourceCoverage drift guard).
+    **反向验证**: sabotage chaspark→学术同行评审 → INV-SOURCE-CREDIBILITY-001 fail;
+    sabotage _read_file_sample 退回 content[:max_chars] → INV-OBSERVER-001 行为级守卫
+    fail. 还原后全过. **不建新测试文件** (MR-22 lean — 复用现有 166+56 单测, INV
+    runtime check 直接跑). 关闭 governance "7 个 enabled job 未被不变式覆盖" 之
+    daily_observer. 累计 89 invariants / 818 checks / 23 meta rules.
+
     v3.51 → v3.52: V37.9.97 services_to_launchd Plan B 升级 — convergence framework
     第 5 个也是最后一个 alert_only spec 进入 machine_sync (dry-run first). INV-CONVERGENCE-
     SERVICES-001 扩 +9 declaration checks (apply_function: services_launchctl_bootstrap /
@@ -9257,8 +9531,8 @@ audit_metadata:
     v3.12 → v3.13: V37.8.7 ontology_sources 推送格式错位血案 — INV-ONTOLOGY-001 新增 (ontology-sources-parser-must-be-key-based-not-positional, meta_rule=MR-4, severity=high, verification_layer=[declaration, runtime], 7 checks). 2026-04-15 用户 WhatsApp 收到 ontology_sources 推送严重错位：第 2 篇 cn_title 显示为 *---*、第 3 篇 cn_title 显示为 *价值：⭐⭐⭐⭐*。根因：原解析器用严格位置 (lines[i], lines[i+1], lines[i+2]) + i+=3 步进 — LLM 漏一行"要点"或多一行空白就让所有后续条目的 cn_title/highlight/stars 全部右移一格级联污染。修复：抽到独立模块 jobs/ontology_sources/ontology_parser.py（纯函数 parse_llm_blocks 可单测，避开 V37.5 heredoc-only 不可测血案），按 separator 切块 + 块内 key-based prefix 解析，单块缺行不影响其他块。runtime python_assert 真跑用户实际看到的污染场景断言"缺要点不级联"。24 单测 (test_ontology_parser.py)：TestNormalCases(4) + TestBloodLessonRegression(5) + TestSeparatorVariants(5) + TestLLMOutputVariants(5) + TestShellScriptIntegration(4) + TestActualBloodLessonScenario(1)。MR-4 silent-failure 第 8 次演出（输出"看起来正常" 6 字段都在但语义错乱）。auto_deploy FILE_MAP 补齐 ontology_parser.py。
     v3.11 → v3.12: V37.8.6 Dream 自引用幻觉血案 — INV-DREAM-003 新增 (dream-log-cannot-pollute-cache-nor-fabricate-platform-crises, meta_rule=MR-4, severity=critical, verification_layer=[declaration, runtime], 16 checks). 2026-04-15 03:00 Dream run 出现 4 次 Bad JSON 400 (adapter 收到破损 JSON)，但 Dream 仍产出完整"Hugging Face 平台危机"分析，用户察觉 Signal(Papers with Code 沉默)↔Action(监控 Hugging Face) 主题断裂后上报。三层根因：(a) scraped 内容含 surrogate UTF-8 → json.dump + utf-8 file write → UnicodeEncodeError → body_file 截断 → adapter.py:386 返回 400 Bad JSON (b) kb_dream.sh log() 用 `echo` 写 stdout → signals=$(llm_call ...) 命令替换捕获 log 行进 signals → cache file 被"LLM raw response: Error code 400 Bad JSON..."污染 (c) Reduce cache-only fast path 把错误日志注入 LLM 上下文 → LLM 基于这些字样自动编造"Hugging Face 危机"叙事 = 原则 #23 链式幻觉 + MR-4 silent failure 第 7 次演出。四层结构修复（defense-in-depth）：log→stderr 阻断 stdout 污染通道 + _sanitize(U+D800-U+DFFF → U+FFFD) 防编码炸裂 + file open 显式 encoding='utf-8' errors='replace' 第二防线 + REDUCE/CHUNK1/2/3 system prompt 四块加反污染守卫 (禁止把 HTTP 错误码/Python 异常/错误页 HTML/U+FFFD 当外部信号，禁止基于这些字样推断 Hugging Face/GitHub/npm 等平台状态)。runtime python_assert 真跑 sanitize 五场景 (孤立高位/低位代理/正常串/代理范围边界/sanitize 后 json+utf-8 编码不炸)。19 单测 (TestLogGoesToStderr×2 + TestSanitizeSurrogates×7 + TestShellSanitizeImplementation×5 + TestAntiPollutionSystemPrompt×3 + TestShellScriptIntegrity×1 + TestLogDefHasCommentMeta×1)。
     v3.10 → v3.11: V37.8.5 INV-X-001 升级三层检测 (血案二次演出: V37.8.4 修复本身埋盲区) — V37.8.4 收工 Mac Mini E2E 即发现 2 个边缘：CNS1952 98/99 超窗口 + 1 过短老化率 99% 但未触发严格 old==total (MR-10 第 2 次演出：修复会埋坑)；SingTaoDaily 0-tweet stub (embed disabled 返回空骨架) 被 total>0 门槛绕过完全不标记。V37.8.5 修复：(1) 检测逻辑独立为 jobs/finance_news/finance_news_zombie.py 纯函数模块 (classify_zombie(diag, count)); (2) 三层 tier: "stub" (no_data=0 + total=0) + "stale" (≥90% 老化 + count=0 守卫防止低频活跃误报)，整数比较 old*10 >= total*9 避免浮点; (3) 24 单测锁定三层 + 守卫 + shell 集成 + auto_deploy FILE_MAP; (4) verification_layer 从 [declaration] 升级到 [declaration, runtime] (MR-6 遵循: INV-X-001 现在有 python_assert 真跑 5 个 tier 场景); (5) shell 脚本禁止内嵌 inline fallback (防模块缺失时静默降级回 V37.8.4 逻辑 — MR-8 copy-paste-is-a-bug-class 兑现)。诊断行 tier 区分 ⚠️ ZOMBIE嫌疑[stub] vs [stale]，便于日志定位。
-  total_invariants: 87  # V37.9.100: +2 INV-DREAM-CROSS-DOMAIN-001 (dream-cross-domain-must-use-level6-guard, MR-7, high — 5 天观察 5/30-6/3 LEVEL_6 多跳链↓92% 后立案防回退) + INV-GOV-FIELD-001 (python-assert-checks-must-not-be-vacuous, MR-7, critical — 治理执行器 assertion 字段空跑血案 meta-guard). V37.9.96: +1 INV-PROXY-PLIST-ENV-001. 实际 grep '- id: INV-' = 87
-  total_checks: 801     # V37.9.100: 790 → 801 (+7 INV-DREAM-CROSS-DOMAIN-001 + 4 INV-GOV-FIELD-001). 同 session 修治理执行器血案: _exec_python_assert 只读 code: 让 67 个 assertion: 字段 python_assert 跨 21 INV vacuous pass → _check_code helper 读双字段 + triage 14 个真执行后翻车 (job_watchdog sabotage 还原 / 路径 bug / 阈值 / stale 契约 / exec 作用域陷阱 / requires_full gate). V37.9.97: 781→790. 注: 真实 check_type 行数 grep < total 因 governance_checker 还计 14 MRD discovery + preflight/env 等非 check_type 定义项 — total_checks 是操作权威数 (系统真跑真报)
+  total_invariants: 89  # V37.9.121: +2 INV-OBSERVER-001 (daily-observer-contract-must-hold, MR-7, high, 9 checks — 合并 INV-OBSERVER-SAMPLING-001 候选, 日落法 MR-22 一物一形) + INV-SOURCE-CREDIBILITY-001 (source-credibility-contract-must-hold, MR-8, high, 8 checks). V37.9.100: +2 INV-DREAM-CROSS-DOMAIN-001 + INV-GOV-FIELD-001. V37.9.96: +1 INV-PROXY-PLIST-ENV-001. 实际 grep '- id: INV-' = 89
+  total_checks: 818     # V37.9.121: 801 → 818 (+9 INV-OBSERVER-001 + 8 INV-SOURCE-CREDIBILITY-001). V37.9.100: 790 → 801 (+7 INV-DREAM-CROSS-DOMAIN-001 + 4 INV-GOV-FIELD-001). 同 session 修治理执行器血案: _exec_python_assert 只读 code: 让 67 个 assertion: 字段 python_assert 跨 21 INV vacuous pass → _check_code helper 读双字段 + triage 14 个真执行后翻车 (job_watchdog sabotage 还原 / 路径 bug / 阈值 / stale 契约 / exec 作用域陷阱 / requires_full gate). V37.9.97: 781→790. 注: 真实 check_type 行数 grep < total 因 governance_checker 还计 14 MRD discovery + preflight/env 等非 check_type 定义项 — total_checks 是操作权威数 (系统真跑真报)
   meta_rules: 23        # V37.9.117: +2 MR-22 (sunset-over-accretion 日落法北极星 — 降复杂度优先于加功能) + MR-23 (audit-observes-never-mutates 审计只读, 泛化 MR-9, 复用 test_v37_9_116/test_convergence 守卫不铸新 INV)
   meta_rule_discovery_count: 6   # Phase 0: registry + env + notify-topic + layer-depth + error-suppression + notify-activity
   check_types_used: [python_assert, file_contains, file_not_contains, env_var_exists, command_succeeds, log_activity_check]

@@ -3302,6 +3302,7 @@ class TestV37958DryRunActivation(unittest.TestCase):
             'version: "3.52"',  # V37.9.97 services_to_launchd Plan B 升级 machine_sync
             'version: "3.53"',  # V37.9.100 INV-DREAM-CROSS-DOMAIN-001 + 治理执行器 assertion 字段 bug 修复
             'version: "3.54"',  # V37.9.117 +2 MR-22 (日落法 sunset-over-accretion) + MR-23 (审计只读 audit-observes-never-mutates)
+            'version: "3.55"',  # V37.9.121 +2 INV-OBSERVER-001 (合并 sampling 候选) + INV-SOURCE-CREDIBILITY-001
         )
         self.assertTrue(
             any(v in self.gov_src for v in valid_versions),
