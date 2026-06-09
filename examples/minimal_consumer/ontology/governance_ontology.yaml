@@ -13,6 +13,18 @@ audit_metadata:
   total_checks: 3
   meta_rules: 0
 
+# chunk 3b (V37.9.126) config-injection demo: WeatherBot 用自己的文件名模式,
+# 不是 bridge 的 jobs_registry.yaml/notify.sh. 引擎经 ONTOLOGY_CONFIG_DIR 读这里 →
+# _MRD["registry_file"] == "weatherbot_jobs.yaml" (非 bridge 默认). 证明 MRD 扫描
+# 模式真正可被消费方 config 注入 (镜像 chunk 3a convergence config-injection).
+mrd_scan_patterns:
+  registry_file: "weatherbot_jobs.yaml"
+  notify_file: "weather_alert.sh"
+  preflight_file: "weatherbot_preflight.sh"
+  diagnostic_whitelist:
+    - "weatherbot_smoke.sh"
+    - "weatherbot_report.sh"
+
 meta_rules: []
 
 invariants:
