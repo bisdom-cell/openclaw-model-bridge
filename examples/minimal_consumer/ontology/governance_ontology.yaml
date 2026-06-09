@@ -24,6 +24,9 @@ mrd_scan_patterns:
   diagnostic_whitelist:
     - "weatherbot_smoke.sh"
     - "weatherbot_report.sh"
+  # chunk 3b.2: WeatherBot 用自己的项目结构 glob (skills/**/*.py 非 bridge jobs/**/*.py)
+  py_scan_globs: ["weatherbot.py", "skills/**/*.py"]
+  push_route_whitelist: ["weather_alert.sh"]
 
 meta_rules: []
 

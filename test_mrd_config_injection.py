@@ -249,6 +249,159 @@ class TestDemoConfigInjection(unittest.TestCase):
         self.assertEqual(r.stdout.strip(), "jobs_registry.yaml",
                          "不注入时应读 bridge 默认 (反向验证注入真起作用)")
 
+    def test_injected_engine_reads_demo_glob(self):
+        # chunk 3b.2: ONTOLOGY_CONFIG_DIR=demo → 引擎 _MRD glob 读 WeatherBot 项目结构
+        import subprocess
+        code = (
+            "import sys, os;"
+            f"sys.path.insert(0, {os.path.join(_HERE, 'ontology')!r});"
+            "import governance_checker as gc;"
+            "print(','.join(gc._MRD['py_scan_globs']))"
+        )
+        env = dict(os.environ)
+        env.update({"ONTOLOGY_CONFIG_DIR": self._DEMO_ONTO,
+                    "ONTOLOGY_PROJECT_ROOT": self._DEMO_ROOT})
+        r = subprocess.run([sys.executable, "-c", code],
+                           capture_output=True, text=True, timeout=60, env=env)
+        self.assertIn("skills/**/*.py", r.stdout,
+                      f"注入后 py_scan_globs 应读 demo 的, 实际 {r.stdout!r}")
+        self.assertIn("weatherbot.py", r.stdout)              # demo 特有第一项
+        self.assertNotEqual(r.stdout.strip(), "**/*.py")      # 非 bridge 默认完整串
+
+
+class TestMrd3b2GlobDefaults(unittest.TestCase):
+    """chunk 3b.2: glob 形状键 + push_route_whitelist 在 _MRD_DEFAULTS."""
+
+    GLOB_KEYS = ("topic_scan_globs", "channel_source_globs", "repo_shell_globs",
+                 "alert_monitor_globs", "llm_caller_globs", "llm_caller_py_globs",
+                 "py_scan_globs", "push_route_whitelist")
+
+    def test_glob_keys_present_and_list(self):
+        for k in self.GLOB_KEYS:
+            self.assertIn(k, gc._MRD_DEFAULTS, f"{k} 缺失")
+            self.assertIsInstance(gc._MRD_DEFAULTS[k], list)
+            self.assertGreater(len(gc._MRD_DEFAULTS[k]), 0)
+
+    def test_glob_default_values_match_bridge(self):
+        self.assertEqual(gc._MRD_DEFAULTS["topic_scan_globs"], ["**/*.sh"])
+        self.assertEqual(gc._MRD_DEFAULTS["repo_shell_globs"], ["*.sh", "jobs/**/*.sh"])
+        self.assertEqual(gc._MRD_DEFAULTS["py_scan_globs"], ["**/*.py"])
+        self.assertEqual(gc._MRD_DEFAULTS["alert_monitor_globs"],
+                         ["wa_*.sh", "*keepalive*.sh", "*watchdog*.sh"])
+
+    def test_push_route_whitelist_23(self):
+        wl = gc._MRD_DEFAULTS["push_route_whitelist"]
+        self.assertEqual(len(wl), 23)
+        for must in ("notify.sh", "kb_dream.sh", "openclaw_backup.sh"):
+            self.assertIn(must, wl)
+
+
+class TestMrdGlobsHelper(unittest.TestCase):
+    def test_returns_joined_patterns_in_order(self):
+        out = gc._mrd_globs("channel_source_globs")
+        self.assertEqual(len(out), 2)
+        self.assertTrue(out[0].endswith("jobs/*/run_*.sh"))  # 保序
+        self.assertTrue(out[1].endswith("/*.sh"))
+        for p in out:
+            self.assertTrue(p.startswith(gc._PROJECT_ROOT))
+
+    def test_unknown_key_returns_empty(self):
+        self.assertEqual(gc._mrd_globs("nonexistent_key_xyz"), [])
+
+
+class TestGlobOverride(unittest.TestCase):
+    def test_full_glob_override(self):
+        fake = {"mrd_scan_patterns": {
+            "py_scan_globs": ["src/**/*.py"],
+            "push_route_whitelist": ["my_push.sh"],
+        }}
+        with mock.patch.object(gc, "_load", return_value=fake):
+            p = gc._load_mrd_patterns()
+        self.assertEqual(p["py_scan_globs"], ["src/**/*.py"])
+        self.assertEqual(p["push_route_whitelist"], ["my_push.sh"])
+        # 未 override 的 glob 键仍默认
+        self.assertEqual(p["topic_scan_globs"], ["**/*.sh"])
+
+    def test_non_list_glob_override_ignored(self):
+        fake = {"mrd_scan_patterns": {"py_scan_globs": "not_a_list"}}
+        with mock.patch.object(gc, "_load", return_value=fake):
+            p = gc._load_mrd_patterns()
+        self.assertEqual(p["py_scan_globs"], ["**/*.py"])  # 默认
+
+
+class TestYamlSection3b2DriftGuard(unittest.TestCase):
+    """yaml mrd_scan_patterns 的 glob 键 + push_route_whitelist 值 == _MRD_DEFAULTS (字节级一致)."""
+
+    def setUp(self):
+        import yaml
+        with open(_GOV_YAML, encoding="utf-8") as f:
+            self.cfg = yaml.safe_load(f)["mrd_scan_patterns"]
+
+    def test_glob_keys_in_yaml_match_defaults(self):
+        for k in TestMrd3b2GlobDefaults.GLOB_KEYS:
+            self.assertIn(k, self.cfg, f"yaml 缺 {k}")
+            self.assertEqual(list(self.cfg[k]), list(gc._MRD_DEFAULTS[k]),
+                             f"yaml {k} 值 != 默认 (字节级一致破坏)")
+
+
+class TestBehavioralGlobOverride(unittest.TestCase):
+    """行为级反向验证: override glob → 扫描器真扫不同文件集 (证明 glob 真驱动扫描)."""
+
+    def test_py_scan_glob_override_changes_scanned_count(self):
+        # 默认 _discover_silent_except 扫 ~72 .py; override 到单文件 glob → 扫 1
+        orig = gc._MRD["py_scan_globs"]
+        try:
+            default_res = gc._discover_silent_except_violations("medium")
+            self.assertIn("扫描", default_res["message"])
+            gc._MRD["py_scan_globs"] = ["adapter.py"]  # 单文件, 无 **
+            override_res = gc._discover_silent_except_violations("medium")
+        finally:
+            gc._MRD["py_scan_globs"] = orig
+        import re
+        n_default = int(re.search(r"扫描 (\d+) 个", default_res["message"]).group(1))
+        n_override = int(re.search(r"扫描 (\d+) 个", override_res["message"]).group(1))
+        self.assertGreater(n_default, 10, "默认应扫多个 .py")
+        self.assertEqual(n_override, 1, "override 到单文件 glob 应只扫 1 个")
+        self.assertNotEqual(n_default, n_override)
+
+    def test_alert_monitor_glob_override(self):
+        # override alert_monitor_globs 到不匹配 → 0 监控脚本
+        orig = gc._MRD["alert_monitor_globs"]
+        try:
+            gc._MRD["alert_monitor_globs"] = ["nonexistent_monitor_*.sh"]
+            res = gc._discover_alert_path_independence("high")
+        finally:
+            gc._MRD["alert_monitor_globs"] = orig
+        self.assertIn("0 个", res["message"])
+
+
+class TestSource3b2Guards(unittest.TestCase):
+    def setUp(self):
+        with open(_GC_SRC, encoding="utf-8") as f:
+            self.src = f.read()
+
+    def test_chunk_3b2_marker(self):
+        self.assertIn("chunk 3b.2", self.src)
+        self.assertIn("V37.9.127", self.src)
+
+    def test_mrd_globs_helper_defined(self):
+        self.assertIn("def _mrd_globs(key):", self.src)
+
+    def test_scanners_use_mrd_globs_not_hardcoded(self):
+        for key in ("topic_scan_globs", "channel_source_globs", "repo_shell_globs",
+                    "alert_monitor_globs", "llm_caller_globs", "py_scan_globs"):
+            self.assertIn(f'_mrd_globs("{key}")', self.src, f"扫描器未用 _mrd_globs({key})")
+
+    def test_push_route_whitelist_derived(self):
+        self.assertIn('_PUSH_ROUTE_WHITELIST = set(_MRD["push_route_whitelist"])', self.src)
+
+    def test_reverse_hardcoded_glob_blocks_gone(self):
+        # 反向守卫: 旧硬编码 glob 块已消除 (仅 _MRD_DEFAULTS 里有这些字面量)
+        self.assertNotIn('os.path.join(_PROJECT_ROOT, "**/*.sh")', self.src)
+        self.assertNotIn('os.path.join(_PROJECT_ROOT, "wa_*.sh")', self.src)
+        # _PUSH_ROUTE_WHITELIST 不再是大括号字面量集合 (>5 行)
+        self.assertNotIn('"jobs/hn_watcher/run_hn_fixed.sh",     # 历史合法直推', self.src)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

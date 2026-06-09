@@ -9104,6 +9104,41 @@ mrd_scan_patterns:
     - "health_check.sh"
     - "governance_audit_cron.sh"
     - "kb_status_refresh.sh"
+  # ── chunk 3b.2 (V37.9.127): per-scanner glob 形状 (相对 _PROJECT_ROOT 模式列表) ──
+  # 各扫描器是不同扫描集 (**/*.sh 含 docs/ontology vs [*.sh, jobs/**/*.sh] 只 top+jobs) 不可合并.
+  # 消费方可写自己的项目结构 (如 tasks/**/*.py 替 jobs/**/*.py); 缺键 → bridge 默认 (字节级一致).
+  topic_scan_globs: ["**/*.sh"]
+  channel_source_globs: ["jobs/*/run_*.sh", "*.sh"]
+  repo_shell_globs: ["*.sh", "jobs/**/*.sh"]
+  alert_monitor_globs: ["wa_*.sh", "*keepalive*.sh", "*watchdog*.sh"]
+  llm_caller_globs: ["jobs/*/run_*.sh", "kb_*.py", "kb_*.sh", "jobs/hn_watcher/run_hn_fixed.sh"]
+  llm_caller_py_globs: ["jobs/**/*.py"]
+  py_scan_globs: ["**/*.py"]
+  # push-route 白名单 (允许直接 openclaw message send 绕过 notify.sh 的脚本 basename)
+  push_route_whitelist:
+    - "notify.sh"
+    - "jobs/hn_watcher/run_hn_fixed.sh"
+    - "wa_keepalive.sh"
+    - "job_watchdog.sh"
+    - "auto_deploy.sh"
+    - "daily_ops_report.sh"
+    - "health_check.sh"
+    - "kb_status_refresh.sh"
+    - "cron_canary.sh"
+    - "preflight_check.sh"
+    - "smoke_test.sh"
+    - "quickstart.sh"
+    - "gameday.sh"
+    - "kb_evening.sh"
+    - "kb_inject.sh"
+    - "kb_review.sh"
+    - "kb_deep_dive.sh"
+    - "kb_dream.sh"
+    - "check_upgrade.sh"
+    - "diagnose.sh"
+    - "upgrade_openclaw.sh"
+    - "restart.sh"
+    - "openclaw_backup.sh"
 
 
 # ═══════════════════════════════════════════════════════════════════════

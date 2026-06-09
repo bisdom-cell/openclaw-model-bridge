@@ -90,8 +90,10 @@ def _load():
 # 把这些文件名移到 Layer 2 config (governance_ontology.yaml::mrd_scan_patterns),
 # framework 只读模式表; 缺此段 → 用 bridge 默认值 (向后兼容字节级一致, 镜像
 # chunk 3a convergence config-injection 的 _resolve_config_dir 模式).
-# 范围 (原则 #28/#34): 仅单文件项目引用 + 诊断白名单 (高价值低风险). per-scanner
-# glob 形状 (**/*.sh vs [*.sh, jobs/**/*.sh] 等, 各异泛型改动风险高) 留 3b.2 follow-up.
+# 范围 (原则 #28/#34): 单文件项目引用 + 诊断白名单 (chunk 3b 高价值低风险) +
+# chunk 3b.2 per-scanner glob 形状 + push-route 白名单. glob 列表是相对 _PROJECT_ROOT
+# 的模式, 各扫描器是不同扫描集 (**/*.sh 含 docs/ontology vs [*.sh, jobs/**/*.sh] 只
+# top+jobs) 不可合并. 统一 recursive=True 安全 (对非 ** 模式 no-op, 对 ** 必需).
 _MRD_DEFAULTS = {
     "registry_file": "jobs_registry.yaml",        # job 注册表
     "notify_file": "notify.sh",                    # 推送分发器
@@ -103,22 +105,44 @@ _MRD_DEFAULTS = {
         "daily_ops_report.sh", "health_check.sh",
         "governance_audit_cron.sh", "kb_status_refresh.sh",
     ],
+    # ── chunk 3b.2 (V37.9.127): per-scanner glob 形状 (相对 _PROJECT_ROOT 模式列表) ──
+    "topic_scan_globs": ["**/*.sh"],                       # _discover_uncovered_topics + _discover_silent_error_suppression (全 .sh 递归)
+    "channel_source_globs": ["jobs/*/run_*.sh", "*.sh"],   # _discover_silent_channels source layer
+    "repo_shell_globs": ["*.sh", "jobs/**/*.sh"],          # _discover_log_stderr_violations + _discover_push_route_violations (top + jobs)
+    "alert_monitor_globs": ["wa_*.sh", "*keepalive*.sh", "*watchdog*.sh"],  # _discover_alert_path_independence
+    "llm_caller_globs": ["jobs/*/run_*.sh", "kb_*.py", "kb_*.sh", "jobs/hn_watcher/run_hn_fixed.sh"],  # _discover_llm_parser sh/py caller
+    "llm_caller_py_globs": ["jobs/**/*.py"],               # _discover_llm_parser jobs 下其他 .py
+    "py_scan_globs": ["**/*.py"],                          # _discover_silent_except_violations (全 .py 递归)
+    # push-route 白名单 (允许直接 openclaw message send 绕过 notify.sh 的脚本 basename)
+    "push_route_whitelist": [
+        "notify.sh", "jobs/hn_watcher/run_hn_fixed.sh", "wa_keepalive.sh",
+        "job_watchdog.sh", "auto_deploy.sh", "daily_ops_report.sh", "health_check.sh",
+        "kb_status_refresh.sh", "cron_canary.sh", "preflight_check.sh", "smoke_test.sh",
+        "quickstart.sh", "gameday.sh", "kb_evening.sh", "kb_inject.sh", "kb_review.sh",
+        "kb_deep_dive.sh", "kb_dream.sh", "check_upgrade.sh", "diagnose.sh",
+        "upgrade_openclaw.sh", "restart.sh", "openclaw_backup.sh",
+    ],
 }
 
 
 def _load_mrd_patterns():
-    """读 Layer 2 config 的 MRD 扫描文件名模式 (consumer 可 override). FAIL-OPEN: 缺段/读失败 → 默认."""
-    patterns = dict(_MRD_DEFAULTS)
-    patterns["diagnostic_whitelist"] = list(_MRD_DEFAULTS["diagnostic_whitelist"])
+    """读 Layer 2 config 的 MRD 扫描文件名/glob 模式 (consumer 可 override). FAIL-OPEN: 缺段/读失败 → 默认.
+
+    泛化 (chunk 3b.2): 遍历 _MRD_DEFAULTS 所有键 — str 默认 → 非空字符串 override;
+    list 默认 → 非空 list override. 防误配 (空字符串/非 list 忽略 → 用默认).
+    """
+    patterns = {k: (list(v) if isinstance(v, list) else v) for k, v in _MRD_DEFAULTS.items()}
     try:
         cfg = _load().get("mrd_scan_patterns", {})
         if isinstance(cfg, dict):
-            for k in ("registry_file", "notify_file", "preflight_file"):
-                if cfg.get(k):
-                    patterns[k] = cfg[k]
-            wl = cfg.get("diagnostic_whitelist")
-            if isinstance(wl, list) and wl:
-                patterns["diagnostic_whitelist"] = list(wl)
+            for k, default_v in _MRD_DEFAULTS.items():
+                v = cfg.get(k)
+                if isinstance(default_v, str):
+                    if v:  # 非空字符串才 override
+                        patterns[k] = v
+                elif isinstance(default_v, list):
+                    if isinstance(v, list) and v:  # 非空 list 才 override
+                        patterns[k] = list(v)
     except Exception as e:
         # FAIL-OPEN: 读取失败用 bridge 默认值 (observable 非静默 — MR-7 治理自观察:
         # 治理工具自己遵守 MRD-SILENT-EXCEPT-001 强制的"不裸 except pass"规则).
@@ -128,6 +152,13 @@ def _load_mrd_patterns():
 
 
 _MRD = _load_mrd_patterns()
+
+
+def _mrd_globs(key):
+    """返回 _MRD[key] 的相对 glob 模式 join _PROJECT_ROOT 后的绝对模式列表 (按列表顺序).
+    调用方自己 glob (用 recursive=True — 对非 ** 模式 no-op, 对 ** 必需; 保留各扫描器
+    原有 set/extend/sorted 累积语义 → 字节级一致)."""
+    return [os.path.join(_PROJECT_ROOT, p) for p in _MRD.get(key, [])]
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -498,7 +529,10 @@ def _discover_uncovered_topics(severity):
 
     # 扫描所有 .sh 文件中 --topic 参数
     used_topics = set()
-    for sh_file in glob_mod.glob(os.path.join(_PROJECT_ROOT, "**/*.sh"), recursive=True):
+    _topic_sh_files = []
+    for _g in _mrd_globs("topic_scan_globs"):
+        _topic_sh_files.extend(glob_mod.glob(_g, recursive=True))
+    for sh_file in _topic_sh_files:
         if ".git" in sh_file:
             continue
         try:
@@ -529,7 +563,10 @@ def _discover_silent_error_suppression(severity):
     import glob as glob_mod
     violations = []
 
-    for sh_file in glob_mod.glob(os.path.join(_PROJECT_ROOT, "**/*.sh"), recursive=True):
+    _topic_sh_files = []
+    for _g in _mrd_globs("topic_scan_globs"):
+        _topic_sh_files.extend(glob_mod.glob(_g, recursive=True))
+    for sh_file in _topic_sh_files:
         if ".git" in sh_file:
             continue
         try:
@@ -586,10 +623,7 @@ def _discover_silent_channels(severity):
 
     # ── Source layer: 扫描源码查找任何 caller ─────────────────────
     import glob as glob_mod
-    source_globs = [
-        os.path.join(_PROJECT_ROOT, "jobs", "*", "run_*.sh"),
-        os.path.join(_PROJECT_ROOT, "*.sh"),
-    ]
+    source_globs = _mrd_globs("channel_source_globs")  # chunk 3b.2
     source_files = []
     for g in source_globs:
         source_files.extend(glob_mod.glob(g))
@@ -1077,10 +1111,7 @@ def _discover_log_stderr_violations(severity):
     scanned = 0
     exempted = 0
     # 扫描所有 shell 脚本（仓库 + jobs/）
-    patterns = [
-        os.path.join(_PROJECT_ROOT, "*.sh"),
-        os.path.join(_PROJECT_ROOT, "jobs", "**", "*.sh"),
-    ]
+    patterns = _mrd_globs("repo_shell_globs")  # chunk 3b.2
     sh_files = set()
     for patt in patterns:
         sh_files.update(glob_mod.glob(patt, recursive=True))
@@ -1150,19 +1181,13 @@ def _discover_llm_parser_positional_violations(severity):
     """
     import glob as glob_mod
 
-    # 候选文件集合
+    # 候选文件集合 (chunk 3b.2: glob 从 _MRD 读)
     targets = set()
-    for patt in [
-        "jobs/*/run_*.sh",
-        "kb_*.py",
-        "kb_*.sh",
-        "jobs/hn_watcher/run_hn_fixed.sh",
-    ]:
-        targets.update(glob_mod.glob(os.path.join(_PROJECT_ROOT, patt)))
+    for g in _mrd_globs("llm_caller_globs"):
+        targets.update(glob_mod.glob(g, recursive=True))
     # 也扫 jobs 下的其他 .py 解析模块
-    targets.update(glob_mod.glob(
-        os.path.join(_PROJECT_ROOT, "jobs", "**", "*.py"), recursive=True
-    ))
+    for g in _mrd_globs("llm_caller_py_globs"):
+        targets.update(glob_mod.glob(g, recursive=True))
 
     violations = []
     scanned = 0
@@ -1356,12 +1381,8 @@ def _discover_alert_path_independence(severity):
 
     violations = []
     scanned = 0
-    # 扫监控脚本
-    patterns = [
-        os.path.join(_PROJECT_ROOT, "wa_*.sh"),
-        os.path.join(_PROJECT_ROOT, "*keepalive*.sh"),
-        os.path.join(_PROJECT_ROOT, "*watchdog*.sh"),
-    ]
+    # 扫监控脚本 (chunk 3b.2)
+    patterns = _mrd_globs("alert_monitor_globs")
     monitor_files = set()
     for patt in patterns:
         monitor_files.update(glob_mod.glob(patt))
@@ -1447,7 +1468,9 @@ def _discover_silent_except_violations(severity):
     violations = []
     scanned = 0
     # 扫项目里所有 .py（排除常见噪音）
-    py_files = glob_mod.glob(os.path.join(_PROJECT_ROOT, "**", "*.py"), recursive=True)
+    py_files = []  # chunk 3b.2
+    for _g in _mrd_globs("py_scan_globs"):
+        py_files.extend(glob_mod.glob(_g, recursive=True))
 
     for f in sorted(py_files):
         rel = os.path.relpath(f, _PROJECT_ROOT)
@@ -1524,31 +1547,12 @@ def _discover_silent_except_violations(severity):
 # 推送白名单：允许直接 openclaw message send 的脚本 basename
 # 白名单原则：主仓库级合法推送入口（路由层 / 监控告警 / 周期性汇总）
 # 新增脚本推送必须走 notify.sh，否则加入白名单需 review
-_PUSH_ROUTE_WHITELIST = {
-    "notify.sh",           # 路由层自身
-    "jobs/hn_watcher/run_hn_fixed.sh",     # 历史合法直推（V27 前已稳定）
-    "wa_keepalive.sh",     # 告警升级走 openclaw 直发 Discord
-    "job_watchdog.sh",     # watchdog 告警直发
-    "auto_deploy.sh",      # quiet_alert 实现层
-    "daily_ops_report.sh", # 日报直推
-    "health_check.sh",     # 周报直推
-    "kb_status_refresh.sh",  # 状态刷新
-    "cron_canary.sh",      # cron 心跳金丝雀（不推消息但保险）
-    "preflight_check.sh",  # 体检推送（含白名单豁免）
-    "smoke_test.sh",       # 测试
-    "quickstart.sh",       # 一键启动
-    "gameday.sh",          # 故障演练
-    "kb_evening.sh",       # KB 晚间整理推送
-    "kb_inject.sh",        # 每日 KB 摘要推送
-    "kb_review.sh",        # 周度回顾推送
-    "kb_deep_dive.sh",     # V37.9.16: 每日深度分析推送（WhatsApp 简版 + Discord #daily 完整版，同款 fallback 模式）
-    "kb_dream.sh",         # Dream 跨域关联推送
-    "check_upgrade.sh",    # OpenClaw 升级 SOP 推送
-    "diagnose.sh",         # 系统诊断推送
-    "upgrade_openclaw.sh", # Gateway 升级推送
-    "restart.sh",          # 服务重启确认
-    "openclaw_backup.sh",  # 备份结果推送
-}
+# chunk 3b.2 (V37.9.127): 从 _MRD["push_route_whitelist"] 派生 (Layer 2 config 可 override).
+# 默认值 = 原硬编码 23 项 (bridge 字节级一致). 含 notify.sh/jobs/hn_watcher/run_hn_fixed.sh/
+# wa_keepalive/job_watchdog/auto_deploy/daily_ops_report/health_check/kb_status_refresh/
+# cron_canary/preflight_check/smoke_test/quickstart/gameday/kb_evening/kb_inject/kb_review/
+# kb_deep_dive/kb_dream/check_upgrade/diagnose/upgrade_openclaw/restart/openclaw_backup.
+_PUSH_ROUTE_WHITELIST = set(_MRD["push_route_whitelist"])
 
 
 def _discover_push_route_violations(severity):
@@ -1565,10 +1569,7 @@ def _discover_push_route_violations(severity):
     scanned = 0
 
     # 扫所有 .sh（仓库 + jobs/）
-    patterns = [
-        os.path.join(_PROJECT_ROOT, "*.sh"),
-        os.path.join(_PROJECT_ROOT, "jobs", "**", "*.sh"),
-    ]
+    patterns = _mrd_globs("repo_shell_globs")  # chunk 3b.2
     sh_files = set()
     for patt in patterns:
         sh_files.update(glob_mod.glob(patt, recursive=True))
