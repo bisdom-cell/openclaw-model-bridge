@@ -78,7 +78,7 @@ def _resolve_config_dir():
 | `from proxy_filters import ALLOWED_TOOLS,...` | `engine.py::main()` 的一致性 diff CLI | **lazy + try-guarded**，仅 CLI `--diff` 功能用，核心引擎不依赖 | 包内 `--diff` 无 proxy_filters 时 try 失败优雅降级；属 Layer 2 消费方耦合，记录即可 |
 | `import convergence` / `from ontology import convergence` | `governance_checker.py::run_convergence_specs()` | convergence 是 `ontology` 子模块，双 fallback 已 package-aware | `packages=["ontology"]` 自动含，无需处理 |
 | ~~**convergence spec 路径不读 `ONTOLOGY_CONFIG_DIR`**~~ ✅ **V37.9.107 chunk-3a 已修复** | `convergence.py` 现有 `_resolve_config_dir()` + `_resolve_project_root()`（镜像 engine.py / governance_checker.py） | **chunk-4 demo 暴露 → chunk-3a 闭环**：convergence 现读 `ONTOLOGY_CONFIG_DIR` 的 spec + 经 `ONTOLOGY_PROJECT_ROOT` 解析源文件（jobs_registry.yaml / *.json）。无 env 时默认分支保持 V37.9.19 `.resolve()` 语义字节级不变（零回归）。 | ✅ 已修。demo 新增 `convergence_ontology.yaml` + `weatherbot_state.json`，run_demo.py section 5 端到端验证（消费方读自己 spec 非 bridge）。14 新单测 + 反向 sabotage 守卫 |
-| MRD 扫描模式 (`jobs_registry.yaml` / `notify.sh` / `jobs/*/run_*.sh`) | `governance_checker.py::_discover_*()` | **根已注入（全部用 `_PROJECT_ROOT`），只是扫描的文件名模式本项目特定**（消费方缺这些文件时 MRD 优雅 no-op，demo 已验证 — 非 correctness bug，仅配置化 nicety） | **chunk-3b 待启动**：把文件名模式表从 ~10 个治理关键扫描器移到 Layer 2 配置。聚焦 session 做（避免 MR-4 血案防护回归），不与 chunk-3a 捆绑 |
+| ~~MRD 扫描单文件名 (`jobs_registry.yaml` / `notify.sh` / `preflight_check.sh` / 诊断白名单)~~ ✅ **V37.9.126 chunk-3b 已修复** | `governance_checker.py::_discover_*()` | **单文件项目引用已 config-inject**：`_load_mrd_patterns()` 读 `governance_ontology.yaml::mrd_scan_patterns`，消费方可 override 自己的文件名；缺段 → `_MRD_DEFAULTS` (bridge 字节级一致)。WeatherBot demo 已验证端到端 (`weatherbot_jobs.yaml` 经注入读取)。 | ✅ 已修。byte-identical 验证 (89 inv/14 MRD discovery 不变) + 24 单测 + 反向 sabotage + demo `mrd_scan_patterns`。**chunk-3b.2 待启动**：per-scanner glob 形状 (`**/*.sh` vs `[*.sh, jobs/**/*.sh]` 等各异泛型) + push-route 白名单 (低价值高回归风险, 非紧急) |
 | `governance_ontology.yaml` 的 python_assert 引用项目文件 | Layer 2 配置内 | 本就是 Layer 2（项目特定不变式） | 无需处理，消费方写自己的 |
 
 ---
@@ -91,7 +91,8 @@ def _resolve_config_dir():
 | **4 (本次)** | Extension Guide + 最小可跑 demo (WeatherBot 消费方) + config-injection 端到端验证 + 端到端测试 | 低（纯新增） | ✅ 完成 (V37.9.104) |
 | 2 | import 名去泛化 (`ontology` → `ontology_engine` 或命名空间)：改 proxy_filters lazy-load 路径 + Mac Mini symlink + 全部 import + tests | **高**（破坏性，触发"删除后正常"宪法全验证） | 待启动 |
 | **3a (本次)** | **convergence config-injection**：`convergence.py` 加 `_resolve_config_dir()` + `_resolve_project_root()`，spec 路径 + 源文件根（6 src_path + json + 2 sys.path）全经 env 注入。demo 加 `convergence_ontology.yaml` + `weatherbot_state.json` + run_demo.py section 5 端到端验证 | 低（向后兼容，默认 `.resolve()` 字节级不变） | ✅ 完成 (V37.9.107) — chunk-4 demo 暴露的耦合闭环 |
-| 3b | MRD 扫描模式参数化：把 `jobs_registry`/`notify.sh`/`jobs/*/run_*.sh` 文件名模式从 ~10 个治理关键 `_discover_*` 移到 Layer 2 配置；framework 只读模式表（根已 `_PROJECT_ROOT` 注入，仅模式硬编码，且已优雅 no-op） | 中（触碰 MR-4 血案防护扫描器） | 待启动（聚焦 session，不与 3a 捆绑） |
+| 3b | ✅ **V37.9.126 完成 (单文件部分)**：MRD 扫描**单文件名** (`registry_file`/`notify_file`/`preflight_file`/诊断白名单) 移到 Layer 2 `mrd_scan_patterns`；`_load_mrd_patterns()` + `_MRD` 模块常量 + FAIL-OPEN observable except。byte-identical (89 inv/MRD discovery 不变) + 24 单测 + demo `weatherbot_jobs.yaml` 端到端注入。 | 中（触碰 MR-4 血案防护扫描器，已 byte-identical 验证） | ✅ 已完成 (单文件) |
+| 3b.2 | per-scanner **glob 形状**参数化 (`**/*.sh` / `[*.sh, jobs/**/*.sh]` / `jobs/*/run_*.sh` / alert_path `wa_*.sh`+`*watchdog*.sh` 等各异) + push-route 白名单 (`_PUSH_ROUTE_WHITELIST`) | 中-高（glob-set 改变风险回归 + 各扫描器形状不同，每个需精确默认 + byte-identical 守卫） | 待启动（低价值高风险，非紧急；当前 glob 泛型且优雅 no-op） |
 | 5 (Phase 5 终态) | 真 sdist/wheel 构建 + `pip install` (非 editable) 冒烟 + 发布决策 (PyPI 名 / license / readme) + 版本治理 (semver) + 第三方项目接入验证 | — | 待启动 |
 
 ---

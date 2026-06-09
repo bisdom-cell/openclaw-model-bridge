@@ -1,6 +1,6 @@
 {
-  "updated": "2026-06-09 07:39:57",
-  "updated_by": "claude_code",
+  "updated": "2026-06-09 09:07:56",
+  "updated_by": "full_regression",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -104,6 +104,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-06-09",
+      "what": "V37.9.126 ontology-engine 包化 chunk 3b — MRD 扫描单文件名 Layer 2 config-injection (终极目标推进, 用户选). 前置: 数据驱动诊断 Mac Mini preflight #19 SLO 退化 (p95=81s/timeout 14.7%) — /stats total_req=71 + adapter /health fallback=doubao + circuit_breaker=half-open + 最近 backend 6-12s → 结论 Qwen3 主力退化 doubao fallback 顶着, 81s 是 200-滚动窗口含退化期 (LATENCY_WINDOW=200, 71 req 全在窗口), 监控工作正常非 code bug (slo_checker 门槛 5 vs slo_benchmark 200 是 alerting vs reporting 设计差异不该改 — 抬门槛压真信号). 操作: 观察 Qwen3 恢复. 无 code 改 (原则 #28 答案是观察). chunk 3b: governance_checker.py 14 个 _discover_* MRD 扫描器硬编码项目文件名. 根已 _PROJECT_ROOT 注入 (chunk 3a), 仅文件名本项目特定. 范围 (原则 #28/#34): 仅参数化高价值低风险单文件 (registry_file/notify_file/preflight_file 跨 5 use-site + 诊断白名单); per-scanner glob 形状 + push-route 白名单 登记 chunk 3b.2 (低价值高回归风险). 机制 (镜像 chunk 3a): _MRD_DEFAULTS + _load_mrd_patterns() 读 governance_ontology.yaml::mrd_scan_patterns merge over 默认 (FAIL-OPEN observable except 写 stderr 非裸 pass — MR-7 治理工具自己遵守 MRD-SILENT-EXCEPT-001) + _MRD 模块常量. _LOG_STDERR_EXEMPT_BASENAMES = set(_MRD[diagnostic_whitelist]) 派生. yaml 新段值==默认. 不铸新 INV (镜像 chunk 3a/4). byte-identical 验证 (核心): 重构前后 governance --json 逐项比对 — discovery 14 项 status/计数/违规文件集完全一致, 唯 AUDIT-PERF timing + governance_checker 自身违规行号位移. 89/89 inv exit 0. 24 新单测 7 类 (含 full/partial override + FAIL-OPEN observable + 字节级一致 drift guard + 反向硬编码消除守卫 + demo 端到端 ONTOLOGY_CONFIG_DIR=demo 读 WeatherBot weatherbot_jobs.yaml + 反向不注入读 bridge). sabotage 真有效 (退回硬编码/yaml 改坏值 → 守卫 fail). demo yaml 加 mrd_scan_patterns. 118→119 suites / 4126→4150 tests / 0 fail / governance 89 inv 818 checks 不变 / 安全 95 / VERSION 0.37.9.68 不变. Mac Mini 待 git fetch+reset (默认行为不变). 下次候选: chunk 3b.2 (glob 形状) / chunk 2 (import 名去泛化) / chunk 5 / ArXiv 论文.",
+      "by": "claude_code"
+    },
     {
       "date": "2026-06-09",
       "what": "V37.9.125 日落法 root-cause: doc-header 统计自动同步 (gen_readme_badges 扩展) + 顺手修 full_regression governance 回写静默失败. 用户选 doc-stat-sync 方向 (推荐). ① 扩展 gen_readme_badges.py 不新建文件不改名 (避 rename 接缝 #34): compute_facts 加 6 新权威源事实 (test_suites/governance_checks+version/security/mrd_scanners/cases 全 FAIL-OPEN) + _doc_header_specs 同步 FEATURES/config/packaging 三 doc 摘要行统计 (anchor bound 到摘要行防 body 碰撞, 每统计核验恰好 1 次) + --check/--write. point-in-time 标记有意不同步. 不铸新 INV (镜像 V37.9.99: --check + full_regression line 254 doc-drift 层 + test 守卫). ② 顺手修真 MR-4 静默故障 (同 stat-drift 家族): 开工发现 status.json governance 字段陈旧 85/790 vs 权威 89/818. 根因 full_regression L517 governance 回写解析器一直崩 — 旧 depth 字符计数器撞 governance_checker stdout 的 [SYSTEM_ALERT] 行 + V37.3 起 --json 附带 combined object + 字符串内括号误判 → GOV_STATS 空 → status.json 字段长期 stale. 改 raw_decode + 跳所有 log 前缀行. 修复后 status.json 正确回写 89/89 inv + 724/738 checks. MR-10 三问全过, 低 blast radius. ③ 27 新单测 (21→48, 7 类含机器化反向验证破坏真 doc 修回 + fixture 复现 [SYSTEM_ALERT] 污染 + raw_decode 源码守卫). 反向验证守卫真有效 (sabotage 删 spec/破坏 raw_decode 立即 fail; 强化首版自引用守卫 V37.9.110 教训). ④ dogfood: 本 session 版本 bump 的 doc-drift 由新工具 --write 一键同步. ⑤ 118 suites 不变 / 4099→4126 tests (+27) / 0 fail / 89 inv / 818 checks 不变 / 安全 95 / VERSION 0.37.9.68 不变. Mac Mini 待 git fetch+reset (下次 full_regression governance 回写首次正确).",
@@ -270,7 +275,9 @@
       "V37.9.124 #29 follow-up (低优, 防未来重复调查): INV runtime 收窄已完成 INV-OBSERVER-001 (唯一已证明 env-dependent 套件). #29 调查结论: 其他 ~12 全套件 runtime check 的套件 env-independent 已核实 (test_v37_9_76_router 16 env 信号全 patch 隔离 + relative-to-HOME expanduser 一致; scanner 扫 repo 文件; INV-ROUTER false-fail 是 stale code 非套件 env-dependency), 不需收窄 (原则 #18 补证据非补功能, 收窄 env-independent 套件是 churn). #29 收窄约定已立 (test_v37_9_124 docstring): 套件含 env-dependent test 的 INV 跑契约核心类非全套件; 纯逻辑套件跑全 OK. 未来若新 INV 跑的套件含 env-dependent test (读 repo 外真实系统状态), 按此约定收窄到契约核心类 (镜像 INV-OBSERVER-001/INV-DREAM-CROSS-DOMAIN).",
       "OpenClaw 升级 (第五次评估 2026-06-08 已做, 用户决策继续 hold 到 6/20 时间表): 详见 docs/gateway_upgrade_eval_v2026.4.md 第十四节. 当前上游 v2026.6.1, 目标 v2026.4.27 (避开全部 4.29/5.x/6.x breaking: tools.exec/fs + plugin manifest + SQLite migration + plugin policy overhaul), G2 门 #59265 仍 closed 无 fix → 降级目标确认. 待办: (a) 6/15 最终前置验证 — bash check_upgrade.sh 看 tripwire + WebFetch 确认 #59265/6.x 无新 dealbreaker + dev 审查 proxy_filters 工具白名单 against v3.31 exec 加固 (b) ~6/20 周六升级按第七节 SOP (备份→升 v2026.4.27→doctor --fix→强制 WhatsApp E2E #59265 验证→双通道推送验证→不可见立即 30 秒回滚). 升级是 Mac Mini SSH 操作 (禁 AI 执行, 自杀悖论). 升级成功后按第九节更新 docs/CLAUDE.md/SOUL.md/status.json/LAST_EVAL_DATE. framework gap: 版本差距 tripwire likely 触发后每周一 cron 持续告警 (已评估决策 hold, 6/20 前 Monday 告警是预期噪声 acknowledged).",
       "文档防陈旧 framework follow-up (低优, 日落法 root-cause): doc header/summary 统计 (FEATURES/config/packaging 等) 手动维护易 drift, 只有 README 徽章有 gen_readme_badges 自动同步. 根因修复: 扩展 gen_readme_badges.py (或新 doc-stat-sync 工具) 覆盖 FEATURES.md header + config.md head + packaging.md 的统计 (tests/suites/inv/MR/checks/providers/cases), 从权威源 (status.json + audit_metadata + VERSION) 生成 + --check 漂移守卫接入 full_regression doc-drift 层. 让'很多老旧文档需彻底刷新'从周期性手动修升级为 CI 自动守. 当前是 V37.9.124 全面手动刷新, 防未来再 drift.",
-      "V37.9.125 follow-up doc-stat-sync V2 (低优, 日落法续): (a) 三 doc 的 last-updated/最后更新行也纳入自动同步 (config.md '> 最后更新：2026-06-02' 已陈旧 6/8 刷过, 是 per-doc 日期非 stat token 当前 scope 外). (b) FEATURES/config 的更静态统计纳入 (40 active jobs←jobs_registry enabled count / 5 SLO metrics / 19 preflight checks) — 它们 V1 留 scope 外因变更少但 jobs 数曾 35→40 真 drift 过. (c) 评估把 doc-stat-sync 推广到 README 正文散文统计 (当前只摘要行). 前置: 各统计需先确认权威源 + 摘要行/区域唯一性核验 (同 V1 流程)."
+      "V37.9.125 follow-up doc-stat-sync V2 (低优, 日落法续): (a) 三 doc 的 last-updated/最后更新行也纳入自动同步 (config.md '> 最后更新：2026-06-02' 已陈旧 6/8 刷过, 是 per-doc 日期非 stat token 当前 scope 外). (b) FEATURES/config 的更静态统计纳入 (40 active jobs←jobs_registry enabled count / 5 SLO metrics / 19 preflight checks) — 它们 V1 留 scope 外因变更少但 jobs 数曾 35→40 真 drift 过. (c) 评估把 doc-stat-sync 推广到 README 正文散文统计 (当前只摘要行). 前置: 各统计需先确认权威源 + 摘要行/区域唯一性核验 (同 V1 流程).",
+      "V37.9.126 chunk 3b.2 follow-up (中-高风险, 非紧急): per-scanner glob 形状参数化 — governance_checker.py 各 _discover_* 用不同 glob (**/*.sh / [*.sh, jobs/**/*.sh] / jobs/*/run_*.sh / alert_path wa_*.sh+*watchdog*.sh / kb_*.py llm-caller globs), 每个需精确默认 + byte-identical 守卫 (glob-set 改变风险回归). + push-route 白名单 _PUSH_ROUTE_WHITELIST 参数化. 当前 glob 泛型且优雅 no-op 故低优. 前置: 同 chunk 3b 流程 (defaults=确切当前 + 逐项 governance --json byte-diff).",
+      "SLO #19 观察 (V37.9.126 诊断): Mac Mini Qwen3 主力 backend 退化期 (circuit_breaker half-open, fallback=doubao), preflight #19 SLO p95=81s 是 200-滚动窗口含退化请求 (非 stale, 会随流量冲刷自愈). 操作: 观察 Qwen3 是否恢复 (breaker 闭合); 若持续不恢复 → backend/GPU provider 层面; 想 #19 早不报警 → bash ~/restart.sh 清窗口. 非 code bug (监控工作正常). 若退化频繁可评估 SLO latency 改 time-windowed 而非 request-windowed (chunk 外, 独立)."
     ],
     "open_prs": "",
     "blocked_on": "",
@@ -336,11 +343,11 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 4126,
-    "last_regression": "2026-06-09 07:38 pass",
+    "test_count": 4150,
+    "last_regression": "2026-06-09 09:07 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-09 07:38",
-    "test_suites": 118,
+    "security_score_time": "2026-06-09 09:07",
+    "test_suites": 119,
     "governance_invariants": "89/89",
     "governance_checks": "724/738",
     "version": "0.37.9.68",
@@ -408,7 +415,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.125 (2026-06-09 周二): 日落法 root-cause doc-stat-sync — 扩展 gen_readme_badges.py 把 FEATURES/config/packaging 三 doc 摘要行统计 (tests/suites/inv/MR/checks/MRD/providers/cases/security/gov版本) 纳入自动同步 (compute_facts 6 新权威源 FAIL-OPEN + _doc_header_specs anchor-bound token 替换 + --check/--write), root-cause 杀 doc-drift 手维护负担 (手动同步→机器同步, 一物一形). 不新建文件不改名不铸 INV (镜像 V37.9.99). 顺手修同款 stat-drift 家族真 MR-4: full_regression L517 governance 回写解析器一直崩 (depth 计数器撞 [SYSTEM_ALERT] 污染 + 字符串内括号 + V37.3 combined object) → status.json governance 字段长期 stale 85/790, 改 raw_decode 修复, 回写 89/89+724/738. 27 新单测 (21→48) 含机器化反向验证 + fixture 复现污染 + raw_decode 源码守卫, sabotage 真有效. dogfood: 版本 bump 的 doc-drift 由新工具自同步. 118 suites/4099→4126 tests/0 fail/89 inv/818 checks 不变/安全 95/VERSION 0.37.9.68 不变. 日落法退役: V37.9.118-124 + V37.9.125 (doc-drift 接缝). 下次候选: doc-stat-sync V2 (last-updated 行 / 40 jobs/5 SLO/19 preflight 静态统计纳入) / OpenClaw 6/20 / ArXiv 论文 (Stage 2→3).",
+  "focus": "V37.9.126 (2026-06-09): ontology-engine 包化 chunk 3b — MRD 扫描单文件名 config-injection (终极目标 pip install ontology-engine 推进). governance_checker.py 14 个 _discover_* 的项目特定单文件名 (registry/notify/preflight + 诊断白名单) 从硬编码移到 Layer 2 governance_ontology.yaml::mrd_scan_patterns, 消费方可 override; 缺段→bridge 默认 (byte-identical). _load_mrd_patterns() + _MRD 模块常量 (镜像 chunk 3a convergence config-inject). FAIL-OPEN observable (except 写 stderr — MR-7 治理自观察). WeatherBot demo 端到端验证真消费方读 weatherbot_jobs.yaml. 24 新单测 + 反向 sabotage + byte-identical (89 inv/14 MRD discovery 不变). per-scanner glob 形状 + push-route 白名单 留 chunk 3b.2 (低价值高回归风险). 前置 SLO #19 诊断闭环 (Qwen3 退化 doubao fallback 正常, 监控工作非 code bug, 观察恢复). 119 suites/4126→4150 tests/0 fail/89 inv/818 checks 不变/安全 95/VERSION 0.37.9.68 不变. 下次候选: chunk 3b.2 / chunk 2 (import rename) / chunk 5 (sdist) / ArXiv 论文.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",

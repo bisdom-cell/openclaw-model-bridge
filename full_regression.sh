@@ -216,6 +216,11 @@ if [ -f test_ontology_extension_demo.py ]; then
     run_suite "ontology_extension_demo (V37.9.104 Phase 5 chunk4: WeatherBot 消费方 demo + config-injection 端到端 + 反向验证注入真起作用)" "python3 test_ontology_extension_demo.py"
 fi
 
+# V37.9.126: ontology-engine 包化 chunk 3b — MRD 扫描文件名模式 Layer 2 config-injection (registry/notify/preflight/诊断白名单 移到 mrd_scan_patterns, 消费方可 override)
+if [ -f test_mrd_config_injection.py ]; then
+    run_suite "mrd_config_injection (V37.9.126 chunk 3b: MRD 扫描文件名模式 config-injection + byte-identical + demo 端到端 + 反向 sabotage)" "python3 test_mrd_config_injection.py"
+fi
+
 # 条件性测试（仅当文件存在时运行）
 for tf in test_conv_quality.py test_kb_autotag.py test_kb_dedup.py test_token_report.py test_arxiv_parser.py test_shell_antipatterns.py; do
     if [ -f "$tf" ]; then

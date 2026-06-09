@@ -9080,6 +9080,33 @@ invariants:
 
 
 # ═══════════════════════════════════════════════════════════════════════
+# 3.5 MRD 扫描文件名模式（chunk 3b / V37.9.126 — Layer 2 config-injection）
+#    governance_checker.py::_discover_* 的项目特定文件名模式从代码移到此处.
+#    消费方项目 (如 examples/minimal_consumer WeatherBot) 可写自己的文件名;
+#    缺此段 → 引擎用 _MRD_DEFAULTS (向后兼容字节级一致, 镜像 chunk 3a convergence
+#    config-injection). 范围: 单文件项目引用 + 诊断白名单 (高价值低风险). per-scanner
+#    glob 形状 (**/*.sh 等) 留 chunk 3b.2 (各异泛型改动风险高, 非紧急). 下方值 = bridge 默认.
+# ═══════════════════════════════════════════════════════════════════════
+mrd_scan_patterns:
+  registry_file: "jobs_registry.yaml"        # job 注册表 (_discover_uncovered_jobs/api_keys/silent_channels)
+  notify_file: "notify.sh"                    # 推送分发器 (_discover_uncovered_topics)
+  preflight_file: "preflight_check.sh"        # 收工体检脚本 (_discover_uncovered_api_keys)
+  # log→stdout 豁免的诊断工具 (_discover_log_stderr_violations — stdout 是用户终端目标, 不被 $() 捕获)
+  diagnostic_whitelist:
+    - "cron_doctor.sh"
+    - "preflight_check.sh"
+    - "job_smoke_test.sh"
+    - "full_regression.sh"
+    - "smoke_test.sh"
+    - "quickstart.sh"
+    - "gameday.sh"
+    - "daily_ops_report.sh"
+    - "health_check.sh"
+    - "governance_audit_cron.sh"
+    - "kb_status_refresh.sh"
+
+
+# ═══════════════════════════════════════════════════════════════════════
 # 4. 可执行元规则（Phase 0）— 自动发现缺失不变式
 #    只扫描结构化数据源，不解析自然语言
 #    误报 → warn（非 fail），不阻塞 CI

@@ -82,6 +82,55 @@ def _load():
 
 
 # ═══════════════════════════════════════════════════════════════════════
+# chunk 3b (V37.9.126): MRD 扫描文件名模式 Layer 2 config-injection
+# ───────────────────────────────────────────────────────────────────────
+# MRD 扫描器 (_discover_*) 历来硬编码项目特定文件名 (jobs_registry.yaml /
+# notify.sh / preflight_check.sh / 诊断工具白名单). 根已 _PROJECT_ROOT 注入
+# (chunk 3a), 但文件名仍本项目特定 → 消费方项目 (如 WeatherBot demo) 无法配置.
+# 把这些文件名移到 Layer 2 config (governance_ontology.yaml::mrd_scan_patterns),
+# framework 只读模式表; 缺此段 → 用 bridge 默认值 (向后兼容字节级一致, 镜像
+# chunk 3a convergence config-injection 的 _resolve_config_dir 模式).
+# 范围 (原则 #28/#34): 仅单文件项目引用 + 诊断白名单 (高价值低风险). per-scanner
+# glob 形状 (**/*.sh vs [*.sh, jobs/**/*.sh] 等, 各异泛型改动风险高) 留 3b.2 follow-up.
+_MRD_DEFAULTS = {
+    "registry_file": "jobs_registry.yaml",        # job 注册表
+    "notify_file": "notify.sh",                    # 推送分发器
+    "preflight_file": "preflight_check.sh",        # 收工体检脚本
+    # log→stdout 豁免的诊断工具 (stdout 是用户终端目标, 不被 $() 命令替换捕获)
+    "diagnostic_whitelist": [
+        "cron_doctor.sh", "preflight_check.sh", "job_smoke_test.sh",
+        "full_regression.sh", "smoke_test.sh", "quickstart.sh", "gameday.sh",
+        "daily_ops_report.sh", "health_check.sh",
+        "governance_audit_cron.sh", "kb_status_refresh.sh",
+    ],
+}
+
+
+def _load_mrd_patterns():
+    """读 Layer 2 config 的 MRD 扫描文件名模式 (consumer 可 override). FAIL-OPEN: 缺段/读失败 → 默认."""
+    patterns = dict(_MRD_DEFAULTS)
+    patterns["diagnostic_whitelist"] = list(_MRD_DEFAULTS["diagnostic_whitelist"])
+    try:
+        cfg = _load().get("mrd_scan_patterns", {})
+        if isinstance(cfg, dict):
+            for k in ("registry_file", "notify_file", "preflight_file"):
+                if cfg.get(k):
+                    patterns[k] = cfg[k]
+            wl = cfg.get("diagnostic_whitelist")
+            if isinstance(wl, list) and wl:
+                patterns["diagnostic_whitelist"] = list(wl)
+    except Exception as e:
+        # FAIL-OPEN: 读取失败用 bridge 默认值 (observable 非静默 — MR-7 治理自观察:
+        # 治理工具自己遵守 MRD-SILENT-EXCEPT-001 强制的"不裸 except pass"规则).
+        print(f"[governance] WARN: mrd_scan_patterns 读取失败, 用 bridge 默认: {e}",
+              file=sys.stderr)
+    return patterns
+
+
+_MRD = _load_mrd_patterns()
+
+
+# ═══════════════════════════════════════════════════════════════════════
 # Check executors — one per check_type
 # ═══════════════════════════════════════════════════════════════════════
 
@@ -366,7 +415,7 @@ def run_meta_discovery(data):
 
 def _load_registry():
     """加载 jobs_registry.yaml。"""
-    registry_path = os.path.join(_PROJECT_ROOT, "jobs_registry.yaml")
+    registry_path = os.path.join(_PROJECT_ROOT, _MRD["registry_file"])
     if not os.path.exists(registry_path):
         return []
     with open(registry_path, "r", encoding="utf-8") as f:
@@ -417,7 +466,7 @@ def _discover_uncovered_api_keys(all_check_code, severity):
 
     # preflight 已检查 REMOTE_API_KEY 和 GEMINI_API_KEY，覆盖了所有 needs_api_key job
     # 检查 preflight 中是否有 needs_api_key 消费
-    preflight_path = os.path.join(_PROJECT_ROOT, "preflight_check.sh")
+    preflight_path = os.path.join(_PROJECT_ROOT, _MRD["preflight_file"])
     if os.path.exists(preflight_path):
         with open(preflight_path) as f:
             if "needs_api_key" in f.read():
@@ -437,7 +486,7 @@ def _discover_uncovered_topics(severity):
     """MRD-NOTIFY-001: 脚本中用了哪些 --topic，是否都在路由表中？"""
     import glob as glob_mod
     # 从 notify.sh 提取路由表中的 topic
-    notify_path = os.path.join(_PROJECT_ROOT, "notify.sh")
+    notify_path = os.path.join(_PROJECT_ROOT, _MRD["notify_file"])
     known_topics = set()
     if os.path.exists(notify_path):
         with open(notify_path) as f:
@@ -593,7 +642,7 @@ def _discover_silent_channels(severity):
         active_topics = set()
 
         # 从 jobs_registry.yaml 加载 job_id → log 路径映射
-        registry_path = os.path.join(_PROJECT_ROOT, "jobs_registry.yaml")
+        registry_path = os.path.join(_PROJECT_ROOT, _MRD["registry_file"])
         job_log_paths = {}
         try:
             with open(registry_path) as f:
@@ -1004,22 +1053,11 @@ def _scan_shell_file_log_functions(sh_file):
 # 白名单：用户直接运行的诊断/报告工具，stdout 就是用户终端输出目标
 # 这些脚本不被其他脚本用 `$()` 命令替换捕获，log→stdout 无污染风险
 # MR-11 核心风险是"被命令替换捕获" — 这些脚本不会被
-_LOG_STDERR_EXEMPT_BASENAMES = {
-    # 用户交互式诊断工具（直接跑给人看）
-    "cron_doctor.sh",
-    "preflight_check.sh",
-    "job_smoke_test.sh",
-    "full_regression.sh",
-    "smoke_test.sh",
-    "quickstart.sh",
-    "gameday.sh",
-    # 用户交互式报告工具
-    "daily_ops_report.sh",
-    "health_check.sh",
-    # Cron wrapper (输出进 logfile，不是 $()  捕获)
-    "governance_audit_cron.sh",
-    "kb_status_refresh.sh",
-}
+# chunk 3b (V37.9.126): 从 _MRD["diagnostic_whitelist"] 派生 (Layer 2 config 可 override).
+# 默认值 = 原硬编码 11 项 (bridge 字节级一致). 含: cron_doctor/preflight/job_smoke_test/
+# full_regression/smoke_test/quickstart/gameday/daily_ops_report/health_check/
+# governance_audit_cron/kb_status_refresh.
+_LOG_STDERR_EXEMPT_BASENAMES = set(_MRD["diagnostic_whitelist"])
 
 
 def _discover_log_stderr_violations(severity):
