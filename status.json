@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-09 09:07:56",
+  "updated": "2026-06-09 09:28:59",
   "updated_by": "full_regression",
   "priorities": [
     {
@@ -104,6 +104,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-06-09",
+      "what": "V37.9.127 ontology-engine 包化 chunk 3b.2 — per-scanner glob 形状 + push-route 白名单 Layer 2 config-injection (chunk 3b 续完结, 用户选). 把 governance_checker.py 14 个 _discover_* MRD 扫描器的 per-scanner glob 形状从硬编码移到 Layer 2 (chunk 3b 只做单文件名). 范围: 7 glob-set 键 (topic_scan_globs **/*.sh / channel_source_globs / repo_shell_globs [*.sh, jobs/**/*.sh] / alert_monitor_globs / llm_caller_globs / llm_caller_py_globs / py_scan_globs **/*.py) + push_route_whitelist (23 条) 移到 mrd_scan_patterns. 各扫描器是不同扫描集不可合并 → 各自配置键. 机制: _mrd_globs(key) helper 返回 join 后模式列表 (保序), 统一 recursive=True (对非 ** no-op 对 ** 必需, 安全). _load_mrd_patterns 泛化 (遍历所有键 str/list override 防误配). _PUSH_ROUTE_WHITELIST = set(_MRD[push_route_whitelist]) 派生. 9 扫描器重构保留 set/extend/sorted 累积语义. byte-identical 验证 (核心): 12 个 glob-依赖计数全不变 (48 shell/41 non-whitelist/72 .py/46 LLM/5 topics/82 silent-error/2 monitor/6 channels), 唯 AUDIT-PERF timing + governance_checker 自身行号位移. 89/89 inv exit 0. 16 新单测 (24→40) 含行为级反向验证 (override py_scan_globs→扫 1 个 / override alert_monitor→0 个, 证明 glob 真驱动扫描) + 源码守卫 + demo glob 端到端 (WeatherBot skills/**/*.py). sabotage 真有效. demo yaml 加 py_scan_globs+push_route_whitelist. 119 suites 不变 / 4150→4166 tests / 0 fail / governance 89 inv 818 checks 不变 / 安全 95 / VERSION 0.37.9.68 不变. 元价值: chunk 3b (单文件名) + chunk 3b.2 (glob+白名单) = MRD 扫描器全部项目特定模式已 config-inject, 任何消费方写自己的 mrd_scan_patterns 即获 MRD silent-failure 扫描无需理解内部, pip install ontology-engine MRD 框架项目无关粒度达成. 下次候选: chunk 2 (import rename) / chunk 5 (sdist) / ArXiv 论文.",
+      "by": "claude_code"
+    },
     {
       "date": "2026-06-09",
       "what": "V37.9.126 ontology-engine 包化 chunk 3b — MRD 扫描单文件名 Layer 2 config-injection (终极目标推进, 用户选). 前置: 数据驱动诊断 Mac Mini preflight #19 SLO 退化 (p95=81s/timeout 14.7%) — /stats total_req=71 + adapter /health fallback=doubao + circuit_breaker=half-open + 最近 backend 6-12s → 结论 Qwen3 主力退化 doubao fallback 顶着, 81s 是 200-滚动窗口含退化期 (LATENCY_WINDOW=200, 71 req 全在窗口), 监控工作正常非 code bug (slo_checker 门槛 5 vs slo_benchmark 200 是 alerting vs reporting 设计差异不该改 — 抬门槛压真信号). 操作: 观察 Qwen3 恢复. 无 code 改 (原则 #28 答案是观察). chunk 3b: governance_checker.py 14 个 _discover_* MRD 扫描器硬编码项目文件名. 根已 _PROJECT_ROOT 注入 (chunk 3a), 仅文件名本项目特定. 范围 (原则 #28/#34): 仅参数化高价值低风险单文件 (registry_file/notify_file/preflight_file 跨 5 use-site + 诊断白名单); per-scanner glob 形状 + push-route 白名单 登记 chunk 3b.2 (低价值高回归风险). 机制 (镜像 chunk 3a): _MRD_DEFAULTS + _load_mrd_patterns() 读 governance_ontology.yaml::mrd_scan_patterns merge over 默认 (FAIL-OPEN observable except 写 stderr 非裸 pass — MR-7 治理工具自己遵守 MRD-SILENT-EXCEPT-001) + _MRD 模块常量. _LOG_STDERR_EXEMPT_BASENAMES = set(_MRD[diagnostic_whitelist]) 派生. yaml 新段值==默认. 不铸新 INV (镜像 chunk 3a/4). byte-identical 验证 (核心): 重构前后 governance --json 逐项比对 — discovery 14 项 status/计数/违规文件集完全一致, 唯 AUDIT-PERF timing + governance_checker 自身违规行号位移. 89/89 inv exit 0. 24 新单测 7 类 (含 full/partial override + FAIL-OPEN observable + 字节级一致 drift guard + 反向硬编码消除守卫 + demo 端到端 ONTOLOGY_CONFIG_DIR=demo 读 WeatherBot weatherbot_jobs.yaml + 反向不注入读 bridge). sabotage 真有效 (退回硬编码/yaml 改坏值 → 守卫 fail). demo yaml 加 mrd_scan_patterns. 118→119 suites / 4126→4150 tests / 0 fail / governance 89 inv 818 checks 不变 / 安全 95 / VERSION 0.37.9.68 不变. Mac Mini 待 git fetch+reset (默认行为不变). 下次候选: chunk 3b.2 (glob 形状) / chunk 2 (import 名去泛化) / chunk 5 / ArXiv 论文.",
@@ -343,10 +348,10 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 4150,
-    "last_regression": "2026-06-09 09:07 pass",
+    "test_count": 4166,
+    "last_regression": "2026-06-09 09:28 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-09 09:07",
+    "security_score_time": "2026-06-09 09:28",
     "test_suites": 119,
     "governance_invariants": "89/89",
     "governance_checks": "724/738",
@@ -415,7 +420,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.126 (2026-06-09): ontology-engine 包化 chunk 3b — MRD 扫描单文件名 config-injection (终极目标 pip install ontology-engine 推进). governance_checker.py 14 个 _discover_* 的项目特定单文件名 (registry/notify/preflight + 诊断白名单) 从硬编码移到 Layer 2 governance_ontology.yaml::mrd_scan_patterns, 消费方可 override; 缺段→bridge 默认 (byte-identical). _load_mrd_patterns() + _MRD 模块常量 (镜像 chunk 3a convergence config-inject). FAIL-OPEN observable (except 写 stderr — MR-7 治理自观察). WeatherBot demo 端到端验证真消费方读 weatherbot_jobs.yaml. 24 新单测 + 反向 sabotage + byte-identical (89 inv/14 MRD discovery 不变). per-scanner glob 形状 + push-route 白名单 留 chunk 3b.2 (低价值高回归风险). 前置 SLO #19 诊断闭环 (Qwen3 退化 doubao fallback 正常, 监控工作非 code bug, 观察恢复). 119 suites/4126→4150 tests/0 fail/89 inv/818 checks 不变/安全 95/VERSION 0.37.9.68 不变. 下次候选: chunk 3b.2 / chunk 2 (import rename) / chunk 5 (sdist) / ArXiv 论文.",
+  "focus": "V37.9.127 (2026-06-09): ontology-engine 包化 chunk 3b.2 完结 — per-scanner glob 形状 + push-route 白名单 config-injection. governance_checker.py 14 个 _discover_* MRD 扫描器的 7 glob-set 键 + push_route_whitelist 移到 Layer 2 mrd_scan_patterns (chunk 3b 单文件名 + chunk 3b.2 glob = MRD 扫描器全部项目无关化). _mrd_globs() helper 统一 recursive=True (非 ** no-op). byte-identical 验证 12 个 glob-依赖计数全不变 + 89 inv. 40 单测 (含行为级 override 真驱动扫描 + demo skills/**/*.py 注入) + 反向 sabotage. 任何消费方写自己 mrd_scan_patterns 即获 MRD silent-failure 扫描无需理解内部 — pip install ontology-engine MRD 框架项目无关粒度达成. 119 suites/4150→4166 tests/0 fail/89 inv/818 checks 不变/安全 95/VERSION 0.37.9.68 不变. 下次候选: chunk 2 (import 名去泛化破坏性 rename, 需定包名+Mac Mini symlink+全宪法验证) / chunk 5 (sdist build) / ArXiv 论文 (Stage 2→3).",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
