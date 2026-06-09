@@ -149,10 +149,17 @@ class TestPyprojectToml(unittest.TestCase):
         # ontology-engine 0.1.0 公共 PyPI 已被占用 → 用 openclaw-ontology-engine
         self.assertEqual(self.cfg["project"]["name"], "openclaw-ontology-engine")
 
-    def test_packages_only_ontology(self):
+    def test_packages_only_ontology_engine(self):
+        # V37.9.128 chunk-2-lite: 引擎包导出名去泛化 ontology → ontology_engine
         pkgs = self.cfg["tool"]["setuptools"]["packages"]
-        self.assertEqual(pkgs, ["ontology"],
-                         "只打包引擎, 不打包顶层应用模块 (proxy_filters 等)")
+        self.assertEqual(pkgs, ["ontology_engine"],
+                         "只打包引擎 (去泛化名 ontology_engine), 不打包顶层应用模块")
+
+    def test_package_dir_maps_engine_to_ontology_dir(self):
+        # chunk-2-lite keystone: package-dir 映射 ontology_engine → 磁盘 ontology/ 目录
+        # (零目录 rename, 消费方 import ontology_engine, bridge 本地仍 import ontology)
+        pd = self.cfg["tool"]["setuptools"]["package-dir"]
+        self.assertEqual(pd["ontology_engine"], "ontology")
 
     def test_depends_on_pyyaml(self):
         deps = self.cfg["project"]["dependencies"]
@@ -161,16 +168,16 @@ class TestPyprojectToml(unittest.TestCase):
 
     def test_console_scripts_point_to_existing_mains(self):
         scripts = self.cfg["project"]["scripts"]
-        # 两个 console 入口
+        # 两个 console 入口 (去泛化名 ontology_engine)
         self.assertIn("openclaw-ontology-audit", scripts)
         self.assertIn("openclaw-ontology-query", scripts)
         self.assertEqual(scripts["openclaw-ontology-audit"],
-                         "ontology.governance_checker:main")
+                         "ontology_engine.governance_checker:main")
         self.assertEqual(scripts["openclaw-ontology-query"],
-                         "ontology.engine:main")
+                         "ontology_engine.engine:main")
 
     def test_package_data_bundles_yaml(self):
-        pd = self.cfg["tool"]["setuptools"]["package-data"]["ontology"]
+        pd = self.cfg["tool"]["setuptools"]["package-data"]["ontology_engine"]
         self.assertIn("*.yaml", pd, "默认参考 YAML 应作 package-data 附带")
 
 
@@ -189,6 +196,41 @@ class TestEntryPointsResolve(unittest.TestCase):
             sys.path.insert(0, REPO)
         import ontology.governance_checker as gov  # noqa
         self.assertTrue(callable(getattr(gov, "main", None)))
+
+
+class TestChunk2LiteImportName(unittest.TestCase):
+    """V37.9.128 chunk-2-lite: 消费方 import 名去泛化为 ontology_engine (package-dir 映射)。
+
+    behavioral: 若已 pip install -e . → import ontology_engine 解析到 ontology/ 目录,
+    且子模块 governance_checker/engine/convergence 可导入。未安装 → skip (clean env 不失败)。
+    """
+
+    def _import_engine(self):
+        try:
+            import ontology_engine  # noqa
+            return ontology_engine
+        except ImportError:
+            self.skipTest("ontology_engine 未安装 (需 pip install -e . — chunk-2-lite 映射)")
+
+    def test_ontology_engine_maps_to_ontology_dir(self):
+        mod = self._import_engine()
+        # package-dir 映射: ontology_engine 的源在磁盘 ontology/ 目录
+        self.assertTrue(mod.__file__.replace("\\", "/").endswith("ontology/__init__.py"),
+                        f"ontology_engine 应映射到 ontology/, 实际 {mod.__file__}")
+
+    def test_ontology_engine_submodules_importable(self):
+        self._import_engine()
+        import ontology_engine.governance_checker as g  # noqa
+        import ontology_engine.engine as e  # noqa
+        self.assertTrue(callable(getattr(g, "main", None)))
+        self.assertTrue(callable(getattr(e, "main", None)))
+
+    def test_local_ontology_still_works(self):
+        # 向后兼容: bridge 本地 import ontology (本地目录) 仍工作 (dev 双名共存)
+        if REPO not in sys.path:
+            sys.path.insert(0, REPO)
+        import ontology  # noqa
+        self.assertTrue(ontology.__file__.replace("\\", "/").endswith("ontology/__init__.py"))
 
 
 # ───────────────────────────────────────────────────────────────────────

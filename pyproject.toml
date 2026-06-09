@@ -11,14 +11,18 @@
 #       policy_ontology.yaml / convergence_ontology.yaml
 #       通过 ONTOLOGY_CONFIG_DIR (+ governance 的 ONTOLOGY_PROJECT_ROOT) env 注入。
 #
-# 本仓库内: `pip install -e .` 后 `import ontology` 仍指向 ontology/ (向后兼容,
-# proxy_filters lazy-load + Mac Mini symlink + governance_audit_cron 行为不变)。
+# 本仓库内: `pip install -e .` 后消费方 import 名 = `ontology_engine` (经 package-dir
+# 映射到 ontology/ 目录, V37.9.128 chunk-2-lite)。bridge 内部仍用 `import ontology`/
+# sys.path flat (本地 ontology/ 目录, 行为不变 — proxy_filters lazy-load + Mac Mini
+# symlink + governance_audit_cron 全不动)。dev 双名共存 (ontology 本地 + ontology_engine
+# 经映射), 消费方 (pip install 无本地 ontology/ 目录) 只见 ontology_engine — 去泛化达成。
 #
 # 已登记决策 (见 docs/ontology_engine_packaging.md):
 #   - 分发名 = openclaw-ontology-engine (公共 PyPI `ontology-engine` 0.1.0 已被他人占用)
-#   - import 名暂保持 `ontology` (去泛化重命名是 chunk-2 破坏性变更, 涉及 proxy_filters
-#     lazy-load + symlink + 全部 import, 第一块不动以保"删除后原系统正常"宪法)
-#   - license / readme 待发布前补 (chunk-1 不发布, 仅建立 in-repo 包结构)
+#   - import 名 = `ontology_engine` (V37.9.128 chunk-2-lite: package-dir 映射去泛化,
+#     零目录 rename 零内部 churn 零 symlink 变动; 内部 from ontology import 已双模式
+#     flat fallback 故 package-name-agnostic — 消费方装成 ontology_engine 仍工作)
+#   - license / readme 待发布前补 (仅建立 in-repo 包结构, 暂不发布)
 
 [build-system]
 requires = ["setuptools>=61.0"]
@@ -46,16 +50,18 @@ Homepage = "https://github.com/bisdom-cell/openclaw-model-bridge"
 Documentation = "https://github.com/bisdom-cell/openclaw-model-bridge/blob/main/docs/ontology_engine_packaging.md"
 
 [project.scripts]
-# 命名空间化命令名, 避免与消费方环境冲突 (chunk-1 in-repo 也可用)
-openclaw-ontology-audit = "ontology.governance_checker:main"
-openclaw-ontology-query = "ontology.engine:main"
+# 命名空间化命令名, 避免与消费方环境冲突 (in-repo 也可用)
+openclaw-ontology-audit = "ontology_engine.governance_checker:main"
+openclaw-ontology-query = "ontology_engine.engine:main"
 
 [tool.setuptools]
-# 只打包引擎 (ontology 包)。仓库顶层 proxy_filters.py / adapter.py 等是消费方
-# 应用代码, 不属于引擎包。ontology/tests/ 是子包, 默认不随 dist 安装。
-packages = ["ontology"]
+# 引擎包导出名 = ontology_engine (去泛化), 经 package-dir 映射到磁盘 ontology/ 目录。
+# 仓库顶层 proxy_filters.py / adapter.py 等是消费方应用代码, 不属于引擎包。
+# ontology/tests/ 是子包, 不在 packages 列表故默认不随 dist 安装。
+packages = ["ontology_engine"]
+package-dir = {ontology_engine = "ontology"}
 
 [tool.setuptools.package-data]
 # 随包附带"默认参考配置"(Layer 2 示例) + 宪法。消费方可用 ONTOLOGY_CONFIG_DIR
 # 覆盖指向自己的 YAML。
-ontology = ["*.yaml", "CONSTITUTION.md"]
+ontology_engine = ["*.yaml", "CONSTITUTION.md"]

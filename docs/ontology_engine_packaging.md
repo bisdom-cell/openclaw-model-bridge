@@ -89,7 +89,7 @@ def _resolve_config_dir():
 |---|---|---|---|
 | **1** | config-injection keystone + pyproject + 二层契约文档 + 包结构 | 低（向后兼容） | ✅ 完成 (V37.9.99-pkg) |
 | **4 (本次)** | Extension Guide + 最小可跑 demo (WeatherBot 消费方) + config-injection 端到端验证 + 端到端测试 | 低（纯新增） | ✅ 完成 (V37.9.104) |
-| 2 | import 名去泛化 (`ontology` → `ontology_engine` 或命名空间)：改 proxy_filters lazy-load 路径 + Mac Mini symlink + 全部 import + tests | **高**（破坏性，触发"删除后正常"宪法全验证） | 待启动 |
+| 2 | ✅ **V37.9.128 chunk-2-lite 完成**：import 名去泛化 `ontology` → **`ontology_engine`** 经 pyproject `package-dir = {ontology_engine = "ontology"}` 映射 (零目录 rename / 零内部 churn / 零 Mac Mini symlink 变动)。消费方 `pip install openclaw-ontology-engine` → `import ontology_engine`; bridge dev 双名共存 (`import ontology` 本地 + `ontology_engine` 经映射)。内部 `from ontology import convergence` 已双模式 flat fallback → 装成 ontology_engine 仍工作 (从 /tmp 消费方场景跑 governance audit + convergence specs 验证)。console 入口 `ontology_engine.X:main`. **用户决策选低风险方案** (勘察发现完整 dir rename 是 50+ 文件, `ontology` 重载为概念词需逐处判断, 价值偏思辨无实际冲突). 4 断言更新 + 3 behavioral (映射/子模块/本地向后兼容). | 低（映射, 非破坏性目录 rename） | ✅ 已完成 (lite) |
 | **3a (本次)** | **convergence config-injection**：`convergence.py` 加 `_resolve_config_dir()` + `_resolve_project_root()`，spec 路径 + 源文件根（6 src_path + json + 2 sys.path）全经 env 注入。demo 加 `convergence_ontology.yaml` + `weatherbot_state.json` + run_demo.py section 5 端到端验证 | 低（向后兼容，默认 `.resolve()` 字节级不变） | ✅ 完成 (V37.9.107) — chunk-4 demo 暴露的耦合闭环 |
 | 3b | ✅ **V37.9.126 完成 (单文件部分)**：MRD 扫描**单文件名** (`registry_file`/`notify_file`/`preflight_file`/诊断白名单) 移到 Layer 2 `mrd_scan_patterns`；`_load_mrd_patterns()` + `_MRD` 模块常量 + FAIL-OPEN observable except。byte-identical (89 inv/MRD discovery 不变) + 24 单测 + demo `weatherbot_jobs.yaml` 端到端注入。 | 中（触碰 MR-4 血案防护扫描器，已 byte-identical 验证） | ✅ 已完成 (单文件) |
 | 3b.2 | ✅ **V37.9.127 完成**：per-scanner **glob 形状**参数化 — 7 glob-set 键 (`topic_scan_globs`/`channel_source_globs`/`repo_shell_globs`/`alert_monitor_globs`/`llm_caller_globs`/`llm_caller_py_globs`/`py_scan_globs`) + `push_route_whitelist` 移到 `mrd_scan_patterns`。`_mrd_globs(key)` helper (统一 `recursive=True` — 对非 `**` 模式 no-op 对 `**` 必需，保留各扫描器 set/extend/sorted 累积语义)。byte-identical 验证 (12 个 glob-依赖计数 48 shell/41 non-whitelist/72 .py/46 LLM/5 topics/82 silent-error/2 monitor 全不变 + 89 inv) + 16 单测 + demo `skills/**/*.py` 端到端注入。 | 中-高（已 byte-identical 验证消除回归风险） | ✅ 已完成 |
@@ -117,7 +117,7 @@ def _resolve_config_dir():
 
 ## 7. 开放决策（发布前必答）
 
-1. **import 名**: `ontology` 太泛化（消费方 env 易冲突）。候选 `ontology_engine` / `openclaw_ontology` / `ocre`。**chunk 1 刻意不改**——它是破坏性变更（proxy_filters `spec_from_file_location("ontology/engine.py")` + Mac Mini `$HOME/ontology` symlink + `from ontology import convergence` + `ontology/tests/`），违反"第一块要安全"。留 chunk 2 专门做 + 全宪法验证。
+1. **import 名**: ✅ **V37.9.128 chunk-2-lite 已定 = `ontology_engine`**（经 pyproject `package-dir` 映射，非目录 rename）。原 chunk-2 完整 dir rename 方案勘察发现是 50+ 文件破坏性重构（`ontology` 重载为概念词 — keyword 列表 / dict 键 / 子串检查 / 测试数据 / 主题串 — 需逐处人工区分包路径 vs 概念词 + Mac Mini symlink broken-window），价值偏思辨（无实际消费方名冲突）。**用户选低风险 package-dir 映射**：消费方导出名 = `ontology_engine`，bridge 内部零改动（`import ontology`/symlink/proxy lazy-load 全不动），内部自引用已双模式 flat fallback 故 package-name-agnostic。去泛化目标达成，零破坏性。
 2. **分发名**: `ontology-engine` 0.1.0 公共 PyPI 已被他人占用（status.json 已登记撞名）。chunk 1 用 `openclaw-ontology-engine`。是否申请 scoped / 改名 = 发布时决定。
 3. **license**: 仓库未声明 license。chunk 1 pyproject 不写 license 字段（避免错误断言）。发布前补。
 4. **readme**: chunk 1 不设 `readme`（避免 build 脆弱）。发布前指向本文档或专门 README。

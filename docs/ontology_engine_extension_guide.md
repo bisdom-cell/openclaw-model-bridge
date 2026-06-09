@@ -34,11 +34,15 @@ bash examples/minimal_consumer/run_demo.sh
 ### 1. Install the engine (Layer 1)
 
 ```bash
-pip install openclaw-ontology-engine        # provides `import ontology` + 2 console scripts
+pip install openclaw-ontology-engine        # provides `import ontology_engine` + 2 console scripts
 ```
 
-> In this repo (dev), `pip install -e .` or `PYTHONPATH=<repo-root>` is equivalent —
-> the demo's `run_demo.sh` uses `PYTHONPATH` so it runs with zero install.
+> Consumer import name = **`ontology_engine`** (V37.9.128 chunk-2-lite: de-generalized
+> via pyproject `package-dir` mapping → `ontology/` dir; avoids collision with a
+> consumer's own `ontology` concept). In THIS repo (dev), `PYTHONPATH=<repo-root>`
+> exposes the local `ontology/` dir as `import ontology` (the demo's `run_demo.sh`
+> uses PYTHONPATH, so it runs with zero install); `pip install -e .` additionally
+> makes `import ontology_engine` work. Same code, both names in dev.
 
 ### 2. Write your config (Layer 2)
 
@@ -169,14 +173,18 @@ honor config-injection:
 > line_contains_identifier`), and a `drift_action` (`alert_only` is safest). See
 > `examples/minimal_consumer/ontology/convergence_ontology.yaml`.
 
-### Remaining follow-up (chunk-3b)
+### MRD scan patterns (chunk-3b / 3b.2 — done)
 
-The MRD scanners' project-specific *filename patterns* (`jobs_registry.yaml` /
-`notify.sh` / `jobs/*/run_*.sh`) are still hardcoded in the framework. Because the
-scan **root** is already injected (`_PROJECT_ROOT`) and the scanners gracefully
-no-op for consumers, this is a configurability nicety, not a correctness bug —
-parameterizing the pattern table is tracked as chunk-3b (a focused session, to
-avoid regressing the MR-4 blood-lesson scanners).
+As of **V37.9.126/127** the MRD scanners' project-specific *filename + glob
+patterns* are also config-injectable: write a `mrd_scan_patterns` section in your
+`governance_ontology.yaml` to point the scanners at your own files
+(`registry_file` / `notify_file` / `preflight_file` / `diagnostic_whitelist` +
+glob shapes `py_scan_globs` / `repo_shell_globs` / … + `push_route_whitelist`).
+Missing keys → the engine's byte-identical defaults. The WeatherBot demo uses
+`py_scan_globs: [weatherbot.py, skills/**/*.py]` to scan its own structure (not
+`jobs/**/*.py`). So a consumer gets the full MR-4 silent-failure scan suite
+(silent-except / log-stderr / push-route / llm-parser / alert-path) without
+understanding the scanners internally.
 
 See `docs/ontology_engine_packaging.md` §5 (known coupling) and §6 (migration
 roadmap) for the full picture.
@@ -187,12 +195,12 @@ roadmap) for the full picture.
 
 | Symbol | Purpose |
 |---|---|
-| `ontology.engine.get_ontology(path=None) -> ToolOntology` | load tool ontology (honors `ONTOLOGY_CONFIG_DIR`) |
+| `ontology_engine.engine.get_ontology(path=None) -> ToolOntology` | load tool ontology (honors `ONTOLOGY_CONFIG_DIR`) |
 | `ToolOntology.allowed_tools` / `.allowed_prefixes` / `.custom_tool_names` | tool allowlist queries |
-| `ontology.engine.find_by_domain(name, path=None) -> list` | six-domain instance query |
-| `ontology.engine.evaluate_policy(policy_id, context=None, path=None) -> dict` | resolve a declarative policy |
-| `ontology.governance_checker.run_all(data) -> list` | run invariant phase |
-| `ontology.governance_checker.main() -> int` | full audit (= `openclaw-ontology-audit`) |
+| `ontology_engine.engine.find_by_domain(name, path=None) -> list` | six-domain instance query |
+| `ontology_engine.engine.evaluate_policy(policy_id, context=None, path=None) -> dict` | resolve a declarative policy |
+| `ontology_engine.governance_checker.run_all(data) -> list` | run invariant phase |
+| `ontology_engine.governance_checker.main() -> int` | full audit (= `openclaw-ontology-audit`) |
 
 ---
 
