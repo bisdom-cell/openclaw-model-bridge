@@ -513,22 +513,24 @@ else
         fi
 
         # 3) 治理不变式
+        # V37.9.125: 旧 depth 字符计数解析器静默失败 (撞 [SYSTEM_ALERT] stdout 污染 + 字符串内括号
+        # 误判 depth + V37.3 起 --json 附带 combined object) → status.json governance 字段长期 stale.
+        # 改鲁棒: 跳所有 log 前缀行 ([proxy]/[SYSTEM_ALERT]/[gate:...] 任意 [WORD]/[word:]) +
+        # raw_decode 解析第一段 legacy 不变式数组 (正确处理字符串内括号, 忽略尾部 combined object).
         if [ -f ontology/governance_checker.py ]; then
-            GOV_STATS=$(python3 ontology/governance_checker.py --json 2>/dev/null | grep -v '^\[proxy\]' | python3 -c "
-import sys, json
+            GOV_STATS=$(python3 ontology/governance_checker.py --json 2>/dev/null | python3 -c "
+import sys, json, re
 raw = sys.stdin.read()
-depth = 0
-for i, c in enumerate(raw):
-    if c == '[': depth += 1
-    elif c == ']': depth -= 1
-    if depth == 0 and i > 0:
-        data = json.loads(raw[:i+1])
-        total = len(data)
-        passed = sum(1 for d in data if d['status'] == 'pass')
-        checks = sum(d.get('total_checks', 0) for d in data)
-        checks_passed = sum(d.get('passed_checks', 0) for d in data)
-        print(f'{passed}/{total}/{checks_passed}/{checks}')
-        break
+lines = raw.splitlines(keepends=True)
+start = next((i for i, ln in enumerate(lines)
+              if ln.lstrip().startswith('[') and not re.match(r'\[[A-Za-z_]+[\]:]', ln.lstrip())), None)
+if start is not None:
+    data, _ = json.JSONDecoder().raw_decode(''.join(lines[start:]))
+    total = len(data)
+    passed = sum(1 for d in data if d['status'] == 'pass')
+    checks = sum(d.get('total_checks', 0) for d in data)
+    checks_passed = sum(d.get('passed_checks', 0) for d in data)
+    print(f'{passed}/{total}/{checks_passed}/{checks}')
 " 2>/dev/null || echo "")
             if [ -n "$GOV_STATS" ]; then
                 GOV_INV_PASSED=$(echo "$GOV_STATS" | cut -d/ -f1)
