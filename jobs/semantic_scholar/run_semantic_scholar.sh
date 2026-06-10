@@ -41,7 +41,9 @@ TS="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')"
 DAY="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d')"
 STATUS_FILE="$CACHE/last_run.json"
 S2_API="https://api.semanticscholar.org/graph/v1/paper/search"
-FIELDS="title,authors,abstract,url,citationCount,publicationDate,externalIds,tldr"
+# V37.9.132: +openAccessPdf — 无 arxiv 版本但开放获取的论文 (期刊/跨学科常见)
+# 取 OA PDF 直链, kb_deep_dive 的 .pdf 后缀路径可抓全文 (否则必然降级摘要级)
+FIELDS="title,authors,abstract,url,citationCount,publicationDate,externalIds,tldr,openAccessPdf"
 # 搜索最近 30 天的论文（引用量排序更有意义）
 DATE_FROM="$(TZ=Asia/Hong_Kong date -v-30d '+%Y-%m-%d' 2>/dev/null || date -d '30 days ago' '+%Y-%m-%d')"
 DATE_TO="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d')"
@@ -203,6 +205,8 @@ for paper in sorted_papers:
     ext_ids = paper.get("externalIds", {}) or {}
     arxiv_id = ext_ids.get("ArXiv", "")
     url = paper.get("url", "")
+    # V37.9.132: openAccessPdf.url — 出版商/仓储 OA PDF 直链 (可能为 None)
+    oa_pdf = (paper.get("openAccessPdf") or {}).get("url", "") or ""
 
     out = {
         "paper_id": pid,
@@ -213,7 +217,8 @@ for paper in sorted_papers:
         "tldr": tldr,
         "citations": citations,
         "arxiv_id": arxiv_id,
-        "url": url
+        "url": url,
+        "oa_pdf": oa_pdf
     }
     print(json.dumps(out, ensure_ascii=False))
     new_ids.append(pid)
@@ -579,8 +584,17 @@ for i, paper in enumerate(papers):
     citations = paper.get('citations', 0)
     arxiv_id = paper.get('arxiv_id', '')
     url = paper.get('url', '')
-    # 优先 arxiv (更通用), 否则 S2
-    link = f"https://arxiv.org/abs/{arxiv_id}" if arxiv_id else url
+    oa_pdf = paper.get('oa_pdf', '')
+    # V37.9.132 方案 A 链接链: arxiv > OA PDF 直链 (.pdf 结尾才用, 保证
+    # kb_deep_dive endswith('.pdf') 路径可抓全文且用户点开即 PDF) > S2 页面.
+    # 背景: 无 arxiv 版本的论文 (如期刊/医学 KG 类) 原 fallback S2 页面 URL
+    # 无法派生 PDF → deep_dive 必然摘要级 (2026-06-11 用户视角发现 34/45 摘要级)
+    if arxiv_id:
+        link = f"https://arxiv.org/abs/{arxiv_id}"
+    elif oa_pdf and oa_pdf.lower().endswith('.pdf'):
+        link = oa_pdf
+    else:
+        link = url
     first_author = paper.get('first_author', 'Unknown')
 
     result = results[i] if i < len(results) else None

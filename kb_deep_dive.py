@@ -54,8 +54,8 @@ TIER_1_SOURCES = {
     "hf_papers",
     "acl_anthology",
     "pwc",
-    "semantic_scholar",   # S2 常链 arxiv，走 PDF 路径
-    "dblp",               # DBLP 条目多指向 arxiv/acl
+    "semantic_scholar",   # V37.9.132: KB 链接 arxiv > OA .pdf > S2 页面 (前两档可抓全文)
+    "dblp",               # V37.9.132: KB 链接 arxiv 优先 > doi (arxiv 档可抓全文)
 }
 
 # 二档：HTML 可抓（博客/技术文）

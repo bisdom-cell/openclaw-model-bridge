@@ -549,7 +549,15 @@ for i, paper in enumerate(papers):
     url = paper.get('url', '')
     doi = paper.get('doi', '')
     first_author = paper.get('first_author', 'Unknown')
-    link = f"https://doi.org/{doi}" if doi else url
+    # V37.9.132 方案 A: arxiv 直链优先 > doi > 其他 — kb_deep_dive 全文 PDF 抓取
+    # 只能从 arxiv/acl/.pdf URL 派生, 原 doi 优先把 ee 字段里的 arxiv 链接压掉,
+    # 导致 dblp 被选中的论文必然降级到摘要级 (2026-06-11 用户视角发现, 34/45 摘要级)
+    if url and "arxiv.org" in url:
+        link = url
+    elif doi:
+        link = f"https://doi.org/{doi}"
+    else:
+        link = url
 
     meta_parts = [first_author + " 等"]
     if venue:
