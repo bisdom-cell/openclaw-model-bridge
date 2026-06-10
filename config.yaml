@@ -106,9 +106,12 @@ fallback:
   # 远程 GPU（主 LLM）
   remote_gpu:
     primary: qwen               # Qwen3-235B
-    fallback: gemini            # Gemini 2.5 Flash
+    fallback: doubao            # V37.9.129: doubao 是真实第一 fallback（gemini 已退役，见 exclude_providers）
     timeout_ms: 300000          # 5 分钟
-    fallback_timeout_ms: 60000  # fallback 用更短超时
+    fallback_timeout_ms: 300000 # V37.9.129: 60000→300000（= primary，给 doubao 大请求(DEEP 5000 token)足够时间，不降 max_tokens；旧 60s 让 DEEP 在慢后端上 read timeout）
+    # V37.9.129: 永久排除地理封锁/不可达 provider 出 fallback 链（gemini 香港 400 "User location is not supported"，一直是死链）。
+    # 保留 GEMINI_API_KEY 在 plist（INV-PLIST-ENV-001 + preflight 要求），仅从 fallback 链排除。
+    exclude_providers: [gemini]
     max_retries: 0              # 不重试，直接降级（避免延迟翻倍）
     circuit_breaker_threshold: 5  # 连续 5 次失败后短路
     circuit_breaker_reset_seconds: 300  # 短路后 5 分钟恢复尝试
