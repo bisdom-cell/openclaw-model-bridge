@@ -1,6 +1,6 @@
 {
-  "updated": "2026-06-10 16:41:33",
-  "updated_by": "full_regression",
+  "updated": "2026-06-10 17:29:15",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -275,7 +275,7 @@
       "V37.9.125 follow-up doc-stat-sync V2 (低优, 日落法续): (a) 三 doc 的 last-updated/最后更新行也纳入自动同步 (config.md '> 最后更新：2026-06-02' 已陈旧 6/8 刷过, 是 per-doc 日期非 stat token 当前 scope 外). (b) FEATURES/config 的更静态统计纳入 (40 active jobs←jobs_registry enabled count / 5 SLO metrics / 19 preflight checks) — 它们 V1 留 scope 外因变更少但 jobs 数曾 35→40 真 drift 过. (c) 评估把 doc-stat-sync 推广到 README 正文散文统计 (当前只摘要行). 前置: 各统计需先确认权威源 + 摘要行/区域唯一性核验 (同 V1 流程).",
       "SLO #19 观察 (V37.9.126 诊断): Mac Mini Qwen3 主力 backend 退化期 (circuit_breaker half-open, fallback=doubao), preflight #19 SLO p95=81s 是 200-滚动窗口含退化请求 (非 stale, 会随流量冲刷自愈). 操作: 观察 Qwen3 是否恢复 (breaker 闭合); 若持续不恢复 → backend/GPU provider 层面; 想 #19 早不报警 → bash ~/restart.sh 清窗口. 非 code bug (监控工作正常). 若退化频繁可评估 SLO latency 改 time-windowed 而非 request-windowed (chunk 外, 独立).",
       "V37.9.129 follow-up (DEFER, 登记): adapter fallback 循环读 upstream error body (观察性, MR-13/INV-OBSERVABILITY-001 候选)。今天诊断难正因 adapter fb_errors.append(str(fb_err)) 对 HTTPError 只给 'HTTP Error 400: Bad Request' 不读 body, 需直连 gemini 才看到 'User location not supported'。修法: adapter 复用 proxy_filters.compose_backend_error_str (V37.8.10) 或 inline helper。DEFER 原因: gemini 退役后其 400 body moot + doubao timeout 无 informative body + 引入 adapter→proxy_filters 耦合 (日落法 #34 防御本身是事故面)。价值降低非紧急, 但对未来其他 provider HTTP 错误诊断仍有价值。",
-      "V37.9.130 部署验证 (Mac Mini): (a) git fetch+reset 同步后下次 06:00 cron 应 log \"MapReduce mode\" + 3 天窗口扫描 (b) 6/3、6/4 两个失败日已超 3 天窗口需手动补提炼: python3 ~/kb_harvest_chat.py --date 20260603 && python3 ~/kb_harvest_chat.py --date 20260604 (原始数据在 ~/.kb/conversations/, 提炼后进 KB) (c) 下次大对话日观察 last_run_harvest_chat.json 的 degraded/map_failed 字段 — 如频繁 degraded → V37.9.131+ 评估 REDUCE_BATCH_SIZE 调小或 doubao 显式路由"
+      "V37.9.130 生产验证已通过 (2026-06-11 Mac Mini 实跑): 6/4 真实血案数据 9 chunks 重跑 — hierarchical r1 b1/3(6740c)+b2/3(6220c)+r2(8524c) 3 次小请求零失败零降级, 48 条精华入 KB, 6/3 已确认处理过, 断流全闭环. 同数据对照证实根因=单请求规模非纯超时 (同 9 Map 段, 单次 40K 两次超时 vs 3 次 7K 一次全过). 剩余低优 follow-up: (a) final Reduce max_tokens=2000 被 48 条打满产尾部残行 \"- [\" (finish_reason=length), 超大对话日边界 — V37.9.131+ 评估 2000→3000 或 emit 前剥尾部残行 (b) 长期观察 last_run degraded/map_failed 字段, 频繁 degraded → 评估 REDUCE_BATCH_SIZE 调小或 doubao 显式路由"
     ],
     "open_prs": "",
     "blocked_on": "",
