@@ -616,7 +616,14 @@ for i, paper in enumerate(papers):
     upvotes = paper.get('upvotes', 0)
     first_author = paper.get('first_author', 'Unknown')
     date_str = paper.get('date', '')
-    paper_url = f"https://huggingface.co/papers/{paper_id}" if paper_id else ''
+    # V37.9.132 方案 A: HF daily papers 的 paper_id 即 arxiv id (hf.co/papers 按
+    # arxiv 索引). 主链接改 arxiv 直链让 kb_deep_dive 可抓全文 PDF (原 hf.co 页面
+    # URL 无法派生 PDF → 必然降级摘要级). 格式守卫: id 不匹配 arxiv NNNN.NNNNN
+    # 格式时保留 hf.co 原链接 (防 HF 未来收录非 arxiv 论文).
+    if paper_id and re.match(r'^\d{4}\.\d{4,5}(v\d+)?$', paper_id):
+        paper_url = f"https://arxiv.org/abs/{paper_id}"
+    else:
+        paper_url = f"https://huggingface.co/papers/{paper_id}" if paper_id else ''
 
     # GitHub 代码仓库 (HF-specific 保留, V37.9.45 不动)
     github_url = paper.get('github_url', '')

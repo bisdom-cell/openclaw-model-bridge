@@ -1,6 +1,6 @@
 {
-  "updated": "2026-06-10 18:01:10",
-  "updated_by": "claude_code",
+  "updated": "2026-06-10 18:23:09",
+  "updated_by": "full_regression",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-06-11",
+      "what": "V37.9.132 deep_dive 76% 摘要级结构 gap 修复 (用户视角发现 34/45 摘要级, 选方案 A): 根因 = TIER_1 六源仅 arxiv/acl 能派生 PDF, dblp (doi 优先压 arxiv)/hf (hf.co 页面)/S2 无 arxiv 论文必然降级 — 数据一直在 (S2 有 arxiv_id, dblp ee 含 arxiv, hf paper_id 即 arxiv id) 只是链接构造没用. 修: dblp arxiv>doi>url 三档 / hf arxiv.org/abs 直链+格式守卫 fallback / S2 FIELDS+openAccessPdf 三档链 (arxiv>OA .pdf>S2页面). deep_dive 零改动. 26 新单测 (literal-as-guard 模式) + 反向验证 + 7 现有套件零破坏. 121 suites/4262 tests/0 fail. 生效: 明日 cron 起新 KB 条目 arxiv 优先, 明晚 22:30 deep_dive 首次受益. 诚实预期: 付费墙论文仍摘要级, 占比从 76% 显著下降不会到 0",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-11",
       "what": "unfinished #25 闭环 (Mac Mini 用户执行): auto_deploy 残留清理 — crontab_safe.sh remove 删 HOME 路径行 (42→41 条, line 54) + rm ~/auto_deploy.sh 删 HOME 副本. auto_deploy 现为 ONE crontab 行 (repo 路径) + ONE 副本 (repo clone), V37.9.106→111→116→120 四版本追踪的双行问题彻底终结. INV-CRON-004 转绿. 同时 V37.9.129 adapter 重启验证生效 (0.37.9.70 + fallback_chain:[doubao]) + 治理审计其余全绿",
       "by": "user+claude_code"
     },
@@ -198,11 +203,6 @@
       "date": "2026-06-04",
       "what": "V37.9.108: ai_leaders X→博客/Substack RSS 转向 (用户主任务: X Syndication 429+冻结退化的非 X 渠道解法). V37.9.102 评估盲区(只看 X 内替代→付费) 经用户目标 reframe(意见≠X) 突破. WebSearch 确认非 X 渠道 2026 真可用 (Bluesky 免费 API+学者迁入 / AI 大神 blog/Substack 长文). 新 job jobs/ai_leaders_blogs/run_ai_leaders_blogs.sh (13:30 1x/天) 紧贴 rss_blogs 管道 (RSS+LLM 6 字段+🎚️ alignment+hallucination_guards LEVEL_4+双通道🧠 AI 大神观点+KB+FAIL-OPEN), 12 策展大神 feed 偏重 contrarian (Marcus/AI Snake Oil/Import AI/Raschka/Lambert/Eugene Yan/Karpathy/Gradient/fast.ai/HF/Anthropic) 不重叠 rss_blogs. feed 可达性 Mac Mini 首跑验证 (原则#33+反馈#1 chaspark: dev 403 不定论). ai_leaders_x 保持 enabled (禁用级联 6 依赖) 注释标记被取代真停用留 follow-up. 新源触发 3 个 MR-8 漂移守卫合理修 (source_credibility 14→15 博客 tier / INV-BACKUP-001 site / config.md). 27 新单测. 112→113 suites/3968→3995 tests/0 fail/governance 805 checks/安全 95/README 同步 3995/VERSION 0.37.9.68 不变.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-06-04",
-      "what": "V37.9.107: ontology-engine 包化 chunk 3a — convergence config-injection (chunk-4 demo 暴露的真 bug 闭环). convergence.py 加 _resolve_config_dir()+_resolve_project_root() (镜像 engine/governance), _DEFAULT_SPEC_PATH 经 _CONFIG_DIR + 9 处源文件/sys.path 解析经 _PROJECT_ROOT; 无 env 默认分支保持 V37.9.19 .resolve() 字节级不变零回归. demo 加 convergence_ontology.yaml+weatherbot_state.json + run_demo.py section 5 端到端验证 (消费方读自己 spec 非 bridge). 17 新单测 (convergence +14 含反向 sabotage parent.parent count≤1, extension_demo +3). 不立新 INV (镜像 chunk1/4 约定). MRD 模式参数化登记 chunk-3b. 112 suites/3951→3968 tests/0 fail/governance 87 inv/安全 95/README 同步 3968/VERSION 0.37.9.68 不变. 生产治理零回归 (bridge 5 specs 正确加载). de-risk chunk 2 (更少东西硬编码到 ontology/ 目录).",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -275,7 +275,8 @@
       "SLO #19 观察 (V37.9.126 诊断): Mac Mini Qwen3 主力 backend 退化期 (circuit_breaker half-open, fallback=doubao), preflight #19 SLO p95=81s 是 200-滚动窗口含退化请求 (非 stale, 会随流量冲刷自愈). 操作: 观察 Qwen3 是否恢复 (breaker 闭合); 若持续不恢复 → backend/GPU provider 层面; 想 #19 早不报警 → bash ~/restart.sh 清窗口. 非 code bug (监控工作正常). 若退化频繁可评估 SLO latency 改 time-windowed 而非 request-windowed (chunk 外, 独立).",
       "V37.9.129 follow-up (DEFER, 登记): adapter fallback 循环读 upstream error body (观察性, MR-13/INV-OBSERVABILITY-001 候选)。今天诊断难正因 adapter fb_errors.append(str(fb_err)) 对 HTTPError 只给 'HTTP Error 400: Bad Request' 不读 body, 需直连 gemini 才看到 'User location not supported'。修法: adapter 复用 proxy_filters.compose_backend_error_str (V37.8.10) 或 inline helper。DEFER 原因: gemini 退役后其 400 body moot + doubao timeout 无 informative body + 引入 adapter→proxy_filters 耦合 (日落法 #34 防御本身是事故面)。价值降低非紧急, 但对未来其他 provider HTTP 错误诊断仍有价值。",
       "V37.9.130 生产验证已通过 (2026-06-11 Mac Mini 实跑): 6/4 真实血案数据 9 chunks 重跑 — hierarchical r1 b1/3(6740c)+b2/3(6220c)+r2(8524c) 3 次小请求零失败零降级, 48 条精华入 KB, 6/3 已确认处理过, 断流全闭环. 同数据对照证实根因=单请求规模非纯超时 (同 9 Map 段, 单次 40K 两次超时 vs 3 次 7K 一次全过). 剩余低优 follow-up: (a) final Reduce max_tokens=2000 被 48 条打满产尾部残行 \"- [\" (finish_reason=length), 超大对话日边界 — V37.9.131+ 评估 2000→3000 或 emit 前剥尾部残行 (b) 长期观察 last_run degraded/map_failed 字段, 频繁 degraded → 评估 REDUCE_BATCH_SIZE 调小或 doubao 显式路由",
-      "候选元规则 subshell-inherits-errtrace-under-bash32 (V37.9.131 登记): $(...) 命令替换调用\"设计性非零退出\"命令时必须 set +E 包裹或 || 兜底 — macOS bash 3.2 + set -E 让子shell 继承 ERR trap, 非零退出在子shell 内误触发 fatal_handler FATAL 误报. 已 2 实例达立案门槛 (V37.9.105-hotfix governance_audit 2处 + V37.9.131 watchdog line 728). V37.9.132+ 候选: cross_os_quirk_scanner 加第 6 种 pattern (扫 governed scripts 的 $(...) 含 python3/bash 调用且无 set +E 包裹且无 || 兜底) + 立 MR/INV"
+      "候选元规则 subshell-inherits-errtrace-under-bash32 (V37.9.131 登记): $(...) 命令替换调用\"设计性非零退出\"命令时必须 set +E 包裹或 || 兜底 — macOS bash 3.2 + set -E 让子shell 继承 ERR trap, 非零退出在子shell 内误触发 fatal_handler FATAL 误报. 已 2 实例达立案门槛 (V37.9.105-hotfix governance_audit 2处 + V37.9.131 watchdog line 728). V37.9.132+ 候选: cross_os_quirk_scanner 加第 6 种 pattern (扫 governed scripts 的 $(...) 含 python3/bash 调用且无 set +E 包裹且无 || 兜底) + 立 MR/INV",
+      "V37.9.132 一周观察 (~6/18): deep_dive 摘要级占比应从 76% (34/45) 显著下降 — Mac Mini 验证: grep -L \"基于摘要的分析\" ~/.kb/deep_dives/*.md 看 6/12 后新增文件多数应为全文级. 若仍高: (a) 查 dblp ee 字段 arxiv 覆盖率 (b) S2 openAccessPdf .pdf 结尾比例 (非 .pdf OA 链接保留 S2 页面是有意取舍) (c) 候选增强: deep_dive mode (full_text/abstract_only) 占比纳入 daily_observer 报告让 degrade 频率可观测 (本次 76% gap 潜伏 2 个月才被用户发现的根因是 degrade 频率无聚合复盘)"
     ],
     "open_prs": "",
     "blocked_on": "",
@@ -341,11 +342,11 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 4236,
-    "last_regression": "2026-06-10 17:48 pass",
+    "test_count": 4262,
+    "last_regression": "2026-06-10 18:22 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-10 17:48",
-    "test_suites": 120,
+    "security_score_time": "2026-06-10 18:22",
+    "test_suites": 121,
     "governance_invariants": "90/90",
     "governance_checks": "731/745",
     "version": "0.37.9.70",
@@ -413,7 +414,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.130+131 完成: kb_harvest 层级 Reduce (生产验证 6/4 血案数据 3 次小请求零失败) + watchdog SLO 子shell ERR trap 误报修复. Mac Mini 待: (1) 合并 PR 后 git reset 同步 (2) V37.9.129 adapter 重启如未做 — 今晚 03:00 Dream 是检验点 (3) 治理审计 fail 待重跑确认. 下次候选: chunk 5 PyPI / ArXiv 论文 / OpenClaw 6/15 前置验证 / scanner 第6 pattern (subshell errtrace).",
+  "focus": "V37.9.130+131+132 完成: kb_harvest 层级 Reduce + watchdog ERR trap 误报修 + deep_dive 76% 摘要级 gap 修 (dblp/hf/S2 arxiv 直链优先). Mac Mini 待: 合并 PR + git reset 同步. 观察点: 明晚 22:30 deep_dive 首次受益 / 6/18 摘要级占比复盘. 下次候选: chunk 5 PyPI / ArXiv 论文 / OpenClaw 6/15 前置验证 / scanner 第6 pattern / governance 手动跑默认 dry-run.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
