@@ -1,6 +1,6 @@
 {
-  "updated": "2026-06-10 17:48:27",
-  "updated_by": "full_regression",
+  "updated": "2026-06-10 18:01:10",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -105,6 +105,11 @@
   ],
   "recent_changes": [
     {
+      "date": "2026-06-11",
+      "what": "unfinished #25 闭环 (Mac Mini 用户执行): auto_deploy 残留清理 — crontab_safe.sh remove 删 HOME 路径行 (42→41 条, line 54) + rm ~/auto_deploy.sh 删 HOME 副本. auto_deploy 现为 ONE crontab 行 (repo 路径) + ONE 副本 (repo clone), V37.9.106→111→116→120 四版本追踪的双行问题彻底终结. INV-CRON-004 转绿. 同时 V37.9.129 adapter 重启验证生效 (0.37.9.70 + fallback_chain:[doubao]) + 治理审计其余全绿",
+      "by": "user+claude_code"
+    },
+    {
       "date": "2026-06-10",
       "what": "V37.9.131 watchdog SLO 子shell ERR trap 误报修复: 20:30 FATAL line=728 告警数据驱动诊断 — watchdog 主体未死 (canary 正常+告警汇总照常), 是 bash 3.2 + set -E 让 $(...) 子shell 继承 ERR trap, slo_checker 设计性 exit 2 (harvest 大请求拉高 p95=62704ms 首次违规) 在子shell 内误触发 FATAL. V37.9.105-hotfix 同款 quirk 第3处演出 (当时横向漏扫 watchdog, 原则#31 又一次). 修复 set +E 包裹 + || 捕获 (governance_audit 同款). 6 新守卫单测含行为级真跑 + 反向验证 + 2 处 alternation (V37.9.66 守卫升级 + v37_9_69 硬编码 count 改 baseline). 120 suites/4236 tests/0 fail. VERSION 不变. 候选元规则 subshell-inherits-errtrace-under-bash32 登记 (2 实例达门槛, V37.9.132+ 评估 scanner 第6 pattern)",
       "by": "claude_code"
@@ -198,11 +203,6 @@
       "date": "2026-06-04",
       "what": "V37.9.107: ontology-engine 包化 chunk 3a — convergence config-injection (chunk-4 demo 暴露的真 bug 闭环). convergence.py 加 _resolve_config_dir()+_resolve_project_root() (镜像 engine/governance), _DEFAULT_SPEC_PATH 经 _CONFIG_DIR + 9 处源文件/sys.path 解析经 _PROJECT_ROOT; 无 env 默认分支保持 V37.9.19 .resolve() 字节级不变零回归. demo 加 convergence_ontology.yaml+weatherbot_state.json + run_demo.py section 5 端到端验证 (消费方读自己 spec 非 bridge). 17 新单测 (convergence +14 含反向 sabotage parent.parent count≤1, extension_demo +3). 不立新 INV (镜像 chunk1/4 约定). MRD 模式参数化登记 chunk-3b. 112 suites/3951→3968 tests/0 fail/governance 87 inv/安全 95/README 同步 3968/VERSION 0.37.9.68 不变. 生产治理零回归 (bridge 5 specs 正确加载). de-risk chunk 2 (更少东西硬编码到 ontology/ 目录).",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-06-04",
-      "what": "V37.9.106: MOVESPEED TM 备份争用根治 + INV-CRON-004 闭环 (周报刷屏 session 收尾). INV-CRON-004 根因=历史 auto_deploy.sh 双行(repo+HOME 路径变体, 非 convergence 污染, 用户 crontab_safe.sh remove 删 HOME 路径 40→39). INV-MOVESPEED-TCC-001 根因=Time Machine 备份争用(非 FDA/TCC, log show deny 来自 macOS 系统守护进程非 cron, analyzer 自己结论 EOF+TM backupd 主导建议 tmutil 预检). 修=movespeed_rsync_helper.sh Phase 0 tmutil status 预检, Running=1 跳过 rsync 不 retry 不算 incident, 跨平台 FAIL-OPEN. 10 新单测. session 全景: 数据驱动推翻 4 假设找全 6 根因零盲改(原则#28+反馈#1). 112 suites/3951 tests/0 fail.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -268,7 +268,6 @@
       "V37.9.111-hotfix follow-up B: auto_deploy.sh crontab 双行复发根因 — V37.9.106 删过 HOME 路径行(40→39)又复发(repo 路径 ~/openclaw-model-bridge/auto_deploy.sh + HOME 路径 ~/auto_deploy.sh 都每 2min). 用户已 crontab_safe.sh remove. 查什么再加它 (crontab 重建脚本? backup 恢复? convergence?) 或加 framework 防同脚本双行守卫. 非 convergence machine_sync (两行都含 auto_deploy.sh 被 matched 不 missing).",
       "V37.9.112 已完成 (b) ai_leaders_bsky 接入 Opportunity Radar #2 (top_alignment_picker ALIGNED_SOURCES 9→10, 3 消费方自动生效). 剩余 follow-up (Mac Mini handle 验证后, 非高优): (a) 首跑 log WARN 剪死 handle + 补可达 contrarian 大神 (howard.fm 自定义域名 / garymarcus.bsky.social / emilymbender.bsky.social 候选待验 / fchollet 替代) (c) 2x/天频率评估 (实时短观点价值) + 评估 Bluesky app-password 认证读 login-required 账号",
       "V37.9.110+113 follow-up (升级版, MR-9 测试污染生产 bug 类 framework 化): V37.9.113 已 framework 化 convergence-specific 部分 (TestV37_9_113 AST 反回归守卫 + 行为级正/负对照 sentinel, 拆 test_convergence 真改 crontab/真跑 kb_embed 地雷). 剩余 (专门 session): (a) 立元规则 MR-22 governance-runtime-tests-must-isolate-production-state — V37.9.110 test_movespeed 写真 incidents.jsonl + V37.9.113 test_convergence 真改 crontab 共 2 实例已达立元规则门槛 (b) generic MRD scanner 扫所有 governance runtime python_assert 跑的测试 (INV-RETRY-001 test_movespeed / INV-CONVERGENCE test_convergence / 等) 是否写生产 state 文件 (~/.kb/*.jsonl / crontab / kb_embed 真跑), 跨多测试文件 framework 化此 bug 类",
-      "V37.9.120 Mac Mini 残留清理仍待用户 (V37.9.121-hotfix 同步后): bash ~/crontab_safe.sh remove 'bash ~/auto_deploy.sh >> ' (删 HOME 路径 crontab line) + rm ~/auto_deploy.sh (删 HOME 副本) → 之后 ONE crontab 行 (repo) + ONE 副本 (repo clone).",
       "3-engine-merge 已两次评估结论 DEFER (V37.9.119 + 2026-06-08 本 session 加深), 勿再从头调查. **结构**: 3 个 engine.py 加载点 — proxy_filters:452 (_onto_engine, module-level 仅 on/shadow, generate_proxy_data 覆盖 ALLOWED_TOOLS + 保留 _onto_mod 供 evaluate_policy, 每请求工具过滤核心) / proxy_filters:1463 (ontology_engine, _check_ontology_consistency 无条件所有 mode, 一致性诊断) / three_gate:183 (_three_gate_engine_lazy, lazy 首次 gate 评估缓存, _safe_evaluate_policy shadow 门控请求路径). **风险评估**: (a) path-independent 零 correctness bug, 双加载一物二形仅 on/shadow mode 存在 (OFF mode 只 1463 加载), 合并仅省 1 次 startup-once 加载 = cosmetic. (b) Sub-merge A (proxy_filters 452+1463 单文件) 中风险; Sub-merge B (three_gate 跨模块共享单例) 高风险. (c) three_gate._load_engine_module 是 V37.9.15.1 hotfix 加固的三策略 robustness 修复, governance INV-GATE-001 (gov yaml line 5402-5413) 硬锁 _three_gate_engine_lazy 模块名 + _load_engine_module 结构 + 4 测试文件引用 → 合并连带改 governance+测试+风险解开 hotfix 修过的 bug. **决策**: DEFER — 无 incident-causing 接缝 (北极星 V37.9.117 针对造成事故的接缝, 这 3 加载是 cosmetic startup-once 重复), 高 blast radius (每请求工具过滤+shadow 门控) 换 cosmetic 收益, 原则 #34 防御本身是事故面. 若未来真要做: 只考虑 Sub-merge A (单文件缓存 helper), Sub-merge B 不做.",
       "V37.9.124 #29 follow-up (低优, 防未来重复调查): INV runtime 收窄已完成 INV-OBSERVER-001 (唯一已证明 env-dependent 套件). #29 调查结论: 其他 ~12 全套件 runtime check 的套件 env-independent 已核实 (test_v37_9_76_router 16 env 信号全 patch 隔离 + relative-to-HOME expanduser 一致; scanner 扫 repo 文件; INV-ROUTER false-fail 是 stale code 非套件 env-dependency), 不需收窄 (原则 #18 补证据非补功能, 收窄 env-independent 套件是 churn). #29 收窄约定已立 (test_v37_9_124 docstring): 套件含 env-dependent test 的 INV 跑契约核心类非全套件; 纯逻辑套件跑全 OK. 未来若新 INV 跑的套件含 env-dependent test (读 repo 外真实系统状态), 按此约定收窄到契约核心类 (镜像 INV-OBSERVER-001/INV-DREAM-CROSS-DOMAIN).",
       "OpenClaw 升级 (第五次评估 2026-06-08 已做, 用户决策继续 hold 到 6/20 时间表): 详见 docs/gateway_upgrade_eval_v2026.4.md 第十四节. 当前上游 v2026.6.1, 目标 v2026.4.27 (避开全部 4.29/5.x/6.x breaking: tools.exec/fs + plugin manifest + SQLite migration + plugin policy overhaul), G2 门 #59265 仍 closed 无 fix → 降级目标确认. 待办: (a) 6/15 最终前置验证 — bash check_upgrade.sh 看 tripwire + WebFetch 确认 #59265/6.x 无新 dealbreaker + dev 审查 proxy_filters 工具白名单 against v3.31 exec 加固 (b) ~6/20 周六升级按第七节 SOP (备份→升 v2026.4.27→doctor --fix→强制 WhatsApp E2E #59265 验证→双通道推送验证→不可见立即 30 秒回滚). 升级是 Mac Mini SSH 操作 (禁 AI 执行, 自杀悖论). 升级成功后按第九节更新 docs/CLAUDE.md/SOUL.md/status.json/LAST_EVAL_DATE. framework gap: 版本差距 tripwire likely 触发后每周一 cron 持续告警 (已评估决策 hold, 6/20 前 Monday 告警是预期噪声 acknowledged).",
