@@ -1,6 +1,6 @@
 {
-  "updated": "2026-06-10 17:29:15",
-  "updated_by": "claude_code",
+  "updated": "2026-06-10 17:48:27",
+  "updated_by": "full_regression",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-06-10",
+      "what": "V37.9.131 watchdog SLO 子shell ERR trap 误报修复: 20:30 FATAL line=728 告警数据驱动诊断 — watchdog 主体未死 (canary 正常+告警汇总照常), 是 bash 3.2 + set -E 让 $(...) 子shell 继承 ERR trap, slo_checker 设计性 exit 2 (harvest 大请求拉高 p95=62704ms 首次违规) 在子shell 内误触发 FATAL. V37.9.105-hotfix 同款 quirk 第3处演出 (当时横向漏扫 watchdog, 原则#31 又一次). 修复 set +E 包裹 + || 捕获 (governance_audit 同款). 6 新守卫单测含行为级真跑 + 反向验证 + 2 处 alternation (V37.9.66 守卫升级 + v37_9_69 硬编码 count 改 baseline). 120 suites/4236 tests/0 fail. VERSION 不变. 候选元规则 subshell-inherits-errtrace-under-bash32 登记 (2 实例达门槛, V37.9.132+ 评估 scanner 第6 pattern)",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-10",
       "what": "V37.9.130 kb_harvest Reduce 超时血案修复 (follow-up #22 闭环, 用户选): 层级分批 Reduce (_reduce_hierarchical 每批≤4段 9→3→1, 3次~18K小请求替代1次~40K大请求) + REDUCE_TIMEOUT 120→300s (镜像 V37.9.129 doubao) + _llm_call_with_retry (Map/Reduce retry 1次) + _mechanical_dedup fail-soft (LLM失败机械行级去重兜底+轮级熔断, KB标[REDUCE_DEGRADED], 零数据丢失) + 2个隐藏 MR-4 一并修 (Map全失败被当无关键内容→mark_processed永久丢数据伪装成功 / --days 1 失败日永不自动重试→默认3幂等补提炼) + last_run 加 degraded/map_failed 字段 (status 枚举不变守 V37.9.72 watchdog 契约). 29 新单测 (28→57) + 反向验证三层守卫真有效 + HOME 隔离端到端真跑. 历史 debt 补登: test_harvest_chat.py V37.1 起从未注册 full_regression 本次接入. 119→120 suites / 4173→4230 tests / 0 fail / 90 inv 不变 / 安全 95. VERSION 0.37.9.69→0.37.9.70. Mac Mini 待 git reset + 手动补提炼 6/3-6/4",
       "by": "claude_code"
     },
@@ -198,11 +203,6 @@
       "date": "2026-06-04",
       "what": "V37.9.106: MOVESPEED TM 备份争用根治 + INV-CRON-004 闭环 (周报刷屏 session 收尾). INV-CRON-004 根因=历史 auto_deploy.sh 双行(repo+HOME 路径变体, 非 convergence 污染, 用户 crontab_safe.sh remove 删 HOME 路径 40→39). INV-MOVESPEED-TCC-001 根因=Time Machine 备份争用(非 FDA/TCC, log show deny 来自 macOS 系统守护进程非 cron, analyzer 自己结论 EOF+TM backupd 主导建议 tmutil 预检). 修=movespeed_rsync_helper.sh Phase 0 tmutil status 预检, Running=1 跳过 rsync 不 retry 不算 incident, 跨平台 FAIL-OPEN. 10 新单测. session 全景: 数据驱动推翻 4 假设找全 6 根因零盲改(原则#28+反馈#1). 112 suites/3951 tests/0 fail.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-06-04",
-      "what": "V37.9.105-hotfix3: 用户同步后重跑 governance --full 确认 — 原 3 失败 INV-CONVERGENCE-CRON/PROVIDERS/ROUTER-001 全部自愈 (我的 convergence 测试修 + ROUTER 是 07:00 stale 代码). 浮现 3 个 pre-existing (07:00 被 head 截断): (a) INV-CONVERGENCE-INTEGRATION-001 stale 自检已修 — runtime check 写死 len(specs)==4 但 V37.9.25 加第5 spec services_to_launchd, requires_full 让 dev 跳过只 Mac Mini --full 失败, 4→5+加 spec_id, dev --full 验证 ✅; (b) INV-CRON-004 crontab 重复条目 待用户 uniq -d; (c) INV-MOVESPEED-TCC-001 24h incidents=18>2 V37.9.80 FDA 问题待重查. (b)(c) 真 Mac Mini 运维问题非代码. 112 suites/3941 tests/0 fail.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -275,7 +275,8 @@
       "V37.9.125 follow-up doc-stat-sync V2 (低优, 日落法续): (a) 三 doc 的 last-updated/最后更新行也纳入自动同步 (config.md '> 最后更新：2026-06-02' 已陈旧 6/8 刷过, 是 per-doc 日期非 stat token 当前 scope 外). (b) FEATURES/config 的更静态统计纳入 (40 active jobs←jobs_registry enabled count / 5 SLO metrics / 19 preflight checks) — 它们 V1 留 scope 外因变更少但 jobs 数曾 35→40 真 drift 过. (c) 评估把 doc-stat-sync 推广到 README 正文散文统计 (当前只摘要行). 前置: 各统计需先确认权威源 + 摘要行/区域唯一性核验 (同 V1 流程).",
       "SLO #19 观察 (V37.9.126 诊断): Mac Mini Qwen3 主力 backend 退化期 (circuit_breaker half-open, fallback=doubao), preflight #19 SLO p95=81s 是 200-滚动窗口含退化请求 (非 stale, 会随流量冲刷自愈). 操作: 观察 Qwen3 是否恢复 (breaker 闭合); 若持续不恢复 → backend/GPU provider 层面; 想 #19 早不报警 → bash ~/restart.sh 清窗口. 非 code bug (监控工作正常). 若退化频繁可评估 SLO latency 改 time-windowed 而非 request-windowed (chunk 外, 独立).",
       "V37.9.129 follow-up (DEFER, 登记): adapter fallback 循环读 upstream error body (观察性, MR-13/INV-OBSERVABILITY-001 候选)。今天诊断难正因 adapter fb_errors.append(str(fb_err)) 对 HTTPError 只给 'HTTP Error 400: Bad Request' 不读 body, 需直连 gemini 才看到 'User location not supported'。修法: adapter 复用 proxy_filters.compose_backend_error_str (V37.8.10) 或 inline helper。DEFER 原因: gemini 退役后其 400 body moot + doubao timeout 无 informative body + 引入 adapter→proxy_filters 耦合 (日落法 #34 防御本身是事故面)。价值降低非紧急, 但对未来其他 provider HTTP 错误诊断仍有价值。",
-      "V37.9.130 生产验证已通过 (2026-06-11 Mac Mini 实跑): 6/4 真实血案数据 9 chunks 重跑 — hierarchical r1 b1/3(6740c)+b2/3(6220c)+r2(8524c) 3 次小请求零失败零降级, 48 条精华入 KB, 6/3 已确认处理过, 断流全闭环. 同数据对照证实根因=单请求规模非纯超时 (同 9 Map 段, 单次 40K 两次超时 vs 3 次 7K 一次全过). 剩余低优 follow-up: (a) final Reduce max_tokens=2000 被 48 条打满产尾部残行 \"- [\" (finish_reason=length), 超大对话日边界 — V37.9.131+ 评估 2000→3000 或 emit 前剥尾部残行 (b) 长期观察 last_run degraded/map_failed 字段, 频繁 degraded → 评估 REDUCE_BATCH_SIZE 调小或 doubao 显式路由"
+      "V37.9.130 生产验证已通过 (2026-06-11 Mac Mini 实跑): 6/4 真实血案数据 9 chunks 重跑 — hierarchical r1 b1/3(6740c)+b2/3(6220c)+r2(8524c) 3 次小请求零失败零降级, 48 条精华入 KB, 6/3 已确认处理过, 断流全闭环. 同数据对照证实根因=单请求规模非纯超时 (同 9 Map 段, 单次 40K 两次超时 vs 3 次 7K 一次全过). 剩余低优 follow-up: (a) final Reduce max_tokens=2000 被 48 条打满产尾部残行 \"- [\" (finish_reason=length), 超大对话日边界 — V37.9.131+ 评估 2000→3000 或 emit 前剥尾部残行 (b) 长期观察 last_run degraded/map_failed 字段, 频繁 degraded → 评估 REDUCE_BATCH_SIZE 调小或 doubao 显式路由",
+      "候选元规则 subshell-inherits-errtrace-under-bash32 (V37.9.131 登记): $(...) 命令替换调用\"设计性非零退出\"命令时必须 set +E 包裹或 || 兜底 — macOS bash 3.2 + set -E 让子shell 继承 ERR trap, 非零退出在子shell 内误触发 fatal_handler FATAL 误报. 已 2 实例达立案门槛 (V37.9.105-hotfix governance_audit 2处 + V37.9.131 watchdog line 728). V37.9.132+ 候选: cross_os_quirk_scanner 加第 6 种 pattern (扫 governed scripts 的 $(...) 含 python3/bash 调用且无 set +E 包裹且无 || 兜底) + 立 MR/INV"
     ],
     "open_prs": "",
     "blocked_on": "",
@@ -341,10 +342,10 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 4230,
-    "last_regression": "2026-06-10 16:41 pass",
+    "test_count": 4236,
+    "last_regression": "2026-06-10 17:48 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-10 16:41",
+    "security_score_time": "2026-06-10 17:48",
     "test_suites": 120,
     "governance_invariants": "90/90",
     "governance_checks": "731/745",
@@ -413,7 +414,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.130 完成: kb_harvest Reduce 超时血案修复 (层级分批 Reduce 9→3→1 + 300s + retry + fail-soft 机械去重 + --days 3 自动补提炼 + 2 隐藏 MR-4 修复). Mac Mini 待: git reset 同步 + 手动补提炼 python3 ~/kb_harvest_chat.py --date 20260603 / 20260604 + V37.9.129 adapter 重启如未做. 下次候选: chunk 5 PyPI / ArXiv 论文 / OpenClaw 6/15 前置验证+6/20 升级窗口.",
+  "focus": "V37.9.130+131 完成: kb_harvest 层级 Reduce (生产验证 6/4 血案数据 3 次小请求零失败) + watchdog SLO 子shell ERR trap 误报修复. Mac Mini 待: (1) 合并 PR 后 git reset 同步 (2) V37.9.129 adapter 重启如未做 — 今晚 03:00 Dream 是检验点 (3) 治理审计 fail 待重跑确认. 下次候选: chunk 5 PyPI / ArXiv 论文 / OpenClaw 6/15 前置验证 / scanner 第6 pattern (subshell errtrace).",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",

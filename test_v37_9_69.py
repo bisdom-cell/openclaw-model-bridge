@@ -21,6 +21,7 @@ V37.9.69 修复:
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 import sys
 import unittest
@@ -101,9 +102,13 @@ class TestWatchdogTestAlternationGuards(unittest.TestCase):
         self.assertEqual(result.returncode, 0,
             f"V37.9.69 B 项: test_watchdog_self_monitoring.py 必须 31/31 OK\n"
             f"stderr 尾部: {result.stderr[-500:]}")
-        # 验证 Ran 31 tests
-        self.assertIn("Ran 31 test", result.stderr,
-            f"V37.9.69 B 项: 必须跑 31 个测试")
+        # V37.9.131 alternation: 硬编码 "Ran 31 test" 改 baseline ≥31
+        # (V37.9.121 同款教训: 硬编码 count 守卫每次加测试必手改 = 递归接缝.
+        # V37.9.131 加 6 个 SLO subshell errtrace 守卫后 31→37)
+        m = re.search(r"Ran (\d+) test", result.stderr)
+        self.assertIsNotNone(m, "V37.9.69 B 项: 必须有 Ran N tests summary")
+        self.assertGreaterEqual(int(m.group(1)), 31,
+            f"V37.9.69 B 项: watchdog 测试数必须 ≥31 baseline (实际 {m.group(1)})")
         # 验证 OK (无 FAILED)
         self.assertIn("OK", result.stderr,
             "V37.9.69 B 项: 测试 summary 必须显示 OK")

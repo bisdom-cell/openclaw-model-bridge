@@ -534,11 +534,19 @@ class TestSourceLevelGuards(unittest.TestCase):
         wd_path = os.path.join(REPO_ROOT, "job_watchdog.sh")
         with open(wd_path, "r", encoding="utf-8") as f:
             content = f.read()
-        # 必须出现 if-then-else 形式
-        self.assertIn(
-            "if SLO_ALERT=$(python3", content,
-            "V37.9.66-hotfix: watchdog SLO 检查必须用 'if SLO_ALERT=$(python3 ...)' 形式 "
-            "(bash 文档豁免 set -e + ERR trap), 不得用 'cmd && X || Y' 反模式"
+        # V37.9.131 alternation: 接受 V37.9.66-hotfix 的 if 形式 OR V37.9.131 的
+        # set +E 包裹形式 (后者修 bash 3.2 子 shell 继承 ERR trap quirk —
+        # if 形式只豁免外层 condition, 救不了子 shell 内部). 两者都不是 cmd && X || Y.
+        v66_if_form = "if SLO_ALERT=$(python3" in content
+        v131_set_e_form = (
+            'SLO_ALERT=$(python3 "$SLO_SCRIPT" --alert 2>/dev/null) || SLO_RC=$?'
+            in content
+            and "set +E" in content
+        )
+        self.assertTrue(
+            v66_if_form or v131_set_e_form,
+            "watchdog SLO 检查必须用 V37.9.66-hotfix if 形式或 V37.9.131 set +E 形式, "
+            "不得用 'cmd && X || Y' 反模式"
         )
         # 同时禁 buggy pattern 回归
         self.assertNotIn(

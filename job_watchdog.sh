@@ -722,14 +722,19 @@ except Exception as e:
     if [ -f "$SLO_SCRIPT" ]; then
         # V37.9.66-hotfix: bash quirk `cmd && X || Y` + set -eE + ERR trap 即使 set -e 豁免不杀
         # 脚本, ERR trap 仍触发产 false-positive FATAL. 5/13 16:30 实测真触发 line 721 abort.
-        # 改用 if-then-else (bash 文档明确豁免 if condition + set -e + ERR trap).
-        # V37.9.60-hotfix 修过 governance_audit/daily_ops/auto_deploy 的同款 grep|head pattern,
-        # 当时漏了 watchdog 自己的 cmd && X || Y pattern. V37.9.66-hotfix 横向修齐.
-        if SLO_ALERT=$(python3 "$SLO_SCRIPT" --alert 2>/dev/null); then
-            SLO_RC=0
-        else
-            SLO_RC=$?
-        fi
+        # 当时改 if-then-else (bash 文档豁免 if condition + set -e + ERR trap).
+        # V37.9.131: V37.9.105-hotfix 同款第 3 处演出 — macOS bash 3.2 + set -E (errtrace)
+        # 让 $(...) 子 shell 继承 ERR trap. slo_checker --alert 设计性 exit 2 (SLO 违规 +
+        # 告警文本) 时 python 在子 shell 内非零退出 → 子 shell 内 ERR trap 误触发 FATAL 误报
+        # (2026-06-10 20:30 line=728 实证: harvest 9 chunks 大请求拉高 p95=62704ms 首次走此
+        # 路径; watchdog 主体未死, canary 正常 — V37.9.105-hotfix governance_audit 同款铁证).
+        # V37.9.66-hotfix 的 if 形式只豁免外层 condition, 救不了子 shell 内部继承的 trap.
+        # 修复: set +E 关 errtrace 让子 shell 不继承; || 捕获让 set -e 安全 (governance_audit
+        # line 79-81 同款模式). 横向已扫 7 个 governed scripts 仅此一处漏网.
+        SLO_RC=0
+        set +E
+        SLO_ALERT=$(python3 "$SLO_SCRIPT" --alert 2>/dev/null) || SLO_RC=$?
+        set -E
         if [ "$SLO_RC" -eq 2 ] && [ -n "$SLO_ALERT" ]; then
             while IFS= read -r line; do
                 [ -n "$line" ] && ALERTS+=("$line")
