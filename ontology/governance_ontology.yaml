@@ -5858,10 +5858,10 @@ invariants:
         check_type: file_contains
         file: ontology/convergence_ontology.yaml
         pattern: 'alert_only_permanent'
-      - name: "convergence_ontology meta version 升级到 0.2+ (含 V37.9.22 0.3-third-spec)"
+      - name: "convergence_ontology meta version 升级到 0.2+ (V37.9.133 起接受 1.x)"
         check_type: file_contains
         file: ontology/convergence_ontology.yaml
-        pattern: 'version: "0\.[2-9].*-'
+        pattern: 'version: "(?:0\.[2-9]|[1-9]\.[0-9]).*-'
       - name: "convergence_ontology meta 引用本 INV (related_invariants)"
         check_type: file_contains
         file: ontology/convergence_ontology.yaml
@@ -5983,10 +5983,10 @@ invariants:
         file: ontology/convergence_ontology.yaml
         pattern: |-
           governance_invariant: INV-CONVERGENCE-OPENCLAW-001
-      - name: "convergence_ontology meta version 升级到 0.3+ (含 V37.9.22 0.4-fourth-spec)"
+      - name: "convergence_ontology meta version 升级到 0.3+ (V37.9.133 起接受 1.x)"
         check_type: file_contains
         file: ontology/convergence_ontology.yaml
-        pattern: 'version: "0\.[3-9].*-'
+        pattern: 'version: "(?:0\.[3-9]|[1-9]\.[0-9]).*-'
       - name: "convergence_ontology meta 引用本 INV (related_invariants)"
         check_type: file_contains
         file: ontology/convergence_ontology.yaml
@@ -6336,10 +6336,10 @@ invariants:
         check_type: file_contains
         file: ontology/convergence_ontology.yaml
         pattern: 'apply_function: services_launchctl_bootstrap'
-      - name: "V37.9.97: services spec dry_run_default: true (Plan B dry-run first, blast-radius 高于 crontab)"
+      - name: "V37.9.133: services spec dry_run_default: false (V37.9.97 dry-run 起步 → 十天观察 → flip 真激活)"
         check_type: file_contains
         file: ontology/convergence_ontology.yaml
-        pattern: 'dry_run_default: true'
+        pattern: 'dry_run_default: false'
       - name: "V37.9.97: convergence.py 定义 _apply_services_launchctl_bootstrap per-service apply 函数"
         check_type: file_contains
         file: ontology/convergence.py

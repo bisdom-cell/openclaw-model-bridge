@@ -284,5 +284,60 @@ class TestReverseSabotageGuards(unittest.TestCase):
             "engine _ONTOLOGY_DIR 必须经 _resolve_config_dir(), 不得硬编码")
 
 
+class TestChunk5PublishReady(unittest.TestCase):
+    """V37.9.133 chunk 5 — sdist/wheel 发布就绪守卫.
+
+    chunk 5 验证记录 (2026-06-11 dev 实测):
+      python3 -m build → sdist 325KB + wheel 312KB 首次真实构建成功;
+      /tmp venv 从 wheel 安装 → import ontology_engine + 全子模块 OK;
+      WeatherBot config-injection 注入消费方 YAML 零 bridge 泄漏;
+      venv bin/openclaw-ontology-audit 真跑 WeatherBot 治理审计 exit=0.
+    实际 PyPI 发布 = 用户决策 (需账号/token), 本包 publish-ready.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        with open(os.path.join(REPO, "pyproject.toml"), encoding="utf-8") as f:
+            cls.pyproject = f.read()
+
+    def test_license_field_points_to_license_file(self):
+        """license = { file = "LICENSE" } 且 LICENSE 文件存在 (MIT)"""
+        self.assertIn('license = { file = "LICENSE" }', self.pyproject)
+        lic_path = os.path.join(REPO, "LICENSE")
+        self.assertTrue(os.path.isfile(lic_path), "LICENSE 文件必须存在")
+        with open(lic_path, encoding="utf-8") as f:
+            self.assertIn("MIT License", f.read())
+
+    def test_readme_field_points_to_package_readme(self):
+        """readme = PACKAGE_README.md 且文件存在 (PyPI 门面, 英文)"""
+        self.assertIn('readme = "PACKAGE_README.md"', self.pyproject)
+        readme_path = os.path.join(REPO, "PACKAGE_README.md")
+        self.assertTrue(os.path.isfile(readme_path))
+
+    def test_package_readme_core_content(self):
+        """包 README 必须含两层架构 + env 注入 + console scripts (消费方 onboarding)"""
+        with open(os.path.join(REPO, "PACKAGE_README.md"), encoding="utf-8") as f:
+            readme = f.read()
+        for token in ("ONTOLOGY_CONFIG_DIR", "ONTOLOGY_PROJECT_ROOT",
+                      "openclaw-ontology-audit", "ontology_engine",
+                      "Layer 1", "Layer 2", "MIT"):
+            self.assertIn(token, readme, f"PACKAGE_README 缺关键内容: {token}")
+
+    def test_classifiers_present(self):
+        self.assertIn('"Development Status :: 3 - Alpha"', self.pyproject)
+        self.assertIn('"Programming Language :: Python :: 3"', self.pyproject)
+
+    def test_gitignore_excludes_build_artifacts(self):
+        """dist/ + *.egg-info/ 必须 gitignore (build 产物不入库)"""
+        with open(os.path.join(REPO, ".gitignore"), encoding="utf-8") as f:
+            gi = f.read()
+        self.assertIn("dist/", gi)
+        self.assertIn("*.egg-info/", gi)
+
+    def test_publish_decision_documented_in_pyproject(self):
+        """发布决策登记: publish-ready + 实际发布待用户 (头部注释)"""
+        self.assertIn("publish-ready", self.pyproject)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

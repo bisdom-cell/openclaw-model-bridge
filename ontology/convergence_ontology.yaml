@@ -14,8 +14,8 @@
 # alert_only observation data per spec.
 
 meta:
-  version: "0.9-services-machine-sync-dry-run"
-  status: "framework_five_specs_three_machine_sync_services_dry_run_first"
+  version: "1.0-all-machine-sync-activated"
+  status: "framework_five_specs_three_machine_sync_all_activated"
   description: |
     Phase 4 Layer 5 of the ontology stack. Layer 1 (domain) describes WHAT
     exists, Layer 2 (policy) describes WHAT'S ALLOWED, Layer 3 (three-gate)
@@ -647,9 +647,13 @@ convergence_specs:
       V37.9.25 起步 alert_only (5/4 baseline) → 4 周观察期 (5/4-6/1) zero drift
       (Mac Mini 6/1 实测 declared=3 observed=3 no drift) → V37.9.97 升级 machine_sync.
       与 V37.9.58 jobs_to_crontab + kb_sources_to_index 同款 Plan B 渐进路径, 但
-      因 launchctl bootstrap blast-radius 高于 crontab/kb_embed, dry_run_default: true
-      让 services 先在 dry-run 模式观察 "would bootstrap" 动作正确一周, 再 V37.9.97+
-      flip dry_run_default: false (或 operator 设 CONVERGENCE_DRY_RUN=0 提前激活).
+      因 launchctl bootstrap blast-radius 高于 crontab/kb_embed, V37.9.97 起步
+      dry_run_default: true 先在 dry-run 模式观察 "would bootstrap" 动作 — 6/1-6/11
+      十天观察期零异常动作 (3 服务全程健康, dry-run 零 would-bootstrap 输出) →
+      V37.9.133 flip dry_run_default: false 真激活 (过期门控项 #6 闭环, 原窗口 ~6/8).
+      注意 V37.9.116 后 07:00 governance audit cron 带 CONVERGENCE_DRY_RUN=1 (env
+      显式优先), 故真 bootstrap 仅在 operator 手动跑 governance (无 env) 时发生 —
+      与 jobs/kb 两 spec 语义一致: machine_sync 自愈是显式刻意动作非审计副作用.
       apply 仅在真实漂移 (declared service 不在 launchctl list) 时触发 — 即服务真宕
       / plist 未 bootstrap, 此时 auto-bootstrap 是期望的恢复行为 (镜像 restart.sh
       V37.9.13 bootstrap fallback). 已加载 service 不会被 apply (convergence 只传
@@ -658,7 +662,7 @@ convergence_specs:
     convergence_method:
       implemented: machine_sync_via_helper        # V37.9.97 落地, 替代 V37.9.25 planned
       apply_function: services_launchctl_bootstrap  # V37.9.97 named-dispatch (V37.9.24 模式)
-      dry_run_default: true                        # V37.9.97 起步 dry-run (一周观察后 V37.9.97+ flip false)
+      dry_run_default: false                       # V37.9.133 flip 真激活 (V37.9.97 6/1 起步 dry-run → 6/1-6/11 十天观察零异常 → 切关, 镜像 V37.9.58 jobs/kb)
       apply_path: convergence._apply_services_launchctl_bootstrap
       apply_detail: |
         per-service: launchctl bootstrap "gui/$(id -u)" "~/Library/LaunchAgents/<plist>"
