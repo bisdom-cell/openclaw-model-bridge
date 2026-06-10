@@ -1,6 +1,6 @@
 {
-  "updated": "2026-06-10 01:39:17",
-  "updated_by": "claude_code",
+  "updated": "2026-06-10 16:41:33",
+  "updated_by": "full_regression",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-06-10",
+      "what": "V37.9.130 kb_harvest Reduce 超时血案修复 (follow-up #22 闭环, 用户选): 层级分批 Reduce (_reduce_hierarchical 每批≤4段 9→3→1, 3次~18K小请求替代1次~40K大请求) + REDUCE_TIMEOUT 120→300s (镜像 V37.9.129 doubao) + _llm_call_with_retry (Map/Reduce retry 1次) + _mechanical_dedup fail-soft (LLM失败机械行级去重兜底+轮级熔断, KB标[REDUCE_DEGRADED], 零数据丢失) + 2个隐藏 MR-4 一并修 (Map全失败被当无关键内容→mark_processed永久丢数据伪装成功 / --days 1 失败日永不自动重试→默认3幂等补提炼) + last_run 加 degraded/map_failed 字段 (status 枚举不变守 V37.9.72 watchdog 契约). 29 新单测 (28→57) + 反向验证三层守卫真有效 + HOME 隔离端到端真跑. 历史 debt 补登: test_harvest_chat.py V37.1 起从未注册 full_regression 本次接入. 119→120 suites / 4173→4230 tests / 0 fail / 90 inv 不变 / 安全 95. VERSION 0.37.9.69→0.37.9.70. Mac Mini 待 git reset + 手动补提炼 6/3-6/4",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-10",
       "what": "V37.9.129 gemini 香港 geo-block 退役 + doubao 超时调优 — Dream DEEP 失败 SYSTEM_ALERT 数据驱动诊断揭示 fallback 链无真第二张网 (Qwen3 521 transient + doubao 60s 超时 + gemini 400 User location not supported 香港永久 geo-block)。退役 gemini: config exclude_providers:[gemini] + adapter._FALLBACK_EXCLUDE 两路径过滤 (保留 key INV-PLIST-ENV-001)。调优 doubao: fallback_timeout_ms 60000→300000 不降 DEEP max_tokens (用户指示不牺牲质量)。观察性修复 DEFER (日落法 #34)。INV-FALLBACK-EXCLUDE-001 (MR-4, 7 checks) + 3 单测 + 反向验证。119 suites/4173 tests/0 fail/90 inv/825 checks/安全95。VERSION 0.37.9.68→0.37.9.69。Mac Mini 待 git reset + restart.sh 重启 adapter",
       "by": "claude_code"
     },
@@ -198,11 +203,6 @@
       "date": "2026-06-04",
       "what": "V37.9.105-hotfix3: 用户同步后重跑 governance --full 确认 — 原 3 失败 INV-CONVERGENCE-CRON/PROVIDERS/ROUTER-001 全部自愈 (我的 convergence 测试修 + ROUTER 是 07:00 stale 代码). 浮现 3 个 pre-existing (07:00 被 head 截断): (a) INV-CONVERGENCE-INTEGRATION-001 stale 自检已修 — runtime check 写死 len(specs)==4 但 V37.9.25 加第5 spec services_to_launchd, requires_full 让 dev 跳过只 Mac Mini --full 失败, 4→5+加 spec_id, dev --full 验证 ✅; (b) INV-CRON-004 crontab 重复条目 待用户 uniq -d; (c) INV-MOVESPEED-TCC-001 24h incidents=18>2 V37.9.80 FDA 问题待重查. (b)(c) 真 Mac Mini 运维问题非代码. 112 suites/3941 tests/0 fail.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-06-08",
-      "what": "V37.9.121 日期门控治理 INV 立案: INV-OBSERVER-001 (daily-observer-contract-must-hold, MR-7, high, 9 checks — 合并 INV-OBSERVER-SAMPLING-001 候选, 日落法 MR-22 一物一形避免治理层一物多形; 守 V37.9.87 single-call + V37.9.88 registry filter + V37.9.92 status closure/顺序锁/FAIL-OPEN + V37.9.93 smart sampling 行为级守卫 + runtime 跑 test_daily_observer 166 单测) + INV-SOURCE-CREDIBILITY-001 (source-credibility-contract-must-hold, MR-8, high, 8 checks — 5 档 tier + FAIL-OPEN 未知源→社媒 + chaspark=博客 observer proposal #2 锚点 + kb_dream 5 注入点 + runtime 跑 test_source_credibility 56 单测). 关闭 governance daily_observer 缺 INV 缺口 (7→5 未覆盖). 反向验证两 INV 真有效 (719/724). 顺手退役 test_v37_9_96 硬编码 count 守卫 (冗余于动态守卫, 日落法 MR-22). 复用现有测试不造新文件 (lean). gov v3.54→v3.55 / 87→89 inv / 801→818 checks / 4063→4062 tests (-1 退役) / 0 fail / 安全 95 / VERSION 不变.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -266,7 +266,6 @@
       "V37.9.106 部署后 24h 验证 (~2026-06-05): 现有 30 条 MOVESPEED TM-争用 incident 老化出 24h 窗口后 INV-MOVESPEED-TCC-001 应自动转绿 → 治理审计 721/721 全绿. 验证: python3 ~/movespeed_incident_analyzer.py --window 24h 应显示 incidents 大降 (tmutil 预检让 TM 备份时 rsync 跳过不产新 incident). 若仍红说明 TM 之外还有 incident 来源待查.",
       "ai_leaders_blogs (V37.9.108) Mac Mini feed 可达性验证 + 后续: (a) 首跑后看 log WARN 剪死链 (Anthropic news/Karpathy bearblog URL 是 candidate 待验, Substack /feed 标准应可达) + 补可达大神 feed (b) V37.9.109+ Bluesky 免费无认证 API (public.api.bsky.app getAuthorFeed) 加实时短观点维度 — 学者已大规模迁入 (arXiv 2505.24801), 需 handle→DID 解析 + getAuthorFeed 抓取 + 查哪些大神在 Bluesky (c) 验证稳定后真停用 ai_leaders_x: 需同步更新 6 依赖 (kb_review/source_credibility/INV-REVIEW-001/INV-BACKUP-001/config/wa_gateway_resilience 都期望 ai_leaders_x 为内容源) + Mac Mini crontab_safe.sh remove 清 cron 行 (d) ai_leaders_blogs 接入 Opportunity Radar 三件套 (跨源共振 #1 / 项目对齐 #2 / 趋势加速 #3) 作高质量信号源",
       "V37.9.111-hotfix follow-up B: auto_deploy.sh crontab 双行复发根因 — V37.9.106 删过 HOME 路径行(40→39)又复发(repo 路径 ~/openclaw-model-bridge/auto_deploy.sh + HOME 路径 ~/auto_deploy.sh 都每 2min). 用户已 crontab_safe.sh remove. 查什么再加它 (crontab 重建脚本? backup 恢复? convergence?) 或加 framework 防同脚本双行守卫. 非 convergence machine_sync (两行都含 auto_deploy.sh 被 matched 不 missing).",
-      "V37.9.111-hotfix follow-up C: kb_harvest_chat LLM Reduce 超时 — 6/4 对话 163 轮/37.7 万字/9 chunks, 9 Map 全成功但 Reduce 合并 9 段 LLM 失败 (6/3 也 timeout). 大对话日 Reduce 超容量/超时. 数据没丢(在 ~/.kb/conversations/). 修法: chunked Reduce(分批合并) 或 Reduce retry 或减小 Map chunk.",
       "V37.9.112 已完成 (b) ai_leaders_bsky 接入 Opportunity Radar #2 (top_alignment_picker ALIGNED_SOURCES 9→10, 3 消费方自动生效). 剩余 follow-up (Mac Mini handle 验证后, 非高优): (a) 首跑 log WARN 剪死 handle + 补可达 contrarian 大神 (howard.fm 自定义域名 / garymarcus.bsky.social / emilymbender.bsky.social 候选待验 / fchollet 替代) (c) 2x/天频率评估 (实时短观点价值) + 评估 Bluesky app-password 认证读 login-required 账号",
       "V37.9.110+113 follow-up (升级版, MR-9 测试污染生产 bug 类 framework 化): V37.9.113 已 framework 化 convergence-specific 部分 (TestV37_9_113 AST 反回归守卫 + 行为级正/负对照 sentinel, 拆 test_convergence 真改 crontab/真跑 kb_embed 地雷). 剩余 (专门 session): (a) 立元规则 MR-22 governance-runtime-tests-must-isolate-production-state — V37.9.110 test_movespeed 写真 incidents.jsonl + V37.9.113 test_convergence 真改 crontab 共 2 实例已达立元规则门槛 (b) generic MRD scanner 扫所有 governance runtime python_assert 跑的测试 (INV-RETRY-001 test_movespeed / INV-CONVERGENCE test_convergence / 等) 是否写生产 state 文件 (~/.kb/*.jsonl / crontab / kb_embed 真跑), 跨多测试文件 framework 化此 bug 类",
       "V37.9.120 Mac Mini 残留清理仍待用户 (V37.9.121-hotfix 同步后): bash ~/crontab_safe.sh remove 'bash ~/auto_deploy.sh >> ' (删 HOME 路径 crontab line) + rm ~/auto_deploy.sh (删 HOME 副本) → 之后 ONE crontab 行 (repo) + ONE 副本 (repo clone).",
@@ -275,7 +274,8 @@
       "OpenClaw 升级 (第五次评估 2026-06-08 已做, 用户决策继续 hold 到 6/20 时间表): 详见 docs/gateway_upgrade_eval_v2026.4.md 第十四节. 当前上游 v2026.6.1, 目标 v2026.4.27 (避开全部 4.29/5.x/6.x breaking: tools.exec/fs + plugin manifest + SQLite migration + plugin policy overhaul), G2 门 #59265 仍 closed 无 fix → 降级目标确认. 待办: (a) 6/15 最终前置验证 — bash check_upgrade.sh 看 tripwire + WebFetch 确认 #59265/6.x 无新 dealbreaker + dev 审查 proxy_filters 工具白名单 against v3.31 exec 加固 (b) ~6/20 周六升级按第七节 SOP (备份→升 v2026.4.27→doctor --fix→强制 WhatsApp E2E #59265 验证→双通道推送验证→不可见立即 30 秒回滚). 升级是 Mac Mini SSH 操作 (禁 AI 执行, 自杀悖论). 升级成功后按第九节更新 docs/CLAUDE.md/SOUL.md/status.json/LAST_EVAL_DATE. framework gap: 版本差距 tripwire likely 触发后每周一 cron 持续告警 (已评估决策 hold, 6/20 前 Monday 告警是预期噪声 acknowledged).",
       "V37.9.125 follow-up doc-stat-sync V2 (低优, 日落法续): (a) 三 doc 的 last-updated/最后更新行也纳入自动同步 (config.md '> 最后更新：2026-06-02' 已陈旧 6/8 刷过, 是 per-doc 日期非 stat token 当前 scope 外). (b) FEATURES/config 的更静态统计纳入 (40 active jobs←jobs_registry enabled count / 5 SLO metrics / 19 preflight checks) — 它们 V1 留 scope 外因变更少但 jobs 数曾 35→40 真 drift 过. (c) 评估把 doc-stat-sync 推广到 README 正文散文统计 (当前只摘要行). 前置: 各统计需先确认权威源 + 摘要行/区域唯一性核验 (同 V1 流程).",
       "SLO #19 观察 (V37.9.126 诊断): Mac Mini Qwen3 主力 backend 退化期 (circuit_breaker half-open, fallback=doubao), preflight #19 SLO p95=81s 是 200-滚动窗口含退化请求 (非 stale, 会随流量冲刷自愈). 操作: 观察 Qwen3 是否恢复 (breaker 闭合); 若持续不恢复 → backend/GPU provider 层面; 想 #19 早不报警 → bash ~/restart.sh 清窗口. 非 code bug (监控工作正常). 若退化频繁可评估 SLO latency 改 time-windowed 而非 request-windowed (chunk 外, 独立).",
-      "V37.9.129 follow-up (DEFER, 登记): adapter fallback 循环读 upstream error body (观察性, MR-13/INV-OBSERVABILITY-001 候选)。今天诊断难正因 adapter fb_errors.append(str(fb_err)) 对 HTTPError 只给 'HTTP Error 400: Bad Request' 不读 body, 需直连 gemini 才看到 'User location not supported'。修法: adapter 复用 proxy_filters.compose_backend_error_str (V37.8.10) 或 inline helper。DEFER 原因: gemini 退役后其 400 body moot + doubao timeout 无 informative body + 引入 adapter→proxy_filters 耦合 (日落法 #34 防御本身是事故面)。价值降低非紧急, 但对未来其他 provider HTTP 错误诊断仍有价值。"
+      "V37.9.129 follow-up (DEFER, 登记): adapter fallback 循环读 upstream error body (观察性, MR-13/INV-OBSERVABILITY-001 候选)。今天诊断难正因 adapter fb_errors.append(str(fb_err)) 对 HTTPError 只给 'HTTP Error 400: Bad Request' 不读 body, 需直连 gemini 才看到 'User location not supported'。修法: adapter 复用 proxy_filters.compose_backend_error_str (V37.8.10) 或 inline helper。DEFER 原因: gemini 退役后其 400 body moot + doubao timeout 无 informative body + 引入 adapter→proxy_filters 耦合 (日落法 #34 防御本身是事故面)。价值降低非紧急, 但对未来其他 provider HTTP 错误诊断仍有价值。",
+      "V37.9.130 部署验证 (Mac Mini): (a) git fetch+reset 同步后下次 06:00 cron 应 log \"MapReduce mode\" + 3 天窗口扫描 (b) 6/3、6/4 两个失败日已超 3 天窗口需手动补提炼: python3 ~/kb_harvest_chat.py --date 20260603 && python3 ~/kb_harvest_chat.py --date 20260604 (原始数据在 ~/.kb/conversations/, 提炼后进 KB) (c) 下次大对话日观察 last_run_harvest_chat.json 的 degraded/map_failed 字段 — 如频繁 degraded → V37.9.131+ 评估 REDUCE_BATCH_SIZE 调小或 doubao 显式路由"
     ],
     "open_prs": "",
     "blocked_on": "",
@@ -341,14 +341,14 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 4173,
-    "last_regression": "2026-06-10 01:38 pass",
+    "test_count": 4230,
+    "last_regression": "2026-06-10 16:41 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-10 01:38",
-    "test_suites": 119,
+    "security_score_time": "2026-06-10 16:41",
+    "test_suites": 120,
     "governance_invariants": "90/90",
     "governance_checks": "731/745",
-    "version": "0.37.9.69",
+    "version": "0.37.9.70",
     "observer": {}
   },
   "incidents": [
@@ -413,7 +413,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.129 完成: gemini 香港 geo-block 退役 + doubao fallback 超时 60s→300s。Mac Mini 待 git reset + bash ~/restart.sh 重启 adapter 让新 fallback 链(排除gemini)+300s超时生效, /health 应显示 0.37.9.69 + fallback_chain:[doubao]。Follow-up: adapter 读 upstream error body 观察性(MR-13 DEFER)。下次候选: chunk 5 PyPI / ArXiv 论文 / OpenClaw 6/20。",
+  "focus": "V37.9.130 完成: kb_harvest Reduce 超时血案修复 (层级分批 Reduce 9→3→1 + 300s + retry + fail-soft 机械去重 + --days 3 自动补提炼 + 2 隐藏 MR-4 修复). Mac Mini 待: git reset 同步 + 手动补提炼 python3 ~/kb_harvest_chat.py --date 20260603 / 20260604 + V37.9.129 adapter 重启如未做. 下次候选: chunk 5 PyPI / ArXiv 论文 / OpenClaw 6/15 前置验证+6/20 升级窗口.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
