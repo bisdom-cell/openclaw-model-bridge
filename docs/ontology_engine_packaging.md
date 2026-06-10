@@ -109,7 +109,7 @@ def _resolve_config_dir():
 | **② 次之** | **chunk 2** import 名去泛化 | **最高风险（破坏性：proxy lazy-load + Mac Mini symlink + 全部 import + tests），必须全宪法验证**（删除后正常 + full_regression + 删除安全）。放在 ① 之后是因为：demo 已证明能力成立 → rename 退化为"有明确目标的机械重构"。**绝不第一个做**——在没验证价值前先做破坏性重构，是把风险放在收益前面。 |
 | **② 次之** ✅ **V37.9.107 完成** | **chunk 3a** convergence config-injection | demo（①）真实暴露的耦合（convergence 是 demo 唯一规避的阶段）。低风险（向后兼容）、纯 dev、无需定包名/symlink。提前到 chunk 2 之前做因为它 **de-risk chunk 2**：convergence 不再硬编码到 `ontology/` 目录，rename 时更少东西要改。**交付**: `convergence.py` 两 resolver + demo `convergence_ontology.yaml`/`weatherbot_state.json` + run_demo.py section 5 + 14 单测 + 反向 sabotage 守卫。 |
 | **③ 第三** | **chunk 2** import 名去泛化 → **chunk 3b** MRD 模式参数化 | chunk 2 仍是最高风险破坏性 rename（见 ② 原 chunk 2 段，需定包名 + Mac Mini symlink + 全宪法验证）。chunk 3b（MRD 文件名模式 → Layer 2）放最后因为它触碰 ~10 个 MR-4 血案防护扫描器，需聚焦 session，且当前已优雅 no-op（非紧急）。 |
-| **④ 最后** | **chunk 5** 发布 | 需 chunk 2/3 完成 + 名称/license/PyPI 决策 + sdist/wheel 真构建。 |
+| **④ 最后** ✅ **V37.9.133 完成 (publish-ready)** | **chunk 5** 发布就绪 | sdist (325KB) + wheel (312KB) `python3 -m build` 首次真实构建成功；/tmp venv 从 wheel 安装冒烟（import ontology_engine + 全子模块 + bundled 默认 16 tools）；WeatherBot config-injection 注入消费方 YAML 零 bridge 泄漏；venv `bin/openclaw-ontology-audit` 真跑 WeatherBot 治理审计 exit=0（含 convergence spec）。pyproject 补 `license = {file = LICENSE}` (MIT) + `readme = PACKAGE_README.md`（英文包级 README，PyPI 门面）+ classifiers。`.gitignore` 加 dist/ + *.egg-info/。**实际 PyPI 上传 = 用户决策**（需 PyPI 账号/token + 分发名最终确认，见 §7.2）。 |
 
 **核心工程智慧**：先用便宜的 spike/demo 验证整个包化前提，再投入昂贵的破坏性重构——如果 demo 暴露抽象有问题，就避免了白做 chunk 2 的破坏性 rename。这与本项目 **原则 #18（补证据而非补功能）** + **Provider Plugin 由真消费方（V37.9.52 Doubao）驱动** 一脉相承：扩展接口的价值，只有真实消费方接入那一刻才被证明。
 
@@ -119,8 +119,8 @@ def _resolve_config_dir():
 
 1. **import 名**: ✅ **V37.9.128 chunk-2-lite 已定 = `ontology_engine`**（经 pyproject `package-dir` 映射，非目录 rename）。原 chunk-2 完整 dir rename 方案勘察发现是 50+ 文件破坏性重构（`ontology` 重载为概念词 — keyword 列表 / dict 键 / 子串检查 / 测试数据 / 主题串 — 需逐处人工区分包路径 vs 概念词 + Mac Mini symlink broken-window），价值偏思辨（无实际消费方名冲突）。**用户选低风险 package-dir 映射**：消费方导出名 = `ontology_engine`，bridge 内部零改动（`import ontology`/symlink/proxy lazy-load 全不动），内部自引用已双模式 flat fallback 故 package-name-agnostic。去泛化目标达成，零破坏性。
 2. **分发名**: `ontology-engine` 0.1.0 公共 PyPI 已被他人占用（status.json 已登记撞名）。chunk 1 用 `openclaw-ontology-engine`。是否申请 scoped / 改名 = 发布时决定。
-3. **license**: 仓库未声明 license。chunk 1 pyproject 不写 license 字段（避免错误断言）。发布前补。
-4. **readme**: chunk 1 不设 `readme`（避免 build 脆弱）。发布前指向本文档或专门 README。
+3. **license**: ✅ **V37.9.133 已定 = MIT**（LICENSE 文件已在仓库根，pyproject `license = {file = "LICENSE"}`，wheel 的 dist-info/licenses/ 已验证包含）。
+4. **readme**: ✅ **V37.9.133 已建 = `PACKAGE_README.md`**（英文包级 README：两层架构 + quick start + 5 capabilities + WeatherBot 链接，METADATA Description-Content-Type: text/markdown 已验证）。剩余唯一开放决策 = **实际 PyPI 上传**（用户提供 PyPI 账号/token 后 `python3 -m twine upload dist/*`；分发名 openclaw-ontology-engine 可用性需上传时确认）。
 
 ---
 

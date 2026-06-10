@@ -22,7 +22,9 @@
 #   - import 名 = `ontology_engine` (V37.9.128 chunk-2-lite: package-dir 映射去泛化,
 #     零目录 rename 零内部 churn 零 symlink 变动; 内部 from ontology import 已双模式
 #     flat fallback 故 package-name-agnostic — 消费方装成 ontology_engine 仍工作)
-#   - license / readme 待发布前补 (仅建立 in-repo 包结构, 暂不发布)
+#   - license = MIT (LICENSE 文件已在仓库, V37.9.133 chunk 5 补字段)
+#   - readme = PACKAGE_README.md (英文包级 README, PyPI 门面, V37.9.133 chunk 5)
+#   - 实际 PyPI 发布 = 用户决策 (需 PyPI 账号/token; 本包已 publish-ready)
 
 [build-system]
 requires = ["setuptools>=61.0"]
@@ -34,6 +36,16 @@ version = "0.1.0"
 description = "Declarative governance + tool-ontology engine for Agent Runtime control planes — bring your own YAML (Layer 2), get tool governance + semantic query + governance audit (Layer 1)."
 requires-python = ">=3.9"
 authors = [{ name = "bisdom" }]
+license = { file = "LICENSE" }
+readme = "PACKAGE_README.md"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: System :: Monitoring",
+]
 keywords = [
     "ontology",
     "governance",

@@ -895,13 +895,12 @@ class TestProvidersSpecSourceGuards(unittest.TestCase):
         # Guard against accidental regression below 0.2 (V37.9.20 baseline)
         self.assertNotIn('version: "0.1-skeleton"', self.yaml_src,
             "meta version should be bumped past 0.1-skeleton in V37.9.20+")
-        # Use regex to accept any 0.X-* where X >= 2 (forward-compatible)
+        # V37.9.133: regex 接受 N.M-* (1.0-all-machine-sync-activated 起 major 可 >0)
         import re as _re
-        m = _re.search(r'version:\s*"0\.([0-9]+)-', self.yaml_src)
+        m = _re.search(r'version:\s*"([0-9]+)\.([0-9]+)-', self.yaml_src)
         self.assertIsNotNone(m, "meta version line not found")
-        major = int(m.group(1))
-        self.assertGreaterEqual(major, 2,
-            f"meta version 0.{major}-* below V37.9.20 baseline 0.2")
+        self.assertGreaterEqual((int(m.group(1)), int(m.group(2))), (0, 2),
+            "meta version below V37.9.20 baseline 0.2")
 
     def test_yaml_meta_lists_both_invariants(self):
         # Both V37.9.19 + V37.9.20 invariants present in related_invariants
@@ -1214,14 +1213,13 @@ class TestOpenclawSpecSourceGuards(unittest.TestCase):
         self.assertIn("id: openclaw_config_to_runtime", self.yaml_src)
 
     def test_yaml_meta_version_advanced(self):
-        # V37.9.22 third spec → 0.3-third-spec; fourth spec → 0.4-fourth-spec.
-        # Guard: must be at 0.3+ (third spec baseline or higher)
+        # V37.9.22 third spec → 0.3; V37.9.133 起 major 可 >0 (1.0-all-machine-sync).
+        # Guard: semver-tuple ≥ (0, 3) (third spec baseline or higher)
         import re as _re
-        m = _re.search(r'version:\s*"0\.([0-9]+)-', self.yaml_src)
+        m = _re.search(r'version:\s*"([0-9]+)\.([0-9]+)-', self.yaml_src)
         self.assertIsNotNone(m, "meta version line not found")
-        major = int(m.group(1))
-        self.assertGreaterEqual(major, 3,
-            f"meta version 0.{major}-* below V37.9.22 third-spec baseline 0.3")
+        self.assertGreaterEqual((int(m.group(1)), int(m.group(2))), (0, 3),
+            "meta version below V37.9.22 third-spec baseline 0.3")
 
     def test_yaml_meta_lists_three_invariants(self):
         self.assertIn("INV-CONVERGENCE-CRON-001", self.yaml_src)
@@ -2942,8 +2940,8 @@ class TestVerifyServicesToLaunchdIntegration(unittest.TestCase):
         method = spec["convergence_method"]
         self.assertEqual(method["apply_function"], "services_launchctl_bootstrap",
             "V37.9.97 named-dispatch apply_function")
-        self.assertTrue(method["dry_run_default"],
-            "V37.9.97 起步 dry-run (bootstrap blast-radius 高于 crontab, 一周观察后 flip)")
+        self.assertFalse(method["dry_run_default"],
+            "V37.9.133 flip 真激活 (V37.9.97 起步 dry-run, 6/1-6/11 十天观察零异常后切关)")
 
     def test_spec_uses_services_from_registry_extractor(self):
         spec = cv.get_spec("services_to_launchd")
@@ -3035,6 +3033,7 @@ class TestServicesSpecSourceGuards(unittest.TestCase):
             "0.7-fifth-spec-services-to-launchd",
             "0.8-machine-sync-activated",
             "0.9-services-machine-sync-dry-run",
+            "1.0-all-machine-sync-activated",
         )
         self.assertTrue(
             any(tok in self.yaml_src for tok in version_tokens),
@@ -3075,7 +3074,7 @@ class TestServicesSpecSourceGuards(unittest.TestCase):
         # V37.9.97: 块内必须含 apply_function + dry_run_default: true (dry-run first)
 
     def test_yaml_services_spec_apply_function_and_dry_run_v37_9_97(self):
-        """V37.9.97 — services spec 块内含 apply_function + dry_run_default: true."""
+        """V37.9.97 apply_function + V37.9.133 dry_run_default: false (flip 真激活)."""
         idx = self.yaml_src.find("id: services_to_launchd")
         next_idx = self.yaml_src.find("\n  - id: ", idx + 10)
         if next_idx < 0:
@@ -3083,8 +3082,8 @@ class TestServicesSpecSourceGuards(unittest.TestCase):
         block = self.yaml_src[idx:next_idx]
         self.assertIn("apply_function: services_launchctl_bootstrap", block,
             "V37.9.97 services spec 必须声明 apply_function: services_launchctl_bootstrap")
-        self.assertIn("dry_run_default: true", block,
-            "V37.9.97 services 起步 dry-run (一周观察后 V37.9.97+ flip false)")
+        self.assertIn("dry_run_default: false", block,
+            "V37.9.133 services flip 真激活 (V37.9.97 dry-run 起步 → 十天观察 → 切关)")
 
     def test_yaml_services_spec_command_is_launchctl_list(self):
         idx = self.yaml_src.find("id: services_to_launchd")
@@ -3219,6 +3218,7 @@ class TestV37958DryRunActivation(unittest.TestCase):
         version_tokens = (
             'version: "0.8-machine-sync-activated"',
             'version: "0.9-services-machine-sync-dry-run"',
+            'version: "1.0-all-machine-sync-activated"',
         )
         self.assertTrue(
             any(tok in self.yaml_src for tok in version_tokens),
@@ -3582,10 +3582,11 @@ class TestResolveDryRunForSpec(unittest.TestCase):
         self.assertFalse(cv._resolve_dry_run_for_spec({}),
             "无 convergence_method → 默认 False, 不崩")
 
-    def test_services_real_spec_dry_run_no_env(self):
-        """真 services spec (dry_run_default: true) 无 env → dry-run (Plan B 观察)."""
+    def test_services_real_spec_real_apply_no_env(self):
+        """V37.9.133: 真 services spec (dry_run_default: false) 无 env → real-apply
+        (与 jobs/kb 一致; V37.9.97 起步 dry-run 十天观察后切关)."""
         spec = cv.get_spec("services_to_launchd")
-        self.assertTrue(cv._resolve_dry_run_for_spec(spec))
+        self.assertFalse(cv._resolve_dry_run_for_spec(spec))
 
     def test_jobs_real_spec_real_no_env(self):
         """真 jobs spec (dry_run_default: false) 无 env → real-apply (向后兼容)."""
@@ -3685,13 +3686,21 @@ class TestApplyServicesLaunchctlBootstrap(unittest.TestCase):
                       cv._apply_services_launchctl_bootstrap)
 
     def test_end_to_end_via_verify_convergence_dry_run(self):
-        """端到端: verify_convergence(services) dev 环境 → dry-run would-bootstrap."""
-        saved = os.environ.pop("CONVERGENCE_DRY_RUN", None)
+        """端到端: verify_convergence(services) 显式 CONVERGENCE_DRY_RUN=1 →
+        dry-run would-bootstrap.
+
+        V37.9.133 flip 后 services dry_run_default=false, 本测试改为显式 env
+        隔离 (V37.9.113 纪律: governance runtime 会在 Mac Mini subprocess 跑
+        本文件, real-apply e2e 会真跑 launchctl bootstrap = 测试改生产状态).
+        无 env 的 real-apply 语义由纯函数测试 test_services_real_spec_real_apply_no_env
+        覆盖 (零副作用)."""
+        saved = os.environ.get("CONVERGENCE_DRY_RUN")
+        os.environ["CONVERGENCE_DRY_RUN"] = "1"
         try:
             r = cv.verify_convergence("services_to_launchd")
             self.assertEqual(r.drift_action, "machine_sync")
             self.assertTrue(r.apply_dry_run,
-                "services dry_run_default=true → apply_dry_run=True (无 env)")
+                "显式 CONVERGENCE_DRY_RUN=1 → apply_dry_run=True (env 优先于 spec default)")
             # dev 无 launchctl → observer_failed → 3 declared 全 missing → 3 would-bootstrap
             self.assertEqual(r.apply_errors, ())
             for a in r.applied_actions:
@@ -3699,6 +3708,8 @@ class TestApplyServicesLaunchctlBootstrap(unittest.TestCase):
         finally:
             if saved is not None:
                 os.environ["CONVERGENCE_DRY_RUN"] = saved
+            else:
+                os.environ.pop("CONVERGENCE_DRY_RUN", None)
 
 
 class TestV37997ServicesSourceGuards(unittest.TestCase):

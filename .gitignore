@@ -22,3 +22,7 @@ __pycache__/
 htmlcov/
 OpenClaw配置文档*.md
 ontology/.audit_metrics.jsonl
+
+# Python 打包产物 (V37.9.133 chunk 5)
+dist/
+*.egg-info/
