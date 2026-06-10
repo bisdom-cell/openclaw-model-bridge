@@ -1,6 +1,6 @@
 {
-  "updated": "2026-06-10 18:57:11",
-  "updated_by": "security_score",
+  "updated": "2026-06-10 19:04:45",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-06-11",
+      "what": "unfinished #9 关闭 (用户记忆核实正确): S2 API key 早已申请+配置完成 — Mac Mini log 实证 6/8 起每天 11:00 cron 认证模式 (2s 间隔) 稳定运行, 5/28 匿名池 429 已根治. 旁证: V37.9.99 代码注释的邮件限额措辞 (1 RPS 设到阈值以下) 来自真实发放邮件. 衍生低优候选登记: 关键词 6→12 恢复覆盖",
+      "by": "user+claude_code"
+    },
+    {
+      "date": "2026-06-11",
       "what": "V37.9.133 双交付 (1+2 捆绑, 用户选): ① services_to_launchd flip dry_run_default true→false 真激活 machine_sync (过期门控项 #6 闭环, V37.9.97 6/1 起步 dry-run 十天观察零异常; 真 bootstrap 仅 operator 手动跑时发生 — 07:00 cron 带 CONVERGENCE_DRY_RUN=1 仍只观察, 与 jobs/kb 语义一致; e2e 测试按 V37.9.113 隔离纪律改显式 env; meta version 0.9→1.0-all-machine-sync-activated; 3 处 meta version regex 升级接受 1.x) ② chunk 5 PyPI 包化收尾 (终极目标最后一块): python3 -m build 首次真实构建 sdist 325KB+wheel 312KB / venv 从 wheel 隔离安装冒烟 / WeatherBot config-injection 零 bridge 泄漏 / venv console script 真跑审计 exit=0 / pyproject 补 license=MIT+readme=PACKAGE_README.md(新建英文 PyPI 门面)+classifiers / .gitignore 加 dist. 6+6 新守卫测试 + 反向验证. 121 suites/4268 tests/0 fail/gov exit=0. 包已 publish-ready, 实际 PyPI 上传待用户账号决策",
       "by": "claude_code"
     },
@@ -198,11 +203,6 @@
       "date": "2026-06-04",
       "what": "V37.9.109: ai_leaders_blogs 接入 Opportunity Radar #2 (V37.9.108 自然收口, 用户选). top_alignment_picker ALIGNED_SOURCES 8→9 加 ai_leaders_blogs (博客档 priority 5, dev+Mac Mini 双 cache_paths). #1 跨源共振 (扫所有 KB notes 源无关) + #3 趋势 (KB 关键词) 经 ai-leaders-blogs notes 自动含无需改. 3 消费方 (kb_radar/dream/evening) 经 pick_top_aligned 迭代 ALIGNED_SOURCES 自动 flow 零改. smoke test 验证 ⭐5 pick 进 Top 5 [大神观点] block. 2 新单测 (9 源注册 + 博客档 priority 5 + Mac Mini layout 守卫). 113 suites/3995→3996 tests/0 fail/governance 805/安全 95. ai_leaders 三段式闭环: 收集(blog RSS V37.9.108)→深度分析(LLM 6字段)→机会点雷达(Opportunity Radar #2 高对齐 Top 5 V37.9.109). 实测每轮 25-27 条 ⭐≥4 学者观点进雷达.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-06-04",
-      "what": "V37.9.108-hotfix: ai_leaders_blogs Mac Mini 首跑验证 + 死链剪枝. 9/11 feed 活, 2 死链 (fast.ai Quarto 迁移 RSS 坏 / Anthropic News 无公开 RSS, 均 404) → 换高置信 Substack: One Useful Thing (Ethan Mollick/Wharton 实用乐观派) + Dont Worry About the Vase (Zvi 详尽理性怀疑派). FAIL-OPEN 完美工作 (3 次重试跳过不杀 job). 首跑战果: 45 篇长文全 LLM 解析成功 degraded 0 + 高对齐 25/45 (alignment ⭐≥4) = 结合项目发现机会点引擎生效 + 108829 字印证博客更适合深度分析 + 推 WhatsApp/Discord 14 窗口 + KB 归档. 主任务端到端闭环成功. test 27 仍过 无 test count 变化.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -252,7 +252,6 @@
       "【Stage 2→3 话语权输出】ArXiv 论文创作 — 与用户共创高质量科技论文影响学术界. 候选方向 (按工程证据密度排): (1) Silent Failures Taxonomy from 28+ Production Incidents — 基于 failure_modes_catalog.md 32 案例/5 类+21 元规则+83 不变式, 真实生产 50 天数据非 toy example, 这是稀缺的 (2) Convergence Framework for Declarative Agent Systems — V37.9.19+ 5 spec Plan B 渐进路径 (alert_only→shadow→machine_sync), 50 天 0 漂移生产证据 (3) Hallucination Prevention via Layered Anti-Fabrication Guards — V37.9.57 5 档模板 9 task 集成 2 周+ 零编造血案 + V37.9.56-hotfix3 血案案例溯源. 时机选择: V3 路标 ontology-engine pip 包就位后投稿 (有可分发开源 artifact 配套提高引用率), 或 Stage 2 终态收尾时. 协作模式: 用户提供领域洞察+学术经验, Claude 提供工程数据整理+论文结构组织. 关联资产: docs/articles/audit_is_regression_not_prevention.md (已是立场型文章, 可作论文基底) + docs/articles/why_control_plane.md + ai_partnership_first_principles_zh.md (Stage 2 第 6 篇英译版可作论文哲学层) + ontology/docs/cases/*.md (22 案例文档全部可作 supplementary material). 战略意义: 把\"系统建造者\"升级为\"被引用的方法论原作者\", AI Partnership Framework 从内部哲学升级为可公开 cite 的范式.",
       "V37.9.121 已立 INV-SOURCE-CREDIBILITY-001 (8 checks, source_credibility 全契约). 剩余 follow-up (非高优, 待 Mac Mini): (b) 22:00 evening + 03:00 dream 真激活验证用户视角推送中 [可信度: <等级>] 标注真出现, 尤其 chaspark 引用带'博客级需独立验证'. (c) 可选: get_credibility() 升级为 per-citation 标注 (当前是 prompt-level 注入, 未来可在 emit 端对每条来源自动加 tier 后缀).",
       "convergence cron 行全行比较: 2026-06-02 审计已决定不切换 (case doc cron_line_full_comparison_audit_2026_06_02.md). Mac Mini 真 crontab missing=17 extra=18 全是格式变体 0 脚本缺失, 切换会 false-drift 风暴. 保持 line_contains_identifier (务实最优). 未来候选 (非高优): (a) fuzzy-match parser 归一化引号/~/root/redirect 后比较, 但需先做 registry↔crontab 命令完整性对账 (registry entry 不记 args/cd/真实路径). (b) 2 真差异待用户决定: preference_learner registry entry 补 --apply --days 7 args? / 30 23 手动 rsync→MOVESPEED 是否与 0 4 movespeed_daily_sync 冗余需清理?",
-      "Semantic Scholar API key: 集成代码已就绪 (V37.9.98, FAIL-OPEN, run_semantic_scholar.sh 加 x-api-key header + 条件间隔). 待用户动作: (1) 去 semanticscholar.org/product/api 申请免费 key (审核制邮件发放约几天, 带 key 独占 1 RPS 规避匿名池 429). (2) 加 S2_API_KEY 到 cron 环境 (~/.zshrc 或 launchd plist EnvironmentVariables, 同 ARK_API_KEY 模式). 加完下次 11:00 S2 cron 自动从无认证(30s间隔)升认证(1s间隔)规避 429. 未加 key 时当前行为不变 (FAIL-OPEN). 可选后续: 有 key 后关键词 6→12 恢复更多覆盖 (V37.8.13 因 429 砍半).",
       "Observer-of-Observer 候选 (V37.9.95+ 登记, 低优): 第二个 cron 主动监控 daily_observer.log 的 fallback warn, 累计 ≥ N 次升 [SYSTEM_ALERT] (元监控, MR-7 治理自观察延伸).",
       "V37.9.100 部署验证: Mac Mini git fetch+reset 同步后 governance audit cron 07:00 首次真执行 67 个此前空跑的 check (含 2 critical INV-DREAM-003/INV-WATCHDOG-SELF-001) — 验证生产环境 job_watchdog/守护脚本无真退化 (dev 已全绿 87 inv)",
       "INV-GOV-FIELD-001 一周观察后评估: 是否把 67 个 assertion: 字段统一迁移成 code: (当前 _check_code 双字段兼容, 迁移是 cosmetic 非紧急; meta-guard 已防再漂移)",
@@ -275,7 +274,8 @@
       "V37.9.130 生产验证已通过 (2026-06-11 Mac Mini 实跑): 6/4 真实血案数据 9 chunks 重跑 — hierarchical r1 b1/3(6740c)+b2/3(6220c)+r2(8524c) 3 次小请求零失败零降级, 48 条精华入 KB, 6/3 已确认处理过, 断流全闭环. 同数据对照证实根因=单请求规模非纯超时 (同 9 Map 段, 单次 40K 两次超时 vs 3 次 7K 一次全过). 剩余低优 follow-up: (a) final Reduce max_tokens=2000 被 48 条打满产尾部残行 \"- [\" (finish_reason=length), 超大对话日边界 — V37.9.131+ 评估 2000→3000 或 emit 前剥尾部残行 (b) 长期观察 last_run degraded/map_failed 字段, 频繁 degraded → 评估 REDUCE_BATCH_SIZE 调小或 doubao 显式路由",
       "候选元规则 subshell-inherits-errtrace-under-bash32 (V37.9.131 登记): $(...) 命令替换调用\"设计性非零退出\"命令时必须 set +E 包裹或 || 兜底 — macOS bash 3.2 + set -E 让子shell 继承 ERR trap, 非零退出在子shell 内误触发 fatal_handler FATAL 误报. 已 2 实例达立案门槛 (V37.9.105-hotfix governance_audit 2处 + V37.9.131 watchdog line 728). V37.9.132+ 候选: cross_os_quirk_scanner 加第 6 种 pattern (扫 governed scripts 的 $(...) 含 python3/bash 调用且无 set +E 包裹且无 || 兜底) + 立 MR/INV",
       "V37.9.132 一周观察 (~6/18): deep_dive 摘要级占比应从 76% (34/45) 显著下降 — Mac Mini 验证: grep -L \"基于摘要的分析\" ~/.kb/deep_dives/*.md 看 6/12 后新增文件多数应为全文级. 若仍高: (a) 查 dblp ee 字段 arxiv 覆盖率 (b) S2 openAccessPdf .pdf 结尾比例 (非 .pdf OA 链接保留 S2 页面是有意取舍) (c) 候选增强: deep_dive mode (full_text/abstract_only) 占比纳入 daily_observer 报告让 degrade 频率可观测 (本次 76% gap 潜伏 2 个月才被用户发现的根因是 degrade 频率无聚合复盘)",
-      "ontology-engine 包化已 publish-ready (V37.9.133 chunk 5 完结 — chunk 1/2-lite/3a/3b/3b.2/4/5 全部完成): sdist+wheel 真实构建 + venv 冒烟 + WeatherBot 注入 + console script 审计 exit=0 全验证. 剩余唯一动作 = 实际 PyPI 上传 (用户决策): (1) 用户注册/提供 PyPI 账号 token (2) python3 -m twine upload dist/* (3) 上传时确认分发名 openclaw-ontology-engine 可用性 (公共 ontology-engine 已被占用). 可选 follow-up: chunk 3b follow-up MRD 文件名模式参数化已完成于 V37.9.126/127, 无技术阻塞"
+      "ontology-engine 包化已 publish-ready (V37.9.133 chunk 5 完结 — chunk 1/2-lite/3a/3b/3b.2/4/5 全部完成): sdist+wheel 真实构建 + venv 冒烟 + WeatherBot 注入 + console script 审计 exit=0 全验证. 剩余唯一动作 = 实际 PyPI 上传 (用户决策): (1) 用户注册/提供 PyPI 账号 token (2) python3 -m twine upload dist/* (3) 上传时确认分发名 openclaw-ontology-engine 可用性 (公共 ontology-engine 已被占用). 可选 follow-up: chunk 3b follow-up MRD 文件名模式参数化已完成于 V37.9.126/127, 无技术阻塞",
+      "S2 关键词覆盖恢复候选 (低优): S2 API key 已确认配置且认证模式稳定运行 (2026-06-11 Mac Mini log 核实, 6/8 起每天 11:00 认证模式 2s 间隔, 5/28 匿名池 429 已根治). 可选增强: 关键词 6→12 恢复 V37.8.13 因 429 砍半的覆盖 (认证 1 RPS 下 12 关键词仅多 ~12s, 安全). 顺带: V37.9.98 line 98 注释\"即时发放\"与 V37.9.99 修正\"审核制\"矛盾, 下次触碰该文件时顺手清"
     ],
     "open_prs": "",
     "blocked_on": "",
