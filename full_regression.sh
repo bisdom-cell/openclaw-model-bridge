@@ -89,6 +89,8 @@ run_suite "kb_business (KB全业务逻辑)" "python3 test_kb_business.py"
 run_suite "kb_review (V37.5 fail-fast + registry-driven)" "python3 test_kb_review.py"
 run_suite "kb_evening (V37.6 import reuse + V37.7 today-count)" "python3 test_kb_evening.py"
 run_suite "kb_deep_dive (V37.9.16 picker+fetcher+prompt+shell guards)" "python3 test_kb_deep_dive.py"
+# V37.9.130: 历史 debt 补登 — V37.1 起 test_harvest_chat.py 从未注册进回归
+run_suite "harvest_chat (V37.1 MapReduce + V37.9.130 hierarchical Reduce 300s + fail-soft + --days 3 自动补提炼)" "python3 test_harvest_chat.py"
 run_suite "kb_radar (V37.9.99 Opportunity Radar Stage 5 — 件套交集红/黄/蓝 + shell guards)" "python3 test_kb_radar.py"
 run_suite "daily_observer (V37.9.84 Daily Self-Critique Observer)" "python3 test_daily_observer.py"
 run_suite "expert_escalation (V37.9.90-r1 Expert Escalation Capability — Doubao backend)" "python3 test_expert_escalation.py"
