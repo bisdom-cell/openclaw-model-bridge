@@ -478,5 +478,93 @@ class TestGovernanceLinkage(unittest.TestCase):
             f"meta_rules 必须 >= 19 baseline (当前 {count})")
 
 
+class TestV379131SloSubshellErrtrace(unittest.TestCase):
+    """V37.9.131: SLO 检查子 shell ERR trap 误报修复守卫.
+
+    血案: 2026-06-10 20:30 watchdog FATAL abort exit=2 line=728 误报 —
+    macOS bash 3.2 + set -E 让 $(...) 子 shell 继承 ERR trap, slo_checker
+    --alert 设计性 exit 2 (SLO 违规) 时子 shell 内误触发 fatal_handler.
+    watchdog 主体未死 (canary 20:30:33 正常 + 完整告警汇总照常推送).
+    V37.9.105-hotfix governance_audit 同款 quirk 第 3 处演出, 当时横向漏扫
+    watchdog. 修复 = set +E 包裹 + || 捕获 (governance_audit line 79-81 同款).
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        wd_path = os.path.join(REPO_ROOT, "job_watchdog.sh")
+        with open(wd_path, "r", encoding="utf-8") as f:
+            cls.src = f.read()
+
+    def test_slo_call_wrapped_in_set_plus_e(self):
+        """SLO_ALERT 命令替换必须被 set +E ... set -E 包裹 (子 shell 不继承 trap)"""
+        idx = self.src.find('SLO_ALERT=$(python3 "$SLO_SCRIPT" --alert')
+        self.assertGreater(idx, 0, "SLO_ALERT 命令替换必须存在")
+        before = self.src[max(0, idx - 200):idx]
+        after = self.src[idx:idx + 200]
+        self.assertIn("set +E", before,
+                      "V37.9.131: SLO_ALERT=$(...) 前 200 字符内必须有 set +E")
+        self.assertIn("set -E", after,
+                      "V37.9.131: SLO_ALERT=$(...) 后 200 字符内必须有 set -E 恢复")
+
+    def test_slo_call_has_or_capture_for_set_e_safety(self):
+        """set +E 后 errtrace 关了但 set -e 还在 — 必须 || SLO_RC=$? 捕获防杀脚本"""
+        self.assertIn(
+            'SLO_ALERT=$(python3 "$SLO_SCRIPT" --alert 2>/dev/null) || SLO_RC=$?',
+            self.src,
+            "V37.9.131: 必须用 || SLO_RC=$? 捕获 (set -e 安全)")
+
+    def test_slo_rc_initialized_before_capture(self):
+        """SLO_RC=0 初始化必须在 || 捕获之前 (成功时 || 右侧不执行)"""
+        init_idx = self.src.find("SLO_RC=0")
+        capture_idx = self.src.find("|| SLO_RC=$?")
+        self.assertGreater(init_idx, 0)
+        self.assertGreater(capture_idx, init_idx,
+                           "V37.9.131: SLO_RC=0 初始化必须在 || 捕获之前")
+
+    def test_v37_9_66_if_form_retired(self):
+        """旧 V37.9.66-hotfix if 形式已退役 (它救不了子 shell 内部继承的 trap)"""
+        self.assertNotIn("if SLO_ALERT=$(python3", self.src,
+                         "V37.9.131: if SLO_ALERT=$(...) 形式必须退役 — "
+                         "if 豁免只对外层 condition 生效, bash 3.2 子 shell 仍继承 ERR trap")
+
+    def test_v37_9_131_marker_and_lineage(self):
+        """V37.9.131 marker + V37.9.105-hotfix lineage 注释存在"""
+        self.assertIn("V37.9.131", self.src)
+        self.assertIn("V37.9.105-hotfix", self.src)
+
+    def test_runtime_behavior_exit_2_path_continues(self):
+        """行为级: 修复后代码模式真跑 — fake slo_checker exit 2 时
+        主脚本继续 + SLO_RC=2 正确捕获 + ALERTS 收到告警文本 + trap 不触发"""
+        with tempfile.TemporaryDirectory() as td:
+            fake_slo = os.path.join(td, "slo_checker.py")
+            with open(fake_slo, "w") as f:
+                f.write("import sys; print('SLO violation: p95'); sys.exit(2)\n")
+            test_script = os.path.join(td, "t.sh")
+            with open(test_script, "w") as f:
+                f.write(
+                    "#!/bin/bash\n"
+                    "set -eEo pipefail\n"
+                    "trap 'echo \"[TRAP-FIRED] line=$LINENO\" >&2' ERR\n"
+                    f"SLO_SCRIPT=\"{fake_slo}\"\n"
+                    "ALERTS=()\n"
+                    "SLO_RC=0\n"
+                    "set +E\n"
+                    "SLO_ALERT=$(python3 \"$SLO_SCRIPT\" --alert 2>/dev/null) || SLO_RC=$?\n"
+                    "set -E\n"
+                    "if [ \"$SLO_RC\" -eq 2 ] && [ -n \"$SLO_ALERT\" ]; then\n"
+                    "    ALERTS+=(\"$SLO_ALERT\")\n"
+                    "fi\n"
+                    "echo \"rc=$SLO_RC alerts=${#ALERTS[@]} reached_end=yes\"\n"
+                )
+            result = subprocess.run(["bash", test_script],
+                                    capture_output=True, text=True, timeout=30)
+            self.assertEqual(result.returncode, 0,
+                             f"主脚本必须正常跑完: {result.stderr}")
+            self.assertIn("rc=2 alerts=1 reached_end=yes", result.stdout,
+                          "exit 2 路径必须: 捕获 rc + 收集告警 + 继续执行")
+            self.assertNotIn("[TRAP-FIRED]", result.stderr,
+                             "set +E 包裹内 ERR trap 不得触发")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
