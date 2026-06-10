@@ -29,6 +29,12 @@ try:
 except Exception:
     pass  # config_loader 不可用时使用默认值
 
+# V37.9.129: 永久排除地理封锁/不可达的 provider 出 fallback 链（config-driven，版本控制化退役）。
+# gemini 从香港返回 400 "User location is not supported"（永久 geo-block，一直是死链——
+# 平时 qwen+doubao 够用没人发现，直到 2026-06-10 03:00 三个后端全挂才浮现）。
+# 退役方式 = 保留 GEMINI_API_KEY 在 plist（INV-PLIST-ENV-001 + preflight 要求）+ 从 fallback 链排除。
+_FALLBACK_EXCLUDE = set(_FALLBACK_CFG.get("exclude_providers", []))
+
 # ---------------------------------------------------------------------------
 # Provider registry — V34: 从 providers.py 加载（Provider Compatibility Layer）
 # 向后兼容：PROVIDERS 仍是 dict，provider 对象可通过 get_provider() 获取能力声明
@@ -115,8 +121,10 @@ def _build_fallback_chain():
     chain = []
 
     # 1) Explicit FALLBACK_PROVIDER (backward compat) → first in chain
+    # V37.9.129: _FALLBACK_EXCLUDE 排除地理封锁/不可达 provider（如 gemini 香港 geo-block）
     explicit_fb = os.environ.get("FALLBACK_PROVIDER", "")
-    if explicit_fb and explicit_fb in PROVIDERS and explicit_fb != PROVIDER_NAME:
+    if explicit_fb and explicit_fb in PROVIDERS and explicit_fb != PROVIDER_NAME \
+            and explicit_fb not in _FALLBACK_EXCLUDE:
         fb = PROVIDERS[explicit_fb]
         fb_key = os.environ.get(fb["api_key_env"], "")
         if fb_key:
@@ -133,7 +141,8 @@ def _build_fallback_chain():
         auto_chain = _get_registry().build_fallback_chain(PROVIDER_NAME, require_available=True)
         existing_names = {fb["name"] for fb in chain}
         for cp in auto_chain:
-            if cp.name not in existing_names:
+            # V37.9.129: 排除 _FALLBACK_EXCLUDE 中的 provider（geo-block/不可达）
+            if cp.name not in existing_names and cp.name not in _FALLBACK_EXCLUDE:
                 ck = os.environ.get(cp.api_key_env, "")
                 if ck:
                     chain.append({

@@ -4180,6 +4180,76 @@ invariants:
               assert not missing, \
                   f"V37.9.96 proxy plist 缺 {missing} → expert_escalate silent failure 风险 (V37.9.91 实测案例)"
 
+  # --- V37.9.129 新增：fallback 链排除地理封锁/不可达 provider（gemini 香港 geo-block 血案）---
+
+  - id: INV-FALLBACK-EXCLUDE-001
+    name: geo-blocked-provider-excluded-from-fallback-chain
+    meta_rule: MR-4
+    verification_layer: [declaration, runtime]
+    severity: high
+    declaration: |
+      地理封锁/不可达的 provider 必须从 adapter fallback 链排除（config-driven，
+      版本控制化），而非靠删 Mac Mini plist 的 key（INV-PLIST-ENV-001 + preflight
+      要求 GEMINI_API_KEY 必须在 plist，删 key 会破坏治理）。退役方式 = 保留 key +
+      config.yaml fallback.remote_gpu.exclude_providers 显式排除 +
+      adapter._FALLBACK_EXCLUDE 在 _build_fallback_chain 两条路径（explicit + auto）
+      过滤。否则 provider 因"有 key"被判 available 进链，每次调用返回 400/超时，
+      fallback 链该环长期死掉 = silent 退化（平时主 provider 够用没人发现）。
+    design_decision: |
+      V37.9.129 (2026-06-10 03:00 Dream DEEP 失败) 根因诊断: 三后端全挂 —
+      Qwen3 521 (transient) + doubao read timeout (60s fallback 超时被 5000-token
+      DEEP 撞穿) + gemini HTTP 400。直连 gemini 看 body 揭示
+      "User location is not supported for the API use" (FAILED_PRECONDITION) =
+      Google Gemini API 香港永久 geo-block。gemini 从 doubao 加入前就是死链，
+      只在 primary+doubao 同时失败时才暴露 = fallback 链没有真正的第二张网。
+      修复: config exclude_providers: [gemini] + fallback_timeout_ms 60000→300000
+      (给 doubao 大请求足够时间，不降 DEEP max_tokens)。
+    blood_lessons:
+      - "V37.9.129: gemini 香港 geo-block 400 'User location not supported', fallback 链第 3 环长期死链, 三后端全挂才浮现"
+      - "available (有 key) != working (地理可达): require_available 只查 key 存在不查可达性"
+      - "退役死链走 config 版本控制 (exclude_providers), 不删 plist key (INV-PLIST-ENV-001 要求)"
+    checks:
+      - name: "config.yaml fallback 排除 gemini (geo-block 退役)"
+        check_type: file_contains
+        file: config.yaml
+        pattern: 'exclude_providers: \[gemini\]'
+      - name: "config.yaml fallback_timeout_ms 加大到 300000 (doubao 大请求不超时)"
+        check_type: file_contains
+        file: config.yaml
+        pattern: 'fallback_timeout_ms: 300000'
+      - name: "adapter.py 定义 _FALLBACK_EXCLUDE 读 config exclude_providers"
+        check_type: file_contains
+        file: adapter.py
+        pattern: '_FALLBACK_EXCLUDE = set'
+      - name: "adapter.py auto-discover 路径过滤 _FALLBACK_EXCLUDE"
+        check_type: file_contains
+        file: adapter.py
+        pattern: 'cp\.name not in _FALLBACK_EXCLUDE'
+      - name: "adapter.py explicit FALLBACK_PROVIDER 路径过滤 _FALLBACK_EXCLUDE"
+        check_type: file_contains
+        file: adapter.py
+        pattern: 'explicit_fb not in _FALLBACK_EXCLUDE'
+      - name: "INV-FALLBACK-EXCLUDE-001 V37.9.129 marker 存在"
+        check_type: file_contains
+        file: ontology/governance_ontology.yaml
+        pattern: 'V37\.9\.129'
+      - name: "V37.9.129 runtime: test_adapter fallback-exclude 测试通过 (mock 路径 env-independent)"
+        check_type: python_assert
+        code: |
+          import subprocess, sys, os
+          tests = [
+              "test_adapter.TestHotReloadFunctional.test_v37_9_129_auto_chain_excludes_geo_blocked",
+              "test_adapter.TestHotReloadFunctional.test_v37_9_129_no_exclude_keeps_provider",
+              "test_adapter.TestHotReloadFunctional.test_v37_9_129_explicit_fallback_also_excluded",
+          ]
+          proc = subprocess.run(
+              [sys.executable, "-m", "unittest"] + tests,
+              capture_output=True, text=True, timeout=60, cwd=os.getcwd(),
+          )
+          assert proc.returncode == 0, (
+              f"V37.9.129 fallback-exclude 测试失败:\n{proc.stderr[-600:]}"
+          )
+
   # --- V37.8.16 新增：HEARTBEAT.md 保留文件写入拦截（MR-15 落地）---
 
   - id: INV-HB-001
@@ -9499,9 +9569,10 @@ security_config:
 # 6. 审计元数据
 # ═══════════════════════════════════════════════════════════════════════
 audit_metadata:
-  version: "3.55"
+  version: "3.56"
   created: "2026-04-07"
   upgraded: |
+    v3.55 → v3.56: V37.9.129 (2026-06-10) gemini 香港 geo-block 退役 — INV-FALLBACK-EXCLUDE-001 新增 (geo-blocked-provider-excluded-from-fallback-chain, MR-4, severity=high, verification_layer=[declaration, runtime], 7 checks). 触发: 2026-06-10 03:00 Dream DEEP 失败 (1 chars < 1200, retry 未触发因 LLM 完全空, V37.9.68 fail-fast 正确告警). 数据驱动诊断 (原则 #26/#28) 揭示三后端全挂: Qwen3 521 (transient 恢复中) + doubao read timeout (60s fallback 超时被 5000-token DEEP 撞穿) + gemini HTTP 400. 直连 gemini 看 body = "User location is not supported for the API use" (FAILED_PRECONDITION) = 香港永久 geo-block, fallback 链第 3 环长期死链, 平时 qwen+doubao 够用没人发现直到三个全挂才浮现 (available 有 key != working 地理可达, require_available 只查 key 不查可达性). 退役: config.yaml exclude_providers: [gemini] + adapter._FALLBACK_EXCLUDE 在 _build_fallback_chain 两路径 (explicit+auto) 过滤 (保留 GEMINI_API_KEY 在 plist, INV-PLIST-ENV-001 + preflight 要求, 不删 key). 调优 doubao: fallback_timeout_ms 60000→300000 (= primary timeout, 给大请求足够时间, 用户指示不降 DEEP max_tokens — 不牺牲输出质量, 第 0 号宪法精神). 3 新单测 TestHotReloadFunctional (auto/explicit 路径排除 + 反向验证不排除时 gemini 仍在链证明排除才是移除原因). 观察性修复 (adapter 读 upstream error body) DEFER (gemini 退役后 400 body moot + doubao timeout 无 body, 避免 adapter→proxy_filters 耦合 日落法 #34, 登记 follow-up). VERSION 0.37.9.68→0.37.9.69 (reliability/routing 改动, 同 V37.9.74 RADAR retry). 89→90 invariants / 818→825 checks.
     v3.54 → v3.55: V37.9.121 (2026-06-08 周一) 日期门控治理 INV 立案 — 2 个 INV 关闭
     Phase 0 自主发现的 "daily_observer 缺 INV" 缺口 + 守 V37.9.92/93/98 一周观察期
     已稳定的功能契约. **日落法 MR-22 一物一形应用**: 候选登记的两个 daily_observer
@@ -9611,8 +9682,8 @@ audit_metadata:
     v3.12 → v3.13: V37.8.7 ontology_sources 推送格式错位血案 — INV-ONTOLOGY-001 新增 (ontology-sources-parser-must-be-key-based-not-positional, meta_rule=MR-4, severity=high, verification_layer=[declaration, runtime], 7 checks). 2026-04-15 用户 WhatsApp 收到 ontology_sources 推送严重错位：第 2 篇 cn_title 显示为 *---*、第 3 篇 cn_title 显示为 *价值：⭐⭐⭐⭐*。根因：原解析器用严格位置 (lines[i], lines[i+1], lines[i+2]) + i+=3 步进 — LLM 漏一行"要点"或多一行空白就让所有后续条目的 cn_title/highlight/stars 全部右移一格级联污染。修复：抽到独立模块 jobs/ontology_sources/ontology_parser.py（纯函数 parse_llm_blocks 可单测，避开 V37.5 heredoc-only 不可测血案），按 separator 切块 + 块内 key-based prefix 解析，单块缺行不影响其他块。runtime python_assert 真跑用户实际看到的污染场景断言"缺要点不级联"。24 单测 (test_ontology_parser.py)：TestNormalCases(4) + TestBloodLessonRegression(5) + TestSeparatorVariants(5) + TestLLMOutputVariants(5) + TestShellScriptIntegration(4) + TestActualBloodLessonScenario(1)。MR-4 silent-failure 第 8 次演出（输出"看起来正常" 6 字段都在但语义错乱）。auto_deploy FILE_MAP 补齐 ontology_parser.py。
     v3.11 → v3.12: V37.8.6 Dream 自引用幻觉血案 — INV-DREAM-003 新增 (dream-log-cannot-pollute-cache-nor-fabricate-platform-crises, meta_rule=MR-4, severity=critical, verification_layer=[declaration, runtime], 16 checks). 2026-04-15 03:00 Dream run 出现 4 次 Bad JSON 400 (adapter 收到破损 JSON)，但 Dream 仍产出完整"Hugging Face 平台危机"分析，用户察觉 Signal(Papers with Code 沉默)↔Action(监控 Hugging Face) 主题断裂后上报。三层根因：(a) scraped 内容含 surrogate UTF-8 → json.dump + utf-8 file write → UnicodeEncodeError → body_file 截断 → adapter.py:386 返回 400 Bad JSON (b) kb_dream.sh log() 用 `echo` 写 stdout → signals=$(llm_call ...) 命令替换捕获 log 行进 signals → cache file 被"LLM raw response: Error code 400 Bad JSON..."污染 (c) Reduce cache-only fast path 把错误日志注入 LLM 上下文 → LLM 基于这些字样自动编造"Hugging Face 危机"叙事 = 原则 #23 链式幻觉 + MR-4 silent failure 第 7 次演出。四层结构修复（defense-in-depth）：log→stderr 阻断 stdout 污染通道 + _sanitize(U+D800-U+DFFF → U+FFFD) 防编码炸裂 + file open 显式 encoding='utf-8' errors='replace' 第二防线 + REDUCE/CHUNK1/2/3 system prompt 四块加反污染守卫 (禁止把 HTTP 错误码/Python 异常/错误页 HTML/U+FFFD 当外部信号，禁止基于这些字样推断 Hugging Face/GitHub/npm 等平台状态)。runtime python_assert 真跑 sanitize 五场景 (孤立高位/低位代理/正常串/代理范围边界/sanitize 后 json+utf-8 编码不炸)。19 单测 (TestLogGoesToStderr×2 + TestSanitizeSurrogates×7 + TestShellSanitizeImplementation×5 + TestAntiPollutionSystemPrompt×3 + TestShellScriptIntegrity×1 + TestLogDefHasCommentMeta×1)。
     v3.10 → v3.11: V37.8.5 INV-X-001 升级三层检测 (血案二次演出: V37.8.4 修复本身埋盲区) — V37.8.4 收工 Mac Mini E2E 即发现 2 个边缘：CNS1952 98/99 超窗口 + 1 过短老化率 99% 但未触发严格 old==total (MR-10 第 2 次演出：修复会埋坑)；SingTaoDaily 0-tweet stub (embed disabled 返回空骨架) 被 total>0 门槛绕过完全不标记。V37.8.5 修复：(1) 检测逻辑独立为 jobs/finance_news/finance_news_zombie.py 纯函数模块 (classify_zombie(diag, count)); (2) 三层 tier: "stub" (no_data=0 + total=0) + "stale" (≥90% 老化 + count=0 守卫防止低频活跃误报)，整数比较 old*10 >= total*9 避免浮点; (3) 24 单测锁定三层 + 守卫 + shell 集成 + auto_deploy FILE_MAP; (4) verification_layer 从 [declaration] 升级到 [declaration, runtime] (MR-6 遵循: INV-X-001 现在有 python_assert 真跑 5 个 tier 场景); (5) shell 脚本禁止内嵌 inline fallback (防模块缺失时静默降级回 V37.8.4 逻辑 — MR-8 copy-paste-is-a-bug-class 兑现)。诊断行 tier 区分 ⚠️ ZOMBIE嫌疑[stub] vs [stale]，便于日志定位。
-  total_invariants: 89  # V37.9.121: +2 INV-OBSERVER-001 (daily-observer-contract-must-hold, MR-7, high, 9 checks — 合并 INV-OBSERVER-SAMPLING-001 候选, 日落法 MR-22 一物一形) + INV-SOURCE-CREDIBILITY-001 (source-credibility-contract-must-hold, MR-8, high, 8 checks). V37.9.100: +2 INV-DREAM-CROSS-DOMAIN-001 + INV-GOV-FIELD-001. V37.9.96: +1 INV-PROXY-PLIST-ENV-001. 实际 grep '- id: INV-' = 89
-  total_checks: 818     # V37.9.121: 801 → 818 (+9 INV-OBSERVER-001 + 8 INV-SOURCE-CREDIBILITY-001). V37.9.100: 790 → 801 (+7 INV-DREAM-CROSS-DOMAIN-001 + 4 INV-GOV-FIELD-001). 同 session 修治理执行器血案: _exec_python_assert 只读 code: 让 67 个 assertion: 字段 python_assert 跨 21 INV vacuous pass → _check_code helper 读双字段 + triage 14 个真执行后翻车 (job_watchdog sabotage 还原 / 路径 bug / 阈值 / stale 契约 / exec 作用域陷阱 / requires_full gate). V37.9.97: 781→790. 注: 真实 check_type 行数 grep < total 因 governance_checker 还计 14 MRD discovery + preflight/env 等非 check_type 定义项 — total_checks 是操作权威数 (系统真跑真报)
+  total_invariants: 90  # V37.9.129: +1 INV-FALLBACK-EXCLUDE-001 (geo-blocked-provider-excluded-from-fallback-chain, MR-4, high, 7 checks — gemini 香港 geo-block 退役血案). V37.9.121: +2 INV-OBSERVER-001 (daily-observer-contract-must-hold, MR-7, high, 9 checks — 合并 INV-OBSERVER-SAMPLING-001 候选, 日落法 MR-22 一物一形) + INV-SOURCE-CREDIBILITY-001 (source-credibility-contract-must-hold, MR-8, high, 8 checks). V37.9.100: +2 INV-DREAM-CROSS-DOMAIN-001 + INV-GOV-FIELD-001. V37.9.96: +1 INV-PROXY-PLIST-ENV-001. 实际 grep '- id: INV-' = 90
+  total_checks: 825     # V37.9.129: 818 → 825 (+7 INV-FALLBACK-EXCLUDE-001). V37.9.121: 801 → 818 (+9 INV-OBSERVER-001 + 8 INV-SOURCE-CREDIBILITY-001). V37.9.100: 790 → 801 (+7 INV-DREAM-CROSS-DOMAIN-001 + 4 INV-GOV-FIELD-001). 同 session 修治理执行器血案: _exec_python_assert 只读 code: 让 67 个 assertion: 字段 python_assert 跨 21 INV vacuous pass → _check_code helper 读双字段 + triage 14 个真执行后翻车 (job_watchdog sabotage 还原 / 路径 bug / 阈值 / stale 契约 / exec 作用域陷阱 / requires_full gate). V37.9.97: 781→790. 注: 真实 check_type 行数 grep < total 因 governance_checker 还计 14 MRD discovery + preflight/env 等非 check_type 定义项 — total_checks 是操作权威数 (系统真跑真报)
   meta_rules: 23        # V37.9.117: +2 MR-22 (sunset-over-accretion 日落法北极星 — 降复杂度优先于加功能) + MR-23 (audit-observes-never-mutates 审计只读, 泛化 MR-9, 复用 test_v37_9_116/test_convergence 守卫不铸新 INV)
   meta_rule_discovery_count: 6   # Phase 0: registry + env + notify-topic + layer-depth + error-suppression + notify-activity
   check_types_used: [python_assert, file_contains, file_not_contains, env_var_exists, command_succeeds, log_activity_check]

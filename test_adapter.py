@@ -490,7 +490,8 @@ class TestHotReloadFunctional(unittest.TestCase):
         cls._func_src = match.group(1)
 
     def _exec_build(self, providers=None, provider_name="qwen",
-                    fallback_provider="", get_registry=None, env_overrides=None):
+                    fallback_provider="", get_registry=None, env_overrides=None,
+                    exclude=None):
         """Execute _build_fallback_chain with mocked globals"""
         import os as _os
         env = _os.environ.copy()
@@ -504,6 +505,7 @@ class TestHotReloadFunctional(unittest.TestCase):
             "PROVIDERS": providers or {"qwen": {"base_url": "https://q", "api_key_env": "QWEN_KEY", "model_id": "qwen3", "auth_style": "bearer"}},
             "PROVIDER_NAME": provider_name,
             "_get_registry": get_registry,
+            "_FALLBACK_EXCLUDE": set(exclude or []),  # V37.9.129: 排除 geo-block/不可达 provider
         }
         exec(self._func_src, ns)
         return ns["_build_fallback_chain"]()
@@ -549,6 +551,58 @@ class TestHotReloadFunctional(unittest.TestCase):
         chain = self._exec_build(
             providers=providers,
             env_overrides={"FALLBACK_PROVIDER": "gemini"}  # no GEMINI_KEY
+        )
+        self.assertEqual(chain, [])
+
+    # --- V37.9.129: _FALLBACK_EXCLUDE 退役地理封锁/不可达 provider（gemini 香港 geo-block）---
+
+    @staticmethod
+    def _mock_registry(names):
+        """构造返回指定 provider 名的 mock registry（供 auto-discover 路径测试）"""
+        def _make(name):
+            return type("MockCp", (), {
+                "name": name,
+                "base_url": f"https://{name}",
+                "api_key_env": f"{name.upper()}_KEY",
+                "model_id": f"{name}-model",
+                "auth_style": "bearer",
+            })()
+        reg = type("MockReg", (), {
+            "build_fallback_chain": lambda self, primary, require_available=False: [_make(n) for n in names]
+        })()
+        return lambda: reg
+
+    def test_v37_9_129_auto_chain_excludes_geo_blocked(self):
+        """V37.9.129: auto-discover 路径排除 _FALLBACK_EXCLUDE（gemini geo-block）→ 链只剩 doubao"""
+        chain = self._exec_build(
+            get_registry=self._mock_registry(["doubao", "gemini"]),
+            env_overrides={"DOUBAO_KEY": "k1", "GEMINI_KEY": "k2"},
+            exclude=["gemini"],
+        )
+        names = [c["name"] for c in chain]
+        self.assertIn("doubao", names)
+        self.assertNotIn("gemini", names)
+
+    def test_v37_9_129_no_exclude_keeps_provider(self):
+        """V37.9.129 反向: 不排除时 gemini 仍在链（证明排除才是移除它的原因，非别的）"""
+        chain = self._exec_build(
+            get_registry=self._mock_registry(["doubao", "gemini"]),
+            env_overrides={"DOUBAO_KEY": "k1", "GEMINI_KEY": "k2"},
+            exclude=[],
+        )
+        names = [c["name"] for c in chain]
+        self.assertIn("gemini", names)
+
+    def test_v37_9_129_explicit_fallback_also_excluded(self):
+        """V37.9.129: 显式 FALLBACK_PROVIDER 也受 _FALLBACK_EXCLUDE 约束"""
+        providers = {
+            "qwen": {"base_url": "https://q", "api_key_env": "QWEN_KEY", "model_id": "qwen3", "auth_style": "bearer"},
+            "gemini": {"base_url": "https://g", "api_key_env": "GEMINI_KEY", "model_id": "gemini-2.5", "auth_style": "bearer"},
+        }
+        chain = self._exec_build(
+            providers=providers,
+            env_overrides={"FALLBACK_PROVIDER": "gemini", "GEMINI_KEY": "test-key"},
+            exclude=["gemini"],
         )
         self.assertEqual(chain, [])
 

@@ -1,6 +1,6 @@
 {
-  "updated": "2026-06-09 10:16:36",
-  "updated_by": "unknown",
+  "updated": "2026-06-10 01:39:17",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -105,6 +105,11 @@
   ],
   "recent_changes": [
     {
+      "date": "2026-06-10",
+      "what": "V37.9.129 gemini 香港 geo-block 退役 + doubao 超时调优 — Dream DEEP 失败 SYSTEM_ALERT 数据驱动诊断揭示 fallback 链无真第二张网 (Qwen3 521 transient + doubao 60s 超时 + gemini 400 User location not supported 香港永久 geo-block)。退役 gemini: config exclude_providers:[gemini] + adapter._FALLBACK_EXCLUDE 两路径过滤 (保留 key INV-PLIST-ENV-001)。调优 doubao: fallback_timeout_ms 60000→300000 不降 DEEP max_tokens (用户指示不牺牲质量)。观察性修复 DEFER (日落法 #34)。INV-FALLBACK-EXCLUDE-001 (MR-4, 7 checks) + 3 单测 + 反向验证。119 suites/4173 tests/0 fail/90 inv/825 checks/安全95。VERSION 0.37.9.68→0.37.9.69。Mac Mini 待 git reset + restart.sh 重启 adapter",
+      "by": "claude_code"
+    },
+    {
       "date": "2026-06-09",
       "what": "V37.9.128 chunk-2-lite: import 名去泛化 ontology→ontology_engine 经 pyproject package-dir 映射 (零目录 rename / 零内部 churn / 零 Mac Mini symlink 变动). 用户原指令\"破坏性 rename\"经我 surface 全量真实代价 (50+ 文件 + symlink + 概念词重载) 后选低风险 lite (推荐). 内部 from-ontology-import 已双模式 flat fallback 故 package-name-agnostic. pip install -e . 从 /tmp 验证消费方只见 ontology_engine. 119 suites / 4170 tests (+4) / 0 fail / 89 inv 818 checks 不变 / 安全 95/100 / VERSION 0.37.9.68 不变.",
       "by": "claude_code"
@@ -198,21 +203,6 @@
       "date": "2026-06-08",
       "what": "V37.9.121 日期门控治理 INV 立案: INV-OBSERVER-001 (daily-observer-contract-must-hold, MR-7, high, 9 checks — 合并 INV-OBSERVER-SAMPLING-001 候选, 日落法 MR-22 一物一形避免治理层一物多形; 守 V37.9.87 single-call + V37.9.88 registry filter + V37.9.92 status closure/顺序锁/FAIL-OPEN + V37.9.93 smart sampling 行为级守卫 + runtime 跑 test_daily_observer 166 单测) + INV-SOURCE-CREDIBILITY-001 (source-credibility-contract-must-hold, MR-8, high, 8 checks — 5 档 tier + FAIL-OPEN 未知源→社媒 + chaspark=博客 observer proposal #2 锚点 + kb_dream 5 注入点 + runtime 跑 test_source_credibility 56 单测). 关闭 governance daily_observer 缺 INV 缺口 (7→5 未覆盖). 反向验证两 INV 真有效 (719/724). 顺手退役 test_v37_9_96 硬编码 count 守卫 (冗余于动态守卫, 日落法 MR-22). 复用现有测试不造新文件 (lean). gov v3.54→v3.55 / 87→89 inv / 801→818 checks / 4063→4062 tests (-1 退役) / 0 fail / 安全 95 / VERSION 不变.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-06-08",
-      "what": "V37.9.121-hotfix: preflight check 15 auto_deploy 豁免漏同步修复 (Mac Mini 部署 V37.9.121 时 preflight --full 实测 check 15/19 2 项失败). 非 V37.9.121 引入 — V37.9.120 日落法退役 auto_deploy 出 FILE_MAP 时原则 #31 不完整跨消费者同步 (只改 path_consistency_scanner + check_registry, 漏 preflight check 15 反向检查 + Registry↔FILE_MAP 两路径). check 15 只 Mac Mini --full 跑 dev 测不到 (MR-15 接缝). 最小修复: 两处 else 分支加 auto_deploy RUNS_FROM_REPO_CLONE 豁免. 核实 job_smoke_test 不检 FILE_MAP 成员无需修. mock crontab 验证两路径正确豁免. full_regression 4062/0 fail 不变 (bash heredoc 不在单测层). 登记日落法候选: FILE_MAP 多消费者豁免收敛单一源.",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-06-08",
-      "what": "外部评审 #4 README 文档漂移核查 (评审点名'文档漂移'短板, V37.9.70/71 修 providers/badge, 本次核 governance stats 残留): 对照权威源全面核查 README 656 行所有 stat 声明, 修 ~16 处漂移 — governance v3.47/v3.52→v3.55, 80/85 invariants→89, 731/790 checks→818, 19/21 MR→23, 15 MRD→14, 87 suites→115, 3006 tests→4062, 22/21 cases→25, 27 演出→~28, 2 machine_sync→3 (V37.9.97 services 升级), 39 jobs→46/40 enabled, job_watchdog 19→23 jobs (V37.9.59 扩展), 10/21 aligned→17, 60-invariant→89. 更新 Latest milestone (V37.9.92-95 差 26 版→V37.9.117-121 日落法北极星). providers 全 8 处 + badge 已正确 (V37.9.70/119 held). full_regression 115/0/4062 + 徽章无漂移. 纯 doc 不 bump version. 登记日落法候选: README prose 数字手动复制权威源 = 真一物多形 (gen_readme_badges 只守 badge 不守 prose, 反复漂移).",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-06-08",
-      "what": "V37.9.121-hotfix2: INV-OBSERVER-001 runtime test Mac Mini 隔离 bug 修复 (07:00 governance cron 实测发现). 数据驱动诊断: 07:00 报 3 INV 失败但'不变式 87'=pre-V37.9.121 stale 代码; 用户同步后 INV-ROUTER-001+INV-CRON-004 自愈 (router stale + crontab auto_deploy 经 V37.9.116 修), 对话精华=已知 kb_harvest #26, dblp 503=外部. 但 INV-OBSERVER-001 真失败 (Mac Mini env-dependency). 根因: runtime 跑 test_daily_observer 全 166 测试, test_missing_last_run 失败 — _resolve_last_run_path 第二候选 _MAC_MINI_JOBS_DIR=~/.openclaw/jobs (V37.9.56-hotfix 真 fallback) 泄漏真实 last_run 进空 temp dir 测试 → found=True. dev 无此路径通过 (MR-15 接缝). 修复: TestScanJobStatuses 加 setUp/tearDown 隔离 _MAC_MINI_JOBS_DIR (镜像 TestResolveLastRunPath 已有隔离, 原则 #31 漏一个类). 反向验证 BUG 复现+FIX 验证. 生产代码不动. dev 166 过 + INV-OBSERVER-001 ✅ 724/724 + full_regression 115/4062/0. VERSION/inv/checks 不变 (test 隔离 hotfix).",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -284,7 +274,8 @@
       "V37.9.124 #29 follow-up (低优, 防未来重复调查): INV runtime 收窄已完成 INV-OBSERVER-001 (唯一已证明 env-dependent 套件). #29 调查结论: 其他 ~12 全套件 runtime check 的套件 env-independent 已核实 (test_v37_9_76_router 16 env 信号全 patch 隔离 + relative-to-HOME expanduser 一致; scanner 扫 repo 文件; INV-ROUTER false-fail 是 stale code 非套件 env-dependency), 不需收窄 (原则 #18 补证据非补功能, 收窄 env-independent 套件是 churn). #29 收窄约定已立 (test_v37_9_124 docstring): 套件含 env-dependent test 的 INV 跑契约核心类非全套件; 纯逻辑套件跑全 OK. 未来若新 INV 跑的套件含 env-dependent test (读 repo 外真实系统状态), 按此约定收窄到契约核心类 (镜像 INV-OBSERVER-001/INV-DREAM-CROSS-DOMAIN).",
       "OpenClaw 升级 (第五次评估 2026-06-08 已做, 用户决策继续 hold 到 6/20 时间表): 详见 docs/gateway_upgrade_eval_v2026.4.md 第十四节. 当前上游 v2026.6.1, 目标 v2026.4.27 (避开全部 4.29/5.x/6.x breaking: tools.exec/fs + plugin manifest + SQLite migration + plugin policy overhaul), G2 门 #59265 仍 closed 无 fix → 降级目标确认. 待办: (a) 6/15 最终前置验证 — bash check_upgrade.sh 看 tripwire + WebFetch 确认 #59265/6.x 无新 dealbreaker + dev 审查 proxy_filters 工具白名单 against v3.31 exec 加固 (b) ~6/20 周六升级按第七节 SOP (备份→升 v2026.4.27→doctor --fix→强制 WhatsApp E2E #59265 验证→双通道推送验证→不可见立即 30 秒回滚). 升级是 Mac Mini SSH 操作 (禁 AI 执行, 自杀悖论). 升级成功后按第九节更新 docs/CLAUDE.md/SOUL.md/status.json/LAST_EVAL_DATE. framework gap: 版本差距 tripwire likely 触发后每周一 cron 持续告警 (已评估决策 hold, 6/20 前 Monday 告警是预期噪声 acknowledged).",
       "V37.9.125 follow-up doc-stat-sync V2 (低优, 日落法续): (a) 三 doc 的 last-updated/最后更新行也纳入自动同步 (config.md '> 最后更新：2026-06-02' 已陈旧 6/8 刷过, 是 per-doc 日期非 stat token 当前 scope 外). (b) FEATURES/config 的更静态统计纳入 (40 active jobs←jobs_registry enabled count / 5 SLO metrics / 19 preflight checks) — 它们 V1 留 scope 外因变更少但 jobs 数曾 35→40 真 drift 过. (c) 评估把 doc-stat-sync 推广到 README 正文散文统计 (当前只摘要行). 前置: 各统计需先确认权威源 + 摘要行/区域唯一性核验 (同 V1 流程).",
-      "SLO #19 观察 (V37.9.126 诊断): Mac Mini Qwen3 主力 backend 退化期 (circuit_breaker half-open, fallback=doubao), preflight #19 SLO p95=81s 是 200-滚动窗口含退化请求 (非 stale, 会随流量冲刷自愈). 操作: 观察 Qwen3 是否恢复 (breaker 闭合); 若持续不恢复 → backend/GPU provider 层面; 想 #19 早不报警 → bash ~/restart.sh 清窗口. 非 code bug (监控工作正常). 若退化频繁可评估 SLO latency 改 time-windowed 而非 request-windowed (chunk 外, 独立)."
+      "SLO #19 观察 (V37.9.126 诊断): Mac Mini Qwen3 主力 backend 退化期 (circuit_breaker half-open, fallback=doubao), preflight #19 SLO p95=81s 是 200-滚动窗口含退化请求 (非 stale, 会随流量冲刷自愈). 操作: 观察 Qwen3 是否恢复 (breaker 闭合); 若持续不恢复 → backend/GPU provider 层面; 想 #19 早不报警 → bash ~/restart.sh 清窗口. 非 code bug (监控工作正常). 若退化频繁可评估 SLO latency 改 time-windowed 而非 request-windowed (chunk 外, 独立).",
+      "V37.9.129 follow-up (DEFER, 登记): adapter fallback 循环读 upstream error body (观察性, MR-13/INV-OBSERVABILITY-001 候选)。今天诊断难正因 adapter fb_errors.append(str(fb_err)) 对 HTTPError 只给 'HTTP Error 400: Bad Request' 不读 body, 需直连 gemini 才看到 'User location not supported'。修法: adapter 复用 proxy_filters.compose_backend_error_str (V37.8.10) 或 inline helper。DEFER 原因: gemini 退役后其 400 body moot + doubao timeout 无 informative body + 引入 adapter→proxy_filters 耦合 (日落法 #34 防御本身是事故面)。价值降低非紧急, 但对未来其他 provider HTTP 错误诊断仍有价值。"
     ],
     "open_prs": "",
     "blocked_on": "",
@@ -350,14 +341,14 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 4170,
-    "last_regression": "2026-06-09 10:14 pass",
+    "test_count": 4173,
+    "last_regression": "2026-06-10 01:38 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-09 10:14",
+    "security_score_time": "2026-06-10 01:38",
     "test_suites": 119,
-    "governance_invariants": "89/89",
-    "governance_checks": "724/738",
-    "version": "0.37.9.68",
+    "governance_invariants": "90/90",
+    "governance_checks": "731/745",
+    "version": "0.37.9.69",
     "observer": {}
   },
   "incidents": [
@@ -422,7 +413,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.128 chunk-2-lite 完成 (import 名去泛化 ontology_engine, 零 symlink 变动). ontology-engine 包化剩 chunk 5 (PyPI 发布) + chunk-2-full 不做. 下次候选: chunk 5 / ArXiv 论文 (Stage 2→3) / OpenClaw 6/20 升级窗口.",
+  "focus": "V37.9.129 完成: gemini 香港 geo-block 退役 + doubao fallback 超时 60s→300s。Mac Mini 待 git reset + bash ~/restart.sh 重启 adapter 让新 fallback 链(排除gemini)+300s超时生效, /health 应显示 0.37.9.69 + fallback_chain:[doubao]。Follow-up: adapter 读 upstream error body 观察性(MR-13 DEFER)。下次候选: chunk 5 PyPI / ArXiv 论文 / OpenClaw 6/20。",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
