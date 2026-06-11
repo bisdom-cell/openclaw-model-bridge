@@ -257,6 +257,18 @@ def _doc_header_specs(facts):
         re.compile(r"^> v[0-9.]+ \([0-9-]+\) \| \*\*[0-9]+ tests\*\*.*$", re.MULTILINE),
         features_tokens))
 
+    # ── docs/FEATURES.md 正文 "测试" 表行 (V37.9.141 外部评审 P0: 正文行漂移
+    #    118 套/4099 用例 vs 头部 4286 — 接入自动同步替代手动改数字) ──
+    features_body_tokens = [
+        ("tests body", r"[0-9]+ 用例全部通过", f"{tc} 用例全部通过"),
+    ]
+    if ts is not None:
+        features_body_tokens.append(("suites body", r"[0-9]+ 套单测", f"{ts} 套单测"))
+    specs.append((
+        "docs/FEATURES.md",
+        re.compile(r"^\| \*\*测试\*\* \| [0-9]+ 套单测 \| [0-9]+ 用例全部通过 \|.*$", re.MULTILINE),
+        features_body_tokens))
+
     # ── docs/config.md L4 摘要行 (全角括号 （）) ──
     config_tokens = [
         ("version+date", r"^> 版本：\*\*v[0-9.]+（[0-9-]+）\*\*", f"> 版本：**{vl}（{date}）**"),

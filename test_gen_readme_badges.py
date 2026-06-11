@@ -203,7 +203,30 @@ class TestDocHeaderSpecs(unittest.TestCase):
         self.assertIn("docs/FEATURES.md", rels)
         self.assertIn("docs/config.md", rels)
         self.assertIn("docs/ontology_engine_packaging.md", rels)
-        self.assertEqual(len(specs), 3)
+        # V37.9.141: 4 specs 覆盖 3 docs — FEATURES 有 header + 正文测试行两个 spec
+        # (外部评审 2026-06-11 P0: 正文行 118 套/4099 用例漂移接入自动同步)
+        self.assertEqual(len(specs), 4)
+        self.assertEqual(rels.count("docs/FEATURES.md"), 2)
+
+    def test_features_body_test_row_spec_v37_9_141(self):
+        """FEATURES 正文 | **测试** | 行必须被 spec 管理 (防 118/4099 类漂移复发)."""
+        specs = grb._doc_header_specs(_fake_facts())
+        body_specs = [
+            (rel, anchor, tokens) for rel, anchor, tokens in specs
+            if rel == "docs/FEATURES.md" and "测试" in anchor.pattern
+        ]
+        self.assertEqual(len(body_specs), 1)
+        descs = [d for d, _, _ in body_specs[0][2]]
+        self.assertIn("tests body", descs)
+        self.assertIn("suites body", descs)
+        # 真仓库该行必须与权威值一致 (--write 后幂等)
+        facts = grb.compute_facts(_REPO)
+        content = open(os.path.join(_REPO, "docs/FEATURES.md"), encoding="utf-8").read()
+        import re as _re
+        m = _re.search(r"^\| \*\*测试\*\* \| ([0-9]+) 套单测 \| ([0-9]+) 用例全部通过", content, _re.M)
+        self.assertIsNotNone(m, "FEATURES 正文测试行必须存在")
+        self.assertEqual(int(m.group(1)), facts["test_suites"])
+        self.assertEqual(int(m.group(2)), facts["test_count"])
 
     def test_fail_open_skips_none_facts(self):
         # mrd_scanners/cases/providers/security None → 不管理对应 token (FAIL-OPEN)
