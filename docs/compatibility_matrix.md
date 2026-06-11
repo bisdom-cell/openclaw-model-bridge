@@ -1,165 +1,105 @@
 # Provider Compatibility Matrix
 
-> 自动生成：`python3 providers.py` | 最后更新：2026-04-05
-> 数据来源：`providers.py` — Provider Compatibility Layer (V35)
+> 数据真理源：`providers.py`（`python3 providers.py` 人读 / `--json` 机读）| 最后刷新：2026-06-11（v37.9.141, 外部评审 P0 兑现）
+> **8 Providers**（7 built-in + 1 plugin）。本文档每次 Provider 变更后必须从 `python3 providers.py` 输出重新生成（漂移防护接入计划见 status.json unfinished 外部评审项）。
 
 ---
 
 ## 支持的 Provider
 
-| Provider | Default Model | VL Model | Auth | Base URL |
-|----------|--------------|----------|------|----------|
-| Qwen (Remote GPU) | Qwen3-235B-A22B-Instruct-2507-W8A8 | Qwen2.5-VL-72B-Instruct | Bearer | hkagentx.hkopenlab.com |
-| OpenAI | gpt-4o | — | Bearer | api.openai.com |
-| Google Gemini | gemini-2.5-flash | — | Bearer | generativelanguage.googleapis.com |
-| Anthropic Claude | claude-sonnet-4-6 | — | x-api-key | api.anthropic.com |
-| Kimi (Moonshot AI) | kimi-k2.5 | built-in | Bearer | api.moonshot.ai |
-| MiniMax | MiniMax-M2.7 | built-in | Bearer | api.minimaxi.com |
-| GLM (Zhipu AI) | glm-5 | glm-5v-turbo | Bearer | open.bigmodel.cn |
+| Provider | Models | Modalities | Tool Calling | Streaming | Context | Verified |
+|----------|--------|------------|-------------|-----------|---------|----------|
+| Qwen (Remote GPU) | Qwen3-235B-A22B-Instruct-2507-W8A8, Qwen2.5-VL-72B-Instruct | text, vision | Yes | Yes | 262K | text, vision, tool_calling, streaming, fallback |
+| OpenAI | gpt-4o | text, vision, audio | Yes | Yes | 128K | none |
+| Google Gemini | gemini-2.5-flash | text, vision | Yes | Yes | 1048K | text, fallback |
+| Anthropic Claude | claude-sonnet-4-6 | text, vision | Yes | Yes | 200K | none |
+| Kimi (Moonshot AI) | kimi-k2.5 | text, vision | Yes | Yes | 262K | none |
+| MiniMax | MiniMax-M2.7 | text, vision | Yes | Yes | 204K | none |
+| GLM (Zhipu AI) | glm-5, glm-5v-turbo | text, vision | Yes | Yes | 202K | none |
+| Doubao Seed 2.0 Pro (Volcengine Ark) | doubao-seed-2-0-pro | text, vision | Yes | Yes | 262K | text, vision, tool_calling, streaming, reasoning |
+
+插件接入：Doubao 经 `providers.d/doubao_provider.py`（V37 Provider Plugin Interface，V37.9.52 接入）。
+
+## 验证档位（诚实标注，外部评审 2026-06-11 建议采纳）
+
+> 四档语义：**production_observed**（真实生产流量运行过）> **feature_verified**（分项 E2E 实测通过）> **smoke_tested**（最小 text 调用通过）> **declared**（能力仅来自文档/配置声明，未实测）。"支持" ≠ "生产验证"。
+
+| Provider | 档位 | 依据 |
+|----------|------|------|
+| Qwen (Remote GPU) | **production_observed** | 主力 provider，全部生产流量（V27 起）；5 capability 实测 |
+| Doubao Seed 2.0 Pro | **production_observed** | fallback 链第 1 位真实接管（V37.9.129 起唯一真 fallback）+ expert_escalate 真生产调用（V37.9.91）；text/vision/tool_calling/streaming/reasoning 5/5 E2E 实测（V37.9.53-55） |
+| Google Gemini | **production_observed（已退役出 fallback 链）** | 曾为生产 fallback 真 fire（V37.8.10 等）；**V37.9.129 实证香港 geo-block（HTTP 400 User location is not supported）永久退役**，`config.yaml fallback.exclude_providers: [gemini]` |
+| OpenAI / Claude / Kimi / MiniMax / GLM | **declared** | 能力声明完整 + 合约校验通过，0/N 生产验证（无 API key 配置） |
 
 ## 能力矩阵
 
-| Provider | Text | Vision | Audio | Video | Tool Calling | Streaming | JSON Mode | Context Window |
-|----------|------|--------|-------|-------|-------------|-----------|-----------|---------------|
-| Qwen (Remote GPU) | Yes | Yes | — | — | Yes | Yes | — | 262K |
-| OpenAI | Yes | Yes | Yes | — | Yes | Yes | Yes | 128K |
-| Google Gemini | Yes | Yes | — | — | Yes | Yes | Yes | 1048K |
-| Anthropic Claude | Yes | Yes | — | — | Yes | Yes | — | 200K |
-| Kimi (Moonshot AI) | Yes | Yes | — | — | Yes | Yes | Yes | 256K |
-| MiniMax | Yes | Yes | — | — | Yes | Yes | Yes | 200K |
-| GLM (Zhipu AI) | Yes | Yes | — | — | Yes | Yes | Yes | 200K |
+| Provider | Text | Vision | Audio | Video | Tool Calling | Streaming | JSON Mode | Reasoning | Context Window |
+|----------|------|--------|-------|-------|-------------|-----------|-----------|-----------|---------------|
+| Qwen (Remote GPU) | Yes | Yes | — | — | Yes | Yes | — | — | 262K |
+| OpenAI | Yes | Yes | Yes | — | Yes | Yes | Yes | — | 128K |
+| Google Gemini | Yes | Yes | — | — | Yes | Yes | Yes | — | 1048K |
+| Anthropic Claude | Yes | Yes | — | — | Yes | Yes | — | — | 200K |
+| Kimi (Moonshot AI) | Yes | Yes | — | — | Yes | Yes | Yes | — | 262K |
+| MiniMax | Yes | Yes | — | — | Yes | Yes | Yes | — | 204K |
+| GLM (Zhipu AI) | Yes | Yes | — | — | Yes | Yes | Yes | — | 202K |
+| Doubao Seed 2.0 Pro | Yes | Yes | — | — | Yes | Yes | — | **Yes** (reasoning_content, V37.9.53 实测) | 262K |
 
-## 验证状态
+> Reasoning 维度 V37.9.53 新增（doubao seed reasoning model 实证驱动）。cap_score: doubao 16 > Qwen3 14（framework 视角 doubao 是 registry 最强 provider，V37.9.55）。
 
-> "Verified" = 在生产环境中实际测试并确认功能正常
-
-| Provider | 角色 | Text | Vision | Tool Calling | Streaming | Fallback |
-|----------|------|------|--------|-------------|-----------|----------|
-| **Qwen** | Primary | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: |
-| **Gemini** | Fallback | :white_check_mark: | — | — | — | :white_check_mark: |
-| OpenAI | Available | — | — | — | — | — |
-| Claude | Available | — | — | — | — | — |
-
-### 验证详情
-
-**Qwen (Primary Provider)** — 5/5 verified
-- Text: 日常 WhatsApp 对话，262K context 稳定运行
-- Vision: Qwen2.5-VL-72B 图片理解，自动路由
-- Tool Calling: 12 工具 + 2 自定义工具（data_clean, search_kb）
-- Streaming: SSE 转换，非流式→流式
-- Fallback: 作为 primary 被 Gemini fallback，电路断路器验证
-
-**Gemini (Fallback Provider)** — 2/5 verified
-- Text: 作为 fallback 处理降级请求
-- Fallback: 在 Qwen 超时/故障时自动接管，60s 超时
-
-**OpenAI / Claude / Kimi / MiniMax / GLM** — 0/5 verified
-- 注册表中已配置，但未在生产环境验证
-- 可通过 `PROVIDER=openai|claude|kimi|minimax|glm` 环境变量切换
-
-## 部署配置
-
-### 当前生产配置
-
-```bash
-# Primary
-PROVIDER=qwen
-MODEL_ID=Qwen3-235B-A22B-Instruct-2507-W8A8
-VL_MODEL_ID=Qwen2.5-VL-72B-Instruct
-
-# Fallback
-FALLBACK_PROVIDER=gemini
-FALLBACK_MODEL_ID=gemini-2.5-flash
-
-# Smart Routing (目前禁用)
-FAST_PROVIDER=    # 空 = 禁用
-```
-
-### 切换 Provider
-
-```bash
-# 切换到 OpenAI
-export PROVIDER=openai
-export OPENAI_API_KEY=sk-...
-
-# 切换到 Claude
-export PROVIDER=claude
-export ANTHROPIC_API_KEY=sk-ant-...
-
-# 切换到 Kimi (Moonshot AI)
-export PROVIDER=kimi
-export MOONSHOT_API_KEY=sk-...
-
-# 切换到 MiniMax
-export PROVIDER=minimax
-export MINIMAX_API_KEY=...
-
-# 切换到 GLM (Zhipu AI)
-export PROVIDER=glm
-export GLM_API_KEY=...
-
-# 重启 adapter
-bash restart.sh
-```
-
-## 降级路径
+## Fallback 降级路径（V37.9.129 现状）
 
 ```
-Qwen3-235B (Primary, 5min timeout)
-    ↓ 失败 / 超时 / 电路断路
-Gemini 2.5 Flash (Fallback, 1min timeout)
+Qwen3-235B (Primary, 300s timeout)
+    ↓ 失败 / 超时 / 电路断路 (连续 5 次失败 open, 300s 后 half-open)
+Doubao Seed 2.0 Pro (Fallback, 300s timeout — V37.9.129: 60s→300s 给大请求足够时间)
     ↓ 也失败
-502 Error (两个错误信息一起返回)
+502 Error (完整 upstream 错误链一起返回, V37.8.10 compose_backend_error_str)
 ```
 
-**电路断路器**：连续 5 次失败后自动短路，直接走 Fallback。300 秒后半开尝试恢复。
+- **Gemini 不在链中**：V37.9.129 实证香港 geo-block 后经 `fallback.exclude_providers` 永久排除（key 保留, 地理不可达）。`available`（有 key）≠ `working`（地理可达）。
+- 电路断路器参数中心化于 `config.yaml`：`circuit_breaker_threshold: 5` / `circuit_breaker_reset_seconds: 300`。
+- fallback 链由 `ProviderRegistry.build_fallback_chain(require_available=True)` 按 cap_score 自动推导（V37 capability routing），非硬编码。
 
 ## 添加新 Provider
 
-```python
-# 在 providers.py 中添加：
-class MyProvider(BaseProvider):
-    name = "my_provider"
-    display_name = "My Custom Provider"
-    base_url = "https://api.example.com/v1"
-    api_key_env = "MY_API_KEY"
-    auth_style = "bearer"  # 或 "x-api-key"
-    models = [
-        ModelInfo(
-            model_id="my-model-v1",
-            display_name="My Model v1",
-            modalities=["text"],
-            context_window=32768,
-            is_default=True,
-        ),
-    ]
-    capabilities = ProviderCapabilities(
-        text=True,
-        tool_calling=True,
-        streaming=True,
-    )
+**首选：插件方式（V37 Provider Plugin Interface，零核心代码改动）** — 在 `providers.d/` 放 YAML 或 Python 文件即自动发现，详见 `docs/provider_plugin_guide.md`（60 秒接入）。真实样例：`providers.d/doubao_provider.py`（第 8 个 provider 即此路径接入）。
 
-# 注册到默认注册表
-_default_registry.register(MyProvider())
+```yaml
+# providers.d/my_provider.yaml
+name: my_provider
+display_name: My Custom Provider
+base_url: https://api.example.com/v1
+api_key_env: MY_API_KEY
+auth_style: bearer
+models:
+  - model_id: my-model-v1
+    modalities: [text]
+    context_window: 32768
+    is_default: true
+capabilities:
+  text: true
+  tool_calling: true
+  streaming: true
 ```
 
-然后：
+也可继承 `BaseProvider` 写 Python 插件（需要动态逻辑时，如 Doubao 从 env 读 endpoint ID）。注册后：
+
 ```bash
-export PROVIDER=my_provider
+python3 providers.py --validate
 export MY_API_KEY=...
 bash restart.sh
 ```
 
 ## 工具模式验证
 
-| 模式 | Qwen | Gemini | OpenAI | Claude | Kimi | MiniMax | GLM |
-|------|------|--------|--------|--------|------|---------|-----|
-| 单工具调用 | :white_check_mark: | — | — | — | — | — | — |
-| 多工具并行 | :white_check_mark: | — | — | — | — | — | — |
-| 自定义工具拦截 | :white_check_mark: | — | — | — | — | — | — |
-| Schema 简化 | :white_check_mark: | — | — | — | — | — | — |
-| 参数修复/别名映射 | :white_check_mark: | — | — | — | — | — | — |
+| 模式 | Qwen | Doubao | Gemini | OpenAI | Claude | Kimi | MiniMax | GLM |
+|------|------|--------|--------|--------|--------|------|---------|-----|
+| 单工具调用 | :white_check_mark: | :white_check_mark: (V37.9.55) | — | — | — | — | — | — |
+| 多工具并行 | :white_check_mark: | — | — | — | — | — | — | — |
+| 自定义工具拦截 | :white_check_mark: | — | — | — | — | — | — | — |
+| Schema 简化 | :white_check_mark: | — | — | — | — | — | — | — |
+| 参数修复/别名映射 | :white_check_mark: | — | — | — | — | — | — | — |
 
 ---
 
-*此文档由 `providers.py` 的能力声明驱动，`python3 providers.py --json` 可获取机器可读版本。*
+*此文档由 `providers.py` 的能力声明驱动，`python3 providers.py --json` 可获取机器可读版本。人工段落（验证档位/Fallback 路径）的事实锚点：config.yaml + V37.9.129/V37.9.55 changelog。*
