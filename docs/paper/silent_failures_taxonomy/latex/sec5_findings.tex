@@ -1,0 +1,229 @@
+\section{Cross-Cutting Findings}\label{sec:findings}
+
+\subsection{Latency: how long silence lasts}\label{sec:latency}
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[xscale=0.078]
+  % log-ish horizontal bars: silence span in days (not to scale below 1d)
+  \foreach \y/\len/\name/\mech in {
+      0/60/SSD backup (TCC sandbox)/architecture-level assumption + compromised forensics,
+      -1/7/watchdog self-death/monitoring layer's own silence,
+      -2/5.5/observer path; backup anti-pattern/deployment topology; copy-pasted suppression,
+      -3/0.55/gateway death (9h); reserved-file mute (13h)/alert-chain dependency; runtime semantics,
+      -4/1.6/digest 502; cron omission/error dilution; operational omission}{
+    \draw[fill=red!12, draw=red!60!black, rounded corners=1pt]
+      (0,\y*0.62) rectangle (\len,\y*0.62+0.38);
+    \node[anchor=west, font=\scriptsize] at (\len+1.2,\y*0.62+0.19)
+      {\name\ \ \textcolor{gray}{---\ \mech}};
+  }
+  \draw[-{Stealth}, thin] (0,-3.2) -- (64,-3.2);
+  \foreach \x in {0,10,...,60} \node[font=\tiny, below] at (\x,-3.2) {\x};
+  \node[font=\scriptsize, below=3.5mm] at (30,-3.2) {silence span (days)};
+\end{tikzpicture}
+\caption{Silence span by incident group. Latency tracks the mechanism
+layer, not code complexity: the long tail lives where no test runs.}
+\label{fig:latency}
+\end{figure}
+
+Latency tracks the \textbf{mechanism layer, not code complexity}
+(Fig.~\ref{fig:latency}). Code-level bugs die young: unit tests and the
+next run catch them. What survives for weeks lives where no test
+runs---in deployment topology, OS policy, monitoring-of-monitoring, and
+the gap between declared and runtime state. Latency is therefore a
+\emph{measure of observational distance}: the further a mechanism sits
+from any existing observer, the longer it lives. We suggest
+silence-latency percentiles as a reportable reliability metric for agent
+systems, complementary to MTTR---our experience is that for silent
+failures, time-to-\emph{detect} dominates time-to-repair by one to two
+orders of magnitude.
+
+\subsection{Discovery: who finally notices}\label{sec:discovery}
+
+\begin{table}[t]
+\centering\small
+\caption{Discovery channels across the corpus (qualitative shares).}
+\label{tab:discovery}
+\begin{tabular}{@{}p{52mm}p{18mm}p{52mm}@{}}
+\toprule
+\textbf{Channel} & \textbf{Share} & \textbf{Notes} \\
+\midrule
+\textbf{Human user-view} (reading actual pushed output; weekly
+observation ritual) & \textbf{$\sim$70\%} & ``this digest looks
+shallow'', ``why two windows?'', ``didn't receive yesterday's
+analysis'' \\
+\addlinespace[2pt]
+Target-environment execution (dev green, prod reveals) & high & all
+\classref{A}; several \classref{B} \\
+\addlinespace[2pt]
+Self-observation (governance auditing governance; observer critiquing
+output) & rising & added mid-study; caught its own executor bug \\
+\addlinespace[2pt]
+Unit tests / preflight & $\approx$0 for this corpus & by selection:
+anything they caught never became a silent incident \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The last row of Table~\ref{tab:discovery} is partly tautological---our
+corpus selects for what tests missed---but the magnitude of the first row
+is not. The system runs 4{,}286 tests, 827 governance checks, and a
+19-point preflight, all green through most of these incidents; the single
+most productive detector of silent failure was \textbf{a human looking at
+the product as a user}. We institutionalized this as a weekly 30-minute
+observation ritual (no coding allowed; four dimensions: alert noise, push
+latency, information density, response quality)---and it continued to
+out-detect the automated stack. For practitioners, the implication is
+blunt: \emph{user-view observation is a first-class observability signal
+and deserves calendar time}; for researchers, the open problem is
+mechanizing even part of what the human eye does here. The LLM-as-judge
+literature gives grounds for optimism---strong LLM judges reach
+${>}80\%$ agreement with human preference on open-ended response
+quality~\cite{zheng2023judge}---and our own step in that direction, a
+daily LLM ``observer'' that critiques yesterday's outputs against quality
+heuristics, found real regressions (including a fabrication, and
+including two bugs in \emph{itself}). The qualifier our experience adds
+to that literature: an LLM judging a \emph{system's output for silent
+failure} is itself an LLM component of that system, inheriting every
+class in this taxonomy---ours shipped with a \classref{B} path bug and a
+sampling artifact that made it hallucinate a truncation---so the judge
+needs the same governance, provenance hygiene, and sabotage validation as
+the components it judges.
+
+\subsection{The trigger--amplifier--concealer structure}\label{sec:tac}
+
+Nearly every postmortem decomposed into three causally distinct layers:
+
+\begin{center}\small
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Layer} & \textbf{Role} & \textbf{Examples} \\
+\midrule
+trigger & the external spark & a surrogate byte; an omitted LLM output
+line; a transient EPERM \\
+amplifier & the architectural flaw that spreads it & stdout logging into
+command substitution; \\
+& & positional parsing; 18 copy-pasted suppression idioms \\
+concealer & the absence that hides it & status file lying ``ok'';
+fail-open guard; quiet-hours filter; \\
+& & forensic tool silently denied \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The practical force of the decomposition is prescriptive: \textbf{a fix
+that addresses only the trigger is cosmetic}. Triggers are unbounded (the
+environment will always produce another malformed byte, another quirk);
+amplifiers and concealers are finite and owned by the architecture. Every
+recurrence in our corpus (\S\ref{sec:bugclass}) traces to a fix that
+stopped at the trigger. Conversely, the highest-leverage single fixes
+were amplifier-level (one \texttt{>\&2}; one shared helper replacing 20
+idiom copies) and concealer-level (fail-loud with cause; forensic stderr
+tagging).
+
+\subsection{Silent failure is a bug class, not a bug}\label{sec:bugclass}
+
+The MR-4 manifestation counter (\S\ref{sec:counter}) kept advancing at a
+roughly constant rate across the study---but never twice in the same
+form. Early manifestations were classic swallowing; middle-period ones
+were dilution and fabrication; late ones included \emph{a fix introducing
+a deeper silence} (a retry helper whose exit-code propagation silently
+killed twenty \texttt{set~-e} callers mid-script---the fix for a silent
+failure became a worse one), \emph{a correct fix to the wrong bug} (an
+ownership repair that was real but irrelevant to the EPERM it targeted,
+exposed only because the metric refused to move), and \emph{vacuous
+verification} (the 67 checks executing empty strings). The lesson we draw
+is structural: silent failure cannot be enumerated and fixed; it can only
+be \textbf{governed}---by meta-rules that constrain whole mechanism
+families, scanners that enforce the meta-rules mechanically, and
+validation that the guards themselves are alive (\S\ref{sec:defense}).
+
+\subsection{Defense maturation: point fix $\rightarrow$ meta-rule
+$\rightarrow$ scanner}\label{sec:maturation}
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[node distance=3mm and 8mm]
+  \node[stage, minimum width=34mm, minimum height=15mm] (fix)
+    {\textbf{1. point fix}\\\scriptsize repair this bug};
+  \node[amp, minimum width=34mm, minimum height=15mm, right=of fix] (rule)
+    {\textbf{2. meta-rule}\\\scriptsize named, cross-case rule\\\scriptsize (23 by study end)};
+  \node[good, minimum width=34mm, minimum height=15mm, right=of rule] (scan)
+    {\textbf{3. scanner}\\\scriptsize mechanized check in\\\scriptsize CI + daily audit (15)};
+  \draw[flow] (fix) -- (rule);
+  \draw[flow] (rule) -- (scan);
+  \node[lbl, below=2mm of fix]  {recurs: lesson exists\\only as a diff\\\textcolor{red!60!black}{(8 sites, 2 days later)}};
+  \node[lbl, below=2mm of rule] {memory-bound:\\constrains authors\\who remember it};
+  \node[lbl, below=2mm of scan] {recurrence structurally\\impossible\\\textcolor{green!40!black}{(0 recurrences to date)}};
+\end{tikzpicture}
+\caption{Defense maturation path. Every meta-rule that reached step~3 has
+zero recorded recurrences; every recurrence in the corpus involves a
+lesson that stopped at step~1.}
+\label{fig:maturation}
+\end{figure}
+
+Defense effectiveness in our record correlates with how far a lesson
+traveled along a three-step path (Fig.~\ref{fig:maturation}):
+
+\begin{enumerate}
+\item \textbf{Point fix} --- repair this bug. \emph{Empirically
+insufficient:} an import-omission bug fixed at one site recurred at eight
+sites via an automated injector \textbf{two days later}, because the
+lesson existed only as a diff.
+\item \textbf{Meta-rule} --- write the lesson as a named, cross-case rule
+(23 such rules by study end; e.g., diagnostics-to-stderr; key-based
+parsing; alert-path independence; declared-state convergence;
+reserved-file unwritability). Necessary but memory-bound: rules constrain
+authors who remember them.
+\item \textbf{Mechanized scanner} --- encode the meta-rule as a
+repository-wide check that runs in CI and the daily audit (15 such
+scanners by study end: cross-OS quirks, path consistency, heredoc import
+closure, monitor self-alarm compliance, cross-environment path
+resolution, \dots). Only at this step does recurrence become structurally
+impossible rather than culturally discouraged.
+\end{enumerate}
+
+Every meta-rule that reached step~3 has zero recorded recurrences as of
+the study cutoff; every recurrence in the corpus involves a lesson that
+had stopped at step~1.
+
+\subsection{Audit is a regression engine, not a prediction
+engine}\label{sec:audit}
+
+Mid-study we audited our own defense framework against the first 15
+incidents with three questions per incident: Q1---could the audit, as it
+existed \emph{before} the incident, have caught it? Q2---why not?
+Q3---do the guards added \emph{after} it block the same class going
+forward? Results:
+
+\begin{center}\small
+\begin{tabular}{@{}lr@{}}
+\toprule
+\textbf{Metric} & \textbf{Value} \\
+\midrule
+Ex-ante prevention (Q1 fully) & \textbf{0 / 15 = 0\%} \\
+Partial early warning & 2 / 15 = 13\% \\
+Ex-post regression blocking (Q3 $\geq$ half) & \textbf{13 / 15 = 87\%} \\
+Root cause of misses: a dimension the audit had never conceived &
+12 / 15 = 80\% \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The 0\% is not an indictment of the audit---it is its \emph{job
+description}. 80\% of misses were ``blank categories'': dimensions no
+invariant had ever contemplated, which no amount of diligence within the
+existing dimension set would have covered. Audits, like regression test
+suites, encode the past. The honest engineering posture is to
+(a)~maximize the regression rate (ours: 87\%, with sabotage validation
+pushing reliability of that number), (b)~accept that prevention of
+\emph{novel} mechanism classes comes from elsewhere---user-view
+observation, adversarial review (``what could break that we would not
+notice?''), and target-environment exposure---and (c)~measure the
+\emph{conversion latency} from novel incident to mechanized guard, which
+the three-step path (\S\ref{sec:maturation}) is designed to minimize. A
+complementary adversarial audit (16 destruction scenarios injected
+against the live repository: 10 replaying known incidents, 6 probing
+suspected blind spots) scored 16/16 after the blind-spot batch drove its
+own round of guard additions---a useful exercise precisely because its
+first run did not score 16/16.

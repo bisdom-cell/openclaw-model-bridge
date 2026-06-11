@@ -1,0 +1,89 @@
+\section{Introduction}\label{sec:intro}
+
+The reliability literature has long known that the most damaging failures
+in production systems are not crashes. \emph{Gray
+failures}~\cite{huang2017gray} degrade cloud systems while their failure
+detectors report health; \emph{fail-slow} hardware~\cite{gunawi2018failslow}
+throttles performance for hours before anyone suspects the disk. The
+defining property of both is \textbf{differential observability}: the
+application suffers, but the observer designed to notice does not.
+
+LLM agent systems inherit this entire problem class---and then add a new
+one. An agent runtime is a generator of fluent language. When an upstream
+error leaks into its context window, the system's failure mode is not
+silence; it is \emph{plausible speech}. In one incident we document
+(\S\ref{sec:classd}), an HTTP~400 error page was captured into a cache by
+a logging bug, and the downstream LLM---seeing error strings where
+signals should be---confidently fabricated an industry analysis titled
+around a ``Hugging Face platform crisis'' and pushed it to the user as a
+routine insight digest. No detector fired. Every test was green. The
+error had not disappeared; it had been \emph{narrated}.
+
+We call this behavior \failplausible{}: a failure mode in which the
+system transforms an internal error into coherent, contextually
+appropriate, and false output. Fail-plausible is to LLM agent systems
+what gray failure was to cloud infrastructure---the dominant,
+hardest-to-see failure class---but it is strictly worse for the observer:
+gray failure starves the failure detector of signal, while fail-plausible
+feeds the human a counterfeit one.
+
+This paper reports what eight weeks of documented production incidents in
+a real, continuously operating LLM agent runtime taught us about silent
+failures, in five contributions:
+
+\begin{enumerate}
+
+\item \textbf{A mechanism-oriented taxonomy} (\S\ref{sec:taxonomy}) of
+five silent-failure classes derived from 22 fully documented production
+incidents, each with a complete causal-chain postmortem. We classify by
+\emph{failure mechanism} rather than by failure location, because the
+same mechanism recurs across unrelated components, and a defense against
+a mechanism immunizes a class rather than a file.
+
+\item \textbf{The fail-plausible failure class} (\S\ref{sec:classd}),
+with four documented incidents in which LLMs converted polluted context
+(error logs, stale alerts, injected summaries) into confident
+fabrications delivered to the user---including fabricated software
+releases, fabricated platform crises, and fabricated remediation
+instructions for the host operating system.
+
+\item \textbf{Quantified cross-cutting findings} (\S\ref{sec:findings}):
+incident latency distribution (13~hours to 60~days), discovery-channel
+distribution ($\sim$70\% human user-view; unit tests close to 0\% for
+this failure class), a three-layer root-cause structure
+(trigger~/~amplifier~/~concealer) present in nearly every incident, and
+the empirical observation that one meta-pattern manifested ${\geq}28$
+times across all five classes---silent failure is a \emph{bug class}, not
+a bug.
+
+\item \textbf{An audited defense framework} (\S\ref{sec:defense}) and its
+honest scorecard: a retrospective Q1/Q2/Q3 audit of 15 incidents showing
+0\% ex-ante prevention but 87\% ex-post regression blocking, leading to
+the position that \emph{audit is a regression engine, not a prediction
+engine}; a three-step defense maturation path (point fix $\rightarrow$
+meta-rule $\rightarrow$ mechanized scanner) with evidence that lessons
+stopping at step one recur within days; and sabotage validation
+(deliberately breaking the system to prove each guard actually fires).
+
+\item \textbf{A complexity argument} (\S\ref{sec:discussion}): the
+longest-latency failures did not live in complex components but in
+\emph{seams}---between repository and deployment, between dev and target
+OS, between declared state and runtime state, between observer and
+observed. We argue that agent reliability engineering should optimize for
+\emph{seam reduction} (representation unification, declared-state
+convergence, read-only observers) over defense accretion, and report our
+adoption of an explicit ``Sunset Law''---a standing rule that retiring
+complexity outranks adding protection.
+
+\end{enumerate}
+
+Our study is a single-system longitudinal case study---the methodological
+complement of recent horizontal studies that sample failures across many
+frameworks from benchmark execution traces~\cite{cemri2025mast} or across
+many customers from a provider's incident
+database~\cite{ranganathan2025inference}. Horizontal studies establish
+breadth; what they cannot see is the longitudinal texture of production
+silent failure---multi-week latency, discovery channels, defense
+evolution, recurrence of ``fixed'' lessons---because those only exist in
+a system that runs continuously, pushes output to a real user, and keeps
+complete postmortems. That texture is the subject of this paper.

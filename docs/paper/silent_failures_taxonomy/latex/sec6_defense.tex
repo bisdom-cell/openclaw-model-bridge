@@ -1,0 +1,70 @@
+\section{The Defense Framework That Emerged}\label{sec:defense}
+
+We summarize the framework not as a recommendation of its specifics but
+as an existence proof of one coherent answer, with its audited scorecard
+(\S\ref{sec:audit}) attached. Five pillars:
+
+\paragraph{1. Declarative governance with mandatory depth.}
+90~invariants~/ 827~checks in a YAML ontology, executed by an engine on a
+daily audit cron and in CI. Each invariant declares its meta-rule
+lineage, severity, and \emph{verification layers}; critical invariants
+are mechanically required to verify at ${\geq}2$ layers
+(declaration-level greps are not allowed to stand alone---a rule the
+system enforces on itself via a meta-invariant, after single-layer greps
+demonstrably failed to notice behavioral regressions).
+
+\paragraph{2. Sabotage validation (``test the test'').}
+Every new guard must be proven \emph{alive} by deliberately introducing
+the violation it targets and observing it fire---then reverting. This
+discipline caught, among others: guards that matched their own assertion
+strings (self-referential greps), the 67 vacuous checks
+(\S\ref{sec:classc}, found when a sabotage refused to fail), and tests
+whose fixtures mirrored the wrong assumption (\S\ref{sec:classb}). In a
+system whose primary failure class is \emph{silent}, an unvalidated guard
+is indistinguishable from a vacuous one.
+
+\paragraph{3. Declared-state convergence.}
+A convergence engine diffs every declared registry (jobs, providers,
+services, KB sources, runtime config) against observed runtime state on
+each audit, with per-spec staged escalation: alert-only $\rightarrow$
+machine-sync with dry-run default $\rightarrow$ live synchronization
+after a one-week zero-drift observation window. This retired the largest
+\classref{E} mechanism (operational omission) from ``human memory item''
+to ``machine-closed loop''. Its own history doubles as a cautionary tale
+(\S\ref{sec:discussion}): an audit that \emph{applies} synchronization is
+an observer mutating the observed, and one drift bug caused a
+thrice-recurring crontab duplicate until the audit path was forced to
+dry-run---leading to a standing rule that \textbf{audit observes and
+never mutates}.
+
+\paragraph{4. Context hygiene and anti-fabrication layers (\classref{D}
+defense).}
+Mechanism-level: shell diagnostic output must go to stderr
+(scanner-enforced repo-wide); alerts are tagged at every producer and
+stripped from chat context at the proxy \emph{before} truncation;
+reserved runtime files are unwritable by LLM tools (proxy-intercepted).
+Content-level: a single shared module provides a six-level cumulative
+ladder of anti-fabrication guards injected into all LLM-calling jobs
+(level selection by task risk; upper levels contain literal prohibited
+phrases harvested from actual fabrication incidents and tag requirements
+like \texttt{[strong-evidence]}~/ \texttt{[weak-association]} on every
+cross-domain claim); a source-credibility module labels every ingested
+source on a five-tier provenance scale at prompt-injection time.
+Post-deployment measurement showed the targeted fabrication patterns
+(multi-hop causal chains, ``therefore''-style necessity claims) dropping
+by 53--92\% in the affected synthesis job while tagged-claim usage went
+from zero to ${\sim}9$ per day.
+
+\paragraph{5. Monitoring that monitors itself, and alarms that outlive
+their subject.}
+Watchdog ERR-trap self-alarms plus heartbeat canary files age-checked
+independently; alert routing that never depends on the failing subject
+(gateway-down notifications travel a second transport); freshness
+guarantees on every health field; and an LLM ``observer'' job that
+critiques the previous day's user-facing output---the beginning of
+mechanizing \S\ref{sec:discovery}'s human advantage.
+
+\medskip
+What the framework deliberately does \textbf{not} claim: prevention of
+novel mechanism classes (\S\ref{sec:audit}), and net complexity
+reduction---which motivates \S\ref{sec:discussion}.
