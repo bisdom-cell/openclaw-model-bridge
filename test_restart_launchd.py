@@ -194,8 +194,10 @@ class TestProxyViaLaunchd(unittest.TestCase):
         )
 
     def _proxy_section(self):
+        # V37.9.140: 原边界 `# ── #48703` 段头已随 hotfix 退役移除（日落法），
+        # 现以下一个 `\n# ──` 段头（Gateway）为边界。
         m = re.search(
-            r"# ── Tool Proxy.*?(?=# ── #48703|# ──)",
+            r"# ── Tool Proxy.*?(?=\n# ──)",
             self.src,
             re.DOTALL,
         )
@@ -253,9 +255,35 @@ class TestSingleManagerInvariant(unittest.TestCase):
         self.assertIn("GATEWAY_HEALTHY=false", self.src)
         self.assertIn("Gateway failed to become healthy", self.src)
 
-    def test_48703_hotfix_preserved(self):
-        """#48703 listeners Map hotfix 段必须保留（与 V37.9.13 重构无关）。"""
-        self.assertIn("#48703 hotfix", self.src)
+    def test_48703_hotfix_retired_v37_9_140(self):
+        """#48703 listeners-Map 自动补丁段已退役（V37.9.140 日落法）— 不得回归。
+
+        背景: 上游 2026.3.23 修复 + Gateway 2026-06-11 升级 v2026.4.27 (V37.9.138)，
+        restart.sh 内的 sed 自动补丁成为冗余（且是本脚本唯一 sudo 依赖）。
+        退役的是"自动修补"，不是"监控"——上游回归监控职责由 preflight 12/19 承担。
+        """
+        self.assertNotIn("Applying #48703 hotfix", self.src)
+        self.assertNotIn("globalThis.__openclaw_web_listeners__", self.src)
+        # 退役后 restart.sh 不应再有任何 sudo 命令（注释中提及 sudo 字样不算）
+        self.assertNotRegex(
+            self.src, r"(?m)^\s*sudo\s", "restart.sh 退役 hotfix 后不应再有 sudo 命令"
+        )
+        self.assertIn("V37.9.140", self.src, "退役处必须留 V37.9.140 marker 注释可溯源")
+
+    def test_48703_upstream_watchdog_preserved_in_preflight(self):
+        """跨文件守卫: preflight 12/19 #48703 上游回归监控必须保留。
+
+        V37.9.140 退役 restart.sh 自动补丁的前提是 preflight 仍在监控上游修复
+        （未来 Gateway 升级/降级若重新引入 unpatched listeners Map, preflight fail）。
+        防止未来日落法清理时把"监控"误当"冗余"一并删除。
+        """
+        preflight = _read("preflight_check.sh")
+        self.assertIn("#48703", preflight)
+        self.assertIn(
+            r"const listeners = /\* @__PURE__ \*/ new Map()",
+            preflight,
+            "preflight 必须保留对上游 unpatched 模式的 grep 监控",
+        )
 
 
 class TestShellExecutability(unittest.TestCase):

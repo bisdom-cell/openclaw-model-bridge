@@ -122,21 +122,10 @@ if [ "$_px_rc" -eq 2 ]; then
     sleep 1
 fi
 
-# ── #48703 hotfix: auto-patch listeners Map if needed ──
-OPENCLAW_DIST="/opt/homebrew/lib/node_modules/openclaw/dist"
-if [ -d "$OPENCLAW_DIST" ]; then
-    UNPATCHED=$(grep -rl 'const listeners = /\* @__PURE__ \*/ new Map()' \
-        "$OPENCLAW_DIST" --include="*.js" 2>/dev/null | grep -vc ".bak" || true)
-    UNPATCHED="${UNPATCHED:-0}"
-    if [ "$UNPATCHED" -gt 0 ]; then
-        echo "[restart] Applying #48703 hotfix ($UNPATCHED files)..."
-        sudo sed -i.bak \
-            's|const listeners = /\* @__PURE__ \*/ new Map()|const listeners = globalThis.__openclaw_web_listeners__ ??= /* @__PURE__ */ new Map()|g' \
-            "$OPENCLAW_DIST"/*.js "$OPENCLAW_DIST"/plugin-sdk/*.js 2>/dev/null || true
-        echo "[restart] #48703 hotfix applied"
-    fi
-fi
-
+# ── Gateway (:18789) ─────────────────────────────────────────────────
+# V37.9.140 日落法退役: 原 #48703 listeners-Map 自动补丁段已移除 — 上游 2026.3.23
+# 修复, Gateway 已升级 v2026.4.27 (2026-06-11, V37.9.138)。该段曾是 restart.sh 唯一
+# 的 sudo 依赖。上游回归监控由 preflight_check.sh 12/19 检查承担 (保留, 验证修复仍在)。
 echo "[restart] Starting Gateway via launchd..."
 GATEWAY_PLIST="$HOME/Library/LaunchAgents/ai.openclaw.gateway.plist"
 if [ -f "$GATEWAY_PLIST" ]; then
