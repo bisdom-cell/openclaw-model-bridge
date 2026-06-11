@@ -76,20 +76,20 @@
 | 1 Gray Failure (HotOS'17) | ✅ 全验证 | 作者列表 + DOI 经 WebSearch 验证 2026-06-11 |
 | 2 Fail-Slow at Scale (FAST'18) | ✅ 全验证 | 101→114 reports；TOS 14(3) 扩展版 |
 | 3 MAST (arXiv:2503.13657) | ✅ 全验证 | Cemri/Pan/Yang 首三作者 + κ=0.88 验证 |
-| 4 arXiv:2511.07424 | ✅ snippet 级 | Ranganathan/Zhang/Wu（来源：search snippet 2026-06-11；投稿前对 abs 页终核） |
-| 5 arXiv:2508.07935 SHIELDA | ✅ snippet 级 | Zhou/Chen/Lu/Zhao/Zhu + 36 异常类型/12 artifacts |
-| 6 arXiv:2602.11749 AIR | ✅ snippet 级 | Xiao/Sun/Chen |
-| 7 arXiv:2603.05637 MCP faults | ✅ snippet 级 | Taraghi/Morovati/Khomh |
+| 4 arXiv:2511.07424 | ✅ **arXiv API 终核** | Ranganathan/Zhang/Wu（来源：search snippet 2026-06-11；投稿前对 abs 页终核） |
+| 5 arXiv:2508.07935 SHIELDA | ✅ **arXiv API 终核** | Zhou/Chen/Lu/Zhao/Zhu + 36 异常类型/12 artifacts |
+| 6 arXiv:2602.11749 AIR | ✅ **arXiv API 终核** | Xiao/Sun/Chen |
+| 7 arXiv:2603.05637 MCP faults | ✅ **arXiv API 终核** | Taraghi/Morovati/Khomh |
 | 8 SRE book | ✅ 常识级 | — |
 | 9 arXiv:2508.14231 Incident Analysis for AI Agents | ✅ 全验证 | Ezell/Roberts-Gaal/Chan + **AIES 2025 正式发表**（AAAI/ACM proceedings 确认）；已并入 §2.2（第二轮） |
-| 10 arXiv:2606.05339 MCP runtime faults | ✅ snippet 级 | Owotogbe/Kumara/van den Heuvel/Tamburri/Iannillo/Natella（来源：X 帖子转录） |
+| 10 arXiv:2606.05339 MCP runtime faults | ✅ **arXiv API 终核** | Owotogbe/Kumara/van den Heuvel/Tamburri/Iannillo/Natella（来源：X 帖子转录） |
 | 11 arXiv:2311.05232 hallucination survey | ✅ 全验证 | Huang Lei 等 11 作者（scirp 引用页 + arXiv 确认）；已并入 §2.3（第二轮） |
 | 12 Chaos Engineering (IEEE Software 2016) | ✅ 全验证 | Basiri/Behnam/de Rooij/Hochstein/Kosewski/Reynolds/Rosenthal, 33(3):35-41, DOI 10.1109/MS.2016.60；已并入新 §2.4 |
 | 13 How to Fight Production Incidents (SoCC'22) | ✅ 全验证 | Ghosh/Shetty/Bansal/Nath, Best Paper, 152 Microsoft Teams severe incidents；已并入新 §2.4 |
 | 14 LLM-as-a-Judge (NeurIPS'23) | ✅ 全验证 | Zheng/Chiang/Sheng 等 13 作者, arXiv:2306.05685, >80% human agreement；已并入 §5.2（含"judge 自身继承本 taxonomy 全部类别"回喂论点，实证 = observer 自身 Class B path bug + sampling artifact） |
 
 **第二轮（2026-06-11 同日）已完成**：#9 核实并入 §2.2（含"潜伏时长+发现者两字段应纳入 agent incident report"的回喂论点）/ #11-13 三类引用补齐（hallucination survey → §2.3；chaos engineering + AIOps incident study → 新 §2.4，含 sabotage validation = "chaos engineering applied to guards" 连接点）/ #14 LLM-as-judge → §5.2 / Fig.3 D1 幻觉链 ASCII 图入 §4.4（trigger-amplifier-concealer 标注，LaTeX 阶段重绘正式版）/ 正文引用风格统一为作者-年份。**本稿登记的 related-work pass 全部完成（14 条 verified references）。**
-**投稿前仍需**：全部 snippet 级引用对 arXiv 终核。**dev 环境四渠道已穷尽全部 403/拦截**（arxiv.org / export.arxiv.org / api.semanticscholar.org / curl allowlist），按反馈 #1 教训交给可达环境执行 — **Mac Mini 一条命令**（输出 6 篇的标题+作者，对照 main.tex thebibliography 即可）：
+**✅ 终核完成（2026-06-11 Mac Mini）**：6 篇 arXiv 引用经官方 API（export.arxiv.org，https+-L）逐一对照 main.tex thebibliography，**作者列表 100% 一致，零修改**。投稿前引用工作全部清零。终核命令存档：
 
 ```
 curl -s "http://export.arxiv.org/api/query?id_list=2511.07424,2508.07935,2602.11749,2603.05637,2606.05339,2508.14231" | grep -E "<title>|<name>"
