@@ -149,7 +149,7 @@ $\rightarrow$ scanner}\label{sec:maturation}
   \node[amp, minimum width=34mm, minimum height=15mm, right=of fix] (rule)
     {\textbf{2. meta-rule}\\\scriptsize named, cross-case rule\\\scriptsize (23 by study end)};
   \node[good, minimum width=34mm, minimum height=15mm, right=of rule] (scan)
-    {\textbf{3. scanner}\\\scriptsize mechanized check in\\\scriptsize CI + daily audit (15)};
+    {\textbf{3. scanner}\\\scriptsize mechanized check in\\\scriptsize CI + daily audit (14)};
   \draw[flow] (fix) -- (rule);
   \draw[flow] (rule) -- (scan);
   \node[lbl, below=2mm of fix]  {recurs: lesson exists\\only as a diff\\\textcolor{red!60!black}{(8 sites, 2 days later)}};
@@ -176,7 +176,7 @@ parsing; alert-path independence; declared-state convergence;
 reserved-file unwritability). Necessary but memory-bound: rules constrain
 authors who remember them.
 \item \textbf{Mechanized scanner} --- encode the meta-rule as a
-repository-wide check that runs in CI and the daily audit (15 such
+repository-wide check that runs in CI and the daily audit (14 such
 scanners by study end: cross-OS quirks, path consistency, heredoc import
 closure, monitor self-alarm compliance, cross-environment path
 resolution, \dots). Only at this step does recurrence become structurally

@@ -218,7 +218,7 @@ since early March 2026. Architecturally it follows a three-plane design:
 
 - **Control plane** — a tool-governance proxy (tool filtering to a hard cap, schema repair,
   alert-context stripping, custom tool interception), a declarative governance engine
-  (90 invariants, 827 checks, 23 meta-rules, 15 mechanized discovery scanners, daily audit
+  (90 invariants, 827 checks, 23 meta-rules, 14 mechanized discovery scanners, daily audit
   cron), SLO monitoring, circuit breakers, and a convergence engine that machine-synchronizes
   declared state (job registry, provider registry, service registry) to runtime state
   (crontab, fallback chains, launchd).
@@ -628,7 +628,7 @@ three-step path:
    convergence; reserved-file unwritability). Necessary but memory-bound: rules constrain
    authors who remember them.
 3. **Mechanized scanner** — encode the meta-rule as a repository-wide check that runs in CI
-   and the daily audit (15 such scanners by study end: cross-OS quirks, path consistency,
+   and the daily audit (14 such scanners by study end: cross-OS quirks, path consistency,
    heredoc import closure, monitor self-alarm compliance, cross-environment path resolution,
    …). Only at this step does recurrence become structurally impossible rather than
    culturally discouraged.
@@ -751,7 +751,7 @@ three-question rule before touching code) exists substantially *because* an AI c
 will otherwise pattern-match symptoms to plausible fixes with great speed — industrializing
 the trigger-level cosmetic fix (§5.3); one documented incident chain consisted of five
 cascading "fixes" to a problem whose correct resolution was a single file copy. Conversely,
-the framework's volume (90 invariants, 15 scanners, 4,286 tests, 22 publication-grade
+the framework's volume (90 invariants, 14 scanners, 4,286 tests, 22 publication-grade
 postmortems in eight weeks) is achievable for a single human *only* with such a collaborator.
 We offer the observation, not a verdict: AI collaboration shifts the binding constraint of
 reliability engineering from implementation bandwidth to **judgment discipline** — exactly the
@@ -824,7 +824,7 @@ user who has every reason to believe it, by a pipeline in which every component 
 ## Artifact Availability
 
 All 22 incident postmortems (`ontology/docs/cases/`), the canonical failure-mode catalog, the
-governance ontology (90 invariants / 827 checks / 23 meta-rules), the 15 mechanized scanners,
+governance ontology (90 invariants / 827 checks / 23 meta-rules), the 14 mechanized scanners,
 and the full test suite are public in the system repository. The governance engine is
 additionally published as a standalone, project-agnostic package on PyPI
 (`openclaw-ontology-engine`, v0.1.0): any agent-runtime project can adopt the
