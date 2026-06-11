@@ -87,7 +87,12 @@ test -f "$KB_SRC" || echo "# Semantic Scholar AI论文" > "$KB_SRC"
 # 搜索多个关键词，每个取 20 篇，合并后按引用量排序
 # V37.8.13: 关键词 12→6 (S2 免费 API daily/session limit 收紧，04-16 全部 12 个 429)
 # + 间隔 5s→30s 更温和规避限流。保留核心 AI 关键词 + 1 个 ontology 关键词。
-KEYWORDS=("large language model" "LLM agent" "RAG retrieval augmented" "multimodal AI" "RLHF alignment" "ontology knowledge graph")
+# V37.9.135: 关键词 6→12 恢复 (unfinished #30 兑现) — S2_API_KEY 认证模式已稳定
+# (2026-06-11 Mac Mini log 核实 6/8 起每天 11:00 认证 2s 间隔零 429), 补回
+# V37.8.13 砍掉的 6 个 ontology/KR 方向关键词 (与 jobs/dblp/run_dblp.sh 同源
+# 12 关键词集对齐, V30.5 同期上线 + V37.1 同时加 ontology 方向).
+# 认证模式 12 关键词 × 2s = 24s; 无 key FAIL-OPEN 30s 间隔 × 12 = 6min (老版本同款).
+KEYWORDS=("large language model" "LLM agent" "RAG retrieval augmented" "multimodal AI" "RLHF alignment" "ontology knowledge graph" "neuro-symbolic reasoning" "enterprise ontology" "formal ontology information systems" "description logic OWL" "semantic web linked data" "knowledge representation reasoning")
 RAW_DIR="$CACHE/raw"
 mkdir -p "$RAW_DIR"
 
@@ -100,7 +105,7 @@ FETCH_ERRORS=0
 S2_CURL_AUTH=()
 if [ -n "${S2_API_KEY:-}" ]; then
   S2_CURL_AUTH=(-H "x-api-key: $S2_API_KEY")
-  S2_KW_SLEEP=2   # V37.9.99: 2s 安全余量 (S2 邮件确认限额 1 RPS 且要求"设到阈值以下"; 6 关键词仅多 6s)
+  S2_KW_SLEEP=2   # V37.9.99: 2s 安全余量 (S2 邮件确认限额 1 RPS 且要求"设到阈值以下"; V37.9.135 12 关键词共 ~24s)
   log "S2 API key 已配置 (认证模式, 间隔 ${S2_KW_SLEEP}s)"
 else
   S2_KW_SLEEP=30

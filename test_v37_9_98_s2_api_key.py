@@ -124,5 +124,59 @@ class TestS2ApiKeyBehavior(unittest.TestCase):
         self.assertIn("AUTHCOUNT=0", r.stdout)
 
 
+class TestV379135KeywordRestore(unittest.TestCase):
+    """V37.9.135 unfinished #30 兑现: S2 关键词 6→12 恢复 (认证模式稳定后).
+
+    V37.8.13 因匿名池 429 把 12 砍 6; V37.9.98 API key 集成 + 2026-06-11
+    Mac Mini log 核实认证模式稳定 (6/8 起每天 11:00 零 429) → 恢复覆盖.
+    12 关键词集与 jobs/dblp/run_dblp.sh 同源对齐 (V30.5 同期 + V37.1 ontology).
+    """
+
+    def setUp(self):
+        self.src = _read()
+
+    def _keywords(self, src):
+        m = re.search(r'^KEYWORDS=\((.*)\)\s*$', src, re.MULTILINE)
+        self.assertIsNotNone(m, "KEYWORDS 数组必须存在")
+        return re.findall(r'"([^"]+)"', m.group(1))
+
+    def test_twelve_keywords_restored(self):
+        kws = self._keywords(self.src)
+        self.assertEqual(len(kws), 12,
+                         f"V37.9.135 恢复 12 关键词, 实际 {len(kws)}: {kws}")
+
+    def test_original_six_preserved(self):
+        """V37.8.13 保留的 6 个核心关键词不得丢失 (向后兼容)"""
+        kws = self._keywords(self.src)
+        for kw in ("large language model", "LLM agent", "RAG retrieval augmented",
+                   "multimodal AI", "RLHF alignment", "ontology knowledge graph"):
+            self.assertIn(kw, kws, f"原 6 关键词 '{kw}' 不得丢失")
+
+    def test_ontology_kr_keywords_added(self):
+        """补回的 6 个 ontology/KR 方向关键词 (V37.1 设计意图恢复)"""
+        kws = self._keywords(self.src)
+        for kw in ("neuro-symbolic reasoning", "enterprise ontology",
+                   "formal ontology information systems", "description logic OWL",
+                   "semantic web linked data", "knowledge representation reasoning"):
+            self.assertIn(kw, kws, f"ontology/KR 关键词 '{kw}' 必须恢复")
+
+    def test_aligned_with_dblp_keyword_family(self):
+        """与 DBLP 同源 12 关键词集语义对齐 (MR-8 精神, 6 个补回项逐字一致)"""
+        dblp = os.path.join(_REPO, "jobs", "dblp", "run_dblp.sh")
+        with open(dblp, encoding="utf-8") as f:
+            dblp_src = f.read()
+        dblp_kws = self._keywords(dblp_src)
+        s2_kws = self._keywords(self.src)
+        for kw in ("neuro-symbolic reasoning", "enterprise ontology",
+                   "formal ontology information systems", "description logic OWL",
+                   "semantic web linked data", "knowledge representation reasoning"):
+            self.assertIn(kw, dblp_kws, f"DBLP 必含同源关键词 '{kw}'")
+            self.assertIn(kw, s2_kws, f"S2 必含同源关键词 '{kw}'")
+
+    def test_v37_9_135_marker_present(self):
+        self.assertIn("V37.9.135", self.src)
+        self.assertIn("6→12", self.src)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
