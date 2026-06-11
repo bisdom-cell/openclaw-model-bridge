@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-11 02:10:02",
+  "updated": "2026-06-11 02:27:35",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-06-11",
+      "what": "V37.9.135 S2 关键词 6→12 恢复 (unfinished #30 兑现): 认证模式稳定核实后补回 V37.8.13 砍掉的 6 个 ontology/KR 关键词 (与 DBLP 同源 12 集对齐, V37.1 设计意图恢复). 预算 12×2s=24s 认证模式. 5 新守卫单测 (含 DBLP 同源对齐守卫防两侧漂移) + 反向验证 (sabotage 删关键词 3 守卫同抓). 顺手销 stale 待办 [18] auto_deploy 双行 (V37.9.116/120 + 6/11 清理已三阶段闭环). 121 suites/4286 tests/0 fail. VERSION 不变 (source 配置). 生效: 明日 11:00 S2 cron 12 关键词认证模式, 观察零 429 + ontology/KR 论文覆盖回归",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-11",
       "what": "V37.9.134 cross_os_quirk_scanner 第 6 pattern (subshell_errtrace_designed_nonzero): V37.9.131 候选元规则 subshell-inherits-errtrace-under-bash32 兑现为机器化检测 (2 实例 3 处达门槛: V37.9.105-hotfix governance_audit ×2 + V37.9.131 watchdog SLO). 检测口径两轮校准: 真毒模式=被调命令把非零 exit 当正常 API (governance_checker/slo_checker), || 捕获防不了子shell 内 trap fire (V37.9.105 铁证), 唯一豁免 set +E 包裹. basename 清单 + 审计 flag 启发 (--alert/--check/--validate/--full, watchdog 行内 $SLO_SCRIPT 变量必须靠 flag) + set +E 状态机. repo scan 0 violations (3 历史点全在豁免区且 pattern 全命中 = 删包裹立即抓). 日落法 sunset 决策: 不立独立 MR (scanner+INV 已机器化, 复用 MR-7), 0 新 INV / +1 check. 13 新单测 (27→40) + 反向验证两层 (真删 watchdog set +E → scanner 精确抓 L735 / 检测函数瘫痪 → 6 测试 fail). INV-CROSS-OS-001 7→8 checks + 血案元组 4→6 + RUNTIME check 名去硬编码计数. 121 suites/4281 tests/0 fail/gov 90 inv exit 0. unfinished #28 闭环",
       "by": "claude_code"
     },
@@ -198,11 +203,6 @@
       "date": "2026-06-05",
       "what": "V37.9.110: ai_leaders 加 Bluesky 实时短观点维度 (用户从 3 个纯 dev 方向选 Bluesky, #32 反馈延续). 新 job jobs/ai_leaders_bsky/run_ai_leaders_bsky.sh (17:00 HKT 1x/天). WebSearch 双核实: Bluesky 公开 AppView getAuthorFeed 无需认证+带缓存 (docs.bsky.app) + 30 万学者已迁入 (arXiv 2505.24801). 仅抓取层换 RSS→getAuthorFeed JSON (filter=posts_no_replies + skip reasonRepost + MIN_POST_CHARS=50 + at:// URI→web URL + 外链 embed), 下游 100% 复用 blogs 管道 (6 字段+alignment+LEVEL_4+双通道 🦋+KB+多窗口+FAIL-OPEN+fail-fast) = MR-8. 10 大神 contrarian 为主 (8 confirmed: ylecun/fchollet/melaniemitchell/rao2z/randomwalker/timnitgebru/mmitchell/howard.fm + Gary Marcus/Emily Bender 候选). prompt 适配短帖防过度膨胀 (V37.9.40 教训). dev parser 行为验证 (skip 转发/过短+URI→URL+外链+dedup+FAIL-OPEN). 3 MR-8 漂移守卫修 (source_credibility 15→16 社媒 tier / EXPECTED_RSYNC_SITES 23→24 / config.md). 40 新单测 9 类含 runtime parser 行为. 113→114 suites / 3996→4036 tests / 0 fail / governance 805 checks exit0 / 安全 95 / VERSION 0.37.9.68 不变. Mac Mini 待: git fetch+reset + 注册 17:00 cron + 首跑验证 10 handle 可达性 (FAIL-OPEN 剪枝) + 收 🦋 推送. follow-up: V37.9.111 接入 Opportunity Radar #2 (handle 验证产真数据后 wire, 今天 KB notes 已自动喂 Radar #1/#3).",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-06-04",
-      "what": "V37.9.110: 测试污染生产 incidents.jsonl 血案修复 (收工后 16:30 watchdog 真告警驱动). 假 CORE governance fail + 假 MOVESPEED 72 rsync 失败告警, 数据驱动诊断 (analyzer 72/72 caller=caller.sh 测试桩+时间窗匹配今天跑测试) 揭示根因: governance INV-RETRY-001 跑 test_movespeed_rsync_helper.py, 15 失败路径测试 + _run_helper 零隔离 → helper incident_capture 写真实 ~/.kb (caller=桩) → 灌爆 INV-MOVESPEED-TCC-001 24h>2 假 fail. 每次 audit 重新污染永不老化转绿 (推翻 V37.9.106 待 24h 假设) + 腐蚀真 MOVESPEED 取证. MR-9 类+MR-7 治理自观察最深演出 (audit 跑的测试腐蚀 audit 查的数据). 修: _run_helper setdefault MOVESPEED_INCIDENT_FILE 到 /tmp + 2 inline subprocess 加隔离 + 4 守卫 (inspect.getsource 避自引用陷阱, reverse-validation 抓到我第一版守卫自引用缺陷 → 改 inspect 真有效). 113 suites/3996→4000 tests/0 fail/governance 805/安全 95. Mac Mini 即时补救: grep -v caller.sh 清 72 条污染 → 告警转绿.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -262,7 +262,6 @@
       "ontology-engine 包化 chunk 4 已完成 (V37.9.104, 取代 #14 的「先做 chunk 4」建议). examples/minimal_consumer/ WeatherBot 真消费方 demo + Extension Guide + 12 端到端单测, dev config-injection 端到端跑通. 下一步按 docs/ontology_engine_packaging.md §6.1 推进顺序 = chunk 2 (import 名 ontology→ontology_engine 去泛化, 破坏性需全宪法验证 — demo 已证明价值故 rename 退化为机械重构, 涉 proxy_filters lazy-load spec_from_file_location + Mac Mini $HOME/ontology symlink + 全 import + ontology/tests/). chunk 4 demo 暴露具体耦合点供 chunk 3: convergence.py::_DEFAULT_SPEC_PATH = Path(__file__).parent/convergence_ontology.yaml 不读 ONTOLOGY_CONFIG_DIR (已登记 packaging.md §5). chunk 5 = sdist/wheel build + pip install 冒烟 + PyPI 名/license/readme 发布决策.",
       "V37.9.106 部署后 24h 验证 (~2026-06-05): 现有 30 条 MOVESPEED TM-争用 incident 老化出 24h 窗口后 INV-MOVESPEED-TCC-001 应自动转绿 → 治理审计 721/721 全绿. 验证: python3 ~/movespeed_incident_analyzer.py --window 24h 应显示 incidents 大降 (tmutil 预检让 TM 备份时 rsync 跳过不产新 incident). 若仍红说明 TM 之外还有 incident 来源待查.",
       "ai_leaders_blogs (V37.9.108) Mac Mini feed 可达性验证 + 后续: (a) 首跑后看 log WARN 剪死链 (Anthropic news/Karpathy bearblog URL 是 candidate 待验, Substack /feed 标准应可达) + 补可达大神 feed (b) V37.9.109+ Bluesky 免费无认证 API (public.api.bsky.app getAuthorFeed) 加实时短观点维度 — 学者已大规模迁入 (arXiv 2505.24801), 需 handle→DID 解析 + getAuthorFeed 抓取 + 查哪些大神在 Bluesky (c) 验证稳定后真停用 ai_leaders_x: 需同步更新 6 依赖 (kb_review/source_credibility/INV-REVIEW-001/INV-BACKUP-001/config/wa_gateway_resilience 都期望 ai_leaders_x 为内容源) + Mac Mini crontab_safe.sh remove 清 cron 行 (d) ai_leaders_blogs 接入 Opportunity Radar 三件套 (跨源共振 #1 / 项目对齐 #2 / 趋势加速 #3) 作高质量信号源",
-      "V37.9.111-hotfix follow-up B: auto_deploy.sh crontab 双行复发根因 — V37.9.106 删过 HOME 路径行(40→39)又复发(repo 路径 ~/openclaw-model-bridge/auto_deploy.sh + HOME 路径 ~/auto_deploy.sh 都每 2min). 用户已 crontab_safe.sh remove. 查什么再加它 (crontab 重建脚本? backup 恢复? convergence?) 或加 framework 防同脚本双行守卫. 非 convergence machine_sync (两行都含 auto_deploy.sh 被 matched 不 missing).",
       "V37.9.112 已完成 (b) ai_leaders_bsky 接入 Opportunity Radar #2 (top_alignment_picker ALIGNED_SOURCES 9→10, 3 消费方自动生效). 剩余 follow-up (Mac Mini handle 验证后, 非高优): (a) 首跑 log WARN 剪死 handle + 补可达 contrarian 大神 (howard.fm 自定义域名 / garymarcus.bsky.social / emilymbender.bsky.social 候选待验 / fchollet 替代) (c) 2x/天频率评估 (实时短观点价值) + 评估 Bluesky app-password 认证读 login-required 账号",
       "V37.9.110+113 follow-up (升级版, MR-9 测试污染生产 bug 类 framework 化): V37.9.113 已 framework 化 convergence-specific 部分 (TestV37_9_113 AST 反回归守卫 + 行为级正/负对照 sentinel, 拆 test_convergence 真改 crontab/真跑 kb_embed 地雷). 剩余 (专门 session): (a) 立元规则 MR-22 governance-runtime-tests-must-isolate-production-state — V37.9.110 test_movespeed 写真 incidents.jsonl + V37.9.113 test_convergence 真改 crontab 共 2 实例已达立元规则门槛 (b) generic MRD scanner 扫所有 governance runtime python_assert 跑的测试 (INV-RETRY-001 test_movespeed / INV-CONVERGENCE test_convergence / 等) 是否写生产 state 文件 (~/.kb/*.jsonl / crontab / kb_embed 真跑), 跨多测试文件 framework 化此 bug 类",
       "3-engine-merge 已两次评估结论 DEFER (V37.9.119 + 2026-06-08 本 session 加深), 勿再从头调查. **结构**: 3 个 engine.py 加载点 — proxy_filters:452 (_onto_engine, module-level 仅 on/shadow, generate_proxy_data 覆盖 ALLOWED_TOOLS + 保留 _onto_mod 供 evaluate_policy, 每请求工具过滤核心) / proxy_filters:1463 (ontology_engine, _check_ontology_consistency 无条件所有 mode, 一致性诊断) / three_gate:183 (_three_gate_engine_lazy, lazy 首次 gate 评估缓存, _safe_evaluate_policy shadow 门控请求路径). **风险评估**: (a) path-independent 零 correctness bug, 双加载一物二形仅 on/shadow mode 存在 (OFF mode 只 1463 加载), 合并仅省 1 次 startup-once 加载 = cosmetic. (b) Sub-merge A (proxy_filters 452+1463 单文件) 中风险; Sub-merge B (three_gate 跨模块共享单例) 高风险. (c) three_gate._load_engine_module 是 V37.9.15.1 hotfix 加固的三策略 robustness 修复, governance INV-GATE-001 (gov yaml line 5402-5413) 硬锁 _three_gate_engine_lazy 模块名 + _load_engine_module 结构 + 4 测试文件引用 → 合并连带改 governance+测试+风险解开 hotfix 修过的 bug. **决策**: DEFER — 无 incident-causing 接缝 (北极星 V37.9.117 针对造成事故的接缝, 这 3 加载是 cosmetic startup-once 重复), 高 blast radius (每请求工具过滤+shadow 门控) 换 cosmetic 收益, 原则 #34 防御本身是事故面. 若未来真要做: 只考虑 Sub-merge A (单文件缓存 helper), Sub-merge B 不做.",
@@ -340,10 +339,10 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 4281,
-    "last_regression": "2026-06-11 02:08 pass",
+    "test_count": 4286,
+    "last_regression": "2026-06-11 02:26 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-11 02:08",
+    "security_score_time": "2026-06-11 02:26",
     "test_suites": 121,
     "governance_invariants": "90/90",
     "governance_checks": "732/746",
@@ -412,7 +411,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.134 完成: scanner 第 6 pattern subshell errtrace 机器化 (V37.9.131 候选闭环, 日落法 0 新 MR/INV). Mac Mini 待: 合并 PR + git reset. 下次候选: OpenClaw 6/15 前置验证 (升级窗口 6/20, 目标 v2026.4.27) / PyPI 实际上传 (待用户 token) / governance 手动跑默认 dry-run 反转 / ArXiv 论文 / 6/18 deep_dive 摘要级占比复盘.",
+  "focus": "V37.9.134+135 完成: scanner 第 6 pattern (subshell errtrace 机器化) + S2 关键词 6→12 恢复. Mac Mini 待: 合并 PR + git reset + 明日 11:00 S2 cron 观察 12 关键词零 429. 下次候选: OpenClaw 6/15 前置验证 (升级窗口 6/20, 目标 v2026.4.27) / PyPI 实际上传 (待用户 token) / INV-GOV-FIELD-001 assertion:→code: 迁移评估 (一周观察已过) / ArXiv 论文 / 6/18 deep_dive 摘要级占比复盘.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
