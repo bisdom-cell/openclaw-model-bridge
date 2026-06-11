@@ -1,6 +1,6 @@
 {
-  "updated": "2026-06-11 07:58:17",
-  "updated_by": "security_score",
+  "updated": "2026-06-11 08:10:55",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-06-11",
+      "what": "V37.9.139 论文第二轮 (draft v0.2, 同日续): related work 四类全部补齐 — Ezell AIES25 入 §2.2 (含 silence-span+discovery-channel 两字段回喂论点) + Huang hallucination survey 入 §2.3 + 新 §2.4 SRE/chaos/AIOps (sabotage validation = chaos engineering applied to guards 连接点) + Zheng LLM-as-judge 入 §5.2 (judge 继承 taxonomy 全类别回喂论点). References 10→14 条全 verified (绝不编造). Fig.3 D1 幻觉链 ASCII 图入 §4.4. 正文引用统一作者-年份. 871 行. 本稿登记的文献 pass 清零, 无需决策项基本清空 — 球在用户 DECISIONS_NEEDED 7 项 (核心: venue, 推荐 arXiv 直发)",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-11",
       "what": "V37.9.139 ArXiv 论文第一稿交付 (Stage 2→3 话语权 unfinished #5 全力启动兑现): docs/paper/silent_failures_taxonomy/ 三件套 — draft.md ~490 行完整英文第一稿 (When Errors Become Narratives: A Longitudinal Taxonomy of Silent Failures in a Production LLM Agent Runtime; 5 类 taxonomy + 6 cross-cutting findings + fail-plausible 概念贡献 + Defense Framework 5 支柱 + 接缝论点 Discussion + Threats) + data_inventory.md (每个数字→仓库溯源, 修正 catalog 8天笔误→实证2天 + six-level 守卫) + DECISIONS_NEEDED.md (7 项用户决策: 标题/署名与AI披露/venue 推荐 arXiv 直发/匿名度/LaTeX 时机/内容取舍/figures). 文献全真实验证: HotOS17 GrayFailure + FAST18 FailSlow + MAST 2503.13657 全核 + 4 篇 2025-26 agent 可靠性论文 snippet 级作者核实 + 顺带发现 2 篇高相关 (2508.14231 Incident Analysis for AI Agents + 2606.05339 MCP runtime faults). 回归 121/4286/0 + 治理 90/90 + 安全 95 + 扫描零泄漏. VERSION 0.37.9.70 不变 (纯文档, V37.9.99-docs 惯例)",
       "by": "claude_code"
     },
@@ -197,11 +202,6 @@
     {
       "date": "2026-06-08",
       "what": "OpenClaw 升级第五次评估 (用户要求充分评估风险, 已推迟 3 个月) → 用户决策继续 hold 到 6/20 时间表. WebFetch 实证当前上游: v2026.6.1 (从 5/5 的 5.3 前进) + 6.x 又加 SQLite migration + plugin policy overhaul 2 个新 breaking + #59265 再确认仍 closed 无 PR 无 fix (G2 门不通过). 裁决: 3 个月 hold 有理 (#73358 无 OpenAI key 时 Codex silent default = 真 dealbreaker 直到 v4.27 修复). 保守目标 v2026.4.27 比 5/5 更有理 (避开全部 4.29/5.x/6.x breaking, 6.x 又加 2 个). v4.27 已 ~40 天稳定技术成熟但用户选保守 hold 到 6/20 (weekend 回滚窗口 + Mac Mini SSH 禁 AI 执行 + 最大残留风险 #59265 显示 bug 只能 WhatsApp E2E 观察). 记录第五次评估到 gateway_upgrade_eval 第十四节 + check_upgrade LAST_EVAL_DATE 5/5→6/8 + docs/config.md head. 零代码 (决策记录).",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-06-08",
-      "what": "V37.9.124 日落法 #29: INV-OBSERVER-001 runtime check 收窄到契约核心类 (用户选). V37.9.121-hotfix2 血案根因 — governance INV runtime 跑全 test_daily_observer 166 测试, 套件里 env-dependent test (test_missing_last_run _MAC_MINI_JOBS_DIR 读泄漏) 让 INV 在 Mac Mini 误报. 调查 ~13 全套件 runtime check: 唯一已证明 env-dependent 是 test_daily_observer, 其他 env-independent (router patch 隔离+relative-to-HOME 一致/scanner 扫 repo). 只收窄 INV-OBSERVER-001 (原则 #18 补证据非补功能, 不投机收窄其他 12). 收窄: 全文件 → 动态正则发现契约核心类 TestV37_9_87/88/92/93 (16 类/93 测试) + -m unittest, 排除 general 类 (TestResolveLastRunPath/TestScanJobStatuses 触碰 _MAC_MINI_JOBS_DIR). 镜像 INV-DREAM-CROSS-DOMAIN 跑特定类. for-loop 非 comprehension (V37.3). 7 新单测 + sabotage 反向验证真有效. 117→118 suites / 4092→4099 tests / 0 fail / 89 inv 不变 / 安全 95. 缩 dev-production 接缝兑现北极星. 待 Mac Mini git fetch+reset.",
       "by": "claude_code"
     }
   ],
