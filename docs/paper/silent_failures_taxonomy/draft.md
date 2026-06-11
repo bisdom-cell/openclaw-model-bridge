@@ -570,11 +570,16 @@ institutionalized this as a weekly 30-minute observation ritual (no coding allow
 dimensions: alert noise, push latency, information density, response quality) — and it
 continued to out-detect the automated stack. For practitioners, the implication is blunt:
 *user-view observation is a first-class observability signal and deserves calendar time*; for
-researchers, the open problem is mechanizing even part of what the human eye does here. Our
-own step in that direction — a daily LLM "observer" that critiques yesterday's outputs against
-quality heuristics — found real regressions (including a fabrication, and including two bugs
-in *itself*), suggesting LLM-as-user-proxy is viable but needs the same governance as any
-other LLM component.
+researchers, the open problem is mechanizing even part of what the human eye does here. The
+LLM-as-judge literature gives grounds for optimism — strong LLM judges reach >80% agreement
+with human preference on open-ended response quality [Zheng et al. 2023] — and our own step
+in that direction, a daily LLM "observer" that critiques yesterday's outputs against quality
+heuristics, found real regressions (including a fabrication, and including two bugs in
+*itself*). The qualifier our experience adds to that literature: an LLM judging a *system's
+output for silent failure* is itself an LLM component of that system, inheriting every class
+in this taxonomy — ours shipped with a Class B path bug and a sampling artifact that made it
+hallucinate a truncation — so the judge needs the same governance, provenance hygiene, and
+sabotage validation as the components it judges.
 
 ### 5.3 The trigger–amplifier–concealer structure
 
@@ -866,6 +871,9 @@ before submission; see data_inventory.md)*
 13. S. Ghosh, M. Shetty, C. Bansal, S. Nath. **How to Fight Production Incidents? An
     Empirical Study on a Large-Scale Cloud Service.** ACM SoCC 2022 (Best Paper; 152 severe
     incidents in Microsoft Teams).
+14. L. Zheng, W.-L. Chiang, Y. Sheng, S. Zhuang, Z. Wu, Y. Zhuang, Z. Lin, Z. Li, D. Li,
+    E. P. Xing, H. Zhang, J. E. Gonzalez, I. Stoica. **Judging LLM-as-a-Judge with MT-Bench
+    and Chatbot Arena.** NeurIPS 2023; arXiv:2306.05685.
 
-*(Remaining related-work pass planned before submission: LLM-as-judge / LLM-observer
-literature for §5.2's mechanized user-proxy discussion.)*
+*(All related-work passes registered for this draft are complete. Pre-submission: re-verify
+snippet-sourced author lists against arXiv abs pages from a network-unrestricted environment.)*

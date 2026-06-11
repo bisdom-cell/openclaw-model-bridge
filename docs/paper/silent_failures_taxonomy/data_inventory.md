@@ -86,6 +86,7 @@
 | 11 arXiv:2311.05232 hallucination survey | ✅ 全验证 | Huang Lei 等 11 作者（scirp 引用页 + arXiv 确认）；已并入 §2.3（第二轮） |
 | 12 Chaos Engineering (IEEE Software 2016) | ✅ 全验证 | Basiri/Behnam/de Rooij/Hochstein/Kosewski/Reynolds/Rosenthal, 33(3):35-41, DOI 10.1109/MS.2016.60；已并入新 §2.4 |
 | 13 How to Fight Production Incidents (SoCC'22) | ✅ 全验证 | Ghosh/Shetty/Bansal/Nath, Best Paper, 152 Microsoft Teams severe incidents；已并入新 §2.4 |
+| 14 LLM-as-a-Judge (NeurIPS'23) | ✅ 全验证 | Zheng/Chiang/Sheng 等 13 作者, arXiv:2306.05685, >80% human agreement；已并入 §5.2（含"judge 自身继承本 taxonomy 全部类别"回喂论点，实证 = observer 自身 Class B path bug + sampling artifact） |
 
-**第二轮（2026-06-11 同日）已完成**：#9 核实并入 §2.2（含"潜伏时长+发现者两字段应纳入 agent incident report"的回喂论点）/ #11-13 三类引用补齐（hallucination survey → §2.3；chaos engineering + AIOps incident study → 新 §2.4，含 sabotage validation = "chaos engineering applied to guards" 连接点）/ Fig.3 D1 幻觉链 ASCII 图入 §4.4（trigger-amplifier-concealer 标注，LaTeX 阶段重绘正式版）/ 正文引用风格统一为作者-年份。
-**投稿前仍需**：全部 snippet 级引用对 arXiv abs 页终核（dev 环境 WebFetch arxiv 403，需在可达环境做）；LLM-as-judge/observer 文献一类（§5.2 机械化 user-proxy 讨论的支撑，draft 末尾已登记）。
+**第二轮（2026-06-11 同日）已完成**：#9 核实并入 §2.2（含"潜伏时长+发现者两字段应纳入 agent incident report"的回喂论点）/ #11-13 三类引用补齐（hallucination survey → §2.3；chaos engineering + AIOps incident study → 新 §2.4，含 sabotage validation = "chaos engineering applied to guards" 连接点）/ #14 LLM-as-judge → §5.2 / Fig.3 D1 幻觉链 ASCII 图入 §4.4（trigger-amplifier-concealer 标注，LaTeX 阶段重绘正式版）/ 正文引用风格统一为作者-年份。**本稿登记的 related-work pass 全部完成（14 条 verified references）。**
+**投稿前仍需**：全部 snippet 级引用对 arXiv abs 页终核（dev 环境 WebFetch arxiv 403，需在可达环境做）。
