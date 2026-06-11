@@ -17,7 +17,7 @@
 | Governance invariants | **90** | `status.json quality.governance_invariants` = 90/90 | governance_checker 运行时权威计数 |
 | Declared checks | **827** | V37.9.136 changelog（826→827）；audit_metadata.total_checks | `ontology/governance_ontology.yaml` |
 | Meta-rules | **23** | MR-1~MR-23（MR-22/23 V37.9.117 立） | `grep -oE 'MR-[0-9]+' ontology/governance_ontology.yaml \| sort -u` |
-| MRD scanners | **15** | catalog TL;DR（V37.9.99 基准；V37.9.134 是给既有 scanner 加第 6 pattern，非新 scanner） | catalog 第 39 行 |
+| MRD scanners | **14** | **governance_ontology.yaml meta_rule_discovery 条目数 = 权威源**（gen_readme_badges 同源）。⚠️ catalog V37.9.99 曾写 15 系笔误，2026-06-11 投稿前对表抓出并已全局修正（draft/LaTeX/README/catalog 共 14 处）— data_inventory 机制的第一次实战命中 | `grep -cE "^\s+- id: MRD-" ontology/governance_ontology.yaml` |
 | Scheduled jobs | **~40** | `jobs_registry.yaml`（check_registry "40 jobs validated"，V37.9.135） | `python3 check_registry.py` |
 | LLM providers | **8** | 7 built-in + doubao plugin（V37.9.52） | `python3 providers.py --json` |
 | Supervised services | **3** | `services_registry.yaml`（adapter/proxy/gateway） | V37.9.25 |
@@ -89,4 +89,8 @@
 | 14 LLM-as-a-Judge (NeurIPS'23) | ✅ 全验证 | Zheng/Chiang/Sheng 等 13 作者, arXiv:2306.05685, >80% human agreement；已并入 §5.2（含"judge 自身继承本 taxonomy 全部类别"回喂论点，实证 = observer 自身 Class B path bug + sampling artifact） |
 
 **第二轮（2026-06-11 同日）已完成**：#9 核实并入 §2.2（含"潜伏时长+发现者两字段应纳入 agent incident report"的回喂论点）/ #11-13 三类引用补齐（hallucination survey → §2.3；chaos engineering + AIOps incident study → 新 §2.4，含 sabotage validation = "chaos engineering applied to guards" 连接点）/ #14 LLM-as-judge → §5.2 / Fig.3 D1 幻觉链 ASCII 图入 §4.4（trigger-amplifier-concealer 标注，LaTeX 阶段重绘正式版）/ 正文引用风格统一为作者-年份。**本稿登记的 related-work pass 全部完成（14 条 verified references）。**
-**投稿前仍需**：全部 snippet 级引用对 arXiv abs 页终核（dev 环境 WebFetch arxiv 403，需在可达环境做）。
+**投稿前仍需**：全部 snippet 级引用对 arXiv 终核。**dev 环境四渠道已穷尽全部 403/拦截**（arxiv.org / export.arxiv.org / api.semanticscholar.org / curl allowlist），按反馈 #1 教训交给可达环境执行 — **Mac Mini 一条命令**（输出 6 篇的标题+作者，对照 main.tex thebibliography 即可）：
+
+```
+curl -s "http://export.arxiv.org/api/query?id_list=2511.07424,2508.07935,2602.11749,2603.05637,2606.05339,2508.14231" | grep -E "<title>|<name>"
+```

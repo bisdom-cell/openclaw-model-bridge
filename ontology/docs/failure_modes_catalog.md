@@ -1,7 +1,7 @@
 # Failure Modes Catalog — openclaw-model-bridge 静默失败全谱系
 
 > **单一权威版 (canonical) · V37.9.99 / 2026-06-02**
-> 22 案例 · MR-4 silent-failure ~28 次演出 · 5 类失败**机制** · governance v3.52 (85 不变式 + 21 元规则 + 15 MRD scanners + 790 checks)
+> 22 案例 · MR-4 silent-failure ~28 次演出 · 5 类失败**机制** · governance v3.52 (85 不变式 + 21 元规则 + 14 MRD scanners + 790 checks)
 >
 > **本文件是唯一权威版。** 历史 `docs/failure_modes_catalog.md`（V37.9.86 机制分类版）+
 > `ontology/docs/failure_modes_catalog.md`（V37.9.81 位置索引版）两份分叉副本已**合并入本文件并删除冗余副本**
@@ -36,10 +36,11 @@
 | Class E 运维遗漏与取证盲区 | 8 |
 | 已立元规则 | **21**（MR-1~MR-21） |
 | 已立不变式 | **85**（governance v3.52） |
-| MRD 主动扫描器 | **15** |
+| MRD 主动扫描器 | **14** |
 | 治理 checks | **790** |
 
 > 数据基准：VERSION `0.37.9.68` / CLAUDE.md `v37.9.99` / governance_ontology.yaml `v3.52`。
+> **勘误（2026-06-11 / V37.9.139）**：MRD scanner 数 V37.9.99 原文误记 15，权威源 yaml `meta_rule_discovery` 实为 **14**——由 ArXiv 论文 data_inventory 投稿前对表抓出，本文 3 处已修正。
 > 排除 2 个非失败 case 文件：`openclaw_as_ontology.md`（架构探讨）、`cron_line_full_comparison_audit_2026_06_02.md`（"审计后决定不动"决策文档，正确的非动作）。
 
 ---
@@ -282,7 +283,7 @@ silent failure 防御能力的成熟度，体现在它停留在哪一步：
 
 | 策略 | 实施版本 | 防御类别 |
 |---|---|---|
-| **声明式 governance**（v3.52: 85 inv + 21 MR + 15 MRD scanners + 790 checks） | V37.1 → V37.9.99 | A/B/C/D/E |
+| **声明式 governance**（v3.52: 85 inv + 21 MR + 14 MRD scanners + 790 checks） | V37.1 → V37.9.99 | A/B/C/D/E |
 | **每日 governance audit cron**（07:00 自动 + 失败告警） | V37.1 | 全部 |
 | **MRD 主动扫描器**（cross_os / path_consistency / cross_env_path / heredoc_import / cron_monitor / ...） | V37.9.60+ | A/B/C |
 | **fail-fast LLM cron**（17/21 ALIGNED jobs，[SYSTEM_ALERT] + exit 1，不机械 fallback） | V37.5 → V37.9.62 | C/D |
@@ -332,7 +333,7 @@ silent failure 防御能力的成熟度，体现在它停留在哪一步：
 
 ## 参考
 
-- `ontology/governance_ontology.yaml` — 85 invariants + 21 MR + 15 MRD scanners 完整声明（v3.52）
+- `ontology/governance_ontology.yaml` — 85 invariants + 21 MR + 14 MRD scanners 完整声明（v3.52）
 - `ontology/docs/cases/*.md` — 22 个血案完整因果链架构图 + 三层根因 + 时间线
 - `ontology/docs/reflections/2026-05-13_complexity_bug_taxonomy.md` — 复杂性 bug 分类与治理反思（本目录的设计源之一）
 - `CLAUDE.md` 变更历史表 — V37.1 → V37.9.99 完整版本演化
