@@ -15,7 +15,7 @@
 2. *Silent Failures in LLM Agent Systems: An Eight-Week Longitudinal Study of 22 Production Incident Postmortems*
 3. *Fail-Plausible: How LLM Agent Systems Turn Errors into Believable Output, and What 22 Production Incidents Taught Us About Defending Against It*
 
-**Authors:** [USER NAME — domain expert, system owner], with Claude (Anthropic) as AI engineering collaborator — *attribution form pending user decision; see DECISIONS_NEEDED.md*
+**Authors:** Wei Wu (Independent researcher, wuweinanonuaa@gmail.com), with Claude (Anthropic) as AI engineering collaborator — disclosure in title-page footnote + Acknowledgments (user decision 2026-06-11)
 
 ---
 

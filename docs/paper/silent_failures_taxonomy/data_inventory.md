@@ -92,5 +92,5 @@
 **✅ 终核完成（2026-06-11 Mac Mini）**：6 篇 arXiv 引用经官方 API（export.arxiv.org，https+-L）逐一对照 main.tex thebibliography，**作者列表 100% 一致，零修改**。投稿前引用工作全部清零。终核命令存档：
 
 ```
-curl -s "http://export.arxiv.org/api/query?id_list=2511.07424,2508.07935,2602.11749,2603.05637,2606.05339,2508.14231" | grep -E "<title>|<name>"
+curl -sL "https://export.arxiv.org/api/query?id_list=2511.07424,2508.07935,2602.11749,2603.05637,2606.05339,2508.14231" | grep -E "<title>|<name>"
 ```
