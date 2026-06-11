@@ -196,9 +196,9 @@ except Exception as e:
         fi
         LOCK_AGE=$(( (NOW_EPOCH - LOCK_EPOCH) / 60 ))
         if [ "$LOCK_AGE" -gt 60 ]; then
-            fail "陈旧锁: $LOCK_DIR（${LOCK_AGE}min）"
+            fail "陈旧锁: ${LOCK_DIR}（${LOCK_AGE}min）"
         else
-            pass "锁正常: $LOCK_DIR（${LOCK_AGE}min）"
+            pass "锁正常: ${LOCK_DIR}（${LOCK_AGE}min）"
         fi
     fi
 
@@ -441,9 +441,9 @@ echo ""
 echo "━━━ Crontab 完整性 ━━━"
 CRON_COUNT=$(echo "$CRONTAB" | grep -c '[^ ]' || echo "0")
 if [ "$CRON_COUNT" -ge 15 ]; then
-    pass "crontab 条目数: $CRON_COUNT（健康）"
+    pass "crontab 条目数: ${CRON_COUNT}（健康）"
 else
-    fail "crontab 条目数: $CRON_COUNT（预期 >= 15，可能被清空）"
+    fail "crontab 条目数: ${CRON_COUNT}（预期 >= 15，可能被清空）"
 fi
 
 echo ""

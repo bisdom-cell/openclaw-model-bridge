@@ -108,7 +108,7 @@ for attempt in 1 2 3; do
 
   # 检查 HTTP 状态码
   if [ "$HTTP_CODE" != "200" ]; then
-    log "WARN: ArXiv API 返回 HTTP $HTTP_CODE（第${attempt}次）"
+    log "WARN: ArXiv API 返回 HTTP ${HTTP_CODE}（第${attempt}次）"
     # 429 专用退避：尊重 Retry-After 头，否则用指数退避（30s/90s/270s）
     if [ "$HTTP_CODE" = "429" ]; then
       RETRY_AFTER=$(grep -i '^Retry-After:' "$HEADER_FILE" 2>/dev/null | head -1 | tr -dc '0-9')
@@ -137,11 +137,11 @@ for attempt in 1 2 3; do
 done
 
 if [ "$FETCH_OK" != "true" ]; then
-  log "ERROR: ArXiv API 3次重试均失败（最后HTTP=$HTTP_CODE）"
+  log "ERROR: ArXiv API 3次重试均失败（最后HTTP=${HTTP_CODE}）"
   printf '{"time":"%s","status":"fetch_failed","new":0,"http_code":"%s"}\n' "$TS" "$HTTP_CODE" > "$STATUS_FILE"
   exit 1
 fi
-echo "[arxiv] XML抓取完成（HTTP $HTTP_CODE）"
+echo "[arxiv] XML抓取完成（HTTP ${HTTP_CODE}）"
 
 # ── 2. 解析XML → 结构化JSONL（标题/作者/日期/ID/摘要）─────────────────
 PAPERS_FILE="$CACHE/papers.jsonl"

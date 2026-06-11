@@ -1,6 +1,6 @@
 {
-  "updated": "2026-06-11 14:46:07",
-  "updated_by": "security_score",
+  "updated": "2026-06-11 15:10:54",
+  "updated_by": "full_regression",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-06-11",
+      "what": "V37.9.141 preflight check 16 崩溃修复: bash 3.2 未 brace 变量紧贴全角字符 quirk (PUSH_RC） set -u 崩溃, locale 依赖 cron 不触发交互触发) — 全仓 14 处潜伏批量 brace 修复 + cross_os_quirk_scanner 第 7 pattern (detect_unbraced_var_adjacent_cjk) + INV-CROSS-OS-001 扩 9 checks + 10 新单测 + sabotage 反向验证. V37.9.43-hotfix2 候选元规则 scanner 化兑现 (日落法不立新 MR)",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-11",
       "what": "V37.9.140 双小修: #27 full_regression suites 计数 121/122 抖动根治 (SUITES_SKIPPED_COUNTED 计数器, 对抗层跳过仍计入 suite 清单数, 回写 PASS+SKIPPED 确定值, gen_readme_badges 守卫不再假阳性) + #25 restart.sh #48703 hotfix 日落法退役 (Gateway 已升 4.27 上游已修, 移除唯一 sudo 依赖, preflight 12/19 监控保留 + 跨文件守卫). 7 新单测 + 三轮 sabotage 反向验证. VERSION 0.37.9.70 不变",
       "by": "claude_code"
     },
@@ -198,11 +203,6 @@
       "date": "2026-06-09",
       "what": "V37.9.127 ontology-engine 包化 chunk 3b.2 — per-scanner glob 形状 + push-route 白名单 Layer 2 config-injection (chunk 3b 续完结, 用户选). 把 governance_checker.py 14 个 _discover_* MRD 扫描器的 per-scanner glob 形状从硬编码移到 Layer 2 (chunk 3b 只做单文件名). 范围: 7 glob-set 键 (topic_scan_globs **/*.sh / channel_source_globs / repo_shell_globs [*.sh, jobs/**/*.sh] / alert_monitor_globs / llm_caller_globs / llm_caller_py_globs / py_scan_globs **/*.py) + push_route_whitelist (23 条) 移到 mrd_scan_patterns. 各扫描器是不同扫描集不可合并 → 各自配置键. 机制: _mrd_globs(key) helper 返回 join 后模式列表 (保序), 统一 recursive=True (对非 ** no-op 对 ** 必需, 安全). _load_mrd_patterns 泛化 (遍历所有键 str/list override 防误配). _PUSH_ROUTE_WHITELIST = set(_MRD[push_route_whitelist]) 派生. 9 扫描器重构保留 set/extend/sorted 累积语义. byte-identical 验证 (核心): 12 个 glob-依赖计数全不变 (48 shell/41 non-whitelist/72 .py/46 LLM/5 topics/82 silent-error/2 monitor/6 channels), 唯 AUDIT-PERF timing + governance_checker 自身行号位移. 89/89 inv exit 0. 16 新单测 (24→40) 含行为级反向验证 (override py_scan_globs→扫 1 个 / override alert_monitor→0 个, 证明 glob 真驱动扫描) + 源码守卫 + demo glob 端到端 (WeatherBot skills/**/*.py). sabotage 真有效. demo yaml 加 py_scan_globs+push_route_whitelist. 119 suites 不变 / 4150→4166 tests / 0 fail / governance 89 inv 818 checks 不变 / 安全 95 / VERSION 0.37.9.68 不变. 元价值: chunk 3b (单文件名) + chunk 3b.2 (glob+白名单) = MRD 扫描器全部项目特定模式已 config-inject, 任何消费方写自己的 mrd_scan_patterns 即获 MRD silent-failure 扫描无需理解内部, pip install ontology-engine MRD 框架项目无关粒度达成. 下次候选: chunk 2 (import rename) / chunk 5 (sdist) / ArXiv 论文.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-06-09",
-      "what": "V37.9.126 ontology-engine 包化 chunk 3b — MRD 扫描单文件名 Layer 2 config-injection (终极目标推进, 用户选). 前置: 数据驱动诊断 Mac Mini preflight #19 SLO 退化 (p95=81s/timeout 14.7%) — /stats total_req=71 + adapter /health fallback=doubao + circuit_breaker=half-open + 最近 backend 6-12s → 结论 Qwen3 主力退化 doubao fallback 顶着, 81s 是 200-滚动窗口含退化期 (LATENCY_WINDOW=200, 71 req 全在窗口), 监控工作正常非 code bug (slo_checker 门槛 5 vs slo_benchmark 200 是 alerting vs reporting 设计差异不该改 — 抬门槛压真信号). 操作: 观察 Qwen3 恢复. 无 code 改 (原则 #28 答案是观察). chunk 3b: governance_checker.py 14 个 _discover_* MRD 扫描器硬编码项目文件名. 根已 _PROJECT_ROOT 注入 (chunk 3a), 仅文件名本项目特定. 范围 (原则 #28/#34): 仅参数化高价值低风险单文件 (registry_file/notify_file/preflight_file 跨 5 use-site + 诊断白名单); per-scanner glob 形状 + push-route 白名单 登记 chunk 3b.2 (低价值高回归风险). 机制 (镜像 chunk 3a): _MRD_DEFAULTS + _load_mrd_patterns() 读 governance_ontology.yaml::mrd_scan_patterns merge over 默认 (FAIL-OPEN observable except 写 stderr 非裸 pass — MR-7 治理工具自己遵守 MRD-SILENT-EXCEPT-001) + _MRD 模块常量. _LOG_STDERR_EXEMPT_BASENAMES = set(_MRD[diagnostic_whitelist]) 派生. yaml 新段值==默认. 不铸新 INV (镜像 chunk 3a/4). byte-identical 验证 (核心): 重构前后 governance --json 逐项比对 — discovery 14 项 status/计数/违规文件集完全一致, 唯 AUDIT-PERF timing + governance_checker 自身违规行号位移. 89/89 inv exit 0. 24 新单测 7 类 (含 full/partial override + FAIL-OPEN observable + 字节级一致 drift guard + 反向硬编码消除守卫 + demo 端到端 ONTOLOGY_CONFIG_DIR=demo 读 WeatherBot weatherbot_jobs.yaml + 反向不注入读 bridge). sabotage 真有效 (退回硬编码/yaml 改坏值 → 守卫 fail). demo yaml 加 mrd_scan_patterns. 118→119 suites / 4126→4150 tests / 0 fail / governance 89 inv 818 checks 不变 / 安全 95 / VERSION 0.37.9.68 不变. Mac Mini 待 git fetch+reset (默认行为不变). 下次候选: chunk 3b.2 (glob 形状) / chunk 2 (import 名去泛化) / chunk 5 / ArXiv 论文.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -274,7 +274,8 @@
       "V37.9.130 生产验证已通过 (2026-06-11 Mac Mini 实跑): 6/4 真实血案数据 9 chunks 重跑 — hierarchical r1 b1/3(6740c)+b2/3(6220c)+r2(8524c) 3 次小请求零失败零降级, 48 条精华入 KB, 6/3 已确认处理过, 断流全闭环. 同数据对照证实根因=单请求规模非纯超时 (同 9 Map 段, 单次 40K 两次超时 vs 3 次 7K 一次全过). 剩余低优 follow-up: (a) final Reduce max_tokens=2000 被 48 条打满产尾部残行 \"- [\" (finish_reason=length), 超大对话日边界 — V37.9.131+ 评估 2000→3000 或 emit 前剥尾部残行 (b) 长期观察 last_run degraded/map_failed 字段, 频繁 degraded → 评估 REDUCE_BATCH_SIZE 调小或 doubao 显式路由",
       "V37.9.132 一周观察 (~6/18): deep_dive 摘要级占比应从 76% (34/45) 显著下降 — Mac Mini 验证: grep -L \"基于摘要的分析\" ~/.kb/deep_dives/*.md 看 6/12 后新增文件多数应为全文级. 若仍高: (a) 查 dblp ee 字段 arxiv 覆盖率 (b) S2 openAccessPdf .pdf 结尾比例 (非 .pdf OA 链接保留 S2 页面是有意取舍) (c) 候选增强: deep_dive mode (full_text/abstract_only) 占比纳入 daily_observer 报告让 degrade 频率可观测 (本次 76% gap 潜伏 2 个月才被用户发现的根因是 degrade 频率无聚合复盘)",
       "S2 关键词覆盖恢复候选 (低优): S2 API key 已确认配置且认证模式稳定运行 (2026-06-11 Mac Mini log 核实, 6/8 起每天 11:00 认证模式 2s 间隔, 5/28 匿名池 429 已根治). 可选增强: 关键词 6→12 恢复 V37.8.13 因 429 砍半的覆盖 (认证 1 RPS 下 12 关键词仅多 ~12s, 安全). 顺带: V37.9.98 line 98 注释\"即时发放\"与 V37.9.99 修正\"审核制\"矛盾, 下次触碰该文件时顺手清",
-      "【遗留 · 高优】ArXiv 论文投稿 — 卡在 endorsement 等待教授背书 (2026-06-11 收工时状态). 已完成: 第一稿+LaTeX 工程 (18 页 PDF Overleaf 编译通过, 5 图 2 表 14 refs 全验证) + 署名 Wei Wu + 引用 arXiv API 终核 100% 一致 + arXiv 账号注册 + 提交流程走到 cs.SE 分类 → endorsement 拦截 → code NT9TFE 已生成并发教授, 等待背书 (背书人资格: 5 年内任意 cs 子类 3 篇, 操作 arxiv.org/auth/endorse 输码 1 分钟). 恢复路径 (背书生效后, 即时): arxiv.org/user 回到提交 → License 选 CC BY 4.0 → primary cs.SE + cross-list cs.AI/cs.DC → 上传 paper_latex.zip (repo latex/ 目录有备份) → 元数据从 ARXIV_SUBMISSION_GUIDE.md §4.6 整段复制 (Title/Abstract/Comments 已备好) → Preview → Submit. 上线拿到 arXiv ID 后告诉 Claude → 发布配套: README/status.json/CLAUDE.md 链接更新 + 中文科普版 (知乎传播层) + data_inventory 终版归档 + 日落法清理 paper_latex.zip convenience artifact. 若教授无资格/不便: 找任何 5 年内 cs 区发过 3 篇的研究者均可."
+      "【遗留 · 高优】ArXiv 论文投稿 — 卡在 endorsement 等待教授背书 (2026-06-11 收工时状态). 已完成: 第一稿+LaTeX 工程 (18 页 PDF Overleaf 编译通过, 5 图 2 表 14 refs 全验证) + 署名 Wei Wu + 引用 arXiv API 终核 100% 一致 + arXiv 账号注册 + 提交流程走到 cs.SE 分类 → endorsement 拦截 → code NT9TFE 已生成并发教授, 等待背书 (背书人资格: 5 年内任意 cs 子类 3 篇, 操作 arxiv.org/auth/endorse 输码 1 分钟). 恢复路径 (背书生效后, 即时): arxiv.org/user 回到提交 → License 选 CC BY 4.0 → primary cs.SE + cross-list cs.AI/cs.DC → 上传 paper_latex.zip (repo latex/ 目录有备份) → 元数据从 ARXIV_SUBMISSION_GUIDE.md §4.6 整段复制 (Title/Abstract/Comments 已备好) → Preview → Submit. 上线拿到 arXiv ID 后告诉 Claude → 发布配套: README/status.json/CLAUDE.md 链接更新 + 中文科普版 (知乎传播层) + data_inventory 终版归档 + 日落法清理 paper_latex.zip convenience artifact. 若教授无资格/不便: 找任何 5 年内 cs 区发过 3 篇的研究者均可.",
+      "2026-06-11 22:53 preflight check 16 WhatsApp push test 真失败原因未知 (V37.9.141 修复崩溃后才可见) — Mac Mini 同步后重跑 bash preflight_check.sh --full: check 16 应显真实退出码+stderr. 候选原因: 4.27 plugin 按需 staging 窗口 timeout (V37.9.138 已知, 重试即通) 或 transient. 若持续失败查 Gateway channels status + openclaw message send 手动测"
     ],
     "open_prs": "",
     "blocked_on": "",
@@ -340,13 +341,13 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 4293,
-    "last_regression": "2026-06-11 14:45 pass",
+    "test_count": 4303,
+    "last_regression": "2026-06-11 15:10 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-11 14:45",
+    "security_score_time": "2026-06-11 15:10",
     "test_suites": 122,
     "governance_invariants": "90/90",
-    "governance_checks": "733/747",
+    "governance_checks": "734/748",
     "version": "0.37.9.70",
     "observer": {}
   },

@@ -9,8 +9,9 @@
   - V37.9.66-hotfix: bash `cmd && X || Y` + set -eE + ERR trap 同款 quirk
   - V37.9.105-hotfix: governance_audit `$(...)` 子 shell 继承 ERR trap 假 FATAL ×2
   - V37.9.131: watchdog SLO `$(slo_checker --alert)` 同款 quirk 第 3 处演出
+  - V37.9.141: preflight `$PUSH_RC）` 未 brace 变量紧贴全角字符 bash 3.2 set -u 崩溃 (V37.9.43-hotfix2 第 2 次演出, 全仓扫出 14 处潜伏)
 
-scope (V37.9.67 PoC 4 个 → V37.9.68 +1 → V37.9.134 +1 = 6 个**已实证暴露**的
+scope (V37.9.67 PoC 4 个 → V37.9.68 +1 → V37.9.134 +1 → V37.9.141 +1 = 7 个**已实证暴露**的
    quirk pattern 主动检测). 未来扩展: macOS sed -i / GNU vs BSD date / etc.
 
 FAIL-CLOSE 契约: 任一 violation 必须 exit 1.
@@ -114,7 +115,22 @@ _QUIRK_SUBSHELL_DESIGNED_NONZERO = re.compile(
 )
 
 
-# 6 个 quirk 检查器统一注册
+# ── Quirk 7: 未 brace 变量紧贴 CJK/全角字符 (V37.9.43-hotfix2 + V37.9.141) ──
+# macOS bash 3.2 在 UTF-8 locale 下把全角/CJK 字符的 UTF-8 字节并入变量名 →
+# `set -u` 触发 `VAR�: unbound variable` 崩溃 / 无 set -u 时静默展开为空 (信息丢失).
+# **locale 依赖让它格外隐蔽**: cron 环境 (LANG 未设, C locale) 不触发, 用户交互
+# 终端 (UTF-8 locale) 触发 — 同一行代码 cron 跑数月正常, 用户手动跑立即崩.
+# 修复: `${VAR}` 显式 brace (CLAUDE.md 原则 #35 同族 quirk 家族).
+# 血案: V37.9.43-hotfix2 wa_e2e_test.sh `$CHUNK_COUNT）` (2026-05-09)
+#       + V37.9.141 preflight_check.sh:868 `$PUSH_RC）` (2026-06-11 Mac Mini 22:53
+#       实测 — push test 真失败首次走 fail 分支才触发, 崩溃同时吞掉真实失败信息
+#       且 check 17-19 未跑). 范围: CJK 表意文字 + 全角形式 + CJK 标点.
+_QUIRK_UNBRACED_VAR_CJK = re.compile(
+    r'\$[A-Za-z_][A-Za-z0-9_]*[一-鿿＀-￯　-〿]'
+)
+
+
+# 7 个 quirk 检查器统一注册
 _QUIRK_CHECKERS = (
     ("cmd_and_or_chain", "bash `cmd && X || Y` + set -eE + ERR trap false-positive FATAL"),
     ("grep_head_no_or_true", "bash `grep | head` + pipefail + set -eE 无 `|| true` 兜底"),
@@ -122,6 +138,7 @@ _QUIRK_CHECKERS = (
     ("zsh_specific_in_sh", "zsh-specific 语法在 cron .sh (POSIX sh 跑会失败)"),
     ("head_byte_tr_no_lc_all", "`head -c N | tr` 切多字节 UTF-8 在中间, macOS bsd tr 报 Illegal byte sequence (V37.9.68 教训)"),
     ("subshell_errtrace_designed_nonzero", "bash 3.2 + set -E: $(...) 调设计性非零命令无 set +E 包裹, 子 shell 继承 ERR trap 假 FATAL (V37.9.105-hotfix + V37.9.131)"),
+    ("unbraced_var_adjacent_cjk", "未 brace `$VAR` 紧贴 CJK/全角字符, macOS bash 3.2 UTF-8 locale 下并入变量名 set -u 崩溃 (V37.9.43-hotfix2 + V37.9.141)"),
 )
 
 
@@ -246,6 +263,25 @@ def detect_subshell_errtrace_designed_nonzero(content):
     return findings
 
 
+def detect_unbraced_var_adjacent_cjk(content):
+    """检测未 brace `$VAR` 紧贴 CJK/全角字符 (V37.9.43-hotfix2 + V37.9.141 同款).
+
+    macOS bash 3.2 在 UTF-8 locale 下把紧随变量名的全角/CJK 字符的 UTF-8 字节并入
+    变量名: `"$PUSH_RC）"` 被解析为变量 `PUSH_RC<0xEF>` → set -u 下
+    `PUSH_RC?: unbound variable` 整脚本崩溃; 无 set -u 时静默展开为空 (值丢失).
+    locale 依赖: cron (C locale) 不触发 / 用户交互终端 (UTF-8) 触发 — 12 处同款
+    在 cron 跑数月无恙, preflight 交互执行立即崩 (2026-06-11 实测).
+    修复: `${VAR}` 显式 brace. 正则要求 [A-Za-z_] 开头, `$1`/`$?` 等特殊参数天然豁免.
+    """
+    findings = []
+    for ln, line in enumerate(content.split("\n"), 1):
+        if _is_in_comment_or_string(line):
+            continue
+        if _QUIRK_UNBRACED_VAR_CJK.search(line):
+            findings.append((ln, "unbraced_var_adjacent_cjk", line.strip()))
+    return findings
+
+
 def scan_file(path):
     """扫单文件返回所有 findings: [(line_no, quirk_name, line_text), ...]"""
     content = _read(path)
@@ -259,6 +295,7 @@ def scan_file(path):
     findings.extend(detect_zsh_specific_in_sh(content))
     findings.extend(detect_head_byte_tr_no_lc_all(content))
     findings.extend(detect_subshell_errtrace_designed_nonzero(content))
+    findings.extend(detect_unbraced_var_adjacent_cjk(content))
     return findings
 
 

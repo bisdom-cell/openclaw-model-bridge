@@ -865,7 +865,7 @@ if $FULL_MODE; then
                 date +%s > "$PUSH_TEST_LAST"
             fi
         else
-            fail "WhatsApp 推送失败（退出码 $PUSH_RC）: $(echo "$PUSH_STDERR" | head -2)"
+            fail "WhatsApp 推送失败（退出码 ${PUSH_RC}）: $(echo "$PUSH_STDERR" | head -2)"
         fi
 
         # Discord 推送通道 E2E
@@ -877,7 +877,7 @@ if $FULL_MODE; then
             if [ $DC_RC -eq 0 ]; then
                 pass "Discord 推送通道正常（openclaw message send 退出码 0）"
             else
-                warn "Discord 推送失败（退出码 $DC_RC）: $(echo "$DC_STDERR" | head -2)"
+                warn "Discord 推送失败（退出码 ${DC_RC}）: $(echo "$DC_STDERR" | head -2)"
             fi
         else
             skip "Discord 推送通道（DISCORD_TARGET 未设置）"
