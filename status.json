@@ -1,6 +1,6 @@
 {
-  "updated": "2026-06-11 08:54:42",
-  "updated_by": "full_regression",
+  "updated": "2026-06-11 14:12:26",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-06-11",
+      "what": "V37.9.139 论文投稿冲刺 (同日第三段): 用户决策 4 项全锁定 (arXiv 直发/标题 1/致谢+分工段/§7 保留) → LaTeX 工程 9 文件 1332 行 + 5 TikZ 图 → MRD 计数勘误 15→14 全局修正 (data_inventory 对表机制第一次实战命中, 14 处含 catalog 勘误注记) → 署名 Wei Wu 填入 → 引用 6 篇经 arXiv 官方 API 终核 100% 一致 (Mac Mini curl, dev 四渠道 403 按反馈#1 交可达环境) → ARXIV_SUBMISSION_GUIDE.md 手把手四步+表单可复制字段 → Overleaf 编译通过 18 页 (5 图 2 表 14 refs 全正确) → arXiv 账号注册+提交流程到 cs.SE → endorsement 拦截 (预案内风险), code 已发教授等待背书. 收工: 回归 122/4286/0 ×2 + 治理 90/90 + 安全 95 + 扫描零泄漏 (endorsement code 不入文档). 遗留: unfinished ArXiv 项含完整恢复路径",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-11",
       "what": "V37.9.139 论文 LaTeX 工程完成 (draft v0.3): 用户四项决策确认 (arXiv 直发 cs.SE / 标题 When Errors Become Narratives / 致谢+分工段披露 / §7 保留) → latex/ 工程 9 文件 1332 行: main.tex (作者 placeholder + AI disclosure 脚注 + 14 条 inline bibliography 无 bibtex 依赖) + 8 节全文转换 + 5 张 TikZ 内嵌图 (三平面架构/taxonomy 树/D1 幻觉链/潜伏期/三步跃迁). 静态自查全过 (括号环境配平 + cites 14/14 + refs 全 defined + 修 2 处 text 模式 math-only 命令). 待: 用户填 [AUTHOR NAME]+[email] 两处 + Overleaf 或 Mac Mini 编译验证 (dev 无 TeX, 仅标准宏包 arXiv 兼容)",
       "by": "claude_code"
     },
@@ -198,11 +203,6 @@
       "date": "2026-06-09",
       "what": "V37.9.125 日落法 root-cause: doc-header 统计自动同步 (gen_readme_badges 扩展) + 顺手修 full_regression governance 回写静默失败. 用户选 doc-stat-sync 方向 (推荐). ① 扩展 gen_readme_badges.py 不新建文件不改名 (避 rename 接缝 #34): compute_facts 加 6 新权威源事实 (test_suites/governance_checks+version/security/mrd_scanners/cases 全 FAIL-OPEN) + _doc_header_specs 同步 FEATURES/config/packaging 三 doc 摘要行统计 (anchor bound 到摘要行防 body 碰撞, 每统计核验恰好 1 次) + --check/--write. point-in-time 标记有意不同步. 不铸新 INV (镜像 V37.9.99: --check + full_regression line 254 doc-drift 层 + test 守卫). ② 顺手修真 MR-4 静默故障 (同 stat-drift 家族): 开工发现 status.json governance 字段陈旧 85/790 vs 权威 89/818. 根因 full_regression L517 governance 回写解析器一直崩 — 旧 depth 字符计数器撞 governance_checker stdout 的 [SYSTEM_ALERT] 行 + V37.3 起 --json 附带 combined object + 字符串内括号误判 → GOV_STATS 空 → status.json 字段长期 stale. 改 raw_decode + 跳所有 log 前缀行. 修复后 status.json 正确回写 89/89 inv + 724/738 checks. MR-10 三问全过, 低 blast radius. ③ 27 新单测 (21→48, 7 类含机器化反向验证破坏真 doc 修回 + fixture 复现 [SYSTEM_ALERT] 污染 + raw_decode 源码守卫). 反向验证守卫真有效 (sabotage 删 spec/破坏 raw_decode 立即 fail; 强化首版自引用守卫 V37.9.110 教训). ④ dogfood: 本 session 版本 bump 的 doc-drift 由新工具 --write 一键同步. ⑤ 118 suites 不变 / 4099→4126 tests (+27) / 0 fail / 89 inv / 818 checks 不变 / 安全 95 / VERSION 0.37.9.68 不变. Mac Mini 待 git fetch+reset (下次 full_regression governance 回写首次正确).",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-06-08",
-      "what": "GitHub 全面文档刷新 (用户要求, 很多老旧文档需彻底刷新). 刷新陈旧 docs (当前文档, 区分 point-in-time 已发表/历史不改写): docs/FEATURES.md 彻底刷新 (header V37.8.13/1093 tests/7 providers/42 inv → v37.9.124/4099 tests/8 providers/89 inv/23 MR/818 checks/25 cases + providers 7→8 加 Doubao 行 + SLO 30s→50s + tests 605→4099 + matrix 7→8 + sources 10→15 加 finance/ai_leaders/ontology + 新增机会点雷达/反幻觉/Observer 行) + docs/config.md head (v37.9.98/3739 tests 巨长陈旧 one-line → v37.9.124/4099 简洁当前 + 日落法北极星 + OpenClaw 第五次评估 + 治理体系) + docs/ontology_engine_packaging.md (87→89 inv/21→23 MR) + README line 573 (115/4062→118/4099) + gateway_upgrade_eval 第四/五次评估行 + status + SOUL.md Gateway 行 (第五次评估) + INDEX/security_boundaries/architecture.svg (7→8 providers). 有意保留: 已发表文章 (why_control_plane/zhihu) + 历史报告 (resilience_report) + 归档 changelog + 上游参考 (openclaw_architecture 需 OpenClaw 源). full_regression 118/4099/0 不变 (纯 doc 改动) + config/README 漂移检查全过.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -275,7 +275,8 @@
       "V37.9.132 一周观察 (~6/18): deep_dive 摘要级占比应从 76% (34/45) 显著下降 — Mac Mini 验证: grep -L \"基于摘要的分析\" ~/.kb/deep_dives/*.md 看 6/12 后新增文件多数应为全文级. 若仍高: (a) 查 dblp ee 字段 arxiv 覆盖率 (b) S2 openAccessPdf .pdf 结尾比例 (非 .pdf OA 链接保留 S2 页面是有意取舍) (c) 候选增强: deep_dive mode (full_text/abstract_only) 占比纳入 daily_observer 报告让 degrade 频率可观测 (本次 76% gap 潜伏 2 个月才被用户发现的根因是 degrade 频率无聚合复盘)",
       "S2 关键词覆盖恢复候选 (低优): S2 API key 已确认配置且认证模式稳定运行 (2026-06-11 Mac Mini log 核实, 6/8 起每天 11:00 认证模式 2s 间隔, 5/28 匿名池 429 已根治). 可选增强: 关键词 6→12 恢复 V37.8.13 因 429 砍半的覆盖 (认证 1 RPS 下 12 关键词仅多 ~12s, 安全). 顺带: V37.9.98 line 98 注释\"即时发放\"与 V37.9.99 修正\"审核制\"矛盾, 下次触碰该文件时顺手清",
       "V37.9.138 follow-up (低优): #48703 hotfix 在 4.27 已冗余 (上游 2026.3.23 修复, restart.sh sed 补丁幂等无害) — 评估移除 restart.sh hotfix 段 + preflight 12/19 检查保留 (验证上游修复仍在). 血案 #98 教训: 现在已升级 4.27 所以移除合法",
-      "【Stage 2→3 话语权输出】ArXiv 论文创作 — 方向 (1) Silent Failures Taxonomy 已锁定, V37.9.139 (2026-06-11) 第一稿已交付: docs/paper/silent_failures_taxonomy/ (draft.md ~490 行英文完整稿 + data_inventory.md 数字溯源 + DECISIONS_NEEDED.md). 下一步: (a) 用户决策 7 项 (标题/署名 AI 披露/venue 推荐 arXiv 直发/匿名度/LaTeX 时机/§7 AI 协作章取舍/figures 计划) (b) Claude 可自主: TBV 引用对 arXiv abs 页终核 (dev WebFetch 403 需 Mac Mini 或可达环境) + 2508.14231 并入 §2.2 + 补 hallucination survey/AIOps/chaos engineering 三类引用 + 正文第二轮 (c) venue 定后 LaTeX 转换 + 5 张 figures (重点 Fig.3 D1 幻觉链 causal chain). 协作模式: 用户领域洞察+学术经验, Claude 工程数据+结构组织. 原候选方向 (2) Convergence Framework (3) Hallucination Prevention 保留为后续论文候选."
+      "【遗留 · 高优】ArXiv 论文投稿 — 卡在 endorsement 等待教授背书 (2026-06-11 收工时状态). 已完成: 第一稿+LaTeX 工程 (18 页 PDF Overleaf 编译通过, 5 图 2 表 14 refs 全验证) + 署名 Wei Wu + 引用 arXiv API 终核 100% 一致 + arXiv 账号注册 + 提交流程走到 cs.SE 分类 → endorsement 拦截 → code NT9TFE 已生成并发教授, 等待背书 (背书人资格: 5 年内任意 cs 子类 3 篇, 操作 arxiv.org/auth/endorse 输码 1 分钟). 恢复路径 (背书生效后, 即时): arxiv.org/user 回到提交 → License 选 CC BY 4.0 → primary cs.SE + cross-list cs.AI/cs.DC → 上传 paper_latex.zip (repo latex/ 目录有备份) → 元数据从 ARXIV_SUBMISSION_GUIDE.md §4.6 整段复制 (Title/Abstract/Comments 已备好) → Preview → Submit. 上线拿到 arXiv ID 后告诉 Claude → 发布配套: README/status.json/CLAUDE.md 链接更新 + 中文科普版 (知乎传播层) + data_inventory 终版归档 + 日落法清理 paper_latex.zip convenience artifact. 若教授无资格/不便: 找任何 5 年内 cs 区发过 3 篇的研究者均可.",
+      "【小 · 守卫假阳性】full_regression suites 计数 121/122 抖动: 对抗审计 layer 3.5 按 git 工作树洁净度条件执行 (不干净则跳过), 导致回写 status.json 的 test_suites 在 121/122 间抖动 → gen_readme_badges doc-drift 守卫偶发假失败 (2026-06-11 收工实测: 第一次回归 122 + 后续回归 121, 中间夹的回归在 doc=121/权威=122 错配窗口 fail). 候选修复 (下次 session, 三选一): (a) 对抗层跳过时仍计入 suite 数 (b) gen_readme_badges suites 比对容忍区间 (c) 回写时 suites 取 max(本次, 上次). 属\"计数抖动→守卫假阳性\"小型 silent-failure 家族, 修复 < 30min."
     ],
     "open_prs": "",
     "blocked_on": "",
@@ -342,10 +343,10 @@
   "quality": {
     "security_score": 95,
     "test_count": 4286,
-    "last_regression": "2026-06-11 08:54 pass",
+    "last_regression": "2026-06-11 14:11 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-11 08:54",
-    "test_suites": 122,
+    "security_score_time": "2026-06-11 14:11",
+    "test_suites": 121,
     "governance_invariants": "90/90",
     "governance_checks": "733/747",
     "version": "0.37.9.70",
@@ -413,7 +414,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "论文进入投稿前最后阶段: draft v0.3 (markdown 871 行 + LaTeX 1332 行 + 5 TikZ 图) 已推送. 待用户: (1) 填 main.tex [AUTHOR NAME]+[email] 两处 (2) Overleaf 编译验证 (上传 latex/ 9 文件, pdflatex 跑两遍) 或 Mac Mini brew install basictex 后编译 (3) 编译通过后 arXiv 提交 (cs.SE 主分类 + cs.AI/cs.DC cross-list). Claude 剩余可做: snippet 级引用对 abs 页终核 (需可达环境). 观察项: 明日 11:00 S2 12 关键词首跑 / 6/18 deep_dive 复盘. Mac Mini 待: 合并 PR + git reset.",
+  "focus": "ArXiv 论文投稿等待 endorsement (唯一阻塞项, 教授背书 1 分钟操作, code 已发出). 本 session (V37.9.139) 全程: 论文第一稿 871 行 → 14 refs 全验证 → 用户 4 决策 → LaTeX 1332 行 + 5 TikZ 图 → Overleaf 18 页编译通过 → 署名 Wei Wu → 引用 arXiv API 终核 100% → arXiv 提交走到 endorsement 卡点. 恢复路径详见 unfinished ArXiv 项 (背书生效→arxiv.org/user 继续→CC BY 4.0→cs.SE+cross-list→上传 zip→guide §4.6 元数据→Submit). 上线后 Claude 做发布配套. 其他观察项: 明日 11:00 S2 12 关键词首跑 / 6/18 deep_dive 摘要级复盘. Mac Mini 待: 合并收工 PR + git reset.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
