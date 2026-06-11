@@ -19,7 +19,7 @@ DEV_MODE=false
 CURRENT=$(openclaw --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || echo "")
 if [ -z "$CURRENT" ]; then
     DEV_MODE=true
-    CURRENT="2026.3.13"  # 已知部署版本，dev 环境占位
+    CURRENT="2026.4.27"  # 已知部署版本 (V37.9.138: 2026-06-11 升级完成)，dev 环境占位
 fi
 
 echo "=== OpenClaw 升级 tripwire 检查 $(date '+%Y-%m-%d %H:%M:%S') ==="

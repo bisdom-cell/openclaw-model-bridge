@@ -723,6 +723,33 @@ tools.exec/fs restrictive profile（4.29）+ plugin manifest contracts.tools（5
 2. **Discord 回复默认 private（4.27 行为变更）**：我们走 `openclaw message send --channel-id` 显式发送
    不受影响（该变更针对 agent 隐式回复），升级后观察第一次 cron 双通道推送确认 Discord 到达。
 
+### 15.4 升级实录（2026-06-11 12:30-12:50 HKT — 当日完成，提前 9 天）
+
+前置验证 GO 后用户决策当日升级（原第七节 SOP 前置条件即"工作日白天，确保能快速回滚"；
+6/20 周六是后来加的保守层，其周末补救价值在 30 秒回滚面前有限；当日升级另有 Claude 在线
+实时协助的优势）。完整时间线：
+
+| 时间 | 步骤 | 结果 |
+|------|------|------|
+| 12:27 | 备份 openclaw.json + 版本记录 (2026.3.13) | ✅ |
+| 12:33 | `npm install -g openclaw@2026.4.27` | ✅ 12s, 2026.4.27 (cbc2ba0) |
+| 12:35 | `openclaw doctor --fix` | ✅ legacy config 迁移 (web.search→brave plugin / discord.streaming→mode) + 12 bundled plugin deps 安装 (baileys/carbon/...) + sessions canonicalize + 10 orphan transcripts 归档 (可逆 rename) + plugin registry 71/116, **0 errors** |
+| 12:40 | `bash ~/restart.sh` | ✅ adapter/proxy kickstart + gateway launchd + 健康验证 2×3s |
+| 12:41 | `channels status --probe` | ✅ **WhatsApp linked+connected (15.2 验证项 1: manifest-first 自动加载通过, auth 保留)** + Discord connected |
+| 12:42 | WhatsApp send #1 | ⚠️ gateway timeout 10s — plugin 首次调用按需 staging baileys+jimp (4.27 机制) |
+| 12:44 | WhatsApp send #2 | ✅ Message ID 3EB0...（staging 完成后即通）+ Discord send ✅ (15.2 验证项 2) |
+| 12:47 | **真人 E2E**: 用户 WhatsApp 问 PA | ✅ **PA 回复完整可见 — #59265 未复现, 最大残留风险解除** |
+| 12:49 | `preflight_check.sh --full` | ✅ **85 通过 / 0 失败 / 1 警告 (KB 索引 lag) / SLO 全部达标** (p95 警告随窗口冲刷自愈) |
+
+回滚未触发。操作教训：(a) zsh 不吃 `#` 注释行（粘贴命令需去注释）(b) `doctor | tail` 管道
+吞交互提示导致看似挂起 — doctor 必须不接管道直跑 (c) upgrade_openclaw.sh 原用 `@latest`
+是隐患（会拉到 2026.6.x），已改为强制显式版本参数 (V37.9.138)。
+
+观察项（非阻塞）：Discord groupPolicy=allowlist + groupAllowFrom 空的新警告（我们不收
+群组入站，无影响）；#48703 hotfix 在 4.27 上游已含修复，restart.sh sed 补丁冗余但幂等
+无害，移除登记 follow-up；openclaw_config_to_runtime convergence spec 下次 --full 跑时
+declared version 字段随 doctor 重写的 openclaw.json 变化，如报 drift 属预期（alert_only_permanent）。
+
 ### 15.3 LAST_EVAL_DATE 更新
 
 本次前置验证（人工 + 实证）将 LAST_EVAL_DATE 更新到 **2026-06-11**。6/20 升级窗口前无需再评估

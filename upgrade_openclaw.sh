@@ -1,7 +1,9 @@
 #!/bin/bash
 set -euo pipefail
 # upgrade_openclaw.sh - OpenClaw Gateway 升级 SOP
-# 用法：bash ~/openclaw-model-bridge/upgrade_openclaw.sh
+# 用法：bash ~/openclaw-model-bridge/upgrade_openclaw.sh <目标版本, 如 2026.4.27>
+# V37.9.138: 禁止隐式 @latest — 2026-06-11 升级 4.27 时发现本脚本装 @latest 会
+# 拉到 2026.6.x (SQLite migration 动荡版本), 目标版本必须显式传参 (eval doc 13.9.4)
 # ⚠️ 必须通过 SSH 直接执行，禁止通过 WhatsApp 让 AI 自我升级
 
 PHONE="${OPENCLAW_PHONE:-+85200000000}"
@@ -26,7 +28,8 @@ sleep 2
 # 2. 执行 npm 升级
 echo ""
 echo "[3/6] 执行 npm 升级..."
-npm install -g openclaw@latest
+TARGET_VERSION="${1:?用法: bash upgrade_openclaw.sh <目标版本如 2026.4.27> — 禁止隐式 @latest (V37.9.138)}"
+npm install -g "openclaw@${TARGET_VERSION}"
 
 # 3. 确认新版本
 echo ""
