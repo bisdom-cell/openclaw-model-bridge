@@ -3406,7 +3406,7 @@ invariants:
         pattern: 'DEEP_SYSTEM="[^"]*V37.8.6 反污染'
       - name: "kb_dream.sh WIDE_RADAR_SYSTEM 含反污染条款 (V37.9.68 替代 CHUNK2/3 / V37.9.74 兼容 escaped quotes)"
         check_type: python_assert
-        assertion: |
+        code: |
           # V37.9.74 修: WIDE_RADAR_SYSTEM 内含 \"## 🌐 ...\" 等 escaped ASCII 双引号字面量
           # 让旧 regex [^"]*V37.8.6 反污染 提前终止 (regex 在第一个未转义 " 处停).
           # 改用 python 字符串搜索: 找 WIDE_RADAR_SYSTEM=" 到下一个未转义 " 之间是否含反污染条款.
@@ -5220,7 +5220,7 @@ invariants:
       # ── runtime: 24 单测端到端通过 ─────────────────────────────────
       - name: "RUNTIME: test_movespeed_rsync_helper.py 24 单测全过 (usage/env/success/retry/all-fail/capture/sites/source)"
         check_type: python_assert
-        assertion: |
+        code: |
           import subprocess
           import sys
           import os
@@ -5330,7 +5330,7 @@ invariants:
       # ── runtime: 36 单测端到端通过 ────────────────────────────────────
       - name: "RUNTIME: test_movespeed_incident_monitor.py 36 单测全过 (parse/extract/count/format/CLI/threshold/watchdog 集成守卫)"
         check_type: python_assert
-        assertion: |
+        code: |
           import subprocess
           import sys
           import os
@@ -5688,7 +5688,7 @@ invariants:
         pattern: 'id: MR-17'
       - name: "RUNTIME: test_convergence.py 全套通过 (verify_convergence 行为契约 + jobs_to_crontab 真 spec 端到端)"
         check_type: python_assert
-        assertion: |
+        code: |
           import subprocess
           import sys
           import os
@@ -5751,7 +5751,7 @@ invariants:
         pattern: '"remove", extra_line'
       - name: "V37.9.66 RUNTIME: TestV37966 系列守卫真激活 (subprocess 跑 test_convergence)"
         check_type: python_assert
-        assertion: |
+        code: |
           import os, sys, subprocess
           repo_root = os.getcwd()  # V37.9.118 日落法 #30: 单一源 (chdir 后==_PROJECT_ROOT), 替代 abspath+ternary
           # 只跑 V37.9.66 系列测试类减少耗时
@@ -5873,7 +5873,7 @@ invariants:
       # ── runtime layer: V37.9.20 specific test classes 端到端通过 ───
       - name: "RUNTIME: test_convergence.py V37.9.20 测试类全部通过 (TestExtractProvidersFromRegistry + TestObserveHttpEndpoint + TestParseJsonSetUnion + TestVerifyProvidersToAdapterIntegration + TestProvidersSpecSourceGuards)"
         check_type: python_assert
-        assertion: |
+        code: |
           import subprocess
           import sys
           import os
@@ -5998,7 +5998,7 @@ invariants:
       # ── runtime layer: V37.9.22 specific test classes 端到端通过 ───
       - name: "RUNTIME: test_convergence.py V37.9.22 测试类全部通过 (TestWalkJsonPathsToSet + TestExtractJsonFilePaths + TestVerifyOpenclawConfigToRuntimeIntegration + TestOpenclawSpecSourceGuards)"
         check_type: python_assert
-        assertion: |
+        code: |
           import subprocess
           import sys
           import os
@@ -6177,7 +6177,7 @@ invariants:
       # ── runtime layer: V37.9.22+V37.9.23+V37.9.24 KB spec 测试类端到端通过 ─
       - name: "RUNTIME: test_convergence.py V37.9.22~24 KB spec 测试类全部通过 (含 V37.9.24 ApplyKbEmbedIncremental + NamedDispatch + V37924SourceLevelGuards + OpenclawConfigMockRuntime)"
         check_type: python_assert
-        assertion: |
+        code: |
           import subprocess
           import sys
           import os
@@ -6371,7 +6371,7 @@ invariants:
       # ── runtime layer: V37.9.25 services spec 测试类端到端通过 ────────
       - name: "RUNTIME: test_convergence.py V37.9.25 services spec 测试类全部通过 (TestExtractServicesFromRegistry + TestVerifyServicesToLaunchdIntegration + TestServicesSpecSourceGuards)"
         check_type: python_assert
-        assertion: |
+        code: |
           import subprocess
           import sys
           import os
@@ -6637,7 +6637,7 @@ invariants:
       # ── declaration layer (Python AST/grep 级深度检查) ─────────────────
       - name: "run_rss_blogs.sh 执行代码不得含'技术深度文章'占位符 (跳过注释)"
         check_type: python_assert
-        assertion: |
+        code: |
           # V37.9.36 反模式守卫: 占位符 fallback 不得出现在执行代码中
           # 跳过 # 开头的 shell 注释行允许文档描述反模式 (V37.5 同款模式)
           src_path = "jobs/rss_blogs/run_rss_blogs.sh"
@@ -6682,7 +6682,7 @@ invariants:
       # ── runtime layer (subprocess 真跑端到端验证) ─────────────────────
       - name: "RUNTIME: 复现 2026-05-07 18:00 血案场景 — LLM 502 响应触发 fail-fast 检测"
         check_type: python_assert
-        assertion: |
+        code: |
           # 把 V37.9.36 detection snippet (run_rss_blogs.sh 内嵌) 提出来 subprocess 真跑
           # 输入实际血案 LLM_RESP, 断言 stderr 含 __LLM_HTTP_ERROR__ marker
           import subprocess, sys
@@ -6777,7 +6777,7 @@ invariants:
               shutil.rmtree(tmpdir, ignore_errors=True)
       - name: "RUNTIME: test_run_rss_blogs.py 44 单测端到端覆盖 (V37.9.37: 27→44)"
         check_type: python_assert
-        assertion: |
+        code: |
           import subprocess, sys, os
           repo_root = os.environ.get("OPENCLAW_REPO_ROOT", os.getcwd())
           proc = subprocess.run(
@@ -6817,7 +6817,7 @@ invariants:
         pattern: "\\[LLM_DEGRADED\\]"
       - name: "V37.9.37: 5 字段 prompt 结构 (5 个 emoji marker)"
         check_type: python_assert
-        assertion: |
+        code: |
           src = open("jobs/rss_blogs/run_rss_blogs.sh", encoding="utf-8").read()
           for marker in ["📌", "🔑", "💡", "🎯", "⭐"]:
               assert marker in src, f"5 字段 prompt 缺少 {marker}"
@@ -6831,14 +6831,14 @@ invariants:
         pattern: '⭐⭐⭐⭐⭐.*?500-800'
       - name: "V37.9.37: 多窗口切片阈值 8000"
         check_type: python_assert
-        assertion: |
+        code: |
           import re
           src = open("jobs/rss_blogs/run_rss_blogs.sh", encoding="utf-8").read()
           assert re.search(r'TOTAL_LEN.*-le 8000', src), "缺少 8000 字阈值判断"
           assert "MAX_CHUNK = 4000" in src, "缺少 4000 字切片大小"
       - name: "V37.9.37: 多窗口分支必须含 sleep 1s 防 WhatsApp 乱序"
         check_type: python_assert
-        assertion: |
+        code: |
           src = open("jobs/rss_blogs/run_rss_blogs.sh", encoding="utf-8").read()
           idx = src.find("WA_CHUNK_DIR")
           assert idx != -1
@@ -6849,7 +6849,7 @@ invariants:
       # ── V37.9.37 升级层 runtime 守卫 ──────────────────────────
       - name: "RUNTIME V37.9.37: 全部失败分支立即 exit 1 (V37.9.36 fail-fast 契约保留)"
         check_type: python_assert
-        assertion: |
+        code: |
           src = open("jobs/rss_blogs/run_rss_blogs.sh", encoding="utf-8").read()
           idx = src.find('TOTAL_FAILED" -eq "$TOTAL_NEW"')
           assert idx != -1, "缺少全部失败 fail-fast 分支"
@@ -6860,7 +6860,7 @@ invariants:
           )
       - name: "RUNTIME V37.9.37: 5 字段 emit + LLM_DEGRADED fallback 端到端验证"
         check_type: python_assert
-        assertion: |
+        code: |
           # 直接调 test_run_rss_blogs.TestEmit5Field 关键测试
           # 验证 V37.9.37 emit 端在部分失败场景下:
           #   (1) 成功篇输出 5 字段
@@ -6977,7 +6977,7 @@ invariants:
         pattern: '"V37.9.45"'
       - name: "PLACEHOLDER_PATTERNS 含 V37.9.36 血案 3 个核心字符串"
         check_type: python_assert
-        assertion: |
+        code: |
           src = open("ontology/llm_cron_audit.py", encoding="utf-8").read()
           for s in ("贡献：AI领域相关研究", "价值：⭐⭐⭐", "要点：技术深度文章"):
               assert s in src, f"PLACEHOLDER_PATTERNS 必须含 V37.9.36 血案字符串: {s!r}"
@@ -7202,7 +7202,7 @@ invariants:
         pattern: 'def get_guard'
       - name: "5 档模板全部定义 (LEVEL_1 到 LEVEL_5)"
         check_type: python_assert
-        assertion: |
+        code: |
           with open("hallucination_guards.py") as f:
               content = f.read()
           for level in ["LEVEL_1_MINIMAL", "LEVEL_2_STANDARD", "LEVEL_3_STRICT",
@@ -7284,7 +7284,7 @@ invariants:
       # V37.9.63: 接受 helper 模式 (V37.9.63 抽公共) — alternation 用 python_assert 双路径
       - name: "watchdog 必须有 ERR trap handler (inline OR V37.9.63 helper)"
         check_type: python_assert
-        assertion: |
+        code: |
           import os
           repo = os.getcwd()  # V37.9.118 日落法 #30: 单一源 (chdir 后==_PROJECT_ROOT), 替代 abspath+ternary
           with open(os.path.join(repo, "job_watchdog.sh"), "r", encoding="utf-8") as f:
@@ -7308,7 +7308,7 @@ invariants:
           )
       - name: "ERR trap 必须推送 [SYSTEM_ALERT] 关键字 (silent abort 变 loud; inline OR V37.9.63 helper)"
         check_type: python_assert
-        assertion: |
+        code: |
           import os
           repo = os.getcwd()  # V37.9.118 日落法 #30: 单一源 (chdir 后==_PROJECT_ROOT), 替代 abspath+ternary
           watchdog_path = os.path.join(repo, "job_watchdog.sh")
@@ -7360,7 +7360,7 @@ invariants:
       # runtime layer: 真跑单测套件
       - name: "RUNTIME: test_watchdog_self_monitoring 全套通过"
         check_type: python_assert
-        assertion: |
+        code: |
           import subprocess, os, sys
           repo_root = os.getcwd()  # V37.9.118 日落法 #30: 单一源 (chdir 后==_PROJECT_ROOT), 替代 abspath+ternary
           result = subprocess.run(
@@ -7556,7 +7556,7 @@ invariants:
       # runtime layer: 真跑 scanner + 单测
       - name: "RUNTIME: cron_monitor_scanner.py 全量扫描 exit 0 (0 violations)"
         check_type: python_assert
-        assertion: |
+        code: |
           import subprocess, os, sys
           repo_root = os.getcwd()  # V37.9.118 日落法 #30: 单一源 (chdir 后==_PROJECT_ROOT), 替代 abspath+ternary
           result = subprocess.run(
@@ -7570,7 +7570,7 @@ invariants:
           )
       - name: "RUNTIME: test_cron_monitor_scanner.py 单测全过"
         check_type: python_assert
-        assertion: |
+        code: |
           import subprocess, os, sys
           repo_root = os.getcwd()  # V37.9.118 日落法 #30: 单一源 (chdir 后==_PROJECT_ROOT), 替代 abspath+ternary
           result = subprocess.run(
@@ -7584,7 +7584,7 @@ invariants:
           )
       - name: "RUNTIME: test_cron_monitor_fatal_handler.py 30 helper 单测全过 (V37.9.63)"
         check_type: python_assert
-        assertion: |
+        code: |
           import subprocess, os, sys
           repo_root = os.getcwd()  # V37.9.118 日落法 #30: 单一源 (chdir 后==_PROJECT_ROOT), 替代 abspath+ternary
           result = subprocess.run(
@@ -7650,7 +7650,7 @@ invariants:
         pattern: 'def detect_subshell_errtrace_designed_nonzero'
       - name: "scanner 引用所有 6 个血案 (溯源)"
         check_type: python_assert
-        assertion: |
+        code: |
           src = open('cross_os_quirk_scanner.py').read()
           for ver in ('V37.9.66-hotfix', 'V37.9.60-hotfix',
                       'V37.9.58-hotfix3', 'V37.9.56-hotfix2',
@@ -7658,7 +7658,7 @@ invariants:
               assert ver in src, f"scanner 必须引用血案 {ver}"
       - name: "RUNTIME: cross_os_quirk_scanner 全 repo scan 0 violations"
         check_type: python_assert
-        assertion: |
+        code: |
           import subprocess, os, sys
           repo_root = os.getcwd()  # V37.9.118 日落法 #30: 单一源 (chdir 后==_PROJECT_ROOT), 替代 abspath+ternary
           result = subprocess.run(
@@ -7670,7 +7670,7 @@ invariants:
           )
       - name: "RUNTIME: test_cross_os_quirk_scanner.py 单测全过"
         check_type: python_assert
-        assertion: |
+        code: |
           import subprocess, os, sys
           repo_root = os.getcwd()  # V37.9.118 日落法 #30: 单一源 (chdir 后==_PROJECT_ROOT), 替代 abspath+ternary
           result = subprocess.run(
@@ -7724,7 +7724,7 @@ invariants:
         pattern: 'MR-15'
       - name: "scanner 引用所有 4 个血案演出 (溯源)"
         check_type: python_assert
-        assertion: |
+        code: |
           src = open('cross_env_path_scanner.py').read()
           for ver in ('V37.9.56-hotfix', 'V37.9.76-hotfix',
                       'V37.9.78-hotfix', 'V37.9.92'):
@@ -7740,13 +7740,13 @@ invariants:
         pattern: 'cross_os_quirk_scanner.py'
       - name: "scanner CONFIG_FILE_SUFFIXES 含 4 类 (yaml/yml/json/md)"
         check_type: python_assert
-        assertion: |
+        code: |
           src = open('cross_env_path_scanner.py').read()
           for suf in (".yaml", ".yml", ".json", ".md"):
               assert suf in src, f"CONFIG_FILE_SUFFIXES missing {suf}"
       - name: "RUNTIME: cross_env_path_scanner 全 repo scan 0 violations"
         check_type: python_assert
-        assertion: |
+        code: |
           import subprocess, os, sys
           repo_root = os.getcwd()  # V37.9.118 日落法 #30: 单一源 (chdir 后==_PROJECT_ROOT), 替代 abspath+ternary
           result = subprocess.run(
@@ -7759,7 +7759,7 @@ invariants:
           )
       - name: "RUNTIME: test_cross_env_path_scanner.py 39 单测全过"
         check_type: python_assert
-        assertion: |
+        code: |
           import subprocess, os, sys
           repo_root = os.getcwd()  # V37.9.118 日落法 #30: 单一源 (chdir 后==_PROJECT_ROOT), 替代 abspath+ternary
           result = subprocess.run(
@@ -7910,7 +7910,7 @@ invariants:
         pattern: 'V37.9.68-hotfix'
       - name: "V37.9.68-hotfix 旧合并算法字面量必须消除 (反向守卫)"
         check_type: python_assert
-        assertion: |
+        code: |
           # 反向守卫: 旧合并算法 'if len(current) + len(piece) + 1 <= max_chunk:' 必须从 kb_dream.sh 消除
           # V37.9.66 案例库 类别 B "设计假设错配" — Mac Mini 5/15 03:00 cron 实测 [3/3] 而非 [4/4]
           with open("kb_dream.sh") as _f:
@@ -7935,7 +7935,7 @@ invariants:
         pattern: 'V37.9.73'
       - name: "V37.9.73 生产 caller 形态守卫 (反向 sabotage 验证)"
         check_type: python_assert
-        assertion: |
+        code: |
           # V37.9.73 守卫: 生产 caller 真实形态 (text 直接以 '## ' 开头, 无 '# Agent Dream' header)
           # 必须产 4 chunks 而非 3 chunks. 5/16 + 5/17 连续两天 [3/3] 血案核心场景.
           # 反向 sabotage 验证: sed 'first_is_h2 = sections[0].lstrip().startswith("## ")' →
@@ -7975,7 +7975,7 @@ invariants:
         pattern: 'RADAR_RETRY_SYSTEM='
       - name: "V37.9.74 retry 触发条件: WIDE ok + RADAR degraded"
         check_type: python_assert
-        assertion: |
+        code: |
           # V37.9.74 守卫: retry 必须仅在 WIDE 段 ok + RADAR 段 degraded 时触发
           # 反向 sabotage: sed 删除整个 retry block → 7 个 V37.9.74 测试立即 fail
           with open("kb_dream.sh") as _f:
@@ -7987,7 +7987,7 @@ invariants:
           )
       - name: "V37.9.74 retry 结果双重验证 (chars + header)"
         check_type: python_assert
-        assertion: |
+        code: |
           # V37.9.74 守卫: retry 成功必须双重验证 — chars >= MIN + 含 ## 📡 字面量
           # 防 LLM 产 1500 字垃圾但仍漏 header 的 corner case
           with open("kb_dream.sh") as _f:
@@ -8022,7 +8022,7 @@ invariants:
         pattern: 'DEEP_RETRY_PROMPT='
       - name: "V37.9.75 retry 触发条件: 仅在 partial content (非空但短) 时"
         check_type: python_assert
-        assertion: |
+        code: |
           # V37.9.75 守卫: retry 必须仅在 LLM 真返回非空 partial content 时触发
           # 完全空时 skip (llm_call 已 retry, 不浪费 token)
           # 反向 sabotage: 移除 retry 触发条件 → V37.9.75 单测立即 fail
@@ -8035,7 +8035,7 @@ invariants:
           )
       - name: "V37.9.75 retry 结果双重验证 (chars + header)"
         check_type: python_assert
-        assertion: |
+        code: |
           # V37.9.75 守卫: retry 成功必须双重验证 — DEEP_CHARS >= MIN + 含 ## 🌙 今日深度 字面量
           # 防 LLM 产 1400 字垃圾但漏 header 的 corner case
           with open("kb_dream.sh") as _f:
@@ -8049,7 +8049,7 @@ invariants:
           )
       - name: "V37.9.75 retry 成功路径: 用 retry 结果继续 WIDE+RADAR"
         check_type: python_assert
-        assertion: |
+        code: |
           # V37.9.75 守卫: retry 成功后必须替换 DEEP_RESULT + 更新 DEEP_CHARS, 让下游 pipeline 用 retry 结果
           # 反向 sabotage: 删除 DEEP_RESULT="$DEEP_RETRY_RESULT" → 用户看到 partial 不是 retry 结果
           with open("kb_dream.sh") as _f:
@@ -8089,7 +8089,7 @@ invariants:
           )
       - name: "kb_dream_helpers 单测 68 个全过"
         check_type: python_assert
-        assertion: |
+        code: |
           # 守卫: 端到端真跑 test_kb_dream_helpers.py 全部单测
           import os as _os
           import subprocess as _sub
@@ -8136,7 +8136,7 @@ invariants:
         pattern: 'def find_best_provider\('
       - name: "V37.9.76 find_best_provider 签名含 required/prefer/exclude 三参数"
         check_type: python_assert
-        assertion: |
+        code: |
           with open("providers.py") as _f:
               _src = _f.read()
           assert "required: Optional[Dict[str, bool]]" in _src, (
@@ -8151,7 +8151,7 @@ invariants:
       # === 声明层: router_decide.py 模块契约 ===
       - name: "V37.9.76 router_decide.py 文件存在"
         check_type: python_assert
-        assertion: |
+        code: |
           import os as _os
           assert _os.path.isfile("router_decide.py"), (
               "INV-ROUTER-001 V37.9.76: router_decide.py 模块必须存在"
@@ -8175,7 +8175,7 @@ invariants:
       # V37.9.76-hotfix 部署 layout 修复 (Mac Mini 09:29 首跑实测发现)
       - name: "V37.9.76-hotfix Mac Mini canonical repo 路径必须在候选列表"
         check_type: python_assert
-        assertion: |
+        code: |
           # 守卫: PATH + FALLBACK 在 Mac Mini 部署到 ~/router_decide.py 时会重合 (dirname=$HOME),
           # 必须加 ~/openclaw-model-bridge/jobs_registry.yaml (auto_deploy 同步源) 作第二候选.
           # 反向 sabotage: 移除 MAC_MINI 常量 → 立即 silent fail
@@ -8199,7 +8199,7 @@ invariants:
         pattern: 'def _resolve_primary_provider\(self\):'
       - name: "V37.9.77 ROUTER_ENFORCE feature flag 默认 off (PoC 安全网, V37.9.78+ 评估默认 on)"
         check_type: python_assert
-        assertion: |
+        code: |
           # V37.9.77 守卫: adapter / kb_dream / router_decide 三方都用 ROUTER_ENFORCE="off" 默认
           # 反向 sabotage 任一处 → 立即 fail
           for _path, _expected in [
@@ -8214,7 +8214,7 @@ invariants:
               )
       - name: "V37.9.77 adapter 必须 strip query string 再 forward provider URL"
         check_type: python_assert
-        assertion: |
+        code: |
           # V37.9.77 守卫: provider API 不识别 ?provider= query, 必须先 urlparse 后用 .path
           with open("adapter.py") as _f:
               _src = _f.read()
@@ -8234,7 +8234,7 @@ invariants:
         pattern: 'curl -sS --max-time "\$timeout" "\$effective_url"'
       - name: "V37.9.77 router_decide._resolve_mode 函数定义 + mode 字段动态化"
         check_type: python_assert
-        assertion: |
+        code: |
           # V37.9.77 守卫: mode 字段必须由 _resolve_mode() 动态决定, 不能硬编码 "shadow"
           with open("router_decide.py") as _f:
               _src = _f.read()
@@ -8246,7 +8246,7 @@ invariants:
           )
       - name: "V37.9.77 反向 sabotage 守卫: 27 个 V37.9.77 单测全过"
         check_type: python_assert
-        assertion: |
+        code: |
           # 守卫: 端到端真跑 test_v37_9_77_enforcement.py 全部单测
           import os as _os
           import subprocess as _sub
@@ -8262,7 +8262,7 @@ invariants:
       # === 声明层: jobs_registry capability profile ===
       - name: "V37.9.76 kb_dream 必须有 required_capabilities/prefer/cost_tier 三字段"
         check_type: python_assert
-        assertion: |
+        code: |
           with open("jobs_registry.yaml") as _f:
               _src = _f.read()
           _idx = _src.find("- id: kb_dream\n")
@@ -8279,7 +8279,7 @@ invariants:
           )
       - name: "V37.9.76 hf_papers 必须有 required_capabilities/cost_tier"
         check_type: python_assert
-        assertion: |
+        code: |
           with open("jobs_registry.yaml") as _f:
               _src = _f.read()
           _idx = _src.find("- id: hf_papers\n")
@@ -8323,7 +8323,7 @@ invariants:
       # === 运行时层: 端到端真跑 V37.9.76 单测 ===
       - name: "V37.9.76 test_v37_9_76_router 43 个单测全过"
         check_type: python_assert
-        assertion: |
+        code: |
           # 守卫: 端到端真跑 test_v37_9_76_router.py 全部单测
           # 反向 sabotage 守卫: 删 find_best_provider / router_decide / 集成调用任一 → 立即 fail
           import os as _os
@@ -8440,7 +8440,7 @@ invariants:
       # runtime layer
       - name: "RUNTIME: test_health_check_v37_9_78.py 32 单测全过"
         check_type: python_assert
-        assertion: |
+        code: |
           import subprocess, os, sys
           _repo = os.getcwd()  # V37.9.118 日落法 #30: 单一源 (chdir 后==_PROJECT_ROOT), 替代 abspath+ternary
           _result = subprocess.run(
@@ -8510,7 +8510,7 @@ invariants:
       # runtime layer (MR-6 ≥2 层硬强制): 真读 case doc 验证 6 个核心字面量同时出现
       - name: "RUNTIME: case doc 6 个核心字面量同时存在 (V37.9.80 真因 + 证据 + 修复)"
         check_type: python_assert
-        assertion: |
+        code: |
           import os
           _repo = os.getcwd()  # V37.9.118 日落法 #30: 单一源 (chdir 后==_PROJECT_ROOT), 替代 abspath+ternary
           _case_path = os.path.join(_repo, "ontology", "docs", "cases",
@@ -8572,7 +8572,7 @@ invariants:
       # ── V37.9.81 B runtime: 真跑分析器函数验证 marker 识别 + priority 顺序 ──
       - name: "RUNTIME: V37.9.81 B classify_* 函数识别 [sandbox_denied] marker + priority 顺序锁"
         check_type: python_assert
-        assertion: |
+        code: |
           import os, sys
           _repo = os.getcwd()  # V37.9.118 日落法 #30: 单一源 (chdir 后==_PROJECT_ROOT), 替代 abspath+ternary
           # 临时把 repo root 加到 sys.path 让 import 工作
@@ -8738,7 +8738,7 @@ invariants:
       # ── runtime: 真跑 scanner 必须 0 violations (当前 repo baseline) ──
       - name: "RUNTIME: scanner --json 真跑当前 repo 必须 0 violations"
         check_type: python_assert
-        assertion: |
+        code: |
           import os, json, subprocess, sys
           _repo = os.getcwd()  # V37.9.118 日落法 #30: 单一源 (chdir 后==_PROJECT_ROOT), 替代 abspath+ternary
           _scanner = os.path.join(_repo, "path_consistency_scanner.py")
@@ -8759,7 +8759,7 @@ invariants:
           )
       - name: "RUNTIME: 26 单测全过 (scanner 行为 + 反向 sabotage 守卫真有效)"
         check_type: python_assert
-        assertion: |
+        code: |
           import os, subprocess, sys
           _repo = os.getcwd()  # V37.9.118 日落法 #30: 单一源 (chdir 后==_PROJECT_ROOT), 替代 abspath+ternary
           _test = os.path.join(_repo, "test_path_consistency_scanner.py")
@@ -8867,7 +8867,27 @@ invariants:
       自身的 MR-7 盲区. 修复: _check_code(check) helper 读 code OR assertion 双字段
       (单一真理源, MR-8). 本 meta-guard 守 (1) 执行器读双字段不退回 code-only
       (2) 无 vacuous python_assert (每个经 _check_code 非空) — 本可一开始就抓住整个 bug 类.
+
+      V37.9.136 数据层迁移 (unfinished #10 一周观察期后兑现, 日落法一物一形):
+      55 个 assertion: 字段全部迁移成 code: (byte-identical 验证: governance --json
+      迁移前后除 audit-of-audit timing 外完全一致). 执行器 _check_code 双字段兼容
+      **保留** (belt-and-suspenders: 未来误写 assertion: 也不会 vacuous), 数据层
+      新增防回退守卫保证 yaml 不再出现 assertion: 字段 — 执行器宽容 +
+      数据层严格 = 一物一形且零 silent-fail 风险.
     checks:
+      - name: "V37.9.136 一物一形: yaml 数据层无 assertion: 字段 (迁移后防回退) (python_assert)"
+        check_type: python_assert
+        code: |
+          src = open("ontology/governance_ontology.yaml", encoding="utf-8").read()
+          # 字段名形式不得再出现 (V37.9.136 已 55 处全迁 code:). 拼接构造防本 check 自身字面量自匹配.
+          field = "assertion" + ": |"
+          hits = []
+          for i, l in enumerate(src.split("\n")):
+              if l.strip() == field:
+                  hits.append(i + 1)
+          assert not hits, (
+              f"V37.9.136 后新增 python_assert 必须用 code: 字段 (不得用 assertion:), 行: {hits[:5]}"
+          )
       - name: "执行器 _check_code helper 读 code OR assertion 双字段 (file_contains)"
         check_type: file_contains
         file: ontology/governance_checker.py
@@ -9702,7 +9722,7 @@ audit_metadata:
     v3.11 → v3.12: V37.8.6 Dream 自引用幻觉血案 — INV-DREAM-003 新增 (dream-log-cannot-pollute-cache-nor-fabricate-platform-crises, meta_rule=MR-4, severity=critical, verification_layer=[declaration, runtime], 16 checks). 2026-04-15 03:00 Dream run 出现 4 次 Bad JSON 400 (adapter 收到破损 JSON)，但 Dream 仍产出完整"Hugging Face 平台危机"分析，用户察觉 Signal(Papers with Code 沉默)↔Action(监控 Hugging Face) 主题断裂后上报。三层根因：(a) scraped 内容含 surrogate UTF-8 → json.dump + utf-8 file write → UnicodeEncodeError → body_file 截断 → adapter.py:386 返回 400 Bad JSON (b) kb_dream.sh log() 用 `echo` 写 stdout → signals=$(llm_call ...) 命令替换捕获 log 行进 signals → cache file 被"LLM raw response: Error code 400 Bad JSON..."污染 (c) Reduce cache-only fast path 把错误日志注入 LLM 上下文 → LLM 基于这些字样自动编造"Hugging Face 危机"叙事 = 原则 #23 链式幻觉 + MR-4 silent failure 第 7 次演出。四层结构修复（defense-in-depth）：log→stderr 阻断 stdout 污染通道 + _sanitize(U+D800-U+DFFF → U+FFFD) 防编码炸裂 + file open 显式 encoding='utf-8' errors='replace' 第二防线 + REDUCE/CHUNK1/2/3 system prompt 四块加反污染守卫 (禁止把 HTTP 错误码/Python 异常/错误页 HTML/U+FFFD 当外部信号，禁止基于这些字样推断 Hugging Face/GitHub/npm 等平台状态)。runtime python_assert 真跑 sanitize 五场景 (孤立高位/低位代理/正常串/代理范围边界/sanitize 后 json+utf-8 编码不炸)。19 单测 (TestLogGoesToStderr×2 + TestSanitizeSurrogates×7 + TestShellSanitizeImplementation×5 + TestAntiPollutionSystemPrompt×3 + TestShellScriptIntegrity×1 + TestLogDefHasCommentMeta×1)。
     v3.10 → v3.11: V37.8.5 INV-X-001 升级三层检测 (血案二次演出: V37.8.4 修复本身埋盲区) — V37.8.4 收工 Mac Mini E2E 即发现 2 个边缘：CNS1952 98/99 超窗口 + 1 过短老化率 99% 但未触发严格 old==total (MR-10 第 2 次演出：修复会埋坑)；SingTaoDaily 0-tweet stub (embed disabled 返回空骨架) 被 total>0 门槛绕过完全不标记。V37.8.5 修复：(1) 检测逻辑独立为 jobs/finance_news/finance_news_zombie.py 纯函数模块 (classify_zombie(diag, count)); (2) 三层 tier: "stub" (no_data=0 + total=0) + "stale" (≥90% 老化 + count=0 守卫防止低频活跃误报)，整数比较 old*10 >= total*9 避免浮点; (3) 24 单测锁定三层 + 守卫 + shell 集成 + auto_deploy FILE_MAP; (4) verification_layer 从 [declaration] 升级到 [declaration, runtime] (MR-6 遵循: INV-X-001 现在有 python_assert 真跑 5 个 tier 场景); (5) shell 脚本禁止内嵌 inline fallback (防模块缺失时静默降级回 V37.8.4 逻辑 — MR-8 copy-paste-is-a-bug-class 兑现)。诊断行 tier 区分 ⚠️ ZOMBIE嫌疑[stub] vs [stale]，便于日志定位。
   total_invariants: 90  # V37.9.129: +1 INV-FALLBACK-EXCLUDE-001 (geo-blocked-provider-excluded-from-fallback-chain, MR-4, high, 7 checks — gemini 香港 geo-block 退役血案). V37.9.121: +2 INV-OBSERVER-001 (daily-observer-contract-must-hold, MR-7, high, 9 checks — 合并 INV-OBSERVER-SAMPLING-001 候选, 日落法 MR-22 一物一形) + INV-SOURCE-CREDIBILITY-001 (source-credibility-contract-must-hold, MR-8, high, 8 checks). V37.9.100: +2 INV-DREAM-CROSS-DOMAIN-001 + INV-GOV-FIELD-001. V37.9.96: +1 INV-PROXY-PLIST-ENV-001. 实际 grep '- id: INV-' = 90
-  total_checks: 826     # V37.9.134: 825 → 826 (+1 INV-CROSS-OS-001 Quirk 6 subshell errtrace 检测函数 check; 同时血案元组 4→6 + RUNTIME check 名去硬编码计数). V37.9.129: 818 → 825 (+7 INV-FALLBACK-EXCLUDE-001). V37.9.121: 801 → 818 (+9 INV-OBSERVER-001 + 8 INV-SOURCE-CREDIBILITY-001). V37.9.100: 790 → 801 (+7 INV-DREAM-CROSS-DOMAIN-001 + 4 INV-GOV-FIELD-001). 同 session 修治理执行器血案: _exec_python_assert 只读 code: 让 67 个 assertion: 字段 python_assert 跨 21 INV vacuous pass → _check_code helper 读双字段 + triage 14 个真执行后翻车 (job_watchdog sabotage 还原 / 路径 bug / 阈值 / stale 契约 / exec 作用域陷阱 / requires_full gate). V37.9.97: 781→790. 注: 真实 check_type 行数 grep < total 因 governance_checker 还计 14 MRD discovery + preflight/env 等非 check_type 定义项 — total_checks 是操作权威数 (系统真跑真报)
+  total_checks: 827     # V37.9.136: 826 → 827 (+1 INV-GOV-FIELD-001 一物一形防回退守卫; 同时 55 个 assertion: 字段全迁 code:, byte-identical 验证). V37.9.134: 825 → 826 (+1 INV-CROSS-OS-001 Quirk 6 subshell errtrace 检测函数 check; 同时血案元组 4→6 + RUNTIME check 名去硬编码计数). V37.9.129: 818 → 825 (+7 INV-FALLBACK-EXCLUDE-001). V37.9.121: 801 → 818 (+9 INV-OBSERVER-001 + 8 INV-SOURCE-CREDIBILITY-001). V37.9.100: 790 → 801 (+7 INV-DREAM-CROSS-DOMAIN-001 + 4 INV-GOV-FIELD-001). 同 session 修治理执行器血案: _exec_python_assert 只读 code: 让 67 个 assertion: 字段 python_assert 跨 21 INV vacuous pass → _check_code helper 读双字段 + triage 14 个真执行后翻车 (job_watchdog sabotage 还原 / 路径 bug / 阈值 / stale 契约 / exec 作用域陷阱 / requires_full gate). V37.9.97: 781→790. 注: 真实 check_type 行数 grep < total 因 governance_checker 还计 14 MRD discovery + preflight/env 等非 check_type 定义项 — total_checks 是操作权威数 (系统真跑真报)
   meta_rules: 23        # V37.9.117: +2 MR-22 (sunset-over-accretion 日落法北极星 — 降复杂度优先于加功能) + MR-23 (audit-observes-never-mutates 审计只读, 泛化 MR-9, 复用 test_v37_9_116/test_convergence 守卫不铸新 INV)
   meta_rule_discovery_count: 6   # Phase 0: registry + env + notify-topic + layer-depth + error-suppression + notify-activity
   check_types_used: [python_assert, file_contains, file_not_contains, env_var_exists, command_succeeds, log_activity_check]

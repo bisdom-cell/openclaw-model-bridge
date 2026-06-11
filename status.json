@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-11 02:27:35",
+  "updated": "2026-06-11 02:55:26",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-06-11",
+      "what": "V37.9.136 三任务清场 (为 ArXiv 论文 session 扫清障碍): ① OpenClaw 6/15 前置验证提前完成 — GO (v2026.4.27, 6/20 窗口维持). 实证: #59265 仍无 fix (G2→目标 4.27) / 4.27 未 deprecated 43 天稳定 + notes 确认含 #73358 fix / 6.x SQLite migration 仍动荡避开正确 / G3 G4 对 4.27 路径 N/A. 新发现 2 个升级日验证项 (WhatsApp plugin activation.onStartup + Discord private 默认) 登记 eval doc 15.2. LAST_EVAL_DATE→6/11. ② assertion:→code: 迁移 (unfinished #10 兑现): 55 处全迁 + byte-identical 验证 + 防回退守卫 (反向验证过) + _check_code 兼容保留. 827 checks. ③ PyPI 准备到只欠 token: build + venv twine check 双 PASSED (发现系统 packaging<24.2 假阳性陷阱) + 分发名 openclaw-ontology-engine 实证可用 (404). 上传 runbook 写入 packaging.md §7.2. 121 suites/4286 tests/0 fail",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-11",
       "what": "V37.9.135 S2 关键词 6→12 恢复 (unfinished #30 兑现): 认证模式稳定核实后补回 V37.8.13 砍掉的 6 个 ontology/KR 关键词 (与 DBLP 同源 12 集对齐, V37.1 设计意图恢复). 预算 12×2s=24s 认证模式. 5 新守卫单测 (含 DBLP 同源对齐守卫防两侧漂移) + 反向验证 (sabotage 删关键词 3 守卫同抓). 顺手销 stale 待办 [18] auto_deploy 双行 (V37.9.116/120 + 6/11 清理已三阶段闭环). 121 suites/4286 tests/0 fail. VERSION 不变 (source 配置). 生效: 明日 11:00 S2 cron 12 关键词认证模式, 观察零 429 + ontology/KR 论文覆盖回归",
       "by": "claude_code"
     },
@@ -198,11 +203,6 @@
       "date": "2026-06-08",
       "what": "V37.9.122 日落法退役第四步: FILE_MAP 豁免一物多形收敛 (#27 用户选). RUNS_FROM_REPO_CLONE={auto_deploy.sh} 豁免从 3 个 Python 消费者各自硬编码字面量 (path_consistency_scanner 权威源 + preflight check 15 ×3 + check_registry 漏豁免) 收敛到 path_consistency_scanner 单一真理源, check_registry/preflight import 复用. 发现并修 V37.9.120 漏同步 check_registry.check_filemap_completeness 的潜伏 bug (--check-crontab 误报 auto_deploy 不在 FILE_MAP) = V37.8.11/V37.8.13/V37.9.120/V37.9.121-hotfix 反复跨消费者豁免漏同步血案类活样本. 9 新单测 (含行为 forward/反向 + 源码守卫 + sabotage 两层确认). 概念 B (status.json 内容漂移 bash 豁免) 登记 follow-up. 115→116 suites / 4062→4071 tests / 0 fail / 89 inv 不变 / 安全 95 / VERSION 0.37.9.68 不变. 待 Mac Mini git fetch+reset.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-06-05",
-      "what": "V37.9.110: ai_leaders 加 Bluesky 实时短观点维度 (用户从 3 个纯 dev 方向选 Bluesky, #32 反馈延续). 新 job jobs/ai_leaders_bsky/run_ai_leaders_bsky.sh (17:00 HKT 1x/天). WebSearch 双核实: Bluesky 公开 AppView getAuthorFeed 无需认证+带缓存 (docs.bsky.app) + 30 万学者已迁入 (arXiv 2505.24801). 仅抓取层换 RSS→getAuthorFeed JSON (filter=posts_no_replies + skip reasonRepost + MIN_POST_CHARS=50 + at:// URI→web URL + 外链 embed), 下游 100% 复用 blogs 管道 (6 字段+alignment+LEVEL_4+双通道 🦋+KB+多窗口+FAIL-OPEN+fail-fast) = MR-8. 10 大神 contrarian 为主 (8 confirmed: ylecun/fchollet/melaniemitchell/rao2z/randomwalker/timnitgebru/mmitchell/howard.fm + Gary Marcus/Emily Bender 候选). prompt 适配短帖防过度膨胀 (V37.9.40 教训). dev parser 行为验证 (skip 转发/过短+URI→URL+外链+dedup+FAIL-OPEN). 3 MR-8 漂移守卫修 (source_credibility 15→16 社媒 tier / EXPECTED_RSYNC_SITES 23→24 / config.md). 40 新单测 9 类含 runtime parser 行为. 113→114 suites / 3996→4036 tests / 0 fail / governance 805 checks exit0 / 安全 95 / VERSION 0.37.9.68 不变. Mac Mini 待: git fetch+reset + 注册 17:00 cron + 首跑验证 10 handle 可达性 (FAIL-OPEN 剪枝) + 收 🦋 推送. follow-up: V37.9.111 接入 Opportunity Radar #2 (handle 验证产真数据后 wire, 今天 KB notes 已自动喂 Radar #1/#3).",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -254,7 +254,6 @@
       "convergence cron 行全行比较: 2026-06-02 审计已决定不切换 (case doc cron_line_full_comparison_audit_2026_06_02.md). Mac Mini 真 crontab missing=17 extra=18 全是格式变体 0 脚本缺失, 切换会 false-drift 风暴. 保持 line_contains_identifier (务实最优). 未来候选 (非高优): (a) fuzzy-match parser 归一化引号/~/root/redirect 后比较, 但需先做 registry↔crontab 命令完整性对账 (registry entry 不记 args/cd/真实路径). (b) 2 真差异待用户决定: preference_learner registry entry 补 --apply --days 7 args? / 30 23 手动 rsync→MOVESPEED 是否与 0 4 movespeed_daily_sync 冗余需清理?",
       "Observer-of-Observer 候选 (V37.9.95+ 登记, 低优): 第二个 cron 主动监控 daily_observer.log 的 fallback warn, 累计 ≥ N 次升 [SYSTEM_ALERT] (元监控, MR-7 治理自观察延伸).",
       "V37.9.100 部署验证: Mac Mini git fetch+reset 同步后 governance audit cron 07:00 首次真执行 67 个此前空跑的 check (含 2 critical INV-DREAM-003/INV-WATCHDOG-SELF-001) — 验证生产环境 job_watchdog/守护脚本无真退化 (dev 已全绿 87 inv)",
-      "INV-GOV-FIELD-001 一周观察后评估: 是否把 67 个 assertion: 字段统一迁移成 code: (当前 _check_code 双字段兼容, 迁移是 cosmetic 非紧急; meta-guard 已防再漂移)",
       "V37.9.101 部署验证: Mac Mini 同步后 21:00 cron 真激活轮换 — 应 log 'V37.9.101 轮换 idx=N batch=11 抓 11/31' + fetch 成功率大升 (11 请求 vs 31). 若 11 请求仍 429 → IP 硬标记, V37.9.102+ 转策略 (降 batch / 认证版 X API / 替代源)",
       "V37.9.101 follow-up (rotation 21:00 验证工作后): (a) 重跑复盘诊断 → 真僵尸 stale>7d 移除 LEADERS (b) 完整 zombie loop-wiring — parser 发 newest_age + per-account classify_account + 3 天连续 ZOMBIE 嫌疑告警 (镜像 finance_news, 模块已建+测就绪)",
       "V37.9.103 部署验证 (clean+reduce 冻结≠死亡): Mac Mini git fetch+reset 同步 + auto_deploy 同步 finance_news_zombie.py/run_finance_news.sh/ai_leaders_rotation.py/jobs_registry.yaml/job_watchdog.sh. (a) 下次 07:30 finance cron 应首次出现 🧊 X 渠道退化日志(frozen 账号零产出, 不再 [SYSTEM_ALERT] 建议移除活账号 XHNews/CGTN 类). (b) 下次 09:00 ai_leaders cron 1/天生效. (c) crontab 更新 ai_leaders 频率 0 9,21→0 9 (bash ~/crontab_safe.sh 或手动). (d) 一周观察 frozen 账号确实零产出后, 考虑立 INV-FROZEN-NOT-DEAD-001 把跨模块 frozen≠死亡契约升级为独立 governance INV (当前在 INV-X-001 内). (e) 换源决策已定 clean+reduce 接受退化, TwitterAPI.io 路径留 docs/ai_leaders_source_alternatives.md 备查若未来重启",
@@ -340,12 +339,12 @@
   "quality": {
     "security_score": 95,
     "test_count": 4286,
-    "last_regression": "2026-06-11 02:26 pass",
+    "last_regression": "2026-06-11 02:54 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-11 02:26",
+    "security_score_time": "2026-06-11 02:54",
     "test_suites": 121,
     "governance_invariants": "90/90",
-    "governance_checks": "732/746",
+    "governance_checks": "733/747",
     "version": "0.37.9.70",
     "observer": {}
   },
@@ -411,7 +410,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.134+135 完成: scanner 第 6 pattern (subshell errtrace 机器化) + S2 关键词 6→12 恢复. Mac Mini 待: 合并 PR + git reset + 明日 11:00 S2 cron 观察 12 关键词零 429. 下次候选: OpenClaw 6/15 前置验证 (升级窗口 6/20, 目标 v2026.4.27) / PyPI 实际上传 (待用户 token) / INV-GOV-FIELD-001 assertion:→code: 迁移评估 (一周观察已过) / ArXiv 论文 / 6/18 deep_dive 摘要级占比复盘.",
+  "focus": "V37.9.134-136 完成 (scanner 第6 pattern + S2 关键词恢复 + 三任务清场). ArXiv 论文障碍已全清: OpenClaw 前置验证 GO (6/20 用户 SSH 升级, eval doc 15.2 有 2 新验证项) / assertion 迁移闭环 / PyPI 只欠用户 token (runbook packaging.md §7.2). Mac Mini 待: 合并 PR + git reset. 下次 session 主任务候选: ArXiv 论文启动 (Silent Failures Taxonomy, 与用户共创) / PyPI 上传 (用户给 token 即 30 秒) / 6/18 deep_dive 摘要级占比复盘 / 6/20 OpenClaw 升级窗口 (用户 Mac Mini SSH).",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",

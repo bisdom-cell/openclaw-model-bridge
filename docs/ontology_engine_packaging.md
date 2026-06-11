@@ -120,7 +120,31 @@ def _resolve_config_dir():
 1. **import 名**: ✅ **V37.9.128 chunk-2-lite 已定 = `ontology_engine`**（经 pyproject `package-dir` 映射，非目录 rename）。原 chunk-2 完整 dir rename 方案勘察发现是 50+ 文件破坏性重构（`ontology` 重载为概念词 — keyword 列表 / dict 键 / 子串检查 / 测试数据 / 主题串 — 需逐处人工区分包路径 vs 概念词 + Mac Mini symlink broken-window），价值偏思辨（无实际消费方名冲突）。**用户选低风险 package-dir 映射**：消费方导出名 = `ontology_engine`，bridge 内部零改动（`import ontology`/symlink/proxy lazy-load 全不动），内部自引用已双模式 flat fallback 故 package-name-agnostic。去泛化目标达成，零破坏性。
 2. **分发名**: `ontology-engine` 0.1.0 公共 PyPI 已被他人占用（status.json 已登记撞名）。chunk 1 用 `openclaw-ontology-engine`。是否申请 scoped / 改名 = 发布时决定。
 3. **license**: ✅ **V37.9.133 已定 = MIT**（LICENSE 文件已在仓库根，pyproject `license = {file = "LICENSE"}`，wheel 的 dist-info/licenses/ 已验证包含）。
-4. **readme**: ✅ **V37.9.133 已建 = `PACKAGE_README.md`**（英文包级 README：两层架构 + quick start + 5 capabilities + WeatherBot 链接，METADATA Description-Content-Type: text/markdown 已验证）。剩余唯一开放决策 = **实际 PyPI 上传**（用户提供 PyPI 账号/token 后 `python3 -m twine upload dist/*`；分发名 openclaw-ontology-engine 可用性需上传时确认）。
+4. **readme**: ✅ **V37.9.133 已建 = `PACKAGE_README.md`**（英文包级 README：两层架构 + quick start + 5 capabilities + WeatherBot 链接，METADATA Description-Content-Type: text/markdown 已验证）。剩余唯一开放决策 = **实际 PyPI 上传**（用户提供 PyPI 账号/token，见 §7.2 runbook）。
+
+### 7.2 上传 runbook（V37.9.136 前置准备已全部完成，只欠 token）
+
+**2026-06-11 实证状态**：
+- ✅ `python3 -m build` 构建通过（sdist 326KB + wheel 313KB）
+- ✅ `twine check dist/*` 双 PASSED — **注意环境陷阱**：系统 `packaging < 24.2` 时 twine 误报
+  `unrecognized field 'license-file'`（Metadata-Version 2.4 的 License-File 字段需 packaging ≥ 24.2
+  才能解析；dev 容器 debian packaging 24.0 复现此假阳性）。**必须用 venv twine**（见下方命令）。
+- ✅ **分发名 `openclaw-ontology-engine` 在 PyPI 可用**（2026-06-11 实证：
+  `pypi.org/pypi/openclaw-ontology-engine/json` → 404；对照 `ontology-engine` → 200 已被占）。
+
+**上传命令（用户拿到 PyPI API token 后，任意机器 ~30 秒）**：
+
+```bash
+cd ~/openclaw-model-bridge
+python3 -m venv /tmp/pub_venv && /tmp/pub_venv/bin/pip install -q build twine
+/tmp/pub_venv/bin/python -m build                      # 重新构建 (dist/ 不入库)
+/tmp/pub_venv/bin/twine check dist/*                   # 必须双 PASSED
+/tmp/pub_venv/bin/twine upload dist/* \
+  -u __token__ -p "pypi-<YOUR_API_TOKEN>"              # token 从 pypi.org/manage/account/token 创建
+# 验证: pip install openclaw-ontology-engine 应立即可装
+```
+
+可选先传 TestPyPI 演练：`twine upload --repository testpypi dist/*`（token 从 test.pypi.org 单独创建）。
 
 ---
 

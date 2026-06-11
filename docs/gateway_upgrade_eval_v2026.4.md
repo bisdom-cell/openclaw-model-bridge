@@ -696,4 +696,38 @@ tools.exec/fs restrictive profile（4.29）+ plugin manifest contracts.tools（5
 
 ---
 
+## 第十五节：6/15 最终前置验证（2026-06-11 提前执行，V37.9.136）
+
+> 用户指示提前执行 6/15 前置验证以为 ArXiv 论文 session 清场。按 14.6 三步执行 + 实证数据。
+
+### 15.1 验证结果：✅ GO（v2026.4.27，6/20 周六 10:00-12:00 HKT 窗口维持）
+
+| 验证项 | 数据（2026-06-11 实证） | 结论 |
+|--------|------------------------|------|
+| Tripwire | `check_upgrade.sh` 0/6 触发（版本差距 48/50 接近但未触发） | ✅ |
+| #59265 Agent 不可见 | GitHub API 实证：仍 closed (4/25) **无 PR / 无 fix commit / 无 milestone**，最后活动 4/28 | G2 不通过 → 按 13.9.3 决策树**目标维持 v2026.4.27** + 升级后强制 WhatsApp E2E |
+| v2026.4.27 健康度 | npm registry：published 2026-04-29，**未 deprecated**，43 天稳定期，邻近版本 (4.25/4.26/4.29) 均未 deprecated | ✅ 无 post-release 负面信号 |
+| v2026.4.27 notes 复核 | WebFetch 实证：**确认含 #73358 fix**（"require explicit skills.entries.coding-agent.enabled … do not silently offer Codex delegation"） | ✅ dealbreaker fix 在内 |
+| 6.x 动态 | 最新 stable v2026.6.5 (6/9)；SQLite auth/session migration 在 6.6-beta train 反复 deferred；6 月仅 2 stable vs 5 月 15（频率收敛但大迁移在路上） | ✅ 避开 6.x 决策仍正确 |
+| G3 (tools.exec/tools.fs) | v2026.4.29 引入，4.27 路径**不适用** | N/A |
+| G4 (plugin manifest contracts.tools) | v2026.5.2 引入，4.27 路径**不适用** | N/A |
+| rotateBytes deprecated (4.27 行为变更) | grep 全配置文档无 `session.maintenance.rotateBytes` 使用 | ✅ 无影响 |
+
+### 15.2 v2026.4.27 notes 新发现的 2 个升级日验证项（追加到第七节 SOP 执行清单）
+
+1. **WhatsApp plugin 自动加载**：4.27 含 plugin manifest-first 重构（"Plugin startup now requires explicit
+   `activation.onStartup` declarations; implicit sidecar loading deprecated"）。我们的 WhatsApp plugin
+   是 4/10 自动安装的 sidecar 形态——升级后必须验证 plugin 仍自动加载（`openclaw doctor` + 既有
+   WhatsApp E2E 强制步骤已覆盖，此处显式登记防漏）。**若 plugin 不加载 → 给 plugin manifest 加
+   activation.onStartup 声明后重启，仍不行立即回滚。**
+2. **Discord 回复默认 private（4.27 行为变更）**：我们走 `openclaw message send --channel-id` 显式发送
+   不受影响（该变更针对 agent 隐式回复），升级后观察第一次 cron 双通道推送确认 Discord 到达。
+
+### 15.3 LAST_EVAL_DATE 更新
+
+本次前置验证（人工 + 实证）将 LAST_EVAL_DATE 更新到 **2026-06-11**。6/20 升级窗口前无需再评估
+（除非 tripwire 跳红 / 上游出新 dealbreaker）。
+
+---
+
 *本文档为评估报告，不执行任何升级操作。升级决策由用户做出。*
