@@ -81,7 +81,11 @@
 | 6 arXiv:2602.11749 AIR | ✅ snippet 级 | Xiao/Sun/Chen |
 | 7 arXiv:2603.05637 MCP faults | ✅ snippet 级 | Taraghi/Morovati/Khomh |
 | 8 SRE book | ✅ 常识级 | — |
-| 9 arXiv:2508.14231 Incident Analysis for AI Agents | ⚠️ TBV | 核实过程顺带发现，高相关，作者待核 + 待并入 §2.2 |
+| 9 arXiv:2508.14231 Incident Analysis for AI Agents | ✅ 全验证 | Ezell/Roberts-Gaal/Chan + **AIES 2025 正式发表**（AAAI/ACM proceedings 确认）；已并入 §2.2（第二轮） |
 | 10 arXiv:2606.05339 MCP runtime faults | ✅ snippet 级 | Owotogbe/Kumara/van den Heuvel/Tamburri/Iannillo/Natella（来源：X 帖子转录） |
+| 11 arXiv:2311.05232 hallucination survey | ✅ 全验证 | Huang Lei 等 11 作者（scirp 引用页 + arXiv 确认）；已并入 §2.3（第二轮） |
+| 12 Chaos Engineering (IEEE Software 2016) | ✅ 全验证 | Basiri/Behnam/de Rooij/Hochstein/Kosewski/Reynolds/Rosenthal, 33(3):35-41, DOI 10.1109/MS.2016.60；已并入新 §2.4 |
+| 13 How to Fight Production Incidents (SoCC'22) | ✅ 全验证 | Ghosh/Shetty/Bansal/Nath, Best Paper, 152 Microsoft Teams severe incidents；已并入新 §2.4 |
 
-**投稿前必做**：全部 snippet 级引用对 arXiv abs 页终核（dev 环境 WebFetch arxiv 403，需在可达环境做）；#9 作者核实 + 并入 §2.2；补 hallucination survey + AIOps + chaos engineering 三类引用（draft 末尾已登记）。
+**第二轮（2026-06-11 同日）已完成**：#9 核实并入 §2.2（含"潜伏时长+发现者两字段应纳入 agent incident report"的回喂论点）/ #11-13 三类引用补齐（hallucination survey → §2.3；chaos engineering + AIOps incident study → 新 §2.4，含 sabotage validation = "chaos engineering applied to guards" 连接点）/ Fig.3 D1 幻觉链 ASCII 图入 §4.4（trigger-amplifier-concealer 标注，LaTeX 阶段重绘正式版）/ 正文引用风格统一为作者-年份。
+**投稿前仍需**：全部 snippet 级引用对 arXiv abs 页终核（dev 环境 WebFetch arxiv 403，需在可达环境做）；LLM-as-judge/observer 文献一类（§5.2 机械化 user-proxy 讨论的支撑，draft 末尾已登记）。

@@ -1,8 +1,10 @@
 # When Errors Become Narratives: A Longitudinal Taxonomy of Silent Failures in a Production LLM Agent Runtime
 
-> **DRAFT v0.1 — 2026-06-11 (V37.9.139 session)**
+> **DRAFT v0.2 — 2026-06-11 (V37.9.139 session, second pass)**
 > Working paper for arXiv (target category: cs.SE, cross-list cs.AI / cs.DC).
-> Status: complete first draft in Markdown; LaTeX conversion deferred until venue decision.
+> Status: complete draft in Markdown; second pass done (related work expanded to 13 verified
+> references incl. §2.4 SRE/chaos/AIOps; Fig. 3 D1 pollution-chain diagram added in ASCII).
+> LaTeX conversion deferred until venue decision.
 > All numbers traceable to repository state at commit window 2026-06-11 (`VERSION 0.37.9.70`,
 > governance v3.56, data inventory in `data_inventory.md`).
 > User-facing decisions pending: see `DECISIONS_NEEDED.md`.
@@ -116,7 +118,7 @@ operating LLM agent runtime taught us about silent failures, in five contributio
 Our study is a single-system longitudinal case study — the methodological complement of recent
 horizontal studies that sample failures across many frameworks from benchmark execution traces
 [Cemri et al. 2025] or across many customers from a provider's incident database
-[arXiv:2511.07424]. Horizontal studies establish breadth; what they cannot see is the
+[Ranganathan et al. 2025]. Horizontal studies establish breadth; what they cannot see is the
 longitudinal texture of production silent failure — multi-week latency, discovery channels,
 defense evolution, recurrence of "fixed" lessons — because those only exist in a system that
 runs continuously, pushes output to a real user, and keeps complete postmortems. That texture is
@@ -158,18 +160,26 @@ operator without anyone noticing.
 
 A recent provider-side study analyzed 156 high-severity LLM inference incidents and derived a
 four-way operational taxonomy (infrastructure, model configuration, inference engine,
-operational failures) [arXiv:2511.07424]. That work shares our production-incident grounding
+operational failures) [Ranganathan et al. 2025]. That work shares our production-incident grounding
 but covers the *inference service* layer below agents, where failures manifest as availability
-and latency violations — loud by nature. Related systems work addresses exception handling in
-agentic workflows (SHIELDA [arXiv:2508.07935]), incident response for agent safety (AIR
-[arXiv:2602.11749]), and fault taxonomies for the Model Context Protocol ecosystem
-[arXiv:2603.05637]. None of these focuses on the silent/fail-plausible class, the longitudinal
+and latency violations — loud by nature. Ezell et al. argue for structured incident analysis
+of AI agents and propose what information agent incident reports should contain [Ezell et al.
+2025]; our corpus can be read as an existence proof of their program — 22 reports collected
+under a fixed postmortem protocol — and our experience adds a requirement their framework
+should absorb: the report must record *how long the incident was silent and who finally
+noticed*, because for this failure class those two fields carry most of the engineering
+signal (§5.1–5.2). Related systems work addresses exception handling in agentic workflows
+(SHIELDA [Zhou et al. 2025]), incident response for agent safety (AIR [Xiao et al. 2026]),
+and fault taxonomies for the Model Context Protocol ecosystem [Taraghi et al. 2026; Owotogbe
+et al. 2026]. None of these focuses on the silent/fail-plausible class, the longitudinal
 latency-and-discovery question, or defense-framework evolution under real recurrence pressure.
 
 ### 2.3 Hallucination research
 
-Hallucination is usually studied as a *model* property — ungrounded generation measured against
-references. Our Class D reframes it as a *systems* property: in 4/4 documented fabrication
+Hallucination is usually studied as a *model* property — ungrounded generation measured
+against references, with taxonomies of intrinsic/extrinsic and factuality/faithfulness
+variants, detection benchmarks, and model-side mitigations [Huang et al. 2023]. Our Class D
+reframes it as a *systems* property: in 4/4 documented fabrication
 incidents the model behaved exactly as trained (fluent completion over its context); the failure
 was that **the system delivered polluted context** (error logs captured by command substitution
 into a cache; stale alert messages persisted into the chat history; injected cross-day summaries
@@ -178,6 +188,22 @@ hygiene (stderr discipline, alert stripping before context assembly), provenance
 (source-credibility tiers), and layered anti-fabrication guards with explicit, literal
 prohibitions. This systems view of hallucination — *garbage context in, confident narrative out*
 — is a distinct contribution relative to model-centric hallucination work.
+
+### 2.4 Operational practice: SRE, chaos engineering, and incident studies
+
+Site Reliability Engineering codified error budgets, postmortem culture, and the principle
+that operational knowledge must be engineered rather than remembered [Beyer et al. 2016];
+our convergence engine (§6) is that principle applied to an agent runtime's declared state.
+Chaos engineering established deliberate fault injection as the way to gain confidence in a
+system's resilience [Basiri et al. 2016]; our framework applies the same epistemology one
+level up — *sabotage validation* (§6) injects violations to gain confidence in the **guards**,
+because in a silent-failure regime an unvalidated detector is indistinguishable from a vacuous
+one, a lesson we learned from 67 checks that had silently executed empty strings for months.
+Large-scale incident studies such as Ghosh et al.'s analysis of 152 severe incidents in a
+production cloud service [Ghosh et al. 2022] established the empirical template — incident
+corpus, root-cause and mitigation coding, automation gap analysis — that we instantiate for
+an agent runtime; the variable our setting adds is that the system under study *speaks*, which
+changes both what failure looks like (§4.4) and what detection requires (§5.2).
 
 ---
 
@@ -367,10 +393,52 @@ signals, did exactly what language models do with anomalous-but-thematic context
 confident analysis of a "Hugging Face platform crisis" — platform trouble being the most
 probable narrative shell for error-code vocabulary — and the system pushed it to the user as a
 routine insight digest. Every component succeeded; the pipeline laundered an encoding bug into
-industry analysis. The structural fix was four lines deep in defense (stderr discipline,
-surrogate sanitization, encoding error policy, anti-pollution prompt guards), but the
-load-bearing one was a single `>&2`: **one redirection operator severed the entire
+industry analysis (Fig. 3). The structural fix was four lines deep in defense (stderr
+discipline, surrogate sanitization, encoding error policy, anti-pollution prompt guards), but
+the load-bearing one was a single `>&2`: **one redirection operator severed the entire
 hallucination chain.**
+
+```
+Fig. 3 — The D1 pollution chain: from one malformed byte to a fabricated
+         industry analysis. Every component behaves as designed.
+
+  scraped content with isolated UTF-16 surrogate (U+D800–DFFF)
+        │
+        ▼
+  json.dump(body, ensure_ascii=False)──UnicodeEncodeError──► request body
+        │                                                    TRUNCATED
+        ▼
+  adapter: json.loads fails ──► HTTP 400 "Bad JSON" (456-byte HTML error page)
+        │
+        ▼                              ┌──────────────────────────────────┐
+  llm_call(): extraction empty;       │ AMPLIFIER                        │
+  log() prints error dump to STDOUT ──┤ signals=$(llm_call …)            │
+  (4 deterministic retries, same)     │ command substitution captures    │
+        │                             │ stdout → error log becomes the   │
+        ▼                             │ "signal" payload                 │
+  cache file := "…Error code: 400    └──────────────────────────────────┘
+   Bad JSON… Waiting 3s before retry…"
+        │
+        ▼                              ┌──────────────────────────────────┐
+  reduce-step LLM reads cache as      │ CONCEALER                        │
+  cross-domain "signals" ─────────────┤ non-empty check passes; status   │
+        │                             │ file reports ok; no detector     │
+        ▼                             │ inspects content semantics       │
+  fluent synthesis: "Hugging Face     └──────────────────────────────────┘
+   platform crisis" analysis
+        │
+        ▼
+  pushed to user via WhatsApp/Discord as routine insight digest
+        │
+        ▼
+  ✗ no alarm — discovered by the user noticing a thematic incoherence
+    (the "signal" and the "action item" did not match)
+
+  Fix that severed the chain: log() { echo … >&2; }   (one redirection)
+  Defense-in-depth added: surrogate sanitization · encoding error policy ·
+  anti-pollution prompt guards ("never treat error codes / tool names /
+  HTTP status text as external signals")
+```
 
 **D2 — The fabricated remediation.** A system alert pushed by a watchdog was persisted into
 the chat session history as an ordinary assistant message. Thirty-six minutes later the user
@@ -786,10 +854,18 @@ before submission; see data_inventory.md)*
    Software: A Comprehensive Taxonomy.** arXiv:2603.05637, 2026.
 8. B. Beyer, C. Jones, J. Petoff, N. R. Murphy (eds.). **Site Reliability Engineering: How
    Google Runs Production Systems.** O'Reilly, 2016.
-9. [TBV] **Incident Analysis for AI Agents.** arXiv:2508.14231, 2025. *(discovered during
-   reference verification; to be integrated into §2.2 in the second pass)*
+9. C. Ezell, X. Roberts-Gaal, A. Chan. **Incident Analysis for AI Agents.** AAAI/ACM
+   Conference on AI, Ethics, and Society (AIES), 2025; arXiv:2508.14231.
 10. J. Owotogbe, I. Kumara, W.-J. van den Heuvel, D. A. Tamburri, A. K. Iannillo, R. Natella.
     **A Taxonomy of Runtime Faults in Model Context Protocol Servers.** arXiv:2606.05339, 2026.
+11. L. Huang, W. Yu, W. Ma, W. Zhong, Z. Feng, H. Wang, Q. Chen, W. Peng, X. Feng, B. Qin,
+    T. Liu. **A Survey on Hallucination in Large Language Models: Principles, Taxonomy,
+    Challenges, and Open Questions.** arXiv:2311.05232, 2023 (rev. 2024).
+12. A. Basiri, N. Behnam, R. de Rooij, L. Hochstein, L. Kosewski, J. Reynolds, C. Rosenthal.
+    **Chaos Engineering.** IEEE Software 33(3):35–41, 2016. https://dl.acm.org/doi/10.1109/MS.2016.60
+13. S. Ghosh, M. Shetty, C. Bansal, S. Nath. **How to Fight Production Incidents? An
+    Empirical Study on a Large-Scale Cloud Service.** ACM SoCC 2022 (Best Paper; 152 severe
+    incidents in Microsoft Teams).
 
-*(Additional related-work passes planned before submission: hallucination surveys;
-LLM-as-judge/observer; AIOps incident-management literature; chaos engineering.)*
+*(Remaining related-work pass planned before submission: LLM-as-judge / LLM-observer
+literature for §5.2's mechanized user-proxy discussion.)*
