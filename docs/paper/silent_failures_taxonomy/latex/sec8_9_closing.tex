@@ -1,0 +1,77 @@
+\section{Threats to Validity}\label{sec:threats}
+
+\paragraph{Construct.} ``Silent failure'' requires a silence span with
+green indicators; we applied the definition at postmortem time, and
+borderline cases (loud-but-cause-free alerts, \S\ref{sec:classc}) were
+included when the \emph{actionable} signal was absent. Reasonable
+observers could draw the line differently for 2--3 incidents.
+
+\paragraph{Internal.} Classification was performed by the system's two
+operators (human + AI) without independent annotation; we report no
+$\kappa$ and acknowledge confirmation-bias risk in mechanism assignment,
+partially mitigated by the classes being load-bearing (each class drives
+a real scanner whose findings are objective) rather than purely
+descriptive. Postmortem quality varies with log retention; two early
+incidents were reconstructed retroactively under the protocol.
+
+\paragraph{External.} One system, one host OS, one operator pair, eight
+weeks, ${\sim}40$ jobs: frequencies, shares, and latencies are
+descriptive statistics of a case study, not population estimates. The
+70\% user-view discovery share in particular may reflect this system's
+unusually attentive operator; we present it as an existence proof that
+mature automated stacks can be out-detected by a user's eye, not as a
+constant.
+
+\paragraph{Survivorship/selection.} The corpus contains only failures
+that \emph{stopped} being silent. Failures silent at study end are absent
+by construction; the latency distribution is therefore right-censored,
+and the true tail is unknown---a point that argues for, not against, the
+paper's thesis.
+
+\paragraph{AI involvement.} The AI collaborator that co-wrote the
+postmortems also co-wrote this paper; the audited numbers
+(\S\ref{sec:audit}, test/check counts, dates) are mechanically derivable
+from the public repository, which we offer as the primary check on
+narrative bias.
+
+\section{Conclusion}\label{sec:conclusion}
+
+Eight weeks of complete postmortems from a production LLM agent runtime
+yield a five-class, mechanism-oriented taxonomy of silent failures, of
+which one class---fail-plausible chained fabrication---is specific to
+systems that speak. The quantified record is uncomfortable in useful
+ways: a defense stack of thousands of tests and hundreds of declarative
+checks prevented \emph{none} of the novel incidents ex ante (while
+blocking 87\% from recurring); the best detector was a human reading the
+product; and the longest failures lived not in complex code but in the
+seams between simple, correct parts. The constructive program that
+follows---postmortems as causal chains, lessons as meta-rules, meta-rules
+as scanners, guards proven by sabotage, declared state converged by
+machine, observers kept read-only, and complexity actively retired---is
+less a framework than a discipline, and it is the discipline, not the
+specific artifacts, that we believe transfers.
+
+The failure your agent system should frighten you with is not the crash.
+It is the confident paragraph, on schedule, in perfect grammar, about a
+crisis that does not exist---pushed to a user who has every reason to
+believe it, by a pipeline in which every component worked.
+
+\section*{Artifact Availability}
+
+All 22 incident postmortems, the canonical failure-mode catalog, the
+governance ontology (90~invariants~/ 827~checks~/ 23~meta-rules), the 15
+mechanized scanners, and the full test suite are public in the system
+repository. The governance engine is additionally published as a
+standalone, project-agnostic package on PyPI
+(\texttt{openclaw-ontology-engine}, v0.1.0): any agent-runtime project
+can adopt the invariant/meta-rule/scanner framework with its own YAML
+configuration. A data inventory mapping every number in this paper to its
+repository source accompanies the draft.
+
+\section*{Acknowledgments}
+
+The author thanks Claude (Anthropic) for its role as AI engineering
+collaborator throughout the system's development, the incident
+postmortems, and the preparation of this manuscript, as disclosed on the
+title page; and the OpenClaw open-source community, whose framework the
+system builds upon.

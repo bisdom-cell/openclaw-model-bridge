@@ -1,0 +1,139 @@
+\section{System Context and Methodology}\label{sec:method}
+
+\subsection{The system under study}\label{sec:system}
+
+The subject system (public repository \sysname{}) is a two-layer
+middleware that connects self-hosted and commercial LLMs to OpenClaw, an
+open-source personal-agent framework bridging WhatsApp and Discord. It
+has been in continuous production on a single macOS host since early
+March 2026. Architecturally it follows a three-plane design
+(Fig.~\ref{fig:planes}):
+
+\begin{itemize}
+\item \textbf{Control plane} --- a tool-governance proxy (tool filtering
+to a hard cap, schema repair, alert-context stripping, custom tool
+interception), a declarative governance engine (90~invariants,
+827~checks, 23~meta-rules, 15~mechanized discovery scanners, daily audit
+cron), SLO monitoring, circuit breakers, and a convergence engine that
+machine-synchronizes declared state (job registry, provider registry,
+service registry) to runtime state (crontab, fallback chains, launchd).
+\item \textbf{Capability plane} --- an adapter routing chat/completions
+across 8 providers (self-hosted Qwen3-235B primary, Qwen2.5-VL multimodal
+route, plus commercial fallbacks) with capability-scored automatic
+fallback chains.
+\item \textbf{Memory plane} --- a knowledge base ($\sim$1{,}100+ notes,
+local-embedding RAG index), multimodal media index, conversation-harvest
+pipeline, and daily LLM-driven synthesis jobs (``dream'', ``evening
+digest'', ``deep dive'') that push insights to the user.
+\end{itemize}
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[node distance=4mm and 5mm]
+  % user layer
+  \node[box, fill=blue!6, minimum width=118mm] (user)
+    {User layer: WhatsApp + Discord (push output, real human reader)};
+  % planes
+  \node[stage, minimum width=38mm, minimum height=26mm, below=7mm of user.south west, anchor=north west, align=center]
+    (ctrl) {\textbf{Control plane}\\[1pt]\scriptsize tool governance proxy\\\scriptsize 90 invariants / 827 checks\\\scriptsize convergence engine\\\scriptsize SLO + circuit breakers};
+  \node[stage, minimum width=38mm, minimum height=26mm, right=4mm of ctrl]
+    (cap) {\textbf{Capability plane}\\[1pt]\scriptsize 8-provider adapter\\\scriptsize multimodal routing\\\scriptsize capability-scored\\\scriptsize fallback chains};
+  \node[stage, minimum width=38mm, minimum height=26mm, right=4mm of cap]
+    (mem) {\textbf{Memory plane}\\[1pt]\scriptsize KB + RAG index\\\scriptsize conversation harvest\\\scriptsize daily LLM synthesis\\\scriptsize (dream / digest / deep dive)};
+  % observation band
+  \node[con, minimum width=118mm, below=7mm of cap.south, anchor=north]
+    (obs) {\scriptsize Observation band: 4{,}286 unit tests ~$\cdot$~ daily governance audit ~$\cdot$~ preflight ~$\cdot$~ watchdogs ~$\cdot$~
+           \textbf{weekly human user-view ritual} ~$\cdot$~ LLM observer};
+  \draw[flow] (user.south -| ctrl.north) -- (ctrl.north);
+  \draw[flow] (user.south -| cap.north) -- (cap.north);
+  \draw[flow] (user.south -| mem.north) -- (mem.north);
+  \draw[flow, dashed] (obs.north -| ctrl.south) -- (ctrl.south);
+  \draw[flow, dashed] (obs.north -| cap.south) -- (cap.south);
+  \draw[flow, dashed] (obs.north -| mem.south) -- (mem.south);
+\end{tikzpicture}
+\caption{The system under study: a three-plane agent runtime with an
+observation band beneath it. The incidents in this paper are, by
+selection, the ones that crossed all planes \emph{and} the observation
+band without raising an actionable signal---most were finally caught at
+the very top, by the human reading pushed output
+(\S\ref{sec:discovery}).}
+\label{fig:planes}
+\end{figure}
+
+Scale snapshot at the study cutoff (2026-06-11): ${\sim}40$ registered
+scheduled jobs across two cron schedulers; 8 LLM providers; 3 supervised
+long-running services; 4{,}286 unit tests in 121 suites; 22 published
+incident postmortems. One human operator (the system owner) and one AI
+engineering collaborator (Claude, used through a coding-agent interface)
+develop and operate the system; the agent runtime itself is powered by
+separate models (Qwen3-class), making this---to our knowledge---also a
+data point on AI-assisted operation of an AI system.
+
+\subsection{Incident corpus and postmortem protocol}\label{sec:protocol}
+
+The corpus is every incident between 2026-04-09 and 2026-06-02 that
+(a)~reached production, (b)~had a silent phase---a period in which the
+system was failing or had failed while all automated indicators stayed
+green---and (c)~was closed with a full postmortem. 22 incidents qualify.
+Postmortems follow a mandatory in-repo protocol (the
+``exception-analysis constitution'') requiring, before any fix:
+
+\begin{enumerate}
+\item \textbf{Full causal-chain diagram} --- timeline $\times$ layer
+$\times$ logic $\times$ architecture, from upstream trigger to
+user-perceived symptom, with code-branch truth values annotated;
+\item \textbf{Three-layer root cause} --- \emph{trigger} (what external
+event ignited it), \emph{amplifier} (what architectural flaw spread it),
+\emph{concealer} (what absence hid it until a human noticed);
+\item \textbf{Timeline reconstruction} with per-minute precision where
+logs allow;
+\item \textbf{Condition-combination analysis} --- why now and not before:
+which set of individually benign, often long-latent conditions first
+co-occurred;
+\item \textbf{Feeding the governance ontology} --- new invariants,
+meta-rule candidacy, catalog entry.
+\end{enumerate}
+
+The protocol was itself a product of early incidents (it was adopted
+after the second incident in the corpus) and was applied retroactively to
+the first two. Each postmortem is a standalone document in the public
+repository, and the consolidated catalog is the canonical index from
+which this paper's taxonomy is built.
+
+\subsection{Taxonomy construction}\label{sec:construction}
+
+We classify by \textbf{mechanism} (how the error evaded observation)
+rather than by \textbf{location} (which job or file failed). The
+location-oriented draft of the catalog was produced first and discarded:
+the same mechanism (e.g., positional parsing of LLM output; copy-pasted
+error-suppression idioms) recurred across unrelated jobs, so location
+classes had no predictive or defensive value, while one mechanism-level
+defense (e.g., a repo-wide scanner for the suppression idiom) immunized
+every location at once. Classes were derived iteratively: each new
+postmortem was matched against existing classes' ``true root cause''
+column; two consecutive non-matches forced a class split or a new class.
+The five-class scheme has been stable since mid-May 2026 over the last 9
+incidents.
+
+Two limitations are flagged here and expanded in
+\S\ref{sec:threats}: classification was performed by the two system
+operators (human + AI collaborator) without independent annotators, so we
+report no inter-annotator agreement; and selection requires a
+\emph{completed} postmortem, so failures still silent today are by
+construction absent (we discuss this surviving-silence bias in
+\S\ref{sec:threats}).
+
+\subsection{The meta-pattern counter}\label{sec:counter}
+
+Early in the study we adopted a meta-rule, \textbf{MR-4
+``silent-failure-is-a-bug''}, and began counting its
+\emph{manifestations}---distinct incidents or sub-events in which an
+error signal existed somewhere in the system but never reached a human in
+actionable form. The counter reached ${\geq}28$ across the 22 incidents
+(several incidents contain multiple distinct manifestations; numbering
+has deliberate gaps where manifestations were recorded inside hotfix
+notes). We report the counter not for its precision but for its shape:
+manifestations continued to appear at a roughly constant rate even as
+defenses accumulated---in \emph{new forms} each time
+(\S\ref{sec:bugclass}). This is the empirical basis for treating silent
+failure as a bug class rather than a finite list of bugs.

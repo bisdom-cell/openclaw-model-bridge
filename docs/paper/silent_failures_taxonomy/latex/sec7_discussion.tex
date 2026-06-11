@@ -1,0 +1,65 @@
+\section{Discussion: Seams, Not Components}\label{sec:discussion}
+
+Two months in, facing a week with five incidents, we asked the obvious
+question: \emph{is the system failing because it has become too complex?}
+The postmortem-backed answer was more specific and, we believe, more
+useful: \textbf{no individual failing part was complex.} A symlink. An
+\texttt{abspath} call. A one-line registry entry. A boolean default.
+Every part was simple and locally correct; every incident lived in a
+\emph{combination}---symlink $\times$ non-resolving path API $\times$ a
+particular invocation route; sync-enabled audit $\times$ bare-name entry
+$\times$ format mismatch $\times$ non-dry-run path. Components are
+covered by 4{,}286 tests; \textbf{combinations grow superlinearly and
+tests cover only the combinations someone imagined.} Complexity is about
+parts; incidents are about seams.
+
+This reframing has bite because it inverts the instinctive response to
+incidents---\emph{add a guard}---which itself adds a part, and therefore
+seams. (Our convergence engine, built to close the declared-vs-runtime
+seam, opened an observer-mutates-observed seam that produced three
+incidents before being caged.) The stable posture we landed on, codified
+as a standing ``Sunset Law'' with two operational meta-rules, is: before
+adding any mechanism, attempt to \emph{retire} an equivalent one; one
+logical entity must have one physical representation (multiple
+representations \emph{will} drift, and the bug lives between them); and
+defenses themselves are incident surfaces---prefer \textbf{seam
+reduction} (unify representations, shrink the dev--production gap, make
+observers read-only) over defense accretion. In the five weeks since
+adoption, the system retired more representation duplicates than it added
+invariants---and we note, with appropriate caution about confounds, that
+incident frequency declined while feature velocity did not.
+
+\paragraph{On the AI-assisted operation of an AI system.}
+This system is developed and operated by one human domain expert working
+with an AI engineering collaborator, governing a runtime powered by
+\emph{other} LLMs. Several findings above are entangled with that
+arrangement in both directions. The postmortem protocol's rigidity
+(mandatory causal-chain diagram before any fix; the three-question rule
+before touching code) exists substantially \emph{because} an AI
+collaborator will otherwise pattern-match symptoms to plausible fixes
+with great speed---industrializing the trigger-level cosmetic fix
+(\S\ref{sec:tac}); one documented incident chain consisted of five
+cascading ``fixes'' to a problem whose correct resolution was a single
+file copy. Conversely, the framework's volume (90 invariants, 15
+scanners, 4{,}286 tests, 22 publication-grade postmortems in eight weeks)
+is achievable for a single human \emph{only} with such a collaborator. We
+offer the observation, not a verdict: AI collaboration shifts the binding
+constraint of reliability engineering from implementation bandwidth to
+\textbf{judgment discipline}---exactly the property the meta-rules exist
+to encode. The governance framework is, in this reading, not just the
+system's immune system but the collaboration's contract.
+
+\paragraph{Generalizability.}
+We claim the \emph{taxonomy classes and cross-cutting structures}
+(latency $\propto$ observational distance; trigger/amplifier/concealer;
+fix$\rightarrow$rule$\rightarrow$scanner maturation;
+audit-as-regression) generalize to LLM agent systems with long-running
+scheduled autonomy and human-facing output---the mechanisms are not
+artifacts of our stack, and Classes A/C/E have direct ancestry in systems
+known to fail this way at every scale. We explicitly do not claim the
+\emph{frequencies} generalize (single system, single operator pair, one
+OS), nor that \classref{D} frequencies transfer to systems without
+synthesis-and-push pipelines. What we most hope transfers is the method:
+complete causal-chain postmortems, a mechanism-oriented catalog treated
+as the unit of institutional memory, and sabotage-validated conversion of
+every lesson into a machine check.

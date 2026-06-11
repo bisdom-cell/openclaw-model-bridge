@@ -1,0 +1,104 @@
+\section{Background and Related Work}\label{sec:related}
+
+\subsection{Silent failures in distributed systems}
+
+Huang et~al.\ introduced \emph{gray failure} as the failure mode behind
+most cloud incidents: components degrade while failure detectors report
+health, formalized as \textbf{differential observability} between the
+application's view and the observer's view~\cite{huang2017gray}. Gunawi
+et~al.'s \emph{fail-slow at scale} study collected 101 (later 114)
+incident reports of hardware performance faults across 12--14
+institutions, documenting cascading root causes, fault conversion (one
+form turning into another), and multi-hundred-hour diagnosis
+costs~\cite{gunawi2018failslow}. Our study is methodologically downstream
+of this tradition---taxonomy from production incident reports---but at a
+different layer (an LLM agent runtime rather than cloud infrastructure or
+hardware) and with a different lens (every incident in our corpus is a
+\emph{silent} failure by selection; crashes that announced themselves
+were handled as routine operations and did not generate postmortems).
+
+Two of our five classes (C: error swallowing/dilution, E: operational
+omission) will look familiar to readers of that literature.
+\classref{D} will not.
+
+\subsection{LLM agent failure studies}\label{sec:related-agents}
+
+Cemri et~al.'s MAST is the first empirically grounded taxonomy of
+multi-agent LLM system failures: 14 failure modes in 3 categories
+(specification issues, inter-agent misalignment, task verification),
+built from 1{,}600+ annotated execution traces across 7 frameworks with
+strong inter-annotator agreement (Cohen's
+$\kappa = 0.88$)~\cite{cemri2025mast}. MAST's unit of analysis is the
+\emph{benchmark task trace}; failures are mostly visible in the trace as
+task non-completion or wrong answers. Our unit of analysis is the
+\emph{production incident}: failures that by definition did \textbf{not}
+visibly fail any task, kept all detectors green, and were discovered
+hours-to-months later. The two taxonomies are complementary: MAST
+describes why agent collectives fail at tasks; we describe why an agent
+\emph{system in operation} fails its operator without anyone noticing.
+
+A recent provider-side study analyzed 156 high-severity LLM inference
+incidents and derived a four-way operational taxonomy (infrastructure,
+model configuration, inference engine, operational
+failures)~\cite{ranganathan2025inference}. That work shares our
+production-incident grounding but covers the \emph{inference service}
+layer below agents, where failures manifest as availability and latency
+violations---loud by nature. Ezell et~al.\ argue for structured incident
+analysis of AI agents and propose what information agent incident reports
+should contain~\cite{ezell2025incident}; our corpus can be read as an
+existence proof of their program---22 reports collected under a fixed
+postmortem protocol---and our experience adds a requirement their
+framework should absorb: the report must record \emph{how long the
+incident was silent and who finally noticed}, because for this failure
+class those two fields carry most of the engineering signal
+(\S\ref{sec:latency}--\S\ref{sec:discovery}). Related systems work
+addresses exception handling in agentic workflows
+(SHIELDA~\cite{zhou2025shielda}), incident response for agent safety
+(AIR~\cite{xiao2026air}), and fault taxonomies for the Model Context
+Protocol ecosystem~\cite{taraghi2026mcp,owotogbe2026mcpruntime}. None of
+these focuses on the silent/fail-plausible class, the longitudinal
+latency-and-discovery question, or defense-framework evolution under real
+recurrence pressure.
+
+\subsection{Hallucination research}
+
+Hallucination is usually studied as a \emph{model} property---ungrounded
+generation measured against references, with taxonomies of
+intrinsic/extrinsic and factuality/faithfulness variants, detection
+benchmarks, and model-side mitigations~\cite{huang2023hallucination}. Our
+\classref{D} reframes it as a \emph{systems} property: in 4/4 documented
+fabrication incidents the model behaved exactly as trained (fluent
+completion over its context); the failure was that \textbf{the system
+delivered polluted context} (error logs captured by command substitution
+into a cache; stale alert messages persisted into the chat history;
+injected cross-day summaries without provenance marking). The defense
+consequently is not model-side but system-side: context hygiene (stderr
+discipline, alert stripping before context assembly), provenance labeling
+(source-credibility tiers), and layered anti-fabrication guards with
+explicit, literal prohibitions. This systems view of
+hallucination---\emph{garbage context in, confident narrative out}---is a
+distinct contribution relative to model-centric hallucination work.
+
+\subsection{Operational practice: SRE, chaos engineering, and incident
+studies}
+
+Site Reliability Engineering codified error budgets, postmortem culture,
+and the principle that operational knowledge must be engineered rather
+than remembered~\cite{beyer2016sre}; our convergence engine
+(\S\ref{sec:defense}) is that principle applied to an agent runtime's
+declared state. Chaos engineering established deliberate fault injection
+as the way to gain confidence in a system's
+resilience~\cite{basiri2016chaos}; our framework applies the same
+epistemology one level up---\emph{sabotage validation}
+(\S\ref{sec:defense}) injects violations to gain confidence in the
+\textbf{guards}, because in a silent-failure regime an unvalidated
+detector is indistinguishable from a vacuous one, a lesson we learned
+from 67 checks that had silently executed empty strings for months.
+Large-scale incident studies such as Ghosh et~al.'s analysis of 152
+severe incidents in a production cloud service~\cite{ghosh2022fight}
+established the empirical template---incident corpus, root-cause and
+mitigation coding, automation gap analysis---that we instantiate for an
+agent runtime; the variable our setting adds is that the system under
+study \emph{speaks}, which changes both what failure looks like
+(\S\ref{sec:classd}) and what detection requires
+(\S\ref{sec:discovery}).

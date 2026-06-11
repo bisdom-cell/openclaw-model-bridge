@@ -1,6 +1,17 @@
 # 待用户决策项 — Silent Failures Taxonomy 论文
 
-> 第一稿（`draft.md`）已完成，以下决策点不阻塞继续打磨正文，但**阻塞投稿**。
+> **✅ 2026-06-11 用户已决策（四项核心全部确认，从属三项自动确定）：**
+> 1. **标题** = *When Errors Become Narratives: A Longitudinal Taxonomy of Silent Failures in a Production LLM Agent Runtime*
+> 2. **venue** = arXiv 直发（cs.SE, cross-list cs.AI/cs.DC）→ 实名、无匿名化、LaTeX 立即转换
+> 3. **署名披露** = 用户实名单一作者 + Acknowledgments 致谢 AI 协作者 + Contributions 分工段
+> 4. **§7 AI 协作章** = 保留当前篇幅
+> 从属确定：匿名度=实名 / LaTeX=立即 / figures=5 张按计划（Fig.3 已有 ASCII 底稿）。
+> **唯一待用户填充项：作者真实姓名 + 单位/独立研究者表述（LaTeX 中留 `[AUTHOR NAME]` placeholder）。**
+> 以下原始决策分析保留作历史记录。
+
+---
+
+第一稿（`draft.md`）已完成，以下决策点不阻塞继续打磨正文，但**阻塞投稿**。
 > 协作模式（unfinished #5 登记）：用户提供领域洞察 + 学术经验，Claude 提供工程数据整理 + 论文结构组织。
 
 ## 1. 标题（三选一或另提）

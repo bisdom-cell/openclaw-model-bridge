@@ -1,0 +1,344 @@
+\section{A Taxonomy of Silent Failures}\label{sec:taxonomy}
+
+Table~\ref{tab:classes} and Fig.~\ref{fig:tree} summarize the five
+classes. Full per-incident detail is in the public catalog; here we
+define each class, give its mechanism signature, and narrate one or two
+representative incidents.
+
+\begin{table}[t]
+\centering\small
+\caption{Five classes over 22 incidents (+ sub-events).}
+\label{tab:classes}
+\begin{tabular}{@{}p{31mm}p{40mm}cp{17mm}p{36mm}@{}}
+\toprule
+\textbf{Class} & \textbf{Mechanism} & \textbf{Inc.} &
+\textbf{Silence} & \textbf{Defining property} \\
+\midrule
+A --- Environment / platform quirk & Logic correct; runtime
+environment's implicit behavior defeats it & 1 (+6) & hours--weeks &
+dev always green; only target OS/client reveals \\
+\addlinespace[2pt]
+B --- Design-assumption mismatch & Code assumes a deployment topology /
+contract / input shape that reality violates & 4 & days & unit tests
+cover the assumption, not reality \\
+\addlinespace[2pt]
+C --- Error swallowing \& dilution & Error occurs, is eaten by a layer
+or stripped of cause across layers & 5 & hours--days & the alert that
+arrives carries no usable information \\
+\addlinespace[2pt]
+D --- Chained hallucination \& fabrication & LLM converts polluted
+context into confident false output & 4 & hours--days &
+\failplausible{}: user receives counterfeit health \\
+\addlinespace[2pt]
+E --- Operational omission \& forensic blind spot & Deployment /
+registration step skipped; or the forensic tool itself is blocked and
+reads as ``normal'' & 8 & days--\textbf{60 days} & declared state
+$\neq$ runtime state; diagnosis instruments lie \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[node distance=3mm and 2.5mm]
+  \node[bad, minimum width=72mm] (root)
+    {\textbf{Silent failure}\\\scriptsize error signal exists somewhere; never reaches a human in actionable form};
+  \node[stage, below left=8mm and 22mm of root, minimum width=30mm] (a)
+    {\textbf{A} environment\\\scriptsize quirk defeats\\\scriptsize correct logic};
+  \node[stage, right=2.5mm of a, minimum width=30mm] (b)
+    {\textbf{B} assumption\\\scriptsize mismatch with\\\scriptsize reality};
+  \node[stage, right=2.5mm of b, minimum width=30mm] (c)
+    {\textbf{C} swallowed /\\\scriptsize diluted error\\\scriptsize loses its cause};
+  \node[bad, right=2.5mm of c, minimum width=30mm] (d)
+    {\textbf{D} fabricated\\\scriptsize narrative\\\scriptsize (\failplausible{})};
+  \node[stage, right=2.5mm of d, minimum width=30mm] (e)
+    {\textbf{E} operational\\\scriptsize omission, forensic\\\scriptsize blind spot};
+  \foreach \x in {a,b,c,d,e} \draw[flow] (root.south) -- (\x.north);
+  \node[lbl, below=1.5mm of a] {dev green,\\prod silent};
+  \node[lbl, below=1.5mm of b] {tests mirror the\\assumption};
+  \node[lbl, below=1.5mm of c] {alert without\\information};
+  \node[lbl, below=1.5mm of d] {\textbf{LLM-specific;}\\\textbf{most dangerous}};
+  \node[lbl, below=1.5mm of e] {declared $\neq$\\runtime state};
+\end{tikzpicture}
+\caption{Mechanism-oriented taxonomy. Classes C and E have direct
+ancestry in the gray-failure / fail-slow literature; \classref{D} is
+specific to systems that generate language.}
+\label{fig:tree}
+\end{figure}
+
+\subsection{Class A --- Environment and platform quirks}\label{sec:classa}
+
+\emph{The logic is right; the environment's implicit behavior is not what
+anyone assumed.} The development environment (Linux container, root, GNU
+userland, bash~5) is systematically more permissive than the production
+target (macOS, bash~3.2 as \texttt{/bin/bash}, BSD userland, zsh
+interactive shell, sandboxed cron). Documented sub-events include:
+bash~3.2 not propagating ERR traps into functions without
+\texttt{set~-E}, silently disarming a watchdog's self-alarm; BSD awk
+aborting on invalid UTF-8 multibyte sequences, which---combined with
+\texttt{set~-e} and \texttt{pipefail}---killed the \emph{monitoring}
+script itself for 7~days (\S\ref{sec:classe} overlaps); the absence of
+GNU \texttt{timeout} on stock macOS turning a defensive wrapper into a
+universal ``tool unavailable'' failure; CJK full-width punctuation
+adjacent to unbraced shell variables parsing as part of the variable
+name; and a messaging client folding long messages at an undocumented
+${\sim}4{,}000$-character threshold, silently changing the user-visible
+shape of every long push.
+
+The class signature is \textbf{green dev, silent prod}, and its defense
+is necessarily mechanized: a cross-OS quirk scanner now encodes six known
+quirk patterns as repository-wide checks, and a meta-rule requires
+framework-level fixes to be validated \emph{on the target environment},
+after a fix validated only in dev shipped broken twice in one day.
+
+\subsection{Class B --- Design-assumption mismatches}\label{sec:classb}
+
+\emph{The code is internally consistent with an assumption; production
+violates the assumption.} Representative incident: a metadata-resolution
+function shipped with three path candidates for locating a registry
+file, all of which missed the file's actual production
+location---because the deployment pipeline placed it under a path none of
+the candidates covered. The component fell back, silently, to an
+unfiltered mode for \textbf{five days}; its own log line announcing the
+fallback scrolled past unread, and a companion feature (writing health
+scores into shared state) silently never executed at all. Unit tests
+were green throughout: they tested the resolution \emph{logic}, with
+fixtures laid out according to the same wrong assumption.
+
+A second representative: an LLM-output parser indexed lines positionally
+(\texttt{lines[i+1]}, \texttt{lines[i+2]}, stride~3). The model
+occasionally omits one line---instruction-following is a distribution,
+not a contract---after which every subsequent field shifted one slot,
+and users received messages whose ``title'' field contained a literal
+separator string. The mechanism generalizes: \textbf{any positional
+parse of LLM output is a latent \classref{B} failure}, which we later
+froze into a meta-rule (parsers must be key-based, never positional) and
+a scanner.
+
+The class signature is \emph{tests mirror the assumption rather than the
+caller}: in a later incident the test suite constructed inputs with a
+heading format the production caller never produces, passing 12 tests
+while production emitted 3 message windows instead of 4. Defense:
+explicit cross-script contracts, deployment-layout testing on target,
+scanners that walk every path-resolution function and assert the
+production-canonical candidate is present.
+
+\subsection{Class C --- Error swallowing and dilution}\label{sec:classc}
+
+\emph{The error happens and is reported---into a void.} Three mechanism
+variants:
+
+\paragraph{Swallowing.} A summary function counted only
+\texttt{status=="fail"} results; invariants whose check raised an
+\emph{exception} (\texttt{status=="error"}) vanished, and the governance
+audit printed ``all invariants hold'' over a pile of dead checks. The
+observer had no observer---we return to this as the \emph{observer's own
+blind spot} in \S\ref{sec:defense}. In a later echo of the same class, a
+governance executor read check code from one YAML field while 67 checks
+(across 21 invariants) had their code in a differently named field: all
+67 executed \texttt{exec("")}---vacuous passes---for months, and were
+discovered only when a \emph{new} invariant's sabotage validation refused
+to fail.
+
+\paragraph{Dilution.} An evening digest failed with ``HTTP 502: Bad
+Gateway'' for two consecutive days. The true cause---the fallback
+provider's free-tier quota exhausted by daytime jobs, after the primary's
+circuit breaker opened---was present in the upstream response body, which
+the adapter wrapped into a 502, whose body the proxy never read
+(\texttt{str(e)} only), whose remnant the client reduced to
+\texttt{f"HTTP \{code\}: \{reason\}"}. Three hops, each individually
+reasonable, each stripping cause; the alert that reached the human
+contained zero actionable bits. The meta-rule that emerged---\emph{error
+chains must preserve upstream cause across layers}---is the LLM-pipeline
+restatement of a classic distributed-tracing lesson, but with a twist: in
+agent systems the ``client'' of the error is often another LLM prompt, so
+a diluted error is one step from becoming \classref{D} fabrication input.
+
+\paragraph{Amplified swallowing.} An automated batch tool injected an
+environment-variable read into 8 job scripts without injecting the
+corresponding \texttt{import}---a \texttt{NameError} in all 8, caught by
+a fail-open guard, which dutifully skipped the new validation logic in
+all 8 while every test and syntax check passed. Automation is a bug
+amplifier: a single wrong design decision propagates to $N$ sites with
+machine efficiency, and \texttt{bash~-n} cannot see inside a Python
+heredoc.
+
+\subsection{Class D --- Chained hallucination and fabrication
+(fail-plausible)}\label{sec:classd}
+
+\emph{The most dangerous class, and the one without precedent in the
+gray-failure literature.} The error is not suppressed; it is
+\textbf{transformed}. Four incidents:
+
+\paragraph{D1 --- The fabricated platform crisis.} A nightly
+knowledge-synthesis job (``dream'') collects signals from ${\sim}290$
+notes via map-reduce LLM calls. A Unicode surrogate in scraped content
+made \texttt{json.dump} raise mid-write, producing a truncated request
+body, a 400 from the adapter---and here the chain turns: the map step's
+logging function wrote diagnostics to \textbf{stdout}, the caller
+captured stdout by command substitution as the \emph{signal payload}, and
+the cache filled with \texttt{HTTP Error 400: Bad JSON} strings. The
+reduce-step LLM, prompted to find cross-domain signals, did exactly what
+language models do with anomalous-but-thematic context: it composed a
+confident analysis of a ``Hugging Face platform crisis''---platform
+trouble being the most probable narrative shell for error-code
+vocabulary---and the system pushed it to the user as a routine insight
+digest. Every component succeeded; the pipeline laundered an encoding bug
+into industry analysis (Fig.~\ref{fig:chain}). The structural fix was
+four lines deep in defense (stderr discipline, surrogate sanitization,
+encoding error policy, anti-pollution prompt guards), but the
+load-bearing one was a single \texttt{>\&2}: \textbf{one redirection
+operator severed the entire hallucination chain.}
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[node distance=2.6mm]
+  \node[stage, minimum width=96mm] (s1)
+    {scraped content with isolated UTF-16 surrogate (U+D800--DFFF)};
+  \node[bad, minimum width=96mm, below=of s1] (s2)
+    {\texttt{json.dump} raises mid-write $\Rightarrow$ request body truncated\\
+     \scriptsize adapter: \texttt{json.loads} fails $\Rightarrow$ HTTP 400 ``Bad JSON'' (456-byte HTML error page)};
+  \node[amp, minimum width=96mm, below=of s2] (s3)
+    {\textbf{Amplifier:} \texttt{log()} prints the error dump to \emph{stdout};\\
+     \scriptsize \texttt{signals=\$(llm\_call \dots)} command substitution captures stdout $\Rightarrow$ error log becomes the ``signal'' payload};
+  \node[con, minimum width=96mm, below=of s3] (s4)
+    {\textbf{Concealer:} cache file := ``\dots Error code: 400 Bad JSON\dots'';\\
+     \scriptsize non-empty check passes; status file reports ok; no detector inspects content semantics};
+  \node[bad, minimum width=96mm, below=of s4] (s5)
+    {reduce-step LLM reads cache as cross-domain ``signals''\\
+     \scriptsize $\Rightarrow$ fluent synthesis: \emph{``Hugging Face platform crisis''} analysis};
+  \node[box, fill=blue!6, minimum width=96mm, below=of s5] (s6)
+    {pushed to the user via WhatsApp/Discord as a routine insight digest\\
+     \scriptsize \textbf{no alarm} --- discovered by the user noticing a thematic incoherence};
+  \node[good, minimum width=96mm, below=of s6] (s7)
+    {fix that severed the chain: \texttt{log() \{ echo \dots\ >\&2; \}} \quad (one redirection)\\
+     \scriptsize defense-in-depth added: surrogate sanitization $\cdot$ encoding error policy $\cdot$ anti-pollution prompt guards};
+  \foreach \i/\j in {s1/s2,s2/s3,s3/s4,s4/s5,s5/s6} \draw[flow] (\i.south) -- (\j.north);
+  \draw[flow, dashed, green!40!black] (s6.south) -- (s7.north);
+\end{tikzpicture}
+\caption{The D1 pollution chain: from one malformed byte to a fabricated
+industry analysis. Every component behaves as designed. Trigger,
+amplifier, and concealer layers (\S\ref{sec:tac}) are marked.}
+\label{fig:chain}
+\end{figure}
+
+\paragraph{D2 --- The fabricated remediation.} A system alert pushed by a
+watchdog was persisted into the chat session history as an ordinary
+assistant message. Thirty-six minutes later the user asked an unrelated
+architecture question; the model, attending across the contaminated
+context, replied that it had ``received the system alert follow-up task''
+and instructed the user to grant Full Disk Access to a cron binary in
+macOS System Preferences---instructions that were not only off-topic but
+\emph{technically fabricated} for the scenario. Alert traffic and
+conversation are different speech acts; letting them share a context
+window invites the model to weave them into one narrative. (A later
+forensic twist worth reporting: weeks afterward, an unrelated 60-day
+investigation (\S\ref{sec:classe}) established that the \emph{general
+remediation direction} the model fabricated---FDA for cron-derived
+processes---was coincidentally relevant to a real problem elsewhere in
+the system. Fabrication is not refuted by occasional accuracy; it is
+defined by absence of grounding.)
+
+\paragraph{D3 --- The fabricated success.} A weekly review job whose LLM
+call failed fell back to a mechanical line-filter that emitted leftover
+container headings as if they were review content, and wrote
+\texttt{"llm": true} into its status file unconditionally. Six co-located
+issues each made the others harder to see; the user-visible artifact
+looked plausible enough to pass casual inspection for weeks. Fabrication
+does not require a model: \textbf{a fallback path that manufactures
+plausible-shaped output is a hallucination implemented in shell.}
+
+\paragraph{D4 --- The fabricated release.} An evening digest, given a
+list of the day's high-alignment papers as context enrichment, inferred
+that the user's project ``must have shipped'' and announced a community
+release of an internal version number that exists only in the project
+changelog---inventing a source tag for it. The injection of \emph{true
+but unlabeled} context produced false attribution: provenance-free
+enrichment is fabrication fuel.
+
+\medskip
+The common structure is a \textbf{pollution chain}: a \classref{A}/B/C
+failure deposits non-signal content where a downstream LLM expects
+signal; the LLM performs its function---fluent, coherent completion---and
+the output inherits the \emph{form} of health with the \emph{content} of
+failure. Defense is therefore system-side context hygiene, applied at
+every link: stderr discipline so diagnostics can never enter data
+channels; alert stripping before context assembly;
+provenance/credibility labeling of injected content; and a six-level
+cumulative ladder of anti-fabrication prompt guards (from ``never invent
+facts'' through literal prohibited phrases extracted from actual
+incidents, e.g.\ the exact fabricated release string), shared as a single
+imported module across all nine LLM-calling jobs rather than copy-pasted.
+We make no claim that prompt guards are sufficient---they are the
+\emph{last} layer, behind hygiene and provenance, and
+\S\ref{sec:maturation} shows why layered placement matters more than any
+single guard.
+
+\subsection{Class E --- Operational omission and forensic blind
+spots}\label{sec:classe}
+
+\emph{The code is right; an operational step never happened---or the
+diagnostic instrument itself is compromised.} This is the largest class
+(8 incidents) and contains the longest silences.
+
+\paragraph{Omission.} A new daily-analysis job was fully implemented,
+tested, registered in the job registry, and deployed---and never ran,
+because the final step (writing the crontab line) was a human memory
+item. Three independent small bugs conspired to hide it: the preflight
+checker grepped for only one of two registry-drift warning strings; the
+crontab helper did not check its own install exit code and compared
+counts with \texttt{<} instead of equality (reporting a green check on a
+rejected install); and the job's absence produced no log to scan. The
+incident generalized into the system's largest architectural correction:
+\textbf{declared state must converge to runtime state via machine, not
+memory}, implemented as a convergence engine that diffs registry
+declarations against observed crontab/launchd/provider state on every
+audit, with a staged escalation path (alert-only $\rightarrow$ dry-run
+$\rightarrow$ machine-sync) and, after a one-week zero-drift observation
+window per spec, automatic synchronization.
+
+\paragraph{The reserved-file incident} deserves narration for its shape.
+The agent, completing an alert-handling task, wrote ``task complete''
+notes into a file named \texttt{HEARTBEAT.md} in its workspace---to the
+agent, a scratch filename; to the runtime, a \emph{reserved control file}
+whose non-empty content activates a heartbeat protocol that instructs the
+model to reply with a bare acknowledgment token if nothing needs
+attention. The gateway then strips that token from outbound messages.
+Result: for 13~hours, every user message received a reply of
+\texttt{HEARTBEAT\_OK}, stripped to nothing in transit---\textbf{total
+silence, with every component functioning exactly as designed.} The model
+had, in effect, been handed a pen that doubled as the system's mute
+button. The general lesson became a meta-rule: any file path carrying
+special runtime semantics must be unwritable by the LLM's generic file
+tools (write attempts are intercepted at the proxy and rewritten to a
+comments-only placeholder).
+
+\paragraph{Forensic blind spots.} The longest silence in the corpus---60
+days---was an external-SSD backup path failing with EPERM. Six successive
+hypotheses (filesystem format, ownership UIDs, ACLs, daemon contention,
+snapshot locks, physical disconnection) were each falsified by data over
+multiple weeks; the breakthrough came only from the OS's own audit log
+(\texttt{log show}), which revealed macOS TCC sandbox denials:
+cron-derived processes lack Full Disk Access by default. The deeper
+finding is methodological: during those weeks, the \emph{forensic
+collectors themselves} (lsof, ACL listing, snapshot enumeration) were
+being silently denied by the same sandbox and returning empty
+output---which the diagnosis pipeline recorded as ``normal/empty''.
+\textbf{An instrument that cannot distinguish ``nothing there'' from ``I
+was not allowed to look'' will manufacture false reassurance}; all
+collectors now capture stderr separately and tag
+\texttt{[sandbox\_denied]} as a first-class observation. The companion
+lesson---every falsified hypothesis was answered by \emph{adding a
+forensic dimension}, never by speculative code change---is the discipline
+we found most transferable.
+
+Also in this class: a 9-hour total gateway outage whose three independent
+alarms each failed (a quiet-hours filter suppressing both channels
+including the one designed for emergencies; a keepalive that logged WARN
+without alerting; a restart script that reported success without
+verifying health)---yielding the meta-rule that \textbf{an alert path
+must not depend on the failing subject} (gateway-down alerts must travel
+a channel the gateway cannot take down); and the watchdog that died of a
+\classref{A} quirk and stayed dead for 7~days because nothing watched the
+watcher (now: ERR-trap self-alarms plus a heartbeat canary file that an
+independent job can age-check).

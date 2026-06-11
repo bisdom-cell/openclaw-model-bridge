@@ -1,0 +1,215 @@
+% =====================================================================
+% When Errors Become Narratives: A Longitudinal Taxonomy of Silent
+% Failures in a Production LLM Agent Runtime
+%
+% arXiv preprint (cs.SE; cross-list cs.AI, cs.DC)
+% Build: pdflatex main.tex  (run twice for cross-references)
+% No bibtex needed: bibliography is inline (thebibliography).
+% All packages are standard arXiv/TeXLive. No external figure files:
+% all 5 figures are TikZ, compiled in-document.
+%
+% PLACEHOLDER for the author to fill before submission:  [AUTHOR NAME]
+% =====================================================================
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{microtype}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,shapes.geometric,calc}
+\usepackage[colorlinks=true,linkcolor=blue!60!black,citecolor=blue!60!black,urlcolor=blue!60!black]{hyperref}
+
+% --- compact, readable lists -----------------------------------------
+\setlist{itemsep=2pt,topsep=4pt,parsep=0pt}
+
+% --- semantic macros ---------------------------------------------------
+\newcommand{\failplausible}{\emph{fail-plausible}}
+\newcommand{\classref}[1]{Class~#1}
+\newcommand{\sysname}{\texttt{openclaw-model-bridge}}
+
+% --- TikZ styles shared by all figures --------------------------------
+\tikzset{
+  box/.style={draw, rounded corners=2pt, align=center, font=\small,
+              inner sep=4pt, minimum height=18pt},
+  stage/.style={box, fill=gray!8},
+  bad/.style={box, fill=red!8, draw=red!60!black},
+  amp/.style={box, fill=orange!12, draw=orange!70!black},
+  con/.style={box, fill=yellow!15, draw=yellow!50!black},
+  good/.style={box, fill=green!8, draw=green!50!black},
+  flow/.style={-{Stealth[length=2.2mm]}, thick},
+  lbl/.style={font=\scriptsize\itshape, align=left},
+}
+
+\title{\textbf{When Errors Become Narratives: A Longitudinal Taxonomy of
+Silent Failures in a Production LLM Agent Runtime}}
+
+\author{%
+  [AUTHOR NAME]\thanks{Contact: [email]. \quad
+  \textbf{Contributions \& AI disclosure:} the author designed, operates,
+  and owns the system under study, provided domain expertise and all
+  research direction, and made all editorial decisions; Claude
+  (Anthropic), used through a coding-agent interface, served as AI
+  engineering collaborator --- co-implementing the system and its defense
+  framework, co-writing the incident postmortems under the author's
+  protocol, preparing the quantitative inventory, and drafting this
+  manuscript under the author's supervision. The arrangement is itself
+  examined as a finding in \S\ref{sec:discussion}. All numbers are
+  mechanically traceable to the public repository.}\\
+  \small Independent researcher}
+
+\date{June 2026 ~$\cdot$~ Draft v0.3 (LaTeX)}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\noindent
+Large language model (LLM) agent systems are increasingly deployed as
+long-running, autonomous runtimes---orchestrating scheduled jobs, calling
+tools, maintaining memory, and pushing results to humans over messaging
+channels. We present a longitudinal empirical study of \emph{silent
+failures} in one such system: a personal-assistant agent runtime in
+continuous production since March 2026, comprising roughly 40 scheduled
+jobs, 8 LLM providers, a tool-governance proxy, and a knowledge-base
+memory plane, defended by 4{,}286 unit tests and 827 declarative
+governance checks. Over an eight-week window we documented 22 incidents
+with full root-cause postmortems, within which a single
+meta-pattern---\emph{a failure whose error signal never reaches a human
+in actionable form}---manifested at least 28 times.
+
+From these postmortems we derive a five-class, mechanism-oriented
+taxonomy of silent failure: (A)~environment and platform quirks,
+(B)~design-assumption mismatches, (C)~error swallowing and dilution,
+(D)~chained hallucination and fabrication, and (E)~operational omission
+and forensic blind spots. \classref{D} is, to our knowledge, specific to
+LLM-based systems and the most dangerous: the system does not merely fail
+to report an error---the LLM actively \emph{transforms} the error into
+fluent, plausible narrative content delivered to the user. We term this
+behavior \failplausible{}, and position it as the LLM-era escalation of
+\emph{gray failure}'s differential observability: the observer is not
+just blind, it is being convincingly lied to by the failure itself.
+
+Three cross-cutting findings challenge common assumptions about agent
+reliability engineering. First, discovery channel: roughly 70\% of silent
+failures were ultimately caught by \emph{human user-view observation} of
+system output, not by unit tests, health checks, or governance
+audits---all of which stayed green through most incidents. Second, a
+retrospective audit of 15 incidents found our declarative governance
+layer had a \textbf{0\% ex-ante prevention rate but an 87\% ex-post
+regression-blocking rate}---audits are regression engines, not prediction
+engines. Third, incident latency (13 hours to 60 days of silence)
+correlates with failure mechanism, not code complexity: the longest-lived
+failures lived in the \emph{seams} between components---deployment
+topology, cross-script contracts, observer--observed coupling---where, by
+construction, no test runs. We describe the defense framework that
+emerged (meta-rules, mechanized scanners, sabotage-validated invariants,
+a declared-state convergence engine, and layered anti-fabrication
+guards), and distill design principles for engineering LLM agent systems
+whose failures are loud, attributable, and boring. All 22 postmortems,
+the governance engine, and the defense framework are publicly available.
+\end{abstract}
+
+\input{sec1_intro}
+\input{sec2_related}
+\input{sec3_method}
+\input{sec4_taxonomy}
+\input{sec5_findings}
+\input{sec6_defense}
+\input{sec7_discussion}
+\input{sec8_9_closing}
+
+% =====================================================================
+\begin{thebibliography}{14}\small
+
+\bibitem{huang2017gray}
+P.~Huang, C.~Guo, L.~Zhou, J.~R. Lorch, Y.~Dang, M.~Chintalapati, and
+R.~Yao.
+\newblock Gray failure: The Achilles' heel of cloud-scale systems.
+\newblock In \emph{Proc.\ HotOS}, 2017.
+
+\bibitem{gunawi2018failslow}
+H.~S. Gunawi et~al.
+\newblock Fail-slow at scale: Evidence of hardware performance faults in
+  large production systems.
+\newblock In \emph{Proc.\ USENIX FAST}, 2018. Extended in \emph{ACM
+  Trans.\ Storage} 14(3), 2018.
+
+\bibitem{cemri2025mast}
+M.~Cemri, M.~Z. Pan, S.~Yang, et~al.
+\newblock Why do multi-agent {LLM} systems fail?
+\newblock arXiv:2503.13657, 2025.
+
+\bibitem{ranganathan2025inference}
+B.~Ranganathan, M.~Zhang, and K.~Wu.
+\newblock Enhancing reliability in {AI} inference services: An empirical
+  study on real production incidents.
+\newblock arXiv:2511.07424, 2025.
+
+\bibitem{zhou2025shielda}
+J.~Zhou, J.~Chen, Q.~Lu, D.~Zhao, and L.~Zhu.
+\newblock {SHIELDA}: Structured handling of exceptions in {LLM}-driven
+  agentic workflows.
+\newblock arXiv:2508.07935, 2025.
+
+\bibitem{xiao2026air}
+Z.~Xiao, J.~Sun, and J.~Chen.
+\newblock {AIR}: Improving agent safety through incident response.
+\newblock arXiv:2602.11749, 2026.
+
+\bibitem{taraghi2026mcp}
+M.~Taraghi, M.~M. Morovati, and F.~Khomh.
+\newblock Real faults in {Model Context Protocol} ({MCP}) software: A
+  comprehensive taxonomy.
+\newblock arXiv:2603.05637, 2026.
+
+\bibitem{beyer2016sre}
+B.~Beyer, C.~Jones, J.~Petoff, and N.~R. Murphy, editors.
+\newblock \emph{Site Reliability Engineering: How Google Runs Production
+  Systems}.
+\newblock O'Reilly, 2016.
+
+\bibitem{ezell2025incident}
+C.~Ezell, X.~Roberts-Gaal, and A.~Chan.
+\newblock Incident analysis for {AI} agents.
+\newblock In \emph{Proc.\ AAAI/ACM AIES}, 2025. arXiv:2508.14231.
+
+\bibitem{owotogbe2026mcpruntime}
+J.~Owotogbe, I.~Kumara, W.-J. van~den Heuvel, D.~A. Tamburri, A.~K.
+  Iannillo, and R.~Natella.
+\newblock A taxonomy of runtime faults in {Model Context Protocol}
+  servers.
+\newblock arXiv:2606.05339, 2026.
+
+\bibitem{huang2023hallucination}
+L.~Huang, W.~Yu, W.~Ma, W.~Zhong, Z.~Feng, H.~Wang, Q.~Chen, W.~Peng,
+  X.~Feng, B.~Qin, and T.~Liu.
+\newblock A survey on hallucination in large language models: Principles,
+  taxonomy, challenges, and open questions.
+\newblock arXiv:2311.05232, 2023 (rev.\ 2024).
+
+\bibitem{basiri2016chaos}
+A.~Basiri, N.~Behnam, R.~de~Rooij, L.~Hochstein, L.~Kosewski,
+  J.~Reynolds, and C.~Rosenthal.
+\newblock Chaos engineering.
+\newblock \emph{IEEE Software}, 33(3):35--41, 2016.
+
+\bibitem{ghosh2022fight}
+S.~Ghosh, M.~Shetty, C.~Bansal, and S.~Nath.
+\newblock How to fight production incidents? {An} empirical study on a
+  large-scale cloud service.
+\newblock In \emph{Proc.\ ACM SoCC}, 2022. Best paper.
+
+\bibitem{zheng2023judge}
+L.~Zheng, W.-L. Chiang, Y.~Sheng, S.~Zhuang, Z.~Wu, Y.~Zhuang, Z.~Lin,
+  Z.~Li, D.~Li, E.~P. Xing, H.~Zhang, J.~E. Gonzalez, and I.~Stoica.
+\newblock Judging {LLM}-as-a-judge with {MT-Bench} and {Chatbot Arena}.
+\newblock In \emph{Proc.\ NeurIPS}, 2023. arXiv:2306.05685.
+
+\end{thebibliography}
+
+\end{document}
