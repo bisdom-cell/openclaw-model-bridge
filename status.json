@@ -1,6 +1,6 @@
 {
-  "updated": "2026-06-11 02:55:26",
-  "updated_by": "claude_code",
+  "updated": "2026-06-11 04:56:21",
+  "updated_by": "security_score",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -106,6 +106,16 @@
   "recent_changes": [
     {
       "date": "2026-06-11",
+      "what": "V37.9.138 🎉 OpenClaw Gateway 升级 2026.3.13-1 → v2026.4.27 完成 (三个月 hold 终结, 提前 9 天, 用户 SSH 执行 23 分钟): doctor --fix 自动迁移 (legacy config + 12 plugin deps 含 baileys + sessions canonicalize, 0 errors) → WhatsApp manifest-first 自动加载 linked+connected auth 保留 → 双通道推送 ✓ (首次 send timeout = plugin 按需 staging 窗口非 bug) → 真人 E2E PA 回复可见 #59265 未复现 → preflight 85/0 + SLO 全部达标 (p95 自愈兑现 V37.9.126/131 预测). 回滚未触发. 配套: check_upgrade CURRENT→4.27 / upgrade_openclaw.sh @latest 隐患修复 (强制显式版本) / SOUL+config.md+eval doc 15.4 实录. LAST_EVAL_DATE=2026-06-11 时间 tripwire 重置",
+      "by": "user+claude_code"
+    },
+    {
+      "date": "2026-06-11",
+      "what": "V37.9.137 🎉 openclaw-ontology-engine 0.1.0 正式发布 PyPI (终极目标 pip install ontology-engine 达成): dev 容器 upload 被网络 allowlist 拦 → 用户 Mac Mini 按 runbook 4 命令上传成功. 发布后三层冒烟 (dev 从真 PyPI): JSON API 200 + 干净 venv pip install → import ontology_engine + 16 tools + 2 console scripts + WeatherBot config-injection 审计 exit=0 零 drift. token 已要求用户撤销. V37.9.99-pkg (6/2) → V37.9.137 (6/11) 9 天包化到公开发布. https://pypi.org/project/openclaw-ontology-engine/0.1.0/",
+      "by": "user+claude_code"
+    },
+    {
+      "date": "2026-06-11",
       "what": "V37.9.136 三任务清场 (为 ArXiv 论文 session 扫清障碍): ① OpenClaw 6/15 前置验证提前完成 — GO (v2026.4.27, 6/20 窗口维持). 实证: #59265 仍无 fix (G2→目标 4.27) / 4.27 未 deprecated 43 天稳定 + notes 确认含 #73358 fix / 6.x SQLite migration 仍动荡避开正确 / G3 G4 对 4.27 路径 N/A. 新发现 2 个升级日验证项 (WhatsApp plugin activation.onStartup + Discord private 默认) 登记 eval doc 15.2. LAST_EVAL_DATE→6/11. ② assertion:→code: 迁移 (unfinished #10 兑现): 55 处全迁 + byte-identical 验证 + 防回退守卫 (反向验证过) + _check_code 兼容保留. 827 checks. ③ PyPI 准备到只欠 token: build + venv twine check 双 PASSED (发现系统 packaging<24.2 假阳性陷阱) + 分发名 openclaw-ontology-engine 实证可用 (404). 上传 runbook 写入 packaging.md §7.2. 121 suites/4286 tests/0 fail",
       "by": "claude_code"
     },
@@ -193,16 +203,6 @@
       "date": "2026-06-08",
       "what": "3-engine-merge 风险评估 (用户要求充分评估再决策) → DEFER 不执行 (用户确认). 加深 V37.9.119 调查: 3 个 engine.py 加载点 path-independent 零 correctness bug, 合并仅省 1 次 startup-once 加载 = cosmetic. 动 proxy_filters 每请求工具过滤 + three_gate shadow 门控 + V37.9.15.1 hotfix 加固结构 + governance INV-GATE-001 硬锁 + 4 测试文件 = 高 blast radius 换 cosmetic 收益, 原则 #34 防御本身是事故面. 结论记入 unfinished 防未来重复调查. 零代码改动.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-06-08",
-      "what": "V37.9.123 日落法 #27 概念 B: status.json 内容漂移豁免 bash 收敛 (用户选, V37.9.122 同 session follow-up). 真一物二形: status.json 内容漂移豁免 (文件在 FILE_MAP 但内容仓库快照 vs 运行时刷新合法分叉) 散落 preflight check 6 (V37.8.1) + auto_deploy drift loop (V37.8.11) 2 处硬编码 if SRC==status.json. 收敛到 path_consistency_scanner.CONTENT_DRIFT_EXEMPT 单一真理源 + --print-exempt CLI (yaml-independent) + bash grep -qxF 成员检查. 不同 FAIL 方向是设计: auto_deploy FAIL-SAFE (空查询退回 status.json 防 V37.8.11 覆盖血案) / preflight FAIL-OPEN (可见 fail). INV-DEPLOY-003 升级守新 pattern (它硬检查旧字面量, 收敛立即被抓=好信号). 21 新单测 (含 FAIL-SAFE 行为 + sabotage 两层). 先排查 MR-15 接缝确认概念 A 不引入 seam bug (preflight V37.8.3 机制从 $HOME 解析到 repo). 116→117 suites / 4071→4092 tests / 0 fail / 89 inv 不变 / 安全 95. #27 (概念 A+B) 完整闭合. 待 Mac Mini git fetch+reset.",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-06-08",
-      "what": "V37.9.122 日落法退役第四步: FILE_MAP 豁免一物多形收敛 (#27 用户选). RUNS_FROM_REPO_CLONE={auto_deploy.sh} 豁免从 3 个 Python 消费者各自硬编码字面量 (path_consistency_scanner 权威源 + preflight check 15 ×3 + check_registry 漏豁免) 收敛到 path_consistency_scanner 单一真理源, check_registry/preflight import 复用. 发现并修 V37.9.120 漏同步 check_registry.check_filemap_completeness 的潜伏 bug (--check-crontab 误报 auto_deploy 不在 FILE_MAP) = V37.8.11/V37.8.13/V37.9.120/V37.9.121-hotfix 反复跨消费者豁免漏同步血案类活样本. 9 新单测 (含行为 forward/反向 + 源码守卫 + sabotage 两层确认). 概念 B (status.json 内容漂移 bash 豁免) 登记 follow-up. 115→116 suites / 4062→4071 tests / 0 fail / 89 inv 不变 / 安全 95 / VERSION 0.37.9.68 不变. 待 Mac Mini git fetch+reset.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -258,21 +258,19 @@
       "V37.9.101 follow-up (rotation 21:00 验证工作后): (a) 重跑复盘诊断 → 真僵尸 stale>7d 移除 LEADERS (b) 完整 zombie loop-wiring — parser 发 newest_age + per-account classify_account + 3 天连续 ZOMBIE 嫌疑告警 (镜像 finance_news, 模块已建+测就绪)",
       "V37.9.103 部署验证 (clean+reduce 冻结≠死亡): Mac Mini git fetch+reset 同步 + auto_deploy 同步 finance_news_zombie.py/run_finance_news.sh/ai_leaders_rotation.py/jobs_registry.yaml/job_watchdog.sh. (a) 下次 07:30 finance cron 应首次出现 🧊 X 渠道退化日志(frozen 账号零产出, 不再 [SYSTEM_ALERT] 建议移除活账号 XHNews/CGTN 类). (b) 下次 09:00 ai_leaders cron 1/天生效. (c) crontab 更新 ai_leaders 频率 0 9,21→0 9 (bash ~/crontab_safe.sh 或手动). (d) 一周观察 frozen 账号确实零产出后, 考虑立 INV-FROZEN-NOT-DEAD-001 把跨模块 frozen≠死亡契约升级为独立 governance INV (当前在 INV-X-001 内). (e) 换源决策已定 clean+reduce 接受退化, TwitterAPI.io 路径留 docs/ai_leaders_source_alternatives.md 备查若未来重启",
       "#18 ai_leaders zombie loop-wiring 现已安全 (V37.9.103): classify_account 已拆 frozen/dead, is_zombie_suspect 仅 stub+dead, 将来 wire 进 run 脚本不会错杀 karpathy 类冻结活账号. 仍 deferred 待 Mac Mini rotation 验证工作后做 (parser 发 newest_age + per-account classify + 3 天连续 ZOMBIE 告警, 镜像 finance_news degraded 分流)",
-      "ontology-engine 包化 chunk 4 已完成 (V37.9.104, 取代 #14 的「先做 chunk 4」建议). examples/minimal_consumer/ WeatherBot 真消费方 demo + Extension Guide + 12 端到端单测, dev config-injection 端到端跑通. 下一步按 docs/ontology_engine_packaging.md §6.1 推进顺序 = chunk 2 (import 名 ontology→ontology_engine 去泛化, 破坏性需全宪法验证 — demo 已证明价值故 rename 退化为机械重构, 涉 proxy_filters lazy-load spec_from_file_location + Mac Mini $HOME/ontology symlink + 全 import + ontology/tests/). chunk 4 demo 暴露具体耦合点供 chunk 3: convergence.py::_DEFAULT_SPEC_PATH = Path(__file__).parent/convergence_ontology.yaml 不读 ONTOLOGY_CONFIG_DIR (已登记 packaging.md §5). chunk 5 = sdist/wheel build + pip install 冒烟 + PyPI 名/license/readme 发布决策.",
       "V37.9.106 部署后 24h 验证 (~2026-06-05): 现有 30 条 MOVESPEED TM-争用 incident 老化出 24h 窗口后 INV-MOVESPEED-TCC-001 应自动转绿 → 治理审计 721/721 全绿. 验证: python3 ~/movespeed_incident_analyzer.py --window 24h 应显示 incidents 大降 (tmutil 预检让 TM 备份时 rsync 跳过不产新 incident). 若仍红说明 TM 之外还有 incident 来源待查.",
       "ai_leaders_blogs (V37.9.108) Mac Mini feed 可达性验证 + 后续: (a) 首跑后看 log WARN 剪死链 (Anthropic news/Karpathy bearblog URL 是 candidate 待验, Substack /feed 标准应可达) + 补可达大神 feed (b) V37.9.109+ Bluesky 免费无认证 API (public.api.bsky.app getAuthorFeed) 加实时短观点维度 — 学者已大规模迁入 (arXiv 2505.24801), 需 handle→DID 解析 + getAuthorFeed 抓取 + 查哪些大神在 Bluesky (c) 验证稳定后真停用 ai_leaders_x: 需同步更新 6 依赖 (kb_review/source_credibility/INV-REVIEW-001/INV-BACKUP-001/config/wa_gateway_resilience 都期望 ai_leaders_x 为内容源) + Mac Mini crontab_safe.sh remove 清 cron 行 (d) ai_leaders_blogs 接入 Opportunity Radar 三件套 (跨源共振 #1 / 项目对齐 #2 / 趋势加速 #3) 作高质量信号源",
       "V37.9.112 已完成 (b) ai_leaders_bsky 接入 Opportunity Radar #2 (top_alignment_picker ALIGNED_SOURCES 9→10, 3 消费方自动生效). 剩余 follow-up (Mac Mini handle 验证后, 非高优): (a) 首跑 log WARN 剪死 handle + 补可达 contrarian 大神 (howard.fm 自定义域名 / garymarcus.bsky.social / emilymbender.bsky.social 候选待验 / fchollet 替代) (c) 2x/天频率评估 (实时短观点价值) + 评估 Bluesky app-password 认证读 login-required 账号",
       "V37.9.110+113 follow-up (升级版, MR-9 测试污染生产 bug 类 framework 化): V37.9.113 已 framework 化 convergence-specific 部分 (TestV37_9_113 AST 反回归守卫 + 行为级正/负对照 sentinel, 拆 test_convergence 真改 crontab/真跑 kb_embed 地雷). 剩余 (专门 session): (a) 立元规则 MR-22 governance-runtime-tests-must-isolate-production-state — V37.9.110 test_movespeed 写真 incidents.jsonl + V37.9.113 test_convergence 真改 crontab 共 2 实例已达立元规则门槛 (b) generic MRD scanner 扫所有 governance runtime python_assert 跑的测试 (INV-RETRY-001 test_movespeed / INV-CONVERGENCE test_convergence / 等) 是否写生产 state 文件 (~/.kb/*.jsonl / crontab / kb_embed 真跑), 跨多测试文件 framework 化此 bug 类",
       "3-engine-merge 已两次评估结论 DEFER (V37.9.119 + 2026-06-08 本 session 加深), 勿再从头调查. **结构**: 3 个 engine.py 加载点 — proxy_filters:452 (_onto_engine, module-level 仅 on/shadow, generate_proxy_data 覆盖 ALLOWED_TOOLS + 保留 _onto_mod 供 evaluate_policy, 每请求工具过滤核心) / proxy_filters:1463 (ontology_engine, _check_ontology_consistency 无条件所有 mode, 一致性诊断) / three_gate:183 (_three_gate_engine_lazy, lazy 首次 gate 评估缓存, _safe_evaluate_policy shadow 门控请求路径). **风险评估**: (a) path-independent 零 correctness bug, 双加载一物二形仅 on/shadow mode 存在 (OFF mode 只 1463 加载), 合并仅省 1 次 startup-once 加载 = cosmetic. (b) Sub-merge A (proxy_filters 452+1463 单文件) 中风险; Sub-merge B (three_gate 跨模块共享单例) 高风险. (c) three_gate._load_engine_module 是 V37.9.15.1 hotfix 加固的三策略 robustness 修复, governance INV-GATE-001 (gov yaml line 5402-5413) 硬锁 _three_gate_engine_lazy 模块名 + _load_engine_module 结构 + 4 测试文件引用 → 合并连带改 governance+测试+风险解开 hotfix 修过的 bug. **决策**: DEFER — 无 incident-causing 接缝 (北极星 V37.9.117 针对造成事故的接缝, 这 3 加载是 cosmetic startup-once 重复), 高 blast radius (每请求工具过滤+shadow 门控) 换 cosmetic 收益, 原则 #34 防御本身是事故面. 若未来真要做: 只考虑 Sub-merge A (单文件缓存 helper), Sub-merge B 不做.",
       "V37.9.124 #29 follow-up (低优, 防未来重复调查): INV runtime 收窄已完成 INV-OBSERVER-001 (唯一已证明 env-dependent 套件). #29 调查结论: 其他 ~12 全套件 runtime check 的套件 env-independent 已核实 (test_v37_9_76_router 16 env 信号全 patch 隔离 + relative-to-HOME expanduser 一致; scanner 扫 repo 文件; INV-ROUTER false-fail 是 stale code 非套件 env-dependency), 不需收窄 (原则 #18 补证据非补功能, 收窄 env-independent 套件是 churn). #29 收窄约定已立 (test_v37_9_124 docstring): 套件含 env-dependent test 的 INV 跑契约核心类非全套件; 纯逻辑套件跑全 OK. 未来若新 INV 跑的套件含 env-dependent test (读 repo 外真实系统状态), 按此约定收窄到契约核心类 (镜像 INV-OBSERVER-001/INV-DREAM-CROSS-DOMAIN).",
-      "OpenClaw 升级 (第五次评估 2026-06-08 已做, 用户决策继续 hold 到 6/20 时间表): 详见 docs/gateway_upgrade_eval_v2026.4.md 第十四节. 当前上游 v2026.6.1, 目标 v2026.4.27 (避开全部 4.29/5.x/6.x breaking: tools.exec/fs + plugin manifest + SQLite migration + plugin policy overhaul), G2 门 #59265 仍 closed 无 fix → 降级目标确认. 待办: (a) 6/15 最终前置验证 — bash check_upgrade.sh 看 tripwire + WebFetch 确认 #59265/6.x 无新 dealbreaker + dev 审查 proxy_filters 工具白名单 against v3.31 exec 加固 (b) ~6/20 周六升级按第七节 SOP (备份→升 v2026.4.27→doctor --fix→强制 WhatsApp E2E #59265 验证→双通道推送验证→不可见立即 30 秒回滚). 升级是 Mac Mini SSH 操作 (禁 AI 执行, 自杀悖论). 升级成功后按第九节更新 docs/CLAUDE.md/SOUL.md/status.json/LAST_EVAL_DATE. framework gap: 版本差距 tripwire likely 触发后每周一 cron 持续告警 (已评估决策 hold, 6/20 前 Monday 告警是预期噪声 acknowledged).",
       "V37.9.125 follow-up doc-stat-sync V2 (低优, 日落法续): (a) 三 doc 的 last-updated/最后更新行也纳入自动同步 (config.md '> 最后更新：2026-06-02' 已陈旧 6/8 刷过, 是 per-doc 日期非 stat token 当前 scope 外). (b) FEATURES/config 的更静态统计纳入 (40 active jobs←jobs_registry enabled count / 5 SLO metrics / 19 preflight checks) — 它们 V1 留 scope 外因变更少但 jobs 数曾 35→40 真 drift 过. (c) 评估把 doc-stat-sync 推广到 README 正文散文统计 (当前只摘要行). 前置: 各统计需先确认权威源 + 摘要行/区域唯一性核验 (同 V1 流程).",
       "SLO #19 观察 (V37.9.126 诊断): Mac Mini Qwen3 主力 backend 退化期 (circuit_breaker half-open, fallback=doubao), preflight #19 SLO p95=81s 是 200-滚动窗口含退化请求 (非 stale, 会随流量冲刷自愈). 操作: 观察 Qwen3 是否恢复 (breaker 闭合); 若持续不恢复 → backend/GPU provider 层面; 想 #19 早不报警 → bash ~/restart.sh 清窗口. 非 code bug (监控工作正常). 若退化频繁可评估 SLO latency 改 time-windowed 而非 request-windowed (chunk 外, 独立).",
       "V37.9.129 follow-up (DEFER, 登记): adapter fallback 循环读 upstream error body (观察性, MR-13/INV-OBSERVABILITY-001 候选)。今天诊断难正因 adapter fb_errors.append(str(fb_err)) 对 HTTPError 只给 'HTTP Error 400: Bad Request' 不读 body, 需直连 gemini 才看到 'User location not supported'。修法: adapter 复用 proxy_filters.compose_backend_error_str (V37.8.10) 或 inline helper。DEFER 原因: gemini 退役后其 400 body moot + doubao timeout 无 informative body + 引入 adapter→proxy_filters 耦合 (日落法 #34 防御本身是事故面)。价值降低非紧急, 但对未来其他 provider HTTP 错误诊断仍有价值。",
       "V37.9.130 生产验证已通过 (2026-06-11 Mac Mini 实跑): 6/4 真实血案数据 9 chunks 重跑 — hierarchical r1 b1/3(6740c)+b2/3(6220c)+r2(8524c) 3 次小请求零失败零降级, 48 条精华入 KB, 6/3 已确认处理过, 断流全闭环. 同数据对照证实根因=单请求规模非纯超时 (同 9 Map 段, 单次 40K 两次超时 vs 3 次 7K 一次全过). 剩余低优 follow-up: (a) final Reduce max_tokens=2000 被 48 条打满产尾部残行 \"- [\" (finish_reason=length), 超大对话日边界 — V37.9.131+ 评估 2000→3000 或 emit 前剥尾部残行 (b) 长期观察 last_run degraded/map_failed 字段, 频繁 degraded → 评估 REDUCE_BATCH_SIZE 调小或 doubao 显式路由",
       "V37.9.132 一周观察 (~6/18): deep_dive 摘要级占比应从 76% (34/45) 显著下降 — Mac Mini 验证: grep -L \"基于摘要的分析\" ~/.kb/deep_dives/*.md 看 6/12 后新增文件多数应为全文级. 若仍高: (a) 查 dblp ee 字段 arxiv 覆盖率 (b) S2 openAccessPdf .pdf 结尾比例 (非 .pdf OA 链接保留 S2 页面是有意取舍) (c) 候选增强: deep_dive mode (full_text/abstract_only) 占比纳入 daily_observer 报告让 degrade 频率可观测 (本次 76% gap 潜伏 2 个月才被用户发现的根因是 degrade 频率无聚合复盘)",
-      "ontology-engine 包化已 publish-ready (V37.9.133 chunk 5 完结 — chunk 1/2-lite/3a/3b/3b.2/4/5 全部完成): sdist+wheel 真实构建 + venv 冒烟 + WeatherBot 注入 + console script 审计 exit=0 全验证. 剩余唯一动作 = 实际 PyPI 上传 (用户决策): (1) 用户注册/提供 PyPI 账号 token (2) python3 -m twine upload dist/* (3) 上传时确认分发名 openclaw-ontology-engine 可用性 (公共 ontology-engine 已被占用). 可选 follow-up: chunk 3b follow-up MRD 文件名模式参数化已完成于 V37.9.126/127, 无技术阻塞",
-      "S2 关键词覆盖恢复候选 (低优): S2 API key 已确认配置且认证模式稳定运行 (2026-06-11 Mac Mini log 核实, 6/8 起每天 11:00 认证模式 2s 间隔, 5/28 匿名池 429 已根治). 可选增强: 关键词 6→12 恢复 V37.8.13 因 429 砍半的覆盖 (认证 1 RPS 下 12 关键词仅多 ~12s, 安全). 顺带: V37.9.98 line 98 注释\"即时发放\"与 V37.9.99 修正\"审核制\"矛盾, 下次触碰该文件时顺手清"
+      "S2 关键词覆盖恢复候选 (低优): S2 API key 已确认配置且认证模式稳定运行 (2026-06-11 Mac Mini log 核实, 6/8 起每天 11:00 认证模式 2s 间隔, 5/28 匿名池 429 已根治). 可选增强: 关键词 6→12 恢复 V37.8.13 因 429 砍半的覆盖 (认证 1 RPS 下 12 关键词仅多 ~12s, 安全). 顺带: V37.9.98 line 98 注释\"即时发放\"与 V37.9.99 修正\"审核制\"矛盾, 下次触碰该文件时顺手清",
+      "V37.9.138 follow-up (低优): #48703 hotfix 在 4.27 已冗余 (上游 2026.3.23 修复, restart.sh sed 补丁幂等无害) — 评估移除 restart.sh hotfix 段 + preflight 12/19 检查保留 (验证上游修复仍在). 血案 #98 教训: 现在已升级 4.27 所以移除合法"
     ],
     "open_prs": "",
     "blocked_on": "",
@@ -339,9 +337,9 @@
   "quality": {
     "security_score": 95,
     "test_count": 4286,
-    "last_regression": "2026-06-11 02:54 pass",
+    "last_regression": "2026-06-11 04:55 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-11 02:54",
+    "security_score_time": "2026-06-11 04:55",
     "test_suites": 121,
     "governance_invariants": "90/90",
     "governance_checks": "733/747",
@@ -389,7 +387,7 @@
     "PA 行为变更后必须清空 session + 重启 Gateway + WhatsApp 实测 (V30.4 教训)",
     "SOUL.md 放宪法级信息 (身份+状态), CLAUDE.md 放操作手册 (工具+详情)",
     "功能完成标准 = 用户视角验证通过, 非单测通过",
-    "Gateway 维持 v2026.3.13-1, 升级前先读 docs/config.md hold 决策 (V37+ 多次评估)",
+    "Gateway 已升级 v2026.4.27 (2026-06-11), 未来升级前先读 docs/config.md hold 决策 + eval doc tripwire 框架",
     "告警链不得依赖失效主体自身: WhatsApp 监控走 Discord (V37.8.13 MR-14)",
     "跨消费者豁免必须全量同步: 任何 FILE_MAP 豁免改 preflight 也要改 auto_deploy/job_smoke_test (V37.8.13 原则 #31)",
     "战略路标 V1/V2/V3 优先于功能添加 (导师评审 2026-04-03 + V35-V36 已完成 V1/V2 P0)"
@@ -410,7 +408,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.134-136 完成 (scanner 第6 pattern + S2 关键词恢复 + 三任务清场). ArXiv 论文障碍已全清: OpenClaw 前置验证 GO (6/20 用户 SSH 升级, eval doc 15.2 有 2 新验证项) / assertion 迁移闭环 / PyPI 只欠用户 token (runbook packaging.md §7.2). Mac Mini 待: 合并 PR + git reset. 下次 session 主任务候选: ArXiv 论文启动 (Silent Failures Taxonomy, 与用户共创) / PyPI 上传 (用户给 token 即 30 秒) / 6/18 deep_dive 摘要级占比复盘 / 6/20 OpenClaw 升级窗口 (用户 Mac Mini SSH).",
+  "focus": "V37.9.134-138 完成 (单日六交付): scanner 第6 pattern + S2 关键词恢复 + 三任务清场 + PyPI 0.1.0 正式发布 + OpenClaw 升级 v2026.4.27 完成 (提前 9 天). 全部日期门控障碍已清, ArXiv 论文 (Silent Failures Taxonomy) 下次 session 全力启动. 观察项: 明日 11:00 S2 12 关键词首跑 / 6/18 deep_dive 摘要级复盘 / 下次 07:00 governance audit 看 openclaw_config_to_runtime spec version drift (预期内 alert_only). Mac Mini 待: 合并本 PR + git reset.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",

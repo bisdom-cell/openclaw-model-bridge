@@ -122,7 +122,20 @@ def _resolve_config_dir():
 3. **license**: ✅ **V37.9.133 已定 = MIT**（LICENSE 文件已在仓库根，pyproject `license = {file = "LICENSE"}`，wheel 的 dist-info/licenses/ 已验证包含）。
 4. **readme**: ✅ **V37.9.133 已建 = `PACKAGE_README.md`**（英文包级 README：两层架构 + quick start + 5 capabilities + WeatherBot 链接，METADATA Description-Content-Type: text/markdown 已验证）。剩余唯一开放决策 = **实际 PyPI 上传**（用户提供 PyPI 账号/token，见 §7.2 runbook）。
 
-### 7.2 上传 runbook（V37.9.136 前置准备已全部完成，只欠 token）
+### 7.2 上传 runbook — ✅ **已发布（2026-06-11, V37.9.137）**
+
+> **🎉 `openclaw-ontology-engine 0.1.0` 已正式发布**: https://pypi.org/project/openclaw-ontology-engine/0.1.0/
+> 用户 Mac Mini 按本 runbook 执行（dev 容器 upload.pypi.org 不在网络 allowlist，twine 403 "Host not in allowlist"）。
+> 发布后三层冒烟（dev 容器从真 PyPI 验证）: ① JSON API 200（name/version/MIT/2 files）② 干净 venv
+> `pip install openclaw-ontology-engine` → import ontology_engine + engine/governance_checker/convergence
+> 全子模块 + bundled 16 tools + 2 console scripts ③ **WeatherBot config-injection 经 PyPI 包真跑
+> `openclaw-ontology-audit` exit=0 + convergence 零 drift** — pip install → 消费方 YAML → 审计自己的项目，
+> V3 路标终极闭环（这次是公开 PyPI 包而非本地 wheel）。
+> 发布用 account-scoped token 已要求用户撤销（用完即弃）；未来发版用 project-scoped token。
+> **未来发版流程**: bump pyproject `version` → 本 runbook 4 条命令。已知低优 follow-up: setuptools
+> 警告 `project.license` TOML table 形式 2027-02 起 deprecated（届时改 SPDX 字符串 `license = "MIT"`）。
+
+#### 原 runbook（保留供未来发版）
 
 **2026-06-11 实证状态**：
 - ✅ `python3 -m build` 构建通过（sdist 326KB + wheel 313KB）

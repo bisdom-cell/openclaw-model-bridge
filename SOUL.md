@@ -154,7 +154,7 @@
 - 2026-03-28: SOUL.md激活：PA首次正确回答项目进展（之前说没有项目）
 
 **当前约束：**
-- Gateway维持v2026.3.13-1（上游已到 v2026.6.1；第五次评估 2026-06-08 用户决策继续 hold 到 6/20 时间表，目标 v2026.4.27 避开全部 4.29/5.x/6.x breaking；详见 gateway_upgrade_eval 第十四节）
+- Gateway已升级v2026.4.27（2026-06-11 用户 SSH 执行，提前 9 天完成原 6/20 计划；WhatsApp E2E + 双通道 + preflight 85/0 全过，#59265 未复现；详见 gateway_upgrade_eval 第十五节）
 - 数据清洗Phase2优先于新功能开发
 - Mac Mini同步用git reset不用git pull
 - PA行为变更后必须清空session+重启Gateway+WhatsApp实测（V30.4教训）
