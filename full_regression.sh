@@ -11,6 +11,11 @@ PASS=0
 FAIL=0
 TOTAL_TESTS=0
 FAILED_SUITES=()
+# V37.9.140 (#27 修复): 条件跳过但仍属 suite 清单的计数 — 对抗审计层按 git 工作树
+# 洁净度条件执行, 跳过不应让 quality.test_suites 在 N/N+1 间抖动 (抖动会让
+# gen_readme_badges doc-drift 守卫假阳性)。PASS 仍只数真执行通过的 suite (汇总行诚实),
+# 仅 status.json 回写用 PASS + SUITES_SKIPPED_COUNTED 保持 suite 清单数确定。
+SUITES_SKIPPED_COUNTED=0
 
 TS="$(date '+%Y-%m-%d %H:%M:%S')"
 echo "╔══════════════════════════════════════════════════════╗"
@@ -418,7 +423,8 @@ if [ -f ontology/tests/adversarial_chaos_audit.py ]; then
     # 检查 git 工作树干净（chaos audit 需要）— 豁免 status.json（证据回写）
     DIRTY=$(git status --porcelain 2>/dev/null | grep -v "status.json$" || true)
     if [ -n "$DIRTY" ]; then
-        echo "  ⚠️ git 工作树不干净（非 status.json），跳过对抗审计"
+        echo "  ⚠️ git 工作树不干净（非 status.json），跳过对抗审计执行（suite 数仍计入 — V37.9.140 #27 防计数抖动）"
+        SUITES_SKIPPED_COUNTED=$((SUITES_SKIPPED_COUNTED + 1))
     else
         echo -n "  🎯 Category A 10 场景（已知血案回归） ... "
         CHAOS_OUTPUT=$(python3 ontology/tests/adversarial_chaos_audit.py --category a 2>&1)
@@ -503,8 +509,10 @@ else
         # 1) 测试数 + 回归结果
         python3 status_update.py --set quality.test_count "$TOTAL_TESTS" --by full_regression 2>/dev/null
         python3 status_update.py --set quality.last_regression "${REGRESSION_TS} pass" --by full_regression 2>/dev/null
-        python3 status_update.py --set quality.test_suites "$PASS" --by full_regression 2>/dev/null
-        echo "   test_count=$TOTAL_TESTS, suites=$PASS"
+        # V37.9.140 (#27): suites = PASS + 条件跳过计入数, 让 suite 清单数与执行条件解耦
+        SUITES_TOTAL=$((PASS + SUITES_SKIPPED_COUNTED))
+        python3 status_update.py --set quality.test_suites "$SUITES_TOTAL" --by full_regression 2>/dev/null
+        echo "   test_count=$TOTAL_TESTS, suites=$SUITES_TOTAL (含 ${SUITES_SKIPPED_COUNTED} 个条件跳过计入)"
 
         # 2) 安全评分（单次调用，解析三个字段）
         if [ -f security_score.py ]; then

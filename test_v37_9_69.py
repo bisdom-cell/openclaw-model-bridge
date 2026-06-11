@@ -230,5 +230,81 @@ class TestV37969Integration(unittest.TestCase):
             f"stderr: {result.stderr}")
 
 
+# ── V37.9.140: suites 计数 121/122 抖动修复守卫 (unfinished #27) ──────────────
+
+class TestV379140SuitesCountStability(unittest.TestCase):
+    """V37.9.140 (#27): quality.test_suites 计数与对抗层执行条件解耦.
+
+    血案: 对抗审计 layer 3.5 按 git 工作树洁净度条件执行 (不干净跳过), 旧实现
+    `--set quality.test_suites "$PASS"` 让 suites 在 121/122 间抖动 →
+    gen_readme_badges doc-drift 守卫偶发假阳性 (2026-06-11 收工实测命中:
+    doc=121/权威=122 错配窗口 fail). 属"计数抖动→守卫假阳性" silent-failure 家族
+    (与本文件 V37.9.69 C 项同族).
+
+    V37.9.140 修复 (unfinished #27 选项 a — 根因层):
+      - SUITES_SKIPPED_COUNTED 计数器: 对抗层跳过执行时 +1 (suite 清单数不变)
+      - 回写: SUITES_TOTAL=$((PASS + SUITES_SKIPPED_COUNTED)) — 确定值
+      - PASS/汇总行语义不变 (只数真执行通过的 suite, 不谎报)
+
+    反向验证 (已确认守卫真有效): 把回写行改回 `"$PASS"` → test_no_legacy_flapping_write
+    立即 fail; 删 dirty 分支增量 → test_dirty_branch_increments 立即 fail.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        with open(FULL_REGRESSION_SH, encoding="utf-8") as f:
+            cls.src = f.read()
+
+    def test_v37_9_140_marker_present(self):
+        """V37.9.140 修复 marker 必须存在 (可溯源)."""
+        self.assertIn("V37.9.140", self.src)
+
+    def test_skipped_counter_initialized(self):
+        """SUITES_SKIPPED_COUNTED 计数器必须在顶部初始化为 0."""
+        self.assertRegex(self.src, r"(?m)^SUITES_SKIPPED_COUNTED=0")
+
+    def test_dirty_branch_increments_skipped_counter(self):
+        """对抗层 dirty-tree 跳过分支必须递增 SUITES_SKIPPED_COUNTED."""
+        idx = self.src.find("工作树不干净")
+        self.assertGreater(idx, 0, "对抗层 dirty-tree 跳过分支必须存在")
+        window = self.src[idx : idx + 300]
+        self.assertIn(
+            "SUITES_SKIPPED_COUNTED=$((SUITES_SKIPPED_COUNTED + 1))",
+            window,
+            "跳过分支 300 字符内必须递增计数器 (跳过 ≠ suite 不存在)",
+        )
+
+    def test_write_uses_pass_plus_skipped(self):
+        """status.json 回写必须用 PASS + SUITES_SKIPPED_COUNTED 确定值."""
+        self.assertIn("SUITES_TOTAL=$((PASS + SUITES_SKIPPED_COUNTED))", self.src)
+        self.assertIn('--set quality.test_suites "$SUITES_TOTAL"', self.src)
+
+    def test_no_legacy_flapping_write(self):
+        """反模式守卫: 旧抖动写法 `quality.test_suites \"$PASS\"` 不得回归."""
+        self.assertNotIn('quality.test_suites "$PASS"', self.src)
+
+    def test_arithmetic_line_behaviorally_correct(self):
+        """行为验证: 从源码提取真实算术行, bash 真跑断言 dirty/clean 两路径同值.
+
+        dirty 路径 (PASS=121, SKIPPED=1) 与 clean 路径 (PASS=122, SKIPPED=0)
+        必须产出相同 SUITES_TOTAL=122 — 这正是 #27 抖动的消除证明.
+        """
+        m = re.search(r"(?m)^\s*(SUITES_TOTAL=\$\(\(PASS \+ SUITES_SKIPPED_COUNTED\)\))", self.src)
+        self.assertIsNotNone(m, "源码必须含 SUITES_TOTAL 算术行")
+        arith = m.group(1)
+        results = []
+        for pass_v, skipped_v in ((121, 1), (122, 0)):
+            r = subprocess.run(
+                ["bash", "-c",
+                 f'PASS={pass_v}; SUITES_SKIPPED_COUNTED={skipped_v}; {arith}; echo "$SUITES_TOTAL"'],
+                capture_output=True, text=True, timeout=10,
+            )
+            self.assertEqual(r.returncode, 0, f"bash 算术执行失败: {r.stderr}")
+            results.append(r.stdout.strip())
+        self.assertEqual(results[0], results[1],
+            f"dirty/clean 两路径 SUITES_TOTAL 必须相同 (抖动消除): {results}")
+        self.assertEqual(results[0], "122")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
