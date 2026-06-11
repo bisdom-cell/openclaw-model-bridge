@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
 """cross_os_quirk_scanner.py — V37.9.67 INV-CROSS-OS-001 framework scanner
 
-血案谱系 (V37.9.66 反思文档类别 A OS quirk 已 5+ 次演出):
+血案谱系 (V37.9.66 反思文档类别 A OS quirk 已 7+ 次演出):
   - V37.9.58-hotfix3: watchdog macOS bsd awk multibyte 7 天 silent abort
   - V37.9.58-hotfix4: bash `set -e` 函数内 fail 不传 ERR trap 漏 `-E`
   - V37.9.56-hotfix2: zsh `interactive_comments` 默认 OFF `#` 当参数
   - V37.9.60-hotfix: bash `grep | head` + pipefail + set -eE 联合 false-positive FATAL
-  - V37.9.66-hotfix: bash `cmd && X || Y` + set -eE + ERR trap 同款 quirk (今日实证)
+  - V37.9.66-hotfix: bash `cmd && X || Y` + set -eE + ERR trap 同款 quirk
+  - V37.9.105-hotfix: governance_audit `$(...)` 子 shell 继承 ERR trap 假 FATAL ×2
+  - V37.9.131: watchdog SLO `$(slo_checker --alert)` 同款 quirk 第 3 处演出
 
-scope (V37.9.67 PoC): 4 个**已实证暴露**的 quirk pattern 主动检测.
-   未来扩展 (V37.9.68+): macOS sed -i / GNU vs BSD date / etc.
+scope (V37.9.67 PoC 4 个 → V37.9.68 +1 → V37.9.134 +1 = 6 个**已实证暴露**的
+   quirk pattern 主动检测). 未来扩展: macOS sed -i / GNU vs BSD date / etc.
 
 FAIL-CLOSE 契约: 任一 violation 必须 exit 1.
 
@@ -77,14 +79,49 @@ _QUIRK_HEAD_BYTE_TR = re.compile(
     r'head\s+-c\s+\d+[^|]*\|\s*tr\s+'
 )
 
+# ── Quirk 6: $(...) 子 shell 继承 ERR trap, 设计性非零命令误触发假 FATAL ──
+# (V37.9.105-hotfix governance_audit ×2 + V37.9.131 watchdog SLO, 共 3 处实证)
+#
+# macOS bash 3.2 + `set -E` (errtrace) 下, `VAR=$(cmd)` 命令替换子 shell **继承
+# ERR trap**. 当 cmd 是"设计性非零退出"命令 (governance_checker exit 1 = 发现违规
+# / slo_checker --alert exit 2 = SLO 违规, 非零是正常 API), 每次正常运行都在子
+# shell 内误触发 fatal_handler 推送假 FATAL 告警.
+#
+# 关键: 外层 `|| RC=$?` 捕获**防不了**子 shell 内 trap fire (V37.9.105 铁证:
+# GOV_RC 已正确捕获仍推假 "FATAL abort line=64"). 唯一豁免 = `set +E` 包裹:
+#     RC=0
+#     set +E
+#     VAR=$(python3 designed_nonzero.py --alert) || RC=$?
+#     set -E
+#
+# 检测范围 (保守, 只抓"设计性非零"类避免误报 json-parse 类真告警场景):
+#   文件级前提: 同时含 `set -E`/-eE* (errtrace) + `trap ... ERR`
+#   行级: `VAR=$(...python...)` 且命中 basename 清单 OR 审计类 flag
+#   豁免: 处于 `set +E` ... `set -E` 区间内 / 注释行
+_QUIRK_ERRTRACE_FILE_PRECONDITION = re.compile(
+    r'^\s*set\s+-[a-z]*E', re.MULTILINE
+)
+_QUIRK_TRAP_ERR_PRECONDITION = re.compile(
+    r'^\s*trap\s+.*\bERR\b', re.MULTILINE
+)
+_QUIRK_SET_PLUS_E = re.compile(r'^\s*set\s+\+[a-zA-Z]*E')
+_QUIRK_SET_MINUS_E = re.compile(r'^\s*set\s+-[a-z]*E')
+# 设计性非零命令: 已实证 basename 清单 + 审计类 flag 启发
+# (flag 启发是必要的 — V37.9.131 watchdog 行内是 `"$SLO_SCRIPT"` 变量看不到文件名)
+_QUIRK_SUBSHELL_DESIGNED_NONZERO = re.compile(
+    r'\w+=\$\([^)]*\bpython3?\b[^)]*'
+    r'(?:governance_checker\.py|slo_checker|--alert\b|--check\b|--validate\b|--full\b)'
+)
 
-# 5 个 quirk 检查器统一注册
+
+# 6 个 quirk 检查器统一注册
 _QUIRK_CHECKERS = (
     ("cmd_and_or_chain", "bash `cmd && X || Y` + set -eE + ERR trap false-positive FATAL"),
     ("grep_head_no_or_true", "bash `grep | head` + pipefail + set -eE 无 `|| true` 兜底"),
     ("awk_log_no_lc_all", "awk 处理 log 缺 `LC_ALL=C` 前缀 (macOS bsd multibyte 风险)"),
     ("zsh_specific_in_sh", "zsh-specific 语法在 cron .sh (POSIX sh 跑会失败)"),
     ("head_byte_tr_no_lc_all", "`head -c N | tr` 切多字节 UTF-8 在中间, macOS bsd tr 报 Illegal byte sequence (V37.9.68 教训)"),
+    ("subshell_errtrace_designed_nonzero", "bash 3.2 + set -E: $(...) 调设计性非零命令无 set +E 包裹, 子 shell 继承 ERR trap 假 FATAL (V37.9.105-hotfix + V37.9.131)"),
 )
 
 
@@ -175,6 +212,40 @@ def detect_head_byte_tr_no_lc_all(content):
     return findings
 
 
+def detect_subshell_errtrace_designed_nonzero(content):
+    """检测 $(...) 子 shell 继承 ERR trap quirk (V37.9.105-hotfix + V37.9.131 同款).
+
+    文件级前提: 同时含 errtrace (`set -E`/-eE*) + `trap ... ERR` — 缺任一则
+    quirk 不成立, 整文件 0 findings.
+
+    行级状态机: `set +E` 进入豁免区 (errtrace 已关, 子 shell 不继承 trap),
+    `set -E*` 退出豁免区. 区间外的 `VAR=$(...python...designed-nonzero...)`
+    即 violation — 注意 `||` 兜底**不豁免** (V37.9.105 铁证: 外层 || 已捕获
+    退出码, 子 shell 内 trap 仍 fire 推假 FATAL — || 捕获防不了 trap fire).
+    """
+    if not (_QUIRK_ERRTRACE_FILE_PRECONDITION.search(content)
+            and _QUIRK_TRAP_ERR_PRECONDITION.search(content)):
+        return []
+    findings = []
+    in_exempt = False
+    for ln, line in enumerate(content.split("\n"), 1):
+        if _is_in_comment_or_string(line):
+            continue
+        if _QUIRK_SET_PLUS_E.match(line):
+            in_exempt = True
+            continue
+        if _QUIRK_SET_MINUS_E.match(line):
+            in_exempt = False
+            continue
+        if in_exempt:
+            continue
+        if _QUIRK_SUBSHELL_DESIGNED_NONZERO.search(line):
+            findings.append(
+                (ln, "subshell_errtrace_designed_nonzero", line.strip())
+            )
+    return findings
+
+
 def scan_file(path):
     """扫单文件返回所有 findings: [(line_no, quirk_name, line_text), ...]"""
     content = _read(path)
@@ -187,6 +258,7 @@ def scan_file(path):
     findings.extend(detect_awk_log_no_lc_all(content))
     findings.extend(detect_zsh_specific_in_sh(content))
     findings.extend(detect_head_byte_tr_no_lc_all(content))
+    findings.extend(detect_subshell_errtrace_designed_nonzero(content))
     return findings
 
 

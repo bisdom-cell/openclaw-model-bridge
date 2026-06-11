@@ -202,6 +202,145 @@ class TestQuirkHeadByteTrNoLcAll(unittest.TestCase):
 
 
 # ════════════════════════════════════════════════════════════════════
+# 5b. Quirk 6: $(...) 子 shell 继承 ERR trap (V37.9.134 新增)
+#     血案: V37.9.105-hotfix (governance_audit ×2) + V37.9.131 (watchdog SLO)
+# ════════════════════════════════════════════════════════════════════
+class TestQuirkSubshellErrtrace(unittest.TestCase):
+    # 文件级前提骨架: errtrace + ERR trap (两个血案脚本的共同特征)
+    PREAMBLE = (
+        '#!/bin/bash\n'
+        'set -eEuo pipefail\n'
+        'trap \'_fatal_handler $LINENO\' ERR\n'
+    )
+
+    @classmethod
+    def setUpClass(cls):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("scanner", SCANNER_PATH)
+        cls.mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cls.mod)
+
+    def _scan(self, body, preamble=None):
+        content = (preamble if preamble is not None else self.PREAMBLE) + body
+        return self.mod.detect_subshell_errtrace_designed_nonzero(content)
+
+    def test_detect_unwrapped_governance_checker(self):
+        """basename 清单命中: governance_checker.py 无 set +E 包裹"""
+        findings = self._scan(
+            'GOV_OUTPUT=$(cd "$REPO" && python3 ontology/governance_checker.py --full 2>&1)\n'
+        )
+        self.assertEqual(len(findings), 1)
+        self.assertEqual(findings[0][1], "subshell_errtrace_designed_nonzero")
+
+    def test_detect_alert_flag_with_variable_script_path(self):
+        """flag 启发命中: V37.9.131 watchdog 形态 — 行内是 "$SLO_SCRIPT" 变量
+        看不到文件名, 必须靠 --alert flag 识别设计性非零命令"""
+        findings = self._scan(
+            'SLO_ALERT=$(python3 "$SLO_SCRIPT" --alert 2>/dev/null)\n'
+        )
+        self.assertEqual(len(findings), 1)
+
+    def test_or_capture_does_not_exempt(self):
+        """血案核心守卫: `|| RC=$?` **不豁免** — V37.9.105 铁证: 外层 || 已
+        正确捕获 GOV_RC, 子 shell 内 trap 仍 fire 推假 'FATAL abort line=64'"""
+        findings = self._scan(
+            'SLO_ALERT=$(python3 "$SLO_SCRIPT" --alert 2>/dev/null) || SLO_RC=$?\n'
+        )
+        self.assertEqual(len(findings), 1,
+                         "|| 捕获防不了子 shell 内 trap fire, 必须报 violation")
+
+    def test_set_plus_e_wrap_exempts(self):
+        """V37.9.131 修复形态 (set +E 三件套) 必须 0 findings"""
+        findings = self._scan(
+            'SLO_RC=0\n'
+            'set +E\n'
+            'SLO_ALERT=$(python3 "$SLO_SCRIPT" --alert 2>/dev/null) || SLO_RC=$?\n'
+            'set -E\n'
+        )
+        self.assertEqual(findings, [])
+
+    def test_no_errtrace_no_findings(self):
+        """前提不成立: 只有 set -e (无大写 E errtrace) → 子 shell 不继承 trap"""
+        preamble = ('#!/bin/bash\nset -eo pipefail\n'
+                    'trap \'_h $LINENO\' ERR\n')
+        findings = self._scan(
+            'GOV=$(python3 ontology/governance_checker.py --full)\n',
+            preamble=preamble)
+        self.assertEqual(findings, [])
+
+    def test_no_trap_err_no_findings(self):
+        """前提不成立: 有 errtrace 但无 ERR trap → trap fire 无从谈起"""
+        preamble = '#!/bin/bash\nset -eEuo pipefail\n'
+        findings = self._scan(
+            'GOV=$(python3 ontology/governance_checker.py --full)\n',
+            preamble=preamble)
+        self.assertEqual(findings, [])
+
+    def test_plain_json_parse_not_flagged(self):
+        """误报口径守卫: `python3 -c 'json.load'` 类只在真异常时非零 —
+        那时 trap fire 是**正确告警**非误报, 不应被 scanner 报 (区别于
+        governance_checker/slo_checker 把非零 exit 当正常 API 的周期性假 FATAL)"""
+        findings = self._scan(
+            'STATUS=$(echo "$OUT" | python3 -c \'import json,sys; '
+            'print(json.load(sys.stdin).get("status","?"))\')\n'
+        )
+        self.assertEqual(findings, [])
+
+    def test_comment_line_exempt(self):
+        findings = self._scan(
+            '# 反模式示例: GOV=$(python3 governance_checker.py --full)\n'
+        )
+        self.assertEqual(findings, [])
+
+    def test_set_minus_e_reopens_detection(self):
+        """状态机守卫: set -E 重新打开 errtrace 后, 后续违规行必须被抓"""
+        findings = self._scan(
+            'set +E\n'
+            'A=$(python3 governance_checker.py --full) || A_RC=$?\n'
+            'set -E\n'
+            'B=$(python3 "$SLO_SCRIPT" --alert)\n'
+        )
+        self.assertEqual(len(findings), 1)
+        self.assertIn('B=$', findings[0][2])
+
+    def test_check_flag_detected(self):
+        """第 3 实证点形态: engine.py --check (V37.9.105-hotfix 第二处)"""
+        findings = self._scan(
+            'ENGINE_OUTPUT=$(cd "$REPO" && python3 ontology/engine.py --check 2>&1)\n'
+        )
+        self.assertEqual(len(findings), 1)
+
+    def test_real_watchdog_and_gov_audit_clean(self):
+        """真实 repo 两个血案脚本 (已修复) 必须 0 个该 quirk findings"""
+        for sh in ("job_watchdog.sh", "governance_audit_cron.sh"):
+            with open(REPO_ROOT / sh, encoding="utf-8") as f:
+                content = f.read()
+            findings = self.mod.detect_subshell_errtrace_designed_nonzero(content)
+            self.assertEqual(
+                findings, [],
+                f"{sh} 已 set +E 包裹, 不应有 findings: {findings}")
+
+    def test_sabotage_remove_set_plus_e_caught(self):
+        """反向验证守卫真有效: 把真实 job_watchdog.sh 的 set +E/set -E 包裹
+        删掉 (模拟未来重构弄丢包裹), scanner 必须立即抓到 SLO 行"""
+        with open(REPO_ROOT / "job_watchdog.sh", encoding="utf-8") as f:
+            lines = f.read().split("\n")
+        sabotaged = "\n".join(
+            l for l in lines
+            if l.strip() not in ("set +E", "set -E")
+            # 保留文件头的 set -eEo pipefail (errtrace 前提)
+            or l.lstrip().startswith("set -eE")
+        )
+        findings = self.mod.detect_subshell_errtrace_designed_nonzero(sabotaged)
+        self.assertGreaterEqual(
+            len(findings), 1,
+            "sabotage 删 set +E 包裹后 scanner 必须抓到 SLO --alert 行")
+        self.assertTrue(
+            any("--alert" in f[2] for f in findings),
+            f"必须抓到 slo_checker --alert 行: {findings}")
+
+
+# ════════════════════════════════════════════════════════════════════
 # 6. 全 repo 集成 + 反向验证
 # ════════════════════════════════════════════════════════════════════
 class TestRepoIntegration(unittest.TestCase):
@@ -218,14 +357,16 @@ class TestRepoIntegration(unittest.TestCase):
         self.assertIn("0 violations", result.stdout)
 
     def test_cli_list_quirks(self):
-        """--list-quirks 列出所有 4 个 quirk"""
+        """--list-quirks 列出所有 6 个 quirk"""
         result = subprocess.run(
             ["python3", str(SCANNER_PATH), "--list-quirks"],
             capture_output=True, text=True
         )
         self.assertEqual(result.returncode, 0)
         for quirk in ("cmd_and_or_chain", "grep_head_no_or_true",
-                      "awk_log_no_lc_all", "zsh_specific_in_sh"):
+                      "awk_log_no_lc_all", "zsh_specific_in_sh",
+                      "head_byte_tr_no_lc_all",
+                      "subshell_errtrace_designed_nonzero"):
             self.assertIn(quirk, result.stdout)
 
     def test_sabotage_reverse_verification(self):
@@ -261,18 +402,26 @@ class TestSourceLevelGuards(unittest.TestCase):
     def test_fail_close_documented(self):
         self.assertIn("FAIL-CLOSE", self.src)
 
-    def test_4_quirk_checkers_registered(self):
-        """4 个 quirk checker 全部注册"""
+    def test_all_quirk_checkers_registered(self):
+        """6 个 quirk checker 全部注册 (V37.9.67 4 个 + V37.9.68 +1 + V37.9.134 +1)"""
         for name in ("detect_cmd_and_or_chain", "detect_grep_head_no_or_true",
-                     "detect_awk_log_no_lc_all", "detect_zsh_specific_in_sh"):
+                     "detect_awk_log_no_lc_all", "detect_zsh_specific_in_sh",
+                     "detect_head_byte_tr_no_lc_all",
+                     "detect_subshell_errtrace_designed_nonzero"):
             self.assertIn(f"def {name}", self.src)
 
     def test_blood_lesson_references(self):
         """必须引用具体血案版本"""
         for ver in ("V37.9.66-hotfix", "V37.9.60-hotfix",
-                    "V37.9.58-hotfix3", "V37.9.56-hotfix2"):
+                    "V37.9.58-hotfix3", "V37.9.56-hotfix2",
+                    "V37.9.105-hotfix", "V37.9.131"):
             self.assertIn(ver, self.src,
                           f"scanner 必须引用 {ver} 血案 (溯源)")
+
+    def test_quirk6_or_capture_documented_as_non_exempt(self):
+        """Quirk 6 核心语义必须文档化: || 捕获不豁免 (V37.9.105 铁证)"""
+        self.assertIn("防不了", self.src)
+        self.assertIn("set +E", self.src)
 
 
 if __name__ == "__main__":
