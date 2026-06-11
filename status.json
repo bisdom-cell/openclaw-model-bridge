@@ -1,6 +1,6 @@
 {
-  "updated": "2026-06-11 05:14:03",
-  "updated_by": "full_regression",
+  "updated": "2026-06-11 07:58:17",
+  "updated_by": "security_score",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-06-11",
+      "what": "V37.9.139 ArXiv 论文第一稿交付 (Stage 2→3 话语权 unfinished #5 全力启动兑现): docs/paper/silent_failures_taxonomy/ 三件套 — draft.md ~490 行完整英文第一稿 (When Errors Become Narratives: A Longitudinal Taxonomy of Silent Failures in a Production LLM Agent Runtime; 5 类 taxonomy + 6 cross-cutting findings + fail-plausible 概念贡献 + Defense Framework 5 支柱 + 接缝论点 Discussion + Threats) + data_inventory.md (每个数字→仓库溯源, 修正 catalog 8天笔误→实证2天 + six-level 守卫) + DECISIONS_NEEDED.md (7 项用户决策: 标题/署名与AI披露/venue 推荐 arXiv 直发/匿名度/LaTeX 时机/内容取舍/figures). 文献全真实验证: HotOS17 GrayFailure + FAST18 FailSlow + MAST 2503.13657 全核 + 4 篇 2025-26 agent 可靠性论文 snippet 级作者核实 + 顺带发现 2 篇高相关 (2508.14231 Incident Analysis for AI Agents + 2606.05339 MCP runtime faults). 回归 121/4286/0 + 治理 90/90 + 安全 95 + 扫描零泄漏. VERSION 0.37.9.70 不变 (纯文档, V37.9.99-docs 惯例)",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-11",
       "what": "V37.9.138 🎉 OpenClaw Gateway 升级 2026.3.13-1 → v2026.4.27 完成 (三个月 hold 终结, 提前 9 天, 用户 SSH 执行 23 分钟): doctor --fix 自动迁移 (legacy config + 12 plugin deps 含 baileys + sessions canonicalize, 0 errors) → WhatsApp manifest-first 自动加载 linked+connected auth 保留 → 双通道推送 ✓ (首次 send timeout = plugin 按需 staging 窗口非 bug) → 真人 E2E PA 回复可见 #59265 未复现 → preflight 85/0 + SLO 全部达标 (p95 自愈兑现 V37.9.126/131 预测). 回滚未触发. 配套: check_upgrade CURRENT→4.27 / upgrade_openclaw.sh @latest 隐患修复 (强制显式版本) / SOUL+config.md+eval doc 15.4 实录. LAST_EVAL_DATE=2026-06-11 时间 tripwire 重置",
       "by": "user+claude_code"
     },
@@ -198,11 +203,6 @@
       "date": "2026-06-08",
       "what": "V37.9.124 日落法 #29: INV-OBSERVER-001 runtime check 收窄到契约核心类 (用户选). V37.9.121-hotfix2 血案根因 — governance INV runtime 跑全 test_daily_observer 166 测试, 套件里 env-dependent test (test_missing_last_run _MAC_MINI_JOBS_DIR 读泄漏) 让 INV 在 Mac Mini 误报. 调查 ~13 全套件 runtime check: 唯一已证明 env-dependent 是 test_daily_observer, 其他 env-independent (router patch 隔离+relative-to-HOME 一致/scanner 扫 repo). 只收窄 INV-OBSERVER-001 (原则 #18 补证据非补功能, 不投机收窄其他 12). 收窄: 全文件 → 动态正则发现契约核心类 TestV37_9_87/88/92/93 (16 类/93 测试) + -m unittest, 排除 general 类 (TestResolveLastRunPath/TestScanJobStatuses 触碰 _MAC_MINI_JOBS_DIR). 镜像 INV-DREAM-CROSS-DOMAIN 跑特定类. for-loop 非 comprehension (V37.3). 7 新单测 + sabotage 反向验证真有效. 117→118 suites / 4092→4099 tests / 0 fail / 89 inv 不变 / 安全 95. 缩 dev-production 接缝兑现北极星. 待 Mac Mini git fetch+reset.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-06-08",
-      "what": "3-engine-merge 风险评估 (用户要求充分评估再决策) → DEFER 不执行 (用户确认). 加深 V37.9.119 调查: 3 个 engine.py 加载点 path-independent 零 correctness bug, 合并仅省 1 次 startup-once 加载 = cosmetic. 动 proxy_filters 每请求工具过滤 + three_gate shadow 门控 + V37.9.15.1 hotfix 加固结构 + governance INV-GATE-001 硬锁 + 4 测试文件 = 高 blast radius 换 cosmetic 收益, 原则 #34 防御本身是事故面. 结论记入 unfinished 防未来重复调查. 零代码改动.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -254,7 +254,6 @@
       "V37.9.67+ P2 (4 周观察后立 INV): 原则 #32 用户视角观察制度真执行 — 每周一开工第一件事 30min 不写代码不修 bug, 检查 4 维度 (告警噪声/推送延迟/信息密度/PA 表现). 发现项即 status_update.py --add unfinished 不当场修. 持续 4 周后立 INV-WEEKLY-USER-OBSERVATION-001 守卫周一观察项必有. 把 reactive feedback 升级为 proactive observation. 防御 vim 体验差 / freight 过频 / framework 零漂移真激活漏报 类用户视角 gap. 见 reflection 行动 5.",
       "【V37.9.69+ 外部评审吸收 — P0/P1/P2 候选 (2026-05-14 收工后吸收)】**评审来源**: 外部专业评审客观评价整个项目 (架构层次 + 治理 + 配置抽象 + 安全边界 4 项已肯定; 短板 4 项: 文档漂移 / SLO 样本不足 / 过度脚本化 / 模型效果经验驱动). **两个真漂移已核实** (评审点准确非误解): (1) README L3 '8 providers' vs L9/L48/L158/L163/L165/L244 共 6 处残留 '7 providers' 字面量 — V37.9.52 加 doubao 时只改 L3 漏改 6 处. (2) docs/slo_benchmark_report.md samples=1 标 PASS — V35 一次 demo trace 非 statistical sample, p95=459ms 是 functional smoke. **评审 P0 (2 周内) 候选**: (a) 事实单一来源 — README 徽章自动生成脚本 (provider 数 / 版本 / 测试数 from VERSION + providers.py --json + status.json) 接入 pre-commit hook 防漂移. 工作量 1-2h. (b) SLO 样本门槛 — slo_benchmark.py 加  (默认 200) + 不达标输出 'OBSERVING 观察中不判定 PASS' 而非 PASS. 工作量 30min. (c) PA 价值黄金指标 — success@task / first_response_latency / fallback_rate / tool_chain_depth / **human_accept_rate** (核心) 五指标定义 + 量化方法 + WhatsApp 推送反馈采集. 工作量 1 周 (新设计). **评审 P1 (1-2 月) 候选**: (a) 动态路由器 — 从 V37 capability_routing static 升级为 task_type × cost × latency × success_rate 评分路由, 复用 V37.9.55 doubao cap_score 模式. (b) 故障注入证据密度 — V36 reliability_bench 已就位 (7场景47检查) 但仅 mock-based, 加生产真实运行 + sample 累积. (c) 质量评估管线 — golden set 标注 (50-100 条典型 PA 对话) + rubric 评分 + 离线/在线分支 (采纳率/追问率/纠错率) + 模型升级证据链. **评审 P2 (季度级) 候选**: (a) Ontology 引擎产品化 — V3 路标 `pip install ontology-engine` 已是终极目标, 加版本化 + 迁移说明 + 兼容矩阵 + 平台组件叙事. (b) 策略发布机制 — V37.9.19 convergence framework alert_only→machine_sync+dry_run→activated 三阶段 = 实质 canary 路径, 加强对外叙事让外部评审者 visible. (c) 可观测性标准化 — 统一 trace_id 跨 Proxy/Adapter/Job, 接入同一时序系统. **评审核心洞察 (最值得吸收)**: '度量体系偏系统健康偏少任务价值闭环' — 我们 86 suites / 2950 tests / 77 invariants 全量化系统健康, 但 PA 输出采纳率/误报率/决策影响力业务价值度量从未建立. 每次 V37.9.x 修血案补'系统能跑'没补'产出值得用'. V3 路标新维度: **task value plane**. **评审三层路线建议** (实用): 层 1 稳定运行 (错误恢复+升级回滚+指标可信) → 层 2 能力可控 (路由可解释+策略可审计+风险前置) → 层 3 价值可证 (每周洞察可被采纳带行动). 当前在层 1.5 (从'系统能跑'跃迁到'系统能持续创造决策价值'). **不立即实施 — V37.9.69 session 用户决定优先级**.",
       "V37.9.83 战略方向 3 (Red Team Sandbox): red/blue/judge multi-agent dev sandbox 自我博弈. PoC 价值高生产价值低 (围棋 self-play 有效因博弈空间封闭+胜负函数明确, 我们系统输入空间开放无 ground truth 评分函数). 短期不启动. 但子能力 red_team_audit.py 每周对抗思维扫描有真实价值 — 是 V37.9 adversarial_chaos_audit.py (16/16 已实现) 的延伸. design doc 见 ai_partnership_first_principles_zh.md 第四节方向 3.",
-      "【Stage 2→3 话语权输出】ArXiv 论文创作 — 与用户共创高质量科技论文影响学术界. 候选方向 (按工程证据密度排): (1) Silent Failures Taxonomy from 28+ Production Incidents — 基于 failure_modes_catalog.md 32 案例/5 类+21 元规则+83 不变式, 真实生产 50 天数据非 toy example, 这是稀缺的 (2) Convergence Framework for Declarative Agent Systems — V37.9.19+ 5 spec Plan B 渐进路径 (alert_only→shadow→machine_sync), 50 天 0 漂移生产证据 (3) Hallucination Prevention via Layered Anti-Fabrication Guards — V37.9.57 5 档模板 9 task 集成 2 周+ 零编造血案 + V37.9.56-hotfix3 血案案例溯源. 时机选择: V3 路标 ontology-engine pip 包就位后投稿 (有可分发开源 artifact 配套提高引用率), 或 Stage 2 终态收尾时. 协作模式: 用户提供领域洞察+学术经验, Claude 提供工程数据整理+论文结构组织. 关联资产: docs/articles/audit_is_regression_not_prevention.md (已是立场型文章, 可作论文基底) + docs/articles/why_control_plane.md + ai_partnership_first_principles_zh.md (Stage 2 第 6 篇英译版可作论文哲学层) + ontology/docs/cases/*.md (22 案例文档全部可作 supplementary material). 战略意义: 把\"系统建造者\"升级为\"被引用的方法论原作者\", AI Partnership Framework 从内部哲学升级为可公开 cite 的范式.",
       "V37.9.121 已立 INV-SOURCE-CREDIBILITY-001 (8 checks, source_credibility 全契约). 剩余 follow-up (非高优, 待 Mac Mini): (b) 22:00 evening + 03:00 dream 真激活验证用户视角推送中 [可信度: <等级>] 标注真出现, 尤其 chaspark 引用带'博客级需独立验证'. (c) 可选: get_credibility() 升级为 per-citation 标注 (当前是 prompt-level 注入, 未来可在 emit 端对每条来源自动加 tier 后缀).",
       "convergence cron 行全行比较: 2026-06-02 审计已决定不切换 (case doc cron_line_full_comparison_audit_2026_06_02.md). Mac Mini 真 crontab missing=17 extra=18 全是格式变体 0 脚本缺失, 切换会 false-drift 风暴. 保持 line_contains_identifier (务实最优). 未来候选 (非高优): (a) fuzzy-match parser 归一化引号/~/root/redirect 后比较, 但需先做 registry↔crontab 命令完整性对账 (registry entry 不记 args/cd/真实路径). (b) 2 真差异待用户决定: preference_learner registry entry 补 --apply --days 7 args? / 30 23 手动 rsync→MOVESPEED 是否与 0 4 movespeed_daily_sync 冗余需清理?",
       "Observer-of-Observer 候选 (V37.9.95+ 登记, 低优): 第二个 cron 主动监控 daily_observer.log 的 fallback warn, 累计 ≥ N 次升 [SYSTEM_ALERT] (元监控, MR-7 治理自观察延伸).",
@@ -275,7 +274,8 @@
       "V37.9.130 生产验证已通过 (2026-06-11 Mac Mini 实跑): 6/4 真实血案数据 9 chunks 重跑 — hierarchical r1 b1/3(6740c)+b2/3(6220c)+r2(8524c) 3 次小请求零失败零降级, 48 条精华入 KB, 6/3 已确认处理过, 断流全闭环. 同数据对照证实根因=单请求规模非纯超时 (同 9 Map 段, 单次 40K 两次超时 vs 3 次 7K 一次全过). 剩余低优 follow-up: (a) final Reduce max_tokens=2000 被 48 条打满产尾部残行 \"- [\" (finish_reason=length), 超大对话日边界 — V37.9.131+ 评估 2000→3000 或 emit 前剥尾部残行 (b) 长期观察 last_run degraded/map_failed 字段, 频繁 degraded → 评估 REDUCE_BATCH_SIZE 调小或 doubao 显式路由",
       "V37.9.132 一周观察 (~6/18): deep_dive 摘要级占比应从 76% (34/45) 显著下降 — Mac Mini 验证: grep -L \"基于摘要的分析\" ~/.kb/deep_dives/*.md 看 6/12 后新增文件多数应为全文级. 若仍高: (a) 查 dblp ee 字段 arxiv 覆盖率 (b) S2 openAccessPdf .pdf 结尾比例 (非 .pdf OA 链接保留 S2 页面是有意取舍) (c) 候选增强: deep_dive mode (full_text/abstract_only) 占比纳入 daily_observer 报告让 degrade 频率可观测 (本次 76% gap 潜伏 2 个月才被用户发现的根因是 degrade 频率无聚合复盘)",
       "S2 关键词覆盖恢复候选 (低优): S2 API key 已确认配置且认证模式稳定运行 (2026-06-11 Mac Mini log 核实, 6/8 起每天 11:00 认证模式 2s 间隔, 5/28 匿名池 429 已根治). 可选增强: 关键词 6→12 恢复 V37.8.13 因 429 砍半的覆盖 (认证 1 RPS 下 12 关键词仅多 ~12s, 安全). 顺带: V37.9.98 line 98 注释\"即时发放\"与 V37.9.99 修正\"审核制\"矛盾, 下次触碰该文件时顺手清",
-      "V37.9.138 follow-up (低优): #48703 hotfix 在 4.27 已冗余 (上游 2026.3.23 修复, restart.sh sed 补丁幂等无害) — 评估移除 restart.sh hotfix 段 + preflight 12/19 检查保留 (验证上游修复仍在). 血案 #98 教训: 现在已升级 4.27 所以移除合法"
+      "V37.9.138 follow-up (低优): #48703 hotfix 在 4.27 已冗余 (上游 2026.3.23 修复, restart.sh sed 补丁幂等无害) — 评估移除 restart.sh hotfix 段 + preflight 12/19 检查保留 (验证上游修复仍在). 血案 #98 教训: 现在已升级 4.27 所以移除合法",
+      "【Stage 2→3 话语权输出】ArXiv 论文创作 — 方向 (1) Silent Failures Taxonomy 已锁定, V37.9.139 (2026-06-11) 第一稿已交付: docs/paper/silent_failures_taxonomy/ (draft.md ~490 行英文完整稿 + data_inventory.md 数字溯源 + DECISIONS_NEEDED.md). 下一步: (a) 用户决策 7 项 (标题/署名 AI 披露/venue 推荐 arXiv 直发/匿名度/LaTeX 时机/§7 AI 协作章取舍/figures 计划) (b) Claude 可自主: TBV 引用对 arXiv abs 页终核 (dev WebFetch 403 需 Mac Mini 或可达环境) + 2508.14231 并入 §2.2 + 补 hallucination survey/AIOps/chaos engineering 三类引用 + 正文第二轮 (c) venue 定后 LaTeX 转换 + 5 张 figures (重点 Fig.3 D1 幻觉链 causal chain). 协作模式: 用户领域洞察+学术经验, Claude 工程数据+结构组织. 原候选方向 (2) Convergence Framework (3) Hallucination Prevention 保留为后续论文候选."
     ],
     "open_prs": "",
     "blocked_on": "",
@@ -342,9 +342,9 @@
   "quality": {
     "security_score": 95,
     "test_count": 4286,
-    "last_regression": "2026-06-11 05:13 pass",
+    "last_regression": "2026-06-11 07:54 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-11 05:13",
+    "security_score_time": "2026-06-11 07:54",
     "test_suites": 121,
     "governance_invariants": "90/90",
     "governance_checks": "733/747",
@@ -413,7 +413,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.134-138 完成 (单日六交付): scanner 第6 pattern + S2 关键词恢复 + 三任务清场 + PyPI 0.1.0 正式发布 + OpenClaw 升级 v2026.4.27 完成 (提前 9 天). 全部日期门控障碍已清, ArXiv 论文 (Silent Failures Taxonomy) 下次 session 全力启动. 观察项: 明日 11:00 S2 12 关键词首跑 / 6/18 deep_dive 摘要级复盘 / 下次 07:00 governance audit 看 openclaw_config_to_runtime spec version drift (预期内 alert_only). Mac Mini 待: 合并本 PR + git reset.",
+  "focus": "V37.9.139 ArXiv 论文第一稿已交付 (docs/paper/silent_failures_taxonomy/ 三件套: draft ~490 行 + data_inventory 溯源表 + DECISIONS_NEEDED 7 项). 待用户决策: 标题三选一 / 署名与 AI 披露形式 / venue (Claude 推荐 arXiv 直发 cs.SE, PyPI artifact 已配套) / §7 AI 协作章保留度 / fail-plausible 术语圈内确认. 用户决策后 Claude 可自主推进: TBV 引用终核 (dev WebFetch arxiv 403 需可达环境) + 补 3 类引用 (hallucination survey/AIOps/chaos eng) + 正文第二轮打磨 + LaTeX/figures. 观察项: 明日 11:00 S2 12 关键词首跑 / 6/18 deep_dive 摘要级复盘. Mac Mini 待: 合并本 PR + git reset.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
