@@ -604,7 +604,7 @@ fi
 # frozen(有老推文快照冻结的活账号)已分流到 DEGRADED_FILE 不进此告警 → 此告警仅对「可安全移除」触发（低噪声）
 if [ -s "$ZOMBIE_FILE" ]; then
     TODAY_COUNT=$(wc -l < "$ZOMBIE_FILE" | tr -d ' ')
-    log "X 可移除账号今日 ${TODAY_COUNT} 个（stub embed-disabled / dead ≥730天真死，详见 $ZOMBIE_FILE）"
+    log "X 可移除账号今日 ${TODAY_COUNT} 个（stub embed-disabled / dead ≥730天真死，详见 ${ZOMBIE_FILE}）"
 
     # 计算昨天、前天日期（macOS 和 Linux 语法不同，容错处理）
     YESTERDAY=$(date -v-1d +%Y-%m-%d 2>/dev/null || date -d 'yesterday' +%Y-%m-%d 2>/dev/null || echo "")

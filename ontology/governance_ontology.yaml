@@ -7612,9 +7612,11 @@ invariants:
         V37.9.66-hotfix: bash cmd && X || Y + set -eE + ERR trap 同款 quirk
         V37.9.105-hotfix: governance_audit $(...) 子 shell 继承 ERR trap 假 FATAL ×2
         V37.9.131: watchdog SLO $(slo_checker --alert) 同款第 3 处演出
+        V37.9.141: preflight $PUSH_RC） 未 brace 变量紧贴全角字符 bash 3.2
+                   set -u 崩溃 (V37.9.43-hotfix2 wa_e2e 第 2 次演出, 全仓 14 处潜伏)
 
-      V37.9.67 PoC 4 pattern → V37.9.68 +1 → V37.9.134 +1 = 6 个已实证 quirk
-      pattern 主动检测. FAIL-CLOSE: 任一 violation 必须 exit 1. 防"已知 quirk
+      V37.9.67 PoC 4 pattern → V37.9.68 +1 → V37.9.134 +1 → V37.9.141 +1 = 7 个
+      已实证 quirk pattern 主动检测. FAIL-CLOSE: 任一 violation 必须 exit 1. 防"已知 quirk
       静默回归".
 
       V37.9.134 Quirk 6 (subshell_errtrace_designed_nonzero): macOS bash 3.2 +
@@ -7627,6 +7629,17 @@ invariants:
       候选元规则 subshell-inherits-errtrace-under-bash32 (V37.9.131 登记, 2 实例
       达门槛) 经日落法 MR-22 决策**不立独立 MR** — scanner pattern + 本 INV 已
       把它机器化, 立 MR 是治理层增殖 (复用 MR-7 治理自观察).
+
+      V37.9.141 Quirk 7 (unbraced_var_adjacent_cjk): macOS bash 3.2 在 UTF-8
+      locale 下把紧贴变量名的 CJK/全角字符的 UTF-8 字节并入变量名 —
+      `"$PUSH_RC）"` → set -u 下 `PUSH_RC?: unbound variable` 整脚本崩溃 (check
+      17-19 未跑 + 真实失败信息被吞), 无 set -u 时静默展开为空. **locale 依赖
+      让它格外隐蔽**: cron (C locale) 不触发, 用户交互终端 (UTF-8) 触发 — 12 处
+      同款在 cron 跑数月无恙, preflight 交互执行立即崩 (2026-06-11 22:53 Mac
+      Mini 实测). 修复 = ${VAR} 显式 brace. 候选元规则
+      shell-string-with-cjk-must-brace-vars (V37.9.43-hotfix2 登记, 2 实例达
+      门槛) 同日落法决策**不立独立 MR**, scanner Quirk 7 机器化 (CLAUDE.md
+      原则 #35 同族 quirk 家族).
     checks:
       - name: "scanner 文件存在"
         check_type: file_contains
@@ -7648,13 +7661,18 @@ invariants:
         check_type: file_contains
         file: cross_os_quirk_scanner.py
         pattern: 'def detect_subshell_errtrace_designed_nonzero'
-      - name: "scanner 引用所有 6 个血案 (溯源)"
+      - name: "scanner 含 Quirk 7 unbraced var CJK 检测函数 (V37.9.141)"
+        check_type: file_contains
+        file: cross_os_quirk_scanner.py
+        pattern: 'def detect_unbraced_var_adjacent_cjk'
+      - name: "scanner 引用所有 8 个血案 (溯源)"
         check_type: python_assert
         code: |
           src = open('cross_os_quirk_scanner.py').read()
           for ver in ('V37.9.66-hotfix', 'V37.9.60-hotfix',
                       'V37.9.58-hotfix3', 'V37.9.56-hotfix2',
-                      'V37.9.105-hotfix', 'V37.9.131'):
+                      'V37.9.105-hotfix', 'V37.9.131',
+                      'V37.9.43-hotfix2', 'V37.9.141'):
               assert ver in src, f"scanner 必须引用血案 {ver}"
       - name: "RUNTIME: cross_os_quirk_scanner 全 repo scan 0 violations"
         check_type: python_assert
@@ -9722,7 +9740,7 @@ audit_metadata:
     v3.11 → v3.12: V37.8.6 Dream 自引用幻觉血案 — INV-DREAM-003 新增 (dream-log-cannot-pollute-cache-nor-fabricate-platform-crises, meta_rule=MR-4, severity=critical, verification_layer=[declaration, runtime], 16 checks). 2026-04-15 03:00 Dream run 出现 4 次 Bad JSON 400 (adapter 收到破损 JSON)，但 Dream 仍产出完整"Hugging Face 平台危机"分析，用户察觉 Signal(Papers with Code 沉默)↔Action(监控 Hugging Face) 主题断裂后上报。三层根因：(a) scraped 内容含 surrogate UTF-8 → json.dump + utf-8 file write → UnicodeEncodeError → body_file 截断 → adapter.py:386 返回 400 Bad JSON (b) kb_dream.sh log() 用 `echo` 写 stdout → signals=$(llm_call ...) 命令替换捕获 log 行进 signals → cache file 被"LLM raw response: Error code 400 Bad JSON..."污染 (c) Reduce cache-only fast path 把错误日志注入 LLM 上下文 → LLM 基于这些字样自动编造"Hugging Face 危机"叙事 = 原则 #23 链式幻觉 + MR-4 silent failure 第 7 次演出。四层结构修复（defense-in-depth）：log→stderr 阻断 stdout 污染通道 + _sanitize(U+D800-U+DFFF → U+FFFD) 防编码炸裂 + file open 显式 encoding='utf-8' errors='replace' 第二防线 + REDUCE/CHUNK1/2/3 system prompt 四块加反污染守卫 (禁止把 HTTP 错误码/Python 异常/错误页 HTML/U+FFFD 当外部信号，禁止基于这些字样推断 Hugging Face/GitHub/npm 等平台状态)。runtime python_assert 真跑 sanitize 五场景 (孤立高位/低位代理/正常串/代理范围边界/sanitize 后 json+utf-8 编码不炸)。19 单测 (TestLogGoesToStderr×2 + TestSanitizeSurrogates×7 + TestShellSanitizeImplementation×5 + TestAntiPollutionSystemPrompt×3 + TestShellScriptIntegrity×1 + TestLogDefHasCommentMeta×1)。
     v3.10 → v3.11: V37.8.5 INV-X-001 升级三层检测 (血案二次演出: V37.8.4 修复本身埋盲区) — V37.8.4 收工 Mac Mini E2E 即发现 2 个边缘：CNS1952 98/99 超窗口 + 1 过短老化率 99% 但未触发严格 old==total (MR-10 第 2 次演出：修复会埋坑)；SingTaoDaily 0-tweet stub (embed disabled 返回空骨架) 被 total>0 门槛绕过完全不标记。V37.8.5 修复：(1) 检测逻辑独立为 jobs/finance_news/finance_news_zombie.py 纯函数模块 (classify_zombie(diag, count)); (2) 三层 tier: "stub" (no_data=0 + total=0) + "stale" (≥90% 老化 + count=0 守卫防止低频活跃误报)，整数比较 old*10 >= total*9 避免浮点; (3) 24 单测锁定三层 + 守卫 + shell 集成 + auto_deploy FILE_MAP; (4) verification_layer 从 [declaration] 升级到 [declaration, runtime] (MR-6 遵循: INV-X-001 现在有 python_assert 真跑 5 个 tier 场景); (5) shell 脚本禁止内嵌 inline fallback (防模块缺失时静默降级回 V37.8.4 逻辑 — MR-8 copy-paste-is-a-bug-class 兑现)。诊断行 tier 区分 ⚠️ ZOMBIE嫌疑[stub] vs [stale]，便于日志定位。
   total_invariants: 90  # V37.9.129: +1 INV-FALLBACK-EXCLUDE-001 (geo-blocked-provider-excluded-from-fallback-chain, MR-4, high, 7 checks — gemini 香港 geo-block 退役血案). V37.9.121: +2 INV-OBSERVER-001 (daily-observer-contract-must-hold, MR-7, high, 9 checks — 合并 INV-OBSERVER-SAMPLING-001 候选, 日落法 MR-22 一物一形) + INV-SOURCE-CREDIBILITY-001 (source-credibility-contract-must-hold, MR-8, high, 8 checks). V37.9.100: +2 INV-DREAM-CROSS-DOMAIN-001 + INV-GOV-FIELD-001. V37.9.96: +1 INV-PROXY-PLIST-ENV-001. 实际 grep '- id: INV-' = 90
-  total_checks: 827     # V37.9.136: 826 → 827 (+1 INV-GOV-FIELD-001 一物一形防回退守卫; 同时 55 个 assertion: 字段全迁 code:, byte-identical 验证). V37.9.134: 825 → 826 (+1 INV-CROSS-OS-001 Quirk 6 subshell errtrace 检测函数 check; 同时血案元组 4→6 + RUNTIME check 名去硬编码计数). V37.9.129: 818 → 825 (+7 INV-FALLBACK-EXCLUDE-001). V37.9.121: 801 → 818 (+9 INV-OBSERVER-001 + 8 INV-SOURCE-CREDIBILITY-001). V37.9.100: 790 → 801 (+7 INV-DREAM-CROSS-DOMAIN-001 + 4 INV-GOV-FIELD-001). 同 session 修治理执行器血案: _exec_python_assert 只读 code: 让 67 个 assertion: 字段 python_assert 跨 21 INV vacuous pass → _check_code helper 读双字段 + triage 14 个真执行后翻车 (job_watchdog sabotage 还原 / 路径 bug / 阈值 / stale 契约 / exec 作用域陷阱 / requires_full gate). V37.9.97: 781→790. 注: 真实 check_type 行数 grep < total 因 governance_checker 还计 14 MRD discovery + preflight/env 等非 check_type 定义项 — total_checks 是操作权威数 (系统真跑真报)
+  total_checks: 828     # V37.9.141: 827 → 828 (+1 INV-CROSS-OS-001 Quirk 7 unbraced-var-CJK 检测函数 check; 同时血案元组 6→8 + 14 处生产修复). V37.9.136: 826 → 827 (+1 INV-GOV-FIELD-001 一物一形防回退守卫; 同时 55 个 assertion: 字段全迁 code:, byte-identical 验证). V37.9.134: 825 → 826 (+1 INV-CROSS-OS-001 Quirk 6 subshell errtrace 检测函数 check; 同时血案元组 4→6 + RUNTIME check 名去硬编码计数). V37.9.129: 818 → 825 (+7 INV-FALLBACK-EXCLUDE-001). V37.9.121: 801 → 818 (+9 INV-OBSERVER-001 + 8 INV-SOURCE-CREDIBILITY-001). V37.9.100: 790 → 801 (+7 INV-DREAM-CROSS-DOMAIN-001 + 4 INV-GOV-FIELD-001). 同 session 修治理执行器血案: _exec_python_assert 只读 code: 让 67 个 assertion: 字段 python_assert 跨 21 INV vacuous pass → _check_code helper 读双字段 + triage 14 个真执行后翻车 (job_watchdog sabotage 还原 / 路径 bug / 阈值 / stale 契约 / exec 作用域陷阱 / requires_full gate). V37.9.97: 781→790. 注: 真实 check_type 行数 grep < total 因 governance_checker 还计 14 MRD discovery + preflight/env 等非 check_type 定义项 — total_checks 是操作权威数 (系统真跑真报)
   meta_rules: 23        # V37.9.117: +2 MR-22 (sunset-over-accretion 日落法北极星 — 降复杂度优先于加功能) + MR-23 (audit-observes-never-mutates 审计只读, 泛化 MR-9, 复用 test_v37_9_116/test_convergence 守卫不铸新 INV)
   meta_rule_discovery_count: 6   # Phase 0: registry + env + notify-topic + layer-depth + error-suppression + notify-activity
   check_types_used: [python_assert, file_contains, file_not_contains, env_var_exists, command_succeeds, log_activity_check]

@@ -343,6 +343,111 @@ class TestQuirkSubshellErrtrace(unittest.TestCase):
 # ════════════════════════════════════════════════════════════════════
 # 6. 全 repo 集成 + 反向验证
 # ════════════════════════════════════════════════════════════════════
+class TestQuirkUnbracedVarCjk(unittest.TestCase):
+    """Quirk 7: 未 brace `$VAR` 紧贴 CJK/全角字符 (V37.9.43-hotfix2 + V37.9.141).
+
+    血案: 2026-06-11 22:53 Mac Mini preflight check 16 实测崩溃
+    `preflight_check.sh: line 868: PUSH_RC?: unbound variable` — push test 真失败
+    首次走 fail 分支才触发 (潜伏), 且崩溃吞掉真实失败信息 + check 17-19 未跑.
+    locale 依赖: cron (C locale) 不触发 / 交互终端 (UTF-8) 触发.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("scanner_q7", SCANNER_PATH)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        cls.mod = mod
+
+    def _scan(self, content):
+        return self.mod.detect_unbraced_var_adjacent_cjk(content)
+
+    def test_blood_lesson_preflight_line_868(self):
+        """V37.9.141 血案场景: preflight line 868 原始形状必须被抓."""
+        findings = self._scan(
+            'fail "WhatsApp 推送失败（退出码 $PUSH_RC）: $(echo "$PUSH_STDERR" | head -2)"\n'
+        )
+        self.assertEqual(len(findings), 1)
+        self.assertEqual(findings[0][1], "unbraced_var_adjacent_cjk")
+
+    def test_blood_lesson_wa_e2e_chunk_count(self):
+        """V37.9.43-hotfix2 第 1 次演出形状 (wa_e2e CHUNK_COUNT) 必须被抓."""
+        findings = self._scan(
+            'pass "KB 索引可用（$CHUNK_COUNT）"\n'
+        )
+        self.assertEqual(len(findings), 1)
+
+    def test_fullwidth_open_paren_flagged(self):
+        """`$VAR（` (变量后紧贴全角开括号) 同样违反."""
+        findings = self._scan(
+            'log "WARN: HTTP $HTTP_CODE（第1次）"\n'
+        )
+        self.assertEqual(len(findings), 1)
+
+    def test_cjk_ideograph_flagged(self):
+        """`$VAR中文` (紧贴 CJK 表意文字) 违反."""
+        findings = self._scan('echo "$COUNT条记录"\n')
+        self.assertEqual(len(findings), 1)
+
+    def test_braced_var_clean(self):
+        """`${VAR}）` 显式 brace 是合规修复形式."""
+        findings = self._scan(
+            'fail "WhatsApp 推送失败（退出码 ${PUSH_RC}）"\n'
+            'log "WARN: HTTP ${HTTP_CODE}（第${attempt}次）"\n'
+        )
+        self.assertEqual(len(findings), 0)
+
+    def test_ascii_adjacent_not_flagged(self):
+        """变量后接 ASCII (空格/半角括号/冒号) 不违反 — bash 正常结束变量名."""
+        findings = self._scan(
+            'echo "exit=$RC) done"\nif [ $PUSH_RC -eq 0 ]; then\n'
+        )
+        self.assertEqual(len(findings), 0)
+
+    def test_comment_line_exempt(self):
+        """注释行豁免 (含血案引用字样的注释不自伤)."""
+        findings = self._scan(
+            '# 血案: $PUSH_RC）在 bash 3.2 下崩溃\n'
+        )
+        self.assertEqual(len(findings), 0)
+
+    def test_special_params_not_flagged(self):
+        """`$1）` / `$?）` 特殊参数天然豁免 (单字符名, regex 要求 [A-Za-z_] 开头)."""
+        findings = self._scan(
+            'echo "第 $1）项"\necho "码 $?）"\n'
+        )
+        self.assertEqual(len(findings), 0)
+
+    def test_real_fixed_files_clean(self):
+        """V37.9.141 修复后的 7 个真实文件必须 0 cjk findings (防回退)."""
+        for rel in ("preflight_check.sh", "gameday.sh", "job_smoke_test.sh",
+                    "jobs/arxiv_monitor/run_arxiv.sh", "jobs/hf_papers/run_hf_papers.sh",
+                    "jobs/github_trending/run_github_trending.sh",
+                    "jobs/finance_news/run_finance_news.sh"):
+            path = REPO_ROOT / rel
+            content = path.read_text(encoding="utf-8", errors="replace")
+            findings = self._scan(content)
+            self.assertEqual(
+                findings, [],
+                f"{rel} 不得回退到未 brace 形式: {findings[:3]}")
+
+    def test_sabotage_file_caught_by_cli(self):
+        """反向验证: 含违反的临时文件经 CLI --file 必 exit 1 + 报 quirk 名."""
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.sh', delete=False) as f:
+            f.write('#!/bin/bash\nset -u\nfail "推送失败（退出码 $PUSH_RC）"\n')
+            tmp_path = f.name
+        try:
+            result = subprocess.run(
+                ["python3", str(SCANNER_PATH), "--file", tmp_path],
+                capture_output=True, text=True
+            )
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("unbraced_var_adjacent_cjk", result.stdout)
+        finally:
+            os.unlink(tmp_path)
+
+
 class TestRepoIntegration(unittest.TestCase):
     def test_repo_scan_zero_violations(self):
         """V37.9.67 收工后 repo 必须 0 violations (FAIL-CLOSE)"""
@@ -357,7 +462,7 @@ class TestRepoIntegration(unittest.TestCase):
         self.assertIn("0 violations", result.stdout)
 
     def test_cli_list_quirks(self):
-        """--list-quirks 列出所有 6 个 quirk"""
+        """--list-quirks 列出所有 7 个 quirk"""
         result = subprocess.run(
             ["python3", str(SCANNER_PATH), "--list-quirks"],
             capture_output=True, text=True
@@ -366,7 +471,8 @@ class TestRepoIntegration(unittest.TestCase):
         for quirk in ("cmd_and_or_chain", "grep_head_no_or_true",
                       "awk_log_no_lc_all", "zsh_specific_in_sh",
                       "head_byte_tr_no_lc_all",
-                      "subshell_errtrace_designed_nonzero"):
+                      "subshell_errtrace_designed_nonzero",
+                      "unbraced_var_adjacent_cjk"):
             self.assertIn(quirk, result.stdout)
 
     def test_sabotage_reverse_verification(self):
@@ -403,18 +509,20 @@ class TestSourceLevelGuards(unittest.TestCase):
         self.assertIn("FAIL-CLOSE", self.src)
 
     def test_all_quirk_checkers_registered(self):
-        """6 个 quirk checker 全部注册 (V37.9.67 4 个 + V37.9.68 +1 + V37.9.134 +1)"""
+        """7 个 quirk checker 全部注册 (V37.9.67 4 个 + V37.9.68/134/141 各 +1)"""
         for name in ("detect_cmd_and_or_chain", "detect_grep_head_no_or_true",
                      "detect_awk_log_no_lc_all", "detect_zsh_specific_in_sh",
                      "detect_head_byte_tr_no_lc_all",
-                     "detect_subshell_errtrace_designed_nonzero"):
+                     "detect_subshell_errtrace_designed_nonzero",
+                     "detect_unbraced_var_adjacent_cjk"):
             self.assertIn(f"def {name}", self.src)
 
     def test_blood_lesson_references(self):
         """必须引用具体血案版本"""
         for ver in ("V37.9.66-hotfix", "V37.9.60-hotfix",
                     "V37.9.58-hotfix3", "V37.9.56-hotfix2",
-                    "V37.9.105-hotfix", "V37.9.131"):
+                    "V37.9.105-hotfix", "V37.9.131",
+                    "V37.9.43-hotfix2", "V37.9.141"):
             self.assertIn(ver, self.src,
                           f"scanner 必须引用 {ver} 血案 (溯源)")
 

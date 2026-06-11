@@ -109,7 +109,7 @@ for attempt in 1 2 3; do
       log "WARN: HF API 返回非JSON内容（第${attempt}次）"
     fi
   else
-    log "WARN: HF API 返回 HTTP $HTTP_CODE（第${attempt}次）"
+    log "WARN: HF API 返回 HTTP ${HTTP_CODE}（第${attempt}次）"
   fi
 
   if [ "$HTTP_CODE" = "429" ]; then
@@ -123,7 +123,7 @@ for attempt in 1 2 3; do
 done
 
 if [ "$FETCH_OK" != "true" ]; then
-  log "ERROR: HF API 3次重试均失败（最后HTTP=$HTTP_CODE）"
+  log "ERROR: HF API 3次重试均失败（最后HTTP=${HTTP_CODE}）"
   printf '{"time":"%s","status":"fetch_failed","new":0,"http_code":"%s"}\n' "$TS" "$HTTP_CODE" > "$STATUS_FILE"
   exit 1
 fi

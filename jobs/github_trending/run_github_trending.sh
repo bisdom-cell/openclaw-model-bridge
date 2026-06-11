@@ -133,7 +133,7 @@ for attempt in 1 2 3; do
 done
 
 if [ "$FETCH_OK" != "true" ]; then
-  log "ERROR: GitHub API 3次重试均失败（最后HTTP=$HTTP_CODE）"
+  log "ERROR: GitHub API 3次重试均失败（最后HTTP=${HTTP_CODE}）"
   printf '{"time":"%s","status":"fetch_failed","new":0,"http_code":"%s"}\n' "$TS" "$HTTP_CODE" > "$STATUS_FILE"
   exit 1
 fi

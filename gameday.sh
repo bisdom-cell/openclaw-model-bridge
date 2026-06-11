@@ -126,7 +126,7 @@ run_scenario() {
         # 验证 proxy_stats 记录了该请求
         if [ -f "$HOME/proxy_stats.json" ]; then
             TOTAL=$(python3 -c "import json; print(json.load(open('$HOME/proxy_stats.json')).get('total_requests',0))" 2>/dev/null)
-            pass "proxy_stats 记录正常（total_requests=$TOTAL）"
+            pass "proxy_stats 记录正常（total_requests=${TOTAL}）"
         else
             fail "proxy_stats.json 不存在"
         fi
