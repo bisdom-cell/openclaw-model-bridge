@@ -1,0 +1,54 @@
+{
+  "demo": "minimal_runtime",
+  "deterministic": {
+    "tool_input_count": 24,
+    "tool_output_count": 12,
+    "final_tool_names": [
+      "web_search",
+      "web_fetch",
+      "read",
+      "write",
+      "edit",
+      "exec",
+      "sessions_spawn",
+      "sessions_history",
+      "cron",
+      "data_clean",
+      "search_kb",
+      "expert_escalate"
+    ],
+    "whitelist_rejected_count": 12,
+    "cap_truncated": [
+      "message",
+      "memory_search",
+      "browser_navigate"
+    ],
+    "injected_custom": [
+      "data_clean",
+      "search_kb",
+      "expert_escalate"
+    ],
+    "fallback_chain": [
+      "doubao",
+      "gemini",
+      "openai",
+      "kimi",
+      "minimax",
+      "glm",
+      "claude"
+    ],
+    "best_for_text_prefer_reasoning": "doubao",
+    "policy": {
+      "policy_id": "max-tools-per-agent",
+      "limit": 12
+    }
+  },
+  "non_deterministic": {
+    "provider_count": 8,
+    "step_timings_ms": {
+      "provider_registry": 19,
+      "tool_governance": 43,
+      "policy_ontology": 11
+    }
+  }
+}

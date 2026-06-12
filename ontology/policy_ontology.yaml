@@ -224,10 +224,28 @@ meta:
     values: ["off", "shadow", "on"]   # quoted: YAML 1.1 parses bare off/on as booleans
     default: shadow
     decoupled_from: ONTOLOGY_MODE    # independent rollout from tool-data replacement
+  # V37.9.144 外部评审2 P1(d): 对外叙事必须区分"已接入观测"(现状) vs "已强制执行".
+  # 三 gate 今天是 observability 资产 — flag verdict 只产 [gate:*] log 绝不拦截/改写.
+  # 真在执行的 enforcement 在 proxy_filters (filter_tools 硬截断 / filter_system_alerts
+  # 剥离), 自 V37.9.12/13 起读 policy 数据. 收敛路线形式化为 A→D 四阶段 (对齐 P3.1/P3.2/P4):
+  gates_rollout_phases:
+    phase_a_shadow_log:
+      scope: all observed policies emit [gate:*] verdicts, zero intervention
+      status: live_since_v37_9_15
+    phase_b_low_risk_enforce:
+      scope: max-request-body-size + max-tools-per-agent (deterministic static limits, clean reject)
+      status: planned_requires_one_week_shadow_flag_review
+    phase_c_medium_risk_enforce:
+      scope: alert-context-isolation post_verify (LLM-output-dependent, false positives possible)
+      status: planned_after_phase_b_stabilizes
+    phase_d_high_risk:
+      scope: anything dropping/rewriting user-visible content
+      status: human_approval_only_by_design_never_auto
   next_step: |
     Phase 4 P3.1 — promote shadow → on after 1 week production observation.
     Phase 4 P3.2 — third policy switch (max-request-body-size) via runtime_gate.
-    Phase 4 P4   — wire gate verdicts to actual enforcement (request mutation).
+    Phase 4 P4   — wire gate verdicts to actual enforcement (request mutation),
+                   following gates_rollout_phases A→B→C (D stays human-approval).
   refs:
     - ontology/domain_ontology.yaml
     - ontology/tool_ontology.yaml

@@ -87,6 +87,9 @@ class TestApplyBadges(unittest.TestCase):
             "[![Providers](https://img.shields.io/badge/providers-3%20supported-orange.svg)]()\n"
             "[![Governance](https://img.shields.io/badge/invariants-10%2F10%20%2B%202%20MR-blueviolet.svg)]()\n"
             "> **Current version:** `v1.0.0` / `0.1.0.0` (2020-01-01) — see [`CLAUDE.md`](CLAUDE.md) for full changelog.\n"
+            # V37.9.144: README 正文两行也由 badge 路径管理, fixture 同步含目标行
+            "## Supported Providers (3)\n"
+            "# Full regression (10 suites / 100 tests / 0 fail; must ALL pass before push)\n"
         )
 
     def test_tests_badge_updated(self):
@@ -133,6 +136,60 @@ class TestProvidersBadgeFailOpen(unittest.TestCase):
         descs = [d for d, s in results]
         self.assertNotIn("providers 徽章", descs)
         self.assertEqual(out, readme)  # providers 徽章未被碰
+
+
+class TestReadmeBodyLineSubs(unittest.TestCase):
+    """V37.9.144 外部评审2 doc-drift 收口: README 正文两行接入 badge 路径机器同步.
+
+    血案: "## Supported Providers (7)" 自 V37.9.52 加 doubao 后手写漂移至今
+    (V37.9.70 修了 10 处 "7 provider*" 字面量但漏了该段头);
+    Testing 段 "V37.9.124: 118 suites / 4099 tests" 带版本标记必然漂移.
+    设计决策: 走 _badge_substitutions 不走 _doc_header_specs — 后者会让 README
+    被 apply_badges/apply_doc_headers 双写者从各自原文计算互相覆盖 (新接缝).
+    """
+
+    def test_providers_section_header_updated(self):
+        readme = "## Supported Providers (7)\n"
+        out, results = grb.apply_badges(readme, _fake_facts(providers=5))
+        self.assertIn("## Supported Providers (5)", out)
+        self.assertEqual(dict(results)["providers 段头"], "CHANGED")
+
+    def test_testing_summary_line_updated(self):
+        readme = "# Full regression (118 suites / 4099 tests / 0 fail; must ALL pass before push)\n"
+        out, results = grb.apply_badges(readme, _fake_facts(test_suites=200, test_count=9999))
+        self.assertIn("# Full regression (200 suites / 9999 tests / 0 fail; must ALL pass before push)", out)
+        self.assertEqual(dict(results)["testing 摘要行"], "CHANGED")
+
+    def test_fail_open_providers_none_skips_header_sub(self):
+        readme = "## Supported Providers (7)\n"
+        out, results = grb.apply_badges(readme, _fake_facts(providers=None))
+        self.assertNotIn("providers 段头", [d for d, _ in results])
+        self.assertIn("## Supported Providers (7)", out)  # 未被碰
+
+    def test_fail_open_suites_none_skips_testing_sub(self):
+        readme = "# Full regression (118 suites / 4099 tests / 0 fail; must ALL pass before push)\n"
+        out, results = grb.apply_badges(readme, _fake_facts(test_suites=None))
+        self.assertNotIn("testing 摘要行", [d for d, _ in results])
+        self.assertEqual(out, readme)
+
+    def test_real_readme_old_versioned_form_eliminated(self):
+        # 旧形式 "# Full regression (V37.9.124: ..." 已退役 (版本标记 = 漂移源),
+        # 防未来重构改回带版本标记形式让 sub 失配 (TOKEN miss → 永久漂移)
+        with open(os.path.join(_REPO, "README.md"), encoding="utf-8") as f:
+            readme = f.read()
+        self.assertNotRegex(readme, r"# Full regression \(V[0-9.]+:",
+                            "README testing 行不得再带版本标记 (V37.9.144 退役)")
+        self.assertRegex(readme, r"# Full regression \(\d+ suites / \d+ tests / 0 fail",
+                        "README testing 行必须保持 sub 可管理的形式")
+
+    def test_real_readme_provider_table_has_doubao_row(self):
+        # 表行内容不是机器管理的统计 token — 内容守卫防 V37.9.52 类"加 provider 漏表行"复发
+        with open(os.path.join(_REPO, "README.md"), encoding="utf-8") as f:
+            readme = f.read()
+        self.assertIn("| **Doubao** (Volcengine Ark, plugin) |", readme,
+                      "provider 表必须含 Doubao 行 (V37.9.144 补齐)")
+        self.assertRegex(readme, r"## Supported Providers \(\d+\)",
+                        "providers 段头必须保持 sub 可管理的形式")
 
 
 class TestCheckModeRealRepo(unittest.TestCase):
@@ -363,6 +420,72 @@ class TestDocHeaderReverseValidation(unittest.TestCase):
         fixed, results = grb._apply_one_doc(sabotaged, anchor, tokens)
         self.assertIn(f"governance v{gv}", fixed)
         self.assertEqual(dict(results)["governance 版本"], "CHANGED")
+
+
+class TestMultiSpecSameFileFold(unittest.TestCase):
+    """V37.9.144 血案回归: 同文件多 spec 必须顺序折叠, 不得互相覆盖.
+
+    血案: V37.9.142 给 FEATURES 加第二个 spec (正文测试行) 后, apply_doc_headers
+    的 out[rel] dict 覆盖让第二个 spec (从磁盘原文计算) 吞掉第一个 spec (header)
+    的 drift — 正文行同步时 header 漂移永久假绿, FEATURES header 停在 v37.9.141
+    两天, V37.9.143 收工 + 次日开工 --check 均未抓到. 直到证据回写让正文行也漂移
+    才暴露 (守卫自身聚合层的 MR-7 盲区).
+    """
+
+    def _fake_repo(self, header_line, body_line):
+        import tempfile
+        td = tempfile.mkdtemp()
+        os.makedirs(os.path.join(td, "docs"), exist_ok=True)
+        with open(os.path.join(td, "docs", "FEATURES.md"), "w", encoding="utf-8") as f:
+            f.write(header_line + "\n\nbody intro\n\n" + body_line + "\n")
+        return td
+
+    # 血案场景: header 漂移 (旧版本/旧 tests) + 正文行与权威值同步
+    _STALE_HEADER = ("> v1.0.0 (2000-01-01) | **1 tests** / 1 suites / 0 fail | "
+                     "**5 providers** | 1 checks | 1 MRD scanners | security 88/100 | "
+                     "30 blood-lesson case docs | 42 governance invariants x | 7 meta-rules")
+    _SYNCED_BODY = "| **测试** | 200 套单测 | 9999 用例全部通过 | x |"
+
+    def test_blood_lesson_header_drift_not_swallowed_by_synced_body(self):
+        td = self._fake_repo(self._STALE_HEADER, self._SYNCED_BODY)
+        out = grb.apply_doc_headers(td, _fake_facts())
+        new_text, results, orig = out["docs/FEATURES.md"]
+        self.assertNotEqual(new_text, orig,
+                            "header 漂移必须被检测 — 即使正文行已同步 (血案核心断言)")
+        self.assertIn("v99.9.9", new_text, "header 版本 token 必须被修复")
+
+    def test_results_accumulate_across_both_specs(self):
+        td = self._fake_repo(self._STALE_HEADER, self._SYNCED_BODY)
+        out = grb.apply_doc_headers(td, _fake_facts())
+        descs = [d for d, _ in out["docs/FEATURES.md"][1]]
+        self.assertIn("version+date", descs, "第一个 spec (header) 的结果不得被覆盖")
+        self.assertIn("tests body", descs, "第二个 spec (正文行) 的结果也保留")
+
+    def test_write_output_contains_both_fixes_when_both_stale(self):
+        stale_body = "| **测试** | 3 套单测 | 5 用例全部通过 | x |"
+        td = self._fake_repo(self._STALE_HEADER, stale_body)
+        out = grb.apply_doc_headers(td, _fake_facts())
+        new_text, _, orig = out["docs/FEATURES.md"]
+        self.assertNotEqual(new_text, orig)
+        self.assertIn("**9999 tests**", new_text, "header tests 修复")
+        self.assertIn("9999 用例全部通过", new_text, "正文行修复 — 必须基于前序输出累积")
+        self.assertIn("200 套单测", new_text)
+
+    def test_orig_is_first_disk_read_not_intermediate(self):
+        td = self._fake_repo(self._STALE_HEADER, self._SYNCED_BODY)
+        out = grb.apply_doc_headers(td, _fake_facts())
+        _, _, orig = out["docs/FEATURES.md"]
+        self.assertIn("v1.0.0", orig, "orig 必须是磁盘原文 (drift 判定基准)")
+
+    def test_real_repo_features_header_version_matches_authority(self):
+        # 永久守卫: 真仓库 FEATURES header 版本必须与 CLAUDE.md 权威版本一致
+        # (血案的 user-visible 症状是 header 停在旧版本 — 这里直接锁死)
+        facts = grb.compute_facts(_REPO)
+        header = open(os.path.join(_REPO, "docs", "FEATURES.md"),
+                      encoding="utf-8").read().split("\n")
+        vline = next(l for l in header if l.startswith("> v"))
+        self.assertIn(facts["version_label"], vline,
+                      f"FEATURES header 版本停在旧值: {vline[:60]}")
 
 
 class TestSourceLevelGuards(unittest.TestCase):

@@ -47,6 +47,20 @@ def _load_fresh(name, path, env_overrides=None):
                 os.environ[k] = old
 
 
+# ── V37.9.144 外部评审2 P1(c) 依赖边界: PyYAML 是 ontology 引擎层依赖 (非 core) ──
+# 评审者环境缺 PyYAML 时本套件 7 用例曾以 ImportError/SystemExit 红字报错 —
+# 改为 skipUnless 优雅跳过 + 提示语. Core runtime (adapter/proxy/providers) 零依赖,
+# 不受影响; 只有真要加载 governance_checker / 引擎 YAML 端到端的用例需要 yaml.
+try:
+    import yaml  # noqa: F401
+    _HAS_YAML = True
+except ImportError:
+    _HAS_YAML = False
+_NEEDS_YAML = ("PyYAML 未安装 — 这是 ontology 引擎层依赖, core runtime 不需要. "
+               "安装: pip install 'pyyaml>=5.4' (或 pip install openclaw-ontology-engine). "
+               "详见 README 'Dependency Boundary' 段.")
+
+
 # ───────────────────────────────────────────────────────────────────────
 class TestEngineConfigInjection(unittest.TestCase):
     """engine.py 的 ONTOLOGY_CONFIG_DIR 注入 keystone。"""
@@ -84,6 +98,7 @@ class TestEngineConfigInjection(unittest.TestCase):
         m = _load_fresh("_eng_e", _ENGINE_PATH, {"ONTOLOGY_CONFIG_DIR": "   "})
         self.assertTrue(m._ONTOLOGY_DIR.endswith("ontology"))
 
+    @unittest.skipUnless(_HAS_YAML, _NEEDS_YAML)
     def test_end_to_end_injection_loads_alt_yaml(self):
         """真注入: 指向 temp 目录的最小 tool_ontology.yaml → 引擎加载它。"""
         with tempfile.TemporaryDirectory() as td:
@@ -96,8 +111,13 @@ class TestEngineConfigInjection(unittest.TestCase):
 
 
 # ───────────────────────────────────────────────────────────────────────
+@unittest.skipUnless(_HAS_YAML, _NEEDS_YAML)
 class TestGovernanceConfigInjection(unittest.TestCase):
-    """governance_checker.py 的 config-root + project-root 注入。"""
+    """governance_checker.py 的 config-root + project-root 注入。
+
+    governance_checker.py 模块顶层 import yaml (缺则 sys.exit(1)) —
+    全类依赖 PyYAML, 无 yaml 环境整类优雅跳过 (V37.9.144 P1(c)).
+    """
 
     def test_resolve_functions_exist(self):
         m = _load_fresh("_gov_a", _GOV_PATH,
@@ -191,6 +211,7 @@ class TestEntryPointsResolve(unittest.TestCase):
         import ontology.engine as eng  # noqa
         self.assertTrue(callable(getattr(eng, "main", None)))
 
+    @unittest.skipUnless(_HAS_YAML, _NEEDS_YAML)
     def test_governance_main_importable(self):
         if REPO not in sys.path:
             sys.path.insert(0, REPO)

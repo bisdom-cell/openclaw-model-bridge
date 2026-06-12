@@ -198,6 +198,25 @@ def _badge_substitutions(facts):
             "providers 徽章",
             re.compile(r"(badge/providers-)\d+(%20supported)"),
             lambda mm: f"{mm.group(1)}{facts['providers']}{mm.group(2)}"))
+    # ── V37.9.144 外部评审2 doc-drift 收口: README 正文两行接入机器同步 ──
+    # 不走 _doc_header_specs (那会让 README 同时被 apply_badges/apply_doc_headers
+    # 双写者管理, 从各自原文计算互相覆盖 — 新接缝), README 统一由 badge 路径管理.
+    # (1) "## Supported Providers (N)" 段头 — V37.9.52 加 doubao 后手写 (7) 漂移至今
+    if facts.get("providers"):
+        subs.append((
+            "providers 段头",
+            re.compile(r"^## Supported Providers \(\d+\)$", re.MULTILINE),
+            lambda mm: f"## Supported Providers ({facts['providers']})"))
+    # (2) Testing 段 full_regression 摘要行 — 旧形式带版本标记 ("V37.9.124: 118
+    #     suites / 4099 tests") 必然漂移; V37.9.144 起去版本标记 (缩接缝),
+    #     suites/tests 两数字由本工具管理
+    if facts.get("test_suites") is not None:
+        subs.append((
+            "testing 摘要行",
+            re.compile(r"^# Full regression \(\d+ suites / \d+ tests / 0 fail; "
+                       r"must ALL pass before push\)$", re.MULTILINE),
+            lambda mm: (f"# Full regression ({facts['test_suites']} suites / "
+                        f"{facts['test_count']} tests / 0 fail; must ALL pass before push)")))
     return subs
 
 
@@ -333,16 +352,28 @@ def _apply_one_doc(text, anchor_re, tokens):
 
 
 def apply_doc_headers(repo_root, facts):
-    """对 3 个 doc 应用 header 统计同步. 返回 {rel: (新文本或None, [(描述,状态)], 原文或None)}."""
+    """对 doc 应用 header 统计同步. 返回 {rel: (新文本或None, [(描述,状态)], 原文或None)}.
+
+    V37.9.144 血案修复: 同一文件可有多个 spec (V37.9.142 起 FEATURES = header +
+    正文测试行两个). 旧实现 out[rel] 直接覆盖 — 第二个 spec 从磁盘原文重新计算,
+    把第一个 spec 的 drift 检测结果整个吞掉 (正文行同步时 header 漂移永久假绿,
+    FEATURES header 停在 v37.9.141 两天未被任何 --check 抓到). 修复 = 同 rel 顺序
+    折叠: spec N 的输出文本作为 spec N+1 的输入, results 累积, orig 取首次磁盘原文.
+    """
     out = {}
     for rel, anchor_re, tokens in _doc_header_specs(facts):
         path = os.path.join(repo_root, rel)
-        if not os.path.isfile(path):
-            out[rel] = (None, [("(file)", "FILE_NOT_FOUND")], None)
-            continue
-        text = _read(path)
+        if rel in out and out[rel][0] is not None:
+            # 同文件后续 spec: 在前序 spec 的输出上继续应用 (不回读磁盘)
+            text, prev_results, orig = out[rel]
+        else:
+            if not os.path.isfile(path):
+                out[rel] = (None, [("(file)", "FILE_NOT_FOUND")], None)
+                continue
+            text = _read(path)
+            prev_results, orig = [], text
         new_text, results = _apply_one_doc(text, anchor_re, tokens)
-        out[rel] = (new_text, results, text)
+        out[rel] = (new_text, prev_results + results, orig)
     return out
 
 
