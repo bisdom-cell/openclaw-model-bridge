@@ -1,6 +1,6 @@
 {
-  "updated": "2026-06-12 15:47:16",
-  "updated_by": "full_regression",
+  "updated": "2026-06-12 16:08:39",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-06-12",
+      "what": "ArXiv 论文正式提交: submit/7702567 status=submitted (When Errors Become Narratives, cs.SE + cross-list cs.AI/cs.DC, CC BY 4.0). 提交路上两个卡点同 session 解决: PDF 误传换 TeX 源码包 / 元数据摘要 2470→1905 字符压缩. Stage 2→3 里程碑: 第一篇可公开 cite 的方法论原作交付, 等 announcement",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-12",
       "what": "V37.9.144: ArXiv 背书生效投稿恢复 (终核 zip/署名/快照全过, 步骤交用户) + 外部评审2 P1 四子项完整兑现 — (a) README 三层产品边界叙事 (b) examples/minimal_runtime 10 分钟最小入口 (golden trace 自校验 + 15 单测) (c) PyYAML 依赖边界 (评审者环境 7 errors → skipUnless 优雅跳过) (d) three-gate observability 诚实叙事 + gates_rollout_phases A→D 形式化. 顺手: README providers 段头 (7→8) + Doubao 表行 + testing 行 doc-drift 收口接入 badges 机器同步. 销项 #23 #24. 125 suites/4365 tests/0 fail",
       "by": "claude_code"
     },
@@ -157,11 +162,6 @@
     {
       "date": "2026-06-11",
       "what": "V37.9.138 🎉 OpenClaw Gateway 升级 2026.3.13-1 → v2026.4.27 完成 (三个月 hold 终结, 提前 9 天, 用户 SSH 执行 23 分钟): doctor --fix 自动迁移 (legacy config + 12 plugin deps 含 baileys + sessions canonicalize, 0 errors) → WhatsApp manifest-first 自动加载 linked+connected auth 保留 → 双通道推送 ✓ (首次 send timeout = plugin 按需 staging 窗口非 bug) → 真人 E2E PA 回复可见 #59265 未复现 → preflight 85/0 + SLO 全部达标 (p95 自愈兑现 V37.9.126/131 预测). 回滚未触发. 配套: check_upgrade CURRENT→4.27 / upgrade_openclaw.sh @latest 隐患修复 (强制显式版本) / SOUL+config.md+eval doc 15.4 实录. LAST_EVAL_DATE=2026-06-11 时间 tripwire 重置",
-      "by": "user+claude_code"
-    },
-    {
-      "date": "2026-06-11",
-      "what": "V37.9.137 🎉 openclaw-ontology-engine 0.1.0 正式发布 PyPI (终极目标 pip install ontology-engine 达成): dev 容器 upload 被网络 allowlist 拦 → 用户 Mac Mini 按 runbook 4 命令上传成功. 发布后三层冒烟 (dev 从真 PyPI): JSON API 200 + 干净 venv pip install → import ontology_engine + 16 tools + 2 console scripts + WeatherBot config-injection 审计 exit=0 零 drift. token 已要求用户撤销. V37.9.99-pkg (6/2) → V37.9.137 (6/11) 9 天包化到公开发布. https://pypi.org/project/openclaw-ontology-engine/0.1.0/",
       "by": "user+claude_code"
     }
   ],
@@ -238,7 +238,7 @@
       "V37.9.130 生产验证已通过 (2026-06-11 Mac Mini 实跑): 6/4 真实血案数据 9 chunks 重跑 — hierarchical r1 b1/3(6740c)+b2/3(6220c)+r2(8524c) 3 次小请求零失败零降级, 48 条精华入 KB, 6/3 已确认处理过, 断流全闭环. 同数据对照证实根因=单请求规模非纯超时 (同 9 Map 段, 单次 40K 两次超时 vs 3 次 7K 一次全过). 剩余低优 follow-up: (a) final Reduce max_tokens=2000 被 48 条打满产尾部残行 \"- [\" (finish_reason=length), 超大对话日边界 — V37.9.131+ 评估 2000→3000 或 emit 前剥尾部残行 (b) 长期观察 last_run degraded/map_failed 字段, 频繁 degraded → 评估 REDUCE_BATCH_SIZE 调小或 doubao 显式路由",
       "V37.9.132 一周观察 (~6/18): deep_dive 摘要级占比应从 76% (34/45) 显著下降 — Mac Mini 验证: grep -L \"基于摘要的分析\" ~/.kb/deep_dives/*.md 看 6/12 后新增文件多数应为全文级. 若仍高: (a) 查 dblp ee 字段 arxiv 覆盖率 (b) S2 openAccessPdf .pdf 结尾比例 (非 .pdf OA 链接保留 S2 页面是有意取舍) (c) 候选增强: deep_dive mode (full_text/abstract_only) 占比纳入 daily_observer 报告让 degrade 频率可观测 (本次 76% gap 潜伏 2 个月才被用户发现的根因是 degrade 频率无聚合复盘)",
       "【外部评审2 P2 · 生态与基准扩展】(a) Provider 验证四档字段化: verification_tier (declared/smoke_tested/feature_verified/production_observed) 进 providers.py 数据模型, 矩阵自动产出替代 V37.9.142 手写档位表. (b) Reliability Bench 扩展 10 候选场景 (Provider API schema drift/streaming 中断/tool result oversized/JSON malformed repair/fallback 也失败/memory index stale/cron duplicate fire/config partial corruption/DNS fail/long-context 截断质量回归) 朝行业可引用测试集方向. (c) ontology engine 仓库外独立 dogfood: 新建独立 toy 仓库 (不依赖本仓库路径/不依赖 OpenClaw) pip install openclaw-ontology-engine + 自己 YAML 端到端 + console scripts 可运行 + docs 不泄漏个人 PA 概念 (in-repo WeatherBot V37.9.104 已验证 config-injection, gap 是 out-of-repo). (d) complexity budget 评估: 每版本报告新增/删除文件数+check 数+env var 数+cron/job 数+新状态源 — 与日落法张力 (勿为预算加新机器), 候选实现 = changelog 惯例字段 + 收工清单一行, 硬规则候选: 新增 runtime path 须退役一个旧 path / 新 invariant 须说明防哪类历史事故 (已是惯例) / 新 job 须定义 silence timeout+degrade 策略. (e) 话语权候选文章: Why Agent Runtime Needs a Control Plane, Not Another Wrapper (why_control_plane.md 续篇, 双外部评审 7.8/10 对照作素材)",
-      "【遗留 · 高优】ArXiv 论文投稿 — endorsement 已生效 (2026-06-12 用户确认), 投稿恢复执行中. 投稿前终核已过 (zip↔.tex 9/9 一致 + 署名 Wei Wu 无占位 + 快照语义 2026-06-11 cutoff 合法不追新数字). 用户侧步骤: arxiv.org/user 续提交 → CC BY 4.0 → cs.SE + cross-list cs.AI/cs.DC → 上传 zip → §4.6 元数据 → Preview → Submit (周五 ET 14:00 前 → 周日晚 announcement = 香港周一早). **拿到 arXiv ID 告诉 Claude → 发布配套**: README/status.json/CLAUDE.md 链接更新 + 中文科普版 (知乎传播层) + data_inventory 终版归档 + 日落法清理 paper_latex.zip convenience artifact."
+      "【遗留 · 高优】ArXiv 论文 — **已提交 (2026-06-12 submit/7702567, status=submitted)**, 等 announcement. 提交过程实录: PDF 误传被拒 (arXiv 强制 TeX 源码) → 换 paper_latex.zip 源码包 → Review Files 自动识别全对 (pdflatex + TeX Live 2025 + main.tex top-level) → Process 编译通过 → 元数据摘要字段超 1,920 字符限制 → 压缩版 1,905 字符 (PDF 内完整摘要不变, 元数据短版是 arXiv 惯例) → cross-list cs.AI + cs.DC 补加 → View PDF 强制预览 → Submit. 时间线: 周五提交, 美东周日晚 announcement = 香港周一早上线. **announcement 后用户提供 arXiv ID (26xx.xxxxx) → Claude 发布配套**: README/status.json/CLAUDE.md 链接更新 + 中文科普版 (知乎传播层) + data_inventory 终版归档 + 日落法清理 paper_latex.zip convenience artifact. 注意: announcement 前可用 Update 改元数据, 勿点 Unsubmit/Delete."
     ],
     "open_prs": "",
     "blocked_on": "",
@@ -376,7 +376,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "本周焦点: ArXiv 投稿执行中 (背书 6/12 生效, 用户侧 Submit + 等 announcement; 拿到 arXiv ID 后 Claude 做发布配套). 外部评审2 P1 已完整闭环 (V37.9.144 a/b/c/d: 三层产品边界叙事 + examples/minimal_runtime 双入口 + PyYAML 依赖边界 + three-gate 诚实叙事 A→D 路线). 下一 session 候选: ArXiv 发布配套 (ID 到手则优先) 或 评审 P2 (verification_tier 字段化 / Reliability Bench 10 场景 / 仓库外 dogfood / 话语权续篇). 观察项: 7d avg p95 47.9s 贴近 50s 阈值 / 6/18 deep_dive 摘要级复盘 / S2 12 关键词首跑 log.",
+  "focus": "本周焦点: ArXiv 论文**已提交** (6/12 submit/7702567, 等 announcement ~香港周一早). 拿到 arXiv ID 后下一 session 优先做发布配套 (README/status/CLAUDE 链接 + 知乎中文科普版 + data_inventory 终版归档 + zip 日落清理). 外部评审2 P1 已完整闭环 (V37.9.144). 次选候选: 评审 P2 (verification_tier 字段化 / Reliability Bench 10 场景 / 仓库外 dogfood / 话语权续篇). 观察项: 7d avg p95 47.9s 贴近 50s 阈值 / 6/18 deep_dive 摘要级复盘 / S2 12 关键词首跑 log.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
