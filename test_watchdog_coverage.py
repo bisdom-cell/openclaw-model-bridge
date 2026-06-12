@@ -325,3 +325,47 @@ class TestSourceLevelGuards(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+class TestV379145KbIndexThreshold(unittest.TestCase):
+    """V37.9.145: KB 向量索引新鲜度阈值对齐 kb_embed 日更 schedule.
+
+    血案 (2026-06-12 20:30 watchdog): 旧注释"kb_embed 每4小时运行"+12h 阈值是
+    stale — registry 真相是每天 03:30 一次 (为 LLM 黄金窗口让路), 日更 job 配
+    12h 阈值让每天 15:30 后的 watchdog run 必然误报 "KB 向量索引 Nh 未更新".
+    V37.9.28 F3 (HN 7h→14h) 同族 schedule-vs-threshold drift.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        with open(os.path.join(REPO_ROOT, "job_watchdog.sh"), encoding="utf-8") as f:
+            cls.src = f.read()
+        i = cls.src.find("KB 向量索引新鲜度")
+        cls.kb_block = cls.src[i:i + 900] if i >= 0 else ""
+
+    def test_kb_index_block_exists(self):
+        self.assertTrue(self.kb_block, "watchdog 必须有 KB 向量索引新鲜度段")
+
+    def test_threshold_is_27h(self):
+        self.assertIn('-gt 97200', self.kb_block,
+                      "V37.9.145: KB 索引阈值必须 97200s (24h 日更 + 3h slack)")
+
+    def test_stale_12h_threshold_retired_in_kb_block(self):
+        self.assertNotIn('-gt 43200', self.kb_block,
+                         "V37.9.145: KB 索引段禁止回退 12h 阈值 (日更 job 必然误报)")
+
+    def test_comment_aligned_with_registry_schedule(self):
+        self.assertIn("V37.9.145", self.kb_block)
+        self.assertIn("03:30", self.kb_block,
+                      "注释必须对齐 registry 真实 schedule (每天 03:30)")
+        self.assertNotIn("每4小时运行", self.kb_block,
+                         "stale 注释'每4小时运行'必须移除")
+
+    def test_registry_interval_is_daily_0330(self):
+        # 跨文件一致性: 阈值依据的 registry interval 若未来改频, 本守卫提醒同步阈值
+        with open(os.path.join(REPO_ROOT, "jobs_registry.yaml"), encoding="utf-8") as f:
+            reg = f.read()
+        i = reg.find("- id: kb_embed")
+        block = reg[i:i + 400]
+        self.assertIn('interval: "30 3 * * *"', block,
+                      "kb_embed interval 变更时必须同步 watchdog KB 索引阈值 (97200)")

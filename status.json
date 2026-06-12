@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-12 16:08:39",
+  "updated": "2026-06-12 17:05:14",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-06-12",
+      "what": "V37.9.145: 20:30 watchdog 17 项告警 5 轮取证闭环 — 4.27 CLI 冷调用回归定性 (零数据丢失, notify 重试兜底) + watchdog KB 索引阈值 12h→27h 对齐日更 (schedule-vs-threshold drift) + INV-REVIEW-001 治理 runtime check openclaw stub 隔离 (审计被生产 CLI 延迟劫持, MR-23 同族第 4 演出). 10 新守卫单测 + sabotage 验证",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-12",
       "what": "ArXiv 论文正式提交: submit/7702567 status=submitted (When Errors Become Narratives, cs.SE + cross-list cs.AI/cs.DC, CC BY 4.0). 提交路上两个卡点同 session 解决: PDF 误传换 TeX 源码包 / 元数据摘要 2470→1905 字符压缩. Stage 2→3 里程碑: 第一篇可公开 cite 的方法论原作交付, 等 announcement",
       "by": "claude_code"
     },
@@ -158,11 +163,6 @@
       "date": "2026-06-11",
       "what": "V37.9.139 ArXiv 论文第一稿交付 (Stage 2→3 话语权 unfinished #5 全力启动兑现): docs/paper/silent_failures_taxonomy/ 三件套 — draft.md ~490 行完整英文第一稿 (When Errors Become Narratives: A Longitudinal Taxonomy of Silent Failures in a Production LLM Agent Runtime; 5 类 taxonomy + 6 cross-cutting findings + fail-plausible 概念贡献 + Defense Framework 5 支柱 + 接缝论点 Discussion + Threats) + data_inventory.md (每个数字→仓库溯源, 修正 catalog 8天笔误→实证2天 + six-level 守卫) + DECISIONS_NEEDED.md (7 项用户决策: 标题/署名与AI披露/venue 推荐 arXiv 直发/匿名度/LaTeX 时机/内容取舍/figures). 文献全真实验证: HotOS17 GrayFailure + FAST18 FailSlow + MAST 2503.13657 全核 + 4 篇 2025-26 agent 可靠性论文 snippet 级作者核实 + 顺带发现 2 篇高相关 (2508.14231 Incident Analysis for AI Agents + 2606.05339 MCP runtime faults). 回归 121/4286/0 + 治理 90/90 + 安全 95 + 扫描零泄漏. VERSION 0.37.9.70 不变 (纯文档, V37.9.99-docs 惯例)",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-06-11",
-      "what": "V37.9.138 🎉 OpenClaw Gateway 升级 2026.3.13-1 → v2026.4.27 完成 (三个月 hold 终结, 提前 9 天, 用户 SSH 执行 23 分钟): doctor --fix 自动迁移 (legacy config + 12 plugin deps 含 baileys + sessions canonicalize, 0 errors) → WhatsApp manifest-first 自动加载 linked+connected auth 保留 → 双通道推送 ✓ (首次 send timeout = plugin 按需 staging 窗口非 bug) → 真人 E2E PA 回复可见 #59265 未复现 → preflight 85/0 + SLO 全部达标 (p95 自愈兑现 V37.9.126/131 预测). 回滚未触发. 配套: check_upgrade CURRENT→4.27 / upgrade_openclaw.sh @latest 隐患修复 (强制显式版本) / SOUL+config.md+eval doc 15.4 实录. LAST_EVAL_DATE=2026-06-11 时间 tripwire 重置",
-      "by": "user+claude_code"
     }
   ],
   "feedback": [
@@ -214,6 +214,7 @@
   "session_context": {
     "last_session": "2026-04-17 V37.8.14 (15 commits)",
     "unfinished": [
+      "【4.27 推送链路回归追踪 · 中优】2026-06-12 20:30 watchdog 17 项告警诊断闭环 (V37.9.145): 真因 = 4.27 openclaw CLI 冷调用回归 (冷 ~40s CPU + 第一发 WS >10s 必超时, 暖窗口正常; 间歇 plugin staging 重发生 baileys+jimp 报 missing 但 runtime-deps 已装). 零数据丢失 (notify 重试全救回, 用户确认没少收). 已修 2 噪声源 (watchdog KB 索引阈值 12h→27h + INV-REVIEW-001 openclaw stub 隔离). 跟进项: (a) timeout 旋钮 `openclaw message send --help | grep -i timeout` 可配则 notify.sh/直推 job 调大 → attempt-1 噪声归零 (b) `ls -la ~/.openclaw/plugin-runtime-deps/` 多 hash dir 检查 (staging 间歇机制) (c) upstream releases 查 CLI 冷启动/staging 修复 (tripwire 证据, 不自动升级) (d) 各 job 'attempt-1 失败但重试成功'被 watchdog 记为'最近一次推送失败'的告警语义复核 (原则 #32 告警疲劳).",
       "V3 路标 backlog: Tool Policy Plugin + Memory Plane Plugin + Job Template SDK + pip install ontology-engine",
       "WhatsApp 入站路由到 research agent 而非 main（4/10 WhatsApp plugin 安装副作用）: main/sessions.json mtime 从 Mar 30 起 dormant, 但 HEARTBEAT.md 修复后 research 正常响应不致命. 长期考虑: channels.whatsapp.agent 显式配置 / agents.list 顺序调整 / 验证 WhatsApp plugin inbound handler routing 逻辑",
       "V37.9.67+ P2 (4 周观察后立 INV): 原则 #32 用户视角观察制度真执行 — 每周一开工第一件事 30min 不写代码不修 bug, 检查 4 维度 (告警噪声/推送延迟/信息密度/PA 表现). 发现项即 status_update.py --add unfinished 不当场修. 持续 4 周后立 INV-WEEKLY-USER-OBSERVATION-001 守卫周一观察项必有. 把 reactive feedback 升级为 proactive observation. 防御 vim 体验差 / freight 过频 / framework 零漂移真激活漏报 类用户视角 gap. 见 reflection 行动 5.",
@@ -376,7 +377,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "本周焦点: ArXiv 论文**已提交** (6/12 submit/7702567, 等 announcement ~香港周一早). 拿到 arXiv ID 后下一 session 优先做发布配套 (README/status/CLAUDE 链接 + 知乎中文科普版 + data_inventory 终版归档 + zip 日落清理). 外部评审2 P1 已完整闭环 (V37.9.144). 次选候选: 评审 P2 (verification_tier 字段化 / Reliability Bench 10 场景 / 仓库外 dogfood / 话语权续篇). 观察项: 7d avg p95 47.9s 贴近 50s 阈值 / 6/18 deep_dive 摘要级复盘 / S2 12 关键词首跑 log.",
+  "focus": "本周焦点: ArXiv 论文**已提交** (6/12 submit/7702567, 等 announcement ~香港周一早). 拿到 arXiv ID 后下一 session 优先做发布配套 (README/status/CLAUDE 链接 + 知乎中文科普版 + data_inventory 终版归档 + zip 日落清理). 外部评审2 P1 已完整闭环 (V37.9.144). 次选候选: 评审 P2 (verification_tier 字段化 / Reliability Bench 10 场景 / 仓库外 dogfood / 话语权续篇). 观察项: 4.27 推送冷调用回归跟进 (unfinished 首项, timeout 旋钮+staging 机制) / 7d avg p95 47.9s 贴近 50s 阈值 / 6/18 deep_dive 摘要级复盘 / S2 12 关键词首跑 log.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
