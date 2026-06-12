@@ -110,6 +110,7 @@ run_suite "v37_9_50_semantic_scholar (V37.9.50 Sub-Stage 4b 1 脚本 PoC 6字段
 run_suite "v37_9_51_sub_stage_4b_batch (V37.9.51 Sub-Stage 4b 6 脚本批量 6字段+rule_check 机械迁移)" "python3 test_v37_9_51_sub_stage_4b_batch.py"
 run_suite "v37_9_98_s2_api_key (V37.9.98 Semantic Scholar API key 认证 header 集成 + FAIL-OPEN)" "python3 test_v37_9_98_s2_api_key.py"
 run_suite "gen_readme_badges (V37.9.99 README 徽章自动生成/漂移守卫 — 外部评审 P0)" "python3 test_gen_readme_badges.py"
+run_suite "gen_compat_matrix (V37.9.143 compatibility_matrix 漂移防护 — 外部评审2 P0)" "python3 test_gen_compat_matrix.py"
 run_suite "v37_9_52_doubao_provider (V37.9.52 Doubao Seed 2.0 Pro 第 8 个 provider + module 重入 bug fix)" "python3 test_v37_9_52_doubao_provider.py"
 run_suite "v37_9_53_doubao_verified (V37.9.53 flip verified_text + reasoning capability + fallback chain 排名前移)" "python3 test_v37_9_53_doubao_verified.py"
 run_suite "v37_9_54_abc (V37.9.54 ABC: restart.sh marker-based plist reload + verified_vision + INV-PLIST-ENV-001)" "python3 test_v37_9_54_abc.py"
@@ -123,7 +124,7 @@ run_suite "audit_log (审计日志/链式哈希)" "python3 test_audit_log.py"
 run_suite "reliability_bench (故障场景评测)" "python3 test_reliability_bench.py"
 run_suite "memory_plane (统一记忆平面)" "python3 test_memory_plane.py"
 run_suite "slo_dashboard (SLO仪表盘)" "python3 test_slo_dashboard.py"
-run_suite "slo_benchmark (V37.9.99 样本门槛三态 OBSERVING/PASS/FAIL)" "python3 test_slo_benchmark.py"
+run_suite "slo_benchmark (V37.9.99 三态 + V37.9.143 四态 N_A/双窗口/阈值正文)" "python3 test_slo_benchmark.py"
 run_suite "finance_news_zombie (V37.8.5 三层僵尸检测)" "python3 test_finance_news_zombie.py"
 run_suite "dream_surrogate_sanitize (V37.8.6 log→stderr + surrogate 清洗 + 反污染 prompt)" "python3 test_dream_surrogate_sanitize.py"
 run_suite "ontology_parser (V37.8.7 separator+key-based 解析，防级联错位)" "python3 test_ontology_parser.py"
@@ -272,6 +273,17 @@ else
     python3 gen_readme_badges.py --check 2>&1 | tail -3
     FAIL=$((FAIL + 1))
     FAILED_SUITES+=("README badge drift")
+fi
+
+echo -n "  🔌 compatibility_matrix 漂移检测 (V37.9.143 外部评审2 P0) ... "
+if python3 gen_compat_matrix.py --check >/dev/null 2>&1; then
+    echo "✅"
+    PASS=$((PASS + 1))
+else
+    echo "❌"
+    python3 gen_compat_matrix.py --check 2>&1 | tail -5
+    FAIL=$((FAIL + 1))
+    FAILED_SUITES+=("compat matrix drift")
 fi
 echo ""
 

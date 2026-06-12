@@ -145,11 +145,12 @@ class TestObservingThreshold(unittest.TestCase):
         report = build_report(stats, make_config())
         self.assertEqual(report["latency"]["verdict"], "OBSERVING")
 
-    def test_zero_tool_calls_observing(self):
-        """V37.9.99: 0 tool calls 样本不足 → OBSERVING (比旧 PASS 更诚实)."""
+    def test_zero_tool_calls_na(self):
+        """V37.9.143 四态: 0 tool calls → N_A_NO_TOOL_CALLS (无流量不可评判,
+        区别于 OBSERVING 有流量但样本不足; 升级自 V37.9.99 OBSERVING 语义)."""
         stats = make_stats(tool_total=0, tool_success=0)
         report = build_report(stats, make_config())
-        self.assertEqual(report["tools"]["verdict"], "OBSERVING")
+        self.assertEqual(report["tools"]["verdict"], "N_A_NO_TOOL_CALLS")
 
     def test_fail_takes_precedence_over_observing(self):
         """FAIL > OBSERVING: 一个 check 够样本且超标 FAIL → overall VIOLATIONS."""
@@ -191,6 +192,129 @@ class TestObservingThreshold(unittest.TestCase):
         self.assertEqual(MIN_SAMPLE_THRESHOLD, 200)
         report = build_report(make_stats(), make_config())
         self.assertEqual(report["min_sample_threshold"], 200)
+
+
+class TestV379143FourStateAndTrends(unittest.TestCase):
+    """V37.9.143 (外部评审2 P0(a)): 四态 verdict + 24h/7d 双窗口 + 阈值原因正文段."""
+
+    def test_na_does_not_block_all_pass(self):
+        """N_A 不参与汇总判定: 其余全 PASS + tool N_A → overall ALL PASS."""
+        stats = make_stats(tool_total=0, tool_success=0)
+        report = build_report(stats, make_config())
+        self.assertEqual(report["tools"]["verdict"], "N_A_NO_TOOL_CALLS")
+        self.assertEqual(report["overall_verdict"], "ALL PASS")
+        self.assertEqual(report["na_count"], 1)
+
+    def test_na_does_not_mask_fail(self):
+        """N_A 跳过但 FAIL 仍优先: latency FAIL + tool N_A → VIOLATIONS."""
+        stats = make_stats(p95=60000, samples=250, tool_total=0, tool_success=0)
+        report = build_report(stats, make_config())
+        self.assertEqual(report["latency"]["verdict"], "FAIL")
+        self.assertEqual(report["overall_verdict"], "VIOLATIONS DETECTED")
+
+    def test_one_tool_call_is_observing_not_na(self):
+        """四态边界: tool_total=1 (有流量但样本不足) → OBSERVING 不是 N_A."""
+        stats = make_stats(tool_total=1, tool_success=1)
+        report = build_report(stats, make_config())
+        self.assertEqual(report["tools"]["verdict"], "OBSERVING")
+
+    def test_report_has_trend_windows_key(self):
+        """report 必含 trend_windows 键 (无历史时为 None, 不缺键)."""
+        report = build_report(make_stats(), make_config())
+        self.assertIn("trend_windows", report)
+
+    def test_markdown_trend_windows_section(self):
+        """Markdown 必含 Trend Windows 段 (无历史显示提示行)."""
+        report = build_report(make_stats(), make_config())
+        report["trend_windows"] = None  # 模拟 dev 无历史
+        md = format_markdown(report)
+        self.assertIn("## Trend Windows (24h / 7d)", md)
+        self.assertIn("暂无历史快照", md)
+
+    def test_markdown_trend_windows_with_history(self):
+        """有历史时渲染 24h/7d 双行表."""
+        report = build_report(make_stats(), make_config())
+        report["trend_windows"] = {
+            "history_total_snapshots": 168,
+            "trend_24h": {"period_snapshots": 24, "total_requests": 100, "total_errors": 2,
+                          "avg_success_pct": 98.0, "avg_p95_ms": 35000.0, "max_p95_ms": 48000,
+                          "avg_degradation_pct": 1.0},
+            "trend_7d": {"period_snapshots": 168, "total_requests": 700, "total_errors": 10,
+                         "avg_success_pct": 98.5, "avg_p95_ms": 36000.0, "max_p95_ms": 52000,
+                         "avg_degradation_pct": 1.2},
+        }
+        md = format_markdown(report)
+        self.assertIn("| Last 24h | 24 |", md)
+        self.assertIn("| Last 7d | 168 |", md)
+        self.assertIn("168 snapshots", md)
+
+    def test_markdown_threshold_rationale_section(self):
+        """阈值原因正文段: target>30000 时写明 V37.9.79 调整原因 + 恢复条件."""
+        config = make_config()
+        config["slo"]["latency_p95_ms"] = 50000
+        report = build_report(make_stats(), config)
+        md = format_markdown(report)
+        self.assertIn("## Threshold Rationale", md)
+        self.assertIn("V37.9.79", md)
+        self.assertIn("不是掩盖问题", md)
+        self.assertIn("恢复 30000ms 的条件", md)
+
+    def test_markdown_rationale_adapts_when_restored(self):
+        """阈值恢复 30000 后 rationale 自动切换文案 (不留谎言)."""
+        report = build_report(make_stats(), make_config())  # make_config 默认 30000
+        md = format_markdown(report)
+        self.assertIn("## Threshold Rationale", md)
+        self.assertNotIn("恢复 30000ms 的条件", md)
+        self.assertIn("已恢复 V36 原始目标", md)
+
+    def test_methodology_thresholds_dynamic(self):
+        """Methodology 阈值行动态读 config (修 V37.9.79 后硬编码 ≤30s 漂移)."""
+        config = make_config()
+        config["slo"]["latency_p95_ms"] = 50000
+        report = build_report(make_stats(), config)
+        md = format_markdown(report)
+        self.assertIn("latency p95 ≤50s", md)
+        self.assertNotIn("latency p95 ≤30s", md)
+
+    def test_methodology_mentions_four_states(self):
+        report = build_report(make_stats(), make_config())
+        md = format_markdown(report)
+        self.assertIn("N_A_NO_TOOL_CALLS", md)
+
+    def test_build_trend_windows_no_history_returns_none(self):
+        """dev 无 slo_history.jsonl → build_trend_windows 返回 None 不抛异."""
+        import slo_benchmark, slo_dashboard
+        from unittest.mock import patch
+        with patch.object(slo_dashboard, "load_history", return_value=[]):
+            self.assertIsNone(slo_benchmark.build_trend_windows())
+
+    def test_build_trend_windows_with_history(self):
+        """有历史 → 返回 24h/7d 双窗口 dict (复用 slo_dashboard, MR-8)."""
+        import slo_benchmark, slo_dashboard
+        from unittest.mock import patch
+        from datetime import datetime
+        now = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+        fake = [{"ts": now, "p95_ms": 30000, "success_pct": 99.0, "requests": 10,
+                 "errors": 0, "degradation_pct": 0.5}]
+        with patch.object(slo_dashboard, "load_history", return_value=fake):
+            tw = slo_benchmark.build_trend_windows()
+        self.assertIsNotNone(tw)
+        self.assertEqual(tw["history_total_snapshots"], 1)
+        self.assertIn("trend_24h", tw)
+        self.assertIn("trend_7d", tw)
+        self.assertEqual(tw["trend_24h"]["period_snapshots"], 1)
+
+    def test_source_guard_v37_9_143(self):
+        """源码守卫: 四态字面量 + Methodology 不得回退硬编码 30s."""
+        import os
+        with open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                               "slo_benchmark.py"), encoding="utf-8") as f:
+            src = f.read()
+        self.assertIn("N_A_NO_TOOL_CALLS", src)
+        self.assertIn("V37.9.143", src)
+        self.assertIn("build_trend_windows", src)
+        self.assertNotIn("latency p95 ≤30s, tool success ≥95%", src,
+                         "Methodology 硬编码阈值行不得回退 (V37.9.79 漂移 bug)")
 
 
 class TestFormatMarkdown(unittest.TestCase):

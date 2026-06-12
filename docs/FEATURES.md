@@ -64,6 +64,6 @@
 | | SLO Benchmark | 真实生产数据报告 (5/5 PASS, p95=459ms) | `slo_benchmark.py` |
 | | GameDay 故障演练 | 5 场景故障注入 (GPU 超时/断路器/快照/SLO/Watchdog) | `gameday.sh` |
 | | 兼容性矩阵 | 8 Provider 能力声明 + 验证状态 | `providers.py` + `docs/compatibility_matrix.md` |
-| **测试** | 122 套单测 | 4304 用例全部通过 | `test_*.py` |
+| **测试** | 124 套单测 | 4344 用例全部通过 | `test_*.py` |
 | | 全量回归 | full_regression.sh (单测+注册表+安全+代码质量) | `full_regression.sh` |
 | | E2E Smoke | 基础对话 / 工具注入 / KB 搜索 端到端验证 | `wa_e2e_test.sh` |
