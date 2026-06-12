@@ -1,7 +1,7 @@
 # Provider Compatibility Matrix
 
-> 数据真理源：`providers.py`（`python3 providers.py` 人读 / `--json` 机读）| 最后刷新：2026-06-11（v37.9.141, 外部评审 P0 兑现）
-> **8 Providers**（7 built-in + 1 plugin）。本文档每次 Provider 变更后必须从 `python3 providers.py` 输出重新生成（漂移防护接入计划见 status.json unfinished 外部评审项）。
+> 数据真理源：`providers.py`（`python3 providers.py` 人读 / `--json` 机读 / `--capability-matrix` 能力矩阵直出）| 最后刷新：2026-06-12（v37.9.143）
+> **8 Providers**（7 built-in + 1 plugin）。**漂移防护已接入（V37.9.143）**：本文档的两张机器表（"支持的 Provider" + "能力矩阵"）由 `gen_compat_matrix.py --check` 在 full_regression doc-drift 层守卫，漂移时 CI 失败；`--fix` 一键重写。人工段落（验证档位 / Fallback 路径 / 工具模式验证）不参与机器比对。
 
 ---
 
@@ -42,7 +42,7 @@
 | Kimi (Moonshot AI) | Yes | Yes | — | — | Yes | Yes | Yes | — | 262K |
 | MiniMax | Yes | Yes | — | — | Yes | Yes | Yes | — | 204K |
 | GLM (Zhipu AI) | Yes | Yes | — | — | Yes | Yes | Yes | — | 202K |
-| Doubao Seed 2.0 Pro | Yes | Yes | — | — | Yes | Yes | — | **Yes** (reasoning_content, V37.9.53 实测) | 262K |
+| Doubao Seed 2.0 Pro (Volcengine Ark) | Yes | Yes | — | — | Yes | Yes | Yes | Yes | 262K |
 
 > Reasoning 维度 V37.9.53 新增（doubao seed reasoning model 实证驱动）。cap_score: doubao 16 > Qwen3 14（framework 视角 doubao 是 registry 最强 provider，V37.9.55）。
 

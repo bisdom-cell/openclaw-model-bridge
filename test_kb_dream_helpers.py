@@ -560,7 +560,11 @@ class TestSourceLevelGuards(unittest.TestCase):
 class TestCli(unittest.TestCase):
     def setUp(self):
         self.tmpdir = tempfile.mkdtemp(prefix="cli_dream_")
-        path = os.path.join(self.tmpdir, "2026-05-13.md")
+        # V37.9.143 修日期敏感 bug: 原硬编码 "2026-05-13.md" 在 2026-06-12 (恰好 30 天后)
+        # 滑出 --days 30 窗口导致测试失败 — 改相对日期 (now-3d) 永不出窗。
+        from datetime import datetime, timedelta
+        self.dream_date = (datetime.now() - timedelta(days=3)).strftime("%Y-%m-%d")
+        path = os.path.join(self.tmpdir, f"{self.dream_date}.md")
         with open(path, "w") as f:
             f.write("## 🌙 今日深度发现：CLI 测试主题")
 
@@ -583,7 +587,7 @@ class TestCli(unittest.TestCase):
             timeout=30,
         )
         self.assertEqual(result.returncode, 0)
-        self.assertIn("2026-05-13", result.stdout)
+        self.assertIn(self.dream_date, result.stdout)
         self.assertIn("CLI 测试主题", result.stdout)
 
     def test_cli_no_help_args_prints_help(self):

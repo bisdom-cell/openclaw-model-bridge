@@ -84,6 +84,25 @@ class ProviderCapabilities:
         if self.verified_reasoning: features.append("reasoning")  # V37.9.53
         return features
 
+    def verifiable_features(self) -> List[str]:
+        """返回该 provider 可被验证的维度列表（与 verified_features 同口径，V37.9.143）。
+
+        Verification Status 分母口径修复: 旧分母只数 modalities + tool_calling + streaming
+        (最多 4)，但分子 verified_features 含 fallback/reasoning 共 6 维度，导致
+        Qwen/Doubao 显示 "5/4 verified" 超界。本方法按 verified_* 字段同口径计算分母:
+        text/vision/tool_calling/streaming/reasoning 按声明计入; fallback 恒计入
+        (任何 provider 都可作为降级目标被生产验证, 不依赖能力声明)。
+        audio/video/json_mode 无对应 verified_* 字段, 不计入。
+        """
+        feats = []
+        if self.text: feats.append("text")
+        if self.vision: feats.append("vision")
+        if self.tool_calling: feats.append("tool_calling")
+        if self.streaming: feats.append("streaming")
+        feats.append("fallback")
+        if self.reasoning: feats.append("reasoning")
+        return feats
+
 
 @dataclass
 class ModelInfo:
@@ -755,15 +774,20 @@ class ProviderRegistry:
         """生成完整兼容性矩阵。"""
         return [p.to_matrix_row() for p in self._providers.values()]
 
-    def print_matrix(self):
-        """打印兼容性矩阵（Markdown 格式）。"""
+    def matrix_table_lines(self) -> List[str]:
+        """主兼容性矩阵表（Markdown 行列表，V37.9.143 从 print_matrix 抽出）。
+
+        单一真理源契约: docs/compatibility_matrix.md 的 "## 支持的 Provider" 表格段
+        必须与本函数输出逐字一致 (gen_compat_matrix.py --check 守卫)。
+        """
         matrix = self.compatibility_matrix()
         if not matrix:
-            print("No providers registered.")
-            return
+            return ["No providers registered."]
 
-        print("| Provider | Models | Modalities | Tool Calling | Streaming | Context | Verified |")
-        print("|----------|--------|------------|-------------|-----------|---------|----------|")
+        lines = [
+            "| Provider | Models | Modalities | Tool Calling | Streaming | Context | Verified |",
+            "|----------|--------|------------|-------------|-----------|---------|----------|",
+        ]
         for row in matrix:
             models = ", ".join(row["models"][:2])
             if len(row["models"]) > 2:
@@ -771,9 +795,38 @@ class ProviderRegistry:
             mods = ", ".join(row["modalities"])
             verified = ", ".join(row["verified"]) if row["verified"] else "none"
             ctx = f"{row['context_window']//1000}K" if row['context_window'] else "?"
-            print(f"| {row['provider']} | {models} | {mods} | "
-                  f"{'Yes' if row['tool_calling'] else 'No'} | "
-                  f"{'Yes' if row['streaming'] else 'No'} | {ctx} | {verified} |")
+            lines.append(f"| {row['provider']} | {models} | {mods} | "
+                         f"{'Yes' if row['tool_calling'] else 'No'} | "
+                         f"{'Yes' if row['streaming'] else 'No'} | {ctx} | {verified} |")
+        return lines
+
+    def capability_table_lines(self) -> List[str]:
+        """能力矩阵表（Markdown 行列表，V37.9.143 新增）。
+
+        9 维度逐项展开 (Text/Vision/Audio/Video/Tool Calling/Streaming/JSON Mode/
+        Reasoning/Context Window)，与 docs/compatibility_matrix.md "## 能力矩阵" 表格段
+        逐字一致 (gen_compat_matrix.py --check 守卫)。支持 = Yes, 不支持 = —。
+        """
+        lines = [
+            "| Provider | Text | Vision | Audio | Video | Tool Calling | Streaming | JSON Mode | Reasoning | Context Window |",
+            "|----------|------|--------|-------|-------|-------------|-----------|-----------|-----------|---------------|",
+        ]
+
+        def _yn(flag):
+            return "Yes" if flag else "—"
+
+        for p in self.all():
+            c = p.capabilities
+            ctx = f"{c.context_window//1000}K" if c.context_window else "?"
+            lines.append(
+                f"| {p.display_name} | {_yn(c.text)} | {_yn(c.vision)} | {_yn(c.audio)} | "
+                f"{_yn(c.video)} | {_yn(c.tool_calling)} | {_yn(c.streaming)} | "
+                f"{_yn(c.json_mode)} | {_yn(c.reasoning)} | {ctx} |")
+        return lines
+
+    def print_matrix(self):
+        """打印兼容性矩阵（Markdown 格式）。"""
+        print("\n".join(self.matrix_table_lines()))
 
     # ------------------------------------------------------------------
     # Capability-Based Routing — V37: query providers by features
@@ -1001,6 +1054,10 @@ if __name__ == "__main__":
     if "--json" in sys.argv:
         import json
         print(json.dumps(_default_registry.compatibility_matrix(), indent=2, ensure_ascii=False))
+    elif "--capability-matrix" in sys.argv:
+        # V37.9.143: 能力矩阵直出 (9 维度逐项), docs/compatibility_matrix.md "## 能力矩阵"
+        # 表格段的单一真理源 (gen_compat_matrix.py --check 消费)
+        print("\n".join(_default_registry.capability_table_lines()))
     elif "--fallback-chain" in sys.argv:
         # Show auto-generated fallback chain for a provider
         idx = sys.argv.index("--fallback-chain")
@@ -1072,7 +1129,7 @@ if __name__ == "__main__":
         print("\n## Verification Status\n")
         for p in _default_registry.all():
             verified = p.capabilities.verified_features()
-            total = len(p.capabilities.supported_modalities()) + \
-                    sum([p.capabilities.tool_calling, p.capabilities.streaming])
+            # V37.9.143: 分母与分子同口径 (verifiable_features), 修 "5/4 verified" 超界 bug
+            total = len(p.capabilities.verifiable_features())
             status = f"{len(verified)}/{total} verified" if total else "N/A"
             print(f"- **{p.display_name}**: {status} — {', '.join(verified) if verified else 'not yet tested'}")
