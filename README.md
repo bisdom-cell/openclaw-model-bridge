@@ -23,7 +23,7 @@
 | Layer | What it is | Key files | Third-party deps | Take it as |
 |-------|-----------|-----------|------------------|------------|
 | **1 · Core Runtime** | Provider abstraction + tool-governance proxy + SLO / fallback / circuit breaker | `adapter.py` · `providers.py` (+ `providers.d/` plugins) · `tool_proxy.py` · `proxy_filters.py` · `config_loader.py` · `slo_*.py` | **None — Python stdlib only** | The reusable framework |
-| **2 · Governance-Ontology** | Declarative tool ontology + governance engine (90 invariants / 23 meta-rules) + convergence framework + three-gate (shadow) | `ontology/` — on PyPI as [`openclaw-ontology-engine`](https://pypi.org/project/openclaw-ontology-engine/) | **PyYAML ≥ 5.4** | A `pip install`-able engine; bring your own YAML |
+| **2 · Governance-Ontology** | Declarative tool ontology + governance engine (invariants / meta-rules — counts in badges above) + convergence framework + three-gate (shadow) | `ontology/` — on PyPI as [`openclaw-ontology-engine`](https://pypi.org/project/openclaw-ontology-engine/) | **PyYAML ≥ 5.4** | A `pip install`-able engine; bring your own YAML |
 | **3 · Personal-PA-Example** | The author's WhatsApp/Discord assistant: ~40 cron jobs, KB memory plane, SOUL.md persona, paper/news radars | `jobs/` · `kb_*.{sh,py}` · `SOUL.md` · `notify.sh` · `jobs_registry.yaml` | Optional extras (`requirements-rag/-mm.txt`) | A worked example — the live system **is** effectively `examples/personal_pa` |
 
 Layer 3 is not product clutter — it is the **production evidence** for layers 1–2: every SLO number, blood-lesson case study, and governance check in this README comes from it running 24/7 since March 2026. But you need none of it to use layers 1–2.

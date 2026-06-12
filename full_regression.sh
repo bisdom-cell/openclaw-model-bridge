@@ -225,6 +225,12 @@ if [ -f test_ontology_extension_demo.py ]; then
     run_suite "ontology_extension_demo (V37.9.104 Phase 5 chunk4: WeatherBot 消费方 demo + config-injection 端到端 + 反向验证注入真起作用)" "python3 test_ontology_extension_demo.py"
 fi
 
+# V37.9.144: 外部评审2 P1(b) — examples/minimal_runtime 10 分钟最小 Core Runtime 入口
+# (1 provider + tool governance 三类语义 + 1 policy 优雅降级 + SLO mini-stats + golden trace 自校验)
+if [ -f test_minimal_runtime.py ]; then
+    run_suite "minimal_runtime (V37.9.144 P1(b): 最小 Core Runtime demo + golden trace 自校验 + 无 PyYAML 优雅降级 + sabotage 反向验证)" "python3 test_minimal_runtime.py"
+fi
+
 # V37.9.126: ontology-engine 包化 chunk 3b — MRD 扫描文件名模式 Layer 2 config-injection (registry/notify/preflight/诊断白名单 移到 mrd_scan_patterns, 消费方可 override)
 if [ -f test_mrd_config_injection.py ]; then
     run_suite "mrd_config_injection (V37.9.126 chunk 3b: MRD 扫描文件名模式 config-injection + byte-identical + demo 端到端 + 反向 sabotage)" "python3 test_mrd_config_injection.py"
