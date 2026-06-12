@@ -1,5 +1,12 @@
-# Core services (tool_proxy.py, proxy_filters.py, adapter.py)
+# Core services (tool_proxy.py, proxy_filters.py, adapter.py, providers.py)
 # 核心服务仅使用 Python 标准库，无第三方依赖
+# Dependency boundary follows the three product layers — see README "Product Layers".
+
+# --- Governance-Ontology layer (ontology/) ---
+# 唯一第三方依赖: PyYAML (V37.9.144 评审者环境缺它曾致 7 用例报错, 现优雅跳过)
+#   pip3 install 'pyyaml>=5.4'
+# 或整层以 pip 包安装 (自动带上 PyYAML):
+#   pip3 install openclaw-ontology-engine
 
 # --- Optional modules (install as needed) ---
 # KB RAG (kb_embed.py, kb_rag.py, local_embed.py):

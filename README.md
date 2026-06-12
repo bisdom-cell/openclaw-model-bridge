@@ -16,6 +16,22 @@
 > **Current version:** `v37.9.143` / `0.37.9.70` (2026-06-12) — see [`CLAUDE.md`](CLAUDE.md) for full changelog.
 > **Latest milestone:** V37.9.117 → V37.9.121 — *日落法 (Sunset Law) 立为项目北极星 (降复杂度优先于加功能)*. 一天五版意外频发后深度反思: 真因不是"系统复杂"(部件难懂) 而是"系统组合"(简单正确部件交互面积超线性增长超过测试覆盖) — 复杂关乎部件, 意外关乎接缝. MR-22 (sunset-over-accretion) + MR-23 (audit-observes-never-mutates) + 原则 #34 北极星. V37.9.118-120 首批日落法退役 (governance repo_root 一物多形 → os.getcwd / engine.py realpath / auto_deploy 双副本根治). V37.9.121 立 INV-OBSERVER-001 + INV-SOURCE-CREDIBILITY-001 — 在"加治理"任务内仍践行日落法 (候选 2 daily_observer INV 合并为 1 + 退役冗余硬编码守卫).
 
+## Product Layers: What's Core vs. What's the Author's PA Instance
+
+> **For external readers** (V37.9.144, in response to external review #2): this repo contains both a **reusable control-plane framework** and the author's **personal assistant built on top of it** — a living, in-production worked example. Three layers, so you know what to take and what to read as evidence. This split is *narrative, not a code move* (Sunset Law: no churn for cosmetics).
+
+| Layer | What it is | Key files | Third-party deps | Take it as |
+|-------|-----------|-----------|------------------|------------|
+| **1 · Core Runtime** | Provider abstraction + tool-governance proxy + SLO / fallback / circuit breaker | `adapter.py` · `providers.py` (+ `providers.d/` plugins) · `tool_proxy.py` · `proxy_filters.py` · `config_loader.py` · `slo_*.py` | **None — Python stdlib only** | The reusable framework |
+| **2 · Governance-Ontology** | Declarative tool ontology + governance engine (90 invariants / 23 meta-rules) + convergence framework + three-gate (shadow) | `ontology/` — on PyPI as [`openclaw-ontology-engine`](https://pypi.org/project/openclaw-ontology-engine/) | **PyYAML ≥ 5.4** | A `pip install`-able engine; bring your own YAML |
+| **3 · Personal-PA-Example** | The author's WhatsApp/Discord assistant: ~40 cron jobs, KB memory plane, SOUL.md persona, paper/news radars | `jobs/` · `kb_*.{sh,py}` · `SOUL.md` · `notify.sh` · `jobs_registry.yaml` | Optional extras (`requirements-rag/-mm.txt`) | A worked example — the live system **is** effectively `examples/personal_pa` |
+
+Layer 3 is not product clutter — it is the **production evidence** for layers 1–2: every SLO number, blood-lesson case study, and governance check in this README comes from it running 24/7 since March 2026. But you need none of it to use layers 1–2.
+
+**Two entry points:**
+- **10-minute minimal core**: [`examples/minimal_runtime/`](examples/minimal_runtime/) — 1 provider + tool governance + 1 policy + SLO stats + a golden trace, stdlib only
+- **Governance engine as a consumer**: [`examples/minimal_consumer/`](examples/minimal_consumer/) — WeatherBot demo with its own YAML, zero coupling to this repo's PA
+
 ## V37.9.x Series Highlights (2026-05)
 
 | Theme | Versions | What it means |
@@ -262,9 +278,17 @@ python3 mm_index.py && python3 mm_search.py "cat photos"
 ```
 </details>
 
-### Why Zero Dependencies?
+### Dependency Boundary / Why (Almost) Zero Dependencies?
 
-Core services (`tool_proxy.py`, `adapter.py`, `proxy_filters.py`) use **only Python standard library** — `http.server`, `json`, `urllib`. No pip install, no virtual environment, no Docker. This is a deliberate architecture decision: **every dependency you remove is one fewer reason someone can't run your system.**
+Dependencies follow the three product layers exactly (V37.9.144 — clarified after an external reviewer's environment failed 7 test cases for lack of PyYAML):
+
+| Layer | Third-party dependency |
+|-------|------------------------|
+| **Core Runtime** (`tool_proxy.py`, `adapter.py`, `proxy_filters.py`, `providers.py`) | **None.** Python stdlib only — `http.server`, `json`, `urllib`. No pip, no venv, no Docker. |
+| **Governance-Ontology** (`ontology/`) | **PyYAML ≥ 5.4** — the only third-party dep. `pip install openclaw-ontology-engine` pulls it automatically. Test suites touching this layer skip gracefully (with an install hint) when PyYAML is absent. |
+| **Optional capabilities** | KB RAG → `requirements-rag.txt` · multimodal memory → `requirements-mm.txt` · freight scraper → playwright. Each degrades gracefully when missing. |
+
+This is a deliberate architecture decision: **every dependency you remove is one fewer reason someone can't run your system.**
 
 ## Project Structure
 
@@ -396,7 +420,16 @@ All jobs registered in `jobs_registry.yaml`. Validate: `python3 check_registry.p
 
 ### Ontology Sub-Project (V36.2 → V37.9.15 Phase 4 P3 shadow)
 
-> **Phase 4 P3 wiring active (shadow mode)**: 3-gate enforcement (`pre_check / runtime_gate / post_verify`) wired into `tool_proxy.py` request pipeline (V37.9.15). `evaluate_policy(policy_id, context)` handles static + 6 contextual/temporal policies (V37.9.13). 2 policies wired through `proxy_filters` (V37.9.12 + V37.9.13).
+> **Phase 4 P3 wiring active (shadow mode)**: 3-gate pipeline (`pre_check / runtime_gate / post_verify`) wired into `tool_proxy.py` request path (V37.9.15). `evaluate_policy(policy_id, context)` handles static + 6 contextual/temporal policies (V37.9.13). 2 policies wired through `proxy_filters` (V37.9.12 + V37.9.13).
+>
+> **Honest status (V37.9.144, per external review #2): the three gates are today an *observability* asset, not an *enforcement* asset.** Every request produces `[gate:*]` verdict logs, but a `flag` verdict never blocks or rewrites a request. Enforcement that *is* live today sits elsewhere: `filter_tools` hard-truncates to 12 tools and `filter_system_alerts` strips alert contamination — both in `proxy_filters`, policy-informed since V37.9.12/13. Gate rollout phases (aligned with roadmap P3.1 / P3.2 / P4):
+>
+> | Phase | Scope | Status |
+> |-------|-------|--------|
+> | **A — shadow log** | all 6 observed policies produce `[gate:*]` verdicts, zero intervention | ✅ live since V37.9.15 |
+> | **B — low-risk enforce** | `max-request-body-size`, `max-tools-per-agent` (deterministic static limits; failure mode = clean reject, no LLM semantics involved) | planned (needs ≥1 week shadow-flag data review) |
+> | **C — medium-risk enforce** | `alert-context-isolation` post_verify (LLM-output-dependent; false positives possible) | planned, after B stabilizes |
+> | **D — high-risk** | anything that drops/rewrites user-visible content | stays **human-approval only** — not auto-enforced by design |
 > **Phase 4 Layer 5 Convergence Framework (V37.9.19+)**: 5 specs running (`jobs_to_crontab` / `providers_to_adapter` / `openclaw_config_to_runtime` / `kb_sources_to_index` / `services_to_launchd`). `jobs_to_crontab` + `kb_sources_to_index` + `services_to_launchd` 已升级 `machine_sync` (3 specs, Plan B 渐进 dry-run, V37.9.23/24/97, named-dispatch).
 > Roadmap: V37.9.45+ Opportunity Radar 三件套 (跨 source 弱信号聚合 / 项目对齐度 / 趋势加速度) → Phase 5 (`pip install ontology-engine`).
 
