@@ -87,6 +87,9 @@ class TestApplyBadges(unittest.TestCase):
             "[![Providers](https://img.shields.io/badge/providers-3%20supported-orange.svg)]()\n"
             "[![Governance](https://img.shields.io/badge/invariants-10%2F10%20%2B%202%20MR-blueviolet.svg)]()\n"
             "> **Current version:** `v1.0.0` / `0.1.0.0` (2020-01-01) — see [`CLAUDE.md`](CLAUDE.md) for full changelog.\n"
+            # V37.9.144: README 正文两行也由 badge 路径管理, fixture 同步含目标行
+            "## Supported Providers (3)\n"
+            "# Full regression (10 suites / 100 tests / 0 fail; must ALL pass before push)\n"
         )
 
     def test_tests_badge_updated(self):
@@ -133,6 +136,60 @@ class TestProvidersBadgeFailOpen(unittest.TestCase):
         descs = [d for d, s in results]
         self.assertNotIn("providers 徽章", descs)
         self.assertEqual(out, readme)  # providers 徽章未被碰
+
+
+class TestReadmeBodyLineSubs(unittest.TestCase):
+    """V37.9.144 外部评审2 doc-drift 收口: README 正文两行接入 badge 路径机器同步.
+
+    血案: "## Supported Providers (7)" 自 V37.9.52 加 doubao 后手写漂移至今
+    (V37.9.70 修了 10 处 "7 provider*" 字面量但漏了该段头);
+    Testing 段 "V37.9.124: 118 suites / 4099 tests" 带版本标记必然漂移.
+    设计决策: 走 _badge_substitutions 不走 _doc_header_specs — 后者会让 README
+    被 apply_badges/apply_doc_headers 双写者从各自原文计算互相覆盖 (新接缝).
+    """
+
+    def test_providers_section_header_updated(self):
+        readme = "## Supported Providers (7)\n"
+        out, results = grb.apply_badges(readme, _fake_facts(providers=5))
+        self.assertIn("## Supported Providers (5)", out)
+        self.assertEqual(dict(results)["providers 段头"], "CHANGED")
+
+    def test_testing_summary_line_updated(self):
+        readme = "# Full regression (118 suites / 4099 tests / 0 fail; must ALL pass before push)\n"
+        out, results = grb.apply_badges(readme, _fake_facts(test_suites=200, test_count=9999))
+        self.assertIn("# Full regression (200 suites / 9999 tests / 0 fail; must ALL pass before push)", out)
+        self.assertEqual(dict(results)["testing 摘要行"], "CHANGED")
+
+    def test_fail_open_providers_none_skips_header_sub(self):
+        readme = "## Supported Providers (7)\n"
+        out, results = grb.apply_badges(readme, _fake_facts(providers=None))
+        self.assertNotIn("providers 段头", [d for d, _ in results])
+        self.assertIn("## Supported Providers (7)", out)  # 未被碰
+
+    def test_fail_open_suites_none_skips_testing_sub(self):
+        readme = "# Full regression (118 suites / 4099 tests / 0 fail; must ALL pass before push)\n"
+        out, results = grb.apply_badges(readme, _fake_facts(test_suites=None))
+        self.assertNotIn("testing 摘要行", [d for d, _ in results])
+        self.assertEqual(out, readme)
+
+    def test_real_readme_old_versioned_form_eliminated(self):
+        # 旧形式 "# Full regression (V37.9.124: ..." 已退役 (版本标记 = 漂移源),
+        # 防未来重构改回带版本标记形式让 sub 失配 (TOKEN miss → 永久漂移)
+        with open(os.path.join(_REPO, "README.md"), encoding="utf-8") as f:
+            readme = f.read()
+        self.assertNotRegex(readme, r"# Full regression \(V[0-9.]+:",
+                            "README testing 行不得再带版本标记 (V37.9.144 退役)")
+        self.assertRegex(readme, r"# Full regression \(\d+ suites / \d+ tests / 0 fail",
+                        "README testing 行必须保持 sub 可管理的形式")
+
+    def test_real_readme_provider_table_has_doubao_row(self):
+        # 表行内容不是机器管理的统计 token — 内容守卫防 V37.9.52 类"加 provider 漏表行"复发
+        with open(os.path.join(_REPO, "README.md"), encoding="utf-8") as f:
+            readme = f.read()
+        self.assertIn("| **Doubao** (Volcengine Ark, plugin) |", readme,
+                      "provider 表必须含 Doubao 行 (V37.9.144 补齐)")
+        self.assertRegex(readme, r"## Supported Providers \(\d+\)",
+                        "providers 段头必须保持 sub 可管理的形式")
 
 
 class TestCheckModeRealRepo(unittest.TestCase):

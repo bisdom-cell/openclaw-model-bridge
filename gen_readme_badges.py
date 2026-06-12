@@ -198,6 +198,25 @@ def _badge_substitutions(facts):
             "providers 徽章",
             re.compile(r"(badge/providers-)\d+(%20supported)"),
             lambda mm: f"{mm.group(1)}{facts['providers']}{mm.group(2)}"))
+    # ── V37.9.144 外部评审2 doc-drift 收口: README 正文两行接入机器同步 ──
+    # 不走 _doc_header_specs (那会让 README 同时被 apply_badges/apply_doc_headers
+    # 双写者管理, 从各自原文计算互相覆盖 — 新接缝), README 统一由 badge 路径管理.
+    # (1) "## Supported Providers (N)" 段头 — V37.9.52 加 doubao 后手写 (7) 漂移至今
+    if facts.get("providers"):
+        subs.append((
+            "providers 段头",
+            re.compile(r"^## Supported Providers \(\d+\)$", re.MULTILINE),
+            lambda mm: f"## Supported Providers ({facts['providers']})"))
+    # (2) Testing 段 full_regression 摘要行 — 旧形式带版本标记 ("V37.9.124: 118
+    #     suites / 4099 tests") 必然漂移; V37.9.144 起去版本标记 (缩接缝),
+    #     suites/tests 两数字由本工具管理
+    if facts.get("test_suites") is not None:
+        subs.append((
+            "testing 摘要行",
+            re.compile(r"^# Full regression \(\d+ suites / \d+ tests / 0 fail; "
+                       r"must ALL pass before push\)$", re.MULTILINE),
+            lambda mm: (f"# Full regression ({facts['test_suites']} suites / "
+                        f"{facts['test_count']} tests / 0 fail; must ALL pass before push)")))
     return subs
 
 

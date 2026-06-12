@@ -166,7 +166,7 @@
 | Local Embedding | — | `local_embed.py` | sentence-transformers (384-dim, 50+ languages), zero API calls |
 | Remote LLM | — | 8 providers | Qwen3-235B / GPT-4o / Gemini 2.5 / Claude Sonnet / Kimi K2.5 / MiniMax M2.7 / GLM-5 / **Doubao Seed 2.0 Pro** (Volcengine, V37.9.52) |
 
-## Supported Providers (7)
+## Supported Providers (8)
 
 | Provider | Default Model | Context | Vision | Auth | Verified |
 |----------|--------------|---------|--------|------|----------|
@@ -177,6 +177,7 @@
 | **Kimi** (Moonshot AI) | Kimi K2.5 (1T MoE) | 256K | built-in | Bearer | available |
 | **MiniMax** | MiniMax M2.7 | 200K | built-in | Bearer | available |
 | **GLM** (Zhipu AI) | GLM-5 (744B MoE) | 200K | GLM-5V-Turbo | Bearer | available |
+| **Doubao** (Volcengine Ark, plugin) | Doubao Seed 2.0 Pro | 262K | built-in | Bearer | 5/6 (production) |
 
 All providers use **OpenAI-compatible API** format. Adding a new provider: see [docs/compatibility_matrix.md](docs/compatibility_matrix.md).
 
@@ -570,7 +571,7 @@ The `auto_deploy.sh` script maps 84 repo files to runtime locations (V37.9.43-ho
 ## Testing
 
 ```bash
-# Full regression (V37.9.124: 118 suites / 4099 tests / 0 fail; must ALL pass before push)
+# Full regression (124 suites / 4344 tests / 0 fail; must ALL pass before push)
 bash full_regression.sh
 
 # Individual test suites (run full_regression.sh for totals)
