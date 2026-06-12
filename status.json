@@ -1,6 +1,6 @@
 {
-  "updated": "2026-06-12 02:59:32",
-  "updated_by": "claude_code",
+  "updated": "2026-06-12 15:38:51",
+  "updated_by": "full_regression",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-06-12",
+      "what": "V37.9.144: ArXiv 背书生效投稿恢复 (终核 zip/署名/快照全过, 步骤交用户) + 外部评审2 P1 四子项完整兑现 — (a) README 三层产品边界叙事 (b) examples/minimal_runtime 10 分钟最小入口 (golden trace 自校验 + 15 单测) (c) PyYAML 依赖边界 (评审者环境 7 errors → skipUnless 优雅跳过) (d) three-gate observability 诚实叙事 + gates_rollout_phases A→D 形式化. 顺手: README providers 段头 (7→8) + Doubao 表行 + testing 行 doc-drift 收口接入 badges 机器同步. 销项 #23 #24. 125 suites/4365 tests/0 fail",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-12",
       "what": "外部评审2 P0 完整闭环: 用户 Mac Mini 跑 slo_benchmark.py --save 真实数据重生成报告并入库 (main 1273d3c) — 25 请求 OBSERVING 诚实判定 (替换旧 samples=1 ALL PASS) + Tool N_A_NO_TOOL_CALLS 四态真实生效 + 24h/7d 双窗口首次有数据 (595 快照: 24h avg p95 42.8s / 7d avg p95 47.9s, 11348 请求 97.94% 成功) + Threshold Rationale 正文段. P0(a)+(b) 双销项",
       "by": "claude_code"
     },
@@ -158,51 +163,6 @@
       "date": "2026-06-11",
       "what": "V37.9.137 🎉 openclaw-ontology-engine 0.1.0 正式发布 PyPI (终极目标 pip install ontology-engine 达成): dev 容器 upload 被网络 allowlist 拦 → 用户 Mac Mini 按 runbook 4 命令上传成功. 发布后三层冒烟 (dev 从真 PyPI): JSON API 200 + 干净 venv pip install → import ontology_engine + 16 tools + 2 console scripts + WeatherBot config-injection 审计 exit=0 零 drift. token 已要求用户撤销. V37.9.99-pkg (6/2) → V37.9.137 (6/11) 9 天包化到公开发布. https://pypi.org/project/openclaw-ontology-engine/0.1.0/",
       "by": "user+claude_code"
-    },
-    {
-      "date": "2026-06-11",
-      "what": "V37.9.136 三任务清场 (为 ArXiv 论文 session 扫清障碍): ① OpenClaw 6/15 前置验证提前完成 — GO (v2026.4.27, 6/20 窗口维持). 实证: #59265 仍无 fix (G2→目标 4.27) / 4.27 未 deprecated 43 天稳定 + notes 确认含 #73358 fix / 6.x SQLite migration 仍动荡避开正确 / G3 G4 对 4.27 路径 N/A. 新发现 2 个升级日验证项 (WhatsApp plugin activation.onStartup + Discord private 默认) 登记 eval doc 15.2. LAST_EVAL_DATE→6/11. ② assertion:→code: 迁移 (unfinished #10 兑现): 55 处全迁 + byte-identical 验证 + 防回退守卫 (反向验证过) + _check_code 兼容保留. 827 checks. ③ PyPI 准备到只欠 token: build + venv twine check 双 PASSED (发现系统 packaging<24.2 假阳性陷阱) + 分发名 openclaw-ontology-engine 实证可用 (404). 上传 runbook 写入 packaging.md §7.2. 121 suites/4286 tests/0 fail",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-06-11",
-      "what": "V37.9.135 S2 关键词 6→12 恢复 (unfinished #30 兑现): 认证模式稳定核实后补回 V37.8.13 砍掉的 6 个 ontology/KR 关键词 (与 DBLP 同源 12 集对齐, V37.1 设计意图恢复). 预算 12×2s=24s 认证模式. 5 新守卫单测 (含 DBLP 同源对齐守卫防两侧漂移) + 反向验证 (sabotage 删关键词 3 守卫同抓). 顺手销 stale 待办 [18] auto_deploy 双行 (V37.9.116/120 + 6/11 清理已三阶段闭环). 121 suites/4286 tests/0 fail. VERSION 不变 (source 配置). 生效: 明日 11:00 S2 cron 12 关键词认证模式, 观察零 429 + ontology/KR 论文覆盖回归",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-06-11",
-      "what": "V37.9.134 cross_os_quirk_scanner 第 6 pattern (subshell_errtrace_designed_nonzero): V37.9.131 候选元规则 subshell-inherits-errtrace-under-bash32 兑现为机器化检测 (2 实例 3 处达门槛: V37.9.105-hotfix governance_audit ×2 + V37.9.131 watchdog SLO). 检测口径两轮校准: 真毒模式=被调命令把非零 exit 当正常 API (governance_checker/slo_checker), || 捕获防不了子shell 内 trap fire (V37.9.105 铁证), 唯一豁免 set +E 包裹. basename 清单 + 审计 flag 启发 (--alert/--check/--validate/--full, watchdog 行内 $SLO_SCRIPT 变量必须靠 flag) + set +E 状态机. repo scan 0 violations (3 历史点全在豁免区且 pattern 全命中 = 删包裹立即抓). 日落法 sunset 决策: 不立独立 MR (scanner+INV 已机器化, 复用 MR-7), 0 新 INV / +1 check. 13 新单测 (27→40) + 反向验证两层 (真删 watchdog set +E → scanner 精确抓 L735 / 检测函数瘫痪 → 6 测试 fail). INV-CROSS-OS-001 7→8 checks + 血案元组 4→6 + RUNTIME check 名去硬编码计数. 121 suites/4281 tests/0 fail/gov 90 inv exit 0. unfinished #28 闭环",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-06-11",
-      "what": "unfinished #9 关闭 (用户记忆核实正确): S2 API key 早已申请+配置完成 — Mac Mini log 实证 6/8 起每天 11:00 cron 认证模式 (2s 间隔) 稳定运行, 5/28 匿名池 429 已根治. 旁证: V37.9.99 代码注释的邮件限额措辞 (1 RPS 设到阈值以下) 来自真实发放邮件. 衍生低优候选登记: 关键词 6→12 恢复覆盖",
-      "by": "user+claude_code"
-    },
-    {
-      "date": "2026-06-11",
-      "what": "V37.9.133 双交付 (1+2 捆绑, 用户选): ① services_to_launchd flip dry_run_default true→false 真激活 machine_sync (过期门控项 #6 闭环, V37.9.97 6/1 起步 dry-run 十天观察零异常; 真 bootstrap 仅 operator 手动跑时发生 — 07:00 cron 带 CONVERGENCE_DRY_RUN=1 仍只观察, 与 jobs/kb 语义一致; e2e 测试按 V37.9.113 隔离纪律改显式 env; meta version 0.9→1.0-all-machine-sync-activated; 3 处 meta version regex 升级接受 1.x) ② chunk 5 PyPI 包化收尾 (终极目标最后一块): python3 -m build 首次真实构建 sdist 325KB+wheel 312KB / venv 从 wheel 隔离安装冒烟 / WeatherBot config-injection 零 bridge 泄漏 / venv console script 真跑审计 exit=0 / pyproject 补 license=MIT+readme=PACKAGE_README.md(新建英文 PyPI 门面)+classifiers / .gitignore 加 dist. 6+6 新守卫测试 + 反向验证. 121 suites/4268 tests/0 fail/gov exit=0. 包已 publish-ready, 实际 PyPI 上传待用户账号决策",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-06-11",
-      "what": "V37.9.132 deep_dive 76% 摘要级结构 gap 修复 (用户视角发现 34/45 摘要级, 选方案 A): 根因 = TIER_1 六源仅 arxiv/acl 能派生 PDF, dblp (doi 优先压 arxiv)/hf (hf.co 页面)/S2 无 arxiv 论文必然降级 — 数据一直在 (S2 有 arxiv_id, dblp ee 含 arxiv, hf paper_id 即 arxiv id) 只是链接构造没用. 修: dblp arxiv>doi>url 三档 / hf arxiv.org/abs 直链+格式守卫 fallback / S2 FIELDS+openAccessPdf 三档链 (arxiv>OA .pdf>S2页面). deep_dive 零改动. 26 新单测 (literal-as-guard 模式) + 反向验证 + 7 现有套件零破坏. 121 suites/4262 tests/0 fail. 生效: 明日 cron 起新 KB 条目 arxiv 优先, 明晚 22:30 deep_dive 首次受益. 诚实预期: 付费墙论文仍摘要级, 占比从 76% 显著下降不会到 0",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-06-11",
-      "what": "unfinished #25 闭环 (Mac Mini 用户执行): auto_deploy 残留清理 — crontab_safe.sh remove 删 HOME 路径行 (42→41 条, line 54) + rm ~/auto_deploy.sh 删 HOME 副本. auto_deploy 现为 ONE crontab 行 (repo 路径) + ONE 副本 (repo clone), V37.9.106→111→116→120 四版本追踪的双行问题彻底终结. INV-CRON-004 转绿. 同时 V37.9.129 adapter 重启验证生效 (0.37.9.70 + fallback_chain:[doubao]) + 治理审计其余全绿",
-      "by": "user+claude_code"
-    },
-    {
-      "date": "2026-06-10",
-      "what": "V37.9.131 watchdog SLO 子shell ERR trap 误报修复: 20:30 FATAL line=728 告警数据驱动诊断 — watchdog 主体未死 (canary 正常+告警汇总照常), 是 bash 3.2 + set -E 让 $(...) 子shell 继承 ERR trap, slo_checker 设计性 exit 2 (harvest 大请求拉高 p95=62704ms 首次违规) 在子shell 内误触发 FATAL. V37.9.105-hotfix 同款 quirk 第3处演出 (当时横向漏扫 watchdog, 原则#31 又一次). 修复 set +E 包裹 + || 捕获 (governance_audit 同款). 6 新守卫单测含行为级真跑 + 反向验证 + 2 处 alternation (V37.9.66 守卫升级 + v37_9_69 硬编码 count 改 baseline). 120 suites/4236 tests/0 fail. VERSION 不变. 候选元规则 subshell-inherits-errtrace-under-bash32 登记 (2 实例达门槛, V37.9.132+ 评估 scanner 第6 pattern)",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-06-10",
-      "what": "V37.9.130 kb_harvest Reduce 超时血案修复 (follow-up #22 闭环, 用户选): 层级分批 Reduce (_reduce_hierarchical 每批≤4段 9→3→1, 3次~18K小请求替代1次~40K大请求) + REDUCE_TIMEOUT 120→300s (镜像 V37.9.129 doubao) + _llm_call_with_retry (Map/Reduce retry 1次) + _mechanical_dedup fail-soft (LLM失败机械行级去重兜底+轮级熔断, KB标[REDUCE_DEGRADED], 零数据丢失) + 2个隐藏 MR-4 一并修 (Map全失败被当无关键内容→mark_processed永久丢数据伪装成功 / --days 1 失败日永不自动重试→默认3幂等补提炼) + last_run 加 degraded/map_failed 字段 (status 枚举不变守 V37.9.72 watchdog 契约). 29 新单测 (28→57) + 反向验证三层守卫真有效 + HOME 隔离端到端真跑. 历史 debt 补登: test_harvest_chat.py V37.1 起从未注册 full_regression 本次接入. 119→120 suites / 4173→4230 tests / 0 fail / 90 inv 不变 / 安全 95. VERSION 0.37.9.69→0.37.9.70. Mac Mini 待 git reset + 手动补提炼 6/3-6/4",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -277,10 +237,8 @@
       "V37.9.129 follow-up (DEFER, 登记): adapter fallback 循环读 upstream error body (观察性, MR-13/INV-OBSERVABILITY-001 候选)。今天诊断难正因 adapter fb_errors.append(str(fb_err)) 对 HTTPError 只给 'HTTP Error 400: Bad Request' 不读 body, 需直连 gemini 才看到 'User location not supported'。修法: adapter 复用 proxy_filters.compose_backend_error_str (V37.8.10) 或 inline helper。DEFER 原因: gemini 退役后其 400 body moot + doubao timeout 无 informative body + 引入 adapter→proxy_filters 耦合 (日落法 #34 防御本身是事故面)。价值降低非紧急, 但对未来其他 provider HTTP 错误诊断仍有价值。",
       "V37.9.130 生产验证已通过 (2026-06-11 Mac Mini 实跑): 6/4 真实血案数据 9 chunks 重跑 — hierarchical r1 b1/3(6740c)+b2/3(6220c)+r2(8524c) 3 次小请求零失败零降级, 48 条精华入 KB, 6/3 已确认处理过, 断流全闭环. 同数据对照证实根因=单请求规模非纯超时 (同 9 Map 段, 单次 40K 两次超时 vs 3 次 7K 一次全过). 剩余低优 follow-up: (a) final Reduce max_tokens=2000 被 48 条打满产尾部残行 \"- [\" (finish_reason=length), 超大对话日边界 — V37.9.131+ 评估 2000→3000 或 emit 前剥尾部残行 (b) 长期观察 last_run degraded/map_failed 字段, 频繁 degraded → 评估 REDUCE_BATCH_SIZE 调小或 doubao 显式路由",
       "V37.9.132 一周观察 (~6/18): deep_dive 摘要级占比应从 76% (34/45) 显著下降 — Mac Mini 验证: grep -L \"基于摘要的分析\" ~/.kb/deep_dives/*.md 看 6/12 后新增文件多数应为全文级. 若仍高: (a) 查 dblp ee 字段 arxiv 覆盖率 (b) S2 openAccessPdf .pdf 结尾比例 (非 .pdf OA 链接保留 S2 页面是有意取舍) (c) 候选增强: deep_dive mode (full_text/abstract_only) 占比纳入 daily_observer 报告让 degrade 频率可观测 (本次 76% gap 潜伏 2 个月才被用户发现的根因是 degrade 频率无聚合复盘)",
-      "S2 关键词覆盖恢复候选 (低优): S2 API key 已确认配置且认证模式稳定运行 (2026-06-11 Mac Mini log 核实, 6/8 起每天 11:00 认证模式 2s 间隔, 5/28 匿名池 429 已根治). 可选增强: 关键词 6→12 恢复 V37.8.13 因 429 砍半的覆盖 (认证 1 RPS 下 12 关键词仅多 ~12s, 安全). 顺带: V37.9.98 line 98 注释\"即时发放\"与 V37.9.99 修正\"审核制\"矛盾, 下次触碰该文件时顺手清",
-      "【外部评审2 P1 · 拆层叙事+依赖边界】(a) README/docs 明确三层产品边界: Core Runtime (adapter/providers/proxy/SLO/fallback) / Governance-Ontology (engine/governance/convergence/three-gate, 已 PyPI) / Personal-PA-Example (WhatsApp/KB jobs/SOUL/cron) — 让外部用户知道哪些是核心框架哪些是作者 PA 配置实例; 现有完整系统即 examples/personal_pa 的活样本, 拆层 = 文档叙事非代码搬家 (日落法). (b) examples/minimal_runtime 最小入口 (1 provider+1 tool+1 policy+1 SLO stats+golden trace, 与 minimal_consumer ontology demo 互补, 评审'10 分钟最小例子+完整生产例子双入口'). (c) requirements.txt/README 依赖边界澄清: core 零依赖 vs ontology engine 需 PyYAML>=5.4 — 评审者环境 7 用例因缺 PyYAML 失败; 顺带 test_ontology_packaging 加 skipUnless(yaml) 优雅跳过+提示语替代 ImportError 红字. (d) three-gate 对外叙事区分 已强制执行 vs 已接入观测 (shadow 现状), 收敛路线形式化为 Phase A shadow-log → B 低风险 enforce (max body/max tools) → C 中风险 (alert-context isolation) → D 高风险保留 human approval (评审建议, 与 roadmap P3.1/P3.2/P4 对齐)",
       "【外部评审2 P2 · 生态与基准扩展】(a) Provider 验证四档字段化: verification_tier (declared/smoke_tested/feature_verified/production_observed) 进 providers.py 数据模型, 矩阵自动产出替代 V37.9.142 手写档位表. (b) Reliability Bench 扩展 10 候选场景 (Provider API schema drift/streaming 中断/tool result oversized/JSON malformed repair/fallback 也失败/memory index stale/cron duplicate fire/config partial corruption/DNS fail/long-context 截断质量回归) 朝行业可引用测试集方向. (c) ontology engine 仓库外独立 dogfood: 新建独立 toy 仓库 (不依赖本仓库路径/不依赖 OpenClaw) pip install openclaw-ontology-engine + 自己 YAML 端到端 + console scripts 可运行 + docs 不泄漏个人 PA 概念 (in-repo WeatherBot V37.9.104 已验证 config-injection, gap 是 out-of-repo). (d) complexity budget 评估: 每版本报告新增/删除文件数+check 数+env var 数+cron/job 数+新状态源 — 与日落法张力 (勿为预算加新机器), 候选实现 = changelog 惯例字段 + 收工清单一行, 硬规则候选: 新增 runtime path 须退役一个旧 path / 新 invariant 须说明防哪类历史事故 (已是惯例) / 新 job 须定义 silence timeout+degrade 策略. (e) 话语权候选文章: Why Agent Runtime Needs a Control Plane, Not Another Wrapper (why_control_plane.md 续篇, 双外部评审 7.8/10 对照作素材)",
-      "【遗留 · 高优】ArXiv 论文投稿 — 卡在 endorsement 等待教授背书 (2026-06-11 收工时状态). 已完成: 第一稿+LaTeX 工程 (18 页 PDF Overleaf 编译通过, 5 图 2 表 14 refs 全验证) + 署名 Wei Wu + 引用 arXiv API 终核 100% 一致 + arXiv 账号注册 + 提交流程走到 cs.SE 分类 → endorsement 拦截 → code NT9TFE 已生成并发教授, 等待背书 (背书人资格: 5 年内任意 cs 子类 3 篇, 操作 arxiv.org/auth/endorse 输码 1 分钟). **生效检测协议 (2026-06-11 用户问'如何知道生效', 不用反复问教授)**: ① 留意注册邮箱 (含垃圾箱, 发件域 arxiv.org) — arXiv 惯例会发背书确认邮件但官方文档未权威证实, 勿依赖 ② 确定性自查 (每天 1 次 1 分钟): 登录 arxiv.org/user → 打开保存的那份 submission → 尝试继续 — endorsement 拦截页消失即生效, 这是 ground truth ③ 3-5 个工作日无动静 → 轻提醒教授一次或换备选背书人 (资格同上); code 如失效可在提交流程重新生成. 恢复路径 (背书生效后, 即时): arxiv.org/user 回到提交 → License 选 CC BY 4.0 → primary cs.SE + cross-list cs.AI/cs.DC → 上传 paper_latex.zip (repo latex/ 目录有备份) → 元数据从 ARXIV_SUBMISSION_GUIDE.md §4.6 整段复制 (Title/Abstract/Comments 已备好) → Preview → Submit. 上线拿到 arXiv ID 后告诉 Claude → 发布配套: README/status.json/CLAUDE.md 链接更新 + 中文科普版 (知乎传播层) + data_inventory 终版归档 + 日落法清理 paper_latex.zip convenience artifact. 若教授无资格/不便: 找任何 5 年内 cs 区发过 3 篇的研究者均可."
+      "【遗留 · 高优】ArXiv 论文投稿 — endorsement 已生效 (2026-06-12 用户确认), 投稿恢复执行中. 投稿前终核已过 (zip↔.tex 9/9 一致 + 署名 Wei Wu 无占位 + 快照语义 2026-06-11 cutoff 合法不追新数字). 用户侧步骤: arxiv.org/user 续提交 → CC BY 4.0 → cs.SE + cross-list cs.AI/cs.DC → 上传 zip → §4.6 元数据 → Preview → Submit (周五 ET 14:00 前 → 周日晚 announcement = 香港周一早). **拿到 arXiv ID 告诉 Claude → 发布配套**: README/status.json/CLAUDE.md 链接更新 + 中文科普版 (知乎传播层) + data_inventory 终版归档 + 日落法清理 paper_latex.zip convenience artifact."
     ],
     "open_prs": "",
     "blocked_on": "",
@@ -346,11 +304,11 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 4344,
-    "last_regression": "2026-06-12 02:37 pass",
+    "test_count": 4365,
+    "last_regression": "2026-06-12 15:38 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-12 02:37",
-    "test_suites": 124,
+    "security_score_time": "2026-06-12 15:38",
+    "test_suites": 125,
     "governance_invariants": "90/90",
     "governance_checks": "734/748",
     "version": "0.37.9.70",
@@ -418,7 +376,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "本周焦点: ArXiv 论文等待 endorsement (唯一阻塞, 每日 arxiv.org/user 自查 ground truth, 生效后按 unfinished ArXiv 项恢复路径即时投稿). 外部评审2 P0 已完整闭环 (6/12): (a) SLO 报告 Mac Mini 真实数据重生成入库 — OBSERVING 诚实判定 + 四态 N_A + 24h/7d 双窗口 595 快照真数据; (b) compatibility_matrix 漂移防护机器化进 full_regression. 下一 session 候选: 评审 P1 (三层产品边界拆层叙事 / examples/minimal_runtime / PyYAML 依赖边界澄清) 或 ArXiv 恢复投稿 (背书生效则优先). 观察项: 7d avg p95 47.9s 贴近 50s 阈值 (unfinished SLO #19 Qwen3 退化观察延续) / 6/18 deep_dive 摘要级复盘 / S2 12 关键词首跑 log.",
+  "focus": "本周焦点: ArXiv 投稿执行中 (背书 6/12 生效, 用户侧 Submit + 等 announcement; 拿到 arXiv ID 后 Claude 做发布配套). 外部评审2 P1 已完整闭环 (V37.9.144 a/b/c/d: 三层产品边界叙事 + examples/minimal_runtime 双入口 + PyYAML 依赖边界 + three-gate 诚实叙事 A→D 路线). 下一 session 候选: ArXiv 发布配套 (ID 到手则优先) 或 评审 P2 (verification_tier 字段化 / Reliability Bench 10 场景 / 仓库外 dogfood / 话语权续篇). 观察项: 7d avg p95 47.9s 贴近 50s 阈值 / 6/18 deep_dive 摘要级复盘 / S2 12 关键词首跑 log.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
