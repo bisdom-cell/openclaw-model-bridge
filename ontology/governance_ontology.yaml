@@ -2383,6 +2383,18 @@ invariants:
           try:
               repo_dir = os.getcwd()
               shutil.copy(os.path.join(repo_dir, "kb_review.sh"), tmp)
+              # V37.9.145: stub openclaw — 本 check 与真 openclaw CLI 解耦.
+              # 血案: 4.27 CLI 冷调用 ~40s CPU + 10s WS 超时, kb_review.sh 推送步
+              # 在 Mac Mini 上吃掉本 check 的 30s subprocess 超时 → 💥 (2026-06-12
+              # 20:30 watchdog "治理审计 fail" 真因). 历史上 check 通过只是因为
+              # 旧版 CLI 秒败 — 治理 runtime 测试不得依赖生产 CLI 的存在性/延迟
+              # (MR-23 audit-observes-never-mutates + V37.9.110/113/116 隔离同族).
+              bindir = os.path.join(tmp, "bin")
+              os.makedirs(bindir, exist_ok=True)
+              stub = os.path.join(bindir, "openclaw")
+              with open(stub, "w") as f:
+                  f.write("#!/bin/sh\nexit 0\n")
+              os.chmod(stub, 0o755)
               mock = os.path.join(tmp, "kb_review_collect.py")
               with open(mock, "w", encoding="utf-8") as f:
                   f.write(
@@ -2404,10 +2416,11 @@ invariants:
               result = subprocess.run(
                   ["bash", os.path.join(tmp, "kb_review.sh")],
                   env={
-                      "PATH": "/usr/bin:/bin:/usr/local/bin:/opt/homebrew/bin",
+                      "PATH": bindir + ":/usr/bin:/bin:/usr/local/bin:/opt/homebrew/bin",
                       "KB_BASE": kb_dir,
                       "KB_REVIEW_REGISTRY": os.path.join(tmp, "jobs_registry.yaml"),
                       "OPENCLAW_PHONE": "+85200000000",
+                      "OPENCLAW": stub,
                       "HOME": tmp,
                   },
                   capture_output=True, text=True, timeout=30,

@@ -785,8 +785,11 @@ if [ -f "$KB_INDEX" ]; then
         IDX_MOD=$(stat -c %Y "$KB_INDEX" 2>/dev/null || echo "0")
     fi
     IDX_AGE=$(( NOW_EPOCH - IDX_MOD ))
-    # kb_embed 每4小时运行，12小时未更新 = 异常
-    if [ "$IDX_AGE" -gt 43200 ]; then
+    # V37.9.145: kb_embed 是日更 job (registry interval "30 3 * * *" 每天 03:30 一次,
+    # 为 04:00-06:00 LLM 黄金窗口让路) — 旧注释"每4小时"+12h 阈值是 stale, 让日更
+    # job 每天 15:30 后必然误报 (V37.9.28 F3 schedule-vs-threshold drift 同族).
+    # 阈值 = 24h max gap + 3h slack = 97200s (27h)
+    if [ "$IDX_AGE" -gt 97200 ]; then
         IDX_HOURS=$((IDX_AGE / 3600))
         ALERTS+=("KB 向量索引 ${IDX_HOURS}h 未更新（kb_embed 可能未运行）")
     fi

@@ -898,5 +898,46 @@ class TestKbReviewShellRuntime(unittest.TestCase):
             _sh.rmtree(tmp, ignore_errors=True)
 
 
+class TestGovernanceRuntimeCheckIsolation(unittest.TestCase):
+    """V37.9.145: INV-REVIEW-001 runtime check 必须与真 openclaw CLI 解耦.
+
+    血案 (2026-06-12): 4.27 CLI 冷调用 ~40s CPU + 10s WS 超时, check 的 PATH 含
+    /opt/homebrew/bin → kb_review.sh 推送步真调生产 openclaw → 吃掉 30s subprocess
+    超时 → 💥 "治理审计 fail" (watchdog 20:30 告警). 历史通过只因旧版 CLI 秒败.
+    守卫: yaml check 必须 stub openclaw (tmp bindir 优先 PATH + OPENCLAW env),
+    治理 runtime 测试不依赖生产 CLI 的存在性/延迟 (MR-23 + V37.9.110/113/116 同族).
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        repo = os.path.dirname(os.path.abspath(__file__))
+        with open(os.path.join(repo, "ontology", "governance_ontology.yaml"),
+                  encoding="utf-8") as f:
+            yml = f.read()
+        i = yml.find("V37.5.1 runtime: 真实 subprocess 执行 kb_review.sh")
+        cls.check_block = yml[i:i + 4000] if i >= 0 else ""
+
+    def test_check_exists(self):
+        self.assertTrue(self.check_block, "INV-REVIEW-001 V37.5.1 runtime check 必须存在")
+
+    def test_stub_openclaw_created(self):
+        self.assertIn('stub = os.path.join(bindir, "openclaw")', self.check_block,
+                      "V37.9.145: check 必须创建 openclaw stub")
+        self.assertIn("os.chmod(stub, 0o755)", self.check_block)
+
+    def test_bindir_first_in_path(self):
+        self.assertIn('"PATH": bindir +', self.check_block,
+                      "V37.9.145: stub bindir 必须排在 PATH 最前 (拦截裸 openclaw 调用)")
+
+    def test_openclaw_env_points_to_stub(self):
+        self.assertIn('"OPENCLAW": stub', self.check_block,
+                      "V37.9.145: OPENCLAW env 双保险 (覆盖 $OPENCLAW_BIN 类形态)")
+
+    def test_blood_lesson_marker(self):
+        self.assertIn("V37.9.145", self.check_block)
+        self.assertIn("MR-23", self.check_block,
+                      "必须引用 MR-23 audit-observes-never-mutates 谱系")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
