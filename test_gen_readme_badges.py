@@ -422,6 +422,72 @@ class TestDocHeaderReverseValidation(unittest.TestCase):
         self.assertEqual(dict(results)["governance 版本"], "CHANGED")
 
 
+class TestMultiSpecSameFileFold(unittest.TestCase):
+    """V37.9.144 血案回归: 同文件多 spec 必须顺序折叠, 不得互相覆盖.
+
+    血案: V37.9.142 给 FEATURES 加第二个 spec (正文测试行) 后, apply_doc_headers
+    的 out[rel] dict 覆盖让第二个 spec (从磁盘原文计算) 吞掉第一个 spec (header)
+    的 drift — 正文行同步时 header 漂移永久假绿, FEATURES header 停在 v37.9.141
+    两天, V37.9.143 收工 + 次日开工 --check 均未抓到. 直到证据回写让正文行也漂移
+    才暴露 (守卫自身聚合层的 MR-7 盲区).
+    """
+
+    def _fake_repo(self, header_line, body_line):
+        import tempfile
+        td = tempfile.mkdtemp()
+        os.makedirs(os.path.join(td, "docs"), exist_ok=True)
+        with open(os.path.join(td, "docs", "FEATURES.md"), "w", encoding="utf-8") as f:
+            f.write(header_line + "\n\nbody intro\n\n" + body_line + "\n")
+        return td
+
+    # 血案场景: header 漂移 (旧版本/旧 tests) + 正文行与权威值同步
+    _STALE_HEADER = ("> v1.0.0 (2000-01-01) | **1 tests** / 1 suites / 0 fail | "
+                     "**5 providers** | 1 checks | 1 MRD scanners | security 88/100 | "
+                     "30 blood-lesson case docs | 42 governance invariants x | 7 meta-rules")
+    _SYNCED_BODY = "| **测试** | 200 套单测 | 9999 用例全部通过 | x |"
+
+    def test_blood_lesson_header_drift_not_swallowed_by_synced_body(self):
+        td = self._fake_repo(self._STALE_HEADER, self._SYNCED_BODY)
+        out = grb.apply_doc_headers(td, _fake_facts())
+        new_text, results, orig = out["docs/FEATURES.md"]
+        self.assertNotEqual(new_text, orig,
+                            "header 漂移必须被检测 — 即使正文行已同步 (血案核心断言)")
+        self.assertIn("v99.9.9", new_text, "header 版本 token 必须被修复")
+
+    def test_results_accumulate_across_both_specs(self):
+        td = self._fake_repo(self._STALE_HEADER, self._SYNCED_BODY)
+        out = grb.apply_doc_headers(td, _fake_facts())
+        descs = [d for d, _ in out["docs/FEATURES.md"][1]]
+        self.assertIn("version+date", descs, "第一个 spec (header) 的结果不得被覆盖")
+        self.assertIn("tests body", descs, "第二个 spec (正文行) 的结果也保留")
+
+    def test_write_output_contains_both_fixes_when_both_stale(self):
+        stale_body = "| **测试** | 3 套单测 | 5 用例全部通过 | x |"
+        td = self._fake_repo(self._STALE_HEADER, stale_body)
+        out = grb.apply_doc_headers(td, _fake_facts())
+        new_text, _, orig = out["docs/FEATURES.md"]
+        self.assertNotEqual(new_text, orig)
+        self.assertIn("**9999 tests**", new_text, "header tests 修复")
+        self.assertIn("9999 用例全部通过", new_text, "正文行修复 — 必须基于前序输出累积")
+        self.assertIn("200 套单测", new_text)
+
+    def test_orig_is_first_disk_read_not_intermediate(self):
+        td = self._fake_repo(self._STALE_HEADER, self._SYNCED_BODY)
+        out = grb.apply_doc_headers(td, _fake_facts())
+        _, _, orig = out["docs/FEATURES.md"]
+        self.assertIn("v1.0.0", orig, "orig 必须是磁盘原文 (drift 判定基准)")
+
+    def test_real_repo_features_header_version_matches_authority(self):
+        # 永久守卫: 真仓库 FEATURES header 版本必须与 CLAUDE.md 权威版本一致
+        # (血案的 user-visible 症状是 header 停在旧版本 — 这里直接锁死)
+        facts = grb.compute_facts(_REPO)
+        header = open(os.path.join(_REPO, "docs", "FEATURES.md"),
+                      encoding="utf-8").read().split("\n")
+        vline = next(l for l in header if l.startswith("> v"))
+        self.assertIn(facts["version_label"], vline,
+                      f"FEATURES header 版本停在旧值: {vline[:60]}")
+
+
 class TestSourceLevelGuards(unittest.TestCase):
     def setUp(self):
         with open(_SCRIPT, encoding="utf-8") as f:

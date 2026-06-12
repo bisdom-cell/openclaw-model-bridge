@@ -352,16 +352,28 @@ def _apply_one_doc(text, anchor_re, tokens):
 
 
 def apply_doc_headers(repo_root, facts):
-    """对 3 个 doc 应用 header 统计同步. 返回 {rel: (新文本或None, [(描述,状态)], 原文或None)}."""
+    """对 doc 应用 header 统计同步. 返回 {rel: (新文本或None, [(描述,状态)], 原文或None)}.
+
+    V37.9.144 血案修复: 同一文件可有多个 spec (V37.9.142 起 FEATURES = header +
+    正文测试行两个). 旧实现 out[rel] 直接覆盖 — 第二个 spec 从磁盘原文重新计算,
+    把第一个 spec 的 drift 检测结果整个吞掉 (正文行同步时 header 漂移永久假绿,
+    FEATURES header 停在 v37.9.141 两天未被任何 --check 抓到). 修复 = 同 rel 顺序
+    折叠: spec N 的输出文本作为 spec N+1 的输入, results 累积, orig 取首次磁盘原文.
+    """
     out = {}
     for rel, anchor_re, tokens in _doc_header_specs(facts):
         path = os.path.join(repo_root, rel)
-        if not os.path.isfile(path):
-            out[rel] = (None, [("(file)", "FILE_NOT_FOUND")], None)
-            continue
-        text = _read(path)
+        if rel in out and out[rel][0] is not None:
+            # 同文件后续 spec: 在前序 spec 的输出上继续应用 (不回读磁盘)
+            text, prev_results, orig = out[rel]
+        else:
+            if not os.path.isfile(path):
+                out[rel] = (None, [("(file)", "FILE_NOT_FOUND")], None)
+                continue
+            text = _read(path)
+            prev_results, orig = [], text
         new_text, results = _apply_one_doc(text, anchor_re, tokens)
-        out[rel] = (new_text, results, text)
+        out[rel] = (new_text, prev_results + results, orig)
     return out
 
 
