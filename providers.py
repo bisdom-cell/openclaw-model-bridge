@@ -33,6 +33,29 @@ logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
+# Verification tiers — 诚实标注 "支持" ≠ "生产验证" (V37.9.146 字段化)
+# ---------------------------------------------------------------------------
+# 四档语义 (递增): declared < smoke_tested < feature_verified < production_observed
+#   declared           — 能力仅来自文档/配置声明，未实测
+#   smoke_tested       — 最小 text 调用通过
+#   feature_verified   — 分项 E2E 实测通过 (但未真生产流量)
+#   production_observed — 真实生产流量运行过 (最强声明)
+# 字段化目的: 退役 docs/compatibility_matrix.md 手写档位表, 由 providers.py 机器直出
+# (gen_compat_matrix.py --check 守卫), 同时 tier 声明与 verified_* 布尔可证一致
+# (tier_consistency_violations, 防"改了 verified_* 忘改 tier"的漂移 = 一物一形)。
+TIER_DECLARED = "declared"
+TIER_SMOKE_TESTED = "smoke_tested"
+TIER_FEATURE_VERIFIED = "feature_verified"
+TIER_PRODUCTION_OBSERVED = "production_observed"
+VERIFICATION_TIERS = (
+    TIER_DECLARED, TIER_SMOKE_TESTED, TIER_FEATURE_VERIFIED, TIER_PRODUCTION_OBSERVED,
+)
+# declared 档位的依据 = 派生常量 (能力声明 + 合约校验, 0 生产验证, 无 key),
+# 对所有 declared provider 一致 → 单一真理源, 不在每个 provider 重复手写。
+_DECLARED_TIER_EVIDENCE = "能力声明完整 + 合约校验通过，0/N 生产验证（无 API key 配置）"
+
+
+# ---------------------------------------------------------------------------
 # Capability declarations — 每个 Provider 显式声明支持的能力
 # ---------------------------------------------------------------------------
 @dataclass
@@ -63,6 +86,12 @@ class ProviderCapabilities:
     verified_streaming: bool = False
     verified_fallback: bool = False
     verified_reasoning: bool = False  # V37.9.53: reasoning capability 实测通过
+
+    # V37.9.146: 验证档位字段化 (退役 docs/compatibility_matrix.md 手写表)
+    # declared < smoke_tested < feature_verified < production_observed (见模块顶部常量)
+    verification_tier: str = TIER_DECLARED
+    tier_note: str = ""       # 短状态注记 (如 "已退役出 fallback 链"), 渲染进档位列
+    tier_evidence: str = ""   # 依据列; declared 留空走 _DECLARED_TIER_EVIDENCE 派生
 
     def supported_modalities(self) -> List[str]:
         """返回支持的模态列表。"""
@@ -102,6 +131,37 @@ class ProviderCapabilities:
         feats.append("fallback")
         if self.reasoning: feats.append("reasoning")
         return feats
+
+    def tier_consistency_violations(self) -> List[str]:
+        """检查 verification_tier 与 verified_* 布尔的一致性 (V37.9.146)。
+
+        字段化的核心增值: tier 声明 (production/feature/smoke/declared) 必须与
+        per-feature verified_* 布尔可证一致, 防"改了 verified_* 忘改 tier"(或反之)
+        的漂移。返回违规列表 (空 = 一致)。declared/production_observed 两档当前有
+        占用; smoke_tested/feature_verified 暂无占用但规则已定义 (未来 provider 守卫)。
+        """
+        v = []
+        tier = self.verification_tier
+        if tier not in VERIFICATION_TIERS:
+            v.append(f"unknown verification_tier '{tier}' (valid: {list(VERIFICATION_TIERS)})")
+            return v  # 未知档位无法进一步检查
+        nverified = len(self.verified_features())
+        if tier == TIER_DECLARED:
+            if nverified > 0:
+                v.append(f"tier=declared 但有 {nverified} 个 verified feature: "
+                         f"{self.verified_features()} (declared = 未实测)")
+            if self.tier_evidence:
+                v.append("tier=declared 不应手写 tier_evidence "
+                         "(走 _DECLARED_TIER_EVIDENCE 派生, 单一真理源)")
+        else:
+            if nverified == 0:
+                v.append(f"tier={tier} 但 0 个 verified feature "
+                         "(非 declared 档位需至少 1 个实测)")
+            if not self.tier_evidence:
+                v.append(f"tier={tier} 需显式 tier_evidence (非 declared 档位必须引用证据)")
+            if tier == TIER_SMOKE_TESTED and not self.verified_text:
+                v.append("tier=smoke_tested 需 verified_text=True (smoke = 最小 text 调用)")
+        return v
 
 
 @dataclass
@@ -196,6 +256,7 @@ class BaseProvider:
             "max_output_tokens": caps.max_output_tokens,
             "auth_style": self.auth_style,
             "verified": caps.verified_features(),
+            "verification_tier": caps.verification_tier,  # V37.9.146: 数据模型在 --json 完整暴露
         }
 
 
@@ -336,6 +397,10 @@ class PluginLoader:
             json_mode=caps_data.get('json_mode', False),
             context_window=caps_data.get('context_window', 0),
             max_output_tokens=caps_data.get('max_output_tokens', 0),
+            # V37.9.146: 验证档位 (YAML 插件可声明, 默认 declared)
+            verification_tier=caps_data.get('verification_tier', TIER_DECLARED),
+            tier_note=caps_data.get('tier_note', ''),
+            tier_evidence=caps_data.get('tier_evidence', ''),
         )
 
         # Create provider instance
@@ -462,6 +527,9 @@ class QwenProvider(BaseProvider):
         verified_tool_calling=True,
         verified_streaming=True,
         verified_fallback=True,   # 作为 primary 被 fallback 过
+        # V37.9.146: 验证档位
+        verification_tier=TIER_PRODUCTION_OBSERVED,
+        tier_evidence="主力 provider，全部生产流量（V27 起）；5 capability 实测",
     )
 
 
@@ -532,6 +600,11 @@ class GeminiProvider(BaseProvider):
         verified_tool_calling=False,
         verified_streaming=False,
         verified_fallback=True,    # 作为 fallback provider 验证过
+        # V37.9.146: 验证档位 (曾生产真 fire, 但 V37.9.129 香港 geo-block 退役)
+        verification_tier=TIER_PRODUCTION_OBSERVED,
+        tier_note="已退役出 fallback 链",
+        tier_evidence="曾为生产 fallback 真 fire（V37.8.10 等）；V37.9.129 实证香港 "
+                      "geo-block 永久退役，config.yaml fallback.exclude_providers: [gemini]",
     )
 
 
@@ -824,6 +897,42 @@ class ProviderRegistry:
                 f"{_yn(c.json_mode)} | {_yn(c.reasoning)} | {ctx} |")
         return lines
 
+    def tier_table_lines(self) -> List[str]:
+        """验证档位表（Markdown 行列表，V37.9.146 字段化）。
+
+        四档语义 production_observed > feature_verified > smoke_tested > declared。
+        退役 docs/compatibility_matrix.md 手写表 → 与 "## 验证档位" 表格段逐字一致
+        (gen_compat_matrix.py --check 守卫)。每 provider 一行 (顺序跟 registry,
+        与其余两张表一致), tier_note 渲染进档位列; declared 无 tier_evidence 时
+        走 _DECLARED_TIER_EVIDENCE 派生 (单一真理源, 不在每个 declared provider 重复)。
+        """
+        lines = [
+            "| Provider | 档位 | 依据 |",
+            "|----------|------|------|",
+        ]
+        for p in self.all():
+            c = p.capabilities
+            tier_cell = f"**{c.verification_tier}**"
+            if c.tier_note:
+                tier_cell += f"（{c.tier_note}）"
+            evidence = c.tier_evidence
+            if not evidence and c.verification_tier == TIER_DECLARED:
+                evidence = _DECLARED_TIER_EVIDENCE
+            lines.append(f"| {p.display_name} | {tier_cell} | {evidence} |")
+        return lines
+
+    def tier_consistency_violations(self) -> List[str]:
+        """汇总所有已注册 provider 的 tier↔verified_* 一致性违规 (V37.9.146)。
+
+        返回形如 ["<provider>: <violation>", ...] 的列表 (空 = 全部一致)。
+        供 `--check-tiers` CLI 与 test_providers 一致性守卫复用 (单一真理源)。
+        """
+        out = []
+        for p in self.all():
+            for msg in p.capabilities.tier_consistency_violations():
+                out.append(f"{p.name}: {msg}")
+        return out
+
     def print_matrix(self):
         """打印兼容性矩阵（Markdown 格式）。"""
         print("\n".join(self.matrix_table_lines()))
@@ -1058,6 +1167,21 @@ if __name__ == "__main__":
         # V37.9.143: 能力矩阵直出 (9 维度逐项), docs/compatibility_matrix.md "## 能力矩阵"
         # 表格段的单一真理源 (gen_compat_matrix.py --check 消费)
         print("\n".join(_default_registry.capability_table_lines()))
+    elif "--tier-matrix" in sys.argv:
+        # V37.9.146: 验证档位表直出 (四档), docs/compatibility_matrix.md "## 验证档位"
+        # 表格段的单一真理源 (gen_compat_matrix.py --check 消费)
+        print("\n".join(_default_registry.tier_table_lines()))
+    elif "--check-tiers" in sys.argv:
+        # V37.9.146: tier↔verified_* 一致性检查 (镜像 --validate, exit 1 = 不一致)
+        violations = _default_registry.tier_consistency_violations()
+        if violations:
+            print("# Verification Tier Consistency: FAIL\n")
+            for vmsg in violations:
+                print(f"  FAIL {vmsg}")
+            sys.exit(1)
+        print("# Verification Tier Consistency: OK")
+        print(f"  所有 {len(_default_registry.list_names())} provider 的 tier 与 verified_* 一致")
+        sys.exit(0)
     elif "--fallback-chain" in sys.argv:
         # Show auto-generated fallback chain for a provider
         idx = sys.argv.index("--fallback-chain")

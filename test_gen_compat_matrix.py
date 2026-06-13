@@ -3,11 +3,12 @@
 test_gen_compat_matrix.py — compatibility_matrix 漂移防护单测（V37.9.143，外部评审2 P0(b)）
 
 覆盖:
-- providers.py 两张表直出纯函数 (matrix_table_lines / capability_table_lines)
+- providers.py 三张表直出纯函数 (matrix / tier / capability table_lines)
 - verifiable_features 分母口径修复 ("5/4 verified" 超界 bug)
+- V37.9.146: tier_table_lines 字段化 (验证档位升级为第 3 张机器表)
 - gen_compat_matrix extract/check/fix 三件套
-- 人工段落保护契约 (验证档位 / Fallback 路径不被 --fix 触碰)
-- 反向验证: sabotage doc 表行 → --check 必抓
+- 人工段落保护契约 (Fallback 路径不被 --fix 触碰)
+- 反向验证: sabotage doc 表行 (含档位行) → --check 必抓
 """
 import os
 import subprocess
@@ -135,8 +136,50 @@ class TestVerifiableFeaturesDenominator(unittest.TestCase):
                          "旧分母口径 (modalities+tool+stream) 不得回退")
 
 
+class TestTierTableLines(unittest.TestCase):
+    """providers.py 验证档位表直出纯函数（V37.9.146 字段化）。"""
+
+    def test_header_and_8_rows(self):
+        lines = _default_registry.tier_table_lines()
+        self.assertEqual(lines[0], "| Provider | 档位 | 依据 |")
+        self.assertTrue(lines[1].startswith("|---"))
+        self.assertEqual(len(lines), 2 + 8)  # header + sep + 8 providers
+
+    def test_qwen_doubao_production_observed(self):
+        text = "\n".join(_default_registry.tier_table_lines())
+        self.assertIn("Qwen (Remote GPU) | **production_observed**", text)
+        self.assertIn("Doubao Seed 2.0 Pro (Volcengine Ark) | **production_observed**", text)
+
+    def test_gemini_retirement_note_rendered(self):
+        """tier_note 渲染进档位列（gemini 退役）。"""
+        lines = _default_registry.tier_table_lines()
+        gemini = [l for l in lines if "Google Gemini" in l][0]
+        self.assertIn("**production_observed**（已退役出 fallback 链）", gemini)
+
+    def test_declared_providers_use_derived_evidence(self):
+        """5 declared provider 各自一行, 走派生默认依据 (单一真理源, 退役合并行)。"""
+        lines = _default_registry.tier_table_lines()
+        declared = [l for l in lines if "**declared**" in l]
+        self.assertEqual(len(declared), 5)  # openai/claude/kimi/minimax/glm
+        for l in declared:
+            self.assertIn("能力声明完整 + 合约校验通过，0/N 生产验证（无 API key 配置）", l)
+
+    def test_tier_table_normalizes_doubao_full_display_name(self):
+        """机器表用全 display_name (一致性收敛: 手写表曾用简称 'Doubao Seed 2.0 Pro')。"""
+        text = "\n".join(_default_registry.tier_table_lines())
+        self.assertIn("Doubao Seed 2.0 Pro (Volcengine Ark)", text)
+
+    def test_tier_matrix_cli(self):
+        r = subprocess.run(
+            [sys.executable, os.path.join(REPO, "providers.py"), "--tier-matrix"],
+            capture_output=True, text=True, timeout=60)
+        self.assertEqual(r.returncode, 0)
+        self.assertIn("| Provider | 档位 | 依据 |", r.stdout)
+        self.assertIn("production_observed", r.stdout)
+
+
 def _make_doc(tables):
-    """构造含两张机器表 + 人工段落的最小 doc 文本。"""
+    """构造含三张机器表 + 人工段落的最小 doc 文本（V37.9.146: 验证档位也是机器表）。"""
     lines = ["# Provider Compatibility Matrix", "", "> header prose", "", "---", ""]
     lines.append("## 支持的 Provider")
     lines.append("")
@@ -144,11 +187,11 @@ def _make_doc(tables):
     lines.append("")
     lines.append("人工 prose 行（不参与比对）。")
     lines.append("")
-    lines.append("## 验证档位（诚实标注）")
+    lines.append("## 验证档位")
     lines.append("")
-    lines.append("| Provider | 档位 | 依据 |")
-    lines.append("|----------|------|------|")
-    lines.append("| Qwen | production_observed | 人工维护行 |")
+    lines.append("> 四档语义人工 blockquote（验证档位标题与表之间, 不参与比对）。")
+    lines.append("")
+    lines.extend(tables["验证档位"])
     lines.append("")
     lines.append("## 能力矩阵")
     lines.append("")
@@ -177,6 +220,13 @@ class TestExtractTableBlock(unittest.TestCase):
         start, end = gcm.extract_table_block(self.doc, "能力矩阵")
         block = self.doc[start:end]
         self.assertEqual(block, self.tables["能力矩阵"])
+
+    def test_extracts_tier_table(self):
+        """V37.9.146: 验证档位表可被提取 (heading/blockquote 之后第一个表格块)。"""
+        start, end = gcm.extract_table_block(self.doc, "验证档位")
+        self.assertIsNotNone(start)
+        block = self.doc[start:end]
+        self.assertEqual(block, self.tables["验证档位"])
 
     def test_missing_heading_returns_none(self):
         start, end = gcm.extract_table_block(self.doc, "不存在的标题")
@@ -214,12 +264,20 @@ class TestCheckAndFixDrift(unittest.TestCase):
         self.assertTrue(drifts, "sabotage 行未被检测到 — 守卫无效")
 
     def test_manual_section_change_no_drift(self):
-        """人工段落改动不触发漂移（机器比对范围契约）。"""
+        """人工段落改动不触发漂移（机器比对范围契约, Fallback prose）。"""
         text = _make_doc(self.tables).replace(
-            "| Qwen | production_observed | 人工维护行 |",
-            "| Qwen | production_observed | 人工维护行 — 编辑后 |")
+            "人工段落内容。", "人工段落内容。 — 编辑后")
         self._write(text)
         self.assertEqual(gcm.check_drift(self.doc_path), [])
+
+    def test_tier_table_drift_detected(self):
+        """反向验证: sabotage 档位表内 tier 值 → check 必抓（V37.9.146）。"""
+        text = _make_doc(self.tables).replace(
+            "Qwen (Remote GPU) | **production_observed**",
+            "Qwen (Remote GPU) | **declared**")
+        self._write(text)
+        drifts = gcm.check_drift(self.doc_path)
+        self.assertTrue(drifts, "档位 sabotage 未被检测到 — 守卫无效")
 
     def test_missing_doc_reports_drift(self):
         drifts = gcm.check_drift(os.path.join(self.tmpdir.name, "nonexistent.md"))
@@ -235,13 +293,14 @@ class TestCheckAndFixDrift(unittest.TestCase):
         self.assertFalse(gcm.fix_drift(self.doc_path))
 
     def test_fix_preserves_manual_sections(self):
-        """--fix 绝不触碰人工段落（验证档位 / Fallback 路径 / blockquote）。"""
+        """--fix 绝不触碰人工段落（Fallback 路径 / blockquote, V37.9.146 验证档位已机器化）。"""
         text = _make_doc(self.tables).replace("Doubao Seed 2.0 Pro", "Doubao SABOTAGED")
         self._write(text)
         gcm.fix_drift(self.doc_path)
         with open(self.doc_path, encoding="utf-8") as f:
             fixed = f.read()
-        self.assertIn("| Qwen | production_observed | 人工维护行 |", fixed)
+        # 验证档位表/标题之间的人工 blockquote 不被触碰
+        self.assertIn("> 四档语义人工 blockquote（验证档位标题与表之间, 不参与比对）。", fixed)
         self.assertIn("> Reasoning 维度说明（人工 blockquote 保留）。", fixed)
         self.assertIn("## Fallback 降级路径（V37.9.129 现状）", fixed)
         self.assertIn("人工段落内容。", fixed)
@@ -275,6 +334,36 @@ class TestRealRepoIntegration(unittest.TestCase):
             src = f.read()
         self.assertIn("V37.9.143", src)
         self.assertIn("外部评审2 P0(b)", src)
+
+    def test_table_specs_has_three_tables(self):
+        """V37.9.146: TABLE_SPECS 从 2 张升 3 张 (验证档位字段化)。"""
+        headings = [h for h, _ in gcm.TABLE_SPECS]
+        self.assertEqual(headings, ["支持的 Provider", "验证档位", "能力矩阵"])
+        methods = [m for _, m in gcm.TABLE_SPECS]
+        self.assertIn("tier_table_lines", methods)
+
+    def test_v37_9_146_tier_field_marker(self):
+        """gen_compat_matrix.py 记录 V37.9.146 字段化背景。"""
+        with open(os.path.join(REPO, "gen_compat_matrix.py"), encoding="utf-8") as f:
+            src = f.read()
+        self.assertIn("V37.9.146", src)
+        self.assertIn("外部评审2 P2(a)", src)
+
+    def test_doc_no_longer_lists_tier_as_manual(self):
+        """反向守卫: doc 不得再把'验证档位'列为人工段落 (升级为机器表后)。
+
+        防回退: 若有人把 doc 标题改回带括号导致 extract 找不到, 或把验证档位
+        放回人工段落清单, --check 已会抓表格漂移; 这里额外守 doc 文案一致。
+        """
+        with open(os.path.join(REPO, "docs", "compatibility_matrix.md"),
+                  encoding="utf-8") as f:
+            doc = f.read()
+        # 标题必须精确 "## 验证档位" (extract_table_block 要求)
+        self.assertIn("\n## 验证档位\n", doc)
+        # 人工段落清单 (preamble + footer) 不再含 "验证档位"
+        for marker in ("人工段落（Fallback 路径 / 添加新 Provider / 工具模式验证）",
+                       "人工段落（Fallback 路径 / 工具模式验证）"):
+            self.assertIn(marker, doc)
 
 
 if __name__ == "__main__":

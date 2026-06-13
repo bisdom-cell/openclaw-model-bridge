@@ -81,4 +81,10 @@ class DoubaoSeedProvider(BaseProvider):
             verified_streaming=True,  # V37.9.55 Mac Mini curl 实测 stream:true → SSE chat.completion.chunk + delta.content
             # 未实测的 verified flags (待 V37.9.56+ 真 fallback fire 后 flip)
             verified_fallback=False,
+            # V37.9.146: 验证档位 (fallback 链第 1 位真实接管 + expert_escalate 真生产调用)
+            # 用字符串字面量 (= 公开 tier 值, 与 YAML 插件 verification_tier: production_observed 同形)
+            verification_tier="production_observed",
+            tier_evidence="fallback 链第 1 位真实接管（V37.9.129 起唯一真 fallback）+ "
+                          "expert_escalate 真生产调用（V37.9.91）；text/vision/tool_calling/"
+                          "streaming/reasoning 5/5 E2E 实测（V37.9.53-55）",
         )
