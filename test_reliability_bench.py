@@ -2,7 +2,8 @@
 """
 test_reliability_bench.py — Agent Reliability Bench 单测
 
-测试 reliability_bench.py 的 7 个故障场景 + 报告生成 + CLI。
+测试 reliability_bench.py 的 17 个故障场景 + 报告生成 + CLI。
+V37.9.146 (外部评审2 P2(b)): +10 场景 (8-17), 朝行业可引用测试集方向。
 """
 import json
 import os
@@ -21,6 +22,17 @@ from reliability_bench import (
     scenario_kb_miss_hit,
     scenario_cron_drift,
     scenario_state_corruption,
+    # V37.9.146 +10 场景
+    scenario_provider_schema_drift,
+    scenario_streaming_interruption,
+    scenario_tool_result_oversized,
+    scenario_json_malformed_repair,
+    scenario_all_fallbacks_fail,
+    scenario_memory_index_stale,
+    scenario_cron_duplicate_fire,
+    scenario_config_partial_corruption,
+    scenario_dns_failure,
+    scenario_long_context_truncation_quality,
     run_bench,
     format_markdown,
     format_json,
@@ -209,14 +221,168 @@ class TestScenario7StateCorruption(unittest.TestCase):
         self.assertTrue(atomic["passed"])
 
 
+# ---------------------------------------------------------------------------
+# V37.9.146 +10 场景 (8-17)
+# ---------------------------------------------------------------------------
+def _check(r, name):
+    """取指定 check (找不到则 fail-loud)。"""
+    return next(c for c in r.checks if c["name"] == name)
+
+
+class TestScenario8ProviderSchemaDrift(unittest.TestCase):
+    """Scenario 8: Provider 定义/响应 schema 漂移。"""
+
+    def test_passes(self):
+        r = scenario_provider_schema_drift()
+        self.assertEqual(r.verdict, "PASS")
+        self.assertGreaterEqual(r.total_checks, 6)
+
+    def test_contract_catches_definition_drift(self):
+        r = scenario_provider_schema_drift()
+        self.assertTrue(_check(r, "contract_catches_missing_api_key_env")["passed"])
+        self.assertTrue(_check(r, "contract_catches_bad_auth_style")["passed"])
+
+    def test_malformed_response_no_crash(self):
+        r = scenario_provider_schema_drift()
+        self.assertTrue(_check(r, "malformed_response_shape_no_crash")["passed"])
+
+
+class TestScenario9StreamingInterruption(unittest.TestCase):
+    """Scenario 9: SSE 流式中断。"""
+
+    def test_passes(self):
+        r = scenario_streaming_interruption()
+        self.assertEqual(r.verdict, "PASS")
+
+    def test_detects_incomplete_stream(self):
+        r = scenario_streaming_interruption()
+        self.assertTrue(_check(r, "consumer_detects_incomplete_stream")["passed"])
+
+    def test_skips_malformed_frame(self):
+        r = scenario_streaming_interruption()
+        self.assertTrue(_check(r, "consumer_skips_malformed_frame")["passed"])
+
+
+class TestScenario10ToolResultOversized(unittest.TestCase):
+    """Scenario 10: 巨型 tool 结果截断。"""
+
+    def test_passes(self):
+        r = scenario_tool_result_oversized()
+        self.assertEqual(r.verdict, "PASS")
+
+    def test_bounded_and_recent_kept(self):
+        r = scenario_tool_result_oversized()
+        self.assertTrue(_check(r, "bounded_within_budget")["passed"])
+        self.assertTrue(_check(r, "recent_query_survives")["passed"])
+        self.assertTrue(_check(r, "giant_dump_removed")["passed"])
+
+
+class TestScenario11JsonMalformedRepair(unittest.TestCase):
+    """Scenario 11: 畸形 JSON / 幻觉 tool_call 修复。"""
+
+    def test_passes(self):
+        r = scenario_json_malformed_repair()
+        self.assertEqual(r.verdict, "PASS")
+
+    def test_hallucinated_xml_cleaned(self):
+        r = scenario_json_malformed_repair()
+        self.assertTrue(_check(r, "hallucinated_xml_cleaned")["passed"])
+
+    def test_fail_open_on_read_failure(self):
+        r = scenario_json_malformed_repair()
+        self.assertTrue(_check(r, "read_failure_fail_open")["passed"])
+
+
+class TestScenario12AllFallbacksFail(unittest.TestCase):
+    """Scenario 12: 全 fallback 失败。"""
+
+    def test_passes(self):
+        r = scenario_all_fallbacks_fail()
+        self.assertEqual(r.verdict, "PASS")
+
+    def test_error_chain_not_diluted(self):
+        r = scenario_all_fallbacks_fail()
+        self.assertTrue(_check(r, "error_chain_preserved")["passed"])
+        self.assertTrue(_check(r, "not_diluted_to_bare_502")["passed"])
+
+
+class TestScenario13MemoryIndexStale(unittest.TestCase):
+    """Scenario 13: 记忆索引陈旧。"""
+
+    def test_passes(self):
+        r = scenario_memory_index_stale()
+        self.assertEqual(r.verdict, "PASS")
+
+    def test_stale_and_coverage_gap(self):
+        r = scenario_memory_index_stale()
+        self.assertTrue(_check(r, "stale_index_detected")["passed"])
+        self.assertTrue(_check(r, "coverage_gap_detected")["passed"])
+
+
+class TestScenario14CronDuplicateFire(unittest.TestCase):
+    """Scenario 14: cron 重复触发。"""
+
+    def test_passes(self):
+        r = scenario_cron_duplicate_fire()
+        self.assertEqual(r.verdict, "PASS")
+
+    def test_duplicate_and_lock(self):
+        r = scenario_cron_duplicate_fire()
+        self.assertTrue(_check(r, "duplicate_entry_detected")["passed"])
+        self.assertTrue(_check(r, "concurrent_run_blocked")["passed"])
+        self.assertTrue(_check(r, "substring_no_false_match")["passed"])
+
+
+class TestScenario15ConfigPartialCorruption(unittest.TestCase):
+    """Scenario 15: config 部分损坏。"""
+
+    def test_passes(self):
+        r = scenario_config_partial_corruption()
+        self.assertEqual(r.verdict, "PASS")
+
+    def test_resilient_parse_and_defaults(self):
+        r = scenario_config_partial_corruption()
+        self.assertTrue(_check(r, "malformed_lines_no_crash")["passed"])
+        self.assertTrue(_check(r, "real_get_with_default_safe")["passed"])
+
+
+class TestScenario16DnsFailure(unittest.TestCase):
+    """Scenario 16: DNS 解析失败。"""
+
+    def test_passes(self):
+        r = scenario_dns_failure()
+        self.assertEqual(r.verdict, "PASS")
+
+    def test_fails_fast(self):
+        r = scenario_dns_failure()
+        self.assertTrue(_check(r, "dns_failure_detected")["passed"])
+        self.assertTrue(_check(r, "fails_fast_not_hang")["passed"])
+
+
+class TestScenario17LongContextTruncationQuality(unittest.TestCase):
+    """Scenario 17: 长上下文截断质量。"""
+
+    def test_passes(self):
+        r = scenario_long_context_truncation_quality()
+        self.assertEqual(r.verdict, "PASS")
+
+    def test_quality_invariants(self):
+        r = scenario_long_context_truncation_quality()
+        self.assertTrue(_check(r, "message_boundaries_intact")["passed"])
+        self.assertTrue(_check(r, "no_content_corruption")["passed"])
+        self.assertTrue(_check(r, "system_always_kept")["passed"])
+        self.assertTrue(_check(r, "monotonic_with_budget")["passed"])
+
+
 class TestRunBench(unittest.TestCase):
     """run_bench() 集成测试。"""
 
     def test_run_all(self):
         report = run_bench()
-        self.assertEqual(len(report.scenarios), 7)
+        self.assertEqual(len(report.scenarios), 17)
         self.assertEqual(report.total_fail, 0)
-        self.assertGreater(report.total_checks, 40)
+        self.assertEqual(report.total_skip, 0, "所有场景应可在 dev 跑 (无 SKIP)")
+        self.assertGreater(report.total_checks, 90)
 
     def test_run_single_scenario(self):
         report = run_bench(scenario_ids=[3])
@@ -292,13 +458,13 @@ class TestFormatJSON(unittest.TestCase):
 class TestAllScenariosRegistered(unittest.TestCase):
     """确保所有场景已注册。"""
 
-    def test_seven_scenarios(self):
-        self.assertEqual(len(ALL_SCENARIOS), 7)
+    def test_seventeen_scenarios(self):
+        self.assertEqual(len(ALL_SCENARIOS), 17)
 
     def test_scenario_ids_sequential(self):
         report = run_bench()
         ids = [s.id for s in report.scenarios]
-        self.assertEqual(ids, [1, 2, 3, 4, 5, 6, 7])
+        self.assertEqual(ids, list(range(1, 18)))
 
 
 if __name__ == "__main__":
