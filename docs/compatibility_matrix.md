@@ -1,7 +1,7 @@
 # Provider Compatibility Matrix
 
-> 数据真理源：`providers.py`（`python3 providers.py` 人读 / `--json` 机读 / `--capability-matrix` 能力矩阵直出）| 最后刷新：2026-06-12（v37.9.143）
-> **8 Providers**（7 built-in + 1 plugin）。**漂移防护已接入（V37.9.143）**：本文档的两张机器表（"支持的 Provider" + "能力矩阵"）由 `gen_compat_matrix.py --check` 在 full_regression doc-drift 层守卫，漂移时 CI 失败；`--fix` 一键重写。人工段落（验证档位 / Fallback 路径 / 工具模式验证）不参与机器比对。
+> 数据真理源：`providers.py`（`python3 providers.py` 人读 / `--json` 机读 / `--capability-matrix` 能力矩阵直出 / `--tier-matrix` 验证档位直出）| 最后刷新：2026-06-13（v37.9.146）
+> **8 Providers**（7 built-in + 1 plugin）。**漂移防护已接入（V37.9.143 → V37.9.146）**：本文档的三张机器表（"支持的 Provider" + "验证档位" + "能力矩阵"）由 `gen_compat_matrix.py --check` 在 full_regression doc-drift 层守卫，漂移时 CI 失败；`--fix` 一键重写。人工段落（Fallback 路径 / 添加新 Provider / 工具模式验证）不参与机器比对。
 
 ---
 
@@ -20,16 +20,21 @@
 
 插件接入：Doubao 经 `providers.d/doubao_provider.py`（V37 Provider Plugin Interface，V37.9.52 接入）。
 
-## 验证档位（诚实标注，外部评审 2026-06-11 建议采纳）
+## 验证档位
 
-> 四档语义：**production_observed**（真实生产流量运行过）> **feature_verified**（分项 E2E 实测通过）> **smoke_tested**（最小 text 调用通过）> **declared**（能力仅来自文档/配置声明，未实测）。"支持" ≠ "生产验证"。
+> **字段化已接入（V37.9.146，外部评审2 P2(a)）**：本表由 `providers.py` 的 `verification_tier` 字段直出（`--tier-matrix`），退役 V37.9.142 手写表 = 一物一形，`gen_compat_matrix.py --check` 守卫漂移。诚实标注 "支持" ≠ "生产验证"。
+> 四档语义：**production_observed**（真实生产流量运行过）> **feature_verified**（分项 E2E 实测通过）> **smoke_tested**（最小 text 调用通过）> **declared**（能力仅来自文档/配置声明，未实测）。tier 声明与 `verified_*` 布尔由 `--check-tiers` 守卫可证一致（防"改了 verified_* 忘改 tier"漂移）。
 
 | Provider | 档位 | 依据 |
 |----------|------|------|
 | Qwen (Remote GPU) | **production_observed** | 主力 provider，全部生产流量（V27 起）；5 capability 实测 |
-| Doubao Seed 2.0 Pro | **production_observed** | fallback 链第 1 位真实接管（V37.9.129 起唯一真 fallback）+ expert_escalate 真生产调用（V37.9.91）；text/vision/tool_calling/streaming/reasoning 5/5 E2E 实测（V37.9.53-55） |
-| Google Gemini | **production_observed（已退役出 fallback 链）** | 曾为生产 fallback 真 fire（V37.8.10 等）；**V37.9.129 实证香港 geo-block（HTTP 400 User location is not supported）永久退役**，`config.yaml fallback.exclude_providers: [gemini]` |
-| OpenAI / Claude / Kimi / MiniMax / GLM | **declared** | 能力声明完整 + 合约校验通过，0/N 生产验证（无 API key 配置） |
+| OpenAI | **declared** | 能力声明完整 + 合约校验通过，0/N 生产验证（无 API key 配置） |
+| Google Gemini | **production_observed**（已退役出 fallback 链） | 曾为生产 fallback 真 fire（V37.8.10 等）；V37.9.129 实证香港 geo-block 永久退役，config.yaml fallback.exclude_providers: [gemini] |
+| Anthropic Claude | **declared** | 能力声明完整 + 合约校验通过，0/N 生产验证（无 API key 配置） |
+| Kimi (Moonshot AI) | **declared** | 能力声明完整 + 合约校验通过，0/N 生产验证（无 API key 配置） |
+| MiniMax | **declared** | 能力声明完整 + 合约校验通过，0/N 生产验证（无 API key 配置） |
+| GLM (Zhipu AI) | **declared** | 能力声明完整 + 合约校验通过，0/N 生产验证（无 API key 配置） |
+| Doubao Seed 2.0 Pro (Volcengine Ark) | **production_observed** | fallback 链第 1 位真实接管（V37.9.129 起唯一真 fallback）+ expert_escalate 真生产调用（V37.9.91）；text/vision/tool_calling/streaming/reasoning 5/5 E2E 实测（V37.9.53-55） |
 
 ## 能力矩阵
 
@@ -102,4 +107,4 @@ bash restart.sh
 
 ---
 
-*此文档由 `providers.py` 的能力声明驱动，`python3 providers.py --json` 可获取机器可读版本。人工段落（验证档位/Fallback 路径）的事实锚点：config.yaml + V37.9.129/V37.9.55 changelog。*
+*此文档由 `providers.py` 的能力声明驱动，`python3 providers.py --json` 可获取机器可读版本。三张机器表（支持的 Provider / 验证档位 / 能力矩阵）由 `gen_compat_matrix.py --check` 守卫；人工段落（Fallback 路径 / 工具模式验证）的事实锚点：config.yaml + V37.9.129/V37.9.55 changelog。*

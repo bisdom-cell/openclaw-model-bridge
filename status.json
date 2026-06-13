@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-12 17:15:45",
+  "updated": "2026-06-13 02:57:33",
   "updated_by": "full_regression",
   "priorities": [
     {
@@ -104,6 +104,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-06-13",
+      "what": "V37.9.146: Provider 验证四档字段化 (外部评审2 P2(a)) — 手写档位表退役为第 3 张机器表 (一物一形/日落法) + ProviderCapabilities.verification_tier/tier_note/tier_evidence 字段 + tier_consistency_violations() 一致性不变式 (tier 声明与 verified_* 布尔可证一致, 防漂移) + tier_table_lines() 机器表 + --tier-matrix/--check-tiers CLI + to_matrix_row 含 tier (--json 数据模型完整暴露). gen_compat_matrix TABLE_SPECS 2→3 张. 一致性收敛: 机器表归一化手写表 (doubao 全名/5 declared 拆行/gemini 退役注记结构化). 30 新单测 + 两轮 sabotage 反向验证. 125 suites/4405 tests/0 fail/VERSION 不变",
+      "by": "claude_code"
+    },
     {
       "date": "2026-06-12",
       "what": "V37.9.145: 20:30 watchdog 17 项告警 5 轮取证闭环 — 4.27 CLI 冷调用回归定性 (零数据丢失, notify 重试兜底) + watchdog KB 索引阈值 12h→27h 对齐日更 (schedule-vs-threshold drift) + INV-REVIEW-001 治理 runtime check openclaw stub 隔离 (审计被生产 CLI 延迟劫持, MR-23 同族第 4 演出). 10 新守卫单测 + sabotage 验证",
@@ -238,7 +243,7 @@
       "V37.9.129 follow-up (DEFER, 登记): adapter fallback 循环读 upstream error body (观察性, MR-13/INV-OBSERVABILITY-001 候选)。今天诊断难正因 adapter fb_errors.append(str(fb_err)) 对 HTTPError 只给 'HTTP Error 400: Bad Request' 不读 body, 需直连 gemini 才看到 'User location not supported'。修法: adapter 复用 proxy_filters.compose_backend_error_str (V37.8.10) 或 inline helper。DEFER 原因: gemini 退役后其 400 body moot + doubao timeout 无 informative body + 引入 adapter→proxy_filters 耦合 (日落法 #34 防御本身是事故面)。价值降低非紧急, 但对未来其他 provider HTTP 错误诊断仍有价值。",
       "V37.9.130 生产验证已通过 (2026-06-11 Mac Mini 实跑): 6/4 真实血案数据 9 chunks 重跑 — hierarchical r1 b1/3(6740c)+b2/3(6220c)+r2(8524c) 3 次小请求零失败零降级, 48 条精华入 KB, 6/3 已确认处理过, 断流全闭环. 同数据对照证实根因=单请求规模非纯超时 (同 9 Map 段, 单次 40K 两次超时 vs 3 次 7K 一次全过). 剩余低优 follow-up: (a) final Reduce max_tokens=2000 被 48 条打满产尾部残行 \"- [\" (finish_reason=length), 超大对话日边界 — V37.9.131+ 评估 2000→3000 或 emit 前剥尾部残行 (b) 长期观察 last_run degraded/map_failed 字段, 频繁 degraded → 评估 REDUCE_BATCH_SIZE 调小或 doubao 显式路由",
       "V37.9.132 一周观察 (~6/18): deep_dive 摘要级占比应从 76% (34/45) 显著下降 — Mac Mini 验证: grep -L \"基于摘要的分析\" ~/.kb/deep_dives/*.md 看 6/12 后新增文件多数应为全文级. 若仍高: (a) 查 dblp ee 字段 arxiv 覆盖率 (b) S2 openAccessPdf .pdf 结尾比例 (非 .pdf OA 链接保留 S2 页面是有意取舍) (c) 候选增强: deep_dive mode (full_text/abstract_only) 占比纳入 daily_observer 报告让 degrade 频率可观测 (本次 76% gap 潜伏 2 个月才被用户发现的根因是 degrade 频率无聚合复盘)",
-      "【外部评审2 P2 · 生态与基准扩展】(a) Provider 验证四档字段化: verification_tier (declared/smoke_tested/feature_verified/production_observed) 进 providers.py 数据模型, 矩阵自动产出替代 V37.9.142 手写档位表. (b) Reliability Bench 扩展 10 候选场景 (Provider API schema drift/streaming 中断/tool result oversized/JSON malformed repair/fallback 也失败/memory index stale/cron duplicate fire/config partial corruption/DNS fail/long-context 截断质量回归) 朝行业可引用测试集方向. (c) ontology engine 仓库外独立 dogfood: 新建独立 toy 仓库 (不依赖本仓库路径/不依赖 OpenClaw) pip install openclaw-ontology-engine + 自己 YAML 端到端 + console scripts 可运行 + docs 不泄漏个人 PA 概念 (in-repo WeatherBot V37.9.104 已验证 config-injection, gap 是 out-of-repo). (d) complexity budget 评估: 每版本报告新增/删除文件数+check 数+env var 数+cron/job 数+新状态源 — 与日落法张力 (勿为预算加新机器), 候选实现 = changelog 惯例字段 + 收工清单一行, 硬规则候选: 新增 runtime path 须退役一个旧 path / 新 invariant 须说明防哪类历史事故 (已是惯例) / 新 job 须定义 silence timeout+degrade 策略. (e) 话语权候选文章: Why Agent Runtime Needs a Control Plane, Not Another Wrapper (why_control_plane.md 续篇, 双外部评审 7.8/10 对照作素材)",
+      "【外部评审2 P2 · 生态与基准扩展】(a) ✅ V37.9.146 完成 — verification_tier 字段化进 providers.py 数据模型 + tier↔verified_* 一致性不变式 + 第 3 张机器表 (tier_table_lines) 退役手写档位表 (一物一形). (b) Reliability Bench 扩展 10 候选场景 (Provider API schema drift/streaming 中断/tool result oversized/JSON malformed repair/fallback 也失败/memory index stale/cron duplicate fire/config partial corruption/DNS fail/long-context 截断质量回归) 朝行业可引用测试集方向. (c) ontology engine 仓库外独立 dogfood: 新建独立 toy 仓库 (不依赖本仓库路径/不依赖 OpenClaw) pip install openclaw-ontology-engine + 自己 YAML 端到端 + console scripts 可运行 + docs 不泄漏个人 PA 概念 (in-repo WeatherBot V37.9.104 已验证 config-injection, gap 是 out-of-repo). (d) complexity budget 评估: 每版本报告新增/删除文件数+check 数+env var 数+cron/job 数+新状态源 — 与日落法张力 (勿为预算加新机器), 候选实现 = changelog 惯例字段 + 收工清单一行, 硬规则候选: 新增 runtime path 须退役一个旧 path / 新 invariant 须说明防哪类历史事故 (已是惯例) / 新 job 须定义 silence timeout+degrade 策略. (e) 话语权候选文章: Why Agent Runtime Needs a Control Plane, Not Another Wrapper (why_control_plane.md 续篇, 双外部评审 7.8/10 对照作素材)",
       "【遗留 · 高优】ArXiv 论文 — **已提交 (2026-06-12 submit/7702567, status=submitted)**, 等 announcement. 提交过程实录: PDF 误传被拒 (arXiv 强制 TeX 源码) → 换 paper_latex.zip 源码包 → Review Files 自动识别全对 (pdflatex + TeX Live 2025 + main.tex top-level) → Process 编译通过 → 元数据摘要字段超 1,920 字符限制 → 压缩版 1,905 字符 (PDF 内完整摘要不变, 元数据短版是 arXiv 惯例) → cross-list cs.AI + cs.DC 补加 → View PDF 强制预览 → Submit. 时间线: 周五提交, 美东周日晚 announcement = 香港周一早上线. **announcement 后用户提供 arXiv ID (26xx.xxxxx) → Claude 发布配套**: README/status.json/CLAUDE.md 链接更新 + 中文科普版 (知乎传播层) + data_inventory 终版归档 + 日落法清理 paper_latex.zip convenience artifact. 注意: announcement 前可用 Update 改元数据, 勿点 Unsubmit/Delete."
     ],
     "open_prs": "",
@@ -305,10 +310,10 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 4375,
-    "last_regression": "2026-06-12 17:15 pass",
+    "test_count": 4405,
+    "last_regression": "2026-06-13 02:57 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-12 17:15",
+    "security_score_time": "2026-06-13 02:57",
     "test_suites": 125,
     "governance_invariants": "90/90",
     "governance_checks": "734/748",
@@ -377,7 +382,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "本周焦点: ArXiv 论文**已提交** (6/12 submit/7702567, 等 announcement ~香港周一早). 拿到 arXiv ID 后下一 session 优先做发布配套 (README/status/CLAUDE 链接 + 知乎中文科普版 + data_inventory 终版归档 + zip 日落清理). 外部评审2 P1 已完整闭环 (V37.9.144). 次选候选: 评审 P2 (verification_tier 字段化 / Reliability Bench 10 场景 / 仓库外 dogfood / 话语权续篇). 观察项: 4.27 推送冷调用回归跟进 (unfinished 首项, timeout 旋钮+staging 机制) / 7d avg p95 47.9s 贴近 50s 阈值 / 6/18 deep_dive 摘要级复盘 / S2 12 关键词首跑 log.",
+  "focus": "本周焦点: ArXiv 论文**已提交** (6/12 submit/7702567, 等 announcement ~香港周一早) — ID 到后下一 session 优先发布配套 (README/status/CLAUDE 链接 + 知乎科普版 + data_inventory 归档 + zip 日落清理). 外部评审2 P1 已闭环 (V37.9.144), **P2(a) verification_tier 字段化已闭环 (V37.9.146)** — 手写档位表退役为第 3 张机器表 + tier↔verified_* 一致性不变式. 次选剩余候选: 评审 P2 (Reliability Bench 10 场景 / 仓库外 dogfood / 话语权续篇 'Why Agent Runtime Needs a Control Plane Not Another Wrapper') / 4.27 watchdog 告警语义复核 (#0d). 观察项: 4.27 推送冷调用回归 (unfinished #0) / 7d avg p95 47.9s 贴近 50s / 6/18 deep_dive 摘要级复盘 / S2 12 关键词首跑 log.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",

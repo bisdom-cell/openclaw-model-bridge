@@ -34,6 +34,163 @@ class TestProviderCapabilities(unittest.TestCase):
         self.assertEqual(caps.verified_features(), ["text", "fallback"])
 
 
+class TestVerificationTier(unittest.TestCase):
+    """V37.9.146 验证档位字段化 — tier 字段 + tier↔verified_* 一致性不变式。"""
+
+    def test_tier_constants_and_order(self):
+        from providers import (
+            TIER_DECLARED, TIER_SMOKE_TESTED, TIER_FEATURE_VERIFIED,
+            TIER_PRODUCTION_OBSERVED, VERIFICATION_TIERS)
+        self.assertEqual(TIER_DECLARED, "declared")
+        self.assertEqual(TIER_SMOKE_TESTED, "smoke_tested")
+        self.assertEqual(TIER_FEATURE_VERIFIED, "feature_verified")
+        self.assertEqual(TIER_PRODUCTION_OBSERVED, "production_observed")
+        # 顺序 = 递增严格度 (declared 最弱 → production_observed 最强)
+        self.assertEqual(VERIFICATION_TIERS, (
+            "declared", "smoke_tested", "feature_verified", "production_observed"))
+
+    def test_default_tier_is_declared(self):
+        from providers import ProviderCapabilities, TIER_DECLARED
+        caps = ProviderCapabilities()
+        self.assertEqual(caps.verification_tier, TIER_DECLARED)
+        self.assertEqual(caps.tier_note, "")
+        self.assertEqual(caps.tier_evidence, "")
+
+    # --- 一致性不变式: declared 档位 ---
+    def test_declared_default_consistent(self):
+        from providers import ProviderCapabilities
+        caps = ProviderCapabilities()  # declared + 0 verified + 无 evidence
+        self.assertEqual(caps.tier_consistency_violations(), [])
+
+    def test_declared_with_verified_feature_violation(self):
+        from providers import ProviderCapabilities, TIER_DECLARED
+        caps = ProviderCapabilities(
+            verified_text=True, verification_tier=TIER_DECLARED)
+        violations = caps.tier_consistency_violations()
+        self.assertTrue(violations)
+        self.assertTrue(any("declared 但有" in v for v in violations))
+
+    def test_declared_with_handwritten_evidence_violation(self):
+        from providers import ProviderCapabilities, TIER_DECLARED
+        caps = ProviderCapabilities(
+            verification_tier=TIER_DECLARED, tier_evidence="不该手写的依据")
+        violations = caps.tier_consistency_violations()
+        self.assertTrue(any("不应手写 tier_evidence" in v for v in violations))
+
+    # --- 一致性不变式: production_observed 档位 ---
+    def test_production_observed_consistent(self):
+        from providers import ProviderCapabilities, TIER_PRODUCTION_OBSERVED
+        caps = ProviderCapabilities(
+            verified_text=True, verified_fallback=True,
+            verification_tier=TIER_PRODUCTION_OBSERVED, tier_evidence="生产真跑过")
+        self.assertEqual(caps.tier_consistency_violations(), [])
+
+    def test_production_observed_zero_verified_violation(self):
+        from providers import ProviderCapabilities, TIER_PRODUCTION_OBSERVED
+        caps = ProviderCapabilities(
+            verification_tier=TIER_PRODUCTION_OBSERVED, tier_evidence="x")
+        violations = caps.tier_consistency_violations()
+        self.assertTrue(any("0 个 verified feature" in v for v in violations))
+
+    def test_non_declared_requires_evidence(self):
+        from providers import ProviderCapabilities, TIER_PRODUCTION_OBSERVED
+        caps = ProviderCapabilities(
+            verified_text=True, verification_tier=TIER_PRODUCTION_OBSERVED)
+        violations = caps.tier_consistency_violations()
+        self.assertTrue(any("需显式 tier_evidence" in v for v in violations))
+
+    # --- 一致性不变式: smoke_tested 档位 (暂无占用, 规则已定义) ---
+    def test_smoke_tested_requires_verified_text(self):
+        from providers import ProviderCapabilities, TIER_SMOKE_TESTED
+        # smoke 但 verified_text=False → 既 0 verified 又缺 verified_text
+        caps = ProviderCapabilities(
+            verification_tier=TIER_SMOKE_TESTED, tier_evidence="x")
+        violations = caps.tier_consistency_violations()
+        self.assertTrue(any("verified_text=True" in v for v in violations))
+
+    def test_smoke_tested_consistent(self):
+        from providers import ProviderCapabilities, TIER_SMOKE_TESTED
+        caps = ProviderCapabilities(
+            verified_text=True, verification_tier=TIER_SMOKE_TESTED,
+            tier_evidence="最小 text 调用通过")
+        self.assertEqual(caps.tier_consistency_violations(), [])
+
+    def test_unknown_tier_violation(self):
+        from providers import ProviderCapabilities
+        caps = ProviderCapabilities(verification_tier="bogus_tier")
+        violations = caps.tier_consistency_violations()
+        self.assertTrue(any("unknown verification_tier" in v for v in violations))
+
+    # --- 真 provider 档位 ---
+    def test_qwen_doubao_production_observed(self):
+        from providers import _default_registry, TIER_PRODUCTION_OBSERVED
+        self.assertEqual(
+            _default_registry.get("qwen").capabilities.verification_tier,
+            TIER_PRODUCTION_OBSERVED)
+        self.assertEqual(
+            _default_registry.get("doubao").capabilities.verification_tier,
+            TIER_PRODUCTION_OBSERVED)
+
+    def test_declared_providers(self):
+        from providers import _default_registry, TIER_DECLARED
+        for name in ("openai", "claude", "kimi", "minimax", "glm"):
+            self.assertEqual(
+                _default_registry.get(name).capabilities.verification_tier,
+                TIER_DECLARED, f"{name} 应为 declared")
+
+    def test_gemini_retired_note(self):
+        from providers import _default_registry, TIER_PRODUCTION_OBSERVED
+        caps = _default_registry.get("gemini").capabilities
+        self.assertEqual(caps.verification_tier, TIER_PRODUCTION_OBSERVED)
+        self.assertEqual(caps.tier_note, "已退役出 fallback 链")
+
+    def test_all_registered_providers_tier_consistent(self):
+        """CI 守卫: 全部 8 provider 的 tier 与 verified_* 一致 (单一真理源不变式)。"""
+        from providers import _default_registry
+        violations = _default_registry.tier_consistency_violations()
+        self.assertEqual(violations, [],
+                         f"provider 档位不一致: {violations}")
+
+    def test_registry_consistency_returns_prefixed(self):
+        """registry 汇总用 '<name>: <msg>' 前缀 (供 --check-tiers 复用)。"""
+        from providers import (
+            ProviderRegistry, ProviderCapabilities, BaseProvider,
+            ModelInfo, TIER_PRODUCTION_OBSERVED)
+        reg = ProviderRegistry()
+        p = BaseProvider()
+        p.name = "broken"
+        p.display_name = "Broken"
+        p.base_url = "https://x"
+        p.api_key_env = "X_KEY"
+        p.models = [ModelInfo(model_id="m", is_default=True)]
+        # production_observed 但 0 verified + 无 evidence → 不一致
+        p.capabilities = ProviderCapabilities(
+            verification_tier=TIER_PRODUCTION_OBSERVED)
+        reg.register(p, validate=False)
+        violations = reg.tier_consistency_violations()
+        self.assertTrue(violations)
+        self.assertTrue(all(v.startswith("broken:") for v in violations))
+
+    # --- tier_table_lines 机器表 ---
+    def test_tier_table_lines_structure(self):
+        from providers import _default_registry
+        lines = _default_registry.tier_table_lines()
+        self.assertEqual(lines[0], "| Provider | 档位 | 依据 |")
+        self.assertEqual(len(lines), 2 + 8)  # header + sep + 8 providers
+
+    def test_tier_table_declared_uses_derived_evidence(self):
+        from providers import _default_registry, _DECLARED_TIER_EVIDENCE
+        lines = _default_registry.tier_table_lines()
+        openai = [l for l in lines if l.startswith("| OpenAI |")][0]
+        self.assertIn(_DECLARED_TIER_EVIDENCE, openai)
+
+    def test_matrix_row_exposes_verification_tier(self):
+        """V37.9.146: --json 矩阵行含 verification_tier (数据模型完整暴露)。"""
+        from providers import QwenProvider
+        row = QwenProvider().to_matrix_row()
+        self.assertEqual(row["verification_tier"], "production_observed")
+
+
 class TestModelInfo(unittest.TestCase):
     """模型信息测试"""
 

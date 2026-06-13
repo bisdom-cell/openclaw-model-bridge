@@ -2,24 +2,27 @@
 """
 gen_compat_matrix.py — compatibility_matrix.md 漂移防护（V37.9.143，外部评审2 P0(b)）
 
-镜像 gen_jobs_doc.py --check 模式：比对 providers.py 直出的两张表
-（主矩阵 "## 支持的 Provider" + 能力矩阵 "## 能力矩阵"）vs
+镜像 gen_jobs_doc.py --check 模式：比对 providers.py 直出的三张表
+（主矩阵 "## 支持的 Provider" + 验证档位 "## 验证档位" + 能力矩阵 "## 能力矩阵"）vs
 docs/compatibility_matrix.md 中对应表格段。
 
-机器比对范围契约（unfinished #25(b) 原文）：
-  - 只比 providers.py 直出的两张表（matrix_table_lines / capability_table_lines）
-  - 人工段落（验证档位 / Fallback 降级路径 / 添加新 Provider / 工具模式验证）
+机器比对范围契约（unfinished #25(b) 原文 + V37.9.146 扩展）：
+  - 只比 providers.py 直出的三张表
+    (matrix_table_lines / tier_table_lines / capability_table_lines)
+  - 人工段落（Fallback 降级路径 / 添加新 Provider / 工具模式验证）
     不参与机器比对，--fix 也绝不触碰
 
 血案背景：外部评审2 (2026-06-11) 抓到 compatibility_matrix.md 停在 2026-04-05
 七 provider（V37.9.52 Doubao 加入后 doc 未刷新 2 个月）。V37.9.142 手动刷新，
 本工具把"手动刷新"升级为"机器守卫"——首次比对即抓到 V37.9.142 手动刷新自身
 遗漏的真漂移（Doubao json_mode=True 被手写为 —）。
+V37.9.146（外部评审2 P2(a)）: verification_tier 字段化, "验证档位"表从手写人工段落
+升级为第 3 张机器守卫表 (退役手写表 = 一物一形)。
 
 用法：
-  python3 gen_compat_matrix.py            # 打印两张表（stdout）
+  python3 gen_compat_matrix.py            # 打印三张表（stdout）
   python3 gen_compat_matrix.py --check    # 漂移检测（exit 0 = OK, 1 = drift）
-  python3 gen_compat_matrix.py --fix      # 重写 doc 中两个表格段（不碰人工段落）
+  python3 gen_compat_matrix.py --fix      # 重写 doc 中三个表格段（不碰人工段落）
 """
 import os
 import sys
@@ -27,9 +30,11 @@ import sys
 DOC_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                         "docs", "compatibility_matrix.md")
 
-# (doc 二级标题, providers.py registry 方法名) — 机器比对的两张表
+# (doc 二级标题, providers.py registry 方法名) — 机器比对的三张表
+# 顺序跟 doc 阅读顺序 (支持的 Provider → 验证档位 → 能力矩阵), extract 本身顺序无关
 TABLE_SPECS = [
     ("支持的 Provider", "matrix_table_lines"),
+    ("验证档位", "tier_table_lines"),  # V37.9.146 字段化
     ("能力矩阵", "capability_table_lines"),
 ]
 
@@ -154,7 +159,7 @@ def main():
                 log(f"  - {d}")
             log("修复: python3 gen_compat_matrix.py --fix")
             return 1
-        print("OK: compatibility_matrix 两张表与 providers.py 一致")
+        print("OK: compatibility_matrix 三张表与 providers.py 一致")
         return 0
 
     if "--fix" in sys.argv:
