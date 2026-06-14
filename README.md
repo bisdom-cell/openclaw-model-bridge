@@ -9,7 +9,7 @@
 [![Providers](https://img.shields.io/badge/providers-8%20supported-orange.svg)]()
 [![Governance](https://img.shields.io/badge/invariants-90%2F90%20%2B%2023%20MR-blueviolet.svg)]()
 [![Security](https://img.shields.io/badge/security-95%2F100-green.svg)]()
-[![Jobs](https://img.shields.io/badge/cron%20jobs-36%20active-blue.svg)]()
+[![Jobs](https://img.shields.io/badge/cron%20jobs-40%20active-blue.svg)]()
 [![Fail-Fast](https://img.shields.io/badge/LLM%20cron%20fail--fast-17%2F21%20aligned-brightgreen.svg)]()
 [![Notifications](https://img.shields.io/badge/notifications-WhatsApp%20%2B%20Discord-informational.svg)]()
 
@@ -57,117 +57,26 @@ Layer 3 is not product clutter — it is the **production evidence** for layers 
 <summary>Text version / 文本版本</summary>
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                 用户层 (WhatsApp + Discord 双通道)                │
-│             文本 / 图片 / 语音消息 | 6个Discord频道               │
-└────────────────────────┬────────────────────────────────────────┘
-                         │
-┌────────────────────────▼────────────────────────────────────────┐
-│  ① 核心数据通路（实时对话 + 多模态 + SLO 监控）                   │
-│                                                                  │
-│  WhatsApp ←┐                                                     │
-│  Discord  ←┼→ Gateway (:18789) ←→ Proxy (:5002) ←→ Adapter (:5001) ←→ LLM (8 Providers) │
-│            │  [launchd]           [策略过滤+监控]    [认证+Fallback]    [Qwen3-235B]       │
-│            │  [媒体存储]          [图片base64注入]   [VL模型路由]       [+6 more providers] │
-│  notify.sh ┘  [双通道推送]        [自定义工具注入]    [→Gemini降级]                        │
-│                                   data_clean(清洗)                                       │
-│                                   search_kb(混合检索)                                    │
-│                                   [SLO指标采集]                                          │
-│                                   延迟p95/错误分类                                       │
-│                                   工具成功率/降级率                                      │
-│                                                                  │
-│  search_kb流程：用户问论文 → PA调search_kb → Proxy拦截           │
-│    → ①语义搜索(embedding cosine) + ②关键词补充                   │
-│    → 支持source过滤(arxiv/hf/hn等) + 时间过滤(recent_hours)      │
-│    → 结果注入对话 → followup LLM调用 → 自然语言回答              │
-└──────────────────┬──────────────────┬───────────────────────────┘
-                   │                  │
-┌──────────────────▼──────────────────▼───────────────────────────┐
-│  ② 知识库 + 本地 AI（零 API 调用）                                │
-│                                                                  │
-│  KB Notes + Sources ──→ kb_embed.py ──→ 本地 Embedding (384维)   │
-│                          (sentence-transformers, 每4h增量)        │
-│                                ↓                                 │
-│                         ~/.kb/text_index/ ──→ kb_rag.py (RAG)    │
-│                                                                  │
-│  媒体文件 ──→ mm_index.py ──→ Gemini Embedding 2 (768维)         │
-│                     ↓                                            │
-│              ~/.kb/mm_index/ ──→ mm_search.py (语义搜索)          │
-└──────────────────────────────────────────────────────────────────┘
-                   │
-┌──────────────────▼──────────────────────────────────────────────┐
-│  ③ 定时任务层（39 个 system cron jobs，35 active）                │
-│                                                                  │
-│  论文监控矩阵（5源）：                                            │
-│    ArXiv(每3h) + HF Papers(10:00) + S2(11:00)                   │
-│    + DBLP(12:00) + ACL(09:30) ──→ KB + WhatsApp + Discord推送   │
-│  每3h   HN热帖抓取 ──→ KB + WhatsApp + Discord推送               │
-│  每天×3 货代Watcher ──→ LLM分析 + KB + WhatsApp + Discord推送    │
-│  每天   OpenClaw Releases ──→ LLM摘要 + KB + WhatsApp + Discord  │
-│  每小时 Issues监控 ──→ KB + WhatsApp + Discord推送               │
-│  每天   KB每日摘要 / 晚间整理 / 智能去重                          │
-│  每4h   KB 向量索引（本地 embedding）                             │
-│  每2h   多媒体索引（Gemini Embedding 2）                          │
-│  每天   对话质量日报 / Token用量日报                              │
-│  每周   KB深度回顾 / 健康周报 / AI趋势报告                        │
-│  每天   Gateway state 备份（外挂 SSD）                            │
-│  每30m  WhatsApp 保活                                            │
-│  每4h   Job Watchdog（元监控告警）                                │
-│  每2m   auto_deploy（Git→运行时自动同步）                         │
-└──────────────────────────────────────────────────────────────────┘
-                   │
-┌──────────────────▼──────────────────────────────────────────────┐
-│  ④ 控制平面（SLO + 阈值中心化 + 故障快照 + 19项体检 + CI）        │
-│                                                                  │
-│  Claude Code → claude/分支 → PR → main → auto_deploy → Mac Mini  │
-│       config.yaml: 统一阈值配置（70+参数，9个分区）               │
-│       SLO 5指标: 延迟p95<30s / 工具成功>95% / 降级<5%            │
-│                  超时<3% / 自动恢复>90%                           │
-│       auto_deploy: 文件同步(81个) + 漂移检测 + 按需restart        │
-│       preflight: 19项检查（单测+注册表+语法+部署+安全+E2E+SLO）   │
-│       故障快照: 连续错误→自动采集日志+状态→~/.kb/incidents/        │
-│       pre-commit: API key/手机号泄漏+语法检查                     │
-│       GitHub Actions CI: 9套单测+注册表+配置校验+安全扫描+bandit  │
-└──────────────────────────────────────────────────────────────────┘
-                   │
-┌──────────────────▼──────────────────────────────────────────────┐
-│  ⑤ Ontology Plane（语义控制平面 + 运行时治理 + 知识体系）           │
-│                                                                  │
-│  ontology/                                                       │
-│    engine.py ←→ tool_ontology.yaml (81条声明式规则)              │
-│      └→ classify_tool_call(): 语义推理(属性→风险+策略标签)       │
-│      └→ V37.9.12 Phase 4 P1: load_domain_ontology()             │
-│         + find_by_domain() + evaluate_policy() 三纯函数 API      │
-│      └→ V37.9.13 Phase 4 P2: 6 context evaluators               │
-│         (hour_of_day / has_alert / has_image / task_match)      │
-│    engine.py ←→ domain_ontology.yaml (六域模型，V37.9.9)         │
-│      └→ Actor / Tool / Resource / Task / Provider / Memory      │
-│    engine.py ←→ policy_ontology.yaml (10 策略，V37.9.13)         │
-│      └→ static (3) + temporal (2) + contextual (5)              │
-│      └→ 2 条已 wire: max-tools-per-agent / max-tool-calls       │
-│    governance_checker.py ←→ governance_ontology.yaml v3.56      │
-│      └→ 90不变式 + 828检查 + 23元规则 + 14 MRD 扫描器           │
-│      └→ MR-4 silent-failure (~28 次演出) / MR-6 critical≥2层    │
-│      └→ MR-7 治理自观察 / MR-8 copy-paste / MR-9 single-manager │
-│      └→ MR-15 reserved-files / MR-16 security 双轨统一          │
-│    diff.py: engine ↔ proxy_filters 一致性校验 (81/81=100%)      │
-│    Phase 3: ONTOLOGY_MODE=on (V37.8.14 正式切换)                │
-│    Phase 4: P1+P2 完成 — policy wiring 可扩展性证明              │
-│    Phase 5 (终极): pip install ontology-engine                  │
-│    CONSTITUTION.md: 宪法6条 + 最高条款（项目隔离）                │
-│    docs/cases/: 15 篇血案档案 (V37.3-V37.8.16)                  │
-└──────────────────────────────────────────────────────────────────┘
-                   │
-┌──────────────────▼──────────────────────────────────────────────┐
-│  ⑥ 三方共享状态（~/.kb/status.json 实时同步）                     │
-│                                                                  │
-│  用户(WhatsApp+Discord) ←→ PA ←→ status.json ←→ Claude Code    │
-│  反馈+决策                 写入    优先级/反馈    读/写            │
-│                                   健康/SLO/焦点  ←→ Cron自动更新  │
-│                                                                  │
-│  宪法：用户专业深度 + Claude Code设计部署 + OpenClaw数据复利       │
-│        三者合一 = 有生命的闭环系统                                 │
-└──────────────────────────────────────────────────────────────────┘
+① Core data path
+   User (WhatsApp + Discord)
+     → Gateway :18789  [launchd · media storage · session mgmt]
+     → Tool Proxy :5002 [24→12 tool governance · custom tools (search_kb / data_clean)
+                         · image base64 inject · SLO metrics · incident snapshots]
+     → Adapter :5001    [8-provider routing · multimodal (text→Qwen3, image→Qwen2.5-VL)
+                         · circuit breaker + fallback]
+     → LLM: Qwen3-235B primary → Doubao / Gemini fallback (+5 more, all OpenAI-compatible)
+
+② Memory plane    KB notes/sources → local embedding (384-dim, 0 API call) → RAG (kb_rag.py)
+                  media files → Gemini Embedding 2 → semantic search (mm_search.py)
+③ Scheduled jobs  40 active / 46 registered — 5-source paper radar (ArXiv/HF/S2/DBLP/ACL) · HN ·
+                  KB digest / dream / deep-dive · freight · health & SLO watchdogs
+                  → WhatsApp + Discord (dual-channel, 6 topic channels)
+④ Control plane   config.yaml (70+ thresholds, 9 sections) · SLO (5 metrics) · preflight (19 checks)
+                  · auto_deploy (Git→runtime, drift detection) · incident snapshots · GitHub Actions CI
+⑤ Ontology plane  engine ↔ tool/domain/policy/governance YAML · governance v3.56
+                  (90 invariants / 828 checks / 23 meta-rules / 14 MRD scanners) · Phase 4
+                  (policy wiring + three-gate shadow) · ONTOLOGY_MODE=on · pip openclaw-ontology-engine
+⑥ Shared state    ~/.kb/status.json — user ↔ PA ↔ Claude Code ↔ cron, real-time three-party sync
 ```
 
 </details>
@@ -354,7 +263,7 @@ This is a deliberate architecture decision: **every dependency you remove is one
 | `gameday.sh` | **V33** GameDay fault injection — 5 scenarios (GPU timeout, circuit breaker, snapshot, SLO, watchdog) |
 | `smoke_test.sh` | End-to-end smoke test (unit tests + registry + doc drift + connectivity) |
 
-### Scheduled Jobs (39 registered, 35 active)
+### Scheduled Jobs (46 registered, 40 active)
 
 All jobs registered in `jobs_registry.yaml`. Validate: `python3 check_registry.py`
 
