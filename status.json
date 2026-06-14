@@ -1,6 +1,6 @@
 {
-  "updated": "2026-06-14 04:24:38",
-  "updated_by": "full_regression",
+  "updated": "2026-06-14 12:24:39",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -104,6 +104,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-06-14",
+      "what": "V37.9.151 轻量一致性收敛 (门控日, arXiv ID 等明早香港周一+沙箱网络受限): config.md 陈旧日期 (最后更新2026-06-02 陈旧12天) 退役为漂移源 (日期单一源=自动同步L4版本行, 一物一形) + README 3处增长型重复计数去数字化 (L233 1319 unit tests / L659 2253 Unit Tests|64 suites / L666 治理审计括号89/818 checks) + L477 827→828 checks (近当前值-prop段只改一位). 区分诚实快照不动: README L395/446 版本标记V37.9.121 89/818 是as-of记录属doc-stat-sync V2(declined); ArXiv论文草稿827是冻结study-cutoff快照(改已提交论文是错的). 净-4漂移面零新机器=复杂度预算V37.9.150首次实战. CLAUDE.md line3 v-label→v37.9.151 + gen_readme_badges --write自动传播全下游. 126 suites/4445 tests/0 fail, governance 90/828, VERSION 0.37.9.70不变, 三项doc-drift check全绿.",
+      "by": "claude_code"
+    },
     {
       "date": "2026-06-14",
       "what": "V37.9.150: 外部评审2 P2(d) complexity budget 惯例化 — 纯约定零新机器 (日落法 MR-22 自我示范). 不写 complexity_budget.py 工具 (那是它要防的东西: 新脚本=新故障面+新状态源+新 check, 用增加复杂度测量复杂度=药参与病). 实现: 账本=既有徽章 gen_readme_badges + 四维度(files/env/jobs/state)只在变化时手动记 + 收工清单 J 项自问退役了什么 + 3 硬规则明文 + 刻意无守卫测试. docs/complexity_budget.md + CLAUDE.md 收工清单 J + 原则#34 引用. 纯文档零新测试 VERSION 不变 (自身就是预算免费类). P2 全档 a/b/c/d/e + P1 全闭环, 评审 7 动作全销项.",
@@ -331,9 +336,9 @@
   "quality": {
     "security_score": 95,
     "test_count": 4445,
-    "last_regression": "2026-06-14 04:24 pass",
+    "last_regression": "2026-06-14 12:23 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-14 04:24",
+    "security_score_time": "2026-06-14 12:23",
     "test_suites": 126,
     "governance_invariants": "90/90",
     "governance_checks": "734/748",
