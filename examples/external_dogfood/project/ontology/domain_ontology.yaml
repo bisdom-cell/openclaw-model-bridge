@@ -1,0 +1,29 @@
+# domain_ontology.yaml — LibraryBot external consumer (Layer 2 config)
+#
+# Six-domain model, consumer-specific. find_by_domain("Actor") returns
+# LibraryBot's actors when the wheel-installed engine reads THIS file
+# (not the bridge's, not WeatherBot's).
+
+domains:
+  Actor:
+    description: "Who participates in LibraryBot"
+    instances:
+      - { id: patron, kind: human }
+      - { id: librarian_bot, kind: agent }
+      - { id: catalog_proxy, kind: control_plane }
+
+  Resource:
+    description: "What LibraryBot operates on"
+    categories:
+      - { id: CatalogIndex, storage: sqlite }
+      - { id: HoldQueue, storage: memory }
+
+  Provider:
+    description: "Upstream catalog data providers"
+    types:
+      - worldcat
+      - openlibrary
+
+meta:
+  project: LibraryBot
+  note: "External (wheel-installed) consumer for openclaw-ontology-engine."

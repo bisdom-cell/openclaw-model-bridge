@@ -1,0 +1,31 @@
+# policy_ontology.yaml — LibraryBot external consumer (Layer 2 config)
+#
+# Declarative policies. evaluate_policy("max-books-per-checkout") resolves
+# against THIS file when ONTOLOGY_CONFIG_DIR points here.
+
+policy_types:
+  static: "Always-on hard limits"
+  contextual: "Apply only under certain request conditions"
+
+policies:
+  - id: max-books-per-checkout
+    type: static
+    scope: [Tool]
+    rule: "|books| <= 5 per checkout_book call"
+    limit: 5
+    enforcement_site: "librarybot.py::checkout_book"
+    rationale: "Demo: cap how many titles a single checkout can hold."
+    governance_invariant: INV-LIBRARY-CHECKOUT
+    hard_limit: true
+
+  - id: genre-whitelist
+    type: static
+    scope: [Tool]
+    rule: "genre in {fiction, nonfiction, reference}"
+    enforcement_site: "librarybot.py::ALLOWED_GENRES"
+    rationale: "Demo: reject unknown genres early."
+    governance_invariant: INV-LIBRARY-GENRES
+    hard_limit: true
+
+meta:
+  project: LibraryBot
