@@ -1,0 +1,63 @@
+# governance_ontology.yaml — LibraryBot external consumer (Layer 2 config)
+#
+# A third-party consumer's OWN invariants. When ONTOLOGY_CONFIG_DIR points here
+# and ONTOLOGY_PROJECT_ROOT points at the LibraryBot project, the wheel-installed
+# engine audits LibraryBot's files (librarybot.py) — NOT openclaw-model-bridge,
+# NOT the WeatherBot demo.
+#
+# Smallest valid governance ontology: audit_metadata + invariants. Each
+# invariant's checks resolve files relative to ONTOLOGY_PROJECT_ROOT.
+
+audit_metadata:
+  version: "0.1-external-dogfood"
+  total_invariants: 2
+  total_checks: 3
+  meta_rules: 0
+
+# MRD scan patterns use LibraryBot's OWN filenames (config-injected, V37.9.126/127).
+# These files don't exist in the toy project, so the bridge's MRD scanners
+# (silent-except / log-stderr / push-route / etc.) simply find nothing and no-op
+# cleanly — proving the scanners are project-agnostic, not hardcoded to the bridge.
+mrd_scan_patterns:
+  registry_file: "librarybot_jobs.yaml"
+  notify_file: "library_alert.sh"
+  preflight_file: "library_preflight.sh"
+  diagnostic_whitelist:
+    - "library_smoke.sh"
+  py_scan_globs: ["librarybot.py"]
+  push_route_whitelist: ["library_alert.sh"]
+
+meta_rules: []
+
+invariants:
+  - id: INV-LIBRARY-CHECKOUT
+    name: librarybot-caps-checkout
+    meta_rule: ""
+    verification_layer: [declaration, runtime]
+    severity: high
+    declaration: "LibraryBot caps each checkout at 5 books (policy max-books-per-checkout)."
+    checks:
+      - name: "decl: librarybot.py defines MAX_BOOKS_PER_CHECKOUT = 5"
+        check_type: file_contains
+        file: librarybot.py
+        pattern: "MAX_BOOKS_PER_CHECKOUT\\s*=\\s*5"
+      - name: "runtime: limit is 5 and checkout_book enforces it"
+        check_type: python_assert
+        code: |
+          import librarybot
+          import inspect
+          assert librarybot.MAX_BOOKS_PER_CHECKOUT == 5, "limit must be 5"
+          src = inspect.getsource(librarybot.checkout_book)
+          assert "MAX_BOOKS_PER_CHECKOUT" in src, "checkout_book must reference the cap to enforce it"
+
+  - id: INV-LIBRARY-GENRES
+    name: librarybot-genre-whitelist
+    meta_rule: ""
+    verification_layer: [declaration]
+    severity: medium
+    declaration: "LibraryBot only allows fiction / nonfiction / reference (policy genre-whitelist)."
+    checks:
+      - name: "decl: librarybot.py has ALLOWED_GENRES whitelist"
+        check_type: file_contains
+        file: librarybot.py
+        pattern: 'ALLOWED_GENRES = \("fiction", "nonfiction", "reference"\)'

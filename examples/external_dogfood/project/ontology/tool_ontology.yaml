@@ -1,0 +1,33 @@
+# tool_ontology.yaml — LibraryBot external consumer (Layer 2 config)
+#
+# A *third-party* tool ontology, intentionally distinct from both the bridge's
+# and the WeatherBot demo's tool sets (see README for the contrast). The
+# ontology-engine (Layer 1, installed from a wheel) reads THIS file when
+# ONTOLOGY_CONFIG_DIR points at this directory.
+
+concepts:
+  Tool:
+    description: "A capability LibraryBot's agent can invoke"
+    subtypes:
+      - BuiltinTool
+      - CustomTool
+
+tools:
+  # Builtin tools — provided by the runtime, allowed through.
+  builtin:
+    search_catalog:
+      description: "Search the library catalog (optional genre filter)"
+      params:
+        query: { type: string, required: true }
+        genre: { type: string }
+    checkout_book:
+      description: "Check out books (capped by max-books-per-checkout)"
+      params:
+        books: { type: array, required: true }
+
+  # Custom tools — intercepted/executed by the runtime's proxy layer.
+  custom:
+    place_hold:
+      description: "Place a hold on a single title"
+      params:
+        isbn: { type: string, required: true }

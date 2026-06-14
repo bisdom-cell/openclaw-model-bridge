@@ -22,7 +22,11 @@ __pycache__/
 htmlcov/
 OpenClaw配置文档*.md
 ontology/.audit_metrics.jsonl
+# V37.9.148: external_dogfood 的 toy 项目若被就地审计 (run_dogfood.sh 实际跑在 /tmp 副本,
+# 此为 in-place 运行的防御性忽略)
+examples/external_dogfood/project/ontology/.audit_metrics.jsonl
 
-# Python 打包产物 (V37.9.133 chunk 5)
+# Python 打包产物 (V37.9.133 chunk 5 + V37.9.148 build/ 中间产物)
 dist/
+build/
 *.egg-info/

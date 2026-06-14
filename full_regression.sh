@@ -231,6 +231,13 @@ if [ -f test_minimal_runtime.py ]; then
     run_suite "minimal_runtime (V37.9.144 P1(b): 最小 Core Runtime demo + golden trace 自校验 + 无 PyYAML 优雅降级 + sabotage 反向验证)" "python3 test_minimal_runtime.py"
 fi
 
+# V37.9.148: 外部评审2 P2(c) — examples/external_dogfood 仓库外 dogfood
+# (离线 build wheel → 隔离 venv 装 wheel → toy LibraryBot 复制出仓库到 /tmp 跑 →
+#  config-injection 审计 + 反向验证 bundled 默认, 证发布的引擎可被第三方消费)
+if [ -f test_external_dogfood.py ]; then
+    run_suite "external_dogfood (V37.9.148 P2(c): wheel 装隔离 venv + import ontology_engine 去泛化 + 仓库外消费 + 反向验证 config-injection 是机制)" "python3 test_external_dogfood.py"
+fi
+
 # V37.9.126: ontology-engine 包化 chunk 3b — MRD 扫描文件名模式 Layer 2 config-injection (registry/notify/preflight/诊断白名单 移到 mrd_scan_patterns, 消费方可 override)
 if [ -f test_mrd_config_injection.py ]; then
     run_suite "mrd_config_injection (V37.9.126 chunk 3b: MRD 扫描文件名模式 config-injection + byte-identical + demo 端到端 + 反向 sabotage)" "python3 test_mrd_config_injection.py"

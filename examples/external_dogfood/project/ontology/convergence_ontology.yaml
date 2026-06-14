@@ -1,0 +1,28 @@
+# convergence_ontology.yaml — LibraryBot external consumer convergence spec.
+#
+# Proves config-injection of the CONVERGENCE phase from a wheel-installed engine:
+# the SAME engine code evaluates THIS spec (not the bridge's 5, not WeatherBot's)
+# AND resolves the declared source file (librarybot_state.json) relative to the
+# CONSUMER's project root — purely via ONTOLOGY_CONFIG_DIR + ONTOLOGY_PROJECT_ROOT,
+# with zero engine code changes (V37.9.107 chunk-3 config-injection).
+meta:
+  version: "0.1-librarybot-dogfood"
+  note: >
+    External-consumer convergence demo. Declared genres live in the consumer's
+    own JSON state file; the runtime observable is a deterministic echo so the
+    demo stays reproducible (zero drift) across CI/dev. The point is not the
+    check's sophistication but that the wheel-installed engine reaches THIS spec
+    + THIS file.
+
+convergence_specs:
+  - id: librarybot-allowed-genres-active
+    enabled: true
+    declaration:
+      source: librarybot_state.json        # resolved via ONTOLOGY_PROJECT_ROOT
+      extractor: json_file_paths
+      json_paths: ["allowed_genres[]"]
+    runtime_observable:
+      method: shell_command
+      command: 'echo "fiction nonfiction reference"'
+      parser: line_contains_identifier
+    drift_action: alert_only
