@@ -13,7 +13,7 @@
 [![Fail-Fast](https://img.shields.io/badge/LLM%20cron%20fail--fast-17%2F21%20aligned-brightgreen.svg)]()
 [![Notifications](https://img.shields.io/badge/notifications-WhatsApp%20%2B%20Discord-informational.svg)]()
 
-> **Current version:** `v37.9.150` / `0.37.9.70` (2026-06-14) — see [`CLAUDE.md`](CLAUDE.md) for full changelog.
+> **Current version:** `v37.9.151` / `0.37.9.70` (2026-06-14) — see [`CLAUDE.md`](CLAUDE.md) for full changelog.
 > **Latest milestone:** V37.9.117 → V37.9.121 — *日落法 (Sunset Law) 立为项目北极星 (降复杂度优先于加功能)*. 一天五版意外频发后深度反思: 真因不是"系统复杂"(部件难懂) 而是"系统组合"(简单正确部件交互面积超线性增长超过测试覆盖) — 复杂关乎部件, 意外关乎接缝. MR-22 (sunset-over-accretion) + MR-23 (audit-observes-never-mutates) + 原则 #34 北极星. V37.9.118-120 首批日落法退役 (governance repo_root 一物多形 → os.getcwd / engine.py realpath / auto_deploy 双副本根治). V37.9.121 立 INV-OBSERVER-001 + INV-SOURCE-CREDIBILITY-001 — 在"加治理"任务内仍践行日落法 (候选 2 daily_observer INV 合并为 1 + 退役冗余硬编码守卫).
 
 ## Product Layers: What's Core vs. What's the Author's PA Instance
@@ -230,7 +230,7 @@ bash quickstart.sh
 ```
 Phase 1: Prerequisites     → Python, files, syntax, provider auto-detection
 Phase 2: Start Services    → Adapter(:5001) + Proxy(:5002), ~3 seconds
-Phase 3: Health Check      → 1319 unit tests + registry validation
+Phase 3: Health Check      → unit tests + registry validation
 Phase 4: Golden Test Trace → Real request through full stack, saved to docs/golden_trace.json
 ```
 
@@ -474,7 +474,7 @@ All jobs registered in `jobs_registry.yaml`. Validate: `python3 check_registry.p
 - **Control Plane** (90%): Provider Compatibility Layer, SLO 5-metric monitoring, centralized thresholds, 19-check preflight, incident snapshots, circuit breaker + audit logging (fsync + atomic snapshot), 89-invariant governance, single-manager process ownership (V37.9.13)
 - **Capability Plane** (85%): 8-provider routing + capability-based fallback chain, multimodal (text+vision), tool governance (≤12, policy-driven via V37.9.12), data cleaning, search_kb hybrid retrieval
 - **Memory Plane** (75%): KB RAG (local sentence-transformers), trend analysis, preference learning, multimodal memory, Memory Plane v2 (dedup + confidence + conflict resolution), Agent Dream v2 MapReduce
-- **Ontology Plane** (Phase 4 P2 active): 4 YAML ontologies (tool/domain/policy/governance), Tool Ontology Engine (81 rules, ONTOLOGY_MODE=on), **Governance Ontology v3.56** (90 invariants + 23 meta rules + 14 MRD scanners + 827 checks), 2 policies wired via `evaluate_policy()`, 25 blood lesson cases (see [`ontology/docs/failure_modes_catalog.md`](ontology/docs/failure_modes_catalog.md) for taxonomy)
+- **Ontology Plane** (Phase 4 P2 active): 4 YAML ontologies (tool/domain/policy/governance), Tool Ontology Engine (81 rules, ONTOLOGY_MODE=on), **Governance Ontology v3.56** (90 invariants + 23 meta rules + 14 MRD scanners + 828 checks), 2 policies wired via `evaluate_policy()`, 25 blood lesson cases (see [`ontology/docs/failure_modes_catalog.md`](ontology/docs/failure_modes_catalog.md) for taxonomy)
 
 ### Ontology: What's Declaratively Defined (Phase 4 P2)
 
@@ -656,14 +656,14 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 | **Golden Test Trace** | `docs/golden_trace.json` | `bash quickstart.sh --demo` |
 | **SLO Benchmark** | `docs/slo_benchmark_report.md` | `python3 slo_benchmark.py --save` |
 | **Compatibility Matrix** | `docs/compatibility_matrix.md` | `python3 providers.py` |
-| **2253 Unit Tests** | 64 test suites | `bash full_regression.sh` |
+| **Unit Test Regression** | all test suites | `bash full_regression.sh` |
 | **Adversarial Chaos Audit** | `adversarial_chaos_audit.py` — 16/16 defense (10 known blood lessons + 6 blind spots) | `python3 adversarial_chaos_audit.py` |
 | **GameDay Drill** | `gameday.sh` | `bash gameday.sh --all` |
 | **Security Score** | `security_score.py` | `python3 security_score.py` |
 | **Reliability Bench** | `docs/reliability_bench_report.md` | `python3 reliability_bench.py --save` |
 | **Resilience Report** | `docs/resilience_report.md` | 7 fault injection experiments |
 | **Security Boundaries** | `docs/security_boundaries.md` | 8-section security analysis |
-| **Governance Audit** | `ontology/governance_checker.py` | `python3 ontology/governance_checker.py` (89/89 invariants, 23 MR, 14 MRD scanners, 818 checks) |
+| **Governance Audit** | `ontology/governance_checker.py` | `python3 ontology/governance_checker.py` |
 | **Convergence Framework** | `ontology/convergence.py` | `python3 ontology/convergence.py --all` (Phase 4 Layer 5: 5 specs, 3 machine_sync, MR-17) |
 | **LLM Cron Fail-Fast Audit** | `ontology/llm_cron_audit.py` | `python3 ontology/llm_cron_audit.py --report` (17/21 aligned with V37.9.36+ fail-fast pattern) |
 | **Tool Ontology** | `ontology/` | `python3 ontology/diff.py` (81/81 consistency) |
