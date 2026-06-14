@@ -13,7 +13,7 @@
 [![Fail-Fast](https://img.shields.io/badge/LLM%20cron%20fail--fast-17%2F21%20aligned-brightgreen.svg)]()
 [![Notifications](https://img.shields.io/badge/notifications-WhatsApp%20%2B%20Discord-informational.svg)]()
 
-> **Current version:** `v37.9.151` / `0.37.9.70` (2026-06-14) — see [`CLAUDE.md`](CLAUDE.md) for full changelog.
+> **Current version:** `v37.9.152` / `0.37.9.70` (2026-06-14) — see [`CLAUDE.md`](CLAUDE.md) for full changelog.
 > **Latest milestone:** V37.9.117 → V37.9.121 — *日落法 (Sunset Law) 立为项目北极星 (降复杂度优先于加功能)*. 一天五版意外频发后深度反思: 真因不是"系统复杂"(部件难懂) 而是"系统组合"(简单正确部件交互面积超线性增长超过测试覆盖) — 复杂关乎部件, 意外关乎接缝. MR-22 (sunset-over-accretion) + MR-23 (audit-observes-never-mutates) + 原则 #34 北极星. V37.9.118-120 首批日落法退役 (governance repo_root 一物多形 → os.getcwd / engine.py realpath / auto_deploy 双副本根治). V37.9.121 立 INV-OBSERVER-001 + INV-SOURCE-CREDIBILITY-001 — 在"加治理"任务内仍践行日落法 (候选 2 daily_observer INV 合并为 1 + 退役冗余硬编码守卫).
 
 ## Product Layers: What's Core vs. What's the Author's PA Instance
@@ -145,8 +145,8 @@ Layer 3 is not product clutter — it is the **production evidence** for layers 
 │    engine.py ←→ policy_ontology.yaml (10 策略，V37.9.13)         │
 │      └→ static (3) + temporal (2) + contextual (5)              │
 │      └→ 2 条已 wire: max-tools-per-agent / max-tool-calls       │
-│    governance_checker.py ←→ governance_ontology.yaml v3.55      │
-│      └→ 89不变式 + 818检查 + 23元规则 + 14 MRD 扫描器           │
+│    governance_checker.py ←→ governance_ontology.yaml v3.56      │
+│      └→ 90不变式 + 828检查 + 23元规则 + 14 MRD 扫描器           │
 │      └→ MR-4 silent-failure (~28 次演出) / MR-6 critical≥2层    │
 │      └→ MR-7 治理自观察 / MR-8 copy-paste / MR-9 single-manager │
 │      └→ MR-15 reserved-files / MR-16 security 双轨统一          │
@@ -392,7 +392,7 @@ All jobs registered in `jobs_registry.yaml`. Validate: `python3 check_registry.p
 | `wa_keepalive.sh` | Every 30 min | WhatsApp session probe + escalation to Discord |
 | `kb_trend.py` | Sat 09:00 | Weekly AI trend report (keyword trends + LLM analysis) |
 | `kb_status_refresh.sh` | Hourly | Status.json health refresh (three-party sync) |
-| `governance_audit_cron.sh` | Daily 07:00 | **V37.1→V37.9.121** Governance audit — 89 invariants + 23 meta rules + 14 MRD scanners + 818 checks |
+| `governance_audit_cron.sh` | Daily 07:00 | **V37.1→V37.9.121** Governance audit — full invariant + meta-rule + MRD-scanner + check suite |
 | `preference_learner.py` | Daily 07:30 | User preference auto-learning |
 | `cron_canary.sh` | Every 10 min | Cron heartbeat canary |
 | `kb_integrity.py` | (on-demand) | KB file integrity checker (SHA256) |
@@ -443,12 +443,12 @@ All jobs registered in `jobs_registry.yaml`. Validate: `python3 check_registry.p
 | `ontology/tool_ontology.yaml` | **V36.2** Declarative tool rules — 81 rules (filters, injections, truncation, SSE, media) |
 | `ontology/domain_ontology.yaml` | **V37.9.9→V37.9.12** Layer 1 — six-domain conceptual model (Actor / Tool / Resource / Task / Provider / Memory) + inter-domain relations, queryable via `find_by_domain()` |
 | `ontology/policy_ontology.yaml` | **V37.9.15** Layer 2 — 10 declarative policies: 3 static + 2 temporal + 5 contextual + ordering constraints + V37.9.15 P3 gate wiring observability declared |
-| `ontology/governance_checker.py` | **V36.3→V37.9.121** Governance execution engine — 89 invariants + 818 checks + 23 meta rules + 14 MRD scanners + 5 check types + integrated `verify_convergence` calls (Phase 4 Layer 5 audit consumption) |
-| `ontology/governance_ontology.yaml` | **V37.9.121** Governance Ontology v3.55 — 89 invariants (incl. **INV-OBSERVER-001 + INV-SOURCE-CREDIBILITY-001 V37.9.121 daily_observer + source_credibility contracts (日落法 MR-22 合并 sampling 候选)**, INV-MOVESPEED-TCC-001 V37.9.80-V37.9.81 TCC sandbox 真因+24h≤2 hard guard, INV-HEALTHCHECK-001 V37.9.78 9段证据周报, INV-GATE-001 three-gate observability, INV-CONVERGENCE-CRON/PROVIDERS/OPENCLAW/KB/INTEGRATION/SERVICES-001 5 convergence specs, INV-LLMCRON-AUDIT-001 cross-job fail-fast audit, INV-DREAM-MULTITHEME-001 V37.9.68 14天ban-list), 23 meta rules (incl. MR-17 declared-state-must-converge-via-machine-not-memory, MR-19 monitor-must-self-alarm-on-silent-abort, MR-22 sunset-over-accretion 日落法北极星, MR-23 audit-observes-never-mutates) |
+| `ontology/governance_checker.py` | **V36.3→V37.9.121** Governance execution engine — runs the full invariant / check / meta-rule / MRD-scanner suite (5 check types) + integrated `verify_convergence` calls (Phase 4 Layer 5 audit consumption) |
+| `ontology/governance_ontology.yaml` | **V37.9.121** Governance Ontology v3.56 — invariants (incl. **INV-OBSERVER-001 + INV-SOURCE-CREDIBILITY-001 V37.9.121 daily_observer + source_credibility contracts (日落法 MR-22 合并 sampling 候选)**, INV-MOVESPEED-TCC-001 V37.9.80-V37.9.81 TCC sandbox 真因+24h≤2 hard guard, INV-HEALTHCHECK-001 V37.9.78 9段证据周报, INV-GATE-001 three-gate observability, INV-CONVERGENCE-CRON/PROVIDERS/OPENCLAW/KB/INTEGRATION/SERVICES-001 5 convergence specs, INV-LLMCRON-AUDIT-001 cross-job fail-fast audit, INV-DREAM-MULTITHEME-001 V37.9.68 14天ban-list), meta rules (incl. MR-17 declared-state-must-converge-via-machine-not-memory, MR-19 monitor-must-self-alarm-on-silent-abort, MR-22 sunset-over-accretion 日落法北极星, MR-23 audit-observes-never-mutates) |
 | `ontology/llm_cron_audit.py` | **V37.9.38→V37.9.62** Cross-job fail-fast scanner — 21 candidate scripts / **17 aligned** (V37.9.36-37 rss_blogs / V37.5 kb_review / V37.8.10 kb_evening / V37.9.16 kb_deep_dive / V37.9.39 S2 / V37.9.40 DBLP+AI Leaders X / V37.9.41 HN / V37.9.43 arxiv / V37.9.44 github_trending / V37.9.45 hf_papers / V37.9.50 semantic_scholar / V37.9.51 batch 6 / V37.9.62 batch 6 含 acl/karpathy/openclaw_official×2/ontology_sources/chaspark) / 4 by design 排除 (finance_news/freight/kb_dream/kb_inject) |
 | `ontology/diff.py` | **V36.2** Consistency checker — engine vs proxy_filters (81/81 = 100%) |
 | `ontology/CONSTITUTION.md` | **V36.2** Ontology Constitution — 6 articles + Supreme Article (project isolation) |
-| `ontology/tests/` | Engine + governance tests — `test_engine_phase4.py` (75 tests, V37.9.13), `test_governance_*`, `test_dream_cache_stability`, `test_audit_perf_dimensions` |
+| `ontology/tests/` | Engine + governance tests — `test_engine_phase4.py` (V37.9.13), `test_governance_*`, `test_dream_cache_stability`, `test_audit_perf_dimensions` |
 | `ontology/docs/cases/` | **V37.3→V37.9.121** 25 blood lesson case studies (MR-4 silent failure × ~28 appearances, including HEARTBEAT.md self-silencing → MR-15, Dream Map budget chain, kb_evening fallback quota chain, MOVESPEED 60-day silent backup, V37.9.68 Qwen-BIM 涌现行为防御, V37.9.92 observer path silent failure) |
 | `ontology/docs/architecture/` | Industrial AI paradigm, target architecture (Phase 3-5 roadmap) |
 
