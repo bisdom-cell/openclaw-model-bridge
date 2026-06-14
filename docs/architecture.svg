@@ -1,489 +1,79 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 1270" width="960" height="1270" font-family="'Courier New', monospace">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 520" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
   <defs>
-    <!-- Background gradient -->
-    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#0d1117;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#161b22;stop-opacity:1" />
-    </linearGradient>
-
-    <!-- Card gradients -->
-    <linearGradient id="waGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" style="stop-color:#25d366;stop-opacity:0.15" />
-      <stop offset="100%" style="stop-color:#25d366;stop-opacity:0.05" />
-    </linearGradient>
-    <linearGradient id="gwGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" style="stop-color:#e36209;stop-opacity:0.15" />
-      <stop offset="100%" style="stop-color:#e36209;stop-opacity:0.05" />
-    </linearGradient>
-    <linearGradient id="proxyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" style="stop-color:#58a6ff;stop-opacity:0.15" />
-      <stop offset="100%" style="stop-color:#58a6ff;stop-opacity:0.05" />
-    </linearGradient>
-    <linearGradient id="adapterGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" style="stop-color:#bc8cff;stop-opacity:0.15" />
-      <stop offset="100%" style="stop-color:#bc8cff;stop-opacity:0.05" />
-    </linearGradient>
-    <linearGradient id="gpuGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" style="stop-color:#ff7b72;stop-opacity:0.15" />
-      <stop offset="100%" style="stop-color:#ff7b72;stop-opacity:0.05" />
-    </linearGradient>
-    <linearGradient id="jobGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" style="stop-color:#f0883e;stop-opacity:0.12" />
-      <stop offset="100%" style="stop-color:#f0883e;stop-opacity:0.04" />
-    </linearGradient>
-    <linearGradient id="monGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" style="stop-color:#f85149;stop-opacity:0.12" />
-      <stop offset="100%" style="stop-color:#f85149;stop-opacity:0.04" />
-    </linearGradient>
-    <linearGradient id="devopsGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" style="stop-color:#3fb950;stop-opacity:0.12" />
-      <stop offset="100%" style="stop-color:#3fb950;stop-opacity:0.04" />
-    </linearGradient>
-
-    <linearGradient id="ontoGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" style="stop-color:#79c0ff;stop-opacity:0.12" />
-      <stop offset="100%" style="stop-color:#79c0ff;stop-opacity:0.04" />
-    </linearGradient>
-
-    <!-- Glow filters -->
-    <filter id="glowBlue">
-      <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
-      <feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter>
-
-    <!-- Arrow markers -->
-    <marker id="arrowBlue" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-      <path d="M0,0 L0,6 L8,3 z" fill="#58a6ff" opacity="0.8"/>
-    </marker>
-    <marker id="arrowGray" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-      <path d="M0,0 L0,6 L8,3 z" fill="#484f58" opacity="0.8"/>
-    </marker>
-    <marker id="arrowGrayLeft" markerWidth="8" markerHeight="8" refX="2" refY="3" orient="auto">
-      <path d="M8,0 L8,6 L0,3 z" fill="#484f58" opacity="0.8"/>
-    </marker>
-    <marker id="arrowPurple" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-      <path d="M0,0 L0,6 L8,3 z" fill="#bc8cff" opacity="0.8"/>
-    </marker>
-    <marker id="arrowRed" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-      <path d="M0,0 L0,6 L8,3 z" fill="#ff7b72" opacity="0.8"/>
-    </marker>
-    <marker id="arrowGreen" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-      <path d="M0,0 L0,6 L8,3 z" fill="#3fb950" opacity="0.8"/>
-    </marker>
-    <marker id="arrowOrange" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-      <path d="M0,0 L0,6 L8,3 z" fill="#f0883e" opacity="0.8"/>
-    </marker>
-    <marker id="arrowCyan" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-      <path d="M0,0 L0,6 L8,3 z" fill="#79c0ff" opacity="0.8"/>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#5b6770"/>
     </marker>
   </defs>
 
-  <!-- Background -->
-  <rect width="960" height="1120" fill="url(#bgGrad)" rx="12"/>
-
-  <!-- Subtle grid pattern -->
-  <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-    <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#ffffff" stroke-width="0.3" opacity="0.04"/>
-  </pattern>
-  <rect width="960" height="1120" fill="url(#grid)" rx="12"/>
-
-  <!-- Top border accent -->
-  <rect x="0" y="0" width="960" height="3" rx="2" fill="#58a6ff" opacity="0.4"/>
-
-  <!-- ═══════════════════════════════════ -->
-  <!-- TITLE -->
-  <!-- ═══════════════════════════════════ -->
-  <text x="480" y="35" text-anchor="middle" font-size="13" fill="#8b949e" letter-spacing="4">OPENCLAW MODEL BRIDGE</text>
-  <text x="480" y="55" text-anchor="middle" font-size="11" fill="#484f58" letter-spacing="2">Six-Layer Architecture  v36.2 — Control Plane First</text>
-
-  <!-- ═══════════════════════════════════ -->
-  <!-- LAYER 1: CORE DATA PATH -->
-  <!-- ═══════════════════════════════════ -->
-
-  <!-- Layer 1 label -->
-  <rect x="20" y="72" width="18" height="18" rx="4" fill="#58a6ff" opacity="0.3"/>
-  <text x="29" y="86" text-anchor="middle" font-size="11" fill="#58a6ff" font-weight="bold">1</text>
-  <text x="48" y="86" font-size="11" fill="#58a6ff" font-weight="bold" letter-spacing="1">Core Data Path</text>
-  <text x="220" y="86" font-size="9" fill="#484f58">Real-time conversation + Multimodal</text>
-
-  <!-- WhatsApp + Discord Box -->
-  <rect x="30" y="95" width="120" height="82" rx="8" fill="url(#waGrad)" stroke="#25d366" stroke-width="1" opacity="0.9"/>
-  <text x="90" y="117" text-anchor="middle" font-size="12" fill="#25d366" font-weight="bold">WhatsApp</text>
-  <text x="90" y="133" text-anchor="middle" font-size="9" fill="#8b949e">Text + Image</text>
-  <line x1="50" y1="140" x2="130" y2="140" stroke="#484f58" stroke-width="0.5" opacity="0.3"/>
-  <text x="90" y="155" text-anchor="middle" font-size="12" fill="#7289da" font-weight="bold">Discord</text>
-  <text x="90" y="169" text-anchor="middle" font-size="8" fill="#484f58">6 topic channels</text>
-
-  <!-- Arrow WA <-> GW -->
-  <line x1="150" y1="135" x2="195" y2="135" stroke="#484f58" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arrowGray)" marker-start="url(#arrowGrayLeft)"/>
-
-  <!-- Gateway Box -->
-  <rect x="195" y="100" width="155" height="70" rx="8" fill="url(#gwGrad)" stroke="#e36209" stroke-width="1" opacity="0.9"/>
-  <text x="272" y="123" text-anchor="middle" font-size="11" fill="#e36209" font-weight="bold">Gateway</text>
-  <text x="272" y="138" text-anchor="middle" font-size="9" fill="#8b949e">Session / Media Storage</text>
-  <rect x="228" y="148" width="88" height="14" rx="3" fill="#e36209" opacity="0.15"/>
-  <text x="272" y="159" text-anchor="middle" font-size="9" fill="#e36209" font-weight="bold">:18789</text>
-  <text x="272" y="86" text-anchor="middle" font-size="8" fill="#e36209" opacity="0.6">launchd KeepAlive</text>
-
-  <!-- Arrow GW -> Proxy -->
-  <line x1="350" y1="135" x2="395" y2="135" stroke="#58a6ff" stroke-width="2" marker-end="url(#arrowBlue)"/>
-
-  <!-- Tool Proxy Box -->
-  <rect x="395" y="95" width="220" height="80" rx="8" fill="url(#proxyGrad)" stroke="#58a6ff" stroke-width="1.5" filter="url(#glowBlue)"/>
-  <text x="505" y="118" text-anchor="middle" font-size="11" fill="#58a6ff" font-weight="bold">Tool Proxy</text>
-  <text x="505" y="133" text-anchor="middle" font-size="8" fill="#8b949e">tool_proxy.py + proxy_filters.py</text>
-  <text x="505" y="146" text-anchor="middle" font-size="8" fill="#484f58">Filter 24→12 / Custom Tools / Hybrid Search</text>
-  <rect x="542" y="154" width="60" height="14" rx="3" fill="#58a6ff" opacity="0.2"/>
-  <text x="572" y="165" text-anchor="middle" font-size="9" fill="#58a6ff" font-weight="bold">:5002</text>
-
-  <!-- /health + /stats labels -->
-  <text x="425" y="165" font-size="8" fill="#3fb950">/health /stats</text>
-
-  <!-- Arrow Proxy -> Adapter -->
-  <line x1="615" y1="135" x2="660" y2="135" stroke="#bc8cff" stroke-width="2" marker-end="url(#arrowPurple)"/>
-
-  <!-- Adapter Box -->
-  <rect x="660" y="100" width="145" height="70" rx="8" fill="url(#adapterGrad)" stroke="#bc8cff" stroke-width="1"/>
-  <text x="732" y="123" text-anchor="middle" font-size="11" fill="#bc8cff" font-weight="bold">Adapter</text>
-  <text x="732" y="138" text-anchor="middle" font-size="8" fill="#8b949e">Auth + VL Routing</text>
-  <text x="732" y="151" text-anchor="middle" font-size="8" fill="#484f58">Text→Qwen3 / Img→VL</text>
-  <rect x="701" y="155" width="60" height="14" rx="3" fill="#bc8cff" opacity="0.2"/>
-  <text x="731" y="166" text-anchor="middle" font-size="9" fill="#bc8cff" font-weight="bold">:5001</text>
-
-  <!-- Arrow Adapter -> GPU -->
-  <line x1="805" y1="135" x2="848" y2="135" stroke="#ff7b72" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arrowRed)" opacity="0.7"/>
-
-  <!-- 8 Providers Box -->
-  <rect x="848" y="95" width="100" height="82" rx="8" fill="url(#gpuGrad)" stroke="#ff7b72" stroke-width="1"/>
-  <text x="898" y="112" text-anchor="middle" font-size="10" fill="#ff7b72" font-weight="bold">8 Providers</text>
-  <text x="898" y="126" text-anchor="middle" font-size="7" fill="#8b949e">Qwen3 / GPT-4o</text>
-  <text x="898" y="138" text-anchor="middle" font-size="7" fill="#8b949e">Gemini / Claude</text>
-  <text x="898" y="150" text-anchor="middle" font-size="7" fill="#ff7b72">Kimi K2.5</text>
-  <text x="898" y="162" text-anchor="middle" font-size="7" fill="#ff7b72">MiniMax / GLM-5</text>
-  <text x="898" y="174" text-anchor="middle" font-size="7" fill="#484f58">providers.py</text>
-
-  <!-- Image flow annotation -->
-  <rect x="30" y="182" width="900" height="22" rx="4" fill="#bc8cff" opacity="0.08"/>
-  <text x="480" y="197" text-anchor="middle" font-size="8" fill="#bc8cff" letter-spacing="0.5">Image Flow: Gateway stores jpg → Proxy detects &lt;media:image&gt; → base64 inject → Adapter routes to Qwen2.5-VL → image understanding</text>
-
-  <!-- ═══════════════════════════════════ -->
-  <!-- LAYER 2: SCHEDULED JOBS -->
-  <!-- ═══════════════════════════════════ -->
-
-  <!-- Connector line -->
-  <line x1="480" y1="204" x2="480" y2="220" stroke="#f0883e" stroke-width="1" stroke-dasharray="3,3" opacity="0.5"/>
-
-  <!-- Layer 2 label -->
-  <rect x="20" y="225" width="18" height="18" rx="4" fill="#f0883e" opacity="0.3"/>
-  <text x="29" y="239" text-anchor="middle" font-size="11" fill="#f0883e" font-weight="bold">2</text>
-  <text x="48" y="239" font-size="11" fill="#f0883e" font-weight="bold" letter-spacing="1">Scheduled Jobs</text>
-  <text x="200" y="239" font-size="9" fill="#484f58">system crontab</text>
-
-  <!-- Jobs container -->
-  <rect x="30" y="250" width="900" height="195" rx="10" fill="url(#jobGrad)" stroke="#f0883e" stroke-width="1" stroke-opacity="0.5"/>
-
-  <!-- Row 1: Paper monitors (5 sources) -->
-  <text x="50" y="274" font-size="9" fill="#f0883e" font-weight="bold" letter-spacing="1">PAPER MONITORS (5 sources)</text>
-
-  <!-- ArXiv -->
-  <rect x="50" y="282" width="130" height="42" rx="6" fill="#0d1117" opacity="0.6" stroke="#f0883e" stroke-width="0.5" stroke-opacity="0.3"/>
-  <text x="115" y="300" text-anchor="middle" font-size="9" fill="#f0883e">ArXiv</text>
-  <text x="115" y="316" text-anchor="middle" font-size="8" fill="#484f58">every 3h</text>
-
-  <!-- HF Papers -->
-  <rect x="190" y="282" width="130" height="42" rx="6" fill="#0d1117" opacity="0.6" stroke="#f0883e" stroke-width="0.5" stroke-opacity="0.3"/>
-  <text x="255" y="300" text-anchor="middle" font-size="9" fill="#f0883e">HF Papers</text>
-  <text x="255" y="316" text-anchor="middle" font-size="8" fill="#484f58">daily 10:00</text>
-
-  <!-- Semantic Scholar -->
-  <rect x="330" y="282" width="130" height="42" rx="6" fill="#0d1117" opacity="0.6" stroke="#f0883e" stroke-width="0.5" stroke-opacity="0.3"/>
-  <text x="395" y="300" text-anchor="middle" font-size="9" fill="#f0883e">S2 Scholar</text>
-  <text x="395" y="316" text-anchor="middle" font-size="8" fill="#484f58">daily 11:00</text>
-
-  <!-- DBLP -->
-  <rect x="470" y="282" width="130" height="42" rx="6" fill="#0d1117" opacity="0.6" stroke="#f0883e" stroke-width="0.5" stroke-opacity="0.3"/>
-  <text x="535" y="300" text-anchor="middle" font-size="9" fill="#f0883e">DBLP CS</text>
-  <text x="535" y="316" text-anchor="middle" font-size="8" fill="#484f58">daily 12:00</text>
-
-  <!-- ACL -->
-  <rect x="610" y="282" width="130" height="42" rx="6" fill="#0d1117" opacity="0.6" stroke="#f0883e" stroke-width="0.5" stroke-opacity="0.3"/>
-  <text x="675" y="300" text-anchor="middle" font-size="9" fill="#f0883e">ACL NLP</text>
-  <text x="675" y="316" text-anchor="middle" font-size="8" fill="#484f58">daily 09:30</text>
-
-  <!-- Other watchers -->
-  <text x="760" y="274" font-size="9" fill="#f0883e" font-weight="bold" letter-spacing="1">OTHER</text>
-
-  <rect x="760" y="282" width="155" height="42" rx="6" fill="#0d1117" opacity="0.6" stroke="#f0883e" stroke-width="0.5" stroke-opacity="0.3"/>
-  <text x="837" y="295" text-anchor="middle" font-size="8" fill="#f0883e">HN / Freight / Releases</text>
-  <text x="837" y="308" text-anchor="middle" font-size="8" fill="#f0883e">Issues / Trend Report</text>
-  <text x="837" y="320" text-anchor="middle" font-size="7" fill="#484f58">all → KB + WA + Discord</text>
-
-  <!-- Row 2: KB + Maintenance -->
-  <text x="50" y="346" font-size="9" fill="#f0883e" font-weight="bold" letter-spacing="1">KB &amp; MAINTENANCE</text>
-
-  <rect x="50" y="354" width="155" height="42" rx="6" fill="#0d1117" opacity="0.6" stroke="#f0883e" stroke-width="0.5" stroke-opacity="0.3"/>
-  <text x="127" y="372" text-anchor="middle" font-size="9" fill="#f0883e">KB Evening Tidy</text>
-  <text x="127" y="388" text-anchor="middle" font-size="8" fill="#484f58">daily 22:00</text>
-
-  <rect x="215" y="354" width="155" height="42" rx="6" fill="#0d1117" opacity="0.6" stroke="#f0883e" stroke-width="0.5" stroke-opacity="0.3"/>
-  <text x="292" y="372" text-anchor="middle" font-size="9" fill="#f0883e">KB Weekly Review</text>
-  <text x="292" y="388" text-anchor="middle" font-size="8" fill="#484f58">Fri 21:00</text>
-
-  <rect x="380" y="354" width="155" height="42" rx="6" fill="#0d1117" opacity="0.6" stroke="#f0883e" stroke-width="0.5" stroke-opacity="0.3"/>
-  <text x="457" y="372" text-anchor="middle" font-size="9" fill="#f0883e">Health Report</text>
-  <text x="457" y="388" text-anchor="middle" font-size="8" fill="#484f58">Mon 09:00 -> WA+Discord</text>
+  <rect x="0" y="0" width="1080" height="520" fill="#ffffff"/>
 
-  <rect x="545" y="354" width="155" height="42" rx="6" fill="#0d1117" opacity="0.6" stroke="#f0883e" stroke-width="0.5" stroke-opacity="0.3"/>
-  <text x="622" y="372" text-anchor="middle" font-size="9" fill="#f0883e">KB Embed (Local)</text>
-  <text x="622" y="388" text-anchor="middle" font-size="8" fill="#484f58">every 4h -> RAG index</text>
+  <!-- Title + differentiation subtitle -->
+  <text x="540" y="34" text-anchor="middle" font-size="24" font-weight="700" fill="#1a2733">OpenClaw Model Bridge &#8212; Agent Runtime Control Plane</text>
+  <text x="540" y="60" text-anchor="middle" font-size="16" fill="#5b6770">Not another LLM wrapper &#8212; a <tspan font-weight="700" fill="#6b46c1">self-governing control plane</tspan>.</text>
+  <text x="540" y="82" text-anchor="middle" font-size="13.5" fill="#9aa5ad">zero deps (Python stdlib) &#183; safe fallback &#183; reproducible evidence (SLO + 17-scenario bench + 16/16 chaos) &#183; Sunset Law north star</text>
 
-  <rect x="710" y="354" width="205" height="42" rx="6" fill="#0d1117" opacity="0.6" stroke="#f0883e" stroke-width="0.5" stroke-opacity="0.3"/>
-  <text x="812" y="372" text-anchor="middle" font-size="9" fill="#f0883e">MM Index + Daily Reports</text>
-  <text x="812" y="388" text-anchor="middle" font-size="8" fill="#484f58">every 2h / daily 08:15-08:20</text>
+  <!-- ===== Left: core request pipeline ===== -->
+  <text x="160" y="108" text-anchor="middle" font-size="12" font-weight="700" fill="#9aa5ad" letter-spacing="1">REQUEST PATH</text>
 
-  <!-- Output flow -->
-  <text x="50" y="425" font-size="8" fill="#484f58">Output: ~/.kb/ (sources + text_index + mm_index + daily_digest) + WhatsApp + Discord push + SSD backup</text>
+  <rect x="36" y="116" width="248" height="40" rx="9" fill="#f4f6f8" stroke="#5b6770" stroke-width="2"/>
+  <text x="160" y="141" text-anchor="middle" font-size="16" font-weight="600" fill="#1a2733">WhatsApp + Discord</text>
+  <line x1="160" y1="156" x2="160" y2="172" stroke="#5b6770" stroke-width="2.5" marker-end="url(#arrow)"/>
 
-  <!-- ═══════════════════════════════════ -->
-  <!-- LAYER 3: MONITORING -->
-  <!-- ═══════════════════════════════════ -->
+  <rect x="36" y="174" width="248" height="40" rx="9" fill="#f4f6f8" stroke="#5b6770" stroke-width="2"/>
+  <text x="160" y="199" text-anchor="middle" font-size="16" font-weight="600" fill="#1a2733">Gateway  :18789</text>
+  <line x1="160" y1="214" x2="160" y2="230" stroke="#5b6770" stroke-width="2.5" marker-end="url(#arrow)"/>
 
-  <!-- Connector line -->
-  <line x1="480" y1="445" x2="480" y2="465" stroke="#f85149" stroke-width="1" stroke-dasharray="3,3" opacity="0.5"/>
+  <rect x="36" y="232" width="248" height="50" rx="9" fill="#e3f0fd" stroke="#2b6cb0" stroke-width="2.5"/>
+  <text x="160" y="253" text-anchor="middle" font-size="16" font-weight="700" fill="#1a3a5c">Tool Proxy  :5002</text>
+  <text x="160" y="271" text-anchor="middle" font-size="11.5" fill="#2b6cb0">tool governance &#183; custom tools &#183; SLO</text>
+  <line x1="160" y1="282" x2="160" y2="298" stroke="#5b6770" stroke-width="2.5" marker-end="url(#arrow)"/>
 
-  <!-- Layer 3 label -->
-  <rect x="20" y="470" width="18" height="18" rx="4" fill="#f85149" opacity="0.3"/>
-  <text x="29" y="484" text-anchor="middle" font-size="11" fill="#f85149" font-weight="bold">3</text>
-  <text x="48" y="484" font-size="11" fill="#f85149" font-weight="bold" letter-spacing="1">Monitoring</text>
-  <text x="155" y="484" font-size="9" fill="#484f58">Multi-level auto alerting</text>
-
-  <!-- Monitoring container -->
-  <rect x="30" y="495" width="900" height="150" rx="10" fill="url(#monGrad)" stroke="#f85149" stroke-width="1" stroke-opacity="0.5"/>
-
-  <!-- wa_keepalive -->
-  <rect x="50" y="515" width="200" height="55" rx="6" fill="#0d1117" opacity="0.6" stroke="#f85149" stroke-width="0.5" stroke-opacity="0.4"/>
-  <text x="150" y="534" text-anchor="middle" font-size="10" fill="#f85149" font-weight="bold">wa_keepalive</text>
-  <text x="150" y="548" text-anchor="middle" font-size="8" fill="#8b949e">every 30min: HTTP probe</text>
-  <text x="150" y="561" text-anchor="middle" font-size="8" fill="#484f58">Gateway health check</text>
-
-  <!-- job_watchdog -->
-  <rect x="265" y="515" width="210" height="55" rx="6" fill="#0d1117" opacity="0.6" stroke="#f85149" stroke-width="0.5" stroke-opacity="0.4"/>
-  <text x="370" y="534" text-anchor="middle" font-size="10" fill="#f85149" font-weight="bold">job_watchdog</text>
-  <text x="370" y="548" text-anchor="middle" font-size="8" fill="#8b949e">every 4h: check all job status files</text>
-  <text x="370" y="561" text-anchor="middle" font-size="8" fill="#484f58">+ log scan for push failures</text>
-
-  <!-- proxy_stats -->
-  <rect x="490" y="515" width="200" height="55" rx="6" fill="#0d1117" opacity="0.6" stroke="#f85149" stroke-width="0.5" stroke-opacity="0.4"/>
-  <text x="590" y="534" text-anchor="middle" font-size="10" fill="#f85149" font-weight="bold">proxy_stats</text>
-  <text x="590" y="548" text-anchor="middle" font-size="8" fill="#8b949e">realtime: token usage tracking</text>
-  <text x="590" y="561" text-anchor="middle" font-size="8" fill="#484f58">errors -> WA + Discord alert</text>
-
-  <!-- /health endpoints -->
-  <rect x="705" y="515" width="210" height="55" rx="6" fill="#0d1117" opacity="0.6" stroke="#f85149" stroke-width="0.5" stroke-opacity="0.4"/>
-  <text x="810" y="534" text-anchor="middle" font-size="10" fill="#f85149" font-weight="bold">/health Endpoints</text>
-  <text x="810" y="548" text-anchor="middle" font-size="8" fill="#8b949e">3-tier cascade health check</text>
-  <text x="810" y="561" text-anchor="middle" font-size="8" fill="#484f58">:18789 -> :5002 -> :5001</text>
-
-  <!-- Alert output -->
-  <text x="50" y="630" font-size="8" fill="#f85149" opacity="0.7">All alerts -> WhatsApp + Discord dual-channel push (via notify.sh)</text>
-
-  <!-- ═══════════════════════════════════ -->
-  <!-- LAYER 4: DEVOPS -->
-  <!-- ═══════════════════════════════════ -->
-
-  <!-- Connector line -->
-  <line x1="480" y1="645" x2="480" y2="665" stroke="#3fb950" stroke-width="1" stroke-dasharray="3,3" opacity="0.5"/>
-
-  <!-- Layer 4 label -->
-  <rect x="20" y="670" width="18" height="18" rx="4" fill="#3fb950" opacity="0.3"/>
-  <text x="29" y="684" text-anchor="middle" font-size="11" fill="#3fb950" font-weight="bold">4</text>
-  <text x="48" y="684" font-size="11" fill="#3fb950" font-weight="bold" letter-spacing="1">DevOps</text>
-  <text x="115" y="684" font-size="9" fill="#484f58">Auto deploy + Health check</text>
-
-  <!-- DevOps container -->
-  <rect x="30" y="695" width="900" height="200" rx="10" fill="url(#devopsGrad)" stroke="#3fb950" stroke-width="1" stroke-opacity="0.5"/>
-
-  <!-- auto_deploy pipeline -->
-  <text x="50" y="720" font-size="9" fill="#3fb950" font-weight="bold" letter-spacing="1">AUTO DEPLOY PIPELINE (every 2min)</text>
-
-  <!-- Pipeline stages -->
-  <rect x="50" y="730" width="115" height="40" rx="5" fill="#0d1117" opacity="0.6" stroke="#3fb950" stroke-width="0.5" stroke-opacity="0.4"/>
-  <text x="107" y="749" text-anchor="middle" font-size="9" fill="#3fb950">git fetch</text>
-  <text x="107" y="762" text-anchor="middle" font-size="8" fill="#484f58">poll GitHub</text>
-
-  <line x1="165" y1="750" x2="185" y2="750" stroke="#3fb950" stroke-width="1" marker-end="url(#arrowGreen)" opacity="0.6"/>
-
-  <rect x="185" y="730" width="115" height="40" rx="5" fill="#0d1117" opacity="0.6" stroke="#3fb950" stroke-width="0.5" stroke-opacity="0.4"/>
-  <text x="242" y="749" text-anchor="middle" font-size="9" fill="#3fb950">unit tests</text>
-  <text x="242" y="762" text-anchor="middle" font-size="8" fill="#484f58">if filters changed</text>
-
-  <line x1="300" y1="750" x2="320" y2="750" stroke="#3fb950" stroke-width="1" marker-end="url(#arrowGreen)" opacity="0.6"/>
-
-  <rect x="320" y="730" width="115" height="40" rx="5" fill="#0d1117" opacity="0.6" stroke="#3fb950" stroke-width="0.5" stroke-opacity="0.4"/>
-  <text x="377" y="749" text-anchor="middle" font-size="9" fill="#3fb950">file sync</text>
-  <text x="377" y="762" text-anchor="middle" font-size="8" fill="#484f58">31 file mappings</text>
-
-  <line x1="435" y1="750" x2="455" y2="750" stroke="#3fb950" stroke-width="1" marker-end="url(#arrowGreen)" opacity="0.6"/>
-
-  <rect x="455" y="730" width="115" height="40" rx="5" fill="#0d1117" opacity="0.6" stroke="#3fb950" stroke-width="0.5" stroke-opacity="0.4"/>
-  <text x="512" y="749" text-anchor="middle" font-size="9" fill="#3fb950">restart</text>
-  <text x="512" y="762" text-anchor="middle" font-size="8" fill="#484f58">if core files</text>
-
-  <line x1="570" y1="750" x2="590" y2="750" stroke="#3fb950" stroke-width="1" marker-end="url(#arrowGreen)" opacity="0.6"/>
-
-  <rect x="590" y="724" width="330" height="52" rx="6" fill="#0d1117" opacity="0.6" stroke="#3fb950" stroke-width="1" stroke-opacity="0.6"/>
-  <text x="755" y="742" text-anchor="middle" font-size="10" fill="#3fb950" font-weight="bold">preflight_check.sh --full</text>
-  <text x="755" y="756" text-anchor="middle" font-size="8" fill="#8b949e">19 checks (fail -> WA + Discord alert)</text>
-  <text x="755" y="768" text-anchor="middle" font-size="8" fill="#484f58">tests / registry / syntax / deploy / env / health / security</text>
-
-  <!-- Drift detection -->
-  <text x="50" y="792" font-size="9" fill="#3fb950" font-weight="bold" letter-spacing="1">DRIFT DETECTION (hourly)</text>
-
-  <rect x="50" y="800" width="200" height="35" rx="5" fill="#0d1117" opacity="0.6" stroke="#3fb950" stroke-width="0.5" stroke-opacity="0.3"/>
-  <text x="150" y="818" text-anchor="middle" font-size="9" fill="#3fb950">md5 full compare</text>
-  <text x="150" y="830" text-anchor="middle" font-size="8" fill="#484f58">repo vs deployed files</text>
-
-  <rect x="265" y="800" width="200" height="35" rx="5" fill="#0d1117" opacity="0.6" stroke="#3fb950" stroke-width="0.5" stroke-opacity="0.3"/>
-  <text x="365" y="818" text-anchor="middle" font-size="9" fill="#3fb950">crontab syntax check</text>
-  <text x="365" y="830" text-anchor="middle" font-size="8" fill="#484f58">quote integrity audit</text>
-
-  <!-- Dev workflow -->
-  <text x="50" y="860" font-size="9" fill="#3fb950" font-weight="bold" letter-spacing="1">DEVELOPMENT WORKFLOW</text>
-
-  <rect x="50" y="868" width="95" height="22" rx="4" fill="#0d1117" opacity="0.6" stroke="#58a6ff" stroke-width="0.5" stroke-opacity="0.4"/>
-  <text x="97" y="883" text-anchor="middle" font-size="8" fill="#58a6ff">Claude Code</text>
-  <line x1="145" y1="879" x2="165" y2="879" stroke="#484f58" stroke-width="1" marker-end="url(#arrowGray)" opacity="0.5"/>
-  <rect x="165" y="868" width="105" height="22" rx="4" fill="#0d1117" opacity="0.6" stroke="#58a6ff" stroke-width="0.5" stroke-opacity="0.4"/>
-  <text x="217" y="883" text-anchor="middle" font-size="8" fill="#58a6ff">claude/ branch</text>
-  <line x1="270" y1="879" x2="290" y2="879" stroke="#484f58" stroke-width="1" marker-end="url(#arrowGray)" opacity="0.5"/>
-  <rect x="290" y="868" width="95" height="22" rx="4" fill="#0d1117" opacity="0.6" stroke="#58a6ff" stroke-width="0.5" stroke-opacity="0.4"/>
-  <text x="337" y="883" text-anchor="middle" font-size="8" fill="#58a6ff">GitHub PR</text>
-  <line x1="385" y1="879" x2="405" y2="879" stroke="#484f58" stroke-width="1" marker-end="url(#arrowGray)" opacity="0.5"/>
-  <rect x="405" y="868" width="65" height="22" rx="4" fill="#0d1117" opacity="0.6" stroke="#3fb950" stroke-width="0.5" stroke-opacity="0.4"/>
-  <text x="437" y="883" text-anchor="middle" font-size="8" fill="#3fb950">main</text>
-  <line x1="470" y1="879" x2="490" y2="879" stroke="#3fb950" stroke-width="1" marker-end="url(#arrowGreen)" opacity="0.5"/>
-  <rect x="490" y="868" width="105" height="22" rx="4" fill="#0d1117" opacity="0.6" stroke="#3fb950" stroke-width="0.5" stroke-opacity="0.4"/>
-  <text x="542" y="883" text-anchor="middle" font-size="8" fill="#3fb950">auto_deploy</text>
-  <line x1="595" y1="879" x2="615" y2="879" stroke="#3fb950" stroke-width="1" marker-end="url(#arrowGreen)" opacity="0.5"/>
-  <rect x="615" y="868" width="95" height="22" rx="4" fill="#0d1117" opacity="0.6" stroke="#f0883e" stroke-width="0.5" stroke-opacity="0.4"/>
-  <text x="662" y="883" text-anchor="middle" font-size="8" fill="#f0883e">Mac Mini</text>
-
-  <!-- ═══════════════════════════════════ -->
-  <!-- LAYER 5: ONTOLOGY PLANE -->
-  <!-- ═══════════════════════════════════ -->
-
-  <!-- Connector line -->
-  <line x1="480" y1="895" x2="480" y2="915" stroke="#79c0ff" stroke-width="1" stroke-dasharray="3,3" opacity="0.5"/>
-
-  <!-- Layer 5 label -->
-  <rect x="20" y="920" width="18" height="18" rx="4" fill="#79c0ff" opacity="0.3"/>
-  <text x="29" y="934" text-anchor="middle" font-size="11" fill="#79c0ff" font-weight="bold">5</text>
-  <text x="48" y="934" font-size="11" fill="#79c0ff" font-weight="bold" letter-spacing="1">Ontology Plane</text>
-  <text x="190" y="934" font-size="9" fill="#484f58">Declarative tool governance + Knowledge</text>
-
-  <!-- Ontology container -->
-  <rect x="30" y="945" width="900" height="85" rx="10" fill="url(#ontoGrad)" stroke="#79c0ff" stroke-width="1" stroke-opacity="0.5"/>
-
-  <!-- Tool Ontology Engine -->
-  <rect x="50" y="958" width="200" height="55" rx="6" fill="#0d1117" opacity="0.6" stroke="#79c0ff" stroke-width="0.5" stroke-opacity="0.4"/>
-  <text x="150" y="977" text-anchor="middle" font-size="10" fill="#79c0ff" font-weight="bold">Tool Ontology Engine</text>
-  <text x="150" y="991" text-anchor="middle" font-size="8" fill="#8b949e">81 declarative rules (YAML)</text>
-  <text x="150" y="1004" text-anchor="middle" font-size="8" fill="#484f58">query / validate / suggest</text>
-
-  <!-- Arrow -->
-  <line x1="250" y1="985" x2="280" y2="985" stroke="#79c0ff" stroke-width="1" marker-end="url(#arrowCyan)" opacity="0.6"/>
-
-  <!-- Consistency Checker -->
-  <rect x="280" y="958" width="200" height="55" rx="6" fill="#0d1117" opacity="0.6" stroke="#79c0ff" stroke-width="0.5" stroke-opacity="0.4"/>
-  <text x="380" y="977" text-anchor="middle" font-size="10" fill="#79c0ff" font-weight="bold">Consistency Diff</text>
-  <text x="380" y="991" text-anchor="middle" font-size="8" fill="#8b949e">engine ↔ proxy_filters</text>
-  <text x="380" y="1004" text-anchor="middle" font-size="8" fill="#3fb950">81/81 = 100%</text>
-
-  <!-- Arrow -->
-  <line x1="480" y1="985" x2="510" y2="985" stroke="#79c0ff" stroke-width="1" marker-end="url(#arrowCyan)" opacity="0.6"/>
-
-  <!-- Semantic Query -->
-  <rect x="510" y="958" width="180" height="55" rx="6" fill="#0d1117" opacity="0.6" stroke="#79c0ff" stroke-width="0.5" stroke-opacity="0.4"/>
-  <text x="600" y="977" text-anchor="middle" font-size="10" fill="#79c0ff" font-weight="bold">Semantic Query</text>
-  <text x="600" y="991" text-anchor="middle" font-size="8" fill="#8b949e">inference over rules</text>
-  <text x="600" y="1004" text-anchor="middle" font-size="8" fill="#484f58">PoC: enumeration → reasoning</text>
-
-  <!-- Ontology KB -->
-  <rect x="705" y="958" width="210" height="55" rx="6" fill="#0d1117" opacity="0.6" stroke="#79c0ff" stroke-width="0.5" stroke-opacity="0.4"/>
-  <text x="810" y="977" text-anchor="middle" font-size="10" fill="#79c0ff" font-weight="bold">Ontology KB</text>
-  <text x="810" y="991" text-anchor="middle" font-size="8" fill="#8b949e">16 docs: BFO/DOLCE/UFO</text>
-  <text x="810" y="1004" text-anchor="middle" font-size="8" fill="#484f58">neuro-symbolic / enterprise AI</text>
-
-  <!-- ═══════════════════════════════════ -->
-  <!-- LAYER 6: THREE-PARTY SHARED STATUS -->
-  <!-- ═══════════════════════════════════ -->
-
-  <!-- Connector line -->
-  <line x1="480" y1="1030" x2="480" y2="1050" stroke="#da8ee7" stroke-width="1" stroke-dasharray="3,3" opacity="0.5"/>
-
-  <rect x="20" y="1050" width="920" height="130" rx="8" fill="url(#bgGrad)" stroke="#da8ee7" stroke-width="1.5" stroke-opacity="0.4"/>
-  <text x="35" y="1070" font-size="11" fill="#da8ee7" font-weight="bold" letter-spacing="2">⑥ THREE-PARTY SHARED STATUS</text>
-  <text x="320" y="1070" font-size="9" fill="#484f58">~/.kb/status.json — realtime sync</text>
-
-  <!-- Three parties -->
-  <rect x="50" y="1085" width="120" height="40" rx="6" fill="#0d1117" opacity="0.6" stroke="#25d366" stroke-width="1" stroke-opacity="0.5"/>
-  <text x="110" y="1103" text-anchor="middle" font-size="10" fill="#25d366" font-weight="bold">User</text>
-  <text x="110" y="1118" text-anchor="middle" font-size="7" fill="#8b949e">专业深度 + 决策</text>
-
-  <rect x="280" y="1085" width="160" height="40" rx="6" fill="#0d1117" opacity="0.6" stroke="#da8ee7" stroke-width="1.5" stroke-opacity="0.7"/>
-  <text x="360" y="1100" text-anchor="middle" font-size="9" fill="#da8ee7" font-weight="bold">status.json</text>
-  <text x="360" y="1115" text-anchor="middle" font-size="7" fill="#8b949e">priorities / feedback / health</text>
-
-  <rect x="550" y="1085" width="120" height="40" rx="6" fill="#0d1117" opacity="0.6" stroke="#58a6ff" stroke-width="1" stroke-opacity="0.5"/>
-  <text x="610" y="1103" text-anchor="middle" font-size="10" fill="#58a6ff" font-weight="bold">Claude Code</text>
-  <text x="610" y="1118" text-anchor="middle" font-size="7" fill="#8b949e">设计部署 + 迭代</text>
-
-  <rect x="780" y="1085" width="120" height="40" rx="6" fill="#0d1117" opacity="0.6" stroke="#f0883e" stroke-width="1" stroke-opacity="0.5"/>
-  <text x="840" y="1103" text-anchor="middle" font-size="10" fill="#f0883e" font-weight="bold">OpenClaw</text>
-  <text x="840" y="1118" text-anchor="middle" font-size="7" fill="#8b949e">数据复利 + 7×24</text>
-
-  <!-- Arrows -->
-  <line x1="170" y1="1105" x2="280" y2="1105" stroke="#da8ee7" stroke-width="1.5" marker-end="url(#arrowGray)" opacity="0.6"/>
-  <text x="225" y="1099" text-anchor="middle" font-size="7" fill="#8b949e">PA write</text>
-  <line x1="440" y1="1105" x2="550" y2="1105" stroke="#da8ee7" stroke-width="1.5" marker-end="url(#arrowGray)" opacity="0.6"/>
-  <text x="495" y="1099" text-anchor="middle" font-size="7" fill="#8b949e">read/write</text>
-  <line x1="670" y1="1105" x2="780" y2="1105" stroke="#da8ee7" stroke-width="1.5" marker-end="url(#arrowGray)" opacity="0.6"/>
-  <text x="725" y="1099" text-anchor="middle" font-size="7" fill="#8b949e">cron update</text>
-
-  <!-- Constitution -->
-  <text x="480" y="1160" text-anchor="middle" font-size="10" fill="#da8ee7" font-style="italic">用户专业深度 + Claude Code 设计部署 + OpenClaw 数据复利 = 有生命的闭环系统</text>
-
-  <!-- ═══════════════════════════════════ -->
-  <!-- LEGEND -->
-  <!-- ═══════════════════════════════════ -->
-  <line x1="20" y1="1200" x2="940" y2="1200" stroke="#21262d" stroke-width="1"/>
-
-  <line x1="30" y1="1216" x2="55" y2="1216" stroke="#484f58" stroke-width="1.5" stroke-dasharray="4,3"/>
-  <text x="63" y="1220" font-size="8" fill="#8b949e">local IPC</text>
-
-  <line x1="120" y1="1216" x2="145" y2="1216" stroke="#58a6ff" stroke-width="2"/>
-  <text x="153" y="1220" font-size="8" fill="#8b949e">middleware</text>
-
-  <line x1="210" y1="1216" x2="235" y2="1216" stroke="#3fb950" stroke-width="1.5"/>
-  <text x="243" y="1220" font-size="8" fill="#8b949e">pipeline</text>
-
-  <line x1="290" y1="1216" x2="315" y2="1216" stroke="#ff7b72" stroke-width="1.5" stroke-dasharray="5,3"/>
-  <text x="323" y="1220" font-size="8" fill="#8b949e">HTTPS remote</text>
-
-  <rect x="400" y="1209" width="10" height="10" rx="2" fill="#f0883e" opacity="0.3"/>
-  <text x="418" y="1220" font-size="8" fill="#8b949e">crontab job</text>
-
-  <rect x="480" y="1209" width="10" height="10" rx="2" fill="#f85149" opacity="0.3"/>
-  <text x="498" y="1220" font-size="8" fill="#8b949e">monitoring</text>
-
-  <rect x="555" y="1209" width="10" height="10" rx="2" fill="#3fb950" opacity="0.3"/>
-  <text x="573" y="1220" font-size="8" fill="#8b949e">devops</text>
-
-  <rect x="630" y="1209" width="10" height="10" rx="2" fill="#79c0ff" opacity="0.3"/>
-  <text x="648" y="1220" font-size="8" fill="#8b949e">ontology</text>
-
-  <rect x="710" y="1209" width="10" height="10" rx="2" fill="#da8ee7" opacity="0.3"/>
-  <text x="728" y="1220" font-size="8" fill="#8b949e">shared status</text>
-
-  <text x="940" y="1220" text-anchor="end" font-size="8" fill="#484f58">github.com/bisdom-cell/openclaw-model-bridge</text>
+  <rect x="36" y="300" width="248" height="50" rx="9" fill="#e3f0fd" stroke="#2b6cb0" stroke-width="2.5"/>
+  <text x="160" y="321" text-anchor="middle" font-size="16" font-weight="700" fill="#1a3a5c">Adapter  :5001</text>
+  <text x="160" y="339" text-anchor="middle" font-size="11.5" fill="#2b6cb0">8-provider routing &#183; fallback &#183; VL</text>
+  <line x1="160" y1="350" x2="160" y2="366" stroke="#5b6770" stroke-width="2.5" marker-end="url(#arrow)"/>
+
+  <rect x="36" y="368" width="248" height="40" rx="9" fill="#eaf7ee" stroke="#2f855a" stroke-width="2.5"/>
+  <text x="160" y="393" text-anchor="middle" font-size="16" font-weight="700" fill="#1c4532">LLM &#8212; Qwen3-235B + 7 more</text>
+
+  <!-- ===== Center/right: Ontology / Governance Plane (the star) ===== -->
+  <rect x="312" y="100" width="732" height="306" rx="12" fill="#f7f5fd" stroke="#6b46c1" stroke-width="2.5"/>
+  <text x="334" y="130" font-size="19" font-weight="700" fill="#44337a">Ontology / Governance Plane &#8212; self-governing</text>
+  <text x="334" y="151" font-size="13.5" font-style="italic" fill="#7c6aa8">a declarative engine that governs the control plane &#8212; and audits itself, even the auditor</text>
+
+  <circle cx="340" cy="178" r="3.5" fill="#6b46c1"/>
+  <text x="354" y="183" font-size="14.5"><tspan font-weight="700" fill="#1a2733">4 YAML ontologies</tspan><tspan fill="#5b6770"> &#8212; tool &#183; domain &#183; policy &#183; governance (declarative, ONTOLOGY_MODE=on)</tspan></text>
+
+  <circle cx="340" cy="206" r="3.5" fill="#6b46c1"/>
+  <text x="354" y="211" font-size="14.5"><tspan font-weight="700" fill="#1a2733">90 invariants &#183; 828 checks &#183; 23 meta-rules &#183; 14 MRD scanners</tspan><tspan fill="#5b6770"> (v3.56, daily audit)</tspan></text>
+
+  <circle cx="340" cy="234" r="3.5" fill="#6b46c1"/>
+  <text x="354" y="239" font-size="14.5"><tspan font-weight="700" fill="#1a2733">Audits the control plane itself</tspan><tspan fill="#5b6770"> &#8212; MR-7 governance-execution-is-self-observable</tspan></text>
+
+  <circle cx="340" cy="262" r="3.5" fill="#6b46c1"/>
+  <text x="354" y="267" font-size="14.5"><tspan font-weight="700" fill="#1a2733">Three-gate</tspan><tspan fill="#5b6770"> &#8212; pre-check / runtime-gate / post-verify wired into the request path (shadow)</tspan></text>
+
+  <circle cx="340" cy="290" r="3.5" fill="#6b46c1"/>
+  <text x="354" y="295" font-size="14.5"><tspan font-weight="700" fill="#1a2733">Convergence</tspan><tspan fill="#5b6770"> &#8212; declared state &#8596; runtime, machine-synced (not by memory) &#183; 5 specs</tspan></text>
+
+  <circle cx="340" cy="318" r="3.5" fill="#6b46c1"/>
+  <text x="354" y="323" font-size="14.5"><tspan font-weight="700" fill="#1a2733">Blood-lesson driven</tspan><tspan fill="#5b6770"> &#8212; 28 silent failures &#8594; invariants &#183; 25 case studies (learn once, prevent forever)</tspan></text>
+
+  <circle cx="340" cy="346" r="3.5" fill="#2f855a"/>
+  <text x="354" y="351" font-size="14.5"><tspan font-weight="700" fill="#1c4532">pip install openclaw-ontology-engine</tspan><tspan fill="#5b6770"> &#8212; reusable in any agent project, bring your own YAML</tspan></text>
+
+  <text x="334" y="386" font-size="13" fill="#9aa5ad">What makes it a <tspan font-weight="700" fill="#6b46c1">control plane</tspan>, not a wrapper: governance is declarative, self-auditing, detachable.</text>
+
+  <!-- ===== Bottom: supporting planes ===== -->
+  <rect x="36" y="426" width="328" height="62" rx="10" fill="#fafafa" stroke="#9aa5ad" stroke-width="1.5"/>
+  <text x="200" y="452" text-anchor="middle" font-size="16" font-weight="600" fill="#1a2733">Memory plane</text>
+  <text x="200" y="473" text-anchor="middle" font-size="13.5" fill="#5b6770">KB + local embedding (0 API call) + RAG</text>
+
+  <rect x="376" y="426" width="328" height="62" rx="10" fill="#fafafa" stroke="#9aa5ad" stroke-width="1.5"/>
+  <text x="540" y="452" text-anchor="middle" font-size="16" font-weight="600" fill="#1a2733">40 cron jobs</text>
+  <text x="540" y="473" text-anchor="middle" font-size="13.5" fill="#5b6770">paper radars &#183; digests &#8594; WhatsApp + Discord</text>
+
+  <rect x="716" y="426" width="328" height="62" rx="10" fill="#fafafa" stroke="#9aa5ad" stroke-width="1.5"/>
+  <text x="880" y="452" text-anchor="middle" font-size="16" font-weight="600" fill="#1a2733">Shared state</text>
+  <text x="880" y="473" text-anchor="middle" font-size="13.5" fill="#5b6770">status.json: user &#8596; PA &#8596; Claude Code &#8596; cron</text>
 </svg>
