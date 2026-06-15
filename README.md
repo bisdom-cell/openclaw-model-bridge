@@ -593,7 +593,7 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 | [Seven Failure Scenarios](docs/articles/seven_failure_scenarios.md) | English | — | Evidence — 7 fault injection experiments |
 | [Provider Compatibility Review](docs/articles/zhihu_provider_compatibility.md) | 中文 | 知乎 | Architecture |
 | [When Errors Become Narratives: A Longitudinal Taxonomy of Silent Failures in a Production LLM Agent Runtime](docs/paper/silent_failures_taxonomy/draft.md) | English | [**arXiv:2606.14589**](https://arxiv.org/abs/2606.14589) | **Academic paper** (published 2026-06-15, cs.SE) — fail-plausible concept + 5-class taxonomy from 22 incident postmortems; LaTeX source in [`docs/paper/silent_failures_taxonomy/latex/`](docs/paper/silent_failures_taxonomy/latex/) |
-| [当错误变成叙事（中文科普版）](docs/articles/when_errors_become_narratives_zh.md) | 中文 | 知乎 (待发布) | Popular-science companion to arXiv:2606.14589 — fail-plausible + 五类静默故障 (V37.9.155) |
+| [当错误变成叙事（中文科普版）](docs/articles/when_errors_become_narratives_zh.md) | 中文 | [知乎](https://zhuanlan.zhihu.com/p/2049816723541463125) | Popular-science companion to arXiv:2606.14589 — fail-plausible + 五类静默故障 (V37.9.155) |
 
 ## Full Guide
 
