@@ -1841,19 +1841,59 @@ class TestApplyMachineSyncDryRun(unittest.TestCase):
             self.assertIn(sample, applied[i])
 
     def test_explicit_dry_run_overrides_env(self):
-        """显式 dry_run=False 应覆盖 env (虽然没有 crontab_safe.sh 会失败,
-        但调用语义不同 — 本测试只验证显式参数生效)."""
+        """显式 dry_run=False 应覆盖 env (本测试只验证显式参数语义).
+
+        V37.9.158 隔离修复 (MR-9 测试污染生产 / MR-23 audit-observes-never-mutates):
+          本测试曾是 INV-CRON-004 auto_deploy 双行**反复复发的真凶**. 它传 dry_run=False
+          走 real-apply 路径, `os.path.expanduser("~/crontab_safe.sh")` 在 Mac Mini 解析到
+          **真** helper → 真 `bash ~/crontab_safe.sh add <auto_deploy cron line>` → 重加双行.
+          dev 环境无 helper 走 errors 分支看似无害, 但 governance runtime check 在 Mac Mini
+          跑 test_convergence.py 子进程时**真 mutate 生产 crontab** (V37.9.106/111/116/120/158
+          反复 5 次复发的真根因之一). 这是测试污染生产的教科书案例.
+        修复: HOME→空 tempdir (无 helper → errors 分支, 与 dev 同款语义) + mock
+          cv.subprocess.run 任何真执行立即 AssertionError (证明隔离有效, 绝不真改 crontab).
+          本测试只验证"显式 dry_run=False 覆盖 env=dry-run", 不再触碰任何真实 state.
+        """
+        import shutil
         by_entry = cv._load_jobs_registry_index(self.spec)
         sample = sorted(by_entry.keys())[0]
-        # 强制 env=dry-run 但显式 dry_run=False → 走真模式 → 寻找 crontab_safe.sh
-        applied, errors, dry_run = cv._apply_machine_sync(
-            self.spec, {sample}, dry_run=False
-        )
+
+        # 防御层 1: mock subprocess.run — 任何真执行立即失败 (证明隔离有效, MR-9).
+        saved_run = cv.subprocess.run
+
+        def _never_run(*args, **kwargs):
+            raise AssertionError(
+                "test_explicit_dry_run_overrides_env 绝不应真调 subprocess "
+                "(V37.9.158 MR-9 测试污染生产防线). cmd=" + repr(args)
+            )
+
+        # 防御层 2: HOME→空 tempdir → os.path.expanduser('~/crontab_safe.sh') 不存在
+        # → real-apply 路径走 errors 分支, 永不解析到 Mac Mini 真 helper.
+        td = tempfile.mkdtemp()
+        old_home = os.environ.get("HOME")
+        try:
+            cv.subprocess.run = _never_run
+            os.environ["HOME"] = td
+            # 强制 env=dry-run (setUp 设 CONVERGENCE_DRY_RUN=1) 但显式 dry_run=False
+            # → 走真模式 (但 HOME 无 helper → errors, 绝无真 mutation).
+            applied, errors, dry_run = cv._apply_machine_sync(
+                self.spec, {sample}, dry_run=False
+            )
+        finally:
+            cv.subprocess.run = saved_run
+            if old_home is not None:
+                os.environ["HOME"] = old_home
+            else:
+                os.environ.pop("HOME", None)
+            shutil.rmtree(td, ignore_errors=True)
+
+        # 核心断言: 显式 dry_run=False 覆盖 env=dry-run.
         self.assertFalse(dry_run, "显式 dry_run=False 应覆盖 env")
-        # dev 环境无 ~/crontab_safe.sh, 应走 errors 分支
-        # (除非 dev 环境恰好有, 那么 applied 应非空 — 两种情况都合法)
-        self.assertTrue(applied or errors,
-            "真模式必产生 applied 或 errors 之一")
+        # HOME 无 crontab_safe.sh → errors 分支 (crontab_safe.sh not found), 绝无真改 crontab.
+        self.assertEqual(applied, (),
+            "隔离后真模式无 helper → applied 必空 (绝不真改 crontab)")
+        self.assertTrue(errors, "真模式 + 无 helper → errors 非空 (走 not-found 分支)")
+        self.assertIn("crontab_safe.sh not found", errors[0])
 
 
 class TestApplyMachineSyncReal(unittest.TestCase):
