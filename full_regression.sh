@@ -215,6 +215,10 @@ if [ -f test_v37_9_124_inv_runtime_narrowing.py ]; then
     run_suite "v37_9_124_inv_runtime_narrowing (日落法 #29: INV runtime 收窄契约核心类非全套件, 防 V37.9.121-hotfix2 env-dependency 误报)" "python3 test_v37_9_124_inv_runtime_narrowing.py"
 fi
 run_suite "v37_9_86_trap_override (V37.9.86 bash trap override lockdir 残留: 5 脚本修复 + 行为层反向/正向验证)" "python3 test_v37_9_86_trap_override.py"
+# V37.9.156: preflight check 16 推送 smoke test 4.27 冷调用假失败修复 (timeout 签名 fail→warn, 真故障仍 fail)
+if [ -f test_v37_9_156_preflight_push_warn.py ]; then
+    run_suite "v37_9_156_preflight_push_warn (V37.9.156: 4.27 冷调用客户端超时假失败 fail→warn + grep 判别器 + 反向验证)" "python3 test_v37_9_156_preflight_push_warn.py"
+fi
 # V37.9.99-pkg: ontology-engine pip 包化第一块 — config-injection keystone + pyproject + 二层契约
 if [ -f test_ontology_packaging.py ]; then
     run_suite "ontology_packaging (V37.9.99-pkg Phase 5 chunk1: ONTOLOGY_CONFIG_DIR 注入 + pyproject + console 入口 + 宪法删除安全)" "python3 test_ontology_packaging.py"

@@ -1,6 +1,6 @@
 {
-  "updated": "2026-06-15 04:46:31",
-  "updated_by": "claude_code",
+  "updated": "2026-06-15 05:45:39",
+  "updated_by": "full_regression",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-06-15",
+      "what": "V37.9.156: 4.27 推送链路追踪四 follow-up 全闭合 (a 无 timeout flag / b plugin 单 dir 无泄漏 / c 2026.4.27 基线 / d 丢失面审计无总丢失) + preflight check 16 假失败修复 (用户实测 13:16 真收到消息=4.27 CLI 10s 假超时, 服务端已送达; 超时签名 fail→warn 真故障仍 fail; 12 单测+反向验证). 126 suites/4457 tests/0 fail/治理 dev 90 inv EXIT=0/VERSION 0.37.9.70 不变.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-15",
       "what": "4.27 推送链路 follow-up (d) 闭合: docs/push_path_loss_surface_audit_2026_06_15.md — 全仓 127 直推站点代码级审计. 结论=无真·总丢失面 (每条真内容要么 notify.sh 3 重试+队列, 要么 Discord 孪生存活). 残留=类别 2 论文类 job 直推双通道的 WhatsApp 瞬时缝隙 (内容在 Discord 不丢). 硬化候选 (deferred, 需 Mac Mini E2E): 类别 2 迁 notify.sh --topic (MR-8 一物一形, 顺带消缝隙). follow-up (a)(b)(c) 仍需 Mac Mini 生产数据.",
       "by": "claude_code"
     },
@@ -198,11 +203,6 @@
       "date": "2026-06-11",
       "what": "V37.9.142 外部评审2 吸收 (7.8/10): 当晚完成 3 个 P0 quick win — compatibility_matrix.md 刷新 (7→8 providers + Doubao verified 5/5 + 验证四档诚实标注 + gemini geo-block 退役现状 + fallback 链 V37.9.129 现实) / FEATURES 正文测试行 (118 套/4099 stale) 接入 gen_readme_badges 自动同步 (+1 spec +1 测试) / preflight push test 真因闭环 (plugin staging 良性, 重跑全过). 其余整合为 P0/P1/P2 三个 unfinished 行动项 (SLO 报告重生成/拆层叙事/验证四档字段化等), 旧 5/14 评审项销项替代",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-06-11",
-      "what": "V37.9.141 preflight check 16 崩溃修复: bash 3.2 未 brace 变量紧贴全角字符 quirk (PUSH_RC） set -u 崩溃, locale 依赖 cron 不触发交互触发) — 全仓 14 处潜伏批量 brace 修复 + cross_os_quirk_scanner 第 7 pattern (detect_unbraced_var_adjacent_cjk) + INV-CROSS-OS-001 扩 9 checks + 10 新单测 + sabotage 反向验证. V37.9.43-hotfix2 候选元规则 scanner 化兑现 (日落法不立新 MR)",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -254,6 +254,7 @@
   "session_context": {
     "last_session": "2026-04-17 V37.8.14 (15 commits)",
     "unfinished": [
+      "【V37.9.156 后待诊断 · 中优】Mac Mini governance --full 两持续异常 (dev EXIT=0 不复现): (1) INV-CRON-004 ❌ 真·crontab 重复条目 — uniq -d 全行空证明非完全相同行, 是同 entry 不同路径 (endswith 匹配器抓). 待用户 `crontab -l \\| grep -nE auto_deploy` 定位 (疑 V37.9.120 退役 HOME 副本时未清 stale `~/auto_deploy.sh` 行) → crontab_safe.sh remove 精确删. (2) INV-REVIEW-001 + INV-CRON-MONITOR-001 💥 — 4.27 冷调用劫持 governance runtime python_assert 的 subprocess (kb_review.sh / test_cron_monitor_fatal_handler.py 调真 openclaw → 30s timeout → 💥). V37.9.145 给 INV-REVIEW-001 加 openclaw stub 但仍 💥=stub 有 gap (疑 notify.sh 调用路径或 $OPENCLAW_BIN 全路径绕过 PATH stub). 候选 dev 加固: 扩 stub 覆盖所有 openclaw 调用形态 + 给 INV-CRON-MONITOR runtime check 同款隔离. 需用户先跑 `time python3 test_cron_monitor_fatal_handler.py` 确认是 timeout(4.27) 还是真 fail.",
       "【4.27 推送链路回归追踪 · 中优】真因=4.27 openclaw CLI 冷调用回归 (V37.9.145). ✅ follow-up (d) 丢失面评估已闭合 (2026-06-15 审计 docs/push_path_loss_surface_audit_2026_06_15.md: 无总丢失面, 残留=WhatsApp 瞬时缝隙内容在 Discord 存活). 剩余需 Mac Mini 生产数据 (dev 不可执行): (a) `openclaw message send --help` timeout 旋钮探测 → 可配则 notify.sh/直推 job 调大 (b) `ls -la ~/.openclaw/plugin-runtime-deps/` 多 hash dir 检查 staging 间歇复发 (c) 上游 releases 查 CLI 冷启动/staging 修复 (tripwire 不自动升级). 硬化候选 (deferred 需 E2E): 类别 2 论文类 job 直推双通道迁 notify.sh --topic (MR-8 一物一形).",
       "V3 路标 backlog: Tool Policy Plugin + Memory Plane Plugin + Job Template SDK + pip install ontology-engine",
       "WhatsApp 入站路由到 research agent 而非 main（4/10 WhatsApp plugin 安装副作用）: main/sessions.json mtime 从 Mar 30 起 dormant, 但 HEARTBEAT.md 修复后 research 正常响应不致命. 长期考虑: channels.whatsapp.agent 显式配置 / agents.list 顺序调整 / 验证 WhatsApp plugin inbound handler routing 逻辑",
@@ -284,7 +285,7 @@
     ],
     "open_prs": "",
     "blocked_on": "",
-    "focus": "2026-06-15 (周一): 论文发表线全闭环. arXiv:2606.14589 (cs.SE) 已发表 + 三件套配套全部就位 + 知乎双发布完成. 本 session 4 commit: V37.9.154 (核心发布配套: 链接/data_inventory 终版/zip 日落) + V37.9.155 (传播层: 中文科普版新文章 + why_runtime EN/ZH 加 arXiv 引用入 README 表) + 两篇知乎链接落地 (why_runtime_zh p/2049813538894623858 + 中文科普版 p/2049816723541463125). 全程 drift 全绿/126 suites·4445 tests·0 fail/治理 90/90/VERSION 0.37.9.70 不变 (话语权文档零业务语义). 用户已合并 PR. **下一步 = Mac Mini git fetch+reset 同步 (纯 docs 零重启)**. 发表线已是自然收尾点. 下次候选 (多数待 Mac Mini 生产数据或 deferred): (a) #1 4.27 推送链路回归追踪 (中优, 需 Mac Mini timeout 旋钮探测 + plugin staging 多 hash dir 检查 + 上游 releases CLI 冷启动修复查) (b) 多个 V37.9.x 部署验证项 (governance audit / rotation / finance zombie 真激活, 需 Mac Mini cron 跑后看数据) (c) V3 路标 backlog (Tool Policy Plugin / Memory Plane Plugin / pip install ontology-engine 终极目标续推) (d) 原则 #32 周一用户视角观察 30min (WhatsApp 实测, 用户侧动作). 纯 dev 可自主且非阻塞的强候选已基本出清 (外部评审2 P1/P2 全闭环, 复杂度预算惯例化 V37.9.150 已立).",
+    "focus": "2026-06-15 V37.9.156: 4.27 推送链路追踪四 follow-up 全闭合 + preflight check 16 假失败修复 (fail→warn 超时签名). Mac Mini 待用户重跑 preflight --full 确认 check 16 转 warn. **仍待诊断 (需更多 Mac Mini 数据, 已给命令)**: (1) INV-CRON-004 ❌ 真·crontab 重复 (uniq -d 全行空→同 entry 不同路径, 疑 auto_deploy V37.9.120 未清 HOME 副本残留) (2) INV-REVIEW-001 + INV-CRON-MONITOR-001 💥 (4.27 冷调用劫持 governance runtime subprocess 检查, dev EXIT=0 不复现; V37.9.145 stub 修 INV-REVIEW-001 仍 💥=有 gap + INV-CRON-MONITOR 未覆盖, 候选 dev 加固扩 stub 让 governance runtime check 不调真 openclaw).",
     "current_focus": "V37.8 MR-6 深度补齐生产硬验证通过 (35/35 inv / 136/136 checks / 9/9 MR 全绿). 下一步: V37.8.1 修复 MRD-NOTIFY-002 activity 层假阳性 (topic→job log 映射扫 mtime) 或 Ontology Phase 3 渐进替换 (ONTOLOGY_MODE=on) 或 Tool Policy Plugin V3 路标",
     "recent_changes": [
       {
@@ -346,11 +347,11 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 4445,
-    "last_regression": "2026-06-15 03:00 pass",
+    "test_count": 4457,
+    "last_regression": "2026-06-15 05:45 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-15 03:00",
-    "test_suites": 126,
+    "security_score_time": "2026-06-15 05:45",
+    "test_suites": 127,
     "governance_invariants": "90/90",
     "governance_checks": "734/748",
     "version": "0.37.9.70",

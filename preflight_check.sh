@@ -864,6 +864,14 @@ if $FULL_MODE; then
                 pass "WhatsApp 推送通道正常（openclaw message send 退出码 0）"
                 date +%s > "$PUSH_TEST_LAST"
             fi
+        elif echo "$PUSH_STDERR" | grep -qiE "gateway timeout|timeout after [0-9]+ *ms|timed out"; then
+            # V37.9.156: 4.27 冷调用客户端硬编码 10s 超时 = 假失败。冷 WS 首发 >10s → CLI 在 10s
+            # 放弃返回 gateway timeout exit 非0，但 Gateway 服务端继续送达（用户实测 13:16 真收到测试消息）。
+            # exit code 在 4.27 下不可信；真推送由 notify.sh 3 重试+队列兜底，无数据丢失
+            # （见 docs/push_path_loss_surface_audit_2026_06_15.md）。降级 fail→warn 不硬阻塞 preflight。
+            # 真故障（连接拒绝/未链接等非超时 stderr）仍走下方 fail 分支。
+            warn "WhatsApp 4.27 冷调用客户端超时（退出码 ${PUSH_RC}）: 消息通常已送达，exit code 不可信（真推送由 notify.sh 重试+队列兜底）: $(echo "$PUSH_STDERR" | head -1)"
+            date +%s > "$PUSH_TEST_LAST"
         else
             fail "WhatsApp 推送失败（退出码 ${PUSH_RC}）: $(echo "$PUSH_STDERR" | head -2)"
         fi
