@@ -1,6 +1,6 @@
 {
-  "updated": "2026-06-15 09:03:18",
-  "updated_by": "full_regression",
+  "updated": "2026-06-15 09:16:09",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-06-15",
+      "what": "✅ Mac Mini 完整闭环验证: 两 💥 (INV-REVIEW-001 notify.sh route + INV-CRON-MONITOR-001 test stub) 全部转 ✅ + CONVERGENCE_DRY_RUN=1 governance --full = 90 inv 748 checks 所有不变式成立零 💥. 确认 INV-CRON-004 复发源 = 手动 governance --full (无 CONVERGENCE_DRY_RUN) real-apply convergence 重加 auto_deploy HOME 行 (MR-23 审计 mutate 生产, V37.9.116 修了 07:00 cron 但手动跑没修). 工作流修正: 手动 governance 加 CONVERGENCE_DRY_RUN=1.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-15",
       "what": "V37.9.157: governance 两 💥 根治 — 4.27 冷调用劫持 audit subprocess + 测试污染生产. INV-CRON-MONITOR-001 (test_cron_monitor 调真 openclaw 77s>60s+真发[SYSTEM_ALERT]) + INV-REVIEW-001 (V37.9.145 stub gap: PATH 留 /opt/homebrew/bin+无 OPENCLAW_BIN+无 MAX_RETRIES) 都根治: test _stub_env 受控环境 (OPENCLAW_BIN+OPENCLAW stub, 77s→0.05s 零真实发送) + INV-REVIEW check 补 OPENCLAW_BIN+NOTIFY_MAX_RETRIES=1+PATH 去 homebrew. 13 守卫+前瞻 scan+反向验证. INV-CRON-004 用户删 stale auto_deploy 行转绿. 127 suites/4470 tests/0 fail/治理 dev 90 inv EXIT=0/VERSION 不变. MR-23 第 N 次根治.",
       "by": "claude_code"
     },
@@ -198,11 +203,6 @@
       "date": "2026-06-12",
       "what": "外部评审2 P0 完整闭环: 用户 Mac Mini 跑 slo_benchmark.py --save 真实数据重生成报告并入库 (main 1273d3c) — 25 请求 OBSERVING 诚实判定 (替换旧 samples=1 ALL PASS) + Tool N_A_NO_TOOL_CALLS 四态真实生效 + 24h/7d 双窗口首次有数据 (595 快照: 24h avg p95 42.8s / 7d avg p95 47.9s, 11348 请求 97.94% 成功) + Threshold Rationale 正文段. P0(a)+(b) 双销项",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-06-12",
-      "what": "V37.9.143 外部评审2 P0 双兑现: (b) compatibility_matrix 漂移防护机器化完结 — providers.py 抽两张表直出纯函数 + --capability-matrix CLI + verifiable_features 分母修复 (5/4 verified 超界 bug → Qwen 5/5 / Doubao 5/6 诚实语义) + gen_compat_matrix.py --check/--fix 接入 full_regression doc-drift 层, 首跑即抓 V37.9.142 手动刷新遗漏的 doubao json_mode 真漂移; (a) slo_benchmark dev 侧增强 — 四态 N_A_NO_TOOL_CALLS + 24h/7d 双窗口 (复用 slo_dashboard MR-8) + Threshold Rationale 正文段 (阈值恢复自适应文案) + Methodology 硬编码 ≤30s 漂移修复. 顺手修 test_kb_dream_helpers 日期敏感 bug (硬编码 2026-05-13 今日恰好滑出 30 天窗口). 40 新单测 + 三轮 sabotage 反向验证. 123 suites/4344 tests/0 fail",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -254,6 +254,7 @@
   "session_context": {
     "last_session": "2026-04-17 V37.8.14 (15 commits)",
     "unfinished": [
+      "【V37.9.158 候选 · 中优 · 真根治 INV-CRON-004 反复血案】INV-CRON-004 (auto_deploy 双行) 反复复发 V37.9.106/111/116/120 第 N 次. **两层根因**: (1) MR-23 违反 — 手动 `governance_checker.py --full` (无 CONVERGENCE_DRY_RUN) 让 convergence machine_sync real-apply → 重加 crontab. V37.9.116 只给 07:00 cron 加 dry-run. (2) V37.9.120 'auto_deploy 永不 missing' 逻辑疑未生效 — 真 apply 时仍重加 HOME 行 (`_format_cron_line(auto_deploy)` 产 ~/auto_deploy.sh), 说明 line_contains_identifier 没把 line 5 的 ~/openclaw-model-bridge/auto_deploy.sh 匹配为 observed. 需 dev 查 jobs_registry auto_deploy entry + convergence 匹配逻辑. **真根治方案**: convergence 默认 dry-run, 仅显式 CONVERGENCE_APPLY=1 才 real-apply (MR-23 完整: 审计/观察绝不 mutate, 自愈是独立显式动作) — 但这是 V37.9.58 Plan B 终态反转, 需用户决定. 当前 workaround: 手动 governance 加 CONVERGENCE_DRY_RUN=1.",
       "【V37.9.157 已根治, Mac Mini 待验证】INV-CRON-004 ❌ = auto_deploy stale 行 (用户 crontab_safe.sh remove 删 line 54 转绿). INV-REVIEW-001 + INV-CRON-MONITOR-001 💥 = 4.27 冷调用劫持 audit subprocess, V37.9.157 根治 (test _stub_env 隔离 + INV-REVIEW check stub gap 关 + 前瞻 scan). dev 全绿 (90 inv EXIT=0) 但 4.27 不可复现 → Mac Mini 同步后重跑 governance --full 验证两 💥 转 ✅; 若 INV-REVIEW 仍 💥 贴 subprocess 输出再迭代.",
       "【4.27 推送链路回归追踪 · 中优】真因=4.27 openclaw CLI 冷调用回归 (V37.9.145). ✅ follow-up (d) 丢失面评估已闭合 (2026-06-15 审计 docs/push_path_loss_surface_audit_2026_06_15.md: 无总丢失面, 残留=WhatsApp 瞬时缝隙内容在 Discord 存活). 剩余需 Mac Mini 生产数据 (dev 不可执行): (a) `openclaw message send --help` timeout 旋钮探测 → 可配则 notify.sh/直推 job 调大 (b) `ls -la ~/.openclaw/plugin-runtime-deps/` 多 hash dir 检查 staging 间歇复发 (c) 上游 releases 查 CLI 冷启动/staging 修复 (tripwire 不自动升级). 硬化候选 (deferred 需 E2E): 类别 2 论文类 job 直推双通道迁 notify.sh --topic (MR-8 一物一形).",
       "V3 路标 backlog: Tool Policy Plugin + Memory Plane Plugin + Job Template SDK + pip install ontology-engine",
