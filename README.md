@@ -588,12 +588,12 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 | [Why Agent Systems Need a Control Plane](docs/articles/why_control_plane.md) | English | [dev.to](https://dev.to/wei_wu_735361972b82c5b9f7/why-agent-systems-need-a-control-plane-48id) | Architecture |
 | [为什么 Agent 系统首先需要一个控制平面](docs/articles/why_control_plane_zh.md) | 中文 | [知乎](https://zhuanlan.zhihu.com/p/2024261226943770996) | Architecture |
 | [Why an Agent Runtime Needs a Control Plane, Not Another Wrapper](docs/articles/why_runtime_not_wrapper.md) | English | — | Position — wrapper vs control plane; validated by two independent code reviews + extractability dogfood (V37.9.149) |
-| [为什么 Agent Runtime 需要的是控制平面，而不是又一个 wrapper](docs/articles/why_runtime_not_wrapper_zh.md) | 中文 | 知乎 (待发布) | Position — 《控制平面》续篇；可抽离性论证 (V37.9.149) |
+| [为什么 Agent Runtime 需要的是控制平面，而不是又一个 wrapper](docs/articles/why_runtime_not_wrapper_zh.md) | 中文 | [知乎](https://zhuanlan.zhihu.com/p/2049813538894623858) | Position — 《控制平面》续篇；可抽离性论证 (V37.9.149) |
 | [Audit is Regression, Not Prevention](docs/articles/audit_is_regression_not_prevention.md) | English | — | Position — 6 actionable principles from Route A/B empirical evidence (V37.9.1) |
 | [Seven Failure Scenarios](docs/articles/seven_failure_scenarios.md) | English | — | Evidence — 7 fault injection experiments |
 | [Provider Compatibility Review](docs/articles/zhihu_provider_compatibility.md) | 中文 | 知乎 | Architecture |
 | [When Errors Become Narratives: A Longitudinal Taxonomy of Silent Failures in a Production LLM Agent Runtime](docs/paper/silent_failures_taxonomy/draft.md) | English | [**arXiv:2606.14589**](https://arxiv.org/abs/2606.14589) | **Academic paper** (published 2026-06-15, cs.SE) — fail-plausible concept + 5-class taxonomy from 22 incident postmortems; LaTeX source in [`docs/paper/silent_failures_taxonomy/latex/`](docs/paper/silent_failures_taxonomy/latex/) |
-| [当错误变成叙事（中文科普版）](docs/articles/when_errors_become_narratives_zh.md) | 中文 | 知乎 (待发布) | Popular-science companion to arXiv:2606.14589 — fail-plausible + 五类静默故障 (V37.9.155) |
+| [当错误变成叙事（中文科普版）](docs/articles/when_errors_become_narratives_zh.md) | 中文 | [知乎](https://zhuanlan.zhihu.com/p/2049816723541463125) | Popular-science companion to arXiv:2606.14589 — fail-plausible + 五类静默故障 (V37.9.155) |
 
 ## Full Guide
 
