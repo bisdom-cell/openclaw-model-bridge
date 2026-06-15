@@ -1,6 +1,6 @@
 {
-  "updated": "2026-06-15 03:01:09",
-  "updated_by": "full_regression",
+  "updated": "2026-06-15 03:33:45",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-06-15",
+      "what": "why_runtime_not_wrapper_zh 已发布知乎 (https://zhuanlan.zhihu.com/p/2049813538894623858) — README publications 表 platform 列更新 (知乎(待发布) → 知乎链接). 用户确认链接对应该篇 (沙箱 403 读不到标题故先问). 中文科普版 when_errors_become_narratives_zh 仍待用户发布知乎.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-15",
       "what": "V37.9.155 论文发表传播层配套 (同 session 第二交付, 用户'执行 2 和 3'): #2 中文科普版 docs/articles/when_errors_become_narratives_zh.md (~3500 字知乎原生语气, HF 危机幻觉钩子 + fail-plausible 概念 + 8 周 22 复盘 + 五类静默故障 + 三反直觉发现 ~70% 用户视角/0%-87% audit/潜伏期∝观察距离 + point-fix→meta-rule→scanner + 日落法 + AI 协作诚实段, 所有数字对照论文 study-cutoff 快照零编造, DECISIONS_NEEDED §5 兑现). #3 why_runtime_not_wrapper EN/ZH 加已发表 arXiv:2606.14589 引用 (inline 血案处指向 Class C + footer companion) + 首次入 README publications 表 (闭合 V37.9.149 gap). README 表 +3 行 (why_runtime EN/ZH + 中文科普版). 知乎实际发布是用户动作 (沙箱无法点击), 文章 publish-ready 可直接粘贴. 验证: 三 drift check 全绿 + gen_readme_badges --write 传播 v37.9.155 + 126 suites/4445 tests/0 fail + 治理 90/90 + 安全扫描零泄漏 + VERSION 0.37.9.70 不变 (话语权文档零业务语义). 意义: 三件套覆盖学术圈 + 中文技术社区双受众, Stage 2→3 话语权资产扩面.",
       "by": "claude_code"
     },
@@ -198,11 +203,6 @@
       "date": "2026-06-11",
       "what": "V37.9.139 论文投稿冲刺 (同日第三段): 用户决策 4 项全锁定 (arXiv 直发/标题 1/致谢+分工段/§7 保留) → LaTeX 工程 9 文件 1332 行 + 5 TikZ 图 → MRD 计数勘误 15→14 全局修正 (data_inventory 对表机制第一次实战命中, 14 处含 catalog 勘误注记) → 署名 Wei Wu 填入 → 引用 6 篇经 arXiv 官方 API 终核 100% 一致 (Mac Mini curl, dev 四渠道 403 按反馈#1 交可达环境) → ARXIV_SUBMISSION_GUIDE.md 手把手四步+表单可复制字段 → Overleaf 编译通过 18 页 (5 图 2 表 14 refs 全正确) → arXiv 账号注册+提交流程到 cs.SE → endorsement 拦截 (预案内风险), code 已发教授等待背书. 收工: 回归 122/4286/0 ×2 + 治理 90/90 + 安全 95 + 扫描零泄漏 (endorsement code 不入文档). 遗留: unfinished ArXiv 项含完整恢复路径",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-06-11",
-      "what": "V37.9.139 论文 LaTeX 工程完成 (draft v0.3): 用户四项决策确认 (arXiv 直发 cs.SE / 标题 When Errors Become Narratives / 致谢+分工段披露 / §7 保留) → latex/ 工程 9 文件 1332 行: main.tex (作者 placeholder + AI disclosure 脚注 + 14 条 inline bibliography 无 bibtex 依赖) + 8 节全文转换 + 5 张 TikZ 内嵌图 (三平面架构/taxonomy 树/D1 幻觉链/潜伏期/三步跃迁). 静态自查全过 (括号环境配平 + cites 14/14 + refs 全 defined + 修 2 处 text 模式 math-only 命令). 待: 用户填 [AUTHOR NAME]+[email] 两处 + Overleaf 或 Mac Mini 编译验证 (dev 无 TeX, 仅标准宏包 arXiv 兼容)",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -279,7 +279,7 @@
       "V37.9.130 生产验证已通过 (2026-06-11 Mac Mini 实跑): 6/4 真实血案数据 9 chunks 重跑 — hierarchical r1 b1/3(6740c)+b2/3(6220c)+r2(8524c) 3 次小请求零失败零降级, 48 条精华入 KB, 6/3 已确认处理过, 断流全闭环. 同数据对照证实根因=单请求规模非纯超时 (同 9 Map 段, 单次 40K 两次超时 vs 3 次 7K 一次全过). 剩余低优 follow-up: (a) final Reduce max_tokens=2000 被 48 条打满产尾部残行 \"- [\" (finish_reason=length), 超大对话日边界 — V37.9.131+ 评估 2000→3000 或 emit 前剥尾部残行 (b) 长期观察 last_run degraded/map_failed 字段, 频繁 degraded → 评估 REDUCE_BATCH_SIZE 调小或 doubao 显式路由",
       "V37.9.132 一周观察 (~6/18): deep_dive 摘要级占比应从 76% (34/45) 显著下降 — Mac Mini 验证: grep -L \"基于摘要的分析\" ~/.kb/deep_dives/*.md 看 6/12 后新增文件多数应为全文级. 若仍高: (a) 查 dblp ee 字段 arxiv 覆盖率 (b) S2 openAccessPdf .pdf 结尾比例 (非 .pdf OA 链接保留 S2 页面是有意取舍) (c) 候选增强: deep_dive mode (full_text/abstract_only) 占比纳入 daily_observer 报告让 degrade 频率可观测 (本次 76% gap 潜伏 2 个月才被用户发现的根因是 degrade 频率无聚合复盘)",
       "【外部评审2 P2 · 生态与基准扩展】(a) ✅ V37.9.146 完成 — verification_tier 字段化进 providers.py 数据模型 + tier↔verified_* 一致性不变式 + 第 3 张机器表 (tier_table_lines) 退役手写档位表 (一物一形). (b) ✅ V37.9.147 完成 — Reliability Bench 7→17 场景/47→103 检查 (10 新场景全 mock-based 可 dev 跑 + 真函数测真行为 + 真行为 sabotage 证非 tautology + test 36→59 + 报告重生成). (c) ✅ V37.9.148 完成 — examples/external_dogfood/ 仓库外 dogfood: 离线 build wheel (SETUPTOOLS_USE_DISTUTILS=stdlib 绕 Debian install_layout quirk) + 隔离 --system-site-packages venv 装 wheel --no-deps (无 PYTHONPATH 回 monorepo, 系统无 ontology/ontology_engine 故隔离判定无歧义) + 全新 LibraryBot toy 复制出仓库到 /tmp 跑 import ontology_engine (chunk-2-lite 去泛化对真消费方唯一验证) + console scripts audit/query + config-injection 审计 LibraryBot + 反向验证无注入读 wheel bundled 默认 (data_clean 在/checkout_book 不在). 17 单测 (8 source guards 恒跑 + 9 wheel E2E skipUnless 工具链) + sabotage 铁证 (toy MAX 5→7 audit FAIL 非 tautology). 闭合评审 'WeatherBot in-repo 已验证 gap 是仓库外'. (d) ✅ V37.9.150 完成 — complexity budget 惯例化 (纯约定零新机器 = 日落法 MR-22 自我示范, 不写 complexity_budget.py 工具因那是它要防的东西): docs/complexity_budget.md + 收工清单 J 项 + 原则#34 引用. 账本=既有徽章 gen_readme_badges, 四维度 (files/env/jobs/state) 变化时手动记, 净新增机制自问退役了什么, **刻意无守卫测试** (用 check 守复杂度约定本身=新复杂度). 3 硬规则明文 (新 path 退役旧 path / 新 invariant 命名防的事故 / 新 job 定义 silence-timeout+degrade). (e) ✅ V37.9.149 完成 — docs/articles/why_runtime_not_wrapper.md (EN) + _zh.md (ZH): wrapper vs control plane 结构性区别 + 双评审交叉验证 (两陌生人独立撞同一优点+同一软肋) + 日落法诚实反驳 + V37.9.148 dogfood 可抽离性铁证. **P2 全档 a/b/c/d/e + P1 全闭环, 外部评审2 七动作全销项**",
-      "✅ ArXiv 论文已发表 (arXiv:2606.14589, cs.SE) + 发布配套全部完成 (V37.9.154 核心: 链接/data_inventory 终版/zip 日落; V37.9.155 传播层: 中文科普版 when_errors_become_narratives_zh + why_runtime_not_wrapper 加 arXiv 引用并入 README 表). 仅剩用户动作 (非阻塞): 知乎发布 why_runtime_not_wrapper_zh + when_errors_become_narratives_zh (两篇 publish-ready), 发布后给 URL 更新 README publications 表 platform 列 (待发布 → 知乎链接).",
+      "✅ ArXiv 论文已发表 (arXiv:2606.14589, cs.SE) + 发布配套全部完成 (V37.9.154 核心 + V37.9.155 传播层). why_runtime_not_wrapper_zh 已发布知乎 (https://zhuanlan.zhihu.com/p/2049813538894623858, README 已更新). 仅剩用户动作 (非阻塞): 中文科普版 when_errors_become_narratives_zh 待发布知乎 (publish-ready), 发布后给 URL 更新 README platform 列.",
       "GitHub main 落后开发分支 ~30 版本 (main ~V37.9.123, 分支已 V37.9.153 含架构图刷新). 让 GitHub 门面当前化的唯一一步=用户合并 PR (Claude 只能推开发分支). 合并后稳定工具文件仍显示老时间戳(正确). 附: 未来精准刷新方法论=三分类映射(1稳定已完成留/2点-in-time记录留/3真内容陈旧才修), 永不盲目 churn 稳定文件刷时间戳(日落法)."
     ],
     "open_prs": "",
