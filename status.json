@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-15 03:36:42",
+  "updated": "2026-06-15 04:39:48",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -284,7 +284,7 @@
     ],
     "open_prs": "",
     "blocked_on": "",
-    "focus": "V37.9.121 (2026-06-08 周一): 日期门控治理 INV 立案 — 用户选'日期门控治理 INV'方向. **日落法 MR-22 一物一形在加治理任务内的应用**: 候选登记 2 个 daily_observer INV (INV-OBSERVER-001 + INV-OBSERVER-SAMPLING-001) 合并成 1 个 INV-OBSERVER-001 (9 checks, 守全契约含 V37.9.87 single-call/V37.9.88 registry filter/V37.9.92 status closure/V37.9.93 smart sampling) — 净 +2 INV 而非 +3, honors 用户选择 + honors 北极星. + INV-SOURCE-CREDIBILITY-001 (8 checks). 关闭 Phase 0 自主发现的 daily_observer 缺 INV 缺口 (7→5 未覆盖 job). 反向验证两 INV 真有效 (sabotage chaspark + smart sampling 都被抓 719/724). **顺手退役一物多形**: test_v37_9_96 硬编码 count 守卫 → 冗余于动态守卫退役 (日落法). 复用现有 166+56 单测不造新测试 (lean). version-bump 连带 test_convergence alternation +3.55. 115 suites/4062 tests(-1 退役)/0 fail/gov v3.55/89 inv/818 checks/安全 95/VERSION 不变. Mac Mini 待用户: git fetch+reset 同步 → 下次 07:00 governance audit cron 跑两新 INV (runtime 真跑 test). 下次候选: OpenClaw 升级 ~6/15 / 日落法 3-engine-merge (高风险 deferred) + ~/ontology symlink 评估 / 外部评审吸收 #4 README 漂移 (V37.9.119 已修 version 徽章, 待核 8-provider 等其余) / ArXiv 论文 (Stage 2→3).",
+    "focus": "2026-06-15 (周一): 论文发表线全闭环. arXiv:2606.14589 (cs.SE) 已发表 + 三件套配套全部就位 + 知乎双发布完成. 本 session 4 commit: V37.9.154 (核心发布配套: 链接/data_inventory 终版/zip 日落) + V37.9.155 (传播层: 中文科普版新文章 + why_runtime EN/ZH 加 arXiv 引用入 README 表) + 两篇知乎链接落地 (why_runtime_zh p/2049813538894623858 + 中文科普版 p/2049816723541463125). 全程 drift 全绿/126 suites·4445 tests·0 fail/治理 90/90/VERSION 0.37.9.70 不变 (话语权文档零业务语义). 用户已合并 PR. **下一步 = Mac Mini git fetch+reset 同步 (纯 docs 零重启)**. 发表线已是自然收尾点. 下次候选 (多数待 Mac Mini 生产数据或 deferred): (a) #1 4.27 推送链路回归追踪 (中优, 需 Mac Mini timeout 旋钮探测 + plugin staging 多 hash dir 检查 + 上游 releases CLI 冷启动修复查) (b) 多个 V37.9.x 部署验证项 (governance audit / rotation / finance zombie 真激活, 需 Mac Mini cron 跑后看数据) (c) V3 路标 backlog (Tool Policy Plugin / Memory Plane Plugin / pip install ontology-engine 终极目标续推) (d) 原则 #32 周一用户视角观察 30min (WhatsApp 实测, 用户侧动作). 纯 dev 可自主且非阻塞的强候选已基本出清 (外部评审2 P1/P2 全闭环, 复杂度预算惯例化 V37.9.150 已立).",
     "current_focus": "V37.8 MR-6 深度补齐生产硬验证通过 (35/35 inv / 136/136 checks / 9/9 MR 全绿). 下一步: V37.8.1 修复 MRD-NOTIFY-002 activity 层假阳性 (topic→job log 映射扫 mtime) 或 Ontology Phase 3 渐进替换 (ONTOLOGY_MODE=on) 或 Tool Policy Plugin V3 路标",
     "recent_changes": [
       {
