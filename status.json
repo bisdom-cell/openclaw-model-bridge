@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-15 04:39:48",
+  "updated": "2026-06-15 04:46:31",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-06-15",
+      "what": "4.27 推送链路 follow-up (d) 闭合: docs/push_path_loss_surface_audit_2026_06_15.md — 全仓 127 直推站点代码级审计. 结论=无真·总丢失面 (每条真内容要么 notify.sh 3 重试+队列, 要么 Discord 孪生存活). 残留=类别 2 论文类 job 直推双通道的 WhatsApp 瞬时缝隙 (内容在 Discord 不丢). 硬化候选 (deferred, 需 Mac Mini E2E): 类别 2 迁 notify.sh --topic (MR-8 一物一形, 顺带消缝隙). follow-up (a)(b)(c) 仍需 Mac Mini 生产数据.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-15",
       "what": "中文科普版 when_errors_become_narratives_zh 已发布知乎 (https://zhuanlan.zhihu.com/p/2049816723541463125) — README 表 platform 列更新. 至此论文知乎双发布全完成: why_runtime_not_wrapper_zh (p/2049813538894623858) + 中文科普版 (p/2049816723541463125). 三件套 (arXiv 2606.14589 学术原作 + 中文科普版 + why_runtime 续篇) 全部公开, 覆盖学术圈+中文社区双受众.",
       "by": "claude_code"
     },
@@ -198,11 +203,6 @@
       "date": "2026-06-11",
       "what": "V37.9.141 preflight check 16 崩溃修复: bash 3.2 未 brace 变量紧贴全角字符 quirk (PUSH_RC） set -u 崩溃, locale 依赖 cron 不触发交互触发) — 全仓 14 处潜伏批量 brace 修复 + cross_os_quirk_scanner 第 7 pattern (detect_unbraced_var_adjacent_cjk) + INV-CROSS-OS-001 扩 9 checks + 10 新单测 + sabotage 反向验证. V37.9.43-hotfix2 候选元规则 scanner 化兑现 (日落法不立新 MR)",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-06-11",
-      "what": "V37.9.140 双小修: #27 full_regression suites 计数 121/122 抖动根治 (SUITES_SKIPPED_COUNTED 计数器, 对抗层跳过仍计入 suite 清单数, 回写 PASS+SKIPPED 确定值, gen_readme_badges 守卫不再假阳性) + #25 restart.sh #48703 hotfix 日落法退役 (Gateway 已升 4.27 上游已修, 移除唯一 sudo 依赖, preflight 12/19 监控保留 + 跨文件守卫). 7 新单测 + 三轮 sabotage 反向验证. VERSION 0.37.9.70 不变",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -254,7 +254,7 @@
   "session_context": {
     "last_session": "2026-04-17 V37.8.14 (15 commits)",
     "unfinished": [
-      "【4.27 推送链路回归追踪 · 中优】2026-06-12 20:30 watchdog 17 项告警诊断闭环 (V37.9.145): 真因 = 4.27 openclaw CLI 冷调用回归 (冷 ~40s CPU + 第一发 WS >10s 必超时, 暖窗口正常; 间歇 plugin staging 重发生 baileys+jimp 报 missing 但 runtime-deps 已装). 零数据丢失 (notify 重试全救回, 用户确认没少收). 已修 2 噪声源 (watchdog KB 索引阈值 12h→27h + INV-REVIEW-001 openclaw stub 隔离). 跟进项: (a) timeout 旋钮 `openclaw message send --help | grep -i timeout` 可配则 notify.sh/直推 job 调大 → attempt-1 噪声归零 (b) `ls -la ~/.openclaw/plugin-runtime-deps/` 多 hash dir 检查 (staging 间歇机制) (c) upstream releases 查 CLI 冷启动/staging 修复 (tripwire 证据, 不自动升级) (d) 各 job 'attempt-1 失败但重试成功'被 watchdog 记为'最近一次推送失败'的告警语义复核 (原则 #32 告警疲劳).",
+      "【4.27 推送链路回归追踪 · 中优】真因=4.27 openclaw CLI 冷调用回归 (V37.9.145). ✅ follow-up (d) 丢失面评估已闭合 (2026-06-15 审计 docs/push_path_loss_surface_audit_2026_06_15.md: 无总丢失面, 残留=WhatsApp 瞬时缝隙内容在 Discord 存活). 剩余需 Mac Mini 生产数据 (dev 不可执行): (a) `openclaw message send --help` timeout 旋钮探测 → 可配则 notify.sh/直推 job 调大 (b) `ls -la ~/.openclaw/plugin-runtime-deps/` 多 hash dir 检查 staging 间歇复发 (c) 上游 releases 查 CLI 冷启动/staging 修复 (tripwire 不自动升级). 硬化候选 (deferred 需 E2E): 类别 2 论文类 job 直推双通道迁 notify.sh --topic (MR-8 一物一形).",
       "V3 路标 backlog: Tool Policy Plugin + Memory Plane Plugin + Job Template SDK + pip install ontology-engine",
       "WhatsApp 入站路由到 research agent 而非 main（4/10 WhatsApp plugin 安装副作用）: main/sessions.json mtime 从 Mar 30 起 dormant, 但 HEARTBEAT.md 修复后 research 正常响应不致命. 长期考虑: channels.whatsapp.agent 显式配置 / agents.list 顺序调整 / 验证 WhatsApp plugin inbound handler routing 逻辑",
       "V37.9.67+ P2 (4 周观察后立 INV): 原则 #32 用户视角观察制度真执行 — 每周一开工第一件事 30min 不写代码不修 bug, 检查 4 维度 (告警噪声/推送延迟/信息密度/PA 表现). 发现项即 status_update.py --add unfinished 不当场修. 持续 4 周后立 INV-WEEKLY-USER-OBSERVATION-001 守卫周一观察项必有. 把 reactive feedback 升级为 proactive observation. 防御 vim 体验差 / freight 过频 / framework 零漂移真激活漏报 类用户视角 gap. 见 reflection 行动 5.",
