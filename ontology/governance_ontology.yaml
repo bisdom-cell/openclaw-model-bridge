@@ -2395,6 +2395,16 @@ invariants:
               with open(stub, "w") as f:
                   f.write("#!/bin/sh\nexit 0\n")
               os.chmod(stub, 0o755)
+              # V37.9.157-hotfix: kb_review.sh line 16 `export PATH="/opt/homebrew/bin:..."`
+              # 把真 4.27 openclaw 重新加回 PATH 最前 (撤销本 check 的 PATH 去除); 且 push 用
+              # 裸 `openclaw` (非 $OPENCLAW) → 解析到真 4.27 冷调用 ~40s > 45s timeout → TimeoutExpired.
+              # 修: 复制 notify.sh 让 push 走 notify() → "$OPENCLAW"=stub (用变量非裸命令 → stub 秒过);
+              # + stub movespeed_rsync_helper.sh 防 kb_review.sh line 225 的 V37.9.27 jitter 30-180s.
+              shutil.copy(os.path.join(repo_dir, "notify.sh"), tmp)
+              rsync_stub = os.path.join(tmp, "movespeed_rsync_helper.sh")
+              with open(rsync_stub, "w") as f:
+                  f.write("#!/bin/sh\nexit 0\n")
+              os.chmod(rsync_stub, 0o755)
               mock = os.path.join(tmp, "kb_review_collect.py")
               with open(mock, "w", encoding="utf-8") as f:
                   f.write(

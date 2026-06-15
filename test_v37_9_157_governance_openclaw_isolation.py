@@ -77,7 +77,7 @@ class TestInvReviewCheckStubsOpenclaw(unittest.TestCase):
         # 定位 'V37.5.1 runtime: 真实 subprocess 执行 kb_review.sh' check 块
         idx = self.yaml.find("V37.5.1 runtime: 真实 subprocess 执行 kb_review.sh")
         self.assertGreater(idx, 0, "未找到 INV-REVIEW-001 kb_review.sh runtime check")
-        return self.yaml[idx: idx + 3000]
+        return self.yaml[idx: idx + 5000]
 
     def test_v37_9_157_marker_in_check(self):
         self.assertIn("V37.9.157", self._inv_review_check_block(),
@@ -98,6 +98,19 @@ class TestInvReviewCheckStubsOpenclaw(unittest.TestCase):
         self.assertTrue(path_lines, "未找到 PATH 行")
         self.assertNotIn("/opt/homebrew/bin", path_lines[0],
                          "INV-REVIEW-001 check PATH 不得含 /opt/homebrew/bin")
+
+    def test_copies_notify_sh_to_route_push_through_stub(self):
+        # 真根因: kb_review.sh line 16 重加 /opt/homebrew/bin + push 用裸 openclaw → 真 4.27.
+        # 修: 复制 notify.sh 让 push 走 notify() → "$OPENCLAW"=stub (用变量非裸命令).
+        self.assertIn('shutil.copy(os.path.join(repo_dir, "notify.sh"), tmp)',
+                      self._inv_review_check_block(),
+                      "INV-REVIEW-001 check 必须复制 notify.sh (push 走 $OPENCLAW=stub 非裸 openclaw)")
+
+    def test_stubs_rsync_helper(self):
+        # kb_review.sh line 225 调 movespeed_rsync_helper.sh (V37.9.27 jitter 30-180s) → 必 stub
+        block = self._inv_review_check_block()
+        self.assertIn("movespeed_rsync_helper.sh", block,
+                      "INV-REVIEW-001 check 必须 stub movespeed_rsync_helper.sh (防 jitter 30-180s 超 timeout)")
 
 
 class TestNoUnstubbedOpenclawScriptSubprocess(unittest.TestCase):
