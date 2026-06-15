@@ -5690,10 +5690,10 @@ invariants:
         check_type: file_contains
         file: ontology/convergence_ontology.yaml
         pattern: 'dry_run_default: false'
-      - name: "V37.9.58: convergence.py _is_dry_run() 默认值反转 (literal 1 才 dry-run)"
+      - name: "V37.9.158: convergence.py _is_dry_run() 默认 dry-run (MR-23, 仅 CONVERGENCE_APPLY=1 real-apply)"
         check_type: file_contains
         file: ontology/convergence.py
-        pattern: 'os.environ.get\(_DRY_RUN_ENV_VAR, "0"\) == "1"'
+        pattern: 'env.get\(_APPLY_ENV_VAR\) != "1"'
       - name: "V37.9.58: convergence_ontology.yaml v37_9_58_changelog 段记录切关"
         check_type: file_contains
         file: ontology/convergence_ontology.yaml

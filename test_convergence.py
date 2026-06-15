@@ -1724,53 +1724,61 @@ class TestFormatCronLine(unittest.TestCase):
 
 
 class TestIsDryRun(unittest.TestCase):
-    """V37.9.23 → V37.9.58 — _is_dry_run() 读 CONVERGENCE_DRY_RUN env var.
-    V37.9.58 切关 escalation 兑现: 默认值反转 (旧 typo→dry-run 保守 ↔
-    新 typo→real apply 兑现 escalation 承诺). 仅 "1" 字面量保持 dry-run.
+    """V37.9.158 MR-23 — _is_dry_run() 默认 dry-run (观察绝不 mutate); 仅
+    CONVERGENCE_APPLY=1 real-apply; CONVERGENCE_DRY_RUN=1 force-dry-run 赢过 APPLY.
+    反转 V37.9.58 默认 real-apply — 根治 V37.9.106/111/116/120 反复血案 (审计本身
+    mutate 它审计的 crontab). machine 仍能 sync 但是显式动作非观察副作用.
     """
 
     def setUp(self):
-        # 隔离 env (test 之间不互相污染)
-        self._saved = os.environ.pop("CONVERGENCE_DRY_RUN", None)
+        self._saved_dry = os.environ.pop("CONVERGENCE_DRY_RUN", None)
+        self._saved_apply = os.environ.pop("CONVERGENCE_APPLY", None)
 
     def tearDown(self):
-        if self._saved is not None:
-            os.environ["CONVERGENCE_DRY_RUN"] = self._saved
-        else:
-            os.environ.pop("CONVERGENCE_DRY_RUN", None)
+        for _k, _v in (("CONVERGENCE_DRY_RUN", self._saved_dry),
+                       ("CONVERGENCE_APPLY", self._saved_apply)):
+            if _v is not None:
+                os.environ[_k] = _v
+            else:
+                os.environ.pop(_k, None)
 
-    def test_unset_defaults_to_real_apply_v37_9_58(self):
-        """V37.9.58 切关: env 未设置 → 默认 real apply (machine_sync 真激活)."""
+    def test_unset_defaults_to_dry_run_v37_9_158(self):
+        """V37.9.158: env 全未设 → 默认 dry-run (观察绝不 mutate, MR-23)."""
         os.environ.pop("CONVERGENCE_DRY_RUN", None)
-        self.assertFalse(cv._is_dry_run(),
-            "V37.9.58 escalation 兑现: env 未设置 → 默认 real apply, "
-            "Plan B 一周观察期到期 (5/3-5/11 零漂移) 切关 dry-run 默认")
+        os.environ.pop("CONVERGENCE_APPLY", None)
+        self.assertTrue(cv._is_dry_run(),
+            "V37.9.158 MR-23: 默认 dry-run — 审计/观察绝不 mutate 生产 crontab")
 
-    def test_value_zero_is_real_apply_v37_9_58(self):
-        """V37.9.58 切关: '0' 也是 real apply (不再是唯一关闭 dry-run 的字面量)."""
+    def test_value_zero_dry_run_no_apply_stays_dry_run_v37_9_158(self):
+        """CONVERGENCE_DRY_RUN='0' 无 APPLY → 仍默认 dry-run."""
         os.environ["CONVERGENCE_DRY_RUN"] = "0"
-        self.assertFalse(cv._is_dry_run(),
-            "V37.9.58: '0' 与未设置同语义 — real apply")
+        self.assertTrue(cv._is_dry_run(),
+            "V37.9.158: DRY_RUN='0' 非 force-override, 无 APPLY=1 → 默认 dry-run")
 
-    def test_value_one_keeps_dry_run(self):
-        """V37.9.58 切关后 '1' 成为唯一开启 dry-run 的字面量."""
+    def test_dry_run_one_keeps_dry_run(self):
+        """CONVERGENCE_DRY_RUN=1 → dry-run (force-override safety)."""
         os.environ["CONVERGENCE_DRY_RUN"] = "1"
         self.assertTrue(cv._is_dry_run(),
-            "V37.9.58 切关后: '1' 是唯一开启 dry-run 的字面量 (operator "
-            "临时回到 dry-run 观察模式)")
+            "CONVERGENCE_DRY_RUN=1 是 force-dry-run safety override")
 
-    def test_value_true_is_real_apply_v37_9_58(self):
-        """V37.9.58 切关: typo-safe direction 反转, 非 '1' 字面量都 real apply."""
-        os.environ["CONVERGENCE_DRY_RUN"] = "true"
+    def test_apply_one_real_applies_v37_9_158(self):
+        """CONVERGENCE_APPLY=1 → real-apply (显式 operator 动作)."""
+        os.environ["CONVERGENCE_APPLY"] = "1"
         self.assertFalse(cv._is_dry_run(),
-            "V37.9.58: 非 '1' 字面量 → real apply (typo-safe direction 反转, "
-            "兑现 V37.9.23 收工承诺 'V37.9.24+ 切关 dry-run 默认')")
+            "V37.9.158: CONVERGENCE_APPLY=1 是唯一触发 real-apply 的显式 intent")
 
-    def test_empty_string_is_real_apply_v37_9_58(self):
-        """V37.9.58 切关: 空字符串也是 real apply."""
-        os.environ["CONVERGENCE_DRY_RUN"] = ""
-        self.assertFalse(cv._is_dry_run(),
-            "V37.9.58: 空字符串与未设置同语义 — real apply")
+    def test_dry_run_wins_over_apply_v37_9_158(self):
+        """CONVERGENCE_DRY_RUN=1 赢过 CONVERGENCE_APPLY=1 (safety 优先)."""
+        os.environ["CONVERGENCE_DRY_RUN"] = "1"
+        os.environ["CONVERGENCE_APPLY"] = "1"
+        self.assertTrue(cv._is_dry_run(),
+            "V37.9.158: force-dry-run override 赢过 APPLY (双设时 safety 优先)")
+
+    def test_apply_non_one_literal_stays_dry_run_v37_9_158(self):
+        """CONVERGENCE_APPLY='true' (非 '1') → 仍 dry-run (仅 '1' 字面量 real-apply)."""
+        os.environ["CONVERGENCE_APPLY"] = "true"
+        self.assertTrue(cv._is_dry_run(),
+            "V37.9.158: 仅 APPLY='1' 字面量 real-apply, typo-safe → 非 '1' 保持 dry-run")
 
 
 class TestApplyMachineSyncDryRun(unittest.TestCase):
@@ -3132,15 +3140,17 @@ class TestV37958DryRunActivation(unittest.TestCase):
     # ── 源码字面量守卫 (1) _is_dry_run() 默认值反转 ────────────────────────
 
     def test_is_dry_run_default_reversed_to_v37_9_58(self):
-        """V37.9.58 _is_dry_run() 默认值反转: literal '1' 才 dry-run.
-        新模式: os.environ.get(_DRY_RUN_ENV_VAR, "0") == "1"
-        旧模式: os.environ.get(_DRY_RUN_ENV_VAR, "1") != "0"
+        """V37.9.158 反转: 默认 dry-run (MR-23), 仅 CONVERGENCE_APPLY=1 real-apply.
+        新模式: env.get(_APPLY_ENV_VAR) != "1" (默认 dry-run) + DRY_RUN=1 force-override.
+        V37.9.58 旧 default-real-apply 字面量 (os.environ.get(_DRY_RUN_ENV_VAR, "0") == "1")
+        已退役 — 根治 V37.9.106/111/116/120 审计 mutate crontab 反复血案.
         """
-        self.assertIn(
-            'os.environ.get(_DRY_RUN_ENV_VAR, "0") == "1"',
-            self.cv_src,
-            "V37.9.58 切关: _is_dry_run() 必须用 '0' 默认 + '== \"1\"' 比较"
-        )
+        self.assertIn('_APPLY_ENV_VAR = "CONVERGENCE_APPLY"', self.cv_src,
+            "V37.9.158: 必须定义 CONVERGENCE_APPLY env 作显式 real-apply intent")
+        self.assertIn('env.get(_APPLY_ENV_VAR) != "1"', self.cv_src,
+            "V37.9.158: _is_dry_run() 默认 dry-run, 仅 APPLY=1 real-apply")
+        self.assertNotIn('os.environ.get(_DRY_RUN_ENV_VAR, "0") == "1"', self.cv_src,
+            "V37.9.158: V37.9.58 旧 default-real-apply 字面量必须退役 (一物一形)")
 
     def test_v37_9_58_marker_in_convergence_py(self):
         """convergence.py 必须含 V37.9.58 marker (escalation 兑现注释)."""
@@ -3341,11 +3351,12 @@ class TestV37958DryRunActivation(unittest.TestCase):
         由 TestVerifyConvergenceMachineSyncIntegration 覆盖.
         """
         os.environ.pop("CONVERGENCE_DRY_RUN", None)
+        os.environ.pop("CONVERGENCE_APPLY", None)
         spec = cv.get_spec("jobs_to_crontab")
         self.assertEqual(spec.get("drift_action"), "machine_sync")
-        self.assertFalse(cv._resolve_dry_run_for_spec(spec),
-            "V37.9.58 切关后: 默认 (env 未设) jobs_to_crontab dry_run_default=false → "
-            "_resolve_dry_run_for_spec=False (real apply 模式). 旧 V37.9.23 默认 dry-run 已废弃.")
+        self.assertTrue(cv._resolve_dry_run_for_spec(spec),
+            "V37.9.158 MR-23: 默认 (无 CONVERGENCE_APPLY=1) → dry-run (观察绝不 mutate). "
+            "反转 V37.9.58 default-real-apply — 根治审计 mutate crontab 反复血案.")
 
     def test_e2e_explicit_dry_run_env_re_enables_dry_run(self):
         """V37.9.58 切关后 operator 仍可显式 CONVERGENCE_DRY_RUN=1 回到 dry-run.
@@ -3359,10 +3370,11 @@ class TestV37958DryRunActivation(unittest.TestCase):
         """V37.9.58: kb_sources_to_index 第二个 machine_sync spec 也默认 real apply.
         V37.9.113: resolver 验证 flip, 不调 verify_convergence (避免 Mac Mini 真跑 kb_embed)."""
         os.environ.pop("CONVERGENCE_DRY_RUN", None)
+        os.environ.pop("CONVERGENCE_APPLY", None)
         spec = cv.get_spec("kb_sources_to_index")
         self.assertEqual(spec.get("drift_action"), "machine_sync")
-        self.assertFalse(cv._resolve_dry_run_for_spec(spec),
-            "V37.9.58: kb_sources_to_index dry_run_default=false → resolver=False (real apply)")
+        self.assertTrue(cv._resolve_dry_run_for_spec(spec),
+            "V37.9.158: kb_sources_to_index 默认 dry-run, 仅 CONVERGENCE_APPLY=1 real-apply")
 
 
 # ════════════════════════════════════════════════════════════════════
@@ -3540,58 +3552,69 @@ class TestV37966SourceLevelGuards(unittest.TestCase):
 # ───────────────────────────────────────────────────────────────────────────
 
 class TestResolveDryRunForSpec(unittest.TestCase):
-    """V37.9.97 — per-spec dry-run 解析 (dry_run_default 字段从文档性→功能性)."""
+    """V37.9.158 — per-spec dry-run, default-dry-run base (MR-23). 无
+    CONVERGENCE_APPLY=1 → 一律 dry-run (观察绝不 mutate). 仅 APPLY=1 时才 honor
+    per-spec dry_run_default. CONVERGENCE_DRY_RUN=1 force-override 赢过 APPLY.
+    """
 
     def setUp(self):
-        self._saved = os.environ.pop("CONVERGENCE_DRY_RUN", None)
+        self._saved_dry = os.environ.pop("CONVERGENCE_DRY_RUN", None)
+        self._saved_apply = os.environ.pop("CONVERGENCE_APPLY", None)
 
     def tearDown(self):
-        if self._saved is not None:
-            os.environ["CONVERGENCE_DRY_RUN"] = self._saved
-        else:
-            os.environ.pop("CONVERGENCE_DRY_RUN", None)
+        for _k, _v in (("CONVERGENCE_DRY_RUN", self._saved_dry),
+                       ("CONVERGENCE_APPLY", self._saved_apply)):
+            if _v is not None:
+                os.environ[_k] = _v
+            else:
+                os.environ.pop(_k, None)
 
-    def test_env_override_one_forces_dry_run(self):
+    def test_dry_run_one_forces_dry_run(self):
         os.environ["CONVERGENCE_DRY_RUN"] = "1"
         spec = {"convergence_method": {"dry_run_default": False}}
         self.assertTrue(cv._resolve_dry_run_for_spec(spec),
-            "env=1 必须 override per-spec dry_run_default=false")
+            "DRY_RUN=1 force-override per-spec dry_run_default=false")
 
-    def test_env_override_zero_forces_real(self):
-        os.environ["CONVERGENCE_DRY_RUN"] = "0"
-        spec = {"convergence_method": {"dry_run_default": True}}
+    def test_default_no_env_is_dry_run_v37_9_158(self):
+        """V37.9.158 MR-23: 无 APPLY → dry-run, 不管 dry_run_default=false."""
+        spec = {"convergence_method": {"dry_run_default": False}}
+        self.assertTrue(cv._resolve_dry_run_for_spec(spec),
+            "V37.9.158: 无 CONVERGENCE_APPLY=1 → 默认 dry-run (观察绝不 mutate)")
+
+    def test_no_field_no_env_is_dry_run_v37_9_158(self):
+        spec = {"convergence_method": {}}
+        self.assertTrue(cv._resolve_dry_run_for_spec(spec),
+            "V37.9.158: 无 field + 无 APPLY → 默认 dry-run")
+
+    def test_no_convergence_method_safe_dry_run(self):
+        self.assertTrue(cv._resolve_dry_run_for_spec({}),
+            "V37.9.158: 无 convergence_method → 默认 dry-run, 不崩")
+
+    def test_apply_jobs_real_applies_v37_9_158(self):
+        """CONVERGENCE_APPLY=1 + jobs (dry_run_default:false) → real-apply."""
+        os.environ["CONVERGENCE_APPLY"] = "1"
+        spec = cv.get_spec("jobs_to_crontab")
         self.assertFalse(cv._resolve_dry_run_for_spec(spec),
-            "env=0 必须 override per-spec dry_run_default=true (V37.9.58 语义: 非 '1' = real)")
+            "APPLY=1 + dry_run_default:false → real-apply (显式 operator 同步)")
 
-    def test_per_spec_true_when_no_env(self):
+    def test_apply_kb_real_applies_v37_9_158(self):
+        os.environ["CONVERGENCE_APPLY"] = "1"
+        spec = cv.get_spec("kb_sources_to_index")
+        self.assertFalse(cv._resolve_dry_run_for_spec(spec))
+
+    def test_apply_synthetic_dry_run_default_true_honored_v37_9_158(self):
+        """CONVERGENCE_APPLY=1 + dry_run_default:true → 仍 dry-run (per-spec staging 保留)."""
+        os.environ["CONVERGENCE_APPLY"] = "1"
         spec = {"convergence_method": {"dry_run_default": True}}
         self.assertTrue(cv._resolve_dry_run_for_spec(spec),
-            "无 env → 用 per-spec dry_run_default=true")
+            "APPLY=1 时 dry_run_default:true 仍 dry-run-first (高 blast-radius spec staging)")
 
-    def test_per_spec_false_when_no_env(self):
-        spec = {"convergence_method": {"dry_run_default": False}}
-        self.assertFalse(cv._resolve_dry_run_for_spec(spec),
-            "无 env → 用 per-spec dry_run_default=false")
-
-    def test_framework_default_false_when_no_field(self):
-        spec = {"convergence_method": {}}
-        self.assertFalse(cv._resolve_dry_run_for_spec(spec),
-            "无 env + 无 per-spec field → framework 默认 False (V37.9.58 real-apply)")
-
-    def test_no_convergence_method_safe(self):
-        self.assertFalse(cv._resolve_dry_run_for_spec({}),
-            "无 convergence_method → 默认 False, 不崩")
-
-    def test_services_real_spec_real_apply_no_env(self):
-        """V37.9.133: 真 services spec (dry_run_default: false) 无 env → real-apply
-        (与 jobs/kb 一致; V37.9.97 起步 dry-run 十天观察后切关)."""
-        spec = cv.get_spec("services_to_launchd")
-        self.assertFalse(cv._resolve_dry_run_for_spec(spec))
-
-    def test_jobs_real_spec_real_no_env(self):
-        """真 jobs spec (dry_run_default: false) 无 env → real-apply (向后兼容)."""
+    def test_dry_run_wins_over_apply_per_spec_v37_9_158(self):
+        os.environ["CONVERGENCE_DRY_RUN"] = "1"
+        os.environ["CONVERGENCE_APPLY"] = "1"
         spec = cv.get_spec("jobs_to_crontab")
-        self.assertFalse(cv._resolve_dry_run_for_spec(spec))
+        self.assertTrue(cv._resolve_dry_run_for_spec(spec),
+            "DRY_RUN=1 force-override 赢过 APPLY=1 (safety 优先)")
 
 
 class TestApplyServicesLaunchctlBootstrap(unittest.TestCase):
