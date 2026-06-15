@@ -13,7 +13,7 @@
 [![Fail-Fast](https://img.shields.io/badge/LLM%20cron%20fail--fast-17%2F21%20aligned-brightgreen.svg)]()
 [![Notifications](https://img.shields.io/badge/notifications-WhatsApp%20%2B%20Discord-informational.svg)]()
 
-> **Current version:** `v37.9.153` / `0.37.9.70` (2026-06-14) — see [`CLAUDE.md`](CLAUDE.md) for full changelog.
+> **Current version:** `v37.9.154` / `0.37.9.70` (2026-06-15) — see [`CLAUDE.md`](CLAUDE.md) for full changelog.
 > **Latest milestone:** V37.9.117 → V37.9.121 — *日落法 (Sunset Law) 立为项目北极星 (降复杂度优先于加功能)*. 一天五版意外频发后深度反思: 真因不是"系统复杂"(部件难懂) 而是"系统组合"(简单正确部件交互面积超线性增长超过测试覆盖) — 复杂关乎部件, 意外关乎接缝. MR-22 (sunset-over-accretion) + MR-23 (audit-observes-never-mutates) + 原则 #34 北极星. V37.9.118-120 首批日落法退役 (governance repo_root 一物多形 → os.getcwd / engine.py realpath / auto_deploy 双副本根治). V37.9.121 立 INV-OBSERVER-001 + INV-SOURCE-CREDIBILITY-001 — 在"加治理"任务内仍践行日落法 (候选 2 daily_observer INV 合并为 1 + 退役冗余硬编码守卫).
 
 ## Product Layers: What's Core vs. What's the Author's PA Instance
@@ -590,7 +590,7 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 | [Audit is Regression, Not Prevention](docs/articles/audit_is_regression_not_prevention.md) | English | — | Position — 6 actionable principles from Route A/B empirical evidence (V37.9.1) |
 | [Seven Failure Scenarios](docs/articles/seven_failure_scenarios.md) | English | — | Evidence — 7 fault injection experiments |
 | [Provider Compatibility Review](docs/articles/zhihu_provider_compatibility.md) | 中文 | 知乎 | Architecture |
-| [When Errors Become Narratives: A Longitudinal Taxonomy of Silent Failures in a Production LLM Agent Runtime](docs/paper/silent_failures_taxonomy/draft.md) | English | arXiv (in preparation) | **Academic paper** — fail-plausible concept + 5-class taxonomy from 22 incident postmortems; LaTeX source in [`docs/paper/silent_failures_taxonomy/latex/`](docs/paper/silent_failures_taxonomy/latex/) |
+| [When Errors Become Narratives: A Longitudinal Taxonomy of Silent Failures in a Production LLM Agent Runtime](docs/paper/silent_failures_taxonomy/draft.md) | English | [**arXiv:2606.14589**](https://arxiv.org/abs/2606.14589) | **Academic paper** (published 2026-06-15, cs.SE) — fail-plausible concept + 5-class taxonomy from 22 incident postmortems; LaTeX source in [`docs/paper/silent_failures_taxonomy/latex/`](docs/paper/silent_failures_taxonomy/latex/) |
 
 ## Full Guide
 
