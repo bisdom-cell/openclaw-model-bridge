@@ -85,7 +85,9 @@ meta:
         validates 5-field interval + 非空 entry/log + 拒绝 shell metachar (defense-in-depth)
       - _apply_machine_sync(spec, missing, dry_run)  orchestrator: 调 crontab_safe.sh add
         每个 missing entry, FAIL-OPEN, 收集 (applied, errors, dry_run) 三元组
-      - _is_dry_run()  env var reader: CONVERGENCE_DRY_RUN != "0" → dry-run (默认安全)
+      - _is_dry_run()  V37.9.158 MR-23: 默认 dry-run (观察绝不 mutate), 仅 CONVERGENCE_APPLY=1
+        real-apply; CONVERGENCE_DRY_RUN=1 force-override 赢过 APPLY (根治 V37.9.106/111/116/120
+        审计 mutate crontab 反复血案 — machine 仍能 sync 但是显式动作非观察副作用)
       - _MACHINE_SYNC_TIMEOUT_SEC = 15  subprocess timeout per crontab_safe.sh add
 
     ConvergenceResult namedtuple 末尾追加 3 字段 (defaults 向后兼容):

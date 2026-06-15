@@ -302,9 +302,12 @@ jobs:
     # V37.9.120 日落法: entry 保持裸名 'auto_deploy.sh' (check_registry 按 repo_root/entry 校验,
     # repo_root/auto_deploy.sh 存在). 但 auto_deploy 是唯一从 repo clone (~/openclaw-model-bridge/)
     # 跑的 job (crontab line 5, 见脚本头部注释), 非 FILE_MAP 部署到 $HOME (V37.9.120 已移出 FILE_MAP).
-    # line_contains parser 匹配 'auto_deploy.sh' 子串于 line 5 → 永不判 missing → 不重加.
-    # 残留: _format_cron_line(auto_deploy) 生成 ~/auto_deploy.sh (HOME) 是 dormant quirk (line_contains
-    # 下不触发); 若未来切 cron_lines_set_diff parser 需特殊处理 auto_deploy repo 路径 (V37.9.66 已 defer).
+    # V37.9.158 修正: V37.9.120 注释曾称 "line_contains 匹配 line 5 子串 → 不重加", 实测证伪 —
+    # parser 用 endswith(cmd) 而非子串, line 5 命令以 '2>&1' 结尾不匹配 'auto_deploy.sh' → 判 missing
+    # → real-apply 时 _format_cron_line 重加 ~/auto_deploy.sh (HOME) → INV-CRON-004 反复 (V37.9.106/111/116).
+    # 真根治在上游: V37.9.158 convergence 默认 dry-run (观察绝不 mutate, 仅 CONVERGENCE_APPLY=1 real-apply)
+    # → 手动/审计 governance 不再重加. 残留 Layer 2 (auto_deploy endswith 不匹配) 仅在显式 APPLY=1 时浮现,
+    # 候选: parser 对 auto_deploy 特判 repo 路径 OR endswith→子串 (需评估对其他 job 影响, defer).
     entry: auto_deploy.sh
     interval: "*/2 * * * *"          # 每 2 分钟轮询 GitHub
     log: ~/.openclaw/logs/auto_deploy.log

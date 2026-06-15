@@ -131,50 +131,52 @@ _KB_EMBED_TIMEOUT_SEC = 300
 # Only literal "1" enables dry-run — all other values (unset, "0", "true",
 # anything) trigger real machine_sync.
 _DRY_RUN_ENV_VAR = "CONVERGENCE_DRY_RUN"
+_APPLY_ENV_VAR = "CONVERGENCE_APPLY"  # V37.9.158: 显式 real-apply intent
 
 
 def _is_dry_run():
-    """Read CONVERGENCE_DRY_RUN env var. V37.9.58 切关后默认 False (real apply).
-    Only the literal "1" enables dry-run — all other values (unset, "0",
-    "true", anything) trigger real machine_sync. Operator must explicitly set
-    CONVERGENCE_DRY_RUN=1 to flip back to dry-run for observation/debugging.
-    V37.9.23/24 yaml meta 一周观察期到期 → 切关 dry-run, MR-17 (declared-state-
-    must-converge-to-runtime-via-machine-not-memory) 真正兑现 — 从"机器可检测"
-    升级到"机器可同步"且"默认同步".
+    """V37.9.158 MR-23 — convergence 默认 dry-run (观察/审计绝不 mutate 生产).
+    real-apply 是独立显式 operator 动作: 仅 CONVERGENCE_APPLY=1 触发.
+    CONVERGENCE_DRY_RUN=1 是最高优先级 force-dry-run safety override (赢过 APPLY).
+
+    背景 (V37.9.106/111/116/120 反复血案根治): V37.9.58 曾切关默认为 real-apply
+    (Plan B 终态). 但任何 governance audit/manual run (无 env) 都 real-apply → 审计
+    本身 mutate 它审计的 crontab (MR-23 违反). V37.9.116 给 07:00 cron 加 dry-run
+    但手动跑没修 → INV-CRON-004 在每次手动 governance 后复发 (V37.9.157 session
+    实测 3 次). V37.9.158 把 "observe never mutates" 设为默认, apply 必须显式 →
+    彻底切断意外 mutation. machine 仍能 sync (Plan B 不丢), 但 sync 是显式动作非
+    观察副作用 (MR-23 audit-observes-never-mutates 完整兑现).
     """
-    return os.environ.get(_DRY_RUN_ENV_VAR, "0") == "1"
+    env = os.environ
+    if env.get(_DRY_RUN_ENV_VAR) == "1":
+        return True  # force dry-run safety override (wins over APPLY)
+    return env.get(_APPLY_ENV_VAR) != "1"  # default dry-run; only APPLY=1 real-applies
 
 
 def _resolve_dry_run_for_spec(spec):
-    """V37.9.97 — per-spec dry-run resolution with global env override.
+    """V37.9.158 — per-spec dry-run resolution, default-dry-run base (MR-23).
 
     Precedence:
-      1. CONVERGENCE_DRY_RUN env explicitly set → operator override wins
-         (V37.9.58 semantics: only literal "1" = dry-run, all else = real)
-      2. spec's convergence_method.dry_run_default → per-spec default
-      3. framework default (False = real-apply, V37.9.58 切关后)
+      1. CONVERGENCE_DRY_RUN=1 → force dry-run (safety override, wins over APPLY)
+      2. CONVERGENCE_APPLY != "1" → dry-run (default: observe never mutates, MR-23)
+      3. CONVERGENCE_APPLY=1 → honor per-spec convergence_method.dry_run_default
+         (services_to_launchd dry_run_default: true 仍 dry-run-first even under
+         explicit apply; jobs/kb dry_run_default: false → real-apply)
 
-    Why this exists: before V37.9.97 the spec-level `dry_run_default` field was
-    purely documentary — verify_convergence passed dry_run=None so all specs
-    shared the single global _is_dry_run() default. That worked when all
-    machine_sync specs were at the same maturity stage. But services_to_launchd
-    (V37.9.97) has higher blast-radius (launchctl bootstrap) and should observe
-    a week in dry-run while jobs_to_crontab / kb_sources_to_index stay real-apply
-    (their dry_run_default: false). Making dry_run_default functional lets each
-    spec stage independently — exactly what the Plan B 渐进 path needs.
-
-    Backward-compatible: jobs/kb have dry_run_default: false → returns False
-    (real-apply, same as before). Operator env override (CONVERGENCE_DRY_RUN=1)
-    still force-flips any spec to dry-run for debugging.
+    背景: V37.9.97 让 dry_run_default 字段功能化 (per-spec staging). V37.9.158 把
+    base 默认从 real-apply 反转为 dry-run (MR-23). dry_run_default 现仅在显式
+    CONVERGENCE_APPLY=1 时决定该 spec 是否真 apply.
     """
-    env_val = os.environ.get(_DRY_RUN_ENV_VAR)
-    if env_val is not None:
-        # Operator explicit override wins (any value; only "1" means dry-run)
-        return env_val == "1"
+    env = os.environ
+    if env.get(_DRY_RUN_ENV_VAR) == "1":
+        return True  # force dry-run safety override
+    if env.get(_APPLY_ENV_VAR) != "1":
+        return True  # default: observe never mutates (MR-23)
+    # CONVERGENCE_APPLY=1: explicit operator apply intent — honor per-spec default
     method = spec.get("convergence_method") or {}
     if "dry_run_default" in method:
         return bool(method["dry_run_default"])
-    return False
+    return False  # real-apply
 
 
 # ── Result type ───────────────────────────────────────────────────────────

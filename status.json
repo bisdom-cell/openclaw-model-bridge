@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-15 09:03:18",
+  "updated": "2026-06-15 09:39:52",
   "updated_by": "full_regression",
   "priorities": [
     {
@@ -106,6 +106,16 @@
   "recent_changes": [
     {
       "date": "2026-06-15",
+      "what": "V37.9.158: INV-CRON-004 反复血案真根治 — convergence 默认反转 real-apply→dry-run (MR-23 完整). 两层根因: (L1) 手动 governance real-apply mutate crontab (V37.9.116 只修 07:00 cron) (L2) V37.9.120 'line_contains 不重加' 证伪 (endswith 不匹配 line 5). 根治: _is_dry_run/_resolve_dry_run_for_spec 默认 dry-run, 仅 CONVERGENCE_APPLY=1 real-apply, DRY_RUN=1 force-override. machine 仍能 sync 但显式动作非观察副作用. 切断所有 spec 意外 mutation. 127 suites/4473 tests/0 fail/治理 90 inv 成立. V37.9.106/111/116/120 auto_deploy 双行血案终结.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-15",
+      "what": "✅ Mac Mini 完整闭环验证: 两 💥 (INV-REVIEW-001 notify.sh route + INV-CRON-MONITOR-001 test stub) 全部转 ✅ + CONVERGENCE_DRY_RUN=1 governance --full = 90 inv 748 checks 所有不变式成立零 💥. 确认 INV-CRON-004 复发源 = 手动 governance --full (无 CONVERGENCE_DRY_RUN) real-apply convergence 重加 auto_deploy HOME 行 (MR-23 审计 mutate 生产, V37.9.116 修了 07:00 cron 但手动跑没修). 工作流修正: 手动 governance 加 CONVERGENCE_DRY_RUN=1.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-15",
       "what": "V37.9.157: governance 两 💥 根治 — 4.27 冷调用劫持 audit subprocess + 测试污染生产. INV-CRON-MONITOR-001 (test_cron_monitor 调真 openclaw 77s>60s+真发[SYSTEM_ALERT]) + INV-REVIEW-001 (V37.9.145 stub gap: PATH 留 /opt/homebrew/bin+无 OPENCLAW_BIN+无 MAX_RETRIES) 都根治: test _stub_env 受控环境 (OPENCLAW_BIN+OPENCLAW stub, 77s→0.05s 零真实发送) + INV-REVIEW check 补 OPENCLAW_BIN+NOTIFY_MAX_RETRIES=1+PATH 去 homebrew. 13 守卫+前瞻 scan+反向验证. INV-CRON-004 用户删 stale auto_deploy 行转绿. 127 suites/4470 tests/0 fail/治理 dev 90 inv EXIT=0/VERSION 不变. MR-23 第 N 次根治.",
       "by": "claude_code"
     },
@@ -193,16 +203,6 @@
       "date": "2026-06-12",
       "what": "V37.9.144: ArXiv 背书生效投稿恢复 (终核 zip/署名/快照全过, 步骤交用户) + 外部评审2 P1 四子项完整兑现 — (a) README 三层产品边界叙事 (b) examples/minimal_runtime 10 分钟最小入口 (golden trace 自校验 + 15 单测) (c) PyYAML 依赖边界 (评审者环境 7 errors → skipUnless 优雅跳过) (d) three-gate observability 诚实叙事 + gates_rollout_phases A→D 形式化. 顺手: README providers 段头 (7→8) + Doubao 表行 + testing 行 doc-drift 收口接入 badges 机器同步. 销项 #23 #24. 125 suites/4365 tests/0 fail",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-06-12",
-      "what": "外部评审2 P0 完整闭环: 用户 Mac Mini 跑 slo_benchmark.py --save 真实数据重生成报告并入库 (main 1273d3c) — 25 请求 OBSERVING 诚实判定 (替换旧 samples=1 ALL PASS) + Tool N_A_NO_TOOL_CALLS 四态真实生效 + 24h/7d 双窗口首次有数据 (595 快照: 24h avg p95 42.8s / 7d avg p95 47.9s, 11348 请求 97.94% 成功) + Threshold Rationale 正文段. P0(a)+(b) 双销项",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-06-12",
-      "what": "V37.9.143 外部评审2 P0 双兑现: (b) compatibility_matrix 漂移防护机器化完结 — providers.py 抽两张表直出纯函数 + --capability-matrix CLI + verifiable_features 分母修复 (5/4 verified 超界 bug → Qwen 5/5 / Doubao 5/6 诚实语义) + gen_compat_matrix.py --check/--fix 接入 full_regression doc-drift 层, 首跑即抓 V37.9.142 手动刷新遗漏的 doubao json_mode 真漂移; (a) slo_benchmark dev 侧增强 — 四态 N_A_NO_TOOL_CALLS + 24h/7d 双窗口 (复用 slo_dashboard MR-8) + Threshold Rationale 正文段 (阈值恢复自适应文案) + Methodology 硬编码 ≤30s 漂移修复. 顺手修 test_kb_dream_helpers 日期敏感 bug (硬编码 2026-05-13 今日恰好滑出 30 天窗口). 40 新单测 + 三轮 sabotage 反向验证. 123 suites/4344 tests/0 fail",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -254,6 +254,7 @@
   "session_context": {
     "last_session": "2026-04-17 V37.8.14 (15 commits)",
     "unfinished": [
+      "✅ V37.9.158 已完成: INV-CRON-004 反复血案真根治 — convergence 默认 dry-run (Layer 1 MR-23 完整). 残留 Layer 2 (auto_deploy endswith parser 不匹配 line 5) 仅在显式 CONVERGENCE_APPLY=1 时浮现, 默认 dry-run 后实际不触发 → 低优 defer 候选 (parser 特判 auto_deploy repo 路径, 需评估对其他 job 影响).",
       "【V37.9.157 已根治, Mac Mini 待验证】INV-CRON-004 ❌ = auto_deploy stale 行 (用户 crontab_safe.sh remove 删 line 54 转绿). INV-REVIEW-001 + INV-CRON-MONITOR-001 💥 = 4.27 冷调用劫持 audit subprocess, V37.9.157 根治 (test _stub_env 隔离 + INV-REVIEW check stub gap 关 + 前瞻 scan). dev 全绿 (90 inv EXIT=0) 但 4.27 不可复现 → Mac Mini 同步后重跑 governance --full 验证两 💥 转 ✅; 若 INV-REVIEW 仍 💥 贴 subprocess 输出再迭代.",
       "【4.27 推送链路回归追踪 · 中优】真因=4.27 openclaw CLI 冷调用回归 (V37.9.145). ✅ follow-up (d) 丢失面评估已闭合 (2026-06-15 审计 docs/push_path_loss_surface_audit_2026_06_15.md: 无总丢失面, 残留=WhatsApp 瞬时缝隙内容在 Discord 存活). 剩余需 Mac Mini 生产数据 (dev 不可执行): (a) `openclaw message send --help` timeout 旋钮探测 → 可配则 notify.sh/直推 job 调大 (b) `ls -la ~/.openclaw/plugin-runtime-deps/` 多 hash dir 检查 staging 间歇复发 (c) 上游 releases 查 CLI 冷启动/staging 修复 (tripwire 不自动升级). 硬化候选 (deferred 需 E2E): 类别 2 论文类 job 直推双通道迁 notify.sh --topic (MR-8 一物一形).",
       "V3 路标 backlog: Tool Policy Plugin + Memory Plane Plugin + Job Template SDK + pip install ontology-engine",
@@ -285,7 +286,7 @@
     ],
     "open_prs": "",
     "blocked_on": "",
-    "focus": "2026-06-15 V37.9.157: governance 两 💥 (INV-REVIEW-001 + INV-CRON-MONITOR-001) 根治 — 4.27 冷调用劫持 audit subprocess 隔离 (test _stub_env + INV-REVIEW check stub gap 关 + 前瞻 scan 守卫). **Mac Mini 待用户**: ① crontab_safe.sh remove 删 stale `~/auto_deploy.sh` 行 → INV-CRON-004 转绿 ② git fetch+reset 同步 → 重跑 governance --full 两 💥 应转 ✅. 若 INV-REVIEW-001 仍 💥 (dev 不可复现 4.27, belt-and-suspenders 已覆盖所有 bypass 路径) → 贴回 check subprocess 实际输出再迭代. preflight check 16 (V37.9.156) 合并同步后应转 warn. 发表线全闭环 (arXiv:2606.14589 + 知乎双发布).",
+    "focus": "2026-06-15 V37.9.158: INV-CRON-004 反复血案真根治完成 — convergence 默认 dry-run (MR-23 audit-observes-never-mutates 完整). 手动 governance --full 现不再 mutate crontab (默认 dry-run); 显式同步用 CONVERGENCE_APPLY=1. Mac Mini 待用户: git fetch+reset 同步 → 下次手动 governance 不再重加 auto_deploy → INV-CRON-004 不再复发. 整个 session 全闭环: 论文发表线 + 4.27 推送链路追踪 + governance 三异常 (两 💥 + INV-CRON-004) 全部根治. 残留 Layer 2 (auto_deploy endswith parser) 仅显式 APPLY=1 浮现, defer 候选.",
     "current_focus": "V37.8 MR-6 深度补齐生产硬验证通过 (35/35 inv / 136/136 checks / 9/9 MR 全绿). 下一步: V37.8.1 修复 MRD-NOTIFY-002 activity 层假阳性 (topic→job log 映射扫 mtime) 或 Ontology Phase 3 渐进替换 (ONTOLOGY_MODE=on) 或 Tool Policy Plugin V3 路标",
     "recent_changes": [
       {
@@ -347,10 +348,10 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 4472,
-    "last_regression": "2026-06-15 09:02 pass",
+    "test_count": 4473,
+    "last_regression": "2026-06-15 09:39 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-15 09:02",
+    "security_score_time": "2026-06-15 09:39",
     "test_suites": 128,
     "governance_invariants": "90/90",
     "governance_checks": "734/748",

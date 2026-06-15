@@ -119,32 +119,38 @@ class TestV37_9_116_DryRunEnvSemantics(unittest.TestCase):
     def test_env_makes_convergence_dry_run(self):
         """convergence._is_dry_run() 在 CONVERGENCE_DRY_RUN=1 时返回 True.
 
-        证明 governance_audit_cron 加的 env 真有效果 (非装饰性字面量).
-        V37.9.58 切关后默认 real-apply (env 未设 → False); =1 显式 dry-run.
+        V37.9.158: 默认已是 dry-run (MR-23 audit-observes-never-mutates), CONVERGENCE_DRY_RUN=1
+        是 force-override (显式 safety belt-and-suspenders). governance_audit 保留它作显式安全.
         """
         import sys
         sys.path.insert(0, os.path.join(REPO_ROOT, "ontology"))
         import convergence as cv
 
-        saved = os.environ.get("CONVERGENCE_DRY_RUN")
+        saved_dry = os.environ.get("CONVERGENCE_DRY_RUN")
+        saved_apply = os.environ.get("CONVERGENCE_APPLY")
         try:
             os.environ["CONVERGENCE_DRY_RUN"] = "1"
+            os.environ.pop("CONVERGENCE_APPLY", None)
             self.assertTrue(
                 cv._is_dry_run(),
-                msg="CONVERGENCE_DRY_RUN=1 必须让 _is_dry_run() 返回 True",
+                msg="CONVERGENCE_DRY_RUN=1 必须让 _is_dry_run() 返回 True (force-override)",
             )
-            # 反例: 未设时 V37.9.58 默认 real-apply (False)
+            # V37.9.158: 未设 env → 默认 dry-run (观察绝不 mutate, MR-23). 这正是 V37.9.158
+            # 根治 — 手动/审计 governance 不再因默认 real-apply 而重加 crontab (INV-CRON-004 复发).
             os.environ.pop("CONVERGENCE_DRY_RUN", None)
-            self.assertFalse(
+            os.environ.pop("CONVERGENCE_APPLY", None)
+            self.assertTrue(
                 cv._is_dry_run(),
-                msg="未设 env 时 V37.9.58 默认 real-apply (_is_dry_run False) — "
-                "这正是 governance_audit 不加 env 会 real-apply 的根因",
+                msg="V37.9.158: 未设 env → 默认 dry-run (观察绝不 mutate). real-apply 现需显式 "
+                "CONVERGENCE_APPLY=1; governance_audit 的 CONVERGENCE_DRY_RUN=1 是冗余 safety override.",
             )
         finally:
-            if saved is None:
-                os.environ.pop("CONVERGENCE_DRY_RUN", None)
-            else:
-                os.environ["CONVERGENCE_DRY_RUN"] = saved
+            for _k, _v in (("CONVERGENCE_DRY_RUN", saved_dry),
+                           ("CONVERGENCE_APPLY", saved_apply)):
+                if _v is None:
+                    os.environ.pop(_k, None)
+                else:
+                    os.environ[_k] = _v
 
 
 class TestV37_9_116_ShellSyntax(unittest.TestCase):
