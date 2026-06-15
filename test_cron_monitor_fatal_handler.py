@@ -20,6 +20,7 @@ test_cron_monitor_fatal_handler.py - V37.9.63 MR-8 抽公共 helper 守卫
 """
 
 import os
+import os
 import re
 import shutil
 import subprocess
@@ -140,15 +141,38 @@ class TestHelperRuntimeBehavior(unittest.TestCase):
         # 隔离 ~/.openclaw_alerts.log: 用 HOME=tmpdir 让写入不污染真实 home
         self.fake_home = self.tmpdir
         self.alert_log = Path(self.fake_home) / ".openclaw_alerts.log"
+        # V37.9.157: stub openclaw — handler Layer 3 (notify→openclaw 直发) 绝不调真 4.27 CLI.
+        # 血案: 4.27 冷调用每次 ~10s, 多次 helper 调用 → test 77s > governance check 60s timeout
+        # → INV-CRON-MONITOR-001 💥; 且真 openclaw 会往用户 WhatsApp 发真 [SYSTEM_ALERT]
+        # (test-pollutes-production, MR-9/MR-23). instant stub 让 test 秒过 + 零真实发送 + env-independent.
+        self.stub_bin = os.path.join(self.tmpdir, "bin")
+        os.makedirs(self.stub_bin, exist_ok=True)
+        stub = os.path.join(self.stub_bin, "openclaw")
+        with open(stub, "w") as f:
+            f.write("#!/bin/sh\nexit 0\n")
+        os.chmod(stub, 0o755)
+        self.stub_openclaw = stub
 
     def tearDown(self):
         shutil.rmtree(self.tmpdir, ignore_errors=True)
 
-    def _run_helper_in_subshell(self, label="test_x", line_no="42"):
-        """在 subshell 中 source helper + 调用 handler. 返回 (stdout, stderr, alert_log_content)."""
+    def _stub_env(self, openclaw_available=True):
+        """V37.9.157: 受控 env — 不继承 Mac Mini 真实环境 (真 openclaw / 真推送目标).
+        openclaw_available=True → handler Layer 3 调 instant stub (秒过, 零真实发送);
+        False → 指向不存在路径, 测 FAIL-OPEN-when-tools-missing (command not found 秒败, 非 10s 冷超时)."""
+        oc = self.stub_openclaw if openclaw_available else os.path.join(self.tmpdir, "no_such_openclaw")
+        path = (self.stub_bin + ":" if openclaw_available else "") + "/usr/bin:/bin"
+        return {
+            "HOME": self.fake_home,
+            "PATH": path,  # 不含 /opt/homebrew/bin → 真 4.27 openclaw 绝不可达
+            "OPENCLAW_BIN": oc,  # 覆盖 ${OPENCLAW_BIN:-${OPENCLAW:-/opt/homebrew/bin/openclaw}} 三档 fallback
+            "OPENCLAW": oc,
+        }
+
+    def _run_helper_in_subshell(self, label="test_x", line_no="42", openclaw_available=True):
+        """在 subshell 中 source helper + 调用 handler. 返回 (stdout, stderr, alert_log_content, rc)."""
         script = f"""
 set +e
-export HOME={self.fake_home}
 source {HELPER_PATH}
 CRON_FATAL_LABEL="{label}"
 CRON_FATAL_LOG="/tmp/x.log"
@@ -156,7 +180,10 @@ CRON_FATAL_BASH_X="bash -x /tmp/x.sh"
 CRON_FATAL_REASON="test reason V37.9.63"
 _cron_monitor_fatal_handler {line_no}
 """
-        result = subprocess.run(["bash", "-c", script], capture_output=True, text=True)
+        result = subprocess.run(
+            ["bash", "-c", script], capture_output=True, text=True,
+            env=self._stub_env(openclaw_available), timeout=20,
+        )
         log_content = self.alert_log.read_text() if self.alert_log.exists() else ""
         return result.stdout, result.stderr, log_content, result.returncode
 
@@ -174,7 +201,7 @@ _cron_monitor_fatal_handler {line_no}
 
     def test_handler_never_raises_even_if_notify_and_openclaw_missing(self):
         """三层 FAIL-OPEN: 即使 notify + openclaw 都不可用, handler 自身也不 crash."""
-        stdout, stderr, log, rc = self._run_helper_in_subshell(label="dev_no_tools")
+        stdout, stderr, log, rc = self._run_helper_in_subshell(label="dev_no_tools", openclaw_available=False)
         # rc 应该是 0 (handler 自身不冒泡), 不管 notify/openclaw 是否可用
         self.assertEqual(rc, 0, f"handler must not crash even if notify+openclaw missing; rc={rc}")
 
@@ -190,7 +217,6 @@ _cron_monitor_fatal_handler {line_no}
         """关键: 在 caller set -e 模式下, handler 调用后 caller 不被进一步 abort."""
         script = f"""
 set -eEo pipefail
-export HOME={self.fake_home}
 source {HELPER_PATH}
 CRON_FATAL_LABEL="strict"
 CRON_FATAL_LOG="/tmp/x.log"
@@ -199,7 +225,10 @@ CRON_FATAL_REASON="strict reason"
 _cron_monitor_fatal_handler 1
 echo "POST_HANDLER_REACHED"
 """
-        result = subprocess.run(["bash", "-c", script], capture_output=True, text=True)
+        result = subprocess.run(
+            ["bash", "-c", script], capture_output=True, text=True,
+            env=self._stub_env(), timeout=20,
+        )
         # POST_HANDLER_REACHED 必须出现 (handler 不杀 caller)
         self.assertIn("POST_HANDLER_REACHED", result.stdout,
                       "handler 必须不让 caller crash (set -e 下也要继续)")

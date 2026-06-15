@@ -219,6 +219,10 @@ run_suite "v37_9_86_trap_override (V37.9.86 bash trap override lockdir 残留: 5
 if [ -f test_v37_9_156_preflight_push_warn.py ]; then
     run_suite "v37_9_156_preflight_push_warn (V37.9.156: 4.27 冷调用客户端超时假失败 fail→warn + grep 判别器 + 反向验证)" "python3 test_v37_9_156_preflight_push_warn.py"
 fi
+# V37.9.157: governance runtime check 跑的 openclaw-invoking subprocess 必须 stub (防 4.27 冷调用劫持 💥 + 真发消息)
+if [ -f test_v37_9_157_governance_openclaw_isolation.py ]; then
+    run_suite "v37_9_157_governance_openclaw_isolation (V37.9.157: INV-CRON-MONITOR/INV-REVIEW 💥 根治 — test+check stub openclaw + 守卫 + 反向验证)" "python3 test_v37_9_157_governance_openclaw_isolation.py"
+fi
 # V37.9.99-pkg: ontology-engine pip 包化第一块 — config-injection keystone + pyproject + 二层契约
 if [ -f test_ontology_packaging.py ]; then
     run_suite "ontology_packaging (V37.9.99-pkg Phase 5 chunk1: ONTOLOGY_CONFIG_DIR 注入 + pyproject + console 入口 + 宪法删除安全)" "python3 test_ontology_packaging.py"

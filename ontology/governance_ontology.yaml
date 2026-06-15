@@ -2416,14 +2416,19 @@ invariants:
               result = subprocess.run(
                   ["bash", os.path.join(tmp, "kb_review.sh")],
                   env={
-                      "PATH": bindir + ":/usr/bin:/bin:/usr/local/bin:/opt/homebrew/bin",
+                      # V37.9.157: 关 stub gap — PATH 去 /opt/homebrew/bin (真 4.27 openclaw 所在),
+                      # 补 OPENCLAW_BIN (notify.sh/helper 用 ${OPENCLAW_BIN:-${OPENCLAW:-...}} 三档 fallback),
+                      # NOTIFY_MAX_RETRIES=1 防 retry sleep backoff 累积逼近 timeout (镜像 INV-OBSERVABILITY check).
+                      "PATH": bindir + ":/usr/bin:/bin",
                       "KB_BASE": kb_dir,
                       "KB_REVIEW_REGISTRY": os.path.join(tmp, "jobs_registry.yaml"),
                       "OPENCLAW_PHONE": "+85200000000",
                       "OPENCLAW": stub,
+                      "OPENCLAW_BIN": stub,
+                      "NOTIFY_MAX_RETRIES": "1",
                       "HOME": tmp,
                   },
-                  capture_output=True, text=True, timeout=30,
+                  capture_output=True, text=True, timeout=45,
               )
               assert "JSONDecodeError" not in result.stderr, (
                   f"V37.5.1 回归! kb_review.sh 触发 JSONDecodeError: "
