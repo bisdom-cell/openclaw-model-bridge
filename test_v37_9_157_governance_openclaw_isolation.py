@@ -19,6 +19,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent
 GOV_YAML = REPO / "ontology" / "governance_ontology.yaml"
 CRON_TEST = REPO / "test_cron_monitor_fatal_handler.py"
+CONV_TEST = REPO / "test_convergence.py"  # V37.9.158-hotfix 守卫目标
 
 # notify.sh / helper 解析 openclaw 的三档 fallback: ${OPENCLAW_BIN:-${OPENCLAW:-/opt/homebrew/bin/openclaw}}
 # 任何跑 openclaw-invoking subprocess 的治理/测试隔离都必须同时覆盖 OPENCLAW_BIN + OPENCLAW.
@@ -153,13 +154,89 @@ class TestBehavioralCronMonitorFast(unittest.TestCase):
                         f"test_cron_monitor 耗时 {elapsed:.1f}s — stub 失效, helper 在调真 openclaw 冷调用")
 
 
+class TestConvergenceTestNoCrontabMutation(unittest.TestCase):
+    """V37.9.158-hotfix 守卫: test_convergence.py 任何 dry_run=False real-apply 测试必须隔离
+    (HOME→tempdir 或 mock subprocess), 绝不触碰真 ~/crontab_safe.sh / ~/kb_embed.py / launchctl.
+
+    血案 (2026-06-15): test_explicit_dry_run_overrides_env 传 dry_run=False 走 real-apply,
+    os.path.expanduser('~/crontab_safe.sh') 在 Mac Mini 解析到**真** helper → 真 add → 重加
+    INV-CRON-004 auto_deploy 双行. governance INV-CONVERGENCE-CRON-001 runtime check 跑
+    test_convergence.py 子进程时在 Mac Mini 真 mutate 生产 crontab — V37.9.158 默认 dry-run
+    **未覆盖此 gap** (该测试故意显式 dry_run=False 绕过默认). MR-9/MR-23 测试污染生产同族
+    (auto_deploy 双行 V37.9.106/111/116/120/158 反复 5 次复发的真根因之一).
+    """
+
+    # 任一信号即视为隔离 (保证 real-apply 路径绝不触达真 subprocess + 真路径):
+    _ISOLATION_SIGNALS = (
+        'os.environ["HOME"]',                              # HOME 重定向 (real helper 路径→tempdir)
+        "cv.subprocess.run =",                              # 直接 mock subprocess
+        "_set_subprocess_mock",                             # TestApplyMachineSyncReal helper mock
+        'mock.patch("subprocess.run"',                      # 上下文 mock subprocess (services)
+        'mock.patch("os.path.exists", return_value=False)', # helper-missing 短路 → not-found 分支, 永不到 subprocess
+    )
+
+    @classmethod
+    def setUpClass(cls):
+        cls.src = CONV_TEST.read_text(encoding="utf-8")
+
+    def _override_body(self) -> str:
+        m = re.search(
+            r"def test_explicit_dry_run_overrides_env.*?(?=\n    def |\nclass )",
+            self.src, re.DOTALL)
+        self.assertIsNotNone(m, "未定位 test_explicit_dry_run_overrides_env 方法体")
+        return m.group(0)
+
+    def test_v37_9_158_isolation_marker(self):
+        self.assertIn("V37.9.158", self._override_body(),
+                      "test_explicit_dry_run_overrides_env 缺 V37.9.158 隔离 marker")
+
+    def test_override_redirects_home(self):
+        # 检查真实重定向赋值 (os.environ["HOME"] = td), 非 finally 的 restore 行.
+        self.assertIn('os.environ["HOME"] = td', self._override_body(),
+                      "test_explicit_dry_run_overrides_env 必须重定向 HOME→tempdir (防解析真 ~/crontab_safe.sh)")
+
+    def test_override_mocks_subprocess(self):
+        body = self._override_body()
+        self.assertIn("cv.subprocess.run = _never_run", body,
+                      "必须 mock cv.subprocess.run (belt-and-suspenders, 任何真执行立即 AssertionError)")
+        self.assertIn("def _never_run", body, "缺 _never_run 防御函数")
+
+    def test_override_asserts_no_real_apply(self):
+        self.assertIn("self.assertEqual(applied, ()", self._override_body(),
+                      "必须断言 applied 为空 (证明隔离后真模式无 helper → 绝不真改 crontab)")
+
+    def test_forward_scan_real_apply_tests_isolated(self):
+        """前瞻: test_convergence.py 任何含真实 dry_run=False kwarg 调用的测试方法必须隔离
+        (HOME 重定向 或 subprocess mock). 防未来新增 real-apply 测试漏隔离 → 在 Mac Mini
+        governance subprocess 跑 test_convergence.py 时真 mutate 生产 state.
+        """
+        # 切方法块 (split 前缀 '\n    def '); 每块首 token 是方法名.
+        methods = re.split(r"\n    def ", self.src)
+        violations = []
+        for blk in methods:
+            # 逐行剥行尾注释 (避免 setUp 注释里的 'dry_run=False' 误触)
+            code = "\n".join(ln.split("#", 1)[0] for ln in blk.split("\n"))
+            # 仅真实 kwarg: 负向 lookbehind 排除 apply_dry_run=False 字段引用
+            if not re.search(r"(?<![A-Za-z_])dry_run=False", code):
+                continue
+            name_m = re.match(r"(\w+)", blk)
+            name = name_m.group(1) if name_m else "?"
+            if not any(sig in blk for sig in self._ISOLATION_SIGNALS):
+                violations.append(name)
+        self.assertEqual(violations, [],
+            "test_convergence.py 这些 dry_run=False real-apply 测试未隔离 (HOME/subprocess mock) "
+            "— 在 Mac Mini governance subprocess 跑时会真 mutate 生产 state: " + repr(violations))
+
+
 class TestReverseValidation(unittest.TestCase):
     def test_sabotage_documented(self):
         # 反向验证: 删 _stub_env 的 OPENCLAW_BIN → test_stub_env_sets_both_openclaw_vars 立即 fail;
-        # INV-REVIEW-001 check 删 OPENCLAW_BIN → test_sets_openclaw_bin 立即 fail.
+        # INV-REVIEW-001 check 删 OPENCLAW_BIN → test_sets_openclaw_bin 立即 fail;
+        # test_explicit_dry_run_overrides_env 删 HOME 重定向 → test_override_redirects_home 立即 fail.
         # 此处确认守卫锚点字面量存在 (防整体被删).
         self.assertIn("OPENCLAW_BIN", CRON_TEST.read_text(encoding="utf-8"))
         self.assertIn("OPENCLAW_BIN", GOV_YAML.read_text(encoding="utf-8"))
+        self.assertIn("V37.9.158", CONV_TEST.read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":
