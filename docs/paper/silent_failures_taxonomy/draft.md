@@ -1,5 +1,7 @@
 # When Errors Become Narratives: A Longitudinal Taxonomy of Silent Failures in a Production LLM Agent Runtime
 
+> **📄 Published as [arXiv:2606.14589](https://arxiv.org/abs/2606.14589) (2026-06-15, cs.SE; cross-list cs.AI / cs.DC).** This Markdown is the working draft; the canonical published version (LaTeX) lives in [`latex/`](latex/) and on arXiv. The draft below is kept as the readable repository copy and the source of the data-traceability table (`data_inventory.md`).
+
 > **DRAFT v0.2 — 2026-06-11 (V37.9.139 session, second pass)**
 > Working paper for arXiv (target category: cs.SE, cross-list cs.AI / cs.DC).
 > Status: complete draft in Markdown; second pass done (related work expanded to 13 verified

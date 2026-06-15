@@ -1,6 +1,6 @@
 {
-  "updated": "2026-06-14 13:52:00",
-  "updated_by": "claude_code",
+  "updated": "2026-06-15 02:30:27",
+  "updated_by": "full_regression",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -105,6 +105,11 @@
   ],
   "recent_changes": [
     {
+      "date": "2026-06-15",
+      "what": "V37.9.154 ArXiv 论文发表 + 发布配套 (focus #1 兑现): 6/12 提交 submit/7702567 → 6/15 周一香港早 announcement 分配永久编号 arXiv:2606.14589 (cs.SE 直发 + cross-list cs.AI/cs.DC), 用户提供 ID (沙箱 arxiv 403 无法自查). 配套: README publications 表 arXiv(in preparation)→arXiv:2606.14589 链接 / CLAUDE.md 文件表论文条目加已发表+latex/源码+时间线 + 新增 V37.9.154 changelog + 版本行 v37.9.153→154 / draft.md 头部 Published banner / data_inventory 终版归档头注 (数据冻结 study-cutoff 6/11 匹配已发表 LaTeX 版, 活 README 与冻结论文允许不同) / unfinished #25 销项. zip 日落 (一物一形 + 预算 -1 file): latex/paper_latex.zip 与散装 9 .tex 验证 9/9 byte-identical 无额外文件 → git rm 退役冗余打包副本 (散装 .tex canonical, git 历史保留). 验证: 三 drift check 全绿 + gen_readme_badges --write 传播 + 安全扫描零泄漏 + 126 suites/4445 tests/0 fail + VERSION 0.37.9.70 不变 (发布配套零业务语义). 里程碑: Stage 2→3 话语权第一个 cite-able 学术原作公开, PyPI openclaw-ontology-engine + arXiv:2606.14589 双公开锚点.",
+      "by": "claude_code"
+    },
+    {
       "date": "2026-06-14",
       "what": "V37.9.153 GitHub 门面刷新 (用户驱动 5 轮迭代, 同 session 第三交付): 架构图 docs/architecture.svg 重画 960x1270(框大字小Courier)→1080x520 干净版 — 左核心管线 User→Gateway→Proxy→Adapter→LLM 大字 + 右 Ontology/Governance 明星框(差异化核心7条: 4 YAML/90 不变式828检查23元规则14扫描器/自审计MR-7/三门/Convergence/28血案→不变式/pip引擎)+顶部差异化一行+底部三平面. 用户迭代: ASCII→差异化面板→ontology重点→去突兀④→去挤坏governs连线. README 架构区段110行ASCII→新SVG+折叠文本版+组件表(692→601只压架构图其他全留), job数刷新36→40/39-35→46-40. 关键: 不为刷新而刷新(日落法)——抽查 notify/local_embed/memory_plane/kb_search 等红框文件内容干净稳定, 老时间戳=稳定非过时, churn刷时间戳违北极星; 老文章是当时记录刷新篡改历史; 两类刻意不动. 用户认同成熟系统健康标志是核心文件几个月不用碰. 126 suites/4445 tests/0 fail, VERSION 0.37.9.70不变, doc-drift全绿.",
       "by": "claude_code"
@@ -198,11 +203,6 @@
       "date": "2026-06-11",
       "what": "V37.9.139 论文第二轮 (draft v0.2, 同日续): related work 四类全部补齐 — Ezell AIES25 入 §2.2 (含 silence-span+discovery-channel 两字段回喂论点) + Huang hallucination survey 入 §2.3 + 新 §2.4 SRE/chaos/AIOps (sabotage validation = chaos engineering applied to guards 连接点) + Zheng LLM-as-judge 入 §5.2 (judge 继承 taxonomy 全类别回喂论点). References 10→14 条全 verified (绝不编造). Fig.3 D1 幻觉链 ASCII 图入 §4.4. 正文引用统一作者-年份. 871 行. 本稿登记的文献 pass 清零, 无需决策项基本清空 — 球在用户 DECISIONS_NEEDED 7 项 (核心: venue, 推荐 arXiv 直发)",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-06-11",
-      "what": "V37.9.139 ArXiv 论文第一稿交付 (Stage 2→3 话语权 unfinished #5 全力启动兑现): docs/paper/silent_failures_taxonomy/ 三件套 — draft.md ~490 行完整英文第一稿 (When Errors Become Narratives: A Longitudinal Taxonomy of Silent Failures in a Production LLM Agent Runtime; 5 类 taxonomy + 6 cross-cutting findings + fail-plausible 概念贡献 + Defense Framework 5 支柱 + 接缝论点 Discussion + Threats) + data_inventory.md (每个数字→仓库溯源, 修正 catalog 8天笔误→实证2天 + six-level 守卫) + DECISIONS_NEEDED.md (7 项用户决策: 标题/署名与AI披露/venue 推荐 arXiv 直发/匿名度/LaTeX 时机/内容取舍/figures). 文献全真实验证: HotOS17 GrayFailure + FAST18 FailSlow + MAST 2503.13657 全核 + 4 篇 2025-26 agent 可靠性论文 snippet 级作者核实 + 顺带发现 2 篇高相关 (2508.14231 Incident Analysis for AI Agents + 2606.05339 MCP runtime faults). 回归 121/4286/0 + 治理 90/90 + 安全 95 + 扫描零泄漏. VERSION 0.37.9.70 不变 (纯文档, V37.9.99-docs 惯例)",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -279,7 +279,7 @@
       "V37.9.130 生产验证已通过 (2026-06-11 Mac Mini 实跑): 6/4 真实血案数据 9 chunks 重跑 — hierarchical r1 b1/3(6740c)+b2/3(6220c)+r2(8524c) 3 次小请求零失败零降级, 48 条精华入 KB, 6/3 已确认处理过, 断流全闭环. 同数据对照证实根因=单请求规模非纯超时 (同 9 Map 段, 单次 40K 两次超时 vs 3 次 7K 一次全过). 剩余低优 follow-up: (a) final Reduce max_tokens=2000 被 48 条打满产尾部残行 \"- [\" (finish_reason=length), 超大对话日边界 — V37.9.131+ 评估 2000→3000 或 emit 前剥尾部残行 (b) 长期观察 last_run degraded/map_failed 字段, 频繁 degraded → 评估 REDUCE_BATCH_SIZE 调小或 doubao 显式路由",
       "V37.9.132 一周观察 (~6/18): deep_dive 摘要级占比应从 76% (34/45) 显著下降 — Mac Mini 验证: grep -L \"基于摘要的分析\" ~/.kb/deep_dives/*.md 看 6/12 后新增文件多数应为全文级. 若仍高: (a) 查 dblp ee 字段 arxiv 覆盖率 (b) S2 openAccessPdf .pdf 结尾比例 (非 .pdf OA 链接保留 S2 页面是有意取舍) (c) 候选增强: deep_dive mode (full_text/abstract_only) 占比纳入 daily_observer 报告让 degrade 频率可观测 (本次 76% gap 潜伏 2 个月才被用户发现的根因是 degrade 频率无聚合复盘)",
       "【外部评审2 P2 · 生态与基准扩展】(a) ✅ V37.9.146 完成 — verification_tier 字段化进 providers.py 数据模型 + tier↔verified_* 一致性不变式 + 第 3 张机器表 (tier_table_lines) 退役手写档位表 (一物一形). (b) ✅ V37.9.147 完成 — Reliability Bench 7→17 场景/47→103 检查 (10 新场景全 mock-based 可 dev 跑 + 真函数测真行为 + 真行为 sabotage 证非 tautology + test 36→59 + 报告重生成). (c) ✅ V37.9.148 完成 — examples/external_dogfood/ 仓库外 dogfood: 离线 build wheel (SETUPTOOLS_USE_DISTUTILS=stdlib 绕 Debian install_layout quirk) + 隔离 --system-site-packages venv 装 wheel --no-deps (无 PYTHONPATH 回 monorepo, 系统无 ontology/ontology_engine 故隔离判定无歧义) + 全新 LibraryBot toy 复制出仓库到 /tmp 跑 import ontology_engine (chunk-2-lite 去泛化对真消费方唯一验证) + console scripts audit/query + config-injection 审计 LibraryBot + 反向验证无注入读 wheel bundled 默认 (data_clean 在/checkout_book 不在). 17 单测 (8 source guards 恒跑 + 9 wheel E2E skipUnless 工具链) + sabotage 铁证 (toy MAX 5→7 audit FAIL 非 tautology). 闭合评审 'WeatherBot in-repo 已验证 gap 是仓库外'. (d) ✅ V37.9.150 完成 — complexity budget 惯例化 (纯约定零新机器 = 日落法 MR-22 自我示范, 不写 complexity_budget.py 工具因那是它要防的东西): docs/complexity_budget.md + 收工清单 J 项 + 原则#34 引用. 账本=既有徽章 gen_readme_badges, 四维度 (files/env/jobs/state) 变化时手动记, 净新增机制自问退役了什么, **刻意无守卫测试** (用 check 守复杂度约定本身=新复杂度). 3 硬规则明文 (新 path 退役旧 path / 新 invariant 命名防的事故 / 新 job 定义 silence-timeout+degrade). (e) ✅ V37.9.149 完成 — docs/articles/why_runtime_not_wrapper.md (EN) + _zh.md (ZH): wrapper vs control plane 结构性区别 + 双评审交叉验证 (两陌生人独立撞同一优点+同一软肋) + 日落法诚实反驳 + V37.9.148 dogfood 可抽离性铁证. **P2 全档 a/b/c/d/e + P1 全闭环, 外部评审2 七动作全销项**",
-      "【遗留 · 高优】ArXiv 论文 — **已提交 (2026-06-12 submit/7702567, status=submitted)**, 等 announcement. 提交过程实录: PDF 误传被拒 (arXiv 强制 TeX 源码) → 换 paper_latex.zip 源码包 → Review Files 自动识别全对 (pdflatex + TeX Live 2025 + main.tex top-level) → Process 编译通过 → 元数据摘要字段超 1,920 字符限制 → 压缩版 1,905 字符 (PDF 内完整摘要不变, 元数据短版是 arXiv 惯例) → cross-list cs.AI + cs.DC 补加 → View PDF 强制预览 → Submit. 时间线: 周五提交, 美东周日晚 announcement = 香港周一早上线. **announcement 后用户提供 arXiv ID (26xx.xxxxx) → Claude 发布配套**: README/status.json/CLAUDE.md 链接更新 + 中文科普版 (知乎传播层) + data_inventory 终版归档 + 日落法清理 paper_latex.zip convenience artifact. 注意: announcement 前可用 Update 改元数据, 勿点 Unsubmit/Delete.",
+      "✅ ArXiv 论文已发表 (2026-06-15 arXiv:2606.14589, cs.SE 直发) + 发布配套完成 (V37.9.154: README/CLAUDE/draft 加链接 + data_inventory 终版归档 + paper_latex.zip 日落清理 + status). 论文本身已闭环不再是阻塞项. 可选 follow-up (非高优, 独立任务): 中文科普版 (知乎/公众号传播层, DECISIONS_NEEDED §5 已规划'中文科普版作为发布配套', arXiv 链接已就位) + 知乎双语发布论文 + why_runtime_not_wrapper (用户动作).",
       "GitHub main 落后开发分支 ~30 版本 (main ~V37.9.123, 分支已 V37.9.153 含架构图刷新). 让 GitHub 门面当前化的唯一一步=用户合并 PR (Claude 只能推开发分支). 合并后稳定工具文件仍显示老时间戳(正确). 附: 未来精准刷新方法论=三分类映射(1稳定已完成留/2点-in-time记录留/3真内容陈旧才修), 永不盲目 churn 稳定文件刷时间戳(日落法)."
     ],
     "open_prs": "",
@@ -347,9 +347,9 @@
   "quality": {
     "security_score": 95,
     "test_count": 4445,
-    "last_regression": "2026-06-14 13:51 pass",
+    "last_regression": "2026-06-15 02:30 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-14 13:51",
+    "security_score_time": "2026-06-15 02:30",
     "test_suites": 126,
     "governance_invariants": "90/90",
     "governance_checks": "734/748",
@@ -418,7 +418,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "本周焦点: ArXiv 论文已提交 (submit/7702567, 等 announcement ~香港周一早) — ID 到后下一 session 优先发布配套. **外部评审2 全闭环: P1 (V37.9.144) + P2 a(V37.9.146)/b(V37.9.147)/c(V37.9.148)/d(V37.9.150)/e(V37.9.149), 7 动作全销项**. 本 session 三交付: dogfood(P2c) + 话语权续篇 EN/ZH(P2e) + complexity budget 惯例化(P2d), PR #702 已合并 + P2d 待 PR. 次选候选: arXiv ID 到后发布配套 / 知乎双语发布 why_runtime_not_wrapper / P2d 预算约定首次实战观察. 观察项: 4.27 推送冷调用回归(#0) / 7d avg p95 47.9s.",
+  "focus": "本周焦点: 🎉 ArXiv 论文已发表 arXiv:2606.14589 (2026-06-15 周一香港早 announcement, cs.SE 直发) — focus #1 发布配套已完成 (V37.9.154: README publications 表 + CLAUDE.md 文件表/changelog/版本行 + draft.md Published banner 加 arXiv 链接 + data_inventory 终版归档 + paper_latex.zip 日落清理 + status 更新). 外部评审2 全闭环 (P1+P2 a-e, 7 动作全销项). 下一步候选: 中文科普版 (知乎/公众号传播层, DECISIONS_NEEDED §5 已规划, arXiv 链接已就位, 独立写作任务) / 知乎双语发布 why_runtime_not_wrapper + 论文 (用户动作) / 日落法一致性收敛. 待 Mac Mini: 合并 PR 后 git fetch+reset 同步 V37.9.154 (纯 docs 零重启). 观察项: 4.27 推送冷调用回归(#0) / 7d avg p95.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
