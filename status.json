@@ -223,6 +223,11 @@
       "date": "2026-06-16",
       "what": "V37.9.162 战略评估: docs/baileys_ban_risk_assessment.md — Baileys封禁风险评估决策文档. 根因机制(DisconnectReason分类+无全局熔断→6h重连风暴→401登出)+风险量化(2-8周封禁线/68%12月内被封/ML反滥用权重)+三选项(A降低重连激进度保留linked-device低成本 / B官方Cloud API消除风险但需专用号破坏个人PA模型 / C接受+监控现状)+推荐A+C为主B条件触发. ⚠️警示lotusbail恶意anti-ban包. WebSearch研究(WebFetch沙箱403). 待用户拍板.",
       "by": "claude_code"
+    },
+    {
+      "date": "2026-06-16",
+      "what": "V37.9.162 A方向定位完成(用户选A+C): WebSearch研究确认OpenClaw重连可配, 根因旋钮=openclaw.json web.reconnect.maxAttempts默认0(无限重连)→6h风暴→封禁. OpenClaw自有issue#16270'加熔断防重连循环触发封禁'同构本血案. 修复=maxAttempts 0→5-8全局熔断+V37.9.162检测协同. docs/baileys_ban_risk_assessment.md 更新Option A(可配性已确认+具体config块+推荐值+A+C协同+Mac Mini核实命令). 待WhatsApp恢复后核实+改config.",
+      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -307,7 +312,7 @@
       "V37.9.159 test_health_check 真 bug Mac Mini 生产验证 (dev 不可执行): scanner 首跑抓 test_health_check 跑 health_check.sh 漏 push 隔离 → 治理 07:00 audit 在 Mac Mini 是否真在发日报型 health 周报 (marker 时序依赖: gov 07:00 先于 weekly 09:00 + 24h>20h interval → 疑似每日 07:00 真发)。修复后应消失。Mac Mini 同步后观察 07:00 是否还收到 health 周报 + 确认 weekly 09:00 周报正常。",
       "V37.9.159 follow-up (低优): 窄 guard TestNoUnstubbedOpenclawScriptSubprocess (test_v37_9_157) heuristic 脆弱 — 1500-char 前向窗口扫 yaml 每个 subprocess.run 附近是否有 kb_review.sh 字面量, 描述文本含 kb_review.sh 会误报 (V37.9.159 我的 INV 声明触发, 已去字面量化绕过)。它扫 yaml CHECK 代码 (governance check 直跑脚本), 与通用 scanner D3 (扫 test 文件) 互补。可评估: 把它升级为 AST 精确 (区分执行 vs 描述) 或扩展通用 scanner 也扫 governance check 代码。",
       "V37.9.162 follow-up: INV-WA-CHANNEL-001 治理不变式 (whatsapp-channel-disconnect-escalates-when-gateway-healthy, meta_rule=MR-14, 镜像INV-WA-001) — 一周观察wa_channel_status生产效果后立 (shadow-first惯例, 同INV-DEEP-001)",
-      "V37.9.162 战略决策待用户: Baileys 封禁风险评估文档已完成 (docs/baileys_ban_risk_assessment.md). 推荐 A+C(调保守重连退避+全局熔断 / 现状监控)为主, B(官方Cloud API)条件触发. 待用户拍板3决策点: ①同意A+C方向? ②走A需Mac Mini核实openclaw.json重连可配性(WhatsApp恢复后跑) ③考虑B须接受PA用专用号与个人WhatsApp分离?",
+      "V37.9.162 A 方向执行(用户已选 A+C 为主): Baileys 重连封禁预防. 根因旋钮已定位 = openclaw.json web.reconnect.maxAttempts (默认0=无限重连=根因, OpenClaw issue #16270 + 文档'Protecting your WhatsApp account'推荐配有限值). 修复=maxAttempts 0→5-8(全局熔断, 与V37.9.162检测协同). 待: WhatsApp恢复后Mac Mini纯查询核实当前值+4.27 schema路径(命令见docs/baileys_ban_risk_assessment.md附录)→据实际改openclaw.json+restart.sh. 血案#98: 先查实际config再改不盲改文档示例.",
       "V37.9.162 incident 恢复(进行中): WhatsApp设备链接限流冷却中 — 停止login尝试2-3h后单次重试. 若多次(隔数小时)单次尝试仍408→评估是否升级为长期封禁+Baileys替代方案. 这是WhatsApp服务端限流,非代码可修.",
       "V37.9.162 follow-up: 4.27 openclaw CLI 插件 staging churn 调查 — 每次 channels login 全量重staging 9+插件(13-39s, 含acpx/bedrock/vertex/browser与WhatsApp无关), plugin-runtime-deps 未持久化. 吃掉连接超时预算. 查 ~/.openclaw/plugin-runtime-deps/ 多hash dir机制(V37.9.145遗留)"
     ],
