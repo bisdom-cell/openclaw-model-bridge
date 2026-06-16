@@ -208,6 +208,11 @@
       "date": "2026-06-16",
       "what": "V37.9.162: WhatsApp 频道掉线监控 — wa_keepalive 7个月盲区闭环 (2026-06-16 session logged out 静默7h血案). 凌晨6h重连风暴(428/499/503)→08:34服务端登出→静默7h; Gateway HTTP全程200+Discord connected但WhatsApp频道死, wa_keepalive只探Gateway端口对频道掉线完全盲零告警. 确诊账号级临时限流(Baileys非官方客户端重连风暴触发反滥用,非永久封禁; curl WS端点400/0.34s证网络通, 手机重启后8min自愈✓✓). 修复两件套: wa_channel_status.py纯函数解析channels status的WhatsApp行(FAIL-OPEN+token精确区分+手机号不泄漏) + wa_keepalive.sh Gateway-OK分支_wa_channel_check独立计数,连续2次(1h)升级Discord#alerts(MR-14走Discord不走WhatsApp). 46新单测. 连带修INV-WA-001治理+test_wa_gateway_resilience既有coarse断言(--channel whatsapp→message send --channel whatsapp, 避误伤恢复指令文本). 131 suites/4609 tests/0 fail/governance 91/91/VERSION 0.37.9.70不变.",
       "by": "claude_code"
+    },
+    {
+      "date": "2026-06-16",
+      "what": "V37.9.162 恢复进展(incident状态): WhatsApp设备链接限流未清, login连续6次408. 发消息限流已清(手机能发)但设备链接限流是独立更严的throttle. 每次失败login重新触发限流(Baileys反复失败链接有升级封禁风险). 决策: 停止所有尝试2-3小时让限流冷却, 然后单次login. 预防修复(wa_channel_status.py+wa_keepalive频道监控)已提交推送branch claude/inspiring-curie-yppj74, 待用户合并+同步.",
+      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -293,11 +298,13 @@
       "V37.9.159 follow-up (低优): 窄 guard TestNoUnstubbedOpenclawScriptSubprocess (test_v37_9_157) heuristic 脆弱 — 1500-char 前向窗口扫 yaml 每个 subprocess.run 附近是否有 kb_review.sh 字面量, 描述文本含 kb_review.sh 会误报 (V37.9.159 我的 INV 声明触发, 已去字面量化绕过)。它扫 yaml CHECK 代码 (governance check 直跑脚本), 与通用 scanner D3 (扫 test 文件) 互补。可评估: 把它升级为 AST 精确 (区分执行 vs 描述) 或扩展通用 scanner 也扫 governance check 代码。",
       "V37.9.162 follow-up: INV-WA-CHANNEL-001 治理不变式 (whatsapp-channel-disconnect-escalates-when-gateway-healthy, meta_rule=MR-14, 镜像INV-WA-001) — 一周观察wa_channel_status生产效果后立 (shadow-first惯例, 同INV-DEEP-001)",
       "V37.9.162 follow-up: 异常分析宪法(原则#26)案例文档 ontology/docs/cases/whatsapp_session_logout_silent_7h_case.md — 完整因果链架构图+三层根因(凌晨重连风暴触发器/wa_keepalive探端口不探频道放大器/Gateway健康掩护者)+时间线+MR-14第N次演出",
-      "V37.9.162 战略 follow-up: Baileys(非官方WhatsApp Web客户端)重复封禁风险评估 — 凌晨重连风暴(每断开Retry 1/12, 6h数十次)触发WhatsApp反滥用导致账号级临时限流. 评估: (a)降低Baileys重连激进度/backoff (b)WhatsApp官方Business API替代方案成本 (c)接受风险+监控(已由V37.9.162 wa_channel_status覆盖)"
+      "V37.9.162 战略 follow-up: Baileys(非官方WhatsApp Web客户端)重复封禁风险评估 — 凌晨重连风暴(每断开Retry 1/12, 6h数十次)触发WhatsApp反滥用导致账号级临时限流. 评估: (a)降低Baileys重连激进度/backoff (b)WhatsApp官方Business API替代方案成本 (c)接受风险+监控(已由V37.9.162 wa_channel_status覆盖)",
+      "V37.9.162 incident 恢复(进行中): WhatsApp设备链接限流冷却中 — 停止login尝试2-3h后单次重试. 若多次(隔数小时)单次尝试仍408→评估是否升级为长期封禁+Baileys替代方案. 这是WhatsApp服务端限流,非代码可修.",
+      "V37.9.162 follow-up: 4.27 openclaw CLI 插件 staging churn 调查 — 每次 channels login 全量重staging 9+插件(13-39s, 含acpx/bedrock/vertex/browser与WhatsApp无关), plugin-runtime-deps 未持久化. 吃掉连接超时预算. 查 ~/.openclaw/plugin-runtime-deps/ 多hash dir机制(V37.9.145遗留)"
     ],
     "open_prs": "",
     "blocked_on": "",
-    "focus": "2026-06-16 V37.9.162: WhatsApp session logged out 静默7h血案 — 诊断+恢复+预防修复全闭环. 事件: 凌晨6h重连风暴→08:34服务端登出→静默7h, 根因=wa_keepalive只探Gateway端口对频道掉线盲(7个月潜伏盲区). 恢复(用户动作): 手机重启清卡死连接+限流自然清→openclaw channels login --channel whatsapp扫码重链. 预防修复已提交: wa_channel_status.py + wa_keepalive.sh频道状态监控(Gateway健康但频道掉线连续2次/1h推Discord#alerts). Mac Mini待用户: ①确认WhatsApp已扫码重链connected+PA能回复 ②git fetch+reset同步预防修复(wa_channel_status.py经FILE_MAP部署,下次keepalive生效,零重启). deferred: INV-WA-CHANNEL-001(一周观察后立) + 异常分析宪法案例文档 + Baileys非官方客户端重复封禁战略风险评估.",
+    "focus": "2026-06-16 V37.9.162: WhatsApp 静默7h血案 — 预防修复已提交(131 suites/4609 tests/0 fail), 但【恢复未完成,卡在 WhatsApp 设备链接限流】. 进展: 发消息限流已清(手机能正常发), 但 openclaw channels login 连续6次408(15:34-16:36), 确诊=WhatsApp对'链接新设备'的限流未清, 且每次失败login重新触发它(Baileys非官方客户端,反复失败链接有升级为更长/永久封禁风险). 网络OK(curl WS 400/0.34s), 插件staging churn(4.27已知, 每次全量重staging 13-39s)是雪上加霜非根因. 【唯一解药=时间+零尝试】: 停止所有login尝试2-3小时让限流自然冷却→然后单次login出二维码扫码→channels status确认connected→给PA发消息确认回复. Discord正常(告警通道在). Mac Mini待用户: ①WhatsApp恢复后git fetch+reset同步预防修复 ②确认PA能回复. deferred: INV-WA-CHANNEL-001(一周观察后立)+异常分析宪法案例文档+Baileys封禁战略风险评估+4.27插件staging churn持久化调查.",
     "current_focus": "V37.8 MR-6 深度补齐生产硬验证通过 (35/35 inv / 136/136 checks / 9/9 MR 全绿). 下一步: V37.8.1 修复 MRD-NOTIFY-002 activity 层假阳性 (topic→job log 映射扫 mtime) 或 Ontology Phase 3 渐进替换 (ONTOLOGY_MODE=on) 或 Tool Policy Plugin V3 路标",
     "recent_changes": [
       {
