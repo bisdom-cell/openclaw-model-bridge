@@ -243,14 +243,19 @@ class TestCrossFileGuards(unittest.TestCase):
         self.assertIn("restart.sh", src)
 
     def test_wa_keepalive_does_not_send_whatsapp(self):
-        """wa_keepalive 的告警路径不应走 WhatsApp（Gateway 宕时 WA 不通）"""
+        """wa_keepalive 告警的 *发送路径* 不应走 WhatsApp（Gateway 宕时 WA 不通）
+
+        V37.9.162: 校验目标精确化为 `message send --channel whatsapp`（实际发送路径），
+        而非裸 `--channel whatsapp`——后者会误伤 V37.9.162 新增的频道掉线恢复指令文本
+        `openclaw channels login --channel whatsapp`（给用户看的修复命令，合法）。
+        """
         src = _read("wa_keepalive.sh")
-        # 告警消息发送部分不应有 --channel whatsapp
+        # 告警消息的发送路径不应有 message send --channel whatsapp（恢复指令文本豁免）
         escalation_block = src[src.find("ESCALAT") :] if "ESCALAT" in src else ""
         self.assertNotIn(
-            "--channel whatsapp",
+            "message send --channel whatsapp",
             escalation_block,
-            "wa_keepalive 告警不应走 WhatsApp（告警链不得依赖失效主体自身）",
+            "wa_keepalive 告警发送路径不应走 WhatsApp（告警链不得依赖失效主体自身）",
         )
 
     def test_watchdog_only_monitors_enabled_jobs(self):

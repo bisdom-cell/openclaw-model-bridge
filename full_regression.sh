@@ -131,6 +131,9 @@ run_suite "dream_surrogate_sanitize (V37.8.6 log→stderr + surrogate 清洗 + �
 run_suite "ontology_parser (V37.8.7 separator+key-based 解析，防级联错位)" "python3 test_ontology_parser.py"
 run_suite "governance_mrd_v8_9 (V37.8.9 MRD-LOG-STDERR + MRD-LLM-PARSER-POSITIONAL)" "python3 test_governance_mrd_v8_9.py"
 run_suite "wa_gateway_resilience (V37.8.13 Gateway 宕机韧性三层修复)" "python3 test_wa_gateway_resilience.py"
+if [ -f test_wa_channel_status.py ]; then
+    run_suite "wa_channel_status (V37.9.162 WhatsApp 频道掉线监控 — 2026-06-16 静默 7h 血案闭环)" "python3 test_wa_channel_status.py"
+fi
 if [ -f test_restart_launchd.py ]; then
     run_suite "restart_launchd (V37.9.13 restart.sh 单一 manager 契约)" "python3 test_restart_launchd.py"
 fi
