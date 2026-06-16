@@ -7727,6 +7727,101 @@ invariants:
               f"INV-CROSS-OS-001 单测失败:\n{result.stdout[-500:]}\n{result.stderr[-500:]}"
           )
 
+  # ── V37.9.159 INV-GOV-RUNTIME-ISOLATION-001 — 治理 runtime 测试隔离 (MR-23 test-pollutes-production framework 化) ──
+  - id: INV-GOV-RUNTIME-ISOLATION-001
+    name: governance-runtime-tests-must-isolate-production-state
+    meta_rule: MR-23  # audit-observes-never-mutates (复用, 日落法 MR-22 不增治理层)
+    verification_layer: [declaration, runtime]
+    severity: critical
+    declaration: |
+      血案谱系 (MR-9 测试污染生产 / MR-23 audit-observes-never-mutates, 已 4 次演出):
+        V37.9.110: governance INV-RETRY-001 runtime 跑 test_movespeed 子进程, 失败路径写真
+                   ~/.kb/movespeed_incidents.jsonl (caller=测试桩灌爆假告警) — 漏 MOVESPEED_INCIDENT_FILE.
+        V37.9.157: governance INV-CRON-MONITOR-001 + INV-REVIEW-001 runtime 跑 test_cron_monitor /
+                   kb_review 推送脚本 子进程调真 4.27 openclaw (冷调用劫持 + 真发 [SYSTEM_ALERT] 到用户 WhatsApp).
+        V37.9.158-hotfix: governance INV-CONVERGENCE-CRON-001 runtime 跑 test_convergence 子进程,
+                   test_explicit_dry_run_overrides_env 传 dry_run=False → 真 crontab_safe.sh add 重加
+                   auto_deploy 双行 (INV-CRON-004 反复 5 次复发的真根因之一).
+
+      之前每次靠加一个 per-bug 窄 forward-scan 防御 (V37.9.110/157/158-hotfix 各自硬编码目标文件),
+      4 次演出证明"靠记忆为每个新治理-runtime-test 加窄 scan"失败. 本 INV + scanner 升级为
+      **自动发现 + 跨文件** 机器守卫 (一物一形 — 退役窄 scan 的记忆负担; 缩 dev-production 接缝 = 日落法北极星).
+      governance_runtime_isolation_scanner.py: Stage 1 从本 yaml 自动发现被 runtime python_assert
+      subprocess 跑的测试文件, Stage 2 三 detector (D1 crontab real-apply 方法级 / D2 ~/.kb incident
+      文件级 / D3 真调 openclaw 文件级, 精确区分"执行生产脚本" vs "python 扫描/bash -n 语法检查/数据引用").
+      FAIL-CLOSE: 任一 violation exit 1. 复用 MR-23 不立新 MR (日落法 MR-22 sunset-over-accretion).
+
+      **首跑即抓真 bug**: test_health_check_v37_9_78 的 test_dev_env_emits_all_9_sections 跑
+      bash health_check.sh 时只隔离了 HEALTH_JSON_PATH **漏了 push 路径** (无 HEALTH_PUSH 隔离 + 无
+      OPENCLAW stub) → 治理 07:00 audit 在 Mac Mini 跑此测试会真发周报 + touch 真 ~/.kb marker
+      (与 V37.9.110 test_movespeed 漏 incident 隔离同款 dev-passes/Mac-Mini-pollutes). 已修
+      (_isolated_health_env 三重隔离: fresh marker + huge interval push 恒 blocked + OPENCLAW stub).
+    checks:
+      - name: "scanner 文件存在 + V37.9.159 marker"
+        check_type: file_contains
+        file: governance_runtime_isolation_scanner.py
+        pattern: 'V37.9.159'
+      - name: "scanner FAIL-CLOSE 契约文档化"
+        check_type: file_contains
+        file: governance_runtime_isolation_scanner.py
+        pattern: 'FAIL-CLOSE'
+      - name: "scanner 复用 MR-23 (不增治理层)"
+        check_type: file_contains
+        file: governance_runtime_isolation_scanner.py
+        pattern: 'MR-23'
+      - name: "scanner 含 Stage 1 自动发现函数"
+        check_type: file_contains
+        file: governance_runtime_isolation_scanner.py
+        pattern: 'def discover_governance_runtime_test_files'
+      - name: "scanner 含 _find_executed_scripts (执行 vs 扫描精确区分)"
+        check_type: file_contains
+        file: governance_runtime_isolation_scanner.py
+        pattern: 'def _find_executed_scripts'
+      - name: "scanner 含三 detector (D1/D2/D3)"
+        check_type: python_assert
+        code: |
+          src = open('governance_runtime_isolation_scanner.py').read()
+          for d in ('D1-crontab-real-apply', 'D2-kb-incident-write', 'D3-real-openclaw'):
+              assert d in src, f"scanner 必须含 detector {d}"
+      - name: "scanner 引用 4 次血案谱系 (溯源)"
+        check_type: python_assert
+        code: |
+          src = open('governance_runtime_isolation_scanner.py').read()
+          for ver in ('V37.9.110', 'V37.9.157', 'V37.9.158-hotfix'):
+              assert ver in src, f"scanner 必须引用血案 {ver}"
+      - name: "首跑真 bug 已修: test_health_check push 隔离 helper 在位"
+        check_type: file_contains
+        file: test_health_check_v37_9_78.py
+        pattern: 'def _isolated_health_env'
+      - name: "test_health_check OPENCLAW stub 隔离在位 (D3 防御)"
+        check_type: file_contains
+        file: test_health_check_v37_9_78.py
+        pattern: 'env\["OPENCLAW_BIN"\]'
+      - name: "RUNTIME: scanner 全量扫 0 violations (18 治理-runtime 测试全隔离)"
+        check_type: python_assert
+        code: |
+          import subprocess, os, sys
+          repo_root = os.getcwd()  # V37.9.118 日落法 #30: chdir 后 == _PROJECT_ROOT
+          result = subprocess.run(
+              [sys.executable, "governance_runtime_isolation_scanner.py"],
+              cwd=repo_root, capture_output=True, text=True, timeout=30
+          )
+          assert result.returncode == 0, (
+              f"INV-GOV-RUNTIME-ISOLATION-001 scan 失败:\n{result.stdout}\n{result.stderr}"
+          )
+      - name: "RUNTIME: test_governance_runtime_isolation_scanner.py 单测全过"
+        check_type: python_assert
+        code: |
+          import subprocess, os, sys
+          repo_root = os.getcwd()
+          result = subprocess.run(
+              [sys.executable, "test_governance_runtime_isolation_scanner.py"],
+              cwd=repo_root, capture_output=True, text=True, timeout=60
+          )
+          assert result.returncode == 0, (
+              f"INV-GOV-RUNTIME-ISOLATION-001 单测失败:\n{result.stdout[-500:]}\n{result.stderr[-500:]}"
+          )
+
   # ── V37.9.94 INV-CROSS-ENV-PATH-001 跨环境路径主动检测 (MR-15 5th 防御) ──
   - id: INV-CROSS-ENV-PATH-001
     name: cross-env-path-must-include-mac-mini-canonical
@@ -9767,8 +9862,8 @@ audit_metadata:
     v3.12 → v3.13: V37.8.7 ontology_sources 推送格式错位血案 — INV-ONTOLOGY-001 新增 (ontology-sources-parser-must-be-key-based-not-positional, meta_rule=MR-4, severity=high, verification_layer=[declaration, runtime], 7 checks). 2026-04-15 用户 WhatsApp 收到 ontology_sources 推送严重错位：第 2 篇 cn_title 显示为 *---*、第 3 篇 cn_title 显示为 *价值：⭐⭐⭐⭐*。根因：原解析器用严格位置 (lines[i], lines[i+1], lines[i+2]) + i+=3 步进 — LLM 漏一行"要点"或多一行空白就让所有后续条目的 cn_title/highlight/stars 全部右移一格级联污染。修复：抽到独立模块 jobs/ontology_sources/ontology_parser.py（纯函数 parse_llm_blocks 可单测，避开 V37.5 heredoc-only 不可测血案），按 separator 切块 + 块内 key-based prefix 解析，单块缺行不影响其他块。runtime python_assert 真跑用户实际看到的污染场景断言"缺要点不级联"。24 单测 (test_ontology_parser.py)：TestNormalCases(4) + TestBloodLessonRegression(5) + TestSeparatorVariants(5) + TestLLMOutputVariants(5) + TestShellScriptIntegration(4) + TestActualBloodLessonScenario(1)。MR-4 silent-failure 第 8 次演出（输出"看起来正常" 6 字段都在但语义错乱）。auto_deploy FILE_MAP 补齐 ontology_parser.py。
     v3.11 → v3.12: V37.8.6 Dream 自引用幻觉血案 — INV-DREAM-003 新增 (dream-log-cannot-pollute-cache-nor-fabricate-platform-crises, meta_rule=MR-4, severity=critical, verification_layer=[declaration, runtime], 16 checks). 2026-04-15 03:00 Dream run 出现 4 次 Bad JSON 400 (adapter 收到破损 JSON)，但 Dream 仍产出完整"Hugging Face 平台危机"分析，用户察觉 Signal(Papers with Code 沉默)↔Action(监控 Hugging Face) 主题断裂后上报。三层根因：(a) scraped 内容含 surrogate UTF-8 → json.dump + utf-8 file write → UnicodeEncodeError → body_file 截断 → adapter.py:386 返回 400 Bad JSON (b) kb_dream.sh log() 用 `echo` 写 stdout → signals=$(llm_call ...) 命令替换捕获 log 行进 signals → cache file 被"LLM raw response: Error code 400 Bad JSON..."污染 (c) Reduce cache-only fast path 把错误日志注入 LLM 上下文 → LLM 基于这些字样自动编造"Hugging Face 危机"叙事 = 原则 #23 链式幻觉 + MR-4 silent failure 第 7 次演出。四层结构修复（defense-in-depth）：log→stderr 阻断 stdout 污染通道 + _sanitize(U+D800-U+DFFF → U+FFFD) 防编码炸裂 + file open 显式 encoding='utf-8' errors='replace' 第二防线 + REDUCE/CHUNK1/2/3 system prompt 四块加反污染守卫 (禁止把 HTTP 错误码/Python 异常/错误页 HTML/U+FFFD 当外部信号，禁止基于这些字样推断 Hugging Face/GitHub/npm 等平台状态)。runtime python_assert 真跑 sanitize 五场景 (孤立高位/低位代理/正常串/代理范围边界/sanitize 后 json+utf-8 编码不炸)。19 单测 (TestLogGoesToStderr×2 + TestSanitizeSurrogates×7 + TestShellSanitizeImplementation×5 + TestAntiPollutionSystemPrompt×3 + TestShellScriptIntegrity×1 + TestLogDefHasCommentMeta×1)。
     v3.10 → v3.11: V37.8.5 INV-X-001 升级三层检测 (血案二次演出: V37.8.4 修复本身埋盲区) — V37.8.4 收工 Mac Mini E2E 即发现 2 个边缘：CNS1952 98/99 超窗口 + 1 过短老化率 99% 但未触发严格 old==total (MR-10 第 2 次演出：修复会埋坑)；SingTaoDaily 0-tweet stub (embed disabled 返回空骨架) 被 total>0 门槛绕过完全不标记。V37.8.5 修复：(1) 检测逻辑独立为 jobs/finance_news/finance_news_zombie.py 纯函数模块 (classify_zombie(diag, count)); (2) 三层 tier: "stub" (no_data=0 + total=0) + "stale" (≥90% 老化 + count=0 守卫防止低频活跃误报)，整数比较 old*10 >= total*9 避免浮点; (3) 24 单测锁定三层 + 守卫 + shell 集成 + auto_deploy FILE_MAP; (4) verification_layer 从 [declaration] 升级到 [declaration, runtime] (MR-6 遵循: INV-X-001 现在有 python_assert 真跑 5 个 tier 场景); (5) shell 脚本禁止内嵌 inline fallback (防模块缺失时静默降级回 V37.8.4 逻辑 — MR-8 copy-paste-is-a-bug-class 兑现)。诊断行 tier 区分 ⚠️ ZOMBIE嫌疑[stub] vs [stale]，便于日志定位。
-  total_invariants: 90  # V37.9.129: +1 INV-FALLBACK-EXCLUDE-001 (geo-blocked-provider-excluded-from-fallback-chain, MR-4, high, 7 checks — gemini 香港 geo-block 退役血案). V37.9.121: +2 INV-OBSERVER-001 (daily-observer-contract-must-hold, MR-7, high, 9 checks — 合并 INV-OBSERVER-SAMPLING-001 候选, 日落法 MR-22 一物一形) + INV-SOURCE-CREDIBILITY-001 (source-credibility-contract-must-hold, MR-8, high, 8 checks). V37.9.100: +2 INV-DREAM-CROSS-DOMAIN-001 + INV-GOV-FIELD-001. V37.9.96: +1 INV-PROXY-PLIST-ENV-001. 实际 grep '- id: INV-' = 90
-  total_checks: 828     # V37.9.141: 827 → 828 (+1 INV-CROSS-OS-001 Quirk 7 unbraced-var-CJK 检测函数 check; 同时血案元组 6→8 + 14 处生产修复). V37.9.136: 826 → 827 (+1 INV-GOV-FIELD-001 一物一形防回退守卫; 同时 55 个 assertion: 字段全迁 code:, byte-identical 验证). V37.9.134: 825 → 826 (+1 INV-CROSS-OS-001 Quirk 6 subshell errtrace 检测函数 check; 同时血案元组 4→6 + RUNTIME check 名去硬编码计数). V37.9.129: 818 → 825 (+7 INV-FALLBACK-EXCLUDE-001). V37.9.121: 801 → 818 (+9 INV-OBSERVER-001 + 8 INV-SOURCE-CREDIBILITY-001). V37.9.100: 790 → 801 (+7 INV-DREAM-CROSS-DOMAIN-001 + 4 INV-GOV-FIELD-001). 同 session 修治理执行器血案: _exec_python_assert 只读 code: 让 67 个 assertion: 字段 python_assert 跨 21 INV vacuous pass → _check_code helper 读双字段 + triage 14 个真执行后翻车 (job_watchdog sabotage 还原 / 路径 bug / 阈值 / stale 契约 / exec 作用域陷阱 / requires_full gate). V37.9.97: 781→790. 注: 真实 check_type 行数 grep < total 因 governance_checker 还计 14 MRD discovery + preflight/env 等非 check_type 定义项 — total_checks 是操作权威数 (系统真跑真报)
+  total_invariants: 91  # V37.9.159: +1 INV-GOV-RUNTIME-ISOLATION-001 (governance-runtime-tests-must-isolate-production-state, MR-23 复用, critical, 11 checks — MR-9/MR-23 test-pollutes-production 4 次演出 framework 化 + 首跑抓 test_health_check 真 bug). V37.9.129: +1 INV-FALLBACK-EXCLUDE-001 (geo-blocked-provider-excluded-from-fallback-chain, MR-4, high, 7 checks — gemini 香港 geo-block 退役血案). V37.9.121: +2 INV-OBSERVER-001 (daily-observer-contract-must-hold, MR-7, high, 9 checks — 合并 INV-OBSERVER-SAMPLING-001 候选, 日落法 MR-22 一物一形) + INV-SOURCE-CREDIBILITY-001 (source-credibility-contract-must-hold, MR-8, high, 8 checks). V37.9.100: +2 INV-DREAM-CROSS-DOMAIN-001 + INV-GOV-FIELD-001. V37.9.96: +1 INV-PROXY-PLIST-ENV-001. 实际 grep '- id: INV-' = 90
+  total_checks: 839     # V37.9.159: 828 → 839 (+11 INV-GOV-RUNTIME-ISOLATION-001 治理 runtime 测试隔离 framework scanner). V37.9.141: 827 → 828 (+1 INV-CROSS-OS-001 Quirk 7 unbraced-var-CJK 检测函数 check; 同时血案元组 6→8 + 14 处生产修复). V37.9.136: 826 → 827 (+1 INV-GOV-FIELD-001 一物一形防回退守卫; 同时 55 个 assertion: 字段全迁 code:, byte-identical 验证). V37.9.134: 825 → 826 (+1 INV-CROSS-OS-001 Quirk 6 subshell errtrace 检测函数 check; 同时血案元组 4→6 + RUNTIME check 名去硬编码计数). V37.9.129: 818 → 825 (+7 INV-FALLBACK-EXCLUDE-001). V37.9.121: 801 → 818 (+9 INV-OBSERVER-001 + 8 INV-SOURCE-CREDIBILITY-001). V37.9.100: 790 → 801 (+7 INV-DREAM-CROSS-DOMAIN-001 + 4 INV-GOV-FIELD-001). 同 session 修治理执行器血案: _exec_python_assert 只读 code: 让 67 个 assertion: 字段 python_assert 跨 21 INV vacuous pass → _check_code helper 读双字段 + triage 14 个真执行后翻车 (job_watchdog sabotage 还原 / 路径 bug / 阈值 / stale 契约 / exec 作用域陷阱 / requires_full gate). V37.9.97: 781→790. 注: 真实 check_type 行数 grep < total 因 governance_checker 还计 14 MRD discovery + preflight/env 等非 check_type 定义项 — total_checks 是操作权威数 (系统真跑真报)
   meta_rules: 23        # V37.9.117: +2 MR-22 (sunset-over-accretion 日落法北极星 — 降复杂度优先于加功能) + MR-23 (audit-observes-never-mutates 审计只读, 泛化 MR-9, 复用 test_v37_9_116/test_convergence 守卫不铸新 INV)
   meta_rule_discovery_count: 6   # Phase 0: registry + env + notify-topic + layer-depth + error-suppression + notify-activity
   check_types_used: [python_assert, file_contains, file_not_contains, env_var_exists, command_succeeds, log_activity_check]

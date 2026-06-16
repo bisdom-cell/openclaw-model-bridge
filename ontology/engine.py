@@ -728,6 +728,92 @@ def load_policy_ontology(path=None) -> dict:
     return _load_yaml(path or _POLICY_ONTOLOGY_FILE)
 
 
+# ── V37.9.160 Tool Policy Plugin (chunk 1: 自动发现 + 校验, 镜像 Provider Plugin providers.d/) ──
+# 消费方在 <ONTOLOGY_CONFIG_DIR>/policies.d/*.yaml 声明额外工具策略, 无需改 policy_ontology.yaml
+# 主文件。下划线/点前缀文件跳过 (示例/隐藏)。FAIL-OPEN: 单文件失败收集 error 继续。
+_POLICY_PLUGIN_DIR_NAME = "policies.d"
+_VALID_POLICY_TYPES = ("static", "temporal", "contextual")
+
+
+def validate_policy_dict(policy) -> list:
+    """校验单条工具策略 dict, 返回 errors 列表 (空=合法). 镜像 ProviderContract.validate.
+
+    必填: id (非空 str) / type (static|temporal|contextual) / rule (非空 str) / enforcement_site.
+    可选: scope (list|str) / limit (数字) / hard_limit (bool) / rationale / governance_invariant.
+    """
+    if not isinstance(policy, dict):
+        return ["policy 必须是 dict"]
+    errors = []
+    pid = policy.get("id")
+    if not pid or not isinstance(pid, str):
+        errors.append("缺 id (非空字符串)")
+    if policy.get("type") not in _VALID_POLICY_TYPES:
+        errors.append(f"type 必须是 {_VALID_POLICY_TYPES} 之一 (got {policy.get('type')!r})")
+    if not policy.get("rule") or not isinstance(policy.get("rule"), str):
+        errors.append("缺 rule (非空字符串)")
+    if not policy.get("enforcement_site"):
+        errors.append("缺 enforcement_site")
+    scope = policy.get("scope")
+    if scope is not None and not isinstance(scope, (list, str)):
+        errors.append("scope 必须是 list 或 str")
+    lim = policy.get("limit")
+    if lim is not None and isinstance(lim, bool):  # bool 是 int 子类, 显式拒绝
+        errors.append("limit 不能是 bool")
+    elif lim is not None and not isinstance(lim, (int, float)):
+        errors.append("limit 必须是数字")
+    if "hard_limit" in policy and not isinstance(policy["hard_limit"], bool):
+        errors.append("hard_limit 必须是 bool")
+    return errors
+
+
+def discover_policy_plugins(config_dir=None) -> tuple:
+    """自动发现 <config_dir>/policies.d/*.yaml 工具策略插件, 返回 (policies, errors).
+
+    镜像 providers.d/ 自动发现: 跳过 _/. 前缀文件; 每个 .yaml 可含 {policies: [...]} /
+    顶层 list / 单条 policy dict。逐条 validate_policy_dict, FAIL-OPEN: 单插件文件解析/
+    校验失败 → 收集 error 继续其他插件, 绝不抛异 (与 ProviderRegistry.load_plugins 同款)。
+
+    Args:
+        config_dir: policies.d/ 的父目录 (默认 ONTOLOGY_CONFIG_DIR / 引擎目录)。
+    Returns:
+        (policies: list[dict], errors: list[str])
+    """
+    if config_dir is None:
+        config_dir = _resolve_config_dir()
+    plugin_dir = os.path.join(config_dir, _POLICY_PLUGIN_DIR_NAME)
+    policies, errors = [], []
+    if not os.path.isdir(plugin_dir):
+        return policies, errors
+    for fname in sorted(os.listdir(plugin_dir)):
+        if fname.startswith("_") or fname.startswith("."):
+            continue
+        if not (fname.endswith(".yaml") or fname.endswith(".yml")):
+            continue
+        fpath = os.path.join(plugin_dir, fname)
+        try:
+            data = _load_yaml(fpath)
+        except Exception as e:  # noqa: BLE001 — FAIL-OPEN: 单插件失败不阻塞其他
+            errors.append(f"{fname}: 加载失败 {type(e).__name__}: {e}")
+            continue
+        if isinstance(data, dict) and "policies" in data:
+            raw = data.get("policies") or []
+        elif isinstance(data, list):
+            raw = data
+        elif isinstance(data, dict) and data.get("id"):
+            raw = [data]
+        else:
+            errors.append(f"{fname}: 无法识别 policy 结构 (需 policies: [...] / 顶层 list / 单条 {{id:...}})")
+            continue
+        for pol in raw:
+            errs = validate_policy_dict(pol)
+            if errs:
+                _pid = pol.get("id") if isinstance(pol, dict) else "?"
+                errors.append(f"{fname} policy {_pid}: {'; '.join(errs)}")
+                continue
+            policies.append(pol)
+    return policies, errors
+
+
 # 六域 → 该域内概念实例所在的 YAML 键（用于 find_by_domain 归一化）
 _DOMAIN_CONCEPT_KEYS = {
     "Actor": "instances",     # list of {id, kind, ...}
@@ -977,9 +1063,19 @@ def evaluate_policy(policy_id, context=None, policy_data=None, path=None) -> dic
             break
 
     if match is None:
-        result = dict(empty_result)
-        result["reason"] = "policy_id_not_found"
-        return result
+        # V37.9.160 Tool Policy Plugin: base 文件无此 policy → 查 policies.d/ 插件 (additive,
+        # base 优先不被覆盖)。仅文件加载路径才查 (policy_data 注入路径=test, 不查插件)。
+        if policy_data is None:
+            cfg_dir = os.path.dirname(path) if path else None
+            plugin_policies, _plugin_errs = discover_policy_plugins(config_dir=cfg_dir)
+            for pol in plugin_policies:
+                if isinstance(pol, dict) and pol.get("id") == policy_id:
+                    match = pol
+                    break
+        if match is None:
+            result = dict(empty_result)
+            result["reason"] = "policy_id_not_found"
+            return result
 
     # 抽取数值阈值: 优先 explicit `limit` > `value` > rule 文本解析
     limit = match.get("limit")
@@ -1041,8 +1137,24 @@ def main():
     parser.add_argument("--check", action="store_true", help="Check consistency with proxy_filters.py")
     parser.add_argument("--validate", nargs=2, metavar=("TOOL", "ARGS_JSON"),
                         help="Validate tool call args")
+    parser.add_argument("--validate-policies", action="store_true",
+                        help="发现并校验 policies.d/ 工具策略插件 (V37.9.160, exit 1 if invalid)")
     parser.add_argument("--json", action="store_true", help="JSON output")
     args = parser.parse_args()
+
+    if args.validate_policies:
+        policies, errors = discover_policy_plugins()
+        if args.json:
+            print(json.dumps({
+                "loaded": [p.get("id") for p in policies], "errors": errors,
+            }, ensure_ascii=False, indent=2))
+        else:
+            print(f"工具策略插件 (policies.d/): 加载 {len(policies)} 条")
+            for p in policies:
+                print(f"  ✅ {p.get('id')} [{p.get('type')}]")
+            for e in errors:
+                print(f"  ❌ {e}")
+        sys.exit(1 if errors else 0)
 
     onto = ToolOntology()
 

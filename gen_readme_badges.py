@@ -115,6 +115,9 @@ def compute_facts(repo_root=_REPO):
     facts["mrd_scanners"] = _count_mrd_scanners(repo_root)
     facts["cases"] = _count_cases(repo_root)
 
+    # V37.9.161 doc-stat-sync V2: jobs registered/active (FAIL-OPEN, 防 35→40 类漂移)
+    facts["jobs_registered"], facts["jobs_active"] = _count_jobs(repo_root)
+
     # providers 数 ← providers.py --json (顾问式, 失败不致命)
     facts["providers"] = _provider_count(repo_root)
 
@@ -152,6 +155,21 @@ def _count_mrd_scanners(repo_root):
         return len(re.findall(r"^\s+-\s+id:", m.group(1), re.MULTILINE))
     except Exception:
         return None
+
+
+def _count_jobs(repo_root):
+    """jobs_registry.yaml 的 (registered, active) 计数 (FAIL-OPEN: 取不到返回 (None, None)).
+
+    V37.9.161 doc-stat-sync V2: jobs 数曾 35→40 真 drift 过 → 纳入自动同步防漂移类.
+    registered = '- id:' 条目数; active = 'enabled: true' 数 (registry 唯一真理源).
+    """
+    try:
+        text = _read(os.path.join(repo_root, "jobs_registry.yaml"))
+        registered = len(re.findall(r"^\s+-\s+id:", text, re.MULTILINE))
+        active = len(re.findall(r"^\s*enabled:\s*true\b", text, re.MULTILINE))
+        return (registered or None, active or None)
+    except Exception:
+        return (None, None)
 
 
 def _count_cases(repo_root):
@@ -217,6 +235,14 @@ def _badge_substitutions(facts):
                        r"must ALL pass before push\)$", re.MULTILINE),
             lambda mm: (f"# Full regression ({facts['test_suites']} suites / "
                         f"{facts['test_count']} tests / 0 fail; must ALL pass before push)")))
+    # (3) V37.9.161 doc-stat-sync V2: README "Scheduled jobs N active / M registered" 摘要
+    #     (曾 35→40 drift; jobs_registry enabled count 唯一源, 防 jobs-count 漂移类)
+    if facts.get("jobs_active") and facts.get("jobs_registered"):
+        subs.append((
+            "scheduled jobs 摘要",
+            re.compile(r"(Scheduled jobs\s+)\d+( active / )\d+( registered)"),
+            lambda mm: (f"{mm.group(1)}{facts['jobs_active']}{mm.group(2)}"
+                        f"{facts['jobs_registered']}{mm.group(3)}")))
     return subs
 
 
@@ -271,6 +297,10 @@ def _doc_header_specs(facts):
         features_tokens.append(("security", r"security [0-9]+/100", f"security {sec}/100"))
     if cases is not None:
         features_tokens.append(("cases", r"[0-9]+ blood-lesson case docs", f"{cases} blood-lesson case docs"))
+    # V37.9.161 doc-stat-sync V2: active jobs (曾 35→40 drift, jobs_registry 唯一源)
+    ja = facts.get("jobs_active")
+    if ja is not None:
+        features_tokens.append(("active jobs", r"\*\*[0-9]+ active jobs\*\*", f"**{ja} active jobs**"))
     specs.append((
         "docs/FEATURES.md",
         re.compile(r"^> v[0-9.]+ \([0-9-]+\) \| \*\*[0-9]+ tests\*\*.*$", re.MULTILINE),

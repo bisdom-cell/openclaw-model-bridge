@@ -308,14 +308,35 @@ def _read_script_safe_call_only():
 class TestRuntimeBehavior(unittest.TestCase):
     """subprocess 真跑 v2.0 验证 8 段都出现 + FAIL-OPEN 降级."""
 
+    def _isolated_health_env(self, repo_dir):
+        """V37.9.159 (INV-GOV-RUNTIME-ISOLATION-001): 跑 health_check.sh 的隔离 env.
+
+        治理 runtime check 在 Mac Mini 跑此测试时, health_check.sh 的 push 路径绝不能真发周报 /
+        touch 真 ~/.kb marker / 调真 4.27 openclaw (V37.9.157 同款 test-pollutes-production; 旧版只
+        隔离了 HEALTH_JSON_PATH 漏了 push, 与 V37.9.110 test_movespeed 漏 incident 隔离同款). 三重隔离:
+          (1) HEALTH_PUSH_MARKER=fresh temp + HEALTH_PUSH_MIN_INTERVAL_SEC=huge → _health_push_allowed
+              恒 False (marker 存在且 age≈0 < huge) → 整个 push 块跳过, 不调 notify/openclaw, 不污染真 ~/.kb
+          (2) OPENCLAW_BIN/OPENCLAW=stub → 即便 push 逻辑变, notify.sh 也走 stub 不发真消息
+        返回 (env, cleanup_paths).
+        """
+        env = os.environ.copy()
+        env["OPENCLAW_REPO_DIR"] = repo_dir
+        cleanup = []
+        with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as tf:
+            env["HEALTH_JSON_PATH"] = tf.name  # 临时 json 防污染 home
+            cleanup.append(tf.name)
+        with tempfile.NamedTemporaryFile(suffix=".marker", delete=False) as mf:
+            env["HEALTH_PUSH_MARKER"] = mf.name  # fresh marker → age<interval → push 恒 blocked
+            cleanup.append(mf.name)
+        env["HEALTH_PUSH_MIN_INTERVAL_SEC"] = "999999999"  # push 恒不允许
+        env["OPENCLAW_BIN"] = "/usr/bin/true"  # stub (notify.sh 路径) + D3 隔离信号
+        env["OPENCLAW"] = "/usr/bin/true"
+        return env, cleanup
+
     def test_dev_env_emits_all_9_sections(self):
         """dev 环境跑 health_check.sh 输出必须含 9 段 emoji marker."""
-        env = os.environ.copy()
-        env["OPENCLAW_REPO_DIR"] = REPO_ROOT
-        # 用临时 HEALTH_JSON_PATH 防污染 home
-        with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as tf:
-            env["HEALTH_JSON_PATH"] = tf.name
-            json_path = tf.name
+        env, cleanup = self._isolated_health_env(REPO_ROOT)
+        json_path = env["HEALTH_JSON_PATH"]
         try:
             proc = subprocess.run(
                 ["bash", SCRIPT_PATH],
@@ -334,17 +355,14 @@ class TestRuntimeBehavior(unittest.TestCase):
             # health_status.json 应该被写入 (即使工具缺失)
             self.assertTrue(os.path.exists(json_path), "health_status.json 必须落盘")
         finally:
-            if os.path.exists(json_path):
-                os.unlink(json_path)
+            for p in cleanup:
+                if os.path.exists(p):
+                    os.unlink(p)
 
     def test_fail_open_graceful_degradation(self):
         """工具缺失场景: 必须显示降级文案 (不抛 Traceback)."""
-        env = os.environ.copy()
         # 故意指向不存在的 REPO_DIR
-        env["OPENCLAW_REPO_DIR"] = "/tmp/nonexistent_repo_v9_78"
-        with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as tf:
-            env["HEALTH_JSON_PATH"] = tf.name
-            json_path = tf.name
+        env, cleanup = self._isolated_health_env("/tmp/nonexistent_repo_v9_78")
         try:
             proc = subprocess.run(
                 ["bash", SCRIPT_PATH],
@@ -359,8 +377,9 @@ class TestRuntimeBehavior(unittest.TestCase):
                 or "解析失败" in stdout or "缺失" in stdout,
                 f"必须含降级文案, stdout={stdout[:500]}")
         finally:
-            if os.path.exists(json_path):
-                os.unlink(json_path)
+            for p in cleanup:
+                if os.path.exists(p):
+                    os.unlink(p)
 
     def test_health_status_json_schema_v37_9_78(self):
         """health_status.json 必须有 V37.9.78 schema (version/services/model/kb/ssd)."""

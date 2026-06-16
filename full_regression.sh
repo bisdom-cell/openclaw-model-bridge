@@ -64,6 +64,7 @@ run_suite "cron_monitor_scanner (V37.9.60 MR-19 err_trap_handler 契约横向推
 run_suite "cron_monitor_fatal_handler (V37.9.63 MR-8 抽公共 helper + 顺势修 V37.9.60 CLI bug + 7 governed scripts 迁移)" "python3 test_cron_monitor_fatal_handler.py"
 run_suite "cross_os_quirk_scanner (V37.9.67 INV-CROSS-OS-001 P0 — cmd&&||/grep|head/awk LC_ALL/zsh-specific 4 quirk 主动检测)" "python3 test_cross_os_quirk_scanner.py"
 run_suite "cross_env_path_scanner (V37.9.94 INV-CROSS-ENV-PATH-001 — MR-15 deployment-layout 第 4 次演出后立 framework, 防 5th _resolve_*_path 漏 Mac Mini canonical)" "python3 test_cross_env_path_scanner.py"
+run_suite "governance_runtime_isolation_scanner (V37.9.159 INV-GOV-RUNTIME-ISOLATION-001 — MR-23 test-pollutes-production 4 次演出 framework 化, 自动发现治理-runtime 测试集 + D1/D2/D3, 首跑抓 test_health_check 真 bug)" "python3 test_governance_runtime_isolation_scanner.py"
 run_suite "v37_9_95_ai_leaders (V37.9.95 ai_leaders_x 多元化 19→31 跨 12 派别 — 周一 #32 用户视角反馈驱动)" "python3 test_v37_9_95_ai_leaders.py"
 run_suite "v37_9_99_ai_leaders_throttle (V37.9.99 #14 inter-account 节流防 429 — 31 账号翻倍撞限流修复)" "python3 test_v37_9_99_ai_leaders_throttle.py"
 run_suite "ai_leaders_rotation (V37.9.101 轮换抓取防 429 + 健康分类 — 2026-06-03 复盘实测 31 全 429)" "python3 test_ai_leaders_rotation.py"
@@ -184,6 +185,7 @@ fi
 if [ -f ontology/tests/test_engine_phase4.py ]; then
     run_suite "engine_phase4 (V37.9.12 load_domain_ontology+find_by_domain+evaluate_policy 契约)" "python3 ontology/tests/test_engine_phase4.py"
 fi
+run_suite "tool_policy_plugin (V37.9.160 Tool Policy Plugin chunk 1 — policies.d/ 自动发现+校验+evaluate_policy 加性集成, V3 别人会扩展)" "python3 test_tool_policy_plugin.py"
 if [ -f ontology/tests/test_three_gate.py ]; then
     run_suite "three_gate (V37.9.15 Phase 4 P3 三阶段门控 shadow wiring)" "python3 ontology/tests/test_three_gate.py"
 fi

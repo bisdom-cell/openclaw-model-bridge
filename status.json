@@ -1,6 +1,6 @@
 {
-  "updated": "2026-06-15 11:00:30",
-  "updated_by": "security_score",
+  "updated": "2026-06-16 01:57:27",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -105,6 +105,21 @@
   ],
   "recent_changes": [
     {
+      "date": "2026-06-16",
+      "what": "V37.9.161 日落法 doc-stat-sync V2 — 审计抓 3 个 config.md 真漂移修复 (L878 jobs 10→46/40, L64+L156 preflight 17→19 内部不一致) + jobs active/registered 纳入 gen_readme_badges auto-sync (曾 35→40 真 drift, jobs_registry 唯一源)。SLO(5 稳定常量)/preflight(19 罕漂移) 诚实留手动不加机器 (日落法防御本身是事故面)。test_gen_readme_badges 60→67。同 session 三 item (scanner/Tool Policy Plugin/doc-sync) 全 VERSION 不变零业务语义。",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-16",
+      "what": "V37.9.160 Tool Policy Plugin chunk 1 — 声明式工具策略插件扩展接口 (V3 别人会扩展, grounded 镜像 Provider Plugin providers.d/)。engine.py 加 validate_policy_dict + discover_policy_plugins (policies.d/*.yaml 自动发现+校验, FAIL-OPEN) + evaluate_policy 加性集成 (base 无则查插件不覆盖) + CLI --validate-policies。docs/tool_policy_plugin_guide.md + policies.d/_example.yaml + 33 单测。诚实标 chunk 1: enforcement 接入留真消费方需求驱动 (原则 #18)。test_engine_phase4 75 单测不破坏。无新 INV (日落法不增治理)。",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-16",
+      "what": "V37.9.159 MR-23 通用治理-runtime 测试隔离 scanner — 4 次 test-pollutes-production 血案 (V37.9.110/157/158-hotfix) framework 化为自动发现+跨文件机器守卫 (Stage 1 发现 18 个治理-runtime 测试文件 + D1 crontab/D2 ~/.kb/D3 openclaw 三 detector, AST 精确区分执行vs扫描)。首跑即抓真 bug: test_health_check 跑 health_check.sh 漏 push 隔离 (Mac Mini 07:00 audit 会真发周报+touch 真 marker) → 修 _isolated_health_env 三重隔离。INV-GOV-RUNTIME-ISOLATION-001 (MR-23 复用, 11 checks) + 45 单测。日落法: 退役 per-bug 窄 scan 记忆负担。129/130 suites 4563 tests 0 fail / 91 inv / VERSION 不变。",
+      "by": "claude_code"
+    },
+    {
       "date": "2026-06-15",
       "what": "V37.9.158-hotfix Mac Mini E2E 决定性闭环确认: 清 stale 重复→1 → 跑 governance --full (内部跑 test_convergence.py 子进程含故意 dry_run=False 的 test_explicit_dry_run_overrides_env) → crontab 计数保持 1 (不再被重加到 2). 铁证 hotfix 生效, INV-CRON-004 auto_deploy 双行血案 (V37.9.106/111/116/120/158 反复 5 次) 彻底终结. 同 session 确认 V37.9.157 两 💥 (INV-CRON-MONITOR-001 + INV-REVIEW-001 4.27 冷调用劫持) 全部转 ✅. MR-9/MR-23 audit-observes-never-mutates 三层全兑现 (生产 cron V37.9.116 / 默认语义 V37.9.158 / 治理子进程测试污染 V37.9.158-hotfix). 观察项: MRD-AUDIT-PERF 82s vs 中位 27s 3x, 下次回落即良性变异.",
       "by": "claude_code"
@@ -188,21 +203,6 @@
       "date": "2026-06-14",
       "what": "V37.9.148: 外部评审2 P2(c) 仓库外 dogfood — examples/external_dogfood/ 把 V37.9.137 一次性 PyPI 冒烟升级为 CI 回归守卫. 离线 build wheel (SETUPTOOLS_USE_DISTUTILS=stdlib 绕 Debian install_layout quirk) → 隔离 --system-site-packages venv 装 wheel --no-deps (无 PYTHONPATH 回 monorepo) → 全新 LibraryBot toy 复制出仓库到 /tmp 跑 import ontology_engine (chunk-2-lite 去泛化对真消费方唯一验证) + console scripts audit/query + 反向验证无注入读 wheel bundled 默认 (data_clean 在/checkout_book 不在). 17 单测 (8 source guards 恒跑 + 9 wheel E2E skipUnless) + sabotage 铁证 (toy MAX 5→7 audit FAIL). 126 suites/4445 tests/0 fail/VERSION 不变. P2 全档 a/b/c 闭环.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-06-13",
-      "what": "V37.9.147: Agent Reliability Bench 扩展 +10 场景 (外部评审2 P2(b), 7→17 场景/47→103 检查) — Provider schema drift/SSE 流中断/tool 结果超大/JSON 畸形修复/全 fallback 失败/记忆索引陈旧/cron 重复触发/config 部分损坏/DNS 失败/长上下文截断质量. mock-based 可 dev 跑全 PASS 0 SKIP, 每场景测真函数(compose_backend_error_str/truncate_messages/fix_tool_args/build_sse_response/ProviderContract/config_loader). 真行为 sabotage 破坏 fail-open 证 bench 测真控制平面非 tautology. test 36→59. 报告重生成 17/17 PASS 103 checks. 125 suites/4428 tests(+23)/0 fail/VERSION 不变. 朝 V2 路标行业可引用测试集方向",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-06-13",
-      "what": "V37.9.146: Provider 验证四档字段化 (外部评审2 P2(a)) — 手写档位表退役为第 3 张机器表 (一物一形/日落法) + ProviderCapabilities.verification_tier/tier_note/tier_evidence 字段 + tier_consistency_violations() 一致性不变式 (tier 声明与 verified_* 布尔可证一致, 防漂移) + tier_table_lines() 机器表 + --tier-matrix/--check-tiers CLI + to_matrix_row 含 tier (--json 数据模型完整暴露). gen_compat_matrix TABLE_SPECS 2→3 张. 一致性收敛: 机器表归一化手写表 (doubao 全名/5 declared 拆行/gemini 退役注记结构化). 30 新单测 + 两轮 sabotage 反向验证. 125 suites/4405 tests/0 fail/VERSION 不变",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-06-12",
-      "what": "V37.9.145: 20:30 watchdog 17 项告警 5 轮取证闭环 — 4.27 CLI 冷调用回归定性 (零数据丢失, notify 重试兜底) + watchdog KB 索引阈值 12h→27h 对齐日更 (schedule-vs-threshold drift) + INV-REVIEW-001 治理 runtime check openclaw stub 隔离 (审计被生产 CLI 延迟劫持, MR-23 同族第 4 演出). 10 新守卫单测 + sabotage 验证",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -282,7 +282,10 @@
       "【外部评审2 P2 · 生态与基准扩展】(a) ✅ V37.9.146 完成 — verification_tier 字段化进 providers.py 数据模型 + tier↔verified_* 一致性不变式 + 第 3 张机器表 (tier_table_lines) 退役手写档位表 (一物一形). (b) ✅ V37.9.147 完成 — Reliability Bench 7→17 场景/47→103 检查 (10 新场景全 mock-based 可 dev 跑 + 真函数测真行为 + 真行为 sabotage 证非 tautology + test 36→59 + 报告重生成). (c) ✅ V37.9.148 完成 — examples/external_dogfood/ 仓库外 dogfood: 离线 build wheel (SETUPTOOLS_USE_DISTUTILS=stdlib 绕 Debian install_layout quirk) + 隔离 --system-site-packages venv 装 wheel --no-deps (无 PYTHONPATH 回 monorepo, 系统无 ontology/ontology_engine 故隔离判定无歧义) + 全新 LibraryBot toy 复制出仓库到 /tmp 跑 import ontology_engine (chunk-2-lite 去泛化对真消费方唯一验证) + console scripts audit/query + config-injection 审计 LibraryBot + 反向验证无注入读 wheel bundled 默认 (data_clean 在/checkout_book 不在). 17 单测 (8 source guards 恒跑 + 9 wheel E2E skipUnless 工具链) + sabotage 铁证 (toy MAX 5→7 audit FAIL 非 tautology). 闭合评审 'WeatherBot in-repo 已验证 gap 是仓库外'. (d) ✅ V37.9.150 完成 — complexity budget 惯例化 (纯约定零新机器 = 日落法 MR-22 自我示范, 不写 complexity_budget.py 工具因那是它要防的东西): docs/complexity_budget.md + 收工清单 J 项 + 原则#34 引用. 账本=既有徽章 gen_readme_badges, 四维度 (files/env/jobs/state) 变化时手动记, 净新增机制自问退役了什么, **刻意无守卫测试** (用 check 守复杂度约定本身=新复杂度). 3 硬规则明文 (新 path 退役旧 path / 新 invariant 命名防的事故 / 新 job 定义 silence-timeout+degrade). (e) ✅ V37.9.149 完成 — docs/articles/why_runtime_not_wrapper.md (EN) + _zh.md (ZH): wrapper vs control plane 结构性区别 + 双评审交叉验证 (两陌生人独立撞同一优点+同一软肋) + 日落法诚实反驳 + V37.9.148 dogfood 可抽离性铁证. **P2 全档 a/b/c/d/e + P1 全闭环, 外部评审2 七动作全销项**",
       "✅ ArXiv 论文已发表 (arXiv:2606.14589, cs.SE) + 发布配套全部完成 (V37.9.154 核心 + V37.9.155 传播层) + 知乎双发布全完成: why_runtime_not_wrapper_zh (zhuanlan.zhihu.com/p/2049813538894623858) + 中文科普版 when_errors_become_narratives_zh (zhuanlan.zhihu.com/p/2049816723541463125), README publications 表已全部更新. 论文发表线全闭环.",
       "GitHub main 落后开发分支 ~30 版本 (main ~V37.9.123, 分支已 V37.9.153 含架构图刷新). 让 GitHub 门面当前化的唯一一步=用户合并 PR (Claude 只能推开发分支). 合并后稳定工具文件仍显示老时间戳(正确). 附: 未来精准刷新方法论=三分类映射(1稳定已完成留/2点-in-time记录留/3真内容陈旧才修), 永不盲目 churn 稳定文件刷时间戳(日落法).",
-      "✅ V37.9.158 + V37.9.158-hotfix 已完成 (INV-CRON-004 auto_deploy 双行血案彻底钉死): V37.9.158 默认 dry-run (Layer 1 MR-23) + V37.9.158-hotfix 修真凶 = test_convergence.py::test_explicit_dry_run_overrides_env 测试污染生产 (该测试故意显式 dry_run=False 绕过默认 dry-run, governance INV-CONVERGENCE-CRON-001 runtime check 跑 test 子进程时在 Mac Mini 真 add 重加双行). 修复 HOME→tempdir + mock subprocess + 前瞻 scan 机器化 (TestConvergenceTestNoCrontabMutation). Mac-Mini 模拟铁证 (植入 fake $HOME/crontab_safe.sh sentinel 从未写入). 残留 Layer 2 (auto_deploy endswith parser 不匹配 line 5) 仅显式 CONVERGENCE_APPLY=1 浮现, 默认 dry-run 下不触发, 低优 defer."
+      "✅ V37.9.158 + V37.9.158-hotfix 已完成 (INV-CRON-004 auto_deploy 双行血案彻底钉死): V37.9.158 默认 dry-run (Layer 1 MR-23) + V37.9.158-hotfix 修真凶 = test_convergence.py::test_explicit_dry_run_overrides_env 测试污染生产 (该测试故意显式 dry_run=False 绕过默认 dry-run, governance INV-CONVERGENCE-CRON-001 runtime check 跑 test 子进程时在 Mac Mini 真 add 重加双行). 修复 HOME→tempdir + mock subprocess + 前瞻 scan 机器化 (TestConvergenceTestNoCrontabMutation). Mac-Mini 模拟铁证 (植入 fake $HOME/crontab_safe.sh sentinel 从未写入). 残留 Layer 2 (auto_deploy endswith parser 不匹配 line 5) 仅显式 CONVERGENCE_APPLY=1 浮现, 默认 dry-run 下不触发, 低优 defer.",
+      "V37.9.160 Tool Policy Plugin chunk 2 (待真消费方需求驱动, 原则 #18): enforcement 真接入 — tool_proxy/three_gate 读 policies.d/ 插件策略真截断 (镜像 _resolve_max_tools_limit 的 max-tools-per-agent 硬截断)。当前 chunk 1 只 observability (evaluate_policy 可查)。Provider Plugin 由 Doubao 驱动 enforcement 同款, 应等成本守卫类真需求。+ pyproject package-data 加 ontology/policies.d/ (pip 包含示例)。+ 缓存 (evaluate_policy 未命中 base 即重扫 policies.d/)。",
+      "V37.9.159 test_health_check 真 bug Mac Mini 生产验证 (dev 不可执行): scanner 首跑抓 test_health_check 跑 health_check.sh 漏 push 隔离 → 治理 07:00 audit 在 Mac Mini 是否真在发日报型 health 周报 (marker 时序依赖: gov 07:00 先于 weekly 09:00 + 24h>20h interval → 疑似每日 07:00 真发)。修复后应消失。Mac Mini 同步后观察 07:00 是否还收到 health 周报 + 确认 weekly 09:00 周报正常。",
+      "V37.9.159 follow-up (低优): 窄 guard TestNoUnstubbedOpenclawScriptSubprocess (test_v37_9_157) heuristic 脆弱 — 1500-char 前向窗口扫 yaml 每个 subprocess.run 附近是否有 kb_review.sh 字面量, 描述文本含 kb_review.sh 会误报 (V37.9.159 我的 INV 声明触发, 已去字面量化绕过)。它扫 yaml CHECK 代码 (governance check 直跑脚本), 与通用 scanner D3 (扫 test 文件) 互补。可评估: 把它升级为 AST 精确 (区分执行 vs 描述) 或扩展通用 scanner 也扫 governance check 代码。"
     ],
     "open_prs": "",
     "blocked_on": "",
@@ -348,13 +351,13 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 4478,
-    "last_regression": "2026-06-15 10:59 pass",
+    "test_count": 4563,
+    "last_regression": "2026-06-16 01:55 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-15 10:59",
-    "test_suites": 128,
-    "governance_invariants": "90/90",
-    "governance_checks": "734/748",
+    "security_score_time": "2026-06-16 01:55",
+    "test_suites": 130,
+    "governance_invariants": "91/91",
+    "governance_checks": "745/759",
     "version": "0.37.9.70",
     "observer": {}
   },
@@ -420,7 +423,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "🎉 ArXiv 论文已发表 arXiv:2606.14589 (cs.SE) + 发布配套全部完成 (V37.9.154/155 三件套: 学术原作+中文科普版+why_runtime 续篇). 外部评审2 全闭环. **INV-CRON-004 auto_deploy 双行血案彻底钉死** (V37.9.116 修 07:00 cron → V37.9.158 默认 dry-run → V37.9.158-hotfix 修 governance 子进程测试污染 test_explicit_dry_run_overrides_env, MR-9/MR-23 三层全兑现, 前瞻 scan 机器化防回归). **待用户动作**: (1) git fetch+reset 同步 Mac Mini → 手动/cron 跑 governance --full, crontab auto_deploy 保持 1 行不再被重加 (2) 知乎发布 why_runtime_not_wrapper_zh + when_errors_become_narratives_zh, 发布后给 URL 更新 README platform 列. 下一步候选 (dev): 日落法一致性收敛 / V3 backlog (Tool Policy Plugin / Memory Plane Plugin). 观察项: 4.27 推送冷调用回归 (notify.sh 兜底, 无数据丢失).",
+  "focus": "🎯 V37.9.159-161 三 item 批次完成 (用户\"全部逐个执行\"): (1) MR-23 通用治理-runtime 测试隔离 scanner — 4 次 test-pollutes-production 血案 framework 化 + 首跑抓 test_health_check 真 bug 并修复 (2) Tool Policy Plugin chunk 1 — V3 别人会扩展, policies.d/ 自动发现+校验+evaluate_policy 加性集成 (3) 日落法 doc-stat-sync V2 — 3 个 config.md 真漂移修 + jobs 计数纳入 auto-sync。129/130 suites 4563 tests 0 fail / 91 inv 839 checks / 安全 95 / 三漂移机器全绿 / VERSION 0.37.9.70 不变。**待用户**: git fetch+reset 同步 Mac Mini (scanner/engine 走 ontology symlink 零重启; test_health_check 修复让下次 07:00 governance audit 不再真发周报)。**下一步候选 (dev)**: Tool Policy Plugin chunk 2 (enforcement, 待真消费方需求) / V3 backlog (Memory Plane Plugin / Job Template SDK) / 知乎发布 why_runtime_not_wrapper。",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",

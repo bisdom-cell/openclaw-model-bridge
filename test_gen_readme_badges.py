@@ -22,6 +22,7 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -47,6 +48,8 @@ def _fake_facts(**over):
         "semver": "0.99.9.9",
         "date": "2099-12-31",
         "providers": 5,
+        "jobs_active": 40,        # V37.9.161 doc-stat-sync V2
+        "jobs_registered": 46,
     }
     f.update(over)
     return f
@@ -90,6 +93,8 @@ class TestApplyBadges(unittest.TestCase):
             # V37.9.144: README 正文两行也由 badge 路径管理, fixture 同步含目标行
             "## Supported Providers (3)\n"
             "# Full regression (10 suites / 100 tests / 0 fail; must ALL pass before push)\n"
+            # V37.9.161: Scheduled jobs 摘要也由 badge 路径管理, fixture 同步含目标行
+            "③ Scheduled jobs  35 active / 39 registered — radar\n"
         )
 
     def test_tests_badge_updated(self):
@@ -172,6 +177,26 @@ class TestReadmeBodyLineSubs(unittest.TestCase):
         self.assertNotIn("testing 摘要行", [d for d, _ in results])
         self.assertEqual(out, readme)
 
+    def test_scheduled_jobs_summary_updated_v37_9_161(self):
+        # V37.9.161 doc-stat-sync V2: README "Scheduled jobs N active / M registered" 机器同步
+        readme = "③ Scheduled jobs  35 active / 39 registered — radar\n"
+        out, results = grb.apply_badges(readme, _fake_facts(jobs_active=40, jobs_registered=46))
+        self.assertIn("Scheduled jobs  40 active / 46 registered", out)
+        self.assertEqual(dict(results)["scheduled jobs 摘要"], "CHANGED")
+
+    def test_fail_open_jobs_none_skips_scheduled_sub(self):
+        readme = "③ Scheduled jobs  35 active / 39 registered — radar\n"
+        out, results = grb.apply_badges(readme, _fake_facts(jobs_active=None))
+        self.assertNotIn("scheduled jobs 摘要", [d for d, _ in results])
+        self.assertEqual(out, readme)
+
+    def test_real_readme_scheduled_jobs_form_managed(self):
+        # 真 README 必须保持 "Scheduled jobs N active / M registered" 可管理形式
+        with open(os.path.join(_REPO, "README.md"), encoding="utf-8") as f:
+            readme = f.read()
+        self.assertRegex(readme, r"Scheduled jobs\s+\d+ active / \d+ registered",
+                         "README 必须保持 jobs sub 可管理的形式")
+
     def test_real_readme_old_versioned_form_eliminated(self):
         # 旧形式 "# Full regression (V37.9.124: ..." 已退役 (版本标记 = 漂移源),
         # 防未来重构改回带版本标记形式让 sub 失配 (TOKEN miss → 永久漂移)
@@ -250,6 +275,18 @@ class TestComputeFactsExtended(unittest.TestCase):
         gov = grb._read_governance_meta(_REPO)
         self.assertEqual(self.facts["governance_checks"], gov["checks"])
 
+    def test_jobs_count_from_registry_v37_9_161(self):
+        # V37.9.161 doc-stat-sync V2: jobs registered/active 来自 jobs_registry (曾 35→40 drift)
+        self.assertIsInstance(self.facts["jobs_registered"], int)
+        self.assertIsInstance(self.facts["jobs_active"], int)
+        self.assertGreaterEqual(self.facts["jobs_registered"], self.facts["jobs_active"])
+        self.assertGreaterEqual(self.facts["jobs_active"], 1)
+
+    def test_count_jobs_fail_open(self):
+        # 缺 jobs_registry → (None, None) 不抛 (FAIL-OPEN)
+        with tempfile.TemporaryDirectory() as td:
+            self.assertEqual(grb._count_jobs(td), (None, None))
+
 
 class TestDocHeaderSpecs(unittest.TestCase):
     """V37.9.125: _doc_header_specs 覆盖契约 + FAIL-OPEN."""
@@ -284,6 +321,24 @@ class TestDocHeaderSpecs(unittest.TestCase):
         self.assertIsNotNone(m, "FEATURES 正文测试行必须存在")
         self.assertEqual(int(m.group(1)), facts["test_suites"])
         self.assertEqual(int(m.group(2)), facts["test_count"])
+
+    def test_features_header_includes_active_jobs_token_v37_9_161(self):
+        """V37.9.161: FEATURES 摘要行 'N active jobs' token 被 spec 管理 (防 35→40 类漂移)."""
+        specs = grb._doc_header_specs(_fake_facts())
+        # header spec = FEATURES 且非正文测试行 spec (后者 anchor 含 '测试')
+        header = [t for rel, a, t in specs
+                  if rel == "docs/FEATURES.md" and "测试" not in a.pattern]
+        self.assertTrue(header)
+        descs = [d for d, _, _ in header[0]]
+        self.assertIn("active jobs", descs)
+
+    def test_jobs_token_fail_open_when_none_v37_9_161(self):
+        # jobs_active=None → 不管理 active jobs token (FAIL-OPEN)
+        specs = grb._doc_header_specs(_fake_facts(jobs_active=None))
+        header = [t for rel, a, t in specs
+                  if rel == "docs/FEATURES.md" and "测试" not in a.pattern]
+        descs = [d for d, _, _ in header[0]]
+        self.assertNotIn("active jobs", descs)
 
     def test_fail_open_skips_none_facts(self):
         # mrd_scanners/cases/providers/security None → 不管理对应 token (FAIL-OPEN)
@@ -336,7 +391,7 @@ class TestApplyOneDoc(unittest.TestCase):
         facts = _fake_facts(test_count=9999, invariants=42, meta_rules=7)
         anchor, tokens = self._features_spec(facts)
         text = ("> v99.9.9 (2099-12-31) | **9999 tests** / 200 suites / 0 fail | **5 providers** (含 X) "
-                "| **5 active jobs** | 5 SLO metrics | 9 preflight checks | dual-channel "
+                "| **40 active jobs** | 5 SLO metrics | 9 preflight checks | dual-channel "
                 "| **42 governance invariants / 7 meta-rules / 333 checks / 20 MRD scanners** "
                 "| security 88/100 | 30 blood-lesson case docs\n")
         new_text, results = grb._apply_one_doc(text, anchor, tokens)
