@@ -213,6 +213,11 @@
       "date": "2026-06-16",
       "what": "V37.9.162 恢复进展(incident状态): WhatsApp设备链接限流未清, login连续6次408. 发消息限流已清(手机能发)但设备链接限流是独立更严的throttle. 每次失败login重新触发限流(Baileys反复失败链接有升级封禁风险). 决策: 停止所有尝试2-3小时让限流冷却, 然后单次login. 预防修复(wa_channel_status.py+wa_keepalive频道监控)已提交推送branch claude/inspiring-curie-yppj74, 待用户合并+同步.",
       "by": "claude_code"
+    },
+    {
+      "date": "2026-06-16",
+      "what": "V37.9.162 案例文档(原则#26异常分析宪法): ontology/docs/cases/whatsapp_session_logout_silent_7h_case.md — 完整因果链架构图(凌晨重连风暴→08:34 session logged out→7h静默→诊断→恢复)+三层根因(触发器Baileys重连风暴/放大器wa_keepalive只探Gateway端口对频道盲/掩护者全绿仪表盘)+与V37.8.13区别表(Gateway真死 vs Gateway健康频道死)+条件组合+MR-4/MR-14谱系+5元教训. cases 25→26.",
+      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -297,7 +302,6 @@
       "V37.9.159 test_health_check 真 bug Mac Mini 生产验证 (dev 不可执行): scanner 首跑抓 test_health_check 跑 health_check.sh 漏 push 隔离 → 治理 07:00 audit 在 Mac Mini 是否真在发日报型 health 周报 (marker 时序依赖: gov 07:00 先于 weekly 09:00 + 24h>20h interval → 疑似每日 07:00 真发)。修复后应消失。Mac Mini 同步后观察 07:00 是否还收到 health 周报 + 确认 weekly 09:00 周报正常。",
       "V37.9.159 follow-up (低优): 窄 guard TestNoUnstubbedOpenclawScriptSubprocess (test_v37_9_157) heuristic 脆弱 — 1500-char 前向窗口扫 yaml 每个 subprocess.run 附近是否有 kb_review.sh 字面量, 描述文本含 kb_review.sh 会误报 (V37.9.159 我的 INV 声明触发, 已去字面量化绕过)。它扫 yaml CHECK 代码 (governance check 直跑脚本), 与通用 scanner D3 (扫 test 文件) 互补。可评估: 把它升级为 AST 精确 (区分执行 vs 描述) 或扩展通用 scanner 也扫 governance check 代码。",
       "V37.9.162 follow-up: INV-WA-CHANNEL-001 治理不变式 (whatsapp-channel-disconnect-escalates-when-gateway-healthy, meta_rule=MR-14, 镜像INV-WA-001) — 一周观察wa_channel_status生产效果后立 (shadow-first惯例, 同INV-DEEP-001)",
-      "V37.9.162 follow-up: 异常分析宪法(原则#26)案例文档 ontology/docs/cases/whatsapp_session_logout_silent_7h_case.md — 完整因果链架构图+三层根因(凌晨重连风暴触发器/wa_keepalive探端口不探频道放大器/Gateway健康掩护者)+时间线+MR-14第N次演出",
       "V37.9.162 战略 follow-up: Baileys(非官方WhatsApp Web客户端)重复封禁风险评估 — 凌晨重连风暴(每断开Retry 1/12, 6h数十次)触发WhatsApp反滥用导致账号级临时限流. 评估: (a)降低Baileys重连激进度/backoff (b)WhatsApp官方Business API替代方案成本 (c)接受风险+监控(已由V37.9.162 wa_channel_status覆盖)",
       "V37.9.162 incident 恢复(进行中): WhatsApp设备链接限流冷却中 — 停止login尝试2-3h后单次重试. 若多次(隔数小时)单次尝试仍408→评估是否升级为长期封禁+Baileys替代方案. 这是WhatsApp服务端限流,非代码可修.",
       "V37.9.162 follow-up: 4.27 openclaw CLI 插件 staging churn 调查 — 每次 channels login 全量重staging 9+插件(13-39s, 含acpx/bedrock/vertex/browser与WhatsApp无关), plugin-runtime-deps 未持久化. 吃掉连接超时预算. 查 ~/.openclaw/plugin-runtime-deps/ 多hash dir机制(V37.9.145遗留)"
