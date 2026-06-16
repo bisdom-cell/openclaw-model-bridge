@@ -2,7 +2,7 @@
 
 > **V37.9.99-pkg / 2026-06-02 · Phase 5 chunk 1** + **V37.9.104 / 2026-06-04 · chunk 4 (Extension Guide + 最小消费方 demo)**
 > 终极目标 `pip install <ontology-engine>` + 项目级 YAML 配置的奠基文档。
-> 当前基础: Phase 3 ONTOLOGY_MODE=on / Phase 4 P1-P3 evaluate_policy + three_gate / 90 不变式 / 23 元规则 / governance v3.56。
+> 当前基础: Phase 3 ONTOLOGY_MODE=on / Phase 4 P1-P3 evaluate_policy + three_gate / 91 不变式 / 23 元规则 / governance v3.56。
 > chunk 4 交付: `examples/minimal_consumer/` (WeatherBot 真消费方) + `docs/ontology_engine_extension_guide.md` + `test_ontology_extension_demo.py` (12 端到端单测)。
 
 ---

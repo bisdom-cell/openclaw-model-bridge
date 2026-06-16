@@ -1,0 +1,43 @@
+# Example Tool Policy Plugin (V37.9.160 chunk 1)
+#
+# 声明额外的工具策略, 无需改 policy_ontology.yaml 主文件。
+# 复制此文件、去掉开头的 '_'、填上你的策略, 引擎会在
+# discover_policy_plugins() / evaluate_policy() 调用时自动发现。
+#
+# 文件名: <policy-set>.yaml (如 cost_guard.yaml)
+# 以 '_' 或 '.' 开头的文件被跳过 (示例/隐藏)。
+# 放在 <ONTOLOGY_CONFIG_DIR>/policies.d/ 下 (默认 ontology/policies.d/)。
+#
+# 支持三种结构 (任选其一):
+#   (A) {policies: [ {...}, {...} ]}   推荐, 多条策略
+#   (B) 顶层 list: [ {...}, {...} ]     多条策略
+#   (C) 单条 policy dict: {id: ...}     单条策略
+#
+# 每条策略必填字段:
+#   - id:               唯一标识 (字符串, 如 "max-cost-per-task")
+#   - type:             static | temporal | contextual
+#   - rule:             人类可读规则文本
+#   - enforcement_site: 该策略在哪里被强制 (代码位置, 如 "tool_proxy.py::do_POST")
+#
+# 可选字段:
+#   - scope:                list 或 str (如 [Tool] / [Provider])
+#   - limit:                数字阈值 (供 evaluate_policy().limit 直出)
+#   - hard_limit:           bool (是否硬限制)
+#   - rationale:            为何需要此策略
+#   - governance_invariant: 关联的 INV-* (供治理交叉引用)
+#
+# --- 示例: 单任务最大工具调用成本 ---
+#
+# policies:
+#   - id: max-tool-cost-per-task
+#     type: static
+#     scope: [Tool]
+#     rule: "sum(tool_call_cost) <= 0.50 USD per task"
+#     limit: 0.50
+#     hard_limit: true
+#     enforcement_site: "tool_proxy.py::do_POST cost accumulator"
+#     rationale: "防单任务工具调用成本失控 (镜像 max-tool-calls-per-task)。"
+#     governance_invariant: INV-COST-001
+#
+# 校验: python3 ontology/engine.py --validate-policies
+# 接入后 evaluate_policy("max-tool-cost-per-task") 即可解析 (base 文件无则查此插件)。
