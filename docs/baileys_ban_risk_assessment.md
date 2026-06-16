@@ -39,28 +39,23 @@ Baileys 按 `DisconnectReason` 分类断开原因决定是否重连：
 
 **成本**：低（配置调整，无需改代码）。**收益**：显著降低（非消除）封禁风险，保留"PA 用你自己 WhatsApp 号、linked-device、零额外号码"的便利模型。
 
-**✅ 可配性已确认（WebSearch 研究，2026-06-16）**：OpenClaw 的重连**就是 `openclaw.json` 可配的**，旋钮已找到：
+**✅ 可配性核实结果（2026-06-16 Mac Mini 实测,修正前述 WebSearch 文档推断 — 血案 #98 兑现）**：
 
-```
-openclaw.json → web.reconnect:
-  initialMs:   2000      # 首次重连等待
-  maxMs:       120000    # 退避上限 120s
-  factor:      1.4       # 指数退避因子
-  jitter:      0.2       # 25% 随机抖动
-  maxAttempts: 0   ← 0 = 无限重连 = 根因！对 crash-loop/风暴零保护
-web.whatsapp:
-  keepAliveIntervalMs:  25000   # 408 超时可调
-  connectTimeoutMs:     60000
-  defaultQueryTimeoutMs: 60000
-```
+- **4.27 实际结构**:WhatsApp 配置在 `channels.whatsapp.{enabled/dmPolicy/selfChatMode/groupPolicy/debounceMs/mediaMaxMb}`,**默认无 reconnect 块**(`web.reconnect`/`maxAttempts`/`keepAlive` 一个都没显式写)→ 用内置默认 `maxAttempts=0`(无限重连)= 根因默认就激活。
+- **`web.reconnect.maxAttempts`(默认 0)是 OpenClaw 文档化配置项**(docs.openclaw.ai/gateway/config-channels),但默认不写入 openclaw.json。`web` = WhatsApp **Web**(Baileys 协议)层,推断路径 = `channels.whatsapp.web.reconnect.maxAttempts`(需 4.27 实测确认)。
+- **OpenClaw 不会加自动熔断**:issue #16270「加熔断防重连触发封禁」2026-02-14 开 → **已 closed as NOT PLANNED**(拒绝自动"10 连续失败→30min 退避")。官方立场 = 暴露 `maxAttempts` 让用户自己配("Protecting your WhatsApp account"段)。
 
-**根因精确定位**：`maxAttempts: 0`（无限）= 断开→`Retry 1/12`→断开→`Retry 1/12` 永续 → 6h 风暴 → 封禁。日志里的 `Retry 1/12` 是每次断开的 per-drop 重试上限（Baileys 内部 12），但 `web.reconnect.maxAttempts: 0` 让**整体会话级重连无上限**。
+**根因精确定位**:`maxAttempts: 0`(无限)= 断开→`Retry 1/12`→断开→`Retry 1/12` 永续 → 6h 风暴 → 08:34 封禁。`Retry 1/12` 是每次断开的 per-drop 上限(Baileys 内部 12),`maxAttempts: 0` 让**整体会话级重连无上限**,所以风暴跑满 6h 直到 WhatsApp 自己 401 登出(=封禁)才停。
 
-**修复**：`web.reconnect.maxAttempts` 0 → **有限值（建议 5-8）**——连续 N 次重连失败即停止 + 推 Discord 告警（issue #11871 行为），而不是 hammer 6h。**OpenClaw 自己也认这个问题**：issue #16270「WhatsApp: Add circuit breaker to prevent reconnect loops from triggering account bans」+ 文档"Protecting your WhatsApp account"段明确推荐生产环境配 `maxAttempts`。
+**修复 = 手动新增 `channels.whatsapp.web.reconnect.maxAttempts` 有限值**(这是 OpenClaw 官方认可的唯一路径,因为自动熔断 NOT PLANNED)。**推荐值 ~10-15**:够扛瞬时断开 1-2 次自愈,又把 6h 风暴上限砍到"N 次(~10-20min)后停止 + 告警"。比激进的 5-8 更稳(夜间瞬断不易误停);比无限(现状)安全得多(6h→~15min,远不到封禁阈值)。
 
-**A + C 协同（关键）**：有限 `maxAttempts`（断风暴防封禁）+ V37.9.162 频道掉线检测（停止后 1h 内 Discord 告警）= **既不被封、又不静默**。代价：若服务端持续拒绝（如已知 24h-428 issue #1625），N 次后停止 → WhatsApp 下线到人工重链（但这是"2 分钟重链" vs "2-8 周封禁"的好交易，且 V37.9.162 会 1h 内告警）。
+**🔴 时序铁规则(关键)**:**配置改 + Gateway 重启必须等 WhatsApp 重链稳定后做**。Gateway 重启会触发一次新的 Baileys 连接 — **当前限流未清时重启 = 又一次连接尝试 = 可能重新触发/延长限流**(正是凌晨风暴成因)。所以顺序:① 先 WhatsApp 恢复(等冷却→扫码→稳定)→ ② 再改 config + 重启。
 
-**值的权衡（需 Mac Mini 核实当前值后定）**：`maxAttempts` 太低 → 正常瞬时断开也不自愈、夜间易掉线；太高 → 风暴风险。默认 backoff（2s 起、×1.4、封顶 120s）下，瞬时断开 1-2 次即恢复，故 5-8 能扛瞬断又能在几分钟内掐断持续风暴。
+**应用步骤(WhatsApp 稳定后)**:(1) `cp ~/.openclaw/openclaw.json ~/.openclaw/openclaw.json.bak` 备份 (2) 在 `channels.whatsapp` 下加 `"web": {"reconnect": {"maxAttempts": 12}}`(精确 JSON 我届时给) (3) `bash ~/restart.sh` (4) 验证 Gateway 干净启动(若 strict schema 拒绝未知键 → Gateway 起不来 → 立即 `cp .bak` 还原) + re-dump 确认 config 在位 (5) 若 4.27 忽略该键(无效) → 确认 4.27 不支持,A 退化为"等支持的版本"(见下"A 的现实约束")。
+
+**A 的现实约束(诚实登记)**:能否真生效取决于 4.27 是否读 `channels.whatsapp.web.reconnect.maxAttempts`。文档描述它但我们 4.27 实例默认没这块 → 加上去**要么生效(理想)要么被忽略(无害但 A 失效)**。若被忽略 → A 真正落地需等 OpenClaw 出"暴露 reconnect 配置"的版本(#56365 "expose Baileys socket timing" 仍是 open request)。届时按项目 tripwire 升级纪律评估升级。**在 A 确认生效前,C(V37.9.162 检测 + 恢复 SOP)是事实上的主防线。**
+
+**A + C 协同**:有限 `maxAttempts`(断风暴防封禁)+ V37.9.162 频道掉线检测(停止后 1h 内 Discord 告警)= 既不被封、又不静默。代价:服务端持续拒绝时 N 次后停止 → WhatsApp 下线到人工重链(但"2 分钟重链" vs "2-8 周封禁"是好交易,且 1h 内告警)。
 
 ### 选项 B：迁移到官方 WhatsApp Business Cloud API
 
@@ -115,7 +110,8 @@ python3 -m json.tool ~/.openclaw/openclaw.json | grep -inE "reconnect|maxattempt
 - [Baileys issue #1625: 428 Connection Timeout after ~24h with Multi-File Auth](https://github.com/WhiskeySockets/Baileys/issues/1625)（疑似今天 01:59 428 的已知 bug）
 - [Baileys issue #1869: High number of bans on WhatsApp](https://github.com/WhiskeySockets/Baileys/issues/1869)
 - [OpenClaw issue #11871: auto-reconnect on Baileys WebSocket session drop](https://github.com/openclaw/openclaw/issues/11871)（OpenClaw 的 Baileys 重连实现：指数退避 5s/15s/60s/5min + N 次失败后告警）
-- [OpenClaw issue #16270: Add circuit breaker to prevent reconnect loops from triggering account bans](https://github.com/openclaw/openclaw/issues/16270)（**与本血案完全同构** — OpenClaw 项目自己也认这个问题）
+- [OpenClaw issue #16270: Add circuit breaker to prevent reconnect loops from triggering account bans](https://github.com/openclaw/openclaw/issues/16270)（**与本血案完全同构,2026-02-14 开,但已 closed as NOT PLANNED** — OpenClaw 拒绝加自动熔断,官方立场=暴露 `maxAttempts` 让用户自配。提议过"10 连续失败→30min 退避"被拒）
+- [OpenClaw 2026.6.2 release: "improved gateway recovery"](https://releasebot.io/updates/openclaw)（>4.27 的版本,gateway recovery 改进,但 reconnect 配置暴露 #56365 仍 open — 升级前需按 tripwire 纪律评估）
 - [OpenClaw issue #56054: WhatsApp Baileys perpetual status 499 reconnection loop with creds.json corruption cycle](https://github.com/openclaw/openclaw/issues/56054)（匹配我们的 499 码）
 - [OpenClaw issue #56365: makeWASocket config passthrough — expose Baileys socket timing](https://github.com/openclaw/openclaw/issues/56365)（Baileys socket timing 配置透传）
 - [OpenClaw 文档 — Configuration: channels](https://docs.openclaw.ai/gateway/config-channels)（`web.reconnect`: initialMs/maxMs/factor/jitter/maxAttempts + `web.whatsapp`: keepAliveIntervalMs/connectTimeoutMs + "Protecting your WhatsApp account" 段推荐配 maxAttempts）
