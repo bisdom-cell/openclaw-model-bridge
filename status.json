@@ -1,6 +1,6 @@
 {
-  "updated": "2026-06-16 01:57:27",
-  "updated_by": "claude_code",
+  "updated": "2026-06-16 09:25:35",
+  "updated_by": "security_score",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -203,6 +203,36 @@
       "date": "2026-06-14",
       "what": "V37.9.148: 外部评审2 P2(c) 仓库外 dogfood — examples/external_dogfood/ 把 V37.9.137 一次性 PyPI 冒烟升级为 CI 回归守卫. 离线 build wheel (SETUPTOOLS_USE_DISTUTILS=stdlib 绕 Debian install_layout quirk) → 隔离 --system-site-packages venv 装 wheel --no-deps (无 PYTHONPATH 回 monorepo) → 全新 LibraryBot toy 复制出仓库到 /tmp 跑 import ontology_engine (chunk-2-lite 去泛化对真消费方唯一验证) + console scripts audit/query + 反向验证无注入读 wheel bundled 默认 (data_clean 在/checkout_book 不在). 17 单测 (8 source guards 恒跑 + 9 wheel E2E skipUnless) + sabotage 铁证 (toy MAX 5→7 audit FAIL). 126 suites/4445 tests/0 fail/VERSION 不变. P2 全档 a/b/c 闭环.",
       "by": "claude_code"
+    },
+    {
+      "date": "2026-06-16",
+      "what": "V37.9.162: WhatsApp 频道掉线监控 — wa_keepalive 7个月盲区闭环 (2026-06-16 session logged out 静默7h血案). 凌晨6h重连风暴(428/499/503)→08:34服务端登出→静默7h; Gateway HTTP全程200+Discord connected但WhatsApp频道死, wa_keepalive只探Gateway端口对频道掉线完全盲零告警. 确诊账号级临时限流(Baileys非官方客户端重连风暴触发反滥用,非永久封禁; curl WS端点400/0.34s证网络通, 手机重启后8min自愈✓✓). 修复两件套: wa_channel_status.py纯函数解析channels status的WhatsApp行(FAIL-OPEN+token精确区分+手机号不泄漏) + wa_keepalive.sh Gateway-OK分支_wa_channel_check独立计数,连续2次(1h)升级Discord#alerts(MR-14走Discord不走WhatsApp). 46新单测. 连带修INV-WA-001治理+test_wa_gateway_resilience既有coarse断言(--channel whatsapp→message send --channel whatsapp, 避误伤恢复指令文本). 131 suites/4609 tests/0 fail/governance 91/91/VERSION 0.37.9.70不变.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-16",
+      "what": "V37.9.162 恢复进展(incident状态): WhatsApp设备链接限流未清, login连续6次408. 发消息限流已清(手机能发)但设备链接限流是独立更严的throttle. 每次失败login重新触发限流(Baileys反复失败链接有升级封禁风险). 决策: 停止所有尝试2-3小时让限流冷却, 然后单次login. 预防修复(wa_channel_status.py+wa_keepalive频道监控)已提交推送branch claude/inspiring-curie-yppj74, 待用户合并+同步.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-16",
+      "what": "V37.9.162 案例文档(原则#26异常分析宪法): ontology/docs/cases/whatsapp_session_logout_silent_7h_case.md — 完整因果链架构图(凌晨重连风暴→08:34 session logged out→7h静默→诊断→恢复)+三层根因(触发器Baileys重连风暴/放大器wa_keepalive只探Gateway端口对频道盲/掩护者全绿仪表盘)+与V37.8.13区别表(Gateway真死 vs Gateway健康频道死)+条件组合+MR-4/MR-14谱系+5元教训. cases 25→26.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-16",
+      "what": "V37.9.162 战略评估: docs/baileys_ban_risk_assessment.md — Baileys封禁风险评估决策文档. 根因机制(DisconnectReason分类+无全局熔断→6h重连风暴→401登出)+风险量化(2-8周封禁线/68%12月内被封/ML反滥用权重)+三选项(A降低重连激进度保留linked-device低成本 / B官方Cloud API消除风险但需专用号破坏个人PA模型 / C接受+监控现状)+推荐A+C为主B条件触发. ⚠️警示lotusbail恶意anti-ban包. WebSearch研究(WebFetch沙箱403). 待用户拍板.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-16",
+      "what": "V37.9.162 A方向定位完成(用户选A+C): WebSearch研究确认OpenClaw重连可配, 根因旋钮=openclaw.json web.reconnect.maxAttempts默认0(无限重连)→6h风暴→封禁. OpenClaw自有issue#16270'加熔断防重连循环触发封禁'同构本血案. 修复=maxAttempts 0→5-8全局熔断+V37.9.162检测协同. docs/baileys_ban_risk_assessment.md 更新Option A(可配性已确认+具体config块+推荐值+A+C协同+Mac Mini核实命令). 待WhatsApp恢复后核实+改config.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-16",
+      "what": "V37.9.162 A执行核实(血案#98兑现): Mac Mini实测修正WebSearch文档推断. 4.27 openclaw.json默认无reconnect块→内置默认maxAttempts=0(无限重连=根因). 修复=手动加channels.whatsapp.web.reconnect.maxAttempts:12(自动熔断#16270已closed NOT PLANNED, 官方只暴露maxAttempts让用户自配). 🔴时序铁规则: config改+Gateway重启必须等WhatsApp重链稳定后(重启=新连接尝试, 限流未清时重启会重新触发). 应用时验证4.27是否读该键(干净启动+re-dump), 拒绝则.bak还原, 忽略则A退化等支持版本. docs/baileys_ban_risk_assessment.md Option A已据实测修正. C(检测)是A生效前主防线.",
+      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -285,11 +315,15 @@
       "✅ V37.9.158 + V37.9.158-hotfix 已完成 (INV-CRON-004 auto_deploy 双行血案彻底钉死): V37.9.158 默认 dry-run (Layer 1 MR-23) + V37.9.158-hotfix 修真凶 = test_convergence.py::test_explicit_dry_run_overrides_env 测试污染生产 (该测试故意显式 dry_run=False 绕过默认 dry-run, governance INV-CONVERGENCE-CRON-001 runtime check 跑 test 子进程时在 Mac Mini 真 add 重加双行). 修复 HOME→tempdir + mock subprocess + 前瞻 scan 机器化 (TestConvergenceTestNoCrontabMutation). Mac-Mini 模拟铁证 (植入 fake $HOME/crontab_safe.sh sentinel 从未写入). 残留 Layer 2 (auto_deploy endswith parser 不匹配 line 5) 仅显式 CONVERGENCE_APPLY=1 浮现, 默认 dry-run 下不触发, 低优 defer.",
       "V37.9.160 Tool Policy Plugin chunk 2 (待真消费方需求驱动, 原则 #18): enforcement 真接入 — tool_proxy/three_gate 读 policies.d/ 插件策略真截断 (镜像 _resolve_max_tools_limit 的 max-tools-per-agent 硬截断)。当前 chunk 1 只 observability (evaluate_policy 可查)。Provider Plugin 由 Doubao 驱动 enforcement 同款, 应等成本守卫类真需求。+ pyproject package-data 加 ontology/policies.d/ (pip 包含示例)。+ 缓存 (evaluate_policy 未命中 base 即重扫 policies.d/)。",
       "V37.9.159 test_health_check 真 bug Mac Mini 生产验证 (dev 不可执行): scanner 首跑抓 test_health_check 跑 health_check.sh 漏 push 隔离 → 治理 07:00 audit 在 Mac Mini 是否真在发日报型 health 周报 (marker 时序依赖: gov 07:00 先于 weekly 09:00 + 24h>20h interval → 疑似每日 07:00 真发)。修复后应消失。Mac Mini 同步后观察 07:00 是否还收到 health 周报 + 确认 weekly 09:00 周报正常。",
-      "V37.9.159 follow-up (低优): 窄 guard TestNoUnstubbedOpenclawScriptSubprocess (test_v37_9_157) heuristic 脆弱 — 1500-char 前向窗口扫 yaml 每个 subprocess.run 附近是否有 kb_review.sh 字面量, 描述文本含 kb_review.sh 会误报 (V37.9.159 我的 INV 声明触发, 已去字面量化绕过)。它扫 yaml CHECK 代码 (governance check 直跑脚本), 与通用 scanner D3 (扫 test 文件) 互补。可评估: 把它升级为 AST 精确 (区分执行 vs 描述) 或扩展通用 scanner 也扫 governance check 代码。"
+      "V37.9.159 follow-up (低优): 窄 guard TestNoUnstubbedOpenclawScriptSubprocess (test_v37_9_157) heuristic 脆弱 — 1500-char 前向窗口扫 yaml 每个 subprocess.run 附近是否有 kb_review.sh 字面量, 描述文本含 kb_review.sh 会误报 (V37.9.159 我的 INV 声明触发, 已去字面量化绕过)。它扫 yaml CHECK 代码 (governance check 直跑脚本), 与通用 scanner D3 (扫 test 文件) 互补。可评估: 把它升级为 AST 精确 (区分执行 vs 描述) 或扩展通用 scanner 也扫 governance check 代码。",
+      "V37.9.162 follow-up: INV-WA-CHANNEL-001 治理不变式 (whatsapp-channel-disconnect-escalates-when-gateway-healthy, meta_rule=MR-14, 镜像INV-WA-001) — 一周观察wa_channel_status生产效果后立 (shadow-first惯例, 同INV-DEEP-001)",
+      "V37.9.162 A 执行(gated): Baileys 重连封禁预防. Mac Mini 实测修正(血案#98兑现): 4.27 openclaw.json 默认无 reconnect 块(channels.whatsapp.{enabled/dmPolicy/...}无web子键), 用内置默认 maxAttempts=0(无限). 修复=手动加 channels.whatsapp.web.reconnect.maxAttempts:12(OpenClaw官方唯一路径, 自动熔断#16270已closed NOT PLANNED). 🔴时序: 配置改+Gateway重启必须等WhatsApp重链稳定后(重启=新Baileys连接, 限流未清时重启会重新触发限流). 不确定性: 4.27是否读该键未知→应用时验证(Gateway干净启动+re-dump确认), strict schema拒绝则cp .bak还原; 若忽略则A退化为等支持版本(#56365 expose-reconnect-config仍open, 按tripwire升级纪律). A确认生效前C(V37.9.162检测)是事实主防线.",
+      "V37.9.162 incident 恢复(进行中): WhatsApp设备链接限流冷却中 — 停止login尝试2-3h后单次重试. 若多次(隔数小时)单次尝试仍408→评估是否升级为长期封禁+Baileys替代方案. 这是WhatsApp服务端限流,非代码可修.",
+      "V37.9.162 follow-up: 4.27 openclaw CLI 插件 staging churn 调查 — 每次 channels login 全量重staging 9+插件(13-39s, 含acpx/bedrock/vertex/browser与WhatsApp无关), plugin-runtime-deps 未持久化. 吃掉连接超时预算. 查 ~/.openclaw/plugin-runtime-deps/ 多hash dir机制(V37.9.145遗留)"
     ],
     "open_prs": "",
     "blocked_on": "",
-    "focus": "2026-06-15 V37.9.158: INV-CRON-004 反复血案真根治完成 — convergence 默认 dry-run (MR-23 audit-observes-never-mutates 完整). 手动 governance --full 现不再 mutate crontab (默认 dry-run); 显式同步用 CONVERGENCE_APPLY=1. Mac Mini 待用户: git fetch+reset 同步 → 下次手动 governance 不再重加 auto_deploy → INV-CRON-004 不再复发. 整个 session 全闭环: 论文发表线 + 4.27 推送链路追踪 + governance 三异常 (两 💥 + INV-CRON-004) 全部根治. 残留 Layer 2 (auto_deploy endswith parser) 仅显式 APPLY=1 浮现, defer 候选.",
+    "focus": "2026-06-16 V37.9.162: WhatsApp 静默7h血案 — 预防修复已提交(131 suites/4609 tests/0 fail), 但【恢复未完成,卡在 WhatsApp 设备链接限流】. 进展: 发消息限流已清(手机能正常发), 但 openclaw channels login 连续6次408(15:34-16:36), 确诊=WhatsApp对'链接新设备'的限流未清, 且每次失败login重新触发它(Baileys非官方客户端,反复失败链接有升级为更长/永久封禁风险). 网络OK(curl WS 400/0.34s), 插件staging churn(4.27已知, 每次全量重staging 13-39s)是雪上加霜非根因. 【唯一解药=时间+零尝试】: 停止所有login尝试2-3小时让限流自然冷却→然后单次login出二维码扫码→channels status确认connected→给PA发消息确认回复. Discord正常(告警通道在). Mac Mini待用户: ①WhatsApp恢复后git fetch+reset同步预防修复 ②确认PA能回复. deferred: INV-WA-CHANNEL-001(一周观察后立)+异常分析宪法案例文档+Baileys封禁战略风险评估+4.27插件staging churn持久化调查.",
     "current_focus": "V37.8 MR-6 深度补齐生产硬验证通过 (35/35 inv / 136/136 checks / 9/9 MR 全绿). 下一步: V37.8.1 修复 MRD-NOTIFY-002 activity 层假阳性 (topic→job log 映射扫 mtime) 或 Ontology Phase 3 渐进替换 (ONTOLOGY_MODE=on) 或 Tool Policy Plugin V3 路标",
     "recent_changes": [
       {
@@ -351,11 +385,11 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 4563,
-    "last_regression": "2026-06-16 01:55 pass",
+    "test_count": 4609,
+    "last_regression": "2026-06-16 08:10 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-16 01:55",
-    "test_suites": 130,
+    "security_score_time": "2026-06-16 08:10",
+    "test_suites": 131,
     "governance_invariants": "91/91",
     "governance_checks": "745/759",
     "version": "0.37.9.70",

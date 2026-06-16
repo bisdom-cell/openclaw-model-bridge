@@ -3860,9 +3860,12 @@ invariants:
                   if '"0"' in window and "WARN_COUNT" in window:
                       found_reset = True
           assert found_reset, "成功路径缺少 WARN 计数器重置"
-          # 告警不走 WhatsApp（告警链独立于失效主体）
+          # 告警的发送路径不走 WhatsApp（告警链独立于失效主体）
+          # V37.9.162: 校验 `message send --channel whatsapp`（实际发送路径），而非裸
+          # `--channel whatsapp`——后者会误伤 V37.9.162 频道掉线恢复指令文本
+          # `openclaw channels login --channel whatsapp`（给用户看的修复命令，合法）。
           escalation = src[src.find("ESCALAT"):]
-          assert "--channel whatsapp" not in escalation, "告警路径不应走 WhatsApp"
+          assert "message send --channel whatsapp" not in escalation, "告警发送路径不应走 WhatsApp"
 
   - id: INV-QUIET-001
     name: quiet-alert-sends-discord-during-silence-period
