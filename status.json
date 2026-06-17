@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-17 00:47:39",
+  "updated": "2026-06-17 00:54:23",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -111,6 +111,11 @@
     },
     {
       "date": "2026-06-16",
+      "what": "V37.9.162 部署里程碑: PR #719 已合并 + Mac Mini 同步 + preflight --full 验证(86 pass/1 fail/1 warn). 唯一fail=check16 WhatsApp推送(频道未重链=事件未恢复, 非回归)+warn=KB 99%(常规). wa_keepalive频道监控(7h盲区→1h告警)已部署生效. WhatsApp重链+A config(maxAttempts:12)deferred到明天(用户决定明天操作). 整个session: 血案诊断+恢复指导+预防修复(C)+案例文档+Baileys评估(A定位)全闭环, dev侧零遗留.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-16",
       "what": "V37.9.161 日落法 doc-stat-sync V2 — 审计抓 3 个 config.md 真漂移修复 (L878 jobs 10→46/40, L64+L156 preflight 17→19 内部不一致) + jobs active/registered 纳入 gen_readme_badges auto-sync (曾 35→40 真 drift, jobs_registry 唯一源)。SLO(5 稳定常量)/preflight(19 罕漂移) 诚实留手动不加机器 (日落法防御本身是事故面)。test_gen_readme_badges 60→67。同 session 三 item (scanner/Tool Policy Plugin/doc-sync) 全 VERSION 不变零业务语义。",
       "by": "claude_code"
     },
@@ -197,11 +202,6 @@
     {
       "date": "2026-06-14",
       "what": "V37.9.150: 外部评审2 P2(d) complexity budget 惯例化 — 纯约定零新机器 (日落法 MR-22 自我示范). 不写 complexity_budget.py 工具 (那是它要防的东西: 新脚本=新故障面+新状态源+新 check, 用增加复杂度测量复杂度=药参与病). 实现: 账本=既有徽章 gen_readme_badges + 四维度(files/env/jobs/state)只在变化时手动记 + 收工清单 J 项自问退役了什么 + 3 硬规则明文 + 刻意无守卫测试. docs/complexity_budget.md + CLAUDE.md 收工清单 J + 原则#34 引用. 纯文档零新测试 VERSION 不变 (自身就是预算免费类). P2 全档 a/b/c/d/e + P1 全闭环, 评审 7 动作全销项.",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-06-14",
-      "what": "V37.9.149: 外部评审2 P2(e) 话语权续篇 docs/articles/why_runtime_not_wrapper.md (EN) + _zh.md (ZH). 角度=wrapper vs control plane 结构性区别 (not another wrapper), 用双外部评审 (4/17+6/11 都给控制平面定位~9, 都点中 PA 耦合+复杂度同一软肋) 作交叉验证 + 日落法诚实反驳过度工程质疑 + V37.9.148 dogfood 作可抽离性铁证. 事实全核无编造. 纯文档零新测试, VERSION 不变. P2 全档 a/b/c/e + P1 闭环.",
       "by": "claude_code"
     }
   ],
@@ -293,7 +293,7 @@
     ],
     "open_prs": "",
     "blocked_on": "",
-    "focus": "2026-06-17 WhatsApp 恢复仍 user-gated: 今天第7次 login 仍 408(设备链接限流隔夜未清, 累计7次失败喂养限流). 已停手, 须从今 08:30 起 24h+ 零 login 尝试 + 期间正常用手机(健康信号), 然后单次扫码. 用户拍板 Option A(maxAttempts:12 熔断砍6h重连风暴根因) — dev ready-to-apply 包已提交推送(docs/baileys_ban_risk_assessment.md 'Option A ready-to-apply 包', schema 实证 + Python 原子补丁 dev 测过 + runbook + 回滚). 铁规则: WhatsApp 恢复稳定后才应用 A. 恢复后验证: 真实 channels status connected 行喂 wa_channel_status.py 应得 0|1|connected(非 indeterminate).",
+    "focus": "2026-06-17 续 V37.9.162: 部署已验证干净(Mac Mini git reset 同步 + preflight --full 86/86 实质过, wa_keepalive 频道监控已部署生效; 唯一 fail=check16 WhatsApp 推送=频道未重链 session-logout 未恢复, 非回归, 重链后自动转绿). WhatsApp 恢复仍 user-gated: 今天第7次 login 仍 408(设备链接限流隔夜未清), 已停手须 24h+ 零尝试冷却+期间正常用手机. 用户拍板 Option A(maxAttempts:12 熔断砍6h重连风暴根因), dev ready-to-apply 包已提交推送(baileys_ban_risk_assessment.md, schema实证+Python原子补丁dev测过+runbook+回滚). 铁规则:恢复稳定后才应用A. 恢复后验证: channels status真实connected行喂wa_channel_status.py应得0|1|connected(非indeterminate).",
     "current_focus": "V37.8 MR-6 深度补齐生产硬验证通过 (35/35 inv / 136/136 checks / 9/9 MR 全绿). 下一步: V37.8.1 修复 MRD-NOTIFY-002 activity 层假阳性 (topic→job log 映射扫 mtime) 或 Ontology Phase 3 渐进替换 (ONTOLOGY_MODE=on) 或 Tool Policy Plugin V3 路标",
     "recent_changes": [
       {
