@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-17 03:25:33",
+  "updated": "2026-06-17 04:07:18",
   "updated_by": "full_regression",
   "priorities": [
     {
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-06-17",
+      "what": "V37.9.167 CLAUDE.md changelog 归档 — 每-session 必读 1MB→291KB (-73%, 日落法): grounded 审视发现 CLAUDE.md 92% 字节(989KB/231 版本行)是冻结历史, 评审#2 文档认知过载根因. blast radius 核实(17 治理+8 test 全引原则/文件表/L3 非 changelog 行). 保留 38 版内联(V37.9.166→130), 归档 190 版(V37.9.129→V27.x)到 docs/changelog.md(头注更新+新 section). Python 原子化+边界 assert. 零丢失(38+190=228 守恒, 11 章节全在, gen 三机器绿). 净 -1 巨型热路径接缝, 每 session 省 ~190K tokens. VERSION 0.37.9.70 不变.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-17",
       "what": "V37.9.166 日落法自审退役 3 个 anti-日落法 待加机器 proposal (北极星自我应用): [8] Observer-of-Observer 第二个 cron (违#8 加保险=加故障源) / [25] AST-upgrade 已工作的窄 guard (违防御本身是事故面, churn) / [4] 立 INV-WEEKLY-USER-OBSERVATION-001 (违复杂度预算 用 check 守人类习惯, 周一观察保留 #32 单一源). unfinished 30→27. 诚实区分正确 defer ([23]待真消费方#18 / [17][18] 防重复调查 guardrail / [21]c 闭真盲区 observability) 非违反不删. 决定入 changelog 防 re-churn + 沉淀 review unfinished 三判据. 净 -3 未来 to-add 机器面, 零能力损失, VERSION 不变.",
       "by": "claude_code"
     },
@@ -198,11 +203,6 @@
       "date": "2026-06-15",
       "what": "why_runtime_not_wrapper_zh 已发布知乎 (https://zhuanlan.zhihu.com/p/2049813538894623858) — README publications 表 platform 列更新 (知乎(待发布) → 知乎链接). 用户确认链接对应该篇 (沙箱 403 读不到标题故先问). 中文科普版 when_errors_become_narratives_zh 仍待用户发布知乎.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-06-15",
-      "what": "V37.9.155 论文发表传播层配套 (同 session 第二交付, 用户'执行 2 和 3'): #2 中文科普版 docs/articles/when_errors_become_narratives_zh.md (~3500 字知乎原生语气, HF 危机幻觉钩子 + fail-plausible 概念 + 8 周 22 复盘 + 五类静默故障 + 三反直觉发现 ~70% 用户视角/0%-87% audit/潜伏期∝观察距离 + point-fix→meta-rule→scanner + 日落法 + AI 协作诚实段, 所有数字对照论文 study-cutoff 快照零编造, DECISIONS_NEEDED §5 兑现). #3 why_runtime_not_wrapper EN/ZH 加已发表 arXiv:2606.14589 引用 (inline 血案处指向 Class C + footer companion) + 首次入 README publications 表 (闭合 V37.9.149 gap). README 表 +3 行 (why_runtime EN/ZH + 中文科普版). 知乎实际发布是用户动作 (沙箱无法点击), 文章 publish-ready 可直接粘贴. 验证: 三 drift check 全绿 + gen_readme_badges --write 传播 v37.9.155 + 126 suites/4445 tests/0 fail + 治理 90/90 + 安全扫描零泄漏 + VERSION 0.37.9.70 不变 (话语权文档零业务语义). 意义: 三件套覆盖学术圈 + 中文技术社区双受众, Stage 2→3 话语权资产扩面.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -284,7 +284,7 @@
     ],
     "open_prs": "",
     "blocked_on": "",
-    "focus": "🎯 本 session 日落法收敛批次 (163-166): (163 已合并#722) kb_harvest 尾部残行. (164) README 治理计数收敛. (165) GUIDE date-marker 退役 + doc-stat-sync V2 lineage 闭合. (166) **日落法自审退役 3 个 anti-日落法 待加机器 proposal** ([8]Observer-of-Observer cron / [25]AST-upgrade 已工作守卫 / [4]立 INV-WEEKLY 守人类习惯), 北极星自我应用=连计划要加的也退役. unfinished 30→27 (净 -3 未来 to-add 机器面). 131 suites 4622 tests 0 fail / 91 inv 839 checks / 安全 95 / VERSION 0.37.9.70 不变. 沉淀 review unfinished 三判据 (A 加机器=违反退 / B 待真消费方·DEFER guardrail·闭真盲区=正确不退 / C DONE=hygiene). **dev 侧已彻底收敛**: 剩 27 项全 Mac-Mini-gated/deferred-by-design/用户动作, 无纯 dev 可执行项. **待用户**: 合并 PR (164/165/166+[21]) → Mac Mini git fetch+reset 解锁 ~19 验证项 / WhatsApp 恢复 (24h 冷却后单次登录). 继续造 dev 任务=churn 违日落法.",
+    "focus": "🎯 本 session 日落法收敛批次 (163-167): (163 合并) kb_harvest 尾部残行 / (164) README 计数收敛 / (165) GUIDE date-marker 退役 / (166) 退役 3 anti-日落法 proposal / **(167) CLAUDE.md changelog 归档 — 每-session 必读 1MB→291KB (-73%)**: grounded 审视发现 92% 字节是冻结历史(评审#2 文档认知过载根因), 保留 38 版内联+归档 190 版到 docs/changelog.md, 零丢失(228 守恒/11 章节全在/gen 三机器绿), 每 session 省 ~190K tokens. 131 suites 4622 tests 0 fail / 91 inv / 安全 95 / VERSION 0.37.9.70 不变. **彻底审视结论**: 系统极健康收敛, 唯一高杠杆优化(changelog 归档)已做; 其余诚实判定不做(降组合复杂度=earned-complexity / 物理拆层=高成本 defer / 可迁移性=比评审分好). **待用户**: 合并 PR → Mac Mini git fetch+reset (纯 doc 零重启). dev 侧已彻底收敛, 剩 27 项全 Mac-Mini-gated/deferred/用户动作.",
     "current_focus": "V37.8 MR-6 深度补齐生产硬验证通过 (35/35 inv / 136/136 checks / 9/9 MR 全绿). 下一步: V37.8.1 修复 MRD-NOTIFY-002 activity 层假阳性 (topic→job log 映射扫 mtime) 或 Ontology Phase 3 渐进替换 (ONTOLOGY_MODE=on) 或 Tool Policy Plugin V3 路标",
     "recent_changes": [
       {
@@ -347,9 +347,9 @@
   "quality": {
     "security_score": 95,
     "test_count": 4622,
-    "last_regression": "2026-06-17 03:25 pass",
+    "last_regression": "2026-06-17 04:06 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-17 03:25",
+    "security_score_time": "2026-06-17 04:06",
     "test_suites": 131,
     "governance_invariants": "91/91",
     "governance_checks": "745/759",
