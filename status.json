@@ -1,6 +1,6 @@
 {
-  "updated": "2026-06-17 07:37:22",
-  "updated_by": "full_regression",
+  "updated": "2026-06-17 07:59:04",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -252,7 +252,7 @@
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB"
   },
   "session_context": {
-    "last_session": "2026-06-17 V37.9.163→167 (日落法收敛批次)",
+    "last_session": "2026-06-17",
     "unfinished": [
       "【V37.9.157 已根治, Mac Mini 待验证】INV-CRON-004 ❌ = auto_deploy stale 行 (用户 crontab_safe.sh remove 删 line 54 转绿). INV-REVIEW-001 + INV-CRON-MONITOR-001 💥 = 4.27 冷调用劫持 audit subprocess, V37.9.157 根治 (test _stub_env 隔离 + INV-REVIEW check stub gap 关 + 前瞻 scan). dev 全绿 (90 inv EXIT=0) 但 4.27 不可复现 → Mac Mini 同步后重跑 governance --full 验证两 💥 转 ✅; 若 INV-REVIEW 仍 💥 贴 subprocess 输出再迭代.",
       "【4.27 推送链路回归追踪 · 中优】真因=4.27 openclaw CLI 冷调用回归 (V37.9.145). ✅ follow-up (d) 丢失面评估已闭合 (2026-06-15 审计 docs/push_path_loss_surface_audit_2026_06_15.md: 无总丢失面, 残留=WhatsApp 瞬时缝隙内容在 Discord 存活). 剩余需 Mac Mini 生产数据 (dev 不可执行): (a) `openclaw message send --help` timeout 旋钮探测 → 可配则 notify.sh/直推 job 调大 (b) `ls -la ~/.openclaw/plugin-runtime-deps/` 多 hash dir 检查 staging 间歇复发 (c) 上游 releases 查 CLI 冷启动/staging 修复 (tripwire 不自动升级). 硬化候选 (deferred 需 E2E): 类别 2 论文类 job 直推双通道迁 notify.sh --topic (MR-8 一物一形).",
@@ -339,17 +339,17 @@
       }
     ],
     "last_session_ended": "2026-06-17",
-    "last_session_commits": 6,
-    "last_session_focus": "日落法收敛批次: kb_harvest 尾部残行(163) + README 计数收敛(164) + GUIDE date-marker 退役(165) + 退役 3 anti-日落法 proposal(166) + CLAUDE.md changelog 归档 1MB→291KB -73%(167) + [21] hygiene. 彻底审视结论: 系统极健康收敛, 唯一高杠杆优化(changelog 归档)已做, 其余诚实判定不做. dev 侧已抽干, 剩 27 项全 Mac-Mini-gated/deferred.",
-    "last_session_at": "2026-06-17 HKT",
-    "last_session_version": "V37.9.167"
+    "last_session_commits": 3,
+    "last_session_focus": "WhatsApp 冻结日: A 类三项全处理完 — [19](c) deep_dive 摘要级降级率纳入 daily_observer (V37.9.168) + [5](c) source_credibility emit 端 per-pick 确定性 tier + arxiv id 修复 (V37.9.169) + [13](d) ground 调查确认已完成非 churn. 131 suites/4658 tests/0 fail/91 inv/安全 95.",
+    "last_session_at": "2026-06-17 07:59",
+    "last_session_version": "V37.9.169"
   },
   "quality": {
     "security_score": 95,
     "test_count": 4658,
-    "last_regression": "2026-06-17 07:36 pass",
+    "last_regression": "2026-06-17 07:56 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-17 07:36",
+    "security_score_time": "2026-06-17 07:56",
     "test_suites": 131,
     "governance_invariants": "91/91",
     "governance_checks": "745/759",
@@ -418,7 +418,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "🎯 V37.9.159-161 三 item 批次完成 (用户\"全部逐个执行\"): (1) MR-23 通用治理-runtime 测试隔离 scanner — 4 次 test-pollutes-production 血案 framework 化 + 首跑抓 test_health_check 真 bug 并修复 (2) Tool Policy Plugin chunk 1 — V3 别人会扩展, policies.d/ 自动发现+校验+evaluate_policy 加性集成 (3) 日落法 doc-stat-sync V2 — 3 个 config.md 真漂移修 + jobs 计数纳入 auto-sync。129/130 suites 4563 tests 0 fail / 91 inv 839 checks / 安全 95 / 三漂移机器全绿 / VERSION 0.37.9.70 不变。**待用户**: git fetch+reset 同步 Mac Mini (scanner/engine 走 ontology symlink 零重启; test_health_check 修复让下次 07:00 governance audit 不再真发周报)。**下一步候选 (dev)**: Tool Policy Plugin chunk 2 (enforcement, 待真消费方需求) / V3 backlog (Memory Plane Plugin / Job Template SDK) / 知乎发布 why_runtime_not_wrapper。",
+  "focus": "2026-06-17 WhatsApp 冻结日: A 类三项全处理完毕 — [19](c) deep_dive 摘要级降级率纳入 daily_observer(V37.9.168) + [5](c) source_credibility emit 端 per-pick 确定性可信度 tier+arxiv→arxiv_monitor id 修复(V37.9.169) + [13](d) ground 调查确认已完成(非 churn). 131 suites/4658 tests/0 fail/91 inv 839 checks/安全 95/VERSION 0.37.9.70 不变. 全程 dev 自主非 churn, observability/transparency 走 Discord 绕冻结 WhatsApp. **待用户**: 合并 PR(本分支含 V37.9.168+169 两提交) → git fetch+reset 同步 Mac Mini → dream/evening 推送 Top5 带确定性可信度 emoji + 次日 observer 报告含 Deep-Dive Mode 段. 剩余 unfinished 全门控(Mac Mini 验证/设计性 DEFER/用户动作/知乎发布).",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
