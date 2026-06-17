@@ -233,6 +233,11 @@
       "date": "2026-06-16",
       "what": "V37.9.162 A执行核实(血案#98兑现): Mac Mini实测修正WebSearch文档推断. 4.27 openclaw.json默认无reconnect块→内置默认maxAttempts=0(无限重连=根因). 修复=手动加channels.whatsapp.web.reconnect.maxAttempts:12(自动熔断#16270已closed NOT PLANNED, 官方只暴露maxAttempts让用户自配). 🔴时序铁规则: config改+Gateway重启必须等WhatsApp重链稳定后(重启=新连接尝试, 限流未清时重启会重新触发). 应用时验证4.27是否读该键(干净启动+re-dump), 拒绝则.bak还原, 忽略则A退化等支持版本. docs/baileys_ban_risk_assessment.md Option A已据实测修正. C(检测)是A生效前主防线.",
       "by": "claude_code"
+    },
+    {
+      "date": "2026-06-16",
+      "what": "V37.9.162 部署里程碑: PR #719 已合并 + Mac Mini 同步 + preflight --full 验证(86 pass/1 fail/1 warn). 唯一fail=check16 WhatsApp推送(频道未重链=事件未恢复, 非回归)+warn=KB 99%(常规). wa_keepalive频道监控(7h盲区→1h告警)已部署生效. WhatsApp重链+A config(maxAttempts:12)deferred到明天(用户决定明天操作). 整个session: 血案诊断+恢复指导+预防修复(C)+案例文档+Baileys评估(A定位)全闭环, dev侧零遗留.",
+      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -323,7 +328,7 @@
     ],
     "open_prs": "",
     "blocked_on": "",
-    "focus": "2026-06-16 V37.9.162: WhatsApp 静默7h血案 — 预防修复已提交(131 suites/4609 tests/0 fail), 但【恢复未完成,卡在 WhatsApp 设备链接限流】. 进展: 发消息限流已清(手机能正常发), 但 openclaw channels login 连续6次408(15:34-16:36), 确诊=WhatsApp对'链接新设备'的限流未清, 且每次失败login重新触发它(Baileys非官方客户端,反复失败链接有升级为更长/永久封禁风险). 网络OK(curl WS 400/0.34s), 插件staging churn(4.27已知, 每次全量重staging 13-39s)是雪上加霜非根因. 【唯一解药=时间+零尝试】: 停止所有login尝试2-3小时让限流自然冷却→然后单次login出二维码扫码→channels status确认connected→给PA发消息确认回复. Discord正常(告警通道在). Mac Mini待用户: ①WhatsApp恢复后git fetch+reset同步预防修复 ②确认PA能回复. deferred: INV-WA-CHANNEL-001(一周观察后立)+异常分析宪法案例文档+Baileys封禁战略风险评估+4.27插件staging churn持久化调查.",
+    "focus": "2026-06-16 收工(WhatsApp 恢复 deferred 到明天): V37.9.162 已合并(PR #719)+ Mac Mini git reset 同步 + preflight --full 验证部署干净(86/86 实质检查全过, wa_keepalive 频道监控已部署生效). 唯一 fail = check 16 WhatsApp 推送(频道未重链 = 今天 session-logout 事件未恢复, 非部署回归; 注: V37.9.156 只把超时转warn, 'not linked'是真故障正确硬fail; 重链后自动转绿). warn = KB索引99%(常规lag,kb_embed cron自动补). 【WhatsApp 仍 DOWN, 恢复待明天】. 明天首动作按序: ① 重链 WhatsApp(限流隔夜已冷却→单次 openclaw channels login --channel whatsapp 扫码→channels status 确认 connected→给PA发消息确认回复→重跑 preflight check16应转绿) ② WhatsApp稳定后做 A config: 让Claude给精确JSON加 channels.whatsapp.web.reconnect.maxAttempts:12(备份openclaw.json+加key+restart+验证Gateway干净启动/re-dump确认), 堵无限重连根因. 🔴铁规则: A的config改+Gateway重启必须等WhatsApp稳定后做(重启=新Baileys连接, 限流未清时会重新触发限流). C(V37.9.162检测)是A生效前事实主防线. B(官方API)条件触发deferred.",
     "current_focus": "V37.8 MR-6 深度补齐生产硬验证通过 (35/35 inv / 136/136 checks / 9/9 MR 全绿). 下一步: V37.8.1 修复 MRD-NOTIFY-002 activity 层假阳性 (topic→job log 映射扫 mtime) 或 Ontology Phase 3 渐进替换 (ONTOLOGY_MODE=on) 或 Tool Policy Plugin V3 路标",
     "recent_changes": [
       {
