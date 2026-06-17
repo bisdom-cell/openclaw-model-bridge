@@ -670,5 +670,142 @@ class TestV379130SourceGuards(unittest.TestCase):
         self.assertNotIn("def _reduce_key_points(", self.src)
 
 
+class TestStripTrailingIncompleteLineV163(unittest.TestCase):
+    """V37.9.163: max_tokens 截断尾部残行剥除 + REDUCE_MAX_TOKENS 提升"""
+
+    @classmethod
+    def setUpClass(cls):
+        with open("kb_harvest_chat.py", "r", encoding="utf-8") as f:
+            cls.src = f.read()
+
+    # --- helper 行为 ---
+    def test_strips_blood_lesson_dash_bracket(self):
+        """[23](a) 血案场景：尾部 '- [' 残行被剥，前面完整行保留"""
+        out, stripped = harvest._strip_trailing_incomplete_line(
+            "- [decision] 用户决定A\n- [insight] 洞察B\n- [")
+        self.assertTrue(stripped)
+        self.assertEqual(out, "- [decision] 用户决定A\n- [insight] 洞察B")
+
+    def test_strips_truncated_type_bracket(self):
+        """'- [pref' 类型括号被切断 → 剥"""
+        out, stripped = harvest._strip_trailing_incomplete_line(
+            "- [decision] xxx\n- [pref")
+        self.assertTrue(stripped)
+        self.assertEqual(out, "- [decision] xxx")
+
+    def test_strips_bare_dash(self):
+        out, stripped = harvest._strip_trailing_incomplete_line(
+            "- [decision] A\n-")
+        self.assertTrue(stripped)
+        self.assertEqual(out, "- [decision] A")
+
+    def test_does_not_strip_complete_lines(self):
+        """完整行（含闭合 ]）绝不剥"""
+        text = "- [decision] 用户决定A\n- [insight] 洞察B"
+        out, stripped = harvest._strip_trailing_incomplete_line(text)
+        self.assertFalse(stripped)
+        self.assertEqual(out, text)
+
+    def test_does_not_strip_content_with_unclosed_inner_bracket(self):
+        """内容含未闭合 '['，但类型 ']' 已闭合 → 不剥（不误判）"""
+        text = "- [insight] 用户提到 [重要"
+        out, stripped = harvest._strip_trailing_incomplete_line(text)
+        self.assertFalse(stripped)
+        self.assertEqual(out, text)
+
+    def test_does_not_strip_truncated_content_with_closed_type(self):
+        """内容截断但类型 ] 闭合 → 保留作可用条目"""
+        text = "- [decision] A\n- [insight] 部分内容截断了这"
+        out, stripped = harvest._strip_trailing_incomplete_line(text)
+        self.assertFalse(stripped)
+
+    def test_single_incomplete_line_not_stripped(self):
+        """仅 1 行残缺也不剥（MR-4 不返回空）"""
+        out, stripped = harvest._strip_trailing_incomplete_line("- [")
+        self.assertFalse(stripped)
+        self.assertEqual(out, "- [")
+
+    def test_empty_text(self):
+        out, stripped = harvest._strip_trailing_incomplete_line("")
+        self.assertFalse(stripped)
+        self.assertEqual(out, "")
+
+    # --- process_date 集成 ---
+    def _setup_tmp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.orig_chat_dir = harvest.CHAT_LOG_DIR
+        self.orig_processed_dir = harvest.PROCESSED_MARKER_DIR
+        harvest.CHAT_LOG_DIR = self.tmpdir
+        harvest.PROCESSED_MARKER_DIR = os.path.join(self.tmpdir, ".processed")
+        with open(os.path.join(self.tmpdir, "20260604.jsonl"), "w") as f:
+            f.write(json.dumps({"ts": "10:00", "user": "Q",
+                                "assistant": "A"}) + "\n")
+
+    def _teardown_tmp(self):
+        harvest.CHAT_LOG_DIR = self.orig_chat_dir
+        harvest.PROCESSED_MARKER_DIR = self.orig_processed_dir
+        import shutil
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+    @patch("kb_harvest_chat.write_to_kb")
+    @patch("kb_harvest_chat.extract_key_points")
+    def test_process_date_strips_residual_before_write(self, mock_extract, mock_write):
+        """process_date emit 前剥尾部残行 → 写 KB 不含 '- [' 残行 + log WARN（可观测）"""
+        import io
+        import contextlib
+        self._setup_tmp()
+        try:
+            mock_extract.return_value = (
+                "- [decision] 用户决定A\n- [insight] 洞察B\n- [",
+                {"chunks": 9, "mode": "mapreduce",
+                 "map_failed": 0, "reduce_degraded": False})
+            mock_write.return_value = True
+            err = io.StringIO()
+            with contextlib.redirect_stderr(err):
+                status, meta = harvest.process_date("20260604")
+            self.assertEqual(status, "ok")
+            written = mock_write.call_args[0][0]
+            self.assertNotIn("\n- [\n", written + "\n")
+            self.assertTrue(written.rstrip().endswith("洞察B"))
+            self.assertIn("尾部残行已剥除", err.getvalue())
+        finally:
+            self._teardown_tmp()
+
+    @patch("kb_harvest_chat.write_to_kb")
+    @patch("kb_harvest_chat.extract_key_points")
+    def test_process_date_no_strip_no_warn_when_complete(self, mock_extract, mock_write):
+        """完整输出不剥不 WARN"""
+        import io
+        import contextlib
+        self._setup_tmp()
+        try:
+            mock_extract.return_value = (
+                "- [decision] A\n- [insight] B",
+                {"chunks": 2, "mode": "mapreduce",
+                 "map_failed": 0, "reduce_degraded": False})
+            mock_write.return_value = True
+            err = io.StringIO()
+            with contextlib.redirect_stderr(err):
+                status, meta = harvest.process_date("20260604")
+            self.assertEqual(status, "ok")
+            self.assertNotIn("尾部残行已剥除", err.getvalue())
+        finally:
+            self._teardown_tmp()
+
+    # --- 源码守卫 ---
+    def test_reduce_max_tokens_constant_3000(self):
+        self.assertEqual(harvest.REDUCE_MAX_TOKENS, 3000)
+
+    def test_reduce_uses_constant_not_hardcoded_2000(self):
+        """Reduce 调用用 REDUCE_MAX_TOKENS 常量（防回退 max_tokens=2000 硬编码）"""
+        self.assertIn("max_tokens=REDUCE_MAX_TOKENS", self.src)
+        self.assertNotIn("max_tokens=2000", self.src)
+
+    def test_v163_marker_and_helper_applied_in_process_date(self):
+        self.assertIn("V37.9.163", self.src)
+        self.assertIn("def _strip_trailing_incomplete_line", self.src)
+        self.assertIn("_strip_trailing_incomplete_line(key_points)", self.src)
+
+
 if __name__ == "__main__":
     unittest.main()

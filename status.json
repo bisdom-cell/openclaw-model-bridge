@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-17 00:54:23",
+  "updated": "2026-06-17 01:20:52",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-06-17",
+      "what": "V37.9.163 kb_harvest final-Reduce 尾部残行修复 ([23](a) 生产观察闭环): _strip_trailing_incomplete_line 保守剥 max_tokens 截断残行(仅剥类型括号未闭合 bullet, 完整行含 ] 绝不误剥, ≤1 行不剥 MR-4 不返回空) + emit 前应用 + stderr WARN 可观测 + REDUCE_MAX_TOKENS 常量 2000→3000 降截断频率. 13 新单测(helper 8+集成 2+守卫 3) + 反向验证两层守卫真有效. 顺手清 3 真 DONE unfinished. 131 suites 4622 tests 0 fail / governance 91 inv INV-JOB-HARVEST-001 无回归 / VERSION 0.37.9.70 不变.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-17",
       "what": "Option A (Baileys maxAttempts 熔断防封) ready-to-apply 包: WebSearch+WebFetch 确认 4.27 channels.whatsapp.web.reconnect.maxAttempts 路径 + maxAttempts:0=无限重连根因坐实, Python 原子补丁器 dev 验证(新增web块/保留现有键/原子写无残留/幂等/保留已有reconnect值) + 完整 runbook(备份-补丁-验证-重启-健康-效力-回滚), 写入 baileys_ban_risk_assessment.md 已提交推送. WhatsApp 恢复仍 user-gated: 今天第7次 login 仍 408, 限流隔夜未清, 须 24h+ 零尝试冷却. 铁规则: 恢复稳定后才应用 A. VERSION 0.37.9.70 不变.",
       "by": "claude_code"
     },
@@ -198,11 +203,6 @@
       "date": "2026-06-14",
       "what": "V37.9.151 轻量一致性收敛 (门控日, arXiv ID 等明早香港周一+沙箱网络受限): config.md 陈旧日期 (最后更新2026-06-02 陈旧12天) 退役为漂移源 (日期单一源=自动同步L4版本行, 一物一形) + README 3处增长型重复计数去数字化 (L233 1319 unit tests / L659 2253 Unit Tests|64 suites / L666 治理审计括号89/818 checks) + L477 827→828 checks (近当前值-prop段只改一位). 区分诚实快照不动: README L395/446 版本标记V37.9.121 89/818 是as-of记录属doc-stat-sync V2(declined); ArXiv论文草稿827是冻结study-cutoff快照(改已提交论文是错的). 净-4漂移面零新机器=复杂度预算V37.9.150首次实战. CLAUDE.md line3 v-label→v37.9.151 + gen_readme_badges --write自动传播全下游. 126 suites/4445 tests/0 fail, governance 90/828, VERSION 0.37.9.70不变, 三项doc-drift check全绿.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-06-14",
-      "what": "V37.9.150: 外部评审2 P2(d) complexity budget 惯例化 — 纯约定零新机器 (日落法 MR-22 自我示范). 不写 complexity_budget.py 工具 (那是它要防的东西: 新脚本=新故障面+新状态源+新 check, 用增加复杂度测量复杂度=药参与病). 实现: 账本=既有徽章 gen_readme_badges + 四维度(files/env/jobs/state)只在变化时手动记 + 收工清单 J 项自问退役了什么 + 3 硬规则明文 + 刻意无守卫测试. docs/complexity_budget.md + CLAUDE.md 收工清单 J + 原则#34 引用. 纯文档零新测试 VERSION 不变 (自身就是预算免费类). P2 全档 a/b/c/d/e + P1 全闭环, 评审 7 动作全销项.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -271,7 +271,6 @@
       "V37.9.106 部署后 24h 验证 (~2026-06-05): 现有 30 条 MOVESPEED TM-争用 incident 老化出 24h 窗口后 INV-MOVESPEED-TCC-001 应自动转绿 → 治理审计 721/721 全绿. 验证: python3 ~/movespeed_incident_analyzer.py --window 24h 应显示 incidents 大降 (tmutil 预检让 TM 备份时 rsync 跳过不产新 incident). 若仍红说明 TM 之外还有 incident 来源待查.",
       "ai_leaders_blogs (V37.9.108) Mac Mini feed 可达性验证 + 后续: (a) 首跑后看 log WARN 剪死链 (Anthropic news/Karpathy bearblog URL 是 candidate 待验, Substack /feed 标准应可达) + 补可达大神 feed (b) V37.9.109+ Bluesky 免费无认证 API (public.api.bsky.app getAuthorFeed) 加实时短观点维度 — 学者已大规模迁入 (arXiv 2505.24801), 需 handle→DID 解析 + getAuthorFeed 抓取 + 查哪些大神在 Bluesky (c) 验证稳定后真停用 ai_leaders_x: 需同步更新 6 依赖 (kb_review/source_credibility/INV-REVIEW-001/INV-BACKUP-001/config/wa_gateway_resilience 都期望 ai_leaders_x 为内容源) + Mac Mini crontab_safe.sh remove 清 cron 行 (d) ai_leaders_blogs 接入 Opportunity Radar 三件套 (跨源共振 #1 / 项目对齐 #2 / 趋势加速 #3) 作高质量信号源",
       "V37.9.112 已完成 (b) ai_leaders_bsky 接入 Opportunity Radar #2 (top_alignment_picker ALIGNED_SOURCES 9→10, 3 消费方自动生效). 剩余 follow-up (Mac Mini handle 验证后, 非高优): (a) 首跑 log WARN 剪死 handle + 补可达 contrarian 大神 (howard.fm 自定义域名 / garymarcus.bsky.social / emilymbender.bsky.social 候选待验 / fchollet 替代) (c) 2x/天频率评估 (实时短观点价值) + 评估 Bluesky app-password 认证读 login-required 账号",
-      "V37.9.110+113 follow-up (升级版, MR-9 测试污染生产 bug 类 framework 化): V37.9.113 已 framework 化 convergence-specific 部分 (TestV37_9_113 AST 反回归守卫 + 行为级正/负对照 sentinel, 拆 test_convergence 真改 crontab/真跑 kb_embed 地雷). 剩余 (专门 session): (a) 立元规则 MR-22 governance-runtime-tests-must-isolate-production-state — V37.9.110 test_movespeed 写真 incidents.jsonl + V37.9.113 test_convergence 真改 crontab 共 2 实例已达立元规则门槛 (b) generic MRD scanner 扫所有 governance runtime python_assert 跑的测试 (INV-RETRY-001 test_movespeed / INV-CONVERGENCE test_convergence / 等) 是否写生产 state 文件 (~/.kb/*.jsonl / crontab / kb_embed 真跑), 跨多测试文件 framework 化此 bug 类",
       "3-engine-merge 已两次评估结论 DEFER (V37.9.119 + 2026-06-08 本 session 加深), 勿再从头调查. **结构**: 3 个 engine.py 加载点 — proxy_filters:452 (_onto_engine, module-level 仅 on/shadow, generate_proxy_data 覆盖 ALLOWED_TOOLS + 保留 _onto_mod 供 evaluate_policy, 每请求工具过滤核心) / proxy_filters:1463 (ontology_engine, _check_ontology_consistency 无条件所有 mode, 一致性诊断) / three_gate:183 (_three_gate_engine_lazy, lazy 首次 gate 评估缓存, _safe_evaluate_policy shadow 门控请求路径). **风险评估**: (a) path-independent 零 correctness bug, 双加载一物二形仅 on/shadow mode 存在 (OFF mode 只 1463 加载), 合并仅省 1 次 startup-once 加载 = cosmetic. (b) Sub-merge A (proxy_filters 452+1463 单文件) 中风险; Sub-merge B (three_gate 跨模块共享单例) 高风险. (c) three_gate._load_engine_module 是 V37.9.15.1 hotfix 加固的三策略 robustness 修复, governance INV-GATE-001 (gov yaml line 5402-5413) 硬锁 _three_gate_engine_lazy 模块名 + _load_engine_module 结构 + 4 测试文件引用 → 合并连带改 governance+测试+风险解开 hotfix 修过的 bug. **决策**: DEFER — 无 incident-causing 接缝 (北极星 V37.9.117 针对造成事故的接缝, 这 3 加载是 cosmetic startup-once 重复), 高 blast radius (每请求工具过滤+shadow 门控) 换 cosmetic 收益, 原则 #34 防御本身是事故面. 若未来真要做: 只考虑 Sub-merge A (单文件缓存 helper), Sub-merge B 不做.",
       "V37.9.124 #29 follow-up (低优, 防未来重复调查): INV runtime 收窄已完成 INV-OBSERVER-001 (唯一已证明 env-dependent 套件). #29 调查结论: 其他 ~12 全套件 runtime check 的套件 env-independent 已核实 (test_v37_9_76_router 16 env 信号全 patch 隔离 + relative-to-HOME expanduser 一致; scanner 扫 repo 文件; INV-ROUTER false-fail 是 stale code 非套件 env-dependency), 不需收窄 (原则 #18 补证据非补功能, 收窄 env-independent 套件是 churn). #29 收窄约定已立 (test_v37_9_124 docstring): 套件含 env-dependent test 的 INV 跑契约核心类非全套件; 纯逻辑套件跑全 OK. 未来若新 INV 跑的套件含 env-dependent test (读 repo 外真实系统状态), 按此约定收窄到契约核心类 (镜像 INV-OBSERVER-001/INV-DREAM-CROSS-DOMAIN).",
       "V37.9.125 follow-up doc-stat-sync V2 (低优, 日落法续): (a) 三 doc 的 last-updated/最后更新行也纳入自动同步 (config.md '> 最后更新：2026-06-02' 已陈旧 6/8 刷过, 是 per-doc 日期非 stat token 当前 scope 外). (b) FEATURES/config 的更静态统计纳入 (40 active jobs←jobs_registry enabled count / 5 SLO metrics / 19 preflight checks) — 它们 V1 留 scope 外因变更少但 jobs 数曾 35→40 真 drift 过. (c) 评估把 doc-stat-sync 推广到 README 正文散文统计 (当前只摘要行). 前置: 各统计需先确认权威源 + 摘要行/区域唯一性核验 (同 V1 流程).",
@@ -279,8 +278,6 @@
       "V37.9.129 follow-up (DEFER, 登记): adapter fallback 循环读 upstream error body (观察性, MR-13/INV-OBSERVABILITY-001 候选)。今天诊断难正因 adapter fb_errors.append(str(fb_err)) 对 HTTPError 只给 'HTTP Error 400: Bad Request' 不读 body, 需直连 gemini 才看到 'User location not supported'。修法: adapter 复用 proxy_filters.compose_backend_error_str (V37.8.10) 或 inline helper。DEFER 原因: gemini 退役后其 400 body moot + doubao timeout 无 informative body + 引入 adapter→proxy_filters 耦合 (日落法 #34 防御本身是事故面)。价值降低非紧急, 但对未来其他 provider HTTP 错误诊断仍有价值。",
       "V37.9.130 生产验证已通过 (2026-06-11 Mac Mini 实跑): 6/4 真实血案数据 9 chunks 重跑 — hierarchical r1 b1/3(6740c)+b2/3(6220c)+r2(8524c) 3 次小请求零失败零降级, 48 条精华入 KB, 6/3 已确认处理过, 断流全闭环. 同数据对照证实根因=单请求规模非纯超时 (同 9 Map 段, 单次 40K 两次超时 vs 3 次 7K 一次全过). 剩余低优 follow-up: (a) final Reduce max_tokens=2000 被 48 条打满产尾部残行 \"- [\" (finish_reason=length), 超大对话日边界 — V37.9.131+ 评估 2000→3000 或 emit 前剥尾部残行 (b) 长期观察 last_run degraded/map_failed 字段, 频繁 degraded → 评估 REDUCE_BATCH_SIZE 调小或 doubao 显式路由",
       "V37.9.132 一周观察 (~6/18): deep_dive 摘要级占比应从 76% (34/45) 显著下降 — Mac Mini 验证: grep -L \"基于摘要的分析\" ~/.kb/deep_dives/*.md 看 6/12 后新增文件多数应为全文级. 若仍高: (a) 查 dblp ee 字段 arxiv 覆盖率 (b) S2 openAccessPdf .pdf 结尾比例 (非 .pdf OA 链接保留 S2 页面是有意取舍) (c) 候选增强: deep_dive mode (full_text/abstract_only) 占比纳入 daily_observer 报告让 degrade 频率可观测 (本次 76% gap 潜伏 2 个月才被用户发现的根因是 degrade 频率无聚合复盘)",
-      "【外部评审2 P2 · 生态与基准扩展】(a) ✅ V37.9.146 完成 — verification_tier 字段化进 providers.py 数据模型 + tier↔verified_* 一致性不变式 + 第 3 张机器表 (tier_table_lines) 退役手写档位表 (一物一形). (b) ✅ V37.9.147 完成 — Reliability Bench 7→17 场景/47→103 检查 (10 新场景全 mock-based 可 dev 跑 + 真函数测真行为 + 真行为 sabotage 证非 tautology + test 36→59 + 报告重生成). (c) ✅ V37.9.148 完成 — examples/external_dogfood/ 仓库外 dogfood: 离线 build wheel (SETUPTOOLS_USE_DISTUTILS=stdlib 绕 Debian install_layout quirk) + 隔离 --system-site-packages venv 装 wheel --no-deps (无 PYTHONPATH 回 monorepo, 系统无 ontology/ontology_engine 故隔离判定无歧义) + 全新 LibraryBot toy 复制出仓库到 /tmp 跑 import ontology_engine (chunk-2-lite 去泛化对真消费方唯一验证) + console scripts audit/query + config-injection 审计 LibraryBot + 反向验证无注入读 wheel bundled 默认 (data_clean 在/checkout_book 不在). 17 单测 (8 source guards 恒跑 + 9 wheel E2E skipUnless 工具链) + sabotage 铁证 (toy MAX 5→7 audit FAIL 非 tautology). 闭合评审 'WeatherBot in-repo 已验证 gap 是仓库外'. (d) ✅ V37.9.150 完成 — complexity budget 惯例化 (纯约定零新机器 = 日落法 MR-22 自我示范, 不写 complexity_budget.py 工具因那是它要防的东西): docs/complexity_budget.md + 收工清单 J 项 + 原则#34 引用. 账本=既有徽章 gen_readme_badges, 四维度 (files/env/jobs/state) 变化时手动记, 净新增机制自问退役了什么, **刻意无守卫测试** (用 check 守复杂度约定本身=新复杂度). 3 硬规则明文 (新 path 退役旧 path / 新 invariant 命名防的事故 / 新 job 定义 silence-timeout+degrade). (e) ✅ V37.9.149 完成 — docs/articles/why_runtime_not_wrapper.md (EN) + _zh.md (ZH): wrapper vs control plane 结构性区别 + 双评审交叉验证 (两陌生人独立撞同一优点+同一软肋) + 日落法诚实反驳 + V37.9.148 dogfood 可抽离性铁证. **P2 全档 a/b/c/d/e + P1 全闭环, 外部评审2 七动作全销项**",
-      "✅ ArXiv 论文已发表 (arXiv:2606.14589, cs.SE) + 发布配套全部完成 (V37.9.154 核心 + V37.9.155 传播层) + 知乎双发布全完成: why_runtime_not_wrapper_zh (zhuanlan.zhihu.com/p/2049813538894623858) + 中文科普版 when_errors_become_narratives_zh (zhuanlan.zhihu.com/p/2049816723541463125), README publications 表已全部更新. 论文发表线全闭环.",
       "GitHub main 落后开发分支 ~30 版本 (main ~V37.9.123, 分支已 V37.9.153 含架构图刷新). 让 GitHub 门面当前化的唯一一步=用户合并 PR (Claude 只能推开发分支). 合并后稳定工具文件仍显示老时间戳(正确). 附: 未来精准刷新方法论=三分类映射(1稳定已完成留/2点-in-time记录留/3真内容陈旧才修), 永不盲目 churn 稳定文件刷时间戳(日落法).",
       "✅ V37.9.158 + V37.9.158-hotfix 已完成 (INV-CRON-004 auto_deploy 双行血案彻底钉死): V37.9.158 默认 dry-run (Layer 1 MR-23) + V37.9.158-hotfix 修真凶 = test_convergence.py::test_explicit_dry_run_overrides_env 测试污染生产 (该测试故意显式 dry_run=False 绕过默认 dry-run, governance INV-CONVERGENCE-CRON-001 runtime check 跑 test 子进程时在 Mac Mini 真 add 重加双行). 修复 HOME→tempdir + mock subprocess + 前瞻 scan 机器化 (TestConvergenceTestNoCrontabMutation). Mac-Mini 模拟铁证 (植入 fake $HOME/crontab_safe.sh sentinel 从未写入). 残留 Layer 2 (auto_deploy endswith parser 不匹配 line 5) 仅显式 CONVERGENCE_APPLY=1 浮现, 默认 dry-run 下不触发, 低优 defer.",
       "V37.9.160 Tool Policy Plugin chunk 2 (待真消费方需求驱动, 原则 #18): enforcement 真接入 — tool_proxy/three_gate 读 policies.d/ 插件策略真截断 (镜像 _resolve_max_tools_limit 的 max-tools-per-agent 硬截断)。当前 chunk 1 只 observability (evaluate_policy 可查)。Provider Plugin 由 Doubao 驱动 enforcement 同款, 应等成本守卫类真需求。+ pyproject package-data 加 ontology/policies.d/ (pip 包含示例)。+ 缓存 (evaluate_policy 未命中 base 即重扫 policies.d/)。",
@@ -355,10 +352,10 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 4609,
-    "last_regression": "2026-06-16 08:10 pass",
+    "test_count": 4622,
+    "last_regression": "2026-06-17 01:16 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-16 08:10",
+    "security_score_time": "2026-06-17 01:16",
     "test_suites": 131,
     "governance_invariants": "91/91",
     "governance_checks": "745/759",
