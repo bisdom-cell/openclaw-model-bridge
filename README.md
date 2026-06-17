@@ -13,7 +13,7 @@
 [![Fail-Fast](https://img.shields.io/badge/LLM%20cron%20fail--fast-17%2F21%20aligned-brightgreen.svg)]()
 [![Notifications](https://img.shields.io/badge/notifications-WhatsApp%20%2B%20Discord-informational.svg)]()
 
-> **Current version:** `v37.9.163` / `0.37.9.70` (2026-06-17) — see [`CLAUDE.md`](CLAUDE.md) for full changelog.
+> **Current version:** `v37.9.165` / `0.37.9.70` (2026-06-17) — see [`CLAUDE.md`](CLAUDE.md) for full changelog.
 > **Latest milestone:** V37.9.117 → V37.9.121 — *日落法 (Sunset Law) 立为项目北极星 (降复杂度优先于加功能)*. 一天五版意外频发后深度反思: 真因不是"系统复杂"(部件难懂) 而是"系统组合"(简单正确部件交互面积超线性增长超过测试覆盖) — 复杂关乎部件, 意外关乎接缝. MR-22 (sunset-over-accretion) + MR-23 (audit-observes-never-mutates) + 原则 #34 北极星. V37.9.118-120 首批日落法退役 (governance repo_root 一物多形 → os.getcwd / engine.py realpath / auto_deploy 双副本根治). V37.9.121 立 INV-OBSERVER-001 + INV-SOURCE-CREDIBILITY-001 — 在"加治理"任务内仍践行日落法 (候选 2 daily_observer INV 合并为 1 + 退役冗余硬编码守卫).
 
 ## Product Layers: What's Core vs. What's the Author's PA Instance
@@ -74,7 +74,7 @@ Layer 3 is not product clutter — it is the **production evidence** for layers 
 ④ Control plane   config.yaml (70+ thresholds, 9 sections) · SLO (5 metrics) · preflight (19 checks)
                   · auto_deploy (Git→runtime, drift detection) · incident snapshots · GitHub Actions CI
 ⑤ Ontology plane  engine ↔ tool/domain/policy/governance YAML · governance v3.56
-                  (90 invariants / 828 checks / 23 meta-rules / 14 MRD scanners) · Phase 4
+                  (91 invariants / 839 checks / 23 meta-rules / 14 MRD scanners) · Phase 4
                   (policy wiring + three-gate shadow) · ONTOLOGY_MODE=on · pip openclaw-ontology-engine
 ⑥ Shared state    ~/.kb/status.json — user ↔ PA ↔ Claude Code ↔ cron, real-time three-party sync
 ```
@@ -383,7 +383,7 @@ All jobs registered in `jobs_registry.yaml`. Validate: `python3 check_registry.p
 - **Control Plane** (90%): Provider Compatibility Layer, SLO 5-metric monitoring, centralized thresholds, 19-check preflight, incident snapshots, circuit breaker + audit logging (fsync + atomic snapshot), 89-invariant governance, single-manager process ownership (V37.9.13)
 - **Capability Plane** (85%): 8-provider routing + capability-based fallback chain, multimodal (text+vision), tool governance (≤12, policy-driven via V37.9.12), data cleaning, search_kb hybrid retrieval
 - **Memory Plane** (75%): KB RAG (local sentence-transformers), trend analysis, preference learning, multimodal memory, Memory Plane v2 (dedup + confidence + conflict resolution), Agent Dream v2 MapReduce
-- **Ontology Plane** (Phase 4 P2 active): 4 YAML ontologies (tool/domain/policy/governance), Tool Ontology Engine (81 rules, ONTOLOGY_MODE=on), **Governance Ontology v3.56** (90 invariants + 23 meta rules + 14 MRD scanners + 828 checks), 2 policies wired via `evaluate_policy()`, 25 blood lesson cases (see [`ontology/docs/failure_modes_catalog.md`](ontology/docs/failure_modes_catalog.md) for taxonomy)
+- **Ontology Plane** (Phase 4 P2 active): 4 YAML ontologies (tool/domain/policy/governance), Tool Ontology Engine (81 rules, ONTOLOGY_MODE=on), **Governance Ontology v3.56** (91 invariants + 23 meta rules + 14 MRD scanners + 839 checks), 2 policies wired via `evaluate_policy()`, 26 blood lesson cases (see [`ontology/docs/failure_modes_catalog.md`](ontology/docs/failure_modes_catalog.md) for taxonomy)
 
 ### Ontology: What's Declaratively Defined (Phase 4 P2)
 
@@ -577,7 +577,7 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 | **LLM Cron Fail-Fast Audit** | `ontology/llm_cron_audit.py` | `python3 ontology/llm_cron_audit.py --report` (17/21 aligned with V37.9.36+ fail-fast pattern) |
 | **Tool Ontology** | `ontology/` | `python3 ontology/diff.py` (81/81 consistency) |
 | **Policy Engine (Phase 4 P3 shadow)** | `ontology/policy_ontology.yaml` + `ontology/three_gate.py` | `python3 ontology/engine.py --policies` (10 declared, 2 wired via proxy_filters, 6 context evaluators, 3 gates wired into request pipeline shadow mode) |
-| **Blood Lesson Cases** | `ontology/docs/cases/` | 25 case studies documenting MR-4 silent failure patterns (~28 演出, incl. MOVESPEED 60-day silent backup, kb_evening fallback quota chain, Dream self-referential hallucination, V37.9.68 Qwen-BIM 涌现行为, V37.9.92 observer path silent failure) |
+| **Blood Lesson Cases** | `ontology/docs/cases/` | case studies documenting MR-4 silent failure patterns (~28 演出, incl. MOVESPEED 60-day silent backup, kb_evening fallback quota chain, Dream self-referential hallucination, V37.9.68 Qwen-BIM 涌现行为, V37.9.92 observer path silent failure) |
 | **Opportunity Radar Design** | `docs/opportunity_radar_design.md` | V37.9.45+ strategic design (699 lines, 13 sections) — cross-source weak signal × project alignment × trend acceleration |
 | **Audit Coverage Retrospective** | `ontology/docs/audit_coverage_retrospective.md` | Stage 2 Route A — 15 blood lessons × Q1/Q2/Q3 = 0% prevention / 87% regression / 80% blind spot categories (V37.9.1) |
 

@@ -2,7 +2,6 @@
 
 > Production-tested guide for connecting any LLM to OpenClaw via middleware on Mac Mini.
 > 基于生产验证的中间件接入指南，运行于 Mac Mini，适用于任意大模型。
-> Last updated: 2026-04-01 (V32)
 
 ---
 
