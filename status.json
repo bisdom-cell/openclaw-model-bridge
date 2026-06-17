@@ -1,6 +1,6 @@
 {
-  "updated": "2026-06-17 01:50:08",
-  "updated_by": "full_regression",
+  "updated": "2026-06-17 02:12:36",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-06-17",
+      "what": "unfinished hygiene 顺手退役 [21] V37.9.130 DONE 记录 (日落法): headline 生产验证已通过(2026-06-11 Mac Mini) + (a) final Reduce 尾部残行已 V37.9.163 _strip_trailing_incomplete_line + REDUCE_MAX_TOKENS 2000→3000 闭环, (b) 被动 last_run degraded 观察已在 changelog 留痕. unfinished 31→30. 纯 status 维护无版本 bump 无 code 改动.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-17",
       "what": "V37.9.165 doc date-marker 退役 + unfinished hygiene (日落法续, doc-stat-sync V2 lineage 闭合): grounded 全文档审计后退役唯一真 stale date-marker GUIDE.md:5 Last updated 2026-04-01(V32) 陈旧2.5月(虚假新鲜度信号) — V37.9.151 退役 config.md 最后更新 + V37.9.161 版本/日期标记必然漂移源应退役 先例, git 历史是权威. doc-stat-sync V2 全 lineage 闭合: 所有 doc date-marker 现已 machine-synced(CLAUDE L3 单一源) 或退役 = 一物一形, 零未管理手工 date 漂移源. unfinished 退役 2 真 DONE 项 [19]doc-stat-sync V2 follow-up(剩余 scope 全 done) + [25]✅V37.9.158 INV-CRON-004 双行钉死, 33→31 直击评审#2 文档认知过载, 保留全部 Mac-Mini-gated 验证项. 净 -1 漂移面 + unfinished -2. VERSION 0.37.9.70 不变.",
       "by": "claude_code"
     },
@@ -198,11 +203,6 @@
       "date": "2026-06-15",
       "what": "V37.9.154 ArXiv 论文发表 + 发布配套 (focus #1 兑现): 6/12 提交 submit/7702567 → 6/15 周一香港早 announcement 分配永久编号 arXiv:2606.14589 (cs.SE 直发 + cross-list cs.AI/cs.DC), 用户提供 ID (沙箱 arxiv 403 无法自查). 配套: README publications 表 arXiv(in preparation)→arXiv:2606.14589 链接 / CLAUDE.md 文件表论文条目加已发表+latex/源码+时间线 + 新增 V37.9.154 changelog + 版本行 v37.9.153→154 / draft.md 头部 Published banner / data_inventory 终版归档头注 (数据冻结 study-cutoff 6/11 匹配已发表 LaTeX 版, 活 README 与冻结论文允许不同) / unfinished #25 销项. zip 日落 (一物一形 + 预算 -1 file): latex/paper_latex.zip 与散装 9 .tex 验证 9/9 byte-identical 无额外文件 → git rm 退役冗余打包副本 (散装 .tex canonical, git 历史保留). 验证: 三 drift check 全绿 + gen_readme_badges --write 传播 + 安全扫描零泄漏 + 126 suites/4445 tests/0 fail + VERSION 0.37.9.70 不变 (发布配套零业务语义). 里程碑: Stage 2→3 话语权第一个 cite-able 学术原作公开, PyPI openclaw-ontology-engine + arXiv:2606.14589 双公开锚点.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-06-14",
-      "what": "V37.9.153 GitHub 门面刷新 (用户驱动 5 轮迭代, 同 session 第三交付): 架构图 docs/architecture.svg 重画 960x1270(框大字小Courier)→1080x520 干净版 — 左核心管线 User→Gateway→Proxy→Adapter→LLM 大字 + 右 Ontology/Governance 明星框(差异化核心7条: 4 YAML/90 不变式828检查23元规则14扫描器/自审计MR-7/三门/Convergence/28血案→不变式/pip引擎)+顶部差异化一行+底部三平面. 用户迭代: ASCII→差异化面板→ontology重点→去突兀④→去挤坏governs连线. README 架构区段110行ASCII→新SVG+折叠文本版+组件表(692→601只压架构图其他全留), job数刷新36→40/39-35→46-40. 关键: 不为刷新而刷新(日落法)——抽查 notify/local_embed/memory_plane/kb_search 等红框文件内容干净稳定, 老时间戳=稳定非过时, churn刷时间戳违北极星; 老文章是当时记录刷新篡改历史; 两类刻意不动. 用户认同成熟系统健康标志是核心文件几个月不用碰. 126 suites/4445 tests/0 fail, VERSION 0.37.9.70不变, doc-drift全绿.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -275,7 +275,6 @@
       "V37.9.124 #29 follow-up (低优, 防未来重复调查): INV runtime 收窄已完成 INV-OBSERVER-001 (唯一已证明 env-dependent 套件). #29 调查结论: 其他 ~12 全套件 runtime check 的套件 env-independent 已核实 (test_v37_9_76_router 16 env 信号全 patch 隔离 + relative-to-HOME expanduser 一致; scanner 扫 repo 文件; INV-ROUTER false-fail 是 stale code 非套件 env-dependency), 不需收窄 (原则 #18 补证据非补功能, 收窄 env-independent 套件是 churn). #29 收窄约定已立 (test_v37_9_124 docstring): 套件含 env-dependent test 的 INV 跑契约核心类非全套件; 纯逻辑套件跑全 OK. 未来若新 INV 跑的套件含 env-dependent test (读 repo 外真实系统状态), 按此约定收窄到契约核心类 (镜像 INV-OBSERVER-001/INV-DREAM-CROSS-DOMAIN).",
       "SLO #19 观察 (V37.9.126 诊断): Mac Mini Qwen3 主力 backend 退化期 (circuit_breaker half-open, fallback=doubao), preflight #19 SLO p95=81s 是 200-滚动窗口含退化请求 (非 stale, 会随流量冲刷自愈). 操作: 观察 Qwen3 是否恢复 (breaker 闭合); 若持续不恢复 → backend/GPU provider 层面; 想 #19 早不报警 → bash ~/restart.sh 清窗口. 非 code bug (监控工作正常). 若退化频繁可评估 SLO latency 改 time-windowed 而非 request-windowed (chunk 外, 独立).",
       "V37.9.129 follow-up (DEFER, 登记): adapter fallback 循环读 upstream error body (观察性, MR-13/INV-OBSERVABILITY-001 候选)。今天诊断难正因 adapter fb_errors.append(str(fb_err)) 对 HTTPError 只给 'HTTP Error 400: Bad Request' 不读 body, 需直连 gemini 才看到 'User location not supported'。修法: adapter 复用 proxy_filters.compose_backend_error_str (V37.8.10) 或 inline helper。DEFER 原因: gemini 退役后其 400 body moot + doubao timeout 无 informative body + 引入 adapter→proxy_filters 耦合 (日落法 #34 防御本身是事故面)。价值降低非紧急, 但对未来其他 provider HTTP 错误诊断仍有价值。",
-      "V37.9.130 生产验证已通过 (2026-06-11 Mac Mini 实跑): 6/4 真实血案数据 9 chunks 重跑 — hierarchical r1 b1/3(6740c)+b2/3(6220c)+r2(8524c) 3 次小请求零失败零降级, 48 条精华入 KB, 6/3 已确认处理过, 断流全闭环. 同数据对照证实根因=单请求规模非纯超时 (同 9 Map 段, 单次 40K 两次超时 vs 3 次 7K 一次全过). 剩余低优 follow-up: (a) final Reduce max_tokens=2000 被 48 条打满产尾部残行 \"- [\" (finish_reason=length), 超大对话日边界 — V37.9.131+ 评估 2000→3000 或 emit 前剥尾部残行 (b) 长期观察 last_run degraded/map_failed 字段, 频繁 degraded → 评估 REDUCE_BATCH_SIZE 调小或 doubao 显式路由",
       "V37.9.132 一周观察 (~6/18): deep_dive 摘要级占比应从 76% (34/45) 显著下降 — Mac Mini 验证: grep -L \"基于摘要的分析\" ~/.kb/deep_dives/*.md 看 6/12 后新增文件多数应为全文级. 若仍高: (a) 查 dblp ee 字段 arxiv 覆盖率 (b) S2 openAccessPdf .pdf 结尾比例 (非 .pdf OA 链接保留 S2 页面是有意取舍) (c) 候选增强: deep_dive mode (full_text/abstract_only) 占比纳入 daily_observer 报告让 degrade 频率可观测 (本次 76% gap 潜伏 2 个月才被用户发现的根因是 degrade 频率无聚合复盘)",
       "GitHub main 落后开发分支 ~30 版本 (main ~V37.9.123, 分支已 V37.9.153 含架构图刷新). 让 GitHub 门面当前化的唯一一步=用户合并 PR (Claude 只能推开发分支). 合并后稳定工具文件仍显示老时间戳(正确). 附: 未来精准刷新方法论=三分类映射(1稳定已完成留/2点-in-time记录留/3真内容陈旧才修), 永不盲目 churn 稳定文件刷时间戳(日落法).",
       "V37.9.160 Tool Policy Plugin chunk 2 (待真消费方需求驱动, 原则 #18): enforcement 真接入 — tool_proxy/three_gate 读 policies.d/ 插件策略真截断 (镜像 _resolve_max_tools_limit 的 max-tools-per-agent 硬截断)。当前 chunk 1 只 observability (evaluate_policy 可查)。Provider Plugin 由 Doubao 驱动 enforcement 同款, 应等成本守卫类真需求。+ pyproject package-data 加 ontology/policies.d/ (pip 包含示例)。+ 缓存 (evaluate_policy 未命中 base 即重扫 policies.d/)。",
