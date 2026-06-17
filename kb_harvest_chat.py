@@ -54,6 +54,11 @@ REDUCE_TIMEOUT = 300
 REDUCE_BATCH_SIZE = 4
 # V37.9.130: Map/Reduce LLM 失败后重试次数（镜像 V37.9.74/75 dream retry 模式）
 LLM_RETRY = 1
+# V37.9.163: Reduce 每批 LLM 输出 max_tokens。V37.9.130 用 2000，2026-06-11 Mac Mini
+# 实跑（48 条精华）被打满 → finish_reason=length → 尾部残行 "- ["（[23](a) 观察）。
+# 2000→3000 给超大对话日更多输出空间（与"不降 max_tokens 不牺牲质量"设计哲学一致），
+# 降低截断频率；仍截断时由 _strip_trailing_incomplete_line 剥残行 + log（可观测）。
+REDUCE_MAX_TOKENS = 3000
 
 
 def load_conversations(date_str):
@@ -240,6 +245,35 @@ def _mechanical_dedup(segments):
     return "\n".join(lines_out)
 
 
+def _strip_trailing_incomplete_line(text):
+    """V37.9.163: 剥掉 LLM max_tokens 截断产生的尾部残行。
+
+    Reduce/Extract 输出每条格式 "- [类型] 内容"。max_tokens 用满时
+    (finish_reason=length) 最后一行可能被切成残行（如 "- ["，类型括号未闭合）。
+
+    **保守判定（绝不误剥完整行）**：完整行一定含 "[类型]" 的闭合 "]"，所以仅当
+    尾行是裸 bullet（"-" / "- [" / "[")，或起始 "-" 且有 "[" 但无 "]"（类型括号
+    被切断）时才剥。"- [类型] 部分内容…"（有 "]"，内容截断）保留作可用条目不剥。
+
+    Returns (cleaned_text, stripped: bool)。stripped=True 时调用方应 log
+    (可观测：截断意味着尾部条目可能溢出，MR-4 不静默)。绝不返回空（≤1 行不剥）。
+    """
+    if not text:
+        return text, False
+    lines = text.rstrip("\n").split("\n")
+    if len(lines) <= 1:
+        # 仅 1 行：即使残缺也保留（MR-4 不返回空）
+        return text, False
+    last = lines[-1].strip()
+    is_incomplete = (
+        last in ("-", "- [", "-[", "[")
+        or (last.startswith("-") and "[" in last and "]" not in last)
+    )
+    if is_incomplete:
+        return "\n".join(lines[:-1]).rstrip("\n"), True
+    return text, False
+
+
 def _reduce_hierarchical(map_results, date_str):
     """V37.9.130: 层级分批 Reduce（替代单次大请求 Reduce）。
 
@@ -272,7 +306,7 @@ def _reduce_hierarchical(map_results, date_str):
                   f"({len(all_points)} chars)...")
             merged = _llm_call_with_retry(
                 _build_reduce_prompt(all_points, date_str),
-                max_tokens=2000, timeout=REDUCE_TIMEOUT, label=label)
+                max_tokens=REDUCE_MAX_TOKENS, timeout=REDUCE_TIMEOUT, label=label)
             if merged:
                 next_segments.append(merged)
                 round_llm_ok = True
@@ -424,6 +458,13 @@ def process_date(date_str, dry_run=False):
         print(f"[harvest] {date_str}: no key content found by LLM")
         mark_processed(date_str)
         return "no_content", meta
+
+    # V37.9.163: 剥掉 max_tokens 截断产生的尾部残行（如 "- ["）。截断意味着尾部
+    # 条目可能溢出 → log WARN 可观测（MR-4 不静默），不阻塞写入（已提炼的全部入 KB）。
+    key_points, _stripped = _strip_trailing_incomplete_line(key_points)
+    if _stripped:
+        print(f"[harvest] {date_str}: WARN 尾部残行已剥除 (LLM max_tokens 截断, "
+              f"尾部条目可能溢出; 超大对话日边界)", file=sys.stderr)
 
     # V37.9.130: Reduce 降级时 KB 内容显式标记（诚实可观测，下游 LLM 消费时知情）
     if meta.get("reduce_degraded"):
