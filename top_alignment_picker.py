@@ -74,6 +74,17 @@ DEFAULT_MIN_STARS = 4
 # 默认推送 Top N: 5 条 (用户一屏可见, 不淹没 Dream/Evening 主分析)
 DEFAULT_TOP_N = 5
 
+# V37.9.169 marker ([5](c) 兑现: emit 端 per-pick 确定性可信度 tier)
+_V37_9_169_MARKER = "V37.9.169 per-pick credibility tier"
+
+# V37.9.169 [5](c): picker source_id → source_credibility source_id 映射.
+# 绝大多数 id 直配; 唯一真错配是 arxiv (picker) vs arxiv_monitor (cred) —
+# 不映射则 get_credibility("arxiv") FAIL-OPEN 误判为社媒💬 (实际应会议预印本🥈).
+# 其余 id 直配 (hf_papers/semantic_scholar/dblp/github_trending/rss_blogs/
+# ai_leaders_blogs/ai_leaders_x/ai_leaders_bsky) 或 FAIL-OPEN 到正确档
+# (hn → 社媒💬, 本就正确). 一物一形: 只登记真差异.
+_PICKER_TO_CRED_ID: dict[str, str] = {"arxiv": "arxiv_monitor"}
+
 # Source registry: 8 ALIGNED sources (V37.9.45/50/51 全量迁移完毕)
 # priority 数字越小越高: 论文类 1-3 > repo 类 4 > 博客 5 > tweet 类 6-7
 #
@@ -371,12 +382,27 @@ def rank_picks(picks: list[dict[str, Any]], top_n: int = DEFAULT_TOP_N) -> list[
     return ranked[:top_n]
 
 
+def _credibility_emoji(sc_module: Any, source_id: str) -> str:
+    """V37.9.169 [5](c): 确定性返回 pick 来源的可信度 tier emoji.
+
+    sc_module: 已 lazy-import 的 source_credibility 模块 (None → 跳过).
+    source_id: pick 的 source_id (空/缺 → 跳过, 边界 pick 不强加档).
+
+    Returns: tier emoji (🥇🥈🥉📝💬) 或 "" (模块缺失 / 无 source_id).
+    get_credibility 是 FAIL-OPEN 契约 (永不抛异), 故无需内层 try.
+    """
+    if sc_module is None or not source_id:
+        return ""
+    cred_id = _PICKER_TO_CRED_ID.get(source_id, source_id)
+    return sc_module.get_credibility(cred_id).get("emoji", "")
+
+
 def format_top_picks_block(picks: list[dict[str, Any]], header: str | None = None) -> str:
     """生成 markdown 紧凑段供 kb_dream / kb_evening prompt 注入.
 
-    格式 (每条 1 行, 不超 80 字):
-        - ⭐⭐⭐⭐⭐ [HF精选] 标题 / 一句话原因
-        - ⭐⭐⭐⭐ [博客] 标题 / 一句话原因
+    格式 (每条 1 行, 不超 80 字; V37.9.169 起 source 带可信度 tier emoji):
+        - ⭐⭐⭐⭐⭐ [HF精选 🥈] 标题 / 一句话原因
+        - ⭐⭐⭐⭐ [博客 📝] 标题 / 一句话原因
 
     Args:
         picks: ranked picks list (已排序)
@@ -384,9 +410,19 @@ def format_top_picks_block(picks: list[dict[str, Any]], header: str | None = Non
 
     Returns:
         str: 多行 markdown 段, 末尾无换行. 空输入 → 空字符串.
+
+    V37.9.169 [5](c): 每个带 source_id 的 pick 后缀确定性可信度 tier emoji
+    (源自 source_credibility.get_credibility, 非 LLM 合规依赖). FAIL-OPEN:
+    source_credibility 不可 import / pick 无 source_id → 无 emoji, block 照常出.
     """
     if not picks:
         return ""
+
+    # V37.9.169 [5](c): lazy-import 一次复用 (FAIL-OPEN: 缺模块 → 无 tier)
+    try:
+        import source_credibility as _sc
+    except ImportError:
+        _sc = None
 
     lines: list[str] = []
     if header:
@@ -397,14 +433,16 @@ def format_top_picks_block(picks: list[dict[str, Any]], header: str | None = Non
         stars = max(0, min(stars, 5))  # clamp [0, 5]
         star_str = "⭐" * stars
         source = p.get("source_display", "?")
+        emoji = _credibility_emoji(_sc, p.get("source_id", ""))
+        source_field = f"{source} {emoji}" if emoji else source
         title = p.get("cn_title", "(无标题)")
         # 标题截断到 ≤40 字防止单行过长
         title_display = title[:40] + ("…" if len(title) > 40 else "")
         reason = p.get("alignment_reason", "")
         if reason:
-            lines.append(f"- {star_str} [{source}] {title_display} / {reason}")
+            lines.append(f"- {star_str} [{source_field}] {title_display} / {reason}")
         else:
-            lines.append(f"- {star_str} [{source}] {title_display}")
+            lines.append(f"- {star_str} [{source_field}] {title_display}")
 
     return "\n".join(lines)
 

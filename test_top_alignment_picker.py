@@ -689,5 +689,113 @@ class TestV9_56IntegrationContracts(unittest.TestCase):
         self.assertIn("$TITLE", block)  # 不修改原内容
 
 
+# ══════════════════════════════════════════════════════════════════════
+# V37.9.169 [5](c) — emit 端 per-pick 确定性可信度 tier
+# ══════════════════════════════════════════════════════════════════════
+#
+# Background (status.json unfinished [5](c)):
+#   source_credibility 此前只在 prompt 级注入 (format_credibility_block 让
+#   LLM 自己加 [可信度:X] 标签, 依赖 LLM 合规). [5](c) 改为 emit 端确定性
+#   per-pick tier — format_top_picks_block 给每个带 source_id 的 pick 加
+#   source_credibility tier emoji (不依赖 LLM). 关键修复: picker 用 "arxiv"
+#   但 source_credibility 用 "arxiv_monitor", 不映射则 FAIL-OPEN 误判社媒.
+
+class TestV37_9_169_CredibilityTier(unittest.TestCase):
+    """[5](c) 确定性 per-pick 可信度 tier emoji."""
+
+    @staticmethod
+    def _pick(sid, stars=5, title="标题", reason="原因"):
+        return {"source_id": sid, "source_display": sid,
+                "alignment_stars": stars, "cn_title": title,
+                "alignment_reason": reason}
+
+    def test_arxiv_maps_to_arxiv_monitor(self):
+        # 核心修复: arxiv → arxiv_monitor → 🥈 会议预印本 (非 FAIL-OPEN 社媒💬)
+        import source_credibility as sc
+        expected = sc.get_credibility("arxiv_monitor")["emoji"]
+        block = tap.format_top_picks_block([self._pick("arxiv")])
+        self.assertIn(expected, block)
+        self.assertEqual(expected, "🥈")  # 会议预印本
+
+    def test_each_real_source_tier(self):
+        import source_credibility as sc
+        for sid in ("hf_papers", "github_trending", "ai_leaders_blogs",
+                    "ai_leaders_x"):
+            cred_id = tap._PICKER_TO_CRED_ID.get(sid, sid)
+            expected = sc.get_credibility(cred_id)["emoji"]
+            block = tap.format_top_picks_block([self._pick(sid)])
+            self.assertIn(f"[{sid} {expected}]", block,
+                          f"{sid} expected tier {expected}")
+
+    def test_unknown_source_fail_open_social(self):
+        # hn 不在 source_credibility → FAIL-OPEN 社媒💬 (对 HN 本就正确)
+        block = tap.format_top_picks_block([self._pick("hn")])
+        self.assertIn("💬", block)
+
+    def test_no_source_id_no_emoji_backward_compat(self):
+        # 边界 pick 无 source_id → 无 emoji, 现有格式保留 (向后兼容)
+        block = tap.format_top_picks_block(
+            [{"alignment_stars": 5, "source_display": "HF",
+              "cn_title": "Paper A", "alignment_reason": "r"}])
+        self.assertEqual(block, "- ⭐⭐⭐⭐⭐ [HF] Paper A / r")
+
+    def test_helper_fail_open_module_none(self):
+        self.assertEqual(tap._credibility_emoji(None, "arxiv"), "")
+
+    def test_helper_fail_open_empty_source_id(self):
+        self.assertEqual(tap._credibility_emoji(object(), ""), "")
+
+    def test_block_format_full_line(self):
+        block = tap.format_top_picks_block([self._pick("hf_papers")])
+        # 格式: - ⭐⭐⭐⭐⭐ [hf_papers 🥈] 标题 / 原因
+        self.assertTrue(block.startswith("- ⭐⭐⭐⭐⭐ [hf_papers 🥈] 标题"))
+
+
+class TestV37_9_169_Guards(unittest.TestCase):
+    """V37.9.169 源码级守卫 + 反向验证."""
+
+    @classmethod
+    def setUpClass(cls):
+        here = os.path.dirname(os.path.abspath(__file__))
+        with open(os.path.join(here, "top_alignment_picker.py"),
+                  "r", encoding="utf-8") as f:
+            cls.src = f.read()
+
+    def test_marker(self):
+        self.assertIn("V37.9.169", self.src)
+
+    def test_picker_to_cred_id_locked(self):
+        # 一物一形: 只登记真差异 (arxiv→arxiv_monitor)
+        self.assertEqual(tap._PICKER_TO_CRED_ID, {"arxiv": "arxiv_monitor"})
+
+    def test_helper_exists(self):
+        self.assertTrue(hasattr(tap, "_credibility_emoji"))
+
+    def test_lazy_import_fail_open_specific(self):
+        # FAIL-OPEN: except ImportError (specific, 不触发 MRD-SILENT-EXCEPT)
+        self.assertIn("except ImportError", self.src)
+
+    def test_mr8_emoji_sourced_from_credibility(self):
+        """MR-8: emoji 来自 source_credibility, 非 picker 硬编码.
+        若 source_credibility tier emoji 改变, picker 输出自动跟随."""
+        import source_credibility as sc
+        cred_emoji = sc.get_credibility("arxiv_monitor")["emoji"]
+        block = tap.format_top_picks_block(
+            [{"source_id": "arxiv", "source_display": "ArXiv",
+              "alignment_stars": 4, "cn_title": "T", "alignment_reason": ""}])
+        self.assertIn(cred_emoji, block)
+
+    def test_reverse_id_map_matters_non_tautology(self):
+        """反向验证: id 映射真起作用 — arxiv (映射后) 得 🥈, 而未映射当
+        未知源 FAIL-OPEN 得 💬. 两者不同 = 映射非装饰."""
+        import source_credibility as sc
+        mapped = sc.get_credibility(
+            tap._PICKER_TO_CRED_ID.get("arxiv", "arxiv"))["emoji"]
+        unmapped = sc.get_credibility("arxiv")["emoji"]  # 未映射 FAIL-OPEN
+        self.assertEqual(mapped, "🥈")
+        self.assertEqual(unmapped, "💬")
+        self.assertNotEqual(mapped, unmapped)
+
+
 if __name__ == "__main__":
     unittest.main()
