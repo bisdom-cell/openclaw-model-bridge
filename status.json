@@ -1,6 +1,6 @@
 {
-  "updated": "2026-06-17 01:20:52",
-  "updated_by": "claude_code",
+  "updated": "2026-06-17 01:35:42",
+  "updated_by": "full_regression",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-06-17",
+      "what": "V37.9.164 README 治理计数一致性收敛 (外部评审2 证据刷新与一致性收敛指令 + 日落法一物一形): gen 三机器全绿后抓 README prose 3 处真漂移 (徽章/header 已 91 inv·839 checks·26 cases, prose 仍 90·828·25 = V37.9.159 加 INV-GOV-RUNTIME-ISOLATION-001 后未同步残留). L77 架构图等宽 bump 90→91·828→839 / L386 value-prop 同步 +25→26 cases / L580 文件表去数字化 25 case→case 退役漂移源 (V37.9.152 file-row 同款). point-in-time 不动 (article 修辞·baselined·changelog). L77·L386 诚实留手动不加机器 (MR-22 防御本身是事故面, 对齐 V37.9.161 SLO/preflight). 净 -1 漂移源, VERSION 0.37.9.70 不变.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-17",
       "what": "V37.9.163 kb_harvest final-Reduce 尾部残行修复 ([23](a) 生产观察闭环): _strip_trailing_incomplete_line 保守剥 max_tokens 截断残行(仅剥类型括号未闭合 bullet, 完整行含 ] 绝不误剥, ≤1 行不剥 MR-4 不返回空) + emit 前应用 + stderr WARN 可观测 + REDUCE_MAX_TOKENS 常量 2000→3000 降截断频率. 13 新单测(helper 8+集成 2+守卫 3) + 反向验证两层守卫真有效. 顺手清 3 真 DONE unfinished. 131 suites 4622 tests 0 fail / governance 91 inv INV-JOB-HARVEST-001 无回归 / VERSION 0.37.9.70 不变.",
       "by": "claude_code"
     },
@@ -198,11 +203,6 @@
       "date": "2026-06-14",
       "what": "V37.9.152 README 一致性收敛全闭环 (V37.9.151 续完结, 同 session 第二交付): 版本标记 file-reference 行的漂移治理计数去数字化. V37.9.151 留的 L395/446/447 (V37.9.121 89 inv/818 checks) 与 L477 当前 90 inv 并存=89-vs-90 内部 split, 本版闭合. content-type 决定处理: ASCII 图 L148/149 有宽度约束→等宽 bump (89→90/818→828/v3.55→v3.56 位数不变框不破); file-reference 表 L395/446/447/451 无约束→去数字化 (保留 V-range+命名 INV/MR 示例+5 check types 结构). 顺带扫 GUIDE/ontology 文档全是合法点-in-time 快照不动 (failure_modes_catalog 显式声明数据基准 v3.52; why_so_many_incidents 87 不变式是 2026-06-05 当日反思 as-of). 残留扫描零 89/818/v3.55/75-tests, README 治理计数全闭环. 净-4漂移面零新机器, session 累计-8. 126 suites/4445 tests/0 fail, VERSION 0.37.9.70 不变, 三项 doc-drift check 全绿.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-06-14",
-      "what": "V37.9.151 轻量一致性收敛 (门控日, arXiv ID 等明早香港周一+沙箱网络受限): config.md 陈旧日期 (最后更新2026-06-02 陈旧12天) 退役为漂移源 (日期单一源=自动同步L4版本行, 一物一形) + README 3处增长型重复计数去数字化 (L233 1319 unit tests / L659 2253 Unit Tests|64 suites / L666 治理审计括号89/818 checks) + L477 827→828 checks (近当前值-prop段只改一位). 区分诚实快照不动: README L395/446 版本标记V37.9.121 89/818 是as-of记录属doc-stat-sync V2(declined); ArXiv论文草稿827是冻结study-cutoff快照(改已提交论文是错的). 净-4漂移面零新机器=复杂度预算V37.9.150首次实战. CLAUDE.md line3 v-label→v37.9.151 + gen_readme_badges --write自动传播全下游. 126 suites/4445 tests/0 fail, governance 90/828, VERSION 0.37.9.70不变, 三项doc-drift check全绿.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -290,7 +290,7 @@
     ],
     "open_prs": "",
     "blocked_on": "",
-    "focus": "2026-06-17 续 V37.9.162: 部署已验证干净(Mac Mini git reset 同步 + preflight --full 86/86 实质过, wa_keepalive 频道监控已部署生效; 唯一 fail=check16 WhatsApp 推送=频道未重链 session-logout 未恢复, 非回归, 重链后自动转绿). WhatsApp 恢复仍 user-gated: 今天第7次 login 仍 408(设备链接限流隔夜未清), 已停手须 24h+ 零尝试冷却+期间正常用手机. 用户拍板 Option A(maxAttempts:12 熔断砍6h重连风暴根因), dev ready-to-apply 包已提交推送(baileys_ban_risk_assessment.md, schema实证+Python原子补丁dev测过+runbook+回滚). 铁规则:恢复稳定后才应用A. 恢复后验证: channels status真实connected行喂wa_channel_status.py应得0|1|connected(非indeterminate).",
+    "focus": "🎯 V37.9.163-164 同日双交付: (163) kb_harvest final-Reduce max_tokens 截断尾部残行修复 [23](a) 生产观察闭环 (_strip_trailing_incomplete_line 保守剥 + REDUCE_MAX_TOKENS 2000→3000 + stderr WARN, 13 新单测) + 3 真 DONE unfinished 清理. (164) README 治理计数一致性收敛 (外部评审2 指令: prose 3 处真漂移 90/828/25→91/839/26, L580 去数字化退役漂移源, 纯文档零业务语义). 131 suites 4622 tests 0 fail / 91 inv 839 checks / 安全 95 / VERSION 0.37.9.70 不变. **待用户**: PR #722(163) 已合并 + 本 PR(164) → Mac Mini git fetch+reset (纯文档零重启). **下一步候选 (dev)**: enforcement(deferred 待真消费方·原则#18) / V3 backlog Memory·Job SDK(加功能与评审指令相悖) / 知乎发布(用户动作) — 均非干净 dev+日落法, 续做一致性收敛或等用户指令.",
     "current_focus": "V37.8 MR-6 深度补齐生产硬验证通过 (35/35 inv / 136/136 checks / 9/9 MR 全绿). 下一步: V37.8.1 修复 MRD-NOTIFY-002 activity 层假阳性 (topic→job log 映射扫 mtime) 或 Ontology Phase 3 渐进替换 (ONTOLOGY_MODE=on) 或 Tool Policy Plugin V3 路标",
     "recent_changes": [
       {
@@ -353,9 +353,9 @@
   "quality": {
     "security_score": 95,
     "test_count": 4622,
-    "last_regression": "2026-06-17 01:16 pass",
+    "last_regression": "2026-06-17 01:35 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-17 01:16",
+    "security_score_time": "2026-06-17 01:35",
     "test_suites": 131,
     "governance_invariants": "91/91",
     "governance_checks": "745/759",
