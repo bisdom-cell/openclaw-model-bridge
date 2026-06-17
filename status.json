@@ -1,6 +1,6 @@
 {
-  "updated": "2026-06-17 06:56:02",
-  "updated_by": "claude_code",
+  "updated": "2026-06-17 07:37:22",
+  "updated_by": "full_regression",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-06-17",
+      "what": "V37.9.169 A类[5](c)+[13](d): [5](c)=source_credibility 升级 emit 端 per-pick 确定性 tier(top_alignment_picker 每 pick 加 tier emoji🥇🥈🥉📝💬, 不依赖LLM合规)+修 arxiv→arxiv_monitor id 错配(否则误判社媒)+13单测+sabotage验证. [13](d)=ground 调查确认已完成非 churn(ai_leaders_blogs 写KB→三件套通用扫KB自动捕获+已在ALIGNED_SOURCES). 131 suites/4658 tests(+13)/0 fail/治理91/91/安全95/VERSION 0.37.9.70不变. 理解再动手(原则#28)避免churn已完成+脆弱实现两反模式.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-17",
       "what": "V37.9.168 A类[19](c): deep_dive 摘要级降级率纳入 daily_observer — scan_deep_dive_modes(30天窗口,结构化**模式**marker分类) + 🔬报告段(随wrapper推双通道) + MED降级率告警(≥50%且样本≥5) + 23单测(含MR-8跨文件marker守卫+2轮sabotage验证) + run()接线. 堵76%摘要级潜伏2月盲区(MR-4闭真). 130 suites/4645 tests(+23)/0 fail/治理91/91/安全95/VERSION 0.37.9.70不变(job级observability). WhatsApp冻结日选对dev自主项:走Discord绕冻结主体. Mac Mini待同步(06:30 cron自动生效).",
       "by": "claude_code"
     },
@@ -198,11 +203,6 @@
       "date": "2026-06-15",
       "what": "4.27 推送链路 follow-up (d) 闭合: docs/push_path_loss_surface_audit_2026_06_15.md — 全仓 127 直推站点代码级审计. 结论=无真·总丢失面 (每条真内容要么 notify.sh 3 重试+队列, 要么 Discord 孪生存活). 残留=类别 2 论文类 job 直推双通道的 WhatsApp 瞬时缝隙 (内容在 Discord 不丢). 硬化候选 (deferred, 需 Mac Mini E2E): 类别 2 迁 notify.sh --topic (MR-8 一物一形, 顺带消缝隙). follow-up (a)(b)(c) 仍需 Mac Mini 生产数据.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-06-15",
-      "what": "中文科普版 when_errors_become_narratives_zh 已发布知乎 (https://zhuanlan.zhihu.com/p/2049816723541463125) — README 表 platform 列更新. 至此论文知乎双发布全完成: why_runtime_not_wrapper_zh (p/2049813538894623858) + 中文科普版 (p/2049816723541463125). 三件套 (arXiv 2606.14589 学术原作 + 中文科普版 + why_runtime 续篇) 全部公开, 覆盖学术圈+中文社区双受众.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -259,7 +259,7 @@
       "V3 路标 backlog: Tool Policy Plugin + Memory Plane Plugin + Job Template SDK + pip install ontology-engine",
       "WhatsApp 入站路由到 research agent 而非 main（4/10 WhatsApp plugin 安装副作用）: main/sessions.json mtime 从 Mar 30 起 dormant, 但 HEARTBEAT.md 修复后 research 正常响应不致命. 长期考虑: channels.whatsapp.agent 显式配置 / agents.list 顺序调整 / 验证 WhatsApp plugin inbound handler routing 逻辑",
       "V37.9.83 战略方向 3 (Red Team Sandbox): red/blue/judge multi-agent dev sandbox 自我博弈. PoC 价值高生产价值低 (围棋 self-play 有效因博弈空间封闭+胜负函数明确, 我们系统输入空间开放无 ground truth 评分函数). 短期不启动. 但子能力 red_team_audit.py 每周对抗思维扫描有真实价值 — 是 V37.9 adversarial_chaos_audit.py (16/16 已实现) 的延伸. design doc 见 ai_partnership_first_principles_zh.md 第四节方向 3.",
-      "V37.9.121 已立 INV-SOURCE-CREDIBILITY-001 (8 checks, source_credibility 全契约). 剩余 follow-up (非高优, 待 Mac Mini): (b) 22:00 evening + 03:00 dream 真激活验证用户视角推送中 [可信度: <等级>] 标注真出现, 尤其 chaspark 引用带'博客级需独立验证'. (c) 可选: get_credibility() 升级为 per-citation 标注 (当前是 prompt-level 注入, 未来可在 emit 端对每条来源自动加 tier 后缀).",
+      "✅ (c) V37.9.169 已完成: get_credibility 升级 emit 端 per-pick 确定性 tier (top_alignment_picker.format_top_picks_block 每 pick 加 source_credibility emoji + arxiv→arxiv_monitor id 修复 + 13 单测 + sabotage). 剩余: V37.9.121 已立 INV-SOURCE-CREDIBILITY-001 (8 checks, source_credibility 全契约). 剩余 follow-up (非高优, 待 Mac Mini): (b) 22:00 evening + 03:00 dream 真激活验证用户视角推送中 [可信度: <等级>] 标注真出现, 尤其 chaspark 引用带'博客级需独立验证'. (c) 可选: get_credibility() 升级为 per-citation 标注 (当前是 prompt-level 注入, 未来可在 emit 端对每条来源自动加 tier 后缀).",
       "convergence cron 行全行比较: 2026-06-02 审计已决定不切换 (case doc cron_line_full_comparison_audit_2026_06_02.md). Mac Mini 真 crontab missing=17 extra=18 全是格式变体 0 脚本缺失, 切换会 false-drift 风暴. 保持 line_contains_identifier (务实最优). 未来候选 (非高优): (a) fuzzy-match parser 归一化引号/~/root/redirect 后比较, 但需先做 registry↔crontab 命令完整性对账 (registry entry 不记 args/cd/真实路径). (b) 2 真差异待用户决定: preference_learner registry entry 补 --apply --days 7 args? / 30 23 手动 rsync→MOVESPEED 是否与 0 4 movespeed_daily_sync 冗余需清理?",
       "V37.9.100 部署验证: Mac Mini git fetch+reset 同步后 governance audit cron 07:00 首次真执行 67 个此前空跑的 check (含 2 critical INV-DREAM-003/INV-WATCHDOG-SELF-001) — 验证生产环境 job_watchdog/守护脚本无真退化 (dev 已全绿 87 inv)",
       "V37.9.101 部署验证: Mac Mini 同步后 21:00 cron 真激活轮换 — 应 log 'V37.9.101 轮换 idx=N batch=11 抓 11/31' + fetch 成功率大升 (11 请求 vs 31). 若 11 请求仍 429 → IP 硬标记, V37.9.102+ 转策略 (降 batch / 认证版 X API / 替代源)",
@@ -267,7 +267,7 @@
       "V37.9.103 部署验证 (clean+reduce 冻结≠死亡): Mac Mini git fetch+reset 同步 + auto_deploy 同步 finance_news_zombie.py/run_finance_news.sh/ai_leaders_rotation.py/jobs_registry.yaml/job_watchdog.sh. (a) 下次 07:30 finance cron 应首次出现 🧊 X 渠道退化日志(frozen 账号零产出, 不再 [SYSTEM_ALERT] 建议移除活账号 XHNews/CGTN 类). (b) 下次 09:00 ai_leaders cron 1/天生效. (c) crontab 更新 ai_leaders 频率 0 9,21→0 9 (bash ~/crontab_safe.sh 或手动). (d) 一周观察 frozen 账号确实零产出后, 考虑立 INV-FROZEN-NOT-DEAD-001 把跨模块 frozen≠死亡契约升级为独立 governance INV (当前在 INV-X-001 内). (e) 换源决策已定 clean+reduce 接受退化, TwitterAPI.io 路径留 docs/ai_leaders_source_alternatives.md 备查若未来重启",
       "#18 ai_leaders zombie loop-wiring 现已安全 (V37.9.103): classify_account 已拆 frozen/dead, is_zombie_suspect 仅 stub+dead, 将来 wire 进 run 脚本不会错杀 karpathy 类冻结活账号. 仍 deferred 待 Mac Mini rotation 验证工作后做 (parser 发 newest_age + per-account classify + 3 天连续 ZOMBIE 告警, 镜像 finance_news degraded 分流)",
       "V37.9.106 部署后 24h 验证 (~2026-06-05): 现有 30 条 MOVESPEED TM-争用 incident 老化出 24h 窗口后 INV-MOVESPEED-TCC-001 应自动转绿 → 治理审计 721/721 全绿. 验证: python3 ~/movespeed_incident_analyzer.py --window 24h 应显示 incidents 大降 (tmutil 预检让 TM 备份时 rsync 跳过不产新 incident). 若仍红说明 TM 之外还有 incident 来源待查.",
-      "ai_leaders_blogs (V37.9.108) Mac Mini feed 可达性验证 + 后续: (a) 首跑后看 log WARN 剪死链 (Anthropic news/Karpathy bearblog URL 是 candidate 待验, Substack /feed 标准应可达) + 补可达大神 feed (b) V37.9.109+ Bluesky 免费无认证 API (public.api.bsky.app getAuthorFeed) 加实时短观点维度 — 学者已大规模迁入 (arXiv 2505.24801), 需 handle→DID 解析 + getAuthorFeed 抓取 + 查哪些大神在 Bluesky (c) 验证稳定后真停用 ai_leaders_x: 需同步更新 6 依赖 (kb_review/source_credibility/INV-REVIEW-001/INV-BACKUP-001/config/wa_gateway_resilience 都期望 ai_leaders_x 为内容源) + Mac Mini crontab_safe.sh remove 清 cron 行 (d) ai_leaders_blogs 接入 Opportunity Radar 三件套 (跨源共振 #1 / 项目对齐 #2 / 趋势加速 #3) 作高质量信号源",
+      "✅ (d) V37.9.169 调查确认已完成 (非 churn): ai_leaders_blogs 写 KB → #1 跨源共振(scan_today_notes tags[0]=ai-leaders-blogs 独立 source)/#3 趋势加速(通用扫 KB) 自动捕获 + 已在 ALIGNED_SOURCES(#2). 三件套通用扫 KB 非 per-source wiring. 剩余 (a)(b)(c) Mac Mini 验证: ai_leaders_blogs (V37.9.108) Mac Mini feed 可达性验证 + 后续: (a) 首跑后看 log WARN 剪死链 (Anthropic news/Karpathy bearblog URL 是 candidate 待验, Substack /feed 标准应可达) + 补可达大神 feed (b) V37.9.109+ Bluesky 免费无认证 API (public.api.bsky.app getAuthorFeed) 加实时短观点维度 — 学者已大规模迁入 (arXiv 2505.24801), 需 handle→DID 解析 + getAuthorFeed 抓取 + 查哪些大神在 Bluesky (c) 验证稳定后真停用 ai_leaders_x: 需同步更新 6 依赖 (kb_review/source_credibility/INV-REVIEW-001/INV-BACKUP-001/config/wa_gateway_resilience 都期望 ai_leaders_x 为内容源) + Mac Mini crontab_safe.sh remove 清 cron 行 (d) ai_leaders_blogs 接入 Opportunity Radar 三件套 (跨源共振 #1 / 项目对齐 #2 / 趋势加速 #3) 作高质量信号源",
       "V37.9.112 已完成 (b) ai_leaders_bsky 接入 Opportunity Radar #2 (top_alignment_picker ALIGNED_SOURCES 9→10, 3 消费方自动生效). 剩余 follow-up (Mac Mini handle 验证后, 非高优): (a) 首跑 log WARN 剪死 handle + 补可达 contrarian 大神 (howard.fm 自定义域名 / garymarcus.bsky.social / emilymbender.bsky.social 候选待验 / fchollet 替代) (c) 2x/天频率评估 (实时短观点价值) + 评估 Bluesky app-password 认证读 login-required 账号",
       "3-engine-merge 已两次评估结论 DEFER (V37.9.119 + 2026-06-08 本 session 加深), 勿再从头调查. **结构**: 3 个 engine.py 加载点 — proxy_filters:452 (_onto_engine, module-level 仅 on/shadow, generate_proxy_data 覆盖 ALLOWED_TOOLS + 保留 _onto_mod 供 evaluate_policy, 每请求工具过滤核心) / proxy_filters:1463 (ontology_engine, _check_ontology_consistency 无条件所有 mode, 一致性诊断) / three_gate:183 (_three_gate_engine_lazy, lazy 首次 gate 评估缓存, _safe_evaluate_policy shadow 门控请求路径). **风险评估**: (a) path-independent 零 correctness bug, 双加载一物二形仅 on/shadow mode 存在 (OFF mode 只 1463 加载), 合并仅省 1 次 startup-once 加载 = cosmetic. (b) Sub-merge A (proxy_filters 452+1463 单文件) 中风险; Sub-merge B (three_gate 跨模块共享单例) 高风险. (c) three_gate._load_engine_module 是 V37.9.15.1 hotfix 加固的三策略 robustness 修复, governance INV-GATE-001 (gov yaml line 5402-5413) 硬锁 _three_gate_engine_lazy 模块名 + _load_engine_module 结构 + 4 测试文件引用 → 合并连带改 governance+测试+风险解开 hotfix 修过的 bug. **决策**: DEFER — 无 incident-causing 接缝 (北极星 V37.9.117 针对造成事故的接缝, 这 3 加载是 cosmetic startup-once 重复), 高 blast radius (每请求工具过滤+shadow 门控) 换 cosmetic 收益, 原则 #34 防御本身是事故面. 若未来真要做: 只考虑 Sub-merge A (单文件缓存 helper), Sub-merge B 不做.",
       "V37.9.124 #29 follow-up (低优, 防未来重复调查): INV runtime 收窄已完成 INV-OBSERVER-001 (唯一已证明 env-dependent 套件). #29 调查结论: 其他 ~12 全套件 runtime check 的套件 env-independent 已核实 (test_v37_9_76_router 16 env 信号全 patch 隔离 + relative-to-HOME expanduser 一致; scanner 扫 repo 文件; INV-ROUTER false-fail 是 stale code 非套件 env-dependency), 不需收窄 (原则 #18 补证据非补功能, 收窄 env-independent 套件是 churn). #29 收窄约定已立 (test_v37_9_124 docstring): 套件含 env-dependent test 的 INV 跑契约核心类非全套件; 纯逻辑套件跑全 OK. 未来若新 INV 跑的套件含 env-dependent test (读 repo 外真实系统状态), 按此约定收窄到契约核心类 (镜像 INV-OBSERVER-001/INV-DREAM-CROSS-DOMAIN).",
@@ -346,10 +346,10 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 4645,
-    "last_regression": "2026-06-17 06:53 pass",
+    "test_count": 4658,
+    "last_regression": "2026-06-17 07:36 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-17 06:53",
+    "security_score_time": "2026-06-17 07:36",
     "test_suites": 131,
     "governance_invariants": "91/91",
     "governance_checks": "745/759",
