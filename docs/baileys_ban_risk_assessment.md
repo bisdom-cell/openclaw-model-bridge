@@ -51,11 +51,90 @@ Baileys 按 `DisconnectReason` 分类断开原因决定是否重连：
 
 **🔴 时序铁规则(关键)**:**配置改 + Gateway 重启必须等 WhatsApp 重链稳定后做**。Gateway 重启会触发一次新的 Baileys 连接 — **当前限流未清时重启 = 又一次连接尝试 = 可能重新触发/延长限流**(正是凌晨风暴成因)。所以顺序:① 先 WhatsApp 恢复(等冷却→扫码→稳定)→ ② 再改 config + 重启。
 
-**应用步骤(WhatsApp 稳定后)**:(1) `cp ~/.openclaw/openclaw.json ~/.openclaw/openclaw.json.bak` 备份 (2) 在 `channels.whatsapp` 下加 `"web": {"reconnect": {"maxAttempts": 12}}`(精确 JSON 我届时给) (3) `bash ~/restart.sh` (4) 验证 Gateway 干净启动(若 strict schema 拒绝未知键 → Gateway 起不来 → 立即 `cp .bak` 还原) + re-dump 确认 config 在位 (5) 若 4.27 忽略该键(无效) → 确认 4.27 不支持,A 退化为"等支持的版本"(见下"A 的现实约束")。
+**应用步骤(WhatsApp 稳定后)**:精确 ready-to-apply 包见下方「Option A ready-to-apply 包」(2026-06-17 dev 侧 schema 实证 + Python 原子补丁,取代此前粗略估计)。
 
 **A 的现实约束(诚实登记)**:能否真生效取决于 4.27 是否读 `channels.whatsapp.web.reconnect.maxAttempts`。文档描述它但我们 4.27 实例默认没这块 → 加上去**要么生效(理想)要么被忽略(无害但 A 失效)**。若被忽略 → A 真正落地需等 OpenClaw 出"暴露 reconnect 配置"的版本(#56365 "expose Baileys socket timing" 仍是 open request)。届时按项目 tripwire 升级纪律评估升级。**在 A 确认生效前,C(V37.9.162 检测 + 恢复 SOP)是事实上的主防线。**
 
 **A + C 协同**:有限 `maxAttempts`(断风暴防封禁)+ V37.9.162 频道掉线检测(停止后 1h 内 Discord 告警)= 既不被封、又不静默。代价:服务端持续拒绝时 N 次后停止 → WhatsApp 下线到人工重链(但"2 分钟重链" vs "2-8 周封禁"是好交易,且 1h 内告警)。
+
+### Option A ready-to-apply 包（2026-06-17 dev 侧核实 — WebSearch + WebFetch schema 实证）
+
+> 用户 2026-06-17 拍板走 Option A。本包是"WhatsApp 恢复后一步到位"的精确应用方案。**恢复未完成前不应用**（铁规则见下）。
+
+**Schema 实证确认**（docs.openclaw.ai/gateway/config-channels + GitHub 源，2026-06-17）：
+
+| 项 | 实证结果 |
+|----|----------|
+| 完整路径 | `channels.whatsapp.web.reconnect.maxAttempts` |
+| `web.reconnect` 默认块 | `{initialMs:2000, maxMs:120000, factor:1.4, jitter:0.2, maxAttempts:0}` |
+| `maxAttempts:0` 语义 | **= 无限重连（确认，根因坐实）**；issue #16270 官方立场 = 暴露此键让用户自配 |
+| `web.whatsapp` 块 | `{keepAliveIntervalMs:25000, connectTimeoutMs:60000, defaultQueryTimeoutMs:60000}` |
+| 退避数学（maxAttempts:12） | 2+2.8+3.9+5.5+7.7+10.7+15+21+30+41+58+81 ≈ **4.6 min 后停止** → 6h 风暴砍到 ~5min（vs 设 50 = ~1.3h）|
+
+**为何 12**（settled，取代正文 5-8 估计）：12 次退避≈4.6min 后停止 → 防封够快（远不到 6h 风暴的封禁阈值），又容 1-2 次夜间瞬断不误停。误停后 V37.9.162 检测 1h 内 Discord 告警 + 人工 2min 重链。若日后误停过频 → 调 15-20；若封禁复发 → 调更低。
+
+**🔴 前置条件（铁规则，不可跳）**：WhatsApp 必须已扫码恢复 + 稳定运行 ≥ 几分钟，才能跑下面任何一步。改 config + 重启 Gateway = 一次新 Baileys 连接，**限流未清时做 = 重新触发/延长限流**（正是凌晨风暴成因）。
+
+**Step 0 — 备份（恢复后才跑）**
+
+```
+cp ~/.openclaw/openclaw.json ~/.openclaw/openclaw.json.bak
+```
+
+**Step 1 — 安全打补丁（Python 原子写，preserve 现有值 + 缺则填 sane 默认 + 强制 maxAttempts=12）**
+
+```
+python3 - <<'PYEOF'
+import json, os
+p = os.path.expanduser("~/.openclaw/openclaw.json")
+with open(p, encoding="utf-8") as f:
+    cfg = json.load(f)
+rc = cfg.setdefault("channels", {}).setdefault("whatsapp", {}).setdefault("web", {}).setdefault("reconnect", {})
+old = rc.get("maxAttempts", "<absent>")
+rc.setdefault("initialMs", 2000)
+rc.setdefault("maxMs", 120000)
+rc.setdefault("factor", 1.4)
+rc.setdefault("jitter", 0.2)
+rc["maxAttempts"] = 12
+tmp = p + ".tmp"
+with open(tmp, "w", encoding="utf-8") as f:
+    json.dump(cfg, f, indent=2, ensure_ascii=False)
+os.replace(tmp, p)
+print("OK reconnect.maxAttempts:", old, "-> 12")
+PYEOF
+```
+
+**Step 2 — 验证文件（确认 maxAttempts:12 + JSON 仍有效）**
+
+```
+python3 -m json.tool ~/.openclaw/openclaw.json | grep -inE "maxAttempts|reconnect|\"web\""
+```
+
+应看到 `"maxAttempts": 12`。若 json.tool 报错 = JSON 损坏 → 跑回滚。
+
+**Step 3 — 重启 Gateway**
+
+```
+bash ~/restart.sh
+```
+
+**Step 4 — 验证 Gateway + WhatsApp 健康**
+
+```
+openclaw channels status
+```
+
+WhatsApp 行仍 `connected` = 键被接受、频道未被打断。
+
+**Step 5 — 效力确认（4.27 是否真读该键）**：终极证明在下一次重连事件 — Gateway 日志应显示重连在 ~12 次（~5min）后停止而非 6h；且 V37.9.162 监控会在频道掉线 1h 内 Discord #alerts 告警。当前可确认两层：(a) Step 3 Gateway 干净启动 = 键未被 strict-reject (b) Step 2 re-dump 显示已持久化。
+
+**🔁 回滚分支**：任一步异常（Gateway 起不来 = strict schema 拒绝未知键 / WhatsApp 断链 / re-dump 无该键）→ 立即还原：
+
+```
+cp ~/.openclaw/openclaw.json.bak ~/.openclaw/openclaw.json && bash ~/restart.sh
+```
+
+若被静默接受但无效（下次仍 6h 风暴）→ 确认 4.27 不读该键，A 失效，等 #56365 暴露配置的版本（按 tripwire 升级纪律），C（V37.9.162 检测）仍是主防线。
 
 ### 选项 B：迁移到官方 WhatsApp Business Cloud API
 
