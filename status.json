@@ -252,7 +252,7 @@
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB"
   },
   "session_context": {
-    "last_session": "2026-04-17 V37.8.14 (15 commits)",
+    "last_session": "2026-06-17 V37.9.163→167 (日落法收敛批次)",
     "unfinished": [
       "【V37.9.157 已根治, Mac Mini 待验证】INV-CRON-004 ❌ = auto_deploy stale 行 (用户 crontab_safe.sh remove 删 line 54 转绿). INV-REVIEW-001 + INV-CRON-MONITOR-001 💥 = 4.27 冷调用劫持 audit subprocess, V37.9.157 根治 (test _stub_env 隔离 + INV-REVIEW check stub gap 关 + 前瞻 scan). dev 全绿 (90 inv EXIT=0) 但 4.27 不可复现 → Mac Mini 同步后重跑 governance --full 验证两 💥 转 ✅; 若 INV-REVIEW 仍 💥 贴 subprocess 输出再迭代.",
       "【4.27 推送链路回归追踪 · 中优】真因=4.27 openclaw CLI 冷调用回归 (V37.9.145). ✅ follow-up (d) 丢失面评估已闭合 (2026-06-15 审计 docs/push_path_loss_surface_audit_2026_06_15.md: 无总丢失面, 残留=WhatsApp 瞬时缝隙内容在 Discord 存活). 剩余需 Mac Mini 生产数据 (dev 不可执行): (a) `openclaw message send --help` timeout 旋钮探测 → 可配则 notify.sh/直推 job 调大 (b) `ls -la ~/.openclaw/plugin-runtime-deps/` 多 hash dir 检查 staging 间歇复发 (c) 上游 releases 查 CLI 冷启动/staging 修复 (tripwire 不自动升级). 硬化候选 (deferred 需 E2E): 类别 2 论文类 job 直推双通道迁 notify.sh --topic (MR-8 一物一形).",
@@ -338,11 +338,11 @@
         "by": "claude_code"
       }
     ],
-    "last_session_ended": "2026-04-20",
-    "last_session_commits": 34,
-    "last_session_focus": "V37.8.16 -> V37.9.2: Stage 2 验证者阶段完整交付（路线 A 15血案回填 + 路线 B 16对抗场景 + 6/6 盲区全闭 + V37.9 结构加固 + V37.9.1 安全统一 + V37.9.2 MR-6 深度补齐）",
-    "last_session_at": "2026-04-22 HKT",
-    "last_session_version": "V37.9.12"
+    "last_session_ended": "2026-06-17",
+    "last_session_commits": 6,
+    "last_session_focus": "日落法收敛批次: kb_harvest 尾部残行(163) + README 计数收敛(164) + GUIDE date-marker 退役(165) + 退役 3 anti-日落法 proposal(166) + CLAUDE.md changelog 归档 1MB→291KB -73%(167) + [21] hygiene. 彻底审视结论: 系统极健康收敛, 唯一高杠杆优化(changelog 归档)已做, 其余诚实判定不做. dev 侧已抽干, 剩 27 项全 Mac-Mini-gated/deferred.",
+    "last_session_at": "2026-06-17 HKT",
+    "last_session_version": "V37.9.167"
   },
   "quality": {
     "security_score": 95,
