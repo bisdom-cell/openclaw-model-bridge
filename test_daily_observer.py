@@ -2185,5 +2185,271 @@ class TestV37_9_92_ReverseValidation(unittest.TestCase):
         self.assertTrue(True, "see docstring")
 
 
+# ══════════════════════════════════════════════════════════════════════
+# 10. V37.9.168 — Deep-dive degrade ratio observability ([19](c) closure)
+# ══════════════════════════════════════════════════════════════════════
+#
+# Background (V37.9.132, discovered 2026-06-11 by user):
+#   76% (34/45) of deep_dives were summary-level (abstract_only) — a
+#   structural gap latent for 2 MONTHS because degrade frequency had no
+#   aggregated review. V37.9.132 fixed the root cause; V37.9.168 makes the
+#   degrade ratio observable in the daily report so any future regression
+#   surfaces (anomaly) instead of needing a user to read 45 files.
+#   Sanctioned as legitimate observability addition in V37.9.166 changelog.
+
+class TestV37_9_168_DeepDiveModes(unittest.TestCase):
+    """Deep-dive mode scanning, ratio, anomaly, section."""
+
+    @staticmethod
+    def _mk_dd(td, date, mode):
+        """Write a deep_dive fixture file mirroring kb_deep_dive output."""
+        ddir = os.path.join(td, "deep_dives")
+        os.makedirs(ddir, exist_ok=True)
+        if mode == "full_text":
+            label = "完整原文"
+        elif mode == "abstract_only":
+            label = "摘要级"
+        else:  # unknown -> no 模式 marker
+            with open(os.path.join(ddir, f"{date}.md"), "w",
+                      encoding="utf-8") as f:
+                f.write("# 老格式深度\n无模式行\n正文")
+            return
+        body = (f"# 深度\n**来源**: src | **星级**: ⭐⭐⭐⭐ | "
+                f"**模式**: {label}\n正文")
+        with open(os.path.join(ddir, f"{date}.md"), "w",
+                  encoding="utf-8") as f:
+            f.write(body)
+
+    # ---- classification ----
+    def test_classify_full_text_marker(self):
+        c = "**模式**: 完整原文"
+        self.assertEqual(obs._classify_deep_dive_mode(c), "full_text")
+
+    def test_classify_abstract_only_marker(self):
+        c = "**模式**: 摘要级"
+        self.assertEqual(obs._classify_deep_dive_mode(c), "abstract_only")
+
+    def test_classify_unknown_no_marker(self):
+        self.assertEqual(obs._classify_deep_dive_mode("无标记"), "unknown")
+        self.assertEqual(obs._classify_deep_dive_mode(""), "unknown")
+        self.assertEqual(obs._classify_deep_dive_mode(None), "unknown")
+
+    def test_classify_fullwidth_colon_robust(self):
+        # full-width colon + extra spaces should still classify
+        self.assertEqual(obs._classify_deep_dive_mode("**模式**：  摘要级"),
+                         "abstract_only")
+
+    # ---- scan ----
+    def test_scan_missing_dir_returns_not_found(self):
+        with tempfile.TemporaryDirectory() as td:
+            stats = obs.scan_deep_dive_modes(td, datetime(2026, 6, 17))
+            self.assertFalse(stats["found"])
+            self.assertEqual(stats["total"], 0)
+            self.assertIsNone(stats["degrade_ratio"])
+
+    def test_scan_classifies_and_ratio_over_classified(self):
+        with tempfile.TemporaryDirectory() as td:
+            self._mk_dd(td, "2026-06-16", "full_text")
+            for d in ("2026-06-15", "2026-06-14", "2026-06-13", "2026-06-12"):
+                self._mk_dd(td, d, "abstract_only")
+            self._mk_dd(td, "2026-06-11", "unknown")
+            stats = obs.scan_deep_dive_modes(td, datetime(2026, 6, 17))
+            self.assertTrue(stats["found"])
+            self.assertEqual(stats["total"], 6)
+            self.assertEqual(stats["full_text"], 1)
+            self.assertEqual(stats["abstract_only"], 4)
+            self.assertEqual(stats["unknown"], 1)
+            # ratio over classified (4+1=5), unknown excluded from denom
+            self.assertAlmostEqual(stats["degrade_ratio"], 0.8)
+
+    def test_scan_window_filtering(self):
+        with tempfile.TemporaryDirectory() as td:
+            self._mk_dd(td, "2026-06-16", "abstract_only")  # in window
+            self._mk_dd(td, "2026-04-01", "abstract_only")  # >30d before anchor
+            stats = obs.scan_deep_dive_modes(td, datetime(2026, 6, 17),
+                                             window_days=30)
+            self.assertEqual(stats["total"], 1)  # old file excluded
+
+    def test_scan_non_date_filename_skipped(self):
+        with tempfile.TemporaryDirectory() as td:
+            self._mk_dd(td, "2026-06-16", "full_text")
+            ddir = os.path.join(td, "deep_dives")
+            with open(os.path.join(ddir, "README.md"), "w") as f:
+                f.write("not a dated file")
+            stats = obs.scan_deep_dive_modes(td, datetime(2026, 6, 17))
+            self.assertEqual(stats["total"], 1)
+
+    def test_scan_recent_sorted_desc(self):
+        with tempfile.TemporaryDirectory() as td:
+            self._mk_dd(td, "2026-06-12", "abstract_only")
+            self._mk_dd(td, "2026-06-16", "full_text")
+            stats = obs.scan_deep_dive_modes(td, datetime(2026, 6, 17))
+            self.assertEqual(stats["recent"][0]["date"], "2026-06-16")
+
+    # ---- anomaly ----
+    @staticmethod
+    def _stats(full, abst, unk=0):
+        classified = full + abst
+        return {"found": True, "total": full + abst + unk, "full_text": full,
+                "abstract_only": abst, "unknown": unk,
+                "degrade_ratio": (abst / classified) if classified else None,
+                "window_days": 30, "recent": []}
+
+    def test_anomaly_emitted_above_threshold(self):
+        # 4/5 = 0.8 >= 0.5, sample 5 >= 5 -> MED anomaly
+        anos = obs.detect_anomalies([], {}, [{"char_count": 1}],
+                                    deep_dive_modes=self._stats(1, 4))
+        dd = [a for a in anos if a["category"] == "deep_dive_degraded"]
+        self.assertEqual(len(dd), 1)
+        self.assertEqual(dd[0]["severity"], "MED")
+        self.assertIn("80%", dd[0]["message"])
+
+    def test_anomaly_not_emitted_below_ratio_threshold(self):
+        # 2/6 = 0.33 < 0.5 -> no anomaly (sample large enough)
+        anos = obs.detect_anomalies([], {}, [{"char_count": 1}],
+                                    deep_dive_modes=self._stats(4, 2))
+        self.assertFalse(any(a["category"] == "deep_dive_degraded"
+                             for a in anos))
+
+    def test_anomaly_not_emitted_below_min_sample(self):
+        # 3/3 = 1.0 ratio but only 3 classified < MIN_SAMPLE(5) -> no anomaly
+        anos = obs.detect_anomalies([], {}, [{"char_count": 1}],
+                                    deep_dive_modes=self._stats(0, 3))
+        self.assertFalse(any(a["category"] == "deep_dive_degraded"
+                             for a in anos))
+
+    def test_anomaly_backward_compat_none(self):
+        # No deep_dive_modes arg -> existing behaviour, no dd anomaly
+        anos = obs.detect_anomalies([], {}, [{"char_count": 1}])
+        self.assertFalse(any(a["category"] == "deep_dive_degraded"
+                             for a in anos))
+
+    # ---- section ----
+    def test_section_renders_with_data(self):
+        sec = obs.build_deep_dive_mode_section(self._stats(1, 4, unk=1))
+        self.assertIn("Deep-Dive Mode", sec)
+        self.assertIn("80%", sec)
+        self.assertIn("未分类 1", sec)
+
+    def test_section_empty_when_not_found(self):
+        self.assertEqual(obs.build_deep_dive_mode_section({"found": False}), "")
+        self.assertEqual(obs.build_deep_dive_mode_section(None), "")
+
+    # ---- run() integration ----
+    def test_run_integration_section_and_result(self):
+        with tempfile.TemporaryDirectory() as td:
+            for d in ("2026-06-15", "2026-06-14", "2026-06-13",
+                      "2026-06-12", "2026-06-11"):
+                self._mk_dd(td, d, "abstract_only")
+            os.environ["OBSERVER_REGISTRY_PATH"] = "/nonexistent"
+            try:
+                result = obs.run(kb_dir=td, jobs_dir=td,
+                                 target_date=datetime(2026, 6, 16),
+                                 dry_run=True)
+            finally:
+                os.environ.pop("OBSERVER_REGISTRY_PATH", None)
+            self.assertIn("deep_dive_modes", result)
+            self.assertEqual(result["deep_dive_modes"]["abstract_only"], 5)
+            self.assertIn("Deep-Dive Mode", result["report_markdown"])
+            # anomaly should surface (5/5 = 100%)
+            self.assertTrue(any(a["category"] == "deep_dive_degraded"
+                                for a in result["anomalies"]))
+
+
+class TestV37_9_168_SourceLevelGuards(unittest.TestCase):
+    """Source-level guards for V37.9.168 deep_dive observability."""
+
+    @classmethod
+    def setUpClass(cls):
+        here = os.path.dirname(__file__)
+        with open(os.path.join(here, "daily_observer.py"),
+                  "r", encoding="utf-8") as f:
+            cls.src = f.read()
+        # kb_deep_dive is the upstream that WRITES the marker we detect.
+        dd_path = os.path.join(here, "kb_deep_dive.py")
+        cls.dd_src = ""
+        if os.path.isfile(dd_path):
+            with open(dd_path, "r", encoding="utf-8") as f:
+                cls.dd_src = f.read()
+
+    def test_v37_9_168_marker(self):
+        self.assertIn("V37.9.168", self.src)
+
+    def test_constants_locked(self):
+        self.assertEqual(obs.DEEP_DIVE_MODE_WINDOW_DAYS, 30)
+        self.assertEqual(obs.DEEP_DIVE_DEGRADE_RATIO_THRESHOLD, 0.5)
+        self.assertEqual(obs.DEEP_DIVE_DEGRADE_MIN_SAMPLE, 5)
+
+    def test_detect_anomalies_backward_compat_default(self):
+        # signature must default deep_dive_modes=None (3-arg callers safe)
+        import inspect
+        sig = inspect.signature(obs.detect_anomalies)
+        self.assertIn("deep_dive_modes", sig.parameters)
+        self.assertIsNone(sig.parameters["deep_dive_modes"].default)
+
+    def test_scan_opens_deep_dives_read_only(self):
+        # observer must never write deep_dive files (READ-ONLY contract)
+        self.assertIn('open(md_path, "r"', self.src)
+
+    def test_mr8_cross_file_marker_contract(self):
+        """MR-8 single-source-of-truth: the observer's detection regex must
+        match the exact marker kb_deep_dive.build_deep_dive_markdown WRITES.
+        If kb_deep_dive changes its 模式 line format, this guard fails —
+        catching silent detection breakage (the observer would otherwise
+        count every file as 'unknown' and never alert).
+        """
+        if not self.dd_src:
+            self.skipTest("kb_deep_dive.py not present")
+        # kb_deep_dive writes both labels + the **模式** prefix
+        self.assertIn("完整原文", self.dd_src)
+        self.assertIn("摘要级", self.dd_src)
+        self.assertIn("**模式**", self.dd_src)
+        # synthesize the line kb_deep_dive emits (line 578 format) and
+        # confirm the observer regex classifies both labels correctly
+        full_line = "**来源**: x | **星级**: ⭐ | **模式**: 完整原文"
+        abst_line = "**来源**: x | **星级**: ⭐ | **模式**: 摘要级"
+        self.assertEqual(obs._classify_deep_dive_mode(full_line), "full_text")
+        self.assertEqual(obs._classify_deep_dive_mode(abst_line),
+                         "abstract_only")
+
+
+class TestV37_9_168_ReverseValidation(unittest.TestCase):
+    """V37.9.168 reverse validation: the degrade anomaly is a real control,
+    not a tautology — it toggles precisely at the threshold/sample boundary.
+
+    Sabotage map (manually verified 2026-06-17):
+      - delete the deep_dive_degraded block in detect_anomalies
+        → TestV37_9_168_DeepDiveModes.test_anomaly_emitted_above_threshold fails
+      - break _DD_MODE_RE (e.g. require half-width colon only)
+        → test_classify_fullwidth_colon_robust + test_mr8_cross_file_marker
+          contract fail
+      - drop deep_dive_section from build_report_markdown
+        → test_run_integration_section_and_result fails (section absent)
+    """
+
+    def test_anomaly_toggles_at_threshold_boundary(self):
+        mk = TestV37_9_168_DeepDiveModes._stats
+        below = obs.detect_anomalies([], {}, [{"char_count": 1}],
+                                     deep_dive_modes=mk(3, 2))  # 2/5=0.4
+        at = obs.detect_anomalies([], {}, [{"char_count": 1}],
+                                  deep_dive_modes=mk(2, 3))  # 3/5=0.6
+        self.assertFalse(any(a["category"] == "deep_dive_degraded"
+                             for a in below))
+        self.assertTrue(any(a["category"] == "deep_dive_degraded"
+                            for a in at))
+
+    def test_anomaly_toggles_at_sample_boundary(self):
+        mk = TestV37_9_168_DeepDiveModes._stats
+        # ratio 1.0 both; 4 classified (below MIN 5) vs 5 classified (at MIN)
+        small = obs.detect_anomalies([], {}, [{"char_count": 1}],
+                                     deep_dive_modes=mk(0, 4))
+        atmin = obs.detect_anomalies([], {}, [{"char_count": 1}],
+                                     deep_dive_modes=mk(0, 5))
+        self.assertFalse(any(a["category"] == "deep_dive_degraded"
+                             for a in small))
+        self.assertTrue(any(a["category"] == "deep_dive_degraded"
+                            for a in atmin))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -456,11 +456,151 @@ def scan_source_sections(kb_dir, target_date, max_sources=5, max_chars_per=500):
 
 
 # ══════════════════════════════════════════════════════════════════════
+# 2b. V37.9.168 — Deep-dive degrade ratio observability ([19](c) closure)
+# ══════════════════════════════════════════════════════════════════════
+#
+# Background (V37.9.132, discovered 2026-06-11 by user):
+#   kb_deep_dive falls back to abstract_only mode when full-text PDF/HTML
+#   fetch fails. 76% (34/45) of deep_dives were summary-level — a
+#   structural gap that stayed latent for 2 MONTHS because the degrade
+#   frequency had no aggregated review (the user had to read 45 files to
+#   notice). V37.9.132 fixed the link-construction root cause; this
+#   section makes the degrade ratio OBSERVABLE so any future regression
+#   surfaces in the daily report instead of needing a user to read files.
+#   status.json unfinished [19](c), sanctioned as a legitimate
+#   observability addition in the V37.9.166 changelog (MR-4 闭真盲区).
+#
+# Detection: kb_deep_dive.build_deep_dive_markdown writes a deterministic
+#   line `**模式**: 完整原文` (full_text) or `**模式**: 摘要级`
+#   (abstract_only) exactly once per file. We classify on that structured
+#   marker (code-written, reliable) rather than the LLM-generated
+#   "基于摘要的分析" string (which depends on LLM compliance).
+
+DEEP_DIVE_MODE_WINDOW_DAYS = 30
+DEEP_DIVE_DEGRADE_RATIO_THRESHOLD = 0.5
+DEEP_DIVE_DEGRADE_MIN_SAMPLE = 5
+_DD_MODE_RE = re.compile(r"\*\*模式\*\*\s*[:：]\s*(完整原文|摘要级)")
+
+
+def _classify_deep_dive_mode(content):
+    """Classify a deep_dive file's mode from its 模式 marker.
+
+    Returns: "full_text" | "abstract_only" | "unknown".
+    "unknown" when the structured marker is absent (older/format-drifted
+    file) — we never guess, so unknowns are counted separately and
+    excluded from the degrade ratio denominator.
+    """
+    m = _DD_MODE_RE.search(content or "")
+    if not m:
+        return "unknown"
+    return "full_text" if m.group(1) == "完整原文" else "abstract_only"
+
+
+def scan_deep_dive_modes(kb_dir, target_date,
+                         window_days=DEEP_DIVE_MODE_WINDOW_DAYS):
+    """Scan ~/.kb/deep_dives/*.md within a rolling window and classify
+    full_text vs abstract_only to compute the degrade ratio.
+
+    Window is [target_date - window_days, target_date] anchored on the
+    audited date (so old pre-fix files age out and don't permanently skew
+    the ratio). degrade_ratio is over CLASSIFIED files (full + abstract);
+    unknowns are reported separately, never guessed.
+
+    Returns dict:
+        {found, total, full_text, abstract_only, unknown, degrade_ratio,
+         window_days, recent: [{date, mode}, ...]}
+        found=False when dir missing or no files within window.
+    """
+    stats = {"found": False, "total": 0, "full_text": 0,
+             "abstract_only": 0, "unknown": 0, "degrade_ratio": None,
+             "window_days": window_days, "recent": []}
+    dd_dir = os.path.join(kb_dir, "deep_dives")
+    if not os.path.isdir(dd_dir):
+        return stats
+
+    anchor = (target_date.date() if isinstance(target_date, datetime)
+              else target_date)
+    oldest = anchor - timedelta(days=window_days)
+
+    entries = []
+    for md_path in glob.glob(os.path.join(dd_dir, "*.md")):
+        base = os.path.splitext(os.path.basename(md_path))[0]
+        try:
+            file_date = datetime.strptime(base, "%Y-%m-%d").date()
+        except ValueError:
+            continue  # non-date filename, skip
+        if file_date < oldest or file_date > anchor:
+            continue
+        try:
+            with open(md_path, "r", encoding="utf-8", errors="replace") as f:
+                content = f.read()
+        except OSError:
+            continue
+        entries.append({"date": base,
+                        "mode": _classify_deep_dive_mode(content)})
+
+    if not entries:
+        return stats
+
+    entries.sort(key=lambda e: e["date"], reverse=True)
+    full = sum(1 for e in entries if e["mode"] == "full_text")
+    abst = sum(1 for e in entries if e["mode"] == "abstract_only")
+    unk = sum(1 for e in entries if e["mode"] == "unknown")
+    classified = full + abst
+    stats.update({
+        "found": True,
+        "total": len(entries),
+        "full_text": full,
+        "abstract_only": abst,
+        "unknown": unk,
+        "degrade_ratio": (abst / classified) if classified else None,
+        "recent": entries[:7],
+    })
+    return stats
+
+
+def build_deep_dive_mode_section(deep_dive_modes):
+    """V37.9.168: markdown section showing deep_dive full_text vs
+    abstract_only ratio over the window. Returns "" when no data.
+    """
+    if not deep_dive_modes or not deep_dive_modes.get("found"):
+        return ""
+    total = deep_dive_modes["total"]
+    full = deep_dive_modes["full_text"]
+    abst = deep_dive_modes["abstract_only"]
+    unk = deep_dive_modes["unknown"]
+    ratio = deep_dive_modes.get("degrade_ratio")
+    win = deep_dive_modes["window_days"]
+    pct = f"{round(ratio * 100)}%" if ratio is not None else "N/A"
+
+    lines = [f"## 🔬 Deep-Dive Mode (last {win}d)\n"]
+    breakdown = f"摘要级 {abst} / 全文 {full}"
+    if unk:
+        breakdown += f" / 未分类 {unk}"
+    breakdown += f" / 共 {total}"
+    lines.append(f"- 摘要级降级率: {pct} ({breakdown})")
+    if deep_dive_modes.get("recent"):
+        icons = {"full_text": "📄", "abstract_only": "📃", "unknown": "❔"}
+        recent_str = " ".join(
+            f"{icons.get(e['mode'], '❔')}{e['date'][5:]}"
+            for e in deep_dive_modes["recent"])
+        lines.append(f"- 最近: {recent_str}")
+    lines.append("")
+    return "\n".join(lines)
+
+
+# ══════════════════════════════════════════════════════════════════════
 # 3. Rule-Based Anomaly Detection (no LLM needed)
 # ══════════════════════════════════════════════════════════════════════
 
-def detect_anomalies(job_statuses, push_outputs, source_sections):
+def detect_anomalies(job_statuses, push_outputs, source_sections,
+                     deep_dive_modes=None):
     """Detect obvious anomalies using rules (no LLM).
+
+    Args:
+        deep_dive_modes: V37.9.168 optional dict from scan_deep_dive_modes.
+            Backward compatible — None means no deep_dive degrade check
+            (existing 3-arg callers/tests unaffected).
 
     Returns:
         list of dict: [{severity, category, message}, ...]
@@ -534,6 +674,28 @@ def detect_anomalies(job_statuses, push_outputs, source_sections):
                 "severity": "MED",
                 "category": "thin_output",
                 "message": f"Output suspiciously short ({info['length']} chars)",
+            })
+
+    # V37.9.168: deep_dive degrade ratio anomaly ([19](c)). Most deep_dives
+    # SHOULD be full_text (V37.9.16 design assumption); a high abstract_only
+    # ratio over the window means the full-text fetch path regressed (the
+    # 76% gap latent 2 months root cause). Require a minimum sample so a
+    # couple of genuinely-paywalled papers don't trip the alert.
+    if deep_dive_modes and deep_dive_modes.get("found"):
+        ratio = deep_dive_modes.get("degrade_ratio")
+        classified = (deep_dive_modes.get("full_text", 0)
+                      + deep_dive_modes.get("abstract_only", 0))
+        if (ratio is not None
+                and classified >= DEEP_DIVE_DEGRADE_MIN_SAMPLE
+                and ratio >= DEEP_DIVE_DEGRADE_RATIO_THRESHOLD):
+            pct = round(ratio * 100)
+            anomalies.append({
+                "severity": "MED",
+                "category": "deep_dive_degraded",
+                "message": (
+                    f"deep_dive 摘要级降级率 {pct}% "
+                    f"({deep_dive_modes['abstract_only']}/{classified} 近"
+                    f"{deep_dive_modes['window_days']}天) — 全文抓取路径可能退化"),
             })
 
     return anomalies
@@ -709,8 +871,14 @@ def parse_overall_score(llm_content):
 
 def build_report_markdown(target_date, job_statuses, push_outputs,
                           source_sections, anomalies, llm_critique,
-                          overall_score, trend_section=""):
-    """Build the final markdown report."""
+                          overall_score, trend_section="",
+                          deep_dive_section=""):
+    """Build the final markdown report.
+
+    V37.9.168: deep_dive_section (optional) surfaces the deep_dive
+    full_text vs abstract_only degrade ratio. Backward compatible —
+    empty string means the section is omitted.
+    """
     date_str = target_date.strftime("%Y-%m-%d")
 
     lines = [f"# 🔍 Daily Self-Critique — {date_str}\n"]
@@ -749,6 +917,11 @@ def build_report_markdown(target_date, job_statuses, push_outputs,
         else:
             lines.append(f"- ❌ {name}: not found")
     lines.append("")
+
+    # V37.9.168: deep_dive mode degrade ratio (full_text vs abstract_only)
+    if deep_dive_section:
+        lines.append(deep_dive_section.rstrip("\n"))
+        lines.append("")
 
     # Source sections
     if source_sections:
@@ -1060,11 +1233,17 @@ def run(kb_dir=None, jobs_dir=None, target_date=None, dry_run=False,
     job_statuses = scan_job_statuses(jobs_dir, target_date)
     push_outputs = scan_push_outputs(kb_dir, target_date)
     source_sections = scan_source_sections(kb_dir, target_date)
-    anomalies = detect_anomalies(job_statuses, push_outputs, source_sections)
+    # V37.9.168: deep_dive degrade ratio over a rolling window ([19](c))
+    deep_dive_modes = scan_deep_dive_modes(kb_dir, target_date)
+    anomalies = detect_anomalies(job_statuses, push_outputs, source_sections,
+                                 deep_dive_modes=deep_dive_modes)
+    deep_dive_section = build_deep_dive_mode_section(deep_dive_modes)
 
     log(f"jobs: {len(job_statuses)} scanned, "
         f"outputs: {sum(1 for v in push_outputs.values() if v['found'])}/3, "
         f"sources: {len(source_sections)}, "
+        f"deep_dive: {deep_dive_modes['total']} files "
+        f"(degrade={deep_dive_modes['degrade_ratio']}), "
         f"anomalies: {len(anomalies)}")
 
     has_content = any(v.get("found") for v in push_outputs.values()) or source_sections
@@ -1072,7 +1251,8 @@ def run(kb_dir=None, jobs_dir=None, target_date=None, dry_run=False,
     if not has_content:
         report = build_report_markdown(
             target_date, job_statuses, push_outputs,
-            source_sections, anomalies, "", None)
+            source_sections, anomalies, "", None,
+            deep_dive_section=deep_dive_section)
         return {
             "status": "no_outputs",
             "date": target_date.strftime("%Y-%m-%d"),
@@ -1082,6 +1262,7 @@ def run(kb_dir=None, jobs_dir=None, target_date=None, dry_run=False,
                                f"no outputs found for target date",
             "anomalies": anomalies,
             "overall_score": None,
+            "deep_dive_modes": deep_dive_modes,
             "llm_ok": False,
             "llm_reason": "no content to critique",
         }
@@ -1125,7 +1306,8 @@ def run(kb_dir=None, jobs_dir=None, target_date=None, dry_run=False,
     report = build_report_markdown(
         target_date, job_statuses, push_outputs,
         source_sections, anomalies, llm_content, overall_score,
-        trend_section=trend_section)
+        trend_section=trend_section,
+        deep_dive_section=deep_dive_section)
 
     discord = build_discord_summary(
         target_date, overall_score, anomalies, job_statuses,
@@ -1138,6 +1320,7 @@ def run(kb_dir=None, jobs_dir=None, target_date=None, dry_run=False,
         "discord_summary": discord,
         "anomalies": anomalies,
         "overall_score": overall_score,
+        "deep_dive_modes": deep_dive_modes,
         "llm_ok": llm_ok,
         "llm_reason": llm_reason,
     }

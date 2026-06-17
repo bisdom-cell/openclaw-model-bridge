@@ -1,6 +1,6 @@
 {
-  "updated": "2026-06-17 04:07:18",
-  "updated_by": "full_regression",
+  "updated": "2026-06-17 06:56:02",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-06-17",
+      "what": "V37.9.168 A类[19](c): deep_dive 摘要级降级率纳入 daily_observer — scan_deep_dive_modes(30天窗口,结构化**模式**marker分类) + 🔬报告段(随wrapper推双通道) + MED降级率告警(≥50%且样本≥5) + 23单测(含MR-8跨文件marker守卫+2轮sabotage验证) + run()接线. 堵76%摘要级潜伏2月盲区(MR-4闭真). 130 suites/4645 tests(+23)/0 fail/治理91/91/安全95/VERSION 0.37.9.70不变(job级observability). WhatsApp冻结日选对dev自主项:走Discord绕冻结主体. Mac Mini待同步(06:30 cron自动生效).",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-17",
       "what": "V37.9.167 CLAUDE.md changelog 归档 — 每-session 必读 1MB→291KB (-73%, 日落法): grounded 审视发现 CLAUDE.md 92% 字节(989KB/231 版本行)是冻结历史, 评审#2 文档认知过载根因. blast radius 核实(17 治理+8 test 全引原则/文件表/L3 非 changelog 行). 保留 38 版内联(V37.9.166→130), 归档 190 版(V37.9.129→V27.x)到 docs/changelog.md(头注更新+新 section). Python 原子化+边界 assert. 零丢失(38+190=228 守恒, 11 章节全在, gen 三机器绿). 净 -1 巨型热路径接缝, 每 session 省 ~190K tokens. VERSION 0.37.9.70 不变.",
       "by": "claude_code"
     },
@@ -198,11 +203,6 @@
       "date": "2026-06-15",
       "what": "中文科普版 when_errors_become_narratives_zh 已发布知乎 (https://zhuanlan.zhihu.com/p/2049816723541463125) — README 表 platform 列更新. 至此论文知乎双发布全完成: why_runtime_not_wrapper_zh (p/2049813538894623858) + 中文科普版 (p/2049816723541463125). 三件套 (arXiv 2606.14589 学术原作 + 中文科普版 + why_runtime 续篇) 全部公开, 覆盖学术圈+中文社区双受众.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-06-15",
-      "what": "why_runtime_not_wrapper_zh 已发布知乎 (https://zhuanlan.zhihu.com/p/2049813538894623858) — README publications 表 platform 列更新 (知乎(待发布) → 知乎链接). 用户确认链接对应该篇 (沙箱 403 读不到标题故先问). 中文科普版 when_errors_become_narratives_zh 仍待用户发布知乎.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -273,7 +273,7 @@
       "V37.9.124 #29 follow-up (低优, 防未来重复调查): INV runtime 收窄已完成 INV-OBSERVER-001 (唯一已证明 env-dependent 套件). #29 调查结论: 其他 ~12 全套件 runtime check 的套件 env-independent 已核实 (test_v37_9_76_router 16 env 信号全 patch 隔离 + relative-to-HOME expanduser 一致; scanner 扫 repo 文件; INV-ROUTER false-fail 是 stale code 非套件 env-dependency), 不需收窄 (原则 #18 补证据非补功能, 收窄 env-independent 套件是 churn). #29 收窄约定已立 (test_v37_9_124 docstring): 套件含 env-dependent test 的 INV 跑契约核心类非全套件; 纯逻辑套件跑全 OK. 未来若新 INV 跑的套件含 env-dependent test (读 repo 外真实系统状态), 按此约定收窄到契约核心类 (镜像 INV-OBSERVER-001/INV-DREAM-CROSS-DOMAIN).",
       "SLO #19 观察 (V37.9.126 诊断): Mac Mini Qwen3 主力 backend 退化期 (circuit_breaker half-open, fallback=doubao), preflight #19 SLO p95=81s 是 200-滚动窗口含退化请求 (非 stale, 会随流量冲刷自愈). 操作: 观察 Qwen3 是否恢复 (breaker 闭合); 若持续不恢复 → backend/GPU provider 层面; 想 #19 早不报警 → bash ~/restart.sh 清窗口. 非 code bug (监控工作正常). 若退化频繁可评估 SLO latency 改 time-windowed 而非 request-windowed (chunk 外, 独立).",
       "V37.9.129 follow-up (DEFER, 登记): adapter fallback 循环读 upstream error body (观察性, MR-13/INV-OBSERVABILITY-001 候选)。今天诊断难正因 adapter fb_errors.append(str(fb_err)) 对 HTTPError 只给 'HTTP Error 400: Bad Request' 不读 body, 需直连 gemini 才看到 'User location not supported'。修法: adapter 复用 proxy_filters.compose_backend_error_str (V37.8.10) 或 inline helper。DEFER 原因: gemini 退役后其 400 body moot + doubao timeout 无 informative body + 引入 adapter→proxy_filters 耦合 (日落法 #34 防御本身是事故面)。价值降低非紧急, 但对未来其他 provider HTTP 错误诊断仍有价值。",
-      "V37.9.132 一周观察 (~6/18): deep_dive 摘要级占比应从 76% (34/45) 显著下降 — Mac Mini 验证: grep -L \"基于摘要的分析\" ~/.kb/deep_dives/*.md 看 6/12 后新增文件多数应为全文级. 若仍高: (a) 查 dblp ee 字段 arxiv 覆盖率 (b) S2 openAccessPdf .pdf 结尾比例 (非 .pdf OA 链接保留 S2 页面是有意取舍) (c) 候选增强: deep_dive mode (full_text/abstract_only) 占比纳入 daily_observer 报告让 degrade 频率可观测 (本次 76% gap 潜伏 2 个月才被用户发现的根因是 degrade 频率无聚合复盘)",
+      "✅ (c) V37.9.168 已完成: deep_dive degrade 占比纳入 daily_observer (scan_deep_dive_modes 30天窗口结构化 **模式** marker 分类 + 🔬 Deep-Dive Mode 报告段随 wrapper 推双通道 + MED 降级率告警 ≥50%/样本≥5 + 23 单测含 MR-8 跨文件 marker 守卫 + 2 轮 sabotage). 剩余 Mac Mini 验证 (6/18 到期): V37.9.132 一周观察 (~6/18): deep_dive 摘要级占比应从 76% (34/45) 显著下降 — Mac Mini 验证: grep -L \"基于摘要的分析\" ~/.kb/deep_dives/*.md 看 6/12 后新增文件多数应为全文级. 若仍高: (a) 查 dblp ee 字段 arxiv 覆盖率 (b) S2 openAccessPdf .pdf 结尾比例 (非 .pdf OA 链接保留 S2 页面是有意取舍) (c) 候选增强: deep_dive mode (full_text/abstract_only) 占比纳入 daily_observer 报告让 degrade 频率可观测 (本次 76% gap 潜伏 2 个月才被用户发现的根因是 degrade 频率无聚合复盘)",
       "GitHub main 落后开发分支 ~30 版本 (main ~V37.9.123, 分支已 V37.9.153 含架构图刷新). 让 GitHub 门面当前化的唯一一步=用户合并 PR (Claude 只能推开发分支). 合并后稳定工具文件仍显示老时间戳(正确). 附: 未来精准刷新方法论=三分类映射(1稳定已完成留/2点-in-time记录留/3真内容陈旧才修), 永不盲目 churn 稳定文件刷时间戳(日落法).",
       "V37.9.160 Tool Policy Plugin chunk 2 (待真消费方需求驱动, 原则 #18): enforcement 真接入 — tool_proxy/three_gate 读 policies.d/ 插件策略真截断 (镜像 _resolve_max_tools_limit 的 max-tools-per-agent 硬截断)。当前 chunk 1 只 observability (evaluate_policy 可查)。Provider Plugin 由 Doubao 驱动 enforcement 同款, 应等成本守卫类真需求。+ pyproject package-data 加 ontology/policies.d/ (pip 包含示例)。+ 缓存 (evaluate_policy 未命中 base 即重扫 policies.d/)。",
       "V37.9.159 test_health_check 真 bug Mac Mini 生产验证 (dev 不可执行): scanner 首跑抓 test_health_check 跑 health_check.sh 漏 push 隔离 → 治理 07:00 audit 在 Mac Mini 是否真在发日报型 health 周报 (marker 时序依赖: gov 07:00 先于 weekly 09:00 + 24h>20h interval → 疑似每日 07:00 真发)。修复后应消失。Mac Mini 同步后观察 07:00 是否还收到 health 周报 + 确认 weekly 09:00 周报正常。",
@@ -346,10 +346,10 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 4622,
-    "last_regression": "2026-06-17 04:06 pass",
+    "test_count": 4645,
+    "last_regression": "2026-06-17 06:53 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-17 04:06",
+    "security_score_time": "2026-06-17 06:53",
     "test_suites": 131,
     "governance_invariants": "91/91",
     "governance_checks": "745/759",
