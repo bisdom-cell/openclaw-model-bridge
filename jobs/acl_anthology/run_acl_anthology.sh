@@ -629,10 +629,10 @@ WA_SENT=false
 
 if [ "$TOTAL_LEN" -le 8000 ]; then
     MSG_CONTENT="$(cat "$MSG_FILE")"
-    if "$OPENCLAW" message send --channel whatsapp --target "$TO" --message "$MSG_CONTENT" --json >/dev/null 2>"$SEND_ERR"; then
+    # V37.9.171: 主推/分块走 notify.sh（微信→用户 + Discord #papers + 重试/队列），退役裸 whatsapp+discord 对
+    if notify "$MSG_CONTENT" --topic papers 2>"$SEND_ERR"; then
         log "已推送 ${PAPER_COUNT} 篇 (单段, $TOTAL_LEN 字)"
         WA_SENT=true
-        "$OPENCLAW" message send --channel discord --target "${DISCORD_CH_PAPERS:-}" --message "$MSG_CONTENT" --json >/dev/null 2>&1 || true
     else
         log "ERROR: 推送失败: $(cat "$SEND_ERR" | head -3)"
     fi
@@ -679,10 +679,9 @@ PYEOF
     WA_SENT_OK=0
     for chunk_file in "$WA_CHUNK_DIR"/*.txt; do
         CHUNK_CONTENT="$(cat "$chunk_file")"
-        if "$OPENCLAW" message send --channel whatsapp --target "$TO" --message "$CHUNK_CONTENT" --json >/dev/null 2>>"$SEND_ERR"; then
+        if notify "$CHUNK_CONTENT" --topic papers 2>>"$SEND_ERR"; then
             WA_SENT_OK=$((WA_SENT_OK + 1))
         fi
-        "$OPENCLAW" message send --channel discord --target "${DISCORD_CH_PAPERS:-}" --message "$CHUNK_CONTENT" --json >/dev/null 2>&1 || true
         sleep 1  # 防 WhatsApp 消息乱序 (V37.9.21 契约)
     done
     log "已推送 ${PAPER_COUNT} 篇 (多窗口 ${WA_SENT_OK}/${WA_PARTS_TOTAL} 段, 共 $TOTAL_LEN 字)"

@@ -78,6 +78,7 @@ run_suite "v37_9_77_enforcement (V37.9.77 enforcement — adapter ?provider=X + 
 run_suite "crontab_safe_remove (V37.9.65 cmd_remove + 严格 count + 拒绝全清空 + V37.9.64 freight 用户痛点闭环)" "python3 test_crontab_safe_remove.py"
 run_suite "proxy_filters (工具过滤/截断/SSE)" "python3 test_tool_proxy.py"
 run_suite "notify_weixin (V37.9.170 微信 openclaw-weixin 推送分支 + WhatsApp 临时禁用切换)" "python3 test_notify_weixin.py"
+run_suite "notify_jobs_routing (V37.9.171 内容 job 主推走 notify.sh — Path B 单频道 10 job)" "python3 test_notify_jobs_routing.py"
 run_suite "check_registry (注册表校验器)" "python3 test_check_registry.py"
 run_suite "cron_health (锁/心跳/告警/完整性)" "python3 test_cron_health.py"
 run_suite "status_update (三方状态CRUD)" "python3 test_status_update.py"

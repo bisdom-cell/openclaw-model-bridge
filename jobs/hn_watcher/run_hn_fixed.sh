@@ -604,20 +604,13 @@ if [ "$SENT_COUNT" -eq 0 ]; then
     printf '{"time":"%s","status":"ok","new":0}\n' "$TS" > "$STATUS_FILE"
 elif [ "$TOTAL_LEN" -le 8000 ]; then
     MSG_CONTENT="$(cat "$MSG_FILE")"
-    if openclaw message send --channel whatsapp --target "$TO" --message "$MSG_CONTENT" --json >/dev/null 2>"$SEND_ERR"; then
+    # V37.9.171: 走 notify.sh（微信→用户 + Discord #tech + 重试/队列）。
+    # 退役 whatsapp-stderr 插件警告过滤 hack（notify 返回码权威，发出≥1 即成功）。
+    if notify "$MSG_CONTENT" --topic tech >/dev/null 2>"$SEND_ERR"; then
         log "已推送 ${SENT_COUNT} 条 (单段, $TOTAL_LEN 字)"
         WA_SENT=true
-        openclaw message send --channel discord --target "${DISCORD_CH_TECH:-}" --message "$MSG_CONTENT" --json >/dev/null 2>&1 || true
     else
-        # 过滤已知无害警告（feishu 插件 duplicate id、plugins.allow empty）
-        REAL_ERR=$(grep -v -E "feishu|plugin.*duplicate|plugins\.allow|Config warnings" "$SEND_ERR" 2>/dev/null || true)
-        if [ -z "$REAL_ERR" ]; then
-            log "已推送 ${SENT_COUNT} 条 (单段, 忽略插件警告)"
-            WA_SENT=true
-            openclaw message send --channel discord --target "${DISCORD_CH_TECH:-}" --message "$MSG_CONTENT" --json >/dev/null 2>&1 || true
-        else
-            log "ERROR: 推送失败: $(cat "$SEND_ERR" | head -3)"
-        fi
+        log "ERROR: 推送失败: $(cat "$SEND_ERR" | head -3)"
     fi
 else
     # 总长 >8000 → 多窗口切片 (V37.9.21 同款 mktemp + sleep 1s 防乱序)
@@ -663,11 +656,11 @@ PYEOF
     WA_SENT_OK=0
     for chunk_file in "$WA_CHUNK_DIR"/*.txt; do
         CHUNK_CONTENT="$(cat "$chunk_file")"
-        if openclaw message send --channel whatsapp --target "$TO" --message "$CHUNK_CONTENT" --json >/dev/null 2>>"$SEND_ERR"; then
+        # V37.9.171: 走 notify.sh（微信 + Discord #tech + 重试/队列）
+        if notify "$CHUNK_CONTENT" --topic tech >/dev/null 2>>"$SEND_ERR"; then
             WA_SENT_OK=$((WA_SENT_OK + 1))
         fi
-        openclaw message send --channel discord --target "${DISCORD_CH_TECH:-}" --message "$CHUNK_CONTENT" --json >/dev/null 2>&1 || true
-        sleep 1  # 防 WhatsApp 消息乱序 (V37.9.21 契约)
+        sleep 1  # 防消息乱序 (V37.9.21 契约)
     done
     log "已推送 ${SENT_COUNT} 条 (多窗口 ${WA_SENT_OK}/${WA_PARTS_TOTAL} 段, 共 $TOTAL_LEN 字)"
     if [ "$WA_SENT_OK" -gt 0 ]; then

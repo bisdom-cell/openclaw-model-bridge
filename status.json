@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-18 05:52:21",
+  "updated": "2026-06-18 07:22:26",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-06-18",
+      "what": "V37.9.171 Path B 第一批: 10 单频道内容 job 主推/分块收编 notify.sh — hf_papers/dblp/acl(papers)+hn/rss_blogs/github_trending/karpathy_x/ai_leaders_blogs/bsky/x(tech) 的 whatsapp+discord 对 → notify --topic X(微信→用户+Discord #topic+重试+队列). 日落法每处2发送→1, 退役裸whatsapp+discord对+hn的whatsapp-stderr插件警告hack. test_notify_jobs_routing.py 6守卫(主推走notify/无残留裸whatsapp/无重复discord/sabotage验证)接入full_regression. 10 job bash -n全过/governance EXIT=0 INV-NOTIFY-001~004绿. 兑现INV-NOTIFY-003(合规脚本1→11). Path B第二批剩多频道(arxiv/s2/freight/openclaw)+特殊(finance/chaspark)+~18根脚本.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-18",
       "what": "V37.9.170 微信(openclaw-weixin)推送接入 notify.sh + WhatsApp 临时禁用切换. 背景(上个session ev985-1109 shell history重建): WhatsApp连续3天408报错(V37.9.162掉线/限流延续), 为避免冲击号码被锁【临时】禁用(后面会再开)→装腾讯微信插件 openclaw-weixin(账号6d56c8fb0a0d-im-bot)+config set channels.openclaw-weixin.agent main. 微信交互层已通(channels status: running, in:17m前收到入站), 但cron推送收不到微信(notify.sh+10余job硬编码whatsapp). 本版只修notify.sh路径: 加weixin分支(镜像whatsapp, WEIXIN_TARGET未设则安全跳过仅发Discord)+默认NOTIFY_CHANNELS=openclaw-weixin,discord(whatsapp分支+OPENCLAW_PHONE原样保留)+10守卫单测(test_notify_weixin.py接入full_regression)+治理notify检查仍PASS. 同session独立重诊8-token NO_REPLY=[SYSTEM_ALERT]告警污染context(ev1082复现)+重复提问退化,/new清空恢复. VERSION/header/badge sync待收工full_regression回写.",
       "by": "claude_code"
     },
@@ -198,11 +203,6 @@
       "date": "2026-06-15",
       "what": "V37.9.157: governance 两 💥 根治 — 4.27 冷调用劫持 audit subprocess + 测试污染生产. INV-CRON-MONITOR-001 (test_cron_monitor 调真 openclaw 77s>60s+真发[SYSTEM_ALERT]) + INV-REVIEW-001 (V37.9.145 stub gap: PATH 留 /opt/homebrew/bin+无 OPENCLAW_BIN+无 MAX_RETRIES) 都根治: test _stub_env 受控环境 (OPENCLAW_BIN+OPENCLAW stub, 77s→0.05s 零真实发送) + INV-REVIEW check 补 OPENCLAW_BIN+NOTIFY_MAX_RETRIES=1+PATH 去 homebrew. 13 守卫+前瞻 scan+反向验证. INV-CRON-004 用户删 stale auto_deploy 行转绿. 127 suites/4470 tests/0 fail/治理 dev 90 inv EXIT=0/VERSION 不变. MR-23 第 N 次根治.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-06-15",
-      "what": "V37.9.156: 4.27 推送链路追踪四 follow-up 全闭合 (a 无 timeout flag / b plugin 单 dir 无泄漏 / c 2026.4.27 基线 / d 丢失面审计无总丢失) + preflight check 16 假失败修复 (用户实测 13:16 真收到消息=4.27 CLI 10s 假超时, 服务端已送达; 超时签名 fail→warn 真故障仍 fail; 12 单测+反向验证). 126 suites/4457 tests/0 fail/治理 dev 90 inv EXIT=0/VERSION 0.37.9.70 不变.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -285,7 +285,8 @@
       "V37.9.170-B (大·路径B): 10+ job硬编码 message send --channel whatsapp (arxiv/hn/hf_papers/chaspark/finance_news/ontology_sources/acl/job_watchdog…) → WhatsApp临时禁用后这些WhatsApp推送静默失败(|| true吞掉), 微信收不到. 需逐个收编进notify.sh或加weixin分支; 原则#16双通道审计(whatsapp==discord计数)随之更新. 这是\"让所有cron推送到微信\"的主体工作.",
       "V37.9.170-C: 告警污染NO_REPLY根因 — ev1082证 filter_system_alerts()存在却仍复现空回复(assistant角色[SYSTEM_ALERT]可能没被剥). 查proxy_filters.filter_system_alerts是否覆盖assistant角色消息. INV-PA-001/002/SOUL规则10家族.",
       "V37.9.170-D (doc·收工): CLAUDE.md架构图/文件表/原则#16仍写WhatsApp+Discord双通道, WhatsApp恢复+微信稳定后整体刷新频道拓扑; 本版收工需full_regression回写test_count + VERSION bump 0.37.9.70→71 + gen_readme_badges --write同步CLAUDE L3/config L4/README/FEATURES.",
-      "WhatsApp恢复提醒: 临时禁用(连续3天408避免号码被锁), 用户明确后面会再打开 → 恢复=config set channels.whatsapp.enabled true + channels login --channel whatsapp + NOTIFY_CHANNELS加回whatsapp(三通道whatsapp,openclaw-weixin,discord)."
+      "WhatsApp恢复提醒: 临时禁用(连续3天408避免号码被锁), 用户明确后面会再打开 → 恢复=config set channels.whatsapp.enabled true + channels login --channel whatsapp + NOTIFY_CHANNELS加回whatsapp(三通道whatsapp,openclaw-weixin,discord).",
+      "V37.9.171 Path B 第二批(剩余): 多频道内容job(arxiv/semantic_scholar=papers+ontology, freight=freight+alerts, openclaw_official×2=tech+alerts — 单--topic映射不了需个别处理) + 特殊格式(finance_news用--to/--content, chaspark) + ~18根脚本(kb_*/health_check/auto_deploy/job_watchdog/preflight/diagnose/upgrade)收编notify.sh. 第一批10单频道job已V37.9.171完成. Path B全完成后整体更新原则#16双通道审计(whatsapp==discord计数现已不成立)."
     ],
     "open_prs": "",
     "blocked_on": "",
