@@ -25,6 +25,7 @@ from proxy_filters import (
     is_allowed, filter_tools, truncate_messages,
     fix_tool_args, build_sse_response, should_strip_tools,
     inject_media_into_messages, filter_system_alerts,
+    SYSTEM_ALERT_MARKER,  # V37.9.175: _send_alert 加标记防自身告警污染上下文
     flatten_content,
     compose_backend_error_str,  # V37.8.10: INV-OBSERVABILITY-001
     proxy_stats,
@@ -144,12 +145,40 @@ def _run_gate(gate_fn_name, context, rid, response=None):
 
 
 def _send_alert(msg):
-    """后台发送 WhatsApp 告警（不阻塞请求处理）。"""
+    """后台发送告警（不阻塞请求处理）。
+
+    V37.9.175（Path B 续 — proxy 内部告警路径收编 notify.sh）：经 notify.sh
+    ``--topic alerts`` 路由 —— 自动加 [SYSTEM_ALERT] 标记（消费侧 filter_system_alerts
+    在 truncate 之前剥离，防 proxy 自身告警污染 PA 上下文 → 幻觉/空回复，INV-PA-001
+    血案）+ 重试/失败队列 + 微信/Discord 活跃通道扇出。notify.sh 不可达时 fallback
+    裸发，但仍手动加 [SYSTEM_ALERT] 标记 —— 契约：proxy 告警绝不无标记进 sessions.json
+    （原则 #16 所有推送经 notify.sh + INV-PA-001）。Popen fire-and-forget 不阻塞。
+
+    历史 bug：旧版裸 ``openclaw message send --target <phone>`` 无标记 + 仅 WhatsApp，
+    .py 路径躲过 Path B（V37.9.171-174）的 .sh 收编 + MRD-PUSH-ROUTE-001 的 .sh-only
+    扫描 → 这些"连续 N 次错误"/"context 临界"告警恰在退化期触发、无标记进上下文 →
+    filter_system_alerts 无从剥离 → NO_REPLY 污染（2026-06-16 ev1082）。
+    """
     try:
+        notify_sh = os.path.join(os.path.dirname(os.path.abspath(__file__)), "notify.sh")
+        if not os.path.exists(notify_sh):
+            notify_sh = os.path.expanduser("~/notify.sh")
+        if os.path.exists(notify_sh):
+            # 经 notify.sh：标记 + 重试 + 失败队列 + 活跃通道（微信/Discord）扇出。
+            # bash -c 'script' arg0 arg1 arg2 → $0=arg0 $1=notify_sh $2=msg（argv 传参
+            # 不经 shell 解析，多行/特殊字符安全）。
+            subprocess.Popen(
+                ["bash", "-c", 'source "$1" && notify "$2" --topic alerts',
+                 "_send_alert", notify_sh, msg],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            )
+            return
+        # Fallback：notify.sh 不可达 → 裸发但必加 [SYSTEM_ALERT] 标记（标记必 present）
+        marked = msg if msg.lstrip().startswith(SYSTEM_ALERT_MARKER) else f"{SYSTEM_ALERT_MARKER}\n{msg}"
         openclaw = os.environ.get("OPENCLAW", "/opt/homebrew/bin/openclaw")
         phone = os.environ.get("OPENCLAW_PHONE", "+85200000000")
         subprocess.Popen(
-            [openclaw, "message", "send", "--target", phone, "--message", msg, "--json"],
+            [openclaw, "message", "send", "--target", phone, "--message", marked, "--json"],
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
         )
     except OSError:

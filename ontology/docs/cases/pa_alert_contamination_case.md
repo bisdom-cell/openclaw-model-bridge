@@ -250,7 +250,29 @@ PA: 已收到系统告警跟进任务，正在跟进。
 
 6. **观察者自己的盲区** — SOUL.md 规则 9 要求"批判性思考"但针对"迎合用户新观点"，它没想到的场景是"用户没有新观点，但我在回应一个 36 分钟前的系统告警"。规则空间的盲区本身需要被治理。
 
+## 续：V37.9.175 — 同一污染机制的第二个源（proxy 自身告警 .py 旁路）
+
+> 日期：2026-06-18 | 触发：2026-06-16 ev1082 8-token NO_REPLY 复现调查（原 unfinished #29）
+
+V37.4.3 的修复（push 端注入 `[SYSTEM_ALERT]` 标记 + proxy 端 `filter_system_alerts()` 剥离）针对的是 **job_watchdog 经 notify.sh --topic alerts** 的告警路径。2 个月后 NO_REPLY 复现调查暴露**同一污染机制的第二个源**：
+
+- **错误假设的纠正**：原 #29 假设「`filter_system_alerts()` 不覆盖 assistant 角色」。实证 = 错——它覆盖 assistant+user+tool（仅跳过 system），且在 `tool_proxy.py:980` 无条件每请求调用（truncate 之前）。filter **本身是对的**（原则 #28：理解再动手，避免误改正确的 filter）。
+- **真正的第二个源**：`tool_proxy.py::_send_alert()`（proxy 自身的「🔴 连续 N 次错误」「context 临界」告警，由 `proxy_filters.py` 的 `ProxyStats` 生成）用**裸 `openclaw message send --target <phone>`** 推送 —— **无 `[SYSTEM_ALERT]` 标记 + 仅 WhatsApp**。
+- **为什么躲过了 Path B（V37.9.171-174）的全栈收编**：Path B 把所有推送收编进 notify.sh，但 `_send_alert` 在 **`.py` 文件**里，而 `MRD-PUSH-ROUTE-001` 治理扫描器 + `[SYSTEM_ALERT]` cron 扫描器**只扫 `.sh`**。`audit_coverage_retrospective.md:139` 早已预言此逃逸类（"新推送通道绕过 notify.sh，无 `[SYSTEM_ALERT]` → filter 无从识别 → INV-PA-001 无法自动发现"）。
+- **因果链**：退化期（连续错误/context 超限）→ `_send_alert` 触发 → 裸发无标记 → Gateway 写 sessions.json 作 assistant 消息 → `filter_system_alerts` 因无标记无从剥离 → 上下文污染 → NO_REPLY（plausibly 解释 ev1082；ev1082 还叠加重复提问退化，`/new` 清空即恢复）。这是**同一因果链的第二条入口**——告警进上下文的源不止一个。
+- **修复（V37.9.175）**：`_send_alert` 收编 `notify.sh --topic alerts`（标记自动加 + 重试 + 失败队列 + 微信/Discord 活跃通道扇出），notify.sh 不可达时 fallback 裸发**但仍手动加 `[SYSTEM_ALERT]` 标记**（契约：proxy 告警绝不无标记进 sessions.json）。`INV-PA-001` 加 1 个 `python_assert` check 闭合 `.py` 盲区。
+- **新教训（接续 1-6）**：**7. 结构性修复的覆盖面也会有盲区** —— 一个正确的结构性修复（标记+剥离）如果其「注入侧」只覆盖了已知路径（.sh），新的同类路径（.py）会重新打开同一个洞。修复一个 bug 类（不是 bug）要求枚举**所有**注入点，并让治理扫描覆盖所有文件类型，否则 Path B 这种"全栈收编"会留下与扫描器盲区同形的残留（一物多形：推送旁路 .sh 收编了、.py 没收编）。
+
 ## 相关
+
+- `ontology/docs/cases/pa_echo_chamber_case.md` — V37.1 PA 迎合性回复案例（SOUL.md 规则 9 的起源）
+- `ontology/docs/cases/governance_silent_error_case.md` — V37.3 治理观察者盲区
+- `SOUL.md` — 规则 9（批判性思考）+ 规则 10（告警消息不跟进）
+- `proxy_filters.py` — `SYSTEM_ALERT_MARKER` + `filter_system_alerts()`
+- `tool_proxy.py` — `_send_alert()`（V37.9.175 收编 notify.sh + 标记 fallback）
+- `ontology/governance_ontology.yaml` — INV-PA-001（V37.9.175 加 `_send_alert` .py 盲区 check）, INV-PA-002
+- `test_tool_proxy.py` — TestFilterSystemAlerts (14) + TestNotifyShAlertMarker (5) + TestToolProxyImportsAlertFilter (2)
+- `test_v37_9_175_proxy_alert_marker.py` — V37.9.175 `_send_alert` 收编 notify.sh 行为级 + 源码守卫 + sabotage（14）
 
 - `ontology/docs/cases/pa_echo_chamber_case.md` — V37.1 PA 迎合性回复案例（SOUL.md 规则 9 的起源）
 - `ontology/docs/cases/governance_silent_error_case.md` — V37.3 治理观察者盲区
