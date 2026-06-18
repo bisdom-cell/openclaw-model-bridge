@@ -101,8 +101,7 @@ if ! ATOM_PATH="$("$FETCH" 2>"$CACHE_DIR/fetch_releases.err")"; then
   ERR_MSG="[SYSTEM_ALERT]
 ⚠️ OpenClaw Releases 抓取失败（$(TZ=Asia/Hong_Kong date '+%H:%M')）: $(head -1 "$CACHE_DIR/fetch_releases.err" 2>/dev/null)"
   log "ERROR: $ERR_MSG"
-  "$OPENCLAW" message send --channel whatsapp --target "$TO" --message "$ERR_MSG" --json >/dev/null 2>&1 || true
-  "$OPENCLAW" message send --channel discord --target "${DISCORD_CH_ALERTS:-}" --message "$ERR_MSG" --json >/dev/null 2>&1 || true
+  notify "$ERR_MSG" --topic alerts >/dev/null 2>&1 || true  # V37.9.171 PathB-2: 微信 + Discord #alerts
   printf '{"time":"%s","status":"fetch_failed","new":0}\n' "$TS" > "$STATUS_FILE"
   exit 1
 fi
@@ -600,10 +599,10 @@ WA_SENT=false
 
 if [ "$TOTAL_LEN" -le 8000 ]; then
     MSG_CONTENT="$(cat "$MSG_FILE")"
-    if "$OPENCLAW" message send --channel whatsapp --target "$TO" --message "$MSG_CONTENT" --json >/dev/null 2>"$SEND_ERR"; then
+    # V37.9.171 PathB-2: 主推/分块走 notify.sh（微信 + Discord #tech + 重试/队列）
+    if notify "$MSG_CONTENT" --topic tech 2>"$SEND_ERR"; then
         log "已推送 ${TOTAL_NEW} 个 release (单段, $TOTAL_LEN 字)"
         WA_SENT=true
-        "$OPENCLAW" message send --channel discord --target "${DISCORD_CH_TECH:-}" --message "$MSG_CONTENT" --json >/dev/null 2>&1 || true
     else
         log "ERROR: 推送失败: $(cat "$SEND_ERR" | head -3)"
     fi
@@ -651,10 +650,9 @@ PYEOF
     WA_SENT_OK=0
     for chunk_file in "$WA_CHUNK_DIR"/*.txt; do
         CHUNK_CONTENT="$(cat "$chunk_file")"
-        if "$OPENCLAW" message send --channel whatsapp --target "$TO" --message "$CHUNK_CONTENT" --json >/dev/null 2>>"$SEND_ERR"; then
+        if notify "$CHUNK_CONTENT" --topic tech 2>>"$SEND_ERR"; then
             WA_SENT_OK=$((WA_SENT_OK + 1))
         fi
-        "$OPENCLAW" message send --channel discord --target "${DISCORD_CH_TECH:-}" --message "$CHUNK_CONTENT" --json >/dev/null 2>&1 || true
         sleep 1  # 防 WhatsApp 消息乱序 (V37.9.21 契约)
     done
     log "已推送 ${TOTAL_NEW} 个 release (多窗口 ${WA_SENT_OK}/${WA_PARTS_TOTAL} 段, 共 $TOTAL_LEN 字)"

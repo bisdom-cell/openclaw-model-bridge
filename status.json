@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-18 07:22:26",
+  "updated": "2026-06-18 07:37:20",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-06-18",
+      "what": "V37.9.172 Path B 第二批: 多频道/特殊 job + KB 内容脚本主推收编 notify.sh. 标准结构(脚本): arxiv/s2 主推→notify --topic papers(ontology的ONTO_CONTENT是discord-only不动) + openclaw_official×2→tech(run_discussions退役whatsapp-stderr hack)+ERR_MSG→alerts. 特殊手动: freight(cat主推+多行画像+ERR/WARN, 补source notify.sh)→freight/alerts; kb_inject(每日摘要WA_MSG, 补source)→daily. 修bug: kb_deep_dive段推送 notify --channel whatsapp 强制绕过微信→去掉走默认. 已notify优先不动: finance/chaspark/kb_radar/kb_review/kb_evening/health_check. test_notify_jobs_routing 6→9单测(CONVERTED 10→14+特殊3). 7脚本bash -n全过/governance EXIT=0 INV-NOTIFY绿. Path B一+二批后全部每日内容推送均经notify到微信. 剩batch3=ops根脚本.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-18",
       "what": "V37.9.171 Path B 第一批: 10 单频道内容 job 主推/分块收编 notify.sh — hf_papers/dblp/acl(papers)+hn/rss_blogs/github_trending/karpathy_x/ai_leaders_blogs/bsky/x(tech) 的 whatsapp+discord 对 → notify --topic X(微信→用户+Discord #topic+重试+队列). 日落法每处2发送→1, 退役裸whatsapp+discord对+hn的whatsapp-stderr插件警告hack. test_notify_jobs_routing.py 6守卫(主推走notify/无残留裸whatsapp/无重复discord/sabotage验证)接入full_regression. 10 job bash -n全过/governance EXIT=0 INV-NOTIFY-001~004绿. 兑现INV-NOTIFY-003(合规脚本1→11). Path B第二批剩多频道(arxiv/s2/freight/openclaw)+特殊(finance/chaspark)+~18根脚本.",
       "by": "claude_code"
     },
@@ -198,11 +203,6 @@
       "date": "2026-06-15",
       "what": "✅ Mac Mini 完整闭环验证: 两 💥 (INV-REVIEW-001 notify.sh route + INV-CRON-MONITOR-001 test stub) 全部转 ✅ + CONVERGENCE_DRY_RUN=1 governance --full = 90 inv 748 checks 所有不变式成立零 💥. 确认 INV-CRON-004 复发源 = 手动 governance --full (无 CONVERGENCE_DRY_RUN) real-apply convergence 重加 auto_deploy HOME 行 (MR-23 审计 mutate 生产, V37.9.116 修了 07:00 cron 但手动跑没修). 工作流修正: 手动 governance 加 CONVERGENCE_DRY_RUN=1.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-06-15",
-      "what": "V37.9.157: governance 两 💥 根治 — 4.27 冷调用劫持 audit subprocess + 测试污染生产. INV-CRON-MONITOR-001 (test_cron_monitor 调真 openclaw 77s>60s+真发[SYSTEM_ALERT]) + INV-REVIEW-001 (V37.9.145 stub gap: PATH 留 /opt/homebrew/bin+无 OPENCLAW_BIN+无 MAX_RETRIES) 都根治: test _stub_env 受控环境 (OPENCLAW_BIN+OPENCLAW stub, 77s→0.05s 零真实发送) + INV-REVIEW check 补 OPENCLAW_BIN+NOTIFY_MAX_RETRIES=1+PATH 去 homebrew. 13 守卫+前瞻 scan+反向验证. INV-CRON-004 用户删 stale auto_deploy 行转绿. 127 suites/4470 tests/0 fail/治理 dev 90 inv EXIT=0/VERSION 不变. MR-23 第 N 次根治.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -286,7 +286,8 @@
       "V37.9.170-C: 告警污染NO_REPLY根因 — ev1082证 filter_system_alerts()存在却仍复现空回复(assistant角色[SYSTEM_ALERT]可能没被剥). 查proxy_filters.filter_system_alerts是否覆盖assistant角色消息. INV-PA-001/002/SOUL规则10家族.",
       "V37.9.170-D (doc·收工): CLAUDE.md架构图/文件表/原则#16仍写WhatsApp+Discord双通道, WhatsApp恢复+微信稳定后整体刷新频道拓扑; 本版收工需full_regression回写test_count + VERSION bump 0.37.9.70→71 + gen_readme_badges --write同步CLAUDE L3/config L4/README/FEATURES.",
       "WhatsApp恢复提醒: 临时禁用(连续3天408避免号码被锁), 用户明确后面会再打开 → 恢复=config set channels.whatsapp.enabled true + channels login --channel whatsapp + NOTIFY_CHANNELS加回whatsapp(三通道whatsapp,openclaw-weixin,discord).",
-      "V37.9.171 Path B 第二批(剩余): 多频道内容job(arxiv/semantic_scholar=papers+ontology, freight=freight+alerts, openclaw_official×2=tech+alerts — 单--topic映射不了需个别处理) + 特殊格式(finance_news用--to/--content, chaspark) + ~18根脚本(kb_*/health_check/auto_deploy/job_watchdog/preflight/diagnose/upgrade)收编notify.sh. 第一批10单频道job已V37.9.171完成. Path B全完成后整体更新原则#16双通道审计(whatsapp==discord计数现已不成立)."
+      "V37.9.171 Path B 第二批(剩余): 多频道内容job(arxiv/semantic_scholar=papers+ontology, freight=freight+alerts, openclaw_official×2=tech+alerts — 单--topic映射不了需个别处理) + 特殊格式(finance_news用--to/--content, chaspark) + ~18根脚本(kb_*/health_check/auto_deploy/job_watchdog/preflight/diagnose/upgrade)收编notify.sh. 第一批10单频道job已V37.9.171完成. Path B全完成后整体更新原则#16双通道审计(whatsapp==discord计数现已不成立).",
+      "V37.9.172 Path B 第三批(剩余, 低优 operational): ops 根脚本收编 notify.sh — auto_deploy.sh(部署通知)/job_watchdog.sh(job失败告警)/diagnose.sh+preflight_check.sh+upgrade_openclaw.sh(手动 ops 测试/通知). 非每日内容. 注: preflight push test(854)是\"测推送通道是否通\"的工具, 收编时要测活跃通道(微信)非whatsapp. Path B 一+二批已覆盖全部每日内容 job(论文/新闻/财经/KB摘要/深度分析). Path B 全完成后整体更新原则#16双通道审计."
     ],
     "open_prs": "",
     "blocked_on": "",

@@ -232,7 +232,7 @@ send_wa_parts_via_notify() {
         [ -f "$chunk_file" ] || continue
         WA_PART_IDX=$((WA_PART_IDX + 1))
         WA_SEGMENT=$(cat "$chunk_file")
-        if notify "$WA_SEGMENT" --channel whatsapp --topic deep_dive >/dev/null 2>&1; then
+        if notify "$WA_SEGMENT" --topic deep_dive >/dev/null 2>&1; then  # V37.9.171 PathB-2: 去 --channel whatsapp 强制，走默认 微信+Discord
             WA_SEND_OK=$((WA_SEND_OK + 1))
         else
             log "WARN: WhatsApp 第 $WA_PART_IDX/$WA_PARTS_TOTAL 段推送失败"

@@ -17,6 +17,13 @@ DATE=$(date +%Y%m%d)
 
 log() { echo "[$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')] kb_inject: $1" >&2; }
 
+# V37.9.171 PathB-2: source notify.sh（kb_inject 之前未接入，本批补齐）→ 每日摘要走微信 + Discord + 重试/队列
+NOTIFY_SH=""
+for candidate in "$HOME/openclaw-model-bridge/notify.sh" "$HOME/notify.sh"; do
+    [ -f "$candidate" ] && { NOTIFY_SH="$candidate"; break; }
+done
+[ -n "$NOTIFY_SH" ] && { source "$NOTIFY_SH" || true; }
+
 mkdir -p "$KB_DIR"
 
 # ── 生成摘要（Python 一次性处理，避免多次 shell 调用） ──
@@ -366,11 +373,11 @@ PYEOF
 )
 
 SEND_ERR=$(mktemp)
-if openclaw message send --channel whatsapp --target "$PHONE" --message "$WA_MSG" --json >/dev/null 2>"$SEND_ERR"; then
-    log "每日摘要已推送 WhatsApp"
-    openclaw message send --channel discord --target "${DISCORD_CH_DAILY:-}" --message "$WA_MSG" --json >/dev/null 2>&1 || true
+# V37.9.171 PathB-2: 走 notify.sh（微信 + Discord #daily + 重试/队列），退役裸 whatsapp+discord 对
+if notify "$WA_MSG" --topic daily >/dev/null 2>"$SEND_ERR"; then
+    log "每日摘要已推送 (微信 + Discord)"
 else
-    log "WARNING: WhatsApp 推送失败: $(head -3 "$SEND_ERR" 2>/dev/null)"
+    log "WARNING: 摘要推送失败: $(head -3 "$SEND_ERR" 2>/dev/null)"
     # 本地告警回退（V30: 监控不依赖被监控对象）
     echo "[$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')] kb_inject: WhatsApp 推送失败" >> ~/.openclaw_alerts.log 2>/dev/null || true
 fi
