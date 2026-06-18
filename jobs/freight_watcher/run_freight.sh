@@ -48,6 +48,13 @@ STATUS_FILE="$CACHE/last_run.json"
 
 log() { echo "[$TS] freight: $1" >&2; }
 
+# V37.9.171 PathB-2: source notify.sh（freight 之前未接入，本批补齐）→ 推送走微信 + Discord + 重试/队列
+NOTIFY_SH=""
+for candidate in "$HOME/openclaw-model-bridge/notify.sh" "$HOME/notify.sh"; do
+    [ -f "$candidate" ] && { NOTIFY_SH="$candidate"; break; }
+done
+[ -n "$NOTIFY_SH" ] && { source "$NOTIFY_SH" || true; }
+
 mkdir -p "$CACHE" "${KB_BASE:-$HOME/.kb}/sources"
 test -f "$KB_SRC"   || echo "# 货代商机 Watcher" > "$KB_SRC"
 test -f "$KB_INBOX" || echo "# INBOX" > "$KB_INBOX"
@@ -291,8 +298,7 @@ echo "$LLM_OUT" >> "$LLM_RAW"
 if [ -z "${LLM_OUT// }" ]; then
     ERR_MSG="⚠️ 货代Watcher LLM调用失败（${DAY}），请检查 $LLM_RAW"
     echo "$ERR_MSG"
-    "$OPENCLAW" message send --channel whatsapp --target "$TO" --message "$ERR_MSG" --json >/dev/null 2>&1 || true
-    "$OPENCLAW" message send --channel discord --target "${DISCORD_CH_ALERTS:-}" --message "$ERR_MSG" --json >/dev/null 2>&1 || true
+    notify "$ERR_MSG" --topic alerts >/dev/null 2>&1 || true  # V37.9.171 PathB-2: 微信 + Discord #alerts
     # V37.9.31: deep_dive=skipped_llm_failed so preflight reports legitimate skip
     printf '{"time":"%s","status":"llm_failed","new":%d,"deep_dive":"skipped_llm_failed"}\n' "$TS" "$NEW_COUNT" > "$STATUS_FILE"
     exit 1
@@ -303,8 +309,7 @@ PARSE_OK="$(echo "$LLM_OUT" | grep -c '评级：' || true)"
 if [ "$PARSE_OK" -lt $(( NEW_COUNT / 2 )) ] && [ "$NEW_COUNT" -gt 2 ]; then
     WARN_MSG="⚠️ 货代Watcher解析成功率低 ${PARSE_OK}/${NEW_COUNT}（${DAY}），请查 $LLM_RAW"
     echo "$WARN_MSG"
-    "$OPENCLAW" message send --channel whatsapp --target "$TO" --message "$WARN_MSG" --json >/dev/null 2>&1 || true
-    "$OPENCLAW" message send --channel discord --target "${DISCORD_CH_ALERTS:-}" --message "$WARN_MSG" --json >/dev/null 2>&1 || true
+    notify "$WARN_MSG" --topic alerts >/dev/null 2>&1 || true  # V37.9.171 PathB-2: 微信 + Discord #alerts
     # V37.9.31: deep_dive=skipped_parse_low so preflight reports legitimate skip
     printf '{"time":"%s","status":"parse_low","new":%d,"parse_ok":%d,"deep_dive":"skipped_parse_low"}\n' "$TS" "$NEW_COUNT" "$PARSE_OK" > "$STATUS_FILE"
     exit 2
@@ -415,9 +420,9 @@ PYEOF2
 
 # ── 5. 推送WhatsApp ─────────────────────────────────────────────────────
 SEND_ERR=$(mktemp)
-if "$OPENCLAW" message send --channel whatsapp --target "$TO" --message "$(cat "$MSG_FILE")" --json >/dev/null 2>"$SEND_ERR"; then
+# V37.9.171 PathB-2: 走 notify.sh（微信 + Discord #freight + 重试/队列）
+if notify "$(cat "$MSG_FILE")" --topic freight >/dev/null 2>"$SEND_ERR"; then
     log "已推送 ${NEW_COUNT} 条商机（${DAY}）"
-    "$OPENCLAW" message send --channel discord --target "${DISCORD_CH_FREIGHT:-}" --message "$(cat "$MSG_FILE")" --json >/dev/null 2>&1 || true
     # V37.9.31: deep_dive=pending here. Step 9 will overwrite with ok/no_data/skipped
     # if it runs. If Step 7/8 exits early (set -e + rsync fail pre-V37.9.31, or
     # other future failure modes), pending is the honest answer that preflight
@@ -614,20 +619,14 @@ except Exception:
 
         # 推送客户画像
         if [ -n "${PROFILE_OUT// }" ]; then
-            if "$OPENCLAW" message send --channel whatsapp --target "$TO" \
-                --message "📊 货代客户画像 (${DAY})
+            # V37.9.171 PathB-2: 走 notify.sh（微信 + Discord #freight + 重试/队列）
+            if notify "📊 货代客户画像 (${DAY})
 
 ${PROFILE_OUT}
 
 💡 数据来源：ImportYeti美国海关提单 + 行业新闻
-⚠ 预算为运价推算值，仅供参考" --json >/dev/null 2>&1; then
+⚠ 预算为运价推算值，仅供参考" --topic freight >/dev/null 2>&1; then
                 log "已推送客户画像"
-                "$OPENCLAW" message send --channel discord --target "${DISCORD_CH_FREIGHT:-}" --message "📊 货代客户画像 (${DAY})
-
-${PROFILE_OUT}
-
-💡 数据来源：ImportYeti美国海关提单 + 行业新闻
-⚠ 预算为运价推算值，仅供参考" --json >/dev/null 2>&1 || true
             else
                 log "ERROR: 客户画像推送失败，请检查 gateway。"
             fi

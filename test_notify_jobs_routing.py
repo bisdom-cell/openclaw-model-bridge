@@ -33,6 +33,11 @@ CONVERTED_JOBS = {
     "jobs/ai_leaders_blogs/run_ai_leaders_blogs.sh": "tech",
     "jobs/ai_leaders_bsky/run_ai_leaders_bsky.sh": "tech",
     "jobs/ai_leaders_x/run_ai_leaders_x.sh": "tech",
+    # V37.9.171 PathB-2: 多频道 job 的主推同标准结构（ontology/alerts 第二频道单独处理）
+    "jobs/arxiv_monitor/run_arxiv.sh": "papers",
+    "jobs/semantic_scholar/run_semantic_scholar.sh": "papers",
+    "jobs/openclaw_official/run.sh": "tech",
+    "jobs/openclaw_official/run_discussions.sh": "tech",
 }
 
 
@@ -85,6 +90,34 @@ class TestJobsRouteMainPushThroughNotify(unittest.TestCase):
         for rel in CONVERTED_JOBS:
             src = _read(rel)
             self.assertIn("V37.9.171", src, f"{rel} 缺 V37.9.171 标记")
+
+
+class TestBatch2SpecialFormatJobs(unittest.TestCase):
+    """V37.9.171 PathB-2 非标准结构 job（freight/kb_inject/kb_deep_dive）路由守卫。"""
+
+    def test_freight_routes_content_through_notify(self):
+        src = _read("jobs/freight_watcher/run_freight.sh")
+        self.assertIn('notify "$(cat "$MSG_FILE")" --topic freight', src)
+        self.assertIn("--topic freight", src)  # 客户画像也走 freight
+        self.assertIn("notify.sh", src)  # freight 本批补 source
+        # 防回归：内容主推不得再用裸 whatsapp
+        self.assertNotIn('--channel whatsapp --target "$TO" --message "$(cat "$MSG_FILE")"', src)
+        self.assertIn("V37.9.171", src)
+
+    def test_kb_inject_routes_daily_through_notify(self):
+        src = _read("kb_inject.sh")
+        self.assertIn('notify "$WA_MSG" --topic daily', src)
+        self.assertIn("notify.sh", src)  # kb_inject 本批补 source
+        self.assertNotIn('--channel whatsapp --target "$PHONE" --message "$WA_MSG"', src)
+        self.assertIn("V37.9.171", src)
+
+    def test_kb_deep_dive_no_forced_whatsapp_channel(self):
+        # 修复 --channel whatsapp 强制（绕过微信）：notify 段推送不得再带 --channel whatsapp
+        src = _read("kb_deep_dive.sh")
+        self.assertNotIn('notify "$WA_SEGMENT" --channel whatsapp', src,
+                         "kb_deep_dive 仍强制 --channel whatsapp，绕过微信")
+        self.assertIn('notify "$WA_SEGMENT" --topic deep_dive', src)
+        self.assertIn("V37.9.171", src)
 
 
 if __name__ == "__main__":
