@@ -180,17 +180,22 @@ echo ""
 echo "【7/7】WhatsApp 消息发送测试"
 OPENCLAW="${OPENCLAW:-$(command -v openclaw 2>/dev/null || echo /opt/homebrew/bin/openclaw)}"
 PHONE="${OPENCLAW_PHONE:-+85200000000}"
+# V37.9.173 PathB-3: source notify.sh，诊断测真实推送管线（微信 + Discord + 重试/队列）
+for _ns in "$HOME/openclaw-model-bridge/notify.sh" "$HOME/notify.sh"; do
+    [ -f "$_ns" ] && { source "$_ns" 2>/dev/null || true; break; }
+done
 echo "  使用: $OPENCLAW"
 echo "  目标: $PHONE"
 
 if command -v openclaw >/dev/null 2>&1 || [ -x "$OPENCLAW" ]; then
-    echo "  正在发送测试消息..."
-    SEND_RESULT=$("$OPENCLAW" message send --channel whatsapp --target "$PHONE" --message "🔧 诊断测试消息 ($TS)" --json 2>&1 || true)
-    echo "  发送结果: $SEND_RESULT" | head -5 | sed 's/^/    /'
-    # Discord 诊断测试
-    if [ -n "${DISCORD_TARGET:-}" ]; then
-        "$OPENCLAW" message send --channel discord --target "user:${DISCORD_TARGET}" --message "🔧 诊断测试消息 ($TS)" --json >/dev/null 2>&1 || true
+    echo "  正在发送测试消息（经 notify → 微信 + Discord，测真实推送管线）..."
+    # V37.9.173 PathB-3: 测真实推送管线 notify；未加载时直发兜底
+    if command -v notify >/dev/null 2>&1; then
+        SEND_RESULT=$(notify "🔧 诊断测试消息 ($TS)" --topic alerts 2>&1 || true)
+    else
+        SEND_RESULT=$("$OPENCLAW" message send --channel whatsapp --target "$PHONE" --message "🔧 诊断测试消息 ($TS)" --json 2>&1 || true)
     fi
+    echo "  发送结果: $SEND_RESULT" | head -5 | sed 's/^/    /'
 else
     echo "  🔴 openclaw 命令未找到！"
     FAIL=1

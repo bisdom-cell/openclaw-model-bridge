@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-18 07:37:20",
+  "updated": "2026-06-18 07:49:54",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-06-18",
+      "what": "V37.9.173 Path B 第三批(收尾): ops 脚本告警/通知收编 notify — auto_deploy(部署/漂移告警 quiet_alert, 保留自定义静默时段discord-only+早期stage直发兜底)/diagnose(手动诊断改测真实notify推送管线)/upgrade(升级完成通知)→notify --topic alerts(加source块+优先notify). job_watchdog本就notify优先(955是fallback)不动. preflight延后: check16推送smoke test应改测活跃通道+退役4.27 hack, 但是健康检查CI工具(非用户推送)且需重写138行守卫test_v37_9_156, 当前warn不break, 独立careful pass. test_notify_jobs_routing 9→13单测(+TestBatch3OpsScripts). 3 ops bash -n全过/13守卫/governance EXIT=0. Path B一+二+三批=全部内容+运维告警均经notify到微信, 仅剩preflight.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-18",
       "what": "V37.9.172 Path B 第二批: 多频道/特殊 job + KB 内容脚本主推收编 notify.sh. 标准结构(脚本): arxiv/s2 主推→notify --topic papers(ontology的ONTO_CONTENT是discord-only不动) + openclaw_official×2→tech(run_discussions退役whatsapp-stderr hack)+ERR_MSG→alerts. 特殊手动: freight(cat主推+多行画像+ERR/WARN, 补source notify.sh)→freight/alerts; kb_inject(每日摘要WA_MSG, 补source)→daily. 修bug: kb_deep_dive段推送 notify --channel whatsapp 强制绕过微信→去掉走默认. 已notify优先不动: finance/chaspark/kb_radar/kb_review/kb_evening/health_check. test_notify_jobs_routing 6→9单测(CONVERTED 10→14+特殊3). 7脚本bash -n全过/governance EXIT=0 INV-NOTIFY绿. Path B一+二批后全部每日内容推送均经notify到微信. 剩batch3=ops根脚本.",
       "by": "claude_code"
     },
@@ -198,11 +203,6 @@
       "date": "2026-06-15",
       "what": "V37.9.158: INV-CRON-004 反复血案真根治 — convergence 默认反转 real-apply→dry-run (MR-23 完整). 两层根因: (L1) 手动 governance real-apply mutate crontab (V37.9.116 只修 07:00 cron) (L2) V37.9.120 'line_contains 不重加' 证伪 (endswith 不匹配 line 5). 根治: _is_dry_run/_resolve_dry_run_for_spec 默认 dry-run, 仅 CONVERGENCE_APPLY=1 real-apply, DRY_RUN=1 force-override. machine 仍能 sync 但显式动作非观察副作用. 切断所有 spec 意外 mutation. 127 suites/4473 tests/0 fail/治理 90 inv 成立. V37.9.106/111/116/120 auto_deploy 双行血案终结.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-06-15",
-      "what": "✅ Mac Mini 完整闭环验证: 两 💥 (INV-REVIEW-001 notify.sh route + INV-CRON-MONITOR-001 test stub) 全部转 ✅ + CONVERGENCE_DRY_RUN=1 governance --full = 90 inv 748 checks 所有不变式成立零 💥. 确认 INV-CRON-004 复发源 = 手动 governance --full (无 CONVERGENCE_DRY_RUN) real-apply convergence 重加 auto_deploy HOME 行 (MR-23 审计 mutate 生产, V37.9.116 修了 07:00 cron 但手动跑没修). 工作流修正: 手动 governance 加 CONVERGENCE_DRY_RUN=1.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -287,7 +287,8 @@
       "V37.9.170-D (doc·收工): CLAUDE.md架构图/文件表/原则#16仍写WhatsApp+Discord双通道, WhatsApp恢复+微信稳定后整体刷新频道拓扑; 本版收工需full_regression回写test_count + VERSION bump 0.37.9.70→71 + gen_readme_badges --write同步CLAUDE L3/config L4/README/FEATURES.",
       "WhatsApp恢复提醒: 临时禁用(连续3天408避免号码被锁), 用户明确后面会再打开 → 恢复=config set channels.whatsapp.enabled true + channels login --channel whatsapp + NOTIFY_CHANNELS加回whatsapp(三通道whatsapp,openclaw-weixin,discord).",
       "V37.9.171 Path B 第二批(剩余): 多频道内容job(arxiv/semantic_scholar=papers+ontology, freight=freight+alerts, openclaw_official×2=tech+alerts — 单--topic映射不了需个别处理) + 特殊格式(finance_news用--to/--content, chaspark) + ~18根脚本(kb_*/health_check/auto_deploy/job_watchdog/preflight/diagnose/upgrade)收编notify.sh. 第一批10单频道job已V37.9.171完成. Path B全完成后整体更新原则#16双通道审计(whatsapp==discord计数现已不成立).",
-      "V37.9.172 Path B 第三批(剩余, 低优 operational): ops 根脚本收编 notify.sh — auto_deploy.sh(部署通知)/job_watchdog.sh(job失败告警)/diagnose.sh+preflight_check.sh+upgrade_openclaw.sh(手动 ops 测试/通知). 非每日内容. 注: preflight push test(854)是\"测推送通道是否通\"的工具, 收编时要测活跃通道(微信)非whatsapp. Path B 一+二批已覆盖全部每日内容 job(论文/新闻/财经/KB摘要/深度分析). Path B 全完成后整体更新原则#16双通道审计."
+      "V37.9.172 Path B 第三批(剩余, 低优 operational): ops 根脚本收编 notify.sh — auto_deploy.sh(部署通知)/job_watchdog.sh(job失败告警)/diagnose.sh+preflight_check.sh+upgrade_openclaw.sh(手动 ops 测试/通知). 非每日内容. 注: preflight push test(854)是\"测推送通道是否通\"的工具, 收编时要测活跃通道(微信)非whatsapp. Path B 一+二批已覆盖全部每日内容 job(论文/新闻/财经/KB摘要/深度分析). Path B 全完成后整体更新原则#16双通道审计.",
+      "Path B 收尾剩 preflight(独立 careful pass): check 16 推送 smoke test 改测活跃通道(notify→微信+Discord)+退役 V37.9.156 的 4.27 whatsapp 冷调用 exit-code 不可信 hack(notify 返回码权威). 需重写 138 行守卫 test_v37_9_156_preflight_push_warn.py(深度断言 whatsapp-timeout-warn elif/排序/判别器). 它是健康检查 CI 工具非用户内容推送, 当前只 warn 不 break. 完成后: 整体更新原则 #16 双通道审计(whatsapp==discord 计数现不成立, 应为 weixin+discord) + 全 Path B 完成后收工统一 bump VERSION/badge + gen_readme_badges --write."
     ],
     "open_prs": "",
     "blocked_on": "",

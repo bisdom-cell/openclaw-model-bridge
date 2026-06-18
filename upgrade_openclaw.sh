@@ -8,6 +8,10 @@ set -euo pipefail
 
 PHONE="${OPENCLAW_PHONE:-+85200000000}"
 OPENCLAW="/opt/homebrew/bin/openclaw"
+# V37.9.173 PathB-3: source notify.sh 让升级通知走微信 + Discord（FAIL-OPEN 兜底）
+for _ns in "$HOME/openclaw-model-bridge/notify.sh" "$HOME/notify.sh"; do
+    [ -f "$_ns" ] && { source "$_ns" 2>/dev/null || true; break; }
+done
 
 echo "=== OpenClaw 升级脚本 ==="
 echo "$(date '+%Y-%m-%d %H:%M:%S')"
@@ -64,11 +68,15 @@ echo "  Health:         $HEALTH"
 if [ "$GW" = "UP" ]; then
     echo ""
     echo "✅ 升级成功: $OLD_VER → $NEW_VER"
-    # 推送通知
-    $OPENCLAW message send --channel whatsapp -t "$PHONE" \
-        -m "✅ OpenClaw 升级完成: $OLD_VER → $NEW_VER" 2>/dev/null || true
-    $OPENCLAW message send --channel discord -t "${DISCORD_CH_ALERTS:-}" \
-        -m "✅ OpenClaw 升级完成: $OLD_VER → $NEW_VER" 2>/dev/null || true
+    # 推送通知 (V37.9.173 PathB-3: 走 notify → 微信 + Discord #alerts + 重试/队列)
+    if command -v notify >/dev/null 2>&1; then
+        notify "✅ OpenClaw 升级完成: $OLD_VER → $NEW_VER" --topic alerts >/dev/null 2>&1 || true
+    else
+        $OPENCLAW message send --channel whatsapp -t "$PHONE" \
+            -m "✅ OpenClaw 升级完成: $OLD_VER → $NEW_VER" 2>/dev/null || true
+        $OPENCLAW message send --channel discord -t "${DISCORD_CH_ALERTS:-}" \
+            -m "✅ OpenClaw 升级完成: $OLD_VER → $NEW_VER" 2>/dev/null || true
+    fi
 else
     echo ""
     echo "⚠️ Gateway 未启动，请检查日志: /tmp/openclaw/openclaw-$(date +%Y-%m-%d).log"

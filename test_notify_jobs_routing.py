@@ -120,5 +120,31 @@ class TestBatch2SpecialFormatJobs(unittest.TestCase):
         self.assertIn("V37.9.171", src)
 
 
+class TestBatch3OpsScripts(unittest.TestCase):
+    """V37.9.173 PathB-3 ops 脚本走 notify 守卫（auto_deploy/diagnose/upgrade；
+    job_watchdog 本就 notify 优先不动；preflight 延后——健康检查工具，需重写 test_v37_9_156）。"""
+
+    def test_auto_deploy_quiet_alert_prefers_notify(self):
+        src = _read("auto_deploy.sh")
+        self.assertIn('notify "$msg" --topic alerts', src)
+        self.assertIn("command -v notify", src)  # 优先 notify, 早期 stage 直发兜底
+        self.assertIn("V37.9.173", src)
+
+    def test_diagnose_tests_real_notify_pipeline(self):
+        src = _read("diagnose.sh")
+        self.assertIn('notify "🔧 诊断测试消息', src)
+        self.assertIn("V37.9.173", src)
+
+    def test_upgrade_notify_through_notify(self):
+        src = _read("upgrade_openclaw.sh")
+        self.assertIn('notify "✅ OpenClaw 升级完成', src)
+        self.assertIn("V37.9.173", src)
+
+    def test_job_watchdog_already_notify_preferred(self):
+        # job_watchdog 本就 notify 优先（955 whatsapp 是 fallback 分支），不动；守住该前提
+        src = _read("job_watchdog.sh")
+        self.assertIn("command -v notify", src)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

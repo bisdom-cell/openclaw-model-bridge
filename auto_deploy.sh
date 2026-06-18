@@ -19,6 +19,11 @@ REPO_DIR="$HOME/openclaw-model-bridge"
 LOG="$HOME/.openclaw/logs/auto_deploy.log"
 mkdir -p "$(dirname "$LOG")"
 
+# V37.9.173 PathB-3: source notify.sh（FAIL-OPEN，早期 stage 未同步时 quiet_alert 走直发兜底）
+for _ns in "$HOME/openclaw-model-bridge/notify.sh" "$HOME/notify.sh"; do
+    [ -f "$_ns" ] && { source "$_ns" 2>/dev/null || true; break; }
+done
+
 # ════════════════════════════════════════════════════════════════════
 # V37.9.60 MR-19 ERR trap: silent abort 变 loud
 # ════════════════════════════════════════════════════════════════════
@@ -63,8 +68,13 @@ $msg" ;;
         openclaw message send --channel discord --target "${DISCORD_CH_ALERTS:-}" --message "$msg" --json >/dev/null 2>&1 || true
         return 0
     fi
-    openclaw message send --channel whatsapp --target "${OPENCLAW_PHONE:-+85200000000}" --message "$msg" --json >/dev/null 2>&1 || true
-    openclaw message send --channel discord --target "${DISCORD_CH_ALERTS:-}" --message "$msg" --json >/dev/null 2>&1 || true
+    # V37.9.173 PathB-3: 优先 notify（微信 + Discord #alerts + 重试/队列），早期 stage 未 source 时直发兜底
+    if command -v notify >/dev/null 2>&1; then
+        notify "$msg" --topic alerts >/dev/null 2>&1 || true
+    else
+        openclaw message send --channel whatsapp --target "${OPENCLAW_PHONE:-+85200000000}" --message "$msg" --json >/dev/null 2>&1 || true
+        openclaw message send --channel discord --target "${DISCORD_CH_ALERTS:-}" --message "$msg" --json >/dev/null 2>&1 || true
+    fi
 }
 
 cd "$REPO_DIR" || { echo "$(date) ERROR: cannot cd to $REPO_DIR" >> "$LOG"; exit 1; }
