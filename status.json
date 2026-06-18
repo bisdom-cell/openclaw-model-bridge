@@ -1,6 +1,6 @@
 {
-  "updated": "2026-06-18 15:02:46",
-  "updated_by": "full_regression",
+  "updated": "2026-06-18 15:55:37",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-06-18",
+      "what": "V37.9.180 WhatsApp 408 恢复 + Option A 在4.27确认无效 + notify 冷调用超时去重. ① WhatsApp 恢复(用户Mac Mini实操): 408设备链接限流自然冷却→单次扫码重链(QR→515配对重启→Linked connected), 手机实收3条确认投递, 408清除. ② Option A(maxAttempts限制重连)在4.27无效: 手改openclaw.json被Gateway canonicalize剥掉, config set 硬报 must NOT have additional properties(channels.whatsapp 严格schema additionalProperties:false 不收web.reconnect键)→主防线退Option C(V37.9.162检测)+升级待#56365暴露配置. ③ 冷调用去重(核心修复, 用户实测3条重复驱动): WhatsApp cron推送每次冷→4.27 CLI等ack 10s放弃报gateway timeout但gateway已投递→notify误当失败重试3次→3条重复. 修: notify.sh加_notify_is_coldcall_timeout(发送+重放两路径)匹配gateway timeout签名按已投递处理(不重试/不入队/不重复), 真失败仍重试. 7新单测(冷调用只发1次/不入队/真失败仍重试3次+源码守卫)+sabotage. full_regression 133/0/4722(+7). VERSION 0.37.9.71不变. baileys_ban_risk_assessment.md 加2026-06-18实测结论. WhatsApp推送链路完整恢复, NOTIFY_CHANNELS=whatsapp,discord.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-18",
       "what": "V37.9.179 微信推送 contextToken 根因锁定 + 默认通道退回 discord. 用户报 3h 微信零 cron 推送/Discord 正常→深挖. 多轮取证(target 对/直发✅Sent/notify rc=0/status weixin 仅 running)都不是 gap; 铁证在 provider 日志 /tmp/openclaw/openclaw-*.log: 每条 outbound 都 sendWeixinOutbound contextToken missing sending without context, 窗口测试没到微信. 根因: openclaw-weixin 是微信客服/对话通道(ilinkai), outbound 必须带 contextToken(来自用户入站会话上下文); PA 回复持有 token 能投递(交互层通), 但 notify→message send 是 CLI 发起不绑入站→永远无 token→微信丢弃. rc=0/✅Sent 是发送侧本地确认≠投递(fail-plausible). 推翻 V37.9.178「微信 E2E 通过」(我误把 rc=0 当投递, 整条微信迁移建立在未验证假设上). 修(通道选型非代码bug): notify.sh 默认 NOTIFY_CHANNELS openclaw-weixin,discord→discord; WhatsApp恢复设 whatsapp,discord; weixin 分支保留交互/调试; WeChat 退回交互问答. 案例文档 weixin_contexttoken_push_blocked_case.md. test_notify_weixin 默认守卫改 discord, 29 全过. full_regression 133/0/4716. VERSION 0.37.9.71 不变. 决策(用户): Discord 主推+WhatsApp 恢复. Path B 路由工作不浪费(服务 WhatsApp/Discord).",
       "by": "claude_code"
     },
@@ -197,11 +202,6 @@
     {
       "date": "2026-06-17",
       "what": "Option A (Baileys maxAttempts 熔断防封) ready-to-apply 包: WebSearch+WebFetch 确认 4.27 channels.whatsapp.web.reconnect.maxAttempts 路径 + maxAttempts:0=无限重连根因坐实, Python 原子补丁器 dev 验证(新增web块/保留现有键/原子写无残留/幂等/保留已有reconnect值) + 完整 runbook(备份-补丁-验证-重启-健康-效力-回滚), 写入 baileys_ban_risk_assessment.md 已提交推送. WhatsApp 恢复仍 user-gated: 今天第7次 login 仍 408, 限流隔夜未清, 须 24h+ 零尝试冷却. 铁规则: 恢复稳定后才应用 A. VERSION 0.37.9.70 不变.",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-06-16",
-      "what": "V37.9.162 部署里程碑: PR #719 已合并 + Mac Mini 同步 + preflight --full 验证(86 pass/1 fail/1 warn). 唯一fail=check16 WhatsApp推送(频道未重链=事件未恢复, 非回归)+warn=KB 99%(常规). wa_keepalive频道监控(7h盲区→1h告警)已部署生效. WhatsApp重链+A config(maxAttempts:12)deferred到明天(用户决定明天操作). 整个session: 血案诊断+恢复指导+预防修复(C)+案例文档+Baileys评估(A定位)全闭环, dev侧零遗留.",
       "by": "claude_code"
     }
   ],
@@ -350,10 +350,10 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 4715,
-    "last_regression": "2026-06-18 15:02 pass",
+    "test_count": 4722,
+    "last_regression": "2026-06-18 15:54 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-18 15:02",
+    "security_score_time": "2026-06-18 15:54",
     "test_suites": 134,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
@@ -422,7 +422,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-06-18 微信推送 contextToken 根因锁定: WeChat 客服通道(openclaw-weixin/ilinkai)架构上做不了无人值守定时推送 — CLI 发起的 outbound 永远无 contextToken → 微信丢弃(provider 日志 'contextToken missing, sending without context'), 3h 零投递; rc=0/✅Sent 是发送侧假成功(fail-plausible). 推翻 V37.9.178「微信 E2E 通过」误判(用 rc=0 当投递). 决策(用户): Discord 作定时推送主通道(notify.sh 默认退回 discord), WhatsApp 408 缓解后恢复(NOTIFY_CHANNELS=whatsapp,discord), WeChat 退回交互问答. 待 Mac Mini: git fetch+reset 同步→cron 推送走 discord. full_regression 133/0/4716, VERSION 0.37.9.71 不变.",
+  "focus": "2026-06-18 WhatsApp 推送链路完整恢复: 408 当日清除(手机正常+单次扫码重链 connected, 实收3条确认投递). Option A(限制重连maxAttempts)在4.27确认无效(channels.whatsapp 是 additionalProperties:false 严格schema, config set 报 must NOT have additional properties)→主防线退回 Option C(V37.9.162检测)+升级待 OpenClaw #56365. notify 加冷调用超时去重(_notify_is_coldcall_timeout 发送+重放两路径): 4.27 CLI 冷调用10s超时=gateway已投递但CLI放弃→修WhatsApp推送3条重复. NOTIFY_CHANNELS=whatsapp,discord(WhatsApp主推+Discord). full_regression 133/0/4722, VERSION 0.37.9.71 不变. 待Mac Mini: 合并+同步 V37.9.175-180.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",

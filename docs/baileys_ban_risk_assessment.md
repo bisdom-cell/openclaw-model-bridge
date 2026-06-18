@@ -4,6 +4,19 @@
 >
 > **本文是决策文档，culminate 在用户拍板。结论需用户决定，不单方实施。**
 
+## 🔴 2026-06-18 Mac Mini 实测结论（决定性 — 覆盖前述 Option A 推断）
+
+WhatsApp 408 当日恢复（手机正常 + 单次扫码重链成功，`channels status` 显示 `linked, connected`），随即实测 Option A 落地，**确认 Option A 在 4.27 无法落地**：
+
+1. **手动改 openclaw.json 加 `channels.whatsapp.web.reconnect.maxAttempts`** → 运行中 Gateway canonicalize 时**直接剥掉**（事后 `grep -c maxAttempts openclaw.json` = 0；whatsapp 只剩 7 个 schema 键 `[enabled, dmPolicy, selfChatMode, allowFrom, groupPolicy, debounceMs, mediaMaxMb]`，无 `web` 块）。
+2. **`openclaw config set channels.whatsapp.web.reconnect.maxAttempts 12`** → 硬报错 **`Config validation failed: channels.whatsapp: invalid config: must NOT have additional properties`**。
+
+→ 4.27 的 `channels.whatsapp` 是 **`additionalProperties: false` 严格 schema**，根本不接受 `web.reconnect` 键（doc 文档示例的 key 路径在 4.27 运行时 schema 不存在）。**Option A（config 限制重连）在 4.27 确认无效**，须等 OpenClaw 暴露 reconnect 配置的版本（issue #56365，仍 open）+ 按 tripwire 纪律升级才能启用。
+
+**当前主防线 = Option C（V37.9.162 检测 + 恢复 SOP）。残余封禁风险 = 系统一直以来的基线**（6/16 前长期跑 `maxAttempts:0`，是那次 428 issue #1625 的 24h auth 超时级联才引爆，非常态）。**升级路径不变**：OpenClaw 出暴露 reconnect 配置的版本 → Option A 重新可行。
+
+**附带发现（V37.9.180 已修）**：4.27 CLI 冷调用 10s 超时 quirk（V37.9.156）在 notify **发送路径**也触发 —— WhatsApp cron 推送间隔数小时、每次都"冷"→ CLI 等 ack 10s 放弃报 `gateway timeout after 10000ms`，但 **gateway 已投递** → notify 误当失败重试 3 次 → **用户收到 3 条重复**（2026-06-18 实测）。V37.9.180 给 notify.sh 加 `_notify_is_coldcall_timeout`（发送 + 重放两路径）：匹配该签名按已投递处理（不重试 / 不入队 / 不重复），WhatsApp cron 推送恢复单条。
+
 ## 一、根因机制（为什么重连 → 封禁）
 
 Baileys 按 `DisconnectReason` 分类断开原因决定是否重连：

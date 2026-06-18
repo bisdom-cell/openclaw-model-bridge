@@ -79,6 +79,14 @@ _notify_discord_target_for_topic() {
 }
 
 # _notify_send_with_retry — 带指数退避重试的发送
+# V37.9.180: 4.27 CLI 冷调用 10s 超时 quirk 判别。CLI 等 gateway ack 10s 放弃，报
+# "gateway timeout after Nms"，但 gateway 已投递（V37.9.156 preflight 同款 + 2026-06-18
+# 用户实测：3 次超时 = 手机收到 3 条）。真 gateway 宕机是 connection refused 等不同签名，
+# 不匹配此 pattern。匹配 → 按已投递处理（不重试避免重复投递、不入队）。
+_notify_is_coldcall_timeout() {
+    echo "$1" | grep -qiE "gateway timeout|timeout after [0-9]+ms|timed out"
+}
+
 # 用法：_notify_send_with_retry <channel> <target> <message>
 # 返回：0=成功，1=全部重试失败
 _notify_send_with_retry() {
@@ -92,6 +100,12 @@ _notify_send_with_retry() {
             return 0
         }
         last_err="$send_err"
+        # V37.9.180: 4.27 CLI 冷调用超时 = gateway 已投递但 CLI 10s 放弃。按已投递处理:
+        # 不重试（避免重复投递，2026-06-18 WhatsApp 3 条重复血案）、记 WARN 可观测。
+        if _notify_is_coldcall_timeout "$send_err"; then
+            echo "[notify] WARN: $channel CLI 超时(4.27 冷调用 quirk)，gateway 已接受按已投递处理，不重试" >&2
+            return 0
+        fi
         attempt=$((attempt + 1))
         if [ "$attempt" -lt "$_NOTIFY_MAX_RETRIES" ]; then
             echo "[notify] WARN: $channel 发送失败(attempt $attempt): ${send_err:-(no stderr)}，${delay}s 后重试..." >&2
@@ -142,6 +156,12 @@ _notify_drain_queue() {
             rm -f "$f"
             continue
         }
+        # V37.9.180: 4.27 冷调用超时 = gateway 已投递但 CLI 10s 放弃 → 按已投递移除（不重放避免重复）
+        if _notify_is_coldcall_timeout "$replay_err"; then
+            echo "[notify] REPLAY DELIVERED: $(basename "$f") CLI 超时(4.27 冷调用)但 gateway 已接受，移除" >&2
+            rm -f "$f"
+            continue
+        fi
         # V37.9.177: 永久性错误（target/channel 无效）立即淘汰 — 防 poison 条目永久重试 +
         # 队头阻塞（break 会挡住后面正常排队的消息永不被重放）。瞬态错误（服务宕/网络/限流）
         # 保留 + break 避雪崩，下次 drain 重试。血案: 2026-06-18 占位符 target poison 条目
