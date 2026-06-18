@@ -137,8 +137,17 @@ _notify_drain_queue() {
             rm -f "$f"
             continue
         }
-        echo "[notify] REPLAY FAIL: $(basename "$f") — ${replay_err:-(no stderr)}，保留队列" >&2
-        break  # 如果还是失败，停止重放（避免雪崩）
+        # V37.9.177: 永久性错误（target/channel 无效）立即淘汰 — 防 poison 条目永久重试 +
+        # 队头阻塞（break 会挡住后面正常排队的消息永不被重放）。瞬态错误（服务宕/网络/限流）
+        # 保留 + break 避雪崩，下次 drain 重试。血案: 2026-06-18 占位符 target poison 条目
+        # 每次 notify 都 REPLAY FAIL 刷屏且卡住队列后续条目。
+        if echo "$replay_err" | grep -qiE "unknown target|invalid target|no such|not found"; then
+            echo "[notify] REPLAY EVICT: $(basename "$f") target 无效（永久错误），淘汰 — ${replay_err:-(no stderr)}" >&2
+            rm -f "$f"
+            continue   # 淘汰后继续处理下一条（解队头阻塞）
+        fi
+        echo "[notify] REPLAY FAIL: $(basename "$f") — ${replay_err:-(no stderr)}，保留队列（瞬态，下次重试）" >&2
+        break  # 瞬态故障停止重放（避免雪崩）
     done <<< "$qfiles"
 }
 

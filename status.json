@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-18 09:32:52",
+  "updated": "2026-06-18 09:52:00",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-06-18",
+      "what": "V37.9.177 notify 队列健壮性 + preflight 推送测试保真. 触发: 用户跑 preflight 验证微信 E2E, check 16 报 Unknown target <占位符> — 我早先坏命令 export WEIXIN_TARGET=占位符 污染了交互终端会话, preflight check 16 不重载 .env_shared 继承污染值. 不是 bug/不是配置错(.env_shared 正确, 直发✅). 深挖暴露真 reliability bug(Fix B): _notify_drain_queue 无淘汰机制+首失败 break → poison 条目永久重试刷屏 + 队头阻塞(挡住后面正常排队消息永不重放). Fix B 错误类型感知淘汰: 永久错误(target 无效)立即淘汰+continue(解队头阻塞), 瞬态错误保留+break(避雪崩). Fix A: preflight check 16 push test 前 source .env_shared(测 cron 真实配置+免疫 shell 污染). 12 新单测+sabotage(淘汰 continue 改 break→head-of-line 测试 FAIL). full_regression 133/0/4711(+12). VERSION 0.37.9.71 不变. 微信 E2E 验证通过(7-topic 全 rc=0).",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-18",
       "what": "V37.9.176 微信静默漏发可观测化 — 17:02 ai_leaders_bsky Discord 收到/微信没收到, 用户要求彻底 check. 数据驱动定位(原则#28): 代码正确走 notify --topic tech(Path B); 直发 target o9cq…@im.wechat ✅有效(排除 target 无效); 队列零 17:02 条目+日志零 weixin 行→17:02 微信静默跳过(非失败)→H1: WEIXIN_TARGET 17:02 不在 cron 环境(17:02 后才加进 .env_shared, 与 DISCORD_CH_TECH 同文件 Discord 收到=.env_shared 已加载). 不是代码 bug/不是 target 无效. 修复(用户要求): notify.sh 加一次性 stderr WARN — NOTIFY_CHANNELS 含 weixin 但 WEIXIN_TARGET 空时打 WARN(_NOTIFY_WEIXIN_SKIP_WARNED 每进程一次), 把 V37.9.170 过渡期故意的静默跳过在微信上线后变可见(cron 日志可 grep). 9 新单测+sabotage(删 once-flag→WARN 发两次→test FAIL). full_regression 133/0/4699(+9). VERSION 0.37.9.71 不变(observability 零业务语义). 待 Mac Mini: rm 坏队列条目+bash -lc notify 确认微信链路.",
       "by": "claude_code"
     },
@@ -197,11 +202,6 @@
     {
       "date": "2026-06-16",
       "what": "V37.9.160 Tool Policy Plugin chunk 1 — 声明式工具策略插件扩展接口 (V3 别人会扩展, grounded 镜像 Provider Plugin providers.d/)。engine.py 加 validate_policy_dict + discover_policy_plugins (policies.d/*.yaml 自动发现+校验, FAIL-OPEN) + evaluate_policy 加性集成 (base 无则查插件不覆盖) + CLI --validate-policies。docs/tool_policy_plugin_guide.md + policies.d/_example.yaml + 33 单测。诚实标 chunk 1: enforcement 接入留真消费方需求驱动 (原则 #18)。test_engine_phase4 75 单测不破坏。无新 INV (日落法不增治理)。",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-06-16",
-      "what": "V37.9.159 MR-23 通用治理-runtime 测试隔离 scanner — 4 次 test-pollutes-production 血案 (V37.9.110/157/158-hotfix) framework 化为自动发现+跨文件机器守卫 (Stage 1 发现 18 个治理-runtime 测试文件 + D1 crontab/D2 ~/.kb/D3 openclaw 三 detector, AST 精确区分执行vs扫描)。首跑即抓真 bug: test_health_check 跑 health_check.sh 漏 push 隔离 (Mac Mini 07:00 audit 会真发周报+touch 真 marker) → 修 _isolated_health_env 三重隔离。INV-GOV-RUNTIME-ISOLATION-001 (MR-23 复用, 11 checks) + 45 单测。日落法: 退役 per-bug 窄 scan 记忆负担。129/130 suites 4563 tests 0 fail / 91 inv / VERSION 不变。",
       "by": "claude_code"
     }
   ],
@@ -350,10 +350,10 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 4699,
-    "last_regression": "2026-06-18 09:30 pass",
+    "test_count": 4711,
+    "last_regression": "2026-06-18 09:49 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-18 09:30",
+    "security_score_time": "2026-06-18 09:49",
     "test_suites": 134,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
@@ -422,7 +422,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-06-18 双交付 V37.9.175(proxy _send_alert .py 盲区收编 notify.sh+标记)+V37.9.176(微信静默漏发可观测化 WARN). 17:02 ai_leaders_bsky 微信漏发数据驱动定位=H1(WEIXIN_TARGET 17:02 不在 cron 环境, 17:02 后才加进 .env_shared; target o9cq…@im.wechat 直发✅有效; 不是 bug). notify.sh 加一次性 stderr WARN(weixin 在通道但 target 空→可见). 待 Mac Mini: 删坏队列条目+bash -lc notify 确认微信链路+下次 17:00 cron 验证微信收到; 微信 E2E 本周焦点仍需用户. full_regression 133/0/4699, VERSION 0.37.9.71 不变.",
+  "focus": "2026-06-18 三交付: V37.9.175(proxy _send_alert .py 盲区)+V37.9.176(微信静默漏发 WARN)+V37.9.177(notify 队列淘汰+preflight 环境保真). 微信 E2E 验证通过(7-topic 全 rc=0 微信+Discord 双收, 用户实测). 17:02 漏发=H1(WEIXIN_TARGET 17:02 不在 cron 环境)已查清. 深挖出 notify 队列真 reliability bug=poison 条目队头阻塞(永久错误 break 卡住正常排队消息)→错误类型感知淘汰修复. preflight check 16 加 source .env_shared 免疫 shell 污染. full_regression 133/0/4711, VERSION 0.37.9.71 不变. 待 Mac Mini: git fetch+reset 同步 3 版.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",

@@ -852,6 +852,14 @@ if $FULL_MODE; then
         # 退役 V37.9.156 的 4.27 whatsapp 冷调用 exit-code 不可信 hack（notify 返回码权威:
         # 发出≥1 即 0）+ 合并原 whatsapp/discord 两段独立测（notify 一次覆盖两通道）。
         # WhatsApp 临时禁用后测它无意义; 测活跃的 notify 管线才反映真实推送健康。
+        # V37.9.177: 先加载 cron 真实环境（.env_shared），让本 check 测的是 cron 实际用的
+        # 推送配置（WEIXIN_TARGET/DISCORD_CH_*），而非启动 preflight 那个 shell 碰巧有的环境。
+        # 免疫 shell 会话污染（2026-06-18 血案：交互终端残留 export WEIXIN_TARGET=占位符
+        # 泄漏进 preflight → 微信发到无效 target → check 误报失败）。补齐推送 smoke test 的
+        # 环境保真度（env-var 检查段 line~282 已用 bash -lc 模拟 cron 环境）。
+        for _es in "$HOME/.env_shared" "$HOME/.bash_profile"; do
+            [ -f "$_es" ] && { source "$_es" 2>/dev/null || true; break; }
+        done
         PUSH_ERR=$(mktemp)
         for _ns in "$HOME/openclaw-model-bridge/notify.sh" "$HOME/notify.sh"; do
             [ -f "$_ns" ] && { source "$_ns" 2>/dev/null || true; break; }
