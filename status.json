@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-17 07:59:04",
+  "updated": "2026-06-18 05:52:21",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -105,6 +105,11 @@
   ],
   "recent_changes": [
     {
+      "date": "2026-06-18",
+      "what": "V37.9.170 微信(openclaw-weixin)推送接入 notify.sh + WhatsApp 临时禁用切换. 背景(上个session ev985-1109 shell history重建): WhatsApp连续3天408报错(V37.9.162掉线/限流延续), 为避免冲击号码被锁【临时】禁用(后面会再开)→装腾讯微信插件 openclaw-weixin(账号6d56c8fb0a0d-im-bot)+config set channels.openclaw-weixin.agent main. 微信交互层已通(channels status: running, in:17m前收到入站), 但cron推送收不到微信(notify.sh+10余job硬编码whatsapp). 本版只修notify.sh路径: 加weixin分支(镜像whatsapp, WEIXIN_TARGET未设则安全跳过仅发Discord)+默认NOTIFY_CHANNELS=openclaw-weixin,discord(whatsapp分支+OPENCLAW_PHONE原样保留)+10守卫单测(test_notify_weixin.py接入full_regression)+治理notify检查仍PASS. 同session独立重诊8-token NO_REPLY=[SYSTEM_ALERT]告警污染context(ev1082复现)+重复提问退化,/new清空恢复. VERSION/header/badge sync待收工full_regression回写.",
+      "by": "claude_code"
+    },
+    {
       "date": "2026-06-17",
       "what": "V37.9.169 A类[5](c)+[13](d): [5](c)=source_credibility 升级 emit 端 per-pick 确定性 tier(top_alignment_picker 每 pick 加 tier emoji🥇🥈🥉📝💬, 不依赖LLM合规)+修 arxiv→arxiv_monitor id 错配(否则误判社媒)+13单测+sabotage验证. [13](d)=ground 调查确认已完成非 churn(ai_leaders_blogs 写KB→三件套通用扫KB自动捕获+已在ALIGNED_SOURCES). 131 suites/4658 tests(+13)/0 fail/治理91/91/安全95/VERSION 0.37.9.70不变. 理解再动手(原则#28)避免churn已完成+脆弱实现两反模式.",
       "by": "claude_code"
@@ -198,11 +203,6 @@
       "date": "2026-06-15",
       "what": "V37.9.156: 4.27 推送链路追踪四 follow-up 全闭合 (a 无 timeout flag / b plugin 单 dir 无泄漏 / c 2026.4.27 基线 / d 丢失面审计无总丢失) + preflight check 16 假失败修复 (用户实测 13:16 真收到消息=4.27 CLI 10s 假超时, 服务端已送达; 超时签名 fail→warn 真故障仍 fail; 12 单测+反向验证). 126 suites/4457 tests/0 fail/治理 dev 90 inv EXIT=0/VERSION 0.37.9.70 不变.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-06-15",
-      "what": "4.27 推送链路 follow-up (d) 闭合: docs/push_path_loss_surface_audit_2026_06_15.md — 全仓 127 直推站点代码级审计. 结论=无真·总丢失面 (每条真内容要么 notify.sh 3 重试+队列, 要么 Discord 孪生存活). 残留=类别 2 论文类 job 直推双通道的 WhatsApp 瞬时缝隙 (内容在 Discord 不丢). 硬化候选 (deferred, 需 Mac Mini E2E): 类别 2 迁 notify.sh --topic (MR-8 一物一形, 顺带消缝隙). follow-up (a)(b)(c) 仍需 Mac Mini 生产数据.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -280,7 +280,12 @@
       "V37.9.162 follow-up: INV-WA-CHANNEL-001 治理不变式 (whatsapp-channel-disconnect-escalates-when-gateway-healthy, meta_rule=MR-14, 镜像INV-WA-001) — 一周观察wa_channel_status生产效果后立 (shadow-first惯例, 同INV-DEEP-001)",
       "V37.9.162 A 执行(gated): Baileys 重连封禁预防. Mac Mini 实测修正(血案#98兑现): 4.27 openclaw.json 默认无 reconnect 块(channels.whatsapp.{enabled/dmPolicy/...}无web子键), 用内置默认 maxAttempts=0(无限). 修复=手动加 channels.whatsapp.web.reconnect.maxAttempts:12(OpenClaw官方唯一路径, 自动熔断#16270已closed NOT PLANNED). 🔴时序: 配置改+Gateway重启必须等WhatsApp重链稳定后(重启=新Baileys连接, 限流未清时重启会重新触发限流). 不确定性: 4.27是否读该键未知→应用时验证(Gateway干净启动+re-dump确认), strict schema拒绝则cp .bak还原; 若忽略则A退化为等支持版本(#56365 expose-reconnect-config仍open, 按tripwire升级纪律). A确认生效前C(V37.9.162检测)是事实主防线.",
       "V37.9.162 incident 恢复(进行中): WhatsApp设备链接限流冷却中 — 停止login尝试2-3h后单次重试. 若多次(隔数小时)单次尝试仍408→评估是否升级为长期封禁+Baileys替代方案. 这是WhatsApp服务端限流,非代码可修.",
-      "V37.9.162 follow-up: 4.27 openclaw CLI 插件 staging churn 调查 — 每次 channels login 全量重staging 9+插件(13-39s, 含acpx/bedrock/vertex/browser与WhatsApp无关), plugin-runtime-deps 未持久化. 吃掉连接超时预算. 查 ~/.openclaw/plugin-runtime-deps/ 多hash dir机制(V37.9.145遗留)"
+      "V37.9.162 follow-up: 4.27 openclaw CLI 插件 staging churn 调查 — 每次 channels login 全量重staging 9+插件(13-39s, 含acpx/bedrock/vertex/browser与WhatsApp无关), plugin-runtime-deps 未持久化. 吃掉连接超时预算. 查 ~/.openclaw/plugin-runtime-deps/ 多hash dir机制(V37.9.145遗留)",
+      "V37.9.170-A (Mac Mini必做): 微信推送E2E验证 — 跑 openclaw message send --channel openclaw-weixin --target <X> --message test 确认--target正确格式(账号6d56c8fb0a0d-im-bot? 还是userId?)+微信能收到; 然后cron/launchd环境设WEIXIN_TARGET env; source notify.sh && notify测试确认微信+Discord双收. target格式拿到后锁进文档/env.",
+      "V37.9.170-B (大·路径B): 10+ job硬编码 message send --channel whatsapp (arxiv/hn/hf_papers/chaspark/finance_news/ontology_sources/acl/job_watchdog…) → WhatsApp临时禁用后这些WhatsApp推送静默失败(|| true吞掉), 微信收不到. 需逐个收编进notify.sh或加weixin分支; 原则#16双通道审计(whatsapp==discord计数)随之更新. 这是\"让所有cron推送到微信\"的主体工作.",
+      "V37.9.170-C: 告警污染NO_REPLY根因 — ev1082证 filter_system_alerts()存在却仍复现空回复(assistant角色[SYSTEM_ALERT]可能没被剥). 查proxy_filters.filter_system_alerts是否覆盖assistant角色消息. INV-PA-001/002/SOUL规则10家族.",
+      "V37.9.170-D (doc·收工): CLAUDE.md架构图/文件表/原则#16仍写WhatsApp+Discord双通道, WhatsApp恢复+微信稳定后整体刷新频道拓扑; 本版收工需full_regression回写test_count + VERSION bump 0.37.9.70→71 + gen_readme_badges --write同步CLAUDE L3/config L4/README/FEATURES.",
+      "WhatsApp恢复提醒: 临时禁用(连续3天408避免号码被锁), 用户明确后面会再打开 → 恢复=config set channels.whatsapp.enabled true + channels login --channel whatsapp + NOTIFY_CHANNELS加回whatsapp(三通道whatsapp,openclaw-weixin,discord)."
     ],
     "open_prs": "",
     "blocked_on": "",
@@ -418,7 +423,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-06-17 WhatsApp 冻结日: A 类三项全处理完毕 — [19](c) deep_dive 摘要级降级率纳入 daily_observer(V37.9.168) + [5](c) source_credibility emit 端 per-pick 确定性可信度 tier+arxiv→arxiv_monitor id 修复(V37.9.169) + [13](d) ground 调查确认已完成(非 churn). 131 suites/4658 tests/0 fail/91 inv 839 checks/安全 95/VERSION 0.37.9.70 不变. 全程 dev 自主非 churn, observability/transparency 走 Discord 绕冻结 WhatsApp. **待用户**: 合并 PR(本分支含 V37.9.168+169 两提交) → git fetch+reset 同步 Mac Mini → dream/evening 推送 Top5 带确定性可信度 emoji + 次日 observer 报告含 Deep-Dive Mode 段. 剩余 unfinished 全门控(Mac Mini 验证/设计性 DEFER/用户动作/知乎发布).",
+  "focus": "2026-06-18 微信频道接入(WhatsApp临时禁用过渡期). 已做: notify.sh加openclaw-weixin推送分支+默认通道切微信+10守卫单测+文档/status记录. 待Mac Mini: (A必做)确认message send --channel openclaw-weixin的--target格式并设WEIXIN_TARGET env验证微信收推送 (B大)10+job硬编码whatsapp需收编notify.sh (C)告警污染NO_REPLY根因 (D)WhatsApp 408缓解后恢复. 收工: full_regression回写count+VERSION bump+gen_readme_badges --write.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
