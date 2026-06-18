@@ -137,15 +137,12 @@ class TestGhTrendingV9_44ShellGuards(unittest.TestCase):
         )
 
     def test_discord_target_is_tech(self):
-        """github_trending Discord 频道是 TECH 不是 PAPERS (技术 vs 论文区分)"""
-        # 推送区使用 DISCORD_CH_TECH
-        self.assertIn("DISCORD_CH_TECH", self.src)
-        # 不能在推送时用 DISCORD_CH_PAPERS (那是论文场景)
-        for line_no, line in enumerate(self.src.splitlines(), start=1):
-            if "DISCORD_CH_PAPERS" in line and "discord" in line.lower():
-                self.fail(
-                    f"L{line_no}: github_trending 不应使用 DISCORD_CH_PAPERS (应用 TECH): {line.strip()!r}"
-                )
+        """github_trending 推送路由到 #tech 不是 #papers (技术 vs 论文区分)"""
+        # V37.9.171 PathB-1: 主推走 notify --topic tech（notify 内部映射 tech→DISCORD_CH_TECH），
+        # 退役裸 discord --target DISCORD_CH_TECH 直发。守卫改断言 topic 路由。
+        self.assertIn("--topic tech", self.src)
+        # 不能用 papers topic (那是论文场景)
+        self.assertNotIn("--topic papers", self.src)
 
 
 class TestGhTrendingLlmDegradedFallback(unittest.TestCase):

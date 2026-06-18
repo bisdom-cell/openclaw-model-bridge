@@ -111,13 +111,17 @@ class TestBatch2SpecialFormatJobs(unittest.TestCase):
         self.assertNotIn('--channel whatsapp --target "$PHONE" --message "$WA_MSG"', src)
         self.assertIn("V37.9.171", src)
 
-    def test_kb_deep_dive_no_forced_whatsapp_channel(self):
-        # 修复 --channel whatsapp 强制（绕过微信）：notify 段推送不得再带 --channel whatsapp
+    def test_kb_deep_dive_weixin_segment_no_whatsapp_force(self):
+        # V37.9.174: WA 段推送 --channel whatsapp → openclaw-weixin（强制微信分段；
+        # 不能去掉 --channel 走默认，否则与 DISCORD_MSG 单发重复发 discord）。
         src = _read("kb_deep_dive.sh")
         self.assertNotIn('notify "$WA_SEGMENT" --channel whatsapp', src,
-                         "kb_deep_dive 仍强制 --channel whatsapp，绕过微信")
-        self.assertIn('notify "$WA_SEGMENT" --topic deep_dive', src)
-        self.assertIn("V37.9.171", src)
+                         "kb_deep_dive 不得强制 --channel whatsapp（绕过微信）")
+        self.assertIn('notify "$WA_SEGMENT" --channel openclaw-weixin --topic deep_dive', src,
+                      "WA 段应强制 openclaw-weixin（避免默认多通道把 discord 重复发）")
+        self.assertIn('notify "$DISCORD_MSG" --channel discord --topic deep_dive', src,
+                      "discord 单发应保留（V37.9.21 设计：只有用户通道分段，discord 单发）")
+        self.assertIn("V37.9.174", src)
 
 
 class TestBatch3OpsScripts(unittest.TestCase):

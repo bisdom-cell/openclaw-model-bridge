@@ -848,48 +848,25 @@ if $FULL_MODE; then
         MINS_AGO=$(( PUSH_TEST_AGE / 60 ))
         skip "推送通道 smoke test（${MINS_AGO}分钟前已验证，每小时最多一次）"
     else
-        # 验证 openclaw message send 命令可用且无配置错误
+        # V37.9.174 PathB 收尾: 测真实推送管线 = notify.sh（微信 + Discord + 重试/队列）。
+        # 退役 V37.9.156 的 4.27 whatsapp 冷调用 exit-code 不可信 hack（notify 返回码权威:
+        # 发出≥1 即 0）+ 合并原 whatsapp/discord 两段独立测（notify 一次覆盖两通道）。
+        # WhatsApp 临时禁用后测它无意义; 测活跃的 notify 管线才反映真实推送健康。
         PUSH_ERR=$(mktemp)
-        # V37.9.67: cmd_and_or_chain → if-then-else (INV-CROSS-OS-001)
-        if PUSH_TEST=$(openclaw message send --channel whatsapp --target "${OPENCLAW_PHONE:-+85200000000}" --message "🔧 preflight push test $(date '+%H:%M')" --json 2>"$PUSH_ERR"); then PUSH_RC=0; else PUSH_RC=$?; fi
-
-        PUSH_STDERR=$(cat "$PUSH_ERR" 2>/dev/null)
-        rm -f "$PUSH_ERR"
-
-        if [ $PUSH_RC -eq 0 ]; then
-            # 检查 stderr 是否有插件警告（即使退出码为 0）
-            if echo "$PUSH_STDERR" | grep -qi "duplicate plugin\|plugin.*error" 2>/dev/null; then
-                warn "推送成功但有插件警告: $(echo "$PUSH_STDERR" | head -1)"
-            else
-                pass "WhatsApp 推送通道正常（openclaw message send 退出码 0）"
+        for _ns in "$HOME/openclaw-model-bridge/notify.sh" "$HOME/notify.sh"; do
+            [ -f "$_ns" ] && { source "$_ns" 2>/dev/null || true; break; }
+        done
+        if command -v notify >/dev/null 2>&1; then
+            if notify "🔧 preflight push test $(date '+%H:%M')" --topic alerts >"$PUSH_ERR" 2>&1; then
+                pass "推送通道正常（notify → 微信 + Discord，发出≥1）"
                 date +%s > "$PUSH_TEST_LAST"
-            fi
-        elif echo "$PUSH_STDERR" | grep -qiE "gateway timeout|timeout after [0-9]+ *ms|timed out"; then
-            # V37.9.156: 4.27 冷调用客户端硬编码 10s 超时 = 假失败。冷 WS 首发 >10s → CLI 在 10s
-            # 放弃返回 gateway timeout exit 非0，但 Gateway 服务端继续送达（用户实测 13:16 真收到测试消息）。
-            # exit code 在 4.27 下不可信；真推送由 notify.sh 3 重试+队列兜底，无数据丢失
-            # （见 docs/push_path_loss_surface_audit_2026_06_15.md）。降级 fail→warn 不硬阻塞 preflight。
-            # 真故障（连接拒绝/未链接等非超时 stderr）仍走下方 fail 分支。
-            warn "WhatsApp 4.27 冷调用客户端超时（退出码 ${PUSH_RC}）: 消息通常已送达，exit code 不可信（真推送由 notify.sh 重试+队列兜底）: $(echo "$PUSH_STDERR" | head -1)"
-            date +%s > "$PUSH_TEST_LAST"
-        else
-            fail "WhatsApp 推送失败（退出码 ${PUSH_RC}）: $(echo "$PUSH_STDERR" | head -2)"
-        fi
-
-        # Discord 推送通道 E2E
-        if [ -n "${DISCORD_TARGET:-}" ]; then
-            DC_ERR=$(mktemp)
-            openclaw message send --channel discord --target "user:${DISCORD_TARGET}" --message "🔧 preflight push test $(date '+%H:%M')" --json 2>"$DC_ERR" && DC_RC=0 || DC_RC=$?
-            DC_STDERR=$(cat "$DC_ERR" 2>/dev/null)
-            rm -f "$DC_ERR"
-            if [ $DC_RC -eq 0 ]; then
-                pass "Discord 推送通道正常（openclaw message send 退出码 0）"
             else
-                warn "Discord 推送失败（退出码 ${DC_RC}）: $(echo "$DC_STDERR" | head -2)"
+                fail "推送通道失败（notify 全通道未发出）: $(cat "$PUSH_ERR" 2>/dev/null | head -2)"
             fi
         else
-            skip "Discord 推送通道（DISCORD_TARGET 未设置）"
+            warn "notify.sh 未加载，跳过推送通道 smoke test（同步后重试）"
         fi
+        rm -f "$PUSH_ERR"
     fi
 else
     skip "推送通道 smoke test（需在 Mac Mini 上验证）"
