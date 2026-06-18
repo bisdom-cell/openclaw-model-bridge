@@ -26,13 +26,16 @@ _NOTIFY = os.path.join(_REPO, "notify.sh")
 
 
 def _run_notify(channels=None, weixin_target=None, discord_target="u123",
-                cli_args="", msg="hello", return_stderr=False, repeat=1):
+                cli_args="", msg="hello", return_stderr=False, repeat=1,
+                fake_body=None, max_retries="1"):
     """真 subprocess source notify.sh + 调 notify，返回 fake openclaw 捕获的调用行。
 
     fake openclaw 把 "$@" 追加到 OPENCLAW_LOG（绕过 notify.sh 的 >/dev/null）。
 
     return_stderr=True → 返回 (calls, stderr)（V37.9.176 微信跳过 WARN 测试用）。
     repeat=N → 同一进程内连续调 notify N 次（验证一次性 WARN 每进程只 warn 一次）。
+    fake_body → 自定义 fake openclaw bash 体（V37.9.180 冷调用超时测试用）。
+    max_retries → NOTIFY_MAX_RETRIES（默认 1；冷调用 vs 真失败重试次数区分用 3）。
     """
     with tempfile.TemporaryDirectory() as td:
         fake = os.path.join(td, "openclaw")
@@ -40,7 +43,8 @@ def _run_notify(channels=None, weixin_target=None, discord_target="u123",
         qdir = os.path.join(td, "queue")
         os.makedirs(qdir, exist_ok=True)
         with open(fake, "w") as f:
-            f.write('#!/bin/bash\nprintf "%s\\n" "$*" >> "$OPENCLAW_LOG"\nexit 0\n')
+            f.write("#!/bin/bash\n" + (fake_body or
+                    'printf "%s\\n" "$*" >> "$OPENCLAW_LOG"\nexit 0\n'))
         os.chmod(fake, 0o755)
 
         env = dict(os.environ)
@@ -48,7 +52,7 @@ def _run_notify(channels=None, weixin_target=None, discord_target="u123",
         env["OPENCLAW_LOG"] = log
         env["NOTIFY_QUEUE_DIR"] = qdir
         env["DISCORD_TARGET"] = discord_target
-        env["NOTIFY_MAX_RETRIES"] = "1"
+        env["NOTIFY_MAX_RETRIES"] = max_retries
         if channels is not None:
             env["NOTIFY_CHANNELS"] = channels
         else:
@@ -333,6 +337,58 @@ class TestNotifyQueueEvictionSourceGuards(unittest.TestCase):
 
     def test_v37_9_177_marker(self):
         self.assertIn("V37.9.177", self.src)
+
+
+class TestColdCallTimeout(unittest.TestCase):
+    """V37.9.180: 4.27 CLI 冷调用超时 = gateway 已投递但 CLI 10s 放弃 →
+    按已投递处理（不重试避免重复投递、不入队）。2026-06-18 WhatsApp 3 条重复血案。
+    """
+    _COLD = ('printf "%s\\n" "$*" >> "$OPENCLAW_LOG"\n'
+             'echo "Error: gateway timeout after 10000ms" >&2\nexit 1\n')
+    _HARD = ('printf "%s\\n" "$*" >> "$OPENCLAW_LOG"\n'
+             'echo "Error: connection refused" >&2\nexit 1\n')
+
+    def test_coldcall_no_retry_single_send(self):
+        # 冷调用超时 → 只发 1 次（即便 max_retries=3 也早返回，不重复投递）
+        calls, err = _run_notify(channels="whatsapp", fake_body=self._COLD,
+                                 max_retries="3", return_stderr=True)
+        self.assertEqual(calls.count("message send"), 1,
+                         f"冷调用超时应只发 1 次（不重试避免重复），实际:\n{calls}")
+        self.assertIn("冷调用", err)
+
+    def test_coldcall_not_queued(self):
+        # 冷调用超时按已投递处理 → 不入队
+        _, err = _run_notify(channels="whatsapp", fake_body=self._COLD,
+                             max_retries="3", return_stderr=True)
+        self.assertNotIn("QUEUED", err, "冷调用超时应按已投递处理，不入队")
+
+    def test_real_failure_still_retries_and_queues(self):
+        # 真失败（connection refused，非超时签名）仍重试满 + 入队（不被误当冷调用）
+        calls, err = _run_notify(channels="whatsapp", fake_body=self._HARD,
+                                 max_retries="3", return_stderr=True)
+        self.assertEqual(calls.count("message send"), 3,
+                         f"真失败应重试 3 次（非冷调用），实际:\n{calls}")
+        self.assertIn("QUEUED", err)
+
+
+class TestColdCallTimeoutSourceGuards(unittest.TestCase):
+    def setUp(self):
+        with open(_NOTIFY, encoding="utf-8") as f:
+            self.src = f.read()
+
+    def test_helper_defined(self):
+        self.assertIn("_notify_is_coldcall_timeout()", self.src)
+
+    def test_helper_used_in_send_and_drain(self):
+        # def + 至少 2 处调用（send 重试路径 + drain 重放路径）
+        self.assertGreaterEqual(self.src.count("_notify_is_coldcall_timeout"), 3,
+                                "冷调用判别应在发送和重放两条路径都用")
+
+    def test_signature_pattern_present(self):
+        self.assertRegex(self.src, r"gateway timeout\|timeout after \[0-9\]\+ms")
+
+    def test_v37_9_180_marker(self):
+        self.assertIn("V37.9.180", self.src)
 
 
 if __name__ == "__main__":
