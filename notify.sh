@@ -46,6 +46,7 @@ export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
 OPENCLAW="${OPENCLAW:-/opt/homebrew/bin/openclaw}"
 _NOTIFY_WA_TARGET="${OPENCLAW_PHONE:-+85200000000}"
 _NOTIFY_WEIXIN_TARGET="${WEIXIN_TARGET:-}"
+_NOTIFY_WEIXIN_SKIP_WARNED=""   # V37.9.176: 一次性微信跳过 WARN 守卫（每进程仅 warn 一次，防多次 notify 刷屏）
 _NOTIFY_DISCORD_TARGET="${DISCORD_TARGET:-}"
 # V37.9.170: WhatsApp 频道 2026-06-18 连续 3 天 408 报错（V37.9.162 掉线/限流事件延续），
 # 为避免再次冲击导致号码被锁而【临时】禁用（ev 1027 `config set channels.whatsapp.enabled
@@ -199,6 +200,13 @@ $msg" ;;
             _notify_queue_failed openclaw-weixin "$_NOTIFY_WEIXIN_TARGET" "$topic" "$msg"
             rc=1
         fi
+    elif echo "$channels" | grep -q "weixin" && [ -z "$_NOTIFY_WEIXIN_TARGET" ] && [ -z "$_NOTIFY_WEIXIN_SKIP_WARNED" ]; then
+        # V37.9.176: NOTIFY_CHANNELS 含 openclaw-weixin 但 WEIXIN_TARGET 为空 → 本应发微信
+        # 却被静默跳过（仅发其他通道）。V37.9.170 过渡期故意静默以免噪声；过渡结束后这种
+        # misconfig 应可见——否则只能靠肉眼对账发现（2026-06-18 ai_leaders_bsky 17:02 血案：
+        # 微信静默漏发，多轮排查才定位）。一次性 WARN（每进程一次），cron 日志可 grep。
+        echo "[notify] WARN: NOTIFY_CHANNELS 含 openclaw-weixin 但 WEIXIN_TARGET 为空 — 微信推送被跳过（仅发其他通道）。在 .env_shared 设 export WEIXIN_TARGET=<你的微信target> 修复。" >&2
+        _NOTIFY_WEIXIN_SKIP_WARNED=1
     fi
 
     # Discord（根据 topic 选择频道，无 topic 则 DM）
