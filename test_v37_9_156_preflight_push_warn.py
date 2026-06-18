@@ -64,5 +64,32 @@ class TestPushTestRoutesThroughNotify(unittest.TestCase):
         self.assertEqual(r.returncode, 0, f"preflight_check.sh 语法错误: {r.stderr}")
 
 
+class TestPushTestLoadsCronEnv(unittest.TestCase):
+    """V37.9.177 Fix A: check 16 push test 前 source .env_shared（测 cron 真实配置 +
+    免疫 shell 会话污染）。背景: 2026-06-18 交互终端残留 export WEIXIN_TARGET=占位符
+    泄漏进 preflight → 微信发到无效 target → check 误报失败。
+    """
+    @classmethod
+    def setUpClass(cls):
+        cls.src = PREFLIGHT.read_text(encoding="utf-8")
+
+    def test_env_shared_sourced_in_push_block(self):
+        self.assertIn('"$HOME/.env_shared"', self.src,
+                      "push test 应加载 .env_shared 测 cron 真实推送配置")
+
+    def test_env_shared_sourced_before_notify(self):
+        # .env_shared 必须在 notify.sh 之前 source（否则 notify.sh 读不到真实 WEIXIN_TARGET）
+        env_idx = self.src.find('"$HOME/.env_shared"')
+        # 定位 push-test 块内的 notify.sh source（紧跟 PUSH_ERR=$(mktemp) 之后）
+        push_idx = self.src.find("PUSH_ERR=$(mktemp)")
+        self.assertNotEqual(env_idx, -1, "缺 .env_shared 加载")
+        self.assertNotEqual(push_idx, -1, "缺 PUSH_ERR push-test 块")
+        self.assertLess(env_idx, push_idx,
+                        ".env_shared 必须在 push test（PUSH_ERR/notify.sh source）之前加载")
+
+    def test_v37_9_177_marker(self):
+        self.assertIn("V37.9.177", self.src)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
