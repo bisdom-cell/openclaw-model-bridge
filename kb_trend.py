@@ -12,6 +12,7 @@ import glob
 import json
 import os
 import re
+import subprocess
 import sys
 import time
 from collections import Counter
@@ -394,14 +395,34 @@ def push_whatsapp(report_text, rising, emerging, fading):
     msg = "\n".join(parts)
     msg = msg[:1500]
 
+    # V37.9.178: 经 notify.sh --topic daily 路由（微信 + Discord #daily + 重试 + 失败队列），
+    # 替代旧裸 os.system('openclaw message send --target $PHONE')——它不走 notify（到不了微信）
+    # + WhatsApp 禁用后静默失败 + f-string 插值 msg（含 LLM 内容/引号/换行）有 shell 注入风险。
+    # 这是 Path B 最后一个 .py 内容旁路收编（V37.9.175 登记的 follow-up）。notify.sh 不可达时
+    # fallback 用 subprocess argv 直发（不再 os.system 字符串插值，多行/特殊字符安全）。
+    notify_sh = None
+    for _cand in (os.path.join(os.path.dirname(os.path.abspath(__file__)), "notify.sh"),
+                  os.path.expanduser("~/notify.sh")):
+        if os.path.exists(_cand):
+            notify_sh = _cand
+            break
     try:
-        os.system(
-            f'openclaw message send --target "{PHONE}" '
-            f'--message "{msg}" --json >/dev/null 2>&1'
-        )
-        log("趋势报告已推送 WhatsApp")
+        if notify_sh:
+            subprocess.run(
+                ["bash", "-c", 'source "$1" && notify "$2" --topic daily',
+                 "kb_trend", notify_sh, msg],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=120,
+            )
+            log("趋势报告已推送（notify → 微信 + Discord #daily）")
+        else:
+            openclaw = os.environ.get("OPENCLAW", "/opt/homebrew/bin/openclaw")
+            subprocess.run(
+                [openclaw, "message", "send", "--target", PHONE, "--message", msg, "--json"],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=120,
+            )
+            log("趋势报告已推送（notify.sh 不可达，fallback subprocess 直发）")
     except Exception as e:
-        log(f"WhatsApp 推送失败: {e}")
+        log(f"趋势报告推送失败: {e}")
 
 
 # ---------------------------------------------------------------------------
