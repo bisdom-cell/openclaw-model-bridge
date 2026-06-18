@@ -215,6 +215,51 @@ class TestKbTrendLogic(unittest.TestCase):
         self.assertIn("status_update", content)
         self.assertIn("last_trend_report", content)
 
+    def test_v37_9_178_push_routes_through_notify(self):
+        """V37.9.178: 周趋势报告经 notify.sh --topic daily（到微信），退役裸 os.system。"""
+        with open("kb_trend.py") as f:
+            content = f.read()
+        self.assertIn("--topic daily", content)
+        self.assertIn("V37.9.178", content)
+        self.assertIn("subprocess.run", content)
+        # 剥注释行后检查实际代码：不得再用 os.system 发 message（漏微信 + shell 注入风险）。
+        # 注释里仍可提及该退役模式作文档（不参与匹配）。
+        code = "\n".join(ln for ln in content.splitlines()
+                         if not ln.lstrip().startswith("#"))
+        self.assertNotRegex(code, r"os\.system\([^)]*message send",
+                            "kb_trend 实际代码不得再用 os.system 发 message（漏微信 + 注入风险）")
+
+    def test_v37_9_178_push_behavior_notify_route(self):
+        """行为级: notify.sh 可达 → push_whatsapp 经 notify --topic daily（mock subprocess）。"""
+        import kb_trend
+        from unittest import mock
+        with mock.patch("kb_trend.log"), \
+             mock.patch("os.path.exists", return_value=True), \
+             mock.patch("kb_trend.subprocess.run") as run:
+            kb_trend.push_whatsapp("报告正文", [], [], [])
+        self.assertTrue(run.called, "push_whatsapp 应调 subprocess.run")
+        argv = run.call_args[0][0]
+        self.assertEqual(argv[0], "bash")
+        self.assertIn("--topic daily", argv[2])
+        self.assertIn("notify", argv[2])
+        # msg 作为独立 argv 元素传递（不拼进 shell 字符串 → 防注入）
+        self.assertIn("周趋势报告", argv[-1])
+
+    def test_v37_9_178_push_fallback_argv_safe(self):
+        """notify.sh 不可达 → fallback subprocess argv（不经 shell，msg 多行/引号安全）。"""
+        import kb_trend
+        from unittest import mock
+        with mock.patch("kb_trend.log"), \
+             mock.patch("os.path.exists", return_value=False), \
+             mock.patch("kb_trend.subprocess.run") as run:
+            kb_trend.push_whatsapp('报告"含引号"\n多行', [], [], [])
+        argv = run.call_args[0][0]
+        self.assertIn("message", argv)
+        self.assertIn("send", argv)
+        mi = argv.index("--message")
+        self.assertIn("周趋势报告", argv[mi + 1],
+                      "msg 应作独立 argv 元素传递（不拼进 shell 字符串）")
+
 
 class TestMmIndexLogic(unittest.TestCase):
     """mm_index.py 核心逻辑"""

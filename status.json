@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-18 09:52:00",
+  "updated": "2026-06-18 10:10:34",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-06-18",
+      "what": "V37.9.178 kb_trend 收编 notify.sh(Path B 最后一个 .py 内容旁路)+全仓推送审计全部修完. 触发: 用户全量测试微信效果→我标出 kb_trend 唯一不到微信(裸 os.system message send 不走 notify)→用户要求修+再三确认全部修完. 修: push_whatsapp 收编 notify --topic daily(微信+Discord+重试+队列), fallback subprocess argv(顺手修 os.system f-string 插值 LLM 内容的 shell 注入风险). 全仓审计: .py 仅 tool_proxy._send_alert+kb_trend 两处均 notify 路由+fallback; .sh 所有 message send 都是 notify.sh 内部或 notify-fallback else 分支或 Discord-only 设计或 echo 说明. 结论: 所有推送经 notify --topic 主推到微信(原则#16 从 .sh 扩到全栈). 3 新单测(源码守卫剥注释行+行为级 mock+fallback argv). full_regression 133/0/4714(+3). VERSION 0.37.9.71 不变. 微信全量 E2E 已验证.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-18",
       "what": "V37.9.177 notify 队列健壮性 + preflight 推送测试保真. 触发: 用户跑 preflight 验证微信 E2E, check 16 报 Unknown target <占位符> — 我早先坏命令 export WEIXIN_TARGET=占位符 污染了交互终端会话, preflight check 16 不重载 .env_shared 继承污染值. 不是 bug/不是配置错(.env_shared 正确, 直发✅). 深挖暴露真 reliability bug(Fix B): _notify_drain_queue 无淘汰机制+首失败 break → poison 条目永久重试刷屏 + 队头阻塞(挡住后面正常排队消息永不重放). Fix B 错误类型感知淘汰: 永久错误(target 无效)立即淘汰+continue(解队头阻塞), 瞬态错误保留+break(避雪崩). Fix A: preflight check 16 push test 前 source .env_shared(测 cron 真实配置+免疫 shell 污染). 12 新单测+sabotage(淘汰 continue 改 break→head-of-line 测试 FAIL). full_regression 133/0/4711(+12). VERSION 0.37.9.71 不变. 微信 E2E 验证通过(7-topic 全 rc=0).",
       "by": "claude_code"
     },
@@ -197,11 +202,6 @@
     {
       "date": "2026-06-16",
       "what": "V37.9.161 日落法 doc-stat-sync V2 — 审计抓 3 个 config.md 真漂移修复 (L878 jobs 10→46/40, L64+L156 preflight 17→19 内部不一致) + jobs active/registered 纳入 gen_readme_badges auto-sync (曾 35→40 真 drift, jobs_registry 唯一源)。SLO(5 稳定常量)/preflight(19 罕漂移) 诚实留手动不加机器 (日落法防御本身是事故面)。test_gen_readme_badges 60→67。同 session 三 item (scanner/Tool Policy Plugin/doc-sync) 全 VERSION 不变零业务语义。",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-06-16",
-      "what": "V37.9.160 Tool Policy Plugin chunk 1 — 声明式工具策略插件扩展接口 (V3 别人会扩展, grounded 镜像 Provider Plugin providers.d/)。engine.py 加 validate_policy_dict + discover_policy_plugins (policies.d/*.yaml 自动发现+校验, FAIL-OPEN) + evaluate_policy 加性集成 (base 无则查插件不覆盖) + CLI --validate-policies。docs/tool_policy_plugin_guide.md + policies.d/_example.yaml + 33 单测。诚实标 chunk 1: enforcement 接入留真消费方需求驱动 (原则 #18)。test_engine_phase4 75 单测不破坏。无新 INV (日落法不增治理)。",
       "by": "claude_code"
     }
   ],
@@ -350,10 +350,10 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 4711,
-    "last_regression": "2026-06-18 09:49 pass",
+    "test_count": 4714,
+    "last_regression": "2026-06-18 10:08 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-18 09:49",
+    "security_score_time": "2026-06-18 10:08",
     "test_suites": 134,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
@@ -422,7 +422,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-06-18 三交付: V37.9.175(proxy _send_alert .py 盲区)+V37.9.176(微信静默漏发 WARN)+V37.9.177(notify 队列淘汰+preflight 环境保真). 微信 E2E 验证通过(7-topic 全 rc=0 微信+Discord 双收, 用户实测). 17:02 漏发=H1(WEIXIN_TARGET 17:02 不在 cron 环境)已查清. 深挖出 notify 队列真 reliability bug=poison 条目队头阻塞(永久错误 break 卡住正常排队消息)→错误类型感知淘汰修复. preflight check 16 加 source .env_shared 免疫 shell 污染. full_regression 133/0/4711, VERSION 0.37.9.71 不变. 待 Mac Mini: git fetch+reset 同步 3 版.",
+  "focus": "2026-06-18 四交付 V37.9.175-178: proxy _send_alert + 微信 WARN + notify 队列淘汰 + kb_trend 收编 notify(Path B 最后一个 .py 内容旁路). 全仓推送审计确认全部修完: 所有内容/告警推送(含 .py)均经 notify --topic 主推到微信, openclaw 直发仅 notify 不可用 fallback. 微信全量 E2E 已验证(7-topic 全 rc=0 + 直发 target✅). 待 Mac Mini: git fetch+reset 同步 4 版. full_regression 133/0/4714, VERSION 0.37.9.71 不变.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
