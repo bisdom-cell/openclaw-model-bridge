@@ -26,7 +26,8 @@
 #   (空)    → DM（私信，默认）
 #
 # 环境变量：
-#   OPENCLAW_PHONE      — WhatsApp 目标号码（默认 +85200000000）
+#   OPENCLAW_PHONE      — WhatsApp 目标号码（默认 +85200000000；WhatsApp 2026-06-18 临时禁用）
+#   WEIXIN_TARGET       — 微信 openclaw-weixin 目标（默认空 = 微信分支安全跳过，仅发 Discord）
 #   DISCORD_TARGET      — Discord 目标用户ID（DM 用）
 #   DISCORD_CH_PAPERS   — Discord #论文 频道ID
 #   DISCORD_CH_FREIGHT  — Discord #货代 频道ID
@@ -34,7 +35,8 @@
 #   DISCORD_CH_DAILY    — Discord #日报 频道ID
 #   DISCORD_CH_TECH     — Discord #技术 频道ID
 #   DISCORD_CH_ONTOLOGY — Discord #ontology 频道ID
-#   NOTIFY_CHANNELS     — 启用的通道，逗号分隔（默认 "whatsapp,discord"）
+#   NOTIFY_CHANNELS     — 启用的通道，逗号分隔（默认 "openclaw-weixin,discord"；
+#                         WhatsApp 禁用前为 "whatsapp,discord"，重启用设此环境变量即可）
 #   NOTIFY_MAX_RETRIES  — 最大重试次数（默认 3）
 #   NOTIFY_QUEUE_DIR    — 失败队列目录（默认 ~/.kb/notify_queue）
 #   OPENCLAW            — openclaw 二进制路径
@@ -43,8 +45,15 @@ export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
 
 OPENCLAW="${OPENCLAW:-/opt/homebrew/bin/openclaw}"
 _NOTIFY_WA_TARGET="${OPENCLAW_PHONE:-+85200000000}"
+_NOTIFY_WEIXIN_TARGET="${WEIXIN_TARGET:-}"
 _NOTIFY_DISCORD_TARGET="${DISCORD_TARGET:-}"
-_NOTIFY_CHANNELS="${NOTIFY_CHANNELS:-whatsapp,discord}"
+# V37.9.170: WhatsApp 频道 2026-06-18 连续 3 天 408 报错（V37.9.162 掉线/限流事件延续），
+# 为避免再次冲击导致号码被锁而【临时】禁用（ev 1027 `config set channels.whatsapp.enabled
+# false`），主推送频道临时切换为 openclaw-weixin（微信）。这是临时措施——408 缓解后重启用
+# WhatsApp 只需设 NOTIFY_CHANNELS="whatsapp,openclaw-weixin,discord"（whatsapp 分支与
+# OPENCLAW_PHONE 都保留未动）。默认通道改为 openclaw-weixin,discord；微信分支在 WEIXIN_TARGET
+# 未设置时安全跳过（仅发 Discord = 切换前真实现状），设置 WEIXIN_TARGET 后即生效。
+_NOTIFY_CHANNELS="${NOTIFY_CHANNELS:-openclaw-weixin,discord}"
 _NOTIFY_MAX_RETRIES="${NOTIFY_MAX_RETRIES:-3}"
 _NOTIFY_QUEUE_DIR="${NOTIFY_QUEUE_DIR:-$HOME/.kb/notify_queue}"
 
@@ -176,6 +185,18 @@ $msg" ;;
         else
             echo "[notify] FAIL: WhatsApp 3次重试均失败，入队" >&2
             _notify_queue_failed whatsapp "$_NOTIFY_WA_TARGET" "$topic" "$msg"
+            rc=1
+        fi
+    fi
+
+    # V37.9.170 微信（openclaw-weixin 频道；微信无频道概念，所有 topic 同一目标）
+    # WEIXIN_TARGET 未设置时整段跳过（仅发 Discord），不产生发送失败噪声。
+    if echo "$channels" | grep -q "weixin" && [ -n "$_NOTIFY_WEIXIN_TARGET" ]; then
+        if _notify_send_with_retry openclaw-weixin "$_NOTIFY_WEIXIN_TARGET" "$msg"; then
+            sent=$((sent + 1))
+        else
+            echo "[notify] FAIL: 微信 3次重试均失败，入队" >&2
+            _notify_queue_failed openclaw-weixin "$_NOTIFY_WEIXIN_TARGET" "$topic" "$msg"
             rc=1
         fi
     fi
