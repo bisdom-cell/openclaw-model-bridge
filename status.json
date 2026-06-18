@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-18 08:10:57",
+  "updated": "2026-06-18 09:09:45",
   "updated_by": "security_score",
   "priorities": [
     {
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-06-18",
+      "what": "V37.9.175 Path B 续 — proxy 内部告警路径 .py 盲区闭合 + unfinished 收敛. 调查 NO_REPLY 告警污染(#29): 确认 filter_system_alerts 覆盖 assistant 角色(原假设错)+无条件每请求调用; 真 gap=tool_proxy._send_alert 裸 message send 无 [SYSTEM_ALERT] 标记(.py 躲过 Path B 的 .sh 收编 + MRD-PUSH-ROUTE-001 .sh-only 扫描)→退化期连续错误/context 临界告警无标记进 sessions.json→filter 无从剥离→NO_REPLY 污染(2026-06-16 ev1082). 修: _send_alert 收编 notify.sh --topic alerts(标记+重试+队列+微信/Discord 扇出)+notify 缺失时标记 fallback(标记必 present)+INV-PA-001 新 check(.py 盲区闭合)+14 守卫单测(行为级 exec-with-mocks+源码守卫+sabotage 反向验证). 顺手清 5 个 stale unfinished. full_regression 133 通过/0 失败/4690 tests. VERSION 0.37.9.71 不变(告警路由收编零业务语义, 同 V37.9.170-173 notify 路由惯例).",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-18",
       "what": "V37.9.174 Path B 全收尾: preflight check16 推送测试改测 notify 真实管线(微信+Discord+重试/队列)+退役 V37.9.156 的4.27 whatsapp exit-code hack+合并两段独立测+重写138行守卫test_v37_9_156. 修批1/2引入的2回归(本次首跑full_regression抓到): (a)test_v37_9_44改断言--topic tech路由(替代DISCORD_CH_TECH字面量) (b)kb_deep_dive真bug——去--channel whatsapp后WA段走默认含discord+下方DISCORD_MSG独立discord单发=重复发→改--channel openclaw-weixin强制微信分段. 原则#16更新(所有推送经notify.sh, 旧whatsapp==discord计数审计废弃). full_regression 132通过/0失败/4676 tests. VERSION 0.37.9.70→0.37.9.71+CLAUDE L3 v37.9.174+gen_readme_badges --write同步README/FEATURES/config. Path B(170-174)完结: 全部内容+运维告警+健康检查推送均经notify→微信/Discord, 无遗留裸whatsapp主推.",
       "by": "claude_code"
     },
@@ -198,11 +203,6 @@
       "date": "2026-06-15",
       "what": "V37.9.158-hotfix Mac Mini E2E 决定性闭环确认: 清 stale 重复→1 → 跑 governance --full (内部跑 test_convergence.py 子进程含故意 dry_run=False 的 test_explicit_dry_run_overrides_env) → crontab 计数保持 1 (不再被重加到 2). 铁证 hotfix 生效, INV-CRON-004 auto_deploy 双行血案 (V37.9.106/111/116/120/158 反复 5 次) 彻底终结. 同 session 确认 V37.9.157 两 💥 (INV-CRON-MONITOR-001 + INV-REVIEW-001 4.27 冷调用劫持) 全部转 ✅. MR-9/MR-23 audit-observes-never-mutates 三层全兑现 (生产 cron V37.9.116 / 默认语义 V37.9.158 / 治理子进程测试污染 V37.9.158-hotfix). 观察项: MRD-AUDIT-PERF 82s vs 中位 27s 3x, 下次回落即良性变异.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-06-15",
-      "what": "V37.9.158-hotfix: INV-CRON-004 复发真凶最终钉死 — test_convergence.py::test_explicit_dry_run_overrides_env 测试污染生产隔离. V37.9.158 默认 dry-run 未覆盖此 gap (该测试故意显式 dry_run=False 绕过默认 → real-apply → os.path.expanduser(~/crontab_safe.sh) 在 Mac Mini 解析真 helper → 真 add 重加 auto_deploy 双行; governance INV-CONVERGENCE-CRON-001 runtime check 跑 test 子进程时真 mutate 生产 crontab). dev 探针定位真凶 + Mac-Mini 模拟铁证 (植入 fake $HOME/crontab_safe.sh, sentinel 从未写入). 修复双层: HOME→tempdir + mock cv.subprocess.run=_never_run. 前瞻 scan 机器化 (TestConvergenceTestNoCrontabMutation 5 测试, 扫所有 dry_run=False real-apply 测试必有隔离信号). 127 suites/4478 tests(+5)/0 fail/治理 dev 90 inv EXIT=0/VERSION 0.37.9.70 不变. MR-9/MR-23 测试污染生产同族, auto_deploy 双行 V37.9.106/111/116/120/158 反复 5 次复发的最后接缝 (governance 子进程测试污染) 钉死.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -274,7 +274,6 @@
       "SLO #19 观察 (V37.9.126 诊断): Mac Mini Qwen3 主力 backend 退化期 (circuit_breaker half-open, fallback=doubao), preflight #19 SLO p95=81s 是 200-滚动窗口含退化请求 (非 stale, 会随流量冲刷自愈). 操作: 观察 Qwen3 是否恢复 (breaker 闭合); 若持续不恢复 → backend/GPU provider 层面; 想 #19 早不报警 → bash ~/restart.sh 清窗口. 非 code bug (监控工作正常). 若退化频繁可评估 SLO latency 改 time-windowed 而非 request-windowed (chunk 外, 独立).",
       "V37.9.129 follow-up (DEFER, 登记): adapter fallback 循环读 upstream error body (观察性, MR-13/INV-OBSERVABILITY-001 候选)。今天诊断难正因 adapter fb_errors.append(str(fb_err)) 对 HTTPError 只给 'HTTP Error 400: Bad Request' 不读 body, 需直连 gemini 才看到 'User location not supported'。修法: adapter 复用 proxy_filters.compose_backend_error_str (V37.8.10) 或 inline helper。DEFER 原因: gemini 退役后其 400 body moot + doubao timeout 无 informative body + 引入 adapter→proxy_filters 耦合 (日落法 #34 防御本身是事故面)。价值降低非紧急, 但对未来其他 provider HTTP 错误诊断仍有价值。",
       "✅ (c) V37.9.168 已完成: deep_dive degrade 占比纳入 daily_observer (scan_deep_dive_modes 30天窗口结构化 **模式** marker 分类 + 🔬 Deep-Dive Mode 报告段随 wrapper 推双通道 + MED 降级率告警 ≥50%/样本≥5 + 23 单测含 MR-8 跨文件 marker 守卫 + 2 轮 sabotage). 剩余 Mac Mini 验证 (6/18 到期): V37.9.132 一周观察 (~6/18): deep_dive 摘要级占比应从 76% (34/45) 显著下降 — Mac Mini 验证: grep -L \"基于摘要的分析\" ~/.kb/deep_dives/*.md 看 6/12 后新增文件多数应为全文级. 若仍高: (a) 查 dblp ee 字段 arxiv 覆盖率 (b) S2 openAccessPdf .pdf 结尾比例 (非 .pdf OA 链接保留 S2 页面是有意取舍) (c) 候选增强: deep_dive mode (full_text/abstract_only) 占比纳入 daily_observer 报告让 degrade 频率可观测 (本次 76% gap 潜伏 2 个月才被用户发现的根因是 degrade 频率无聚合复盘)",
-      "GitHub main 落后开发分支 ~30 版本 (main ~V37.9.123, 分支已 V37.9.153 含架构图刷新). 让 GitHub 门面当前化的唯一一步=用户合并 PR (Claude 只能推开发分支). 合并后稳定工具文件仍显示老时间戳(正确). 附: 未来精准刷新方法论=三分类映射(1稳定已完成留/2点-in-time记录留/3真内容陈旧才修), 永不盲目 churn 稳定文件刷时间戳(日落法).",
       "V37.9.160 Tool Policy Plugin chunk 2 (待真消费方需求驱动, 原则 #18): enforcement 真接入 — tool_proxy/three_gate 读 policies.d/ 插件策略真截断 (镜像 _resolve_max_tools_limit 的 max-tools-per-agent 硬截断)。当前 chunk 1 只 observability (evaluate_policy 可查)。Provider Plugin 由 Doubao 驱动 enforcement 同款, 应等成本守卫类真需求。+ pyproject package-data 加 ontology/policies.d/ (pip 包含示例)。+ 缓存 (evaluate_policy 未命中 base 即重扫 policies.d/)。",
       "V37.9.159 test_health_check 真 bug Mac Mini 生产验证 (dev 不可执行): scanner 首跑抓 test_health_check 跑 health_check.sh 漏 push 隔离 → 治理 07:00 audit 在 Mac Mini 是否真在发日报型 health 周报 (marker 时序依赖: gov 07:00 先于 weekly 09:00 + 24h>20h interval → 疑似每日 07:00 真发)。修复后应消失。Mac Mini 同步后观察 07:00 是否还收到 health 周报 + 确认 weekly 09:00 周报正常。",
       "V37.9.162 follow-up: INV-WA-CHANNEL-001 治理不变式 (whatsapp-channel-disconnect-escalates-when-gateway-healthy, meta_rule=MR-14, 镜像INV-WA-001) — 一周观察wa_channel_status生产效果后立 (shadow-first惯例, 同INV-DEEP-001)",
@@ -282,14 +281,10 @@
       "V37.9.162 incident 恢复(进行中): WhatsApp设备链接限流冷却中 — 停止login尝试2-3h后单次重试. 若多次(隔数小时)单次尝试仍408→评估是否升级为长期封禁+Baileys替代方案. 这是WhatsApp服务端限流,非代码可修.",
       "V37.9.162 follow-up: 4.27 openclaw CLI 插件 staging churn 调查 — 每次 channels login 全量重staging 9+插件(13-39s, 含acpx/bedrock/vertex/browser与WhatsApp无关), plugin-runtime-deps 未持久化. 吃掉连接超时预算. 查 ~/.openclaw/plugin-runtime-deps/ 多hash dir机制(V37.9.145遗留)",
       "V37.9.170-A (Mac Mini必做): 微信推送E2E验证 — 跑 openclaw message send --channel openclaw-weixin --target <X> --message test 确认--target正确格式(账号6d56c8fb0a0d-im-bot? 还是userId?)+微信能收到; 然后cron/launchd环境设WEIXIN_TARGET env; source notify.sh && notify测试确认微信+Discord双收. target格式拿到后锁进文档/env.",
-      "V37.9.170-B (大·路径B): 10+ job硬编码 message send --channel whatsapp (arxiv/hn/hf_papers/chaspark/finance_news/ontology_sources/acl/job_watchdog…) → WhatsApp临时禁用后这些WhatsApp推送静默失败(|| true吞掉), 微信收不到. 需逐个收编进notify.sh或加weixin分支; 原则#16双通道审计(whatsapp==discord计数)随之更新. 这是\"让所有cron推送到微信\"的主体工作.",
-      "V37.9.170-C: 告警污染NO_REPLY根因 — ev1082证 filter_system_alerts()存在却仍复现空回复(assistant角色[SYSTEM_ALERT]可能没被剥). 查proxy_filters.filter_system_alerts是否覆盖assistant角色消息. INV-PA-001/002/SOUL规则10家族.",
       "V37.9.170-D (doc·收工): CLAUDE.md架构图/文件表/原则#16仍写WhatsApp+Discord双通道, WhatsApp恢复+微信稳定后整体刷新频道拓扑; 本版收工需full_regression回写test_count + VERSION bump 0.37.9.70→71 + gen_readme_badges --write同步CLAUDE L3/config L4/README/FEATURES.",
       "WhatsApp恢复提醒: 临时禁用(连续3天408避免号码被锁), 用户明确后面会再打开 → 恢复=config set channels.whatsapp.enabled true + channels login --channel whatsapp + NOTIFY_CHANNELS加回whatsapp(三通道whatsapp,openclaw-weixin,discord).",
-      "V37.9.171 Path B 第二批(剩余): 多频道内容job(arxiv/semantic_scholar=papers+ontology, freight=freight+alerts, openclaw_official×2=tech+alerts — 单--topic映射不了需个别处理) + 特殊格式(finance_news用--to/--content, chaspark) + ~18根脚本(kb_*/health_check/auto_deploy/job_watchdog/preflight/diagnose/upgrade)收编notify.sh. 第一批10单频道job已V37.9.171完成. Path B全完成后整体更新原则#16双通道审计(whatsapp==discord计数现已不成立).",
-      "V37.9.172 Path B 第三批(剩余, 低优 operational): ops 根脚本收编 notify.sh — auto_deploy.sh(部署通知)/job_watchdog.sh(job失败告警)/diagnose.sh+preflight_check.sh+upgrade_openclaw.sh(手动 ops 测试/通知). 非每日内容. 注: preflight push test(854)是\"测推送通道是否通\"的工具, 收编时要测活跃通道(微信)非whatsapp. Path B 一+二批已覆盖全部每日内容 job(论文/新闻/财经/KB摘要/深度分析). Path B 全完成后整体更新原则#16双通道审计.",
-      "Path B 收尾剩 preflight(独立 careful pass): check 16 推送 smoke test 改测活跃通道(notify→微信+Discord)+退役 V37.9.156 的 4.27 whatsapp 冷调用 exit-code 不可信 hack(notify 返回码权威). 需重写 138 行守卫 test_v37_9_156_preflight_push_warn.py(深度断言 whatsapp-timeout-warn elif/排序/判别器). 它是健康检查 CI 工具非用户内容推送, 当前只 warn 不 break. 完成后: 整体更新原则 #16 双通道审计(whatsapp==discord 计数现不成立, 应为 weixin+discord) + 全 Path B 完成后收工统一 bump VERSION/badge + gen_readme_badges --write.",
-      "Path B 全栈 Mac Mini E2E 验证(V37.9.170-174 合并同步后): 确认 (a)每日内容(论文/新闻/财经/货代/KB摘要/深度分析)到微信 (b)运维告警(auto_deploy部署漂移/job_watchdog/upgrade/diagnose)到微信 (c)preflight_check.sh --full check16 测notify真实管线不再因whatsapp禁用warn (d)各cron job正常推送无回归. WhatsApp 408缓解恢复时: 设NOTIFY_CHANNELS=whatsapp,openclaw-weixin,discord三通道并存(notify.sh whatsapp分支+OPENCLAW_PHONE原样保留) + 原则#16审计随之复核."
+      "Path B 全栈 Mac Mini E2E 验证(V37.9.170-174 合并同步后): 确认 (a)每日内容(论文/新闻/财经/货代/KB摘要/深度分析)到微信 (b)运维告警(auto_deploy部署漂移/job_watchdog/upgrade/diagnose)到微信 (c)preflight_check.sh --full check16 测notify真实管线不再因whatsapp禁用warn (d)各cron job正常推送无回归. WhatsApp 408缓解恢复时: 设NOTIFY_CHANNELS=whatsapp,openclaw-weixin,discord三通道并存(notify.sh whatsapp分支+OPENCLAW_PHONE原样保留) + 原则#16审计随之复核.",
+      "V37.9.175 已部分根治 告警污染 NO_REPLY(原 #29): 调查确认 filter_system_alerts 覆盖 assistant+user+tool 角色(原假设 assistant 未覆盖=错)+无条件每请求调用(tool_proxy:980). 真 gap = tool_proxy._send_alert 裸 message send 无 [SYSTEM_ALERT] 标记(.py 路径躲过 Path B 的 .sh 收编 + MRD-PUSH-ROUTE-001 .sh-only 扫描) → 退化期触发的连续错误/context 临界告警无标记进 sessions.json → filter 无从剥离 → NO_REPLY. V37.9.175 修: _send_alert 收编 notify.sh --topic alerts(标记+重试+队列+微信/Discord 扇出)+标记 fallback+INV-PA-001 新 check+14 守卫单测. 剩余: (a) Mac Mini E2E 复现确认(需 ev1082 生产 sessions.json, dev 不可复现) (b) follow-up MRD-PUSH-ROUTE-001 扩 .py 扫描防未来 .py raw bypass(注意 mm_*.py/content push false-positive) (c) follow-up kb_trend.py:399 raw os.system message send 是 CONTENT 推送(非污染 gap)但仍 .py bypass notify.sh 待收编(原则#16)"
     ],
     "open_prs": "",
     "blocked_on": "",
@@ -355,14 +350,14 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 4676,
-    "last_regression": "2026-06-18 08:08 pass",
+    "test_count": 4690,
+    "last_regression": "2026-06-18 09:04 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-18 08:08",
-    "test_suites": 133,
+    "security_score_time": "2026-06-18 09:04",
+    "test_suites": 134,
     "governance_invariants": "91/91",
-    "governance_checks": "745/759",
-    "version": "0.37.9.70",
+    "governance_checks": "746/760",
+    "version": "0.37.9.71",
     "observer": {}
   },
   "incidents": [
@@ -427,7 +422,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-06-18 微信频道接入(WhatsApp临时禁用过渡期). 已做: notify.sh加openclaw-weixin推送分支+默认通道切微信+10守卫单测+文档/status记录. 待Mac Mini: (A必做)确认message send --channel openclaw-weixin的--target格式并设WEIXIN_TARGET env验证微信收推送 (B大)10+job硬编码whatsapp需收编notify.sh (C)告警污染NO_REPLY根因 (D)WhatsApp 408缓解后恢复. 收工: full_regression回写count+VERSION bump+gen_readme_badges --write.",
+  "focus": "2026-06-18 Path B 续(proxy 告警 .py 盲区闭合) + unfinished 收敛. 已做: tool_proxy._send_alert 收编 notify.sh --topic alerts + 标记 fallback(修 NO_REPLY 污染真 gap, 不再裸发无标记) + INV-PA-001 新 check + 14 守卫单测(行为级 exec-with-mocks + 源码守卫 + sabotage); 清 5 个 stale unfinished(Path B 完成标记 #28/32/33/34 + main 落后过时 #20). 待 Mac Mini: 微信 E2E(本周焦点未变, 需用户) + NO_REPLY ev1082 复现确认. full_regression 133/0/4690, VERSION 0.37.9.71 不变.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",

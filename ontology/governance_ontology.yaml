@@ -2048,6 +2048,29 @@ invariants:
         check_type: file_contains
         file: jobs/openclaw_official/run_discussions.sh
         pattern: '\[SYSTEM_ALERT\]'
+      - name: "tool_proxy _send_alert 经 notify.sh + 标记 (V37.9.175 .py 盲区闭合)"
+        check_type: python_assert
+        code: |
+          # V37.9.175: proxy 自身告警 (_send_alert) 曾裸 `openclaw message send` 无
+          # [SYSTEM_ALERT] 标记 + 仅 WhatsApp。.py 路径躲过 Path B (V37.9.171-174) 的
+          # .sh 收编 + MRD-PUSH-ROUTE-001 的 .sh-only 扫描 → "连续 N 次错误"/"context
+          # 临界"告警恰在退化期触发、无标记进 sessions.json → filter_system_alerts
+          # 无从剥离 → NO_REPLY 上下文污染 (2026-06-16 ev1082)。锁定: _send_alert
+          # 必须经 notify.sh --topic alerts (标记自动加), 且 fallback 裸发路径必须
+          # 手动加 SYSTEM_ALERT_MARKER (两条路径都防污染, 标记必 present)。
+          import re
+          src = open("tool_proxy.py", encoding="utf-8").read()
+          m = re.search(r"\ndef _send_alert\(.*?\n(?=\ndef |\nclass )", src, re.S)
+          assert m, "tool_proxy.py 未找到 _send_alert 函数"
+          body = m.group(0)
+          assert "--topic alerts" in body, "_send_alert 必须经 notify.sh --topic alerts 路由"
+          assert "source" in body and "notify" in body, \
+              "_send_alert 必须 source notify.sh 并调 notify"
+          assert "SYSTEM_ALERT_MARKER" in body, \
+              "_send_alert fallback 裸发必须加 SYSTEM_ALERT_MARKER 标记"
+          # 反模式守卫: 退役旧裸发未加标记的 msg (V37.9.175 之前的 bug 形态)
+          assert '"--message", msg,' not in body, \
+              "_send_alert 不得裸发未加标记的 msg (V37.9.175 退役)"
       - name: "filter_system_alerts 运行时真的剥离 [SYSTEM_ALERT] 消息"
         check_type: python_assert
         code: |
