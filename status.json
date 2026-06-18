@@ -1,6 +1,6 @@
 {
-  "updated": "2026-06-18 10:10:34",
-  "updated_by": "claude_code",
+  "updated": "2026-06-18 15:02:46",
+  "updated_by": "full_regression",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-06-18",
+      "what": "V37.9.179 微信推送 contextToken 根因锁定 + 默认通道退回 discord. 用户报 3h 微信零 cron 推送/Discord 正常→深挖. 多轮取证(target 对/直发✅Sent/notify rc=0/status weixin 仅 running)都不是 gap; 铁证在 provider 日志 /tmp/openclaw/openclaw-*.log: 每条 outbound 都 sendWeixinOutbound contextToken missing sending without context, 窗口测试没到微信. 根因: openclaw-weixin 是微信客服/对话通道(ilinkai), outbound 必须带 contextToken(来自用户入站会话上下文); PA 回复持有 token 能投递(交互层通), 但 notify→message send 是 CLI 发起不绑入站→永远无 token→微信丢弃. rc=0/✅Sent 是发送侧本地确认≠投递(fail-plausible). 推翻 V37.9.178「微信 E2E 通过」(我误把 rc=0 当投递, 整条微信迁移建立在未验证假设上). 修(通道选型非代码bug): notify.sh 默认 NOTIFY_CHANNELS openclaw-weixin,discord→discord; WhatsApp恢复设 whatsapp,discord; weixin 分支保留交互/调试; WeChat 退回交互问答. 案例文档 weixin_contexttoken_push_blocked_case.md. test_notify_weixin 默认守卫改 discord, 29 全过. full_regression 133/0/4716. VERSION 0.37.9.71 不变. 决策(用户): Discord 主推+WhatsApp 恢复. Path B 路由工作不浪费(服务 WhatsApp/Discord).",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-18",
       "what": "V37.9.178 kb_trend 收编 notify.sh(Path B 最后一个 .py 内容旁路)+全仓推送审计全部修完. 触发: 用户全量测试微信效果→我标出 kb_trend 唯一不到微信(裸 os.system message send 不走 notify)→用户要求修+再三确认全部修完. 修: push_whatsapp 收编 notify --topic daily(微信+Discord+重试+队列), fallback subprocess argv(顺手修 os.system f-string 插值 LLM 内容的 shell 注入风险). 全仓审计: .py 仅 tool_proxy._send_alert+kb_trend 两处均 notify 路由+fallback; .sh 所有 message send 都是 notify.sh 内部或 notify-fallback else 分支或 Discord-only 设计或 echo 说明. 结论: 所有推送经 notify --topic 主推到微信(原则#16 从 .sh 扩到全栈). 3 新单测(源码守卫剥注释行+行为级 mock+fallback argv). full_regression 133/0/4714(+3). VERSION 0.37.9.71 不变. 微信全量 E2E 已验证.",
       "by": "claude_code"
     },
@@ -197,11 +202,6 @@
     {
       "date": "2026-06-16",
       "what": "V37.9.162 部署里程碑: PR #719 已合并 + Mac Mini 同步 + preflight --full 验证(86 pass/1 fail/1 warn). 唯一fail=check16 WhatsApp推送(频道未重链=事件未恢复, 非回归)+warn=KB 99%(常规). wa_keepalive频道监控(7h盲区→1h告警)已部署生效. WhatsApp重链+A config(maxAttempts:12)deferred到明天(用户决定明天操作). 整个session: 血案诊断+恢复指导+预防修复(C)+案例文档+Baileys评估(A定位)全闭环, dev侧零遗留.",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-06-16",
-      "what": "V37.9.161 日落法 doc-stat-sync V2 — 审计抓 3 个 config.md 真漂移修复 (L878 jobs 10→46/40, L64+L156 preflight 17→19 内部不一致) + jobs active/registered 纳入 gen_readme_badges auto-sync (曾 35→40 真 drift, jobs_registry 唯一源)。SLO(5 稳定常量)/preflight(19 罕漂移) 诚实留手动不加机器 (日落法防御本身是事故面)。test_gen_readme_badges 60→67。同 session 三 item (scanner/Tool Policy Plugin/doc-sync) 全 VERSION 不变零业务语义。",
       "by": "claude_code"
     }
   ],
@@ -350,10 +350,10 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 4714,
-    "last_regression": "2026-06-18 10:08 pass",
+    "test_count": 4715,
+    "last_regression": "2026-06-18 15:02 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-18 10:08",
+    "security_score_time": "2026-06-18 15:02",
     "test_suites": 134,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
@@ -422,7 +422,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-06-18 四交付 V37.9.175-178: proxy _send_alert + 微信 WARN + notify 队列淘汰 + kb_trend 收编 notify(Path B 最后一个 .py 内容旁路). 全仓推送审计确认全部修完: 所有内容/告警推送(含 .py)均经 notify --topic 主推到微信, openclaw 直发仅 notify 不可用 fallback. 微信全量 E2E 已验证(7-topic 全 rc=0 + 直发 target✅). 待 Mac Mini: git fetch+reset 同步 4 版. full_regression 133/0/4714, VERSION 0.37.9.71 不变.",
+  "focus": "2026-06-18 微信推送 contextToken 根因锁定: WeChat 客服通道(openclaw-weixin/ilinkai)架构上做不了无人值守定时推送 — CLI 发起的 outbound 永远无 contextToken → 微信丢弃(provider 日志 'contextToken missing, sending without context'), 3h 零投递; rc=0/✅Sent 是发送侧假成功(fail-plausible). 推翻 V37.9.178「微信 E2E 通过」误判(用 rc=0 当投递). 决策(用户): Discord 作定时推送主通道(notify.sh 默认退回 discord), WhatsApp 408 缓解后恢复(NOTIFY_CHANNELS=whatsapp,discord), WeChat 退回交互问答. 待 Mac Mini: git fetch+reset 同步→cron 推送走 discord. full_regression 133/0/4716, VERSION 0.37.9.71 不变.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",

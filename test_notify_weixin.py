@@ -7,7 +7,8 @@
   - 路由正确（NOTIFY_CHANNELS 含 weixin + WEIXIN_TARGET 已设 → 真调
     `message send --channel openclaw-weixin`）
   - WEIXIN_TARGET 未设时整段安全跳过（仅发 Discord，不产生发送失败噪声）
-  - 默认 NOTIFY_CHANNELS = openclaw-weixin,discord（源码守卫）
+  - 默认 NOTIFY_CHANNELS = discord（V37.9.179: WeChat 客服通道 contextToken 根因做不了
+    cron 推送 → 退回 discord-only；weixin 分支保留供显式配置/交互，源码守卫）
   - WhatsApp 分支向后兼容（显式 NOTIFY_CHANNELS=whatsapp 仍走 whatsapp）
 
 测试用 fake openclaw（把参数写进日志文件）隔离，绝不真调生产 openclaw CLI
@@ -90,11 +91,12 @@ class TestNotifyWeixinBranch(unittest.TestCase):
                          f"WEIXIN_TARGET 未设却仍发微信（应安全跳过）:\n{calls}")
         self.assertIn("--channel discord", calls, "Discord 仍应发送")
 
-    def test_default_channels_is_weixin_discord(self):
-        # 不设 NOTIFY_CHANNELS → 用 notify.sh 默认值，应含 openclaw-weixin
+    def test_default_channels_is_discord_only(self):
+        # V37.9.179: WeChat 客服通道做不了 cron 推送（contextToken 根因）→ 默认退回 discord-only。
+        # 不设 NOTIFY_CHANNELS → 默认应只发 discord，不发 weixin（避免无效的 contextToken-missing 发送）。
         calls = _run_notify(channels=None, weixin_target="t1")
-        self.assertIn("--channel openclaw-weixin", calls,
-                      f"默认 NOTIFY_CHANNELS 应含 openclaw-weixin:\n{calls}")
+        self.assertNotIn("--channel openclaw-weixin", calls,
+                         f"V37.9.179: 默认通道应退回 discord（weixin 收不到 cron 推送）:\n{calls}")
         self.assertNotIn("--channel whatsapp", calls,
                          "默认不应再发已禁用的 WhatsApp")
 
@@ -121,11 +123,14 @@ class TestNotifyWeixinSourceGuards(unittest.TestCase):
         with open(_NOTIFY) as f:
             self.src = f.read()
 
-    def test_default_not_reverted_to_whatsapp(self):
-        self.assertIn('NOTIFY_CHANNELS:-openclaw-weixin,discord}', self.src,
-                      "默认 NOTIFY_CHANNELS 应为 openclaw-weixin,discord")
+    def test_default_channels_is_discord(self):
+        # V37.9.179: WeChat 客服通道 contextToken 根因 → 做不了 cron 推送 → 默认退回 discord-only。
+        self.assertIn('NOTIFY_CHANNELS:-discord}', self.src,
+                      "V37.9.179: 默认 NOTIFY_CHANNELS 应为 discord（唯一可靠定时推送通道）")
+        self.assertNotIn('NOTIFY_CHANNELS:-openclaw-weixin,discord}', self.src,
+                         "weixin 收不到 cron 推送（contextToken），不应留在默认推送通道")
         self.assertNotIn('NOTIFY_CHANNELS:-whatsapp,discord}', self.src,
-                         "默认不应回退到旧的 whatsapp,discord")
+                         "WhatsApp 仍 408 禁用，默认不应含（恢复时由 .env_shared 显式设）")
 
     def test_weixin_target_var_defined(self):
         self.assertIn('_NOTIFY_WEIXIN_TARGET="${WEIXIN_TARGET:-}"', self.src)
@@ -177,12 +182,19 @@ class TestWeixinSkipWarn(unittest.TestCase):
         self.assertNotIn(self._WARN_SIG, err,
                          "通道无 weixin 时不应有微信 WARN")
 
-    def test_default_channels_with_empty_target_warns(self):
-        # 不显式设 NOTIFY_CHANNELS（默认含 weixin）+ target 空 → 仍 WARN
-        # （生产正是用默认通道，这是最该被捕获的场景）
-        _, err = _run_notify(channels=None, weixin_target=None, return_stderr=True)
+    def test_explicit_weixin_channel_empty_target_warns(self):
+        # V37.9.179: 默认通道已退回 discord-only（不含 weixin），故 WARN 只在
+        # 显式 NOTIFY_CHANNELS 含 openclaw-weixin（供交互/调试）但 target 空时触发。
+        _, err = _run_notify(channels="openclaw-weixin,discord", weixin_target=None,
+                             return_stderr=True)
         self.assertIn(self._WARN_SIG, err,
-                      "默认通道含 weixin，target 空时也应 WARN")
+                      "显式含 weixin + target 空时应 WARN")
+
+    def test_default_discord_only_no_weixin_warn(self):
+        # V37.9.179: 默认 discord-only → 不含 weixin → 不应触发微信 WARN（无效发送已消除）
+        _, err = _run_notify(channels=None, weixin_target=None, return_stderr=True)
+        self.assertNotIn(self._WARN_SIG, err,
+                         "默认 discord-only 不含 weixin，不应有微信跳过 WARN")
 
 
 class TestWeixinSkipWarnSourceGuards(unittest.TestCase):
