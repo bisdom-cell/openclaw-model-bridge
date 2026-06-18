@@ -48,13 +48,18 @@ _NOTIFY_WA_TARGET="${OPENCLAW_PHONE:-+85200000000}"
 _NOTIFY_WEIXIN_TARGET="${WEIXIN_TARGET:-}"
 _NOTIFY_WEIXIN_SKIP_WARNED=""   # V37.9.176: 一次性微信跳过 WARN 守卫（每进程仅 warn 一次，防多次 notify 刷屏）
 _NOTIFY_DISCORD_TARGET="${DISCORD_TARGET:-}"
-# V37.9.170: WhatsApp 频道 2026-06-18 连续 3 天 408 报错（V37.9.162 掉线/限流事件延续），
-# 为避免再次冲击导致号码被锁而【临时】禁用（ev 1027 `config set channels.whatsapp.enabled
-# false`），主推送频道临时切换为 openclaw-weixin（微信）。这是临时措施——408 缓解后重启用
-# WhatsApp 只需设 NOTIFY_CHANNELS="whatsapp,openclaw-weixin,discord"（whatsapp 分支与
-# OPENCLAW_PHONE 都保留未动）。默认通道改为 openclaw-weixin,discord；微信分支在 WEIXIN_TARGET
-# 未设置时安全跳过（仅发 Discord = 切换前真实现状），设置 WEIXIN_TARGET 后即生效。
-_NOTIFY_CHANNELS="${NOTIFY_CHANNELS:-openclaw-weixin,discord}"
+# V37.9.170→V37.9.179: 频道演进史 + WeChat 推送根因。
+# - V37.9.170: WhatsApp 频道 2026-06-18 连续 3 天 408 临时禁用 → 一度把主推切到 openclaw-weixin。
+# - V37.9.179 根因锁定（contextToken）: openclaw-weixin 是微信【客服/对话】通道（ilinkai.weixin.qq.com），
+#   outbound 必须携带 contextToken（来自用户入站消息的会话上下文）。`notify → openclaw message send`
+#   是独立 CLI 发起、不绑任何入站 → 永远无 contextToken → provider 日志 "sendWeixinOutbound:
+#   contextToken missing ... sending without context" → 微信一律丢弃（`✅ Sent` 是假成功 fail-plausible）。
+#   **结论: WeChat 客服通道架构上做不了无人值守定时推送，只能交互回复（PA 回复持有入站 token）。**
+#   故默认推送通道从 openclaw-weixin,discord 退回 **discord**（当前唯一可靠的定时推送通道）。
+# - WhatsApp 恢复（408 缓解后）: 设 NOTIFY_CHANNELS="whatsapp,discord"（whatsapp 分支 + OPENCLAW_PHONE 都保留未动）。
+# - weixin 分支保留（显式 NOTIFY_CHANNELS 含 openclaw-weixin 时仍可发，供交互/调试；WEIXIN_TARGET 空则一次性 WARN）。
+# 详见 ontology/docs/cases/weixin_contexttoken_push_blocked_case.md。
+_NOTIFY_CHANNELS="${NOTIFY_CHANNELS:-discord}"
 _NOTIFY_MAX_RETRIES="${NOTIFY_MAX_RETRIES:-3}"
 _NOTIFY_QUEUE_DIR="${NOTIFY_QUEUE_DIR:-$HOME/.kb/notify_queue}"
 
