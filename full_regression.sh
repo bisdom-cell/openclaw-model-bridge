@@ -224,7 +224,7 @@ fi
 run_suite "v37_9_86_trap_override (V37.9.86 bash trap override lockdir 残留: 5 脚本修复 + 行为层反向/正向验证)" "python3 test_v37_9_86_trap_override.py"
 # V37.9.156: preflight check 16 推送 smoke test 4.27 冷调用假失败修复 (timeout 签名 fail→warn, 真故障仍 fail)
 if [ -f test_v37_9_156_preflight_push_warn.py ]; then
-    run_suite "v37_9_156_preflight_push_warn (V37.9.156: 4.27 冷调用客户端超时假失败 fail→warn + grep 判别器 + 反向验证)" "python3 test_v37_9_156_preflight_push_warn.py"
+    run_suite "v37_9_156_preflight_push_warn (V37.9.156→174: preflight push test 改测 notify 真实管线 + 退役 4.27 whatsapp hack)" "python3 test_v37_9_156_preflight_push_warn.py"
 fi
 # V37.9.157: governance runtime check 跑的 openclaw-invoking subprocess 必须 stub (防 4.27 冷调用劫持 💥 + 真发消息)
 if [ -f test_v37_9_157_governance_openclaw_isolation.py ]; then
