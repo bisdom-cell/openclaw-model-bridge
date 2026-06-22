@@ -252,6 +252,129 @@ class TestPdfUrlDerivation(unittest.TestCase):
 
 
 # ══════════════════════════════════════════════════════════════════════
+# 4b. OA 全文解析（V37.9.183）— DOI/S2-id/HF-id → S2 → arxiv/OA PDF
+#     77% abstract_only 结构性 gap：picker 选高对齐论文(dblp DOI/S2 页/HF 页)
+#     无法直接派生 PDF；本解析复用 S2 把确定性标识符解析为全文 PDF。
+# ══════════════════════════════════════════════════════════════════════
+class TestOaResolutionV183(unittest.TestCase):
+    # --- resolve_oa_pdf_url 路由（确定性，标识符在 URL 里）---
+    def test_hf_page_rewritten_to_arxiv(self):
+        # HF Daily Papers 按 arxiv id 索引 → 确定性改写，无网络
+        self.assertEqual(
+            m.resolve_oa_pdf_url("https://huggingface.co/papers/2604.22085"),
+            "https://arxiv.org/pdf/2604.22085",
+        )
+
+    def test_hf_page_with_version(self):
+        self.assertEqual(
+            m.resolve_oa_pdf_url("https://huggingface.co/papers/2604.22085v2"),
+            "https://arxiv.org/pdf/2604.22085v2",
+        )
+
+    def test_s2_page_extracts_paper_id(self):
+        pid = "c3d330be0c52d70290c545372718994bd995dabb"
+        with patch.object(m, "_s2_lookup_oa_pdf", return_value="https://arxiv.org/pdf/2501.1") as mk:
+            r = m.resolve_oa_pdf_url("https://www.semanticscholar.org/paper/" + pid)
+        self.assertEqual(r, "https://arxiv.org/pdf/2501.1")
+        mk.assert_called_once_with(pid)
+
+    def test_s2_page_with_slug(self):
+        pid = "9ecfdb33b93c71e96c107645a4514eea6d8bb10d"
+        with patch.object(m, "_s2_lookup_oa_pdf", return_value="x") as mk:
+            m.resolve_oa_pdf_url("https://www.semanticscholar.org/paper/Some-Title/" + pid)
+        mk.assert_called_once_with(pid)
+
+    def test_doi_routed_to_s2_by_doi(self):
+        with patch.object(m, "_s2_lookup_oa_pdf", return_value="https://www.mdpi.com/x/pdf") as mk:
+            r = m.resolve_oa_pdf_url("https://doi.org/10.3390/SYSTEMS14020154")
+        self.assertEqual(r, "https://www.mdpi.com/x/pdf")
+        mk.assert_called_once_with("DOI:10.3390/SYSTEMS14020154")
+
+    def test_acm_doi_routed(self):
+        with patch.object(m, "_s2_lookup_oa_pdf", return_value="x") as mk:
+            m.resolve_oa_pdf_url("https://doi.org/10.1145/3774904.3792985")
+        mk.assert_called_once_with("DOI:10.1145/3774904.3792985")
+
+    def test_sciencedirect_pii_no_identifier_returns_none(self):
+        # ScienceDirect PII URL 无 DOI/S2-id/HF-id → None（登记 follow-up，不选错论文）
+        self.assertIsNone(m.resolve_oa_pdf_url(
+            "https://www.sciencedirect.com/science/article/pii/S0950705126012177"))
+
+    def test_empty_url_returns_none(self):
+        self.assertIsNone(m.resolve_oa_pdf_url(""))
+
+    # --- _s2_lookup_oa_pdf 解析（mock _s2_fetch）---
+    def test_s2_lookup_open_access_pdf(self):
+        with patch.object(m, "_s2_fetch", return_value={"openAccessPdf": {"url": "https://x.org/p.pdf"}}):
+            self.assertEqual(m._s2_lookup_oa_pdf("DOI:10.1/2"), "https://x.org/p.pdf")
+
+    def test_s2_lookup_oa_arxiv_abs_normalized(self):
+        # openAccessPdf.url 是 arxiv abs → 归一化为 pdf
+        with patch.object(m, "_s2_fetch", return_value={"openAccessPdf": {"url": "https://arxiv.org/abs/2501.123"}}):
+            self.assertEqual(m._s2_lookup_oa_pdf("DOI:10.1/2"), "https://arxiv.org/pdf/2501.123.pdf")
+
+    def test_s2_lookup_external_arxiv_id(self):
+        with patch.object(m, "_s2_fetch", return_value={"externalIds": {"ArXiv": "2501.12345"}}):
+            self.assertEqual(m._s2_lookup_oa_pdf("DOI:10.1/2"), "https://arxiv.org/pdf/2501.12345")
+
+    def test_s2_lookup_oa_preferred_over_external(self):
+        data = {"openAccessPdf": {"url": "https://oa.org/p.pdf"}, "externalIds": {"ArXiv": "2501.1"}}
+        with patch.object(m, "_s2_fetch", return_value=data):
+            self.assertEqual(m._s2_lookup_oa_pdf("DOI:10.1/2"), "https://oa.org/p.pdf")
+
+    def test_s2_lookup_no_oa_no_arxiv_returns_none(self):
+        with patch.object(m, "_s2_fetch", return_value={"externalIds": {"DOI": "10.1/2"}}):
+            self.assertIsNone(m._s2_lookup_oa_pdf("DOI:10.1/2"))
+
+    def test_s2_lookup_fetch_failed_fail_open(self):
+        with patch.object(m, "_s2_fetch", return_value=None):
+            self.assertIsNone(m._s2_lookup_oa_pdf("DOI:10.1/2"))
+
+    def test_s2_lookup_malformed_oa_not_dict(self):
+        with patch.object(m, "_s2_fetch", return_value={"openAccessPdf": "garbage"}):
+            self.assertIsNone(m._s2_lookup_oa_pdf("DOI:10.1/2"))
+
+    # --- _s2_fetch FAIL-OPEN（网络层）---
+    def test_s2_fetch_network_error_fail_open(self):
+        with patch("kb_deep_dive.urllib.request.urlopen",
+                   side_effect=m.urllib.error.URLError("boom")):
+            self.assertIsNone(m._s2_fetch("DOI:10.1/2"))
+
+    # --- fetch_pdf_text 集成（OA 解析 wire 进 fetch）---
+    def test_fetch_pdf_text_uses_oa_resolution_when_direct_fails(self):
+        # DOI URL 直接派生失败 → 调 resolve → 拿到 PDF url → 进 pdfplumber（dev 无库）
+        with patch.object(m, "resolve_oa_pdf_url", return_value="https://x.org/p.pdf") as mk:
+            ok, text, reason = m.fetch_pdf_text("https://doi.org/10.1145/3774904.3792985")
+        mk.assert_called_once()
+        self.assertFalse(ok)
+        # 关键：不是 "no PDF URL derivable" — 证明 OA url 被采用并进入抓取
+        self.assertNotIn("no PDF URL derivable", reason)
+        self.assertIn("pdfplumber not installed", reason)
+
+    def test_fetch_pdf_text_oa_lookup_failed_degrades(self):
+        with patch.object(m, "resolve_oa_pdf_url", return_value=None):
+            ok, text, reason = m.fetch_pdf_text("https://doi.org/10.1145/3774904.3792985")
+        self.assertFalse(ok)
+        self.assertIn("no PDF URL derivable (incl. OA lookup)", reason)
+
+    def test_fetch_pdf_text_arxiv_skips_oa_resolution(self):
+        # arxiv 能直接派生 → 不应调 OA 解析
+        with patch.object(m, "resolve_oa_pdf_url") as mk:
+            m.fetch_pdf_text("https://arxiv.org/abs/2501.12345")
+        mk.assert_not_called()
+
+    # --- 源码守卫 ---
+    def test_v37_9_183_marker_and_wiring(self):
+        with open(m.__file__, encoding="utf-8") as f:
+            src = f.read()
+        self.assertIn("V37.9.183", src)
+        # resolve_oa_pdf_url 必须 wire 进 fetch_pdf_text
+        fpt = src[src.index("def fetch_pdf_text"):src.index("def preprocess_pdf_text")]
+        self.assertIn("resolve_oa_pdf_url(url)", fpt,
+                      "OA 解析必须 wire 进 fetch_pdf_text 直接派生失败分支")
+
+
+# ══════════════════════════════════════════════════════════════════════
 # 5. PDF 预处理（切 References + 去图表噪声 + 截断）
 # ══════════════════════════════════════════════════════════════════════
 class TestPreprocessPdfText(unittest.TestCase):

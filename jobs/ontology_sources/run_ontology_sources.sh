@@ -182,7 +182,23 @@ except ET.ParseError:
 # 支持 RSS 2.0 和 Atom 格式
 ns = {'atom': 'http://www.w3.org/2005/Atom',
       'content': 'http://purl.org/rss/1.0/modules/content/',
-      'dc': 'http://purl.org/dc/elements/1.1/'}
+      'dc': 'http://purl.org/dc/elements/1.1/',
+      'prism': 'http://prismstandard.org/namespaces/basic/2.0/'}
+
+
+# V37.9.183: 提取 DOI（Elsevier/ScienceDirect 用 prism:doi 标准字段）供 deep_dive
+# DOI→S2 OA 全文解析（镜像 V37.9.132 dblp/hf/s2 link 改进，根治 ontology_sources
+# 付费墙期刊 deep_dive 摘要级 gap）。仅取结构化字段（prism:doi/dc:identifier/guid），
+# 不碰 description 防把摘要里引用的别人 DOI 误当本文（fail-plausible 防线）。
+# FAIL-OPEN：无 DOI → 返回 ''，调用方保持原 PII link 不变。
+def _extract_item_doi(item, ns):
+    for path in ('prism:doi', 'dc:identifier', 'guid'):
+        el = item.find(path, ns) if ':' in path else item.find(path)
+        if el is not None and (el.text or '').strip():
+            m = re.search(r'10\.\d{4,9}/[^\s<>"\']+', el.text)
+            if m:
+                return m.group(0).rstrip('.')
+    return ''
 
 items = root.findall('.//item')  # RSS 2.0
 if not items:
@@ -209,6 +225,11 @@ for item in items[:30]:  # 检查前30篇
 
     title = (title_el.text or '').strip() if title_el is not None else ''
     link = (link_el.text or '').strip() if link_el is not None else ''
+    # V37.9.183: 有 DOI 且 link 非 arxiv/doi.org（付费墙 PII URL）→ 改写为 doi.org link，
+    # 让 deep_dive 的 DOI→S2 OA 全文解析可用（FAIL-OPEN：无 DOI 不改）。
+    doi = _extract_item_doi(item, ns)
+    if doi and 'arxiv.org' not in link and 'doi.org' not in link:
+        link = 'https://doi.org/' + doi
     description = ''
     if content_el is not None and content_el.text:
         description = re.sub(r'<[^>]+>', '', content_el.text)[:500]
