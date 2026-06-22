@@ -9410,6 +9410,7 @@ mrd_scan_patterns:
     - "kb_review.sh"
     - "kb_deep_dive.sh"
     - "kb_dream.sh"
+    - "kb_radar.sh"  # V37.9.181: notify --topic daily 主推 + openclaw fallback 分支 (原则 #16, 同 kb_evening/kb_review 模式), 补登记 push-route 白名单
     - "check_upgrade.sh"
     - "diagnose.sh"
     - "upgrade_openclaw.sh"
