@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-22 13:16:44",
+  "updated": "2026-06-22 13:31:08",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-06-22",
+      "what": "V37.9.184 deep_dive ScienceDirect 覆盖 (V37.9.183 follow-up 兑现, 用户「继续补上」). ScienceDirect (11/43, ontology_sources 核心源 Elsevier 付费墙) KB link 是 PII URL 无 DOI → deep_dive DOI→S2 OA 解析够不到. 修复点选 KB-write (镜像 V37.9.132 源头写好 link, 非 deep_dive fetch 时模糊 title 搜索): run_ontology_sources.sh 加 prism namespace + _extract_item_doi 纯函数 (仅取结构化字段 prism:doi→dc:identifier→guid, 绝不碰 description 防摘要引用 DOI 误取=fail-plausible 防线) + 有 DOI 且 link 非 arxiv/doi.org → 改写 doi.org link. deep_dive 零改动 (V37.9.183 DOI→S2 自动接管). FAIL-OPEN 无 DOI 保持 PII. 16 新单测 (literal-as-guard 抽函数 exec 跑真 XML fixture) + sabotage (加 description 进字段 → 防误取守卫双 FAIL). full_regression 134/0/4759 (+16) / 135 suites / governance EXIT=0 91/91 / 安全 95/100 / VERSION 0.37.9.71 不变. 诚实预期: Elsevier 多闭源, 命中取决于有无 arxiv 预印本/green OA, 恢复一部分; 仅助新论文 (历史 KB 仍 PII). 待用户合并 + Mac Mini git fetch+reset → 下次 ontology cron 新 ScienceDirect 论文写 doi.org link.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-22",
       "what": "V37.9.183 deep_dive 77% 摘要级结构 gap 真根治 — OA 全文解析. 用户报「每日深度基本都摘要级、很久没全文级」. 数据驱动诊断(用户 56 篇 frontmatter grep): 43 摘要/13 全文=77% 摘要级(V37.9.132 当初 76% 几乎没变=没改善整体) + 来源 dblp 23/ontology_sources 12/s2 11=82% 高对齐难抓源(arxiv 仅 5) + 降级原因 4 类: 21 DOI no-PDF(dblp 无 arxiv) / 6 S2 页面(V37.9.132 S2 arxiv-优先没生效) / 1 HF 页面没改写 arxiv(V37.9.132 漏) / 11 sciencedirect 403. 根因(结构性, picker 起): TOPIC_WEIGHTS ontology/KG 权重 10 → picker 系统性选高对齐论文, 它们集中在 DOI-only/付费墙场馆, fetch_pdf_text 只能 arxiv/acl/.pdf 派生 → 系统性 abstract_only; arxiv 被选中时都拿到全文(假设 B 排除). V37.9.132 KB-write arxiv-优先只覆盖有 arxiv 版的论文. 修(确定性 OA 解析复用 S2 FAIL-OPEN): resolve_oa_pdf_url + _s2_lookup_oa_pdf + _s2_fetch — 直接派生失败用 URL 确定性标识符(HF arxiv-id 改写/S2 paper-id/DOI) → S2 graph API openAccessPdf+externalIds.ArXiv → arxiv/OA PDF, wire 进 fetch_pdf_text. 零选错论文风险(标识符在 URL 非 title 模糊). 覆盖 28/43 降级(DOI 21+S2 6+HF 1=65%). 20 新单测 + sabotage(移除 wiring 守卫双 FAIL). full_regression 133/0/4743(+20) / governance EXIT=0 91/91 / 安全 95/100 / VERSION 0.37.9.71 不变. 待用户合并 + Mac Mini git fetch+reset → 下次 22:30 deep_dive dblp/s2/hf 论文走 OA 解析, mode 应翻 full_text(有 OA 版时).",
       "by": "claude_code"
     },
@@ -197,11 +202,6 @@
     {
       "date": "2026-06-17",
       "what": "V37.9.166 日落法自审退役 3 个 anti-日落法 待加机器 proposal (北极星自我应用): [8] Observer-of-Observer 第二个 cron (违#8 加保险=加故障源) / [25] AST-upgrade 已工作的窄 guard (违防御本身是事故面, churn) / [4] 立 INV-WEEKLY-USER-OBSERVATION-001 (违复杂度预算 用 check 守人类习惯, 周一观察保留 #32 单一源). unfinished 30→27. 诚实区分正确 defer ([23]待真消费方#18 / [17][18] 防重复调查 guardrail / [21]c 闭真盲区 observability) 非违反不删. 决定入 changelog 防 re-churn + 沉淀 review unfinished 三判据. 净 -3 未来 to-add 机器面, 零能力损失, VERSION 不变.",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-06-17",
-      "what": "unfinished hygiene 顺手退役 [21] V37.9.130 DONE 记录 (日落法): headline 生产验证已通过(2026-06-11 Mac Mini) + (a) final Reduce 尾部残行已 V37.9.163 _strip_trailing_incomplete_line + REDUCE_MAX_TOKENS 2000→3000 闭环, (b) 被动 last_run degraded 观察已在 changelog 留痕. unfinished 31→30. 纯 status 维护无版本 bump 无 code 改动.",
       "by": "claude_code"
     }
   ],
@@ -340,11 +340,11 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 4743,
-    "last_regression": "2026-06-22 13:15 pass",
+    "test_count": 4759,
+    "last_regression": "2026-06-22 13:29 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-22 13:15",
-    "test_suites": 134,
+    "security_score_time": "2026-06-22 13:29",
+    "test_suites": 135,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
     "version": "0.37.9.71",
@@ -412,7 +412,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-06-22 周一(三连交付): V37.9.181(健康基线抓徽章漂移+kb_radar 白名单) + V37.9.182(微信 48h 窗口真机制, 证伪 V37.9.179 永远做不了; deep_dive 通道回退 WhatsApp) + V37.9.183(deep_dive 77% 摘要级真根治: 确定性 OA 全文解析复用 S2, 数据驱动确诊 V37.9.132 只修了一半). 三版均零业务语义 VERSION 0.37.9.71 不变. 最终 full_regression 133/0/4743, governance EXIT=0, 安全 95/100. 待用户合并 PR(3 commit) + Mac Mini git fetch+reset(纯 docs/py/test 零重启). follow-up: ScienceDirect(11/43 ontology_sources 核心源) PII 无标识符 → 确定性解析覆盖不到, 待 KB-write DOI 捕获或严格 title 搜索. 无 dev 待办阻塞.",
+  "focus": "2026-06-22 周一(四连交付): V37.9.181(健康基线: 徽章漂移+kb_radar 白名单) + V37.9.182(微信 48h 窗口真机制, deep_dive 通道回退 WhatsApp) + V37.9.183(deep_dive 77% 摘要级真根治: 确定性 OA 全文解析 DOI/S2/HF→S2) + V37.9.184(补 ScienceDirect: ontology_sources KB-write 捕获 prism:doi→doi.org link, deep_dive 零改动接管). 四版均零业务语义 VERSION 0.37.9.71 不变. 最终 full_regression 134/0/4759 / 135 suites, governance EXIT=0, 安全 95/100. 待用户合并 PR(5 commit: 181-184+182) + Mac Mini git fetch+reset(纯 docs/py/sh/test 零重启). deep_dive 主要降级源(dblp/S2/HF/ScienceDirect)现全有确定性 OA 解析路径. 无 dev 待办阻塞.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
@@ -429,7 +429,8 @@
     "V37.9.20 主选 [需 A 闭环后启动]: kb_deep_dive Python 环境结构化修复 — (a) venv 隔离: 创建 ~/.openclaw_venv (Homebrew Python 创建) + ~/.openclaw_venv/bin/pip install pdfplumber beautifulsoup4 + 改 kb_deep_dive.sh 顶部加 PYTHON_BIN=${HOME}/.openclaw_venv/bin/python3 (含 fallback) + 全部 python3 改成 PYTHON_BIN 变量 + auto_deploy 加 venv bootstrap (b) 新增 INV-DEEP-002 deep-dive-script-env-has-deps 守卫 (declaration scan PYTHON_BIN 字面量 + runtime python_assert 真跑 venv subprocess 验证 import pdfplumber/bs4) (c) fetch_pdf_text/fetch_html_text ImportError 改 fail-loud (环境配错该 [SYSTEM_ALERT] 而非静默 degrade) (d) WA 摘要重构: 让 LLM 同时产 1000 字完整版 (Discord) + 章节级摘要 (WA 1300 字内含核心论点+启发, 跳过中间论证细节), build_deep_dive_wa 改读 LLM 的 WA-summary 字段而非 substring 截断 — 避免 V37.9.19 hot patch 后 full_text 触发的 WA 截断",
     "V37.9.21 候选 [V37.9.20 完成后]: kb_deep_dive TIER 1 设计 vs 实现鸿沟修复 — 现状: TIER_1_SOURCES 声明 6 源 (arxiv/acl/hf_papers/dblp/pwc/s2) PDF 可抓, 但 fetch_pdf_text 实现只识别 arxiv.org/abs + aclanthology.org + .pdf 三种 URL 形态 -> hf_papers (huggingface.co/papers/) / dblp (doi.org/) / s2 (部分 fallback URL) 都 degrade. 修复: 扩展 fetch_pdf_text — (a) hf_papers 提取 paper_id 当 arxiv ID 转 arxiv URL (b) dblp doi.org HEAD follow redirect 找真实 PDF host (arxiv/acl/publisher) (c) s2 fallback URL handle (s2 已用 arxiv_id 优先, 兜底 paper_url 时 graceful degrade) (d) 加单测覆盖每种 URL 转换路径 (e) 更新 INV-DEEP-* 守卫. 另: pwc 在 V37.8.13 已停用 (jobs/pwc 目录不存在), 应从 TIER_1_SOURCES 移除避免误导.",
     "full_regression --check 顺序结构性修复(低优, V37.9.181 登记): gen_readme_badges --check(line 297)+单测(line 116)在 status.json 回写(line 551)之前跑 → 本-session 加测试的徽章漂移只在下次 run 被抓(V37.9.180 漏收工 --write 的递归根因). 候选修复: 移 --check 到回写后让同-run 抓 drift. 风险: touch full_regression 核心 + line 464 干净树检查(--write at end 让树 dirty 影响对抗审计层), 需独立 careful 评估. 当前 drift 守卫已在下次 run 兜底(非紧急).",
-    "V37.9.183 follow-up — ScienceDirect deep_dive OA 覆盖 (11/43 降级, ontology_sources 核心源): PII URL(S0950705...)无 DOI/标识符 → 确定性 OA 解析(DOI/S2-id/HF-id)覆盖不到, 仍 abstract_only. 两选项: (a) 扩 ontology_sources 在 KB-write 捕获 DOI(镜像 V37.9.132, RSS 有 DOI, 确定性, 仅助新论文) (b) deep_dive title→Crossref/S2 搜索(模糊, 需严格 title-match 防 fail-plausible 选错论文). 另: daily_observer V37.9.168 降级率应随 V37.9.183 下降, 一周后 Mac Mini 复核 grep ^mode: ~/.kb/deep_dives/*.md 全文比例验证修复效果."
+    "V37.9.183 follow-up — ScienceDirect deep_dive OA 覆盖 (11/43 降级, ontology_sources 核心源): PII URL(S0950705...)无 DOI/标识符 → 确定性 OA 解析(DOI/S2-id/HF-id)覆盖不到, 仍 abstract_only. 两选项: (a) 扩 ontology_sources 在 KB-write 捕获 DOI(镜像 V37.9.132, RSS 有 DOI, 确定性, 仅助新论文) (b) deep_dive title→Crossref/S2 搜索(模糊, 需严格 title-match 防 fail-plausible 选错论文). 另: daily_observer V37.9.168 降级率应随 V37.9.183 下降, 一周后 Mac Mini 复核 grep ^mode: ~/.kb/deep_dives/*.md 全文比例验证修复效果.",
+    "V37.9.184 收尾: deep_dive OA 解析 ScienceDirect 已由 ontology_sources KB-write 捕获 prism:doi 覆盖(option a 完成). 余: (1) 历史 KB 条目仍 PII link(仅新论文受益, 同 V37.9.132 局限, 不补——历史 deep_dive 不重跑) (2) daily_observer V37.9.168 降级率一周后 Mac Mini 复核 grep ^mode: ~/.kb/deep_dives/*.md 验证 V37.9.183+184 合并效果(预期摘要级比例从 77% 明显下降, 但因 Elsevier 闭源不会到 0)."
   ],
   "last_updated": "2026-04-23 06:11:34 UTC by claude_code",
   "updated_at": "2026-05-29 02:32:51",

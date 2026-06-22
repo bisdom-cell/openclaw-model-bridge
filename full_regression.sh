@@ -99,6 +99,7 @@ run_suite "kb_review (V37.5 fail-fast + registry-driven)" "python3 test_kb_revie
 run_suite "kb_evening (V37.6 import reuse + V37.7 today-count)" "python3 test_kb_evening.py"
 run_suite "kb_deep_dive (V37.9.16 picker+fetcher+prompt+shell guards)" "python3 test_kb_deep_dive.py"
 run_suite "v37_9_132_arxiv_first_links (V37.9.132 方案A: dblp/hf/S2 写 KB arxiv 直链优先 — deep_dive 76% 摘要级结构 gap 修复)" "python3 test_v37_9_132_arxiv_first_links.py"
+run_suite "ontology_sources_doi (V37.9.183 ontology_sources KB-write 捕获 DOI → deep_dive DOI→S2 OA 全文解析覆盖 ScienceDirect 付费墙)" "python3 test_ontology_sources_doi.py"
 # V37.9.130: 历史 debt 补登 — V37.1 起 test_harvest_chat.py 从未注册进回归
 run_suite "harvest_chat (V37.1 MapReduce + V37.9.130 hierarchical Reduce 300s + fail-soft + --days 3 自动补提炼)" "python3 test_harvest_chat.py"
 run_suite "kb_radar (V37.9.99 Opportunity Radar Stage 5 — 件套交集红/黄/蓝 + shell guards)" "python3 test_kb_radar.py"
