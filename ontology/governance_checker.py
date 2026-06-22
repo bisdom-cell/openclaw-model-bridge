@@ -119,7 +119,7 @@ _MRD_DEFAULTS = {
         "job_watchdog.sh", "auto_deploy.sh", "daily_ops_report.sh", "health_check.sh",
         "kb_status_refresh.sh", "cron_canary.sh", "preflight_check.sh", "smoke_test.sh",
         "quickstart.sh", "gameday.sh", "kb_evening.sh", "kb_inject.sh", "kb_review.sh",
-        "kb_deep_dive.sh", "kb_dream.sh", "check_upgrade.sh", "diagnose.sh",
+        "kb_deep_dive.sh", "kb_dream.sh", "kb_radar.sh", "check_upgrade.sh", "diagnose.sh",
         "upgrade_openclaw.sh", "restart.sh", "openclaw_backup.sh",
     ],
 }

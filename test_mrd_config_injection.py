@@ -289,10 +289,11 @@ class TestMrd3b2GlobDefaults(unittest.TestCase):
         self.assertEqual(gc._MRD_DEFAULTS["alert_monitor_globs"],
                          ["wa_*.sh", "*keepalive*.sh", "*watchdog*.sh"])
 
-    def test_push_route_whitelist_23(self):
+    def test_push_route_whitelist_24(self):
+        # V37.9.181: +kb_radar.sh (notify 主推 + openclaw fallback, 补登记同 kb_evening/kb_review)
         wl = gc._MRD_DEFAULTS["push_route_whitelist"]
-        self.assertEqual(len(wl), 23)
-        for must in ("notify.sh", "kb_dream.sh", "openclaw_backup.sh"):
+        self.assertEqual(len(wl), 24)
+        for must in ("notify.sh", "kb_dream.sh", "kb_radar.sh", "openclaw_backup.sh"):
             self.assertIn(must, wl)
 
 

@@ -249,6 +249,33 @@ class TestKbRadarShellGuards(unittest.TestCase):
             if "<<" in line and "python3" in line and "|" in line.split("<<")[0]:
                 self.fail(f"pipe+heredoc 反模式: {line}")
 
+    def test_v37_9_181_notify_primary_raw_only_in_fallback(self):
+        # V37.9.181: kb_radar 补登记 push-route 白名单后, scanner 不再覆盖它,
+        # 此守卫恢复等价保护 — 原则 #16: notify 主推, 裸 openclaw send 仅许 fallback.
+        lines = self.src.splitlines()
+        raw_sends = [
+            i for i, ln in enumerate(lines)
+            if "openclaw message send --channel whatsapp" in ln
+            and not ln.lstrip().startswith("#")
+        ]
+        self.assertTrue(raw_sends, "应有 openclaw whatsapp fallback 分支 (结构契约)")
+        for idx in raw_sends:
+            # 向上回溯到最近的 if/elif/else 控制关键字, 必须是 elif command -v openclaw 降级分支
+            ctrl = None
+            for j in range(idx - 1, -1, -1):
+                s = lines[j].lstrip()
+                if s.startswith(("if ", "elif ", "else", "fi")):
+                    ctrl = s
+                    break
+            self.assertIsNotNone(ctrl, f"line {idx+1} 裸 send 找不到控制分支")
+            self.assertTrue(
+                ctrl.startswith("elif ") and "command -v openclaw" in ctrl,
+                f"line {idx+1} 裸 whatsapp send 必须在 `elif command -v openclaw` fallback 分支, "
+                f"实际控制行: {ctrl!r} (主推必须走 notify --topic daily)",
+            )
+        # 主推必须是 notify --topic daily (在裸 send 之前的 if command -v notify 块)
+        self.assertIn('notify "$WA_MSG" --topic daily', self.src)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
