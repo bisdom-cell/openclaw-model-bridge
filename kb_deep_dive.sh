@@ -232,7 +232,7 @@ send_wa_parts_via_notify() {
         [ -f "$chunk_file" ] || continue
         WA_PART_IDX=$((WA_PART_IDX + 1))
         WA_SEGMENT=$(cat "$chunk_file")
-        if notify "$WA_SEGMENT" --channel openclaw-weixin --topic deep_dive >/dev/null 2>&1; then  # V37.9.174: --channel whatsapp → openclaw-weixin（强制微信分段；discord 由下方 DISCORD_MSG 单发，避免重复）
+        if notify "$WA_SEGMENT" --channel whatsapp --topic deep_dive >/dev/null 2>&1; then  # V37.9.182: openclaw-weixin → whatsapp 回退（V37.9.179 回退默认通道时漏改本行；微信仅 48h 客服窗口内可投递、窗口外静默丢失，不适合无人值守 cron；WhatsApp 已恢复可靠。Discord 由下方 DISCORD_MSG 单发，避免重复）
             WA_SEND_OK=$((WA_SEND_OK + 1))
         else
             log "WARN: WhatsApp 第 $WA_PART_IDX/$WA_PARTS_TOTAL 段推送失败"

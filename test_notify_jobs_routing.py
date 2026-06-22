@@ -111,17 +111,18 @@ class TestBatch2SpecialFormatJobs(unittest.TestCase):
         self.assertNotIn('--channel whatsapp --target "$PHONE" --message "$WA_MSG"', src)
         self.assertIn("V37.9.171", src)
 
-    def test_kb_deep_dive_weixin_segment_no_whatsapp_force(self):
-        # V37.9.174: WA 段推送 --channel whatsapp → openclaw-weixin（强制微信分段；
-        # 不能去掉 --channel 走默认，否则与 DISCORD_MSG 单发重复发 discord）。
+    def test_kb_deep_dive_whatsapp_segment_no_weixin_force(self):
+        # V37.9.182: WA 段推送 --channel openclaw-weixin → whatsapp 回退（V37.9.179 回退
+        # 默认通道时漏改本行；微信仅 48h 客服窗口内可投递、窗口外静默丢失，不适合无人值守 cron）。
+        # 仍强制单通道（whatsapp）避免去掉 --channel 走默认与 DISCORD_MSG 单发重复发 discord。
         src = _read("kb_deep_dive.sh")
-        self.assertNotIn('notify "$WA_SEGMENT" --channel whatsapp', src,
-                         "kb_deep_dive 不得强制 --channel whatsapp（绕过微信）")
-        self.assertIn('notify "$WA_SEGMENT" --channel openclaw-weixin --topic deep_dive', src,
-                      "WA 段应强制 openclaw-weixin（避免默认多通道把 discord 重复发）")
+        self.assertNotIn("--channel openclaw-weixin", src,
+                         "kb_deep_dive 不得再强制 --channel openclaw-weixin（微信窗口外静默丢失）")
+        self.assertIn('notify "$WA_SEGMENT" --channel whatsapp --topic deep_dive', src,
+                      "WA 段应强制 whatsapp（单通道避免默认多通道把 discord 重复发）")
         self.assertIn('notify "$DISCORD_MSG" --channel discord --topic deep_dive', src,
                       "discord 单发应保留（V37.9.21 设计：只有用户通道分段，discord 单发）")
-        self.assertIn("V37.9.174", src)
+        self.assertIn("V37.9.182", src)
 
 
 class TestBatch3OpsScripts(unittest.TestCase):
