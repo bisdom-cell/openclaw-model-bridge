@@ -809,9 +809,11 @@ class TestKbDeepDiveShellGuards(unittest.TestCase):
 
     def test_script_has_separate_wa_and_discord_send(self):
         """Discord stays single-send (per V37.9.21 design decision 1: only WA/微信 splits)."""
-        # V37.9.174: 用户分段通道 whatsapp → openclaw-weixin（WhatsApp 临时禁用）；
+        # V37.9.182: openclaw-weixin → whatsapp 回退（V37.9.179 回退默认通道时漏改本行；
+        # 微信仅 48h 客服窗口内可投递、窗口外静默丢失，不适合无人值守 cron；WhatsApp 已恢复）。
         # 强制单通道避免 default 多通道把 discord 重复发（discord 由 DISCORD_MSG 单发）。
-        self.assertIn("--channel openclaw-weixin --topic deep_dive", self.content)
+        self.assertIn("--channel whatsapp --topic deep_dive", self.content)
+        self.assertNotIn("--channel openclaw-weixin", self.content)  # V37.9.182: 不得再指向微信
         self.assertIn("--channel discord --topic deep_dive", self.content)
         # Discord NOT in WA chunk loop — separate notify call
         # Check that DISCORD_MSG is sent ONCE (not in loop)

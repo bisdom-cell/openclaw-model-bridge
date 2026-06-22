@@ -48,17 +48,20 @@ _NOTIFY_WA_TARGET="${OPENCLAW_PHONE:-+85200000000}"
 _NOTIFY_WEIXIN_TARGET="${WEIXIN_TARGET:-}"
 _NOTIFY_WEIXIN_SKIP_WARNED=""   # V37.9.176: 一次性微信跳过 WARN 守卫（每进程仅 warn 一次，防多次 notify 刷屏）
 _NOTIFY_DISCORD_TARGET="${DISCORD_TARGET:-}"
-# V37.9.170→V37.9.179: 频道演进史 + WeChat 推送根因。
+# V37.9.170→V37.9.182: 频道演进史 + WeChat 推送真机制。
 # - V37.9.170: WhatsApp 频道 2026-06-18 连续 3 天 408 临时禁用 → 一度把主推切到 openclaw-weixin。
-# - V37.9.179 根因锁定（contextToken）: openclaw-weixin 是微信【客服/对话】通道（ilinkai.weixin.qq.com），
-#   outbound 必须携带 contextToken（来自用户入站消息的会话上下文）。`notify → openclaw message send`
-#   是独立 CLI 发起、不绑任何入站 → 永远无 contextToken → provider 日志 "sendWeixinOutbound:
-#   contextToken missing ... sending without context" → 微信一律丢弃（`✅ Sent` 是假成功 fail-plausible）。
-#   **结论: WeChat 客服通道架构上做不了无人值守定时推送，只能交互回复（PA 回复持有入站 token）。**
-#   故默认推送通道从 openclaw-weixin,discord 退回 **discord**（当前唯一可靠的定时推送通道）。
-# - WhatsApp 恢复（408 缓解后）: 设 NOTIFY_CHANNELS="whatsapp,discord"（whatsapp 分支 + OPENCLAW_PHONE 都保留未动）。
+# - V37.9.179: openclaw-weixin 是微信【客服/对话】通道（ilinkai.weixin.qq.com），CLI 发起的
+#   `notify → openclaw message send` 不绑入站 → 无 contextToken → provider 日志 "sendWeixinOutbound:
+#   contextToken missing ... sending without context"。当时观察 3h 零到达，结论「永远丢弃／架构上做不了推送」。
+# - V37.9.182 修正（Mac Mini 日志证伪 V37.9.179 过头结论）: 真闸门是微信【48h 客服会话窗口】，**不是**
+#   contextToken。铁证（2026-06-21 日志）: 22:30 deep_dive cron 发的 outbound "contextToken missing,
+#   sending without context"（无 token）**仍投递成功**，因为 `channels status` 显示 weixin in:29h ago
+#   （用户最后入站 29h < 48h → 窗口开）。即: 无 token 的 CLI outbound **在 48h 窗口内可投递、窗口外丢弃**。
+#   `✅ Sent` 仍是 fail-plausible（发送侧确认 ≠ 投递）。**净结论: WeChat 对无人值守 cron 不可靠（投递依赖
+#   用户近 48h 内有交互维持窗口），不适合做内容主推；可做交互回复 + 窗口开时的尽力投递。**
+# - 故默认推送通道维持 discord（窗口无关，永远可靠）；WhatsApp 恢复后设 NOTIFY_CHANNELS="whatsapp,discord"。
 # - weixin 分支保留（显式 NOTIFY_CHANNELS 含 openclaw-weixin 时仍可发，供交互/调试；WEIXIN_TARGET 空则一次性 WARN）。
-# 详见 ontology/docs/cases/weixin_contexttoken_push_blocked_case.md。
+# 详见 ontology/docs/cases/weixin_contexttoken_push_blocked_case.md（含 V37.9.182 修正段）。
 _NOTIFY_CHANNELS="${NOTIFY_CHANNELS:-discord}"
 _NOTIFY_MAX_RETRIES="${NOTIFY_MAX_RETRIES:-3}"
 _NOTIFY_QUEUE_DIR="${NOTIFY_QUEUE_DIR:-$HOME/.kb/notify_queue}"
