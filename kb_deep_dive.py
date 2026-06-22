@@ -32,6 +32,7 @@ import os
 import re
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta
 
@@ -285,6 +286,94 @@ def _urlopen(url, timeout=FETCH_TIMEOUT):
     return urllib.request.urlopen(req, timeout=timeout)
 
 
+# ══════════════════════════════════════════════════════════════════════
+# 3b. OA 全文解析（V37.9.183）— picker 选中 DOI-only / S2 页 / HF 页论文时
+#     用 Semantic Scholar 把标识符解析为 arxiv/OA PDF，恢复全文级分析
+# ══════════════════════════════════════════════════════════════════════
+# 背景（V37.9.183 数据驱动诊断，56 篇 deep_dive 77% abstract_only）：picker 用
+# TOPIC_WEIGHTS 系统性选高对齐论文（ontology/KG 权重 10），它们集中在 dblp DOI /
+# semantic_scholar 页面 / hf 页面 —— fetch_pdf_text 无法从这些 URL 直接派生 PDF。
+# 本解析复用 S2 graph API（+ 可选 S2_API_KEY，与 V37.9.98 同款）把【URL 里的确定性
+# 标识符】（HF arxiv-id / S2 paper-id / DOI）解析为 arxiv/OA PDF —— 零选错论文风险。
+# FAIL-OPEN：任何失败 → None → 维持 abstract_only（与解析前同，不引入新故障模式）。
+# 不处理 ScienceDirect（PII URL 无 DOI，需 title 搜索/KB-write DOI 捕获，登记 follow-up）。
+S2_GRAPH_API = "https://api.semanticscholar.org/graph/v1/paper"
+_DOI_RE = re.compile(r"(10\.\d{4,9}/[^\s?#\"'<>]+)", re.IGNORECASE)
+_S2_PAPER_ID_RE = re.compile(
+    r"semanticscholar\.org/paper/(?:[^/\s]+/)?([0-9a-f]{40})", re.IGNORECASE
+)
+_HF_PAPER_ID_RE = re.compile(
+    r"huggingface\.co/papers/(\d{4}\.\d{4,5}(?:v\d+)?)", re.IGNORECASE
+)
+
+
+def _s2_fetch(paper_path):
+    """查 S2 graph API（openAccessPdf + externalIds），返回 dict 或 None（FAIL-OPEN）。
+
+    paper_path: 40-hex S2 paper id / 'DOI:10.xxxx/yyy' / 'arXiv:xxxx'。
+    """
+    api_url = "{}/{}?fields=openAccessPdf,externalIds".format(
+        S2_GRAPH_API, urllib.parse.quote(paper_path, safe=":")
+    )
+    try:
+        req = urllib.request.Request(api_url, headers={"User-Agent": USER_AGENT})
+        api_key = os.environ.get("S2_API_KEY", "").strip()
+        if api_key:
+            req.add_header("x-api-key", api_key)
+        with urllib.request.urlopen(req, timeout=FETCH_TIMEOUT) as resp:
+            data = json.loads(resp.read().decode("utf-8", errors="replace"))
+    except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError,
+            OSError, ValueError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def _s2_lookup_oa_pdf(paper_path):
+    """从 S2 元数据解析 PDF URL：openAccessPdf.url 优先，否则 externalIds.ArXiv → arxiv PDF。
+
+    Returns: pdf_url 或 None（FAIL-OPEN）。
+    """
+    data = _s2_fetch(paper_path)
+    if not data:
+        return None
+    oa = data.get("openAccessPdf")
+    if isinstance(oa, dict):
+        pdf = oa.get("url")
+        if pdf and isinstance(pdf, str):
+            # arxiv abs/pdf URL 归一化；其余 OA url 直接交 fetch_pdf_text 抓字节+pdfplumber
+            return arxiv_url_to_pdf(pdf) or pdf
+    ext = data.get("externalIds")
+    if isinstance(ext, dict):
+        arxiv_id = ext.get("ArXiv")
+        if arxiv_id:
+            return "https://arxiv.org/pdf/{}".format(arxiv_id)
+    return None
+
+
+def resolve_oa_pdf_url(url):
+    """URL 直接派生 PDF 失败时，用 URL 里的确定性标识符找 OA PDF。
+
+    顺序（全确定性，标识符在 URL 里，零选错论文风险）：
+      1. HF papers 页 → arxiv（id 即 arxiv id，HF Daily Papers 按 arxiv 索引）
+      2. semantic_scholar 论文页 → S2 API（paper id 在 URL）
+      3. 任意 URL 含 DOI → S2 API（DOI:）
+    Returns: pdf_url 或 None（FAIL-OPEN）。
+    """
+    if not url:
+        return None
+    m = _HF_PAPER_ID_RE.search(url)
+    if m:
+        return "https://arxiv.org/pdf/{}".format(m.group(1))
+    m = _S2_PAPER_ID_RE.search(url)
+    if m:
+        return _s2_lookup_oa_pdf(m.group(1))
+    m = _DOI_RE.search(url)
+    if m:
+        doi = m.group(1).rstrip(".")
+        return _s2_lookup_oa_pdf("DOI:{}".format(doi))
+    return None
+
+
 def fetch_pdf_text(url, max_chars=MAX_FULL_TEXT_CHARS):
     """抓 arxiv/acl PDF → pdfplumber 提取文本。
 
@@ -295,7 +384,7 @@ def fetch_pdf_text(url, max_chars=MAX_FULL_TEXT_CHARS):
 
     lazy import pdfplumber — dev 环境无此库时 degrade 到摘要。
     """
-    # 定位真实 PDF URL
+    # 定位真实 PDF URL（直接派生）
     pdf_url = None
     if "arxiv.org" in url:
         pdf_url = arxiv_url_to_pdf(url)
@@ -303,8 +392,11 @@ def fetch_pdf_text(url, max_chars=MAX_FULL_TEXT_CHARS):
         pdf_url = acl_url_to_pdf(url)
     elif url.lower().endswith(".pdf"):
         pdf_url = url
+    # V37.9.183: 直接派生失败 → OA 解析（DOI/S2-id/HF-id → S2 → arxiv/OA PDF）
     if not pdf_url:
-        return False, "", f"no PDF URL derivable from {url}"
+        pdf_url = resolve_oa_pdf_url(url)
+    if not pdf_url:
+        return False, "", f"no PDF URL derivable (incl. OA lookup) from {url}"
 
     try:
         import pdfplumber  # lazy — dev 无此库走 degrade

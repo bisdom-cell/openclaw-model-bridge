@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-22 11:13:42",
+  "updated": "2026-06-22 13:16:44",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-06-22",
+      "what": "V37.9.183 deep_dive 77% 摘要级结构 gap 真根治 — OA 全文解析. 用户报「每日深度基本都摘要级、很久没全文级」. 数据驱动诊断(用户 56 篇 frontmatter grep): 43 摘要/13 全文=77% 摘要级(V37.9.132 当初 76% 几乎没变=没改善整体) + 来源 dblp 23/ontology_sources 12/s2 11=82% 高对齐难抓源(arxiv 仅 5) + 降级原因 4 类: 21 DOI no-PDF(dblp 无 arxiv) / 6 S2 页面(V37.9.132 S2 arxiv-优先没生效) / 1 HF 页面没改写 arxiv(V37.9.132 漏) / 11 sciencedirect 403. 根因(结构性, picker 起): TOPIC_WEIGHTS ontology/KG 权重 10 → picker 系统性选高对齐论文, 它们集中在 DOI-only/付费墙场馆, fetch_pdf_text 只能 arxiv/acl/.pdf 派生 → 系统性 abstract_only; arxiv 被选中时都拿到全文(假设 B 排除). V37.9.132 KB-write arxiv-优先只覆盖有 arxiv 版的论文. 修(确定性 OA 解析复用 S2 FAIL-OPEN): resolve_oa_pdf_url + _s2_lookup_oa_pdf + _s2_fetch — 直接派生失败用 URL 确定性标识符(HF arxiv-id 改写/S2 paper-id/DOI) → S2 graph API openAccessPdf+externalIds.ArXiv → arxiv/OA PDF, wire 进 fetch_pdf_text. 零选错论文风险(标识符在 URL 非 title 模糊). 覆盖 28/43 降级(DOI 21+S2 6+HF 1=65%). 20 新单测 + sabotage(移除 wiring 守卫双 FAIL). full_regression 133/0/4743(+20) / governance EXIT=0 91/91 / 安全 95/100 / VERSION 0.37.9.71 不变. 待用户合并 + Mac Mini git fetch+reset → 下次 22:30 deep_dive dblp/s2/hf 论文走 OA 解析, mode 应翻 full_text(有 OA 版时).",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-22",
       "what": "V37.9.182 微信推送真机制修正(证伪 V37.9.179「永远做不了」过头结论)+ deep_dive 通道回退 WhatsApp. 触发: 用户报「微信连续两天收到 🔬 每日深度」矛盾 V37.9.179. 数据驱动诊断(用户 Mac Mini 日志铁证): 22:30 deep_dive cron outbound contextToken missing(无 token)却投递成功 + channels status weixin in:29h ago(<48h 窗口开). 真闸门是微信 48h 客服窗口非 contextToken(token 决定会话串接非投递权限); V37.9.179「3h 零到达」恰在窗口关闭期外推出绝对结论. 净结论精炼非反转: 微信对无人值守 cron 仍不可靠(投递依赖用户交互维持窗口)不做内容主推, V37.9.179「不适合 cron」方向对「永远做不了」绝对化错. 为什么只有 deep_dive 到微信: kb_deep_dive.sh:235 硬编码 --channel openclaw-weixin(V37.9.174 遗留, V37.9.179 回退默认通道时漏改). 修(用户选改回 WhatsApp): WA 段 openclaw-weixin→whatsapp + 2 测试断言翻转 + case doc/notify.sh/CLAUDE.md 原则#16/文件表结论修订(诚实追加非改写 V37.9.179 历史). 验证: full_regression 133/0/4723 不变 / governance EXIT=0 91/91 / 安全 95/100 / VERSION 0.37.9.71 不变. 待用户合并 + Mac Mini git fetch+reset → 下次 22:30 deep_dive WA 段走 WhatsApp. 元价值: 正中反馈#1(环境受限就下不可能结论), V37.9.179 是 fail-plausible 镜像(诊断者自己下 plausible 但过头结论), 用户真实观察证伪它.",
       "by": "claude_code"
     },
@@ -197,11 +202,6 @@
     {
       "date": "2026-06-17",
       "what": "unfinished hygiene 顺手退役 [21] V37.9.130 DONE 记录 (日落法): headline 生产验证已通过(2026-06-11 Mac Mini) + (a) final Reduce 尾部残行已 V37.9.163 _strip_trailing_incomplete_line + REDUCE_MAX_TOKENS 2000→3000 闭环, (b) 被动 last_run degraded 观察已在 changelog 留痕. unfinished 31→30. 纯 status 维护无版本 bump 无 code 改动.",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-06-17",
-      "what": "V37.9.165 doc date-marker 退役 + unfinished hygiene (日落法续, doc-stat-sync V2 lineage 闭合): grounded 全文档审计后退役唯一真 stale date-marker GUIDE.md:5 Last updated 2026-04-01(V32) 陈旧2.5月(虚假新鲜度信号) — V37.9.151 退役 config.md 最后更新 + V37.9.161 版本/日期标记必然漂移源应退役 先例, git 历史是权威. doc-stat-sync V2 全 lineage 闭合: 所有 doc date-marker 现已 machine-synced(CLAUDE L3 单一源) 或退役 = 一物一形, 零未管理手工 date 漂移源. unfinished 退役 2 真 DONE 项 [19]doc-stat-sync V2 follow-up(剩余 scope 全 done) + [25]✅V37.9.158 INV-CRON-004 双行钉死, 33→31 直击评审#2 文档认知过载, 保留全部 Mac-Mini-gated 验证项. 净 -1 漂移面 + unfinished -2. VERSION 0.37.9.70 不变.",
       "by": "claude_code"
     }
   ],
@@ -340,10 +340,10 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 4723,
-    "last_regression": "2026-06-22 11:12 pass",
+    "test_count": 4743,
+    "last_regression": "2026-06-22 13:15 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-22 11:12",
+    "security_score_time": "2026-06-22 13:15",
     "test_suites": 134,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
@@ -412,7 +412,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-06-22 周一: V37.9.181(健康基线抓 V37.9.180 徽章漂移 + kb_radar 白名单)+ V37.9.182(用户观察「微信连续两天收每日深度」驱动 → 证伪 V37.9.179「微信永远做不了推送」过头结论: 真闸门是 48h 客服窗口非 contextToken; deep_dive 通道回退 WhatsApp, V37.9.174 遗留 V37.9.179 漏改). 两版均一致性收敛/结论修订零业务语义 VERSION 0.37.9.71 不变. 最终 full_regression 133/0/4723, governance EXIT=0, 安全 95/100. 待用户合并 PR + Mac Mini git fetch+reset(纯 docs/yaml/py/test 零重启). 周一 #32 用户视角观察待用户在端侧执行. 无 dev 待办阻塞.",
+  "focus": "2026-06-22 周一(三连交付): V37.9.181(健康基线抓徽章漂移+kb_radar 白名单) + V37.9.182(微信 48h 窗口真机制, 证伪 V37.9.179 永远做不了; deep_dive 通道回退 WhatsApp) + V37.9.183(deep_dive 77% 摘要级真根治: 确定性 OA 全文解析复用 S2, 数据驱动确诊 V37.9.132 只修了一半). 三版均零业务语义 VERSION 0.37.9.71 不变. 最终 full_regression 133/0/4743, governance EXIT=0, 安全 95/100. 待用户合并 PR(3 commit) + Mac Mini git fetch+reset(纯 docs/py/test 零重启). follow-up: ScienceDirect(11/43 ontology_sources 核心源) PII 无标识符 → 确定性解析覆盖不到, 待 KB-write DOI 捕获或严格 title 搜索. 无 dev 待办阻塞.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
@@ -428,7 +428,8 @@
     "V37.9.19+hot-patch A 闭环未完成 (本 session 工具反复 timeout): 待新 session 执行 4 步 — (1) 写 case doc ontology/docs/cases/kb_deep_dive_homebrew_python_pep668_case.md (MR-4 silent-failure 第 17 次演出, 新形态: 环境层 silent — Homebrew Python 3.14 vs system Python 双解释器 + lazy import 静默 degrade + abstract_only 合法 mode 三重掩护) (2) 更新 status.json recent_changes 加 V37.9.19+hot-patch 条目 (3) 更新 CLAUDE.md changelog 加 V37.9.19+hot-patch 行 + 文件表新 case doc (4) commit+push claude/start-daily-work-4vqA9. Hot patch 本身已在 Mac Mini 验证通过: /opt/homebrew/bin/pip3 install --break-system-packages pdfplumber beautifulsoup4 后, 2026-04-26.md mode 从 abstract_only 切到 full_text, WhatsApp+Discord 推送 1000 字论证链分析生效.",
     "V37.9.20 主选 [需 A 闭环后启动]: kb_deep_dive Python 环境结构化修复 — (a) venv 隔离: 创建 ~/.openclaw_venv (Homebrew Python 创建) + ~/.openclaw_venv/bin/pip install pdfplumber beautifulsoup4 + 改 kb_deep_dive.sh 顶部加 PYTHON_BIN=${HOME}/.openclaw_venv/bin/python3 (含 fallback) + 全部 python3 改成 PYTHON_BIN 变量 + auto_deploy 加 venv bootstrap (b) 新增 INV-DEEP-002 deep-dive-script-env-has-deps 守卫 (declaration scan PYTHON_BIN 字面量 + runtime python_assert 真跑 venv subprocess 验证 import pdfplumber/bs4) (c) fetch_pdf_text/fetch_html_text ImportError 改 fail-loud (环境配错该 [SYSTEM_ALERT] 而非静默 degrade) (d) WA 摘要重构: 让 LLM 同时产 1000 字完整版 (Discord) + 章节级摘要 (WA 1300 字内含核心论点+启发, 跳过中间论证细节), build_deep_dive_wa 改读 LLM 的 WA-summary 字段而非 substring 截断 — 避免 V37.9.19 hot patch 后 full_text 触发的 WA 截断",
     "V37.9.21 候选 [V37.9.20 完成后]: kb_deep_dive TIER 1 设计 vs 实现鸿沟修复 — 现状: TIER_1_SOURCES 声明 6 源 (arxiv/acl/hf_papers/dblp/pwc/s2) PDF 可抓, 但 fetch_pdf_text 实现只识别 arxiv.org/abs + aclanthology.org + .pdf 三种 URL 形态 -> hf_papers (huggingface.co/papers/) / dblp (doi.org/) / s2 (部分 fallback URL) 都 degrade. 修复: 扩展 fetch_pdf_text — (a) hf_papers 提取 paper_id 当 arxiv ID 转 arxiv URL (b) dblp doi.org HEAD follow redirect 找真实 PDF host (arxiv/acl/publisher) (c) s2 fallback URL handle (s2 已用 arxiv_id 优先, 兜底 paper_url 时 graceful degrade) (d) 加单测覆盖每种 URL 转换路径 (e) 更新 INV-DEEP-* 守卫. 另: pwc 在 V37.8.13 已停用 (jobs/pwc 目录不存在), 应从 TIER_1_SOURCES 移除避免误导.",
-    "full_regression --check 顺序结构性修复(低优, V37.9.181 登记): gen_readme_badges --check(line 297)+单测(line 116)在 status.json 回写(line 551)之前跑 → 本-session 加测试的徽章漂移只在下次 run 被抓(V37.9.180 漏收工 --write 的递归根因). 候选修复: 移 --check 到回写后让同-run 抓 drift. 风险: touch full_regression 核心 + line 464 干净树检查(--write at end 让树 dirty 影响对抗审计层), 需独立 careful 评估. 当前 drift 守卫已在下次 run 兜底(非紧急)."
+    "full_regression --check 顺序结构性修复(低优, V37.9.181 登记): gen_readme_badges --check(line 297)+单测(line 116)在 status.json 回写(line 551)之前跑 → 本-session 加测试的徽章漂移只在下次 run 被抓(V37.9.180 漏收工 --write 的递归根因). 候选修复: 移 --check 到回写后让同-run 抓 drift. 风险: touch full_regression 核心 + line 464 干净树检查(--write at end 让树 dirty 影响对抗审计层), 需独立 careful 评估. 当前 drift 守卫已在下次 run 兜底(非紧急).",
+    "V37.9.183 follow-up — ScienceDirect deep_dive OA 覆盖 (11/43 降级, ontology_sources 核心源): PII URL(S0950705...)无 DOI/标识符 → 确定性 OA 解析(DOI/S2-id/HF-id)覆盖不到, 仍 abstract_only. 两选项: (a) 扩 ontology_sources 在 KB-write 捕获 DOI(镜像 V37.9.132, RSS 有 DOI, 确定性, 仅助新论文) (b) deep_dive title→Crossref/S2 搜索(模糊, 需严格 title-match 防 fail-plausible 选错论文). 另: daily_observer V37.9.168 降级率应随 V37.9.183 下降, 一周后 Mac Mini 复核 grep ^mode: ~/.kb/deep_dives/*.md 全文比例验证修复效果."
   ],
   "last_updated": "2026-04-23 06:11:34 UTC by claude_code",
   "updated_at": "2026-05-29 02:32:51",
