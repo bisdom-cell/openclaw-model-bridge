@@ -1,6 +1,6 @@
 {
-  "updated": "2026-06-22 13:31:08",
-  "updated_by": "claude_code",
+  "updated": "2026-06-23 13:50:43",
+  "updated_by": "security_score",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -105,6 +105,11 @@
   ],
   "recent_changes": [
     {
+      "date": "2026-06-23",
+      "what": "V37.9.185 status.json 一致性收敛 + 待办归账 (日落法 + 外部评审2「一致性收敛」指令, 用户选). 周二开工健康基线全绿(135 suites/4759 tests/0 fail/governance 91/91/安全 95/三机器 doc-drift 无漂移/树干净/无 PR). 诊断(原则 #28 + 删除前看目标): status.json 经多 session 直接 Edit 累积真实结构性 cruft — (a) 两个 unfinished 列表(嵌套 canonical 21 项停@V37.9.167 + 误键顶层 dotted-key 'session_context.unfinished' 7 项一物多形 bug, 含 4 月古董 V37.9.9/19/20/21 + 最新 V37.9.183/184 follow-up) (b) 两个 focus(嵌套 stale@167 + current_focus 古董@V37.8 + 顶层 canonical) (c) stale 冗余(session_context.recent_changes V37.9.90↓ dup / system_health 3505 dup of quality 4759 / last_updated+updated_at dup of canonical updated). 读两写入者(status_update.py V37.9.38 迁移只处理纯顶层 unfinished 不处理 dotted-key + kb_status_refresh.sh SOUL 生成器)核实 canonical 字段全顶层, cruft 从不被读. 待办归账: 28 碎片→14 grounded-live 单一 canonical, 退役 12 项每项 changelog/code 证据(V37.9.9 engine 三 API done @V37.9.12 / V37.9.21 fetch_pdf_text 取代 V37.9.132/183/184 / V37.9.157 INV-CRON Mac Mini ✅ 8 天无复发 / V37.9.100/101/103/106 部署验证窗口过+governance 91/91 / SLO #19 self-heal 兑现 / V37.9.162 Option A V37.9.180 证伪). 删 cruft 8 session_context 字段 + 顶层孤儿 dotted-key + system_health + last_updated/updated_at, 零信息损失(canonical 全在顶层 focus/recent_changes/quality/updated + CLAUDE changelog). status.json 444→359 行(-85). Python 原子脚本 + 边界 assert 防呆 + status_update.py --read --human 验证 canonical 消费者 + 4 status 套件(memory_plane/status_update/v37_9_38/daily_observer)全过. full_regression 135/0/4759 不变 / governance EXIT=0 91/91 / VERSION 0.37.9.71 不变(纯 state 零业务语义). 净 -3 一物多形漂移源, unfinished 认知负荷 28→14 缩外部评审2 文档过载面. 同时刷新停 V37.9.167 的 session_context 与现实对齐. 待 Mac Mini git fetch+reset(纯 status.json 零重启).",
+      "by": "claude_code"
+    },
+    {
       "date": "2026-06-22",
       "what": "V37.9.184 deep_dive ScienceDirect 覆盖 (V37.9.183 follow-up 兑现, 用户「继续补上」). ScienceDirect (11/43, ontology_sources 核心源 Elsevier 付费墙) KB link 是 PII URL 无 DOI → deep_dive DOI→S2 OA 解析够不到. 修复点选 KB-write (镜像 V37.9.132 源头写好 link, 非 deep_dive fetch 时模糊 title 搜索): run_ontology_sources.sh 加 prism namespace + _extract_item_doi 纯函数 (仅取结构化字段 prism:doi→dc:identifier→guid, 绝不碰 description 防摘要引用 DOI 误取=fail-plausible 防线) + 有 DOI 且 link 非 arxiv/doi.org → 改写 doi.org link. deep_dive 零改动 (V37.9.183 DOI→S2 自动接管). FAIL-OPEN 无 DOI 保持 PII. 16 新单测 (literal-as-guard 抽函数 exec 跑真 XML fixture) + sabotage (加 description 进字段 → 防误取守卫双 FAIL). full_regression 134/0/4759 (+16) / 135 suites / governance EXIT=0 91/91 / 安全 95/100 / VERSION 0.37.9.71 不变. 诚实预期: Elsevier 多闭源, 命中取决于有无 arxiv 预印本/green OA, 恢复一部分; 仅助新论文 (历史 KB 仍 PII). 待用户合并 + Mac Mini git fetch+reset → 下次 ontology cron 新 ScienceDirect 论文写 doi.org link.",
       "by": "claude_code"
@@ -198,11 +203,6 @@
       "date": "2026-06-17",
       "what": "V37.9.167 CLAUDE.md changelog 归档 — 每-session 必读 1MB→291KB (-73%, 日落法): grounded 审视发现 CLAUDE.md 92% 字节(989KB/231 版本行)是冻结历史, 评审#2 文档认知过载根因. blast radius 核实(17 治理+8 test 全引原则/文件表/L3 非 changelog 行). 保留 38 版内联(V37.9.166→130), 归档 190 版(V37.9.129→V27.x)到 docs/changelog.md(头注更新+新 section). Python 原子化+边界 assert. 零丢失(38+190=228 守恒, 11 章节全在, gen 三机器绿). 净 -1 巨型热路径接缝, 每 session 省 ~190K tokens. VERSION 0.37.9.70 不变.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-06-17",
-      "what": "V37.9.166 日落法自审退役 3 个 anti-日落法 待加机器 proposal (北极星自我应用): [8] Observer-of-Observer 第二个 cron (违#8 加保险=加故障源) / [25] AST-upgrade 已工作的窄 guard (违防御本身是事故面, churn) / [4] 立 INV-WEEKLY-USER-OBSERVATION-001 (违复杂度预算 用 check 守人类习惯, 周一观察保留 #32 单一源). unfinished 30→27. 诚实区分正确 defer ([23]待真消费方#18 / [17][18] 防重复调查 guardrail / [21]c 闭真盲区 observability) 非违反不删. 决定入 changelog 防 re-churn + 沉淀 review unfinished 三判据. 净 -3 未来 to-add 机器面, 零能力损失, VERSION 不变.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -252,98 +252,32 @@
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB"
   },
   "session_context": {
-    "last_session": "2026-06-17",
+    "last_session": "2026-06-23",
     "unfinished": [
-      "【V37.9.157 已根治, Mac Mini 待验证】INV-CRON-004 ❌ = auto_deploy stale 行 (用户 crontab_safe.sh remove 删 line 54 转绿). INV-REVIEW-001 + INV-CRON-MONITOR-001 💥 = 4.27 冷调用劫持 audit subprocess, V37.9.157 根治 (test _stub_env 隔离 + INV-REVIEW check stub gap 关 + 前瞻 scan). dev 全绿 (90 inv EXIT=0) 但 4.27 不可复现 → Mac Mini 同步后重跑 governance --full 验证两 💥 转 ✅; 若 INV-REVIEW 仍 💥 贴 subprocess 输出再迭代.",
-      "【4.27 推送链路回归追踪 · 中优】真因=4.27 openclaw CLI 冷调用回归 (V37.9.145). ✅ follow-up (d) 丢失面评估已闭合 (2026-06-15 审计 docs/push_path_loss_surface_audit_2026_06_15.md: 无总丢失面, 残留=WhatsApp 瞬时缝隙内容在 Discord 存活). 剩余需 Mac Mini 生产数据 (dev 不可执行): (a) `openclaw message send --help` timeout 旋钮探测 → 可配则 notify.sh/直推 job 调大 (b) `ls -la ~/.openclaw/plugin-runtime-deps/` 多 hash dir 检查 staging 间歇复发 (c) 上游 releases 查 CLI 冷启动/staging 修复 (tripwire 不自动升级). 硬化候选 (deferred 需 E2E): 类别 2 论文类 job 直推双通道迁 notify.sh --topic (MR-8 一物一形).",
-      "V3 路标 backlog: Tool Policy Plugin + Memory Plane Plugin + Job Template SDK + pip install ontology-engine",
-      "WhatsApp 入站路由到 research agent 而非 main（4/10 WhatsApp plugin 安装副作用）: main/sessions.json mtime 从 Mar 30 起 dormant, 但 HEARTBEAT.md 修复后 research 正常响应不致命. 长期考虑: channels.whatsapp.agent 显式配置 / agents.list 顺序调整 / 验证 WhatsApp plugin inbound handler routing 逻辑",
-      "V37.9.83 战略方向 3 (Red Team Sandbox): red/blue/judge multi-agent dev sandbox 自我博弈. PoC 价值高生产价值低 (围棋 self-play 有效因博弈空间封闭+胜负函数明确, 我们系统输入空间开放无 ground truth 评分函数). 短期不启动. 但子能力 red_team_audit.py 每周对抗思维扫描有真实价值 — 是 V37.9 adversarial_chaos_audit.py (16/16 已实现) 的延伸. design doc 见 ai_partnership_first_principles_zh.md 第四节方向 3.",
-      "convergence cron 行全行比较: 2026-06-02 审计已决定不切换 (case doc cron_line_full_comparison_audit_2026_06_02.md). Mac Mini 真 crontab missing=17 extra=18 全是格式变体 0 脚本缺失, 切换会 false-drift 风暴. 保持 line_contains_identifier (务实最优). 未来候选 (非高优): (a) fuzzy-match parser 归一化引号/~/root/redirect 后比较, 但需先做 registry↔crontab 命令完整性对账 (registry entry 不记 args/cd/真实路径). (b) 2 真差异待用户决定: preference_learner registry entry 补 --apply --days 7 args? / 30 23 手动 rsync→MOVESPEED 是否与 0 4 movespeed_daily_sync 冗余需清理?",
-      "V37.9.100 部署验证: Mac Mini git fetch+reset 同步后 governance audit cron 07:00 首次真执行 67 个此前空跑的 check (含 2 critical INV-DREAM-003/INV-WATCHDOG-SELF-001) — 验证生产环境 job_watchdog/守护脚本无真退化 (dev 已全绿 87 inv)",
-      "V37.9.101 部署验证: Mac Mini 同步后 21:00 cron 真激活轮换 — 应 log 'V37.9.101 轮换 idx=N batch=11 抓 11/31' + fetch 成功率大升 (11 请求 vs 31). 若 11 请求仍 429 → IP 硬标记, V37.9.102+ 转策略 (降 batch / 认证版 X API / 替代源)",
-      "V37.9.101 follow-up (rotation 21:00 验证工作后): (a) 重跑复盘诊断 → 真僵尸 stale>7d 移除 LEADERS (b) 完整 zombie loop-wiring — parser 发 newest_age + per-account classify_account + 3 天连续 ZOMBIE 嫌疑告警 (镜像 finance_news, 模块已建+测就绪)",
-      "V37.9.103 部署验证 (clean+reduce 冻结≠死亡): Mac Mini git fetch+reset 同步 + auto_deploy 同步 finance_news_zombie.py/run_finance_news.sh/ai_leaders_rotation.py/jobs_registry.yaml/job_watchdog.sh. (a) 下次 07:30 finance cron 应首次出现 🧊 X 渠道退化日志(frozen 账号零产出, 不再 [SYSTEM_ALERT] 建议移除活账号 XHNews/CGTN 类). (b) 下次 09:00 ai_leaders cron 1/天生效. (c) crontab 更新 ai_leaders 频率 0 9,21→0 9 (bash ~/crontab_safe.sh 或手动). (d) 一周观察 frozen 账号确实零产出后, 考虑立 INV-FROZEN-NOT-DEAD-001 把跨模块 frozen≠死亡契约升级为独立 governance INV (当前在 INV-X-001 内). (e) 换源决策已定 clean+reduce 接受退化, TwitterAPI.io 路径留 docs/ai_leaders_source_alternatives.md 备查若未来重启",
-      "#18 ai_leaders zombie loop-wiring 现已安全 (V37.9.103): classify_account 已拆 frozen/dead, is_zombie_suspect 仅 stub+dead, 将来 wire 进 run 脚本不会错杀 karpathy 类冻结活账号. 仍 deferred 待 Mac Mini rotation 验证工作后做 (parser 发 newest_age + per-account classify + 3 天连续 ZOMBIE 告警, 镜像 finance_news degraded 分流)",
-      "V37.9.106 部署后 24h 验证 (~2026-06-05): 现有 30 条 MOVESPEED TM-争用 incident 老化出 24h 窗口后 INV-MOVESPEED-TCC-001 应自动转绿 → 治理审计 721/721 全绿. 验证: python3 ~/movespeed_incident_analyzer.py --window 24h 应显示 incidents 大降 (tmutil 预检让 TM 备份时 rsync 跳过不产新 incident). 若仍红说明 TM 之外还有 incident 来源待查.",
-      "3-engine-merge 已两次评估结论 DEFER (V37.9.119 + 2026-06-08 本 session 加深), 勿再从头调查. **结构**: 3 个 engine.py 加载点 — proxy_filters:452 (_onto_engine, module-level 仅 on/shadow, generate_proxy_data 覆盖 ALLOWED_TOOLS + 保留 _onto_mod 供 evaluate_policy, 每请求工具过滤核心) / proxy_filters:1463 (ontology_engine, _check_ontology_consistency 无条件所有 mode, 一致性诊断) / three_gate:183 (_three_gate_engine_lazy, lazy 首次 gate 评估缓存, _safe_evaluate_policy shadow 门控请求路径). **风险评估**: (a) path-independent 零 correctness bug, 双加载一物二形仅 on/shadow mode 存在 (OFF mode 只 1463 加载), 合并仅省 1 次 startup-once 加载 = cosmetic. (b) Sub-merge A (proxy_filters 452+1463 单文件) 中风险; Sub-merge B (three_gate 跨模块共享单例) 高风险. (c) three_gate._load_engine_module 是 V37.9.15.1 hotfix 加固的三策略 robustness 修复, governance INV-GATE-001 (gov yaml line 5402-5413) 硬锁 _three_gate_engine_lazy 模块名 + _load_engine_module 结构 + 4 测试文件引用 → 合并连带改 governance+测试+风险解开 hotfix 修过的 bug. **决策**: DEFER — 无 incident-causing 接缝 (北极星 V37.9.117 针对造成事故的接缝, 这 3 加载是 cosmetic startup-once 重复), 高 blast radius (每请求工具过滤+shadow 门控) 换 cosmetic 收益, 原则 #34 防御本身是事故面. 若未来真要做: 只考虑 Sub-merge A (单文件缓存 helper), Sub-merge B 不做.",
-      "V37.9.124 #29 follow-up (低优, 防未来重复调查): INV runtime 收窄已完成 INV-OBSERVER-001 (唯一已证明 env-dependent 套件). #29 调查结论: 其他 ~12 全套件 runtime check 的套件 env-independent 已核实 (test_v37_9_76_router 16 env 信号全 patch 隔离 + relative-to-HOME expanduser 一致; scanner 扫 repo 文件; INV-ROUTER false-fail 是 stale code 非套件 env-dependency), 不需收窄 (原则 #18 补证据非补功能, 收窄 env-independent 套件是 churn). #29 收窄约定已立 (test_v37_9_124 docstring): 套件含 env-dependent test 的 INV 跑契约核心类非全套件; 纯逻辑套件跑全 OK. 未来若新 INV 跑的套件含 env-dependent test (读 repo 外真实系统状态), 按此约定收窄到契约核心类 (镜像 INV-OBSERVER-001/INV-DREAM-CROSS-DOMAIN).",
-      "SLO #19 观察 (V37.9.126 诊断): Mac Mini Qwen3 主力 backend 退化期 (circuit_breaker half-open, fallback=doubao), preflight #19 SLO p95=81s 是 200-滚动窗口含退化请求 (非 stale, 会随流量冲刷自愈). 操作: 观察 Qwen3 是否恢复 (breaker 闭合); 若持续不恢复 → backend/GPU provider 层面; 想 #19 早不报警 → bash ~/restart.sh 清窗口. 非 code bug (监控工作正常). 若退化频繁可评估 SLO latency 改 time-windowed 而非 request-windowed (chunk 外, 独立).",
-      "V37.9.129 follow-up (DEFER, 登记): adapter fallback 循环读 upstream error body (观察性, MR-13/INV-OBSERVABILITY-001 候选)。今天诊断难正因 adapter fb_errors.append(str(fb_err)) 对 HTTPError 只给 'HTTP Error 400: Bad Request' 不读 body, 需直连 gemini 才看到 'User location not supported'。修法: adapter 复用 proxy_filters.compose_backend_error_str (V37.8.10) 或 inline helper。DEFER 原因: gemini 退役后其 400 body moot + doubao timeout 无 informative body + 引入 adapter→proxy_filters 耦合 (日落法 #34 防御本身是事故面)。价值降低非紧急, 但对未来其他 provider HTTP 错误诊断仍有价值。",
-      "V37.9.160 Tool Policy Plugin chunk 2 (待真消费方需求驱动, 原则 #18): enforcement 真接入 — tool_proxy/three_gate 读 policies.d/ 插件策略真截断 (镜像 _resolve_max_tools_limit 的 max-tools-per-agent 硬截断)。当前 chunk 1 只 observability (evaluate_policy 可查)。Provider Plugin 由 Doubao 驱动 enforcement 同款, 应等成本守卫类真需求。+ pyproject package-data 加 ontology/policies.d/ (pip 包含示例)。+ 缓存 (evaluate_policy 未命中 base 即重扫 policies.d/)。",
-      "V37.9.159 test_health_check 真 bug Mac Mini 生产验证 (dev 不可执行): scanner 首跑抓 test_health_check 跑 health_check.sh 漏 push 隔离 → 治理 07:00 audit 在 Mac Mini 是否真在发日报型 health 周报 (marker 时序依赖: gov 07:00 先于 weekly 09:00 + 24h>20h interval → 疑似每日 07:00 真发)。修复后应消失。Mac Mini 同步后观察 07:00 是否还收到 health 周报 + 确认 weekly 09:00 周报正常。",
-      "V37.9.162 follow-up: INV-WA-CHANNEL-001 治理不变式 (whatsapp-channel-disconnect-escalates-when-gateway-healthy, meta_rule=MR-14, 镜像INV-WA-001) — 一周观察wa_channel_status生产效果后立 (shadow-first惯例, 同INV-DEEP-001)",
-      "V37.9.162 A 执行(gated): Baileys 重连封禁预防. Mac Mini 实测修正(血案#98兑现): 4.27 openclaw.json 默认无 reconnect 块(channels.whatsapp.{enabled/dmPolicy/...}无web子键), 用内置默认 maxAttempts=0(无限). 修复=手动加 channels.whatsapp.web.reconnect.maxAttempts:12(OpenClaw官方唯一路径, 自动熔断#16270已closed NOT PLANNED). 🔴时序: 配置改+Gateway重启必须等WhatsApp重链稳定后(重启=新Baileys连接, 限流未清时重启会重新触发限流). 不确定性: 4.27是否读该键未知→应用时验证(Gateway干净启动+re-dump确认), strict schema拒绝则cp .bak还原; 若忽略则A退化为等支持版本(#56365 expose-reconnect-config仍open, 按tripwire升级纪律). A确认生效前C(V37.9.162检测)是事实主防线.",
-      "V37.9.162 follow-up: 4.27 openclaw CLI 插件 staging churn 调查 — 每次 channels login 全量重staging 9+插件(13-39s, 含acpx/bedrock/vertex/browser与WhatsApp无关), plugin-runtime-deps 未持久化. 吃掉连接超时预算. 查 ~/.openclaw/plugin-runtime-deps/ 多hash dir机制(V37.9.145遗留)"
+      "【4.27 推送链路回归追踪 · 中优】真因=4.27 openclaw CLI 冷调用回归 (V37.9.145). 丢失面评估已闭合 (push_path_loss_surface_audit_2026_06_15.md: 无总丢失面, WhatsApp 瞬时缝隙内容在 Discord 存活). 剩余需 Mac Mini 生产数据: (a) openclaw message send --help timeout 旋钮探测 → 可配则 notify.sh/直推 job 调大 (b) ls ~/.openclaw/plugin-runtime-deps/ 多 hash dir 查 staging 间歇复发 (V37.9.162 同源) (c) 上游 releases 查 CLI 冷启动/staging 修复 (tripwire 不自动升级). 硬化候选 (deferred 需 E2E): 论文类 job 直推双通道迁 notify.sh --topic (MR-8 一物一形).",
+      "V37.9.159 test_health_check 真 bug Mac Mini 生产验证 (dev 不可执行): scanner 抓 test_health_check 跑 health_check.sh 漏 push 隔离 → 治理 07:00 audit 是否真在发日报型 health 周报 (V37.9.159 已修, marker 时序依赖). Mac Mini 同步后观察 07:00 是否还收到 health 周报 + 确认 weekly 09:00 周报正常.",
+      "deep_dive OA 全文解析 follow-up (V37.9.183/184): (1) daily_observer V37.9.168 降级率应随 OA 解析下降, 一周后 (~6/29) Mac Mini 复核 grep ^mode: ~/.kb/deep_dives/*.md 全文比例验证 (预期摘要级从 77% 明显降, Elsevier 闭源不会到 0). (2) 历史 KB 条目仍 PII link (仅新论文受益, 同 V37.9.132 局限, 不补). (3) 小清理: kb_deep_dive.py pwc 仍在 TIER_1_SOURCES (job 已停用 V37.8.13, 死路径无害但误导) + fetch_pdf_text ImportError 可 fail-loud (V37.9.168 降级监控已部分覆盖 silent degrade).",
+      "V37.9.162 INV-WA-CHANNEL-001 (whatsapp-channel-disconnect-escalates-when-gateway-healthy, meta_rule=MR-14, 镜像 INV-WA-001): 一周 shadow 观察期 6/16→6/23 已到. dev 侧可写 INV 声明+测试, 但 go-live 需 Mac Mini 确认 wa_channel_status shadow 周内无误报 (shadow-first 惯例, 同 INV-DEEP-001).",
+      "WhatsApp Baileys 重连封禁预防 (4.27): Option A (channels.whatsapp.web.reconnect.maxAttempts:12) 已被 V37.9.180 Mac Mini 实测证伪 (4.27 strict schema additionalProperties:false 拒绝该键 + Gateway canonicalize 剥掉). 主防线 = Option C (V37.9.162 检测). 升级路径待 OpenClaw #56365 (expose-reconnect-config, 仍 open). 残余封禁风险 = 系统基线非新增.",
+      "#18 ai_leaders zombie loop-wiring (deferred, V37.9.103 已安全 — classify_account 拆 frozen/dead, is_zombie_suspect 仅 stub+dead, 不会错杀 karpathy 类冻结活账号). 待 Mac Mini rotation 验证后 wire 进 run 脚本: parser 发 newest_age + per-account classify + 3 天连续 ZOMBIE 告警 (镜像 finance_news degraded 分流).",
+      "WhatsApp 入站路由到 research agent 而非 main (4/10 plugin 安装副作用, 低优): HEARTBEAT.md 修复后 research 正常响应不致命. 长期: channels.whatsapp.agent 显式配置 / agents.list 顺序 / 验证 inbound handler routing 逻辑.",
+      "V3 路标 backlog: Tool Policy Plugin enforcement (chunk 2, V37.9.160 — 当前 chunk 1 仅 observability, enforcement 待真消费方需求驱动 原则 #18, 镜像 Provider Plugin 由 Doubao 驱动) + Memory Plane Plugin + Job Template SDK. (pip install openclaw-ontology-engine 引擎已发 PyPI V37.9.137, 终极目标技术闭环达成, 余生态扩展.)",
+      "V37.9.83 战略方向 3 (Red Team Sandbox) PoC: 短期不启动 (输入空间开放无 ground truth 评分函数, vs 围棋 self-play 博弈空间封闭). 子能力 red_team_audit.py 每周对抗扫描有真实价值 (adversarial_chaos_audit.py 16/16 延伸). design doc 见 ai_partnership_first_principles_zh.md 第四节方向 3.",
+      "V37.9.129 follow-up (DEFER): adapter fallback 循环读 upstream error body (观察性, MR-13/INV-OBSERVABILITY-001 候选). 修法: adapter 复用 proxy_filters.compose_backend_error_str (V37.8.10). DEFER 原因: gemini 退役后其 400 body moot + doubao timeout 无 informative body + 引入 adapter→proxy_filters 耦合 (日落法 #34). 对未来其他 provider HTTP 错误诊断仍有价值.",
+      "convergence cron 行全行比较: 2026-06-02 审计决定不切换 (case doc cron_line_full_comparison_audit_2026_06_02.md — Mac Mini missing=17 extra=18 全格式变体 0 脚本缺失, 切换会 false-drift 风暴). 保持 line_contains_identifier (务实最优). 未来候选 (非高优): fuzzy-match parser 归一化引号/~/redirect + registry↔crontab 命令完整性对账; 2 真差异待用户 (preference_learner registry 补 --apply --days 7 args? / 30 23 手动 rsync 是否与 0 4 movespeed_daily_sync 冗余).",
+      "full_regression --check 顺序结构性修复 (低优, V37.9.181 登记): gen_readme_badges --check + 单测在 status.json 回写之前跑 → 本-session 加测试的徽章漂移只在下次 run 被抓 (V37.9.180 漏收工 --write 的递归根因). 候选: 移 --check 到回写后. 风险: touch full_regression 核心 + 干净树检查 (--write at end 让树 dirty 影响对抗审计层), 需独立 careful 评估. drift 守卫已下次 run 兜底 (非紧急).",
+      "3-engine-merge 已两次评估 DEFER (V37.9.119 + 2026-06-08), 勿再从头调查. 3 加载点 (proxy_filters:452 _onto_engine 每请求工具过滤 / proxy_filters:1463 一致性诊断 / three_gate:183 lazy gate shadow 门控) path-independent 零 correctness bug, 双加载 cosmetic startup-once. 高 blast radius 换 cosmetic 收益不值 (原则 #34 防御本身是事故面). 若未来做: 只 Sub-merge A (单文件缓存 helper), Sub-merge B (跨模块单例, INV-GATE-001 硬锁) 不做.",
+      "V37.9.124 #29 follow-up (低优, 防重复调查): INV runtime 收窄约定已立 (test_v37_9_124 docstring) — 套件含 env-dependent test 的 INV 跑契约核心类非全套件; 纯逻辑套件跑全. 未来新 INV 跑的套件含 env-dependent test (读 repo 外真实系统状态) 时按此收窄到契约核心类 (镜像 INV-OBSERVER-001/INV-DREAM-CROSS-DOMAIN)."
     ],
     "open_prs": "",
-    "blocked_on": "",
-    "focus": "🎯 本 session 日落法收敛批次 (163-167): (163 合并) kb_harvest 尾部残行 / (164) README 计数收敛 / (165) GUIDE date-marker 退役 / (166) 退役 3 anti-日落法 proposal / **(167) CLAUDE.md changelog 归档 — 每-session 必读 1MB→291KB (-73%)**: grounded 审视发现 92% 字节是冻结历史(评审#2 文档认知过载根因), 保留 38 版内联+归档 190 版到 docs/changelog.md, 零丢失(228 守恒/11 章节全在/gen 三机器绿), 每 session 省 ~190K tokens. 131 suites 4622 tests 0 fail / 91 inv / 安全 95 / VERSION 0.37.9.70 不变. **彻底审视结论**: 系统极健康收敛, 唯一高杠杆优化(changelog 归档)已做; 其余诚实判定不做(降组合复杂度=earned-complexity / 物理拆层=高成本 defer / 可迁移性=比评审分好). **待用户**: 合并 PR → Mac Mini git fetch+reset (纯 doc 零重启). dev 侧已彻底收敛, 剩 27 项全 Mac-Mini-gated/deferred/用户动作.",
-    "current_focus": "V37.8 MR-6 深度补齐生产硬验证通过 (35/35 inv / 136/136 checks / 9/9 MR 全绿). 下一步: V37.8.1 修复 MRD-NOTIFY-002 activity 层假阳性 (topic→job log 映射扫 mtime) 或 Ontology Phase 3 渐进替换 (ONTOLOGY_MODE=on) 或 Tool Policy Plugin V3 路标",
-    "recent_changes": [
-      {
-        "date": "2026-05-29",
-        "what": "V37.9.90-r1 重设计 Direction 2 (Doubao backend, Claude pending). User push back: 使用系统已运行的 Doubao (V37.9.55 verified 5/5 capabilities, cap_score=16) 替代 Claude SDK. 重命名 claude_escalation→expert_escalation; DoubaoTransport class 用 stdlib urllib (零新依赖); Volcengine Context Cache 自动 (无需 cache_control); temperature=0.3 显式; daily quota 10→30 (~$0.30/day cap, 30x 比 v1 便宜). Backend selector: doubao 默认 / claude_pending stub (future-flip 保留). 89 单测 / 13 类 / 0 fail. SOUL.md 规则 12 更新引用 Doubao + claude_pending 分支处理. Meta-value: boundaries-over-trust 延伸到工程务实 — 先用已验证工具完成 PoC, 避免 over-engineering, 等真有需求再 flip Claude.",
-        "by": "claude_code"
-      },
-      {
-        "date": "2026-05-29",
-        "what": "V37.9.90 Claude Escalation Capability PoC (Direction 2 兑现). PA 检测复杂判断触发词 → 调 claude_escalate(question) 一次 Anthropic SDK 调用 → 返回 read-only JSON proposal. opus-4.7 优先 sonnet-4.6 降级, prompt caching on context block (~90% cost reduction), 4-class read-only validator, daily quota 10 calls (~$1/day cap), audit log per call. FAIL-CLOSE on missing API key + read-only violation + quota. Mockable transport for dev (72/72 tests pass). SOUL.md 规则 12 注册 5 类触发词. 不在 PR: tool_proxy 集成 / Mac Mini 部署 / 真生产调用 (留 V37.9.91+). V37.9.83 Stage 2→3 拐点第二个具体兑现.",
-        "by": "claude_code"
-      },
-      {
-        "date": "2026-05-29",
-        "what": "V37.9.89 LEVEL_6_DREAM_CROSS_DOMAIN_AWARE — Dream 反链式幻觉手术. Trigger: observer 在 5/28 dream 中发现 '光子计算 → 心理导航' 必然推论链幻觉 + 5/29 dream 实测 4 个 🔗 隐藏关联全部 'A→B→因此 C' 模式. V37.9.57 LEVEL_5 已含 '严禁推测' 但 Qwen3 狭隘解读未拦住. Fix: 新 LEVEL_6 累积式扩展 LEVEL_5 + 每条 🔗 隐藏关联强制 [强证据]/[弱关联] tag + 禁 '因此/必然/为 X 提供路径' 句式 + 禁多跳因果链 + 📭 无足够信号 fallback. 仅升级 kb_dream.sh DREAM_HG_GUARD (LEVEL_5→LEVEL_6), kb_evening 不动. +11 新单测.",
-        "by": "claude_code"
-      },
-      {
-        "date": "2026-05-29",
-        "what": "V37.9.88 observer registry-driven enabled filter + stale last_run 检测. 发现: observer 硬编码 JOBS_SUBDIRS drift from jobs_registry.yaml — pwc 停用 V31 (2026-03), 脚本删 V37.8.13, last_run.json 2026-03-31 残留. observer 当作今日 fetch_failed 误报 2 个月. Fix LAYER 1: _filter_enabled_jobs reads registry, FAIL-OPEN. LAYER 2: _is_stale_last_run 7d 阈值 + detect_anomalies 发 MED stale_job 并抑制 HIGH job_failure (stale 状态不可信). 5/28 anomalies_high 从 2 (1 真+1 假) → 1 真 + 1 MED stale. MR-8 SoT 兑现. +37 新单测.",
-        "by": "claude_code"
-      },
-      {
-        "date": "2026-05-29",
-        "what": "V37.9.87 daily_observer single-call architecture (P0 双写血案修). BUG #1: wrapper 每 cron 调 Python 两次 → 2 append/day. BUG #2: 两次 LLM stochasticity 让 last_run.json (call 1) vs score_history (call 2 最新) 分数不一致. Fix: --json 输出含 report_markdown, wrapper 单 fork 解析 + 写报告. 1 cron=1 LLM=1 append invariant. 84/84 → 121/121 tests (含 V37.9.88 续).",
-        "by": "claude_code"
-      },
-      {
-        "date": "2026-04-15",
-        "what": "V37.8.6/8.7/8.8/8.9 四连发同日上线 — (1) V37.8.6 Dream log→stderr 阻断 stdout 污染 cache 的 LLM 幻觉链 + sanitize U+D800-U+DFFF 孤立代理 + REDUCE/CHUNK system prompt 反污染守卫，INV-DREAM-003 critical 双层 16 checks (2) V37.8.7 ontology_sources 推送格式错位修复，抽 ontology_parser.py 用 separator 切块 + key-based prefix 解析，单块缺行不级联，INV-ONTOLOGY-001 high 双层 7 checks (3) V37.8.8 MR-11 (log→stderr) + MR-12 (llm-parser-key-based) 正式立案为 ontology 元规则 (4) V37.8.9 MRD-LOG-STDERR-001 + MRD-LLM-PARSER-POSITIONAL-001 运行时扫描器落地，批量 sed 修复 19 个 job 脚本 log() 写 >&2，元规则覆盖率 10/12→12/12。MR-4 silent-failure 第 7+8 次演出 + 原则 #23 链式幻觉典型实证 (Hugging Face 编造案例)。governance v3.11→v3.15。35 suites / 1050 tests / 0 fail / 38 invariants / 168 checks / 安全 93。Mac Mini E2E preflight 77/0/3。VERSION 0.37.8.5→0.37.8.9。",
-        "by": "claude_code"
-      },
-      {
-        "date": "2026-05-11",
-        "what": "V37.9.53 — Doubao Seed 2.0 Pro flip verified + reasoning capability 落地. Mac Mini curl 实测 /chat/completions HTTP 200 + 兼容 OpenAI JSON + 完整 content + 额外 reasoning_content 字段 (doubao seed 2.0 是 reasoning model 类似 o1/DeepSeek-R1). framework 扩展: ProviderCapabilities 加 reasoning + verified_reasoning 字段, _capability_score 从 7 升 8 维度 + verified 从 5 升 6 维度, verified_features() 输出含 reasoning. doubao plugin flip verified_text=True + reasoning=True + verified_reasoning=True (其他 4 个 verified 守 False 等 V37.9.54+ vision/tool_calling/streaming/fallback E2E 后再 flip). 结果: doubao cap_score 升至 10 vs gemini 9, build_fallback_chain(qwen) 自动排 doubao 第 1 位 (取代 gemini), 与 Qwen3 同级诉求通过 framework 自然推导达成, 零 adapter.py 改动. 25 新单测 6 类 + 修 V37.9.52 verified test + 修 test_providers.py overlap 7-8 维度. 累计 72->73 suites / 2463->2488 tests / 0 fail / VERSION 0.37.9.52->0.37.9.53 / 安全 95/100. Mac Mini 部署后 bash ~/restart.sh 重启 adapter 让 doubao 进 FALLBACK_CHAIN 第 1 位 (V37 _build_fallback_chain require_available=True 已自动).",
-        "by": "claude_code"
-      },
-      {
-        "date": "2026-05-11",
-        "what": "V37.9.54 ABC 三件套同 PR. A: restart.sh marker-based plist mtime 检测 + bootout/bootstrap 自动 fallback (修复 V37.9.13 + V37.9.53 同款 kickstart -k 不重读 plist 问题). 新 PLIST_LOAD_MARKER_DIR + helper 内 stat -f %m 比较 plist mtime vs marker mtime / plist 比 marker 新 → 强制 bootout+bootstrap (慢 ~1s 但保证 env 同步) / plist 不新 → kickstart -k 快路径 / 加载成功 + HTTP 200 健康验证后才 touch marker (顺序锁防失败误更新). B: doubao verified_vision=True (Mac Mini curl image_url + text content list 实测通过 + 完整中文图片描述 + reasoning_content), cap_score 升至 12 (10+2) 仍排 fallback chain 第 1. C: 新 INV-PLIST-ENV-001 治理 (meta_rule=MR-4, severity=high, declaration+runtime) 守 plist EnvironmentVariables 含所有 provider api_key_env, runtime python_assert 真读 plist 比对 critical envs {REMOTE/GEMINI/ARK} 全在 (dev 静默跳过). 同时扩展 INV-RESTART-001 加 V37.9.54 marker reload 5 checks. 27 新单测 5 类 + 修适 V37.9.53/V37.9.52 5 处 cascading lock. 累计 73->74 suites / 2488->2515 tests / 0 fail / governance v3.34->v3.35 / 71->72 invariants (+INV-PLIST-ENV-001) / 552->562 checks (+10) / VERSION 0.37.9.53->0.37.9.54 / 安全 95/100. Mac Mini 部署后: 首次 bash ~/restart.sh marker 不存在走 bootout+bootstrap; 第二次 marker 已存在 plist 未变走 kickstart -k 快路径; 改 plist 后再跑 restart 自动 bootout+bootstrap. python3 ~/ontology/governance_checker.py --full 应 INV-PLIST-ENV-001 ✅. 三层防御覆盖运维盲区 — V37.9.13 双管理修复 + V37.9.53 plist env 缺失 + V37.9.54 ABC 同 PR 修 = MR-4 silent-failure 元规则在 plist 场域完整闭环.",
-        "by": "claude_code"
-      },
-      {
-        "date": "2026-05-11",
-        "what": "📊 今日收工 — 三连发 V37.9.52/53/54 全部 Mac Mini E2E 实证. V37.9.52 接入 doubao + 修 V37 Plugin module 重入 bug (32 tests). V37.9.53 flip verified_text + reasoning capability 加入 framework, doubao 自动排 fallback chain 第 1 (25 tests). V37.9.54 ABC 三件: A restart.sh marker plist reload (修 V37.9.13+V37.9.53 同款血案 — 双路径自动切换), B verified_vision flip (Mac Mini image_url E2E 实测), C INV-PLIST-ENV-001 治理 plist EnvironmentVariables 同步 (27 tests). 累计 71→74 suites / 2431→2515 tests (+84) / 71→72 invariants / 552→562 checks / providers 7→8 / VERSION 0.37.9.51→0.37.9.54 / 安全 95/100. Mac Mini A 双路径 ✓ + B /health doubao 第 1 + version 0.37.9.54 ✓. C governance --full Mac Mini 跑卡 (dev 跑 ✓), V37.9.55+ 调查不阻塞当前交付. 元价值: 用户提供豆包 demo → 1 session 内完成 8 个 provider 接入 + framework 扩展 (reasoning) + 3 个 launchd silent failure 血案集中治理. MR-4 silent-failure 元规则在 plist 场域完整闭环.",
-        "by": "claude_code"
-      },
-      {
-        "date": "2026-05-11",
-        "what": "V37.9.55 — doubao flip verified_tool_calling + verified_streaming (Mac Mini E2E 双 capability 实测通过). 关键证据: tool_calling curl finish_reason=tool_calls + message.tool_calls=[{function:{name,arguments}}] + arguments 合法 JSON / streaming curl SSE chat.completion.chunk + delta.content + delta.reasoning_content 双字段. 100% OpenAI schema 兼容. cap_score 12→16 (6 base + 5 verified*2), doubao 16 > Qwen3 14, framework 视角已最强 provider. 但 primary 仍是 Qwen3 (用户战略决策渐进切换, V37.9.55 仅完成实测不切 primary). 15 新单测 6 类 + 修 V37.9.52/53/54 cascading 8 处 (cap_score 锁 12→16 / verified_features 集合扩 5 项 / unverified flags 只剩 verified_fallback / VERSION 不等式断言). 额外发现: doubao 流式输出同时流送 delta.reasoning_content + delta.content 双字段, V37.9.56+ 需决策是否 expose reasoning 给 OpenClaw/WhatsApp. 剩 verified_fallback 守 False 等生产真 fire (诚实语义). 累计 74→75 suites / 2515→2530 tests (+15) / VERSION 0.37.9.54→0.37.9.55 / 0 fail. 元价值: V37 capability routing framework 真实压力测试 — V37.9.52→55 五版本 doubao cap_score 5→10→12→16, 每次升级 fallback chain 自动重排, 零 adapter.py 改动. V3 路标 declarative framework 工作的硬证据.",
-        "by": "claude_code"
-      }
-    ],
-    "last_session_ended": "2026-06-17",
-    "last_session_commits": 3,
-    "last_session_focus": "WhatsApp 冻结日: A 类三项全处理完 — [19](c) deep_dive 摘要级降级率纳入 daily_observer (V37.9.168) + [5](c) source_credibility emit 端 per-pick 确定性 tier + arxiv id 修复 (V37.9.169) + [13](d) ground 调查确认已完成非 churn. 131 suites/4658 tests/0 fail/91 inv/安全 95.",
-    "last_session_at": "2026-06-17 07:59",
-    "last_session_version": "V37.9.169"
+    "blocked_on": ""
   },
   "quality": {
     "security_score": 95,
     "test_count": 4759,
-    "last_regression": "2026-06-22 13:29 pass",
+    "last_regression": "2026-06-23 13:49 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-22 13:29",
+    "security_score_time": "2026-06-23 13:49",
     "test_suites": 135,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
@@ -412,7 +346,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-06-22 周一(四连交付): V37.9.181(健康基线: 徽章漂移+kb_radar 白名单) + V37.9.182(微信 48h 窗口真机制, deep_dive 通道回退 WhatsApp) + V37.9.183(deep_dive 77% 摘要级真根治: 确定性 OA 全文解析 DOI/S2/HF→S2) + V37.9.184(补 ScienceDirect: ontology_sources KB-write 捕获 prism:doi→doi.org link, deep_dive 零改动接管). 四版均零业务语义 VERSION 0.37.9.71 不变. 最终 full_regression 134/0/4759 / 135 suites, governance EXIT=0, 安全 95/100. 待用户合并 PR(5 commit: 181-184+182) + Mac Mini git fetch+reset(纯 docs/py/sh/test 零重启). deep_dive 主要降级源(dblp/S2/HF/ScienceDirect)现全有确定性 OA 解析路径. 无 dev 待办阻塞.",
+  "focus": "2026-06-23 周二: 一致性收敛 + 待办归账 (V37.9.185, 用户选, 日落法北极星 + 外部评审2 指令). status.json 多 session 直接 Edit 累积结构性 cruft 收敛: 28 unfinished 碎片(嵌套 canonical 21 + 误键顶层 dotted-key 7) → 14 grounded-live 单一 canonical 列表; 退役 12 项(每项 changelog/code 证据: V37.9.9/21 已完成/取代 V37.9.132/183/184, V37.9.157 INV-CRON 8 天无复发, V37.9.100/101/103/106 部署验证窗口过, SLO #19 self-heal 兑现, V37.9.162 Option A 被 V37.9.180 证伪); 删一物多形 cruft(session_context.{focus,current_focus,recent_changes,last_session_*} + 顶层孤儿 dotted-key + system_health + last_updated/updated_at, 两消费者核实从不被读零损失). status.json 444→359 行. 周二开工健康基线全绿 135/4759/0 fail. VERSION 0.37.9.71 不变(纯 state 零业务语义零代码). 待用户合并 PR + Mac Mini git fetch+reset(纯 status.json 零重启). dev 侧无待办阻塞, 剩 14 项全 Mac-Mini-gated/deferred/guardrail.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
@@ -422,23 +356,5 @@
   ],
   "_meta": {
     "last_updated_by": "claude_code"
-  },
-  "session_context.unfinished": [
-    "V37.9.9 Phase 4 P1+ wiring: engine.py 新增 load_domain_ontology() + find_by_domain() + evaluate_policy() 三个纯函数 API，tests/test_engine_phase4.py 锁定 API 行为，选 max-tools-per-agent 做首条 policy 实切换（proxy_filters.py 从硬编码 MAX_TOOLS=12 改为 evaluate_policy 查询）",
-    "V37.9.19+hot-patch A 闭环未完成 (本 session 工具反复 timeout): 待新 session 执行 4 步 — (1) 写 case doc ontology/docs/cases/kb_deep_dive_homebrew_python_pep668_case.md (MR-4 silent-failure 第 17 次演出, 新形态: 环境层 silent — Homebrew Python 3.14 vs system Python 双解释器 + lazy import 静默 degrade + abstract_only 合法 mode 三重掩护) (2) 更新 status.json recent_changes 加 V37.9.19+hot-patch 条目 (3) 更新 CLAUDE.md changelog 加 V37.9.19+hot-patch 行 + 文件表新 case doc (4) commit+push claude/start-daily-work-4vqA9. Hot patch 本身已在 Mac Mini 验证通过: /opt/homebrew/bin/pip3 install --break-system-packages pdfplumber beautifulsoup4 后, 2026-04-26.md mode 从 abstract_only 切到 full_text, WhatsApp+Discord 推送 1000 字论证链分析生效.",
-    "V37.9.20 主选 [需 A 闭环后启动]: kb_deep_dive Python 环境结构化修复 — (a) venv 隔离: 创建 ~/.openclaw_venv (Homebrew Python 创建) + ~/.openclaw_venv/bin/pip install pdfplumber beautifulsoup4 + 改 kb_deep_dive.sh 顶部加 PYTHON_BIN=${HOME}/.openclaw_venv/bin/python3 (含 fallback) + 全部 python3 改成 PYTHON_BIN 变量 + auto_deploy 加 venv bootstrap (b) 新增 INV-DEEP-002 deep-dive-script-env-has-deps 守卫 (declaration scan PYTHON_BIN 字面量 + runtime python_assert 真跑 venv subprocess 验证 import pdfplumber/bs4) (c) fetch_pdf_text/fetch_html_text ImportError 改 fail-loud (环境配错该 [SYSTEM_ALERT] 而非静默 degrade) (d) WA 摘要重构: 让 LLM 同时产 1000 字完整版 (Discord) + 章节级摘要 (WA 1300 字内含核心论点+启发, 跳过中间论证细节), build_deep_dive_wa 改读 LLM 的 WA-summary 字段而非 substring 截断 — 避免 V37.9.19 hot patch 后 full_text 触发的 WA 截断",
-    "V37.9.21 候选 [V37.9.20 完成后]: kb_deep_dive TIER 1 设计 vs 实现鸿沟修复 — 现状: TIER_1_SOURCES 声明 6 源 (arxiv/acl/hf_papers/dblp/pwc/s2) PDF 可抓, 但 fetch_pdf_text 实现只识别 arxiv.org/abs + aclanthology.org + .pdf 三种 URL 形态 -> hf_papers (huggingface.co/papers/) / dblp (doi.org/) / s2 (部分 fallback URL) 都 degrade. 修复: 扩展 fetch_pdf_text — (a) hf_papers 提取 paper_id 当 arxiv ID 转 arxiv URL (b) dblp doi.org HEAD follow redirect 找真实 PDF host (arxiv/acl/publisher) (c) s2 fallback URL handle (s2 已用 arxiv_id 优先, 兜底 paper_url 时 graceful degrade) (d) 加单测覆盖每种 URL 转换路径 (e) 更新 INV-DEEP-* 守卫. 另: pwc 在 V37.8.13 已停用 (jobs/pwc 目录不存在), 应从 TIER_1_SOURCES 移除避免误导.",
-    "full_regression --check 顺序结构性修复(低优, V37.9.181 登记): gen_readme_badges --check(line 297)+单测(line 116)在 status.json 回写(line 551)之前跑 → 本-session 加测试的徽章漂移只在下次 run 被抓(V37.9.180 漏收工 --write 的递归根因). 候选修复: 移 --check 到回写后让同-run 抓 drift. 风险: touch full_regression 核心 + line 464 干净树检查(--write at end 让树 dirty 影响对抗审计层), 需独立 careful 评估. 当前 drift 守卫已在下次 run 兜底(非紧急).",
-    "V37.9.183 follow-up — ScienceDirect deep_dive OA 覆盖 (11/43 降级, ontology_sources 核心源): PII URL(S0950705...)无 DOI/标识符 → 确定性 OA 解析(DOI/S2-id/HF-id)覆盖不到, 仍 abstract_only. 两选项: (a) 扩 ontology_sources 在 KB-write 捕获 DOI(镜像 V37.9.132, RSS 有 DOI, 确定性, 仅助新论文) (b) deep_dive title→Crossref/S2 搜索(模糊, 需严格 title-match 防 fail-plausible 选错论文). 另: daily_observer V37.9.168 降级率应随 V37.9.183 下降, 一周后 Mac Mini 复核 grep ^mode: ~/.kb/deep_dives/*.md 全文比例验证修复效果.",
-    "V37.9.184 收尾: deep_dive OA 解析 ScienceDirect 已由 ontology_sources KB-write 捕获 prism:doi 覆盖(option a 完成). 余: (1) 历史 KB 条目仍 PII link(仅新论文受益, 同 V37.9.132 局限, 不补——历史 deep_dive 不重跑) (2) daily_observer V37.9.168 降级率一周后 Mac Mini 复核 grep ^mode: ~/.kb/deep_dives/*.md 验证 V37.9.183+184 合并效果(预期摘要级比例从 77% 明显下降, 但因 Elsevier 闭源不会到 0)."
-  ],
-  "last_updated": "2026-04-23 06:11:34 UTC by claude_code",
-  "updated_at": "2026-05-29 02:32:51",
-  "system_health": {
-    "test_count": 3505,
-    "suites": 99,
-    "security_score": 95,
-    "last_regression": "2026-05-29 02:32:51",
-    "last_regression_status": "pass"
   }
 }
