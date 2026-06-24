@@ -9,7 +9,7 @@
 设计契约（见 CLAUDE.md V37.9.16 方案 12 项决策）：
   - 复用 kb_review_collect: load_sources_from_registry / extract_recent_sections / call_llm
   - picker: 星级优先 (⭐≥4) + 主题加权 (ontology/agent runtime/LLM infra) + 摘要长度 tie-breaker
-  - tier1 PDF (arxiv/hf/acl/pwc) → tier2 HTML (rss_blogs/ontology_sources/github_trending)
+  - tier1 PDF (arxiv/hf/acl) → tier2 HTML (rss_blogs/ontology_sources/github_trending)
     → tier3 摘要降级 (HN/X/finance/freight 等)
   - fetch 失败 → degrade 到摘要 + 标注"摘要级分析"，不 block
   - pdfplumber + bs4 lazy import (dev 环境 degrade 不依赖)
@@ -50,11 +50,13 @@ from hallucination_guards import get_guard
 # ══════════════════════════════════════════════════════════════════════
 
 # 一档：PDF 可抓（论文原文）
+# V37.9.186 日落法：移除 pwc 死路径（job 停用 V31 + 脚本删除 V37.8.13 + registry enabled=false）——
+#   镜像 V37.9.88（daily_observer JOBS_SUBDIRS 残留 pwc 致 2 月误告警的 stale-引用 bug 同款类）。
+#   守卫见 test_kb_deep_dive.TestV37_9_186_TierRegistryConsistency（TIER 源必须是 registry enabled job）。
 TIER_1_SOURCES = {
     "arxiv_monitor",
     "hf_papers",
     "acl_anthology",
-    "pwc",
     "semantic_scholar",   # V37.9.132: KB 链接 arxiv > OA .pdf > S2 页面 (前两档可抓全文)
     "dblp",               # V37.9.132: KB 链接 arxiv 优先 > doi (arxiv 档可抓全文)
 }

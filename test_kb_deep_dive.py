@@ -1121,5 +1121,58 @@ class TestV37960Hotfix3SilentAbortFix(unittest.TestCase):
             "V37.9.60-hotfix3: 必须含血案锚点 (silent / 5/8-5/12 / set -e 杀 / etc)")
 
 
+# ══════════════════════════════════════════════════════════════════════
+# TIER 源 ↔ registry 一致性守卫（V37.9.186 日落法）
+# ══════════════════════════════════════════════════════════════════════
+# 退役 pwc 死路径的回归守卫：TIER_1/TIER_2 是 deep_dive "可抓全文/HTML" 的源清单，
+# 每个 source_id 必须对应 registry 里 enabled 且声明 kb_source_file 的 job —— 停用的
+# job（如 pwc）绝不该残留在活跃抓取档里（否则 classify_tier 把死源当一档 = 误导）。
+# 镜像 V37.9.88 血案：daily_observer 的硬编码 JOBS_SUBDIRS 残留 pwc → 读 stale last_run
+# → 2 月误告警。本守卫把 TIER 清单绑定到 registry enabled 状态（MR-8 复用生产 loader
+# rc.load_sources_from_registry，无 yaml 依赖），未来任何 "停用 job 残留在 TIER" 立即被抓。
+class TestV37_9_186_TierRegistryConsistency(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        import kb_review_collect as rc
+        repo_root = os.path.dirname(os.path.abspath(__file__))
+        registry = os.path.join(repo_root, "jobs_registry.yaml")
+        srcs = rc.load_sources_from_registry(registry)
+        # load_sources_from_registry 只返回 enabled=true 且有 kb_source_file 的 job
+        cls.enabled_kb_ids = {d["id"] for d in srcs}
+        cls.tier_sources = m.TIER_1_SOURCES | m.TIER_2_SOURCES
+
+    def test_all_tier_sources_are_enabled_registry_jobs(self):
+        """每个 TIER_1/TIER_2 源必须是 registry enabled 且有 kb_source_file 的 job。
+
+        停用 job 残留在 TIER = 死路径（V37.9.88 同款 stale-引用 bug）。
+        """
+        stale = sorted(self.tier_sources - self.enabled_kb_ids)
+        self.assertEqual(
+            stale, [],
+            "TIER_1/TIER_2 含非 enabled-registry 源 = 死路径残留 (V37.9.88 同款): "
+            "{}。停用 job 必须从 TIER 移除。".format(stale),
+        )
+
+    def test_pwc_retired_from_tier1(self):
+        """V37.9.186 回归守卫：pwc（停用 V31 + 脚本删 V37.8.13）不得在 TIER_1。"""
+        self.assertNotIn(
+            "pwc", m.TIER_1_SOURCES,
+            "pwc job 已停用（registry enabled=false）+ 脚本已删，不得残留在 TIER_1_SOURCES "
+            "（死路径，镜像 V37.9.88 daily_observer JOBS_SUBDIRS 残留 pwc 血案）",
+        )
+
+    def test_pwc_premise_still_holds(self):
+        """守卫前提自检：pwc 仍是 registry 里的 disabled job（若被重新启用本守卫需复审）。"""
+        self.assertNotIn(
+            "pwc", self.enabled_kb_ids,
+            "前提变化：pwc 重新出现在 enabled-registry 集合 —— 若 pwc 真复活需重审 TIER 归属",
+        )
+
+    def test_tier_sources_nonempty(self):
+        """sanity：TIER 清单非空（防 import 失败导致守卫 vacuous）。"""
+        self.assertTrue(self.tier_sources, "TIER_1 ∪ TIER_2 不应为空")
+        self.assertTrue(self.enabled_kb_ids, "registry enabled 源集不应为空")
+
+
 if __name__ == "__main__":
     unittest.main()
