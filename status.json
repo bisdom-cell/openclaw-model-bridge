@@ -1,6 +1,6 @@
 {
-  "updated": "2026-06-23 13:50:43",
-  "updated_by": "security_score",
+  "updated": "2026-06-24 14:30:00",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -105,6 +105,11 @@
   ],
   "recent_changes": [
     {
+      "date": "2026-06-24",
+      "what": "V37.9.186 deep_dive pwc 死路径退役 + TIER↔registry drift 守卫 (日落法 #34 一物一形, 纯清理零业务语义, 用户「开始今天的工作」→ 周三开工从纯 dev 可执行项选 unfinished [2](3)). 诊断(原则 #28): kb_deep_dive.py TIER_1_SOURCES 含 pwc, 但 pwc job 停用 V31 + 脚本删 V37.8.13 + registry enabled=false → 永不产今日 KB note → classify_tier(pwc) 死分支永不触达 = 死路径(无害但误导). 关键发现=V37.9.88 同款 bug 类(daily_observer 硬编码 JOBS_SUBDIRS 残留 pwc → 读 stale last_run 连发 2 月误告警, 「死 job 的 stale 引用住在硬编码结构里」此类已证明会咬人). 退役: TIER_1_SOURCES 移除 pwc + docstring + CLAUDE 文件表 (同款文档漂移一并修), 零行为变化. drift 守卫: TestV37_9_186_TierRegistryConsistency 4 单测 — 核心断言每个 TIER_1/TIER_2 源 必须出现在 rc.load_sources_from_registry()(enabled+有 kb_source_file 的 job, 复用生产 loader MR-8 非新 yaml 依赖) + pwc 退役回归守卫 + 前提自检 + 非空 sanity. 与 gen_compat_matrix --check 同款一致性 drift 守卫(外部评审2 endorsed), 有 V37.9.88 血案 lineage=earned 非投机, 用单测不立治理 INV(避 governance bloat 原则 #8). sabotage 反向验证: 加回 pwc → 2 守卫 FAIL 复现死路径, 备份副本还原(非 git checkout, V37.9.134 教训)后 4/4 全过. fail-loud 子项判定低价值不做 (pdfplumber 生产已装该分支永不触发 + V37.9.168 降级率聚合已覆盖, 非 silent). 开工教训重记(钉死): 并发编辑 full_regression 运行中→编辑在第 3.5 层混沌审计 sabotage 注入/恢复周期中途落地→污染记账报「防御率 2/2 退化」假失败; stash 后干净树独立跑 混沌审计 10/10 全抓证实是并发编辑 artifact 非真 break(V37.9.144/V37.9.105 同款, 不在混沌审计层运行时编辑文件). 验证: full_regression 135 suites(混沌审计树脏 skip 计入)/4759→4763 tests(+4)/0 fail/干净树混沌 10/10/governance EXIT=0 91/91/安全 95/100/三机器 doc-drift 无漂移/VERSION 0.37.9.71 不变. 复杂度预算: files/env/jobs/runtime-state-sources/suites/checks/VERSION 不变, 净 runtime 机制 净 -1 接缝(退役 pwc 死路径; drift 守卫是 V37.9.88 lineage 一致性机器非新业务接缝). 待 Mac Mini git fetch+reset(kb_deep_dive.py 走 FILE_MAP, 纯清理零重启零行为变化, 下次 22:30 deep_dive classify_tier 无 pwc 死分支).",
+      "by": "claude_code"
+    },
+    {
       "date": "2026-06-23",
       "what": "V37.9.185 status.json 一致性收敛 + 待办归账 (日落法 + 外部评审2「一致性收敛」指令, 用户选). 周二开工健康基线全绿(135 suites/4759 tests/0 fail/governance 91/91/安全 95/三机器 doc-drift 无漂移/树干净/无 PR). 诊断(原则 #28 + 删除前看目标): status.json 经多 session 直接 Edit 累积真实结构性 cruft — (a) 两个 unfinished 列表(嵌套 canonical 21 项停@V37.9.167 + 误键顶层 dotted-key 'session_context.unfinished' 7 项一物多形 bug, 含 4 月古董 V37.9.9/19/20/21 + 最新 V37.9.183/184 follow-up) (b) 两个 focus(嵌套 stale@167 + current_focus 古董@V37.8 + 顶层 canonical) (c) stale 冗余(session_context.recent_changes V37.9.90↓ dup / system_health 3505 dup of quality 4759 / last_updated+updated_at dup of canonical updated). 读两写入者(status_update.py V37.9.38 迁移只处理纯顶层 unfinished 不处理 dotted-key + kb_status_refresh.sh SOUL 生成器)核实 canonical 字段全顶层, cruft 从不被读. 待办归账: 28 碎片→14 grounded-live 单一 canonical, 退役 12 项每项 changelog/code 证据(V37.9.9 engine 三 API done @V37.9.12 / V37.9.21 fetch_pdf_text 取代 V37.9.132/183/184 / V37.9.157 INV-CRON Mac Mini ✅ 8 天无复发 / V37.9.100/101/103/106 部署验证窗口过+governance 91/91 / SLO #19 self-heal 兑现 / V37.9.162 Option A V37.9.180 证伪). 删 cruft 8 session_context 字段 + 顶层孤儿 dotted-key + system_health + last_updated/updated_at, 零信息损失(canonical 全在顶层 focus/recent_changes/quality/updated + CLAUDE changelog). status.json 444→359 行(-85). Python 原子脚本 + 边界 assert 防呆 + status_update.py --read --human 验证 canonical 消费者 + 4 status 套件(memory_plane/status_update/v37_9_38/daily_observer)全过. full_regression 135/0/4759 不变 / governance EXIT=0 91/91 / VERSION 0.37.9.71 不变(纯 state 零业务语义). 净 -3 一物多形漂移源, unfinished 认知负荷 28→14 缩外部评审2 文档过载面. 同时刷新停 V37.9.167 的 session_context 与现实对齐. 待 Mac Mini git fetch+reset(纯 status.json 零重启).",
       "by": "claude_code"
@@ -198,11 +203,6 @@
       "date": "2026-06-17",
       "what": "V37.9.168 A类[19](c): deep_dive 摘要级降级率纳入 daily_observer — scan_deep_dive_modes(30天窗口,结构化**模式**marker分类) + 🔬报告段(随wrapper推双通道) + MED降级率告警(≥50%且样本≥5) + 23单测(含MR-8跨文件marker守卫+2轮sabotage验证) + run()接线. 堵76%摘要级潜伏2月盲区(MR-4闭真). 130 suites/4645 tests(+23)/0 fail/治理91/91/安全95/VERSION 0.37.9.70不变(job级observability). WhatsApp冻结日选对dev自主项:走Discord绕冻结主体. Mac Mini待同步(06:30 cron自动生效).",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-06-17",
-      "what": "V37.9.167 CLAUDE.md changelog 归档 — 每-session 必读 1MB→291KB (-73%, 日落法): grounded 审视发现 CLAUDE.md 92% 字节(989KB/231 版本行)是冻结历史, 评审#2 文档认知过载根因. blast radius 核实(17 治理+8 test 全引原则/文件表/L3 非 changelog 行). 保留 38 版内联(V37.9.166→130), 归档 190 版(V37.9.129→V27.x)到 docs/changelog.md(头注更新+新 section). Python 原子化+边界 assert. 零丢失(38+190=228 守恒, 11 章节全在, gen 三机器绿). 净 -1 巨型热路径接缝, 每 session 省 ~190K tokens. VERSION 0.37.9.70 不变.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -256,7 +256,7 @@
     "unfinished": [
       "【4.27 推送链路回归追踪 · 中优】真因=4.27 openclaw CLI 冷调用回归 (V37.9.145). 丢失面评估已闭合 (push_path_loss_surface_audit_2026_06_15.md: 无总丢失面, WhatsApp 瞬时缝隙内容在 Discord 存活). 剩余需 Mac Mini 生产数据: (a) openclaw message send --help timeout 旋钮探测 → 可配则 notify.sh/直推 job 调大 (b) ls ~/.openclaw/plugin-runtime-deps/ 多 hash dir 查 staging 间歇复发 (V37.9.162 同源) (c) 上游 releases 查 CLI 冷启动/staging 修复 (tripwire 不自动升级). 硬化候选 (deferred 需 E2E): 论文类 job 直推双通道迁 notify.sh --topic (MR-8 一物一形).",
       "V37.9.159 test_health_check 真 bug Mac Mini 生产验证 (dev 不可执行): scanner 抓 test_health_check 跑 health_check.sh 漏 push 隔离 → 治理 07:00 audit 是否真在发日报型 health 周报 (V37.9.159 已修, marker 时序依赖). Mac Mini 同步后观察 07:00 是否还收到 health 周报 + 确认 weekly 09:00 周报正常.",
-      "deep_dive OA 全文解析 follow-up (V37.9.183/184): (1) daily_observer V37.9.168 降级率应随 OA 解析下降, 一周后 (~6/29) Mac Mini 复核 grep ^mode: ~/.kb/deep_dives/*.md 全文比例验证 (预期摘要级从 77% 明显降, Elsevier 闭源不会到 0). (2) 历史 KB 条目仍 PII link (仅新论文受益, 同 V37.9.132 局限, 不补). (3) 小清理: kb_deep_dive.py pwc 仍在 TIER_1_SOURCES (job 已停用 V37.8.13, 死路径无害但误导) + fetch_pdf_text ImportError 可 fail-loud (V37.9.168 降级监控已部分覆盖 silent degrade).",
+      "deep_dive OA 全文解析 follow-up (V37.9.183/184): (1) daily_observer V37.9.168 降级率应随 OA 解析下降, 一周后 (~6/29) Mac Mini 复核 grep ^mode: ~/.kb/deep_dives/*.md 全文比例验证 (预期摘要级从 77% 明显降, Elsevier 闭源不会到 0). (2) 历史 KB 条目仍 PII link (仅新论文受益, 同 V37.9.132 局限, 不补). (3) ✅ V37.9.186 完成: kb_deep_dive.py pwc 死路径从 TIER_1_SOURCES 退役 (job 停用 V31 + 脚本删 V37.8.13 + registry enabled=false, 镜像 V37.9.88 daily_observer JOBS_SUBDIRS 残留 pwc 血案) + 新增 TestV37_9_186_TierRegistryConsistency drift 守卫 (TIER↔registry enabled 绑定, 复用 rc.load_sources_from_registry MR-8). fail-loud 子项判定低价值不做 (pdfplumber 生产已装该分支永不触发 + V37.9.168 降级率聚合已覆盖, 加 stderr WARN 收益边际).",
       "V37.9.162 INV-WA-CHANNEL-001 (whatsapp-channel-disconnect-escalates-when-gateway-healthy, meta_rule=MR-14, 镜像 INV-WA-001): 一周 shadow 观察期 6/16→6/23 已到. dev 侧可写 INV 声明+测试, 但 go-live 需 Mac Mini 确认 wa_channel_status shadow 周内无误报 (shadow-first 惯例, 同 INV-DEEP-001).",
       "WhatsApp Baileys 重连封禁预防 (4.27): Option A (channels.whatsapp.web.reconnect.maxAttempts:12) 已被 V37.9.180 Mac Mini 实测证伪 (4.27 strict schema additionalProperties:false 拒绝该键 + Gateway canonicalize 剥掉). 主防线 = Option C (V37.9.162 检测). 升级路径待 OpenClaw #56365 (expose-reconnect-config, 仍 open). 残余封禁风险 = 系统基线非新增.",
       "#18 ai_leaders zombie loop-wiring (deferred, V37.9.103 已安全 — classify_account 拆 frozen/dead, is_zombie_suspect 仅 stub+dead, 不会错杀 karpathy 类冻结活账号). 待 Mac Mini rotation 验证后 wire 进 run 脚本: parser 发 newest_age + per-account classify + 3 天连续 ZOMBIE 告警 (镜像 finance_news degraded 分流).",
@@ -274,10 +274,10 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 4759,
-    "last_regression": "2026-06-23 13:49 pass",
+    "test_count": 4763,
+    "last_regression": "2026-06-24 14:08 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-23 13:49",
+    "security_score_time": "2026-06-24 14:08",
     "test_suites": 135,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
@@ -346,7 +346,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-06-23 周二: 一致性收敛 + 待办归账 (V37.9.185, 用户选, 日落法北极星 + 外部评审2 指令). status.json 多 session 直接 Edit 累积结构性 cruft 收敛: 28 unfinished 碎片(嵌套 canonical 21 + 误键顶层 dotted-key 7) → 14 grounded-live 单一 canonical 列表; 退役 12 项(每项 changelog/code 证据: V37.9.9/21 已完成/取代 V37.9.132/183/184, V37.9.157 INV-CRON 8 天无复发, V37.9.100/101/103/106 部署验证窗口过, SLO #19 self-heal 兑现, V37.9.162 Option A 被 V37.9.180 证伪); 删一物多形 cruft(session_context.{focus,current_focus,recent_changes,last_session_*} + 顶层孤儿 dotted-key + system_health + last_updated/updated_at, 两消费者核实从不被读零损失). status.json 444→359 行. 周二开工健康基线全绿 135/4759/0 fail. VERSION 0.37.9.71 不变(纯 state 零业务语义零代码). 待用户合并 PR + Mac Mini git fetch+reset(纯 status.json 零重启). dev 侧无待办阻塞, 剩 14 项全 Mac-Mini-gated/deferred/guardrail.",
+  "focus": "2026-06-24 周三: deep_dive pwc 死路径退役 + TIER↔registry 一致性 drift 守卫 (V37.9.186, 日落法 #34 一物一形 + V37.9.88 同款 stale-引用 bug 类机器化防线, 纯清理零业务语义). 开工基线全绿 135/4759/0 fail. 诊断(原则 #28): kb_deep_dive.py TIER_1_SOURCES 含 pwc 死路径(job 停用 V31+脚本删 V37.8.13+registry enabled=false, 永不产 note → classify_tier 死分支), 是 V37.9.88(daily_observer JOBS_SUBDIRS 残留 pwc 致 2 月误告警)同款 bug 类潜伏. 退役 pwc(TIER_1 + docstring + 文件表) + drift 守卫(每个 TIER 源必须 registry enabled, 复用生产 loader MR-8) + sabotage 反向验证(加回 pwc→2 守卫 FAIL). fail-loud 子项判定低价值不 bundle. 开工教训重记: 并发编辑 full_regression 运行中污染混沌审计报假 2/2, stash 后干净树独立跑 10/10 证实是 artifact — 钉死不在混沌审计层运行时编辑文件(V37.9.144/V37.9.105). 验证 135 suites/4763 tests(+4)/0 fail/干净树混沌 10/10/governance EXIT=0 91/91/安全 95/三机器 doc-drift 无漂移/VERSION 0.37.9.71 不变. 待 Mac Mini git fetch+reset(纯清理零重启零行为变化). dev 侧无阻塞, unfinished 14 项全 Mac-Mini-gated/deferred/guardrail.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
