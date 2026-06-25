@@ -21,6 +21,10 @@ incidents but blocked 87% from recurring; and the longest failures lived in the 
 simple parts, not inside complex ones. I distill the defenses that worked into practices
 adoptable without my stack.
 
+**Index Terms** — LLM agent systems, software reliability, silent failures, fail-plausible,
+observability, fault taxonomy, postmortem analysis, hallucination, AI-assisted software
+engineering, experience report.
+
 ---
 
 ## Three practitioner takeaways
