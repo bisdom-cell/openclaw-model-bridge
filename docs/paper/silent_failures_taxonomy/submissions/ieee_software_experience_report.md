@@ -1,4 +1,4 @@
-# When Errors Become Narratives: Lessons from 22 Silent Failures in a Production LLM Agent Runtime
+# When Errors Become Narratives: A Longitudinal Taxonomy of Silent Failures in a Production LLM Agent Runtime
 
 **Submission type:** IEEE Software — Feature article (experience report / "lessons learned")
 **Author:** Wei Wu, Independent Researcher (wuweinanonuaa@gmail.com)
