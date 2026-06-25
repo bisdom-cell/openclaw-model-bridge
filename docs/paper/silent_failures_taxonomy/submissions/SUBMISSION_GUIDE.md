@@ -85,8 +85,8 @@
 
 > Dear IEEE Software Editors,
 >
-> I submit "When Errors Become Narratives: Lessons from 22 Silent Failures in a Production LLM
-> Agent Runtime" as a feature-length experience report. It distills an eight-week longitudinal
+> I submit "When Errors Become Narratives: A Longitudinal Taxonomy of Silent Failures in a
+> Production LLM Agent Runtime" as a feature-length experience report. It distills an eight-week longitudinal
 > study of silent failures in a continuously operating LLM agent runtime into three findings and a
 > set of practices practitioners can apply directly: that a human reading the product caught ~70%
 > of failures the automated stack missed; that the governance audit prevented 0% of novel
