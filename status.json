@@ -1,6 +1,6 @@
 {
-  "updated": "2026-06-26 14:30:00",
-  "updated_by": "security_score",
+  "updated": "2026-06-26 14:35:56",
+  "updated_by": "full_regression",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-06-26",
+      "what": "V37.9.190 组装 ISSRE Industry Track 投稿稿(用户「开始组装 + 今天先不投递但提前全面准备」, 话语权零业务语义 VERSION 不变). 起因: 用户问「是不是遗漏一个待发表论文」→ 核实发现我把 item 0(ISSRE 平行投稿)归类成纯「用户动作」低估了它——它有真 dev 可做的准备工作. ISSRE 用的是区别于 IEEE 杂志经验报告版的【不同文档】(SUBMISSION_GUIDE: 不可同存档稿双投两 venue, 杂志 feature 与会议工业稿是两份文档). 组装 issre_industry_track_paper.md = 完整 arXiv 论文 + §3 前言换 Part A(Runeson-Höst 纵向单案例方法: 方法选择理由/案例与分析单元/RQ/数据采集 postmortem 协议/constant comparison/meta-pattern counter/analytical generalization) + §8 换 Part B(四类威胁有效性: construct/internal 无 κ/external/reliability/AI-involvement) + AI 披露整合(Generative-AI Use Disclosure + Acknowledgments + CRediT) + Index Terms + 作者/系统名保留(工业 track 非双盲) + ref 14→15(加 Runeson&Höst 2009) + 自含 Trim priorities 附录(6 页限制时的裁剪优先级, 保护方法学段+0%/87% scorecard+威胁段+AI 披露不可删) + pitch line. 数字全部冻结 study-cutoff 2026-06-11(4,286 tests/121 suites/90 inv/827 checks/23 MR/14 scanners/22 incidents/≥28/8 providers/~40 jobs, 与 arXiv 已发表版一致), 核对反核无当前-repo 数字(4770/135/91/839)泄漏, 以 latex/main.tex 权威标题为准, 绝不凭记忆编造. 泄漏扫描 clean(作者邮箱是公开联系预期出现). 更新 SUBMISSION_GUIDE ISSRE 段(manuscript 已组装 + checklist 标 author-only 项). 验证 134/0/4770 / badge 无漂移 / governance EXIT=0 91/91 / 安全 95 / VERSION 0.37.9.71 不变. 剩余 author-only: 确认 CFP 页数/截止 + IEEE GenAI 政策 + 裁剪贴模板 + 实际 Submit. 待 Mac Mini git fetch+reset(纯 doc 零重启).",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-26",
       "what": "V37.9.189 full_regression README 徽章漂移检测移到证据回写之后 — 根治 V37.9.180 漏 --write 泄漏进 merge 的递归滞后（unfinished #13, 用户「现在就继续执行 item13」, CI 核心 careful 重构）. 根因: gen_readme_badges --check 旧序在证据回写【之前】跑, 但它验的 test_count/suites/security 来自 status.json 末尾回写 → 验的是上次 run 的值 → 本 session 加测试漏 --write 时 README vs 上次 status.json 仍一致→本 run 通过→漂移只在下次 run 才被抓（V37.9.180 commit 2afc90c 漏 --write 被合并进 main 根因）. 诊断缩 blast radius: 仅 test_count/suites/security 来自 status.json 回写; invariants/checks/version/providers/cases/MRD 全静态文件; gen_jobs_doc(验 jobs_registry)+gen_compat_matrix(验 providers.py) 不依赖回写 → 只移 gen_readme_badges --check 一个块. 自引用难点(suites 计数既被 --check 验又被 --check 递增)用 SUITES_DEFERRED_COUNTED=1 化解(镜像 V37.9.140 SUITES_SKIPPED_COUNTED 确定值模式): SUITES_TOTAL=PASS+SKIPPED+DEFERRED, dirty 133+1+1 / clean 134+0+1 → suites=135 两路径不变. 控制流重构: 第一道门(FAIL>0 abort)→证据回写→第 2.5 层 badge --check(回写后)→最终门(漂移提示跑 --write+exit1). security/governance/version 回写块字节不变(两段式 Edit 不碰中段 python heredoc). 守卫 test_v37_9_69 19→26: 更新 2 算术守卫 + 新 TestV379188BadgeCheckAfterWriteback(源码顺序 badge>回写 + 无残留旧序 + DEFERRED=1 + 第 2.5 层段头 + jobs/compat 留回写前 + 阻塞门). sabotage 反向验证(备份副本非 git checkout): 回写前插 --check → 2 顺序守卫 FAIL, 还原 26/26 全过. 端到端活证: 本 session +7 测试(4763→4770) → 首跑 full_regression 同 run 抓 README 4763 vs 回写 4770 漂移 exit1 提示 --write(旧序此 run 会通过泄漏到下次) → --write 同步 → 复跑 134/0/4770 全绿 = #13 递归滞后活生生闭环. 验证 134/0/4770(+7) / suites 135 不变 / governance EXIT=0 91/91 / 安全 95/100 / 三机器 doc-drift 无漂移 / VERSION 0.37.9.71 不变(CI 工具非运行时, 同 V37.9.141/143 惯例). 复杂度预算: files 不变, suites 135 不变(DEFERRED 抵消移动), tests +7, 净 runtime 机制≈0(控制流重构修递归 bug 非新接缝). 待 Mac Mini git fetch+reset(full_regression 是 CI 工具零重启).",
       "by": "claude_code"
     },
@@ -198,11 +203,6 @@
       "date": "2026-06-18",
       "what": "V37.9.172 Path B 第二批: 多频道/特殊 job + KB 内容脚本主推收编 notify.sh. 标准结构(脚本): arxiv/s2 主推→notify --topic papers(ontology的ONTO_CONTENT是discord-only不动) + openclaw_official×2→tech(run_discussions退役whatsapp-stderr hack)+ERR_MSG→alerts. 特殊手动: freight(cat主推+多行画像+ERR/WARN, 补source notify.sh)→freight/alerts; kb_inject(每日摘要WA_MSG, 补source)→daily. 修bug: kb_deep_dive段推送 notify --channel whatsapp 强制绕过微信→去掉走默认. 已notify优先不动: finance/chaspark/kb_radar/kb_review/kb_evening/health_check. test_notify_jobs_routing 6→9单测(CONVERTED 10→14+特殊3). 7脚本bash -n全过/governance EXIT=0 INV-NOTIFY绿. Path B一+二批后全部每日内容推送均经notify到微信. 剩batch3=ops根脚本.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-06-18",
-      "what": "V37.9.171 Path B 第一批: 10 单频道内容 job 主推/分块收编 notify.sh — hf_papers/dblp/acl(papers)+hn/rss_blogs/github_trending/karpathy_x/ai_leaders_blogs/bsky/x(tech) 的 whatsapp+discord 对 → notify --topic X(微信→用户+Discord #topic+重试+队列). 日落法每处2发送→1, 退役裸whatsapp+discord对+hn的whatsapp-stderr插件警告hack. test_notify_jobs_routing.py 6守卫(主推走notify/无残留裸whatsapp/无重复discord/sabotage验证)接入full_regression. 10 job bash -n全过/governance EXIT=0 INV-NOTIFY-001~004绿. 兑现INV-NOTIFY-003(合规脚本1→11). Path B第二批剩多频道(arxiv/s2/freight/openclaw)+特殊(finance/chaspark)+~18根脚本.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -254,7 +254,7 @@
   "session_context": {
     "last_session": "2026-06-23",
     "unfinished": [
-      "【ISSRE Industry Track 平行第二投 · ready】Silent-failures 论文已正式投 IEEE Software (2026-06-25)；平行第二投 = ISSRE Industry Track (主题最对口的同行评审会议, 'experiences and lessons learned', 2026 主题含 GenAI/ML, 不双盲利好独立作者). 交付物已 ready 在 docs/paper/silent_failures_taxonomy/submissions/ (全文 + threats_to_validity_and_case_study_method.md Runeson-Höst 方法学段化解 n=1). 待用户决定推进时投: 找当年 ISSRE Industry CFP 截稿期 → 全文 trim 到页限 + 替换 §3 前言/§8 为方法学段 + AI 披露. 注意: 杂志(IEEE Software)+会议(ISSRE)是不同文档可并行, 但勿把同一存档稿同时投两个存档 venue.",
+      "【ISSRE Industry Track 平行第二投 · 投稿稿已组装(V37.9.190)】Silent-failures 论文(arXiv:2606.14589 + IEEE Software in-review)的平行第二投. ISSRE 投稿稿已组装: docs/paper/silent_failures_taxonomy/submissions/issre_industry_track_paper.md = 完整论文 + Runeson-Höst 纵向单案例方法作 §3 + 四类威胁有效性 schema 作 §8 (化解 n=1/单作者质疑) + AI 披露整合 + Index Terms + ref[15] Runeson&Höst 2009 + 自含 Trim priorities 附录. 数字全部冻结 study-cutoff(4,286 tests/827 checks/90 inv/22 incidents, 同 arXiv). 区别于 IEEE 杂志经验报告版(不同文档无双发冲突). 剩余 author-only(我做不了): (1)确认 ISSRE 2026 Industry Track CFP 截止日+页数限制(沙箱上不了 live CFP, 典型 6 页+refs IEEE 2-column) (2)确认 IEEE 当年 GenAI 披露措辞+arXiv 预印本许可 (3)按确认页数裁剪(用附录优先级) + 贴进 IEEEtran 模板 + Fig.1 重画矢量图 (4)实际 Submit(绑定 ORCID 身份). 注意: 杂志+会议不同文档可并行, 但勿同存档稿双投.",
       "【IEEE Software 投稿 in-review · 追踪】When Errors Become Narratives 已 2026-06-25 正式提交 IEEE Software (Author Portal/ScholarOne, ORCID 0009-0009-1176-7817, arXiv 预印本透明披露). 待: 收稿确认邮件 → 编辑初筛 → 同行评审(2-3 referee) → 决定(修改/录用/拒). 在 'My Submissions' 追踪状态; 主编 Sigrid Eldh 已收摘要探口风邮件, 如回复可告知已正式提交; 收到 review 请求时回应.",
       "【4.27 推送链路回归追踪 · 中优】真因=4.27 openclaw CLI 冷调用回归 (V37.9.145). 丢失面评估已闭合 (push_path_loss_surface_audit_2026_06_15.md: 无总丢失面, WhatsApp 瞬时缝隙内容在 Discord 存活). 剩余需 Mac Mini 生产数据: (a) openclaw message send --help timeout 旋钮探测 → 可配则 notify.sh/直推 job 调大 (b) ls ~/.openclaw/plugin-runtime-deps/ 多 hash dir 查 staging 间歇复发 (V37.9.162 同源) (c) 上游 releases 查 CLI 冷启动/staging 修复 (tripwire 不自动升级). 硬化候选 (deferred 需 E2E): 论文类 job 直推双通道迁 notify.sh --topic (MR-8 一物一形).",
       "V37.9.159 test_health_check 真 bug Mac Mini 生产验证 (dev 不可执行): scanner 抓 test_health_check 跑 health_check.sh 漏 push 隔离 → 治理 07:00 audit 是否真在发日报型 health 周报 (V37.9.159 已修, marker 时序依赖). Mac Mini 同步后观察 07:00 是否还收到 health 周报 + 确认 weekly 09:00 周报正常.",
@@ -276,9 +276,9 @@
   "quality": {
     "security_score": 95,
     "test_count": 4770,
-    "last_regression": "2026-06-26 13:58 pass",
+    "last_regression": "2026-06-26 14:35 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-26 13:58",
+    "security_score_time": "2026-06-26 14:35",
     "test_suites": 135,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
@@ -347,7 +347,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-06-26: V37.9.189 full_regression README 徽章漂移检测移到证据回写之后（unfinished #13 根治, 用户驱动, CI 核心 careful 重构 + sabotage + 端到端活证）. 根治 V37.9.180 漏 --write 泄漏进 merge 的递归滞后: 旧序 gen_readme_badges --check 在回写前跑验上次 run 值 → 本 session 漂移只在下次 run 被抓; 新序回写后跑同 run 抓. 自引用(suites 计数既验又递增)用 SUITES_DEFERRED_COUNTED 确定值化解, suites=135 不变. 守卫 test_v37_9_69 19→26 + sabotage 反向验证 + 端到端活证(本 session +7 测试首跑同 run 抓 4763 vs 4770 漂移). 验证 134/0/4770 / governance EXIT=0 91/91 / 安全 95 / VERSION 0.37.9.71 不变. 同 session 早先 V37.9.188 退役 INV-WA-CHANNEL-001 计划. 系统收敛态, 剩余实质待办全 gated（IEEE in-review / ISSRE 用户动作 / deep_dive OA 复核 ~6/29 Mac Mini）.",
+  "focus": "2026-06-26: V37.9.190 组装 ISSRE Industry Track 投稿稿(用户驱动「今天先不投递但提前全面准备」). 用户问「遗漏一个待发表论文?」→ 核实 item 0(ISSRE 平行投稿)有真 dev 准备工作被我低估为纯用户动作. 组装 issre_industry_track_paper.md = 完整论文 + Runeson-Höst 纵向单案例方法作 §3 + 四类威胁 schema 作 §8(化解 n=1/单作者) + AI 披露 + Index Terms + ref[15] + Trim priorities 附录. 数字冻结 study-cutoff 与 arXiv 一致, 无当前-repo 数字泄漏. 剩余 author-only: CFP 页数/截止确认 + 裁剪贴模板 + Submit. 同 session: V37.9.188 退役 INV-WA-CHANNEL-001 计划 + V37.9.189 根治 full_regression --check 顺序递归滞后. 论文三 venue 状态: arXiv 已发表 / IEEE Software in-review / ISSRE 投稿稿已组装待用户投递.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
