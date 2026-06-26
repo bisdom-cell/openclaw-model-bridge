@@ -275,8 +275,12 @@ class TestV379140SuitesCountStability(unittest.TestCase):
         )
 
     def test_write_uses_pass_plus_skipped(self):
-        """status.json 回写必须用 PASS + SUITES_SKIPPED_COUNTED 确定值."""
-        self.assertIn("SUITES_TOTAL=$((PASS + SUITES_SKIPPED_COUNTED))", self.src)
+        """status.json 回写必须用 PASS + SUITES_SKIPPED_COUNTED (+ V37.9.188 DEFERRED) 确定值."""
+        # V37.9.188 (#13): 加 SUITES_DEFERRED_COUNTED — gen_readme_badges --check 回写后跑.
+        self.assertIn(
+            "SUITES_TOTAL=$((PASS + SUITES_SKIPPED_COUNTED + SUITES_DEFERRED_COUNTED))",
+            self.src,
+        )
         self.assertIn('--set quality.test_suites "$SUITES_TOTAL"', self.src)
 
     def test_no_legacy_flapping_write(self):
@@ -286,17 +290,23 @@ class TestV379140SuitesCountStability(unittest.TestCase):
     def test_arithmetic_line_behaviorally_correct(self):
         """行为验证: 从源码提取真实算术行, bash 真跑断言 dirty/clean 两路径同值.
 
-        dirty 路径 (PASS=121, SKIPPED=1) 与 clean 路径 (PASS=122, SKIPPED=0)
-        必须产出相同 SUITES_TOTAL=122 — 这正是 #27 抖动的消除证明.
+        V37.9.188 (#13): suites 算术加常量 SUITES_DEFERRED_COUNTED (回写后跑的徽章检测).
+        dirty 路径 (PASS=120, SKIPPED=1, DEFERRED=1) 与 clean 路径 (PASS=121, SKIPPED=0, DEFERRED=1)
+        必须产出相同 SUITES_TOTAL=122 — #27 抖动消除 + #13 延迟计入仍确定值的双重证明.
         """
-        m = re.search(r"(?m)^\s*(SUITES_TOTAL=\$\(\(PASS \+ SUITES_SKIPPED_COUNTED\)\))", self.src)
-        self.assertIsNotNone(m, "源码必须含 SUITES_TOTAL 算术行")
+        m = re.search(
+            r"(?m)^\s*(SUITES_TOTAL=\$\(\(PASS \+ SUITES_SKIPPED_COUNTED \+ SUITES_DEFERRED_COUNTED\)\))",
+            self.src,
+        )
+        self.assertIsNotNone(m, "源码必须含 V37.9.188 三项 SUITES_TOTAL 算术行")
         arith = m.group(1)
         results = []
-        for pass_v, skipped_v in ((121, 1), (122, 0)):
+        # DEFERRED 是常量 1; dirty/clean 仅 PASS/SKIPPED 不同但 PASS+SKIPPED 守恒 → 总值不变.
+        for pass_v, skipped_v in ((120, 1), (121, 0)):
             r = subprocess.run(
                 ["bash", "-c",
-                 f'PASS={pass_v}; SUITES_SKIPPED_COUNTED={skipped_v}; {arith}; echo "$SUITES_TOTAL"'],
+                 f'PASS={pass_v}; SUITES_SKIPPED_COUNTED={skipped_v}; SUITES_DEFERRED_COUNTED=1; '
+                 f'{arith}; echo "$SUITES_TOTAL"'],
                 capture_output=True, text=True, timeout=10,
             )
             self.assertEqual(r.returncode, 0, f"bash 算术执行失败: {r.stderr}")
@@ -304,6 +314,79 @@ class TestV379140SuitesCountStability(unittest.TestCase):
         self.assertEqual(results[0], results[1],
             f"dirty/clean 两路径 SUITES_TOTAL 必须相同 (抖动消除): {results}")
         self.assertEqual(results[0], "122")
+
+
+# ── V37.9.188: README 徽章漂移检测移到证据回写之后 (unfinished #13) ──────────
+# 修 V37.9.180 漏 --write 泄漏进 merge 的递归根因: 旧序 gen_readme_badges --check 在
+# 证据回写之前跑 → 验证的是上次 run 写入 status.json 的 test_count/suites/security →
+# 本 session 加测试改了权威值但漏 --write 的徽章漂移, 只在【下次】run 才被抓.
+# 新序: 回写 status.json (本-run 权威值) → 再跑徽章 --check (验本-run 值) → 同 run 抓漂移.
+class TestV379188BadgeCheckAfterWriteback(unittest.TestCase):
+    """V37.9.188 (#13): gen_readme_badges --check 必须在 status.json 证据回写之后跑."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.src = _read(FULL_REGRESSION_SH)
+
+    def test_v37_9_188_marker_present(self):
+        """V37.9.188 #13 marker 必须出现在 full_regression.sh (历史追溯)."""
+        self.assertIn("V37.9.188", self.src,
+            "full_regression.sh 必须含 V37.9.188 marker")
+
+    def test_deferred_counter_initialized(self):
+        """SUITES_DEFERRED_COUNTED 必须在顶部初始化为 1 (计入回写后跑的徽章检测)."""
+        self.assertRegex(self.src, r"(?m)^SUITES_DEFERRED_COUNTED=1")
+
+    def test_badge_check_after_writeback(self):
+        """核心顺序契约: gen_readme_badges --check 必须在 quality.test_count 回写【之后】.
+
+        反向验证 (sabotage): 把 --check 移回 "第二层" (回写前) → 此断言立即 fail
+        (badge check 行号 < 回写行号), 复现 V37.9.180 递归滞后根因.
+        """
+        writeback_idx = self.src.find("--set quality.test_count")
+        self.assertGreater(writeback_idx, 0, "必须有 quality.test_count 回写")
+        badge_idx = self.src.find("gen_readme_badges.py --check")
+        self.assertGreater(badge_idx, 0, "必须有 gen_readme_badges --check")
+        self.assertGreater(
+            badge_idx, writeback_idx,
+            "gen_readme_badges --check 必须在 quality.test_count 回写之后跑 "
+            "(否则验证的是上次 run 的值 → 漏本-run 漂移, V37.9.180 递归根因)")
+
+    def test_badge_check_not_before_any_writeback(self):
+        """所有 gen_readme_badges --check 出现都在回写之后 (无残留旧序的 --check)."""
+        writeback_idx = self.src.find("--set quality.test_count")
+        for m in re.finditer(r"gen_readme_badges\.py --check", self.src):
+            self.assertGreater(
+                m.start(), writeback_idx,
+                "残留的 gen_readme_badges --check 在回写之前 — 旧序未清除")
+
+    def test_second_half_layer_marker(self):
+        """新 '第 2.5 层' 段头必须存在 (回写后的徽章检测层)."""
+        self.assertIn("第 2.5 层", self.src)
+
+    def test_jobs_and_compat_checks_stay_before_writeback(self):
+        """gen_jobs_doc / gen_compat_matrix --check 不依赖 status.json 统计, 留在回写前.
+
+        (它们验 jobs_registry.yaml / providers.py, 非本-run 回写值 → 无需移动;
+         只有 gen_readme_badges 读 status.json 的 test_count/suites/security.)
+        """
+        writeback_idx = self.src.find("--set quality.test_count")
+        jobs_idx = self.src.find("gen_jobs_doc.py --check")
+        compat_idx = self.src.find("gen_compat_matrix.py --check")
+        self.assertGreater(jobs_idx, 0)
+        self.assertGreater(compat_idx, 0)
+        self.assertLess(jobs_idx, writeback_idx,
+            "gen_jobs_doc --check 应留在回写前 (不依赖 status.json)")
+        self.assertLess(compat_idx, writeback_idx,
+            "gen_compat_matrix --check 应留在回写前 (不依赖 status.json)")
+
+    def test_badge_drift_still_blocks_push(self):
+        """徽章漂移仍是阻塞门: README badge drift 失败项 + 禁止推送 + exit 1 路径存在."""
+        self.assertIn('FAILED_SUITES+=("README badge drift")', self.src)
+        # 最终门: 徽章漂移后 FAIL>0 → 禁止推送 + 提示跑 --write
+        self.assertIn("gen_readme_badges.py --write", self.src,
+            "失败提示必须告知跑 --write 同步徽章")
+        self.assertIn("禁止推送", self.src)
 
 
 if __name__ == "__main__":

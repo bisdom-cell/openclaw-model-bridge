@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-26 12:49:52",
+  "updated": "2026-06-26 14:30:00",
   "updated_by": "security_score",
   "priorities": [
     {
@@ -106,6 +106,11 @@
   "recent_changes": [
     {
       "date": "2026-06-26",
+      "what": "V37.9.189 full_regression README 徽章漂移检测移到证据回写之后 — 根治 V37.9.180 漏 --write 泄漏进 merge 的递归滞后（unfinished #13, 用户「现在就继续执行 item13」, CI 核心 careful 重构）. 根因: gen_readme_badges --check 旧序在证据回写【之前】跑, 但它验的 test_count/suites/security 来自 status.json 末尾回写 → 验的是上次 run 的值 → 本 session 加测试漏 --write 时 README vs 上次 status.json 仍一致→本 run 通过→漂移只在下次 run 才被抓（V37.9.180 commit 2afc90c 漏 --write 被合并进 main 根因）. 诊断缩 blast radius: 仅 test_count/suites/security 来自 status.json 回写; invariants/checks/version/providers/cases/MRD 全静态文件; gen_jobs_doc(验 jobs_registry)+gen_compat_matrix(验 providers.py) 不依赖回写 → 只移 gen_readme_badges --check 一个块. 自引用难点(suites 计数既被 --check 验又被 --check 递增)用 SUITES_DEFERRED_COUNTED=1 化解(镜像 V37.9.140 SUITES_SKIPPED_COUNTED 确定值模式): SUITES_TOTAL=PASS+SKIPPED+DEFERRED, dirty 133+1+1 / clean 134+0+1 → suites=135 两路径不变. 控制流重构: 第一道门(FAIL>0 abort)→证据回写→第 2.5 层 badge --check(回写后)→最终门(漂移提示跑 --write+exit1). security/governance/version 回写块字节不变(两段式 Edit 不碰中段 python heredoc). 守卫 test_v37_9_69 19→26: 更新 2 算术守卫 + 新 TestV379188BadgeCheckAfterWriteback(源码顺序 badge>回写 + 无残留旧序 + DEFERRED=1 + 第 2.5 层段头 + jobs/compat 留回写前 + 阻塞门). sabotage 反向验证(备份副本非 git checkout): 回写前插 --check → 2 顺序守卫 FAIL, 还原 26/26 全过. 端到端活证: 本 session +7 测试(4763→4770) → 首跑 full_regression 同 run 抓 README 4763 vs 回写 4770 漂移 exit1 提示 --write(旧序此 run 会通过泄漏到下次) → --write 同步 → 复跑 134/0/4770 全绿 = #13 递归滞后活生生闭环. 验证 134/0/4770(+7) / suites 135 不变 / governance EXIT=0 91/91 / 安全 95/100 / 三机器 doc-drift 无漂移 / VERSION 0.37.9.71 不变(CI 工具非运行时, 同 V37.9.141/143 惯例). 复杂度预算: files 不变, suites 135 不变(DEFERRED 抵消移动), tests +7, 净 runtime 机制≈0(控制流重构修递归 bug 非新接缝). 待 Mac Mini git fetch+reset(full_regression 是 CI 工具零重启).",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-26",
       "what": "V37.9.188 日落法退役 INV-WA-CHANNEL-001 治理不变式计划（周五开工·收敛日·grounded 自主选择）. 诊断（原则#28）: 频道掉线 escalation 契约（V37.9.162）已被 test_wa_channel_status.py（full_regression 注册）完整守护——MR-14 Discord-not-WhatsApp 发送路径 / 手机号泄漏守卫 / FAIL-OPEN / wa_keepalive _wa_channel_check 源码守卫 / auto_deploy FILE_MAP 部署 / fake-openclaw 隔离 HOME 行为级端到端. 应用 V37.9.166 三类判据: remaining action = 加治理 INV = category A（test 已覆盖→退役避 governance bloat）; 原则#21「什么坏了没人发现」不成立（CI 抓回归）. 决定不立 INV, 单测是足够且已选定的守护层（对齐外部评审2 降组合复杂度 + 日落法北极星 + V37.9.186 2 天前同款用单测不立 INV; 与 V37.9.162 计划的区别: 当时按 shadow-first 惯例预登记 INV, 现按演进后的日落法复审）. 与 V37.9.186 加治理 INV 的区别澄清: 那里也是用单测不立 INV——本决定与之一致非矛盾. 更新: case doc whatsapp_session_logout_silent_7h_case.md deferred 指针→已决 + 本 unfinished item 5. 顺手判定 item 13（full_regression --check 顺序）是真实但 intricate 自引用 CI 重构（suite 计数既被 --check 验证又被 --check 递增 + 拆分回写 + V37.9.140 稳定性交互），值专门 careful session 非收敛日仓促做（V37.9.181 已标）. VERSION 0.37.9.71 不变（纯决定+doc/state 零业务语义, 同 V37.9.166/185/186 惯例）. 复杂度预算: files/env/jobs/runtime-state-sources/suites/tests/checks/VERSION 全不变, 净 runtime 机制 0, 净退役 1 个「待加 INV」计划面（日落法连登记的待办也做减法）. 待 Mac Mini git fetch+reset（纯 doc/state 零重启）.",
       "by": "claude_code"
     },
@@ -198,11 +203,6 @@
       "date": "2026-06-18",
       "what": "V37.9.171 Path B 第一批: 10 单频道内容 job 主推/分块收编 notify.sh — hf_papers/dblp/acl(papers)+hn/rss_blogs/github_trending/karpathy_x/ai_leaders_blogs/bsky/x(tech) 的 whatsapp+discord 对 → notify --topic X(微信→用户+Discord #topic+重试+队列). 日落法每处2发送→1, 退役裸whatsapp+discord对+hn的whatsapp-stderr插件警告hack. test_notify_jobs_routing.py 6守卫(主推走notify/无残留裸whatsapp/无重复discord/sabotage验证)接入full_regression. 10 job bash -n全过/governance EXIT=0 INV-NOTIFY-001~004绿. 兑现INV-NOTIFY-003(合规脚本1→11). Path B第二批剩多频道(arxiv/s2/freight/openclaw)+特殊(finance/chaspark)+~18根脚本.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-06-18",
-      "what": "V37.9.170 微信(openclaw-weixin)推送接入 notify.sh + WhatsApp 临时禁用切换. 背景(上个session ev985-1109 shell history重建): WhatsApp连续3天408报错(V37.9.162掉线/限流延续), 为避免冲击号码被锁【临时】禁用(后面会再开)→装腾讯微信插件 openclaw-weixin(账号6d56c8fb0a0d-im-bot)+config set channels.openclaw-weixin.agent main. 微信交互层已通(channels status: running, in:17m前收到入站), 但cron推送收不到微信(notify.sh+10余job硬编码whatsapp). 本版只修notify.sh路径: 加weixin分支(镜像whatsapp, WEIXIN_TARGET未设则安全跳过仅发Discord)+默认NOTIFY_CHANNELS=openclaw-weixin,discord(whatsapp分支+OPENCLAW_PHONE原样保留)+10守卫单测(test_notify_weixin.py接入full_regression)+治理notify检查仍PASS. 同session独立重诊8-token NO_REPLY=[SYSTEM_ALERT]告警污染context(ev1082复现)+重复提问退化,/new清空恢复. VERSION/header/badge sync待收工full_regression回写.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -267,7 +267,6 @@
       "V37.9.83 战略方向 3 (Red Team Sandbox) PoC: 短期不启动 (输入空间开放无 ground truth 评分函数, vs 围棋 self-play 博弈空间封闭). 子能力 red_team_audit.py 每周对抗扫描有真实价值 (adversarial_chaos_audit.py 16/16 延伸). design doc 见 ai_partnership_first_principles_zh.md 第四节方向 3.",
       "V37.9.129 follow-up (DEFER): adapter fallback 循环读 upstream error body (观察性, MR-13/INV-OBSERVABILITY-001 候选). 修法: adapter 复用 proxy_filters.compose_backend_error_str (V37.8.10). DEFER 原因: gemini 退役后其 400 body moot + doubao timeout 无 informative body + 引入 adapter→proxy_filters 耦合 (日落法 #34). 对未来其他 provider HTTP 错误诊断仍有价值.",
       "convergence cron 行全行比较: 2026-06-02 审计决定不切换 (case doc cron_line_full_comparison_audit_2026_06_02.md — Mac Mini missing=17 extra=18 全格式变体 0 脚本缺失, 切换会 false-drift 风暴). 保持 line_contains_identifier (务实最优). 未来候选 (非高优): fuzzy-match parser 归一化引号/~/redirect + registry↔crontab 命令完整性对账; 2 真差异待用户 (preference_learner registry 补 --apply --days 7 args? / 30 23 手动 rsync 是否与 0 4 movespeed_daily_sync 冗余).",
-      "full_regression --check 顺序结构性修复 (低优, V37.9.181 登记): gen_readme_badges --check + 单测在 status.json 回写之前跑 → 本-session 加测试的徽章漂移只在下次 run 被抓 (V37.9.180 漏收工 --write 的递归根因). 候选: 移 --check 到回写后. 风险: touch full_regression 核心 + 干净树检查 (--write at end 让树 dirty 影响对抗审计层), 需独立 careful 评估. drift 守卫已下次 run 兜底 (非紧急).",
       "3-engine-merge 已两次评估 DEFER (V37.9.119 + 2026-06-08), 勿再从头调查. 3 加载点 (proxy_filters:452 _onto_engine 每请求工具过滤 / proxy_filters:1463 一致性诊断 / three_gate:183 lazy gate shadow 门控) path-independent 零 correctness bug, 双加载 cosmetic startup-once. 高 blast radius 换 cosmetic 收益不值 (原则 #34 防御本身是事故面). 若未来做: 只 Sub-merge A (单文件缓存 helper), Sub-merge B (跨模块单例, INV-GATE-001 硬锁) 不做.",
       "V37.9.124 #29 follow-up (低优, 防重复调查): INV runtime 收窄约定已立 (test_v37_9_124 docstring) — 套件含 env-dependent test 的 INV 跑契约核心类非全套件; 纯逻辑套件跑全. 未来新 INV 跑的套件含 env-dependent test (读 repo 外真实系统状态) 时按此收窄到契约核心类 (镜像 INV-OBSERVER-001/INV-DREAM-CROSS-DOMAIN)."
     ],
@@ -276,10 +275,10 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 4763,
-    "last_regression": "2026-06-26 12:49 pass",
+    "test_count": 4770,
+    "last_regression": "2026-06-26 13:58 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-26 12:49",
+    "security_score_time": "2026-06-26 13:58",
     "test_suites": 135,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
@@ -348,7 +347,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-06-26: V37.9.188 日落法退役 INV-WA-CHANNEL-001 治理不变式计划（周五收敛日 grounded 自主选择, 镜像 V37.9.166 退役 bloat INV 计划方法论）. 频道掉线契约已被 test_wa_channel_status.py（full_regression）完整守护（MR-14/手机号/FAIL-OPEN/集成/部署/行为级），原则#21「什么坏了没人发现」不成立 → 加治理 INV 是 governance bloat（V37.9.166 category A + 外部评审2 降组合复杂度 + 北极星）. 仅剩 Mac Mini 生产 false-positive 观察（dev 不可执行）. VERSION 0.37.9.71 不变. 系统收敛态: 实质待办全 gated（IEEE 投稿 in-review / ISSRE 平行投稿=用户动作 / deep_dive OA 降级率复核 ~6/29 Mac Mini / item 13 CI --check 顺序重构=待专门 careful session）.",
+  "focus": "2026-06-26: V37.9.189 full_regression README 徽章漂移检测移到证据回写之后（unfinished #13 根治, 用户驱动, CI 核心 careful 重构 + sabotage + 端到端活证）. 根治 V37.9.180 漏 --write 泄漏进 merge 的递归滞后: 旧序 gen_readme_badges --check 在回写前跑验上次 run 值 → 本 session 漂移只在下次 run 被抓; 新序回写后跑同 run 抓. 自引用(suites 计数既验又递增)用 SUITES_DEFERRED_COUNTED 确定值化解, suites=135 不变. 守卫 test_v37_9_69 19→26 + sabotage 反向验证 + 端到端活证(本 session +7 测试首跑同 run 抓 4763 vs 4770 漂移). 验证 134/0/4770 / governance EXIT=0 91/91 / 安全 95 / VERSION 0.37.9.71 不变. 同 session 早先 V37.9.188 退役 INV-WA-CHANNEL-001 计划. 系统收敛态, 剩余实质待办全 gated（IEEE in-review / ISSRE 用户动作 / deep_dive OA 复核 ~6/29 Mac Mini）.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",

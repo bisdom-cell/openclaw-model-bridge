@@ -16,6 +16,11 @@ FAILED_SUITES=()
 # gen_readme_badges doc-drift 守卫假阳性)。PASS 仍只数真执行通过的 suite (汇总行诚实),
 # 仅 status.json 回写用 PASS + SUITES_SKIPPED_COUNTED 保持 suite 清单数确定。
 SUITES_SKIPPED_COUNTED=0
+# V37.9.188 (#13 修复): README 徽章漂移检测移到证据回写之后跑（验证本-run 权威值,
+# 抓本 session 漂移；旧序在回写前跑只能验上次 run 的值 = V37.9.180 漏 --write 泄漏进
+# merge 的递归根因, V37.9.181 登记）。它在回写后跑但仍属 suite 清单, 用此计数器计入
+# suites 总数 (否则 suites 少 1 → 假漂移)。镜像 SUITES_SKIPPED_COUNTED 确定值模式。
+SUITES_DEFERRED_COUNTED=1
 
 TS="$(date '+%Y-%m-%d %H:%M:%S')"
 echo "╔══════════════════════════════════════════════════════╗"
@@ -294,16 +299,9 @@ else
     FAILED_SUITES+=("config drift")
 fi
 
-echo -n "  🏷️  README 徽章漂移检测 (V37.9.99) ... "
-if python3 gen_readme_badges.py --check >/dev/null 2>&1; then
-    echo "✅"
-    PASS=$((PASS + 1))
-else
-    echo "❌"
-    python3 gen_readme_badges.py --check 2>&1 | tail -3
-    FAIL=$((FAIL + 1))
-    FAILED_SUITES+=("README badge drift")
-fi
+# V37.9.188 (#13): README 徽章漂移检测移到证据回写之后（见文件末尾 "第 2.5 层"）——
+# 它依赖 status.json 本-run 回写的 test_count/suites/security, 必须在回写后才能验本-run 值。
+# gen_jobs_doc / gen_compat_matrix 不依赖 status.json 统计 (验 jobs_registry / providers.py), 留原位。
 
 echo -n "  🔌 compatibility_matrix 漂移检测 (V37.9.143 外部评审2 P0) ... "
 if python3 gen_compat_matrix.py --check >/dev/null 2>&1; then
@@ -521,13 +519,13 @@ fi
 echo ""
 
 # ═══════════════════════════════════════════════════════════════
-# 汇总
+# 第一道门：非-徽章 suite 失败立即终止
+# (README 徽章漂移检测移到证据回写之后跑 — 见下方"第 2.5 层"，V37.9.188 修 #13)
 # ═══════════════════════════════════════════════════════════════
-echo "══════════════════════════════════════════════════════"
-echo "  结果: $PASS 通过 / $FAIL 失败 / 共 $TOTAL_TESTS 个测试用例"
-echo "══════════════════════════════════════════════════════"
-
 if [ "$FAIL" -gt 0 ]; then
+    echo "══════════════════════════════════════════════════════"
+    echo "  结果: $PASS 通过 / $FAIL 失败 / 共 $TOTAL_TESTS 个测试用例"
+    echo "══════════════════════════════════════════════════════"
     echo ""
     echo "❌ 失败项:"
     for s in "${FAILED_SUITES[@]}"; do
@@ -536,25 +534,25 @@ if [ "$FAIL" -gt 0 ]; then
     echo ""
     echo "⛔ 回归测试未通过，禁止推送！"
     exit 1
-else
-    echo ""
-    echo "✅ 全量回归测试通过，可以安全推送"
+fi
 
-    # ═══════════════════════════════════════════════════════════════
-    # 证据口径自动化：所有指标回写 status.json（单一数据源）
-    # ═══════════════════════════════════════════════════════════════
-    REGRESSION_TS="$(date '+%Y-%m-%d %H:%M')"
-    if [ -f status_update.py ]; then
+# ═══════════════════════════════════════════════════════════════
+# 证据口径自动化：所有指标回写 status.json（单一数据源）
+# V37.9.188 (#13): 回写在 README 徽章漂移检测之前 — 让徽章守卫读到本-run 权威值
+# ═══════════════════════════════════════════════════════════════
+REGRESSION_TS="$(date '+%Y-%m-%d %H:%M')"
+if [ -f status_update.py ]; then
         echo ""
         echo "📊 证据回写 status.json ..."
 
         # 1) 测试数 + 回归结果
         python3 status_update.py --set quality.test_count "$TOTAL_TESTS" --by full_regression 2>/dev/null
         python3 status_update.py --set quality.last_regression "${REGRESSION_TS} pass" --by full_regression 2>/dev/null
-        # V37.9.140 (#27): suites = PASS + 条件跳过计入数, 让 suite 清单数与执行条件解耦
-        SUITES_TOTAL=$((PASS + SUITES_SKIPPED_COUNTED))
+        # V37.9.140 (#27) + V37.9.188 (#13): suites = PASS + 条件跳过计入 + 延迟计入(回写后跑的徽章检测)
+        # 让 suite 清单数与执行条件/回写时序解耦, 保持确定值。
+        SUITES_TOTAL=$((PASS + SUITES_SKIPPED_COUNTED + SUITES_DEFERRED_COUNTED))
         python3 status_update.py --set quality.test_suites "$SUITES_TOTAL" --by full_regression 2>/dev/null
-        echo "   test_count=$TOTAL_TESTS, suites=$SUITES_TOTAL (含 ${SUITES_SKIPPED_COUNTED} 个条件跳过计入)"
+        echo "   test_count=$TOTAL_TESTS, suites=$SUITES_TOTAL (含 ${SUITES_SKIPPED_COUNTED} 条件跳过 + ${SUITES_DEFERRED_COUNTED} 回写后徽章检测)"
 
         # 2) 安全评分（单次调用，解析三个字段）
         if [ -f security_score.py ]; then
@@ -609,7 +607,46 @@ if start is not None:
         fi
 
         echo "✅ 证据回写完成"
-    fi
-
-    exit 0
 fi
+
+# ═══════════════════════════════════════════════════════════════
+# 第 2.5 层：README 徽章漂移检测（V37.9.188 修 #13 — 证据回写后跑）
+# 验证 README/doc-header 徽章 == 本-run 刚回写的 test_count/suites/security。
+# 旧序在回写前跑 → 只能验上次 run 的值 → 本 session 加测试漏 --write 的漂移
+# 只在下次 run 才被抓（V37.9.180 漏 --write 合并进 main 的递归根因，V37.9.181 登记）。
+# ═══════════════════════════════════════════════════════════════
+echo ""
+echo "📋 第 2.5 层：README 徽章漂移检测（证据回写后 — V37.9.188 修 #13 递归滞后）"
+echo -n "  🏷️  README 徽章 + doc header 统计漂移 ... "
+if python3 gen_readme_badges.py --check >/dev/null 2>&1; then
+    echo "✅"
+    PASS=$((PASS + 1))
+else
+    echo "❌"
+    python3 gen_readme_badges.py --check 2>&1 | tail -3
+    FAIL=$((FAIL + 1))
+    FAILED_SUITES+=("README badge drift")
+fi
+
+# ═══════════════════════════════════════════════════════════════
+# 最终汇总
+# ═══════════════════════════════════════════════════════════════
+echo ""
+echo "══════════════════════════════════════════════════════"
+echo "  结果: $PASS 通过 / $FAIL 失败 / 共 $TOTAL_TESTS 个测试用例"
+echo "══════════════════════════════════════════════════════"
+
+if [ "$FAIL" -gt 0 ]; then
+    echo ""
+    echo "❌ 失败项:"
+    for s in "${FAILED_SUITES[@]}"; do
+        echo "  • $s"
+    done
+    echo ""
+    echo "⛔ README 徽章漂移 — 请跑 python3 gen_readme_badges.py --write 同步徽章后重试，禁止推送！"
+    exit 1
+fi
+
+echo ""
+echo "✅ 全量回归测试通过，可以安全推送"
+exit 0
