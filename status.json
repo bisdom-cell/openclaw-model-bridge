@@ -1,6 +1,6 @@
 {
-  "updated": "2026-06-25 01:30:00",
-  "updated_by": "claude_code",
+  "updated": "2026-06-26 12:49:52",
+  "updated_by": "security_score",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -105,6 +105,11 @@
   ],
   "recent_changes": [
     {
+      "date": "2026-06-26",
+      "what": "V37.9.188 日落法退役 INV-WA-CHANNEL-001 治理不变式计划（周五开工·收敛日·grounded 自主选择）. 诊断（原则#28）: 频道掉线 escalation 契约（V37.9.162）已被 test_wa_channel_status.py（full_regression 注册）完整守护——MR-14 Discord-not-WhatsApp 发送路径 / 手机号泄漏守卫 / FAIL-OPEN / wa_keepalive _wa_channel_check 源码守卫 / auto_deploy FILE_MAP 部署 / fake-openclaw 隔离 HOME 行为级端到端. 应用 V37.9.166 三类判据: remaining action = 加治理 INV = category A（test 已覆盖→退役避 governance bloat）; 原则#21「什么坏了没人发现」不成立（CI 抓回归）. 决定不立 INV, 单测是足够且已选定的守护层（对齐外部评审2 降组合复杂度 + 日落法北极星 + V37.9.186 2 天前同款用单测不立 INV; 与 V37.9.162 计划的区别: 当时按 shadow-first 惯例预登记 INV, 现按演进后的日落法复审）. 与 V37.9.186 加治理 INV 的区别澄清: 那里也是用单测不立 INV——本决定与之一致非矛盾. 更新: case doc whatsapp_session_logout_silent_7h_case.md deferred 指针→已决 + 本 unfinished item 5. 顺手判定 item 13（full_regression --check 顺序）是真实但 intricate 自引用 CI 重构（suite 计数既被 --check 验证又被 --check 递增 + 拆分回写 + V37.9.140 稳定性交互），值专门 careful session 非收敛日仓促做（V37.9.181 已标）. VERSION 0.37.9.71 不变（纯决定+doc/state 零业务语义, 同 V37.9.166/185/186 惯例）. 复杂度预算: files/env/jobs/runtime-state-sources/suites/tests/checks/VERSION 全不变, 净 runtime 机制 0, 净退役 1 个「待加 INV」计划面（日落法连登记的待办也做减法）. 待 Mac Mini git fetch+reset（纯 doc/state 零重启）.",
+      "by": "claude_code"
+    },
+    {
       "date": "2026-06-25",
       "what": "V37.9.187 ArXiv 论文 → IEEE Software 正式投稿全闭环 (Stage 2→3 话语权里程碑, 用户驱动一问一答全程协助, 话语权/doc 零业务语义 VERSION 不变). 用户问 arXiv:2606.14589 能否正式发表+独立研究者高概率途径 → AskUserQuestion 锁约束(实践者杂志算正式发表/愿大改重构) + deep-research workflow(6 角度 fan-out 27 源, 但对抗验证阶段全军覆没于账户月度额度上限=25 claim 0 票被机械记 refuted=fail-plausible 假象, 诚实标注搜索结果带一手来源未独立验证). 概率排序结论: 实践者杂志(IEEE Software/;login 对独立作者+经验报告最友好)>主会工作坊>工业track(ISSRE/SEIP)>正会/期刊(n=1+单作者质疑); 最大杠杆=reframe experience report(n=1 本就该来自一个系统不靠机构背书). 投稿包 5 文件 docs/paper/silent_failures_taxonomy/submissions/: ieee_software_experience_report.md(arXiv 全文 reframe ~3,400 词稳 4,200 内+150 词摘要+3 practitioner takeaway IEEE 评分项+Index Terms+12 引用+AI 致谢) / threats_to_validity_and_case_study_method.md(Runeson-Höst 单案例研究+分析性泛化+四类威胁有效性化解 n=1) / ai_disclosure_and_acknowledgments.md(Claude 不列作者+致谢披露+CRediT+逐 venue 适配) / statement_of_differences.md(ScholarOne previously-published 步上传预印本差异说明) / SUBMISSION_GUIDE.md(逐 venue 清单+2 cover letter+政策核对). 用户抓出我擅改 IEEE 版标题 'Lessons from 22...'→对照仓库已发表 latex/main.tex 修回权威 'A Longitudinal Taxonomy of...'(2 处)+修 6→three cross-cutting findings doc drift(CLAUDE L135 文件表+L321 changelog, 已发表摘要原文 Three). arxiv abs/export API 沙箱均 403 只能对照已发表 LaTeX, 绝不凭记忆编造更正. 真实投递全程一问一答逐屏协助: IEEE Account 注册 → ORCID 注册(独立研究者 employment 跳过得 0009-0009-1176-7817) → 主编 Sigrid Eldh 摘要探口风邮件 → IEEE Author Portal/ScholarOne 全向导(Affiliation=Independent Researcher/ORCID 授权连接/Keywords ACM CCS 树 SE+可靠性+AI/NLP+多智能体/human-subjects No/Code Ocean No/previously-published Yes 透明披露 arXiv 预印本+Statement+PDF 上传/cover letter 含预印本披露) → Congratulations manuscript submitted to journal = 正式提交进编辑评审. 验证 135 suites/4763 tests/0 fail(干净树混沌审计 10/10 真跑) / governance EXIT=0 91/91 / 安全 95/100 / 三机器 doc-drift 无漂移 / VERSION 0.37.9.71 不变(同 V37.9.139/149/154 paper 里程碑). 复杂度预算 files +5(投稿包=话语权证据非 runtime 接缝)其余四维度全不变 净 runtime 机制 0. 登记 unfinished: ISSRE Industry Track 平行第二投 ready(全文+方法学段在 submissions/, 勿同存档稿双投) + IEEE Software 投稿 in-review 追踪. 诚实贯穿: deep-research 验证额度耗尽不假装成功/擅改标题被用户抓出对照已发表版改正/投稿全程'我做不到点 Submit(绑定你 IEEE 身份)'边界清晰/预印本透明披露非隐瞒(论文 fail-plausible 反面). 待 Mac Mini git fetch+reset 同步(纯 doc/话语权零重启; V37.9.186 kb_deep_dive.py 走 FILE_MAP).",
       "by": "claude_code"
@@ -198,11 +203,6 @@
       "date": "2026-06-18",
       "what": "V37.9.170 微信(openclaw-weixin)推送接入 notify.sh + WhatsApp 临时禁用切换. 背景(上个session ev985-1109 shell history重建): WhatsApp连续3天408报错(V37.9.162掉线/限流延续), 为避免冲击号码被锁【临时】禁用(后面会再开)→装腾讯微信插件 openclaw-weixin(账号6d56c8fb0a0d-im-bot)+config set channels.openclaw-weixin.agent main. 微信交互层已通(channels status: running, in:17m前收到入站), 但cron推送收不到微信(notify.sh+10余job硬编码whatsapp). 本版只修notify.sh路径: 加weixin分支(镜像whatsapp, WEIXIN_TARGET未设则安全跳过仅发Discord)+默认NOTIFY_CHANNELS=openclaw-weixin,discord(whatsapp分支+OPENCLAW_PHONE原样保留)+10守卫单测(test_notify_weixin.py接入full_regression)+治理notify检查仍PASS. 同session独立重诊8-token NO_REPLY=[SYSTEM_ALERT]告警污染context(ev1082复现)+重复提问退化,/new清空恢复. VERSION/header/badge sync待收工full_regression回写.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-06-17",
-      "what": "V37.9.169 A类[5](c)+[13](d): [5](c)=source_credibility 升级 emit 端 per-pick 确定性 tier(top_alignment_picker 每 pick 加 tier emoji🥇🥈🥉📝💬, 不依赖LLM合规)+修 arxiv→arxiv_monitor id 错配(否则误判社媒)+13单测+sabotage验证. [13](d)=ground 调查确认已完成非 churn(ai_leaders_blogs 写KB→三件套通用扫KB自动捕获+已在ALIGNED_SOURCES). 131 suites/4658 tests(+13)/0 fail/治理91/91/安全95/VERSION 0.37.9.70不变. 理解再动手(原则#28)避免churn已完成+脆弱实现两反模式.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -259,7 +259,7 @@
       "【4.27 推送链路回归追踪 · 中优】真因=4.27 openclaw CLI 冷调用回归 (V37.9.145). 丢失面评估已闭合 (push_path_loss_surface_audit_2026_06_15.md: 无总丢失面, WhatsApp 瞬时缝隙内容在 Discord 存活). 剩余需 Mac Mini 生产数据: (a) openclaw message send --help timeout 旋钮探测 → 可配则 notify.sh/直推 job 调大 (b) ls ~/.openclaw/plugin-runtime-deps/ 多 hash dir 查 staging 间歇复发 (V37.9.162 同源) (c) 上游 releases 查 CLI 冷启动/staging 修复 (tripwire 不自动升级). 硬化候选 (deferred 需 E2E): 论文类 job 直推双通道迁 notify.sh --topic (MR-8 一物一形).",
       "V37.9.159 test_health_check 真 bug Mac Mini 生产验证 (dev 不可执行): scanner 抓 test_health_check 跑 health_check.sh 漏 push 隔离 → 治理 07:00 audit 是否真在发日报型 health 周报 (V37.9.159 已修, marker 时序依赖). Mac Mini 同步后观察 07:00 是否还收到 health 周报 + 确认 weekly 09:00 周报正常.",
       "deep_dive OA 全文解析 follow-up (V37.9.183/184): (1) daily_observer V37.9.168 降级率应随 OA 解析下降, 一周后 (~6/29) Mac Mini 复核 grep ^mode: ~/.kb/deep_dives/*.md 全文比例验证 (预期摘要级从 77% 明显降, Elsevier 闭源不会到 0). (2) 历史 KB 条目仍 PII link (仅新论文受益, 同 V37.9.132 局限, 不补). (3) ✅ V37.9.186 完成: kb_deep_dive.py pwc 死路径从 TIER_1_SOURCES 退役 (job 停用 V31 + 脚本删 V37.8.13 + registry enabled=false, 镜像 V37.9.88 daily_observer JOBS_SUBDIRS 残留 pwc 血案) + 新增 TestV37_9_186_TierRegistryConsistency drift 守卫 (TIER↔registry enabled 绑定, 复用 rc.load_sources_from_registry MR-8). fail-loud 子项判定低价值不做 (pdfplumber 生产已装该分支永不触发 + V37.9.168 降级率聚合已覆盖, 加 stderr WARN 收益边际).",
-      "V37.9.162 INV-WA-CHANNEL-001 (whatsapp-channel-disconnect-escalates-when-gateway-healthy, meta_rule=MR-14, 镜像 INV-WA-001): 一周 shadow 观察期 6/16→6/23 已到. dev 侧可写 INV 声明+测试, 但 go-live 需 Mac Mini 确认 wa_channel_status shadow 周内无误报 (shadow-first 惯例, 同 INV-DEEP-001).",
+      "【V37.9.188 INV 计划已退役·仅剩 Mac Mini 观察】INV-WA-CHANNEL-001 治理不变式计划经复审按日落法退役 — 频道掉线契约已被 test_wa_channel_status.py（已在 full_regression）完整守护（MR-14 Discord-not-WhatsApp 发送路径 + 手机号泄漏 + FAIL-OPEN + wa_keepalive 集成 + auto_deploy 部署 + 行为级 fake-openclaw 端到端），原则#21「什么坏了没人发现」判据不成立（test 抓回归）→ 加治理 INV = governance bloat（V37.9.166 三类判据 category A + 外部评审2「降组合复杂度」+ V37.9.186 同款用单测不立 INV）。仅剩 dev 不可执行项：Mac Mini 生产 false-positive 观察（频道检测一周内有无误报）+ V37.9.162 真实 escalation 是否正确触发。",
       "WhatsApp Baileys 重连封禁预防 (4.27): Option A (channels.whatsapp.web.reconnect.maxAttempts:12) 已被 V37.9.180 Mac Mini 实测证伪 (4.27 strict schema additionalProperties:false 拒绝该键 + Gateway canonicalize 剥掉). 主防线 = Option C (V37.9.162 检测). 升级路径待 OpenClaw #56365 (expose-reconnect-config, 仍 open). 残余封禁风险 = 系统基线非新增.",
       "#18 ai_leaders zombie loop-wiring (deferred, V37.9.103 已安全 — classify_account 拆 frozen/dead, is_zombie_suspect 仅 stub+dead, 不会错杀 karpathy 类冻结活账号). 待 Mac Mini rotation 验证后 wire 进 run 脚本: parser 发 newest_age + per-account classify + 3 天连续 ZOMBIE 告警 (镜像 finance_news degraded 分流).",
       "WhatsApp 入站路由到 research agent 而非 main (4/10 plugin 安装副作用, 低优): HEARTBEAT.md 修复后 research 正常响应不致命. 长期: channels.whatsapp.agent 显式配置 / agents.list 顺序 / 验证 inbound handler routing 逻辑.",
@@ -277,9 +277,9 @@
   "quality": {
     "security_score": 95,
     "test_count": 4763,
-    "last_regression": "2026-06-25 15:47 pass",
+    "last_regression": "2026-06-26 12:49 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-25 15:47",
+    "security_score_time": "2026-06-26 12:49",
     "test_suites": 135,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
@@ -348,7 +348,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-06-25: ArXiv 论文 → IEEE Software 正式投稿全闭环 (V37.9.187, Stage 2→3 话语权里程碑). 用户问「arXiv:2606.14589 能否正式发表 + 单一独立研究者高概率途径」→ deep-research(验证阶段额度耗尽=fail-plausible 假象诚实标注) + AskUserQuestion 锁约束(实践者杂志算/愿大改) → 概率排序 venue(实践者杂志>工作坊>工业track>正会/期刊, 最大杠杆 reframe experience report 化解 n=1). 投稿包 5 文件 submissions/(IEEE 经验报告版 ~3,400 词+3 takeaway / Runeson-Höst 方法学段 / AI 披露 / Statement of Differences / 投稿指南). 用户抓出我擅改标题 → 对照已发表 latex/main.tex 修正(标题改回权威版 + 6→three cross-cutting findings doc drift). 一问一答全程协助真实投递: IEEE Account+ORCID(0009-0009-1176-7817) → 主编探口风邮件 → ScholarOne 全向导(Affiliation=Independent/ORCID 授权/ACM CCS keywords/human-subjects No/Code Ocean No/previously-published Yes 透明披露 arXiv+Statement+PDF/cover letter) → ✅ Congratulations 正式提交进评审. 验证 135/4763/0 fail(干净树混沌 10/10) / governance EXIT=0 91/91 / 安全 95 / badge 无漂移 / VERSION 0.37.9.71 不变(话语权零业务语义). 登记 unfinished: ISSRE Industry Track 平行第二投 ready + IEEE Software 投稿 in-review 追踪. 同 session 早先: V37.9.186 deep_dive pwc 死路径退役 + TIER↔registry drift 守卫(日落法).",
+  "focus": "2026-06-26: V37.9.188 日落法退役 INV-WA-CHANNEL-001 治理不变式计划（周五收敛日 grounded 自主选择, 镜像 V37.9.166 退役 bloat INV 计划方法论）. 频道掉线契约已被 test_wa_channel_status.py（full_regression）完整守护（MR-14/手机号/FAIL-OPEN/集成/部署/行为级），原则#21「什么坏了没人发现」不成立 → 加治理 INV 是 governance bloat（V37.9.166 category A + 外部评审2 降组合复杂度 + 北极星）. 仅剩 Mac Mini 生产 false-positive 观察（dev 不可执行）. VERSION 0.37.9.71 不变. 系统收敛态: 实质待办全 gated（IEEE 投稿 in-review / ISSRE 平行投稿=用户动作 / deep_dive OA 降级率复核 ~6/29 Mac Mini / item 13 CI --check 顺序重构=待专门 careful session）.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
