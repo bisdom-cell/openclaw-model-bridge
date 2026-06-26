@@ -112,15 +112,26 @@ dual-publication conflict for the *condensed* presentations (do **not** submit t
 archival manuscript to two archival venues simultaneously; the magazine article and the
 industry-track paper are different documents).
 
+**Manuscript status:** ✅ **assembled (V37.9.190)** — `issre_industry_track_paper.md` is the full
+ISSRE Industry Track document with the Runeson–Höst case-study method as §3 and the four-category
+threats schema as §8 (section **(b)** already folded in), the generative-AI disclosure integrated,
+Index Terms added, author/system names kept (not double-blind), and reference [15] (Runeson & Höst
+2009) appended. It is full-fidelity (≈ arXiv length) with a self-contained "Trim priorities"
+appendix. Numbers are frozen at the study cutoff (2026-06-11) to match arXiv:2606.14589.
+
 **Checklist**
-- [ ] Find the ISSRE 2026 (or next edition) Industry Track CFP and confirm the deadline + page
-      limit (`cyprusconferences.org/issre2026/industry-track/` or the current year's site).
-- [ ] Use the **full arXiv paper** trimmed to the track's page limit, with section **(b)**
-      replacing the current §3 preamble + §8 (this is where the Runeson–Höst framing earns its
-      keep against "single system" pushback).
-- [ ] Industry tracks are typically **not** double-blind — keep author/system names; visibility
-      helps establish industrial relevance.
-- [ ] Add the AI disclosure (§2–§4 of the disclosure doc) per IEEE policy.
+- [ ] **(author-only)** Find the ISSRE 2026 (or next edition) Industry Track CFP and confirm the
+      deadline + page limit (`cyprusconferences.org/issre2026/industry-track/` or the current site).
+- [ ] **(author-only)** Confirm IEEE's current-year GenAI disclosure wording/placement and that
+      arXiv preprints are permitted (they are, with disclosure — already disclosed in the manuscript).
+- [x] **Manuscript assembled** — full paper with section **(b)** replacing the §3 preamble + §8
+      (where the Runeson–Höst framing earns its keep against "single system" pushback).
+- [x] **AI disclosure integrated** (Generative-AI Use Disclosure + Acknowledgments + CRediT) per
+      IEEE policy.
+- [x] **Author/system names kept** (industry tracks are not double-blind — visibility helps
+      establish industrial relevance).
+- [ ] Trim to the confirmed page limit using the manuscript's "Trim priorities" appendix; paste into
+      the IEEEtran conference template; redraw Fig. 1 as a vector figure for camera-ready.
 
 **Pitch line:** *"A reliability-engineering field study: eight weeks, 22 silent-failure postmortems
 from one production LLM agent runtime, a mechanism taxonomy including the LLM-specific
