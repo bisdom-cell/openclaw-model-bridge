@@ -126,6 +126,6 @@
 
 - V37.9.162: `wa_channel_status.py`（FAIL-OPEN 纯函数解析）+ `wa_keepalive.sh::_wa_channel_check`（独立计数 + Discord 升级）+ 46 单测（test_wa_channel_status.py）。
 - INV-WA-001 断言精确化（发送路径 vs 恢复指令文本）。
-- **deferred**：INV-WA-CHANNEL-001（whatsapp-channel-disconnect-escalates-when-gateway-healthy，meta_rule=MR-14，一周观察 wa_channel_status 生产效果后立，镜像 INV-WA-001 + INV-DEEP-001 shadow-first 惯例）。
+- **已决（V37.9.188 日落法退役 INV 计划）**：INV-WA-CHANNEL-001（whatsapp-channel-disconnect-escalates-when-gateway-healthy）原登记一周观察后立治理不变式。一周观察期（6/16→6/23）已过，复审决定**不立治理 INV，由 `test_wa_channel_status.py`（已在 full_regression）守护契约即足够**。理由（V37.9.166 三类判据 category A）：MR-14 Discord-not-WhatsApp 发送路径 + 手机号泄漏 + FAIL-OPEN + wa_keepalive 集成 + auto_deploy 部署 + 行为级端到端**全部已被该单测守护**（CI 跑），原则 #21「什么坏了没人发现」判据不成立（test 抓回归）→ 加治理 INV 是 governance bloat（外部评审2「降组合复杂度」+ 日落法北极星 + V37.9.186 同款"用单测不立 INV"）。仅剩 Mac Mini 生产 false-positive 观察（dev 不可执行，登记 unfinished）。
 - **战略 deferred**：Baileys（非官方客户端）重复封禁风险评估——降低重连激进度 / WhatsApp 官方 Business API 替代成本 / 接受风险 + 监控（已由 V37.9.162 wa_channel_status 覆盖检出）。
 - **观察 deferred**：4.27 openclaw CLI 插件 staging churn（每次 channels login 全量重 staging 9+ 无关插件，13-39s，plugin-runtime-deps 未持久化，吃掉连接超时预算）。
