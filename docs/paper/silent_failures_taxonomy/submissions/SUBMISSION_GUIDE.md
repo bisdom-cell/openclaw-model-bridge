@@ -112,29 +112,64 @@ dual-publication conflict for the *condensed* presentations (do **not** submit t
 archival manuscript to two archival venues simultaneously; the magazine article and the
 industry-track paper are different documents).
 
-**Manuscript status:** ✅ **assembled (V37.9.190)** — `issre_industry_track_paper.md` is the full
-ISSRE Industry Track document with the Runeson–Höst case-study method as §3 and the four-category
-threats schema as §8 (section **(b)** already folded in), the generative-AI disclosure integrated,
-Index Terms added, author/system names kept (not double-blind), and reference [15] (Runeson & Höst
-2009) appended. It is full-fidelity (≈ arXiv length) with a self-contained "Trim priorities"
-appendix. Numbers are frozen at the study cutoff (2026-06-11) to match arXiv:2606.14589.
+### ✅ CFP confirmed — 2026-06-28 (ISSRE 2026 Industry Track) — TIME-SENSITIVE
 
-**Checklist**
-- [ ] **(author-only)** Find the ISSRE 2026 (or next edition) Industry Track CFP and confirm the
-      deadline + page limit (`cyprusconferences.org/issre2026/industry-track/` or the current site).
-- [ ] **(author-only)** Confirm IEEE's current-year GenAI disclosure wording/placement and that
-      arXiv preprints are permitted (they are, with disclosure — already disclosed in the manuscript).
-- [x] **Manuscript assembled** — full paper with section **(b)** replacing the §3 preamble + §8
-      (where the Runeson–Höst framing earns its keep against "single system" pushback).
-- [x] **AI disclosure integrated** (Generative-AI Use Disclosure + Acknowledgments + CRediT) per
-      IEEE policy.
-- [x] **Author/system names kept** (industry tracks are not double-blind — visibility helps
-      establish industrial relevance).
-- [ ] Trim to the confirmed page limit using the manuscript's "Trim priorities" appendix; paste into
-      the IEEEtran conference template; redraw Fig. 1 as a vector figure for camera-ready.
+Cross-checked via the EAPLS CFP mirror and the EasyChair listing (`easychair.org/cfp/ISSRE2026`); the
+official `cyprusconferences.org/issre2026/industry-track/` page returned HTTP 403 to our fetcher, so
+**re-confirm on the official page before submitting.**
 
-**Pitch line:** *"A reliability-engineering field study: eight weeks, 22 silent-failure postmortems
-from one production LLM agent runtime, a mechanism taxonomy including the LLM-specific
+| Item | Confirmed value |
+|---|---|
+| Page limit | **6 pages (full) / 4 pages (short) — *including references*** (IEEE CS 2-column; first page counts; over-limit = desk reject) |
+| Anonymity | **Not double-blind** — title + author name/affiliation required; abstract ≤150 words; **≤4 keywords** |
+| Abstract deadline | **2026-06-28 → extended 2026-07-03** |
+| Paper deadline | **2026-07-05 → extended 2026-07-12** |
+| Notification | **2026-08-12** |
+| Submission | single PDF via **EasyChair** — `easychair.org/conferences?conf=issre2026` |
+| GenAI policy | AI-assisted writing allowed **with disclosure**; AI not a listed author — already satisfied |
+
+> ⚠️ **The abstract is due first (today, 2026-06-28, extended to 2026-07-03).** EasyChair "abstract
+> submission" registers title + abstract + authors + keywords to hold the slot; the 6-page PDF follows
+> by 2026-07-05/07-12. Register the abstract now (block below); upload the paper after typesetting.
+
+**Manuscript status**
+- [x] **Full-fidelity manuscript assembled** — `issre_industry_track_paper.md` (Runeson–Höst method as
+      §3, four-category threats as §8, GenAI disclosure, ref [15], names kept; numbers frozen at the
+      2026-06-11 study cutoff).
+- [x] **6-page camera-ready-target derived** — `issre_6page_submission.md`, trimmed to the confirmed
+      6-pages-incl-refs limit per the "Trim priorities" appendix (150-word abstract, ≤4 keywords). Paste
+      this into IEEEtran; **verify the typeset PDF is ≤6 pages** and apply the in-file next-cut order if
+      it runs over.
+- [x] **AI disclosure integrated**; **author/system names kept** (not double-blind).
+- [ ] **(author)** Paste `issre_6page_submission.md` into the IEEEtran conference template; redraw
+      Fig. 1 as a vector figure; run the repo security scan on the final text; confirm ≤6 pages.
+- [ ] **(author)** Re-confirm IEEE's current-year GenAI disclosure wording on the publisher policy page.
+- [ ] **(author)** Register the abstract on EasyChair **by 2026-07-03**; upload the PDF **by 2026-07-12**.
+
+**EasyChair abstract-registration block (paste verbatim):**
+
+> **Title:** When Errors Become Narratives: A Longitudinal Taxonomy of Silent Failures in a Production
+> LLM Agent Runtime
+>
+> **Author:** Wei Wu — Independent Researcher — wuweinanonuaa@gmail.com
+>
+> **Keywords (≤4):** software reliability; LLM agent systems; silent failures; fault taxonomy
+>
+> **Abstract (150 words):** LLM agent systems increasingly run as long-running autonomous runtimes:
+> scheduling jobs, calling tools, maintaining memory, messaging humans. We present an eight-week
+> longitudinal study of silent failures in one production personal-assistant runtime (~40 scheduled
+> jobs, 8 LLM providers, a tool-governance proxy, a knowledge-base memory plane; 4,286 unit tests, 827
+> governance checks). We documented 22 incidents with full postmortems; one meta-pattern — an error
+> signal that never reaches a human in actionable form — recurred at least 28 times. We derive a
+> five-class mechanism taxonomy: (A) environment quirks, (B) design-assumption mismatches, (C) error
+> swallowing, (D) chained hallucination, (E) operational omission. Class D is LLM-specific and most
+> dangerous: the model transforms errors into fluent, false narrative — we name this fail-plausible.
+> Three findings challenge assumptions: ~70% of failures surfaced through human user-view observation,
+> not tests; audits showed 0% prevention but 87% regression-blocking; latency (13 hours to 60 days)
+> tracks mechanism, not code complexity.
+
+**Pitch line (cover note):** *"A reliability-engineering field study: eight weeks, 22 silent-failure
+postmortems from one production LLM agent runtime, a mechanism taxonomy including the LLM-specific
 fail-plausible class, and an audited defense framework (0% prevention / 87% regression-blocking)."*
 
 ---

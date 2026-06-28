@@ -9,14 +9,23 @@
 > author/system names kept (industry tracks are not double-blind), and a generative-AI disclosure
 > per IEEE policy.
 >
-> **⚠️ Two things only the author can do before submitting (do NOT skip):**
-> 1. **Confirm the ISSRE 2026 Industry Track page limit + deadline** at the current-year CFP
->    (`cyprusconferences.org/issre2026/industry-track/` or the edition in force). Industry-track
->    limits are commonly **6 pages + references** in IEEE 2-column (sometimes 8). This manuscript
->    is full-fidelity (~the arXiv length); **trim to the confirmed limit using the "Trim priorities"
->    note at the end.** Do not assume 6 — verify.
-> 2. **Confirm IEEE's current GenAI disclosure wording/placement** for ISSRE's sponsoring publisher
->    and that arXiv preprints are permitted (they are, with disclosure — already disclosed below).
+> **✅ CFP confirmed (2026-06-28 — ISSRE 2026 Industry Track).** Cross-checked via the EAPLS CFP
+> mirror and the EasyChair listing (`easychair.org/cfp/ISSRE2026`); the official
+> `cyprusconferences.org/issre2026/industry-track/` page returned HTTP 403 to our fetcher, so
+> **re-confirm on the official page before submitting**:
+> - **Page limit: 6 pages (full paper), 4 pages (short) — _including references_** (IEEE Computer
+>   Society 2-column format). The first page counts toward the budget; over-limit papers are
+>   desk-rejected without review. This manuscript is full-fidelity (~arXiv length, ≈14 IEEE pages)
+>   and **must be trimmed to 6 pages incl. references** — the camera-ready-target version is
+>   `issre_6page_submission.md` (derived from this file via the "Trim priorities" appendix). Note
+>   this is _tighter_ than the earlier "6 + references" assumption.
+> - **Not double-blind:** keep title + author name/affiliation; abstract **≤150 words**; **≤4 keywords**.
+> - **Deadlines:** abstract **2026-06-28 (extended to 2026-07-03)**; full paper **2026-07-05
+>   (extended to 2026-07-12)**; author notification **2026-08-12**. Single PDF via **EasyChair**
+>   (`easychair.org/conferences?conf=issre2026`).
+> - **GenAI disclosure:** IEEE permits AI-assisted writing **with disclosure** and prohibits AI as a
+>   listed author — already satisfied below (Generative-AI Use Disclosure + Acknowledgments; Wei Wu
+>   sole author). Re-confirm IEEE's current-year wording on the publisher policy page.
 >
 > **Numbers are frozen at the study cutoff (2026-06-11)** to match the published arXiv version
 > (`VERSION 0.37.9.70`, governance v3.56). Do **not** update them to current repository counts —
