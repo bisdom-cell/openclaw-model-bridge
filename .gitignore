@@ -30,3 +30,10 @@ examples/external_dogfood/project/ontology/.audit_metrics.jsonl
 dist/
 build/
 *.egg-info/
+
+# LaTeX build artifacts — paper PDFs/aux are reproducible from the .tex source
+docs/paper/silent_failures_taxonomy/latex/*.pdf
+docs/paper/silent_failures_taxonomy/latex/*.aux
+docs/paper/silent_failures_taxonomy/latex/*.log
+docs/paper/silent_failures_taxonomy/latex/*.out
+docs/paper/silent_failures_taxonomy/latex/*.synctex.gz

@@ -1,6 +1,6 @@
 {
-  "updated": "2026-06-26 14:35:56",
-  "updated_by": "full_regression",
+  "updated": "2026-06-28 15:54:11",
+  "updated_by": "security_score",
   "priorities": [
     {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
@@ -104,6 +104,16 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-06-28",
+      "by": "claude_code",
+      "what": "V37.9.191 收尾: ISSRE Industry Track 实际投递完成(Submission 395)。一问一答交互式投递——EasyChair 注册(Affiliation=Independent Researcher, Full Paper) + 沙箱临时装 TeX Live(apt, root) pdflatex+IEEEtran 真编译: 保守版 issre_6page_trimmed.tex=6 页含 refs(零编译错误/零 undefined/零 overfull), 完整版 7 页超限弃用 + PDF 上传 15:50。安全扫描 clean(config.md sk-xxx/BSAxxx 是全-x 占位符预存非泄漏), 治理 EXIT=0, 三机器 doc-drift 无漂移, security 95/100。PDF=build 产物 gitignore(同 dist/build 惯例)。full_regression 不跑(零 .py/.sh/registry/治理 yaml 改动, 2026-06-26 4770/0/135 成立, 重跑=churn)。论文三 venue 全落地。VERSION 0.37.9.71 不变。"
+    },
+    {
+      "date": "2026-06-28",
+      "what": "启动 ISSRE Industry Track 投稿(用户「启动 ISSRE 投稿」, 话语权零业务语义 VERSION 不变). ① WebFetch/WebSearch 实地确认 CFP(V37.9.187 时 deep-research 因额度没做成的 author-only 项): 官方 cyprusconferences 页 403→EAPLS+EasyChair 镜像交叉验证(诚实标注 re-confirm 官方页): 6 页含 refs(full)/4(short) IEEE CS 2 栏, 非双盲(须作者名+≤150 词摘要+≤4 keywords), 摘要 6-28→7-3 / 论文 7-5→7-12 / 通知 8-12 / EasyChair 单 PDF 超页 desk-reject. 关键约束诚实记录: 确认是「6 页*含* refs」比 manuscript 假设的「6+refs」更紧. ② 解锁 full 文件 2 个 author-only 项 → ✅confirmed facts. ③ 新建 issre_6page_submission.md = 按 Trim priorities 附录把 ~14 页全文裁到 6 页含 refs(§2 压缩/§4 保 Table1+D1+Fig1+reserved-file 全文 其余 B/C/D 各 1+1 句/§5.4 并入 5.3/§6 五支柱紧凑/never-cut §3§5.5§8 disclosure). 150 词摘要(wc 验=150)+≤4 keywords(Index Terms 10→4). 全部冻结 study-cutoff 数字(4,286/827/90/22/≥28/8/121/53-92), grep 验当前-repo 数字(4770/839/91/135)零泄漏. note 含 typeset 超页下一步裁剪顺序(绝不盲剪 load-bearing). ④ SUBMISSION_GUIDE §3 加 confirmed CFP 表 + EasyChair 摘要注册块(title+150 词+4kw)+ author runbook + deadline 紧迫. ⑤ 安全扫描 clean(无 key/手机号/内网 IP; repo 名+作者邮箱是预期公开). 无测试/漂移/治理依赖论文文件→full_regression 不受影响(零代码改动 2026-06-26 4770/0/135 成立). 诚实边界(author-only 我做不了): EasyChair 注册摘要(7-3 前)/贴 IEEEtran+Fig.1 矢量图/typeset≤6 页核/Submit(7-12 前, 绑定 ORCID). 复杂度预算: files +1(6 页投稿稿=话语权证据非 runtime 接缝), 其余四维度不变, 净 runtime 机制 0. 待 Mac Mini git fetch+reset(纯 doc 零重启).",
+      "by": "claude_code"
+    },
     {
       "date": "2026-06-26",
       "what": "V37.9.190 组装 ISSRE Industry Track 投稿稿(用户「开始组装 + 今天先不投递但提前全面准备」, 话语权零业务语义 VERSION 不变). 起因: 用户问「是不是遗漏一个待发表论文」→ 核实发现我把 item 0(ISSRE 平行投稿)归类成纯「用户动作」低估了它——它有真 dev 可做的准备工作. ISSRE 用的是区别于 IEEE 杂志经验报告版的【不同文档】(SUBMISSION_GUIDE: 不可同存档稿双投两 venue, 杂志 feature 与会议工业稿是两份文档). 组装 issre_industry_track_paper.md = 完整 arXiv 论文 + §3 前言换 Part A(Runeson-Höst 纵向单案例方法: 方法选择理由/案例与分析单元/RQ/数据采集 postmortem 协议/constant comparison/meta-pattern counter/analytical generalization) + §8 换 Part B(四类威胁有效性: construct/internal 无 κ/external/reliability/AI-involvement) + AI 披露整合(Generative-AI Use Disclosure + Acknowledgments + CRediT) + Index Terms + 作者/系统名保留(工业 track 非双盲) + ref 14→15(加 Runeson&Höst 2009) + 自含 Trim priorities 附录(6 页限制时的裁剪优先级, 保护方法学段+0%/87% scorecard+威胁段+AI 披露不可删) + pitch line. 数字全部冻结 study-cutoff 2026-06-11(4,286 tests/121 suites/90 inv/827 checks/23 MR/14 scanners/22 incidents/≥28/8 providers/~40 jobs, 与 arXiv 已发表版一致), 核对反核无当前-repo 数字(4770/135/91/839)泄漏, 以 latex/main.tex 权威标题为准, 绝不凭记忆编造. 泄漏扫描 clean(作者邮箱是公开联系预期出现). 更新 SUBMISSION_GUIDE ISSRE 段(manuscript 已组装 + checklist 标 author-only 项). 验证 134/0/4770 / badge 无漂移 / governance EXIT=0 91/91 / 安全 95 / VERSION 0.37.9.71 不变. 剩余 author-only: 确认 CFP 页数/截止 + IEEE GenAI 政策 + 裁剪贴模板 + 实际 Submit. 待 Mac Mini git fetch+reset(纯 doc 零重启).",
@@ -254,7 +264,7 @@
   "session_context": {
     "last_session": "2026-06-23",
     "unfinished": [
-      "【ISSRE Industry Track 平行第二投 · 投稿稿已组装(V37.9.190)】Silent-failures 论文(arXiv:2606.14589 + IEEE Software in-review)的平行第二投. ISSRE 投稿稿已组装: docs/paper/silent_failures_taxonomy/submissions/issre_industry_track_paper.md = 完整论文 + Runeson-Höst 纵向单案例方法作 §3 + 四类威胁有效性 schema 作 §8 (化解 n=1/单作者质疑) + AI 披露整合 + Index Terms + ref[15] Runeson&Höst 2009 + 自含 Trim priorities 附录. 数字全部冻结 study-cutoff(4,286 tests/827 checks/90 inv/22 incidents, 同 arXiv). 区别于 IEEE 杂志经验报告版(不同文档无双发冲突). 剩余 author-only(我做不了): (1)确认 ISSRE 2026 Industry Track CFP 截止日+页数限制(沙箱上不了 live CFP, 典型 6 页+refs IEEE 2-column) (2)确认 IEEE 当年 GenAI 披露措辞+arXiv 预印本许可 (3)按确认页数裁剪(用附录优先级) + 贴进 IEEEtran 模板 + Fig.1 重画矢量图 (4)实际 Submit(绑定 ORCID 身份). 注意: 杂志+会议不同文档可并行, 但勿同存档稿双投.",
+      "【ISSRE Industry Track 已投递(Submission 395, 2026-06-28) · in-review】Silent-failures 论文平行第二投已完成: EasyChair Submission 395 (Industry Track / Full Paper / 标题+150 词摘要+4kw+topics+作者) + 6 页 IEEEtran PDF (pdflatex 本地真编译, 6 页含 refs 符合上限) 上传 15:50。待: 编辑初筛 → 评审 → 通知 2026-08-12。截止前(论文 7-12)可 Update 重传(若官方页 re-confirm 后想微调 Fig.1)。诚实备忘: CFP 走 EAPLS/EasyChair 镜像交叉验证(官方页 403), 建议官方页扫一眼确认 6 页含 refs/7-12 未变。源码 latex/issre_6page_trimmed.tex(投稿版,6 页)+issre_6page.tex(完整版,7 页)入库; PDF 是 build 产物 gitignore。",
       "【IEEE Software 投稿 in-review · 追踪】When Errors Become Narratives 已 2026-06-25 正式提交 IEEE Software (Author Portal/ScholarOne, ORCID 0009-0009-1176-7817, arXiv 预印本透明披露). 待: 收稿确认邮件 → 编辑初筛 → 同行评审(2-3 referee) → 决定(修改/录用/拒). 在 'My Submissions' 追踪状态; 主编 Sigrid Eldh 已收摘要探口风邮件, 如回复可告知已正式提交; 收到 review 请求时回应.",
       "【4.27 推送链路回归追踪 · 中优】真因=4.27 openclaw CLI 冷调用回归 (V37.9.145). 丢失面评估已闭合 (push_path_loss_surface_audit_2026_06_15.md: 无总丢失面, WhatsApp 瞬时缝隙内容在 Discord 存活). 剩余需 Mac Mini 生产数据: (a) openclaw message send --help timeout 旋钮探测 → 可配则 notify.sh/直推 job 调大 (b) ls ~/.openclaw/plugin-runtime-deps/ 多 hash dir 查 staging 间歇复发 (V37.9.162 同源) (c) 上游 releases 查 CLI 冷启动/staging 修复 (tripwire 不自动升级). 硬化候选 (deferred 需 E2E): 论文类 job 直推双通道迁 notify.sh --topic (MR-8 一物一形).",
       "V37.9.159 test_health_check 真 bug Mac Mini 生产验证 (dev 不可执行): scanner 抓 test_health_check 跑 health_check.sh 漏 push 隔离 → 治理 07:00 audit 是否真在发日报型 health 周报 (V37.9.159 已修, marker 时序依赖). Mac Mini 同步后观察 07:00 是否还收到 health 周报 + 确认 weekly 09:00 周报正常.",
@@ -347,7 +357,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-06-26: V37.9.190 组装 ISSRE Industry Track 投稿稿(用户驱动「今天先不投递但提前全面准备」). 用户问「遗漏一个待发表论文?」→ 核实 item 0(ISSRE 平行投稿)有真 dev 准备工作被我低估为纯用户动作. 组装 issre_industry_track_paper.md = 完整论文 + Runeson-Höst 纵向单案例方法作 §3 + 四类威胁 schema 作 §8(化解 n=1/单作者) + AI 披露 + Index Terms + ref[15] + Trim priorities 附录. 数字冻结 study-cutoff 与 arXiv 一致, 无当前-repo 数字泄漏. 剩余 author-only: CFP 页数/截止确认 + 裁剪贴模板 + Submit. 同 session: V37.9.188 退役 INV-WA-CHANNEL-001 计划 + V37.9.189 根治 full_regression --check 顺序递归滞后. 论文三 venue 状态: arXiv 已发表 / IEEE Software in-review / ISSRE 投稿稿已组装待用户投递.",
+  "focus": "2026-06-28: 启动 ISSRE Industry Track 投稿(用户「启动 ISSRE 投稿」). WebFetch/WebSearch 实地确认 ISSRE 2026 Industry Track CFP(官方页 403→EAPLS/EasyChair 镜像交叉验证): 6 页含 refs(full)/4 页(short) IEEE CS 2 栏, 非双盲, 摘要≤150 词+≤4 keywords, 摘要截止 6-28→7-3 / 论文 7-5→7-12 / 通知 8-12 / EasyChair 提交. 解锁 2 个 author-only 项(页数+GenAI 政策已 confirm). 新建 issre_6page_submission.md(按 Trim priorities 附录裁到 6 页含 refs, 150 词摘要, 4 keywords, 冻结 study-cutoff 数字, 防当前-repo 数字泄漏). 摘要+full 文件 note 改 ≤150 词/✅confirmed. SUBMISSION_GUIDE §3 加 confirmed CFP 表+EasyChair 摘要注册块+runbook. 安全扫描 clean. 剩 author-only: EasyChair 注册摘要(7-3 前)+贴 IEEEtran 模板+Fig.1 矢量图+typeset≤6 页核+Submit(7-12 前). VERSION 0.37.9.71 不变(话语权零业务语义). → 【实际投递完成】用户一问一答交互式投递: EasyChair 注册 Submission 395 (Industry Track/Full Paper, 标题/4kw/topics/150 词摘要/作者全对) + pdflatex+IEEEtran 本地真编译 保守版=6 页含 refs(零错误/零 undefined ref/零 overfull, 完整版 7 页超限弃用) + PDF 上传 15:50。ISSRE in-review, 通知 2026-08-12, 截止前可 Update 重传。论文三 venue 全部落地: arXiv 已发表 / IEEE Software in-review / ISSRE 已投递。",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
