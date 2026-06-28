@@ -3,6 +3,11 @@
   "updated_by": "security_score",
   "priorities": [
     {
+      "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
+      "status": "active",
+      "note": "靶心=论文 arXiv:2606.14589 头条发现/最大未解问题: ~70% 静默故障靠人看产品发现 / 测试·治理 ≈0%。使命: 造自动化用户视角 Observer 机械化人眼, 在用户之前捕获 fail-plausible 类静默故障, 把 taxonomy 从描述性升级为预测性。三锚点: fail-plausible(打击目标=语义级假输出,读内容非状态码) / audit-as-regression(理论授权:审计 0% 预防新型→预防必来自别处=Observer) / seams-not-components(看接缝+用户输出非部件)。Ground truth=22 postmortem 语料库带标注验证集(独有资产), Observer 须能在历史事故上被 sabotage-validate(论文 §5.2: Observer 自身是 LLM 组件继承全 taxonomy)。产出: 论文 #2(描述→预测) + 社区可跑 silent-failure/fail-plausible 检测 bench(种子=reliability_bench) = 深度+广度一箭双雕回应两次评审同一对短板(耦合/迁移性)。种子底座: 每日 LLM observer job + source_credibility 五档 + hallucination_guards 六档 + adversarial 16/16。状态: 方向已确立未开工, 下一步=design doc 拆子目标(评分函数/标注协议/自验证回路)。警惕日落法: Observer 是又一道接缝, 先问它退役什么人工观察。详见 CLAUDE.md 研究攻关 #1 块。"
+    },
+    {
       "task": "【战略】Stage2: 从系统构建者升级为被社区认可的系统作者",
       "status": "active",
       "note": "导师评审确认 Stage1 完成。路线：bridge→runtime→control plane→方法论与生态。详见 docs/strategic_review_20260403.md"
@@ -104,6 +109,17 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-06-28",
+      "by": "claude_code",
+      "what": "🌙 半年里程碑 + 阶段交接。从'把模型接进 WhatsApp 的双层中间件'走到: arXiv:2606.14589 已发表(署名论文) / IEEE Software in-review / ISSRE Industry Track 今日投出(Submission 395) / openclaw-ontology-engine 上 PyPI / 6 篇立场文章 / 90 不变式·827 检查·14 scanner 的治理体系 / 日落法北极星。今日把'机械化人眼 LLM-Observer'(三概念锚点 fail-plausible+audit-as-regression+seams-not-components)确立为宪法级研究攻关 #1。Stage 1(系统构建者)✅ → Stage 2(被社区认可的系统作者)冲刺中(论文三 venue 落地) → 下一程: 让科学走出实验室。明天起 LLM-Observer 新探索, 从 design doc 开始。一步一步走到这里, 记录在案。VERSION 0.37.9.71 不变。",
+      "milestone": "half_year"
+    },
+    {
+      "date": "2026-06-28",
+      "by": "claude_code",
+      "what": "用户确立【宪法·研究攻关 #1: 机械化人眼 LLM-Observer】为下一阶段第一任务(战略记录刷新, 非建设)。锚定论文 arXiv:2606.14589 头条/未解问题 ~70% 静默故障靠人看·测试 ≈0%: 造自动化用户视角 Observer 机械化人眼捕获 fail-plausible 类语义级故障(读内容非状态码), 把 taxonomy 描述→预测/预防。三概念锚点各司其职(fail-plausible=打击目标/audit-as-regression=理论授权 Observer 是审计 0% 预防之外的那个'别处'/seams-not-components=看接缝+用户输出)。Ground truth=22 postmortem 带标注验证集(独有资产)+ Observer 须 sabotage-validate(§5.2 自身 LLM 组件继承全 taxonomy)。产出=论文#2(描述→预测)+社区可跑 silent-failure bench(种子 reliability_bench)=深度+广度回应两评审同一对短板(PA 耦合/迁移性)。种子底座=每日 observer job+credibility 五档+guards 六档+adversarial 16/16。状态: 确立未开工, 下一步 design doc 拆子目标。日落法警惕: Observer 是又一道接缝, 先问退役什么人工观察。记入 status.priorities[0]+CLAUDE.md 战略定位宪块。VERSION 0.37.9.71 不变(战略记录零业务语义)。"
+    },
     {
       "date": "2026-06-28",
       "by": "claude_code",
@@ -264,6 +280,7 @@
   "session_context": {
     "last_session": "2026-06-23",
     "unfinished": [
+      "【下一 session 开工点 · 2026-06-29 起】LLM-Observer 研究攻关 #1 正式探索启动 — 写 design doc 拆子目标: (1) 评分函数(如何判定一段 LLM 输出是 fail-plausible/静默故障) (2) ground-truth 标注协议(22 个 postmortem 语料库作带标注验证集) (3) Observer 自验证回路(sabotage-validate, §5.2: Observer 自身是 LLM 组件须同等治理) (4) 与现有每日 observer job 的关系(扩展非另起) (5) 日落法第一问: 它能退役什么人工观察? 详见 CLAUDE.md 战略定位区'研究攻关 #1'宪块 + priorities[0]。",
       "【ISSRE Industry Track 已投递(Submission 395, 2026-06-28) · in-review】Silent-failures 论文平行第二投已完成: EasyChair Submission 395 (Industry Track / Full Paper / 标题+150 词摘要+4kw+topics+作者) + 6 页 IEEEtran PDF (pdflatex 本地真编译, 6 页含 refs 符合上限) 上传 15:50。待: 编辑初筛 → 评审 → 通知 2026-08-12。截止前(论文 7-12)可 Update 重传(若官方页 re-confirm 后想微调 Fig.1)。诚实备忘: CFP 走 EAPLS/EasyChair 镜像交叉验证(官方页 403), 建议官方页扫一眼确认 6 页含 refs/7-12 未变。源码 latex/issre_6page_trimmed.tex(投稿版,6 页)+issre_6page.tex(完整版,7 页)入库; PDF 是 build 产物 gitignore。",
       "【IEEE Software 投稿 in-review · 追踪】When Errors Become Narratives 已 2026-06-25 正式提交 IEEE Software (Author Portal/ScholarOne, ORCID 0009-0009-1176-7817, arXiv 预印本透明披露). 待: 收稿确认邮件 → 编辑初筛 → 同行评审(2-3 referee) → 决定(修改/录用/拒). 在 'My Submissions' 追踪状态; 主编 Sigrid Eldh 已收摘要探口风邮件, 如回复可告知已正式提交; 收到 review 请求时回应.",
       "【4.27 推送链路回归追踪 · 中优】真因=4.27 openclaw CLI 冷调用回归 (V37.9.145). 丢失面评估已闭合 (push_path_loss_surface_audit_2026_06_15.md: 无总丢失面, WhatsApp 瞬时缝隙内容在 Discord 存活). 剩余需 Mac Mini 生产数据: (a) openclaw message send --help timeout 旋钮探测 → 可配则 notify.sh/直推 job 调大 (b) ls ~/.openclaw/plugin-runtime-deps/ 多 hash dir 查 staging 间歇复发 (V37.9.162 同源) (c) 上游 releases 查 CLI 冷启动/staging 修复 (tripwire 不自动升级). 硬化候选 (deferred 需 E2E): 论文类 job 直推双通道迁 notify.sh --topic (MR-8 一物一形).",
@@ -357,7 +374,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-06-28: 启动 ISSRE Industry Track 投稿(用户「启动 ISSRE 投稿」). WebFetch/WebSearch 实地确认 ISSRE 2026 Industry Track CFP(官方页 403→EAPLS/EasyChair 镜像交叉验证): 6 页含 refs(full)/4 页(short) IEEE CS 2 栏, 非双盲, 摘要≤150 词+≤4 keywords, 摘要截止 6-28→7-3 / 论文 7-5→7-12 / 通知 8-12 / EasyChair 提交. 解锁 2 个 author-only 项(页数+GenAI 政策已 confirm). 新建 issre_6page_submission.md(按 Trim priorities 附录裁到 6 页含 refs, 150 词摘要, 4 keywords, 冻结 study-cutoff 数字, 防当前-repo 数字泄漏). 摘要+full 文件 note 改 ≤150 词/✅confirmed. SUBMISSION_GUIDE §3 加 confirmed CFP 表+EasyChair 摘要注册块+runbook. 安全扫描 clean. 剩 author-only: EasyChair 注册摘要(7-3 前)+贴 IEEEtran 模板+Fig.1 矢量图+typeset≤6 页核+Submit(7-12 前). VERSION 0.37.9.71 不变(话语权零业务语义). → 【实际投递完成】用户一问一答交互式投递: EasyChair 注册 Submission 395 (Industry Track/Full Paper, 标题/4kw/topics/150 词摘要/作者全对) + pdflatex+IEEEtran 本地真编译 保守版=6 页含 refs(零错误/零 undefined ref/零 overfull, 完整版 7 页超限弃用) + PDF 上传 15:50。ISSRE in-review, 通知 2026-08-12, 截止前可 Update 重传。论文三 venue 全部落地: arXiv 已发表 / IEEE Software in-review / ISSRE 已投递。",
+  "focus": "2026-06-28: 用户确立【宪法·研究攻关 #1 = 机械化人眼 LLM-Observer】为下一阶段第一任务(凌驾功能添加)。锚定论文已发表的开放问题(~70% 静默故障靠人看/测试 ≈0%): 造自动化用户视角 Observer 捕获 fail-plausible 类故障, taxonomy 描述→预测。三锚点 fail-plausible/audit-as-regression/seams-not-components 各司其职; 22 postmortem 语料库作 ground truth; 产出=论文#2 + 社区可跑 bench(深度+广度回应两评审短板)。已记入 status.priorities[0] + CLAUDE.md 战略定位区宪法块。状态: 方向确立未开工, 下一步 design doc。 | 当日早些: ISSRE Industry Track 已投递(Submission 395, 6 页 PDF 真编译上传), 论文三 venue 全落地。 🌙【半年里程碑 · 阶段交接】明天(2026-06-29)起 LLM-Observer 新探索, 从 design doc 开工(见 unfinished 顶端开工点)。Stage1✅→Stage2 冲刺(论文三 venue 落地)→让科学走出实验室。",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
