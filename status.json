@@ -1,6 +1,6 @@
 {
-  "updated": "2026-06-29 01:16:35",
-  "updated_by": "claude_code",
+  "updated": "2026-06-29 03:07:04",
+  "updated_by": "full_regression",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -109,6 +109,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-06-29",
+      "what": "LLM-Observer 研究攻关 #1 Stage 2 — 确定性 Layer 1 pre-filter 落地 (研究项目第一份 runtime 代码, 同日续 Stage 0/1, 用户「开始执行 stage2」)。先 ground (原则 #28): 实测 seed API (get_blocked_phrases 6 字眼 / get_credibility rank 1=最高 ≥4=博客社媒 FAIL-OPEN) 再写真复用。交付 llm_observer.py 两层管道 Layer 1 (Layer 2 留 Stage 3): S1 pollution(错误码/Bad JSON/告警 artifact 强指纹 D1/D2) / S2 credibility_mismatch(复用 source_credibility 低档来源+高档措辞) / S3 fabrication_phrase(复用 get_blocked_phrases D4) / S4 provenance_gap(牵强等价'异曲同工'无证据标注 复用 LEVEL_6) / S5 coherence_structural(boilerplate×≥3+全标题无正文+字段=分隔符 D1/D3) + run_prefilter + CLI。Layer 1 在前 = 成本+可解释(locus/snippet 证据)+防 Observer 自身幻觉(确定性信号是 Layer 2 锚, V37.9.93 教训)。FAIL-OPEN(缺 seed 返[]不阻塞) + FP 纪律(论文 §5.4 FP 一等度量: S1/S3 强指纹 S2/S4/S5 保守宁漏不误) + MR-11 stderr。test_llm_observer.py 39 单测: S1-S5 各单测 + 干净 synthesis 输出 FP=0 控制(4 真实 digest 零误报) + TestGoldenCasesAgainstGroundTruth(把 Layer 1 绑回 Stage 1 yaml: 每 golden case 被它 expected_signal 确定性子集 S1-S5 至少一个抓到; 诚实 D1 的 S5 是语义=Layer 2 D1 经 S1 抓; out-of-scope 不造 fixture) + D4 known_gap 经 S3 + 源码守卫。实测: D1→S1/kb_review→S5/dream_quota→S5/pa_alert→S1/pa_echo→S4/D4→S3 全命中, clean×4 零 FP, S2 rss_blogs+研究表明命中/arxiv 不命中。反向验证真有效: sabotage 阈值 3→99 → 3 守卫(单测+ground-truth tie+常量)FAIL; neutralize Bad JSON → S1 路径 FAIL; 还原 39/39。接入 full_regression。验证: full_regression 135 通过/0 失败/4830 tests(+39)/suites 137/governance 91/91 EXIT=0/安全 95/三机器 doc-drift 无漂移/VERSION 0.37.9.71 不变(PoC 模块未 wire 进 daily_observer 零 runtime 变更, 同 V37.9.46 radar PoC + Stage 0/1; Stage 5 wire 才 bump)。复杂度预算: files +2(模块+test), suites +1, tests +39, 净 runtime 机制 0(模块零 caller Stage 5 wire 才有效, 复用全 seeds 不新造)。下一 session Stage 3: Layer 2 LLM-judge + detect_fail_plausible orchestrator。",
+      "by": "claude_code"
+    },
     {
       "date": "2026-06-29",
       "what": "LLM-Observer 研究攻关 #1 Stage 1 — ground-truth 标注集入库 (同日续 Stage 0, 用户「继续开始执行」)。先 ground (原则 #28 不只转抄 Explore): 读 data_inventory.md 确认权威 22 口径 + 亲自重读 6 个 load-bearing fail-plausible 案例核对标签。交付 docs/llm_observer_ground_truth.yaml (单表一物一形避免 27 处 front-matter 漂移): 24 incident postmortem × 17 字段机器标签 + signals 信号字典 + summary 计数 + known_gaps(D4)。关键诚实发现: pa_alert(D2)/pa_echo artifact 是 live PA 对话出 daily_observer 扫描集 → observer_in_scope=partial (机制在 scope 但不假装能抓); 最干净 in-scope 仅 3 (dream/kb_review/dream_quota synthesis-push); A/C/E 结构事故 16 个无面向用户语义 artifact = out-of-scope (60-day TCC 钉死, 诚实边界 = ground-truth 核心价值划清能抓 vs 抓不到)。5 黄金种子覆盖论文 §4.4 D1/D2/D3。计数自洽 24-2(post-cutoff weixin+whatsapp_logout)=22 paper-canonical 对账 data_inventory。YAML 1.1 footgun 修复: tri-state yes/no 未引号被解析成 bool → 全加引号成 str。schema 守卫 test_llm_observer_ground_truth.py 21 单测 (必填/enum/case 文件真存在/expected_signal 在 signals 字典 MR-8 drift/in-scope→有信号 out-of-scope→空 诚实边界契约/golden 恰 5/summary 自洽/paper_canonical 对账/tri-state 必须 str)。反向验证真有效: sabotage golden fail_plausible yes→no → 3 FAIL; 未定义信号 → drift FAIL; 还原全过。接入 full_regression。验证: full_regression 135 通过/0 失败/4791 tests(+21)/suites 136/governance 91/91 EXIT=0/安全 95/三机器 doc-drift 无漂移/VERSION 0.37.9.71 不变(research 数据+守卫零业务 runtime, 同 V37.9.139/143 惯例)。复杂度预算: files +2(yaml 数据表+test 守卫) suites +1 tests +21, 净 runtime 机制 0(Stage 1 design doc §九'零 runtime', yaml Stage 2 才消费)。下一 session Stage 2: 确定性 pre-filter S1-S5。",
@@ -290,7 +295,7 @@
   "session_context": {
     "last_session": "2026-06-29",
     "unfinished": [
-      "【LLM-Observer 研究攻关 #1 · Stage 0 (design doc) ✅ + Stage 1 (ground-truth 标注集) ✅ 2026-06-29 · Stage 2 next】Stage 0: docs/llm_observer_design.md (5 子目标拆解 + 三锚点 + 双产出)。Stage 1: docs/llm_observer_ground_truth.yaml — 24 incident postmortem 逐 case 机器标签 (taxonomy_class/fail_plausible/observable_artifact/expected_signal/observer_in_scope 诚实划界/category A/B/null) + 5 黄金种子覆盖 §4.4 D1/D2/D3 + known_gaps(D4) + test_llm_observer_ground_truth.py 21 单测 schema 守卫 (sabotage 验证真有效)。计数自洽 24-2=22 paper-canonical。诚实边界: in_scope yes=3(synthesis-push)/partial=5(机制 in scope 但 live-PA-chat artifact 出 daily_observer 扫描集)/no=16(无面向用户语义 artifact, 60-day TCC 等结构上抓不到)。下一步 Stage 2: 实现确定性 pre-filter (S1-S5 零 LLM, 复用 source_credibility + hallucination_guards seeds) + 单测 + sabotage 守卫 — 对 5 黄金 case 命中、干净输出不命中、改坏 S 规则即漏检。实施路径 Stage 0-6 见 design doc §九。",
+      "【LLM-Observer 研究攻关 #1 · Stage 0 design doc ✅ + Stage 1 ground-truth ✅ + Stage 2 Layer 1 pre-filter ✅ 2026-06-29 · Stage 3 next】Stage 2: llm_observer.py 确定性 Layer 1 pre-filter (S1-S5 零 LLM 复用 source_credibility+hallucination_guards seeds) + run_prefilter orchestrator + CLI + test_llm_observer.py 39 单测 (5 黄金 case ground-truth tie + 干净输出 FP=0 + sabotage 真有效)。实测 D1→S1/kb_review→S5/dream_quota→S5/pa_alert→S1/pa_echo→S4/D4→S3 全命中, clean×4 零 FP。FAIL-OPEN + FP 纪律(S1/S3 强指纹 S2/S4/S5 保守) + MR-11 stderr。PoC 未 wire 进 daily_observer (VERSION 0.37.9.71 不变)。下一步 Stage 3: 实现 Layer 2 LLM-judge (FAIL_PLAUSIBLE_SYSTEM prompt 复用 daily_observer.call_llm_critique infra + 注入 hallucination_guards LEVEL_6 + source_credibility 块 + sampling-aware 防 V37.9.93 幻觉) + 合并 Layer 1+2 为 detect_fail_plausible orchestrator。语义维度: grounding/intent-alignment(D2)/pollution-evidence(D1)/fabricated-success(D3)。实施路径 Stage 0-6 见 design doc §九。",
       "【ISSRE Industry Track 已投递(Submission 395, 2026-06-28) · in-review】Silent-failures 论文平行第二投已完成: EasyChair Submission 395 (Industry Track / Full Paper / 标题+150 词摘要+4kw+topics+作者) + 6 页 IEEEtran PDF (pdflatex 本地真编译, 6 页含 refs 符合上限) 上传 15:50。待: 编辑初筛 → 评审 → 通知 2026-08-12。截止前(论文 7-12)可 Update 重传(若官方页 re-confirm 后想微调 Fig.1)。诚实备忘: CFP 走 EAPLS/EasyChair 镜像交叉验证(官方页 403), 建议官方页扫一眼确认 6 页含 refs/7-12 未变。源码 latex/issre_6page_trimmed.tex(投稿版,6 页)+issre_6page.tex(完整版,7 页)入库; PDF 是 build 产物 gitignore。",
       "【IEEE Software 投稿 in-review · 追踪】When Errors Become Narratives 已 2026-06-25 正式提交 IEEE Software (Author Portal/ScholarOne, ORCID 0009-0009-1176-7817, arXiv 预印本透明披露). 待: 收稿确认邮件 → 编辑初筛 → 同行评审(2-3 referee) → 决定(修改/录用/拒). 在 'My Submissions' 追踪状态; 主编 Sigrid Eldh 已收摘要探口风邮件, 如回复可告知已正式提交; 收到 review 请求时回应.",
       "【4.27 推送链路回归追踪 · 中优】真因=4.27 openclaw CLI 冷调用回归 (V37.9.145). 丢失面评估已闭合 (push_path_loss_surface_audit_2026_06_15.md: 无总丢失面, WhatsApp 瞬时缝隙内容在 Discord 存活). 剩余需 Mac Mini 生产数据: (a) openclaw message send --help timeout 旋钮探测 → 可配则 notify.sh/直推 job 调大 (b) ls ~/.openclaw/plugin-runtime-deps/ 多 hash dir 查 staging 间歇复发 (V37.9.162 同源) (c) 上游 releases 查 CLI 冷启动/staging 修复 (tripwire 不自动升级). 硬化候选 (deferred 需 E2E): 论文类 job 直推双通道迁 notify.sh --topic (MR-8 一物一形).",
@@ -312,11 +317,11 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 4791,
-    "last_regression": "2026-06-29 01:13 pass",
+    "test_count": 4830,
+    "last_regression": "2026-06-29 03:06 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-29 01:13",
-    "test_suites": 136,
+    "security_score_time": "2026-06-29 03:06",
+    "test_suites": 137,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
     "version": "0.37.9.71",
@@ -384,7 +389,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-06-29: LLM-Observer 研究攻关 #1 开工 — Stage 0 (design doc docs/llm_observer_design.md) + Stage 1 (ground-truth 标注集 docs/llm_observer_ground_truth.yaml) 同日完成。Stage 1: 24 incident postmortem 逐 case 机器标签 (fail_plausible/observable_artifact/expected_signal/observer_in_scope 诚实划界) + 5 黄金种子(§4.4 D1/D2/D3) + 21 单测 schema 守卫(sabotage 验证真有效)。诚实边界: in_scope yes=3(synthesis-push)/partial=5(机制在 scope 但 live-PA-chat artifact 出 daily_observer 扫描集)/no=16(60-day TCC 等结构上抓不到, 不假装能抓)。计数自洽 24-2=22 paper-canonical。VERSION 0.37.9.71 不变(research 数据+守卫零业务 runtime)。下一步 Stage 2: 确定性 pre-filter S1-S5(零 LLM 复用 seeds)+ 单测 + sabotage 守卫。实施路径 Stage 0-6 见 design doc §九。",
+  "focus": "2026-06-29: LLM-Observer 研究攻关 #1 — 同日 Stage 0 (design doc) + Stage 1 (ground-truth 标注集) + Stage 2 (确定性 Layer 1 pre-filter) 三阶段完成。Stage 2 llm_observer.py: 零 LLM 的 S1-S5 fail-plausible 检测 (复用 source_credibility+hallucination_guards seeds) + 39 单测 (5 黄金 case 绑回 ground-truth yaml + 干净输出 FP=0 + sabotage 真有效)。实测 5 黄金 case 全命中 (D1→S1/D3→S5/D4→S3), 真实 digest 零误报。两层管道 Layer 1 在前=成本+可解释+防 Observer 自身幻觉。PoC 模块未 wire 进 daily_observer → VERSION 0.37.9.71 不变 (Stage 5 wire 才是 runtime 变更)。下一步 Stage 3: Layer 2 LLM-judge (FAIL_PLAUSIBLE_SYSTEM 复用 call_llm_critique infra + LEVEL_6/credibility 注入 + sampling-aware) + 合并 detect_fail_plausible orchestrator。实施路径 Stage 0-6 见 design doc §九。",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
