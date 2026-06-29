@@ -109,6 +109,7 @@ run_suite "ontology_sources_doi (V37.9.183 ontology_sources KB-write 捕获 DOI 
 run_suite "harvest_chat (V37.1 MapReduce + V37.9.130 hierarchical Reduce 300s + fail-soft + --days 3 自动补提炼)" "python3 test_harvest_chat.py"
 run_suite "kb_radar (V37.9.99 Opportunity Radar Stage 5 — 件套交集红/黄/蓝 + shell guards)" "python3 test_kb_radar.py"
 run_suite "daily_observer (V37.9.84 Daily Self-Critique Observer)" "python3 test_daily_observer.py"
+run_suite "llm_observer_ground_truth (V37.9.193 研究攻关 #1 Stage 1 — fail-plausible 带标注验证集 schema 守卫 + summary/signal drift guard)" "python3 test_llm_observer_ground_truth.py"
 run_suite "expert_escalation (V37.9.90-r1 Expert Escalation Capability — Doubao backend)" "python3 test_expert_escalation.py"
 run_suite "v37_9_91_expert_escalate_wiring (V37.9.91 Expert Escalation wiring — proxy_filters CUSTOM_TOOLS + tool_proxy 分支 + FILE_MAP + ontology yaml)" "python3 test_v37_9_91_expert_escalate_wiring.py"
 run_suite "cross_source_signal_aggregator (V37.9.46 Opportunity Radar Stage 1 PoC)" "python3 test_cross_source_signal_aggregator.py"
