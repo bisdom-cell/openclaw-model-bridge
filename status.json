@@ -1,6 +1,6 @@
 {
-  "updated": "2026-06-28 15:54:11",
-  "updated_by": "security_score",
+  "updated": "2026-06-29 00:36:48",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -109,6 +109,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-06-29",
+      "what": "LLM-Observer 研究攻关 #1 正式开工 (V37.9.192 确立后第一个工作日) — 交付 Stage 0 design doc docs/llm_observer_design.md。先 ground (原则 #28): 读论文 draft.md (§4.4 fail-plausible/D1-D4 + §5.2 ~70% 人眼/开放问题/judge 铁律 + §5.6 audit-as-regression + §7 seams) + Explore 三路并行 map (daily_observer 现状 / seeds source_credibility 5档·hallucination_guards 6档·reliability_bench 17场景·adversarial_chaos_audit 16场景 / 22 corpus 标注潜力)。关键 reframe: 不从零造 — 升级既有 daily_observer (已是 LLM-as-judge 但产 prose 质量批评·未针对 fail-plausible·未被 ground-truth 验证) 为 machine-actionable·被 sabotage 验证·有度量的 fail-plausible 检测器 (一物一形)。doc 拆 5 子目标 (附录 A 对应表): 评分函数=两层管道(确定性 S1-S5 pre-filter 复用 seeds → LLM-judge, Layer1 在前=成本+可解释+防 Observer 自身幻觉 V37.9.93) / 标注协议=22 corpus 已半结构化(trigger/amplifier/concealer)加机器标签, observer_in_scope 诚实划界(60-day TCC 无用户 artifact=out of scope) / 自验证=复用 adversarial_chaos_audit Category A/B(注入已知 fail-plausible 必抓 + sabotage S 规则即漏检) + Observer 自身 read-only/sampling-aware/path-robust / 扩展 daily_observer.run() detect_anomalies 后插 detect_fail_plausible, anomalies[] 多态 + score/status 向后兼容 / 日落法第一问答案=退役'人工逐条扫已知 fail-plausible 模式'不退役'人发现 novel 模式'(audit-as-regression 自我应用: Observer 也是回归引擎对 novel 0% 事前)。双产出 + 风险诚实登记 (主开放问题=held-out recall 能否非平凡=描述→预测真考验)。design only 零代码 — VERSION 0.37.9.71 不变 (研究产物零业务语义, 同 V37.9.192 战略记录惯例)。复杂度预算: files +1(doc) 其余维度全不变, 净 runtime 机制 0。",
+      "by": "claude_code"
+    },
     {
       "date": "2026-06-28",
       "by": "claude_code",
@@ -278,9 +283,9 @@
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB"
   },
   "session_context": {
-    "last_session": "2026-06-23",
+    "last_session": "2026-06-29",
     "unfinished": [
-      "【下一 session 开工点 · 2026-06-29 起】LLM-Observer 研究攻关 #1 正式探索启动 — 写 design doc 拆子目标: (1) 评分函数(如何判定一段 LLM 输出是 fail-plausible/静默故障) (2) ground-truth 标注协议(22 个 postmortem 语料库作带标注验证集) (3) Observer 自验证回路(sabotage-validate, §5.2: Observer 自身是 LLM 组件须同等治理) (4) 与现有每日 observer job 的关系(扩展非另起) (5) 日落法第一问: 它能退役什么人工观察? 详见 CLAUDE.md 战略定位区'研究攻关 #1'宪块 + priorities[0]。",
+      "【LLM-Observer 研究攻关 #1 · Stage 0 (design doc) ✅ 2026-06-29 · Stage 1 next】design doc 已入库 docs/llm_observer_design.md — 拆解 5 子目标 (评分函数两层管道 zero-LLM pre-filter S1-S5 + LLM-judge / ground-truth 标注协议 22 corpus / sabotage-validate 复用 adversarial_chaos_audit / 扩展既有 daily_observer 非另起 / 日落法第一问=退役人工逐条扫已知 fail-plausible 不退役 novel 发现) + 三锚点各司其职 + 双产出(论文#2 描述→预测 + 社区可跑 bench 种子 reliability_bench)。下一步 Stage 1: 给 22 postmortem corpus 打机器可读标签 (taxonomy_class/fail_plausible/observable_artifact/expected_signal/observer_in_scope, 单表一物一形) + 5 黄金种子 case 划 Category A/B。实施路径 Stage 0-6 见 doc §九, 每 Stage 走完整收工清单 + Mac Mini E2E。",
       "【ISSRE Industry Track 已投递(Submission 395, 2026-06-28) · in-review】Silent-failures 论文平行第二投已完成: EasyChair Submission 395 (Industry Track / Full Paper / 标题+150 词摘要+4kw+topics+作者) + 6 页 IEEEtran PDF (pdflatex 本地真编译, 6 页含 refs 符合上限) 上传 15:50。待: 编辑初筛 → 评审 → 通知 2026-08-12。截止前(论文 7-12)可 Update 重传(若官方页 re-confirm 后想微调 Fig.1)。诚实备忘: CFP 走 EAPLS/EasyChair 镜像交叉验证(官方页 403), 建议官方页扫一眼确认 6 页含 refs/7-12 未变。源码 latex/issre_6page_trimmed.tex(投稿版,6 页)+issre_6page.tex(完整版,7 页)入库; PDF 是 build 产物 gitignore。",
       "【IEEE Software 投稿 in-review · 追踪】When Errors Become Narratives 已 2026-06-25 正式提交 IEEE Software (Author Portal/ScholarOne, ORCID 0009-0009-1176-7817, arXiv 预印本透明披露). 待: 收稿确认邮件 → 编辑初筛 → 同行评审(2-3 referee) → 决定(修改/录用/拒). 在 'My Submissions' 追踪状态; 主编 Sigrid Eldh 已收摘要探口风邮件, 如回复可告知已正式提交; 收到 review 请求时回应.",
       "【4.27 推送链路回归追踪 · 中优】真因=4.27 openclaw CLI 冷调用回归 (V37.9.145). 丢失面评估已闭合 (push_path_loss_surface_audit_2026_06_15.md: 无总丢失面, WhatsApp 瞬时缝隙内容在 Discord 存活). 剩余需 Mac Mini 生产数据: (a) openclaw message send --help timeout 旋钮探测 → 可配则 notify.sh/直推 job 调大 (b) ls ~/.openclaw/plugin-runtime-deps/ 多 hash dir 查 staging 间歇复发 (V37.9.162 同源) (c) 上游 releases 查 CLI 冷启动/staging 修复 (tripwire 不自动升级). 硬化候选 (deferred 需 E2E): 论文类 job 直推双通道迁 notify.sh --topic (MR-8 一物一形).",
@@ -374,7 +379,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-06-28: 用户确立【宪法·研究攻关 #1 = 机械化人眼 LLM-Observer】为下一阶段第一任务(凌驾功能添加)。锚定论文已发表的开放问题(~70% 静默故障靠人看/测试 ≈0%): 造自动化用户视角 Observer 捕获 fail-plausible 类故障, taxonomy 描述→预测。三锚点 fail-plausible/audit-as-regression/seams-not-components 各司其职; 22 postmortem 语料库作 ground truth; 产出=论文#2 + 社区可跑 bench(深度+广度回应两评审短板)。已记入 status.priorities[0] + CLAUDE.md 战略定位区宪法块。状态: 方向确立未开工, 下一步 design doc。 | 当日早些: ISSRE Industry Track 已投递(Submission 395, 6 页 PDF 真编译上传), 论文三 venue 全落地。 🌙【半年里程碑 · 阶段交接】明天(2026-06-29)起 LLM-Observer 新探索, 从 design doc 开工(见 unfinished 顶端开工点)。Stage1✅→Stage2 冲刺(论文三 venue 落地)→让科学走出实验室。",
+  "focus": "2026-06-29: LLM-Observer 研究攻关 #1 正式开工第一天 — 交付 Stage 0 design doc (docs/llm_observer_design.md)。拆解 5 子目标 (评分函数两层管道 / 22 corpus ground-truth 标注协议 / sabotage-validate 自验证回路 / 扩展既有 daily_observer 非另起 / 日落法第一问) + 三锚点 (fail-plausible=打击目标·读语义非状态码 / audit-as-regression=理论授权·Observer 是审计 0% 预防之外的'别处' / seams-not-components=看接缝+用户输出也警惕 Observer 自己是接缝) + 双产出 (论文#2 描述→预测 + 社区可跑 bench, 深度+广度回应两评审同一对短板)。关键: 升级既有 daily_observer (已 LLM-as-judge 但 prose/未验证) 为有度量·被 sabotage 验证的 fail-plausible 检测器, 不另起 (一物一形)。下一步 Stage 1: 22 postmortem corpus 打机器标签 + 5 黄金种子划 Category A/B。design only 今日零代码, VERSION 不变。",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
