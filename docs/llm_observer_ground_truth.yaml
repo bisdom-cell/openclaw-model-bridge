@@ -1,0 +1,528 @@
+# llm_observer_ground_truth.yaml — LLM-Observer 带标注验证集 (研究攻关 #1 Stage 1)
+#
+# 用途: Observer "fail-plausible 检测器" 的 ground-truth 验证集 (单表一物一形)。
+#   每个 case 的标签是 load-bearing —— 驱动 sabotage 测试 (注入已知 fail-plausible
+#   必抓 / 改坏 S 规则即漏检)，不是纯描述 (docs/llm_observer_design.md §4.3)。
+# Schema 来源: docs/llm_observer_design.md §4.2 (标注 schema) + §4.4 (Category A/B 划分)。
+# 维护: 新血案 case 入 ontology/docs/cases/ 时同步加一行 (收工清单)。
+#
+# 诚实边界 (§4.2 observer_in_scope + §8 threats):
+#   - 标注由系统操作者 (人 + AI 协作) 做, 无独立标注者, 不报 κ (论文 §3.3/§8 继承)。
+#     缓解: 标签 load-bearing 驱动客观 sabotage 测试 (二值事实), 非纯主观分类。
+#   - observer_in_scope 是诚实划界: 无面向用户语义 artifact 的事故 (60-day TCC
+#     sandbox / gateway 静默死 / 部署遗漏) Observer 读内容看不到 → out of scope,
+#     不假装能抓 (这正是 ground-truth 集的价值: 划清能抓 vs 结构上抓不到)。
+#
+# Stage 1 决定 (design doc §4.2 候选): 单 YAML 表 (避免 27 处 front-matter 漂移)。
+# 此文件零 runtime —— 是数据/标注表; Stage 2 的确定性 pre-filter 模块才消费它。
+
+version: "0.1-stage1"          # V37.9.193 研究攻关 #1 Stage 1
+last_updated: "2026-06-29"
+schema_source: "docs/llm_observer_design.md §4.2 / §4.4"
+study_cutoff: "2026-06-02"     # 论文 §3.2 incident window 截止 (paper_canonical 计 22)
+
+# ── 信号字典 (评分函数 S1-S5 + Layer 2, design doc §3.1, 自文档化) ──────────────
+signals:
+  S1_pollution_signal:   "错误码 / HTTP 状态文本 / 工具名 / 'Bad JSON' 等系统 artifact 出现在用户内容里 (D1 指纹), 确定性 lexical"
+  S2_credibility_mismatch: "低档来源 (📝博客/💬社媒) 被高档措辞 ('研究表明'/'已证明') 包装, 复用 source_credibility"
+  S3_fabrication_phrase: "hallucination_guards.get_blocked_phrases() 的血案精确字眼 (如编造版本号), 确定性 lexical"
+  S4_provenance_gap:     "跨域因果断言无 [强证据]/[弱关联] 标注, 复用 hallucination_guards LEVEL_6 契约"
+  S5_coherence_structural: "signal 段与 action 段主题不匹配 / boilerplate 重复 / 字段错位 (D1 用户正是靠这发现)"
+  layer2_grounding:        "LLM-judge: 事实断言能否在源材料找到支撑"
+  layer2_intent_alignment: "LLM-judge: 系统被要求做 X 但用户没问 X (D2 指纹)"
+  layer2_pollution_evidence: "LLM-judge: 系统 artifact 被当成外部信号的语义判定 (S1 的语义版)"
+  layer2_fabricated_success: "LLM-judge: fallback 制造的 plausible 形状空壳 (D3 指纹)"
+
+# ── 验证集类别 (design doc §4.4) ──────────────────────────────────────────────
+categories:
+  A_regression: "已知 fail-plausible + observer_in_scope, Observer 必须 100% 抓 (defense rate)。sabotage 守护核心。"
+  B_exploratory: "新/边缘 fail-plausible 模式, Observer 没专门设计, 度量 false-negative (盲区) → 反哺新规则。"
+  out_of_scope: "无面向用户语义 artifact, Observer 读内容结构上抓不到 (诚实边界, 非验证目标)。"
+
+# ── 计数 (summary, 测试守卫此字段与实际 cases 一致) ────────────────────────────
+summary:
+  total_labeled: 24            # 当前 corpus 全部 incident postmortem
+  paper_canonical: 22          # study_cutoff 2026-06-02 时计入论文的 (= 24 − 2 post-cutoff)
+  post_cutoff_additions: 2     # weixin_contexttoken (V37.9.182) + whatsapp_session_logout (V37.9.162)
+  non_failure_excluded: 3      # openclaw_as_ontology / cron_line_full_comparison_audit / why_so_many_incidents_reflection (data_inventory.md)
+  fail_plausible_yes: 4
+  fail_plausible_partial: 4
+  observer_in_scope_yes: 3     # 最干净的 in-scope regression 目标 (scanned-push family)
+  observer_in_scope_partial: 5
+  category_A_count: 5          # 5 黄金种子
+  category_B_count: 3          # + D4 known_gap (无独立 case 文件)
+  golden_seed_count: 5
+
+# ── 标注表 (一 case 一行) ──────────────────────────────────────────────────────
+# 字段: id / file / title / taxonomy_class (primary; 次类见 notes) / fail_plausible /
+#       llm_fabrication / observable_artifact{desc,user_facing} / discovery_channel /
+#       observer_in_scope / in_scope_reason / expected_signal[] / category (A/B/null) /
+#       golden_seed / paper_class_ref / paper_canonical / silence_span / notes
+cases:
+
+  # ───── fail-plausible · in-scope clean (scanned-push family, Category A 核心) ─────
+  - id: dream_self_referential
+    file: ontology/docs/cases/dream_self_referential_hallucination_case.md
+    title: "Dream 把自己的 400 'Bad JSON' 错误页编造成 'Hugging Face 平台危机' 推给用户"
+    taxonomy_class: D
+    fail_plausible: "yes"
+    llm_fabrication: "yes"
+    observable_artifact:
+      desc: "WhatsApp/Discord 推送的 'Hugging Face 平台危机预警' 分析 (信号/行动主题断裂)"
+      user_facing: "yes"
+    discovery_channel: user-view
+    observer_in_scope: "yes"
+    in_scope_reason: "dream 推送正是 daily_observer scan_push_outputs 读的内容"
+    expected_signal: [S1_pollution_signal, S5_coherence_structural, layer2_pollution_evidence]
+    category: A
+    golden_seed: true
+    paper_class_ref: "§4.4 D1"
+    paper_canonical: true
+    silence_span: "hours (同夜推送, 用户当日察觉)"
+    notes: "论文 §4.4 D1 标杆案例。'Error code: 400'/'Bad JSON'/'Waiting Ns before retry' 在 signal 段 = S1 确定性指纹; PWC沉默(信号) vs HF监控(行动) 主题断裂 = S5。最干净的 in-scope regression。"
+
+  - id: kb_review_silent_degradation
+    file: ontology/docs/cases/kb_review_silent_degradation_case.md
+    title: "kb_review 推送 'digest 容器标题' 当回顾内容, status 永写 llm:true"
+    taxonomy_class: D
+    fail_plausible: "yes"
+    llm_fabrication: "yes"
+    observable_artifact:
+      desc: "WhatsApp '知识回顾' 推送, 内容全是 '## 今日arXiv精选' 类容器标题而非论文实体"
+      user_facing: "yes"
+    discovery_channel: user-view
+    observer_in_scope: "yes"
+    in_scope_reason: "kb_review 是 synthesis push, 与 evening/dream/deep_dive 同族, 扩 scan set 自然"
+    expected_signal: [S5_coherence_structural, layer2_fabricated_success]
+    category: A
+    golden_seed: true
+    paper_class_ref: "§4.4 D3"
+    paper_canonical: true
+    silence_span: "weeks (连续 N 周)"
+    notes: "论文 §4.4 D3 'fabrication 不需要模型 — fallback 制造 plausible 形状输出是 shell 实现的幻觉'。次类 C+B (6 互相掩护的 bug)。llm:true 无条件写 = concealer。"
+
+  - id: dream_quota_blast_radius
+    file: ontology/docs/cases/dream_quota_blast_radius_case.md
+    title: "Dream 30+ fallback 耗尽 Gemini 配额 → HN 推送要点全是 '技术内容，详见原文' boilerplate ×5"
+    taxonomy_class: D
+    fail_plausible: "yes"
+    llm_fabrication: "no"
+    observable_artifact:
+      desc: "HN 头版精选推送, 5 条要点全是硬编码回退文案 '技术内容，详见原文', 标题未翻译"
+      user_facing: "yes"
+    discovery_channel: user-view
+    observer_in_scope: "yes"
+    in_scope_reason: "HN/synthesis 推送内容, boilerplate 重复结构可读"
+    expected_signal: [S5_coherence_structural, layer2_fabricated_success]
+    category: A
+    golden_seed: true
+    paper_class_ref: "§4.4 (C+D 复合)"
+    paper_canonical: true
+    silence_span: "hours (当日推送)"
+    notes: "llm_fabrication=no (LLM 502 失败, 硬编码 fallback 吐 boilerplate), 但 fail_plausible=yes (系统输出 plausible 形状空壳)。次类 C dilution (502 配额溃坝)。S5 = boilerplate ×5 重复。"
+
+  # ───── fail-plausible · in-scope partial (机制可检测, 但 artifact 在 daily_observer scan 之外) ─────
+  - id: pa_alert_contamination
+    file: ontology/docs/cases/pa_alert_contamination_case.md
+    title: "watchdog 告警污染 chat history → PA 对哲学问题回复编造的 macOS FDA 运维指令"
+    taxonomy_class: D
+    fail_plausible: "yes"
+    llm_fabrication: "yes"
+    observable_artifact:
+      desc: "PA WhatsApp 回复 (用户问本体×随机×贝叶斯, PA 答 '已收到系统告警跟进任务'+给 cron 开 FDA 步骤)"
+      user_facing: "yes"
+    discovery_channel: user-view
+    observer_in_scope: "partial"
+    in_scope_reason: "canonical D2 fail-plausible, 机制 (intent-misalignment + S1 系统 artifact) Layer2 可检测; 但 artifact 是 live PA 对话回复, 不在 daily_observer 扫描的 scheduled-push 集 → 当前扩展抓不到, 未来 PA-output observer 可覆盖"
+    expected_signal: [S1_pollution_signal, layer2_intent_alignment, layer2_pollution_evidence]
+    category: A
+    golden_seed: true
+    paper_class_ref: "§4.4 D2"
+    paper_canonical: true
+    silence_span: "36 min 窗口 (12:30 告警 → 13:06 提问), 用户追问 3 次察觉"
+    notes: "划清 daily_observer 扫描边界的关键案例: 机制在 scope (Layer2 intent+S1), artifact (live chat) 出 scope。诚实记录而非假装能抓。注: case doc V37.9.80 更新指出 FDA 方向恰巧对(场景错配但局部真值), 不影响 fail-plausible 判定 (定义是 absence of grounding 非偶然正确)。"
+
+  - id: pa_echo_chamber
+    file: ontology/docs/cases/pa_echo_chamber_case.md
+    title: "PA 把用户五维模型牵强关联 MEMORY.md ('异曲同工'), 声称已存 KB 实未调工具"
+    taxonomy_class: D
+    fail_plausible: "partial"
+    llm_fabrication: "yes"
+    observable_artifact:
+      desc: "PA WhatsApp 回复 (牵强 '异曲同工' 关联 + '已永久保存至知识库' 假声明)"
+      user_facing: "yes"
+    discovery_channel: user-view
+    observer_in_scope: "partial"
+    in_scope_reason: "机制 (S4 无证据牵强关联 + Layer2 grounding 假保存声明) 可检测; artifact 是 live PA 对话, 出 daily_observer 扫描集"
+    expected_signal: [S4_provenance_gap, layer2_grounding]
+    category: A
+    golden_seed: true
+    paper_class_ref: "§4.4 D (弱, 迎合性)"
+    paper_canonical: true
+    silence_span: "单次回复 (用户当场察觉)"
+    notes: "最弱的 fail-plausible (牵强关联非编造事实, 故 fail_plausible=partial)。Qwen3 不主动调 kb_write (原则 #24) → '已保存' 是 layer2_grounding 假声明。"
+
+  # ───── fail-plausible-adjacent · Category B (探索/盲区, 度量 false-negative) ─────
+  - id: kb_content_and_sources_dedup
+    file: ontology/docs/cases/kb_content_and_sources_dedup_case.md
+    title: "Proxy 把多模态 content list 转 Python repr → harvest LLM 当输入 → KB Notes 标题是 dict 语法"
+    taxonomy_class: C
+    fail_plausible: "partial"
+    llm_fabrication: "partial"
+    observable_artifact:
+      desc: "KB notes 标题含 Python dict 语法 (repr 污染); Sources 文件累积重复 H2 标题"
+      user_facing: "partial"
+    discovery_channel: check
+    observer_in_scope: "partial"
+    in_scope_reason: "KB notes 是半内部产物 (经 dream/evening 间接面向用户); dict-语法标题是结构可检测的 S5/format 信号, 但 Observer 没专门设计 → Category B 探索"
+    expected_signal: [S5_coherence_structural, layer2_fabricated_success]
+    category: B
+    golden_seed: false
+    paper_class_ref: "§4.3 C (数据结构性污染)"
+    paper_canonical: true
+    silence_span: "days"
+    notes: "次类 D-adjacent (LLM 把 repr 当输入 = 污染链变种)。Category B: 度量 Observer 能否抓 '标题=dict 语法' 这类没专门设计的结构异常。"
+
+  - id: ontology_sources_positional_parser_cascade
+    file: ontology/docs/cases/ontology_sources_positional_parser_cascade_case.md
+    title: "LLM 漏一行 → 位置解析 lines[i+3] 整体右移 → 推送 'title 字段 = 分隔符字符串'"
+    taxonomy_class: B
+    fail_plausible: "partial"
+    llm_fabrication: "no"
+    observable_artifact:
+      desc: "推送消息中 username/stars 落在错误 markdown 槽位, title 字段含字面分隔符串"
+      user_facing: "yes"
+    discovery_channel: user-view
+    observer_in_scope: "partial"
+    in_scope_reason: "面向用户推送的字段错位是结构可读 (S5/format); 但根因是 parser 而非内容语义, Observer 读输出能看到症状 → Category B 探索"
+    expected_signal: [S5_coherence_structural]
+    category: B
+    golden_seed: false
+    paper_class_ref: "§4.2 B (positional parse)"
+    paper_canonical: true
+    silence_span: "days"
+    notes: "fail_plausible=partial: 输出 plausible 形状但 title 槽是垃圾。Category B: 度量 Observer 能否抓 '字段错位' 这类 LLM-output-parser 漂移症状。"
+
+  - id: finance_news_syndication_zombie
+    file: ontology/docs/cases/finance_news_syndication_zombie_case.md
+    title: "3 个 X handle 改成僵尸账号 (停更 420-3364 天), HTTP 200 + stale 快照伪装新鲜"
+    taxonomy_class: B
+    fail_plausible: "partial"
+    llm_fabrication: "no"
+    observable_artifact:
+      desc: "Dream/finance 输出内容稀疏 (僵尸账号 stale 快照, 72h 窗口 '0 热文' 无告警)"
+      user_facing: "yes"
+    discovery_channel: user-view
+    observer_in_scope: "partial"
+    in_scope_reason: "stale-当-fresh 内容稀疏是 daily_observer thin_output 部分覆盖的结构信号; Observer 读到 '内容稀疏/陈旧' 可标 → Category B 探索"
+    expected_signal: [S5_coherence_structural]
+    category: B
+    golden_seed: false
+    paper_class_ref: "§4.2 B / §4.5 E (僵尸账号)"
+    paper_canonical: true
+    silence_span: "days"
+    notes: "fail_plausible=partial: stale 内容当 fresh 推送 = 温和 fail-plausible (HTTP 200 伪装健康)。次类 E。Category B。"
+
+  # ───── 非 fail-plausible · out-of-scope (诚实边界: Observer 读内容结构上抓不到) ─────
+  - id: kb_evening_fallback_quota_chain
+    file: ontology/docs/cases/kb_evening_fallback_quota_chain_case.md
+    title: "Qwen3 断路器 OPEN + Gemini 429 → 'HTTP 502' 三层稀释, 告警零可行动位"
+    taxonomy_class: C
+    fail_plausible: "no"
+    llm_fabrication: "no"
+    observable_artifact:
+      desc: "用户连续两天收到冗余 'HTTP 502' 告警 (错误被稀释, 非编造)"
+      user_facing: "yes"
+    discovery_channel: user-view
+    observer_in_scope: "no"
+    in_scope_reason: "错误被表面化 (502) 非编造 → 非 fail-plausible; daily_observer 结构层 (missing_output/job_failure) 已覆盖 evening 失败"
+    expected_signal: []
+    category: null
+    golden_seed: false
+    paper_class_ref: "§4.3 C (dilution, 'one step from D')"
+    paper_canonical: true
+    silence_span: "2 days"
+    notes: "论文 §4.3 '稀释的错误离 D 类编造只差一步' —— 边界案例: 此处错误仍被表面化, 未编造, 故 fp=no。结构层已覆盖。"
+
+  - id: governance_silent_error
+    file: ontology/docs/cases/governance_silent_error_case.md
+    title: "INV summary 只数 fail 漏 error → exec() 作用域 NameError 被吞 → '所有不变式成立' over 死检查"
+    taxonomy_class: C
+    fail_plausible: "no"
+    llm_fabrication: "no"
+    observable_artifact: {desc: "治理审计内部汇总 (非面向用户推送)", user_facing: "no"}
+    discovery_channel: self-observation
+    observer_in_scope: "no"
+    in_scope_reason: "治理内部 summary, 非面向用户语义输出; 由 MR-7 治理自观察覆盖"
+    expected_signal: []
+    category: null
+    golden_seed: false
+    paper_class_ref: "§4.3 C (swallowing) / §6 observer's own blind spot"
+    paper_canonical: true
+    silence_span: "months (67 vacuous checks)"
+    notes: "观察者自身盲区案例 (§6) —— 与 Observer 自验证 §5 哲学同源 (观察者需要观察者)。"
+
+  - id: dream_map_budget_overflow
+    file: ontology/docs/cases/dream_map_budget_overflow_case.md
+    title: "Dream Map cache key 对 mtime 敏感 + notes>286 → 连续超时, Reduce 从未执行"
+    taxonomy_class: A
+    fail_plausible: "no"
+    llm_fabrication: "no"
+    observable_artifact: {desc: "超时, 无语义内容产物", user_facing: "no"}
+    discovery_channel: log-forensics
+    observer_in_scope: "no"
+    in_scope_reason: "超时/预算溢出, 无面向用户语义 artifact 可读"
+    expected_signal: []
+    category: null
+    golden_seed: false
+    paper_class_ref: "§4.1 A / §4.2 B"
+    paper_canonical: true
+    silence_span: "hours"
+    notes: "次类 B (cache key 漂移)。结构失败, Observer 读内容看不到。"
+
+  - id: heartbeat_md_pa_self_silencing
+    file: ontology/docs/cases/heartbeat_md_pa_self_silencing_case.md
+    title: "PA 写 HEARTBEAT.md (保留控制文件) → 13h 对所有消息回 HEARTBEAT_OK 被 Gateway 剥成空"
+    taxonomy_class: E
+    fail_plausible: "no"
+    llm_fabrication: "no"
+    observable_artifact: {desc: "完全静默 (空回复), 无内容可读", user_facing: "yes"}
+    discovery_channel: user-view
+    observer_in_scope: "no"
+    in_scope_reason: "总静默/缺席 (absence), Observer 读内容看不到 '什么都没有'; alert-chain/结构层职责"
+    expected_signal: []
+    category: null
+    golden_seed: false
+    paper_class_ref: "§4.5 E (reserved-file)"
+    paper_canonical: true
+    silence_span: "13h"
+    notes: "absence 类 ≠ fail-plausible (后者是有内容但错)。Observer 的 fail-plausible 检测对 '空' 无能, 这是诚实边界。"
+
+  - id: movespeed_tcc_sandbox
+    file: ontology/docs/cases/movespeed_tcc_sandbox_blood_case.md
+    title: "macOS TCC sandbox 拒 cron 派生进程访问外置卷 → SSD 备份 60 天静默 EPERM, 取证工具自身被静默拒"
+    taxonomy_class: A
+    fail_plausible: "no"
+    llm_fabrication: "no"
+    observable_artifact: {desc: "备份 EPERM, 无面向用户语义产物", user_facing: "no"}
+    discovery_channel: log-forensics
+    observer_in_scope: "no"
+    in_scope_reason: "design doc §7.2 显式引用为 out-of-scope 60-day 案例: 无面向用户 artifact"
+    expected_signal: []
+    category: null
+    golden_seed: false
+    paper_class_ref: "§4.5 E (forensic blind spot, 60-day)"
+    paper_canonical: true
+    silence_span: "60 days"
+    notes: "corpus 最长潜伏 (论文 §5.1 头条)。design doc §7.2 钉死: Observer 读内容看不到部署/OS-policy 接缝, 这类预防来自人眼/对抗审计/目标环境暴露 (audit-as-regression)。"
+
+  - id: movespeed_exfat_silent_backup_failure
+    file: ontology/docs/cases/movespeed_exfat_silent_backup_failure_case.md
+    title: "18+ 处复制粘贴抑制反模式 → 备份失败被静默吞 (exFAT)"
+    taxonomy_class: C
+    fail_plausible: "no"
+    llm_fabrication: "no"
+    observable_artifact: {desc: "备份失败被吞, 无用户语义产物", user_facing: "no"}
+    discovery_channel: log-forensics
+    observer_in_scope: "no"
+    in_scope_reason: "运维/备份失败, 无面向用户语义 artifact"
+    expected_signal: []
+    category: null
+    golden_seed: false
+    paper_class_ref: "§4.3 C (amplified swallowing) / §5.5"
+    paper_canonical: true
+    silence_span: "5-6 days"
+    notes: "次类 E。复制粘贴抑制反模式 = scanner 化的 meta-rule 来源 (§5.5)。"
+
+  - id: movespeed_noowners_uid_mismatch
+    file: ontology/docs/cases/movespeed_noowners_uid_mismatch_case.md
+    title: "APFS noowners 掩盖 UID 不匹配 → daemon 并发访问触发 30% EPERM, chown 静默无效"
+    taxonomy_class: A
+    fail_plausible: "no"
+    llm_fabrication: "no"
+    observable_artifact: {desc: "间歇 EPERM, 无用户语义产物", user_facing: "no"}
+    discovery_channel: log-forensics
+    observer_in_scope: "no"
+    in_scope_reason: "文件系统/ownership 接缝, 无面向用户 artifact"
+    expected_signal: []
+    category: null
+    golden_seed: false
+    paper_class_ref: "§4.1 A / §4.5 E"
+    paper_canonical: true
+    silence_span: "weeks"
+    notes: "次类 E。"
+
+  - id: preflight_cascading_fix
+    file: ontology/docs/cases/preflight_cascading_fix_case.md
+    title: "部署同步问题误诊为 '缺配置' → 5 轮连锁修复 4 层新复杂度, 实需一次 cp"
+    taxonomy_class: E
+    fail_plausible: "no"
+    llm_fabrication: "no"
+    observable_artifact: {desc: "dev 侧 preflight 报错, 非面向用户", user_facing: "no"}
+    discovery_channel: check
+    observer_in_scope: "no"
+    in_scope_reason: "dev/ops 侧, 无面向用户运行时 artifact"
+    expected_signal: []
+    category: null
+    golden_seed: false
+    paper_class_ref: "§4.5 E / §7 (cascading fix, AI 工业化 trigger-级修复)"
+    paper_canonical: true
+    silence_span: "n/a (dev)"
+    notes: "原则 #28 '理解再动手' 来源案例。论文 §7 AI 协作把 trigger-级修复工业化的反例。"
+
+  - id: rsync_helper_set_e_regression
+    file: ontology/docs/cases/rsync_helper_set_e_regression_case.md
+    title: "helper exit 码传播 + set -e → 20 caller 中途被杀, last_run 缺字段误诊为 '旧脚本'"
+    taxonomy_class: E
+    fail_plausible: "no"
+    llm_fabrication: "no"
+    observable_artifact: {desc: "脚本中途死, 字段缺失, 无用户语义产物", user_facing: "no"}
+    discovery_channel: check
+    observer_in_scope: "no"
+    in_scope_reason: "脚本控制流接缝, 无面向用户 artifact"
+    expected_signal: []
+    category: null
+    golden_seed: false
+    paper_class_ref: "§5.4 (fix 引入更深静默)"
+    paper_canonical: true
+    silence_span: "8 days (备份缺口)"
+    notes: "次类 A (set -e quirk)。论文 §5.4 '修复制造更深静默'。"
+
+  - id: v37_9_92_observer_path_blood
+    file: ontology/docs/cases/v37_9_92_observer_path_blood_case.md
+    title: "Observer 自身: registry path 3 候选全 miss → fallback 5 天 + status.json 从未写"
+    taxonomy_class: E
+    fail_plausible: "no"
+    llm_fabrication: "no"
+    observable_artifact: {desc: "Observer 自身误报 + quality.observer 空, 非用户内容", user_facing: "no"}
+    discovery_channel: self-observation
+    observer_in_scope: "no"
+    in_scope_reason: "Observer 自己的 bug —— 内容检测抓不到, 但对 §5 自验证回路 critical: 证明 'Observer 是又一道接缝 (§5.2 铁律)'"
+    expected_signal: []
+    category: null
+    golden_seed: false
+    paper_class_ref: "§5.2 (judge 自身 2 bug) / §4.5 E"
+    paper_canonical: true
+    silence_span: "5 days"
+    notes: "★ 元案例: Observer 自验证 (design doc §5) 的活教材。V37.9.92 path bug + V37.9.93 sampling 幻觉 = 论文 §5.2 'two bugs in itself'。Observer 自身 sabotage-validate 必须能在历史上复现防住这类。"
+
+  - id: finance_zombie_closure
+    file: ontology/docs/cases/zombie_detection_edge_case_closure.md
+    title: "僵尸检测边缘: '99% stale ≠ 100%' + '0-tweet stub' 漏检, 修复 begets 新 bug"
+    taxonomy_class: B
+    fail_plausible: "no"
+    llm_fabrication: "no"
+    observable_artifact: {desc: "检测器边缘漏检 (closure 文档)", user_facing: "no"}
+    discovery_channel: user-view
+    observer_in_scope: "no"
+    in_scope_reason: "检测器逻辑边缘 closure 文档, 无独立面向用户 artifact"
+    expected_signal: []
+    category: null
+    golden_seed: false
+    paper_class_ref: "§4.2 B (repair begets bug)"
+    paper_canonical: true
+    silence_span: "n/a (同晚 E2E 抓)"
+    notes: "与 finance_news_syndication_zombie 配对的 closure 注。borderline 是否独立 postmortem; paper_canonical=true (cutoff 前)。"
+
+  - id: whatsapp_silent_death
+    file: ontology/docs/cases/whatsapp_silent_death_case.md
+    title: "restart.sh 致 Gateway 快速崩溃 + quiet_alert 静默 3 CRITICAL → WhatsApp 死 9h, Discord 正常"
+    taxonomy_class: E
+    fail_plausible: "no"
+    llm_fabrication: "no"
+    observable_artifact: {desc: "WhatsApp 完全静默 (absence)", user_facing: "yes"}
+    discovery_channel: user-view
+    observer_in_scope: "no"
+    in_scope_reason: "总静默/缺席, 无内容可读; 告警链独立性 (MR-14) 职责"
+    expected_signal: []
+    category: null
+    golden_seed: false
+    paper_class_ref: "§4.5 E (gateway death, 三告警全失效)"
+    paper_canonical: true
+    silence_span: "9h"
+    notes: "MR-14 'alert path must not depend on failing subject' 来源。absence 类, 非 fail-plausible。"
+
+  - id: whatsapp_client_display_folding
+    file: ontology/docs/cases/whatsapp_client_display_folding_case.md
+    title: "设计假设 WhatsApp 1400 字限制, 实为客户端 ~4000 字折叠 → 8131 字成两气泡同时间戳"
+    taxonomy_class: A
+    fail_plausible: "no"
+    llm_fabrication: "no"
+    observable_artifact: {desc: "两气泡同时间戳 (客户端渲染折叠)", user_facing: "yes"}
+    discovery_channel: user-view
+    observer_in_scope: "no"
+    in_scope_reason: "客户端渲染层 quirk; Observer 读文本内容, 看不到 '折叠' 渲染行为"
+    expected_signal: []
+    category: null
+    golden_seed: false
+    paper_class_ref: "§4.1 A (client folding)"
+    paper_canonical: true
+    silence_span: "hours-weeks"
+    notes: "渲染层 ≠ 内容层。Observer 读 text 内容正确, 看不到显示折叠 = 诚实边界。"
+
+  - id: kb_deep_dive_cron_unregistered
+    file: ontology/docs/cases/kb_deep_dive_cron_unregistered_case.md
+    title: "新 cron job 实现+测试+注册全做, 漏写 crontab 行 → 从未运行, 三 bug 掩护"
+    taxonomy_class: E
+    fail_plausible: "no"
+    llm_fabrication: "no"
+    observable_artifact: {desc: "job 从未运行 (absence)", user_facing: "yes"}
+    discovery_channel: user-view
+    observer_in_scope: "no"
+    in_scope_reason: "运营遗漏/absence; daily_observer missing_output 结构层覆盖 (但非 fail-plausible 内容目标)"
+    expected_signal: []
+    category: null
+    golden_seed: false
+    paper_class_ref: "§4.5 E (omission → convergence engine MR-17)"
+    paper_canonical: true
+    silence_span: "1+ days"
+    notes: "convergence engine (MR-17 declared-state convergence) 来源。absence 类。"
+
+  # ───── post-cutoff additions (paper_canonical=false, corpus 增长) ─────
+  - id: weixin_contexttoken_push_blocked
+    file: ontology/docs/cases/weixin_contexttoken_push_blocked_case.md
+    title: "微信客服 48h 窗口 (非 contextToken) 闸门 cron outbound, rc=0/✅Sent 假成功掩盖未投递"
+    taxonomy_class: E
+    fail_plausible: "no"
+    llm_fabrication: "no"
+    observable_artifact: {desc: "推送未投递 (delivery 失败), rc=0 假成功", user_facing: "no"}
+    discovery_channel: user-view
+    observer_in_scope: "no"
+    in_scope_reason: "投递失败 (delivery), 无内容语义问题; '发送侧 rc=0 ≠ 投递' 是验证而非 Observer 内容检测职责"
+    expected_signal: []
+    category: null
+    golden_seed: false
+    paper_class_ref: "(post-cutoff) E+C, fail-plausible taxonomy 候选 (rc=0 假成功 = 发送侧 fail-plausible 镜像)"
+    paper_canonical: false
+    silence_span: "3h"
+    notes: "post-cutoff (V37.9.182)。'rc=0/✅Sent 假成功' 是 fail-plausible 的发送侧镜像 (诊断者被假信号欺骗), 但 artifact 非面向用户内容 → out of scope。值得未来 taxonomy 扩展登记。"
+
+  - id: whatsapp_session_logout_silent_7h
+    file: ontology/docs/cases/whatsapp_session_logout_silent_7h_case.md
+    title: "Baileys 重连风暴 → WhatsApp 账号限流登出, wa_keepalive 只探 HTTP 端口对频道死盲 7h"
+    taxonomy_class: E
+    fail_plausible: "no"
+    llm_fabrication: "no"
+    observable_artifact: {desc: "WhatsApp 频道静默 7h (Gateway HTTP 健康)", user_facing: "yes"}
+    discovery_channel: user-view
+    observer_in_scope: "no"
+    in_scope_reason: "频道死/absence, Gateway HTTP 健康但频道掉线; 监控盲区 (探端口 vs 探频道), 非内容检测"
+    expected_signal: []
+    category: null
+    golden_seed: false
+    paper_class_ref: "(post-cutoff) §4.5 E (keepalive-vs-channel coupling)"
+    paper_canonical: false
+    silence_span: "7h"
+    notes: "post-cutoff (V37.9.162)。absence 类。"
+
+# ── 已知 gap (无独立 case 文件的 ground-truth, 论文 §3.4 '编号有意留缺口') ──────────
+known_gaps:
+  - id: D4_fabricated_release
+    paper_class_ref: "§4.4 D4"
+    desc: "evening digest 从 '当日高对齐论文' 推断项目 '一定发布了', 宣布只存在于 changelog 的内部版本号的社区发布, 编造来源标签"
+    ground_truth_location: "hallucination_guards.py get_blocked_phrases() (V37.9.56-hotfix3: 'OpenClaw 社区发布'/'OpenClaw v26'/'[openclaw]' 等血案精确字眼)"
+    fail_plausible: "yes"
+    observer_in_scope: "yes"
+    expected_signal: [S3_fabrication_phrase, S4_provenance_gap, layer2_grounding]
+    category: B
+    notes: "无独立 case .md (论文 §4.4 D4 记在 changelog/hotfix 笔记)。ground-truth = blocked_phrases。S3 确定性指纹直接命中。Category B held-out: Observer 跑 evening 输出含编造版本号必抓 (复用 S3)。Stage 2 可合成 fixture。"
