@@ -36,8 +36,8 @@
       "minimax",
       "glm",
       "claude",
-      "deepseek",
-      "deepseek_full"
+      "deepseek_full",
+      "deepseek"
     ],
     "best_for_text_prefer_reasoning": "doubao",
     "policy": {

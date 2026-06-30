@@ -1,7 +1,13 @@
 """V37.9.204 — DeepSeek-V4-Pro 满血版 Provider (ai-tokenhub 托管, 非量化候选)
+   V37.9.205 — Mac Mini E2E 实测: text/tool_calling/reasoning 3/3 → feature_verified;
+               🌟 有 R1 reasoning_content 通道 (量化版无) + 无乱码 token (量化版有);
+               vision 确认不支持; json_mode 返回围栏 (非严格 response_format, 保持 False)。
 
 接入第 10 个 provider: deepseek-v4-pro-260425 (满血版, via ai-tokenhub API hub).
 定位 = Qwen3 迁移的【新候选】, 替代被 pending 的量化版 deepseek (w4a8-mtp 偶发乱码)。
+
+⚠️ 运维注意: 满血版是推理模型, 先生成 reasoning 再生成 content (reasoning 占 token 预算)。
+生成任务须给足 max_tokens, 否则 content 可能空/截断 (E2E 实测 600 tokens 被 reasoning 吃掉)。
 
 🔴 安全契约 (镜像 doubao/deepseek V37.9.52 公开 repo 安全底线):
 - **API key 严格走 env `DEEPSEEK_FULL_API_KEY`** — 绝不硬编码。用户在对话里贴的明文 key
@@ -37,24 +43,30 @@ class DeepSeekFullProvider(BaseProvider):
             is_default=True,
         ),
     ]
-    # 🔴 保守声明 (原则 #23): 未经 E2E 实测 → 仅 text + streaming 安全基线, 其余 False。
+    # 🔴 能力声明 (原则 #23 — 只声明实测过的): V37.9.205 Mac Mini E2E 探针实测。
+    # text/tool_calling/reasoning ✅ verified; vision 确认不支持; json_mode 围栏非严格 → False。
     capabilities = ProviderCapabilities(
         text=True,
-        vision=False,
+        vision=False,          # V37.9.205 实测: 400 Bad Request (DeepSeek V 系无视觉)
         audio=False,
         video=False,
-        tool_calling=False,    # 未实测, 待 E2E flip
-        streaming=True,        # OpenAI /v1 兼容标准基线
-        json_mode=False,       # 未实测, 待 E2E flip
-        reasoning=False,       # 未实测, 不抢 reasoning 路由
-        context_window=65536,
+        tool_calling=True,     # V37.9.205 E2E: finish_reason=tool_calls + get_weather arguments
+        streaming=True,        # OpenAI /v1 标准基线 (本探针未单测 streaming, verified 留 False)
+        json_mode=False,       # V37.9.205 实测: response_format 返回 ```json 围栏 (非严格), 不声明
+        reasoning=True,        # 🌟 V37.9.205 E2E: reasoning 字段填充 + reasoning_tokens=55 (R1 通道)
+        context_window=65536,  # 保守占位
         max_output_tokens=8192,
-        # declared 档位: verified_* 全 False, tier_evidence 走派生默认 (不手写)
-        verified_text=False,
-        verified_vision=False,
-        verified_tool_calling=False,
-        verified_streaming=False,
-        verified_fallback=False,
-        verified_reasoning=False,
-        verification_tier="declared",
+        # verified_* (6 维跟踪); 仅实测通过的 3 项 flip True
+        verified_text=True,        # E2E: 干净中文 content + finish_reason=stop
+        verified_vision=False,     # 确认不支持
+        verified_tool_calling=True,  # E2E: tools → tool_calls[].function.arguments
+        verified_streaming=False,  # 本探针未单测 streaming (declared True, 待补测)
+        verified_fallback=False,   # 未真生产 fallback 接管
+        verified_reasoning=True,   # E2E: reasoning_content 通道 + reasoning_tokens>0
+        # feature_verified: 分项 E2E 实测通过但未真生产流量 (tier_evidence 必须显式引用证据)
+        verification_tier="feature_verified",
+        tier_evidence="Mac Mini E2E 实测 2026-06-30: text/tool_calling/reasoning 3/3 通过 "
+                      "(干净中文+finish_reason / finish_reason=tool_calls+arguments / "
+                      "reasoning 字段填充+reasoning_tokens=55 R1 通道)；无乱码 token (优于量化版 w4a8)；"
+                      "vision 实测不支持 (400) / json_mode 围栏非严格 / streaming 未单测 / 未真生产 fallback",
     )
