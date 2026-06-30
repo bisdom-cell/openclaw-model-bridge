@@ -1619,16 +1619,20 @@ class TestDeepSeekFullProvider(unittest.TestCase):
         self.assertEqual(p.base_url, "https://ai-tokenhub.com/api/v1")
         self.assertEqual(p.auth_style, "bearer")
 
-    def test_declared_tier_unverified_honest(self):
-        # 未经 E2E 实测 → declared + verified_* 全 False + 保守仅 text/streaming (原则 #23)
+    def test_tier_feature_verified_after_e2e(self):
+        # V37.9.205: Mac Mini E2E 实测 text/tool_calling/reasoning 3/3 → feature_verified
+        # 🌟 满血版有 R1 reasoning_content 通道 (量化版无) + 无乱码 token (原则 #23 只声明实测过)
         from providers import get_provider
         caps = get_provider("deepseek_full").capabilities
-        self.assertEqual(caps.verification_tier, "declared")
-        self.assertTrue(caps.text)
-        self.assertTrue(caps.streaming)
-        self.assertFalse(caps.tool_calling, "未实测, 保守不声明 (避免 router 误选)")
-        self.assertFalse(caps.reasoning)
-        self.assertFalse(caps.verified_text)
+        self.assertEqual(caps.verification_tier, "feature_verified")
+        self.assertTrue(caps.verified_text)
+        self.assertTrue(caps.verified_tool_calling)
+        self.assertTrue(caps.reasoning, "满血版有 R1 reasoning_content 通道")
+        self.assertTrue(caps.verified_reasoning)
+        # 实测得知不支持/非严格 → False
+        self.assertFalse(caps.vision, "V37.9.205 实测 400 非多模态")
+        self.assertFalse(caps.json_mode, "response_format 返回围栏非严格")
+        self.assertIn("E2E", caps.tier_evidence)
 
     def test_excluded_from_available_without_key(self):
         from providers import get_registry

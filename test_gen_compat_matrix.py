@@ -160,8 +160,8 @@ class TestTierTableLines(unittest.TestCase):
         """5 declared provider 各自一行, 走派生默认依据 (单一真理源, 退役合并行)。"""
         lines = _default_registry.tier_table_lines()
         declared = [l for l in lines if "**declared**" in l]
-        # V37.9.202: deepseek E2E 实测后升 feature_verified, declared 回到 5
-        self.assertEqual(len(declared), 6)  # openai/claude/kimi/minimax/glm/deepseek_full (V37.9.204)
+        # V37.9.205: deepseek_full 也 E2E 升 feature_verified, declared 回到 5
+        self.assertEqual(len(declared), 5)  # openai/claude/kimi/minimax/glm
         for l in declared:
             self.assertIn("能力声明完整 + 合约校验通过，0/N 生产验证（无 API key 配置）", l)
 
