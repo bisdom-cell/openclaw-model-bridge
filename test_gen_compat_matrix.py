@@ -30,8 +30,8 @@ class TestProvidersTableLines(unittest.TestCase):
         lines = _default_registry.matrix_table_lines()
         self.assertTrue(lines[0].startswith("| Provider | Models |"))
         self.assertTrue(lines[1].startswith("|---"))
-        # 8 providers (7 built-in + doubao plugin)
-        self.assertEqual(len(lines), 2 + 8)
+        # 9 providers (7 built-in + doubao + deepseek plugins)
+        self.assertEqual(len(lines), 2 + 9)
 
     def test_matrix_table_contains_qwen_and_doubao(self):
         text = "\n".join(_default_registry.matrix_table_lines())
@@ -107,7 +107,7 @@ class TestVerifiableFeaturesDenominator(unittest.TestCase):
         self.assertIn("fallback", caps.verifiable_features())
 
     def test_numerator_never_exceeds_denominator(self):
-        """分子 ≤ 分母（修 "5/4" 超界）— 对全部 8 providers 断言。"""
+        """分子 ≤ 分母（修 "5/4" 超界）— 对全部 9 providers 断言。"""
         for p in _default_registry.all():
             verified = p.capabilities.verified_features()
             verifiable = p.capabilities.verifiable_features()
@@ -143,7 +143,7 @@ class TestTierTableLines(unittest.TestCase):
         lines = _default_registry.tier_table_lines()
         self.assertEqual(lines[0], "| Provider | 档位 | 依据 |")
         self.assertTrue(lines[1].startswith("|---"))
-        self.assertEqual(len(lines), 2 + 8)  # header + sep + 8 providers
+        self.assertEqual(len(lines), 2 + 9)  # header + sep + 9 providers
 
     def test_qwen_doubao_production_observed(self):
         text = "\n".join(_default_registry.tier_table_lines())
@@ -157,10 +157,10 @@ class TestTierTableLines(unittest.TestCase):
         self.assertIn("**production_observed**（已退役出 fallback 链）", gemini)
 
     def test_declared_providers_use_derived_evidence(self):
-        """5 declared provider 各自一行, 走派生默认依据 (单一真理源, 退役合并行)。"""
+        """6 declared provider 各自一行, 走派生默认依据 (单一真理源, 退役合并行)。"""
         lines = _default_registry.tier_table_lines()
         declared = [l for l in lines if "**declared**" in l]
-        self.assertEqual(len(declared), 5)  # openai/claude/kimi/minimax/glm
+        self.assertEqual(len(declared), 6)  # openai/claude/kimi/minimax/glm/deepseek (V37.9.201)
         for l in declared:
             self.assertIn("能力声明完整 + 合约校验通过，0/N 生产验证（无 API key 配置）", l)
 

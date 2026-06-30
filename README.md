@@ -1,19 +1,19 @@
 # openclaw-model-bridge
 
-> **Agent Runtime Control Plane** — Connect any LLM to [OpenClaw](https://github.com/openclaw/openclaw) with one command. Zero dependencies, **8 providers** (含豆包 Seed 2.0 主力), multimodal support, reasoning capability.
-> 将任意大模型（Qwen / OpenAI / Gemini / Claude / Kimi / MiniMax / GLM / **Doubao Seed 2.0**）一键接入 OpenClaw — 零第三方依赖、支持多模态、10 分钟跑通。
+> **Agent Runtime Control Plane** — Connect any LLM to [OpenClaw](https://github.com/openclaw/openclaw) with one command. Zero dependencies, **9 providers** (含豆包 Seed 2.0 + DeepSeek-V4-Pro), multimodal support, reasoning capability.
+> 将任意大模型（Qwen / OpenAI / Gemini / Claude / Kimi / MiniMax / GLM / Doubao Seed 2.0 / **DeepSeek-V4-Pro**）一键接入 OpenClaw — 零第三方依赖、支持多模态、10 分钟跑通。
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-4936%20passed-brightgreen.svg)]()
-[![Providers](https://img.shields.io/badge/providers-8%20supported-orange.svg)]()
+[![Tests](https://img.shields.io/badge/tests-4941%20passed-brightgreen.svg)]()
+[![Providers](https://img.shields.io/badge/providers-9%20supported-orange.svg)]()
 [![Governance](https://img.shields.io/badge/invariants-91%2F91%20%2B%2023%20MR-blueviolet.svg)]()
 [![Security](https://img.shields.io/badge/security-95%2F100-green.svg)]()
 [![Jobs](https://img.shields.io/badge/cron%20jobs-40%20active-blue.svg)]()
 [![Fail-Fast](https://img.shields.io/badge/LLM%20cron%20fail--fast-17%2F21%20aligned-brightgreen.svg)]()
 [![Notifications](https://img.shields.io/badge/notifications-WhatsApp%20%2B%20Discord-informational.svg)]()
 
-> **Current version:** `v37.9.200` / `0.37.9.73` (2026-06-30) — see [`CLAUDE.md`](CLAUDE.md) for full changelog.
+> **Current version:** `v37.9.201` / `0.37.9.74` (2026-06-30) — see [`CLAUDE.md`](CLAUDE.md) for full changelog.
 > **Latest milestone:** V37.9.117 → V37.9.121 — *日落法 (Sunset Law) 立为项目北极星 (降复杂度优先于加功能)*. 一天五版意外频发后深度反思: 真因不是"系统复杂"(部件难懂) 而是"系统组合"(简单正确部件交互面积超线性增长超过测试覆盖) — 复杂关乎部件, 意外关乎接缝. MR-22 (sunset-over-accretion) + MR-23 (audit-observes-never-mutates) + 原则 #34 北极星. V37.9.118-120 首批日落法退役 (governance repo_root 一物多形 → os.getcwd / engine.py realpath / auto_deploy 双副本根治). V37.9.121 立 INV-OBSERVER-001 + INV-SOURCE-CREDIBILITY-001 — 在"加治理"任务内仍践行日落法 (候选 2 daily_observer INV 合并为 1 + 退役冗余硬编码守卫).
 
 ## Product Layers: What's Core vs. What's the Author's PA Instance
@@ -90,9 +90,9 @@ Layer 3 is not product clutter — it is the **production evidence** for layers 
 | SLO Benchmark | — | `slo_benchmark.py` | SLO compliance — 5 metrics, real production data reports (p95=459ms, 5/5 PASS) |
 | Notifications | — | `notify.sh` | **Dual-channel push**: WhatsApp + Discord (6 topic channels: papers/freight/alerts/daily/tech/DM) |
 | Local Embedding | — | `local_embed.py` | sentence-transformers (384-dim, 50+ languages), zero API calls |
-| Remote LLM | — | 8 providers | Qwen3-235B / GPT-4o / Gemini 2.5 / Claude Sonnet / Kimi K2.5 / MiniMax M2.7 / GLM-5 / **Doubao Seed 2.0 Pro** (Volcengine, V37.9.52) |
+| Remote LLM | — | 9 providers | Qwen3-235B / GPT-4o / Gemini 2.5 / Claude Sonnet / Kimi K2.5 / MiniMax M2.7 / GLM-5 / **Doubao Seed 2.0 Pro** (Volcengine) / **DeepSeek-V4-Pro** (V37.9.201) |
 
-## Supported Providers (8)
+## Supported Providers (9)
 
 | Provider | Default Model | Context | Vision | Auth | Verified |
 |----------|--------------|---------|--------|------|----------|
@@ -172,7 +172,7 @@ python3 slo_benchmark.py --json   # JSON format for CI
 python3 slo_benchmark.py --save   # Save to docs/slo_benchmark_report.md
 
 # Provider compatibility matrix
-python3 providers.py              # Markdown table (8 providers)
+python3 providers.py              # Markdown table (9 providers)
 python3 providers.py --json       # JSON format
 
 # GameDay fault injection drill
@@ -209,7 +209,7 @@ This is a deliberate architecture decision: **every dependency you remove is one
 | `tool_proxy.py` | HTTP layer — request/response routing, **custom tool execution** (data_clean + search_kb), **media injection**, followup LLM calls, logging, health cascade |
 | `proxy_filters.py` | Policy layer — tool filtering, **custom tool injection** (data_clean + search_kb), **image base64 injection** (`<media:image>` → `image_url`), param fixing, truncation, SSE conversion |
 | `adapter.py` | API adapter — **8-provider** forwarding, auth, **multimodal routing** (text→Qwen3, image→Qwen2.5-VL), fallback degradation |
-| `providers.py` | **V34** Provider Compatibility Layer — BaseProvider abstraction, 8 concrete providers (7 built-in + Doubao plugin), ProviderRegistry, capability declaration, CLI matrix |
+| `providers.py` | **V34** Provider Compatibility Layer — BaseProvider abstraction, 9 concrete providers (7 built-in + Doubao + DeepSeek plugins), ProviderRegistry, capability declaration, CLI matrix |
 | `slo_benchmark.py` | **V35** SLO Benchmark report generator — reads proxy_stats.json → Markdown/JSON report (latency p50/p95/p99, success rate, degradation) |
 | `quickstart.sh` | **V35** One-click Quick Start — 4 phases (prerequisites → services → health → golden test), provider auto-detection |
 | `notify.sh` | **V33** Unified notification — WhatsApp + Discord dual-channel push, 6 topic channels |
@@ -365,7 +365,7 @@ All jobs registered in `jobs_registry.yaml`. Validate: `python3 check_registry.p
 
 | File | Description |
 |------|-------------|
-| `docs/compatibility_matrix.md` | **V35** Provider compatibility matrix — 8 providers, verification status, degradation paths |
+| `docs/compatibility_matrix.md` | **V35** Provider compatibility matrix — 9 providers, verification status, degradation paths |
 | `docs/slo_benchmark_report.md` | **V35** SLO Benchmark production report — 5/5 PASS, p95=459ms |
 | `docs/golden_trace.json` | **V35** Golden Test Trace — real request/response through full stack (521ms, reproducible) |
 | `docs/strategic_review_20260403.md` | **V34** Strategic review — Stage2 positioning, V1-V3 roadmap, methodology |
@@ -514,7 +514,7 @@ The `auto_deploy.sh` script maps 84 repo files to runtime locations (V37.9.43-ho
 ## Testing
 
 ```bash
-# Full regression (138 suites / 4936 tests / 0 fail; must ALL pass before push)
+# Full regression (138 suites / 4941 tests / 0 fail; must ALL pass before push)
 bash full_regression.sh
 
 # Individual test suites (run full_regression.sh for totals)
