@@ -1,6 +1,6 @@
 # OpenClaw Model Bridge — 系统特性一览表
 
-> v37.9.197 (2026-06-30) | **4892 tests** / 138 suites / 0 fail | **8 providers** (含 Doubao Seed 2.0 Pro) | **40 active jobs** | 5 SLO metrics | 19 preflight checks | WhatsApp + Discord dual-channel | **91 governance invariants / 23 meta-rules / 839 checks / 14 MRD scanners** | security 95/100 | 27 blood-lesson case docs
+> v37.9.198 (2026-06-30) | **4918 tests** / 138 suites / 0 fail | **8 providers** (含 Doubao Seed 2.0 Pro) | **40 active jobs** | 5 SLO metrics | 19 preflight checks | WhatsApp + Discord dual-channel | **91 governance invariants / 23 meta-rules / 839 checks / 14 MRD scanners** | security 95/100 | 27 blood-lesson case docs
 
 | 分类 | 特性 | 说明 | 核心文件 |
 |------|------|------|----------|
@@ -64,6 +64,6 @@
 | | SLO Benchmark | 真实生产数据报告 (5/5 PASS, p95=459ms) | `slo_benchmark.py` |
 | | GameDay 故障演练 | 5 场景故障注入 (GPU 超时/断路器/快照/SLO/Watchdog) | `gameday.sh` |
 | | 兼容性矩阵 | 8 Provider 能力声明 + 验证状态 | `providers.py` + `docs/compatibility_matrix.md` |
-| **测试** | 138 套单测 | 4892 用例全部通过 | `test_*.py` |
+| **测试** | 138 套单测 | 4918 用例全部通过 | `test_*.py` |
 | | 全量回归 | full_regression.sh (单测+注册表+安全+代码质量) | `full_regression.sh` |
 | | E2E Smoke | 基础对话 / 工具注入 / KB 搜索 端到端验证 | `wa_e2e_test.sh` |

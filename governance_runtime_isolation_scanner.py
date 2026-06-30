@@ -118,6 +118,11 @@ _D1_ISOLATION_SIGNALS = (
 )
 # D1 danger: dry_run=False 真 kwarg (负向 lookbehind 排除 apply_dry_run=False)
 _D1_DANGER = re.compile(r"(?<![A-Za-z_])dry_run\s*=\s*False")
+# D1 context gate (V37.9.198): dry_run=False 只在 crontab-apply 上下文才是 real-apply 危险。
+# convergence/crontab 测试的 dry_run=False 会真改 crontab (V37.9.158-hotfix 血案); 但别的
+# dry_run (如 daily_observer.run() 的 dry_run = 跳过 LLM) 与 crontab 无关 → 文件无 crontab
+# 上下文则 D1 不适用 (精度修复: 消除非-crontab dry_run 的误报, 不弱化 convergence 守卫)。
+_D1_CRONTAB_CONTEXT = ("crontab", "convergence", "machine_sync", "verify_convergence")
 
 # D2 (~/.kb incident write) — 跑 movespeed helper 脚本即写 ~/.kb/movespeed_incidents.jsonl
 _D2_HELPER_SCRIPTS = ("movespeed_rsync_helper.sh", "movespeed_incident_capture.sh")
@@ -288,7 +293,11 @@ def scan_test_file(path, openclaw_scripts):
     lines = src.split("\n")
 
     # ── D1 (crontab real-apply, 方法级) ──
-    for cls in [n for n in ast.walk(tree) if isinstance(n, ast.ClassDef)]:
+    # V37.9.198 context gate: 仅当文件有 crontab-apply 上下文时 D1 适用 (dry_run=False 在
+    # 无 crontab 上下文的文件里不是 crontab real-apply, 如 daily_observer LLM-skip dry_run)。
+    _file_has_crontab_context = any(c in src for c in _D1_CRONTAB_CONTEXT)
+    for cls in ([n for n in ast.walk(tree) if isinstance(n, ast.ClassDef)]
+                if _file_has_crontab_context else []):
         setup_sigs = _class_setup_signals(cls, lines)
         for node in cls.body:
             if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):

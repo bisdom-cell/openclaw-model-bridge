@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""llm_observer.py — LLM-Observer 两层管道 fail-plausible 检测 (研究攻关 #1 Stage 2+3).
+"""llm_observer.py — LLM-Observer 两层管道 fail-plausible 检测 (研究攻关 #1 Stage 2-5).
 
 机械化人眼 (论文 arXiv:2606.14589 §5.2 开放问题): 读一段【面向用户的输出】判定它是否
 fail-plausible (读起来可信但实际错误/编造)。两层管道:
@@ -36,12 +36,13 @@ FAIL-OPEN 契约 (镜像 V37.4 / cross_source_signal_aggregator V37.9.46): 缺 s
 FP 纪律 (论文 §5.4 FP 是一等度量, 原则 #32 噪声本身是问题): Layer 1 S1/S3 用强指纹,
 S2/S4/S5 保守; Layer 2 不确定 → clean, 宁可漏报不误报 (漏的由 Category B 度量盖)。
 
-Stage 边界: Stage 2+3 = Layer 1 + Layer 2 + detect_fail_plausible orchestrator (库 +
-DI llm_caller + 守卫)。Stage 5 才 wire 进 daily_observer.run() (detect_anomalies 后)。
-wire 前本模块零 runtime 影响 (PoC), 故 VERSION 不变 (Stage 5 才 bump)。
+Stage 边界: Layer 1 (Stage 2) + Layer 2 + orchestrator (Stage 3) + 自验证 harness
+(Stage 4, llm_observer_selfcheck.py) + **scan_fail_plausible collection 级 wrapper
+(Stage 5, daily_observer.run() 经 OBSERVER_FP_MODE shadow 默认接入)**。Stage 5 是首次
+runtime 变更 → VERSION bump (shadow 模式 = 观察性, 不影响评分/告警, 需 Mac Mini E2E)。
 
 CLI: python3 llm_observer.py --file out.md [--source dream] [--json]  (CLI 仅 Layer 1;
-Layer 2 需网络, 库内由 DI 注入 caller, Stage 5 走 daily_observer)。
+Layer 2 需网络, 库内由 DI 注入 caller, runtime 走 daily_observer)。
 """
 import re
 import sys
@@ -534,7 +535,8 @@ def _dominant_category(graded):
 
 # ── orchestrator: 两层管道 ────────────────────────────────────────────────────
 def detect_fail_plausible(text, source_id=None, llm_caller=None, artifact=None,
-                          sampled=False, force_judge=False, layer1_result=None):
+                          sampled=False, force_judge=False, layer1_result=None,
+                          enable_layer2=True):
     """两层管道 orchestrator (design §3.1/§3.4)。
 
     Layer 1 (确定性) → 若命中 OR force_judge → Layer 2 (LLM-judge, 证据 ground)。
@@ -551,10 +553,11 @@ def detect_fail_plausible(text, source_id=None, llm_caller=None, artifact=None,
       fired      — 命中的信号/judge 名集合 (去重排序, 便于断言/grep)
 
     便宜路径: Layer 1 clean 且 not force_judge → 不调 LLM, 返回 []。
+    enable_layer2=False (Stage 5 dry_run): 仅 Layer 1, 零 LLM (确定性观察)。
     """
     l1 = layer1_result if layer1_result is not None else run_prefilter(text, source_id)
     l1_signals = l1.get("signals", [])
-    trigger_l2 = bool(l1_signals) or force_judge
+    trigger_l2 = (bool(l1_signals) or force_judge) and enable_layer2
 
     l2_findings, l2_confidence = ([], None)
     if trigger_l2:
@@ -596,6 +599,49 @@ def detect_fail_plausible(text, source_id=None, llm_caller=None, artifact=None,
         "message": message,
         "fired": sorted(fired),
     }]
+
+
+# ── Stage 5 collection-level wrapper (daily_observer.run() 面向的接口, §6.1) ─────
+_PUSH_OUTPUT_NAMES = ("evening", "dream", "deep_dive")
+
+
+def scan_fail_plausible(push_outputs, source_sections, llm_caller=None,
+                        force_judge=False, enable_layer2=True):
+    """对 daily_observer 的 push_outputs + source_sections 逐 artifact 跑 detect_fail_plausible。
+
+    返回合并 verdict 列表 (每条 artifact 已设, 对齐 daily_observer anomalies)。
+    cheap-path: force_judge=False 时 Layer 2 仅在 Layer 1 命中触发 → 干净日 ≈0 LLM 调用。
+    sampled: push_outputs 的 length>len(content) (V37.9.93 head+tail 采样) → 传 sampled=True
+             防 Layer 2 把"中间省略"误判为截断。
+    FAIL-OPEN: 单 artifact 异常 → skip 不阻塞其他 (镜像 daily_observer scan 健壮性)。
+    """
+    verdicts = []
+    for name in _PUSH_OUTPUT_NAMES:
+        info = (push_outputs or {}).get(name) or {}
+        if not info.get("found") or not info.get("content"):
+            continue
+        try:  # FAIL-OPEN: 整个 artifact 处理 (含 sampled 计算) 包在 try 内
+            text = info["content"]
+            sampled = info.get("length", len(text)) > len(text)
+            verdicts += detect_fail_plausible(
+                text, source_id=name, llm_caller=llm_caller, artifact=name,
+                sampled=sampled, force_judge=force_judge, enable_layer2=enable_layer2)
+        except Exception as e:  # FAIL-OPEN
+            log(f"scan_fail_plausible FAIL-OPEN ({name}): {e}")
+    for s in (source_sections or []):
+        try:  # FAIL-OPEN
+            text = s.get("section_text", "")
+            if not text:
+                continue
+            src = s.get("source")
+            sampled = s.get("char_count", len(text)) > len(text)
+            verdicts += detect_fail_plausible(
+                text, source_id=src, llm_caller=llm_caller,
+                artifact=f"source:{src}", sampled=sampled,
+                force_judge=force_judge, enable_layer2=enable_layer2)
+        except Exception as e:  # FAIL-OPEN
+            log(f"scan_fail_plausible FAIL-OPEN (source:{src if isinstance(s, dict) else '?'}): {e}")
+    return verdicts
 
 
 def main():

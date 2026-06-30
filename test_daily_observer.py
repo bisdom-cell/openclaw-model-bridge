@@ -16,6 +16,7 @@ import tempfile
 import textwrap
 import unittest
 from datetime import datetime
+from unittest import mock
 
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -621,6 +622,230 @@ class TestTrendAnalysis(unittest.TestCase):
 
     def test_discord_suffix_empty_when_no_history(self):
         self.assertEqual(obs.build_trend_discord_suffix([]), "")
+
+
+# ══════════════════════════════════════════════════════════════════════
+# V37.9.198 (研究攻关 #1 Stage 5) — fail-plausible 检测接入 daily_observer
+# ══════════════════════════════════════════════════════════════════════
+import llm_observer as _obs_fp
+
+
+def _fp_aware_llm(critique_response):
+    """构造同时处理 critique + fail-plausible 两种 system prompt 的 mock LLM。"""
+    def caller(system, user):
+        if "fail-plausible" in system or "FAIL_PLAUSIBLE" in system:
+            # fail-plausible judge: 对含 Bad JSON 的 dream 报 pollution_evidence
+            if "Bad JSON" in user:
+                return True, ('{"verdict":"fail_plausible","confidence":85,"findings":'
+                              '[{"judge":"pollution_evidence","evidence":"Bad JSON",'
+                              '"rationale":"系统错误码被当成平台危机信号"}]}'), ""
+            return True, '{"verdict":"clean","confidence":10,"findings":[]}', ""
+        return True, critique_response, ""
+    return caller
+
+
+_CRITIQUE_OK = textwrap.dedent("""
+## 评分
+- 信息密度: ⭐×4
+- 准确性风险: ⭐×4
+- 主题多样性: ⭐×4
+- 可行动性: ⭐×4
+- 格式规范: ⭐×4
+- 综合: ⭐×4 / 5
+## 发现的问题
+1. [LOW] minor
+## 改进提案
+1. x
+""")
+
+
+class TestStage5FailPlausibleMode(unittest.TestCase):
+    def test_default_shadow(self):
+        with mock.patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("OBSERVER_FP_MODE", None)
+            self.assertEqual(obs._fp_mode(), "shadow")
+
+    def test_explicit_modes(self):
+        for val, exp in [("off", "off"), ("on", "on"), ("shadow", "shadow"),
+                         ("OFF", "off"), (" on ", "on"), ("garbage", "shadow")]:
+            with mock.patch.dict(os.environ, {"OBSERVER_FP_MODE": val}):
+                self.assertEqual(obs._fp_mode(), exp, val)
+
+
+class TestStage5SectionBuilder(unittest.TestCase):
+    def _verdict(self):
+        return [{"severity": "HIGH", "category": "pollution_signal", "artifact": "dream",
+                 "confidence": 0.85,
+                 "evidence": [{"layer": 1, "signal": "S1_pollution_signal", "locus": 2,
+                               "snippet": "Bad JSON"},
+                              {"layer": 2, "judge": "pollution_evidence",
+                               "snippet": "Bad JSON", "rationale": "r"}]}]
+
+    def test_shadow_section_marks_observational(self):
+        s = obs.build_fail_plausible_section(self._verdict(), "shadow")
+        self.assertIn("shadow", s)
+        self.assertIn("观察性", s)
+        self.assertIn("pollution_signal", s)
+        self.assertIn("L1 S1_pollution_signal", s)
+        self.assertIn("L2 pollution_evidence", s)
+
+    def test_on_section_marks_integrated(self):
+        s = obs.build_fail_plausible_section(self._verdict(), "on")
+        self.assertIn("影响评分", s)
+
+    def test_empty_verdicts_clean_line(self):
+        s = obs.build_fail_plausible_section([], "shadow")
+        self.assertIn("无 fail-plausible 信号", s)
+
+    def test_off_returns_empty(self):
+        self.assertEqual(obs.build_fail_plausible_section(self._verdict(), "off"), "")
+
+
+class TestStage5RunIntegration(unittest.TestCase):
+    """run() 端到端 fail-plausible 接入 (shadow/on/off/dry_run/FAIL-OPEN)。"""
+
+    def setUp(self):
+        # 隔离 status.json 写入 (镜像 TestRunOrchestrator)
+        self._patcher = mock.patch.object(obs, "_write_observer_to_status",
+                                           return_value=True)
+        self._patcher.start()
+
+    def tearDown(self):
+        self._patcher.stop()
+
+    def _setup_kb_with_d1_dream(self, td):
+        for d in ("daily", "dreams", "deep_dives", "sources"):
+            os.makedirs(os.path.join(td, d))
+        # 干净 evening (非重复内容, 避免误触 S5 boilerplate)
+        with open(os.path.join(td, "daily", "evening_20260525.md"), "w") as f:
+            f.write("# Evening\n今日 arXiv 出现长上下文注意力新方法，实验覆盖八个基准。"
+                    "HN 讨论 Rust 异步运行时尾延迟差异。财经方面美联储维持利率。"
+                    "本体论方向有一篇知识图谱推理的综述值得关注，论证链完整。")
+        # D1 fail-plausible dream (Bad JSON → Layer 1 S1 命中)
+        with open(os.path.join(td, "dreams", "2026-05-25.md"), "w") as f:
+            f.write("# Dream\n信号一：平台返回 'Bad JSON' 和 '400 错误'，疑似平台危机。\n"
+                    "行动一：启动 72 小时监控。\n")
+        return td
+
+    def _run(self, td, mode, dry_run=False):
+        with mock.patch.dict(os.environ, {"OBSERVER_FP_MODE": mode}):
+            return obs.run(kb_dir=td, jobs_dir=os.path.join(td, "fake_jobs"),
+                           target_date=datetime(2026, 5, 25),
+                           llm_caller=_fp_aware_llm(_CRITIQUE_OK), dry_run=dry_run)
+
+    def test_shadow_detects_but_not_in_anomalies(self):
+        with tempfile.TemporaryDirectory() as td:
+            self._setup_kb_with_d1_dream(td)
+            r = self._run(td, "shadow")
+            self.assertEqual(r["fp_mode"], "shadow")
+            self.assertTrue(r["fail_plausible"], "should detect D1 dream")
+            self.assertEqual(r["fail_plausible"][0]["artifact"], "dream")
+            # shadow: fp NOT in anomalies (不影响评分/告警)
+            cats = [a["category"] for a in r["anomalies"]]
+            self.assertNotIn("pollution_signal", cats)
+            # 但在专属报告段
+            self.assertIn("Fail-Plausible 检测 [shadow]", r["report_markdown"])
+
+    def test_on_mode_merges_into_anomalies(self):
+        with tempfile.TemporaryDirectory() as td:
+            self._setup_kb_with_d1_dream(td)
+            r = self._run(td, "on")
+            cats = [a["category"] for a in r["anomalies"]]
+            self.assertIn("pollution_signal", cats, "on mode: fp must roll into anomalies")
+            self.assertIn("[on]", r["report_markdown"])
+
+    def test_off_mode_skips(self):
+        with tempfile.TemporaryDirectory() as td:
+            self._setup_kb_with_d1_dream(td)
+            r = self._run(td, "off")
+            self.assertEqual(r["fail_plausible"], [])
+            self.assertNotIn("Fail-Plausible 检测", r["report_markdown"])
+
+    def test_dry_run_layer1_only_no_llm(self):
+        # dry_run: fail-plausible 仅 Layer 1 (零 LLM); Layer 1 仍抓 D1
+        with tempfile.TemporaryDirectory() as td:
+            self._setup_kb_with_d1_dream(td)
+            r = self._run(td, "shadow", dry_run=True)
+            self.assertTrue(r["fail_plausible"])
+            # Layer 1 only: 证据全 layer 1
+            ev = r["fail_plausible"][0]["evidence"]
+            self.assertTrue(all(e["layer"] == 1 for e in ev))
+
+    def test_fail_open_scan_raises(self):
+        # scan_fail_plausible 抛异 → run() 不崩 (FAIL-OPEN), fp_verdicts=[]
+        with tempfile.TemporaryDirectory() as td:
+            self._setup_kb_with_d1_dream(td)
+            with mock.patch.object(_obs_fp, "scan_fail_plausible",
+                                   side_effect=RuntimeError("boom")):
+                r = self._run(td, "shadow")
+            self.assertEqual(r["status"], "ok")   # observer 存活
+            self.assertEqual(r["fail_plausible"], [])
+
+    def test_result_has_fp_keys(self):
+        with tempfile.TemporaryDirectory() as td:
+            self._setup_kb_with_d1_dream(td)
+            r = self._run(td, "shadow")
+            self.assertIn("fail_plausible", r)
+            self.assertIn("fp_mode", r)
+
+
+class TestStage5Writers(unittest.TestCase):
+    def test_score_history_fp_counts(self):
+        with tempfile.TemporaryDirectory() as td:
+            fp = [{"severity": "HIGH"}, {"severity": "MED"}, {"severity": "MED"}]
+            obs.append_score_history(td, datetime(2026, 5, 25), 4.0, [], [], {},
+                                     "ok", fp_verdicts=fp)
+            path = obs._score_history_path(td)
+            with open(path) as f:
+                rec = json.loads(f.readline())
+            self.assertEqual(rec["fp_high"], 1)
+            self.assertEqual(rec["fp_med"], 2)
+
+    def test_score_history_fp_none_backward_compat(self):
+        with tempfile.TemporaryDirectory() as td:
+            obs.append_score_history(td, datetime(2026, 5, 25), 4.0, [], [], {}, "ok")
+            with open(obs._score_history_path(td)) as f:
+                rec = json.loads(f.readline())
+            self.assertEqual(rec["fp_high"], 0)
+            self.assertEqual(rec["fp_med"], 0)
+
+    def test_write_observer_status_fp_counts(self):
+        captured = {}
+
+        def fake_save(data, **kw):
+            captured["data"] = data
+
+        with mock.patch.dict(sys.modules):
+            import status_update
+            with mock.patch.object(status_update, "load_status", return_value={}), \
+                 mock.patch.object(status_update, "save_status", side_effect=fake_save):
+                fp = [{"severity": "HIGH"}, {"severity": "HIGH"}]
+                obs._write_observer_to_status("/tmp", datetime(2026, 5, 25), 4.0, [],
+                                              "ok", [], fp_verdicts=fp)
+        observer = captured["data"]["quality"]["observer"]
+        self.assertEqual(observer["fail_plausible_high"], 2)
+        self.assertEqual(observer["fail_plausible_med"], 0)
+
+
+class TestStage5SourceGuards(unittest.TestCase):
+    def test_marker_and_env(self):
+        with open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                               "daily_observer.py"), encoding="utf-8") as f:
+            src = f.read()
+        self.assertIn("Stage 5", src)
+        self.assertIn("OBSERVER_FP_MODE", src)
+        self.assertIn("shadow-first", src)
+
+    def test_design_locked(self):
+        self.assertEqual(obs._FP_VALID_MODES, ("off", "shadow", "on"))
+        self.assertEqual(obs._FP_MODE_ENV, "OBSERVER_FP_MODE")
+
+    def test_fail_open_contract_documented(self):
+        with open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                               "daily_observer.py"), encoding="utf-8") as f:
+            src = f.read()
+        self.assertIn("FAIL-OPEN", src)
+        self.assertIn("cheap-path", src)
 
 
 class TestShellGuards(unittest.TestCase):
