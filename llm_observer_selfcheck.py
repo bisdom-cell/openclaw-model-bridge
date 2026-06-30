@@ -38,6 +38,15 @@ import llm_observer as obs
 _REPO = os.path.dirname(os.path.abspath(__file__))
 
 # ══════════════════════════════════════════════════════════════════════════════
+# Bench 身份 (V37.9.200 Stage 6 — 社区可跑 fail-plausible 检测 bench)
+# ══════════════════════════════════════════════════════════════════════════════
+# bench_version 是【数据集+指标契约】版本, 独立于项目 VERSION (corpus/metric 变更时 bump,
+# 让外部贡献者能锁定一个可比较的 bench 契约)。docs/fail_plausible_bench.md 是社区门面。
+BENCH_ID = "fail-plausible-detection-bench"
+BENCH_VERSION = "0.1"
+GROUND_TRUTH_SOURCE = "docs/llm_observer_ground_truth.yaml"
+
+# ══════════════════════════════════════════════════════════════════════════════
 # CORPUS — bench 种子 (Category A 绑 ground_truth golden / clean FP 控制 / B 探索持留)
 # ══════════════════════════════════════════════════════════════════════════════
 # 每条: id / category (A|clean|B) / source / text / expect_flag /
@@ -284,6 +293,87 @@ def build_scorecard(corpus=None):
             "all_load_bearing": all(s["load_bearing"] for s in sabotage) if sabotage else False}
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+# Bench manifest (V37.9.200 Stage 6 — 社区可复现 datasheet)
+# ══════════════════════════════════════════════════════════════════════════════
+# 指标契约 (name, definition, target, offline_measurable)。target 是【公开发布的契约】,
+# 外部贡献者据此判断自己的 detector 改动是否使 bench 退步。
+_METRIC_SPECS = [
+    ("defense_rate",
+     "Category A (regression) cases flagged by deterministic Layer 1",
+     "1.0 (100%)", True),
+    ("fp_rate",
+     "Clean outputs falsely flagged (noise is itself a problem, 原则 #32)",
+     "0.0 (0%)", True),
+    ("fn_rate_B",
+     "Category B (held-out/novel) cases missed — honestly reported open problem (held-out recall)",
+     "honest report, not a gate", True),
+    ("detection_latency",
+     "Hours Observer beats the human eye to a fail-plausible artifact (production-only)",
+     "paper #2", False),
+    ("confidence_calibration",
+     "Layer 2 LLM-judge confidence calibration (live-LLM only)",
+     "Stage 5/6", False),
+]
+
+
+def build_bench_manifest(corpus=None):
+    """社区可跑 bench 的稳定机器可读 manifest (datasheet + 跨机复现契约)。
+
+    **无时间戳 / 无随机** → 同一 corpus+detector 在任何机器产出逐字相同的 manifest, 外部
+    贡献者可 diff 自己改动前后的 manifest 判断 bench 是否退步。复用 build_scorecard
+    (一物一形, 非新评分引擎; corpus 仍来自 _CORPUS 绑 ground_truth 单一真理源)。
+    """
+    full = build_scorecard(corpus)
+    sc = full["scorecard"]
+    _cur = {n: sc.get(n) for (n, _d, _t, _off) in _METRIC_SPECS}
+    src = corpus if corpus is not None else _CORPUS
+
+    by_cat = {}
+    for c in src:
+        by_cat[c["category"]] = by_cat.get(c["category"], 0) + 1
+    detectors = sorted({e["only_signal"] for e in src
+                        if e["category"] == "A" and e.get("only_signal")})
+
+    return {
+        "bench_id": BENCH_ID,
+        "bench_version": BENCH_VERSION,
+        "schema_version": 1,
+        "paper": "arXiv:2606.14589",
+        "what_it_measures": ("Detection of fail-plausible / silent-failure outputs in a "
+                             "production LLM agent runtime (semantic-level failures that pass "
+                             "tests + governance but a human reading the product would catch)."),
+        "ground_truth_source": GROUND_TRUTH_SOURCE,
+        "runner": "llm_observer_selfcheck.py",
+        "corpus": {
+            "total": len(src),
+            "by_category": by_cat,
+            "category_legend": {
+                "A": "regression — Observer must catch (defense target 100%)",
+                "clean": "false-positive control — Observer must NOT flag (fp target 0%)",
+                "B": "held-out/novel — honest false-negative measurement (no S-rule designed for it)",
+            },
+        },
+        "detectors": detectors,
+        "metrics": [
+            {"name": n, "definition": d, "target": t,
+             "offline_measurable": off, "current_value": _cur.get(n)}
+            for (n, d, t, off) in _METRIC_SPECS
+        ],
+        "sabotage": {
+            "detectors_validated": len(full["sabotage"]),
+            "all_load_bearing": full["all_load_bearing"],
+        },
+        "honest_limitations": [
+            "Category B (novel) false-negatives are high BY DESIGN — Layer 1 is a regression "
+            "engine, not a prediction engine (audit-as-regression, design §7.2). Novel detection "
+            "must come from Layer 2 grounding / human eye / new S-rules.",
+            "detection_latency and confidence_calibration need production / live-LLM data and are "
+            "marked N/A offline.",
+        ],
+    }
+
+
 def main():
     import argparse
     import json
@@ -292,7 +382,13 @@ def main():
     ap.add_argument("--save", action="store_true",
                     help="写 docs/llm_observer_scorecard.md")
     ap.add_argument("--sabotage", action="store_true", help="仅跑 sabotage suite")
+    ap.add_argument("--manifest", action="store_true",
+                    help="输出社区 bench manifest (稳定 JSON datasheet, 跨机可复现 diff)")
     args = ap.parse_args()
+
+    if args.manifest:
+        print(json.dumps(build_bench_manifest(), ensure_ascii=False, indent=2))
+        return 0
 
     full = build_scorecard()
     if args.sabotage:

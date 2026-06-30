@@ -248,5 +248,141 @@ class TestCli(unittest.TestCase):
         self.assertIn("✅", r.stdout)
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+# V37.9.200 Stage 6 — bench manifest + 社区 README 守卫
+# ══════════════════════════════════════════════════════════════════════════════
+_BENCH_DOC = os.path.join(_REPO, "docs", "fail_plausible_bench.md")
+
+
+class TestBenchManifest(unittest.TestCase):
+    """build_bench_manifest 是稳定、可复现、与活 scorecard 一致的社区 datasheet。"""
+
+    def setUp(self):
+        self.m = sc.build_bench_manifest()
+
+    def test_required_keys(self):
+        for k in ("bench_id", "bench_version", "schema_version", "paper",
+                  "what_it_measures", "ground_truth_source", "runner",
+                  "corpus", "detectors", "metrics", "sabotage", "honest_limitations"):
+            self.assertIn(k, self.m, f"manifest 缺 key {k}")
+        self.assertEqual(self.m["bench_id"], sc.BENCH_ID)
+        self.assertEqual(self.m["bench_version"], sc.BENCH_VERSION)
+        self.assertEqual(self.m["ground_truth_source"], sc.GROUND_TRUTH_SOURCE)
+
+    def test_stable_no_timestamp(self):
+        # 跨调用逐字相同 (无时间戳/无随机 → 跨机可 diff)
+        self.assertEqual(sc.build_bench_manifest(), sc.build_bench_manifest())
+        import json
+        blob = json.dumps(self.m)
+        for forbidden in ("2026-", "timestamp", "generated_at"):
+            self.assertNotIn(forbidden, blob, f"manifest 含非确定性字段 {forbidden}")
+
+    def test_corpus_counts_match_live(self):
+        corpus = sc.get_corpus()
+        self.assertEqual(self.m["corpus"]["total"], len(corpus))
+        by_cat = {}
+        for c in corpus:
+            by_cat[c["category"]] = by_cat.get(c["category"], 0) + 1
+        self.assertEqual(self.m["corpus"]["by_category"], by_cat)
+
+    def test_current_values_match_scorecard(self):
+        # manifest 的 current_value 必须等于 build_scorecard 的活计算 (非硬编码漂移)
+        full = sc.build_scorecard()
+        live = {mt["name"]: mt["current_value"] for mt in self.m["metrics"]}
+        self.assertEqual(live["defense_rate"], full["scorecard"]["defense_rate"])
+        self.assertEqual(live["fp_rate"], full["scorecard"]["fp_rate"])
+        self.assertEqual(live["fn_rate_B"], full["scorecard"]["fn_rate_B"])
+        self.assertEqual(self.m["sabotage"]["all_load_bearing"], full["all_load_bearing"])
+        self.assertEqual(self.m["sabotage"]["detectors_validated"], len(full["sabotage"]))
+
+    def test_all_five_metrics_present(self):
+        names = {mt["name"] for mt in self.m["metrics"]}
+        self.assertEqual(names, {"defense_rate", "fp_rate", "fn_rate_B",
+                                 "detection_latency", "confidence_calibration"})
+        # 离线不可测的两个 current_value 必须 None (诚实标注)
+        off = {mt["name"]: mt for mt in self.m["metrics"] if not mt["offline_measurable"]}
+        for mt in off.values():
+            self.assertIsNone(mt["current_value"])
+
+    def test_detectors_are_category_a_only_signals(self):
+        expected = sorted({e["only_signal"] for e in sc.get_corpus()
+                           if e["category"] == "A" and e.get("only_signal")})
+        self.assertEqual(self.m["detectors"], expected)
+        self.assertTrue(self.m["detectors"], "detector inventory 不应为空")
+
+    def test_cli_manifest(self):
+        r = subprocess.run([sys.executable, os.path.join(_REPO, "llm_observer_selfcheck.py"),
+                            "--manifest"], capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0)
+        import json
+        data = json.loads(r.stdout)
+        self.assertEqual(data["bench_id"], "fail-plausible-detection-bench")
+
+
+class TestBenchDocDriftGuard(unittest.TestCase):
+    """社区 README 存在且与代码契约不漂移 (doc-drift)。"""
+
+    def setUp(self):
+        with open(_BENCH_DOC, encoding="utf-8") as f:
+            self.doc = f.read()
+
+    def test_doc_exists_and_names_bench(self):
+        self.assertIn(sc.BENCH_ID, self.doc)
+        self.assertIn(sc.BENCH_VERSION, self.doc)
+
+    def test_doc_documents_runner_commands(self):
+        # README 承诺的 5 个运行入口必须真存在于 CLI
+        for flag in ("--json", "--sabotage", "--manifest", "--save"):
+            self.assertIn(flag, self.doc, f"README 漏文档化 {flag}")
+        self.assertIn("llm_observer_selfcheck.py", self.doc)
+
+    def test_doc_metric_names_match_code(self):
+        # README 的每个指标必须有对应人类可读条目 (防 doc 编造/漏指标)。
+        # 锚点是显式人类名 (指标表用人话不用 snake_case), 但 _METRIC_SPECS 守住"必须全覆盖":
+        # 若代码加新指标而 README 漏写, _spec_names 与 _anchors 的 key 集不一致 → 立即 fail。
+        _anchors = {
+            "defense_rate": "defense rate",
+            "fp_rate": "false-positive rate",
+            "fn_rate_B": "false-negative rate",
+            "detection_latency": "detection latency",
+            "confidence_calibration": "confidence calibration",
+        }
+        spec_names = {name for name, *_ in sc._METRIC_SPECS}
+        self.assertEqual(set(_anchors), spec_names,
+                         "新增/删除指标后 README 锚点未同步 (doc-drift)")
+        doc = self.doc.lower()
+        for name, human in _anchors.items():
+            self.assertIn(human, doc, f"README 漏指标 {name} ({human})")
+
+    def test_doc_cites_paper_and_ground_truth(self):
+        self.assertIn("2606.14589", self.doc)
+        self.assertIn("llm_observer_ground_truth.yaml", self.doc)
+
+    def test_doc_honest_about_held_out(self):
+        # 诚实边界必须在 README (Category B / held-out recall 不当成功)
+        self.assertIn("held-out", self.doc.lower())
+        self.assertIn("Category B", self.doc)
+
+
+class TestStage6SourceGuards(unittest.TestCase):
+    def test_stage6_marker(self):
+        with open(os.path.join(_REPO, "llm_observer_selfcheck.py"), encoding="utf-8") as f:
+            src = f.read()
+        self.assertIn("V37.9.200", src)
+        self.assertIn("build_bench_manifest", src)
+
+    def test_manifest_reuses_build_scorecard(self):
+        # 一物一形: manifest 不得自己重新实现评分, 必须复用 build_scorecard
+        import inspect
+        body = inspect.getsource(sc.build_bench_manifest)
+        self.assertIn("build_scorecard", body)
+
+    def test_bench_version_independent_of_project_version(self):
+        # bench_version 是数据集契约版本, 不等于项目 VERSION 文件 (设计意图)
+        with open(os.path.join(_REPO, "VERSION"), encoding="utf-8") as f:
+            proj = f.read().strip()
+        self.assertNotEqual(sc.BENCH_VERSION, proj)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
