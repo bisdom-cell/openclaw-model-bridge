@@ -1,7 +1,11 @@
 """V37.9.201 — DeepSeek-V4-Pro Provider (用户自建 OpenAI 兼容推理端点)
    V37.9.202 — Mac Mini E2E 实测: text/streaming/tool_calling 3/3 通过 → feature_verified
+   V37.9.203 — 能力探针实测: +json_mode (verified) / vision 确认不支持 / reasoning 无 R1 通道
 
 接入第 9 个 provider: DeepSeek-V4-Pro (self-hosted OpenAI-compatible gateway).
+真实部署 = `DeepSeek-V4-Pro-w4a8-mtp` (4-bit 权重 8-bit 激活量化 + multi-token prediction;
+错误响应路径泄露)。⚠️ 质量观察: 推理类响应偶发乱码 token 注入 (w4a8-mtp 量化产物,
+如 "dollars35367"/"only12") — 答案正确但夹杂无关 token, 替换 Qwen3 (fp) 时须权衡。
 
 🔴 设计契约 (镜像 doubao_provider.py V37.9.52 公开 repo 安全底线):
 - **API key 严格走 env `DEEPSEEK_API_KEY`** — 绝不硬编码。用户在对话里贴的明文 key
@@ -12,14 +16,18 @@
   自动排除 (与 doubao endpoint-id fallback 同一模式)。Mac Mini 配 env → 真实私有端点注入。
 
 诚实语义 (原则 #23 — 只声明实测过的能力):
-- **verification_tier = feature_verified** (V37.9.202) — 分项 E2E 实测通过但未真生产流量。
-- **Mac Mini E2E 实测 2026-06-30 (3/3 通过)**:
-    text         — curl 返回 content="OK" + finish_reason=stop
-    streaming    — stream:true → chat.completion.chunk SSE + delta.content + [DONE]
-    tool_calling — tools 入参 → finish_reason=tool_calls + tool_calls[].function.arguments
-- **未实测 → 保持 False (诚实)**: reasoning (全程 reasoning:null/reasoning_tokens:0 未触发) /
-  vision / json_mode / fallback (未真生产 fallback 接管, 同 doubao verified_fallback 留 False)。
-- context_window / max_output_tokens 是 DeepSeek 谱系保守占位值, 待进一步实测确认。
+- **verification_tier = feature_verified** — 分项 E2E 实测通过但未真生产流量。
+- **Mac Mini E2E 实测 2026-06-30**:
+    text         ✅ content="OK" + finish_reason=stop (V37.9.202)
+    streaming    ✅ chat.completion.chunk SSE + delta.content + [DONE] (V37.9.202)
+    tool_calling ✅ finish_reason=tool_calls + tool_calls[].function.arguments (V37.9.202)
+    json_mode    ✅ response_format=json_object → 干净 {"name":"Bob","age":30} 无报错 (V37.9.203)
+- **确认不支持 / 未暴露 → False (实测得知, 非未知)**:
+    vision       ❌ 400 "is not a multimodal model" — w4a8-mtp 非多模态 (V37.9.203 实测)
+    reasoning    ❌ reasoning:null/reasoning_tokens:0 — content 内能 CoT 但不暴露 R1 风格
+                    reasoning_content 通道 (不符合项目 reasoning 定义, V37.9.203 实测)
+- verified_fallback=False — 未真生产 fallback 接管 (同 doubao, 真接管后才 flip)。
+- context_window / max_output_tokens 保守占位 (端点无 /models 端点, 404; 真值待测)。
 
 OpenAI 兼容: base_url 以 /v1 结尾 + `Authorization: Bearer` (auth_style=bearer 默认)。
 """
@@ -52,29 +60,31 @@ class DeepSeekProvider(BaseProvider):
                 is_default=True,
             ),
         ]
-        # 🔴 能力声明 (原则 #23 — 只声明实测过的): V37.9.202 Mac Mini E2E 实测 text/streaming/
-        # tool_calling 3/3 → declare+verified=True; reasoning/json_mode/vision 未实测 → 保持 False。
+        # 🔴 能力声明 (原则 #23 — 只声明实测过的): V37.9.202/203 Mac Mini E2E 探针实测。
+        # text/streaming/tool_calling/json_mode ✅; vision 确认不支持(非多模态)/reasoning 无 R1 通道。
         self.capabilities = ProviderCapabilities(
             text=True,
-            vision=False,           # 未实测, 保守不声明
+            vision=False,           # V37.9.203 实测: 400 "is not a multimodal model"
             audio=False,
             video=False,
-            tool_calling=True,      # V37.9.202 Mac Mini E2E 实测: finish_reason=tool_calls
-            streaming=True,         # V37.9.202 Mac Mini E2E 实测: SSE chunk + [DONE]
-            json_mode=False,        # 未实测, 待确认
-            reasoning=False,        # 未触发 (reasoning:null/reasoning_tokens:0), 保持 False
-            context_window=65536,
-            max_output_tokens=8192,
-            # V37.9.202 verified_* — 仅实测通过的 3 项 flip True (诚实, 镜像 doubao 渐进验证)
+            tool_calling=True,      # V37.9.202 E2E: finish_reason=tool_calls
+            streaming=True,         # V37.9.202 E2E: SSE chunk + [DONE]
+            json_mode=True,         # V37.9.203 E2E: response_format=json_object → 干净 JSON (无 verified_* 字段)
+            reasoning=False,        # V37.9.203 实测: reasoning:null, 不暴露 R1 风格 reasoning_content 通道
+            context_window=65536,   # 保守占位 (端点无 /models, 真值待测)
+            max_output_tokens=8192, # 保守占位
+            # verified_* (6 维跟踪 text/vision/tool_calling/streaming/fallback/reasoning; json_mode 无字段)
             verified_text=True,         # E2E: content + finish_reason=stop
-            verified_vision=False,
+            verified_vision=False,      # 确认不支持 (非多模态)
             verified_tool_calling=True, # E2E: tools → tool_calls[].function.arguments
             verified_streaming=True,    # E2E: stream:true → delta.content chunks + [DONE]
-            verified_fallback=False,    # 未真生产 fallback 接管 (同 doubao verified_fallback 留 False)
+            verified_fallback=False,    # 未真生产 fallback 接管 (真接管后 flip)
+            verified_reasoning=False,   # 不暴露 reasoning_content 通道
             # feature_verified: 分项 E2E 实测通过但未真生产流量 (tier_evidence 必须显式引用证据)
             verification_tier="feature_verified",
-            tier_evidence="Mac Mini E2E 实测 2026-06-30: text (content+finish_reason=stop) / "
-                          "streaming (chat.completion.chunk SSE + delta.content + [DONE]) / "
-                          "tool_calling (finish_reason=tool_calls + get_weather arguments) 3/3 通过；"
-                          "reasoning 未触发 (reasoning:null) / vision/json_mode 未测 / 未真生产 fallback 接管",
+            tier_evidence="Mac Mini E2E 实测 2026-06-30: text/streaming/tool_calling/json_mode 4/4 通过 "
+                          "(content+finish_reason / SSE chunk+[DONE] / finish_reason=tool_calls+arguments / "
+                          "response_format=json_object 干净 JSON)；vision 实测不支持 (400 非多模态) / "
+                          "reasoning 无 R1 reasoning_content 通道 / 未真生产 fallback 接管。"
+                          "部署=w4a8-mtp 量化, 推理响应偶发乱码 token",
         )

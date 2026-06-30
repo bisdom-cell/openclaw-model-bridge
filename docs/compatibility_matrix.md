@@ -35,7 +35,7 @@
 | Kimi (Moonshot AI) | **declared** | 能力声明完整 + 合约校验通过，0/N 生产验证（无 API key 配置） |
 | MiniMax | **declared** | 能力声明完整 + 合约校验通过，0/N 生产验证（无 API key 配置） |
 | GLM (Zhipu AI) | **declared** | 能力声明完整 + 合约校验通过，0/N 生产验证（无 API key 配置） |
-| DeepSeek-V4-Pro | **feature_verified** | Mac Mini E2E 实测 2026-06-30: text (content+finish_reason=stop) / streaming (chat.completion.chunk SSE + delta.content + [DONE]) / tool_calling (finish_reason=tool_calls + get_weather arguments) 3/3 通过；reasoning 未触发 (reasoning:null) / vision/json_mode 未测 / 未真生产 fallback 接管 |
+| DeepSeek-V4-Pro | **feature_verified** | Mac Mini E2E 实测 2026-06-30: text/streaming/tool_calling/json_mode 4/4 通过 (content+finish_reason / SSE chunk+[DONE] / finish_reason=tool_calls+arguments / response_format=json_object 干净 JSON)；vision 实测不支持 (400 非多模态) / reasoning 无 R1 reasoning_content 通道 / 未真生产 fallback 接管。部署=w4a8-mtp 量化, 推理响应偶发乱码 token |
 | Doubao Seed 2.0 Pro (Volcengine Ark) | **production_observed** | fallback 链第 1 位真实接管（V37.9.129 起唯一真 fallback）+ expert_escalate 真生产调用（V37.9.91）；text/vision/tool_calling/streaming/reasoning 5/5 E2E 实测（V37.9.53-55） |
 
 ## 能力矩阵
@@ -49,7 +49,7 @@
 | Kimi (Moonshot AI) | Yes | Yes | — | — | Yes | Yes | Yes | — | 262K |
 | MiniMax | Yes | Yes | — | — | Yes | Yes | Yes | — | 204K |
 | GLM (Zhipu AI) | Yes | Yes | — | — | Yes | Yes | Yes | — | 202K |
-| DeepSeek-V4-Pro | Yes | — | — | — | Yes | Yes | — | — | 65K |
+| DeepSeek-V4-Pro | Yes | — | — | — | Yes | Yes | Yes | — | 65K |
 | Doubao Seed 2.0 Pro (Volcengine Ark) | Yes | Yes | — | — | Yes | Yes | Yes | Yes | 262K |
 
 > Reasoning 维度 V37.9.53 新增（doubao seed reasoning model 实证驱动）。cap_score: doubao 16 > Qwen3 14（framework 视角 doubao 是 registry 最强 provider，V37.9.55）。
