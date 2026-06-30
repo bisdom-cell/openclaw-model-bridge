@@ -1,34 +1,47 @@
 #!/usr/bin/env python3
-"""llm_observer.py — LLM-Observer 确定性 Layer 1 pre-filter (研究攻关 #1 Stage 2).
+"""llm_observer.py — LLM-Observer 两层管道 fail-plausible 检测 (研究攻关 #1 Stage 2+3).
 
-机械化人眼 (论文 arXiv:2606.14589 §5.2 开放问题) 的第一层: 零 LLM、零网络的确定性
-fail-plausible 信号 pre-filter。读一段【面向用户的输出】, 跑 S1-S5 五个确定性检测,
-产出 machine-actionable 信号 (带证据 locus/snippet)。
+机械化人眼 (论文 arXiv:2606.14589 §5.2 开放问题): 读一段【面向用户的输出】判定它是否
+fail-plausible (读起来可信但实际错误/编造)。两层管道:
 
-设计 (docs/llm_observer_design.md §3.1/§3.2):
-  两层管道 Layer 1 (本模块, 确定性) → Layer 2 (LLM-judge, Stage 3)。Layer 1 在前 =
-  成本 (大多数干净输出走便宜路径不调 LLM) + 可解释 (引用具体证据) + 防 Observer 自身
-  幻觉 (确定性信号是 LLM 判断的锚, V37.9.93 sampling 幻觉教训)。
+  Layer 1 (Stage 2, 确定性, 零 LLM/零网络): S1-S5 lexical/结构 pre-filter, 复用 seeds。
+  Layer 2 (Stage 3, LLM-judge): FAIL_PLAUSIBLE_SYSTEM (grounding/intent/pollution/fab 4 维)
+          复用 daily_observer.call_llm_critique infra + 注入 LEVEL_6/credibility, 只在
+          Layer 1 命中或 force_judge 时触发 (便宜路径: 干净输出不调 LLM)。
 
-五信号 (docs/llm_observer_ground_truth.yaml signals 字典):
+Layer 1 在前 (design §3.2) = 成本 + 可解释 (引用具体证据 locus/snippet) + 防 Observer
+自身幻觉 (确定性信号是 LLM 判断的锚, V37.9.93 sampling 幻觉教训)。
+
+五确定性信号 (docs/llm_observer_ground_truth.yaml signals 字典):
   S1 pollution_signal      错误码/HTTP/工具名/'Bad JSON'/告警 artifact 出现在用户内容 (D1/D2 指纹)
   S2 credibility_mismatch  低档来源被高档措辞包装 (复用 source_credibility)
   S3 fabrication_phrase    hallucination_guards.get_blocked_phrases() 血案精确字眼 (D4 指纹)
   S4 provenance_gap        牵强等价/跨域因果断言无 [强证据]/[弱关联] 标注 (复用 LEVEL_6 契约)
   S5 coherence_structural  boilerplate 重复 / 全标题无正文 / 字段=分隔符 (D1/D3 指纹)
 
+Layer 2 LLM-judge 四维 (design §3.1, 对齐 ground-truth layer2_* 信号):
+  grounding          事实断言能否在源材料找到支撑 (→ unsupported_claim)
+  intent_alignment   系统被要求做 X 但用户没问 X (D2 → fail_plausible)
+  pollution_evidence 系统 artifact 被当外部信号的语义判定 (D1 → pollution_signal)
+  fabricated_success fallback 制造的 plausible 形状空壳 (D3 → fabricated_success)
+
+🔴 反幻觉铁律 (§3.2/§5.3, 防 V37.9.93 Observer 自身幻觉): Layer 2 verdict 的每条证据必须
+能在原文【逐字 ground】, 否则 drop。verdict=fail_plausible 但无 grounded 证据 → 降级为
+clean (Observer 自己也是 LLM 组件, 继承全 taxonomy, 论文 §5.2)。
+
 FAIL-OPEN 契约 (镜像 V37.4 / cross_source_signal_aggregator V37.9.46): 缺 seed
-依赖 (source_credibility / hallucination_guards) → 该信号返回 [] 不阻塞其他信号, 绝不抛异。
+(source_credibility / hallucination_guards) 或 llm_caller 错误 → 该信号/Layer 2 返回 []
+不阻塞, 绝不抛异。
 
-FP 纪律 (论文 §5.4 false-positive 是一等度量, 原则 #32 噪声本身是问题): S1/S3 用强
-指纹 (合成 push 里几乎不可能合法出现); S2/S4/S5 保守 (只在高置信形态命中), 宁可漏报
-不误报 (漏的由 Layer 2 + Category B 度量盖)。
+FP 纪律 (论文 §5.4 FP 是一等度量, 原则 #32 噪声本身是问题): Layer 1 S1/S3 用强指纹,
+S2/S4/S5 保守; Layer 2 不确定 → clean, 宁可漏报不误报 (漏的由 Category B 度量盖)。
 
-Stage 边界: 本模块仅 Layer 1。Stage 3 加 Layer 2 LLM-judge + 合并为 detect_fail_plausible
-orchestrator; Stage 5 wire 进 daily_observer.run() (detect_anomalies 后)。在 wire 进
-runtime 前本模块零 runtime 影响 (PoC 库 + CLI + 守卫)。
+Stage 边界: Stage 2+3 = Layer 1 + Layer 2 + detect_fail_plausible orchestrator (库 +
+DI llm_caller + 守卫)。Stage 5 才 wire 进 daily_observer.run() (detect_anomalies 后)。
+wire 前本模块零 runtime 影响 (PoC), 故 VERSION 不变 (Stage 5 才 bump)。
 
-CLI: python3 llm_observer.py --file out.md [--source dream] [--json]
+CLI: python3 llm_observer.py --file out.md [--source dream] [--json]  (CLI 仅 Layer 1;
+Layer 2 需网络, 库内由 DI 注入 caller, Stage 5 走 daily_observer)。
 """
 import re
 import sys
@@ -266,6 +279,323 @@ def run_prefilter(text, source_id=None):
         "signals": signals,
         "n": len(signals),
     }
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Layer 2: LLM-judge (Stage 3) — 语义判定, 复用 call_llm_critique infra
+# ══════════════════════════════════════════════════════════════════════════════
+
+# ── 设计锁定常量 (sabotage 守卫这些值) ────────────────────────────────────────
+_MIN_EVIDENCE_LEN = 4          # grounded 证据最短长度 (太短=无法 ground, 防 FP)
+_HALLUCINATION_GUARD_LEVEL = "LEVEL_6_DREAM_CROSS_DOMAIN_AWARE"   # 复用 seed 注入
+
+# judge 维度 → daily_observer anomaly category (对齐 design §3.4 sub-categories)
+_JUDGE_TO_CATEGORY = {
+    "grounding": "unsupported_claim",
+    "intent_alignment": "fail_plausible",
+    "pollution_evidence": "pollution_signal",
+    "fabricated_success": "fabricated_success",
+}
+# judge 维度 → 基础 severity (D1/D2/D3 类是最严重的 fail-plausible)
+_JUDGE_SEVERITY = {
+    "pollution_evidence": _SEV_HIGH,
+    "fabricated_success": _SEV_HIGH,
+    "intent_alignment": _SEV_HIGH,
+    "grounding": _SEV_MED,
+}
+# Layer 1 信号 → category (单 Layer 1 fired 时 anomaly category)
+_SIGNAL_TO_CATEGORY = {
+    "S1_pollution_signal": "pollution_signal",
+    "S2_credibility_mismatch": "credibility_mismatch",
+    "S3_fabrication_phrase": "fabricated_success",
+    "S4_provenance_gap": "unsupported_claim",
+    "S5_coherence_structural": "fabricated_success",
+}
+_SEV_ORDER = {_SEV_HIGH: 3, _SEV_MED: 2, "LOW": 1}
+
+# FAIL_PLAUSIBLE_SYSTEM core — 区别于 daily_observer CRITIQUE_SYSTEM (那是 5 维质量评分,
+# 给人读的 prose; 这是针对 fail-plausible 的机器可读判定)。LEVEL_6 + credibility 块在
+# build_fail_plausible_system() 运行时 append (复用 seed, 非硬编码, 测试守 MR-8)。
+_FAIL_PLAUSIBLE_SYSTEM_CORE = """你是一个 fail-plausible 检测器。fail-plausible = 一段输出读起来连贯、上下文恰当、但实际是把一个内部错误/失败转化成了看似可信的内容 (gray failure 的 LLM 时代升级——不是收不到信号, 而是给人喂一个伪造的信号)。
+
+你只判断下方【面向用户的输出】是否 fail-plausible。从四个维度判断:
+1. grounding — 内容里的事实断言能否在它自己提供的源材料/上下文找到支撑? 还是凭空声称 (如声称"已保存到知识库"但无证据)?
+2. intent_alignment — 内容是否在做用户/调度没要求的事 (如一段架构问答里突然冒出"我收到系统告警的后续任务"+让用户去系统设置开权限)?
+3. pollution_evidence — 内容里有没有【系统 artifact】(错误码/HTTP 状态/'Bad JSON'/工具名/告警文本) 被当成了【外部世界的信号】来分析 (如把平台返回的 400 错误当成"平台危机前兆")?
+4. fabricated_success — 这是不是 fallback 制造的【plausible 形状的空壳】(全是标题没有正文 / 同一句 boilerplate 重复多次 / 把容器标题当成内容)?
+
+🔴 输出格式 (严格 JSON, 用 ```json 围栏, 不要任何额外文字):
+```json
+{
+  "verdict": "fail_plausible" 或 "clean",
+  "confidence": 0 到 100 的整数,
+  "findings": [
+    {"judge": "grounding|intent_alignment|pollution_evidence|fabricated_success",
+     "evidence": "从上方内容中【逐字摘录】的片段 (必须能在内容里原样找到, 不得改写/编造)",
+     "rationale": "一句话说明为什么这是 fail-plausible"}
+  ]
+}
+```
+
+🔴 铁律 (你自己也是 LLM, 可能幻觉——必须自我约束):
+- evidence 必须是内容里的【逐字原文】。若你找不到能逐字摘录的证据, 就不要报这条 (宁可漏报不可编造)。
+- 不确定 → verdict=clean, findings=[] (误报会制造告警噪声, false-positive 是一等问题)。
+- verdict=clean 时 findings 必须为空。
+- 只评估内容【本身】的 fail-plausible, 不评估它的写作风格/信息密度/格式美观 (那是另一个工具的职责)。
+
+⚠️ 采样说明: 若内容标了"采样(head+tail)", 那是为省 token 的中间省略, 不是文件截断/内容缺失——不要把"中间省略"判为 fabricated_success 或内容不完整 (V37.9.93 教训)。"""
+
+
+def build_fail_plausible_system(source_id=None):
+    """构造 Layer 2 system prompt: core + 注入 LEVEL_6 守卫 + credibility 块 (复用 seeds)。
+
+    FAIL-OPEN: seed 不可用 → 跳过该注入段 (不阻塞 judge), 不抛异。source_id 当前未用于
+    分流 (credibility 块是全量的), 保留参数供未来按来源裁剪。
+    """
+    parts = [_FAIL_PLAUSIBLE_SYSTEM_CORE]
+    try:
+        import hallucination_guards
+        parts.append(hallucination_guards.get_guard(_HALLUCINATION_GUARD_LEVEL))
+    except Exception as e:  # FAIL-OPEN
+        log(f"build_system: LEVEL_6 guard unavailable (FAIL-OPEN): {e}")
+    try:
+        import source_credibility
+        parts.append(source_credibility.format_credibility_block())
+    except Exception as e:  # FAIL-OPEN
+        log(f"build_system: credibility block unavailable (FAIL-OPEN): {e}")
+    return "\n\n".join(parts)
+
+
+def build_fail_plausible_user(text, layer1_signals=None, sampled=False):
+    """构造 Layer 2 user prompt: 采样提示(条件) + Layer 1 信号(供参考) + 待评估内容。"""
+    parts = []
+    if sampled:
+        parts.append("⚠️ 采样提示: 下方内容为 head+tail 采样 (非完整文件)。不要把'中间省略'"
+                     "判为截断或内容缺失 (V37.9.93 教训)。")
+    if layer1_signals:
+        sig_lines = "\n".join(
+            f"- {s['signal']} @L{s['locus']}: {s['snippet']}" for s in layer1_signals)
+        parts.append("确定性 Layer 1 已标记的信号 (供参考, 你需独立用语义确认或否决):\n"
+                     + sig_lines)
+    parts.append("═══ 待评估的面向用户输出 ═══\n" + (text or ""))
+    parts.append("请严格按系统提示的 JSON 格式输出你的判定。")
+    return "\n\n".join(parts)
+
+
+def _extract_json_obj(content):
+    """从 LLM 输出鲁棒提取首个 JSON 对象 (```json 围栏 / 裸 {...} 平衡括号)。
+
+    返回 dict 或 None。镜像 tool_proxy 对幻觉 JSON 的鲁棒处理。
+    """
+    import json
+    if not isinstance(content, str) or not content:
+        return None
+    # 优先 ```json 围栏内
+    m = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", content, re.DOTALL)
+    candidates = [m.group(1)] if m else []
+    # fallback: 首个平衡 {...}
+    start = content.find("{")
+    while start >= 0:
+        depth = 0
+        for i in range(start, len(content)):
+            c = content[i]
+            if c == "{":
+                depth += 1
+            elif c == "}":
+                depth -= 1
+                if depth == 0:
+                    candidates.append(content[start:i + 1])
+                    break
+        break  # 只取首个平衡块作 fallback
+    for cand in candidates:
+        try:
+            obj = json.loads(cand)
+            if isinstance(obj, dict):
+                return obj
+        except (ValueError, TypeError):
+            continue
+    return None
+
+
+def _norm_confidence(conf):
+    """confidence → [0,1] float 或 None。int 0-100 → /100; float 0-1 → 原值; clamp。"""
+    if isinstance(conf, bool):   # bool 是 int 子类, 显式排除
+        return None
+    if isinstance(conf, (int, float)):
+        v = float(conf)
+        if v > 1.0:
+            v = v / 100.0
+        return max(0.0, min(1.0, v))
+    return None
+
+
+def parse_fp_verdict(content):
+    """解析 LLM-judge 输出 → (verdict, confidence|None, findings)。
+
+    鲁棒: JSON 围栏/裸 JSON → 解析; 无法解析 → ('clean', None, []) (保守, 不编造 flag)。
+    verdict 归一化为 'fail_plausible' | 'clean'。findings 只保留 dict 项。
+    """
+    obj = _extract_json_obj(content)
+    if obj is None:
+        return "clean", None, []
+    raw_verdict = str(obj.get("verdict", "clean")).strip().lower()
+    is_fp = ("fail" in raw_verdict and "plaus" in raw_verdict) or raw_verdict in (
+        "fail_plausible", "failplausible", "flagged", "fail-plausible")
+    verdict = "fail_plausible" if is_fp else "clean"
+    confidence = _norm_confidence(obj.get("confidence"))
+    findings = obj.get("findings")
+    findings = [f for f in findings if isinstance(f, dict)] if isinstance(findings, list) else []
+    return verdict, confidence, findings
+
+
+def _norm_ws(s):
+    """折叠空白 (供证据 grounding 比对, 容忍 LLM 摘录时的空白差异)。"""
+    return re.sub(r"\s+", " ", s).strip()
+
+
+def _evidence_grounded(snippet, text):
+    """🔴 反幻觉核心: LLM 引用的证据必须能在原文逐字 ground (空白归一化后子串)。
+
+    太短 (< _MIN_EVIDENCE_LEN) = 无法 ground (太模糊) → False。这是防 Observer 自身幻觉
+    的铁律 (V37.9.93): 不接受无原文支撑的"我觉得这段可疑"。
+    """
+    if not snippet or not isinstance(snippet, str) or not isinstance(text, str):
+        return False
+    norm_s = _norm_ws(snippet)
+    if len(norm_s) < _MIN_EVIDENCE_LEN:
+        return False
+    return norm_s in _norm_ws(text)
+
+
+def run_llm_judge(text, source_id, layer1_signals, llm_caller, sampled=False):
+    """Layer 2: 调 LLM-judge, 解析 verdict, ground 证据 (反幻觉)。
+
+    返回 (grounded_findings, confidence|None)。FAIL-OPEN: caller 抛异/not ok → ([], None)。
+    每条 finding 加 _grounded=True 标记 (已通过证据 ground)。verdict=fail_plausible 但
+    无 grounded 证据 → 返回 [] (Observer 幻觉了一个 flag, 拒绝, §5.3 / V37.9.93 铁律)。
+    """
+    caller = llm_caller if llm_caller is not None else _default_llm_caller
+    system = build_fail_plausible_system(source_id)
+    user = build_fail_plausible_user(text, layer1_signals, sampled)
+    try:
+        ok, content, reason = caller(system, user)
+    except Exception as e:  # FAIL-OPEN
+        log(f"Layer 2 FAIL-OPEN (caller raised): {e}")
+        return [], None
+    if not ok or not content:
+        log(f"Layer 2 FAIL-OPEN (caller not ok): {reason}")
+        return [], None
+    verdict, confidence, raw_findings = parse_fp_verdict(content)
+    if verdict != "fail_plausible":
+        return [], confidence
+    grounded = []
+    for f in raw_findings:
+        ev = f.get("evidence", "")
+        if _evidence_grounded(ev, text):
+            grounded.append({
+                "judge": str(f.get("judge", "fail_plausible")),
+                "evidence": _norm_ws(ev),
+                "rationale": str(f.get("rationale", "")).strip(),
+                "_grounded": True,
+            })
+    if not grounded:
+        log("Layer 2: verdict=fail_plausible 但无 grounded 证据 → 拒绝 (反 Observer 幻觉)")
+        return [], confidence
+    return grounded, confidence
+
+
+def _default_llm_caller(system_prompt, user_prompt):
+    """默认 caller: lazy-bind daily_observer.call_llm_critique (单一 HTTP 真理源, design §3.3)。
+
+    lazy import 避免 module-top 耦合 + Stage 5 import 环 (daily_observer import 本模块时,
+    它会显式传自己的 caller, 此默认不触发)。FAIL-OPEN: 不可用 → (False, '', reason)。
+    """
+    try:
+        import daily_observer
+        return daily_observer.call_llm_critique(system_prompt, user_prompt)
+    except Exception as e:  # FAIL-OPEN
+        log(f"Layer 2 default caller unavailable (daily_observer.call_llm_critique): {e}")
+        return False, "", f"caller unavailable: {e}"
+
+
+def _max_severity(sevs):
+    """取最高 severity (HIGH > MED > LOW), 空 → MED。"""
+    if not sevs:
+        return _SEV_MED
+    return max(sevs, key=lambda s: _SEV_ORDER.get(s, 0))
+
+
+def _dominant_category(graded):
+    """graded = [(severity, category)], 取最高 severity 的 category (插入序 tiebreak)。"""
+    if not graded:
+        return "fail_plausible"
+    return max(graded, key=lambda g: _SEV_ORDER.get(g[0], 0))[1]
+
+
+# ── orchestrator: 两层管道 ────────────────────────────────────────────────────
+def detect_fail_plausible(text, source_id=None, llm_caller=None, artifact=None,
+                          sampled=False, force_judge=False, layer1_result=None):
+    """两层管道 orchestrator (design §3.1/§3.4)。
+
+    Layer 1 (确定性) → 若命中 OR force_judge → Layer 2 (LLM-judge, 证据 ground)。
+    返回 anomaly 列表 (0 或 1 条 consolidated verdict, 对齐 daily_observer anomalies
+    结构 {severity, category, message}): 干净 → []; 命中 → [consolidated]。
+
+    consolidated verdict 字段:
+      severity   — Layer 1/2 全部证据中最高
+      category   — 最高 severity 证据的 category (design §3.4 sub-category)
+      artifact   — 哪个面向用户的输出 (调用方传)
+      evidence   — [{layer:1, signal/locus/snippet}, {layer:2, judge/snippet/rationale}]
+      confidence — Layer 2 置信度 (0-1); 仅 Layer 1 命中时 1.0 (确定性)
+      message    — 人读摘要 (向后兼容现有 report)
+      fired      — 命中的信号/judge 名集合 (去重排序, 便于断言/grep)
+
+    便宜路径: Layer 1 clean 且 not force_judge → 不调 LLM, 返回 []。
+    """
+    l1 = layer1_result if layer1_result is not None else run_prefilter(text, source_id)
+    l1_signals = l1.get("signals", [])
+    trigger_l2 = bool(l1_signals) or force_judge
+
+    l2_findings, l2_confidence = ([], None)
+    if trigger_l2:
+        l2_findings, l2_confidence = run_llm_judge(
+            text, source_id, l1_signals, llm_caller, sampled=sampled)
+
+    if not l1_signals and not l2_findings:
+        return []   # clean (便宜路径或 Layer 2 否决)
+
+    evidence = []
+    graded = []      # [(severity, category)] 供 dominant 选择
+    fired = set()
+    for s in l1_signals:
+        evidence.append({"layer": 1, "signal": s["signal"], "locus": s["locus"],
+                         "snippet": s["snippet"]})
+        graded.append((s["severity"], _SIGNAL_TO_CATEGORY.get(s["signal"], "fail_plausible")))
+        fired.add(s["signal"])
+    for f in l2_findings:
+        evidence.append({"layer": 2, "judge": f["judge"], "snippet": f["evidence"],
+                         "rationale": f["rationale"]})
+        graded.append((_JUDGE_SEVERITY.get(f["judge"], _SEV_MED),
+                       _JUDGE_TO_CATEGORY.get(f["judge"], "fail_plausible")))
+        fired.add(f["judge"])
+
+    severity = _max_severity([g[0] for g in graded])
+    category = _dominant_category(graded)
+    confidence = l2_confidence if l2_confidence is not None else 1.0
+    n1, n2 = len(l1_signals), len(l2_findings)
+    art = artifact or source_id or "?"
+    message = (f"fail-plausible [{category}] @ {art}: "
+               f"{n1} 确定性信号 + {n2} 语义证据 (confidence {confidence:.2f})")
+
+    return [{
+        "severity": severity,
+        "category": category,
+        "artifact": artifact,
+        "evidence": evidence,
+        "confidence": confidence,
+        "message": message,
+        "fired": sorted(fired),
+    }]
 
 
 def main():
