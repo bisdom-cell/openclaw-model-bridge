@@ -55,8 +55,9 @@ class TestDoubaoProviderRegistration(unittest.TestCase):
     def test_total_provider_count_is_8(self):
         names = self.providers.get_registry().list_names()
         self.assertEqual(
-            len(names), 8,
-            f"V37.9.52 must have 7 built-in + 1 plugin = 8 providers, got {len(names)}: {names}",
+            len(names), 9,
+            f"V37.9.201 must have 7 built-in + 2 plugins (doubao+deepseek) = 9 providers, "
+            f"got {len(names)}: {names}",
         )
 
     def test_no_plugin_load_errors(self):
@@ -219,8 +220,9 @@ class TestModuleReentryGuard(unittest.TestCase):
             capture_output=True, text=True, timeout=30, cwd=REPO_ROOT,
         )
         self.assertEqual(result.returncode, 0)
-        self.assertIn("8 providers", result.stdout)
+        self.assertIn("9 providers", result.stdout)  # V37.9.201: +deepseek
         self.assertIn("doubao", result.stdout)
+        self.assertIn("deepseek", result.stdout)
 
     def test_providers_py_has_sys_modules_alias_fix(self):
         """source 级守卫: providers.py 必须有 V37.9.52 sys.modules alias 防 bug 回归."""

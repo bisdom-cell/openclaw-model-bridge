@@ -35,7 +35,8 @@
       "kimi",
       "minimax",
       "glm",
-      "claude"
+      "claude",
+      "deepseek"
     ],
     "best_for_text_prefer_reasoning": "doubao",
     "policy": {
@@ -44,11 +45,11 @@
     }
   },
   "non_deterministic": {
-    "provider_count": 8,
+    "provider_count": 9,
     "step_timings_ms": {
-      "provider_registry": 19,
-      "tool_governance": 43,
-      "policy_ontology": 11
+      "provider_registry": 24,
+      "tool_governance": 40,
+      "policy_ontology": 10
     }
   }
 }

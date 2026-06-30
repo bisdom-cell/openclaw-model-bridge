@@ -16,6 +16,7 @@
 | Kimi (Moonshot AI) | kimi-k2.5 | text, vision | Yes | Yes | 262K | none |
 | MiniMax | MiniMax-M2.7 | text, vision | Yes | Yes | 204K | none |
 | GLM (Zhipu AI) | glm-5, glm-5v-turbo | text, vision | Yes | Yes | 202K | none |
+| DeepSeek-V4-Pro | DeepSeek-V4-Pro | text | No | Yes | 65K | none |
 | Doubao Seed 2.0 Pro (Volcengine Ark) | doubao-seed-2-0-pro | text, vision | Yes | Yes | 262K | text, vision, tool_calling, streaming, reasoning |
 
 插件接入：Doubao 经 `providers.d/doubao_provider.py`（V37 Provider Plugin Interface，V37.9.52 接入）。
@@ -34,6 +35,7 @@
 | Kimi (Moonshot AI) | **declared** | 能力声明完整 + 合约校验通过，0/N 生产验证（无 API key 配置） |
 | MiniMax | **declared** | 能力声明完整 + 合约校验通过，0/N 生产验证（无 API key 配置） |
 | GLM (Zhipu AI) | **declared** | 能力声明完整 + 合约校验通过，0/N 生产验证（无 API key 配置） |
+| DeepSeek-V4-Pro | **declared** | 能力声明完整 + 合约校验通过，0/N 生产验证（无 API key 配置） |
 | Doubao Seed 2.0 Pro (Volcengine Ark) | **production_observed** | fallback 链第 1 位真实接管（V37.9.129 起唯一真 fallback）+ expert_escalate 真生产调用（V37.9.91）；text/vision/tool_calling/streaming/reasoning 5/5 E2E 实测（V37.9.53-55） |
 
 ## 能力矩阵
@@ -47,6 +49,7 @@
 | Kimi (Moonshot AI) | Yes | Yes | — | — | Yes | Yes | Yes | — | 262K |
 | MiniMax | Yes | Yes | — | — | Yes | Yes | Yes | — | 204K |
 | GLM (Zhipu AI) | Yes | Yes | — | — | Yes | Yes | Yes | — | 202K |
+| DeepSeek-V4-Pro | Yes | — | — | — | — | Yes | — | — | 65K |
 | Doubao Seed 2.0 Pro (Volcengine Ark) | Yes | Yes | — | — | Yes | Yes | Yes | Yes | 262K |
 
 > Reasoning 维度 V37.9.53 新增（doubao seed reasoning model 实证驱动）。cap_score: doubao 16 > Qwen3 14（framework 视角 doubao 是 registry 最强 provider，V37.9.55）。

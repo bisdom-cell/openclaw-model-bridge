@@ -818,19 +818,19 @@ class TestVerifyProvidersToAdapterIntegration(unittest.TestCase):
             r = cv.verify_convergence("providers_to_adapter")
             self.assertIsNone(r.error,
                 f"unexpected error: {r.error}")
-            # 3 of 7 visible → 4 missing
+            # 3 of N visible → N-3 missing (count-agnostic, N=registry size)
             self.assertEqual(r.observed,
                 frozenset({"qwen", "gemini", "claude"}))
             # missing = declared - observed (whatever the registry has minus 3)
             self.assertEqual(len(r.missing_in_runtime),
                 len(r.declared) - 3)
             self.assertTrue(r.drift_detected,
-                "Drift expected: 4 providers declared but not in /health")
+                "Drift expected: declared providers not all in /health")
 
     def test_full_visibility_no_drift(self):
         from unittest.mock import patch, MagicMock
-        # V37.9.52: doubao plugin 加入后 declared 集合应含 8 个 provider (7 built-in + 1 真插件)
-        all_known = {"qwen", "openai", "gemini", "claude", "kimi", "minimax", "glm", "doubao"}
+        # V37.9.201: doubao + deepseek 真插件 → declared 集合 9 个 provider (7 built-in + 2 真插件)
+        all_known = {"qwen", "openai", "gemini", "claude", "kimi", "minimax", "glm", "doubao", "deepseek"}
         body = json.dumps({
             "provider": "qwen",
             "fallback": "gemini",
