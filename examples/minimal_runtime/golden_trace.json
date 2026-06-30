@@ -36,7 +36,8 @@
       "minimax",
       "glm",
       "claude",
-      "deepseek"
+      "deepseek",
+      "deepseek_full"
     ],
     "best_for_text_prefer_reasoning": "doubao",
     "policy": {
@@ -45,11 +46,11 @@
     }
   },
   "non_deterministic": {
-    "provider_count": 9,
+    "provider_count": 10,
     "step_timings_ms": {
-      "provider_registry": 24,
-      "tool_governance": 40,
-      "policy_ontology": 10
+      "provider_registry": 21,
+      "tool_governance": 42,
+      "policy_ontology": 11
     }
   }
 }

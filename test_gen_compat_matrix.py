@@ -30,8 +30,8 @@ class TestProvidersTableLines(unittest.TestCase):
         lines = _default_registry.matrix_table_lines()
         self.assertTrue(lines[0].startswith("| Provider | Models |"))
         self.assertTrue(lines[1].startswith("|---"))
-        # 9 providers (7 built-in + doubao + deepseek plugins)
-        self.assertEqual(len(lines), 2 + 9)
+        # 10 providers (7 built-in + doubao + deepseek + deepseek_full plugins)
+        self.assertEqual(len(lines), 2 + 10)
 
     def test_matrix_table_contains_qwen_and_doubao(self):
         text = "\n".join(_default_registry.matrix_table_lines())
@@ -107,7 +107,7 @@ class TestVerifiableFeaturesDenominator(unittest.TestCase):
         self.assertIn("fallback", caps.verifiable_features())
 
     def test_numerator_never_exceeds_denominator(self):
-        """分子 ≤ 分母（修 "5/4" 超界）— 对全部 9 providers 断言。"""
+        """分子 ≤ 分母（修 "5/4" 超界）— 对全部 10 providers 断言。"""
         for p in _default_registry.all():
             verified = p.capabilities.verified_features()
             verifiable = p.capabilities.verifiable_features()
@@ -143,7 +143,7 @@ class TestTierTableLines(unittest.TestCase):
         lines = _default_registry.tier_table_lines()
         self.assertEqual(lines[0], "| Provider | 档位 | 依据 |")
         self.assertTrue(lines[1].startswith("|---"))
-        self.assertEqual(len(lines), 2 + 9)  # header + sep + 9 providers
+        self.assertEqual(len(lines), 2 + 10)  # header + sep + 10 providers
 
     def test_qwen_doubao_production_observed(self):
         text = "\n".join(_default_registry.tier_table_lines())
@@ -161,7 +161,7 @@ class TestTierTableLines(unittest.TestCase):
         lines = _default_registry.tier_table_lines()
         declared = [l for l in lines if "**declared**" in l]
         # V37.9.202: deepseek E2E 实测后升 feature_verified, declared 回到 5
-        self.assertEqual(len(declared), 5)  # openai/claude/kimi/minimax/glm
+        self.assertEqual(len(declared), 6)  # openai/claude/kimi/minimax/glm/deepseek_full (V37.9.204)
         for l in declared:
             self.assertIn("能力声明完整 + 合约校验通过，0/N 生产验证（无 API key 配置）", l)
 

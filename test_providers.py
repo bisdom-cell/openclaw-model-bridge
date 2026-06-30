@@ -146,7 +146,7 @@ class TestVerificationTier(unittest.TestCase):
         self.assertEqual(caps.tier_note, "已退役出 fallback 链")
 
     def test_all_registered_providers_tier_consistent(self):
-        """CI 守卫: 全部 9 provider 的 tier 与 verified_* 一致 (单一真理源不变式)。"""
+        """CI 守卫: 全部 10 provider 的 tier 与 verified_* 一致 (单一真理源不变式)。"""
         from providers import _default_registry
         violations = _default_registry.tier_consistency_violations()
         self.assertEqual(violations, [],
@@ -177,7 +177,7 @@ class TestVerificationTier(unittest.TestCase):
         from providers import _default_registry
         lines = _default_registry.tier_table_lines()
         self.assertEqual(lines[0], "| Provider | 档位 | 依据 |")
-        self.assertEqual(len(lines), 2 + 9)  # header + sep + 9 providers
+        self.assertEqual(len(lines), 2 + 10)  # header + sep + 10 providers
 
     def test_tier_table_declared_uses_derived_evidence(self):
         from providers import _default_registry, _DECLARED_TIER_EVIDENCE
@@ -363,10 +363,10 @@ class TestProviderRegistry(unittest.TestCase):
     """注册表测试"""
 
     def test_default_registry_has_7_providers(self):
-        # V37.9.201: doubao + deepseek 真插件 → 总数 9 (7 built-in + 2 真插件)
+        # V37.9.204: doubao + deepseek + deepseek_full → 总数 10 (7 built-in + 3 真插件)
         from providers import get_registry
         reg = get_registry()
-        self.assertEqual(len(reg.list_names()), 9)
+        self.assertEqual(len(reg.list_names()), 10)
 
     def test_get_existing_provider(self):
         from providers import get_registry
@@ -405,7 +405,7 @@ class TestProviderRegistry(unittest.TestCase):
         # V37.9.201: 9 行 (7 built-in + doubao + deepseek plugins)
         from providers import get_registry
         matrix = get_registry().compatibility_matrix()
-        self.assertEqual(len(matrix), 9)
+        self.assertEqual(len(matrix), 10)
         for row in matrix:
             self.assertIn("provider", row)
             self.assertIn("models", row)
@@ -451,7 +451,7 @@ class TestBackwardCompatibility(unittest.TestCase):
         # V37.9.201: legacy PROVIDERS dict 含 9 entries (7 built-in + doubao + deepseek plugins)
         from providers import PROVIDERS
         self.assertIsInstance(PROVIDERS, dict)
-        self.assertEqual(len(PROVIDERS), 9)
+        self.assertEqual(len(PROVIDERS), 10)
 
     def test_providers_dict_matches_old_format(self):
         """PROVIDERS dict 的格式与旧版 adapter.py 完全一致"""
@@ -573,7 +573,7 @@ class TestCLIOutput(unittest.TestCase):
         data = json.loads(result.stdout)
         self.assertIsInstance(data, list)
         # V37.9.201: 9 行 (7 built-in + doubao + deepseek plugins)
-        self.assertEqual(len(data), 9)
+        self.assertEqual(len(data), 10)
 
 
 class TestChineseProviders(unittest.TestCase):
@@ -1514,8 +1514,8 @@ class TestDefaultRegistryPluginDir(unittest.TestCase):
         # _example_provider.py 的示例 provider 名 "custom" 必须不被加载 (验证 _ 前缀豁免)。
         # V37.9.201: 不再用 "deepseek" 当 canary — deepseek 已是真插件 (providers.d/deepseek_provider.py)
         self.assertNotIn("custom", names)
-        # V37.9.201: 7 built-in + 2 真插件 (doubao + deepseek) = 9 (_example.* 仍被跳过)
-        self.assertEqual(len(names), 9)
+        # V37.9.204: 7 built-in + 3 真插件 (doubao + deepseek + deepseek_full) = 10 (_example.* 仍被跳过)
+        self.assertEqual(len(names), 10)
         self.assertIn("doubao", names, "doubao 真插件必须加载 (与 _example 被跳过形成对照)")
         self.assertIn("deepseek", names, "V37.9.201 deepseek 真插件必须加载 (providers.d/deepseek_provider.py)")
 
@@ -1602,6 +1602,52 @@ class TestDeepSeekProvider(unittest.TestCase):
         self.assertIn("DEEPSEEK_BASE_URL", src)
         # fallback 是公开域名 (非机密)
         self.assertIn("https://api.deepseek.com/v1", src)
+
+
+class TestDeepSeekFullProvider(unittest.TestCase):
+    """V37.9.204 — DeepSeek-V4-Pro 满血版 (ai-tokenhub) 第 10 个 provider, declared 未实测。"""
+
+    _PLUGIN = os.path.join(os.path.dirname(__file__), "providers.d", "deepseek_full_provider.py")
+
+    def test_registered_with_correct_identity(self):
+        from providers import get_provider
+        p = get_provider("deepseek_full")
+        self.assertIsNotNone(p)
+        self.assertEqual(p.name, "deepseek_full")
+        self.assertEqual(p.model_id, "deepseek-v4-pro-260425")
+        self.assertEqual(p.api_key_env, "DEEPSEEK_FULL_API_KEY")
+        self.assertEqual(p.base_url, "https://ai-tokenhub.com/api/v1")
+        self.assertEqual(p.auth_style, "bearer")
+
+    def test_declared_tier_unverified_honest(self):
+        # 未经 E2E 实测 → declared + verified_* 全 False + 保守仅 text/streaming (原则 #23)
+        from providers import get_provider
+        caps = get_provider("deepseek_full").capabilities
+        self.assertEqual(caps.verification_tier, "declared")
+        self.assertTrue(caps.text)
+        self.assertTrue(caps.streaming)
+        self.assertFalse(caps.tool_calling, "未实测, 保守不声明 (避免 router 误选)")
+        self.assertFalse(caps.reasoning)
+        self.assertFalse(caps.verified_text)
+
+    def test_excluded_from_available_without_key(self):
+        from providers import get_registry
+        with mock.patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("DEEPSEEK_FULL_API_KEY", None)
+            self.assertNotIn("deepseek_full", [p.name for p in get_registry().available()])
+        with mock.patch.dict(os.environ, {"DEEPSEEK_FULL_API_KEY": "sk-test"}):
+            self.assertIn("deepseek_full", [p.name for p in get_registry().available()])
+
+    def test_no_secret_key_hardcoded_in_repo(self):
+        """🔴 公开 repo 安全底线: API key 绝不入库 (base_url 是公开域名可入库)。"""
+        import re
+        src = open(self._PLUGIN, encoding="utf-8").read()
+        # 无 sk- 形式的 API key 字面量 (key 走 env)
+        self.assertIsNone(re.search(r"sk-[A-Za-z0-9]{12,}", src),
+                          "插件不得含 sk- key 字面量 — 走 DEEPSEEK_FULL_API_KEY env")
+        self.assertIn("DEEPSEEK_FULL_API_KEY", src)
+        # 公开域名 base_url 可入库 (非机密)
+        self.assertIn("https://ai-tokenhub.com/api/v1", src)
 
 
 if __name__ == "__main__":
