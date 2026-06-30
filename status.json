@@ -1,6 +1,6 @@
 {
-  "updated": "2026-06-30 02:22:14",
-  "updated_by": "security_score",
+  "updated": "2026-06-30 03:47:40",
+  "updated_by": "full_regression",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -111,6 +111,11 @@
   "recent_changes": [
     {
       "date": "2026-06-30",
+      "what": "LLM-Observer Stage 5 Mac Mini E2E 第一个 shadow finding — S5 评分字段误报修复 (VERSION 0.37.9.73)。Stage 5(V37.9.198)合并 PR#759 + 用户 Mac Mini git fetch+reset 同步 → 当天手动 daily_observer --date 20260629 验证 E2E: fp_mode=shadow + 检测 1 条 fail_plausible + score_history fp_high:0/fp_med:1 (新字段链路通)。shadow 立刻抓到第一个真 FP (正是 shadow 价值, 原则 #32): fabricated_success @ source:freight_daily / L1 S5 boilerplate ×3 评级：⭐⭐⭐⭐。诊断真误报: freight 每条新闻各有评级字段, 多条同 4 星合法重复, 非 fabrication 空壳 (真目标 dream_quota 是描述句 ×5 重复)。系统性 (⭐评级 ~10 摘要源标配, 会淹没一周信号)。若直接上 on 会进 anomalies 拉低评分/告警 → shadow-first 生产第一天证明价值。用户 AskUserQuestion 选现在修 S5 精度。修复 llm_observer.py: _descriptive_char_count (计 CJK+字母数字排 emoji/⭐) + _S5_BOILERPLATE_MIN_DESCRIPTIVE=6, boilerplate 仅计描述字符足够重复行 (评级⭐⭐⭐⭐描述字符=2 排除 / dream_quota 要点描述=10 保留) 精准区分空壳 vs 评分字段。test +4: rating-field 不报 + dream_quota TP 仍报 + 区分 + 阈值守卫。sabotage 阈值=0 → FP 复现 test FAIL / 还原 84。scorecard 不破 defense 100%/FP 0%/dream_quota golden 仍 caught。验证 full_regression 137/0/4921(+3)/suites 138/governance 91/91 EXIT=0/安全 95/VERSION 0.37.9.73 (live S5 runtime 变更)。元价值: 机械化人眼第一个生产 finding 不是 fail-plausible 是 Observer 自己一个误报模式 — 印证 §5.2 Observer 须同等审视 + 用户视角不可替代。下一步 shadow 一周 / Stage 5.1 / Stage 6。",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-30",
       "what": "LLM-Observer Stage 5 — wire detect_fail_plausible 进 daily_observer.run() (首次 runtime 变更, shadow-first, VERSION 0.37.9.71→0.37.9.72)。同日续 Stage 4, 用户「继续执行 stage5」。先 ground (原则 #28): 读 run() 全编排 + push_outputs/source_sections 结构 + _read_file_sample 采样判定 + 三 writer 签名。关键设计=shadow-first (镜像 ONTOLOGY_MODE/three_gate off→shadow→on, 首次 runtime 变更保守)。交付 llm_observer.scan_fail_plausible (cheap-path Layer2 仅 Layer1 命中触发 → 干净日 ≈0 LLM 事故日 +1-2, sampled 判定防 V37.9.93, FAIL-OPEN 含 sampled 计算包 try——单测抓出 len(非str) 真 bug 后修, enable_layer2=False dry_run 仅 Layer1) + daily_observer OBSERVER_FP_MODE env (off/shadow默认/on, 未知→shadow) + build_fail_plausible_section (L1+L2 证据, shadow 标观察性) + run() 集成 (shadow 不进 anomalies 不影响评分/告警, on 进 anomalies, dry_run Layer1-only, lazy import + try/except observer 绝不因 fp 崩溃) + score_history/status 加 fp_verdicts 参数 (fp_high/med + quality.observer.fail_plausible_*, None→0 向后兼容) + build_report_markdown 加 fp_section + result 加 fail_plausible/fp_mode。test +24: test_daily_observer +18 (TestStage5RunIntegration shadow/on/off/dry_run/FAIL-OPEN scan 抛异 observer 存活) + test_llm_observer +6 (TestScanFailPlausible)。189 既有 daily_observer 测试零破坏 (shadow 默认观察性)。源码 sabotage 真有效: shadow 默认改 on → test_default_shadow FAIL; shadow 也 extend → test_shadow_detects FAIL; 还原全过。验证: full_regression 137/0/4916 tests(+26: Stage5 +24 + scanner精度 +2)/suites 138/governance 91/91 EXIT=0/安全 95/三机器 doc-drift 无漂移/VERSION 0.37.9.72 (首次 runtime 变更)。复杂度预算: env +1 (OBSERVER_FP_MODE shadow 默认), jobs 不变 (复用 cron), runtime-state 不变 (扩 score_history/status 字段), tests +24, 净 runtime 机制 = 1 函数 + 1 env flag (design §7.3 兑现 read-only MR-23)。🔴 Mac Mini E2E 必须: 同步后下次 06:30 cron shadow 产段 → 用户视角看一周噪声/价值 → shadow 周后 flip on + force_judge 评估。下一 session Stage 5.1 或 Stage 6。",
       "by": "claude_code"
     },
@@ -204,11 +209,6 @@
       "date": "2026-06-22",
       "what": "V37.9.182 微信推送真机制修正(证伪 V37.9.179「永远做不了」过头结论)+ deep_dive 通道回退 WhatsApp. 触发: 用户报「微信连续两天收到 🔬 每日深度」矛盾 V37.9.179. 数据驱动诊断(用户 Mac Mini 日志铁证): 22:30 deep_dive cron outbound contextToken missing(无 token)却投递成功 + channels status weixin in:29h ago(<48h 窗口开). 真闸门是微信 48h 客服窗口非 contextToken(token 决定会话串接非投递权限); V37.9.179「3h 零到达」恰在窗口关闭期外推出绝对结论. 净结论精炼非反转: 微信对无人值守 cron 仍不可靠(投递依赖用户交互维持窗口)不做内容主推, V37.9.179「不适合 cron」方向对「永远做不了」绝对化错. 为什么只有 deep_dive 到微信: kb_deep_dive.sh:235 硬编码 --channel openclaw-weixin(V37.9.174 遗留, V37.9.179 回退默认通道时漏改). 修(用户选改回 WhatsApp): WA 段 openclaw-weixin→whatsapp + 2 测试断言翻转 + case doc/notify.sh/CLAUDE.md 原则#16/文件表结论修订(诚实追加非改写 V37.9.179 历史). 验证: full_regression 133/0/4723 不变 / governance EXIT=0 91/91 / 安全 95/100 / VERSION 0.37.9.71 不变. 待用户合并 + Mac Mini git fetch+reset → 下次 22:30 deep_dive WA 段走 WhatsApp. 元价值: 正中反馈#1(环境受限就下不可能结论), V37.9.179 是 fail-plausible 镜像(诊断者自己下 plausible 但过头结论), 用户真实观察证伪它.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-06-22",
-      "what": "V37.9.181 周一开工健康基线抓出两真漂移: (1) README/FEATURES/config 测试徽章 V37.9.180 漏跑 gen_readme_badges --write 停在 4715(实际 4722, 本版+1 测试后 4723), 已合并进 main 让 full_regression drift 守卫红灯 → docs 同步 4723 (2) kb_radar.sh 漏登记 push-route 白名单(治理 MRD-PUSH-ROUTE-001 长期 ⚠️), 实为标准原则#16 模式(notify 主推+openclaw fallback)同 kb_evening/kb_review, 两处定义(governance_ontology.yaml + _MRD_DEFAULTS, 有 yaml==defaults 字节级测试)同步加 23→24(原则#31)+ test_kb_radar guard 恢复白名单豁免失去的等价保护 + test_push_route_whitelist_23→24. 验证: 最终 full_regression 133/0/4723(+1) / governance EXIT=0 91/91 MRD-PUSH-ROUTE ✅ / 安全 95/100 / VERSION 0.37.9.71 不变(一致性收敛零业务语义, 外部评审2 指令 + 日落法). 待用户合并 + Mac Mini git fetch+reset(纯 docs + 治理 yaml/py + test, 零重启).",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -260,7 +260,7 @@
   "session_context": {
     "last_session": "2026-06-30",
     "unfinished": [
-      "【LLM-Observer 研究攻关 #1 · Stage 0-5 ✅ 2026-06-30 · 🔴 Mac Mini E2E 必须 → Stage 5.1/6 next】Stage 5: wire detect_fail_plausible 进 daily_observer.run() (首次 runtime 变更, VERSION 0.37.9.72)。shadow-first: OBSERVER_FP_MODE off/shadow默认/on。shadow=检测+专属报告段+score_history/status fp 计数 (观察性, 不进 anomalies 不影响评分/告警); on=进 anomalies。cheap-path (Layer2 仅 Layer1 命中 → 干净日 ≈0 LLM) + 三层 FAIL-OPEN (observer 绝不因 fp 崩溃) + dry_run Layer1-only。+24 单测, 189 既有零破坏。🔴 **Mac Mini E2E 必须 (原则 #6/#9-H, dev 不可替代)**: git fetch+reset 同步 → 下次 06:30 daily_observer cron 起 shadow 产 fail_plausible 段 → (a) 用户视角看次日 Discord #observer 报告 fail_plausible 段是否真有用/有没有噪声 (原则 #13/#32) (b) 观察一周 ~/.kb/self_critique/score_history.jsonl 的 fp_high/fp_med + status.json quality.observer.fail_plausible_high/med (c) 确认 cron 不因 fp 检测变慢/报错 (FAIL-OPEN 验证)。**Stage 5.1 (shadow 周后)**: 若信号真有用且 FP 噪声低 → flip OBSERVER_FP_MODE=on (fp 进 anomalies 影响评分+告警) + 评估 force_judge 高风险 synthesis (catch novel D2/grounding, scorecard 证 Category B 仅 Layer 2 能抓, 但加 LLM 成本须 shadow 数据支撑)。**Stage 6**: bench 化 (reliability_bench 扩展为社区可跑 silent-failure/fail-plausible 检测 bench, llm_observer_selfcheck CORPUS 是种子) + 论文 #2 草案 (描述→预测, scorecard 是核心数据)。",
+      "【LLM-Observer 研究攻关 #1 · Stage 0-5 ✅ + Mac Mini E2E 已启动(V37.9.199 修第一个 shadow FP) 2026-06-30 · shadow 周观察中 → Stage 5.1/6 next】Stage 5 wire 进 daily_observer (PR#759 已合并+同步)。Mac Mini E2E 当天验证: fp_mode=shadow + score_history fp_med 链路通 + shadow 立刻抓第一个真 FP (S5 boilerplate 误把 freight 评分字段 '评级：⭐⭐⭐⭐' 重复当空壳) → V37.9.199 修复 (_descriptive_char_count 区分描述空壳 vs 评分字段, PR#760 待合并)。🔴 **Mac Mini shadow 周观察 (进行中, dev 不可替代)**: 合并 PR#760 + 同步 → 下次 06:30 cron 评分源不再误报。每天看 ~/.kb/self_critique/$(date).md 的 Fail-Plausible 段 + score_history fp_high/med + status.quality.observer.fail_plausible_* — 判断 (a) 还有没有其他系统性 FP (b) 有没有抓到【真】fail-plausible (c) cron 是否变慢/报错 (FAIL-OPEN)。**Stage 5.1 (shadow 周后)**: FP 噪声降到低位 + 信号真有用 → flip OBSERVER_FP_MODE=on (fp 进 anomalies 影响评分+告警) + 评估 force_judge 高风险 synthesis (catch novel D2/grounding)。**Stage 6**: bench 化 (reliability_bench 扩展 + llm_observer_selfcheck CORPUS 种子) + 论文 #2 (描述→预测, scorecard 核心数据)。",
       "【ISSRE Industry Track 已投递(Submission 395, 2026-06-28) · in-review】Silent-failures 论文平行第二投已完成: EasyChair Submission 395 (Industry Track / Full Paper / 标题+150 词摘要+4kw+topics+作者) + 6 页 IEEEtran PDF (pdflatex 本地真编译, 6 页含 refs 符合上限) 上传 15:50。待: 编辑初筛 → 评审 → 通知 2026-08-12。截止前(论文 7-12)可 Update 重传(若官方页 re-confirm 后想微调 Fig.1)。诚实备忘: CFP 走 EAPLS/EasyChair 镜像交叉验证(官方页 403), 建议官方页扫一眼确认 6 页含 refs/7-12 未变。源码 latex/issre_6page_trimmed.tex(投稿版,6 页)+issre_6page.tex(完整版,7 页)入库; PDF 是 build 产物 gitignore。",
       "【IEEE Software 投稿 in-review · 追踪】When Errors Become Narratives 已 2026-06-25 正式提交 IEEE Software (Author Portal/ScholarOne, ORCID 0009-0009-1176-7817, arXiv 预印本透明披露). 待: 收稿确认邮件 → 编辑初筛 → 同行评审(2-3 referee) → 决定(修改/录用/拒). 在 'My Submissions' 追踪状态; 主编 Sigrid Eldh 已收摘要探口风邮件, 如回复可告知已正式提交; 收到 review 请求时回应.",
       "【4.27 推送链路回归追踪 · 中优】真因=4.27 openclaw CLI 冷调用回归 (V37.9.145). 丢失面评估已闭合 (push_path_loss_surface_audit_2026_06_15.md: 无总丢失面, WhatsApp 瞬时缝隙内容在 Discord 存活). 剩余需 Mac Mini 生产数据: (a) openclaw message send --help timeout 旋钮探测 → 可配则 notify.sh/直推 job 调大 (b) ls ~/.openclaw/plugin-runtime-deps/ 多 hash dir 查 staging 间歇复发 (V37.9.162 同源) (c) 上游 releases 查 CLI 冷启动/staging 修复 (tripwire 不自动升级). 硬化候选 (deferred 需 E2E): 论文类 job 直推双通道迁 notify.sh --topic (MR-8 一物一形).",
@@ -282,14 +282,14 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 4918,
-    "last_regression": "2026-06-30 02:20 pass",
+    "test_count": 4921,
+    "last_regression": "2026-06-30 03:47 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-30 02:20",
+    "security_score_time": "2026-06-30 03:47",
     "test_suites": 138,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
-    "version": "0.37.9.72",
+    "version": "0.37.9.73",
     "observer": {}
   },
   "incidents": [
@@ -354,7 +354,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-06-30: LLM-Observer 研究攻关 #1 Stage 5 — wire 进 daily_observer (首次 runtime 变更, shadow-first, VERSION 0.37.9.72)。llm_observer.scan_fail_plausible collection wrapper (cheap-path Layer2 仅 Layer1 命中触发 → 干净日 ≈0 LLM, FAIL-OPEN, enable_layer2=False dry_run 仅 Layer1) + daily_observer OBSERVER_FP_MODE env (off/shadow默认/on): shadow=检测+专属报告段+score_history/status fp 计数 (观察性不进 anomalies 不影响评分/告警), on=进 anomalies。三层 FAIL-OPEN (llm_observer 不可用/LLM 错误/单 artifact 异常) observer 绝不崩。+24 单测 (full_regression 137/0/4918 (含 2 collateral: MR-23 scanner D1 误报精度修复 + INV-OBSERVER-001 脆弱窗口 robustify), suites 138, governance 91/91, 安全 95)。189 既有 daily_observer 测试零破坏。源码 sabotage: shadow 默认改 on / shadow 也 extend anomalies → 守卫 FAIL / 还原全过。🔴 Mac Mini E2E 必须 (原则 #6): 同步后下次 06:30 cron 起 shadow 产 fail_plausible 段 → 用户视角看一周报告真有用/有没有噪声 + score_history fp_high/med + status.quality.observer.fail_plausible_*。shadow 周后若有用噪声低 → Stage 5.1 flip OBSERVER_FP_MODE=on + 评估 force_judge 高风险 synthesis (catch novel)。下一步 Stage 5.1 (flip on) 或 Stage 6 (bench 化 + 论文 #2)。",
+  "focus": "2026-06-30: LLM-Observer Stage 5 Mac Mini E2E 第一个 shadow finding — S5 评分字段误报修复 (VERSION 0.37.9.73)。Stage 5 合并(PR#759)+Mac Mini 同步 → 当天手动跑验证: fp_mode=shadow + 检测 1 条 + score_history fp_med:1 链路通。shadow 立刻抓到 1 个真 FP: S5 boilerplate 误把 freight '评级：⭐⭐⭐⭐' 评分字段重复(各新闻一个评级,合法)当 fabrication 空壳。系统性 (⭐评级是 ~10 摘要源标配)。若直接上 on 会拉低评分/告警 → shadow-first 第一天证明价值。用户 AskUserQuestion 选'现在修 S5 精度'。修复: _descriptive_char_count (CJK+字母数字, 排 emoji/⭐) + _S5_BOILERPLATE_MIN_DESCRIPTIVE=6, boilerplate 仅计描述字符足够的重复行 (评级⭐⭐⭐⭐=2 排除 / dream_quota 描述句=10 保留)。+4 单测, scorecard 不破 (defense 100%/FP 0%)。VERSION 0.37.9.73 (live S5 runtime 变更)。🔴 Mac Mini 待合并+同步 → 下次 06:30 cron 评分源不再误报 → 一周 shadow 信号干净。下一步 shadow 一周观察其余 FP / Stage 5.1 (flip on) / Stage 6 (bench+论文#2)。",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",

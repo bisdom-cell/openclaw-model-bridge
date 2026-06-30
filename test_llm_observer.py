@@ -183,6 +183,26 @@ class TestCoherenceStructuralS5(unittest.TestCase):
         self.assertEqual([s for s in obs.detect_coherence_structural(txt)
                           if "boilerplate" in s["snippet"]], [])
 
+    def test_rating_field_repetition_not_boilerplate(self):
+        # V37.9.199 (Mac Mini shadow E2E FP): 评分字段 '评级：⭐⭐⭐⭐' 几乎所有摘要源标配,
+        # 合法重复 ≥3 次, 不是 fabrication 空壳 → boilerplate 不应误报。
+        txt = "\n".join(["评级：⭐⭐⭐⭐"] * 4)
+        self.assertEqual([s for s in obs.detect_coherence_structural(txt)
+                          if "boilerplate" in s["snippet"]], [],
+                         "评分字段重复不是 fabrication 空壳 (Mac Mini freight FP)")
+
+    def test_descriptive_shell_still_fires_after_fp_fix(self):
+        # 真目标保留: 描述文本空壳 (dream_quota fallback) 仍必须抓 (描述字符 >= 阈值)
+        txt = "\n".join(["要点：技术内容，详见原文"] * 5)
+        sigs = [s for s in obs.detect_coherence_structural(txt)
+                if "boilerplate" in s["snippet"]]
+        self.assertTrue(sigs, "描述文本空壳必须仍抓 (TP 不被 FP 修复牵连)")
+
+    def test_descriptive_char_count_distinguishes(self):
+        self.assertEqual(obs._descriptive_char_count("评级：⭐⭐⭐⭐"), 2)
+        self.assertGreaterEqual(obs._descriptive_char_count("要点：技术内容，详见原文"),
+                                obs._S5_BOILERPLATE_MIN_DESCRIPTIVE)
+
 
 class TestRunPrefilter(unittest.TestCase):
     def test_clean_fixtures_no_false_positive(self):

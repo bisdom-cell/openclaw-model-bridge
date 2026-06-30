@@ -95,6 +95,11 @@ _S4_EVIDENCE_TAGS = ["[强证据]", "[弱关联]", "[强关联]", "[直接证据
 # S5 — boilerplate 重复阈值 / 全标题启发式参数
 _S5_BOILERPLATE_MIN_REPEAT = 3      # 同一非平凡行重复 >= 3 次 (dream_quota ×5)
 _S5_BOILERPLATE_MIN_LEN = 6         # 行长 >= 6 字符才算 (排除 '---' 等)
+# V37.9.199 (Mac Mini shadow E2E FP 修复): boilerplate 必须是【描述文本】重复 (fabrication
+# 空壳, 如 dream_quota '要点：技术内容，详见原文' ×5), 不是【结构化评分字段】重复 (如
+# freight '评级：⭐⭐⭐⭐' ×3, ⭐ 评级几乎所有摘要源标配, 合法重复)。要求重复行有足够
+# 描述性字符 (CJK + 字母数字, 排除 emoji/⭐/标点) 才算 → rating 字段 (描述字符少) 不误报。
+_S5_BOILERPLATE_MIN_DESCRIPTIVE = 6  # 重复行需 >= 6 描述性字符才算 boilerplate
 _S5_HEADING_MIN_COUNT = 3           # >= 3 个 markdown 标题
 _S5_HEADING_BODY_MAX_CHARS = 40     # 每标题对应正文 < 40 字 = 全标题无正文 (kb_review)
 _S5_SEPARATOR_VALUES = {"---", "===", "───", "—", "...", "···", "n/a", "N/A", "—"}
@@ -112,6 +117,21 @@ def log(msg):
 def _line_of(text, idx):
     """返回字符偏移 idx 所在的 1-based 行号 (locus)。"""
     return text.count("\n", 0, idx) + 1
+
+
+def _descriptive_char_count(s):
+    """计描述性字符数 (CJK 表意 + ASCII 字母数字), 排除 emoji/⭐/标点/符号。
+
+    V37.9.199: 区分 fabrication 描述空壳 (描述文本重复) vs 结构化评分字段 (⭐/符号主导)。
+    rating 字段值如 '⭐⭐⭐⭐' 描述字符=0; 描述句如 '技术内容详见原文' 描述字符多。
+    """
+    n = 0
+    for ch in s:
+        if ch.isascii() and ch.isalnum():
+            n += 1
+        elif "一" <= ch <= "鿿":   # CJK 统一表意文字
+            n += 1
+    return n
 
 
 def _sig(signal, severity, locus, snippet):
@@ -226,10 +246,12 @@ def detect_coherence_structural(text):
     out = []
     lines = text.split("\n")
 
-    # (a) boilerplate 重复
+    # (a) boilerplate 重复 (V37.9.199: 仅【描述文本】重复算空壳, 排除评分字段 emoji 重复)
     from collections import Counter
-    norm = [ln.strip() for ln in lines if len(ln.strip()) >= _S5_BOILERPLATE_MIN_LEN
-            and not ln.strip().startswith("#")]
+    norm = [ln.strip() for ln in lines
+            if len(ln.strip()) >= _S5_BOILERPLATE_MIN_LEN
+            and not ln.strip().startswith("#")
+            and _descriptive_char_count(ln.strip()) >= _S5_BOILERPLATE_MIN_DESCRIPTIVE]
     counts = Counter(norm)
     for line_text, n in counts.items():
         if n >= _S5_BOILERPLATE_MIN_REPEAT:
