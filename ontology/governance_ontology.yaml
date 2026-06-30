@@ -9186,7 +9186,10 @@ invariants:
           src = open("daily_observer.py", encoding="utf-8").read()
           wi = src.find("def _write_observer_to_status")
           assert wi != -1, "INV-OBSERVER-001: _write_observer_to_status helper 必须存在 (V37.9.92 status closure)"
-          wbody = src[wi:wi + 2200]
+          # V37.9.198: slice 到下一个 def (函数边界) 而非脆弱定长窗口 —— 函数随特性增长
+          # (如 Stage 5 fp 计数) 不应让 except 块滑出窗口致 FAIL-OPEN 守卫假阴。
+          _wend = src.find("\ndef ", wi + 1)
+          wbody = src[wi:_wend if _wend != -1 else wi + 3000]
           assert 'quality["observer"]' in wbody, "INV-OBSERVER-001: 缺 quality.observer schema 写入"
           assert "save_status" in wbody, "INV-OBSERVER-001: 必须经 status_update.save_status 原子写 (MR-9)"
           assert "except ImportError" in wbody and "except Exception" in wbody, (
@@ -9194,7 +9197,10 @@ invariants:
               "(except ImportError + except Exception, 绝不崩 observer run)"
           )
           ri = src.find("def run(")
-          rbody = src[ri:ri + 4500]
+          # V37.9.198: slice 到下一个 def (run() 函数边界) 而非脆弱定长窗口 —— run() 随
+          # 特性增长 (如 Stage 5 fail-plausible 段) 不应让顺序锁的调用点滑出窗口致假阴。
+          _rend = src.find("\ndef ", ri + 1)
+          rbody = src[ri:_rend if _rend != -1 else ri + 6000]
           ai = rbody.find("append_score_history")
           wci = rbody.find("_write_observer_to_status")
           assert ai != -1 and wci != -1 and ai < wci, (

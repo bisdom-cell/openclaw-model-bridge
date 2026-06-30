@@ -467,6 +467,73 @@ class TestDetectFailPlausible(unittest.TestCase):
                                       llm_caller=caller)
         self.assertEqual(r, [])
 
+    def test_enable_layer2_false_layer1_only(self):
+        # Stage 5 dry_run: enable_layer2=False → Layer 1 命中也不调 LLM
+        d1 = "平台返回 Bad JSON 错误"
+        called = {"n": 0}
+
+        def caller(s, u):
+            called["n"] += 1
+            return True, "{}", ""
+        r = obs.detect_fail_plausible(d1, source_id="dream", llm_caller=caller,
+                                      enable_layer2=False)
+        self.assertEqual(called["n"], 0)
+        self.assertEqual(len(r), 1)
+        self.assertTrue(all(e["layer"] == 1 for e in r[0]["evidence"]))
+
+
+class TestScanFailPlausible(unittest.TestCase):
+    """Stage 5 collection-level wrapper (daily_observer.run() 接口)。"""
+
+    def test_iterates_push_and_sources(self):
+        push = {
+            "dream": {"found": True, "length": 60,
+                      "content": "信号：平台返回 'Bad JSON' 和 '400 错误'，疑似危机。"},
+            "evening": {"found": True, "length": 30, "content": "今日分析覆盖多个领域，论证完整。"},
+            "deep_dive": {"found": False, "content": "", "length": 0},
+        }
+        src = [{"source": "arxiv_monitor", "section_text": "Qwen3 新机制，实验充分。",
+                "char_count": 20}]
+        caller = _fake_caller_json(findings=[
+            {"judge": "pollution_evidence", "evidence": "'Bad JSON' 和 '400 错误'",
+             "rationale": "r"}])
+        v = obs.scan_fail_plausible(push, src, llm_caller=caller)
+        self.assertEqual(len(v), 1)   # 仅 dream 命中
+        self.assertEqual(v[0]["artifact"], "dream")
+
+    def test_missing_or_empty_skipped(self):
+        push = {"dream": {"found": False, "content": "", "length": 0}}
+        self.assertEqual(obs.scan_fail_plausible(push, []), [])
+        self.assertEqual(obs.scan_fail_plausible(None, None), [])
+
+    def test_sampled_flag_from_length(self):
+        # length > len(content) → 采样 → 传 sampled=True 给 Layer 2 (此处验证不崩 + 命中)
+        push = {"dream": {"found": True, "length": 99999,
+                          "content": "平台返回 Bad JSON 错误"}}
+        captured = {}
+
+        def caller(s, u):
+            captured["sampled_in_prompt"] = "采样" in u
+            return True, '{"verdict":"clean","findings":[]}', ""
+        obs.scan_fail_plausible(push, [], llm_caller=caller)
+        self.assertTrue(captured.get("sampled_in_prompt"))
+
+    def test_enable_layer2_false_no_llm(self):
+        push = {"dream": {"found": True, "length": 30, "content": "平台返回 Bad JSON 错误"}}
+        called = {"n": 0}
+
+        def caller(s, u):
+            called["n"] += 1
+            return True, "{}", ""
+        obs.scan_fail_plausible(push, [], llm_caller=caller, enable_layer2=False)
+        self.assertEqual(called["n"], 0)
+
+    def test_fail_open_artifact_exception(self):
+        # 单 artifact 异常 → skip 不阻塞 (这里用畸形 push entry)
+        push = {"dream": {"found": True, "length": 10, "content": 12345}}  # content 非 str
+        # detect_fail_plausible 对非 str text 安全 (run_prefilter 返回 clean) → 不崩
+        self.assertEqual(obs.scan_fail_plausible(push, []), [])
+
 
 @unittest.skipUnless(_HAS_YAML, "PyYAML required for golden Layer 2 tie")
 class TestGoldenCasesLayer2(unittest.TestCase):
@@ -530,7 +597,7 @@ class TestStage3SourceLevelGuards(unittest.TestCase):
     def test_stage3_marker(self):
         with open(os.path.join(_REPO, "llm_observer.py"), encoding="utf-8") as f:
             src = f.read()
-        self.assertIn("Stage 2+3", src)
+        self.assertIn("Stage 3", src)        # Layer 2 (Stage 3, LLM-judge)
         self.assertIn("反幻觉铁律", src)
 
     def test_design_locked_layer2_constants(self):

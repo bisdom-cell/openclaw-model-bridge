@@ -183,6 +183,26 @@ class TestD1CrontabRealApply(unittest.TestCase):
                '        pass\n')
         self.assertNotIn("D1-crontab-real-apply", _dets(_scan_src(src)))
 
+    def test_dry_run_false_without_crontab_context_not_flagged(self):
+        # V37.9.198 精度修复: dry_run=False 在【无 crontab 上下文】的文件里不是 crontab
+        # real-apply (如 daily_observer.run() 的 dry_run = 跳过 LLM)。无 crontab/convergence/
+        # machine_sync 引用 → D1 不适用, 消除误报 (不弱化 convergence 守卫)。
+        src = ('import unittest\n'
+               'class T(unittest.TestCase):\n'
+               '    def _run(self, td, mode, dry_run=False):\n'
+               '        return observer.run(kb_dir=td, dry_run=dry_run)\n')
+        self.assertNotIn("D1-crontab-real-apply", _dets(_scan_src(src)),
+                         "无 crontab 上下文的 dry_run=False 不应被 D1 误报")
+
+    def test_dry_run_false_with_crontab_context_still_flagged(self):
+        # 守卫不被弱化: 同样无隔离, 但文件有 crontab 上下文 → 仍抓 (convergence 血案)
+        src = ('import unittest\n'
+               'class T(unittest.TestCase):\n'
+               '    def test_x(self):\n'
+               '        run_crontab_apply(spec, dry_run=False)\n')
+        self.assertIn("D1-crontab-real-apply", _dets(_scan_src(src)),
+                      "有 crontab 上下文的 dry_run=False 无隔离 → 必须仍抓")
+
 
 # ─────────────────────────── D2: ~/.kb incident write ───────────────────────────
 class TestD2KbIncidentWrite(unittest.TestCase):
