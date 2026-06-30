@@ -1546,15 +1546,22 @@ class TestDeepSeekProvider(unittest.TestCase):
         self.assertEqual(ds.api_key_env, "DEEPSEEK_API_KEY")
         self.assertEqual(ds.auth_style, "bearer")
 
-    def test_declared_tier_unverified_honest(self):
-        # 未经 Mac Mini E2E 实测 → declared + verified_* 全 False (诚实语义, 原则 #23)
+    def test_tier_feature_verified_after_e2e(self):
+        # V37.9.202: Mac Mini E2E 实测 text/streaming/tool_calling 3/3 → feature_verified
+        # (诚实语义, 原则 #23 — 只 flip 实测过的; reasoning/vision/json_mode 未测保持 False)
         from providers import get_provider
         caps = get_provider("deepseek").capabilities
-        self.assertEqual(caps.verification_tier, "declared")
-        self.assertFalse(caps.verified_text)
-        self.assertFalse(caps.verified_tool_calling)
-        self.assertFalse(caps.verified_streaming)
+        self.assertEqual(caps.verification_tier, "feature_verified")
+        self.assertTrue(caps.verified_text)
+        self.assertTrue(caps.verified_tool_calling)
+        self.assertTrue(caps.verified_streaming)
+        # 未实测 → 保持 False
+        self.assertFalse(caps.verified_vision)
         self.assertFalse(caps.verified_fallback)
+        self.assertFalse(caps.reasoning, "reasoning 未触发, 不得声明")
+        # feature_verified 非 declared 档位 → 必须有显式 tier_evidence (引用 E2E 证据)
+        self.assertTrue(caps.tier_evidence)
+        self.assertIn("E2E", caps.tier_evidence)
 
     def test_base_url_env_driven_with_public_fallback(self):
         Cls = self._load_class()

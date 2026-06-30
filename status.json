@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-30 06:17:43",
+  "updated": "2026-06-30 06:39:25",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -111,6 +111,11 @@
   "recent_changes": [
     {
       "date": "2026-06-30",
+      "what": "DeepSeek-V4-Pro Mac Mini E2E 实测 → declared 升 feature_verified (VERSION 0.37.9.74→0.37.9.75)。V37.9.201 接入后用户同步 PR#762 + 设 DEEPSEEK_API_KEY+DEEPSEEK_BASE_URL 两 env → 当天 E2E。🔴 拒绝硬编码 key: 用户中途要求把 key 写进代码 → 拒绝并解释(公开仓库 git 历史不可逆泄漏+裸 IP 端点挂公网即被滥用+full_regression/preflight sk-扫描挡 push+现有 8 provider 无一硬编码全走 env+硬编码不更省事持久化用 ~/.env_shared 同 REMOTE_API_KEY/ARK_API_KEY)→ 引导 grep -q 幂等 append shell 变量持久化(不再输明文)。E2E 三件(用户 curl 真端点 原则 #11/#13): 注册(providers.py registered 9 含 deepseek + available 含 deepseek + base_url=真实私有端点 env 覆盖生效) + text(content=OK+finish_reason=stop+model 被接受) + streaming(stream:true→chat.completion.chunk SSE+delta.content 逐 token+[DONE]) + tool_calling(tools→finish_reason=tool_calls+tool_calls[].function{get_weather,city:Tokyo}) 3/3。诚实 flip(原则 #23 只声明实测过): tool_calling False→True + verified_text/streaming/tool_calling=True + tier declared→feature_verified(分项 E2E 通过但未真生产流量, 一致性不变式要求非 declared 写 tier_evidence→写 E2E 证据串); reasoning(全程 reasoning:null/reasoning_tokens:0 未触发不得声明)/vision/json_mode/verified_fallback(未真生产接管同 doubao) 保持 False。全量同步: test_providers TestDeepSeekProvider(declared 测试重写 test_tier_feature_verified_after_e2e: 3 verified+reasoning False+tier_evidence 含 E2E)/test_gen_compat declared 6→5/gen_compat --fix(能力矩阵 tool_calling Yes+档位表 feature_verified)/minimal_runtime golden 不变(deepseek 3 verified 但 cap_score 仍排 fallback_chain 尾 MATCH)/router 不变(reasoning=False→prefer reasoning 仍 qwen 胜 INV-ROUTER-001 绿)。验证 full_regression 137/0/4941/governance 91/91 EXIT=0/安全 95/零凭证泄漏(全仓 grep key/IP/token 全空)/tier 一致[]/VERSION 0.37.9.75(能力变更 tool_calling False→True+3 verified 影响路由资格+评分, 镜像 doubao V37.9.53-55 渐进验证分版本)。复杂度预算: files 不变(扩既有插件+测试)/env 不变(V37.9.201 已+2)/净 runtime 机制≈0(能力声明精度提升非新接缝)。剩余: launchd adapter/proxy source ~/.env_shared + reasoning/json/vision 专门实测 + 生产观察升 production_observed。安全: 明文 key 建议轮换。元价值: 机械化渐进验证第二次兑现(doubao→deepseek), verified_* 每项有真 curl 证据 tier 升级有据; 安全底线在用户明确要求硬编码时仍坚守(公开仓库+push 门双保险)。",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-30",
       "what": "新增第 9 个 LLM provider DeepSeek-V4-Pro (VERSION 0.37.9.73→0.37.9.74)。用户提供端点。🔴 安全第一(CLAUDE 硬规则+公开仓库): key 走 env DEEPSEEK_API_KEY, base_url(裸 IP+路径 token=类机密)走 env DEEPSEEK_BASE_URL, 都不入库; dev 无 env → 公开 fallback api.deepseek.com 让合约通过 + available() 缺 key 排除 (镜像 doubao V37.9.52 安全模式)。诚实(原则 #23): DeepSeek-V4-Pro 是未知自建端点无依据声明 tool_calling/reasoning → 保守只声明 text+streaming, tier=declared verified_* 全 False, 待 Mac Mini E2E 逐项 flip。Python 插件 providers.d/deepseek_provider.py。registry 8→9。全量同步 count(原则 #31): test_providers 5 处+canary deepseek→custom / test_gen_compat 2+8→2+9+declared 5→6 / test_convergence all_known+deepseek / test_v37_9_52 8→9+CLI 9 providers / README+CLAUDE prose current-state 8→9(不碰 frozen changelog) / gen_compat --fix 三表 / gen_readme_badges --write 徽章+版本 / minimal_runtime golden 重生成(+deepseek fallback_chain, count 8→9, best reasoning 仍 doubao)。修 router test 级联: 起初声明 reasoning=True → test_prefer_adds_score_boost deepseek 抢 qwen → INV-ROUTER-001 runtime check 跑该 test 失败 → governance 90/91 + badges 行为测试连带失败 → 改保守不声明 reasoning → qwen 仍胜 → 三连锁失败全修(原则 #28 理解级联根因)。TestDeepSeekProvider 5: 身份/declared 诚实/base_url env 驱动(无 env 公开 fallback/有 env 私有)/available() 缺 key 排除/🔴 安全守卫 test_no_secret_hardcoded(regex 无裸 IPv4+无 sk-key+引用两 env+公开 fallback, 测试本身不嵌明文机密)。验证 full_regression 137/0/4941/suites 138/governance 91/91 EXIT=0/安全 95/零凭证泄漏(全仓 grep key/IP/token 全空)/VERSION 0.37.9.74。复杂度预算: files +1(插件)/env +2(DEEPSEEK_API_KEY+BASE_URL Mac Mini, dev 优雅降级)/净 runtime 机制=1 provider(复用 plugin 框架+available()过滤+doubao 安全模式非新框架)。🔴 Mac Mini 待用户: 合并同步 → .env_shared 设两 env → 重启 → E2E 实测 → flip verified_*。安全提醒: 明文 key 贴对话建议轮换。",
       "by": "claude_code"
     },
@@ -204,11 +209,6 @@
       "date": "2026-06-23",
       "what": "V37.9.185 status.json 一致性收敛 + 待办归账 (日落法 + 外部评审2「一致性收敛」指令, 用户选). 周二开工健康基线全绿(135 suites/4759 tests/0 fail/governance 91/91/安全 95/三机器 doc-drift 无漂移/树干净/无 PR). 诊断(原则 #28 + 删除前看目标): status.json 经多 session 直接 Edit 累积真实结构性 cruft — (a) 两个 unfinished 列表(嵌套 canonical 21 项停@V37.9.167 + 误键顶层 dotted-key 'session_context.unfinished' 7 项一物多形 bug, 含 4 月古董 V37.9.9/19/20/21 + 最新 V37.9.183/184 follow-up) (b) 两个 focus(嵌套 stale@167 + current_focus 古董@V37.8 + 顶层 canonical) (c) stale 冗余(session_context.recent_changes V37.9.90↓ dup / system_health 3505 dup of quality 4759 / last_updated+updated_at dup of canonical updated). 读两写入者(status_update.py V37.9.38 迁移只处理纯顶层 unfinished 不处理 dotted-key + kb_status_refresh.sh SOUL 生成器)核实 canonical 字段全顶层, cruft 从不被读. 待办归账: 28 碎片→14 grounded-live 单一 canonical, 退役 12 项每项 changelog/code 证据(V37.9.9 engine 三 API done @V37.9.12 / V37.9.21 fetch_pdf_text 取代 V37.9.132/183/184 / V37.9.157 INV-CRON Mac Mini ✅ 8 天无复发 / V37.9.100/101/103/106 部署验证窗口过+governance 91/91 / SLO #19 self-heal 兑现 / V37.9.162 Option A V37.9.180 证伪). 删 cruft 8 session_context 字段 + 顶层孤儿 dotted-key + system_health + last_updated/updated_at, 零信息损失(canonical 全在顶层 focus/recent_changes/quality/updated + CLAUDE changelog). status.json 444→359 行(-85). Python 原子脚本 + 边界 assert 防呆 + status_update.py --read --human 验证 canonical 消费者 + 4 status 套件(memory_plane/status_update/v37_9_38/daily_observer)全过. full_regression 135/0/4759 不变 / governance EXIT=0 91/91 / VERSION 0.37.9.71 不变(纯 state 零业务语义). 净 -3 一物多形漂移源, unfinished 认知负荷 28→14 缩外部评审2 文档过载面. 同时刷新停 V37.9.167 的 session_context 与现实对齐. 待 Mac Mini git fetch+reset(纯 status.json 零重启).",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-06-22",
-      "what": "V37.9.184 deep_dive ScienceDirect 覆盖 (V37.9.183 follow-up 兑现, 用户「继续补上」). ScienceDirect (11/43, ontology_sources 核心源 Elsevier 付费墙) KB link 是 PII URL 无 DOI → deep_dive DOI→S2 OA 解析够不到. 修复点选 KB-write (镜像 V37.9.132 源头写好 link, 非 deep_dive fetch 时模糊 title 搜索): run_ontology_sources.sh 加 prism namespace + _extract_item_doi 纯函数 (仅取结构化字段 prism:doi→dc:identifier→guid, 绝不碰 description 防摘要引用 DOI 误取=fail-plausible 防线) + 有 DOI 且 link 非 arxiv/doi.org → 改写 doi.org link. deep_dive 零改动 (V37.9.183 DOI→S2 自动接管). FAIL-OPEN 无 DOI 保持 PII. 16 新单测 (literal-as-guard 抽函数 exec 跑真 XML fixture) + sabotage (加 description 进字段 → 防误取守卫双 FAIL). full_regression 134/0/4759 (+16) / 135 suites / governance EXIT=0 91/91 / 安全 95/100 / VERSION 0.37.9.71 不变. 诚实预期: Elsevier 多闭源, 命中取决于有无 arxiv 预印本/green OA, 恢复一部分; 仅助新论文 (历史 KB 仍 PII). 待用户合并 + Mac Mini git fetch+reset → 下次 ontology cron 新 ScienceDirect 论文写 doi.org link.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -261,7 +261,7 @@
     "last_session": "2026-06-30",
     "unfinished": [
       "【LLM-Observer 研究攻关 #1 · Stage 0-5 ✅ + Stage 6 chunk 1 ✅(V37.9.200 bench 社区化) + Mac Mini E2E shadow 周观察中 2026-06-30 · Stage 5.1(flip on, gated 于 shadow 周数据)/Stage 6 论文 #2 草案(gated 于 detection latency 生产数据) next】Stage 5 wire 进 daily_observer (PR#759 已合并+同步)。Mac Mini E2E 当天验证: fp_mode=shadow + score_history fp_med 链路通 + shadow 立刻抓第一个真 FP (S5 boilerplate 误把 freight 评分字段 '评级：⭐⭐⭐⭐' 重复当空壳) → V37.9.199 修复(PR#760 已合并 b9d68b2, 生产复跑 2026-06-29 段数 1→0 确认生效) (_descriptive_char_count 区分描述空壳 vs 评分字段, PR#760 待合并)。🔴 **Mac Mini shadow 周观察 (进行中, dev 不可替代)**: 合并 PR#760 + 同步 → 下次 06:30 cron 评分源不再误报。每天看 ~/.kb/self_critique/daily_critique_$(date -v-1d +%Y%m%d).md 的 Fail-Plausible 段 + score_history fp_high/med + status.quality.observer.fail_plausible_* — 判断 (a) 还有没有其他系统性 FP (b) 有没有抓到【真】fail-plausible (c) cron 是否变慢/报错 (FAIL-OPEN)。**Stage 5.1 (shadow 周后)**: FP 噪声降到低位 + 信号真有用 → flip OBSERVER_FP_MODE=on (fp 进 anomalies 影响评分+告警) + 评估 force_judge 高风险 synthesis (catch novel D2/grounding)。**Stage 6**: bench 化 (reliability_bench 扩展 + llm_observer_selfcheck CORPUS 种子) + 论文 #2 (描述→预测, scorecard 核心数据)。",
-      "【DeepSeek-V4-Pro provider Mac Mini E2E 待用户 (V37.9.201 已接入, declared 未实测)】合并+git fetch+reset 同步后: (1) .env_shared(gitignore) 设 DEEPSEEK_API_KEY + DEEPSEEK_BASE_URL(用户私有端点 裸 IP+路径 token) 两个 env (2) 重启 adapter/proxy → python3 providers.py 应列 DeepSeek-V4-Pro + get_registry().available() 含 deepseek (3) PROVIDER=deepseek 或 fallback 链激活后 curl E2E 实测 text/tool_calling/streaming/reasoning → 验证通过项逐项 flip providers.d/deepseek_provider.py 的 verified_*=True + 升 verification_tier(declared→smoke_tested/feature_verified, 镜像 doubao V37.9.53-55)。安全: 用户在对话里贴了明文 key, 建议轮换(防御纵深, 对话历史可能被记录)。",
+      "【DeepSeek-V4-Pro provider · V37.9.202 E2E 实测完成(text/streaming/tool_calling 3/3 → feature_verified) · 剩余 Mac Mini 收尾】(1) launchd 管理的 adapter/proxy 重启后能否用上 deepseek: 需确认其 plist 是否 source ~/.env_shared(env 已持久化到该文件); 不 source 则需在 plist 或服务启动链加载 env(不硬编码 key)。当前 shell 已可用。(2) reasoning/json_mode/vision 未实测保持 False: 如需用这些能力, 专门 curl 实测(reasoning 需触发 reasoning_content 的 prompt, 当前简单 prompt reasoning:null)后再 flip verified_*。(3) 真接入 fallback 链或设为某任务 PROVIDER 后, 生产观察到真接管 → 可从 feature_verified 升 production_observed(镜像 doubao)。(4) 🔴 安全: 明文 key 在对话出现多次, 建议轮换该 key(防御纵深)。",
       "【ISSRE Industry Track 已投递(Submission 395, 2026-06-28) · in-review】Silent-failures 论文平行第二投已完成: EasyChair Submission 395 (Industry Track / Full Paper / 标题+150 词摘要+4kw+topics+作者) + 6 页 IEEEtran PDF (pdflatex 本地真编译, 6 页含 refs 符合上限) 上传 15:50。待: 编辑初筛 → 评审 → 通知 2026-08-12。截止前(论文 7-12)可 Update 重传(若官方页 re-confirm 后想微调 Fig.1)。诚实备忘: CFP 走 EAPLS/EasyChair 镜像交叉验证(官方页 403), 建议官方页扫一眼确认 6 页含 refs/7-12 未变。源码 latex/issre_6page_trimmed.tex(投稿版,6 页)+issre_6page.tex(完整版,7 页)入库; PDF 是 build 产物 gitignore。",
       "【IEEE Software 投稿 in-review · 追踪】When Errors Become Narratives 已 2026-06-25 正式提交 IEEE Software (Author Portal/ScholarOne, ORCID 0009-0009-1176-7817, arXiv 预印本透明披露). 待: 收稿确认邮件 → 编辑初筛 → 同行评审(2-3 referee) → 决定(修改/录用/拒). 在 'My Submissions' 追踪状态; 主编 Sigrid Eldh 已收摘要探口风邮件, 如回复可告知已正式提交; 收到 review 请求时回应.",
       "【4.27 推送链路回归追踪 · 中优】真因=4.27 openclaw CLI 冷调用回归 (V37.9.145). 丢失面评估已闭合 (push_path_loss_surface_audit_2026_06_15.md: 无总丢失面, WhatsApp 瞬时缝隙内容在 Discord 存活). 剩余需 Mac Mini 生产数据: (a) openclaw message send --help timeout 旋钮探测 → 可配则 notify.sh/直推 job 调大 (b) ls ~/.openclaw/plugin-runtime-deps/ 多 hash dir 查 staging 间歇复发 (V37.9.162 同源) (c) 上游 releases 查 CLI 冷启动/staging 修复 (tripwire 不自动升级). 硬化候选 (deferred 需 E2E): 论文类 job 直推双通道迁 notify.sh --topic (MR-8 一物一形).",
@@ -284,13 +284,13 @@
   "quality": {
     "security_score": 95,
     "test_count": 4941,
-    "last_regression": "2026-06-30 06:16 pass",
+    "last_regression": "2026-06-30 06:38 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-30 06:16",
+    "security_score_time": "2026-06-30 06:38",
     "test_suites": 138,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
-    "version": "0.37.9.74",
+    "version": "0.37.9.75",
     "observer": {}
   },
   "incidents": [
@@ -355,7 +355,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-06-30: 新增第 9 个 LLM provider DeepSeek-V4-Pro (VERSION 0.37.9.73→0.37.9.74)。用户提供端点(裸 IP+路径 token URL + 明文 sk- key + model 名)。🔴 安全: 公开仓库 → key 走 env DEEPSEEK_API_KEY + base_url 走 env DEEPSEEK_BASE_URL (机密都不入库, 镜像 doubao 安全底线), dev 无 env → 公开 fallback api.deepseek.com 让合约通过 + available() 缺 key 自动排除。诚实: 能力保守只声明 text+streaming (未知自建端点无依据声明 tool_calling/reasoning, 待 Mac Mini E2E flip), tier=declared verified_*全 False。registry 8→9。全量同步 count 守卫(test_providers/gen_compat/convergence/doubao + README/CLAUDE prose 不碰 frozen changelog) + gen_compat --fix 三表 + minimal_runtime golden 重生成(+deepseek) + 修 router test 级联(deepseek 无 reasoning → qwen 仍胜 → INV-ROUTER-001 过)。TestDeepSeekProvider 5 含安全守卫(regex 无裸 IP/sk-key, 测试不嵌明文机密)。full_regression 137/0/4941/governance 91/91/安全 95/零凭证泄漏。🔴 Mac Mini 待用户: .env_shared 设 DEEPSEEK_API_KEY+DEEPSEEK_BASE_URL → 重启 adapter/proxy → E2E 实测 text/tool_calling/streaming → flip verified_*。安全提醒: 明文 key 已贴对话, 建议轮换。",
+  "focus": "2026-06-30: DeepSeek-V4-Pro Mac Mini E2E 实测 → declared 升 feature_verified (VERSION 0.37.9.74→0.37.9.75)。用户同步 PR#762 + 设两 env 后 curl 真端点: text(content+finish_reason=stop) / streaming(SSE chunk+delta.content+[DONE]) / tool_calling(finish_reason=tool_calls+get_weather arguments) 3/3 通过。诚实 flip: declare tool_calling=True + verified_text/streaming/tool_calling=True + tier declared→feature_verified + tier_evidence 写 E2E 证据; reasoning(reasoning:null 未触发)/vision/json_mode/fallback 未测保持 False。🔴 中途用户要求硬编码 key → 拒绝并解释(公开仓库不可逆泄漏+裸 IP 端点挂公网被滥用+push 门 sk-扫描+现有 8 provider 全走 env+硬编码不更省事)→ 引导 ~/.env_shared 持久化。全量同步: test_providers(deepseek tier 测试重写)/test_gen_compat(declared 6→5)/gen_compat --fix/minimal_runtime golden 不变(cap_score 仍排链尾)/router 不变。full_regression 137/0/4941/governance 91/91/安全 95/零凭证泄漏/tier 一致[]。剩余: launchd adapter/proxy source ~/.env_shared(让重启后也用上) + reasoning/json/vision 如需专门实测 flip + 真接入 fallback/任务后生产观察可升 production_observed。安全: 明文 key 对话多次建议轮换。",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
