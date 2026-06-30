@@ -55,8 +55,8 @@ class TestDoubaoProviderRegistration(unittest.TestCase):
     def test_total_provider_count_is_8(self):
         names = self.providers.get_registry().list_names()
         self.assertEqual(
-            len(names), 9,
-            f"V37.9.201 must have 7 built-in + 2 plugins (doubao+deepseek) = 9 providers, "
+            len(names), 10,
+            f"V37.9.204 must have 7 built-in + 3 plugins = 10 providers, "
             f"got {len(names)}: {names}",
         )
 
@@ -220,7 +220,7 @@ class TestModuleReentryGuard(unittest.TestCase):
             capture_output=True, text=True, timeout=30, cwd=REPO_ROOT,
         )
         self.assertEqual(result.returncode, 0)
-        self.assertIn("9 providers", result.stdout)  # V37.9.201: +deepseek
+        self.assertIn("10 providers", result.stdout)  # V37.9.204: +deepseek_full
         self.assertIn("doubao", result.stdout)
         self.assertIn("deepseek", result.stdout)
 

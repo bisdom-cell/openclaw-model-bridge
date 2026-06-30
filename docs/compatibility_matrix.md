@@ -16,6 +16,7 @@
 | Kimi (Moonshot AI) | kimi-k2.5 | text, vision | Yes | Yes | 262K | none |
 | MiniMax | MiniMax-M2.7 | text, vision | Yes | Yes | 204K | none |
 | GLM (Zhipu AI) | glm-5, glm-5v-turbo | text, vision | Yes | Yes | 202K | none |
+| DeepSeek-V4-Pro 满血版 (ai-tokenhub) | deepseek-v4-pro-260425 | text | No | Yes | 65K | none |
 | DeepSeek-V4-Pro | DeepSeek-V4-Pro | text | Yes | Yes | 65K | text, tool_calling, streaming |
 | Doubao Seed 2.0 Pro (Volcengine Ark) | doubao-seed-2-0-pro | text, vision | Yes | Yes | 262K | text, vision, tool_calling, streaming, reasoning |
 
@@ -35,6 +36,7 @@
 | Kimi (Moonshot AI) | **declared** | 能力声明完整 + 合约校验通过，0/N 生产验证（无 API key 配置） |
 | MiniMax | **declared** | 能力声明完整 + 合约校验通过，0/N 生产验证（无 API key 配置） |
 | GLM (Zhipu AI) | **declared** | 能力声明完整 + 合约校验通过，0/N 生产验证（无 API key 配置） |
+| DeepSeek-V4-Pro 满血版 (ai-tokenhub) | **declared** | 能力声明完整 + 合约校验通过，0/N 生产验证（无 API key 配置） |
 | DeepSeek-V4-Pro | **feature_verified** | Mac Mini E2E 实测 2026-06-30: text/streaming/tool_calling/json_mode 4/4 通过 (content+finish_reason / SSE chunk+[DONE] / finish_reason=tool_calls+arguments / response_format=json_object 干净 JSON)；vision 实测不支持 (400 非多模态) / reasoning 无 R1 reasoning_content 通道 / 未真生产 fallback 接管。部署=w4a8-mtp 量化, 推理响应偶发乱码 token |
 | Doubao Seed 2.0 Pro (Volcengine Ark) | **production_observed** | fallback 链第 1 位真实接管（V37.9.129 起唯一真 fallback）+ expert_escalate 真生产调用（V37.9.91）；text/vision/tool_calling/streaming/reasoning 5/5 E2E 实测（V37.9.53-55） |
 
@@ -49,6 +51,7 @@
 | Kimi (Moonshot AI) | Yes | Yes | — | — | Yes | Yes | Yes | — | 262K |
 | MiniMax | Yes | Yes | — | — | Yes | Yes | Yes | — | 204K |
 | GLM (Zhipu AI) | Yes | Yes | — | — | Yes | Yes | Yes | — | 202K |
+| DeepSeek-V4-Pro 满血版 (ai-tokenhub) | Yes | — | — | — | — | Yes | — | — | 65K |
 | DeepSeek-V4-Pro | Yes | — | — | — | Yes | Yes | Yes | — | 65K |
 | Doubao Seed 2.0 Pro (Volcengine Ark) | Yes | Yes | — | — | Yes | Yes | Yes | Yes | 262K |
 
