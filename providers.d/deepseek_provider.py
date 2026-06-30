@@ -1,4 +1,5 @@
 """V37.9.201 — DeepSeek-V4-Pro Provider (用户自建 OpenAI 兼容推理端点)
+   V37.9.202 — Mac Mini E2E 实测: text/streaming/tool_calling 3/3 通过 → feature_verified
 
 接入第 9 个 provider: DeepSeek-V4-Pro (self-hosted OpenAI-compatible gateway).
 
@@ -10,12 +11,15 @@
   让 ProviderContract 通过 + `ProviderRegistry.available()` 因缺 `DEEPSEEK_API_KEY`
   自动排除 (与 doubao endpoint-id fallback 同一模式)。Mac Mini 配 env → 真实私有端点注入。
 
-诚实语义 (原则 #23 — 不编造未实测能力):
-- **verification_tier = declared** — 全部能力仅声明, **未经 Mac Mini E2E 实测**。
-- verified_* 全 False — text/tool_calling/streaming/reasoning 待 Mac Mini curl 实测后
-  再逐项 flip (镜像 doubao V37.9.53→55 渐进验证, 不人为造)。
-- context_window / max_output_tokens 是 DeepSeek 谱系保守占位值, 待端点实测确认。
-- vision 不声明 (DeepSeek-V4-Pro 多模态能力未知, 保守)。
+诚实语义 (原则 #23 — 只声明实测过的能力):
+- **verification_tier = feature_verified** (V37.9.202) — 分项 E2E 实测通过但未真生产流量。
+- **Mac Mini E2E 实测 2026-06-30 (3/3 通过)**:
+    text         — curl 返回 content="OK" + finish_reason=stop
+    streaming    — stream:true → chat.completion.chunk SSE + delta.content + [DONE]
+    tool_calling — tools 入参 → finish_reason=tool_calls + tool_calls[].function.arguments
+- **未实测 → 保持 False (诚实)**: reasoning (全程 reasoning:null/reasoning_tokens:0 未触发) /
+  vision / json_mode / fallback (未真生产 fallback 接管, 同 doubao verified_fallback 留 False)。
+- context_window / max_output_tokens 是 DeepSeek 谱系保守占位值, 待进一步实测确认。
 
 OpenAI 兼容: base_url 以 /v1 结尾 + `Authorization: Bearer` (auth_style=bearer 默认)。
 """
@@ -48,29 +52,29 @@ class DeepSeekProvider(BaseProvider):
                 is_default=True,
             ),
         ]
-        # 🔴 能力保守声明 (原则 #23): DeepSeek-V4-Pro 是【未知自建端点】(非公开文档化模型),
-        # 无依据声明 tool_calling/json_mode/reasoning/vision → 仅声明 OpenAI /v1 安全基线
-        # text + streaming。待 Mac Mini E2E 实测后逐项 flip 为 True (镜像 doubao 渐进验证)。
-        # (与 openai/claude 等"已知公开模型声明全集"不同——它们能力是公开事实, 本端点未知。)
+        # 🔴 能力声明 (原则 #23 — 只声明实测过的): V37.9.202 Mac Mini E2E 实测 text/streaming/
+        # tool_calling 3/3 → declare+verified=True; reasoning/json_mode/vision 未实测 → 保持 False。
         self.capabilities = ProviderCapabilities(
             text=True,
-            vision=False,           # 未知, 保守不声明
+            vision=False,           # 未实测, 保守不声明
             audio=False,
             video=False,
-            tool_calling=False,     # 未知, 待实测 (不影响 reasoning/tool 路由误选 keyless deepseek)
-            streaming=True,         # OpenAI /v1 兼容标准基线
-            json_mode=False,        # 未知, 待实测
-            reasoning=False,        # 未知, 待实测 (不抢 reasoning 路由)
+            tool_calling=True,      # V37.9.202 Mac Mini E2E 实测: finish_reason=tool_calls
+            streaming=True,         # V37.9.202 Mac Mini E2E 实测: SSE chunk + [DONE]
+            json_mode=False,        # 未实测, 待确认
+            reasoning=False,        # 未触发 (reasoning:null/reasoning_tokens:0), 保持 False
             context_window=65536,
             max_output_tokens=8192,
-            # 🔴 verified_* 全 False — 未经 Mac Mini E2E 实测 (守诚实语义, 同 doubao 初始)
-            verified_text=False,
+            # V37.9.202 verified_* — 仅实测通过的 3 项 flip True (诚实, 镜像 doubao 渐进验证)
+            verified_text=True,         # E2E: content + finish_reason=stop
             verified_vision=False,
-            verified_tool_calling=False,
-            verified_streaming=False,
-            verified_fallback=False,
-            # declared 档位: tier_evidence 走 _DECLARED_TIER_EVIDENCE 派生 (单一真理源, 不手写)。
-            # 待 Mac Mini E2E 实测 text/tool_calling/streaming/reasoning 后逐项 flip verified_* →
-            # 升 tier (镜像 doubao V37.9.53→55 渐进验证)。
-            verification_tier="declared",
+            verified_tool_calling=True, # E2E: tools → tool_calls[].function.arguments
+            verified_streaming=True,    # E2E: stream:true → delta.content chunks + [DONE]
+            verified_fallback=False,    # 未真生产 fallback 接管 (同 doubao verified_fallback 留 False)
+            # feature_verified: 分项 E2E 实测通过但未真生产流量 (tier_evidence 必须显式引用证据)
+            verification_tier="feature_verified",
+            tier_evidence="Mac Mini E2E 实测 2026-06-30: text (content+finish_reason=stop) / "
+                          "streaming (chat.completion.chunk SSE + delta.content + [DONE]) / "
+                          "tool_calling (finish_reason=tool_calls + get_weather arguments) 3/3 通过；"
+                          "reasoning 未触发 (reasoning:null) / vision/json_mode 未测 / 未真生产 fallback 接管",
         )
