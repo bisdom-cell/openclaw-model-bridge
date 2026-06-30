@@ -251,6 +251,312 @@ class TestGoldenCasesAgainstGroundTruth(unittest.TestCase):
                                 f"{cid} is out-of-scope, should not have a Layer 1 fixture")
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+# Stage 3: Layer 2 LLM-judge 守卫
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _fake_caller_json(verdict="fail_plausible", confidence=80, findings=None):
+    """构造 fake llm_caller (零网络): 返回 (ok, content, reason) 三元组。"""
+    import json
+    body = json.dumps({"verdict": verdict, "confidence": confidence,
+                       "findings": findings or []}, ensure_ascii=False)
+
+    def caller(system, user):
+        return True, body, ""
+    return caller
+
+
+class TestFailPlausibleSystemPrompt(unittest.TestCase):
+    """build_fail_plausible_system: 注入 seeds (复用非硬编码) + 4 judge 维度 + 采样规则。"""
+
+    def setUp(self):
+        self.sysp = obs.build_fail_plausible_system("dream")
+
+    def test_injects_level6_guard_not_hardcoded(self):
+        import hallucination_guards
+        lvl6 = hallucination_guards.get_guard(obs._HALLUCINATION_GUARD_LEVEL)
+        self.assertIn(lvl6.strip()[:30], self.sysp)
+        self.assertIn("强证据", self.sysp)
+        self.assertIn("弱关联", self.sysp)
+
+    def test_injects_credibility_block(self):
+        import source_credibility
+        cred = source_credibility.format_credibility_block()
+        self.assertIn(cred.strip()[:30], self.sysp)
+
+    def test_has_four_judge_dimensions(self):
+        for dim in ("grounding", "intent_alignment", "pollution_evidence",
+                    "fabricated_success"):
+            self.assertIn(dim, self.sysp)
+
+    def test_has_sampling_rule_and_json_format(self):
+        self.assertIn("V37.9.93", self.sysp)   # 采样规则 (防 truncation 误判)
+        self.assertIn("json", self.sysp.lower())
+        self.assertIn("逐字", self.sysp)        # 证据逐字摘录铁律
+
+    def test_fail_open_when_seeds_unavailable(self):
+        # seed import 失败 → core 仍返回, 不抛异
+        with mock.patch.dict("sys.modules",
+                             {"hallucination_guards": None, "source_credibility": None}):
+            p = obs.build_fail_plausible_system("dream")
+        self.assertIn("fail-plausible", p)
+
+
+class TestFailPlausibleUserPrompt(unittest.TestCase):
+    def test_sampling_flag_adds_warning(self):
+        u = obs.build_fail_plausible_user("内容", sampled=True)
+        self.assertIn("采样", u)
+        self.assertIn("V37.9.93", u)
+
+    def test_normal_no_sampling_warning(self):
+        u = obs.build_fail_plausible_user("内容", sampled=False)
+        self.assertNotIn("采样提示", u)
+
+    def test_layer1_signals_included(self):
+        sigs = [{"signal": "S1_pollution_signal", "locus": 3, "snippet": "Bad JSON"}]
+        u = obs.build_fail_plausible_user("内容", layer1_signals=sigs)
+        self.assertIn("S1_pollution_signal", u)
+        self.assertIn("Bad JSON", u)
+
+    def test_content_present(self):
+        u = obs.build_fail_plausible_user("待评估正文ABC")
+        self.assertIn("待评估正文ABC", u)
+
+
+class TestParseFpVerdict(unittest.TestCase):
+    def test_fenced_json(self):
+        c = ('一些前言\n```json\n{"verdict":"fail_plausible","confidence":75,'
+             '"findings":[{"judge":"grounding","evidence":"x","rationale":"y"}]}\n```')
+        v, conf, f = obs.parse_fp_verdict(c)
+        self.assertEqual(v, "fail_plausible")
+        self.assertEqual(conf, 0.75)
+        self.assertEqual(len(f), 1)
+
+    def test_bare_json(self):
+        v, conf, f = obs.parse_fp_verdict('{"verdict":"clean","confidence":10,"findings":[]}')
+        self.assertEqual(v, "clean")
+        self.assertEqual(conf, 0.1)
+
+    def test_unparseable_defaults_clean(self):
+        # 保守: 无法解析 → clean, 不编造 flag
+        self.assertEqual(obs.parse_fp_verdict("完全不是 JSON 的散文"), ("clean", None, []))
+        self.assertEqual(obs.parse_fp_verdict(""), ("clean", None, []))
+
+    def test_verdict_normalization(self):
+        self.assertEqual(obs.parse_fp_verdict('{"verdict":"FAIL_PLAUSIBLE"}')[0], "fail_plausible")
+        self.assertEqual(obs.parse_fp_verdict('{"verdict":"flagged"}')[0], "fail_plausible")
+        self.assertEqual(obs.parse_fp_verdict('{"verdict":"ok"}')[0], "clean")
+
+    def test_findings_non_dict_filtered(self):
+        v, conf, f = obs.parse_fp_verdict('{"verdict":"fail_plausible","findings":["bad",{"judge":"x"}]}')
+        self.assertEqual(len(f), 1)
+
+
+class TestEvidenceGrounding(unittest.TestCase):
+    """🔴 反幻觉核心: 证据必须能在原文逐字 ground。"""
+
+    def test_grounded_substring_true(self):
+        self.assertTrue(obs._evidence_grounded("Bad JSON 错误", "平台返回 Bad JSON 错误码"))
+
+    def test_ungrounded_false(self):
+        self.assertFalse(obs._evidence_grounded("根本不存在的编造片段", "正常内容"))
+
+    def test_too_short_false(self):
+        # < _MIN_EVIDENCE_LEN: 太模糊无法 ground
+        self.assertFalse(obs._evidence_grounded("xy", "xy 出现在这里"))
+
+    def test_whitespace_tolerant(self):
+        self.assertTrue(obs._evidence_grounded("Bad   JSON", "...Bad JSON..."))
+
+    def test_non_string_safe(self):
+        self.assertFalse(obs._evidence_grounded(None, "text"))
+        self.assertFalse(obs._evidence_grounded("evidence", None))
+
+
+class TestRunLlmJudge(unittest.TestCase):
+    def test_grounded_finding_kept(self):
+        text = "平台返回 Bad JSON 和 400 错误，被当成危机信号"
+        caller = _fake_caller_json(findings=[
+            {"judge": "pollution_evidence", "evidence": "Bad JSON 和 400 错误", "rationale": "r"}])
+        findings, conf = obs.run_llm_judge(text, "dream", [], caller)
+        self.assertEqual(len(findings), 1)
+        self.assertTrue(findings[0]["_grounded"])
+        self.assertEqual(conf, 0.8)
+
+    def test_ungrounded_finding_dropped(self):
+        # Observer 幻觉一个不在原文的证据 → drop → 空 (反幻觉铁律)
+        caller = _fake_caller_json(findings=[
+            {"judge": "grounding", "evidence": "原文里根本没有的编造证据", "rationale": "r"}])
+        findings, conf = obs.run_llm_judge("正常干净内容", "hn", [], caller)
+        self.assertEqual(findings, [])
+
+    def test_verdict_clean_no_findings(self):
+        caller = _fake_caller_json(verdict="clean", findings=[])
+        findings, conf = obs.run_llm_judge("text", "hn", [], caller)
+        self.assertEqual(findings, [])
+
+    def test_caller_not_ok_fail_open(self):
+        def caller(s, u):
+            return False, "", "HTTP 500"
+        self.assertEqual(obs.run_llm_judge("text", "hn", [], caller), ([], None))
+
+    def test_caller_raises_fail_open(self):
+        def caller(s, u):
+            raise RuntimeError("proxy down")
+        self.assertEqual(obs.run_llm_judge("text", "hn", [], caller), ([], None))
+
+
+class TestDetectFailPlausible(unittest.TestCase):
+    """两层管道 orchestrator。"""
+
+    def test_cheap_path_clean_no_llm_call(self):
+        # Layer 1 clean + not force → 不调 LLM (caller 绝不被触发)
+        called = {"n": 0}
+
+        def caller(s, u):
+            called["n"] += 1
+            return True, "{}", ""
+        clean = "今日 arXiv 精选：Qwen3 提出新注意力机制，实验覆盖 8 个 benchmark。"
+        r = obs.detect_fail_plausible(clean, source_id="arxiv_monitor", llm_caller=caller)
+        self.assertEqual(r, [])
+        self.assertEqual(called["n"], 0)
+
+    def test_layer1_fired_triggers_layer2_consolidated(self):
+        d1 = ("信号一：平台返回 'Bad JSON' 和 '400 错误'\n"
+              "行动一：启动 72 小时监控")
+        caller = _fake_caller_json(confidence=85, findings=[
+            {"judge": "pollution_evidence", "evidence": "'Bad JSON' 和 '400 错误'",
+             "rationale": "把系统错误码当平台危机信号"}])
+        r = obs.detect_fail_plausible(d1, source_id="dream", artifact="dream/x.md",
+                                      llm_caller=caller)
+        self.assertEqual(len(r), 1)
+        v = r[0]
+        self.assertEqual(v["severity"], "HIGH")
+        self.assertEqual(v["category"], "pollution_signal")
+        self.assertTrue(any(e["layer"] == 1 for e in v["evidence"]))
+        self.assertTrue(any(e["layer"] == 2 for e in v["evidence"]))
+        self.assertEqual(v["confidence"], 0.85)
+        self.assertEqual(v["artifact"], "dream/x.md")
+
+    def test_force_judge_on_clean_text_runs_layer2(self):
+        # Layer 1 clean 但 force_judge → Layer 2 抓到只有它能抓的 (D2 intent)
+        text = "关于三平面架构的回答里，模型声称要执行用户没要求的后续任务"
+        caller = _fake_caller_json(confidence=70, findings=[
+            {"judge": "intent_alignment", "evidence": "执行用户没要求的后续任务",
+             "rationale": "用户问架构，模型却做未被要求的事"}])
+        r = obs.detect_fail_plausible(text, source_id="hn", force_judge=True, llm_caller=caller)
+        self.assertEqual(len(r), 1)
+        self.assertIn("intent_alignment", r[0]["fired"])
+        self.assertTrue(all(e["layer"] == 2 for e in r[0]["evidence"]))
+
+    def test_caller_raises_layer1_verdict_survives(self):
+        # Layer 2 FAIL-OPEN, 但 Layer 1 命中 → 仍产 Layer1-only verdict
+        d1 = "平台返回 Bad JSON 错误"
+
+        def caller(s, u):
+            raise RuntimeError("down")
+        r = obs.detect_fail_plausible(d1, source_id="dream", llm_caller=caller)
+        self.assertEqual(len(r), 1)
+        self.assertTrue(all(e["layer"] == 1 for e in r[0]["evidence"]))
+        self.assertEqual(r[0]["confidence"], 1.0)  # 确定性 Layer 1
+
+    def test_clean_and_layer2_rejects_returns_empty(self):
+        # Layer 1 clean + force, Layer 2 verdict clean → []
+        caller = _fake_caller_json(verdict="clean", findings=[])
+        r = obs.detect_fail_plausible("干净内容", source_id="hn", force_judge=True,
+                                      llm_caller=caller)
+        self.assertEqual(r, [])
+
+
+@unittest.skipUnless(_HAS_YAML, "PyYAML required for golden Layer 2 tie")
+class TestGoldenCasesLayer2(unittest.TestCase):
+    """把 Layer 2 绑回 Stage 1 ground-truth: 每 golden case 的 layer2_* 期望 judge,
+    当 fake judge 用 grounded 证据报出时, orchestrator 必须 surface 它 (验证 wiring,
+    非验证 LLM 准确性——那是 Mac Mini E2E / Stage 5)。"""
+
+    @classmethod
+    def setUpClass(cls):
+        with open(_GT_PATH) as f:
+            cls.gt = yaml.safe_load(f)
+        cls.by_id = {c["id"]: c for c in cls.gt["cases"]}
+
+    def test_golden_layer2_judges_surface(self):
+        tested = 0
+        for cid, (text, src) in _FIXTURES.items():
+            case = self.by_id[cid]
+            l2_judges = [s[len("layer2_"):] for s in case["expected_signal"]
+                         if s.startswith("layer2_")]
+            if not l2_judges:
+                continue
+            tested += 1
+            grounded = obs._norm_ws(text)[:20]   # 保证在原文 (反幻觉 ground 通过)
+            findings = [{"judge": j, "evidence": grounded, "rationale": "r"}
+                        for j in l2_judges]
+            caller = _fake_caller_json(findings=findings)
+            r = obs.detect_fail_plausible(text, source_id=src, llm_caller=caller,
+                                          artifact=cid)
+            self.assertEqual(len(r), 1, f"{cid}: expected a verdict")
+            for j in l2_judges:
+                self.assertIn(j, r[0]["fired"],
+                              f"{cid}: layer2 judge {j} must surface in fired")
+        self.assertGreaterEqual(tested, 4, "should test ≥4 golden cases with layer2 expectations")
+
+    def test_judge_to_category_covers_all_layer2_signals(self):
+        # ground-truth signals 字典里每个 layer2_X 都有 _JUDGE_TO_CATEGORY 映射 (MR-8 drift guard)
+        l2_sigs = [k for k in self.gt["signals"] if k.startswith("layer2_")]
+        for sig in l2_sigs:
+            judge = sig[len("layer2_"):]
+            self.assertIn(judge, obs._JUDGE_TO_CATEGORY,
+                          f"{sig}: judge {judge} missing from _JUDGE_TO_CATEGORY")
+
+
+class TestStage3SabotageReverseValidation(unittest.TestCase):
+    """证明 grounding 守卫真有效 (非 tautology): 关掉 grounding → 幻觉证据泄漏。"""
+
+    def test_grounding_guard_is_load_bearing(self):
+        # ungrounded 证据正常应被 drop
+        caller = _fake_caller_json(findings=[
+            {"judge": "grounding", "evidence": "原文绝对没有的编造片段", "rationale": "r"}])
+        baseline, _ = obs.run_llm_judge("干净内容", "hn", [], caller)
+        self.assertEqual(baseline, [], "grounding 守卫应 drop 幻觉证据")
+        # sabotage: 关掉 grounding (恒 True) → 幻觉证据泄漏 (证明守卫 load-bearing)
+        with mock.patch.object(obs, "_evidence_grounded", return_value=True):
+            leaked, _ = obs.run_llm_judge("干净内容", "hn", [], caller)
+        self.assertEqual(len(leaked), 1,
+                         "关掉 grounding 后幻觉证据应泄漏 (证明守卫真有效)")
+
+
+class TestStage3SourceLevelGuards(unittest.TestCase):
+    def test_stage3_marker(self):
+        with open(os.path.join(_REPO, "llm_observer.py"), encoding="utf-8") as f:
+            src = f.read()
+        self.assertIn("Stage 2+3", src)
+        self.assertIn("反幻觉铁律", src)
+
+    def test_design_locked_layer2_constants(self):
+        self.assertEqual(obs._MIN_EVIDENCE_LEN, 4)
+        self.assertEqual(obs._HALLUCINATION_GUARD_LEVEL, "LEVEL_6_DREAM_CROSS_DOMAIN_AWARE")
+        self.assertEqual(obs._JUDGE_TO_CATEGORY["pollution_evidence"], "pollution_signal")
+        self.assertEqual(obs._JUDGE_TO_CATEGORY["fabricated_success"], "fabricated_success")
+        self.assertEqual(obs._JUDGE_SEVERITY["pollution_evidence"], "HIGH")
+        self.assertEqual(obs._SEV_ORDER["HIGH"], 3)
+
+    def test_seeds_reused_not_hardcoded_in_source(self):
+        # LEVEL_6 守卫文本不应被复制进 llm_observer 源码 (复用 hallucination_guards)
+        with open(os.path.join(_REPO, "llm_observer.py"), encoding="utf-8") as f:
+            src = f.read()
+        self.assertIn("hallucination_guards.get_guard", src)
+        self.assertIn("source_credibility.format_credibility_block", src)
+        # 反 copy-paste: LEVEL_6 的长篇守卫正文不应整段出现在本模块
+        self.assertNotIn("反幻觉守卫 (V37.9.89 LEVEL_6", src)
+
+    def test_default_caller_lazy_binds_daily_observer(self):
+        with open(os.path.join(_REPO, "llm_observer.py"), encoding="utf-8") as f:
+            src = f.read()
+        self.assertIn("import daily_observer", src)
+        self.assertIn("call_llm_critique", src)
+
+
 class TestSourceLevelGuards(unittest.TestCase):
     def test_stage2_marker(self):
         with open(os.path.join(_REPO, "llm_observer.py"), encoding="utf-8") as f:

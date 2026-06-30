@@ -1,6 +1,6 @@
 {
-  "updated": "2026-06-29 03:07:04",
-  "updated_by": "full_regression",
+  "updated": "2026-06-30 00:46:39",
+  "updated_by": "security_score",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -110,6 +110,11 @@
   ],
   "recent_changes": [
     {
+      "date": "2026-06-30",
+      "what": "LLM-Observer Stage 3 — Layer 2 LLM-judge 落地 (接续 Stage 2, 开工读 status 焦点 Stage 3 next)。先 ground (原则 #28): 读 design doc + Stage 2 代码 + 全部 seeds (call_llm_critique 单一 HTTP 真理源 / LEVEL_6 守卫 / credibility 块 / ground-truth layer2_* 期望)。交付 llm_observer.py +Layer 2: FAIL_PLAUSIBLE_SYSTEM core (4 维 grounding/intent_alignment/pollution_evidence/fabricated_success) + build_fail_plausible_system 注入 LEVEL_6+credibility (复用非硬编码 FAIL-OPEN) + sampling-aware (防 V37.9.93) + parse_fp_verdict (围栏/裸 JSON/无法解析→clean) + 🔴 _evidence_grounded 反幻觉铁律 (证据空白归一后必须原文逐字 ground 否则 drop; verdict=fail_plausible 但无 grounded 证据 → 拒绝, Observer 自己是 LLM 组件继承全 taxonomy §5.2) + run_llm_judge (DI llm_caller 默认 lazy-bind daily_observer.call_llm_critique) + detect_fail_plausible orchestrator (便宜路径: 干净+no force 不调 LLM; consolidated verdict 对齐 daily_observer anomalies)。反幻觉是 Stage 3 核心价值 (防 V37.9.92/93 Observer 自身两 bug)。test +36 (39→75/16 类): TestEvidenceGrounding + TestDetectFailPlausible cheap-path 断言 caller.n==0 + TestGoldenCasesLayer2 绑回 ground-truth (5 golden layer2_* judge 经 grounded 证据必 surface + MR-8 drift guard) + TestStage3SabotageReverseValidation (monkeypatch 关 grounding → 幻觉泄漏证 load-bearing)。源码 sabotage 真有效: 破坏 grounding 3 FAIL / 移除 LEVEL_6 2 FAIL / 还原 75/75。验证: full_regression 135 通过/0 失败/4866 tests(+36)/suites 137 不变/governance 91/91 EXIT=0/安全 95/三机器 doc-drift 无漂移/VERSION 0.37.9.71 不变 (PoC 未 wire 进 daily_observer Stage 5 才 bump)。复杂度预算: files 不变(扩既有), tests +36, 净 runtime 机制 0 (复用全 seeds 不新造 HTTP/prompt 基建)。下一 session Stage 4: self-validation harness + scorecard。",
+      "by": "claude_code"
+    },
+    {
       "date": "2026-06-29",
       "what": "LLM-Observer 研究攻关 #1 Stage 2 — 确定性 Layer 1 pre-filter 落地 (研究项目第一份 runtime 代码, 同日续 Stage 0/1, 用户「开始执行 stage2」)。先 ground (原则 #28): 实测 seed API (get_blocked_phrases 6 字眼 / get_credibility rank 1=最高 ≥4=博客社媒 FAIL-OPEN) 再写真复用。交付 llm_observer.py 两层管道 Layer 1 (Layer 2 留 Stage 3): S1 pollution(错误码/Bad JSON/告警 artifact 强指纹 D1/D2) / S2 credibility_mismatch(复用 source_credibility 低档来源+高档措辞) / S3 fabrication_phrase(复用 get_blocked_phrases D4) / S4 provenance_gap(牵强等价'异曲同工'无证据标注 复用 LEVEL_6) / S5 coherence_structural(boilerplate×≥3+全标题无正文+字段=分隔符 D1/D3) + run_prefilter + CLI。Layer 1 在前 = 成本+可解释(locus/snippet 证据)+防 Observer 自身幻觉(确定性信号是 Layer 2 锚, V37.9.93 教训)。FAIL-OPEN(缺 seed 返[]不阻塞) + FP 纪律(论文 §5.4 FP 一等度量: S1/S3 强指纹 S2/S4/S5 保守宁漏不误) + MR-11 stderr。test_llm_observer.py 39 单测: S1-S5 各单测 + 干净 synthesis 输出 FP=0 控制(4 真实 digest 零误报) + TestGoldenCasesAgainstGroundTruth(把 Layer 1 绑回 Stage 1 yaml: 每 golden case 被它 expected_signal 确定性子集 S1-S5 至少一个抓到; 诚实 D1 的 S5 是语义=Layer 2 D1 经 S1 抓; out-of-scope 不造 fixture) + D4 known_gap 经 S3 + 源码守卫。实测: D1→S1/kb_review→S5/dream_quota→S5/pa_alert→S1/pa_echo→S4/D4→S3 全命中, clean×4 零 FP, S2 rss_blogs+研究表明命中/arxiv 不命中。反向验证真有效: sabotage 阈值 3→99 → 3 守卫(单测+ground-truth tie+常量)FAIL; neutralize Bad JSON → S1 路径 FAIL; 还原 39/39。接入 full_regression。验证: full_regression 135 通过/0 失败/4830 tests(+39)/suites 137/governance 91/91 EXIT=0/安全 95/三机器 doc-drift 无漂移/VERSION 0.37.9.71 不变(PoC 模块未 wire 进 daily_observer 零 runtime 变更, 同 V37.9.46 radar PoC + Stage 0/1; Stage 5 wire 才 bump)。复杂度预算: files +2(模块+test), suites +1, tests +39, 净 runtime 机制 0(模块零 caller Stage 5 wire 才有效, 复用全 seeds 不新造)。下一 session Stage 3: Layer 2 LLM-judge + detect_fail_plausible orchestrator。",
       "by": "claude_code"
@@ -204,46 +209,6 @@
       "date": "2026-06-18",
       "what": "V37.9.180 WhatsApp 408 恢复 + Option A 在4.27确认无效 + notify 冷调用超时去重. ① WhatsApp 恢复(用户Mac Mini实操): 408设备链接限流自然冷却→单次扫码重链(QR→515配对重启→Linked connected), 手机实收3条确认投递, 408清除. ② Option A(maxAttempts限制重连)在4.27无效: 手改openclaw.json被Gateway canonicalize剥掉, config set 硬报 must NOT have additional properties(channels.whatsapp 严格schema additionalProperties:false 不收web.reconnect键)→主防线退Option C(V37.9.162检测)+升级待#56365暴露配置. ③ 冷调用去重(核心修复, 用户实测3条重复驱动): WhatsApp cron推送每次冷→4.27 CLI等ack 10s放弃报gateway timeout但gateway已投递→notify误当失败重试3次→3条重复. 修: notify.sh加_notify_is_coldcall_timeout(发送+重放两路径)匹配gateway timeout签名按已投递处理(不重试/不入队/不重复), 真失败仍重试. 7新单测(冷调用只发1次/不入队/真失败仍重试3次+源码守卫)+sabotage. full_regression 133/0/4722(+7). VERSION 0.37.9.71不变. baileys_ban_risk_assessment.md 加2026-06-18实测结论. WhatsApp推送链路完整恢复, NOTIFY_CHANNELS=whatsapp,discord.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-06-18",
-      "what": "V37.9.179 微信推送 contextToken 根因锁定 + 默认通道退回 discord. 用户报 3h 微信零 cron 推送/Discord 正常→深挖. 多轮取证(target 对/直发✅Sent/notify rc=0/status weixin 仅 running)都不是 gap; 铁证在 provider 日志 /tmp/openclaw/openclaw-*.log: 每条 outbound 都 sendWeixinOutbound contextToken missing sending without context, 窗口测试没到微信. 根因: openclaw-weixin 是微信客服/对话通道(ilinkai), outbound 必须带 contextToken(来自用户入站会话上下文); PA 回复持有 token 能投递(交互层通), 但 notify→message send 是 CLI 发起不绑入站→永远无 token→微信丢弃. rc=0/✅Sent 是发送侧本地确认≠投递(fail-plausible). 推翻 V37.9.178「微信 E2E 通过」(我误把 rc=0 当投递, 整条微信迁移建立在未验证假设上). 修(通道选型非代码bug): notify.sh 默认 NOTIFY_CHANNELS openclaw-weixin,discord→discord; WhatsApp恢复设 whatsapp,discord; weixin 分支保留交互/调试; WeChat 退回交互问答. 案例文档 weixin_contexttoken_push_blocked_case.md. test_notify_weixin 默认守卫改 discord, 29 全过. full_regression 133/0/4716. VERSION 0.37.9.71 不变. 决策(用户): Discord 主推+WhatsApp 恢复. Path B 路由工作不浪费(服务 WhatsApp/Discord).",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-06-18",
-      "what": "V37.9.178 kb_trend 收编 notify.sh(Path B 最后一个 .py 内容旁路)+全仓推送审计全部修完. 触发: 用户全量测试微信效果→我标出 kb_trend 唯一不到微信(裸 os.system message send 不走 notify)→用户要求修+再三确认全部修完. 修: push_whatsapp 收编 notify --topic daily(微信+Discord+重试+队列), fallback subprocess argv(顺手修 os.system f-string 插值 LLM 内容的 shell 注入风险). 全仓审计: .py 仅 tool_proxy._send_alert+kb_trend 两处均 notify 路由+fallback; .sh 所有 message send 都是 notify.sh 内部或 notify-fallback else 分支或 Discord-only 设计或 echo 说明. 结论: 所有推送经 notify --topic 主推到微信(原则#16 从 .sh 扩到全栈). 3 新单测(源码守卫剥注释行+行为级 mock+fallback argv). full_regression 133/0/4714(+3). VERSION 0.37.9.71 不变. 微信全量 E2E 已验证.",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-06-18",
-      "what": "V37.9.177 notify 队列健壮性 + preflight 推送测试保真. 触发: 用户跑 preflight 验证微信 E2E, check 16 报 Unknown target <占位符> — 我早先坏命令 export WEIXIN_TARGET=占位符 污染了交互终端会话, preflight check 16 不重载 .env_shared 继承污染值. 不是 bug/不是配置错(.env_shared 正确, 直发✅). 深挖暴露真 reliability bug(Fix B): _notify_drain_queue 无淘汰机制+首失败 break → poison 条目永久重试刷屏 + 队头阻塞(挡住后面正常排队消息永不重放). Fix B 错误类型感知淘汰: 永久错误(target 无效)立即淘汰+continue(解队头阻塞), 瞬态错误保留+break(避雪崩). Fix A: preflight check 16 push test 前 source .env_shared(测 cron 真实配置+免疫 shell 污染). 12 新单测+sabotage(淘汰 continue 改 break→head-of-line 测试 FAIL). full_regression 133/0/4711(+12). VERSION 0.37.9.71 不变. 微信 E2E 验证通过(7-topic 全 rc=0).",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-06-18",
-      "what": "V37.9.176 微信静默漏发可观测化 — 17:02 ai_leaders_bsky Discord 收到/微信没收到, 用户要求彻底 check. 数据驱动定位(原则#28): 代码正确走 notify --topic tech(Path B); 直发 target o9cq…@im.wechat ✅有效(排除 target 无效); 队列零 17:02 条目+日志零 weixin 行→17:02 微信静默跳过(非失败)→H1: WEIXIN_TARGET 17:02 不在 cron 环境(17:02 后才加进 .env_shared, 与 DISCORD_CH_TECH 同文件 Discord 收到=.env_shared 已加载). 不是代码 bug/不是 target 无效. 修复(用户要求): notify.sh 加一次性 stderr WARN — NOTIFY_CHANNELS 含 weixin 但 WEIXIN_TARGET 空时打 WARN(_NOTIFY_WEIXIN_SKIP_WARNED 每进程一次), 把 V37.9.170 过渡期故意的静默跳过在微信上线后变可见(cron 日志可 grep). 9 新单测+sabotage(删 once-flag→WARN 发两次→test FAIL). full_regression 133/0/4699(+9). VERSION 0.37.9.71 不变(observability 零业务语义). 待 Mac Mini: rm 坏队列条目+bash -lc notify 确认微信链路.",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-06-18",
-      "what": "V37.9.175 Path B 续 — proxy 内部告警路径 .py 盲区闭合 + unfinished 收敛. 调查 NO_REPLY 告警污染(#29): 确认 filter_system_alerts 覆盖 assistant 角色(原假设错)+无条件每请求调用; 真 gap=tool_proxy._send_alert 裸 message send 无 [SYSTEM_ALERT] 标记(.py 躲过 Path B 的 .sh 收编 + MRD-PUSH-ROUTE-001 .sh-only 扫描)→退化期连续错误/context 临界告警无标记进 sessions.json→filter 无从剥离→NO_REPLY 污染(2026-06-16 ev1082). 修: _send_alert 收编 notify.sh --topic alerts(标记+重试+队列+微信/Discord 扇出)+notify 缺失时标记 fallback(标记必 present)+INV-PA-001 新 check(.py 盲区闭合)+14 守卫单测(行为级 exec-with-mocks+源码守卫+sabotage 反向验证). 顺手清 5 个 stale unfinished. full_regression 133 通过/0 失败/4690 tests. VERSION 0.37.9.71 不变(告警路由收编零业务语义, 同 V37.9.170-173 notify 路由惯例).",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-06-18",
-      "what": "V37.9.174 Path B 全收尾: preflight check16 推送测试改测 notify 真实管线(微信+Discord+重试/队列)+退役 V37.9.156 的4.27 whatsapp exit-code hack+合并两段独立测+重写138行守卫test_v37_9_156. 修批1/2引入的2回归(本次首跑full_regression抓到): (a)test_v37_9_44改断言--topic tech路由(替代DISCORD_CH_TECH字面量) (b)kb_deep_dive真bug——去--channel whatsapp后WA段走默认含discord+下方DISCORD_MSG独立discord单发=重复发→改--channel openclaw-weixin强制微信分段. 原则#16更新(所有推送经notify.sh, 旧whatsapp==discord计数审计废弃). full_regression 132通过/0失败/4676 tests. VERSION 0.37.9.70→0.37.9.71+CLAUDE L3 v37.9.174+gen_readme_badges --write同步README/FEATURES/config. Path B(170-174)完结: 全部内容+运维告警+健康检查推送均经notify→微信/Discord, 无遗留裸whatsapp主推.",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-06-18",
-      "what": "V37.9.173 Path B 第三批(收尾): ops 脚本告警/通知收编 notify — auto_deploy(部署/漂移告警 quiet_alert, 保留自定义静默时段discord-only+早期stage直发兜底)/diagnose(手动诊断改测真实notify推送管线)/upgrade(升级完成通知)→notify --topic alerts(加source块+优先notify). job_watchdog本就notify优先(955是fallback)不动. preflight延后: check16推送smoke test应改测活跃通道+退役4.27 hack, 但是健康检查CI工具(非用户推送)且需重写138行守卫test_v37_9_156, 当前warn不break, 独立careful pass. test_notify_jobs_routing 9→13单测(+TestBatch3OpsScripts). 3 ops bash -n全过/13守卫/governance EXIT=0. Path B一+二+三批=全部内容+运维告警均经notify到微信, 仅剩preflight.",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-06-18",
-      "what": "V37.9.172 Path B 第二批: 多频道/特殊 job + KB 内容脚本主推收编 notify.sh. 标准结构(脚本): arxiv/s2 主推→notify --topic papers(ontology的ONTO_CONTENT是discord-only不动) + openclaw_official×2→tech(run_discussions退役whatsapp-stderr hack)+ERR_MSG→alerts. 特殊手动: freight(cat主推+多行画像+ERR/WARN, 补source notify.sh)→freight/alerts; kb_inject(每日摘要WA_MSG, 补source)→daily. 修bug: kb_deep_dive段推送 notify --channel whatsapp 强制绕过微信→去掉走默认. 已notify优先不动: finance/chaspark/kb_radar/kb_review/kb_evening/health_check. test_notify_jobs_routing 6→9单测(CONVERTED 10→14+特殊3). 7脚本bash -n全过/governance EXIT=0 INV-NOTIFY绿. Path B一+二批后全部每日内容推送均经notify到微信. 剩batch3=ops根脚本.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -293,9 +258,9 @@
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB"
   },
   "session_context": {
-    "last_session": "2026-06-29",
+    "last_session": "2026-06-30",
     "unfinished": [
-      "【LLM-Observer 研究攻关 #1 · Stage 0 design doc ✅ + Stage 1 ground-truth ✅ + Stage 2 Layer 1 pre-filter ✅ 2026-06-29 · Stage 3 next】Stage 2: llm_observer.py 确定性 Layer 1 pre-filter (S1-S5 零 LLM 复用 source_credibility+hallucination_guards seeds) + run_prefilter orchestrator + CLI + test_llm_observer.py 39 单测 (5 黄金 case ground-truth tie + 干净输出 FP=0 + sabotage 真有效)。实测 D1→S1/kb_review→S5/dream_quota→S5/pa_alert→S1/pa_echo→S4/D4→S3 全命中, clean×4 零 FP。FAIL-OPEN + FP 纪律(S1/S3 强指纹 S2/S4/S5 保守) + MR-11 stderr。PoC 未 wire 进 daily_observer (VERSION 0.37.9.71 不变)。下一步 Stage 3: 实现 Layer 2 LLM-judge (FAIL_PLAUSIBLE_SYSTEM prompt 复用 daily_observer.call_llm_critique infra + 注入 hallucination_guards LEVEL_6 + source_credibility 块 + sampling-aware 防 V37.9.93 幻觉) + 合并 Layer 1+2 为 detect_fail_plausible orchestrator。语义维度: grounding/intent-alignment(D2)/pollution-evidence(D1)/fabricated-success(D3)。实施路径 Stage 0-6 见 design doc §九。",
+      "【LLM-Observer 研究攻关 #1 · Stage 0 design ✅ + Stage 1 ground-truth ✅ + Stage 2 Layer 1 ✅ + Stage 3 Layer 2 LLM-judge ✅ 2026-06-30 · Stage 4 next】Stage 3: llm_observer.py +Layer 2 (FAIL_PLAUSIBLE_SYSTEM 4 维 grounding/intent/pollution/fab 注入 LEVEL_6+credibility 复用 seed + parse_fp_verdict 鲁棒 + 🔴 _evidence_grounded 反幻觉铁律 LLM 证据必须原文逐字 ground 否则 drop 防 Observer 自身幻觉 §5.2/V37.9.93 + run_llm_judge DI llm_caller 默认 lazy-bind daily_observer.call_llm_critique 单一 HTTP 真理源 + detect_fail_plausible orchestrator 便宜路径干净+no force 不调 LLM)。75 单测 (16 类) 含 TestGoldenCasesLayer2 绑回 ground-truth + TestStage3SabotageReverseValidation monkeypatch 关 grounding 证 load-bearing。VERSION 0.37.9.71 不变 (PoC 未 wire 进 daily_observer)。Stage 4: self-validation harness 复用 adversarial_chaos_audit OBS-A/B 场景 (注入已知 fail-plausible 必抓 + sabotage S 规则即漏检) + scorecard (defense rate→100% / FN rate / FP rate / confidence calibration / detection latency, design §5.4)。Stage 5 才 wire 进 daily_observer.run() detect_anomalies 后 (§6.1, 那时才 runtime 变更 bump VERSION)。Stage 6 bench 化 (reliability_bench 扩展为社区可跑 silent-failure/fail-plausible 检测 bench) + 论文 #2 草案。",
       "【ISSRE Industry Track 已投递(Submission 395, 2026-06-28) · in-review】Silent-failures 论文平行第二投已完成: EasyChair Submission 395 (Industry Track / Full Paper / 标题+150 词摘要+4kw+topics+作者) + 6 页 IEEEtran PDF (pdflatex 本地真编译, 6 页含 refs 符合上限) 上传 15:50。待: 编辑初筛 → 评审 → 通知 2026-08-12。截止前(论文 7-12)可 Update 重传(若官方页 re-confirm 后想微调 Fig.1)。诚实备忘: CFP 走 EAPLS/EasyChair 镜像交叉验证(官方页 403), 建议官方页扫一眼确认 6 页含 refs/7-12 未变。源码 latex/issre_6page_trimmed.tex(投稿版,6 页)+issre_6page.tex(完整版,7 页)入库; PDF 是 build 产物 gitignore。",
       "【IEEE Software 投稿 in-review · 追踪】When Errors Become Narratives 已 2026-06-25 正式提交 IEEE Software (Author Portal/ScholarOne, ORCID 0009-0009-1176-7817, arXiv 预印本透明披露). 待: 收稿确认邮件 → 编辑初筛 → 同行评审(2-3 referee) → 决定(修改/录用/拒). 在 'My Submissions' 追踪状态; 主编 Sigrid Eldh 已收摘要探口风邮件, 如回复可告知已正式提交; 收到 review 请求时回应.",
       "【4.27 推送链路回归追踪 · 中优】真因=4.27 openclaw CLI 冷调用回归 (V37.9.145). 丢失面评估已闭合 (push_path_loss_surface_audit_2026_06_15.md: 无总丢失面, WhatsApp 瞬时缝隙内容在 Discord 存活). 剩余需 Mac Mini 生产数据: (a) openclaw message send --help timeout 旋钮探测 → 可配则 notify.sh/直推 job 调大 (b) ls ~/.openclaw/plugin-runtime-deps/ 多 hash dir 查 staging 间歇复发 (V37.9.162 同源) (c) 上游 releases 查 CLI 冷启动/staging 修复 (tripwire 不自动升级). 硬化候选 (deferred 需 E2E): 论文类 job 直推双通道迁 notify.sh --topic (MR-8 一物一形).",
@@ -317,10 +282,10 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 4830,
-    "last_regression": "2026-06-29 03:06 pass",
+    "test_count": 4866,
+    "last_regression": "2026-06-30 00:45 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-29 03:06",
+    "security_score_time": "2026-06-30 00:45",
     "test_suites": 137,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
@@ -389,7 +354,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-06-29: LLM-Observer 研究攻关 #1 — 同日 Stage 0 (design doc) + Stage 1 (ground-truth 标注集) + Stage 2 (确定性 Layer 1 pre-filter) 三阶段完成。Stage 2 llm_observer.py: 零 LLM 的 S1-S5 fail-plausible 检测 (复用 source_credibility+hallucination_guards seeds) + 39 单测 (5 黄金 case 绑回 ground-truth yaml + 干净输出 FP=0 + sabotage 真有效)。实测 5 黄金 case 全命中 (D1→S1/D3→S5/D4→S3), 真实 digest 零误报。两层管道 Layer 1 在前=成本+可解释+防 Observer 自身幻觉。PoC 模块未 wire 进 daily_observer → VERSION 0.37.9.71 不变 (Stage 5 wire 才是 runtime 变更)。下一步 Stage 3: Layer 2 LLM-judge (FAIL_PLAUSIBLE_SYSTEM 复用 call_llm_critique infra + LEVEL_6/credibility 注入 + sampling-aware) + 合并 detect_fail_plausible orchestrator。实施路径 Stage 0-6 见 design doc §九。",
+  "focus": "2026-06-30: LLM-Observer 研究攻关 #1 Stage 3 — Layer 2 LLM-judge 落地。llm_observer.py +Layer 2: FAIL_PLAUSIBLE_SYSTEM (4 维 grounding/intent/pollution/fab) 注入 LEVEL_6+credibility 复用 seed + 鲁棒 parse_fp_verdict + 🔴 _evidence_grounded 反幻觉铁律 (LLM 证据必须原文逐字 ground 否则 drop, 防 Observer 自身幻觉 §5.2/V37.9.93) + run_llm_judge (DI llm_caller 默认 lazy-bind daily_observer.call_llm_critique 单一 HTTP 真理源) + detect_fail_plausible orchestrator (Layer1 命中 OR force → Layer2; 干净+no force → 便宜路径不调 LLM)。+36 单测 (75 总): TestGoldenCasesLayer2 绑回 ground-truth layer2_* + TestStage3SabotageReverseValidation (monkeypatch 关 grounding → 幻觉泄漏证守卫 load-bearing)。源码 sabotage: 破坏 grounding 3 FAIL / 移除 LEVEL_6 注入 2 FAIL / 还原 75/75。VERSION 0.37.9.71 不变 (PoC 未 wire 进 daily_observer)。下一步 Stage 4: self-validation harness 复用 adversarial_chaos_audit OBS-A/B + scorecard (defense/FN/FP/calibration/latency)。",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
