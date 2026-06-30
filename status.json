@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-30 00:46:39",
+  "updated": "2026-06-30 01:12:37",
   "updated_by": "security_score",
   "priorities": [
     {
@@ -111,6 +111,11 @@
   "recent_changes": [
     {
       "date": "2026-06-30",
+      "what": "LLM-Observer Stage 4 — 自验证 harness + scorecard (同日续 Stage 3, 用户「请继续执行」)。先 ground (原则 #28): 读 adversarial_chaos_audit 框架 (ChaosScenario + Category A/B + expected_catch + sabotage) + ground_truth.yaml 完整 case 结构。关键判断: 复用概念框架但独立模块非 import (机制不同: fixture 评估 detect_fail_plausible vs 文件突变+governance subprocess)。交付 llm_observer_selfcheck.py: CORPUS bench 种子 (绑回 ground_truth 单一真理源: 6 A 回归/4 clean/4 B novel 持留) + compute_scorecard (defense_rate/fp_rate/fn_rate_B + latency/calibration 诚实标 None) + run_sabotage_suite (每 A case 关 only_signal detector → 必漏检证 load-bearing) + build_scorecard_markdown 产 docs/llm_observer_scorecard.md + CLI。scorecard 实测 (离线零 LLM): defense 100%(6/6) + FP 0%(0/4) + Category B FN 100%(4/4)。Category B 100% FN 是诚实预期非失败 = audit-as-regression 对 Observer 自身 (Layer 1 回归引擎非预测引擎, novel 须来自别处) = design §11 held-out recall 开放问题首个机器可测答案 = 论文 #2 描述→预测核心数据。诚实纪律: Category B FN 不当回归门禁。test 26 单测 (7 类): TestSabotageSuite (全 A 全 load-bearing + 反向验证配错 detector → load_bearing=False) + TestCorpusBoundToGroundTruth (gt_id golden_seed + only_signal 对应 expected_signal)。源码 sabotage 真有效: 换 golden text → 5 FAIL / 还原 26/26。验证: full_regression 137 通过/0 失败/4892 tests(+26)/suites 138(+1)/governance 91/91 EXIT=0/安全 95/三机器 doc-drift 无漂移/VERSION 0.37.9.71 不变 (PoC 未 wire)。复杂度预算: files +3(harness+test+scorecard doc), suites +1, tests +26, 净 runtime 机制 0 (研究证据产物非接缝, 复用 Observer+ground_truth)。下一 session Stage 5: wire 进 daily_observer + Mac Mini E2E (那时才 runtime 变更 bump VERSION)。",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-06-30",
       "what": "LLM-Observer Stage 3 — Layer 2 LLM-judge 落地 (接续 Stage 2, 开工读 status 焦点 Stage 3 next)。先 ground (原则 #28): 读 design doc + Stage 2 代码 + 全部 seeds (call_llm_critique 单一 HTTP 真理源 / LEVEL_6 守卫 / credibility 块 / ground-truth layer2_* 期望)。交付 llm_observer.py +Layer 2: FAIL_PLAUSIBLE_SYSTEM core (4 维 grounding/intent_alignment/pollution_evidence/fabricated_success) + build_fail_plausible_system 注入 LEVEL_6+credibility (复用非硬编码 FAIL-OPEN) + sampling-aware (防 V37.9.93) + parse_fp_verdict (围栏/裸 JSON/无法解析→clean) + 🔴 _evidence_grounded 反幻觉铁律 (证据空白归一后必须原文逐字 ground 否则 drop; verdict=fail_plausible 但无 grounded 证据 → 拒绝, Observer 自己是 LLM 组件继承全 taxonomy §5.2) + run_llm_judge (DI llm_caller 默认 lazy-bind daily_observer.call_llm_critique) + detect_fail_plausible orchestrator (便宜路径: 干净+no force 不调 LLM; consolidated verdict 对齐 daily_observer anomalies)。反幻觉是 Stage 3 核心价值 (防 V37.9.92/93 Observer 自身两 bug)。test +36 (39→75/16 类): TestEvidenceGrounding + TestDetectFailPlausible cheap-path 断言 caller.n==0 + TestGoldenCasesLayer2 绑回 ground-truth (5 golden layer2_* judge 经 grounded 证据必 surface + MR-8 drift guard) + TestStage3SabotageReverseValidation (monkeypatch 关 grounding → 幻觉泄漏证 load-bearing)。源码 sabotage 真有效: 破坏 grounding 3 FAIL / 移除 LEVEL_6 2 FAIL / 还原 75/75。验证: full_regression 135 通过/0 失败/4866 tests(+36)/suites 137 不变/governance 91/91 EXIT=0/安全 95/三机器 doc-drift 无漂移/VERSION 0.37.9.71 不变 (PoC 未 wire 进 daily_observer Stage 5 才 bump)。复杂度预算: files 不变(扩既有), tests +36, 净 runtime 机制 0 (复用全 seeds 不新造 HTTP/prompt 基建)。下一 session Stage 4: self-validation harness + scorecard。",
       "by": "claude_code"
     },
@@ -204,11 +209,6 @@
       "date": "2026-06-18",
       "what": "V37.9.175-180 生产验证收尾(无代码改动,纯验证+决策,VERSION 0.37.9.71 不变): ① 确认全部已合并+同步+runtime LIVE — tool_proxy V37.9.175 _send_alert 已加载(proxy 17:14:27 晚于文件 17:14:03=auto_deploy 同步后自动重启 proxy 未碰 Gateway/WhatsApp), notify.sh 冷调用去重 grep=3. ② WhatsApp 完全恢复 channels status connected/in:17m/out:36m 双向正常=408 之前工作态. ③ 凌晨 Discord-only 漂移告警经 ~/.openclaw/logs/auto_deploy.log [QUIET] 行确认是 quiet_hours(00:00-07:00 跳过 WhatsApp/Discord 仍推, V37.8.13 设计)非异常. ④ 频道分工决策(日落法保持现状, 不加机器): WeChat 交互门户(contextToken 做不了推送)/WhatsApp 白天手机主推(脆弱在重连层非推送量)/Discord 存档+分主题+永远在线安全网. ⑤ 治理 EXIT=0 91/91 在未变更树仍成立; full_regression 不重跑(树自 V37.9.180 已绿 133/4722 未变, status.json 改动不影响 regression). 下次 WhatsApp 掉线: wa_keepalive 1h Discord 告警+notify 队列兜底+冷调用去重, 恢复温和单次重链. Option A 待 #56365.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-06-18",
-      "what": "V37.9.180 WhatsApp 408 恢复 + Option A 在4.27确认无效 + notify 冷调用超时去重. ① WhatsApp 恢复(用户Mac Mini实操): 408设备链接限流自然冷却→单次扫码重链(QR→515配对重启→Linked connected), 手机实收3条确认投递, 408清除. ② Option A(maxAttempts限制重连)在4.27无效: 手改openclaw.json被Gateway canonicalize剥掉, config set 硬报 must NOT have additional properties(channels.whatsapp 严格schema additionalProperties:false 不收web.reconnect键)→主防线退Option C(V37.9.162检测)+升级待#56365暴露配置. ③ 冷调用去重(核心修复, 用户实测3条重复驱动): WhatsApp cron推送每次冷→4.27 CLI等ack 10s放弃报gateway timeout但gateway已投递→notify误当失败重试3次→3条重复. 修: notify.sh加_notify_is_coldcall_timeout(发送+重放两路径)匹配gateway timeout签名按已投递处理(不重试/不入队/不重复), 真失败仍重试. 7新单测(冷调用只发1次/不入队/真失败仍重试3次+源码守卫)+sabotage. full_regression 133/0/4722(+7). VERSION 0.37.9.71不变. baileys_ban_risk_assessment.md 加2026-06-18实测结论. WhatsApp推送链路完整恢复, NOTIFY_CHANNELS=whatsapp,discord.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -260,7 +260,7 @@
   "session_context": {
     "last_session": "2026-06-30",
     "unfinished": [
-      "【LLM-Observer 研究攻关 #1 · Stage 0 design ✅ + Stage 1 ground-truth ✅ + Stage 2 Layer 1 ✅ + Stage 3 Layer 2 LLM-judge ✅ 2026-06-30 · Stage 4 next】Stage 3: llm_observer.py +Layer 2 (FAIL_PLAUSIBLE_SYSTEM 4 维 grounding/intent/pollution/fab 注入 LEVEL_6+credibility 复用 seed + parse_fp_verdict 鲁棒 + 🔴 _evidence_grounded 反幻觉铁律 LLM 证据必须原文逐字 ground 否则 drop 防 Observer 自身幻觉 §5.2/V37.9.93 + run_llm_judge DI llm_caller 默认 lazy-bind daily_observer.call_llm_critique 单一 HTTP 真理源 + detect_fail_plausible orchestrator 便宜路径干净+no force 不调 LLM)。75 单测 (16 类) 含 TestGoldenCasesLayer2 绑回 ground-truth + TestStage3SabotageReverseValidation monkeypatch 关 grounding 证 load-bearing。VERSION 0.37.9.71 不变 (PoC 未 wire 进 daily_observer)。Stage 4: self-validation harness 复用 adversarial_chaos_audit OBS-A/B 场景 (注入已知 fail-plausible 必抓 + sabotage S 规则即漏检) + scorecard (defense rate→100% / FN rate / FP rate / confidence calibration / detection latency, design §5.4)。Stage 5 才 wire 进 daily_observer.run() detect_anomalies 后 (§6.1, 那时才 runtime 变更 bump VERSION)。Stage 6 bench 化 (reliability_bench 扩展为社区可跑 silent-failure/fail-plausible 检测 bench) + 论文 #2 草案。",
+      "【LLM-Observer 研究攻关 #1 · Stage 0-4 ✅ 2026-06-30 · Stage 5 next (wire 进 daily_observer, 那时才 runtime 变更 bump VERSION)】Stage 4: llm_observer_selfcheck.py 自验证 harness + scorecard (复用 adversarial Category A/B 概念框架但独立模块, 机制不同 fixture 评估 vs 文件突变+governance)。CORPUS 绑回 ground_truth.yaml (6 A 回归/4 clean/4 B novel 持留)。离线 scorecard: defense 100%(6/6) + FP 0%(0/4) + Category B FN 100%(4/4)=诚实 held-out 盲区 (audit-as-regression 自我应用: Layer 1 回归引擎非预测引擎, design §11 开放问题首个机器可测答案 = 论文 #2 数据种子) + run_sabotage_suite 证 6 detector load-bearing。docs/llm_observer_scorecard.md artifact。26 单测。VERSION 0.37.9.71 不变 (PoC 未 wire)。Stage 5: wire detect_fail_plausible 进 daily_observer.run() detect_anomalies 后 (§6.1): anomalies.extend(fp_verdicts) 同 {severity,category,message} 结构零 schema break; score_history +fp_high/fp_med; _write_observer_to_status +fail_plausible 计数; daily_observer 显式传 call_llm_critique 作 llm_caller (避 lazy default)。**那时才 runtime 变更 → bump VERSION + Mac Mini E2E** (用户视角看次日 06:30 报告 fail_plausible 段是否真有用/有没有噪声, 原则 #6/#13)。Stage 6: bench 化 (reliability_bench 扩展为社区可跑 silent-failure/fail-plausible 检测 bench, CORPUS 是种子) + 论文 #2 草案。",
       "【ISSRE Industry Track 已投递(Submission 395, 2026-06-28) · in-review】Silent-failures 论文平行第二投已完成: EasyChair Submission 395 (Industry Track / Full Paper / 标题+150 词摘要+4kw+topics+作者) + 6 页 IEEEtran PDF (pdflatex 本地真编译, 6 页含 refs 符合上限) 上传 15:50。待: 编辑初筛 → 评审 → 通知 2026-08-12。截止前(论文 7-12)可 Update 重传(若官方页 re-confirm 后想微调 Fig.1)。诚实备忘: CFP 走 EAPLS/EasyChair 镜像交叉验证(官方页 403), 建议官方页扫一眼确认 6 页含 refs/7-12 未变。源码 latex/issre_6page_trimmed.tex(投稿版,6 页)+issre_6page.tex(完整版,7 页)入库; PDF 是 build 产物 gitignore。",
       "【IEEE Software 投稿 in-review · 追踪】When Errors Become Narratives 已 2026-06-25 正式提交 IEEE Software (Author Portal/ScholarOne, ORCID 0009-0009-1176-7817, arXiv 预印本透明披露). 待: 收稿确认邮件 → 编辑初筛 → 同行评审(2-3 referee) → 决定(修改/录用/拒). 在 'My Submissions' 追踪状态; 主编 Sigrid Eldh 已收摘要探口风邮件, 如回复可告知已正式提交; 收到 review 请求时回应.",
       "【4.27 推送链路回归追踪 · 中优】真因=4.27 openclaw CLI 冷调用回归 (V37.9.145). 丢失面评估已闭合 (push_path_loss_surface_audit_2026_06_15.md: 无总丢失面, WhatsApp 瞬时缝隙内容在 Discord 存活). 剩余需 Mac Mini 生产数据: (a) openclaw message send --help timeout 旋钮探测 → 可配则 notify.sh/直推 job 调大 (b) ls ~/.openclaw/plugin-runtime-deps/ 多 hash dir 查 staging 间歇复发 (V37.9.162 同源) (c) 上游 releases 查 CLI 冷启动/staging 修复 (tripwire 不自动升级). 硬化候选 (deferred 需 E2E): 论文类 job 直推双通道迁 notify.sh --topic (MR-8 一物一形).",
@@ -282,11 +282,11 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 4866,
-    "last_regression": "2026-06-30 00:45 pass",
+    "test_count": 4892,
+    "last_regression": "2026-06-30 01:11 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-30 00:45",
-    "test_suites": 137,
+    "security_score_time": "2026-06-30 01:11",
+    "test_suites": 138,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
     "version": "0.37.9.71",
@@ -354,7 +354,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-06-30: LLM-Observer 研究攻关 #1 Stage 3 — Layer 2 LLM-judge 落地。llm_observer.py +Layer 2: FAIL_PLAUSIBLE_SYSTEM (4 维 grounding/intent/pollution/fab) 注入 LEVEL_6+credibility 复用 seed + 鲁棒 parse_fp_verdict + 🔴 _evidence_grounded 反幻觉铁律 (LLM 证据必须原文逐字 ground 否则 drop, 防 Observer 自身幻觉 §5.2/V37.9.93) + run_llm_judge (DI llm_caller 默认 lazy-bind daily_observer.call_llm_critique 单一 HTTP 真理源) + detect_fail_plausible orchestrator (Layer1 命中 OR force → Layer2; 干净+no force → 便宜路径不调 LLM)。+36 单测 (75 总): TestGoldenCasesLayer2 绑回 ground-truth layer2_* + TestStage3SabotageReverseValidation (monkeypatch 关 grounding → 幻觉泄漏证守卫 load-bearing)。源码 sabotage: 破坏 grounding 3 FAIL / 移除 LEVEL_6 注入 2 FAIL / 还原 75/75。VERSION 0.37.9.71 不变 (PoC 未 wire 进 daily_observer)。下一步 Stage 4: self-validation harness 复用 adversarial_chaos_audit OBS-A/B + scorecard (defense/FN/FP/calibration/latency)。",
+  "focus": "2026-06-30: LLM-Observer 研究攻关 #1 Stage 4 — 自验证 harness + scorecard 落地 (同日续 Stage 3)。llm_observer_selfcheck.py: CORPUS bench 种子 (绑回 ground_truth.yaml: 6 Category A 回归 / 4 clean FP 控制 / 4 Category B novel 持留) + 离线可测 scorecard (零 LLM Layer 1 确定性): defense 100%(6/6) + FP 0%(0/4) + Category B FN 100%(4/4)=诚实 held-out 盲区 (audit-as-regression 对 Observer 自身: Layer 1 是回归引擎非预测引擎, novel 检出须来自 Layer 2/人眼/新 S 规则) + run_sabotage_suite 证 6 detector 全 load-bearing。docs/llm_observer_scorecard.md artifact = 论文 #2 描述→预测核心数据种子。26 单测。源码 sabotage: 换 golden text 为 Layer 1 抓不到的 → 5 FAIL / 还原 26/26。VERSION 0.37.9.71 不变 (PoC 未 wire)。下一步 Stage 5: wire detect_fail_plausible 进 daily_observer.run() detect_anomalies 后 (§6.1, 那时才 runtime 变更 bump VERSION + Mac Mini E2E)。",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
