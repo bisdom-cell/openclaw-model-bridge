@@ -69,7 +69,7 @@ All services bind to `127.0.0.1` by default. **Never set `BIND_ADDR=0.0.0.0` in 
 
 | Destination | Protocol | Purpose |
 |-------------|----------|---------|
-| LLM Providers (7) | HTTPS | Chat completions |
+| LLM Providers | HTTPS | Chat completions |
 | WhatsApp Cloud API | HTTPS | Message send/receive (via Gateway) |
 | GitHub API | HTTPS | Release monitoring, issues |
 | ArXiv/HF/S2/DBLP/ACL APIs | HTTPS | Paper monitoring |

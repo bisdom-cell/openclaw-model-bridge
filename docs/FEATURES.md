@@ -1,13 +1,13 @@
 # OpenClaw Model Bridge — 系统特性一览表
 
-> v37.9.208 (2026-07-01) | **4950 tests** / 139 suites / 0 fail | **10 providers** (含 Doubao Seed 2.0 Pro) | **40 active jobs** | 5 SLO metrics | 19 preflight checks | WhatsApp + Discord dual-channel | **91 governance invariants / 23 meta-rules / 839 checks / 14 MRD scanners** | security 95/100 | 27 blood-lesson case docs
+> v37.9.209 (2026-07-01) | **4950 tests** / 139 suites / 0 fail | **10 providers** (含 Doubao Seed 2.0 Pro) | **40 active jobs** | 5 SLO metrics | 19 preflight checks | WhatsApp + Discord dual-channel | **91 governance invariants / 23 meta-rules / 839 checks / 14 MRD scanners** | security 95/100 | 27 blood-lesson case docs
 
 | 分类 | 特性 | 说明 | 核心文件 |
 |------|------|------|----------|
 | **核心服务** | Gateway | WhatsApp 接入、媒体存储、工具执行、会话管理 | npm 全局 (:18789) |
 | | Tool Proxy | 工具过滤(24→12)、自定义工具拦截、图片 base64 注入、SSE 转换、SLO 采集 | `tool_proxy.py` + `proxy_filters.py` (:5002) |
 | | Adapter | 多 Provider 转发、认证、多模态路由(文本→Qwen3, 图片→VL)、Fallback 降级 | `adapter.py` (:5001) |
-| **LLM Provider (8)** | Qwen3-235B (主力) | 文本对话，262K context | `providers.py` + `adapter.py` |
+| **LLM Provider (10)** | Qwen3-235B (主力) | 文本对话，262K context | `providers.py` + `adapter.py` |
 | | Qwen2.5-VL-72B | 图片理解，自动路由 | 检测 image_url 自动切换 |
 | | Gemini Flash (降级) | 主力不可用时自动切换 | FALLBACK_PROVIDER |
 | | OpenAI / Claude | 手动切换备选 | 环境变量 PROVIDER= |
@@ -15,6 +15,7 @@
 | | MiniMax M2.7 | 视觉+200K+131K输出 | MINIMAX_API_KEY |
 | | GLM-5 (Zhipu) | 744B MoE + GLM-5V-Turbo | GLM_API_KEY |
 | | **Doubao Seed 2.0 Pro** | Volcengine Ark，reasoning model，V37.9.52 plugin 接入 | `providers.d/doubao_provider.py` (ARK_API_KEY) |
+| | **DeepSeek-V4-Pro** | 满血版(ai-tokenhub, R1 reasoning, Qwen3 迁移候选) + 量化版(self-host, PENDING)，V37.9.201/204 plugin 接入 | `providers.d/deepseek*_provider.py` |
 | **自定义工具** | search_kb | 混合检索：语义搜索(embedding) + 关键词补充 + source/时间过滤 → followup LLM 解读 | `proxy_filters.py` 注入 |
 | | data_clean | 数据清洗：7 种操作(dedup/trim/fix_dates 等)、5 种格式(CSV/JSON/Excel 等) | `data_clean.py` |
 | **本地 AI** | KB RAG 语义搜索 | sentence-transformers 384 维 50+ 语言，零 API 调用 | `local_embed.py` + `kb_embed.py` + `kb_rag.py` |
@@ -63,7 +64,7 @@
 | | Golden Test Trace | 真实请求穿越全栈的完整记录 (521ms, 可复现) | `docs/golden_trace.json` |
 | | SLO Benchmark | 真实生产数据报告 (5/5 PASS, p95=459ms) | `slo_benchmark.py` |
 | | GameDay 故障演练 | 5 场景故障注入 (GPU 超时/断路器/快照/SLO/Watchdog) | `gameday.sh` |
-| | 兼容性矩阵 | 8 Provider 能力声明 + 验证状态 | `providers.py` + `docs/compatibility_matrix.md` |
+| | 兼容性矩阵 | 10 Provider 能力声明 + 验证状态 | `providers.py` + `docs/compatibility_matrix.md` |
 | **测试** | 139 套单测 | 4950 用例全部通过 | `test_*.py` |
 | | 全量回归 | full_regression.sh (单测+注册表+安全+代码质量) | `full_regression.sh` |
 | | E2E Smoke | 基础对话 / 工具注入 / KB 搜索 端到端验证 | `wa_e2e_test.sh` |
