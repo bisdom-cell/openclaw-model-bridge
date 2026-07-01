@@ -16,11 +16,17 @@
   可入库 (与 openai/claude/doubao 等公开 base_url 同理)。无 key 时 available() 自动排除。
 
 诚实语义 (原则 #23 — 只声明实测过的能力):
-- **verification_tier = declared** — 全部能力仅声明, **未经 Mac Mini E2E 实测**。
-- 保守只声明 OpenAI /v1 安全基线 text + streaming; tool_calling/json_mode/reasoning/vision
-  未实测 → False (避免 reasoning 误声明打断 capability router; 待 E2E 后逐项 flip,
-  镜像 deepseek V37.9.201→203 渐进验证)。
-- context_window / max_output_tokens 保守占位, 待端点实测确认。
+- **verification_tier = feature_verified** (V37.9.205) — 分项 E2E 实测通过但未真生产流量。
+- **Mac Mini E2E 实测 2026-06-30 (verified True)**:
+    text         ✅ 干净中文 content + finish_reason=stop
+    tool_calling ✅ finish_reason=tool_calls + tool_calls[].function.arguments
+    reasoning    ✅ 🌟 R1 reasoning_content 通道 + reasoning_tokens=55 (量化版无此通道)
+- **确认不支持 / 未暴露 / 未单测 → False**:
+    vision       ❌ 400 Bad Request — DeepSeek V 系无视觉 (实测得知, 非未知)
+    json_mode    ⚠️ response_format 返回 markdown 围栏 (非严格) → 不声明
+    streaming    declared True (OpenAI /v1 基线), 本探针未单测 → verified_streaming=False
+    fallback     未真生产接管 → verified_fallback=False
+- context_window = 1M (V37.9.207 端点规格确认); max_output_tokens=8192 保守占位待实测。
 
 OpenAI 兼容: base_url 以 /v1 结尾 + `Authorization: Bearer` (auth_style=bearer 默认)。
 """
