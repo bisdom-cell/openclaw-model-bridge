@@ -59,7 +59,7 @@ echo ""
 
 # ── 3. 远端模型ID检查（多任务同时失败的第一反应） ──────────────────
 echo "【3/7】远端模型ID检查"
-REMOTE_MODEL=$(curl -s --max-time 10 https://hkagentx.hkopenlab.com/v1/models \
+REMOTE_MODEL=$(curl -s --max-time 10 "${REMOTE_BASE_URL:-https://hkagentx.hkopenlab.com/v1}/models" \
     -H "Authorization: Bearer ${REMOTE_API_KEY}" 2>/dev/null \
     | python3 -c "
 import json,sys
