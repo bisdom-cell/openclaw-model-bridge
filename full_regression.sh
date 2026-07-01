@@ -86,6 +86,7 @@ run_suite "notify_weixin (V37.9.170 微信 openclaw-weixin 推送分支 + WhatsA
 run_suite "notify_jobs_routing (V37.9.171 内容 job 主推走 notify.sh — Path B 单频道 10 job)" "python3 test_notify_jobs_routing.py"
 run_suite "v37_9_175_proxy_alert_marker (V37.9.175 Path B 续 — proxy _send_alert 收编 notify.sh + [SYSTEM_ALERT] 标记, .py 盲区闭合, NO_REPLY 污染根因)" "python3 test_v37_9_175_proxy_alert_marker.py"
 run_suite "check_registry (注册表校验器)" "python3 test_check_registry.py"
+run_suite "v37_9_206_providers_filemap_coverage (V37.9.206 provider 插件部署覆盖守卫 — deepseek 双插件漏 FILE_MAP 致 fallback 静默失效血案)" "python3 test_v37_9_206_providers_filemap_coverage.py"
 run_suite "cron_health (锁/心跳/告警/完整性)" "python3 test_cron_health.py"
 run_suite "status_update (三方状态CRUD)" "python3 test_status_update.py"
 run_suite "status_update_v9_38 (V37.9.38 unfinished 双路径修复 + 顶层迁移)" "python3 test_status_update_v37_9_38.py"

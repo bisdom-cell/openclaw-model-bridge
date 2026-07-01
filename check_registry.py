@@ -284,6 +284,23 @@ def check_filemap_completeness(registry_path):
                     if fname.endswith((".py", ".sh")) and not fname.startswith("."):
                         warnings.append(f"[{jid}] '{rel_path}' 未在 FILE_MAP 中（不会自动部署）")
 
+    # V37.9.206: providers.d/*.py 插件覆盖守卫 (原则 #31 + #34 一物一形).
+    # Provider 插件不是 jobs_registry job, 会绕过上面的 job 循环. 但它们是 adapter/proxy
+    # 运行时的能力平面组件 — 漏进 FILE_MAP = adapter registry 缺该 provider (fallback/router
+    # 静默丢弃). V37.9.201/204 deepseek 双插件曾因此漏部署, 让 FALLBACK_PROVIDER=deepseek_full
+    # 静默失效 (chain 停在 doubao). 这是 wa_e2e_test.sh 起的"长期漏部署"血案类的又一实例.
+    providers_d = os.path.join(repo_root, "providers.d")
+    if os.path.isdir(providers_d):
+        for fname in sorted(os.listdir(providers_d)):
+            if not fname.endswith(".py") or fname.startswith(("_", ".")):
+                continue  # _example.py / 下划线前缀 = 模板/文档, providers.py 自动发现时跳过
+            rel_path = os.path.join("providers.d", fname)
+            if rel_path not in mapped_sources:
+                errors.append(
+                    f"[providers.d] '{rel_path}' 是 provider 插件但不在 auto_deploy FILE_MAP 中"
+                    f"（不会自动部署 → adapter/proxy registry 缺该 provider, fallback/router 静默丢弃！）"
+                )
+
     return errors, warnings
 
 

@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-30 10:07:59",
+  "updated": "2026-07-01 02:06:29",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -110,6 +110,11 @@
   ],
   "recent_changes": [
     {
+      "date": "2026-07-01",
+      "what": "V37.9.206: 满血版 DeepSeek fallback 接入被 auto_deploy FILE_MAP 漏部署阻塞——根因诊断 + FILE_MAP 补登 deepseek/deepseek_full 两插件 + check_registry 加 providers.d/*.py 覆盖守卫(长期漏部署血案类机器化,5 新单测)。full_regression 138/0/4950,VERSION 0.37.9.79",
+      "by": "claude_code"
+    },
+    {
       "date": "2026-06-30",
       "what": "DeepSeek 满血版 E2E → feature_verified, 确立 Qwen3 迁移明确赢家 (VERSION 0.37.9.77→0.37.9.78)。V37.9.204 接入后用户同步(PR#765)+设 DEEPSEEK_FULL_API_KEY(中途误粘占位符<满血版key>致 UnicodeEncodeError+未先同步 deepseek_full 未注册→sed 清脏值+真 key 重设+探针直连端点不依赖代码同步修复)→6 维探针 curl。满血版 vs 量化版关键差异: 🌟 reasoning ✅✅ 有 R1 reasoning_content 通道(reasoning 字段+reasoning_tokens=55, 量化版全程 null 无此通道) + 无乱码 token(量化版 w4a8 偶发乱码核心缺陷在满血版消失) + 干净中文; text/tool_calling ✅; vision ❌400 非多模态; json_mode ⚠️返回围栏非严格(量化版反而干净 raw)。运维: 满血版推理模型先生成 reasoning 占 token, 生成任务须给足 max_tokens(实测 600 被吃光 content 空)。据实更新(原则#23): tool_calling+reasoning False→True+verified_text/tool_calling/reasoning=True+tier declared→feature_verified+tier_evidence(含无乱码优于量化版); vision/json_mode/verified_streaming 保持 False。🔴 capability router 正确改路由(原则#28): 声明 reasoning 后 router test 3 失败 deepseek_full 抢 qwen→诊断合理非 bug: 评分 cap_score+prefer×10, qwen 从未声明 reasoning(之前赢只因 verified_count 高且无 reasoning 竞争者), 满血版真 verified reasoning→prefer=reasoning +10(s=20>qwen 14)正确胜=router 设计目的(推理任务路由推理模型); shadow 模式默认不强制生产仍 qwen 胜出仅观察; 更新 3 router test 期望 deepseek_full+修正误导注释(诚实不为保测试绿隐藏真能力)。全量同步: test_providers 重写 feature_verified+reasoning/test_gen_compat declared 6→5/gen_compat --fix/minimal_runtime golden 重生成(deepseek_full cap_score 升排 deepseek 前, best 仍 doubao)/router 3 处 qwen→deepseek_full。验证 full_regression 137/0/4945/governance 91/91 EXIT=0/安全 95/零泄漏/tier 一致[]/VERSION 0.37.9.78。迁移决策: 满血版=Qwen3 迁移明确赢家(reasoning 通道超 Qwen3-235B-Instruct 非推理+无乱码+干净中文), 量化版 PENDING; 仍限无视觉(图片留 VL/doubao)+json_mode 围栏+推理吃 token。🔴 Mac Mini 待用户: env 已持久化~/.env_shared, 待加 adapter+proxy plist 让服务用上+Phase 2 fallback 链生产观察→production_observed。安全: 满血/量化/ARK 三 key 建议轮换。元价值: 同 model 双端点(量化 vs 满血)对比揭示量化档位质量差异(w4a8 乱码+无 reasoning 通道 vs 满血干净+R1 通道); capability router 首次因真 verified-reasoning provider 接入改变路由=V37.9.76 框架真实价值兑现。",
       "by": "claude_code"
@@ -204,11 +209,6 @@
       "date": "2026-06-26",
       "what": "V37.9.189 full_regression README 徽章漂移检测移到证据回写之后 — 根治 V37.9.180 漏 --write 泄漏进 merge 的递归滞后（unfinished #13, 用户「现在就继续执行 item13」, CI 核心 careful 重构）. 根因: gen_readme_badges --check 旧序在证据回写【之前】跑, 但它验的 test_count/suites/security 来自 status.json 末尾回写 → 验的是上次 run 的值 → 本 session 加测试漏 --write 时 README vs 上次 status.json 仍一致→本 run 通过→漂移只在下次 run 才被抓（V37.9.180 commit 2afc90c 漏 --write 被合并进 main 根因）. 诊断缩 blast radius: 仅 test_count/suites/security 来自 status.json 回写; invariants/checks/version/providers/cases/MRD 全静态文件; gen_jobs_doc(验 jobs_registry)+gen_compat_matrix(验 providers.py) 不依赖回写 → 只移 gen_readme_badges --check 一个块. 自引用难点(suites 计数既被 --check 验又被 --check 递增)用 SUITES_DEFERRED_COUNTED=1 化解(镜像 V37.9.140 SUITES_SKIPPED_COUNTED 确定值模式): SUITES_TOTAL=PASS+SKIPPED+DEFERRED, dirty 133+1+1 / clean 134+0+1 → suites=135 两路径不变. 控制流重构: 第一道门(FAIL>0 abort)→证据回写→第 2.5 层 badge --check(回写后)→最终门(漂移提示跑 --write+exit1). security/governance/version 回写块字节不变(两段式 Edit 不碰中段 python heredoc). 守卫 test_v37_9_69 19→26: 更新 2 算术守卫 + 新 TestV379188BadgeCheckAfterWriteback(源码顺序 badge>回写 + 无残留旧序 + DEFERRED=1 + 第 2.5 层段头 + jobs/compat 留回写前 + 阻塞门). sabotage 反向验证(备份副本非 git checkout): 回写前插 --check → 2 顺序守卫 FAIL, 还原 26/26 全过. 端到端活证: 本 session +7 测试(4763→4770) → 首跑 full_regression 同 run 抓 README 4763 vs 回写 4770 漂移 exit1 提示 --write(旧序此 run 会通过泄漏到下次) → --write 同步 → 复跑 134/0/4770 全绿 = #13 递归滞后活生生闭环. 验证 134/0/4770(+7) / suites 135 不变 / governance EXIT=0 91/91 / 安全 95/100 / 三机器 doc-drift 无漂移 / VERSION 0.37.9.71 不变(CI 工具非运行时, 同 V37.9.141/143 惯例). 复杂度预算: files 不变, suites 135 不变(DEFERRED 抵消移动), tests +7, 净 runtime 机制≈0(控制流重构修递归 bug 非新接缝). 待 Mac Mini git fetch+reset(full_regression 是 CI 工具零重启).",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-06-26",
-      "what": "V37.9.188 日落法退役 INV-WA-CHANNEL-001 治理不变式计划（周五开工·收敛日·grounded 自主选择）. 诊断（原则#28）: 频道掉线 escalation 契约（V37.9.162）已被 test_wa_channel_status.py（full_regression 注册）完整守护——MR-14 Discord-not-WhatsApp 发送路径 / 手机号泄漏守卫 / FAIL-OPEN / wa_keepalive _wa_channel_check 源码守卫 / auto_deploy FILE_MAP 部署 / fake-openclaw 隔离 HOME 行为级端到端. 应用 V37.9.166 三类判据: remaining action = 加治理 INV = category A（test 已覆盖→退役避 governance bloat）; 原则#21「什么坏了没人发现」不成立（CI 抓回归）. 决定不立 INV, 单测是足够且已选定的守护层（对齐外部评审2 降组合复杂度 + 日落法北极星 + V37.9.186 2 天前同款用单测不立 INV; 与 V37.9.162 计划的区别: 当时按 shadow-first 惯例预登记 INV, 现按演进后的日落法复审）. 与 V37.9.186 加治理 INV 的区别澄清: 那里也是用单测不立 INV——本决定与之一致非矛盾. 更新: case doc whatsapp_session_logout_silent_7h_case.md deferred 指针→已决 + 本 unfinished item 5. 顺手判定 item 13（full_regression --check 顺序）是真实但 intricate 自引用 CI 重构（suite 计数既被 --check 验证又被 --check 递增 + 拆分回写 + V37.9.140 稳定性交互），值专门 careful session 非收敛日仓促做（V37.9.181 已标）. VERSION 0.37.9.71 不变（纯决定+doc/state 零业务语义, 同 V37.9.166/185/186 惯例）. 复杂度预算: files/env/jobs/runtime-state-sources/suites/tests/checks/VERSION 全不变, 净 runtime 机制 0, 净退役 1 个「待加 INV」计划面（日落法连登记的待办也做减法）. 待 Mac Mini git fetch+reset（纯 doc/state 零重启）.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -283,14 +283,14 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 4945,
-    "last_regression": "2026-06-30 10:06 pass",
+    "test_count": 4950,
+    "last_regression": "2026-07-01 02:04 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-06-30 10:06",
-    "test_suites": 138,
+    "security_score_time": "2026-07-01 02:04",
+    "test_suites": 139,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
-    "version": "0.37.9.78",
+    "version": "0.37.9.79",
     "observer": {}
   },
   "incidents": [
