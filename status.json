@@ -1,6 +1,6 @@
 {
-  "updated": "2026-07-01 02:52:00",
-  "updated_by": "full_regression",
+  "updated": "2026-07-01 03:07:44",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -111,6 +111,11 @@
   "recent_changes": [
     {
       "date": "2026-07-01",
+      "what": "V37.9.208: deepseek_full「诚实语义」docstring 块 stale 修复——从 V37.9.204 declared-only 措辞收敛到 V37.9.205 feature_verified 现实(内部矛盾: 顶部 header 正确/下方块冻结, 且块标题「诚实」却陈述真相反面)。原则#31 AST sweep 全 3 插件 tier 声明 vs 代码, deepseek_full 唯一漂移。156 provider 测试全过(docstring-only)+full_regression 138/0/4950+三 doc-drift 机器检查绿。VERSION 0.37.9.80 不变(纯 docstring 零业务语义)。门控收敛日一致性收敛(外部评审2 指令+日落法)。",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-07-01",
       "what": "V37.9.206: 满血版 DeepSeek fallback 接入被 auto_deploy FILE_MAP 漏部署阻塞——根因诊断 + FILE_MAP 补登 deepseek/deepseek_full 两插件 + check_registry 加 providers.d/*.py 覆盖守卫(长期漏部署血案类机器化,5 新单测)。full_regression 138/0/4950,VERSION 0.37.9.79",
       "by": "claude_code"
     },
@@ -204,11 +209,6 @@
       "date": "2026-06-26",
       "what": "V37.9.190 组装 ISSRE Industry Track 投稿稿(用户「开始组装 + 今天先不投递但提前全面准备」, 话语权零业务语义 VERSION 不变). 起因: 用户问「是不是遗漏一个待发表论文」→ 核实发现我把 item 0(ISSRE 平行投稿)归类成纯「用户动作」低估了它——它有真 dev 可做的准备工作. ISSRE 用的是区别于 IEEE 杂志经验报告版的【不同文档】(SUBMISSION_GUIDE: 不可同存档稿双投两 venue, 杂志 feature 与会议工业稿是两份文档). 组装 issre_industry_track_paper.md = 完整 arXiv 论文 + §3 前言换 Part A(Runeson-Höst 纵向单案例方法: 方法选择理由/案例与分析单元/RQ/数据采集 postmortem 协议/constant comparison/meta-pattern counter/analytical generalization) + §8 换 Part B(四类威胁有效性: construct/internal 无 κ/external/reliability/AI-involvement) + AI 披露整合(Generative-AI Use Disclosure + Acknowledgments + CRediT) + Index Terms + 作者/系统名保留(工业 track 非双盲) + ref 14→15(加 Runeson&Höst 2009) + 自含 Trim priorities 附录(6 页限制时的裁剪优先级, 保护方法学段+0%/87% scorecard+威胁段+AI 披露不可删) + pitch line. 数字全部冻结 study-cutoff 2026-06-11(4,286 tests/121 suites/90 inv/827 checks/23 MR/14 scanners/22 incidents/≥28/8 providers/~40 jobs, 与 arXiv 已发表版一致), 核对反核无当前-repo 数字(4770/135/91/839)泄漏, 以 latex/main.tex 权威标题为准, 绝不凭记忆编造. 泄漏扫描 clean(作者邮箱是公开联系预期出现). 更新 SUBMISSION_GUIDE ISSRE 段(manuscript 已组装 + checklist 标 author-only 项). 验证 134/0/4770 / badge 无漂移 / governance EXIT=0 91/91 / 安全 95 / VERSION 0.37.9.71 不变. 剩余 author-only: 确认 CFP 页数/截止 + IEEE GenAI 政策 + 裁剪贴模板 + 实际 Submit. 待 Mac Mini git fetch+reset(纯 doc 零重启).",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-06-26",
-      "what": "V37.9.189 full_regression README 徽章漂移检测移到证据回写之后 — 根治 V37.9.180 漏 --write 泄漏进 merge 的递归滞后（unfinished #13, 用户「现在就继续执行 item13」, CI 核心 careful 重构）. 根因: gen_readme_badges --check 旧序在证据回写【之前】跑, 但它验的 test_count/suites/security 来自 status.json 末尾回写 → 验的是上次 run 的值 → 本 session 加测试漏 --write 时 README vs 上次 status.json 仍一致→本 run 通过→漂移只在下次 run 才被抓（V37.9.180 commit 2afc90c 漏 --write 被合并进 main 根因）. 诊断缩 blast radius: 仅 test_count/suites/security 来自 status.json 回写; invariants/checks/version/providers/cases/MRD 全静态文件; gen_jobs_doc(验 jobs_registry)+gen_compat_matrix(验 providers.py) 不依赖回写 → 只移 gen_readme_badges --check 一个块. 自引用难点(suites 计数既被 --check 验又被 --check 递增)用 SUITES_DEFERRED_COUNTED=1 化解(镜像 V37.9.140 SUITES_SKIPPED_COUNTED 确定值模式): SUITES_TOTAL=PASS+SKIPPED+DEFERRED, dirty 133+1+1 / clean 134+0+1 → suites=135 两路径不变. 控制流重构: 第一道门(FAIL>0 abort)→证据回写→第 2.5 层 badge --check(回写后)→最终门(漂移提示跑 --write+exit1). security/governance/version 回写块字节不变(两段式 Edit 不碰中段 python heredoc). 守卫 test_v37_9_69 19→26: 更新 2 算术守卫 + 新 TestV379188BadgeCheckAfterWriteback(源码顺序 badge>回写 + 无残留旧序 + DEFERRED=1 + 第 2.5 层段头 + jobs/compat 留回写前 + 阻塞门). sabotage 反向验证(备份副本非 git checkout): 回写前插 --check → 2 顺序守卫 FAIL, 还原 26/26 全过. 端到端活证: 本 session +7 测试(4763→4770) → 首跑 full_regression 同 run 抓 README 4763 vs 回写 4770 漂移 exit1 提示 --write(旧序此 run 会通过泄漏到下次) → --write 同步 → 复跑 134/0/4770 全绿 = #13 递归滞后活生生闭环. 验证 134/0/4770(+7) / suites 135 不变 / governance EXIT=0 91/91 / 安全 95/100 / 三机器 doc-drift 无漂移 / VERSION 0.37.9.71 不变(CI 工具非运行时, 同 V37.9.141/143 惯例). 复杂度预算: files 不变, suites 135 不变(DEFERRED 抵消移动), tests +7, 净 runtime 机制≈0(控制流重构修递归 bug 非新接缝). 待 Mac Mini git fetch+reset(full_regression 是 CI 工具零重启).",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -284,9 +284,9 @@
   "quality": {
     "security_score": 95,
     "test_count": 4950,
-    "last_regression": "2026-07-01 02:51 pass",
+    "last_regression": "2026-07-01 03:04 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-07-01 02:51",
+    "security_score_time": "2026-07-01 03:04",
     "test_suites": 139,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
@@ -355,7 +355,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.206 满血版 DeepSeek 接入第一优先级 fallback 链 (Mac Mini 已验证 chain=['deepseek_full','doubao','deepseek'] + fallback=deepseek_full)。下一步 = Phase 2 生产观察 (Qwen3 真宕时满血版接管的质量/延迟) → 升 production_observed；迁移 Qwen3 时图片路由须留 VL 模型 (满血版无视觉)。",
+  "focus": "V37.9.208 门控收敛日一致性收敛: deepseek_full docstring 诚实语义块从 declared-only 收敛到 feature_verified 现实(原则#23+#31 sweep)。系统全绿(138 suites/4950 tests/91 inv/安全 95/三 doc-drift 机器检查无漂移)。实质待办全 gated: LLM-Observer shadow 周观察中(Stage 5.1 flip on gated)/DeepSeek Phase 2 生产观察(Qwen3 真宕时满血版接管质量 Mac-Mini-gated)/IEEE·ISSRE in-review/4.27 push 追踪。下次候选: shadow 周数据到→Stage 5.1 / Phase 2 数据→production_observed。",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
