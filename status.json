@@ -1,5 +1,5 @@
 {
-  "updated": "2026-07-01 03:07:44",
+  "updated": "2026-07-01 03:32:03",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -111,6 +111,11 @@
   "recent_changes": [
     {
       "date": "2026-07-01",
+      "what": "V37.9.209: provider-count 现状 prose 一致性收敛——6 处 human-维护 prose 从 stale「7/8 Provider」收敛到当前 10(7 built-in + doubao + deepseek×2)。机器表/徽章覆盖不到的 prose 漂移(doubao 第 8 时改 8, deepseek×2 后未 bump): FEATURES.md 兼容矩阵行+LLM Provider(8)段头+补 DeepSeek 行 / INDEX.md / compatibility_matrix.md human header+第 8 个 provider 去数字化 / CLAUDE.md 组件表(7)→10 / security_boundaries.md LLM Providers(7)去数字化。诚实留手动: CLAUDE.md 架构图(7 Providers)不动(illustrate built-in core+width-constrained, V37.9.152 method)。full_regression 138/0/4950+三 doc-drift 机器检查绿。VERSION 0.37.9.80 不变(纯 prose 零业务语义)。同日两次一致性收敛(V37.9.208 docstring+209 prose)正中外部评审2「文档一致性」弱项。",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-07-01",
       "what": "V37.9.208: deepseek_full「诚实语义」docstring 块 stale 修复——从 V37.9.204 declared-only 措辞收敛到 V37.9.205 feature_verified 现实(内部矛盾: 顶部 header 正确/下方块冻结, 且块标题「诚实」却陈述真相反面)。原则#31 AST sweep 全 3 插件 tier 声明 vs 代码, deepseek_full 唯一漂移。156 provider 测试全过(docstring-only)+full_regression 138/0/4950+三 doc-drift 机器检查绿。VERSION 0.37.9.80 不变(纯 docstring 零业务语义)。门控收敛日一致性收敛(外部评审2 指令+日落法)。",
       "by": "claude_code"
     },
@@ -204,11 +209,6 @@
       "date": "2026-06-28",
       "what": "启动 ISSRE Industry Track 投稿(用户「启动 ISSRE 投稿」, 话语权零业务语义 VERSION 不变). ① WebFetch/WebSearch 实地确认 CFP(V37.9.187 时 deep-research 因额度没做成的 author-only 项): 官方 cyprusconferences 页 403→EAPLS+EasyChair 镜像交叉验证(诚实标注 re-confirm 官方页): 6 页含 refs(full)/4(short) IEEE CS 2 栏, 非双盲(须作者名+≤150 词摘要+≤4 keywords), 摘要 6-28→7-3 / 论文 7-5→7-12 / 通知 8-12 / EasyChair 单 PDF 超页 desk-reject. 关键约束诚实记录: 确认是「6 页*含* refs」比 manuscript 假设的「6+refs」更紧. ② 解锁 full 文件 2 个 author-only 项 → ✅confirmed facts. ③ 新建 issre_6page_submission.md = 按 Trim priorities 附录把 ~14 页全文裁到 6 页含 refs(§2 压缩/§4 保 Table1+D1+Fig1+reserved-file 全文 其余 B/C/D 各 1+1 句/§5.4 并入 5.3/§6 五支柱紧凑/never-cut §3§5.5§8 disclosure). 150 词摘要(wc 验=150)+≤4 keywords(Index Terms 10→4). 全部冻结 study-cutoff 数字(4,286/827/90/22/≥28/8/121/53-92), grep 验当前-repo 数字(4770/839/91/135)零泄漏. note 含 typeset 超页下一步裁剪顺序(绝不盲剪 load-bearing). ④ SUBMISSION_GUIDE §3 加 confirmed CFP 表 + EasyChair 摘要注册块(title+150 词+4kw)+ author runbook + deadline 紧迫. ⑤ 安全扫描 clean(无 key/手机号/内网 IP; repo 名+作者邮箱是预期公开). 无测试/漂移/治理依赖论文文件→full_regression 不受影响(零代码改动 2026-06-26 4770/0/135 成立). 诚实边界(author-only 我做不了): EasyChair 注册摘要(7-3 前)/贴 IEEEtran+Fig.1 矢量图/typeset≤6 页核/Submit(7-12 前, 绑定 ORCID). 复杂度预算: files +1(6 页投稿稿=话语权证据非 runtime 接缝), 其余四维度不变, 净 runtime 机制 0. 待 Mac Mini git fetch+reset(纯 doc 零重启).",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-06-26",
-      "what": "V37.9.190 组装 ISSRE Industry Track 投稿稿(用户「开始组装 + 今天先不投递但提前全面准备」, 话语权零业务语义 VERSION 不变). 起因: 用户问「是不是遗漏一个待发表论文」→ 核实发现我把 item 0(ISSRE 平行投稿)归类成纯「用户动作」低估了它——它有真 dev 可做的准备工作. ISSRE 用的是区别于 IEEE 杂志经验报告版的【不同文档】(SUBMISSION_GUIDE: 不可同存档稿双投两 venue, 杂志 feature 与会议工业稿是两份文档). 组装 issre_industry_track_paper.md = 完整 arXiv 论文 + §3 前言换 Part A(Runeson-Höst 纵向单案例方法: 方法选择理由/案例与分析单元/RQ/数据采集 postmortem 协议/constant comparison/meta-pattern counter/analytical generalization) + §8 换 Part B(四类威胁有效性: construct/internal 无 κ/external/reliability/AI-involvement) + AI 披露整合(Generative-AI Use Disclosure + Acknowledgments + CRediT) + Index Terms + 作者/系统名保留(工业 track 非双盲) + ref 14→15(加 Runeson&Höst 2009) + 自含 Trim priorities 附录(6 页限制时的裁剪优先级, 保护方法学段+0%/87% scorecard+威胁段+AI 披露不可删) + pitch line. 数字全部冻结 study-cutoff 2026-06-11(4,286 tests/121 suites/90 inv/827 checks/23 MR/14 scanners/22 incidents/≥28/8 providers/~40 jobs, 与 arXiv 已发表版一致), 核对反核无当前-repo 数字(4770/135/91/839)泄漏, 以 latex/main.tex 权威标题为准, 绝不凭记忆编造. 泄漏扫描 clean(作者邮箱是公开联系预期出现). 更新 SUBMISSION_GUIDE ISSRE 段(manuscript 已组装 + checklist 标 author-only 项). 验证 134/0/4770 / badge 无漂移 / governance EXIT=0 91/91 / 安全 95 / VERSION 0.37.9.71 不变. 剩余 author-only: 确认 CFP 页数/截止 + IEEE GenAI 政策 + 裁剪贴模板 + 实际 Submit. 待 Mac Mini git fetch+reset(纯 doc 零重启).",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -284,9 +284,9 @@
   "quality": {
     "security_score": 95,
     "test_count": 4950,
-    "last_regression": "2026-07-01 03:04 pass",
+    "last_regression": "2026-07-01 03:31 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-07-01 03:04",
+    "security_score_time": "2026-07-01 03:31",
     "test_suites": 139,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
