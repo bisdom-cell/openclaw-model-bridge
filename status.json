@@ -1,5 +1,5 @@
 {
-  "updated": "2026-07-01 15:02:34",
+  "updated": "2026-07-01 15:25:23",
   "updated_by": "full_regression",
   "priorities": [
     {
@@ -109,6 +109,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-07-01",
+      "what": "V37.9.211: Qwen3 primary provider 端点刷新(服务器重装 → base_url env 化, VERSION 0.37.9.80→0.37.9.81)。用户报 primary Qwen3 服务器重装, 旧 endpoint(hkagentx.hkopenlab.com/v1)失效, 新 = 裸 IP+HTTP + 新 key(明文授权本 session), model Qwen3-235B-A22B-Instruct-2507-W8A8 未变。🔴 安全: 公开 repo → 明文 key 绝不入库 + 裸 IP 端点(暴露自建 LLM 服务器)类机密也不入库, 镜像 deepseek V37.9.201。ground(原则#28): providers.py QwenProvider.base_url 类属性硬编码是真理源(→to_legacy_dict→PROVIDERS→adapter TARGET_BASE), base_url 唯一不可 env 覆盖字段。de-risk(feedback#1): dev curl 新端点超时=网络策略限制(裸 IP 不在 proxy noProxy 私网段)非端点死, 验证必 Mac Mini。交付: QwenProvider 加 __init__ 从 REMOTE_BASE_URL env 解析 base_url + 公开域名 fallback, env 经 to_legacy_dict 自动流 adapter 两路径无需改 adapter.py(一物一形); key 已走 REMOTE_API_KEY env; 4 新守卫单测(env 解析+无裸 IP/key 硬编码, sabotage 反向验证有效)。验证: full_regression 138/0/4954 + governance 91/91 EXIT=0 + 安全扫描零泄漏(新 key/裸 IP/sk- 全仓全空+git diff 无机密) + 三 doc-drift 无漂移。复杂度预算: env +1(REMOTE_BASE_URL Mac Mini 设置, dev 优雅降级公开 fallback)。🔴 Mac Mini 待用户: adapter env 设 REMOTE_API_KEY(新 key)+REMOTE_BASE_URL(新 IP) → 重启 adapter → E2E curl $REMOTE_BASE_URL/models + WhatsApp 验证 PA。安全: 明文 key 建议用完轮换。",
+      "by": "claude_code"
+    },
     {
       "date": "2026-07-01",
       "what": "V37.9.210: LLM-Observer Stage 5.1 flip 决策框架预注册(design doc §9.1) — 门控收敛日一致性收敛. 触发: 系统全绿+所有 17 unfinished 全 gated/deferred, 今日已有两 prose-convergence commit(208/209). 从宪法级 #1(LLM-Observer)选非 gated 非 premature 真实价值项: shadow 周(6/30 启动 ~7/7)后 flip OBSERVER_FP_MODE=on 是有真实代价决策(fp 进 anomalies→影响评分+告警), V37.9.199 已证 shadow 抓真 FP → flip 有噪声风险. gap: design doc 实施路径表停在 V37.9.193 '今日仅 Stage 0' 进度(stale), flip criteria 散落 V37.9.198/199 changelog prose('信号有用且噪声低'模糊). 交付: (1) §9.1 预注册决策框架 — 观察对象(score_history fp_high/med 7天序列+报告 fail_plausible 段 L1+L2 证据人工判 TP/FP+status.quality.observer)+核心度量 live precision(scorecard fp_rate 应用到生产)+flip criteria(C1 零未修复系统性 FP/C2 ≥1 TP 或干净周/C3 cheap-path 成本可持续)+flip vs extend 逻辑+flip 后变化+rollback 即时可逆(env flip next cron)+small-N 诚实边界(不追统计显著追无系统性噪声)+force_judge 不与 flip 捆绑. (2) Stage 表进度更新反映现实(Stage 0-5 ✅ 各标 V 版本+6ch1 ✅+新增 Stage 5.1 🟡 行). 日落法一物一形: flip 标准从散落 changelog 收敛到 design doc 单一 canonical(镜像论文 pre-registration 方法学防 motivated reasoning). design-only 零代码零测试改动. 验证: 三 doc-drift 机器检查无漂移+governance EXIT=0 91/91+安全扫描零泄漏. VERSION 0.37.9.80 不变(设计文档零业务语义, 同 V37.9.192/193 惯例).",
@@ -265,6 +270,7 @@
   "session_context": {
     "last_session": "2026-06-30",
     "unfinished": [
+      "【V37.9.211 Qwen3 端点刷新 · 🔴 Mac Mini 部署 + key 轮换待用户】服务器重装 → base_url env 化(REMOTE_BASE_URL 裸 IP 不入库)+新 key。Mac Mini: (1) adapter(+proxy) env 源(.env_shared/plist, 即当前给 REMOTE_API_KEY 的同处)设 REMOTE_API_KEY=<新 key>+REMOTE_BASE_URL=http://<新 IP>:8000/v1 (2) 重启 adapter(launchctl bootout/bootstrap 重载 env) (3) E2E: curl \"$REMOTE_BASE_URL/models\" -H \"Authorization: Bearer $REMOTE_API_KEY\" 应列 Qwen3 + curl localhost:5001/health + WhatsApp 发消息确认 PA 回复(primary Qwen3 真接管)。dev 网络受限无法验端点功能(非死), Mac Mini E2E 不可替代(原则#6/#9-H)。🔴 安全: 明文 key 在对话出现, 建议用完轮换(防御纵深)。",
       "【LLM-Observer 研究攻关 #1 · Stage 0-5 ✅ + Stage 6 chunk 1 ✅(V37.9.200 bench 社区化) + Mac Mini E2E shadow 周观察中 2026-06-30 · Stage 5.1(flip on, gated 于 shadow 周数据)/Stage 6 论文 #2 草案(gated 于 detection latency 生产数据) next】Stage 5 wire 进 daily_observer (PR#759 已合并+同步)。Mac Mini E2E 当天验证: fp_mode=shadow + score_history fp_med 链路通 + shadow 立刻抓第一个真 FP (S5 boilerplate 误把 freight 评分字段 '评级：⭐⭐⭐⭐' 重复当空壳) → V37.9.199 修复(PR#760 已合并 b9d68b2, 生产复跑 2026-06-29 段数 1→0 确认生效) (_descriptive_char_count 区分描述空壳 vs 评分字段, PR#760 待合并)。🔴 **Mac Mini shadow 周观察 (进行中, dev 不可替代)**: 合并 PR#760 + 同步 → 下次 06:30 cron 评分源不再误报。每天看 ~/.kb/self_critique/daily_critique_$(date -v-1d +%Y%m%d).md 的 Fail-Plausible 段 + score_history fp_high/med + status.quality.observer.fail_plausible_* — 判断 (a) 还有没有其他系统性 FP (b) 有没有抓到【真】fail-plausible (c) cron 是否变慢/报错 (FAIL-OPEN)。**Stage 5.1 (shadow 周后)**: FP 噪声降到低位 + 信号真有用 → flip OBSERVER_FP_MODE=on (fp 进 anomalies 影响评分+告警) + 评估 force_judge 高风险 synthesis (catch novel D2/grounding)。**Stage 6**: bench 化 (reliability_bench 扩展 + llm_observer_selfcheck CORPUS 种子) + 论文 #2 (描述→预测, scorecard 核心数据)。 **V37.9.210: Stage 5.1 flip 决策框架已预注册 design doc §9.1**(观察对象+live precision 度量+C1/C2/C3 criteria+flip vs extend+rollback 可逆+small-N 边界) — shadow 周(~7/7)完成后按 §9.1 判 flip/extend, 决策结构不再散落 changelog(一物一形).",
       "【DeepSeek 迁移 Qwen3 · 满血版 deepseek_full 确立为赢家(V37.9.205 feature_verified) · Phase 2 待启】候选已定: deepseek_full(满血版 ai-tokenhub)=赢家——E2E 验证 text/tool_calling/reasoning, 🌟 有 R1 reasoning 通道(超 Qwen3-235B-Instruct 非推理模型)+无乱码+干净中文; 量化版 deepseek(w4a8)=PENDING(有乱码+无 reasoning 通道)。满血版仍限: 无视觉(400)+json_mode 围栏非严格+推理吃 token 预算(生成任务须高 max_tokens)。🔴 Mac Mini 待用户: (1) 满血版 key 已在~/.env_shared, 待加进 adapter+proxy plist(镜像 ARK/DEEPSEEK_API_KEY)+bootout/bootstrap 重载让 launchd 服务用上。(2) Phase 2: deepseek_full 进 fallback 链生产观察(质量/延迟/真接管)→ 升 production_observed(verified_fallback flip)。注: router shadow 模式已会把 reasoning 任务(如 kb_dream)路由到 deepseek_full(s=20>qwen 14), 但 ROUTER_ENFORCE 默认 off 仅观察; 若要真启用能力路由需用户开 ROUTER_ENFORCE。(3) 视觉路由: 满血版无视觉 → 老化 Qwen3 文本时图片留 Qwen2.5-VL/doubao(候选能力路由器 text→deepseek_full/image→VL)。(4) streaming 满血版未单测(declared True verified False), 如需可补 curl。🔴 安全: 满血/量化/Doubao ARK 三 key 对话明文多次强烈建议轮换。",
       "【ISSRE Industry Track 已投递(Submission 395, 2026-06-28) · in-review】Silent-failures 论文平行第二投已完成: EasyChair Submission 395 (Industry Track / Full Paper / 标题+150 词摘要+4kw+topics+作者) + 6 页 IEEEtran PDF (pdflatex 本地真编译, 6 页含 refs 符合上限) 上传 15:50。待: 编辑初筛 → 评审 → 通知 2026-08-12。截止前(论文 7-12)可 Update 重传(若官方页 re-confirm 后想微调 Fig.1)。诚实备忘: CFP 走 EAPLS/EasyChair 镜像交叉验证(官方页 403), 建议官方页扫一眼确认 6 页含 refs/7-12 未变。源码 latex/issre_6page_trimmed.tex(投稿版,6 页)+issre_6page.tex(完整版,7 页)入库; PDF 是 build 产物 gitignore。",
@@ -288,14 +294,14 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 4950,
-    "last_regression": "2026-07-01 15:02 pass",
+    "test_count": 4954,
+    "last_regression": "2026-07-01 15:24 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-07-01 15:02",
+    "security_score_time": "2026-07-01 15:24",
     "test_suites": 139,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
-    "version": "0.37.9.80",
+    "version": "0.37.9.81",
     "observer": {}
   },
   "incidents": [
@@ -360,7 +366,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.210 门控收敛日 · LLM-Observer Stage 5.1 决策框架预注册: 把散落在 V37.9.198/199 changelog 的 flip(shadow→on) 标准收敛进 design doc §9.1 单一处(一物一形/一致性收敛) + 更新 Stage 表进度反映现实(Stage 0-5+6ch1 ✅ / Stage 5.1 🟡 shadow 周). 预注册决策规则(数据到达前定 C1 零系统性 FP/C2 信号有用/C3 成本可持续 + flip vs extend 逻辑 + rollback 即时可逆 + small-N 诚实边界) = 防 motivated reasoning, 镜像论文 #2 自身 pre-registration 方法学. design-only 零 runtime VERSION 不变. 系统全绿(139 suites/4950 tests/91 inv/安全 95/三 doc-drift 机器检查无漂移). 实质待办仍全 gated: shadow 周(~7/7)完成 → 按 §9.1 判 flip / DeepSeek Phase 2 / IEEE·ISSRE in-review.",
+  "focus": "V37.9.211: Qwen3 primary provider 端点刷新(服务器重装) — base_url env 化 REMOTE_BASE_URL(裸 IP 类机密不入库, 镜像 deepseek V37.9.201 安全模式), key 走 REMOTE_API_KEY env, model 未变。QwenProvider.__init__ 从 env 解析 base_url + 公开 fallback → to_legacy_dict 自动流到 adapter 两路径, 无需改 adapter.py。4 新守卫单测(env 解析 + 无裸 IP/key 硬编码, 反向验证有效)。full_regression 138/0/4954 + 安全扫描零泄漏 + VERSION 0.37.9.81。🔴 Mac Mini 待用户: adapter env 设 REMOTE_API_KEY(新 key)+REMOTE_BASE_URL(新 IP) → 重启 adapter → E2E curl /models + WhatsApp 验证 PA。dev 网络受限无法验端点(非死), Mac Mini E2E 不可替代。安全: 明文 key 建议轮换。",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
