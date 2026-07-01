@@ -1525,6 +1525,59 @@ class TestDefaultRegistryPluginDir(unittest.TestCase):
         self.assertTrue(os.path.isdir(providers_d))
 
 
+class TestQwenBaseUrlEnv(unittest.TestCase):
+    """V37.9.211 — Qwen primary provider base_url env-驱动 (服务器重装后裸 IP 端点走
+    REMOTE_BASE_URL env, 公开 repo 安全底线, 镜像 deepseek V37.9.201)。"""
+
+    def test_base_url_env_driven_with_public_fallback(self):
+        from providers import QwenProvider
+        # dev/无 REMOTE_BASE_URL → 公开域名 fallback (历史端点, 非机密, 合约通过)
+        with mock.patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("REMOTE_BASE_URL", None)
+            p = QwenProvider()
+            self.assertEqual(p.base_url, "https://hkagentx.hkopenlab.com/v1")
+        # 设 env → 生产 endpoint 注入 (Mac Mini 路径, 裸 IP 不入库)
+        with mock.patch.dict(os.environ, {"REMOTE_BASE_URL": "http://x.test:8000/v1"}):
+            p = QwenProvider()
+            self.assertEqual(p.base_url, "http://x.test:8000/v1")
+
+    def test_env_flows_through_to_legacy_dict(self):
+        """env 覆盖必须流到 PROVIDERS dict (adapter.py 消费路径)。"""
+        import importlib
+        import providers as _pv
+        with mock.patch.dict(os.environ, {"REMOTE_BASE_URL": "http://x.test:8000/v1"}):
+            importlib.reload(_pv)
+            try:
+                self.assertEqual(_pv.PROVIDERS["qwen"]["base_url"], "http://x.test:8000/v1")
+            finally:
+                importlib.reload(_pv)  # 还原模块级 PROVIDERS
+
+    def test_model_id_unchanged(self):
+        """服务器重装只改端点, 模型名不变 (Qwen3-235B-A22B-Instruct-2507-W8A8)。"""
+        from providers import QwenProvider
+        p = QwenProvider()
+        self.assertEqual(p.model_id, "Qwen3-235B-A22B-Instruct-2507-W8A8")
+        self.assertEqual(p.vl_model_id, "Qwen2.5-VL-72B-Instruct")
+
+    def test_no_bare_ip_or_key_hardcoded_in_repo(self):
+        """🔴 公开 repo 安全底线: providers.py 不得含裸 IP base_url 或 sk- key 字面量
+        (裸 IP 生产端点走 REMOTE_BASE_URL env, key 走 REMOTE_API_KEY env)。
+        本测试不嵌入真实机密, 用 regex 检测。"""
+        import re
+        src = open(os.path.join(os.path.dirname(__file__), "providers.py"),
+                   encoding="utf-8").read()
+        self.assertIsNone(re.search(r"\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b", src),
+                          "providers.py 不得含裸 IP — 生产端点走 REMOTE_BASE_URL env")
+        self.assertIsNone(re.search(r"sk-[A-Za-z0-9]{12,}", src),
+                          "providers.py 不得含 sk- key 字面量 — 走 REMOTE_API_KEY env")
+        # 必须引用 env 变量 + fallback 是公开 https 域名 (非机密)
+        self.assertIn("REMOTE_BASE_URL", src)
+        self.assertIn("REMOTE_API_KEY", src)
+        from providers import _QWEN_PUBLIC_FALLBACK_BASE
+        self.assertTrue(_QWEN_PUBLIC_FALLBACK_BASE.startswith("https://"),
+                        "qwen 公开 fallback 必须是 https 域名, 非 http 裸 IP")
+
+
 class TestDeepSeekProvider(unittest.TestCase):
     """V37.9.201 — DeepSeek-V4-Pro 插件 (env-驱动 base_url + key, 公开 repo 安全底线)。"""
 

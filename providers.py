@@ -487,12 +487,24 @@ class PluginLoader:
 # ---------------------------------------------------------------------------
 # Concrete Providers
 # ---------------------------------------------------------------------------
+# base_url 从 env REMOTE_BASE_URL 解析（服务器重装后的生产 endpoint 是【裸 IP + HTTP】=
+# 类机密，公开仓库不入库，镜像 deepseek V37.9.201 安全模式）; dev/无 env → 公开 fallback
+# （历史域名，已公开在 git 历史，无新泄漏 + 让 ProviderContract 通过 + 文档结构）。
+_QWEN_PUBLIC_FALLBACK_BASE = "https://hkagentx.hkopenlab.com/v1"
+
+
 class QwenProvider(BaseProvider):
     name = "qwen"
     display_name = "Qwen (Remote GPU)"
-    base_url = "https://hkagentx.hkopenlab.com/v1"
     api_key_env = "REMOTE_API_KEY"
     auth_style = "bearer"
+
+    def __init__(self):
+        # 生产 endpoint（服务器重装后裸 IP + HTTP）走 env REMOTE_BASE_URL，绝不硬编码入库；
+        # dev/无 env → 公开 fallback（历史域名）。API key 走 REMOTE_API_KEY env（同款）。
+        self.base_url = (os.environ.get("REMOTE_BASE_URL", "").strip()
+                         or _QWEN_PUBLIC_FALLBACK_BASE)
+
     models = [
         ModelInfo(
             model_id="Qwen3-235B-A22B-Instruct-2507-W8A8",
