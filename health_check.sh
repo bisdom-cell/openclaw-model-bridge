@@ -51,7 +51,7 @@ ad=$(lsof -ti :5001 >/dev/null 2>&1 && echo "🟢" || echo "🔴")
 px=$(lsof -ti :5002 >/dev/null 2>&1 && echo "🟢" || echo "🔴")
 
 # 模型 ID 检查（V27 现有逻辑，加 try/except 健壮性）
-CURRENT_MODEL=$(curl -s --max-time 10 https://hkagentx.hkopenlab.com/v1/models \
+CURRENT_MODEL=$(curl -s --max-time 10 "${REMOTE_BASE_URL:-https://hkagentx.hkopenlab.com/v1}/models" \
   -H "Authorization: Bearer ${REMOTE_API_KEY}" 2>/dev/null \
   | python3 -c "
 import json,sys

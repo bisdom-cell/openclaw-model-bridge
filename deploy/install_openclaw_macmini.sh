@@ -197,8 +197,9 @@ $marker
 export QWEN_API_KEY='$QWEN_API_KEY'
 export QWEN_BASE_URL='$QWEN_BASE_URL'
 export OPENCLAW_PHONE='$PHONE_NUMBER'
-# 兼容性别名 (部分脚本/调用方读 REMOTE_API_KEY)
+# 兼容性别名 (adapter.py 读 REMOTE_API_KEY / REMOTE_BASE_URL, V37.9.211)
 export REMOTE_API_KEY="\${REMOTE_API_KEY:-\$QWEN_API_KEY}"
+export REMOTE_BASE_URL="\${REMOTE_BASE_URL:-\$QWEN_BASE_URL}"
 EOF
     chmod 600 "$SHELL_RC"
     ok "已写入 $SHELL_RC (chmod 600)"
@@ -207,6 +208,7 @@ EOF
   # Export to current shell so后续 phase 可以用
   export QWEN_API_KEY QWEN_BASE_URL OPENCLAW_PHONE="$PHONE_NUMBER"
   export REMOTE_API_KEY="${REMOTE_API_KEY:-$QWEN_API_KEY}"
+  export REMOTE_BASE_URL="${REMOTE_BASE_URL:-$QWEN_BASE_URL}"
 }
 
 # =============================================================================
@@ -404,6 +406,8 @@ phase_6_launchd() {
         <string>$QWEN_BASE_URL</string>
         <key>REMOTE_API_KEY</key>
         <string>$QWEN_API_KEY</string>
+        <key>REMOTE_BASE_URL</key>
+        <string>$QWEN_BASE_URL</string>
         <key>OPENCLAW_PHONE</key>
         <string>$PHONE_NUMBER</string>
     </dict>
