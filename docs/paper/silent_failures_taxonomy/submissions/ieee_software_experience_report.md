@@ -2,7 +2,7 @@
 
 **Submission type:** IEEE Software — Feature article (experience report / "lessons learned")
 **Author:** Wei Wu, Independent Researcher (wuweinanonuaa@gmail.com)
-**Target length:** ≤ 4,200 words including 250 words per table/figure (1 table + 1 figure budgeted ≈ 500). Body ≈ 3,700 words.
+**Target length:** ≤ 4,200 words including 250 words per table/figure. This manuscript: 2 tables + 0 figures = 500 counted; body prose ≈ 3,100 words; total ≈ 3,600 counted words (within 4,200). Abstract 148 words (≤150).
 **Companion preprint:** arXiv:2606.14589 (extended version, full 22 postmortems).
 
 ---
@@ -333,6 +333,14 @@ Software Engineering," *Empirical Software Engineering*, vol. 14, no. 2, pp. 131
 
 [12] M. Taraghi, M. M. Morovati, and F. Khomh, "Real Faults in Model Context Protocol (MCP)
 Software: A Comprehensive Taxonomy," arXiv:2603.05637, 2026.
+
+## About the Author
+
+**Wei Wu** is an independent researcher focused on the reliability of large language model
+agent runtimes — silent-failure taxonomy, production observability, and the governance of
+tool-calling agents. He designs, operates, and studies *openclaw-model-bridge*, the production
+personal-assistant agent runtime from which the incidents in this article are drawn. Contact
+him at wuweinanonuaa@gmail.com. ORCID: 0009-0009-1176-7817.
 
 ---
 

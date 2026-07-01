@@ -61,10 +61,21 @@
 
 ## 2. Primary submission: IEEE Software — step by step
 
-**Format check (already met by the draft):** feature article ≤4,200 words incl. 250/table+figure;
-150-word abstract; ≤15 references; 3 actionable practitioner takeaways. The draft uses 1 table
-(taxonomy) and no figure, leaving budget if you want to add the D1 pollution-chain figure
-(Fig. 3 from the arXiv version) — optional; the prose already carries the D1 story.
+> **⚠️ Desk-return resolution (2026-07-01, SW-2026-06-0312):** The first submission was
+> *unsubmitted* (returned for compliance, NOT rejected) because the **full arXiv `draft.md`
+> (~8,556 words)** was uploaded instead of this compliant experience-report version. The IEEE
+> limits are: ≤4,200 words (250/table+figure), ≤150-word abstract, and a short author bio per
+> author. **Fix = resubmit `ieee_software_experience_report.md`** (this file), which is
+> purpose-built for the limit and now includes the author bio. Verified counts: abstract **148**
+> words (≤150); body **≈3,173** words + **2 tables ×250 = 500** → **effective ≈3,673 words**
+> (well under 4,200, ~500-word margin even if the 12 references are counted). Resubmit within
+> 3 days via the IEEE Author Portal (`ieee.submission.researchexchange.com/journal/sw-cs`) and
+> update the form metadata (word count + 150-word abstract). Do **not** upload `draft.md`.
+
+**Format check (met by `ieee_software_experience_report.md`):** feature article ≤4,200 words incl.
+250/table+figure; 148-word abstract; 12 references; 3 actionable practitioner takeaways; author
+bio added (2026-07-01). Uses 2 tables (taxonomy + defense) and no figure — the prose already
+carries the D1 story; a figure is optional and would cost 250 words of budget.
 
 **Checklist**
 - [ ] Confirm IEEE Software's current submission portal and template (ScholarOne via `computer.org`).
