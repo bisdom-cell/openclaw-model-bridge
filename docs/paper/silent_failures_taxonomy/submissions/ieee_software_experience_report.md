@@ -14,9 +14,9 @@ and pushing results to humans. I report an eight-week longitudinal study of *sil
 one such production system: a personal-assistant agent runtime defended by 4,286 unit tests and
 827 governance checks, in which I documented 22 incidents with full root-cause postmortems. One
 failure class proved unique to systems that *speak*: the LLM transforms an upstream error into
-fluent, plausible, false output and delivers it to the user — a behavior I call **fail-plausible**.
+fluent, plausible, false output for the user — a behavior I call **fail-plausible**.
 Three findings unsettle common assumptions: ~70% of silent failures were caught by a human
-reading the product, not by the automated stack; the governance audit prevented 0% of novel
+reading the product, not the automated stack; the governance audit prevented 0% of novel
 incidents but blocked 87% from recurring; and the longest failures lived in the *seams* between
 simple parts, not inside complex ones. I distill the defenses that worked into practices
 adoptable without my stack.

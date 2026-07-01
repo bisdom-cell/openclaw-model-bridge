@@ -77,9 +77,18 @@
 bio added (2026-07-01). Uses 2 tables (taxonomy + defense) and no figure — the prose already
 carries the D1 story; a figure is optional and would cost 250 words of budget.
 
+**Ready-to-compile LaTeX (2026-07-01):** `../latex/ieee_software_manuscript.tex` — IEEEtran
+`journal` format, self-contained (inline bibliography, 2 tables, no figures, `\IEEEbiography` author
+bio). Build: `pdflatex ieee_software_manuscript.tex` (run twice for cross-refs). Verified statically
+(all environments paired, braces balanced, standard TeXLive packages — same set your ISSRE build
+uses; abstract 144 words; body ≈3,010 words + 2 tables×250 = **≈3,510 counted, <4,200**). It was
+**not** compiled in the prep environment (no LaTeX toolchain there) — compile it on your machine and
+confirm the PDF word count before upload.
+
 **Checklist**
 - [ ] Confirm IEEE Software's current submission portal and template (ScholarOne via `computer.org`).
-- [ ] Paste `ieee_software_experience_report.md` into the IEEE Software Word/LaTeX template.
+- [ ] Compile `../latex/ieee_software_manuscript.tex` (or paste `ieee_software_experience_report.md`
+      into the IEEE Software Word template if you prefer Word).
 - [ ] Author block: Wei Wu, Independent Researcher (no affiliation is fine — state "Independent
       Researcher").
 - [ ] Keep the 3 "practitioner takeaways" — IEEE Software requires actionable insights; they are

@@ -111,6 +111,11 @@
   "recent_changes": [
     {
       "date": "2026-07-01",
+      "what": "IEEE Software desk-return: 交付 ready-to-compile IEEEtran .tex (latex/ieee_software_manuscript.tex)。IEEEtran journal 格式忠实转换经验报告版, 自含 inline 参考文献(12)+2 表+\\IEEEbiography 作者简介, 无图无 TikZ 降编译风险, 只用 ISSRE 已验证能编译的标准包。静态校验: 环境全配对+括号 181/181 平衡+enumitem 已加+摘要精简到 144 词(≤150 留余量)+正文 3010 词+2 表×250=effective 3510(<4200)。dev 无 pdflatex/IEEEtran.cls 未本地编译, 用户机器编译验证。SUBMISSION_GUIDE 加 ready-to-compile 段。🔴 用户 3 天内: pdflatex 编译(跑两次)→ 核对 PDF 字数 → IEEE Author Portal 重投+更新 metadata。",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-07-01",
       "what": "IEEE Software desk-return 修复 (SW-2026-06-0312, unsubmitted 非拒稿, 格式合规问题): 用户误投完整 arXiv draft.md(8556 词)超 4200 词限 → 改投合规经验报告版 ieee_software_experience_report.md(专为 IEEE 准备, effective ≈3673 词 <4200)。补齐 3 项要求: (1) 正文 ≤4200 — 经验报告版 body 3173+2 表×250=3673 达标 (2) 摘要 148 词 ≤150 已达标 (3) 新增 About the Author 作者简介段(Wei Wu Independent Researcher, ORCID, 无编造资历原则#23)。修正 front-matter table 计数(实际 2 表 0 图非 1 表 1 图)。SUBMISSION_GUIDE 加 desk-return resolution 段(精确字数+勿投 draft.md)。🔴 用户待办(3 天内): 把经验报告版 typeset 成 PDF(IEEEtran/Word 模板)→ IEEE Author Portal researchexchange.com/journal/sw-cs 重投 + 更新表单 metadata 字数/摘要。VERSION 不变(paper doc)。",
       "by": "claude_code"
     },
