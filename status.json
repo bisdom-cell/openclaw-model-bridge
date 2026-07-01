@@ -391,7 +391,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.211: Qwen3 primary provider 端点刷新(服务器重装) — base_url env 化 REMOTE_BASE_URL(裸 IP 类机密不入库, 镜像 deepseek V37.9.201 安全模式), key 走 REMOTE_API_KEY env, model 未变。QwenProvider.__init__ 从 env 解析 base_url + 公开 fallback → to_legacy_dict 自动流到 adapter 两路径, 无需改 adapter.py。4 新守卫单测(env 解析 + 无裸 IP/key 硬编码, 反向验证有效)。full_regression 138/0/4954 + 安全扫描零泄漏 + VERSION 0.37.9.81。🔴 Mac Mini 待用户: adapter env 设 REMOTE_API_KEY(新 key)+REMOTE_BASE_URL(新 IP) → 重启 adapter → E2E curl /models + WhatsApp 验证 PA。dev 网络受限无法验端点(非死), Mac Mini E2E 不可替代。安全: 明文 key 建议轮换。",
+  "focus": "2026-07-01 收工: 两件大事落地。(1) 🔴 Primary Qwen3 端点刷新(服务器重装) — providers.py base_url env 化 REMOTE_BASE_URL(裸 IP 走 env 不入库, 镜像 deepseek 安全模式) + 原则 #31 全量同步直连 ops 脚本(diagnose/health_check/install) + Mac Mini E2E 验证 primary Qwen3 恢复(adapter plist 设 REMOTE_API_KEY+REMOTE_BASE_URL+bootout/bootstrap, 真请求 RESPONSE 200 无 fallback)。V37.9.211/212, VERSION 0.37.9.81。(2) 🎉 IEEE Software 论文重投(SW-2026-06-0312) desk-return 解决 — 误投长稿(8556 词)超 4200 限, 改投合规经验报告版(4 页/正文 3510<4200/摘要 144<150/补作者简介), 装 texlive 真编译验证 .tex(0 error)发 PDF+tex, IEEE Author Portal 交互式重投成功。另: V37.9.210 LLM-Observer Stage 5.1 决策框架预注册。🔴 Mac Mini 待: (a) 合并本分支 PR(含 V37.9.210/211/212+paper)到 main → git reset 同步 (b) .env_shared 设新 REMOTE_API_KEY+REMOTE_BASE_URL(cron 直连脚本) (c) 明文 key 建议轮换。待追踪: IEEE 收稿→评审 / ISSRE 395 / LLM-Observer shadow 周(~7/7)后 Stage 5.1 flip 判定。",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
