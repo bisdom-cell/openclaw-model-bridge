@@ -16,7 +16,7 @@
 | Kimi (Moonshot AI) | kimi-k2.5 | text, vision | Yes | Yes | 262K | none |
 | MiniMax | MiniMax-M2.7 | text, vision | Yes | Yes | 204K | none |
 | GLM (Zhipu AI) | glm-5, glm-5v-turbo | text, vision | Yes | Yes | 202K | none |
-| DeepSeek-V4-Pro 满血版 (ai-tokenhub) | deepseek-v4-pro-260425 | text | Yes | Yes | 65K | text, tool_calling, reasoning |
+| DeepSeek-V4-Pro 满血版 (ai-tokenhub) | deepseek-v4-pro-260425 | text | Yes | Yes | 1048K | text, tool_calling, reasoning |
 | DeepSeek-V4-Pro | DeepSeek-V4-Pro | text | Yes | Yes | 65K | text, tool_calling, streaming |
 | Doubao Seed 2.0 Pro (Volcengine Ark) | doubao-seed-2-0-pro | text, vision | Yes | Yes | 262K | text, vision, tool_calling, streaming, reasoning |
 
@@ -51,7 +51,7 @@
 | Kimi (Moonshot AI) | Yes | Yes | — | — | Yes | Yes | Yes | — | 262K |
 | MiniMax | Yes | Yes | — | — | Yes | Yes | Yes | — | 204K |
 | GLM (Zhipu AI) | Yes | Yes | — | — | Yes | Yes | Yes | — | 202K |
-| DeepSeek-V4-Pro 满血版 (ai-tokenhub) | Yes | — | — | — | Yes | Yes | — | Yes | 65K |
+| DeepSeek-V4-Pro 满血版 (ai-tokenhub) | Yes | — | — | — | Yes | Yes | — | Yes | 1048K |
 | DeepSeek-V4-Pro | Yes | — | — | — | Yes | Yes | Yes | — | 65K |
 | Doubao Seed 2.0 Pro (Volcengine Ark) | Yes | Yes | — | — | Yes | Yes | Yes | Yes | 262K |
 

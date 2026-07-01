@@ -38,7 +38,7 @@ class DeepSeekFullProvider(BaseProvider):
             model_id="deepseek-v4-pro-260425",
             display_name="deepseek-v4-pro-260425 (满血版)",
             modalities=["text"],
-            context_window=65536,      # 保守占位, 待实测
+            context_window=1048576,    # V37.9.207 端点规格 1M (1024K, 用户/端点确认; 原 65536 是未实测占位)
             max_output_tokens=8192,    # 保守占位, 待实测
             is_default=True,
         ),
@@ -54,7 +54,7 @@ class DeepSeekFullProvider(BaseProvider):
         streaming=True,        # OpenAI /v1 标准基线 (本探针未单测 streaming, verified 留 False)
         json_mode=False,       # V37.9.205 实测: response_format 返回 ```json 围栏 (非严格), 不声明
         reasoning=True,        # 🌟 V37.9.205 E2E: reasoning 字段填充 + reasoning_tokens=55 (R1 通道)
-        context_window=65536,  # 保守占位
+        context_window=1048576,  # V37.9.207 端点规格 1M (1024K, 用户/端点确认; 原 65536 是未实测占位)
         max_output_tokens=8192,
         # verified_* (6 维跟踪); 仅实测通过的 3 项 flip True
         verified_text=True,        # E2E: 干净中文 content + finish_reason=stop
