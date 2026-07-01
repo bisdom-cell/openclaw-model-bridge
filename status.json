@@ -1,5 +1,5 @@
 {
-  "updated": "2026-07-01 02:06:29",
+  "updated": "2026-07-01 02:20:20",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -355,7 +355,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-06-30: DeepSeek 满血版 E2E → feature_verified, 确立为 Qwen3 迁移明确赢家 (VERSION 0.37.9.77→0.37.9.78)。满血版探针对比量化版关键差异: 🌟 有 R1 reasoning_content 通道(reasoning 字段+reasoning_tokens=55, 量化版 null 无) + 无乱码 token(量化版 w4a8 核心缺陷消失) + 干净中文; vision 确认无(400) / json_mode 围栏非严格. flip tool_calling+reasoning+verified, tier feature_verified. capability router 正确改路由: reasoning 任务 → deepseek_full(s=20>qwen s=14, qwen 从无 reasoning), shadow 模式仅观察非生产路由, 更新 3 router test. 全量同步 declared 6→5 + minimal_runtime golden + gen_compat. full_regression 137/0/4945/governance 91/91/安全 95/零泄漏. 迁移决策: 满血版赢量化版(reasoning+无乱码), 仍需 VL 留视觉. 🔴 Mac Mini 待用户: 满血版 env 加 adapter+proxy plist 让服务用上 + Phase 2 fallback 链生产观察 → production_observed. 安全: 三 key 建议轮换.",
+  "focus": "V37.9.206 满血版 DeepSeek 接入第一优先级 fallback 链 (Mac Mini 已验证 chain=['deepseek_full','doubao','deepseek'] + fallback=deepseek_full)。下一步 = Phase 2 生产观察 (Qwen3 真宕时满血版接管的质量/延迟) → 升 production_observed；迁移 Qwen3 时图片路由须留 VL 模型 (满血版无视觉)。",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
@@ -365,5 +365,9 @@
   ],
   "_meta": {
     "last_updated_by": "claude_code"
-  }
+  },
+  "session_context.unfinished": [
+    "V37.9.206 Phase 2: deepseek_full 已进 fallback 链但 verified_fallback=False——待 Qwen3 真宕接管一次, 观察质量/延迟后升 production_observed (逐渐老化 Qwen3 的决策证据)",
+    "安全: 对话中出现过的三个 key (deepseek 满血 sk-f3a3ee.../量化 sk-80f0d9.../ARK ark-cd0de70...) 建议轮换"
+  ]
 }
