@@ -88,6 +88,7 @@ run_suite "notify_jobs_routing (V37.9.171 内容 job 主推走 notify.sh — Pat
 run_suite "v37_9_175_proxy_alert_marker (V37.9.175 Path B 续 — proxy _send_alert 收编 notify.sh + [SYSTEM_ALERT] 标记, .py 盲区闭合, NO_REPLY 污染根因)" "python3 test_v37_9_175_proxy_alert_marker.py"
 run_suite "v37_9_226_data_clean_confinement (V37.9.226 审计安全加固 — data_clean 路径限制防密钥泄漏 + ingest cap/Content-Length guard)" "python3 test_v37_9_226_data_clean_confinement.py"
 run_suite "v37_9_227_cron_fail_loud (V37.9.227 审计 F — ontology_sources/finance_news 全源抓取失败+LLM 失败 fail-loud 非静默 ok)" "python3 test_v37_9_227_cron_fail_loud.py"
+run_suite "v37_9_228_parse_stats_signal (V37.9.228 审计 B — proxy parse-block 抛异未记 success → record_error, 修零 stats 信号监控盲区)" "python3 test_v37_9_228_parse_stats_signal.py"
 run_suite "check_registry (注册表校验器)" "python3 test_check_registry.py"
 run_suite "v37_9_206_providers_filemap_coverage (V37.9.206 provider 插件部署覆盖守卫 — deepseek 双插件漏 FILE_MAP 致 fallback 静默失效血案)" "python3 test_v37_9_206_providers_filemap_coverage.py"
 run_suite "cron_health (锁/心跳/告警/完整性)" "python3 test_cron_health.py"

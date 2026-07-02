@@ -1140,6 +1140,10 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                 log(f"[{rid}] Backend: {resp.status} {len(resp_body)}b {elapsed}ms stream={was_streaming}")
 
                 if "/chat/completions" in self.path and resp_body:
+                    # V37.9.228 (audit B): 追踪 success 是否已记，让 parse/transform 抛异
+                    # 且未记 success 的路径（backend 200+garbage / fix_tool_args 崩）不再
+                    # 零 stats 信号（原 except 只 log 不 record → 监控盲区 = fail-plausible）。
+                    _recorded_success = False
                     try:
                         rj = json.loads(resp_body)
 
@@ -1197,6 +1201,7 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                             proxy_stats.record_success(usage, latency_ms=elapsed)
                         else:
                             proxy_stats.record_success({}, latency_ms=elapsed)
+                        _recorded_success = True  # V37.9.228: success 已记
 
                         # 发送待处理告警
                         for alert in proxy_stats.pop_alerts():
@@ -1216,6 +1221,13 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                             resp_body = json.dumps(rj).encode()
                     except Exception as e:
                         log(f"[{rid}] Parse error: {e}")
+                        # V37.9.228 (audit B): 抛异且未记 success → 记 error（原零信号盲区）。
+                        # 已记 success 的路径（如 build_sse_response 后崩）不重复记（success 合法）。
+                        if not _recorded_success:
+                            proxy_stats.record_error(502, f"parse/transform error: {e}", latency_ms=elapsed)
+                            for alert in proxy_stats.pop_alerts():
+                                log(f"ALERT: {alert}")
+                                _send_alert(alert)
 
                 self.send_response(resp.status)
                 self.send_header("Content-Type", "application/json")
