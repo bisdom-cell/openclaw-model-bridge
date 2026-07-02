@@ -829,8 +829,8 @@ class TestVerifyProvidersToAdapterIntegration(unittest.TestCase):
 
     def test_full_visibility_no_drift(self):
         from unittest.mock import patch, MagicMock
-        # V37.9.204: doubao + deepseek + deepseek_full → declared 集合 10 个 (7 built-in + 3 真插件)
-        all_known = {"qwen", "openai", "gemini", "claude", "kimi", "minimax", "glm", "doubao", "deepseek", "deepseek_full"}
+        # V37.9.216: doubao + deepseek + deepseek_full + doubao_21 → declared 集合 11 个 (7 built-in + 4 真插件)
+        all_known = {"qwen", "openai", "gemini", "claude", "kimi", "minimax", "glm", "doubao", "deepseek", "deepseek_full", "doubao_21"}
         body = json.dumps({
             "provider": "qwen",
             "fallback": "gemini",

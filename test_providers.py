@@ -146,7 +146,7 @@ class TestVerificationTier(unittest.TestCase):
         self.assertEqual(caps.tier_note, "已退役出 fallback 链")
 
     def test_all_registered_providers_tier_consistent(self):
-        """CI 守卫: 全部 10 provider 的 tier 与 verified_* 一致 (单一真理源不变式)。"""
+        """CI 守卫: 全部 11 provider 的 tier 与 verified_* 一致 (单一真理源不变式)。"""
         from providers import _default_registry
         violations = _default_registry.tier_consistency_violations()
         self.assertEqual(violations, [],
@@ -177,7 +177,7 @@ class TestVerificationTier(unittest.TestCase):
         from providers import _default_registry
         lines = _default_registry.tier_table_lines()
         self.assertEqual(lines[0], "| Provider | 档位 | 依据 |")
-        self.assertEqual(len(lines), 2 + 10)  # header + sep + 10 providers
+        self.assertEqual(len(lines), 2 + 11)  # header + sep + 11 providers
 
     def test_tier_table_declared_uses_derived_evidence(self):
         from providers import _default_registry, _DECLARED_TIER_EVIDENCE
@@ -366,7 +366,7 @@ class TestProviderRegistry(unittest.TestCase):
         # V37.9.204: doubao + deepseek + deepseek_full → 总数 10 (7 built-in + 3 真插件)
         from providers import get_registry
         reg = get_registry()
-        self.assertEqual(len(reg.list_names()), 10)
+        self.assertEqual(len(reg.list_names()), 11)
 
     def test_get_existing_provider(self):
         from providers import get_registry
@@ -405,7 +405,7 @@ class TestProviderRegistry(unittest.TestCase):
         # V37.9.201: 9 行 (7 built-in + doubao + deepseek plugins)
         from providers import get_registry
         matrix = get_registry().compatibility_matrix()
-        self.assertEqual(len(matrix), 10)
+        self.assertEqual(len(matrix), 11)
         for row in matrix:
             self.assertIn("provider", row)
             self.assertIn("models", row)
@@ -451,7 +451,7 @@ class TestBackwardCompatibility(unittest.TestCase):
         # V37.9.201: legacy PROVIDERS dict 含 9 entries (7 built-in + doubao + deepseek plugins)
         from providers import PROVIDERS
         self.assertIsInstance(PROVIDERS, dict)
-        self.assertEqual(len(PROVIDERS), 10)
+        self.assertEqual(len(PROVIDERS), 11)
 
     def test_providers_dict_matches_old_format(self):
         """PROVIDERS dict 的格式与旧版 adapter.py 完全一致"""
@@ -573,7 +573,7 @@ class TestCLIOutput(unittest.TestCase):
         data = json.loads(result.stdout)
         self.assertIsInstance(data, list)
         # V37.9.201: 9 行 (7 built-in + doubao + deepseek plugins)
-        self.assertEqual(len(data), 10)
+        self.assertEqual(len(data), 11)
 
 
 class TestChineseProviders(unittest.TestCase):
@@ -1515,7 +1515,7 @@ class TestDefaultRegistryPluginDir(unittest.TestCase):
         # V37.9.201: 不再用 "deepseek" 当 canary — deepseek 已是真插件 (providers.d/deepseek_provider.py)
         self.assertNotIn("custom", names)
         # V37.9.204: 7 built-in + 3 真插件 (doubao + deepseek + deepseek_full) = 10 (_example.* 仍被跳过)
-        self.assertEqual(len(names), 10)
+        self.assertEqual(len(names), 11)
         self.assertIn("doubao", names, "doubao 真插件必须加载 (与 _example 被跳过形成对照)")
         self.assertIn("deepseek", names, "V37.9.201 deepseek 真插件必须加载 (providers.d/deepseek_provider.py)")
 
@@ -1705,6 +1705,64 @@ class TestDeepSeekFullProvider(unittest.TestCase):
         self.assertIn("DEEPSEEK_FULL_API_KEY", src)
         # 公开域名 base_url 可入库 (非机密)
         self.assertIn("https://ai-tokenhub.com/api/v1", src)
+
+
+class TestDoubao21Provider(unittest.TestCase):
+    """V37.9.216 — Doubao Seed 2.1 Pro (Volcengine Ark) 第 11 个 provider (旗舰), declared 未实测。"""
+
+    _PLUGIN = os.path.join(os.path.dirname(__file__), "providers.d", "doubao_seed_21_provider.py")
+
+    def test_registered_with_correct_identity(self):
+        from providers import get_provider
+        p = get_provider("doubao_21")
+        self.assertIsNotNone(p)
+        self.assertEqual(p.name, "doubao_21")
+        self.assertEqual(p.api_key_env, "ARK_21_API_KEY")
+        self.assertEqual(p.base_url, "https://ark.cn-beijing.volces.com/api/v3")
+        self.assertEqual(p.auth_style, "bearer")
+
+    def test_model_id_fallback_public_name_without_env(self):
+        # dev 无 ARK_21_ENDPOINT_ID → model_id = fallback 公开名 (合约通过, Volcengine
+        # model 字段接收 endpoint ID; 无 env 时用公开 model 名兜底)
+        from providers import get_provider
+        self.assertEqual(get_provider("doubao_21").model_id,
+                         "doubao-seed-2-1-pro-260628")
+
+    def test_tier_declared_nothing_verified(self):
+        # 🔴 原则 #23: 我未 E2E 实测此 2.1 端点 → declared + verified_* 全 False + tier 一致
+        from providers import get_provider
+        caps = get_provider("doubao_21").capabilities
+        self.assertEqual(caps.verification_tier, "declared")
+        self.assertEqual(caps.verified_features(), [],
+                         "declared 档位不得有 verified feature")
+        self.assertEqual(caps.tier_evidence, "",
+                         "declared 不手写 evidence (走派生单一真理源)")
+        self.assertEqual(caps.tier_consistency_violations(), [])
+        # 能力声明 (Doubao Seed Pro 家族 advertised) 与 verified_* 解耦
+        self.assertTrue(caps.text and caps.vision and caps.reasoning)
+
+    def test_excluded_from_available_without_key(self):
+        from providers import get_registry
+        with mock.patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("ARK_21_API_KEY", None)
+            self.assertNotIn("doubao_21", [p.name for p in get_registry().available()])
+        with mock.patch.dict(os.environ, {"ARK_21_API_KEY": "ark-test"}):
+            self.assertIn("doubao_21", [p.name for p in get_registry().available()])
+
+    def test_no_secret_key_hardcoded_in_repo(self):
+        """🔴 公开 repo 安全底线: ARK key 绝不入库 (base_url 公开域名可入库)。"""
+        import re
+        src = open(self._PLUGIN, encoding="utf-8").read()
+        # 无 ark-<hex>-<hex> 形式的 key 字面量 (key 走 ARK_21_API_KEY env)
+        self.assertIsNone(re.search(r"ark-[0-9a-f]{8}-[0-9a-f]{4}", src),
+                          "插件不得含 ark- key 字面量 — 走 ARK_21_API_KEY env")
+        # 无 ep-<digits> endpoint id 字面量 (走 ARK_21_ENDPOINT_ID env)
+        self.assertIsNone(re.search(r"ep-2026\d{8}", src),
+                          "插件不得含 ep- endpoint id 字面量 — 走 ARK_21_ENDPOINT_ID env")
+        self.assertIn("ARK_21_API_KEY", src)
+        self.assertIn("ARK_21_ENDPOINT_ID", src)
+        # 公开域名 base_url 可入库 (非机密)
+        self.assertIn("https://ark.cn-beijing.volces.com/api/v3", src)
 
 
 if __name__ == "__main__":

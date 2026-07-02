@@ -1,19 +1,19 @@
 # openclaw-model-bridge
 
-> **Agent Runtime Control Plane** — Connect any LLM to [OpenClaw](https://github.com/openclaw/openclaw) with one command. Zero dependencies, **10 providers** (含豆包 + DeepSeek-V4-Pro 量化/满血双端点), multimodal support, reasoning capability.
+> **Agent Runtime Control Plane** — Connect any LLM to [OpenClaw](https://github.com/openclaw/openclaw) with one command. Zero dependencies, **11 providers** (含豆包 + DeepSeek-V4-Pro 量化/满血双端点), multimodal support, reasoning capability.
 > 将任意大模型（Qwen / OpenAI / Gemini / Claude / Kimi / MiniMax / GLM / Doubao Seed 2.0 / **DeepSeek-V4-Pro**）一键接入 OpenClaw — 零第三方依赖、支持多模态、10 分钟跑通。
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-4985%20passed-brightgreen.svg)]()
-[![Providers](https://img.shields.io/badge/providers-10%20supported-orange.svg)]()
+[![Tests](https://img.shields.io/badge/tests-4990%20passed-brightgreen.svg)]()
+[![Providers](https://img.shields.io/badge/providers-11%20supported-orange.svg)]()
 [![Governance](https://img.shields.io/badge/invariants-91%2F91%20%2B%2023%20MR-blueviolet.svg)]()
 [![Security](https://img.shields.io/badge/security-95%2F100-green.svg)]()
 [![Jobs](https://img.shields.io/badge/cron%20jobs-40%20active-blue.svg)]()
 [![Fail-Fast](https://img.shields.io/badge/LLM%20cron%20fail--fast-17%2F21%20aligned-brightgreen.svg)]()
 [![Notifications](https://img.shields.io/badge/notifications-WhatsApp%20%2B%20Discord-informational.svg)]()
 
-> **Current version:** `v37.9.215` / `0.37.9.82` (2026-07-02) — see [`CLAUDE.md`](CLAUDE.md) for full changelog.
+> **Current version:** `v37.9.216` / `0.37.9.83` (2026-07-02) — see [`CLAUDE.md`](CLAUDE.md) for full changelog.
 > **Latest milestone:** 📄 **ArXiv paper published** — [**arXiv:2606.14589**](https://arxiv.org/abs/2606.14589) (2026-06-15, cs.SE): the *fail-plausible* concept + a 5-class taxonomy of silent failures from 22 production incident postmortems (also submitted to IEEE Software + ISSRE). **Constitutional priority now: LLM-Observer (机械化人眼)** — an automated user-perspective observer that catches *fail-plausible* silent failures **before the user does** (the paper's headline open problem: ~70% of silent failures were caught by looking at the product, while tests/governance caught ≈0%). Stages 0-6 built: design doc → 22-incident labelled ground-truth → 2-layer detector (deterministic S1-S5 pre-filter + LLM-judge) → sabotage self-validation harness → community-runnable [fail-plausible bench](docs/fail_plausible_bench.md). Guiding principle: **日落法 (Sunset Law) — reduce complexity before adding features** (原则 #34 + MR-22/MR-23).
 
 ## Product Layers: What's Core vs. What's the Author's PA Instance
@@ -39,7 +39,7 @@ Layer 3 is not product clutter — it is the **production evidence** for layers 
 |-------|----------|---------------|
 | **ArXiv paper published + submitted to IEEE Software / ISSRE** ⭐ | V37.9.139 → **V37.9.191** | *When Errors Become Narratives: A Longitudinal Taxonomy of Silent Failures in a Production LLM Agent Runtime* — [arXiv:2606.14589](https://arxiv.org/abs/2606.14589) (2026-06-15, cs.SE). The **fail-plausible** concept (LLM narrates internal errors into fluent, credible false output — the silent failure tests can't see) + 5-class taxonomy from 22 incident postmortems + Defense Framework. Also submitted to IEEE Software (SW-2026-06-0312) + ISSRE Industry Track (Submission 395). Stage 2→3 话语权: from system builder to cite-able methodology author. |
 | **LLM-Observer (机械化人眼) — constitutional research #1** ⭐ | V37.9.192 → **V37.9.200** | Attacking the paper's headline open problem: ~70% of silent failures found by *looking at the product*, tests/governance ≈0%. Building an automated **user-perspective observer** to catch *fail-plausible* failures before the user. Stages 0-6: design doc → 22-incident labelled ground-truth (`docs/llm_observer_ground_truth.yaml`) → 2-layer detector `llm_observer.py` (deterministic S1-S5 pre-filter reusing source_credibility/hallucination_guards + LLM-judge with anti-hallucination grounding) → sabotage self-validation (`llm_observer_selfcheck.py`, defense 100% / FP 0% / honest held-out FN) → community-runnable [`docs/fail_plausible_bench.md`](docs/fail_plausible_bench.md). Wired into daily_observer in **shadow mode** (V37.9.198). |
-| **10 providers — DeepSeek-V4-Pro dual-endpoint added** | V37.9.201 → **V37.9.207** | Provider plugin framework's 3rd real consumer: DeepSeek-V4-Pro w4a8 quantized (`deepseek_provider.py`) + full 满血版 (`deepseek_full_provider.py`, ai-tokenhub). Secrets via env (bare-IP endpoint never committed, public-repo safety). Progressive verification: declared → per-feature E2E → feature_verified. Full version has R1 reasoning channel + no garbled tokens → Qwen3 migration candidate. Capability router re-routes reasoning tasks accordingly. |
+| **11 providers — DeepSeek-V4-Pro + Doubao Seed 2.1 Pro** | V37.9.201 → **V37.9.216** | Provider plugin framework's 3rd/4th real consumers: DeepSeek-V4-Pro w4a8 quantized (`deepseek_provider.py`) + full 满血版 (`deepseek_full_provider.py`, ai-tokenhub) + **Doubao Seed 2.1 Pro flagship** (`doubao_seed_21_provider.py`, V37.9.216). Secrets via env (bare-IP / ARK keys never committed, public-repo safety). Progressive verification: declared → per-feature E2E → feature_verified (DeepSeek full has R1 reasoning channel → Qwen3 migration candidate; Doubao 2.1 starts declared, Mac Mini E2E pending). Capability router re-routes reasoning tasks accordingly. |
 | **Data-driven root-fix arc (zero blind-patching)** | V37.9.130 → **V37.9.214** | kb_harvest hierarchical Reduce (fixes大对话日 timeout, zero data loss) · deep_dive OA full-text resolution (DOI/S2/HF → arxiv/OA PDF, roots 77% abstract-level gap) · daily_observer self-critique F1 degrade-reason aggregation + F2 dream head-sampling false-positive fix · governance audit intermittent-fail root cause (INV-REVIEW-001 load timeout + B1 alert-blindness + B2 bash-3.2 errtrace landmine, 日落法 root-fix ending 3× whack-a-mole). Every fix: understand-before-fix (原则 #28), grounded reproduction, honest gating. |
 | **MOVESPEED EPERM 60-day blood case CLOSED** ⭐ | V37.9.4 → **V37.9.81** | After 60 days + 6 falsified hypotheses, V37.9.80 (5/18) identified the true root cause via `log show --predicate` — **macOS TCC Sandbox denies cron-derived processes accessing external volumes**. Fix = add `/usr/sbin/cron` to FDA. V37.9.81 (5/19) 24h data regression铁证 (12h window = 0 incidents / FDA 后 ~19h = 0 / kernel sandbox deny 0条) + INV-MOVESPEED-TCC-001 hard governance guard (auto-detect 24h ≤ 2 every day) + capture.sh stderr distinction fix (V37.9.30 取证盲区根因修复, 4-layer defense). |
 | **Phase 4 Layer 5: Convergence Framework** | V37.9.19 → V37.9.97 | Declared-state ↔ runtime drift detection lifted from "靠记忆" to "机器化". 5 specs running, 3 升级 `machine_sync` (jobs/kb/services, Plan B 渐进 dry-run). MR-17 立案 (`declared-state-must-converge-via-machine-not-memory`). |
@@ -66,7 +66,7 @@ Layer 3 is not product clutter — it is the **production evidence** for layers 
      → Gateway :18789  [launchd · media storage · session mgmt]
      → Tool Proxy :5002 [24→12 tool governance · custom tools (search_kb / data_clean)
                          · image base64 inject · SLO metrics · incident snapshots]
-     → Adapter :5001    [10-provider routing · multimodal (text→Qwen3, image→Qwen2.5-VL)
+     → Adapter :5001    [11-provider routing · multimodal (text→Qwen3, image→Qwen2.5-VL)
                          · circuit breaker + fallback]
      → LLM: Qwen3-235B primary → DeepSeek-V4-Pro / Doubao fallback (+7 more, all OpenAI-compatible)
 
@@ -89,14 +89,14 @@ Layer 3 is not product clutter — it is the **production evidence** for layers 
 |-----------|------|-------|------|
 | OpenClaw Gateway | 18789 | npm global | WhatsApp integration, media storage, tool execution, session management |
 | Tool Proxy | 5002 | `tool_proxy.py` + `proxy_filters.py` | Tool filtering (24→12), **custom tools** (data_clean + search_kb hybrid search), **image base64 injection**, SSE conversion, truncation, token monitoring, **SLO metrics collection**, **incident snapshots** |
-| Adapter | 5001 | `adapter.py` + `providers.py` | **10-provider** forwarding, auth, **multimodal routing** (text→Qwen3, image→Qwen2.5-VL), fallback degradation |
+| Adapter | 5001 | `adapter.py` + `providers.py` | **11-provider** forwarding, auth, **multimodal routing** (text→Qwen3, image→Qwen2.5-VL), fallback degradation |
 | Config Center | — | `config.yaml` + `config_loader.py` | Centralized thresholds (70+ params, 9 sections: SLO/proxy/tokens/alerts/routing/truncation/watchdog/incidents/jobs) |
 | SLO Benchmark | — | `slo_benchmark.py` | SLO compliance — 5 metrics, real production data reports (p95=459ms, 5/5 PASS) |
 | Notifications | — | `notify.sh` | **Dual-channel push**: WhatsApp + Discord (6 topic channels: papers/freight/alerts/daily/tech/DM) |
 | Local Embedding | — | `local_embed.py` | sentence-transformers (384-dim, 50+ languages), zero API calls |
-| Remote LLM | — | 10 providers | Qwen3-235B / GPT-4o / Gemini 2.5 / Claude Sonnet / Kimi K2.5 / MiniMax M2.7 / GLM-5 / **Doubao Seed 2.0 Pro** (Volcengine) / **DeepSeek-V4-Pro** (w4a8 + 满血版 ai-tokenhub, V37.9.201/204) |
+| Remote LLM | — | 11 providers | Qwen3-235B / GPT-4o / Gemini 2.5 / Claude Sonnet / Kimi K2.5 / MiniMax M2.7 / GLM-5 / **Doubao Seed 2.0 Pro** + **2.1 Pro** (Volcengine Ark) / **DeepSeek-V4-Pro** (w4a8 + 满血版 ai-tokenhub, V37.9.201/204/216) |
 
-## Supported Providers (10)
+## Supported Providers (11)
 
 | Provider | Default Model | Context | Vision | Auth | Verified |
 |----------|--------------|---------|--------|------|----------|
@@ -176,7 +176,7 @@ python3 slo_benchmark.py --json   # JSON format for CI
 python3 slo_benchmark.py --save   # Save to docs/slo_benchmark_report.md
 
 # Provider compatibility matrix
-python3 providers.py              # Markdown table (10 providers)
+python3 providers.py              # Markdown table (11 providers)
 python3 providers.py --json       # JSON format
 
 # GameDay fault injection drill
@@ -212,8 +212,8 @@ This is a deliberate architecture decision: **every dependency you remove is one
 |------|-------------|
 | `tool_proxy.py` | HTTP layer — request/response routing, **custom tool execution** (data_clean + search_kb), **media injection**, followup LLM calls, logging, health cascade |
 | `proxy_filters.py` | Policy layer — tool filtering, **custom tool injection** (data_clean + search_kb), **image base64 injection** (`<media:image>` → `image_url`), param fixing, truncation, SSE conversion |
-| `adapter.py` | API adapter — **10-provider** forwarding, auth, **multimodal routing** (text→Qwen3, image→Qwen2.5-VL), fallback degradation |
-| `providers.py` | **V34** Provider Compatibility Layer — BaseProvider abstraction, 10 concrete providers (7 built-in + Doubao + DeepSeek×2 plugins), ProviderRegistry, capability declaration, CLI matrix |
+| `adapter.py` | API adapter — **11-provider** forwarding, auth, **multimodal routing** (text→Qwen3, image→Qwen2.5-VL), fallback degradation |
+| `providers.py` | **V34** Provider Compatibility Layer — BaseProvider abstraction, 11 concrete providers (7 built-in + Doubao×2 + DeepSeek×2 plugins), ProviderRegistry, capability declaration, CLI matrix |
 | `slo_benchmark.py` | **V35** SLO Benchmark report generator — reads proxy_stats.json → Markdown/JSON report (latency p50/p95/p99, success rate, degradation) |
 | `quickstart.sh` | **V35** One-click Quick Start — 4 phases (prerequisites → services → health → golden test), provider auto-detection |
 | `notify.sh` | **V33** Unified notification — WhatsApp + Discord dual-channel push, 6 topic channels |
@@ -369,7 +369,7 @@ All jobs registered in `jobs_registry.yaml`. Validate: `python3 check_registry.p
 
 | File | Description |
 |------|-------------|
-| `docs/compatibility_matrix.md` | **V35** Provider compatibility matrix — 10 providers, verification status, degradation paths |
+| `docs/compatibility_matrix.md` | **V35** Provider compatibility matrix — 11 providers, verification status, degradation paths |
 | `docs/slo_benchmark_report.md` | **V35** SLO Benchmark production report — 5/5 PASS, p95=459ms |
 | `docs/golden_trace.json` | **V35** Golden Test Trace — real request/response through full stack (521ms, reproducible) |
 | `docs/strategic_review_20260403.md` | **V34** Strategic review — Stage2 positioning, V1-V3 roadmap, methodology |
@@ -385,7 +385,7 @@ All jobs registered in `jobs_registry.yaml`. Validate: `python3 check_registry.p
 
 **Four-Plane Architecture**:
 - **Control Plane** (90%): Provider Compatibility Layer, SLO 5-metric monitoring, centralized thresholds, 19-check preflight, incident snapshots, circuit breaker + audit logging (fsync + atomic snapshot), 89-invariant governance, single-manager process ownership (V37.9.13)
-- **Capability Plane** (85%): 10-provider routing + capability-based fallback chain, multimodal (text+vision), tool governance (≤12, policy-driven via V37.9.12), data cleaning, search_kb hybrid retrieval
+- **Capability Plane** (85%): 11-provider routing + capability-based fallback chain, multimodal (text+vision), tool governance (≤12, policy-driven via V37.9.12), data cleaning, search_kb hybrid retrieval
 - **Memory Plane** (75%): KB RAG (local sentence-transformers), trend analysis, preference learning, multimodal memory, Memory Plane v2 (dedup + confidence + conflict resolution), Agent Dream v2 MapReduce
 - **Ontology Plane** (Phase 4 P2 active): 4 YAML ontologies (tool/domain/policy/governance), Tool Ontology Engine (81 rules, ONTOLOGY_MODE=on), **Governance Ontology v3.56** (91 invariants + 23 meta rules + 14 MRD scanners + 839 checks), 2 policies wired via `evaluate_policy()`, 26 blood lesson cases (see [`ontology/docs/failure_modes_catalog.md`](ontology/docs/failure_modes_catalog.md) for taxonomy)
 
@@ -518,7 +518,7 @@ The `auto_deploy.sh` script maps 84 repo files to runtime locations (V37.9.43-ho
 ## Testing
 
 ```bash
-# Full regression (139 suites / 4985 tests / 0 fail; must ALL pass before push)
+# Full regression (139 suites / 4990 tests / 0 fail; must ALL pass before push)
 bash full_regression.sh
 
 # Individual test suites (run full_regression.sh for totals)
@@ -539,7 +539,7 @@ python3 slo_benchmark.py                # Markdown: 5/5 PASS, p95=459ms
 python3 slo_benchmark.py --save         # Save to docs/
 
 # Provider compatibility matrix
-python3 providers.py                    # 10-provider matrix
+python3 providers.py                    # 11-provider matrix
 python3 providers.py --json             # JSON for CI
 
 # GameDay fault injection (5 scenarios)
