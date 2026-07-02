@@ -549,5 +549,39 @@ class TestV37_9_214_ReviewCheckLoadHardening(unittest.TestCase):
                       "V37.9.214: regression assertions must be gated on result (skip on timeout)")
 
 
+class TestV37_9_214_B2NoErrtraceReEnable(unittest.TestCase):
+    """V37.9.214 B2 root-fix: governance_audit_cron.sh must NOT re-enable
+    `set -E` after the audit $() calls. In bash 3.2, each `set -E` errtrace
+    re-enable was a landmine firing false FATAL "治理审计自身死亡" on the HANDLED
+    GOV_RC=1 path (3 recurrences: V37.9.105 line 64 / line 100 / 2026-07-02
+    line 101 = whack-a-mole; dev bash 5.x can't reproduce). Root-fix (日落法):
+    single `set +E` after setup, errtrace OFF to script end. errexit (set -e)
+    + top `set -eEuo` declaration preserved (MR-19 core + governance check)."""
+
+    @classmethod
+    def setUpClass(cls):
+        with open(REPO_ROOT / "governance_audit_cron.sh", encoding="utf-8") as f:
+            cls.src = f.read()
+
+    def test_top_declares_set_eEuo(self):
+        # MR-19 contract + governance check need the top declaration intact
+        self.assertIn("set -eEuo pipefail", self.src,
+                      "top set -eEuo pipefail declaration must remain")
+
+    def test_no_bare_set_dash_E_reenable(self):
+        # the landmine: a bare `set -E` re-enable line (NOT the top -eEuo)
+        reenables = re.findall(r'(?m)^[ \t]*set -E[ \t]*(?:#.*)?$', self.src)
+        self.assertEqual(reenables, [],
+            f"V37.9.214: no `set -E` re-enable allowed (bash 3.2 landmine); found {reenables}")
+
+    def test_single_set_plus_E_region(self):
+        plus = re.findall(r'(?m)^[ \t]*set \+E\b', self.src)
+        self.assertEqual(len(plus), 1,
+            f"V37.9.214: exactly one `set +E` region expected, found {len(plus)}")
+
+    def test_v37_9_214_b2_marker(self):
+        self.assertIn("V37.9.214 日落法根治", self.src)
+
+
 if __name__ == "__main__":
     unittest.main()
