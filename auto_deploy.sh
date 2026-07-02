@@ -180,6 +180,7 @@ declare -a FILE_MAP=(
     "providers.d/doubao_provider.py|$HOME/providers.d/doubao_provider.py"  # V37.9.52 — Doubao Seed 2.0 Pro plugin (auto-discovered by providers.py)
     "providers.d/deepseek_provider.py|$HOME/providers.d/deepseek_provider.py"  # V37.9.201 — DeepSeek-V4-Pro w4a8-mtp 量化版 plugin (PENDING, 需 DEEPSEEK_API_KEY+DEEPSEEK_BASE_URL env)
     "providers.d/deepseek_full_provider.py|$HOME/providers.d/deepseek_full_provider.py"  # V37.9.204/205 — DeepSeek-V4-Pro 满血版 (ai-tokenhub, feature_verified, fallback 候选; 需 DEEPSEEK_FULL_API_KEY env)
+    "providers.d/doubao_seed_21_provider.py|$HOME/providers.d/doubao_seed_21_provider.py"  # V37.9.216 — Doubao Seed 2.1 Pro 旗舰 plugin (declared, 需 ARK_21_API_KEY+ARK_21_ENDPOINT_ID env)
     "router_decide.py|$HOME/router_decide.py"  # V37.9.76 — Capability Router shadow mode decision logger
     "memory_plane.py|$HOME/memory_plane.py"
     "VERSION|$HOME/VERSION"

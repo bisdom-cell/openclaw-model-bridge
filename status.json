@@ -1,6 +1,6 @@
 {
-  "updated": "2026-07-02 03:38:01",
-  "updated_by": "security_score",
+  "updated": "2026-07-02 04:37:32",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -111,6 +111,11 @@
   "recent_changes": [
     {
       "date": "2026-07-02",
+      "what": "V37.9.216 新增第 11 个 LLM provider Doubao Seed 2.1 Pro 旗舰 (火山引擎 Ark, env-驱动 key+endpoint 守公开 repo 安全底线, declared 档位待 Mac Mini E2E 实测, VERSION 0.37.9.83). full_regression 138/0/4990 (+5), 安全扫描零泄漏, governance 91/91 EXIT=0.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-07-02",
       "what": "V37.9.214 追加: B2 假 FATAL 日落法根治。3 个 dev repro 全不复现 → 确认 bash 3.2 特有 errtrace quirk(LINENO=101 误报)。V37.9.105 用 set +E 包每个 $() 再 set -E 复原, 但每个 set -E re-enable 是 bash 3.2 landmine(3 次复发 whack-a-mole)。根治: set +E 一次 errtrace 关到脚本尾, 移除两个 set -E re-enable, errexit+顶部 set -eEuo 声明保留。+4 守卫(无 set -E re-enable 回归)。dev 验证不破坏正常路径(forced GOV_RC=1 exit0 无 FATAL), B2 quirk 修复只能 Mac Mini bash 3.2 验证。连带: 恢复 job_watchdog.sh chaos sabotage 残留 + 修 test_kb_review/test_v37_9_157 定长切片守卫→边界切片。full_regression 138/0/4985。",
       "by": "claude_code"
     },
@@ -203,11 +208,6 @@
       "date": "2026-06-30",
       "what": "新增第 9 个 LLM provider DeepSeek-V4-Pro (VERSION 0.37.9.73→0.37.9.74)。用户提供端点。🔴 安全第一(CLAUDE 硬规则+公开仓库): key 走 env DEEPSEEK_API_KEY, base_url(裸 IP+路径 token=类机密)走 env DEEPSEEK_BASE_URL, 都不入库; dev 无 env → 公开 fallback api.deepseek.com 让合约通过 + available() 缺 key 排除 (镜像 doubao V37.9.52 安全模式)。诚实(原则 #23): DeepSeek-V4-Pro 是未知自建端点无依据声明 tool_calling/reasoning → 保守只声明 text+streaming, tier=declared verified_* 全 False, 待 Mac Mini E2E 逐项 flip。Python 插件 providers.d/deepseek_provider.py。registry 8→9。全量同步 count(原则 #31): test_providers 5 处+canary deepseek→custom / test_gen_compat 2+8→2+9+declared 5→6 / test_convergence all_known+deepseek / test_v37_9_52 8→9+CLI 9 providers / README+CLAUDE prose current-state 8→9(不碰 frozen changelog) / gen_compat --fix 三表 / gen_readme_badges --write 徽章+版本 / minimal_runtime golden 重生成(+deepseek fallback_chain, count 8→9, best reasoning 仍 doubao)。修 router test 级联: 起初声明 reasoning=True → test_prefer_adds_score_boost deepseek 抢 qwen → INV-ROUTER-001 runtime check 跑该 test 失败 → governance 90/91 + badges 行为测试连带失败 → 改保守不声明 reasoning → qwen 仍胜 → 三连锁失败全修(原则 #28 理解级联根因)。TestDeepSeekProvider 5: 身份/declared 诚实/base_url env 驱动(无 env 公开 fallback/有 env 私有)/available() 缺 key 排除/🔴 安全守卫 test_no_secret_hardcoded(regex 无裸 IPv4+无 sk-key+引用两 env+公开 fallback, 测试本身不嵌明文机密)。验证 full_regression 137/0/4941/suites 138/governance 91/91 EXIT=0/安全 95/零凭证泄漏(全仓 grep key/IP/token 全空)/VERSION 0.37.9.74。复杂度预算: files +1(插件)/env +2(DEEPSEEK_API_KEY+BASE_URL Mac Mini, dev 优雅降级)/净 runtime 机制=1 provider(复用 plugin 框架+available()过滤+doubao 安全模式非新框架)。🔴 Mac Mini 待用户: 合并同步 → .env_shared 设两 env → 重启 → E2E 实测 → flip verified_*。安全提醒: 明文 key 贴对话建议轮换。",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-06-30",
-      "what": "LLM-Observer Stage 6 chunk 1 — fail-plausible 检测 bench 社区化 (VERSION 0.37.9.73 不变)。开工读 status 焦点 Stage 6 next, 系统收敛健康 (4921/0/138 / governance 91/91 / 分支==main #761 已合并)。论文 #2 killer 数据 gated 于 shadow 周, bench 化纯 dev 不 gated 直接回应两评审可迁移性/广度短板 → 做工程半。先 ground (原则 #28): selfcheck 已是完整 harness, Stage 6 真 gap=社区可跑/可贡献包装非新引擎 (日落法一物一形)。交付: (1) build_bench_manifest 无时间戳跨机逐字可复现 datasheet (corpus 计数/detector 清单/每指标定义+target+current_value/sabotage 摘要/诚实边界, 复用 build_scorecard 非新评分引擎, corpus 绑 ground_truth 单一源) + --manifest CLI (2) docs/fail_plausible_bench.md 社区 README (why ~70% 人眼/测试治理 ≈0% + 指标表 held-out FN 诚实非门禁 + how to run 零依赖离线 + 贡献协议 schema+CI 守卫+新模式归 Category B + 诚实边界 + reliability_bench 姊妹篇) (3) README Evidence Chain +1 行防孤儿。test 26→41 (+15): TestBenchManifest 7 (无时间戳稳定/current_value 绑活 scorecard/detector=Category A only_signal/CLI) + TestBenchDocDriftGuard 5 (运行命令+指标锚点+论文+ground_truth 引用) + TestStage6SourceGuards 3 (marker/复用 build_scorecard 一物一形/bench_version 0.1≠项目 VERSION)。sabotage 反向验证 (备份副本): manifest current_value 硬编码 → FAIL / README 删指标行 → FAIL / 还原 41/41。验证 full_regression 137/0/4936(+15)/suites 138 不变/governance 91/91 EXIT=0/安全 95/三机器 doc-drift 无漂移/VERSION 0.37.9.73 不变 (bench 社区化=离线 harness 包装非 daily_observer runtime 变更, 同 Stage 1-4 PoC; bench_version 0.1 独立轨道)。复杂度预算: files +1 (社区 doc), env/jobs/runtime-state 不变, tests +15, 净 runtime 机制 ≈0 (manifest 是 build_scorecard 薄包装)。下一步 shadow 周后 Stage 5.1 / 论文 #2 草案。",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -286,14 +286,14 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 4985,
-    "last_regression": "2026-07-02 03:37 pass",
+    "test_count": 4990,
+    "last_regression": "2026-07-02 04:34 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-07-02 03:37",
+    "security_score_time": "2026-07-02 04:34",
     "test_suites": 139,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
-    "version": "0.37.9.82",
+    "version": "0.37.9.83",
     "observer": {}
   },
   "incidents": [

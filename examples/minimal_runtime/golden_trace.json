@@ -32,6 +32,7 @@
       "doubao",
       "gemini",
       "openai",
+      "doubao_21",
       "kimi",
       "minimax",
       "glm",
@@ -46,10 +47,10 @@
     }
   },
   "non_deterministic": {
-    "provider_count": 10,
+    "provider_count": 11,
     "step_timings_ms": {
-      "provider_registry": 21,
-      "tool_governance": 42,
+      "provider_registry": 23,
+      "tool_governance": 44,
       "policy_ontology": 11
     }
   }

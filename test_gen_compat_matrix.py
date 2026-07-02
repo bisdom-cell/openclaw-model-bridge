@@ -30,8 +30,8 @@ class TestProvidersTableLines(unittest.TestCase):
         lines = _default_registry.matrix_table_lines()
         self.assertTrue(lines[0].startswith("| Provider | Models |"))
         self.assertTrue(lines[1].startswith("|---"))
-        # 10 providers (7 built-in + doubao + deepseek + deepseek_full plugins)
-        self.assertEqual(len(lines), 2 + 10)
+        # 11 providers (7 built-in + doubao + doubao_21 + deepseek + deepseek_full plugins)
+        self.assertEqual(len(lines), 2 + 11)
 
     def test_matrix_table_contains_qwen_and_doubao(self):
         text = "\n".join(_default_registry.matrix_table_lines())
@@ -63,7 +63,8 @@ class TestCapabilityTableLines(unittest.TestCase):
         本测试锁定机器直出与 plugin 声明一致 (json_mode=Yes + reasoning=Yes)。
         """
         lines = _default_registry.capability_table_lines()
-        doubao = [l for l in lines if "Doubao" in l]
+        # V37.9.216: 特指 2.0 Pro (2.1 Pro 是另一行, declared 未实测)
+        doubao = [l for l in lines if "Doubao Seed 2.0 Pro" in l]
         self.assertEqual(len(doubao), 1)
         cells = [c.strip() for c in doubao[0].split("|")]
         # | '' | Provider | Text | Vision | Audio | Video | Tool | Stream | JSON | Reasoning | Ctx | '' |
@@ -107,7 +108,7 @@ class TestVerifiableFeaturesDenominator(unittest.TestCase):
         self.assertIn("fallback", caps.verifiable_features())
 
     def test_numerator_never_exceeds_denominator(self):
-        """分子 ≤ 分母（修 "5/4" 超界）— 对全部 10 providers 断言。"""
+        """分子 ≤ 分母（修 "5/4" 超界）— 对全部 11 providers 断言。"""
         for p in _default_registry.all():
             verified = p.capabilities.verified_features()
             verifiable = p.capabilities.verifiable_features()
@@ -143,7 +144,7 @@ class TestTierTableLines(unittest.TestCase):
         lines = _default_registry.tier_table_lines()
         self.assertEqual(lines[0], "| Provider | 档位 | 依据 |")
         self.assertTrue(lines[1].startswith("|---"))
-        self.assertEqual(len(lines), 2 + 10)  # header + sep + 10 providers
+        self.assertEqual(len(lines), 2 + 11)  # header + sep + 11 providers
 
     def test_qwen_doubao_production_observed(self):
         text = "\n".join(_default_registry.tier_table_lines())
@@ -157,11 +158,11 @@ class TestTierTableLines(unittest.TestCase):
         self.assertIn("**production_observed**（已退役出 fallback 链）", gemini)
 
     def test_declared_providers_use_derived_evidence(self):
-        """5 declared provider 各自一行, 走派生默认依据 (单一真理源, 退役合并行)。"""
+        """6 declared provider 各自一行, 走派生默认依据 (单一真理源, 退役合并行)。"""
         lines = _default_registry.tier_table_lines()
         declared = [l for l in lines if "**declared**" in l]
-        # V37.9.205: deepseek_full 也 E2E 升 feature_verified, declared 回到 5
-        self.assertEqual(len(declared), 5)  # openai/claude/kimi/minimax/glm
+        # V37.9.216: +doubao_21 (旗舰, declared 未实测) → declared 6
+        self.assertEqual(len(declared), 6)  # openai/claude/kimi/minimax/glm/doubao_21
         for l in declared:
             self.assertIn("能力声明完整 + 合约校验通过，0/N 生产验证（无 API key 配置）", l)
 

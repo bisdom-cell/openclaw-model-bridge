@@ -19,6 +19,7 @@
 | DeepSeek-V4-Pro 满血版 (ai-tokenhub) | deepseek-v4-pro-260425 | text | Yes | Yes | 1048K | text, tool_calling, reasoning |
 | DeepSeek-V4-Pro | DeepSeek-V4-Pro | text | Yes | Yes | 65K | text, tool_calling, streaming |
 | Doubao Seed 2.0 Pro (Volcengine Ark) | doubao-seed-2-0-pro | text, vision | Yes | Yes | 262K | text, vision, tool_calling, streaming, reasoning |
+| Doubao Seed 2.1 Pro (Volcengine Ark) | doubao-seed-2-1-pro-260628 | text, vision | Yes | Yes | 262K | none |
 
 插件接入：Doubao 经 `providers.d/doubao_provider.py`（V37 Provider Plugin Interface，V37.9.52 接入）。
 
@@ -39,6 +40,7 @@
 | DeepSeek-V4-Pro 满血版 (ai-tokenhub) | **feature_verified** | Mac Mini E2E 实测 2026-06-30: text/tool_calling/reasoning 3/3 通过 (干净中文+finish_reason / finish_reason=tool_calls+arguments / reasoning 字段填充+reasoning_tokens=55 R1 通道)；无乱码 token (优于量化版 w4a8)；vision 实测不支持 (400) / json_mode 围栏非严格 / streaming 未单测 / 未真生产 fallback |
 | DeepSeek-V4-Pro | **feature_verified** | Mac Mini E2E 实测 2026-06-30: text/streaming/tool_calling/json_mode 4/4 通过 (content+finish_reason / SSE chunk+[DONE] / finish_reason=tool_calls+arguments / response_format=json_object 干净 JSON)；vision 实测不支持 (400 非多模态) / reasoning 无 R1 reasoning_content 通道 / 未真生产 fallback 接管。部署=w4a8-mtp 量化, 推理响应偶发乱码 token |
 | Doubao Seed 2.0 Pro (Volcengine Ark) | **production_observed** | fallback 链第 1 位真实接管（V37.9.129 起唯一真 fallback）+ expert_escalate 真生产调用（V37.9.91）；text/vision/tool_calling/streaming/reasoning 5/5 E2E 实测（V37.9.53-55） |
+| Doubao Seed 2.1 Pro (Volcengine Ark) | **declared** | 能力声明完整 + 合约校验通过，0/N 生产验证（无 API key 配置） |
 
 ## 能力矩阵
 
@@ -54,6 +56,7 @@
 | DeepSeek-V4-Pro 满血版 (ai-tokenhub) | Yes | — | — | — | Yes | Yes | — | Yes | 1048K |
 | DeepSeek-V4-Pro | Yes | — | — | — | Yes | Yes | Yes | — | 65K |
 | Doubao Seed 2.0 Pro (Volcengine Ark) | Yes | Yes | — | — | Yes | Yes | Yes | Yes | 262K |
+| Doubao Seed 2.1 Pro (Volcengine Ark) | Yes | Yes | — | — | Yes | Yes | Yes | Yes | 262K |
 
 > Reasoning 维度 V37.9.53 新增（doubao seed reasoning model 实证驱动）。cap_score: doubao 16 > Qwen3 14（framework 视角 doubao 是 registry 最强 provider，V37.9.55）。
 
