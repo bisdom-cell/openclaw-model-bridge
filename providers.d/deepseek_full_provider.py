@@ -39,6 +39,10 @@ class DeepSeekFullProvider(BaseProvider):
     base_url = "https://ai-tokenhub.com/api/v1"   # 公开域名, 非机密
     api_key_env = "DEEPSEEK_FULL_API_KEY"
     auth_style = "bearer"
+    # V37.9.222 B1: ai-tokenhub 用 Bifrost 网关归一化 thinking 参数 (2026-07-02 实测
+    # thinking:disabled → completion_tokens_details 空 + content 完整; enable_thinking:false
+    # 被忽略)。与 doubao_21 同一片段, 批量 workload 注入走快路。
+    reasoning_off_body = {"thinking": {"type": "disabled"}}
     models = [
         ModelInfo(
             model_id="deepseek-v4-pro-260425",

@@ -335,6 +335,94 @@ class TestWorkloadRouting(unittest.TestCase):
         self.assertIn("WORKLOAD ROUTE: pure-inference", content)
 
 
+class TestB1ReasoningOff(unittest.TestCase):
+    """V37.9.222 B1: 批量在 reasoning provider 注入 thinking-off (doubao_21 单模型通吃 batch).
+
+    行为级单测 _is_batch_workload + _batch_reasoning_off_body 纯函数. 根因: qwen 退役后无独立
+    快 provider, batch 靠 reasoning primary 关 reasoning 走快路 (2026-07-02 双 provider 实测).
+    """
+    _OFF = {"thinking": {"type": "disabled"}}
+
+    def setUp(self):
+        import adapter
+        self.adapter = adapter
+        self._saved = (adapter.REAL_MODEL_ID, adapter.PROVIDER_NAME,
+                       adapter.FAST_PROVIDER_NAME, adapter.PROVIDERS)
+        adapter.REAL_MODEL_ID = "PRIMARY_MODEL"
+        adapter.PROVIDER_NAME = "doubao_21"
+        adapter.FAST_PROVIDER_NAME = ""
+        adapter.PROVIDERS = {
+            "doubao_21": {"reasoning_off_body": dict(self._OFF)},
+            "deepseek_full": {"reasoning_off_body": dict(self._OFF)},
+            "qwen": {},
+        }
+
+    def tearDown(self):
+        (self.adapter.REAL_MODEL_ID, self.adapter.PROVIDER_NAME,
+         self.adapter.FAST_PROVIDER_NAME, self.adapter.PROVIDERS) = self._saved
+
+    def _batch(self, **kw):
+        c = {"messages": [{"role": "user", "content": "analyze repo"}]}
+        return self.adapter._is_batch_workload(c, kw.get("mm", False),
+                                               kw.get("um", "PRIMARY_MODEL"),
+                                               kw.get("pn", "doubao_21"))
+
+    def _rob(self, clean, use_fast=False, mm=False, um="PRIMARY_MODEL", pn="doubao_21"):
+        return self.adapter._batch_reasoning_off_body(clean, mm, um, pn, use_fast)
+
+    # --- _is_batch_workload ---
+    def test_is_batch_no_tools(self):
+        self.assertTrue(self._batch())
+
+    def test_is_batch_false_with_tools(self):
+        c = {"messages": [], "tools": [{"x": 1}]}
+        self.assertFalse(self.adapter._is_batch_workload(c, False, "PRIMARY_MODEL", "doubao_21"))
+
+    def test_is_batch_false_multimodal(self):
+        self.assertFalse(self._batch(mm=True))
+
+    def test_is_batch_false_override(self):
+        self.assertFalse(self._batch(pn="deepseek_full"))
+
+    def test_is_batch_false_nondefault_model(self):
+        self.assertFalse(self._batch(um="other"))
+
+    # --- _batch_reasoning_off_body ---
+    def test_b1_primary_doubao21_injects(self):
+        """核心: 批量 + primary=doubao_21 (has body) + 无 FAST → 注入 thinking:disabled"""
+        self.assertEqual(self._rob({"messages": [{"content": "x"}]}), self._OFF)
+
+    def test_b1_pa_with_tools_no_inject(self):
+        """PA (有 tools) → None (不关 reasoning, 留质量)"""
+        self.assertIsNone(self._rob({"messages": [], "tools": [{"x": 1}]}))
+
+    def test_b1_fast_route_qwen_no_inject(self):
+        """use_fast + FAST=qwen (无 body) → None (qwen 本就非-reasoning, A2 路由不需注入)"""
+        self.adapter.FAST_PROVIDER_NAME = "qwen"
+        self.assertIsNone(self._rob({"messages": [{"content": "x"}]}, use_fast=True))
+
+    def test_b1_fast_route_deepseek_injects(self):
+        """use_fast + FAST=deepseek_full (has body) → 注入 (服务 provider 是 reasoning 也关)"""
+        self.adapter.FAST_PROVIDER_NAME = "deepseek_full"
+        self.assertEqual(self._rob({"messages": [{"content": "x"}]}, use_fast=True), self._OFF)
+
+    def test_b1_primary_qwen_no_inject(self):
+        """primary=qwen (无 body) → None (qwen 退役前 doubao_21 未作 primary 的情形)"""
+        self.adapter.PROVIDER_NAME = "qwen"
+        self.assertIsNone(self._rob({"messages": [{"content": "x"}]}, pn="qwen"))
+
+    def test_b1_multimodal_no_inject(self):
+        """多模态 → None (图片需 VL/reasoning)"""
+        self.assertIsNone(self._rob({"messages": [{"content": "x"}]}, mm=True))
+
+    def test_do_post_uses_b1_helper(self):
+        """源码守卫: do_POST 用 _batch_reasoning_off_body 纯函数 + B1 注入 log"""
+        with open("adapter.py") as f:
+            content = f.read()
+        self.assertIn("_batch_reasoning_off_body(clean", content)
+        self.assertIn("B1 REASONING-OFF", content)
+
+
 class TestHealthEndpoint(unittest.TestCase):
     """健康端点测试"""
 

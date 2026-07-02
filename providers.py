@@ -198,6 +198,12 @@ class BaseProvider:
     auth_style: str = "bearer"
     models: List[ModelInfo] = []
     capabilities: ProviderCapabilities = ProviderCapabilities()
+    # V37.9.222 B1: reasoning 模型的 per-request 关 reasoning 请求体片段 (batch workload 用)。
+    # None = 无（非-reasoning provider 或不支持关闭）。reasoning provider 若支持关闭则声明,
+    # 如 doubao_21 / deepseek_full = {"thinking": {"type": "disabled"}}（Ark 原生 + ai-tokenhub
+    # Bifrost 网关归一, 2026-07-02 双 provider 实测 reasoning_tokens 归零）。
+    # adapter 对批量请求 (no-tools) merge 进请求体, 让 reasoning primary 也能快速服务批量。
+    reasoning_off_body: Optional[dict] = None
 
     def default_model(self) -> Optional[ModelInfo]:
         """返回默认模型。"""
@@ -241,6 +247,8 @@ class BaseProvider:
         }
         if self.vl_model_id:
             d["vl_model_id"] = self.vl_model_id
+        if self.reasoning_off_body:
+            d["reasoning_off_body"] = self.reasoning_off_body  # V37.9.222 B1
         return d
 
     def to_matrix_row(self) -> dict:
@@ -412,6 +420,7 @@ class PluginLoader:
         provider.auth_style = data.get('auth_style', 'bearer')
         provider.models = models
         provider.capabilities = caps
+        provider.reasoning_off_body = data.get('reasoning_off_body')  # V37.9.222 B1
         provider._plugin_source = source
         return provider
 

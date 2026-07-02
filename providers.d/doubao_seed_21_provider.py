@@ -39,6 +39,9 @@ class DoubaoSeed21Provider(BaseProvider):
     base_url = "https://ark.cn-beijing.volces.com/api/v3"
     api_key_env = "ARK_21_API_KEY"
     auth_style = "bearer"
+    # V37.9.222 B1: Ark 原生支持 per-request 关 reasoning (2026-07-02 实测 thinking:disabled
+    # → reasoning_tokens 0 + 17.7s vs 默认 5138/166s)。批量 workload 注入此片段走快路。
+    reasoning_off_body = {"thinking": {"type": "disabled"}}
 
     def __init__(self):
         endpoint_id = (os.environ.get("ARK_21_ENDPOINT_ID", "").strip()

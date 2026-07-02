@@ -1,6 +1,6 @@
 {
-  "updated": "2026-07-02 09:30:13",
-  "updated_by": "claude_code",
+  "updated": "2026-07-02 09:51:32",
+  "updated_by": "full_regression",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -111,6 +111,11 @@
   "recent_changes": [
     {
       "date": "2026-07-02",
+      "what": "V37.9.222 B1 落地 + doubao_21 转正唯一 primary: 用户「doubao_21 作唯一 primary 有无 tools 都压测」→ 实现 B1 (providers.py reasoning_off_body 字段 doubao_21/deepseek_full={thinking:disabled} + adapter _is_batch_workload/_batch_reasoning_off_body 纯函数 + do_POST 批量注入). 撤 FAST_PROVIDER → 批量 no-tools 在 doubao_21 注入 thinking-off 走快路 (单模型通吃, 去 qwen 依赖). 18 新单测+sabotage 验证. Mac Mini flip: PROVIDER=doubao_21+撤 FAST → 即时 E2E 全过 (health/B1 注入/PA/github_trending 10/10). full_regression 139/0/5038, VERSION 0.37.9.87. A2(FAST_PROVIDER→qwen)/B1(reasoning primary thinking-off) 互补. 观察 N 天升 production_observed. 回滚 Plan B 随时.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-07-02",
       "what": "doubao_21 primary flip 上线 (17:25, 用户决策趁 qwen 可回滚充分测新模型). PROVIDER=qwen→doubao_21 + FAST_PROVIDER=qwen (.env_shared+adapter plist+bootout/bootstrap). 即时 E2E: /health provider=doubao_21+fallback[deepseek_full,doubao,deepseek,qwen]+fast_route=qwen / ④ WORKLOAD ROUTE:pure-inference->qwen 验证(A2 生效,批量自动分流,根除上午 502 事故) / github_trending 10/10 正常 / WhatsApp PA 正常走 doubao_21. deepseek_full 第一优先级 backup. 与上午裸 flip 本质区别=A2 批量保护. 观察 N 天稳定后升 production_observed+更新文档(现暂不改防 whiplash). 回滚随时可用.",
       "by": "claude_code"
     },
@@ -203,11 +208,6 @@
       "date": "2026-07-01",
       "what": "V37.9.212: Qwen3 端点刷新 原则 #31 全量同步 — 直连 ops 脚本 env 化(VERSION 不变)。V37.9.211 adapter 修好但 Mac Mini 诊断确认漏了直连远端 LLM 的脚本: diagnose.sh:62 + health_check.sh:54 硬编码旧死域名 hkagentx/v1/models(521 失效); finance_news:768 走 localhost:5001 经 adapter 无需改; install 脚本 QWEN_BASE_URL 与 adapter 读的 REMOTE_BASE_URL 不一致。🔴 安全: 绝不硬编码新裸 IP → 全 env 化 ${REMOTE_BASE_URL:-公开域名}/models; install 加 REMOTE_BASE_URL=QWEN_BASE_URL 别名。full_regression 138/0/4954 不变 + 安全零硬编码 + VERSION 0.37.9.81 不变(ops 脚本非核心 runtime)。🔴 Mac Mini 待用户: adapter plist(V37.9.211) + .env_shared 都须设新 REMOTE_API_KEY+REMOTE_BASE_URL(cron 健康周报直连脚本)。",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-07-01",
-      "what": "V37.9.211: Qwen3 primary provider 端点刷新(服务器重装 → base_url env 化, VERSION 0.37.9.80→0.37.9.81)。用户报 primary Qwen3 服务器重装, 旧 endpoint(hkagentx.hkopenlab.com/v1)失效, 新 = 裸 IP+HTTP + 新 key(明文授权本 session), model Qwen3-235B-A22B-Instruct-2507-W8A8 未变。🔴 安全: 公开 repo → 明文 key 绝不入库 + 裸 IP 端点(暴露自建 LLM 服务器)类机密也不入库, 镜像 deepseek V37.9.201。ground(原则#28): providers.py QwenProvider.base_url 类属性硬编码是真理源(→to_legacy_dict→PROVIDERS→adapter TARGET_BASE), base_url 唯一不可 env 覆盖字段。de-risk(feedback#1): dev curl 新端点超时=网络策略限制(裸 IP 不在 proxy noProxy 私网段)非端点死, 验证必 Mac Mini。交付: QwenProvider 加 __init__ 从 REMOTE_BASE_URL env 解析 base_url + 公开域名 fallback, env 经 to_legacy_dict 自动流 adapter 两路径无需改 adapter.py(一物一形); key 已走 REMOTE_API_KEY env; 4 新守卫单测(env 解析+无裸 IP/key 硬编码, sabotage 反向验证有效)。验证: full_regression 138/0/4954 + governance 91/91 EXIT=0 + 安全扫描零泄漏(新 key/裸 IP/sk- 全仓全空+git diff 无机密) + 三 doc-drift 无漂移。复杂度预算: env +1(REMOTE_BASE_URL Mac Mini 设置, dev 优雅降级公开 fallback)。🔴 Mac Mini 待用户: adapter env 设 REMOTE_API_KEY(新 key)+REMOTE_BASE_URL(新 IP) → 重启 adapter → E2E curl $REMOTE_BASE_URL/models + WhatsApp 验证 PA。安全: 明文 key 建议用完轮换。",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -280,21 +280,21 @@
       "V37.9.213 daily_observer 自评 follow-up (Mac-Mini-gated, dev 不可执行): (F3) evening 07-01 缺失=真 job 瞬态失败 (非 observer bug, writer/reader 路径日期逐字一致), 诊断: cat ~/.kb/last_run_evening.json (预期 status=llm_failed/collector_failed) + grep SYSTEM_ALERT ~/kb_evening.log + ls ~/.kb/daily/evening_20260701.md 确认真缺。 (F1) 同步后次日 06:30 报告 deep_dive 段降级原因分解将告知哪类占主导 (非全文来源=付费墙结构性接受 / PDF·HTML 抓取失败=可修 fetch-path), 据此决定是否投 OA 解析加固 —— deep_dive 77% 根因诊断从此自助不需 Mac Mini grep (V37.9.213 F1 兑现)。 (潜伏低优) evening/deep_dive 用 system-local date vs dream 用 HKT TZ, 一物一形不一致, TZ 近午夜漂移可能日期偏移, 非本次成因。",
       "V37.9.214 governance 审计间歇 fail — root-cause + B2 均已修 (剩 Mac Mini bash3.2 验证 + 潜在类): 根因 INV-REVIEW-001 kb_review.sh subprocess 负载超时 💥 已修 (timeout 45→90 + TimeoutExpired inconclusive)。 B2 假 FATAL line=101 = bash 3.2 errtrace re-enable landmine (3 次复发 whack-a-mole, dev bash5.x 不复现) 已日落法根治 (set +E 一次不再 re-enable, errexit+顶部 set -eEuo 保留)。 🔴 B2 修复只能 Mac Mini bash 3.2 验证: 同步后观察后续冷/负载失败是否还伴 FATAL 假告警 (预期消失); 仍出现则 bash -x ~/governance_audit_cron.sh 2>/tmp/gac_x.txt 抓 trace。 (潜在类, 不盲修) INV-WATCHDOG-SELF-001 6× 并行 ❌ = 自并行争用 artifact 非生产; '治理 runtime check 对负载敏感' 待系统性评估。 (清陈旧) bash ~/governance_audit_cron.sh 现全过写 pass 清 watchdog flag。",
       "低优观察 (登记不修, 日落法 #8): auto_deploy FILE_MAP 同步用 cp 非原子写 → 脚本在同步窗口内被并发执行会读半截文件 (2026-07-02 11:41 governance_audit_cron.sh 同步 #781 时被手动跑 → line 85 $() 截断 = 'syntax error near governance' 瞬态, 重跑即好 bash -n 过+diff 同步)。极低频(同步写×并发执行精确重叠)+自愈+非代码 bug。若未来 07:00 cron 与 auto_deploy 同步真撞上(复现) 才值得让 auto_deploy 改原子写 temp+mv。当前不投机加复杂度。",
-      "doubao_21 primary 已上线 (2026-07-02 17:25 flip, A2 workload 路由激活: PROVIDER=doubao_21+FAST_PROVIDER=qwen). 即时 E2E 全过 (PA→doubao_21 / 批量→qwen WORKLOAD ROUTE 验证 / github_trending 10/10 / deepseek_full 第一 fallback). 剩: (1) 观察 N 天 cron 周期(尤其上午出事的 freight/github_trending/hn 明天表现) + PA + deepseek_full 兜底全正常 → 据实升 doubao_21 production_observed (原则 #23) + 更新 repo 文档 primary prose qwen→doubao_21 (现暂不改防 whiplash). (2) 稳定后 qwen 逐步老化, 长期不被批量以外需要时从 FAST_PROVIDER/FALLBACK 移除缩链 (日落法). (3) B1 终局(qwen 退役后 doubao_21/deepseek_full thinking-off 单模型通吃, 双 provider 已实测) 待 qwen 退役排期实现 (design doc §9-10). 回滚 Plan B(PROVIDER=qwen) 随时可用."
+      "doubao_21 唯一 primary 已上线 (2026-07-02, V37.9.222 B1): PROVIDER=doubao_21 + 撤 FAST_PROVIDER + B1 reasoning-off 注入. PA→doubao_21 reasoning / 批量 no-tools→doubao_21 thinking:disabled 快路 (单模型通吃, 去 qwen 依赖). deepseek_full 第一 fallback. 即时 E2E 全过 (health/B1 注入 log/PA/github_trending 10/10). 剩: (1) 观察 N 天 cron 周期(freight/hf/arxiv 批量全快速成功) + 批量并发规模表现(doubao_21 thinking-off ~17s/req, 10 repos 并发未压过) → 升 doubao_21 production_observed (原则 #23). (2) 稳定后 qwen 逐步老化, 长期仅 fallback 兜底, 确认不需要后从 FALLBACK_ORDER 移除缩链 (日落法). (3) doubao 2.0 的 thinking-off 未测(reasoning_off_body=None), 若将来需其作 batch 可探针. 回滚 Plan B(PROVIDER=qwen 恢复 A2/qwen 快路) 随时可用."
     ],
     "open_prs": "",
     "blocked_on": ""
   },
   "quality": {
     "security_score": 95,
-    "test_count": 5020,
-    "last_regression": "2026-07-02 08:55 pass",
+    "test_count": 5038,
+    "last_regression": "2026-07-02 09:51 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-07-02 08:55",
+    "security_score_time": "2026-07-02 09:51",
     "test_suites": 140,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
-    "version": "0.37.9.86",
+    "version": "0.37.9.87",
     "observer": {}
   },
   "incidents": [
@@ -359,7 +359,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "primary 已 flip 到 doubao_21 (2026-07-02 17:25 上线, 即时 E2E 通过: PA/WhatsApp 正常走 doubao_21 reasoning + github_trending 批量走 qwen 快路 A2 WORKLOAD ROUTE 验证). deepseek_full 第一优先级 fallback. A2 workload 路由结构性根除上午 reasoning-primary 拖垮批量 502 事故. 回滚 Plan B(PROVIDER=qwen) 随时可用. 下一步: 观察 N 天 cron 周期(freight/hf/arxiv 等全部快速成功) + PA 正常 + deepseek_full 兜底 → 据实升 doubao_21 production_observed + 更新 repo 文档 primary prose (现暂不改防 whiplash). B1 终局(qwen 退役后 thinking-off) 双 provider 已验证待需求驱动实现.",
+  "focus": "doubao_21 唯一 primary 已上线 (2026-07-02, PROVIDER=doubao_21 + 撤 FAST_PROVIDER + B1 reasoning-off 注入). PA→doubao_21 reasoning 质量 / 批量(no-tools)→doubao_21 thinking:disabled 快路 (B1, V37.9.222). deepseek_full 第一 fallback. 去 qwen 依赖 (qwen 仅 fallback 兜底). 即时 E2E: /health+B1 注入+PA+github_trending 全过. 下一步: 观察 N 天 cron 周期(尤其 freight/hf/arxiv 批量) + 规模并发表现 → doubao_21 升 production_observed. 回滚 Plan B(PROVIDER=qwen 恢复 A2/qwen 快路) 随时可用. deepseek_full 同 reasoning_off_body 参数, 终局无单点依赖.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
