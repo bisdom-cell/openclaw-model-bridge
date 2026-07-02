@@ -1,6 +1,6 @@
 {
-  "updated": "2026-07-02 05:56:33",
-  "updated_by": "claude_code",
+  "updated": "2026-07-02 06:10:28",
+  "updated_by": "security_score",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -279,7 +279,8 @@
       "V37.9.124 #29 follow-up (低优, 防重复调查): INV runtime 收窄约定已立 (test_v37_9_124 docstring) — 套件含 env-dependent test 的 INV 跑契约核心类非全套件; 纯逻辑套件跑全. 未来新 INV 跑的套件含 env-dependent test (读 repo 外真实系统状态) 时按此收窄到契约核心类 (镜像 INV-OBSERVER-001/INV-DREAM-CROSS-DOMAIN).",
       "V37.9.213 daily_observer 自评 follow-up (Mac-Mini-gated, dev 不可执行): (F3) evening 07-01 缺失=真 job 瞬态失败 (非 observer bug, writer/reader 路径日期逐字一致), 诊断: cat ~/.kb/last_run_evening.json (预期 status=llm_failed/collector_failed) + grep SYSTEM_ALERT ~/kb_evening.log + ls ~/.kb/daily/evening_20260701.md 确认真缺。 (F1) 同步后次日 06:30 报告 deep_dive 段降级原因分解将告知哪类占主导 (非全文来源=付费墙结构性接受 / PDF·HTML 抓取失败=可修 fetch-path), 据此决定是否投 OA 解析加固 —— deep_dive 77% 根因诊断从此自助不需 Mac Mini grep (V37.9.213 F1 兑现)。 (潜伏低优) evening/deep_dive 用 system-local date vs dream 用 HKT TZ, 一物一形不一致, TZ 近午夜漂移可能日期偏移, 非本次成因。",
       "V37.9.214 governance 审计间歇 fail — root-cause + B2 均已修 (剩 Mac Mini bash3.2 验证 + 潜在类): 根因 INV-REVIEW-001 kb_review.sh subprocess 负载超时 💥 已修 (timeout 45→90 + TimeoutExpired inconclusive)。 B2 假 FATAL line=101 = bash 3.2 errtrace re-enable landmine (3 次复发 whack-a-mole, dev bash5.x 不复现) 已日落法根治 (set +E 一次不再 re-enable, errexit+顶部 set -eEuo 保留)。 🔴 B2 修复只能 Mac Mini bash 3.2 验证: 同步后观察后续冷/负载失败是否还伴 FATAL 假告警 (预期消失); 仍出现则 bash -x ~/governance_audit_cron.sh 2>/tmp/gac_x.txt 抓 trace。 (潜在类, 不盲修) INV-WATCHDOG-SELF-001 6× 并行 ❌ = 自并行争用 artifact 非生产; '治理 runtime check 对负载敏感' 待系统性评估。 (清陈旧) bash ~/governance_audit_cron.sh 现全过写 pass 清 watchdog flag。",
-      "低优观察 (登记不修, 日落法 #8): auto_deploy FILE_MAP 同步用 cp 非原子写 → 脚本在同步窗口内被并发执行会读半截文件 (2026-07-02 11:41 governance_audit_cron.sh 同步 #781 时被手动跑 → line 85 $() 截断 = 'syntax error near governance' 瞬态, 重跑即好 bash -n 过+diff 同步)。极低频(同步写×并发执行精确重叠)+自愈+非代码 bug。若未来 07:00 cron 与 auto_deploy 同步真撞上(复现) 才值得让 auto_deploy 改原子写 temp+mv。当前不投机加复杂度。"
+      "低优观察 (登记不修, 日落法 #8): auto_deploy FILE_MAP 同步用 cp 非原子写 → 脚本在同步窗口内被并发执行会读半截文件 (2026-07-02 11:41 governance_audit_cron.sh 同步 #781 时被手动跑 → line 85 $() 截断 = 'syntax error near governance' 瞬态, 重跑即好 bash -n 过+diff 同步)。极低频(同步写×并发执行精确重叠)+自愈+非代码 bug。若未来 07:00 cron 与 auto_deploy 同步真撞上(复现) 才值得让 auto_deploy 改原子写 temp+mv。当前不投机加复杂度。",
+      "doubao_21 primary 已上线 (feature_verified) — 待 N 天稳定生产证据(质量/延迟/无乱码/fallback 触发率) → 据实升 production_observed (原则 #23 不凭空升档). qwen 在 fallback 链末尾老化, 确认长期不被需要后从 FALLBACK_ORDER 移除缩链 (日落法)."
     ],
     "open_prs": "",
     "blocked_on": ""
@@ -287,9 +288,9 @@
   "quality": {
     "security_score": 95,
     "test_count": 5010,
-    "last_regression": "2026-07-02 05:35 pass",
+    "last_regression": "2026-07-02 06:09 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-07-02 05:35",
+    "security_score_time": "2026-07-02 06:09",
     "test_suites": 140,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
@@ -358,7 +359,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-07-02: 观察者自评(V37.9.213)+watchdog 告警(V37.9.214)连续驱动 surface-the-reason。V37.9.213 F1 deep_dive 降级原因 4 桶分解 + F2 dream head 采样假阳性 snap 修复(已部署 Mac Mini preflight 86/0/1)。V37.9.214 B1: governance_audit_cron 告警 grep ❌→❌|💥(冷失败 💥 error 被漏报致告警不说哪个 check)。🔴 治理审计间歇性 cold fail(4.27 冷调用类 V37.9.145)根因待 Mac Mini: B1 已 enable 下次失败自报 💥 check 名 → V37.9.157 式隔离; B2 假 FATAL line=101 需 bash -x 冷 trace。仍 gated: LLM-Observer shadow 周~7/7 flip / IEEE·ISSRE in-review / DeepSeek Phase 2。",
+  "focus": "primary 已切 doubao_21 (V37.9.216-218 + 运维切换全落地, WhatsApp 文本+图片 E2E 通过, qwen 退 fallback 链末尾老化). 下一步: doubao_21 稳定 N 天 → 升 production_observed; qwen 长期不被需要 → 从 FALLBACK_ORDER 移除 (日落法).",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
@@ -368,9 +369,5 @@
   ],
   "_meta": {
     "last_updated_by": "claude_code"
-  },
-  "session_context.unfinished": [
-    "V37.9.206 Phase 2: deepseek_full 已进 fallback 链但 verified_fallback=False——待 Qwen3 真宕接管一次, 观察质量/延迟后升 production_observed (逐渐老化 Qwen3 的决策证据)",
-    "安全: 对话中出现过的三个 key (deepseek 满血 sk-f3a3ee.../量化 sk-80f0d9.../ARK ark-cd0de70...) 建议轮换"
-  ]
+  }
 }
