@@ -55,6 +55,56 @@ BACKEND = "http://127.0.0.1:5001"
 PORT = 5002
 
 # ---------------------------------------------------------------------------
+# V37.9.226 (audit SEC-1): data_clean file-path confinement.
+# data_clean is injected into every tool-enabled request (CUSTOM_TOOLS), so the
+# PA LLM can invoke it with an arbitrary `file` arg. Untrusted RSS/HN content in
+# PA context (prompt injection) could steer it to read ~/.env_shared (API keys),
+# ~/.ssh/*, /etc/passwd — whose parsed rows leak straight into the chat reply.
+# Fix = allowlist confinement: the resolved realpath (symlink/.. escapes normalized)
+# must live under an allowed data dir. Default-deny with a VISIBLE reason (never
+# silent) + env escape hatch DATA_CLEAN_ALLOWED_DIRS (colon-separated) for legit
+# data dirs we don't hardcode.
+# ---------------------------------------------------------------------------
+_DATA_CLEAN_ALLOWED_ROOTS = None
+
+def _data_clean_allowed_roots():
+    global _DATA_CLEAN_ALLOWED_ROOTS
+    if _DATA_CLEAN_ALLOWED_ROOTS is None:
+        roots = [
+            os.path.realpath(os.path.expanduser("~/.openclaw/media/inbound")),  # Gateway uploads
+            os.path.realpath(os.path.expanduser("~/.data_clean")),               # workspace + cleaned outputs
+        ]
+        for d in os.environ.get("DATA_CLEAN_ALLOWED_DIRS", "").split(":"):
+            d = d.strip()
+            if d:
+                roots.append(os.path.realpath(os.path.expanduser(d)))
+        _DATA_CLEAN_ALLOWED_ROOTS = roots
+    return _DATA_CLEAN_ALLOWED_ROOTS
+
+def _confine_data_path(path):
+    """Confine a data_clean file arg to allowed data dirs.
+    Returns (ok, resolved_realpath_or_reason). realpath resolves symlinks and
+    normalizes `..`, so both are covered. os.sep suffix on the root prevents
+    prefix-confusion (/x/.data_clean vs /x/.data_clean_evil)."""
+    if not isinstance(path, str) or not path:
+        return False, "缺少 file 参数"
+    try:
+        resolved = os.path.realpath(os.path.expanduser(path))
+    except (OSError, ValueError):
+        return False, "路径无效"
+    for root in _data_clean_allowed_roots():
+        if resolved == root or resolved.startswith(root + os.sep):
+            return True, resolved
+    return False, "文件路径超出允许的数据目录（仅限上传媒体目录与数据清洗工作区）"
+
+# V37.9.226 (audit SEC-2): ingest cap — reject oversized/malformed request bodies
+# BEFORE reading them into memory (MAX_REQUEST_BYTES only bounds the OUTBOUND
+# forwarded body via truncate_messages, not ingest → a multi-GB Content-Length
+# would OOM before truncation). Generous cap = DoS backstop, never a functional
+# limit (legit inbound is text; base64 image injection happens after receipt).
+_MAX_INGEST_BYTES = 32 * 1024 * 1024  # 32 MB
+
+# ---------------------------------------------------------------------------
 # Conversation capture — lightweight append to JSONL for KB harvesting (V37)
 # Hot path: only file append, no LLM, no network. Processing is offline.
 # ---------------------------------------------------------------------------
@@ -309,8 +359,12 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
             self._json_response(400, {"error": "缺少 file 参数"})
             return
 
-        # 展开 ~ 路径
-        file_path = os.path.expanduser(file_path)
+        # V37.9.226 (audit SEC-1): 路径限制 — 防任意文件读（密钥泄漏）
+        ok, file_path = _confine_data_path(file_path)
+        if not ok:
+            log(f"[data_clean] REJECT {action}: {file_path}")
+            self._json_response(403, {"error": file_path})
+            return
 
         if not os.path.exists(file_path):
             self._json_response(404, {"error": f"文件不存在: {file_path}"})
@@ -355,7 +409,12 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
             if not cleaned:
                 self._json_response(400, {"error": "缺少 cleaned 参数"})
                 return
-            cleaned = os.path.expanduser(cleaned)
+            # V37.9.226 (audit SEC-1): cleaned 路径同样限制
+            ok, cleaned = _confine_data_path(cleaned)
+            if not ok:
+                log(f"[data_clean] REJECT validate(cleaned): {cleaned}")
+                self._json_response(403, {"error": cleaned})
+                return
             cmd = [sys.executable, self._data_clean_path(), "validate", file_path, cleaned]
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
             try:
@@ -647,16 +706,18 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
             if action == "list_ops":
                 cmd = [sys.executable, self._data_clean_path(), "list-ops"]
             elif action == "profile":
-                if not file_path:
-                    return json.dumps({"error": "缺少 file 参数"})
-                file_path = os.path.expanduser(file_path)
+                ok, file_path = _confine_data_path(file_path)
+                if not ok:
+                    log(f"[data_clean] REJECT profile: {file_path}")
+                    return json.dumps({"error": file_path})
                 if not os.path.exists(file_path):
                     return json.dumps({"error": f"文件不存在: {file_path}"})
                 cmd = [sys.executable, self._data_clean_path(), "profile", file_path]
             elif action == "execute":
-                if not file_path:
-                    return json.dumps({"error": "缺少 file 参数"})
-                file_path = os.path.expanduser(file_path)
+                ok, file_path = _confine_data_path(file_path)
+                if not ok:
+                    log(f"[data_clean] REJECT execute: {file_path}")
+                    return json.dumps({"error": file_path})
                 if not os.path.exists(file_path):
                     return json.dumps({"error": f"文件不存在: {file_path}"})
                 ops = args.get("ops", "trim,dedup")
@@ -992,7 +1053,16 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
     def do_POST(self):
         rid = uuid.uuid4().hex[:8]
         t0 = time.monotonic()
-        length = int(self.headers.get("Content-Length", 0))
+        # V37.9.226 (audit SEC-2/3): 畸形 Content-Length 优雅 400（原 int() 在 try 外崩线程）;
+        # 超大 body 在读入内存前拒（防 OOM，non-numeric/负数/超 _MAX_INGEST_BYTES）
+        try:
+            length = int(self.headers.get("Content-Length", 0))
+        except (ValueError, TypeError):
+            self.send_error(400, "Bad Content-Length")
+            return
+        if length < 0 or length > _MAX_INGEST_BYTES:
+            self.send_error(413, "Request too large")
+            return
         raw = self.rfile.read(length)
 
         was_streaming = False
