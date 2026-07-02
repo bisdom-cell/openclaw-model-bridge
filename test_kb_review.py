@@ -915,7 +915,12 @@ class TestGovernanceRuntimeCheckIsolation(unittest.TestCase):
                   encoding="utf-8") as f:
             yml = f.read()
         i = yml.find("V37.5.1 runtime: 真实 subprocess 执行 kb_review.sh")
-        cls.check_block = yml[i:i + 4000] if i >= 0 else ""
+        # V37.9.214: slice to the check's cleanup boundary (not a magic 4000)
+        # so this isolation guard survives legitimate edits INSIDE the check
+        # block (the V37.9.214 load-timeout comment + try/except pushed the env
+        # dict past a fixed 4000-char window → false failures).
+        j = yml.find("shutil.rmtree(tmp, ignore_errors=True)", i)
+        cls.check_block = yml[i:j + 60] if i >= 0 and j > i else ""
 
     def test_check_exists(self):
         self.assertTrue(self.check_block, "INV-REVIEW-001 V37.5.1 runtime check 必须存在")

@@ -78,7 +78,9 @@ class TestInvReviewCheckStubsOpenclaw(unittest.TestCase):
         # 定位 'V37.5.1 runtime: 真实 subprocess 执行 kb_review.sh' check 块
         idx = self.yaml.find("V37.5.1 runtime: 真实 subprocess 执行 kb_review.sh")
         self.assertGreater(idx, 0, "未找到 INV-REVIEW-001 kb_review.sh runtime check")
-        return self.yaml[idx: idx + 5000]
+        # V37.9.214: slice to the cleanup boundary (robust to block growth)
+        end = self.yaml.find("shutil.rmtree(tmp, ignore_errors=True)", idx)
+        return self.yaml[idx: end + 60] if end > idx else self.yaml[idx: idx + 5000]
 
     def test_v37_9_157_marker_in_check(self):
         self.assertIn("V37.9.157", self._inv_review_check_block(),

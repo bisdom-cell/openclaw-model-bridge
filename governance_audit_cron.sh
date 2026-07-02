@@ -86,7 +86,13 @@ set -E
 # (governance_audit 实际成功跑完, 但 grep "❌" no match 时 ERR trap 误触发推 [SYSTEM_ALERT])
 # V37.9.58-hotfix4 同款 bash quirk 横向修复
 GOV_SUMMARY=$(echo "$GOV_OUTPUT" | grep -E "通过:|不变式:" | head -2 | tr '\n' ' ' || true)
-GOV_VIOLATIONS=$(echo "$GOV_OUTPUT" | grep "❌" | head -5 || true)
+# V37.9.214: grep BOTH ❌ (fail) AND 💥 (error) — a check that ERRORS (e.g. a
+# --full runtime check whose subprocess hits the 4.27 openclaw cold-call and
+# times out → TimeoutExpired → 💥, NOT ❌) was invisible in the alert (grep ❌
+# only) → "Governance Audit 失败" fired with an EMPTY 不变式违反 section, telling
+# the user THAT it failed but not WHICH check. Mirrors V37.9.213 F1 (surface
+# the reason). Now cold-flake failures self-report the 💥 check name.
+GOV_VIOLATIONS=$(echo "$GOV_OUTPUT" | grep -E "❌|💥" | head -5 || true)
 GOV_WARNINGS=$(echo "$GOV_OUTPUT" | grep "⚠️" | head -5 || true)
 
 log "governance_checker 完成: rc=$GOV_RC $GOV_SUMMARY"
@@ -116,7 +122,7 @@ if [ "$GOV_RC" -ne 0 ]; then
     OVERALL="fail"
     ALERT_MSG="⚠️ Governance Audit 失败 ($TS)
 
-不变式违反:
+不变式违反 / 检查出错 (❌ fail / 💥 error):
 $GOV_VIOLATIONS
 
 $GOV_SUMMARY"

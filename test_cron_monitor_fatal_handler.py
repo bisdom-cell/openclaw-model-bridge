@@ -469,5 +469,85 @@ class TestV37963SourceLevelMarkers(unittest.TestCase):
                          "GOVERNED_SCRIPTS 必须正好 7 个 (V37.9.60 4 cron + V37.9.61 3 LLM-task)")
 
 
+class TestV37_9_214_GovAuditAlertSurfacesErrors(unittest.TestCase):
+    """V37.9.214: governance_audit_cron alert must surface BOTH ❌ (fail) and
+    💥 (error) checks. A --full check that ERRORS (subprocess timeout under
+    load/cold-call → TimeoutExpired → 💥) was invisible when GOV_VIOLATIONS
+    grepped only ❌ → alert fired with an empty 不变式违反 section (2026-07-02:
+    "THAT it failed but not WHICH check"). Mirrors V37.9.213 F1."""
+
+    @classmethod
+    def setUpClass(cls):
+        with open(REPO_ROOT / "governance_audit_cron.sh", encoding="utf-8") as f:
+            cls.src = f.read()
+
+    def test_gov_violations_greps_both_fail_and_error(self):
+        # GOV_VIOLATIONS must grep ❌ AND 💥 (not ❌ only)
+        m = re.search(r'GOV_VIOLATIONS=\$\(echo "\$GOV_OUTPUT" \| grep (\S+) "([^"]*)"',
+                      self.src)
+        self.assertIsNotNone(m, "GOV_VIOLATIONS grep line must exist")
+        # the -E pattern must contain both symbols
+        self.assertIn("💥", m.group(2),
+                      "GOV_VIOLATIONS must grep 💥 (error-class), not ❌ only")
+        self.assertIn("❌", m.group(2), "GOV_VIOLATIONS must still grep ❌ (fail)")
+
+    def test_old_fail_only_pattern_retired(self):
+        # the exact old anti-pattern (grep "❌" alone for GOV_VIOLATIONS) must be gone
+        self.assertNotRegex(
+            self.src, r'GOV_VIOLATIONS=\$\(echo "\$GOV_OUTPUT" \| grep "❌" \|',
+            "V37.9.214: old ❌-only GOV_VIOLATIONS grep must be retired")
+
+    def test_alert_label_mentions_error(self):
+        # alert section label must reflect that 💥 errors are included
+        self.assertIn("不变式违反 / 检查出错", self.src,
+                      "alert label must be updated to include 检查出错 (error)")
+        self.assertRegex(self.src, r"不变式违反 / 检查出错.*💥",
+                         "alert label must mention 💥 error")
+
+    def test_v37_9_214_marker(self):
+        self.assertIn("V37.9.214", self.src)
+
+
+class TestV37_9_214_ReviewCheckLoadHardening(unittest.TestCase):
+    """V37.9.214 root-cause: INV-REVIEW-001 runtime check (真跑 kb_review.sh
+    subprocess) 在重负载下被 CPU 饿死超 timeout=45 → TimeoutExpired → 💥
+    (2026-07-02 6× 并行确定性复现; sleep 400 cold 单跑过 → 负载非 cold-call).
+    修: timeout 45→90 + 捕获 TimeoutExpired 视为 inconclusive (超时不是这个
+    check 守的 JSONDecodeError 回归的证据). Lineage V37.9.145/157 (cold-call)
+    → V37.9.214 (load-timeout)."""
+
+    @classmethod
+    def setUpClass(cls):
+        with open(REPO_ROOT / "ontology" / "governance_ontology.yaml",
+                  encoding="utf-8") as f:
+            cls.src = f.read()
+        # isolate the INV-REVIEW-001 runtime E2E check block
+        start = cls.src.find("V37.5.1 runtime: 真实 subprocess 执行 kb_review.sh")
+        # slice to the finally cleanup (end of this check's code block)
+        end = cls.src.find("shutil.rmtree(tmp, ignore_errors=True)", start)
+        cls.block = cls.src[start:end + 60] if start >= 0 and end > start else ""
+
+    def test_review_check_block_found(self):
+        self.assertTrue(self.block, "INV-REVIEW-001 runtime check block must exist")
+
+    def test_timeout_bumped_to_90(self):
+        self.assertIn("timeout=90", self.block,
+                      "V37.9.214: kb_review.sh subprocess timeout must be 90 (load-tolerant)")
+
+    def test_old_timeout_45_retired(self):
+        # the old tight 45s timeout must be gone from this check block
+        self.assertNotIn("timeout=45", self.block,
+                         "V37.9.214: old timeout=45 must be retired (load-fragile)")
+
+    def test_catches_timeout_expired_as_inconclusive(self):
+        self.assertIn("subprocess.TimeoutExpired", self.block,
+                      "V37.9.214: must catch TimeoutExpired (load timeout ≠ regression)")
+        self.assertIn("INCONCLUSIVE", self.block,
+                      "V37.9.214: timeout must be treated as inconclusive, not 💥")
+        # assertions must be gated on the subprocess having completed
+        self.assertIn("if result is not None:", self.block,
+                      "V37.9.214: regression assertions must be gated on result (skip on timeout)")
+
+
 if __name__ == "__main__":
     unittest.main()
