@@ -76,3 +76,40 @@ git fetch+reset 同步 → auto_deploy 把 adapter.py rsync 到运行时 → ada
 ## 8. 状态
 
 代码已实现（V37.9.221，no-op 直到 flip）。剩余 = Mac Mini 阶段 0-2 部署验证 + flip（用户执行）。flip 成功后 doubao_21 正式作 primary（PA reasoning 质量 + 批量 job 走 qwen 快路），qwen 从 primary 降为 batch-fast-provider + fallback 链首。
+
+## 9. 终局：reasoning-only 未来（qwen 完全退役后）— B1 已实测确认
+
+**问题**：A2（批量→`FAST_PROVIDER`）依赖有一个快速非-reasoning provider（qwen）。qwen 完全退役后剩 doubao/deepseek 全是 reasoning 模型 → A2 的快 provider 无处可指 → 批量 job 又回慢。
+
+**洞察**：reasoning 是 per-request **模式**，不是模型固有属性。批量需要的是「快速非-reasoning 推理路径」，可以是 (a) 另一个非-reasoning 模型（B2/qwen），或 **(b) 同一 reasoning 模型把 reasoning 关掉（B1）**。
+
+**B1 实测确认（2026-07-02，Mac Mini 直连 doubao-seed-2-1-pro Ark 端点，同 prompt 对照）**：
+
+| 请求 | reasoning_tokens | 延迟 | 结论 |
+|------|------------------|------|------|
+| `thinking:{"type":"disabled"}` | **0** | **17.7s**（500 tok 满） | reasoning 完全关 + 内容质量正常 |
+| 默认（reasoning on） | **5138** | **166s（2:46）** | 约 10× 慢 |
+
+→ **`thinking:{"type":"disabled"}` 是 doubao-seed-2-1-pro 的合法 Ark 参数，B1 可行**：doubao_21 一个模型能同时服务 PA（thinking on，reasoning 质量）+ 批量（thinking off，17s 级）。**qwen 退役后不需要任何替代快 provider。**
+
+**终局架构（三层，按可用性降级）**：
+```
+批量/纯推理 workload → 快速非-reasoning 路径:
+  ① B1 (最优, 已实测): 服务 provider 支持 thinking-off → 注入 thinking:disabled (doubao_21 ✅)
+  ② B2 (过渡): 有独立快 provider (qwen) → 路由过去 (A2 已建, V37.9.221)
+  ③ 都没有 → 留 primary (慢兜底)
+交互 (有 tools) → reasoning 模型 (质量)
+```
+
+**核心原则（永久）**：不管未来剩哪几家 provider，系统必须始终保有一条快速非-reasoning 推理路径给批量 job。实现（关 reasoning vs 换型号）随各家 API 能力，但需求永久。A2 的 workload 检测（`_classify_fast_route` no-tools）是承载它的正确接缝。
+
+## 10. B1 落地方案（proven-feasible，待 qwen 退役排期时实现）
+
+**刻意不现在实现**（日落法 #34 + 原则 #18：B1 已证可行 + 有方案，但 qwen 短期不退役、A2 覆盖当下 → 现在建 = 投机复杂度）。qwen 退役真正排期时实现，届时是小扩展：
+
+1. **providers.py**：per-provider 声明 `reasoning_off_body`（doubao_21 = `{"thinking":{"type":"disabled"}}`；qwen = None 本就非-reasoning；deepseek_full R1 待测，R1 系 thinking-off 通常更难，可能仍靠 B2）。默认 None。
+2. **adapter**：批量请求（复用 V37.9.221 `_classify_fast_route` no-tools 检测）→ 服务 provider（primary 或 FAST_ROUTE provider）若有 `reasoning_off_body` → merge 进 clean 请求体。与 A2 互补：有 FAST_PROVIDER 先走 A2（qwen 无需注入），无 FAST_PROVIDER 时 B1 在 primary 注入 thinking-off。
+3. **守卫**：行为级单测（批量+doubao_21→注入 thinking:disabled / 批量+qwen→不注入 / PA→不注入）+ sabotage。
+4. **Mac Mini E2E**：flip 到 PROVIDER=doubao_21 + 无 FAST_PROVIDER → 批量 job 请求确认带 thinking:disabled + reasoning_tokens=0 + 快速成功。
+
+deepseek_full R1 的 thinking-off 可用性需单独实测（探针同 §5，换 ai-tokenhub 端点 + R1 的参数格式）。
