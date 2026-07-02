@@ -49,11 +49,11 @@ class DeepSeekProvider(BaseProvider):
     api_key_env = "DEEPSEEK_API_KEY"
     auth_style = "bearer"
     # V37.9.223 B1: 声明 per-request 关 reasoning (镜像 deepseek_full 的 thinking:disabled)。
-    # ⚠️ 未实测 + 双重不确定 (原则 #23): (1) 本 provider reasoning=False (无 R1 通道) →
-    #    thinking-off 可能 no-op (2) self-host 网关 (DEEPSEEK_BASE_URL 裸 IP, 非 deepseek_full
-    #    的 Bifrost) 是否接受 thinking 未知 → 作 primary 前【必须】探针确认 (若网关 400 拒绝须移除,
-    #    防重演 V37.9.220 批量 502)。当前 PENDING 且非 primary → 注入 inert (B1 仅在该 provider
-    #    作 serving provider 时 fire)。
+    # 探针实测 2026-07-02 (self-host 网关 curl): thinking:disabled → HTTP 200 + finish_reason=stop
+    #   + reasoning_tokens:0, 无 400 → 网关接受该参数, 声明安全保留 (400 风险已排除)。
+    # ⚠️ 剩余诚实注记 (原则 #23): 本 provider reasoning=False (无 R1 通道) → thinking-off 实际
+    #   no-op (batch 走快路靠的是本就无 reasoning 开销), 但无害。仍 PENDING (w4a8 量化偶发乱码);
+    #   非 primary 时注入 inert (B1 仅在该 provider 作 serving provider 时 fire)。
     reasoning_off_body = {"thinking": {"type": "disabled"}}
 
     def __init__(self):

@@ -1,5 +1,5 @@
 {
-  "updated": "2026-07-02 10:25:30",
+  "updated": "2026-07-02 12:53:24",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -111,6 +111,11 @@
   "recent_changes": [
     {
       "date": "2026-07-02",
+      "what": "V37.9.223 探针实测: deepseek 量化版 self-host 网关接受 thinking:disabled (HTTP 200/reasoning_tokens:0/无 400) → 400 风险排除声明安全保留 (仍 non-reasoning → thinking-off no-op 但无害); doubao 2.0 探针遇 AuthHeader 错误=交互 shell 缺 ARK env (非 thinking 拒绝), 家族推断声明保留待 env 探针",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-07-02",
       "what": "V37.9.223: 全部 doubao+deepseek 四家同款声明 reasoning_off_body (任何切换独立成 primary)；doubao 2.0 家族推断+deepseek 量化双重不确定，两者 docstring 标 UNTESTED + 作 primary 前须探针 (原则 #23)",
       "by": "claude_code"
     },
@@ -202,11 +207,6 @@
     {
       "date": "2026-07-01",
       "what": "IEEE Software desk-return 修复 (SW-2026-06-0312, unsubmitted 非拒稿, 格式合规问题): 用户误投完整 arXiv draft.md(8556 词)超 4200 词限 → 改投合规经验报告版 ieee_software_experience_report.md(专为 IEEE 准备, effective ≈3673 词 <4200)。补齐 3 项要求: (1) 正文 ≤4200 — 经验报告版 body 3173+2 表×250=3673 达标 (2) 摘要 148 词 ≤150 已达标 (3) 新增 About the Author 作者简介段(Wei Wu Independent Researcher, ORCID, 无编造资历原则#23)。修正 front-matter table 计数(实际 2 表 0 图非 1 表 1 图)。SUBMISSION_GUIDE 加 desk-return resolution 段(精确字数+勿投 draft.md)。🔴 用户待办(3 天内): 把经验报告版 typeset 成 PDF(IEEEtran/Word 模板)→ IEEE Author Portal researchexchange.com/journal/sw-cs 重投 + 更新表单 metadata 字数/摘要。VERSION 不变(paper doc)。",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-07-01",
-      "what": "V37.9.211 端点刷新 Mac Mini E2E ✅ 验证通过: adapter plist EnvironmentVariables Set REMOTE_API_KEY(新)+Add REMOTE_BASE_URL(http://<新IP>:8000/v1) → restart.sh bootout/bootstrap 重读 plist → adapter 启动行 -> 新端点 + 真请求 RESPONSE 200 809ms PRIMARY 无 fallback + 返回 Qwen3 model+PONG。诊断证实之前 adapter 用旧 key+旧死域名(521)全流量走 deepseek_full 兜底(非 Qwen3), 根因 = launchd job env 来自 plist 不继承 shell export(kickstart -k 不重读 plist)。Primary Qwen3 恢复, WhatsApp/PA 回到 Qwen3。de-risk 判断证实: dev curl 超时是网络限制非端点死(feedback #1)。剩余非紧急: .env_shared 设新 env(cron 直连 health_check 周报) + V37.9.212 PR 合并同步 + 明文 key 建议轮换。",
       "by": "claude_code"
     }
   ],
