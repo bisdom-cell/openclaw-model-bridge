@@ -117,7 +117,9 @@ ctx         = ssl.create_default_context()
 
 def _entry_from_registry(cp, api_key, model_id=None):
     """Build a fallback chain entry from a registry provider object.
-    V37.9.218: entries carry vl_model_id for capability-aware vision fallback."""
+    V37.9.218: entries carry vl_model_id for capability-aware vision fallback.
+    V37.9.224: entries carry reasoning_off_body (镜像 vl_model_id) — 批量 fallback
+    按各 provider 自己的声明重算 thinking-off 注入 (B1 fallback 传播)."""
     return {
         "name":        cp.name,
         "base_url":    cp.base_url,
@@ -125,6 +127,7 @@ def _entry_from_registry(cp, api_key, model_id=None):
         "model_id":    model_id or cp.model_id,
         "auth_style":  cp.auth_style,
         "vl_model_id": getattr(cp, "vl_model_id", "") or "",
+        "reasoning_off_body": getattr(cp, "reasoning_off_body", None) or None,
     }
 
 
@@ -183,6 +186,7 @@ def _build_fallback_chain():
                 "model_id":   os.environ.get("FALLBACK_MODEL_ID", fb["model_id"]),
                 "auth_style": fb["auth_style"],
                 "vl_model_id": fb.get("vl_model_id", ""),  # V37.9.218
+                "reasoning_off_body": fb.get("reasoning_off_body") or None,  # V37.9.224
             })
 
     # 3) Auto-discover from capability-based chain (sorted by overlap + verification)
@@ -331,7 +335,36 @@ def _batch_reasoning_off_body(clean, has_multimodal, use_model, primary_name, us
     serving = FAST_PROVIDER_NAME if use_fast else primary_name
     entry = PROVIDERS.get(serving, {})
     rob = entry.get("reasoning_off_body") if isinstance(entry, dict) else None
-    return rob or None
+    # V37.9.224: 非 dict（畸形 YAML 插件声明如字符串）→ None，注入/剥离两侧都只认 dict
+    # （FAIL-OPEN: 畸形声明不得让请求路径抛异常）
+    return rob if isinstance(rob, dict) and rob else None
+
+
+def _fallback_batch_body(clean, fb_entry, is_batch, serving_rob):
+    """V37.9.224 B1 fallback 传播: 构造 fallback 尝试的请求体（纯函数，可单测）。
+
+    批量请求 fallback 时，reasoning-off 注入必须按 **fallback provider 自己的声明**重算，
+    不能继承 serving provider 的注入（旧行为 fb_clean = dict(clean) 原样带走）：
+    - 先剥掉 serving provider 注入的 keys（serving_rob）— 该参数对无声明的 provider
+      未测（e.g. doubao 的 thinking 片段发给 qwen vLLM 端点可能 400，打断最后兜底）；
+    - 再注入 fallback provider 自己的 reasoning_off_body（有声明才注）— 修 qwen-primary
+      回滚态批量 fallback 到 reasoning provider 带 reasoning 跑的事故路径
+      （V37.9.220 在 fallback 重演：reasoning 7-9min >> client 超时 → broken pipe → 502）。
+    非批量（PA tool-call / 多模态 / override）：原样浅拷贝，现行为不变
+    （PA fallback 保留 reasoning 质量）。
+    """
+    fb_clean = dict(clean)
+    if not is_batch:
+        return fb_clean
+    if isinstance(serving_rob, dict):
+        for k in serving_rob:
+            fb_clean.pop(k, None)
+    fb_rob = fb_entry.get("reasoning_off_body") if isinstance(fb_entry, dict) else None
+    # V37.9.224 FAIL-OPEN: 只认 dict 片段 — 畸形第三方 YAML 插件声明（字符串/list）不得让
+    # update() 抛异常打断整条 fallback 链（本调用点在 per-provider try 之前，异常会摧毁兜底）
+    if isinstance(fb_rob, dict) and fb_rob:
+        fb_clean.update(fb_rob)
+    return fb_clean
 
 # ---------------------------------------------------------------------------
 # Circuit Breaker for primary provider (V32: Fallback Matrix)
@@ -625,6 +658,7 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
             # 决策在 _batch_reasoning_off_body (纯函数, 可单测). 批量 (no-tools) 且服务 provider
             # 支持关 reasoning → 注入 reasoning_off_body, 让 reasoning primary 也能快速服务批量
             # (无独立快 provider 时的终局路径). qwen 无 body → no-op.
+            _is_batch = _is_batch_workload(clean, has_multimodal, use_model, primary_name)
             _rob = _batch_reasoning_off_body(clean, has_multimodal, use_model, primary_name, use_fast)
             if _rob:
                 _serving = FAST_PROVIDER_NAME if use_fast else primary_name
@@ -692,7 +726,15 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                     fb_model = fb["model_id"]
 
                 fb_url = f"{fb['base_url']}{path}"
-                fb_clean = dict(clean)
+                # V37.9.224 B1 fallback 传播: 批量按 fallback provider 自己的 reasoning_off_body
+                # 重算注入 (剥 serving 注入的 keys + 注入 fb 自己的片段), 非批量原样.
+                fb_clean = _fallback_batch_body(clean, fb, _is_batch, _rob)
+                if _is_batch:
+                    _fb_rob = fb.get("reasoning_off_body") or None
+                    if _fb_rob:
+                        log(f"{tag}B1 REASONING-OFF: fallback {fb['name']} -> inject {list(_fb_rob)}")
+                    elif _rob:
+                        log(f"{tag}B1 REASONING-OFF: fallback {fb['name']} -> strip {list(_rob)}")
                 fb_clean["model"] = fb_model
                 fb_data = json.dumps(fb_clean).encode()
                 fb_auth = _make_auth_headers(fb["auth_style"], fb["api_key"])

@@ -188,12 +188,13 @@ class TestFallbackLogic(unittest.TestCase):
         self.assertIn("NO FALLBACK CHAIN configured", content)
         self.assertIn("502", content)
 
-    def test_fallback_uses_same_clean_body(self):
-        """fallback 使用相同的 clean body（只改 model）。
-        V37.9.218: model 来源改为 fb_model（capability-aware: image→vl_model_id / text→model_id）。"""
+    def test_fallback_body_via_helper(self):
+        """fallback body 经 _fallback_batch_body 构造（V37.9.224 翻转旧「相同 clean body」守卫：
+        批量按 fb 自己的 reasoning_off_body 重算注入，非批量仍原样浅拷贝 = 旧语义保留在非批量路径）。
+        V37.9.218: model 仍由 capability-aware fb_model 决定（image→vl_model_id / text→model_id）。"""
         with open("adapter.py") as f:
             content = f.read()
-        self.assertIn('fb_clean = dict(clean)', content)
+        self.assertIn('fb_clean = _fallback_batch_body(clean, fb', content)
         self.assertIn('fb_clean["model"] = fb_model', content)
         # fb_model 由 capability-aware 分支决定（text 路径仍用 model_id）
         self.assertIn('fb_model = fb["model_id"]', content)
@@ -415,12 +416,138 @@ class TestB1ReasoningOff(unittest.TestCase):
         """多模态 → None (图片需 VL/reasoning)"""
         self.assertIsNone(self._rob({"messages": [{"content": "x"}]}, mm=True))
 
+    def test_b1_non_dict_body_ignored(self):
+        """V37.9.224 FAIL-OPEN: 畸形声明 (字符串, YAML 插件无类型校验) → None 不注入不抛异"""
+        self.adapter.PROVIDERS = {"doubao_21": {"reasoning_off_body": "disabled"}}
+        self.assertIsNone(self._rob({"messages": [{"content": "x"}]}))
+
     def test_do_post_uses_b1_helper(self):
         """源码守卫: do_POST 用 _batch_reasoning_off_body 纯函数 + B1 注入 log"""
         with open("adapter.py") as f:
             content = f.read()
         self.assertIn("_batch_reasoning_off_body(clean", content)
         self.assertIn("B1 REASONING-OFF", content)
+
+
+class TestB1FallbackPropagation(unittest.TestCase):
+    """V37.9.224 B1 fallback 传播: 批量 fallback 按 fallback provider 自己的 reasoning_off_body 重算注入.
+
+    两向事故防线 (V37.9.220 家族):
+    ① qwen-primary 回滚态批量无注入 → fallback 到 reasoning provider 带 reasoning 跑
+      → reasoning 7-9min >> client 超时 → broken pipe → 502 (V37.9.220 在 fallback 路径重演);
+    ② doubao_21-primary B1 注入后批量 fallback 到 qwen → doubao 的 thinking 片段原样
+      发给 qwen vLLM 端点 (未测参数, 可能 400 打断最后兜底).
+    """
+    _OFF = {"thinking": {"type": "disabled"}}
+
+    def setUp(self):
+        import adapter
+        self.adapter = adapter
+
+    # --- _entry_from_registry 携带 reasoning_off_body (镜像 V37.9.218 vl_model_id) ---
+    def _fake_cp(self, rob=None):
+        class _CP:
+            pass
+        cp = _CP()
+        cp.name = "doubao_21"
+        cp.base_url = "https://ark.example/v3"
+        cp.model_id = "doubao-seed-2-1-pro"
+        cp.auth_style = "bearer"
+        if rob is not None:
+            cp.reasoning_off_body = rob
+        return cp
+
+    def test_entry_carries_reasoning_off_body(self):
+        e = self.adapter._entry_from_registry(self._fake_cp(dict(self._OFF)), "k")
+        self.assertEqual(e["reasoning_off_body"], self._OFF)
+
+    def test_entry_none_when_absent(self):
+        e = self.adapter._entry_from_registry(self._fake_cp(), "k")
+        self.assertIsNone(e["reasoning_off_body"])
+
+    # --- _fallback_batch_body 纯函数 ---
+    def test_batch_fallback_to_reasoning_provider_injects(self):
+        """血案 ①: serving 无注入 (qwen primary) 批量 fallback 到 deepseek_full → 注入 thinking-off"""
+        clean = {"model": "M", "messages": []}
+        fb = {"name": "deepseek_full", "reasoning_off_body": dict(self._OFF)}
+        out = self.adapter._fallback_batch_body(clean, fb, True, None)
+        self.assertEqual(out["thinking"], {"type": "disabled"})
+
+    def test_batch_fallback_to_qwen_strips_injected(self):
+        """血案 ②: doubao_21 注入后批量 fallback 到 qwen (无声明) → 剥 thinking 不发未测参数"""
+        clean = {"model": "M", "messages": [], "thinking": {"type": "disabled"}}
+        fb = {"name": "qwen", "reasoning_off_body": None}
+        out = self.adapter._fallback_batch_body(clean, fb, True, self._OFF)
+        self.assertNotIn("thinking", out)
+
+    def test_batch_fallback_same_fragment_reinjected(self):
+        """doubao_21 → deepseek_full: 剥后重注同款片段 (Bifrost 归一化同参数, V37.9.222 实测)"""
+        clean = {"model": "M", "thinking": {"type": "disabled"}}
+        fb = {"name": "deepseek_full", "reasoning_off_body": dict(self._OFF)}
+        out = self.adapter._fallback_batch_body(clean, fb, True, self._OFF)
+        self.assertEqual(out["thinking"], {"type": "disabled"})
+
+    def test_non_batch_pa_unchanged(self):
+        """PA (非批量) fallback 原样 — 不注入不剥, reasoning 质量保留"""
+        clean = {"model": "M", "messages": [], "tools": [{"x": 1}]}
+        fb = {"name": "deepseek_full", "reasoning_off_body": dict(self._OFF)}
+        out = self.adapter._fallback_batch_body(clean, fb, False, None)
+        self.assertEqual(out, clean)
+        self.assertNotIn("thinking", out)
+
+    def test_pure_function_no_input_mutation(self):
+        """纯函数契约: 不改写入参 clean (do_POST 的 clean 会被后续 fallback 复用)"""
+        clean = {"model": "M", "thinking": {"type": "disabled"}}
+        snapshot = json.loads(json.dumps(clean))
+        self.adapter._fallback_batch_body(clean, {"name": "qwen"}, True, self._OFF)
+        self.assertEqual(clean, snapshot)
+
+    def test_fb_entry_missing_key_tolerant(self):
+        """chain entry 缺 reasoning_off_body key (旧格式/手工 entry) → 容忍, 仅剥不注"""
+        clean = {"model": "M", "thinking": {"type": "disabled"}}
+        out = self.adapter._fallback_batch_body(clean, {"name": "qwen"}, True, self._OFF)
+        self.assertNotIn("thinking", out)
+
+    def test_non_dict_fb_rob_fail_open(self):
+        """V37.9.224 FAIL-OPEN: 畸形 YAML 插件声明非 dict (字符串/list) → 忽略不抛异.
+
+        本调用点在 fallback 循环 per-provider try 之前, update() 抛 ValueError 会
+        打断整条 fallback 链 — 故障时刻摧毁兜底安全网, 必须只认 dict."""
+        clean = {"model": "M", "messages": []}
+        for bad in ("disabled", ["thinking"], 1, True):
+            fb = {"name": "bad_plugin", "reasoning_off_body": bad}
+            out = self.adapter._fallback_batch_body(clean, fb, True, None)
+            self.assertNotIn("thinking", out)
+            self.assertEqual(out["model"], "M")
+
+    def test_non_dict_serving_rob_tolerated(self):
+        """V37.9.224 FAIL-OPEN: serving_rob 非 dict (防御性, 正常经 _batch_reasoning_off_body
+        已归一为 dict/None) → 剥离侧不抛异 (字符串迭代 chars 的隐性错误也挡掉)"""
+        clean = {"model": "M", "messages": []}
+        out = self.adapter._fallback_batch_body(clean, {"name": "qwen"}, True, "disabled")
+        self.assertEqual(out["model"], "M")
+
+    # --- 源码守卫 ---
+    def test_do_post_fallback_uses_helper(self):
+        """源码守卫: fallback 循环用 _fallback_batch_body, 旧 fb_clean = dict(clean) 直连形态退役.
+
+        精确到循环段 (for fb in FALLBACK_CHAIN: → ALL FALLBACKS FAILED), 避免误伤
+        helper 内部的合法浅拷贝 (dict(clean) 是 _fallback_batch_body 的第一行).
+        """
+        with open("adapter.py") as f:
+            content = f.read()
+        start = content.index("for fb in FALLBACK_CHAIN:")
+        end = content.index("FALLBACKS FAILED", start)
+        loop = content[start:end]
+        self.assertIn("_fallback_batch_body(clean, fb", loop)
+        self.assertNotIn("dict(clean)", loop)
+
+    def test_entry_constructors_both_carry_rob(self):
+        """源码守卫 (原则 #31 跨消费者全量同步): registry + legacy 两个 entry 构造点都带 reasoning_off_body"""
+        with open("adapter.py") as f:
+            content = f.read()
+        self.assertIn('"reasoning_off_body": getattr(cp, "reasoning_off_body", None) or None', content)
+        self.assertIn('"reasoning_off_body": fb.get("reasoning_off_body") or None', content)
 
 
 class TestHealthEndpoint(unittest.TestCase):
