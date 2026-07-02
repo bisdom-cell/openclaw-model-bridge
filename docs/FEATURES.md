@@ -1,14 +1,14 @@
 # OpenClaw Model Bridge — 系统特性一览表
 
-> v37.9.219 (2026-07-02) | **5010 tests** / 140 suites / 0 fail | **11 providers** (含 Doubao Seed 2.0 Pro) | **40 active jobs** | 5 SLO metrics | 19 preflight checks | WhatsApp + Discord dual-channel | **91 governance invariants / 23 meta-rules / 839 checks / 14 MRD scanners** | security 95/100 | 27 blood-lesson case docs
+> v37.9.220 (2026-07-02) | **5010 tests** / 140 suites / 0 fail | **11 providers** (含 Doubao Seed 2.0 Pro) | **40 active jobs** | 5 SLO metrics | 19 preflight checks | WhatsApp + Discord dual-channel | **91 governance invariants / 23 meta-rules / 839 checks / 14 MRD scanners** | security 95/100 | 28 blood-lesson case docs
 
 | 分类 | 特性 | 说明 | 核心文件 |
 |------|------|------|----------|
 | **核心服务** | Gateway | WhatsApp 接入、媒体存储、工具执行、会话管理 | npm 全局 (:18789) |
 | | Tool Proxy | 工具过滤(24→12)、自定义工具拦截、图片 base64 注入、SSE 转换、SLO 采集 | `tool_proxy.py` + `proxy_filters.py` (:5002) |
 | | Adapter | 多 Provider 转发、认证、能力感知多模态路由、Fallback 降级 | `adapter.py` (:5001) |
-| **LLM Provider (11)** | Doubao Seed 2.1 Pro (主力) | 文本+视觉单模型多模态，Volcengine Ark 旗舰 | `providers.d/doubao_seed_21_provider.py` |
-| | Qwen3-235B + Qwen2.5-VL-72B | 文本 262K / 图片理解，fallback 链末尾老化 | `providers.py` + `adapter.py` |
+| **LLM Provider (11)** | Qwen3-235B + Qwen2.5-VL-72B (主力) | 文本 262K / 图片理解，能力感知路由 (PROVIDER env 配置) | `providers.py` + `adapter.py` |
+| | Doubao Seed 2.1 Pro | 文本+视觉单模型多模态，Volcengine Ark 旗舰 (fallback 链首) | `providers.d/doubao_seed_21_provider.py` |
 | | Gemini 2.5 (已退役出链) | geo-block，保留注册未在 fallback 链 (V37.9.129) | GEMINI_API_KEY |
 | | OpenAI / Claude | 手动切换备选 | 环境变量 PROVIDER= |
 | | Kimi K2.5 (Moonshot) | 1T MoE 视觉+256K | MOONSHOT_API_KEY |

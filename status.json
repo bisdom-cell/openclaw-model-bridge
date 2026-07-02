@@ -1,5 +1,5 @@
 {
-  "updated": "2026-07-02 07:51:41",
+  "updated": "2026-07-02 08:15:21",
   "updated_by": "full_regression",
   "priorities": [
     {
@@ -111,6 +111,11 @@
   "recent_changes": [
     {
       "date": "2026-07-02",
+      "what": "事故+回滚: doubao_21 primary (今日切换) 拖垮批量 cron job (freight/github_trending/hn 全 502, reasoning 延迟 7-9min>>job HTTP timeout→broken pipe→adapter 级联全 fallback 失败). 数据驱动诊断 (health 200/qwen 直连 0.412s vs doubao_21 7.3s/adapter.log broken pipe 铁证) 确认纯 reasoning 延迟非宕机/配置。回滚 PROVIDER=qwen (Plan B, .env_shared+adapter plist+bootout/bootstrap) 恢复 V37.9.218 态。文档 V37.9.220 primary prose 回正 qwen + case doc + 登记迁移门槛。VERSION 0.37.9.85 不变。",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-07-02",
       "what": "V37.9.219 primary=doubao_21 现态 prose 一致性收敛 + provider-count 10→11 漂移补齐(V37.9.216 加 doubao_21 第 11 个 + V37.9.218 primary 切换留下的机器检查覆盖不到的 human prose 漂移). 修 CLAUDE/README/FEATURES/INDEX/compat_matrix/config 现态描述: Doubao 2.1 Pro 为主力/11 provider/Gemini 已退役出链/能力感知多模态路由; file-reference 行去数字化退役漂移源(V37.9.152 先例). point-in-time(已发表文章+冻结论文 8-provider+changelog)诚实不动. full_regression 139/0/5010, 三 doc-drift 无漂移, governance 91/91, VERSION 0.37.9.85 不变(纯 prose 零业务语义). 门控收敛日(所有实质 unfinished gated on Mac Mini/in-review)延续 V37.9.208/209/215 收敛谱系.",
       "by": "claude_code"
     },
@@ -203,11 +208,6 @@
       "date": "2026-07-01",
       "what": "V37.9.206: 满血版 DeepSeek fallback 接入被 auto_deploy FILE_MAP 漏部署阻塞——根因诊断 + FILE_MAP 补登 deepseek/deepseek_full 两插件 + check_registry 加 providers.d/*.py 覆盖守卫(长期漏部署血案类机器化,5 新单测)。full_regression 138/0/4950,VERSION 0.37.9.79",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-06-30",
-      "what": "DeepSeek 满血版 E2E → feature_verified, 确立 Qwen3 迁移明确赢家 (VERSION 0.37.9.77→0.37.9.78)。V37.9.204 接入后用户同步(PR#765)+设 DEEPSEEK_FULL_API_KEY(中途误粘占位符<满血版key>致 UnicodeEncodeError+未先同步 deepseek_full 未注册→sed 清脏值+真 key 重设+探针直连端点不依赖代码同步修复)→6 维探针 curl。满血版 vs 量化版关键差异: 🌟 reasoning ✅✅ 有 R1 reasoning_content 通道(reasoning 字段+reasoning_tokens=55, 量化版全程 null 无此通道) + 无乱码 token(量化版 w4a8 偶发乱码核心缺陷在满血版消失) + 干净中文; text/tool_calling ✅; vision ❌400 非多模态; json_mode ⚠️返回围栏非严格(量化版反而干净 raw)。运维: 满血版推理模型先生成 reasoning 占 token, 生成任务须给足 max_tokens(实测 600 被吃光 content 空)。据实更新(原则#23): tool_calling+reasoning False→True+verified_text/tool_calling/reasoning=True+tier declared→feature_verified+tier_evidence(含无乱码优于量化版); vision/json_mode/verified_streaming 保持 False。🔴 capability router 正确改路由(原则#28): 声明 reasoning 后 router test 3 失败 deepseek_full 抢 qwen→诊断合理非 bug: 评分 cap_score+prefer×10, qwen 从未声明 reasoning(之前赢只因 verified_count 高且无 reasoning 竞争者), 满血版真 verified reasoning→prefer=reasoning +10(s=20>qwen 14)正确胜=router 设计目的(推理任务路由推理模型); shadow 模式默认不强制生产仍 qwen 胜出仅观察; 更新 3 router test 期望 deepseek_full+修正误导注释(诚实不为保测试绿隐藏真能力)。全量同步: test_providers 重写 feature_verified+reasoning/test_gen_compat declared 6→5/gen_compat --fix/minimal_runtime golden 重生成(deepseek_full cap_score 升排 deepseek 前, best 仍 doubao)/router 3 处 qwen→deepseek_full。验证 full_regression 137/0/4945/governance 91/91 EXIT=0/安全 95/零泄漏/tier 一致[]/VERSION 0.37.9.78。迁移决策: 满血版=Qwen3 迁移明确赢家(reasoning 通道超 Qwen3-235B-Instruct 非推理+无乱码+干净中文), 量化版 PENDING; 仍限无视觉(图片留 VL/doubao)+json_mode 围栏+推理吃 token。🔴 Mac Mini 待用户: env 已持久化~/.env_shared, 待加 adapter+proxy plist 让服务用上+Phase 2 fallback 链生产观察→production_observed。安全: 满血/量化/ARK 三 key 建议轮换。元价值: 同 model 双端点(量化 vs 满血)对比揭示量化档位质量差异(w4a8 乱码+无 reasoning 通道 vs 满血干净+R1 通道); capability router 首次因真 verified-reasoning provider 接入改变路由=V37.9.76 框架真实价值兑现。",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -280,7 +280,7 @@
       "V37.9.213 daily_observer 自评 follow-up (Mac-Mini-gated, dev 不可执行): (F3) evening 07-01 缺失=真 job 瞬态失败 (非 observer bug, writer/reader 路径日期逐字一致), 诊断: cat ~/.kb/last_run_evening.json (预期 status=llm_failed/collector_failed) + grep SYSTEM_ALERT ~/kb_evening.log + ls ~/.kb/daily/evening_20260701.md 确认真缺。 (F1) 同步后次日 06:30 报告 deep_dive 段降级原因分解将告知哪类占主导 (非全文来源=付费墙结构性接受 / PDF·HTML 抓取失败=可修 fetch-path), 据此决定是否投 OA 解析加固 —— deep_dive 77% 根因诊断从此自助不需 Mac Mini grep (V37.9.213 F1 兑现)。 (潜伏低优) evening/deep_dive 用 system-local date vs dream 用 HKT TZ, 一物一形不一致, TZ 近午夜漂移可能日期偏移, 非本次成因。",
       "V37.9.214 governance 审计间歇 fail — root-cause + B2 均已修 (剩 Mac Mini bash3.2 验证 + 潜在类): 根因 INV-REVIEW-001 kb_review.sh subprocess 负载超时 💥 已修 (timeout 45→90 + TimeoutExpired inconclusive)。 B2 假 FATAL line=101 = bash 3.2 errtrace re-enable landmine (3 次复发 whack-a-mole, dev bash5.x 不复现) 已日落法根治 (set +E 一次不再 re-enable, errexit+顶部 set -eEuo 保留)。 🔴 B2 修复只能 Mac Mini bash 3.2 验证: 同步后观察后续冷/负载失败是否还伴 FATAL 假告警 (预期消失); 仍出现则 bash -x ~/governance_audit_cron.sh 2>/tmp/gac_x.txt 抓 trace。 (潜在类, 不盲修) INV-WATCHDOG-SELF-001 6× 并行 ❌ = 自并行争用 artifact 非生产; '治理 runtime check 对负载敏感' 待系统性评估。 (清陈旧) bash ~/governance_audit_cron.sh 现全过写 pass 清 watchdog flag。",
       "低优观察 (登记不修, 日落法 #8): auto_deploy FILE_MAP 同步用 cp 非原子写 → 脚本在同步窗口内被并发执行会读半截文件 (2026-07-02 11:41 governance_audit_cron.sh 同步 #781 时被手动跑 → line 85 $() 截断 = 'syntax error near governance' 瞬态, 重跑即好 bash -n 过+diff 同步)。极低频(同步写×并发执行精确重叠)+自愈+非代码 bug。若未来 07:00 cron 与 auto_deploy 同步真撞上(复现) 才值得让 auto_deploy 改原子写 temp+mv。当前不投机加复杂度。",
-      "doubao_21 primary 已上线 (feature_verified) — 待 N 天稳定生产证据(质量/延迟/无乱码/fallback 触发率) → 据实升 production_observed (原则 #23 不凭空升档). qwen 在 fallback 链末尾老化, 确认长期不被需要后从 FALLBACK_ORDER 移除缩链 (日落法)."
+      "doubao_21 迁移真门槛 (2026-07-02 事故回滚): doubao_21 primary 曾于今日上线但当天回滚 (reasoning 延迟拖垮批量 cron job freight/github_trending/hn 7-9min→502, case doc reasoning_model_primary_breaks_batch_jobs_case.md). 现 PROVIDER=qwen primary, doubao_21 退 fallback 链首。让 doubao_21 重作 primary 的前提 = 批量 job 走快速路径 (候选: capability router V37.9.76 shadow 分流 PA/交互→doubao_21 reasoning 质量 + batch job→快速非 reasoning provider / 或 doubao_21 reasoning 上限 / 或 adapter per-request provider override 当前用全局 PROVIDER env 忽略请求 model). 解决前 doubao_21 不作 primary。次生低优: adapter broken-pipe 后仍傻跑完 4 fallback 浪费 500s 到死 socket (robustness 候选,治标不治本). 元教训: provider 迁移必须按 workload profile 验证 (PA 短对话 E2E≠批量 job 可用) + reasoning tokens 不受 max_tokens 约束."
     ],
     "open_prs": "",
     "blocked_on": ""
@@ -288,9 +288,9 @@
   "quality": {
     "security_score": 95,
     "test_count": 5010,
-    "last_regression": "2026-07-02 07:51 pass",
+    "last_regression": "2026-07-02 08:14 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-07-02 07:51",
+    "security_score_time": "2026-07-02 08:14",
     "test_suites": 140,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
@@ -359,7 +359,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "primary 已切 doubao_21 (V37.9.216-218 + 运维切换全落地, WhatsApp 文本+图片 E2E 通过, qwen 退 fallback 链末尾老化). 下一步: doubao_21 稳定 N 天 → 升 production_observed; qwen 长期不被需要 → 从 FALLBACK_ORDER 移除 (日落法).",
+  "focus": "primary 已从 doubao_21 回滚到 qwen (2026-07-02 事故: doubao_21 reasoning 延迟拖垮批量 cron job 7-9min→502, 回滚 Plan B 恢复). doubao_21 保持 fallback 链首。下一步: doubao_21 迁移真门槛 = 批量 job 走快速路径 (capability router 分流 PA→reasoning/batch→快 provider), 解决前不作 primary。宪法级 #1 LLM-Observer shadow 周观察中。",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
