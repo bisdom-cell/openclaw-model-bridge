@@ -197,22 +197,30 @@ class TestV37_9_105_GovAuditFatalFalsePositive(unittest.TestCase):
         self.assertIn("set +E", before,
             "governance_checker $(...) 前必须 set +E 防子shell ERR trap 误触发")
 
-    def test_engine_check_wrapped_in_set_plus_E(self):
-        """engine.py --check 命令替换前必须 set +E."""
-        idx = self.src.find("python3 ontology/engine.py --check 2>&1")
-        self.assertGreater(idx, 0)
-        before = self.src[max(0, idx - 200):idx]
-        self.assertIn("set +E", before,
-            "engine.py $(...) 前必须 set +E")
+    def test_engine_check_under_single_errtrace_off_region(self):
+        """V37.9.214: engine.py --check 在单一 set +E errtrace-off 区域内运行
+        (governance 块起 set +E 一次, 与 engine $() 之间无 set -E re-enable landmine)."""
+        gov_plus = self.src.find("set +E")
+        eng_idx = self.src.find("python3 ontology/engine.py --check 2>&1")
+        self.assertGreater(gov_plus, 0)
+        self.assertGreater(eng_idx, gov_plus,
+            "engine $() 必须在 governance set +E 之后 (同一 errtrace-off 区域)")
+        between = self.src[gov_plus:eng_idx]
+        self.assertNotRegex(between, r'(?m)^[ \t]*set -E[ \t]*(?:#.*)?$',
+            "V37.9.214: governance set +E 与 engine $() 之间不得有 set -E re-enable (bash 3.2 landmine)")
 
-    def test_set_E_restored_after_both(self):
-        """两处命令替换后必须 set -E 恢复 errtrace (不能永久关掉)."""
-        # 只数命令行 (strip 后 == "set +E"/"set -E"), 排除注释里的字面量
+    def test_v37_9_214_single_set_plus_E_no_reenable(self):
+        """V37.9.214 日落法根治: 单一 set +E (errtrace 关到脚本尾), 0 处 set -E
+        re-enable — bash 3.2 每个 set -E re-enable 是 landmine (3 次假 FATAL 复发:
+        V37.9.105 line 64 / line 100 / 2026-07-02 line 101). errexit (set -e) +
+        顶部 set -eEuo 声明保留 (MR-19 核心 + governance check 7526)."""
         cmd_lines = [ln.strip() for ln in self.src.split("\n")]
-        plus = sum(1 for ln in cmd_lines if ln == "set +E")
-        minus = sum(1 for ln in cmd_lines if ln == "set -E")
-        self.assertEqual(plus, 2, "应恰好 2 处 set +E 命令 (governance + engine)")
-        self.assertEqual(minus, 2, "每个 set +E 必须配对 set -E 恢复 errtrace")
+        # set +E 可带行尾注释 (V37.9.214); set -eEuo pipefail (顶部声明) 不计入
+        plus = sum(1 for ln in cmd_lines if ln == "set +E" or ln.startswith("set +E "))
+        minus = sum(1 for ln in cmd_lines if ln == "set -E" or ln.startswith("set -E "))
+        self.assertEqual(plus, 1, "V37.9.214: 恰好 1 处 set +E (单一 errtrace-off 区域)")
+        self.assertEqual(minus, 0, "V37.9.214: 0 处 set -E re-enable (bash 3.2 landmine 已消除)")
+        self.assertIn("set -eEuo pipefail", self.src, "顶部 set -eEuo 声明必须保留 (MR-19 + check 7526)")
 
     def test_outer_capture_preserved(self):
         """外层 || GOV_RC=$? / || ENGINE_RC=$? 退出码捕获必须保留."""

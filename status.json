@@ -1,5 +1,5 @@
 {
-  "updated": "2026-07-02 03:10:30",
+  "updated": "2026-07-02 03:38:01",
   "updated_by": "security_score",
   "priorities": [
     {
@@ -111,6 +111,11 @@
   "recent_changes": [
     {
       "date": "2026-07-02",
+      "what": "V37.9.214 追加: B2 假 FATAL 日落法根治。3 个 dev repro 全不复现 → 确认 bash 3.2 特有 errtrace quirk(LINENO=101 误报)。V37.9.105 用 set +E 包每个 $() 再 set -E 复原, 但每个 set -E re-enable 是 bash 3.2 landmine(3 次复发 whack-a-mole)。根治: set +E 一次 errtrace 关到脚本尾, 移除两个 set -E re-enable, errexit+顶部 set -eEuo 声明保留。+4 守卫(无 set -E re-enable 回归)。dev 验证不破坏正常路径(forced GOV_RC=1 exit0 无 FATAL), B2 quirk 修复只能 Mac Mini bash 3.2 验证。连带: 恢复 job_watchdog.sh chaos sabotage 残留 + 修 test_kb_review/test_v37_9_157 定长切片守卫→边界切片。full_regression 138/0/4985。",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-07-02",
       "what": "V37.9.214 更新: 治理审计间歇 fail 根因已定位+修复。用户 6× 并行压测确定性复现 → 真凶=INV-REVIEW-001 runtime check 真跑 kb_review.sh subprocess timeout=45 在重负载下被饿死超时 💥(非 cold-call, sleep 400 cold 单跑 rc=0)。修: timeout 45→90 + 捕获 TimeoutExpired 视为 inconclusive(超时非 JSONDecodeError 回归证据, 负载不该让审计 💥)。验证: 单跑 exit 0(生产) + 6× 下 INV-REVIEW-001 不再 💥。B1(alert grep ❌→❌|💥)保留作双保险。6× 还暴露 INV-WATCHDOG-SELF-001 ❌=自并行争用 artifact 非生产(登记不盲修)。B2 假 FATAL line=101 仍需 bash -x 冷 trace。",
       "by": "claude_code"
     },
@@ -203,11 +208,6 @@
       "date": "2026-06-30",
       "what": "LLM-Observer Stage 6 chunk 1 — fail-plausible 检测 bench 社区化 (VERSION 0.37.9.73 不变)。开工读 status 焦点 Stage 6 next, 系统收敛健康 (4921/0/138 / governance 91/91 / 分支==main #761 已合并)。论文 #2 killer 数据 gated 于 shadow 周, bench 化纯 dev 不 gated 直接回应两评审可迁移性/广度短板 → 做工程半。先 ground (原则 #28): selfcheck 已是完整 harness, Stage 6 真 gap=社区可跑/可贡献包装非新引擎 (日落法一物一形)。交付: (1) build_bench_manifest 无时间戳跨机逐字可复现 datasheet (corpus 计数/detector 清单/每指标定义+target+current_value/sabotage 摘要/诚实边界, 复用 build_scorecard 非新评分引擎, corpus 绑 ground_truth 单一源) + --manifest CLI (2) docs/fail_plausible_bench.md 社区 README (why ~70% 人眼/测试治理 ≈0% + 指标表 held-out FN 诚实非门禁 + how to run 零依赖离线 + 贡献协议 schema+CI 守卫+新模式归 Category B + 诚实边界 + reliability_bench 姊妹篇) (3) README Evidence Chain +1 行防孤儿。test 26→41 (+15): TestBenchManifest 7 (无时间戳稳定/current_value 绑活 scorecard/detector=Category A only_signal/CLI) + TestBenchDocDriftGuard 5 (运行命令+指标锚点+论文+ground_truth 引用) + TestStage6SourceGuards 3 (marker/复用 build_scorecard 一物一形/bench_version 0.1≠项目 VERSION)。sabotage 反向验证 (备份副本): manifest current_value 硬编码 → FAIL / README 删指标行 → FAIL / 还原 41/41。验证 full_regression 137/0/4936(+15)/suites 138 不变/governance 91/91 EXIT=0/安全 95/三机器 doc-drift 无漂移/VERSION 0.37.9.73 不变 (bench 社区化=离线 harness 包装非 daily_observer runtime 变更, 同 Stage 1-4 PoC; bench_version 0.1 独立轨道)。复杂度预算: files +1 (社区 doc), env/jobs/runtime-state 不变, tests +15, 净 runtime 机制 ≈0 (manifest 是 build_scorecard 薄包装)。下一步 shadow 周后 Stage 5.1 / 论文 #2 草案。",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-06-30",
-      "what": "LLM-Observer Stage 5 Mac Mini E2E 第一个 shadow finding — S5 评分字段误报修复 (VERSION 0.37.9.73)。Stage 5(V37.9.198)合并 PR#759 + 用户 Mac Mini git fetch+reset 同步 → 当天手动 daily_observer --date 20260629 验证 E2E: fp_mode=shadow + 检测 1 条 fail_plausible + score_history fp_high:0/fp_med:1 (新字段链路通)。shadow 立刻抓到第一个真 FP (正是 shadow 价值, 原则 #32): fabricated_success @ source:freight_daily / L1 S5 boilerplate ×3 评级：⭐⭐⭐⭐。诊断真误报: freight 每条新闻各有评级字段, 多条同 4 星合法重复, 非 fabrication 空壳 (真目标 dream_quota 是描述句 ×5 重复)。系统性 (⭐评级 ~10 摘要源标配, 会淹没一周信号)。若直接上 on 会进 anomalies 拉低评分/告警 → shadow-first 生产第一天证明价值。用户 AskUserQuestion 选现在修 S5 精度。修复 llm_observer.py: _descriptive_char_count (计 CJK+字母数字排 emoji/⭐) + _S5_BOILERPLATE_MIN_DESCRIPTIVE=6, boilerplate 仅计描述字符足够重复行 (评级⭐⭐⭐⭐描述字符=2 排除 / dream_quota 要点描述=10 保留) 精准区分空壳 vs 评分字段。test +4: rating-field 不报 + dream_quota TP 仍报 + 区分 + 阈值守卫。sabotage 阈值=0 → FP 复现 test FAIL / 还原 84。scorecard 不破 defense 100%/FP 0%/dream_quota golden 仍 caught。验证 full_regression 137/0/4921(+3)/suites 138/governance 91/91 EXIT=0/安全 95/VERSION 0.37.9.73 (live S5 runtime 变更)。元价值: 机械化人眼第一个生产 finding 不是 fail-plausible 是 Observer 自己一个误报模式 — 印证 §5.2 Observer 须同等审视 + 用户视角不可替代。下一步 shadow 一周 / Stage 5.1 / Stage 6。",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -278,17 +278,17 @@
       "3-engine-merge 已两次评估 DEFER (V37.9.119 + 2026-06-08), 勿再从头调查. 3 加载点 (proxy_filters:452 _onto_engine 每请求工具过滤 / proxy_filters:1463 一致性诊断 / three_gate:183 lazy gate shadow 门控) path-independent 零 correctness bug, 双加载 cosmetic startup-once. 高 blast radius 换 cosmetic 收益不值 (原则 #34 防御本身是事故面). 若未来做: 只 Sub-merge A (单文件缓存 helper), Sub-merge B (跨模块单例, INV-GATE-001 硬锁) 不做.",
       "V37.9.124 #29 follow-up (低优, 防重复调查): INV runtime 收窄约定已立 (test_v37_9_124 docstring) — 套件含 env-dependent test 的 INV 跑契约核心类非全套件; 纯逻辑套件跑全. 未来新 INV 跑的套件含 env-dependent test (读 repo 外真实系统状态) 时按此收窄到契约核心类 (镜像 INV-OBSERVER-001/INV-DREAM-CROSS-DOMAIN).",
       "V37.9.213 daily_observer 自评 follow-up (Mac-Mini-gated, dev 不可执行): (F3) evening 07-01 缺失=真 job 瞬态失败 (非 observer bug, writer/reader 路径日期逐字一致), 诊断: cat ~/.kb/last_run_evening.json (预期 status=llm_failed/collector_failed) + grep SYSTEM_ALERT ~/kb_evening.log + ls ~/.kb/daily/evening_20260701.md 确认真缺。 (F1) 同步后次日 06:30 报告 deep_dive 段降级原因分解将告知哪类占主导 (非全文来源=付费墙结构性接受 / PDF·HTML 抓取失败=可修 fetch-path), 据此决定是否投 OA 解析加固 —— deep_dive 77% 根因诊断从此自助不需 Mac Mini grep (V37.9.213 F1 兑现)。 (潜伏低优) evening/deep_dive 用 system-local date vs dream 用 HKT TZ, 一物一形不一致, TZ 近午夜漂移可能日期偏移, 非本次成因。",
-      "V37.9.214 governance 审计间歇 fail 跟进 (root-cause 已修, 剩 B2 + 潜在类): 根因=INV-REVIEW-001 runtime check kb_review.sh subprocess 负载超时 💥, 已修 timeout 45→90 + TimeoutExpired inconclusive catch (单跑 exit0 + 6× 不再 💥 验证)。 (B2 待 Mac Mini) 假 FATAL `[SYSTEM_ALERT] governance_audit FATAL abort line=101` = ERR trap 在 GOV_RC=1 已处理路径误触发 (V37.9.105/131 类, line=101 是 $LINENO 误报), 需 `bash -x ~/governance_audit_cron.sh` 冷/负载 trace 定位确切行再修 (勿盲改)。 (潜在类, 不盲修) 6× 并行暴露 INV-WATCHDOG-SELF-001 ❌ = 自并行争用共享文件 artifact 非生产 (生产 governance 单跑从未触发); '治理 runtime check 对负载敏感' 待系统性评估 (whack-a-mole vs 系统性 catch)。 (清陈旧) `bash ~/governance_audit_cron.sh` 现全过写 pass 清 watchdog flag。"
+      "V37.9.214 governance 审计间歇 fail — root-cause + B2 均已修 (剩 Mac Mini bash3.2 验证 + 潜在类): 根因 INV-REVIEW-001 kb_review.sh subprocess 负载超时 💥 已修 (timeout 45→90 + TimeoutExpired inconclusive)。 B2 假 FATAL line=101 = bash 3.2 errtrace re-enable landmine (3 次复发 whack-a-mole, dev bash5.x 不复现) 已日落法根治 (set +E 一次不再 re-enable, errexit+顶部 set -eEuo 保留)。 🔴 B2 修复只能 Mac Mini bash 3.2 验证: 同步后观察后续冷/负载失败是否还伴 FATAL 假告警 (预期消失); 仍出现则 bash -x ~/governance_audit_cron.sh 2>/tmp/gac_x.txt 抓 trace。 (潜在类, 不盲修) INV-WATCHDOG-SELF-001 6× 并行 ❌ = 自并行争用 artifact 非生产; '治理 runtime check 对负载敏感' 待系统性评估。 (清陈旧) bash ~/governance_audit_cron.sh 现全过写 pass 清 watchdog flag。"
     ],
     "open_prs": "",
     "blocked_on": ""
   },
   "quality": {
     "security_score": 95,
-    "test_count": 4981,
-    "last_regression": "2026-07-02 03:09 pass",
+    "test_count": 4985,
+    "last_regression": "2026-07-02 03:37 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-07-02 03:09",
+    "security_score_time": "2026-07-02 03:37",
     "test_suites": 139,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",

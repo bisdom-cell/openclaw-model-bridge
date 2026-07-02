@@ -61,11 +61,16 @@ trap '_cron_monitor_fatal_handler $LINENO' ERR
 log "开始 governance_checker.py --full"
 GOV_OUTPUT=""
 GOV_RC=0
-# V37.9.105-hotfix: set -E (errtrace) 让 $(...) 子 shell 继承 ERR trap, 当
-# governance_checker 退出 1 (真发现不变式失败) 时子 shell 内 python3 失败误触发
-# ERR trap → 假 "FATAL abort line=64" 告警, 尽管外层 || GOV_RC=$? 已正确捕获.
-# (line 67-70 已对 grep|head 修过同款 V37.9.60-hotfix bash quirk, 此处 python3 漏了)
-# 临时 set +E 关 errtrace, 子 shell 不再继承 ERR trap; 外层 || 仍捕获退出码.
+# V37.9.105-hotfix → V37.9.214 日落法根治: set -E (errtrace) 让 $(...) 子 shell 继承
+# ERR trap → governance/engine 退出 1 (真发现) 时子 shell 内失败误触发假 FATAL
+# "治理审计自身死亡", 尽管外层 || RC=$? 已正确捕获. V37.9.105 用 `set +E` 包每个 $()
+# 再 `set -E` 复原 — 但 bash 3.2 下每个 `set -E` re-enable 都是 landmine, 三次复发
+# (V37.9.105 line 64 / line 100 / 2026-07-02 line 101) = whack-a-mole (dev bash 5.x
+# 不复现, 纯 bash 3.2 errtrace quirk). V37.9.214 根治: `set +E` 一次 (errtrace 从此
+# 关到脚本尾), 绝不再 re-enable — 消除整类 landmine. errexit (set -e) 仍在 → 真
+# main-shell silent abort 仍触发 ERR trap (MR-19 核心保留); 顶部 set -eEuo 声明保留
+# (governance check + cron_monitor_scanner 查的是声明); 两个审计 $() 都 errtrace-off
+# (子 shell 不继承 trap, V37.9.105 保护保留); reporting 全 if/|| 安全.
 #
 # V37.9.116: CONVERGENCE_DRY_RUN=1 — 07:00 生产审计只检测+告警 drift, 不静默改 crontab.
 # 血案: INV-CRON-004 auto_deploy 双行 3 次复发 (V37.9.106/111/V37.9.116). 真根因 = V37.9.58
@@ -76,9 +81,8 @@ GOV_RC=0
 # 修复原则 (MR-9 + V37.9.113 扩到生产审计): 治理"审计"是观察者, 必须检测+告警, 不静默 mutate
 # 被审计的系统状态. machine_sync 自愈应是"显式刻意动作"(operator 手动跑无此 env 即 real-apply),
 # 不是审计的副作用. drift 仍被检测 (governance 报 ⚠️/❌), 只是不自动 apply.
-set +E
+set +E   # V37.9.214: errtrace OFF for the whole audit-run + report phase — NO re-enable
 GOV_OUTPUT=$(cd "$REPO_DIR" && CONVERGENCE_DRY_RUN=1 python3 ontology/governance_checker.py --full 2>&1) || GOV_RC=$?
-set -E
 
 # 提取摘要行
 # V37.9.60-hotfix: grep | head subshell pipe 必须 || true 容错
@@ -101,10 +105,9 @@ log "governance_checker 完成: rc=$GOV_RC $GOV_SUMMARY"
 log "开始 engine.py --check"
 ENGINE_OUTPUT=""
 ENGINE_RC=0
-# V37.9.105-hotfix: 同 line 64 — 关 errtrace 防 $(...) 子 shell ERR trap 误触发 FATAL
-set +E
+# V37.9.214: errtrace 已从 governance 块起单区域关闭 (无 re-enable landmine);
+# engine $() 子 shell 同样不继承 ERR trap. 无 set +E/set -E 切换.
 ENGINE_OUTPUT=$(cd "$REPO_DIR" && python3 ontology/engine.py --check 2>&1) || ENGINE_RC=$?
-set -E
 
 ENGINE_SUMMARY=$(echo "$ENGINE_OUTPUT" | tail -1)
 log "engine_check 完成: rc=$ENGINE_RC $ENGINE_SUMMARY"
