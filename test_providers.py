@@ -1770,5 +1770,44 @@ class TestDoubao21Provider(unittest.TestCase):
         self.assertIn("https://ark.cn-beijing.volces.com/api/v3", src)
 
 
+class TestReasoningOffBodyB1(unittest.TestCase):
+    """V37.9.222 B1: reasoning provider 声明 reasoning_off_body (batch 关 reasoning 走快路)。
+
+    doubao_21 / deepseek_full = {"thinking":{"type":"disabled"}} (2026-07-02 双 provider 实测)。
+    非-reasoning / 未测 provider = None。字段经 to_legacy_dict 流到 adapter 的 PROVIDERS dict。
+    """
+    _OFF = {"thinking": {"type": "disabled"}}
+
+    def test_doubao21_declares_reasoning_off(self):
+        from providers import get_provider
+        self.assertEqual(get_provider("doubao_21").reasoning_off_body, self._OFF)
+
+    def test_deepseek_full_declares_reasoning_off(self):
+        from providers import get_provider
+        self.assertEqual(get_provider("deepseek_full").reasoning_off_body, self._OFF)
+
+    def test_qwen_no_reasoning_off(self):
+        # qwen 本就非-reasoning, 无需关 → None (adapter B1 no-op)
+        from providers import get_provider
+        self.assertIsNone(get_provider("qwen").reasoning_off_body)
+
+    def test_doubao2_no_reasoning_off(self):
+        # doubao 2.0 未实测 thinking-off → 诚实保持 None (原则 #23)
+        from providers import get_provider
+        self.assertIsNone(get_provider("doubao").reasoning_off_body)
+
+    def test_flows_to_legacy_dict(self):
+        # B1 依赖 adapter 从 PROVIDERS dict 读 reasoning_off_body → to_legacy_dict 必须暴露
+        from providers import get_provider
+        self.assertEqual(get_provider("doubao_21").to_legacy_dict().get("reasoning_off_body"), self._OFF)
+        self.assertNotIn("reasoning_off_body", get_provider("qwen").to_legacy_dict())
+
+    def test_both_providers_same_body(self):
+        # 双 provider 同一片段 = 一份声明两家复用 (Bifrost 网关 + Ark 原生同参数)
+        from providers import get_provider
+        self.assertEqual(get_provider("doubao_21").reasoning_off_body,
+                         get_provider("deepseek_full").reasoning_off_body)
+
+
 if __name__ == "__main__":
     unittest.main()

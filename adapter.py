@@ -281,29 +281,57 @@ except ImportError:
     classify_complexity = None
 
 
-def _classify_fast_route(clean, clean_msgs, has_multimodal, use_model, primary_name):
-    """V37.9.221 workload 路由决策（纯函数，可单测）。返回 "workload" | "smart" | None。
+def _is_batch_workload(clean, has_multimodal, use_model, primary_name):
+    """V37.9.222 批量 workload 判定（纯函数，可单测，**独立于 FAST_ROUTE**）。
 
-    - "workload": 无 tools = 批量/纯推理 (规则 #27) → fast provider，**不依赖 classify_complexity**
-                  （批量 prompt 内容 complex 但延迟敏感，应走快路。2026-07-02 reasoning-primary
-                  拖垮批量 job 事故根因修复，见 reasoning_model_primary_breaks_batch_jobs_case.md）。
+    批量 = 无 tools（纯推理，规则 #27）+ 非多模态（图片需 VL）+ 默认 model
+    + 非 ?provider= 显式 override（尊重显式选择）。
+
+    独立于 FAST_ROUTE 是关键：B1（reasoning-off 注入）在**无独立快 provider**（FAST_PROVIDER 未设）
+    时也要能识别批量 → 给 reasoning primary 注入 thinking-off。A2（_classify_fast_route）额外要求
+    FAST_ROUTE 存在。两者共用本判定 = 一物一形，批量定义单一真理源。
+    """
+    return (not has_multimodal
+            and use_model == REAL_MODEL_ID
+            and primary_name == PROVIDER_NAME
+            and not bool(clean.get("tools")))
+
+
+def _classify_fast_route(clean, clean_msgs, has_multimodal, use_model, primary_name):
+    """V37.9.221 A2 workload 路由决策（纯函数，可单测）。返回 "workload" | "smart" | None。
+
+    - "workload": 批量（_is_batch_workload）→ 路由到独立 fast provider（FAST_ROUTE），
+                  **不依赖 classify_complexity**（批量 prompt 内容 complex 但延迟敏感应走快路）。
     - "smart":    有 tools 且 simple 查询 → fast（V37.9.76 既有行为，向后兼容）。
     - None:       留 primary（PA 复杂 tool-call / 多模态 / ?provider= override / 非默认 model）。
 
-    Guards（任一不满足 → None）: FAST_ROUTE 已配置（仅 FAST_PROVIDER≠PROVIDER 时非空，故
-      PROVIDER=qwen 时 FAST_PROVIDER=qwen 自动 no-op，flip PROVIDER=doubao_21 后才 load-bearing）/
-      非多模态（图片需 VL 模型）/ 默认 model / 非 ?provider= 显式 override（尊重显式选择）。
+    需 FAST_ROUTE 已配置（仅 FAST_PROVIDER≠PROVIDER 时非空）。无 FAST_ROUTE 时批量由 B1
+    （do_POST 里 reasoning_off_body 注入）在 primary 上处理，见 _is_batch_workload。
     """
-    if not (FAST_ROUTE
-            and not has_multimodal
-            and use_model == REAL_MODEL_ID
-            and primary_name == PROVIDER_NAME):
+    if not FAST_ROUTE:
         return None
-    if not bool(clean.get("tools")):
+    if _is_batch_workload(clean, has_multimodal, use_model, primary_name):
         return "workload"
-    if classify_complexity and classify_complexity(clean_msgs, has_tools=True) == "simple":
+    if (not has_multimodal and use_model == REAL_MODEL_ID and primary_name == PROVIDER_NAME
+            and classify_complexity and classify_complexity(clean_msgs, has_tools=True) == "simple"):
         return "smart"
     return None
+
+
+def _batch_reasoning_off_body(clean, has_multimodal, use_model, primary_name, use_fast):
+    """V37.9.222 B1: 批量请求在 reasoning provider 上要注入的「关 reasoning」请求体片段（或 None）。
+
+    批量（_is_batch_workload）+ 服务 provider 声明了 reasoning_off_body → 返回该片段；否则 None。
+    服务 provider = FAST_ROUTE provider（use_fast 时）否则 primary。让 reasoning primary 也能
+    快速服务批量（无独立快 provider 时的终局路径，qwen 退役后 doubao_21/deepseek_full 单模型通吃）。
+    qwen 等非-reasoning provider 无 reasoning_off_body → 返回 None（no-op）。纯函数可单测。
+    """
+    if not _is_batch_workload(clean, has_multimodal, use_model, primary_name):
+        return None
+    serving = FAST_PROVIDER_NAME if use_fast else primary_name
+    entry = PROVIDERS.get(serving, {})
+    rob = entry.get("reasoning_off_body") if isinstance(entry, dict) else None
+    return rob or None
 
 # ---------------------------------------------------------------------------
 # Circuit Breaker for primary provider (V32: Fallback Matrix)
@@ -592,6 +620,17 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
             elif _fr_type == "smart":
                 use_fast = True
                 log(f"{tag}SMART ROUTE: simple -> {FAST_ROUTE['name']}/{FAST_ROUTE['model_id']}")
+
+            # --- V37.9.222 B1: batch reasoning-off injection ---
+            # 决策在 _batch_reasoning_off_body (纯函数, 可单测). 批量 (no-tools) 且服务 provider
+            # 支持关 reasoning → 注入 reasoning_off_body, 让 reasoning primary 也能快速服务批量
+            # (无独立快 provider 时的终局路径). qwen 无 body → no-op.
+            _rob = _batch_reasoning_off_body(clean, has_multimodal, use_model, primary_name, use_fast)
+            if _rob:
+                _serving = FAST_PROVIDER_NAME if use_fast else primary_name
+                for _k, _v in _rob.items():
+                    clean[_k] = _v
+                log(f"{tag}B1 REASONING-OFF: batch on {_serving} -> inject {list(_rob)}")
 
             data = json.dumps(clean).encode()
             log(f"{tag}FORWARDING: {len(data)} bytes")
