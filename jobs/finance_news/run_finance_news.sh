@@ -651,6 +651,13 @@ fi
 
 TOTAL_NEW="$(wc -l < "$ALL_NEW_FILE" | tr -d ' ')"
 if [ "$TOTAL_NEW" -eq 0 ]; then
+    # V37.9.227 (audit F): 全 RSS 源抓取失败 → fetch_failed 告警（非静默 ok）。
+    # FETCH_ERRORS 含 RSS+X, ≥ RSS 源数即系统性抓取失败。
+    if [ "$FETCH_ERRORS" -ge "${#RSS_FEEDS[@]}" ]; then
+        log "ERROR: 系统性抓取失败（${FETCH_ERRORS} 源，≥${#RSS_FEEDS[@]} RSS）(fetch_failed)"
+        printf '{"time":"%s","status":"fetch_failed","new":0,"errors":%d}\n' "$TS" "$FETCH_ERRORS" > "$STATUS_FILE"
+        exit 1
+    fi
     log "无新文章（${FETCH_ERRORS} 源抓取失败），跳过推送。"
     printf '{"time":"%s","status":"ok","new":0,"errors":%d}\n' "$TS" "$FETCH_ERRORS" > "$STATUS_FILE"
     exit 0
@@ -841,7 +848,14 @@ else
 fi
 
 # ── 状态记录 ──────────────────────────────────────────────────────────
-printf '{"time":"%s","status":"ok","new":%d,"intl":%d,"cn":%d,"errors":%d}\n' \
-    "$TS" "$TOTAL_NEW" "$INTL_COUNT" "$CN_COUNT" "$FETCH_ERRORS" > "$STATUS_FILE"
+# V37.9.227 (audit F): LLM 3 次全失败时 status 不得写 ok（原无条件 ok = 唯一非 fail-loud job）。
+# 推了 ⚠️ 降级标题给用户但 LLM 分析实际失败 → llm_failed 让 watchdog 告警（兄弟 job 惯例）。
+if [ "$LLM_OK" != "true" ]; then
+    RUN_STATUS="llm_failed"
+else
+    RUN_STATUS="ok"
+fi
+printf '{"time":"%s","status":"%s","new":%d,"intl":%d,"cn":%d,"errors":%d}\n' \
+    "$TS" "$RUN_STATUS" "$TOTAL_NEW" "$INTL_COUNT" "$CN_COUNT" "$FETCH_ERRORS" > "$STATUS_FILE"
 
-log "完成: ${TOTAL_NEW} 篇 → LLM 分析 → 推送成功"
+log "完成: ${TOTAL_NEW} 篇 → LLM 分析(${RUN_STATUS}) → 推送"
