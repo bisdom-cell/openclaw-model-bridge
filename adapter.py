@@ -280,6 +280,31 @@ try:
 except ImportError:
     classify_complexity = None
 
+
+def _classify_fast_route(clean, clean_msgs, has_multimodal, use_model, primary_name):
+    """V37.9.221 workload 路由决策（纯函数，可单测）。返回 "workload" | "smart" | None。
+
+    - "workload": 无 tools = 批量/纯推理 (规则 #27) → fast provider，**不依赖 classify_complexity**
+                  （批量 prompt 内容 complex 但延迟敏感，应走快路。2026-07-02 reasoning-primary
+                  拖垮批量 job 事故根因修复，见 reasoning_model_primary_breaks_batch_jobs_case.md）。
+    - "smart":    有 tools 且 simple 查询 → fast（V37.9.76 既有行为，向后兼容）。
+    - None:       留 primary（PA 复杂 tool-call / 多模态 / ?provider= override / 非默认 model）。
+
+    Guards（任一不满足 → None）: FAST_ROUTE 已配置（仅 FAST_PROVIDER≠PROVIDER 时非空，故
+      PROVIDER=qwen 时 FAST_PROVIDER=qwen 自动 no-op，flip PROVIDER=doubao_21 后才 load-bearing）/
+      非多模态（图片需 VL 模型）/ 默认 model / 非 ?provider= 显式 override（尊重显式选择）。
+    """
+    if not (FAST_ROUTE
+            and not has_multimodal
+            and use_model == REAL_MODEL_ID
+            and primary_name == PROVIDER_NAME):
+        return None
+    if not bool(clean.get("tools")):
+        return "workload"
+    if classify_complexity and classify_complexity(clean_msgs, has_tools=True) == "simple":
+        return "smart"
+    return None
+
 # ---------------------------------------------------------------------------
 # Circuit Breaker for primary provider (V32: Fallback Matrix)
 # ---------------------------------------------------------------------------
@@ -554,17 +579,19 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
             log(f"{tag}CLEAN KEYS: {list(clean.keys())}")
             log(f"{tag}MSG COUNT: {len(clean_msgs)}, ROLES: {[m['role'] for m in clean_msgs]}")
 
-            # --- Smart routing: simple queries → fast model ---
-            # V37.9.77 enforcement: override provider 时禁用 fast route — 尊重 router 选择
+            # --- Workload routing: batch (pure-inference, no tools) → fast provider ---
+            # V37.9.221: 决策在 _classify_fast_route (纯函数, 可单测). no-tools=批量→fast;
+            #   PA(有 tools)→primary. 根因 2026-07-02 reasoning-primary 拖垮批量 job 事故
+            #   (reasoning_model_primary_breaks_batch_jobs_case.md). no-op until flip:
+            #   FAST_ROUTE 仅 FAST_PROVIDER≠PROVIDER 时非空.
             use_fast = False
-            if (FAST_ROUTE and classify_complexity
-                    and not has_multimodal
-                    and use_model == REAL_MODEL_ID
-                    and primary_name == PROVIDER_NAME):  # 仅默认 provider 启用 fast route
-                complexity = classify_complexity(clean_msgs, has_tools="tools" in clean)
-                if complexity == "simple":
-                    use_fast = True
-                    log(f"{tag}SMART ROUTE: simple -> {FAST_ROUTE['name']}/{FAST_ROUTE['model_id']}")
+            _fr_type = _classify_fast_route(clean, clean_msgs, has_multimodal, use_model, primary_name)
+            if _fr_type == "workload":
+                use_fast = True
+                log(f"{tag}WORKLOAD ROUTE: pure-inference (no tools) -> {FAST_ROUTE['name']}/{FAST_ROUTE['model_id']}")
+            elif _fr_type == "smart":
+                use_fast = True
+                log(f"{tag}SMART ROUTE: simple -> {FAST_ROUTE['name']}/{FAST_ROUTE['model_id']}")
 
             data = json.dumps(clean).encode()
             log(f"{tag}FORWARDING: {len(data)} bytes")

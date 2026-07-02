@@ -261,6 +261,80 @@ class TestSmartRouting(unittest.TestCase):
         self.assertIn("not has_multimodal", content)
 
 
+class TestWorkloadRouting(unittest.TestCase):
+    """V37.9.221 workload 路由: no-tools(批量/纯推理)→fast, PA(有tools)→primary.
+
+    行为级单测 _classify_fast_route 纯函数 (monkeypatch adapter 模块 globals).
+    根因: 2026-07-02 reasoning-primary 拖垮批量 job 事故
+    (ontology/docs/cases/reasoning_model_primary_breaks_batch_jobs_case.md).
+    """
+
+    def setUp(self):
+        import adapter
+        self.adapter = adapter
+        self._saved = (adapter.FAST_ROUTE, adapter.REAL_MODEL_ID,
+                       adapter.PROVIDER_NAME, adapter.classify_complexity)
+        adapter.FAST_ROUTE = {"name": "qwen", "model_id": "Qwen-fast",
+                              "base_url": "http://x", "api_key": "k", "auth_style": "bearer"}
+        adapter.REAL_MODEL_ID = "PRIMARY_MODEL"
+        adapter.PROVIDER_NAME = "doubao_21"
+        adapter.classify_complexity = lambda msgs, has_tools=False: "complex"
+
+    def tearDown(self):
+        (self.adapter.FAST_ROUTE, self.adapter.REAL_MODEL_ID,
+         self.adapter.PROVIDER_NAME, self.adapter.classify_complexity) = self._saved
+
+    def _call(self, clean, has_multimodal=False, use_model="PRIMARY_MODEL", primary_name="doubao_21"):
+        return self.adapter._classify_fast_route(
+            clean, clean.get("messages", []), has_multimodal, use_model, primary_name)
+
+    def test_no_tools_routes_workload(self):
+        """核心修复: 无 tools (批量/纯推理) → workload fast route"""
+        self.assertEqual(self._call({"messages": [{"role": "user", "content": "analyze repo"}]}), "workload")
+
+    def test_workload_independent_of_classifier(self):
+        """批量路由不依赖 classify_complexity — classifier 缺失也路由 (鲁棒性修复)"""
+        self.adapter.classify_complexity = None
+        self.assertEqual(self._call({"messages": [{"content": "x"}]}), "workload")
+
+    def test_tools_simple_routes_smart(self):
+        """有 tools + simple → smart fast route (V37.9.76 向后兼容)"""
+        self.adapter.classify_complexity = lambda msgs, has_tools=False: "simple"
+        self.assertEqual(self._call({"messages": [], "tools": [{"x": 1}]}), "smart")
+
+    def test_tools_complex_stays_primary(self):
+        """有 tools + complex (PA) → None (留 primary reasoning 质量)"""
+        self.assertIsNone(self._call({"messages": [], "tools": [{"x": 1}]}))
+
+    def test_multimodal_stays_primary(self):
+        """多模态 → None (图片需 VL 模型, 快 provider 可能无视觉)"""
+        self.assertIsNone(self._call({"messages": []}, has_multimodal=True))
+
+    def test_explicit_model_stays_primary(self):
+        """非默认 model → None"""
+        self.assertIsNone(self._call({"messages": []}, use_model="other-model"))
+
+    def test_provider_override_disables_fast(self):
+        """?provider= override (primary_name≠PROVIDER_NAME) → None (尊重显式选择)"""
+        self.assertIsNone(self._call({"messages": []}, primary_name="deepseek_full"))
+
+    def test_no_fast_route_configured(self):
+        """FAST_ROUTE 未配置 (FAST_PROVIDER=PROVIDER 时为 None) → None (no-op until flip)"""
+        self.adapter.FAST_ROUTE = None
+        self.assertIsNone(self._call({"messages": []}))
+
+    def test_empty_tools_is_pure_inference(self):
+        """空 tools 列表 = 纯推理批量 → workload"""
+        self.assertEqual(self._call({"messages": [], "tools": []}), "workload")
+
+    def test_do_post_uses_helper_not_inline(self):
+        """源码守卫: do_POST 用 _classify_fast_route 纯函数 (一物一形, 非 inline drift)"""
+        with open("adapter.py") as f:
+            content = f.read()
+        self.assertIn("_classify_fast_route(clean, clean_msgs", content)
+        self.assertIn("WORKLOAD ROUTE: pure-inference", content)
+
+
 class TestHealthEndpoint(unittest.TestCase):
     """健康端点测试"""
 
