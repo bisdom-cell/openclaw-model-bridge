@@ -2346,10 +2346,16 @@ class TestV37_9_93_SourceLevelGuards(unittest.TestCase):
                      "_read_file_sample must use marker template")
         # The OLD `content[:max_chars]` pattern as the sole return must
         # be gone — V37.9.93 must also have the head+marker+tail path.
-        # We check by counting that head+marker+tail concatenation appears.
-        self.assertIn("content[:head_chars] + marker + content[-tail_chars:]",
+        # V37.9.213: head is now line-boundary-snapped (raw_head.rfind), so
+        # the concat is `head + marker + content[-tail_chars:]`.
+        self.assertIn("head + marker + content[-tail_chars:]",
                      body,
-                     "must concatenate head + marker + tail")
+                     "must concatenate (snapped) head + marker + tail")
+        # V37.9.213: head must snap to a line boundary (no mid-sentence cut)
+        self.assertIn("SMART_SAMPLE_HEAD_SNAP_MAX", body,
+                     "_read_file_sample must snap head to line boundary")
+        self.assertIn('rfind("\\n")', body,
+                     "head snap must find the last newline in the head window")
 
     def test_critique_system_v37_9_93_in_source(self):
         self.assertIn("采样说明 (V37.9.93)", self.src,
@@ -2674,6 +2680,245 @@ class TestV37_9_168_ReverseValidation(unittest.TestCase):
                              for a in small))
         self.assertTrue(any(a["category"] == "deep_dive_degraded"
                             for a in atmin))
+
+
+# ══════════════════════════════════════════════════════════════════════
+# 11. V37.9.213 — daily-critique fixes (2026-07-02)
+#   F1: deep_dive degrade-REASON aggregation (77% but WHY? self-serve)
+#   F2: _read_file_sample head cut snapped to line boundary (kill the
+#       recurring head-cut false-positive-truncation from the observer's
+#       OWN sampling — 2026-07-01 recurrence of the V37.9.93 class).
+# ══════════════════════════════════════════════════════════════════════
+
+class TestV37_9_213_DegradeReasons(unittest.TestCase):
+    """F1: aggregate WHY deep_dives degraded, not just THAT they did.
+    kb_deep_dive writes `> ⚠️ 抓取降级原因：<reason>` into abstract_only
+    files; the observer buckets them so the report answers structural-
+    unfetchable (非全文来源) vs fetch-path failure (PDF/HTML 抓取失败)."""
+
+    # ---- extractor ----
+    def test_extract_pdf_failure(self):
+        c = "正文\n\n> ⚠️ 抓取降级原因：PDF fetch failed: HTTP 404\n"
+        self.assertEqual(obs._extract_degrade_category(c), "PDF 抓取失败")
+
+    def test_extract_html_failure(self):
+        c = "> ⚠️ 抓取降级原因：HTML fetch failed: URLError: timeout"
+        self.assertEqual(obs._extract_degrade_category(c), "HTML 抓取失败")
+
+    def test_extract_tier_source(self):
+        c = "> ⚠️ 抓取降级原因：tier3 source (no fetch attempted)"
+        self.assertEqual(obs._extract_degrade_category(c), "非全文来源")
+
+    def test_extract_fullwidth_and_halfwidth_colon(self):
+        # writer uses fullwidth ：; be robust to half-width too
+        self.assertEqual(
+            obs._extract_degrade_category("抓取降级原因: PDF fetch failed: x"),
+            "PDF 抓取失败")
+
+    def test_extract_no_reason_line(self):
+        self.assertEqual(obs._extract_degrade_category("摘要级但无原因行"),
+                         "未标注原因")
+        self.assertEqual(obs._extract_degrade_category(""), "未标注原因")
+        self.assertEqual(obs._extract_degrade_category(None), "未标注原因")
+
+    # ---- scan aggregation ----
+    @staticmethod
+    def _mk_dd_reason(td, date, mode, reason=None):
+        ddir = os.path.join(td, "deep_dives")
+        os.makedirs(ddir, exist_ok=True)
+        label = "完整原文" if mode == "full_text" else "摘要级"
+        body = f"# 深度\n**模式**: {label}\n正文"
+        if reason:
+            body += f"\n\n> ⚠️ 抓取降级原因：{reason}"
+        with open(os.path.join(ddir, f"{date}.md"), "w",
+                  encoding="utf-8") as f:
+            f.write(body)
+
+    def test_scan_aggregates_degrade_reasons(self):
+        with tempfile.TemporaryDirectory() as td:
+            self._mk_dd_reason(td, "2026-07-01", "abstract_only",
+                               "PDF fetch failed: HTTP 404")
+            self._mk_dd_reason(td, "2026-06-30", "abstract_only",
+                               "PDF fetch failed: no PDF derivable")
+            self._mk_dd_reason(td, "2026-06-29", "abstract_only",
+                               "HTML fetch failed: 403")
+            self._mk_dd_reason(td, "2026-06-28", "abstract_only",
+                               "tier3 source (no fetch attempted)")
+            self._mk_dd_reason(td, "2026-06-27", "full_text")  # no reason
+            stats = obs.scan_deep_dive_modes(td, datetime(2026, 7, 2))
+            dr = stats["degrade_reasons"]
+            self.assertEqual(dr.get("PDF 抓取失败"), 2)
+            self.assertEqual(dr.get("HTML 抓取失败"), 1)
+            self.assertEqual(dr.get("非全文来源"), 1)
+            # full_text must NOT contribute a reason bucket
+            self.assertNotIn("未标注原因", dr)
+
+    def test_full_text_only_has_empty_reasons(self):
+        with tempfile.TemporaryDirectory() as td:
+            self._mk_dd_reason(td, "2026-07-01", "full_text")
+            stats = obs.scan_deep_dive_modes(td, datetime(2026, 7, 2))
+            self.assertEqual(stats["degrade_reasons"], {})
+
+    def test_abstract_without_reason_counted_unlabeled(self):
+        with tempfile.TemporaryDirectory() as td:
+            self._mk_dd_reason(td, "2026-07-01", "abstract_only")  # no reason
+            stats = obs.scan_deep_dive_modes(td, datetime(2026, 7, 2))
+            self.assertEqual(stats["degrade_reasons"].get("未标注原因"), 1)
+
+    # ---- section rendering ----
+    def test_section_renders_reason_breakdown_sorted_desc(self):
+        modes = {"found": True, "total": 6, "full_text": 2,
+                 "abstract_only": 4, "unknown": 0, "degrade_ratio": 4 / 6,
+                 "window_days": 30, "recent": [],
+                 "degrade_reasons": {"PDF 抓取失败": 3, "非全文来源": 1}}
+        sec = obs.build_deep_dive_mode_section(modes)
+        self.assertIn("降级原因:", sec)
+        # sorted by count desc: PDF (3) before 非全文来源 (1)
+        pdf_i = sec.index("PDF 抓取失败 3")
+        tier_i = sec.index("非全文来源 1")
+        self.assertLess(pdf_i, tier_i)
+
+    def test_section_omits_reason_line_when_no_degrades(self):
+        modes = {"found": True, "total": 2, "full_text": 2,
+                 "abstract_only": 0, "unknown": 0, "degrade_ratio": 0.0,
+                 "window_days": 30, "recent": [], "degrade_reasons": {}}
+        sec = obs.build_deep_dive_mode_section(modes)
+        self.assertNotIn("降级原因:", sec)
+
+    def test_section_backward_compat_missing_key(self):
+        # older stats dict without degrade_reasons must not crash
+        modes = {"found": True, "total": 1, "full_text": 0,
+                 "abstract_only": 1, "unknown": 0, "degrade_ratio": 1.0,
+                 "window_days": 30, "recent": []}
+        sec = obs.build_deep_dive_mode_section(modes)
+        self.assertNotIn("降级原因:", sec)  # no key -> no line, no crash
+
+    # ---- reverse validation ----
+    def test_sabotage_regex_break_loses_categories(self):
+        """If _DD_DEGRADE_RE stops matching, all abstract_only fall to
+        未标注原因 — proving the regex is load-bearing (not tautology)."""
+        import re
+        c = "> ⚠️ 抓取降级原因：PDF fetch failed: HTTP 404"
+        orig = obs._DD_DEGRADE_RE
+        try:
+            obs._DD_DEGRADE_RE = re.compile(r"THIS_WILL_NEVER_MATCH_XYZ")
+            self.assertEqual(obs._extract_degrade_category(c), "未标注原因")
+        finally:
+            obs._DD_DEGRADE_RE = orig
+        # restored: matches again
+        self.assertEqual(obs._extract_degrade_category(c), "PDF 抓取失败")
+
+
+class TestV37_9_213_HeadSnap(unittest.TestCase):
+    """F2: _read_file_sample head must snap to a line boundary so it never
+    ends mid-sentence — the mid-sentence head cut fooled the observer LLM
+    into false-positive 'truncation' (2026-07-01, V37.9.93 recurrence at
+    the HEAD boundary)."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+
+    def tearDown(self):
+        import shutil
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+    def _write(self, name, content):
+        path = os.path.join(self.tmpdir, name)
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(content)
+        return path, content
+
+    def _head_of(self, sample):
+        prefix = obs.SMART_SAMPLE_MARKER_TEMPLATE.split("{omitted}")[0]
+        return sample.split(prefix)[0]
+
+    def test_head_snaps_to_line_boundary(self):
+        """2026-07-01 blood scenario: markdown with frequent newlines — the
+        head must end at a line boundary, not mid-line."""
+        lines = [f"这是第 {i} 行分析内容，包含足够中文字符填充采样缓冲区做边界测试。"
+                 for i in range(80)]
+        body = "# 标题\n\n" + "\n".join(lines) + "\n\n---\n*footer 完整结尾*"
+        path, content = self._write("2026-07-01.md", body)
+        sample, length = obs._read_file_sample(path)
+        head = self._head_of(sample)
+        self.assertGreater(length, obs.MAX_SAMPLE_CHARS, "must be sampled")
+        self.assertTrue(content.startswith(head))
+        # the char immediately after the snapped head must be a newline
+        self.assertEqual(content[len(head)], "\n",
+                         "head must end at a line boundary (not mid-line)")
+        # footer + marker still present (V37.9.93 contract preserved)
+        self.assertIn("footer 完整结尾", sample)
+        self.assertIn("NOT file truncation", sample)
+        self.assertLessEqual(len(sample), obs.MAX_SAMPLE_CHARS)
+
+    def test_snap_is_load_bearing(self):
+        """Disable the snap (SNAP_MAX=0) → head ends mid-line, proving the
+        snap actually changes behavior (reverse validation)."""
+        lines = [f"这是第 {i} 行分析内容，包含足够中文字符填充采样缓冲区做边界测试。"
+                 for i in range(80)]
+        body = "# 标题\n\n" + "\n".join(lines)
+        path, content = self._write("x.md", body)
+        orig = obs.SMART_SAMPLE_HEAD_SNAP_MAX
+        try:
+            obs.SMART_SAMPLE_HEAD_SNAP_MAX = 0
+            no_snap = self._head_of(obs._read_file_sample(path)[0])
+        finally:
+            obs.SMART_SAMPLE_HEAD_SNAP_MAX = orig
+        snapped = self._head_of(obs._read_file_sample(path)[0])
+        # without snap the head ends mid-line; with snap it ends on newline
+        self.assertNotEqual(content[len(no_snap):len(no_snap) + 1], "\n",
+                            "no-snap head should end mid-line (test premise)")
+        self.assertEqual(content[len(snapped)], "\n",
+                         "snapped head must end on a newline")
+        self.assertLess(len(snapped), len(no_snap),
+                        "snap trims the head back to the boundary")
+
+    def test_no_nearby_newline_keeps_raw_head(self):
+        """A very long line with no newline near the budget keeps the raw
+        head (budget preserved, no crash)."""
+        body = "字" * 5000  # no newlines at all
+        path, _ = self._write("longline.md", body)
+        sample, length = obs._read_file_sample(path)
+        self.assertLessEqual(len(sample), obs.MAX_SAMPLE_CHARS)
+        self.assertIn("NOT file truncation", sample)
+
+    def test_omitted_count_stable_from_nominal_budget(self):
+        """Marker omitted count uses nominal head budget (5000-1400-500)
+        regardless of snapping — preserves V37.9.93 test contract."""
+        body = "a" * 5000  # no newlines
+        path, _ = self._write("count.md", body)
+        sample, _ = obs._read_file_sample(path)
+        expected = 5000 - obs.SMART_SAMPLE_HEAD_CHARS - obs.SMART_SAMPLE_TAIL_CHARS
+        self.assertIn(f"[...{expected} chars omitted", sample)
+
+
+class TestV37_9_213_SourceLevelGuards(unittest.TestCase):
+    """V37.9.213 source guards — prevent regression of both fixes."""
+
+    @classmethod
+    def setUpClass(cls):
+        py_path = os.path.join(os.path.dirname(__file__), "daily_observer.py")
+        with open(py_path, "r", encoding="utf-8") as f:
+            cls.src = f.read()
+
+    def test_v37_9_213_marker_in_source(self):
+        self.assertIn("V37.9.213", self.src)
+
+    def test_f1_degrade_reason_machinery_present(self):
+        self.assertIn("_DD_DEGRADE_RE", self.src)
+        self.assertIn("_extract_degrade_category", self.src)
+        self.assertIn("degrade_reasons", self.src)
+        self.assertIn("_DD_DEGRADE_CATEGORIES", self.src)
+
+    def test_f2_head_snap_present(self):
+        self.assertIn("SMART_SAMPLE_HEAD_SNAP_MAX", self.src)
+        # head must be snapped, not raw content[:head_chars]
+        helper_start = self.src.find("def _read_file_sample(")
+        helper_end = self.src.find("\ndef ", helper_start + 1)
+        body = self.src[helper_start:helper_end]
+        self.assertIn('rfind("\\n")', body)
+        self.assertIn("head_budget", body,
+                      "must reserve marker+tail budget before snapping")
 
 
 if __name__ == "__main__":
