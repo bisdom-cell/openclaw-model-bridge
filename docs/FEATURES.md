@@ -1,15 +1,15 @@
 # OpenClaw Model Bridge — 系统特性一览表
 
-> v37.9.218 (2026-07-02) | **5010 tests** / 140 suites / 0 fail | **11 providers** (含 Doubao Seed 2.0 Pro) | **40 active jobs** | 5 SLO metrics | 19 preflight checks | WhatsApp + Discord dual-channel | **91 governance invariants / 23 meta-rules / 839 checks / 14 MRD scanners** | security 95/100 | 27 blood-lesson case docs
+> v37.9.219 (2026-07-02) | **5010 tests** / 140 suites / 0 fail | **11 providers** (含 Doubao Seed 2.0 Pro) | **40 active jobs** | 5 SLO metrics | 19 preflight checks | WhatsApp + Discord dual-channel | **91 governance invariants / 23 meta-rules / 839 checks / 14 MRD scanners** | security 95/100 | 27 blood-lesson case docs
 
 | 分类 | 特性 | 说明 | 核心文件 |
 |------|------|------|----------|
 | **核心服务** | Gateway | WhatsApp 接入、媒体存储、工具执行、会话管理 | npm 全局 (:18789) |
 | | Tool Proxy | 工具过滤(24→12)、自定义工具拦截、图片 base64 注入、SSE 转换、SLO 采集 | `tool_proxy.py` + `proxy_filters.py` (:5002) |
-| | Adapter | 多 Provider 转发、认证、多模态路由(文本→Qwen3, 图片→VL)、Fallback 降级 | `adapter.py` (:5001) |
-| **LLM Provider (10)** | Qwen3-235B (主力) | 文本对话，262K context | `providers.py` + `adapter.py` |
-| | Qwen2.5-VL-72B | 图片理解，自动路由 | 检测 image_url 自动切换 |
-| | Gemini Flash (降级) | 主力不可用时自动切换 | FALLBACK_PROVIDER |
+| | Adapter | 多 Provider 转发、认证、能力感知多模态路由、Fallback 降级 | `adapter.py` (:5001) |
+| **LLM Provider (11)** | Doubao Seed 2.1 Pro (主力) | 文本+视觉单模型多模态，Volcengine Ark 旗舰 | `providers.d/doubao_seed_21_provider.py` |
+| | Qwen3-235B + Qwen2.5-VL-72B | 文本 262K / 图片理解，fallback 链末尾老化 | `providers.py` + `adapter.py` |
+| | Gemini 2.5 (已退役出链) | geo-block，保留注册未在 fallback 链 (V37.9.129) | GEMINI_API_KEY |
 | | OpenAI / Claude | 手动切换备选 | 环境变量 PROVIDER= |
 | | Kimi K2.5 (Moonshot) | 1T MoE 视觉+256K | MOONSHOT_API_KEY |
 | | MiniMax M2.7 | 视觉+200K+131K输出 | MINIMAX_API_KEY |
@@ -64,7 +64,7 @@
 | | Golden Test Trace | 真实请求穿越全栈的完整记录 (521ms, 可复现) | `docs/golden_trace.json` |
 | | SLO Benchmark | 真实生产数据报告 (5/5 PASS, p95=459ms) | `slo_benchmark.py` |
 | | GameDay 故障演练 | 5 场景故障注入 (GPU 超时/断路器/快照/SLO/Watchdog) | `gameday.sh` |
-| | 兼容性矩阵 | 10 Provider 能力声明 + 验证状态 | `providers.py` + `docs/compatibility_matrix.md` |
+| | 兼容性矩阵 | Provider 能力声明 + 验证状态 | `providers.py` + `docs/compatibility_matrix.md` |
 | **测试** | 140 套单测 | 5010 用例全部通过 | `test_*.py` |
 | | 全量回归 | full_regression.sh (单测+注册表+安全+代码质量) | `full_regression.sh` |
 | | E2E Smoke | 基础对话 / 工具注入 / KB 搜索 端到端验证 | `wa_e2e_test.sh` |

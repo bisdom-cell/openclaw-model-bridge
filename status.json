@@ -1,6 +1,6 @@
 {
-  "updated": "2026-07-02 06:10:28",
-  "updated_by": "security_score",
+  "updated": "2026-07-02 07:51:41",
+  "updated_by": "full_regression",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -111,6 +111,11 @@
   "recent_changes": [
     {
       "date": "2026-07-02",
+      "what": "V37.9.219 primary=doubao_21 现态 prose 一致性收敛 + provider-count 10→11 漂移补齐(V37.9.216 加 doubao_21 第 11 个 + V37.9.218 primary 切换留下的机器检查覆盖不到的 human prose 漂移). 修 CLAUDE/README/FEATURES/INDEX/compat_matrix/config 现态描述: Doubao 2.1 Pro 为主力/11 provider/Gemini 已退役出链/能力感知多模态路由; file-reference 行去数字化退役漂移源(V37.9.152 先例). point-in-time(已发表文章+冻结论文 8-provider+changelog)诚实不动. full_regression 139/0/5010, 三 doc-drift 无漂移, governance 91/91, VERSION 0.37.9.85 不变(纯 prose 零业务语义). 门控收敛日(所有实质 unfinished gated on Mac Mini/in-review)延续 V37.9.208/209/215 收敛谱系.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-07-02",
       "what": "运维里程碑: primary 切换 qwen→doubao_21 上线 (Mac Mini adapter plist PROVIDER=doubao_21 + .env_shared). WhatsApp 文本+图片 E2E 真验证通过 (延迟非故障). fallback 链 [deepseek_full,doubao,deepseek,qwen] — qwen 退链末尾逐步老化. doubao_21 现吃全部主流量, 档位仍 feature_verified (production_observed 待 N 天稳定生产证据).",
       "by": "claude_code"
     },
@@ -203,11 +208,6 @@
       "date": "2026-06-30",
       "what": "DeepSeek 满血版 E2E → feature_verified, 确立 Qwen3 迁移明确赢家 (VERSION 0.37.9.77→0.37.9.78)。V37.9.204 接入后用户同步(PR#765)+设 DEEPSEEK_FULL_API_KEY(中途误粘占位符<满血版key>致 UnicodeEncodeError+未先同步 deepseek_full 未注册→sed 清脏值+真 key 重设+探针直连端点不依赖代码同步修复)→6 维探针 curl。满血版 vs 量化版关键差异: 🌟 reasoning ✅✅ 有 R1 reasoning_content 通道(reasoning 字段+reasoning_tokens=55, 量化版全程 null 无此通道) + 无乱码 token(量化版 w4a8 偶发乱码核心缺陷在满血版消失) + 干净中文; text/tool_calling ✅; vision ❌400 非多模态; json_mode ⚠️返回围栏非严格(量化版反而干净 raw)。运维: 满血版推理模型先生成 reasoning 占 token, 生成任务须给足 max_tokens(实测 600 被吃光 content 空)。据实更新(原则#23): tool_calling+reasoning False→True+verified_text/tool_calling/reasoning=True+tier declared→feature_verified+tier_evidence(含无乱码优于量化版); vision/json_mode/verified_streaming 保持 False。🔴 capability router 正确改路由(原则#28): 声明 reasoning 后 router test 3 失败 deepseek_full 抢 qwen→诊断合理非 bug: 评分 cap_score+prefer×10, qwen 从未声明 reasoning(之前赢只因 verified_count 高且无 reasoning 竞争者), 满血版真 verified reasoning→prefer=reasoning +10(s=20>qwen 14)正确胜=router 设计目的(推理任务路由推理模型); shadow 模式默认不强制生产仍 qwen 胜出仅观察; 更新 3 router test 期望 deepseek_full+修正误导注释(诚实不为保测试绿隐藏真能力)。全量同步: test_providers 重写 feature_verified+reasoning/test_gen_compat declared 6→5/gen_compat --fix/minimal_runtime golden 重生成(deepseek_full cap_score 升排 deepseek 前, best 仍 doubao)/router 3 处 qwen→deepseek_full。验证 full_regression 137/0/4945/governance 91/91 EXIT=0/安全 95/零泄漏/tier 一致[]/VERSION 0.37.9.78。迁移决策: 满血版=Qwen3 迁移明确赢家(reasoning 通道超 Qwen3-235B-Instruct 非推理+无乱码+干净中文), 量化版 PENDING; 仍限无视觉(图片留 VL/doubao)+json_mode 围栏+推理吃 token。🔴 Mac Mini 待用户: env 已持久化~/.env_shared, 待加 adapter+proxy plist 让服务用上+Phase 2 fallback 链生产观察→production_observed。安全: 满血/量化/ARK 三 key 建议轮换。元价值: 同 model 双端点(量化 vs 满血)对比揭示量化档位质量差异(w4a8 乱码+无 reasoning 通道 vs 满血干净+R1 通道); capability router 首次因真 verified-reasoning provider 接入改变路由=V37.9.76 框架真实价值兑现。",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-06-30",
-      "what": "量化版 deepseek pending + 新增第 10 provider DeepSeek-V4-Pro 满血版 (VERSION 0.37.9.76→0.37.9.77)。用户「量化版 deepseek 先 pending，再加满血版 DeepSeek V4 Pro(deepseek-v4-pro-260425 / ai-tokenhub.com/api/v1 / sk-...)」。源于 V37.9.203 A/B 揭示 w4a8-mtp 量化偶发乱码 token → 改评估满血版。① 量化版 deepseek 加 PENDING docstring 标注(保留注册可用但暂缓作 Qwen3 迁移候选, 候选转 deepseek_full; 不删无害)。② 🔴 安全分级(公开 repo 底线): 满血版 key 走 env DEEPSEEK_FULL_API_KEY 不入库; base_url https://ai-tokenhub.com/api/v1 是公开域名(非裸 IP/路径 token)→可入库(与 openai/claude/doubao 同理, 区别于量化版私有 IP+token 走 env)——机密性按来源判定非一刀切。③ 交付 deepseek_full_provider.py(第 10 provider): model deepseek-v4-pro-260425 + bearer + 诚实 tier=declared + 保守仅 text+streaming(避免 reasoning 误声明打断 capability router V37.9.203 教训, 待 E2E flip 镜像 deepseek 渐进验证) + 缺 key available() 排除。registry 9→10。④ 全量同步 count(原则 #31): test_providers 多处 9→10 + TestDeepSeekFullProvider 4(身份/declared 诚实/available 缺 key 排除/🔴 安全守卫 regex 无 sk-key 字面量+base_url 公开域名可入库) / test_gen_compat matrix+tier 2+9→2+10+declared 5→6 / test_convergence all_known+deepseek_full / test_v37_9_52 9→10+CLI 10 providers / README+CLAUDE prose 9→10 / gen_compat --fix 能力矩阵 / minimal_runtime golden 重生成(+deepseek_full fallback_chain count 9→10 best reasoning 仍 doubao, deepseek_full text+streaming cap_score 排链尾) / router 不变(deepseek_full reasoning=False)。⑤ 验证 full_regression 137/0/4945/governance 91/91 EXIT=0/安全 95/零凭证泄漏(全仓 grep sk-key 仅 config.md 占位)/tier 一致[]/VERSION 0.37.9.77。复杂度预算: files +1(满血版插件)/env +1(DEEPSEEK_FULL_API_KEY Mac Mini)/净 runtime 机制=1 provider(复用 plugin 框架)。🔴 Mac Mini 待用户: .env_shared 设 DEEPSEEK_FULL_API_KEY → 加 adapter+proxy plist(镜像 ARK/DEEPSEEK)+bootout/bootstrap → E2E 实测满血版 text/streaming/tool_calling/json_mode/reasoning, 对比量化版乱码/质量/延迟决定 Qwen3 迁移候选 → flip verified_*。安全: 满血/量化/ARK 三 key 对话明文建议轮换。元价值: Provider Plugin 第三次消费(doubao→deepseek→deepseek_full), 同 model 双端点(量化 vs 满血)并存对比=用 provider 抽象做模型选型实验; 公开域名 base_url 可入库 vs 私有 IP+token 走 env 安全分级清晰。",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -288,9 +288,9 @@
   "quality": {
     "security_score": 95,
     "test_count": 5010,
-    "last_regression": "2026-07-02 06:09 pass",
+    "last_regression": "2026-07-02 07:51 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-07-02 06:09",
+    "security_score_time": "2026-07-02 07:51",
     "test_suites": 140,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",

@@ -13,7 +13,7 @@
 [![Fail-Fast](https://img.shields.io/badge/LLM%20cron%20fail--fast-17%2F21%20aligned-brightgreen.svg)]()
 [![Notifications](https://img.shields.io/badge/notifications-WhatsApp%20%2B%20Discord-informational.svg)]()
 
-> **Current version:** `v37.9.218` / `0.37.9.85` (2026-07-02) — see [`CLAUDE.md`](CLAUDE.md) for full changelog.
+> **Current version:** `v37.9.219` / `0.37.9.85` (2026-07-02) — see [`CLAUDE.md`](CLAUDE.md) for full changelog.
 > **Latest milestone:** 📄 **ArXiv paper published** — [**arXiv:2606.14589**](https://arxiv.org/abs/2606.14589) (2026-06-15, cs.SE): the *fail-plausible* concept + a 5-class taxonomy of silent failures from 22 production incident postmortems (also submitted to IEEE Software + ISSRE). **Constitutional priority now: LLM-Observer (机械化人眼)** — an automated user-perspective observer that catches *fail-plausible* silent failures **before the user does** (the paper's headline open problem: ~70% of silent failures were caught by looking at the product, while tests/governance caught ≈0%). Stages 0-6 built: design doc → 22-incident labelled ground-truth → 2-layer detector (deterministic S1-S5 pre-filter + LLM-judge) → sabotage self-validation harness → community-runnable [fail-plausible bench](docs/fail_plausible_bench.md). Guiding principle: **日落法 (Sunset Law) — reduce complexity before adding features** (原则 #34 + MR-22/MR-23).
 
 ## Product Layers: What's Core vs. What's the Author's PA Instance
@@ -66,9 +66,9 @@ Layer 3 is not product clutter — it is the **production evidence** for layers 
      → Gateway :18789  [launchd · media storage · session mgmt]
      → Tool Proxy :5002 [24→12 tool governance · custom tools (search_kb / data_clean)
                          · image base64 inject · SLO metrics · incident snapshots]
-     → Adapter :5001    [11-provider routing · multimodal (text→Qwen3, image→Qwen2.5-VL)
+     → Adapter :5001    [11-provider routing · capability-aware multimodal (text + vision)
                          · circuit breaker + fallback]
-     → LLM: Qwen3-235B primary → DeepSeek-V4-Pro / Doubao fallback (+7 more, all OpenAI-compatible)
+     → LLM: Doubao Seed 2.1 Pro primary → DeepSeek-V4-Pro / Doubao / Qwen3 fallback (11 providers, all OpenAI-compatible)
 
 ② Memory plane    KB notes/sources → local embedding (384-dim, 0 API call) → RAG (kb_rag.py)
                   media files → Gemini Embedding 2 → semantic search (mm_search.py)
@@ -89,7 +89,7 @@ Layer 3 is not product clutter — it is the **production evidence** for layers 
 |-----------|------|-------|------|
 | OpenClaw Gateway | 18789 | npm global | WhatsApp integration, media storage, tool execution, session management |
 | Tool Proxy | 5002 | `tool_proxy.py` + `proxy_filters.py` | Tool filtering (24→12), **custom tools** (data_clean + search_kb hybrid search), **image base64 injection**, SSE conversion, truncation, token monitoring, **SLO metrics collection**, **incident snapshots** |
-| Adapter | 5001 | `adapter.py` + `providers.py` | **11-provider** forwarding, auth, **multimodal routing** (text→Qwen3, image→Qwen2.5-VL), fallback degradation |
+| Adapter | 5001 | `adapter.py` + `providers.py` | **11-provider** forwarding, auth, **capability-aware multimodal routing**, fallback degradation |
 | Config Center | — | `config.yaml` + `config_loader.py` | Centralized thresholds (70+ params, 9 sections: SLO/proxy/tokens/alerts/routing/truncation/watchdog/incidents/jobs) |
 | SLO Benchmark | — | `slo_benchmark.py` | SLO compliance — 5 metrics, real production data reports (p95=459ms, 5/5 PASS) |
 | Notifications | — | `notify.sh` | **Dual-channel push**: WhatsApp + Discord (6 topic channels: papers/freight/alerts/daily/tech/DM) |
@@ -212,7 +212,7 @@ This is a deliberate architecture decision: **every dependency you remove is one
 |------|-------------|
 | `tool_proxy.py` | HTTP layer — request/response routing, **custom tool execution** (data_clean + search_kb), **media injection**, followup LLM calls, logging, health cascade |
 | `proxy_filters.py` | Policy layer — tool filtering, **custom tool injection** (data_clean + search_kb), **image base64 injection** (`<media:image>` → `image_url`), param fixing, truncation, SSE conversion |
-| `adapter.py` | API adapter — **11-provider** forwarding, auth, **multimodal routing** (text→Qwen3, image→Qwen2.5-VL), fallback degradation |
+| `adapter.py` | API adapter — **11-provider** forwarding, auth, **capability-aware multimodal routing**, fallback degradation |
 | `providers.py` | **V34** Provider Compatibility Layer — BaseProvider abstraction, 11 concrete providers (7 built-in + Doubao×2 + DeepSeek×2 plugins), ProviderRegistry, capability declaration, CLI matrix |
 | `slo_benchmark.py` | **V35** SLO Benchmark report generator — reads proxy_stats.json → Markdown/JSON report (latency p50/p95/p99, success rate, degradation) |
 | `quickstart.sh` | **V35** One-click Quick Start — 4 phases (prerequisites → services → health → golden test), provider auto-detection |
@@ -436,9 +436,9 @@ python3 slo_benchmark.py --save   # Regenerate from live data → docs/slo_bench
 ### Fallback & Circuit Breaker
 
 ```
-Primary (e.g. Qwen3-235B, 5min timeout)
+Primary (e.g. Doubao Seed 2.1 Pro, 5min timeout)
     ↓ failure / timeout / circuit break (5 consecutive failures)
-Fallback (e.g. Gemini 2.5 Flash, 1min timeout)
+Fallback (e.g. DeepSeek-V4-Pro, 1min timeout)
     ↓ also failed
 502 Error (both error messages returned)
     ↓ 300s later: half-open, attempt recovery
