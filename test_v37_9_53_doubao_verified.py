@@ -207,13 +207,17 @@ class TestFallbackChainDoubaoFirst(unittest.TestCase):
             f"V37.9.53 doubao 应排到 fallback chain 第 1 位, got {names}",
         )
 
-    def test_gemini_second_in_qwen_fallback_chain(self):
+    def test_gemini_below_verified_doubao_in_qwen_fallback_chain(self):
+        # V37.9.53 原意: doubao(2.0) verified reasoning → 排在 gemini 之前 (把 gemini 挤下去)。
+        # V37.9.217: doubao_21 (旗舰 5 verified 含 reasoning) 加入后也高于 gemini(2 verified),
+        # gemini 被两个 verified doubao 挤到更后 → 断言 verified doubao 均排在 gemini 之前
+        # (保留原意, 去脆弱位置字面量)。
         chain = self.reg.build_fallback_chain("qwen")
         names = [p.name for p in chain]
-        self.assertEqual(
-            names[1], "gemini",
-            f"gemini 应被 doubao 挤到第 2 位, got {names}",
-        )
+        self.assertLess(names.index("doubao"), names.index("gemini"),
+                        f"doubao(2.0) verified 应排在 gemini 之前, got {names}")
+        self.assertLess(names.index("doubao_21"), names.index("gemini"),
+                        f"doubao_21 (5 verified) 应排在 gemini 之前, got {names}")
 
 
 class TestSourceLevelGuardsV9_53(unittest.TestCase):

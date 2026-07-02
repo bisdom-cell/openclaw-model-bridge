@@ -91,15 +91,16 @@ class TestFindBestProvider(unittest.TestCase):
         # 这里主要验证 prefer 参数不破坏选择
         self.assertEqual(chosen_no_prefer.name, "doubao")
         self.assertEqual(chosen_with_prefer.name, "doubao")
-        # V37.9.205: 验证 prefer 让 score 真增加 — 排除 doubao 后, prefer=reasoning 应让
-        # deepseek_full (verified reasoning, +10) 胜出。qwen 从未声明 reasoning; 这正是
-        # capability router 的目的: 推理偏好任务路由到真有 verified reasoning 的 provider。
+        # V37.9.217: 验证 prefer 让 score 真增加 — 排除 doubao(2.0) 后, prefer=reasoning 应让
+        # doubao_21 (旗舰, 5 verified 含 reasoning, cap_score 更高) 胜出。这正是 capability
+        # router 的目的: 推理偏好任务路由到真有 verified reasoning 且能力最全的 provider
+        # (doubao_21 5 verified > deepseek_full 3 verified, 同 prefer=reasoning +10 下前者胜)。
         chosen_reasoning_path = self.registry.find_best_provider(
             required={"text": True}, prefer=["reasoning"],
             exclude=["doubao"], require_available=False
         )
-        self.assertEqual(chosen_reasoning_path.name, "deepseek_full",
-                         "V37.9.205: exclude doubao + prefer reasoning → deepseek_full (verified reasoning)")
+        self.assertEqual(chosen_reasoning_path.name, "doubao_21",
+                         "V37.9.217: exclude doubao + prefer reasoning → doubao_21 (5 verified 含 reasoning)")
 
     def test_require_available_false_includes_all(self):
         """require_available=False 即使无 API key 也包含所有 provider."""
@@ -202,9 +203,9 @@ class TestRouterDecideModule(unittest.TestCase):
         )
         self.assertNotEqual(record["chosen"], "doubao",
                             "V37.9.76: exclude doubao → chosen != doubao")
-        # V37.9.205: kb_dream prefer reasoning → deepseek_full (verified reasoning) 是 next pick
-        # (qwen 无 reasoning; router shadow 模式, 这是观察非生产路由)
-        self.assertEqual(record["chosen"], "deepseek_full")
+        # V37.9.217: kb_dream prefer reasoning → doubao_21 (5 verified 含 reasoning) 是 next pick
+        # (旗舰 cap_score 高于 deepseek_full 3 verified; router shadow 模式, 观察非生产路由)
+        self.assertEqual(record["chosen"], "doubao_21")
 
     def test_decide_with_profile_override(self):
         """profile_override 覆盖 registry — 用于测试不依赖 yaml."""
@@ -357,7 +358,7 @@ class TestRouterDecideCli(unittest.TestCase):
                       "V37.9.76 MR-11: log 写 stderr 留诊断")
 
     def test_cli_exclude_param(self):
-        """CLI --exclude doubao → chosen=deepseek_full (V37.9.205: kb_dream prefer reasoning)。"""
+        """CLI --exclude doubao → chosen=doubao_21 (V37.9.217: 旗舰 5 verified 含 reasoning)。"""
         result = subprocess.run(
             ["python3", os.path.join(_REPO_ROOT, "router_decide.py"),
              "--job-id", "kb_dream", "--exclude", "doubao", "--no-log"],
@@ -365,7 +366,7 @@ class TestRouterDecideCli(unittest.TestCase):
             env={**os.environ, "PYTHONPATH": _REPO_ROOT},
         )
         self.assertEqual(result.returncode, 0)
-        self.assertEqual(result.stdout.strip(), "deepseek_full")
+        self.assertEqual(result.stdout.strip(), "doubao_21")
 
 
 class TestJobsRegistrySchemaExtension(unittest.TestCase):

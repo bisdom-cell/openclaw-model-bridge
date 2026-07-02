@@ -1708,7 +1708,7 @@ class TestDeepSeekFullProvider(unittest.TestCase):
 
 
 class TestDoubao21Provider(unittest.TestCase):
-    """V37.9.216 — Doubao Seed 2.1 Pro (Volcengine Ark) 第 11 个 provider (旗舰), declared 未实测。"""
+    """V37.9.216 接入 declared → V37.9.217 Mac Mini E2E 5/5 通过升 feature_verified。"""
 
     _PLUGIN = os.path.join(os.path.dirname(__file__), "providers.d", "doubao_seed_21_provider.py")
 
@@ -1728,18 +1728,23 @@ class TestDoubao21Provider(unittest.TestCase):
         self.assertEqual(get_provider("doubao_21").model_id,
                          "doubao-seed-2-1-pro-260628")
 
-    def test_tier_declared_nothing_verified(self):
-        # 🔴 原则 #23: 我未 E2E 实测此 2.1 端点 → declared + verified_* 全 False + tier 一致
+    def test_tier_feature_verified_after_e2e(self):
+        # V37.9.217 Mac Mini E2E 实测 5/5 通过 → feature_verified + tier 一致 + 显式 evidence
         from providers import get_provider
         caps = get_provider("doubao_21").capabilities
-        self.assertEqual(caps.verification_tier, "declared")
-        self.assertEqual(caps.verified_features(), [],
-                         "declared 档位不得有 verified feature")
-        self.assertEqual(caps.tier_evidence, "",
-                         "declared 不手写 evidence (走派生单一真理源)")
+        self.assertEqual(caps.verification_tier, "feature_verified")
+        # 5 项实测通过: text/vision/tool_calling/streaming/reasoning
+        self.assertTrue(caps.verified_text)
+        self.assertTrue(caps.verified_vision)
+        self.assertTrue(caps.verified_tool_calling)
+        self.assertTrue(caps.verified_streaming)
+        self.assertTrue(caps.verified_reasoning)
+        # fallback 未真生产接管 → 诚实保持 False (同 doubao 2.0/deepseek 惯例)
+        self.assertFalse(caps.verified_fallback)
+        # feature_verified 必须显式 tier_evidence (非派生) 引用实测证据
+        self.assertIn("E2E", caps.tier_evidence)
+        self.assertIn("5/5", caps.tier_evidence)
         self.assertEqual(caps.tier_consistency_violations(), [])
-        # 能力声明 (Doubao Seed Pro 家族 advertised) 与 verified_* 解耦
-        self.assertTrue(caps.text and caps.vision and caps.reasoning)
 
     def test_excluded_from_available_without_key(self):
         from providers import get_registry
