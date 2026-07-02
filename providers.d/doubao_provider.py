@@ -48,6 +48,11 @@ class DoubaoSeedProvider(BaseProvider):
     base_url = "https://ark.cn-beijing.volces.com/api/v3"
     api_key_env = "ARK_API_KEY"
     auth_style = "bearer"
+    # V37.9.223 B1: 同 doubao_21 的 Volcengine Ark 家族 (base_url 相同, 均 reasoning 模型)。
+    # doubao_21 thinking:disabled 已 V37.9.221 E2E 实测 (reasoning_tokens 0 + 17.7s vs 5138/166s)。
+    # 本 provider 同一 Ark API 表面 → 家族推断支持, 但未在此 endpoint 单独实测 (原则 #23)。
+    # 作 primary 前须探针确认 (批量注入此片段走快路)。
+    reasoning_off_body = {"thinking": {"type": "disabled"}}
 
     def __init__(self):
         endpoint_id = os.environ.get("ARK_ENDPOINT_ID", "").strip() or _DOUBAO_FALLBACK_MODEL

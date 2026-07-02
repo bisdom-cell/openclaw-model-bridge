@@ -48,6 +48,13 @@ class DeepSeekProvider(BaseProvider):
     display_name = "DeepSeek-V4-Pro"
     api_key_env = "DEEPSEEK_API_KEY"
     auth_style = "bearer"
+    # V37.9.223 B1: 声明 per-request 关 reasoning (镜像 deepseek_full 的 thinking:disabled)。
+    # 探针实测 2026-07-02 (self-host 网关 curl): thinking:disabled → HTTP 200 + finish_reason=stop
+    #   + reasoning_tokens:0, 无 400 → 网关接受该参数, 声明安全保留 (400 风险已排除)。
+    # ⚠️ 剩余诚实注记 (原则 #23): 本 provider reasoning=False (无 R1 通道) → thinking-off 实际
+    #   no-op (batch 走快路靠的是本就无 reasoning 开销), 但无害。仍 PENDING (w4a8 量化偶发乱码);
+    #   非 primary 时注入 inert (B1 仅在该 provider 作 serving provider 时 fire)。
+    reasoning_off_body = {"thinking": {"type": "disabled"}}
 
     def __init__(self):
         # base_url 从 env 解析 (机密端点不入库); dev 无 env → 公开 fallback (合约通过)
