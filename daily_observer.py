@@ -329,6 +329,15 @@ MAX_SAMPLE_CHARS = 2000
 # completeness by checking the footer rather than seeing truncated middle.
 SMART_SAMPLE_HEAD_CHARS = 1400
 SMART_SAMPLE_TAIL_CHARS = 500
+# V37.9.213: snap the head cut back to the last line boundary within this
+# many chars of the budget, so the head does NOT end mid-sentence. A
+# mid-sentence head cut fooled the Observer LLM into a false-positive
+# "truncation" report (2026-07-01 recurrence of the V37.9.93 false-positive
+# class — V37.9.93 fixed the TAIL/footer visibility but the HEAD cut still
+# looked like truncation despite the marker). Markdown files have frequent
+# newlines so this almost always lands cleanly; a very long line with no
+# nearby newline keeps the raw head (budget preserved).
+SMART_SAMPLE_HEAD_SNAP_MAX = 300
 SMART_SAMPLE_MARKER_TEMPLATE = (
     "\n\n[...{omitted} chars omitted from middle — this is sampling for "
     "LLM evaluation, NOT file truncation. File is complete; head + tail "
@@ -360,16 +369,30 @@ def _read_file_sample(path, max_chars=MAX_SAMPLE_CHARS):
         # V37.9.93: smart head + marker + tail
         head_chars = SMART_SAMPLE_HEAD_CHARS
         tail_chars = SMART_SAMPLE_TAIL_CHARS
+        # marker omitted count uses the NOMINAL head budget (stable, so the
+        # count doesn't wobble with snapping/budget-fit below).
         omitted = full_length - head_chars - tail_chars
         marker = SMART_SAMPLE_MARKER_TEMPLATE.format(omitted=omitted)
-        sample = content[:head_chars] + marker + content[-tail_chars:]
-        # Defensive: if head+marker+tail exceeds max_chars (edge case for
-        # short max), trim head to fit.
+        # V37.9.213: reserve budget for marker + tail FIRST, then snap the
+        # head to the last line boundary within SMART_SAMPLE_HEAD_SNAP_MAX so
+        # it never ends mid-sentence. Reserving up front means the snap is
+        # never undone by a later defensive trim (the 2026-07-01 head-cut
+        # false-positive was a V37.9.93 recurrence at the HEAD boundary). No
+        # nearby newline (very long line) → keep the raw head.
+        head_budget = max(0, max_chars - len(marker) - tail_chars)
+        raw_head = content[:head_budget]
+        nl = raw_head.rfind("\n")
+        head = (raw_head[:nl]
+                if nl >= head_budget - SMART_SAMPLE_HEAD_SNAP_MAX
+                else raw_head)
+        sample = head + marker + content[-tail_chars:]
+        # Defensive: extreme small-max_chars edge only (head_budget already
+        # fits marker+tail in the normal path); never re-introduces a
+        # mid-sentence cut in practice since head_budget reserved the space.
         if len(sample) > max_chars:
             overflow = len(sample) - max_chars
-            new_head = max(0, head_chars - overflow)
-            sample = (content[:new_head] + marker +
-                      content[-tail_chars:])
+            head = head[:max(0, len(head) - overflow)]
+            sample = head + marker + content[-tail_chars:]
         return sample, full_length
     except OSError:
         return "", 0
@@ -496,6 +519,44 @@ def _classify_deep_dive_mode(content):
     return "full_text" if m.group(1) == "完整原文" else "abstract_only"
 
 
+# V37.9.213: degrade-REASON aggregation. V37.9.168 surfaced the degrade
+# RATE (77%) but not WHY, so root-cause diagnosis still required a human to
+# grep ~/.kb/deep_dives/*.md on Mac Mini (exactly the MR-4 闭真盲区 the
+# observer is meant to close). kb_deep_dive.build_deep_dive_markdown already
+# writes a machine-parseable line `> ⚠️ 抓取降级原因：<reason>` into every
+# abstract_only file, where <reason> is one of:
+#   "PDF fetch failed: <inner>"  (tier1 PDF path failed — resolution bug/404)
+#   "HTML fetch failed: <inner>" (tier2 HTML path failed)
+#   "tier{N} source (no fetch attempted)" (tier3/no-url — structurally
+#      unfetchable: X tweet weekend fallback, paywall with no URL)
+# We bucket these so the report answers "of the 77%, how much is structurally
+# unfetchable (accept) vs fetch-path failure (fixable)" self-serve.
+_DD_DEGRADE_RE = re.compile(r"抓取降级原因\s*[:：]\s*(.+)")
+# 显式 4 桶（顺序即渲染优先级的稳定基准；实际渲染按计数降序）
+_DD_DEGRADE_CATEGORIES = (
+    "PDF 抓取失败", "HTML 抓取失败", "非全文来源", "未标注原因")
+
+
+def _extract_degrade_category(content):
+    """V37.9.213: bucket an abstract_only deep_dive's degrade reason.
+
+    Returns one of _DD_DEGRADE_CATEGORIES. "未标注原因" when no reason line
+    is present (older files before V37.9.132 or format drift) — we never
+    guess the cause.
+    """
+    m = _DD_DEGRADE_RE.search(content or "")
+    if not m:
+        return "未标注原因"
+    reason = m.group(1).strip()
+    if reason.startswith("PDF fetch failed"):
+        return "PDF 抓取失败"
+    if reason.startswith("HTML fetch failed"):
+        return "HTML 抓取失败"
+    if reason.startswith("tier"):
+        return "非全文来源"
+    return "未标注原因"
+
+
 def scan_deep_dive_modes(kb_dir, target_date,
                          window_days=DEEP_DIVE_MODE_WINDOW_DAYS):
     """Scan ~/.kb/deep_dives/*.md within a rolling window and classify
@@ -513,7 +574,7 @@ def scan_deep_dive_modes(kb_dir, target_date,
     """
     stats = {"found": False, "total": 0, "full_text": 0,
              "abstract_only": 0, "unknown": 0, "degrade_ratio": None,
-             "window_days": window_days, "recent": []}
+             "window_days": window_days, "recent": [], "degrade_reasons": {}}
     dd_dir = os.path.join(kb_dir, "deep_dives")
     if not os.path.isdir(dd_dir):
         return stats
@@ -536,8 +597,12 @@ def scan_deep_dive_modes(kb_dir, target_date,
                 content = f.read()
         except OSError:
             continue
-        entries.append({"date": base,
-                        "mode": _classify_deep_dive_mode(content)})
+        mode = _classify_deep_dive_mode(content)
+        entry = {"date": base, "mode": mode}
+        if mode == "abstract_only":
+            # V37.9.213: capture WHY it degraded, not just THAT it degraded.
+            entry["degrade_category"] = _extract_degrade_category(content)
+        entries.append(entry)
 
     if not entries:
         return stats
@@ -547,6 +612,15 @@ def scan_deep_dive_modes(kb_dir, target_date,
     abst = sum(1 for e in entries if e["mode"] == "abstract_only")
     unk = sum(1 for e in entries if e["mode"] == "unknown")
     classified = full + abst
+    # V37.9.213: tally degrade reasons over abstract_only files so the report
+    # can distinguish structural-unfetchable (非全文来源) from fetch-path
+    # failure (PDF/HTML 抓取失败). Keys are _DD_DEGRADE_CATEGORIES; absent
+    # buckets are simply omitted (no zero rows).
+    degrade_reasons = {}
+    for e in entries:
+        if e["mode"] == "abstract_only":
+            cat = e.get("degrade_category", "未标注原因")
+            degrade_reasons[cat] = degrade_reasons.get(cat, 0) + 1
     stats.update({
         "found": True,
         "total": len(entries),
@@ -554,6 +628,7 @@ def scan_deep_dive_modes(kb_dir, target_date,
         "abstract_only": abst,
         "unknown": unk,
         "degrade_ratio": (abst / classified) if classified else None,
+        "degrade_reasons": degrade_reasons,
         "recent": entries[:7],
     })
     return stats
@@ -579,6 +654,14 @@ def build_deep_dive_mode_section(deep_dive_modes):
         breakdown += f" / 未分类 {unk}"
     breakdown += f" / 共 {total}"
     lines.append(f"- 摘要级降级率: {pct} ({breakdown})")
+    # V37.9.213: WHY breakdown — turns "77% but why?" self-serve (no Mac Mini
+    # grep needed). Sorted by count desc; 非全文来源 = structural (accept),
+    # PDF/HTML 抓取失败 = fetch-path failure (the fixable target).
+    dr = deep_dive_modes.get("degrade_reasons")
+    if dr:
+        parts = [f"{k} {v}" for k, v in
+                 sorted(dr.items(), key=lambda x: (-x[1], x[0]))]
+        lines.append(f"- 降级原因: {' / '.join(parts)}")
     if deep_dive_modes.get("recent"):
         icons = {"full_text": "📄", "abstract_only": "📃", "unknown": "❔"}
         recent_str = " ".join(

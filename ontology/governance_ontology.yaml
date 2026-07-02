@@ -9130,10 +9130,10 @@ invariants:
         check_type: file_contains
         file: daily_observer.py
         pattern: 'V37.9.84 Daily Self-Critique Observer'
-      - name: "_read_file_sample 用 smart sampling head+marker+tail (file_contains, 防回退 content[:max_chars])"
+      - name: "_read_file_sample 用 smart sampling head+marker+tail (file_contains, 防回退 content[:max_chars]; V37.9.213 head 边界 snap)"
         check_type: file_contains
         file: daily_observer.py
-        pattern: 'content\[:head_chars\] \+ marker \+ content\[-tail_chars:\]'
+        pattern: 'head \+ marker \+ content\[-tail_chars:\]'
       - name: "V37.9.93 smart sampling 常量 + 行为 (python_assert, 长文件必产 marker 非截断)"
         check_type: python_assert
         code: |
