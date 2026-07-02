@@ -115,13 +115,61 @@ ctx         = ssl.create_default_context()
 # V37.1+: Hot-reload support — _build_fallback_chain() shared by startup & reload.
 # ---------------------------------------------------------------------------
 
+def _entry_from_registry(cp, api_key, model_id=None):
+    """Build a fallback chain entry from a registry provider object.
+    V37.9.218: entries carry vl_model_id for capability-aware vision fallback."""
+    return {
+        "name":        cp.name,
+        "base_url":    cp.base_url,
+        "api_key":     api_key,
+        "model_id":    model_id or cp.model_id,
+        "auth_style":  cp.auth_style,
+        "vl_model_id": getattr(cp, "vl_model_id", "") or "",
+    }
+
+
 def _build_fallback_chain():
     """Build fallback chain from env + capability registry. Pure function, no side effects.
-    Returns list of {name, base_url, api_key, model_id, auth_style} dicts."""
-    chain = []
+    Returns list of {name, base_url, api_key, model_id, auth_style, vl_model_id} dicts.
 
-    # 1) Explicit FALLBACK_PROVIDER (backward compat) → first in chain
+    Precedence (V37.9.218):
+      1) FALLBACK_ORDER — explicit ordered provider list (comma-separated), authoritative.
+         一物一形: overrides cap_score auto-sort AND legacy FALLBACK_PROVIDER single slot.
+         primary auto-excluded (可传完整偏好顺序, 切换 primary 无需改 FALLBACK_ORDER);
+         unknown/unavailable(无 key)/_FALLBACK_EXCLUDE(geo-block) 的 provider 跳过; 去重保序。
+      2) Legacy: FALLBACK_PROVIDER single slot → first, then cap_score auto-fill.
+    Entries carry vl_model_id → capability-aware vision fallback (image 请求跳过纯文本 provider)。
+    """
+    reg = _get_registry() if _get_registry else None
+
+    # 1) V37.9.218: FALLBACK_ORDER explicit ordered list (替代单槽, 权威)
+    order_raw = os.environ.get("FALLBACK_ORDER", "").strip()
+    if order_raw and reg:
+        if os.environ.get("FALLBACK_PROVIDER", ""):
+            print("[adapter] WARN: FALLBACK_ORDER 与 FALLBACK_PROVIDER 同时设置 — "
+                  "FALLBACK_ORDER 优先 (旧单槽被忽略, 一物一形)", flush=True)
+        chain, seen = [], set()
+        for name in [n.strip() for n in order_raw.split(",") if n.strip()]:
+            if name in seen:
+                continue
+            seen.add(name)
+            if name == PROVIDER_NAME:
+                continue  # primary 不进 fallback 链 (自动排除)
+            if name in _FALLBACK_EXCLUDE:
+                continue  # geo-block / 不可达
+            cp = reg.get(name)
+            if not cp:
+                print(f"[adapter] WARN: FALLBACK_ORDER 未知 provider {name!r} — 跳过", flush=True)
+                continue
+            ck = os.environ.get(cp.api_key_env, "")
+            if not ck:
+                continue  # 无 key → 不可用
+            chain.append(_entry_from_registry(cp, ck))
+        return chain
+
+    # 2) Legacy: explicit FALLBACK_PROVIDER (backward compat) → first in chain
     # V37.9.129: _FALLBACK_EXCLUDE 排除地理封锁/不可达 provider（如 gemini 香港 geo-block）
+    chain = []
     explicit_fb = os.environ.get("FALLBACK_PROVIDER", "")
     if explicit_fb and explicit_fb in PROVIDERS and explicit_fb != PROVIDER_NAME \
             and explicit_fb not in _FALLBACK_EXCLUDE:
@@ -134,24 +182,19 @@ def _build_fallback_chain():
                 "api_key":    fb_key,
                 "model_id":   os.environ.get("FALLBACK_MODEL_ID", fb["model_id"]),
                 "auth_style": fb["auth_style"],
+                "vl_model_id": fb.get("vl_model_id", ""),  # V37.9.218
             })
 
-    # 2) Auto-discover from capability-based chain (sorted by overlap + verification)
-    if _get_registry:
-        auto_chain = _get_registry().build_fallback_chain(PROVIDER_NAME, require_available=True)
+    # 3) Auto-discover from capability-based chain (sorted by overlap + verification)
+    if reg:
+        auto_chain = reg.build_fallback_chain(PROVIDER_NAME, require_available=True)
         existing_names = {fb["name"] for fb in chain}
         for cp in auto_chain:
             # V37.9.129: 排除 _FALLBACK_EXCLUDE 中的 provider（geo-block/不可达）
             if cp.name not in existing_names and cp.name not in _FALLBACK_EXCLUDE:
                 ck = os.environ.get(cp.api_key_env, "")
                 if ck:
-                    chain.append({
-                        "name":       cp.name,
-                        "base_url":   cp.base_url,
-                        "api_key":    ck,
-                        "model_id":   cp.model_id,
-                        "auth_style": cp.auth_style,
-                    })
+                    chain.append(_entry_from_registry(cp, ck))
 
     return chain
 
@@ -569,13 +612,26 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
             # --- Fallback chain: try each provider sequentially ---
             fb_errors = [f"primary: {primary_err or 'circuit open'}"]
             for fb in FALLBACK_CHAIN:
+                # V37.9.218: capability-aware vision fallback — image 请求需要 vision 模型。
+                # 纯文本 provider (无 vl_model_id) 对 image 请求必然失败 → 跳过, 不浪费尝试。
+                # vision-capable provider 用其 vl_model_id (qwen 用独立 VL 模型 / doubao 单模型多模态)。
+                if has_multimodal:
+                    fb_vl = fb.get("vl_model_id", "")
+                    if not fb_vl:
+                        log(f"{tag}FALLBACK skip {fb['name']} (纯文本, image 请求跳过)")
+                        fb_errors.append(f"{fb['name']}: skipped (text-only, image request)")
+                        continue
+                    fb_model = fb_vl
+                else:
+                    fb_model = fb["model_id"]
+
                 fb_url = f"{fb['base_url']}{path}"
                 fb_clean = dict(clean)
-                fb_clean["model"] = fb["model_id"]
+                fb_clean["model"] = fb_model
                 fb_data = json.dumps(fb_clean).encode()
                 fb_auth = _make_auth_headers(fb["auth_style"], fb["api_key"])
 
-                log(f"{tag}FALLBACK -> {fb['name']} ({fb['model_id']})")
+                log(f"{tag}FALLBACK -> {fb['name']} ({fb_model})")
                 try:
                     fb_status, fb_body = _forward_request(fb_url, fb_data, fb_auth, timeout=int(_FALLBACK_TIMEOUT))
                     fb_elapsed = int((time.monotonic() - t0) * 1000)
