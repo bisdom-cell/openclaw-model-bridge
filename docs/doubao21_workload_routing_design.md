@@ -92,10 +92,20 @@ git fetch+reset 同步 → auto_deploy 把 adapter.py rsync 到运行时 → ada
 
 → **`thinking:{"type":"disabled"}` 是 doubao-seed-2-1-pro 的合法 Ark 参数，B1 可行**：doubao_21 一个模型能同时服务 PA（thinking on，reasoning 质量）+ 批量（thinking off，17s 级）。**qwen 退役后不需要任何替代快 provider。**
 
+**B1 双 provider 实测确认（2026-07-02，两家都支持 `thinking:{"type":"disabled"}`）**：
+
+| provider | 端点 | thinking:disabled 结果 |
+|----------|------|------------------------|
+| doubao_21 | Ark 原生 | reasoning_tokens 0 / 17.7s（vs 默认 5138 / 166s） ✅ |
+| deepseek_full | ai-tokenhub（**Bifrost 网关归一化** `thinking` 参数） | `completion_tokens_details:{}` 空 + 无 reasoning 通道 + content 完整 / 15s ✅ |
+
+deepseek_full 探针旁证：`enable_thinking:false` **被忽略**（reasoning 照跑）；`reasoning_effort` 有效但值域 `[high/low/max/medium/minimal]`（可作 B3 压缩，非全关）；唯 `thinking:{"type":"disabled"}` 全关。→ **`thinking:{"type":"disabled"}` 是跨 provider 可靠的 reasoning-off 参数**（Ark 原生 + Bifrost 网关归一）。
+
 **终局架构（三层，按可用性降级）**：
 ```
 批量/纯推理 workload → 快速非-reasoning 路径:
-  ① B1 (最优, 已实测): 服务 provider 支持 thinking-off → 注入 thinking:disabled (doubao_21 ✅)
+  ① B1 (最优, 双 provider 已实测): 服务 provider 支持 thinking-off → 注入 thinking:{type:disabled}
+     (doubao_21 ✅ / deepseek_full ✅ — 两家都能单模型通吃, 无单点依赖)
   ② B2 (过渡): 有独立快 provider (qwen) → 路由过去 (A2 已建, V37.9.221)
   ③ 都没有 → 留 primary (慢兜底)
 交互 (有 tools) → reasoning 模型 (质量)
@@ -107,9 +117,9 @@ git fetch+reset 同步 → auto_deploy 把 adapter.py rsync 到运行时 → ada
 
 **刻意不现在实现**（日落法 #34 + 原则 #18：B1 已证可行 + 有方案，但 qwen 短期不退役、A2 覆盖当下 → 现在建 = 投机复杂度）。qwen 退役真正排期时实现，届时是小扩展：
 
-1. **providers.py**：per-provider 声明 `reasoning_off_body`（doubao_21 = `{"thinking":{"type":"disabled"}}`；qwen = None 本就非-reasoning；deepseek_full R1 待测，R1 系 thinking-off 通常更难，可能仍靠 B2）。默认 None。
+1. **providers.py**：per-provider 声明 `reasoning_off_body`（doubao_21 = `{"thinking":{"type":"disabled"}}` ✅实测 / deepseek_full = `{"thinking":{"type":"disabled"}}` ✅实测（ai-tokenhub Bifrost 归一）/ qwen = None 本就非-reasoning）。默认 None。**两家主 reasoning provider 都实测支持同一参数**，无单点依赖。
 2. **adapter**：批量请求（复用 V37.9.221 `_classify_fast_route` no-tools 检测）→ 服务 provider（primary 或 FAST_ROUTE provider）若有 `reasoning_off_body` → merge 进 clean 请求体。与 A2 互补：有 FAST_PROVIDER 先走 A2（qwen 无需注入），无 FAST_PROVIDER 时 B1 在 primary 注入 thinking-off。
 3. **守卫**：行为级单测（批量+doubao_21→注入 thinking:disabled / 批量+qwen→不注入 / PA→不注入）+ sabotage。
 4. **Mac Mini E2E**：flip 到 PROVIDER=doubao_21 + 无 FAST_PROVIDER → 批量 job 请求确认带 thinking:disabled + reasoning_tokens=0 + 快速成功。
 
-deepseek_full R1 的 thinking-off 可用性需单独实测（探针同 §5，换 ai-tokenhub 端点 + R1 的参数格式）。
+**deepseek_full thinking-off 已实测确认（2026-07-02）**：`thinking:{"type":"disabled"}` 有效（ai-tokenhub 用 Bifrost 网关归一化该参数）；`enable_thinking:false` 被忽略；`reasoning_effort` 值域 `[high/low/max/medium/minimal]`（可作 B3 压缩）。→ doubao_21 与 deepseek_full **同一参数** `reasoning_off_body={"thinking":{"type":"disabled"}}`，落地时一份声明两家复用。
