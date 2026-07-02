@@ -1,5 +1,5 @@
 {
-  "updated": "2026-07-02 05:10:46",
+  "updated": "2026-07-02 05:37:12",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -111,6 +111,11 @@
   "recent_changes": [
     {
       "date": "2026-07-02",
+      "what": "V37.9.218 新增 FALLBACK_ORDER 显式有序 fallback 链 + capability-aware vision fallback (用户偏好顺序 doubao_21>deepseek_full>doubao>deepseek>qwen 逐步老化, cap_score 表达不了 deepseek_full>doubao + 单槽限制 → 新机制替代单槽一物一形, primary 自动排除 flip-safe, image 请求跳过纯文本 provider). full_regression 139/0/5010, VERSION 0.37.9.85.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-07-02",
       "what": "V37.9.217 Doubao Seed 2.1 Pro Mac Mini E2E 实测 text/vision/tool_calling/streaming/reasoning 5/5 全通过 → declared 升 feature_verified (旗舰质量 bat-ball 答对+reasoning 通道+vision 精准+无乱码). full_regression 138/0/4990, tier 一致性 [], VERSION 0.37.9.84.",
       "by": "claude_code"
     },
@@ -203,11 +208,6 @@
       "date": "2026-06-30",
       "what": "DeepSeek-V4-Pro 能力探针深度实测 + 战略渐进老化 Qwen3 (VERSION 0.37.9.75→0.37.9.76)。用户「实测 DeepSeek v4 真实能力，然后逐渐老化 Qwen3」→ 先安全框定渐进迁移(摸清能力→fallback 链生产观察→证稳升主降 Qwen3 为 fallback 保回滚 Plan B)+点明 Qwen3 是多模态(文本+VL) 视觉是重中之重。能力探针 4 条 curl(用户真端点): (a)/models 404 无端点(context 真值取不到) (b)vision 400 is not a multimodal model(错误路径泄露真实部署 DeepSeek-V4-Pro-w4a8-mtp=4bit 权重 8bit 激活量化+multi-token prediction)=确认不支持视觉非未知 (c)reasoning reasoning:null/reasoning_tokens:0(content 内 CoT 答对 bat-ball 0.05 但不暴露 R1 风格 reasoning_content 通道→按项目定义 False)+⚠️质量信号 推理响应偶发乱码 token(dollars35367/only12, w4a8-mtp 量化产物答案对夹无关 token) (d)json_mode response_format=json_object 干净 {name:Bob,age:30} 无报错=✅。据实更新插件(原则 #23): json_mode False→True(declare; verified_* 6 维不含 json_mode 故无 verified 计数) + vision/reasoning 注释改实测确认不支持/无通道 + docstring 加 w4a8-mtp+乱码观察 + tier_evidence 更新(4/4 通过+vision 不支持+reasoning 无通道); tier 维持 feature_verified(verified_features 仍 text/tool_calling/streaming 3)。战略含义老化 Qwen3: DeepSeek 强文本但无视觉无 R1→不能全顶替 Qwen3, 只退役 Qwen3-235B 文本, 图片路由须留 VL(Qwen2.5-VL/doubao); adapter text+vl 按 provider 捆绑 deepseek 无 vl_model→直接 PROVIDER=deepseek 丢视觉→全迁移需跨 provider 视觉路由(候选 V37.9.76 能力路由器 text→deepseek/image→VL)+w4a8-mtp 乱码 token 是替换 fp Qwen3 质量取舍(用户领域专家权衡)。全量同步 test_providers +json_mode/vision 断言/gen_compat --fix(json_mode Yes)/minimal_runtime golden 不变(json_mode 未重排链)/router 不变。验证 full_regression 137/0/4941/governance 91/91 EXIT=0/安全 95/零凭证泄漏/tier 一致[]/VERSION 0.37.9.76。Mac Mini 部署完成: env 进 adapter+proxy plist(镜像 ARK)+bootout/bootstrap 重载(kickstart 不重读 plist env)双服务健康 0.37.9.76, deepseek 可用待命默认仍 qwen 不主动路由。下一步 Phase 2: deepseek 进 fallback 链生产观察→production_observed + 视觉路由架构 + 用户权衡 w4a8-mtp 质量。安全: DeepSeek+Doubao ARK key 对话多次建议轮换。元价值: 渐进验证第三步(声明→分项 E2E→深度能力探针), 实测推翻乐观假设(vision 当初保守不声明=对的现确认不支持/reasoning 不声明=对的无 R1 通道)+暴露量化部署质量风险为老化 Qwen3 提供诚实决策依据。",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-06-30",
-      "what": "DeepSeek-V4-Pro Mac Mini E2E 实测 → declared 升 feature_verified (VERSION 0.37.9.74→0.37.9.75)。V37.9.201 接入后用户同步 PR#762 + 设 DEEPSEEK_API_KEY+DEEPSEEK_BASE_URL 两 env → 当天 E2E。🔴 拒绝硬编码 key: 用户中途要求把 key 写进代码 → 拒绝并解释(公开仓库 git 历史不可逆泄漏+裸 IP 端点挂公网即被滥用+full_regression/preflight sk-扫描挡 push+现有 8 provider 无一硬编码全走 env+硬编码不更省事持久化用 ~/.env_shared 同 REMOTE_API_KEY/ARK_API_KEY)→ 引导 grep -q 幂等 append shell 变量持久化(不再输明文)。E2E 三件(用户 curl 真端点 原则 #11/#13): 注册(providers.py registered 9 含 deepseek + available 含 deepseek + base_url=真实私有端点 env 覆盖生效) + text(content=OK+finish_reason=stop+model 被接受) + streaming(stream:true→chat.completion.chunk SSE+delta.content 逐 token+[DONE]) + tool_calling(tools→finish_reason=tool_calls+tool_calls[].function{get_weather,city:Tokyo}) 3/3。诚实 flip(原则 #23 只声明实测过): tool_calling False→True + verified_text/streaming/tool_calling=True + tier declared→feature_verified(分项 E2E 通过但未真生产流量, 一致性不变式要求非 declared 写 tier_evidence→写 E2E 证据串); reasoning(全程 reasoning:null/reasoning_tokens:0 未触发不得声明)/vision/json_mode/verified_fallback(未真生产接管同 doubao) 保持 False。全量同步: test_providers TestDeepSeekProvider(declared 测试重写 test_tier_feature_verified_after_e2e: 3 verified+reasoning False+tier_evidence 含 E2E)/test_gen_compat declared 6→5/gen_compat --fix(能力矩阵 tool_calling Yes+档位表 feature_verified)/minimal_runtime golden 不变(deepseek 3 verified 但 cap_score 仍排 fallback_chain 尾 MATCH)/router 不变(reasoning=False→prefer reasoning 仍 qwen 胜 INV-ROUTER-001 绿)。验证 full_regression 137/0/4941/governance 91/91 EXIT=0/安全 95/零凭证泄漏(全仓 grep key/IP/token 全空)/tier 一致[]/VERSION 0.37.9.75(能力变更 tool_calling False→True+3 verified 影响路由资格+评分, 镜像 doubao V37.9.53-55 渐进验证分版本)。复杂度预算: files 不变(扩既有插件+测试)/env 不变(V37.9.201 已+2)/净 runtime 机制≈0(能力声明精度提升非新接缝)。剩余: launchd adapter/proxy source ~/.env_shared + reasoning/json/vision 专门实测 + 生产观察升 production_observed。安全: 明文 key 建议轮换。元价值: 机械化渐进验证第二次兑现(doubao→deepseek), verified_* 每项有真 curl 证据 tier 升级有据; 安全底线在用户明确要求硬编码时仍坚守(公开仓库+push 门双保险)。",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -286,14 +286,14 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 4990,
-    "last_regression": "2026-07-02 05:09 pass",
+    "test_count": 5010,
+    "last_regression": "2026-07-02 05:35 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-07-02 05:09",
-    "test_suites": 139,
+    "security_score_time": "2026-07-02 05:35",
+    "test_suites": 140,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
-    "version": "0.37.9.84",
+    "version": "0.37.9.85",
     "observer": {}
   },
   "incidents": [

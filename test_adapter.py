@@ -189,11 +189,14 @@ class TestFallbackLogic(unittest.TestCase):
         self.assertIn("502", content)
 
     def test_fallback_uses_same_clean_body(self):
-        """fallback 使用相同的 clean body（只改 model）"""
+        """fallback 使用相同的 clean body（只改 model）。
+        V37.9.218: model 来源改为 fb_model（capability-aware: image→vl_model_id / text→model_id）。"""
         with open("adapter.py") as f:
             content = f.read()
         self.assertIn('fb_clean = dict(clean)', content)
-        self.assertIn('fb_clean["model"] = fb["model_id"]', content)
+        self.assertIn('fb_clean["model"] = fb_model', content)
+        # fb_model 由 capability-aware 分支决定（text 路径仍用 model_id）
+        self.assertIn('fb_model = fb["model_id"]', content)
 
     def test_all_fallbacks_failed_message(self):
         """所有 fallback 都失败时有明确日志"""
@@ -481,12 +484,12 @@ class TestHotReloadFunctional(unittest.TestCase):
         with open("adapter.py") as f:
             src = f.read()
 
-        # 提取 _build_fallback_chain 函数定义
+        # 提取 _entry_from_registry + _build_fallback_chain（V37.9.218: 后者依赖前者 helper）
         match = re.search(
-            r'(def _build_fallback_chain\(\):.*?)(?=\n# Initial build at startup)',
+            r'(def _entry_from_registry\(.*?)(?=\n# Initial build at startup)',
             src, re.DOTALL
         )
-        assert match, "_build_fallback_chain not found"
+        assert match, "_entry_from_registry / _build_fallback_chain not found"
         cls._func_src = match.group(1)
 
     def _exec_build(self, providers=None, provider_name="qwen",
