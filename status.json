@@ -1,6 +1,6 @@
 {
-  "updated": "2026-07-02 05:37:12",
-  "updated_by": "claude_code",
+  "updated": "2026-07-02 06:10:28",
+  "updated_by": "security_score",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -111,6 +111,11 @@
   "recent_changes": [
     {
       "date": "2026-07-02",
+      "what": "运维里程碑: primary 切换 qwen→doubao_21 上线 (Mac Mini adapter plist PROVIDER=doubao_21 + .env_shared). WhatsApp 文本+图片 E2E 真验证通过 (延迟非故障). fallback 链 [deepseek_full,doubao,deepseek,qwen] — qwen 退链末尾逐步老化. doubao_21 现吃全部主流量, 档位仍 feature_verified (production_observed 待 N 天稳定生产证据).",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-07-02",
       "what": "V37.9.218 新增 FALLBACK_ORDER 显式有序 fallback 链 + capability-aware vision fallback (用户偏好顺序 doubao_21>deepseek_full>doubao>deepseek>qwen 逐步老化, cap_score 表达不了 deepseek_full>doubao + 单槽限制 → 新机制替代单槽一物一形, primary 自动排除 flip-safe, image 请求跳过纯文本 provider). full_regression 139/0/5010, VERSION 0.37.9.85.",
       "by": "claude_code"
     },
@@ -203,11 +208,6 @@
       "date": "2026-06-30",
       "what": "量化版 deepseek pending + 新增第 10 provider DeepSeek-V4-Pro 满血版 (VERSION 0.37.9.76→0.37.9.77)。用户「量化版 deepseek 先 pending，再加满血版 DeepSeek V4 Pro(deepseek-v4-pro-260425 / ai-tokenhub.com/api/v1 / sk-...)」。源于 V37.9.203 A/B 揭示 w4a8-mtp 量化偶发乱码 token → 改评估满血版。① 量化版 deepseek 加 PENDING docstring 标注(保留注册可用但暂缓作 Qwen3 迁移候选, 候选转 deepseek_full; 不删无害)。② 🔴 安全分级(公开 repo 底线): 满血版 key 走 env DEEPSEEK_FULL_API_KEY 不入库; base_url https://ai-tokenhub.com/api/v1 是公开域名(非裸 IP/路径 token)→可入库(与 openai/claude/doubao 同理, 区别于量化版私有 IP+token 走 env)——机密性按来源判定非一刀切。③ 交付 deepseek_full_provider.py(第 10 provider): model deepseek-v4-pro-260425 + bearer + 诚实 tier=declared + 保守仅 text+streaming(避免 reasoning 误声明打断 capability router V37.9.203 教训, 待 E2E flip 镜像 deepseek 渐进验证) + 缺 key available() 排除。registry 9→10。④ 全量同步 count(原则 #31): test_providers 多处 9→10 + TestDeepSeekFullProvider 4(身份/declared 诚实/available 缺 key 排除/🔴 安全守卫 regex 无 sk-key 字面量+base_url 公开域名可入库) / test_gen_compat matrix+tier 2+9→2+10+declared 5→6 / test_convergence all_known+deepseek_full / test_v37_9_52 9→10+CLI 10 providers / README+CLAUDE prose 9→10 / gen_compat --fix 能力矩阵 / minimal_runtime golden 重生成(+deepseek_full fallback_chain count 9→10 best reasoning 仍 doubao, deepseek_full text+streaming cap_score 排链尾) / router 不变(deepseek_full reasoning=False)。⑤ 验证 full_regression 137/0/4945/governance 91/91 EXIT=0/安全 95/零凭证泄漏(全仓 grep sk-key 仅 config.md 占位)/tier 一致[]/VERSION 0.37.9.77。复杂度预算: files +1(满血版插件)/env +1(DEEPSEEK_FULL_API_KEY Mac Mini)/净 runtime 机制=1 provider(复用 plugin 框架)。🔴 Mac Mini 待用户: .env_shared 设 DEEPSEEK_FULL_API_KEY → 加 adapter+proxy plist(镜像 ARK/DEEPSEEK)+bootout/bootstrap → E2E 实测满血版 text/streaming/tool_calling/json_mode/reasoning, 对比量化版乱码/质量/延迟决定 Qwen3 迁移候选 → flip verified_*。安全: 满血/量化/ARK 三 key 对话明文建议轮换。元价值: Provider Plugin 第三次消费(doubao→deepseek→deepseek_full), 同 model 双端点(量化 vs 满血)并存对比=用 provider 抽象做模型选型实验; 公开域名 base_url 可入库 vs 私有 IP+token 走 env 安全分级清晰。",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-06-30",
-      "what": "DeepSeek-V4-Pro 能力探针深度实测 + 战略渐进老化 Qwen3 (VERSION 0.37.9.75→0.37.9.76)。用户「实测 DeepSeek v4 真实能力，然后逐渐老化 Qwen3」→ 先安全框定渐进迁移(摸清能力→fallback 链生产观察→证稳升主降 Qwen3 为 fallback 保回滚 Plan B)+点明 Qwen3 是多模态(文本+VL) 视觉是重中之重。能力探针 4 条 curl(用户真端点): (a)/models 404 无端点(context 真值取不到) (b)vision 400 is not a multimodal model(错误路径泄露真实部署 DeepSeek-V4-Pro-w4a8-mtp=4bit 权重 8bit 激活量化+multi-token prediction)=确认不支持视觉非未知 (c)reasoning reasoning:null/reasoning_tokens:0(content 内 CoT 答对 bat-ball 0.05 但不暴露 R1 风格 reasoning_content 通道→按项目定义 False)+⚠️质量信号 推理响应偶发乱码 token(dollars35367/only12, w4a8-mtp 量化产物答案对夹无关 token) (d)json_mode response_format=json_object 干净 {name:Bob,age:30} 无报错=✅。据实更新插件(原则 #23): json_mode False→True(declare; verified_* 6 维不含 json_mode 故无 verified 计数) + vision/reasoning 注释改实测确认不支持/无通道 + docstring 加 w4a8-mtp+乱码观察 + tier_evidence 更新(4/4 通过+vision 不支持+reasoning 无通道); tier 维持 feature_verified(verified_features 仍 text/tool_calling/streaming 3)。战略含义老化 Qwen3: DeepSeek 强文本但无视觉无 R1→不能全顶替 Qwen3, 只退役 Qwen3-235B 文本, 图片路由须留 VL(Qwen2.5-VL/doubao); adapter text+vl 按 provider 捆绑 deepseek 无 vl_model→直接 PROVIDER=deepseek 丢视觉→全迁移需跨 provider 视觉路由(候选 V37.9.76 能力路由器 text→deepseek/image→VL)+w4a8-mtp 乱码 token 是替换 fp Qwen3 质量取舍(用户领域专家权衡)。全量同步 test_providers +json_mode/vision 断言/gen_compat --fix(json_mode Yes)/minimal_runtime golden 不变(json_mode 未重排链)/router 不变。验证 full_regression 137/0/4941/governance 91/91 EXIT=0/安全 95/零凭证泄漏/tier 一致[]/VERSION 0.37.9.76。Mac Mini 部署完成: env 进 adapter+proxy plist(镜像 ARK)+bootout/bootstrap 重载(kickstart 不重读 plist env)双服务健康 0.37.9.76, deepseek 可用待命默认仍 qwen 不主动路由。下一步 Phase 2: deepseek 进 fallback 链生产观察→production_observed + 视觉路由架构 + 用户权衡 w4a8-mtp 质量。安全: DeepSeek+Doubao ARK key 对话多次建议轮换。元价值: 渐进验证第三步(声明→分项 E2E→深度能力探针), 实测推翻乐观假设(vision 当初保守不声明=对的现确认不支持/reasoning 不声明=对的无 R1 通道)+暴露量化部署质量风险为老化 Qwen3 提供诚实决策依据。",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -279,7 +279,8 @@
       "V37.9.124 #29 follow-up (低优, 防重复调查): INV runtime 收窄约定已立 (test_v37_9_124 docstring) — 套件含 env-dependent test 的 INV 跑契约核心类非全套件; 纯逻辑套件跑全. 未来新 INV 跑的套件含 env-dependent test (读 repo 外真实系统状态) 时按此收窄到契约核心类 (镜像 INV-OBSERVER-001/INV-DREAM-CROSS-DOMAIN).",
       "V37.9.213 daily_observer 自评 follow-up (Mac-Mini-gated, dev 不可执行): (F3) evening 07-01 缺失=真 job 瞬态失败 (非 observer bug, writer/reader 路径日期逐字一致), 诊断: cat ~/.kb/last_run_evening.json (预期 status=llm_failed/collector_failed) + grep SYSTEM_ALERT ~/kb_evening.log + ls ~/.kb/daily/evening_20260701.md 确认真缺。 (F1) 同步后次日 06:30 报告 deep_dive 段降级原因分解将告知哪类占主导 (非全文来源=付费墙结构性接受 / PDF·HTML 抓取失败=可修 fetch-path), 据此决定是否投 OA 解析加固 —— deep_dive 77% 根因诊断从此自助不需 Mac Mini grep (V37.9.213 F1 兑现)。 (潜伏低优) evening/deep_dive 用 system-local date vs dream 用 HKT TZ, 一物一形不一致, TZ 近午夜漂移可能日期偏移, 非本次成因。",
       "V37.9.214 governance 审计间歇 fail — root-cause + B2 均已修 (剩 Mac Mini bash3.2 验证 + 潜在类): 根因 INV-REVIEW-001 kb_review.sh subprocess 负载超时 💥 已修 (timeout 45→90 + TimeoutExpired inconclusive)。 B2 假 FATAL line=101 = bash 3.2 errtrace re-enable landmine (3 次复发 whack-a-mole, dev bash5.x 不复现) 已日落法根治 (set +E 一次不再 re-enable, errexit+顶部 set -eEuo 保留)。 🔴 B2 修复只能 Mac Mini bash 3.2 验证: 同步后观察后续冷/负载失败是否还伴 FATAL 假告警 (预期消失); 仍出现则 bash -x ~/governance_audit_cron.sh 2>/tmp/gac_x.txt 抓 trace。 (潜在类, 不盲修) INV-WATCHDOG-SELF-001 6× 并行 ❌ = 自并行争用 artifact 非生产; '治理 runtime check 对负载敏感' 待系统性评估。 (清陈旧) bash ~/governance_audit_cron.sh 现全过写 pass 清 watchdog flag。",
-      "低优观察 (登记不修, 日落法 #8): auto_deploy FILE_MAP 同步用 cp 非原子写 → 脚本在同步窗口内被并发执行会读半截文件 (2026-07-02 11:41 governance_audit_cron.sh 同步 #781 时被手动跑 → line 85 $() 截断 = 'syntax error near governance' 瞬态, 重跑即好 bash -n 过+diff 同步)。极低频(同步写×并发执行精确重叠)+自愈+非代码 bug。若未来 07:00 cron 与 auto_deploy 同步真撞上(复现) 才值得让 auto_deploy 改原子写 temp+mv。当前不投机加复杂度。"
+      "低优观察 (登记不修, 日落法 #8): auto_deploy FILE_MAP 同步用 cp 非原子写 → 脚本在同步窗口内被并发执行会读半截文件 (2026-07-02 11:41 governance_audit_cron.sh 同步 #781 时被手动跑 → line 85 $() 截断 = 'syntax error near governance' 瞬态, 重跑即好 bash -n 过+diff 同步)。极低频(同步写×并发执行精确重叠)+自愈+非代码 bug。若未来 07:00 cron 与 auto_deploy 同步真撞上(复现) 才值得让 auto_deploy 改原子写 temp+mv。当前不投机加复杂度。",
+      "doubao_21 primary 已上线 (feature_verified) — 待 N 天稳定生产证据(质量/延迟/无乱码/fallback 触发率) → 据实升 production_observed (原则 #23 不凭空升档). qwen 在 fallback 链末尾老化, 确认长期不被需要后从 FALLBACK_ORDER 移除缩链 (日落法)."
     ],
     "open_prs": "",
     "blocked_on": ""
@@ -287,9 +288,9 @@
   "quality": {
     "security_score": 95,
     "test_count": 5010,
-    "last_regression": "2026-07-02 05:35 pass",
+    "last_regression": "2026-07-02 06:09 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-07-02 05:35",
+    "security_score_time": "2026-07-02 06:09",
     "test_suites": 140,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
@@ -358,7 +359,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-07-02: 观察者自评(V37.9.213)+watchdog 告警(V37.9.214)连续驱动 surface-the-reason。V37.9.213 F1 deep_dive 降级原因 4 桶分解 + F2 dream head 采样假阳性 snap 修复(已部署 Mac Mini preflight 86/0/1)。V37.9.214 B1: governance_audit_cron 告警 grep ❌→❌|💥(冷失败 💥 error 被漏报致告警不说哪个 check)。🔴 治理审计间歇性 cold fail(4.27 冷调用类 V37.9.145)根因待 Mac Mini: B1 已 enable 下次失败自报 💥 check 名 → V37.9.157 式隔离; B2 假 FATAL line=101 需 bash -x 冷 trace。仍 gated: LLM-Observer shadow 周~7/7 flip / IEEE·ISSRE in-review / DeepSeek Phase 2。",
+  "focus": "primary 已切 doubao_21 (V37.9.216-218 + 运维切换全落地, WhatsApp 文本+图片 E2E 通过, qwen 退 fallback 链末尾老化). 下一步: doubao_21 稳定 N 天 → 升 production_observed; qwen 长期不被需要 → 从 FALLBACK_ORDER 移除 (日落法).",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
@@ -368,9 +369,5 @@
   ],
   "_meta": {
     "last_updated_by": "claude_code"
-  },
-  "session_context.unfinished": [
-    "V37.9.206 Phase 2: deepseek_full 已进 fallback 链但 verified_fallback=False——待 Qwen3 真宕接管一次, 观察质量/延迟后升 production_observed (逐渐老化 Qwen3 的决策证据)",
-    "安全: 对话中出现过的三个 key (deepseek 满血 sk-f3a3ee.../量化 sk-80f0d9.../ARK ark-cd0de70...) 建议轮换"
-  ]
+  }
 }
