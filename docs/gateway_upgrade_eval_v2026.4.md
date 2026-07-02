@@ -757,4 +757,57 @@ declared version 字段随 doctor 重写的 openclaw.json 变化，如报 drift 
 
 ---
 
+## 第十六节：2026-07-02 上游情报收集（unfinished [5](c) 兑现 + [9] Option A 复核，V37.9.225）
+
+> 方法注记：dev 沙箱 api.github.com 对 session 外仓库被代理拦截，本节改用 **npm registry tarball 实证**
+> （registry.npmjs.org 可达）：提取 CHANGELOG.md + dist zod-schema + whatsapp connection-controller
+> 源码直接验证 —— 代码即事实，比 release notes 转述更权威。无升级动作（tripwire 不自动升级）。
+
+### 16.1 上游版本状态
+
+- dist-tags：latest = **2026.6.11**（2026-06-30 发布）/ beta = 2026.7.1-beta.1（2026-07-02）。
+- 自第五次评估（6/8，当时上游 2026.6.1）以来 stable 节奏恢复：6.6 → 6.8 → 6.9 → 6.10 → 6.11。
+- SQLite 迁移机制**仍在活跃改动**（6.11 含 #95857 "Fix SQLite user version guardrail allowlist" +
+  #95916 node:sqlite guidance）→ hold 决策登记的 6.x migration 风险面仍真实，维持 hold。
+
+### 16.2 CLI 冷调用/plugin staging 修复定位（V37.9.145 回归的上游收敛点）
+
+2026.6.11 changelog（覆盖 v2026.6.10..HEAD，308 PRs，即全部为 6/24-6/30 窗口合并）含三个直接命中：
+
+| PR | 内容 | 对应本地症状 |
+|----|------|-------------|
+| #93356 | fix(plugins): cache plugin setup registry to kill the **/models CPU storm** | 冷调用 ~40s user CPU（V37.9.145 定性） |
+| #93919 | perf(plugins): cache existence probes within **bundle manifest scan** | plugin staging 反复扫描（V37.9.156 (b)） |
+| #89628 | Speed up precomputed command **help startup** | CLI 冷启动面 |
+
+**这些 PR 在 6.10→6.11 窗口合并 → 构造上不可能在 4.27（4 月底 cut）里** → 冷调用缓解在 4.27 上
+仍靠 notify.sh 重试+队列（V37.9.145 已闭合丢失面，现状可接受）；根治随未来升级到 ≥2026.6.11 获得。
+这是未来升级评估时 6.x 收益侧的新增筹码（与 6.x SQLite/plugin breaking 成本侧对冲）。
+
+### 16.3 #56365 已 closed（PR #73580）+ 4.27/6.11 schema 对比实证
+
+- **#56365（makeWASocket config passthrough）已 closed，经 PR #73580 修复**：暴露 Baileys socket
+  timing（`defaultQueryTimeoutMs` / `keepAliveIntervalMs` / `connectTimeoutMs`）与 proxy `agent`。
+- tarball schema 实证：`web.whatsapp.{keepAliveIntervalMs, connectTimeoutMs, defaultQueryTimeoutMs}`
+  在 **2026.6.11 schema 存在、2026.4.27 schema 不存在** → socket timing 透传需升级 6.x 才可用。
+
+### 16.4 🔴 V37.9.180 Option A「证伪」修正：4.27 本就有 web.reconnect（路径错误误判）
+
+- 4.27 `zod-schema-CxqiRMUZ.js` 实证：**顶层** `web.reconnect.{initialMs, maxMs, factor, jitter,
+  maxAttempts}`（strict）存在。
+- 消费方实证：`extensions/whatsapp/connection-controller` 的 `resolveReconnectPolicy(cfg)` 读
+  `cfg.web?.reconnect`，merge 进 `DEFAULT_RECONNECT_POLICY {initialMs:2000, maxMs:30000,
+  factor:1.8, jitter:0.25, maxAttempts:12}` —— 默认 12 与 V37.9.162 血案日志「Retry 1/12」吻合。
+- **V37.9.180 的结论「4.27 strict schema 拒绝该键」是路径错误**：当时试的
+  `channels.whatsapp.web.reconnect.maxAttempts`（channels.whatsapp 下无 web 键 → 被 strict 拒绝），
+  正确路径是**顶层** `web.reconnect.*`。Option A（重连风暴限制）在已安装 4.27 上今天即可配置。
+- 对症分析：血案是 6h 风暴 = 多轮 12-attempt 循环，`maxAttempts` 默认已 12 → 真正杠杆是**拉长退避**
+  （`maxMs` 30s → 300s+ 降低风暴请求密度一个量级）；风暴中断后频道退出由 V37.9.162 wa_channel_status
+  检测 + Discord escalation 兜底（MR-14）。
+- 🔴 Mac Mini 验证项（用户执行）：`openclaw config set web.reconnect.maxMs 300000` → 确认 config set
+  接受（schema 验证即证明）→ 重启后 `openclaw config get web.reconnect` 确认 canonicalize 保留
+  （V37.9.180 教训：手改 openclaw.json 会被剥，必须走 config set）→ 后续重连日志观察退避拉长。
+
+---
+
 *本文档为评估报告，不执行任何升级操作。升级决策由用户做出。*
