@@ -30,9 +30,9 @@
     ],
     "fallback_chain": [
       "doubao",
+      "doubao_21",
       "gemini",
       "openai",
-      "doubao_21",
       "kimi",
       "minimax",
       "glm",
@@ -49,9 +49,9 @@
   "non_deterministic": {
     "provider_count": 11,
     "step_timings_ms": {
-      "provider_registry": 23,
-      "tool_governance": 44,
-      "policy_ontology": 11
+      "provider_registry": 21,
+      "tool_governance": 59,
+      "policy_ontology": 20
     }
   }
 }

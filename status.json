@@ -1,5 +1,5 @@
 {
-  "updated": "2026-07-02 04:37:32",
+  "updated": "2026-07-02 05:10:46",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -111,6 +111,11 @@
   "recent_changes": [
     {
       "date": "2026-07-02",
+      "what": "V37.9.217 Doubao Seed 2.1 Pro Mac Mini E2E 实测 text/vision/tool_calling/streaming/reasoning 5/5 全通过 → declared 升 feature_verified (旗舰质量 bat-ball 答对+reasoning 通道+vision 精准+无乱码). full_regression 138/0/4990, tier 一致性 [], VERSION 0.37.9.84.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-07-02",
       "what": "V37.9.216 新增第 11 个 LLM provider Doubao Seed 2.1 Pro 旗舰 (火山引擎 Ark, env-驱动 key+endpoint 守公开 repo 安全底线, declared 档位待 Mac Mini E2E 实测, VERSION 0.37.9.83). full_regression 138/0/4990 (+5), 安全扫描零泄漏, governance 91/91 EXIT=0.",
       "by": "claude_code"
     },
@@ -203,11 +208,6 @@
       "date": "2026-06-30",
       "what": "DeepSeek-V4-Pro Mac Mini E2E 实测 → declared 升 feature_verified (VERSION 0.37.9.74→0.37.9.75)。V37.9.201 接入后用户同步 PR#762 + 设 DEEPSEEK_API_KEY+DEEPSEEK_BASE_URL 两 env → 当天 E2E。🔴 拒绝硬编码 key: 用户中途要求把 key 写进代码 → 拒绝并解释(公开仓库 git 历史不可逆泄漏+裸 IP 端点挂公网即被滥用+full_regression/preflight sk-扫描挡 push+现有 8 provider 无一硬编码全走 env+硬编码不更省事持久化用 ~/.env_shared 同 REMOTE_API_KEY/ARK_API_KEY)→ 引导 grep -q 幂等 append shell 变量持久化(不再输明文)。E2E 三件(用户 curl 真端点 原则 #11/#13): 注册(providers.py registered 9 含 deepseek + available 含 deepseek + base_url=真实私有端点 env 覆盖生效) + text(content=OK+finish_reason=stop+model 被接受) + streaming(stream:true→chat.completion.chunk SSE+delta.content 逐 token+[DONE]) + tool_calling(tools→finish_reason=tool_calls+tool_calls[].function{get_weather,city:Tokyo}) 3/3。诚实 flip(原则 #23 只声明实测过): tool_calling False→True + verified_text/streaming/tool_calling=True + tier declared→feature_verified(分项 E2E 通过但未真生产流量, 一致性不变式要求非 declared 写 tier_evidence→写 E2E 证据串); reasoning(全程 reasoning:null/reasoning_tokens:0 未触发不得声明)/vision/json_mode/verified_fallback(未真生产接管同 doubao) 保持 False。全量同步: test_providers TestDeepSeekProvider(declared 测试重写 test_tier_feature_verified_after_e2e: 3 verified+reasoning False+tier_evidence 含 E2E)/test_gen_compat declared 6→5/gen_compat --fix(能力矩阵 tool_calling Yes+档位表 feature_verified)/minimal_runtime golden 不变(deepseek 3 verified 但 cap_score 仍排 fallback_chain 尾 MATCH)/router 不变(reasoning=False→prefer reasoning 仍 qwen 胜 INV-ROUTER-001 绿)。验证 full_regression 137/0/4941/governance 91/91 EXIT=0/安全 95/零凭证泄漏(全仓 grep key/IP/token 全空)/tier 一致[]/VERSION 0.37.9.75(能力变更 tool_calling False→True+3 verified 影响路由资格+评分, 镜像 doubao V37.9.53-55 渐进验证分版本)。复杂度预算: files 不变(扩既有插件+测试)/env 不变(V37.9.201 已+2)/净 runtime 机制≈0(能力声明精度提升非新接缝)。剩余: launchd adapter/proxy source ~/.env_shared + reasoning/json/vision 专门实测 + 生产观察升 production_observed。安全: 明文 key 建议轮换。元价值: 机械化渐进验证第二次兑现(doubao→deepseek), verified_* 每项有真 curl 证据 tier 升级有据; 安全底线在用户明确要求硬编码时仍坚守(公开仓库+push 门双保险)。",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-06-30",
-      "what": "新增第 9 个 LLM provider DeepSeek-V4-Pro (VERSION 0.37.9.73→0.37.9.74)。用户提供端点。🔴 安全第一(CLAUDE 硬规则+公开仓库): key 走 env DEEPSEEK_API_KEY, base_url(裸 IP+路径 token=类机密)走 env DEEPSEEK_BASE_URL, 都不入库; dev 无 env → 公开 fallback api.deepseek.com 让合约通过 + available() 缺 key 排除 (镜像 doubao V37.9.52 安全模式)。诚实(原则 #23): DeepSeek-V4-Pro 是未知自建端点无依据声明 tool_calling/reasoning → 保守只声明 text+streaming, tier=declared verified_* 全 False, 待 Mac Mini E2E 逐项 flip。Python 插件 providers.d/deepseek_provider.py。registry 8→9。全量同步 count(原则 #31): test_providers 5 处+canary deepseek→custom / test_gen_compat 2+8→2+9+declared 5→6 / test_convergence all_known+deepseek / test_v37_9_52 8→9+CLI 9 providers / README+CLAUDE prose current-state 8→9(不碰 frozen changelog) / gen_compat --fix 三表 / gen_readme_badges --write 徽章+版本 / minimal_runtime golden 重生成(+deepseek fallback_chain, count 8→9, best reasoning 仍 doubao)。修 router test 级联: 起初声明 reasoning=True → test_prefer_adds_score_boost deepseek 抢 qwen → INV-ROUTER-001 runtime check 跑该 test 失败 → governance 90/91 + badges 行为测试连带失败 → 改保守不声明 reasoning → qwen 仍胜 → 三连锁失败全修(原则 #28 理解级联根因)。TestDeepSeekProvider 5: 身份/declared 诚实/base_url env 驱动(无 env 公开 fallback/有 env 私有)/available() 缺 key 排除/🔴 安全守卫 test_no_secret_hardcoded(regex 无裸 IPv4+无 sk-key+引用两 env+公开 fallback, 测试本身不嵌明文机密)。验证 full_regression 137/0/4941/suites 138/governance 91/91 EXIT=0/安全 95/零凭证泄漏(全仓 grep key/IP/token 全空)/VERSION 0.37.9.74。复杂度预算: files +1(插件)/env +2(DEEPSEEK_API_KEY+BASE_URL Mac Mini, dev 优雅降级)/净 runtime 机制=1 provider(复用 plugin 框架+available()过滤+doubao 安全模式非新框架)。🔴 Mac Mini 待用户: 合并同步 → .env_shared 设两 env → 重启 → E2E 实测 → flip verified_*。安全提醒: 明文 key 贴对话建议轮换。",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -287,13 +287,13 @@
   "quality": {
     "security_score": 95,
     "test_count": 4990,
-    "last_regression": "2026-07-02 04:34 pass",
+    "last_regression": "2026-07-02 05:09 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-07-02 04:34",
+    "security_score_time": "2026-07-02 05:09",
     "test_suites": 139,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
-    "version": "0.37.9.83",
+    "version": "0.37.9.84",
     "observer": {}
   },
   "incidents": [
