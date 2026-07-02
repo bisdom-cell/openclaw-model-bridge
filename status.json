@@ -1,6 +1,6 @@
 {
-  "updated": "2026-07-02 09:51:32",
-  "updated_by": "full_regression",
+  "updated": "2026-07-02 10:25:30",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -111,6 +111,11 @@
   "recent_changes": [
     {
       "date": "2026-07-02",
+      "what": "V37.9.223: 全部 doubao+deepseek 四家同款声明 reasoning_off_body (任何切换独立成 primary)；doubao 2.0 家族推断+deepseek 量化双重不确定，两者 docstring 标 UNTESTED + 作 primary 前须探针 (原则 #23)",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-07-02",
       "what": "V37.9.222 B1 代码落地 (未部署 flip): 用户「doubao_21 作唯一 primary 有无 tools 都压测」→ 实现 B1 (providers.py reasoning_off_body 字段 doubao_21/deepseek_full={thinking:disabled} + adapter _is_batch_workload/_batch_reasoning_off_body 纯函数 + do_POST 批量注入). 18 新单测+sabotage 验证. full_regression 139/0/5038, VERSION 0.37.9.87. ⚠️ 厘清: 当前 Mac Mini 是 A2 态 (doubao_21 primary + FAST_PROVIDER=qwen 批量→qwen, V37.9.221 已 flip E2E 正常); B1 flip (撤 FAST_PROVIDER 让批量→doubao_21 thinking-off) 代码就绪但待 Mac Mini 部署 (合并+同步+撤 FAST_PROVIDER+重启+验证 B1 注入). A2/B1 互补, 回滚=重设 FAST_PROVIDER=qwen.",
       "by": "claude_code"
     },
@@ -203,11 +208,6 @@
       "date": "2026-07-01",
       "what": "V37.9.211 端点刷新 Mac Mini E2E ✅ 验证通过: adapter plist EnvironmentVariables Set REMOTE_API_KEY(新)+Add REMOTE_BASE_URL(http://<新IP>:8000/v1) → restart.sh bootout/bootstrap 重读 plist → adapter 启动行 -> 新端点 + 真请求 RESPONSE 200 809ms PRIMARY 无 fallback + 返回 Qwen3 model+PONG。诊断证实之前 adapter 用旧 key+旧死域名(521)全流量走 deepseek_full 兜底(非 Qwen3), 根因 = launchd job env 来自 plist 不继承 shell export(kickstart -k 不重读 plist)。Primary Qwen3 恢复, WhatsApp/PA 回到 Qwen3。de-risk 判断证实: dev curl 超时是网络限制非端点死(feedback #1)。剩余非紧急: .env_shared 设新 env(cron 直连 health_check 周报) + V37.9.212 PR 合并同步 + 明文 key 建议轮换。",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-07-01",
-      "what": "V37.9.212: Qwen3 端点刷新 原则 #31 全量同步 — 直连 ops 脚本 env 化(VERSION 不变)。V37.9.211 adapter 修好但 Mac Mini 诊断确认漏了直连远端 LLM 的脚本: diagnose.sh:62 + health_check.sh:54 硬编码旧死域名 hkagentx/v1/models(521 失效); finance_news:768 走 localhost:5001 经 adapter 无需改; install 脚本 QWEN_BASE_URL 与 adapter 读的 REMOTE_BASE_URL 不一致。🔴 安全: 绝不硬编码新裸 IP → 全 env 化 ${REMOTE_BASE_URL:-公开域名}/models; install 加 REMOTE_BASE_URL=QWEN_BASE_URL 别名。full_regression 138/0/4954 不变 + 安全零硬编码 + VERSION 0.37.9.81 不变(ops 脚本非核心 runtime)。🔴 Mac Mini 待用户: adapter plist(V37.9.211) + .env_shared 都须设新 REMOTE_API_KEY+REMOTE_BASE_URL(cron 健康周报直连脚本)。",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -287,14 +287,14 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 5038,
-    "last_regression": "2026-07-02 09:51 pass",
+    "test_count": 5040,
+    "last_regression": "2026-07-02 10:23 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-07-02 09:51",
+    "security_score_time": "2026-07-02 10:23",
     "test_suites": 140,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
-    "version": "0.37.9.87",
+    "version": "0.37.9.88",
     "observer": {}
   },
   "incidents": [
@@ -359,7 +359,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "doubao_21 primary 已上线 (V37.9.221 A2 态: PROVIDER=doubao_21 + FAST_PROVIDER=qwen, 批量→qwen, E2E 验证正常). V37.9.222 B1 代码就绪+推送 (batch reasoning-off 注入, doubao_21 单模型通吃 batch), 但 Mac Mini B1 flip 待部署 (合并+同步+撤 FAST_PROVIDER+重启 → 验证 B1 REASONING-OFF 注入). B1 flip 后 doubao_21 去 qwen 依赖. deepseek_full 第一 fallback. 回滚: 重设 FAST_PROVIDER=qwen 恢复 A2 批量→qwen (随时可用). 下一步: B1 flip 部署 → 观察 N 天 → doubao_21 升 production_observed.",
+  "focus": "V37.9.223 全 doubao/deepseek 家族 reasoning_off_body config-ready 已推送；doubao_21 仍 primary (V37.9.222 flip)。待用户: 合并+同步；切 primary 到 doubao 2.0/deepseek 量化前须探针确认 thinking:disabled (doubao 2.0 高置信同 Ark, deepseek 量化低置信 self-host 网关未测若 400 须移除)。观察 doubao_21 N 天→production_observed。follow-up: B1 注入经 fb_clean 传播到 fallback (line 695) 潜在 qwen-fallback 400 边缘。",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",

@@ -92,6 +92,8 @@ git fetch+reset 同步 → auto_deploy 把 adapter.py rsync 到运行时 → ada
 
 → **`thinking:{"type":"disabled"}` 是 doubao-seed-2-1-pro 的合法 Ark 参数，B1 可行**：doubao_21 一个模型能同时服务 PA（thinking on，reasoning 质量）+ 批量（thinking off，17s 级）。**qwen 退役后不需要任何替代快 provider。**
 
+**B1 flip 生产上线（2026-07-02，PROVIDER=doubao_21 + 撤 FAST_PROVIDER）+ 意外惊喜**：Mac Mini flip 后 github_trending 10/10 成功，且**批量在 doubao_21 thinking-off 上比 A2（批量→qwen 分流）时更快**——火山 Ark 托管云高并发 > 自建 qwen W8A8 端点（有 queue_wait_time）。**结论升级：qwen 退役从「可行」（doubao_21 能接批量）变为「有收益」（doubao_21 接批量更快）**。B1 是终局主路径（去 qwen 依赖 + 性能更优），A2（FAST_PROVIDER 分流）降为可选/回滚路径。
+
 **B1 双 provider 实测确认（2026-07-02，两家都支持 `thinking:{"type":"disabled"}`）**：
 
 | provider | 端点 | thinking:disabled 结果 |

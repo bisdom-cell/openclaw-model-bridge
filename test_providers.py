@@ -1791,22 +1791,37 @@ class TestReasoningOffBodyB1(unittest.TestCase):
         from providers import get_provider
         self.assertIsNone(get_provider("qwen").reasoning_off_body)
 
-    def test_doubao2_no_reasoning_off(self):
-        # doubao 2.0 未实测 thinking-off → 诚实保持 None (原则 #23)
+    def test_doubao2_declares_reasoning_off(self):
+        # V37.9.223: doubao 2.0 同 Ark 家族 (family-inferred, 未在此 endpoint 单独实测) → 声明,
+        # 作 primary 前须探针 (原则 #23 docstring 已标 untested)
         from providers import get_provider
-        self.assertIsNone(get_provider("doubao").reasoning_off_body)
+        self.assertEqual(get_provider("doubao").reasoning_off_body, self._OFF)
+
+    def test_deepseek_quantized_declares_reasoning_off(self):
+        # V37.9.223: deepseek 量化版声明 (镜像 deepseek_full); ⚠️ 非-reasoning + self-host 网关未测,
+        # 作 primary 前【必须】探针 (docstring 已标 400 风险 + PENDING 时注入 inert)
+        from providers import get_provider
+        self.assertEqual(get_provider("deepseek").reasoning_off_body, self._OFF)
+
+    def test_qwen_still_no_reasoning_off(self):
+        # 非 doubao/deepseek 家族仍 None: qwen 已通过上面 test_qwen_no_reasoning_off 覆盖;
+        # 此处守卫 gemini (纯文本非-reasoning built-in) 不误声明
+        from providers import get_provider
+        self.assertIsNone(get_provider("gemini").reasoning_off_body)
 
     def test_flows_to_legacy_dict(self):
         # B1 依赖 adapter 从 PROVIDERS dict 读 reasoning_off_body → to_legacy_dict 必须暴露
         from providers import get_provider
         self.assertEqual(get_provider("doubao_21").to_legacy_dict().get("reasoning_off_body"), self._OFF)
+        self.assertEqual(get_provider("doubao").to_legacy_dict().get("reasoning_off_body"), self._OFF)
         self.assertNotIn("reasoning_off_body", get_provider("qwen").to_legacy_dict())
 
-    def test_both_providers_same_body(self):
-        # 双 provider 同一片段 = 一份声明两家复用 (Bifrost 网关 + Ark 原生同参数)
+    def test_all_doubao_deepseek_same_body(self):
+        # V37.9.223: 全部 doubao + deepseek 同一片段 = 一份声明四家复用 (任何切换独立成 primary)
         from providers import get_provider
-        self.assertEqual(get_provider("doubao_21").reasoning_off_body,
-                         get_provider("deepseek_full").reasoning_off_body)
+        for name in ("doubao_21", "doubao", "deepseek_full", "deepseek"):
+            self.assertEqual(get_provider(name).reasoning_off_body, self._OFF,
+                             f"{name} 应声明 reasoning_off_body (V37.9.223 全家族同款)")
 
 
 if __name__ == "__main__":
