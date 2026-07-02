@@ -60,14 +60,17 @@
 
 **排除项**（不是这些）：adapter 宕机（/health 200 + 短请求 7s）/ doubao_21 端点故障（test OK）/ auth / env / fallback 链配置 —— 全部正常。**是 reasoning 模型对批量长请求的延迟问题**。
 
-## 六、遗留（doubao_21 迁移真门槛）
+## 六、迁移门槛 → 已实现方案（V37.9.221 方案 A2）
 
-让 doubao_21 能重新作 primary 的前提是**批量 job 走快速路径**，候选：
-1. **capability router 分流**（V37.9.76 shadow）：PA/交互 → doubao_21（reasoning 质量），批量 job → 快速非 reasoning provider
-2. **doubao_21 reasoning 上限/关闭**：批量 job 请求带参数抑制 reasoning（若端点支持）
-3. **job 用独立快 provider**：批量 job 显式指定 provider（需 adapter 支持 per-request provider override，当前 adapter 用全局 PROVIDER env 忽略请求 model）
+让 doubao_21 能重新作 primary 的前提是**批量 job 走快速路径**。**已选并实现方案 A2（单点 workload 路由）**（详见 `docs/doubao21_workload_routing_design.md`）：
 
-在此之前 doubao_21 保持 fallback 链首，不作 primary。
+- **adapter 一处规则**：无 tools（纯推理=批量，规则 #27）→ fast provider（`FAST_PROVIDER`，如 qwen）；有 tools（PA agent）→ primary（doubao_21 reasoning 质量）。复用现有 `FAST_ROUTE` 基础设施，`_classify_fast_route` 纯函数可单测。
+- **为何单点而非 per-job**：grounding 发现 LLM 调用点是 24 个异构站点，逐站点加 `?provider=qwen` 脆弱高 churn 违一物一形；单点规则自动覆盖全部消费方（新 job 无需改）。
+- **no-op until flip**：`FAST_ROUTE` 仅 `FAST_PROVIDER≠PROVIDER` 时非空，故 PROVIDER=qwen 时零行为变化，flip PROVIDER=doubao_21 后才 load-bearing。
+
+评估过但未选：② doubao_21 reasoning 上限（依赖 Ark 端点参数支持，待验证，可作 A2 补充让 doubao_21 覆盖更多 workload）/ ③ per-request `?provider=` override（`?provider=` 机制已存在但需逐站点加，即 A1，弃）。
+
+代码已实现（no-op），剩余 = Mac Mini 部署验证 + flip（design doc 第 5 节 runbook）。在 flip 前 doubao_21 保持 fallback 链首，PROVIDER=qwen。
 
 ## 七、次生观察（不阻塞，登记）
 
