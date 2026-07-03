@@ -97,11 +97,24 @@ _notify_send_with_retry() {
     local attempt=0 delay=2
     local send_err="" last_err=""
 
+    # V37.9.236: $() 内的设计性可失败命令必须在子 shell 内层守卫（|| 哨兵）——
+    # governed caller（set -eE + trap ERR）的 ERR trap 在 macOS bash 3.2 下会被
+    # $() 子 shell 继承，外层 && / || true 救不了子 shell 内部（V37.9.105/131 quirk 同族）。
+    # openclaw 设计性非零退出（4.27 冷调用超时/瞬态失败 = 本重试循环的日常输入）曾在
+    # 子 shell 内误触发 caller 的 ERR trap → 假 "<label> FATAL abort exit=1 line=101"。
+    # 2026-07-03 血案: auto_deploy×2 + watchdog + governance_audit(V37.9.214) 三脚本
+    # 同报 line=101 —— 那个 101 就是本文件此发送行（LINENO 报 sourced 文件内行号）。
+    # 哨兵让子 shell 末命令永远成功，失败经哨兵字符串带出，主 shell 剥哨兵判 rc。
     while [ "$attempt" -lt "$_NOTIFY_MAX_RETRIES" ]; do
-        send_err=$("$OPENCLAW" message send --channel "$channel" --target "$target" --message "$msg" --json 2>&1 >/dev/null) && {
-            [ "$attempt" -gt 0 ] && echo "[notify] OK: $channel 第$((attempt+1))次重试成功" >&2
+        send_err=$("$OPENCLAW" message send --channel "$channel" --target "$target" --message "$msg" --json 2>&1 >/dev/null || printf '\n%s' '__NOTIFY_SEND_RC_FAIL__')
+        if [ "${send_err%__NOTIFY_SEND_RC_FAIL__}" = "$send_err" ]; then
+            if [ "$attempt" -gt 0 ]; then
+                echo "[notify] OK: $channel 第$((attempt+1))次重试成功" >&2
+            fi
             return 0
-        }
+        fi
+        send_err="${send_err%__NOTIFY_SEND_RC_FAIL__}"
+        send_err="${send_err%$'\n'}"
         last_err="$send_err"
         # V37.9.180: 4.27 CLI 冷调用超时 = gateway 已投递但 CLI 10s 放弃。按已投递处理:
         # 不重试（避免重复投递，2026-06-18 WhatsApp 3 条重复血案）、记 WARN 可观测。
@@ -151,10 +164,10 @@ _notify_drain_queue() {
     while IFS= read -r stale; do
         [ -n "$stale" ] || continue
         mv "$stale" "${stale%%.claim.*}" 2>/dev/null || true
-    done <<< "$(find "$_NOTIFY_QUEUE_DIR" -name "*.claim.*" -type f -mmin +10 2>/dev/null)"
+    done <<< "$(find "$_NOTIFY_QUEUE_DIR" -name "*.claim.*" -type f -mmin +10 2>/dev/null || true)"
 
     local qfiles
-    qfiles=$(find "$_NOTIFY_QUEUE_DIR" -name "*.json" -type f 2>/dev/null | sort)
+    qfiles=$({ find "$_NOTIFY_QUEUE_DIR" -name "*.json" -type f 2>/dev/null || true; } | sort)
     [ -z "$qfiles" ] && return 0
 
     local count
@@ -167,16 +180,27 @@ _notify_drain_queue() {
         # V37.9.230 (审计 finding D): 原子 claim — 只有 mv 赢家处理该条目
         claim="$f.claim.$$"
         mv "$f" "$claim" 2>/dev/null || continue
-        channel=$(python3 -c "import json,sys; print(json.load(sys.stdin)['channel'])" < "$claim" 2>/dev/null) || { mv "$claim" "$f" 2>/dev/null; continue; }
-        target=$(python3 -c "import json,sys; print(json.load(sys.stdin)['target'])" < "$claim" 2>/dev/null) || { mv "$claim" "$f" 2>/dev/null; continue; }
-        msg=$(python3 -c "import json,sys; print(json.load(sys.stdin)['msg'])" < "$claim" 2>/dev/null) || { mv "$claim" "$f" 2>/dev/null; continue; }
+        # V37.9.236: 解析失败守卫移到 $() 内层（|| true）——外层 || 救不了 bash 3.2
+        # 子 shell 内的 ERR trap 继承（损坏 claim 文件 → json.load 非零 → 假 FATAL 同族）。
+        # 空输出判失败安全: 队列文件由 _notify_queue_failed 写入，channel/target/msg 永非空
+        # （notify() 入口拒绝空 msg）。
+        channel=$(python3 -c "import json,sys; print(json.load(sys.stdin)['channel'])" < "$claim" 2>/dev/null || true)
+        [ -n "$channel" ] || { mv "$claim" "$f" 2>/dev/null || true; continue; }
+        target=$(python3 -c "import json,sys; print(json.load(sys.stdin)['target'])" < "$claim" 2>/dev/null || true)
+        [ -n "$target" ] || { mv "$claim" "$f" 2>/dev/null || true; continue; }
+        msg=$(python3 -c "import json,sys; print(json.load(sys.stdin)['msg'])" < "$claim" 2>/dev/null || true)
+        [ -n "$msg" ] || { mv "$claim" "$f" 2>/dev/null || true; continue; }
 
         local replay_err=""
-        replay_err=$("$OPENCLAW" message send --channel "$channel" --target "$target" --message "$msg" --json 2>&1 >/dev/null) && {
+        # V37.9.236: 哨兵守卫（同 _notify_send_with_retry 发送行，防子 shell errtrace 假 FATAL）
+        replay_err=$("$OPENCLAW" message send --channel "$channel" --target "$target" --message "$msg" --json 2>&1 >/dev/null || printf '\n%s' '__NOTIFY_SEND_RC_FAIL__')
+        if [ "${replay_err%__NOTIFY_SEND_RC_FAIL__}" = "$replay_err" ]; then
             echo "[notify] REPLAY OK: $(basename "$f")" >&2
             rm -f "$claim"
             continue
-        }
+        fi
+        replay_err="${replay_err%__NOTIFY_SEND_RC_FAIL__}"
+        replay_err="${replay_err%$'\n'}"
         # V37.9.180: 4.27 冷调用超时 = gateway 已投递但 CLI 10s 放弃 → 按已投递移除（不重放避免重复）
         if _notify_is_coldcall_timeout "$replay_err"; then
             echo "[notify] REPLAY DELIVERED: $(basename "$f") CLI 超时(4.27 冷调用)但 gateway 已接受，移除" >&2
@@ -302,7 +326,7 @@ notify_file() {
     local file="$1"
     shift
     [ -f "$file" ] || return 1
-    notify "$(cat "$file")" "$@"
+    notify "$(cat "$file" 2>/dev/null || true)" "$@"
 }
 
 # notify_queue_status — 显示队列状态
@@ -312,7 +336,7 @@ notify_queue_status() {
         return 0
     fi
     local count
-    count=$(find "$_NOTIFY_QUEUE_DIR" -name "*.json" -type f 2>/dev/null | wc -l | tr -d ' ')
+    count=$({ find "$_NOTIFY_QUEUE_DIR" -name "*.json" -type f 2>/dev/null || true; } | wc -l | tr -d ' ')
     if [ "$count" -eq 0 ]; then
         echo "队列为空"
     else
