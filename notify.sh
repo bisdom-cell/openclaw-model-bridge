@@ -136,8 +136,23 @@ QEOF
 
 # _notify_drain_queue — 重放队列中的失败消息
 # 在每次 notify() 开头调用，成功发送则删除队列文件
+# V37.9.230 (审计 finding D): mv-to-own claim 消除并发重复投递 TOCTOU —
+# 两个并发 notify 进程同时 drain 会都 find 到同一队列文件 → 双双重放 = 用户收到
+# 重复消息。修复: 处理前先 `mv $f $f.claim.$$`（rename 原子，只有赢家成功），
+# 输家 mv 失败跳过。瞬态失败 mv 回原名保留队列（at-least-once 语义不变）。
 _notify_drain_queue() {
     [ -d "$_NOTIFY_QUEUE_DIR" ] || return 0
+
+    # V37.9.230: 回收孤儿 claim — 进程在 claim 窗口内被杀会留下 *.claim.<pid>
+    # 孤儿（不再匹配 *.json 永不重放 = 消息丢失）。>10min 的 claim 判定为孤儿，
+    # 恢复回原名待重放（保 at-least-once；恰好发送成功后被杀的极端情况下
+    # 恢复重放 = 重复，与修复前语义相同，不劣化）。
+    local stale
+    while IFS= read -r stale; do
+        [ -n "$stale" ] || continue
+        mv "$stale" "${stale%%.claim.*}" 2>/dev/null || true
+    done <<< "$(find "$_NOTIFY_QUEUE_DIR" -name "*.claim.*" -type f -mmin +10 2>/dev/null)"
+
     local qfiles
     qfiles=$(find "$_NOTIFY_QUEUE_DIR" -name "*.json" -type f 2>/dev/null | sort)
     [ -z "$qfiles" ] && return 0
@@ -146,23 +161,26 @@ _notify_drain_queue() {
     count=$(echo "$qfiles" | wc -l | tr -d ' ')
     echo "[notify] 发现 $count 条排队消息，尝试重放..." >&2
 
-    local f channel target msg
+    local f claim channel target msg
     while IFS= read -r f; do
         [ -f "$f" ] || continue
-        channel=$(python3 -c "import json,sys; print(json.load(sys.stdin)['channel'])" < "$f" 2>/dev/null) || continue
-        target=$(python3 -c "import json,sys; print(json.load(sys.stdin)['target'])" < "$f" 2>/dev/null) || continue
-        msg=$(python3 -c "import json,sys; print(json.load(sys.stdin)['msg'])" < "$f" 2>/dev/null) || continue
+        # V37.9.230 (审计 finding D): 原子 claim — 只有 mv 赢家处理该条目
+        claim="$f.claim.$$"
+        mv "$f" "$claim" 2>/dev/null || continue
+        channel=$(python3 -c "import json,sys; print(json.load(sys.stdin)['channel'])" < "$claim" 2>/dev/null) || { mv "$claim" "$f" 2>/dev/null; continue; }
+        target=$(python3 -c "import json,sys; print(json.load(sys.stdin)['target'])" < "$claim" 2>/dev/null) || { mv "$claim" "$f" 2>/dev/null; continue; }
+        msg=$(python3 -c "import json,sys; print(json.load(sys.stdin)['msg'])" < "$claim" 2>/dev/null) || { mv "$claim" "$f" 2>/dev/null; continue; }
 
         local replay_err=""
         replay_err=$("$OPENCLAW" message send --channel "$channel" --target "$target" --message "$msg" --json 2>&1 >/dev/null) && {
             echo "[notify] REPLAY OK: $(basename "$f")" >&2
-            rm -f "$f"
+            rm -f "$claim"
             continue
         }
         # V37.9.180: 4.27 冷调用超时 = gateway 已投递但 CLI 10s 放弃 → 按已投递移除（不重放避免重复）
         if _notify_is_coldcall_timeout "$replay_err"; then
             echo "[notify] REPLAY DELIVERED: $(basename "$f") CLI 超时(4.27 冷调用)但 gateway 已接受，移除" >&2
-            rm -f "$f"
+            rm -f "$claim"
             continue
         fi
         # V37.9.177: 永久性错误（target/channel 无效）立即淘汰 — 防 poison 条目永久重试 +
@@ -171,10 +189,11 @@ _notify_drain_queue() {
         # 每次 notify 都 REPLAY FAIL 刷屏且卡住队列后续条目。
         if echo "$replay_err" | grep -qiE "unknown target|invalid target|no such|not found"; then
             echo "[notify] REPLAY EVICT: $(basename "$f") target 无效（永久错误），淘汰 — ${replay_err:-(no stderr)}" >&2
-            rm -f "$f"
+            rm -f "$claim"
             continue   # 淘汰后继续处理下一条（解队头阻塞）
         fi
         echo "[notify] REPLAY FAIL: $(basename "$f") — ${replay_err:-(no stderr)}，保留队列（瞬态，下次重试）" >&2
+        mv "$claim" "$f" 2>/dev/null || true   # V37.9.230: 瞬态失败 → 恢复原名待下次重试
         break  # 瞬态故障停止重放（避免雪崩）
     done <<< "$qfiles"
 }

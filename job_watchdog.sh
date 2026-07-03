@@ -180,6 +180,12 @@ JOBS=(
     "chaspark|$HOME/.openclaw/jobs/chaspark/cache/last_run.json|180000|Chaspark学术|auxiliary"
     # Governance Audit: 每天07:00 → 最多静默 50h
     "governance_audit_cron|$HOME/.kb/last_run_governance_audit.json|180000|治理审计|core"
+    # Daily Observer: 每天06:30 每日自评（宪法级 #1 LLM-Observer 宿主 job）→ 最多静默 50h
+    # V37.9.230 (审计 finding G): 此前 last_run 用 ISO8601 UTC watchdog 解析不了无法注册
+    #   → observer 自己静默死无人发现（观察者的观察盲区）。时间格式已对齐 (daily_observer.sh)。
+    #   状态语义: ok 正常; llm_failed/parse_error/no_outputs 走 catch-all 告警
+    #   (上游 evening/dream/deep_dive 天天跑, "无产出"本身就是异常非安静日)。
+    "daily_observer|$HOME/.kb/last_run_self_critique.json|180000|每日自评Observer|core"
 )
 
 # ── V37.9.59 新增：LOG_FRESHNESS_JOBS — 仅有 log 没 last_run.json 的 jobs ──

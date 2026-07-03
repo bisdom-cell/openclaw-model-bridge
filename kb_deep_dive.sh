@@ -262,20 +262,37 @@ send_wa_parts_via_openclaw() {
     return 0
 }
 
+# V37.9.230 (审计 finding H): push 全失败不再伪装 ok — 此前 WA 段失败/Discord
+# 失败都只 WARN, status 恒写 ok → 用户什么都没收到但 watchdog 静默 (MR-4 家族,
+# 镜像 V37.9.227 cron 状态 fail-loud)。判定: WA 0 段 且 Discord 失败 = 全通道
+# 失败 → status push_failed (watchdog catch-all 告警); 任一通道送达 → 内容已到
+# 用户, 保持 ok (部分失败已 WARN 可观测)。产出已归档 (DEEP_FILE), 不 exit 1
+# (rsync 取证备份必须继续跑)。
+DISCORD_SEND_OK=0
 if command -v notify >/dev/null 2>&1; then
     # WhatsApp 多段（V37.9.21 分片）
     send_wa_parts_via_notify
     # Discord 完整版（单条）
-    notify "$DISCORD_MSG" --channel discord --topic deep_dive >/dev/null 2>&1 || \
+    if notify "$DISCORD_MSG" --channel discord --topic deep_dive >/dev/null 2>&1; then
+        DISCORD_SEND_OK=1
+    else
         log "WARN: Discord 推送失败"
+    fi
     log "深度分析已推送（WhatsApp $WA_SEND_OK/$WA_PARTS_TOTAL 段 + Discord #daily 完整版）"
-    write_status "ok" "" "$MODE"
 else
     # notify.sh 不可用 — fallback 直接 openclaw
     send_wa_parts_via_openclaw
-    openclaw message send --channel discord --target "${DISCORD_CH_DAILY:-}" --message "$DISCORD_MSG" --json >/dev/null 2>&1 || \
+    if openclaw message send --channel discord --target "${DISCORD_CH_DAILY:-}" --message "$DISCORD_MSG" --json >/dev/null 2>&1; then
+        DISCORD_SEND_OK=1
+    else
         log "WARN: Discord 推送失败"
+    fi
     log "深度分析已推送（WhatsApp $WA_SEND_OK/$WA_PARTS_TOTAL 段 + Discord 完整版）"
+fi
+if [ "$WA_SEND_OK" -eq 0 ] && [ "$DISCORD_SEND_OK" -eq 0 ]; then
+    log "ERROR: 推送全通道失败（WA 0/$WA_PARTS_TOTAL 段 + Discord 失败），产出已归档但用户未收到"
+    write_status "push_failed" "all push channels failed (wa 0/$WA_PARTS_TOTAL, discord fail)" "$MODE"
+else
     write_status "ok" "" "$MODE"
 fi
 

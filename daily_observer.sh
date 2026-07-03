@@ -155,11 +155,15 @@ if [ -f "$REPORT_FILE" ] && $NOTIFY_LOADED; then
 fi
 
 # -- status file --
+# V37.9.230 (审计 finding G): time 格式对齐 watchdog 契约 — job_watchdog 用
+# strptime('%Y-%m-%d %H:%M:%S') 解析本地时间(HKT, 内部 -8h 转 UTC)，原 ISO8601
+# UTC (date -u +%Y-%m-%dT%H:%M:%SZ) 解析失败 → observer 一直无法注册进 watchdog
+# (06:30 cron 静默死无人发现 = observer 自己的观察盲区)。
 STATUS_FILE="${KB_DIR:-$HOME/.kb}/last_run_self_critique.json"
 python3 -c "
 import json, sys
 d = {
-    'time': '$(date -u '+%Y-%m-%dT%H:%M:%SZ')',
+    'time': '$(date '+%Y-%m-%d %H:%M:%S')',
     'status': '$STATUS',
     'overall_score': '$OVERALL_SCORE',
     'report_file': '$REPORT_FILE',

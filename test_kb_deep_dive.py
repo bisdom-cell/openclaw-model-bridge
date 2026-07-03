@@ -1174,5 +1174,52 @@ class TestV37_9_186_TierRegistryConsistency(unittest.TestCase):
         self.assertTrue(self.enabled_kb_ids, "registry enabled 源集不应为空")
 
 
+class TestV37_9_230_PushFailLoud(unittest.TestCase):
+    """V37.9.230 (审计 finding H): push 全失败不再伪装 ok。
+
+    此前 WA 段失败/Discord 失败都只 log WARN, status 恒写 "ok" → 用户什么都没
+    收到但 watchdog 静默 (MR-4 家族, 镜像 V37.9.227 cron 状态 fail-loud)。
+    修复: WA 0 段 且 Discord 失败 → write_status "push_failed" (watchdog
+    catch-all "异常状态" 告警); 任一通道送达 → 保持 ok。
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "kb_deep_dive.sh")
+        with open(path, encoding="utf-8") as f:
+            cls.src = f.read()
+
+    def test_push_failed_status_present(self):
+        self.assertIn('write_status "push_failed"', self.src)
+
+    def test_all_fail_condition(self):
+        """全失败判定 = WA 0 段 AND Discord 失败（任一送达即 ok, 不过度告警）"""
+        self.assertIn('[ "$WA_SEND_OK" -eq 0 ] && [ "$DISCORD_SEND_OK" -eq 0 ]', self.src)
+
+    def test_discord_tracked_in_both_branches(self):
+        """notify 分支 + openclaw fallback 分支都必须跟踪 Discord 结果（原则 #31）"""
+        self.assertEqual(self.src.count("DISCORD_SEND_OK=1"), 2,
+                         "两个推送分支各有一处 DISCORD_SEND_OK=1")
+
+    def test_unconditional_ok_retired(self):
+        """旧形态（推送后无条件 write_status ok）退役 — ok 只在非全失败分支写一次"""
+        self.assertEqual(self.src.count('write_status "ok" "" "$MODE"'), 1,
+                         "write_status ok 应只剩 else 分支一处（原两分支各一处无条件写）")
+
+    def test_no_exit_in_push_failed_path(self):
+        """push_failed 不 exit 1 — 产出已归档, rsync 取证备份必须继续跑
+        (INV-BACKUP-001; 镜像 V37.9.227 不打断后续步骤的取舍)"""
+        idx = self.src.find('write_status "push_failed"')
+        self.assertNotEqual(idx, -1)
+        # push_failed 到 rsync 备份之间不得有 exit
+        rsync_idx = self.src.find("movespeed_rsync_helper.sh", idx)
+        self.assertNotEqual(rsync_idx, -1, "push_failed 之后必须还有 rsync 备份步骤")
+        between = self.src[idx:rsync_idx]
+        self.assertNotIn("exit 1", between)
+
+    def test_v37_9_230_marker(self):
+        self.assertIn("V37.9.230", self.src)
+
+
 if __name__ == "__main__":
     unittest.main()

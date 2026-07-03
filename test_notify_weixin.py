@@ -240,12 +240,14 @@ _FAKE_POISON = (
 _FAKE_TRANSIENT = 'echo "Error: connection refused (backend down)" >&2; exit 1\n'
 
 
-def _run_drain(entries, fake_behavior):
+def _run_drain(entries, fake_behavior, age=()):
     """跑 _notify_drain_queue，返回 (remaining_files:set, stderr:str, calls:str)。
 
     entries: list[(filename, dict)] 写入临时队列目录。
     fake_behavior: fake openclaw 的 bash 体（决定 exit/stderr）。
+    age: 需把 mtime 设为 1h 前的文件名集合（V37.9.230 孤儿 claim 回收测试用）。
     """
+    import time as _time
     with tempfile.TemporaryDirectory() as td:
         qd = os.path.join(td, "q")
         os.makedirs(qd)
@@ -257,6 +259,9 @@ def _run_drain(entries, fake_behavior):
         for name, d in entries:
             with open(os.path.join(qd, name), "w") as f:
                 json.dump(d, f)
+        for name in age:
+            old_t = _time.time() - 3600
+            os.utime(os.path.join(qd, name), (old_t, old_t))
         env = dict(os.environ)
         env["OPENCLAW"] = fake
         env["TD_CALLS"] = calls
@@ -332,11 +337,89 @@ class TestNotifyQueueEvictionSourceGuards(unittest.TestCase):
         self.assertIn("continue", seg, "淘汰后必须 continue 处理下一条（解队头阻塞）")
 
     def test_transient_still_breaks(self):
-        # 瞬态分支必须保留 break（避雪崩）
-        self.assertRegex(self.src, r"保留队列（瞬态.*\n\s*break")
+        # 瞬态分支必须保留 break（避雪崩）。V37.9.230 后瞬态分支多一行
+        # mv-back（claim 恢复原名），break 仍必须紧随其后。
+        self.assertRegex(self.src, r"保留队列（瞬态.*\n(\s*mv .*\n)?\s*break")
 
     def test_v37_9_177_marker(self):
         self.assertIn("V37.9.177", self.src)
+
+
+class TestNotifyQueueClaimV230(unittest.TestCase):
+    """V37.9.230 (审计 finding D): drain mv-to-own claim — 消除并发重复投递 TOCTOU。
+
+    两并发 notify 同时 drain 会都 find 到同一队列文件 → 双双重放 = 用户收到重复。
+    修复: 处理前 `mv $f $f.claim.$$`（rename 原子只有赢家成功）；瞬态失败 mv 回
+    原名（at-least-once 不变）；孤儿 claim（进程在窗口内被杀）>10min 回收。
+    """
+    _LEGIT = ("20260703_100000_discord_2.json",
+              {"ts": "x", "channel": "discord", "target": "GOOD",
+               "topic": "tech", "msg": "legit"})
+
+    def test_success_leaves_no_claim_orphan(self):
+        """成功重放后队列目录全空（含 claim 文件, 不留孤儿）"""
+        remaining, err, calls = _run_drain([self._LEGIT], _FAKE_POISON)
+        self.assertEqual(remaining, set())
+        self.assertIn("SENT GOOD", calls)
+
+    def test_transient_restores_original_name(self):
+        """瞬态失败 → claim 恢复回原 .json 名（at-least-once: 下次 drain 还能重放）"""
+        remaining, err, _ = _run_drain([self._LEGIT], _FAKE_TRANSIENT)
+        self.assertEqual(remaining, {self._LEGIT[0]},
+                         f"瞬态失败后必须恢复原名, 实际残留={remaining}")
+
+    def test_foreign_fresh_claim_untouched(self):
+        """他进程新鲜 claim（<10min）不碰不重放 — 这正是防重复投递的机制核心"""
+        claimed = (self._LEGIT[0] + ".claim.4242", self._LEGIT[1])
+        remaining, err, calls = _run_drain([claimed], _FAKE_POISON)
+        self.assertEqual(remaining, {claimed[0]}, "新鲜 claim 必须原样保留")
+        self.assertNotIn("SENT GOOD", calls, "被他进程 claim 的条目绝不能重放（重复投递）")
+
+    def test_stale_claim_recovered_and_replayed(self):
+        """孤儿 claim（>10min, 进程在窗口内被杀）→ 回收恢复 .json → 本轮即重放"""
+        claimed_name = self._LEGIT[0] + ".claim.4242"
+        remaining, err, calls = _run_drain(
+            [(claimed_name, self._LEGIT[1])], _FAKE_POISON, age=(claimed_name,))
+        self.assertEqual(remaining, set(), "孤儿 claim 应被回收并成功重放")
+        self.assertIn("SENT GOOD", calls, "回收后的消息必须被重放（at-least-once 不丢失）")
+
+    def test_eviction_semantics_preserved(self):
+        """V37.9.177 淘汰语义在 claim 机制下保留: poison 淘汰 + 后续 legit 照常重放"""
+        poison = ("20260703_090000_openclaw-weixin_1.json",
+                  {"ts": "x", "channel": "openclaw-weixin", "target": "BAD",
+                   "topic": "tech", "msg": "poison"})
+        remaining, err, calls = _run_drain([poison, self._LEGIT], _FAKE_POISON)
+        self.assertEqual(remaining, set())
+        self.assertIn("REPLAY EVICT", err)
+        self.assertIn("SENT GOOD", calls)
+
+
+class TestNotifyQueueClaimV230SourceGuards(unittest.TestCase):
+    def setUp(self):
+        with open(_NOTIFY, encoding="utf-8") as f:
+            self.src = f.read()
+
+    def test_claim_mv_present(self):
+        self.assertIn('claim="$f.claim.$$"', self.src)
+        self.assertIn('mv "$f" "$claim" 2>/dev/null || continue', self.src)
+
+    def test_transient_moves_claim_back(self):
+        """瞬态分支必须 mv 回原名（否则消息以 claim 名滞留 = 丢失）"""
+        idx = self.src.find("保留队列（瞬态")
+        self.assertNotEqual(idx, -1)
+        seg = self.src[idx:idx + 200]
+        self.assertIn('mv "$claim" "$f"', seg)
+
+    def test_stale_claim_recovery_present(self):
+        self.assertIn('-name "*.claim.*"', self.src)
+        self.assertIn("-mmin +10", self.src)
+
+    def test_replay_paths_remove_claim_not_original(self):
+        """OK/coldcall/evict 三条移除路径删的是 claim 文件（原名已被 mv 走）"""
+        self.assertEqual(self.src.count('rm -f "$claim"'), 3)
+
+    def test_v37_9_230_marker(self):
+        self.assertIn("V37.9.230", self.src)
 
 
 class TestColdCallTimeout(unittest.TestCase):

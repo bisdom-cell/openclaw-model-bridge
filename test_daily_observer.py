@@ -2921,5 +2921,59 @@ class TestV37_9_213_SourceLevelGuards(unittest.TestCase):
                       "must reserve marker+tail budget before snapping")
 
 
+# ---------------------------------------------------------------------------
+# V37.9.230 (审计 finding G) — observer 注册进 watchdog + last_run 时间格式对齐
+# ---------------------------------------------------------------------------
+# 血案形态: daily_observer.sh 写 last_run_self_critique.json 用 ISO8601 UTC
+# (date -u +%Y-%m-%dT%H:%M:%SZ)，而 job_watchdog 用 strptime('%Y-%m-%d %H:%M:%S')
+# 解析本地时间 → 格式不兼容无法注册 → 宪法级 #1 LLM-Observer 的宿主 job 06:30
+# cron 静默死无人发现（观察者自己的观察盲区，MR-4 家族）。
+
+
+class TestV37_9_230_WatchdogRegistration(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        base = os.path.dirname(os.path.abspath(__file__))
+        with open(os.path.join(base, "daily_observer.sh"), encoding="utf-8") as f:
+            cls.sh_src = f.read()
+        with open(os.path.join(base, "job_watchdog.sh"), encoding="utf-8") as f:
+            cls.wd_src = f.read()
+
+    def test_observer_time_uses_watchdog_format(self):
+        """last_run time 必须是 watchdog 可解析的本地时间格式"""
+        self.assertIn("'time': '$(date '+%Y-%m-%d %H:%M:%S')'", self.sh_src)
+
+    def test_iso8601_utc_form_retired(self):
+        """旧 ISO8601 UTC 形态必须退役（watchdog strptime 解析不了）"""
+        self.assertNotIn("date -u '+%Y-%m-%dT%H:%M:%SZ'", self.sh_src)
+
+    def test_watchdog_registers_observer(self):
+        """job_watchdog JOB_STATUS 必须含 daily_observer 条目（core tier）"""
+        self.assertIn(
+            'daily_observer|$HOME/.kb/last_run_self_critique.json|180000|每日自评Observer|core',
+            self.wd_src)
+
+    def test_time_format_contract_cross_file(self):
+        """跨文件契约 (MR-8): observer 写的格式必须能被 watchdog 的 strptime 格式解析。
+        从两侧源码各自提取格式字面量，真实渲染 + 解析（防未来单侧改格式漂移）。"""
+        import re
+        import subprocess
+        from datetime import datetime
+        m_w = re.search(r"strptime\(t, '([^']+)'\)", self.wd_src)
+        self.assertIsNotNone(m_w, "watchdog strptime 格式未找到")
+        wd_fmt = m_w.group(1)
+        m_o = re.search(r"'time': '\$\(date '\+([^']+)'\)'", self.sh_src)
+        self.assertIsNotNone(m_o, "observer date 格式未找到")
+        rendered = subprocess.run(
+            ["date", f"+{m_o.group(1)}"], capture_output=True, text=True
+        ).stdout.strip()
+        # 不抛异常 = 格式兼容
+        datetime.strptime(rendered, wd_fmt)
+
+    def test_v37_9_230_markers(self):
+        self.assertIn("V37.9.230", self.sh_src)
+        self.assertIn("V37.9.230", self.wd_src)
+
+
 if __name__ == "__main__":
     unittest.main()
