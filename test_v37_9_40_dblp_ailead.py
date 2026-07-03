@@ -268,5 +268,44 @@ class TestV9_40InAuditAlignedScripts(unittest.TestCase):
                          msg=f"AI Leaders X findings 应为 0, 实际: {[f.matched for f in rep.placeholder_findings]}")
 
 
+class TestV37_9_234_GranularityConvergence(unittest.TestCase):
+    """V37.9.234 (observer 2026-07-03 提案 #1): DBLP 标题推断粒度收敛。
+
+    血案形态 (observer [MED] finding): 💡 关键方法按评级扩展到 100-800 字, 但输入
+    只有标题+会议名 — 标题支撑不了 800 字真实分析, LLM 被结构性逼迫编造细粒度
+    方法细节 ("推测采用预训练的基础模型" "可能引入对比学习或适配器模块"),
+    虽有 (基于标题推断) 标注但推断粒度偏细存在误导风险。
+    修复: 长度固定 80-150 字方向性解读 + 严格约束显式禁止细粒度技术路径猜测。
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.src = _read(DBLP_SCRIPT)
+
+    def test_rating_scaled_length_retired(self):
+        """评级扩展长度要求退役 — 结构性编造逼迫点"""
+        self.assertNotIn("⭐⭐⭐⭐⭐→500-800字", self.src,
+                         "按评级扩展长度 = 逼 LLM 从纯标题编造 800 字细节, 必须退役")
+        self.assertNotIn("长度按评级动态调整", self.src)
+        self.assertNotIn("长度按评级规则", self.src,
+                         "输出格式模板里的评级长度引用也必须同步退役")
+
+    def test_fixed_directional_length_present(self):
+        self.assertIn("80-150 字", self.src)
+        self.assertIn("不随评级扩展", self.src)
+
+    def test_fine_grained_speculation_prohibited(self):
+        """严格约束必须显式禁止细粒度技术路径猜测 (观察者点名的字眼形态)"""
+        self.assertIn("严禁细粒度技术路径猜测", self.src)
+        self.assertIn("推测采用XX模型", self.src)
+
+    def test_honest_label_preserved(self):
+        """(基于标题推断) 诚实标注保留 — V37.9.213 F4 确认的正确行为不得误删"""
+        self.assertIn("(基于标题推断)", self.src)
+
+    def test_v37_9_234_marker(self):
+        self.assertIn("V37.9.234", self.src)
+
+
 if __name__ == "__main__":
     unittest.main()
