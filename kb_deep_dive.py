@@ -244,6 +244,68 @@ def pick_top(candidates):
     return candidates[0]
 
 
+# ── V37.9.233: 已分析论文 ban-list（镜像 dream V37.9.68 的 14 天 ban-list 惯例）──
+# 血案 (2026-07-03 用户 Mac Mini 降级原因明细): 同一 ACM 付费墙 DOI
+# (doi.org/10.1145/3774904.3792985, 无 arXiv/OA 版) 被 picker 连选 ~20 天 —
+# 高对齐论文停留在 KB 源文件的 recent 窗口内, 每天重新胜出 → 每天霸占深度分析位
+# 且必然 abstract_only (30 天 77% 降级率的主体), 用户连收近似重复分析。
+# 修复: picker 前剔除 14 天内已分析过的 link (deep_dives/*.md frontmatter 机器可读)。
+
+DEDUP_WINDOW_DAYS = 14  # 与 kb_dream V37.9.68 主题 ban-list 同窗口
+
+
+def _normalize_link(link):
+    return (link or "").strip().rstrip("/")
+
+
+def load_recent_analyzed_links(deep_dive_dir, days=DEDUP_WINDOW_DAYS, today=None):
+    """扫最近 N 天 deep_dives/YYYY-MM-DD.md frontmatter 的 link: → 已分析链接集合。
+
+    FAIL-OPEN: 目录缺失 / 文件不可读 / 无 link 行 → 跳过不阻塞（空集 = 无 ban）。
+    非日期命名文件跳过（如 .last_run.json 同目录其他产物）。
+    """
+    links = set()
+    if not deep_dive_dir or not os.path.isdir(deep_dive_dir):
+        return links
+    if today is None:
+        today = datetime.now()
+    cutoff = today - timedelta(days=days)
+    for name in os.listdir(deep_dive_dir):
+        if not name.endswith(".md"):
+            continue
+        try:
+            file_date = datetime.strptime(name[:-3], "%Y-%m-%d")
+        except ValueError:
+            continue
+        if file_date < cutoff:
+            continue
+        try:
+            with open(os.path.join(deep_dive_dir, name), encoding="utf-8", errors="replace") as f:
+                head = f.read(2000)
+        except OSError:
+            continue
+        m = re.search(r"^link: (.+)$", head, re.MULTILINE)
+        if m:
+            normalized = _normalize_link(m.group(1))
+            if normalized:
+                links.add(normalized)
+    return links
+
+
+def filter_recently_analyzed(candidates, recent_links):
+    """剔除 14 天内已分析过的候选（link 精确匹配, 两侧归一化）。
+
+    返回 (kept, banned_count)。空 link 候选永不被 ban（空串不入集合）。
+    全部被 ban → kept=[] → run() 自然走 no_candidates（明日再试），
+    绝不回退重复分析同一篇。
+    """
+    if not recent_links:
+        return candidates, 0
+    kept = [c for c in candidates
+            if _normalize_link(c.get("link", "")) not in recent_links]
+    return kept, len(candidates) - len(kept)
+
+
 # ══════════════════════════════════════════════════════════════════════
 # 3. Fetcher — tier1 PDF / tier2 HTML / tier3 degrade
 # ══════════════════════════════════════════════════════════════════════
@@ -835,13 +897,23 @@ def run(kb_dir, registry_path, today=None, llm_caller=None, fetcher=None):
             "date": date_str,
         }
 
+    # V37.9.233: 已分析论文 14 天 ban-list — 见 load_recent_analyzed_links 注释。
+    # 必须在 pick_top 之前（否则高分重复论文每天胜出后才被发现）。
+    recent_links = load_recent_analyzed_links(
+        os.path.join(kb_dir, "deep_dives"), today=today)
+    candidates, banned_count = filter_recently_analyzed(candidates, recent_links)
+
     pick = pick_top(candidates)
     if pick is None:
+        reason = f"no ⭐≥{MIN_STARS} candidates in today's sources"
+        if banned_count:
+            reason += f" ({banned_count} banned: analyzed within {DEDUP_WINDOW_DAYS}d)"
         return {
             "status": "no_candidates",
-            "reason": f"no ⭐≥{MIN_STARS} candidates in today's sources",
+            "reason": reason,
             "date": date_str,
             "candidates_count": 0,
+            "banned_recent": banned_count,
         }
 
     # 2. 抓取原文
@@ -886,6 +958,7 @@ def run(kb_dir, registry_path, today=None, llm_caller=None, fetcher=None):
             "source_label": pick["source_label"],
         },
         "candidates_count": len(candidates),
+        "banned_recent": banned_count,  # V37.9.233: ban-list 生效可观测
         "llm_content": llm_content,
         "markdown": md,
         "wa_message": wa,

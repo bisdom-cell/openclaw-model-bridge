@@ -1221,5 +1221,113 @@ class TestV37_9_230_PushFailLoud(unittest.TestCase):
         self.assertIn("V37.9.230", self.src)
 
 
+class TestV37_9_233_AnalyzedBanList(unittest.TestCase):
+    """V37.9.233: 已分析论文 14 天 ban-list（镜像 dream V37.9.68）。
+
+    血案 (2026-07-03 用户 Mac Mini 降级原因明细): 同一 ACM 付费墙 DOI
+    (doi.org/10.1145/3774904.3792985) 被 picker 连选 ~20 天 — 每天霸占深度
+    分析位且必然 abstract_only (30 天 77% 降级率的主体), 用户连收近似重复分析。
+    """
+
+    _ACM = "https://doi.org/10.1145/3774904.3792985"
+
+    def _write_dive(self, d, date_str, link):
+        with open(os.path.join(d, f"{date_str}.md"), "w", encoding="utf-8") as f:
+            f.write(f"---\ndate: {date_str}\ntype: deep_dive\nmode: abstract_only\n"
+                    f"source_id: dblp\nsource_label: DBLP\nstars: 4\n"
+                    f"link: {link}\n---\n\n# 分析\n")
+
+    def test_recent_file_link_loaded(self):
+        import tempfile
+        from datetime import datetime
+        with tempfile.TemporaryDirectory() as td:
+            today = datetime(2026, 7, 3)
+            self._write_dive(td, "2026-07-01", self._ACM + "/")
+            links = m.load_recent_analyzed_links(td, today=today)
+            self.assertIn(self._ACM, links, "尾斜杠须归一化后入集合")
+
+    def test_old_file_outside_window_excluded(self):
+        import tempfile
+        from datetime import datetime
+        with tempfile.TemporaryDirectory() as td:
+            today = datetime(2026, 7, 3)
+            self._write_dive(td, "2026-06-01", self._ACM)
+            links = m.load_recent_analyzed_links(td, today=today)
+            self.assertEqual(links, set(), ">14 天的旧分析不进 ban-list")
+
+    def test_missing_dir_fail_open(self):
+        links = m.load_recent_analyzed_links("/nonexistent/deep_dives")
+        self.assertEqual(links, set())
+
+    def test_non_date_filename_skipped(self):
+        import tempfile
+        from datetime import datetime
+        with tempfile.TemporaryDirectory() as td:
+            with open(os.path.join(td, "notes.md"), "w") as f:
+                f.write("link: https://x.example/paper\n")
+            links = m.load_recent_analyzed_links(
+                td, today=datetime(2026, 7, 3))
+            self.assertEqual(links, set())
+
+    def test_filter_bans_matching_link(self):
+        cands = [
+            {"title": "ACM 重复论文", "link": self._ACM, "stars": 5, "source_id": "dblp"},
+            {"title": "新论文", "link": "https://arxiv.org/abs/2607.00001", "stars": 4,
+             "source_id": "arxiv_monitor"},
+        ]
+        kept, banned = m.filter_recently_analyzed(cands, {self._ACM})
+        self.assertEqual(banned, 1)
+        self.assertEqual([c["title"] for c in kept], ["新论文"])
+
+    def test_filter_empty_recent_unchanged(self):
+        cands = [{"title": "a", "link": "https://x", "stars": 4, "source_id": "dblp"}]
+        kept, banned = m.filter_recently_analyzed(cands, set())
+        self.assertEqual((kept, banned), (cands, 0))
+
+    def test_empty_link_candidate_never_banned(self):
+        cands = [{"title": "无链接候选", "link": "", "stars": 4, "source_id": "hn"}]
+        kept, banned = m.filter_recently_analyzed(cands, {self._ACM})
+        self.assertEqual(banned, 0)
+        self.assertEqual(len(kept), 1)
+
+    def test_blood_lesson_repeat_pick_broken(self):
+        """血案端到端: 昨天分析过的 ACM DOI 今天再入候选 → 被 ban, picker 选新论文
+        (修复前: ACM 高分每天胜出 → 20 天重复)"""
+        import tempfile
+        from datetime import datetime
+        with tempfile.TemporaryDirectory() as td:
+            today = datetime(2026, 7, 3)
+            self._write_dive(td, "2026-07-02", self._ACM)
+            recent = m.load_recent_analyzed_links(td, today=today)
+            cands = [
+                {"title": "ACM 重复论文", "link": self._ACM, "stars": 5, "source_id": "dblp"},
+                {"title": "新论文", "link": "https://arxiv.org/abs/2607.00001", "stars": 4,
+                 "source_id": "arxiv_monitor"},
+            ]
+            kept, banned = m.filter_recently_analyzed(cands, recent)
+            pick = m.pick_top(kept)
+            self.assertEqual(banned, 1)
+            self.assertEqual(pick["title"], "新论文")
+
+    def test_run_wiring_before_pick_top(self):
+        """源码守卫: run() 里 filter_recently_analyzed 在 pick_top 之前"""
+        with open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                               "kb_deep_dive.py"), encoding="utf-8") as f:
+            s = f.read()
+        i_run = s.index("def run(")
+        i_filter = s.index("filter_recently_analyzed(candidates", i_run)
+        i_pick = s.index("pick = pick_top(candidates)", i_run)
+        self.assertLess(i_filter, i_pick)
+
+    def test_dedup_window_locked_14(self):
+        """设计锁定: 与 dream V37.9.68 主题 ban-list 同 14 天窗口"""
+        self.assertEqual(m.DEDUP_WINDOW_DAYS, 14)
+
+    def test_v37_9_233_marker(self):
+        with open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                               "kb_deep_dive.py"), encoding="utf-8") as f:
+            self.assertIn("V37.9.233", f.read())
+
+
 if __name__ == "__main__":
     unittest.main()
