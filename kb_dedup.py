@@ -42,11 +42,24 @@ def load_index():
 
 
 def save_index(data):
-    """Write KB index.json atomically."""
-    tmp = INDEX_FILE + ".tmp"
-    with open(tmp, "w") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
-    os.replace(tmp, INDEX_FILE)
+    """Write KB index.json atomically.
+
+    V37.9.237（审计 finding C）：唯一 tmp（pid 后缀）。kb_dedup / kb_autotag 不持
+    kb_write.sh 的 .write.lockdir，历史上都写固定 index.json.tmp → 并发交错损坏 →
+    读者 fallback {"entries": []}。pid 后缀让各写者写各自 tmp，os.replace 仍 atomic
+    publish（最坏 last-writer-wins，index 可由 kb_embed 重建，良性）。
+    """
+    tmp = "{}.tmp.{}".format(INDEX_FILE, os.getpid())
+    try:
+        with open(tmp, "w") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+        os.replace(tmp, INDEX_FILE)
+    finally:
+        if os.path.exists(tmp):
+            try:
+                os.remove(tmp)
+            except OSError:
+                pass
 
 
 def read_note_content(filepath):

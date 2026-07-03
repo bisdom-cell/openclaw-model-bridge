@@ -84,6 +84,7 @@ run_suite "v37_9_77_enforcement (V37.9.77 enforcement — adapter ?provider=X + 
 run_suite "crontab_safe_remove (V37.9.65 cmd_remove + 严格 count + 拒绝全清空 + V37.9.64 freight 用户痛点闭环)" "python3 test_crontab_safe_remove.py"
 run_suite "proxy_filters (工具过滤/截断/SSE)" "python3 test_tool_proxy.py"
 run_suite "notify_weixin (V37.9.170 微信 openclaw-weixin 推送分支 + WhatsApp 临时禁用切换)" "python3 test_notify_weixin.py"
+run_suite "v37_9_237_atomic_tmp (V37.9.237 审计 finding C 安全半边 — status.json/index.json 唯一 tmp pid 后缀消除并发交错损坏→系统失忆)" "python3 test_v37_9_237_atomic_tmp.py"
 run_suite "notify_jobs_routing (V37.9.171 内容 job 主推走 notify.sh — Path B 单频道 10 job)" "python3 test_notify_jobs_routing.py"
 run_suite "v37_9_175_proxy_alert_marker (V37.9.175 Path B 续 — proxy _send_alert 收编 notify.sh + [SYSTEM_ALERT] 标记, .py 盲区闭合, NO_REPLY 污染根因)" "python3 test_v37_9_175_proxy_alert_marker.py"
 run_suite "v37_9_226_data_clean_confinement (V37.9.226 审计安全加固 — data_clean 路径限制防密钥泄漏 + ingest cap/Content-Length guard)" "python3 test_v37_9_226_data_clean_confinement.py"

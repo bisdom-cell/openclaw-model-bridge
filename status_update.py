@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """
 status_update.py — 三方共享意识锚点（原子读写）
-所有写入使用 tmpfile + os.replace 原子操作，支持并发安全。
+所有写入使用唯一 tmp + os.replace 原子发布（V37.9.237：tmp 带 pid 后缀，两个并发写者
+写各自的 tmp，绝不再共用固定 tmp 路径交错损坏 → 读者 fallback DEFAULT_STATUS 系统失忆；
+并发下最坏是 last-writer-wins 良性丢更新）。**非 lost-update 安全**：无跨写者锁，一个
+并发 RMW 可能静默覆盖另一个的 insert（登记待锁设计，勿 rush flock 防死锁）。
 
 三方宪法：用户提供专业深度 + Claude Code 提供高效设计部署 + OpenClaw 提供数据复利
 status.json 是三方的共享意识——"我们现在在哪、要去哪、学到了什么"。
@@ -186,10 +189,20 @@ def save_status(data, updated_by="unknown", audit_action="", audit_target="", au
     data["updated"] = time.strftime("%Y-%m-%d %H:%M:%S")
     data["updated_by"] = updated_by
     os.makedirs(os.path.dirname(STATUS_FILE), exist_ok=True)
-    tmp = STATUS_FILE + ".tmp"
-    with open(tmp, "w") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-    os.replace(tmp, STATUS_FILE)
+    # V37.9.237（审计 finding C 安全半边）：唯一 tmp（pid 后缀）。并发写者各写各的
+    # tmp，杜绝共享固定 tmp 路径的字节交错损坏；os.replace 仍保证 atomic publish。
+    tmp = "{}.tmp.{}".format(STATUS_FILE, os.getpid())
+    try:
+        with open(tmp, "w") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        os.replace(tmp, STATUS_FILE)
+    finally:
+        # os.replace 成功后 tmp 已被重命名不存在；写入异常时清理未发布的 tmp，防 orphan 累积。
+        if os.path.exists(tmp):
+            try:
+                os.remove(tmp)
+            except OSError:
+                pass
     # 审计日志（静默失败，不影响主流程）
     if audit_action:
         try:

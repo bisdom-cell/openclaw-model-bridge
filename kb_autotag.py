@@ -212,10 +212,20 @@ def load_index():
 
 
 def save_index(data):
-    tmp = INDEX_FILE + ".tmp"
-    with open(tmp, "w") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
-    os.replace(tmp, INDEX_FILE)
+    # V37.9.237（审计 finding C）：唯一 tmp（pid 后缀），与 kb_dedup.save_index 同款。
+    # kb_autotag / kb_dedup 不持 kb_write.sh 的 .write.lockdir，固定 index.json.tmp
+    # 会并发交错损坏；pid 后缀让各写者写各自 tmp，os.replace 仍 atomic publish。
+    tmp = "{}.tmp.{}".format(INDEX_FILE, os.getpid())
+    try:
+        with open(tmp, "w") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+        os.replace(tmp, INDEX_FILE)
+    finally:
+        if os.path.exists(tmp):
+            try:
+                os.remove(tmp)
+            except OSError:
+                pass
 
 
 def show_stats():

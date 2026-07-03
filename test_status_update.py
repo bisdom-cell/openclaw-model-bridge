@@ -56,11 +56,14 @@ class TestStatusUpdateIO(unittest.TestCase):
         self.assertIsInstance(DEFAULT_STATUS["health"], dict)
 
     def test_save_creates_file_atomically(self):
-        """原子写入：tmp + os.replace"""
+        """原子写入：唯一 tmp（pid 后缀）+ os.replace（V37.9.237 finding C）"""
         with open("status_update.py") as f:
             content = f.read()
         self.assertIn("os.replace(tmp, STATUS_FILE)", content)
-        self.assertIn('STATUS_FILE + ".tmp"', content)
+        # V37.9.237：tmp 名带 pid 后缀（并发写者不共用固定 tmp 路径 → 消除交错损坏）。
+        self.assertIn('"{}.tmp.{}".format(STATUS_FILE, os.getpid())', content)
+        # 固定 tmp 名反模式必须已退役（防回退到并发交错损坏 → 系统失忆）。
+        self.assertNotIn('tmp = STATUS_FILE + ".tmp"', content)
 
     def test_save_sets_updated_timestamp(self):
         """save 自动设置 updated 和 updated_by"""
