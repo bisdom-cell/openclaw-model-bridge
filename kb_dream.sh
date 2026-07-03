@@ -1304,6 +1304,7 @@ DEEP_SYSTEM="/no_think
 - Markdown 格式，引用具体数据源名称和日期
 
 【V37.8.6 反污染】禁止把 HTTP 错误码 / Python 异常 / 错误页 HTML / U+FFFD(�) 当外部信号
+【V37.9.235 信号时效标注】引用日期距今超过 14 天的信号作印证时，必须紧跟标注「(长期背景, 非近期新增)」；发现过程/隐藏关联优先选用近 14 天信号，远期信号只作背景铺垫不得呈现为当日新增
 ${DREAM_HG_GUARD}${DREAM_CREDIBILITY}"
 
 DEEP_PROMPT="$REDUCE_INTRO
@@ -1467,6 +1468,7 @@ WIDE_RADAR_SYSTEM="/no_think
 - Markdown 格式，每条引用具体数据源名称和日期
 
 【V37.8.6 反污染】禁止把 HTTP 错误码 / Python 异常 / 错误页 HTML / U+FFFD(�) 当外部信号
+【V37.9.235 信号时效标注】引用日期距今超过 14 天的信号必须紧跟标注「(长期背景, 非近期新增)」，不得呈现为当日新增
 ${DREAM_HG_GUARD}${DREAM_CREDIBILITY}"
 
 WIDE_RADAR_PROMPT="$REDUCE_INTRO
