@@ -1241,6 +1241,27 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                                 _send_alert(alert)
 
                 self.send_response(resp.status)
+                # V37.9.239（审计 B-delivery）: SSE client（stream:true）在异常 fallthrough
+                # 也必须收到 text/event-stream——此前发 application/json + raw JSON 给期待
+                # SSE 的 Gateway = 内容类型错配（V37.9.228 登记的 delivery bug）。到达此处
+                # 且 was_streaming=True ⇔ parse 块异常或空 body（成功路径已 return）。
+                # 策略: 先重试 build_sse_response（崩溃点在 parse 之后时 rj 是合法 completion
+                # → 投递真实内容）；rj 未绑定（json.loads 失败 → NameError）或 build 再崩
+                # → SSE error frame（客户端 SSE 传输层可解析，错误在流内 surface）。
+                if was_streaming and "/chat/completions" in self.path:
+                    try:
+                        _sse_out = build_sse_response(rj)
+                    except Exception:
+                        _sse_out = ("data: " + json.dumps({"error": {
+                            "message": "proxy could not deliver upstream response as SSE",
+                            "type": "proxy_sse_conversion_error"}}) +
+                            "\n\ndata: [DONE]\n\n").encode()
+                    self.send_header("Content-Type", "text/event-stream")
+                    self.send_header("Cache-Control", "no-cache")
+                    self.send_header("Content-Length", str(len(_sse_out)))
+                    self.end_headers()
+                    self.wfile.write(_sse_out)
+                    return
                 self.send_header("Content-Type", "application/json")
                 self.send_header("Content-Length", str(len(resp_body)))
                 self.end_headers()
