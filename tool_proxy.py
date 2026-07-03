@@ -1139,6 +1139,17 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                 elapsed = int((time.monotonic() - t0) * 1000)
                 log(f"[{rid}] Backend: {resp.status} {len(resp_body)}b {elapsed}ms stream={was_streaming}")
 
+                # V37.9.229 (审计 finding A): adapter 内部 fallback 经 X-Adapter-Fallback
+                # 响应 header surface — record_fallback 从死代码复活。proxy 位于 adapter
+                # 之前, fallback 发生在 adapter 内部, proxy 只见正常 200 → degradation_rate
+                # 结构性永远 0% = fail-plausible SLO (V37.9.220 primary 全宕 100% fallback
+                # 时 SLO 仍报 healthy)。header 在此消费, 不下传 gateway (proxy 自建响应头)。
+                # 放在 parse 块之前: 请求被 fallback 服务这一事实与后续 parse 成败无关。
+                _fb_provider = resp.headers.get("X-Adapter-Fallback", "")
+                if _fb_provider:
+                    proxy_stats.record_fallback()
+                    log(f"[{rid}] DEGRADED: served via adapter fallback ({_fb_provider})")
+
                 if "/chat/completions" in self.path and resp_body:
                     # V37.9.228 (audit B): 追踪 success 是否已记，让 parse/transform 抛异
                     # 且未记 success 的路径（backend 200+garbage / fix_tool_args 崩）不再

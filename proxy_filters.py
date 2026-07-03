@@ -1264,7 +1264,12 @@ class ProxyStats:
                 self.tool_calls_success += 1
 
     def record_fallback(self):
-        """记录一次降级（使用 fallback provider）。"""
+        """记录一次降级（使用 fallback provider）。
+
+        V37.9.229 (审计 finding A): 由 tool_proxy 在读到 adapter 的
+        X-Adapter-Fallback 响应 header 时调用（此前零生产调用 = 死代码,
+        degradation_rate_pct 结构性恒 0 = fail-plausible SLO）。
+        """
         with self._lock:
             self.fallback_count += 1
 
@@ -1345,6 +1350,15 @@ class ProxyStats:
                     "degradation_rate_pct": round(self.fallback_count * 100 / total, 1),
                     "timeout_rate_pct": round(self.errors_by_type["timeout"] * 100 / total, 1),
                     "auto_recovery_rate_pct": round(self._recovery_total * 100 / (self._failure_streaks or 1), 1) if self._failure_streaks > 0 else 100.0,
+                    # V37.9.229 (审计 finding A): 原始计数落盘 — slo_benchmark
+                    # (degradation.fallback_count / tools.success_calls / recovery.*)
+                    # 与 slo_dashboard (Fallbacks 行) 一直在读这些字段但 producer
+                    # 从未写 → 报告恒 0。补齐后 recovery verdict 的样本基数
+                    # (failure_streaks) 也从恒 0 变真值。
+                    "tool_calls_success": self.tool_calls_success,
+                    "fallback_count": self.fallback_count,
+                    "recovery_total": self._recovery_total,
+                    "failure_streaks": self._failure_streaks,
                 },
             }
             tmp = STATS_FILE + ".tmp"
@@ -1380,6 +1394,11 @@ class ProxyStats:
                     "degradation_rate_pct": round(self.fallback_count * 100 / total, 1),
                     "timeout_rate_pct": round(self.errors_by_type["timeout"] * 100 / total, 1),
                     "auto_recovery_rate_pct": round(self._recovery_total * 100 / (self._failure_streaks or 1), 1) if self._failure_streaks > 0 else 100.0,
+                    # V37.9.229: 原始计数（与 _write_stats 同步, 见彼处注释）
+                    "tool_calls_success": self.tool_calls_success,
+                    "fallback_count": self.fallback_count,
+                    "recovery_total": self._recovery_total,
+                    "failure_streaks": self._failure_streaks,
                 },
             }
 

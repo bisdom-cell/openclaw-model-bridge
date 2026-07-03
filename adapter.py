@@ -754,7 +754,12 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                     fb_status, fb_body = _forward_request(fb_url, fb_data, fb_auth, timeout=int(_FALLBACK_TIMEOUT))
                     fb_elapsed = int((time.monotonic() - t0) * 1000)
                     log(f"{tag}FALLBACK OK: {fb_status} ({len(fb_body)} bytes) {fb_elapsed}ms via {fb['name']}")
-                    self._send_json(fb_status, fb_body)
+                    # V37.9.229 (审计 finding A): 降级服务的响应带 X-Adapter-Fallback,
+                    # 上游 proxy 读之调 record_fallback → SLO degradation_rate 见真值
+                    # (此前 proxy 只见 200, V37.9.220 primary 全宕 100% fallback 时
+                    # SLO 仍报 healthy = fail-plausible SLO)。primary 成功/502 不带。
+                    self._send_json(fb_status, fb_body,
+                                    extra_headers={"X-Adapter-Fallback": fb["name"]})
                     return
                 except Exception as fb_err:
                     fb_elapsed = int((time.monotonic() - t0) * 1000)
@@ -791,11 +796,19 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(err)
 
-    def _send_json(self, status, body):
-        """Helper to send a JSON response."""
+    def _send_json(self, status, body, extra_headers=None):
+        """Helper to send a JSON response.
+
+        V37.9.229 (审计 finding A): extra_headers 可选附加响应头 — fallback 成功
+        路径用 X-Adapter-Fallback 把降级事件 surface 给上游 tool_proxy 的
+        proxy_stats (record_fallback 复活, degradation_rate 不再结构性 0%)。
+        """
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
+        if extra_headers:
+            for _hk, _hv in extra_headers.items():
+                self.send_header(_hk, _hv)
         self.end_headers()
         self.wfile.write(body)
 
