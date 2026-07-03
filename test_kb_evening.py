@@ -697,6 +697,15 @@ class TestKbEveningShellGuards(unittest.TestCase):
     def test_kb_evening_sh_exists(self):
         self.assertTrue(os.path.isfile(self.script_path))
 
+    def test_date_uses_hkt_tz(self):
+        """V37.9.241 (V37.9.213 ⑨ TZ 一物一形): DATE 必须 HKT——observer 按
+        evening_{YYYYMMDD}.md 日期读文件, system-local 在 TZ 漂移时错位。"""
+        with open(self.script_path, "r", encoding="utf-8") as f:
+            source = f.read()
+        self.assertIn("DATE=$(TZ=Asia/Hong_Kong date +%Y%m%d)", source)
+        self.assertNotIn("DATE=$(date +%Y%m%d)", source,
+                         "DATE 回退 system-local（TZ 一物一形被破坏）")
+
     def test_calls_collector(self):
         with open(self.script_path, "r", encoding="utf-8") as f:
             source = f.read()

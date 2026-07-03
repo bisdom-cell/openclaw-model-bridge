@@ -17,7 +17,10 @@ export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
 # 注: -E (errtrace) 让 ERR trap 在 function 内 fail 也触发, 防 bash 默认作用域陷阱 (V37.9.58-hotfix4 教训)
 set -eEuo pipefail
 
-DATE=$(date +%Y-%m-%d)
+# V37.9.241 (V37.9.213 ⑨ 登记的 TZ 一物一形): DATE 与本脚本 TS/kb_dream DAY 统一
+# HKT。此前 system-local — Mac Mini TZ=HKT 时潜伏不炸, 系统 TZ 漂移时 observer
+# 按日期读文件会错位（跨午夜窗口写错日期文件）。
+DATE=$(TZ=Asia/Hong_Kong date +%Y-%m-%d)
 KB_DIR="${KB_BASE:-$HOME/.kb}"
 DEEP_DIR="$KB_DIR/deep_dives"
 DEEP_FILE="$DEEP_DIR/${DATE}.md"
