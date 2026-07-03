@@ -474,5 +474,160 @@ class TestColdCallTimeoutSourceGuards(unittest.TestCase):
         self.assertIn("V37.9.180", self.src)
 
 
+class TestV379236SubshellErrtraceSentinel(unittest.TestCase):
+    """V37.9.236: notify.sh $() 站点子 shell errtrace 假 FATAL 根治守卫。
+
+    血案 (2026-07-03): alerts.log 三条 "<label> FATAL abort exit=1 line=101" —
+    auto_deploy 12:25:47 + 14:00:02（都紧跟漂移告警推送 ~100s 后）+ watchdog
+    12:31:57（12:30 告警推送后）。三个不同脚本报同一 line=101，且各自的第 101 行
+    全部无辜 → 真相: LINENO 报的是 sourced 文件 notify.sh 内的行号，101 正是
+    _notify_send_with_retry 的 openclaw 发送行。governed caller (set -eE + trap ERR)
+    的 ERR trap 在 macOS bash 3.2 下被 $() 子 shell 继承（V37.9.105/131 quirk 同族），
+    外层 && / || true 救不了子 shell 内部 → openclaw 设计性非零退出（4.27 冷调用
+    超时 = 重试循环的日常输入）在子 shell 内误触发 caller ERR trap → 假 FATAL。
+    V37.9.214 governance_audit "line=101 LINENO 误报" 同根真相（当时行号其实是真的）。
+
+    修复 = 哨兵守卫: $() 内 `|| printf '\\n%s' '__NOTIFY_SEND_RC_FAIL__'` 让子 shell
+    末命令永远成功，失败经哨兵带出、主 shell 剥哨兵判 rc。不碰 errtrace 状态
+    （set +E/-E 切换是 V37.9.214 教训的 landmine，且会泄漏改变 caller 的 MR-19 覆盖）。
+
+    诚实边界: dev bash 5.x 不复现该 3.2 quirk（V37.9.131 实证）→ 行为级只能验证
+    哨兵机制正确性（rc 判别/失败路径语义不变），假 FATAL 消失须 Mac Mini 观察
+    （下次漂移/watchdog 告警推送撞冷调用超时后 alerts.log 无新 FATAL line=101）。
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        with open(_NOTIFY, encoding="utf-8") as f:
+            cls.src = f.read()
+
+    # ── 源码守卫：哨兵在位 + 旧无守卫形态退役 ────────────────────────────
+
+    def test_send_site_sentinel_guarded(self):
+        i = self.src.index("_notify_send_with_retry()")
+        region = self.src[i:i + 2600]
+        self.assertIn(
+            ">/dev/null || printf '\\n%s' '__NOTIFY_SEND_RC_FAIL__')", region,
+            "发送站点 $() 内层必须有哨兵守卫（子 shell 末命令永远成功）")
+
+    def test_replay_site_sentinel_guarded(self):
+        i = self.src.index("_notify_drain_queue()")
+        region = self.src[i:i + 4200]
+        self.assertIn(
+            ">/dev/null || printf '\\n%s' '__NOTIFY_SEND_RC_FAIL__')", region,
+            "队列重放站点 $() 内层必须有哨兵守卫")
+
+    def test_old_unguarded_send_form_retired(self):
+        self.assertNotIn(
+            "--json 2>&1 >/dev/null) && {", self.src,
+            "旧形态 `$(openclaw ...) && {` 回归 = 子 shell 内 openclaw 非零退出"
+            "重新裸露给 bash 3.2 继承的 ERR trap → 假 FATAL line=101 复发")
+
+    def test_sentinel_exactly_two_send_sites(self):
+        self.assertEqual(
+            self.src.count("|| printf '\\n%s' '__NOTIFY_SEND_RC_FAIL__'"), 2,
+            "哨兵应恰好在 2 个 openclaw 发送站点（send + replay）")
+
+    def test_sentinel_stripped_before_use(self):
+        # 剥哨兵 + 剥尾部换行都必须在位（send_err/replay_err 各一组）
+        self.assertEqual(self.src.count('%__NOTIFY_SEND_RC_FAIL__}"'), 4,
+                         "send/replay 各需 1 次判别 + 1 次剥除 = 4 处 % 模式")
+
+    def test_parse_sites_inner_guarded(self):
+        i = self.src.index("_notify_drain_queue()")
+        region = self.src[i:i + 4200]
+        for key in ("channel", "target", "msg"):
+            self.assertIn(f"['{key}'])\" < \"$claim\" 2>/dev/null || true)", region,
+                          f"{key} 解析 $() 内层必须 || true（损坏 claim 防假 FATAL）")
+            self.assertIn(f'[ -n "${key}" ] ||', region,
+                          f"{key} 空输出判失败守卫缺失")
+        self.assertNotIn('2>/dev/null) || { mv "$claim"', region,
+                         "旧外层 || 形态回归（外层救不了 3.2 子 shell 内部）")
+
+    def test_find_sites_inner_guarded(self):
+        self.assertIn('-mmin +10 2>/dev/null || true)"', self.src,
+                      "孤儿 claim find 站点内层 || true 缺失")
+        self.assertEqual(
+            self.src.count('{ find "$_NOTIFY_QUEUE_DIR" -name "*.json" -type f 2>/dev/null || true; }'),
+            2, "qfiles + queue_status 两个 find|pipe 站点须内层守卫（pipefail 同族）")
+
+    def test_v37_9_236_marker(self):
+        self.assertIn("V37.9.236", self.src)
+
+    # ── 行为级：哨兵机制下失败/成功路径语义不变 ──────────────────────────
+
+    def test_failure_stderr_clean_of_sentinel(self):
+        # 真失败：stderr 报错文本必须干净（哨兵剥除后不泄漏进日志/队列）
+        calls, err = _run_notify(
+            channels="discord", return_stderr=True,
+            fake_body='echo "Error: boom-unique-9236" >&2\nexit 1\n')
+        self.assertIn("boom-unique-9236", err, "失败 stderr 应被捕获进 ERROR 日志")
+        self.assertNotIn("__NOTIFY_SEND_RC_FAIL__", err,
+                         "哨兵字符串泄漏进用户可见日志 = 剥除逻辑坏了")
+
+    def test_corrupt_claim_file_handled_gracefully(self):
+        # 损坏 claim（invalid JSON）→ 新 [ -n ] 守卫路径：mv 回原名保留，
+        # 不 crash、不阻塞后续合法条目
+        import time as _time
+        with tempfile.TemporaryDirectory() as td:
+            qd = os.path.join(td, "q")
+            os.makedirs(qd)
+            fake = os.path.join(td, "openclaw")
+            with open(fake, "w") as f:
+                f.write("#!/bin/bash\nexit 0\n")
+            os.chmod(fake, 0o755)
+            with open(os.path.join(qd, "20260703_000001_discord_1.json"), "w") as f:
+                f.write("{not valid json!!")
+            with open(os.path.join(qd, "20260703_000002_discord_2.json"), "w") as f:
+                json.dump({"ts": "x", "channel": "discord", "target": "T",
+                           "topic": "tech", "msg": "legit"}, f)
+            env = dict(os.environ)
+            env["OPENCLAW"] = fake
+            env["NOTIFY_QUEUE_DIR"] = qd
+            result = subprocess.run(
+                ["bash", "-c", f'source "{_NOTIFY}" && _notify_drain_queue'],
+                env=env, capture_output=True, text=True, timeout=20, cwd=_REPO)
+            self.assertEqual(result.returncode, 0)
+            remaining = set(os.listdir(qd))
+            self.assertIn("20260703_000001_discord_1.json", remaining,
+                          "损坏条目应 mv 回原名保留（不静默丢失）")
+            self.assertNotIn("20260703_000002_discord_2.json", remaining,
+                             "合法条目应被重放并移除（损坏条目不阻塞它）")
+            self.assertIn("REPLAY OK", result.stderr)
+
+    def test_governed_caller_contract(self):
+        # 回归地板：governed 形态（set -eEuo pipefail + trap ERR）下调 notify，
+        # openclaw 失败时主脚本必须完整走完且 dev bash 下 trap 不触发。
+        # 注: bash 5.x 本就不复现 3.2 的子 shell 继承 quirk，本测试在 dev 不是
+        # old/new 判别器——它固化的是"notify 可被 governed 脚本安全调用"契约，
+        # 真判别 = Mac Mini alerts.log 观察（docstring 诚实边界）。
+        with tempfile.TemporaryDirectory() as td:
+            fake = os.path.join(td, "openclaw")
+            with open(fake, "w") as f:
+                f.write('#!/bin/bash\necho "gateway timeout after 10000ms" >&2\nexit 1\n')
+            os.chmod(fake, 0o755)
+            trapfile = os.path.join(td, "trap.txt")
+            script = os.path.join(td, "governed.sh")
+            with open(script, "w") as f:
+                f.write(textwrap.dedent(f"""\
+                    #!/usr/bin/env bash
+                    set -eEuo pipefail
+                    trap 'echo "FATAL line=$LINENO" >> "{trapfile}"' ERR
+                    source "{_NOTIFY}"
+                    notify "drift alert test" --topic alerts >/dev/null 2>&1 || true
+                    echo "COMPLETED"
+                    """))
+            env = dict(os.environ)
+            env["OPENCLAW"] = fake
+            env["NOTIFY_QUEUE_DIR"] = os.path.join(td, "q")
+            env["NOTIFY_CHANNELS"] = "discord"
+            env["DISCORD_TARGET"] = "u123"
+            result = subprocess.run(["bash", script], env=env,
+                                    capture_output=True, text=True, timeout=20, cwd=_REPO)
+            self.assertIn("COMPLETED", result.stdout, "governed 脚本必须完整走完")
+            self.assertFalse(os.path.exists(trapfile),
+                             "notify 内部的设计性失败不得触发 governed caller 的 ERR trap")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

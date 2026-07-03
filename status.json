@@ -1,6 +1,6 @@
 {
-  "updated": "2026-07-03 04:34:36",
-  "updated_by": "security_score",
+  "updated": "2026-07-03 07:30:08",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -111,6 +111,11 @@
   "recent_changes": [
     {
       "date": "2026-07-03",
+      "what": "V37.9.236 notify.sh $() 子shell errtrace 假FATAL根治 — 12:30 auto_deploy FATAL line=101 破案: 三脚本(auto_deploy×2/watchdog/governance_audit V37.9.214)报的line=101全是notify.sh:101发送行, openclaw冷调用非零在bash3.2子shell内误触发caller ERR trap(告警路径自制假FATAL); 哨兵守卫2发送站点+内层守卫5解析/find站点, 7个governed脚本一次全愈; 修正V37.9.214 LINENO误报结论(行号一直是真的); +11守卫测试两轮sabotage; 145/0/5189; VERSION 0.37.9.96不变",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-07-03",
       "what": "V37.9.235: observer 两 LOW 项兑现 — (#3) arxiv 样本截断真凶 = daily_observer.scan_source_sections 硬切片 [:500] 无换行对齐 (采样假阳性家族第 3 位点: V37.9.93 tail→213 head→235 sections), 修复 = 行边界 snap + 显式采样标注; (#4) dream DEEP+WIDE_RADAR 双 prompt 加时效标注硬规则 (>14 天信号须标「长期背景, 非近期新增」, 与 ban-list 同窗口). 8 新守卫 + 2 轮 sabotage (含血案 (ru 形态精确回归). VERSION 0.37.9.96. 2026-07-03 observer 日报 4 findings 当日全清 (233/234/235) — 机械化人眼发现→修复闭环首次完整跑通一整份日报.",
       "by": "claude_code"
     },
@@ -203,11 +208,6 @@
       "date": "2026-07-02",
       "what": "V37.9.219 primary=doubao_21 现态 prose 一致性收敛 + provider-count 10→11 漂移补齐(V37.9.216 加 doubao_21 第 11 个 + V37.9.218 primary 切换留下的机器检查覆盖不到的 human prose 漂移). 修 CLAUDE/README/FEATURES/INDEX/compat_matrix/config 现态描述: Doubao 2.1 Pro 为主力/11 provider/Gemini 已退役出链/能力感知多模态路由; file-reference 行去数字化退役漂移源(V37.9.152 先例). point-in-time(已发表文章+冻结论文 8-provider+changelog)诚实不动. full_regression 139/0/5010, 三 doc-drift 无漂移, governance 91/91, VERSION 0.37.9.85 不变(纯 prose 零业务语义). 门控收敛日(所有实质 unfinished gated on Mac Mini/in-review)延续 V37.9.208/209/215 收敛谱系.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-07-02",
-      "what": "运维里程碑: primary 切换 qwen→doubao_21 上线 (Mac Mini adapter plist PROVIDER=doubao_21 + .env_shared). WhatsApp 文本+图片 E2E 真验证通过 (延迟非故障). fallback 链 [deepseek_full,doubao,deepseek,qwen] — qwen 退链末尾逐步老化. doubao_21 现吃全部主流量, 档位仍 feature_verified (production_observed 待 N 天稳定生产证据).",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -257,7 +257,7 @@
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB"
   },
   "session_context": {
-    "last_session": "2026-07-02",
+    "last_session": "2026-07-03",
     "unfinished": [
       "【2026-07-02 多镜头对抗审计 — 明确项全闭环 (V37.9.226 SEC / V37.9.227 F / V37.9.228 B-stats / V37.9.229 A), 潜在项登记待深入】(A) 【✅ V37.9.229 已修】record_fallback 死代码 → degradation_rate 恒 0 已根治: adapter fallback 成功响应加 X-Adapter-Fallback header → tool_proxy 读之调 record_fallback + slo 落盘补 4 原始计数(fallback_count/tool_calls_success/recovery_total/failure_streaks). Mac Mini 验证: 同步+restart 后真 fallback 时 proxy 日志 DEGRADED 行 + proxy_stats.json slo.fallback_count 变真值. (B) 【✅ V37.9.228 部分修 stats 信号 + 剩 delivery follow-up】parse-except 加 `_recorded_success` flag: 抛异且未记 success → record_error(json.loads 失败/backend 200+garbage 不再零信号监控盲区). 6 源码守卫+3 行为级(真 ProxyStats consecutive_errors=1). **剩 follow-up**: streaming 序列化失败(build_sse_response 抛异, success 已合法记)后仍发 application/json 给 SSE client = 内容类型错(独立 delivery bug, 修法 murky 需专门评估, 非本版 stats 信号修复范围). (C) 【MED 跨进程并发】status.json / ~/.kb/index.json(kb_write.sh vs kb_dedup.py) / audit_log.jsonl 三者共享根因: 跨进程 read-modify-write 无跨写者锁 + 固定非唯一 .tmp 名. os.replace 保证 atomic publish 但不保证 atomic update: 并发 → 丢更新(recent_changes insert(0) 静默消失) / 罕见 tmp 交错损坏 → JSONDecodeError → 读者 fallback 到 DEFAULT_STATUS(系统失忆) / audit chain fork 假 tamper. 修法(需锁设计, 勿 rush flock 防死锁): 唯一 tmp(pid 后缀) + flock/目录锁跨整个 RMW. ~40 cron writer 但少并发, 低频. (D) 【✅ V37.9.230 已修】drain mv-to-own claim + 瞬态 mv 回原名 + >10min 孤儿 claim 回收. (E) 【✅ V37.9.231 已修】_deliver 投递 helper 收编四回写点: client 断开只记 CLIENT GONE, 不记 CB failure/不跑死 socket fallback 链. 登记不捆绑: 非 chat 端点回写仍裸写 (无 CB/fallback 语义影响, 噪声级低优). (F) 【✅ V37.9.227 部分修 + 剩 follow-up】ontology_sources + finance_news(有 FETCH_ERRORS 计数器)已修: new==0 且 FETCH_ERRORS>=RSS源数 → status:fetch_failed+exit1(watchdog 告警) + finance_news LLM_OK!=true → status:llm_failed(退役无条件 ok). 8 守卫单测+sabotage. **剩 follow-up(诚实登记, 审计 agent 过度泛化)**: rss_blogs/ai_leaders_blogs **无** FETCH_ERRORS 计数器(每 feed FAIL-OPEN WARN+skip 无计数) → 全源宕仍未检出. 修需加计数器(增量 invasive, 且它们 auxiliary tier + 48h KB-staleness watchdog 网部分覆盖). (G) 【✅ V37.9.230 已修】time 格式对齐本地 + JOB_STATUS 注册 core tier; Mac Mini 验证: 明日 06:30 后 last_run_self_critique.json time 本地格式 + watchdog 4h 周期覆盖 observer. (H) 【✅ V37.9.230 已修】WA 0 段+Discord 失败 → status push_failed (watchdog catch-all 告警); 任一送达仍 ok. (I) 【LOW】CircuitBreaker half-open 无单探针门 → 恢复窗口 bounded thundering herd(自纠正, 设计 tradeoff 非 corruption). 分诊: A✅/B-stats✅/D✅/E✅/F✅/G✅/H✅ 已修 (V37.9.226-231); 剩 C(跨进程锁需设计, 勿 rush flock 防死锁)/I(half-open 设计 tradeoff, 自纠正非 corruption)/B-delivery(streaming 内容类型 murky) 三项需专门设计评估. 全部经代码验证真实(非误报). 低优新观察(V37.9.229 登记): test_config_slo TestProxyStatsSLO 直接 ProxyStats()+record_success 首次 _maybe_flush 写真实 ~/proxy_stats.json (Mac Mini 回归时瞬态污染, live proxy 下个 FLUSH_INTERVAL 覆盖自愈).",
       "【V37.9.211/212 Qwen3 端点刷新 · adapter ✅ + V37.9.212 ✅ 已并入 main(PR#774, 2026-07-02 dev 核实) · 剩用户 env 动作】剩余非紧急: (A) .env_shared 设新 REMOTE_API_KEY+REMOTE_BASE_URL(cron 直连脚本 health_check 每周报 CURRENT_MODEL/diagnose 用) (C) 🔴 明文 key 建议用完轮换。教训钉死: adapter/proxy 是 launchd job, env 改必须进 plist EnvironmentVariables + bootout/bootstrap(不是 shell export + kickstart)。",
@@ -282,17 +282,18 @@
       "V37.9.214 governance 审计间歇 fail — root-cause + B2 均已修 (剩 Mac Mini bash3.2 验证 + 潜在类): 根因 INV-REVIEW-001 kb_review.sh subprocess 负载超时 💥 已修 (timeout 45→90 + TimeoutExpired inconclusive)。 B2 假 FATAL line=101 = bash 3.2 errtrace re-enable landmine (3 次复发 whack-a-mole, dev bash5.x 不复现) 已日落法根治 (set +E 一次不再 re-enable, errexit+顶部 set -eEuo 保留)。 🔴 B2 修复只能 Mac Mini bash 3.2 验证: 同步后观察后续冷/负载失败是否还伴 FATAL 假告警 (预期消失); 仍出现则 bash -x ~/governance_audit_cron.sh 2>/tmp/gac_x.txt 抓 trace。 (潜在类, 不盲修) INV-WATCHDOG-SELF-001 6× 并行 ❌ = 自并行争用 artifact 非生产; '治理 runtime check 对负载敏感' 待系统性评估。 (清陈旧) bash ~/governance_audit_cron.sh 现全过写 pass 清 watchdog flag。",
       "低优观察 (登记不修, 日落法 #8): auto_deploy FILE_MAP 同步用 cp 非原子写 → 脚本在同步窗口内被并发执行会读半截文件 (2026-07-02 11:41 governance_audit_cron.sh 同步 #781 时被手动跑 → line 85 $() 截断 = 'syntax error near governance' 瞬态, 重跑即好 bash -n 过+diff 同步)。极低频(同步写×并发执行精确重叠)+自愈+非代码 bug。若未来 07:00 cron 与 auto_deploy 同步真撞上(复现) 才值得让 auto_deploy 改原子写 temp+mv。当前不投机加复杂度。",
       "doubao_21 primary 已上线 (V37.9.222 B1 flip: PROVIDER=doubao_21 无 FAST_PROVIDER, 批量 thinking-off 实测比 qwen 分流更快, E2E 全过). V37.9.224 B1 fallback 传播已实现 (批量 fallback 按 fb 自己的 reasoning_off_body 重算注入, 合并同步后 adapter 重启生效). 剩: (1) 观察 N 天 cron 周期 + 批量并发规模 (doubao_21 thinking-off ~17s/req) → 升 production_observed. (2) 稳定后 qwen 逐步老化从 FALLBACK_ORDER 移除缩链 (日落法; V37.9.224 后批量 fallback 到 qwen 已自动剥 thinking 参数, 移除前无兼容风险). 回滚: PROVIDER=qwen (V37.9.224 让回滚态批量 fallback 到 reasoning provider 自动 thinking-off = 回滚更安全).",
-      "【2026-07-03 observer 日报 + 治理/watchdog 告警 triage 遗留】(a) ✅ 判别完成 (2026-07-03 用户 Mac Mini 静时重跑 --full): 所有不变式成立 — ❌ 已根治转绿 + INV-CONVERGENCE 💥 静时未复现 = 负载瞬态 (07:00 风暴 + auto_deploy 拉取 PR#796 叠加窗口概率大). 无需硬化; 观察明日 07:00 审计, 若 💥 再现 → 按 V37.9.214 模式硬化 (TimeoutExpired→inconclusive + 加大 120s timeout). (b) freight_watcher: 用户取证确认 last_run 停 07-02 14:00:01 = V37.9.220 事故残留 (freight 每天 1 次 14:00, V37.9.64) → 今日 14:00 run 预期自愈; 14:00 后 cat last_run.json 应转 ok, 若仍 llm_failed = 新问题贴我. (c) observer findings 余项: ✅ DBLP 推断粒度已 V37.9.234 收敛 (评级扩展长度退役+细粒度猜测禁令; 验证=明日 12:00 dblp 推送应无 推测采用XX模型 类字眼 + observer 后续日报该 finding 消失) / ✅ deep_dive 已 V37.9.233 根治: 明细揭示 20/24 = 同一 ACM DOI 重复 20 天 (picker 无已分析去重, 非 fetch 退化) → 14 天 ban-list; 验证: 今晚 22:30 起 last_run_deep_dive.json 见 banned_recent 字段 + 一周后 full-text 比例应回升 (剩余降级=真付费墙诚实接受); observer 未来候选信号: deep_dive 跨天重复主题检测 (dream 有 ban-list 时 observer 没抓到 20 天重复 = 单日视角盲区) / ✅ arxiv 样本截断已 V37.9.235 修 (真凶=observer scan_source_sections 硬切片, 行边界 snap+采样标注; 验证=明日 06:30 报告该 finding 消失) / ✅ dream 时效标注已 V37.9.235 修 (双 prompt 硬规则; 验证=明日 03:00 dream 远期信号带「长期背景」标注). observer 2026-07-03 日报 4 findings 当日全清 (V37.9.233/234/235). (d) github_trending 41错/hn 13错/SLO p95 69s = 07-02 14:00 事故残留 (V37.9.220 已诊断, 自愈, 无动作)."
+      "【2026-07-03 observer 日报 + 治理/watchdog 告警 triage 遗留】(a) ✅ 判别完成 (2026-07-03 用户 Mac Mini 静时重跑 --full): 所有不变式成立 — ❌ 已根治转绿 + INV-CONVERGENCE 💥 静时未复现 = 负载瞬态 (07:00 风暴 + auto_deploy 拉取 PR#796 叠加窗口概率大). 无需硬化; 观察明日 07:00 审计, 若 💥 再现 → 按 V37.9.214 模式硬化 (TimeoutExpired→inconclusive + 加大 120s timeout). (b) freight_watcher: 用户取证确认 last_run 停 07-02 14:00:01 = V37.9.220 事故残留 (freight 每天 1 次 14:00, V37.9.64) → 今日 14:00 run 预期自愈; 14:00 后 cat last_run.json 应转 ok, 若仍 llm_failed = 新问题贴我. (c) observer findings 余项: ✅ DBLP 推断粒度已 V37.9.234 收敛 (评级扩展长度退役+细粒度猜测禁令; 验证=明日 12:00 dblp 推送应无 推测采用XX模型 类字眼 + observer 后续日报该 finding 消失) / ✅ deep_dive 已 V37.9.233 根治: 明细揭示 20/24 = 同一 ACM DOI 重复 20 天 (picker 无已分析去重, 非 fetch 退化) → 14 天 ban-list; 验证: 今晚 22:30 起 last_run_deep_dive.json 见 banned_recent 字段 + 一周后 full-text 比例应回升 (剩余降级=真付费墙诚实接受); observer 未来候选信号: deep_dive 跨天重复主题检测 (dream 有 ban-list 时 observer 没抓到 20 天重复 = 单日视角盲区) / ✅ arxiv 样本截断已 V37.9.235 修 (真凶=observer scan_source_sections 硬切片, 行边界 snap+采样标注; 验证=明日 06:30 报告该 finding 消失) / ✅ dream 时效标注已 V37.9.235 修 (双 prompt 硬规则; 验证=明日 03:00 dream 远期信号带「长期背景」标注). observer 2026-07-03 日报 4 findings 当日全清 (V37.9.233/234/235). (d) github_trending 41错/hn 13错/SLO p95 69s = 07-02 14:00 事故残留 (V37.9.220 已诊断, 自愈, 无动作).",
+      "V37.9.236 follow-up: (a) Mac Mini 观察 alerts.log 不再新增 FATAL line=101 (下次告警推送撞冷调用即验证) (b) scanner 第8 pattern 候选诚实登记不现建 — sourced-lib $() 设计性可失败命令需跨文件 source-graph 分析=新机器, 11个 targeted 守卫已封死唯一日常失败站点(日落法); 若未来再有 sourced-lib 假 FATAL 实例再评估"
     ],
     "open_prs": "",
     "blocked_on": ""
   },
   "quality": {
     "security_score": 95,
-    "test_count": 5178,
-    "last_regression": "2026-07-03 04:33 pass",
+    "test_count": 5189,
+    "last_regression": "2026-07-03 07:29 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-07-03 04:33",
+    "security_score_time": "2026-07-03 07:29",
     "test_suites": 146,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
@@ -361,7 +362,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.235 收工: observer 两 LOW 项 (arxiv 采样截断=假阳性家族第3位点行边界 snap / dream 远期信号时效标注双 prompt). 今日八交付 229-235+hotfix, observer 日报 4 findings 当日全清 = 机械化人眼发现→修复闭环首次完整跑通. 待用户: 合并 PR + Mac Mini 同步. 明日验证: 06:30 observer 无截断 finding / 03:00 dream 长期背景标注 / 07:00 治理全绿 / 12:00 dblp 无细粒度猜测 / 22:30 deep_dive banned_recent / freight 14:00 自愈. 观察: LLM-Observer shadow 周 ~7/7 + doubao_21 production_observed.",
+  "focus": "V37.9.236 收工: notify.sh 假FATAL根治已推送待合并。Mac Mini 验证点: (a) 合并+同步后下次漂移/watchdog告警推送撞冷调用超时, alerts.log 不再新增 FATAL line=101 (b) 今日14:00 freight 自愈 (c) 今晚22:30 deep_dive banned_recent 字段 (d) 明早03:00 dream 长期背景标注 (e) 明早06:30 observer arxiv截断finding消失+状态文件格式自愈 (f) 明早07:00 治理审计全绿(若 INV-CONVERGENCE 💥 复发→按V37.9.214模式硬化) (g) 明日12:00 DBLP 无细粒度猜测。剩余登记项: 审计C(跨进程锁)/I(half-open)/B-delivery(streaming content-type) + LLM-Observer shadow周 flip 决策 ~7/7 (design doc §9.1) + doubao_21 production_observed 观察 + scanner第8 pattern候选(sourced-lib $() 若再有实例)",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
