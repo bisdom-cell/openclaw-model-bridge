@@ -278,8 +278,15 @@ done
 
 TOTAL_NEW="$(wc -l < "$ALL_NEW_FILE" | tr -d ' ')"
 if [ "$TOTAL_NEW" -eq 0 ]; then
+    # V37.9.227 (audit F): 全源抓取失败 ≠ 平静无新文章。原写 status:ok → watchdog 静默
+    # (dead FETCH_ERRORS 计数器 incr 后从不 consult)。全部 RSS 源失败 → fetch_failed 告警。
+    if [ "$FETCH_ERRORS" -ge "${#RSS_FEEDS[@]}" ]; then
+        log "ERROR: 全部 ${#RSS_FEEDS[@]} 源抓取失败 (fetch_failed)，无内容"
+        printf '{"time":"%s","status":"fetch_failed","new":0,"errors":%d}\n' "$TS" "$FETCH_ERRORS" > "$STATUS_FILE"
+        exit 1
+    fi
     log "无新文章，跳过推送。"
-    printf '{"time":"%s","status":"ok","new":0}\n' "$TS" > "$STATUS_FILE"
+    printf '{"time":"%s","status":"ok","new":0,"errors":%d}\n' "$TS" "$FETCH_ERRORS" > "$STATUS_FILE"
     exit 0
 fi
 log "共 ${TOTAL_NEW} 篇新文章"

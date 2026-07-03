@@ -106,6 +106,7 @@ VL_MODEL_ID   = os.environ.get("VL_MODEL_ID", provider.get("vl_model_id", ""))
 API_KEY     = os.environ.get(provider["api_key_env"], "sk-REPLACE-ME")
 AUTH_STYLE  = provider["auth_style"]
 PORT        = int(os.environ.get("PORT", 5001))
+_MAX_INGEST_BYTES = 32 * 1024 * 1024  # V37.9.226 (audit SEC-2): ingest cap, DoS backstop
 ctx         = ssl.create_default_context()
 
 # ---------------------------------------------------------------------------
@@ -547,7 +548,16 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
         rid = self.headers.get("X-Request-ID", "")
         tag = f"[{rid}] " if rid else ""
         t0 = time.monotonic()
-        length = int(self.headers.get("Content-Length", 0))
+        # V37.9.226 (audit SEC-2/3): 畸形 Content-Length 优雅 400（原 int() 裸调崩线程）;
+        # 超大 body 读入前拒（防 OOM）。32 MB 生成式上限，legit 请求远低于此。
+        try:
+            length = int(self.headers.get("Content-Length", 0))
+        except (ValueError, TypeError):
+            self.send_error(400, "Bad Content-Length")
+            return
+        if length < 0 or length > _MAX_INGEST_BYTES:
+            self.send_error(413, "Request too large")
+            return
         raw = self.rfile.read(length)
         # V37.9.77 enforcement: 先 strip query string 再拼 forward URL (provider API 不识别 ?provider=)
         try:
