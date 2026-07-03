@@ -1358,5 +1358,37 @@ class TestV37975DeepRetryFallback(unittest.TestCase):
         # (与 V37.9.74 RADAR retry 同款留候选 B 模式对齐)
 
 
+class TestV37_9_235_SignalFreshness(unittest.TestCase):
+    """V37.9.235 (observer 2026-07-03 finding #4): dream 远期信号时效标注。
+
+    血案形态: dream 引用 ~3 个月前的外部信号 (2026-04-04/03-07/04-20) 作
+    "今日深度" 印证, 无时效标注 → 读者误以为当日新闻。
+    修复: DEEP + WIDE_RADAR 两 system prompt 加时效标注硬规则 (>14 天信号
+    必须标注「(长期背景, 非近期新增)」)。
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "kb_dream.sh")
+        with open(path, encoding="utf-8") as f:
+            cls.src = f.read()
+
+    def test_freshness_rule_in_both_system_prompts(self):
+        """DEEP_SYSTEM + WIDE_RADAR_SYSTEM 各一条 (原则 #31 双 prompt 全量同步)"""
+        self.assertEqual(self.src.count("V37.9.235 信号时效标注"), 2,
+                         "时效标注规则必须在 DEEP 与 WIDE_RADAR 两个 system prompt 各出现一次")
+
+    def test_long_term_background_label_literal(self):
+        self.assertEqual(self.src.count("(长期背景, 非近期新增)"), 2)
+
+    def test_14_day_threshold_aligned_with_banlist(self):
+        """时效阈值 14 天与 dream 主题 ban-list / deep_dive V37.9.233 同窗口 (一物一形)"""
+        import re
+        rules = re.findall(r"V37\.9\.235 信号时效标注】[^\n]+", self.src)
+        self.assertEqual(len(rules), 2)
+        for r in rules:
+            self.assertIn("14 天", r)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

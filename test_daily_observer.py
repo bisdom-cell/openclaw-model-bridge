@@ -2975,5 +2975,68 @@ class TestV37_9_230_WatchdogRegistration(unittest.TestCase):
         self.assertIn("V37.9.230", self.wd_src)
 
 
+class TestV37_9_235_SectionSnap(unittest.TestCase):
+    """V37.9.235 (observer 2026-07-03 finding #3): source section 采样行边界 snap。
+
+    血案形态: scan_source_sections 硬切片 [:500] 把 alignment 校验标记切成
+    "⚠️ LLM 评 ⭐4 偏高 (ru" → LLM assessor 把采样痕迹误报为内容截断 [LOW]。
+    V37.9.93 sampling-aware 家族第 3 个位点 (V37.9.213 修 head → 本版修 sections)。
+    """
+
+    def _scan_one(self, body, date=None):
+        import tempfile
+        from datetime import datetime as _dt
+        date = date or _dt(2026, 7, 2)
+        with tempfile.TemporaryDirectory() as td:
+            os.makedirs(os.path.join(td, "sources"))
+            with open(os.path.join(td, "sources", "arxiv_daily.md"), "w",
+                      encoding="utf-8") as f:
+                f.write(f"## {date.strftime('%Y-%m-%d')}\n{body}")
+            return obs.scan_source_sections(td, date)
+
+    def test_over_limit_snaps_to_line_boundary(self):
+        body = "\n".join(f"- 条目 {i}: 一些内容文本" for i in range(60))
+        r = self._scan_one(body)
+        self.assertEqual(len(r), 1)
+        text = r[0]["section_text"]
+        self.assertIn("样本截断于行边界", text)
+        # 截断标注之前的最后一行必须是完整行 (以完整条目结尾, 非切在半中间)
+        content_part = text.rsplit("…(样本截断", 1)[0].rstrip("\n")
+        self.assertTrue(content_part.endswith("一些内容文本"),
+                        f"截断处必须是完整行, 实际结尾: {content_part[-40:]!r}")
+
+    def test_under_limit_unchanged_no_marker(self):
+        r = self._scan_one("短内容一行\n")
+        self.assertNotIn("样本截断", r[0]["section_text"])
+
+    def test_blood_lesson_marker_not_cut_midword(self):
+        """血案回归: alignment 校验标记落在 500 字边界附近 → 不得出现 '(ru' 式切断"""
+        marker_line = "⚠️ LLM 评 ⭐4 偏高 (rule 预期 ⭐1-2, 仅命中 0 关键词)"
+        # 校准: header(14) + padding(472) = 486, 500 边界落在 marker_line 第 ~13 字处
+        padding = "- 论文条目: " + "内容" * 230  # 12 + 460 = 472 chars
+        body = padding + "\n" + marker_line + "\n- 下一条\n"
+        self.assertGreater(len("## 2026-07-02\n" + body), 500,
+                           "防空转: 构造 body 必须超过截断阈值")
+        r = self._scan_one(body)
+        text = r[0]["section_text"]
+        self.assertIn("样本截断", text, "防空转: 本场景必须真的触发截断")
+        content_part = text.rsplit("…(样本截断", 1)[0]
+        # marker 行要么完整出现要么完全不出现, 绝不半截
+        if "⚠️ LLM 评" in content_part:
+            self.assertIn("关键词)", content_part,
+                          "marker 行出现则必须完整 (不得切成 '(ru' 形态)")
+
+    def test_char_count_reports_full_length(self):
+        body = "\n".join(f"- 条目 {i}" for i in range(100))
+        r = self._scan_one(body)
+        self.assertGreater(r[0]["char_count"], 500,
+                           "char_count 必须是完整 section 长度 (报告统计用), 非截断后长度")
+
+    def test_v37_9_235_marker(self):
+        base = os.path.dirname(os.path.abspath(__file__))
+        with open(os.path.join(base, "daily_observer.py"), encoding="utf-8") as f:
+            self.assertIn("V37.9.235", f.read())
+
+
 if __name__ == "__main__":
     unittest.main()

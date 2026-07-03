@@ -467,11 +467,22 @@ def scan_source_sections(kb_dir, target_date, max_sources=5, max_chars_per=500):
                 section_lines.append(line)
 
         if section_lines:
-            text = "".join(section_lines)[:max_chars_per]
+            # V37.9.235 (observer 2026-07-03 finding #3): 原硬切片 [:max_chars_per]
+            # 把行切在半中间 — 实测把 alignment 校验标记切成 "⚠️ LLM 评 ⭐4 偏高 (ru"
+            # → LLM assessor 把采样痕迹误报为内容截断 [LOW]。镜像 V37.9.213 head-snap:
+            # 就近换行收尾 + 显式采样标注 (V37.9.93 sampling-aware 家族第 3 个位点:
+            # _read_file_sample head → tail → source sections)。
+            raw = "".join(section_lines)
+            text = raw[:max_chars_per]
+            if len(raw) > max_chars_per:
+                nl = text.rfind("\n", max(0, max_chars_per - SMART_SAMPLE_HEAD_SNAP_MAX))
+                if nl > 0:
+                    text = text[:nl]
+                text += f"\n…(样本截断于行边界, 完整 section 共 {len(raw)} 字)"
             results.append({
                 "source": source_name,
                 "section_text": text,
-                "char_count": len("".join(section_lines)),
+                "char_count": len(raw),
             })
 
     results.sort(key=lambda x: x["char_count"], reverse=True)
