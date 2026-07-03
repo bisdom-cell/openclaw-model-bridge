@@ -375,9 +375,10 @@ class TestSourceGuards(unittest.TestCase):
         self.assertIn('"X-Adapter-Fallback": fb["name"]', src)
 
     def test_adapter_primary_send_no_header(self):
-        """primary 成功路径保持裸 _send_json（不误标降级）"""
+        """primary 成功路径的投递不带 extra_headers（不误标降级）。
+        V37.9.231 后投递经 _deliver（client 断开 ≠ backend 失败），形态演进。"""
         src = _read("adapter.py")
-        self.assertIn("self._send_json(status, resp_body)\n", src)
+        self.assertIn("self._deliver(status, resp_body, tag=tag)", src)
 
     def test_adapter_send_json_signature(self):
         src = _read("adapter.py")

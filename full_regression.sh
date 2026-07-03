@@ -90,6 +90,7 @@ run_suite "v37_9_226_data_clean_confinement (V37.9.226 审计安全加固 — da
 run_suite "v37_9_227_cron_fail_loud (V37.9.227 审计 F — ontology_sources/finance_news 全源抓取失败+LLM 失败 fail-loud 非静默 ok)" "python3 test_v37_9_227_cron_fail_loud.py"
 run_suite "v37_9_228_parse_stats_signal (V37.9.228 审计 B — proxy parse-block 抛异未记 success → record_error, 修零 stats 信号监控盲区)" "python3 test_v37_9_228_parse_stats_signal.py"
 run_suite "v37_9_229_slo_fallback_surface (V37.9.229 审计 A — adapter fallback 经 X-Adapter-Fallback header surface, record_fallback 复活 + slo 原始计数落盘, 修 fail-plausible SLO)" "python3 test_v37_9_229_slo_fallback_surface.py"
+run_suite "v37_9_231_client_disconnect (V37.9.231 审计 E — client 断开 ≠ backend 失败: _deliver 收编四回写点, 不误开断路器/不对死 socket 跑 fallback 链)" "python3 test_v37_9_231_client_disconnect.py"
 run_suite "check_registry (注册表校验器)" "python3 test_check_registry.py"
 run_suite "v37_9_206_providers_filemap_coverage (V37.9.206 provider 插件部署覆盖守卫 — deepseek 双插件漏 FILE_MAP 致 fallback 静默失效血案)" "python3 test_v37_9_206_providers_filemap_coverage.py"
 run_suite "cron_health (锁/心跳/告警/完整性)" "python3 test_cron_health.py"
