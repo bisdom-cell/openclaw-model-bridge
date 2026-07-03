@@ -706,7 +706,11 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                     elapsed = int((time.monotonic() - t0) * 1000)
                     log(f"{tag}RESPONSE: {status} ({len(resp_body)} bytes) {elapsed}ms")
                     _circuit_breaker.record_success()
-                    self._send_json(status, resp_body)
+                    # V37.9.231 (审计 finding E): 回写经 _deliver — 此前 _send_json 在本
+                    # try 内, client 断开 (BrokenPipe) 被 except 当 backend 失败 →
+                    # 健康 backend 被记 CB failure + 对死 socket 跑整条 fallback 链
+                    # (V37.9.220 实录: 每个 FALLBACK OK 后 1ms 内 FAILED Broken pipe)。
+                    self._deliver(status, resp_body, tag=tag)
                     return
                 except Exception as err:
                     primary_err = err
@@ -716,7 +720,7 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
 
             if not FALLBACK_CHAIN:
                 log(f"{tag}NO FALLBACK CHAIN configured, returning 502")
-                self._send_json(502, json.dumps({"error": str(primary_err or "circuit breaker open")}).encode())
+                self._deliver(502, json.dumps({"error": str(primary_err or "circuit breaker open")}).encode(), tag=tag)
                 return
 
             # --- Fallback chain: try each provider sequentially ---
@@ -758,8 +762,11 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                     # 上游 proxy 读之调 record_fallback → SLO degradation_rate 见真值
                     # (此前 proxy 只见 200, V37.9.220 primary 全宕 100% fallback 时
                     # SLO 仍报 healthy = fail-plausible SLO)。primary 成功/502 不带。
-                    self._send_json(fb_status, fb_body,
-                                    extra_headers={"X-Adapter-Fallback": fb["name"]})
+                    # V37.9.231 (审计 finding E): 回写经 _deliver — 此前 client 断开被
+                    # 本 except 当 fallback 失败 → 继续对死 socket 试下一个 fallback
+                    # (每个都上游成功+回写失败) 直到链耗尽, 纯浪费上游调用/配额/时间。
+                    self._deliver(fb_status, fb_body,
+                                  extra_headers={"X-Adapter-Fallback": fb["name"]}, tag=tag)
                     return
                 except Exception as fb_err:
                     fb_elapsed = int((time.monotonic() - t0) * 1000)
@@ -768,7 +775,7 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
 
             # All providers in chain failed
             log(f"{tag}ALL {len(FALLBACK_CHAIN)} FALLBACKS FAILED")
-            self._send_json(502, json.dumps({"error": "; ".join(fb_errors)}).encode())
+            self._deliver(502, json.dumps({"error": "; ".join(fb_errors)}).encode(), tag=tag)
             return
 
         # --- Non-chat endpoints: no fallback ---
@@ -811,6 +818,25 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                 self.send_header(_hk, _hv)
         self.end_headers()
         self.wfile.write(body)
+
+    def _deliver(self, status, body, extra_headers=None, tag=""):
+        """V37.9.231 (审计 finding E): 回写响应给 client — 投递失败 ≠ backend 失败。
+
+        client 已超时断开 (V37.9.220: cron job HTTP client 超时先走) 时, 回写撞
+        BrokenPipeError/ConnectionResetError (OSError 族)。此前该异常泄漏进
+        _forward_request 的 try/except → 两个 defect: ① 健康 backend 被记
+        _circuit_breaker.record_failure() (误开断路器) ② 对死 socket 跑完整条
+        fallback 链 (每个 fallback 上游成功 + 回写失败, 浪费 ~500s tail + 配额)。
+        修复: 投递单独兜异常, client 断开只记日志绝不冒泡。仅捕 OSError
+        (写 socket 的失败族); 编程错误 (TypeError 等) 照常传播可见。
+        Returns True=已投递 / False=client 已断开。
+        """
+        try:
+            self._send_json(status, body, extra_headers=extra_headers)
+            return True
+        except OSError as werr:
+            log(f"{tag}CLIENT GONE: response ready but client disconnected ({werr}) — 不触发 fallback/不记 CB failure")
+            return False
 
 _chain_names = [fb["name"] for fb in FALLBACK_CHAIN]
 fb_info = f" (fallback chain: {' -> '.join(_chain_names)})" if FALLBACK_CHAIN else " (no fallback)"
