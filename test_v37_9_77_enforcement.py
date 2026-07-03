@@ -35,9 +35,20 @@ class TestAdapterResolvePrimaryProvider(unittest.TestCase):
         for m in ("adapter", "providers"):
             sys.modules.pop(m, None)
         sys.path.insert(0, _REPO_ROOT)
-        # Need to mock environment to avoid adapter.py startup checks
-        os.environ.setdefault("REMOTE_API_KEY", "test-key-v37976")
-        os.environ.setdefault("PROVIDER", "qwen")
+        # V37.9.232 (2026-07-03 治理红灯根因): 强制基线 env — 原 setdefault 在
+        # 生产 env 已有 PROVIDER=doubao_21 (V37.9.222 flip) 时无效 → import adapter
+        # 得 doubao_21 → 6 个断言 name=="qwen" 的测试全挂 → INV-ROUTER-001 ❌
+        # (dev 无此 env 永远绿)。patch.dict 快照 + 显式 pop 路由类 env, stop 时
+        # 整体还原 (hermetic, 不污染进程 env)。
+        self._env = patch.dict(os.environ, {
+            "REMOTE_API_KEY": "test-key-v37976",
+            "PROVIDER": "qwen",
+        })
+        self._env.start()
+        self.addCleanup(self._env.stop)
+        for k in ("FALLBACK_ORDER", "FALLBACK_PROVIDER", "FAST_PROVIDER",
+                  "MODEL_ID", "VL_MODEL_ID", "ROUTER_ENFORCE"):
+            os.environ.pop(k, None)
         # Don't actually import adapter (it would start HTTP server in __main__)
         # Instead, test the _resolve_primary_provider method by importing without running
 
