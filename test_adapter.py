@@ -784,9 +784,16 @@ class TestHotReloadFunctional(unittest.TestCase):
     def _exec_build(self, providers=None, provider_name="qwen",
                     fallback_provider="", get_registry=None, env_overrides=None,
                     exclude=None):
-        """Execute _build_fallback_chain with mocked globals"""
-        import os as _os
-        env = _os.environ.copy()
+        """Execute _build_fallback_chain with mocked globals.
+
+        V37.9.232 (2026-07-03 治理红灯根因): mock env 从空字典起步 — 原
+        `_os.environ.copy()` 把真实进程 env 泄漏进被测函数: Mac Mini 生产 env
+        设 FALLBACK_ORDER (V37.9.218 flip) 后, exec 的 _build_fallback_chain 走
+        FALLBACK_ORDER 分支调 reg.get() → MockReg 无 .get → AttributeError →
+        INV-FALLBACK-EXCLUDE-001 每日 07:00 ❌ (dev 无此 env 永远绿 = 假 hermetic,
+        "生产 env 污染测试" 是 MR-9 测试污染生产的镜像形态)。
+        """
+        env = {}
         if env_overrides:
             env.update(env_overrides)
 
