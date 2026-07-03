@@ -1,6 +1,6 @@
 {
-  "updated": "2026-07-03 02:35:57",
-  "updated_by": "security_score",
+  "updated": "2026-07-03 02:50:46",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -111,6 +111,11 @@
   "recent_changes": [
     {
       "date": "2026-07-03",
+      "what": "V37.9.232 生产验证闭环: 用户 Mac Mini 同步 PR#799 后静时重跑 governance --full = 所有不变式成立 (INV-FALLBACK-EXCLUDE/INV-ROUTER 转绿, INV-CONVERGENCE 💥 静时未复现 = 负载瞬态判别完成, 无需硬化, 观察明日 07:00). deep_dive 全量统计: 67 文件 / 51 abstract_only = 76% (与 observer 30天窗口 77% 吻合). freight last_run + 降级原因明细待干净命令重取.",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-07-03",
       "what": "V37.9.232: 治理 07:00 红灯根治 — 测试对生产 env 不 hermetic (MR-9 镜像形态: 生产 env 污染测试). test_adapter._exec_build mock env 从 environ.copy() 改空字典起步 (FALLBACK_ORDER 泄漏→MockReg.get AttributeError→INV-FALLBACK-EXCLUDE ❌) + TestAdapterResolvePrimaryProvider.setUp 从 setdefault 改 patch.dict 强制 PROVIDER=qwen+pop 路由 env (INV-ROUTER 潜伏 ❌ dev 多抓一个). 判别器固化 test_v37_9_232_env_hermetic (生产同款 env 注入 subprocess 双套件必须绿) + 2 轮 sabotage. 根治铁证: 生产 env 下 governance EXIT=0. VERSION 不变 (纯测试隔离).",
       "by": "claude_code"
     },
@@ -203,11 +208,6 @@
       "date": "2026-07-02",
       "what": "V37.9.216 新增第 11 个 LLM provider Doubao Seed 2.1 Pro 旗舰 (火山引擎 Ark, env-驱动 key+endpoint 守公开 repo 安全底线, declared 档位待 Mac Mini E2E 实测, VERSION 0.37.9.83). full_regression 138/0/4990 (+5), 安全扫描零泄漏, governance 91/91 EXIT=0.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-07-02",
-      "what": "V37.9.214 追加: B2 假 FATAL 日落法根治。3 个 dev repro 全不复现 → 确认 bash 3.2 特有 errtrace quirk(LINENO=101 误报)。V37.9.105 用 set +E 包每个 $() 再 set -E 复原, 但每个 set -E re-enable 是 bash 3.2 landmine(3 次复发 whack-a-mole)。根治: set +E 一次 errtrace 关到脚本尾, 移除两个 set -E re-enable, errexit+顶部 set -eEuo 声明保留。+4 守卫(无 set -E re-enable 回归)。dev 验证不破坏正常路径(forced GOV_RC=1 exit0 无 FATAL), B2 quirk 修复只能 Mac Mini bash 3.2 验证。连带: 恢复 job_watchdog.sh chaos sabotage 残留 + 修 test_kb_review/test_v37_9_157 定长切片守卫→边界切片。full_regression 138/0/4985。",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -282,7 +282,7 @@
       "V37.9.214 governance 审计间歇 fail — root-cause + B2 均已修 (剩 Mac Mini bash3.2 验证 + 潜在类): 根因 INV-REVIEW-001 kb_review.sh subprocess 负载超时 💥 已修 (timeout 45→90 + TimeoutExpired inconclusive)。 B2 假 FATAL line=101 = bash 3.2 errtrace re-enable landmine (3 次复发 whack-a-mole, dev bash5.x 不复现) 已日落法根治 (set +E 一次不再 re-enable, errexit+顶部 set -eEuo 保留)。 🔴 B2 修复只能 Mac Mini bash 3.2 验证: 同步后观察后续冷/负载失败是否还伴 FATAL 假告警 (预期消失); 仍出现则 bash -x ~/governance_audit_cron.sh 2>/tmp/gac_x.txt 抓 trace。 (潜在类, 不盲修) INV-WATCHDOG-SELF-001 6× 并行 ❌ = 自并行争用 artifact 非生产; '治理 runtime check 对负载敏感' 待系统性评估。 (清陈旧) bash ~/governance_audit_cron.sh 现全过写 pass 清 watchdog flag。",
       "低优观察 (登记不修, 日落法 #8): auto_deploy FILE_MAP 同步用 cp 非原子写 → 脚本在同步窗口内被并发执行会读半截文件 (2026-07-02 11:41 governance_audit_cron.sh 同步 #781 时被手动跑 → line 85 $() 截断 = 'syntax error near governance' 瞬态, 重跑即好 bash -n 过+diff 同步)。极低频(同步写×并发执行精确重叠)+自愈+非代码 bug。若未来 07:00 cron 与 auto_deploy 同步真撞上(复现) 才值得让 auto_deploy 改原子写 temp+mv。当前不投机加复杂度。",
       "doubao_21 primary 已上线 (V37.9.222 B1 flip: PROVIDER=doubao_21 无 FAST_PROVIDER, 批量 thinking-off 实测比 qwen 分流更快, E2E 全过). V37.9.224 B1 fallback 传播已实现 (批量 fallback 按 fb 自己的 reasoning_off_body 重算注入, 合并同步后 adapter 重启生效). 剩: (1) 观察 N 天 cron 周期 + 批量并发规模 (doubao_21 thinking-off ~17s/req) → 升 production_observed. (2) 稳定后 qwen 逐步老化从 FALLBACK_ORDER 移除缩链 (日落法; V37.9.224 后批量 fallback 到 qwen 已自动剥 thinking 参数, 移除前无兼容风险). 回滚: PROVIDER=qwen (V37.9.224 让回滚态批量 fallback 到 reasoning provider 自动 thinking-off = 回滚更安全).",
-      "【2026-07-03 observer 日报 + 治理/watchdog 告警 triage 遗留】(a) 🔴 INV-CONVERGENCE-INTEGRATION-001 💥×2 判别 (Mac Mini): 同步 V37.9.232 后静时重跑 governance --full — ❌ 应消失(已根治); 若 💥 仍在 = requires_full 内层 governance --json 120s 超时 (V37.9.214 负载敏感家族) → 下 session 按 TimeoutExpired→inconclusive + 加大 timeout 硬化. (b) freight_watcher llm_failed: 确认今日 run 自愈 (cat ~/.openclaw/jobs/freight_watcher/cache/last_run.json + tail log; 07-02 14:00 事故残留概率大). (c) observer 4 findings: DBLP 标题推断粒度收敛 (prompt 修 dev-fixable — 无摘要时禁止细粒度方法猜测如 推测采用XX模型, 只留方向性判断; 观察者提案 #1) / deep_dive 降级原因分解首次可用 = PDF 抓取失败 20/24 (fetch-path 类非付费墙! Mac Mini: grep -h 抓取降级原因 ~/.kb/deep_dives/*.md | sort | uniq -c | sort -rn 取具体错误 → 定向修 unfinished[8] 升级) / arxiv 源样本截断 ⚠️LLM评⭐4偏高(ru LOW / dream 远期信号(~3月前)作今日印证缺时效标注 LOW. (d) github_trending 41错/hn 13错/SLO p95 69s = 07-02 14:00 事故残留 (V37.9.220 已诊断, 自愈, 无动作)."
+      "【2026-07-03 observer 日报 + 治理/watchdog 告警 triage 遗留】(a) ✅ 判别完成 (2026-07-03 用户 Mac Mini 静时重跑 --full): 所有不变式成立 — ❌ 已根治转绿 + INV-CONVERGENCE 💥 静时未复现 = 负载瞬态 (07:00 风暴 + auto_deploy 拉取 PR#796 叠加窗口概率大). 无需硬化; 观察明日 07:00 审计, 若 💥 再现 → 按 V37.9.214 模式硬化 (TimeoutExpired→inconclusive + 加大 120s timeout). (b) freight_watcher llm_failed: 确认今日 run 自愈 (cat ~/.openclaw/jobs/freight_watcher/cache/last_run.json + tail log; 07-02 14:00 事故残留概率大). (c) observer 4 findings: DBLP 标题推断粒度收敛 (prompt 修 dev-fixable — 无摘要时禁止细粒度方法猜测如 推测采用XX模型, 只留方向性判断; 观察者提案 #1) / deep_dive 降级原因分解首次可用 = PDF 抓取失败 20/24 (fetch-path 类非付费墙! Mac Mini: grep -h 抓取降级原因 ~/.kb/deep_dives/*.md | sort | uniq -c | sort -rn 取具体错误 → 定向修 unfinished[8] 升级) / arxiv 源样本截断 ⚠️LLM评⭐4偏高(ru LOW / dream 远期信号(~3月前)作今日印证缺时效标注 LOW. (d) github_trending 41错/hn 13错/SLO p95 69s = 07-02 14:00 事故残留 (V37.9.220 已诊断, 自愈, 无动作)."
     ],
     "open_prs": "",
     "blocked_on": ""
