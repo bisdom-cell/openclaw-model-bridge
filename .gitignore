@@ -37,3 +37,6 @@ docs/paper/silent_failures_taxonomy/latex/*.aux
 docs/paper/silent_failures_taxonomy/latex/*.log
 docs/paper/silent_failures_taxonomy/latex/*.out
 docs/paper/silent_failures_taxonomy/latex/*.synctex.gz
+
+# V37.9.238: status_lock() 伴生锁文件（dev 侧 STATUS_FILE 回退 repo 根时产生；Mac Mini 在 ~/.kb）
+status.json.lock

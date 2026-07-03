@@ -190,9 +190,10 @@ class TestFailOpenAndFailFast(unittest.TestCase):
         cls.src = _read(SCRIPT)
 
     def test_per_feed_fail_open(self):
-        # 死链 → WARN + continue (不杀 job)
+        # 死链 → WARN + continue (不杀 job)。V37.9.238: 允许 FETCH_ERRORS 计数行插在
+        # WARN 与 continue 之间（FAIL-OPEN 语义不变，只是失败现在被计数可观测）。
         self.assertIn("RSS 抓取失败，跳过", self.src)
-        self.assertRegex(self.src, r"抓取失败[，,].*\n\s*continue")
+        self.assertRegex(self.src, r"抓取失败[，,].*\n(\s*FETCH_ERRORS=\$\(\(FETCH_ERRORS \+ 1\)\)\n)?\s*continue")
 
     def test_llm_fail_fast_exit1(self):
         self.assertIn('"status":"llm_failed"', self.src)

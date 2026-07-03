@@ -87,7 +87,20 @@ class TestParseStatsBehavior(unittest.TestCase):
 
     tool_proxy 不可 import，但 stats 逻辑用真 ProxyStats 复现 do_POST parse block 的
     确切 flag 控制流，证明: 失败路径记 error（原零信号盲区），happy 路径记 success 不双记。
+
+    V37.9.238 测试隔离（MR-9）: record_* 首次调用必 flush → monkeypatch STATS_FILE。
     """
+
+    def setUp(self):
+        import shutil
+        import tempfile
+        import proxy_filters as _pf
+        self._pf = _pf
+        self._stats_tmpdir = tempfile.mkdtemp(prefix="v228_stats_")
+        self._old_stats_file = _pf.STATS_FILE
+        _pf.STATS_FILE = os.path.join(self._stats_tmpdir, "proxy_stats.json")
+        self.addCleanup(lambda: setattr(self._pf, "STATS_FILE", self._old_stats_file))
+        self.addCleanup(lambda: shutil.rmtree(self._stats_tmpdir, ignore_errors=True))
 
     def _simulate(self, resp_body, transform_ok=True):
         import json

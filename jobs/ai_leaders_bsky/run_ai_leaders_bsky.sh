@@ -117,6 +117,9 @@ ALL_NEW_FILE="$CACHE/all_new.jsonl"
 > "$ALL_NEW_FILE"
 
 TOTAL_NEW=0
+# V37.9.238 (audit F follow-up): 每 account 抓取失败计数 (镜像 ontology_sources V37.9.227)。
+# 此前 per-account FAIL-OPEN WARN+skip 无计数 → 全账号宕仍写 status:ok = watchdog 静默。
+FETCH_ERRORS=0
 
 for account_entry in "${BSKY_ACCOUNTS[@]}"; do
     IFS='|' read -r BSKY_HANDLE BSKY_LABEL <<< "$account_entry"
@@ -143,6 +146,7 @@ for account_entry in "${BSKY_ACCOUNTS[@]}"; do
 
     if [ "$FETCH_OK" != "true" ]; then
         log "WARN: ${BSKY_HANDLE} Bluesky 抓取失败，跳过"
+        FETCH_ERRORS=$((FETCH_ERRORS + 1))
         continue
     fi
 
@@ -233,8 +237,15 @@ done
 
 TOTAL_NEW="$(wc -l < "$ALL_NEW_FILE" | tr -d ' ')"
 if [ "$TOTAL_NEW" -eq 0 ]; then
+    # V37.9.238 (audit F follow-up): 全账号抓取失败 ≠ 平静无新帖 (镜像 ontology_sources
+    # V37.9.227)。全部 account 失败 → fetch_failed + exit 1 (watchdog 显式 case 告警)。
+    if [ "$FETCH_ERRORS" -ge "${#BSKY_ACCOUNTS[@]}" ]; then
+        log "ERROR: 全部 ${#BSKY_ACCOUNTS[@]} 账号抓取失败 (fetch_failed)，无内容"
+        printf '{"time":"%s","status":"fetch_failed","new":0,"errors":%d}\n' "$TS" "$FETCH_ERRORS" > "$STATUS_FILE"
+        exit 1
+    fi
     log "无新帖，跳过推送。"
-    printf '{"time":"%s","status":"ok","new":0}\n' "$TS" > "$STATUS_FILE"
+    printf '{"time":"%s","status":"ok","new":0,"errors":%d}\n' "$TS" "$FETCH_ERRORS" > "$STATUS_FILE"
     exit 0
 fi
 echo "[ai_leaders_bsky] 共 ${TOTAL_NEW} 条新帖"

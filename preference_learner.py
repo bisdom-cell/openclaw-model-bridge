@@ -243,21 +243,27 @@ def run_analysis(days=7):
 def apply_preferences(auto_prefs):
     """将自动偏好写入 status.json，保留用户显式偏好。"""
     from status_update import load_status, save_status
+    # V37.9.238: RMW 在跨写者锁内（finding C lost-update）。部署窗口 fallback。
+    try:
+        from status_update import status_lock
+    except ImportError:
+        from contextlib import nullcontext as status_lock
 
-    data = load_status()
-    existing = data.get("preferences", [])
+    with status_lock():
+        data = load_status()
+        existing = data.get("preferences", [])
 
-    # 分离: [user] 标记的是用户显式偏好，[auto] 是系统分析的
-    user_prefs = [p for p in existing if not p.startswith("[auto] ")]
-    new_auto = [f"[auto] {p}" for p in auto_prefs]
+        # 分离: [user] 标记的是用户显式偏好，[auto] 是系统分析的
+        user_prefs = [p for p in existing if not p.startswith("[auto] ")]
+        new_auto = [f"[auto] {p}" for p in auto_prefs]
 
-    # 合并：用户偏好在前，自动偏好在后
-    data["preferences"] = user_prefs + new_auto
+        # 合并：用户偏好在前，自动偏好在后
+        data["preferences"] = user_prefs + new_auto
 
-    save_status(data, updated_by="preference_learner",
-                audit_action="update_preferences",
-                audit_target="preferences",
-                audit_summary=f"{len(new_auto)} auto preferences detected")
+        save_status(data, updated_by="preference_learner",
+                    audit_action="update_preferences",
+                    audit_target="preferences",
+                    audit_summary=f"{len(new_auto)} auto preferences detected")
 
     return data["preferences"]
 

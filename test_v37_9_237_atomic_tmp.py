@@ -10,9 +10,12 @@ fallback DEFAULT_STATUS / {"entries": []}（系统失忆 / KB 索引失忆）。
 进程 = 不同 pid）写各自 tmp 路径，绝不共用 → 消除交错损坏。os.replace 仍保证 atomic
 publish，并发下最坏是 last-writer-wins（良性丢更新）。
 
-**范围诚实**：本修复只做 finding C 的**损坏安全半边**，不做 lost-update 跨写者锁
-（需谨慎锁设计防死锁，保持登记）。故本测试断言"无损坏 / valid JSON"，绝不断言
-"并发写全部保留"（那是未实现的 lost-update 安全）。
+**V37.9.238 第二半边（同 finding C）**：status_lock() 跨写者 RMW 锁（fcntl.flock
+独立锁文件 + 有界获取 + FAIL-OPEN 超时无锁继续 = 结构性无死锁）——防并发
+load→mutate→save 互相覆盖（lost-update）；audit_log.audit() 同款锁防链 fork
+（两并发读同 last-hash → 同 prev → verify_chain 假 tamper）。
+TestStatusLockV238 / TestAuditChainLockV238 覆盖第二半边（并发全保留现在是
+**确定性**断言——锁串行化所有写者）。
 """
 import importlib.util
 import json
@@ -203,6 +206,151 @@ class TestSourceGuards(unittest.TestCase):
     def test_v37_9_237_marker(self):
         for name in ("status_update.py", "kb_dedup.py", "kb_autotag.py"):
             self.assertIn("V37.9.237", self._read(name))
+
+
+# ---------------------------------------------------------------------------
+# V37.9.238 第二半边 — status_lock() 跨写者 RMW 锁（lost-update）
+# ---------------------------------------------------------------------------
+class TestStatusLockV238(unittest.TestCase):
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.su = _load("status_update_lock", os.path.join(REPO, "status_update.py"))
+        self.su.STATUS_FILE = os.path.join(self.tmpdir, "status.json")
+
+    def tearDown(self):
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+    def _spawn_holder(self, hold_sec):
+        """子进程持有同一锁文件 hold_sec 秒（真跨进程竞争）。"""
+        code = (
+            "import fcntl, os, time, sys\n"
+            "fd = os.open(sys.argv[1], os.O_CREAT | os.O_RDWR, 0o644)\n"
+            "fcntl.flock(fd, fcntl.LOCK_EX)\n"
+            "print('HELD', flush=True)\n"
+            "time.sleep(float(sys.argv[2]))\n"
+        )
+        p = subprocess.Popen(
+            [sys.executable, "-c", code, self.su.STATUS_FILE + ".lock", str(hold_sec)],
+            stdout=subprocess.PIPE, text=True)
+        p.stdout.readline()  # 等 HELD
+        return p
+
+    def test_mutual_exclusion_waits_for_holder(self):
+        """真跨进程互斥：holder 持锁 1.2s，status_lock 应等待后真获取。"""
+        import time as _t
+        holder = self._spawn_holder(1.2)
+        t0 = _t.time()
+        with self.su.status_lock(timeout=5.0) as acquired:
+            waited = _t.time() - t0
+        holder.wait()
+        self.assertTrue(acquired, "holder 释放后应真获取锁")
+        self.assertGreater(waited, 0.8, "应真等待 holder（非立即假获取）")
+
+    def test_fail_open_on_timeout_never_blocks(self):
+        """结构性无死锁核心：holder 持锁超 timeout → fail-open 无锁继续。"""
+        import time as _t
+        holder = self._spawn_holder(10)
+        try:
+            t0 = _t.time()
+            with self.su.status_lock(timeout=0.5) as acquired:
+                waited = _t.time() - t0
+            self.assertFalse(acquired, "超时应 fail-open（acquired=False）")
+            self.assertLess(waited, 2.0, "超时后必须立即继续，绝不阻塞")
+        finally:
+            holder.kill()
+            holder.wait()
+
+    def test_concurrent_cli_rmw_all_preserved(self):
+        """lost-update 修复端到端（确定性）：8 并发 CLI --add 全部保留。
+
+        V37.9.237 时此断言不可能（无锁 last-writer-wins 会丢），锁串行化后确定性成立。
+        """
+        home = os.path.join(self.tmpdir, "home")
+        kb = os.path.join(home, ".kb")
+        os.makedirs(kb, exist_ok=True)
+        with open(os.path.join(kb, "status.json"), "w") as f:
+            json.dump({"recent_changes": []}, f)
+        env = os.environ.copy()
+        env["HOME"] = home
+        procs = []
+        for i in range(8):
+            item = json.dumps({"date": "2026-07-03", "what": "lk%d" % i, "by": "t"})
+            procs.append(subprocess.Popen(
+                [sys.executable, os.path.join(REPO, "status_update.py"),
+                 "--add", "recent_changes", item, "--by", "test"],
+                env=env, cwd=REPO,
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
+        for p in procs:
+            p.wait()
+        with open(os.path.join(kb, "status.json")) as f:
+            data = json.load(f)
+        whats = sorted(rc["what"] for rc in data["recent_changes"])
+        self.assertEqual(whats, ["lk%d" % i for i in range(8)],
+                         "并发 RMW 丢更新: %s" % whats)
+
+    def test_source_guards(self):
+        with open(os.path.join(REPO, "status_update.py")) as f:
+            c = f.read()
+        # main() 的 RMW 必须在锁内执行——断言两行连续代码形态（防守卫被 status_lock
+        # docstring 里的用法示例满足 = V37.9.178 "守卫被自己的注释咬" 同族陷阱）。
+        self.assertIn("with status_lock():\n        _run_rmw(args, parser)", c,
+                      "main() RMW 未在 status_lock 内（或形态被改）")
+        # save_status 自身不得内嵌锁（同进程二次 flock 自阻塞 → 假超时）
+        save_body = c.split("def save_status(")[1].split("\ndef ")[0]
+        self.assertNotIn("status_lock", save_body,
+                         "save_status 不得内嵌 status_lock（自阻塞风险）")
+        # 三个库 RMW 调用方必须包锁（含部署窗口 fallback）
+        for mod in ("daily_observer.py", "preference_learner.py", "security_score.py"):
+            with open(os.path.join(REPO, mod)) as f:
+                mc = f.read()
+            self.assertIn("status_lock", mc, "%s RMW 未包锁" % mod)
+            self.assertIn("nullcontext", mc, "%s 缺部署窗口 fallback" % mod)
+
+
+class TestAuditChainLockV238(unittest.TestCase):
+    """audit_log chain-fork 修复（finding C 第三件）。"""
+
+    def test_concurrent_audits_chain_intact(self):
+        """10 并发 audit() → verify_chain ok（修复前会 fork 假 tamper）。"""
+        tmpdir = tempfile.mkdtemp()
+        try:
+            home = os.path.join(tmpdir, "home")
+            os.makedirs(os.path.join(home, ".kb"), exist_ok=True)
+            env = os.environ.copy()
+            env["HOME"] = home
+            code = ("import sys; sys.path.insert(0, %r); "
+                    "from audit_log import audit; "
+                    "audit('t', 'add', 'x', 'concurrent')" % REPO)
+            procs = [subprocess.Popen([sys.executable, "-c", code], env=env,
+                                      stdout=subprocess.DEVNULL,
+                                      stderr=subprocess.DEVNULL)
+                     for _ in range(10)]
+            for p in procs:
+                p.wait()
+            vcode = ("import sys, json; sys.path.insert(0, %r); "
+                     "from audit_log import verify_chain; "
+                     "print(json.dumps(verify_chain()))" % REPO)
+            out = subprocess.run([sys.executable, "-c", vcode], env=env,
+                                 capture_output=True, text=True)
+            r = json.loads(out.stdout)
+            self.assertTrue(r.get("ok"), "audit 链 fork: %s" % r)
+            self.assertEqual(r.get("total"), 10)
+            self.assertEqual(len(r.get("errors", [])), 0)
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    def test_audit_lock_source_guard(self):
+        with open(os.path.join(REPO, "audit_log.py")) as f:
+            c = f.read()
+        body = c.split("def audit(")[1].split("\ndef ")[0]
+        self.assertIn('AUDIT_FILE + ".lock"', body)
+        # 断言**获取**调用（LOCK_EX|LOCK_NB）而非泛 "fcntl.flock"——finally 块的
+        # LOCK_UN 释放调用会让泛断言在获取被瘫痪时仍通过（sabotage 实测抓出的弱守卫）。
+        self.assertIn("fcntl.LOCK_EX | fcntl.LOCK_NB", body,
+                      "audit() 锁获取调用缺失（守卫需匹配获取而非释放）")
+        self.assertIn("V37.9.238", body)
+        # FAIL-OPEN：锁失败不得阻塞 audit 写入
+        self.assertIn("FAIL-OPEN", body)
 
 
 if __name__ == "__main__":
