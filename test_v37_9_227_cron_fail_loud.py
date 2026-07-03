@@ -11,8 +11,9 @@
   LLM_OK != true → status:"llm_failed"。两者都被 watchdog 告警（fetch_failed 显式 case /
   llm_failed 走 catch-all *）。
 
-  诚实边界: rss_blogs / ai_leaders_blogs **无** FETCH_ERRORS 计数器（每 feed FAIL-OPEN
-  WARN+skip 无计数）→ 全源宕仍未检出。加计数器更 invasive，登记 follow-up（见 unfinished）。
+  诚实边界（V37.9.238 已闭合）: rss_blogs / ai_leaders_blogs 当时无 FETCH_ERRORS 计数器
+  → 全源宕仍未检出，V37.9.227 登记 follow-up。V37.9.238 已补齐（+ ai_leaders_bsky 同 shape
+  原则 #31 一并修），守卫见 test_v37_9_238_fetch_errors_fail_loud.py。
 
 守卫: 源码级（fix 模式在位 + 旧无条件 ok 退役）+ watchdog 状态兼容契约。
 """

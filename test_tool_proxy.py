@@ -581,7 +581,22 @@ class TestAbnormalResponses(unittest.TestCase):
 
 
 class TestProxyStats(unittest.TestCase):
-    """ProxyStats 监控状态机测试。"""
+    """ProxyStats 监控状态机测试。
+
+    V37.9.238 测试隔离（MR-9）: record_* 首次调用必 flush（_last_flush=0.0）→
+    此前直写真实 ~/proxy_stats.json。现 monkeypatch STATS_FILE 到临时目录。
+    """
+
+    def setUp(self):
+        import shutil
+        import tempfile
+        import proxy_filters as _pf
+        self._pf = _pf
+        self._stats_tmpdir = tempfile.mkdtemp(prefix="tp_stats_")
+        self._old_stats_file = _pf.STATS_FILE
+        _pf.STATS_FILE = os.path.join(self._stats_tmpdir, "proxy_stats.json")
+        self.addCleanup(lambda: setattr(self._pf, "STATS_FILE", self._old_stats_file))
+        self.addCleanup(lambda: shutil.rmtree(self._stats_tmpdir, ignore_errors=True))
 
     def test_consecutive_errors_alert(self):
         """连续错误达到阈值应产生告警"""

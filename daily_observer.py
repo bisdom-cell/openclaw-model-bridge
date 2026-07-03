@@ -1177,43 +1177,50 @@ def _write_observer_to_status(kb_dir, target_date, overall_score, anomalies,
         log(f"WARN: V37.9.92 status_update not importable ({e}), "
             f"skipping quality.observer write")
         return False
+    # V37.9.238: RMW 在跨写者锁内（finding C lost-update）。部署窗口 fallback:
+    # 旧 status_update 无 status_lock → nullcontext（无锁 = 修复前行为，FAIL-OPEN）。
+    try:
+        from status_update import status_lock
+    except ImportError:
+        from contextlib import nullcontext as status_lock
 
     try:
-        data = load_status()
-        anomalies_high = sum(1 for a in anomalies
-                             if a.get("severity") == "HIGH")
-        anomalies_med = sum(1 for a in anomalies
-                            if a.get("severity") == "MED")
-        jobs_ok = sum(1 for j in job_statuses
-                      if j.get("status") in ("ok", "partial_degraded"))
+        with status_lock():
+            data = load_status()
+            anomalies_high = sum(1 for a in anomalies
+                                 if a.get("severity") == "HIGH")
+            anomalies_med = sum(1 for a in anomalies
+                                if a.get("severity") == "MED")
+            jobs_ok = sum(1 for j in job_statuses
+                          if j.get("status") in ("ok", "partial_degraded"))
 
-        fp = fp_verdicts or []
-        fp_high = sum(1 for v in fp if v.get("severity") == "HIGH")
-        fp_med = sum(1 for v in fp if v.get("severity") == "MED")
+            fp = fp_verdicts or []
+            fp_high = sum(1 for v in fp if v.get("severity") == "HIGH")
+            fp_med = sum(1 for v in fp if v.get("severity") == "MED")
 
-        quality = data.setdefault("quality", {})
-        quality["observer"] = {
-            "score": overall_score,
-            "status": status,
-            "anomalies_high": anomalies_high,
-            "anomalies_med": anomalies_med,
-            "fail_plausible_high": fp_high,
-            "fail_plausible_med": fp_med,
-            "jobs_ok": jobs_ok,
-            "jobs_total": len(job_statuses),
-            "last_run_date": target_date.strftime("%Y-%m-%d"),
-            "last_updated_at": datetime.now().isoformat(timespec="seconds"),
-            "v37_9_92": True,
-        }
+            quality = data.setdefault("quality", {})
+            quality["observer"] = {
+                "score": overall_score,
+                "status": status,
+                "anomalies_high": anomalies_high,
+                "anomalies_med": anomalies_med,
+                "fail_plausible_high": fp_high,
+                "fail_plausible_med": fp_med,
+                "jobs_ok": jobs_ok,
+                "jobs_total": len(job_statuses),
+                "last_run_date": target_date.strftime("%Y-%m-%d"),
+                "last_updated_at": datetime.now().isoformat(timespec="seconds"),
+                "v37_9_92": True,
+            }
 
-        save_status(data, updated_by="daily_observer",
-                    audit_action="observer_score_update",
-                    audit_target="status.json:quality.observer",
-                    audit_summary=(
-                        f"score={overall_score} "
-                        f"high={anomalies_high} med={anomalies_med} "
-                        f"jobs={jobs_ok}/{len(job_statuses)} "
-                        f"date={target_date.strftime('%Y-%m-%d')}"))
+            save_status(data, updated_by="daily_observer",
+                        audit_action="observer_score_update",
+                        audit_target="status.json:quality.observer",
+                        audit_summary=(
+                            f"score={overall_score} "
+                            f"high={anomalies_high} med={anomalies_med} "
+                            f"jobs={jobs_ok}/{len(job_statuses)} "
+                            f"date={target_date.strftime('%Y-%m-%d')}"))
         return True
     except Exception as e:
         log(f"WARN: V37.9.92 failed to write quality.observer: {e}")

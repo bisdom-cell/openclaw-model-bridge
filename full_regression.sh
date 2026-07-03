@@ -89,6 +89,7 @@ run_suite "notify_jobs_routing (V37.9.171 内容 job 主推走 notify.sh — Pat
 run_suite "v37_9_175_proxy_alert_marker (V37.9.175 Path B 续 — proxy _send_alert 收编 notify.sh + [SYSTEM_ALERT] 标记, .py 盲区闭合, NO_REPLY 污染根因)" "python3 test_v37_9_175_proxy_alert_marker.py"
 run_suite "v37_9_226_data_clean_confinement (V37.9.226 审计安全加固 — data_clean 路径限制防密钥泄漏 + ingest cap/Content-Length guard)" "python3 test_v37_9_226_data_clean_confinement.py"
 run_suite "v37_9_227_cron_fail_loud (V37.9.227 审计 F — ontology_sources/finance_news 全源抓取失败+LLM 失败 fail-loud 非静默 ok)" "python3 test_v37_9_227_cron_fail_loud.py"
+run_suite "v37_9_238_fetch_errors_fail_loud (V37.9.238 审计 F follow-up — rss_blogs/ai_leaders_blogs/bsky FETCH_ERRORS 计数器 + MR-9 ProxyStats 测试污染隔离)" "python3 test_v37_9_238_fetch_errors_fail_loud.py"
 run_suite "v37_9_228_parse_stats_signal (V37.9.228 审计 B — proxy parse-block 抛异未记 success → record_error, 修零 stats 信号监控盲区)" "python3 test_v37_9_228_parse_stats_signal.py"
 run_suite "v37_9_229_slo_fallback_surface (V37.9.229 审计 A — adapter fallback 经 X-Adapter-Fallback header surface, record_fallback 复活 + slo 原始计数落盘, 修 fail-plausible SLO)" "python3 test_v37_9_229_slo_fallback_surface.py"
 run_suite "v37_9_231_client_disconnect (V37.9.231 审计 E — client 断开 ≠ backend 失败: _deliver 收编四回写点, 不误开断路器/不对死 socket 跑 fallback 链)" "python3 test_v37_9_231_client_disconnect.py"

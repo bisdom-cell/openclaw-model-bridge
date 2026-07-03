@@ -1,5 +1,5 @@
 {
-  "updated": "2026-07-03 09:57:37",
+  "updated": "2026-07-03 10:27:26",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -111,6 +111,11 @@
   "recent_changes": [
     {
       "date": "2026-07-03",
+      "what": "V37.9.238 审计三批: (C-lock) status_lock() 跨写者 RMW 锁 — fcntl.flock 独立锁文件+有界获取5s+FAIL-OPEN 超时无锁继续 (每种失败模式降级为修复前行为而非新故障), CLI main + daily_observer/preference_learner/security_score 全 RMW 写者覆盖+部署窗口 nullcontext fallback; (C-audit) audit() read-last-hash→append 同款锁防链 fork 假 tamper; (F) rss_blogs/ai_leaders_blogs/bsky FETCH_ERRORS 三件套 (全源宕→fetch_failed+exit1 watchdog 告警, 原则#31 bsky 同 shape 一并修); (MR-9) 三测试类 ProxyStats 直写真实 ~/proxy_stats.json 污染隔离. 50 新单测含真跨进程互斥/fail-open 不阻塞/8并发 CLI 8/8 全保留确定性/10并发 audit 链完整; 4轮 sabotage 首轮抓出自己 2 个弱守卫 (docstring 咬守卫+LOCK_UN 满足泛断言) 修强后全 fire. 147/0/5231 / governance 全绿 / VERSION 0.37.9.98",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-07-03",
       "what": "V37.9.237 审计 finding C 安全半边: status.json/kb index.json 原子写从固定 tmp 名改唯一 tmp (pid 后缀). 根因: 固定 .tmp 下 ~40 并发写者交错损坏→os.replace 发布垃圾→读者 JSONDecodeError→fallback DEFAULT_STATUS 系统失忆; docstring 支持并发安全是 fail-plausible 声明. 修 status_update/kb_dedup/kb_autotag 三处 + finally 清理 orphan + 诚实 docstring. 诚实范围: 只做损坏安全半边 (降级为 last-writer-wins 良性丢更新), 不做跨写者锁 (需谨慎锁设计防死锁, 登记). 14 新单测含真子进程并发+sabotage 反向验证. 5203 tests / governance EXIT=0 / VERSION 0.37.9.97",
       "by": "claude_code"
     },
@@ -203,11 +208,6 @@
       "date": "2026-07-02",
       "what": "V37.9.221 doubao_21 迁移门槛修复: adapter workload 路由 (方案 A2 单点规则). _classify_fast_route 纯函数: 无 tools=批量/纯推理→fast provider(FAST_PROVIDER) / 有 tools=PA agent→primary(doubao_21 reasoning). 复用 FAST_ROUTE, 一处规则覆盖全部 24 异构 LLM 消费方(vs A1 逐站点脆弱). no-op until flip (FAST_ROUTE 仅 FAST_PROVIDER≠PROVIDER 时非空). Q2 洞察: fallback 防故障非延迟, qwen 排第 4 走到时 client 早超时断 socket. 10 新单测+sabotage 验证. design doc + case doc 更新. full_regression 139/0/5020, VERSION 0.37.9.86. Mac Mini 待 flip (runbook 见 design 第 5 节).",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-07-02",
-      "what": "事故+回滚: doubao_21 primary (今日切换) 拖垮批量 cron job (freight/github_trending/hn 全 502, reasoning 延迟 7-9min>>job HTTP timeout→broken pipe→adapter 级联全 fallback 失败). 数据驱动诊断 (health 200/qwen 直连 0.412s vs doubao_21 7.3s/adapter.log broken pipe 铁证) 确认纯 reasoning 延迟非宕机/配置。回滚 PROVIDER=qwen (Plan B, .env_shared+adapter plist+bootout/bootstrap) 恢复 V37.9.218 态。文档 V37.9.220 primary prose 回正 qwen + case doc + 登记迁移门槛。VERSION 0.37.9.85 不变。",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -259,7 +259,7 @@
   "session_context": {
     "last_session": "2026-07-03",
     "unfinished": [
-      "【2026-07-02 多镜头对抗审计 — 明确项全闭环 (V37.9.226 SEC / V37.9.227 F / V37.9.228 B-stats / V37.9.229 A), 潜在项登记待深入】(A) 【✅ V37.9.229 已修】record_fallback 死代码 → degradation_rate 恒 0 已根治: adapter fallback 成功响应加 X-Adapter-Fallback header → tool_proxy 读之调 record_fallback + slo 落盘补 4 原始计数(fallback_count/tool_calls_success/recovery_total/failure_streaks). Mac Mini 验证: 同步+restart 后真 fallback 时 proxy 日志 DEGRADED 行 + proxy_stats.json slo.fallback_count 变真值. (B) 【✅ V37.9.228 部分修 stats 信号 + 剩 delivery follow-up】parse-except 加 `_recorded_success` flag: 抛异且未记 success → record_error(json.loads 失败/backend 200+garbage 不再零信号监控盲区). 6 源码守卫+3 行为级(真 ProxyStats consecutive_errors=1). **剩 follow-up**: streaming 序列化失败(build_sse_response 抛异, success 已合法记)后仍发 application/json 给 SSE client = 内容类型错(独立 delivery bug, 修法 murky 需专门评估, 非本版 stats 信号修复范围). (C) 【✅ V37.9.237 tmp-uniqueness 安全半边已修 + 剩 lock 半边登记】status.json / ~/.kb/index.json(kb_write.sh vs kb_dedup.py) / audit_log.jsonl 三者共享根因: 跨进程 read-modify-write 无跨写者锁 + 固定非唯一 .tmp 名. os.replace 保证 atomic publish 但不保证 atomic update: 并发 → 丢更新(recent_changes insert(0) 静默消失) / 罕见 tmp 交错损坏 → JSONDecodeError → 读者 fallback 到 DEFAULT_STATUS(系统失忆) / audit chain fork 假 tamper. 修法(需锁设计, 勿 rush flock 防死锁): 唯一 tmp(pid 后缀) + flock/目录锁跨整个 RMW. ~40 cron writer 但少并发, 低频. (D) 【✅ V37.9.230 已修】drain mv-to-own claim + 瞬态 mv 回原名 + >10min 孤儿 claim 回收. (E) 【✅ V37.9.231 已修】_deliver 投递 helper 收编四回写点: client 断开只记 CLIENT GONE, 不记 CB failure/不跑死 socket fallback 链. 登记不捆绑: 非 chat 端点回写仍裸写 (无 CB/fallback 语义影响, 噪声级低优). (F) 【✅ V37.9.227 部分修 + 剩 follow-up】ontology_sources + finance_news(有 FETCH_ERRORS 计数器)已修: new==0 且 FETCH_ERRORS>=RSS源数 → status:fetch_failed+exit1(watchdog 告警) + finance_news LLM_OK!=true → status:llm_failed(退役无条件 ok). 8 守卫单测+sabotage. **剩 follow-up(诚实登记, 审计 agent 过度泛化)**: rss_blogs/ai_leaders_blogs **无** FETCH_ERRORS 计数器(每 feed FAIL-OPEN WARN+skip 无计数) → 全源宕仍未检出. 修需加计数器(增量 invasive, 且它们 auxiliary tier + 48h KB-staleness watchdog 网部分覆盖). (G) 【✅ V37.9.230 已修】time 格式对齐本地 + JOB_STATUS 注册 core tier; Mac Mini 验证: 明日 06:30 后 last_run_self_critique.json time 本地格式 + watchdog 4h 周期覆盖 observer. (H) 【✅ V37.9.230 已修】WA 0 段+Discord 失败 → status push_failed (watchdog catch-all 告警); 任一送达仍 ok. (I) 【LOW】CircuitBreaker half-open 无单探针门 → 恢复窗口 bounded thundering herd(自纠正, 设计 tradeoff 非 corruption). 分诊: A✅/B-stats✅/D✅/E✅/F✅/G✅/H✅ 已修 (V37.9.226-231); 剩 C-lock(lost-update 跨写者锁, V37.9.237 已修损坏半边=唯一 tmp pid 后缀, 剩 lost-update 需谨慎锁设计 + audit_log chain-fork)/I(half-open 设计 tradeoff, 自纠正非 corruption)/B-delivery(streaming 内容类型 murky) 三项需专门设计评估. 全部经代码验证真实(非误报). 低优新观察(V37.9.229 登记): test_config_slo TestProxyStatsSLO 直接 ProxyStats()+record_success 首次 _maybe_flush 写真实 ~/proxy_stats.json (Mac Mini 回归时瞬态污染, live proxy 下个 FLUSH_INTERVAL 覆盖自愈).",
+      "【2026-07-02 多镜头对抗审计 — 明确项全闭环 (V37.9.226 SEC / V37.9.227 F / V37.9.228 B-stats / V37.9.229 A), 潜在项登记待深入】(A) 【✅ V37.9.229 已修】record_fallback 死代码 → degradation_rate 恒 0 已根治: adapter fallback 成功响应加 X-Adapter-Fallback header → tool_proxy 读之调 record_fallback + slo 落盘补 4 原始计数(fallback_count/tool_calls_success/recovery_total/failure_streaks). Mac Mini 验证: 同步+restart 后真 fallback 时 proxy 日志 DEGRADED 行 + proxy_stats.json slo.fallback_count 变真值. (B) 【✅ V37.9.228 部分修 stats 信号 + 剩 delivery follow-up】parse-except 加 `_recorded_success` flag: 抛异且未记 success → record_error(json.loads 失败/backend 200+garbage 不再零信号监控盲区). 6 源码守卫+3 行为级(真 ProxyStats consecutive_errors=1). **剩 follow-up**: streaming 序列化失败(build_sse_response 抛异, success 已合法记)后仍发 application/json 给 SSE client = 内容类型错(独立 delivery bug, 修法 murky 需专门评估, 非本版 stats 信号修复范围). (C) 【✅ V37.9.237+238 全闭环】tmp-uniqueness (237) + status_lock 跨写者 RMW 锁 + audit 链锁 (238, flock 独立锁文件+有界+FAIL-OPEN 四重防死锁): status.json / ~/.kb/index.json(kb_write.sh vs kb_dedup.py) / audit_log.jsonl 三者共享根因: 跨进程 read-modify-write 无跨写者锁 + 固定非唯一 .tmp 名. os.replace 保证 atomic publish 但不保证 atomic update: 并发 → 丢更新(recent_changes insert(0) 静默消失) / 罕见 tmp 交错损坏 → JSONDecodeError → 读者 fallback 到 DEFAULT_STATUS(系统失忆) / audit chain fork 假 tamper. 修法(需锁设计, 勿 rush flock 防死锁): 唯一 tmp(pid 后缀) + flock/目录锁跨整个 RMW. ~40 cron writer 但少并发, 低频. (D) 【✅ V37.9.230 已修】drain mv-to-own claim + 瞬态 mv 回原名 + >10min 孤儿 claim 回收. (E) 【✅ V37.9.231 已修】_deliver 投递 helper 收编四回写点: client 断开只记 CLIENT GONE, 不记 CB failure/不跑死 socket fallback 链. 登记不捆绑: 非 chat 端点回写仍裸写 (无 CB/fallback 语义影响, 噪声级低优). (F) 【✅ V37.9.227 部分修 + 剩 follow-up】ontology_sources + finance_news(有 FETCH_ERRORS 计数器)已修: new==0 且 FETCH_ERRORS>=RSS源数 → status:fetch_failed+exit1(watchdog 告警) + finance_news LLM_OK!=true → status:llm_failed(退役无条件 ok). 8 守卫单测+sabotage. **✅ V37.9.238 follow-up 已闭环**: rss_blogs/ai_leaders_blogs + bsky(同 shape 原则#31) 已加 FETCH_ERRORS 三件套(全源宕→fetch_failed+exit1 watchdog 告警). (G) 【✅ V37.9.230 已修】time 格式对齐本地 + JOB_STATUS 注册 core tier; Mac Mini 验证: 明日 06:30 后 last_run_self_critique.json time 本地格式 + watchdog 4h 周期覆盖 observer. (H) 【✅ V37.9.230 已修】WA 0 段+Discord 失败 → status push_failed (watchdog catch-all 告警); 任一送达仍 ok. (I) 【LOW】CircuitBreaker half-open 无单探针门 → 恢复窗口 bounded thundering herd(自纠正, 设计 tradeoff 非 corruption). 分诊: A✅/B-stats✅/D✅/E✅/F✅/G✅/H✅ 已修 (V37.9.226-231); 剩 I(half-open 设计 tradeoff, 自纠正非 corruption, 登记为可接受)/B-delivery(streaming 内容类型 murky) 两项; C 已 V37.9.237+238 全闭环. 全部经代码验证真实(非误报). ✅ V37.9.238 已修: test_config_slo/test_tool_proxy/test_v37_9_228 三类 ProxyStats 测试污染已隔离 (STATS_FILE monkeypatch 到临时目录, MR-9 家族第 6 实例).",
       "【V37.9.211/212 Qwen3 端点刷新 · adapter ✅ + V37.9.212 ✅ 已并入 main(PR#774, 2026-07-02 dev 核实) · 剩用户 env 动作】剩余非紧急: (A) .env_shared 设新 REMOTE_API_KEY+REMOTE_BASE_URL(cron 直连脚本 health_check 每周报 CURRENT_MODEL/diagnose 用) (C) 🔴 明文 key 建议用完轮换。教训钉死: adapter/proxy 是 launchd job, env 改必须进 plist EnvironmentVariables + bootout/bootstrap(不是 shell export + kickstart)。",
       "【LLM-Observer 研究攻关 #1 · Stage 0-5 ✅ + Stage 6 chunk 1 ✅(V37.9.200 bench 社区化) + Mac Mini E2E shadow 周观察中 2026-06-30 · Stage 5.1(flip on, gated 于 shadow 周数据)/Stage 6 论文 #2 草案(gated 于 detection latency 生产数据) next】Stage 5 wire 进 daily_observer (PR#759 已合并+同步)。Mac Mini E2E 当天验证: fp_mode=shadow + score_history fp_med 链路通 + shadow 立刻抓第一个真 FP (S5 boilerplate 误把 freight 评分字段 '评级：⭐⭐⭐⭐' 重复当空壳) → V37.9.199 修复(PR#760 已合并 b9d68b2, 生产复跑 2026-06-29 段数 1→0 确认生效) (_descriptive_char_count 区分描述空壳 vs 评分字段, PR#760 待合并)。🔴 **Mac Mini shadow 周观察 (进行中, dev 不可替代)**: 合并 PR#760 + 同步 → 下次 06:30 cron 评分源不再误报。每天看 ~/.kb/self_critique/daily_critique_$(date -v-1d +%Y%m%d).md 的 Fail-Plausible 段 + score_history fp_high/med + status.quality.observer.fail_plausible_* — 判断 (a) 还有没有其他系统性 FP (b) 有没有抓到【真】fail-plausible (c) cron 是否变慢/报错 (FAIL-OPEN)。**Stage 5.1 (shadow 周后)**: FP 噪声降到低位 + 信号真有用 → flip OBSERVER_FP_MODE=on (fp 进 anomalies 影响评分+告警) + 评估 force_judge 高风险 synthesis (catch novel D2/grounding)。**Stage 6**: bench 化 (reliability_bench 扩展 + llm_observer_selfcheck CORPUS 种子) + 论文 #2 (描述→预测, scorecard 核心数据)。 **V37.9.210: Stage 5.1 flip 决策框架已预注册 design doc §9.1**(观察对象+live precision 度量+C1/C2/C3 criteria+flip vs extend+rollback 可逆+small-N 边界) — shadow 周(~7/7)完成后按 §9.1 判 flip/extend, 决策结构不再散落 changelog(一物一形).",
       "【DeepSeek 迁移 Qwen3 · 满血版 deepseek_full 确立为赢家(V37.9.205 feature_verified) · Phase 2 待启】候选已定: deepseek_full(满血版 ai-tokenhub)=赢家——E2E 验证 text/tool_calling/reasoning, 🌟 有 R1 reasoning 通道(超 Qwen3-235B-Instruct 非推理模型)+无乱码+干净中文; 量化版 deepseek(w4a8)=PENDING(有乱码+无 reasoning 通道)。满血版仍限: 无视觉(400)+json_mode 围栏非严格+推理吃 token 预算(生成任务须高 max_tokens)。🔴 Mac Mini 待用户: (1) 满血版 key 已在~/.env_shared, 待加进 adapter+proxy plist(镜像 ARK/DEEPSEEK_API_KEY)+bootout/bootstrap 重载让 launchd 服务用上。(2) Phase 2: deepseek_full 进 fallback 链生产观察(质量/延迟/真接管)→ 升 production_observed(verified_fallback flip)。注: router shadow 模式已会把 reasoning 任务(如 kb_dream)路由到 deepseek_full(s=20>qwen 14), 但 ROUTER_ENFORCE 默认 off 仅观察; 若要真启用能力路由需用户开 ROUTER_ENFORCE。(3) 视觉路由: 满血版无视觉 → 老化 Qwen3 文本时图片留 Qwen2.5-VL/doubao(候选能力路由器 text→deepseek_full/image→VL)。(4) streaming 满血版未单测(declared True verified False), 如需可补 curl。🔴 安全: 满血/量化/Doubao ARK 三 key 对话明文多次强烈建议轮换。",
@@ -290,14 +290,14 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 5203,
-    "last_regression": "2026-07-03 09:55 pass",
+    "test_count": 5231,
+    "last_regression": "2026-07-03 10:25 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-07-03 09:55",
-    "test_suites": 147,
+    "security_score_time": "2026-07-03 10:25",
+    "test_suites": 148,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
-    "version": "0.37.9.97",
+    "version": "0.37.9.98",
     "observer": {}
   },
   "incidents": [
@@ -362,7 +362,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.237 收工: 审计 finding C 安全半边已推送待合并 (status.json/index.json 唯一 tmp pid 后缀消除并发交错损坏→系统失忆). Mac Mini 验证点: 合并+同步后并发 cron 写 status.json/index.json 用 <file>.tmp.<pid> (ls ~/.kb/*.tmp.* 短暂可见), 不再有交错损坏致 JSONDecodeError→系统失忆. 剩余登记 (需锁设计不 rush): C-lock status/index lost-update 跨写者锁 + audit_log chain-fork + I half-open + B-delivery streaming content-type. 其余 gated: LLM-Observer shadow周 flip ~7/7 (design §9.1) + doubao_21 production_observed + IEEE/ISSRE in-review",
+  "focus": "V37.9.238 收工: 审计三批兑现已推送待合并 — finding C 全闭环 (status_lock 跨写者锁 + audit 链锁, flock 独立锁文件+有界+FAIL-OPEN 四重防死锁) + F follow-up (rss_blogs/ai_leaders_blogs/bsky FETCH_ERRORS fail-loud) + MR-9 ProxyStats 测试隔离. Mac Mini 验证: 同步后 ls ~/.kb/status.json.lock ~/.kb/audit.jsonl.lock 伴生锁出现 + 并发 cron 写不再互相覆盖. 2026-07-02 审计 9 findings 已闭环 8, 剩 I (half-open 可接受 tradeoff) + B-delivery (streaming content-type murky). 其余 gated: LLM-Observer shadow 周 flip ~7/7 + doubao_21 production_observed + IEEE/ISSRE in-review",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",

@@ -75,28 +75,65 @@ def audit(actor: str, action: str, target: str, summary: str = ""):
         target: 操作目标 (health.services / status.json / crontab / ...)
         summary: 摘要说明
     """
-    prev_hash = _get_last_hash()
-    entry = {
-        "ts": time.strftime("%Y-%m-%dT%H:%M:%S"),
-        "actor": actor,
-        "action": action,
-        "target": target,
-        "summary": summary[:500],  # 限制长度
-        "prev": prev_hash,
-    }
-    # 计算当前记录的哈希（不含 hash 字段本身）
-    entry_str = json.dumps(entry, ensure_ascii=False, sort_keys=True)
-    entry["hash"] = _compute_hash(entry_str)
-
-    os.makedirs(os.path.dirname(AUDIT_FILE), exist_ok=True)
-    with open(AUDIT_FILE, "a") as f:
-        f.write(json.dumps(entry, ensure_ascii=False) + "\n")
-        f.flush()
+    # V37.9.238（审计 finding C chain-fork 半边）: read-last-hash → append 是 RMW，
+    # 并发下两个 audit() 读到同一 last-hash → 两条记录同 prev → 链 fork →
+    # verify_chain 报假 tamper。flock 独立锁文件（有界 + FAIL-OPEN，同 status_lock
+    # 设计三原则：内核自动释放/绝不无限阻塞/超时无锁继续=修复前行为）。
+    # 锁序无环：audit 锁只在 status 锁内或独立获取，status 锁从不在 audit 锁内获取。
+    lock_fd = None
+    locked = False
+    try:
         try:
-            os.fsync(f.fileno())
-        except OSError:
-            # fsync 在某些 FS (如 tmpfs) 不可用，降级为 flush-only
-            pass
+            import fcntl
+            os.makedirs(os.path.dirname(AUDIT_FILE), exist_ok=True)
+            lock_fd = os.open(AUDIT_FILE + ".lock", os.O_CREAT | os.O_RDWR, 0o644)
+            deadline = time.time() + 5.0
+            while True:
+                try:
+                    fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    locked = True
+                    break
+                except OSError:
+                    if time.time() >= deadline:
+                        break
+                    time.sleep(0.05)
+        except (ImportError, OSError):
+            pass  # FAIL-OPEN: 无锁继续（= 修复前行为）
+
+        prev_hash = _get_last_hash()
+        entry = {
+            "ts": time.strftime("%Y-%m-%dT%H:%M:%S"),
+            "actor": actor,
+            "action": action,
+            "target": target,
+            "summary": summary[:500],  # 限制长度
+            "prev": prev_hash,
+        }
+        # 计算当前记录的哈希（不含 hash 字段本身）
+        entry_str = json.dumps(entry, ensure_ascii=False, sort_keys=True)
+        entry["hash"] = _compute_hash(entry_str)
+
+        os.makedirs(os.path.dirname(AUDIT_FILE), exist_ok=True)
+        with open(AUDIT_FILE, "a") as f:
+            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+            f.flush()
+            try:
+                os.fsync(f.fileno())
+            except OSError:
+                # fsync 在某些 FS (如 tmpfs) 不可用，降级为 flush-only
+                pass
+    finally:
+        if lock_fd is not None:
+            try:
+                if locked:
+                    import fcntl
+                    fcntl.flock(lock_fd, fcntl.LOCK_UN)
+            except (ImportError, OSError):
+                pass
+            try:
+                os.close(lock_fd)
+            except OSError:
+                pass
 
 
 def snapshot(dest_path: str) -> dict:

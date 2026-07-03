@@ -241,7 +241,22 @@ class TestIncidentSnapshot(unittest.TestCase):
 
 
 class TestProxyStatsSLO(unittest.TestCase):
-    """ProxyStats SLO 指标追踪单测"""
+    """ProxyStats SLO 指标追踪单测
+
+    V37.9.238 测试隔离（MR-9，V37.9.229 登记观察兑现）: record_* 首次调用必 flush
+    （_last_flush=0.0 → now-0 恒 >= FLUSH_INTERVAL）→ 此前直写真实 ~/proxy_stats.json
+    （Mac Mini 跑回归时瞬态污染 live proxy 统计）。现 monkeypatch STATS_FILE 到临时目录。
+    """
+
+    def setUp(self):
+        import shutil
+        import proxy_filters as _pf
+        self._pf = _pf
+        self._tmpdir = tempfile.mkdtemp(prefix="slo_stats_")
+        self._old_stats_file = _pf.STATS_FILE
+        _pf.STATS_FILE = os.path.join(self._tmpdir, "proxy_stats.json")
+        self.addCleanup(lambda: setattr(self._pf, "STATS_FILE", self._old_stats_file))
+        self.addCleanup(lambda: shutil.rmtree(self._tmpdir, ignore_errors=True))
 
     def _make_stats(self):
         from proxy_filters import ProxyStats

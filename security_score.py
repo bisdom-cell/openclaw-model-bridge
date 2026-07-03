@@ -503,14 +503,20 @@ def main():
         # 写入 status.json
         try:
             from status_update import load_status, save_status
-            status = load_status()
-            score_str = f"{data['total']}/{data['max']} ({data['percentage']}%)"
-            if "health" not in status:
-                status["health"] = {}
-            status["health"]["security_score"] = score_str
-            save_status(status, updated_by="security_score",
-                       audit_action="score", audit_target="security_score",
-                       audit_summary=score_str)
+            # V37.9.238: RMW 在跨写者锁内（finding C lost-update）。部署窗口 fallback。
+            try:
+                from status_update import status_lock
+            except ImportError:
+                from contextlib import nullcontext as status_lock
+            with status_lock():
+                status = load_status()
+                score_str = f"{data['total']}/{data['max']} ({data['percentage']}%)"
+                if "health" not in status:
+                    status["health"] = {}
+                status["health"]["security_score"] = score_str
+                save_status(status, updated_by="security_score",
+                           audit_action="score", audit_target="security_score",
+                           audit_summary=score_str)
             print(f"OK: security_score={score_str}", file=sys.stderr)
         except Exception as e:
             print(f"ERROR: {e}", file=sys.stderr)
