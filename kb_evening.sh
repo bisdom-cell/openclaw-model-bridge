@@ -21,7 +21,9 @@ source "$HOME/.bash_profile" 2>/dev/null || source "$HOME/.env_shared" 2>/dev/nu
 # 注: -E (errtrace) 让 ERR trap 在 function 内 fail 也触发 (V37.9.58-hotfix4 教训)
 set -eEuo pipefail
 
-DATE=$(date +%Y%m%d)
+# V37.9.241 (V37.9.213 ⑨ 登记的 TZ 一物一形): DATE 与本脚本 TS/kb_dream DAY 统一
+# HKT（此前 system-local, observer 按 evening_{YYYYMMDD}.md 日期读文件, TZ 漂移会错位）。
+DATE=$(TZ=Asia/Hong_Kong date +%Y%m%d)
 DAYS="${1:-1}"
 KB_DIR="${KB_BASE:-$HOME/.kb}"
 EVENING_FILE="$KB_DIR/daily/evening_${DATE}.md"

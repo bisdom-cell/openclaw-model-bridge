@@ -482,11 +482,9 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                     info["capabilities"] = p.capabilities.supported_modalities()
                     info["verified"] = p.capabilities.verified_features()
             resp = json.dumps(info).encode()
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Content-Length", str(len(resp)))
-            self.end_headers()
-            self.wfile.write(resp)
+            # V37.9.242 (V37.9.231 ⑦ 登记边界闭合): 完成态回写统一经 _deliver —
+            # client 断开只记 CLIENT GONE, 不再把 OSError 泄漏进 http.server 日志。
+            self._deliver(200, resp, tag="HEALTH ")
             return
 
         path = self.path.replace("/v1", "", 1) if self.path.startswith("/v1") else self.path
@@ -498,14 +496,13 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
         try:
             with _safe_urlopen(req, timeout=30, context=ctx) as resp:
                 body = resp.read()
-                self.send_response(resp.status)
-                self.send_header("Content-Type", "application/json")
-                self.send_header("Content-Length", str(len(body)))
-                self.end_headers()
-                self.wfile.write(body)
+                # V37.9.242: 经 _deliver — 此前 client 断开的 OSError 在 try 内
+                # 被 except 当 GET 失败 → send_error(502) 再写死 socket → 二次
+                # 异常泄漏进 http.server 日志（V37.9.231 ⑦ 登记的噪声）。
+                self._deliver(resp.status, body, tag="GET ")
         except Exception as e:
             log(f"GET error: {e}")
-            self.send_error(502, str(e))
+            self._deliver(502, json.dumps({"error": str(e)}).encode(), tag="GET ")
 
     def _resolve_primary_provider(self):
         """V37.9.77 enforcement: 解析 ?provider=X query 参数, 返回 (base_url, model_id, auth_style, api_key, name).
@@ -788,20 +785,15 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                 resp_body = resp.read()
                 elapsed = int((time.monotonic() - t0) * 1000)
                 log(f"{tag}RESPONSE: {resp.status} ({len(resp_body)} bytes) {elapsed}ms")
-                self.send_response(resp.status)
-                self.send_header("Content-Type", "application/json")
-                self.send_header("Content-Length", str(len(resp_body)))
-                self.end_headers()
-                self.wfile.write(resp_body)
+                # V37.9.242: 经 _deliver — client 断开不再被 except 当 forward
+                # 失败 → 502 再写死 socket 二次异常（V37.9.231 ⑦ 登记的噪声；
+                # 非 chat 无 CB/fallback 语义, 纯投递解耦）。
+                self._deliver(resp.status, resp_body, tag=tag)
         except Exception as e:
             elapsed = int((time.monotonic() - t0) * 1000)
             log(f"{tag}FORWARD ERROR ({elapsed}ms): {e}")
             err = json.dumps({"error": str(e)}).encode()
-            self.send_response(502)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Content-Length", str(len(err)))
-            self.end_headers()
-            self.wfile.write(err)
+            self._deliver(502, err, tag=tag)
 
     def _send_json(self, status, body, extra_headers=None):
         """Helper to send a JSON response.

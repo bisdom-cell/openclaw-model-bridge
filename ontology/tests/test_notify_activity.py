@@ -122,9 +122,20 @@ class TestActivityLayerNoLegacyPaths(unittest.TestCase):
                          "Activity layer code still references jobs/*/cache (V37.8 bug)")
 
     def test_uses_yaml_registry(self):
-        """Activity layer should load jobs_registry.yaml for log paths."""
+        """Activity layer should load the jobs registry for log paths.
+
+        V37.9.241: 代码已从字面量 "jobs_registry.yaml" 改为 MRD config 注入
+        （`_MRD["registry_file"]`，V37.9.104 config-injection 时代重构）——守卫
+        当时未更新（本套件从未注册 full_regression → stale 无人知，暗测试血案）。
+        现断言注入形式 + 注入源默认值仍指向 jobs_registry.yaml（语义不变）。
+        """
         code = self._read_activity_code_lines()
-        self.assertIn("jobs_registry.yaml", code)
+        self.assertIn('_MRD["registry_file"]', code,
+                      "Activity layer 未经 MRD config 读 registry 路径")
+        # 注入源（governance_checker _MRD_DEFAULTS）必须仍指向 jobs_registry.yaml
+        gc_src = open(os.path.join(_PROJECT_ROOT,
+                                   "ontology", "governance_checker.py")).read()
+        self.assertIn('"registry_file": "jobs_registry.yaml"', gc_src)
 
     def test_uses_topic_job_map(self):
         code = self._read_activity_code_lines()

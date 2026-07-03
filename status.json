@@ -1,5 +1,5 @@
 {
-  "updated": "2026-07-03 10:57:43",
+  "updated": "2026-07-03 14:23:26",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -111,6 +111,16 @@
   "recent_changes": [
     {
       "date": "2026-07-03",
+      "what": "V37.9.242 adapter 非 chat 端点回写收编 _deliver (V37.9.231 ⑦ 登记边界闭合): /health + GET passthrough + 非 chat POST 共 5 回写全走 _deliver, client 断开只记 CLIENT GONE 不再 502-to-dead-socket 二次异常泄漏 http.server 日志. 强不变式守卫: 完成态回写恰 9 个 _deliver + 裸 send_response 仅 _send_json 内 1 处 (regex 计数锁死). sabotage 3 FAIL + 行为级探针 (真 _send_json+_deliver exec, client-gone 零泄漏). 152/0/5440 / VERSION 0.37.9.101. 今天可解决待办全部清零",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-07-03",
+      "what": "V37.9.241 暗测试三连破案+对账守卫机器化: 补 -m unittest 模块形式口径后抓到 3 个从未注册 full_regression 的测试, 其中 2 个正在静默失败 (test_engine 3 fail = V37.9.91 加 expert_escalate 后期望腐烂 1 个月无人知 / test_notify_activity 1 fail = 代码改 _MRD 注入后 literal 守卫 stale) = 未注册测试必然腐烂的活证 (V37.9.130 harvest 家族第 2/3/4 实例, 4 次演出达机器化门槛). 修期望+注册三套件+新 dark-test 对账守卫 (枚举全集 vs 注册清单, 自指含守卫自己, sabotage 3 FAIL). 另: CLAUDE.md Phase 3 表 2 行 stale 修正 (filter_tools/fix_tool_args 实际 V37.8.14 已引擎驱动) + kb_evening/kb_deep_dive DATE 统一 HKT (V37.9.213 登记) + kb_review OPENCLAW_BIN 死变量退役 (V37.9.145 登记). 152/0/5439 (+189) / VERSION 不变",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-07-03",
       "what": "V37.9.240 observer deep_dive 跨天重复检测 — V37.9.233 ban-list 的回归探测器 (item 23c observer 候选信号兑现): ban-list FAIL-OPEN (格式漂移→空集=无 ban) 会静默失效数周, observer 端独立检测 14 天窗口内重复 link (相邻日期对判定, >14 天=合法再分析不误报) → MED deep_dive_repeat 告警+报告段仅违规时出现零噪声. 10 新单测含血案回归/跨模块窗口一致性 (==kb_deep_dive.DEDUP_WINDOW_DAYS)/MR-8 跨文件 link 契约 (解析正则与上游写入格式机器绑定). sabotage 4 FAIL 全 fire. 148/0/5250 / VERSION 0.37.9.100",
       "by": "claude_code"
     },
@@ -198,16 +208,6 @@
       "date": "2026-07-02",
       "what": "V37.9.222 B1 代码落地 (未部署 flip): 用户「doubao_21 作唯一 primary 有无 tools 都压测」→ 实现 B1 (providers.py reasoning_off_body 字段 doubao_21/deepseek_full={thinking:disabled} + adapter _is_batch_workload/_batch_reasoning_off_body 纯函数 + do_POST 批量注入). 18 新单测+sabotage 验证. full_regression 139/0/5038, VERSION 0.37.9.87. ⚠️ 厘清: 当前 Mac Mini 是 A2 态 (doubao_21 primary + FAST_PROVIDER=qwen 批量→qwen, V37.9.221 已 flip E2E 正常); B1 flip (撤 FAST_PROVIDER 让批量→doubao_21 thinking-off) 代码就绪但待 Mac Mini 部署 (合并+同步+撤 FAST_PROVIDER+重启+验证 B1 注入). A2/B1 互补, 回滚=重设 FAST_PROVIDER=qwen.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-07-02",
-      "what": "doubao_21 primary flip 上线 (17:25, 用户决策趁 qwen 可回滚充分测新模型). PROVIDER=qwen→doubao_21 + FAST_PROVIDER=qwen (.env_shared+adapter plist+bootout/bootstrap). 即时 E2E: /health provider=doubao_21+fallback[deepseek_full,doubao,deepseek,qwen]+fast_route=qwen / ④ WORKLOAD ROUTE:pure-inference->qwen 验证(A2 生效,批量自动分流,根除上午 502 事故) / github_trending 10/10 正常 / WhatsApp PA 正常走 doubao_21. deepseek_full 第一优先级 backup. 与上午裸 flip 本质区别=A2 批量保护. 观察 N 天稳定后升 production_observed+更新文档(现暂不改防 whiplash). 回滚随时可用.",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-07-02",
-      "what": "deepseek_full B1 探针也确认: thinking:{type:disabled} 有效 (completion_tokens_details 空+content 完整), enable_thinking:false 被忽略, reasoning_effort 值域 high/low/max/medium/minimal(B3 压缩). ai-tokenhub 用 Bifrost 网关归一化 thinking 参数 → doubao_21 与 deepseek_full 同一参数. 终局最佳: 两家 reasoning provider 都能单模型通吃(PA thinking-on/批量 thinking-off), qwen 退役后无单点依赖. design doc §9-10 更新, deepseek follow-up 销. 纯 doc, VERSION 不变.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -290,14 +290,14 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 5250,
-    "last_regression": "2026-07-03 10:56 pass",
+    "test_count": 5440,
+    "last_regression": "2026-07-03 14:21 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-07-03 10:56",
-    "test_suites": 149,
+    "security_score_time": "2026-07-03 14:21",
+    "test_suites": 153,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
-    "version": "0.37.9.100",
+    "version": "0.37.9.101",
     "observer": {}
   },
   "incidents": [
@@ -362,7 +362,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.237-240 四连发收工待合并: 审计 9 findings 全处置 (237 唯一tmp / 238 status_lock+audit链锁+3job fail-loud+MR-9 / 239 SSE delivery) + 240 observer deep_dive 重复检测 (ban-list FAIL-OPEN 失效告警器, item 23c 兑现). Mac Mini 验证: (a) ls ~/.kb/*.lock 伴生锁 (b) 并发写不覆盖 (c) proxy 重启后 streaming 异常收 SSE (d) 明日 06:30 observer 正常日报无新增行, ban-list 失效时 2 天内 MED 告警. 剩余 gated: LLM-Observer shadow flip ~7/7 + doubao_21 production_observed + IEEE/ISSRE in-review",
+  "focus": "V37.9.237-242 六连发收工待合并: 审计 9 findings 全处置 + observer 重复检测 + 暗测试破案+对账守卫 + adapter 完成态回写零裸写 (今天可解决待办全部清零). Mac Mini 验证: 同步+重启 proxy/adapter 后 (a) ls ~/.kb/*.lock (b) streaming 异常收 SSE (c) client 断开时 adapter.log 记 CLIENT GONE 单行非 traceback (d) 明日 06:30 observer. 登记观察: gen_readme_badges 套件两次 in-run 失败未复现 (再现时 full_regression >/tmp/fr.log 抓现场). 剩余全 gated: LLM-Observer flip ~7/7 + doubao_21 观察 + IEEE/ISSRE in-review",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",

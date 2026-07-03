@@ -78,7 +78,8 @@ send_alert() {
 # ════════════════════════════════════════════════════════════════════
 # 血案 lineage: V37.9.21 send_wa_parts && sleep 短路 (V37.9.60-hotfix3 修 kb_deep_dive).
 # kb_review 同款 set -euo + 缺 trap ERR 风险, V37.9.61 framework 化预防同款回归.
-OPENCLAW_BIN="${OPENCLAW:-/opt/homebrew/bin/openclaw}"
+# V37.9.241 日落法: OPENCLAW_BIN 死变量退役 (V37.9.145 登记候选 — 定义后全文件
+# 零引用, notify.sh 亦不消费, grep 实证)。
 
 # V37.9.63: ERR trap 走公共 helper (MR-8 抽公共 — 之前 V37.9.61 inline _kb_review_fatal_handler)
 HELPER_DIR="$(cd "$(dirname "$0")" && pwd)"

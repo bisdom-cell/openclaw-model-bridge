@@ -223,7 +223,9 @@ class TestCustomTools(unittest.TestCase):
             self.assertIn("parameters", tool["function"])
 
     def test_custom_tools_count(self):
-        self.assertEqual(len(self.onto.custom_tools), 2)
+        # V37.9.241: 2→3 — V37.9.91 加 expert_escalate 第 3 个自定义工具。本套件
+        # 从未注册 full_regression 故期望腐烂近 1 个月无人知（暗测试血案）。
+        self.assertEqual(len(self.onto.custom_tools), 3)
 
     def test_data_clean_custom_tool(self):
         found = False
@@ -665,13 +667,14 @@ class TestSemanticQuery(unittest.TestCase):
         self.assertEqual(result, ["edit", "write"])
 
     def test_query_by_tool_type(self):
+        # V37.9.241: + expert_escalate（V37.9.91 第 3 个自定义工具）。
         result = self.onto.query_tools(tool_type="custom")
-        self.assertEqual(result, ["data_clean", "search_kb"])
+        self.assertEqual(result, ["data_clean", "expert_escalate", "search_kb"])
 
     def test_query_no_filters_returns_all(self):
         """无条件查询返回全部工具。"""
         result = self.onto.query_tools()
-        self.assertEqual(len(result), 18)  # 16 builtin + 2 custom
+        self.assertEqual(len(result), 19)  # 16 builtin + 3 custom (V37.9.91 +expert_escalate)
 
     def test_query_impossible_returns_empty(self):
         """不可能的条件返回空列表。"""

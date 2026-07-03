@@ -184,6 +184,14 @@ fi
 if [ -f test_slo_checker.py ]; then
     run_suite "slo_checker (V37.9.28 F4 — direction 字段显式声明 + format_alert 修复)" "python3 test_slo_checker.py"
 fi
+# V37.9.241: 三个暗测试补注册 — 从未进 full_regression 导致其中两个期望静默腐烂
+# (test_engine 3 fail: V37.9.91 +expert_escalate 后 2→3/18→19 无人知;
+#  test_notify_activity 1 fail: 代码改 _MRD 注入后 literal 守卫 stale)。
+# V37.9.130 harvest_chat 同款注册债家族第 2/3/4 实例。
+run_suite "data_clean (V30.3 数据清洗 80 用例 — V37.9.241 补注册, openpyxl 缺失时 Excel 类 skip)" "python3 test_data_clean.py"
+run_suite "ontology_engine_base (V36.2 引擎基础套件 — V37.9.241 补注册+修 3 个 V37.9.91 腐烂期望)" "python3 -m unittest ontology.tests.test_engine"
+run_suite "notify_activity (V37.8 activity 层守卫 — V37.9.241 补注册+守卫升级 _MRD 注入形式)" "python3 -m unittest ontology.tests.test_notify_activity"
+run_suite "v37_9_241_dark_tests (V37.9.241 dark-test 对账守卫 — 全部 test_*.py 必须注册 full_regression)" "python3 test_v37_9_241_dark_tests.py"
 if [ -f ontology/tests/test_governance_cron_matcher.py ]; then
     run_suite "governance_cron_matcher (INV-CRON-003/004 匹配器)" "python3 -m unittest ontology.tests.test_governance_cron_matcher"
 fi

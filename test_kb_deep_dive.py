@@ -852,6 +852,13 @@ class TestKbDeepDiveShellGuards(unittest.TestCase):
     def test_script_exists(self):
         self.assertTrue(os.path.isfile(self.script_path))
 
+    def test_date_uses_hkt_tz(self):
+        """V37.9.241 (V37.9.213 ⑨ TZ 一物一形): DATE 必须 HKT——system-local 在
+        TZ 漂移时会让 observer 按日期读 deep_dives/{DATE}.md 错位。"""
+        self.assertIn("DATE=$(TZ=Asia/Hong_Kong date +%Y-%m-%d)", self.content)
+        self.assertNotIn("DATE=$(date +%Y-%m-%d)", self.content,
+                         "DATE 回退 system-local（TZ 一物一形被破坏）")
+
     def test_script_has_system_alert_prefix(self):
         self.assertIn("[SYSTEM_ALERT]", self.content)
 
