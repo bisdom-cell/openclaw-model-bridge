@@ -16,6 +16,7 @@ all-failed 502）收编，投递失败与 backend 健康度、fallback 路由彻
 
 import json
 import os
+import re
 import sys
 import threading
 import unittest
@@ -238,10 +239,18 @@ class TestSourceGuards(unittest.TestCase):
     def test_client_gone_log_present(self):
         self.assertIn("CLIENT GONE", self.src)
 
-    def test_all_four_delivery_sites_use_deliver(self):
-        """primary / no-chain 502 / fallback / all-failed 502 四个回写点全收编"""
-        self.assertEqual(self.src.count("self._deliver("), 4,
-                         "chat 路径应恰有 4 个 _deliver 回写点")
+    def test_all_delivery_sites_use_deliver(self):
+        """V37.9.231 chat 4 点 + V37.9.242 非 chat 5 点（health / GET 成功 /
+        GET 错误 / 非 chat POST 成功 / 非 chat POST 502）= 9 个完成态回写全收编。"""
+        self.assertEqual(self.src.count("self._deliver("), 9,
+                         "完成态回写点应恰 9 个 _deliver（chat 4 + 非 chat 5）")
+
+    def test_no_raw_send_response_outside_send_json(self):
+        """V37.9.242 强不变式: 完成态回写零裸 send_response — 唯一合法站点在
+        _send_json 内部。输入校验类 send_error（400/413, client 必活）豁免。"""
+        self.assertEqual(
+            len(re.findall(r"self\.send_response\(", self.src)), 1,
+            "裸 send_response 只允许 _send_json 内 1 处（完成态回写必须经 _deliver）")
 
     def test_raw_send_json_only_inside_deliver(self):
         """do_POST 内裸 _send_json 调用退役 — 唯一调用点在 _deliver 内部
