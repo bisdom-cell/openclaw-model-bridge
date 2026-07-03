@@ -514,6 +514,19 @@ DEEP_DIVE_MODE_WINDOW_DAYS = 30
 DEEP_DIVE_DEGRADE_RATIO_THRESHOLD = 0.5
 DEEP_DIVE_DEGRADE_MIN_SAMPLE = 5
 _DD_MODE_RE = re.compile(r"\*\*模式\*\*\s*[:：]\s*(完整原文|摘要级)")
+# V37.9.240（item 23(c) observer 候选信号兑现）: deep_dive 跨天重复检测。
+# 背景: 同一 ACM DOI 被 picker 连选 ~20 天（V37.9.233 血案），observer 单日视角
+# 没抓到。V37.9.233 的 picker ban-list 是**预防**，但它 FAIL-OPEN（目录缺失/
+# frontmatter 格式漂移 → 空集 = 无 ban）——生产路径问题会**静默禁用**它数周无人
+# 察觉（MR-4 家族）。observer 端独立检测重复 = ban-list 的回归探测器
+# （audit-as-regression: 已知 fail 模式的机器化回归网）。
+# 窗口必须与 kb_deep_dive.DEDUP_WINDOW_DAYS (14) 一致: 超过 14 天的重复是
+# ban 过期后的合法再分析，非违规（跨模块一致性由测试守卫，镜像 V37.9.103
+# DEAD_AGE_DAYS 模式）。
+DEEP_DIVE_REPEAT_WINDOW_DAYS = 14
+# 契约 = kb_deep_dive.build_deep_dive_markdown 写入的 frontmatter `link: <url>`
+# 行（跨文件 MR-8 契约由测试守卫绑定，防上游改格式后本检测静默失效）。
+_DD_LINK_RE = re.compile(r"^link: (.+)$", re.MULTILINE)
 
 
 def _classify_deep_dive_mode(content):
@@ -585,7 +598,8 @@ def scan_deep_dive_modes(kb_dir, target_date,
     """
     stats = {"found": False, "total": 0, "full_text": 0,
              "abstract_only": 0, "unknown": 0, "degrade_ratio": None,
-             "window_days": window_days, "recent": [], "degrade_reasons": {}}
+             "window_days": window_days, "recent": [], "degrade_reasons": {},
+             "repeats": []}
     dd_dir = os.path.join(kb_dir, "deep_dives")
     if not os.path.isdir(dd_dir):
         return stats
@@ -613,10 +627,39 @@ def scan_deep_dive_modes(kb_dir, target_date,
         if mode == "abstract_only":
             # V37.9.213: capture WHY it degraded, not just THAT it degraded.
             entry["degrade_category"] = _extract_degrade_category(content)
+        # V37.9.240: frontmatter link（前 2000 字符，镜像 kb_deep_dive
+        # load_recent_analyzed_links 的读取窗口；归一化 = _normalize_link 同款）。
+        lm = _DD_LINK_RE.search(content[:2000])
+        if lm:
+            normalized = lm.group(1).strip().rstrip("/")
+            if normalized:
+                entry["link"] = normalized
         entries.append(entry)
 
     if not entries:
         return stats
+
+    # V37.9.240: 跨天重复检测（ban-list 回归探测器）。同一 link 出现在多个文件
+    # 且存在相邻日期差 ≤ REPEAT_WINDOW 的 pair → 违规（ban-list 应已阻止）。
+    # 相邻 pair 判定（非首尾差）: [d, d+20] 合法（ban 过期），[d, d+3] 违规。
+    by_link = {}
+    for e in entries:
+        lk = e.get("link")
+        if lk:
+            by_link.setdefault(lk, []).append(e["date"])
+    for lk, dates in sorted(by_link.items()):
+        if len(dates) < 2:
+            continue
+        ds = sorted(dates)
+        for a, b in zip(ds, ds[1:]):
+            try:
+                da = datetime.strptime(a, "%Y-%m-%d").date()
+                db = datetime.strptime(b, "%Y-%m-%d").date()
+            except ValueError:
+                continue
+            if (db - da).days <= DEEP_DIVE_REPEAT_WINDOW_DAYS:
+                stats["repeats"].append({"link": lk, "dates": ds})
+                break
 
     entries.sort(key=lambda e: e["date"], reverse=True)
     full = sum(1 for e in entries if e["mode"] == "full_text")
@@ -679,6 +722,13 @@ def build_deep_dive_mode_section(deep_dive_modes):
             f"{icons.get(e['mode'], '❔')}{e['date'][5:]}"
             for e in deep_dive_modes["recent"])
         lines.append(f"- 最近: {recent_str}")
+    # V37.9.240: 重复分析行（仅违规时出现，正常日零噪声）。
+    repeats = deep_dive_modes.get("repeats")
+    if repeats:
+        r0 = repeats[0]
+        lines.append(
+            f"- ⚠️ 重复分析 {len(repeats)} 链接（ban-list 疑似失效）: "
+            f"{r0['link']} @ {','.join(r0['dates'][:3])}")
     lines.append("")
     return "\n".join(lines)
 
@@ -790,6 +840,21 @@ def detect_anomalies(job_statuses, push_outputs, source_sections,
                     f"deep_dive 摘要级降级率 {pct}% "
                     f"({deep_dive_modes['abstract_only']}/{classified} 近"
                     f"{deep_dive_modes['window_days']}天) — 全文抓取路径可能退化"),
+            })
+
+        # V37.9.240: 跨天重复 = ban-list (V37.9.233) 回归探测。ban-list FAIL-OPEN
+        # （空集=无 ban）故生产路径问题会静默禁用它——重复出现即它已失效。
+        repeats = deep_dive_modes.get("repeats") or []
+        if repeats:
+            sample = repeats[0]
+            anomalies.append({
+                "severity": "MED",
+                "category": "deep_dive_repeat",
+                "message": (
+                    f"deep_dive {len(repeats)} 个链接在 "
+                    f"{DEEP_DIVE_REPEAT_WINDOW_DAYS} 天内被重复分析"
+                    f"（ban-list 应已阻止 → 疑似静默失效）: "
+                    f"{sample['link']} @ {','.join(sample['dates'][:3])}"),
             })
 
     return anomalies

@@ -3038,5 +3038,133 @@ class TestV37_9_235_SectionSnap(unittest.TestCase):
             self.assertIn("V37.9.235", f.read())
 
 
+class TestV37_9_240_DeepDiveRepeat(unittest.TestCase):
+    """V37.9.240: deep_dive 跨天重复检测 = ban-list (V37.9.233) 回归探测器。
+
+    背景: 同一 ACM DOI 被 picker 连选 ~20 天（V37.9.233 血案），observer 单日
+    视角没抓到（item 23(c) 登记的盲区）。picker ban-list 是 FAIL-OPEN（目录
+    缺失/frontmatter 漂移 → 空集 = 无 ban）——生产路径问题会静默禁用它数周。
+    observer 独立检测 14 天窗口内重复 link = ban-list 失效的告警器。
+    """
+
+    def _mk_kb(self, td, files):
+        dd = os.path.join(td, "deep_dives")
+        os.makedirs(dd, exist_ok=True)
+        for name, link in files:
+            with open(os.path.join(dd, name), "w", encoding="utf-8") as f:
+                body = "---\ndate: x\n"
+                if link is not None:
+                    body += f"link: {link}\n"
+                body += "---\n**模式**: 摘要级\n"
+                f.write(body)
+
+    def test_blood_lesson_repeat_within_window_detected(self):
+        """血案回归: 同一 DOI 2 天内两次 → repeats 检出。"""
+        from datetime import date
+        with tempfile.TemporaryDirectory() as td:
+            self._mk_kb(td, [
+                ("2026-07-01.md", "https://doi.org/10.1145/3774904.3792985"),
+                ("2026-07-03.md", "https://doi.org/10.1145/3774904.3792985"),
+            ])
+            s = obs.scan_deep_dive_modes(td, date(2026, 7, 3))
+            self.assertEqual(len(s["repeats"]), 1, s["repeats"])
+            self.assertIn("3774904", s["repeats"][0]["link"])
+            self.assertEqual(s["repeats"][0]["dates"],
+                             ["2026-07-01", "2026-07-03"])
+
+    def test_trailing_slash_normalized_as_same_link(self):
+        """归一化契约 = kb_deep_dive._normalize_link 同款（尾斜杠剥除）。"""
+        from datetime import date
+        with tempfile.TemporaryDirectory() as td:
+            self._mk_kb(td, [
+                ("2026-07-01.md", "https://doi.org/10.1145/x"),
+                ("2026-07-02.md", "https://doi.org/10.1145/x/"),
+            ])
+            s = obs.scan_deep_dive_modes(td, date(2026, 7, 3))
+            self.assertEqual(len(s["repeats"]), 1)
+
+    def test_legit_reanalysis_after_ban_window_not_flagged(self):
+        """>14 天的重复 = ban 过期后合法再分析，绝不误报。"""
+        from datetime import date
+        with tempfile.TemporaryDirectory() as td:
+            self._mk_kb(td, [
+                ("2026-06-10.md", "https://arxiv.org/abs/2501.00001"),
+                ("2026-06-30.md", "https://arxiv.org/abs/2501.00001"),
+            ])
+            s = obs.scan_deep_dive_modes(td, date(2026, 7, 3))
+            self.assertEqual(s["repeats"], [],
+                             "20 天间隔是合法再分析（ban 已过期），不得误报")
+
+    def test_no_link_frontmatter_no_crash_no_repeats(self):
+        from datetime import date
+        with tempfile.TemporaryDirectory() as td:
+            self._mk_kb(td, [("2026-07-01.md", None), ("2026-07-02.md", None)])
+            s = obs.scan_deep_dive_modes(td, date(2026, 7, 3))
+            self.assertEqual(s["repeats"], [])
+
+    def test_anomaly_emitted_on_repeat(self):
+        dd = {"found": True, "total": 2, "full_text": 0, "abstract_only": 2,
+              "unknown": 0, "degrade_ratio": 1.0, "window_days": 30,
+              "recent": [], "degrade_reasons": {},
+              "repeats": [{"link": "https://doi.org/x",
+                           "dates": ["2026-07-01", "2026-07-03"]}]}
+        an = obs.detect_anomalies({}, {}, None, deep_dive_modes=dd)
+        cats = [a["category"] for a in an if a["category"] == "deep_dive_repeat"]
+        self.assertEqual(len(cats), 1)
+        msg = [a["message"] for a in an
+               if a["category"] == "deep_dive_repeat"][0]
+        self.assertIn("ban-list", msg)
+        self.assertIn("doi.org/x", msg)
+
+    def test_no_anomaly_when_no_repeats(self):
+        dd = {"found": True, "total": 1, "full_text": 1, "abstract_only": 0,
+              "unknown": 0, "degrade_ratio": 0.0, "window_days": 30,
+              "recent": [], "degrade_reasons": {}, "repeats": []}
+        an = obs.detect_anomalies({}, {}, None, deep_dive_modes=dd)
+        self.assertNotIn("deep_dive_repeat",
+                         [a["category"] for a in an])
+
+    def test_section_renders_repeat_line_only_when_present(self):
+        base = {"found": True, "total": 1, "full_text": 1, "abstract_only": 0,
+                "unknown": 0, "degrade_ratio": 0.0, "window_days": 30,
+                "recent": [], "degrade_reasons": {}, "repeats": []}
+        self.assertNotIn("重复分析", obs.build_deep_dive_mode_section(base))
+        base["repeats"] = [{"link": "https://x", "dates": ["2026-07-01",
+                                                           "2026-07-02"]}]
+        sec = obs.build_deep_dive_mode_section(base)
+        self.assertIn("重复分析", sec)
+        self.assertIn("https://x", sec)
+
+    def test_cross_module_window_consistency(self):
+        """跨模块一致性（V37.9.103 DEAD_AGE_DAYS 模式）: observer 重复窗口必须
+        == kb_deep_dive.DEDUP_WINDOW_DAYS——观察窗口大于 ban 窗口会把合法
+        再分析误报为违规。"""
+        import kb_deep_dive as kdd
+        self.assertEqual(obs.DEEP_DIVE_REPEAT_WINDOW_DAYS,
+                         kdd.DEDUP_WINDOW_DAYS)
+
+    def test_cross_file_link_contract_mr8(self):
+        """MR-8 跨文件契约: observer 的 link 正则必须与 kb_deep_dive 写入格式
+        绑定——(a) 与 kb_deep_dive 自己的解析正则逐字一致 (b) 真实匹配
+        build_deep_dive_markdown 模板渲染的行。上游改格式 → 本守卫先 fail，
+        防重复检测静默失效（正是它要防的 FAIL-OPEN 失效模式自身不复现）。"""
+        base = os.path.dirname(os.path.abspath(__file__))
+        with open(os.path.join(base, "kb_deep_dive.py"), encoding="utf-8") as f:
+            kdd_src = f.read()
+        # (a) 两侧解析正则逐字一致
+        self.assertIn(r'r"^link: (.+)$"', kdd_src)
+        self.assertEqual(obs._DD_LINK_RE.pattern, r"^link: (.+)$")
+        # (b) 写入模板存在且渲染样例可被 observer 正则命中
+        self.assertIn('link: {entry.get("link", "")}', kdd_src)
+        sample = "---\ndate: x\nlink: https://doi.org/10.1145/x\n---\n"
+        m = obs._DD_LINK_RE.search(sample)
+        self.assertTrue(m and m.group(1) == "https://doi.org/10.1145/x")
+
+    def test_v37_9_240_marker(self):
+        base = os.path.dirname(os.path.abspath(__file__))
+        with open(os.path.join(base, "daily_observer.py"), encoding="utf-8") as f:
+            self.assertIn("V37.9.240", f.read())
+
+
 if __name__ == "__main__":
     unittest.main()

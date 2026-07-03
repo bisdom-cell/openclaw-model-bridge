@@ -1,5 +1,5 @@
 {
-  "updated": "2026-07-03 10:40:58",
+  "updated": "2026-07-03 10:57:43",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -111,6 +111,11 @@
   "recent_changes": [
     {
       "date": "2026-07-03",
+      "what": "V37.9.240 observer deep_dive 跨天重复检测 — V37.9.233 ban-list 的回归探测器 (item 23c observer 候选信号兑现): ban-list FAIL-OPEN (格式漂移→空集=无 ban) 会静默失效数周, observer 端独立检测 14 天窗口内重复 link (相邻日期对判定, >14 天=合法再分析不误报) → MED deep_dive_repeat 告警+报告段仅违规时出现零噪声. 10 新单测含血案回归/跨模块窗口一致性 (==kb_deep_dive.DEDUP_WINDOW_DAYS)/MR-8 跨文件 link 契约 (解析正则与上游写入格式机器绑定). sabotage 4 FAIL 全 fire. 148/0/5250 / VERSION 0.37.9.100",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-07-03",
       "what": "V37.9.239 审计 B-delivery: tool_proxy streaming fallthrough 内容类型修复 — parse 异常时 SSE client (stream:true) 此前收 application/json+raw JSON = transport 层 choke. 两级策略: 先重试 build_sse_response (rj 合法时投递真实 completion) → 失败/rj 未绑定 → SSE error frame 流内 surface. 9 新单测 (extract-block+exec-with-fakes, V37.9.239 注释锚点防泛匹配抓错站点) + sabotage 9 FAIL 全 fire. 2026-07-02 审计 9 findings 全部处置完毕. 148/0/5240 / VERSION 0.37.9.99",
       "by": "claude_code"
     },
@@ -203,11 +208,6 @@
       "date": "2026-07-02",
       "what": "deepseek_full B1 探针也确认: thinking:{type:disabled} 有效 (completion_tokens_details 空+content 完整), enable_thinking:false 被忽略, reasoning_effort 值域 high/low/max/medium/minimal(B3 压缩). ai-tokenhub 用 Bifrost 网关归一化 thinking 参数 → doubao_21 与 deepseek_full 同一参数. 终局最佳: 两家 reasoning provider 都能单模型通吃(PA thinking-on/批量 thinking-off), qwen 退役后无单点依赖. design doc §9-10 更新, deepseek follow-up 销. 纯 doc, VERSION 不变.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-07-02",
-      "what": "B1 实测确认 (doubao_21 batch reasoning-off): Mac Mini 直连 Ark 探针——thinking:{type:disabled} 合法参数, reasoning_tokens 0 + 17.7s vs 默认 5138 tokens + 166s (10x). → qwen 退役未来已 de-risk: doubao_21 一个模型通吃 PA(thinking on 质量)+批量(thinking off 快). 终局架构 3 层(B1 thinking-off 最优/B2 独立快 provider 过渡=A2 已建/primary 兜底) + B1 落地方案写进 docs/doubao21_workload_routing_design.md §9-10. 刻意不现在实现 B1 (日落法#34+#18: 已证可行但 qwen 短期不退役 A2 覆盖当下, 投机复杂度), qwen 退役排期时再建. VERSION 不变(design doc 附录).",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -282,7 +282,7 @@
       "V37.9.214 governance 审计间歇 fail — root-cause + B2 均已修 (剩 Mac Mini bash3.2 验证 + 潜在类): 根因 INV-REVIEW-001 kb_review.sh subprocess 负载超时 💥 已修 (timeout 45→90 + TimeoutExpired inconclusive)。 B2 假 FATAL line=101 = bash 3.2 errtrace re-enable landmine (3 次复发 whack-a-mole, dev bash5.x 不复现) 已日落法根治 (set +E 一次不再 re-enable, errexit+顶部 set -eEuo 保留)。 🔴 B2 修复只能 Mac Mini bash 3.2 验证: 同步后观察后续冷/负载失败是否还伴 FATAL 假告警 (预期消失); 仍出现则 bash -x ~/governance_audit_cron.sh 2>/tmp/gac_x.txt 抓 trace。 (潜在类, 不盲修) INV-WATCHDOG-SELF-001 6× 并行 ❌ = 自并行争用 artifact 非生产; '治理 runtime check 对负载敏感' 待系统性评估。 (清陈旧) bash ~/governance_audit_cron.sh 现全过写 pass 清 watchdog flag。",
       "低优观察 (登记不修, 日落法 #8): auto_deploy FILE_MAP 同步用 cp 非原子写 → 脚本在同步窗口内被并发执行会读半截文件 (2026-07-02 11:41 governance_audit_cron.sh 同步 #781 时被手动跑 → line 85 $() 截断 = 'syntax error near governance' 瞬态, 重跑即好 bash -n 过+diff 同步)。极低频(同步写×并发执行精确重叠)+自愈+非代码 bug。若未来 07:00 cron 与 auto_deploy 同步真撞上(复现) 才值得让 auto_deploy 改原子写 temp+mv。当前不投机加复杂度。",
       "doubao_21 primary 已上线 (V37.9.222 B1 flip: PROVIDER=doubao_21 无 FAST_PROVIDER, 批量 thinking-off 实测比 qwen 分流更快, E2E 全过). V37.9.224 B1 fallback 传播已实现 (批量 fallback 按 fb 自己的 reasoning_off_body 重算注入, 合并同步后 adapter 重启生效). 剩: (1) 观察 N 天 cron 周期 + 批量并发规模 (doubao_21 thinking-off ~17s/req) → 升 production_observed. (2) 稳定后 qwen 逐步老化从 FALLBACK_ORDER 移除缩链 (日落法; V37.9.224 后批量 fallback 到 qwen 已自动剥 thinking 参数, 移除前无兼容风险). 回滚: PROVIDER=qwen (V37.9.224 让回滚态批量 fallback 到 reasoning provider 自动 thinking-off = 回滚更安全).",
-      "【2026-07-03 observer 日报 + 治理/watchdog 告警 triage 遗留】(a) ✅ 判别完成 (2026-07-03 用户 Mac Mini 静时重跑 --full): 所有不变式成立 — ❌ 已根治转绿 + INV-CONVERGENCE 💥 静时未复现 = 负载瞬态 (07:00 风暴 + auto_deploy 拉取 PR#796 叠加窗口概率大). 无需硬化; 观察明日 07:00 审计, 若 💥 再现 → 按 V37.9.214 模式硬化 (TimeoutExpired→inconclusive + 加大 120s timeout). (b) freight_watcher: 用户取证确认 last_run 停 07-02 14:00:01 = V37.9.220 事故残留 (freight 每天 1 次 14:00, V37.9.64) → 今日 14:00 run 预期自愈; 14:00 后 cat last_run.json 应转 ok, 若仍 llm_failed = 新问题贴我. (c) observer findings 余项: ✅ DBLP 推断粒度已 V37.9.234 收敛 (评级扩展长度退役+细粒度猜测禁令; 验证=明日 12:00 dblp 推送应无 推测采用XX模型 类字眼 + observer 后续日报该 finding 消失) / ✅ deep_dive 已 V37.9.233 根治: 明细揭示 20/24 = 同一 ACM DOI 重复 20 天 (picker 无已分析去重, 非 fetch 退化) → 14 天 ban-list; 验证: 今晚 22:30 起 last_run_deep_dive.json 见 banned_recent 字段 + 一周后 full-text 比例应回升 (剩余降级=真付费墙诚实接受); observer 未来候选信号: deep_dive 跨天重复主题检测 (dream 有 ban-list 时 observer 没抓到 20 天重复 = 单日视角盲区) / ✅ arxiv 样本截断已 V37.9.235 修 (真凶=observer scan_source_sections 硬切片, 行边界 snap+采样标注; 验证=明日 06:30 报告该 finding 消失) / ✅ dream 时效标注已 V37.9.235 修 (双 prompt 硬规则; 验证=明日 03:00 dream 远期信号带「长期背景」标注). observer 2026-07-03 日报 4 findings 当日全清 (V37.9.233/234/235). (d) github_trending 41错/hn 13错/SLO p95 69s = 07-02 14:00 事故残留 (V37.9.220 已诊断, 自愈, 无动作).",
+      "【2026-07-03 observer 日报 + 治理/watchdog 告警 triage 遗留】(a) ✅ 判别完成 (2026-07-03 用户 Mac Mini 静时重跑 --full): 所有不变式成立 — ❌ 已根治转绿 + INV-CONVERGENCE 💥 静时未复现 = 负载瞬态 (07:00 风暴 + auto_deploy 拉取 PR#796 叠加窗口概率大). 无需硬化; 观察明日 07:00 审计, 若 💥 再现 → 按 V37.9.214 模式硬化 (TimeoutExpired→inconclusive + 加大 120s timeout). (b) freight_watcher: 用户取证确认 last_run 停 07-02 14:00:01 = V37.9.220 事故残留 (freight 每天 1 次 14:00, V37.9.64) → 今日 14:00 run 预期自愈; 14:00 后 cat last_run.json 应转 ok, 若仍 llm_failed = 新问题贴我. (c) observer findings 余项: ✅ DBLP 推断粒度已 V37.9.234 收敛 (评级扩展长度退役+细粒度猜测禁令; 验证=明日 12:00 dblp 推送应无 推测采用XX模型 类字眼 + observer 后续日报该 finding 消失) / ✅ deep_dive 已 V37.9.233 根治: 明细揭示 20/24 = 同一 ACM DOI 重复 20 天 (picker 无已分析去重, 非 fetch 退化) → 14 天 ban-list; 验证: 今晚 22:30 起 last_run_deep_dive.json 见 banned_recent 字段 + 一周后 full-text 比例应回升 (剩余降级=真付费墙诚实接受); ✅ V37.9.240 已兑现: observer deep_dive 跨天重复检测 (ban-list 回归探测器, 14 天窗口跨模块一致) / ✅ arxiv 样本截断已 V37.9.235 修 (真凶=observer scan_source_sections 硬切片, 行边界 snap+采样标注; 验证=明日 06:30 报告该 finding 消失) / ✅ dream 时效标注已 V37.9.235 修 (双 prompt 硬规则; 验证=明日 03:00 dream 远期信号带「长期背景」标注). observer 2026-07-03 日报 4 findings 当日全清 (V37.9.233/234/235). (d) github_trending 41错/hn 13错/SLO p95 69s = 07-02 14:00 事故残留 (V37.9.220 已诊断, 自愈, 无动作).",
       "V37.9.236 follow-up: (a) Mac Mini 观察 alerts.log 不再新增 FATAL line=101 (下次告警推送撞冷调用即验证) (b) scanner 第8 pattern 候选诚实登记不现建 — sourced-lib $() 设计性可失败命令需跨文件 source-graph 分析=新机器, 11个 targeted 守卫已封死唯一日常失败站点(日落法); 若未来再有 sourced-lib 假 FATAL 实例再评估"
     ],
     "open_prs": "",
@@ -290,14 +290,14 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 5240,
-    "last_regression": "2026-07-03 10:39 pass",
+    "test_count": 5250,
+    "last_regression": "2026-07-03 10:56 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-07-03 10:39",
+    "security_score_time": "2026-07-03 10:56",
     "test_suites": 149,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
-    "version": "0.37.9.99",
+    "version": "0.37.9.100",
     "observer": {}
   },
   "incidents": [
@@ -362,7 +362,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "V37.9.237-239 三连发收工待合并: 2026-07-02 审计 9 findings 全部处置完毕 (8 修复闭环 + I 登记可接受 tradeoff). 237=唯一tmp / 238=status_lock+audit链锁+3job fail-loud+MR-9隔离 / 239=SSE delivery 内容类型. Mac Mini 验证: 同步后 (a) ls ~/.kb/*.lock 伴生锁出现 (b) 并发 cron 写 status 不再互相覆盖 (c) tool_proxy 重启后 streaming parse 异常时 Gateway 收 SSE 非 JSON. 剩余 gated: LLM-Observer shadow 周 flip ~7/7 + doubao_21 production_observed + IEEE/ISSRE in-review",
+  "focus": "V37.9.237-240 四连发收工待合并: 审计 9 findings 全处置 (237 唯一tmp / 238 status_lock+audit链锁+3job fail-loud+MR-9 / 239 SSE delivery) + 240 observer deep_dive 重复检测 (ban-list FAIL-OPEN 失效告警器, item 23c 兑现). Mac Mini 验证: (a) ls ~/.kb/*.lock 伴生锁 (b) 并发写不覆盖 (c) proxy 重启后 streaming 异常收 SSE (d) 明日 06:30 observer 正常日报无新增行, ban-list 失效时 2 天内 MED 告警. 剩余 gated: LLM-Observer shadow flip ~7/7 + doubao_21 production_observed + IEEE/ISSRE in-review",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
