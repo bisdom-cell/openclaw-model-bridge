@@ -1,6 +1,6 @@
 {
-  "updated": "2026-07-04 06:10:03",
-  "updated_by": "security_score",
+  "updated": "2026-07-04 07:27:43",
+  "updated_by": "full_regression",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -111,6 +111,11 @@
   "recent_changes": [
     {
       "date": "2026-07-04",
+      "what": "V37.9.244 OpenClaw Gateway 第六次升级评估 (用户要求, 仅评估零升级动作): 4.27→6.11 深评 = 继续 hold。5 版本 tarball 实证三结构性迁移 (M1 WhatsApp/Discord 插件外部化 5.2 起核心包移除 / M2 状态 SQLite 渐进迁移 6.11 仍进行中 cron+auth 已迁含 cleanup / M3 Gateway HTTP 栈换 Proxyline) + 🔴 回滚单向门 (30秒无损回滚不复存在, 凭据丢失→WhatsApp 重链撞 408 史) + Node 门槛升 ≥22.19。三收敛判据开窗 (连续 2 stable 无 SQLite 迁移 PR / 周稳定 ≤1 / node ≥22.19)。eval doc 新增 §17 + LAST_EVAL_DATE 重置 2026-07-04",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-07-04",
       "what": "V37.9.243 门控收敛日: doubao_21-primary 现态 prose 一致性收敛 (V37.9.222 flip 后漂移复活: CLAUDE L9/L116 + README L71/L439 + FEATURES L10-11 + GUIDE 降级段退役 FALLBACK_PROVIDER=gemini/Gemini 2.5 Flash 误导示例→FALLBACK_ORDER 现实 + qwen/doubao tier_evidence 加时间边界, tier 不变) + unfinished 归账 ([0] 审计 9 findings / [23] triage 两巨型条目压缩为 Mac Mini 被动验证清单). 机制优先写法抗未来 flip whiplash (V37.9.220 教训). 两轮 153/0/5440 全绿 / 治理 91/91 / VERSION 0.37.9.101 不变",
       "by": "claude_code"
     },
@@ -203,11 +208,6 @@
       "date": "2026-07-02",
       "what": "V37.9.223 探针实测: deepseek 量化版 self-host 网关接受 thinking:disabled (HTTP 200/reasoning_tokens:0/无 400) → 400 风险排除声明安全保留 (仍 non-reasoning → thinking-off no-op 但无害); doubao 2.0 探针遇 AuthHeader 错误=交互 shell 缺 ARK env (非 thinking 拒绝), 家族推断声明保留待 env 探针",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-07-02",
-      "what": "V37.9.223: 全部 doubao+deepseek 四家同款声明 reasoning_off_body (任何切换独立成 primary)；doubao 2.0 家族推断+deepseek 量化双重不确定，两者 docstring 标 UNTESTED + 作 primary 前须探针 (原则 #23)",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -283,7 +283,8 @@
       "低优观察 (登记不修, 日落法 #8): auto_deploy FILE_MAP 同步用 cp 非原子写 → 脚本在同步窗口内被并发执行会读半截文件 (2026-07-02 11:41 governance_audit_cron.sh 同步 #781 时被手动跑 → line 85 $() 截断 = 'syntax error near governance' 瞬态, 重跑即好 bash -n 过+diff 同步)。极低频(同步写×并发执行精确重叠)+自愈+非代码 bug。若未来 07:00 cron 与 auto_deploy 同步真撞上(复现) 才值得让 auto_deploy 改原子写 temp+mv。当前不投机加复杂度。",
       "doubao_21 primary 已上线 (V37.9.222 B1 flip: PROVIDER=doubao_21 无 FAST_PROVIDER, 批量 thinking-off 实测比 qwen 分流更快, E2E 全过). V37.9.224 B1 fallback 传播已实现 (批量 fallback 按 fb 自己的 reasoning_off_body 重算注入, 合并同步后 adapter 重启生效). 剩: (1) 观察 N 天 cron 周期 + 批量并发规模 (doubao_21 thinking-off ~17s/req) → 升 production_observed. (2) 稳定后 qwen 逐步老化从 FALLBACK_ORDER 移除缩链 (日落法; V37.9.224 后批量 fallback 到 qwen 已自动剥 thinking 参数, 移除前无兼容风险). 回滚: PROVIDER=qwen (V37.9.224 让回滚态批量 fallback 到 reasoning provider 自动 thinking-off = 回滚更安全).",
       "【2026-07-03 observer/治理/watchdog triage · findings 全部闭环 (V37.9.232-235/240) · 剩被动观察】(a) 07:00 治理审计 INV-CONVERGENCE 💥 是否再现 (静时重跑已全绿=负载瞬态; 再现→按 V37.9.214 模式硬化 TimeoutExpired→inconclusive + 120s timeout) (b) freight last_run 应已 07-03 14:00 自愈转 ok (仍 llm_failed=新问题贴我) (c) 修复生效信号: dblp 推送无「推测采用XX模型」类字眼 (V37.9.234) / last_run_deep_dive.json 见 banned_recent + 一周后 full-text 比例回升 (V37.9.233) / observer 报告 arxiv 截断 finding 消失 (V37.9.235) + dream 远期信号带「长期背景」标注 (V37.9.235) / observer deep_dive_repeat 告警仅违规时出现 (V37.9.240)。",
-      "V37.9.236 follow-up: (a) Mac Mini 观察 alerts.log 不再新增 FATAL line=101 (下次告警推送撞冷调用即验证) (b) scanner 第8 pattern 候选诚实登记不现建 — sourced-lib $() 设计性可失败命令需跨文件 source-graph 分析=新机器, 11个 targeted 守卫已封死唯一日常失败站点(日落法); 若未来再有 sourced-lib 假 FATAL 实例再评估"
+      "V37.9.236 follow-up: (a) Mac Mini 观察 alerts.log 不再新增 FATAL line=101 (下次告警推送撞冷调用即验证) (b) scanner 第8 pattern 候选诚实登记不现建 — sourced-lib $() 设计性可失败命令需跨文件 source-graph 分析=新机器, 11个 targeted 守卫已封死唯一日常失败站点(日落法); 若未来再有 sourced-lib 假 FATAL 实例再评估",
+      "【OpenClaw 第六次升级评估 (2026-07-04, V37.9.244) · 结论=继续 hold · 三收敛判据跟踪】4.27→6.11 深评见 eval doc 第十七节: 三结构性迁移 (M1 插件外部化/M2 SQLite 迁移进行中/M3 Proxyline) + 回滚单向门 (SQLite cleanup 后 4.27 读不回 cron/auth, WhatsApp 重链撞 408 风险)。开窗判据 (全满足才升): ① 连续 2 stable 无 session/SQLite 迁移 PR (2026.7.x stable 发布时核对 changelog) ② 周稳定版 ≤1 ③ Mac Mini node ≥22.19。🔴 判据 ③ 可独立提前做 (用户): node -v 确认, 不足先升 Node (与升级窗口解耦)。每周一 check_upgrade.sh cron 照常监控; LAST_EVAL_DATE 已重置 2026-07-04。"
     ],
     "open_prs": "",
     "blocked_on": ""
@@ -291,9 +292,9 @@
   "quality": {
     "security_score": 95,
     "test_count": 5440,
-    "last_regression": "2026-07-04 06:08 pass",
+    "last_regression": "2026-07-04 07:27 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-07-04 06:08",
+    "security_score_time": "2026-07-04 07:27",
     "test_suites": 153,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
@@ -362,7 +363,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-07-04 门控收敛日: 基线全绿 (153/0/5440 + 治理 91/91 + 混沌 10/10) → V37.9.243 doubao_21-primary 现态一致性收敛 (V37.9.222 flip 后 prose 未随生产同步: CLAUDE L9/L116 + README L71/L439 + FEATURES L10-11 + GUIDE 降级段退役 FALLBACK_PROVIDER=gemini 误导示例 + qwen/doubao tier_evidence 元数据刷新) + unfinished 归账 ([0]/[23] 已闭环项压缩)。剩余全 gated: LLM-Observer flip ~7/7 (shadow 周数据 → design doc §9.1 判 flip/extend) + doubao_21 观察 N 天升 production_observed + IEEE/ISSRE in-review。登记观察保留: gen_readme_badges 套件偶发失败本次基线未复现 (67 tests ✅)。",
+  "focus": "2026-07-04: ① V37.9.243 doubao_21-primary prose 收敛 + unfinished 归账 (已推送待合并)。② V37.9.244 OpenClaw 第六次升级评估 (用户要求深评 4.27 能否无损升级): 结论=不能称为无损——三结构性迁移 (插件外部化/SQLite 迁移进行中/Proxyline) + 回滚从 30 秒无损退化为单向门 → 继续 hold + 三收敛判据 (连续 2 stable 无 SQLite 迁移 PR / 周稳定版 ≤1 / node ≥22.19), 详见 eval doc §17, 待用户确认决策。剩余全 gated: LLM-Observer flip ~7/7 + doubao_21 观察 + IEEE/ISSRE in-review。",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
