@@ -550,7 +550,7 @@ class QwenProvider(BaseProvider):
         verified_fallback=True,   # 作为 primary 被 fallback 过
         # V37.9.146: 验证档位
         verification_tier=TIER_PRODUCTION_OBSERVED,
-        tier_evidence="主力 provider，全部生产流量（V27 起）；5 capability 实测",
+        tier_evidence="V27 起承载全部生产流量至 2026-07（V37.9.222 primary flip 至 doubao_21 后转 fallback 兜底）；5 capability 实测",
     )
 
 

@@ -13,7 +13,7 @@
 [![Fail-Fast](https://img.shields.io/badge/LLM%20cron%20fail--fast-17%2F21%20aligned-brightgreen.svg)]()
 [![Notifications](https://img.shields.io/badge/notifications-WhatsApp%20%2B%20Discord-informational.svg)]()
 
-> **Current version:** `v37.9.242` / `0.37.9.101` (2026-07-03) — see [`CLAUDE.md`](CLAUDE.md) for full changelog.
+> **Current version:** `v37.9.243` / `0.37.9.101` (2026-07-04) — see [`CLAUDE.md`](CLAUDE.md) for full changelog.
 > **Latest milestone:** 📄 **ArXiv paper published** — [**arXiv:2606.14589**](https://arxiv.org/abs/2606.14589) (2026-06-15, cs.SE): the *fail-plausible* concept + a 5-class taxonomy of silent failures from 22 production incident postmortems (also submitted to IEEE Software + ISSRE). **Constitutional priority now: LLM-Observer (机械化人眼)** — an automated user-perspective observer that catches *fail-plausible* silent failures **before the user does** (the paper's headline open problem: ~70% of silent failures were caught by looking at the product, while tests/governance caught ≈0%). Stages 0-6 built: design doc → 22-incident labelled ground-truth → 2-layer detector (deterministic S1-S5 pre-filter + LLM-judge) → sabotage self-validation harness → community-runnable [fail-plausible bench](docs/fail_plausible_bench.md). Guiding principle: **日落法 (Sunset Law) — reduce complexity before adding features** (原则 #34 + MR-22/MR-23).
 
 ## Product Layers: What's Core vs. What's the Author's PA Instance
@@ -68,7 +68,7 @@ Layer 3 is not product clutter — it is the **production evidence** for layers 
                          · image base64 inject · SLO metrics · incident snapshots]
      → Adapter :5001    [11-provider routing · capability-aware multimodal (text + vision)
                          · circuit breaker + fallback]
-     → LLM: Qwen3-235B primary → Doubao 2.1 / DeepSeek-V4-Pro / Doubao fallback (11 providers, all OpenAI-compatible)
+     → LLM: Doubao Seed 2.1 Pro primary (PROVIDER env) → DeepSeek-V4-Pro / Doubao 2.0 / Qwen3-235B fallback (11 providers, all OpenAI-compatible)
 
 ② Memory plane    KB notes/sources → local embedding (384-dim, 0 API call) → RAG (kb_rag.py)
                   media files → Gemini Embedding 2 → semantic search (mm_search.py)
@@ -436,9 +436,9 @@ python3 slo_benchmark.py --save   # Regenerate from live data → docs/slo_bench
 ### Fallback & Circuit Breaker
 
 ```
-Primary (e.g. Qwen3-235B, 5min timeout)
+Primary (e.g. Doubao Seed 2.1 Pro, 5min timeout)
     ↓ failure / timeout / circuit break (5 consecutive failures)
-Fallback (e.g. Doubao Seed 2.1 Pro, 1min timeout)
+Fallback (e.g. DeepSeek-V4-Pro, 1min timeout)
     ↓ also failed
 502 Error (both error messages returned)
     ↓ 300s later: half-open, attempt recovery
