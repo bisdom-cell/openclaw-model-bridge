@@ -351,22 +351,21 @@ Send to your WhatsApp number: `你好` — model should reply directly without o
 
 ---
 
-## Model Fallback / 模型降级（V29.1）
+## Model Fallback / 模型降级（V29.1 → V37.9.218 FALLBACK_ORDER 显式有序链）
 
-The Adapter supports automatic primary→fallback degradation. If Qwen3 is unavailable, requests degrade to Gemini 2.5 Flash automatically.
+The Adapter supports automatic primary→fallback degradation. The chain is explicit and ordered via `FALLBACK_ORDER` (comma-separated provider names; the current primary is auto-excluded, so the same order string survives primary flips). If the primary provider is unavailable, requests degrade to the next available provider in the chain automatically.
 
-Adapter 支持 primary→fallback 自动降级链。Qwen3 不可用时自动降级到 Gemini 2.5 Flash。
+Adapter 支持 primary→fallback 自动降级链。链由 `FALLBACK_ORDER` 显式有序配置（逗号分隔 provider 名，primary 自动排除——同一份顺序串在 primary 切换时无需改动），primary 不可用时自动降级到链中下一个可用 provider。
 
 ```bash
-# Environment variables
-export FALLBACK_PROVIDER="gemini"
-export GEMINI_API_KEY="your-gemini-key"
+export PROVIDER="doubao_21"
+export FALLBACK_ORDER="doubao_21,deepseek_full,doubao,deepseek,qwen"
 ```
 
 | Provider | Role | Env var |
 |----------|------|---------|
-| Qwen3-235B (remote GPU) | Primary | `REMOTE_API_KEY` |
-| Gemini 2.5 Flash | Fallback | `GEMINI_API_KEY` + `FALLBACK_PROVIDER=gemini` |
+| Doubao Seed 2.1 Pro (Volcengine Ark) | Primary (`PROVIDER=doubao_21`, V37.9.222 起) | `ARK_21_API_KEY` + `ARK_21_ENDPOINT_ID` |
+| DeepSeek-V4-Pro 满血版 → Doubao 2.0 → Qwen3-235B | Fallback chain (`FALLBACK_ORDER`) | `DEEPSEEK_FULL_API_KEY` / `ARK_API_KEY` / `REMOTE_API_KEY` |
 
 ---
 

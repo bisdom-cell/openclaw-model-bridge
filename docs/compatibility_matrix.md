@@ -30,7 +30,7 @@
 
 | Provider | 档位 | 依据 |
 |----------|------|------|
-| Qwen (Remote GPU) | **production_observed** | 主力 provider，全部生产流量（V27 起）；5 capability 实测 |
+| Qwen (Remote GPU) | **production_observed** | V27 起承载全部生产流量至 2026-07（V37.9.222 primary flip 至 doubao_21 后转 fallback 兜底）；5 capability 实测 |
 | OpenAI | **declared** | 能力声明完整 + 合约校验通过，0/N 生产验证（无 API key 配置） |
 | Google Gemini | **production_observed**（已退役出 fallback 链） | 曾为生产 fallback 真 fire（V37.8.10 等）；V37.9.129 实证香港 geo-block 永久退役，config.yaml fallback.exclude_providers: [gemini] |
 | Anthropic Claude | **declared** | 能力声明完整 + 合约校验通过，0/N 生产验证（无 API key 配置） |
@@ -39,7 +39,7 @@
 | GLM (Zhipu AI) | **declared** | 能力声明完整 + 合约校验通过，0/N 生产验证（无 API key 配置） |
 | DeepSeek-V4-Pro 满血版 (ai-tokenhub) | **feature_verified** | Mac Mini E2E 实测 2026-06-30: text/tool_calling/reasoning 3/3 通过 (干净中文+finish_reason / finish_reason=tool_calls+arguments / reasoning 字段填充+reasoning_tokens=55 R1 通道)；无乱码 token (优于量化版 w4a8)；vision 实测不支持 (400) / json_mode 围栏非严格 / streaming 未单测 / 未真生产 fallback |
 | DeepSeek-V4-Pro | **feature_verified** | Mac Mini E2E 实测 2026-06-30: text/streaming/tool_calling/json_mode 4/4 通过 (content+finish_reason / SSE chunk+[DONE] / finish_reason=tool_calls+arguments / response_format=json_object 干净 JSON)；vision 实测不支持 (400 非多模态) / reasoning 无 R1 reasoning_content 通道 / 未真生产 fallback 接管。部署=w4a8-mtp 量化, 推理响应偶发乱码 token |
-| Doubao Seed 2.0 Pro (Volcengine Ark) | **production_observed** | fallback 链第 1 位真实接管（V37.9.129 起唯一真 fallback）+ expert_escalate 真生产调用（V37.9.91）；text/vision/tool_calling/streaming/reasoning 5/5 E2E 实测（V37.9.53-55） |
+| Doubao Seed 2.0 Pro (Volcengine Ark) | **production_observed** | fallback 链真实接管（V37.9.129–V37.9.218 期间唯一真 fallback，现链中第 2 位）+ expert_escalate 真生产调用（V37.9.91）；text/vision/tool_calling/streaming/reasoning 5/5 E2E 实测（V37.9.53-55） |
 | Doubao Seed 2.1 Pro (Volcengine Ark) | **feature_verified** | Mac Mini E2E 实测 2026-07-02: text/vision/tool_calling/streaming/reasoning 5/5 通过 (content=0.05 bat-ball 答对+finish_reason=stop / 湖面皮划艇针叶林覆雪山脉全命中 / finish_reason=tool_calls+get_weather arguments / chunk 流+[DONE] / reasoning_content 通道+reasoning_tokens=255)；无乱码 token (优于 deepseek 量化版 w4a8)；json_mode 声明未单测 / 未真生产 fallback 接管 |
 
 ## 能力矩阵
