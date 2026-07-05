@@ -1,5 +1,5 @@
 {
-  "updated": "2026-07-05 03:21:53",
+  "updated": "2026-07-05 13:15:11",
   "updated_by": "full_regression",
   "priorities": [
     {
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-07-05",
+      "what": "V37.9.248 纲领执行计划确立 (用户两步指令): docs/charter_execution_plan_20260705.md — Part 1 H1 地平线 15 任务分解 (A1-A4 Observer 收官/B1-B3 PA 解耦/C1-C3 第二实例/D 证据刷新/E 年度复盘, 带 done-criteria/门控/季度/依赖链图) + §0 执行基线快照 (复杂度四维度 files 286/env 43/jobs 40-46/state 25). Part 2 五项固定复核可运行协议 (R1 影响力/R2 复杂度/R3 门控/R4 修订/R5 反目标, 带命令+判断问题+记录模板, 日落法零新增常驻机器刻意无守卫测试). 诚实边界: 外部影响力指标 dev 探测不可达→命令+待采集不编造 (原则 #23). 纲领 §11 + CLAUDE.md 双向注册. VERSION 0.37.9.101 不变 (纯执行文档)",
+      "by": "claude_code"
+    },
     {
       "date": "2026-07-05",
       "what": "V37.9.247 INV-CONVERGENCE-INTEGRATION-001 负载超时硬化 (07:00 治理 💥 再现, 预注册判别器兑现): V37.9.232 unfinished [23](a) 预注册「再现→按 V37.9.214 模式硬化」, 07-05 07:00 第二次再现 (07-03 见/07-04 干净/07-05 再现=间歇负载诱发)。两 runtime check 各 spawn FULL 内层 governance_checker 超 timeout=120 → TimeoutExpired → 💥。修: timeout 120→240 + catch TimeoutExpired 视 inconclusive + 断言移入 if proc is not None 门控 (回归检测逻辑逐字保留)。8 新守卫 (含 compile 守卫 requires_full 语法漂移 CI 化 + gate 保留回归检测双向行为验证), sabotage 2 FAIL 还原全过。其余告警: watchdog CORE=💥 downstream 自愈 / chaspark 418 + NBER 403 = 外部 API 噪声 per-source FAIL-OPEN 已处理不改。VERSION 0.37.9.101 不变 (治理负载鲁棒性非核心 runtime)",
@@ -173,11 +178,6 @@
       "date": "2026-07-03",
       "what": "V37.9.230: 审计 LOW 批次三项兑现 — (D) notify.sh drain mv-to-own claim 消除并发重复投递 TOCTOU (瞬态 mv 回原名 at-least-once 不变 + >10min 孤儿 claim 回收防丢失); (G) daily_observer 注册 watchdog (last_run time ISO8601→本地格式对齐 strptime 契约 + JOB_STATUS core 条目; 宪法级 #1 宿主 job 此前静默死无人发现=观察者的观察盲区); (H) kb_deep_dive push 全失败 write_status push_failed 不再伪装 ok (任一通道送达仍 ok, 不 exit 1 保 rsync 取证). 21 新单测 + 4 轮 sabotage. VERSION 0.37.9.94. 审计 9 findings 机械可修项全清零, 剩 C/E/I/B-delivery 需设计类.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-07-03",
-      "what": "V37.9.229: 审计 finding A 兑现 — SLO fallback 可观测. adapter fallback 成功响应加 X-Adapter-Fallback header (_send_json extra_headers, primary/502 不带) → tool_proxy 读 header 调 record_fallback (死代码复活) + proxy_filters 两 slo 落盘字典补 4 个消费方一直在读但从未落盘的原始计数 (fallback_count/tool_calls_success/recovery_total/failure_streaks, recovery verdict 样本基数也从恒 0 变真值). 修 fail-plausible SLO: V37.9.220 场景 (primary 全宕 100% fallback) SLO 不再报 healthy. 20 新单测 (E2E 真 ThreadedServer + literal-as-guard + 消费链贯通) + 3 轮 sabotage. VERSION 0.37.9.93. 审计三明确项全闭环 (F/B-stats/A).",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -263,9 +263,9 @@
   "quality": {
     "security_score": 95,
     "test_count": 5448,
-    "last_regression": "2026-07-05 03:21 pass",
+    "last_regression": "2026-07-05 13:14 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-07-05 03:21",
+    "security_score_time": "2026-07-05 13:14",
     "test_suites": 153,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
@@ -334,7 +334,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-07-05: 今日三交付。① V37.9.245 changelog 归档 (660KB→332KB)。② V37.9.246 中长期技术纲领 (docs/technical_charter_20260705.md 长期保存, 战略决策以 §8 判据门控为准)。③ V37.9.247 INV-CONVERGENCE 负载超时硬化 (07:00 💥 再现兑现 V37.9.232 预注册判别器, 按 V37.9.214 模式 TimeoutExpired→inconclusive+timeout 240)。剩 gated: Observer flip ~7/7 / doubao_21 观察 / IEEE·ISSRE in-review / OpenClaw hold 三判据。",
+  "focus": "2026-07-05: 今日四交付 (V37.9.245 changelog 归档 / V37.9.246 技术纲领 / V37.9.247 治理负载硬化 / V37.9.248 纲领执行计划)。执行入口: docs/charter_execution_plan_20260705.md — 每季度末照 Part 2 五项协议复核 (首次 2026 Q3 末), 本季度做 A1 Observer flip(~7/7,G1)/B1 PA 耦合盘点/D1 SLO 重生成/A4 论文#2 数据口径。剩 gated: doubao_21 观察/IEEE·ISSRE in-review/OpenClaw hold 三判据。",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
