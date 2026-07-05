@@ -1,5 +1,5 @@
 {
-  "updated": "2026-07-05 02:14:43",
+  "updated": "2026-07-05 02:38:15",
   "updated_by": "full_regression",
   "priorities": [
     {
@@ -76,39 +76,14 @@
       "task": "【V3】Job Template/Registry SDK + Extension Guide",
       "status": "backlog",
       "note": "让别人能基于框架扩展自己的 job 和 agent"
-    },
-    {
-      "task": "【输出】第一篇架构型文章",
-      "status": "completed",
-      "note": "V36完成: docs/articles/why_control_plane.md — dev.to+知乎+Twitter发布"
-    },
-    {
-      "task": "【加固-P0】路线 A: 血案回填审计 (Ontology audit 防御率实证)",
-      "status": "completed",
-      "note": "15 血案 × Q1/Q2/Q3 = 0% 预防率 / 87% 回归率 / 80% 空白类别. audit_coverage_retrospective.md 618 行. Stage 2 第 2 份实证资产."
-    },
-    {
-      "task": "【加固-P0】路线 B: 对抗性混沌审计 (Adversarial Chaos Audit)",
-      "status": "completed",
-      "note": "16 场景对真实仓库破坏注入. Cat A 10/10 + Cat B 6/6 = 16/16. adversarial_audit_report.md + adversarial_chaos_audit.py. Stage 2 第 3 份实证资产."
-    },
-    {
-      "task": "【加固-P0】V37.8.18 盲区修复 (Route B 6/6 全闭)",
-      "status": "completed",
-      "note": "C14 dict 污染 / C15 push bypass / C11 silent except / C12 retry 爆炸 / C13 last_run 漂移 / C16 audit-of-audit 全部修复. 6 个 MRD 扫描器新增."
-    },
-    {
-      "task": "【加固-P0】V37.9 结构加固 4 项",
-      "status": "completed",
-      "note": "(1) adversarial Cat A 集成 layer 3.5 (2) MRD-LAYER-002 severity=high 渐进强制 (3) MRD-AUDIT-PERF-001 audit-of-audit (4) MR-16 + INV-SEC-001 security 双轨统一."
-    },
-    {
-      "task": "【输出】Stage 2 第 4 篇文章 audit is regression not prevention",
-      "status": "completed",
-      "note": "docs/articles/audit_is_regression_not_prevention.md 立场型文章, 6 条可落地原则, 基于 Route A + B 实证数据."
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-07-05",
+      "what": "V37.9.246 中长期技术纲领确立（用户指令）: docs/technical_charter_20260705.md（2026H2→2028）——护城河判断（纵向证据语料库非代码）+ 10 条趋势判断（T1+T2+T8=24 个月顺风主航道, fail-plausible 品类词 ~1-2 年窗口期 2027 硬节奏）+ 双轨战略 + PA 重定义为活体实验室（回应两次评审耦合批评）+ 三地平线（H1 第二实例 PoC=可迁移性终局回答）+ 8 判据门控 + 反目标清单 + 四业务线 + 季度复核制。上承 strategic_review_20260403（V1/V2 完成收口, V3 进 H1/H2）。纯战略文档 VERSION 0.37.9.101 不变",
+      "by": "claude_code"
+    },
     {
       "date": "2026-07-05",
       "what": "V37.9.245 CLAUDE.md changelog 第二轮归档 (门控收敛日): 每-session 必读 660KB→332KB (-50%), 78 版冻结历史 (V37.9.206→V37.9.130 含 158-hotfix) 原子脚本移入 docs/changelog.md 归档表 (行数守恒 129+190=51+268 零丢失), L282 头注去数字化退役计数漂移源 (「近 ~38 版」已 stale 至 116 行→只标边界 V37.9.207+). 归档前全量只读预检: 治理 yaml 精确解析仅 1 个 file:CLAUDE.md check (原则 #27 区不受影响) + 8 个引用测试全不依赖被归档行 + 边界文本无外部引用. 开工基线+收工两轮 full_regression 153/0/5440 全绿 / 治理 91/91 EXIT=0 / 三 doc-drift 无漂移 / VERSION 0.37.9.101 不变 (纯 doc 移动, V37.9.167 谱系第二轮)",
@@ -203,11 +178,6 @@
       "date": "2026-07-02",
       "what": "V37.9.225: 上游情报收集 (npm tarball 实证, api.github.com 被代理拦改道) — (1) unfinished[5](c) 销项: CLI 冷调用/staging 修复定位上游 2026.6.11 (#93356 CPU storm/#93919 manifest cache/#89628 help startup), 4.27 构造上无 (2) 🔴 [9] Option A 复活: V37.9.180 证伪实为路径错误, 4.27 本就有顶层 web.reconnect.* (connection-controller 实证消费, 默认 Retry 1/12 与血案吻合), Mac Mini 可 config set web.reconnect.maxMs 300000 拉长退避 (3) #56365 已 closed via PR#73580, socket-timing 透传 schema 仅 ≥6.x (4) 最新 stable 2026.6.11, 6.x SQLite guardrail 仍活跃改动 → hold 维持. eval doc 新增 §16. (B) V37.9.212 已并 main 核实销项. 纯情报/doc/账本, VERSION 不变",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-07-02",
-      "what": "V37.9.224: B1 fallback 传播 — chain entry 携带 reasoning_off_body (registry+legacy 双构造点) + _fallback_batch_body 纯函数 (批量 fallback 剥 serving 注入→注入 fb 自己的声明, 非批量原样). 堵两向事故: qwen-primary 回滚态批量 fallback 到 reasoning provider 带 reasoning 跑 (V37.9.220 fallback 路径重演) / doubao thinking 片段原样发 qwen vLLM (未测参数). ultracode 三镜头对抗审查 workflow 上线前抓 2 真 finding 已修 (非 dict FAIL-OPEN 守卫 + design doc 一致性收敛 4 处); 13 新单测 + 4 轮 sabotage + E2E 真 ThreadedServer 三场景. VERSION 0.37.9.89",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -292,9 +262,9 @@
   "quality": {
     "security_score": 95,
     "test_count": 5440,
-    "last_regression": "2026-07-05 02:14 pass",
+    "last_regression": "2026-07-05 02:37 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-07-05 02:14",
+    "security_score_time": "2026-07-05 02:37",
     "test_suites": 153,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
@@ -363,7 +333,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-07-05: V37.9.245 CLAUDE.md changelog 第二轮归档 (660KB→332KB, V37.9.167 谱系, 门控收敛日纯收敛). 剩余全 gated: LLM-Observer shadow 周 ~7/7 flip 决策 (按 design doc §9.1 预注册判据, 需 Mac Mini score_history 数据) / doubao_21 观察 N 天升 production_observed / IEEE·ISSRE in-review / OpenClaw hold 三收敛判据跟踪 (2026.7.x stable 发布时核对 changelog + 用户可提前做 node -v ≥22.19).",
+  "focus": "2026-07-05: ① V37.9.245 CLAUDE.md changelog 第二轮归档 (660KB→332KB)。② V37.9.246 中长期技术纲领确立 (docs/technical_charter_20260705.md, 用户指令长期保存): 双轨战略+三地平线+8 判据门控, 战略决策以纲领 §8 为准。近期执行入口 = 纲领 §10 2026Q3: Observer flip (~7/7, G1) / PA 耦合机器化盘点 / Mac Mini SLO 报告刷新 / 论文#2 数据口径预注册。其余 gated: doubao_21 观察 / IEEE·ISSRE in-review / OpenClaw hold 三判据。",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
