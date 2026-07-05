@@ -810,4 +810,76 @@ declared version 字段随 doctor 重写的 openclaw.json 变化，如报 drift 
 
 ---
 
+## 第十七节：第六次评估（2026-07-04，用户主动要求「深入评估 4.27 能否无损稳定继续升级」——仅评估，零升级动作）
+
+> 方法：npm packument 全量分析 + **5 个版本 tarball 实证**（4.29 / 5.2 / 5.28 / 6.1 / 6.11 的
+> CHANGELOG + dist 源码 grep，V37.9.225 同款「代码即事实」）+ WebFetch 补齐 6.5-6.10 窗口
+> release notes + **全仓 Gateway 依赖面审计**（CLI 解析点 / 状态文件 / schema 假设 / dist grep）。
+> Tripwire 机械状态 0/6（时间 23/180 天，版本差距 23/50 stable）——本次为用户主动评估。
+
+### 17.1 一句话结论
+
+**4.27 → 6.11 不是「无损」升级——是一次含三个结构性迁移的升级，且其中一个（状态 SQLite 化）
+在 6.11 仍处进行中；最关键的质变是「30 秒无损回滚」安全网退化为「有损回滚」（SQLite 单向门）。
+推荐继续 hold，设收敛判据（17.6），待上游迁移弧线完成后再开升级窗口。**
+
+### 17.2 上游现状（2026-07-04 实证）
+
+- dist-tags：latest = **2026.6.11**（6/30）/ beta = 2026.7.1-beta.1（7/2）。4.27 → 6.11 跨度 **23 个 stable**（2 个月）。
+- **发版节奏未收敛**：6 月 7 个 stable（6.1/6.5/6.6/6.8/6.9/6.10/6.11）≈ 周更 —— 原 G1 收敛 gate（周稳定版 ≤1）**不通过**。
+- **Node 引擎门槛**：4.27 要求 ≥22.14 → 5.12 提升 22.16+（node:sqlite statement metadata API 依赖）→ 6.x 要求 **≥22.19**（packument engines 实证）。Mac Mini 当前 node 版本未知 = 新增前置条件。
+- 4.27 未被 deprecate，仍可安全停留。
+
+### 17.3 三个结构性迁移（4.27 → 6.11 必然经过）
+
+| # | 迁移 | 实证 | 对我们的含义 |
+|---|------|------|-------------|
+| **M1** | **WhatsApp/Discord 插件外部化**（5.2 起核心包移除，5.12 正式外部化 + Baileys rc9→rc11） | tarball 目录实证：4.29 whatsapp=77 文件 → 5.2 起 = 0；6.11 dist 引用外部包 `@openclaw/whatsapp`；6.11 仍在继续外部化更多插件（#95683） | 升级后频道插件须经 doctor/update 修复机制从 npm/ClawHub 下载安装 = **网络依赖 + ClawHub 429 历史（#54446）**。修复机制本身有 bug 史：#82533/#82813「升级后 Discord 频道消失」真实发生过，5.17 才修（"repair configured externalized plugin installs during legacy 2026.4.x upgrades"——好消息是 4.x→6.x 跳变路径被显式支持并硬化过） |
+| **M2** | **状态 SQLite 渐进迁移（6.1-6.11 进行中，未完成）** | 6.1: inbound queues/plugin ledger/iMessage state；6.5: **cron store（doctor preflight 自动迁 legacy cron JSON→SQLite）+ auth profiles(#89102) + session metadata(#91322)**；6.6: auth 迁移 verify-before-**cleanup**(#91740)；6.8: cron.status 改报 SQLite 路径**退役 jobs.json**；6.9: default-agent auth 补迁(#93156)；6.11: guardrail 仍在修（#95857/#95916）+ **session accessors 正在 refactor（#96182/#96204）**。**sessions.json 在 6.11 仍是会话存储**（dist 实证 `agents/<agent>/sessions/sessions.json`）= 迁移弧线走到中段 | (a) 我们的 openclaw-scheduled cron job 要穿越 jobs.json→SQLite 迁移 (b) **auth（含频道凭据）迁 SQLite 且迁移含 cleanup 步骤** = 回滚单向门（17.4）(c) `openclaw_backup.sh` 的 backup create 对 SQLite 文件的覆盖语义未实证 |
+| **M3** | **Gateway HTTP/WebSocket 内部栈整体替换**（5.12 正式 Breaking：managed interception → Proxyline） | 5.28 累积 changelog「### Breaking」段原文（唯一正式 Breaking，另一条 BlueBubbles 移除与我们无关） | Gateway→Tool Proxy(:5002) 的通路底层实现整体更换（上游声明保留 loopback routing policy）——对我们最重要的一条数据通路，只能 E2E 验证无法预先排除 |
+
+### 17.4 🔴 质变：回滚不再无损（与 3.13→4.27 那次的最大区别）
+
+上次升级的安全网是「30 秒回滚」（npm 降级 + 恢复 config）。本次 6.x 的 doctor 会把 cron store、
+auth profiles 迁入 SQLite 且**迁移含 cleanup**（#91740 "verify SQLite auth migration before cleanup"
+措辞实证）。回滚到 4.27 后旧版本读 file-based 状态 → **cron jobs / auth（含 WhatsApp 凭据）可能
+回不去**。若凭据丢失 → WhatsApp 重新扫码链接 → 撞 2026-06-16 设备链接限流（408）血案类风险 →
+最坏情况 WhatsApp 瘫数天。**缓解**：升级前对整个 `~/.openclaw/` 做完整 tar 快照（不只 backup create），
+回滚 = npm 降级 + 恢复快照（升级窗口期间产生的新状态丢弃）——可控，但已不是「无损」。
+
+### 17.5 风险矩阵（依赖面审计 × 上游变更交叉）
+
+**🔴 高（可能业务中断，只能 E2E 确认）**
+- **R1 WhatsApp 频道穿越升级**：M1 安装步（网络/429）× Baileys rc9→rc11+ 跳变（creds 若失效须重链 → 408 风险）× M2 auth SQLite 迁移，三重叠加。收益侧同样在这里（17.6 B2）。
+- **R2 weixin 第三方插件**：好消息 = `@tencent-weixin/openclaw-weixin@2.4.3` **在官方外部 catalog**（5.12 era changelog 实证），6.x 认识它；坏消息 = 4.27 时代安装的版本在 6.11 plugin SDK/manifest contract 下能否直接加载未知 + 6.8 有 untrusted-external-plugin 警告机制 + 若被迫升插件版本，其 contextToken/48h 窗口投递语义可能变化 → notify.sh weixin 分支假设失效。
+- **R3 notify.sh 冷调用超时签名判定**（notify.sh:89-91，全系统推送最高频解析点）：4.27 quirk 在 6.11 被根治（#93356/#93919/#89628）→ 签名可能消失（良性）或语义反转（漏投/重复投）。升级日必须 E2E。
+
+**🟡 中（可验证可恢复）**
+- **R4 CLI 输出/退出码解析面**：`wa_channel_status.py` 解析 channels status 自由文本（FAIL-OPEN——格式变 → 静默失明回到 7h 盲区）；6.8 CLI usage-error 退出码重分类；6.9 cron list 输出改版；check_upgrade.sh plugins install 输出 grep。
+- **R5 openclaw.json 多跳 doctor 迁移**：一次跳 23 stable 的迁移链（含 6.5 cron preflight 迁移）；已知内部漂移（install 写 `providers.qwen` vs health_check 读 `models.providers.qwen-local`）会在 doctor 下暴露。
+- **R6 preflight #48703 dist grep**（preflight_check.sh:592-608）：dist chunk 结构必变 → 检查失效，升级日须同步改。
+- **R7 Node ≥22.19 前置**：Mac Mini node 版本待确认；不足则先升 Node（又一变动源，launchd plist 路径）。
+- **R8 工具注入契约**（proxy_filters ALLOWED_TOOLS/CLEAN_SCHEMAS）：4.29 tools.exec/fs restrictive profile + 6.10 trusted tool policy enforcement——工具名/schema 若变，白名单**静默丢工具** → PA 无声失能（fail-plausible 类，测试抓不到，只能 WhatsApp E2E）。
+
+**🟢 收益侧（升级动机，诚实登记）**
+- **B1** 根治 4.27 CLI 冷调用回归（当前每条推送靠 notify.sh 重试兜底 + preflight warn hack）。
+- **B2** WhatsApp 可靠性大幅增强：socket-timing 透传（#73580 keys 仅 ≥6.x）+ 6.9 preserve auth on terminal disconnects + 6.11 Baileys group reliability/durable reply targets——正对我们的 Baileys 重连封禁风险面。
+- **B3** cron 可靠性（transient rate-limit retry / malformed job 容忍）+ doctor 增强（**#94148 非交互 --fix 不再自动重启 gateway**——对我们的升级 SOP 是利好）。
+- **B4** 版本差距的复利成本：每晚一个月，未来跳变风险 +N。
+
+### 17.6 结论与建议：**继续 hold，设三条收敛判据（数据驱动开窗，非日历驱动）**
+
+- **方案 A（推荐）**：hold 4.27。同时满足以下三条时开升级窗口：
+  1. **SQLite 迁移弧线收敛**：连续 2 个 stable 的 changelog 无 session-store/SQLite 迁移类 PR（当前 6.11 还在 refactor session accessors = 明确未收敛；beta 2026.7.1 已在跑，弧线可能数周内完成）；
+  2. **发版节奏收敛**：周稳定版 ≤1（原 G1，当前 ≈ 周更不通过）；
+  3. **Mac Mini node ≥22.19 预先就位**（可提前独立完成，与升级解耦）。
+- **方案 B（不推荐）**：升到中间版本（5.x/6.1-6.10）——任何 ≥5.2 版本都吃下 M1+M3 两个最大 breaking，却拿不到 6.11 的冷调用修复与 SQLite guardrail 修复 = 成本全担收益不全拿。**若升，4.27→当时最新 stable 一步到位是唯一合理跳法**。
+- **方案 C（用户若决定现在升）**：第七节 SOP 基础上增补前置——`node -v` ≥22.19 / **全量 `~/.openclaw/` tar 快照**（回滚唯一可靠恢复源，17.4）/ 升级前试 `openclaw plugins install whatsapp` 确认 ClawHub 通畅 / doctor --fix 后 channels status 确认 whatsapp+discord+openclaw-weixin 三频道 / `wa_channel_status.py` 对新版 channels status 输出真跑一次解析验证 / notify.sh 三通道 E2E / preflight #48703 检查预期失效登记 / **WhatsApp E2E 含图片+search_kb**（R8 静默丢工具验证）。回滚 = npm 降级 + 恢复 tar 快照（有损：窗口期新状态丢弃）。
+
+**LAST_EVAL_DATE 更新至 2026-07-04**（第六次评估完成，重置时间 tripwire）。下次触发 = 任一 tripwire
+跳红，或 17.6 判据 1（SQLite 弧线收敛信号）出现——每周一 check_upgrade.sh cron 照常监控，发现
+2026.7.x stable 发布时顺手核对其 changelog 是否仍含 session/SQLite 迁移 PR 即可完成判据 1 的跟踪。
+
+---
+
 *本文档为评估报告，不执行任何升级操作。升级决策由用户做出。*
