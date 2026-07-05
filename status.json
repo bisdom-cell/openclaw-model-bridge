@@ -1,5 +1,5 @@
 {
-  "updated": "2026-07-04 08:28:37",
+  "updated": "2026-07-05 02:03:13",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -110,6 +110,11 @@
   ],
   "recent_changes": [
     {
+      "date": "2026-07-05",
+      "what": "V37.9.245 CLAUDE.md changelog 第二轮归档 (门控收敛日): 每-session 必读 660KB→332KB (-50%), 78 版冻结历史 (V37.9.206→V37.9.130 含 158-hotfix) 原子脚本移入 docs/changelog.md 归档表 (行数守恒 129+190=51+268 零丢失), L282 头注去数字化退役计数漂移源 (「近 ~38 版」已 stale 至 116 行→只标边界 V37.9.207+). 归档前全量只读预检: 治理 yaml 精确解析仅 1 个 file:CLAUDE.md check (原则 #27 区不受影响) + 8 个引用测试全不依赖被归档行 + 边界文本无外部引用. 开工基线+收工两轮 full_regression 153/0/5440 全绿 / 治理 91/91 EXIT=0 / 三 doc-drift 无漂移 / VERSION 0.37.9.101 不变 (纯 doc 移动, V37.9.167 谱系第二轮)",
+      "by": "claude_code"
+    },
+    {
       "date": "2026-07-04",
       "what": "V37.9.244 OpenClaw Gateway 第六次升级评估 (用户要求, 仅评估零升级动作): 4.27→6.11 深评 = 继续 hold。5 版本 tarball 实证三结构性迁移 (M1 WhatsApp/Discord 插件外部化 5.2 起核心包移除 / M2 状态 SQLite 渐进迁移 6.11 仍进行中 cron+auth 已迁含 cleanup / M3 Gateway HTTP 栈换 Proxyline) + 🔴 回滚单向门 (30秒无损回滚不复存在, 凭据丢失→WhatsApp 重链撞 408 史) + Node 门槛升 ≥22.19。三收敛判据开窗 (连续 2 stable 无 SQLite 迁移 PR / 周稳定 ≤1 / node ≥22.19)。eval doc 新增 §17 + LAST_EVAL_DATE 重置 2026-07-04",
       "by": "claude_code"
@@ -203,11 +208,6 @@
       "date": "2026-07-02",
       "what": "V37.9.224: B1 fallback 传播 — chain entry 携带 reasoning_off_body (registry+legacy 双构造点) + _fallback_batch_body 纯函数 (批量 fallback 剥 serving 注入→注入 fb 自己的声明, 非批量原样). 堵两向事故: qwen-primary 回滚态批量 fallback 到 reasoning provider 带 reasoning 跑 (V37.9.220 fallback 路径重演) / doubao thinking 片段原样发 qwen vLLM (未测参数). ultracode 三镜头对抗审查 workflow 上线前抓 2 真 finding 已修 (非 dict FAIL-OPEN 守卫 + design doc 一致性收敛 4 处); 13 新单测 + 4 轮 sabotage + E2E 真 ThreadedServer 三场景. VERSION 0.37.9.89",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-07-02",
-      "what": "V37.9.223 探针实测: deepseek 量化版 self-host 网关接受 thinking:disabled (HTTP 200/reasoning_tokens:0/无 400) → 400 风险排除声明安全保留 (仍 non-reasoning → thinking-off no-op 但无害); doubao 2.0 探针遇 AuthHeader 错误=交互 shell 缺 ARK env (非 thinking 拒绝), 家族推断声明保留待 env 探针",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -257,7 +257,7 @@
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB"
   },
   "session_context": {
-    "last_session": "2026-07-04",
+    "last_session": "2026-07-05",
     "unfinished": [
       "【2026-07-02 多镜头审计 · 9 findings 全部处置完毕 (V37.9.226-239: 8 修复闭环 + I half-open 登记为可接受设计 tradeoff) · 剩纯 Mac Mini 被动验证】同步+重启 proxy/adapter 后观察: (A) 真 fallback 时 proxy 日志 DEGRADED 行 + proxy_stats.json slo.fallback_count 变真值 (V37.9.229) (C) ls ~/.kb/status.json.lock ~/.kb/audit.jsonl.lock 伴生锁文件出现 (V37.9.238) (E) client 断开时 adapter.log 记 CLIENT GONE 单行非 traceback (V37.9.231/242) (B) streaming 请求撞 parse 异常时 Gateway 收 SSE 而非 content-type 错配 (V37.9.239) (G) last_run_self_critique.json time 本地格式 + watchdog 4h 覆盖 observer (V37.9.230)。完整分诊记录见 CLAUDE.md V37.9.226-239 changelog, 无 dev 剩余动作。",
       "【V37.9.211/212 Qwen3 端点刷新 · adapter ✅ + V37.9.212 ✅ 已并入 main(PR#774, 2026-07-02 dev 核实) · 剩用户 env 动作】剩余非紧急: (A) .env_shared 设新 REMOTE_API_KEY+REMOTE_BASE_URL(cron 直连脚本 health_check 每周报 CURRENT_MODEL/diagnose 用) (C) 🔴 明文 key 建议用完轮换。教训钉死: adapter/proxy 是 launchd job, env 改必须进 plist EnvironmentVariables + bootout/bootstrap(不是 shell export + kickstart)。",
@@ -292,9 +292,9 @@
   "quality": {
     "security_score": 95,
     "test_count": 5440,
-    "last_regression": "2026-07-04 07:27 pass",
+    "last_regression": "2026-07-05 01:59 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-07-04 07:27",
+    "security_score_time": "2026-07-05 01:59",
     "test_suites": 153,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
@@ -363,7 +363,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-07-04: ① V37.9.243 doubao_21-primary prose 收敛 + unfinished 归账 (已推送待合并)。② V37.9.244 OpenClaw 第六次升级评估 (用户要求深评 4.27 能否无损升级): 结论=不能称为无损——三结构性迁移 (插件外部化/SQLite 迁移进行中/Proxyline) + 回滚从 30 秒无损退化为单向门 → 继续 hold + 三收敛判据 (连续 2 stable 无 SQLite 迁移 PR / 周稳定版 ≤1 / node ≥22.19), 详见 eval doc §17, 待用户确认决策。剩余全 gated: LLM-Observer flip ~7/7 + doubao_21 观察 + IEEE/ISSRE in-review。",
+  "focus": "2026-07-05: V37.9.245 CLAUDE.md changelog 第二轮归档 (660KB→332KB, V37.9.167 谱系, 门控收敛日纯收敛). 剩余全 gated: LLM-Observer shadow 周 ~7/7 flip 决策 (按 design doc §9.1 预注册判据, 需 Mac Mini score_history 数据) / doubao_21 观察 N 天升 production_observed / IEEE·ISSRE in-review / OpenClaw hold 三收敛判据跟踪 (2026.7.x stable 发布时核对 changelog + 用户可提前做 node -v ≥22.19).",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
