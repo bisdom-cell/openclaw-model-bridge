@@ -1,5 +1,5 @@
 {
-  "updated": "2026-07-05 02:38:15",
+  "updated": "2026-07-05 03:21:53",
   "updated_by": "full_regression",
   "priorities": [
     {
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-07-05",
+      "what": "V37.9.247 INV-CONVERGENCE-INTEGRATION-001 负载超时硬化 (07:00 治理 💥 再现, 预注册判别器兑现): V37.9.232 unfinished [23](a) 预注册「再现→按 V37.9.214 模式硬化」, 07-05 07:00 第二次再现 (07-03 见/07-04 干净/07-05 再现=间歇负载诱发)。两 runtime check 各 spawn FULL 内层 governance_checker 超 timeout=120 → TimeoutExpired → 💥。修: timeout 120→240 + catch TimeoutExpired 视 inconclusive + 断言移入 if proc is not None 门控 (回归检测逻辑逐字保留)。8 新守卫 (含 compile 守卫 requires_full 语法漂移 CI 化 + gate 保留回归检测双向行为验证), sabotage 2 FAIL 还原全过。其余告警: watchdog CORE=💥 downstream 自愈 / chaspark 418 + NBER 403 = 外部 API 噪声 per-source FAIL-OPEN 已处理不改。VERSION 0.37.9.101 不变 (治理负载鲁棒性非核心 runtime)",
+      "by": "claude_code"
+    },
     {
       "date": "2026-07-05",
       "what": "V37.9.246 中长期技术纲领确立（用户指令）: docs/technical_charter_20260705.md（2026H2→2028）——护城河判断（纵向证据语料库非代码）+ 10 条趋势判断（T1+T2+T8=24 个月顺风主航道, fail-plausible 品类词 ~1-2 年窗口期 2027 硬节奏）+ 双轨战略 + PA 重定义为活体实验室（回应两次评审耦合批评）+ 三地平线（H1 第二实例 PoC=可迁移性终局回答）+ 8 判据门控 + 反目标清单 + 四业务线 + 季度复核制。上承 strategic_review_20260403（V1/V2 完成收口, V3 进 H1/H2）。纯战略文档 VERSION 0.37.9.101 不变",
@@ -173,11 +178,6 @@
       "date": "2026-07-03",
       "what": "V37.9.229: 审计 finding A 兑现 — SLO fallback 可观测. adapter fallback 成功响应加 X-Adapter-Fallback header (_send_json extra_headers, primary/502 不带) → tool_proxy 读 header 调 record_fallback (死代码复活) + proxy_filters 两 slo 落盘字典补 4 个消费方一直在读但从未落盘的原始计数 (fallback_count/tool_calls_success/recovery_total/failure_streaks, recovery verdict 样本基数也从恒 0 变真值). 修 fail-plausible SLO: V37.9.220 场景 (primary 全宕 100% fallback) SLO 不再报 healthy. 20 新单测 (E2E 真 ThreadedServer + literal-as-guard + 消费链贯通) + 3 轮 sabotage. VERSION 0.37.9.93. 审计三明确项全闭环 (F/B-stats/A).",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-07-02",
-      "what": "V37.9.225: 上游情报收集 (npm tarball 实证, api.github.com 被代理拦改道) — (1) unfinished[5](c) 销项: CLI 冷调用/staging 修复定位上游 2026.6.11 (#93356 CPU storm/#93919 manifest cache/#89628 help startup), 4.27 构造上无 (2) 🔴 [9] Option A 复活: V37.9.180 证伪实为路径错误, 4.27 本就有顶层 web.reconnect.* (connection-controller 实证消费, 默认 Retry 1/12 与血案吻合), Mac Mini 可 config set web.reconnect.maxMs 300000 拉长退避 (3) #56365 已 closed via PR#73580, socket-timing 透传 schema 仅 ≥6.x (4) 最新 stable 2026.6.11, 6.x SQLite guardrail 仍活跃改动 → hold 维持. eval doc 新增 §16. (B) V37.9.212 已并 main 核实销项. 纯情报/doc/账本, VERSION 不变",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -252,19 +252,20 @@
       "V37.9.214 governance 审计间歇 fail — root-cause + B2 均已修 (剩 Mac Mini bash3.2 验证 + 潜在类): 根因 INV-REVIEW-001 kb_review.sh subprocess 负载超时 💥 已修 (timeout 45→90 + TimeoutExpired inconclusive)。 B2 假 FATAL line=101 = bash 3.2 errtrace re-enable landmine (3 次复发 whack-a-mole, dev bash5.x 不复现) 已日落法根治 (set +E 一次不再 re-enable, errexit+顶部 set -eEuo 保留)。 🔴 B2 修复只能 Mac Mini bash 3.2 验证: 同步后观察后续冷/负载失败是否还伴 FATAL 假告警 (预期消失); 仍出现则 bash -x ~/governance_audit_cron.sh 2>/tmp/gac_x.txt 抓 trace。 (潜在类, 不盲修) INV-WATCHDOG-SELF-001 6× 并行 ❌ = 自并行争用 artifact 非生产; '治理 runtime check 对负载敏感' 待系统性评估。 (清陈旧) bash ~/governance_audit_cron.sh 现全过写 pass 清 watchdog flag。",
       "低优观察 (登记不修, 日落法 #8): auto_deploy FILE_MAP 同步用 cp 非原子写 → 脚本在同步窗口内被并发执行会读半截文件 (2026-07-02 11:41 governance_audit_cron.sh 同步 #781 时被手动跑 → line 85 $() 截断 = 'syntax error near governance' 瞬态, 重跑即好 bash -n 过+diff 同步)。极低频(同步写×并发执行精确重叠)+自愈+非代码 bug。若未来 07:00 cron 与 auto_deploy 同步真撞上(复现) 才值得让 auto_deploy 改原子写 temp+mv。当前不投机加复杂度。",
       "doubao_21 primary 已上线 (V37.9.222 B1 flip: PROVIDER=doubao_21 无 FAST_PROVIDER, 批量 thinking-off 实测比 qwen 分流更快, E2E 全过). V37.9.224 B1 fallback 传播已实现 (批量 fallback 按 fb 自己的 reasoning_off_body 重算注入, 合并同步后 adapter 重启生效). 剩: (1) 观察 N 天 cron 周期 + 批量并发规模 (doubao_21 thinking-off ~17s/req) → 升 production_observed. (2) 稳定后 qwen 逐步老化从 FALLBACK_ORDER 移除缩链 (日落法; V37.9.224 后批量 fallback 到 qwen 已自动剥 thinking 参数, 移除前无兼容风险). 回滚: PROVIDER=qwen (V37.9.224 让回滚态批量 fallback 到 reasoning provider 自动 thinking-off = 回滚更安全).",
-      "【2026-07-03 observer/治理/watchdog triage · findings 全部闭环 (V37.9.232-235/240) · 剩被动观察】(a) 07:00 治理审计 INV-CONVERGENCE 💥 是否再现 (静时重跑已全绿=负载瞬态; 再现→按 V37.9.214 模式硬化 TimeoutExpired→inconclusive + 120s timeout) (b) freight last_run 应已 07-03 14:00 自愈转 ok (仍 llm_failed=新问题贴我) (c) 修复生效信号: dblp 推送无「推测采用XX模型」类字眼 (V37.9.234) / last_run_deep_dive.json 见 banned_recent + 一周后 full-text 比例回升 (V37.9.233) / observer 报告 arxiv 截断 finding 消失 (V37.9.235) + dream 远期信号带「长期背景」标注 (V37.9.235) / observer deep_dive_repeat 告警仅违规时出现 (V37.9.240)。",
+      "【2026-07-03 observer/治理/watchdog triage · findings 全部闭环 (V37.9.232-235/240) · 剩被动观察】(a) ✅ V37.9.247 兑现: 07-05 07:00 第二次再现 (07-03见/07-04干净/07-05再现=间歇负载) → 按预注册 V37.9.214 模式硬化两 runtime check (timeout 120→240 + TimeoutExpired→inconclusive+门控)。剩 Mac Mini 被动观察: 下次 07:00 不再 💥 + watchdog 治理 CORE 告警消失 (b) freight last_run 应已 07-03 14:00 自愈转 ok (仍 llm_failed=新问题贴我) (c) 修复生效信号: dblp 推送无「推测采用XX模型」类字眼 (V37.9.234) / last_run_deep_dive.json 见 banned_recent + 一周后 full-text 比例回升 (V37.9.233) / observer 报告 arxiv 截断 finding 消失 (V37.9.235) + dream 远期信号带「长期背景」标注 (V37.9.235) / observer deep_dive_repeat 告警仅违规时出现 (V37.9.240)。",
       "V37.9.236 follow-up: (a) Mac Mini 观察 alerts.log 不再新增 FATAL line=101 (下次告警推送撞冷调用即验证) (b) scanner 第8 pattern 候选诚实登记不现建 — sourced-lib $() 设计性可失败命令需跨文件 source-graph 分析=新机器, 11个 targeted 守卫已封死唯一日常失败站点(日落法); 若未来再有 sourced-lib 假 FATAL 实例再评估",
-      "【OpenClaw 第六次升级评估 (2026-07-04, V37.9.244) · 结论=继续 hold · 三收敛判据跟踪】4.27→6.11 深评见 eval doc 第十七节: 三结构性迁移 (M1 插件外部化/M2 SQLite 迁移进行中/M3 Proxyline) + 回滚单向门 (SQLite cleanup 后 4.27 读不回 cron/auth, WhatsApp 重链撞 408 风险)。开窗判据 (全满足才升): ① 连续 2 stable 无 session/SQLite 迁移 PR (2026.7.x stable 发布时核对 changelog) ② 周稳定版 ≤1 ③ Mac Mini node ≥22.19。🔴 判据 ③ 可独立提前做 (用户): node -v 确认, 不足先升 Node (与升级窗口解耦)。每周一 check_upgrade.sh cron 照常监控; LAST_EVAL_DATE 已重置 2026-07-04。"
+      "【OpenClaw 第六次升级评估 (2026-07-04, V37.9.244) · 结论=继续 hold · 三收敛判据跟踪】4.27→6.11 深评见 eval doc 第十七节: 三结构性迁移 (M1 插件外部化/M2 SQLite 迁移进行中/M3 Proxyline) + 回滚单向门 (SQLite cleanup 后 4.27 读不回 cron/auth, WhatsApp 重链撞 408 风险)。开窗判据 (全满足才升): ① 连续 2 stable 无 session/SQLite 迁移 PR (2026.7.x stable 发布时核对 changelog) ② 周稳定版 ≤1 ③ Mac Mini node ≥22.19。🔴 判据 ③ 可独立提前做 (用户): node -v 确认, 不足先升 Node (与升级窗口解耦)。每周一 check_upgrade.sh cron 照常监控; LAST_EVAL_DATE 已重置 2026-07-04。",
+      "NBER RSS 403 连续 2 天 (07-04/07-05 finance_news, per-source FAIL-OPEN 已正确降级 WARN+跳过, 其他源正常). 低优观察 (日落法 #8 不现加机器): 若持久化 (≥1 周) 才评估换源/剔除 (镜像 finance_news zombie 分流). 单源失败非系统性, V37.9.227 fetch_failed 仅全源失败才触发."
     ],
     "open_prs": "",
     "blocked_on": ""
   },
   "quality": {
     "security_score": 95,
-    "test_count": 5440,
-    "last_regression": "2026-07-05 02:37 pass",
+    "test_count": 5448,
+    "last_regression": "2026-07-05 03:21 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-07-05 02:37",
+    "security_score_time": "2026-07-05 03:21",
     "test_suites": 153,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
@@ -333,7 +334,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-07-05: ① V37.9.245 CLAUDE.md changelog 第二轮归档 (660KB→332KB)。② V37.9.246 中长期技术纲领确立 (docs/technical_charter_20260705.md, 用户指令长期保存): 双轨战略+三地平线+8 判据门控, 战略决策以纲领 §8 为准。近期执行入口 = 纲领 §10 2026Q3: Observer flip (~7/7, G1) / PA 耦合机器化盘点 / Mac Mini SLO 报告刷新 / 论文#2 数据口径预注册。其余 gated: doubao_21 观察 / IEEE·ISSRE in-review / OpenClaw hold 三判据。",
+  "focus": "2026-07-05: 今日三交付。① V37.9.245 changelog 归档 (660KB→332KB)。② V37.9.246 中长期技术纲领 (docs/technical_charter_20260705.md 长期保存, 战略决策以 §8 判据门控为准)。③ V37.9.247 INV-CONVERGENCE 负载超时硬化 (07:00 💥 再现兑现 V37.9.232 预注册判别器, 按 V37.9.214 模式 TimeoutExpired→inconclusive+timeout 240)。剩 gated: Observer flip ~7/7 / doubao_21 观察 / IEEE·ISSRE in-review / OpenClaw hold 三判据。",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
