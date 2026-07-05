@@ -583,5 +583,113 @@ class TestV37_9_214_B2NoErrtraceReEnable(unittest.TestCase):
         self.assertIn("V37.9.214 日落法根治", self.src)
 
 
+class TestV37_9_247_ConvergenceCheckLoadHardening(unittest.TestCase):
+    """V37.9.247: INV-CONVERGENCE-INTEGRATION-001 两 runtime check 各 spawn 一个
+    FULL 内层 governance_checker subprocess (~758 checks + convergence specs)。
+    07:00 cron 风暴下内层被 CPU 饿死超 timeout → TimeoutExpired → 💥 (2026-07-03
+    + 07-05 07:00 间歇, clean 07-04 between; 静时重跑全绿 → 负载诱发非真回归)。
+    预注册 V37.9.232 unfinished [23](a): 再现 → 按 V37.9.214 模式硬化。
+    修: timeout 120→240 + 捕获 TimeoutExpired 视为 inconclusive (超时不是
+    convergence-wiring 回归的证据; 回归在 subprocess COMPLETES 时快速 manifest)。
+    Lineage: V37.9.214 (INV-REVIEW-001 同款 load-timeout 硬化)。"""
+
+    @classmethod
+    def setUpClass(cls):
+        try:
+            import yaml
+        except ImportError:
+            raise unittest.SkipTest("PyYAML not available")
+        with open(REPO_ROOT / "ontology" / "governance_ontology.yaml",
+                  encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+
+        def _find(node):
+            if isinstance(node, dict):
+                if node.get("id") == "INV-CONVERGENCE-INTEGRATION-001":
+                    return node
+                for v in node.values():
+                    r = _find(v)
+                    if r:
+                        return r
+            elif isinstance(node, list):
+                for v in node:
+                    r = _find(v)
+                    if r:
+                        return r
+            return None
+
+        cls.inv = _find(data)
+        cls.rt_codes = [c["code"] for c in (cls.inv or {}).get("checks", [])
+                        if c.get("check_type") == "python_assert"]
+
+    def test_inv_found_with_two_runtime_checks(self):
+        self.assertIsNotNone(self.inv,
+                             "INV-CONVERGENCE-INTEGRATION-001 must exist")
+        self.assertEqual(len(self.rt_codes), 2,
+                         "INV must have exactly 2 runtime python_assert checks")
+
+    def test_timeout_bumped_to_240(self):
+        for code in self.rt_codes:
+            self.assertIn("timeout=240", code,
+                          "V37.9.247: inner governance_checker subprocess timeout must be 240")
+
+    def test_old_timeout_120_retired(self):
+        for code in self.rt_codes:
+            self.assertNotIn("timeout=120", code,
+                             "V37.9.247: old timeout=120 must be retired (load-fragile)")
+
+    def test_catches_timeout_expired_as_inconclusive(self):
+        for code in self.rt_codes:
+            self.assertIn("except subprocess.TimeoutExpired", code,
+                          "V37.9.247: must catch TimeoutExpired (load timeout ≠ regression)")
+            self.assertIn("INCONCLUSIVE", code,
+                          "V37.9.247: timeout must be treated as inconclusive, not 💥")
+
+    def test_assertions_gated_on_proc_completing(self):
+        for code in self.rt_codes:
+            self.assertIn("if proc is not None:", code,
+                          "V37.9.247: regression assertions must be gated on proc (skip on timeout)")
+
+    def test_marker(self):
+        for code in self.rt_codes:
+            self.assertIn("V37.9.247", code)
+
+    def test_runtime_check_code_compiles(self):
+        # dev skips these via requires_full → a syntax error would stay silent
+        # until Mac Mini 07:00 --full. Compile them here so drift surfaces in CI.
+        import textwrap
+        for code in self.rt_codes:
+            compile(textwrap.dedent(code), "<conv-check>", "exec")
+
+    def test_gate_preserves_regression_detection(self):
+        # The `if proc is not None:` gate must NOT neuter the real regression
+        # detection. Prove both directions with the same structure:
+        #   (a) TimeoutExpired → proc=None → assertions skipped → clean (inconclusive)
+        #   (b) proc completes with bad output → assertion STILL fires (regression caught)
+        import textwrap
+        # (a) timeout path yields no exception
+        exec(compile(textwrap.dedent(
+            "import subprocess\n"
+            "proc = None\n"
+            "try:\n"
+            "    raise subprocess.TimeoutExpired(cmd='x', timeout=240)\n"
+            "except subprocess.TimeoutExpired:\n"
+            "    pass\n"
+            "if proc is not None:\n"
+            "    raise AssertionError('unreachable on timeout')\n"),
+            "<gate-a>", "exec"), {})
+
+        # (b) completed-but-bad-output path still fires the assertion
+        class _FakeProc:
+            stdout = "no json here"
+        with self.assertRaises(AssertionError):
+            exec(compile(textwrap.dedent(
+                "proc = FakeProc()\n"
+                "if proc is not None:\n"
+                "    start = proc.stdout.rfind('{')\n"
+                "    assert start >= 0, 'regression: convergence JSON missing'\n"),
+                "<gate-b>", "exec"), {"FakeProc": _FakeProc})
+
+
 if __name__ == "__main__":
     unittest.main()
