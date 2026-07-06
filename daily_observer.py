@@ -524,6 +524,13 @@ _DD_MODE_RE = re.compile(r"\*\*模式\*\*\s*[:：]\s*(完整原文|摘要级)")
 # ban 过期后的合法再分析，非违规（跨模块一致性由测试守卫，镜像 V37.9.103
 # DEAD_AGE_DAYS 模式）。
 DEEP_DIVE_REPEAT_WINDOW_DAYS = 14
+# V37.9.252（observer 自评 2026-07-06 finding #2 假阳性修正）: ban-list（V37.9.233）
+# 部署于 2026-07-03，只能预防其部署**之后**的重复分析。部署前的历史重复（较晚的
+# re-analysis 日期早于此日）**不是 ban-list 失效**——不加此过滤会把 pre-deployment
+# 历史 pair 永久误报为「ban-list 静默失效」（observer 07-06 自评抓到 06-14/06-26
+# 假阳性，两日期均早于 07-03，ban-list 当时尚未存在无法阻止）。语义：pair (a,b) 中
+# 较晚的 re-analysis b 须 >= 此日，ban-list 那时才 active、才可能是真失效。
+_BAN_LIST_ACTIVE_SINCE = datetime.strptime("2026-07-03", "%Y-%m-%d").date()
 # 契约 = kb_deep_dive.build_deep_dive_markdown 写入的 frontmatter `link: <url>`
 # 行（跨文件 MR-8 契约由测试守卫绑定，防上游改格式后本检测静默失效）。
 _DD_LINK_RE = re.compile(r"^link: (.+)$", re.MULTILINE)
@@ -642,6 +649,8 @@ def scan_deep_dive_modes(kb_dir, target_date,
     # V37.9.240: 跨天重复检测（ban-list 回归探测器）。同一 link 出现在多个文件
     # 且存在相邻日期差 ≤ REPEAT_WINDOW 的 pair → 违规（ban-list 应已阻止）。
     # 相邻 pair 判定（非首尾差）: [d, d+20] 合法（ban 过期），[d, d+3] 违规。
+    # V37.9.252: 且较晚的 re-analysis 须 >= _BAN_LIST_ACTIVE_SINCE（否则 ban-list
+    # 当时尚未部署，历史重复非其失效，不误报）。
     by_link = {}
     for e in entries:
         lk = e.get("link")
@@ -657,7 +666,8 @@ def scan_deep_dive_modes(kb_dir, target_date,
                 db = datetime.strptime(b, "%Y-%m-%d").date()
             except ValueError:
                 continue
-            if (db - da).days <= DEEP_DIVE_REPEAT_WINDOW_DAYS:
+            if ((db - da).days <= DEEP_DIVE_REPEAT_WINDOW_DAYS
+                    and db >= _BAN_LIST_ACTIVE_SINCE):
                 stats["repeats"].append({"link": lk, "dates": ds})
                 break
 

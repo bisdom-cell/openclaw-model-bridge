@@ -3076,12 +3076,39 @@ class TestV37_9_240_DeepDiveRepeat(unittest.TestCase):
         """归一化契约 = kb_deep_dive._normalize_link 同款（尾斜杠剥除）。"""
         from datetime import date
         with tempfile.TemporaryDirectory() as td:
+            # V37.9.252: 两日期均 >= ban-list active-since (07-03), 才验归一化的重复检测
             self._mk_kb(td, [
-                ("2026-07-01.md", "https://doi.org/10.1145/x"),
-                ("2026-07-02.md", "https://doi.org/10.1145/x/"),
+                ("2026-07-04.md", "https://doi.org/10.1145/x"),
+                ("2026-07-05.md", "https://doi.org/10.1145/x/"),
             ])
-            s = obs.scan_deep_dive_modes(td, date(2026, 7, 3))
+            s = obs.scan_deep_dive_modes(td, date(2026, 7, 5))
             self.assertEqual(len(s["repeats"]), 1)
+
+    def test_pre_ban_list_repeat_not_flagged(self):
+        """V37.9.252 假阳性修正回归: 较晚 re-analysis 早于 ban-list 部署 (07-03) →
+        不误报（observer 07-06 自评抓到的 06-14/06-26 场景，ban-list 当时不存在）。"""
+        from datetime import date
+        with tempfile.TemporaryDirectory() as td:
+            self._mk_kb(td, [
+                ("2026-06-14.md", "https://doi.org/10.1016/J.RESS.2026.112224"),
+                ("2026-06-26.md", "https://doi.org/10.1016/J.RESS.2026.112224"),
+            ])
+            s = obs.scan_deep_dive_modes(td, date(2026, 7, 6))
+            self.assertEqual(
+                s["repeats"], [],
+                "两日期均早于 ban-list 部署 07-03，不得误报为 ban-list 静默失效")
+
+    def test_post_ban_list_repeat_still_flagged(self):
+        """V37.9.252: ban-list 部署后的真重复（较晚日期 >= 07-03）仍必检出。"""
+        from datetime import date
+        with tempfile.TemporaryDirectory() as td:
+            self._mk_kb(td, [
+                ("2026-07-02.md", "https://doi.org/10.1016/x"),  # 早于部署
+                ("2026-07-05.md", "https://doi.org/10.1016/x"),  # 部署后 re-analysis = 真失效
+            ])
+            s = obs.scan_deep_dive_modes(td, date(2026, 7, 6))
+            self.assertEqual(len(s["repeats"]), 1,
+                             "较晚 re-analysis 07-05 在 ban-list active 期，是真失效必检出")
 
     def test_legit_reanalysis_after_ban_window_not_flagged(self):
         """>14 天的重复 = ban 过期后合法再分析，绝不误报。"""
