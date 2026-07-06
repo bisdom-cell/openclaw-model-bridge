@@ -56,7 +56,7 @@ MAX_AGE_DAYS=14
 
 ARXIV_URL="https://export.arxiv.org/api/query?search_query=ti:LLM+OR+ti:%22Large+Language+Model%22+OR+ti:%22AI+Agent%22+OR+ti:RAG+OR+ti:RLHF+OR+ti:Multimodal+OR+ti:DeepSeek+OR+ti:Gemini+OR+ti:ChatGPT+OR+ti:GPT-4+OR+ti:GPT-5+OR+ti:Claude+OR+ti:Llama+OR+ti:Mistral+OR+ti:Qwen+OR+ti:Ontology+OR+ti:%22Knowledge+Graph%22+OR+ti:%22Neuro-Symbolic%22+OR+ti:%22Knowledge+Representation%22+OR+ti:%22Symbolic+AI%22&sortBy=submittedDate&sortOrder=descending&max_results=50"
 
-TS="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')"
+TS="$(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date '+%Y-%m-%d %H:%M:%S')"
 STATUS_FILE="$CACHE/last_run.json"
 
 log() { echo "[$TS] arxiv: $1" >&2; }
@@ -94,7 +94,7 @@ send_alert() {
 
 mkdir -p "$CACHE" "${KB_BASE:-$HOME/.kb}/sources"
 test -f "$KB_SRC" || echo "# ArXiv AI论文监控" > "$KB_SRC"
-DAY="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d')"
+DAY="$(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date '+%Y-%m-%d')"
 
 # ── 1. 抓取 ArXiv API XML（含重试 + 429退避 + 内容验证）─────────────────
 FEED_FILE="$CACHE/arxiv_feed.xml"
@@ -776,7 +776,7 @@ fi
 # ── 7. KB归档（合并原 kb-save-arxiv 功能）──────────────────────────────
 SUMMARY="$(cat "$MSG_FILE")"
 if [ -n "$SUMMARY" ]; then
-    DATE_KB=$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M')
+    DATE_KB=$(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date '+%Y-%m-%d %H:%M')
     CONTENT="# ArXiv AI论文监控 ${DATE_KB}
 
 ${SUMMARY}"

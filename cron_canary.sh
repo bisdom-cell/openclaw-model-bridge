@@ -11,7 +11,7 @@ CANARY_LOG="${HOME}/.cron_canary_log"
 
 # 原子写入：先写临时文件，再 mv（避免读写竞争）
 EPOCH=$(date +%s)
-HUMAN=$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')
+HUMAN=$(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date '+%Y-%m-%d %H:%M:%S')
 TMP="${CANARY_FILE}.tmp.$$"
 
 printf '%s\n%s\n' "$EPOCH" "$HUMAN" > "$TMP" && mv "$TMP" "$CANARY_FILE"

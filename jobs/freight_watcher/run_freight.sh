@@ -43,7 +43,7 @@ KB_WRITE_SCRIPT="${KB_WRITE_SCRIPT:-$HOME/kb_write.sh}"
 KB_INBOX="${KB_BASE:-$HOME/.kb}/inbox.md"
 TO="${OPENCLAW_PHONE:-+85200000000}"
 LLM_RAW="$CACHE/llm_raw_last.txt"
-TS="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')"
+TS="$(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date '+%Y-%m-%d %H:%M:%S')"
 STATUS_FILE="$CACHE/last_run.json"
 
 log() { echo "[$TS] freight: $1" >&2; }
@@ -59,7 +59,7 @@ mkdir -p "$CACHE" "${KB_BASE:-$HOME/.kb}/sources"
 test -f "$KB_SRC"   || echo "# 货代商机 Watcher" > "$KB_SRC"
 test -f "$KB_INBOX" || echo "# INBOX" > "$KB_INBOX"
 
-DAY="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M')"
+DAY="$(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date '+%Y-%m-%d %H:%M')"
 NEW_FILE="$CACHE/freight_new.jsonl"
 
 # 测试模式跳过 RSS（Step 1-7），直接跳到 Step 8

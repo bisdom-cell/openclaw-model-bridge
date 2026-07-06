@@ -12,10 +12,10 @@ DAYS="${1:-3}"
 KB_DIR="${KB_BASE:-$HOME/.kb}"
 DIGEST_FILE="$KB_DIR/daily_digest.md"
 INDEX="$KB_DIR/index.json"
-TS="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M')"
+TS="$(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date '+%Y-%m-%d %H:%M')"
 DATE=$(date +%Y%m%d)
 
-log() { echo "[$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')] kb_inject: $1" >&2; }
+log() { echo "[$(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date '+%Y-%m-%d %H:%M:%S')] kb_inject: $1" >&2; }
 
 # V37.9.171 PathB-2: source notify.sh（kb_inject 之前未接入，本批补齐）→ 每日摘要走微信 + Discord + 重试/队列
 NOTIFY_SH=""
@@ -379,7 +379,7 @@ if notify "$WA_MSG" --topic daily >/dev/null 2>"$SEND_ERR"; then
 else
     log "WARNING: 摘要推送失败: $(head -3 "$SEND_ERR" 2>/dev/null)"
     # 本地告警回退（V30: 监控不依赖被监控对象）
-    echo "[$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')] kb_inject: WhatsApp 推送失败" >> ~/.openclaw_alerts.log 2>/dev/null || true
+    echo "[$(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date '+%Y-%m-%d %H:%M:%S')] kb_inject: WhatsApp 推送失败" >> ~/.openclaw_alerts.log 2>/dev/null || true
 fi
 rm -f "$SEND_ERR"
 
@@ -518,5 +518,5 @@ bash "$HOME/movespeed_rsync_helper.sh" "$0" -- -a "$KB_DIR/" "/Volumes/MOVESPEED
 INJECT_STATUS_FILE="$KB_DIR/last_run_inject.json"
 DIGEST_SIZE=$(wc -c < "$DIGEST_FILE" 2>/dev/null | tr -d ' ' || echo "0")
 printf '{"time":"%s","status":"ok","digest_bytes":%s}\n' \
-    "$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')" \
+    "$(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date '+%Y-%m-%d %H:%M:%S')" \
     "$DIGEST_SIZE" > "$INJECT_STATUS_FILE" 2>/dev/null || true

@@ -23,8 +23,8 @@ PROXY_URL="http://127.0.0.1:5002/v1/chat/completions"
 OPENCLAW="${OPENCLAW:-/opt/homebrew/bin/openclaw}"
 TO="${OPENCLAW_PHONE:-+85200000000}"
 
-TS="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')"
-DAY="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d')"
+TS="$(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date '+%Y-%m-%d %H:%M:%S')"
+DAY="$(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date '+%Y-%m-%d')"
 STATUS_FILE="$CACHE/last_run.json"
 
 log() { echo "[$TS] chaspark: $1" >&2; }

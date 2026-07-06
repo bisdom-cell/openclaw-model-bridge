@@ -20,12 +20,12 @@ set -eEuo pipefail
 # V37.9.241 (V37.9.213 ⑨ 登记的 TZ 一物一形): DATE 与本脚本 TS/kb_dream DAY 统一
 # HKT。此前 system-local — Mac Mini TZ=HKT 时潜伏不炸, 系统 TZ 漂移时 observer
 # 按日期读文件会错位（跨午夜窗口写错日期文件）。
-DATE=$(TZ=Asia/Hong_Kong date +%Y-%m-%d)
+DATE=$(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date +%Y-%m-%d)
 KB_DIR="${KB_BASE:-$HOME/.kb}"
 DEEP_DIR="$KB_DIR/deep_dives"
 DEEP_FILE="$DEEP_DIR/${DATE}.md"
 PHONE="${OPENCLAW_PHONE:-+85200000000}"
-TS="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')"
+TS="$(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date '+%Y-%m-%d %H:%M:%S')"
 STATUS_FILE="$KB_DIR/last_run_deep_dive.json"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REGISTRY="${KB_DEEP_DIVE_REGISTRY:-$SCRIPT_DIR/jobs_registry.yaml}"

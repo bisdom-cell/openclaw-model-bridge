@@ -702,7 +702,8 @@ class TestKbEveningShellGuards(unittest.TestCase):
         evening_{YYYYMMDD}.md 日期读文件, system-local 在 TZ 漂移时错位。"""
         with open(self.script_path, "r", encoding="utf-8") as f:
             source = f.read()
-        self.assertIn("DATE=$(TZ=Asia/Hong_Kong date +%Y%m%d)", source)
+        # V37.9.249 (B1/D3): TZ config 化 → ${SYSTEM_TZ:-Asia/Hong_Kong}（默认仍 HKT, 可移植覆盖）
+        self.assertIn("DATE=$(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date +%Y%m%d)", source)
         self.assertNotIn("DATE=$(date +%Y%m%d)", source,
                          "DATE 回退 system-local（TZ 一物一形被破坏）")
 

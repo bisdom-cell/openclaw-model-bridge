@@ -59,7 +59,7 @@ _cron_monitor_fatal_handler() {
     echo "[${label}] 🚨 FATAL exit=${exit_code} at line=${line_no} (set -e abort)" >&2
 
     # Layer 2: 本地告警文件 (即使推送全失败也有证据)
-    echo "[$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')] ${label} FATAL abort exit=${exit_code} line=${line_no}" >> "$HOME/.openclaw_alerts.log" 2>/dev/null || true
+    echo "[$(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date '+%Y-%m-%d %H:%M:%S')] ${label} FATAL abort exit=${exit_code} line=${line_no}" >> "$HOME/.openclaw_alerts.log" 2>/dev/null || true
 
     # Layer 3: 三层 FAIL-OPEN 推送 (notify → openclaw 直发 → 本地 log 已写)
     if command -v notify >/dev/null 2>&1; then

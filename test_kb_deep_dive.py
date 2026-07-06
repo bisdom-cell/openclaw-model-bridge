@@ -855,7 +855,8 @@ class TestKbDeepDiveShellGuards(unittest.TestCase):
     def test_date_uses_hkt_tz(self):
         """V37.9.241 (V37.9.213 ⑨ TZ 一物一形): DATE 必须 HKT——system-local 在
         TZ 漂移时会让 observer 按日期读 deep_dives/{DATE}.md 错位。"""
-        self.assertIn("DATE=$(TZ=Asia/Hong_Kong date +%Y-%m-%d)", self.content)
+        # V37.9.249 (B1/D3): TZ config 化 → ${SYSTEM_TZ:-Asia/Hong_Kong}（默认仍 HKT, 可移植覆盖）
+        self.assertIn("DATE=$(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date +%Y-%m-%d)", self.content)
         self.assertNotIn("DATE=$(date +%Y-%m-%d)", self.content,
                          "DATE 回退 system-local（TZ 一物一形被破坏）")
 

@@ -11,7 +11,7 @@ source "$HOME/.bash_profile" 2>/dev/null || source "$HOME/.env_shared" 2>/dev/nu
 
 GATEWAY_URL="http://localhost:18789"
 LOG="$HOME/wa_keepalive.log"
-TS="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')"
+TS="$(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date '+%Y-%m-%d %H:%M:%S')"
 WARN_COUNT_FILE="$HOME/.wa_keepalive_warn_count"
 OPENCLAW="${OPENCLAW:-/opt/homebrew/bin/openclaw}"
 # 连续 2 次 WARN（=1h 不可达）首次升级告警，之后每 6 次（=3h）重复告警

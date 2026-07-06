@@ -70,7 +70,7 @@ run_suite "cron_monitor_fatal_handler (V37.9.63 MR-8 抽公共 helper + 顺势�
 run_suite "cross_os_quirk_scanner (V37.9.67 INV-CROSS-OS-001 P0 — cmd&&||/grep|head/awk LC_ALL/zsh-specific 4 quirk 主动检测)" "python3 test_cross_os_quirk_scanner.py"
 run_suite "cross_env_path_scanner (V37.9.94 INV-CROSS-ENV-PATH-001 — MR-15 deployment-layout 第 4 次演出后立 framework, 防 5th _resolve_*_path 漏 Mac Mini canonical)" "python3 test_cross_env_path_scanner.py"
 run_suite "governance_runtime_isolation_scanner (V37.9.159 INV-GOV-RUNTIME-ISOLATION-001 — MR-23 test-pollutes-production 4 次演出 framework 化, 自动发现治理-runtime 测试集 + D1/D2/D3, 首跑抓 test_health_check 真 bug)" "python3 test_governance_runtime_isolation_scanner.py"
-run_suite "pa_coupling_kb_paths (V37.9.249 H1-B/B1 — 3 个 KB 脚本默认 /Users/bisdom/.kb → \$HOME/.kb 可移植收敛守卫, docs/pa_coupling_inventory.md §5)" "python3 test_pa_coupling_kb_paths.py"
+run_suite "pa_coupling (V37.9.249 H1-B/B1 第一批 config 化守卫 — A1 kb_*.sh 默认 \$HOME/.kb + D3 35 脚本 TZ=\${SYSTEM_TZ:-Asia/Hong_Kong} + A2 diagnose \$HOME/.openclaw, docs/pa_coupling_inventory.md §5)" "python3 test_pa_coupling.py"
 run_suite "v37_9_95_ai_leaders (V37.9.95 ai_leaders_x 多元化 19→31 跨 12 派别 — 周一 #32 用户视角反馈驱动)" "python3 test_v37_9_95_ai_leaders.py"
 run_suite "v37_9_99_ai_leaders_throttle (V37.9.99 #14 inter-account 节流防 429 — 31 账号翻倍撞限流修复)" "python3 test_v37_9_99_ai_leaders_throttle.py"
 run_suite "ai_leaders_rotation (V37.9.101 轮换抓取防 429 + 健康分类 — 2026-06-03 复盘实测 31 全 429)" "python3 test_ai_leaders_rotation.py"

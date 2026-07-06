@@ -29,7 +29,7 @@ NEW_FILE="$CACHE_DIR/hn_new.jsonl"
 RSS_FILE="$CACHE_DIR/hn_frontpage.xml"
 LLM_RAW_LOG="$CACHE_DIR/llm_raw_last.txt"
 TO="${OPENCLAW_PHONE:-+85200000000}"
-TS="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')"
+TS="$(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date '+%Y-%m-%d %H:%M:%S')"
 STATUS_FILE="$CACHE_DIR/last_run.json"
 
 log() { echo "[$TS] hn_watcher: $1" >&2; }
@@ -674,7 +674,7 @@ if [ "$WA_SENT" = "true" ]; then
     else
         printf '{"time":"%s","status":"ok","new":%d,"sent":true}\n' "$TS" "$TOTAL_NEW" > "$STATUS_FILE"
     fi
-    bash "$KB_WRITE_SCRIPT" "# HN AI/Tech精选 $(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M')
+    bash "$KB_WRITE_SCRIPT" "# HN AI/Tech精选 $(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date '+%Y-%m-%d %H:%M')
 
 $(cat "$MSG_FILE")" "hn-tech" "note" 2>/dev/null || true
 elif [ "$SENT_COUNT" -gt 0 ]; then

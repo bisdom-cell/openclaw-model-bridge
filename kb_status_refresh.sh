@@ -6,7 +6,7 @@
 export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
 
 STATUS_UPDATE="${STATUS_UPDATE:-$HOME/status_update.py}"
-TS="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M')"
+TS="$(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date '+%Y-%m-%d %H:%M')"
 
 # ── 1. 三层服务连通性（V36.2: 验证响应 body，不只是 HTTP 200）────
 _check_health() {
