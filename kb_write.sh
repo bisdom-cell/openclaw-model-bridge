@@ -1,6 +1,6 @@
 #!/bin/bash
 # 使用 mkdir 原子锁（macOS 兼容），进程退出后 trap 自动释放
-KB_BASE="${KB_BASE:-/Users/bisdom/.kb}"
+KB_BASE="${KB_BASE:-$HOME/.kb}"
 LOCKDIR="$KB_BASE/.write.lockdir"
 while ! mkdir "$LOCKDIR" 2>/dev/null; do sleep 0.1; done
 trap 'rmdir "$LOCKDIR" 2>/dev/null' EXIT

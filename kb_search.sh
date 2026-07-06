@@ -10,7 +10,7 @@
 
 export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
 
-KB_DIR="${KB_BASE:-/Users/bisdom/.kb}"
+KB_DIR="${KB_BASE:-$HOME/.kb}"
 INDEX="$KB_DIR/index.json"
 
 # ── 颜色 ──

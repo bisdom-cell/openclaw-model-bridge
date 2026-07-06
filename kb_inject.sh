@@ -9,7 +9,7 @@ export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
 set -euo pipefail
 
 DAYS="${1:-3}"
-KB_DIR="${KB_BASE:-/Users/bisdom/.kb}"
+KB_DIR="${KB_BASE:-$HOME/.kb}"
 DIGEST_FILE="$KB_DIR/daily_digest.md"
 INDEX="$KB_DIR/index.json"
 TS="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M')"
