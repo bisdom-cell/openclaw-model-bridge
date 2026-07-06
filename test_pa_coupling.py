@@ -9,8 +9,13 @@
   D3  35 个运行时 .sh 的 TZ=Asia/Hong_Kong → TZ=${SYSTEM_TZ:-Asia/Hong_Kong}（默认仍 HKT）
   A2  diagnose.sh openclaw.json 路径 /Users/bisdom/.openclaw → $HOME/.openclaw
 
-这是 B3「新增 PA-specific 硬编码有扫描器拦截」的**定向种子**（未框架化整个扫描器，
-日落法：不为 B1 造新机器）。反向验证：任一硬编码回退 → 守卫立即 FAIL。
+**V37.9.251（B3 收尾）**：升级为**全仓 PA 硬编码漂移守卫**——除守护已修的三批，
+新增 `TestNoPersonalPathHardcode` 扫**所有运行时 .py+.sh**（非仅已修文件），拦截未来任何
+新写的 `/Users/<真实用户名>` 个人路径硬编码（示例名 foo/test 白名单豁免）。这兑现纲领
+执行计划 §1 B3 done-criteria「新增 PA-specific 硬编码有 scanner 拦截」——轻量版（扩既有
+守卫为全仓扫描，不造新扫描器模块，日落法：复用而非新机器）。
+
+反向验证：任一硬编码回退 / 任一文件新写个人路径 → 守卫立即 FAIL。
 """
 import glob
 import os
@@ -40,6 +45,21 @@ def _runtime_shell_scripts():
     files = glob.glob(os.path.join(REPO, "*.sh"))
     files += glob.glob(os.path.join(REPO, "jobs", "**", "*.sh"), recursive=True)
     return sorted(f for f in files if not os.path.basename(f).startswith("test_"))
+
+
+def _runtime_code_files():
+    """所有运行时 .py + .sh (root + jobs/), 排除 test_ 前缀 (测试 fixture 允许个人路径)."""
+    files = []
+    for ext in ("*.py", "*.sh"):
+        files += glob.glob(os.path.join(REPO, ext))
+        files += glob.glob(os.path.join(REPO, "jobs", "**", ext), recursive=True)
+    return sorted(f for f in files if not os.path.basename(f).startswith("test_"))
+
+
+# --- B3 全仓 PA 个人路径漂移守卫 ---
+# 匹配 /Users/<name> 硬编码个人路径; 示例/占位名豁免 (docstring 示例 / 通用占位).
+_USERS_PATH_RE = re.compile(r"/Users/([A-Za-z0-9_.-]+)")
+_ILLUSTRATIVE_USERS = frozenset({"foo", "test", "you", "user", "username", "USER"})
 
 
 class TestKbScriptDefaultsPortable(unittest.TestCase):
@@ -107,6 +127,37 @@ class TestDiagnosePathPortable(unittest.TestCase):
         )
         self.assertIn("$HOME/.openclaw/openclaw.json", content,
                       "diagnose.sh: openclaw.json 路径应用 $HOME/.openclaw")
+
+
+class TestNoPersonalPathHardcode(unittest.TestCase):
+    """B3 全仓漂移守卫: 任何运行时代码不得硬编码 /Users/<真实用户名> 个人路径.
+
+    这是 B1/config 化的前瞻收尾 —— 不只守已修的 4 个文件, 而是扫全部运行时 .py+.sh,
+    拦截未来任意文件新写个人绝对路径 (应改用 $HOME / expanduser("~"))。
+    """
+
+    def _scan(self):
+        offenders = []
+        for path in _runtime_code_files():
+            with open(path, encoding="utf-8") as f:
+                for lineno, line in enumerate(f, 1):
+                    for m in _USERS_PATH_RE.finditer(line):
+                        if m.group(1) not in _ILLUSTRATIVE_USERS:
+                            offenders.append(f"{os.path.relpath(path, REPO)}:{lineno} {m.group(0)}")
+        return offenders
+
+    def test_no_personal_users_path_in_runtime_code(self):
+        offenders = self._scan()
+        self.assertEqual(
+            offenders, [],
+            "运行时代码硬编码个人绝对路径 /Users/<name>（应用 $HOME / expanduser("
+            '"~")；示例名 foo/test 已豁免）:\n  ' + "\n  ".join(offenders),
+        )
+
+    def test_scan_is_non_vacuous(self):
+        # 防扫描器瘫痪 = vacuous pass: 必须真扫到足够多运行时文件.
+        self.assertGreaterEqual(len(_runtime_code_files()), 80,
+                                "运行时文件扫描集异常偏小 — glob 可能失效")
 
 
 class TestSourceGuardMarker(unittest.TestCase):

@@ -52,7 +52,7 @@ grep -rlE "Asia/Hong_Kong|严禁|你是|要点|摘要" --include=*.py --include=
 | `path_consistency_scanner.py` | 路径一致性 | 同上 |
 | `cron_monitor_scanner.py` / `governance_runtime_isolation_scanner.py` | 监控脚本契约 / test-pollutes-production | 与耦合正交 |
 
-**缺口**：目前**无扫描器守护"PA-specific 硬编码默认值"**（个人路径/号码/时区作为 fallback 默认值）。这正是 B3 done-criteria 的"新增 PA-specific 硬编码有扫描器拦截"。本次先用**定向源码守卫**（`test_pa_coupling.py`）封住已修的三批（A1 KB 路径 / D3 TZ / A2 diagnose），扫描器框架化留 B3（日落法：不为 B1 造一整个新扫描器机器）。
+**缺口 → V37.9.251 已闭合（B3）**：此前**无扫描器守护"PA-specific 硬编码"**（个人路径/时区）。B3 done-criteria「新增 PA-specific 硬编码有扫描器拦截」由 `test_pa_coupling.py`（V37.9.251 升级为**全仓漂移守卫**）兑现——轻量版：扩既有守卫为扫**所有运行时 .py+.sh**（非仅已修文件），拦截 (a) `TZ=Asia/Hong_Kong` 裸时区（须 `${SYSTEM_TZ:-…}`）+ (b) `/Users/<真实用户名>` 个人绝对路径（须 `$HOME`/`expanduser`，示例名 foo/test 豁免），注册 full_regression → 任意文件新写 PA 硬编码即 CI 拦截。日落法：复用扩守卫而非造独立 `*_scanner.py` 新模块（现有 3 处硬编码点为零，无需框架化的扫描-修复循环）。剩余未纳入的 PA 硬编码维度（号码作默认值 = category B 已全 `${OPENCLAW_PHONE:-…}` GREEN，无违规先例，不预防性建守卫）。
 
 ---
 
