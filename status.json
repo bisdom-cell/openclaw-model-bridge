@@ -1,6 +1,6 @@
 {
-  "updated": "2026-07-06 04:51:15",
-  "updated_by": "claude_code",
+  "updated": "2026-07-06 06:26:22",
+  "updated_by": "full_regression",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-07-06",
+      "what": "V37.9.252 observer 自评驱动修复 — deep_dive_repeat 检测器加 ban-list-active-since 过滤 (消除 pre-deployment 历史重复 06-14/06-26 被永久误报 ban-list 静默失效的假阳性)。observer→fix 闭环: 4 findings 分诊 = 1 dev 修(检测器自己的假阳性) + 1 observer 幻觉(#4 evening pwc/openreview = kb_evening 正确排除 enabled=false 源, 不改正确代码) + 2 Mac-Mini/结构性(#1 付费墙降级率/#3 dream 时效标注 V37.9.235 已加待同步)。守卫 +2 (假阳性回归 + 跨部署边界真失效仍报), sabotage 真有效。VERSION 0.37.9.101→0.37.9.102 (daily_observer live cron 检测器行为变更)。",
+      "by": "claude_code"
+    },
     {
       "date": "2026-07-06",
       "what": "V37.9.251 B3 收尾 — PA 硬编码全仓漂移守卫 (用户「继续执行完 B3」): test_pa_coupling.py 升级 TestNoPersonalPathHardcode 扫全部 122 运行时 .py+.sh 拦截任意新写 /Users/<真实用户名> 个人路径 (示例名豁免) + 非空验证。兑现 charter B3 done-criteria「新增 PA-specific 硬编码有 scanner 拦截」。日落法轻量版 (扩既有守卫非造独立 scanner 模块, 现有硬编码点为零无扫描-修复循环需求)。守卫 7→9 单测, sabotage 真有效。H1-B (PA 解耦第一批) 全链闭合: B1 盘点(249)+B2 backlog+B3 config化 A1/D3/A2+scanner(251)。VERSION 0.37.9.101 不变。",
@@ -173,11 +178,6 @@
       "date": "2026-07-03",
       "what": "V37.9.233: deep_dive 77% 降级率真根因修复 — 用户数据确诊同一 ACM 付费墙 DOI (10.1145/3774904.3792985) 被 picker 连选 ~20 天 (30 天降级率主体 = 一篇重复论文, 非 fetch 路径退化). 修复 = 已分析论文 14 天 ban-list (镜像 dream V37.9.68): load_recent_analyzed_links 扫归档 frontmatter link + filter_recently_analyzed 在 pick_top 前剔除 + banned_recent 可观测字段. 11 新单测含血案端到端 + 2 轮 sabotage. VERSION 不变. freight 停 07-02 14:00 = 事故残留, 今日 14:00 run 预期自愈.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-07-03",
-      "what": "V37.9.232 生产验证闭环: 用户 Mac Mini 同步 PR#799 后静时重跑 governance --full = 所有不变式成立 (INV-FALLBACK-EXCLUDE/INV-ROUTER 转绿, INV-CONVERGENCE 💥 静时未复现 = 负载瞬态判别完成, 无需硬化, 观察明日 07:00). deep_dive 全量统计: 67 文件 / 51 abstract_only = 76% (与 observer 30天窗口 77% 吻合). freight last_run + 降级原因明细待干净命令重取.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -262,14 +262,14 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 5457,
-    "last_regression": "2026-07-06 04:48 pass",
+    "test_count": 5459,
+    "last_regression": "2026-07-06 06:25 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-07-06 04:48",
+    "security_score_time": "2026-07-06 06:25",
     "test_suites": 154,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
-    "version": "0.37.9.101",
+    "version": "0.37.9.102",
     "observer": {}
   },
   "incidents": [
