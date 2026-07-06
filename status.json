@@ -1,6 +1,6 @@
 {
-  "updated": "2026-07-05 13:15:11",
-  "updated_by": "full_regression",
+  "updated": "2026-07-06 02:49:53",
+  "updated_by": "security_score",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-07-06",
+      "what": "V37.9.249 PA 耦合机器化盘点 (H1-B/B1, 纲领 §4.3 边界管理哲学, Q3 任务): docs/pa_coupling_inventory.md — 四类别机器扫描逐项 blast-radius 分级 + 边界外零 PA 泄漏正面证据(examples/引擎已 PA-free) + B2 config 化 backlog + 第一批 config 化落地 A1 (kb_write/search/inject.sh 默认 /Users/bisdom/.kb → $HOME/.kb 可移植收敛, Mac Mini 生产 no-op, 消一物一形违反) + test_pa_coupling_kb_paths.py 守卫(sabotage 真有效). 结论: ~80% 耦合已 env 参数化, 残余可枚举, 第二实例真门槛=launchd. VERSION 0.37.9.101 不变.",
+      "by": "claude_code"
+    },
     {
       "date": "2026-07-05",
       "what": "V37.9.248 纲领执行计划确立 (用户两步指令): docs/charter_execution_plan_20260705.md — Part 1 H1 地平线 15 任务分解 (A1-A4 Observer 收官/B1-B3 PA 解耦/C1-C3 第二实例/D 证据刷新/E 年度复盘, 带 done-criteria/门控/季度/依赖链图) + §0 执行基线快照 (复杂度四维度 files 286/env 43/jobs 40-46/state 25). Part 2 五项固定复核可运行协议 (R1 影响力/R2 复杂度/R3 门控/R4 修订/R5 反目标, 带命令+判断问题+记录模板, 日落法零新增常驻机器刻意无守卫测试). 诚实边界: 外部影响力指标 dev 探测不可达→命令+待采集不编造 (原则 #23). 纲领 §11 + CLAUDE.md 双向注册. VERSION 0.37.9.101 不变 (纯执行文档)",
@@ -173,11 +178,6 @@
       "date": "2026-07-03",
       "what": "V37.9.231: 审计 finding E 兑现 — client 断开 ≠ backend 失败. adapter _deliver 投递 helper 收编四回写点 (primary/no-chain 502/fallback/all-failed 502): client 断开 (BrokenPipe/ConnectionReset) 只记 CLIENT GONE 日志, 不再误记健康 backend 的 CB failure、不再对死 socket 跑完整条 fallback 链 (V37.9.220 实录 ~500s 浪费). 14 新单测 (E2E SpyCB+计数 forward 复现血案) + 2 轮 sabotage. VERSION 0.37.9.95. fallback 韧性弧线完成 (A2 分流/224 体正确性/229 可观测/231 投递解耦).",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-07-03",
-      "what": "V37.9.230: 审计 LOW 批次三项兑现 — (D) notify.sh drain mv-to-own claim 消除并发重复投递 TOCTOU (瞬态 mv 回原名 at-least-once 不变 + >10min 孤儿 claim 回收防丢失); (G) daily_observer 注册 watchdog (last_run time ISO8601→本地格式对齐 strptime 契约 + JOB_STATUS core 条目; 宪法级 #1 宿主 job 此前静默死无人发现=观察者的观察盲区); (H) kb_deep_dive push 全失败 write_status push_failed 不再伪装 ok (任一通道送达仍 ok, 不 exit 1 保 rsync 取证). 21 新单测 + 4 轮 sabotage. VERSION 0.37.9.94. 审计 9 findings 机械可修项全清零, 剩 C/E/I/B-delivery 需设计类.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -262,11 +262,11 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 5448,
-    "last_regression": "2026-07-05 13:14 pass",
+    "test_count": 5452,
+    "last_regression": "2026-07-06 02:49 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-07-05 13:14",
-    "test_suites": 153,
+    "security_score_time": "2026-07-06 02:49",
+    "test_suites": 154,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
     "version": "0.37.9.101",
@@ -334,7 +334,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-07-05: 今日四交付 (V37.9.245 changelog 归档 / V37.9.246 技术纲领 / V37.9.247 治理负载硬化 / V37.9.248 纲领执行计划)。执行入口: docs/charter_execution_plan_20260705.md — 每季度末照 Part 2 五项协议复核 (首次 2026 Q3 末), 本季度做 A1 Observer flip(~7/7,G1)/B1 PA 耦合盘点/D1 SLO 重生成/A4 论文#2 数据口径。剩 gated: doubao_21 观察/IEEE·ISSRE in-review/OpenClaw hold 三判据。",
+  "focus": "2026-07-06: B1 PA 耦合机器化盘点交付 (docs/pa_coupling_inventory.md, H1-B) — 边界外已 PA-free, 残余耦合 4 点分级, 第一批 A1 kb_*.sh 默认路径可移植收敛落地. 本季度剩: A1 Observer flip(~7/7,G1,Mac Mini)/D1 SLO 重生成(Mac Mini)/A4 论文#2 数据(gated A2). B2 config backlog 按 §4 分级 (A2/D3 Q4, C1 launchd 归 H1-C, D2 边界内延后).",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
