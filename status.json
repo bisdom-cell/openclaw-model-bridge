@@ -1,6 +1,6 @@
 {
-  "updated": "2026-07-06 03:52:32",
-  "updated_by": "security_score",
+  "updated": "2026-07-06 04:51:15",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -227,7 +227,7 @@
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB"
   },
   "session_context": {
-    "last_session": "2026-07-05",
+    "last_session": "2026-07-06",
     "unfinished": [
       "【2026-07-02 多镜头审计 · 9 findings 全部处置完毕 (V37.9.226-239: 8 修复闭环 + I half-open 登记为可接受设计 tradeoff) · 剩纯 Mac Mini 被动验证】同步+重启 proxy/adapter 后观察: (A) 真 fallback 时 proxy 日志 DEGRADED 行 + proxy_stats.json slo.fallback_count 变真值 (V37.9.229) (C) ls ~/.kb/status.json.lock ~/.kb/audit.jsonl.lock 伴生锁文件出现 (V37.9.238) (E) client 断开时 adapter.log 记 CLIENT GONE 单行非 traceback (V37.9.231/242) (B) streaming 请求撞 parse 异常时 Gateway 收 SSE 而非 content-type 错配 (V37.9.239) (G) last_run_self_critique.json time 本地格式 + watchdog 4h 覆盖 observer (V37.9.230)。完整分诊记录见 CLAUDE.md V37.9.226-239 changelog, 无 dev 剩余动作。",
       "【V37.9.211/212 Qwen3 端点刷新 · adapter ✅ + V37.9.212 ✅ 已并入 main(PR#774, 2026-07-02 dev 核实) · 剩用户 env 动作】剩余非紧急: (A) .env_shared 设新 REMOTE_API_KEY+REMOTE_BASE_URL(cron 直连脚本 health_check 每周报 CURRENT_MODEL/diagnose 用) (C) 🔴 明文 key 建议用完轮换。教训钉死: adapter/proxy 是 launchd job, env 改必须进 plist EnvironmentVariables + bootout/bootstrap(不是 shell export + kickstart)。",
@@ -257,15 +257,15 @@
       "【OpenClaw 第六次升级评估 (2026-07-04, V37.9.244) · 结论=继续 hold · 三收敛判据跟踪】4.27→6.11 深评见 eval doc 第十七节: 三结构性迁移 (M1 插件外部化/M2 SQLite 迁移进行中/M3 Proxyline) + 回滚单向门 (SQLite cleanup 后 4.27 读不回 cron/auth, WhatsApp 重链撞 408 风险)。开窗判据 (全满足才升): ① 连续 2 stable 无 session/SQLite 迁移 PR (2026.7.x stable 发布时核对 changelog) ② 周稳定版 ≤1 ③ Mac Mini node ≥22.19。🔴 判据 ③ 可独立提前做 (用户): node -v 确认, 不足先升 Node (与升级窗口解耦)。每周一 check_upgrade.sh cron 照常监控; LAST_EVAL_DATE 已重置 2026-07-04。",
       "NBER RSS 403 连续 2 天 (07-04/07-05 finance_news, per-source FAIL-OPEN 已正确降级 WARN+跳过, 其他源正常). 低优观察 (日落法 #8 不现加机器): 若持久化 (≥1 周) 才评估换源/剔除 (镜像 finance_news zombie 分流). 单源失败非系统性, V37.9.227 fetch_failed 仅全源失败才触发."
     ],
-    "open_prs": "",
+    "open_prs": "claude/daily-standup-06dzu1: V37.9.249-251 (H1-B PA 解耦第一批全链闭合: B1 盘点 + B2 backlog + B3 config化 A1/D3/A2 + scanner 拦截) — 3 commits 待用户合并 PR + Mac Mini git reset 同步 (纯 config化+守卫, 全生产 no-op, 零重启)",
     "blocked_on": ""
   },
   "quality": {
     "security_score": 95,
     "test_count": 5457,
-    "last_regression": "2026-07-06 03:51 pass",
+    "last_regression": "2026-07-06 04:48 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-07-06 03:51",
+    "security_score_time": "2026-07-06 04:48",
     "test_suites": 154,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
