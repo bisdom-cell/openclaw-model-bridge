@@ -6,7 +6,7 @@
 export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
 set -uo pipefail
 
-TS="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')"
+TS="$(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date '+%Y-%m-%d %H:%M:%S')"
 NOW_EPOCH=$(date +%s)
 PASS=0
 FAIL=0

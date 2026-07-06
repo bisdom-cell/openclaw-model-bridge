@@ -48,7 +48,7 @@ trap '_cron_monitor_fatal_handler $LINENO' ERR
 
 # 凌晨静默期：00:00-07:00 不推送告警（deploy/sync 照常，只是不发通知）
 is_quiet_hours() {
-    local hour=$(TZ=Asia/Hong_Kong date '+%H')
+    local hour=$(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date '+%H')
     [ "$hour" -ge 0 ] && [ "$hour" -lt 7 ]
 }
 

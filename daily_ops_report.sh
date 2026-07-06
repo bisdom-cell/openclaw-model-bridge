@@ -9,8 +9,8 @@ source "$HOME/.bash_profile" 2>/dev/null || source "$HOME/.env_shared" 2>/dev/nu
 # V37.9.60 MR-19 err_trap_handler 契约: -E (errtrace) 让 function 内 fail 也触发 ERR trap
 set -eEo pipefail
 
-TS="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')"
-DATE="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d')"
+TS="$(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date '+%Y-%m-%d %H:%M:%S')"
+DATE="$(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date '+%Y-%m-%d')"
 LOG_PREFIX="[daily_ops_report]"
 
 log() { echo "[$TS] $LOG_PREFIX $1"; }

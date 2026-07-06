@@ -43,7 +43,7 @@ mkdir "$LOCK" 2>/dev/null || { echo "[watchdog] Already running, skip"; exit 0; 
 
 OPENCLAW="${OPENCLAW:-/opt/homebrew/bin/openclaw}"
 TO="${OPENCLAW_PHONE:-+85200000000}"
-TS="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')"
+TS="$(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date '+%Y-%m-%d %H:%M:%S')"
 
 # ════════════════════════════════════════════════════════════════════
 # V37.9.58-hotfix3: 提前 source notify.sh + 装 ERR trap (silent abort 变 loud)
@@ -75,7 +75,7 @@ _watchdog_exit_handler() {
     rmdir "$LOCK" 2>/dev/null || true
     # V37.9.58-hotfix3 Canary: 写本地状态 + 仅在正常完成时推 canary (避免 abort 时双重推送)
     if [ "$final_exit" -eq 0 ]; then
-        local canary_ts="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')"
+        local canary_ts="$(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date '+%Y-%m-%d %H:%M:%S')"
         cat > "$HOME/watchdog_canary.json" <<EOF 2>/dev/null
 {
   "last_completed": "$canary_ts",

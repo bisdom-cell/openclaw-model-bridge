@@ -40,10 +40,10 @@ KB_WRITE_SCRIPT="${KB_WRITE_SCRIPT:-$HOME/kb_write.sh}"
 TO="${OPENCLAW_PHONE:-+85200000000}"
 MAX_PAPERS=10
 
-TS="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')"
-DAY="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d')"
+TS="$(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date '+%Y-%m-%d %H:%M:%S')"
+DAY="$(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date '+%Y-%m-%d')"
 STATUS_FILE="$CACHE/last_run.json"
-YEAR="$(TZ=Asia/Hong_Kong date '+%Y')"
+YEAR="$(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date '+%Y')"
 
 DBLP_API="https://dblp.org/search/publ/api"
 
@@ -744,7 +744,7 @@ fi
 # ── 7. KB归档 ────────────────────────────────────────────────────────
 SUMMARY="$(cat "$MSG_FILE")"
 if [ -n "$SUMMARY" ]; then
-    DATE_KB=$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M')
+    DATE_KB=$(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date '+%Y-%m-%d %H:%M')
     bash "$KB_WRITE_SCRIPT" "# DBLP CS论文 ${DATE_KB}
 
 ${SUMMARY}" "dblp-cs" "note" 2>/dev/null || true

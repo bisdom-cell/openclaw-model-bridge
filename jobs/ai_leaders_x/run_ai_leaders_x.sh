@@ -38,8 +38,8 @@ KB_WRITE_SCRIPT="${KB_WRITE_SCRIPT:-$HOME/kb_write.sh}"
 TO="${OPENCLAW_PHONE:-+85200000000}"
 PYTHON3=/usr/bin/python3
 
-TS="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')"
-DAY="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d')"
+TS="$(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date '+%Y-%m-%d %H:%M:%S')"
+DAY="$(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date '+%Y-%m-%d')"
 STATUS_FILE="$CACHE/last_run.json"
 
 JOB_TAG="ai_leaders"
@@ -818,7 +818,7 @@ rm -f "$SEND_ERR"
 # ── 6. KB 深度归档 ──────────────────────────────────────────────────
 FULL_ANALYSIS="$(cat "$MSG_FILE")"
 if [ -n "$FULL_ANALYSIS" ]; then
-    DATE_KB=$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M')
+    DATE_KB=$(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date '+%Y-%m-%d %H:%M')
     CONTENT="# AI Leaders X 技术洞察 ${DATE_KB}
 
 ${FULL_ANALYSIS}"

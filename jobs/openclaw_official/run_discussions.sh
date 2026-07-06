@@ -29,7 +29,7 @@ CACHE="$JOB/cache"
 # V28.3: 加 GITHUB_TOKEN 认证(5000 req/hr) + ETag 缓存避免限流
 API_URL="https://api.github.com/repos/openclaw/openclaw/issues?state=open&sort=created&direction=desc&per_page=20"
 TO="${OPENCLAW_PHONE:-+85200000000}"
-TS="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')"
+TS="$(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date '+%Y-%m-%d %H:%M:%S')"
 STATUS_FILE="$CACHE/last_run_discussions.json"
 ETAG_FILE="$CACHE/issues_etag.txt"
 LLM_RAW_LOG="$CACHE/llm_raw_last.txt"
@@ -109,7 +109,7 @@ fi
 if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
   # V37.4.3: 告警消息加 [SYSTEM_ALERT] 隔离标记
   ERR_MSG="[SYSTEM_ALERT]
-⚠️ Issues Watcher API 请求失败 HTTP ${HTTP_CODE}（$(TZ=Asia/Hong_Kong date '+%H:%M')）: $(head -1 "$CACHE/curl_issues_api.err" 2>/dev/null)"
+⚠️ Issues Watcher API 请求失败 HTTP ${HTTP_CODE}（$(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date '+%H:%M')）: $(head -1 "$CACHE/curl_issues_api.err" 2>/dev/null)"
   log "ERROR: $ERR_MSG"
   notify "$ERR_MSG" --topic alerts >/dev/null 2>&1 || true  # V37.9.171 PathB-2: 微信 + Discord #alerts
   printf '{"time":"%s","status":"fetch_failed","http":%s,"new":0}\n' "$TS" "$HTTP_CODE" > "$STATUS_FILE"
@@ -154,7 +154,7 @@ PYEOF
 then
   # V37.4.3: 告警消息加 [SYSTEM_ALERT] 隔离标记
   ERR_MSG="[SYSTEM_ALERT]
-⚠️ Issues Watcher 解析失败（$(TZ=Asia/Hong_Kong date '+%H:%M')）: $(head -1 "$CACHE/parse_issues.err" 2>/dev/null)"
+⚠️ Issues Watcher 解析失败（$(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date '+%H:%M')）: $(head -1 "$CACHE/parse_issues.err" 2>/dev/null)"
   log "ERROR: $ERR_MSG"
   notify "$ERR_MSG" --topic alerts >/dev/null 2>&1 || true  # V37.9.171 PathB-2: 微信 + Discord #alerts
   printf '{"time":"%s","status":"parse_failed","new":0}\n' "$TS" > "$STATUS_FILE"
@@ -163,7 +163,7 @@ fi
 
 # V37.9.62: dedup by inbox + 构建 NEW_FILE (jsonl, 同 HN 模式)
 NEW_FILE="$CACHE/discussions_new.jsonl"
-day="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d')"
+day="$(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date '+%Y-%m-%d')"
 
 $PYTHON3 - "$ISSUES_JSONL" "$NEW_FILE" "$KB_INBOX" "$day" << 'PYEOF'
 import sys, json
@@ -206,7 +206,7 @@ fi
 # V37.7: idempotent H2-dedup append to sources (was direct >> loop, bug class
 # MR-4/MR-9). Cron 4x/day (08:15/12:15/16:15/20:15) → SLOT_TAG distinguishes
 # same-day runs so second run isn't silently dropped as "duplicate section".
-SLOT_TAG="$(TZ=Asia/Hong_Kong date '+%H:%M')"
+SLOT_TAG="$(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date '+%H:%M')"
 SECTION_MARKER="## ${day} ${SLOT_TAG}"
 {
     echo ""

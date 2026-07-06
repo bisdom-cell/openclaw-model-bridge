@@ -3,7 +3,7 @@
 > **任务**：`docs/charter_execution_plan_20260705.md` §1 **H1-B / B1**（P0 · 2026 Q3）。
 > **目的**：机器化盘点"个人 PA（Wei）配置面"，把两次外部评审共同点名的短板（个人 PA 耦合深 / 可迁移性不足）**从声明式承认升级为逐项、可分级、可追踪的清单**，作为 B2（config 化 backlog）与 B3（第一批 config 化落地）的依据。
 > **哲学定位（技术纲领 §4.3）**：PA 耦合**不是"待清除的债"，是"须管理的边界"**。边界内（个人配置 / 中文 prompt / macOS 特定）→ **明确标注 + config 化**；边界外（引擎 / bench / 方法论）→ **保证零 PA 依赖**。本清单同时验证两侧。
-> **确立版本**：V37.9.249（2026-07-06） | **盘点基线**：VERSION 0.37.9.101，files=286，env=43（纲领 §0 快照）。
+> **确立版本**：V37.9.249（2026-07-06，B1 盘点 + A1 落地）；**第一批 config 化补全** V37.9.250（D3 TZ + A2 diagnose，见 §5） | **盘点基线**：VERSION 0.37.9.101，files=286，env=43（纲领 §0 快照）。
 
 ---
 
@@ -18,8 +18,8 @@
 | 等级 | 定义 | 命中 |
 |------|------|------|
 | 🔴 高 | 阻塞第二实例 / 影响非-Mac 核心 runtime | C1 launchd 进程管理 |
-| 🟡 中 | 拖累非-HK/非中文实例，但核心可跑 | A1 KB 路径默认（本次已修）· D2 内容 prompt 中文 · D3 TZ=HKT |
-| 🟢 低 | 表面 / env 可覆盖 / 仅 ops / 仅 test | A2 diagnose 路径 · C2 /opt/homebrew PATH · D1 SOUL 身份（已 config 部署） |
+| 🟡 中 | 拖累非-HK/非中文实例，但核心可跑 | ~~A1 KB 路径默认~~（V37.9.249 已修）· D2 内容 prompt 中文 · ~~D3 TZ=HKT~~（V37.9.250 已修） |
+| 🟢 低 | 表面 / env 可覆盖 / 仅 ops / 仅 test | ~~A2 diagnose 路径~~（V37.9.250 已修）· C2 /opt/homebrew PATH · D1 SOUL 身份（已 config 部署） |
 | ✅ 已 config | 已参数化，无需动作 | B 号码/推送目标 · 40 个 Python `expanduser` 路径 · C3 md5 fallback |
 
 ---
@@ -52,7 +52,7 @@ grep -rlE "Asia/Hong_Kong|严禁|你是|要点|摘要" --include=*.py --include=
 | `path_consistency_scanner.py` | 路径一致性 | 同上 |
 | `cron_monitor_scanner.py` / `governance_runtime_isolation_scanner.py` | 监控脚本契约 / test-pollutes-production | 与耦合正交 |
 
-**缺口**：目前**无扫描器守护"PA-specific 硬编码默认值"**（个人路径/号码作为 fallback 默认值）。这正是 B3 done-criteria 的"新增 PA-specific 硬编码有扫描器拦截"。本次先用**定向源码守卫**（`test_pa_coupling_kb_paths.py`）封住已修的 3 个点，扫描器框架化留 B3（日落法：不为 B1 造一整个新扫描器机器）。
+**缺口**：目前**无扫描器守护"PA-specific 硬编码默认值"**（个人路径/号码/时区作为 fallback 默认值）。这正是 B3 done-criteria 的"新增 PA-specific 硬编码有扫描器拦截"。本次先用**定向源码守卫**（`test_pa_coupling.py`）封住已修的三批（A1 KB 路径 / D3 TZ / A2 diagnose），扫描器框架化留 B3（日落法：不为 B1 造一整个新扫描器机器）。
 
 ---
 
@@ -103,10 +103,10 @@ grep -rlE "Asia/Hong_Kong|严禁|你是|要点|摘要" --include=*.py --include=
 
 | # | 项 | config 化方式 | 风险 | blast | 本季度？ |
 |---|----|--------------|------|-------|----------|
-| 1 | **A1 KB 脚本默认路径** | `/Users/bisdom/.kb` → `$HOME/.kb`（对齐 15+ job 脚本） | 极低（Mac 上行为不变） | 🟡→🟢 | ✅ **本次已落地**（§5） |
-| 2 | A2 diagnose 路径 | 硬编码 → `${OPENCLAW_HOME:-$HOME/.openclaw}` | 极低（ops 工具） | 🟢 | Q4（低优，与 D3 一批） |
-| 3 | D3 TZ | `TZ=Asia/Hong_Kong` → `TZ=${SYSTEM_TZ:-Asia/Hong_Kong}` | 低（36 处机械替换，HK 用户 no-op） | 🟡 | Q4（宽表面，需守卫防漏改） |
-| 4 | C2 /opt/homebrew PATH | 共享 `path_init.sh` 片段 / 或保留（无害） | 低 | 🟢 | 待定（价值低，59 处 churn 未必值得） |
+| 1 | **A1 KB 脚本默认路径** | `/Users/bisdom/.kb` → `$HOME/.kb`（对齐 15+ job 脚本） | 极低（Mac 上行为不变） | 🟡→🟢 | ✅ **V37.9.249 已落地**（§5） |
+| 2 | **A2 diagnose 路径** | `/Users/bisdom/.openclaw` → `$HOME/.openclaw`（无新 env，对齐 40 个 expanduser） | 极低（ops 工具） | 🟢 | ✅ **V37.9.250 已落地**（§5） |
+| 3 | **D3 TZ** | `TZ=Asia/Hong_Kong` → `TZ=${SYSTEM_TZ:-Asia/Hong_Kong}`（35 脚本 87 处，默认仍 HKT） | 低（机械替换，HK 用户 no-op） | 🟡→🟢 | ✅ **V37.9.250 已落地**（§5） |
+| 4 | C2 /opt/homebrew PATH | 共享 `path_init.sh` 片段 / 或保留（无害） | 低 | 🟢 | 待定（价值低，59 处 churn 未必值得，日落法：不为无害附加造机制） |
 | 5 | **C1 launchd 抽象** | 进程管理接口（launchd/systemd/nohup 三态） | 高（核心进程管理） | 🔴 | **归 H1-C**（第二实例 PoC 范围，非纯 config 化；`minimal_runtime` 不依赖它，可先跑最小闭环） |
 | 6 | D2 内容 prompt locale 层 | prompt-template + locale 参数 | 中（71 文件工程量） | 🟡 | **延后**（边界内，中文用户实例原样可用） |
 
@@ -114,14 +114,26 @@ grep -rlE "Asia/Hong_Kong|严禁|你是|要点|摘要" --include=*.py --include=
 
 ---
 
-## §5 本次已落地（B3 第一批 · 最低 blast-radius demo）
+## §5 已落地（第一批 config 化 · 最低 blast-radius · 全部 Mac Mini 生产 no-op）
 
-**A1：3 个 KB 脚本默认路径 `/Users/bisdom/.kb` → `$HOME/.kb`**
+三项全部 **Mac Mini 上生产行为逐字节不变**（`$HOME=/Users/bisdom` + `SYSTEM_TZ` 未设 → `Asia/Hong_Kong`），非-Mac / 非-HK 实例才 config 覆盖。统一守卫 `test_pa_coupling.py`（sabotage 反向验证真有效：任一硬编码回退立即 FAIL），注册 full_regression（V37.9.241 dark-test guard 核对）。
+
+**A1（V37.9.249）：3 个 KB 脚本默认路径 `/Users/bisdom/.kb` → `$HOME/.kb`**
 
 - `kb_write.sh:3`、`kb_search.sh:13`、`kb_inject.sh:12`：`${KB_BASE:-/Users/bisdom/.kb}` → `${KB_BASE:-$HOME/.kb}`。
-- **为什么是最安全的第一刀**：Mac Mini 上 `$HOME=/Users/bisdom` → `$HOME/.kb` ≡ `/Users/bisdom/.kb`，**生产行为逐字节不变**；非-Mac 实例从"坏路径"变"正确路径"。同时消除一物一形违反（3 脚本对齐 15+ job 脚本 + `auto_deploy.sh` FILE_MAP 已用 `$HOME`）。
-- **守卫**：`test_pa_coupling_kb_paths.py` 源码守卫——断言这 3 脚本用 `$HOME/.kb` 默认、**不含 `/Users/bisdom` 硬编码默认**（反向验证：改回 `/Users/bisdom` 立即 FAIL）。这是 B3"扫描器拦截"的定向种子（未框架化，日落法）。
-- **VERSION 不变**（生产 no-op，job/工具级，镜像 V37.9.241 TZ 一物一形惯例）。
+- 消除一物一形违反（3 脚本对齐 15+ job 脚本 + `auto_deploy.sh` FILE_MAP 已用 `$HOME`）。
+
+**D3（V37.9.250）：TZ config 化 `TZ=Asia/Hong_Kong` → `TZ=${SYSTEM_TZ:-Asia/Hong_Kong}`**
+
+- **35 个运行时 `.sh`，87 处**机械替换（全部为 `$(TZ=... date ...)` 命令替换上下文，参数展开安全；已核实无单引号/heredoc 字面量误伤）。默认值仍 `Asia/Hong_Kong` → HK 用户 no-op；`.env_shared` 设 `SYSTEM_TZ=<tz>` 即全局覆盖（job 脚本已 `source .env_shared`，plumbing 就位）。
+- 修复潜伏可迁移性 bug：非-HK 实例此前所有 `date` 强制 HKT → 跨午夜日期命名错位（V37.9.241 曾登记 observer 按日期读文件错位风险）。
+- 连带更新 `test_kb_deep_dive.py` / `test_kb_evening.py` 的 2 处 TZ 字面量断言（V37.9.131 alternation 惯例）。
+
+**A2（V37.9.250）：diagnose.sh openclaw home 路径**
+
+- `diagnose.sh:77`：`/Users/bisdom/.openclaw/openclaw.json` → `$HOME/.openclaw/openclaw.json`（在 `python3 -c "..."` 双引号 shell 串内，`$HOME` 正常展开）。**不引入新 env**（`$HOME/.openclaw` 对齐代码库 40 个 `expanduser("~/.openclaw")` 惯例，日落法）。
+
+- **VERSION 不变**（三项全生产 no-op，job/工具级，镜像 V37.9.241 TZ 一物一形惯例）。
 
 ---
 

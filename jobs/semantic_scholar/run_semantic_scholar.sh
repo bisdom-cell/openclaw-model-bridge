@@ -37,16 +37,16 @@ KB_WRITE_SCRIPT="${KB_WRITE_SCRIPT:-$HOME/kb_write.sh}"
 TO="${OPENCLAW_PHONE:-+85200000000}"
 MAX_PAPERS=10
 
-TS="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')"
-DAY="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d')"
+TS="$(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date '+%Y-%m-%d %H:%M:%S')"
+DAY="$(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date '+%Y-%m-%d')"
 STATUS_FILE="$CACHE/last_run.json"
 S2_API="https://api.semanticscholar.org/graph/v1/paper/search"
 # V37.9.132: +openAccessPdf — 无 arxiv 版本但开放获取的论文 (期刊/跨学科常见)
 # 取 OA PDF 直链, kb_deep_dive 的 .pdf 后缀路径可抓全文 (否则必然降级摘要级)
 FIELDS="title,authors,abstract,url,citationCount,publicationDate,externalIds,tldr,openAccessPdf"
 # 搜索最近 30 天的论文（引用量排序更有意义）
-DATE_FROM="$(TZ=Asia/Hong_Kong date -v-30d '+%Y-%m-%d' 2>/dev/null || date -d '30 days ago' '+%Y-%m-%d')"
-DATE_TO="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d')"
+DATE_FROM="$(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date -v-30d '+%Y-%m-%d' 2>/dev/null || date -d '30 days ago' '+%Y-%m-%d')"
+DATE_TO="$(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date '+%Y-%m-%d')"
 
 log() { echo "[$TS] s2: $1" >&2; }
 
@@ -795,7 +795,7 @@ fi
 # ── 7. KB归档 ────────────────────────────────────────────────────────
 SUMMARY="$(cat "$MSG_FILE")"
 if [ -n "$SUMMARY" ]; then
-    DATE_KB=$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M')
+    DATE_KB=$(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date '+%Y-%m-%d %H:%M')
     CONTENT="# Semantic Scholar AI论文 ${DATE_KB}
 
 ${SUMMARY}"

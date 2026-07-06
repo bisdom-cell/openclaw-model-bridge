@@ -5,7 +5,7 @@
 export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
 set -eo pipefail
 
-TS="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S HKT')"
+TS="$(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date '+%Y-%m-%d %H:%M:%S HKT')"
 echo "============================================"
 echo "🔍 OpenClaw 系统诊断 — $TS"
 echo "============================================"
@@ -74,7 +74,7 @@ except Exception as e:
 LOCAL_MODEL=$(python3 -c "
 import json
 try:
-    with open('/Users/bisdom/.openclaw/openclaw.json') as f: d=json.load(f)
+    with open('$HOME/.openclaw/openclaw.json') as f: d=json.load(f)
     print(d['models']['providers']['qwen-local']['models'][0]['id'])
 except Exception as e:
     print(f'ERROR: {e}')

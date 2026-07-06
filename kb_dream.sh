@@ -72,8 +72,8 @@ check_deadline() {
 LLM_URL="http://localhost:5001/v1/chat/completions"
 LLM_AUTH=""
 LLM_MODEL="any"
-DAY="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d')"
-TS="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')"
+DAY="$(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date '+%Y-%m-%d')"
+TS="$(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date '+%Y-%m-%d %H:%M:%S')"
 DRY_RUN=false
 FAST_MODE=false
 MAP_ONLY=false
@@ -106,7 +106,7 @@ MAP_DONE_FLAG="$DREAM_DIR/.map_cache/${DAY}_MAP_DONE"  # Map 完成标记（Redu
 MAP_DIR="$DREAM_DIR/.map_cache"
 mkdir -p "$DREAM_DIR" "$MAP_DIR"
 
-log() { echo "[$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')] dream: $1" >&2; }
+log() { echo "[$(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date '+%Y-%m-%d %H:%M:%S')] dream: $1" >&2; }
 # V37.8.6 血案教训：log() 必须写到 stderr，否则 signals=$(llm_call ...) 会把 log 输出
 # 一起捕获进 signals，连带把"LLM raw response: 400 Bad JSON..."等错误日志写入缓存，
 # 下次 Reduce 读缓存把错误文本当作外部信号喂给 LLM → 编造出虚假的"Hugging Face 危机"
@@ -848,7 +848,7 @@ if $MAP_ONLY; then
     log "Map-${MAP_SCOPE} 完成: sources=$MAP_COUNT/$SRC_COUNT, notes=$NOTES_MAP_COUNT/$NOTE_COUNT, 缓存已写入 $MAP_DIR, 耗时 ${MAP_ELAPSED}s"
     # 写入独立的 Map status 文件（不覆盖 Reduce 的 .last_run.json）
     printf '{"time":"%s","status":"map_%s_done","map_count":%d,"notes_map_count":%d,"sources":%d,"notes":%d,"elapsed_sec":%d,"consecutive_fails":%d}\n' \
-        "$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')" "$MAP_SCOPE" "$MAP_COUNT" "$NOTES_MAP_COUNT" "$SRC_COUNT" "$NOTE_COUNT" "$MAP_ELAPSED" "$MAP_CONSECUTIVE_FAILS" > "$MAP_STATUS_FILE"
+        "$(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date '+%Y-%m-%d %H:%M:%S')" "$MAP_SCOPE" "$MAP_COUNT" "$NOTES_MAP_COUNT" "$SRC_COUNT" "$NOTE_COUNT" "$MAP_ELAPSED" "$MAP_CONSECUTIVE_FAILS" > "$MAP_STATUS_FILE"
     # 写入完成标记（Reduce 阶段可检测 Map 是否成功完成）
     # --map-sources 只更新 sources 计数，--map-notes 只更新 notes 计数
     if [ "$MAP_COUNT" -gt 0 ] || [ "$NOTES_MAP_COUNT" -gt 0 ]; then
@@ -873,7 +873,7 @@ if ! check_deadline; then
         [ -n "${NOTES_SIGNALS// }" ] && echo "$NOTES_SIGNALS"
     } > "$DREAM_FILE"
     printf '{"time":"%s","status":"timeout","map_count":%d,"sources":%d,"notes":%d}\n' \
-        "$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')" "$MAP_COUNT" "$SRC_COUNT" "$NOTE_COUNT" > "$STATUS_FILE"
+        "$(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date '+%Y-%m-%d %H:%M:%S')" "$MAP_COUNT" "$SRC_COUNT" "$NOTE_COUNT" > "$STATUS_FILE"
     log "超时退出，已保存简化报告到 $DREAM_FILE"
     exit 0
 fi
@@ -1721,7 +1721,7 @@ MODE_DESC="MapReduce 全量（$MAP_COUNT 源 × 独立信号提取 → 跨域关
     echo "> 模式: $MODE_DESC"
     echo "> 覆盖: $SRC_COUNT sources ($((TOTAL_KB_BYTES / 1024))KB) + $NOTE_COUNT notes"
     echo "> Reduce 素材: ${REDUCE_CHARS} chars"
-    echo "> 生成时间: $(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')"
+    echo "> 生成时间: $(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date '+%Y-%m-%d %H:%M:%S')"
     echo ""
     echo "$DREAM_RESULT"
     echo ""
@@ -1822,7 +1822,7 @@ fi
 # V37.9.74 新增：radar_retried / radar_retry_chars — RADAR retry 真激活可观测 (LLM drift 频率监测)
 # V37.9.75 新增：deep_retried / deep_retry_chars — DEEP retry 真激活可观测 (LLM partial content 频率监测)
 printf '{"time":"%s","status":"ok","mode":"%s","multitheme":true,"map_count":%d,"sources":%d,"notes":%d,"kb_bytes":%d,"reduce_chars":%d,"dream_bytes":%d,"deep_chars":%d,"deep_retried":%s,"deep_retry_chars":%d,"wide_status":"%s","wide_chars":%d,"radar_status":"%s","radar_chars":%d,"radar_retried":%s,"radar_retry_chars":%d,"sent":%s,"map_degraded":%s}\n' \
-    "$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')" \
+    "$(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date '+%Y-%m-%d %H:%M:%S')" \
     "$([ "$FAST_MODE" = true ] && echo 'fast' || echo 'mapreduce')" \
     "$MAP_COUNT" "$SRC_COUNT" "$NOTE_COUNT" "$TOTAL_KB_BYTES" "$REDUCE_CHARS" \
     "$(wc -c < "$DREAM_FILE" | tr -d ' ')" \

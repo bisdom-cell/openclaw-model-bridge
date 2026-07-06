@@ -22,7 +22,7 @@ source "$HOME/.bash_profile" 2>/dev/null || source "$HOME/.env_shared" 2>/dev/nu
 # 注: -E (errtrace) 让 ERR trap 在 function 内 fail 也触发, 防 bash 默认作用域陷阱
 set -eEuo pipefail
 
-TS="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')"
+TS="$(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date '+%Y-%m-%d %H:%M:%S')"
 REPO_DIR="$HOME/openclaw-model-bridge"
 STATUS_FILE="$HOME/.kb/last_run_governance_audit.json"
 LOG_PREFIX="[$TS] governance_audit"

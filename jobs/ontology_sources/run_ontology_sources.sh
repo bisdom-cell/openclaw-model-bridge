@@ -33,8 +33,8 @@ PYTHON3=/usr/bin/python3
 # (heredoc 通过 `python3 -` 读 stdin，sys.path 不含脚本目录，需主动注入)
 export ONTOLOGY_JOBS_DIR="$JOB_DIR"
 
-TS="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')"
-DAY="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d')"
+TS="$(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date '+%Y-%m-%d %H:%M:%S')"
+DAY="$(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date '+%Y-%m-%d')"
 STATUS_FILE="$CACHE/last_run.json"
 
 log() { echo "[$TS] onto-src: $1" >&2; }
@@ -711,7 +711,7 @@ fi
 # ── KB 归档 ──────────────────────────────────────────────────────────
 SUMMARY="$(cat "$MSG_FILE")"
 if [ -n "$SUMMARY" ] && [ -f "$KB_WRITE_SCRIPT" ]; then
-    DATE_KB=$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M')
+    DATE_KB=$(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date '+%Y-%m-%d %H:%M')
     CONTENT="# Ontology Sources ${DATE_KB}
 
 ${SUMMARY}"
@@ -723,7 +723,7 @@ fi
 # V37.6: idempotent H2-dedup append。cron 10:00/20:00 2x/day，用 HH:MM 区分
 # slot，避免第二次运行被当作"同一天重复"静默丢弃；同一 slot 内同一天再次
 # 触发（watchdog/手动）才会触发幂等跳过。
-SLOT_TAG="$(TZ=Asia/Hong_Kong date '+%H:%M')"
+SLOT_TAG="$(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date '+%H:%M')"
 SECTION_MARKER="## ${DAY} ${SLOT_TAG}"
 {
     echo ""

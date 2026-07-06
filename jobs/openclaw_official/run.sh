@@ -31,7 +31,7 @@ OPENCLAW="${OPENCLAW:-/opt/homebrew/bin/openclaw}"
 TO="${OPENCLAW_PHONE:-+85200000000}"
 PYTHON3=/usr/bin/python3
 
-day="$(TZ=Asia/Hong_Kong date "+%Y-%m-%d")"
+day="$(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date "+%Y-%m-%d")"
 DAY="$day"
 
 ROOT="${ROOT:-$HOME/.openclaw}"
@@ -49,7 +49,7 @@ KB_SRC="${KB_BASE:-$HOME/.kb}/sources/openclaw_official.md"
 KB_INBOX="${KB_BASE:-$HOME/.kb}/inbox.md"
 KB_WRITE_SCRIPT="${KB_WRITE_SCRIPT:-$HOME/kb_write.sh}"
 
-TS="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')"
+TS="$(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date '+%Y-%m-%d %H:%M:%S')"
 STATUS_FILE="$CACHE_DIR/last_run.json"
 
 log() { echo "[$TS] openclaw_releases: $1" >&2; }
@@ -99,7 +99,7 @@ fi
 if ! ATOM_PATH="$("$FETCH" 2>"$CACHE_DIR/fetch_releases.err")"; then
   # V37.4.3: 告警消息加 [SYSTEM_ALERT] 隔离标记
   ERR_MSG="[SYSTEM_ALERT]
-⚠️ OpenClaw Releases 抓取失败（$(TZ=Asia/Hong_Kong date '+%H:%M')）: $(head -1 "$CACHE_DIR/fetch_releases.err" 2>/dev/null)"
+⚠️ OpenClaw Releases 抓取失败（$(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date '+%H:%M')）: $(head -1 "$CACHE_DIR/fetch_releases.err" 2>/dev/null)"
   log "ERROR: $ERR_MSG"
   notify "$ERR_MSG" --topic alerts >/dev/null 2>&1 || true  # V37.9.171 PathB-2: 微信 + Discord #alerts
   printf '{"time":"%s","status":"fetch_failed","new":0}\n' "$TS" > "$STATUS_FILE"
@@ -361,7 +361,7 @@ elif [ "$TOTAL_FAILED" -gt 0 ]; then
 fi
 
 # ── V37.9.62: 组装消息 (6 字段解析 + LLM_DEGRADED fallback + rule_check) ──
-now_hkt="$(TZ=Asia/Hong_Kong date "+%Y-%m-%d %H:%M HKT")"
+now_hkt="$(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date "+%Y-%m-%d %H:%M HKT")"
 $PYTHON3 - "$ALL_NEW_FILE" "$RESULTS_FILE" "$DAY" "$now_hkt" "$MSG_FILE" << 'PYEOF'
 import sys, json, re, os  # V37.9.51: os 用于 lazy import project_alignment_scorer 路径解析 (V37.9.50-hotfix 同款)
 

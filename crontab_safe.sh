@@ -21,7 +21,7 @@ set -uo pipefail
 BACKUP_DIR="$HOME/.crontab_backups"
 mkdir -p "$BACKUP_DIR"
 
-TS="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d_%H%M%S')"
+TS="$(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date '+%Y-%m-%d_%H%M%S')"
 MIN_ENTRIES=5  # 低于此数量发出警告
 
 # ── 备份当前 crontab ─────────────────────────────────────────────

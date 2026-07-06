@@ -23,12 +23,12 @@ set -eEuo pipefail
 
 # V37.9.241 (V37.9.213 ⑨ 登记的 TZ 一物一形): DATE 与本脚本 TS/kb_dream DAY 统一
 # HKT（此前 system-local, observer 按 evening_{YYYYMMDD}.md 日期读文件, TZ 漂移会错位）。
-DATE=$(TZ=Asia/Hong_Kong date +%Y%m%d)
+DATE=$(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date +%Y%m%d)
 DAYS="${1:-1}"
 KB_DIR="${KB_BASE:-$HOME/.kb}"
 EVENING_FILE="$KB_DIR/daily/evening_${DATE}.md"
 PHONE="${OPENCLAW_PHONE:-+85200000000}"
-TS="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')"
+TS="$(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date '+%Y-%m-%d %H:%M:%S')"
 STATUS_FILE="$KB_DIR/last_run_evening.json"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REGISTRY="${KB_EVENING_REGISTRY:-$SCRIPT_DIR/jobs_registry.yaml}"

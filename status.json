@@ -1,5 +1,5 @@
 {
-  "updated": "2026-07-06 02:49:53",
+  "updated": "2026-07-06 03:25:33",
   "updated_by": "security_score",
   "priorities": [
     {
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-07-06",
+      "what": "V37.9.250 PA 耦合 config 化第二批 (用户「继续全部执行」, 接 V37.9.249 B1): D3 TZ config 化 35 脚本 87 处 TZ=Asia/Hong_Kong → TZ=${SYSTEM_TZ:-Asia/Hong_Kong} (默认仍 HKT, .env_shared 设 SYSTEM_TZ 全局覆盖, 修非-HK 实例跨午夜日期错位 bug) + A2 diagnose.sh openclaw home → $HOME/.openclaw (不引入新 env)。守卫 test_pa_coupling_kb_paths.py → test_pa_coupling.py 扩展 (7 单测, D3 无裸 TZ + 广度≥30 + A2, sabotage 真有效)。全部 Mac Mini 生产 no-op。VERSION 0.37.9.101 不变。剩 backlog: C2 homebrew/C1 launchd(H1-C)/D2 中文 prompt(边界内延后)。",
+      "by": "claude_code"
+    },
     {
       "date": "2026-07-06",
       "what": "V37.9.249 PA 耦合机器化盘点 (H1-B/B1, 纲领 §4.3 边界管理哲学, Q3 任务): docs/pa_coupling_inventory.md — 四类别机器扫描逐项 blast-radius 分级 + 边界外零 PA 泄漏正面证据(examples/引擎已 PA-free) + B2 config 化 backlog + 第一批 config 化落地 A1 (kb_write/search/inject.sh 默认 /Users/bisdom/.kb → $HOME/.kb 可移植收敛, Mac Mini 生产 no-op, 消一物一形违反) + test_pa_coupling_kb_paths.py 守卫(sabotage 真有效). 结论: ~80% 耦合已 env 参数化, 残余可枚举, 第二实例真门槛=launchd. VERSION 0.37.9.101 不变.",
@@ -173,11 +178,6 @@
       "date": "2026-07-03",
       "what": "V37.9.232: 治理 07:00 红灯根治 — 测试对生产 env 不 hermetic (MR-9 镜像形态: 生产 env 污染测试). test_adapter._exec_build mock env 从 environ.copy() 改空字典起步 (FALLBACK_ORDER 泄漏→MockReg.get AttributeError→INV-FALLBACK-EXCLUDE ❌) + TestAdapterResolvePrimaryProvider.setUp 从 setdefault 改 patch.dict 强制 PROVIDER=qwen+pop 路由 env (INV-ROUTER 潜伏 ❌ dev 多抓一个). 判别器固化 test_v37_9_232_env_hermetic (生产同款 env 注入 subprocess 双套件必须绿) + 2 轮 sabotage. 根治铁证: 生产 env 下 governance EXIT=0. VERSION 不变 (纯测试隔离).",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-07-03",
-      "what": "V37.9.231: 审计 finding E 兑现 — client 断开 ≠ backend 失败. adapter _deliver 投递 helper 收编四回写点 (primary/no-chain 502/fallback/all-failed 502): client 断开 (BrokenPipe/ConnectionReset) 只记 CLIENT GONE 日志, 不再误记健康 backend 的 CB failure、不再对死 socket 跑完整条 fallback 链 (V37.9.220 实录 ~500s 浪费). 14 新单测 (E2E SpyCB+计数 forward 复现血案) + 2 轮 sabotage. VERSION 0.37.9.95. fallback 韧性弧线完成 (A2 分流/224 体正确性/229 可观测/231 投递解耦).",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -262,10 +262,10 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 5452,
-    "last_regression": "2026-07-06 02:49 pass",
+    "test_count": 5455,
+    "last_regression": "2026-07-06 03:24 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-07-06 02:49",
+    "security_score_time": "2026-07-06 03:24",
     "test_suites": 154,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
@@ -334,7 +334,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-07-06: B1 PA 耦合机器化盘点交付 (docs/pa_coupling_inventory.md, H1-B) — 边界外已 PA-free, 残余耦合 4 点分级, 第一批 A1 kb_*.sh 默认路径可移植收敛落地. 本季度剩: A1 Observer flip(~7/7,G1,Mac Mini)/D1 SLO 重生成(Mac Mini)/A4 论文#2 数据(gated A2). B2 config backlog 按 §4 分级 (A2/D3 Q4, C1 launchd 归 H1-C, D2 边界内延后).",
+  "focus": "2026-07-06: B1 PA 耦合盘点 (V37.9.249) + 第一批 config 化全部落地 (V37.9.250: A1 KB 路径 + D3 TZ 35 脚本 + A2 diagnose, 全生产 no-op)。边界外已 PA-free, 残余耦合收敛可枚举 + 定向守卫防回退。剩 backlog: C1 launchd (归 H1-C 第二实例) / C2 homebrew (无害延后) / D2 中文 prompt (边界内)。本季度剩: A1 Observer flip(~7/7,G1,Mac Mini)/D1 SLO 重生成(Mac Mini)/A4 论文#2 数据(gated A2).",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",

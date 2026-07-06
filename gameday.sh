@@ -36,7 +36,7 @@ for arg in "$@"; do
     esac
 done
 
-TS="$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S')"
+TS="$(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date '+%Y-%m-%d %H:%M:%S')"
 echo "=== GameDay 故障演练 $TS ==="
 echo ""
 
