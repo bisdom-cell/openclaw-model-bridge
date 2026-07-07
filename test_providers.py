@@ -1804,8 +1804,8 @@ class TestGlm5CodingProvider(unittest.TestCase):
         caps = get_provider("glm5_coding").capabilities
         self.assertEqual(caps.verification_tier, "feature_verified")
         self.assertTrue(caps.verified_text)          # E2E: is_prime 正确代码 + finish_reason=stop
+        self.assertTrue(caps.verified_streaming)      # E2E: --stream SSE chunk 流 + [DONE]
         self.assertFalse(caps.verified_tool_calling)  # 未探测
-        self.assertFalse(caps.verified_streaming)     # 未探测
         self.assertFalse(caps.verified_reasoning)     # reasoning_tokens=0
         self.assertFalse(caps.verified_vision)
         self.assertFalse(caps.verified_fallback)
@@ -1875,6 +1875,47 @@ class TestCodeAssistScript(unittest.TestCase):
         # 目标 provider 身份 (glm5_coding Volcengine Ark 端点 + model/endpoint)
         self.assertIn("glm-5-2-260617", src)
         self.assertIn("ark.cn-beijing.volces.com/api/v3", src)
+
+    def test_nonstream_parses_response_via_mock(self):
+        """V37.9.257 回归守卫: 非流式路径正确解析响应 (防 heredoc-vs-pipe stdin bug 复发)。
+
+        bug: `printf $RESP | python3 - <<'PY' ... sys.stdin.read()` — python3 - 从 stdin 读脚本,
+        heredoc 即 stdin, 管道数据被覆盖 → 读空 → "空响应/char0"。修: RESP 走 env 传。
+        """
+        import subprocess, threading
+        from http.server import BaseHTTPRequestHandler, HTTPServer
+
+        payload = (b'{"choices":[{"finish_reason":"stop","message":'
+                   b'{"content":"def f(): return 42","role":"assistant"}}],'
+                   b'"model":"glm-5-2-260617","usage":{"prompt_tokens":5,"completion_tokens":6}}')
+
+        class _H(BaseHTTPRequestHandler):
+            def do_POST(self):
+                self.rfile.read(int(self.headers.get("Content-Length", 0)))
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(payload)))
+                self.end_headers()
+                self.wfile.write(payload)
+            def log_message(self, *a):
+                pass
+
+        srv = HTTPServer(("127.0.0.1", 0), _H)
+        port = srv.server_address[1]
+        t = threading.Thread(target=srv.serve_forever, daemon=True)
+        t.start()
+        try:
+            env = dict(os.environ, GLM5_API_KEY="dummy",
+                       GLM5_BASE_URL=f"http://127.0.0.1:{port}", GLM5_ENDPOINT_ID="ep-x")
+            r = subprocess.run(["bash", self._SCRIPT, "--max-tokens", "50", "test"],
+                               capture_output=True, text=True, env=env, timeout=30)
+        finally:
+            srv.shutdown()
+        # 非流式路径必须解析出 content (不再吞成空响应/解析失败)
+        self.assertEqual(r.returncode, 0, f"code_assist non-stream 失败: {r.stderr}")
+        self.assertIn("def f(): return 42", r.stdout)
+        self.assertNotIn("空响应", r.stdout + r.stderr)
+        self.assertNotIn("解析响应失败", r.stdout + r.stderr)
 
 
 class TestReasoningOffBodyB1(unittest.TestCase):

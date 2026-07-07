@@ -108,9 +108,11 @@ RESP="$(curl -sS -w $'\n__HTTP_STATUS__:%{http_code}' "$BASE_URL/chat/completion
   -H "Content-Type: application/json" \
   -d "$REQ_BODY" || true)"
 
-printf '%s' "$RESP" | python3 - <<'PY'
-import json, sys
-raw = sys.stdin.read()
+# RESP 走 env 传给 python (不走 stdin): `python3 - <<PY` 的 stdin 是 heredoc 脚本本身,
+# 管道进来的数据会被覆盖 → sys.stdin.read() 读空 (这正是 char0/空响应 的根因)。
+RESP="$RESP" python3 - <<'PY'
+import json, os, sys
+raw = os.environ.get("RESP", "")
 status = ""
 if "__HTTP_STATUS__:" in raw:
     raw, _, status = raw.rpartition("__HTTP_STATUS__:")

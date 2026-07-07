@@ -83,13 +83,14 @@ class Glm5CodingProvider(BaseProvider):
             verified_text=True,          # E2E: is_prime 正确代码 + finish_reason=stop + model=glm-5-2-260617
             verified_vision=False,
             verified_tool_calling=False, # 未探测
-            verified_streaming=False,    # 未探测
+            verified_streaming=True,     # E2E: --stream SSE chunk 流 (快排解释) + finish_reason=stop + [DONE]
             verified_fallback=False,     # 未真生产 fallback 接管
             verified_reasoning=False,    # reasoning_tokens=0 (本调用无 reasoning, 与 reasoning=False 一致)
-            # feature_verified: 分项 E2E 实测 (text 通过); tier_evidence 必须显式引用证据
+            # feature_verified: 分项 E2E 实测 (text/streaming 通过); tier_evidence 必须显式引用证据
             verification_tier="feature_verified",
-            tier_evidence="Mac Mini 直连 Volcengine Ark E2E 实测 2026-07-07: text/coding 通过 "
-                          "(is_prime 正确代码 + finish_reason=stop + model=glm-5-2-260617 + "
-                          "reasoning_tokens=0 确认本调用无 reasoning)；tool_calling/streaming/"
-                          "json_mode 未探测 (待补) / vision 非多模态 / 未真生产 fallback 接管",
+            tier_evidence="Mac Mini 直连 Volcengine Ark E2E 实测 2026-07-07: text/coding + streaming 通过 "
+                          "(is_prime 正确代码 + finish_reason=stop + model=glm-5-2-260617 + reasoning_tokens=0 / "
+                          "--stream SSE chunk 流+finish_reason=stop+[DONE])；tool_calling/json_mode 待用户用修复后 "
+                          "code_assist 重测 (V37.9.257 修 heredoc-stdin bug: 早前 json 空响应是助手 bug 非端点) / "
+                          "vision 非多模态 / 未真生产 fallback 接管",
         )
