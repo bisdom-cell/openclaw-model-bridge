@@ -20,7 +20,7 @@
 | DeepSeek-V4-Pro | DeepSeek-V4-Pro | text | Yes | Yes | 65K | text, tool_calling, streaming |
 | Doubao Seed 2.0 Pro (Volcengine Ark) | doubao-seed-2-0-pro | text, vision | Yes | Yes | 262K | text, vision, tool_calling, streaming, reasoning |
 | Doubao Seed 2.1 Pro (Volcengine Ark) | doubao-seed-2-1-pro-260628 | text, vision | Yes | Yes | 262K | text, vision, tool_calling, streaming, reasoning |
-| GLM-5.2 Coding (Volcengine Ark) | glm-5-2-260617 | text | Yes | Yes | 131K | text |
+| GLM-5.2 Coding (Volcengine Ark) | glm-5-2-260617 | text | Yes | Yes | 131K | text, streaming |
 
 插件接入：Doubao 经 `providers.d/doubao_provider.py`（V37 Provider Plugin Interface，V37.9.52 接入）。
 
@@ -42,7 +42,7 @@
 | DeepSeek-V4-Pro | **feature_verified** | Mac Mini E2E 实测 2026-06-30: text/streaming/tool_calling/json_mode 4/4 通过 (content+finish_reason / SSE chunk+[DONE] / finish_reason=tool_calls+arguments / response_format=json_object 干净 JSON)；vision 实测不支持 (400 非多模态) / reasoning 无 R1 reasoning_content 通道 / 未真生产 fallback 接管。部署=w4a8-mtp 量化, 推理响应偶发乱码 token |
 | Doubao Seed 2.0 Pro (Volcengine Ark) | **production_observed** | fallback 链真实接管（V37.9.129–V37.9.218 期间唯一真 fallback，现链中第 2 位）+ expert_escalate 真生产调用（V37.9.91）；text/vision/tool_calling/streaming/reasoning 5/5 E2E 实测（V37.9.53-55） |
 | Doubao Seed 2.1 Pro (Volcengine Ark) | **feature_verified** | Mac Mini E2E 实测 2026-07-02: text/vision/tool_calling/streaming/reasoning 5/5 通过 (content=0.05 bat-ball 答对+finish_reason=stop / 湖面皮划艇针叶林覆雪山脉全命中 / finish_reason=tool_calls+get_weather arguments / chunk 流+[DONE] / reasoning_content 通道+reasoning_tokens=255)；无乱码 token (优于 deepseek 量化版 w4a8)；json_mode 声明未单测 / 未真生产 fallback 接管 |
-| GLM-5.2 Coding (Volcengine Ark) | **feature_verified** | Mac Mini 直连 Volcengine Ark E2E 实测 2026-07-07: text/coding 通过 (is_prime 正确代码 + finish_reason=stop + model=glm-5-2-260617 + reasoning_tokens=0 确认本调用无 reasoning)；tool_calling/streaming/json_mode 未探测 (待补) / vision 非多模态 / 未真生产 fallback 接管 |
+| GLM-5.2 Coding (Volcengine Ark) | **feature_verified** | Mac Mini 直连 Volcengine Ark E2E 实测 2026-07-07: text/coding + streaming 通过 (is_prime 正确代码 + finish_reason=stop + model=glm-5-2-260617 + reasoning_tokens=0 / --stream SSE chunk 流+finish_reason=stop+[DONE])；tool_calling/json_mode 待用户用修复后 code_assist 重测 (V37.9.257 修 heredoc-stdin bug: 早前 json 空响应是助手 bug 非端点) / vision 非多模态 / 未真生产 fallback 接管 |
 
 ## 能力矩阵
 
