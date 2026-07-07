@@ -5,7 +5,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-5465%20passed-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-5467%20passed-brightgreen.svg)]()
 [![Providers](https://img.shields.io/badge/providers-12%20supported-orange.svg)]()
 [![Governance](https://img.shields.io/badge/invariants-91%2F91%20%2B%2023%20MR-blueviolet.svg)]()
 [![Security](https://img.shields.io/badge/security-95%2F100-green.svg)]()
@@ -518,7 +518,7 @@ The `auto_deploy.sh` script maps 84 repo files to runtime locations (V37.9.43-ho
 ## Testing
 
 ```bash
-# Full regression (154 suites / 5465 tests / 0 fail; must ALL pass before push)
+# Full regression (154 suites / 5467 tests / 0 fail; must ALL pass before push)
 bash full_regression.sh
 
 # Individual test suites (run full_regression.sh for totals)

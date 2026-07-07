@@ -1840,6 +1840,30 @@ class TestGlm5CodingProvider(unittest.TestCase):
         self.assertIn("https://ai-tokenhub.com/api/v1", src)
 
 
+class TestCodeAssistScript(unittest.TestCase):
+    """V37.9.254 code_assist.sh — glm5_coding 编程助手直连消费方守卫。"""
+
+    _SCRIPT = os.path.join(os.path.dirname(__file__), "code_assist.sh")
+
+    def test_exists_and_syntax_valid(self):
+        self.assertTrue(os.path.isfile(self._SCRIPT))
+        import subprocess
+        r = subprocess.run(["bash", "-n", self._SCRIPT], capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, f"bash -n 失败: {r.stderr}")
+
+    def test_no_hardcoded_key_reads_env(self):
+        """🔴 安全底线: 助手脚本绝不硬编码 key, 只从 GLM5_API_KEY env 读。"""
+        import re
+        with open(self._SCRIPT, encoding="utf-8") as f:
+            src = f.read()
+        self.assertIsNone(re.search(r"sk-[0-9a-zA-Z]{20,}", src),
+                          "code_assist.sh 不得含 sk- key 字面量 — 走 GLM5_API_KEY env")
+        self.assertIn("GLM5_API_KEY", src)
+        # 目标 provider 身份 (glm5_coding 端点 + model)
+        self.assertIn("glm-5-2-260617", src)
+        self.assertIn("ai-tokenhub.com/api/v1", src)
+
+
 class TestReasoningOffBodyB1(unittest.TestCase):
     """V37.9.222 B1: reasoning provider 声明 reasoning_off_body (batch 关 reasoning 走快路)。
 
