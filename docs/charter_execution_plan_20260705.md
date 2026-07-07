@@ -88,7 +88,7 @@
 
 | 任务 | 目标 | 交付物 | done-criteria | 依赖/门控 | 优先级·季度 |
 |------|------|--------|---------------|-----------|-------------|
-| C1 | 第二实例最小闭环选型 + 前置门控核对 | 选型记录 | **G2** 前置满足：H1-B 首批 config 化合并 + `cross_os_quirk_scanner` 持续 0 violations + `minimal_runtime` golden 跨机 MATCH | B3 + G2 | P1 · Q4 |
+| C1 | 第二实例最小闭环选型 + 前置门控核对 | 选型记录 | **G2** 前置满足：H1-B 首批 config 化合并 + `cross_os_quirk_scanner` 持续 0 violations + `minimal_runtime` golden 跨机 MATCH | B3 + G2 | ✅ **V37.9.253 完成**（2026-07-07 拉到 Q3 启动）：`docs/second_instance_poc_selection_20260707.md` — 选定 PUSH-only 纯推送形态（绕开 Gateway/WhatsApp/sessions 最重 PA 耦合）+ **G2 三前置在 Linux x86_64 grounded 实证全绿**（scanner 0 / golden MATCH / external_dogfood PASS）。C2 保持 Q4 |
 | C2 | Linux 容器/VPS 跑通最小闭环 | 运行日志 + 截图 | 非 Mac Mini 机器上 E2E 绿：`minimal_runtime` + governance audit + 1–2 内容 job + notify（Discord-only 可） | C1 | P1 · Q4 |
 | C3 | portability report | `docs/articles/` 证据型文章 | 报告发表（EN/ZH）：跨机迁移的真实坑与解 = 对两次评审可迁移性批评的终局回答 | C2 | P1 · Q4–2027Q1 |
 
