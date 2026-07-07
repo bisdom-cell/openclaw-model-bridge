@@ -5,7 +5,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-5465%20passed-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-5468%20passed-brightgreen.svg)]()
 [![Providers](https://img.shields.io/badge/providers-12%20supported-orange.svg)]()
 [![Governance](https://img.shields.io/badge/invariants-91%2F91%20%2B%2023%20MR-blueviolet.svg)]()
 [![Security](https://img.shields.io/badge/security-95%2F100-green.svg)]()
@@ -13,7 +13,7 @@
 [![Fail-Fast](https://img.shields.io/badge/LLM%20cron%20fail--fast-17%2F21%20aligned-brightgreen.svg)]()
 [![Notifications](https://img.shields.io/badge/notifications-WhatsApp%20%2B%20Discord-informational.svg)]()
 
-> **Current version:** `v37.9.254` / `0.37.9.103` (2026-07-07) — see [`CLAUDE.md`](CLAUDE.md) for full changelog.
+> **Current version:** `v37.9.256` / `0.37.9.105` (2026-07-07) — see [`CLAUDE.md`](CLAUDE.md) for full changelog.
 > **Latest milestone:** 📄 **ArXiv paper published** — [**arXiv:2606.14589**](https://arxiv.org/abs/2606.14589) (2026-06-15, cs.SE): the *fail-plausible* concept + a 5-class taxonomy of silent failures from 22 production incident postmortems (also submitted to IEEE Software + ISSRE). **Constitutional priority now: LLM-Observer (机械化人眼)** — an automated user-perspective observer that catches *fail-plausible* silent failures **before the user does** (the paper's headline open problem: ~70% of silent failures were caught by looking at the product, while tests/governance caught ≈0%). Stages 0-6 built: design doc → 22-incident labelled ground-truth → 2-layer detector (deterministic S1-S5 pre-filter + LLM-judge) → sabotage self-validation harness → community-runnable [fail-plausible bench](docs/fail_plausible_bench.md). Guiding principle: **日落法 (Sunset Law) — reduce complexity before adding features** (原则 #34 + MR-22/MR-23).
 
 ## Product Layers: What's Core vs. What's the Author's PA Instance
@@ -94,7 +94,7 @@ Layer 3 is not product clutter — it is the **production evidence** for layers 
 | SLO Benchmark | — | `slo_benchmark.py` | SLO compliance — 5 metrics, real production data reports (p95=459ms, 5/5 PASS) |
 | Notifications | — | `notify.sh` | **Dual-channel push**: WhatsApp + Discord (6 topic channels: papers/freight/alerts/daily/tech/DM) |
 | Local Embedding | — | `local_embed.py` | sentence-transformers (384-dim, 50+ languages), zero API calls |
-| Remote LLM | — | 12 providers | Qwen3-235B / GPT-4o / Gemini 2.5 / Claude Sonnet / Kimi K2.5 / MiniMax M2.7 / GLM-5 / **Doubao Seed 2.0 Pro** + **2.1 Pro** (Volcengine Ark) / **DeepSeek-V4-Pro** (w4a8 + 满血版 ai-tokenhub, V37.9.201/204/216) / **GLM-5.2 coding** (ai-tokenhub, on-demand, V37.9.254) |
+| Remote LLM | — | 12 providers | Qwen3-235B / GPT-4o / Gemini 2.5 / Claude Sonnet / Kimi K2.5 / MiniMax M2.7 / GLM-5 / **Doubao Seed 2.0 Pro** + **2.1 Pro** (Volcengine Ark) / **DeepSeek-V4-Pro** (w4a8 + 满血版 ai-tokenhub, V37.9.201/204/216) / **GLM-5.2 coding** (Volcengine Ark, on-demand, V37.9.254/255) |
 
 ## Supported Providers (12)
 
@@ -518,7 +518,7 @@ The `auto_deploy.sh` script maps 84 repo files to runtime locations (V37.9.43-ho
 ## Testing
 
 ```bash
-# Full regression (154 suites / 5465 tests / 0 fail; must ALL pass before push)
+# Full regression (154 suites / 5468 tests / 0 fail; must ALL pass before push)
 bash full_regression.sh
 
 # Individual test suites (run full_regression.sh for totals)

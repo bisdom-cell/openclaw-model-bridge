@@ -199,6 +199,7 @@ declare -a FILE_MAP=(
     "kb_save_arxiv.sh|$HOME/kb_save_arxiv.sh"
     "kb_search.sh|$HOME/kb_search.sh"
     "kb_inject.sh|$HOME/kb_inject.sh"
+    "code_assist.sh|$HOME/code_assist.sh"  # V37.9.254 — GLM-5.2 coding 助手 (直连 glm5_coding, 需 GLM5_API_KEY env)
     "job_watchdog.sh|$HOME/job_watchdog.sh"
     "wa_keepalive.sh|$HOME/wa_keepalive.sh"
     # V37.9.162: wa_channel_status.py — wa_keepalive 解析 channels status 的 WhatsApp 频道链接状态
