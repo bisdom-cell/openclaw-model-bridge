@@ -1797,15 +1797,15 @@ class TestGlm5CodingProvider(unittest.TestCase):
         self.assertNotEqual(builtin.base_url, get_provider("glm5_coding").base_url)
         self.assertNotEqual(builtin.api_key_env, "GLM5_API_KEY")
 
-    def test_feature_verified_text_after_e2e(self):
-        # V37.9.256 Mac Mini 直连 Ark E2E: text 实测通过 → verified_text=True + feature_verified;
-        # tool_calling/streaming/json_mode 未探测保持 False (渐进验证)
+    def test_feature_verified_after_e2e_full_probe(self):
+        # V37.9.256-258 Mac Mini 直连 Ark E2E 全探针: text/streaming/tool_calling 3/3 → verified True;
+        # json_mode 实测不支持 (400) / reasoning 无通道 / vision 非多模态 → False
         from providers import get_provider
         caps = get_provider("glm5_coding").capabilities
         self.assertEqual(caps.verification_tier, "feature_verified")
         self.assertTrue(caps.verified_text)          # E2E: is_prime 正确代码 + finish_reason=stop
         self.assertTrue(caps.verified_streaming)      # E2E: --stream SSE chunk 流 + [DONE]
-        self.assertFalse(caps.verified_tool_calling)  # 未探测
+        self.assertTrue(caps.verified_tool_calling)   # E2E: finish_reason=tool_calls + get_weather arguments
         self.assertFalse(caps.verified_reasoning)     # reasoning_tokens=0
         self.assertFalse(caps.verified_vision)
         self.assertFalse(caps.verified_fallback)
@@ -1814,17 +1814,17 @@ class TestGlm5CodingProvider(unittest.TestCase):
         self.assertIn("Ark", caps.tier_evidence)
         self.assertEqual(caps.tier_consistency_violations(), [])
 
-    def test_coding_capabilities_declared(self):
-        # coding 典型集声明 (未实测): text/tool_calling/streaming/json_mode; vision/reasoning 保守 False
+    def test_coding_capabilities(self):
+        # V37.9.258 E2E 全探针后能力画像: text/tool_calling/streaming True; json_mode 实测不支持 (400) → False
         from providers import get_provider
         caps = get_provider("glm5_coding").capabilities
         self.assertTrue(caps.text)
         self.assertTrue(caps.tool_calling)
         self.assertTrue(caps.streaming)
-        self.assertTrue(caps.json_mode)
+        self.assertFalse(caps.json_mode)   # E2E: HTTP 400 json_object is not supported by this model
         self.assertFalse(caps.vision)      # GLM-5V 是独立模型
-        self.assertFalse(caps.reasoning)   # 本 endpoint 未实测 reasoning 暴露 → 保守
-        # 未验证 reasoning → 不声明 batch-reasoning-off (原则 #23)
+        self.assertFalse(caps.reasoning)   # reasoning_tokens=0, 无 reasoning 通道
+        # 无 reasoning → 不声明 batch-reasoning-off (原则 #23)
         self.assertIsNone(get_provider("glm5_coding").reasoning_off_body)
 
     def test_excluded_from_available_without_key(self):

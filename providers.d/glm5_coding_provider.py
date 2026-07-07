@@ -21,18 +21,16 @@ GLM-5.2, 独立 endpoint ID + 独立 key。
 - Mac Mini 配 env → 真实 endpoint ID 注入, 可显式 `?provider=glm5_coding` 调用。
 
 🔴 诚实语义 (原则 #23 — 只声明实测过的能力):
-- **verification_tier = feature_verified** (V37.9.256) — V37.9.254 declared → V37.9.255 端点
-  刷新 Ark → **V37.9.256 Mac Mini 直连 Ark E2E: text/coding 实测通过** (is_prime 正确代码 +
-  finish_reason=stop + model=glm-5-2-260617 + reasoning_tokens=0 确认本调用无 reasoning) →
-  verified_text=True + 升 feature_verified。tool_calling/streaming/json_mode **未探测保持 False**
-  (渐进验证, 待补探针后逐项 flip, 镜像 doubao_21 V37.9.216→217)。
-- 声明的能力 (text E2E 已证; tool_calling/streaming/json_mode 声明未实测, coding 典型集)。
-- **未声明 / 保守 False**:
+- **verification_tier = feature_verified** — V37.9.254 declared → V37.9.255 端点刷新 Ark →
+  **V37.9.256-258 Mac Mini 直连 Ark E2E 全探针: text/streaming/tool_calling 3/3 实测通过**
+  (is_prime 正确代码+finish_reason=stop+model=glm-5-2-260617+reasoning_tokens=0 /
+  --stream SSE chunk+[DONE] / finish_reason=tool_calls+get_weather({city:东京}) arguments)。
+- **实测能力**: text ✅ / streaming ✅ / tool_calling ✅。
+- **实测不支持 / False (原则 #23 诚实)**:
+    json_mode — V37.9.258 E2E 实测 HTTP 400 "json_object is not supported by this model" → False
     vision    — coding 文本模型, 非多模态 (GLM-5V 是独立模型) → False
-    reasoning — GLM-5 系有 thinking, 但本 endpoint 是否暴露 reasoning_content 未实测 → 保守 False
-  (故不设 reasoning_off_body: 未验证 reasoning 不声明 batch-reasoning-off, 原则 #23。
-   若 Mac Mini E2E 确认 GLM-5.2 在 Ark 支持 thinking, 再加 {"thinking":{"type":"disabled"}}
-   镜像 doubao_21。)
+    reasoning — reasoning_tokens=0, 本 endpoint 无 reasoning 通道 → False
+  (故不设 reasoning_off_body: 无 reasoning 通道不声明 batch-reasoning-off, 原则 #23。)
 - context_window = 131072 (128K, GLM-5 系典型值保守占位, 待端点规格/实测确认; 描述性
   metadata 不影响路由评分, 同 deepseek 原 65536 占位惯例)。
 """
@@ -72,25 +70,25 @@ class Glm5CodingProvider(BaseProvider):
             vision=False,          # coding 文本模型, GLM-5V 是独立模型
             audio=False,
             video=False,
-            tool_calling=True,     # coding agent 用工具 (declared, 未实测)
-            streaming=True,        # OpenAI /v1 标准基线 (declared, 未实测)
-            json_mode=True,        # coding 常需结构化输出 (declared, 未实测)
-            reasoning=False,       # GLM-5 系有 thinking 但本 endpoint 未实测暴露 → 保守 False
+            tool_calling=True,     # V37.9.258 E2E: finish_reason=tool_calls + get_weather arguments
+            streaming=True,        # V37.9.257 E2E: SSE chunk 流
+            json_mode=False,       # V37.9.258 E2E 实测不支持: HTTP 400 "json_object is not supported by this model"
+            reasoning=False,       # reasoning_tokens=0 (本 endpoint 无 reasoning 通道)
             context_window=131072,
             max_output_tokens=8192,
-            # verified_* — V37.9.256 Mac Mini 直连 Ark E2E: text 实测通过 → flip True;
-            # tool_calling/streaming/json_mode 未探测 → 保持 False (渐进验证)
+            # verified_* — V37.9.256-258 Mac Mini 直连 Ark E2E 全探针: text/streaming/tool_calling 3/3 通过;
+            # json_mode 实测不支持 (400) / vision 非多模态 / reasoning 无通道 → 诚实 False
             verified_text=True,          # E2E: is_prime 正确代码 + finish_reason=stop + model=glm-5-2-260617
             verified_vision=False,
-            verified_tool_calling=False, # 未探测
+            verified_tool_calling=True,  # V37.9.258 E2E: finish_reason=tool_calls + get_weather({"city":"东京"})
             verified_streaming=True,     # E2E: --stream SSE chunk 流 (快排解释) + finish_reason=stop + [DONE]
             verified_fallback=False,     # 未真生产 fallback 接管
             verified_reasoning=False,    # reasoning_tokens=0 (本调用无 reasoning, 与 reasoning=False 一致)
-            # feature_verified: 分项 E2E 实测 (text/streaming 通过); tier_evidence 必须显式引用证据
+            # feature_verified: 全能力探针 E2E (text/streaming/tool_calling 3/3 通过); tier_evidence 显式引用证据
             verification_tier="feature_verified",
-            tier_evidence="Mac Mini 直连 Volcengine Ark E2E 实测 2026-07-07: text/coding + streaming 通过 "
-                          "(is_prime 正确代码 + finish_reason=stop + model=glm-5-2-260617 + reasoning_tokens=0 / "
-                          "--stream SSE chunk 流+finish_reason=stop+[DONE])；tool_calling/json_mode 待用户用修复后 "
-                          "code_assist 重测 (V37.9.257 修 heredoc-stdin bug: 早前 json 空响应是助手 bug 非端点) / "
-                          "vision 非多模态 / 未真生产 fallback 接管",
+            tier_evidence="Mac Mini 直连 Volcengine Ark E2E 全探针 2026-07-07: text/streaming/tool_calling 3/3 通过 "
+                          "(is_prime 正确代码+finish_reason=stop+model=glm-5-2-260617+reasoning_tokens=0 / "
+                          "--stream SSE chunk+[DONE] / finish_reason=tool_calls+get_weather({city:东京}) arguments)；"
+                          "json_mode 实测不支持 (HTTP 400 json_object is not supported by this model) / "
+                          "vision 非多模态 / reasoning 无通道 / 未真生产 fallback 接管",
         )
