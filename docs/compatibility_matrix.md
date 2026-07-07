@@ -1,7 +1,7 @@
 # Provider Compatibility Matrix
 
 > 数据真理源：`providers.py`（`python3 providers.py` 人读 / `--json` 机读 / `--capability-matrix` 能力矩阵直出 / `--tier-matrix` 验证档位直出）| 最后刷新：2026-06-13（v37.9.146）
-> **11 Providers**（7 built-in + 4 plugins：Doubao×2 + DeepSeek×2）。**漂移防护已接入（V37.9.143 → V37.9.146）**：本文档的三张机器表（"支持的 Provider" + "验证档位" + "能力矩阵"）由 `gen_compat_matrix.py --check` 在 full_regression doc-drift 层守卫，漂移时 CI 失败；`--fix` 一键重写。人工段落（Fallback 路径 / 添加新 Provider / 工具模式验证）不参与机器比对。
+> **12 Providers**（7 built-in + 5 plugins：Doubao×2 + DeepSeek×2 + GLM-5.2 coding）。**漂移防护已接入（V37.9.143 → V37.9.146）**：本文档的三张机器表（"支持的 Provider" + "验证档位" + "能力矩阵"）由 `gen_compat_matrix.py --check` 在 full_regression doc-drift 层守卫，漂移时 CI 失败；`--fix` 一键重写。人工段落（Fallback 路径 / 添加新 Provider / 工具模式验证）不参与机器比对。
 
 ---
 
@@ -20,6 +20,7 @@
 | DeepSeek-V4-Pro | DeepSeek-V4-Pro | text | Yes | Yes | 65K | text, tool_calling, streaming |
 | Doubao Seed 2.0 Pro (Volcengine Ark) | doubao-seed-2-0-pro | text, vision | Yes | Yes | 262K | text, vision, tool_calling, streaming, reasoning |
 | Doubao Seed 2.1 Pro (Volcengine Ark) | doubao-seed-2-1-pro-260628 | text, vision | Yes | Yes | 262K | text, vision, tool_calling, streaming, reasoning |
+| GLM-5.2 Coding (ai-tokenhub) | glm-5-2-260617 | text | Yes | Yes | 131K | none |
 
 插件接入：Doubao 经 `providers.d/doubao_provider.py`（V37 Provider Plugin Interface，V37.9.52 接入）。
 
@@ -41,6 +42,7 @@
 | DeepSeek-V4-Pro | **feature_verified** | Mac Mini E2E 实测 2026-06-30: text/streaming/tool_calling/json_mode 4/4 通过 (content+finish_reason / SSE chunk+[DONE] / finish_reason=tool_calls+arguments / response_format=json_object 干净 JSON)；vision 实测不支持 (400 非多模态) / reasoning 无 R1 reasoning_content 通道 / 未真生产 fallback 接管。部署=w4a8-mtp 量化, 推理响应偶发乱码 token |
 | Doubao Seed 2.0 Pro (Volcengine Ark) | **production_observed** | fallback 链真实接管（V37.9.129–V37.9.218 期间唯一真 fallback，现链中第 2 位）+ expert_escalate 真生产调用（V37.9.91）；text/vision/tool_calling/streaming/reasoning 5/5 E2E 实测（V37.9.53-55） |
 | Doubao Seed 2.1 Pro (Volcengine Ark) | **feature_verified** | Mac Mini E2E 实测 2026-07-02: text/vision/tool_calling/streaming/reasoning 5/5 通过 (content=0.05 bat-ball 答对+finish_reason=stop / 湖面皮划艇针叶林覆雪山脉全命中 / finish_reason=tool_calls+get_weather arguments / chunk 流+[DONE] / reasoning_content 通道+reasoning_tokens=255)；无乱码 token (优于 deepseek 量化版 w4a8)；json_mode 声明未单测 / 未真生产 fallback 接管 |
+| GLM-5.2 Coding (ai-tokenhub) | **declared** | 能力声明完整 + 合约校验通过，0/N 生产验证（无 API key 配置） |
 
 ## 能力矩阵
 
@@ -57,6 +59,7 @@
 | DeepSeek-V4-Pro | Yes | — | — | — | Yes | Yes | Yes | — | 65K |
 | Doubao Seed 2.0 Pro (Volcengine Ark) | Yes | Yes | — | — | Yes | Yes | Yes | Yes | 262K |
 | Doubao Seed 2.1 Pro (Volcengine Ark) | Yes | Yes | — | — | Yes | Yes | Yes | Yes | 262K |
+| GLM-5.2 Coding (ai-tokenhub) | Yes | — | — | — | Yes | Yes | Yes | — | 131K |
 
 > Reasoning 维度 V37.9.53 新增（doubao seed reasoning model 实证驱动）。cap_score: doubao 16 > Qwen3 14（framework 视角 doubao 是 registry 最强 provider，V37.9.55）。
 

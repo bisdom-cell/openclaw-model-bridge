@@ -1,6 +1,6 @@
 {
-  "updated": "2026-07-07 01:04:58",
-  "updated_by": "security_score",
+  "updated": "2026-07-07 09:45:34",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-07-07",
+      "what": "V37.9.254 新增第 12 个 LLM provider GLM-5.2 Coding (用户加 coding 模型 glm-5-2-260617 @ ai-tokenhub, 有需要 coding 场景按需调用)。🔴 安全: 明文 sk- key 绝不入库走 env GLM5_API_KEY (全仓 grep 真 key hash 零命中), base_url 公开域名可入库 (同 deepseek_full host)。诚实 declared 档位 (dev 无 key 无法 E2E, verified_* 全 False, 待 Mac Mini E2E 逐项 flip)。定位=coding 专用按需 (?provider=glm5_coding), 不是 primary 不默认进 auto-fallback (由 FALLBACK_ORDER 控制)。区别于第 7 built-in glm (Zhipu)。registry 11→12 + FILE_MAP 登记 + 全量 count 守卫同步 (test_providers/gen_compat/v37_9_52/convergence all_known set/minimal_runtime golden) + TestGlm5CodingProvider 6 守卫 (含 🔴 无硬编码 key regex)。VERSION 0.37.9.102→0.37.9.103. full_regression 153/0/5465, governance 91/91 EXIT=0, 安全扫描零泄漏.",
+      "by": "claude_code"
+    },
     {
       "date": "2026-07-07",
       "what": "V37.9.253 H1-C/C1 启动 — 第二实例最小闭环选型记录 + G2 前置门控核对 Linux 实证 (用户选「启动 H1-C C1」, 原排 Q4 拉到 Q3, docs/second_instance_poc_selection_20260707.md)。门控收敛日(27 unfinished 全 gated + 宪法级#1 flip gated)转化为对外部评审#1 短板(可迁移性 6.5)的实质推进: 我正运行在 Linux x86_64 → G2 三前置逐一 grounded 实证全绿(H1-B config 合并✅ / cross_os_quirk_scanner 0 violations✅ / minimal_runtime golden 跨机 MATCH✅ + 加强 external_dogfood 仓库外 wheel 消费 PASS) → 纲领§8 G2「前置进行中」→「前置满足·Linux 实证」。核心决策=最小闭环选定 PUSH-only 纯推送形态(内容 job→adapter/proxy→LLM→Discord, 刻意不含 Gateway/WhatsApp 入站=绕开最重三处 PA 耦合 WhatsApp auth/launchd/sessions, 第二实例不复制 PA 只证可抽取部分)。两次撞混沌审计瞬时突变(超时杀留 auto_deploy.sh CHAOS_MUTATED + stop hook 撞 SOUL.md sabotage)均诚实识别非真 bug(V37.9.186/224 第3/4次)。零新机器(复用既有 CI 守卫), VERSION 0.37.9.102 不变。",
@@ -173,11 +178,6 @@
       "date": "2026-07-03",
       "what": "V37.9.235: observer 两 LOW 项兑现 — (#3) arxiv 样本截断真凶 = daily_observer.scan_source_sections 硬切片 [:500] 无换行对齐 (采样假阳性家族第 3 位点: V37.9.93 tail→213 head→235 sections), 修复 = 行边界 snap + 显式采样标注; (#4) dream DEEP+WIDE_RADAR 双 prompt 加时效标注硬规则 (>14 天信号须标「长期背景, 非近期新增」, 与 ban-list 同窗口). 8 新守卫 + 2 轮 sabotage (含血案 (ru 形态精确回归). VERSION 0.37.9.96. 2026-07-03 observer 日报 4 findings 当日全清 (233/234/235) — 机械化人眼发现→修复闭环首次完整跑通一整份日报.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-07-03",
-      "what": "V37.9.234: DBLP 标题推断粒度收敛 (observer 提案 #1) — 根因是结构性逼迫点: 💡 关键方法按评级扩展 100-800 字但输入只有标题, LLM 被长度硬指标逼迫编造细粒度方法细节. 修复: 固定 80-150 字方向性解读 + 严禁细粒度技术路径猜测 (推测采用XX模型类字眼禁令) + (基于标题推断) 诚实标注保留 (V37.9.213 F4). 5 新守卫 + sabotage. 有摘要的源 (hf/s2) 评级扩展保持不变. VERSION 不变.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -262,14 +262,14 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 5459,
-    "last_regression": "2026-07-07 01:03 pass",
+    "test_count": 5465,
+    "last_regression": "2026-07-07 09:44 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-07-07 01:03",
+    "security_score_time": "2026-07-07 09:44",
     "test_suites": 154,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
-    "version": "0.37.9.102",
+    "version": "0.37.9.103",
     "observer": {}
   },
   "incidents": [
@@ -334,7 +334,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-07-07: H1-C/C1 启动 — 第二实例最小闭环 PUSH-only 选型记录 + G2 门控 Linux 实证全绿 (可迁移性从声明→实证, 直击外部评审#1 短板)。C2(真跑最小闭环)保持 Q4, 前置=持久 Linux host + LLM 端点 + Discord token + Linux bootstrap 脚本。剩本季 gated: Observer flip(Mac Mini shadow 周)/SLO 重生成(Mac Mini)/论文#2 数据(gated A2)。",
+  "focus": "2026-07-07: (1) H1-C/C1 第二实例选型记录 + G2 门控 Linux 实证 (2) 新增第 12 provider GLM-5.2 Coding (coding 按需, env key 守安全, declared 待 Mac Mini E2E)。🔴 Mac Mini 待用户: 设 GLM5_API_KEY env + 同步; primary 仍 doubao_21(非 Qwen3)。",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
