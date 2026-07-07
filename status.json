@@ -1,6 +1,6 @@
 {
-  "updated": "2026-07-06 06:26:22",
-  "updated_by": "full_regression",
+  "updated": "2026-07-07 01:04:58",
+  "updated_by": "security_score",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-07-07",
+      "what": "V37.9.253 H1-C/C1 启动 — 第二实例最小闭环选型记录 + G2 前置门控核对 Linux 实证 (用户选「启动 H1-C C1」, 原排 Q4 拉到 Q3, docs/second_instance_poc_selection_20260707.md)。门控收敛日(27 unfinished 全 gated + 宪法级#1 flip gated)转化为对外部评审#1 短板(可迁移性 6.5)的实质推进: 我正运行在 Linux x86_64 → G2 三前置逐一 grounded 实证全绿(H1-B config 合并✅ / cross_os_quirk_scanner 0 violations✅ / minimal_runtime golden 跨机 MATCH✅ + 加强 external_dogfood 仓库外 wheel 消费 PASS) → 纲领§8 G2「前置进行中」→「前置满足·Linux 实证」。核心决策=最小闭环选定 PUSH-only 纯推送形态(内容 job→adapter/proxy→LLM→Discord, 刻意不含 Gateway/WhatsApp 入站=绕开最重三处 PA 耦合 WhatsApp auth/launchd/sessions, 第二实例不复制 PA 只证可抽取部分)。两次撞混沌审计瞬时突变(超时杀留 auto_deploy.sh CHAOS_MUTATED + stop hook 撞 SOUL.md sabotage)均诚实识别非真 bug(V37.9.186/224 第3/4次)。零新机器(复用既有 CI 守卫), VERSION 0.37.9.102 不变。",
+      "by": "claude_code"
+    },
     {
       "date": "2026-07-06",
       "what": "V37.9.252 observer 自评驱动修复 — deep_dive_repeat 检测器加 ban-list-active-since 过滤 (消除 pre-deployment 历史重复 06-14/06-26 被永久误报 ban-list 静默失效的假阳性)。observer→fix 闭环: 4 findings 分诊 = 1 dev 修(检测器自己的假阳性) + 1 observer 幻觉(#4 evening pwc/openreview = kb_evening 正确排除 enabled=false 源, 不改正确代码) + 2 Mac-Mini/结构性(#1 付费墙降级率/#3 dream 时效标注 V37.9.235 已加待同步)。守卫 +2 (假阳性回归 + 跨部署边界真失效仍报), sabotage 真有效。VERSION 0.37.9.101→0.37.9.102 (daily_observer live cron 检测器行为变更)。",
@@ -173,11 +178,6 @@
       "date": "2026-07-03",
       "what": "V37.9.234: DBLP 标题推断粒度收敛 (observer 提案 #1) — 根因是结构性逼迫点: 💡 关键方法按评级扩展 100-800 字但输入只有标题, LLM 被长度硬指标逼迫编造细粒度方法细节. 修复: 固定 80-150 字方向性解读 + 严禁细粒度技术路径猜测 (推测采用XX模型类字眼禁令) + (基于标题推断) 诚实标注保留 (V37.9.213 F4). 5 新守卫 + sabotage. 有摘要的源 (hf/s2) 评级扩展保持不变. VERSION 不变.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-07-03",
-      "what": "V37.9.233: deep_dive 77% 降级率真根因修复 — 用户数据确诊同一 ACM 付费墙 DOI (10.1145/3774904.3792985) 被 picker 连选 ~20 天 (30 天降级率主体 = 一篇重复论文, 非 fetch 路径退化). 修复 = 已分析论文 14 天 ban-list (镜像 dream V37.9.68): load_recent_analyzed_links 扫归档 frontmatter link + filter_recently_analyzed 在 pick_top 前剔除 + banned_recent 可观测字段. 11 新单测含血案端到端 + 2 轮 sabotage. VERSION 不变. freight 停 07-02 14:00 = 事故残留, 今日 14:00 run 预期自愈.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -263,9 +263,9 @@
   "quality": {
     "security_score": 95,
     "test_count": 5459,
-    "last_regression": "2026-07-06 06:25 pass",
+    "last_regression": "2026-07-07 01:03 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-07-06 06:25",
+    "security_score_time": "2026-07-07 01:03",
     "test_suites": 154,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
@@ -334,7 +334,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-07-06: H1-B (PA 解耦第一批) 一天内全链闭合 — B1 盘点(V37.9.249) + B2 backlog 分级(inventory §4) + B3 config化落地 A1/D3/A2(V37.9.250) + scanner 拦截(V37.9.251)。剩余 PA 耦合按 §4 归 H1-C(launchd)/边界内延后(中文 prompt/homebrew)。本季度剩全 gated: A1 Observer flip(~7/7,Mac Mini)/D1 SLO 重生成(Mac Mini)/A4 论文#2 数据(gated A2)。",
+  "focus": "2026-07-07: H1-C/C1 启动 — 第二实例最小闭环 PUSH-only 选型记录 + G2 门控 Linux 实证全绿 (可迁移性从声明→实证, 直击外部评审#1 短板)。C2(真跑最小闭环)保持 Q4, 前置=持久 Linux host + LLM 端点 + Discord token + Linux bootstrap 脚本。剩本季 gated: Observer flip(Mac Mini shadow 周)/SLO 重生成(Mac Mini)/论文#2 数据(gated A2)。",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
@@ -347,6 +347,7 @@
   },
   "session_context.unfinished": [
     "【doubao_21 唯一 primary · B1 flip 已上线 (2026-07-02) + V37.9.223 四家 config-ready】现态: PROVIDER=doubao_21 无 FAST_PROVIDER, 批量 thinking-off 走 B1 注入 (实测比 qwen 分流更快, Ark 托管云>自建 W8A8), PA thinking-on。V37.9.223 全部 doubao/deepseek 四家同款 reasoning_off_body (任何切换独立成 primary): doubao_21/deepseek_full E2E 实测 + deepseek 量化探针实测网关接受 (200/reasoning_tokens:0/无400, non-reasoning故no-op无害) + doubao 2.0 家族推断 (同 Ark API, 直连探针受 env 位置阻塞可选——ARK_API_KEY 在 adapter plist 非 .env_shared)。剩: (1) 🔴 合并 PR + Mac Mini git reset 同步 (V37.9.223 声明在切换前 inert, 无需重启) (2) doubao_21 观察 N 天 cron 周期 → 升 production_observed (3) follow-up: B1 注入经 fb_clean (adapter.py:695) 传播到 fallback 链 — qwen 兜底不认 thinking 潜在 400 边缘, per-provider fallback 注入过滤候选 (4) 稳定后 qwen 从 FALLBACK_ORDER 移除缩链 (日落法)。回滚: PROVIDER=qwen 或 FAST_PROVIDER=qwen 恢复 A2 (随时可用)",
-    "【deepseek_full · 第一优先级 fallback 生产观察中 (Phase 2 进行时)】V37.9.218/222 后 deepseek_full 已在 fallback 链首位 [deepseek_full,doubao,deepseek,qwen]; 原「迁移 Qwen3 赢家」叙事已被 doubao_21-唯一-primary 取代 (deepseek_full 定位=最强文本 fallback 非 primary 候选)。剩: (1) 真 fallback 接管观察 → verified_fallback flip + 升 production_observed (2) streaming 声明 True 未单测 (如需补 curl) (3) 限制不变: 无视觉(400)/json_mode 围栏非严格/推理吃 token 预算 (4) 🔴 安全: 满血/量化/ARK 明文 key 对话出现过, 强烈建议轮换"
+    "【deepseek_full · 第一优先级 fallback 生产观察中 (Phase 2 进行时)】V37.9.218/222 后 deepseek_full 已在 fallback 链首位 [deepseek_full,doubao,deepseek,qwen]; 原「迁移 Qwen3 赢家」叙事已被 doubao_21-唯一-primary 取代 (deepseek_full 定位=最强文本 fallback 非 primary 候选)。剩: (1) 真 fallback 接管观察 → verified_fallback flip + 升 production_observed (2) streaming 声明 True 未单测 (如需补 curl) (3) 限制不变: 无视觉(400)/json_mode 围栏非严格/推理吃 token 预算 (4) 🔴 安全: 满血/量化/ARK 明文 key 对话出现过, 强烈建议轮换",
+    "【H1-C / C2 (Q4, gated) · C1 选型已完成 V37.9.253】第二实例最小闭环真跑 = 非 Mac Linux host 上 E2E 绿: minimal_runtime + governance cron + 1-2 内容 job(arxiv/dblp) 真抓取→LLM→Discord + cron+nohup 重启存活。选型=PUSH-only 纯推送(绕 Gateway/WhatsApp/sessions), 见 docs/second_instance_poc_selection_20260707.md §5 验收标准。C2 前置(§3, 均可枚举无未知): 持久 Linux host(VPS/容器) + 可达 LLM 端点(REMOTE_BASE_URL) + Discord bot token/channel(DISCORD_CH_*) + 唯一真需新建=Linux bootstrap 脚本(装 py 依赖+起 adapter/proxy nohup+写 crontab, 并行 install_openclaw_macmini.sh)。C3=portability report EN/ZH 证据型文章(对两次评审可迁移性批评终局回答)。"
   ]
 }
