@@ -98,12 +98,24 @@ C2（Q4 真跑）启动前需就位，**均可枚举、无未知**：
 |----|---------------------------|--------------|
 | 可抽取产品（engine + demos） | ✅ minimal_runtime MATCH / external_dogfood PASS / scanner 0 | — |
 | 治理审计 | ✅ governance 91/91 在 Linux 跑（full_regression） | 独立 cron 化 + 每日审计推 Discord |
-| 控制平面决策核心 | ✅ minimal_runtime 路由/治理决策 MATCH | adapter/proxy **真转发**到活 LLM 端点（需端点） |
+| 控制平面决策核心 | ✅ minimal_runtime 路由/治理决策 MATCH | — |
+| **控制平面真服务器起活**（C2-prep 探针） | ✅ **`adapter.py` :5001 + `tool_proxy.py` :5002 经 nohup 在 Linux 起活，两层 `/health` 链全绿**（adapter `ok:true` / proxy `ok:true,proxy:true,adapter:true`，用完即杀端口回收，见 §4.1） | adapter/proxy **真转发**到活 LLM 端点（需端点） |
 | 内容管道 | ❌ 未验证真跑 | arxiv/dblp job 在 Linux **真抓取→LLM→Discord** E2E |
 | notify Discord | ❌ 未验证真投递 | Discord 真收到推送（需 token/channel） |
 | 进程存活 | ❌ 未验证 | cron+nohup 在持久 host 上跨重启存活 |
 
-**不夸大**：今天证明的是"可抽取部分 + 控制平面决策核心在 Linux 可跑" + "G2 门控经实证可开"，**不是**第二实例已跑通。C2 是真正的端到端实证。
+### §4.1 控制平面真服务器 Linux 起活探针（2026-07-07，超越 demo）
+
+`minimal_runtime` 证的是决策**逻辑**跨机一致；本探针进一步证**真实生产服务器**在 Linux 起得来——2026-07-07 在本 Linux x86_64 容器上以 `nohup python3 adapter.py`（:5001，默认 env `PROVIDER=qwen`，`/health` 是本地端点不转发 GPU，`adapter.py:460`）+ `nohup python3 tool_proxy.py`（:5002）拉起，两层 `/health` 链实测：
+
+```
+adapter :5001 /health → {"ok":true,"version":"0.37.9.102","provider":"qwen",...}
+proxy   :5002 /health → {"ok":true,"proxy":true,"adapter":true}   (级联到 adapter)
+```
+
+**兑现 §5 验收标准 #2 的"nohup 起 + /health 绿"半边**（Gateway 层被 PUSH-only 选型排除；真转发半边需活 LLM 端点，仍 Q4）。探针用完即 kill，端口 5001/5002 回收零残留进程。纯 stdlib（adapter 零外部依赖）+ 本地 `proxy_filters` 模块 = 无 pip 依赖门槛。**证据升级**：C2 的最重门槛（进程管理 launchd）在最小闭环用 cron+nohup 绕过 —— 本探针实证 nohup 起活路径在 Linux 有效，bootstrap 脚本（§3 唯一真需新建工件）的核心已 de-risk。
+
+**不夸大**：今天证明的是"可抽取部分 + 控制平面**真服务器 /health** 在 Linux 可跑" + "G2 门控经实证可开"，**不是**第二实例已跑通（真转发 / 内容管道真抓取 / Discord 真投递 / 跨重启存活 均 C2 Q4）。
 
 ---
 
