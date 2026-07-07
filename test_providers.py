@@ -1771,7 +1771,7 @@ class TestDoubao21Provider(unittest.TestCase):
 
 
 class TestGlm5CodingProvider(unittest.TestCase):
-    """V37.9.254 接入第 12 provider GLM-5.2 Coding (declared, coding 按需, ai-tokenhub, env key)。"""
+    """V37.9.254 接入 → V37.9.255 端点刷新 ai-tokenhub → Volcengine Ark (declared, coding 按需, ark- env key)。"""
 
     _PLUGIN = os.path.join(os.path.dirname(__file__), "providers.d", "glm5_coding_provider.py")
 
@@ -1781,9 +1781,14 @@ class TestGlm5CodingProvider(unittest.TestCase):
         self.assertIsNotNone(p)
         self.assertEqual(p.name, "glm5_coding")
         self.assertEqual(p.api_key_env, "GLM5_API_KEY")
-        self.assertEqual(p.base_url, "https://ai-tokenhub.com/api/v1")
+        self.assertEqual(p.base_url, "https://ark.cn-beijing.volces.com/api/v3")
         self.assertEqual(p.auth_style, "bearer")
-        self.assertEqual(p.model_id, "glm-5-2-260617")
+
+    def test_model_id_fallback_public_name_without_env(self):
+        # dev 无 GLM5_ENDPOINT_ID → model_id = fallback 公开名 (合约通过; Volcengine
+        # model 字段接收 endpoint ID, 无 env 时用公开 model 名兜底, 镜像 doubao_21)
+        from providers import get_provider
+        self.assertEqual(get_provider("glm5_coding").model_id, "glm-5-2-260617")
 
     def test_distinct_from_builtin_glm(self):
         # 区别于第 7 built-in glm (Zhipu open.bigmodel.cn) — 独立 endpoint + 独立 key
@@ -1828,16 +1833,19 @@ class TestGlm5CodingProvider(unittest.TestCase):
             self.assertIn("glm5_coding", [p.name for p in get_registry().available()])
 
     def test_no_secret_key_hardcoded_in_repo(self):
-        """🔴 公开 repo 安全底线: 明文 GLM key 绝不入库 (base_url 公开域名可入库)。"""
+        """🔴 公开 repo 安全底线: Volcengine ark- key + ep- endpoint id 绝不入库 (base_url 公开域名可入库)。"""
         import re
         src = open(self._PLUGIN, encoding="utf-8").read()
-        # 无 sk-<20+ hex/alnum> 形式的真 key 字面量 (key 走 GLM5_API_KEY env;
-        # docstring 里的 "sk-..." 占位不匹配 20+ 长度)
-        self.assertIsNone(re.search(r"sk-[0-9a-zA-Z]{20,}", src),
-                          "插件不得含 sk- key 字面量 — 走 GLM5_API_KEY env")
+        # 无 ark-<hex>-<hex> 形式的 key 字面量 (key 走 GLM5_API_KEY env)
+        self.assertIsNone(re.search(r"ark-[0-9a-f]{8}-[0-9a-f]{4}", src),
+                          "插件不得含 ark- key 字面量 — 走 GLM5_API_KEY env")
+        # 无 ep-<digits> endpoint id 字面量 (走 GLM5_ENDPOINT_ID env)
+        self.assertIsNone(re.search(r"ep-2026\d{8}", src),
+                          "插件不得含 ep- endpoint id 字面量 — 走 GLM5_ENDPOINT_ID env")
         self.assertIn("GLM5_API_KEY", src)
-        # 公开域名 base_url 可入库 (非裸 IP/机密)
-        self.assertIn("https://ai-tokenhub.com/api/v1", src)
+        self.assertIn("GLM5_ENDPOINT_ID", src)
+        # 公开 Volcengine 域名 base_url 可入库 (非裸 IP/机密)
+        self.assertIn("https://ark.cn-beijing.volces.com/api/v3", src)
 
 
 class TestCodeAssistScript(unittest.TestCase):
@@ -1852,16 +1860,18 @@ class TestCodeAssistScript(unittest.TestCase):
         self.assertEqual(r.returncode, 0, f"bash -n 失败: {r.stderr}")
 
     def test_no_hardcoded_key_reads_env(self):
-        """🔴 安全底线: 助手脚本绝不硬编码 key, 只从 GLM5_API_KEY env 读。"""
+        """🔴 安全底线: 助手脚本绝不硬编码 key, 只从 GLM5_API_KEY env 读 (Volcengine ark- key)。"""
         import re
         with open(self._SCRIPT, encoding="utf-8") as f:
             src = f.read()
         self.assertIsNone(re.search(r"sk-[0-9a-zA-Z]{20,}", src),
                           "code_assist.sh 不得含 sk- key 字面量 — 走 GLM5_API_KEY env")
+        self.assertIsNone(re.search(r"ark-[0-9a-f]{8}-[0-9a-f]{4}", src),
+                          "code_assist.sh 不得含 ark- key 字面量 — 走 GLM5_API_KEY env")
         self.assertIn("GLM5_API_KEY", src)
-        # 目标 provider 身份 (glm5_coding 端点 + model)
+        # 目标 provider 身份 (glm5_coding Volcengine Ark 端点 + model/endpoint)
         self.assertIn("glm-5-2-260617", src)
-        self.assertIn("ai-tokenhub.com/api/v1", src)
+        self.assertIn("ark.cn-beijing.volces.com/api/v3", src)
 
 
 class TestReasoningOffBodyB1(unittest.TestCase):

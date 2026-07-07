@@ -1,5 +1,5 @@
 {
-  "updated": "2026-07-07 10:02:48",
+  "updated": "2026-07-07 15:13:01",
   "updated_by": "full_regression",
   "priorities": [
     {
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-07-07",
+      "what": "V37.9.255 glm5_coding 端点刷新 ai-tokenhub → Volcengine Ark (用户确认 GLM-5.2 实际托管在火山 Ark 同 doubao_21 平台)。数据驱动定位 (原则 #28): V37.9.254 接 ai-tokenhub 后 Mac Mini E2E 一路 InvalidCredentials 10101, /v1/models 铁证 ai-tokenhub 账号只有 deepseek 无 GLM scope + GLM key 非此网关 → 用户确认真端点是 Ark。镜像 doubao_21 Ark 模式: base_url=ark.cn-beijing.volces.com/api/v3 + endpoint ID 走 env GLM5_ENDPOINT_ID (Volcengine model 字段接收 ep- 接入点) + key 走 env GLM5_API_KEY (ark- 格式)。🔴 安全: ark key + ep 接入点 ID 绝不入库走 env (安全扫描抓到我一度把 endpoint id 写进 changelog 已修, 全仓真值零命中)。code_assist.sh + tests + compat matrix 同步刷新。declared 档位不变 (无法 dev E2E)。VERSION 0.37.9.103→0.37.9.104.",
+      "by": "claude_code"
+    },
     {
       "date": "2026-07-07",
       "what": "V37.9.254 追加 code_assist.sh GLM-5.2 coding 助手 (用户「按建议来测试」): 直连 ai-tokenhub 做纯代码生成 (原则 #94 绕 Gateway, 完全控制 max_tokens/temp + 无工具注入 + 无 proxy 截断). 🔴 key 只从 GLM5_API_KEY env 读绝不硬编码. --file/--json/--dry-run/--stream 选项. 结构测试全过 (bash -n + dry-run + json + file). E2E 从 dev 受阻: 出站代理 allowlist 挡 ai-tokenhub 403 CONNECT = dev 网络策略非端点故障 (feedback #1 不误判端点死) → E2E 是 Mac Mini 步骤. 守卫 TestCodeAssistScript (无硬编码 key regex) + FILE_MAP 登记. VERSION 不变.",
@@ -173,11 +178,6 @@
       "date": "2026-07-03",
       "what": "V37.9.237 审计 finding C 安全半边: status.json/kb index.json 原子写从固定 tmp 名改唯一 tmp (pid 后缀). 根因: 固定 .tmp 下 ~40 并发写者交错损坏→os.replace 发布垃圾→读者 JSONDecodeError→fallback DEFAULT_STATUS 系统失忆; docstring 支持并发安全是 fail-plausible 声明. 修 status_update/kb_dedup/kb_autotag 三处 + finally 清理 orphan + 诚实 docstring. 诚实范围: 只做损坏安全半边 (降级为 last-writer-wins 良性丢更新), 不做跨写者锁 (需谨慎锁设计防死锁, 登记). 14 新单测含真子进程并发+sabotage 反向验证. 5203 tests / governance EXIT=0 / VERSION 0.37.9.97",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-07-03",
-      "what": "V37.9.236 notify.sh $() 子shell errtrace 假FATAL根治 — 12:30 auto_deploy FATAL line=101 破案: 三脚本(auto_deploy×2/watchdog/governance_audit V37.9.214)报的line=101全是notify.sh:101发送行, openclaw冷调用非零在bash3.2子shell内误触发caller ERR trap(告警路径自制假FATAL); 哨兵守卫2发送站点+内层守卫5解析/find站点, 7个governed脚本一次全愈; 修正V37.9.214 LINENO误报结论(行号一直是真的); +11守卫测试两轮sabotage; 145/0/5189; VERSION 0.37.9.96不变",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -262,14 +262,14 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 5467,
-    "last_regression": "2026-07-07 10:02 pass",
+    "test_count": 5468,
+    "last_regression": "2026-07-07 15:12 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-07-07 10:02",
+    "security_score_time": "2026-07-07 15:12",
     "test_suites": 154,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
-    "version": "0.37.9.103",
+    "version": "0.37.9.104",
     "observer": {}
   },
   "incidents": [
