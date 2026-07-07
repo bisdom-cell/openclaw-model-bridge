@@ -38,7 +38,8 @@
       "glm",
       "claude",
       "deepseek_full",
-      "deepseek"
+      "deepseek",
+      "glm5_coding"
     ],
     "best_for_text_prefer_reasoning": "doubao",
     "policy": {
@@ -47,11 +48,11 @@
     }
   },
   "non_deterministic": {
-    "provider_count": 11,
+    "provider_count": 12,
     "step_timings_ms": {
-      "provider_registry": 21,
-      "tool_governance": 59,
-      "policy_ontology": 20
+      "provider_registry": 20,
+      "tool_governance": 96,
+      "policy_ontology": 11
     }
   }
 }

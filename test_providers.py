@@ -146,7 +146,7 @@ class TestVerificationTier(unittest.TestCase):
         self.assertEqual(caps.tier_note, "已退役出 fallback 链")
 
     def test_all_registered_providers_tier_consistent(self):
-        """CI 守卫: 全部 11 provider 的 tier 与 verified_* 一致 (单一真理源不变式)。"""
+        """CI 守卫: 全部 12 provider 的 tier 与 verified_* 一致 (单一真理源不变式)。"""
         from providers import _default_registry
         violations = _default_registry.tier_consistency_violations()
         self.assertEqual(violations, [],
@@ -177,7 +177,7 @@ class TestVerificationTier(unittest.TestCase):
         from providers import _default_registry
         lines = _default_registry.tier_table_lines()
         self.assertEqual(lines[0], "| Provider | 档位 | 依据 |")
-        self.assertEqual(len(lines), 2 + 11)  # header + sep + 11 providers
+        self.assertEqual(len(lines), 2 + 12)  # header + sep + 12 providers
 
     def test_tier_table_declared_uses_derived_evidence(self):
         from providers import _default_registry, _DECLARED_TIER_EVIDENCE
@@ -366,7 +366,7 @@ class TestProviderRegistry(unittest.TestCase):
         # V37.9.204: doubao + deepseek + deepseek_full → 总数 10 (7 built-in + 3 真插件)
         from providers import get_registry
         reg = get_registry()
-        self.assertEqual(len(reg.list_names()), 11)
+        self.assertEqual(len(reg.list_names()), 12)
 
     def test_get_existing_provider(self):
         from providers import get_registry
@@ -405,7 +405,7 @@ class TestProviderRegistry(unittest.TestCase):
         # V37.9.201: 9 行 (7 built-in + doubao + deepseek plugins)
         from providers import get_registry
         matrix = get_registry().compatibility_matrix()
-        self.assertEqual(len(matrix), 11)
+        self.assertEqual(len(matrix), 12)
         for row in matrix:
             self.assertIn("provider", row)
             self.assertIn("models", row)
@@ -451,7 +451,7 @@ class TestBackwardCompatibility(unittest.TestCase):
         # V37.9.201: legacy PROVIDERS dict 含 9 entries (7 built-in + doubao + deepseek plugins)
         from providers import PROVIDERS
         self.assertIsInstance(PROVIDERS, dict)
-        self.assertEqual(len(PROVIDERS), 11)
+        self.assertEqual(len(PROVIDERS), 12)
 
     def test_providers_dict_matches_old_format(self):
         """PROVIDERS dict 的格式与旧版 adapter.py 完全一致"""
@@ -573,7 +573,7 @@ class TestCLIOutput(unittest.TestCase):
         data = json.loads(result.stdout)
         self.assertIsInstance(data, list)
         # V37.9.201: 9 行 (7 built-in + doubao + deepseek plugins)
-        self.assertEqual(len(data), 11)
+        self.assertEqual(len(data), 12)
 
 
 class TestChineseProviders(unittest.TestCase):
@@ -1515,7 +1515,7 @@ class TestDefaultRegistryPluginDir(unittest.TestCase):
         # V37.9.201: 不再用 "deepseek" 当 canary — deepseek 已是真插件 (providers.d/deepseek_provider.py)
         self.assertNotIn("custom", names)
         # V37.9.204: 7 built-in + 3 真插件 (doubao + deepseek + deepseek_full) = 10 (_example.* 仍被跳过)
-        self.assertEqual(len(names), 11)
+        self.assertEqual(len(names), 12)
         self.assertIn("doubao", names, "doubao 真插件必须加载 (与 _example 被跳过形成对照)")
         self.assertIn("deepseek", names, "V37.9.201 deepseek 真插件必须加载 (providers.d/deepseek_provider.py)")
 
@@ -1768,6 +1768,76 @@ class TestDoubao21Provider(unittest.TestCase):
         self.assertIn("ARK_21_ENDPOINT_ID", src)
         # 公开域名 base_url 可入库 (非机密)
         self.assertIn("https://ark.cn-beijing.volces.com/api/v3", src)
+
+
+class TestGlm5CodingProvider(unittest.TestCase):
+    """V37.9.254 接入第 12 provider GLM-5.2 Coding (declared, coding 按需, ai-tokenhub, env key)。"""
+
+    _PLUGIN = os.path.join(os.path.dirname(__file__), "providers.d", "glm5_coding_provider.py")
+
+    def test_registered_with_correct_identity(self):
+        from providers import get_provider
+        p = get_provider("glm5_coding")
+        self.assertIsNotNone(p)
+        self.assertEqual(p.name, "glm5_coding")
+        self.assertEqual(p.api_key_env, "GLM5_API_KEY")
+        self.assertEqual(p.base_url, "https://ai-tokenhub.com/api/v1")
+        self.assertEqual(p.auth_style, "bearer")
+        self.assertEqual(p.model_id, "glm-5-2-260617")
+
+    def test_distinct_from_builtin_glm(self):
+        # 区别于第 7 built-in glm (Zhipu open.bigmodel.cn) — 独立 endpoint + 独立 key
+        from providers import get_provider
+        builtin = get_provider("glm")
+        self.assertNotEqual(builtin.base_url, get_provider("glm5_coding").base_url)
+        self.assertNotEqual(builtin.api_key_env, "GLM5_API_KEY")
+
+    def test_declared_tier_nothing_verified(self):
+        # declared: 0 生产验证 (dev 无 key 无法 E2E), verified_* 全 False, tier_evidence 派生
+        from providers import get_provider
+        caps = get_provider("glm5_coding").capabilities
+        self.assertEqual(caps.verification_tier, "declared")
+        self.assertFalse(caps.verified_text)
+        self.assertFalse(caps.verified_tool_calling)
+        self.assertFalse(caps.verified_streaming)
+        self.assertFalse(caps.verified_reasoning)
+        self.assertFalse(caps.verified_vision)
+        self.assertFalse(caps.verified_fallback)
+        # declared 留空 tier_evidence → 走 _DECLARED_TIER_EVIDENCE 派生 (单一真理源)
+        self.assertEqual(caps.tier_consistency_violations(), [])
+
+    def test_coding_capabilities_declared(self):
+        # coding 典型集声明 (未实测): text/tool_calling/streaming/json_mode; vision/reasoning 保守 False
+        from providers import get_provider
+        caps = get_provider("glm5_coding").capabilities
+        self.assertTrue(caps.text)
+        self.assertTrue(caps.tool_calling)
+        self.assertTrue(caps.streaming)
+        self.assertTrue(caps.json_mode)
+        self.assertFalse(caps.vision)      # GLM-5V 是独立模型
+        self.assertFalse(caps.reasoning)   # 本 endpoint 未实测 reasoning 暴露 → 保守
+        # 未验证 reasoning → 不声明 batch-reasoning-off (原则 #23)
+        self.assertIsNone(get_provider("glm5_coding").reasoning_off_body)
+
+    def test_excluded_from_available_without_key(self):
+        from providers import get_registry
+        with mock.patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("GLM5_API_KEY", None)
+            self.assertNotIn("glm5_coding", [p.name for p in get_registry().available()])
+        with mock.patch.dict(os.environ, {"GLM5_API_KEY": "sk-test"}):
+            self.assertIn("glm5_coding", [p.name for p in get_registry().available()])
+
+    def test_no_secret_key_hardcoded_in_repo(self):
+        """🔴 公开 repo 安全底线: 明文 GLM key 绝不入库 (base_url 公开域名可入库)。"""
+        import re
+        src = open(self._PLUGIN, encoding="utf-8").read()
+        # 无 sk-<20+ hex/alnum> 形式的真 key 字面量 (key 走 GLM5_API_KEY env;
+        # docstring 里的 "sk-..." 占位不匹配 20+ 长度)
+        self.assertIsNone(re.search(r"sk-[0-9a-zA-Z]{20,}", src),
+                          "插件不得含 sk- key 字面量 — 走 GLM5_API_KEY env")
+        self.assertIn("GLM5_API_KEY", src)
+        # 公开域名 base_url 可入库 (非裸 IP/机密)
+        self.assertIn("https://ai-tokenhub.com/api/v1", src)
 
 
 class TestReasoningOffBodyB1(unittest.TestCase):
