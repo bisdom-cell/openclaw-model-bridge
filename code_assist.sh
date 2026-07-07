@@ -102,19 +102,31 @@ if [ "$STREAM" = "1" ]; then
   exit 0
 fi
 
-RESP="$(curl -sS "$BASE_URL/chat/completions" \
+# -w 捕获 HTTP 状态附在末行; || true 防 set -e 在 curl 非零时静默中止 (排错友好)
+RESP="$(curl -sS -w $'\n__HTTP_STATUS__:%{http_code}' "$BASE_URL/chat/completions" \
   -H "Authorization: Bearer $GLM5_API_KEY" \
   -H "Content-Type: application/json" \
-  -d "$REQ_BODY")"
+  -d "$REQ_BODY" || true)"
 
-echo "$RESP" | python3 - <<'PY'
+printf '%s' "$RESP" | python3 - <<'PY'
 import json, sys
+raw = sys.stdin.read()
+status = ""
+if "__HTTP_STATUS__:" in raw:
+    raw, _, status = raw.rpartition("__HTTP_STATUS__:")
+    raw = raw.rstrip("\n")
+    status = status.strip()
 try:
-    d = json.load(sys.stdin)
+    d = json.loads(raw) if raw.strip() else {}
 except Exception as e:
-    print("解析响应失败:", e, file=sys.stderr); sys.exit(1)
+    # 非 JSON / 空响应 → 打印 HTTP 状态 + 原始返回 (排错, 不再吞成 "char 0")
+    print(f"解析响应失败 (HTTP {status or '?'}): {e}", file=sys.stderr)
+    print(f"--- 原始返回 ---\n{raw[:2000] or '(空)'}", file=sys.stderr)
+    sys.exit(1)
+if not d:
+    print(f"空响应 (HTTP {status or '?'}) — 端点未返回 body", file=sys.stderr); sys.exit(1)
 if "error" in d:
-    print("API error:", json.dumps(d["error"], ensure_ascii=False), file=sys.stderr); sys.exit(1)
+    print(f"API error (HTTP {status or '?'}):", json.dumps(d["error"], ensure_ascii=False), file=sys.stderr); sys.exit(1)
 ch = (d.get("choices") or [{}])[0]
 msg = ch.get("message", {})
 content = msg.get("content", "")

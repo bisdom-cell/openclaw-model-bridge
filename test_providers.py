@@ -1797,18 +1797,21 @@ class TestGlm5CodingProvider(unittest.TestCase):
         self.assertNotEqual(builtin.base_url, get_provider("glm5_coding").base_url)
         self.assertNotEqual(builtin.api_key_env, "GLM5_API_KEY")
 
-    def test_declared_tier_nothing_verified(self):
-        # declared: 0 生产验证 (dev 无 key 无法 E2E), verified_* 全 False, tier_evidence 派生
+    def test_feature_verified_text_after_e2e(self):
+        # V37.9.256 Mac Mini 直连 Ark E2E: text 实测通过 → verified_text=True + feature_verified;
+        # tool_calling/streaming/json_mode 未探测保持 False (渐进验证)
         from providers import get_provider
         caps = get_provider("glm5_coding").capabilities
-        self.assertEqual(caps.verification_tier, "declared")
-        self.assertFalse(caps.verified_text)
-        self.assertFalse(caps.verified_tool_calling)
-        self.assertFalse(caps.verified_streaming)
-        self.assertFalse(caps.verified_reasoning)
+        self.assertEqual(caps.verification_tier, "feature_verified")
+        self.assertTrue(caps.verified_text)          # E2E: is_prime 正确代码 + finish_reason=stop
+        self.assertFalse(caps.verified_tool_calling)  # 未探测
+        self.assertFalse(caps.verified_streaming)     # 未探测
+        self.assertFalse(caps.verified_reasoning)     # reasoning_tokens=0
         self.assertFalse(caps.verified_vision)
         self.assertFalse(caps.verified_fallback)
-        # declared 留空 tier_evidence → 走 _DECLARED_TIER_EVIDENCE 派生 (单一真理源)
+        # feature_verified 必须显式 tier_evidence 引用证据
+        self.assertIn("E2E", caps.tier_evidence)
+        self.assertIn("Ark", caps.tier_evidence)
         self.assertEqual(caps.tier_consistency_violations(), [])
 
     def test_coding_capabilities_declared(self):

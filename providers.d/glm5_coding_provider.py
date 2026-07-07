@@ -21,12 +21,12 @@ GLM-5.2, 独立 endpoint ID + 独立 key。
 - Mac Mini 配 env → 真实 endpoint ID 注入, 可显式 `?provider=glm5_coding` 调用。
 
 🔴 诚实语义 (原则 #23 — 只声明实测过的能力):
-- **verification_tier = declared** — 能力声明来自 GLM-5 系文档 + OpenAI 兼容基线, **0 生产
-  验证 (dev 无 key + 网络策略不可达 Ark, 无法 E2E)**。verified_* 全 False。tier_evidence
-  留空走 _DECLARED_TIER_EVIDENCE 派生 (单一真理源)。待 Mac Mini E2E 实测 (text/tool_calling/
-  streaming/json_mode) 后逐项 flip verified_* + 升 tier (镜像 doubao_21 V37.9.216→217 /
-  deepseek V37.9.201→205 渐进验证路径)。
-- 声明的能力 (未实测, coding 模型典型集): text / tool_calling / streaming / json_mode。
+- **verification_tier = feature_verified** (V37.9.256) — V37.9.254 declared → V37.9.255 端点
+  刷新 Ark → **V37.9.256 Mac Mini 直连 Ark E2E: text/coding 实测通过** (is_prime 正确代码 +
+  finish_reason=stop + model=glm-5-2-260617 + reasoning_tokens=0 确认本调用无 reasoning) →
+  verified_text=True + 升 feature_verified。tool_calling/streaming/json_mode **未探测保持 False**
+  (渐进验证, 待补探针后逐项 flip, 镜像 doubao_21 V37.9.216→217)。
+- 声明的能力 (text E2E 已证; tool_calling/streaming/json_mode 声明未实测, coding 典型集)。
 - **未声明 / 保守 False**:
     vision    — coding 文本模型, 非多模态 (GLM-5V 是独立模型) → False
     reasoning — GLM-5 系有 thinking, 但本 endpoint 是否暴露 reasoning_content 未实测 → 保守 False
@@ -78,13 +78,18 @@ class Glm5CodingProvider(BaseProvider):
             reasoning=False,       # GLM-5 系有 thinking 但本 endpoint 未实测暴露 → 保守 False
             context_window=131072,
             max_output_tokens=8192,
-            # verified_* 全 False (declared tier: 0 生产验证, dev 无 key)
-            verified_text=False,
+            # verified_* — V37.9.256 Mac Mini 直连 Ark E2E: text 实测通过 → flip True;
+            # tool_calling/streaming/json_mode 未探测 → 保持 False (渐进验证)
+            verified_text=True,          # E2E: is_prime 正确代码 + finish_reason=stop + model=glm-5-2-260617
             verified_vision=False,
-            verified_tool_calling=False,
-            verified_streaming=False,
-            verified_fallback=False,
-            verified_reasoning=False,
-            # declared: 能力声明 + 合约校验, 0 生产验证 (tier_evidence 留空走 _DECLARED_TIER_EVIDENCE 派生)
-            verification_tier="declared",
+            verified_tool_calling=False, # 未探测
+            verified_streaming=False,    # 未探测
+            verified_fallback=False,     # 未真生产 fallback 接管
+            verified_reasoning=False,    # reasoning_tokens=0 (本调用无 reasoning, 与 reasoning=False 一致)
+            # feature_verified: 分项 E2E 实测 (text 通过); tier_evidence 必须显式引用证据
+            verification_tier="feature_verified",
+            tier_evidence="Mac Mini 直连 Volcengine Ark E2E 实测 2026-07-07: text/coding 通过 "
+                          "(is_prime 正确代码 + finish_reason=stop + model=glm-5-2-260617 + "
+                          "reasoning_tokens=0 确认本调用无 reasoning)；tool_calling/streaming/"
+                          "json_mode 未探测 (待补) / vision 非多模态 / 未真生产 fallback 接管",
         )
