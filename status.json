@@ -1,6 +1,6 @@
 {
-  "updated": "2026-07-08 08:48:15",
-  "updated_by": "full_regression",
+  "updated": "2026-07-08 10:58:50",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -255,7 +255,8 @@
       "【2026-07-03 observer/治理/watchdog triage · findings 全部闭环 (V37.9.232-235/240) · 剩被动观察】(a) ✅ V37.9.247 兑现: 07-05 07:00 第二次再现 (07-03见/07-04干净/07-05再现=间歇负载) → 按预注册 V37.9.214 模式硬化两 runtime check (timeout 120→240 + TimeoutExpired→inconclusive+门控)。剩 Mac Mini 被动观察: 下次 07:00 不再 💥 + watchdog 治理 CORE 告警消失 (b) freight last_run 应已 07-03 14:00 自愈转 ok (仍 llm_failed=新问题贴我) (c) 修复生效信号: dblp 推送无「推测采用XX模型」类字眼 (V37.9.234) / last_run_deep_dive.json 见 banned_recent + 一周后 full-text 比例回升 (V37.9.233) / observer 报告 arxiv 截断 finding 消失 (V37.9.235) + dream 远期信号带「长期背景」标注 (V37.9.235) / observer deep_dive_repeat 告警仅违规时出现 (V37.9.240)。",
       "V37.9.236 follow-up: (a) Mac Mini 观察 alerts.log 不再新增 FATAL line=101 (下次告警推送撞冷调用即验证) (b) scanner 第8 pattern 候选诚实登记不现建 — sourced-lib $() 设计性可失败命令需跨文件 source-graph 分析=新机器, 11个 targeted 守卫已封死唯一日常失败站点(日落法); 若未来再有 sourced-lib 假 FATAL 实例再评估",
       "【OpenClaw 第六次升级评估 (2026-07-04, V37.9.244) · 结论=继续 hold · 三收敛判据跟踪】4.27→6.11 深评见 eval doc 第十七节: 三结构性迁移 (M1 插件外部化/M2 SQLite 迁移进行中/M3 Proxyline) + 回滚单向门 (SQLite cleanup 后 4.27 读不回 cron/auth, WhatsApp 重链撞 408 风险)。开窗判据 (全满足才升): ① 连续 2 stable 无 session/SQLite 迁移 PR (2026.7.x stable 发布时核对 changelog) ② 周稳定版 ≤1 ③ Mac Mini node ≥22.19。🔴 判据 ③ 可独立提前做 (用户): node -v 确认, 不足先升 Node (与升级窗口解耦)。每周一 check_upgrade.sh cron 照常监控; LAST_EVAL_DATE 已重置 2026-07-04。",
-      "NBER RSS 403 连续 2 天 (07-04/07-05 finance_news, per-source FAIL-OPEN 已正确降级 WARN+跳过, 其他源正常). 低优观察 (日落法 #8 不现加机器): 若持久化 (≥1 周) 才评估换源/剔除 (镜像 finance_news zombie 分流). 单源失败非系统性, V37.9.227 fetch_failed 仅全源失败才触发."
+      "NBER RSS 403 连续 2 天 (07-04/07-05 finance_news, per-source FAIL-OPEN 已正确降级 WARN+跳过, 其他源正常). 低优观察 (日落法 #8 不现加机器): 若持久化 (≥1 周) 才评估换源/剔除 (镜像 finance_news zombie 分流). 单源失败非系统性, V37.9.227 fetch_failed 仅全源失败才触发.",
+      "【2026-07-08 长 session Mac Mini 被动验证】同步后观察: (a) V37.9.260 ban-list 边界: 次日 deep_dive/dream 恰-14-天前论文/主题正确被 ban + observer deep_dive_repeat 恰-14-天误报消失 (b) V37.9.261 observer 降级桶: 次日 06:30 报告降级段自区分「无 OA 全文(结构性)」vs「PDF 抓取错误(HTTP/超时)」 (c) V37.9.263 OpenAlex 已回退 S2-only, deep_dive 闭源论文降级 abstract_only 正确。deep_dive 降级结论=接受现实(残余=真闭源 ACM/Elsevier 无 OA + 发布方反爬 MDPI/ScienceDirect 403, OA 解析器打不穿, 实测 0/7)。一周后可选复核 grep 抓取降级原因确认 ban-list 去重复后降级率下降(非 OpenAlex)。"
     ],
     "open_prs": "claude/daily-standup-06dzu1: V37.9.249-251 (H1-B PA 解耦第一批全链闭合: B1 盘点 + B2 backlog + B3 config化 A1/D3/A2 + scanner 拦截) — 3 commits 待用户合并 PR + Mac Mini git reset 同步 (纯 config化+守卫, 全生产 no-op, 零重启)",
     "blocked_on": ""
@@ -334,7 +335,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-07-08: (1) V37.9.259 provider-count prose 一致性收敛(修 V37.9.254 加第12 provider GLM-5.2 的 sweep 遗漏,CLAUDE 组件表+FEATURES 11→12) (2) V37.9.260 observer 驱动修复 deep_dive/dream ban-list off-by-one 边界 bug(today 带时间分量致恰14天前逃逸 ban,原则#31 跨消费者全量同步修)。VERSION 0.37.9.108。primary 仍 doubao_21。",
+  "focus": "2026-07-08 长 session: (1) V37.9.259 provider-count prose 收敛 (2) observer 自评驱动: V37.9.260 ban-list off-by-one 边界修复(真杠杆)+V37.9.261 观察者降级桶去 fail-plausible (3) deep_dive 降级 OpenAlex fallback: V37.9.262 加→Mac Mini 端到端实测 0/7 恢复(真闭源+反爬 OA 源打不穿)→V37.9.263 用户「回退」日落法退役。结论: deep_dive 残余降级=接受现实(结构性闭源)。全绿 154/0/5476+chaos 10/10。VERSION 0.37.9.111。primary 仍 doubao_21。",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
