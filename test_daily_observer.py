@@ -2697,9 +2697,23 @@ class TestV37_9_213_DegradeReasons(unittest.TestCase):
     unfetchable (非全文来源) vs fetch-path failure (PDF/HTML 抓取失败)."""
 
     # ---- extractor ----
-    def test_extract_pdf_failure(self):
+    def test_extract_pdf_http_error(self):
+        # V37.9.261: HTTP/timeout = 真 fetch 错误桶（可能可修）
         c = "正文\n\n> ⚠️ 抓取降级原因：PDF fetch failed: HTTP 404\n"
-        self.assertEqual(obs._extract_degrade_category(c), "PDF 抓取失败")
+        self.assertEqual(obs._extract_degrade_category(c), "PDF 抓取错误（HTTP/超时）")
+
+    def test_extract_pdf_no_oa_structural(self):
+        # V37.9.261: no PDF URL derivable = 无 OA 版 = 结构性桶（接受，非 fetch bug）
+        # 2026-07-08 Mac Mini grep 实证的主体形态（ACM/Elsevier DOI-only）
+        c = ("> ⚠️ 抓取降级原因：PDF fetch failed: no PDF URL derivable "
+             "from https://doi.org/10.1145/3774904.3792985")
+        self.assertEqual(obs._extract_degrade_category(c), "无 OA 全文（结构性）")
+
+    def test_extract_pdf_no_oa_incl_oa_lookup(self):
+        # "no PDF URL derivable (incl. OA lookup)" 变体也归结构性
+        c = ("> ⚠️ 抓取降级原因：PDF fetch failed: no PDF URL derivable "
+             "(incl. OA lookup) from https://www.semanticscholar.org/paper/abc")
+        self.assertEqual(obs._extract_degrade_category(c), "无 OA 全文（结构性）")
 
     def test_extract_html_failure(self):
         c = "> ⚠️ 抓取降级原因：HTML fetch failed: URLError: timeout"
@@ -2711,9 +2725,10 @@ class TestV37_9_213_DegradeReasons(unittest.TestCase):
 
     def test_extract_fullwidth_and_halfwidth_colon(self):
         # writer uses fullwidth ：; be robust to half-width too
+        # "x" 不含 "no PDF URL derivable" → fetch 错误桶
         self.assertEqual(
             obs._extract_degrade_category("抓取降级原因: PDF fetch failed: x"),
-            "PDF 抓取失败")
+            "PDF 抓取错误（HTTP/超时）")
 
     def test_extract_no_reason_line(self):
         self.assertEqual(obs._extract_degrade_category("摘要级但无原因行"),
@@ -2739,7 +2754,7 @@ class TestV37_9_213_DegradeReasons(unittest.TestCase):
             self._mk_dd_reason(td, "2026-07-01", "abstract_only",
                                "PDF fetch failed: HTTP 404")
             self._mk_dd_reason(td, "2026-06-30", "abstract_only",
-                               "PDF fetch failed: no PDF derivable")
+                               "PDF fetch failed: no PDF URL derivable from x")
             self._mk_dd_reason(td, "2026-06-29", "abstract_only",
                                "HTML fetch failed: 403")
             self._mk_dd_reason(td, "2026-06-28", "abstract_only",
@@ -2747,7 +2762,9 @@ class TestV37_9_213_DegradeReasons(unittest.TestCase):
             self._mk_dd_reason(td, "2026-06-27", "full_text")  # no reason
             stats = obs.scan_deep_dive_modes(td, datetime(2026, 7, 2))
             dr = stats["degrade_reasons"]
-            self.assertEqual(dr.get("PDF 抓取失败"), 2)
+            # V37.9.261: PDF 拆两桶 — HTTP 404=fetch 错误 / no-PDF-derivable=结构性
+            self.assertEqual(dr.get("PDF 抓取错误（HTTP/超时）"), 1)
+            self.assertEqual(dr.get("无 OA 全文（结构性）"), 1)
             self.assertEqual(dr.get("HTML 抓取失败"), 1)
             self.assertEqual(dr.get("非全文来源"), 1)
             # full_text must NOT contribute a reason bucket
@@ -2770,13 +2787,13 @@ class TestV37_9_213_DegradeReasons(unittest.TestCase):
         modes = {"found": True, "total": 6, "full_text": 2,
                  "abstract_only": 4, "unknown": 0, "degrade_ratio": 4 / 6,
                  "window_days": 30, "recent": [],
-                 "degrade_reasons": {"PDF 抓取失败": 3, "非全文来源": 1}}
+                 "degrade_reasons": {"无 OA 全文（结构性）": 3, "非全文来源": 1}}
         sec = obs.build_deep_dive_mode_section(modes)
         self.assertIn("降级原因:", sec)
-        # sorted by count desc: PDF (3) before 非全文来源 (1)
-        pdf_i = sec.index("PDF 抓取失败 3")
+        # sorted by count desc: 无 OA (3) before 非全文来源 (1)
+        oa_i = sec.index("无 OA 全文（结构性） 3")
         tier_i = sec.index("非全文来源 1")
-        self.assertLess(pdf_i, tier_i)
+        self.assertLess(oa_i, tier_i)
 
     def test_section_omits_reason_line_when_no_degrades(self):
         modes = {"found": True, "total": 2, "full_text": 2,
@@ -2805,8 +2822,8 @@ class TestV37_9_213_DegradeReasons(unittest.TestCase):
             self.assertEqual(obs._extract_degrade_category(c), "未标注原因")
         finally:
             obs._DD_DEGRADE_RE = orig
-        # restored: matches again
-        self.assertEqual(obs._extract_degrade_category(c), "PDF 抓取失败")
+        # restored: matches again (HTTP 404 → fetch 错误桶, V37.9.261)
+        self.assertEqual(obs._extract_degrade_category(c), "PDF 抓取错误（HTTP/超时）")
 
 
 class TestV37_9_213_HeadSnap(unittest.TestCase):

@@ -556,31 +556,44 @@ def _classify_deep_dive_mode(content):
 # observer is meant to close). kb_deep_dive.build_deep_dive_markdown already
 # writes a machine-parseable line `> ⚠️ 抓取降级原因：<reason>` into every
 # abstract_only file, where <reason> is one of:
-#   "PDF fetch failed: <inner>"  (tier1 PDF path failed — resolution bug/404)
-#   "HTML fetch failed: <inner>" (tier2 HTML path failed)
+#   "PDF fetch failed: no PDF URL derivable ..." (无 OA 版可解析 PDF = 结构性
+#      付费墙无 OA, e.g. ACM/Elsevier DOI-only — accept, NOT a fetch bug)
+#   "PDF fetch failed: HTTP 4xx / timeout ..." (真 fetch 错误 — 可能可修:
+#      反爬/接口变更/瞬态)
+#   "HTML fetch failed: <inner>" (tier2 HTML path failed — 多为反爬 403)
 #   "tier{N} source (no fetch attempted)" (tier3/no-url — structurally
 #      unfetchable: X tweet weekend fallback, paywall with no URL)
 # We bucket these so the report answers "of the 77%, how much is structurally
-# unfetchable (accept) vs fetch-path failure (fixable)" self-serve.
+# unfetchable (accept) vs fetch-path error (maybe fixable)" self-serve.
+# V37.9.261 (2026-07-08 Mac Mini grep 实证): 旧单桶 "PDF 抓取失败" 把
+# "no PDF URL derivable"(结构性接受) 与 HTTP/超时(可修) 混成 fixable → 桶名自身
+# 轻度 fail-plausible (observer 自己的指标误导). 实证主体是 no-OA 结构性 (1 篇
+# ACM DOI 独占 20 次), 故拆为独立两桶让 accept-vs-investigate 自区分。
 _DD_DEGRADE_RE = re.compile(r"抓取降级原因\s*[:：]\s*(.+)")
-# 显式 4 桶（顺序即渲染优先级的稳定基准；实际渲染按计数降序）
+# 显式 5 桶（顺序即渲染优先级的稳定基准；实际渲染按计数降序）
 _DD_DEGRADE_CATEGORIES = (
-    "PDF 抓取失败", "HTML 抓取失败", "非全文来源", "未标注原因")
+    "无 OA 全文（结构性）", "PDF 抓取错误（HTTP/超时）", "HTML 抓取失败",
+    "非全文来源", "未标注原因")
 
 
 def _extract_degrade_category(content):
-    """V37.9.213: bucket an abstract_only deep_dive's degrade reason.
+    """V37.9.213→V37.9.261: bucket an abstract_only deep_dive's degrade reason.
 
     Returns one of _DD_DEGRADE_CATEGORIES. "未标注原因" when no reason line
     is present (older files before V37.9.132 or format drift) — we never
     guess the cause.
+
+    V37.9.261: PDF fetch failed 拆两桶 — "no PDF URL derivable"(无 OA 版=结构性
+    接受) vs HTTP/timeout(真 fetch 错误=可能可修), 区分 accept 与 investigate。
     """
     m = _DD_DEGRADE_RE.search(content or "")
     if not m:
         return "未标注原因"
     reason = m.group(1).strip()
     if reason.startswith("PDF fetch failed"):
-        return "PDF 抓取失败"
+        if "no PDF URL derivable" in reason:
+            return "无 OA 全文（结构性）"
+        return "PDF 抓取错误（HTTP/超时）"
     if reason.startswith("HTML fetch failed"):
         return "HTML 抓取失败"
     if reason.startswith("tier"):
