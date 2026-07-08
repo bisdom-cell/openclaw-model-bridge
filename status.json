@@ -1,6 +1,6 @@
 {
-  "updated": "2026-07-08 04:48:32",
-  "updated_by": "full_regression",
+  "updated": "2026-07-08 06:45:23",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-07-08",
+      "what": "V37.9.262 deep_dive OA 解析加第二源 OpenAlex(用户选「现在就加」)。数据驱动: V37.9.261 Mac Mini grep 揭示降级主体是 no PDF URL derivable(S2 openAccessPdf 为 null),而 S2 OA 覆盖 < Unpaywall/OpenAlex——很多付费墙论文有合法免费副本(作者 preprint/机构库/PMC)只是 S2 没索引。加 _openalex_fetch+_openalex_lookup_oa_pdf,resolve_oa_pdf_url DOI 分支 S2 无 OA→OpenAlex 短路。选 OpenAlex(OA 语料源自 Unpaywall 同覆盖但零配置,免费无 key)。真闭源仍 None→abstract_only 诚实(不爬付费墙)。test+11,sabotage 有效。VERSION 0.37.9.109→0.37.9.110。正解: 接受真闭源+合法补全 S2 覆盖缺口两者都对。",
+      "by": "claude_code"
+    },
     {
       "date": "2026-07-08",
       "what": "V37.9.261 observer 降级桶去 fail-plausible (用户「先核实」驱动)。V37.9.260 finding#1 我原写「PDF 抓取失败=fetch-path 非付费墙」被用户纠正,Mac Mini grep 实证: 主体是 no PDF URL derivable(无 OA 版=结构性付费墙)~29 次其中 1 篇 ACM DOI 独占 20 次(V37.9.233 血案同篇),证 ban-list 修复(V37.9.260)是最高杠杆且充分。残余 ScienceDirect/ACM/Elsevier 结构性闭源接受(原则#8)。唯一 dev 项: observer 桶名「PDF 抓取失败」把结构性无 OA(接受)与 fetch 错误(可修)混成一桶=轻度 fail-plausible → 拆「无 OA 全文(结构性)」vs「PDF 抓取错误(HTTP/超时)」+注释修正。test+2+5 断言更新,sabotage 有效。VERSION 0.37.9.108→0.37.9.109。元: 宪法级#1 observer 自己的确定性分类桶名都会 conflate,印证论文§5.2。",
@@ -173,11 +178,6 @@
       "date": "2026-07-03",
       "what": "V37.9.242 adapter 非 chat 端点回写收编 _deliver (V37.9.231 ⑦ 登记边界闭合): /health + GET passthrough + 非 chat POST 共 5 回写全走 _deliver, client 断开只记 CLIENT GONE 不再 502-to-dead-socket 二次异常泄漏 http.server 日志. 强不变式守卫: 完成态回写恰 9 个 _deliver + 裸 send_response 仅 _send_json 内 1 处 (regex 计数锁死). sabotage 3 FAIL + 行为级探针 (真 _send_json+_deliver exec, client-gone 零泄漏). 152/0/5440 / VERSION 0.37.9.101. 今天可解决待办全部清零",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-07-03",
-      "what": "V37.9.241 暗测试三连破案+对账守卫机器化: 补 -m unittest 模块形式口径后抓到 3 个从未注册 full_regression 的测试, 其中 2 个正在静默失败 (test_engine 3 fail = V37.9.91 加 expert_escalate 后期望腐烂 1 个月无人知 / test_notify_activity 1 fail = 代码改 _MRD 注入后 literal 守卫 stale) = 未注册测试必然腐烂的活证 (V37.9.130 harvest 家族第 2/3/4 实例, 4 次演出达机器化门槛). 修期望+注册三套件+新 dark-test 对账守卫 (枚举全集 vs 注册清单, 自指含守卫自己, sabotage 3 FAIL). 另: CLAUDE.md Phase 3 表 2 行 stale 修正 (filter_tools/fix_tool_args 实际 V37.8.14 已引擎驱动) + kb_evening/kb_deep_dive DATE 统一 HKT (V37.9.213 登记) + kb_review OPENCLAW_BIN 死变量退役 (V37.9.145 登记). 152/0/5439 (+189) / VERSION 不变",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -262,7 +262,7 @@
   },
   "quality": {
     "security_score": 98,
-    "test_count": 5476,
+    "test_count": 5487,
     "last_regression": "2026-07-08 04:48 pass",
     "coverage_pct": 0,
     "security_score_time": "2026-07-08 04:48",

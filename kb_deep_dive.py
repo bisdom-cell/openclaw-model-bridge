@@ -419,13 +419,68 @@ def _s2_lookup_oa_pdf(paper_path):
     return None
 
 
+# V37.9.262: 第二 OA 源 — OpenAlex（免费无 key，OA 定位数据源自 Unpaywall）。
+# 动机（2026-07-08 Mac Mini grep 实证）: deep_dive 降级主体是 "no PDF URL
+# derivable"（S2 的 openAccessPdf 为 null）—— 但 S2 的 OA 覆盖 < Unpaywall/OpenAlex。
+# 很多被付费墙锁的论文（ACM/Elsevier/MDPI DOI）其实有【合法】免费副本（作者
+# preprint / 机构库 / PMC），只是 S2 没索引。OpenAlex 补这一跳把它们捞回 = 合法
+# 补全，不是爬付费墙（真闭源仍 None → abstract_only 保持诚实）。DOI-keyed。
+OPENALEX_API = "https://api.openalex.org/works/doi:"
+
+
+def _openalex_fetch(doi):
+    """查 OpenAlex works API（免费无 key），返回 dict 或 None（FAIL-OPEN）。
+
+    可选 OPENALEX_EMAIL 进 polite pool（更稳的限流）；未设也可用。
+    """
+    if not doi:
+        return None
+    api_url = OPENALEX_API + urllib.parse.quote(doi, safe="")
+    email = os.environ.get("OPENALEX_EMAIL", "").strip()
+    if email:
+        api_url += "?mailto=" + urllib.parse.quote(email)
+    try:
+        req = urllib.request.Request(api_url, headers={"User-Agent": USER_AGENT})
+        with urllib.request.urlopen(req, timeout=FETCH_TIMEOUT) as resp:
+            data = json.loads(resp.read().decode("utf-8", errors="replace"))
+    except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError,
+            OSError, ValueError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def _openalex_lookup_oa_pdf(doi):
+    """从 OpenAlex 元数据解析 OA PDF URL（FAIL-OPEN）。
+
+    优先级: best_oa_location.pdf_url > primary_location.pdf_url >
+    open_access.oa_url。arxiv abs URL 归一化为 pdf。真闭源（is_oa=false，
+    best_oa_location=null）→ None → 维持 abstract_only。
+    """
+    data = _openalex_fetch(doi)
+    if not data:
+        return None
+    for loc_key in ("best_oa_location", "primary_location"):
+        loc = data.get(loc_key)
+        if isinstance(loc, dict):
+            pdf = loc.get("pdf_url")
+            if pdf and isinstance(pdf, str):
+                return arxiv_url_to_pdf(pdf) or pdf
+    oa = data.get("open_access")
+    if isinstance(oa, dict):
+        oa_url = oa.get("oa_url")
+        if oa_url and isinstance(oa_url, str):
+            return arxiv_url_to_pdf(oa_url) or oa_url
+    return None
+
+
 def resolve_oa_pdf_url(url):
     """URL 直接派生 PDF 失败时，用 URL 里的确定性标识符找 OA PDF。
 
     顺序（全确定性，标识符在 URL 里，零选错论文风险）：
       1. HF papers 页 → arxiv（id 即 arxiv id，HF Daily Papers 按 arxiv 索引）
       2. semantic_scholar 论文页 → S2 API（paper id 在 URL）
-      3. 任意 URL 含 DOI → S2 API（DOI:）
+      3. 任意 URL 含 DOI → S2 API（DOI:）→ S2 无 OA 则 OpenAlex 第二源（V37.9.262，
+         Unpaywall 语料，捞回 S2 漏掉的合法 OA preprint/机构库/PMC）
     Returns: pdf_url 或 None（FAIL-OPEN）。
     """
     if not url:
@@ -439,7 +494,9 @@ def resolve_oa_pdf_url(url):
     m = _DOI_RE.search(url)
     if m:
         doi = m.group(1).rstrip(".")
-        return _s2_lookup_oa_pdf("DOI:{}".format(doi))
+        # V37.9.262: S2 无 OA → OpenAlex 第二源（覆盖 S2 漏掉的合法 OA 副本）
+        return (_s2_lookup_oa_pdf("DOI:{}".format(doi))
+                or _openalex_lookup_oa_pdf(doi))
     return None
 
 
