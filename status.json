@@ -1,5 +1,5 @@
 {
-  "updated": "2026-07-07 16:39:30",
+  "updated": "2026-07-08 01:32:47",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-07-08",
+      "what": "V37.9.259 provider-count prose 一致性收敛 — CLAUDE.md 组件表(line 116) + FEATURES.md provider 段从 stale「11」收敛到 12(V37.9.254 加 GLM-5.2 第12 provider 时 prose sweep 遗漏,正是 V37.9.216→219 sweep 遗漏先例第三次演出)。三机器 doc-drift 全绿(badges/compat/jobs 均 12),漂移只在机器表覆盖不到的 human prose。补 GLM-5.2 coding 枚举行(GLM-5 Zhipu built-in#7 与 GLM-5.2 coding plugin 是不同 provider)。point-in-time 不动(README:42 里程碑/charter 确立快照/minimal_runtime demo 8)。门控收敛日(27 unfinished 全 gated + 宪法级#1 flip gated 于 shadow 周)纯收敛,正中外部评审2 文档一致性 6/10 弱项。首轮 full_regression 因我在混沌审计层运行期间并发编辑报 DIRTY 假失败=V37.9.186/224/253 教训第4次演出,干净树复跑 154/0/5469 全绿+chaos 10/10。VERSION 0.37.9.107 不变。",
+      "by": "claude_code"
+    },
     {
       "date": "2026-07-07",
       "what": "V37.9.256-258 glm5_coding Mac Mini 直连 Ark E2E 全探针完成 → GLM-5.2 能力画像定档 feature_verified: text/streaming/tool_calling 3/3 verified; json_mode 实测不支持(HTTP 400)诚实标 False; vision/reasoning False。渐进验证走完整程(declared→端点定位刷新 Ark 数据驱动→逐探针 flip)。code_assist.sh 非流式 heredoc-vs-pipe stdin bug 根治(dev 起本地 mock 复现→bash -x 定位→env 传 RESP→回归守卫 sabotage 有效)。glm5_coding 接入全链闭环(V37.9.254→258 五版)。GLM-5.2 coding 完整可用(code_assist.sh 或 ?provider=glm5_coding)。",
@@ -172,11 +177,6 @@
     {
       "date": "2026-07-03",
       "what": "V37.9.239 审计 B-delivery: tool_proxy streaming fallthrough 内容类型修复 — parse 异常时 SSE client (stream:true) 此前收 application/json+raw JSON = transport 层 choke. 两级策略: 先重试 build_sse_response (rj 合法时投递真实 completion) → 失败/rj 未绑定 → SSE error frame 流内 surface. 9 新单测 (extract-block+exec-with-fakes, V37.9.239 注释锚点防泛匹配抓错站点) + sabotage 9 FAIL 全 fire. 2026-07-02 审计 9 findings 全部处置完毕. 148/0/5240 / VERSION 0.37.9.99",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-07-03",
-      "what": "V37.9.238 审计三批: (C-lock) status_lock() 跨写者 RMW 锁 — fcntl.flock 独立锁文件+有界获取5s+FAIL-OPEN 超时无锁继续 (每种失败模式降级为修复前行为而非新故障), CLI main + daily_observer/preference_learner/security_score 全 RMW 写者覆盖+部署窗口 nullcontext fallback; (C-audit) audit() read-last-hash→append 同款锁防链 fork 假 tamper; (F) rss_blogs/ai_leaders_blogs/bsky FETCH_ERRORS 三件套 (全源宕→fetch_failed+exit1 watchdog 告警, 原则#31 bsky 同 shape 一并修); (MR-9) 三测试类 ProxyStats 直写真实 ~/proxy_stats.json 污染隔离. 50 新单测含真跨进程互斥/fail-open 不阻塞/8并发 CLI 8/8 全保留确定性/10并发 audit 链完整; 4轮 sabotage 首轮抓出自己 2 个弱守卫 (docstring 咬守卫+LOCK_UN 满足泛断言) 修强后全 fire. 147/0/5231 / governance 全绿 / VERSION 0.37.9.98",
       "by": "claude_code"
     }
   ],
@@ -334,7 +334,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-07-07 收工: (1) H1-C/C1 第二实例 PUSH-only 选型 + G2 门控 Linux 实证(可迁移性从声明→实证) (2) 新增第 12 provider GLM-5.2 coding(Volcengine Ark, feature_verified text/streaming/tool_calling, json_mode 不支持) + code_assist.sh 助手 + heredoc bug 根治。primary 仍 doubao_21。VERSION 0.37.9.102→0.37.9.107。",
+  "focus": "2026-07-08 门控收敛日: 27 项 unfinished 全部 gated(Mac Mini 被动验证/in-review/deferred), 宪法级#1 Observer flip gated 于 shadow 周数据。今日纯一致性收敛=修 V37.9.254 加第12 provider GLM-5.2 的 prose sweep 遗漏(CLAUDE 组件表+FEATURES 从11→12), 正中外部评审2 文档一致性弱项。VERSION 0.37.9.107 不变。primary 仍 doubao_21。",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
