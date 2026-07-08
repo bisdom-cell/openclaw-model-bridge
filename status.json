@@ -1,6 +1,6 @@
 {
-  "updated": "2026-07-07 15:47:49",
-  "updated_by": "full_regression",
+  "updated": "2026-07-07 16:39:30",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-07-07",
+      "what": "V37.9.256-258 glm5_coding Mac Mini 直连 Ark E2E 全探针完成 → GLM-5.2 能力画像定档 feature_verified: text/streaming/tool_calling 3/3 verified; json_mode 实测不支持(HTTP 400)诚实标 False; vision/reasoning False。渐进验证走完整程(declared→端点定位刷新 Ark 数据驱动→逐探针 flip)。code_assist.sh 非流式 heredoc-vs-pipe stdin bug 根治(dev 起本地 mock 复现→bash -x 定位→env 传 RESP→回归守卫 sabotage 有效)。glm5_coding 接入全链闭环(V37.9.254→258 五版)。GLM-5.2 coding 完整可用(code_assist.sh 或 ?provider=glm5_coding)。",
+      "by": "claude_code"
+    },
     {
       "date": "2026-07-07",
       "what": "V37.9.255 glm5_coding 端点刷新 ai-tokenhub → Volcengine Ark (用户确认 GLM-5.2 实际托管在火山 Ark 同 doubao_21 平台)。数据驱动定位 (原则 #28): V37.9.254 接 ai-tokenhub 后 Mac Mini E2E 一路 InvalidCredentials 10101, /v1/models 铁证 ai-tokenhub 账号只有 deepseek 无 GLM scope + GLM key 非此网关 → 用户确认真端点是 Ark。镜像 doubao_21 Ark 模式: base_url=ark.cn-beijing.volces.com/api/v3 + endpoint ID 走 env GLM5_ENDPOINT_ID (Volcengine model 字段接收 ep- 接入点) + key 走 env GLM5_API_KEY (ark- 格式)。🔴 安全: ark key + ep 接入点 ID 绝不入库走 env (安全扫描抓到我一度把 endpoint id 写进 changelog 已修, 全仓真值零命中)。code_assist.sh + tests + compat matrix 同步刷新。declared 档位不变 (无法 dev E2E)。VERSION 0.37.9.103→0.37.9.104.",
@@ -173,11 +178,6 @@
       "date": "2026-07-03",
       "what": "V37.9.238 审计三批: (C-lock) status_lock() 跨写者 RMW 锁 — fcntl.flock 独立锁文件+有界获取5s+FAIL-OPEN 超时无锁继续 (每种失败模式降级为修复前行为而非新故障), CLI main + daily_observer/preference_learner/security_score 全 RMW 写者覆盖+部署窗口 nullcontext fallback; (C-audit) audit() read-last-hash→append 同款锁防链 fork 假 tamper; (F) rss_blogs/ai_leaders_blogs/bsky FETCH_ERRORS 三件套 (全源宕→fetch_failed+exit1 watchdog 告警, 原则#31 bsky 同 shape 一并修); (MR-9) 三测试类 ProxyStats 直写真实 ~/proxy_stats.json 污染隔离. 50 新单测含真跨进程互斥/fail-open 不阻塞/8并发 CLI 8/8 全保留确定性/10并发 audit 链完整; 4轮 sabotage 首轮抓出自己 2 个弱守卫 (docstring 咬守卫+LOCK_UN 满足泛断言) 修强后全 fire. 147/0/5231 / governance 全绿 / VERSION 0.37.9.98",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-07-03",
-      "what": "V37.9.237 审计 finding C 安全半边: status.json/kb index.json 原子写从固定 tmp 名改唯一 tmp (pid 后缀). 根因: 固定 .tmp 下 ~40 并发写者交错损坏→os.replace 发布垃圾→读者 JSONDecodeError→fallback DEFAULT_STATUS 系统失忆; docstring 支持并发安全是 fail-plausible 声明. 修 status_update/kb_dedup/kb_autotag 三处 + finally 清理 orphan + 诚实 docstring. 诚实范围: 只做损坏安全半边 (降级为 last-writer-wins 良性丢更新), 不做跨写者锁 (需谨慎锁设计防死锁, 登记). 14 新单测含真子进程并发+sabotage 反向验证. 5203 tests / governance EXIT=0 / VERSION 0.37.9.97",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -263,13 +263,13 @@
   "quality": {
     "security_score": 95,
     "test_count": 5469,
-    "last_regression": "2026-07-07 15:47 pass",
+    "last_regression": "2026-07-07 16:37 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-07-07 15:47",
+    "security_score_time": "2026-07-07 16:37",
     "test_suites": 154,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
-    "version": "0.37.9.106",
+    "version": "0.37.9.107",
     "observer": {}
   },
   "incidents": [
@@ -334,7 +334,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-07-07: (1) H1-C/C1 第二实例选型记录 + G2 门控 Linux 实证 (2) 新增第 12 provider GLM-5.2 Coding (coding 按需, env key 守安全, declared 待 Mac Mini E2E)。🔴 Mac Mini 待用户: 设 GLM5_API_KEY env + 同步; primary 仍 doubao_21(非 Qwen3)。",
+  "focus": "2026-07-07 收工: (1) H1-C/C1 第二实例 PUSH-only 选型 + G2 门控 Linux 实证(可迁移性从声明→实证) (2) 新增第 12 provider GLM-5.2 coding(Volcengine Ark, feature_verified text/streaming/tool_calling, json_mode 不支持) + code_assist.sh 助手 + heredoc bug 根治。primary 仍 doubao_21。VERSION 0.37.9.102→0.37.9.107。",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
@@ -348,6 +348,8 @@
   "session_context.unfinished": [
     "【doubao_21 唯一 primary · B1 flip 已上线 (2026-07-02) + V37.9.223 四家 config-ready】现态: PROVIDER=doubao_21 无 FAST_PROVIDER, 批量 thinking-off 走 B1 注入 (实测比 qwen 分流更快, Ark 托管云>自建 W8A8), PA thinking-on。V37.9.223 全部 doubao/deepseek 四家同款 reasoning_off_body (任何切换独立成 primary): doubao_21/deepseek_full E2E 实测 + deepseek 量化探针实测网关接受 (200/reasoning_tokens:0/无400, non-reasoning故no-op无害) + doubao 2.0 家族推断 (同 Ark API, 直连探针受 env 位置阻塞可选——ARK_API_KEY 在 adapter plist 非 .env_shared)。剩: (1) 🔴 合并 PR + Mac Mini git reset 同步 (V37.9.223 声明在切换前 inert, 无需重启) (2) doubao_21 观察 N 天 cron 周期 → 升 production_observed (3) follow-up: B1 注入经 fb_clean (adapter.py:695) 传播到 fallback 链 — qwen 兜底不认 thinking 潜在 400 边缘, per-provider fallback 注入过滤候选 (4) 稳定后 qwen 从 FALLBACK_ORDER 移除缩链 (日落法)。回滚: PROVIDER=qwen 或 FAST_PROVIDER=qwen 恢复 A2 (随时可用)",
     "【deepseek_full · 第一优先级 fallback 生产观察中 (Phase 2 进行时)】V37.9.218/222 后 deepseek_full 已在 fallback 链首位 [deepseek_full,doubao,deepseek,qwen]; 原「迁移 Qwen3 赢家」叙事已被 doubao_21-唯一-primary 取代 (deepseek_full 定位=最强文本 fallback 非 primary 候选)。剩: (1) 真 fallback 接管观察 → verified_fallback flip + 升 production_observed (2) streaming 声明 True 未单测 (如需补 curl) (3) 限制不变: 无视觉(400)/json_mode 围栏非严格/推理吃 token 预算 (4) 🔴 安全: 满血/量化/ARK 明文 key 对话出现过, 强烈建议轮换",
-    "【H1-C / C2 (Q4, gated) · C1 选型已完成 V37.9.253】第二实例最小闭环真跑 = 非 Mac Linux host 上 E2E 绿: minimal_runtime + governance cron + 1-2 内容 job(arxiv/dblp) 真抓取→LLM→Discord + cron+nohup 重启存活。选型=PUSH-only 纯推送(绕 Gateway/WhatsApp/sessions), 见 docs/second_instance_poc_selection_20260707.md §5 验收标准。C2 前置(§3, 均可枚举无未知): 持久 Linux host(VPS/容器) + 可达 LLM 端点(REMOTE_BASE_URL) + Discord bot token/channel(DISCORD_CH_*) + 唯一真需新建=Linux bootstrap 脚本(装 py 依赖+起 adapter/proxy nohup+写 crontab, 并行 install_openclaw_macmini.sh)。C3=portability report EN/ZH 证据型文章(对两次评审可迁移性批评终局回答)。"
+    "【H1-C / C2 (Q4, gated) · C1 选型已完成 V37.9.253】第二实例最小闭环真跑 = 非 Mac Linux host 上 E2E 绿: minimal_runtime + governance cron + 1-2 内容 job(arxiv/dblp) 真抓取→LLM→Discord + cron+nohup 重启存活。选型=PUSH-only 纯推送(绕 Gateway/WhatsApp/sessions), 见 docs/second_instance_poc_selection_20260707.md §5 验收标准。C2 前置(§3, 均可枚举无未知): 持久 Linux host(VPS/容器) + 可达 LLM 端点(REMOTE_BASE_URL) + Discord bot token/channel(DISCORD_CH_*) + 唯一真需新建=Linux bootstrap 脚本(装 py 依赖+起 adapter/proxy nohup+写 crontab, 并行 install_openclaw_macmini.sh)。C3=portability report EN/ZH 证据型文章(对两次评审可迁移性批评终局回答)。",
+    "【GLM-5.2 chat-界面路由 · 可选 follow-up · 用户有需求未落地】用户想在 WhatsApp/Discord 聊天里用 GLM-5.2(现只能 code_assist.sh CLI / ?provider= API)。方案 A(推荐): proxy 加前缀路由钩子(如 'glm ' 前缀 → strip tools + ?provider=glm5_coding, 复用 [NO_TOOLS]+ROUTER_ENFORCE), WhatsApp/Discord 通用最小改动。方案 B: Discord #glm-coding 频道→GLM agent(OpenClaw config, 限 Discord)。诚实结论(已答用户): 方案 B 是 GLM 聊天顾问非 vibe-coding agent(bridge 无 repo 文件/shell 工具 + 12工具/2调用上限 + GLM grounding 弱 → 自主改仓库风险高); vibe coding 本项目仍用 Claude Code/Opus。待用户决定是否建方案 A。",
+    "【🔴 GLM ark key 轮换 + GLM-5.2 provider 生产化 · Mac Mini 待用户】(a) ark key(对话多次出现)功能验证完毕, 用户已声明会轮换/删除 → 现在可做(provider 只从 env 读, 轮换后更新 .env_shared+plist)。(b) GLM-5.2 已在 .env_shared 设 GLM5_API_KEY+GLM5_ENDPOINT_ID; 若要 ?provider=glm5_coding 经 bridge 生效需 adapter/proxy plist 也设这两 env + ROUTER_ENFORCE=on。(c) 分支 claude/daily-standup-x3bp16 领先 main 多个 commit(GLM 全链+C1), 待合并到 main(用户开 PR 或授权我开)。"
   ]
 }
