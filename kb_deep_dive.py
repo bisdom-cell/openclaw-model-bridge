@@ -269,6 +269,11 @@ def load_recent_analyzed_links(deep_dive_dir, days=DEDUP_WINDOW_DAYS, today=None
         return links
     if today is None:
         today = datetime.now()
+    # V37.9.260: floor 到午夜 — file_date 按 %Y-%m-%d 解析为 00:00，若 today 带
+    # 当前时间分量（deep_dive 22:30 HKT 跑）则有效窗口缩到 N-1 天 +22.5h，恰好
+    # N 个日历天前的论文 (file_date=午夜 < cutoff=带时间) 逃逸 ban → 被重演分析。
+    # (2026-07-08 daily_observer deep_dive_repeat: 06-20 论文在 07-04 22:30 逃逸)
+    today = today.replace(hour=0, minute=0, second=0, microsecond=0)
     cutoff = today - timedelta(days=days)
     for name in os.listdir(deep_dive_dir):
         if not name.endswith(".md"):

@@ -205,6 +205,18 @@ class TestExtractRecentThemes(unittest.TestCase):
         dates = [t["date"] for t in themes]
         self.assertEqual(dates, ["2026-05-12", "2026-05-11", "2026-05-10"])
 
+    def test_v37_9_260_boundary_with_time_of_day(self):
+        """V37.9.260: today 带时间分量时，恰 14 日历天前的主题仍在窗口内（镜像
+        kb_deep_dive off-by-one 修复，原则 #31 全量同步）。修复前：dream 03:00 跑
+        (今日带时间) → 恰 14 天前主题逃逸 ban → 可能重复。"""
+        # today 05-14 22:30（带时间），14 日历天前 = 04-30
+        self._write_dream("2026-04-30", "控制平面演进")
+        themes = extract_recent_themes(
+            self.tmpdir, days=14, today=datetime(2026, 5, 14, 22, 30, 0))
+        dates = [t["date"] for t in themes]
+        self.assertIn("2026-04-30", dates,
+                      "恰 14 日历天前的主题必须在窗口内（今日归一化午夜）")
+
     def test_missing_dir_returns_empty(self):
         self.assertEqual(extract_recent_themes("/nonexistent/path"), [])
 
