@@ -7,7 +7,7 @@
 | **核心服务** | Gateway | WhatsApp 接入、媒体存储、工具执行、会话管理 | npm 全局 (:18789) |
 | | Tool Proxy | 工具过滤(24→12)、自定义工具拦截、图片 base64 注入、SSE 转换、SLO 采集 | `tool_proxy.py` + `proxy_filters.py` (:5002) |
 | | Adapter | 多 Provider 转发、认证、能力感知多模态路由、Fallback 降级 | `adapter.py` (:5001) |
-| **LLM Provider (11)** | Doubao Seed 2.1 Pro (主力) | 文本+视觉单模型多模态 + reasoning，Volcengine Ark 旗舰 (primary 由 PROVIDER env 配置，V37.9.222 flip) | `providers.d/doubao_seed_21_provider.py` |
+| **LLM Provider (12)** | Doubao Seed 2.1 Pro (主力) | 文本+视觉单模型多模态 + reasoning，Volcengine Ark 旗舰 (primary 由 PROVIDER env 配置，V37.9.222 flip) | `providers.d/doubao_seed_21_provider.py` |
 | | Qwen3-235B + Qwen2.5-VL-72B | 文本 262K / 图片理解，能力感知路由 (fallback 兜底) | `providers.py` + `adapter.py` |
 | | Gemini 2.5 (已退役出链) | geo-block，保留注册未在 fallback 链 (V37.9.129) | GEMINI_API_KEY |
 | | OpenAI / Claude | 手动切换备选 | 环境变量 PROVIDER= |
@@ -16,6 +16,7 @@
 | | GLM-5 (Zhipu) | 744B MoE + GLM-5V-Turbo | GLM_API_KEY |
 | | **Doubao Seed 2.0 Pro** | Volcengine Ark，reasoning model，V37.9.52 plugin 接入 | `providers.d/doubao_provider.py` (ARK_API_KEY) |
 | | **DeepSeek-V4-Pro** | 满血版(ai-tokenhub, R1 reasoning, Qwen3 迁移候选) + 量化版(self-host, PENDING)，V37.9.201/204 plugin 接入 | `providers.d/deepseek*_provider.py` |
+| | **GLM-5.2 coding** | Volcengine Ark 托管，coding 场景按需调用(`?provider=glm5_coding`)，feature_verified text/streaming/tool_calling，V37.9.254 plugin 接入 | `providers.d/glm5_coding_provider.py` (GLM5_API_KEY) |
 | **自定义工具** | search_kb | 混合检索：语义搜索(embedding) + 关键词补充 + source/时间过滤 → followup LLM 解读 | `proxy_filters.py` 注入 |
 | | data_clean | 数据清洗：7 种操作(dedup/trim/fix_dates 等)、5 种格式(CSV/JSON/Excel 等) | `data_clean.py` |
 | **本地 AI** | KB RAG 语义搜索 | sentence-transformers 384 维 50+ 语言，零 API 调用 | `local_embed.py` + `kb_embed.py` + `kb_rag.py` |
