@@ -1,6 +1,6 @@
 {
-  "updated": "2026-07-08 02:31:16",
-  "updated_by": "claude_code",
+  "updated": "2026-07-08 04:48:32",
+  "updated_by": "full_regression",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-07-08",
+      "what": "V37.9.261 observer 降级桶去 fail-plausible (用户「先核实」驱动)。V37.9.260 finding#1 我原写「PDF 抓取失败=fetch-path 非付费墙」被用户纠正,Mac Mini grep 实证: 主体是 no PDF URL derivable(无 OA 版=结构性付费墙)~29 次其中 1 篇 ACM DOI 独占 20 次(V37.9.233 血案同篇),证 ban-list 修复(V37.9.260)是最高杠杆且充分。残余 ScienceDirect/ACM/Elsevier 结构性闭源接受(原则#8)。唯一 dev 项: observer 桶名「PDF 抓取失败」把结构性无 OA(接受)与 fetch 错误(可修)混成一桶=轻度 fail-plausible → 拆「无 OA 全文(结构性)」vs「PDF 抓取错误(HTTP/超时)」+注释修正。test+2+5 断言更新,sabotage 有效。VERSION 0.37.9.108→0.37.9.109。元: 宪法级#1 observer 自己的确定性分类桶名都会 conflate,印证论文§5.2。",
+      "by": "claude_code"
+    },
     {
       "date": "2026-07-08",
       "what": "V37.9.260 observer 驱动修复 — deep_dive/dream ban-list off-by-one 边界 bug。用户转发 06:30 daily_observer(机械化人眼 宪法级#1)自评(5.0/5)3 findings 逐条 grounded 分诊。finding#2(MED dev-fixable 本版修): deep_dive_repeat 报链接 06-20/07-04 恰14日历天重复分析,读代码确认真 off-by-one: load_recent_analyzed_links 的 today=datetime.now() 带时间分量(22:30 HKT 跑)+file_date 午夜 → 有效窗口缩到13d+22.5h,恰14天前论文逃逸 ban。修=today 归一化午夜(纯日历天比较)。原则#31 全量同步: kb_dream_helpers.extract_recent_themes 同款 pattern 一并修。守卫 test_kb_deep_dive+4(血案回归 22:30 仍 ban+端到端 block+15天超窗口不误 ban+marker)+test_kb_dream+1,sabotage 反向验证有效(移除 floor→2 边界测试 FAIL)。finding#1(77%降级)=Mac-Mini-gated(fetch-path 失败根因需真错误,不盲修)。finding#3(PwC/OpenReview)=V37.9.252 已诊断 observer 幻觉 NO-ACTION。VERSION 0.37.9.107→0.37.9.108。",
@@ -173,11 +178,6 @@
       "date": "2026-07-03",
       "what": "V37.9.241 暗测试三连破案+对账守卫机器化: 补 -m unittest 模块形式口径后抓到 3 个从未注册 full_regression 的测试, 其中 2 个正在静默失败 (test_engine 3 fail = V37.9.91 加 expert_escalate 后期望腐烂 1 个月无人知 / test_notify_activity 1 fail = 代码改 _MRD 注入后 literal 守卫 stale) = 未注册测试必然腐烂的活证 (V37.9.130 harvest 家族第 2/3/4 实例, 4 次演出达机器化门槛). 修期望+注册三套件+新 dark-test 对账守卫 (枚举全集 vs 注册清单, 自指含守卫自己, sabotage 3 FAIL). 另: CLAUDE.md Phase 3 表 2 行 stale 修正 (filter_tools/fix_tool_args 实际 V37.8.14 已引擎驱动) + kb_evening/kb_deep_dive DATE 统一 HKT (V37.9.213 登记) + kb_review OPENCLAW_BIN 死变量退役 (V37.9.145 登记). 152/0/5439 (+189) / VERSION 不变",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-07-03",
-      "what": "V37.9.240 observer deep_dive 跨天重复检测 — V37.9.233 ban-list 的回归探测器 (item 23c observer 候选信号兑现): ban-list FAIL-OPEN (格式漂移→空集=无 ban) 会静默失效数周, observer 端独立检测 14 天窗口内重复 link (相邻日期对判定, >14 天=合法再分析不误报) → MED deep_dive_repeat 告警+报告段仅违规时出现零噪声. 10 新单测含血案回归/跨模块窗口一致性 (==kb_deep_dive.DEDUP_WINDOW_DAYS)/MR-8 跨文件 link 契约 (解析正则与上游写入格式机器绑定). sabotage 4 FAIL 全 fire. 148/0/5250 / VERSION 0.37.9.100",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -223,7 +223,7 @@
     "kb_stats": "240 notes, 16 today, 1805KB sources",
     "stale_jobs": "all_ok",
     "last_refresh": "2026-04-08 13:00",
-    "security_score": "95/100 (95.0%)",
+    "security_score": "98/100 (98.0%)",
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB"
   },
   "session_context": {
@@ -261,15 +261,15 @@
     "blocked_on": ""
   },
   "quality": {
-    "security_score": 95,
-    "test_count": 5474,
-    "last_regression": "2026-07-07 16:37 pass",
+    "security_score": 98,
+    "test_count": 5476,
+    "last_regression": "2026-07-08 04:48 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-07-07 16:37",
+    "security_score_time": "2026-07-08 04:48",
     "test_suites": 154,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
-    "version": "0.37.9.107",
+    "version": "0.37.9.109",
     "observer": {}
   },
   "incidents": [
