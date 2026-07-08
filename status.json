@@ -1,6 +1,6 @@
 {
-  "updated": "2026-07-08 06:57:19",
-  "updated_by": "full_regression",
+  "updated": "2026-07-08 08:33:51",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-07-08",
+      "what": "V37.9.263 回退 V37.9.262 OpenAlex fallback (用户「回退」)。Mac Mini 端到端实测 fetch_pdf_text(原始DOI) 对 7 篇实际降级论文=真实全文恢复 0/7: 2 真闭源(OpenAlex 也无 OA)+MDPI 反爬 403+SciTePress/ACM×3 是 landing page 非 PDF。两发现: 捞回 5/7 完全误导(4/5 是 oa_url 兜底的 DOI landing page)+当前实现净负(landing page 从直接 no-PDF-derivable 变成多做无用 fetch→403)。OpenAlex 打不穿 residual 两堵墙(真闭源+反爬)。真杠杆是 ban-list(V37.9.260)。用户原问接受现实 or 其他办法=接受现实。移除 2 函数+11 单测,resolve 回 S2-only。net runtime 机制 -1(退役外部 API 依赖,日落法)。元: 我最初推荐先测,用户选现在加,measure-now 实测 0 证明先测直觉对;先核实纠正三连过度断言。VERSION 0.37.9.110→0.37.9.111。",
+      "by": "claude_code"
+    },
     {
       "date": "2026-07-08",
       "what": "V37.9.262 deep_dive OA 解析加第二源 OpenAlex(用户选「现在就加」)。数据驱动: V37.9.261 Mac Mini grep 揭示降级主体是 no PDF URL derivable(S2 openAccessPdf 为 null),而 S2 OA 覆盖 < Unpaywall/OpenAlex——很多付费墙论文有合法免费副本(作者 preprint/机构库/PMC)只是 S2 没索引。加 _openalex_fetch+_openalex_lookup_oa_pdf,resolve_oa_pdf_url DOI 分支 S2 无 OA→OpenAlex 短路。选 OpenAlex(OA 语料源自 Unpaywall 同覆盖但零配置,免费无 key)。真闭源仍 None→abstract_only 诚实(不爬付费墙)。test+11,sabotage 有效。VERSION 0.37.9.109→0.37.9.110。正解: 接受真闭源+合法补全 S2 覆盖缺口两者都对。",
@@ -173,11 +178,6 @@
       "date": "2026-07-04",
       "what": "V37.9.243 门控收敛日: doubao_21-primary 现态 prose 一致性收敛 (V37.9.222 flip 后漂移复活: CLAUDE L9/L116 + README L71/L439 + FEATURES L10-11 + GUIDE 降级段退役 FALLBACK_PROVIDER=gemini/Gemini 2.5 Flash 误导示例→FALLBACK_ORDER 现实 + qwen/doubao tier_evidence 加时间边界, tier 不变) + unfinished 归账 ([0] 审计 9 findings / [23] triage 两巨型条目压缩为 Mac Mini 被动验证清单). 机制优先写法抗未来 flip whiplash (V37.9.220 教训). 两轮 153/0/5440 全绿 / 治理 91/91 / VERSION 0.37.9.101 不变",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-07-03",
-      "what": "V37.9.242 adapter 非 chat 端点回写收编 _deliver (V37.9.231 ⑦ 登记边界闭合): /health + GET passthrough + 非 chat POST 共 5 回写全走 _deliver, client 断开只记 CLIENT GONE 不再 502-to-dead-socket 二次异常泄漏 http.server 日志. 强不变式守卫: 完成态回写恰 9 个 _deliver + 裸 send_response 仅 _send_json 内 1 处 (regex 计数锁死). sabotage 3 FAIL + 行为级探针 (真 _send_json+_deliver exec, client-gone 零泄漏). 152/0/5440 / VERSION 0.37.9.101. 今天可解决待办全部清零",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -262,7 +262,7 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 5487,
+    "test_count": 5476,
     "last_regression": "2026-07-08 06:56 pass",
     "coverage_pct": 0,
     "security_score_time": "2026-07-08 06:56",
