@@ -213,6 +213,10 @@ def extract_recent_themes(
         days = 1
     if today is None:
         today = datetime.now()
+    # V37.9.260: floor 到午夜 — fdate 按 (Y,M,D) 构造为 00:00，若 today 带当前时间
+    # 分量则有效窗口缩到 N-1 天+，恰好 N 个日历天前的主题逃逸 ban（镜像 kb_deep_dive
+    # load_recent_analyzed_links 同款 off-by-one，原则 #31 全量同步）。
+    today = today.replace(hour=0, minute=0, second=0, microsecond=0)
     cutoff = today - timedelta(days=days)
 
     themes: list[dict] = []

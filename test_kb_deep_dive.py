@@ -1337,5 +1337,68 @@ class TestV37_9_233_AnalyzedBanList(unittest.TestCase):
             self.assertIn("V37.9.233", f.read())
 
 
+class TestV37_9_260_BanListBoundary(unittest.TestCase):
+    """V37.9.260: ban-list off-by-one 边界修复（today 归一化午夜）。
+
+    血案 (2026-07-08 daily_observer deep_dive_repeat MED): 链接
+    doi.org/10.1145/3774935.3806169 在 06-20 与 07-04 (恰 14 天) 被重复分析。
+    根因: load_recent_analyzed_links 的 today=datetime.now() 带当前时间分量
+    (deep_dive 22:30 HKT 跑) 而 file_date 是午夜 → 恰 14 个日历天前的论文
+    (file_date 午夜 < cutoff 带时间) 逃逸 ban → 有效窗口缩到 13d+22.5h。
+    """
+
+    _LINK = "https://doi.org/10.1145/3774935.3806169"
+
+    def _write_dive(self, d, date_str, link):
+        with open(os.path.join(d, f"{date_str}.md"), "w", encoding="utf-8") as f:
+            f.write(f"---\ndate: {date_str}\ntype: deep_dive\nmode: abstract_only\n"
+                    f"source_id: dblp\nsource_label: DBLP\nstars: 4\n"
+                    f"link: {link}\n---\n\n# 分析\n")
+
+    def test_exact_window_boundary_banned_despite_time_of_day(self):
+        """血案回归: 恰 14 天前的论文在 22:30 跑时必须仍被 ban（修复前逃逸）。"""
+        import tempfile
+        from datetime import datetime
+        with tempfile.TemporaryDirectory() as td:
+            # deep_dive 生产 22:30 HKT 跑 → today 带时间分量
+            today = datetime(2026, 7, 4, 22, 30, 0)
+            self._write_dive(td, "2026-06-20", self._LINK)  # 恰 14 个日历天前
+            links = m.load_recent_analyzed_links(td, today=today)
+            self.assertIn(m._normalize_link(self._LINK), links,
+                          "恰 14 日历天前的论文必须在 ban 集内（今日归一化午夜）")
+
+    def test_boundary_end_to_end_repeat_blocked(self):
+        """端到端: 恰 14 天前分析过的链接今天 22:30 再入候选 → 被 ban。"""
+        import tempfile
+        from datetime import datetime
+        with tempfile.TemporaryDirectory() as td:
+            today = datetime(2026, 7, 4, 22, 30, 0)
+            self._write_dive(td, "2026-06-20", self._LINK)
+            recent = m.load_recent_analyzed_links(td, today=today)
+            cands = [
+                {"title": "重复论文", "link": self._LINK, "stars": 5, "source_id": "dblp"},
+                {"title": "新论文", "link": "https://arxiv.org/abs/2607.99999",
+                 "stars": 4, "source_id": "arxiv_monitor"},
+            ]
+            kept, banned = m.filter_recently_analyzed(cands, recent)
+            self.assertEqual(banned, 1)
+            self.assertEqual([c["title"] for c in kept], ["新论文"])
+
+    def test_beyond_window_still_excluded_with_time_of_day(self):
+        """15 天前（超窗口）即便 today 带时间仍正确排除（不误 ban）。"""
+        import tempfile
+        from datetime import datetime
+        with tempfile.TemporaryDirectory() as td:
+            today = datetime(2026, 7, 4, 22, 30, 0)
+            self._write_dive(td, "2026-06-19", self._LINK)  # 15 个日历天前
+            links = m.load_recent_analyzed_links(td, today=today)
+            self.assertEqual(links, set(), ">14 日历天前不进 ban 集")
+
+    def test_v37_9_260_marker(self):
+        with open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                               "kb_deep_dive.py"), encoding="utf-8") as f:
+            self.assertIn("V37.9.260", f.read())
+
+
 if __name__ == "__main__":
     unittest.main()
