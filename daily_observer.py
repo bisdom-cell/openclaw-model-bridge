@@ -531,6 +531,13 @@ DEEP_DIVE_REPEAT_WINDOW_DAYS = 14
 # 假阳性，两日期均早于 07-03，ban-list 当时尚未存在无法阻止）。语义：pair (a,b) 中
 # 较晚的 re-analysis b 须 >= 此日，ban-list 那时才 active、才可能是真失效。
 _BAN_LIST_ACTIVE_SINCE = datetime.strptime("2026-07-03", "%Y-%m-%d").date()
+# V37.9.264（observer 自评 2026-07-09 finding #2 再修正）: ban-list 部署于 07-03
+# 但有 off-by-one 边界 bug（`today=datetime.now()` 带时间分量致【恰好 N 日历天前】
+# 的论文逃逸 ban），直到 V37.9.260（07-08）才修。故 ban-list 对**恰边界**（gap ==
+# REPEAT_WINDOW）只从 07-08 起可靠；对**非边界**（gap < REPEAT_WINDOW）自 07-03 起
+# 就正常工作（off-by-one 只影响恰边界）。06-20/07-04 pair（gap=14, 较晚日 07-04）
+# 正是 buggy 窗口内的已修边界逃逸，不该报为「当前疑似失效」。非边界真失效仍从 07-03 检出。
+_BAN_LIST_BOUNDARY_FIX = datetime.strptime("2026-07-08", "%Y-%m-%d").date()
 # 契约 = kb_deep_dive.build_deep_dive_markdown 写入的 frontmatter `link: <url>`
 # 行（跨文件 MR-8 契约由测试守卫绑定，防上游改格式后本检测静默失效）。
 _DD_LINK_RE = re.compile(r"^link: (.+)$", re.MULTILINE)
@@ -679,8 +686,14 @@ def scan_deep_dive_modes(kb_dir, target_date,
                 db = datetime.strptime(b, "%Y-%m-%d").date()
             except ValueError:
                 continue
-            if ((db - da).days <= DEEP_DIVE_REPEAT_WINDOW_DAYS
-                    and db >= _BAN_LIST_ACTIVE_SINCE):
+            gap = (db - da).days
+            # V37.9.264: 恰边界（gap == window）的 ban-list 到 V37.9.260(07-08) 才
+            # 可靠；非边界（gap < window）自 07-03 起就正常。据此选 active_since，
+            # 只让「当前可靠 ban-list 下的真失效」触发，不报已修的 off-by-one 逃逸。
+            active_since = (_BAN_LIST_BOUNDARY_FIX
+                            if gap == DEEP_DIVE_REPEAT_WINDOW_DAYS
+                            else _BAN_LIST_ACTIVE_SINCE)
+            if gap <= DEEP_DIVE_REPEAT_WINDOW_DAYS and db >= active_since:
                 stats["repeats"].append({"link": lk, "dates": ds})
                 break
 

@@ -1,5 +1,5 @@
 {
-  "updated": "2026-07-09 07:43:34",
+  "updated": "2026-07-09 08:51:55",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-07-09",
+      "what": "V37.9.264 observer deep_dive_repeat 边界感知去误报。07-09 observer 仍报 06-20/07-04 ban-list 疑似失效(与 07-08 同 pair)。好消息: V37.9.261 降级桶拆分已生效(报告显示无 OA 结构性16/PDF 抓取错误5/HTML3=自区分接受 vs investigate)。根因: V37.9.252 把 ACTIVE_SINCE 设 07-03(ban-list 部署日)时不知 off-by-one bug, 该 bug 到 V37.9.260(07-08)才修, 07-04 逃逸是已修历史非当前失效。修: 加 _BAN_LIST_BOUNDARY_FIX=07-08, 恰边界(gap==14)从 07-08 检/非边界从 07-03 检(off-by-one 只影响恰边界)。不 blanket bump 避免误伤非边界真失效测试。test+2, sabotage 有效, 既有 4 detector 测试不破坏。VERSION 0.37.9.111→0.37.9.112。",
+      "by": "claude_code"
+    },
     {
       "date": "2026-07-09",
       "what": "门控收敛日开工: 健康基线全绿(154 suites/0 fail/5476 tests, chaos 10/10 全抓, governance 91/91 EXIT=0, security 95, VERSION 0.37.9.111). OpenClaw hold 沿用(latest stable 仍 2026.6.11 无新版, 第六次评估决策不变). Grounded 审计验证两复发 bug 类闭合: (1) V37.9.263 OpenAlex 回退干净(代码/测试/docstring 零悬挂引用, 仅 changelog 保留 point-in-time V37.9.153 纪律); (2) 原则#31 完整性核实: V37.9.260 off-by-one 修复(today=datetime.now() 带时间分量致恰N日历天前逃逸 ban)覆盖全部阈值风格消费者, 无第三遗漏——kb_deep_dive/kb_dream_helpers 已 floor 午夜, expert_escalation/daily_observer 用 .date()(无时间分量), kb_review/radar/evening 用精确日期字符串集合成员(off-by-one 结构上不可能); observer 降级分桶跨文件契约与回退后 kb_deep_dive reason 字符串仍一致. 27 项 unfinished 全 gated(Mac Mini 被动验证/in-review/deferred), 按日落法#34+V37.9.153 不制造 churn, 仅更新 stale unfinished(OA复核 thesis 被 V37.9.261/263 超越标记闭合). 无代码变更 VERSION 不变.",
@@ -173,11 +178,6 @@
       "date": "2026-07-05",
       "what": "V37.9.245 CLAUDE.md changelog 第二轮归档 (门控收敛日): 每-session 必读 660KB→332KB (-50%), 78 版冻结历史 (V37.9.206→V37.9.130 含 158-hotfix) 原子脚本移入 docs/changelog.md 归档表 (行数守恒 129+190=51+268 零丢失), L282 头注去数字化退役计数漂移源 (「近 ~38 版」已 stale 至 116 行→只标边界 V37.9.207+). 归档前全量只读预检: 治理 yaml 精确解析仅 1 个 file:CLAUDE.md check (原则 #27 区不受影响) + 8 个引用测试全不依赖被归档行 + 边界文本无外部引用. 开工基线+收工两轮 full_regression 153/0/5440 全绿 / 治理 91/91 EXIT=0 / 三 doc-drift 无漂移 / VERSION 0.37.9.101 不变 (纯 doc 移动, V37.9.167 谱系第二轮)",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-07-04",
-      "what": "V37.9.244 OpenClaw Gateway 第六次升级评估 (用户要求, 仅评估零升级动作): 4.27→6.11 深评 = 继续 hold。5 版本 tarball 实证三结构性迁移 (M1 WhatsApp/Discord 插件外部化 5.2 起核心包移除 / M2 状态 SQLite 渐进迁移 6.11 仍进行中 cron+auth 已迁含 cleanup / M3 Gateway HTTP 栈换 Proxyline) + 🔴 回滚单向门 (30秒无损回滚不复存在, 凭据丢失→WhatsApp 重链撞 408 史) + Node 门槛升 ≥22.19。三收敛判据开窗 (连续 2 stable 无 SQLite 迁移 PR / 周稳定 ≤1 / node ≥22.19)。eval doc 新增 §17 + LAST_EVAL_DATE 重置 2026-07-04",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -263,7 +263,7 @@
   },
   "quality": {
     "security_score": 95,
-    "test_count": 5476,
+    "test_count": 5478,
     "last_regression": "2026-07-08 08:47 pass",
     "coverage_pct": 0,
     "security_score_time": "2026-07-08 08:47",

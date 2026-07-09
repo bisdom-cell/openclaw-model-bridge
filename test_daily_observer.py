@@ -3127,6 +3127,32 @@ class TestV37_9_240_DeepDiveRepeat(unittest.TestCase):
             self.assertEqual(len(s["repeats"]), 1,
                              "较晚 re-analysis 07-05 在 ban-list active 期，是真失效必检出")
 
+    def test_boundary_escape_pre_fix_not_flagged(self):
+        """V37.9.264: 恰边界（gap==14）逃逸发生在 off-by-one 修复(07-08)之前 →
+        是已修的历史 bug 不是当前失效, 不报（血案 06-20/07-04）。"""
+        from datetime import date
+        with tempfile.TemporaryDirectory() as td:
+            self._mk_kb(td, [
+                ("2026-06-20.md", "https://doi.org/10.1145/3774935.3806169"),
+                ("2026-07-04.md", "https://doi.org/10.1145/3774935.3806169"),
+            ])
+            s = obs.scan_deep_dive_modes(td, date(2026, 7, 9))
+            self.assertEqual(
+                s["repeats"], [],
+                "恰 14 天边界逃逸(07-04)早于 V37.9.260 边界修复(07-08)=已修历史, 不报")
+
+    def test_boundary_repeat_after_fix_still_flagged(self):
+        """V37.9.264: 恰边界重复的较晚日 >= 07-08(可靠 ban-list) = 真回归必检出。"""
+        from datetime import date
+        with tempfile.TemporaryDirectory() as td:
+            self._mk_kb(td, [
+                ("2026-06-25.md", "https://doi.org/10.1145/x"),
+                ("2026-07-09.md", "https://doi.org/10.1145/x"),  # 恰 14 天, 07-09 >= 07-08
+            ])
+            s = obs.scan_deep_dive_modes(td, date(2026, 7, 10))
+            self.assertEqual(len(s["repeats"]), 1,
+                             "07-08 后的恰边界重复是可靠 ban-list 下的真失效, 必检出")
+
     def test_legit_reanalysis_after_ban_window_not_flagged(self):
         """>14 天的重复 = ban 过期后合法再分析，绝不误报。"""
         from datetime import date
