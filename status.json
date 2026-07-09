@@ -1,5 +1,5 @@
 {
-  "updated": "2026-07-08 10:58:50",
+  "updated": "2026-07-09 07:43:34",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-07-09",
+      "what": "门控收敛日开工: 健康基线全绿(154 suites/0 fail/5476 tests, chaos 10/10 全抓, governance 91/91 EXIT=0, security 95, VERSION 0.37.9.111). OpenClaw hold 沿用(latest stable 仍 2026.6.11 无新版, 第六次评估决策不变). Grounded 审计验证两复发 bug 类闭合: (1) V37.9.263 OpenAlex 回退干净(代码/测试/docstring 零悬挂引用, 仅 changelog 保留 point-in-time V37.9.153 纪律); (2) 原则#31 完整性核实: V37.9.260 off-by-one 修复(today=datetime.now() 带时间分量致恰N日历天前逃逸 ban)覆盖全部阈值风格消费者, 无第三遗漏——kb_deep_dive/kb_dream_helpers 已 floor 午夜, expert_escalation/daily_observer 用 .date()(无时间分量), kb_review/radar/evening 用精确日期字符串集合成员(off-by-one 结构上不可能); observer 降级分桶跨文件契约与回退后 kb_deep_dive reason 字符串仍一致. 27 项 unfinished 全 gated(Mac Mini 被动验证/in-review/deferred), 按日落法#34+V37.9.153 不制造 churn, 仅更新 stale unfinished(OA复核 thesis 被 V37.9.261/263 超越标记闭合). 无代码变更 VERSION 不变.",
+      "by": "claude_code"
+    },
     {
       "date": "2026-07-08",
       "what": "V37.9.263 回退 V37.9.262 OpenAlex fallback (用户「回退」)。Mac Mini 端到端实测 fetch_pdf_text(原始DOI) 对 7 篇实际降级论文=真实全文恢复 0/7: 2 真闭源(OpenAlex 也无 OA)+MDPI 反爬 403+SciTePress/ACM×3 是 landing page 非 PDF。两发现: 捞回 5/7 完全误导(4/5 是 oa_url 兜底的 DOI landing page)+当前实现净负(landing page 从直接 no-PDF-derivable 变成多做无用 fetch→403)。OpenAlex 打不穿 residual 两堵墙(真闭源+反爬)。真杠杆是 ban-list(V37.9.260)。用户原问接受现实 or 其他办法=接受现实。移除 2 函数+11 单测,resolve 回 S2-only。net runtime 机制 -1(退役外部 API 依赖,日落法)。元: 我最初推荐先测,用户选现在加,measure-now 实测 0 证明先测直觉对;先核实纠正三连过度断言。VERSION 0.37.9.110→0.37.9.111。",
@@ -173,11 +178,6 @@
       "date": "2026-07-04",
       "what": "V37.9.244 OpenClaw Gateway 第六次升级评估 (用户要求, 仅评估零升级动作): 4.27→6.11 深评 = 继续 hold。5 版本 tarball 实证三结构性迁移 (M1 WhatsApp/Discord 插件外部化 5.2 起核心包移除 / M2 状态 SQLite 渐进迁移 6.11 仍进行中 cron+auth 已迁含 cleanup / M3 Gateway HTTP 栈换 Proxyline) + 🔴 回滚单向门 (30秒无损回滚不复存在, 凭据丢失→WhatsApp 重链撞 408 史) + Node 门槛升 ≥22.19。三收敛判据开窗 (连续 2 stable 无 SQLite 迁移 PR / 周稳定 ≤1 / node ≥22.19)。eval doc 新增 §17 + LAST_EVAL_DATE 重置 2026-07-04",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-07-04",
-      "what": "V37.9.243 门控收敛日: doubao_21-primary 现态 prose 一致性收敛 (V37.9.222 flip 后漂移复活: CLAUDE L9/L116 + README L71/L439 + FEATURES L10-11 + GUIDE 降级段退役 FALLBACK_PROVIDER=gemini/Gemini 2.5 Flash 误导示例→FALLBACK_ORDER 现实 + qwen/doubao tier_evidence 加时间边界, tier 不变) + unfinished 归账 ([0] 审计 9 findings / [23] triage 两巨型条目压缩为 Mac Mini 被动验证清单). 机制优先写法抗未来 flip whiplash (V37.9.220 教训). 两轮 153/0/5440 全绿 / 治理 91/91 / VERSION 0.37.9.101 不变",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -237,7 +237,6 @@
       "【IEEE Software 重投完成 · SW-2026-06-0312 · in-review 追踪】2026-07-01 desk-return(长稿超 4200 词)已解决: 改投合规经验报告版(ieee_software_manuscript 4 页, 正文 3510 counted<4200 + 摘要 144<150 + 作者简介), IEEE Author Portal 交互式重投成功('processed and submitted to the journal')。待: 编辑部收稿确认邮件 → 初筛 → 2-3 referee 同行评审 → 决定(修改/录用/拒)。在 'My Submissions' 查状态。ISSRE Submission 395 独立并行 in-review。",
       "【4.27 推送链路回归追踪 · 中优】真因=4.27 openclaw CLI 冷调用回归 (V37.9.145). 丢失面评估已闭合 (push_path_loss_surface_audit_2026_06_15.md). ✅(c) 上游修复已定位 (V37.9.225, eval doc §16.2): 2026.6.11 含 #93356 plugin-setup-registry CPU storm + #93919 manifest-scan cache + #89628 help startup, 全部 6.10→6.11 窗口合并, 构造上不在 4.27 → 根治随未来升级 ≥6.11 获得 (升级评估收益侧新筹码), 现状 notify.sh 重试+队列可接受. 剩 Mac Mini 数据: (a) openclaw message send --help timeout 旋钮探测 (b) ls ~/.openclaw/plugin-runtime-deps/ 多 hash dir 查 staging 间歇复发. 硬化候选 (deferred 需 E2E): 论文类 job 直推双通道迁 notify.sh --topic (MR-8).",
       "V37.9.159 test_health_check 真 bug Mac Mini 生产验证 (dev 不可执行): scanner 抓 test_health_check 跑 health_check.sh 漏 push 隔离 → 治理 07:00 audit 是否真在发日报型 health 周报 (V37.9.159 已修, marker 时序依赖). Mac Mini 同步后观察 07:00 是否还收到 health 周报 + 确认 weekly 09:00 周报正常.",
-      "deep_dive OA 全文解析 follow-up (V37.9.183/184): (1) daily_observer V37.9.168 降级率应随 OA 解析下降, 一周后 (~6/29) Mac Mini 复核 grep ^mode: ~/.kb/deep_dives/*.md 全文比例验证 (预期摘要级从 77% 明显降, Elsevier 闭源不会到 0). (2) 历史 KB 条目仍 PII link (仅新论文受益, 同 V37.9.132 局限, 不补). (3) ✅ V37.9.186 完成: kb_deep_dive.py pwc 死路径从 TIER_1_SOURCES 退役 (job 停用 V31 + 脚本删 V37.8.13 + registry enabled=false, 镜像 V37.9.88 daily_observer JOBS_SUBDIRS 残留 pwc 血案) + 新增 TestV37_9_186_TierRegistryConsistency drift 守卫 (TIER↔registry enabled 绑定, 复用 rc.load_sources_from_registry MR-8). fail-loud 子项判定低价值不做 (pdfplumber 生产已装该分支永不触发 + V37.9.168 降级率聚合已覆盖, 加 stderr WARN 收益边际).",
       "【V37.9.188 INV 计划已退役·仅剩 Mac Mini 观察】INV-WA-CHANNEL-001 治理不变式计划经复审按日落法退役 — 频道掉线契约已被 test_wa_channel_status.py（已在 full_regression）完整守护（MR-14 Discord-not-WhatsApp 发送路径 + 手机号泄漏 + FAIL-OPEN + wa_keepalive 集成 + auto_deploy 部署 + 行为级 fake-openclaw 端到端），原则#21「什么坏了没人发现」判据不成立（test 抓回归）→ 加治理 INV = governance bloat（V37.9.166 三类判据 category A + 外部评审2「降组合复杂度」+ V37.9.186 同款用单测不立 INV）。仅剩 dev 不可执行项：Mac Mini 生产 false-positive 观察（频道检测一周内有无误报）+ V37.9.162 真实 escalation 是否正确触发。",
       "🔴 WhatsApp Baileys 重连封禁预防 — Option A 复活 (V37.9.225 修正 V37.9.180 误判, eval doc §16.4): 4.27 本就有**顶层** web.reconnect.{initialMs,maxMs,factor,jitter,maxAttempts} (V37.9.180 试的 channels.whatsapp.web.reconnect 是路径错误被 strict 拒绝, 误判为不存在). 消费方实证: whatsapp connection-controller resolveReconnectPolicy 读 cfg.web.reconnect, 默认 {2000ms,30000ms,1.8,0.25,12} 与血案 Retry 1/12 吻合. 对症杠杆=拉长退避 (血案是 6h 多轮 12-attempt 循环): 🔴 Mac Mini 待用户: openclaw config set web.reconnect.maxMs 300000 → 重启后 config get 确认 canonicalize 保留 → 观察重连日志退避拉长. 另 #56365 已 closed (PR #73580 makeWASocket socket-timing 透传 web.whatsapp.{keepAliveIntervalMs,connectTimeoutMs,defaultQueryTimeoutMs}), 但该 schema 仅 ≥6.x, 4.27 无 → 随未来升级获得. 主防线仍 Option C (V37.9.162 检测+Discord escalation).",
       "#18 ai_leaders zombie loop-wiring (deferred, V37.9.103 已安全 — classify_account 拆 frozen/dead, is_zombie_suspect 仅 stub+dead, 不会错杀 karpathy 类冻结活账号). 待 Mac Mini rotation 验证后 wire 进 run 脚本: parser 发 newest_age + per-account classify + 3 天连续 ZOMBIE 告警 (镜像 finance_news degraded 分流).",
@@ -256,7 +255,8 @@
       "V37.9.236 follow-up: (a) Mac Mini 观察 alerts.log 不再新增 FATAL line=101 (下次告警推送撞冷调用即验证) (b) scanner 第8 pattern 候选诚实登记不现建 — sourced-lib $() 设计性可失败命令需跨文件 source-graph 分析=新机器, 11个 targeted 守卫已封死唯一日常失败站点(日落法); 若未来再有 sourced-lib 假 FATAL 实例再评估",
       "【OpenClaw 第六次升级评估 (2026-07-04, V37.9.244) · 结论=继续 hold · 三收敛判据跟踪】4.27→6.11 深评见 eval doc 第十七节: 三结构性迁移 (M1 插件外部化/M2 SQLite 迁移进行中/M3 Proxyline) + 回滚单向门 (SQLite cleanup 后 4.27 读不回 cron/auth, WhatsApp 重链撞 408 风险)。开窗判据 (全满足才升): ① 连续 2 stable 无 session/SQLite 迁移 PR (2026.7.x stable 发布时核对 changelog) ② 周稳定版 ≤1 ③ Mac Mini node ≥22.19。🔴 判据 ③ 可独立提前做 (用户): node -v 确认, 不足先升 Node (与升级窗口解耦)。每周一 check_upgrade.sh cron 照常监控; LAST_EVAL_DATE 已重置 2026-07-04。",
       "NBER RSS 403 连续 2 天 (07-04/07-05 finance_news, per-source FAIL-OPEN 已正确降级 WARN+跳过, 其他源正常). 低优观察 (日落法 #8 不现加机器): 若持久化 (≥1 周) 才评估换源/剔除 (镜像 finance_news zombie 分流). 单源失败非系统性, V37.9.227 fetch_failed 仅全源失败才触发.",
-      "【2026-07-08 长 session Mac Mini 被动验证】同步后观察: (a) V37.9.260 ban-list 边界: 次日 deep_dive/dream 恰-14-天前论文/主题正确被 ban + observer deep_dive_repeat 恰-14-天误报消失 (b) V37.9.261 observer 降级桶: 次日 06:30 报告降级段自区分「无 OA 全文(结构性)」vs「PDF 抓取错误(HTTP/超时)」 (c) V37.9.263 OpenAlex 已回退 S2-only, deep_dive 闭源论文降级 abstract_only 正确。deep_dive 降级结论=接受现实(残余=真闭源 ACM/Elsevier 无 OA + 发布方反爬 MDPI/ScienceDirect 403, OA 解析器打不穿, 实测 0/7)。一周后可选复核 grep 抓取降级原因确认 ban-list 去重复后降级率下降(非 OpenAlex)。"
+      "【2026-07-08 长 session Mac Mini 被动验证】同步后观察: (a) V37.9.260 ban-list 边界: 次日 deep_dive/dream 恰-14-天前论文/主题正确被 ban + observer deep_dive_repeat 恰-14-天误报消失 (b) V37.9.261 observer 降级桶: 次日 06:30 报告降级段自区分「无 OA 全文(结构性)」vs「PDF 抓取错误(HTTP/超时)」 (c) V37.9.263 OpenAlex 已回退 S2-only, deep_dive 闭源论文降级 abstract_only 正确。deep_dive 降级结论=接受现实(残余=真闭源 ACM/Elsevier 无 OA + 发布方反爬 MDPI/ScienceDirect 403, OA 解析器打不穿, 实测 0/7)。一周后可选复核 grep 抓取降级原因确认 ban-list 去重复后降级率下降(非 OpenAlex)。",
+      "deep_dive OA 全文解析 follow-up (V37.9.183/184) — (1) ✅ 已闭合(V37.9.261/263): Mac Mini grep 实证降级主体=结构性付费墙(no PDF URL derivable, ACM/Elsevier 无 OA 版)非 fetch-path bug, ban-list(V37.9.260)是真杠杆; V37.9.262 OpenAlex 第二源 Mac Mini 实测 0/7 恢复且净负→V37.9.263 回退; 降级率下降 thesis 被证伪, 残余=接受现实(不爬付费墙). (2) 历史 KB 条目仍 PII link(仅新论文受益, V37.9.132 局限, 不补). (3) ✅ V37.9.186: pwc 死路径退役 + TIER↔registry drift 守卫."
     ],
     "open_prs": "claude/daily-standup-06dzu1: V37.9.249-251 (H1-B PA 解耦第一批全链闭合: B1 盘点 + B2 backlog + B3 config化 A1/D3/A2 + scanner 拦截) — 3 commits 待用户合并 PR + Mac Mini git reset 同步 (纯 config化+守卫, 全生产 no-op, 零重启)",
     "blocked_on": ""
@@ -335,7 +335,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-07-08 长 session: (1) V37.9.259 provider-count prose 收敛 (2) observer 自评驱动: V37.9.260 ban-list off-by-one 边界修复(真杠杆)+V37.9.261 观察者降级桶去 fail-plausible (3) deep_dive 降级 OpenAlex fallback: V37.9.262 加→Mac Mini 端到端实测 0/7 恢复(真闭源+反爬 OA 源打不穿)→V37.9.263 用户「回退」日落法退役。结论: deep_dive 残余降级=接受现实(结构性闭源)。全绿 154/0/5476+chaos 10/10。VERSION 0.37.9.111。primary 仍 doubao_21。",
+  "focus": "2026-07-09: 门控收敛日. 健康基线全绿(154/0/5476, chaos 10/10, gov 91/91, sec 95, VERSION 0.37.9.111). OpenClaw hold 沿用. Grounded 审计: V37.9.263 OpenAlex 回退干净 + 原则#31 off-by-one(V37.9.260)完整性核实无遗漏消费者 + observer/kb_deep_dive 跨文件契约完整. 27 unfinished 全 gated, 日落法不加功能. primary 仍 doubao_21.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
