@@ -65,7 +65,7 @@ done
 RSS_FEEDS=(
     # ── 国际权威（Mac Mini 2026-04-13 验证）──
     "Fed Press|https://www.federalreserve.gov/feeds/press_all.xml|美联储官方声明|intl"
-    "NBER|https://www.nber.org/rss/new.xml|美国国家经济研究局(工作论文)|intl"
+    # NBER 已退役 RSS feed（2026-07-10 Mac Mini 验证：/rss/new.xml 301→403，整站反爬，无公开 RSS 替代；NBER 迁至 email newsletter + RePEc 格式）— 剔除避免每日 403 WARN 噪声
     "FT|https://www.ft.com/rss/home|金融时报(摘要)|intl"
     "ECB|https://www.ecb.europa.eu/rss/press.xml|欧洲央行声明|intl"
     "BIS Speeches|https://www.bis.org/doclist/cbspeeches.rss|国际清算银行(央行演讲)|intl"
