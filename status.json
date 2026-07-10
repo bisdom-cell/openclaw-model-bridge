@@ -1,5 +1,5 @@
 {
-  "updated": "2026-07-10 00:53:16",
+  "updated": "2026-07-10 13:28:39",
   "updated_by": "full_regression",
   "priorities": [
     {
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-07-10",
+      "what": "V37.9.266 16:30 watchdog 5-WARN triage + NBER RSS 源退役剔除. 5 项 WARN core:0 aux:0 exp:0 零 tier 失败=日志扫描层. 分诊: ai_leaders_x 17×429(已知 unfinished[10])/arxiv 1×bad_json(瞬态自重试)/kb_dream 90s超时(有retry自愈 grep=2)/freightwaves 403(新 per-source 跳过)=非actionable. NBER 403 达~1周阈值: Mac Mini grounded curl -A Mozilla=301(feed 搬家非403)+job 跟随重定向后目标 403+web 搜索无公开 RSS 替代(迁 email+RePEc)+dev WebFetch nber.org 也403(整站反爬)=RSS 真退役非源死. 用户 AskUserQuestion 选剔除(日落法退役 dead 源, RePEc 非 RSS 弃选). run_finance_news.sh NBER 条目→退役注释(镜像 CFR:82) 8→7 源, FETCH_ERRORS 阈值自动调整, 无测试硬编码. bash -n+finance 测试 32+8 全过. VERSION 不变(job 源配置). 闭合 unfinished[25]. 净 runtime -1(退役 dead 源+每日403噪声).",
+      "by": "claude_code"
+    },
     {
       "date": "2026-07-10",
       "what": "V37.9.265 README Four-Plane Architecture 块计数一致性收敛. 门控收敛日健康基线全绿(154/0/5478, chaos 10/10, gov 91/91, sec 95). grounded sweep 抓 README 当前态 prose 块 3 处计数漂移(gen_readme_badges 徽章同步覆盖不到此块): L387 89-invariant(同块 L390 已说 91=内部矛盾)/L388 11-provider(V37.9.254 加 GLM-5.2 第12 provider sweep 遗漏, 同文件 9 处均 12)/L390 26 blood-lesson cases(FEATURES+实际文件数 28). 收敛到 canonical(gen_readme_badges 事实行: invariants=91/cases=28/providers=12). 不动 point-in-time: README L365 file-table(V37.9.121-tagged)/L42 Highlights(V37.9.201-216 arc 11 providers)/CLAUDE L753(V1-P0 7 provider). VERSION 不变纯 prose 零业务语义. 净 -3 human-prose 漂移面. 三 doc-drift 机器检查全绿.",
@@ -173,11 +178,6 @@
       "date": "2026-07-05",
       "what": "V37.9.247 INV-CONVERGENCE-INTEGRATION-001 负载超时硬化 (07:00 治理 💥 再现, 预注册判别器兑现): V37.9.232 unfinished [23](a) 预注册「再现→按 V37.9.214 模式硬化」, 07-05 07:00 第二次再现 (07-03 见/07-04 干净/07-05 再现=间歇负载诱发)。两 runtime check 各 spawn FULL 内层 governance_checker 超 timeout=120 → TimeoutExpired → 💥。修: timeout 120→240 + catch TimeoutExpired 视 inconclusive + 断言移入 if proc is not None 门控 (回归检测逻辑逐字保留)。8 新守卫 (含 compile 守卫 requires_full 语法漂移 CI 化 + gate 保留回归检测双向行为验证), sabotage 2 FAIL 还原全过。其余告警: watchdog CORE=💥 downstream 自愈 / chaspark 418 + NBER 403 = 外部 API 噪声 per-source FAIL-OPEN 已处理不改。VERSION 0.37.9.101 不变 (治理负载鲁棒性非核心 runtime)",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-07-05",
-      "what": "V37.9.246 中长期技术纲领确立（用户指令）: docs/technical_charter_20260705.md（2026H2→2028）——护城河判断（纵向证据语料库非代码）+ 10 条趋势判断（T1+T2+T8=24 个月顺风主航道, fail-plausible 品类词 ~1-2 年窗口期 2027 硬节奏）+ 双轨战略 + PA 重定义为活体实验室（回应两次评审耦合批评）+ 三地平线（H1 第二实例 PoC=可迁移性终局回答）+ 8 判据门控 + 反目标清单 + 四业务线 + 季度复核制。上承 strategic_review_20260403（V1/V2 完成收口, V3 进 H1/H2）。纯战略文档 VERSION 0.37.9.101 不变",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -223,7 +223,7 @@
     "kb_stats": "240 notes, 16 today, 1805KB sources",
     "stale_jobs": "all_ok",
     "last_refresh": "2026-04-08 13:00",
-    "security_score": "95/100 (95.0%)",
+    "security_score": "98/100 (98.0%)",
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB"
   },
   "session_context": {
@@ -254,19 +254,19 @@
       "【2026-07-03 observer/治理/watchdog triage · findings 全部闭环 (V37.9.232-235/240) · 剩被动观察】(a) ✅ V37.9.247 兑现: 07-05 07:00 第二次再现 (07-03见/07-04干净/07-05再现=间歇负载) → 按预注册 V37.9.214 模式硬化两 runtime check (timeout 120→240 + TimeoutExpired→inconclusive+门控)。剩 Mac Mini 被动观察: 下次 07:00 不再 💥 + watchdog 治理 CORE 告警消失 (b) freight last_run 应已 07-03 14:00 自愈转 ok (仍 llm_failed=新问题贴我) (c) 修复生效信号: dblp 推送无「推测采用XX模型」类字眼 (V37.9.234) / last_run_deep_dive.json 见 banned_recent + 一周后 full-text 比例回升 (V37.9.233) / observer 报告 arxiv 截断 finding 消失 (V37.9.235) + dream 远期信号带「长期背景」标注 (V37.9.235) / observer deep_dive_repeat 告警仅违规时出现 (V37.9.240)。",
       "V37.9.236 follow-up: (a) Mac Mini 观察 alerts.log 不再新增 FATAL line=101 (下次告警推送撞冷调用即验证) (b) scanner 第8 pattern 候选诚实登记不现建 — sourced-lib $() 设计性可失败命令需跨文件 source-graph 分析=新机器, 11个 targeted 守卫已封死唯一日常失败站点(日落法); 若未来再有 sourced-lib 假 FATAL 实例再评估",
       "【OpenClaw 第六次升级评估 (2026-07-04, V37.9.244) · 结论=继续 hold · 三收敛判据跟踪】4.27→6.11 深评见 eval doc 第十七节: 三结构性迁移 (M1 插件外部化/M2 SQLite 迁移进行中/M3 Proxyline) + 回滚单向门 (SQLite cleanup 后 4.27 读不回 cron/auth, WhatsApp 重链撞 408 风险)。开窗判据 (全满足才升): ① 连续 2 stable 无 session/SQLite 迁移 PR (2026.7.x stable 发布时核对 changelog) ② 周稳定版 ≤1 ③ Mac Mini node ≥22.19。🔴 判据 ③ 可独立提前做 (用户): node -v 确认, 不足先升 Node (与升级窗口解耦)。每周一 check_upgrade.sh cron 照常监控; LAST_EVAL_DATE 已重置 2026-07-04。",
-      "NBER RSS 403 连续 2 天 (07-04/07-05 finance_news, per-source FAIL-OPEN 已正确降级 WARN+跳过, 其他源正常). 低优观察 (日落法 #8 不现加机器): 若持久化 (≥1 周) 才评估换源/剔除 (镜像 finance_news zombie 分流). 单源失败非系统性, V37.9.227 fetch_failed 仅全源失败才触发.",
       "【2026-07-08 长 session Mac Mini 被动验证】同步后观察: (a) V37.9.260 ban-list 边界: 次日 deep_dive/dream 恰-14-天前论文/主题正确被 ban + observer deep_dive_repeat 恰-14-天误报消失 (b) V37.9.261 observer 降级桶: 次日 06:30 报告降级段自区分「无 OA 全文(结构性)」vs「PDF 抓取错误(HTTP/超时)」 (c) V37.9.263 OpenAlex 已回退 S2-only, deep_dive 闭源论文降级 abstract_only 正确。deep_dive 降级结论=接受现实(残余=真闭源 ACM/Elsevier 无 OA + 发布方反爬 MDPI/ScienceDirect 403, OA 解析器打不穿, 实测 0/7)。一周后可选复核 grep 抓取降级原因确认 ban-list 去重复后降级率下降(非 OpenAlex)。",
-      "deep_dive OA 全文解析 follow-up (V37.9.183/184) — (1) ✅ 已闭合(V37.9.261/263): Mac Mini grep 实证降级主体=结构性付费墙(no PDF URL derivable, ACM/Elsevier 无 OA 版)非 fetch-path bug, ban-list(V37.9.260)是真杠杆; V37.9.262 OpenAlex 第二源 Mac Mini 实测 0/7 恢复且净负→V37.9.263 回退; 降级率下降 thesis 被证伪, 残余=接受现实(不爬付费墙). (2) 历史 KB 条目仍 PII link(仅新论文受益, V37.9.132 局限, 不补). (3) ✅ V37.9.186: pwc 死路径退役 + TIER↔registry drift 守卫."
+      "deep_dive OA 全文解析 follow-up (V37.9.183/184) — (1) ✅ 已闭合(V37.9.261/263): Mac Mini grep 实证降级主体=结构性付费墙(no PDF URL derivable, ACM/Elsevier 无 OA 版)非 fetch-path bug, ban-list(V37.9.260)是真杠杆; V37.9.262 OpenAlex 第二源 Mac Mini 实测 0/7 恢复且净负→V37.9.263 回退; 降级率下降 thesis 被证伪, 残余=接受现实(不爬付费墙). (2) 历史 KB 条目仍 PII link(仅新论文受益, V37.9.132 局限, 不补). (3) ✅ V37.9.186: pwc 死路径退役 + TIER↔registry drift 守卫.",
+      "freightwaves RSS 403 (07-10 watchdog 首现, freight_watcher per-source FAIL-OPEN 已跳过) + kb_dream curl(28) 90s 超时低频 (07-10 grep -c=2, 有 retry+degrade 自愈, 无 job 失败). 均低优观察 (日落法 #8 不现加机器): freightwaves 若持久化≥1周才评估换源/剔除 (镜像 NBER V37.9.266 剔除路径); dream 超时若递增关联 unfinished [21] doubao_21 batch 是否真走 thinking-off 快路 (V37.9.221/222, 需 Mac Mini cat dream status + grep 趋势)."
     ],
     "open_prs": "claude/daily-standup-06dzu1: V37.9.249-251 (H1-B PA 解耦第一批全链闭合: B1 盘点 + B2 backlog + B3 config化 A1/D3/A2 + scanner 拦截) — 3 commits 待用户合并 PR + Mac Mini git reset 同步 (纯 config化+守卫, 全生产 no-op, 零重启)",
     "blocked_on": ""
   },
   "quality": {
-    "security_score": 95,
+    "security_score": 98,
     "test_count": 5478,
-    "last_regression": "2026-07-10 00:52 pass",
+    "last_regression": "2026-07-10 13:28 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-07-10 00:52",
+    "security_score_time": "2026-07-10 13:28",
     "test_suites": 154,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
