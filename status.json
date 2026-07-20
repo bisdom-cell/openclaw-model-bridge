@@ -1,6 +1,6 @@
 {
-  "updated": "2026-07-10 13:28:39",
-  "updated_by": "full_regression",
+  "updated": "2026-07-20 01:17:38",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-07-20",
+      "what": "V37.9.267 OpenClaw Gateway 第七次升级评估: 2026.7.1 stable 发布(07-13)触发第六次评估预设的判据跟踪点。npm tarball 实证法核对三条收敛判据: ① SQLite/session 弧线 ❌ 未收敛(7.1 仍 4+ session-accessor refactor PR #101178/101179/101180/101688 + SQLite state 处理), 弧线深化非收尾; ② 发版节奏 🟡 部分改善(6.11→7.1 间隔 13 天放缓但同日两 patch); ③ Node 门槛 🔴 再升级为区间黑名单 >=22.22.3<23||>=24.15<25||>=25.9 (根因 PR#106065 SQLite WAL corruption 安全, M2 单向门风险加深)。结论: 继续 hold 判据全未满足理由较第六次更强。收益侧新增登记(launchd EX_CONFIG/SSE#96503/WhatsApp rate-limit 缓解)但不抵结构性风险。交付: eval doc 第十八节+config.md 头部+check_upgrade.sh LAST_EVAL_DATE 07-04→07-20。下次跟踪 2026.7.2 stable。VERSION 0.37.9.112 不变(纯评估零升级动作)。操作教训: 开工基线 full_regression 运行期间并发编辑 doc 致 chaos 报 1/1 假失败(V37.9.259 同款), settle 后干净重跑。",
+      "by": "claude_code"
+    },
     {
       "date": "2026-07-10",
       "what": "V37.9.266 16:30 watchdog 5-WARN triage + NBER RSS 源退役剔除. 5 项 WARN core:0 aux:0 exp:0 零 tier 失败=日志扫描层. 分诊: ai_leaders_x 17×429(已知 unfinished[10])/arxiv 1×bad_json(瞬态自重试)/kb_dream 90s超时(有retry自愈 grep=2)/freightwaves 403(新 per-source 跳过)=非actionable. NBER 403 达~1周阈值: Mac Mini grounded curl -A Mozilla=301(feed 搬家非403)+job 跟随重定向后目标 403+web 搜索无公开 RSS 替代(迁 email+RePEc)+dev WebFetch nber.org 也403(整站反爬)=RSS 真退役非源死. 用户 AskUserQuestion 选剔除(日落法退役 dead 源, RePEc 非 RSS 弃选). run_finance_news.sh NBER 条目→退役注释(镜像 CFR:82) 8→7 源, FETCH_ERRORS 阈值自动调整, 无测试硬编码. bash -n+finance 测试 32+8 全过. VERSION 不变(job 源配置). 闭合 unfinished[25]. 净 runtime -1(退役 dead 源+每日403噪声).",
@@ -173,11 +178,6 @@
       "date": "2026-07-05",
       "what": "V37.9.248 纲领执行计划确立 (用户两步指令): docs/charter_execution_plan_20260705.md — Part 1 H1 地平线 15 任务分解 (A1-A4 Observer 收官/B1-B3 PA 解耦/C1-C3 第二实例/D 证据刷新/E 年度复盘, 带 done-criteria/门控/季度/依赖链图) + §0 执行基线快照 (复杂度四维度 files 286/env 43/jobs 40-46/state 25). Part 2 五项固定复核可运行协议 (R1 影响力/R2 复杂度/R3 门控/R4 修订/R5 反目标, 带命令+判断问题+记录模板, 日落法零新增常驻机器刻意无守卫测试). 诚实边界: 外部影响力指标 dev 探测不可达→命令+待采集不编造 (原则 #23). 纲领 §11 + CLAUDE.md 双向注册. VERSION 0.37.9.101 不变 (纯执行文档)",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-07-05",
-      "what": "V37.9.247 INV-CONVERGENCE-INTEGRATION-001 负载超时硬化 (07:00 治理 💥 再现, 预注册判别器兑现): V37.9.232 unfinished [23](a) 预注册「再现→按 V37.9.214 模式硬化」, 07-05 07:00 第二次再现 (07-03 见/07-04 干净/07-05 再现=间歇负载诱发)。两 runtime check 各 spawn FULL 内层 governance_checker 超 timeout=120 → TimeoutExpired → 💥。修: timeout 120→240 + catch TimeoutExpired 视 inconclusive + 断言移入 if proc is not None 门控 (回归检测逻辑逐字保留)。8 新守卫 (含 compile 守卫 requires_full 语法漂移 CI 化 + gate 保留回归检测双向行为验证), sabotage 2 FAIL 还原全过。其余告警: watchdog CORE=💥 downstream 自愈 / chaspark 418 + NBER 403 = 外部 API 噪声 per-source FAIL-OPEN 已处理不改。VERSION 0.37.9.101 不变 (治理负载鲁棒性非核心 runtime)",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -256,7 +256,8 @@
       "【OpenClaw 第六次升级评估 (2026-07-04, V37.9.244) · 结论=继续 hold · 三收敛判据跟踪】4.27→6.11 深评见 eval doc 第十七节: 三结构性迁移 (M1 插件外部化/M2 SQLite 迁移进行中/M3 Proxyline) + 回滚单向门 (SQLite cleanup 后 4.27 读不回 cron/auth, WhatsApp 重链撞 408 风险)。开窗判据 (全满足才升): ① 连续 2 stable 无 session/SQLite 迁移 PR (2026.7.x stable 发布时核对 changelog) ② 周稳定版 ≤1 ③ Mac Mini node ≥22.19。🔴 判据 ③ 可独立提前做 (用户): node -v 确认, 不足先升 Node (与升级窗口解耦)。每周一 check_upgrade.sh cron 照常监控; LAST_EVAL_DATE 已重置 2026-07-04。",
       "【2026-07-08 长 session Mac Mini 被动验证】同步后观察: (a) V37.9.260 ban-list 边界: 次日 deep_dive/dream 恰-14-天前论文/主题正确被 ban + observer deep_dive_repeat 恰-14-天误报消失 (b) V37.9.261 observer 降级桶: 次日 06:30 报告降级段自区分「无 OA 全文(结构性)」vs「PDF 抓取错误(HTTP/超时)」 (c) V37.9.263 OpenAlex 已回退 S2-only, deep_dive 闭源论文降级 abstract_only 正确。deep_dive 降级结论=接受现实(残余=真闭源 ACM/Elsevier 无 OA + 发布方反爬 MDPI/ScienceDirect 403, OA 解析器打不穿, 实测 0/7)。一周后可选复核 grep 抓取降级原因确认 ban-list 去重复后降级率下降(非 OpenAlex)。",
       "deep_dive OA 全文解析 follow-up (V37.9.183/184) — (1) ✅ 已闭合(V37.9.261/263): Mac Mini grep 实证降级主体=结构性付费墙(no PDF URL derivable, ACM/Elsevier 无 OA 版)非 fetch-path bug, ban-list(V37.9.260)是真杠杆; V37.9.262 OpenAlex 第二源 Mac Mini 实测 0/7 恢复且净负→V37.9.263 回退; 降级率下降 thesis 被证伪, 残余=接受现实(不爬付费墙). (2) 历史 KB 条目仍 PII link(仅新论文受益, V37.9.132 局限, 不补). (3) ✅ V37.9.186: pwc 死路径退役 + TIER↔registry drift 守卫.",
-      "freightwaves RSS 403 (07-10 watchdog 首现, freight_watcher per-source FAIL-OPEN 已跳过) + kb_dream curl(28) 90s 超时低频 (07-10 grep -c=2, 有 retry+degrade 自愈, 无 job 失败). 均低优观察 (日落法 #8 不现加机器): freightwaves 若持久化≥1周才评估换源/剔除 (镜像 NBER V37.9.266 剔除路径); dream 超时若递增关联 unfinished [21] doubao_21 batch 是否真走 thinking-off 快路 (V37.9.221/222, 需 Mac Mini cat dream status + grep 趋势)."
+      "freightwaves RSS 403 (07-10 watchdog 首现, freight_watcher per-source FAIL-OPEN 已跳过) + kb_dream curl(28) 90s 超时低频 (07-10 grep -c=2, 有 retry+degrade 自愈, 无 job 失败). 均低优观察 (日落法 #8 不现加机器): freightwaves 若持久化≥1周才评估换源/剔除 (镜像 NBER V37.9.266 剔除路径); dream 超时若递增关联 unfinished [21] doubao_21 batch 是否真走 thinking-off 快路 (V37.9.221/222, 需 Mac Mini cat dream status + grep 趋势).",
+      "gen_readme_badges「偶发失败」根因厘清(V37.9.267): full_regression.sh:587 内部中途 --set quality.security_score 到 dev 值(gen_readme_badges 权威源=quality.security_score), 而 doc header 是生产 98 → dev security=95(传输安全 dev 10/15 vs 生产 13/15)时 full_regression 把 quality 降 95 → 末尾 doc-drift 检测 doc header(98)漂移。非纯偶发=dev-production security 环境敏感确定性后果。处理: 还原 status.json security 到生产 98 doc header 保持 98(Mac Mini 生产 98 一致)。候选修复(低优,评估日不顺手改): full_regression 把 quality.security_score 更新移到 doc-drift 检查之后 / 或 gen_readme_badges security 源改用不被 full_regression 中途改的稳定字段。"
     ],
     "open_prs": "claude/daily-standup-06dzu1: V37.9.249-251 (H1-B PA 解耦第一批全链闭合: B1 盘点 + B2 backlog + B3 config化 A1/D3/A2 + scanner 拦截) — 3 commits 待用户合并 PR + Mac Mini git reset 同步 (纯 config化+守卫, 全生产 no-op, 零重启)",
     "blocked_on": ""
@@ -264,9 +265,9 @@
   "quality": {
     "security_score": 98,
     "test_count": 5478,
-    "last_regression": "2026-07-10 13:28 pass",
+    "last_regression": "2026-07-20 01:07 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-07-10 13:28",
+    "security_score_time": "2026-07-20 01:07",
     "test_suites": 154,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
@@ -335,7 +336,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-07-10: 门控收敛日. 健康基线全绿(154/0/5478, chaos 10/10, gov 91/91 EXIT=0, sec 95, VERSION 0.37.9.112). OpenClaw hold 沿用(latest stable 仍 2026.6.11 无新版). V37.9.265 一致性收敛: README Four-Plane 块 3 处计数漂移收敛 canonical(89→91 invariants 同块内部矛盾/11→12 providers GLM-5.2 sweep 遗漏/26→28 blood-lesson cases). 28 unfinished 全 gated, 日落法不加功能, VERSION 不变纯 prose. primary 仍 doubao_21.",
+  "focus": "2026-07-20 周一门控收敛日 + OpenClaw 第七次升级评估. 健康基线全绿(154/0/5478, gov 91/91 EXIT=0, VERSION 0.37.9.112). 原则#1 触发第七次评估: 2026.7.1 stable(07-13)发布=第六次评估预设跟踪点. 三判据核对: SQLite/session 弧线❌未收敛(7.1 仍 4+ session-accessor refactor)/节奏🟡部分改善/Node门槛🔴升为区间黑名单(SQLite WAL 安全#106065). 继续 hold 理由较第六次更强. 下次跟踪 2026.7.2 stable. VERSION 不变纯评估. 28 unfinished 多数 Mac-Mini/in-review gated. 宪法#1 LLM-Observer flip gated 于 shadow 周数据. primary 仍 doubao_21.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
