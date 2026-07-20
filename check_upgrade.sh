@@ -6,9 +6,11 @@ set -euo pipefail
 export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
 
 # ── 配置（升级后须更新 LAST_EVAL_DATE）──
-# 2026-07-04 第六次评估 (4.27→6.11 深评: 三结构性迁移 M1 插件外部化/M2 SQLite 迁移进行中/M3 Proxyline +
-# 回滚单向门): 继续 hold, 三收敛判据见 docs/gateway_upgrade_eval_v2026.4.md 第十七节.
-LAST_EVAL_DATE="${OPENCLAW_LAST_EVAL_DATE:-2026-07-04}"  # V37.9.244: 第六次评估 (eval doc 第十七节)
+# 2026-07-20 第七次评估 (2026.7.1 stable 发布触发判据跟踪): 继续 hold, 判据全未满足——
+# ① SQLite/session 弧线 ❌ 未收敛 (7.1 仍 4+ session-accessor refactor) ② 节奏 🟡 部分改善
+# ③ Node 门槛 🔴 升为区间黑名单 (SQLite WAL 安全 #106065). 详见 eval doc 第十八节.
+# 背景 (第六次 2026-07-04): 4.27→6.11 三结构性迁移 M1 插件外部化/M2 SQLite 迁移/M3 Proxyline + 回滚单向门.
+LAST_EVAL_DATE="${OPENCLAW_LAST_EVAL_DATE:-2026-07-20}"  # V37.9.267: 第七次评估 (eval doc 第十八节)
 TIME_TRIPWIRE_DAYS="${OPENCLAW_TIME_TRIPWIRE_DAYS:-180}"
 VERSION_GAP_TRIPWIRE="${OPENCLAW_VERSION_GAP_TRIPWIRE:-50}"
 CVE_FILE="${OPENCLAW_CVE_ALERT_FILE:-$HOME/.openclaw_cve_alert}"

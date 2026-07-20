@@ -1,5 +1,5 @@
 {
-  "updated": "2026-07-10 13:28:39",
+  "updated": "2026-07-20 02:40:04",
   "updated_by": "full_regression",
   "priorities": [
     {
@@ -79,6 +79,16 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-07-20",
+      "what": "V37.9.268 gen_readme_badges「偶发失败」根因修复(用户选修[28]): 彻查根因=security_score 传输安全 Git 协议子项跑 git remote -v, dev 沙箱 remote 是 agent-proxy http-proxy(0分) vs 生产 SSH(5分) → dev security 95 vs 生产 98 = 纯 dev 沙箱 artifact; full_regression:587 用 dev 值覆盖徽章源 quality.security_score(gen_readme_badges 读它) → dev doc-drift 假失败(V37.9.243/245 长期观察项真根因)。修复: full_regression 去掉 quality.security_score/time 覆盖, 只记 health.security_score(诊断); quality 冻结稳定发布态徽章源。守卫 test_v37_9_268(7 单测: 5 源码+2 行为级解耦不变式)+sabotage 验证+注册 full_regression。验证: full_regression security 不再漂移(quality 稳定 98)+gen_readme_badges 套件过+chaos 10/10+dark-test 认新测试。VERSION 0.37.9.112 不变(测试基础设施)。净 runtime 机制 0(退役环境敏感值污染徽章源的错误设计)。",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-07-20",
+      "what": "V37.9.267 OpenClaw Gateway 第七次升级评估: 2026.7.1 stable 发布(07-13)触发第六次评估预设的判据跟踪点。npm tarball 实证法核对三条收敛判据: ① SQLite/session 弧线 ❌ 未收敛(7.1 仍 4+ session-accessor refactor PR #101178/101179/101180/101688 + SQLite state 处理), 弧线深化非收尾; ② 发版节奏 🟡 部分改善(6.11→7.1 间隔 13 天放缓但同日两 patch); ③ Node 门槛 🔴 再升级为区间黑名单 >=22.22.3<23||>=24.15<25||>=25.9 (根因 PR#106065 SQLite WAL corruption 安全, M2 单向门风险加深)。结论: 继续 hold 判据全未满足理由较第六次更强。收益侧新增登记(launchd EX_CONFIG/SSE#96503/WhatsApp rate-limit 缓解)但不抵结构性风险。交付: eval doc 第十八节+config.md 头部+check_upgrade.sh LAST_EVAL_DATE 07-04→07-20。下次跟踪 2026.7.2 stable。VERSION 0.37.9.112 不变(纯评估零升级动作)。操作教训: 开工基线 full_regression 运行期间并发编辑 doc 致 chaos 报 1/1 假失败(V37.9.259 同款), settle 后干净重跑。",
+      "by": "claude_code"
+    },
     {
       "date": "2026-07-10",
       "what": "V37.9.266 16:30 watchdog 5-WARN triage + NBER RSS 源退役剔除. 5 项 WARN core:0 aux:0 exp:0 零 tier 失败=日志扫描层. 分诊: ai_leaders_x 17×429(已知 unfinished[10])/arxiv 1×bad_json(瞬态自重试)/kb_dream 90s超时(有retry自愈 grep=2)/freightwaves 403(新 per-source 跳过)=非actionable. NBER 403 达~1周阈值: Mac Mini grounded curl -A Mozilla=301(feed 搬家非403)+job 跟随重定向后目标 403+web 搜索无公开 RSS 替代(迁 email+RePEc)+dev WebFetch nber.org 也403(整站反爬)=RSS 真退役非源死. 用户 AskUserQuestion 选剔除(日落法退役 dead 源, RePEc 非 RSS 弃选). run_finance_news.sh NBER 条目→退役注释(镜像 CFR:82) 8→7 源, FETCH_ERRORS 阈值自动调整, 无测试硬编码. bash -n+finance 测试 32+8 全过. VERSION 不变(job 源配置). 闭合 unfinished[25]. 净 runtime -1(退役 dead 源+每日403噪声).",
@@ -168,16 +178,6 @@
       "date": "2026-07-06",
       "what": "V37.9.249 PA 耦合机器化盘点 (H1-B/B1, 纲领 §4.3 边界管理哲学, Q3 任务): docs/pa_coupling_inventory.md — 四类别机器扫描逐项 blast-radius 分级 + 边界外零 PA 泄漏正面证据(examples/引擎已 PA-free) + B2 config 化 backlog + 第一批 config 化落地 A1 (kb_write/search/inject.sh 默认 /Users/bisdom/.kb → $HOME/.kb 可移植收敛, Mac Mini 生产 no-op, 消一物一形违反) + test_pa_coupling_kb_paths.py 守卫(sabotage 真有效). 结论: ~80% 耦合已 env 参数化, 残余可枚举, 第二实例真门槛=launchd. VERSION 0.37.9.101 不变.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-07-05",
-      "what": "V37.9.248 纲领执行计划确立 (用户两步指令): docs/charter_execution_plan_20260705.md — Part 1 H1 地平线 15 任务分解 (A1-A4 Observer 收官/B1-B3 PA 解耦/C1-C3 第二实例/D 证据刷新/E 年度复盘, 带 done-criteria/门控/季度/依赖链图) + §0 执行基线快照 (复杂度四维度 files 286/env 43/jobs 40-46/state 25). Part 2 五项固定复核可运行协议 (R1 影响力/R2 复杂度/R3 门控/R4 修订/R5 反目标, 带命令+判断问题+记录模板, 日落法零新增常驻机器刻意无守卫测试). 诚实边界: 外部影响力指标 dev 探测不可达→命令+待采集不编造 (原则 #23). 纲领 §11 + CLAUDE.md 双向注册. VERSION 0.37.9.101 不变 (纯执行文档)",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-07-05",
-      "what": "V37.9.247 INV-CONVERGENCE-INTEGRATION-001 负载超时硬化 (07:00 治理 💥 再现, 预注册判别器兑现): V37.9.232 unfinished [23](a) 预注册「再现→按 V37.9.214 模式硬化」, 07-05 07:00 第二次再现 (07-03 见/07-04 干净/07-05 再现=间歇负载诱发)。两 runtime check 各 spawn FULL 内层 governance_checker 超 timeout=120 → TimeoutExpired → 💥。修: timeout 120→240 + catch TimeoutExpired 视 inconclusive + 断言移入 if proc is not None 门控 (回归检测逻辑逐字保留)。8 新守卫 (含 compile 守卫 requires_full 语法漂移 CI 化 + gate 保留回归检测双向行为验证), sabotage 2 FAIL 还原全过。其余告警: watchdog CORE=💥 downstream 自愈 / chaspark 418 + NBER 403 = 外部 API 噪声 per-source FAIL-OPEN 已处理不改。VERSION 0.37.9.101 不变 (治理负载鲁棒性非核心 runtime)",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -223,7 +223,7 @@
     "kb_stats": "240 notes, 16 today, 1805KB sources",
     "stale_jobs": "all_ok",
     "last_refresh": "2026-04-08 13:00",
-    "security_score": "98/100 (98.0%)",
+    "security_score": "95/100 (95.0%)",
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB"
   },
   "session_context": {
@@ -263,11 +263,11 @@
   },
   "quality": {
     "security_score": 98,
-    "test_count": 5478,
-    "last_regression": "2026-07-10 13:28 pass",
+    "test_count": 5484,
+    "last_regression": "2026-07-20 02:39 pass",
     "coverage_pct": 0,
-    "security_score_time": "2026-07-10 13:28",
-    "test_suites": 154,
+    "security_score_time": "2026-07-20 01:07",
+    "test_suites": 155,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
     "version": "0.37.9.112",
@@ -335,7 +335,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-07-10: 门控收敛日. 健康基线全绿(154/0/5478, chaos 10/10, gov 91/91 EXIT=0, sec 95, VERSION 0.37.9.112). OpenClaw hold 沿用(latest stable 仍 2026.6.11 无新版). V37.9.265 一致性收敛: README Four-Plane 块 3 处计数漂移收敛 canonical(89→91 invariants 同块内部矛盾/11→12 providers GLM-5.2 sweep 遗漏/26→28 blood-lesson cases). 28 unfinished 全 gated, 日落法不加功能, VERSION 不变纯 prose. primary 仍 doubao_21.",
+  "focus": "2026-07-20 周一: 两版本交付. V37.9.267 OpenClaw 第七次升级评估(2026.7.1 stable 触发判据跟踪, 继续 hold 判据全未满足). V37.9.268 gen_readme_badges「偶发失败」根因修复(徽章源 quality.security_score vs full_regression 环境敏感 security 解耦, dev git remote http-proxy artifact 根治 V37.9.243/245 长期观察项). CI PR#836 卡 GitHub runner 容量问题(已订阅+30min check-in). 健康基线绿 tests 5484/155 chaos 10/10 gov 91/91 EXIT=0 security 98. VERSION 0.37.9.112 不变(两版本纯评估+测试基础设施). 28 unfinished 多数 Mac-Mini/in-review gated.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",

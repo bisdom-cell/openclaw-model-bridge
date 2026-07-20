@@ -882,4 +882,67 @@ auth profiles 迁入 SQLite 且**迁移含 cleanup**（#91740 "verify SQLite aut
 
 ---
 
+## 第十八节：第七次评估（2026-07-20，2026.7.1 stable 发布触发判据跟踪）
+
+> 触发：第六次评估（17.6）结尾预设的跟踪点——「发现 2026.7.x stable 发布时顺手核对其 changelog
+> 是否仍含 session/SQLite 迁移 PR」。2026.7.1 stable 于 2026-07-13 发布（自 07-04 第六次评估以来
+> 唯一新 minor stable），到期核对三条收敛判据。方法：npm tarball 实证（`npm pack openclaw@2026.7.1`
+> → 全量 CHANGELOG grep，V37.9.225/244 同款「代码即事实」）+ engines 门槛跨版本对比。Tripwire
+> 机械状态仍 0/6（时间 16/180 天，版本差距 31/50 stable——check_upgrade.sh 字典序粗略计数含 patch，
+> 脚本自注「粗略」；minor stable 精确计数见 18.2）——本次为判据到期跟踪。
+
+### 18.1 一句话结论
+
+**继续 hold，且理由较第六次更强：三条收敛判据无一满足——判据 1（SQLite/session 弧线收敛）在 7.1
+明确未收敛反而深化（4+ 新 session-accessor refactor PR）；判据 3（Node 门槛）因 SQLite WAL 数据损坏
+安全被再度收紧成「版本区间黑名单」（M2 单向门风险加深的直接证据）。仅判据 2（发版节奏）出现部分改善。**
+
+### 18.2 上游现状（2026-07-20 实证）
+
+- dist-tags：latest = **2026.7.1-2**（07-18，patch）/ minor stable = **2026.7.1**（07-13）/ beta = 2026.7.2-beta.3（07-18）。4.27 → 7.1 **minor stable 跨度 24**（第六次 23 + 7.1；check_upgrade.sh 字典序粗略计数报 31/50 含 patch 与字典序误差，两口径均远低于 50 tripwire）。
+- 自 07-04 以来发版：7.1（07-13 minor）→ 7.1-1（07-18 patch）→ 7.1-2（07-18 patch）；beta 侧 7.2-beta.1/2/3（07-15/17/18）= 7.2 在 beta 阶段。
+- 4.27 仍未被 deprecate，可安全停留。
+
+### 18.3 三条收敛判据逐一核对
+
+| 判据 | 第六次（07-04）状态 | 第七次（07-20）实证 | 判定 |
+|------|-------------------|-------------------|------|
+| **① SQLite/session 弧线收敛**（连续 2 stable 无 session-store/SQLite 迁移 PR） | 6.11 仍在 refactor session accessors（#96182/#96204）= 未收敛 | **7.1 仍密集 refactor**：#101178（session-accessor boundary guard 加 debt ratchet）/ #101179（route new session store bypasses through accessor）/ #101180（move inbound meta+goals+delivery reads behind accessor）/ #101688（route chat transcript injection through accessor）+ SQLite state 处理 #100827/#101375/#89597 + legacy-state 迁移收尾 #104529/#102780/#103157/#103281 | ❌ **未满足**，弧线深化非收尾 |
+| **② 发版节奏 ≤1/周** | 6 月 7 stable ≈ 周更，不通过 | 6.11（06-30）→ 7.1（07-13）间隔 **13 天**（明显放缓）；但 7.1 后同日两 patch（7.1-1/7.1-2）= 混合信号；4 周窗口 minor 3 个（6.10/6.11/7.1）≈ 1/周边界 | 🟡 **部分改善**，边界未稳定 |
+| **③ Mac Mini node ≥22.19 就位** | 6.11 要求 ≥22.19（新前置） | **7.1 门槛再升**：`>=22.22.3 <23 \|\| >=24.15.0 <25 \|\| >=25.9.0`（**区间黑名单**，排除 node 23.x 全部 + 24.0–24.14 + 25.0–25.8）。根因 = **PR #106065「SQLite WAL safety: reject runtimes vulnerable to WAL corruption」**——7.1 直接拒绝有 WAL 数据损坏漏洞的 node 运行时 | 🔴 **门槛升级 + 语义变化**，Mac Mini node 必须落在 7.1 接受区间内 |
+
+engines.node 演进实证：4.27=`>=22.14.0` / 6.11=`>=22.19.0` / **7.1=`>=22.22.3 <23 || >=24.15.0 <25 || >=25.9.0`**。
+
+### 18.4 🔴 判据 3 语义质变：Node 门槛从「最低版本」变为「SQLite 安全区间」
+
+第六次评估的 R7（Node 前置）此前是「≥22.19 单调抬高」。7.1 把它变成**区间黑名单**且根因是 SQLite WAL
+数据损坏安全（#106065 + #1739 "reject runtimes vulnerable to WAL corruption"）。含义两条：(a) Mac Mini
+升级前不能只确认「node 够新」，必须确认 node 版本**落在 7.1 接受的具体区间内**（跑在 23.x 或 24.0–24.14
+会被直接拒绝安装）；(b) 这个约束会**持续演进**——未来版本会继续 reject 新发现的 WAL 漏洞运行时，node 升级与
+Gateway 升级从此耦合。这是第六次评估 M2「SQLite 单向门」风险的直接加深：连底层 node 运行时都被 SQLite 状态层
+的数据完整性要求绑定了。
+
+### 18.5 收益侧新增（诚实登记，但不改变结论）
+
+7.1 有若干条对我们直接有利（登记，为未来升级窗口的收益侧累积）：
+- **launchd 友好**：Gateway crash-loop recovery + `EX_CONFIG` fatal-config 退出码 → systemd/launchd 停止 restart flapping（对我们 launchd 管理 adapter/proxy/Gateway 有利）。
+- **SSE 解析健壮化**（#96503）：识别被误标为 JSON 的 event stream 不再重复加 `data:` 前缀 → 与我们 tool_proxy 的 SSE 转换路径同源关切。
+- **WhatsApp 重连 rate-limit 缓解**：delivery recovery pacing（#101118/#101058，outage backlog 不再突发撞 channel rate limit）+ outbound pre-connect recovery（#101024/#100979，connect/DNS 失败原子清除 stale send evidence）→ 正对 #9 Baileys 重连封禁 + notify.sh 重复投递关切。
+- **诚实边界**：这些收益仍**不抵**判据 1 未收敛 + 判据 3 门槛硬化的结构性风险（升到 ≥5.2 吃全部 M1+M3 breaking + SQLite 单向门 + node 区间约束），方案 B（中间版本）依旧不推荐。
+
+### 18.6 结论与建议：**继续 hold，判据全未满足**
+
+- **方案 A（推荐，不变）**：hold 4.27。三条收敛判据核对结果 ❌🟡🔴——判据 1 未收敛（session accessor
+  refactor 弧线在 7.1 深化）+ 判据 3 门槛因 SQLite WAL 安全再升级。开升级窗口的条件未到。
+- **下次跟踪点**：2026.7.2 stable 发布时核对——若 7.2 **无** session-accessor/SQLite-migration PR，则判据 1
+  的「连续 2 stable」计数从 7.2 起步（需 7.2 + 7.3 两个都干净才满足）；同时核对 7.2 的 engines.node 区间是否
+  稳定。判据 3 的 Mac Mini 侧动作（`node -v` 确认落在接受区间）可独立提前完成，与升级解耦。
+- **方案 B/C 不变**（见 17.6）：中间版本不推荐；若用户决定现升，方案 C 前置清单基础上**增补 node 区间确认**
+  （不只 `node -v ≥22.19`，须确认落在 `>=22.22.3 <23 || >=24.15.0 <25 || >=25.9.0`）。
+
+**LAST_EVAL_DATE 更新至 2026-07-20**（第七次评估完成，重置时间 tripwire）。下次触发 = 任一 tripwire
+跳红，或 2026.7.2 stable 发布时的判据 1 跟踪。
+
+---
+
 *本文档为评估报告，不执行任何升级操作。升级决策由用户做出。*
