@@ -334,8 +334,16 @@ def format_human(data):
             else:
                 lines.append(f"  未完成: {unfinished}")
         if ctx.get("open_prs"):
-            for pr in ctx["open_prs"]:
-                lines.append(f"  PR: {pr}")
+            # V37.9.269: open_prs 历史上被某些 session 用 --set 直接写成 str
+            # （DEFAULT_STATUS 是 list），裸 for-loop 会把字符串逐字符拆成
+            # "PR: c / PR: l / ..." 乱码。镜像 unfinished 的 list/str 双形态守卫
+            # （V37.9.38，MR-8 copy-paste-is-a-bug-class：一物一形，两个平行字段守卫必须一致）。
+            open_prs = ctx["open_prs"]
+            if isinstance(open_prs, str):
+                lines.append(f"  PR: {open_prs}")
+            else:
+                for pr in open_prs:
+                    lines.append(f"  PR: {pr}")
         if ctx.get("blocked_on"):
             lines.append(f"  阻塞: {ctx['blocked_on']}")
         lines.append("")

@@ -357,6 +357,31 @@ class TestFormatHuman(unittest.TestCase):
         output = format_human(dict(DEFAULT_STATUS))
         self.assertIn("项目状态", output)
 
+    def test_open_prs_string_not_char_split(self):
+        """V37.9.269 血案回归: open_prs 被存成 str 时, --human 不能把字符串逐字符拆成
+        'PR: c / PR: l / ...'（镜像 unfinished 的 list/str 双形态守卫 V37.9.38）。"""
+        from status_update import format_human, DEFAULT_STATUS
+        data = dict(DEFAULT_STATUS)
+        data["session_context"] = dict(data.get("session_context", {}))
+        data["session_context"]["open_prs"] = "claude/x: 待合并 PR 描述文本"
+        output = format_human(data)
+        # 整个字符串作为单行 PR 出现
+        self.assertIn("PR: claude/x: 待合并 PR 描述文本", output)
+        # sabotage 反向验证: 移除守卫会产生 'PR: c' 逐字符行 → 断言其不存在
+        self.assertNotIn("PR: c\n", output)
+        self.assertEqual(output.count("  PR: "), 1, "str open_prs 应恰渲染 1 个 PR 行")
+
+    def test_open_prs_list_per_item(self):
+        """open_prs 为 list 时逐项渲染（原有正常路径不回归）。"""
+        from status_update import format_human, DEFAULT_STATUS
+        data = dict(DEFAULT_STATUS)
+        data["session_context"] = dict(data.get("session_context", {}))
+        data["session_context"]["open_prs"] = ["pr-一", "pr-二", "pr-三"]
+        output = format_human(data)
+        for pr in ("pr-一", "pr-二", "pr-三"):
+            self.assertIn(f"  PR: {pr}", output)
+        self.assertEqual(output.count("  PR: "), 3, "list open_prs 应逐项渲染")
+
 
 class TestDefaultStatusStructure(unittest.TestCase):
     """默认状态结构完整性"""

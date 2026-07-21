@@ -406,7 +406,7 @@ else
     FAIL=$((FAIL + 1))
     FAILED_SUITES+=("audit integrity")
 fi
-echo -n "  🔒 Ontology 治理审计（17不变式 + 6元发现） ... "
+echo -n "  🔒 Ontology 治理审计（91不变式 + 23元规则） ... "
 if [ -f ontology/governance_checker.py ]; then
     GOV_RESULT=$(python3 ontology/governance_checker.py 2>&1)
     GOV_RC=$?
