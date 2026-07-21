@@ -1,5 +1,5 @@
 {
-  "updated": "2026-07-20 02:40:04",
+  "updated": "2026-07-21 01:07:34",
   "updated_by": "full_regression",
   "priorities": [
     {
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-07-21",
+      "what": "V37.9.269 门控收敛日: status_update --human open_prs str/list 守卫缺失修复(MR-8: 平行字段 unfinished V37.9.38 有守卫 open_prs 漏加 → str 被 for-loop 逐字符拆成 PR: c/l/... 乱码, 镜像 unfinished 守卫)+2 sabotage 守卫(退回裸循环精确复现乱码). CLAUDE.md L384 治理注释(23不变式+7元规则+6元发现→91+23+14MRD)/L620 原则#29(951测试/35不变式/34cron→5486/91/40) stale 现态计数收敛 + full_regression.sh:409 同款 label 全量同步(原则#31). 诚实不动 point-in-time(L817 V37.1-tagged/L864 里程碑/L873 article arc). OpenClaw hold 沿用(2026.7.2 仅 beta). 用户拒绝 observer 语料重塑 fork→安全一致性收敛默认(不擅自重塑已发表论文绑定 paper-canonical). 验证 full_regression 5486/155/0 + chaos(clean tree)/gov 91/91 EXIT=0/三 doc-drift 无漂移/安全扫描零泄漏. VERSION 0.37.9.112 不变(--human 纯 display 零 runtime, 镜像 V37.9.241 tooling/265 prose). 净 runtime 机制 0, 净 -1 MR-8 一物一形隐患.",
+      "by": "claude_code"
+    },
     {
       "date": "2026-07-20",
       "what": "V37.9.268 gen_readme_badges「偶发失败」根因修复(用户选修[28]): 彻查根因=security_score 传输安全 Git 协议子项跑 git remote -v, dev 沙箱 remote 是 agent-proxy http-proxy(0分) vs 生产 SSH(5分) → dev security 95 vs 生产 98 = 纯 dev 沙箱 artifact; full_regression:587 用 dev 值覆盖徽章源 quality.security_score(gen_readme_badges 读它) → dev doc-drift 假失败(V37.9.243/245 长期观察项真根因)。修复: full_regression 去掉 quality.security_score/time 覆盖, 只记 health.security_score(诊断); quality 冻结稳定发布态徽章源。守卫 test_v37_9_268(7 单测: 5 源码+2 行为级解耦不变式)+sabotage 验证+注册 full_regression。验证: full_regression security 不再漂移(quality 稳定 98)+gen_readme_badges 套件过+chaos 10/10+dark-test 认新测试。VERSION 0.37.9.112 不变(测试基础设施)。净 runtime 机制 0(退役环境敏感值污染徽章源的错误设计)。",
@@ -173,11 +178,6 @@
       "date": "2026-07-06",
       "what": "V37.9.250 PA 耦合 config 化第二批 (用户「继续全部执行」, 接 V37.9.249 B1): D3 TZ config 化 35 脚本 87 处 TZ=Asia/Hong_Kong → TZ=${SYSTEM_TZ:-Asia/Hong_Kong} (默认仍 HKT, .env_shared 设 SYSTEM_TZ 全局覆盖, 修非-HK 实例跨午夜日期错位 bug) + A2 diagnose.sh openclaw home → $HOME/.openclaw (不引入新 env)。守卫 test_pa_coupling_kb_paths.py → test_pa_coupling.py 扩展 (7 单测, D3 无裸 TZ + 广度≥30 + A2, sabotage 真有效)。全部 Mac Mini 生产 no-op。VERSION 0.37.9.101 不变。剩 backlog: C2 homebrew/C1 launchd(H1-C)/D2 中文 prompt(边界内延后)。",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-07-06",
-      "what": "V37.9.249 PA 耦合机器化盘点 (H1-B/B1, 纲领 §4.3 边界管理哲学, Q3 任务): docs/pa_coupling_inventory.md — 四类别机器扫描逐项 blast-radius 分级 + 边界外零 PA 泄漏正面证据(examples/引擎已 PA-free) + B2 config 化 backlog + 第一批 config 化落地 A1 (kb_write/search/inject.sh 默认 /Users/bisdom/.kb → $HOME/.kb 可移植收敛, Mac Mini 生产 no-op, 消一物一形违反) + test_pa_coupling_kb_paths.py 守卫(sabotage 真有效). 结论: ~80% 耦合已 env 参数化, 残余可枚举, 第二实例真门槛=launchd. VERSION 0.37.9.101 不变.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -227,7 +227,7 @@
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB"
   },
   "session_context": {
-    "last_session": "2026-07-06",
+    "last_session": "2026-07-21",
     "unfinished": [
       "【2026-07-02 多镜头审计 · 9 findings 全部处置完毕 (V37.9.226-239: 8 修复闭环 + I half-open 登记为可接受设计 tradeoff) · 剩纯 Mac Mini 被动验证】同步+重启 proxy/adapter 后观察: (A) 真 fallback 时 proxy 日志 DEGRADED 行 + proxy_stats.json slo.fallback_count 变真值 (V37.9.229) (C) ls ~/.kb/status.json.lock ~/.kb/audit.jsonl.lock 伴生锁文件出现 (V37.9.238) (E) client 断开时 adapter.log 记 CLIENT GONE 单行非 traceback (V37.9.231/242) (B) streaming 请求撞 parse 异常时 Gateway 收 SSE 而非 content-type 错配 (V37.9.239) (G) last_run_self_critique.json time 本地格式 + watchdog 4h 覆盖 observer (V37.9.230)。完整分诊记录见 CLAUDE.md V37.9.226-239 changelog, 无 dev 剩余动作。",
       "【V37.9.211/212 Qwen3 端点刷新 · adapter ✅ + V37.9.212 ✅ 已并入 main(PR#774, 2026-07-02 dev 核实) · 剩用户 env 动作】剩余非紧急: (A) .env_shared 设新 REMOTE_API_KEY+REMOTE_BASE_URL(cron 直连脚本 health_check 每周报 CURRENT_MODEL/diagnose 用) (C) 🔴 明文 key 建议用完轮换。教训钉死: adapter/proxy 是 launchd job, env 改必须进 plist EnvironmentVariables + bootout/bootstrap(不是 shell export + kickstart)。",
@@ -258,13 +258,13 @@
       "deep_dive OA 全文解析 follow-up (V37.9.183/184) — (1) ✅ 已闭合(V37.9.261/263): Mac Mini grep 实证降级主体=结构性付费墙(no PDF URL derivable, ACM/Elsevier 无 OA 版)非 fetch-path bug, ban-list(V37.9.260)是真杠杆; V37.9.262 OpenAlex 第二源 Mac Mini 实测 0/7 恢复且净负→V37.9.263 回退; 降级率下降 thesis 被证伪, 残余=接受现实(不爬付费墙). (2) 历史 KB 条目仍 PII link(仅新论文受益, V37.9.132 局限, 不补). (3) ✅ V37.9.186: pwc 死路径退役 + TIER↔registry drift 守卫.",
       "freightwaves RSS 403 (07-10 watchdog 首现, freight_watcher per-source FAIL-OPEN 已跳过) + kb_dream curl(28) 90s 超时低频 (07-10 grep -c=2, 有 retry+degrade 自愈, 无 job 失败). 均低优观察 (日落法 #8 不现加机器): freightwaves 若持久化≥1周才评估换源/剔除 (镜像 NBER V37.9.266 剔除路径); dream 超时若递增关联 unfinished [21] doubao_21 batch 是否真走 thinking-off 快路 (V37.9.221/222, 需 Mac Mini cat dream status + grep 趋势)."
     ],
-    "open_prs": "claude/daily-standup-06dzu1: V37.9.249-251 (H1-B PA 解耦第一批全链闭合: B1 盘点 + B2 backlog + B3 config化 A1/D3/A2 + scanner 拦截) — 3 commits 待用户合并 PR + Mac Mini git reset 同步 (纯 config化+守卫, 全生产 no-op, 零重启)",
+    "open_prs": "claude/todays-work-51mhhm: V37.9.269 (门控收敛日 — status_update --human open_prs str/list 守卫缺失修复 MR-8 + CLAUDE.md L384/L620 stale 现态计数收敛) — 待用户合并 PR + Mac Mini git reset 同步 (纯 display/doc, 零重启零业务影响)",
     "blocked_on": ""
   },
   "quality": {
     "security_score": 98,
-    "test_count": 5484,
-    "last_regression": "2026-07-20 02:39 pass",
+    "test_count": 5486,
+    "last_regression": "2026-07-21 01:07 pass",
     "coverage_pct": 0,
     "security_score_time": "2026-07-20 01:07",
     "test_suites": 155,
@@ -335,7 +335,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-07-20 周一: 两版本交付. V37.9.267 OpenClaw 第七次升级评估(2026.7.1 stable 触发判据跟踪, 继续 hold 判据全未满足). V37.9.268 gen_readme_badges「偶发失败」根因修复(徽章源 quality.security_score vs full_regression 环境敏感 security 解耦, dev git remote http-proxy artifact 根治 V37.9.243/245 长期观察项). CI PR#836 卡 GitHub runner 容量问题(已订阅+30min check-in). 健康基线绿 tests 5484/155 chaos 10/10 gov 91/91 EXIT=0 security 98. VERSION 0.37.9.112 不变(两版本纯评估+测试基础设施). 28 unfinished 多数 Mac-Mini/in-review gated.",
+  "focus": "2026-07-21 周二 门控收敛日: V37.9.269. status_update --human open_prs str/list 守卫缺失修复(MR-8 copy-paste-is-a-bug-class: 平行字段 unfinished V37.9.38 有守卫 open_prs 没有 → 字符串被逐字符拆成 'PR: c/PR: l/...' 乱码, 开工 --read --human 亲眼撞到)+2 sabotage 守卫. CLAUDE.md L384(23→91 inv)/L620(951→5484 tests) stale 现态计数收敛 + full_regression.sh:409 同款 label 全量同步(原则#31). OpenClaw hold 沿用(latest 2026.7.1-2, 2026.7.2 仅 beta.3). 用户拒绝 observer 语料重塑 fork(continue)→取安全一致性收敛默认(不擅自重塑 paper-canonical 研究资产). VERSION 0.37.9.112 不变. 健康基线绿 tests 5486/155 gov 91/91 EXIT=0. 28 unfinished 全 gated(Mac-Mini/in-review/deferred).",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
