@@ -1,6 +1,6 @@
 {
-  "updated": "2026-07-21 01:07:34",
-  "updated_by": "full_regression",
+  "updated": "2026-07-21 01:39:13",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-07-21",
+      "what": "V37.9.269 门控收敛日 (纯 display/doc, VERSION 0.37.9.112 不变): (1) status_update --human open_prs str/list 守卫修复 — 平行字段 unfinished V37.9.38 有 isinstance(list) 守卫, open_prs 渲染漏加 (MR-8 copy-paste-is-a-bug-class 一物一形), 历史 session --set 存成 str → for-loop 逐字符拆成 'PR: c/PR: l/...' 乱码 (开工 --read --human 亲眼撞到真 bug). 镜像 unfinished 守卫 + TestFormatHuman +2 sabotage 验证 (退回裸循环精确复现乱码→守卫 FAIL, 还原 6/6). (2) CLAUDE.md 两处 stale 现态计数收敛 (gen_readme_badges 覆盖不到 body prose): L384 治理注释 23→91 inv/7→23 MR/+14 MRD + L620 原则#29 951→5486 tests/35→91 inv/34→40 jobs (badly stale undersells 复杂度). 诚实不动 point-in-time (V37.1-tagged/L864 覆盖里程碑/L873 文章 arc). full_regression 155/0/5486 (+2) / chaos 10/10 全抓 / 三 doc-drift 无漂移 / gov 91/91 EXIT=0. 复杂度: files/env/jobs/state 四维不变, tests +2, 净 runtime 机制 0 净 -1 MR-8 隐患. [3] DeepSeek Phase 2 premise reconcile (doubao_21 已 primary V37.9.222, deepseek_full=fallback 赢家). 诚实边界: 用户拒绝 observer 语料 fork 后未擅自重塑 paper-canonical 语料库.",
+      "by": "claude_code"
+    },
     {
       "date": "2026-07-21",
       "what": "V37.9.269 门控收敛日: status_update --human open_prs str/list 守卫缺失修复(MR-8: 平行字段 unfinished V37.9.38 有守卫 open_prs 漏加 → str 被 for-loop 逐字符拆成 PR: c/l/... 乱码, 镜像 unfinished 守卫)+2 sabotage 守卫(退回裸循环精确复现乱码). CLAUDE.md L384 治理注释(23不变式+7元规则+6元发现→91+23+14MRD)/L620 原则#29(951测试/35不变式/34cron→5486/91/40) stale 现态计数收敛 + full_regression.sh:409 同款 label 全量同步(原则#31). 诚实不动 point-in-time(L817 V37.1-tagged/L864 里程碑/L873 article arc). OpenClaw hold 沿用(2026.7.2 仅 beta). 用户拒绝 observer 语料重塑 fork→安全一致性收敛默认(不擅自重塑已发表论文绑定 paper-canonical). 验证 full_regression 5486/155/0 + chaos(clean tree)/gov 91/91 EXIT=0/三 doc-drift 无漂移/安全扫描零泄漏. VERSION 0.37.9.112 不变(--human 纯 display 零 runtime, 镜像 V37.9.241 tooling/265 prose). 净 runtime 机制 0, 净 -1 MR-8 一物一形隐患.",
@@ -173,11 +178,6 @@
       "date": "2026-07-06",
       "what": "V37.9.251 B3 收尾 — PA 硬编码全仓漂移守卫 (用户「继续执行完 B3」): test_pa_coupling.py 升级 TestNoPersonalPathHardcode 扫全部 122 运行时 .py+.sh 拦截任意新写 /Users/<真实用户名> 个人路径 (示例名豁免) + 非空验证。兑现 charter B3 done-criteria「新增 PA-specific 硬编码有 scanner 拦截」。日落法轻量版 (扩既有守卫非造独立 scanner 模块, 现有硬编码点为零无扫描-修复循环需求)。守卫 7→9 单测, sabotage 真有效。H1-B (PA 解耦第一批) 全链闭合: B1 盘点(249)+B2 backlog+B3 config化 A1/D3/A2+scanner(251)。VERSION 0.37.9.101 不变。",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-07-06",
-      "what": "V37.9.250 PA 耦合 config 化第二批 (用户「继续全部执行」, 接 V37.9.249 B1): D3 TZ config 化 35 脚本 87 处 TZ=Asia/Hong_Kong → TZ=${SYSTEM_TZ:-Asia/Hong_Kong} (默认仍 HKT, .env_shared 设 SYSTEM_TZ 全局覆盖, 修非-HK 实例跨午夜日期错位 bug) + A2 diagnose.sh openclaw home → $HOME/.openclaw (不引入新 env)。守卫 test_pa_coupling_kb_paths.py → test_pa_coupling.py 扩展 (7 单测, D3 无裸 TZ + 广度≥30 + A2, sabotage 真有效)。全部 Mac Mini 生产 no-op。VERSION 0.37.9.101 不变。剩 backlog: C2 homebrew/C1 launchd(H1-C)/D2 中文 prompt(边界内延后)。",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -232,7 +232,7 @@
       "【2026-07-02 多镜头审计 · 9 findings 全部处置完毕 (V37.9.226-239: 8 修复闭环 + I half-open 登记为可接受设计 tradeoff) · 剩纯 Mac Mini 被动验证】同步+重启 proxy/adapter 后观察: (A) 真 fallback 时 proxy 日志 DEGRADED 行 + proxy_stats.json slo.fallback_count 变真值 (V37.9.229) (C) ls ~/.kb/status.json.lock ~/.kb/audit.jsonl.lock 伴生锁文件出现 (V37.9.238) (E) client 断开时 adapter.log 记 CLIENT GONE 单行非 traceback (V37.9.231/242) (B) streaming 请求撞 parse 异常时 Gateway 收 SSE 而非 content-type 错配 (V37.9.239) (G) last_run_self_critique.json time 本地格式 + watchdog 4h 覆盖 observer (V37.9.230)。完整分诊记录见 CLAUDE.md V37.9.226-239 changelog, 无 dev 剩余动作。",
       "【V37.9.211/212 Qwen3 端点刷新 · adapter ✅ + V37.9.212 ✅ 已并入 main(PR#774, 2026-07-02 dev 核实) · 剩用户 env 动作】剩余非紧急: (A) .env_shared 设新 REMOTE_API_KEY+REMOTE_BASE_URL(cron 直连脚本 health_check 每周报 CURRENT_MODEL/diagnose 用) (C) 🔴 明文 key 建议用完轮换。教训钉死: adapter/proxy 是 launchd job, env 改必须进 plist EnvironmentVariables + bootout/bootstrap(不是 shell export + kickstart)。",
       "【LLM-Observer 研究攻关 #1 · Stage 0-5 ✅ + Stage 6 chunk 1 ✅(V37.9.200 bench 社区化) + Mac Mini E2E shadow 周观察中 2026-06-30 · Stage 5.1(flip on, gated 于 shadow 周数据)/Stage 6 论文 #2 草案(gated 于 detection latency 生产数据) next】Stage 5 wire 进 daily_observer (PR#759 已合并+同步)。Mac Mini E2E 当天验证: fp_mode=shadow + score_history fp_med 链路通 + shadow 立刻抓第一个真 FP (S5 boilerplate 误把 freight 评分字段 '评级：⭐⭐⭐⭐' 重复当空壳) → V37.9.199 修复(PR#760 已合并 b9d68b2, 生产复跑 2026-06-29 段数 1→0 确认生效) (_descriptive_char_count 区分描述空壳 vs 评分字段, PR#760 待合并)。🔴 **Mac Mini shadow 周观察 (进行中, dev 不可替代)**: 合并 PR#760 + 同步 → 下次 06:30 cron 评分源不再误报。每天看 ~/.kb/self_critique/daily_critique_$(date -v-1d +%Y%m%d).md 的 Fail-Plausible 段 + score_history fp_high/med + status.quality.observer.fail_plausible_* — 判断 (a) 还有没有其他系统性 FP (b) 有没有抓到【真】fail-plausible (c) cron 是否变慢/报错 (FAIL-OPEN)。**Stage 5.1 (shadow 周后)**: FP 噪声降到低位 + 信号真有用 → flip OBSERVER_FP_MODE=on (fp 进 anomalies 影响评分+告警) + 评估 force_judge 高风险 synthesis (catch novel D2/grounding)。**Stage 6**: bench 化 (reliability_bench 扩展 + llm_observer_selfcheck CORPUS 种子) + 论文 #2 (描述→预测, scorecard 核心数据)。 **V37.9.210: Stage 5.1 flip 决策框架已预注册 design doc §9.1**(观察对象+live precision 度量+C1/C2/C3 criteria+flip vs extend+rollback 可逆+small-N 边界) — shadow 周(~7/7)完成后按 §9.1 判 flip/extend, 决策结构不再散落 changelog(一物一形).",
-      "【DeepSeek 迁移 Qwen3 · 满血版 deepseek_full 确立为赢家(V37.9.205 feature_verified) · Phase 2 待启】候选已定: deepseek_full(满血版 ai-tokenhub)=赢家——E2E 验证 text/tool_calling/reasoning, 🌟 有 R1 reasoning 通道(超 Qwen3-235B-Instruct 非推理模型)+无乱码+干净中文; 量化版 deepseek(w4a8)=PENDING(有乱码+无 reasoning 通道)。满血版仍限: 无视觉(400)+json_mode 围栏非严格+推理吃 token 预算(生成任务须高 max_tokens)。🔴 Mac Mini 待用户: (1) 满血版 key 已在~/.env_shared, 待加进 adapter+proxy plist(镜像 ARK/DEEPSEEK_API_KEY)+bootout/bootstrap 重载让 launchd 服务用上。(2) Phase 2: deepseek_full 进 fallback 链生产观察(质量/延迟/真接管)→ 升 production_observed(verified_fallback flip)。注: router shadow 模式已会把 reasoning 任务(如 kb_dream)路由到 deepseek_full(s=20>qwen 14), 但 ROUTER_ENFORCE 默认 off 仅观察; 若要真启用能力路由需用户开 ROUTER_ENFORCE。(3) 视觉路由: 满血版无视觉 → 老化 Qwen3 文本时图片留 Qwen2.5-VL/doubao(候选能力路由器 text→deepseek_full/image→VL)。(4) streaming 满血版未单测(declared True verified False), 如需可补 curl。🔴 安全: 满血/量化/Doubao ARK 三 key 对话明文多次强烈建议轮换。",
+      "【DeepSeek 迁移 Qwen3 · premise 已被 doubao_21 primary 取代 (V37.9.269 reconcile)】原目标「deepseek_full 替换 Qwen3 作 primary」已 moot——doubao_21 于 V37.9.222 B1 flip 成为唯一 primary (批量 thinking-off 实测比 qwen 分流更快, 见 [21])。deepseek_full 现定位=fallback 链赢家 (V37.9.205 feature_verified, 有 R1 reasoning 通道+无乱码), 已在 FALLBACK_ORDER 中 (V37.9.218)。**无独立 Phase 2 cutover 待办**——provider 迁移这条线由 doubao_21 primary + deepseek_full fallback 现状承接。剩纯观察: [21] doubao_21 跑 N 天 cron 周期。",
       "【ISSRE Industry Track 已投递(Submission 395, 2026-06-28) · in-review】Silent-failures 论文平行第二投已完成: EasyChair Submission 395 (Industry Track / Full Paper / 标题+150 词摘要+4kw+topics+作者) + 6 页 IEEEtran PDF (pdflatex 本地真编译, 6 页含 refs 符合上限) 上传 15:50。待: 编辑初筛 → 评审 → 通知 2026-08-12。截止前(论文 7-12)可 Update 重传(若官方页 re-confirm 后想微调 Fig.1)。诚实备忘: CFP 走 EAPLS/EasyChair 镜像交叉验证(官方页 403), 建议官方页扫一眼确认 6 页含 refs/7-12 未变。源码 latex/issre_6page_trimmed.tex(投稿版,6 页)+issre_6page.tex(完整版,7 页)入库; PDF 是 build 产物 gitignore。",
       "【IEEE Software 重投完成 · SW-2026-06-0312 · in-review 追踪】2026-07-01 desk-return(长稿超 4200 词)已解决: 改投合规经验报告版(ieee_software_manuscript 4 页, 正文 3510 counted<4200 + 摘要 144<150 + 作者简介), IEEE Author Portal 交互式重投成功('processed and submitted to the journal')。待: 编辑部收稿确认邮件 → 初筛 → 2-3 referee 同行评审 → 决定(修改/录用/拒)。在 'My Submissions' 查状态。ISSRE Submission 395 独立并行 in-review。",
       "【4.27 推送链路回归追踪 · 中优】真因=4.27 openclaw CLI 冷调用回归 (V37.9.145). 丢失面评估已闭合 (push_path_loss_surface_audit_2026_06_15.md). ✅(c) 上游修复已定位 (V37.9.225, eval doc §16.2): 2026.6.11 含 #93356 plugin-setup-registry CPU storm + #93919 manifest-scan cache + #89628 help startup, 全部 6.10→6.11 窗口合并, 构造上不在 4.27 → 根治随未来升级 ≥6.11 获得 (升级评估收益侧新筹码), 现状 notify.sh 重试+队列可接受. 剩 Mac Mini 数据: (a) openclaw message send --help timeout 旋钮探测 (b) ls ~/.openclaw/plugin-runtime-deps/ 多 hash dir 查 staging 间歇复发. 硬化候选 (deferred 需 E2E): 论文类 job 直推双通道迁 notify.sh --topic (MR-8).",
@@ -258,7 +258,9 @@
       "deep_dive OA 全文解析 follow-up (V37.9.183/184) — (1) ✅ 已闭合(V37.9.261/263): Mac Mini grep 实证降级主体=结构性付费墙(no PDF URL derivable, ACM/Elsevier 无 OA 版)非 fetch-path bug, ban-list(V37.9.260)是真杠杆; V37.9.262 OpenAlex 第二源 Mac Mini 实测 0/7 恢复且净负→V37.9.263 回退; 降级率下降 thesis 被证伪, 残余=接受现实(不爬付费墙). (2) 历史 KB 条目仍 PII link(仅新论文受益, V37.9.132 局限, 不补). (3) ✅ V37.9.186: pwc 死路径退役 + TIER↔registry drift 守卫.",
       "freightwaves RSS 403 (07-10 watchdog 首现, freight_watcher per-source FAIL-OPEN 已跳过) + kb_dream curl(28) 90s 超时低频 (07-10 grep -c=2, 有 retry+degrade 自愈, 无 job 失败). 均低优观察 (日落法 #8 不现加机器): freightwaves 若持久化≥1周才评估换源/剔除 (镜像 NBER V37.9.266 剔除路径); dream 超时若递增关联 unfinished [21] doubao_21 batch 是否真走 thinking-off 快路 (V37.9.221/222, 需 Mac Mini cat dream status + grep 趋势)."
     ],
-    "open_prs": "claude/todays-work-51mhhm: V37.9.269 (门控收敛日 — status_update --human open_prs str/list 守卫缺失修复 MR-8 + CLAUDE.md L384/L620 stale 现态计数收敛) — 待用户合并 PR + Mac Mini git reset 同步 (纯 display/doc, 零重启零业务影响)",
+    "open_prs": [
+      "claude/todays-work-51mhhm: V37.9.269 (status_update --human open_prs str/list 守卫 + CLAUDE.md 计数收敛) — 待用户合并 PR + Mac Mini git reset 同步（纯 display/doc，零重启零业务影响）"
+    ],
     "blocked_on": ""
   },
   "quality": {
@@ -335,7 +337,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-07-21 周二 门控收敛日: V37.9.269. status_update --human open_prs str/list 守卫缺失修复(MR-8 copy-paste-is-a-bug-class: 平行字段 unfinished V37.9.38 有守卫 open_prs 没有 → 字符串被逐字符拆成 'PR: c/PR: l/...' 乱码, 开工 --read --human 亲眼撞到)+2 sabotage 守卫. CLAUDE.md L384(23→91 inv)/L620(951→5484 tests) stale 现态计数收敛 + full_regression.sh:409 同款 label 全量同步(原则#31). OpenClaw hold 沿用(latest 2026.7.1-2, 2026.7.2 仅 beta.3). 用户拒绝 observer 语料重塑 fork(continue)→取安全一致性收敛默认(不擅自重塑 paper-canonical 研究资产). VERSION 0.37.9.112 不变. 健康基线绿 tests 5486/155 gov 91/91 EXIT=0. 28 unfinished 全 gated(Mac-Mini/in-review/deferred).",
+  "focus": "2026-07-21 周二: V37.9.269 门控收敛日 (纯 display/doc, VERSION 0.37.9.112 不变). (1) status_update --human open_prs str/list 守卫修复 — 平行字段 unfinished V37.9.38 有守卫 open_prs 漏加 (MR-8 copy-paste-is-a-bug-class), 字符串被逐字符拆成 'PR: c/PR: l/...' 乱码 (开工 --read --human 亲眼撞到); 镜像 unfinished 守卫 + 2 sabotage 验证守卫. (2) CLAUDE.md 两处 stale 现态计数收敛 (L384 23→91 inv / L620 951→5486 tests). full_regression 155/0/5486 chaos 10/10 gov 91/91 EXIT=0. 净 runtime 机制 0 净 -1 MR-8 隐患. 剩: 用户合并 PR (claude/todays-work-51mhhm) + Mac Mini git reset 同步. [3] DeepSeek premise 已 reconcile 到 doubao_21 primary. 28→仍多数 gated (Mac-Mini/in-review/deferred); 最有价值用户动作=[9] WhatsApp reconnect config.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
