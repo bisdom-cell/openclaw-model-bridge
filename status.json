@@ -1,6 +1,6 @@
 {
-  "updated": "2026-07-21 01:39:13",
-  "updated_by": "claude_code",
+  "updated": "2026-07-21 02:06:32",
+  "updated_by": "full_regression",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-07-21",
+      "what": "V37.9.270 status.json 点号孤儿键根治 + 恢复 3 丢失 unfinished (同日第二交付, VERSION 不变): V37.9.269 收工回写时 sorted(keys) 撞见顶层字面点号键 session_context.unfinished (一物多形孤儿, pre-existing V37.9.268). 根因: _resolve_array_target(V37.9.38) 只重定向裸名 unfinished, 全限定 --add session_context.unfinished fall through 建字面顶层孤儿键. 血案: 某 session(~07-07)curation 落孤儿, 含 2 个 genuinely-lost 用户项 (GLM chat 路由 + 🔴 GLM ark key 轮换安全项), --human 从不显示(MR-4 silent-loss). 修: (1)_resolve 全限定路径也重定向 nested (2)migration 泛化 drain 两孤儿源 no-data-loss self-heal. 数据: 恢复 3 additive(H1-C/GLM-chat/GLM-key), 丢 2 verified-dup(doubao→[21]/deepseek→[3]), 删孤儿键, nested 28→31. 守卫 +4 sabotage 验证(退回 == unfinished→全限定 FAIL / 单孤儿源→点号迁移 FAIL). full_regression 5490(+4) doc-drift 无漂移 gov 91/91. 净 runtime 机制 0 净 -1 一物多形孤儿源. 日落法: 退役孤儿源+self-heal, unfinished 真单一真理源.",
+      "by": "claude_code"
+    },
     {
       "date": "2026-07-21",
       "what": "V37.9.269 门控收敛日 (纯 display/doc, VERSION 0.37.9.112 不变): (1) status_update --human open_prs str/list 守卫修复 — 平行字段 unfinished V37.9.38 有 isinstance(list) 守卫, open_prs 渲染漏加 (MR-8 copy-paste-is-a-bug-class 一物一形), 历史 session --set 存成 str → for-loop 逐字符拆成 'PR: c/PR: l/...' 乱码 (开工 --read --human 亲眼撞到真 bug). 镜像 unfinished 守卫 + TestFormatHuman +2 sabotage 验证 (退回裸循环精确复现乱码→守卫 FAIL, 还原 6/6). (2) CLAUDE.md 两处 stale 现态计数收敛 (gen_readme_badges 覆盖不到 body prose): L384 治理注释 23→91 inv/7→23 MR/+14 MRD + L620 原则#29 951→5486 tests/35→91 inv/34→40 jobs (badly stale undersells 复杂度). 诚实不动 point-in-time (V37.1-tagged/L864 覆盖里程碑/L873 文章 arc). full_regression 155/0/5486 (+2) / chaos 10/10 全抓 / 三 doc-drift 无漂移 / gov 91/91 EXIT=0. 复杂度: files/env/jobs/state 四维不变, tests +2, 净 runtime 机制 0 净 -1 MR-8 隐患. [3] DeepSeek Phase 2 premise reconcile (doubao_21 已 primary V37.9.222, deepseek_full=fallback 赢家). 诚实边界: 用户拒绝 observer 语料 fork 后未擅自重塑 paper-canonical 语料库.",
@@ -173,11 +178,6 @@
       "date": "2026-07-06",
       "what": "V37.9.252 observer 自评驱动修复 — deep_dive_repeat 检测器加 ban-list-active-since 过滤 (消除 pre-deployment 历史重复 06-14/06-26 被永久误报 ban-list 静默失效的假阳性)。observer→fix 闭环: 4 findings 分诊 = 1 dev 修(检测器自己的假阳性) + 1 observer 幻觉(#4 evening pwc/openreview = kb_evening 正确排除 enabled=false 源, 不改正确代码) + 2 Mac-Mini/结构性(#1 付费墙降级率/#3 dream 时效标注 V37.9.235 已加待同步)。守卫 +2 (假阳性回归 + 跨部署边界真失效仍报), sabotage 真有效。VERSION 0.37.9.101→0.37.9.102 (daily_observer live cron 检测器行为变更)。",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-07-06",
-      "what": "V37.9.251 B3 收尾 — PA 硬编码全仓漂移守卫 (用户「继续执行完 B3」): test_pa_coupling.py 升级 TestNoPersonalPathHardcode 扫全部 122 运行时 .py+.sh 拦截任意新写 /Users/<真实用户名> 个人路径 (示例名豁免) + 非空验证。兑现 charter B3 done-criteria「新增 PA-specific 硬编码有 scanner 拦截」。日落法轻量版 (扩既有守卫非造独立 scanner 模块, 现有硬编码点为零无扫描-修复循环需求)。守卫 7→9 单测, sabotage 真有效。H1-B (PA 解耦第一批) 全链闭合: B1 盘点(249)+B2 backlog+B3 config化 A1/D3/A2+scanner(251)。VERSION 0.37.9.101 不变。",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -256,17 +256,20 @@
       "【OpenClaw 第六次升级评估 (2026-07-04, V37.9.244) · 结论=继续 hold · 三收敛判据跟踪】4.27→6.11 深评见 eval doc 第十七节: 三结构性迁移 (M1 插件外部化/M2 SQLite 迁移进行中/M3 Proxyline) + 回滚单向门 (SQLite cleanup 后 4.27 读不回 cron/auth, WhatsApp 重链撞 408 风险)。开窗判据 (全满足才升): ① 连续 2 stable 无 session/SQLite 迁移 PR (2026.7.x stable 发布时核对 changelog) ② 周稳定版 ≤1 ③ Mac Mini node ≥22.19。🔴 判据 ③ 可独立提前做 (用户): node -v 确认, 不足先升 Node (与升级窗口解耦)。每周一 check_upgrade.sh cron 照常监控; LAST_EVAL_DATE 已重置 2026-07-04。",
       "【2026-07-08 长 session Mac Mini 被动验证】同步后观察: (a) V37.9.260 ban-list 边界: 次日 deep_dive/dream 恰-14-天前论文/主题正确被 ban + observer deep_dive_repeat 恰-14-天误报消失 (b) V37.9.261 observer 降级桶: 次日 06:30 报告降级段自区分「无 OA 全文(结构性)」vs「PDF 抓取错误(HTTP/超时)」 (c) V37.9.263 OpenAlex 已回退 S2-only, deep_dive 闭源论文降级 abstract_only 正确。deep_dive 降级结论=接受现实(残余=真闭源 ACM/Elsevier 无 OA + 发布方反爬 MDPI/ScienceDirect 403, OA 解析器打不穿, 实测 0/7)。一周后可选复核 grep 抓取降级原因确认 ban-list 去重复后降级率下降(非 OpenAlex)。",
       "deep_dive OA 全文解析 follow-up (V37.9.183/184) — (1) ✅ 已闭合(V37.9.261/263): Mac Mini grep 实证降级主体=结构性付费墙(no PDF URL derivable, ACM/Elsevier 无 OA 版)非 fetch-path bug, ban-list(V37.9.260)是真杠杆; V37.9.262 OpenAlex 第二源 Mac Mini 实测 0/7 恢复且净负→V37.9.263 回退; 降级率下降 thesis 被证伪, 残余=接受现实(不爬付费墙). (2) 历史 KB 条目仍 PII link(仅新论文受益, V37.9.132 局限, 不补). (3) ✅ V37.9.186: pwc 死路径退役 + TIER↔registry drift 守卫.",
-      "freightwaves RSS 403 (07-10 watchdog 首现, freight_watcher per-source FAIL-OPEN 已跳过) + kb_dream curl(28) 90s 超时低频 (07-10 grep -c=2, 有 retry+degrade 自愈, 无 job 失败). 均低优观察 (日落法 #8 不现加机器): freightwaves 若持久化≥1周才评估换源/剔除 (镜像 NBER V37.9.266 剔除路径); dream 超时若递增关联 unfinished [21] doubao_21 batch 是否真走 thinking-off 快路 (V37.9.221/222, 需 Mac Mini cat dream status + grep 趋势)."
+      "freightwaves RSS 403 (07-10 watchdog 首现, freight_watcher per-source FAIL-OPEN 已跳过) + kb_dream curl(28) 90s 超时低频 (07-10 grep -c=2, 有 retry+degrade 自愈, 无 job 失败). 均低优观察 (日落法 #8 不现加机器): freightwaves 若持久化≥1周才评估换源/剔除 (镜像 NBER V37.9.266 剔除路径); dream 超时若递增关联 unfinished [21] doubao_21 batch 是否真走 thinking-off 快路 (V37.9.221/222, 需 Mac Mini cat dream status + grep 趋势).",
+      "【H1-C / C2 (Q4, gated) · C1 选型已完成 V37.9.253】第二实例最小闭环真跑 = 非 Mac Linux host 上 E2E 绿: minimal_runtime + governance cron + 1-2 内容 job(arxiv/dblp) 真抓取→LLM→Discord + cron+nohup 重启存活。选型=PUSH-only 纯推送(绕 Gateway/WhatsApp/sessions), 见 docs/second_instance_poc_selection_20260707.md §5 验收标准。C2 前置(§3, 均可枚举无未知): 持久 Linux host(VPS/容器) + 可达 LLM 端点(REMOTE_BASE_URL) + Discord bot token/channel(DISCORD_CH_*) + 唯一真需新建=Linux bootstrap 脚本(装 py 依赖+起 adapter/proxy nohup+写 crontab, 并行 install_openclaw_macmini.sh)。C3=portability report EN/ZH 证据型文章(对两次评审可迁移性批评终局回答)。",
+      "【GLM-5.2 chat-界面路由 · 可选 follow-up · 用户有需求未落地】用户想在 WhatsApp/Discord 聊天里用 GLM-5.2(现只能 code_assist.sh CLI / ?provider= API)。方案 A(推荐): proxy 加前缀路由钩子(如 'glm ' 前缀 → strip tools + ?provider=glm5_coding, 复用 [NO_TOOLS]+ROUTER_ENFORCE), WhatsApp/Discord 通用最小改动。方案 B: Discord #glm-coding 频道→GLM agent(OpenClaw config, 限 Discord)。诚实结论(已答用户): 方案 B 是 GLM 聊天顾问非 vibe-coding agent(bridge 无 repo 文件/shell 工具 + 12工具/2调用上限 + GLM grounding 弱 → 自主改仓库风险高); vibe coding 本项目仍用 Claude Code/Opus。待用户决定是否建方案 A。",
+      "【🔴 GLM ark key 轮换 + GLM-5.2 provider 生产化 · Mac Mini 待用户】(a) ark key(对话多次出现)功能验证完毕, 用户已声明会轮换/删除 → 现在可做(provider 只从 env 读, 轮换后更新 .env_shared+plist)。(b) GLM-5.2 已在 .env_shared 设 GLM5_API_KEY+GLM5_ENDPOINT_ID; 若要 ?provider=glm5_coding 经 bridge 生效需 adapter/proxy plist 也设这两 env + ROUTER_ENFORCE=on。(c) 分支 claude/daily-standup-x3bp16 领先 main 多个 commit(GLM 全链+C1), 待合并到 main(用户开 PR 或授权我开)。"
     ],
     "open_prs": [
-      "claude/todays-work-51mhhm: V37.9.269 (status_update --human open_prs str/list 守卫 + CLAUDE.md 计数收敛) — 待用户合并 PR + Mac Mini git reset 同步（纯 display/doc，零重启零业务影响）"
+      "claude/todays-work-51mhhm: V37.9.269 + V37.9.270 (open_prs str/list 守卫 + CLAUDE.md 计数收敛 + status.json 点号孤儿键根治+恢复 3 丢失项) — 待用户合并 PR + Mac Mini git reset 同步（纯 display/state，零重启零业务影响）"
     ],
     "blocked_on": ""
   },
   "quality": {
     "security_score": 98,
-    "test_count": 5486,
-    "last_regression": "2026-07-21 01:07 pass",
+    "test_count": 5490,
+    "last_regression": "2026-07-21 02:06 pass",
     "coverage_pct": 0,
     "security_score_time": "2026-07-20 01:07",
     "test_suites": 155,
@@ -337,7 +340,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-07-21 周二: V37.9.269 门控收敛日 (纯 display/doc, VERSION 0.37.9.112 不变). (1) status_update --human open_prs str/list 守卫修复 — 平行字段 unfinished V37.9.38 有守卫 open_prs 漏加 (MR-8 copy-paste-is-a-bug-class), 字符串被逐字符拆成 'PR: c/PR: l/...' 乱码 (开工 --read --human 亲眼撞到); 镜像 unfinished 守卫 + 2 sabotage 验证守卫. (2) CLAUDE.md 两处 stale 现态计数收敛 (L384 23→91 inv / L620 951→5486 tests). full_regression 155/0/5486 chaos 10/10 gov 91/91 EXIT=0. 净 runtime 机制 0 净 -1 MR-8 隐患. 剩: 用户合并 PR (claude/todays-work-51mhhm) + Mac Mini git reset 同步. [3] DeepSeek premise 已 reconcile 到 doubao_21 primary. 28→仍多数 gated (Mac-Mini/in-review/deferred); 最有价值用户动作=[9] WhatsApp reconnect config.",
+  "focus": "2026-07-21 周二: 门控收敛日两交付 (纯 display/state, VERSION 0.37.9.112 不变). V37.9.269 status_update --human open_prs str/list 守卫 (MR-8, 开工 --read --human 亲眼撞到逐字符乱码) + CLAUDE.md 计数收敛. V37.9.270 顺藤摸到更深 bug: status.json 字面点号孤儿键 session_context.unfinished — --add 全限定形式落顶层孤儿键, curation 自 ~07-07 静默丢失(含 🔴 GLM key 轮换项), --human 从不显示. 根治 _resolve_array_target 全限定重定向 + migration self-heal 两孤儿源 + 恢复 3 丢失项(H1-C/GLM-chat/GLM-key) nested 28→31. full_regression 154/0/5490(dirty-tree chaos skip, clean 复跑待). 剩: 用户合并 PR + Mac Mini 同步. 31 unfinished 多数 gated; 最有价值用户动作=[9] WhatsApp reconnect + 恢复的 [30] 🔴 GLM key 轮换.",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
@@ -347,12 +350,5 @@
   ],
   "_meta": {
     "last_updated_by": "claude_code"
-  },
-  "session_context.unfinished": [
-    "【doubao_21 唯一 primary · B1 flip 已上线 (2026-07-02) + V37.9.223 四家 config-ready】现态: PROVIDER=doubao_21 无 FAST_PROVIDER, 批量 thinking-off 走 B1 注入 (实测比 qwen 分流更快, Ark 托管云>自建 W8A8), PA thinking-on。V37.9.223 全部 doubao/deepseek 四家同款 reasoning_off_body (任何切换独立成 primary): doubao_21/deepseek_full E2E 实测 + deepseek 量化探针实测网关接受 (200/reasoning_tokens:0/无400, non-reasoning故no-op无害) + doubao 2.0 家族推断 (同 Ark API, 直连探针受 env 位置阻塞可选——ARK_API_KEY 在 adapter plist 非 .env_shared)。剩: (1) 🔴 合并 PR + Mac Mini git reset 同步 (V37.9.223 声明在切换前 inert, 无需重启) (2) doubao_21 观察 N 天 cron 周期 → 升 production_observed (3) follow-up: B1 注入经 fb_clean (adapter.py:695) 传播到 fallback 链 — qwen 兜底不认 thinking 潜在 400 边缘, per-provider fallback 注入过滤候选 (4) 稳定后 qwen 从 FALLBACK_ORDER 移除缩链 (日落法)。回滚: PROVIDER=qwen 或 FAST_PROVIDER=qwen 恢复 A2 (随时可用)",
-    "【deepseek_full · 第一优先级 fallback 生产观察中 (Phase 2 进行时)】V37.9.218/222 后 deepseek_full 已在 fallback 链首位 [deepseek_full,doubao,deepseek,qwen]; 原「迁移 Qwen3 赢家」叙事已被 doubao_21-唯一-primary 取代 (deepseek_full 定位=最强文本 fallback 非 primary 候选)。剩: (1) 真 fallback 接管观察 → verified_fallback flip + 升 production_observed (2) streaming 声明 True 未单测 (如需补 curl) (3) 限制不变: 无视觉(400)/json_mode 围栏非严格/推理吃 token 预算 (4) 🔴 安全: 满血/量化/ARK 明文 key 对话出现过, 强烈建议轮换",
-    "【H1-C / C2 (Q4, gated) · C1 选型已完成 V37.9.253】第二实例最小闭环真跑 = 非 Mac Linux host 上 E2E 绿: minimal_runtime + governance cron + 1-2 内容 job(arxiv/dblp) 真抓取→LLM→Discord + cron+nohup 重启存活。选型=PUSH-only 纯推送(绕 Gateway/WhatsApp/sessions), 见 docs/second_instance_poc_selection_20260707.md §5 验收标准。C2 前置(§3, 均可枚举无未知): 持久 Linux host(VPS/容器) + 可达 LLM 端点(REMOTE_BASE_URL) + Discord bot token/channel(DISCORD_CH_*) + 唯一真需新建=Linux bootstrap 脚本(装 py 依赖+起 adapter/proxy nohup+写 crontab, 并行 install_openclaw_macmini.sh)。C3=portability report EN/ZH 证据型文章(对两次评审可迁移性批评终局回答)。",
-    "【GLM-5.2 chat-界面路由 · 可选 follow-up · 用户有需求未落地】用户想在 WhatsApp/Discord 聊天里用 GLM-5.2(现只能 code_assist.sh CLI / ?provider= API)。方案 A(推荐): proxy 加前缀路由钩子(如 'glm ' 前缀 → strip tools + ?provider=glm5_coding, 复用 [NO_TOOLS]+ROUTER_ENFORCE), WhatsApp/Discord 通用最小改动。方案 B: Discord #glm-coding 频道→GLM agent(OpenClaw config, 限 Discord)。诚实结论(已答用户): 方案 B 是 GLM 聊天顾问非 vibe-coding agent(bridge 无 repo 文件/shell 工具 + 12工具/2调用上限 + GLM grounding 弱 → 自主改仓库风险高); vibe coding 本项目仍用 Claude Code/Opus。待用户决定是否建方案 A。",
-    "【🔴 GLM ark key 轮换 + GLM-5.2 provider 生产化 · Mac Mini 待用户】(a) ark key(对话多次出现)功能验证完毕, 用户已声明会轮换/删除 → 现在可做(provider 只从 env 读, 轮换后更新 .env_shared+plist)。(b) GLM-5.2 已在 .env_shared 设 GLM5_API_KEY+GLM5_ENDPOINT_ID; 若要 ?provider=glm5_coding 经 bridge 生效需 adapter/proxy plist 也设这两 env + ROUTER_ENFORCE=on。(c) 分支 claude/daily-standup-x3bp16 领先 main 多个 commit(GLM 全链+C1), 待合并到 main(用户开 PR 或授权我开)。"
-  ]
+  }
 }

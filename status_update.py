@@ -138,18 +138,28 @@ def load_status():
         return dict(DEFAULT_STATUS)
 
 
-def _migrate_top_level_unfinished(data):
-    """V37.9.38: 把顶层 ``data["unfinished"]`` 列表合并进 session_context.unfinished。
+# V37.9.38: 顶层字面键 ``data["unfinished"]``（``--add unfinished`` 历史双路径）。
+# V37.9.270: 字面点号键 ``data["session_context.unfinished"]``（``--add
+# session_context.unfinished`` 全限定形式在 _resolve_array_target 特例化之前 fall
+# through 制造的孤儿键）。两个都是"应进 nested 却落顶层"的一物多形孤儿源。
+_UNFINISHED_ORPHAN_KEYS = ("unfinished", "session_context.unfinished")
 
-    去重保留 session_context 优先（更新），顶层条目附加在后（更旧）。完成后
-    删除顶层键，使下一次 save_status() 写出干净的单一路径状态。
-    Idempotent：顶层为空/不存在/非 list 时直接返回。
+
+def _migrate_top_level_unfinished(data):
+    """V37.9.38→V37.9.270: 把所有顶层"孤儿 unfinished"字面键合并进
+    session_context.unfinished（单一真理源），去重后删除孤儿键。
+
+    去重保留 session_context 优先（更新），孤儿条目附加在后（更旧）——**无数据丢失**，
+    curation 若误落孤儿键会在下次 load→save 自愈回可见的 nested 列表。
+    Idempotent：无任一孤儿键（或全为空 list）时只清理空键后返回。
     """
-    top = data.get("unfinished")
-    if not isinstance(top, list) or not top:
-        # 即使顶层是空 list 也清理掉，避免 schema 漂移持续存在
-        if isinstance(top, list) and not top and "unfinished" in data:
-            del data["unfinished"]
+    orphans = [k for k in _UNFINISHED_ORPHAN_KEYS
+               if isinstance(data.get(k), list) and data[k]]
+    if not orphans:
+        # 即使孤儿是空 list 也清理掉，避免 schema 漂移持续存在
+        for k in _UNFINISHED_ORPHAN_KEYS:
+            if isinstance(data.get(k), list) and not data[k]:
+                del data[k]
         return
     ctx = data.setdefault("session_context", {})
     cur = ctx.get("unfinished")
@@ -157,9 +167,12 @@ def _migrate_top_level_unfinished(data):
     # 当前实测已是 list；遇旧字符串迁移为 list（非空字符串当一项保留）
     if not isinstance(cur, list):
         ctx["unfinished"] = [cur] if (isinstance(cur, str) and cur.strip()) else []
+    orphan_items = []
+    for k in orphans:
+        orphan_items.extend(data[k])
     seen = set()
     merged = []
-    for item in (ctx["unfinished"] + top):
+    for item in (ctx["unfinished"] + orphan_items):
         try:
             key = json.dumps(item, sort_keys=True, ensure_ascii=False) if isinstance(item, (dict, list)) else str(item)
         except (TypeError, ValueError):
@@ -169,7 +182,9 @@ def _migrate_top_level_unfinished(data):
         seen.add(key)
         merged.append(item)
     ctx["unfinished"] = merged
-    del data["unfinished"]
+    for k in _UNFINISHED_ORPHAN_KEYS:
+        if k in data:
+            del data[k]
 
 
 def _resolve_array_target(data, array_name):
@@ -179,7 +194,11 @@ def _resolve_array_target(data, array_name):
     重定向；否则会重新制造 V37.9.36 双路径 bug。其他数组照常走顶层。
     返回 ``(parent_dict, key)``，调用方用 ``parent[key]`` 取/写数组。
     """
-    if array_name == "unfinished":
+    # V37.9.270: 裸名 "unfinished" 与全限定 "session_context.unfinished" 都重定向到
+    # nested。此前只特例化裸名 → `--add session_context.unfinished`（会话自然会打的
+    # 全限定形式）fall through 到 `return data, array_name` → 调用方 append 到字面点号
+    # 顶层键 `data["session_context.unfinished"]` = 孤儿键，curation 静默丢失（一物多形）。
+    if array_name in ("unfinished", "session_context.unfinished"):
         ctx = data.setdefault("session_context", {})
         cur = ctx.get("unfinished")
         if not isinstance(cur, list):

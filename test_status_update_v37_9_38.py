@@ -87,6 +87,21 @@ class TestResolveArrayTargetSpecialCase(unittest.TestCase):
         self.assertIn("session_context", data)
         self.assertIn("unfinished", data["session_context"])
 
+    def test_fully_qualified_unfinished_redirects_no_orphan(self):
+        """V37.9.270 血案回归: `--add session_context.unfinished`（全限定形式）
+        必须重定向到 nested，绝不创建字面点号顶层孤儿键 `data["session_context.unfinished"]`
+        （curation 静默丢失）。sabotage: _resolve 只特例化裸名 → 全限定 fall through → 孤儿。"""
+        data = {"session_context": {"unfinished": ["existing"]}}
+        parent, key = _su._resolve_array_target(data, "session_context.unfinished")
+        # 重定向到 nested 的真理源
+        self.assertIs(parent, data["session_context"])
+        self.assertEqual(key, "unfinished")
+        # 模拟调用方 append，确认落在 nested 而非孤儿键
+        parent[key].append("new_item")
+        self.assertEqual(data["session_context"]["unfinished"], ["existing", "new_item"])
+        self.assertNotIn("session_context.unfinished", data,
+                         "全限定形式绝不能创建字面点号顶层孤儿键")
+
 
 class TestMigrationFromTopLevel(unittest.TestCase):
     """V37.9.38: load_status 加载时把顶层 unfinished 合并迁移"""
@@ -151,6 +166,43 @@ class TestMigrationFromTopLevel(unittest.TestCase):
         data = {"unfinished": [], "session_context": {"unfinished": ["X"]}}
         _su._migrate_top_level_unfinished(data)
         self.assertNotIn("unfinished", data)
+        self.assertEqual(data["session_context"]["unfinished"], ["X"])
+
+    def test_migrates_dotted_orphan_key(self):
+        """V37.9.270 血案回归: 字面点号孤儿键 `data["session_context.unfinished"]`
+        （--add 全限定形式误建）必须被 drain 进 nested + 删除，无数据丢失。"""
+        data = {
+            "session_context.unfinished": ["lost_glm_item_a", "lost_glm_item_b"],
+            "session_context": {"unfinished": ["visible_item"]},
+        }
+        _su._migrate_top_level_unfinished(data)
+        # nested 优先在前，孤儿恢复在后 —— 丢失的项重新可见
+        self.assertEqual(data["session_context"]["unfinished"],
+                         ["visible_item", "lost_glm_item_a", "lost_glm_item_b"])
+        # 孤儿键被删 —— 不再一物多形
+        self.assertNotIn("session_context.unfinished", data)
+
+    def test_drains_both_orphan_sources_together(self):
+        """两个孤儿源（裸 unfinished + 点号 session_context.unfinished）同时存在时
+        都 drain 进 nested，去重，全删除。"""
+        data = {
+            "unfinished": ["legacy_top"],
+            "session_context.unfinished": ["dotted_orphan", "shared"],
+            "session_context": {"unfinished": ["shared", "recent"]},
+        }
+        _su._migrate_top_level_unfinished(data)
+        merged = data["session_context"]["unfinished"]
+        # nested 优先 + 两孤儿源附加 + "shared" 去重只留一份
+        self.assertEqual(merged, ["shared", "recent", "legacy_top", "dotted_orphan"])
+        self.assertNotIn("unfinished", data)
+        self.assertNotIn("session_context.unfinished", data)
+
+    def test_removes_empty_dotted_orphan_key(self):
+        """点号孤儿键为空 list 也清理（schema 漂移不残留）"""
+        data = {"session_context.unfinished": [],
+                "session_context": {"unfinished": ["X"]}}
+        _su._migrate_top_level_unfinished(data)
+        self.assertNotIn("session_context.unfinished", data)
         self.assertEqual(data["session_context"]["unfinished"], ["X"])
 
     def test_handles_legacy_string_session_context(self):
