@@ -1,6 +1,6 @@
 {
-  "updated": "2026-07-21 02:06:32",
-  "updated_by": "full_regression",
+  "updated": "2026-07-24 05:07:48",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-07-24",
+      "what": "V37.9.271 chat-界面 provider 前缀路由落地 — WhatsApp/Discord 聊天 glm 前缀路由到 GLM-5.2 (unfinished [29] 用户需求, V37.9.270 从 orphan-key 恢复的项, 用户 AskUserQuestion 选建方案 A)。proxy_filters.detect_provider_prefix 纯函数(PROVIDER_PREFIX_ROUTES 前缀 map 单一真理源+精简 coding system 替换 PA 身份+单轮丢历史+FAIL-OPEN 词边界防误伤 glmnet) + tool_proxy do_POST wiring(strip tools+forward URL ?provider=glm5_coding)。复用既有 ?provider=/[NO_TOOLS]/ROUTER_ENFORCE 三机制=日落法最小接缝(零新 env/框架)。守卫 test_v37_9_271(21 单测 4 类)+sabotage 反向验证(收紧被 PREFIX ROUTE log 咬的弱 forward-URL 守卫 V37.9.178 教训)。full_regression 155/0/5511, VERSION 0.37.9.112->0.37.9.113。剩 Mac Mini 前置=ROUTER_ENFORCE=on + GLM5 env(item [30] 覆盖); ROUTER_ENFORCE=off 时 FAIL-OPEN 降级默认 primary=fail-plausible 须确保 on。",
+      "by": "claude_code"
+    },
     {
       "date": "2026-07-21",
       "what": "V37.9.270 status.json 点号孤儿键根治 + 恢复 3 丢失 unfinished (同日第二交付, VERSION 不变): V37.9.269 收工回写时 sorted(keys) 撞见顶层字面点号键 session_context.unfinished (一物多形孤儿, pre-existing V37.9.268). 根因: _resolve_array_target(V37.9.38) 只重定向裸名 unfinished, 全限定 --add session_context.unfinished fall through 建字面顶层孤儿键. 血案: 某 session(~07-07)curation 落孤儿, 含 2 个 genuinely-lost 用户项 (GLM chat 路由 + 🔴 GLM ark key 轮换安全项), --human 从不显示(MR-4 silent-loss). 修: (1)_resolve 全限定路径也重定向 nested (2)migration 泛化 drain 两孤儿源 no-data-loss self-heal. 数据: 恢复 3 additive(H1-C/GLM-chat/GLM-key), 丢 2 verified-dup(doubao→[21]/deepseek→[3]), 删孤儿键, nested 28→31. 守卫 +4 sabotage 验证(退回 == unfinished→全限定 FAIL / 单孤儿源→点号迁移 FAIL). full_regression 5490(+4) doc-drift 无漂移 gov 91/91. 净 runtime 机制 0 净 -1 一物多形孤儿源. 日落法: 退役孤儿源+self-heal, unfinished 真单一真理源.",
@@ -173,11 +178,6 @@
       "date": "2026-07-07",
       "what": "V37.9.253 H1-C/C1 启动 — 第二实例最小闭环选型记录 + G2 前置门控核对 Linux 实证 (用户选「启动 H1-C C1」, 原排 Q4 拉到 Q3, docs/second_instance_poc_selection_20260707.md)。门控收敛日(27 unfinished 全 gated + 宪法级#1 flip gated)转化为对外部评审#1 短板(可迁移性 6.5)的实质推进: 我正运行在 Linux x86_64 → G2 三前置逐一 grounded 实证全绿(H1-B config 合并✅ / cross_os_quirk_scanner 0 violations✅ / minimal_runtime golden 跨机 MATCH✅ + 加强 external_dogfood 仓库外 wheel 消费 PASS) → 纲领§8 G2「前置进行中」→「前置满足·Linux 实证」。核心决策=最小闭环选定 PUSH-only 纯推送形态(内容 job→adapter/proxy→LLM→Discord, 刻意不含 Gateway/WhatsApp 入站=绕开最重三处 PA 耦合 WhatsApp auth/launchd/sessions, 第二实例不复制 PA 只证可抽取部分)。两次撞混沌审计瞬时突变(超时杀留 auto_deploy.sh CHAOS_MUTATED + stop hook 撞 SOUL.md sabotage)均诚实识别非真 bug(V37.9.186/224 第3/4次)。零新机器(复用既有 CI 守卫), VERSION 0.37.9.102 不变。",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-07-06",
-      "what": "V37.9.252 observer 自评驱动修复 — deep_dive_repeat 检测器加 ban-list-active-since 过滤 (消除 pre-deployment 历史重复 06-14/06-26 被永久误报 ban-list 静默失效的假阳性)。observer→fix 闭环: 4 findings 分诊 = 1 dev 修(检测器自己的假阳性) + 1 observer 幻觉(#4 evening pwc/openreview = kb_evening 正确排除 enabled=false 源, 不改正确代码) + 2 Mac-Mini/结构性(#1 付费墙降级率/#3 dream 时效标注 V37.9.235 已加待同步)。守卫 +2 (假阳性回归 + 跨部署边界真失效仍报), sabotage 真有效。VERSION 0.37.9.101→0.37.9.102 (daily_observer live cron 检测器行为变更)。",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -258,7 +258,7 @@
       "deep_dive OA 全文解析 follow-up (V37.9.183/184) — (1) ✅ 已闭合(V37.9.261/263): Mac Mini grep 实证降级主体=结构性付费墙(no PDF URL derivable, ACM/Elsevier 无 OA 版)非 fetch-path bug, ban-list(V37.9.260)是真杠杆; V37.9.262 OpenAlex 第二源 Mac Mini 实测 0/7 恢复且净负→V37.9.263 回退; 降级率下降 thesis 被证伪, 残余=接受现实(不爬付费墙). (2) 历史 KB 条目仍 PII link(仅新论文受益, V37.9.132 局限, 不补). (3) ✅ V37.9.186: pwc 死路径退役 + TIER↔registry drift 守卫.",
       "freightwaves RSS 403 (07-10 watchdog 首现, freight_watcher per-source FAIL-OPEN 已跳过) + kb_dream curl(28) 90s 超时低频 (07-10 grep -c=2, 有 retry+degrade 自愈, 无 job 失败). 均低优观察 (日落法 #8 不现加机器): freightwaves 若持久化≥1周才评估换源/剔除 (镜像 NBER V37.9.266 剔除路径); dream 超时若递增关联 unfinished [21] doubao_21 batch 是否真走 thinking-off 快路 (V37.9.221/222, 需 Mac Mini cat dream status + grep 趋势).",
       "【H1-C / C2 (Q4, gated) · C1 选型已完成 V37.9.253】第二实例最小闭环真跑 = 非 Mac Linux host 上 E2E 绿: minimal_runtime + governance cron + 1-2 内容 job(arxiv/dblp) 真抓取→LLM→Discord + cron+nohup 重启存活。选型=PUSH-only 纯推送(绕 Gateway/WhatsApp/sessions), 见 docs/second_instance_poc_selection_20260707.md §5 验收标准。C2 前置(§3, 均可枚举无未知): 持久 Linux host(VPS/容器) + 可达 LLM 端点(REMOTE_BASE_URL) + Discord bot token/channel(DISCORD_CH_*) + 唯一真需新建=Linux bootstrap 脚本(装 py 依赖+起 adapter/proxy nohup+写 crontab, 并行 install_openclaw_macmini.sh)。C3=portability report EN/ZH 证据型文章(对两次评审可迁移性批评终局回答)。",
-      "【GLM-5.2 chat-界面路由 · 可选 follow-up · 用户有需求未落地】用户想在 WhatsApp/Discord 聊天里用 GLM-5.2(现只能 code_assist.sh CLI / ?provider= API)。方案 A(推荐): proxy 加前缀路由钩子(如 'glm ' 前缀 → strip tools + ?provider=glm5_coding, 复用 [NO_TOOLS]+ROUTER_ENFORCE), WhatsApp/Discord 通用最小改动。方案 B: Discord #glm-coding 频道→GLM agent(OpenClaw config, 限 Discord)。诚实结论(已答用户): 方案 B 是 GLM 聊天顾问非 vibe-coding agent(bridge 无 repo 文件/shell 工具 + 12工具/2调用上限 + GLM grounding 弱 → 自主改仓库风险高); vibe coding 本项目仍用 Claude Code/Opus。待用户决定是否建方案 A。",
+      "【GLM-5.2 chat-界面路由 · 方案 A 已实现 V37.9.271 · dev 完成剩 Mac Mini 前置】用户 AskUserQuestion 选建方案 A → proxy 前缀路由钩子已落地: proxy_filters.detect_provider_prefix + PROVIDER_PREFIX_ROUTES 单一真理源 + PREFIX_ROUTE_CODING_SYSTEM + tool_proxy do_POST wiring('glm ' 前缀→strip tools+coding system 替换 PA 身份+丢历史+forward URL 加 ?provider=glm5_coding)。守卫 test_v37_9_271(21 单测)+sabotage 验证, full_regression 155/0/5511 绿, VERSION 0.37.9.113。**剩 Mac Mini 前置(=item [30] 覆盖)**: adapter/proxy plist 设 GLM5_API_KEY+GLM5_ENDPOINT_ID + ROUTER_ENFORCE=on → 聊天里 'glm <问题>' 真到 GLM-5.2。⚠️ ROUTER_ENFORCE=off 时 FAIL-OPEN 降级默认 primary(doubao_21)=fail-plausible, 须确保 on。",
       "【🔴 GLM ark key 轮换 + GLM-5.2 provider 生产化 · Mac Mini 待用户】(a) ark key(对话多次出现)功能验证完毕, 用户已声明会轮换/删除 → 现在可做(provider 只从 env 读, 轮换后更新 .env_shared+plist)。(b) GLM-5.2 已在 .env_shared 设 GLM5_API_KEY+GLM5_ENDPOINT_ID; 若要 ?provider=glm5_coding 经 bridge 生效需 adapter/proxy plist 也设这两 env + ROUTER_ENFORCE=on。(c) 分支 claude/daily-standup-x3bp16 领先 main 多个 commit(GLM 全链+C1), 待合并到 main(用户开 PR 或授权我开)。"
     ],
     "open_prs": [
@@ -268,14 +268,14 @@
   },
   "quality": {
     "security_score": 98,
-    "test_count": 5490,
-    "last_regression": "2026-07-21 02:06 pass",
+    "test_count": 5511,
+    "last_regression": "2026-07-24 05:04 pass",
     "coverage_pct": 0,
     "security_score_time": "2026-07-20 01:07",
-    "test_suites": 155,
+    "test_suites": 156,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
-    "version": "0.37.9.112",
+    "version": "0.37.9.113",
     "observer": {}
   },
   "incidents": [
@@ -340,7 +340,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-07-21 周二: 门控收敛日两交付 (纯 display/state, VERSION 0.37.9.112 不变). V37.9.269 status_update --human open_prs str/list 守卫 (MR-8, 开工 --read --human 亲眼撞到逐字符乱码) + CLAUDE.md 计数收敛. V37.9.270 顺藤摸到更深 bug: status.json 字面点号孤儿键 session_context.unfinished — --add 全限定形式落顶层孤儿键, curation 自 ~07-07 静默丢失(含 🔴 GLM key 轮换项), --human 从不显示. 根治 _resolve_array_target 全限定重定向 + migration self-heal 两孤儿源 + 恢复 3 丢失项(H1-C/GLM-chat/GLM-key) nested 28→31. full_regression 154/0/5490(dirty-tree chaos skip, clean 复跑待). 剩: 用户合并 PR + Mac Mini 同步. 31 unfinished 多数 gated; 最有价值用户动作=[9] WhatsApp reconnect + 恢复的 [30] 🔴 GLM key 轮换.",
+  "focus": "2026-07-24 周五: 建 [29] GLM 聊天路由(方案 A) — 用户 AskUserQuestion 选建。proxy 前缀钩子 glm->GLM-5.2, 复用既有 ?provider=/[NO_TOOLS]/ROUTER_ENFORCE(日落法最小接缝零新 env/框架)。proxy_filters.detect_provider_prefix 纯函数+tool_proxy do_POST wiring+21 守卫+sabotage(收紧被 log 咬弱守卫), VERSION->0.37.9.113, full_regression 155/0/5511 绿, 三 doc-drift 无漂移。剩 Mac Mini 前置=ROUTER_ENFORCE=on + GLM5 env(item [30])。恢复自 V37.9.270 orphan-key 差点丢失的用户需求。",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
