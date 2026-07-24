@@ -155,6 +155,23 @@ class TestProxyWiringSourceGuards(unittest.TestCase):
     def test_marker_present(self):
         self.assertIn("V37.9.271", self.src)
 
+    def test_conversation_capture_skipped_when_routed(self):
+        # V37.9.272: GLM 路由 = 工具查询非 PA 对话, 不捕获进 KB 对话精华
+        # (与 code_assist.sh CLI 路径一致)。两处 _capture_conversation_turn 调用
+        # 都须由 `if not _routed_provider:` 守卫 (否则 GLM coding Q&A 污染 KB harvest)。
+        import re
+        guarded = re.findall(
+            r"if not _routed_provider:\s*\n\s*_capture_conversation_turn\(",
+            self.src,
+        )
+        self.assertEqual(
+            len(guarded), 2,
+            "两处对话捕获调用都须由 _routed_provider 守卫 (V37.9.272)",
+        )
+
+    def test_v37_9_272_marker(self):
+        self.assertIn("V37.9.272", self.src)
+
 
 class TestForwardUrlBehavior(unittest.TestCase):
     """行为级: 复现 do_POST forward URL 构造 (docs 意图 + 与源码守卫互证)。"""

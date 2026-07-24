@@ -1203,10 +1203,13 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                                 # Capture user question even when PA responds with tool calls
                                 tool_names = ",".join(tc.get('function', {}).get('name', '?')
                                                       for tc in m["tool_calls"])
-                                _capture_conversation_turn(
-                                    body.get("messages", []),
-                                    f"[PA调用工具: {tool_names}]"
-                                )
+                                # V37.9.272: GLM chat 路由 = 工具查询非 PA 对话，不捕获进 KB
+                                # 对话精华（与 code_assist.sh CLI 路径一致：GLM coding 不入 KB harvest）
+                                if not _routed_provider:
+                                    _capture_conversation_turn(
+                                        body.get("messages", []),
+                                        f"[PA调用工具: {tool_names}]"
+                                    )
                             elif m.get("content"):
                                 # V37.6: flatten_content() prevents OpenAI list-of-blocks
                                 # from becoming Python repr `[{'type':'text',...}]` in
@@ -1214,10 +1217,12 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                                 flat = flatten_content(m["content"])
                                 log(f"[{rid}] TEXT: {len(flat)} chars")
                                 # Capture conversation turn for KB harvesting
-                                _capture_conversation_turn(
-                                    body.get("messages", []),
-                                    flat
-                                )
+                                # V37.9.272: GLM chat 路由不污染 PA 对话捕获 (与 code_assist.sh 一致)
+                                if not _routed_provider:
+                                    _capture_conversation_turn(
+                                        body.get("messages", []),
+                                        flat
+                                    )
 
                         # Token 监控：记录 usage + 延迟
                         usage = rj.get("usage", {})
