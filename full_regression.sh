@@ -91,6 +91,7 @@ run_suite "notify_jobs_routing (V37.9.171 内容 job 主推走 notify.sh — Pat
 run_suite "v37_9_175_proxy_alert_marker (V37.9.175 Path B 续 — proxy _send_alert 收编 notify.sh + [SYSTEM_ALERT] 标记, .py 盲区闭合, NO_REPLY 污染根因)" "python3 test_v37_9_175_proxy_alert_marker.py"
 run_suite "v37_9_226_data_clean_confinement (V37.9.226 审计安全加固 — data_clean 路径限制防密钥泄漏 + ingest cap/Content-Length guard)" "python3 test_v37_9_226_data_clean_confinement.py"
 run_suite "v37_9_227_cron_fail_loud (V37.9.227 审计 F — ontology_sources/finance_news 全源抓取失败+LLM 失败 fail-loud 非静默 ok)" "python3 test_v37_9_227_cron_fail_loud.py"
+run_suite "v37_9_274_silent_failure_fixes (V37.9.274 审计 SF1 cron parse-fail 计入 FETCH_ERRORS+根元素校验 / SF2 observer --dry-run 不持久化)" "python3 test_v37_9_274_silent_failure_fixes.py"
 run_suite "v37_9_238_fetch_errors_fail_loud (V37.9.238 审计 F follow-up — rss_blogs/ai_leaders_blogs/bsky FETCH_ERRORS 计数器 + MR-9 ProxyStats 测试污染隔离)" "python3 test_v37_9_238_fetch_errors_fail_loud.py"
 run_suite "v37_9_239_sse_delivery (V37.9.239 审计 B-delivery — streaming fallthrough SSE client 收 text/event-stream 非 application/json 错配)" "python3 test_v37_9_239_sse_delivery.py"
 run_suite "v37_9_228_parse_stats_signal (V37.9.228 审计 B — proxy parse-block 抛异未记 success → record_error, 修零 stats 信号监控盲区)" "python3 test_v37_9_228_parse_stats_signal.py"

@@ -1597,13 +1597,18 @@ def run(kb_dir=None, jobs_dir=None, target_date=None, dry_run=False,
     fp_section = build_fail_plausible_section(fp_verdicts, fp_mode)
 
     # Score history + trend analysis
-    append_score_history(kb_dir, target_date, overall_score, anomalies,
-                         job_statuses, push_outputs, status,
-                         fp_verdicts=fp_verdicts)
-    # V37.9.92: surface observer summary to status.json quality.observer
-    # for 三方共享意识 (PA / kb_status_refresh / health_check). FAIL-OPEN.
-    _write_observer_to_status(kb_dir, target_date, overall_score, anomalies,
-                              status, job_statuses, fp_verdicts=fp_verdicts)
+    # V37.9.274 (SF2): dry_run 是 scan-only 预览 — 不得持久化。否则宪法级 observer 用
+    # llm_ok=False 的假 llm_failed/overall_score=null 记录污染自己的 score_history.jsonl +
+    # status.json quality.observer, 侵蚀 Stage 5.1 shadow→on flip 精度数据（观察者污染
+    # 自己的证据）。仅跳过**写入**, 下方读取/trend/报告不变（预览仍展示既有趋势）。
+    if not dry_run:
+        append_score_history(kb_dir, target_date, overall_score, anomalies,
+                             job_statuses, push_outputs, status,
+                             fp_verdicts=fp_verdicts)
+        # V37.9.92: surface observer summary to status.json quality.observer
+        # for 三方共享意识 (PA / kb_status_refresh / health_check). FAIL-OPEN.
+        _write_observer_to_status(kb_dir, target_date, overall_score, anomalies,
+                                  status, job_statuses, fp_verdicts=fp_verdicts)
     history = load_score_history(kb_dir)
     trend_section = build_trend_section(history)
     trend_suffix = build_trend_discord_suffix(history)

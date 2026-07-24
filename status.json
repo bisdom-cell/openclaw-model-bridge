@@ -1,5 +1,5 @@
 {
-  "updated": "2026-07-24 07:03:21",
+  "updated": "2026-07-24 07:27:15",
   "updated_by": "full_regression",
   "priorities": [
     {
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-07-24",
+      "what": "V37.9.274 修 2 个审计 silent-failure — SF1: ontology/finance fetch_failed 守卫对 parse 失败盲(HTTP 200 但反爬 HTML → sys.exit(2)+根元素校验+PARSE_RC!=0→FETCH_ERRORS++, 对抗验证自己的 fix 发现 well-formed HTML 不触发 ParseError 加根校验才闭合)。SF2: observer --dry-run 无条件持久化污染自己 score_history/status.json → if not dry_run 守卫。SF3 对抗验证 accept-by-design(V37.9.130 刻意设计不改)。守卫 test_v37_9_274(11 单测)+sabotage(含收紧被占位满足的弱守卫)。full_regression 156/0/5535, VERSION 0.37.9.115->0.37.9.116。",
+      "by": "claude_code"
+    },
     {
       "date": "2026-07-24",
       "what": "V37.9.273 双 agent 对抗审计驱动修复(原则 #21) — 修控制平面 F1(HIGH confirmed): _circuit_breaker 全局单例被 ?provider= override 请求污染(GLM 路由使其用户可达), override 失败开断路器 gate 健康默认 primary; 修=is_override 把断路器 scope 到默认 primary。对抗验证剔除 F2 误报(_is_batch_workload 已查 primary_name==PROVIDER_NAME, 省 spurious fix)。登记 3 silent-failure。守卫 test_v37_9_273(11 单测 E2E+源码)+sabotage。VERSION 0.37.9.114->0.37.9.115, test_adapter 106 零破坏。元教训: 收工误跑 git checkout -- . 清非存在的混沌残留把 tracked 改动全还原, 全部重新应用。",
@@ -173,11 +178,6 @@
       "date": "2026-07-07",
       "what": "V37.9.256-258 glm5_coding Mac Mini 直连 Ark E2E 全探针完成 → GLM-5.2 能力画像定档 feature_verified: text/streaming/tool_calling 3/3 verified; json_mode 实测不支持(HTTP 400)诚实标 False; vision/reasoning False。渐进验证走完整程(declared→端点定位刷新 Ark 数据驱动→逐探针 flip)。code_assist.sh 非流式 heredoc-vs-pipe stdin bug 根治(dev 起本地 mock 复现→bash -x 定位→env 传 RESP→回归守卫 sabotage 有效)。glm5_coding 接入全链闭环(V37.9.254→258 五版)。GLM-5.2 coding 完整可用(code_assist.sh 或 ?provider=glm5_coding)。",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-07-07",
-      "what": "V37.9.255 glm5_coding 端点刷新 ai-tokenhub → Volcengine Ark (用户确认 GLM-5.2 实际托管在火山 Ark 同 doubao_21 平台)。数据驱动定位 (原则 #28): V37.9.254 接 ai-tokenhub 后 Mac Mini E2E 一路 InvalidCredentials 10101, /v1/models 铁证 ai-tokenhub 账号只有 deepseek 无 GLM scope + GLM key 非此网关 → 用户确认真端点是 Ark。镜像 doubao_21 Ark 模式: base_url=ark.cn-beijing.volces.com/api/v3 + endpoint ID 走 env GLM5_ENDPOINT_ID (Volcengine model 字段接收 ep- 接入点) + key 走 env GLM5_API_KEY (ark- 格式)。🔴 安全: ark key + ep 接入点 ID 绝不入库走 env (安全扫描抓到我一度把 endpoint id 写进 changelog 已修, 全仓真值零命中)。code_assist.sh + tests + compat matrix 同步刷新。declared 档位不变 (无法 dev E2E)。VERSION 0.37.9.103→0.37.9.104.",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -260,7 +260,7 @@
       "【H1-C / C2 (Q4, gated) · C1 选型已完成 V37.9.253】第二实例最小闭环真跑 = 非 Mac Linux host 上 E2E 绿: minimal_runtime + governance cron + 1-2 内容 job(arxiv/dblp) 真抓取→LLM→Discord + cron+nohup 重启存活。选型=PUSH-only 纯推送(绕 Gateway/WhatsApp/sessions), 见 docs/second_instance_poc_selection_20260707.md §5 验收标准。C2 前置(§3, 均可枚举无未知): 持久 Linux host(VPS/容器) + 可达 LLM 端点(REMOTE_BASE_URL) + Discord bot token/channel(DISCORD_CH_*) + 唯一真需新建=Linux bootstrap 脚本(装 py 依赖+起 adapter/proxy nohup+写 crontab, 并行 install_openclaw_macmini.sh)。C3=portability report EN/ZH 证据型文章(对两次评审可迁移性批评终局回答)。",
       "【✅ GLM-5.2 chat-界面路由 · V37.9.271 完全闭环 (dev + Mac Mini 前置 + E2E 生产验证通过)】2026-07-24 用户 Mac Mini E2E 实测通过: 聊天发 'glm 写个 Python LRU cache' → GLM-5.2 返回干净 coding 输出 (正确 OrderedDict O(1) LRU + 使用示例, 不带 PA 身份/工具) = detect_provider_prefix 替换 system+strip tools+丢历史设计意图兑现 + ROUTER_ENFORCE=on+GLM5 env 配置正确。满足原则 #6/#11 功能完成=用户视角 E2E 验证通过。剩仅 item [30] 🔴 GLM key 轮换 (安全, 用户动作)。",
       "【🔴 GLM ark key 轮换 + GLM-5.2 provider 生产化 · Mac Mini 待用户】(a) ark key(对话多次出现)功能验证完毕, 用户已声明会轮换/删除 → 现在可做(provider 只从 env 读, 轮换后更新 .env_shared+plist)。(b) GLM-5.2 已在 .env_shared 设 GLM5_API_KEY+GLM5_ENDPOINT_ID; 若要 ?provider=glm5_coding 经 bridge 生效需 adapter/proxy plist 也设这两 env + ROUTER_ENFORCE=on。(c) 分支 claude/daily-standup-x3bp16 领先 main 多个 commit(GLM 全链+C1), 待合并到 main(用户开 PR 或授权我开)。",
-      "【V37.9.273 双 agent 对抗审计 · 3 个 silent-failure 发现登记 · dev-fixable 非紧急】(SF1 MED) ontology_sources:283/finance_news:656 的 V37.9.227 fetch_failed 守卫对 parse 失败盲——FETCH_ERRORS 只在 curl HTTP 失败增(:132/:169), 200-but-unparseable(ScienceDirect 反爬 HTML)不计 → 全源 parse 失败仍 status:ok; 修=parse 失败也增 FETCH_ERRORS。(SF2 MED) daily_observer.py run():1600/1605 --dry-run 无条件 append_score_history+_write_observer_to_status → 污染宪法级 observer 自己的 score_history.jsonl/status.json(llm_failed/null 假记录, operator 触发 cron 不触发); 修=dry_run 跳过持久化。(SF3 LOW) kb_harvest_chat:539 any(ok)→ok 掩盖同窗口单日全失败(map_failed watchdog 不查); 低优 retry 窗口缓解。两 agent 诚实标注「已正确守卫非 bug」项未 padding。"
+      "【V37.9.274 · SF1/SF2 已修 · SF3 对抗验证 accept-by-design】(SF1 ✅ 修) ontology_sources/finance_news fetch_failed 守卫 parse-盲已修: parse-fail sys.exit(2) 信号回 shell + 根元素校验(well-formed 反爬 HTML root=html 拦截, 实测证伪初版 catch-ParseError) + PARSE_RC!=0→FETCH_ERRORS++。(SF2 ✅ 修) daily_observer --dry-run 持久化污染已修: append_score_history+_write_observer_to_status 由 if not dry_run 守卫。(SF3 ⏹ 不改) kb_harvest any(ok)→ok 是 V37.9.130 刻意设计(status 枚举供 watchdog 契约, 降级走 map_failed 独立字段), 改成 any(error)→error 会过度告警瞬态混合窗口 → 对抗验证 accept-by-design(镜像 V37.9.273 F2 纪律)。守卫 test_v37_9_274(11 单测)+sabotage。"
     ],
     "open_prs": [
       "claude/todays-work-51mhhm: V37.9.269 + V37.9.270 (open_prs str/list 守卫 + CLAUDE.md 计数收敛 + status.json 点号孤儿键根治+恢复 3 丢失项) — 待用户合并 PR + Mac Mini git reset 同步（纯 display/state，零重启零业务影响）"
@@ -269,14 +269,14 @@
   },
   "quality": {
     "security_score": 98,
-    "test_count": 5524,
-    "last_regression": "2026-07-24 07:02 pass",
+    "test_count": 5535,
+    "last_regression": "2026-07-24 07:26 pass",
     "coverage_pct": 0,
     "security_score_time": "2026-07-20 01:07",
-    "test_suites": 157,
+    "test_suites": 158,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
-    "version": "0.37.9.115",
+    "version": "0.37.9.116",
     "observer": {}
   },
   "incidents": [
@@ -341,7 +341,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-07-24 周五: GLM 聊天路由全链闭环(V37.9.271-272 落地+E2E) + V37.9.273 双 agent 对抗审计修断路器 override 污染(HIGH, GLM 路由放大的 pre-existing bug) + 剔除 1 误报 + 登记 3 silent-failure。VERSION->0.37.9.115。原则 #21+#28 审计→逐条对抗验证→只修真的。剩 item [30] 🔴 GLM key 轮换 + 3 silent-failure(dev 非紧急)。",
+  "focus": "2026-07-24 周五: GLM 聊天路由全链闭环(V37.9.271-272) + V37.9.273 对抗审计修断路器 override 污染 + V37.9.274 修 2 审计 silent-failure(SF1 cron parse-盲+根校验 / SF2 observer dry-run 污染, SF3 对抗验证 accept-by-design)。VERSION->0.37.9.116。原则 #21+#28 审计→逐条验证(含验证自己的 fix)→只修真的修对的。剩 item [30] 🔴 GLM key 轮换。",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",

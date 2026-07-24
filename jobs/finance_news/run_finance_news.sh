@@ -171,7 +171,10 @@ for feed_entry in "${RSS_FEEDS[@]}"; do
     fi
 
     # 解析 RSS/JSON → 提取近 24h 文章
-    $PYTHON3 - "$FEED_FILE" "$SEEN_FILE" "$FEED_NAME" "$FEED_LABEL" "$FEED_REGION" << 'PYEOF' >> "$ALL_NEW_FILE"
+    # V37.9.274 (SF1): 捕获 parse 退出码 — HTTP 200 但 XML 解析失败(反爬 HTML/非 XML)
+    # 或异常须计入 FETCH_ERRORS, 否则全源 200-but-unparseable → status:ok 静默(守卫盲区)
+    PARSE_RC=0
+    $PYTHON3 - "$FEED_FILE" "$SEEN_FILE" "$FEED_NAME" "$FEED_LABEL" "$FEED_REGION" << 'PYEOF' >> "$ALL_NEW_FILE" || PARSE_RC=$?
 import sys, json, re
 import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta, timezone
@@ -245,6 +248,7 @@ if is_json:
             })
     except Exception as e:
         print(f"[finance] {feed_name} JSON解析失败: {e}", file=sys.stderr)
+        sys.exit(2)  # V37.9.274 (SF1): JSON feed 返回 HTML/畸形 → 计入 FETCH_ERRORS（非静默）
 else:
     # 标准 RSS/Atom XML 解析
     try:
@@ -257,7 +261,14 @@ else:
             root = ET.fromstring(content)
         except ET.ParseError:
             print(f"[finance] {feed_name} XML解析失败", file=sys.stderr)
-            sys.exit(0)
+            sys.exit(2)  # V37.9.274 (SF1): parse 失败信号回 shell → FETCH_ERRORS++（非静默 exit 0）
+
+    # V37.9.274 (SF1): parse 成功但根元素非 RSS/Atom = 反爬 HTML 伪装成 feed（well-formed
+    # 反爬 HTML 不触发 ParseError 却 0 个 item → 静默 status:ok）。检查根元素闭合此盲区。
+    _root_tag = root.tag.split('}')[-1].lower()
+    if _root_tag not in ('rss', 'feed', 'rdf', 'channel'):
+        print(f"[finance] {feed_name} 根元素 <{_root_tag}> 非 RSS/Atom（反爬 HTML?）", file=sys.stderr)
+        sys.exit(2)
 
     ns = {'atom': 'http://www.w3.org/2005/Atom',
           'content': 'http://purl.org/rss/1.0/modules/content/',
@@ -322,6 +333,12 @@ for a in articles[:5]:
 count = min(len(articles), 5)
 print(f"[finance] {feed_name}: {count} 篇", file=sys.stderr)
 PYEOF
+    # V37.9.274 (SF1): HTTP 200 但解析失败/异常(非零退出) → 计入 FETCH_ERRORS
+    # (curl 成功但 parser 拿不到内容 = 反爬 HTML/非 XML), 否则全源 parse 失败静默 status:ok
+    if [ "$PARSE_RC" != "0" ]; then
+        log "WARN: ${FEED_NAME} HTTP 200 但解析失败/异常 (rc=${PARSE_RC}, 反爬或非 XML)，计入 fetch 失败"
+        FETCH_ERRORS=$((FETCH_ERRORS + 1))
+    fi
 
 done
 
