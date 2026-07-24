@@ -26,6 +26,7 @@ from proxy_filters import (
     fix_tool_args, build_sse_response, should_strip_tools,
     inject_media_into_messages, filter_system_alerts,
     SYSTEM_ALERT_MARKER,  # V37.9.175: _send_alert 加标记防自身告警污染上下文
+    detect_provider_prefix,  # V37.9.271: chat-界面 provider 前缀路由 (glm → GLM-5.2)
     flatten_content,
     compose_backend_error_str,  # V37.8.10: INV-OBSERVABILITY-001
     proxy_stats,
@@ -1066,6 +1067,7 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
         raw = self.rfile.read(length)
 
         was_streaming = False
+        _routed_provider = None  # V37.9.271: chat-界面 provider 前缀路由 (在 /chat 块内赋值)
         if "/chat/completions" in self.path:
             try:
                 body = json.loads(raw)
@@ -1094,8 +1096,17 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                 if media_injected:
                     body["messages"] = msgs
 
-                # [NO_TOOLS] 标记：强制清空工具（纯推理模式）
-                if should_strip_tools(body.get("messages", [])):
+                # V37.9.271: chat-界面 provider 前缀路由 (glm → GLM-5.2, unfinished [29])
+                # 命中 → 单轮独立 GLM 请求 (剥前缀 + coding system 替换 PA 身份 + 丢历史),
+                # 下方 strip tools + forward URL 加 ?provider= (adapter ROUTER_ENFORCE=on 生效)。
+                _routed_provider, _routed_msgs = detect_provider_prefix(body.get("messages", []))
+                if _routed_provider:
+                    body["messages"] = _routed_msgs
+                    log(f"[{rid}] PREFIX ROUTE: provider={_routed_provider} — "
+                        f"chat GLM (strip tools + coding system + drop history)")
+
+                # [NO_TOOLS] 标记 或 前缀路由：强制清空工具（纯推理 / GLM chat 模式）
+                if _routed_provider or should_strip_tools(body.get("messages", [])):
                     if "tools" in body:
                         log(f"[{rid}] [NO_TOOLS] Stripping all {len(body['tools'])} tools (pure inference mode)")
                         del body["tools"]
@@ -1130,6 +1141,11 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                 log(f"Request preprocessing error: {e}")
 
         url = f"{BACKEND}{self.path}"
+        # V37.9.271: chat 前缀路由命中 → forward URL 加 ?provider=X, adapter
+        # (_resolve_primary_provider, ROUTER_ENFORCE=on) 据此 override 到 GLM。
+        if _routed_provider:
+            _sep = "&" if ("?" in self.path) else "?"
+            url = f"{url}{_sep}provider={_routed_provider}"
         req = Request(url, data=raw, method="POST")
         req.add_header("Content-Type", "application/json")
         req.add_header("X-Request-ID", rid)

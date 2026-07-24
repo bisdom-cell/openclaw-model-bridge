@@ -97,6 +97,7 @@ run_suite "v37_9_228_parse_stats_signal (V37.9.228 审计 B — proxy parse-bloc
 run_suite "v37_9_229_slo_fallback_surface (V37.9.229 审计 A — adapter fallback 经 X-Adapter-Fallback header surface, record_fallback 复活 + slo 原始计数落盘, 修 fail-plausible SLO)" "python3 test_v37_9_229_slo_fallback_surface.py"
 run_suite "v37_9_231_client_disconnect (V37.9.231 审计 E — client 断开 ≠ backend 失败: _deliver 收编四回写点, 不误开断路器/不对死 socket 跑 fallback 链)" "python3 test_v37_9_231_client_disconnect.py"
 run_suite "v37_9_232_env_hermetic (V37.9.232 治理红灯根治 — 治理 runtime 所跑测试对生产 env hermetic: FALLBACK_ORDER/PROVIDER 泄漏判别器固化)" "python3 test_v37_9_232_env_hermetic.py"
+run_suite "v37_9_271_glm_chat_route (V37.9.271 chat-界面 provider 前缀路由 — 'glm ' 前缀→strip tools+coding system+?provider=glm5_coding, unfinished [29])" "python3 test_v37_9_271_glm_chat_route.py"
 run_suite "check_registry (注册表校验器)" "python3 test_check_registry.py"
 run_suite "v37_9_206_providers_filemap_coverage (V37.9.206 provider 插件部署覆盖守卫 — deepseek 双插件漏 FILE_MAP 致 fallback 静默失效血案)" "python3 test_v37_9_206_providers_filemap_coverage.py"
 run_suite "cron_health (锁/心跳/告警/完整性)" "python3 test_cron_health.py"

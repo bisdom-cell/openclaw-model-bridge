@@ -671,6 +671,66 @@ def flatten_content(content):
     return ""
 
 
+# ─── V37.9.271: chat-界面 provider 前缀路由 (unfinished [29]) ──────────────
+# 用户需求: 在 WhatsApp/Discord 聊天里直接用 GLM-5.2 (此前只能 code_assist.sh CLI /
+# ?provider= API 才能调 glm5_coding)。机制: 检测最后一条 user 消息的 provider 前缀
+# (如 'glm ') → 剥前缀 + 用精简 coding system prompt 替换 PA 身份 + do_POST strip tools
+# 并给 forward URL 加 ?provider=X (adapter ROUTER_ENFORCE=on 时生效)。
+# 一物一形: PROVIDER_PREFIX_ROUTES 是「聊天前缀 → provider」单一真理源, 加前缀零逻辑改动。
+PROVIDER_PREFIX_ROUTES = {
+    "glm": "glm5_coding",
+}
+
+# GLM chat 路由的精简 coding system prompt (对话式)。区别于 code_assist.sh 的 CLI
+# file-editing 版 (--file/--json 场景) — 二者服务不同消费路径, 允许不同, 非 MR-8 同一事物。
+PREFIX_ROUTE_CODING_SYSTEM = (
+    "你是 GLM-5.2 编程助手。用清晰、准确、可直接运行的代码和解释回答用户的编程问题，"
+    "不用占位符、TODO 桩或省略号。需要解释时具体而精确。用用户提问所使用的语言回答。"
+)
+
+
+def detect_provider_prefix(messages):
+    """检测最后一条 user 消息是否以 chat-界面 provider 前缀开头 (如 'glm ')。
+
+    返回 (provider_name, new_messages):
+      - 命中 → (provider_name, [{system: coding_prompt}, {user: 剥前缀后的 query}])
+        单轮独立请求: 丢弃 PA 身份 system + 历史, 让 GLM 干净作答
+        (每条 'glm X' 是一次独立 GLM 提问, 不继承 PA 上下文/工具链)。
+      - 未命中/空/非法 → (None, messages) 原样返回 (FAIL-OPEN, 走正常 PA 链路)。
+
+    前缀匹配: 大小写不敏感 + 前缀后须跟空白 (词边界), 避免误伤 'glmnet 是什么' 类提问;
+    前缀后无实际 query (纯 'glm ') → 不路由。只看最后一条 user 消息 (当前聊天轮)。
+    """
+    if not isinstance(messages, list) or not messages:
+        return None, messages
+    last_user = None
+    for m in reversed(messages):
+        if isinstance(m, dict) and m.get("role") == "user":
+            last_user = m
+            break
+    if last_user is None:
+        return None, messages
+    text = flatten_content(last_user.get("content"))
+    if not text:
+        return None, messages
+    stripped = text.lstrip()
+    lowered = stripped.lower()
+    for prefix, provider in PROVIDER_PREFIX_ROUTES.items():
+        p = prefix.lower()
+        if (lowered.startswith(p)
+                and len(stripped) > len(p)
+                and stripped[len(p)].isspace()):
+            query = stripped[len(p):].strip()
+            if not query:
+                return None, messages
+            new_messages = [
+                {"role": "system", "content": PREFIX_ROUTE_CODING_SYSTEM},
+                {"role": "user", "content": query},
+            ]
+            return provider, new_messages
+    return None, messages
+
+
 def _message_starts_with_alert_marker(m):
     """判断单条消息是否以 [SYSTEM_ALERT] 标记开头。
 
