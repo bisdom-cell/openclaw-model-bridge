@@ -567,8 +567,14 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
         primary_base, primary_model_id, primary_auth_style, primary_api_key, primary_name = (
             self._resolve_primary_provider()
         )
+        # V37.9.273: ?provider= override 生效 (ROUTER_ENFORCE=on 且 provider 解析成功)。
+        # 断路器是**默认 primary** 的保护机制 — override 请求 (如 GLM chat 路由) 既不读
+        # 也不写默认 primary 的断路器: (1) 用户显式选了该 provider, 不因默认 primary 故障
+        # 而跳过它 (2) override provider 的成败不污染默认 primary 断路器状态 (否则几个失败的
+        # glm 请求会开断路器 → 下个 PA 请求跳过健康的默认 primary + 误报 SLO 降级)。
+        is_override = (primary_name != PROVIDER_NAME)
         url = f"{primary_base}{path}"
-        if primary_name != PROVIDER_NAME:
+        if is_override:
             log(f"{tag}V37.9.77 ROUTER OVERRIDE: provider={primary_name} (default={PROVIDER_NAME})")
         log(f"{tag}POST {url} ({length} bytes)")
 
@@ -692,7 +698,8 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                 primary_auth = _make_auth_headers(primary_auth_style, primary_api_key)
 
             # Circuit breaker: 短路时跳过 primary，直接走 fallback chain
-            cb_open = FALLBACK_CHAIN and _circuit_breaker.is_open()
+            # V37.9.273: override 请求不读默认 primary 断路器 (用户显式选的 provider 照常尝试)
+            cb_open = FALLBACK_CHAIN and (not is_override) and _circuit_breaker.is_open()
             if cb_open:
                 log(f"{tag}CIRCUIT BREAKER OPEN: skipping primary, direct fallback chain ({len(FALLBACK_CHAIN)} providers)")
 
@@ -702,7 +709,8 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                     status, resp_body = _forward_request(url, data, primary_auth, timeout=int(_PRIMARY_TIMEOUT))
                     elapsed = int((time.monotonic() - t0) * 1000)
                     log(f"{tag}RESPONSE: {status} ({len(resp_body)} bytes) {elapsed}ms")
-                    _circuit_breaker.record_success()
+                    if not is_override:  # V37.9.273: override 成功不重置默认 primary 断路器
+                        _circuit_breaker.record_success()
                     # V37.9.231 (审计 finding E): 回写经 _deliver — 此前 _send_json 在本
                     # try 内, client 断开 (BrokenPipe) 被 except 当 backend 失败 →
                     # 健康 backend 被记 CB failure + 对死 socket 跑整条 fallback 链
@@ -713,7 +721,8 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                     primary_err = err
                     elapsed = int((time.monotonic() - t0) * 1000)
                     log(f"{tag}PRIMARY FAILED ({elapsed}ms): {primary_err}")
-                    _circuit_breaker.record_failure()
+                    if not is_override:  # V37.9.273: override 失败不误开默认 primary 断路器
+                        _circuit_breaker.record_failure()
 
             if not FALLBACK_CHAIN:
                 log(f"{tag}NO FALLBACK CHAIN configured, returning 502")
