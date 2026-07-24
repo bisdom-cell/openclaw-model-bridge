@@ -380,5 +380,113 @@ class TestSourceLevelGuards(unittest.TestCase):
         self.assertIn("[:220]", body)
 
 
+class TestGenericDottedArrayResolutionV275(unittest.TestCase):
+    """V37.9.275: 非 unfinished 点号数组名的通用嵌套解析（V37.9.270 残余半边）。
+
+    血案（2026-07-24 当场观察）：`--clear session_context.open_prs` rc=0 但静默
+    no-op + 吐 help —— _resolve_array_target 只特例化 unfinished，其他点号名
+    fall through 到字面顶层键：--add 造孤儿键（V37.9.270 同机制）/ --pop/--clear
+    静默 no-op。修复 = 通用点号 walk + 非 dict 中间节点保守回退（不像 set_nested
+    覆盖为 {} 破坏标量）。
+    """
+
+    def test_dotted_open_prs_resolves_nested(self):
+        """session_context.open_prs 解析到 nested dict，不产生字面点号键"""
+        data = {}
+        parent, key = _su._resolve_array_target(data, "session_context.open_prs")
+        self.assertIs(parent, data["session_context"])
+        self.assertEqual(key, "open_prs")
+        self.assertNotIn("session_context.open_prs", data)
+
+    def test_dotted_resolution_reaches_existing_list(self):
+        """已存在的 nested 列表必须被解析命中（--clear 的血案路径）"""
+        data = {"session_context": {"open_prs": ["stale-pr"]}}
+        parent, key = _su._resolve_array_target(data, "session_context.open_prs")
+        self.assertIs(parent[key], data["session_context"]["open_prs"])
+
+    def test_deep_dotted_path_walks_and_creates(self):
+        """多级点号路径逐级创建中间 dict（镜像 set_nested 路径语义）"""
+        data = {}
+        parent, key = _su._resolve_array_target(data, "a.b.c")
+        self.assertIs(parent, data["a"]["b"])
+        self.assertEqual(key, "c")
+
+    def test_non_dict_intermediate_conservative_fallback(self):
+        """非 dict 中间节点 → 保守回退字面行为，绝不覆盖既有标量（与 set_nested 刻意不同）"""
+        data = {"session_context": "corrupted-scalar"}
+        parent, key = _su._resolve_array_target(data, "session_context.open_prs")
+        self.assertIs(parent, data)
+        self.assertEqual(key, "session_context.open_prs")
+        self.assertEqual(data["session_context"], "corrupted-scalar")
+
+    def test_unfinished_special_case_untouched(self):
+        """unfinished 特例（裸名 + 全限定）优先级不被通用 walk 破坏"""
+        for name in ("unfinished", "session_context.unfinished"):
+            data = {}
+            parent, key = _su._resolve_array_target(data, name)
+            self.assertIs(parent, data["session_context"])
+            self.assertEqual(key, "unfinished")
+
+    def test_v37_9_275_marker_present(self):
+        src_path = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), "status_update.py")
+        with open(src_path) as f:
+            src = f.read()
+        self.assertIn("V37.9.275", src)
+
+
+class TestEndToEndDottedArrayCliV275(unittest.TestCase):
+    """端到端：subprocess 跑 --add/--pop/--clear session_context.open_prs"""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.repo_root = os.path.dirname(os.path.abspath(__file__))
+        self.work = os.path.join(self.tmp, "work")
+        os.makedirs(self.work, exist_ok=True)
+        shutil.copy(os.path.join(self.repo_root, "status_update.py"), self.work)
+        self.status_file = os.path.join(self.work, "status.json")
+        with open(self.status_file, "w") as f:
+            json.dump({"session_context": {"open_prs": ["stale-pr-entry"]}}, f)
+        os.makedirs(os.path.join(self.tmp, ".kb"), exist_ok=True)
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _run(self, *args):
+        env = os.environ.copy()
+        env["HOME"] = self.tmp
+        return subprocess.run(
+            [sys.executable, "status_update.py"] + list(args),
+            cwd=self.work, env=env, capture_output=True, text=True, timeout=20,
+        )
+
+    def _read(self):
+        with open(self.status_file) as f:
+            return json.load(f)
+
+    def test_blood_lesson_clear_dotted_open_prs(self):
+        """血案回归：--clear session_context.open_prs 必须真清空（原静默 no-op + 吐 help）"""
+        result = self._run("--clear", "session_context.open_prs", "--by", "test")
+        self.assertEqual(result.returncode, 0, msg=result.stderr)
+        self.assertEqual(self._read()["session_context"]["open_prs"], [])
+        self.assertNotIn("usage:", result.stdout, "no-op 吐 help = 修复前行为回归")
+
+    def test_add_dotted_open_prs_no_orphan(self):
+        """--add session_context.open_prs 落 nested，不造字面点号孤儿键（V37.9.270 家族）"""
+        result = self._run("--add", "session_context.open_prs", "pr-new", "--by", "test")
+        self.assertEqual(result.returncode, 0, msg=result.stderr)
+        data = self._read()
+        self.assertIn("pr-new", data["session_context"]["open_prs"])
+        self.assertNotIn("session_context.open_prs", data,
+                         "字面点号顶层孤儿键 = V37.9.270 血案机制复活")
+
+    def test_pop_dotted_open_prs(self):
+        """--pop session_context.open_prs 0 弹出 nested 首项"""
+        result = self._run("--pop", "session_context.open_prs", "0", "--by", "test")
+        self.assertEqual(result.returncode, 0, msg=result.stderr)
+        self.assertIn("stale-pr-entry", result.stdout)
+        self.assertEqual(self._read()["session_context"]["open_prs"], [])
+
+
 if __name__ == "__main__":
     unittest.main()
