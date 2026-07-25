@@ -1,6 +1,6 @@
 {
-  "updated": "2026-07-25 07:33:40",
-  "updated_by": "full_regression",
+  "updated": "2026-07-25 07:34:41",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -261,7 +261,7 @@
       "【🔴 GLM ark key 轮换 · Mac Mini 待用户（仅剩此一步）】ark key(对话多次出现)功能验证完毕, 用户已声明会轮换/删除 → 现在可做: Volcengine 控制台轮换后, 更新 .env_shared + adapter/proxy 两个 plist 的 GLM5_API_KEY(PlistBuddy Set, 与 E2E 配置时同一位置) + bootout/bootstrap 重载。(原 (b) plist env + ROUTER_ENFORCE=on 已由 V37.9.271-272 聊天路由 E2E 证明配置完成, 2026-07-24 核实收敛; 原 (c) 分支合并已收敛。)"
     ],
     "open_prs": [
-      "claude/todays-work-pnfozz: V37.9.275 (status_update 点号数组名通用解析 + 账本 hygiene) + V37.9.276 (Observer flip 决策 + daily_observer.sh env plumbing + 测试 HOME 隔离) — 待用户合并 PR + Mac Mini git reset 同步 + env flip 三步(见 unfinished Observer 项)"
+      "claude/todays-work-pnfozz: V37.9.275 (点号数组解析+账本 hygiene) + V37.9.276 (Observer flip 决策+env plumbing+测试隔离) + V37.9.277 (doubao_21 升 production_observed) — 待用户合并 PR + Mac Mini git reset 同步 + Observer flip 三步"
     ],
     "blocked_on": ""
   },
