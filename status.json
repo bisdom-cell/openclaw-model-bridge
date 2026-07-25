@@ -1,5 +1,5 @@
 {
-  "updated": "2026-07-25 20:27:38",
+  "updated": "2026-07-25 20:34:39",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-07-25",
+      "what": "Observer flip 三步全落地: (a) PR#850 合并+同步 (b) OBSERVER_FP_MODE=on 进 .env_shared (c) score_history 清污染核实为 no-op — Mac Mini 实测 73 行零条 05-25/llm_failed 仅 2/近 5 日每日恰 1 行 = 文件本就干净, V37.9.276 所见污染最可能在 dev 侧 ~/.kb (V37.9.124 governance 收窄后 Mac Mini 不跑 CLI 测试类); 两侧源头已修死。明 06:30 on 模式首日 E2E。",
+      "by": "claude_code"
+    },
     {
       "date": "2026-07-25",
       "what": "V37.9.278 CLAUDE.md changelog 第三轮归档 — 484KB→339KB: 归档 V37.9.207-239 共 33 版到 docs/changelog.md (内联 71→38 行, 行数守恒 339 恒定零丢失, 边界/连续性/零丢失三重 assert)。触发条件按 V37.9.245 预埋行数阈值精确兑现 (20 天累积 33 版, 按行数触发比日历更贴合)。归档脚本两次防呆 assert 开火 (行正则过宽误伤里程碑表 13 行 + 头注锚点被 V37.9.245 行自身叙述咬到) 均修正。开工基线+收工两轮 full_regression 全绿 (158 suites/0 fail/5546 tests, 混沌 10/10 全抓), 治理 EXIT=0, OpenClaw 上游无新 stable (2026.7.2 仍 beta.4) 沿用第七次 hold。VERSION 0.37.9.118 不变。",
@@ -173,11 +178,6 @@
       "date": "2026-07-09",
       "what": "门控收敛日开工: 健康基线全绿(154 suites/0 fail/5476 tests, chaos 10/10 全抓, governance 91/91 EXIT=0, security 95, VERSION 0.37.9.111). OpenClaw hold 沿用(latest stable 仍 2026.6.11 无新版, 第六次评估决策不变). Grounded 审计验证两复发 bug 类闭合: (1) V37.9.263 OpenAlex 回退干净(代码/测试/docstring 零悬挂引用, 仅 changelog 保留 point-in-time V37.9.153 纪律); (2) 原则#31 完整性核实: V37.9.260 off-by-one 修复(today=datetime.now() 带时间分量致恰N日历天前逃逸 ban)覆盖全部阈值风格消费者, 无第三遗漏——kb_deep_dive/kb_dream_helpers 已 floor 午夜, expert_escalation/daily_observer 用 .date()(无时间分量), kb_review/radar/evening 用精确日期字符串集合成员(off-by-one 结构上不可能); observer 降级分桶跨文件契约与回退后 kb_deep_dive reason 字符串仍一致. 27 项 unfinished 全 gated(Mac Mini 被动验证/in-review/deferred), 按日落法#34+V37.9.153 不制造 churn, 仅更新 stale unfinished(OA复核 thesis 被 V37.9.261/263 超越标记闭合). 无代码变更 VERSION 不变.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-07-08",
-      "what": "V37.9.263 回退 V37.9.262 OpenAlex fallback (用户「回退」)。Mac Mini 端到端实测 fetch_pdf_text(原始DOI) 对 7 篇实际降级论文=真实全文恢复 0/7: 2 真闭源(OpenAlex 也无 OA)+MDPI 反爬 403+SciTePress/ACM×3 是 landing page 非 PDF。两发现: 捞回 5/7 完全误导(4/5 是 oa_url 兜底的 DOI landing page)+当前实现净负(landing page 从直接 no-PDF-derivable 变成多做无用 fetch→403)。OpenAlex 打不穿 residual 两堵墙(真闭源+反爬)。真杠杆是 ban-list(V37.9.260)。用户原问接受现实 or 其他办法=接受现实。移除 2 函数+11 单测,resolve 回 S2-only。net runtime 机制 -1(退役外部 API 依赖,日落法)。元: 我最初推荐先测,用户选现在加,measure-now 实测 0 证明先测直觉对;先核实纠正三连过度断言。VERSION 0.37.9.110→0.37.9.111。",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -256,7 +256,7 @@
       "deep_dive OA 全文解析 follow-up (V37.9.183/184) — (1) ✅ 已闭合(V37.9.261/263): Mac Mini grep 实证降级主体=结构性付费墙(no PDF URL derivable, ACM/Elsevier 无 OA 版)非 fetch-path bug, ban-list(V37.9.260)是真杠杆; V37.9.262 OpenAlex 第二源 Mac Mini 实测 0/7 恢复且净负→V37.9.263 回退; 降级率下降 thesis 被证伪, 残余=接受现实(不爬付费墙). (2) 历史 KB 条目仍 PII link(仅新论文受益, V37.9.132 局限, 不补). (3) ✅ V37.9.186: pwc 死路径退役 + TIER↔registry drift 守卫.",
       "【H1-C / C2 (Q4, gated) · C1 选型已完成 V37.9.253】第二实例最小闭环真跑 = 非 Mac Linux host 上 E2E 绿: minimal_runtime + governance cron + 1-2 内容 job(arxiv/dblp) 真抓取→LLM→Discord + cron+nohup 重启存活。选型=PUSH-only 纯推送(绕 Gateway/WhatsApp/sessions), 见 docs/second_instance_poc_selection_20260707.md §5 验收标准。C2 前置(§3, 均可枚举无未知): 持久 Linux host(VPS/容器) + 可达 LLM 端点(REMOTE_BASE_URL) + Discord bot token/channel(DISCORD_CH_*) + 唯一真需新建=Linux bootstrap 脚本(装 py 依赖+起 adapter/proxy nohup+写 crontab, 并行 install_openclaw_macmini.sh)。C3=portability report EN/ZH 证据型文章(对两次评审可迁移性批评终局回答)。",
       "【V37.9.274 · SF1/SF2 已修 · SF3 对抗验证 accept-by-design】(SF1 ✅ 修) ontology_sources/finance_news fetch_failed 守卫 parse-盲已修: parse-fail sys.exit(2) 信号回 shell + 根元素校验(well-formed 反爬 HTML root=html 拦截, 实测证伪初版 catch-ParseError) + PARSE_RC!=0→FETCH_ERRORS++。(SF2 ✅ 修) daily_observer --dry-run 持久化污染已修: append_score_history+_write_observer_to_status 由 if not dry_run 守卫。(SF3 ⏹ 不改) kb_harvest any(ok)→ok 是 V37.9.130 刻意设计(status 枚举供 watchdog 契约, 降级走 map_failed 独立字段), 改成 any(error)→error 会过度告警瞬态混合窗口 → 对抗验证 accept-by-design(镜像 V37.9.273 F2 纪律)。守卫 test_v37_9_274(11 单测)+sabotage。",
-      "【🔴 LLM-Observer 研究攻关 #1 · Stage 5.1 flip 决策已执行（2026-07-24 §9.1.1: 14 天 live 全零 fp + C1/C2/C3 全满足 → FLIP on）· Mac Mini 待用户三步】(a) 合并 PR + git reset 同步（V37.9.276 daily_observer.sh env plumbing——此前该 job 不 source .env_shared, OBSERVER_FP_MODE 根本到不了 observer, flip enabler）(b) ~/.env_shared 加 export OBSERVER_FP_MODE=on（rollback=改回 shadow, next 06:30 生效）(c) score_history 清污染: 剔除 2026-05-25 llm_failed 假记录（根因=test_daily_observer CLI subprocess 无 HOME 隔离在 Mac Mini 被 preflight/governance 跑时写真实文件 ~3次/天; 写入点 V37.9.274 SF2 已堵 + 测试面 V37.9.276 MR-9 已隔离）。首日 E2E: 次日 06:30 报告 fail_plausible 段标 [on] + 无 FP 风暴; 污染验证: score_history 不再新增 05-25 行。Stage 6 论文 #2 草案 gated 于 on 模式 detection latency 生产数据。",
+      "【🔴 LLM-Observer 研究攻关 #1 · OBSERVER_FP_MODE=on 已上线（2026-07-25 三步全落地）· 剩首日 E2E 观察】flip 决策 2026-07-24 §9.1.1（14 天 live 全零 fp + C1/C2/C3 全满足）。落地实录: (a) ✅ PR#850 合并 + Mac Mini git reset 同步（daily_observer.sh env plumbing 生效） (b) ✅ ~/.env_shared 加 export OBSERVER_FP_MODE=on（rollback=改回 shadow） (c) ✅ score_history 清污染核实为 no-op——Mac Mini 实测（2026-07-25 grep 分布）: 73 行零条 05-25、llm_failed 仅 2（71 ok）、07-20→24 每日恰 1 行 = 无污染追加; 结构 = ~60 唯一日期真实历史 + 13 条 5-6 月 dev 期同日重跑（05-26/27/28/31、06-29, 良性保留）。V37.9.276 所见「30 行大量 05-25 llm_failed」与此文件行数算术不相容 → 污染最可能在 dev 容器 ~/.kb（全量 test_daily_observer 只在 dev full_regression 跑; Mac Mini governance 经 V37.9.124 收窄只跑契约核心类不含 CLI 测试）。两侧源头已修死（V37.9.274 dry-run 守卫 + V37.9.276 测试隔离, 07-25 同步生效）。剩: 明 06:30 首日 E2E——报告 fail_plausible 段标 [on] + 无 FP 风暴 + score_history 恰新增 1 行 date=2026-07-25。Stage 6 论文 #2 草案 gated 于 on 模式 detection latency 生产数据。",
       "【🔴 GLM ark key 轮换 · Mac Mini 待用户（仅剩此一步）】ark key(对话多次出现)功能验证完毕, 用户已声明会轮换/删除 → 现在可做: Volcengine 控制台轮换后, 更新 .env_shared + adapter/proxy 两个 plist 的 GLM5_API_KEY(PlistBuddy Set, 与 E2E 配置时同一位置) + bootout/bootstrap 重载。(原 (b) plist env + ROUTER_ENFORCE=on 已由 V37.9.271-272 聊天路由 E2E 证明配置完成, 2026-07-24 核实收敛; 原 (c) 分支合并已收敛。)"
     ],
     "open_prs": [
@@ -338,7 +338,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-07-25 周六: V37.9.278 CLAUDE.md changelog 第三轮归档 (484KB→339KB, 门控收敛日, 30 项 unfinished 全 gated)。🔴 Mac Mini 剩 (全用户动作): Observer flip 三步 (合并同步 + OBSERVER_FP_MODE=on + score_history 清 05-25 污染) / GLM+Qwen key 轮换 / qwen 出链决策 (vision caveat)。Option A reconnect 退避已 apply 转被动观察; node 26.5.0 判据③已满足。",
+  "focus": "2026-07-25 周六(续): V37.9.278 changelog 第三轮归档合并落地 + Observer flip 三步全落地（OBSERVER_FP_MODE=on 已上线, (c) 清污染核实为 no-op——Mac Mini score_history 实测干净, 污染系 dev 侧）。🔴 剩: 明 06:30 Observer on 模式首日 E2E / GLM+Qwen key 轮换 / qwen 出链决策 (vision caveat)。Option A reconnect 退避被动观察; node 26.5.0 判据③已满足。",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
