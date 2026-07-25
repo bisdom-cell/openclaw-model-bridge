@@ -17,6 +17,12 @@
 
 set -eEuo pipefail
 
+# V37.9.276: 标准 env 装载（镜像 kb_dream/kb_evening/jobs/* 同款行）。此前本脚本
+# 是唯一不 source .env_shared 的 observer 链 job —— OBSERVER_FP_MODE 等 env 到不了
+# daily_observer.py（shadow 能跑只因它是代码默认值），§9.1 的 shadow→on env flip
+# 与 rollback 承诺都依赖这条 plumbing。
+source "$HOME/.bash_profile" 2>/dev/null || source "$HOME/.env_shared" 2>/dev/null || true
+
 # -- path discovery --
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 OBSERVER_PY=""
