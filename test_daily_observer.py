@@ -491,29 +491,45 @@ class TestCLI(unittest.TestCase):
     """CLI behavior tests (subprocess)."""
 
     def test_help(self):
-        result = subprocess.run(
-            [sys.executable, "daily_observer.py", "--help"],
-            capture_output=True, text=True, cwd=os.path.dirname(__file__))
+        # V37.9.276 MR-9: --help 在 argparse 即退出本无 KB 访问，但统一隔离
+        # 比守卫开豁免更干净（test_v37_9_276_cli_subprocess_home_isolated 全量断言）
+        with tempfile.TemporaryDirectory() as td:
+            result = subprocess.run(
+                [sys.executable, "daily_observer.py", "--help"],
+                capture_output=True, text=True, cwd=os.path.dirname(__file__),
+                env=dict(os.environ, HOME=td))
         self.assertEqual(result.returncode, 0)
         self.assertIn("Daily Self-Critique", result.stdout)
 
     def test_dry_run_json(self):
-        result = subprocess.run(
-            [sys.executable, "daily_observer.py", "--json", "--dry-run",
-             "--date", "20260525"],
-            capture_output=True, text=True, cwd=os.path.dirname(__file__),
-            timeout=10)
-        self.assertEqual(result.returncode, 0)
-        data = json.loads(result.stdout)
-        self.assertIn("status", data)
-        self.assertIn("date", data)
+        # V37.9.276 MR-9: HOME 隔离到临时目录 —— 此前无隔离的 CLI subprocess 在
+        # Mac Mini（preflight/governance 跑套件时）读写真实 ~/.kb：pre-V37.9.274
+        # dry-run 持久化把 fixture 日期 2026-05-25 的假 llm_failed 记录 3 次/天
+        # 追加进生产 score_history.jsonl（宪法级 #1 observer 自己的证据被测试污染）。
+        # SF2（V37.9.274）堵写入点，本隔离堵测试面（belt-and-suspenders +
+        # 消除对真实 KB 内容的读依赖）。
+        with tempfile.TemporaryDirectory() as td:
+            result = subprocess.run(
+                [sys.executable, "daily_observer.py", "--json", "--dry-run",
+                 "--date", "20260525"],
+                capture_output=True, text=True, cwd=os.path.dirname(__file__),
+                env=dict(os.environ, HOME=td), timeout=10)
+            self.assertEqual(result.returncode, 0)
+            data = json.loads(result.stdout)
+            self.assertIn("status", data)
+            self.assertIn("date", data)
+            self.assertFalse(
+                os.path.exists(os.path.join(
+                    td, ".kb", "self_critique", "score_history.jsonl")),
+                "dry-run CLI 不得持久化 score_history（V37.9.274 SF2 契约）")
 
     def test_invalid_date(self):
-        result = subprocess.run(
-            [sys.executable, "daily_observer.py", "--date", "bad"],
-            capture_output=True, text=True, cwd=os.path.dirname(__file__),
-            timeout=10)
-        self.assertEqual(result.returncode, 1)
+        with tempfile.TemporaryDirectory() as td:
+            result = subprocess.run(
+                [sys.executable, "daily_observer.py", "--date", "bad"],
+                capture_output=True, text=True, cwd=os.path.dirname(__file__),
+                env=dict(os.environ, HOME=td), timeout=10)
+            self.assertEqual(result.returncode, 1)
 
 
 class TestScoreHistory(unittest.TestCase):
@@ -863,6 +879,45 @@ class TestShellGuards(unittest.TestCase):
     def test_set_eEuo_pipefail(self):
         self.assertRegex(self.src, r"set\s+-eEuo\s+pipefail")
 
+    def test_v37_9_276_env_shared_plumbing(self):
+        """V37.9.276: 必须 source .bash_profile/.env_shared（镜像兄弟 job 标准行）。
+
+        此前 daily_observer.sh 是 observer 链唯一不装载 env 的 job ——
+        OBSERVER_FP_MODE 等 env 到不了 daily_observer.py（shadow 只是代码默认值），
+        §9.1 的 shadow→on env flip 与 rollback 承诺都依赖这条 plumbing。
+        """
+        self.assertIn('source "$HOME/.bash_profile" 2>/dev/null || '
+                      'source "$HOME/.env_shared" 2>/dev/null || true',
+                      self.src,
+                      "env-source 标准行缺失 = OBSERVER_FP_MODE flip 不可达")
+        self.assertIn("V37.9.276", self.src)
+
+    def test_v37_9_276_cli_subprocess_home_isolated(self):
+        """V37.9.276 MR-9: 本文件所有跑 daily_observer.py 的 subprocess 必须传 env=。
+
+        血案: 无隔离的 CLI 测试在 Mac Mini 上（preflight/governance 跑套件）把
+        fixture 日期 2026-05-25 的假记录 ~3 次/天写进真实 score_history.jsonl，
+        污染宪法级 #1 observer 的 shadow 周证据（2026-07-24 flip 取数时发现）。
+        """
+        with open(os.path.abspath(__file__), encoding="utf-8") as f:
+            test_src = f.read()
+        target = "daily_ob" + "server.py"
+        pos = 0
+        checked = 0
+        while True:
+            idx = test_src.find("subprocess.run(", pos)
+            if idx < 0:
+                break
+            window = test_src[idx:idx + 400]
+            pos = idx + 1
+            if f'"{target}"' not in window:
+                continue
+            checked += 1
+            self.assertIn("env=", window,
+                          f"subprocess.run @ offset {idx} 跑 {target} 未传 env= "
+                          f"(MR-9 test-pollutes-production)")
+        self.assertGreaterEqual(checked, 3, "防守卫空转: CLI subprocess 站点应 ≥3")
+
     def test_source_notify_sh(self):
         self.assertIn("source \"$NOTIFY_SH\"", self.src)
 
@@ -1069,11 +1124,14 @@ class TestV37_9_87_SingleCallArchitecture(unittest.TestCase):
 
     def test_cli_json_outputs_report_markdown(self):
         """End-to-end: --json output includes report_markdown field."""
-        result = subprocess.run(
-            [sys.executable, "daily_observer.py", "--json", "--dry-run",
-             "--date", "20260525"],
-            capture_output=True, text=True,
-            cwd=os.path.dirname(__file__), timeout=15)
+        # V37.9.276 MR-9: HOME 隔离（同 TestCLI.test_dry_run_json，防真实 ~/.kb 读写）
+        with tempfile.TemporaryDirectory() as _td:
+            result = subprocess.run(
+                [sys.executable, "daily_observer.py", "--json", "--dry-run",
+                 "--date", "20260525"],
+                capture_output=True, text=True,
+                cwd=os.path.dirname(__file__),
+                env=dict(os.environ, HOME=_td), timeout=15)
         self.assertEqual(result.returncode, 0)
         data = json.loads(result.stdout)
         self.assertIn("report_markdown", data,

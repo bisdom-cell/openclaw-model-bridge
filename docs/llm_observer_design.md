@@ -376,7 +376,7 @@ Observer **能机械化**周一 30min 用户视角观察仪式（原则 #32）�
 | **Stage 3** ✅ | LLM-judge Layer 2（FAIL_PLAUSIBLE_SYSTEM，复用 call_llm_critique）+ 注入 LEVEL_6/credibility | verdict 结构化 + 引用证据 + 防 V37.9.93 sampling 幻觉 | ✅ V37.9.196 |
 | **Stage 4** ✅ | self-validation harness（复用 adversarial_chaos_audit 模式，OBS-A/B 场景）+ scorecard | defense rate / FN / FP / calibration 可度量；Category A →100% | ✅ V37.9.197 |
 | **Stage 5** ✅ | 接入 `daily_observer.run()`（detect_fail_plausible，§6.1）+ score/status 向后兼容扩展，**shadow-first**（`OBSERVER_FP_MODE=shadow` 默认，观察性不影响评分/告警） | daily_observer 次日报告含 fail_plausible 段，零下游破坏，Mac Mini E2E | ✅ V37.9.198（+199 shadow 抓真 FP 修 S5） |
-| **Stage 5.1** 🟡 | flip `OBSERVER_FP_MODE` shadow→on（fp 进 anomalies → 影响评分/告警）+ force_judge 评估 | 决策框架见 §9.1（预注册 criteria），gated 于 shadow 周真实数据 | 🟡 shadow 周观察中（2026-06-30 起，~7/7） |
+| **Stage 5.1** 🟡→✅(决策) | flip `OBSERVER_FP_MODE` shadow→on（fp 进 anomalies → 影响评分/告警）+ force_judge 评估 | 决策框架见 §9.1（预注册 criteria）；**2026-07-24 数据到达按规则执行 → FLIP on（C1/C2/C3 全满足，§9.1.1 决策记录）** | 🟡 待 Mac Mini env flip + 首日 E2E（V37.9.276 补 env plumbing） |
 | **Stage 6** 🟡 | bench 化（silent-failure/fail-plausible 检测 bench，社区可跑）+ 论文 #2 草案 | 别人能 `pip`/clone 跑 bench；论文 #2 描述→预测的 scorecard | 🟡 chunk 1 ✅ V37.9.200（bench 社区化）；论文 #2 草案 gated 于 detection latency 生产数据 |
 
 **Stage 0 交付 = 本文档**。后续 Stage 由独立 session 推进（每 Stage 走完整收工清单 + Mac Mini E2E，原则 #6/#9/#29）。
@@ -409,6 +409,20 @@ Observer **能机械化**周一 30min 用户视角观察仪式（原则 #32）�
 **诚实边界（small-N）**：shadow 周样本小（多数日干净），live precision 估计噪声大 → 决策**不追求统计显著**，追求"无已知系统性噪声 + 探测器行为可解释"。同 §5.4 的 `detection_latency`/`calibration` 标 N/A 的同源诚实——生产小样本给不了置信区间，但给得了"有没有系统性 FP"这个可操作判据。
 
 **force_judge 评估（flip 时一并决策，非本 Stage 前置）**：当前 shadow 用 cheap-path（Layer 2 仅 Layer 1 命中触发）。flip 时评估是否对高风险 synthesis（dream/deep_dive 大 LLM 输出）开 `force_judge`（catch novel D2/grounding，§五 scorecard 证 Category B 仅 Layer 2 能抓）——但 force_judge 增 LLM 成本须权衡 C3。**默认 flip 后维持 cheap-path**，force_judge 作独立后续评估（不与 flip 捆绑，避免一次改两个变量）。
+
+### 9.1.1 决策记录（2026-07-24 · 按预注册规则执行 → FLIP on）
+
+**数据**（Mac Mini shadow 2026-06-30 起，取数 2026-07-24，实际观察 24 天远超设计 ~7 天）：
+- `score_history.jsonl` live 日序列 07-17→07-24：**fp_high=0 / fp_med=0 全零**（8 天）。
+- 每日报告 fail_plausible 段 07-11→07-24：**14 天连续「✅ 无 fail-plausible 信号」**（0 fired → 0 TP / 0 FP，无需逐条判读）。
+- **数据污染剔除**：history 中大量重复 `2026-05-25 llm_failed (fp_high=1)` 记录 = `test_daily_observer.py` CLI subprocess 无 HOME 隔离在 Mac Mini 被 preflight/governance 跑时写进真实文件（≈3 次/天），**非 live 信号**，不参与判据（写入点已被 V37.9.274 SF2 堵死，测试面已被 V37.9.276 MR-9 隔离堵死，见下）。
+
+**判据核对**：
+- **C1 ✅** 零未修复系统性 FP——V37.9.199 S5 修复后 14 天 live 零复发；05-25 fixture 记录是测试污染非探测器噪声。
+- **C2 ✅** 干净周分支——0 fired 的干净探测器 flip 不增噪声（安全），价值待事故日兑现。
+- **C3 ✅** cheap-path 生效——干净日 Layer 2 零调用（14 天全干净 = 零 fp LLM 成本）。
+
+**决策**：C1+C2+C3 全满足 → **flip `OBSERVER_FP_MODE=on`**（Mac Mini env，经 V37.9.276 补上的 `.env_shared` plumbing 生效）。force_judge 维持 off（不捆绑）。rollback = env 改回 shadow。首日 E2E 观察项：06:30 报告 fail_plausible 段标签 `[on]` + anomalies/`overall_score`/告警无 FP 风暴。
 
 ---
 
