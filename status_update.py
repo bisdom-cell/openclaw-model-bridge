@@ -204,6 +204,26 @@ def _resolve_array_target(data, array_name):
         if not isinstance(cur, list):
             ctx["unfinished"] = [cur] if (isinstance(cur, str) and cur.strip()) else []
         return ctx, "unfinished"
+    # V37.9.275: 其他点号数组名走通用嵌套解析（V37.9.270 残余半边）。此前任何非
+    # unfinished 的全限定数组名（如 `--clear session_context.open_prs`）fall through
+    # 到字面点号顶层键 → --add 制造孤儿键（V37.9.270 同机制）/ --pop/--clear 静默
+    # no-op（键不存在 → changed=False → 吐 help，rc=0）。与 set_nested 的刻意差异：
+    # 数组操作遇非 dict 中间节点**保守回退**字面行为（绝不像 set_nested 那样覆盖为
+    # {} 破坏既有标量），--set 才是显式覆盖工具。
+    if "." in array_name:
+        parts = array_name.split(".")
+        node = data
+        for p in parts[:-1]:
+            nxt = node.get(p)
+            if nxt is None:
+                break
+            if not isinstance(nxt, dict):
+                return data, array_name
+            node = nxt
+        parent = data
+        for p in parts[:-1]:
+            parent = parent.setdefault(p, {})
+        return parent, parts[-1]
     return data, array_name
 
 
