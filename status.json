@@ -1,5 +1,5 @@
 {
-  "updated": "2026-07-25 08:07:13",
+  "updated": "2026-07-25 20:27:38",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-07-25",
+      "what": "V37.9.278 CLAUDE.md changelog 第三轮归档 — 484KB→339KB: 归档 V37.9.207-239 共 33 版到 docs/changelog.md (内联 71→38 行, 行数守恒 339 恒定零丢失, 边界/连续性/零丢失三重 assert)。触发条件按 V37.9.245 预埋行数阈值精确兑现 (20 天累积 33 版, 按行数触发比日历更贴合)。归档脚本两次防呆 assert 开火 (行正则过宽误伤里程碑表 13 行 + 头注锚点被 V37.9.245 行自身叙述咬到) 均修正。开工基线+收工两轮 full_regression 全绿 (158 suites/0 fail/5546 tests, 混沌 10/10 全抓), 治理 EXIT=0, OpenClaw 上游无新 stable (2026.7.2 仍 beta.4) 沿用第七次 hold。VERSION 0.37.9.118 不变。",
+      "by": "claude_code"
+    },
     {
       "date": "2026-07-24",
       "what": "用户动作落地: restart.sh 三服务健康重启(web.reconnect.maxMs=300000 已 apply, Option A 全闭环剩观察) + brew upgrade node 25.6.1→26.5.0(升级判据③ 转满足, ≥25.9 无上界)。注: 建议再跑一次受控 restart.sh 验证 4.27-on-node26 兼容(时序歧义, 防 KeepAlive 在不受控时刻首启 node26)。",
@@ -173,11 +178,6 @@
       "date": "2026-07-08",
       "what": "V37.9.263 回退 V37.9.262 OpenAlex fallback (用户「回退」)。Mac Mini 端到端实测 fetch_pdf_text(原始DOI) 对 7 篇实际降级论文=真实全文恢复 0/7: 2 真闭源(OpenAlex 也无 OA)+MDPI 反爬 403+SciTePress/ACM×3 是 landing page 非 PDF。两发现: 捞回 5/7 完全误导(4/5 是 oa_url 兜底的 DOI landing page)+当前实现净负(landing page 从直接 no-PDF-derivable 变成多做无用 fetch→403)。OpenAlex 打不穿 residual 两堵墙(真闭源+反爬)。真杠杆是 ban-list(V37.9.260)。用户原问接受现实 or 其他办法=接受现实。移除 2 函数+11 单测,resolve 回 S2-only。net runtime 机制 -1(退役外部 API 依赖,日落法)。元: 我最初推荐先测,用户选现在加,measure-now 实测 0 证明先测直觉对;先核实纠正三连过度断言。VERSION 0.37.9.110→0.37.9.111。",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-07-08",
-      "what": "V37.9.262 deep_dive OA 解析加第二源 OpenAlex(用户选「现在就加」)。数据驱动: V37.9.261 Mac Mini grep 揭示降级主体是 no PDF URL derivable(S2 openAccessPdf 为 null),而 S2 OA 覆盖 < Unpaywall/OpenAlex——很多付费墙论文有合法免费副本(作者 preprint/机构库/PMC)只是 S2 没索引。加 _openalex_fetch+_openalex_lookup_oa_pdf,resolve_oa_pdf_url DOI 分支 S2 无 OA→OpenAlex 短路。选 OpenAlex(OA 语料源自 Unpaywall 同覆盖但零配置,免费无 key)。真闭源仍 None→abstract_only 诚实(不爬付费墙)。test+11,sabotage 有效。VERSION 0.37.9.109→0.37.9.110。正解: 接受真闭源+合法补全 S2 覆盖缺口两者都对。",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -227,7 +227,7 @@
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB"
   },
   "session_context": {
-    "last_session": "2026-07-24",
+    "last_session": "2026-07-25",
     "unfinished": [
       "【2026-07-02 多镜头审计 · 9 findings 全部处置完毕 (V37.9.226-239: 8 修复闭环 + I half-open 登记为可接受设计 tradeoff) · 剩纯 Mac Mini 被动验证】同步+重启 proxy/adapter 后观察: (A) 真 fallback 时 proxy 日志 DEGRADED 行 + proxy_stats.json slo.fallback_count 变真值 (V37.9.229) (C) ls ~/.kb/status.json.lock ~/.kb/audit.jsonl.lock 伴生锁文件出现 (V37.9.238) (E) client 断开时 adapter.log 记 CLIENT GONE 单行非 traceback (V37.9.231/242) (B) streaming 请求撞 parse 异常时 Gateway 收 SSE 而非 content-type 错配 (V37.9.239) (G) last_run_self_critique.json time 本地格式 + watchdog 4h 覆盖 observer (V37.9.230)。完整分诊记录见 CLAUDE.md V37.9.226-239 changelog, 无 dev 剩余动作。",
       "【V37.9.211/212 Qwen3 端点刷新 · adapter ✅ + V37.9.212 ✅ 已并入 main(PR#774, 2026-07-02 dev 核实) · 剩用户 env 动作】剩余非紧急: (A) .env_shared 设新 REMOTE_API_KEY+REMOTE_BASE_URL(cron 直连脚本 health_check 每周报 CURRENT_MODEL/diagnose 用) (C) 🔴 明文 key 建议用完轮换。教训钉死: adapter/proxy 是 launchd job, env 改必须进 plist EnvironmentVariables + bootout/bootstrap(不是 shell export + kickstart)。",
@@ -260,14 +260,14 @@
       "【🔴 GLM ark key 轮换 · Mac Mini 待用户（仅剩此一步）】ark key(对话多次出现)功能验证完毕, 用户已声明会轮换/删除 → 现在可做: Volcengine 控制台轮换后, 更新 .env_shared + adapter/proxy 两个 plist 的 GLM5_API_KEY(PlistBuddy Set, 与 E2E 配置时同一位置) + bootout/bootstrap 重载。(原 (b) plist env + ROUTER_ENFORCE=on 已由 V37.9.271-272 聊天路由 E2E 证明配置完成, 2026-07-24 核实收敛; 原 (c) 分支合并已收敛。)"
     ],
     "open_prs": [
-      "claude/todays-work-pnfozz: V37.9.275 (点号数组解析+账本 hygiene) + V37.9.276 (Observer flip 决策+env plumbing+测试隔离) + V37.9.277 (doubao_21 升 production_observed) — 待用户合并 PR + Mac Mini git reset 同步 + Observer flip 三步"
+      "claude/todays-work-qv8duu: V37.9.278 (changelog 第三轮归档, 纯 doc 零业务语义) — 待用户合并 PR + Mac Mini git reset 同步 (零重启零业务影响)"
     ],
     "blocked_on": ""
   },
   "quality": {
     "security_score": 98,
     "test_count": 5546,
-    "last_regression": "2026-07-25 07:33 pass",
+    "last_regression": "2026-07-25 19:33 pass",
     "coverage_pct": 0,
     "security_score_time": "2026-07-20 01:07",
     "test_suites": 158,
@@ -338,7 +338,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-07-24 周五(续3): V37.9.275 点号数组解析 + V37.9.276 Observer flip 决策(FLIP on) + V37.9.277 doubao_21 升 production_observed(用户数据驱动)。🔴 Mac Mini 剩: Observer flip 三步 / gateway 重启 apply reconnect 退避 / GLM+Qwen key 轮换 / qwen 出链决策(vision caveat) / node 升级(判据③)。",
+  "focus": "2026-07-25 周六: V37.9.278 CLAUDE.md changelog 第三轮归档 (484KB→339KB, 门控收敛日, 30 项 unfinished 全 gated)。🔴 Mac Mini 剩 (全用户动作): Observer flip 三步 (合并同步 + OBSERVER_FP_MODE=on + score_history 清 05-25 污染) / GLM+Qwen key 轮换 / qwen 出链决策 (vision caveat)。Option A reconnect 退避已 apply 转被动观察; node 26.5.0 判据③已满足。",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
