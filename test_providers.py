@@ -1728,11 +1728,13 @@ class TestDoubao21Provider(unittest.TestCase):
         self.assertEqual(get_provider("doubao_21").model_id,
                          "doubao-seed-2-1-pro-260628")
 
-    def test_tier_feature_verified_after_e2e(self):
-        # V37.9.217 Mac Mini E2E 实测 5/5 通过 → feature_verified + tier 一致 + 显式 evidence
+    def test_tier_production_observed(self):
+        # V37.9.217 E2E 5/5 → feature_verified; V37.9.277 升 production_observed:
+        # 唯一 primary 承载全部生产流量 22+ 天 (V37.9.222 B1 flip) + B1 批量注入
+        # 7654 次实测开火 + dream 超时 0 复发 + 零 provider 事故 (预注册条件 [19] 兑现)
         from providers import get_provider
         caps = get_provider("doubao_21").capabilities
-        self.assertEqual(caps.verification_tier, "feature_verified")
+        self.assertEqual(caps.verification_tier, "production_observed")
         # 5 项实测通过: text/vision/tool_calling/streaming/reasoning
         self.assertTrue(caps.verified_text)
         self.assertTrue(caps.verified_vision)
@@ -1741,7 +1743,9 @@ class TestDoubao21Provider(unittest.TestCase):
         self.assertTrue(caps.verified_reasoning)
         # fallback 未真生产接管 → 诚实保持 False (同 doubao 2.0/deepseek 惯例)
         self.assertFalse(caps.verified_fallback)
-        # feature_verified 必须显式 tier_evidence (非派生) 引用实测证据
+        # production_observed 必须显式 tier_evidence: 生产观察证据 + 保留 E2E 证据链
+        self.assertIn("primary", caps.tier_evidence)
+        self.assertIn("B1", caps.tier_evidence)
         self.assertIn("E2E", caps.tier_evidence)
         self.assertIn("5/5", caps.tier_evidence)
         self.assertEqual(caps.tier_consistency_violations(), [])

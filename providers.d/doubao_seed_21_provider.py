@@ -18,7 +18,8 @@
 🔴 诚实语义 (原则 #23 + 渐进验证纪律):
 - V37.9.216 接入 declared (能力仅声明未实测) → V37.9.217 Mac Mini E2E 实测 5 项
   (text/vision/tool_calling/streaming/reasoning) 全通过 → 升 feature_verified。
-- verification_tier = "feature_verified" — 分项 E2E 实测通过但未真生产流量。
+- verification_tier = "production_observed"（V37.9.277）— 唯一 primary 承载全部生产流量
+  2026-07-02 起（V37.9.222 B1 flip，22+ 天零 provider 事故 + B1 批量注入 7654 次实测开火）。
   verified_text/vision/tool_calling/streaming/reasoning=True; verified_fallback=False
   (未真生产 fallback 接管, 同 doubao 2.0/deepseek 惯例)。
 - 能力声明 (含 json_mode=True) = Doubao Seed 2.1 Pro advertised 能力; json_mode 声明
@@ -76,11 +77,11 @@ class DoubaoSeed21Provider(BaseProvider):
             verified_streaming=True,     # E2E: chat.completion.chunk 流 + finish_reason=stop + [DONE]
             verified_fallback=False,     # 未真生产 fallback 接管 (同 doubao 2.0/deepseek 惯例)
             verified_reasoning=True,     # E2E: reasoning_content 通道 + reasoning_tokens=255
-            # feature_verified: 分项 E2E 实测通过但未真生产流量 (tier_evidence 必须显式引用证据)
-            verification_tier="feature_verified",
-            tier_evidence="Mac Mini E2E 实测 2026-07-02: text/vision/tool_calling/streaming/reasoning 5/5 通过 "
-                          "(content=0.05 bat-ball 答对+finish_reason=stop / 湖面皮划艇针叶林覆雪山脉全命中 / "
-                          "finish_reason=tool_calls+get_weather arguments / chunk 流+[DONE] / "
-                          "reasoning_content 通道+reasoning_tokens=255)；无乱码 token (优于 deepseek 量化版 w4a8)；"
-                          "json_mode 声明未单测 / 未真生产 fallback 接管",
+            # production_observed (V37.9.277): 真实生产流量运行 (最强声明, 证据见 tier_evidence)
+            verification_tier="production_observed",
+            tier_evidence="唯一 primary 承载全部生产流量 2026-07-02 起 (V37.9.222 B1 flip, 22+ 天 cron 周期"
+                          "零 provider 事故); B1 批量 thinking-off 注入实测大规模开火 (adapter.log 7654 次 "
+                          "@2026-07-24, dream curl 超时 0 复发); E2E 2026-07-02: text/vision/tool_calling/"
+                          "streaming/reasoning 5/5 (bat-ball 0.05 / vision 全命中 / tool_calls / chunk+[DONE] / "
+                          "reasoning_tokens=255) 无乱码；json_mode 声明未单测 / 未真生产 fallback 接管",
         )
