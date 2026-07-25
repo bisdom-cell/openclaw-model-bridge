@@ -1,5 +1,5 @@
 {
-  "updated": "2026-07-25 20:34:39",
+  "updated": "2026-07-25 20:45:14",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -260,7 +260,7 @@
       "【🔴 GLM ark key 轮换 · Mac Mini 待用户（仅剩此一步）】ark key(对话多次出现)功能验证完毕, 用户已声明会轮换/删除 → 现在可做: Volcengine 控制台轮换后, 更新 .env_shared + adapter/proxy 两个 plist 的 GLM5_API_KEY(PlistBuddy Set, 与 E2E 配置时同一位置) + bootout/bootstrap 重载。(原 (b) plist env + ROUTER_ENFORCE=on 已由 V37.9.271-272 聊天路由 E2E 证明配置完成, 2026-07-24 核实收敛; 原 (c) 分支合并已收敛。)"
     ],
     "open_prs": [
-      "claude/todays-work-qv8duu: V37.9.278 (changelog 第三轮归档, 纯 doc 零业务语义) — 待用户合并 PR + Mac Mini git reset 同步 (零重启零业务影响)"
+      "claude/todays-work-qv8duu: 账本 commit e1fd623 ([27] Observer flip 三步落地实录 + focus, 纯 status.json) — 待用户合并新 PR (V37.9.278 主 PR#850 已合并落地)"
     ],
     "blocked_on": ""
   },
