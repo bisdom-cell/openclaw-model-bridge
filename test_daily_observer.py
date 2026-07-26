@@ -3305,6 +3305,18 @@ class TestV37_9_279OnModeHardening(unittest.TestCase):
     OBS-F5: wrapper 报告写失败诚实告警。
     """
 
+    def setUp(self):
+        # V37.9.92 isolation (本 session 自查补): run() 会调 _write_observer_to_status
+        # → status_update 全局路径解析在 dev 回退**仓库 status.json** → 未 patch 的
+        # run() 测试把 fixture 观察数据写进 repo 副本 (MR-9 test-pollutes-production
+        # 家族, V37.9.276 CLI subprocess 半边的 in-process 半边)。镜像既有类同款 patch。
+        self._patcher = mock.patch.object(obs, "_write_observer_to_status",
+                                          return_value=True)
+        self._patcher.start()
+
+    def tearDown(self):
+        self._patcher.stop()
+
     def _setup_kb_with_d1_dream(self, td):
         for d in ("daily", "dreams", "deep_dives", "sources"):
             os.makedirs(os.path.join(td, d))
