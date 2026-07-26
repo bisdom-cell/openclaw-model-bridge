@@ -1,6 +1,6 @@
 {
-  "updated": "2026-07-26 13:27:53",
-  "updated_by": "full_regression",
+  "updated": "2026-07-26 13:29:04",
+  "updated_by": "cli",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -262,7 +262,7 @@
       "【2026-07-26 对抗审计 · 2 个登记不修项 (设计决策/热路径, 下 session 评估)】(a) NOT-F3 quiet_alert (auto_deploy 00-07 静默期) 完全绕过 notify → 无重试/无队列/stderr 丢弃, 且失败恰与被告警的故障相关 (同 gateway 路径); 修法候选=静默期改走 notify 强制 discord-only, 但 V37.8.13 test_wa_gateway_resilience pin 了 quiet 块形状, 须同步演进测试 (设计决策)。(b) NOT-F5 proxy token/consecutive-error 告警无 cooldown/dedup — session 过 195K 阈值后每请求都 append alert → 每 turn 一条 Discord [SYSTEM_ALERT] + 一个 notify 子进程 (放大 NOT-F1 并发 drain); 连续错误告警同款每请求重发; 修法=ProxyStats per-key cooldown (热路径, 需谨慎设计+测试)。",
       "【V37.9.279-281 Mac Mini 被动验证】合并+同步后: (a) 279: 次日 06:30 observer 报告若有 fp verdict, LLM critique 段应可见异常块引用 fail-plausible (on 模式评分真集成); score_history 新行有 fp_mode:\"on\" 字段; confidence 只在 L2 grounded 支持时非 1.0 (b) 280: evening \"今日笔记\" 不再含昨日条目; 论文源 parse_failed 日 evening 出\"今日任务异常\"块; harvest 部分 Map 失败日 last_run status=error 且次日重试 (c) 281: notify 队列重放无重复投递; chaspark LLM 失败日次日正常重抓 (seen 不再提前提交); wa_keepalive 日志出现 ESCALATE_FAILED 时 ~/.openclaw_alerts.log 有兜底行。"
     ],
-    "open_prs": "claude/todays-work-dpre92: V37.9.279-281 对抗审计三批 (f12253b/540d80b/e283a73 + 收工 doc) — 待创建/合并 PR; 上一轮 qv8duu PR#851/852 已合并 (2026-07-26 git log 核实)",
+    "open_prs": "PR#853 (claude/todays-work-dpre92): V37.9.279-281 对抗审计三批 — 待用户合并; 上一轮 qv8duu PR#851/852 已合并",
     "blocked_on": ""
   },
   "quality": {
