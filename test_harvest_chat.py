@@ -529,15 +529,37 @@ class TestExtractKeyPointsMetaV130(unittest.TestCase):
         self.assertGreater(meta["map_failed"], 0)
 
     @patch("kb_harvest_chat._llm_call")
-    def test_map_partial_failure_counted_and_continues(self, mock_llm):
-        """Map 部分失败 → 计数可观测 + 其余段继续产出"""
-        # 3 chunks: 第 1 段失败 (2 calls), 第 2/3 段成功, reduce 成功
+    def test_map_partial_failure_discards_and_retries(self, mock_llm):
+        """Map 部分失败 → 整日弃写返回 None (V37.9.280 演进)
+
+        V37.9.279 前旧契约: 部分失败仍返回合并产物 → process_date 写 KB +
+        mark_processed → 失败段永久丢失 (对抗审计 KB-F2 血案)。新契约: 任何
+        Map 段失败 → None → error 不标记 → --days 3 明日整日重试, 零数据丢失。
+        """
+        # 3 chunks: 第 1 段失败 (2 calls), 第 2/3 段成功
         mock_llm.side_effect = [None, None,
                                 "- [insight] 段2洞察", "- [insight] 段3洞察",
                                 "- [insight] 合并结果"]
         result, meta = harvest.extract_key_points(self._turns(), "20260604")
         self.assertEqual(meta["map_failed"], 1)
-        self.assertIn("合并结果", result)
+        self.assertIsNone(result,
+                          "部分 Map 失败必须弃写 (否则 mark_processed 永久丢段)")
+
+    @patch("kb_harvest_chat._llm_call")
+    def test_map_partial_failure_not_marked_processed(self, mock_llm):
+        """血案端到端 (KB-F2): 部分 Map 失败经 process_date → error + 不标记已处理"""
+        mock_llm.side_effect = [None, None,
+                                "- [insight] 段2洞察", "- [insight] 段3洞察",
+                                "- [insight] 合并结果"]
+        with patch.object(harvest, "load_conversations",
+                          return_value=self._turns()), \
+             patch.object(harvest, "is_processed", return_value=False), \
+             patch.object(harvest, "mark_processed") as mock_mark, \
+             patch.object(harvest, "write_to_kb") as mock_write:
+            status, meta = harvest.process_date("20260604")
+        self.assertEqual(status, "error")
+        mock_mark.assert_not_called()
+        mock_write.assert_not_called()
 
     @patch("kb_harvest_chat._llm_call")
     def test_reduce_degraded_propagates(self, mock_llm):

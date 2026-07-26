@@ -539,5 +539,43 @@ class TestSecurityPatterns(unittest.TestCase):
                         f"{sh}:{i}: dangerous pipe crontab pattern")
 
 
+class TestComputeWeekWindowsV280(unittest.TestCase):
+    """V37.9.280 (对抗审计 KB-F4): kb_trend 周窗口 — 各恰 7 天、无共享边界日。
+
+    原窗口 this_start=now-7d 且 last_end=this_start: extract_period_text 按
+    YYYYMMDD 双端 inclusive → D-7 当天同时落两窗 (双计数 + 各 8 天), 恰在 D-7
+    出现的关键词 ratio=1.0 永不上榜, 真消退关键词被阻尼。
+    """
+
+    def _date_set(self, start, end):
+        from datetime import timedelta
+        out, d = set(), start
+        while d <= end:
+            out.add(d.strftime("%Y%m%d"))
+            d += timedelta(days=1)
+        return out
+
+    def test_windows_disjoint_and_seven_days_each(self):
+        import kb_trend
+        from datetime import datetime
+        now = datetime(2026, 7, 26, 22, 30)
+        ts, te, ls, le = kb_trend.compute_week_windows(now)
+        this_days = self._date_set(ts, te)
+        last_days = self._date_set(ls, le)
+        self.assertEqual(len(this_days), 7)
+        self.assertEqual(len(last_days), 7)
+        self.assertEqual(this_days & last_days, set(),
+                         "D-7 边界日双计数 → 趋势 ratio 被阻尼 (KB-F4 血案)")
+        self.assertEqual(len(this_days | last_days), 14)
+
+    def test_main_uses_helper(self):
+        # 一物一形: main() 必须走 compute_week_windows, 不得内联第二份窗口算术
+        with open("kb_trend.py") as f:
+            src = f.read()
+        self.assertIn("compute_week_windows(now)", src)
+        self.assertNotIn("last_end = this_start", src,
+                         "旧重叠窗口算术不得回归")
+
+
 if __name__ == "__main__":
     unittest.main()

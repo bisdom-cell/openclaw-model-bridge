@@ -107,6 +107,22 @@ def log(msg):
 # 文本提取
 # ---------------------------------------------------------------------------
 
+def compute_week_windows(now):
+    """V37.9.280 (对抗审计 KB-F4): 本周/上周窗口 — 日期粒度、各恰 7 天、无重叠。
+
+    extract_period_text 按 YYYYMMDD 字符串双端 inclusive 比较。原窗口
+    this_start=now-7d 且 last_end=this_start 让 D-7 当天同时落两窗（双计数 +
+    各 8 个日历天）— 恰在 D-7 出现的关键词 this_count==last_count → ratio=1.0
+    既不算新出现也不算消退, 永不上榜; 真消退关键词的下降被阻尼。
+    现: 本周=[D-6, D] / 上周=[D-13, D-7], 各 7 天, 边界日不共享。
+    """
+    this_end = now
+    this_start = now - timedelta(days=6)
+    last_end = now - timedelta(days=7)
+    last_start = now - timedelta(days=13)
+    return this_start, this_end, last_start, last_end
+
+
 def extract_period_text(kb_dir, start_date, end_date):
     """提取指定日期范围内的所有 KB 文本（notes + sources）。"""
     texts = []
@@ -609,14 +625,7 @@ def main():
     args = parser.parse_args()
 
     now = datetime.now()
-
-    # 本周：最近7天
-    this_end = now
-    this_start = now - timedelta(days=7)
-
-    # 上周：7-14天前
-    last_end = this_start
-    last_start = this_start - timedelta(days=7)
+    this_start, this_end, last_start, last_end = compute_week_windows(now)
 
     log(f"本周: {this_start.strftime('%m/%d')}-{this_end.strftime('%m/%d')} | "
         f"上周: {last_start.strftime('%m/%d')}-{last_end.strftime('%m/%d')}")

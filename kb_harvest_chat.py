@@ -361,19 +361,30 @@ def extract_key_points(turns, date_str):
         result = _llm_call_with_retry(prompt, label=f"Map {chunk_info}")
         if result is None:
             # V37.9.130: Map 段失败可观测（原版静默丢段 = silent data loss）
+            # V37.9.280: 措辞修正 — 段不是"丢了", 整日会重试（见循环后判定）
             meta["map_failed"] += 1
             print(f"[harvest] WARN: Map {chunk_info} failed after retry, "
-                  f"segment lost from this run", file=sys.stderr)
+                  f"whole day will retry next run", file=sys.stderr)
             continue
         if "无关键内容" not in result:
             map_results.append(f"=== 第{i}段 (对话 {turn_range}) ===\n{result}")
 
+    if meta["map_failed"]:
+        # V37.9.130 关键修复：Map 全失败 ≠ "无关键内容"（原版返回"无关键内容"会
+        # mark_processed → 数据永久丢失伪装成功）。
+        # V37.9.280 (对抗审计 KB-F2): 扩到**部分**失败 — 原逻辑只守全失败, 部分
+        # 失败仍写 KB + mark_processed → 失败段对话永久丢失, 与模块契约"零数据
+        # 丢失/失败日期下次 cron 自动补提炼"直接矛盾 (V37.9.130 的 WARN 文案
+        # "segment lost from this run" 本就预设后续可补, 但 mark_processed 使之
+        # 不可能)。整日弃写返回 None → process_date 报 error 不标记 → --days 3
+        # 窗口明日整日重试 (chunk 划分确定性; 写部分+不标记会在重试日产生重复
+        # KB note, 故弃部分产物保完整性)。
+        if map_results:
+            print(f"[harvest] WARN: {meta['map_failed']} Map segment(s) failed — "
+                  f"discarding {len(map_results)} partial result(s), whole day "
+                  f"retries next run (zero-data-loss contract)", file=sys.stderr)
+        return None, meta
     if not map_results:
-        if meta["map_failed"]:
-            # V37.9.130 关键修复：Map 全失败 ≠ "无关键内容"。
-            # 原版返回"无关键内容"会 mark_processed → 数据永久丢失伪装成功。
-            # 返回 None → process_date 报 error 不标记 → --days 3 明日自动重试。
-            return None, meta
         return "无关键内容", meta
 
     if len(map_results) == 1:

@@ -199,7 +199,11 @@ def collect_notes(kb_dir, days, max_chars, today=None):
     """
     if today is None:
         today = datetime.now()
-    cutoff = (today - timedelta(days=days)).strftime("%Y%m%d")
+    # V37.9.280 (对抗审计 KB-F1): 窗口对齐 _date_patterns_for_window (range(days)
+    # = 恰 N 个日历天含今天)。原 cutoff=N 天前 + >=cutoff 保留 = N+1 个日历天 —
+    # evening (DAYS=1) 把昨天的笔记灌进 "今日笔记" 段, LLM 按 grounding 指令把
+    # 昨日条目当今日要闻输出; review (DAYS=7) notes 窗 8 天 vs sources 窗 7 天。
+    cutoff = (today - timedelta(days=max(days - 1, 0))).strftime("%Y%m%d")
 
     notes_dir = os.path.join(kb_dir, "notes")
     if not os.path.isdir(notes_dir):

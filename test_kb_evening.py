@@ -997,5 +997,63 @@ class TestJobFailureVisibility(unittest.TestCase):
         self.assertIn("V37.9.84", src)
 
 
+class TestV37_9_280JobFailures(unittest.TestCase):
+    """V37.9.280 (对抗审计 KB-F3/F5): 任务异常检测的两处盲区守卫。
+
+    KB-F3: 7 个源写 parse_failed 但 allowlist 漏它 → 全 parse 失败日 evening
+    不知情, 稀薄论文日被叙述成正常 (writer/reader 状态枚举漂移 MR-8 家族)。
+    KB-F5: today 参数从未被消费 → 停跑 job 的陈年失败每晚被当 "今日任务异常"。
+    """
+
+    def _write_lr(self, base, job_id, payload, mtime=None):
+        d = os.path.join(base, job_id, "cache")
+        os.makedirs(d)
+        lr = os.path.join(d, "last_run.json")
+        with open(lr, "w", encoding="utf-8") as f:
+            json.dump(payload, f)
+        if mtime is not None:
+            os.utime(lr, (mtime, mtime))
+        return lr
+
+    def test_parse_failed_in_allowlist(self):
+        self.assertIn("parse_failed", ev._FAILURE_STATUSES,
+                      "KB-F3: 7 个源写 parse_failed, reader 必须认识它")
+
+    def test_parse_failed_detected_today(self):
+        today = datetime(2026, 7, 26, 22, 0)
+        with tempfile.TemporaryDirectory() as td:
+            self._write_lr(td, "arxiv", {"time": "2026-07-26 03:00:00",
+                                         "status": "parse_failed", "new": 0})
+            with patch.object(ev, "_JOBS_CACHE_PATHS", [td]):
+                failures = ev.collect_job_failures(today=today)
+        self.assertEqual(len(failures), 1)
+        self.assertEqual(failures[0]["status"], "parse_failed")
+
+    def test_stale_failure_excluded(self):
+        # KB-F5 血案回归: 一个月前的失败不得进 "今日任务异常"
+        today = datetime(2026, 7, 26, 22, 0)
+        old_epoch = datetime(2026, 6, 10, 8, 0).timestamp()
+        with tempfile.TemporaryDirectory() as td:
+            self._write_lr(td, "deadjob", {"time": "2026-06-10 08:00:00",
+                                           "status": "llm_failed"},
+                           mtime=old_epoch)
+            with patch.object(ev, "_JOBS_CACHE_PATHS", [td]):
+                failures = ev.collect_job_failures(today=today)
+        self.assertEqual(failures, [],
+                         "陈年失败被当今日异常叙述 (today 参数原从未被消费)")
+
+    def test_unparseable_time_falls_back_to_mtime(self):
+        # time 字段格式异常但文件今天写入 → mtime 兜底仍报 (FAIL-OPEN 方向正确)
+        today = datetime(2026, 7, 26, 22, 0)
+        now_epoch = datetime(2026, 7, 26, 7, 30).timestamp()
+        with tempfile.TemporaryDirectory() as td:
+            self._write_lr(td, "weirdtime", {"time": "notadate",
+                                             "status": "fetch_failed"},
+                           mtime=now_epoch)
+            with patch.object(ev, "_JOBS_CACHE_PATHS", [td]):
+                failures = ev.collect_job_failures(today=today)
+        self.assertEqual(len(failures), 1)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
