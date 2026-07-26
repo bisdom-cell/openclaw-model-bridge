@@ -156,6 +156,15 @@ QEOF
 _notify_drain_queue() {
     [ -d "$_NOTIFY_QUEUE_DIR" ] || return 0
 
+    # V37.9.281 (对抗审计 NOT-F2a): openclaw CLI 不可用（升级窗口 npm 替换二进制 /
+    # PATH 变化）时, bash 自身 stderr "…openclaw: No such file or directory" 会撞上
+    # 下方永久错误分类器 → 整个队列一趟被清空（每条 continue 逐条淘汰）。CLI 缺失
+    # = 环境瞬态非 target 无效, 保队列跳过本次 drain, 恢复后自动重放。
+    command -v "$OPENCLAW" >/dev/null 2>&1 || {
+        echo "[notify] DRAIN SKIP: openclaw CLI 不可用 ($OPENCLAW)，保留队列待恢复" >&2
+        return 0
+    }
+
     # V37.9.230: 回收孤儿 claim — 进程在 claim 窗口内被杀会留下 *.claim.<pid>
     # 孤儿（不再匹配 *.json 永不重放 = 消息丢失）。>10min 的 claim 判定为孤儿，
     # 恢复回原名待重放（保 at-least-once；恰好发送成功后被杀的极端情况下
@@ -180,6 +189,13 @@ _notify_drain_queue() {
         # V37.9.230 (审计 finding D): 原子 claim — 只有 mv 赢家处理该条目
         claim="$f.claim.$$"
         mv "$f" "$claim" 2>/dev/null || continue
+        # V37.9.281 (对抗审计 NOT-F1): rename(2) 保留 mtime — claim 继承队列条目
+        # 写入时刻的 mtime（重放条目几乎总 >10min 旧）→ 并发 drainer 的孤儿回收
+        # (find *.claim.* -mmin +10) 会把**存活** claim 偷回原名再夺取 → 同一条
+        # 消息双 drainer 双发（V37.9.230 防的重复投递以另一形态复活）。touch 让
+        # 孤儿判定量的是 claim 年龄而非条目年龄（mv→touch 间隙 ~ms，原风险窗是
+        # 整个发送时长含重试可达 30s+）。
+        touch "$claim" 2>/dev/null || true
         # V37.9.236: 解析失败守卫移到 $() 内层（|| true）——外层 || 救不了 bash 3.2
         # 子 shell 内的 ERR trap 继承（损坏 claim 文件 → json.load 非零 → 假 FATAL 同族）。
         # 空输出判失败安全: 队列文件由 _notify_queue_failed 写入，channel/target/msg 永非空
@@ -211,7 +227,11 @@ _notify_drain_queue() {
         # 队头阻塞（break 会挡住后面正常排队的消息永不被重放）。瞬态错误（服务宕/网络/限流）
         # 保留 + break 避雪崩，下次 drain 重试。血案: 2026-06-18 占位符 target poison 条目
         # 每次 notify 都 REPLAY FAIL 刷屏且卡住队列后续条目。
-        if echo "$replay_err" | grep -qiE "unknown target|invalid target|no such|not found"; then
+        # V37.9.281 (对抗审计 NOT-F2b): 裸子串 "no such|not found" 会匹配非 target
+        # 错误 — bash "No such file or directory"（二进制缺失）/ HTTP "404 Not Found"
+        # （gateway 版本 skew 路由错）→ 真消息被永久淘汰。收紧为须带 target/channel
+        # 上下文; 误判为瞬态的代价是队列保留 + REPLAY FAIL 日志可见, 优于静默清空。
+        if echo "$replay_err" | grep -qiE "unknown target|invalid target|(target|channel).*(not found|no such)|(no such|not found).*(target|channel)"; then
             echo "[notify] REPLAY EVICT: $(basename "$f") target 无效（永久错误），淘汰 — ${replay_err:-(no stderr)}" >&2
             rm -f "$claim"
             continue   # 淘汰后继续处理下一条（解队头阻塞）

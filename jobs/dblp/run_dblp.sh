@@ -736,7 +736,10 @@ if [ -f "$ONTO_FILTER" ]; then
         ONTO_CONTENT="$(head -c 4000 "$ONTO_MSG_FILE")"
         ONTO_COUNT=$(grep -c '^\*' "$ONTO_MSG_FILE" || true)
         # 使用 notify.sh 统一推送（带重试+错误捕获+队列）
-        notify "$ONTO_CONTENT" --channel discord --topic ontology
+        # V37.9.281 (对抗审计 JOB-F2): 裸 notify 失败在 set -e 下杀脚本 → status
+        # 已 ok 而下游 KB 归档/备份被静默跳过。失败已入队列, WARN 后继续。
+        notify "$ONTO_CONTENT" --channel discord --topic ontology || \
+            log "WARN: ontology 推送失败 (已入 notify 队列), 继续 KB 归档"
         log "Ontology论文推送到Discord #ontology: ${ONTO_COUNT} 篇"
     fi
 fi

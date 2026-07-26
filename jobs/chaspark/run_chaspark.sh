@@ -104,10 +104,15 @@ fi
 
 # ── 2. 解析 JSON 提取文章 ─────────────────────────────────────────────
 ALL_ARTICLES="$CACHE/articles_${DAY}.jsonl"
-$PYTHON3 - "$RAW_JSON" "$SEEN_FILE" "$ALL_ARTICLES" << 'PYEOF'
+# V37.9.281 (对抗审计 JOB-F4): 新 id 写独立文件, 推送成功后才并入 seen —
+# 原解析期即重写 seen 文件, LLM/推送全失败日 (exit 1) 的文章已被标 seen,
+# 次日重抓全部命中 seen → new:0 status ok, 当日内容永久丢失且恢复日看似健康
+# (对齐 arxiv/rss_blogs "only mark seen after successful push" 既有契约)。
+NEW_IDS_FILE="$CACHE/new_ids_${DAY}.txt"
+$PYTHON3 - "$RAW_JSON" "$SEEN_FILE" "$ALL_ARTICLES" "$NEW_IDS_FILE" << 'PYEOF'
 import sys, json
 
-raw_file, seen_file, out_file = sys.argv[1:4]
+raw_file, seen_file, out_file, new_ids_file = sys.argv[1:5]
 
 with open(raw_file, "r", encoding="utf-8") as f:
     data = json.load(f)
@@ -119,9 +124,12 @@ if data.get("code") != "0" or not data.get("data"):
     print("[chaspark] API 返回异常或无数据", file=sys.stderr)
     with open(out_file, "w") as f:
         pass
+    with open(new_ids_file, "w") as f:
+        pass
     sys.exit(0)
 
 articles = []
+new_ids = []
 for slot in data["data"]:
     slot_name = slot.get("slot", "")
     slot_title = slot.get("slotTitle", {}).get("zh", slot_name)
@@ -153,17 +161,20 @@ for slot in data["data"]:
             "domains": domains,
             "url": url
         })
-        seen.add(cid)
+        seen.add(cid)          # 内存去重 (同 run 跨 slot), 不落盘
+        new_ids.append(cid)    # V37.9.281: 落盘延迟到推送成功后 (shell 层并入)
 
 # 写入结果
 with open(out_file, "w", encoding="utf-8") as f:
     for a in articles:
         f.write(json.dumps(a, ensure_ascii=False) + "\n")
 
-# 更新 seen 文件
-with open(seen_file, "w") as f:
-    for u in seen:
-        f.write(u + "\n")
+# V37.9.281 (JOB-F4): 不再在解析期重写 seen 文件 — 新 id 写独立文件,
+# 推送成功后由 shell 层 append 进 seen (失败日次日自动重试, 零数据丢失;
+# 代价是重试日 KB append 可能重复一段, MR-4: 宁可重复不可丢失)。
+with open(new_ids_file, "w") as f:
+    for cid in new_ids:
+        f.write(cid + "\n")
 
 print(f"[chaspark] 解析到 {len(articles)} 篇新内容", file=sys.stderr)
 PYEOF
@@ -747,9 +758,16 @@ fi
 WA_MSG="$(cat "$MSG_FILE")"
 
 if [ "$NOTIFY_LOADED" = true ]; then
-    notify "$WA_MSG" --topic daily
-    log "推送完成 (WhatsApp + Discord)"
-    WA_SENT=true
+    # V37.9.281 (对抗审计 JOB-F3): 检查 notify rc — 原无条件 WA_SENT=true 让推送
+    # 失败仍记 status ok/sent:true (send_failed 分支不可达), 用户没收到摘要且
+    # watchdog 静默 (V37.9.230 kb_deep_dive 同款修复; 本脚本无 set -e, rc 曾被丢弃)。
+    if notify "$WA_MSG" --topic daily 2>"$CACHE/send_err.txt"; then
+        log "推送完成 (WhatsApp + Discord)"
+        WA_SENT=true
+    else
+        log "ERROR: 推送失败: $(head -c 200 "$CACHE/send_err.txt" 2>/dev/null)"
+        WA_SENT=false
+    fi
 else
     log "WARN: notify.sh 未加载, fallback 直接 openclaw send"
     "$OPENCLAW" message send --channel whatsapp --target "$TO" --message "$WA_MSG" --json >/dev/null 2>&1 && WA_SENT=true || WA_SENT=false
@@ -757,6 +775,12 @@ fi
 
 # ── 状态记录 ───────────────────────────────────────────────────────
 if [ "$WA_SENT" = "true" ]; then
+    # V37.9.281 (JOB-F4): 推送成功才把本 run 的新 id 并入 seen — 失败日不标记,
+    # 次日重抓重试 (对齐 arxiv NEW_IDS_FILE 契约)。
+    if [ -f "$NEW_IDS_FILE" ]; then
+        cat "$NEW_IDS_FILE" >> "$SEEN_FILE" 2>/dev/null || true
+        rm -f "$NEW_IDS_FILE"
+    fi
     if [ "$TOTAL_FAILED" -gt 0 ] || [ "${PHASEB_FAILED:-false}" = "true" ]; then
         printf '{"time":"%s","status":"partial_degraded","new":%d,"top_n":%d,"phase_a_failed":%d,"phase_b_failed":%s,"sent":true}\n' \
             "$TS" "$ARTICLE_COUNT" "$TOP_COUNT" "$TOTAL_FAILED" "${PHASEB_FAILED:-false}" > "$STATUS_FILE"

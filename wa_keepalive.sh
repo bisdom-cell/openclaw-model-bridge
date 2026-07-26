@@ -56,8 +56,14 @@ _wa_channel_check() {
 排查: openclaw channels status
 恢复: openclaw channels login --channel whatsapp（需手机扫码；会话被服务端登出时必需）"
             # 强制走 Discord（WhatsApp 频道已死，告警链不得依赖失效主体自身 — MR-14）
-            "$OPENCLAW" message send --channel discord --target "${DISCORD_CH_ALERTS:-}" --message "$amsg" --json >/dev/null 2>&1 || true
-            echo "[$TS] ESCALATED: WhatsApp 频道掉线已推 Discord #alerts (连续 ${prev} 次)" >> "$LOG"
+            # V37.9.281 (对抗审计 NOT-F4): 检查发送 rc — 原 || true + 无条件
+            # ESCALATED 日志把失败叙述成已送达 (fail-plausible), 且无本地兜底。
+            if "$OPENCLAW" message send --channel discord --target "${DISCORD_CH_ALERTS:-}" --message "$amsg" --json >/dev/null 2>&1; then
+                echo "[$TS] ESCALATED: WhatsApp 频道掉线已推 Discord #alerts (连续 ${prev} 次)" >> "$LOG"
+            else
+                echo "[$TS] ESCALATE_FAILED: Discord 推送失败, 已写 ~/.openclaw_alerts.log 兜底" >> "$LOG"
+                echo "[$TS] [wa_keepalive] $amsg" >> "$HOME/.openclaw_alerts.log" 2>/dev/null || true
+            fi
         fi
     else
         # 频道健康 / 不确定 / 不存在 → 重置计数（FAIL-OPEN：不确定不告警）
@@ -91,8 +97,16 @@ else
 排查: launchctl list | grep gateway ; curl localhost:18789/health
 恢复: launchctl bootstrap gui/\$(id -u) ~/Library/LaunchAgents/ai.openclaw.gateway.plist"
         # 强制走 Discord（WhatsApp 在 Gateway 宕时必不可用）
-        "$OPENCLAW" message send --channel discord --target "${DISCORD_CH_ALERTS:-}" --message "$ALERT_MSG" --json >/dev/null 2>&1 || true
-        echo "[$TS] ESCALATED: 已推送 Discord #alerts (连续 ${PREV_COUNT} 次不可达)" >> "$LOG"
+        # V37.9.281 (对抗审计 NOT-F4): Gateway 宕时 CLI send 本身 gateway-mediated
+        # 大概率失败 — 原 || true + 无条件 ESCALATED 把失败叙述成已送达且无兜底,
+        # 日志满屏 ESCALATED 而零告警实际送达。rc 检查 + .openclaw_alerts.log 兜底
+        # (job_watchdog 同款 fallback), gateway 恢复后人工/巡检可见。
+        if "$OPENCLAW" message send --channel discord --target "${DISCORD_CH_ALERTS:-}" --message "$ALERT_MSG" --json >/dev/null 2>&1; then
+            echo "[$TS] ESCALATED: 已推送 Discord #alerts (连续 ${PREV_COUNT} 次不可达)" >> "$LOG"
+        else
+            echo "[$TS] ESCALATE_FAILED: Discord 推送失败 (gateway 宕?), 已写 ~/.openclaw_alerts.log 兜底" >> "$LOG"
+            echo "[$TS] [wa_keepalive] $ALERT_MSG" >> "$HOME/.openclaw_alerts.log" 2>/dev/null || true
+        fi
     fi
 fi
 

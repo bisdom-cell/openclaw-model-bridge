@@ -783,7 +783,10 @@ if [ -f "$ONTO_FILTER" ]; then
         # 使用 notify.sh 统一推送（带重试+错误捕获+队列）
         if [ -f "${HOME}/notify.sh" ]; then
             source "${HOME}/notify.sh"
-            notify "$ONTO_CONTENT" --channel discord --topic ontology
+            # V37.9.281 (对抗审计 JOB-F2): 同 arxiv/dblp — 裸 notify 失败在 set -e
+            # 下杀脚本, status 已 ok 而 KB 归档/备份被静默跳过。WARN 后继续。
+            notify "$ONTO_CONTENT" --channel discord --topic ontology || \
+                log "WARN: ontology 推送失败 (已入 notify 队列), 继续 KB 归档"
         else
             log "WARN: notify.sh not found, falling back to direct send"
             "$OPENCLAW" message send --channel discord --target "${DISCORD_CH_ONTOLOGY:-}" --message "$ONTO_CONTENT" --json 2>"$CACHE/onto_discord.err" || true
