@@ -141,7 +141,9 @@ except Exception as e:
     print('parse_error')
     print('N/A')
     print('')
-" 2>/dev/null) || PARSED=$'parse_error\nN/A\n'
+") || PARSED=$'parse_error\nN/A\n'
+# V37.9.279: 上方 python 块的 stderr 不再吞进 /dev/null — report-write/JSON-parse
+# 的 WARN 须到 cron 日志可观测（$() 只捕 stdout，PARSED 解析不受影响）。
 
 STATUS=$(echo "$PARSED" | head -n1)
 OVERALL_SCORE=$(echo "$PARSED" | sed -n '2p')
@@ -158,6 +160,12 @@ if [ -f "$REPORT_FILE" ] && $NOTIFY_LOADED; then
             log "WARN: push failed (non-fatal)"
         }
     fi
+elif [ ! -f "$REPORT_FILE" ]; then
+    # V37.9.279 (对抗审计 OBS-F5): 报告写失败（磁盘满/权限/卷未挂载）此前完全静默 —
+    # python WARN 被丢弃、推送跳过无日志、last_run 仍记 status=ok = 观察者自己的
+    # fail-plausible（当日审计输出丢失且所有机器面说成功）。诚实告警。
+    log "ERROR: report file missing (write failed?) — push skipped, status=$STATUS"
+    send_alert "observer report write failed (status=$STATUS) — 今日报告未生成/未推送"
 fi
 
 # -- status file --

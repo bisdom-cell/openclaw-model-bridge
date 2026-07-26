@@ -415,6 +415,21 @@ class TestRunLlmJudge(unittest.TestCase):
         findings, conf = obs.run_llm_judge("text", "hn", [], caller)
         self.assertEqual(findings, [])
 
+    def test_verdict_clean_returns_none_confidence(self):
+        # V37.9.279 (OBS-F2): clean 裁决的 confidence 是"内容干净"的置信度，
+        # 不外传 — 否则被贴到 L1-only verdict 上 (judge 90% 拒绝 → 指控显示
+        # 90% 置信 = 校准数据腐蚀)。
+        caller = _fake_caller_json(verdict="clean", confidence=90, findings=[])
+        self.assertEqual(obs.run_llm_judge("text", "hn", [], caller), ([], None))
+
+    def test_ungrounded_rejection_returns_none_confidence(self):
+        # V37.9.279: 被 grounding 拒绝的 fail_plausible 裁决同理不外传 confidence。
+        caller = _fake_caller_json(confidence=85, findings=[
+            {"judge": "grounding", "evidence": "原文里根本没有的编造证据",
+             "rationale": "r"}])
+        self.assertEqual(obs.run_llm_judge("正常干净内容", "hn", [], caller),
+                         ([], None))
+
     def test_caller_not_ok_fail_open(self):
         def caller(s, u):
             return False, "", "HTTP 500"
