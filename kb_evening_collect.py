@@ -56,7 +56,12 @@ _JOBS_CACHE_PATHS = [
     os.path.join(os.path.dirname(os.path.abspath(__file__)), "jobs"),
 ]
 
-_FAILURE_STATUSES = {"llm_failed", "fetch_failed", "send_failed", "partial_degraded"}
+# V37.9.280 (对抗审计 KB-F3): 补 "parse_failed" — 7 个论文/repo 源 (hf_papers/
+# arxiv/acl/dblp/s2/github_trending/openclaw_official) 写此状态, 原 allowlist 漏它
+# → ArXiv+HF+DBLP 同日 parse 全失败时 evening 无 "今日任务异常" 块, 稀薄论文日被
+# 叙述成正常 (writer 状态枚举与 reader allowlist 漂移 = MR-8 一物一形家族)。
+_FAILURE_STATUSES = {"llm_failed", "fetch_failed", "send_failed",
+                     "partial_degraded", "parse_failed"}
 
 
 def collect_job_failures(today=None):
@@ -89,6 +94,20 @@ def collect_job_failures(today=None):
                     data = json.load(f)
                 status = data.get("status", "")
                 if status in _FAILURE_STATUSES:
+                    # V37.9.280 (对抗审计 KB-F5): 只报今日的失败 — today 参数此前
+                    # 从未被消费, 停跑/禁用 job 的陈年 last_run 失败被每晚当
+                    # "今日任务异常" 叙述 (非今日内容当今日 = V37.9.56-hotfix3 同类;
+                    # 镜像 daily_observer stale_job 抑制盲区)。time 字段非今日 →
+                    # mtime 日期兜底 (last_run 每次运行整文件重写, mtime 可信)。
+                    day = today.strftime("%Y-%m-%d")
+                    if str(data.get("time", ""))[:10] != day:
+                        try:
+                            mday = datetime.fromtimestamp(
+                                os.path.getmtime(lr)).strftime("%Y-%m-%d")
+                        except OSError:
+                            continue
+                        if mday != day:
+                            continue
                     failures.append({
                         "job_id": job_id,
                         "status": status,

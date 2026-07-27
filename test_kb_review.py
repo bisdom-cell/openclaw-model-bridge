@@ -944,5 +944,51 @@ class TestGovernanceRuntimeCheckIsolation(unittest.TestCase):
                       "必须引用 MR-23 audit-observes-never-mutates 谱系")
 
 
+class TestCollectNotesWindowV280(unittest.TestCase):
+    """V37.9.280 (对抗审计 KB-F1): collect_notes 窗口 = 恰 N 个日历天含今天。
+
+    原 cutoff=N 天前 + >=cutoff 保留 = N+1 天: evening (DAYS=1) 把昨天的笔记
+    灌进 "今日笔记" 段 → LLM 把昨日条目当今日要闻; 与 _date_patterns_for_window
+    (range(days)) 的 sources 窗口不一致 (同一 "最近 N 天" 概念两种物理实现)。
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="test_kb_win_")
+        self.notes_dir = os.path.join(self.tmp, "notes")
+        os.makedirs(self.notes_dir)
+
+    def tearDown(self):
+        import shutil
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _write(self, name, content):
+        with open(os.path.join(self.notes_dir, name), "w", encoding="utf-8") as f:
+            f.write(content)
+
+    def test_days_1_excludes_yesterday(self):
+        # 血案回归: DAYS=1 (evening "今日笔记") 只含今天, 昨天必须排除
+        today = datetime(2026, 7, 26, 22, 0)
+        self._write("20260726100000.md", "# T\n今天的内容")
+        self._write("20260725100000.md", "# Y\n昨天的内容")
+        result = m.collect_notes(self.tmp, days=1, max_chars=5000, today=today)
+        self.assertIn("今天的内容", result)
+        self.assertNotIn("昨天的内容", result,
+                         "DAYS=1 窗口混入昨日笔记 → LLM 把昨日条目当今日要闻")
+
+    def test_window_matches_date_patterns_span(self):
+        # 一物一形: notes 窗口跨度 == _date_patterns_for_window 的日期数
+        today = datetime(2026, 7, 26)
+        for d in ("20260726", "20260720", "20260719"):
+            self._write(f"{d}120000.md", f"# N\ncontent-{d}")
+        result = m.collect_notes(self.tmp, days=7, max_chars=5000, today=today)
+        patterns = m._date_patterns_for_window(7, today=today)
+        self.assertIn("content-20260726", result)
+        self.assertIn("content-20260720", result)   # D-6: 窗口内
+        self.assertIn("20260720", patterns)
+        self.assertNotIn("content-20260719", result,
+                         "D-7 超出 7 天窗口 (sources 窗口同样不含)")
+        self.assertNotIn("20260719", patterns)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

@@ -510,7 +510,12 @@ def run_llm_judge(text, source_id, layer1_signals, llm_caller, sampled=False):
         return [], None
     verdict, confidence, raw_findings = parse_fp_verdict(content)
     if verdict != "fail_plausible":
-        return [], confidence
+        # V37.9.279 (对抗审计 OBS-F2): clean 裁决的 confidence 是"内容干净"的置信度，
+        # 不是 fail-plausible 指控的置信度 — 不得贴到 L1-only verdict 上（否则 judge
+        # 以 90% 置信拒绝 → 指控被展示为 90% 置信 = §9.1 校准数据从首日起腐蚀）。
+        # 返回 None → detect_fail_plausible 回落 1.0（L1 确定性锚，对齐 docstring
+        # "仅 Layer 1 命中时 1.0"）。
+        return [], None
     grounded = []
     for f in raw_findings:
         ev = f.get("evidence", "")
@@ -523,7 +528,9 @@ def run_llm_judge(text, source_id, layer1_signals, llm_caller, sampled=False):
             })
     if not grounded:
         log("Layer 2: verdict=fail_plausible 但无 grounded 证据 → 拒绝 (反 Observer 幻觉)")
-        return [], confidence
+        # V37.9.279: 被 grounding 拒绝的裁决，其 confidence 同样不可信 — 不外传
+        # （同上 clean 分支语义，L1-only verdict 回落 1.0 确定性锚）。
+        return [], None
     return grounded, confidence
 
 

@@ -3294,5 +3294,144 @@ class TestV37_9_240_DeepDiveRepeat(unittest.TestCase):
             self.assertIn("V37.9.240", f.read())
 
 
+class TestV37_9_279OnModeHardening(unittest.TestCase):
+    """V37.9.279 对抗审计 Observer on 模式首日加固守卫。
+
+    OBS-F1: fp 扫描必须在 build_critique_prompt 之前 — on 模式 verdict 进
+    critique prompt 的异常块，否则 overall_score 与 shadow 逐字节相同 =
+    "已集成·影响评分" 标签虚假（flip 首日自验假绿）。
+    OBS-F3: score_history/status 记录 fp_mode regime 标记。
+    OBS-F4: 趋势箭头序列 旧→新 展示。
+    OBS-F5: wrapper 报告写失败诚实告警。
+    """
+
+    def setUp(self):
+        # V37.9.92 isolation (本 session 自查补): run() 会调 _write_observer_to_status
+        # → status_update 全局路径解析在 dev 回退**仓库 status.json** → 未 patch 的
+        # run() 测试把 fixture 观察数据写进 repo 副本 (MR-9 test-pollutes-production
+        # 家族, V37.9.276 CLI subprocess 半边的 in-process 半边)。镜像既有类同款 patch。
+        self._patcher = mock.patch.object(obs, "_write_observer_to_status",
+                                          return_value=True)
+        self._patcher.start()
+
+    def tearDown(self):
+        self._patcher.stop()
+
+    def _setup_kb_with_d1_dream(self, td):
+        for d in ("daily", "dreams", "deep_dives", "sources"):
+            os.makedirs(os.path.join(td, d))
+        with open(os.path.join(td, "daily", "evening_20260525.md"), "w") as f:
+            f.write("# Evening\n今日 arXiv 出现长上下文注意力新方法，实验覆盖八个基准。"
+                    "HN 讨论 Rust 异步运行时尾延迟差异。财经方面美联储维持利率。")
+        with open(os.path.join(td, "dreams", "2026-05-25.md"), "w") as f:
+            f.write("# Dream\n信号一：平台返回 'Bad JSON' 和 '400 错误'，疑似平台危机。\n"
+                    "行动一：启动 72 小时监控。\n")
+        return td
+
+    def _capturing_caller(self, captured):
+        """记录 critique 调用 user prompt 的 _fp_aware_llm 包装。"""
+        inner = _fp_aware_llm(_CRITIQUE_OK)
+
+        def caller(system, user):
+            if not ("fail-plausible" in system or "FAIL_PLAUSIBLE" in system):
+                captured.append(user)
+            return inner(system, user)
+        return caller
+
+    def _run(self, td, mode, captured):
+        with mock.patch.dict(os.environ, {"OBSERVER_FP_MODE": mode}):
+            return obs.run(kb_dir=td, jobs_dir=os.path.join(td, "fake_jobs"),
+                           target_date=datetime(2026, 5, 25),
+                           llm_caller=self._capturing_caller(captured))
+
+    def test_on_mode_fp_reaches_critique_prompt(self):
+        # 血案回归 (OBS-F1): on 模式下 fp verdict 必须出现在 critique prompt
+        # 的"规则检测发现的异常"块 → 真影响 overall_score。
+        with tempfile.TemporaryDirectory() as td:
+            self._setup_kb_with_d1_dream(td)
+            captured = []
+            r = self._run(td, "on", captured)
+            self.assertTrue(r["fail_plausible"], "premise: D1 dream detected")
+            self.assertEqual(len(captured), 1, "exactly one critique call")
+            self.assertIn("fail-plausible", captured[0],
+                          "on-mode fp verdict must be in critique prompt "
+                          "(OBS-F1: 否则评分与 shadow 逐字节相同)")
+
+    def test_shadow_mode_critique_prompt_no_fp(self):
+        # shadow 契约不变: fp 不进 critique prompt (不影响评分)。
+        with tempfile.TemporaryDirectory() as td:
+            self._setup_kb_with_d1_dream(td)
+            captured = []
+            r = self._run(td, "shadow", captured)
+            self.assertTrue(r["fail_plausible"], "premise: D1 dream detected")
+            self.assertEqual(len(captured), 1)
+            self.assertNotIn("fail-plausible", captured[0],
+                             "shadow: fp must NOT leak into critique prompt")
+
+    def test_score_history_records_fp_mode(self):
+        with tempfile.TemporaryDirectory() as td:
+            self._setup_kb_with_d1_dream(td)
+            self._run(td, "on", [])
+            with open(obs._score_history_path(td)) as f:
+                rec = json.loads(f.readline())
+            self.assertEqual(rec["fp_mode"], "on",
+                             "OBS-F3: regime 标记缺失时跨 flip 的 anomalies_* "
+                             "序列语义静默变化")
+
+    def test_append_score_history_fp_mode_default_none(self):
+        # 向后兼容: 不传 fp_mode → None (旧调用方不破)
+        with tempfile.TemporaryDirectory() as td:
+            obs.append_score_history(td, datetime(2026, 5, 25), 4.0, [], [], {}, "ok")
+            with open(obs._score_history_path(td)) as f:
+                rec = json.loads(f.readline())
+            self.assertIsNone(rec["fp_mode"])
+
+    def test_trend_arrows_oldest_first(self):
+        # OBS-F4: scored 最新在前, 箭头序列必须反转为 旧→新 展示。
+        history = [
+            {"date": "2026-05-25", "overall_score": 4.0, "anomalies_high": 3,
+             "jobs_ok": 10, "jobs_total": 15},   # 最新 (today, spike)
+            {"date": "2026-05-24", "overall_score": 4.0, "anomalies_high": 0,
+             "jobs_ok": 15, "jobs_total": 15},
+            {"date": "2026-05-23", "overall_score": 4.0, "anomalies_high": 0,
+             "jobs_ok": 15, "jobs_total": 15},
+        ]
+        section = obs.build_trend_section(history)
+        self.assertIn("HIGH anomalies: 0 → 0 → 3", section,
+                      "旧→新: 今天的 spike 必须在最右 (原 bug: 3 → 0 → 0 "
+                      "被读成'已恢复')")
+        self.assertIn("Job success: 15/15 → 15/15 → 10/15", section)
+
+    def test_wrapper_report_missing_alert_branch(self):
+        # OBS-F5 源码守卫: 报告缺失时有 elif 分支 send_alert (不再静默跳过)。
+        base = os.path.dirname(os.path.abspath(__file__))
+        with open(os.path.join(base, "daily_observer.sh"), encoding="utf-8") as f:
+            src = f.read()
+        self.assertIn('elif [ ! -f "$REPORT_FILE" ]; then', src)
+        self.assertIn("observer report write failed", src)
+        self.assertNotIn('" 2>/dev/null) || PARSED=', src,
+                         "python 块 stderr 不得吞进 /dev/null (WARN 须到 cron 日志)")
+
+    def test_l2_clean_confidence_not_attached_to_l1_verdict(self):
+        # 血案回归 (OBS-F2): L1 命中 + L2 clean(confidence=90) → verdict
+        # confidence 必须是 1.0 (L1 确定性锚), 不是 0.9 (judge 对"干净"的置信)。
+        d1 = "平台返回 Bad JSON 错误，疑似平台危机"
+
+        def clean_caller(s, u):
+            return True, '{"verdict":"clean","confidence":90,"findings":[]}', ""
+        r = _obs_fp.detect_fail_plausible(d1, source_id="dream",
+                                          llm_caller=clean_caller)
+        self.assertEqual(len(r), 1, "L1 verdict survives L2 clean")
+        self.assertEqual(r[0]["confidence"], 1.0,
+                         "L2-clean 的 confidence 不得贴到 L1 verdict "
+                         "(校准数据腐蚀)")
+
+    def test_v37_9_279_marker(self):
+        base = os.path.dirname(os.path.abspath(__file__))
+        for fn in ("daily_observer.py", "daily_observer.sh"):
+            with open(os.path.join(base, fn), encoding="utf-8") as f:
+                self.assertIn("V37.9.279", f.read(), fn)
+
+
 if __name__ == "__main__":
     unittest.main()

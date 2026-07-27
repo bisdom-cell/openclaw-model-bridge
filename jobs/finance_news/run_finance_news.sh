@@ -853,7 +853,10 @@ fi
 
 # ── 推送（WhatsApp + Discord）────────────────────────────────────────
 if [ "$NOTIFY_LOADED" = "true" ]; then
-    notify "$WA_MSG" --topic daily
+    # V37.9.281 (对抗审计 JOB-F2): 裸 notify 失败在 set -eo pipefail 下杀脚本 →
+    # 下方 status 写入被跳过 (stale status)。失败已入 notify 队列, WARN 后继续。
+    notify "$WA_MSG" --topic daily || \
+        log "WARN: 推送失败 (已入 notify 队列), 继续写 status"
 else
     # fallback: 直接推送
     OPENCLAW="${OPENCLAW:-/opt/homebrew/bin/openclaw}"

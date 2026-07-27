@@ -1193,11 +1193,17 @@ def _score_history_path(kb_dir):
 
 
 def append_score_history(kb_dir, target_date, overall_score, anomalies,
-                         job_statuses, push_outputs, status, fp_verdicts=None):
+                         job_statuses, push_outputs, status, fp_verdicts=None,
+                         fp_mode=None):
     """Append one record to score_history.jsonl. FAIL-OPEN.
 
     V37.9.198 (Stage 5): fp_verdicts (optional) → fp_high/fp_med 计数 (fail-plausible
     趋势观察, JSONL append 旧 reader 不破)。fp_verdicts=None → fp 计数 0 (向后兼容)。
+    V37.9.279 (对抗审计 OBS-F3): fp_mode (optional) → 记录检测 regime。on 模式下
+    fp verdict 同时计入 anomalies_high/med（设计如此）与 fp_high/med（观察字段），
+    但 shadow 期的历史行 anomalies_* 不含 fp — 无 regime 标记时跨 flip 的
+    anomalies_* 序列语义静默变化，趋势阶跃无法与真实回归区分。additive 字段，
+    旧 reader 不破。
     """
     path = _score_history_path(kb_dir)
     os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -1221,6 +1227,7 @@ def append_score_history(kb_dir, target_date, overall_score, anomalies,
         "anomalies_med": med,
         "fp_high": fp_high,
         "fp_med": fp_med,
+        "fp_mode": fp_mode,
         "status": status,
     }
     try:
@@ -1259,12 +1266,14 @@ def append_score_history(kb_dir, target_date, overall_score, anomalies,
 
 
 def _write_observer_to_status(kb_dir, target_date, overall_score, anomalies,
-                              status, job_statuses, fp_verdicts=None):
+                              status, job_statuses, fp_verdicts=None,
+                              fp_mode=None):
     """V37.9.92: Surface daily observer summary to status.json
     quality.observer (V37.9.84 design closure).
 
     V37.9.198 (Stage 5): fp_verdicts (optional) → fail_plausible_high/med 字段
     (PA/health_check 可见 fail-plausible 计数)。None → 0 (向后兼容)。
+    V37.9.279: fp_mode (optional) → regime 标记（见 append_score_history 同款）。
 
     FAIL-OPEN: any failure (import error, file IO, schema corruption)
     logs WARN and returns; observer run continues. status.json write
@@ -1307,6 +1316,7 @@ def _write_observer_to_status(kb_dir, target_date, overall_score, anomalies,
                 "anomalies_med": anomalies_med,
                 "fail_plausible_high": fp_high,
                 "fail_plausible_med": fp_med,
+                "fp_mode": fp_mode,
                 "jobs_ok": jobs_ok,
                 "jobs_total": len(job_statuses),
                 "last_run_date": target_date.strftime("%Y-%m-%d"),
@@ -1394,12 +1404,15 @@ def build_trend_section(history):
                  f"{trend_icon} {trend_word} ({delta:+.1f})")
     lines.append(f"- 7-day avg: ⭐{avg:.1f} ({len(scored)} data points)")
 
-    high_counts = [h.get("anomalies_high", 0) for h in scored]
+    # V37.9.279 (对抗审计 OBS-F4): scored 是最新在前 (load_score_history 契约)，
+    # 但 "a → b → c" 人类读作时间从左到右 — 序列反转为 旧→新 展示，防
+    # "今天 3 → 六天前 0" 被读成"已恢复"（与上方 Today/Previous 行方向一致）。
+    high_counts = [h.get("anomalies_high", 0) for h in scored][::-1]
     if sum(high_counts) > 0:
         lines.append(f"- HIGH anomalies: {' → '.join(str(c) for c in high_counts)}")
 
     job_rates = [f"{h.get('jobs_ok', 0)}/{h.get('jobs_total', 0)}"
-                 for h in scored[:3]]
+                 for h in scored[:3]][::-1]
     lines.append(f"- Job success: {' → '.join(job_rates)}")
 
     lines.append("")
@@ -1551,6 +1564,31 @@ def run(kb_dir=None, jobs_dir=None, target_date=None, dry_run=False,
             "llm_reason": "no content to critique",
         }
 
+    # V37.9.198 (Stage 5): fail-plausible 检测 (机械化人眼两层管道, §6.1)。
+    # shadow-first: 默认 shadow → 观察性, 不进 anomalies (不影响评分/告警)。
+    # cheap-path (Layer 2 仅 Layer 1 命中触发) + dry_run 仅 Layer 1 + FAIL-OPEN。
+    # V37.9.279 (对抗审计 OBS-F1): fp 扫描移到 build_critique_prompt **之前** —
+    # 原顺序在 critique LLM 调用之后才 extend(anomalies)，on 模式的 verdict 进不了
+    # critique prompt 的异常块 → overall_score 与 shadow 逐字节相同 = "已集成·影响
+    # 评分" 标签虚假（flip 首日自验会假绿）。现 on 模式 verdict 先入 anomalies，
+    # critique prompt/评分/report/discord 全链一致。LLM 调用总次数不变（仅顺序）。
+    fp_mode = _fp_mode()
+    fp_verdicts = []
+    if fp_mode != "off" and has_content:
+        try:
+            import llm_observer
+            fp_caller = (llm_caller or call_llm_critique) if not dry_run else None
+            fp_verdicts = llm_observer.scan_fail_plausible(
+                push_outputs, source_sections,
+                llm_caller=fp_caller, enable_layer2=(not dry_run))
+            log(f"fail_plausible[{fp_mode}]: {len(fp_verdicts)} verdict(s)")
+            if fp_mode == "on":
+                anomalies.extend(fp_verdicts)   # 完整集成: 影响评分 + 告警
+        except Exception as e:  # FAIL-OPEN: observer 绝不因 fp 检测崩溃
+            log(f"WARN: fail_plausible scan failed (FAIL-OPEN): {e}")
+            fp_verdicts = []
+    fp_section = build_fail_plausible_section(fp_verdicts, fp_mode)
+
     critique_prompt = build_critique_prompt(
         push_outputs, source_sections, anomalies, target_date)
 
@@ -1576,26 +1614,6 @@ def run(kb_dir=None, jobs_dir=None, target_date=None, dry_run=False,
 
     status = "ok" if llm_ok else ("no_outputs" if not has_content else "llm_failed")
 
-    # V37.9.198 (Stage 5): fail-plausible 检测 (机械化人眼两层管道, §6.1)。
-    # shadow-first: 默认 shadow → 观察性, 不进 anomalies (不影响评分/告警)。
-    # cheap-path (Layer 2 仅 Layer 1 命中触发) + dry_run 仅 Layer 1 + FAIL-OPEN。
-    fp_mode = _fp_mode()
-    fp_verdicts = []
-    if fp_mode != "off" and has_content:
-        try:
-            import llm_observer
-            fp_caller = (llm_caller or call_llm_critique) if not dry_run else None
-            fp_verdicts = llm_observer.scan_fail_plausible(
-                push_outputs, source_sections,
-                llm_caller=fp_caller, enable_layer2=(not dry_run))
-            log(f"fail_plausible[{fp_mode}]: {len(fp_verdicts)} verdict(s)")
-            if fp_mode == "on":
-                anomalies.extend(fp_verdicts)   # 完整集成: 影响评分 + 告警
-        except Exception as e:  # FAIL-OPEN: observer 绝不因 fp 检测崩溃
-            log(f"WARN: fail_plausible scan failed (FAIL-OPEN): {e}")
-            fp_verdicts = []
-    fp_section = build_fail_plausible_section(fp_verdicts, fp_mode)
-
     # Score history + trend analysis
     # V37.9.274 (SF2): dry_run 是 scan-only 预览 — 不得持久化。否则宪法级 observer 用
     # llm_ok=False 的假 llm_failed/overall_score=null 记录污染自己的 score_history.jsonl +
@@ -1604,11 +1622,12 @@ def run(kb_dir=None, jobs_dir=None, target_date=None, dry_run=False,
     if not dry_run:
         append_score_history(kb_dir, target_date, overall_score, anomalies,
                              job_statuses, push_outputs, status,
-                             fp_verdicts=fp_verdicts)
+                             fp_verdicts=fp_verdicts, fp_mode=fp_mode)
         # V37.9.92: surface observer summary to status.json quality.observer
         # for 三方共享意识 (PA / kb_status_refresh / health_check). FAIL-OPEN.
         _write_observer_to_status(kb_dir, target_date, overall_score, anomalies,
-                                  status, job_statuses, fp_verdicts=fp_verdicts)
+                                  status, job_statuses, fp_verdicts=fp_verdicts,
+                                  fp_mode=fp_mode)
     history = load_score_history(kb_dir)
     trend_section = build_trend_section(history)
     trend_suffix = build_trend_discord_suffix(history)
