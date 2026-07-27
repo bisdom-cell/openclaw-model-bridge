@@ -1,6 +1,6 @@
 {
-  "updated": "2026-07-27 08:38:01",
-  "updated_by": "full_regression",
+  "updated": "2026-07-27 08:39:09",
+  "updated_by": "cli",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -339,7 +339,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-07-26 周日: V37.9.279-281 对抗审计三批修复 (Observer on 首日加固/KB 管道窗口诚实/notify 队列+job 推送诚实, 14 findings 13 修复) 待用户合并 PR。🔴 剩: JOB-F1 8 脚本 parse 守卫铺开 (ready-to-execute 已登记) / Observer on 模式首日 E2E 观察 / GLM+Qwen key 轮换 / qwen 出链决策。",
+  "focus": "2026-07-26 周日: V37.9.279-282 对抗审计四批修复全部落地 (4 镜头 14 findings 14/14 修复, 含 JOB-F1 8 脚本 parse 守卫铺开), PR#853 待用户合并。🔴 剩: 合并后 Mac Mini 同步+preflight / Observer on 模式首日 E2E 观察 / GLM+Qwen key 轮换 / qwen 出链决策。",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
