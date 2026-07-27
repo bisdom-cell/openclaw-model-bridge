@@ -417,7 +417,11 @@ class TestJsonParserBehavior(unittest.TestCase):
         self.assertEqual(len(out), 1, "已 seen 的帖应被去重")
         self.assertIn("melaniemitchell", out[0]["link"])
 
-    def test_corrupt_json_fail_open(self):
+    def test_corrupt_json_signals_exit_2(self):
+        """V37.9.282 演进 (原 test_corrupt_json_fail_open pin exit 0):
+        损坏 JSON 现 exit 2 信号回 shell — per-account FAIL-OPEN 上移到 shell 级
+        (PARSE_RC → FETCH_ERRORS++ 后循环继续下一账号), python 级静默 exit 0 是
+        JOB-F1 血案 (HTTP 200 反爬/错误页 → 0 帖 status:ok watchdog 盲)。"""
         with tempfile.TemporaryDirectory() as d:
             pf = os.path.join(d, "parser.py")
             ff = os.path.join(d, "bad.json")
@@ -429,8 +433,38 @@ class TestJsonParserBehavior(unittest.TestCase):
             open(sf, "w").close()
             r = subprocess.run(["python3", pf, ff, sf, "x", "y"],
                                capture_output=True, text=True)
-            self.assertEqual(r.returncode, 0, "损坏 JSON 应 FAIL-OPEN exit 0")
+            self.assertEqual(r.returncode, 2, "损坏 JSON 应 exit 2 信号回 shell")
             self.assertEqual(r.stdout.strip(), "", "损坏 JSON 不应产出帖子")
+
+    def test_error_body_without_feed_key_signals_exit_2(self):
+        """V37.9.282: JSON 可解析但根形状异常 (rate-limit 错误体无 feed 键) → exit 2"""
+        with tempfile.TemporaryDirectory() as d:
+            pf = os.path.join(d, "parser.py")
+            ff = os.path.join(d, "err.json")
+            sf = os.path.join(d, "seen.txt")
+            with open(pf, "w", encoding="utf-8") as f:
+                f.write(self.parser_code)
+            with open(ff, "w", encoding="utf-8") as f:
+                f.write('{"error": "RateLimitExceeded", "message": "..."}')
+            open(sf, "w").close()
+            r = subprocess.run(["python3", pf, ff, sf, "x", "y"],
+                               capture_output=True, text=True)
+            self.assertEqual(r.returncode, 2, "错误体 (无 feed 键) 应 exit 2")
+
+    def test_empty_feed_key_still_ok(self):
+        """V37.9.282: 零帖活账号 feed:[] 键存在 → exit 0 不误伤"""
+        with tempfile.TemporaryDirectory() as d:
+            pf = os.path.join(d, "parser.py")
+            ff = os.path.join(d, "empty.json")
+            sf = os.path.join(d, "seen.txt")
+            with open(pf, "w", encoding="utf-8") as f:
+                f.write(self.parser_code)
+            with open(ff, "w", encoding="utf-8") as f:
+                f.write('{"feed": []}')
+            open(sf, "w").close()
+            r = subprocess.run(["python3", pf, ff, sf, "x", "y"],
+                               capture_output=True, text=True)
+            self.assertEqual(r.returncode, 0, "feed:[] 是合法空账号, 不得 exit 2")
 
 
 if __name__ == "__main__":

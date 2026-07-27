@@ -142,7 +142,9 @@ with open(seen_file) as f:
     seen_ids = set(line.strip() for line in f if line.strip())
 
 all_papers = {}
-for fpath in sorted(glob.glob(os.path.join(raw_dir, "search_*.json"))):
+_result_files = sorted(glob.glob(os.path.join(raw_dir, "search_*.json")))
+_parse_failed = 0
+for fpath in _result_files:
     try:
         with open(fpath) as f:
             data = json.load(f)
@@ -207,7 +209,16 @@ for fpath in sorted(glob.glob(os.path.join(raw_dir, "search_*.json"))):
                 "url": url
             }
     except (json.JSONDecodeError, KeyError, TypeError):
+        _parse_failed += 1
         continue
+
+# V37.9.282 (对抗审计 JOB-F1): 全部结果文件不可解析 (HTTP 200 反爬/错误页) ≠ 无新论文 —
+# 原 per-file continue 吞掉后 0 papers → "无新论文" status:ok, watchdog 永久盲。
+# 全失败 → exit 2 → shell 的 `if ! python3` 包装写 parse_failed + exit 1 (fail-loud)。
+# 部分失败仍容忍 (per-source FAIL-OPEN 惯例)。
+if _result_files and _parse_failed >= len(_result_files):
+    print(f"[dblp] ERROR: {len(_result_files)} 个结果文件全部解析失败 (反爬/非 JSON?)", file=sys.stderr)
+    sys.exit(2)
 
 # 按年份降序（新论文优先），同年按 venue 知名度粗排
 sorted_papers = sorted(all_papers.values(),

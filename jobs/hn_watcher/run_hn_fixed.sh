@@ -91,7 +91,10 @@ if [ ! -s "$RSS_FILE" ]; then
 fi
 
 # ★ Fix1: Python dedup阶段同步写inbox，防止LLM失败时URL未记录导致重复处理
-$PYTHON3 - << 'PYEOF' > "$NEW_FILE"
+# V37.9.282 (对抗审计 JOB-F1): 捕获 parser 退出码 — hnrss 返回 HTTP 200 反爬/错误页
+# 时原 except exit 0 → 0 结果 → status:ok (单源 job 整跑静默失效)。
+PARSE_RC=0
+$PYTHON3 - << 'PYEOF' > "$NEW_FILE" || PARSE_RC=$?
 import os  # V37.9.57: read HG_LEVEL_4_TEXT env var
 import xml.etree.ElementTree as ET
 import json, os
@@ -122,9 +125,20 @@ except Exception:
 try:
     tree = ET.parse(RSS_PATH)
     root = tree.getroot()
-    items = root.findall('.//item')
 except Exception:
-    import sys; sys.exit(0)
+    import sys
+    print("[hn] ERROR: RSS XML解析失败", file=sys.stderr)
+    sys.exit(2)  # V37.9.282 (JOB-F1): parse 失败信号回 shell（非静默 exit 0）
+
+# V37.9.282 (JOB-F1): 根元素白名单 — well-formed 反爬 HTML parse 成功但根=<html>
+# → 0 item 静默 status:ok。拦截非 RSS/Atom 根。
+import sys as _sys
+_root_tag = root.tag.split('}')[-1].lower()
+if _root_tag not in ('rss', 'feed', 'rdf', 'channel'):
+    print(f"[hn] ERROR: 根元素 <{_root_tag}> 非 RSS/Atom（反爬 HTML?）", file=_sys.stderr)
+    _sys.exit(2)
+
+items = root.findall('.//item')
 
 results = []
 new_inbox_lines = []
@@ -172,6 +186,14 @@ if new_inbox_lines:
 
 print('\n'.join(results))
 PYEOF
+
+# V37.9.282 (JOB-F1): HTTP 200 但解析失败/根元素异常 → parse_failed 诚实上报
+# (单源 job: parse 失败 = 整跑失效, 不得落进下方 "无新内容" status:ok 分支)
+if [ "$PARSE_RC" != "0" ]; then
+    log "ERROR: RSS HTTP 200 但解析失败 (rc=${PARSE_RC}, 反爬或非 XML)"
+    printf '{"time":"%s","status":"parse_failed","new":0}\n' "$TS" > "$STATUS_FILE"
+    exit 0
+fi
 
 NEW_COUNT=$(wc -l < "$NEW_FILE" 2>/dev/null | tr -d '[:space:]' || echo 0)
 NEW_COUNT="${NEW_COUNT:-0}"
