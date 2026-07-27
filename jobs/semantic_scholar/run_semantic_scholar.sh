@@ -176,7 +176,9 @@ with open(seen_file) as f:
 
 # 合并所有搜索结果
 all_papers = {}
-for fpath in sorted(glob.glob(os.path.join(raw_dir, "search_*.json"))):
+_result_files = sorted(glob.glob(os.path.join(raw_dir, "search_*.json")))
+_parse_failed = 0
+for fpath in _result_files:
     try:
         with open(fpath) as f:
             data = json.load(f)
@@ -189,7 +191,14 @@ for fpath in sorted(glob.glob(os.path.join(raw_dir, "search_*.json"))):
                 continue
             all_papers[pid] = paper
     except (json.JSONDecodeError, KeyError):
+        _parse_failed += 1
         continue
+
+# V37.9.282 (对抗审计 JOB-F1): 全部结果文件不可解析 ≠ 无新论文 (镜像 dblp 同款) —
+# 全失败 → exit 2 → shell `if ! python3` 包装写 parse_failed + exit 1 (fail-loud)。
+if _result_files and _parse_failed >= len(_result_files):
+    print(f"[s2] ERROR: {len(_result_files)} 个结果文件全部解析失败 (反爬/非 JSON?)", file=sys.stderr)
+    sys.exit(2)
 
 # 按引用量降序
 sorted_papers = sorted(all_papers.values(),

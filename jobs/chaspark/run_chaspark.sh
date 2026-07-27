@@ -109,24 +109,33 @@ ALL_ARTICLES="$CACHE/articles_${DAY}.jsonl"
 # 次日重抓全部命中 seen → new:0 status ok, 当日内容永久丢失且恢复日看似健康
 # (对齐 arxiv/rss_blogs "only mark seen after successful push" 既有契约)。
 NEW_IDS_FILE="$CACHE/new_ids_${DAY}.txt"
-$PYTHON3 - "$RAW_JSON" "$SEEN_FILE" "$ALL_ARTICLES" "$NEW_IDS_FILE" << 'PYEOF'
+# V37.9.282 (对抗审计 JOB-F1): 捕获 parser 退出码 — API 返回 HTTP 200 反爬/错误页时
+# 原裸 json.load traceback 退出(无 set -e 被吞) → 0 articles → status:ok 静默失效。
+PARSE_RC=0
+$PYTHON3 - "$RAW_JSON" "$SEEN_FILE" "$ALL_ARTICLES" "$NEW_IDS_FILE" << 'PYEOF' || PARSE_RC=$?
 import sys, json
 
 raw_file, seen_file, out_file, new_ids_file = sys.argv[1:5]
 
-with open(raw_file, "r", encoding="utf-8") as f:
-    data = json.load(f)
+try:
+    with open(raw_file, "r", encoding="utf-8") as f:
+        data = json.load(f)
+except Exception as e:
+    print(f"[chaspark] ERROR: JSON 解析失败 {type(e).__name__} (反爬/非 JSON?)", file=sys.stderr)
+    sys.exit(2)  # V37.9.282 (JOB-F1): parse 失败信号回 shell
 
 with open(seen_file, "r") as f:
     seen = set(line.strip() for line in f if line.strip())
 
 if data.get("code") != "0" or not data.get("data"):
-    print("[chaspark] API 返回异常或无数据", file=sys.stderr)
+    # V37.9.282 (JOB-F1): API 错误响应体 (code!=0 / 无 data 键) ≠ 无新内容 —
+    # 原 exit 0 → 0 articles → status:ok。exit 2 → shell 写 parse_failed 告警。
+    print(f"[chaspark] ERROR: API 返回异常 (code={data.get('code')!r}, has_data={bool(data.get('data'))})", file=sys.stderr)
     with open(out_file, "w") as f:
         pass
     with open(new_ids_file, "w") as f:
         pass
-    sys.exit(0)
+    sys.exit(2)
 
 articles = []
 new_ids = []
@@ -178,6 +187,14 @@ with open(new_ids_file, "w") as f:
 
 print(f"[chaspark] 解析到 {len(articles)} 篇新内容", file=sys.stderr)
 PYEOF
+
+# V37.9.282 (JOB-F1): HTTP 200 但解析失败/API 错误体 → parse_failed 诚实上报
+# (单源 job: parse 失败 = 整跑失效, 不得落进下方 "无新内容" status:ok 分支)
+if [ "$PARSE_RC" != "0" ]; then
+    log "ERROR: API HTTP 200 但解析失败/返回异常 (rc=${PARSE_RC})"
+    printf '{"time":"%s","status":"parse_failed","new":0}\n' "$TS" > "$STATUS_FILE"
+    exit 1
+fi
 
 ARTICLE_COUNT=$(wc -l < "$ALL_ARTICLES" 2>/dev/null | tr -d ' ')
 if [ "${ARTICLE_COUNT:-0}" -eq 0 ]; then

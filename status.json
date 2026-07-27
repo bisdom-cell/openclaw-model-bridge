@@ -1,6 +1,6 @@
 {
-  "updated": "2026-07-26 13:29:04",
-  "updated_by": "cli",
+  "updated": "2026-07-27 08:12:16",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-07-26",
+      "what": "V37.9.282 JOB-F1 8 脚本 parse 守卫铺开: rss_blogs/ai_leaders_blogs/bsky/dblp/s2/hn/chaspark/freight 全部补 200-but-unparseable fail-loud (V37.9.274 模式按四类结构适配), 15 新守卫单测 + bsky pin 演进 + sabotage 三处反向验证。",
+      "by": "claude_code"
+    },
     {
       "date": "2026-07-26",
       "what": "V37.9.279-281 三批对抗审计修复: 4 镜头 (Observer on 栈/KB 管道/jobs 脚本/notify 链) 14 findings 亲验实锤, 13 修复+1 登记。V37.9.279 Observer on 模式首日加固 (fp 扫描移到 critique prompt 前修评分集成虚假 + confidence 校准腐蚀 + fp_mode regime 标记 + 趋势箭头方向 + wrapper 写失败诚实化); V37.9.280 KB 管道 (collect_notes 窗口 N+1→N + harvest 部分 Map 失败不再永久丢段 + parse_failed 进 evening allowlist + kb_trend D-7 双计数 + 陈年失败不当今日异常); V37.9.281 notify 队列 (claim touch 防双发 + CLI 守卫防队列误清空 + 驱逐分类器收紧) + 4 job 裸 notify 守卫 + chaspark rc/seen 契约 + wa_keepalive ESCALATED 诚实化。全部 sabotage 反向验证 + 33 新守卫测试。工具链事故: 第一轮 Workflow 审计因 harness subagent permission handler 损坏全军覆没 (空 findings 识别为被挡非代码干净), 改 Agent fan-out 重跑成功。",
@@ -173,11 +178,6 @@
       "date": "2026-07-10",
       "what": "V37.9.265 README Four-Plane Architecture 块计数一致性收敛. 门控收敛日健康基线全绿(154/0/5478, chaos 10/10, gov 91/91, sec 95). grounded sweep 抓 README 当前态 prose 块 3 处计数漂移(gen_readme_badges 徽章同步覆盖不到此块): L387 89-invariant(同块 L390 已说 91=内部矛盾)/L388 11-provider(V37.9.254 加 GLM-5.2 第12 provider sweep 遗漏, 同文件 9 处均 12)/L390 26 blood-lesson cases(FEATURES+实际文件数 28). 收敛到 canonical(gen_readme_badges 事实行: invariants=91/cases=28/providers=12). 不动 point-in-time: README L365 file-table(V37.9.121-tagged)/L42 Highlights(V37.9.201-216 arc 11 providers)/CLAUDE L753(V1-P0 7 provider). VERSION 不变纯 prose 零业务语义. 净 -3 human-prose 漂移面. 三 doc-drift 机器检查全绿.",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-07-09",
-      "what": "V37.9.264 observer deep_dive_repeat 边界感知去误报。07-09 observer 仍报 06-20/07-04 ban-list 疑似失效(与 07-08 同 pair)。好消息: V37.9.261 降级桶拆分已生效(报告显示无 OA 结构性16/PDF 抓取错误5/HTML3=自区分接受 vs investigate)。根因: V37.9.252 把 ACTIVE_SINCE 设 07-03(ban-list 部署日)时不知 off-by-one bug, 该 bug 到 V37.9.260(07-08)才修, 07-04 逃逸是已修历史非当前失效。修: 加 _BAN_LIST_BOUNDARY_FIX=07-08, 恰边界(gap==14)从 07-08 检/非边界从 07-03 检(off-by-one 只影响恰边界)。不 blanket bump 避免误伤非边界真失效测试。test+2, sabotage 有效, 既有 4 detector 测试不破坏。VERSION 0.37.9.111→0.37.9.112。",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -258,7 +258,7 @@
       "【V37.9.274 · SF1/SF2 已修 · SF3 对抗验证 accept-by-design】(SF1 ✅ 修) ontology_sources/finance_news fetch_failed 守卫 parse-盲已修: parse-fail sys.exit(2) 信号回 shell + 根元素校验(well-formed 反爬 HTML root=html 拦截, 实测证伪初版 catch-ParseError) + PARSE_RC!=0→FETCH_ERRORS++。(SF2 ✅ 修) daily_observer --dry-run 持久化污染已修: append_score_history+_write_observer_to_status 由 if not dry_run 守卫。(SF3 ⏹ 不改) kb_harvest any(ok)→ok 是 V37.9.130 刻意设计(status 枚举供 watchdog 契约, 降级走 map_failed 独立字段), 改成 any(error)→error 会过度告警瞬态混合窗口 → 对抗验证 accept-by-design(镜像 V37.9.273 F2 纪律)。守卫 test_v37_9_274(11 单测)+sabotage。",
       "【🔴 LLM-Observer 研究攻关 #1 · OBSERVER_FP_MODE=on 已上线（2026-07-25 三步全落地）· 剩首日 E2E 观察】flip 决策 2026-07-24 §9.1.1（14 天 live 全零 fp + C1/C2/C3 全满足）。落地实录: (a) ✅ PR#850 合并 + Mac Mini git reset 同步（daily_observer.sh env plumbing 生效） (b) ✅ ~/.env_shared 加 export OBSERVER_FP_MODE=on（rollback=改回 shadow） (c) ✅ score_history 清污染核实为 no-op——Mac Mini 实测（2026-07-25 grep 分布）: 73 行零条 05-25、llm_failed 仅 2（71 ok）、07-20→24 每日恰 1 行 = 无污染追加; 结构 = ~60 唯一日期真实历史 + 13 条 5-6 月 dev 期同日重跑（05-26/27/28/31、06-29, 良性保留）。V37.9.276 所见「30 行大量 05-25 llm_failed」与此文件行数算术不相容 → 污染最可能在 dev 容器 ~/.kb（全量 test_daily_observer 只在 dev full_regression 跑; Mac Mini governance 经 V37.9.124 收窄只跑契约核心类不含 CLI 测试）。两侧源头已修死（V37.9.274 dry-run 守卫 + V37.9.276 测试隔离, 07-25 同步生效）。剩: 明 06:30 首日 E2E——报告 fail_plausible 段标 [on] + 无 FP 风暴 + score_history 恰新增 1 行 date=2026-07-25。Stage 6 论文 #2 草案 gated 于 on 模式 detection latency 生产数据。",
       "【🔴 GLM ark key 轮换 · Mac Mini 待用户（仅剩此一步）】ark key(对话多次出现)功能验证完毕, 用户已声明会轮换/删除 → 现在可做: Volcengine 控制台轮换后, 更新 .env_shared + adapter/proxy 两个 plist 的 GLM5_API_KEY(PlistBuddy Set, 与 E2E 配置时同一位置) + bootout/bootstrap 重载。(原 (b) plist env + ROUTER_ENFORCE=on 已由 V37.9.271-272 聊天路由 E2E 证明配置完成, 2026-07-24 核实收敛; 原 (c) 分支合并已收敛。)",
-      "【2026-07-26 对抗审计 JOB-F1 · 8 脚本 200-but-unparseable 守卫铺开 · ready-to-execute 高优】V37.9.274 只修了 ontology_sources+finance_news, 审计证实 8 个 feed job 仍有同款盲区 (反爬 HTML/JSON 错误页 HTTP 200 → 0 items → status ok, watchdog 永久盲): rss_blogs:128/151 (parse sys.exit(0) 无 PARSE_RC, 且 well-formed html root 解析成功 0 item 不触 ParseError = 根白名单是主洞) / ai_leaders_blogs:147/170 同款 / ai_leaders_bsky:154/172 JSON / dblp:209 + s2:191 (except continue 逐条吞) / hn_watcher:86/126 (HTTP code 不查+except exit 0) / chaspark:113 (json.load 裸+无 set -e) / freight:168 (ET.ParseError continue)。修法=镜像 V37.9.274: parse-fail exit 2 + XML 根白名单/JSON 根形状校验 + PARSE_RC→FETCH_ERRORS++ + 全源失败 fail-loud; 各脚本解析结构不同须逐个适配+测试 (勿一把 sed)。arxiv/acl/hf/github_trending 已有内容验证不受影响。",
+      "【2026-07-26 对抗审计 JOB-F1 ✅ V37.9.282 已铺开 · 剩 Mac Mini 被动验证】8 脚本 200-but-unparseable 守卫全部落地 (四类结构分别适配): A. rss_blogs/ai_leaders_blogs XML 全款 (exit 2+根白名单+PARSE_RC→FETCH_ERRORS) / B. bsky JSON 根形状 feed 键校验 / C. dblp+s2 全结果文件解析失败→exit 2→既有 parse_failed 分支 / D. hn/chaspark/freight 单源 fail-loud (parse_failed/fetch_failed 不落 \"无新内容\" ok)。守卫 test_v37_9_282_parse_guard_rollout.py 15 单测 (含 heredoc compile+非空断言) + bsky 既有 pin 演进 (corrupt JSON exit 0→2, FAIL-OPEN 上移 shell 级)。Mac Mini 验证: 同步后各 job 正常日照常 ok; 若未来某源被反爬, watchdog 应出 fetch_failed/parse_failed 告警而非静默 new:0 ok。",
       "【2026-07-26 对抗审计 · 2 个登记不修项 (设计决策/热路径, 下 session 评估)】(a) NOT-F3 quiet_alert (auto_deploy 00-07 静默期) 完全绕过 notify → 无重试/无队列/stderr 丢弃, 且失败恰与被告警的故障相关 (同 gateway 路径); 修法候选=静默期改走 notify 强制 discord-only, 但 V37.8.13 test_wa_gateway_resilience pin 了 quiet 块形状, 须同步演进测试 (设计决策)。(b) NOT-F5 proxy token/consecutive-error 告警无 cooldown/dedup — session 过 195K 阈值后每请求都 append alert → 每 turn 一条 Discord [SYSTEM_ALERT] + 一个 notify 子进程 (放大 NOT-F1 并发 drain); 连续错误告警同款每请求重发; 修法=ProxyStats per-key cooldown (热路径, 需谨慎设计+测试)。",
       "【V37.9.279-281 Mac Mini 被动验证】合并+同步后: (a) 279: 次日 06:30 observer 报告若有 fp verdict, LLM critique 段应可见异常块引用 fail-plausible (on 模式评分真集成); score_history 新行有 fp_mode:\"on\" 字段; confidence 只在 L2 grounded 支持时非 1.0 (b) 280: evening \"今日笔记\" 不再含昨日条目; 论文源 parse_failed 日 evening 出\"今日任务异常\"块; harvest 部分 Map 失败日 last_run status=error 且次日重试 (c) 281: notify 队列重放无重复投递; chaspark LLM 失败日次日正常重抓 (seen 不再提前提交); wa_keepalive 日志出现 ESCALATE_FAILED 时 ~/.openclaw_alerts.log 有兜底行。"
     ],

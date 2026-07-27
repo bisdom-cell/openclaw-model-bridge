@@ -151,7 +151,9 @@ for account_entry in "${BSKY_ACCOUNTS[@]}"; do
     fi
 
     # 解析 getAuthorFeed JSON → 提取新帖子 (skip 转发 + 过短, 取最新 N 条实质帖)
-    $PYTHON3 - "$FEED_FILE" "$SEEN_FILE" "$BSKY_HANDLE" "$BSKY_LABEL" << 'PYEOF' >> "$ALL_NEW_FILE"
+    # V37.9.282 (对抗审计 JOB-F1, 镜像 V37.9.274): 捕获 parser 退出码
+    PARSE_RC=0
+    $PYTHON3 - "$FEED_FILE" "$SEEN_FILE" "$BSKY_HANDLE" "$BSKY_LABEL" << 'PYEOF' >> "$ALL_NEW_FILE" || PARSE_RC=$?
 import sys, json
 
 feed_file = sys.argv[1]
@@ -169,7 +171,15 @@ try:
     data = json.load(open(feed_file, encoding='utf-8'))
 except Exception as e:
     print(f"[ai_leaders_bsky] ERROR: {handle} JSON 解析失败 {type(e).__name__}", file=sys.stderr)
-    sys.exit(0)
+    sys.exit(2)  # V37.9.282 (JOB-F1): parse 失败信号回 shell → FETCH_ERRORS++（非静默 exit 0）
+
+# V37.9.282 (JOB-F1): JSON 可解析但根形状非 getAuthorFeed 响应 (无 'feed' 键) =
+# 错误 JSON (rate-limit/error body) — 原 data.get('feed') or [] 静默 0 帖 → status:ok。
+# (正常空账号仍有 "feed": [] 键, 不误伤。)
+if not isinstance(data, dict) or 'feed' not in data:
+    _err = data.get('error') if isinstance(data, dict) else type(data).__name__
+    print(f"[ai_leaders_bsky] ERROR: {handle} 响应无 feed 键 (根形状异常: {_err})", file=sys.stderr)
+    sys.exit(2)
 
 feed = data.get('feed') or []
 new_count = 0
@@ -231,6 +241,11 @@ for item in feed:
 
 print(f"[ai_leaders_bsky] {handle}: {new_count} 新帖", file=sys.stderr)
 PYEOF
+    # V37.9.282 (JOB-F1): HTTP 200 但解析失败/根形状异常 → 计入 FETCH_ERRORS
+    if [ "$PARSE_RC" != "0" ]; then
+        log "WARN: ${BSKY_HANDLE} HTTP 200 但解析失败/异常 (rc=${PARSE_RC})，计入 fetch 失败"
+        FETCH_ERRORS=$((FETCH_ERRORS + 1))
+    fi
 
     sleep 2  # 账号间礼貌节流 (公开 API 缓存友好)
 done

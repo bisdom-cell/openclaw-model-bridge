@@ -81,7 +81,10 @@ fi
 
 if [ "$TEST_MODE" -eq 0 ]; then
 # ── 1. 抓取多源RSS + Google News ────────────────────────────────────────
-if ! python3 - "$KB_INBOX" "$NEW_FILE" << 'PYEOF'
+# V37.9.282 (对抗审计 JOB-F1): 捕获 parser 退出码 — 原 `if ! python3` 只 log WARN
+# 后继续 → 全源失败落进 "无新商机" status:ok (watchdog 永久盲)。
+PARSE_RC=0
+python3 - "$KB_INBOX" "$NEW_FILE" << 'PYEOF' || PARSE_RC=$?
 import sys, json, re, urllib.request, xml.etree.ElementTree as ET
 from datetime import datetime, timezone, timedelta
 
@@ -157,6 +160,7 @@ SOURCES = [
 
 results = []
 NS = {"a": "http://www.w3.org/2005/Atom"}
+_src_failed = 0   # V37.9.282 (JOB-F1): 逐源失败计数 (fetch 异常 / parse 失败 / 反爬根)
 
 for url, kws in SOURCES:
     try:
@@ -166,6 +170,13 @@ for url, kws in SOURCES:
         try:
             root = ET.fromstring(raw)
         except ET.ParseError:
+            _src_failed += 1
+            continue
+
+        # V37.9.282 (JOB-F1): 根元素白名单 — well-formed 反爬 HTML parse 成功但
+        # 根=<html> → 0 item, 不计失败会伪装成 "源正常无匹配"。
+        if root.tag.split('}')[-1].lower() not in ('rss', 'feed', 'rdf', 'channel'):
+            _src_failed += 1
             continue
 
         items = root.findall(".//item") or root.findall(".//a:entry", NS)
@@ -180,7 +191,14 @@ for url, kws in SOURCES:
             if any(k in title_low for k in kws) and link and link not in inbox:
                 results.append({"title": title, "url": link, "source": url.split("/")[2]})
     except Exception as e:
+        _src_failed += 1
         print(f"[freight] WARN: {url[:60]} -> {e}", file=sys.stderr)
+
+# V37.9.282 (JOB-F1): 全源失败 ≠ 无新商机 — 原 per-source WARN+continue 吞掉后
+# results=[] → "暂无新商机" status:ok。全失败 → exit 2 → shell fail-loud。
+if _src_failed >= len(SOURCES):
+    print(f"[freight] ERROR: {len(SOURCES)} 个源全部失败 (网络/反爬?)", file=sys.stderr)
+    sys.exit(2)
 
 # V37.9.33: 去重 + 限制15条 (从10→15, 给新增 12 个权威 Tier 1/2 源留空间)
 # 防止 Tier 3 行业新闻挤掉 SCFI/BDI/FBX 等运价指数 (这些源每周才出一条但价值最高)
@@ -194,8 +212,13 @@ with open(OUT_FILE, "w") as f:
             count += 1
 print(f"[freight] 抓取完成，新条目: {count}", file=sys.stderr)
 PYEOF
-then
-  log "WARN: RSS抓取Python脚本失败"
+
+# V37.9.282 (JOB-F1): 抓取/解析全失败 → fetch_failed 诚实上报 (不再落进
+# 下方 "暂无新商机" status:ok 分支)
+if [ "$PARSE_RC" != "0" ]; then
+    log "ERROR: RSS 抓取/解析全失败 (rc=${PARSE_RC})"
+    printf '{"time":"%s","status":"fetch_failed","new":0}\n' "$TS" > "$STATUS_FILE"
+    exit 1
 fi
 
 # ── 2. 计算新条目数 ──────────────────────────────────────────────────────

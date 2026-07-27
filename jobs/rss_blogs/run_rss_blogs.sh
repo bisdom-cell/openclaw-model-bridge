@@ -125,7 +125,10 @@ for feed_entry in "${RSS_FEEDS[@]}"; do
     fi
 
     # 解析 RSS XML → 提取新文章
-    $PYTHON3 - "$FEED_FILE" "$SEEN_FILE" "$FEED_NAME" "$FEED_LABEL" << 'PYEOF' >> "$ALL_NEW_FILE"
+    # V37.9.282 (对抗审计 JOB-F1, 镜像 V37.9.274 ontology_sources): 捕获 parser 退出码 —
+    # HTTP 200 但内容不可解析(反爬 HTML/错误页) 原静默 exit 0 → 全源如此仍 status:ok。
+    PARSE_RC=0
+    $PYTHON3 - "$FEED_FILE" "$SEEN_FILE" "$FEED_NAME" "$FEED_LABEL" << 'PYEOF' >> "$ALL_NEW_FILE" || PARSE_RC=$?
 import sys, json
 import xml.etree.ElementTree as ET
 
@@ -148,7 +151,14 @@ except ET.ParseError:
         root = ET.fromstring(content)
     except ET.ParseError:
         print(f"[rss] ERROR: {feed_name} XML解析失败", file=sys.stderr)
-        sys.exit(0)
+        sys.exit(2)  # V37.9.282 (JOB-F1): parse 失败信号回 shell → FETCH_ERRORS++（非静默 exit 0）
+
+# V37.9.282 (JOB-F1): parse 成功但根元素非 RSS/Atom = 反爬 HTML 伪装成 feed。well-formed
+# 反爬 HTML 不触发 ParseError（ET.parse 成功）却 0 个 item → 静默 status:ok（守卫盲区）。
+_root_tag = root.tag.split('}')[-1].lower()
+if _root_tag not in ('rss', 'feed', 'rdf', 'channel'):
+    print(f"[rss] ERROR: {feed_name} 根元素 <{_root_tag}> 非 RSS/Atom（反爬 HTML?）", file=sys.stderr)
+    sys.exit(2)
 
 # 支持 RSS 2.0 和 Atom 格式
 ns = {'atom': 'http://www.w3.org/2005/Atom',
@@ -213,6 +223,12 @@ for item in items[:20]:  # 最多检查20篇
 
 print(f"[rss] {feed_name}: {new_count} 篇新文章", file=sys.stderr)
 PYEOF
+    # V37.9.282 (JOB-F1): HTTP 200 但解析失败/异常(非零退出) → 计入 FETCH_ERRORS
+    # (curl 成功但 parser 拿不到内容 = 反爬 HTML/非 XML), 否则全源 parse 失败静默 status:ok
+    if [ "$PARSE_RC" != "0" ]; then
+        log "WARN: ${FEED_NAME} HTTP 200 但解析失败/异常 (rc=${PARSE_RC}, 反爬或非 XML)，计入 fetch 失败"
+        FETCH_ERRORS=$((FETCH_ERRORS + 1))
+    fi
 done
 
 TOTAL_NEW="$(wc -l < "$ALL_NEW_FILE" | tr -d ' ')"
