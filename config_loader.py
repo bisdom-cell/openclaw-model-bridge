@@ -115,6 +115,7 @@ def _init_constants():
     # Alerts
     a = cfg.get("alerts", {})
     constants["CONSECUTIVE_ERROR_ALERT"] = a.get("consecutive_error_threshold", 3)
+    constants["ALERT_COOLDOWN_SEC"] = a.get("alert_cooldown_seconds", 1800)
 
     # Routing
     r = cfg.get("routing", {})

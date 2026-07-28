@@ -94,6 +94,7 @@ run_suite "v37_9_227_cron_fail_loud (V37.9.227 审计 F — ontology_sources/fin
 run_suite "v37_9_274_silent_failure_fixes (V37.9.274 审计 SF1 cron parse-fail 计入 FETCH_ERRORS+根元素校验 / SF2 observer --dry-run 不持久化)" "python3 test_v37_9_274_silent_failure_fixes.py"
 run_suite "v37_9_281_push_honesty (V37.9.281 对抗审计 notify 队列完整性 claim-touch/CLI 守卫/evict 收紧 + arxiv/dblp/s2/finance/chaspark/wa_keepalive 推送诚实)" "python3 test_v37_9_281_push_honesty.py"
 run_suite "v37_9_282_parse_guard_rollout (V37.9.282 JOB-F1 8 脚本 200-but-unparseable 守卫铺开 — parse exit 2 + 根白名单/根形状 + PARSE_RC 路由 fail-loud)" "python3 test_v37_9_282_parse_guard_rollout.py"
+run_suite "v37_9_283_alert_cooldown (V37.9.283 NOT-F5 ProxyStats per-key 告警冷却防风暴 + NOT-F3 quiet_alert 静默期收编 notify discord-only)" "python3 test_v37_9_283_alert_cooldown.py"
 run_suite "v37_9_238_fetch_errors_fail_loud (V37.9.238 审计 F follow-up — rss_blogs/ai_leaders_blogs/bsky FETCH_ERRORS 计数器 + MR-9 ProxyStats 测试污染隔离)" "python3 test_v37_9_238_fetch_errors_fail_loud.py"
 run_suite "v37_9_239_sse_delivery (V37.9.239 审计 B-delivery — streaming fallthrough SSE client 收 text/event-stream 非 application/json 错配)" "python3 test_v37_9_239_sse_delivery.py"
 run_suite "v37_9_228_parse_stats_signal (V37.9.228 审计 B — proxy parse-block 抛异未记 success → record_error, 修零 stats 信号监控盲区)" "python3 test_v37_9_228_parse_stats_signal.py"
