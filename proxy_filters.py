@@ -17,6 +17,7 @@ from config_loader import (
     TOKEN_WARN_THRESHOLD as _CFG_TOKEN_WARN,
     TOKEN_CRITICAL_THRESHOLD as _CFG_TOKEN_CRITICAL,
     CONSECUTIVE_ERROR_ALERT as _CFG_CONSECUTIVE_ERROR,
+    ALERT_COOLDOWN_SEC as _CFG_ALERT_COOLDOWN,
     SIMPLE_MAX_MSGS as _CFG_SIMPLE_MAX_MSGS,
     SIMPLE_MAX_USER_LEN as _CFG_SIMPLE_MAX_USER_LEN,
     COMPLEX_MIN_MSGS as _CFG_COMPLEX_MIN_MSGS,
@@ -1182,6 +1183,9 @@ CONTEXT_LIMIT = _CFG_CONTEXT_LIMIT
 TOKEN_WARN_THRESHOLD = _CFG_TOKEN_WARN
 TOKEN_CRITICAL_THRESHOLD = _CFG_TOKEN_CRITICAL
 CONSECUTIVE_ERROR_ALERT = _CFG_CONSECUTIVE_ERROR
+# V37.9.283 (对抗审计 NOT-F5): 同类告警冷却窗口 — 阈值持续满足时（session 过 195K 后
+# 每 turn / 错误 streak 每个后续错误）不再每请求重发，冷却窗口内抑制、状态恢复即重新武装。
+ALERT_COOLDOWN_SEC = _CFG_ALERT_COOLDOWN
 
 STATS_FILE = os.path.expanduser("~/proxy_stats.json")
 
@@ -1208,6 +1212,10 @@ class ProxyStats:
         self.last_success_time = 0
         self.last_error_time = 0
         self.alerts = []  # 待发送告警列表
+        # V37.9.283 (NOT-F5): per-key 告警冷却时间戳（"token_warn"/"token_critical"/
+        # "consecutive_errors" → 上次发送 epoch）。状态恢复（token 降回阈值下 /
+        # 错误 streak 被 success 打断）时对应 key 被移除 = 重新武装，下次越线立即告警。
+        self._alert_last_sent = {}
         self._today = time.strftime("%Y-%m-%d")
         self._last_flush = 0.0
 
@@ -1219,6 +1227,20 @@ class ProxyStats:
         self.fallback_count = 0        # 降级次数
         self._recovery_total = 0       # 连续错误后恢复的次数
         self._failure_streaks = 0      # 曾发生的连续错误事件数
+
+    def _should_alert(self, key: str) -> bool:
+        """V37.9.283 (NOT-F5) 冷却门控（调用方须已持锁）。
+
+        首次（key 无记录，含被状态恢复重新武装后）→ True 并盖时间戳；冷却窗口内
+        → False（抑制重发）；窗口过期且条件仍满足 → True 并刷新时间戳（周期性
+        提醒，频率有界：最多 1 条 / ALERT_COOLDOWN_SEC）。
+        """
+        now = time.time()
+        last = self._alert_last_sent.get(key)
+        if last is not None and (now - last) < ALERT_COOLDOWN_SEC:
+            return False
+        self._alert_last_sent[key] = now
+        return True
 
     def _check_day_reset(self):
         today = time.strftime("%Y-%m-%d")
@@ -1247,6 +1269,8 @@ class ProxyStats:
             # streak → 分子 > 分母 → 194.1%。修改为只有从真正的 streak 恢复才计数。
             if self.consecutive_errors >= CONSECUTIVE_ERROR_ALERT:
                 self._recovery_total += 1
+                # V37.9.283: streak 结束 → 重新武装，下一个 streak 达阈值立即告警
+                self._alert_last_sent.pop("consecutive_errors", None)
             self.consecutive_errors = 0
             self.last_success_time = time.time()
 
@@ -1261,18 +1285,27 @@ class ProxyStats:
             if prompt_tokens > self.max_prompt_tokens_today:
                 self.max_prompt_tokens_today = prompt_tokens
 
-            # Token 阈值告警
+            # Token 阈值告警（V37.9.283 NOT-F5: 冷却门控 — 此前阈值持续满足时
+            # 每请求 append → 每 turn 一条 Discord [SYSTEM_ALERT] + 一个 notify 子进程风暴）
             if prompt_tokens >= TOKEN_CRITICAL_THRESHOLD:
-                self.alerts.append(
-                    f"🔴 Qwen context 临界！prompt_tokens={prompt_tokens:,} "
-                    f"(limit={CONTEXT_LIMIT:,}, 已用{prompt_tokens*100//CONTEXT_LIMIT}%)"
-                    f"\n下一次请求大概率触发 403/502，建议立即重置 session"
-                )
+                if self._should_alert("token_critical"):
+                    # critical 已告知高位 → 同步盖 warn 时间戳，防降回 warn 带时紧跟重复叫
+                    self._alert_last_sent["token_warn"] = self._alert_last_sent["token_critical"]
+                    self.alerts.append(
+                        f"🔴 Qwen context 临界！prompt_tokens={prompt_tokens:,} "
+                        f"(limit={CONTEXT_LIMIT:,}, 已用{prompt_tokens*100//CONTEXT_LIMIT}%)"
+                        f"\n下一次请求大概率触发 403/502，建议立即重置 session"
+                    )
             elif prompt_tokens >= TOKEN_WARN_THRESHOLD:
-                self.alerts.append(
-                    f"🟡 Qwen context 预警：prompt_tokens={prompt_tokens:,} "
-                    f"(limit={CONTEXT_LIMIT:,}, 已用{prompt_tokens*100//CONTEXT_LIMIT}%)"
-                )
+                if self._should_alert("token_warn"):
+                    self.alerts.append(
+                        f"🟡 Qwen context 预警：prompt_tokens={prompt_tokens:,} "
+                        f"(limit={CONTEXT_LIMIT:,}, 已用{prompt_tokens*100//CONTEXT_LIMIT}%)"
+                    )
+            else:
+                # 低于全部阈值 = session 已重置 → 重新武装，下次越线立即告警
+                self._alert_last_sent.pop("token_warn", None)
+                self._alert_last_sent.pop("token_critical", None)
 
             self._maybe_flush()
 
@@ -1306,13 +1339,16 @@ class ProxyStats:
             if self.consecutive_errors == CONSECUTIVE_ERROR_ALERT:
                 self._failure_streaks += 1
 
-            # 连续错误告警
+            # 连续错误告警（V37.9.283 NOT-F5: 冷却门控 — 此前 streak 内每个后续错误
+            # 都重发；现在首次达阈值立即告警，streak 持续时每 ALERT_COOLDOWN_SEC 至多 1 条，
+            # streak 被 success 打断后重新武装）
             if self.consecutive_errors >= CONSECUTIVE_ERROR_ALERT:
-                self.alerts.append(
-                    f"🔴 Proxy 连续 {self.consecutive_errors} 次错误！"
-                    f"\n最近错误: HTTP {status_code} — {error_msg[:100]}"
-                    f"\n可能原因: context 超限(260K) / 远端模型下线 / 网络故障"
-                )
+                if self._should_alert("consecutive_errors"):
+                    self.alerts.append(
+                        f"🔴 Proxy 连续 {self.consecutive_errors} 次错误！"
+                        f"\n最近错误: HTTP {status_code} — {error_msg[:100]}"
+                        f"\n可能原因: context 超限(260K) / 远端模型下线 / 网络故障"
+                    )
 
             self._maybe_flush()
 

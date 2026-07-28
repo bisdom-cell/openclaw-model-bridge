@@ -55,6 +55,7 @@ tokens:
 # ---------------------------------------------------------------------------
 alerts:
   consecutive_error_threshold: 3  # 连续错误 N 次触发告警
+  alert_cooldown_seconds: 1800    # 同类告警冷却窗口（V37.9.283 NOT-F5：阈值持续满足时每请求重发 → 告警风暴）
   error_rate_alert_pct: 20        # 错误率超过 20% 触发告警
   disk_warning_pct: 85            # 磁盘使用预警
   disk_critical_pct: 95           # 磁盘使用临界

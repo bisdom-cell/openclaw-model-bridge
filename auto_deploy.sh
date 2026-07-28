@@ -65,7 +65,14 @@ $msg" ;;
     esac
     if is_quiet_hours; then
         echo "$(date) [QUIET] 静默期跳过WhatsApp，Discord仍推: ${msg:0:80}..." >> "$LOG"
-        openclaw message send --channel discord --target "${DISCORD_CH_ALERTS:-}" --message "$msg" --json >/dev/null 2>&1 || true
+        # V37.9.283 (对抗审计 NOT-F3): 静默期收编 notify（--channel discord 单通道覆盖，
+        # 获得重试+失败队列）— 此前裸发无重试且 stderr 丢弃，而告警失败恰与被告警故障
+        # 同 gateway 路径；队列条目自带 channel=discord，后续重放仍只走 Discord。
+        if command -v notify >/dev/null 2>&1; then
+            notify "$msg" --channel discord --topic alerts >/dev/null 2>&1 || true
+        else
+            openclaw message send --channel discord --target "${DISCORD_CH_ALERTS:-}" --message "$msg" --json >/dev/null 2>&1 || true
+        fi
         return 0
     fi
     # V37.9.173 PathB-3: 优先 notify（微信 + Discord #alerts + 重试/队列），早期 stage 未 source 时直发兜底
