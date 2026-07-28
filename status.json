@@ -1,5 +1,5 @@
 {
-  "updated": "2026-07-28 10:58:33",
+  "updated": "2026-07-28 11:05:34",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -272,11 +272,11 @@
   },
   "quality": {
     "security_score": 98,
-    "test_count": 5595,
+    "test_count": 5618,
     "last_regression": "2026-07-27 08:37 pass",
     "coverage_pct": 0,
     "security_score_time": "2026-07-20 01:07",
-    "test_suites": 160,
+    "test_suites": 161,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
     "version": "0.37.9.122",
