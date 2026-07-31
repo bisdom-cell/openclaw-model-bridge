@@ -366,7 +366,7 @@ Observer **能机械化**周一 30min 用户视角观察仪式（原则 #32）�
 
 ---
 
-## 九、实施路径（分阶段 · 进度见状态列，Stage 0-5 + 6 chunk 1 已完成）
+## 九、实施路径（分阶段 · 进度见状态列，Stage 0-5.1 + 6 chunk 1 已完成）
 
 | Stage | 内容 | 成功定义 | 状态 |
 |-------|------|----------|------------|
@@ -376,8 +376,8 @@ Observer **能机械化**周一 30min 用户视角观察仪式（原则 #32）�
 | **Stage 3** ✅ | LLM-judge Layer 2（FAIL_PLAUSIBLE_SYSTEM，复用 call_llm_critique）+ 注入 LEVEL_6/credibility | verdict 结构化 + 引用证据 + 防 V37.9.93 sampling 幻觉 | ✅ V37.9.196 |
 | **Stage 4** ✅ | self-validation harness（复用 adversarial_chaos_audit 模式，OBS-A/B 场景）+ scorecard | defense rate / FN / FP / calibration 可度量；Category A →100% | ✅ V37.9.197 |
 | **Stage 5** ✅ | 接入 `daily_observer.run()`（detect_fail_plausible，§6.1）+ score/status 向后兼容扩展，**shadow-first**（`OBSERVER_FP_MODE=shadow` 默认，观察性不影响评分/告警） | daily_observer 次日报告含 fail_plausible 段，零下游破坏，Mac Mini E2E | ✅ V37.9.198（+199 shadow 抓真 FP 修 S5） |
-| **Stage 5.1** 🟡→✅(决策) | flip `OBSERVER_FP_MODE` shadow→on（fp 进 anomalies → 影响评分/告警）+ force_judge 评估 | 决策框架见 §9.1（预注册 criteria）；**2026-07-24 数据到达按规则执行 → FLIP on（C1/C2/C3 全满足，§9.1.1 决策记录）** | 🟡 待 Mac Mini env flip + 首日 E2E（V37.9.276 补 env plumbing） |
-| **Stage 6** 🟡 | bench 化（silent-failure/fail-plausible 检测 bench，社区可跑）+ 论文 #2 草案 | 别人能 `pip`/clone 跑 bench；论文 #2 描述→预测的 scorecard | 🟡 chunk 1 ✅ V37.9.200（bench 社区化）；论文 #2 草案 gated 于 detection latency 生产数据 |
+| **Stage 5.1** ✅ | flip `OBSERVER_FP_MODE` shadow→on（fp 进 anomalies → 影响评分/告警）+ force_judge 评估 | 决策框架见 §9.1（预注册 criteria）；**2026-07-24 数据到达按规则执行 → FLIP on（C1/C2/C3 全满足，§9.1.1 决策记录）** | ✅ flip 上线（07-25 三步落地 V37.9.276 + 07-26 on 首日在产 + V37.9.279 首日加固）；A2 十四天精度窗进行中（口径 §9.2） |
+| **Stage 6** 🟡 | bench 化（silent-failure/fail-plausible 检测 bench，社区可跑）+ 论文 #2 草案 | 别人能 `pip`/clone 跑 bench；论文 #2 描述→预测的 scorecard | 🟡 chunk 1 ✅ V37.9.200（bench 社区化）；论文 #2 草案 gated 于 detection latency 生产数据（数据口径已预注册 §9.2，V37.9.284） |
 
 **Stage 0 交付 = 本文档**。后续 Stage 由独立 session 推进（每 Stage 走完整收工清单 + Mac Mini E2E，原则 #6/#9/#29）。
 
@@ -423,6 +423,55 @@ Observer **能机械化**周一 30min 用户视角观察仪式（原则 #32）�
 - **C3 ✅** cheap-path 生效——干净日 Layer 2 零调用（14 天全干净 = 零 fp LLM 成本）。
 
 **决策**：C1+C2+C3 全满足 → **flip `OBSERVER_FP_MODE=on`**（Mac Mini env，经 V37.9.276 补上的 `.env_shared` plumbing 生效）。force_judge 维持 off（不捆绑）。rollback = env 改回 shadow。首日 E2E 观察项：06:30 报告 fail_plausible 段标签 `[on]` + anomalies/`overall_score`/告警无 FP 风暴。
+
+---
+
+### 9.2 A4 · 论文 #2 数据口径预注册（2026-07-31 冻结 · 先于数据分析）
+
+> **为什么现在写**：on 模式 2026-07-26 首日在产，A2 十四天精度窗（07-26 → 08-08）数据正在 Mac Mini 积累。镜像 §9.1 方法学纪律：**在读取/分析窗口数据之前**冻结论文 #2 的数据口径（指标操作化、数据源字段、窗口边界、判定协议、负面结果处理），防止 motivated reasoning（"想让 Observer 显得有效就事后挑有利口径"）。兑现纲领执行计划 §11 Q3「A4 论文 #2 数据口径预注册（P0，镜像 §9.1 方法学）」。A4 的 Q4 半（数据表填充）gated 于 A2 完成，届时按本节口径执行，不得回头改口径（发现口径缺陷 → 只追加修订记录并披露，不改写本节）。
+
+#### 9.2.1 三个预注册主张（描述 → 预测的操作化）
+
+| # | 主张 | 操作化定义 | 数据来源 |
+|---|------|-----------|----------|
+| **H1** | live precision：on 模式 fired verdict 的生产精度可接受 | precision = TP / (TP + FP)，逐条人工判定（§9.2.4）；报**原始计数**不报置信区间（small-N 诚实，§9.1 同源） | §9.2.6 台账 |
+| **H2** | detection latency：Observer 抢在人眼之前 | 每条 TP 的 latency = artifact 产出 → 次日 06:30 报告（构造上 ≤24h），与 22-corpus 历史人眼发现 `silence_span`（hours/days/weeks **定性桶**，ground-truth yaml 字段）按**桶级**对比——不伪造精确小时数 | score_history + 每日报告 + `llm_observer_ground_truth.yaml` |
+| **H3** | held-out recall 诚实负结果：novel 模式仍靠人先发现的比例 | on 期内任何**人先发现**的静默故障记 Observer FN → Category B 回灌（A3 路径），论文如实报 FN；镜像 corpus 侧 Category B FN=100% 的诚实基线（scorecard） | §9.2.6 台账 + `llm_observer_ground_truth.yaml` |
+
+#### 9.2.2 数据源与字段（逐字段钉死，防口径漂移）
+
+- **`~/.kb/observer/score_history.jsonl`**（每行 11 字段：date / overall_score / jobs_ok / jobs_total / outputs_found / anomalies_high / anomalies_med / **fp_high / fp_med / fp_mode** / status）。**regime 划分规则**：`fp_mode=="on"` → on 期行；`=="shadow"` → shadow 期行；null/缺失 → V37.9.279 部署前 legacy 行，按日期 ≤2026-07-25 归 shadow 期；日期 >2026-07-25 且 fp_mode 缺失 = plumbing 边界行，**剔除出 H1/H2 主表**并在数据表脚注登记（规则先于数据）。**fixture 污染剔除规则**：`date==2026-05-25 且 status=="llm_failed"` 的行剔除（§9.1.1 考证的测试污染，写入源已被 V37.9.274 SF2 + V37.9.276 MR-9 双侧堵死）。
+- **每日报告 fail_plausible 段**（`## 🔬 Fail-Plausible 检测 [on]` header + 每条 `[severity] category @ artifact (confidence)` + L1/L2 逐字证据行）= 判定的对象工件。
+- **`llm_observer_ground_truth.yaml`**：corpus 基线（`silence_span` / `discovery_channel` / Category A/B）+ A3 回灌目的地。
+- **`llm_observer_selfcheck.py` scorecard + bench manifest**：corpus 侧 defense/FP/FN 指标（论文 #2 的 corpus 半，已有机器工件）。
+- status.json `quality.observer.*` 是派生快照，**不作研究数据源**（一物一形：真理源 = score_history + 报告文件）。
+
+#### 9.2.3 窗口与冻结规则
+
+- **shadow 期**：2026-06-30 → 2026-07-25（§9.1.1，24 天）。**on 期起点**：2026-07-26（首个 06:30 on 模式 run；同日 V37.9.279 修复评分集成——受集成边界影响的行按 §9.2.2 plumbing 规则处理，不事后特判）。
+- **A4-Q4 填表冻结规则**：study cutoff = 填表 session 开工日前一天 23:59 HKT；不早于 A2 窗完成（≥2026-08-08）；每个入论文数字按论文 #1 `data_inventory.md` 纪律登记 repo 溯源。
+- **A2 台账**：fired verdict 判定行 append-only 记入 §9.2.6（**零新状态文件**，日落法）；确认 TP 按 A3 升格为 ground-truth case（机器标签 §4.2 schema）。
+
+#### 9.2.4 TP/FP 判定协议
+
+- 单标注者（user + 当日 session 逐条判），κ 限制如实继承（§4.3 / 论文 #1 §3.3）。
+- **TP**：verdict 指向的 artifact 经人工复核确有语义级假输出（若无 Observer 将以流畅可信形态到达用户）。判据 = 复核 artifact 内容 + 因果链，不以"看起来可疑"为准。
+- **FP**：artifact 实际正常。二分 **systematic**（≥2 天/多源复现同模式 → 触发 §9.1 C1 处理：shadow/on 内修 detector + sabotage 守卫 + scorecard 复跑）vs **one-off**。
+- **inconclusive**：证据不足 → 不入 precision 分母，登记原因（不硬判）。
+- **时点纪律**：每条 fired verdict 在其被转发的当日 session 内判定并登记（防事后重构记忆）。
+- **human-first 竞速规则（H3）**：某静默故障由人先发现（用户使用/开工巡检/告警渠道）而当日 06:30 报告未 fire → 记 Observer FN + Category B 登记（A3），无论 Observer 结构上能否抓到（`observer_in_scope` 字段区分，镜像 ground-truth 诚实划界）。
+
+#### 9.2.5 负面结果与发表承诺（先于数据承诺）
+
+- 0 TP + ≥1 human-caught FN → 论文如实报"预测未达成"类别 + FN 分析（负结果可发表，纲领 §9 R3/R8）。
+- 0 TP + 0 human-caught（安静期）→ latency 主张缺生产数据：论文只报 clean-period precision + corpus 侧指标，**不得把安静期叙述成检测成功**——论文自身不犯 fail-plausible。
+- threats to validity 预登记：era mismatch（corpus 期与 on 期故障构成不同）/ 单标注者 / small-N / `silence_span` 桶粒度 / 自观察（判定者=系统作者；缓解 = 逐字 evidence-grounding 铁律 + sabotage 验证链 + 本节预注册）。
+
+#### 9.2.6 A2 live 判定台账（append-only · 从 Mac Mini 转发的报告起记）
+
+| 日期 | artifact | severity | category | 判定 | 依据一句话 | 后续 |
+|------|----------|----------|----------|------|-----------|------|
+| （空） | | | | | 截至预注册日 2026-07-31 无已转发 fired verdict | |
 
 ---
 
