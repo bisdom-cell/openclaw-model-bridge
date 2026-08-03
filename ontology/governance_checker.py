@@ -187,6 +187,19 @@ def _exec_python_assert(check):
         return "pass", ""
     except AssertionError as e:
         return "fail", str(e)
+    except subprocess.TimeoutExpired as e:
+        # V37.9.285 (unfinished "治理 runtime check 对负载敏感" 系统性收口):
+        # runtime check 的 subprocess 在负载下超时是环境信号, 不是不变式违反。
+        # 53 个 subprocess 型 check 中仅 2 个曾逐-check 复制 try/except
+        # (INV-REVIEW-001 V37.9.214 / INV-CONVERGENCE-INTEGRATION-001 V37.9.247,
+        # 均为 07:00 cron 风暴下真实开火后硬化), 其余 ~51 个同族裸奔 →
+        # TimeoutExpired 逃逸被下方 generic Exception 分支归为 error → 💥 假告警
+        # 训练操作者忽略告警。执行器单点分类 (一物一形, 替代再复制 44 份 yaml
+        # 拷贝): 归 skip 可观测 (⏭ + 消息打印 + skip_rate_pct 自指标, MR-7)
+        # 不 💥; 真回归在 subprocess 完成时快速显形 (assertions 照跑), 真 hang
+        # 仍经 job_watchdog last_run + full_regression 直跑套件显形
+        # (与 V37.9.214 语义一致)。
+        return "skip", f"[LOAD-TIMEOUT] {str(e)[:200]} — 负载超时按 inconclusive 处理, 非不变式违反 (V37.9.285)"
     except Exception as e:
         return "error", f"{type(e).__name__}: {e}"
     finally:
@@ -233,6 +246,9 @@ def _exec_env_var_exists(check):
         if result.stdout.strip():
             return "pass", ""
         return "fail", f"${var} 为空或未设置"
+    except subprocess.TimeoutExpired as e:
+        # V37.9.285: 同 _exec_python_assert — 负载超时归 skip 非 error
+        return "skip", f"[LOAD-TIMEOUT] {str(e)[:200]} (V37.9.285)"
     except Exception as e:
         return "error", str(e)
 
@@ -250,6 +266,9 @@ def _exec_command_succeeds(check):
         if result.returncode == 0:
             return "pass", ""
         return "fail", f"exit {result.returncode}: {result.stderr[:200]}"
+    except subprocess.TimeoutExpired as e:
+        # V37.9.285: 同 _exec_python_assert — 负载超时归 skip 非 error
+        return "skip", f"[LOAD-TIMEOUT] {str(e)[:200]} (V37.9.285)"
     except Exception as e:
         return "error", str(e)
 

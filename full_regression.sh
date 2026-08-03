@@ -206,6 +206,9 @@ fi
 if [ -f ontology/tests/test_governance_summary.py ]; then
     run_suite "governance_summary (INV-GOV-001 silent error)" "python3 -m unittest ontology.tests.test_governance_summary"
 fi
+if [ -f ontology/tests/test_governance_load_timeout.py ]; then
+    run_suite "governance_load_timeout (V37.9.285 执行器负载超时单点分类)" "python3 -m unittest ontology.tests.test_governance_load_timeout"
+fi
 if [ -f ontology/tests/test_dream_cache_stability.py ]; then
     run_suite "dream_cache_stability (INV-DREAM-001/002 + INV-CACHE-002)" "python3 -m unittest ontology.tests.test_dream_cache_stability"
 fi
