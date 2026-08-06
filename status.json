@@ -1,6 +1,6 @@
 {
-  "updated": "2026-08-03 01:16:18",
-  "updated_by": "unknown",
+  "updated": "2026-08-06 00:47:32",
+  "updated_by": "full_regression",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-08-06",
+      "what": "V37.9.286 门控收敛日: CLAUDE.md Phase 5/V3 待办表 stale 收敛 (原则 #17 第 3 次演出) — 引擎包化 待启动→✅ V37.9.137 PyPI (+V37.9.148 仓库外 dogfood CI 守卫) / Ontology Extension Guide 待启动→✅ V37.9.104 / Tool Policy Plugin 待启动→🟡 chunk1 ✅ V37.9.160 / V3 路标行同步 / Phase 5 导语瓶颈句(尚未开始)改现实。终极目标核心交付物已达成近 2 个月但地图仍标待启动 = 地图≠领土债清零。开工基线 162/0/5632 全绿 + 混沌 10/10 + 治理 848 checks; 上游 latest 仍 2026.7.1-2 沿用第七次 hold; 32 unfinished 全 gated。VERSION 0.37.9.123 不变 (纯 doc/账本)。",
+      "by": "claude_code"
+    },
     {
       "date": "2026-08-03",
       "what": "V37.9.285 治理 runtime check 负载超时家族系统性收口: 排查 760 checks → 53 个 subprocess 型仅 2 个有 TimeoutExpired 处理 (恰是历史开火的 INV-REVIEW-001/INV-CONVERGENCE-INTEGRATION-001), 44 个同族裸奔。执行器单点分类 (三入口 TimeoutExpired→skip+[LOAD-TIMEOUT], generic Exception 之前), 零 yaml 编辑, INV-GOV-001 error 语义保留, skip_rate_pct 自指标承接负载观测。新增 ontology/tests/test_governance_load_timeout.py 14 单测注册 full_regression + 双向 sabotage 验证。VERSION 0.37.9.123 不变 (治理基础设施, 镜像 V37.9.214/247 惯例)。",
@@ -183,7 +188,7 @@
     "kb_stats": "240 notes, 16 today, 1805KB sources",
     "stale_jobs": "all_ok",
     "last_refresh": "2026-04-08 13:00",
-    "security_score": "95/100 (95.0%)",
+    "security_score": "98/100 (98.0%)",
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB"
   },
   "session_context": {
@@ -222,15 +227,13 @@
       "【2026-07-26 对抗审计 2 登记项 ✅ V37.9.283 已修 · 剩 Mac Mini 被动验证】(a) NOT-F3 quiet_alert 静默期已收编 notify --channel discord --topic alerts（重试+队列，队列条目 channel=discord 重放不违静默期；V37.8.13 四 pin 零破坏）。(b) NOT-F5 ProxyStats per-key 告警冷却（token_warn/token_critical/consecutive_errors，ALERT_COOLDOWN_SEC=1800 config.yaml 中心化；首报零延迟/窗口内抑制/状态恢复重武装/升级穿透）。Mac Mini 验证: 同步+重启 proxy 后，长 session 过 195K 时告警至多 1 条/30min 非每 turn；静默期 deploy 告警失败应入 notify 队列稍后重放（~/.notify_queue/）而非静默丢失。守卫 test_v37_9_283_alert_cooldown.py 23 单测 + sabotage 双向验证。",
       "【V37.9.279-281 Mac Mini 被动验证】合并+同步后: (a) 279: 次日 06:30 observer 报告若有 fp verdict, LLM critique 段应可见异常块引用 fail-plausible (on 模式评分真集成); score_history 新行有 fp_mode:\"on\" 字段; confidence 只在 L2 grounded 支持时非 1.0 (b) 280: evening \"今日笔记\" 不再含昨日条目; 论文源 parse_failed 日 evening 出\"今日任务异常\"块; harvest 部分 Map 失败日 last_run status=error 且次日重试 (c) 281: notify 队列重放无重复投递; chaspark LLM 失败日次日正常重抓 (seen 不再提前提交); wa_keepalive 日志出现 ESCALATE_FAILED 时 ~/.openclaw_alerts.log 有兜底行。"
     ],
-    "open_prs": [
-      "PR#857 (claude/todays-work-ssslzw): V37.9.285 治理 runtime check 负载超时家族收口 (执行器单点 TimeoutExpired→skip) — 待用户合并"
-    ],
+    "open_prs": [],
     "blocked_on": ""
   },
   "quality": {
     "security_score": 98,
     "test_count": 5632,
-    "last_regression": "2026-08-03 01:14 pass",
+    "last_regression": "2026-08-06 00:47 pass",
     "coverage_pct": 0,
     "security_score_time": "2026-07-20 01:07",
     "test_suites": 162,
@@ -301,7 +304,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-08-03 周一: V37.9.285 治理 runtime check 负载超时家族系统性收口 — 执行器单点 TimeoutExpired→skip (53 subprocess check 排查, 44 裸奔 check 一次性免疫, 零 yaml 编辑, 14 守卫单测+双向 sabotage)。🔴 剩: PR 待用户合并 → Mac Mini 同步 (governance_checker.py 走 FILE_MAP 零重启, 07:00 cron 生效) / A2 精度窗 07-26→08-08 进行中 (06:30 fired verdict 转发按 §9.2.4 当日判定) / A4-Q4 填表 ≥08-08 / GLM key 轮换 + qwen 出链决策 (用户动作不变)。",
+  "focus": "2026-08-06 周四: V37.9.286 门控收敛日 — CLAUDE.md Phase 5/V3 待办表 stale 收敛 (引擎包化 ✅ V37.9.137 PyPI / Extension Guide ✅ V37.9.104 / Tool Policy chunk1 ✅ V37.9.160 标记归位, 导语瓶颈句改现实) + PR#857 归账。上游无新 stable (2026.7.2 停 beta.7) 沿用第七次 hold; extended-stable 6.34 登记不触发判据。🔴 剩: Mac Mini git fetch+reset 同步 (纯 doc 零重启) / A2 精度窗至 08-08 (fired verdict 转发按 §9.2.4) / A4-Q4 填表 ≥08-08 / ISSRE 通知 8-12 / GLM key 轮换 + qwen 出链 (用户动作不变)。",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
