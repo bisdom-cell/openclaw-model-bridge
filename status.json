@@ -1,6 +1,6 @@
 {
-  "updated": "2026-08-07 00:37:21",
-  "updated_by": "full_regression",
+  "updated": "2026-08-07 01:18:44",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -79,6 +79,16 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-08-07",
+      "what": "V37.9.288 对抗审计批次2: proxy诚实输出 — 参数null-归一(config/query null曾AttributeError伪装后端502)+fix_date_cols拦截路径打通(列限制曾静默丢弃)+SystemExit收编(kb_rag sys.exit曾穿透杀HTTP线程)+搜索坏了≠没搜到((results,degraded_reason)哨兵,假否定fail-plausible退役)+expert_escalate按SOUL规则12中文渲染(曾裸JSON/英文报错直发用户)+data_clean per-step诚实渲染(skipped/error曾一律绿✓)。新套件22 tests(AST exec-with-mocks惯例),sabotage 12失败全精确命中。VERSION 0.37.9.125",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-08-07",
+      "what": "V37.9.287 对抗审计批次1: 监控读者枚举/登记收口 — observer JOB_FAILURE_STATUSES 补全6值(V37.9.280 KB-F3未修双胞胎,9源parse_failed曾被静默放过)+跨模块守卫; watchdog登记ai_leaders_blogs/bsky+movespeed(ts→time键修复,潜伏60天血案同款三漏网情形); kb_status_refresh剔除discussions死条目+per-job阈值镜像watchdog+诚实措辞。A-F4经读代码证伪不修(dream_fail_alert已是真告警)。守卫+15, sabotage全load-bearing。VERSION 0.37.9.124",
+      "by": "claude_code"
+    },
     {
       "date": "2026-08-06",
       "what": "账本(同日追加): 按用户指示从待办移除 2 项 — [28] GLM ark key 轮换(整项) + [19] doubao_21 项剩余 qwen 出链动作。unfinished 32→30。轮换步骤/vision caveat 等决策上下文留存 changelog V37.9.277/V37.9.258 可回溯, 未来需要可重新登记。",
@@ -197,7 +207,7 @@
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB"
   },
   "session_context": {
-    "last_session": "2026-08-03",
+    "last_session": "2026-08-07",
     "unfinished": [
       "【2026-07-02 多镜头审计 · 9 findings 全部处置完毕 (V37.9.226-239: 8 修复闭环 + I half-open 登记为可接受设计 tradeoff) · 剩纯 Mac Mini 被动验证】同步+重启 proxy/adapter 后观察: (A) 真 fallback 时 proxy 日志 DEGRADED 行 + proxy_stats.json slo.fallback_count 变真值 (V37.9.229) (C) ls ~/.kb/status.json.lock ~/.kb/audit.jsonl.lock 伴生锁文件出现 (V37.9.238) (E) client 断开时 adapter.log 记 CLIENT GONE 单行非 traceback (V37.9.231/242) (B) streaming 请求撞 parse 异常时 Gateway 收 SSE 而非 content-type 错配 (V37.9.239) (G) last_run_self_critique.json time 本地格式 + watchdog 4h 覆盖 observer (V37.9.230)。完整分诊记录见 CLAUDE.md V37.9.226-239 changelog, 无 dev 剩余动作。",
       "【V37.9.211/212 Qwen3 端点刷新 · adapter ✅ + V37.9.212 ✅ 已并入 main(PR#774, 2026-07-02 dev 核实) · 剩用户 env 动作】剩余非紧急: (A) .env_shared 设新 REMOTE_API_KEY+REMOTE_BASE_URL(cron 直连脚本 health_check 每周报 CURRENT_MODEL/diagnose 用) (C) 🔴 明文 key 建议用完轮换。教训钉死: adapter/proxy 是 launchd job, env 改必须进 plist EnvironmentVariables + bootout/bootstrap(不是 shell export + kickstart)。",
@@ -228,7 +238,12 @@
       "【🔴 LLM-Observer 研究攻关 #1 · OBSERVER_FP_MODE=on 已上线（2026-07-25 三步全落地）· 剩首日 E2E 观察】flip 决策 2026-07-24 §9.1.1（14 天 live 全零 fp + C1/C2/C3 全满足）。落地实录: (a) ✅ PR#850 合并 + Mac Mini git reset 同步（daily_observer.sh env plumbing 生效） (b) ✅ ~/.env_shared 加 export OBSERVER_FP_MODE=on（rollback=改回 shadow） (c) ✅ score_history 清污染核实为 no-op——Mac Mini 实测（2026-07-25 grep 分布）: 73 行零条 05-25、llm_failed 仅 2（71 ok）、07-20→24 每日恰 1 行 = 无污染追加; 结构 = ~60 唯一日期真实历史 + 13 条 5-6 月 dev 期同日重跑（05-26/27/28/31、06-29, 良性保留）。V37.9.276 所见「30 行大量 05-25 llm_failed」与此文件行数算术不相容 → 污染最可能在 dev 容器 ~/.kb（全量 test_daily_observer 只在 dev full_regression 跑; Mac Mini governance 经 V37.9.124 收窄只跑契约核心类不含 CLI 测试）。两侧源头已修死（V37.9.274 dry-run 守卫 + V37.9.276 测试隔离, 07-25 同步生效）。剩: 明 06:30 首日 E2E——报告 fail_plausible 段标 [on] + 无 FP 风暴 + score_history 恰新增 1 行 date=2026-07-25。Stage 6 论文 #2 草案 gated 于 on 模式 detection latency 生产数据。 ｜V37.9.284: A2 十四天窗(07-26→08-08)判定口径已预注册 design doc §9.2 — fired verdict 转发→当日按 §9.2.4 判定入 §9.2.6 台账; A4-Q4 数据表填充 gated ≥08-08 按 §9.2.3 冻结规则。",
       "【2026-07-26 对抗审计 JOB-F1 ✅ V37.9.282 已铺开 · 剩 Mac Mini 被动验证】8 脚本 200-but-unparseable 守卫全部落地 (四类结构分别适配): A. rss_blogs/ai_leaders_blogs XML 全款 (exit 2+根白名单+PARSE_RC→FETCH_ERRORS) / B. bsky JSON 根形状 feed 键校验 / C. dblp+s2 全结果文件解析失败→exit 2→既有 parse_failed 分支 / D. hn/chaspark/freight 单源 fail-loud (parse_failed/fetch_failed 不落 \"无新内容\" ok)。守卫 test_v37_9_282_parse_guard_rollout.py 15 单测 (含 heredoc compile+非空断言) + bsky 既有 pin 演进 (corrupt JSON exit 0→2, FAIL-OPEN 上移 shell 级)。Mac Mini 验证: 同步后各 job 正常日照常 ok; 若未来某源被反爬, watchdog 应出 fetch_failed/parse_failed 告警而非静默 new:0 ok。",
       "【2026-07-26 对抗审计 2 登记项 ✅ V37.9.283 已修 · 剩 Mac Mini 被动验证】(a) NOT-F3 quiet_alert 静默期已收编 notify --channel discord --topic alerts（重试+队列，队列条目 channel=discord 重放不违静默期；V37.8.13 四 pin 零破坏）。(b) NOT-F5 ProxyStats per-key 告警冷却（token_warn/token_critical/consecutive_errors，ALERT_COOLDOWN_SEC=1800 config.yaml 中心化；首报零延迟/窗口内抑制/状态恢复重武装/升级穿透）。Mac Mini 验证: 同步+重启 proxy 后，长 session 过 195K 时告警至多 1 条/30min 非每 turn；静默期 deploy 告警失败应入 notify 队列稍后重放（~/.notify_queue/）而非静默丢失。守卫 test_v37_9_283_alert_cooldown.py 23 单测 + sabotage 双向验证。",
-      "【V37.9.279-281 Mac Mini 被动验证】合并+同步后: (a) 279: 次日 06:30 observer 报告若有 fp verdict, LLM critique 段应可见异常块引用 fail-plausible (on 模式评分真集成); score_history 新行有 fp_mode:\"on\" 字段; confidence 只在 L2 grounded 支持时非 1.0 (b) 280: evening \"今日笔记\" 不再含昨日条目; 论文源 parse_failed 日 evening 出\"今日任务异常\"块; harvest 部分 Map 失败日 last_run status=error 且次日重试 (c) 281: notify 队列重放无重复投递; chaspark LLM 失败日次日正常重抓 (seen 不再提前提交); wa_keepalive 日志出现 ESCALATE_FAILED 时 ~/.openclaw_alerts.log 有兜底行。"
+      "【V37.9.279-281 Mac Mini 被动验证】合并+同步后: (a) 279: 次日 06:30 observer 报告若有 fp verdict, LLM critique 段应可见异常块引用 fail-plausible (on 模式评分真集成); score_history 新行有 fp_mode:\"on\" 字段; confidence 只在 L2 grounded 支持时非 1.0 (b) 280: evening \"今日笔记\" 不再含昨日条目; 论文源 parse_failed 日 evening 出\"今日任务异常\"块; harvest 部分 Map 失败日 last_run status=error 且次日重试 (c) 281: notify 队列重放无重复投递; chaspark LLM 失败日次日正常重抓 (seen 不再提前提交); wa_keepalive 日志出现 ESCALATE_FAILED 时 ~/.openclaw_alerts.log 有兜底行。",
+      "【V37.9.287/288 Mac Mini 被动验证】合并+git fetch+reset 同步(全走FILE_MAP)+重启proxy后: (287) 未来反爬日 observer 06:30 报告记 HIGH job_failure 非无异常 / blogs(13:30)/bsky(17:00)/movespeed(04:00) 停跑50h内 watchdog 告警 / health.stale_jobs 不再含 discussions 恒噪声 (288) 语义索引故障时 PA 说\"检索暂不可用\"而非\"KB里没有\" / expert 触发词得到中文渲染(非裸JSON/英文报错) / data_clean 局部失败可见⚠️/❌",
+      "【mm_index 静默失效家族 · 对抗审计 B-F1 登记 · dev-fixable 下 session 候选(MED-HIGH)】四机制叠加=多模态记忆层可100%静默失效无界时长: (a) mm_index_cron.sh:31-39 set -e 让 FAILED 分支死代码 (b) mm_index.py:225 save_meta 无条件执行(对比 kb_embed:542 条件写)→meta.json mtime 每2h刷新, 任何 freshness 检查结构失效且 watchdog:786 只覆盖 text_index 无 mm 检查 (c) mm_index.py:191 file_hash 在 try 外→scan-hash 间文件被删→崩溃→vectors.bin 领先 meta 永久错位→mm_search reshape ValueError 被 memory_plane 吞成[] 永不自愈(仅--reindex能修) (d) per-file ❌ 不匹配 watchdog err_pattern。另: MODEL_ID=gemini-embedding-2-preview 退役风险。修复方向: 镜像 kb_embed 模式(条件 save_meta+watchdog mm 检查+hash 入 try+对齐校验)",
+      "【KB 幽灵向量+indexed_at 断链 · 对抗审计 B-F4/B-F5 登记(MED, 设计决策)】(a) kb_dedup 每晚 os.remove 重复笔记但 text_index 从不 prune(kb_embed:496 无删除检测)→已删3个月内容带相关度分数被检索, PA 引用当最新(纯语义假输出零日志) (b) indexed_at 三级丢弃: kb_rag:203 语义分支不含/memory_plane:90 metadata 不含→tool_proxy time_info 恒空+memory_plane FRESHNESS_DECAY 整段死代码(全仓 grep 穷举确认) (c) B-F5 load_vectors(kb_rag:45) 只防短不防长→错位静默截断张冠李戴(~24h rebuild 自愈窗口, 排最低)。设计决策: prune 时机(rebuild 时对账?)+metadata 透传链",
+      "【proxy 观测口径 follow-up · 对抗审计 C-F3/C-F4 登记(LOW-MED, SLO 口径设计决策)】(a) REST /data_clean subprocess 四站点(tool_proxy:339/376/401/420)未捕获 TimeoutExpired→连接直断空回复(与 LLM 路径:736 不对称, 运维面误导 restart) (b) search_kb followup 失败造无 usage fallback(:950)→record_success 记成功+转储写进对话捕获(KB 自反馈污染) (c) elapsed(:1155) 在工具执行前冻结→p95 对 search_kb/data_clean 轮次漏计最多90s (d) tool_ok result[:100] 窗口→expert read_only_violation 记 success。",
+      "【expert api_unavailable 真降级 followup 化 · C-F2 后半(设计 follow-up)】V37.9.288 渲染层已消除裸 JSON/英文 dump, 但 SOUL 规则12 \"api_unavailable→我用 Qwen3 自己回答\" 仍靠用户重发一次(本路径 finish_reason=stop, PA LLM 看不到结果)。结构性兑现=expert 失败态复用 _followup_llm_call 让 Qwen3 直接接管作答(行为变更需 Mac Mini E2E, 罕见失败路径+1次 LLM 调用成本可接受)。"
     ],
     "open_prs": [],
     "blocked_on": ""
@@ -307,7 +322,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-08-06 周四: V37.9.286 门控收敛日 — CLAUDE.md Phase 5/V3 待办表 stale 收敛 (引擎包化 ✅ V37.9.137 PyPI / Extension Guide ✅ V37.9.104 / Tool Policy chunk1 ✅ V37.9.160 标记归位, 导语瓶颈句改现实) + PR#857 归账 + 同日追加: 按用户指示移除 GLM key 轮换 + qwen 出链两项待办 (32→30, 决策上下文留 changelog V37.9.277/258 可回溯)。上游无新 stable (2026.7.2 停 beta.7) 沿用第七次 hold。🔴 剩: Mac Mini git fetch+reset 同步 (纯 doc 零重启) / A2 精度窗至 08-08 (fired verdict 转发按 §9.2.4) / A4-Q4 填表 ≥08-08 / ISSRE 通知 8-12。",
+  "focus": "2026-08-07 周五: V37.9.287/288 门控收敛日三镜头对抗审计(last_run状态契约/Memory-RAG栈/proxy拦截面, 15 findings→11修复+1证伪+登记) — 批次1监控读者枚举/登记收口 + 批次2 proxy诚实输出。🔴 剩: Mac Mini git fetch+reset 同步+重启proxy / A2精度窗08-08关窗(fired verdict转发按§9.2.4) / A4-Q4填表≥08-08 / ISSRE通知8-12。上游无新stable沿用第七次hold。",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
