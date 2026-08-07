@@ -84,12 +84,12 @@ class TestVerifiedFeaturesV9_55Complete(unittest.TestCase):
         self.providers = _reload_providers()
         self.d = self.providers.get_provider("doubao")
 
-    def test_doubao_verified_features_v290_reset(self):
-        # 史: V37.9.55 曾锁定 5 项 (Ark E2E 全 flip); V37.9.290 平台切换全重置
+    def test_doubao_verified_features_v291(self):
+        # 史: Ark 5 项 → V37.9.290 重置 → V37.9.291 tokenhub text+reasoning
         features = self.d.capabilities.verified_features()
         self.assertEqual(
-            set(features), set(),
-            f"V37.9.290 重置后应为空集, got {features}",
+            set(features), {"text", "reasoning"},
+            f"V37.9.291 应为 text+reasoning, got {features}",
         )
 
 
@@ -106,10 +106,10 @@ class TestCapScoreV9_55(unittest.TestCase):
         + 5 verified*2 (text/vision/tool_calling/streaming/reasoning) = 16."""
         doubao = self.reg.get("doubao")
         score = self.reg._capability_score(doubao)
-        # 史: V37.9.55 曾 16; V37.9.290 平台切换 verified 全重置 → 6
+        # 史: V37.9.55 曾 16 → V37.9.290 重置 6 → V37.9.291 tokenhub 半升档 10
         self.assertEqual(
-            score, 6,
-            f"V37.9.290 重置后 doubao cap_score 锁定 6, got {score}",
+            score, 10,
+            f"V37.9.291 半升档后 doubao cap_score 锁定 10, got {score}",
         )
 
     def test_doubao_cap_score_below_qwen_after_reset_v290(self):

@@ -150,12 +150,12 @@ class TestDoubaoVerifiedVision(unittest.TestCase):
         self.assertNotIn("vision", features,
                          "V37.9.290 重置后 features 不应含 vision")
 
-    def test_verified_features_v290_reset_set(self):
-        """史: V37.9.54 三项 → V37.9.55 五项 (Ark E2E); V37.9.290 平台切换全重置."""
+    def test_verified_features_v291_set(self):
+        """史: Ark 五项 → V37.9.290 重置空集 → V37.9.291 tokenhub text+reasoning."""
         features = self.d.capabilities.verified_features()
         self.assertEqual(
-            set(features), set(),
-            f"V37.9.290 重置后 doubao verified_features 锁定空集, got {features}",
+            set(features), {"text", "reasoning"},
+            f"V37.9.291 doubao verified_features 锁定 text+reasoning, got {features}",
         )
 
     def test_unverified_flags_still_false(self):
@@ -188,8 +188,8 @@ class TestDoubaoCapScoreUpRanking(unittest.TestCase):
         doubao = self.reg.get("doubao")
         score = self.reg._capability_score(doubao)
         self.assertEqual(
-            score, 6,
-            f"V37.9.290 重置后 doubao cap_score 锁定 6, got {score}",
+            score, 10,
+            f"V37.9.291 半升档后 doubao cap_score 锁定 10, got {score}",
         )
 
     def test_doubao_21_leads_fallback_chain_v290(self):

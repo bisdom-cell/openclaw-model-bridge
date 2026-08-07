@@ -123,16 +123,16 @@ class TestVerificationTier(unittest.TestCase):
         self.assertTrue(any("unknown verification_tier" in v for v in violations))
 
     # --- 真 provider 档位 ---
-    def test_qwen_production_observed_doubao_declared_v290(self):
-        # V37.9.290: doubao 平台切换 ai-tokenhub → Ark 时代 production_observed
-        # 证据不迁移, tier 重置 declared (tier_note 记史)。qwen 不受影响。
-        from providers import _default_registry, TIER_PRODUCTION_OBSERVED, TIER_DECLARED
+    def test_qwen_production_observed_doubao_feature_verified_v291(self):
+        # V37.9.290 平台切换重置 declared → V37.9.291 tokenhub E2E 探针升
+        # feature_verified (text+reasoning 2/2)。qwen 不受影响。
+        from providers import _default_registry, TIER_PRODUCTION_OBSERVED, TIER_FEATURE_VERIFIED
         self.assertEqual(
             _default_registry.get("qwen").capabilities.verification_tier,
             TIER_PRODUCTION_OBSERVED)
         self.assertEqual(
             _default_registry.get("doubao").capabilities.verification_tier,
-            TIER_DECLARED)
+            TIER_FEATURE_VERIFIED)
         self.assertIn("ai-tokenhub",
                       _default_registry.get("doubao").capabilities.tier_note)
 
@@ -1805,33 +1805,37 @@ class TestGlm5CodingProvider(unittest.TestCase):
         self.assertNotEqual(builtin.base_url, get_provider("glm5_coding").base_url)
         self.assertNotEqual(builtin.api_key_env, "GLM5_API_KEY")
 
-    def test_declared_after_platform_switch_v290(self):
-        # V37.9.290 平台切回 ai-tokenhub: Ark 时代 feature_verified (V37.9.256-258 3/3
-        # E2E) 在新 serving 栈不迁移 → tier 重置 declared + verified_* 全 False
-        # (镜像 V37.9.255 平台切换纪律), tier_note 记史, E2E 复测后逐项升档。
+    def test_feature_verified_after_tokenhub_probe_v291(self):
+        # V37.9.290 平台切回 ai-tokenhub 重置 declared → V37.9.291 tokenhub E2E
+        # 探针 flip text+reasoning (reasoning 为 tokenhub 新发现: Ark ep- 时代
+        # reasoning_tokens=0, Bifrost 网关暴露 reasoning 字段真实推理链)。
+        # tool_calling/streaming 未经 tokenhub 实测保持 False。
         from providers import get_provider
         caps = get_provider("glm5_coding").capabilities
-        self.assertEqual(caps.verification_tier, "declared")
-        self.assertFalse(caps.verified_text)
+        self.assertEqual(caps.verification_tier, "feature_verified")
+        self.assertTrue(caps.verified_text)
+        self.assertTrue(caps.verified_reasoning)
         self.assertFalse(caps.verified_streaming)
         self.assertFalse(caps.verified_tool_calling)
-        self.assertFalse(caps.verified_reasoning)
         self.assertFalse(caps.verified_vision)
         self.assertFalse(caps.verified_fallback)
         self.assertIn("ai-tokenhub", caps.tier_note)
+        self.assertIn("E2E", caps.tier_evidence)
         self.assertEqual(caps.tier_consistency_violations(), [])
 
     def test_coding_capabilities(self):
-        # V37.9.258 E2E 全探针后能力画像: text/tool_calling/streaming True; json_mode 实测不支持 (400) → False
+        # V37.9.258 Ark 画像 → V37.9.291 tokenhub 修订: reasoning 翻案 True
+        # (Bifrost 网关暴露 reasoning 字段, Ark ep- 时代 reasoning_tokens=0)
         from providers import get_provider
         caps = get_provider("glm5_coding").capabilities
         self.assertTrue(caps.text)
         self.assertTrue(caps.tool_calling)
         self.assertTrue(caps.streaming)
-        self.assertFalse(caps.json_mode)   # E2E: HTTP 400 json_object is not supported by this model
+        self.assertFalse(caps.json_mode)   # Ark E2E 400; tokenhub 未复测保守沿用
         self.assertFalse(caps.vision)      # GLM-5V 是独立模型
-        self.assertFalse(caps.reasoning)   # reasoning_tokens=0, 无 reasoning 通道
-        # 无 reasoning → 不声明 batch-reasoning-off (原则 #23)
+        self.assertTrue(caps.reasoning)    # V37.9.291 tokenhub E2E: reasoning 字段真实推理链
+        # reasoning_off_body 仍不声明: thinking 参数未在本模型实测 + glm5 不进
+        # batch/auto-fallback 消费路径 (原则 #23 不投机 declare)
         self.assertIsNone(get_provider("glm5_coding").reasoning_off_body)
 
     def test_excluded_from_available_without_key(self):

@@ -68,13 +68,20 @@ class DoubaoSeedProvider(BaseProvider):
         reasoning=True,        # 推理模型, Ark 时代实测 reasoning_content 通道
         context_window=262144,
         max_output_tokens=16384,
-        # V37.9.290: 平台切换 → verified_* 全部重置 (Ark 证据不迁移)
-        verified_text=False,
-        verified_vision=False,
-        verified_tool_calling=False,
-        verified_streaming=False,
-        verified_reasoning=False,
-        verified_fallback=False,
-        verification_tier="declared",
-        tier_note="2026-08-08 平台切换 ai-tokenhub, E2E 复测前 Ark 时代证据不迁移",
+        # V37.9.290 平台切换重置 → V37.9.291 tokenhub E2E 探针逐项升档:
+        # text+reasoning 实测通过; vision/tool_calling/streaming 待探针 (诚实 False)
+        verified_text=True,          # V37.9.291 E2E 2026-08-08: 200 + 正确 content + finish_reason=stop
+        verified_vision=False,       # tokenhub 网关 image_url 透传未实测
+        verified_tool_calling=False, # 未经 tokenhub 实测
+        verified_streaming=False,    # 未经 tokenhub 实测
+        verified_reasoning=True,     # V37.9.291 E2E: reasoning 字段完整 + reasoning_tokens=263
+        verified_fallback=False,     # 未真生产 fallback 接管 (tokenhub 时代)
+        verification_tier="feature_verified",
+        tier_note="2026-08-08 平台切换 ai-tokenhub 后 E2E 半升档 (text+reasoning)",
+        tier_evidence="ai-tokenhub E2E 探针 2026-08-08 (V37.9.291): text+reasoning 2/2 通过 "
+                      "(200 + finish_reason=stop + 正确 content + reasoning 字段完整 "
+                      "reasoning_tokens=263, 响应 model 回显 doubao-seed-2.0-pro = 别名路由正确; "
+                      "注意 tokenhub 字段名 reasoning 非 Ark 的 reasoning_content)；"
+                      "vision/tool_calling/streaming 未经 tokenhub 实测保持 False; "
+                      "Ark 时代 production_observed 史见 docstring",
     )
