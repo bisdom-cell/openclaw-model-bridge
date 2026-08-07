@@ -1,12 +1,13 @@
 """V37.9.52/53/54/55 — Doubao Seed 2.0 Pro Provider (Volcengine Ark)
 
-接入第 8 个 provider: doubao-seed-2-0-pro (火山引擎 Ark, 主力 LLM, 多模态 + reasoning).
+接入第 8 个 provider: doubao-seed-2.0-pro-huakun (火山引擎 Ark, 多模态 + reasoning;
+V37.9.289 更名, 原 doubao-seed-2-0-pro).
 
 设计契约:
 - API key 严格走 env ARK_API_KEY (不可硬编码, 即便用户豁免也守公开 repo 安全底线)
 - Endpoint ID 走 env ARK_ENDPOINT_ID (Volcengine 的 model 字段接收 endpoint ID
   而不是 model name, 这是 Volcengine Ark 与 OpenAI Compatible 端点的关键差异)
-- dev 环境无 env → fallback 到公开 model 标识符 doubao-seed-2-0-pro
+- dev 环境无 env → fallback 到公开 model 标识符 doubao-seed-2.0-pro-huakun
   (合约通过 + ProviderRegistry.available() 会因缺 ARK_API_KEY 自动排除)
 - Mac Mini 配 env → 真实 endpoint ID 注入, fallback chain 激活
 
@@ -39,7 +40,10 @@ import os
 from providers import BaseProvider, ModelInfo, ProviderCapabilities
 
 
-_DOUBAO_FALLBACK_MODEL = "doubao-seed-2-0-pro"
+# V37.9.289 (2026-08-07 用户变更): 公开 model 标识符 doubao-seed-2-0-pro →
+# doubao-seed-2.0-pro-huakun (其他参数不变; 生产在 ARK_ENDPOINT_ID env 设置时
+# 仍以 ep- 接入点 ID 为准, 本 fallback 仅在 env 缺失时进请求体)。
+_DOUBAO_FALLBACK_MODEL = "doubao-seed-2.0-pro-huakun"
 
 
 class DoubaoSeedProvider(BaseProvider):
@@ -59,7 +63,7 @@ class DoubaoSeedProvider(BaseProvider):
         self.models = [
             ModelInfo(
                 model_id=endpoint_id,
-                display_name="doubao-seed-2-0-pro-260215",
+                display_name="doubao-seed-2.0-pro-huakun",
                 modalities=["text", "vision"],
                 context_window=262144,
                 max_output_tokens=16384,

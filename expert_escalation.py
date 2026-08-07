@@ -12,7 +12,7 @@ Why Doubao first:
 - 10-30x cheaper than Claude Opus 4.7 (~$0.01-0.02/call vs ~$0.47 首调)
 - Volcengine Context Cache: automatic prompt caching for prefix ≥ 1024 tokens
   (no manual cache_control needed; we keep stable prefix structure to benefit)
-- Reasoning model: doubao-seed-2-0-pro returns `reasoning_content` field
+- Reasoning model: doubao-seed-2.0-pro-huakun (V37.9.289 更名) returns `reasoning_content` field
   (similar surface to Claude adaptive thinking)
 - Zero new dependency: uses stdlib urllib (no openai / anthropic / requests)
 
@@ -65,8 +65,10 @@ DOUBAO_ENDPOINT_URL = DOUBAO_BASE_URL + "/chat/completions"
 DOUBAO_API_KEY_ENV = "ARK_API_KEY"
 DOUBAO_ENDPOINT_ID_ENV = "ARK_ENDPOINT_ID"
 # Public model identifier — fallback when ARK_ENDPOINT_ID env missing (dev safe).
-# In production ARK_ENDPOINT_ID = "ep-20260511174451-dlhm8" (user-specific).
-DOUBAO_DEFAULT_MODEL_ID = "doubao-seed-2-0-pro"
+# In production ARK_ENDPOINT_ID = "ep-..." (user-specific, 类机密不入库 V37.9.216 惯例;
+# V37.9.289 顺手脱敏此前泄漏在注释里的真实 ep ID)。
+# V37.9.289 (2026-08-07 用户变更): doubao-seed-2-0-pro → doubao-seed-2.0-pro-huakun。
+DOUBAO_DEFAULT_MODEL_ID = "doubao-seed-2.0-pro-huakun"
 DOUBAO_REQUEST_TIMEOUT_SEC = 60
 
 DEFAULT_MAX_TOKENS = 4000          # response cap; per-call cost ceiling
@@ -412,7 +414,7 @@ class DoubaoTransport:
     def __init__(self, api_key=None, endpoint_id=None, base_url=DOUBAO_BASE_URL,
                  timeout=DOUBAO_REQUEST_TIMEOUT_SEC):
         self.api_key = api_key or os.environ.get(DOUBAO_API_KEY_ENV, "")
-        # endpoint_id is user-specific (e.g. ep-20260511174451-dlhm8) in production;
+        # endpoint_id is user-specific (ep-... format, 类机密不入库 V37.9.216 惯例) in production;
         # falls back to public model identifier in dev (safe — won't auth without key).
         self.endpoint_id = (endpoint_id
                             or os.environ.get(DOUBAO_ENDPOINT_ID_ENV, "")

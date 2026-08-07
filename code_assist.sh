@@ -18,7 +18,7 @@
 #   ./code_assist.sh --temp 0 --max-tokens 4096 "..."
 set -euo pipefail
 
-MODEL="${GLM5_ENDPOINT_ID:-${GLM5_MODEL:-glm-5-2-260617}}"
+MODEL="${GLM5_ENDPOINT_ID:-${GLM5_MODEL:-glm-5.2-huakun}}"
 BASE_URL="${GLM5_BASE_URL:-https://ark.cn-beijing.volces.com/api/v3}"
 MAX_TOKENS=8192
 TEMP=0.2

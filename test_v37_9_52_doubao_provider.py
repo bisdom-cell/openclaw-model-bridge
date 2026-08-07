@@ -97,32 +97,32 @@ class TestDoubaoEndpointIdHandling(unittest.TestCase):
         os.environ.pop("ARK_ENDPOINT_ID", None)
 
     def test_dev_env_no_endpoint_id_uses_fallback(self):
-        """缺 env → 用 fallback 公开模型号 doubao-seed-2-0-pro."""
+        """缺 env → 用 fallback 公开模型号 doubao-seed-2.0-pro-huakun (V37.9.289 更名)."""
         os.environ.pop("ARK_ENDPOINT_ID", None)
         providers = _reload_providers()
         d = providers.get_registry().get("doubao")
-        self.assertEqual(d.model_id, "doubao-seed-2-0-pro")
+        self.assertEqual(d.model_id, "doubao-seed-2.0-pro-huakun")
 
     def test_env_endpoint_id_injected(self):
         """有 env → 真实 endpoint ID 注入 model_id."""
-        os.environ["ARK_ENDPOINT_ID"] = "ep-20260511174451-dlhm8"
+        os.environ["ARK_ENDPOINT_ID"] = "ep-20260101000000-dummy0"
         providers = _reload_providers()
         d = providers.get_registry().get("doubao")
-        self.assertEqual(d.model_id, "ep-20260511174451-dlhm8")
+        self.assertEqual(d.model_id, "ep-20260101000000-dummy0")
 
     def test_empty_endpoint_id_uses_fallback(self):
         """空字符串 → fallback (不能让空 model_id 进合约)."""
         os.environ["ARK_ENDPOINT_ID"] = ""
         providers = _reload_providers()
         d = providers.get_registry().get("doubao")
-        self.assertEqual(d.model_id, "doubao-seed-2-0-pro")
+        self.assertEqual(d.model_id, "doubao-seed-2.0-pro-huakun")
 
     def test_whitespace_endpoint_id_uses_fallback(self):
         """空白字符串 → fallback (防 env 配置失误)."""
         os.environ["ARK_ENDPOINT_ID"] = "   "
         providers = _reload_providers()
         d = providers.get_registry().get("doubao")
-        self.assertEqual(d.model_id, "doubao-seed-2-0-pro")
+        self.assertEqual(d.model_id, "doubao-seed-2.0-pro-huakun")
 
 
 class TestDoubaoCapabilities(unittest.TestCase):
@@ -256,11 +256,11 @@ class TestSourceLevelGuards(unittest.TestCase):
 
     def test_fallback_model_id_is_public_identifier(self):
         """fallback model_id 必须是公开 model 标识符, 不得是用户专属 endpoint ID."""
-        # 公开标识符 doubao-seed-2-0-pro 可以入代码
-        self.assertIn("doubao-seed-2-0-pro", self.plugin_src)
+        # 公开标识符 doubao-seed-2.0-pro-huakun 可以入代码 (V37.9.289 更名)
+        self.assertIn("doubao-seed-2.0-pro-huakun", self.plugin_src)
         # 用户专属 endpoint ID 不得入代码 (即便用户豁免也守 public repo 安全底线)
         self.assertNotIn(
-            "ep-20260511174451-dlhm8", self.plugin_src,
+            "ep-20260101000000-dummy0", self.plugin_src,
             "用户专属 endpoint ID 不得硬编码 — 必须走 ARK_ENDPOINT_ID env var",
         )
 

@@ -3,7 +3,8 @@
                🌟 有 R1 reasoning_content 通道 (量化版无) + 无乱码 token (量化版有);
                vision 确认不支持; json_mode 返回围栏 (非严格 response_format, 保持 False)。
 
-接入第 10 个 provider: deepseek-v4-pro-260425 (满血版, via ai-tokenhub API hub).
+接入第 10 个 provider: deepseek-v4-pro-huakun (满血版, via ai-tokenhub API hub;
+V37.9.289 更名, 原 deepseek-v4-pro-260425).
 定位 = Qwen3 迁移的【新候选】, 替代被 pending 的量化版 deepseek (w4a8-mtp 偶发乱码)。
 
 ⚠️ 运维注意: 满血版是推理模型, 先生成 reasoning 再生成 content (reasoning 占 token 预算)。
@@ -45,8 +46,10 @@ class DeepSeekFullProvider(BaseProvider):
     reasoning_off_body = {"thinking": {"type": "disabled"}}
     models = [
         ModelInfo(
-            model_id="deepseek-v4-pro-260425",
-            display_name="deepseek-v4-pro-260425 (满血版)",
+            # V37.9.289 (2026-08-07 用户变更): deepseek-v4-pro-260425 → deepseek-v4-pro-huakun
+            # (其他参数不变; ai-tokenhub 无 endpoint-ID 间接层, 本 model 名直接进请求体)。
+            model_id="deepseek-v4-pro-huakun",
+            display_name="deepseek-v4-pro-huakun (满血版)",
             modalities=["text"],
             context_window=1048576,    # V37.9.207 端点规格 1M (1024K, 用户/端点确认; 原 65536 是未实测占位)
             max_output_tokens=8192,    # 保守占位, 待实测
@@ -75,8 +78,10 @@ class DeepSeekFullProvider(BaseProvider):
         verified_reasoning=True,   # E2E: reasoning_content 通道 + reasoning_tokens>0
         # feature_verified: 分项 E2E 实测通过但未真生产流量 (tier_evidence 必须显式引用证据)
         verification_tier="feature_verified",
-        tier_evidence="Mac Mini E2E 实测 2026-06-30: text/tool_calling/reasoning 3/3 通过 "
+        tier_evidence="Mac Mini E2E 实测 2026-06-30 (时为 model=deepseek-v4-pro-260425): "
+                      "text/tool_calling/reasoning 3/3 通过 "
                       "(干净中文+finish_reason / finish_reason=tool_calls+arguments / "
                       "reasoning 字段填充+reasoning_tokens=55 R1 通道)；无乱码 token (优于量化版 w4a8)；"
-                      "vision 实测不支持 (400) / json_mode 围栏非严格 / streaming 未单测 / 未真生产 fallback",
+                      "vision 实测不支持 (400) / json_mode 围栏非严格 / streaming 未单测 / 未真生产 fallback。"
+                      "2026-08-07 model ID 更名 deepseek-v4-pro-huakun (V37.9.289, 同端点同 key), 更名后 E2E 待 Mac Mini 复测",
     )
