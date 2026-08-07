@@ -61,7 +61,12 @@ _JOBS_CACHE_PATHS = [
 # → ArXiv+HF+DBLP 同日 parse 全失败时 evening 无 "今日任务异常" 块, 稀薄论文日被
 # 叙述成正常 (writer 状态枚举与 reader allowlist 漂移 = MR-8 一物一形家族)。
 _FAILURE_STATUSES = {"llm_failed", "fetch_failed", "send_failed",
-                     "partial_degraded", "parse_failed"}
+                     "partial_degraded", "parse_failed",
+                     # V37.9.287 (对抗审计 A-F1 补全): freight 写 parse_low /
+                     # acl_anthology 写 no_volumes — writer 全集对账后补齐。
+                     # 与 daily_observer.JOB_FAILURE_STATUSES 的关系由
+                     # test_daily_observer 跨模块守卫钉死（本集合 = 彼 + partial_degraded）。
+                     "parse_low", "no_volumes"}
 
 
 def collect_job_failures(today=None):

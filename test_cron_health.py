@@ -1038,5 +1038,48 @@ class TestStatusUpdateNewFields(unittest.TestCase):
         self.assertIn('"last_refresh"', content)
 
 
+class TestV379287StaleJobsSemantics(unittest.TestCase):
+    """V37.9.287 (对抗审计 A-F3): kb_status_refresh stale_jobs 三处修正守卫.
+
+    (a) discussions 指向 enabled=false 的 run_discussions, 冻结时间戳把字段永久
+        钉在非 all_ok — 真过期 job 淹没在惯性字符串里 (用户习惯性忽略)。
+    (b) 单一 7h 阈值 vs job 真实节奏 (freight 1/天) — freight 每天 17h "过期"
+        = 恒噪声; per-job 阈值与 job_watchdog JOBS 同值 (跨文件一物一形)。
+    (c) "全部Job运行正常" 是过强声明 (本检查只测新鲜度不读 status)。
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        with open("kb_status_refresh.sh", encoding="utf-8") as f:
+            cls.src = f.read()
+
+    def test_disabled_discussions_removed(self):
+        self.assertNotIn("last_run_discussions", self.src,
+                         "run_discussions enabled=false (V37.9.50-hotfix3), "
+                         "监控它 = 字段永久非 all_ok")
+
+    def test_per_job_thresholds_mirror_watchdog(self):
+        # 跨文件一致性: 与 job_watchdog.sh JOBS 同值 (arxiv 28h / hn 14h / freight 50h)
+        self.assertIn("100800", self.src, "arxiv 2/天 → 28h (镜像 watchdog)")
+        self.assertIn("50400", self.src, "hn 3/天 → 14h (镜像 watchdog)")
+        self.assertIn("180000", self.src, "freight 1/天 → 50h (镜像 watchdog)")
+        with open("job_watchdog.sh", encoding="utf-8") as f:
+            wd = f.read()
+        for pat in ("arxiv_monitor/cache/last_run.json|100800",
+                    "hn_watcher/cache/last_run.json|50400",
+                    "freight_watcher/cache/last_run.json|180000"):
+            self.assertIn(pat, wd,
+                          "watchdog 阈值变更时必须同步 kb_status_refresh (MR-8)")
+
+    def test_flat_7h_threshold_retired(self):
+        self.assertNotIn("> 25200", self.src,
+                         "单一 7h 阈值已退役 (freight 每天 17h 假过期)")
+
+    def test_honest_freshness_wording(self):
+        self.assertIn("无过期Job", self.src)
+        self.assertNotIn("全部Job运行正常", self.src,
+                         "新鲜度检查不得宣称'运行正常' (job 可准点跑且天天失败)")
+
+
 if __name__ == "__main__":
     unittest.main()

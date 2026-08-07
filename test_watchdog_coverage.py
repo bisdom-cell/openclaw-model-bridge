@@ -369,3 +369,53 @@ class TestV379145KbIndexThreshold(unittest.TestCase):
         block = reg[i:i + 400]
         self.assertIn('interval: "30 3 * * *"', block,
                       "kb_embed interval 变更时必须同步 watchdog KB 索引阈值 (97200)")
+
+
+class TestV379287Enrollment(unittest.TestCase):
+    """V37.9.287 (对抗审计 A-F2/A-F5): 三个 enabled 却零登记的 job 补入 JOBS.
+
+    ai_leaders_blogs/bsky (V37.9.108/111 引入的 ai_leaders_x 替代品) 与
+    movespeed_daily_sync (KB 灾备) 此前不在任何 watchdog 数组 — job 停跑/失败
+    永久静默。movespeed 另有 ts→time 时间键漂移 (读者全部读 time)。
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.src = _read()
+        with open(os.path.join(REPO_ROOT, "movespeed_daily_sync.sh"),
+                  encoding="utf-8") as f:
+            cls.ms_src = f.read()
+
+    def test_ai_leaders_blogs_enrolled(self):
+        self.assertIn(
+            "ai_leaders_blogs|$HOME/.openclaw/jobs/ai_leaders_blogs/cache/last_run.json|180000",
+            self.src,
+            "A-F2: blogs 每天 13:30, 停跑曾无人发现 (替代品死掉不可见)")
+
+    def test_ai_leaders_bsky_enrolled(self):
+        self.assertIn(
+            "ai_leaders_bsky|$HOME/.openclaw/jobs/ai_leaders_bsky/cache/last_run.json|180000",
+            self.src,
+            "A-F2: bsky 每天 17:00, 停跑曾无人发现")
+
+    def test_movespeed_daily_sync_enrolled(self):
+        self.assertIn(
+            "movespeed_daily_sync|$HOME/.kb/cache/last_run_movespeed_sync.json|180000",
+            self.src,
+            "A-F5: KB 灾备 job — incident 链只抓爆发失败 (≥5/24h), "
+            "每日1次持续失败/skipped_no_ssd/停跑曾全部漏网 (MOVESPEED 潜伏 60 天血案同款)")
+
+    def test_new_entries_are_auxiliary_tier(self):
+        # registry tier=auxiliary, watchdog 登记必须一致 (blogs/bsky/movespeed)
+        for jid in ("ai_leaders_blogs|", "ai_leaders_bsky|", "movespeed_daily_sync|"):
+            line = next(l for l in self.src.splitlines() if jid in l and "|180000|" in l)
+            self.assertTrue(line.rstrip().rstrip('"').endswith("auxiliary"),
+                            f"{jid} tier 必须与 jobs_registry.yaml 一致 (auxiliary)")
+
+    def test_movespeed_status_file_uses_time_key(self):
+        # A-F5: 时间键 ts→time — watchdog:249 / kb_status_refresh / observer
+        # 全部读 d.get('time')。ts 键即使登记也解析为 "状态文件格式异常"。
+        self.assertNotIn('"ts":', self.ms_src,
+                         "movespeed 状态文件禁止回退到 ts 键 (无读者认识它)")
+        self.assertEqual(self.ms_src.count('"time":"%s"'), 3,
+                         "三个写点 (ok/failed/skipped_no_ssd) 必须全部用 time 键")

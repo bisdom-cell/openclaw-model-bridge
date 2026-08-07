@@ -132,17 +132,23 @@ print(f'{len(chunks)} chunks, {covered}/{total_files} files ({pct}%), {stale} st
 fi
 
 # ── 4. 最近 job 执行状态汇总 ──────────────────────────────────────
+# V37.9.287 (对抗审计 A-F3): 三处修正 —
+#   (a) 剔除 discussions — run_discussions 自 V37.9.50-hotfix3 起 enabled=false,
+#       其冻结时间戳把本字段永久钉在非 all_ok, 真过期 job 淹没在惯性字符串里。
+#   (b) 单一 7h 阈值 → 按 job cron 节奏的 per-job 阈值 (与 job_watchdog.sh JOBS
+#       同值, 一物一形由 test_cron_health 跨文件守卫钉死): arxiv 2/天→28h,
+#       hn 3/天→14h, freight 1/天→50h。旧 7h 让 freight 每天 17h "过期" = 恒噪声。
+#   (c) 本检查只看新鲜度不读 status (失败分类是 job_watchdog 的职责, 不重复机器)。
 STALE_JOBS=$(python3 -c "
 import json, os, time
 jobs = {
-    'arxiv': os.path.expanduser('~/.openclaw/jobs/arxiv_monitor/cache/last_run.json'),
-    'hn': os.path.expanduser('~/.openclaw/jobs/hn_watcher/cache/last_run.json'),
-    'freight': os.path.expanduser('~/.openclaw/jobs/freight_watcher/cache/last_run.json'),
-    'discussions': os.path.expanduser('~/.openclaw/jobs/openclaw_official/cache/last_run_discussions.json'),
+    'arxiv': (os.path.expanduser('~/.openclaw/jobs/arxiv_monitor/cache/last_run.json'), 100800),
+    'hn': (os.path.expanduser('~/.openclaw/jobs/hn_watcher/cache/last_run.json'), 50400),
+    'freight': (os.path.expanduser('~/.openclaw/jobs/freight_watcher/cache/last_run.json'), 180000),
 }
 stale = []
 now = time.time()
-for name, path in jobs.items():
+for name, (path, max_silence) in jobs.items():
     try:
         with open(path) as f:
             d = json.load(f)
@@ -151,7 +157,7 @@ for name, path in jobs.items():
         dt = datetime.strptime(t, '%Y-%m-%d %H:%M:%S')
         dt_utc = dt - timedelta(hours=8)
         epoch = int(dt_utc.replace(tzinfo=timezone.utc).timestamp())
-        if now - epoch > 25200:  # 7h
+        if now - epoch > max_silence:
             stale.append(name)
     except Exception:
         stale.append(name)
@@ -256,7 +262,9 @@ svc = h.get("services", "unknown")
 model = h.get("model_id", "unknown")
 kb = h.get("kb_stats", "unknown")
 jobs = h.get("stale_jobs", "unknown")
-job_str = "全部Job运行正常" if jobs == "all_ok" else f"过期Job: {jobs}"
+# V37.9.287: 本字段只测新鲜度不读 status — "运行正常"是过强声明 (job 可以准点跑
+# 且天天失败), 失败告警归 job_watchdog。措辞收敛为诚实的新鲜度语义。
+job_str = "无过期Job" if jobs == "all_ok" else f"过期Job: {jobs}"
 idx = h.get("text_index", "")
 idx_str = f" | 索引: {idx}" if idx else ""
 lines.append("")
