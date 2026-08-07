@@ -1667,7 +1667,7 @@ class TestDeepSeekFullProvider(unittest.TestCase):
         p = get_provider("deepseek_full")
         self.assertIsNotNone(p)
         self.assertEqual(p.name, "deepseek_full")
-        self.assertEqual(p.model_id, "deepseek-v4-pro-260425")
+        self.assertEqual(p.model_id, "deepseek-v4-pro-huakun")
         self.assertEqual(p.api_key_env, "DEEPSEEK_FULL_API_KEY")
         self.assertEqual(p.base_url, "https://ai-tokenhub.com/api/v1")
         self.assertEqual(p.auth_style, "bearer")
@@ -1792,7 +1792,7 @@ class TestGlm5CodingProvider(unittest.TestCase):
         # dev 无 GLM5_ENDPOINT_ID → model_id = fallback 公开名 (合约通过; Volcengine
         # model 字段接收 endpoint ID, 无 env 时用公开 model 名兜底, 镜像 doubao_21)
         from providers import get_provider
-        self.assertEqual(get_provider("glm5_coding").model_id, "glm-5-2-260617")
+        self.assertEqual(get_provider("glm5_coding").model_id, "glm-5.2-huakun")
 
     def test_distinct_from_builtin_glm(self):
         # 区别于第 7 built-in glm (Zhipu open.bigmodel.cn) — 独立 endpoint + 独立 key
@@ -1877,7 +1877,7 @@ class TestCodeAssistScript(unittest.TestCase):
                           "code_assist.sh 不得含 ark- key 字面量 — 走 GLM5_API_KEY env")
         self.assertIn("GLM5_API_KEY", src)
         # 目标 provider 身份 (glm5_coding Volcengine Ark 端点 + model/endpoint)
-        self.assertIn("glm-5-2-260617", src)
+        self.assertIn("glm-5.2-huakun", src)
         self.assertIn("ark.cn-beijing.volces.com/api/v3", src)
 
     def test_nonstream_parses_response_via_mock(self):
@@ -1891,7 +1891,7 @@ class TestCodeAssistScript(unittest.TestCase):
 
         payload = (b'{"choices":[{"finish_reason":"stop","message":'
                    b'{"content":"def f(): return 42","role":"assistant"}}],'
-                   b'"model":"glm-5-2-260617","usage":{"prompt_tokens":5,"completion_tokens":6}}')
+                   b'"model":"glm-5.2-huakun","usage":{"prompt_tokens":5,"completion_tokens":6}}')
 
         class _H(BaseHTTPRequestHandler):
             def do_POST(self):

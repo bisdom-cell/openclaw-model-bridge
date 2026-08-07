@@ -2,7 +2,8 @@
    V37.9.202 — Mac Mini E2E 实测: text/streaming/tool_calling 3/3 通过 → feature_verified
    V37.9.203 — 能力探针实测: +json_mode (verified) / vision 确认不支持 / reasoning 无 R1 通道
    V37.9.204 — ⏸ PENDING (暂缓作 Qwen3 迁移候选): w4a8-mtp 量化偶发乱码 token (bat-ball 实测)
-               + 改评估满血版 (deepseek_full / ai-tokenhub, deepseek-v4-pro-260425)。本 provider
+               + 改评估满血版 (deepseek_full / ai-tokenhub, 现 deepseek-v4-pro-huakun,
+               V37.9.289 更名)。本 provider
                保留注册可用 (有 DEEPSEEK_API_KEY 时), 但不推进迁移; 迁移候选转 deepseek_full。
 
 接入第 9 个 provider: DeepSeek-V4-Pro w4a8-mtp (self-hosted OpenAI-compatible gateway).

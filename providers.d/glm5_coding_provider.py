@@ -2,7 +2,8 @@
    V37.9.255 — 端点刷新: ai-tokenhub → Volcengine Ark (用户确认 GLM-5.2 实际托管在
                火山引擎 Ark, 同 doubao_21 平台; ai-tokenhub 账号无 GLM scope, 旧 key 10101)。
 
-接入第 12 个 provider: glm-5-2-260617 (GLM-5.2, 火山引擎 Ark 托管, 同 doubao_21 平台)。
+接入第 12 个 provider: glm-5.2-huakun (GLM-5.2, 火山引擎 Ark 托管, 同 doubao_21 平台;
+V37.9.289 更名, 原 glm-5-2-260617)。
 定位 = **coding 场景专用**——有需要编码的场景时按需显式调用 (`?provider=glm5_coding`),
 不是 primary 也不默认进 auto-fallback 链 (由 Mac Mini FALLBACK_ORDER env 控制是否纳入)。
 区别于第 7 个 built-in `glm` (Zhipu open.bigmodel.cn) —— 本 provider 是火山 Ark 托管的
@@ -16,7 +17,7 @@ GLM-5.2, 独立 endpoint ID + 独立 key。
   而非 model name — Volcengine Ark 与 OpenAI Compatible 端点的关键差异, 同 doubao_21)。
 - base_url = https://ark.cn-beijing.volces.com/api/v3 是公开 Volcengine 域名 (非裸 IP/
   非机密) → 可入库 (与 doubao 2.0/2.1 同域名)。
-- dev 环境无 env → fallback 到公开 model 标识符 glm-5-2-260617 (合约通过 +
+- dev 环境无 env → fallback 到公开 model 标识符 glm-5.2-huakun (合约通过 +
   ProviderRegistry.available() 因缺 GLM5_API_KEY 自动排除)。
 - Mac Mini 配 env → 真实 endpoint ID 注入, 可显式 `?provider=glm5_coding` 调用。
 
@@ -39,7 +40,10 @@ import os
 from providers import BaseProvider, ModelInfo, ProviderCapabilities
 
 
-_GLM5_FALLBACK_MODEL = "glm-5-2-260617"
+# V37.9.289 (2026-08-07 用户变更): 公开 model 标识符 glm-5-2-260617 → glm-5.2-huakun
+# (其他参数不变; 生产在 GLM5_ENDPOINT_ID env 设置时仍以 ep- 接入点 ID 为准,
+# 本 fallback 仅在 env 缺失时进请求体)。
+_GLM5_FALLBACK_MODEL = "glm-5.2-huakun"
 
 
 class Glm5CodingProvider(BaseProvider):
@@ -55,7 +59,7 @@ class Glm5CodingProvider(BaseProvider):
         self.models = [
             ModelInfo(
                 model_id=endpoint_id,       # Volcengine: model 字段接收 endpoint ID (ep-...)
-                display_name="glm-5-2-260617 (GLM-5.2 Coding)",
+                display_name="glm-5.2-huakun (GLM-5.2 Coding)",
                 modalities=["text"],
                 context_window=131072,      # 128K 保守占位, 待端点规格/实测确认
                 max_output_tokens=8192,     # 保守占位, 待实测
@@ -86,9 +90,11 @@ class Glm5CodingProvider(BaseProvider):
             verified_reasoning=False,    # reasoning_tokens=0 (本调用无 reasoning, 与 reasoning=False 一致)
             # feature_verified: 全能力探针 E2E (text/streaming/tool_calling 3/3 通过); tier_evidence 显式引用证据
             verification_tier="feature_verified",
-            tier_evidence="Mac Mini 直连 Volcengine Ark E2E 全探针 2026-07-07: text/streaming/tool_calling 3/3 通过 "
-                          "(is_prime 正确代码+finish_reason=stop+model=glm-5-2-260617+reasoning_tokens=0 / "
+            tier_evidence="Mac Mini 直连 Volcengine Ark E2E 全探针 2026-07-07 (时为 model=glm-5-2-260617): "
+                          "text/streaming/tool_calling 3/3 通过 "
+                          "(is_prime 正确代码+finish_reason=stop+reasoning_tokens=0 / "
                           "--stream SSE chunk+[DONE] / finish_reason=tool_calls+get_weather({city:东京}) arguments)；"
                           "json_mode 实测不支持 (HTTP 400 json_object is not supported by this model) / "
-                          "vision 非多模态 / reasoning 无通道 / 未真生产 fallback 接管",
+                          "vision 非多模态 / reasoning 无通道 / 未真生产 fallback 接管。"
+                          "2026-08-07 model ID 更名 glm-5.2-huakun (V37.9.289, 同端点同 key), 更名后 E2E 待 Mac Mini 复测",
         )
