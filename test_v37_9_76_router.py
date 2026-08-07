@@ -42,12 +42,10 @@ class TestFindBestProvider(unittest.TestCase):
             required={"text": True}, require_available=False
         )
         self.assertIsNotNone(chosen)
-        # doubao 是 V37.9.55 后 cap_score 最高的 text+reasoning provider
-        # qwen cap_score=14 (5 base + 5 verified*2 - reasoning verified)
-        # doubao cap_score=16 (6 base + 5 verified*2)
-        # 应选 doubao
-        self.assertEqual(chosen.name, "doubao",
-                         f"V37.9.76: required=text → cap_score 最高 doubao, got {chosen.name}")
+        # 史: V37.9.55 后 doubao(2.0)=16 曾榜首; V37.9.290 平台切换 verified 重置
+        # (16→6), doubao_21 (16, 5 verified) 现为 cap_score 最高的 text+reasoning
+        self.assertEqual(chosen.name, "doubao_21",
+                         f"V37.9.290: required=text → cap_score 最高 doubao_21, got {chosen.name}")
 
     def test_required_vision_filters_non_vision_providers(self):
         """required=vision → 排除无 vision 的 provider (硬过滤)."""
@@ -89,8 +87,9 @@ class TestFindBestProvider(unittest.TestCase):
         )
         # 两个都应选 doubao (cap_score 最高 + reasoning)
         # 这里主要验证 prefer 参数不破坏选择
-        self.assertEqual(chosen_no_prefer.name, "doubao")
-        self.assertEqual(chosen_with_prefer.name, "doubao")
+        # V37.9.290: doubao(2.0) 平台切换 verified 重置 (16→6), doubao_21 (16) 登顶
+        self.assertEqual(chosen_no_prefer.name, "doubao_21")
+        self.assertEqual(chosen_with_prefer.name, "doubao_21")
         # V37.9.217: 验证 prefer 让 score 真增加 — 排除 doubao(2.0) 后, prefer=reasoning 应让
         # doubao_21 (旗舰, 5 verified 含 reasoning, cap_score 更高) 胜出。这正是 capability
         # router 的目的: 推理偏好任务路由到真有 verified reasoning 且能力最全的 provider
@@ -173,8 +172,8 @@ class TestRouterDecideModule(unittest.TestCase):
         )
         self.assertEqual(record["job_id"], "kb_dream")
         self.assertEqual(record["task"], "kb_dream/radar_retry")
-        self.assertEqual(record["chosen"], "doubao",
-                         "V37.9.76: kb_dream profile (text+prefer reasoning) → doubao")
+        self.assertEqual(record["chosen"], "doubao_21",
+                         "V37.9.290: kb_dream profile (text+prefer reasoning) → doubao_21 (重置后榜首)")
         self.assertEqual(record["mode"], "shadow")
         self.assertEqual(record["reason"], "ok")
         self.assertTrue(record["v37_9_76"])
@@ -218,7 +217,7 @@ class TestRouterDecideModule(unittest.TestCase):
             },
             require_available=False,
         )
-        self.assertEqual(record["chosen"], "doubao")
+        self.assertEqual(record["chosen"], "doubao_21")  # V37.9.290 重置后榜首
         self.assertEqual(record["cost_tier"], "high")
 
     def test_record_schema_has_all_required_fields(self):
@@ -305,7 +304,7 @@ class TestRouterDecideCli(unittest.TestCase):
     """V37.9.76 Step 3: router_decide.py CLI subprocess 测试."""
 
     def test_cli_basic_invocation(self):
-        """CLI --job-id kb_dream --no-log → stdout=doubao, exit 0."""
+        """CLI --job-id kb_dream --no-log → stdout=doubao_21, exit 0 (V37.9.290)."""
         result = subprocess.run(
             ["python3", os.path.join(_REPO_ROOT, "router_decide.py"),
              "--job-id", "kb_dream", "--task", "radar_retry", "--no-log"],
@@ -313,8 +312,8 @@ class TestRouterDecideCli(unittest.TestCase):
             env={**os.environ, "PYTHONPATH": _REPO_ROOT},
         )
         self.assertEqual(result.returncode, 0, f"CLI exit 0, got {result.returncode}: {result.stderr}")
-        self.assertEqual(result.stdout.strip(), "doubao",
-                         "V37.9.76 CLI: stdout 默认是 chosen name")
+        self.assertEqual(result.stdout.strip(), "doubao_21",
+                         "V37.9.290 CLI: stdout 默认是 chosen name (重置后榜首 doubao_21)")
 
     def test_cli_json_mode_outputs_full_record(self):
         """CLI --json → stdout 是完整 JSON record."""
@@ -327,7 +326,7 @@ class TestRouterDecideCli(unittest.TestCase):
         self.assertEqual(result.returncode, 0)
         record = json.loads(result.stdout.strip())
         self.assertEqual(record["job_id"], "kb_dream")
-        self.assertEqual(record["chosen"], "doubao")
+        self.assertEqual(record["chosen"], "doubao_21")  # V37.9.290 重置后榜首
         self.assertTrue(record["v37_9_76"])
 
     def test_cli_fail_open_on_unknown_job(self):

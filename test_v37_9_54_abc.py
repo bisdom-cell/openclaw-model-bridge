@@ -138,26 +138,24 @@ class TestDoubaoVerifiedVision(unittest.TestCase):
         self.providers = _reload_providers()
         self.d = self.providers.get_provider("doubao")
 
-    def test_verified_vision_is_true(self):
-        self.assertTrue(
+    def test_verified_vision_reset_v290(self):
+        # V37.9.54 曾 True (Ark image_url 实测) → V37.9.290 平台切换重置 False
+        self.assertFalse(
             self.d.capabilities.verified_vision,
-            "V37.9.54 verified_vision 必须 True (Mac Mini curl image_url 实测通过)",
+            "V37.9.290 平台切换后 verified_vision 必须重置 False 待复测",
         )
 
-    def test_verified_features_includes_vision(self):
+    def test_verified_features_excludes_vision_v290(self):
         features = self.d.capabilities.verified_features()
-        self.assertIn("vision", features,
-                      "verified_vision=True 应反映在 verified_features 列表")
+        self.assertNotIn("vision", features,
+                         "V37.9.290 重置后 features 不应含 vision")
 
-    def test_verified_features_v37_9_54_complete_set(self):
-        """V37.9.54 baseline 含 text+vision+reasoning.
-        V37.9.55 加 tool_calling + streaming = 5 features."""
+    def test_verified_features_v290_reset_set(self):
+        """史: V37.9.54 三项 → V37.9.55 五项 (Ark E2E); V37.9.290 平台切换全重置."""
         features = self.d.capabilities.verified_features()
-        self.assertTrue({"text", "vision", "reasoning"}.issubset(set(features)))
         self.assertEqual(
-            set(features),
-            {"text", "vision", "tool_calling", "streaming", "reasoning"},
-            f"V37.9.55 doubao verified_features 锁定 5 项, got {features}",
+            set(features), set(),
+            f"V37.9.290 重置后 doubao verified_features 锁定空集, got {features}",
         )
 
     def test_unverified_flags_still_false(self):
@@ -185,22 +183,21 @@ class TestDoubaoCapScoreUpRanking(unittest.TestCase):
         self.reg = self.providers.get_registry()
 
     def test_doubao_cap_score_v37_9_54(self):
-        """V37.9.54: doubao cap_score = 6 base + 3 verified*2 = 12.
-        V37.9.55 flip tool_calling + streaming 让 cap_score 升至 16.
-        本 test 锁定 V37.9.54 baseline >= 12 + V37.9.55 当前精确值 16."""
+        """史: V37.9.54=12 → V37.9.55=16 (Ark E2E 逐项 flip);
+        V37.9.290 平台切换 verified 全重置 → 6 (6 base + 0 verified)."""
         doubao = self.reg.get("doubao")
         score = self.reg._capability_score(doubao)
-        self.assertGreaterEqual(score, 12, f"V37.9.54 baseline >= 12, got {score}")
         self.assertEqual(
-            score, 16,
-            f"V37.9.55 doubao cap_score 锁定 16 (6 base + 5 verified*2), got {score}",
+            score, 6,
+            f"V37.9.290 重置后 doubao cap_score 锁定 6, got {score}",
         )
 
-    def test_doubao_remains_first_in_fallback_chain(self):
-        """V37.9.54: doubao 仍排在 fallback chain 第 1 (cap_score 12 > gemini 9)."""
+    def test_doubao_21_leads_fallback_chain_v290(self):
+        """史: V37.9.54 doubao(2.0) 曾第 1; V37.9.290 重置后 doubao_21 领跑
+        (生产不受影响: FALLBACK_ORDER env 权威 V37.9.218)."""
         chain = self.reg.build_fallback_chain("qwen")
         names = [p.name for p in chain]
-        self.assertEqual(names[0], "doubao")
+        self.assertEqual(names[0], "doubao_21")
 
 
 class TestPlistEnvGovernance(unittest.TestCase):

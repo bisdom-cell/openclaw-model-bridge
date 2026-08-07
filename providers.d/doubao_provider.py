@@ -1,99 +1,80 @@
-"""V37.9.52/53/54/55 — Doubao Seed 2.0 Pro Provider (Volcengine Ark)
+"""V37.9.52/53/54/55 — Doubao Seed 2.0 Pro Provider → V37.9.290 平台切换 ai-tokenhub
 
-接入第 8 个 provider: doubao-seed-2.0-pro-huakun (火山引擎 Ark, 多模态 + reasoning;
-V37.9.289 更名, 原 doubao-seed-2-0-pro).
+接入第 8 个 provider: doubao-seed-2.0-pro-huakun (Doubao Seed 2.0 Pro, 多模态 + reasoning)。
+
+V37.9.290 (2026-08-08 用户变更) 平台切换 Volcengine Ark → ai-tokenhub:
+- V37.9.289 更名 doubao-seed-2-0-pro → doubao-seed-2.0-pro-huakun 后, Mac Mini E2E
+  实测 Ark 不认新名 (InvalidEndpointOrModel.NotFound), 而 ai-tokenhub /v1/models 证实
+  -huakun 是该网关的别名家族 (deepseek-v4-pro-huakun 同款已验证工作), 10406
+  InsufficientScope 证实 doubao/glm 新名在 ai-tokenhub 存在但需各自 scope 的 key。
+  用户提供 doubao 专属 key → 本 provider 整体切到 ai-tokenhub (镜像 deepseek_full 结构)。
+- 结构变化: 去掉 Ark 的 ep- endpoint-ID 间接层 (ai-tokenhub 的 model 字段直接接收
+  model 名, ARK_ENDPOINT_ID 不再消费), models 回到类级静态声明。
 
 设计契约:
-- API key 严格走 env ARK_API_KEY (不可硬编码, 即便用户豁免也守公开 repo 安全底线)
-- Endpoint ID 走 env ARK_ENDPOINT_ID (Volcengine 的 model 字段接收 endpoint ID
-  而不是 model name, 这是 Volcengine Ark 与 OpenAI Compatible 端点的关键差异)
-- dev 环境无 env → fallback 到公开 model 标识符 doubao-seed-2.0-pro-huakun
-  (合约通过 + ProviderRegistry.available() 会因缺 ARK_API_KEY 自动排除)
-- Mac Mini 配 env → 真实 endpoint ID 注入, fallback chain 激活
+- API key 严格走 env DOUBAO_API_KEY (不可硬编码, 即便用户豁免也守公开 repo 安全底线;
+  原 ARK_API_KEY 是 Volcengine key, 平台切换后本 provider 不再消费)
+- base_url = https://ai-tokenhub.com/api/v1 (公开域名可入库, 与 deepseek_full 同网关)
+- dev 环境无 env → ProviderRegistry.available() 因缺 DOUBAO_API_KEY 自动排除
 
-API 路径: V37.9.53 Mac Mini E2E 实测确认 OpenAI Chat Completions 100% 兼容
-(/chat/completions + messages schema), 零 translator 需要.
-V37.9.54 Mac Mini E2E 实测 vision schema 同样 OpenAI 兼容 — content list
-含 {type:image_url, image_url:{url:...}} + {type:text, text:...} 工作正常.
-V37.9.55 Mac Mini E2E 实测 tool_calling + streaming 同样 OpenAI 兼容:
-- tool_calling: finish_reason=tool_calls + message.tool_calls=[{id, function:{name, arguments}}]
-- streaming: SSE data: {chat.completion.chunk} + delta.content + delta.reasoning_content
+版本史: V37.9.52 接入 / V37.9.53 text+reasoning E2E / V37.9.54 vision E2E /
+V37.9.55 tool_calling+streaming E2E / V37.9.289 更名 / V37.9.290 平台切换。
 
-V37.9.55 状态升级 (vs V37.9.54):
-- verified_tool_calling=True (Mac Mini curl 实测 OpenAI tools schema → tool_calls 返回)
-- verified_streaming=True (Mac Mini curl 实测 stream:true → SSE chunks)
-
-V37.9.54 状态 (保留):
-- verified_vision=True (Mac Mini curl 实测 image_url + 完整中文描述 + reasoning_content)
-
-V37.9.53 状态 (保留):
-- verified_text=True (Mac Mini curl 实测 200 + 合规 JSON + 完整 content + finish_reason=stop)
-- reasoning=True (doubao seed 2.0 是推理模型, 响应含 reasoning_content 字段类似 o1/DeepSeek-R1)
-- verified_reasoning=True (同次 curl 实测看到 reasoning_content 完整输出)
-
-剩余未 flip:
-- verified_fallback=False (未在生产中作为 fallback 真 fire 过, 留 V37.9.56+
-  真 fallback 触发后再 flip — 不能人为造, 守诚实语义)
+历史证据 (Ark 时代, 平台切换后不迁移 — 原则 #23 渐进验证):
+- V37.9.53-55 Mac Mini E2E: text/vision/tool_calling/streaming/reasoning 5/5 实测
+  (OpenAI Chat Completions 100% 兼容 / image_url schema / finish_reason=tool_calls /
+  SSE chunks / reasoning_content 通道)
+- production_observed: fallback 链真实接管 (V37.9.129–V37.9.218 唯一真 fallback) +
+  expert_escalate 真生产调用 (V37.9.91)
+→ 以上全部在 Ark ep- 接入点上挣得; ai-tokenhub 是不同 serving 栈 (网关/计费/可能的
+  量化差异, 参考 deepseek 量化版 w4a8 乱码教训), tier 诚实回 declared,
+  E2E 复测通过后按探针结果逐项升档。
 """
-import os
-
 from providers import BaseProvider, ModelInfo, ProviderCapabilities
-
-
-# V37.9.289 (2026-08-07 用户变更): 公开 model 标识符 doubao-seed-2-0-pro →
-# doubao-seed-2.0-pro-huakun (其他参数不变; 生产在 ARK_ENDPOINT_ID env 设置时
-# 仍以 ep- 接入点 ID 为准, 本 fallback 仅在 env 缺失时进请求体)。
-_DOUBAO_FALLBACK_MODEL = "doubao-seed-2.0-pro-huakun"
 
 
 class DoubaoSeedProvider(BaseProvider):
     name = "doubao"
-    display_name = "Doubao Seed 2.0 Pro (Volcengine Ark)"
-    base_url = "https://ark.cn-beijing.volces.com/api/v3"
-    api_key_env = "ARK_API_KEY"
+    display_name = "Doubao Seed 2.0 Pro (ai-tokenhub)"
+    base_url = "https://ai-tokenhub.com/api/v1"
+    api_key_env = "DOUBAO_API_KEY"
     auth_style = "bearer"
-    # V37.9.223 B1: 同 doubao_21 的 Volcengine Ark 家族 (base_url 相同, 均 reasoning 模型)。
-    # doubao_21 thinking:disabled 已 V37.9.221 E2E 实测 (reasoning_tokens 0 + 17.7s vs 5138/166s)。
-    # 本 provider 同一 Ark API 表面 → 家族推断支持, 但未在此 endpoint 单独实测 (原则 #23)。
-    # 作 primary 前须探针确认 (批量注入此片段走快路)。
+    # V37.9.290: reasoning-off 片段保留 — ai-tokenhub 用 Bifrost 网关归一化 thinking
+    # 参数, deepseek_full 在同一网关 2026-07-02 实测 thinking:disabled 生效
+    # (V37.9.222 B1)。本 provider 切到同网关后证据家族反而更近 (原则 #23:
+    # 同网关实测 > 跨平台推断), 但本模型未单独实测, 作 primary 前须探针。
     reasoning_off_body = {"thinking": {"type": "disabled"}}
-
-    def __init__(self):
-        endpoint_id = os.environ.get("ARK_ENDPOINT_ID", "").strip() or _DOUBAO_FALLBACK_MODEL
-        self.models = [
-            ModelInfo(
-                model_id=endpoint_id,
-                display_name="doubao-seed-2.0-pro-huakun",
-                modalities=["text", "vision"],
-                context_window=262144,
-                max_output_tokens=16384,
-                is_default=True,
-                is_vision=True,
-            ),
-        ]
-        self.capabilities = ProviderCapabilities(
-            text=True,
-            vision=True,
-            audio=False,
-            video=False,
-            tool_calling=True,
-            streaming=True,
-            json_mode=True,
-            reasoning=True,  # V37.9.53: doubao seed 2.0 是推理模型, 实测响应含 reasoning_content
+    models = [
+        ModelInfo(
+            model_id="doubao-seed-2.0-pro-huakun",
+            display_name="doubao-seed-2.0-pro-huakun",
+            modalities=["text", "vision"],
             context_window=262144,
             max_output_tokens=16384,
-            # V37.9.53/54/55 实测通过的 verified flags
-            verified_text=True,  # V37.9.53 Mac Mini curl 实测 200 OK + 完整 content
-            verified_reasoning=True,  # V37.9.53 同次实测看到 reasoning_content 字段
-            verified_vision=True,  # V37.9.54 Mac Mini curl 实测 image_url + 完整图片中文描述
-            verified_tool_calling=True,  # V37.9.55 Mac Mini curl 实测 OpenAI tools schema → finish_reason=tool_calls + message.tool_calls
-            verified_streaming=True,  # V37.9.55 Mac Mini curl 实测 stream:true → SSE chat.completion.chunk + delta.content
-            # 未实测的 verified flags (待 V37.9.56+ 真 fallback fire 后 flip)
-            verified_fallback=False,
-            # V37.9.146: 验证档位 (fallback 链真实接管 + expert_escalate 真生产调用)
-            # 用字符串字面量 (= 公开 tier 值, 与 YAML 插件 verification_tier: production_observed 同形)
-            verification_tier="production_observed",
-            tier_evidence="fallback 链真实接管（V37.9.129–V37.9.218 期间唯一真 fallback，现链中第 2 位）+ "
-                          "expert_escalate 真生产调用（V37.9.91）；text/vision/tool_calling/"
-                          "streaming/reasoning 5/5 E2E 实测（V37.9.53-55）",
-        )
+            is_default=True,
+            is_vision=True,
+        ),
+    ]
+    # 能力声明 = 模型级能力 (Doubao Seed 2.0 Pro 文档 + Ark 时代实测过的模型本体能力);
+    # verified_* = 当前部署 (ai-tokenhub) 的实证 — 平台切换后全部重置, 探针后逐项 flip。
+    capabilities = ProviderCapabilities(
+        text=True,
+        vision=True,           # 模型多模态; ai-tokenhub 网关 image_url 透传待实测
+        audio=False,
+        video=False,
+        tool_calling=True,
+        streaming=True,
+        json_mode=True,
+        reasoning=True,        # 推理模型, Ark 时代实测 reasoning_content 通道
+        context_window=262144,
+        max_output_tokens=16384,
+        # V37.9.290: 平台切换 → verified_* 全部重置 (Ark 证据不迁移)
+        verified_text=False,
+        verified_vision=False,
+        verified_tool_calling=False,
+        verified_streaming=False,
+        verified_reasoning=False,
+        verified_fallback=False,
+        verification_tier="declared",
+        tier_note="2026-08-08 平台切换 ai-tokenhub, E2E 复测前 Ark 时代证据不迁移",
+    )

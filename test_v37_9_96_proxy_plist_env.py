@@ -114,8 +114,10 @@ class TestProxyPlistEnvGovernance(unittest.TestCase):
         self.assertEqual(len(checks), 7,
                          f"INV-PROXY-PLIST-ENV-001 应有 7 checks, got {len(checks)}")
         ctypes = [c.get("check_type") for c in checks]
-        self.assertEqual(ctypes.count("file_contains"), 5)
-        self.assertEqual(ctypes.count("python_assert"), 2)
+        # V37.9.290: "ARK_ENDPOINT_ID 绑定" file_contains 升级为 "不再读 ep- env"
+        # python_assert (间接层退役后守卫方向反转)
+        self.assertEqual(ctypes.count("file_contains"), 4)
+        self.assertEqual(ctypes.count("python_assert"), 3)
 
     def test_v37_9_96_marker(self):
         self.assertIn("V37.9.96 新增", self.src,
@@ -153,29 +155,31 @@ class TestProxyPlistEnvRuntimeBehavior(unittest.TestCase):
         with open(os.path.join(la, "com.openclaw.proxy.plist"), "wb") as f:
             plistlib.dump({"EnvironmentVariables": env_dict}, f)
 
-    def test_missing_endpoint_id_fails_loud(self):
-        """缺 ARK_ENDPOINT_ID (V37.9.91 血案场景) → runtime check 必须 fail-loud."""
+    def test_old_ark_envs_alone_fail_loud_v290(self):
+        """V37.9.290: 只有旧 Ark env (无 DOUBAO_API_KEY) → 必须 fail-loud
+        (平台切换后 expert 读 DOUBAO_API_KEY, 旧 env 不再够用)."""
         with tempfile.TemporaryDirectory() as td:
-            self._make_proxy_plist(td, {"ARK_API_KEY": "x", "REMOTE_API_KEY": "y"})
+            self._make_proxy_plist(td, {"ARK_API_KEY": "x", "ARK_ENDPOINT_ID": "ep-xxx",
+                                        "REMOTE_API_KEY": "y"})
             err = self._run_with_home(td)
-            self.assertIsNotNone(err, "缺 ARK_ENDPOINT_ID 应抛 AssertionError")
-            self.assertIn("ARK_ENDPOINT_ID", str(err))
+            self.assertIsNotNone(err, "只有旧 Ark env 应抛 AssertionError")
+            self.assertIn("DOUBAO_API_KEY", str(err))
 
-    def test_missing_both_ark_envs_fails_loud(self):
-        """完全无 ARK env → fail-loud."""
+    def test_missing_doubao_key_fails_loud_v290(self):
+        """完全无 doubao env → fail-loud."""
         with tempfile.TemporaryDirectory() as td:
             self._make_proxy_plist(td, {"REMOTE_API_KEY": "y"})
             err = self._run_with_home(td)
-            self.assertIsNotNone(err, "无 ARK env 应抛 AssertionError")
-            self.assertIn("ARK_API_KEY", str(err))
+            self.assertIsNotNone(err, "无 DOUBAO_API_KEY 应抛 AssertionError")
+            self.assertIn("DOUBAO_API_KEY", str(err))
 
-    def test_complete_ark_envs_passes(self):
-        """ARK_API_KEY + ARK_ENDPOINT_ID 都在 → 通过不抛."""
+    def test_complete_doubao_env_passes_v290(self):
+        """DOUBAO_API_KEY 在 → 通过不抛 (ep- 间接层已退役, 不再要求 ARK_ENDPOINT_ID)."""
         with tempfile.TemporaryDirectory() as td:
             self._make_proxy_plist(td, {
-                "ARK_API_KEY": "x", "ARK_ENDPOINT_ID": "ep-xxx", "REMOTE_API_KEY": "y"})
+                "DOUBAO_API_KEY": "x", "REMOTE_API_KEY": "y"})
             err = self._run_with_home(td)
-            self.assertIsNone(err, f"完整 ARK env 不该抛: {err}")
+            self.assertIsNone(err, f"DOUBAO_API_KEY 在不该抛: {err}")
 
     def test_no_plist_silent_pass_dev_safe(self):
         """plist 不存在 (dev 环境) → silent pass 不抛."""
@@ -231,13 +235,17 @@ class TestProxyPlistEnvDependencyChain(unittest.TestCase):
         self.assertIn("expert_escalation", self.tp,
                       "expert_escalate 分支必须 lazy-import expert_escalation")
 
-    def test_expert_escalation_binds_ark_api_key(self):
-        self.assertIn('DOUBAO_API_KEY_ENV = "ARK_API_KEY"', self.ee,
-                      "expert_escalation 必须把 ARK_API_KEY 绑定到 DOUBAO_API_KEY_ENV")
+    def test_expert_escalation_binds_doubao_api_key_v290(self):
+        # V37.9.290 平台切换: ARK_API_KEY (Volcengine) → DOUBAO_API_KEY (ai-tokenhub)
+        self.assertIn('DOUBAO_API_KEY_ENV = "DOUBAO_API_KEY"', self.ee,
+                      "expert_escalation 必须把 DOUBAO_API_KEY 绑定到 DOUBAO_API_KEY_ENV")
 
-    def test_expert_escalation_binds_ark_endpoint_id(self):
-        self.assertIn('DOUBAO_ENDPOINT_ID_ENV = "ARK_ENDPOINT_ID"', self.ee,
-                      "expert_escalation 必须把 ARK_ENDPOINT_ID 绑定到 DOUBAO_ENDPOINT_ID_ENV")
+    def test_expert_escalation_endpoint_id_retired_v290(self):
+        # ep- 间接层退役: 读 ARK_ENDPOINT_ID 会把 ep- 发给 ai-tokenhub → 400
+        self.assertNotIn('os.environ.get("ARK_ENDPOINT_ID"', self.ee,
+                         "V37.9.290: 不得再读 ARK_ENDPOINT_ID env")
+        self.assertNotIn("DOUBAO_ENDPOINT_ID_ENV =", self.ee,
+                         "V37.9.290: DOUBAO_ENDPOINT_ID_ENV 常量已退役")
 
     def test_expert_escalation_has_fail_loud_guidance(self):
         """缺 ARK_API_KEY 时返回清晰指引 (配 plist), 不真静默."""

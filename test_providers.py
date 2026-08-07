@@ -123,14 +123,18 @@ class TestVerificationTier(unittest.TestCase):
         self.assertTrue(any("unknown verification_tier" in v for v in violations))
 
     # --- 真 provider 档位 ---
-    def test_qwen_doubao_production_observed(self):
-        from providers import _default_registry, TIER_PRODUCTION_OBSERVED
+    def test_qwen_production_observed_doubao_declared_v290(self):
+        # V37.9.290: doubao 平台切换 ai-tokenhub → Ark 时代 production_observed
+        # 证据不迁移, tier 重置 declared (tier_note 记史)。qwen 不受影响。
+        from providers import _default_registry, TIER_PRODUCTION_OBSERVED, TIER_DECLARED
         self.assertEqual(
             _default_registry.get("qwen").capabilities.verification_tier,
             TIER_PRODUCTION_OBSERVED)
         self.assertEqual(
             _default_registry.get("doubao").capabilities.verification_tier,
-            TIER_PRODUCTION_OBSERVED)
+            TIER_DECLARED)
+        self.assertIn("ai-tokenhub",
+                      _default_registry.get("doubao").capabilities.tier_note)
 
     def test_declared_providers(self):
         from providers import _default_registry, TIER_DECLARED
@@ -1775,7 +1779,7 @@ class TestDoubao21Provider(unittest.TestCase):
 
 
 class TestGlm5CodingProvider(unittest.TestCase):
-    """V37.9.254 接入 → V37.9.255 端点刷新 ai-tokenhub → Volcengine Ark (declared, coding 按需, ark- env key)。"""
+    """V37.9.254 接入 → V37.9.255 刷新 Ark → V37.9.290 平台切回 ai-tokenhub (declared 重置, coding 按需, sk- env key)。"""
 
     _PLUGIN = os.path.join(os.path.dirname(__file__), "providers.d", "glm5_coding_provider.py")
 
@@ -1785,12 +1789,12 @@ class TestGlm5CodingProvider(unittest.TestCase):
         self.assertIsNotNone(p)
         self.assertEqual(p.name, "glm5_coding")
         self.assertEqual(p.api_key_env, "GLM5_API_KEY")
-        self.assertEqual(p.base_url, "https://ark.cn-beijing.volces.com/api/v3")
+        # V37.9.290 平台切回 ai-tokenhub (与 deepseek_full/doubao 同网关)
+        self.assertEqual(p.base_url, "https://ai-tokenhub.com/api/v1")
         self.assertEqual(p.auth_style, "bearer")
 
     def test_model_id_fallback_public_name_without_env(self):
-        # dev 无 GLM5_ENDPOINT_ID → model_id = fallback 公开名 (合约通过; Volcengine
-        # model 字段接收 endpoint ID, 无 env 时用公开 model 名兜底, 镜像 doubao_21)
+        # V37.9.290: ep- 间接层退役, model_id = 类级静态公开名 (ai-tokenhub 直接收 model 名)
         from providers import get_provider
         self.assertEqual(get_provider("glm5_coding").model_id, "glm-5.2-huakun")
 
@@ -1801,21 +1805,20 @@ class TestGlm5CodingProvider(unittest.TestCase):
         self.assertNotEqual(builtin.base_url, get_provider("glm5_coding").base_url)
         self.assertNotEqual(builtin.api_key_env, "GLM5_API_KEY")
 
-    def test_feature_verified_after_e2e_full_probe(self):
-        # V37.9.256-258 Mac Mini 直连 Ark E2E 全探针: text/streaming/tool_calling 3/3 → verified True;
-        # json_mode 实测不支持 (400) / reasoning 无通道 / vision 非多模态 → False
+    def test_declared_after_platform_switch_v290(self):
+        # V37.9.290 平台切回 ai-tokenhub: Ark 时代 feature_verified (V37.9.256-258 3/3
+        # E2E) 在新 serving 栈不迁移 → tier 重置 declared + verified_* 全 False
+        # (镜像 V37.9.255 平台切换纪律), tier_note 记史, E2E 复测后逐项升档。
         from providers import get_provider
         caps = get_provider("glm5_coding").capabilities
-        self.assertEqual(caps.verification_tier, "feature_verified")
-        self.assertTrue(caps.verified_text)          # E2E: is_prime 正确代码 + finish_reason=stop
-        self.assertTrue(caps.verified_streaming)      # E2E: --stream SSE chunk 流 + [DONE]
-        self.assertTrue(caps.verified_tool_calling)   # E2E: finish_reason=tool_calls + get_weather arguments
-        self.assertFalse(caps.verified_reasoning)     # reasoning_tokens=0
+        self.assertEqual(caps.verification_tier, "declared")
+        self.assertFalse(caps.verified_text)
+        self.assertFalse(caps.verified_streaming)
+        self.assertFalse(caps.verified_tool_calling)
+        self.assertFalse(caps.verified_reasoning)
         self.assertFalse(caps.verified_vision)
         self.assertFalse(caps.verified_fallback)
-        # feature_verified 必须显式 tier_evidence 引用证据
-        self.assertIn("E2E", caps.tier_evidence)
-        self.assertIn("Ark", caps.tier_evidence)
+        self.assertIn("ai-tokenhub", caps.tier_note)
         self.assertEqual(caps.tier_consistency_violations(), [])
 
     def test_coding_capabilities(self):
@@ -1840,19 +1843,19 @@ class TestGlm5CodingProvider(unittest.TestCase):
             self.assertIn("glm5_coding", [p.name for p in get_registry().available()])
 
     def test_no_secret_key_hardcoded_in_repo(self):
-        """🔴 公开 repo 安全底线: Volcengine ark- key + ep- endpoint id 绝不入库 (base_url 公开域名可入库)。"""
+        """🔴 公开 repo 安全底线: sk-/ark- key + ep- endpoint id 绝不入库 (base_url 公开域名可入库)。"""
         import re
         src = open(self._PLUGIN, encoding="utf-8").read()
-        # 无 ark-<hex>-<hex> 形式的 key 字面量 (key 走 GLM5_API_KEY env)
+        # V37.9.290 起 key 为 ai-tokenhub sk- 格式 — sk- 字面量成为第一风险
+        self.assertIsNone(re.search(r"sk-[A-Za-z0-9]{12,}", src),
+                          "插件不得含 sk- key 字面量 — 走 GLM5_API_KEY env")
         self.assertIsNone(re.search(r"ark-[0-9a-f]{8}-[0-9a-f]{4}", src),
-                          "插件不得含 ark- key 字面量 — 走 GLM5_API_KEY env")
-        # 无 ep-<digits> endpoint id 字面量 (走 GLM5_ENDPOINT_ID env)
+                          "插件不得含 ark- key 字面量 (历史 Volcengine 格式)")
         self.assertIsNone(re.search(r"ep-2026\d{8}", src),
-                          "插件不得含 ep- endpoint id 字面量 — 走 GLM5_ENDPOINT_ID env")
+                          "插件不得含 ep- endpoint id 字面量 (历史 Ark 格式)")
         self.assertIn("GLM5_API_KEY", src)
-        self.assertIn("GLM5_ENDPOINT_ID", src)
-        # 公开 Volcengine 域名 base_url 可入库 (非裸 IP/机密)
-        self.assertIn("https://ark.cn-beijing.volces.com/api/v3", src)
+        # 公开域名 base_url 可入库 (非裸 IP/机密)
+        self.assertIn("https://ai-tokenhub.com/api/v1", src)
 
 
 class TestCodeAssistScript(unittest.TestCase):
@@ -1867,7 +1870,7 @@ class TestCodeAssistScript(unittest.TestCase):
         self.assertEqual(r.returncode, 0, f"bash -n 失败: {r.stderr}")
 
     def test_no_hardcoded_key_reads_env(self):
-        """🔴 安全底线: 助手脚本绝不硬编码 key, 只从 GLM5_API_KEY env 读 (Volcengine ark- key)。"""
+        """🔴 安全底线: 助手脚本绝不硬编码 key, 只从 GLM5_API_KEY env 读 (V37.9.290 起 ai-tokenhub sk- key)。"""
         import re
         with open(self._SCRIPT, encoding="utf-8") as f:
             src = f.read()
@@ -1876,9 +1879,9 @@ class TestCodeAssistScript(unittest.TestCase):
         self.assertIsNone(re.search(r"ark-[0-9a-f]{8}-[0-9a-f]{4}", src),
                           "code_assist.sh 不得含 ark- key 字面量 — 走 GLM5_API_KEY env")
         self.assertIn("GLM5_API_KEY", src)
-        # 目标 provider 身份 (glm5_coding Volcengine Ark 端点 + model/endpoint)
+        # 目标 provider 身份 (glm5_coding ai-tokenhub 端点 + model, V37.9.290)
         self.assertIn("glm-5.2-huakun", src)
-        self.assertIn("ark.cn-beijing.volces.com/api/v3", src)
+        self.assertIn("ai-tokenhub.com/api/v1", src)
 
     def test_nonstream_parses_response_via_mock(self):
         """V37.9.257 回归守卫: 非流式路径正确解析响应 (防 heredoc-vs-pipe stdin bug 复发)。

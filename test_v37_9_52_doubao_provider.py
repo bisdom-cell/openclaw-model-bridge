@@ -80,11 +80,11 @@ class TestDoubaoProviderRegistration(unittest.TestCase):
     def test_doubao_provider_metadata(self):
         d = self.providers.get_registry().get("doubao")
         self.assertEqual(d.name, "doubao")
-        self.assertEqual(d.api_key_env, "ARK_API_KEY")
-        self.assertEqual(d.base_url, "https://ark.cn-beijing.volces.com/api/v3")
+        self.assertEqual(d.api_key_env, "DOUBAO_API_KEY")
+        self.assertEqual(d.base_url, "https://ai-tokenhub.com/api/v1")
         self.assertEqual(d.auth_style, "bearer")
         self.assertIn("Doubao", d.display_name)
-        self.assertIn("Volcengine", d.display_name)
+        self.assertIn("ai-tokenhub", d.display_name)
 
 
 class TestDoubaoEndpointIdHandling(unittest.TestCase):
@@ -103,12 +103,13 @@ class TestDoubaoEndpointIdHandling(unittest.TestCase):
         d = providers.get_registry().get("doubao")
         self.assertEqual(d.model_id, "doubao-seed-2.0-pro-huakun")
 
-    def test_env_endpoint_id_injected(self):
-        """有 env → 真实 endpoint ID 注入 model_id."""
+    def test_env_endpoint_id_ignored_v290(self):
+        """V37.9.290: 平台切换 ai-tokenhub 后 ep- 间接层退役 — env 必须被忽略
+        (否则 ep- ID 会被发给 ai-tokenhub → 400)."""
         os.environ["ARK_ENDPOINT_ID"] = "ep-20260101000000-dummy0"
         providers = _reload_providers()
         d = providers.get_registry().get("doubao")
-        self.assertEqual(d.model_id, "ep-20260101000000-dummy0")
+        self.assertEqual(d.model_id, "doubao-seed-2.0-pro-huakun")
 
     def test_empty_endpoint_id_uses_fallback(self):
         """空字符串 → fallback (不能让空 model_id 进合约)."""
@@ -246,13 +247,16 @@ class TestSourceLevelGuards(unittest.TestCase):
         self.assertIn("V37.9.52", self.plugin_src)
 
     def test_correct_base_url(self):
-        self.assertIn("https://ark.cn-beijing.volces.com/api/v3", self.plugin_src)
+        # V37.9.290 平台切换 ai-tokenhub
+        self.assertIn("https://ai-tokenhub.com/api/v1", self.plugin_src)
 
     def test_correct_api_key_env_var(self):
-        self.assertIn('api_key_env = "ARK_API_KEY"', self.plugin_src)
+        # V37.9.290: 独立 env (原 ARK_API_KEY 是 Volcengine key, 不再消费)
+        self.assertIn('api_key_env = "DOUBAO_API_KEY"', self.plugin_src)
 
-    def test_endpoint_id_env_var(self):
-        self.assertIn("ARK_ENDPOINT_ID", self.plugin_src)
+    def test_endpoint_id_env_not_consumed_v290(self):
+        # ep- 间接层退役: 源码不得再读 ARK_ENDPOINT_ID env
+        self.assertNotIn('os.environ.get("ARK_ENDPOINT_ID"', self.plugin_src)
 
     def test_fallback_model_id_is_public_identifier(self):
         """fallback model_id 必须是公开 model 标识符, 不得是用户专属 endpoint ID."""

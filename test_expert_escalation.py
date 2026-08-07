@@ -439,30 +439,32 @@ class TestDoubaoTransport(unittest.TestCase):
             if old is not None:
                 os.environ[ee.DOUBAO_API_KEY_ENV] = old
 
-    def test_endpoint_id_falls_back_to_public_model_id(self):
-        old = os.environ.pop(ee.DOUBAO_ENDPOINT_ID_ENV, None)
-        try:
-            t = ee.DoubaoTransport(api_key="key")
-            self.assertEqual(t.endpoint_id, ee.DOUBAO_DEFAULT_MODEL_ID)
-        finally:
-            if old is not None:
-                os.environ[ee.DOUBAO_ENDPOINT_ID_ENV] = old
+    def test_model_id_defaults_to_public_name(self):
+        # V37.9.290: ai-tokenhub 直接用公开 model 名, ARK_ENDPOINT_ID env 间接层退役
+        t = ee.DoubaoTransport(api_key="key")
+        self.assertEqual(t.endpoint_id, ee.DOUBAO_DEFAULT_MODEL_ID)
+        self.assertEqual(t.endpoint_id, "doubao-seed-2.0-pro-huakun")
 
-    def test_endpoint_id_uses_env(self):
-        old = os.environ.get(ee.DOUBAO_ENDPOINT_ID_ENV)
-        os.environ[ee.DOUBAO_ENDPOINT_ID_ENV] = "ep-production-xyz"
+    def test_model_id_param_injection_still_works(self):
+        # 参数注入点保留 (测试/未来覆盖用), 但 env 不再被消费
+        old = os.environ.get("ARK_ENDPOINT_ID")
+        os.environ["ARK_ENDPOINT_ID"] = "ep-should-be-ignored"
         try:
             t = ee.DoubaoTransport(api_key="key")
-            self.assertEqual(t.endpoint_id, "ep-production-xyz")
+            self.assertEqual(t.endpoint_id, ee.DOUBAO_DEFAULT_MODEL_ID,
+                             "V37.9.290: ARK_ENDPOINT_ID 不得再被消费 (会把 ep- 发给 ai-tokenhub)")
+            t2 = ee.DoubaoTransport(api_key="key", endpoint_id="custom-model")
+            self.assertEqual(t2.endpoint_id, "custom-model")
         finally:
             if old is None:
-                del os.environ[ee.DOUBAO_ENDPOINT_ID_ENV]
+                del os.environ["ARK_ENDPOINT_ID"]
             else:
-                os.environ[ee.DOUBAO_ENDPOINT_ID_ENV] = old
+                os.environ["ARK_ENDPOINT_ID"] = old
 
-    def test_endpoint_url_is_volcengine_ark(self):
+    def test_endpoint_url_is_ai_tokenhub(self):
+        # V37.9.290 平台切换 Ark → ai-tokenhub
         t = ee.DoubaoTransport(api_key="key")
-        self.assertIn("ark.cn-beijing.volces.com", t.endpoint_url)
+        self.assertIn("ai-tokenhub.com/api/v1", t.endpoint_url)
         self.assertTrue(t.endpoint_url.endswith("/chat/completions"))
 
     def test_call_returns_failure_when_not_configured(self):
@@ -471,7 +473,7 @@ class TestDoubaoTransport(unittest.TestCase):
             t = ee.DoubaoTransport(api_key="")
             ok, text, usage, err = t.call("sys", "ctx", "msg", 1000)
             self.assertFalse(ok)
-            self.assertIn("ARK_API_KEY", err)
+            self.assertIn("DOUBAO_API_KEY", err)
         finally:
             if old is not None:
                 os.environ[ee.DOUBAO_API_KEY_ENV] = old
@@ -636,7 +638,7 @@ class TestEscalateOrchestratorDoubao(unittest.TestCase):
                     transport=transport,
                 )
                 self.assertEqual(result["status"], "api_unavailable")
-                self.assertIn("ARK_API_KEY", result["error"])
+                self.assertIn("DOUBAO_API_KEY", result["error"])
         finally:
             if old is not None:
                 os.environ[ee.DOUBAO_API_KEY_ENV] = old
@@ -829,8 +831,8 @@ class TestV37990R1SourceGuards(unittest.TestCase):
         self.assertEqual(ee.BACKEND_CLAUDE_PENDING, "claude_pending")
         self.assertEqual(ee.DEFAULT_BACKEND, "doubao")
 
-    def test_volcengine_endpoint_url(self):
-        self.assertIn("ark.cn-beijing.volces.com/api/v3", ee.DOUBAO_BASE_URL)
+    def test_ai_tokenhub_endpoint_url_v290(self):
+        self.assertIn("ai-tokenhub.com/api/v1", ee.DOUBAO_BASE_URL)
 
     def test_no_anthropic_import(self):
         self.assertNotIn("import anthropic", self.src)
@@ -846,11 +848,14 @@ class TestV37990R1SourceGuards(unittest.TestCase):
     def test_uses_urllib(self):
         self.assertIn("urllib.request", self.src)
 
-    def test_ark_api_key_env(self):
-        self.assertEqual(ee.DOUBAO_API_KEY_ENV, "ARK_API_KEY")
+    def test_doubao_api_key_env_v290(self):
+        # V37.9.290: 平台切换后独立 env (原 ARK_API_KEY 是 Volcengine key 不再消费)
+        self.assertEqual(ee.DOUBAO_API_KEY_ENV, "DOUBAO_API_KEY")
 
-    def test_ark_endpoint_id_env(self):
-        self.assertEqual(ee.DOUBAO_ENDPOINT_ID_ENV, "ARK_ENDPOINT_ID")
+    def test_ark_endpoint_id_env_retired_v290(self):
+        # ep- 间接层退役: 常量不存在 + 源码不再读 ARK_ENDPOINT_ID env
+        self.assertFalse(hasattr(ee, "DOUBAO_ENDPOINT_ID_ENV"))
+        self.assertNotIn('os.environ.get("ARK_ENDPOINT_ID"', self.src)
 
     def test_temperature_0_3_explicit(self):
         self.assertIn('"temperature": 0.3', self.src)

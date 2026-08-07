@@ -73,30 +73,30 @@ class TestAdapterResolvePrimaryProvider(unittest.TestCase):
     def test_router_enforce_off_ignores_override(self):
         """ROUTER_ENFORCE=off (默认) → 即使有 ?provider= 也走默认 (PoC 安全网).
 
-        必须配 ARK_API_KEY 隔离测试 — 否则第二层 API key 检查会同时阻止,
+        必须配 DOUBAO_API_KEY 隔离测试 (V37.9.290 平台切换后 doubao 的 key env) — 否则第二层 API key 检查会同时阻止,
         让测试无法分辨是哪个 guard 起作用 (反向 sabotage 守卫失效).
         """
-        with patch.dict(os.environ, {"ARK_API_KEY": "test-doubao-key-v37977-isolation"}):
+        with patch.dict(os.environ, {"DOUBAO_API_KEY": "test-doubao-key-v37977-isolation"}):
             result = self._make_handler_stub("/v1/chat/completions?provider=doubao", enforce="off")
             _, _, _, _, name = result
             self.assertEqual(name, "qwen",
                              "V37.9.77: ROUTER_ENFORCE=off 时忽略 ?provider= 强制走默认 "
-                             "(即使 ARK_API_KEY 配置存在)")
+                             "(即使 DOUBAO_API_KEY 配置存在)")
 
     def test_router_enforce_on_with_valid_override(self):
-        """ROUTER_ENFORCE=on + ?provider=doubao + ARK_API_KEY 配置 → 用 doubao."""
-        with patch.dict(os.environ, {"ARK_API_KEY": "test-doubao-key-v37977"}):
+        """ROUTER_ENFORCE=on + ?provider=doubao + DOUBAO_API_KEY 配置 → 用 doubao (V37.9.290)."""
+        with patch.dict(os.environ, {"DOUBAO_API_KEY": "test-doubao-key-v37977"}):
             result = self._make_handler_stub("/v1/chat/completions?provider=doubao", enforce="on")
             base, model, auth, key, name = result
             self.assertEqual(name, "doubao",
                              "V37.9.77: ROUTER_ENFORCE=on + 有效 ?provider=doubao → 用 doubao")
-            self.assertIn("volces.com", base.lower(),
-                          "V37.9.77: doubao base_url 应是 Volcengine Ark")
+            self.assertIn("ai-tokenhub.com", base.lower(),
+                          "V37.9.290: doubao base_url 已平台切换 ai-tokenhub")
             self.assertEqual(key, "test-doubao-key-v37977",
-                             "V37.9.77: doubao 应用 ARK_API_KEY")
+                             "V37.9.290: doubao 应用 DOUBAO_API_KEY")
 
     def test_router_enforce_on_missing_api_key_falls_back(self):
-        """ROUTER_ENFORCE=on + ?provider=doubao 但 ARK_API_KEY 未配 → fallback default (FAIL-OPEN)."""
+        """ROUTER_ENFORCE=on + ?provider=doubao 但 DOUBAO_API_KEY 未配 → fallback default (FAIL-OPEN)."""
         with patch.dict(os.environ, {}, clear=False):
             # 清掉 ARK_API_KEY
             os.environ.pop("ARK_API_KEY", None)
