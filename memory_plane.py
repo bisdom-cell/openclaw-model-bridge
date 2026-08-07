@@ -95,7 +95,14 @@ def _kb_search(query, top_k=5, source=None, recent_hours=None):
             )
             for r in results
         ]
-    except Exception as e:
+    except (Exception, SystemExit) as e:
+        # V37.9.288 (对抗审计 B-F3): kb_rag/local_embed 库路径含 sys.exit(1)
+        # (索引空/vectors.bin 损坏/sentence-transformers 缺失)。SystemExit 不是
+        # Exception 子类, 曾穿透本层与上游全部 except Exception, 在 proxy HTTP
+        # 线程内静默杀死请求 (无 rid 日志/无 SLO 错误/socket 直接关闭)。按记忆
+        # 平面"层级优雅降级"契约收编为空结果; stderr 打点让静默吞可观测
+        # (B-F2: 无日志的吞曾让"层坏了"与"没结果"完全同形)。
+        print(f"[memory_plane] kb layer search failed: {e!r}", file=sys.stderr)
         return []
 
 
@@ -522,7 +529,11 @@ def query(text, layers=None, top_k=5, source=None, recent_hours=None):
             else:
                 results = layer["search_fn"](text)
             all_results.extend(results)
-        except Exception:
+        except (Exception, SystemExit) as e:
+            # V37.9.288 (B-F3): 与 _kb_search 同款 SystemExit 收编 (第二道防线,
+            # 覆盖 mm/pref 等其余层的库路径) + stderr 可观测。
+            print(f"[memory_plane] layer '{layer_key}' search failed: {e!r}",
+                  file=sys.stderr)
             continue
 
     # V2 pipeline: confidence → dedup → conflict → sort
