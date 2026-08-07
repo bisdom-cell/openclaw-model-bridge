@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
-# code_assist.sh — GLM-5.2 Coding 编程助手 (V37.9.254/255 provider glm5_coding 的直连消费方)
+# code_assist.sh — GLM-5.2 Coding 编程助手 (V37.9.254/255/290 provider glm5_coding 的直连消费方)
 #
-# 直连 Volcengine Ark GLM-5.2 端点做纯代码生成/重构/解释 (原则 #94: 纯推理绕开 Gateway,
+# 直连 ai-tokenhub GLM-5.2 端点做纯代码生成/重构/解释 (原则 #94: 纯推理绕开 Gateway,
 # 完全控制 max_tokens/temperature, 无工具注入/无 200KB proxy 截断/无 12 工具上限)。
+# V37.9.290 平台切换: Volcengine Ark → ai-tokenhub (glm-5.2-huakun 别名家族在该网关;
+# ep- 接入点间接层退役, GLM5_ENDPOINT_ID 不再消费, model 名直接进请求体)。
 #
-# 🔴 安全: API key 只从 env GLM5_API_KEY 读 (Volcengine ark-... key), 绝不硬编码/落盘。
-# Volcengine: model 字段接收 endpoint ID (ep-...), 走 env GLM5_ENDPOINT_ID (缺省回退公开 model 名)。
+# 🔴 安全: API key 只从 env GLM5_API_KEY 读 (V37.9.290 起为 ai-tokenhub sk-... key), 绝不硬编码/落盘。
 #
 # 用法:
-#   export GLM5_API_KEY='ark-...'
-#   export GLM5_ENDPOINT_ID='ep-...'
+#   export GLM5_API_KEY='sk-...'
 #   ./code_assist.sh "写一个 Python LRU cache"
 #   echo "重构这段代码" | ./code_assist.sh
 #   ./code_assist.sh --file mycode.py "给这个文件加类型注解"
@@ -18,8 +18,8 @@
 #   ./code_assist.sh --temp 0 --max-tokens 4096 "..."
 set -euo pipefail
 
-MODEL="${GLM5_ENDPOINT_ID:-${GLM5_MODEL:-glm-5.2-huakun}}"
-BASE_URL="${GLM5_BASE_URL:-https://ark.cn-beijing.volces.com/api/v3}"
+MODEL="${GLM5_MODEL:-glm-5.2-huakun}"
+BASE_URL="${GLM5_BASE_URL:-https://ai-tokenhub.com/api/v1}"
 MAX_TOKENS=8192
 TEMP=0.2
 JSON_MODE=0

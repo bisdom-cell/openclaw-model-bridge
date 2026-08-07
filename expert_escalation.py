@@ -8,7 +8,7 @@ of Anthropic SDK (Claude pending future-flip when API key + integration ready).
 Why Doubao first:
 - Already integrated: V37.9.52 接入 + V37.9.55 flip verified_text/streaming/
   tool_calling/reasoning (cap_score=16, framework视角 > Qwen3 cap_score=14)
-- Already paid: ARK_API_KEY + ARK_ENDPOINT_ID already in plist (no new key mgmt)
+- Already paid: (V37.9.290 起 DOUBAO_API_KEY @ ai-tokenhub; 原 Ark ARK_API_KEY 时代设计)
 - 10-30x cheaper than Claude Opus 4.7 (~$0.01-0.02/call vs ~$0.47 首调)
 - Volcengine Context Cache: automatic prompt caching for prefix ≥ 1024 tokens
   (no manual cache_control needed; we keep stable prefix structure to benefit)
@@ -60,14 +60,13 @@ DEFAULT_BACKEND = BACKEND_DOUBAO
 
 # Volcengine Ark — V37.9.52 plugin registered, V37.9.55 verified.
 # OpenAI Chat Completions compatible — no custom client needed.
-DOUBAO_BASE_URL = "https://ark.cn-beijing.volces.com/api/v3"
+# V37.9.290 (2026-08-08 用户变更): expert 后端随 doubao provider 平台切换
+# Volcengine Ark → ai-tokenhub (V37.9.289 更名后 Ark 不认 -huakun 名, 别名家族
+# 在 ai-tokenhub, 用户提供 doubao 专属 key)。ep- endpoint-ID 间接层随之退役
+# (ai-tokenhub 的 model 字段直接接收 model 名, ARK_ENDPOINT_ID 不再消费)。
+DOUBAO_BASE_URL = "https://ai-tokenhub.com/api/v1"
 DOUBAO_ENDPOINT_URL = DOUBAO_BASE_URL + "/chat/completions"
-DOUBAO_API_KEY_ENV = "ARK_API_KEY"
-DOUBAO_ENDPOINT_ID_ENV = "ARK_ENDPOINT_ID"
-# Public model identifier — fallback when ARK_ENDPOINT_ID env missing (dev safe).
-# In production ARK_ENDPOINT_ID = "ep-..." (user-specific, 类机密不入库 V37.9.216 惯例;
-# V37.9.289 顺手脱敏此前泄漏在注释里的真实 ep ID)。
-# V37.9.289 (2026-08-07 用户变更): doubao-seed-2-0-pro → doubao-seed-2.0-pro-huakun。
+DOUBAO_API_KEY_ENV = "DOUBAO_API_KEY"
 DOUBAO_DEFAULT_MODEL_ID = "doubao-seed-2.0-pro-huakun"
 DOUBAO_REQUEST_TIMEOUT_SEC = 60
 
@@ -405,7 +404,7 @@ def write_audit_record(audit_log_path, record):
 
 
 class DoubaoTransport:
-    """Volcengine Ark HTTP transport using stdlib urllib (zero new deps).
+    """Doubao HTTP transport (V37.9.290: ai-tokenhub; 原 Volcengine Ark) using stdlib urllib (zero new deps).
 
     OpenAI Chat Completions compatible API. Mockable: subclass override _post()
     in tests to inject responses, or pass to escalate() directly.
@@ -414,11 +413,9 @@ class DoubaoTransport:
     def __init__(self, api_key=None, endpoint_id=None, base_url=DOUBAO_BASE_URL,
                  timeout=DOUBAO_REQUEST_TIMEOUT_SEC):
         self.api_key = api_key or os.environ.get(DOUBAO_API_KEY_ENV, "")
-        # endpoint_id is user-specific (ep-... format, 类机密不入库 V37.9.216 惯例) in production;
-        # falls back to public model identifier in dev (safe — won't auth without key).
-        self.endpoint_id = (endpoint_id
-                            or os.environ.get(DOUBAO_ENDPOINT_ID_ENV, "")
-                            or DOUBAO_DEFAULT_MODEL_ID)
+        # V37.9.290: ai-tokenhub 直接用公开 model 名, ep- env 间接层已退役。
+        # 参数名 endpoint_id 保留 (历史名, 现语义 = model 标识符, 测试注入点不变)。
+        self.endpoint_id = endpoint_id or DOUBAO_DEFAULT_MODEL_ID
         self.base_url = base_url
         self.endpoint_url = base_url + "/chat/completions"
         self.timeout = timeout
@@ -471,7 +468,8 @@ class DoubaoTransport:
         """
         if not self.is_configured():
             return False, "", {}, (
-                "ARK_API_KEY not set (configure in plist EnvironmentVariables on Mac Mini)"
+                DOUBAO_API_KEY_ENV
+                + " not set (configure in plist EnvironmentVariables on Mac Mini)"
             )
 
         # Concatenate system_prompt + context_md as a single system message.
@@ -780,7 +778,7 @@ def main():
     parser.add_argument("--max-tokens", type=int, default=DEFAULT_MAX_TOKENS)
     parser.add_argument("--max-daily", type=int, default=DEFAULT_DAILY_QUOTA)
     parser.add_argument("--dry-run", action="store_true",
-                        help="Skip API call (dev mode without ARK_API_KEY)")
+                        help="Skip API call (dev mode without " + DOUBAO_API_KEY_ENV + ")")
     parser.add_argument("--json", action="store_true", help="JSON output")
     args = parser.parse_args()
 

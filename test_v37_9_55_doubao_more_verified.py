@@ -45,15 +45,16 @@ class TestVerifiedToolCallingFlagsV9_55(unittest.TestCase):
         self.providers = _reload_providers()
         self.d = self.providers.get_provider("doubao")
 
-    def test_verified_tool_calling_is_true(self):
-        self.assertTrue(
+    def test_verified_tool_calling_reset_v290(self):
+        # V37.9.55 曾 True (Ark tools 实测) → V37.9.290 平台切换重置 False 待复测
+        self.assertFalse(
             self.d.capabilities.verified_tool_calling,
-            "V37.9.55 verified_tool_calling 必须 True (Mac Mini curl tools schema 实测通过)",
+            "V37.9.290 平台切换后 verified_tool_calling 必须重置 False",
         )
 
-    def test_verified_features_includes_tool_calling(self):
+    def test_verified_features_excludes_tool_calling_v290(self):
         features = self.d.capabilities.verified_features()
-        self.assertIn("tool_calling", features)
+        self.assertNotIn("tool_calling", features)
 
 
 class TestVerifiedStreamingFlagsV9_55(unittest.TestCase):
@@ -64,15 +65,15 @@ class TestVerifiedStreamingFlagsV9_55(unittest.TestCase):
         self.providers = _reload_providers()
         self.d = self.providers.get_provider("doubao")
 
-    def test_verified_streaming_is_true(self):
-        self.assertTrue(
+    def test_verified_streaming_reset_v290(self):
+        self.assertFalse(
             self.d.capabilities.verified_streaming,
-            "V37.9.55 verified_streaming 必须 True (Mac Mini curl stream:true 实测 SSE 通过)",
+            "V37.9.290 平台切换后 verified_streaming 必须重置 False",
         )
 
-    def test_verified_features_includes_streaming(self):
+    def test_verified_features_excludes_streaming_v290(self):
         features = self.d.capabilities.verified_features()
-        self.assertIn("streaming", features)
+        self.assertNotIn("streaming", features)
 
 
 class TestVerifiedFeaturesV9_55Complete(unittest.TestCase):
@@ -83,12 +84,12 @@ class TestVerifiedFeaturesV9_55Complete(unittest.TestCase):
         self.providers = _reload_providers()
         self.d = self.providers.get_provider("doubao")
 
-    def test_doubao_verified_features_v37_9_55(self):
+    def test_doubao_verified_features_v290_reset(self):
+        # 史: V37.9.55 曾锁定 5 项 (Ark E2E 全 flip); V37.9.290 平台切换全重置
         features = self.d.capabilities.verified_features()
         self.assertEqual(
-            set(features),
-            {"text", "vision", "tool_calling", "streaming", "reasoning"},
-            f"V37.9.55 doubao 应锁定 5 verified features, got {features}",
+            set(features), set(),
+            f"V37.9.290 重置后应为空集, got {features}",
         )
 
 
@@ -105,22 +106,23 @@ class TestCapScoreV9_55(unittest.TestCase):
         + 5 verified*2 (text/vision/tool_calling/streaming/reasoning) = 16."""
         doubao = self.reg.get("doubao")
         score = self.reg._capability_score(doubao)
+        # 史: V37.9.55 曾 16; V37.9.290 平台切换 verified 全重置 → 6
         self.assertEqual(
-            score, 16,
-            f"V37.9.55 doubao cap_score 锁定 16 (6 base + 5 verified*2), got {score}",
+            score, 6,
+            f"V37.9.290 重置后 doubao cap_score 锁定 6, got {score}",
         )
 
-    def test_doubao_cap_score_greater_than_qwen(self):
-        """V37.9.55: doubao 超越 Qwen3 — framework 视角 doubao 是 registry 最强 provider.
-        (但 primary 仍是 Qwen3, V37.9.56+ 决定是否切 primary)."""
+    def test_doubao_cap_score_below_qwen_after_reset_v290(self):
+        """史: V37.9.55 doubao(16) 曾超越 qwen(14) 成 registry 最强;
+        V37.9.290 平台切换重置 → doubao 6 < qwen 14。E2E 复测 flip 后再评估。
+        (registry 最强现为 doubao_21=16, 生产 primary 即它 V37.9.222。)"""
         doubao = self.reg.get("doubao")
         qwen = self.reg.get("qwen")
         doubao_score = self.reg._capability_score(doubao)
         qwen_score = self.reg._capability_score(qwen)
-        self.assertGreater(
+        self.assertLess(
             doubao_score, qwen_score,
-            f"V37.9.55 doubao ({doubao_score}) 应 > qwen ({qwen_score}) "
-            f"(doubao 多 1 reasoning base + 2 verified*1 — reasoning + reasoning_verified)",
+            f"V37.9.290 重置后 doubao ({doubao_score}) 应 < qwen ({qwen_score})",
         )
 
 
@@ -156,18 +158,18 @@ class TestPluginSourceV9_55(unittest.TestCase):
         with open(DOUBAO_PLUGIN, encoding="utf-8") as f:
             cls.src = f.read()
 
-    def test_plugin_verified_tool_calling_true(self):
+    def test_plugin_verified_tool_calling_reset_v290(self):
         self.assertRegex(
             self.src,
-            r"verified_tool_calling\s*=\s*True",
-            "V37.9.55 plugin 必须 verified_tool_calling=True",
+            r"verified_tool_calling\s*=\s*False",
+            "V37.9.290 plugin 必须 verified_tool_calling=False (平台切换重置)",
         )
 
-    def test_plugin_verified_streaming_true(self):
+    def test_plugin_verified_streaming_reset_v290(self):
         self.assertRegex(
             self.src,
-            r"verified_streaming\s*=\s*True",
-            "V37.9.55 plugin 必须 verified_streaming=True",
+            r"verified_streaming\s*=\s*False",
+            "V37.9.290 plugin 必须 verified_streaming=False (平台切换重置)",
         )
 
     def test_plugin_verified_fallback_still_false(self):

@@ -1,6 +1,6 @@
 {
-  "updated": "2026-08-07 04:11:29",
-  "updated_by": "full_regression",
+  "updated": "2026-08-07 07:53:21",
+  "updated_by": "unknown",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-08-08",
+      "what": "V37.9.290 doubao+glm5_coding 平台切换 Ark→ai-tokenhub (探针证伪 Ark 认 -huakun 名, 10406 证实名字在 tokenhub 缺 scope, 用户供两把专属 key): 去 ep- 间接层镜像 deepseek_full 结构 + expert_escalation/code_assist 随迁 + tier 诚实重置 declared (V37.9.255 纪律, Ark 证据不迁移) + cap_score doubao 16→6 (doubao_21 登顶) + 8 测试文件 45 失败演进归零 + 治理两 INV 演进 EXIT=0 + golden 重生成。两把 sk- key 零入库+建议轮换。VERSION 0.37.9.127",
+      "by": "claude_code"
+    },
     {
       "date": "2026-08-07",
       "what": "V37.9.289 三 provider 模型 ID 更名(用户指令): doubao→doubao-seed-2.0-pro-huakun / deepseek_full→deepseek-v4-pro-huakun / glm5_coding→glm-5.2-huakun, 其他参数不变。波及面全量同步(插件+expert_escalation+code_assist+测试pin+compat matrix)。tier 不变+evidence 加时间边界(V37.9.277 惯例)。顺手脱敏泄漏的真实 ep- 接入点 ID 四处。dev 合约/dry-run 全过, 真 E2E 待 Mac Mini 复测。VERSION 0.37.9.126",
@@ -249,7 +254,7 @@
       "【KB 幽灵向量+indexed_at 断链 · 对抗审计 B-F4/B-F5 登记(MED, 设计决策)】(a) kb_dedup 每晚 os.remove 重复笔记但 text_index 从不 prune(kb_embed:496 无删除检测)→已删3个月内容带相关度分数被检索, PA 引用当最新(纯语义假输出零日志) (b) indexed_at 三级丢弃: kb_rag:203 语义分支不含/memory_plane:90 metadata 不含→tool_proxy time_info 恒空+memory_plane FRESHNESS_DECAY 整段死代码(全仓 grep 穷举确认) (c) B-F5 load_vectors(kb_rag:45) 只防短不防长→错位静默截断张冠李戴(~24h rebuild 自愈窗口, 排最低)。设计决策: prune 时机(rebuild 时对账?)+metadata 透传链",
       "【proxy 观测口径 follow-up · 对抗审计 C-F3/C-F4 登记(LOW-MED, SLO 口径设计决策)】(a) REST /data_clean subprocess 四站点(tool_proxy:339/376/401/420)未捕获 TimeoutExpired→连接直断空回复(与 LLM 路径:736 不对称, 运维面误导 restart) (b) search_kb followup 失败造无 usage fallback(:950)→record_success 记成功+转储写进对话捕获(KB 自反馈污染) (c) elapsed(:1155) 在工具执行前冻结→p95 对 search_kb/data_clean 轮次漏计最多90s (d) tool_ok result[:100] 窗口→expert read_only_violation 记 success。",
       "【expert api_unavailable 真降级 followup 化 · C-F2 后半(设计 follow-up)】V37.9.288 渲染层已消除裸 JSON/英文 dump, 但 SOUL 规则12 \"api_unavailable→我用 Qwen3 自己回答\" 仍靠用户重发一次(本路径 finish_reason=stop, PA LLM 看不到结果)。结构性兑现=expert 失败态复用 _followup_llm_call 让 Qwen3 直接接管作答(行为变更需 Mac Mini E2E, 罕见失败路径+1次 LLM 调用成本可接受)。",
-      "【V37.9.289 三 provider 更名 · 🔴 Mac Mini E2E 复测(生效前置)】合并+同步+重启 proxy/adapter 后复测更名后端点认不认新名: (a) deepseek_full: curl ai-tokenhub chat/completions model=deepseek-v4-pro-huakun 期待 200+content(10405=网关不认→回滚或改env) (b) doubao: expert_escalate 触发词真调一次(生产走 ARK_ENDPOINT_ID ep- 为准, 新名仅 env 缺失 fallback) (c) glm5: code_assist.sh 真调(GLM5_ENDPOINT_ID 未设时走新名)。通过→发我结果刷新 tier_evidence \"更名后 E2E ✅\"; 失败→单 commit revert。另: 泄漏 ep ID 已脱敏, 建议顺手在 Volcengine 控制台评估该接入点是否需轮换"
+      "【V37.9.289/290 三 provider -huakun 迁移 · 🔴 Mac Mini 配置+E2E 复测（生效前置）】deepseek_full ✅ 已验证 (200+别名路由+R1 通道)。doubao/glm5 已切平台 ai-tokenhub (V37.9.290): (1) 配置: adapter+proxy 两 plist 加 DOUBAO_API_KEY + 替换 GLM5_API_KEY 值(sk-) + .env_shared 同步 → launchctl bootout/bootstrap 两服务 (2) E2E 三连: doubao chat 探针 (text+reasoning_content) / expert_escalate 触发词真调 (SOUL 规则12) / code_assist.sh 真调 (glm) (3) 结果回传 → 逐项 flip verified_* 升档 (现 declared, tier_note 记史); 失败项回滚对应 commit。(4) 🔴 两把 sk- key 在对话出现过, 配置完成后建议找华坤轮换; ARK_API_KEY/ARK_ENDPOINT_ID/GLM5_ENDPOINT_ID 成无消费方遗留 env 可留可清。(5) vision 注意: doubao 声明 vision 但 tokenhub 网关 image_url 透传未测, vision fallback 现实依赖 qwen (唯一 verified vision fallback)。"
     ],
     "open_prs": [],
     "blocked_on": ""
@@ -328,7 +333,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-08-07 周五: V37.9.287/288 三镜头对抗审计(11修复+1证伪) + V37.9.289 三 provider 模型 ID 更名(-huakun 后缀, 用户指令)。🔴 剩: Mac Mini 同步+重启 proxy/adapter + V37.9.289 三连 E2E 复测(deepseek_full 新名直接进请求体=真行为变更) / A2 精度窗 08-08 关窗 / A4-Q4 填表 ≥08-08 / ISSRE 通知 8-12。",
+  "focus": "2026-08-08: V37.9.289/290 三 provider -huakun 迁移 (更名+doubao/glm5 平台切换 ai-tokenhub)。🔴 剩: Mac Mini plist 配 DOUBAO_API_KEY + 换 GLM5_API_KEY 值 + bootout/bootstrap → E2E 三连复测回传升档 / key 轮换建议 / A4-Q4 填表 ≥08-08 / ISSRE 通知 8-12。",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",

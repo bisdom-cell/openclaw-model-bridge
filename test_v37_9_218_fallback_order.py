@@ -18,7 +18,7 @@ _ADAPTER_SRC = os.path.join(os.path.dirname(__file__), "adapter.py")
 # 5 provider 全给 fake key → 都 available (dev 无真 key)
 _ALL_KEYS = {
     "REMOTE_API_KEY": "k", "ARK_21_API_KEY": "k", "DEEPSEEK_FULL_API_KEY": "k",
-    "ARK_API_KEY": "k", "DEEPSEEK_API_KEY": "k",
+    "DOUBAO_API_KEY": "k", "DEEPSEEK_API_KEY": "k",
 }
 
 
@@ -65,7 +65,7 @@ class TestFallbackOrderMechanism(unittest.TestCase):
         # 只给 doubao_21 + doubao key → deepseek/deepseek_full 无 key 跳过
         names = [fb["name"] for fb in _chain(
             "doubao_21,deepseek_full,doubao,deepseek",
-            keys={"REMOTE_API_KEY": "k", "ARK_21_API_KEY": "k", "ARK_API_KEY": "k"})]
+            keys={"REMOTE_API_KEY": "k", "ARK_21_API_KEY": "k", "DOUBAO_API_KEY": "k"})]
         self.assertEqual(names, ["doubao_21", "doubao"])
 
     def test_unknown_provider_skipped(self):

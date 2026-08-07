@@ -29,10 +29,10 @@
       "expert_escalate"
     ],
     "fallback_chain": [
-      "doubao",
       "doubao_21",
       "gemini",
       "openai",
+      "doubao",
       "kimi",
       "minimax",
       "glm",
@@ -41,7 +41,7 @@
       "deepseek",
       "glm5_coding"
     ],
-    "best_for_text_prefer_reasoning": "doubao",
+    "best_for_text_prefer_reasoning": "doubao_21",
     "policy": {
       "policy_id": "max-tools-per-agent",
       "limit": 12
@@ -50,9 +50,9 @@
   "non_deterministic": {
     "provider_count": 12,
     "step_timings_ms": {
-      "provider_registry": 20,
-      "tool_governance": 96,
-      "policy_ontology": 11
+      "provider_registry": 19,
+      "tool_governance": 36,
+      "policy_ontology": 9
     }
   }
 }
