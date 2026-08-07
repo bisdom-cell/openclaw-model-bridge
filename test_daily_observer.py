@@ -3433,5 +3433,66 @@ class TestV37_9_279OnModeHardening(unittest.TestCase):
                 self.assertIn("V37.9.279", f.read(), fn)
 
 
+class TestV37_9_287FailureEnumConvergence(unittest.TestCase):
+    """V37.9.287 (对抗审计 A-F1/A-F2): 失败状态枚举收口 + 监控覆盖.
+
+    V37.9.280 KB-F3 修了 kb_evening_collect._FAILURE_STATUSES 却漏了
+    daily_observer 的同款硬编码元组 (writer↔reader 枚举漂移的未修双胞胎) —
+    9 个源写 parse_failed / freight 写 parse_low / acl 写 no_volumes,
+    observer 曾把解析崩塌日记成无异常 (宪法级 #1 的 ground-truth 被污染)。
+    """
+
+    def test_parse_failed_emits_high_anomaly(self):
+        # 血案回归: 反爬日 9 个源写 parse_failed, 必须产 HIGH job_failure
+        statuses = [{"job_id": "arxiv_monitor", "found": True,
+                     "status": "parse_failed", "new": 0,
+                     "time": "", "reason": "root=html"}]
+        anomalies = obs.detect_anomalies(statuses, {}, [])
+        high = [a for a in anomalies if a["severity"] == "HIGH"
+                and a["category"] == "job_failure"]
+        self.assertGreater(len(high), 0, "parse_failed 曾被 observer 静默放过")
+        self.assertIn("arxiv_monitor", high[0]["message"])
+
+    def test_parse_low_and_no_volumes_flagged(self):
+        for st in ("parse_low", "no_volumes"):
+            statuses = [{"job_id": "freight_watcher", "found": True,
+                         "status": st, "new": 0, "time": "", "reason": ""}]
+            anomalies = obs.detect_anomalies(statuses, {}, [])
+            cats = [a["category"] for a in anomalies]
+            self.assertIn("job_failure", cats, st)
+
+    def test_enum_membership_and_partial_degraded_excluded(self):
+        for st in ("llm_failed", "fetch_failed", "send_failed",
+                   "parse_failed", "parse_low", "no_volumes"):
+            self.assertIn(st, obs.JOB_FAILURE_STATUSES)
+        # partial_degraded 走独立 MED job_degraded 通道, 不得混入 HIGH 枚举
+        self.assertNotIn("partial_degraded", obs.JOB_FAILURE_STATUSES)
+
+    def test_cross_module_consistency_with_evening(self):
+        # MR-8 跨模块守卫 (V37.9.103 DEAD_AGE_DAYS 模式): 两个 reader 的失败
+        # 枚举必须保持定义关系 — evening 集合 = observer 集合 + partial_degraded
+        # (partial_degraded 在 observer 侧独立走 MED job_degraded)。
+        import kb_evening_collect as ev
+        self.assertEqual(
+            set(ev._FAILURE_STATUSES),
+            set(obs.JOB_FAILURE_STATUSES) | {"partial_degraded"},
+            "writer↔reader 枚举漂移: 改一处必须同步另一处 (V37.9.280 KB-F3 家族)")
+
+    def test_no_stale_hardcoded_tuple_remains(self):
+        # 源码守卫: 旧三元组字面量不得在 daily_observer.py 复活 (定义 + 两处
+        # 消费必须走 JOB_FAILURE_STATUSES 单一常量)
+        base = os.path.dirname(os.path.abspath(__file__))
+        with open(os.path.join(base, "daily_observer.py"), encoding="utf-8") as f:
+            src = f.read()
+        self.assertNotIn('("llm_failed", "fetch_failed", "send_failed")', src)
+        self.assertGreaterEqual(src.count("JOB_FAILURE_STATUSES"), 3)
+
+    def test_blogs_bsky_in_jobs_subdirs(self):
+        # A-F2: 两个 enabled 内容 job 曾零监控覆盖 (watchdog + observer 双缺席),
+        # "死掉的替代品不可见, 已知退化的原版 (ai_leaders_x) 反而被监控"。
+        self.assertIn("ai_leaders_blogs", obs.JOBS_SUBDIRS)
+        self.assertIn("ai_leaders_bsky", obs.JOBS_SUBDIRS)
+
+
 if __name__ == "__main__":
     unittest.main()

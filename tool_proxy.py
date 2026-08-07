@@ -455,7 +455,8 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
             source = "all"
 
         # ── 1. 语义搜索（kb_rag）──
-        semantic_results = self._semantic_search(query, top_k=8, source=source, recent_hours=recent_hours)
+        semantic_results, sem_degraded = self._semantic_search(
+            query, top_k=8, source=source, recent_hours=recent_hours)
         if semantic_results:
             items = []
             for r in semantic_results:
@@ -488,10 +489,20 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
         elapsed_ms = int((time.monotonic() - t0) * 1000)
         log(f"search_kb: query='{query[:50]}' source={source} recent={recent_hours} "
             f"semantic={len(semantic_results) if semantic_results else 0} "
+            f"degraded={sem_degraded or '-'} "
             f"results={len(results)} {elapsed_ms}ms")
 
+        # V37.9.288 (对抗审计 B-F2): "搜索坏了"与"没搜到"曾塌缩成同一句定论, 且附带
+        # "每日自动更新"的假保证 — 语义层故障日 followup LLM 会照字面向用户断言
+        # "KB 里没有相关内容" (假否定 fail-plausible, 宪法级 #1 打击目标)。
+        if sem_degraded and results:
+            # 语义层坏了但关键词兜底有命中: 标注降级, 防结果被当完整检索
+            results.insert(0, f"⚠️ 语义检索层异常（{sem_degraded}），以下仅为关键词匹配结果:")
         if not results:
-            return "知识库中未找到与「{}」相关的内容。\n\n知识库包含 ArXiv/HF/S2/DBLP/ACL 论文和 HN 热帖，每日自动更新。".format(query)
+            if sem_degraded:
+                return (f"⚠️ 检索系统异常（{sem_degraded}），本次无法确认知识库中是否存在相关内容。"
+                        f"请如实告知用户检索暂不可用，稍后重试；不要断言知识库中没有该内容。")
+            return "知识库中未找到与「{}」相关的内容（语义+关键词两路检索均无命中）。".format(query)
 
         total = "\n\n".join(results)
         if len(total) > max_total:
@@ -503,7 +514,16 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
         return total
 
     def _semantic_search(self, query, top_k=8, source=None, recent_hours=None):
-        """语义搜索：优先 memory_plane 在进程内搜索（快），回退 subprocess（安全）"""
+        """语义搜索：优先 memory_plane 在进程内搜索（快），回退 subprocess（安全）
+
+        V37.9.288 (对抗审计 B-F2/B-F3): 返回 (results, degraded_reason)。
+        此前七条失败路径全部 return [] 与"真的没有匹配"完全同形 → 语义层故障日
+        _search_kb 回给 LLM "知识库中未找到…" 定论 (假否定 fail-plausible)。
+        degraded_reason 非 None = 语义检索基础设施本次未能完成一次真实检索
+        (与"检索完成但 0 命中"区分)。SystemExit 收编: kb_rag 库路径含 sys.exit(1),
+        in-process 撞上时降级到 subprocess 回退 (fresh 进程 exit 1 → 被 returncode
+        检测捕获 → 显式 degraded, 不再穿透杀死 HTTP 线程)。
+        """
         # ── 路径 1：memory_plane 在进程内直接搜索 ──
         try:
             from memory_plane import query as mp_query
@@ -512,7 +532,7 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                                recent_hours=recent_hours)
             if results:
                 log(f"search_kb: memory_plane in-process hit ({len(results)} results)")
-                return [
+                return ([
                     {
                         "score": r.score,
                         "text": r.text,
@@ -523,10 +543,12 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                         "indexed_at": r.metadata.get("indexed_at", ""),
                     }
                     for r in results
-                ]
+                ], None)
             # memory_plane 可用但无结果 — 继续（不回退到 subprocess）
-            return []
-        except Exception as e:
+            # 诚实边界: memory_plane 内层 except 吞掉的故障仍表现为空结果
+            # (V37.9.288 已在 memory_plane 侧加 stderr 打点, reader 侧无法区分)。
+            return ([], None)
+        except (Exception, SystemExit) as e:
             log(f"search_kb: memory_plane unavailable ({e}), fallback to subprocess")
 
         # ── 路径 2：subprocess 回退（memory_plane 不可用时） ──
@@ -536,7 +558,7 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                 rag_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "kb_rag.py")
             if not os.path.exists(rag_path):
                 log("WARN: kb_rag.py not found, semantic search disabled")
-                return []
+                return ([], "kb_rag.py 不存在")
 
             cmd = [sys.executable, rag_path, "--json", "--top", str(top_k)]
             if source and source != "all":
@@ -548,18 +570,18 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
             if result.returncode != 0:
                 log(f"WARN: kb_rag exited {result.returncode}: {result.stderr[:200]}")
-                return []
+                return ([], f"语义检索进程异常退出 (exit {result.returncode})")
             data = json.loads(result.stdout)
-            return data.get("results", data) if isinstance(data, dict) else data
+            return (data.get("results", data) if isinstance(data, dict) else data, None)
         except subprocess.TimeoutExpired:
             log("ERROR: kb_rag semantic search timeout (30s)")
-            return []
+            return ([], "语义检索超时 (30s)")
         except json.JSONDecodeError as e:
             log(f"ERROR: kb_rag JSON parse failed: {e}")
-            return []
+            return ([], "语义检索输出解析失败")
         except Exception as e:
             log(f"ERROR: kb_rag semantic search failed: {e}")
-            return []
+            return ([], f"语义检索失败 ({str(e)[:80]})")
 
     def _keyword_search(self, query, source="all", exclude_files=None):
         """关键词搜索：补充语义搜索可能遗漏的精确匹配"""
@@ -665,15 +687,19 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
             except json.JSONDecodeError:
                 return json.dumps({"error": f"参数解析失败: {arguments}"})
 
-            action = args.get("action", "")
-            file_path = args.get("file", "")
+            # V37.9.288 (对抗审计 C-F5-B): LLM 可发 {"key": null} — dict.get(k, default)
+            # 在 key 存在值为 None 时返回 None 而非 default, config.get(...)/.strip()
+            # 即 AttributeError 逃出拦截层 (伪装成后端 502 污染 incident 归因)。
+            # 全部参数 null-归一 (expert_escalate 分支已有 isinstance 守卫, 此处铺开)。
+            action = args.get("action") or ""
+            file_path = args.get("file") or ""
 
             # LLM 可能用 "clean" 代替 "execute"
             if action in ("clean", "cleaning"):
                 action = "execute"
 
             # LLM 可能把操作信息放在 config 参数里
-            config = args.get("config", {})
+            config = args.get("config") or {}
             if isinstance(config, str):
                 try:
                     config = json.loads(config)
@@ -721,12 +747,19 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                     return json.dumps({"error": file_path})
                 if not os.path.exists(file_path):
                     return json.dumps({"error": f"文件不存在: {file_path}"})
-                ops = args.get("ops", "trim,dedup")
+                ops = args.get("ops") or "trim,dedup"
                 cmd = [sys.executable, self._data_clean_path(), "execute", file_path,
                        "--ops"] + [o.strip() for o in ops.split(",") if o.strip()]
-                fix_case_cols = args.get("fix_case_cols", "")
+                fix_case_cols = args.get("fix_case_cols") or ""
                 if fix_case_cols:
                     cmd += ["--fix-case-cols"] + [c.strip() for c in fix_case_cols.split(",")]
+                # V37.9.288 (对抗审计 C-F5-A): schema (proxy_filters) 声明 fix_date_cols
+                # 且 TOOL_PARAMS 放行, REST 侧一直支持 --fix-date-cols, 唯独本 LLM 拦截
+                # 路径从不读它 → LLM 按 schema 传的列限制被静默丢弃, op_fix_dates 退回
+                # 全表自动检测 ("只改 order_date" 实际多列被重写, 业务主键损坏面)。
+                fix_date_cols = args.get("fix_date_cols") or ""
+                if fix_date_cols:
+                    cmd += ["--fix-date-cols"] + [c.strip() for c in fix_date_cols.split(",")]
             else:
                 return json.dumps({"error": f"未知操作: {action}"})
 
@@ -744,8 +777,11 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
             except json.JSONDecodeError:
                 return json.dumps({"error": f"参数解析失败: {arguments}"})
 
-            query = args.get("query", "").strip()
-            source = args.get("source", "all")
+            # V37.9.288 (C-F5-B): schema description 明写"使用 recent_hours 时 query
+            # 可为空" → 模型发 {"query": null, "recent_hours": 24} 完全在预期内,
+            # None.strip() 曾直接 AttributeError 逃出拦截层。
+            query = (args.get("query") or "").strip()
+            source = args.get("source") or "all"
             recent_hours = args.get("recent_hours")
 
             # recent 模式允许空 query
@@ -996,6 +1032,40 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
         except (json.JSONDecodeError, TypeError):
             return f"工具执行结果:\n{result[:3000]}"
 
+        # V37.9.288 (对抗审计 C-F2): expert_escalate 曾无渲染分支 — status=ok 落到
+        # 默认 json.dumps 裸 JSON (含 usage 内部字段, [:3000] 中截) 直发用户; 非-ok
+        # 全部渲染成 "❌ 错误: <英文运维原文>"。本路径 finish_reason=stop 且无
+        # followup, PA LLM 结构上看不到结果 → SOUL 规则 12 的中文契约不可能兑现。
+        # 按 SOUL 契约逐 status 渲染; "api_unavailable 真降级 Qwen3 作答" 需
+        # followup 化 = 行为变更, 登记 follow-up 不在本版 (渲染层先消除裸 JSON/
+        # 英文 dump 的 fail-plausible)。
+        if fn_name == "expert_escalate" and isinstance(data, dict):
+            st = data.get("status", "")
+            if st == "ok":
+                lines = ["🧠 专家意见（来自 Doubao reasoning model，read-only proposal）:", ""]
+                if data.get("proposal"):
+                    lines.append(str(data["proposal"]).strip())
+                if data.get("rationale"):
+                    lines += ["", f"依据: {data['rationale']}"]
+                if data.get("confidence"):
+                    lines.append(f"置信度: {data['confidence']}")
+                refs = data.get("refs") or []
+                if refs:
+                    lines.append("参考: " + "; ".join(str(r) for r in refs[:5]))
+                lines += ["", "（以上为专家建议，是否执行由你决定；我不会自动执行其中任何命令）"]
+                return "\n".join(lines)[:3500]
+            if st == "quota_exceeded":
+                return "⚠️ 今日 expert 咨询配额已用完（30/30）。请把问题再发我一次，我用基础模式直接分析。"
+            if st == "api_unavailable":
+                return "⚠️ Doubao 专家后端暂不可用（API/网络故障）。请把问题再发我一次，我用基础模式直接回答。"
+            if st == "read_only_violation":
+                return "🛡️ 专家返回的建议包含可执行命令，已被 read-only 契约自动拒绝（未执行任何命令）。"
+            if st == "claude_pending":
+                return "ℹ️ Claude 专家后端暂未启用，本次咨询未完成——请再发一次走默认 Doubao 路径。"
+            detail = data.get("error", "") or data.get("detail", "")
+            suffix = f"：{str(detail)[:200]}" if detail else ""
+            return f"⚠️ 专家咨询未完成（status={st or 'unknown'}）{suffix}"
+
         if "error" in data:
             return f"❌ 错误: {data['error']}"
 
@@ -1021,11 +1091,23 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
             return "\n".join(lines)
 
         if action in ("execute", "clean"):
-            lines = [f"✅ 数据清洗完成: {data.get('input', '?')}"]
-            lines.append(f"行数变化: {data.get('original_rows', '?')} → {data.get('final_rows', '?')}")
-            lines.append("")
+            # V37.9.288 (对抗审计 C-F1): per-step 局部失败曾被渲染成绿色 ✓ —
+            # detail 映射只认 5 个计数 key, error/skipped/unfixable/columns 全部
+            # 丢弃 → "fix_case 跳过: 未指定目标列" 显示为 "✓ fix_case" (用户拿
+            # 脏数据当净数据用); 未知 op 名 (LLM 幻觉 remove_duplicates) 同样 ✓。
+            # 逐 step 诚实渲染 + 有问题时 header 降为 ⚠️。
+            step_lines = []
+            issues = 0
             for step in data.get("steps", []):
                 op = step.get("operation", "?")
+                if "error" in step:
+                    step_lines.append(f"  ❌ {op} 失败: {step['error']}")
+                    issues += 1
+                    continue
+                if "skipped" in step:
+                    step_lines.append(f"  ⚠️ {op} 跳过: {step['skipped']}")
+                    issues += 1
+                    continue
                 detail = ""
                 if "rows_removed" in step:
                     detail = f"（删除 {step['rows_removed']} 行）"
@@ -1037,7 +1119,20 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                     detail = f"（修改 {step['cells_changed']} 个单元格）"
                 elif "cells_marked" in step:
                     detail = f"（标记 {step['cells_marked']} 个单元格）"
-                lines.append(f"  ✓ {op} {detail}")
+                cols = step.get("columns")
+                if cols:
+                    detail += f"（列: {', '.join(str(c) for c in cols[:6])}）"
+                unfixable = step.get("unfixable") or []
+                if unfixable:
+                    detail += f"（⚠️ {len(unfixable)} 个值无法解析未改动）"
+                step_lines.append(f"  ✓ {op} {detail}")
+            if issues:
+                lines = [f"⚠️ 数据清洗完成（{issues} 个操作未执行/失败，见明细）: {data.get('input', '?')}"]
+            else:
+                lines = [f"✅ 数据清洗完成: {data.get('input', '?')}"]
+            lines.append(f"行数变化: {data.get('original_rows', '?')} → {data.get('final_rows', '?')}")
+            lines.append("")
+            lines.extend(step_lines)
             lines.append("")
             lines.append(f"清洗后文件: {data.get('output', '?')}")
             return "\n".join(lines)

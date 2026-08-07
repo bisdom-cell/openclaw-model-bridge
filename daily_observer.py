@@ -58,7 +58,20 @@ JOBS_SUBDIRS = [
     "ai_leaders_x", "karpathy_x", "ontology_sources",
     "freight_watcher", "finance_news", "openclaw_official",
     "chaspark",
+    "ai_leaders_blogs", "ai_leaders_bsky",  # V37.9.287: 曾零监控覆盖（watchdog/observer 双缺席）
 ]
+
+# V37.9.287 (对抗审计 A-F1): job_failure 失败状态枚举 — V37.9.280 KB-F3 修了
+# kb_evening_collect._FAILURE_STATUSES 却漏了本模块的同款硬编码元组（writer↔reader
+# 枚举漂移的未修双胞胎）：9 个源可写 parse_failed / freight 写 parse_low / acl 写
+# no_volumes，全部曾被 observer 静默放过（解析崩塌日记成无异常）。单一常量 + 两处
+# 消费（detect_anomalies 过滤 + 报告 icon）+ 跨模块一致性守卫（test_daily_observer
+# 断言 == kb_evening._FAILURE_STATUSES - {partial_degraded}，partial_degraded 在
+# 本模块独立走 MED job_degraded 通道）。
+JOB_FAILURE_STATUSES = frozenset({
+    "llm_failed", "fetch_failed", "send_failed",
+    "parse_failed", "parse_low", "no_volumes",
+})
 
 # V37.9.88: stale last_run.json detection — if a job's last_run timestamp
 # is older than this many days before target_date, observer flags it as
@@ -806,7 +819,7 @@ def detect_anomalies(job_statuses, push_outputs, source_sections,
         })
 
     failed_jobs = [j for j in job_statuses
-                   if j["status"] in ("llm_failed", "fetch_failed", "send_failed")
+                   if j["status"] in JOB_FAILURE_STATUSES
                    and j["job_id"] not in stale_job_ids]
     for j in failed_jobs:
         reason = f" ({j['reason']})" if j["reason"] else ""
@@ -1095,7 +1108,7 @@ def build_report_markdown(target_date, job_statuses, push_outputs,
             icon = "✅"
         elif j["status"] == "partial_degraded":
             icon = "⚠️"
-        elif j["status"] in ("llm_failed", "fetch_failed", "send_failed"):
+        elif j["status"] in JOB_FAILURE_STATUSES:
             icon = "❌"
         elif not j["found"]:
             icon = "❓"

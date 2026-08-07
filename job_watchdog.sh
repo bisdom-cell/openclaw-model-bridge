@@ -186,6 +186,20 @@ JOBS=(
     #   状态语义: ok 正常; llm_failed/parse_error/no_outputs 走 catch-all 告警
     #   (上游 evening/dream/deep_dive 天天跑, "无产出"本身就是异常非安静日)。
     "daily_observer|$HOME/.kb/last_run_self_critique.json|180000|每日自评Observer|core"
+
+    # ── V37.9.287 新增 (对抗审计 A-F2/A-F5): 三个 enabled 却零登记的 job ──
+    # ai_leaders_blogs/bsky: V37.9.108/111 作为退化 ai_leaders_x 的替代引入, 结果
+    #   "死掉的替代品不可见, 已知退化的原版反而被监控为 core"。两 job 均写标准
+    #   cache/last_run.json (ok/fetch_failed/llm_failed/send_failed/partial_degraded)。
+    # AI Leaders Blogs: 每天13:30 → 最多静默 50h
+    "ai_leaders_blogs|$HOME/.openclaw/jobs/ai_leaders_blogs/cache/last_run.json|180000|AI大神博客观点|auxiliary"
+    # AI Leaders Bluesky: 每天17:00 → 最多静默 50h
+    "ai_leaders_bsky|$HOME/.openclaw/jobs/ai_leaders_bsky/cache/last_run.json|180000|AI大神Bsky观点|auxiliary"
+    # MOVESPEED 每日备份: 每天04:00, KB 灾备路径。事故链 (incident_monitor ≥5/24h) 只覆盖
+    #   rsync 爆发失败; 每日 1 次的持续失败 / skipped_no_ssd (SSD 未挂载) / job 停跑
+    #   三种情形此前全部漏网 — 正是原则 #34 "MOVESPEED 潜伏 60 天" 血案的同款静默模式。
+    #   failed/skipped_no_ssd 走 catch-all 告警 (备份不发生本身就该可见)。
+    "movespeed_daily_sync|$HOME/.kb/cache/last_run_movespeed_sync.json|180000|KB-SSD每日备份|auxiliary"
 )
 
 # ── V37.9.59 新增：LOG_FRESHNESS_JOBS — 仅有 log 没 last_run.json 的 jobs ──

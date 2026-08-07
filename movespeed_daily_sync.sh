@@ -18,7 +18,9 @@ DST="/Volumes/MOVESPEED/KB/"
 
 if [ ! -d "/Volumes/MOVESPEED" ]; then
     log "WARN: SSD not mounted, skip sync" >> "$LOG"
-    printf '{"status":"skipped_no_ssd","ts":"%s"}\n' "$TIMESTAMP" > "$STATUS_FILE" 2>/dev/null
+    # V37.9.287: 时间键 ts→time — watchdog/kb_status_refresh/observer 全部读 time,
+    # ts 键即使登记也解析不出 (状态文件格式异常)。与全部 last_run 写者对齐。
+    printf '{"status":"skipped_no_ssd","time":"%s"}\n' "$TIMESTAMP" > "$STATUS_FILE" 2>/dev/null
     exit 0
 fi
 
@@ -39,10 +41,10 @@ fi
 if [ "$RC" -eq 0 ]; then
     SIZE=$(du -sh "$DST" 2>/dev/null | cut -f1)
     log "OK: synced $SRC → $DST ($SIZE)" >> "$LOG"
-    printf '{"status":"ok","ts":"%s","size":"%s"}\n' "$TIMESTAMP" "$SIZE" > "$STATUS_FILE" 2>/dev/null
+    printf '{"status":"ok","time":"%s","size":"%s"}\n' "$TIMESTAMP" "$SIZE" > "$STATUS_FILE" 2>/dev/null
 else
     log "WARN: sync failed (exit=$RC)" >> "$LOG"
-    printf '{"status":"failed","ts":"%s","exit_code":%d}\n' "$TIMESTAMP" "$RC" > "$STATUS_FILE" 2>/dev/null
+    printf '{"status":"failed","time":"%s","exit_code":%d}\n' "$TIMESTAMP" "$RC" > "$STATUS_FILE" 2>/dev/null
 fi
 
 log "=== movespeed_daily_sync done ===" >> "$LOG"

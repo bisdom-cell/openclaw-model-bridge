@@ -92,7 +92,7 @@ Allowed (14): web_search, web_fetch, read, write, edit, exec,
               memory_search, memory_get, sessions_spawn, sessions_send,
               sessions_history, agents_list, cron, message, tts, image
 Prefix-match: browser_*
-Custom (2):   data_clean, search_kb (proxy-intercepted, never reach Gateway)
+Custom (3):   data_clean, search_kb, expert_escalate (proxy-intercepted, never reach Gateway)
 ```
 
 **Max tools per request**: 12 (config.yaml). Excess causes model hallucination.
