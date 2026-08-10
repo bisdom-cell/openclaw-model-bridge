@@ -476,6 +476,33 @@ def main():
     meta["model"] = MODEL_NAME
     meta["dim"] = dim
 
+    # ── V37.9.293 (对抗审计 B-F5): 对齐校验 (镜像 mm_index V37.9.292) ──────
+    # append_vectors 后 crash 于 save_meta 前会留孤儿行; 下轮 append 让新 chunks
+    # 全体位移错位 (张冠李戴, 相关度分数配错文本). 尺寸不符 → 本轮触发权威重建
+    # (_rebuild_vectors 从 meta 存储的完整 chunk 文本重嵌入, 不依赖旧向量文件).
+    # 放在剪除之前: 用剪除前的 chunk 数对账磁盘 (剪除本身必然造成尺寸差, 由
+    # removed_files 路径触发同一个重建, 不在此重复告警).
+    force_rebuild = False
+    if meta["chunks"] and dim:
+        vec_size = os.path.getsize(VECS_FILE) if os.path.isfile(VECS_FILE) else 0
+        expected_size = len(meta["chunks"]) * dim * 4
+        if vec_size != expected_size:
+            log(f"⚠️ 对齐校验失败: vectors.bin {vec_size}B ≠ {len(meta['chunks'])} chunks × {dim}维 × 4B = {expected_size}B，本轮重建向量文件")
+            force_rebuild = True
+
+    # ── V37.9.293 (对抗审计 B-F4): 幽灵 chunk 剪除 ────────────────────────
+    # kb_dedup 每晚 os.remove 重复笔记, 但索引从不剪除 → 已删 3 个月的内容仍带
+    # 相关度分数被检索, PA 引用当最新 (纯语义假输出零日志). 判定用磁盘直查
+    # os.path.isfile (不依赖扫描根目录配置, 防扫描根收缩误剪存活文件).
+    removed_files = set()
+    chunk_files = {c.get("file") for c in meta["chunks"] if c.get("file")}
+    dead_files = {p for p in chunk_files if not os.path.isfile(p)}
+    if dead_files:
+        before = len(meta["chunks"])
+        meta["chunks"] = [c for c in meta["chunks"] if c.get("file") not in dead_files]
+        removed_files |= dead_files
+        log(f"🪦 剪除 {before - len(meta['chunks'])} 个幽灵 chunks（{len(dead_files)} 个已删除文件）")
+
     # 已索引文件的 hash 集合
     indexed_hashes = {}  # file_path → hash
     for c in meta["chunks"]:
@@ -509,6 +536,10 @@ def main():
         if path in indexed_hashes:
             old_count = len(meta["chunks"])
             meta["chunks"] = [c for c in meta["chunks"] if c.get("file") != path]
+            # V37.9.293: 移除即登记 → 终段必重建。修历史洞: 变更后文件读失败/
+            # 产 0 chunks 时旧 chunks 已移除但不在 batch_meta → 旧 changed_files
+            # 反推逻辑不触发重建 → 位置整体位移张冠李戴
+            removed_files.add(path)
             log(f"  ♻️  {os.path.basename(path)} 已变更，移除 {old_count - len(meta['chunks'])} 旧 chunks")
 
         try:
@@ -539,38 +570,37 @@ def main():
         new_chunks += len(chunks)
         log(f"  📄 {os.path.basename(path)} → {len(chunks)} chunks")
 
-    if not batch_texts:
+    # V37.9.293: 无新内容且无移除/对齐修复才早退 — 旧版只看 batch_texts,
+    # 幽灵剪除/对齐修复在"当晚无新内容"时会被静默跳过 (dedup 删文件但无新 KB 内容的夜晚)
+    if not batch_texts and not removed_files and not force_rebuild:
         log(f"无新内容需要索引 (跳过 {skip_count}, 失败 {error_count})")
         return
 
     # 批量 embedding（本地模型，无限速）
-    log(f"生成 {len(batch_texts)} 个 chunk 的 embedding...")
-    t0 = time.time()
-    vectors = embed_texts(batch_texts, batch_size=64)
-    elapsed = time.time() - t0
-    log(f"embedding 完成: {elapsed:.1f}s ({elapsed / len(batch_texts) * 1000:.1f}ms/chunk)")
-
-    # 写入：如果有文件变更导致旧 chunks 被删除，需要重写向量文件
-    remaining_old = [c for c in meta["chunks"]]
-    if len(remaining_old) != len(meta["chunks"]):
-        # 有删除，需要完整重写（罕见路径）
-        pass
+    if batch_texts:
+        log(f"生成 {len(batch_texts)} 个 chunk 的 embedding...")
+        t0 = time.time()
+        vectors = embed_texts(batch_texts, batch_size=64)
+        elapsed = time.time() - t0
+        log(f"embedding 完成: {elapsed:.1f}s ({elapsed / len(batch_texts) * 1000:.1f}ms/chunk)")
+    else:
+        vectors = []
 
     # 追加新 chunks 和向量（排他锁保护，防止搜索读到半写数据）
     lock_fd = _acquire_exclusive_lock()
     try:
         meta["chunks"].extend(batch_meta)
-        append_vectors(vectors, dim)
+        if vectors:
+            append_vectors(vectors, dim)
 
-        # 如果有文件变更（删除了旧 chunks），需要重建向量文件
-        old_file_set = {c.get("file") for c in remaining_old}
-        changed_files = set()
-        for m in batch_meta:
-            if m["file"] in indexed_hashes:
-                changed_files.add(m["file"])
-
-        if changed_files:
-            log(f"检测到 {len(changed_files)} 个文件变更，重建向量文件...")
+        # V37.9.293: 任何移除 (文件变更 / 幽灵剪除) 或对齐失败 → 权威重建。
+        # 退役旧 changed_files 反推逻辑 (从 batch_meta ∩ indexed_hashes 重构) —
+        # 它漏掉"变更后 0 chunks / 读失败"场景: 旧 chunks 已移除但文件不在
+        # batch_meta → 不重建 → meta 与 vectors.bin 位置整体位移 = 张冠李戴。
+        # removed_files 在移除动作发生点登记 = 一物一形。
+        if removed_files or force_rebuild:
+            log(f"检测到 {len(removed_files)} 个文件移除/变更"
+                f"{' + 对齐修复' if force_rebuild else ''}，重建向量文件...")
             _rebuild_vectors(meta, dim)
 
         save_meta(meta)
@@ -593,6 +623,11 @@ def _rebuild_vectors(meta, dim):
         all_texts.append(c.get("text", c.get("preview", "")))
 
     if not all_texts:
+        # V37.9.293: 空 chunks 也要截空向量文件, 保持 filesize == chunks×dim×4
+        # 不变式 (全部文件被剪除时旧向量残留会让下轮对齐校验永远告警)
+        tmp = VECS_FILE + ".tmp"
+        open(tmp, "wb").close()
+        os.replace(tmp, VECS_FILE)
         return
 
     vectors = embed_texts(all_texts, batch_size=64)

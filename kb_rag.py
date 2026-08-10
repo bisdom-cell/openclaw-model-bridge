@@ -48,7 +48,17 @@ def load_vectors(count, dim):
     data = np.fromfile(VECS_FILE, dtype=np.float32)
     expected = count * dim
     if len(data) < expected:
+        # V37.9.293 (对抗审计 B-F5): 短缺 = 索引损坏, 语义层不可用。stderr 打点
+        # 防静默降级不可见 (镜像 V37.9.288 B-F2 "搜索坏了 ≠ 没搜到")
+        print(f"[kb_rag] WARN: vectors.bin 短缺 ({len(data)} < {expected} floats), "
+              f"语义索引不可用, 待 kb_embed 下轮重建", file=sys.stderr)
         return None
+    if len(data) > expected:
+        # V37.9.293 (对抗审计 B-F5): 超前 = crash 窗口孤儿行 (append 只在尾部,
+        # 前缀截断位置正确); 位移型错位由 kb_embed 对齐校验在下轮权威重建。
+        # 旧版静默截断 = 错位期间张冠李戴零日志。
+        print(f"[kb_rag] WARN: vectors.bin 超前 meta ({len(data)} > {expected} floats), "
+              f"按前缀截断使用, kb_embed 下轮将对齐重建", file=sys.stderr)
     return data[:expected].reshape(count, dim)
 
 
@@ -208,6 +218,10 @@ def search(query, top_k, output_mode="text", source=None, recent_hours=None):
             "source_type": c.get("source_type", ""),
             "chunk_idx": c.get("chunk_idx", 0),
             "char_len": len(full_text),
+            # V37.9.293 (对抗审计 B-F4 b): indexed_at 透传 — 消费端早已在读
+            # (tool_proxy:467 subprocess 路径 time_info / memory_plane freshness
+            # decay), 生产端从未喂过 = time_info 恒空 + FRESHNESS_DECAY 死代码
+            "indexed_at": c.get("indexed_at", ""),
         })
 
     return _format_output(query, results, top_k, output_mode)
