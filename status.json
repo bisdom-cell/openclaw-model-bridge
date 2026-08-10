@@ -1,5 +1,5 @@
 {
-  "updated": "2026-08-10 06:28:42",
+  "updated": "2026-08-10 06:45:00",
   "updated_by": "full_regression",
   "priorities": [
     {
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-08-10",
+      "what": "V37.9.294 proxy 观测口径修复(对抗审计 C-F3/C-F4): REST data_clean 四站点收编统一执行器(TimeoutExpired→504/OSError→500 替代连接直断)+followup 失败降级哨兵(record_fallback+不捕获断 KB 自反馈)+elapsed 全轮重算(修 p95 低估 ~90s+)+classify_tool_result_ok 结构化分类(修 tool_success_rate 假 100%)。守卫 22 单测(AST exec-with-mocks), sabotage 四连各 1 FAIL 精确命中。VERSION 0.37.9.131",
+      "by": "claude_code"
+    },
     {
       "date": "2026-08-10",
       "what": "V37.9.293 KB 幽灵向量+indexed_at 断链修复(对抗审计 B-F4/B-F5): kb_embed 磁盘直查剪除幽灵 chunks+对齐校验权威重建+removed_files 移除即登记(退役 changed_files 反推逻辑修 0-chunk 位移洞); kb_rag 语义结果+memory_plane metadata 两级补透传 indexed_at(消费端 time_info/FRESHNESS_DECAY 早已在读, decay V36 设计行为复活); load_vectors 长/短双侧 stderr WARN。守卫 21 单测(fake-local_embed 行为级+HOME 隔离), sabotage 四连含 S3 首版守卫漏网被当场强化。VERSION 0.37.9.130",
@@ -173,11 +178,6 @@
       "date": "2026-07-24",
       "what": "V37.9.276 LLM-Observer Stage 5.1 flip 决策执行(宪法级 #1) — 用户交回 24 天 shadow 数据, 按 §9.1 预注册规则判定: 14 天报告全「无 fail-plausible 信号」+ live fp 全零 → C1(零系统性 FP)/C2(干净周可 flip)/C3(cheap-path 零成本) 全满足 → FLIP OBSERVER_FP_MODE=on。取数同时破案 score_history 污染: 2026-05-25 llm_failed 假记录 = test_daily_observer CLI subprocess 无 HOME 隔离在 Mac Mini 被 preflight/governance 跑时写真实文件(MR-9 家族)。修: (1) daily_observer.sh 补标准 env-source 行(flip enabler, 此前 OBSERVER_FP_MODE 到不了 observer) (2) 4 处 CLI subprocess HOME 隔离 + 2 守卫(隔离守卫当场抓到第 4 个未隔离站点=live 反向验证) (3) §9.1.1 决策记录入 design doc。VERSION 0.37.9.116->0.37.9.117。",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-07-24",
-      "what": "V37.9.275 status_update 点号数组名通用解析 — V37.9.270 残余半边: --add/--pop/--clear 任意非 unfinished 点号数组名 fall through 字面顶层键(--add 造孤儿/--pop/--clear 静默 no-op 吐 help rc=0), 账本 hygiene --clear session_context.open_prs 当场撞出。修=通用点号 walk(镜像 set_nested)+非 dict 中间节点保守回退不破坏标量。守卫 +9(2 新类含血案回归+孤儿键回归)+sabotage(4F+3E)。账本 hygiene: 清 stale open_prs+[30](c), 移除全闭环 [29]/[3], 32->30。VERSION 0.37.9.116 不变。",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -262,24 +262,24 @@
       "【V37.9.287/288 Mac Mini 被动验证】合并+git fetch+reset 同步(全走FILE_MAP)+重启proxy后: (287) 未来反爬日 observer 06:30 报告记 HIGH job_failure 非无异常 / blogs(13:30)/bsky(17:00)/movespeed(04:00) 停跑50h内 watchdog 告警 / health.stale_jobs 不再含 discussions 恒噪声 (288) 语义索引故障时 PA 说\"检索暂不可用\"而非\"KB里没有\" / expert 触发词得到中文渲染(非裸JSON/英文报错) / data_clean 局部失败可见⚠️/❌",
       "【V37.9.292 mm_index 静默失效家族 ✅ dev 全闭环 · 剩 Mac Mini 被动验证】四机制已修(a cron RC=0+`|| RC=$?`+FAILED: 冒号+exit RC / b 条件 save_meta 无变更不刷 mtime / c hash+getsize 入 try + verify_alignment 启动对齐自愈(超前截孤儿尾/短缺截 meta 重索引) / d HOME_LOGS +mm_index.log 错误扫描 + 全失败 ERROR:+exit 2) + memory_plane _mm_search (Exception,SystemExit)+stderr 打点。34 单测+sabotage 四连验证。同步后观察: (1) 首次部署 watchdog 若立即报 mm_index 错误 = 盲区解除暴露存量故障(working as intended)——尤其 gemini-embedding-2-preview 若已退役会现形→届时决策换 embedding 模型(user) (2) ls -la ~/.kb/mm_index/ 抽查 vectors.bin 大小==entries×3072 (3) 安静期(无新媒体) meta.json mtime 应停止每 2h 刷新。",
       "【V37.9.293 · B-F4/B-F5 幽灵向量+indexed_at 断链 ✅ 已修 · 剩 Mac Mini 被动验证】(a) 幽灵剪除: 同步后首晚 03:30 kb_embed 日志预期一次性大 🪦（历史累积幽灵 chunks 一次剪除+全量重建数分钟, 一次性开销非故障）, 之后 PA 搜索不再引用已删笔记 (b) indexed_at 透传: PA search_kb 结果出现「索引:时间」+ 旧内容排名轻微下调（FRESHNESS_DECAY 复活=V36 设计行为, 72h 后 5%/天地板 50%）——若用户感知排序异常贴我 (c) 错位可见性: kb_rag stderr 出现 vectors.bin 超前/短缺 WARN = 索引曾错位（下轮 03:30 自愈, 频繁出现才贴我）。B-F5 load_vectors 长侧守卫+对齐校验+0-chunk 洞（changed_files 反推退役）一并闭环, 详见 changelog V37.9.293。",
-      "【proxy 观测口径 follow-up · 对抗审计 C-F3/C-F4 登记(LOW-MED, SLO 口径设计决策)】(a) REST /data_clean subprocess 四站点(tool_proxy:339/376/401/420)未捕获 TimeoutExpired→连接直断空回复(与 LLM 路径:736 不对称, 运维面误导 restart) (b) search_kb followup 失败造无 usage fallback(:950)→record_success 记成功+转储写进对话捕获(KB 自反馈污染) (c) elapsed(:1155) 在工具执行前冻结→p95 对 search_kb/data_clean 轮次漏计最多90s (d) tool_ok result[:100] 窗口→expert read_only_violation 记 success。",
+      "【V37.9.294 · C-F3/C-F4 proxy 观测口径 ✅ 已修 · 剩 Mac Mini 被动验证】同步+重启 proxy 后: (a) REST /data_clean 超时返回 504 JSON 而非连接直断 (b) search_kb followup 失败日 proxy_stats degradation_rate 变真值 + 原始转储不再进对话捕获 (c) 🔴 p95 如上浮 = elapsed 口径修正（原漏计自定义工具最多 ~90s+）非性能退化, 预期勿告警 (d) tool_success_rate 如下降 = expert read_only_violation/api_unavailable 等失败态开始被诚实计数（classify_tool_result_ok 结构化分类替代 result[:100] 子串窗口）。详见 changelog V37.9.294。",
       "【expert api_unavailable 真降级 followup 化 · C-F2 后半(设计 follow-up)】V37.9.288 渲染层已消除裸 JSON/英文 dump, 但 SOUL 规则12 \"api_unavailable→我用 Qwen3 自己回答\" 仍靠用户重发一次(本路径 finish_reason=stop, PA LLM 看不到结果)。结构性兑现=expert 失败态复用 _followup_llm_call 让 Qwen3 直接接管作答(行为变更需 Mac Mini E2E, 罕见失败路径+1次 LLM 调用成本可接受)。",
       "【V37.9.289-291 三 provider -huakun 迁移 ✅ E2E 全通 · 剩收尾】deepseek_full/doubao/glm5 三模型 tokenhub 实测全通过, doubao/glm5 已升 feature_verified (text+reasoning), expert(cache_read=14136)+code_assist 生产路径 ✅。剩: (a) Mac Mini 同步 V37.9.291 + 重启 proxy (expert reasoning_chars 双字段名读数生效) (b) 🔴 两把 sk- key 在对话出现过, 建议找华坤轮换 (plist+.env_shared 各一行替换+bootout/bootstrap) (c) 可选残余探针补全 5/5: tokenhub 侧 vision(image_url)/tool_calling(tools)/streaming(stream:true) 实测后再升 (vision 注意: 未测前 image fallback 现实依赖 qwen) (d) 可选清理无消费方遗留 env: ARK_API_KEY/ARK_ENDPOINT_ID/GLM5_ENDPOINT_ID (无害可留)"
     ],
     "open_prs": [],
     "blocked_on": "",
-    "focus": "2026-08-10: V37.9.292 mm_index 静默失效家族 + V37.9.293 KB 幽灵向量/indexed_at 断链双修复已推送 claude/todays-work-bybj6o 待合并。🔴 剩: 合并后 Mac Mini git fetch+reset 同步（全走 FILE_MAP 零重启, 另 V37.9.291 的 proxy 重启还欠着一并做）/ 首晚 03:30 kb_embed 大 🪦 属预期 / mm watchdog 若立即告警=盲区解除暴露存量故障 / A2 精度窗已关+A4-Q4 填表日期已到（等 Mac Mini score_history+报告数据）/ ISSRE 通知 8-12。"
+    "focus": "2026-08-10: 同日三连交付 V37.9.292 mm_index 家族 + V37.9.293 KB 幽灵向量 + V37.9.294 proxy 观测口径, V37.9.287/288 对抗审计全部 dev-fixable 登记项收口（剩 [34] expert followup 化需 Mac Mini E2E）。已推送 claude/todays-work-bybj6o 待合并。🔴 剩: 合并后 Mac Mini git fetch+reset 同步 + 重启 proxy（V37.9.291 欠的 + V37.9.294 需要的一次搞定）/ 首晚 03:30 kb_embed 大 🪦 属预期 / p95 上浮=口径修正属预期 / A2+A4-Q4 等 Mac Mini 数据 / ISSRE 通知 8-12。"
   },
   "quality": {
     "security_score": 98,
-    "test_count": 5719,
-    "last_regression": "2026-08-10 06:28 pass",
+    "test_count": 5741,
+    "last_regression": "2026-08-10 06:44 pass",
     "coverage_pct": 0,
     "security_score_time": "2026-07-20 01:07",
-    "test_suites": 165,
+    "test_suites": 166,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
-    "version": "0.37.9.130",
+    "version": "0.37.9.131",
     "observer": {}
   },
   "incidents": [
