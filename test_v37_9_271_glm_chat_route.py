@@ -158,16 +158,22 @@ class TestProxyWiringSourceGuards(unittest.TestCase):
     def test_conversation_capture_skipped_when_routed(self):
         # V37.9.272: GLM 路由 = 工具查询非 PA 对话, 不捕获进 KB 对话精华
         # (与 code_assist.sh CLI 路径一致)。两处 _capture_conversation_turn 调用
-        # 都须由 `if not _routed_provider:` 守卫 (否则 GLM coding Q&A 污染 KB harvest)。
+        # 都须由含 `not _routed_provider` 的条件守卫 (否则 GLM coding Q&A 污染 KB harvest)。
+        # V37.9.294 演进: content 分支升级为双条件 `not _routed_provider and
+        # not _followup_degraded` (followup 降级转储不捕获, 断 KB 自反馈) — 守卫
+        # 从"恰 2 处单条件"放宽为"2 处条件均含 not _routed_provider", 语义不变。
         import re
         guarded = re.findall(
-            r"if not _routed_provider:\s*\n\s*_capture_conversation_turn\(",
+            r"if not _routed_provider[^\n]*:\s*\n\s*_capture_conversation_turn\(",
             self.src,
         )
         self.assertEqual(
             len(guarded), 2,
-            "两处对话捕获调用都须由 _routed_provider 守卫 (V37.9.272)",
+            "两处对话捕获调用都须由含 not _routed_provider 的条件守卫 (V37.9.272)",
         )
+        # V37.9.294: content 分支必须同时守 followup 降级 (KB 自反馈污染防线)
+        self.assertIn("if not _routed_provider and not _followup_degraded:", self.src,
+                      "content 捕获分支缺 _followup_degraded 守卫 (V37.9.294 回归)")
 
     def test_v37_9_272_marker(self):
         self.assertIn("V37.9.272", self.src)

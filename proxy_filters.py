@@ -732,6 +732,79 @@ def detect_provider_prefix(messages):
     return None, messages
 
 
+def classify_tool_result_ok(result_str):
+    """V37.9.294 (对抗审计 C-F4 d): 自定义工具结果成败分类 — SLO tool_success_rate 口径。
+
+    旧启发式 `result.startswith("{") and '"error"' in result[:100]` 只看前 100 字符
+    子串窗口, 把 expert_escalate 的 read_only_violation / api_unavailable /
+    quota_exceeded 等失败态全部记成 success (tool_success_rate 假 100%)。
+
+    新判定:
+      - JSON 可解析且是 dict → 结构化: 有 "error" 键 = 失败;
+        "status" 存在且 ∉ {"ok", "success"} = 失败 (expert 非-ok 态都是失败/拒绝)
+      - 非 JSON / 非 dict / 纯文本 (search_kb 结果等) → 沿用保守子串启发式
+        (FAIL-OPEN 偏 success, 不对无结构结果误报失败)
+    纯函数零 I/O, 供 tool_proxy record_tool_call 消费。
+    """
+    if not isinstance(result_str, str):
+        return True
+    s = result_str.strip()
+    if not s.startswith("{"):
+        return True
+    try:
+        data = json.loads(s)
+    except (ValueError, TypeError):
+        return '"error"' not in s[:100]
+    if not isinstance(data, dict):
+        return True
+    if "error" in data:
+        return False
+    status = data.get("status")
+    if status is not None and status not in ("ok", "success"):
+        return False
+    return True
+
+
+# V37.9.295 (对抗审计 C-F2 后半 / unfinished [34]): expert 可自动降级的失败态。
+# 仅收 api_unavailable + quota_exceeded — 两者的 V37.9.288 渲染文案都承诺
+# "基础模式接管作答" (SOUL 规则 12); read_only_violation (策略拒绝) /
+# claude_pending (配置态) / parse_failed (expert 已回但不可解析) 保持直出渲染。
+EXPERT_DEGRADABLE_STATUSES = ("api_unavailable", "quota_exceeded")
+
+# expert 降级 followup 的 system 注入模板 ({context} = V37.9.288 渲染的失败通知)。
+# 第 4 条防混淆: 通知文案里的「请把问题再发我一次」是二次失败兜底话术, 不能让
+# 基础模型照抄它要求用户重发 (那等于降级没发生)。
+EXPERT_DEGRADED_FOLLOWUP_SYSTEM = (
+    "专家模式（expert_escalate）本次调用失败，失败通知见下。你现在处于基础模式"
+    "降级（SOUL 规则 12：专家不可用时由你自己接管作答）：\n"
+    "1. 直接用你自己的能力回答用户最后的问题；\n"
+    "2. 回答开头先用一句话说明专家模式暂不可用、本回答来自基础模式；\n"
+    "3. 严禁编造专家意见、严禁声称已咨询专家；\n"
+    "4. 失败通知里的「请把问题再发我一次」是降级链路也失败时的兜底文案——"
+    "你现在已经在降级作答，不要要求用户重发。\n\n"
+    "═══ 专家模式失败通知 ═══\n{context}"
+)
+
+
+def is_expert_degradable_result(result_str):
+    """V37.9.295: expert_escalate 结果是否属于可自动降级的失败态。
+
+    True → tool_proxy 复用 _followup_llm_call 让基础模型同轮接管作答
+    (此前 finish_reason=stop 直出, PA LLM 结构上看不到结果, SOUL 规则 12
+    "api_unavailable → 我用基础模式自己回答" 只能靠用户手动重发兑现)。
+    畸形 JSON / 非 dict / 非降级 status → False (FAIL-OPEN 走默认渲染路径)。
+    """
+    if not isinstance(result_str, str):
+        return False
+    try:
+        data = json.loads(result_str)
+    except (ValueError, TypeError):
+        return False
+    if not isinstance(data, dict):
+        return False
+    return data.get("status") in EXPERT_DEGRADABLE_STATUSES
+
+
 def _message_starts_with_alert_marker(m):
     """判断单条消息是否以 [SYSTEM_ALERT] 标记开头。
 

@@ -376,8 +376,8 @@ Observer **能机械化**周一 30min 用户视角观察仪式（原则 #32）�
 | **Stage 3** ✅ | LLM-judge Layer 2（FAIL_PLAUSIBLE_SYSTEM，复用 call_llm_critique）+ 注入 LEVEL_6/credibility | verdict 结构化 + 引用证据 + 防 V37.9.93 sampling 幻觉 | ✅ V37.9.196 |
 | **Stage 4** ✅ | self-validation harness（复用 adversarial_chaos_audit 模式，OBS-A/B 场景）+ scorecard | defense rate / FN / FP / calibration 可度量；Category A →100% | ✅ V37.9.197 |
 | **Stage 5** ✅ | 接入 `daily_observer.run()`（detect_fail_plausible，§6.1）+ score/status 向后兼容扩展，**shadow-first**（`OBSERVER_FP_MODE=shadow` 默认，观察性不影响评分/告警） | daily_observer 次日报告含 fail_plausible 段，零下游破坏，Mac Mini E2E | ✅ V37.9.198（+199 shadow 抓真 FP 修 S5） |
-| **Stage 5.1** ✅ | flip `OBSERVER_FP_MODE` shadow→on（fp 进 anomalies → 影响评分/告警）+ force_judge 评估 | 决策框架见 §9.1（预注册 criteria）；**2026-07-24 数据到达按规则执行 → FLIP on（C1/C2/C3 全满足，§9.1.1 决策记录）** | ✅ flip 上线（07-25 三步落地 V37.9.276 + 07-26 on 首日在产 + V37.9.279 首日加固）；A2 十四天精度窗进行中（口径 §9.2） |
-| **Stage 6** 🟡 | bench 化（silent-failure/fail-plausible 检测 bench，社区可跑）+ 论文 #2 草案 | 别人能 `pip`/clone 跑 bench；论文 #2 描述→预测的 scorecard | 🟡 chunk 1 ✅ V37.9.200（bench 社区化）；论文 #2 草案 gated 于 detection latency 生产数据（数据口径已预注册 §9.2，V37.9.284） |
+| **Stage 5.1** ✅ | flip `OBSERVER_FP_MODE` shadow→on（fp 进 anomalies → 影响评分/告警）+ force_judge 评估 | 决策框架见 §9.1（预注册 criteria）；**2026-07-24 数据到达按规则执行 → FLIP on（C1/C2/C3 全满足，§9.1.1 决策记录）** | ✅ flip 上线（07-25 三步落地 V37.9.276 + 07-26 on 首日在产 + V37.9.279 首日加固）；**A2 窗已关**（07-26→08-08）：on 期 12 观测日 fired=0，台账 §9.2.6 关窗 + 数据表 §9.2.7（V37.9.296） |
+| **Stage 6** 🟡 | bench 化（silent-failure/fail-plausible 检测 bench，社区可跑）+ 论文 #2 草案 | 别人能 `pip`/clone 跑 bench；论文 #2 描述→预测的 scorecard | 🟡 chunk 1 ✅ V37.9.200（bench 社区化）；论文 #2 数据已按冻结口径落表（§9.2.7，V37.9.296：安静窗 0 TP → latency 保持构造性主张 + §9.2.5 负结果路径逐字执行）；**草案不再 gated 于窗口数据，可启动** |
 
 **Stage 0 交付 = 本文档**。后续 Stage 由独立 session 推进（每 Stage 走完整收工清单 + Mac Mini E2E，原则 #6/#9/#29）。
 
@@ -440,7 +440,7 @@ Observer **能机械化**周一 30min 用户视角观察仪式（原则 #32）�
 
 #### 9.2.2 数据源与字段（逐字段钉死，防口径漂移）
 
-- **`~/.kb/observer/score_history.jsonl`**（每行 11 字段：date / overall_score / jobs_ok / jobs_total / outputs_found / anomalies_high / anomalies_med / **fp_high / fp_med / fp_mode** / status）。**regime 划分规则**：`fp_mode=="on"` → on 期行；`=="shadow"` → shadow 期行；null/缺失 → V37.9.279 部署前 legacy 行，按日期 ≤2026-07-25 归 shadow 期；日期 >2026-07-25 且 fp_mode 缺失 = plumbing 边界行，**剔除出 H1/H2 主表**并在数据表脚注登记（规则先于数据）。**fixture 污染剔除规则**：`date==2026-05-25 且 status=="llm_failed"` 的行剔除（§9.1.1 考证的测试污染，写入源已被 V37.9.274 SF2 + V37.9.276 MR-9 双侧堵死）。
+- **`~/.kb/self_critique/score_history.jsonl`**（路径 2026-08-10 更正：预注册原文误写 `~/.kb/observer/`，按代码真理源 `daily_observer._score_history_path()` = `self_critique/` 实测取数确认；仅路径笔误，字段与 regime 规则逐字不变）（每行 11 字段：date / overall_score / jobs_ok / jobs_total / outputs_found / anomalies_high / anomalies_med / **fp_high / fp_med / fp_mode** / status）。**regime 划分规则**：`fp_mode=="on"` → on 期行；`=="shadow"` → shadow 期行；null/缺失 → V37.9.279 部署前 legacy 行，按日期 ≤2026-07-25 归 shadow 期；日期 >2026-07-25 且 fp_mode 缺失 = plumbing 边界行，**剔除出 H1/H2 主表**并在数据表脚注登记（规则先于数据）。**fixture 污染剔除规则**：`date==2026-05-25 且 status=="llm_failed"` 的行剔除（§9.1.1 考证的测试污染，写入源已被 V37.9.274 SF2 + V37.9.276 MR-9 双侧堵死）。
 - **每日报告 fail_plausible 段**（`## 🔬 Fail-Plausible 检测 [on]` header + 每条 `[severity] category @ artifact (confidence)` + L1/L2 逐字证据行）= 判定的对象工件。
 - **`llm_observer_ground_truth.yaml`**：corpus 基线（`silence_span` / `discovery_channel` / Category A/B）+ A3 回灌目的地。
 - **`llm_observer_selfcheck.py` scorecard + bench manifest**：corpus 侧 defense/FP/FN 指标（论文 #2 的 corpus 半，已有机器工件）。
@@ -472,6 +472,58 @@ Observer **能机械化**周一 30min 用户视角观察仪式（原则 #32）�
 | 日期 | artifact | severity | category | 判定 | 依据一句话 | 后续 |
 |------|----------|----------|----------|------|-----------|------|
 | （空） | | | | | 截至预注册日 2026-07-31 无已转发 fired verdict | |
+| （关窗 2026-08-10） | — | — | — | — | A2 窗 07-26→08-08 关闭：on 期 12 观测日（07-27→08-07）fired=0 → 零判定行；07-26 边界剔除 + 08-08 行缺失见 §9.2.7 脚注②③ | 台账保持 append-only，后续 on 期任何 fired verdict 继续在此登记 |
+
+#### 9.2.7 A4-Q4 数据表（2026-08-10 填 · study cutoff 2026-08-09 23:59 HKT · §9.2.1-9.2.5 冻结口径逐字执行）
+
+> 数据源：Mac Mini `~/.kb/self_critique/score_history.jsonl` 全量 + `daily_critique_YYYYMMDD.md` Fail-Plausible 段（2026-08-10 用户取回，在档报告 07-01 → 08-07）。溯源纪律 = 论文 #1 `data_inventory.md` 同款：本节每个数字可由 `cat score_history.jsonl` + `grep -A6 "fail.plausible" daily_critique_2026*.md` 逐字复现。
+
+**Regime 对账（§9.2.2 规则机械执行，零事后特判）**
+
+| regime | 窗口 | 行数 | 判定依据 | fp_high | fp_med | fired 合计 |
+|--------|------|------|----------|---------|--------|-----------|
+| shadow | 2026-06-30 → 07-25 | 26/26 天 | fp 字段在 + `fp_mode` 缺失 + date ≤07-25 | 0 | 0 | **0** |
+| on | 2026-07-27 → 08-07 | 12 行 | `fp_mode=="on"` | 0 | 0 | **0** |
+| 边界剔除 | 2026-07-26 | 1 行 | date >07-25 且 `fp_mode` 缺失（V37.9.279 字段部署边界）→ §9.2.2 plumbing 规则剔除主表 | (0) | (0) | — |
+| 窗外不计 | 2026-06-29 ×3 | 3 行 | wiring 日多次 run（含 1 条 fp_med=1 + 1 条 llm_failed），早于 shadow 窗起点 06-30 | — | — | — |
+
+脚注：
+- ① fixture 污染剔除规则（date==2026-05-25 且 llm_failed）实际命中 **0 行**——V37.9.276 清污染 no-op 结论的再次确认；规则保留为防御性条款。
+- ② A2 精度窗定义 07-26 → 08-08（14 天）；主表实际覆盖 07-27 → 08-07（**12/14 天**）——07-26 是预注册的部署边界剔除行；**08-08 行缺失**（应由 08-09 06:30 run 写入；连同 08-09 行与 `daily_critique_20260808+` 报告一并缺失 = daily_observer 08-09/08-10 两晨疑似未跑，运维核查项已登记 status.json）。**根因已确认（2026-08-10 用户核查）：Mac Mini 关机**（良性停机非 cron/observer 故障，核查项已关闭；停机期间 watchdog 同机不在运行 = 单机系统的固有观察边界，非软件盲区）。数据缺口如实报告，按 §9.2.5 纪律不补造、不事后放宽窗口。
+- ③ 报告标签与字段的 1 天错位：`daily_critique_20260725/26` 已标 `[on]`（env flip 07-25 落地）但对应行无 `fp_mode` 字段（字段 V37.9.279 才部署）——§9.2.2 按字段+日期判 regime（07-25→shadow / 07-26→边界剔除），**预注册规则优先于标签，不事后改判**；两日 fired 均 0，对各表零数值影响。
+- ④ 08-07 行 `jobs_total` 12→14 = V37.9.287 (A-F2) blogs/bsky 补登记在生产生效的直接证据（观察面扩大，非异常）。
+
+**H1 · live precision（on 期）**
+
+| 指标 | 值 | 口径 |
+|------|-----|------|
+| fired verdicts（on 期 12 观测日） | **0** | score_history fp_high+fp_med 全零，且 12 份报告全部「✅ 无 fail-plausible 信号」双源一致 |
+| TP / FP / inconclusive | 0 / 0 / 0 | §9.2.4 协议：无 fired 即无判定行（§9.2.6 台账零判定行关窗） |
+| live precision | **未定义（0 分母）** | §9.2.1 报原始计数不报区间；分母为零不得给出任何 precision 数字 |
+
+→ 论文 #2 表述（§9.2.5 第 2 款「安静期」路径逐字执行）：live 窗口内探测器零触发零误报；precision 主张只能引 corpus 侧证据（defense 6/6 · FP 0/4 · held-out FN 4/4，scorecard V37.9.197/200）；**安静期不得叙述为"检测成功"**。on 模式可运行性主张（评分/告警集成无 FP 风暴 + cheap-path 干净日 Layer 2 零调用）成立且有 12 天生产证据。
+
+**H2 · detection latency（定性桶）**
+
+| 项 | 值 |
+|-----|-----|
+| 构造上限 | ≤24h（06:30 日频扫描，构造性质非实测） |
+| live 实测点 | **0**（无 TP → 无 latency 样本） |
+| corpus 对照 | `silence_span` 定性桶（13h / 60 天 / 数月级）仍是唯一实证分布 |
+
+→ 论文 #2 表述：H2 保持**构造性主张**（daily cadence ≤24h 上界）+ corpus 桶对比，无生产实测点，如实标注。
+
+**H3 · human-first FN（on 期竞速）**
+
+| 项 | 值 | 说明 |
+|-----|-----|------|
+| 人先发现的**已显化** in-scope 静默故障 | **0** | 窗内无登记在案的推送内容级假输出（依据 = changelog/status/告警记录） |
+| 人先发现的**潜伏机制**（显化前拦截） | 两轮对抗审计：07-26 四镜头 14 findings（V37.9.279-281）+ 08-07 三镜头 15 candidates（10 修复 V37.9.287/288 + 4 登记 [31]-[34] 于 08-10 修复 V37.9.292-295 + 1 证伪剔除） | 发现渠道 = 代码级对抗审计（显化前），非 Observer 扫描域内容异常；按 ground-truth `observer_in_scope` 划界不计 Observer FN（如 B-F4 幽灵向量未修的最终显化形态在 PA 对话域，同 pa_alert/pa_echo partial 先例） |
+| Category B 回灌（A3） | 0 条新增 | 无显化 FN 可回灌；审计 findings 走 changelog/case 渠道 |
+
+→ 论文 #2 表述：观察窗的 discovery-channel 事实本身是发现——**对抗性代码审计在故障显化前拦截了两轮潜伏机制**（预防通道），Observer 扫描域内无显化事件（安静窗）；与 H3 的 FN 竞速定义正交，如实分开报告，不合并叙述。
+
+**§9.1 C1-C3 flip 判据延续核对（12 天 on 期）**：C1 零系统性 FP ✅（12/12 clean）· C2 干净期分支持续成立（零噪声代价，价值待首个真 TP 兑现，§9.1 预期内）· C3 cheap-path 成本 ≈0 ✅。flip 决策经 12 天生产运行未被推翻。
 
 ---
 

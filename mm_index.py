@@ -106,6 +106,49 @@ def load_vectors(count):
     return data.reshape(count, EMBED_DIM)
 
 
+def verify_alignment(meta):
+    """对齐校验 + 自愈（V37.9.292，对抗审计 B-F1 机制 c）。
+
+    不变式: filesize(vectors.bin) == len(entries) × EMBED_DIM × 4。
+    提交顺序是逐文件 append_vector + 收尾一次 save_meta，中途崩溃（历史触发器:
+    file_hash TOCTOU）会让 vectors.bin 超前 meta 永久错位 → mm_search reshape
+    ValueError 被 memory_plane 吞成 [] = 多模态层静默死亡，此前仅 --reindex 能修。
+    自愈到一致前缀（向量按 entry 顺序追加，前缀一一对应）:
+      - vectors 超前: 截断孤儿尾部向量，对应文件 hash 未入 meta，本轮自然重新
+        embed → 收敛；meta 不变。
+      - vectors 短缺（磁盘截断/撕裂写）: 先把 vectors.bin 对齐到整行边界，再把
+        meta 截到实际向量数，被丢弃的尾部文件本轮重新索引。
+    返回 True 表示 meta 被修改（调用方须落盘）。
+    """
+    n = len(meta.get("entries", []))
+    row = EMBED_DIM * 4
+    expected = n * row
+    actual = os.path.getsize(VECS_FILE) if os.path.isfile(VECS_FILE) else 0
+    if actual == expected:
+        return False
+    if actual > expected:
+        with open(VECS_FILE, "r+b") as f:
+            f.truncate(expected)
+        log(f"⚠️ 对齐自愈: vectors.bin 超前 meta ({actual}B > {expected}B), 已截断孤儿向量")
+        return False
+    keep = actual // row
+    if os.path.isfile(VECS_FILE) and actual != keep * row:
+        with open(VECS_FILE, "r+b") as f:
+            f.truncate(keep * row)
+    dropped = n - keep
+    meta["entries"] = meta["entries"][:keep]
+    log(f"⚠️ 对齐自愈: vectors.bin 短缺 (保留前 {keep} 条, 丢弃 {dropped} 条 meta, 相应文件将重新索引)")
+    return True
+
+
+def _try_size(path):
+    """TOCTOU 防御（V37.9.292）: listdir 与 getsize 之间文件可被删除。失败返回 -1（调用方按大小过滤自然跳过）"""
+    try:
+        return os.path.getsize(path)
+    except OSError:
+        return -1
+
+
 def scan_media_files():
     """扫描所有媒体目录，返回 (path, ext, size) 列表"""
     files = []
@@ -123,13 +166,13 @@ def scan_media_files():
                         if os.path.isfile(subpath) and not sub.startswith("."):
                             ext = os.path.splitext(sub)[1].lower()
                             if ext in MIME_MAP:
-                                size = os.path.getsize(subpath)
+                                size = _try_size(subpath)
                                 if 0 < size <= MAX_FILE_SIZE:
                                     files.append((subpath, ext, size))
                 continue
             ext = os.path.splitext(name)[1].lower()
             if ext in MIME_MAP:
-                size = os.path.getsize(path)
+                size = _try_size(path)
                 if 0 < size <= MAX_FILE_SIZE:
                     files.append((path, ext, size))
     return files
@@ -177,6 +220,9 @@ def main():
         if os.path.isfile(VECS_FILE):
             os.remove(VECS_FILE)
 
+    # V37.9.292 (B-F1 c): 启动即对齐校验自愈 — 永久错位从"仅 --reindex 能修"变每 2h 自愈
+    heal_modified = verify_alignment(meta)
+
     indexed_hashes = {e["hash"] for e in meta["entries"]}
 
     # 扫描媒体文件
@@ -186,9 +232,20 @@ def main():
     new_count = 0
     skip_count = 0
     error_count = 0
+    vanished_count = 0
 
     for path, ext, size in all_files:
-        fhash = file_hash(path)
+        # V37.9.292 (B-F1 c): hash 入 try — scan 与 hash 之间文件可被删除 (TOCTOU)。
+        # 此前 FileNotFoundError 直接炸掉整轮 → 本轮已 append 的向量成孤儿 →
+        # vectors.bin 超前 meta 永久错位。OSError 归 vanished（良性竞态，刻意不算
+        # 系统性失败，不触发 all-fail 告警；embed 阶段网络错误 ConnectionError∈OSError
+        # 故网络类失败仍走下方 error_count 路径）。
+        try:
+            fhash = file_hash(path)
+        except OSError as e:
+            vanished_count += 1
+            log(f"  ⚠️ {os.path.basename(path)}: 读取失败(可能已被删除): {e}")
+            continue
         if fhash in indexed_hashes:
             skip_count += 1
             continue
@@ -221,9 +278,23 @@ def main():
                 log("  ⏳ 限流，等待 10 秒...")
                 time.sleep(10)
 
-    # 保存元数据
-    save_meta(meta)
-    log(f"完成: 新增 {new_count}, 跳过 {skip_count}, 失败 {error_count}, 总计 {len(meta['entries'])}")
+    # V37.9.292 (B-F1 b): 条件写 — 无变更不刷 meta.json mtime（镜像 kb_embed 无新内容
+    # 早退）。此前每 2h 无条件重写 → mtime 永远新鲜 → 任何基于 mtime 的新鲜度判断
+    # 结构失效。META 缺失/损坏恢复（load_meta 已把损坏文件挪走）也须落盘。
+    meta_dirty = reindex or heal_modified or new_count > 0 or not os.path.isfile(META_FILE)
+    if meta_dirty:
+        save_meta(meta)
+    log(f"完成: 新增 {new_count}, 跳过 {skip_count}, 失败 {error_count}, 消失 {vanished_count}, "
+        f"总计 {len(meta['entries'])}" + ("" if meta_dirty else " (无变更, meta 未重写)"))
+
+    # V37.9.292 (B-F1 d): 全部新文件 embed 失败 = run 级系统性故障（key/配额/模型退役，
+    # 如 gemini-embedding-2-preview 退役将在此现形）。fail-loud（V37.9.227/282 全源失败
+    # 惯例）: ERROR: 行匹配 watchdog err_pattern + exit 2 → cron FAILED: 行。单 poison
+    # 文件的持续告警是 feature 非噪声 — 该文件 hash 永不入 meta 每 2h 重试烧配额本就
+    # 该被看见。per-file ❌/⚠️ 保持不匹配 err_pattern（FAIL-OPEN 惯例）。
+    if error_count > 0 and new_count == 0:
+        log(f"ERROR: 全部 {error_count} 个待索引文件失败 (API/配额/模型退役?), 索引未推进")
+        sys.exit(2)
 
 
 if __name__ == "__main__":

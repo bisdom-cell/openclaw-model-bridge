@@ -28,12 +28,17 @@ fi
 export GEMINI_API_KEY
 
 # 运行索引（使用与 google-genai 匹配的 Python）
-$MM_PYTHON "$SCRIPT_DIR/mm_index.py" >> "$LOG" 2>&1
-RC=$?
+# V37.9.292 (对抗审计 B-F1 a): set -e 曾让下方 RC 捕获与 FAILED 分支成死代码 —
+# mm_index.py 非零退出直接杀脚本, 日志只有 start 无任何失败记录 (静默失效)。
+# || RC=$? 捕获 (V37.9.274/282 PARSE_RC 同款); FAILED 行须带冒号才匹配 watchdog
+# err_pattern (旧格式用圆括号包 rc, 即使可达也不匹配 = 双重失效, 已退役)。
+RC=0
+$MM_PYTHON "$SCRIPT_DIR/mm_index.py" >> "$LOG" 2>&1 || RC=$?
 
 TS2=$(date '+%Y-%m-%d %H:%M:%S')
-if [ $RC -eq 0 ]; then
+if [ "$RC" -eq 0 ]; then
     echo "[$TS2] === mm_index done ===" >> "$LOG"
 else
-    echo "[$TS2] === mm_index FAILED (rc=$RC) ===" >> "$LOG"
+    echo "[$TS2] === mm_index FAILED: rc=$RC ===" >> "$LOG"
 fi
+exit "$RC"
