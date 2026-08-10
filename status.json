@@ -1,5 +1,5 @@
 {
-  "updated": "2026-08-10 07:08:05",
+  "updated": "2026-08-10 07:25:49",
   "updated_by": "full_regression",
   "priorities": [
     {
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-08-10",
+      "what": "V37.9.296 宪法级#1: A2 精度台账关窗 + A4-Q4 论文#2 数据落表(用户交回 Mac Mini 数据, §9.2 冻结口径机械执行): on 期 12 观测日 fired=0 → H1 precision 0-分母未定义(不给数字)/H2 保持构造性主张/H3 零显化 FN+两轮审计预防通道分开报告, §9.2.5 安静期路径逐字执行不叙述为检测成功。规则先于数据三兑现: 07-26 边界行剔除/标签错位不改判/fixture 规则命中 0 行。§9.2.2 路径笔误更正。论文#2 草案不再 gated。顺带发现 daily_observer 08-09/10 两晨疑似未跑已登记核查。VERSION 不变",
+      "by": "claude_code"
+    },
     {
       "date": "2026-08-10",
       "what": "V37.9.295 expert 真降级 followup 化(C-F2 后半/unfinished [34]): api_unavailable/quota_exceeded 复用 _followup_llm_call 让基础模型同轮接管作答(SOUL 规则 12 L115 结构性兑现, 旧版靠用户手动重发), _followup_llm_call 模板/tag 参数化(默认 search_kb byte-identical), 二次失败走 V37.9.294 哨兵回 V37.9.288 渲染=优雅降级。范围刻意收窄(read_only_violation 等保持直出)。守卫 20 单测+sabotage 三连。🔴 需 Mac Mini E2E。VERSION 0.37.9.132",
@@ -173,11 +178,6 @@
       "date": "2026-07-24",
       "what": "用户动作落地: restart.sh 三服务健康重启(web.reconnect.maxMs=300000 已 apply, Option A 全闭环剩观察) + brew upgrade node 25.6.1→26.5.0(升级判据③ 转满足, ≥25.9 无上界)。注: 建议再跑一次受控 restart.sh 验证 4.27-on-node26 兼容(时序歧义, 防 KeepAlive 在不受控时刻首启 node26)。",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-07-24",
-      "what": "V37.9.277 doubao_21 升 production_observed — 用户三组数据驱动预注册条件 [19] 兑现: B1 REASONING-OFF 7654 次(批量 thinking-off 快路真实开火) + dream curl(28) 0 复发 + 22 天唯一 primary 零事故 → tier flip + tier_evidence 刷新 + gen_compat 同步 + 守卫演进 + sabotage。同日: Option A web.reconnect.maxMs=300000 配置成功(V37.9.180 误判正式证伪, 剩 gateway 重启 apply); 判据③ 实测 node v25.6.1 不满足(<25.9, 升级前须升 node); dream 超时观察闭环。VERSION 0.37.9.117->0.37.9.118。",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -255,7 +255,7 @@
       "deep_dive OA 全文解析 follow-up (V37.9.183/184) — (1) ✅ 已闭合(V37.9.261/263): Mac Mini grep 实证降级主体=结构性付费墙(no PDF URL derivable, ACM/Elsevier 无 OA 版)非 fetch-path bug, ban-list(V37.9.260)是真杠杆; V37.9.262 OpenAlex 第二源 Mac Mini 实测 0/7 恢复且净负→V37.9.263 回退; 降级率下降 thesis 被证伪, 残余=接受现实(不爬付费墙). (2) 历史 KB 条目仍 PII link(仅新论文受益, V37.9.132 局限, 不补). (3) ✅ V37.9.186: pwc 死路径退役 + TIER↔registry drift 守卫.",
       "【H1-C / C2 (Q4, gated) · C1 选型已完成 V37.9.253】第二实例最小闭环真跑 = 非 Mac Linux host 上 E2E 绿: minimal_runtime + governance cron + 1-2 内容 job(arxiv/dblp) 真抓取→LLM→Discord + cron+nohup 重启存活。选型=PUSH-only 纯推送(绕 Gateway/WhatsApp/sessions), 见 docs/second_instance_poc_selection_20260707.md §5 验收标准。C2 前置(§3, 均可枚举无未知): 持久 Linux host(VPS/容器) + 可达 LLM 端点(REMOTE_BASE_URL) + Discord bot token/channel(DISCORD_CH_*) + 唯一真需新建=Linux bootstrap 脚本(装 py 依赖+起 adapter/proxy nohup+写 crontab, 并行 install_openclaw_macmini.sh)。C3=portability report EN/ZH 证据型文章(对两次评审可迁移性批评终局回答)。",
       "【V37.9.274 · SF1/SF2 已修 · SF3 对抗验证 accept-by-design】(SF1 ✅ 修) ontology_sources/finance_news fetch_failed 守卫 parse-盲已修: parse-fail sys.exit(2) 信号回 shell + 根元素校验(well-formed 反爬 HTML root=html 拦截, 实测证伪初版 catch-ParseError) + PARSE_RC!=0→FETCH_ERRORS++。(SF2 ✅ 修) daily_observer --dry-run 持久化污染已修: append_score_history+_write_observer_to_status 由 if not dry_run 守卫。(SF3 ⏹ 不改) kb_harvest any(ok)→ok 是 V37.9.130 刻意设计(status 枚举供 watchdog 契约, 降级走 map_failed 独立字段), 改成 any(error)→error 会过度告警瞬态混合窗口 → 对抗验证 accept-by-design(镜像 V37.9.273 F2 纪律)。守卫 test_v37_9_274(11 单测)+sabotage。",
-      "【🔴 LLM-Observer 研究攻关 #1 · OBSERVER_FP_MODE=on 已上线（2026-07-25 三步全落地）· 剩首日 E2E 观察】flip 决策 2026-07-24 §9.1.1（14 天 live 全零 fp + C1/C2/C3 全满足）。落地实录: (a) ✅ PR#850 合并 + Mac Mini git reset 同步（daily_observer.sh env plumbing 生效） (b) ✅ ~/.env_shared 加 export OBSERVER_FP_MODE=on（rollback=改回 shadow） (c) ✅ score_history 清污染核实为 no-op——Mac Mini 实测（2026-07-25 grep 分布）: 73 行零条 05-25、llm_failed 仅 2（71 ok）、07-20→24 每日恰 1 行 = 无污染追加; 结构 = ~60 唯一日期真实历史 + 13 条 5-6 月 dev 期同日重跑（05-26/27/28/31、06-29, 良性保留）。V37.9.276 所见「30 行大量 05-25 llm_failed」与此文件行数算术不相容 → 污染最可能在 dev 容器 ~/.kb（全量 test_daily_observer 只在 dev full_regression 跑; Mac Mini governance 经 V37.9.124 收窄只跑契约核心类不含 CLI 测试）。两侧源头已修死（V37.9.274 dry-run 守卫 + V37.9.276 测试隔离, 07-25 同步生效）。剩: 明 06:30 首日 E2E——报告 fail_plausible 段标 [on] + 无 FP 风暴 + score_history 恰新增 1 行 date=2026-07-25。Stage 6 论文 #2 草案 gated 于 on 模式 detection latency 生产数据。 ｜V37.9.284: A2 十四天窗(07-26→08-08)判定口径已预注册 design doc §9.2 — fired verdict 转发→当日按 §9.2.4 判定入 §9.2.6 台账; A4-Q4 数据表填充 gated ≥08-08 按 §9.2.3 冻结规则。",
+      "【🔴 LLM-Observer 研究攻关 #1 · A2 窗已关 + A4-Q4 已落表（V37.9.296）· 剩论文 #2 草案】on 期 12 观测日 fired=0（§9.2.7 三主张数据表 + §9.2.6 台账关窗 + C1-C3 延续全成立），首日 E2E 观察被 12 天生产数据超额覆盖关闭。下一步（后续 session，不 gated）= 论文 #2 草案启动（数据段就绪：corpus 侧 scorecard + live 安静窗负结果按 §9.2.5 路径），预计挂 arXiv 前需用户决策署名/venue（镜像论文 #1 DECISIONS_NEEDED 流程）。",
       "【2026-07-26 对抗审计 JOB-F1 ✅ V37.9.282 已铺开 · 剩 Mac Mini 被动验证】8 脚本 200-but-unparseable 守卫全部落地 (四类结构分别适配): A. rss_blogs/ai_leaders_blogs XML 全款 (exit 2+根白名单+PARSE_RC→FETCH_ERRORS) / B. bsky JSON 根形状 feed 键校验 / C. dblp+s2 全结果文件解析失败→exit 2→既有 parse_failed 分支 / D. hn/chaspark/freight 单源 fail-loud (parse_failed/fetch_failed 不落 \"无新内容\" ok)。守卫 test_v37_9_282_parse_guard_rollout.py 15 单测 (含 heredoc compile+非空断言) + bsky 既有 pin 演进 (corrupt JSON exit 0→2, FAIL-OPEN 上移 shell 级)。Mac Mini 验证: 同步后各 job 正常日照常 ok; 若未来某源被反爬, watchdog 应出 fetch_failed/parse_failed 告警而非静默 new:0 ok。",
       "【2026-07-26 对抗审计 2 登记项 ✅ V37.9.283 已修 · 剩 Mac Mini 被动验证】(a) NOT-F3 quiet_alert 静默期已收编 notify --channel discord --topic alerts（重试+队列，队列条目 channel=discord 重放不违静默期；V37.8.13 四 pin 零破坏）。(b) NOT-F5 ProxyStats per-key 告警冷却（token_warn/token_critical/consecutive_errors，ALERT_COOLDOWN_SEC=1800 config.yaml 中心化；首报零延迟/窗口内抑制/状态恢复重武装/升级穿透）。Mac Mini 验证: 同步+重启 proxy 后，长 session 过 195K 时告警至多 1 条/30min 非每 turn；静默期 deploy 告警失败应入 notify 队列稍后重放（~/.notify_queue/）而非静默丢失。守卫 test_v37_9_283_alert_cooldown.py 23 单测 + sabotage 双向验证。",
       "【V37.9.279-281 Mac Mini 被动验证】合并+同步后: (a) 279: 次日 06:30 observer 报告若有 fp verdict, LLM critique 段应可见异常块引用 fail-plausible (on 模式评分真集成); score_history 新行有 fp_mode:\"on\" 字段; confidence 只在 L2 grounded 支持时非 1.0 (b) 280: evening \"今日笔记\" 不再含昨日条目; 论文源 parse_failed 日 evening 出\"今日任务异常\"块; harvest 部分 Map 失败日 last_run status=error 且次日重试 (c) 281: notify 队列重放无重复投递; chaspark LLM 失败日次日正常重抓 (seen 不再提前提交); wa_keepalive 日志出现 ESCALATE_FAILED 时 ~/.openclaw_alerts.log 有兜底行。",
@@ -264,16 +264,17 @@
       "【V37.9.293 · B-F4/B-F5 幽灵向量+indexed_at 断链 ✅ 已修 · 剩 Mac Mini 被动验证】(a) 幽灵剪除: 同步后首晚 03:30 kb_embed 日志预期一次性大 🪦（历史累积幽灵 chunks 一次剪除+全量重建数分钟, 一次性开销非故障）, 之后 PA 搜索不再引用已删笔记 (b) indexed_at 透传: PA search_kb 结果出现「索引:时间」+ 旧内容排名轻微下调（FRESHNESS_DECAY 复活=V36 设计行为, 72h 后 5%/天地板 50%）——若用户感知排序异常贴我 (c) 错位可见性: kb_rag stderr 出现 vectors.bin 超前/短缺 WARN = 索引曾错位（下轮 03:30 自愈, 频繁出现才贴我）。B-F5 load_vectors 长侧守卫+对齐校验+0-chunk 洞（changed_files 反推退役）一并闭环, 详见 changelog V37.9.293。",
       "【V37.9.294 · C-F3/C-F4 proxy 观测口径 ✅ 已修 · 剩 Mac Mini 被动验证】同步+重启 proxy 后: (a) REST /data_clean 超时返回 504 JSON 而非连接直断 (b) search_kb followup 失败日 proxy_stats degradation_rate 变真值 + 原始转储不再进对话捕获 (c) 🔴 p95 如上浮 = elapsed 口径修正（原漏计自定义工具最多 ~90s+）非性能退化, 预期勿告警 (d) tool_success_rate 如下降 = expert read_only_violation/api_unavailable 等失败态开始被诚实计数（classify_tool_result_ok 结构化分类替代 result[:100] 子串窗口）。详见 changelog V37.9.294。",
       "【V37.9.295 · expert 真降级 followup 化 ✅ dev 完成 · 🔴 需 Mac Mini E2E 后才算完成（原则 #6，行为变更）】api_unavailable/quota_exceeded 现在同轮自动降级（基础模型接管作答，SOUL 规则 12 结构性兑现），二次失败回 V37.9.288 渲染通知。E2E 三步: (1) 临时改 plist DOUBAO_API_KEY 为空/错值+重启 proxy → WhatsApp 发触发词（如「帮我深度判断 X」）→ 预期 PA 同轮直接作答且开头带「专家模式暂不可用/基础模式」标注（旧版只回「请把问题再发我一次」）→ 恢复 key+重启 (2) proxy 日志 grep 'EXPERT_DEGRADED followup' 出现 (3) 正常路径回归: key 正常时 expert 触发词仍返回 🧠 专家意见渲染。详见 changelog V37.9.295。",
-      "【V37.9.289-291 三 provider -huakun 迁移 ✅ E2E 全通 · 剩收尾】deepseek_full/doubao/glm5 三模型 tokenhub 实测全通过, doubao/glm5 已升 feature_verified (text+reasoning), expert(cache_read=14136)+code_assist 生产路径 ✅。剩: (a) Mac Mini 同步 V37.9.291 + 重启 proxy (expert reasoning_chars 双字段名读数生效) (b) 🔴 两把 sk- key 在对话出现过, 建议找华坤轮换 (plist+.env_shared 各一行替换+bootout/bootstrap) (c) 可选残余探针补全 5/5: tokenhub 侧 vision(image_url)/tool_calling(tools)/streaming(stream:true) 实测后再升 (vision 注意: 未测前 image fallback 现实依赖 qwen) (d) 可选清理无消费方遗留 env: ARK_API_KEY/ARK_ENDPOINT_ID/GLM5_ENDPOINT_ID (无害可留)"
+      "【V37.9.289-291 三 provider -huakun 迁移 ✅ E2E 全通 · 剩收尾】deepseek_full/doubao/glm5 三模型 tokenhub 实测全通过, doubao/glm5 已升 feature_verified (text+reasoning), expert(cache_read=14136)+code_assist 生产路径 ✅。剩: (a) Mac Mini 同步 V37.9.291 + 重启 proxy (expert reasoning_chars 双字段名读数生效) (b) 🔴 两把 sk- key 在对话出现过, 建议找华坤轮换 (plist+.env_shared 各一行替换+bootout/bootstrap) (c) 可选残余探针补全 5/5: tokenhub 侧 vision(image_url)/tool_calling(tools)/streaming(stream:true) 实测后再升 (vision 注意: 未测前 image fallback 现实依赖 qwen) (d) 可选清理无消费方遗留 env: ARK_API_KEY/ARK_ENDPOINT_ID/GLM5_ENDPOINT_ID (无害可留)",
+      "【🔴 运维核查 · daily_observer 08-09/08-10 两晨疑似未跑（2026-08-10 A2 取数发现）】score_history.jsonl 最后一行 date=08-07（由 08-08 晨 run 写）且无 daily_critique_20260808+.md —— 08-09/08-10 的 06:30 run 零产出。Mac Mini 核查: (1) ls -la ~/.kb/self_critique/ | tail -5 (2) crontab -l | grep -i observer (3) tail -30 ~/.openclaw/logs/jobs/daily_observer.log 2>/dev/null 或对应 log (4) 电源/睡眠设置（连续两晨 = 可能 Mac 睡眠或 cron 失效，非单次瞬态）。恢复后可选 --date 20260808/20260809 补跑（仅运维恢复；A2/A4 主表已按实产 12/14 天定稿不追改，§9.2.7 脚注②）。若 watchdog 也没告警此缺口 = 观察者的观察者盲区，值得登记。"
     ],
     "open_prs": [],
     "blocked_on": "",
-    "focus": "2026-08-10: 同日四连交付 V37.9.292-295（mm_index 家族/KB 幽灵向量/proxy 观测口径/expert 真降级），V37.9.287/288 对抗审计登记项 [31]-[34] 全部收口清零。已推送 claude/todays-work-bybj6o 待合并。🔴 剩: 合并后 Mac Mini git fetch+reset 同步 + 重启 proxy（V37.9.291/294/295 三版需要，一次搞定）/ V37.9.295 需 E2E 三步验证（见 unfinished [34]）/ 首晚 03:30 kb_embed 大 🪦 属预期 / p95 上浮=口径修正属预期 / A2+A4-Q4 等 Mac Mini 数据 / ISSRE 通知 8-12。"
+    "focus": "2026-08-10: 同日五交付 V37.9.292-296——[31]-[34] 对抗审计登记项四连修复 + 宪法级 #1 A2 精度台账关窗 & A4-Q4 论文 #2 数据落表（on 期 12 观测日 fired=0，§9.2.5 安静期诚实路径，论文 #2 草案不再 gated）。已推送 claude/todays-work-bybj6o 待合并。🔴 剩: 合并后 Mac Mini 同步 + 重启 proxy（291/294/295 需要）/ V37.9.295 E2E 三步 / 🔴 daily_observer 08-09/10 两晨疑似未跑需核查（新登记）/ ISSRE 通知 8-12。"
   },
   "quality": {
     "security_score": 98,
     "test_count": 5761,
-    "last_regression": "2026-08-10 07:07 pass",
+    "last_regression": "2026-08-10 07:25 pass",
     "coverage_pct": 0,
     "security_score_time": "2026-07-20 01:07",
     "test_suites": 167,
