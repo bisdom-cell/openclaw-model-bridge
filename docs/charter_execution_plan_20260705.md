@@ -68,9 +68,9 @@
 | 任务 | 目标 | 交付物 | done-criteria | 依赖/门控 | 优先级·季度 |
 |------|------|--------|---------------|-----------|-------------|
 | A1 | Observer shadow→on flip 决策 | status.json + changelog 记 flip/extend 决策 | 按 design doc §9.1 预注册三判据（C1 零系统性 FP / C2 ≥1 TP 或干净周 / C3 成本可持续）逐条判，产出决策记录 | **G1**；需 Mac Mini `score_history` fp_high/med 7 天序列 + 每日报告 fail_plausible 段人工判 TP/FP | ✅ **V37.9.276 完成**（2026-07-24 按 §9.1 判据 FLIP on，§9.1.1 决策记录；07-25 Mac Mini 三步落地；07-26 on 首日在产 + V37.9.279 首日加固） |
-| A2 | flip 后精度观察 | 两周 live precision 记录 | flip 后 14 天 fp verdict 逐条人工判，live fp_rate 入 scorecard §5.4 | A1 flip=on | P0 · Q3 |
+| A2 | flip 后精度观察 | 两周 live precision 记录 | flip 后 14 天 fp verdict 逐条人工判，live fp_rate 入 scorecard §5.4 | A1 flip=on | P0 · Q3（**✅ V37.9.296**：窗 07-26→08-08 关账，on 期 12 观测日 fired=0 → 零判定行台账关窗 + 08-08 行缺失脚注登记，design doc §9.2.6/9.2.7） |
 | A3 | 新 TP/FP case 回灌 ground-truth + bench | `llm_observer_ground_truth.yaml` + `fail_plausible_bench` 新增 case | 每个生产真 TP/FP 加机器标签进 ground-truth；新 fail-plausible 模式归 Category B | A2 | P1 · Q3–Q4 |
-| A4 | 论文 #2 数据表填充 | 论文 #2 草稿数据段 | detection latency（Observer 抢在用户前多少小时）+ live precision + held-out recall（含诚实 negative result） | A2 生产数据积累 | P0 · Q4（**Q3 半 ✅ V37.9.284**：数据口径预注册 design doc §9.2，2026-07-31 冻结；Q4 填表按 §9.2.3 冻结规则执行） |
+| A4 | 论文 #2 数据表填充 | 论文 #2 草稿数据段 | detection latency（Observer 抢在用户前多少小时）+ live precision + held-out recall（含诚实 negative result） | A2 生产数据积累 | P0 · Q4（**Q3 半 ✅ V37.9.284**：数据口径预注册 design doc §9.2，2026-07-31 冻结；Q4 填表按 §9.2.3 冻结规则执行；**Q4 半 ✅ V37.9.296**：2026-08-10 落表 §9.2.7，cutoff 08-09 23:59 HKT——H1 precision 0-分母未定义 / H2 保持构造性主张 / H3 零显化 FN + 两轮审计预防通道，§9.2.5 安静期路径逐字执行） |
 
 **H1-A 退役**：Observer 转正后退役"人工逐条扫已知 fail-plausible 模式"的人工动作（design doc 日落法第一问）。
 
@@ -326,7 +326,7 @@ R4 增量修订:
 - [x] A1 Observer flip 决策（P0，G1）— ✅ V37.9.276（2026-07-24 按 §9.1 判据 FLIP on + 07-25 三步落地 + V37.9.279 首日加固）
 - [x] B1 PA 耦合机器化盘点 → `pa_coupling_inventory.md`（P0）— ✅ V37.9.249（同季连带 B2 backlog 分级 + B3 scanner 拦截 V37.9.250/251 = H1-B 全链完成）
 - [ ] D1 Mac Mini SLO 报告重生成（P1）
-- [x] A4 论文 #2 数据口径预注册（P0，镜像 §9.1 方法学）— ✅ V37.9.284（design doc §9.2，2026-07-31 冻结）
+- [x] A4 论文 #2 数据口径预注册（P0，镜像 §9.1 方法学）— ✅ V37.9.284（design doc §9.2，2026-07-31 冻结）；Q4 填表半 ✅ V37.9.296（§9.2.7）+ A2 窗关账 ✅ V37.9.296
 - [ ] 季度复核 #1（9 月底）：跑本协议五项 + 纲领 v1.1
 
 ---
