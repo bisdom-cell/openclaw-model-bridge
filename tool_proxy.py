@@ -28,6 +28,8 @@ from proxy_filters import (
     SYSTEM_ALERT_MARKER,  # V37.9.175: _send_alert 加标记防自身告警污染上下文
     detect_provider_prefix,  # V37.9.271: chat-界面 provider 前缀路由 (glm → GLM-5.2)
     classify_tool_result_ok,  # V37.9.294: 工具成败结构化分类 (退役 result[:100] 子串窗口)
+    is_expert_degradable_result,  # V37.9.295: expert 失败态 followup 化真降级 (SOUL 规则 12)
+    EXPERT_DEGRADED_FOLLOWUP_SYSTEM,  # V37.9.295: 降级 followup system 模板
     flatten_content,
     compose_backend_error_str,  # V37.8.10: INV-OBSERVABILITY-001
     proxy_stats,
@@ -930,6 +932,7 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
             # 执行自定义工具
             results_text = []
             needs_llm_followup = False
+            expert_degraded_notice = None  # V37.9.295: expert 可降级失败态的渲染通知
             for tc in custom_calls:
                 fn_name = tc["function"]["name"]
                 fn_args = tc["function"].get("arguments", "{}")
@@ -948,12 +951,29 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                     needs_llm_followup = True
                     results_text.append(result)
                 else:
-                    results_text.append(self._format_tool_result(fn_name, fn_args, result))
+                    formatted_one = self._format_tool_result(fn_name, fn_args, result)
+                    # V37.9.295: expert 不可用/配额失败态 → 记录渲染通知, 循环后
+                    # followup 化真降级 (基础模型同轮接管作答)
+                    if fn_name == "expert_escalate" and is_expert_degradable_result(result):
+                        expert_degraded_notice = formatted_one
+                    results_text.append(formatted_one)
 
             # search_kb: 将搜索结果注入对话，让 LLM 生成自然语言回答
             if needs_llm_followup and original_body:
                 kb_results = "\n\n".join(results_text)
                 return self._followup_llm_call(original_body, kb_results, rid)
+
+            # V37.9.295 (对抗审计 C-F2 后半 / unfinished [34]): expert 不可用/配额
+            # 失败态 → followup 化真降级。此前本路径 finish_reason=stop 直出渲染,
+            # PA LLM 结构上看不到结果, SOUL 规则 12 "api_unavailable → 我用基础模式
+            # 自己回答" 靠用户手动重发才能兑现。复用 _followup_llm_call 让基础模型
+            # 同轮接管作答 (罕见失败路径 +1 次 LLM 调用可接受); 二次失败走
+            # V37.9.294 降级哨兵 → 用户收到 V37.9.288 渲染通知 (行为等同旧版)。
+            if expert_degraded_notice and original_body:
+                return self._followup_llm_call(
+                    original_body, expert_degraded_notice, rid,
+                    system_template=EXPERT_DEGRADED_FOLLOWUP_SYSTEM,
+                    tag="EXPERT_DEGRADED")
 
             # 其他自定义工具: 直接返回格式化结果
             formatted = "\n\n".join(results_text)
@@ -967,19 +987,32 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
 
         return None
 
-    def _followup_llm_call(self, original_body, kb_results, rid):
-        """将 KB 搜索结果注入对话，发起第二次 LLM 调用让模型解读结果"""
+    def _followup_llm_call(self, original_body, kb_results, rid,
+                           system_template=None, tag="SEARCH_KB"):
+        """将工具结果注入对话，发起第二次 LLM 调用让模型解读/接管作答。
+
+        默认 (system_template=None) = search_kb 语义: 注入知识库搜索结果让 LLM
+        解读, 文案 byte-identical 保持。V37.9.295: system_template 参数化 —
+        expert 降级路径传 EXPERT_DEGRADED_FOLLOWUP_SYSTEM 让基础模型直接接管
+        作答 (SOUL 规则 12)。二次失败 fallback 语义不变: 返回 kb_results 原文
+        [:3000] + V37.9.294 降级哨兵 (expert 路径下即 V37.9.288 渲染通知)。
+        默认模板刻意内联 (非模块常量) — 保持 exec-with-mocks 测试的最小 ns 契约。
+        """
         followup_body = dict(original_body)
         msgs = list(followup_body.get("messages", []))
 
-        # 注入 KB 搜索结果作为系统消息
-        kb_msg = {
-            "role": "system",
-            "content": (
+        # 注入工具结果作为系统消息
+        if system_template is None:
+            _followup_system = (
                 "以下是从用户知识库中搜索到的结果。请基于这些结果回答用户的问题。"
                 "如果结果中没有相关内容，如实告知用户。不要编造信息。\n\n"
                 f"═══ 知识库搜索结果 ═══\n{kb_results[:3000]}"
-            ),
+            )
+        else:
+            _followup_system = system_template.format(context=kb_results[:3000])
+        kb_msg = {
+            "role": "system",
+            "content": _followup_system,
         }
         msgs.append(kb_msg)
         followup_body["messages"] = msgs
@@ -988,7 +1021,7 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
         followup_body.pop("tool_choice", None)
         followup_body["stream"] = False
 
-        log(f"[{rid}] SEARCH_KB followup LLM call ({len(msgs)} msgs)")
+        log(f"[{rid}] {tag} followup LLM call ({len(msgs)} msgs)")
 
         url = f"{BACKEND}/v1/chat/completions"
         try:
@@ -1006,13 +1039,13 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                     import re
                     cleaned = re.sub(r'<tool_call>\s*\{.*?\}\s*</tool_call>', '', content, flags=re.DOTALL).strip()
                     rj["choices"][0]["message"]["content"] = cleaned
-                    log(f"[{rid}] SEARCH_KB followup: stripped <tool_call> XML ({len(content)} -> {len(cleaned)} chars)")
+                    log(f"[{rid}] {tag} followup: stripped <tool_call> XML ({len(content)} -> {len(cleaned)} chars)")
                     content = cleaned
 
-                log(f"[{rid}] SEARCH_KB followup result: {len(content)} chars")
+                log(f"[{rid}] {tag} followup result: {len(content)} chars")
                 return rj
         except Exception as e:
-            log(f"[{rid}] SEARCH_KB followup error: {e}")
+            log(f"[{rid}] {tag} followup error: {e}")
             # Fallback: 直接返回原始搜索结果
             # V37.9.294 (C-F4 b): 加降级哨兵 — 此合成响应无 usage, 旧版在 do_POST 被
             # record_success({}) 记成干净成功 + 原始 KB 转储被当 PA 回复捕获进对话精华
