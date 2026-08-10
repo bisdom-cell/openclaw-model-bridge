@@ -498,9 +498,12 @@ class DoubaoTransport:
             return False, "", {}, "no choices in response: " + json.dumps(response)[:200]
         message = choices[0].get("message", {})
         text = message.get("content", "")
-        # Doubao seed reasoning model also returns reasoning_content (captured
-        # for audit visibility; future analysis may want it)
-        reasoning_chars = len(message.get("reasoning_content", "") or "")
+        # Reasoning channel field name differs by gateway: Ark uses
+        # `reasoning_content`, ai-tokenhub (Bifrost) uses `reasoning`
+        # (V37.9.291 实测 2026-08-08: tokenhub doubao 探针 reasoning 字段有内容
+        # 而 expert 曾报 reasoning_chars=0). Read both for audit visibility.
+        reasoning_chars = len(message.get("reasoning_content", "")
+                              or message.get("reasoning", "") or "")
 
         usage_raw = response.get("usage", {}) or {}
         # Volcengine returns cached_tokens in prompt_tokens_details when cache hits

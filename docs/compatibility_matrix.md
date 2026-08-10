@@ -18,9 +18,9 @@
 | GLM (Zhipu AI) | glm-5, glm-5v-turbo | text, vision | Yes | Yes | 202K | none |
 | DeepSeek-V4-Pro 满血版 (ai-tokenhub) | deepseek-v4-pro-huakun | text | Yes | Yes | 1048K | text, tool_calling, reasoning |
 | DeepSeek-V4-Pro | DeepSeek-V4-Pro | text | Yes | Yes | 65K | text, tool_calling, streaming |
-| Doubao Seed 2.0 Pro (ai-tokenhub) | doubao-seed-2.0-pro-huakun | text, vision | Yes | Yes | 262K | none |
+| Doubao Seed 2.0 Pro (ai-tokenhub) | doubao-seed-2.0-pro-huakun | text, vision | Yes | Yes | 262K | text, reasoning |
 | Doubao Seed 2.1 Pro (Volcengine Ark) | doubao-seed-2-1-pro-260628 | text, vision | Yes | Yes | 262K | text, vision, tool_calling, streaming, reasoning |
-| GLM-5.2 Coding (ai-tokenhub) | glm-5.2-huakun | text | Yes | Yes | 131K | none |
+| GLM-5.2 Coding (ai-tokenhub) | glm-5.2-huakun | text | Yes | Yes | 131K | text, reasoning |
 
 插件接入：Doubao 经 `providers.d/doubao_provider.py`（V37 Provider Plugin Interface，V37.9.52 接入）。
 
@@ -40,9 +40,9 @@
 | GLM (Zhipu AI) | **declared** | 能力声明完整 + 合约校验通过，0/N 生产验证（无 API key 配置） |
 | DeepSeek-V4-Pro 满血版 (ai-tokenhub) | **feature_verified** | Mac Mini E2E 实测 2026-06-30 (时为 model=deepseek-v4-pro-260425): text/tool_calling/reasoning 3/3 通过 (干净中文+finish_reason / finish_reason=tool_calls+arguments / reasoning 字段填充+reasoning_tokens=55 R1 通道)；无乱码 token (优于量化版 w4a8)；vision 实测不支持 (400) / json_mode 围栏非严格 / streaming 未单测 / 未真生产 fallback。2026-08-07 model ID 更名 deepseek-v4-pro-huakun (V37.9.289, 同端点同 key), 更名后 E2E 待 Mac Mini 复测 |
 | DeepSeek-V4-Pro | **feature_verified** | Mac Mini E2E 实测 2026-06-30: text/streaming/tool_calling/json_mode 4/4 通过 (content+finish_reason / SSE chunk+[DONE] / finish_reason=tool_calls+arguments / response_format=json_object 干净 JSON)；vision 实测不支持 (400 非多模态) / reasoning 无 R1 reasoning_content 通道 / 未真生产 fallback 接管。部署=w4a8-mtp 量化, 推理响应偶发乱码 token |
-| Doubao Seed 2.0 Pro (ai-tokenhub) | **declared**（2026-08-08 平台切换 ai-tokenhub, E2E 复测前 Ark 时代证据不迁移） | 能力声明完整 + 合约校验通过，0/N 生产验证（无 API key 配置） |
+| Doubao Seed 2.0 Pro (ai-tokenhub) | **feature_verified**（2026-08-08 平台切换 ai-tokenhub 后 E2E 半升档 (text+reasoning)） | ai-tokenhub E2E 探针 2026-08-08 (V37.9.291): text+reasoning 2/2 通过 (200 + finish_reason=stop + 正确 content + reasoning 字段完整 reasoning_tokens=263, 响应 model 回显 doubao-seed-2.0-pro = 别名路由正确; 注意 tokenhub 字段名 reasoning 非 Ark 的 reasoning_content)；vision/tool_calling/streaming 未经 tokenhub 实测保持 False; Ark 时代 production_observed 史见 docstring |
 | Doubao Seed 2.1 Pro (Volcengine Ark) | **production_observed** | 唯一 primary 承载全部生产流量 2026-07-02 起 (V37.9.222 B1 flip, 22+ 天 cron 周期零 provider 事故); B1 批量 thinking-off 注入实测大规模开火 (adapter.log 7654 次 @2026-07-24, dream curl 超时 0 复发); E2E 2026-07-02: text/vision/tool_calling/streaming/reasoning 5/5 (bat-ball 0.05 / vision 全命中 / tool_calls / chunk+[DONE] / reasoning_tokens=255) 无乱码；json_mode 声明未单测 / 未真生产 fallback 接管 |
-| GLM-5.2 Coding (ai-tokenhub) | **declared**（2026-08-08 平台切回 ai-tokenhub, E2E 复测前 Ark 时代证据不迁移） | 能力声明完整 + 合约校验通过，0/N 生产验证（无 API key 配置） |
+| GLM-5.2 Coding (ai-tokenhub) | **feature_verified**（2026-08-08 平台切回 ai-tokenhub 后 E2E 半升档 (text+reasoning)） | ai-tokenhub E2E 探针 2026-08-08 (V37.9.291): text+reasoning 2/2 通过 (200 + finish_reason=stop + 正确 print 代码 + reasoning 字段真实推理链, 响应 model 回显 glm-5.2 = 别名路由正确; reasoning 为 tokenhub 新发现 — Ark ep- 时代 reasoning_tokens=0 无通道, V37.9.258 曾据此判 False)；tool_calling/streaming 未经 tokenhub 实测保持 False (Ark 时代史见 docstring) |
 
 ## 能力矩阵
 
@@ -59,7 +59,7 @@
 | DeepSeek-V4-Pro | Yes | — | — | — | Yes | Yes | Yes | — | 65K |
 | Doubao Seed 2.0 Pro (ai-tokenhub) | Yes | Yes | — | — | Yes | Yes | Yes | Yes | 262K |
 | Doubao Seed 2.1 Pro (Volcengine Ark) | Yes | Yes | — | — | Yes | Yes | Yes | Yes | 262K |
-| GLM-5.2 Coding (ai-tokenhub) | Yes | — | — | — | Yes | Yes | — | — | 131K |
+| GLM-5.2 Coding (ai-tokenhub) | Yes | — | — | — | Yes | Yes | — | Yes | 131K |
 
 > Reasoning 维度 V37.9.53 新增（doubao seed reasoning model 实证驱动）。cap_score: doubao 16 > Qwen3 14（framework 视角 doubao 是 registry 最强 provider，V37.9.55）。
 

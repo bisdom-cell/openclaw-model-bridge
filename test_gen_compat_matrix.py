@@ -146,11 +146,11 @@ class TestTierTableLines(unittest.TestCase):
         self.assertTrue(lines[1].startswith("|---"))
         self.assertEqual(len(lines), 2 + 12)  # header + sep + 12 providers
 
-    def test_qwen_production_observed_doubao_declared_v290(self):
-        # V37.9.290: doubao 平台切换 ai-tokenhub → tier 重置 declared (tier_note 记史)
+    def test_qwen_production_observed_doubao_feature_verified_v291(self):
+        # V37.9.290 重置 declared → V37.9.291 tokenhub E2E 升 feature_verified
         text = "\n".join(_default_registry.tier_table_lines())
         self.assertIn("Qwen (Remote GPU) | **production_observed**", text)
-        self.assertIn("Doubao Seed 2.0 Pro (ai-tokenhub) | **declared**", text)
+        self.assertIn("Doubao Seed 2.0 Pro (ai-tokenhub) | **feature_verified**", text)
 
     def test_gemini_retirement_note_rendered(self):
         """tier_note 渲染进档位列（gemini 退役）。"""
@@ -162,9 +162,9 @@ class TestTierTableLines(unittest.TestCase):
         """5 declared provider 各自一行, 走派生默认依据 (单一真理源, 退役合并行)。"""
         lines = _default_registry.tier_table_lines()
         declared = [l for l in lines if "**declared**" in l]
-        # 史: V37.9.217 后 5 (openai/claude/kimi/minimax/glm); V37.9.290 doubao +
-        # glm5_coding 平台切换 ai-tokenhub 重置回 declared → 7
-        self.assertEqual(len(declared), 7)
+        # 史: V37.9.217 后 5 → V37.9.290 平台切换 +2 (doubao/glm5) → V37.9.291
+        # tokenhub E2E 双双升 feature_verified 离开 declared → 回到 5
+        self.assertEqual(len(declared), 5)
         for l in declared:
             self.assertIn("能力声明完整 + 合约校验通过，0/N 生产验证（无 API key 配置）", l)
 

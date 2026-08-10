@@ -56,16 +56,25 @@ class Glm5CodingProvider(BaseProvider):
         tool_calling=True,     # Ark 时代 V37.9.258 实测过模型本体支持
         streaming=True,        # Ark 时代 V37.9.257 实测过模型本体支持
         json_mode=False,       # Ark 时代实测 400 不支持; 新网关未知, 保守沿用
-        reasoning=False,       # reasoning_tokens=0 (模型无 reasoning 通道)
+        # V37.9.291 翻案: Ark ep- 时代 reasoning_tokens=0 判无通道; tokenhub (Bifrost)
+        # E2E 实测响应含 reasoning 字段且有真实推理内容 (usage 无 reasoning_tokens 计数,
+        # 网关归一化暴露)。reasoning_off_body 保持不声明 (thinking 参数未在本模型实测
+        # 且 glm5 不进 batch/auto-fallback 消费路径, 原则 #23 不投机declare)。
+        reasoning=True,
         context_window=131072,
         max_output_tokens=8192,
-        # V37.9.290: 平台切换 → verified_* 全部重置 (Ark 证据不迁移)
-        verified_text=False,
+        # V37.9.290 平台切换重置 → V37.9.291 tokenhub E2E 探针逐项升档
+        verified_text=True,          # V37.9.291 E2E 2026-08-08: 200 + 正确代码 + finish_reason=stop
         verified_vision=False,
-        verified_tool_calling=False,
-        verified_streaming=False,
+        verified_tool_calling=False, # 未经 tokenhub 实测 (Ark 时代曾实测通过)
+        verified_streaming=False,    # 未经 tokenhub 实测
         verified_fallback=False,
-        verified_reasoning=False,
-        verification_tier="declared",
-        tier_note="2026-08-08 平台切回 ai-tokenhub, E2E 复测前 Ark 时代证据不迁移",
+        verified_reasoning=True,     # V37.9.291 E2E: reasoning 字段含真实推理内容 (Bifrost 归一化)
+        verification_tier="feature_verified",
+        tier_note="2026-08-08 平台切回 ai-tokenhub 后 E2E 半升档 (text+reasoning)",
+        tier_evidence="ai-tokenhub E2E 探针 2026-08-08 (V37.9.291): text+reasoning 2/2 通过 "
+                      "(200 + finish_reason=stop + 正确 print 代码 + reasoning 字段真实推理链, "
+                      "响应 model 回显 glm-5.2 = 别名路由正确; reasoning 为 tokenhub 新发现 — "
+                      "Ark ep- 时代 reasoning_tokens=0 无通道, V37.9.258 曾据此判 False)；"
+                      "tool_calling/streaming 未经 tokenhub 实测保持 False (Ark 时代史见 docstring)",
     )
