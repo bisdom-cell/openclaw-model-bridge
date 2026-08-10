@@ -182,7 +182,12 @@ def _mm_search(query, top_k=5):
                 }
             ))
         return results
-    except Exception:
+    except (Exception, SystemExit) as e:
+        # V37.9.292 (对抗审计 B-F1): mm 层故障此前完全静默吞成 [] — vectors.bin 与
+        # meta 错位时 mm_search reshape ValueError 在此消失, "层坏了"与"没结果"完全
+        # 同形 (多模态层可静默死亡无界时长)。stderr 打点镜像 V37.9.288 _kb_search;
+        # SystemExit 收编同款 (mm_search 库路径 :110-127 四处 sys.exit(1) 穿透风险)。
+        print(f"[memory_plane] multimodal layer search failed: {e!r}", file=sys.stderr)
         return []
 
 

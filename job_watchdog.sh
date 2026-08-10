@@ -466,6 +466,11 @@ HOME_LOGS=(
     "$HOME/openclaw_backup.log|openclaw_backup"
     "$HOME/preference_learner.log|preference_learner"
     "$HOME/kb_dream.log|kb_dream"
+    # V37.9.292 (对抗审计 B-F1 d): mm_index 此前只有 LOG_FRESHNESS (4h mtime) 无错误
+    # 扫描 — cron 每 2h 写 start 让 freshness 永远满足 (假绿), 失败内容零可见。加入
+    # 错误扫描后 run 级失败 (FAILED:/ERROR:) 可见; per-file ❌/⚠️/对齐自愈行刻意不匹配
+    # err_pattern (FAIL-OPEN 惯例, test_v37_9_292 契约测试钉死)。
+    "$HOME/.openclaw/logs/jobs/mm_index.log|mm_index"
     # V37.8.13: kb_harvest_chat.log 故意不加入 — 内容是 LLM 提炼的其他 log 历史错误
     # 字符串（如 "Proxy错误率达50.7%"），误报率 100%。状态通过 last_run_harvest_chat.json
     # 的 JOBS 数组条目跟踪即可。
