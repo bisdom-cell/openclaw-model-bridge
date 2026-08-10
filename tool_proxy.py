@@ -27,6 +27,7 @@ from proxy_filters import (
     inject_media_into_messages, filter_system_alerts,
     SYSTEM_ALERT_MARKER,  # V37.9.175: _send_alert 加标记防自身告警污染上下文
     detect_provider_prefix,  # V37.9.271: chat-界面 provider 前缀路由 (glm → GLM-5.2)
+    classify_tool_result_ok,  # V37.9.294: 工具成败结构化分类 (退役 result[:100] 子串窗口)
     flatten_content,
     compose_backend_error_str,  # V37.8.10: INV-OBSERVABILITY-001
     proxy_stats,
@@ -336,10 +337,10 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
             return
 
         if action == "list-ops":
-            result = subprocess.run(
-                [sys.executable, self._data_clean_path(), "list-ops"],
-                capture_output=True, text=True, timeout=10,
-            )
+            result = self._run_data_clean_subprocess(
+                [sys.executable, self._data_clean_path(), "list-ops"], 10, "list-ops")
+            if result is None:
+                return
             try:
                 self._json_response(200, json.loads(result.stdout))
             except json.JSONDecodeError:
@@ -373,7 +374,9 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
 
         if action == "profile":
             cmd = [sys.executable, self._data_clean_path(), "profile", file_path]
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+            result = self._run_data_clean_subprocess(cmd, 30, "profile")
+            if result is None:
+                return
             try:
                 self._json_response(200, json.loads(result.stdout))
             except json.JSONDecodeError:
@@ -398,7 +401,9 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                 cmd += ["--fix-date-cols"] + fix_date_cols.split(",")
 
             log(f"[data_clean] execute: {' '.join(cmd)}")
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+            result = self._run_data_clean_subprocess(cmd, 60, "execute")
+            if result is None:
+                return
             try:
                 self._json_response(200, json.loads(result.stdout))
             except json.JSONDecodeError:
@@ -417,7 +422,9 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                 self._json_response(403, {"error": cleaned})
                 return
             cmd = [sys.executable, self._data_clean_path(), "validate", file_path, cleaned]
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+            result = self._run_data_clean_subprocess(cmd, 30, "validate")
+            if result is None:
+                return
             try:
                 self._json_response(200, json.loads(result.stdout))
             except json.JSONDecodeError:
@@ -434,6 +441,25 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
         if os.path.exists(home_path):
             return home_path
         return os.path.join(os.path.dirname(os.path.abspath(__file__)), "data_clean.py")
+
+    def _run_data_clean_subprocess(self, cmd, timeout, action):
+        """V37.9.294 (对抗审计 C-F3 a): REST data_clean subprocess 统一执行。
+
+        旧版四站点裸 subprocess.run — TimeoutExpired/OSError 穿透 handler →
+        连接直断空回复 (与 LLM 拦截路径的 try/except 不对称), 运维面看到的是
+        "proxy 无响应" 误导重启服务。收编为结构化 JSON 错误响应 (504/500),
+        失败时返回 None (调用方直接 return, 响应已发)。
+        """
+        try:
+            return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        except subprocess.TimeoutExpired:
+            log(f"[data_clean] TIMEOUT {action} after {timeout}s")
+            self._json_response(504, {"error": f"data_clean {action} 执行超时（{timeout}s），文件可能过大"})
+            return None
+        except OSError as e:
+            log(f"[data_clean] EXEC-ERROR {action}: {e}")
+            self._json_response(500, {"error": f"data_clean {action} 无法执行: {e}"})
+            return None
 
     # search_kb 合法 source 值
     VALID_SOURCES = {"all", "arxiv", "hf", "semantic_scholar", "dblp", "acl", "hn", "notes"}
@@ -912,7 +938,9 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                 result = self._execute_custom_tool(fn_name, fn_args)
                 log(f"[{rid}] CUSTOM_TOOL result: {len(result)} chars")
                 # SLO: 记录工具调用成功/失败
-                tool_ok = not (result.startswith("{") and '"error"' in result[:100])
+                # V37.9.294 (C-F4 d): 结构化分类替代 result[:100] 子串窗口 — 旧启发式把
+                # expert read_only_violation/api_unavailable 等失败态记成 success
+                tool_ok = classify_tool_result_ok(result)
                 proxy_stats.record_tool_call(success=tool_ok)
 
                 # search_kb 需要 LLM 解读结果，其他工具直接返回
@@ -986,12 +1014,16 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
         except Exception as e:
             log(f"[{rid}] SEARCH_KB followup error: {e}")
             # Fallback: 直接返回原始搜索结果
+            # V37.9.294 (C-F4 b): 加降级哨兵 — 此合成响应无 usage, 旧版在 do_POST 被
+            # record_success({}) 记成干净成功 + 原始 KB 转储被当 PA 回复捕获进对话精华
+            # (KB 内容再摄取 = 自反馈污染)。哨兵由 do_POST 消费后 pop, 不下传 Gateway。
             return {
                 "choices": [{
                     "message": {"role": "assistant", "content": kb_results[:3000]},
                     "finish_reason": "stop",
                 }],
                 "model": original_body.get("model", "unknown"),
+                "_proxy_followup_degraded": True,
             }
 
     def _extract_tool_calls_from_text(self, content):
@@ -1287,6 +1319,19 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                         if custom_result is not None:
                             rj = custom_result
 
+                        # V37.9.294 (C-F4 b): followup 降级哨兵消费 — 失败的 search_kb
+                        # followup 曾以无 usage 合成响应伪装干净成功 (record_success +
+                        # 原始 KB 转储被捕获进对话精华 = KB 自反馈污染)。record_fallback
+                        # 让降级进 SLO degradation_rate (V37.9.229 同款语义); pop 防哨兵
+                        # 下传 Gateway。
+                        _followup_degraded = (
+                            bool(rj.pop("_proxy_followup_degraded", False))
+                            if isinstance(rj, dict) else False)
+                        if _followup_degraded:
+                            proxy_stats.record_fallback()
+                            log(f"[{rid}] DEGRADED: search_kb followup failed, "
+                                f"raw results served (excluded from conversation capture)")
+
                         # Log model decision
                         for c in rj.get("choices", []):
                             m = c.get("message", {})
@@ -1313,13 +1358,21 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                                 log(f"[{rid}] TEXT: {len(flat)} chars")
                                 # Capture conversation turn for KB harvesting
                                 # V37.9.272: GLM chat 路由不污染 PA 对话捕获 (与 code_assist.sh 一致)
-                                if not _routed_provider:
+                                # V37.9.294: followup 降级转储 (原始 KB 搜索结果) 不是 PA 回复,
+                                # 捕获会让 KB 内容再摄取回 KB (自反馈污染)
+                                if not _routed_provider and not _followup_degraded:
                                     _capture_conversation_turn(
                                         body.get("messages", []),
                                         flat
                                     )
 
                         # Token 监控：记录 usage + 延迟
+                        # V37.9.294 (C-F4 c): elapsed 重算 — 旧值在 resp.read() 后冻结,
+                        # 而 _handle_custom_tool_calls 可再跑 search_kb 语义检索 + followup
+                        # LLM 调用 (最多 ~90s+), record_success 用冻结值 → p95 对
+                        # search_kb/data_clean 轮次系统性低估。backend 日志行 (:上方)
+                        # 保留 backend-only 延迟作独立信号, SLO 记全轮延迟。
+                        elapsed = int((time.monotonic() - t0) * 1000)
                         usage = rj.get("usage", {})
                         if usage:
                             pt = usage.get("prompt_tokens", 0)
@@ -1348,6 +1401,9 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                             resp_body = json.dumps(rj).encode()
                     except Exception as e:
                         log(f"[{rid}] Parse error: {e}")
+                        # V37.9.294 (C-F4 c): 重算 elapsed — 异常可能发生在自定义工具
+                        # 执行之后 (如 capture/usage 段), 冻结值同样低估
+                        elapsed = int((time.monotonic() - t0) * 1000)
                         # V37.9.228 (audit B): 抛异且未记 success → 记 error（原零信号盲区）。
                         # 已记 success 的路径（如 build_sse_response 后崩）不重复记（success 合法）。
                         if not _recorded_success:

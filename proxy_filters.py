@@ -732,6 +732,39 @@ def detect_provider_prefix(messages):
     return None, messages
 
 
+def classify_tool_result_ok(result_str):
+    """V37.9.294 (对抗审计 C-F4 d): 自定义工具结果成败分类 — SLO tool_success_rate 口径。
+
+    旧启发式 `result.startswith("{") and '"error"' in result[:100]` 只看前 100 字符
+    子串窗口, 把 expert_escalate 的 read_only_violation / api_unavailable /
+    quota_exceeded 等失败态全部记成 success (tool_success_rate 假 100%)。
+
+    新判定:
+      - JSON 可解析且是 dict → 结构化: 有 "error" 键 = 失败;
+        "status" 存在且 ∉ {"ok", "success"} = 失败 (expert 非-ok 态都是失败/拒绝)
+      - 非 JSON / 非 dict / 纯文本 (search_kb 结果等) → 沿用保守子串启发式
+        (FAIL-OPEN 偏 success, 不对无结构结果误报失败)
+    纯函数零 I/O, 供 tool_proxy record_tool_call 消费。
+    """
+    if not isinstance(result_str, str):
+        return True
+    s = result_str.strip()
+    if not s.startswith("{"):
+        return True
+    try:
+        data = json.loads(s)
+    except (ValueError, TypeError):
+        return '"error"' not in s[:100]
+    if not isinstance(data, dict):
+        return True
+    if "error" in data:
+        return False
+    status = data.get("status")
+    if status is not None and status not in ("ok", "success"):
+        return False
+    return True
+
+
 def _message_starts_with_alert_marker(m):
     """判断单条消息是否以 [SYSTEM_ALERT] 标记开头。
 
