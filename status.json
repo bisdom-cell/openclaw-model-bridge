@@ -1,5 +1,5 @@
 {
-  "updated": "2026-08-12 06:33:47",
+  "updated": "2026-08-12 07:44:27",
   "updated_by": "full_regression",
   "priorities": [
     {
@@ -81,6 +81,16 @@
   "recent_changes": [
     {
       "date": "2026-08-12",
+      "what": "V37.9.300 🔴 告警疲劳机械成因根治: auto_deploy `grep \"❌\"` 抓走 6 空格缩进明细行却丢掉它们的 ⚠️ 标题 → 明细孤悬在无关失败下被误读, 而「向量索引已 106h 未更新」作为 warn 行从未进过告警 = V37.9.299 核心 job 死 4 天「无人知」的真相(告警一直在发, 呈现形态误导)。修: grep -E '^ {0,3}(❌|⚠️)' 按缩进精确分层。守卫 7 单测(真实血案样本+源码抓取真实模式), sabotage 5 项开火。VERSION 0.37.9.134。元教训: 修告警正文比劝人多看一眼有效。",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-08-12",
+      "what": "V37.9.299 修复 Mac Mini 实证生效: 手动补跑 kb_embed 完成 56187 chunks 新增 + 幽灵剪除 6 + 35 文件权威重建, 覆盖率 98%→**100% (2627/2627)**, 零失败, PA 语义检索恢复。附带教训: 合并后首次补跑因运行时副本(~/kb_embed.py)未经 auto_deploy 同步而重演旧 Traceback → 原则 #14 补充「仓库副本 vs 运行时副本」验证式已登记。",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-08-12",
       "what": "V37.9.299 🔴 V37.9.293 回归根治: kb_embed `if vectors:` 对 numpy ndarray 抛 ValueError → 每晚跑完 118s 嵌入 54690 chunks 后崩在写入前一行, KB 向量索引静默停更 4 天(95 笔记未索引, PA 语义检索失明)。preflight warning 驱动发现(非任何测试)。修复两层: len() 判定 + **测试 fake 升级 ndarray-faithful**(__bool__ 多元素抛 ValueError) 让既有 21 行为级测试全成该 bug 类探测器。sabotage 验证 dev 复现生产逐字同款 ValueError。同族扫描仅此一处。VERSION 0.37.9.133。",
       "by": "claude_code"
     },
@@ -117,16 +127,6 @@
     {
       "date": "2026-08-10",
       "what": "V37.9.296 宪法级#1: A2 精度台账关窗 + A4-Q4 论文#2 数据落表(用户交回 Mac Mini 数据, §9.2 冻结口径机械执行): on 期 12 观测日 fired=0 → H1 precision 0-分母未定义(不给数字)/H2 保持构造性主张/H3 零显化 FN+两轮审计预防通道分开报告, §9.2.5 安静期路径逐字执行不叙述为检测成功。规则先于数据三兑现: 07-26 边界行剔除/标签错位不改判/fixture 规则命中 0 行。§9.2.2 路径笔误更正。论文#2 草案不再 gated。顺带发现 daily_observer 08-09/10 两晨疑似未跑已登记核查。VERSION 不变",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-08-10",
-      "what": "V37.9.295 expert 真降级 followup 化(C-F2 后半/unfinished [34]): api_unavailable/quota_exceeded 复用 _followup_llm_call 让基础模型同轮接管作答(SOUL 规则 12 L115 结构性兑现, 旧版靠用户手动重发), _followup_llm_call 模板/tag 参数化(默认 search_kb byte-identical), 二次失败走 V37.9.294 哨兵回 V37.9.288 渲染=优雅降级。范围刻意收窄(read_only_violation 等保持直出)。守卫 20 单测+sabotage 三连。🔴 需 Mac Mini E2E。VERSION 0.37.9.132",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-08-10",
-      "what": "V37.9.294 proxy 观测口径修复(对抗审计 C-F3/C-F4): REST data_clean 四站点收编统一执行器(TimeoutExpired→504/OSError→500 替代连接直断)+followup 失败降级哨兵(record_fallback+不捕获断 KB 自反馈)+elapsed 全轮重算(修 p95 低估 ~90s+)+classify_tool_result_ok 结构化分类(修 tool_success_rate 假 100%)。守卫 22 单测(AST exec-with-mocks), sabotage 四连各 1 FAIL 精确命中。VERSION 0.37.9.131",
       "by": "claude_code"
     }
   ],
@@ -218,7 +218,8 @@
       "【V37.9.298 · 07:00 INV-ROUTER-001 告警已根治 · 剩 Mac Mini 被动验证】合并+同步后明晨 07:00 governance audit 应回绿(测试文件随 git 同步零重启); 可选即时验证 python3 test_v37_9_77_enforcement.py 真实 env 下 27/27。若明晨仍红贴新告警。另: 今晨告警「元规则 19/23」行待绿 audit 对照口径(如恒 19/23 属 --full 正常显示即忽略, 不预诊断)",
       "【SOUL 规则 12 'Qwen3' 字样过时 · 低优】2026-08-12 降级 E2E 中 PA 自称 'Qwen3 基础模式', 实际 primary=doubao_21(V37.9.222 flip) — 出处是 SOUL 规则 12 旧文案。不专门触发 SOUL 重部署仪式, 下次动 SOUL 时顺手改为 '基础模型' 措辞(去 provider 名硬编码, whiplash-resistant)。",
       "【低优 · 顺手清理，非必须】Volcengine 退役 ep- 已删除后的残留 env 清理（治理已不要求，留着无害）: adapter+proxy plist 的 ARK_ENDPOINT_ID / ARK_API_KEY（doubao 2.0 旧 Ark 时代，V37.9.290 后零消费者）+ ~/.env_shared 的 GLM5_ENDPOINT_ID 行。🔴 ARK_21_API_KEY 与 ARK_21_ENDPOINT_ID 必须保留（doubao_21 = 生产 primary）。下次动 plist 时顺手做。",
-      "【🔴 V37.9.299 KB 索引停更修复 · 待 Mac Mini 补跑 + 1 项待核实】(a) 同步后**手动补跑** `python3 ~/kb_embed.py`（索引已欠 4 天/95 笔记，别等明晨 cron；预期数分钟：54,690 chunks 重嵌 + V37.9.293 幽灵剪除一次性大 🪦），完成后 `python3 kb_embed.py --stats` 覆盖率应回 100%，PA search_kb 恢复检索 08-08 后内容 (b) **待核实**: Discord 告警频道过去 4 天有无 「KB 向量索引 XXh 未更新」告警 — 有=告警疲劳/信噪比问题(需评估告警分级)，无=watchdog 真盲区(需查 scan_logs 窗口/索引老化检查为何不开火)。不预先定性。"
+      "【V37.9.299/300 全闭环 ✅（2026-08-12 实证）· 剩 Mac Mini 被动验证】(a) KB 索引已恢复 100%（2627/2627, 113634 chunks, 零失败, PA search_kb 恢复至今日）(b) 「4 天无人知」定性 = **告警疲劳非监控盲区**（用户确认 Discord+WhatsApp 双通道均收到），机械成因已根治 V37.9.300（告警正文丢 ⚠️ 顶层警告却抓 6 空格明细行 → 致命信号呈现为 doc-sync 唠叨）。剩: 同步后观察下次 preflight 失败告警是否含 ⚠️ 行且无孤悬明细。诚实更正: V37.9.293 预告的「首晚大 🪦」被证伪（实际仅 6 个幽灵 chunk）。",
+      "【原则 #14 补充教训（2026-08-12 两次踩同一坑）】`git reset` 只同步**仓库副本**(~/openclaw-model-bridge/X)，cron 跑的是 auto_deploy 按 FILE_MAP 同步出的**运行时副本**(~/X)，两者有最多 2 分钟延迟。合并后立刻手跑运行时脚本 = 跑旧代码(今日 kb_embed 补跑第一次即因此重演同款 Traceback)。**验证式**: `grep -c '<修复特征>' ~/openclaw-model-bridge/X ~/X` 两行都为 1 再执行；急用可 `cp` 手动同步。下次触碰 CLAUDE.md 原则区时把这条写进 #14 正文。"
     ],
     "open_prs": [],
     "blocked_on": "",
@@ -226,14 +227,14 @@
   },
   "quality": {
     "security_score": 98,
-    "test_count": 5765,
-    "last_regression": "2026-08-12 06:33 pass",
+    "test_count": 5772,
+    "last_regression": "2026-08-12 07:44 pass",
     "coverage_pct": 0,
     "security_score_time": "2026-07-20 01:07",
-    "test_suites": 167,
+    "test_suites": 168,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
-    "version": "0.37.9.133",
+    "version": "0.37.9.134",
     "observer": {}
   },
   "incidents": [
@@ -298,7 +299,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-08-12 收工(五笔): V37.9.297 论文#2 第一稿 / V37.9.298 治理告警根治 / V37.9.295 降级 E2E 关账 / 退役 ep- 清理(泄漏归零) / **V37.9.299 kb_embed numpy 真值 bug 根治**(V37.9.293 回归, 索引静默停更 4 天, fake 改 ndarray-faithful 闭合 dev-prod 接缝)。🔴 待用户: 合并+同步后**手动补跑 kb_embed** + 核实 Discord 有无索引告警 + 论文#2 三决策等 ISSRE 周末。",
+  "focus": "2026-08-12 收工(六笔): 论文#2 第一稿 / 治理告警根治 / 降级 E2E 关账 / 退役 ep- 清理 / V37.9.299 kb_embed numpy bug 根治+索引 100% 恢复 / **V37.9.300 告警疲劳机械成因根治**(告警正文丢 ⚠️ 抓明细 → 核心 job 死 4 天被读成 doc-sync 噪声)。🔴 剩: 论文#2 三决策等 ISSRE 周末 + key 轮换(用户暂缓)。",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
