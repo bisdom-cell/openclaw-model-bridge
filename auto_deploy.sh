@@ -587,9 +587,16 @@ if $HAS_NEW_COMMITS; then
             PREFLIGHT_RC=$?
         fi
         if [ $PREFLIGHT_RC -ne 0 ]; then
-            # 提取失败项（只保留 ❌ 行）
+            # 提取顶层判定行：❌ 失败 + ⚠️ 警告（均为 2 空格缩进的 fail()/warn() 输出），
+            # 排除 6 空格缩进的明细行。
+            # V37.9.300 血案（2026-08-12）: 旧版 `grep "❌"` 把 warn 的**明细行**
+            # （用 ❌ 作项目符号，如 "❌ 20260808….md — 未索引"）抓进告警，却丢掉它们的
+            # ⚠️ 标题 → 明细孤悬在无关的 ❌ 失败行下面被误读成那条失败的细节；而真正致命的
+            # 「⚠️ 向量索引已 106h 未更新（kb_embed cron 是否正常？）」从未送达用户 →
+            # KB 核心 job 崩溃 4 天的告警被读成例行 doc-sync 唠叨 = 告警疲劳的机械成因。
+            # 注: 本告警仅在 preflight 真失败(rc≠0)时发送, 纳入 ⚠️ 不会新增日常噪声。
             # V37.9.60-hotfix: grep no-match → pipefail + set -eE 让 ERR trap 误触发, 加 || true 容错
-            FAIL_LINES=$(echo "$PREFLIGHT_OUT" | grep "❌" | head -10 || true)
+            FAIL_LINES=$(echo "$PREFLIGHT_OUT" | grep -E "^ {0,3}(❌|⚠️)" | head -12 || true)
             ALERT_MSG="🔴 部署后体检失败 (commit: $NEW_COMMIT)
 
 $FAIL_LINES
