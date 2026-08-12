@@ -1,6 +1,6 @@
 {
-  "updated": "2026-08-10 08:37:36",
-  "updated_by": "claude_code",
+  "updated": "2026-08-12 00:49:35",
+  "updated_by": "full_regression",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -80,6 +80,11 @@
   ],
   "recent_changes": [
     {
+      "date": "2026-08-12",
+      "what": "V37.9.297 论文 #2 第一稿(宪法级 #1): docs/paper/mechanizing_the_eye/ 三件套 — draft v0.1(~750 行英文, 两层管道 S1-S5+逐字 grounding / ground truth in-scope 3-5-16 诚实划界 / scorecard 6-6·0-4·4-4+sabotage / §6 预注册部署研究含三次规则压制便利 / §7 O1-O8 observer 自身事故账本=judge-inherits-taxonomy 实证 / §9 era-mismatch 自 confound) + data_inventory 逐数字溯源 + DECISIONS_NEEDED 7 决策(🔴 #1 投稿时机)。数据冻结 cutoff 2026-08-09(§9.2 协议逐字执行, 安静窗不叙述为成功)。VERSION 0.37.9.132 不变(纯研究文档)。",
+      "by": "claude_code"
+    },
+    {
       "date": "2026-08-10",
       "what": "V37.9.296 后记: score_history 08-08/09 缺行根因经用户核查确认=Mac Mini 关机(良性停机非 cron/observer 故障) → 运维核查项关闭, design doc §9.2.7 脚注②根因落定(停机期 watchdog 同机不在运行=单机固有观察边界非软件盲区)。A2/A4 主表 12/14 天定稿不变",
       "by": "claude_code"
@@ -122,61 +127,6 @@
     {
       "date": "2026-08-07",
       "what": "V37.9.289 三 provider 模型 ID 更名(用户指令): doubao→doubao-seed-2.0-pro-huakun / deepseek_full→deepseek-v4-pro-huakun / glm5_coding→glm-5.2-huakun, 其他参数不变。波及面全量同步(插件+expert_escalation+code_assist+测试pin+compat matrix)。tier 不变+evidence 加时间边界(V37.9.277 惯例)。顺手脱敏泄漏的真实 ep- 接入点 ID 四处。dev 合约/dry-run 全过, 真 E2E 待 Mac Mini 复测。VERSION 0.37.9.126",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-08-07",
-      "what": "V37.9.288 对抗审计批次2: proxy诚实输出 — 参数null-归一(config/query null曾AttributeError伪装后端502)+fix_date_cols拦截路径打通(列限制曾静默丢弃)+SystemExit收编(kb_rag sys.exit曾穿透杀HTTP线程)+搜索坏了≠没搜到((results,degraded_reason)哨兵,假否定fail-plausible退役)+expert_escalate按SOUL规则12中文渲染(曾裸JSON/英文报错直发用户)+data_clean per-step诚实渲染(skipped/error曾一律绿✓)。新套件22 tests(AST exec-with-mocks惯例),sabotage 12失败全精确命中。VERSION 0.37.9.125",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-08-07",
-      "what": "V37.9.287 对抗审计批次1: 监控读者枚举/登记收口 — observer JOB_FAILURE_STATUSES 补全6值(V37.9.280 KB-F3未修双胞胎,9源parse_failed曾被静默放过)+跨模块守卫; watchdog登记ai_leaders_blogs/bsky+movespeed(ts→time键修复,潜伏60天血案同款三漏网情形); kb_status_refresh剔除discussions死条目+per-job阈值镜像watchdog+诚实措辞。A-F4经读代码证伪不修(dream_fail_alert已是真告警)。守卫+15, sabotage全load-bearing。VERSION 0.37.9.124",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-08-06",
-      "what": "账本(同日追加): 按用户指示从待办移除 2 项 — [28] GLM ark key 轮换(整项) + [19] doubao_21 项剩余 qwen 出链动作。unfinished 32→30。轮换步骤/vision caveat 等决策上下文留存 changelog V37.9.277/V37.9.258 可回溯, 未来需要可重新登记。",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-08-06",
-      "what": "V37.9.286 门控收敛日: CLAUDE.md Phase 5/V3 待办表 stale 收敛 (原则 #17 第 3 次演出) — 引擎包化 待启动→✅ V37.9.137 PyPI (+V37.9.148 仓库外 dogfood CI 守卫) / Ontology Extension Guide 待启动→✅ V37.9.104 / Tool Policy Plugin 待启动→🟡 chunk1 ✅ V37.9.160 / V3 路标行同步 / Phase 5 导语瓶颈句(尚未开始)改现实。终极目标核心交付物已达成近 2 个月但地图仍标待启动 = 地图≠领土债清零。开工基线 162/0/5632 全绿 + 混沌 10/10 + 治理 848 checks; 上游 latest 仍 2026.7.1-2 沿用第七次 hold; 32 unfinished 全 gated。VERSION 0.37.9.123 不变 (纯 doc/账本)。",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-08-03",
-      "what": "V37.9.285 治理 runtime check 负载超时家族系统性收口: 排查 760 checks → 53 个 subprocess 型仅 2 个有 TimeoutExpired 处理 (恰是历史开火的 INV-REVIEW-001/INV-CONVERGENCE-INTEGRATION-001), 44 个同族裸奔。执行器单点分类 (三入口 TimeoutExpired→skip+[LOAD-TIMEOUT], generic Exception 之前), 零 yaml 编辑, INV-GOV-001 error 语义保留, skip_rate_pct 自指标承接负载观测。新增 ontology/tests/test_governance_load_timeout.py 14 单测注册 full_regression + 双向 sabotage 验证。VERSION 0.37.9.123 不变 (治理基础设施, 镜像 V37.9.214/247 惯例)。",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-07-31",
-      "what": "V37.9.284 A4-Q3 论文#2 数据口径预注册: design doc §9.2 六小节 (三主张操作化 H1 live precision/H2 detection latency 定性桶/H3 human-first FN + score_history 11 字段 regime 划分 + fixture 污染剔除 + 窗口冻结 shadow 06-30→07-25/on 07-26 起/Q4 cutoff ≥08-08 + TP/FP 四分判定协议 + 负面结果发表承诺 + A2 append-only 台账零新状态文件)。Stage 5.1 ✅ flip 上线收敛 + 执行计划 Q3 清单 A1/B1/A4 打勾。两轮 full_regression 161/0/5618 全绿 (混沌 10/10×2), VERSION 0.37.9.123 不变 (纯方法学文档)。",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-07-28",
-      "what": "V37.9.283 对抗审计遗留收尾: NOT-F5 ProxyStats per-key 告警冷却 (195K 阈值持续满足时每 turn 一条 [SYSTEM_ALERT] 风暴 → 首报立即/30min 冷却/状态恢复重武装/升级穿透, config.yaml alerts.alert_cooldown_seconds 中心化) + NOT-F3 auto_deploy quiet_alert 静默期收编 notify discord-only (裸发无重试 → 重试+失败队列, 重放不违静默期)。23 新守卫单测 + sabotage 双向反向验证, V37.8.13 四 pin 零破坏。VERSION 0.37.9.123。",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-07-26",
-      "what": "V37.9.282 JOB-F1 8 脚本 parse 守卫铺开: rss_blogs/ai_leaders_blogs/bsky/dblp/s2/hn/chaspark/freight 全部补 200-but-unparseable fail-loud (V37.9.274 模式按四类结构适配), 15 新守卫单测 + bsky pin 演进 + sabotage 三处反向验证。",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-07-26",
-      "what": "V37.9.279-281 三批对抗审计修复: 4 镜头 (Observer on 栈/KB 管道/jobs 脚本/notify 链) 14 findings 亲验实锤, 13 修复+1 登记。V37.9.279 Observer on 模式首日加固 (fp 扫描移到 critique prompt 前修评分集成虚假 + confidence 校准腐蚀 + fp_mode regime 标记 + 趋势箭头方向 + wrapper 写失败诚实化); V37.9.280 KB 管道 (collect_notes 窗口 N+1→N + harvest 部分 Map 失败不再永久丢段 + parse_failed 进 evening allowlist + kb_trend D-7 双计数 + 陈年失败不当今日异常); V37.9.281 notify 队列 (claim touch 防双发 + CLI 守卫防队列误清空 + 驱逐分类器收紧) + 4 job 裸 notify 守卫 + chaspark rc/seen 契约 + wa_keepalive ESCALATED 诚实化。全部 sabotage 反向验证 + 33 新守卫测试。工具链事故: 第一轮 Workflow 审计因 harness subagent permission handler 损坏全军覆没 (空 findings 识别为被挡非代码干净), 改 Agent fan-out 重跑成功。",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-07-25",
-      "what": "Observer flip 三步全落地: (a) PR#850 合并+同步 (b) OBSERVER_FP_MODE=on 进 .env_shared (c) score_history 清污染核实为 no-op — Mac Mini 实测 73 行零条 05-25/llm_failed 仅 2/近 5 日每日恰 1 行 = 文件本就干净, V37.9.276 所见污染最可能在 dev 侧 ~/.kb (V37.9.124 governance 收窄后 Mac Mini 不跑 CLI 测试类); 两侧源头已修死。明 06:30 on 模式首日 E2E。",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-07-25",
-      "what": "V37.9.278 CLAUDE.md changelog 第三轮归档 — 484KB→339KB: 归档 V37.9.207-239 共 33 版到 docs/changelog.md (内联 71→38 行, 行数守恒 339 恒定零丢失, 边界/连续性/零丢失三重 assert)。触发条件按 V37.9.245 预埋行数阈值精确兑现 (20 天累积 33 版, 按行数触发比日历更贴合)。归档脚本两次防呆 assert 开火 (行正则过宽误伤里程碑表 13 行 + 头注锚点被 V37.9.245 行自身叙述咬到) 均修正。开工基线+收工两轮 full_regression 全绿 (158 suites/0 fail/5546 tests, 混沌 10/10 全抓), 治理 EXIT=0, OpenClaw 上游无新 stable (2026.7.2 仍 beta.4) 沿用第七次 hold。VERSION 0.37.9.118 不变。",
       "by": "claude_code"
     }
   ],
@@ -227,7 +177,7 @@
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB"
   },
   "session_context": {
-    "last_session": "2026-08-10",
+    "last_session": "2026-08-12",
     "unfinished": [
       "【2026-07-02 多镜头审计 · 9 findings 全部处置完毕 (V37.9.226-239: 8 修复闭环 + I half-open 登记为可接受设计 tradeoff) · 剩纯 Mac Mini 被动验证】同步+重启 proxy/adapter 后观察: (A) 真 fallback 时 proxy 日志 DEGRADED 行 + proxy_stats.json slo.fallback_count 变真值 (V37.9.229) (C) ls ~/.kb/status.json.lock ~/.kb/audit.jsonl.lock 伴生锁文件出现 (V37.9.238) (E) client 断开时 adapter.log 记 CLIENT GONE 单行非 traceback (V37.9.231/242) (B) streaming 请求撞 parse 异常时 Gateway 收 SSE 而非 content-type 错配 (V37.9.239) (G) last_run_self_critique.json time 本地格式 + watchdog 4h 覆盖 observer (V37.9.230)。完整分诊记录见 CLAUDE.md V37.9.226-239 changelog, 无 dev 剩余动作。",
       "【V37.9.211/212 Qwen3 端点刷新 · adapter ✅ + V37.9.212 ✅ 已并入 main(PR#774, 2026-07-02 dev 核实) · 剩用户 env 动作】剩余非紧急: (A) .env_shared 设新 REMOTE_API_KEY+REMOTE_BASE_URL(cron 直连脚本 health_check 每周报 CURRENT_MODEL/diagnose 用) (C) 🔴 明文 key 建议用完轮换。教训钉死: adapter/proxy 是 launchd job, env 改必须进 plist EnvironmentVariables + bootout/bootstrap(不是 shell export + kickstart)。",
@@ -255,7 +205,7 @@
       "deep_dive OA 全文解析 follow-up (V37.9.183/184) — (1) ✅ 已闭合(V37.9.261/263): Mac Mini grep 实证降级主体=结构性付费墙(no PDF URL derivable, ACM/Elsevier 无 OA 版)非 fetch-path bug, ban-list(V37.9.260)是真杠杆; V37.9.262 OpenAlex 第二源 Mac Mini 实测 0/7 恢复且净负→V37.9.263 回退; 降级率下降 thesis 被证伪, 残余=接受现实(不爬付费墙). (2) 历史 KB 条目仍 PII link(仅新论文受益, V37.9.132 局限, 不补). (3) ✅ V37.9.186: pwc 死路径退役 + TIER↔registry drift 守卫.",
       "【H1-C / C2 (Q4, gated) · C1 选型已完成 V37.9.253】第二实例最小闭环真跑 = 非 Mac Linux host 上 E2E 绿: minimal_runtime + governance cron + 1-2 内容 job(arxiv/dblp) 真抓取→LLM→Discord + cron+nohup 重启存活。选型=PUSH-only 纯推送(绕 Gateway/WhatsApp/sessions), 见 docs/second_instance_poc_selection_20260707.md §5 验收标准。C2 前置(§3, 均可枚举无未知): 持久 Linux host(VPS/容器) + 可达 LLM 端点(REMOTE_BASE_URL) + Discord bot token/channel(DISCORD_CH_*) + 唯一真需新建=Linux bootstrap 脚本(装 py 依赖+起 adapter/proxy nohup+写 crontab, 并行 install_openclaw_macmini.sh)。C3=portability report EN/ZH 证据型文章(对两次评审可迁移性批评终局回答)。",
       "【V37.9.274 · SF1/SF2 已修 · SF3 对抗验证 accept-by-design】(SF1 ✅ 修) ontology_sources/finance_news fetch_failed 守卫 parse-盲已修: parse-fail sys.exit(2) 信号回 shell + 根元素校验(well-formed 反爬 HTML root=html 拦截, 实测证伪初版 catch-ParseError) + PARSE_RC!=0→FETCH_ERRORS++。(SF2 ✅ 修) daily_observer --dry-run 持久化污染已修: append_score_history+_write_observer_to_status 由 if not dry_run 守卫。(SF3 ⏹ 不改) kb_harvest any(ok)→ok 是 V37.9.130 刻意设计(status 枚举供 watchdog 契约, 降级走 map_failed 独立字段), 改成 any(error)→error 会过度告警瞬态混合窗口 → 对抗验证 accept-by-design(镜像 V37.9.273 F2 纪律)。守卫 test_v37_9_274(11 单测)+sabotage。",
-      "【🔴 LLM-Observer 研究攻关 #1 · A2 窗已关 + A4-Q4 已落表（V37.9.296）· 剩论文 #2 草案】on 期 12 观测日 fired=0（§9.2.7 三主张数据表 + §9.2.6 台账关窗 + C1-C3 延续全成立），首日 E2E 观察被 12 天生产数据超额覆盖关闭。下一步（后续 session，不 gated）= 论文 #2 草案启动（数据段就绪：corpus 侧 scorecard + live 安静窗负结果按 §9.2.5 路径），预计挂 arXiv 前需用户决策署名/venue（镜像论文 #1 DECISIONS_NEEDED 流程）。",
+      "【🔴 LLM-Observer 研究攻关 #1 · 论文 #2 第一稿 ✅ V37.9.297 · 待用户三决策】draft v0.1 + data_inventory + DECISIONS_NEEDED 已入库 docs/paper/mechanizing_the_eye/（§9.2.7 冻结数据→论文叙事, 安静窗按 §9.2.5 报 0-分母 precision 未定义, O1-O8 observer 自身事故账本, 9 引用含 2 条新核验）。球在用户: DECISIONS_NEEDED #1 投稿时机(安静窗现投 vs 预注册延长, 推荐现投) + #2 标题三选 + #3 venue(建议联动 ISSRE 8-12 通知; 若 #1 论文录用会议版策略联动)。决策后 = LaTeX 转换 + figures + 投稿前 data_inventory 重对表 + §2.3 'no prior report' 主张检索加固。",
       "【2026-07-26 对抗审计 JOB-F1 ✅ V37.9.282 已铺开 · 剩 Mac Mini 被动验证】8 脚本 200-but-unparseable 守卫全部落地 (四类结构分别适配): A. rss_blogs/ai_leaders_blogs XML 全款 (exit 2+根白名单+PARSE_RC→FETCH_ERRORS) / B. bsky JSON 根形状 feed 键校验 / C. dblp+s2 全结果文件解析失败→exit 2→既有 parse_failed 分支 / D. hn/chaspark/freight 单源 fail-loud (parse_failed/fetch_failed 不落 \"无新内容\" ok)。守卫 test_v37_9_282_parse_guard_rollout.py 15 单测 (含 heredoc compile+非空断言) + bsky 既有 pin 演进 (corrupt JSON exit 0→2, FAIL-OPEN 上移 shell 级)。Mac Mini 验证: 同步后各 job 正常日照常 ok; 若未来某源被反爬, watchdog 应出 fetch_failed/parse_failed 告警而非静默 new:0 ok。",
       "【2026-07-26 对抗审计 2 登记项 ✅ V37.9.283 已修 · 剩 Mac Mini 被动验证】(a) NOT-F3 quiet_alert 静默期已收编 notify --channel discord --topic alerts（重试+队列，队列条目 channel=discord 重放不违静默期；V37.8.13 四 pin 零破坏）。(b) NOT-F5 ProxyStats per-key 告警冷却（token_warn/token_critical/consecutive_errors，ALERT_COOLDOWN_SEC=1800 config.yaml 中心化；首报零延迟/窗口内抑制/状态恢复重武装/升级穿透）。Mac Mini 验证: 同步+重启 proxy 后，长 session 过 195K 时告警至多 1 条/30min 非每 turn；静默期 deploy 告警失败应入 notify 队列稍后重放（~/.notify_queue/）而非静默丢失。守卫 test_v37_9_283_alert_cooldown.py 23 单测 + sabotage 双向验证。",
       "【V37.9.279-281 Mac Mini 被动验证】合并+同步后: (a) 279: 次日 06:30 observer 报告若有 fp verdict, LLM critique 段应可见异常块引用 fail-plausible (on 模式评分真集成); score_history 新行有 fp_mode:\"on\" 字段; confidence 只在 L2 grounded 支持时非 1.0 (b) 280: evening \"今日笔记\" 不再含昨日条目; 论文源 parse_failed 日 evening 出\"今日任务异常\"块; harvest 部分 Map 失败日 last_run status=error 且次日重试 (c) 281: notify 队列重放无重复投递; chaspark LLM 失败日次日正常重抓 (seen 不再提前提交); wa_keepalive 日志出现 ESCALATE_FAILED 时 ~/.openclaw_alerts.log 有兜底行。",
@@ -265,7 +215,8 @@
       "【V37.9.294 · C-F3/C-F4 proxy 观测口径 ✅ 已修 · 剩 Mac Mini 被动验证】同步+重启 proxy 后: (a) REST /data_clean 超时返回 504 JSON 而非连接直断 (b) search_kb followup 失败日 proxy_stats degradation_rate 变真值 + 原始转储不再进对话捕获 (c) 🔴 p95 如上浮 = elapsed 口径修正（原漏计自定义工具最多 ~90s+）非性能退化, 预期勿告警 (d) tool_success_rate 如下降 = expert read_only_violation/api_unavailable 等失败态开始被诚实计数（classify_tool_result_ok 结构化分类替代 result[:100] 子串窗口）。详见 changelog V37.9.294。",
       "【V37.9.295 · expert 真降级 followup 化 ✅ dev 完成 · 🔴 需 Mac Mini E2E 后才算完成（原则 #6，行为变更）】api_unavailable/quota_exceeded 现在同轮自动降级（基础模型接管作答，SOUL 规则 12 结构性兑现），二次失败回 V37.9.288 渲染通知。E2E 三步: (1) 临时改 plist DOUBAO_API_KEY 为空/错值+重启 proxy → WhatsApp 发触发词（如「帮我深度判断 X」）→ 预期 PA 同轮直接作答且开头带「专家模式暂不可用/基础模式」标注（旧版只回「请把问题再发我一次」）→ 恢复 key+重启 (2) proxy 日志 grep 'EXPERT_DEGRADED followup' 出现 (3) 正常路径回归: key 正常时 expert 触发词仍返回 🧠 专家意见渲染。详见 changelog V37.9.295。",
       "【V37.9.289-291 三 provider -huakun 迁移 ✅ E2E 全通 · 剩收尾】deepseek_full/doubao/glm5 三模型 tokenhub 实测全通过, doubao/glm5 已升 feature_verified (text+reasoning), expert(cache_read=14136)+code_assist 生产路径 ✅。剩: (a) Mac Mini 同步 V37.9.291 + 重启 proxy (expert reasoning_chars 双字段名读数生效) (b) 🔴 两把 sk- key 在对话出现过, 建议找华坤轮换 (plist+.env_shared 各一行替换+bootout/bootstrap) (c) 可选残余探针补全 5/5: tokenhub 侧 vision(image_url)/tool_calling(tools)/streaming(stream:true) 实测后再升 (vision 注意: 未测前 image fallback 现实依赖 qwen) (d) 可选清理无消费方遗留 env: ARK_API_KEY/ARK_ENDPOINT_ID/GLM5_ENDPOINT_ID (无害可留)",
-      "【低优观察 · 混沌 C1 负载瞬态（2026-08-10 收工实录）】full_regression 尾部负载下 chaos C1(delete_soul_rule_10) 单次假报防御退化（INV-PA-002 catch 被负载吞, 疑与 V37.9.285 load-timeout→skip 语义交互）；静态复跑 + settled 树完整回归复跑均 10/10 = 瞬态非回归, 当日代码零嫌疑。处置模式: 遇 9/10 先静态复跑定性（本次实录）。若未来负载下复现 ≥2 次 → 升级评估: chaos audit 对 expected-catch 遇 skip 时应判 inconclusive+重试而非 FAIL（改 audit 语义是新机制, 单次瞬态不投机, 日落法 #8）。另: 直跑 audit 被 Bash 2min 默认超时杀过一次留 config.yaml 残留（已 checkout 还原, 教训=chaos 直跑须 run_in_background 无超时）。"
+      "【低优观察 · 混沌 C1 负载瞬态（2026-08-10 收工实录）】full_regression 尾部负载下 chaos C1(delete_soul_rule_10) 单次假报防御退化（INV-PA-002 catch 被负载吞, 疑与 V37.9.285 load-timeout→skip 语义交互）；静态复跑 + settled 树完整回归复跑均 10/10 = 瞬态非回归, 当日代码零嫌疑。处置模式: 遇 9/10 先静态复跑定性（本次实录）。若未来负载下复现 ≥2 次 → 升级评估: chaos audit 对 expected-catch 遇 skip 时应判 inconclusive+重试而非 FAIL（改 audit 语义是新机制, 单次瞬态不投机, 日落法 #8）。另: 直跑 audit 被 Bash 2min 默认超时杀过一次留 config.yaml 残留（已 checkout 还原, 教训=chaos 直跑须 run_in_background 无超时）。",
+      "【V37.9.297 安全 · 低优用户动作】V37.9.289 changelog 行曾自引真实 ep- 接入点明文(第 5 处泄漏, 已二次脱敏+全仓清零); 该 token 已随 V37.9.290 平台迁移退役且单独无 ark- key 不可用=实际风险低, 但 git 历史仍含真值 → 彻底缓解: 用户在 Volcengine 控制台删除该退役 ep- 接入点(与已登记的两把 sk- key 轮换可同批处理)"
     ],
     "open_prs": [],
     "blocked_on": "",
@@ -274,7 +225,7 @@
   "quality": {
     "security_score": 98,
     "test_count": 5761,
-    "last_regression": "2026-08-10 08:36 pass",
+    "last_regression": "2026-08-12 00:49 pass",
     "coverage_pct": 0,
     "security_score_time": "2026-07-20 01:07",
     "test_suites": 167,
@@ -345,7 +296,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-08-10: V37.9.292 mm_index 静默失效家族修复(对抗审计 B-F1 四机制: cron RC 捕获/条件 save_meta/TOCTOU+对齐自愈/HOME_LOGS 错误扫描+全失败 exit 2 + memory_plane stderr)。🔴 剩: Mac Mini 同步(V37.9.291 需重启 proxy, 292 零重启)+watchdog 首日观察 mm_index 存量故障是否现形(盲区解除属预期) / A2 精度台账+A4-Q4 填表窗已到需 Mac Mini 数据 / ISSRE 通知 8-12 / 两把 sk- key 轮换。",
+  "focus": "2026-08-12: V37.9.297 论文 #2 第一稿完成(宪法级 #1: Mechanizing the User's Eye, 预注册部署+O1-O8 observer 自身事故账本+安静窗诚实负结果, docs/paper/mechanizing_the_eye/)。🔴 待用户: DECISIONS_NEEDED #1 时机/#2 标题/#3 venue + ISSRE 通知今日 8-12 查 EasyChair/邮箱 + Mac Mini 同步(纯 doc 零重启; V37.9.291-295 同步+重启 proxy 仍待) + 两把 sk- key 轮换。",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
