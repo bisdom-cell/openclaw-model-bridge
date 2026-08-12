@@ -590,7 +590,12 @@ def main():
     lock_fd = _acquire_exclusive_lock()
     try:
         meta["chunks"].extend(batch_meta)
-        if vectors:
+        # V37.9.299 血案: 此处 V37.9.293 写作 `if vectors:` — vectors 是 numpy
+        # ndarray (local_embed.embed_texts 真返回值), 多元素时 __bool__ 抛
+        # ValueError("truth value of an array ... is ambiguous") → 生产每晚跑完
+        # 118s embedding 后崩在写入前一行, 索引静默停更 4 天 (dev fake 返回裸 list
+        # 真值判断正常 = 经典 dev-production 接缝)。len() 对 list/ndarray 都安全。
+        if len(vectors) > 0:
             append_vectors(vectors, dim)
 
         # V37.9.293: 任何移除 (文件变更 / 幽灵剪除) 或对齐失败 → 权威重建。

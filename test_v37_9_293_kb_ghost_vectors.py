@@ -54,11 +54,29 @@ def _read(path):
         return f.read()
 
 
+class _FakeVectorArray(list):
+    """ndarray-faithful fake 返回类型（V37.9.299 血案防线）。
+
+    真 local_embed.embed_texts 返回 numpy ndarray；多元素 ndarray 的 __bool__
+    抛 ValueError。V37.9.293 的 `if vectors:` 在 dev 恒为 True（fake 返回裸
+    list）却在生产每晚崩溃 → 索引静默停更 4 天。让 fake 忠实于真类型的真值
+    语义后，任何对向量数组做裸真值判断的代码在 dev 立即炸 = 接缝闭合。
+    """
+
+    def __bool__(self):
+        if len(self) > 1:
+            raise ValueError(
+                "The truth value of an array with more than one element is "
+                "ambiguous. Use a.any() or a.all()")
+        return len(self) == 1
+
+
 def _install_fake_local_embed():
     """注入 fake local_embed（kb_embed.main 的 lazy import 消费）"""
     fake = SimpleNamespace(
         get_embedder=lambda: None,
-        embed_texts=lambda texts, batch_size=64: [[0.5] * FAKE_DIM for _ in texts],
+        embed_texts=lambda texts, batch_size=64: _FakeVectorArray(
+            [0.5] * FAKE_DIM for _ in texts),
         EMBED_DIM=FAKE_DIM,
         MODEL_NAME="fake-model-v1",
     )
@@ -346,6 +364,40 @@ class TestConsumerContract(unittest.TestCase):
         self.assertIsNotNone(m)
         self.assertIn('"indexed_at"', m.group(0), "_kb_search metadata 不再透传 indexed_at")
         self.assertIn('metadata.get("indexed_at"', src, "FRESHNESS_DECAY 读端被移除")
+
+
+class TestV37_9_299_NumpyTruthiness(unittest.TestCase):
+    """V37.9.299 血案: `if vectors:` 对 numpy ndarray 抛 ValueError。
+
+    生产每晚跑完 118s embedding 后崩在写入前一行 → 索引静默停更 4 天 (95 笔记
+    未索引, PA 语义检索看不到新内容)。dev fake 返回裸 list 真值判断正常 = 经典
+    dev-production 接缝 (论文 Class A/B)。修复两层: 代码用 len() + fake 忠实于
+    ndarray 真值语义 (后者让既有行为级测试全部成为该 bug 类的探测器)。
+    """
+
+    def test_fake_is_ndarray_faithful(self):
+        """fake 必须在多元素时 __bool__ 抛 ValueError（守卫的守卫）。
+
+        若后人把 fake 简化回裸 list, 本测试红灯 — 否则整个套件会重新对这个
+        bug 类失明 (V37.9.293 当时正是如此)。
+        """
+        multi = _FakeVectorArray([[0.5] * FAKE_DIM, [0.5] * FAKE_DIM])
+        with self.assertRaises(ValueError) as ctx:
+            bool(multi)
+        self.assertIn("ambiguous", str(ctx.exception))
+        self.assertEqual(len(multi), 2, "len() 必须照常可用（修复后的判定方式）")
+        self.assertFalse(bool(_FakeVectorArray()), "空数组真值 False（不抛）")
+
+    def test_append_guard_is_len_based(self):
+        """append_vectors 的门控必须 len-based，绝不裸真值判断 ndarray"""
+        src = _read(KB_EMBED_PATH)
+        m = re.search(r"append_vectors\(vectors, dim\)", src)
+        self.assertIsNotNone(m, "append_vectors 调用点必须存在")
+        block = src[max(0, m.start() - 700):m.start()]
+        self.assertRegex(block, r"if len\(vectors\) > 0:",
+                         "门控必须 len-based（numpy-safe）")
+        self.assertNotRegex(block, r"\n\s+if vectors:\s*\n",
+                            "回退到 `if vectors:` = 生产每晚 ValueError 崩溃复现")
 
 
 class TestKbEmbedSourceGuards(unittest.TestCase):
