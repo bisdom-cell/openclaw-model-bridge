@@ -47,7 +47,12 @@ class TestAdapterResolvePrimaryProvider(unittest.TestCase):
         self._env.start()
         self.addCleanup(self._env.stop)
         for k in ("FALLBACK_ORDER", "FALLBACK_PROVIDER", "FAST_PROVIDER",
-                  "MODEL_ID", "VL_MODEL_ID", "ROUTER_ENFORCE"):
+                  "MODEL_ID", "VL_MODEL_ID", "ROUTER_ENFORCE",
+                  # V37.9.298: doubao 两代 key env (V37.9.290 迁移 ARK→DOUBAO)。
+                  # 生产 .env_shared 配上 DOUBAO_API_KEY 后, FAIL-OPEN 测试的
+                  # "key 未配" 前提失效 → 2026-08-12 07:00 INV-ROUTER-001 ❌
+                  # (V37.9.232 同族第 3 例: dev 无此 env 永远绿)。
+                  "ARK_API_KEY", "DOUBAO_API_KEY"):
             os.environ.pop(k, None)
         # Don't actually import adapter (it would start HTTP server in __main__)
         # Instead, test the _resolve_primary_provider method by importing without running
@@ -98,8 +103,10 @@ class TestAdapterResolvePrimaryProvider(unittest.TestCase):
     def test_router_enforce_on_missing_api_key_falls_back(self):
         """ROUTER_ENFORCE=on + ?provider=doubao 但 DOUBAO_API_KEY 未配 → fallback default (FAIL-OPEN)."""
         with patch.dict(os.environ, {}, clear=False):
-            # 清掉 ARK_API_KEY
+            # 清掉 doubao 两代 key env (V37.9.290: ARK_API_KEY → DOUBAO_API_KEY)。
+            # setUp 已 pop; 此处保留显式声明 — 本测试的语义前提就是 "key 未配"。
             os.environ.pop("ARK_API_KEY", None)
+            os.environ.pop("DOUBAO_API_KEY", None)
             result = self._make_handler_stub("/v1/chat/completions?provider=doubao", enforce="on")
             _, _, _, _, name = result
             self.assertEqual(name, "qwen",

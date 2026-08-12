@@ -162,6 +162,12 @@ class TestRouterDecideModule(unittest.TestCase):
             if m in sys.modules:
                 del sys.modules[m]
         sys.path.insert(0, _REPO_ROOT)
+        # V37.9.298 hermetic: 生产 env 有 ROUTER_ENFORCE=on (V37.9.271 chat 路由)
+        # 时 _resolve_mode() 读到 on → mode=="shadow" 断言挂 (V37.9.232 家族:
+        # dev 无此 env 永远绿, 生产 env 泄漏进测试)。pop + teardown 还原。
+        _saved = os.environ.pop("ROUTER_ENFORCE", None)
+        if _saved is not None:
+            self.addCleanup(os.environ.__setitem__, "ROUTER_ENFORCE", _saved)
         import router_decide
         self.router_decide = router_decide
 

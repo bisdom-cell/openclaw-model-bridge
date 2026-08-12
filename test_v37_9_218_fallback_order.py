@@ -32,6 +32,12 @@ def _chain(order, primary="qwen", keys=None, extra=None, exclude=None):
     with mock.patch.dict(os.environ, env, clear=False):
         if "FALLBACK_PROVIDER" not in env:
             os.environ.pop("FALLBACK_PROVIDER", None)
+        # V37.9.298: 未显式传入的 provider key 一律 pop — 生产 env 真 key 泄入会让
+        # "无 key 跳过" 类测试前提失效 (V37.9.232 家族: dev 无 key 永远绿;
+        # patch.dict 退出时整体还原, hermetic)。
+        for _k in _ALL_KEYS:
+            if _k not in env:
+                os.environ.pop(_k, None)
         with mock.patch.object(adapter, "PROVIDER_NAME", primary):
             if exclude is not None:
                 with mock.patch.object(adapter, "_FALLBACK_EXCLUDE", set(exclude)):

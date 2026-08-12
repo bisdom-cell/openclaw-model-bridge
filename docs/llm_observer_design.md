@@ -377,7 +377,7 @@ Observer **能机械化**周一 30min 用户视角观察仪式（原则 #32）�
 | **Stage 4** ✅ | self-validation harness（复用 adversarial_chaos_audit 模式，OBS-A/B 场景）+ scorecard | defense rate / FN / FP / calibration 可度量；Category A →100% | ✅ V37.9.197 |
 | **Stage 5** ✅ | 接入 `daily_observer.run()`（detect_fail_plausible，§6.1）+ score/status 向后兼容扩展，**shadow-first**（`OBSERVER_FP_MODE=shadow` 默认，观察性不影响评分/告警） | daily_observer 次日报告含 fail_plausible 段，零下游破坏，Mac Mini E2E | ✅ V37.9.198（+199 shadow 抓真 FP 修 S5） |
 | **Stage 5.1** ✅ | flip `OBSERVER_FP_MODE` shadow→on（fp 进 anomalies → 影响评分/告警）+ force_judge 评估 | 决策框架见 §9.1（预注册 criteria）；**2026-07-24 数据到达按规则执行 → FLIP on（C1/C2/C3 全满足，§9.1.1 决策记录）** | ✅ flip 上线（07-25 三步落地 V37.9.276 + 07-26 on 首日在产 + V37.9.279 首日加固）；**A2 窗已关**（07-26→08-08）：on 期 12 观测日 fired=0，台账 §9.2.6 关窗 + 数据表 §9.2.7（V37.9.296） |
-| **Stage 6** 🟡 | bench 化（silent-failure/fail-plausible 检测 bench，社区可跑）+ 论文 #2 草案 | 别人能 `pip`/clone 跑 bench；论文 #2 描述→预测的 scorecard | 🟡 chunk 1 ✅ V37.9.200（bench 社区化）；论文 #2 数据已按冻结口径落表（§9.2.7，V37.9.296：安静窗 0 TP → latency 保持构造性主张 + §9.2.5 负结果路径逐字执行）；**草案不再 gated 于窗口数据，可启动** |
+| **Stage 6** 🟡 | bench 化（silent-failure/fail-plausible 检测 bench，社区可跑）+ 论文 #2 草案 | 别人能 `pip`/clone 跑 bench；论文 #2 描述→预测的 scorecard | 🟡 chunk 1 ✅ V37.9.200（bench 社区化）；论文 #2 数据已按冻结口径落表（§9.2.7，V37.9.296）；**第一稿 ✅ V37.9.297**（`docs/paper/mechanizing_the_eye/` draft v0.1 + data_inventory + DECISIONS_NEEDED，§9.2.7 冻结数据 → 论文叙事，§9.2.5 安静窗路径逐字执行）；投稿 gated 于用户决策（时机/标题/venue，DECISIONS_NEEDED #1-#3） |
 
 **Stage 0 交付 = 本文档**。后续 Stage 由独立 session 推进（每 Stage 走完整收工清单 + Mac Mini E2E，原则 #6/#9/#29）。
 
