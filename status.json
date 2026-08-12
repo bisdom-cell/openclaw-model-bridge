@@ -1,6 +1,6 @@
 {
-  "updated": "2026-08-12 06:05:28",
-  "updated_by": "claude_code",
+  "updated": "2026-08-12 06:33:47",
+  "updated_by": "full_regression",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -81,6 +81,11 @@
   "recent_changes": [
     {
       "date": "2026-08-12",
+      "what": "V37.9.299 🔴 V37.9.293 回归根治: kb_embed `if vectors:` 对 numpy ndarray 抛 ValueError → 每晚跑完 118s 嵌入 54690 chunks 后崩在写入前一行, KB 向量索引静默停更 4 天(95 笔记未索引, PA 语义检索失明)。preflight warning 驱动发现(非任何测试)。修复两层: len() 判定 + **测试 fake 升级 ndarray-faithful**(__bool__ 多元素抛 ValueError) 让既有 21 行为级测试全成该 bug 类探测器。sabotage 验证 dev 复现生产逐字同款 ValueError。同族扫描仅此一处。VERSION 0.37.9.133。",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-08-12",
       "what": "Volcengine 退役 ep- 接入点清理完成(用户控制台执行): 删除 doubao 2.0 旧 Ark 接入点(= 08-08 泄漏进 changelog 的那串, curl 验证 404 = 泄漏面彻底归零, git 历史残留值现指向不存在的接入点) + GLM-5.2 旧 Ark 接入点; doubao_21 primary 接入点验证存活(curl 200)。删除前经代码侧 grep 确认两者零运行时消费者(V37.9.290 平台迁移后)且治理不再要求相关 plist env。key 轮换用户决定暂缓。",
       "by": "claude_code"
     },
@@ -122,11 +127,6 @@
     {
       "date": "2026-08-10",
       "what": "V37.9.294 proxy 观测口径修复(对抗审计 C-F3/C-F4): REST data_clean 四站点收编统一执行器(TimeoutExpired→504/OSError→500 替代连接直断)+followup 失败降级哨兵(record_fallback+不捕获断 KB 自反馈)+elapsed 全轮重算(修 p95 低估 ~90s+)+classify_tool_result_ok 结构化分类(修 tool_success_rate 假 100%)。守卫 22 单测(AST exec-with-mocks), sabotage 四连各 1 FAIL 精确命中。VERSION 0.37.9.131",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-08-10",
-      "what": "V37.9.293 KB 幽灵向量+indexed_at 断链修复(对抗审计 B-F4/B-F5): kb_embed 磁盘直查剪除幽灵 chunks+对齐校验权威重建+removed_files 移除即登记(退役 changed_files 反推逻辑修 0-chunk 位移洞); kb_rag 语义结果+memory_plane metadata 两级补透传 indexed_at(消费端 time_info/FRESHNESS_DECAY 早已在读, decay V36 设计行为复活); load_vectors 长/短双侧 stderr WARN。守卫 21 单测(fake-local_embed 行为级+HOME 隔离), sabotage 四连含 S3 首版守卫漏网被当场强化。VERSION 0.37.9.130",
       "by": "claude_code"
     }
   ],
@@ -217,7 +217,8 @@
       "【低优观察 · 混沌 C1 负载瞬态（2026-08-10 收工实录）】full_regression 尾部负载下 chaos C1(delete_soul_rule_10) 单次假报防御退化（INV-PA-002 catch 被负载吞, 疑与 V37.9.285 load-timeout→skip 语义交互）；静态复跑 + settled 树完整回归复跑均 10/10 = 瞬态非回归, 当日代码零嫌疑。处置模式: 遇 9/10 先静态复跑定性（本次实录）。若未来负载下复现 ≥2 次 → 升级评估: chaos audit 对 expected-catch 遇 skip 时应判 inconclusive+重试而非 FAIL（改 audit 语义是新机制, 单次瞬态不投机, 日落法 #8）。另: 直跑 audit 被 Bash 2min 默认超时杀过一次留 config.yaml 残留（已 checkout 还原, 教训=chaos 直跑须 run_in_background 无超时）。",
       "【V37.9.298 · 07:00 INV-ROUTER-001 告警已根治 · 剩 Mac Mini 被动验证】合并+同步后明晨 07:00 governance audit 应回绿(测试文件随 git 同步零重启); 可选即时验证 python3 test_v37_9_77_enforcement.py 真实 env 下 27/27。若明晨仍红贴新告警。另: 今晨告警「元规则 19/23」行待绿 audit 对照口径(如恒 19/23 属 --full 正常显示即忽略, 不预诊断)",
       "【SOUL 规则 12 'Qwen3' 字样过时 · 低优】2026-08-12 降级 E2E 中 PA 自称 'Qwen3 基础模式', 实际 primary=doubao_21(V37.9.222 flip) — 出处是 SOUL 规则 12 旧文案。不专门触发 SOUL 重部署仪式, 下次动 SOUL 时顺手改为 '基础模型' 措辞(去 provider 名硬编码, whiplash-resistant)。",
-      "【低优 · 顺手清理，非必须】Volcengine 退役 ep- 已删除后的残留 env 清理（治理已不要求，留着无害）: adapter+proxy plist 的 ARK_ENDPOINT_ID / ARK_API_KEY（doubao 2.0 旧 Ark 时代，V37.9.290 后零消费者）+ ~/.env_shared 的 GLM5_ENDPOINT_ID 行。🔴 ARK_21_API_KEY 与 ARK_21_ENDPOINT_ID 必须保留（doubao_21 = 生产 primary）。下次动 plist 时顺手做。"
+      "【低优 · 顺手清理，非必须】Volcengine 退役 ep- 已删除后的残留 env 清理（治理已不要求，留着无害）: adapter+proxy plist 的 ARK_ENDPOINT_ID / ARK_API_KEY（doubao 2.0 旧 Ark 时代，V37.9.290 后零消费者）+ ~/.env_shared 的 GLM5_ENDPOINT_ID 行。🔴 ARK_21_API_KEY 与 ARK_21_ENDPOINT_ID 必须保留（doubao_21 = 生产 primary）。下次动 plist 时顺手做。",
+      "【🔴 V37.9.299 KB 索引停更修复 · 待 Mac Mini 补跑 + 1 项待核实】(a) 同步后**手动补跑** `python3 ~/kb_embed.py`（索引已欠 4 天/95 笔记，别等明晨 cron；预期数分钟：54,690 chunks 重嵌 + V37.9.293 幽灵剪除一次性大 🪦），完成后 `python3 kb_embed.py --stats` 覆盖率应回 100%，PA search_kb 恢复检索 08-08 后内容 (b) **待核实**: Discord 告警频道过去 4 天有无 「KB 向量索引 XXh 未更新」告警 — 有=告警疲劳/信噪比问题(需评估告警分级)，无=watchdog 真盲区(需查 scan_logs 窗口/索引老化检查为何不开火)。不预先定性。"
     ],
     "open_prs": [],
     "blocked_on": "",
@@ -225,14 +226,14 @@
   },
   "quality": {
     "security_score": 98,
-    "test_count": 5763,
-    "last_regression": "2026-08-12 05:53 pass",
+    "test_count": 5765,
+    "last_regression": "2026-08-12 06:33 pass",
     "coverage_pct": 0,
     "security_score_time": "2026-07-20 01:07",
     "test_suites": 167,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
-    "version": "0.37.9.132",
+    "version": "0.37.9.133",
     "observer": {}
   },
   "incidents": [
@@ -297,7 +298,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-08-12 收工: 四笔交付(V37.9.297 论文#2 第一稿 / V37.9.298 治理告警根治 / V37.9.295 降级 E2E 关账 / 论文#2 §2.3 主张收窄) + Volcengine 退役 ep- 接入点已删除(泄漏面归零, primary 验证 200)。🔴 待用户: (a) 合并待办分支 claude/todays-work-6plely (b) 论文#2 三决策等 ISSRE 本周末结果 (c) tokenhub 双 key 轮换已暂缓(用户决定)。",
+  "focus": "2026-08-12 收工(五笔): V37.9.297 论文#2 第一稿 / V37.9.298 治理告警根治 / V37.9.295 降级 E2E 关账 / 退役 ep- 清理(泄漏归零) / **V37.9.299 kb_embed numpy 真值 bug 根治**(V37.9.293 回归, 索引静默停更 4 天, fake 改 ndarray-faithful 闭合 dev-prod 接缝)。🔴 待用户: 合并+同步后**手动补跑 kb_embed** + 核实 Discord 有无索引告警 + 论文#2 三决策等 ISSRE 周末。",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
