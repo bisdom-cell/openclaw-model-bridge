@@ -27,8 +27,8 @@ Claude 推荐 1：与论文 #1 的"概念钩子 + 实证副题"风格一致；"P
 ## 3. venue（论文 #1 先例：arXiv 直发）
 
 - 默认沿用：**arXiv 直发 cs.SE（cross-list cs.AI）**，实名，与论文 #1 形成系列。
-- 会议版候选（后续）：ICSE/FSE SEIP、ISSRE（论文 #1 已投 Industry Track，通知 8-12——**若论文 #1 被 ISSRE 录用，#2 的会议版策略可能联动**，建议等通知落地后再定会议路线）。
-- 需确认：是否等 ISSRE 通知（本周）再定 venue。
+- 会议版候选（后续）：ICSE/FSE SEIP、ISSRE（论文 #1 已投 Industry Track——**若论文 #1 被 ISSRE 录用，#2 的会议版策略可能联动**，建议等通知落地后再定会议路线）。ISSRE 通知已延期：track chairs 8-12 邮件称目标本周末前（≈8-15/16）出结果。
+- 需确认：是否等 ISSRE 通知（本周末）再定 venue（#1 时机与 #2 标题不依赖 ISSRE，可先决策）。
 
 ## 4. 署名与 AI 披露（论文 #1 先例：直接沿用）
 
