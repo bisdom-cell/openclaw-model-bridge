@@ -31,6 +31,10 @@ REPO = os.path.dirname(os.path.abspath(__file__))
 
 # Mac Mini 生产同款 env（V37.9.218 FALLBACK_ORDER + V37.9.222 doubao_21 primary flip;
 # key 全用假值 — 测试永不真调任何 provider, 只让 available()/import 路径走生产形态）
+# ⚠️ 维护契约: 生产 env 形态演进（新 provider key / 新路由开关进 .env_shared/plist）
+# 时本 dict 必须同步 — 否则判别器对新 env 盲（V37.9.298 血案: V37.9.290 迁出
+# DOUBAO_API_KEY + V37.9.271 ROUTER_ENFORCE=on 未入模型 → 2026-08-12 07:00
+# INV-ROUTER-001 ❌ 才暴露, 本守卫全程绿 = 守卫自身的 stale-model 盲区）。
 _PROD_LIKE_ENV = {
     "FALLBACK_ORDER": "doubao_21,deepseek_full,doubao,deepseek,qwen",
     "PROVIDER": "doubao_21",
@@ -40,6 +44,10 @@ _PROD_LIKE_ENV = {
     "DEEPSEEK_FULL_API_KEY": "test-fake-key",
     "DEEPSEEK_API_KEY": "test-fake-key",
     "REMOTE_API_KEY": "test-fake-key",
+    # V37.9.298: 2026-08 生产 env 形态（V37.9.290 平台迁移 + V37.9.271/272 GLM 路由）
+    "DOUBAO_API_KEY": "test-fake-key",
+    "GLM5_API_KEY": "test-fake-key",
+    "ROUTER_ENFORCE": "on",
 }
 
 
@@ -68,10 +76,31 @@ class TestGovernanceTestsHermeticUnderProdEnv(unittest.TestCase):
                          f"{proc.stderr[-800:]}")
 
     def test_inv_router_suite_passes_with_prod_env(self):
-        """INV-ROUTER-001 runtime 的 V37.9.77 全套件 — 血案 ② 复现命令"""
+        """INV-ROUTER-001 runtime 的 V37.9.77 全套件 — 血案 ② 复现命令
+        (V37.9.298: _PROD_LIKE_ENV 补 DOUBAO_API_KEY 后本测试兼任 2026-08-12
+        07:00 INV-ROUTER-001 ❌ 的回归判别器 — FAIL-OPEN 测试的 pop 若回退到
+        只清旧名 ARK_API_KEY, 此处立即红灯)"""
         proc = _run_with_prod_env(["test_v37_9_77_enforcement.py"])
         self.assertEqual(proc.returncode, 0,
                          f"生产 env 注入下 V37.9.77 套件必须绿（PROVIDER 泄漏回归）:\n"
+                         f"{proc.stderr[-800:]}")
+
+    def test_fallback_order_suite_passes_with_prod_env(self):
+        """V37.9.298: V37.9.218 FALLBACK_ORDER 套件在生产 env 注入下必须绿。
+        同族缺口 ②: _chain(keys=子集) 曾 clear=False 合并真实 env → 生产真 key
+        泄入让 test_unavailable_no_key_skipped 的 "无 key 跳过" 前提失效。"""
+        proc = _run_with_prod_env(["test_v37_9_218_fallback_order.py"])
+        self.assertEqual(proc.returncode, 0,
+                         f"生产 env 注入下 V37.9.218 套件必须绿（provider key 泄漏回归）:\n"
+                         f"{proc.stderr[-800:]}")
+
+    def test_router_decide_suite_passes_with_prod_env(self):
+        """V37.9.298: V37.9.76 router_decide 套件在生产 env 注入下必须绿。
+        同族缺口 ③: ROUTER_ENFORCE=on (V37.9.271 生产配置) 泄入让
+        test_decide_known_job_returns_chosen 的 mode=="shadow" 断言失效。"""
+        proc = _run_with_prod_env(["test_v37_9_76_router.py"])
+        self.assertEqual(proc.returncode, 0,
+                         f"生产 env 注入下 V37.9.76 套件必须绿（ROUTER_ENFORCE 泄漏回归）:\n"
                          f"{proc.stderr[-800:]}")
 
 
@@ -99,10 +128,14 @@ class TestSourceGuards(unittest.TestCase):
     def test_router_setup_forces_baseline_env(self):
         """setUp 必须 patch.dict 强制 PROVIDER=qwen（setdefault 在生产 env 下无效）+ pop 路由类 env"""
         i = self.router_tests.index("class TestAdapterResolvePrimaryProvider")
-        region = self.router_tests[i:i + 2400]
+        region = self.router_tests[i:i + 2900]
         self.assertIn('patch.dict(os.environ', region)
         self.assertIn('"PROVIDER": "qwen"', region)
         self.assertIn('"FALLBACK_ORDER"', region)
+        # V37.9.298: doubao 两代 key env 必须在 setUp pop 名单
+        # (2026-08-12 07:00 INV-ROUTER-001 ❌ 血案: 只 pop 旧名 ARK_API_KEY)
+        self.assertIn('"DOUBAO_API_KEY"', region,
+                      "setUp pop 名单必须含 DOUBAO_API_KEY (V37.9.290 迁移后 doubao 的 key env)")
         self.assertNotIn('os.environ.setdefault("PROVIDER"', region,
                          "回退到 setdefault = 生产 PROVIDER=doubao_21 重新泄漏")
 
