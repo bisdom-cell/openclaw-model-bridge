@@ -190,14 +190,27 @@ times those constraints earned their keep.
 
 Pre-registration — committing to hypotheses and analysis plans before observing data —
 exists because analytic flexibility plus motivated reasoning reliably manufactures
-positive results [Nosek et al. 2018]. Observability engineering has the same disease
-surface with different symptoms: the team that builds a detector decides when it is
-"ready," interprets its early signals, and writes the postmortem-era narrative. We know
-of no prior report of a production observability component deployed under an explicitly
-pre-registered protocol (shadow criteria, flip criteria, frozen analysis rules,
-negative-results commitment). We describe ours in §6 in enough detail to be reused, and
-we report the three occasions where the frozen rules overrode what narrative
-convenience would have preferred (§6.6).
+positive results [Nosek et al. 2018]. Software engineering has already imported the
+instrument on the *publication* side: registered reports, where a study protocol is
+peer-reviewed before results exist, have run as a track at MSR since 2020 and are
+established at several SE venues [Ernst & Baldassarre 2023]. Our use is adjacent but
+distinct — the pre-registration here is an *operational* one, binding an engineering
+decision (promote a detector from shadow to enforcing) and its post-hoc measurement,
+with the team itself as the only reviewer and a production system rather than a study
+as the object.
+
+Observability engineering has the same disease surface as empirical research, with
+different symptoms: the team that builds a detector decides when it is "ready,"
+interprets its early signals, and later writes the narrative. Existing runtime-guard
+frameworks for LLM systems specify *what* a guard enforces — programmable rails and
+policy DSLs [Rebedea et al. 2023] — but not how a team should decide, in advance and
+against its own incentives, that a guard has earned enforcement authority. We did not
+find a report of a production observability component deployed under an explicitly
+pre-registered protocol of the kind we describe (shadow criteria, flip criteria, frozen
+analysis rules, negative-results commitment), and we make the weaker claim that this is
+uncommon rather than unprecedented. We describe ours in §6 in enough detail to be
+reused, and we report the three occasions where the frozen rules overrode what
+narrative convenience would have preferred (§6.6).
 
 ### 2.4 Gray failure lineage
 
@@ -760,3 +773,9 @@ publisher pages on 2026-08-12; final pass against arXiv abs pages before submiss
    revolution.** PNAS 115(11):2600–2606, 2018. doi:10.1073/pnas.1708274114
 9. A. Panickssery, S. R. Bowman, S. Feng. **LLM Evaluators Recognize and Favor Their
    Own Generations.** NeurIPS 2024; arXiv:2404.13076.
+10. N. A. Ernst, M. T. Baldassarre. **Registered Reports in Software Engineering.**
+    Empirical Software Engineering 28(2), 2023; doi:10.1007/s10664-022-10277-5;
+    arXiv:2302.03649.
+11. T. Rebedea, R. Dinu, M. Sreedhar, C. Parisien, J. Cohen. **NeMo Guardrails: A
+    Toolkit for Controllable and Safe LLM Applications with Programmable Rails.**
+    EMNLP 2023 (System Demonstrations); arXiv:2310.10501.

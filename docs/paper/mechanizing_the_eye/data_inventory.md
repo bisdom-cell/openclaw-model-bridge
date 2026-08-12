@@ -102,4 +102,6 @@
 |---|---|
 | Nosek, Ebersole, DeHaven, Mellor. *The preregistration revolution.* PNAS 115(11):2600-2606, 2018. doi:10.1073/pnas.1708274114 | ✅ 作者列表与 PNAS 页一致（pnas.org/doi/abs/10.1073/pnas.1708274114） |
 | Panickssery, Bowman, Feng. *LLM Evaluators Recognize and Favor Their Own Generations.* NeurIPS 2024; arXiv:2404.13076 | ✅ NeurIPS 2024 proceedings + arXiv 页一致 |
+| Ernst & Baldassarre. *Registered Reports in Software Engineering.* EMSE 28(2), 2023; doi:10.1007/s10664-022-10277-5; arXiv:2302.03649 | ✅ 2026-08-12 检索核验（Springer EMSE + arXiv 一致）。用途 = §2.3 把「操作性预注册」定位于 SE 已有的**发表侧**注册报告传统之旁（MSR 2020 起设 track），并据此**收窄新颖性主张**（"uncommon rather than unprecedented"，不宣称 unprecedented） |
+| Rebedea, Dinu, Sreedhar, Parisien, Cohen. *NeMo Guardrails.* EMNLP 2023 System Demos; arXiv:2310.10501 | ✅ 2026-08-12 检索核验（ACL Anthology 2023.emnlp-demo.40 + arXiv 一致）。用途 = §2.3 对照：既有 runtime-guard 框架规定 guard **enforce 什么**，不规定团队如何**事先**决定 guard 何时获得 enforcement 授权 |
 | 其余 7 条 | 复用论文 #1 已终核引用（arXiv API 作者列表 100% 一致，见论文 #1 data_inventory References 段） |

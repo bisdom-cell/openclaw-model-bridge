@@ -51,6 +51,7 @@ Claude 推荐 1：与论文 #1 的"概念钩子 + 实证副题"风格一致；"P
 ## 7. 下一步路线（Claude 可自主推进部分）
 
 - ✅ 第一稿 + data_inventory + 本决策文档（2026-08-12）。
-- 可自主：正文第二轮精磨 / 相关工作补充检索（LLM observability、AIOps LLM-judge 生产部署有无先例——本稿 §2.3 声称 "we know of no prior report"，投稿前需一轮认真检索加固或软化措辞）/ §3 ASCII 架构图。
+- ✅ 已做（2026-08-12 同日）：§2.3 新颖性主张检索加固 → **主动收窄**为 "uncommon rather than unprecedented"，并接上两条新核验引用（Ernst & Baldassarre 2023 SE 注册报告 = 发表侧传统；Rebedea et al. 2023 NeMo Guardrails = runtime-guard 框架规定 enforce 什么但不规定何时授权 enforcement）。引用 9→11 条。
+- 可自主（剩余，低优）：正文第二轮语言精磨 / §3 两层管道 ASCII 架构图 / 投稿前 data_inventory 重对表。
 - **需决策后**：LaTeX 转换 + figures + arXiv 元数据（等 #1/#2/#3 决策）。
 - **球在用户：#1 时机（核心）+ #2 标题 + #3 venue 确认；#4-#6 确认沿用即可。**

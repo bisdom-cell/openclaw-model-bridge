@@ -1,5 +1,5 @@
 {
-  "updated": "2026-08-12 02:40:57",
+  "updated": "2026-08-12 05:54:13",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -81,6 +81,11 @@
   "recent_changes": [
     {
       "date": "2026-08-12",
+      "what": "论文#2 §2.3 新颖性主张检索加固: 主动收窄 'no prior report' → 'uncommon rather than unprecedented' + 接上两条当场核验引用 (Ernst & Baldassarre 2023 SE 注册报告=发表侧传统 MSR 2020 起; Rebedea et al. 2023 NeMo Guardrails=runtime-guard 规定 enforce 什么但不规定何时授权 enforcement), 引用 9→11。data_inventory + DECISIONS #7 同步。",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-08-12",
       "what": "V37.9.295 expert 降级 E2E Mac Mini 三项全过(Plan B 路径): 同轮基础模式接管+开头声明 / proxy 日志 EXPERT_DEGRADED followup (9 msgs→763 chars) / 正常路径 🧠 回归+真值还原。SOUL 规则 12 结构性兑现完成态。附带发现: (1) 轮换未达成—现装 key 即 08-08 暴露串仍 200, 已重登记待华坤重发 (2) 10:25 轮 PA 因上下文 bounce 合理跳过工具(非 bug) (3) SOUL 规则 12 'Qwen3' 字样过时低优登记。",
       "by": "claude_code"
     },
@@ -122,11 +127,6 @@
     {
       "date": "2026-08-10",
       "what": "V37.9.292 mm_index 静默失效家族修复(对抗审计 B-F1 预注册兑现): cron set-e 死 FAILED 分支复活(RC 捕获+冒号格式)+条件 save_meta(meta mtime 不再假新鲜)+TOCTOU hash/getsize 入 try+verify_alignment 启动对齐自愈(永久错位→2h 自愈)+HOME_LOGS 错误扫描登记+全失败 exit 2 fail-loud+memory_plane mm 层 stderr 打点。34 单测 6 类(fake-genai 行为级)+sabotage 四连。VERSION 0.37.9.129",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-08-08",
-      "what": "V37.9.291 tokenhub E2E 复测全通(用户 Mac Mini): key 掩码粘贴事故破案(聊天界面脱敏 assistant 消息里的 key, latin-1 position 15-41 铁证)→手输+校验块重写后 doubao text+reasoning(263 tokens)/glm text+reasoning(Bifrost 新发现翻案)/expert ok+cache_read=14136/code_assist 全通过 → 双 provider 升 feature_verified (cap doubao 10/glm5 8) + expert reasoning 字段双名兼容修复。VERSION 0.37.9.128",
       "by": "claude_code"
     }
   ],
@@ -226,7 +226,7 @@
   "quality": {
     "security_score": 98,
     "test_count": 5763,
-    "last_regression": "2026-08-12 01:16 pass",
+    "last_regression": "2026-08-12 05:53 pass",
     "coverage_pct": 0,
     "security_score_time": "2026-07-20 01:07",
     "test_suites": 167,
@@ -297,7 +297,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-08-12: V37.9.297 论文#2 第一稿 + V37.9.298 治理告警根治 + V37.9.295 降级 E2E Mac Mini 三项全过(EXPERT_DEGRADED followup 真机复现, [34] 关账)。🔴 剩: tokenhub 双 key 真轮换(E2E 发现现装 key=聊天暴露串仍有效, 需华坤重发) + Volcengine 删退役 ep-(先取 ARK_21_ENDPOINT_ID 保留 ID) + 论文#2 三决策等 ISSRE 周末结果。",
+  "focus": "2026-08-12 收工: 四笔交付 — V37.9.297 论文#2 第一稿 / V37.9.298 07:00 治理告警根治 / V37.9.295 降级 E2E 三项全过关账 / 论文#2 §2.3 新颖性主张收窄+2 条新引用。🔴 待用户: (a) 合并待办分支 claude/todays-work-6plely (b) tokenhub 双 key 真轮换(现装 key=08-08 暴露串仍 200, 需华坤重发) + Volcengine 删退役 ep- (c) 论文#2 三决策等 ISSRE 本周末结果。",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
