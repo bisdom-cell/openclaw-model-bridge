@@ -1,5 +1,5 @@
 {
-  "updated": "2026-08-12 01:56:52",
+  "updated": "2026-08-12 02:40:57",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -81,6 +81,11 @@
   "recent_changes": [
     {
       "date": "2026-08-12",
+      "what": "V37.9.295 expert 降级 E2E Mac Mini 三项全过(Plan B 路径): 同轮基础模式接管+开头声明 / proxy 日志 EXPERT_DEGRADED followup (9 msgs→763 chars) / 正常路径 🧠 回归+真值还原。SOUL 规则 12 结构性兑现完成态。附带发现: (1) 轮换未达成—现装 key 即 08-08 暴露串仍 200, 已重登记待华坤重发 (2) 10:25 轮 PA 因上下文 bounce 合理跳过工具(非 bug) (3) SOUL 规则 12 'Qwen3' 字样过时低优登记。",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-08-12",
       "what": "V37.9.298 07:00 治理告警 triage: INV-ROUTER-001 ❌ 根因 = V37.9.290 迁移遗留测试隔离缺口(FAIL-OPEN 测试只 pop 旧名 ARK_API_KEY, 生产 .env_shared 配上 DOUBAO_API_KEY 后前提失效; dev 模拟生产 env 一击复现 'doubao'!='qwen')。原则 #31 扫 13 套件再抓 2 潜伏缺口(218 _chain key 泄漏 + 76 ROUTER_ENFORCE 未隔离), 三点修复 + V37.9.232 判别器 env 模型追平 2026-08 形态(+DOUBAO/GLM5/ROUTER_ENFORCE, 4→7 tests)。生产 router 行为全程正确。VERSION 不变(测试基础设施)。",
       "by": "claude_code"
     },
@@ -122,11 +127,6 @@
     {
       "date": "2026-08-08",
       "what": "V37.9.291 tokenhub E2E 复测全通(用户 Mac Mini): key 掩码粘贴事故破案(聊天界面脱敏 assistant 消息里的 key, latin-1 position 15-41 铁证)→手输+校验块重写后 doubao text+reasoning(263 tokens)/glm text+reasoning(Bifrost 新发现翻案)/expert ok+cache_read=14136/code_assist 全通过 → 双 provider 升 feature_verified (cap doubao 10/glm5 8) + expert reasoning 字段双名兼容修复。VERSION 0.37.9.128",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-08-08",
-      "what": "V37.9.290 doubao+glm5_coding 平台切换 Ark→ai-tokenhub (探针证伪 Ark 认 -huakun 名, 10406 证实名字在 tokenhub 缺 scope, 用户供两把专属 key): 去 ep- 间接层镜像 deepseek_full 结构 + expert_escalation/code_assist 随迁 + tier 诚实重置 declared (V37.9.255 纪律, Ark 证据不迁移) + cap_score doubao 16→6 (doubao_21 登顶) + 8 测试文件 45 失败演进归零 + 治理两 INV 演进 EXIT=0 + golden 重生成。两把 sk- key 零入库+建议轮换。VERSION 0.37.9.127",
       "by": "claude_code"
     }
   ],
@@ -213,11 +213,11 @@
       "【V37.9.292 mm_index 静默失效家族 ✅ dev 全闭环 · 剩 Mac Mini 被动验证】四机制已修(a cron RC=0+`|| RC=$?`+FAILED: 冒号+exit RC / b 条件 save_meta 无变更不刷 mtime / c hash+getsize 入 try + verify_alignment 启动对齐自愈(超前截孤儿尾/短缺截 meta 重索引) / d HOME_LOGS +mm_index.log 错误扫描 + 全失败 ERROR:+exit 2) + memory_plane _mm_search (Exception,SystemExit)+stderr 打点。34 单测+sabotage 四连验证。同步后观察: (1) 首次部署 watchdog 若立即报 mm_index 错误 = 盲区解除暴露存量故障(working as intended)——尤其 gemini-embedding-2-preview 若已退役会现形→届时决策换 embedding 模型(user) (2) ls -la ~/.kb/mm_index/ 抽查 vectors.bin 大小==entries×3072 (3) 安静期(无新媒体) meta.json mtime 应停止每 2h 刷新。",
       "【V37.9.293 · B-F4/B-F5 幽灵向量+indexed_at 断链 ✅ 已修 · 剩 Mac Mini 被动验证】(a) 幽灵剪除: 同步后首晚 03:30 kb_embed 日志预期一次性大 🪦（历史累积幽灵 chunks 一次剪除+全量重建数分钟, 一次性开销非故障）, 之后 PA 搜索不再引用已删笔记 (b) indexed_at 透传: PA search_kb 结果出现「索引:时间」+ 旧内容排名轻微下调（FRESHNESS_DECAY 复活=V36 设计行为, 72h 后 5%/天地板 50%）——若用户感知排序异常贴我 (c) 错位可见性: kb_rag stderr 出现 vectors.bin 超前/短缺 WARN = 索引曾错位（下轮 03:30 自愈, 频繁出现才贴我）。B-F5 load_vectors 长侧守卫+对齐校验+0-chunk 洞（changed_files 反推退役）一并闭环, 详见 changelog V37.9.293。",
       "【V37.9.294 · C-F3/C-F4 proxy 观测口径 ✅ 已修 · 剩 Mac Mini 被动验证】同步+重启 proxy 后: (a) REST /data_clean 超时返回 504 JSON 而非连接直断 (b) search_kb followup 失败日 proxy_stats degradation_rate 变真值 + 原始转储不再进对话捕获 (c) 🔴 p95 如上浮 = elapsed 口径修正（原漏计自定义工具最多 ~90s+）非性能退化, 预期勿告警 (d) tool_success_rate 如下降 = expert read_only_violation/api_unavailable 等失败态开始被诚实计数（classify_tool_result_ok 结构化分类替代 result[:100] 子串窗口）。详见 changelog V37.9.294。",
-      "【V37.9.295 · expert 真降级 followup 化 ✅ dev 完成 · 🔴 需 Mac Mini E2E 后才算完成（原则 #6，行为变更）】api_unavailable/quota_exceeded 现在同轮自动降级（基础模型接管作答，SOUL 规则 12 结构性兑现），二次失败回 V37.9.288 渲染通知。E2E 三步: (1) 临时改 plist DOUBAO_API_KEY 为空/错值+重启 proxy → WhatsApp 发触发词（如「帮我深度判断 X」）→ 预期 PA 同轮直接作答且开头带「专家模式暂不可用/基础模式」标注（旧版只回「请把问题再发我一次」）→ 恢复 key+重启 (2) proxy 日志 grep 'EXPERT_DEGRADED followup' 出现 (3) 正常路径回归: key 正常时 expert 触发词仍返回 🧠 专家意见渲染。详见 changelog V37.9.295。",
-      "【V37.9.289-291 三 provider -huakun 迁移 ✅ E2E 全通 · 剩收尾】deepseek_full/doubao/glm5 三模型 tokenhub 实测全通过, doubao/glm5 已升 feature_verified (text+reasoning), expert(cache_read=14136)+code_assist 生产路径 ✅。剩: (a) Mac Mini 同步 V37.9.291 + 重启 proxy (expert reasoning_chars 双字段名读数生效) (b) 🔴 两把 sk- key 在对话出现过, 建议找华坤轮换 (plist+.env_shared 各一行替换+bootout/bootstrap) (c) 可选残余探针补全 5/5: tokenhub 侧 vision(image_url)/tool_calling(tools)/streaming(stream:true) 实测后再升 (vision 注意: 未测前 image fallback 现实依赖 qwen) (d) 可选清理无消费方遗留 env: ARK_API_KEY/ARK_ENDPOINT_ID/GLM5_ENDPOINT_ID (无害可留)",
+      "【tokenhub 双 key 真轮换 · 🔴 待华坤+用户（2026-08-12 E2E 实测发现轮换未达成）】curl 200 实证: plist 现装两把 sk- key 依然有效 = 正是 08-08 聊天明文暴露的那两把, 华坤 8-12 上午吊销的不是它们(暴露面仍在)。步骤: 华坤签发全新两把 → 4 条 PlistBuddy 换入(adapter+proxy × DOUBAO/GLM5)+.env_shared → bash restart.sh → curl /v1/models 新 key 200(可选旧串 401 验证)。(a) V37.9.291 同步+重启 ✅ 已确认(proxy /health 0.37.9.132, 08-12) (c) 可选残余探针 tokenhub vision/tool_calling/streaming 不变。",
       "【低优观察 · 混沌 C1 负载瞬态（2026-08-10 收工实录）】full_regression 尾部负载下 chaos C1(delete_soul_rule_10) 单次假报防御退化（INV-PA-002 catch 被负载吞, 疑与 V37.9.285 load-timeout→skip 语义交互）；静态复跑 + settled 树完整回归复跑均 10/10 = 瞬态非回归, 当日代码零嫌疑。处置模式: 遇 9/10 先静态复跑定性（本次实录）。若未来负载下复现 ≥2 次 → 升级评估: chaos audit 对 expected-catch 遇 skip 时应判 inconclusive+重试而非 FAIL（改 audit 语义是新机制, 单次瞬态不投机, 日落法 #8）。另: 直跑 audit 被 Bash 2min 默认超时杀过一次留 config.yaml 残留（已 checkout 还原, 教训=chaos 直跑须 run_in_background 无超时）。",
       "【V37.9.297 安全 · 低优用户动作】V37.9.289 changelog 行曾自引真实 ep- 接入点明文(第 5 处泄漏, 已二次脱敏+全仓清零); 该 token 已随 V37.9.290 平台迁移退役且单独无 ark- key 不可用=实际风险低, 但 git 历史仍含真值 → 彻底缓解: 用户在 Volcengine 控制台删除该退役 ep- 接入点(与已登记的两把 sk- key 轮换可同批处理)",
-      "【V37.9.298 · 07:00 INV-ROUTER-001 告警已根治 · 剩 Mac Mini 被动验证】合并+同步后明晨 07:00 governance audit 应回绿(测试文件随 git 同步零重启); 可选即时验证 python3 test_v37_9_77_enforcement.py 真实 env 下 27/27。若明晨仍红贴新告警。另: 今晨告警「元规则 19/23」行待绿 audit 对照口径(如恒 19/23 属 --full 正常显示即忽略, 不预诊断)"
+      "【V37.9.298 · 07:00 INV-ROUTER-001 告警已根治 · 剩 Mac Mini 被动验证】合并+同步后明晨 07:00 governance audit 应回绿(测试文件随 git 同步零重启); 可选即时验证 python3 test_v37_9_77_enforcement.py 真实 env 下 27/27。若明晨仍红贴新告警。另: 今晨告警「元规则 19/23」行待绿 audit 对照口径(如恒 19/23 属 --full 正常显示即忽略, 不预诊断)",
+      "【SOUL 规则 12 'Qwen3' 字样过时 · 低优】2026-08-12 降级 E2E 中 PA 自称 'Qwen3 基础模式', 实际 primary=doubao_21(V37.9.222 flip) — 出处是 SOUL 规则 12 旧文案。不专门触发 SOUL 重部署仪式, 下次动 SOUL 时顺手改为 '基础模型' 措辞(去 provider 名硬编码, whiplash-resistant)。"
     ],
     "open_prs": [],
     "blocked_on": "",
@@ -297,7 +297,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-08-12: V37.9.297 论文 #2 第一稿(宪法级 #1, docs/paper/mechanizing_the_eye/) + V37.9.298 07:00 INV-ROUTER-001 告警根治(V37.9.290 迁移遗留测试隔离缺口 3 处修复 + V37.9.232 判别器升级, 生产 router 零业务影响)。🔴 待用户: 论文 #2 三决策(DECISIONS #1-#3) + ISSRE 通知查收 + Mac Mini 同步(明晨 07:00 audit 应回绿) + sk- key 轮换/ep- 接入点删除。",
+  "focus": "2026-08-12: V37.9.297 论文#2 第一稿 + V37.9.298 治理告警根治 + V37.9.295 降级 E2E Mac Mini 三项全过(EXPERT_DEGRADED followup 真机复现, [34] 关账)。🔴 剩: tokenhub 双 key 真轮换(E2E 发现现装 key=聊天暴露串仍有效, 需华坤重发) + Volcengine 删退役 ep-(先取 ARK_21_ENDPOINT_ID 保留 ID) + 论文#2 三决策等 ISSRE 周末结果。",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
