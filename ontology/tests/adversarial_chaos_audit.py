@@ -568,6 +568,30 @@ def check_git_clean() -> bool:
     return not filtered
 
 
+def catch_signals(baseline_violations: dict, mutated_violations: dict) -> list:
+    """返回 mutation 后**上升**的计数器名（逐信号比较，不求和）。
+
+    V37.9.302 血案（2026-08-13，受控加载实验复现）: 旧版判据是
+    `caught = sum(mutated) > sum(baseline)` —— 把**检出信号**和**环境噪声**加总相消。
+    实测一次 C8 失败的真实数字:
+
+        baseline={'fail': 0, 'error': 2, 'mrd_warn': 4, 'mrd_violations': 56}
+        mutated ={'fail': 1, 'error': 2, 'mrd_warn': 3, 'mrd_violations': 55}  → sum delta = -1
+
+    mutation **确实被抓到了**（`fail: 0 → 1` = 不变式由过转挂，正是设计的检出信号），
+    但同一轮里无关的 MRD 计数器在负载下掉了 2（隔离静态跑时它们完全稳定），求和后
+    总数反而下降 → 审计把"抓到了"报成 BLIND SPOT。表现为 full_regression 尾部近乎
+    每次 9/10 且**每次失败的场景都不同**（C1 2026-08-10 / C6 与 C8 2026-08-13），
+    standalone 复跑则必 10/10 —— 典型的度量 bug 而非防御退化。
+
+    逐信号判据: 任一计数器上升即视为"抓到"。检出力不降反升（噪声再也无法掩盖真
+    catch）；真盲区仍然零计数器上升 → 照常 FAIL。刻意不引入重试/inconclusive 机制
+    （日落法 #34: 根因修好后那层机器就不需要了）。
+    """
+    return [k for k in sorted(baseline_violations)
+            if mutated_violations.get(k, 0) > baseline_violations.get(k, 0)]
+
+
 def run_scenario(scenario: ChaosScenario, verbose: bool = False) -> dict:
     """跑单个场景，返回结果 dict。"""
     # 1. 确认 git clean
@@ -606,18 +630,22 @@ def run_scenario(scenario: ChaosScenario, verbose: bool = False) -> dict:
     mutated_total = mutated["total_violations"]
     delta = mutated_total - baseline_total
 
-    # delta > 0 意味着 mutation 让 audit 触发了**更多**违规（抓到了）
-    caught_by_mutation = delta > 0
+    risen = catch_signals(baseline["violations"], mutated["violations"])
+    caught_by_mutation = bool(risen)
+    risen_str = "+".join(risen) if risen else "none"
 
     if scenario.expected_catch and caught_by_mutation:
         status = "PASS"
-        reason = f"audit caught mutation (violations {baseline_total} → {mutated_total}, +{delta})"
+        reason = (f"audit caught mutation (signals ↑ {risen_str}; "
+                  f"violations {baseline_total} → {mutated_total}, delta {delta:+d})")
     elif scenario.expected_catch and not caught_by_mutation:
         status = "FAIL"
-        reason = f"audit DID NOT catch mutation (violations {baseline_total} → {mutated_total}) — BLIND SPOT"
+        reason = (f"audit DID NOT catch mutation (no counter rose; "
+                  f"violations {baseline_total} → {mutated_total}) — BLIND SPOT")
     elif not scenario.expected_catch and caught_by_mutation:
         status = "UNEXPECTED"
-        reason = f"audit unexpectedly caught (violations {baseline_total} → {mutated_total}, +{delta})"
+        reason = (f"audit unexpectedly caught (signals ↑ {risen_str}; "
+                  f"violations {baseline_total} → {mutated_total})")
     else:
         status = "PASS"
         reason = f"audit did not catch (as expected for exploratory, violations {baseline_total} → {mutated_total})"
