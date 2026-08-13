@@ -99,6 +99,8 @@ run_suite "v37_9_288_proxy_honest_output (V37.9.288 对抗审计批次2 — 参�
 run_suite "v37_9_292_mm_index_family (V37.9.292 对抗审计 B-F1 — mm_index 静默失效家族: cron RC 捕获/条件 save_meta/TOCTOU+对齐自愈/watchdog err_pattern 契约/memory_plane stderr)" "python3 test_v37_9_292_mm_index_family.py"
 run_suite "v37_9_293_kb_ghost_vectors (V37.9.293 对抗审计 B-F4/B-F5 — 幽灵 chunk 剪除+对齐校验权威重建+indexed_at 三级透传激活 freshness decay+load_vectors 双侧 WARN)" "python3 test_v37_9_293_kb_ghost_vectors.py"
 run_suite "v37_9_300_alert_body (V37.9.300 告警疲劳机械成因 — preflight 告警正文含 ⚠️ 顶层警告+排除误导性明细行, 真实血案样本行为级验证)" "python3 test_v37_9_300_alert_body.py"
+run_suite "v37_9_301_governance_alert_body (V37.9.301 同族第二例 — 07:00 治理告警按缩进分层: 失败不变式不再被明细挤掉+顶层计数行不再被丢+截断留痕+并存警告进正文)" "python3 test_v37_9_301_governance_alert_body.py"
+run_suite "v37_9_302_chaos_catch_signal (V37.9.302 守卫之守卫度量 bug — 混沌 catch 判据逐信号取代求和: 负载下噪声计数器下降不再把真 catch 报成 BLIND SPOT)" "python3 test_v37_9_302_chaos_catch_signal.py"
 run_suite "v37_9_294_proxy_slo_metrics (V37.9.294 对抗审计 C-F3/C-F4 — REST subprocess 504/500 收编+followup 降级哨兵断 KB 自反馈+elapsed 全轮重算+tool_ok 结构化分类)" "python3 test_v37_9_294_proxy_slo_metrics.py"
 run_suite "v37_9_295_expert_degraded_followup (V37.9.295 C-F2 后半 — expert api_unavailable/quota followup 化真降级, SOUL 规则 12 结构性兑现 + 二次失败回 V37.9.288 渲染)" "python3 test_v37_9_295_expert_degraded_followup.py"
 run_suite "v37_9_238_fetch_errors_fail_loud (V37.9.238 审计 F follow-up — rss_blogs/ai_leaders_blogs/bsky FETCH_ERRORS 计数器 + MR-9 ProxyStats 测试污染隔离)" "python3 test_v37_9_238_fetch_errors_fail_loud.py"
