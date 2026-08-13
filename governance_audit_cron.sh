@@ -29,6 +29,27 @@ LOG_PREFIX="[$TS] governance_audit"
 
 log() { echo "$LOG_PREFIX: $1"; }
 
+# ── V37.9.301 告警正文分层渲染 helper（血案注释见下方 GOV_VIOLATIONS 提取处）──
+# 注: 两者都只在 `set +E` 之后被调用（errtrace 已关, 不会假 FATAL）; 每个 pipe
+# 都带 `|| true`（本脚本 set -eEuo pipefail, head 提前关管道会让 printf 收 SIGPIPE
+# → pipefail 非零 → set -e abort, V37.9.60-hotfix 同款 bash quirk）。
+_line_count() {
+    if [ -z "$1" ]; then echo 0; else echo "$1" | wc -l | tr -d ' '; fi
+}
+
+# 有界渲染: $1=行块 $2=最大行数 $3=截断提示里的量词。超出部分不静默丢弃, 显式说明
+# 还有多少 + 去哪看全量（V37.9.300 教训: 截断不留痕 = 正文读起来像完整的）。
+_bounded_block() {
+    local _blk="$1" _max="$2" _what="$3" _total _rest
+    _total=$(_line_count "$_blk")
+    if [ "$_total" -eq 0 ]; then return 0; fi
+    echo "$_blk" | head -"$_max" || true
+    if [ "$_total" -gt "$_max" ]; then
+        _rest=$(( _total - _max ))
+        echo "（还有 ${_rest} ${_what}未显示，完整见 ~/governance_audit.log）"
+    fi
+}
+
 # ── 加载 notify.sh (提前 source 让 ERR trap 可用) ────────────────────
 NOTIFY_LOADED=false
 for _np in "$REPO_DIR/notify.sh" "$HOME/notify.sh"; do
@@ -96,8 +117,22 @@ GOV_SUMMARY=$(echo "$GOV_OUTPUT" | grep -E "通过:|不变式:" | head -2 | tr '
 # only) → "Governance Audit 失败" fired with an EMPTY 不变式违反 section, telling
 # the user THAT it failed but not WHICH check. Mirrors V37.9.213 F1 (surface
 # the reason). Now cold-flake failures self-report the 💥 check name.
-GOV_VIOLATIONS=$(echo "$GOV_OUTPUT" | grep -E "❌|💥" | head -5 || true)
-GOV_WARNINGS=$(echo "$GOV_OUTPUT" | grep "⚠️" | head -5 || true)
+#
+# V37.9.301 血案（2026-08-13, V37.9.300 告警疲劳同族第二例）: 旧版 `| head -5`
+# 对治理输出是"抓明细丢标题"。governance_checker 渲染器的层级是
+#     `  ❌ 🔴 [INV-XXX-001] 名称`                  2 空格 = 不变式级判定
+#     `       ❌ check 名`                          7 空格 = check 级明细
+#     `  ❌ N 个不变式被违反, 💥 M 个检查执行出错`   2 空格 = 顶层计数, 输出**最后**一行
+# 一个 check 多的不变式就吃掉 5 个配额中的 4 个 → 排在后面的整条失败不变式静默消失,
+# 而"一共几个"的顶层计数行因为排在最末永远第一个被丢 → 告警正文读起来像完整的。
+# 连 V37.9.214 特意加进来的 💥（让冷启动 flake 自报家门）也在多失败时被截掉 = 那次
+# 修复被截断打败。修法与 V37.9.300 auto_deploy 同款判据: 按缩进分层 + 顶层优先 +
+# 显式截断提示（一物一形: 两个告警正文用同一套分层规则）。
+GOV_VIOLATIONS=$(echo "$GOV_OUTPUT" | grep -E "^ {0,3}(❌|💥)" || true)
+GOV_VIOLATION_DETAIL=$(echo "$GOV_OUTPUT" | grep -E "^ {4,}(❌|💥)" || true)
+# V37.9.301: ⚠️ 只取顶层行（MRD 元发现 + convergence 漂移）。收敛框架的
+# `  💥 [spec] ⚠️  error: ...` 以 💥 开头已进 GOV_VIOLATIONS, 不在此重复。
+GOV_WARNINGS=$(echo "$GOV_OUTPUT" | grep -E "^ {0,3}⚠️" || true)
 
 log "governance_checker 完成: rc=$GOV_RC $GOV_SUMMARY"
 
@@ -123,10 +158,21 @@ ALERT_MSG=""
 
 if [ "$GOV_RC" -ne 0 ]; then
     OVERALL="fail"
+    # V37.9.301: 顶层判定（哪些不变式挂了 + 一共几个）优先占正文, 明细单列成段。
+    # 顺序刻意是"先索引后明细": 用户从 07:00 告警最需要的是可行动的索引, 明细在日志里。
+    _GOV_TOP_BLOCK=$(_bounded_block "$GOV_VIOLATIONS" 12 "个不变式") || true
+    _GOV_DETAIL_BLOCK=$(_bounded_block "$GOV_VIOLATION_DETAIL" 6 "行明细") || true
     ALERT_MSG="⚠️ Governance Audit 失败 ($TS)
 
 不变式违反 / 检查出错 (❌ fail / 💥 error):
-$GOV_VIOLATIONS
+$_GOV_TOP_BLOCK"
+    if [ -n "$_GOV_DETAIL_BLOCK" ]; then
+        ALERT_MSG="$ALERT_MSG
+
+失败明细:
+$_GOV_DETAIL_BLOCK"
+    fi
+    ALERT_MSG="$ALERT_MSG
 
 $GOV_SUMMARY"
 fi
@@ -139,10 +185,23 @@ if [ "$ENGINE_RC" -ne 0 ]; then
 $ENGINE_SUMMARY"
 fi
 
-# 元发现警告（不阻断，但附加到报告）
+# 元发现 / 收敛漂移警告（不阻断退出码, 但告警已经在发时附进正文 = 完整图景）
+# V37.9.301: 旧版注释写"附加到报告", 代码却只 log 了个计数 —— 报告里从来没有过。
+# 这正是 V37.9.299 血案的形状（决定性 ⚠️ 信号被算出来却从不送达: 那次是"向量索引已
+# 106h 未更新", 它能到用户手里纯粹是搭了一个无关 ❌ 的顺风车）。
+# 刻意**不**为 warn-only 的干净轮次新开推送（那会造噪声 = 正在治的病本身, 且 crontab
+# 漂移/索引老化已分别被 preflight fail 与 job_watchdog 覆盖, 原则 #8 谁已经在管）:
+# 只在告警**已经**触发时附上并存警告, 新增推送量 = 0（V37.9.300 同款理由）。
 if [ -n "$GOV_WARNINGS" ]; then
-    WARN_COUNT=$(echo "$GOV_WARNINGS" | wc -l | tr -d ' ')
-    log "元发现警告: $WARN_COUNT 项"
+    WARN_COUNT=$(_line_count "$GOV_WARNINGS")
+    log "治理警告: $WARN_COUNT 项"
+    if [ "$OVERALL" = "fail" ]; then
+        _GOV_WARN_BLOCK=$(_bounded_block "$GOV_WARNINGS" 6 "项警告") || true
+        ALERT_MSG="$ALERT_MSG
+
+⚠️ 并存警告 ($WARN_COUNT 项, 不影响退出码):
+$_GOV_WARN_BLOCK"
+    fi
 fi
 
 # ── 4. 告警推送 ──────────────────────────────────────────────────────

@@ -1,6 +1,6 @@
 {
-  "updated": "2026-08-12 07:44:27",
-  "updated_by": "full_regression",
+  "updated": "2026-08-13 02:35:54",
+  "updated_by": "security_score",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-08-13",
+      "what": "V37.9.301 🔴 告警疲劳同族第二例根治: 07:00 治理告警 grep ❌/💥 | head -5 对 governance_checker 输出是「抓明细丢标题」——一个 check 多的不变式吃掉 5 配额中的 4 → 排在后面的整条失败不变式静默消失 + 顶层计数行(排最末)永远第一个被丢 + V37.9.214 的 💥 被截断打败 + 无截断提示(正文读起来像完整的)。真渲染器 4-失败场景 dev 实证。修: 按缩进分层(^ {0,3} 顶层 / ^ {4,} 明细) + 顶层优先 + 显式截断留痕 + 并存 ⚠️ 附进已触发告警(新增推送量 0, 刻意不为 warn-only 干净轮新开推送)。同族全量扫描另有两项诚实剔除(4 个 collector head -3 实测证伪 FAIL-OPEN 单行 JSON / SLO warn 依赖 Mac-Mini-only 脚本 dev 不可验证)。守卫 24 单测(真渲染器样本+源码抽模式+反向证据), sabotage 三连精确开火。VERSION 0.37.9.135。",
+      "by": "claude_code"
+    },
     {
       "date": "2026-08-12",
       "what": "V37.9.300 🔴 告警疲劳机械成因根治: auto_deploy `grep \"❌\"` 抓走 6 空格缩进明细行却丢掉它们的 ⚠️ 标题 → 明细孤悬在无关失败下被误读, 而「向量索引已 106h 未更新」作为 warn 行从未进过告警 = V37.9.299 核心 job 死 4 天「无人知」的真相(告警一直在发, 呈现形态误导)。修: grep -E '^ {0,3}(❌|⚠️)' 按缩进精确分层。守卫 7 单测(真实血案样本+源码抓取真实模式), sabotage 5 项开火。VERSION 0.37.9.134。元教训: 修告警正文比劝人多看一眼有效。",
@@ -219,7 +224,8 @@
       "【SOUL 规则 12 'Qwen3' 字样过时 · 低优】2026-08-12 降级 E2E 中 PA 自称 'Qwen3 基础模式', 实际 primary=doubao_21(V37.9.222 flip) — 出处是 SOUL 规则 12 旧文案。不专门触发 SOUL 重部署仪式, 下次动 SOUL 时顺手改为 '基础模型' 措辞(去 provider 名硬编码, whiplash-resistant)。",
       "【低优 · 顺手清理，非必须】Volcengine 退役 ep- 已删除后的残留 env 清理（治理已不要求，留着无害）: adapter+proxy plist 的 ARK_ENDPOINT_ID / ARK_API_KEY（doubao 2.0 旧 Ark 时代，V37.9.290 后零消费者）+ ~/.env_shared 的 GLM5_ENDPOINT_ID 行。🔴 ARK_21_API_KEY 与 ARK_21_ENDPOINT_ID 必须保留（doubao_21 = 生产 primary）。下次动 plist 时顺手做。",
       "【V37.9.299/300 全闭环 ✅（2026-08-12 实证）· 剩 Mac Mini 被动验证】(a) KB 索引已恢复 100%（2627/2627, 113634 chunks, 零失败, PA search_kb 恢复至今日）(b) 「4 天无人知」定性 = **告警疲劳非监控盲区**（用户确认 Discord+WhatsApp 双通道均收到），机械成因已根治 V37.9.300（告警正文丢 ⚠️ 顶层警告却抓 6 空格明细行 → 致命信号呈现为 doc-sync 唠叨）。剩: 同步后观察下次 preflight 失败告警是否含 ⚠️ 行且无孤悬明细。诚实更正: V37.9.293 预告的「首晚大 🪦」被证伪（实际仅 6 个幽灵 chunk）。",
-      "【原则 #14 补充教训（2026-08-12 两次踩同一坑）】`git reset` 只同步**仓库副本**(~/openclaw-model-bridge/X)，cron 跑的是 auto_deploy 按 FILE_MAP 同步出的**运行时副本**(~/X)，两者有最多 2 分钟延迟。合并后立刻手跑运行时脚本 = 跑旧代码(今日 kb_embed 补跑第一次即因此重演同款 Traceback)。**验证式**: `grep -c '<修复特征>' ~/openclaw-model-bridge/X ~/X` 两行都为 1 再执行；急用可 `cp` 手动同步。下次触碰 CLAUDE.md 原则区时把这条写进 #14 正文。"
+      "【原则 #14 补充教训（2026-08-12 两次踩同一坑）】`git reset` 只同步**仓库副本**(~/openclaw-model-bridge/X)，cron 跑的是 auto_deploy 按 FILE_MAP 同步出的**运行时副本**(~/X)，两者有最多 2 分钟延迟。合并后立刻手跑运行时脚本 = 跑旧代码(今日 kb_embed 补跑第一次即因此重演同款 Traceback)。**验证式**: `grep -c '<修复特征>' ~/openclaw-model-bridge/X ~/X` 两行都为 1 再执行；急用可 `cp` 手动同步。下次触碰 CLAUDE.md 原则区时把这条写进 #14 正文。",
+      "【V37.9.301 治理告警正文分层 ✅ dev 全闭环 · 剩 Mac Mini 被动验证】合并+git fetch+reset 同步后(governance_audit_cron.sh 走 FILE_MAP, 零重启, 明晨 07:00 自动生效): 下次治理审计失败时告警正文应 (a) 先列**全部**失败不变式 + 顶层计数行「N 个不变式被违反, M 个检查执行出错」(此前多失败时后面的整条会消失、计数行永远被丢) (b) 明细单列成「失败明细」段且超预算时带「还有 N 行未显示」提示 (c) 末尾附「并存警告」段(MRD 元发现 + convergence 漂移如 jobs_to_crontab missing=N —— 此前只进本地日志从不送达)。若正文仍只见明细不见不变式索引, 贴我。"
     ],
     "open_prs": [],
     "blocked_on": "",
@@ -227,14 +233,14 @@
   },
   "quality": {
     "security_score": 98,
-    "test_count": 5772,
-    "last_regression": "2026-08-12 07:44 pass",
+    "test_count": 5796,
+    "last_regression": "2026-08-13 02:00 pass",
     "coverage_pct": 0,
     "security_score_time": "2026-07-20 01:07",
-    "test_suites": 168,
+    "test_suites": 169,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
-    "version": "0.37.9.134",
+    "version": "0.37.9.135",
     "observer": {}
   },
   "incidents": [
@@ -299,7 +305,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-08-12 收工(六笔): 论文#2 第一稿 / 治理告警根治 / 降级 E2E 关账 / 退役 ep- 清理 / V37.9.299 kb_embed numpy bug 根治+索引 100% 恢复 / **V37.9.300 告警疲劳机械成因根治**(告警正文丢 ⚠️ 抓明细 → 核心 job 死 4 天被读成 doc-sync 噪声)。🔴 剩: 论文#2 三决策等 ISSRE 周末 + key 轮换(用户暂缓)。",
+  "focus": "2026-08-13 收工: V37.9.301 告警疲劳同族第二例根治(07:00 治理告警正文抓明细丢标题 → 按缩进分层+顶层优先+截断留痕+并存警告进正文, 新增推送量 0) + 同族全量扫描两项诚实剔除。🔴 剩: 论文#2 三决策等 ISSRE 结果(≈8-15/16) + Mac Mini 被动验证。",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
