@@ -1,6 +1,6 @@
 {
-  "updated": "2026-08-13 02:35:54",
-  "updated_by": "security_score",
+  "updated": "2026-08-13 04:20:33",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-08-13",
+      "what": "V37.9.302 🔴 守卫之守卫度量 bug: 混沌审计 catch 判据求和→逐信号。症状=full_regression 尾部近乎每次 9/10 且每次失败场景都不同, standalone 必 10/10。受控加载实验决定性复现: fail 0→1 真被抓到, 但同轮无关 MRD 计数器掉 2 → 求和 delta -1 → 报 BLIND SPOT。隔离连跑 6 次 governance 计数器完全稳定证噪声来自负载。修 catch_signals() 逐信号比较(检出力不降反升, 真盲区仍 FAIL); 预注册的重试/inconclusive 层按日落法不建。负载下验证 10/10 全抓。守卫 16 单测(真实计数逐字回放+防空转), sabotage 2 项开火。VERSION 不变(测试基础设施)。",
+      "by": "claude_code"
+    },
     {
       "date": "2026-08-13",
       "what": "V37.9.301 🔴 告警疲劳同族第二例根治: 07:00 治理告警 grep ❌/💥 | head -5 对 governance_checker 输出是「抓明细丢标题」——一个 check 多的不变式吃掉 5 配额中的 4 → 排在后面的整条失败不变式静默消失 + 顶层计数行(排最末)永远第一个被丢 + V37.9.214 的 💥 被截断打败 + 无截断提示(正文读起来像完整的)。真渲染器 4-失败场景 dev 实证。修: 按缩进分层(^ {0,3} 顶层 / ^ {4,} 明细) + 顶层优先 + 显式截断留痕 + 并存 ⚠️ 附进已触发告警(新增推送量 0, 刻意不为 warn-only 干净轮新开推送)。同族全量扫描另有两项诚实剔除(4 个 collector head -3 实测证伪 FAIL-OPEN 单行 JSON / SLO warn 依赖 Mac-Mini-only 脚本 dev 不可验证)。守卫 24 单测(真渲染器样本+源码抽模式+反向证据), sabotage 三连精确开火。VERSION 0.37.9.135。",
@@ -219,7 +224,7 @@
       "【V37.9.293 · B-F4/B-F5 幽灵向量+indexed_at 断链 ✅ 已修 · 剩 Mac Mini 被动验证】(a) 幽灵剪除: 同步后首晚 03:30 kb_embed 日志预期一次性大 🪦（历史累积幽灵 chunks 一次剪除+全量重建数分钟, 一次性开销非故障）, 之后 PA 搜索不再引用已删笔记 (b) indexed_at 透传: PA search_kb 结果出现「索引:时间」+ 旧内容排名轻微下调（FRESHNESS_DECAY 复活=V36 设计行为, 72h 后 5%/天地板 50%）——若用户感知排序异常贴我 (c) 错位可见性: kb_rag stderr 出现 vectors.bin 超前/短缺 WARN = 索引曾错位（下轮 03:30 自愈, 频繁出现才贴我）。B-F5 load_vectors 长侧守卫+对齐校验+0-chunk 洞（changed_files 反推退役）一并闭环, 详见 changelog V37.9.293。",
       "【V37.9.294 · C-F3/C-F4 proxy 观测口径 ✅ 已修 · 剩 Mac Mini 被动验证】同步+重启 proxy 后: (a) REST /data_clean 超时返回 504 JSON 而非连接直断 (b) search_kb followup 失败日 proxy_stats degradation_rate 变真值 + 原始转储不再进对话捕获 (c) 🔴 p95 如上浮 = elapsed 口径修正（原漏计自定义工具最多 ~90s+）非性能退化, 预期勿告警 (d) tool_success_rate 如下降 = expert read_only_violation/api_unavailable 等失败态开始被诚实计数（classify_tool_result_ok 结构化分类替代 result[:100] 子串窗口）。详见 changelog V37.9.294。",
       "【tokenhub 双 key 真轮换 · 用户已暂缓（2026-08-12 决定搁置，随时可捡起）】现状: plist 现装两把 sk- key = 08-08 聊天明文暴露的那两把, curl /v1/models 实测 200 仍有效(华坤 8-12 上午吊销的不是它们)。恢复步骤: 华坤签发全新两把 → 4 条 PlistBuddy 换入(adapter+proxy × DOUBAO_API_KEY/GLM5_API_KEY) + .env_shared → bash restart.sh → curl /v1/models 新 key 200 验证。**注意**: 相关的 Volcengine 退役 ep- 接入点删除已于2026-08-12 单独完成(见下), 与本项解耦。",
-      "【低优观察 · 混沌 C1 负载瞬态（2026-08-10 收工实录）】full_regression 尾部负载下 chaos C1(delete_soul_rule_10) 单次假报防御退化（INV-PA-002 catch 被负载吞, 疑与 V37.9.285 load-timeout→skip 语义交互）；静态复跑 + settled 树完整回归复跑均 10/10 = 瞬态非回归, 当日代码零嫌疑。处置模式: 遇 9/10 先静态复跑定性（本次实录）。若未来负载下复现 ≥2 次 → 升级评估: chaos audit 对 expected-catch 遇 skip 时应判 inconclusive+重试而非 FAIL（改 audit 语义是新机制, 单次瞬态不投机, 日落法 #8）。另: 直跑 audit 被 Bash 2min 默认超时杀过一次留 config.yaml 残留（已 checkout 还原, 教训=chaos 直跑须 run_in_background 无超时）。",
+      "【✅ 已根治 V37.9.302 · 原低优观察项关闭】混沌 Category A 负载假报家族 (C1 2026-08-10 / C6+C8 2026-08-13) 根因已定位并修复: run_scenario 把四个异质计数器加总以「总和上升」判 caught → 真 catch (fail 0→1) 被同轮无关 MRD 噪声下降 2 抵消 → 报 BLIND SPOT。受控加载实验决定性复现 + 隔离连跑 6 次 governance 计数器完全稳定(证噪声来自负载非 governance)。修为 catch_signals() 逐信号比较; 预注册的重试/inconclusive 机器按日落法**不建**(根因修好后不需要)。负载下验证 10/10。无 Mac Mini 动作。",
       "【V37.9.298 · 07:00 INV-ROUTER-001 告警已根治 · 剩 Mac Mini 被动验证】合并+同步后明晨 07:00 governance audit 应回绿(测试文件随 git 同步零重启); 可选即时验证 python3 test_v37_9_77_enforcement.py 真实 env 下 27/27。若明晨仍红贴新告警。另: 今晨告警「元规则 19/23」行待绿 audit 对照口径(如恒 19/23 属 --full 正常显示即忽略, 不预诊断)",
       "【SOUL 规则 12 'Qwen3' 字样过时 · 低优】2026-08-12 降级 E2E 中 PA 自称 'Qwen3 基础模式', 实际 primary=doubao_21(V37.9.222 flip) — 出处是 SOUL 规则 12 旧文案。不专门触发 SOUL 重部署仪式, 下次动 SOUL 时顺手改为 '基础模型' 措辞(去 provider 名硬编码, whiplash-resistant)。",
       "【低优 · 顺手清理，非必须】Volcengine 退役 ep- 已删除后的残留 env 清理（治理已不要求，留着无害）: adapter+proxy plist 的 ARK_ENDPOINT_ID / ARK_API_KEY（doubao 2.0 旧 Ark 时代，V37.9.290 后零消费者）+ ~/.env_shared 的 GLM5_ENDPOINT_ID 行。🔴 ARK_21_API_KEY 与 ARK_21_ENDPOINT_ID 必须保留（doubao_21 = 生产 primary）。下次动 plist 时顺手做。",
@@ -233,11 +238,11 @@
   },
   "quality": {
     "security_score": 98,
-    "test_count": 5796,
+    "test_count": 5812,
     "last_regression": "2026-08-13 02:00 pass",
     "coverage_pct": 0,
     "security_score_time": "2026-07-20 01:07",
-    "test_suites": 169,
+    "test_suites": 170,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
     "version": "0.37.9.135",
@@ -305,7 +310,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-08-13 收工: V37.9.301 告警疲劳同族第二例根治(07:00 治理告警正文抓明细丢标题 → 按缩进分层+顶层优先+截断留痕+并存警告进正文, 新增推送量 0) + 同族全量扫描两项诚实剔除。🔴 剩: 论文#2 三决策等 ISSRE 结果(≈8-15/16) + Mac Mini 被动验证。",
+  "focus": "2026-08-13 收工(两笔): V37.9.301 告警疲劳同族第二例根治(07:00 治理告警正文抓明细丢标题 → 按缩进分层+顶层优先+截断留痕+并存警告进正文, 新增推送量 0) + V37.9.302 守卫之守卫度量 bug 根治(混沌 catch 判据求和→逐信号, 真 catch 不再被负载噪声抵消)。🔴 剩: 论文#2 三决策等 ISSRE 结果(≈8-15/16) + Mac Mini 被动验证。",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
