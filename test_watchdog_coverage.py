@@ -417,5 +417,7 @@ class TestV379287Enrollment(unittest.TestCase):
         # 全部读 d.get('time')。ts 键即使登记也解析为 "状态文件格式异常"。
         self.assertNotIn('"ts":', self.ms_src,
                          "movespeed 状态文件禁止回退到 ts 键 (无读者认识它)")
-        self.assertEqual(self.ms_src.count('"time":"%s"'), 3,
-                         "三个写点 (ok/failed/skipped_no_ssd) 必须全部用 time 键")
+        # V37.9.304: +1 写点 skipped_tm_backup (helper --strict-exit rc=3 →
+        # TM 备份进行中跳过对每日一次的 daily_sync = 整天未备份, 必须可见)
+        self.assertEqual(self.ms_src.count('"time":"%s"'), 4,
+                         "四个写点 (ok/failed/skipped_no_ssd/skipped_tm_backup) 必须全部用 time 键")

@@ -383,6 +383,12 @@ try:
 except Exception as e:
     sys.stderr.write(f'WARN: kb_dream_helpers V37.9.68 加载失败: {e}\\n')
 " 2>/dev/null || echo "")
+    # V37.9.305 (对抗审计 A-F3): 空值可观测 — 镜像 DREAM_HG_GUARD/DREAM_CREDIBILITY
+    # 同款 WARN 检查。此前 ban-list 是纯 FAIL-OPEN + 零日志: 部署漂移/helper 损坏/
+    # header 格式漂移 → ban-list 永久空 → Qwen-BIM 类连续几周重复主题回归而全机器
+    # 指标绿 (V37.9.68 原始血案的静默复活路径, 且 dream 主题不在 V37.9.240 observer
+    # deep_dive 链接探测器覆盖内)。
+    [ -z "$BANNED_THEMES_BLOCK" ] && log "WARN: 14 天主题 ban-list 为空 (helper 加载失败或 dream 目录无近期主题) — DEEP 本轮无 ban-list 防重复"
 
     # 旧 PREV_THEMES 字符串（保留用于 user message 显示，但不再作为硬约束）
     PREV_FILES=$(ls -t "$DREAM_DIR"/*.md 2>/dev/null | head -14 || true)
@@ -905,7 +911,7 @@ fi
 #    设计文档: docs/opportunity_radar_design.md 3.3 + 5.2 节
 #    FAIL-OPEN: 任意脚本失败 → 信号设为空字符串不阻塞 Reduce
 # ═══════════════════════════════════════════════════════════════════
-log "Phase 1.5 (Opportunity Radar): 采集跨 source 信号 + 趋势加速度 + 今日高对齐..."
+log "Phase 1.5 (Opportunity Radar): 采集跨 source 信号 + 趋势加速度 + 近期高对齐..."
 
 RADAR_SIGNALS_BLOCK=""
 TREND_SIGNALS_BLOCK=""
@@ -920,9 +926,16 @@ ALIGNMENT_PICKER="${HOME}/top_alignment_picker.py"  # V37.9.56
 [ -f "$ALIGNMENT_PICKER" ] || ALIGNMENT_PICKER="$(dirname "$0")/top_alignment_picker.py"  # V37.9.56
 
 # #1 cross_source_signal_aggregator → daily_signals JSON → top 5 共振 block
+# V37.9.305 (对抗审计 A-F1): 传 --date 昨天 — 本调用点在 03:00 Reduce, 不传日期时
+# aggregator 默认扫"今天"= 只有 00:00-03:00 的零星笔记 (笔记文件名前缀=写入时刻,
+# 内容 job 绝大多数 07:30-22:30 跑), DBSCAN min_samples=3 + 跨源≥2 几乎永不满足
+# → Radar #1 维度结构性恒空却全绿 ("今日无共振"看着像合法结果)。扫完整的昨天全天
+# 后, 输出 daily_signals_{昨天}.json 恰与 kb_radar_collect 06:00 读昨天的契约对齐。
+# 日期用 python timedelta (BSD/GNU date -v/-d 分歧, 镜像 kb_radar_collect 同款)。
 if [ -f "$RADAR_SCORER" ]; then
     _RADAR_TMP=$(mktemp 2>/dev/null) || _RADAR_TMP=/tmp/dream_radar_$$.json
-    if python3 "$RADAR_SCORER" --json > "$_RADAR_TMP" 2>/dev/null; then
+    _RADAR_DATE=$(python3 -c "from datetime import datetime, timedelta; print((datetime.now() - timedelta(days=1)).strftime('%Y%m%d'))" 2>/dev/null || echo "")
+    if python3 "$RADAR_SCORER" --json ${_RADAR_DATE:+--date "$_RADAR_DATE"} > "$_RADAR_TMP" 2>/dev/null; then
         RADAR_SIGNALS_BLOCK=$(python3 - "$_RADAR_TMP" << 'PYEOF' 2>/dev/null || echo ""
 import json, os, sys
 try:
@@ -934,10 +947,12 @@ try:
     with open(path) as f:
         data = json.load(f)
     signals = data.get("signals", [])[:5]
+    # V37.9.305 (A-F1): 扫描窗口已改为昨日全天, 标签同步诚实化 (原"今日"标签
+    # 配 00:00-03:00 残窗 = 双重误导)
     if not signals:
-        print("(今日无跨 source 共振信号)")
+        print("(昨日全天无跨 source 共振信号)")
     else:
-        out = ["# 今日跨 source 共振信号 (V37.9.46 #1, top 5)"]
+        out = ["# 昨日全天跨 source 共振信号 (V37.9.46 #1, top 5)"]
         for s in signals:
             topic = (s.get("suggested_topic", "") or "")[:60]
             sources = ", ".join(s.get("sources", [])[:5])
@@ -1006,7 +1021,7 @@ if [ -f "$ALIGNMENT_PICKER" ]; then
     # 仓库根: dev 取 $(dirname "$ALIGNMENT_PICKER"), Mac Mini 取 $HOME
     _PICKER_REPO=$(dirname "$ALIGNMENT_PICKER")
     TOP_ALIGNMENT_BLOCK=$(python3 "$ALIGNMENT_PICKER" --repo-root "$_PICKER_REPO" --block-only 2>/dev/null || echo "")
-    [ -n "$TOP_ALIGNMENT_BLOCK" ] && log "Phase 1.5: 今日高对齐 Top 5 采集完成 (#2)"
+    [ -n "$TOP_ALIGNMENT_BLOCK" ] && log "Phase 1.5: 近期高对齐 Top 5 采集完成 (#2)"
 fi
 
 [ -n "$RADAR_SIGNALS_BLOCK" ] && log "Phase 1.5: 雷达信号采集完成 (#1)"
@@ -1050,7 +1065,20 @@ if [ "$FAST_MODE" = true ] || [ -z "${MAP_SIGNALS// }" ]; then
     fi
 
     # Notes 全量
-    REDUCE_DATA+="$NOTES_MATERIAL"
+    # V37.9.305 (对抗审计 A-F4): Reduce 路径 (SKIP_MAP_LOOPS=true) NOTES_MATERIAL
+    # 恒空 — sources 缓存 all-miss 落入本采样分支时, 已成功缓存的 NOTES_SIGNALS
+    # 曾被静默整体丢弃 (00:00 --map-sources 失败但 00:25 --map-notes 成功的夜晚,
+    # 梦境完全不含用户笔记信号 = 最高质量信号源 原则 #25, 且无任何降级标记)。
+    if [ -n "${NOTES_MATERIAL// }" ]; then
+        REDUCE_DATA+="$NOTES_MATERIAL"
+    elif [ -n "${NOTES_SIGNALS// }" ]; then
+        log "sources 缓存空但 notes 信号缓存在 — 注入已缓存的用户笔记信号 (V37.9.305 A-F4)"
+        REDUCE_DATA+="
+
+# Phase 1b: 用户笔记/交互记录信号（用户主动保存的重要信息, Phase 1 缓存）
+$NOTES_SIGNALS
+"
+    fi
 else
     # MapReduce 模式：Sources 信号 + Notes 信号并列
     REDUCE_INTRO="以下是系统知识库的 **全量深度分析结果**。Phase 1 已对 $MAP_COUNT 个数据源和 $NOTES_MAP_COUNT 条用户笔记逐一进行了信号提取（覆盖全部 ${TOTAL_KB_BYTES} 字节数据）。
@@ -1075,7 +1103,7 @@ $TREND_CONTEXT
 "
 
 # V37.9.49 Sub-Stage 4a + V37.9.56 Sub-Stage 4c (Opportunity Radar 三件套全量):
-# 注入跨 source 雷达 (#1) + 今日高对齐 Top 5 (#2) + 趋势加速度 (#3)
+# 注入跨 source 雷达 (#1) + 近期高对齐 Top 5 (#2, V37.9.305 标签诚实化) + 趋势加速度 (#3)
 # 让 Reduce LLM 在跨域关联中识别"早期机会点"
 if [ -n "$RADAR_SIGNALS_BLOCK" ]; then
     REDUCE_DATA+="
@@ -1085,10 +1113,18 @@ $RADAR_SIGNALS_BLOCK
 "
 fi
 if [ -n "$TOP_ALIGNMENT_BLOCK" ]; then
+    # V37.9.305 (对抗审计 A-F2): 标签诚实化 — picker 读 llm_results.jsonl 全量无日期
+    # 过滤, 无新内容日/僵尸源 (ai_leaders_x 429 退化) 的 jsonl 冻结数天, 陈旧条目曾以
+    # "今日"身份进 prompt 与 LEVEL_5/6 guard 的"跨多天累积"声明自相矛盾。镜像
+    # kb_evening_collect V37.9.56-hotfix3 血案修复的同款措辞 (evening 当时改了,
+    # dream 侧漏改)。
     REDUCE_DATA+="
 
-═══ Opportunity Radar #2 (今日高对齐 Top 5, ⭐≥4) ═══
+═══ Opportunity Radar #2 (近期高对齐参考阅读 Top 5, ⭐≥4, 跨多天累积非仅今日) ═══
 $TOP_ALIGNMENT_BLOCK
+
+注意: 上述 Top 5 是多日累积的高对齐参考阅读, **不是今日发生的事件**;
+只有当日笔记/sources 中实际出现对应内容时才能作为'今日事件'展开。
 "
 fi
 if [ -n "$TREND_SIGNALS_BLOCK" ]; then

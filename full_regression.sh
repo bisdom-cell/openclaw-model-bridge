@@ -101,6 +101,8 @@ run_suite "v37_9_293_kb_ghost_vectors (V37.9.293 对抗审计 B-F4/B-F5 — 幽�
 run_suite "v37_9_300_alert_body (V37.9.300 告警疲劳机械成因 — preflight 告警正文含 ⚠️ 顶层警告+排除误导性明细行, 真实血案样本行为级验证)" "python3 test_v37_9_300_alert_body.py"
 run_suite "v37_9_301_governance_alert_body (V37.9.301 同族第二例 — 07:00 治理告警按缩进分层: 失败不变式不再被明细挤掉+顶层计数行不再被丢+截断留痕+并存警告进正文)" "python3 test_v37_9_301_governance_alert_body.py"
 run_suite "v37_9_302_chaos_catch_signal (V37.9.302 守卫之守卫度量 bug — 混沌 catch 判据逐信号取代求和: 负载下噪声计数器下降不再把真 catch 报成 BLIND SPOT)" "python3 test_v37_9_302_chaos_catch_signal.py"
+run_suite "v37_9_304_ops_chain_honesty (V37.9.304 对抗审计 C 镜头 — helper strict-exit/daily_sync 死代码复活/watchdog CRON_COUNT 清空告警自我中和/crontab_safe 误回滚+restore rc/backup cp rc/mount 表/diagnose 守卫/error_rate config)" "python3 test_v37_9_304_ops_chain_honesty.py"
+run_suite "v37_9_305_dream_radar_window (V37.9.305 对抗审计 A 镜头 — Radar #1 日期窗口扫昨日全天/Top5 标签诚实化/ban-list 空值 WARN/notes 信号缓存回填/kb_radar stderr 分离)" "python3 test_v37_9_305_dream_radar_window.py"
 run_suite "v37_9_294_proxy_slo_metrics (V37.9.294 对抗审计 C-F3/C-F4 — REST subprocess 504/500 收编+followup 降级哨兵断 KB 自反馈+elapsed 全轮重算+tool_ok 结构化分类)" "python3 test_v37_9_294_proxy_slo_metrics.py"
 run_suite "v37_9_295_expert_degraded_followup (V37.9.295 C-F2 后半 — expert api_unavailable/quota followup 化真降级, SOUL 规则 12 结构性兑现 + 二次失败回 V37.9.288 渲染)" "python3 test_v37_9_295_expert_degraded_followup.py"
 run_suite "v37_9_238_fetch_errors_fail_loud (V37.9.238 审计 F follow-up — rss_blogs/ai_leaders_blogs/bsky FETCH_ERRORS 计数器 + MR-9 ProxyStats 测试污染隔离)" "python3 test_v37_9_238_fetch_errors_fail_loud.py"

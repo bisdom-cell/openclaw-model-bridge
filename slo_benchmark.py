@@ -20,6 +20,7 @@ import json
 import os
 import sys
 import time
+from datetime import datetime
 
 from config_loader import load_config
 
@@ -41,6 +42,11 @@ def read_stats(path):
 # 修 V35 golden trace samples=1 却标 ALL PASS 的统计无意义问题 (1 个样本的 p95 不是 SLO).
 # 默认 200 (= 延迟 rolling buffer 满). 可经 config slo.min_sample_count 调低 (低流量个人系统).
 MIN_SAMPLE_THRESHOLD = 200
+
+# V37.9.303 (SLO 读侧审计 F3): recovery 的样本域是 failure_streaks (每日个位数), 不能用
+# 请求域 min_sample_count=200 比较 (200 streaks/日结构性不可达 → recovery 永远 OBSERVING,
+# 真违规不显形)。streak 域门槛默认 3, 可经 config slo.min_streak_count 调整。
+MIN_STREAK_THRESHOLD = 3
 
 
 def _verdict(meets_target, sample_count, min_samples):
@@ -116,9 +122,17 @@ def build_report(stats, config):
     deg_verdict = _verdict(
         slo_data.get("degradation_rate_pct", 0) <= slo_cfg.get("degradation_rate_pct", 5.0),
         total, min_samples)
-    rec_verdict = _verdict(
-        slo_data.get("auto_recovery_rate_pct", 100.0) >= slo_cfg.get("auto_recovery_rate_pct", 90.0),
-        rec_streaks, min_samples)
+    # V37.9.303 (审计 F3): recovery 样本域是 failure_streaks — 旧代码用请求域 min_samples
+    # (200) 比较, FAIL 结构性不可达 (如 3 个 streak 0 恢复 = 真违规却报 OBSERVING)。
+    # streaks==0 → N_A_NO_FAILURE_STREAKS (无失败可恢复, 好消息, 区别于"样本不足");
+    # streaks>0 → 用 streak 域门槛判定。
+    min_streaks = slo_cfg.get("min_streak_count", MIN_STREAK_THRESHOLD)
+    if rec_streaks == 0:
+        rec_verdict = "N_A_NO_FAILURE_STREAKS"
+    else:
+        rec_verdict = _verdict(
+            slo_data.get("auto_recovery_rate_pct", 100.0) >= slo_cfg.get("auto_recovery_rate_pct", 90.0),
+            rec_streaks, min_streaks)
 
     report = {
         "generated_at": time.strftime("%Y-%m-%d %H:%M:%S"),
@@ -168,10 +182,29 @@ def build_report(stats, config):
             "verdict": rec_verdict,
         },
         "tokens": {
-            "prompt_tokens": stats.get("prompt_tokens", 0),
-            "total_tokens": stats.get("total_tokens", 0),
+            # V37.9.303 (审计 F2): producer (proxy_filters._write_stats) 只写
+            # last_prompt_tokens / last_total_tokens / max_prompt_tokens_today;
+            # 旧 key prompt_tokens/total_tokens 从不存在 → .get 默认值让报告恒 0
+            # (docs/slo_benchmark_report.md "Prompt Tokens (today) | 0" 实证)。
+            "last_prompt_tokens": stats.get("last_prompt_tokens", 0),
+            "last_total_tokens": stats.get("last_total_tokens", 0),
+            "max_prompt_tokens_today": stats.get("max_prompt_tokens_today", 0),
         },
     }
+
+    # V37.9.303 (审计 F4): 数据时效 — producer 的 updated 超龄 (复用 watchdog.stats_stale_hours,
+    # MR-8 单一源) 时报告不得把冻结数字当当前健康判定; watchdog 4h 告警是独立通道, 这里管
+    # 报告自身不撒谎。updated 缺失 (旧 schema/fixture) → 不判 stale (FAIL-OPEN)。
+    stale_hours = config.get("watchdog", {}).get("stats_stale_hours", 4)
+    data_age_min = None
+    if stats.get("updated"):
+        try:
+            _dt = datetime.strptime(stats["updated"], "%Y-%m-%d %H:%M:%S")
+            data_age_min = int((datetime.now() - _dt).total_seconds() // 60)
+        except (ValueError, TypeError):
+            pass
+    report["data_age_min"] = data_age_min
+    report["stats_stale"] = bool(data_age_min is not None and data_age_min > stale_hours * 60)
 
     # V37.9.143 (外部评审2 P0): 24h/7d 双窗口趋势 (slo_history.jsonl, 无历史 = None)
     report["trend_windows"] = build_trend_windows()
@@ -180,8 +213,13 @@ def build_report(stats, config):
     # V37.9.99 三态汇总优先级: FAIL > OBSERVING > PASS (有 FAIL 报违规, 否则有样本不足报观察中)
     # V37.9.143 四态: N_A_NO_TOOL_CALLS 不参与汇总判定 (无流量不可评判, 跳过;
     # 镜像 slo_dashboard.py V37.9.79 "overall 计算时 N/A 不算 FAIL")
-    judged = [v for v in verdicts if v != "N_A_NO_TOOL_CALLS"]
-    if any(v == "FAIL" for v in judged):
+    # V37.9.303: N_A_* 前缀统一过滤 (新增 N_A_NO_FAILURE_STREAKS 同语义)
+    judged = [v for v in verdicts if not v.startswith("N_A")]
+    if report["stats_stale"]:
+        # V37.9.303 (审计 F4): 冻结数据不出判定 — 报告显式声明陈旧, 不渲染 ALL PASS
+        report["overall_verdict"] = (
+            f"STALE_DATA (proxy_stats 已 {report['data_age_min']} 分钟未更新 — 以下为最后已知值, 非当前状态)")
+    elif any(v == "FAIL" for v in judged):
         report["overall_verdict"] = "VIOLATIONS DETECTED"
     elif any(v == "OBSERVING" for v in judged):
         report["overall_verdict"] = "OBSERVING (insufficient samples — 观察中, 样本不足不判定)"
@@ -190,7 +228,7 @@ def build_report(stats, config):
     report["pass_count"] = sum(1 for v in verdicts if v == "PASS")
     report["observing_count"] = sum(1 for v in verdicts if v == "OBSERVING")
     report["fail_count"] = sum(1 for v in verdicts if v == "FAIL")
-    report["na_count"] = sum(1 for v in verdicts if v == "N_A_NO_TOOL_CALLS")
+    report["na_count"] = sum(1 for v in verdicts if v.startswith("N_A"))
     report["total_checks"] = len(verdicts)
 
     return report
@@ -203,6 +241,10 @@ def format_markdown(report):
     lines.append("")
     lines.append(f"> Generated: {report['generated_at']}")
     lines.append(f"> Source: {report['data_source']}")
+    # V37.9.303 (审计 F4): 数据时效可见 — stale 时读者能看出下方数字是冻结值
+    if report.get("data_age_min") is not None:
+        _stale_mark = " ⚠️ **STALE**" if report.get("stats_stale") else ""
+        lines.append(f"> Data age: {report['data_age_min']} min{_stale_mark}")
     na_part = f", {report.get('na_count', 0)} n/a" if report.get('na_count', 0) else ""
     lines.append(f"> Verdict: **{report['overall_verdict']}** ({report['pass_count']}/{report['total_checks']} passed, {report.get('observing_count', 0)} observing, {report.get('fail_count', 0)} fail{na_part}; min samples ≥{report.get('min_sample_threshold', 200)})")
     lines.append("")
@@ -283,16 +325,17 @@ def format_markdown(report):
     lines.append("")
 
     # Token usage
+    # V37.9.303 (审计 F2): 改读 producer 真实 key + 标签诚实化 —
+    # last_* 是"最后一次请求"的值 (非日累计), 日语义只有 max_prompt_tokens_today;
+    # 旧 "Avg Tokens/Request" (= last_total/total_requests) 语义无意义, 已退役。
     tok = report["tokens"]
     lines.append("## Token Usage")
     lines.append("")
     lines.append(f"| Metric | Value |")
     lines.append(f"|--------|-------|")
-    lines.append(f"| Prompt Tokens (today) | {tok['prompt_tokens']:,} |")
-    lines.append(f"| Total Tokens (today) | {tok['total_tokens']:,} |")
-    if report["observation_window"]["total_requests"] > 0:
-        avg = tok["total_tokens"] // report["observation_window"]["total_requests"]
-        lines.append(f"| Avg Tokens/Request | {avg:,} |")
+    lines.append(f"| Last Request Prompt Tokens | {tok['last_prompt_tokens']:,} |")
+    lines.append(f"| Last Request Total Tokens | {tok['last_total_tokens']:,} |")
+    lines.append(f"| Max Prompt Tokens (today) | {tok['max_prompt_tokens_today']:,} |")
     lines.append("")
 
     # V37.9.143 (外部评审2 P0): 阈值调整原因正文化 (config.yaml V37.9.79 注释升级为报告正文)

@@ -11,7 +11,9 @@ samples=1 标 ALL PASS 的统计无意义问题. make_stats 默认样本调到 �
 import json
 import os
 import tempfile
+import time
 import unittest
+from datetime import datetime, timedelta
 
 from slo_benchmark import build_report, format_markdown, read_stats, _verdict, MIN_SAMPLE_THRESHOLD
 
@@ -19,11 +21,18 @@ from slo_benchmark import build_report, format_markdown, read_stats, _verdict, M
 def make_stats(total=250, errors=2, p50=5000, p95=12000, p99=25000,
                max_lat=28000, samples=250, tool_total=250, tool_success=245,
                fallback=1, timeout=1, recovery=250, streaks=250,
-               prompt_tokens=50000, total_tokens=80000):
+               last_prompt_tokens=50000, last_total_tokens=80000,
+               max_prompt_tokens_today=60000, updated=None):
     """Helper: build a proxy_stats dict for testing.
 
     V37.9.99: 默认样本基数 ≥200 (samples/total/tool_total/streaks=250) 让
     PASS/FAIL 测试越过 OBSERVING 门槛. 测 OBSERVING 时显式传小样本.
+
+    V37.9.303: fixture 忠实于 producer schema (proxy_filters._write_stats) —
+    token 键是 last_prompt_tokens/last_total_tokens/max_prompt_tokens_today +
+    updated 时间戳; 顶层 prompt_tokens/total_tokens 从不被 producer 写出。
+    (V37.9.299 ndarray-faithful fake 同款教训: fake 偏离生产 schema → 测试
+    全绿而生产报告 token 恒 0。)
     """
     total_errors_by_type = {"timeout": timeout, "context_overflow": 0, "backend": 0, "other": errors - timeout}
     deg_pct = round(fallback / total * 100, 2) if total > 0 else 0
@@ -31,10 +40,12 @@ def make_stats(total=250, errors=2, p50=5000, p95=12000, p99=25000,
     tool_pct = round(tool_success / tool_total * 100, 2) if tool_total > 0 else 100.0
     rec_pct = round(recovery / streaks * 100, 2) if streaks > 0 else 100.0
     return {
+        "updated": updated if updated is not None else time.strftime("%Y-%m-%d %H:%M:%S"),
         "total_requests": total,
         "total_errors": errors,
-        "prompt_tokens": prompt_tokens,
-        "total_tokens": total_tokens,
+        "last_prompt_tokens": last_prompt_tokens,
+        "last_total_tokens": last_total_tokens,
+        "max_prompt_tokens_today": max_prompt_tokens_today,
         "slo": {
             "latency": {"p50": p50, "p95": p95, "p99": p99, "max": max_lat, "count": samples},
             "errors_by_type": total_errors_by_type,
@@ -114,11 +125,13 @@ class TestBuildReport(unittest.TestCase):
         self.assertEqual(report["observation_window"]["success_rate_pct"], 0)
 
     def test_token_included(self):
-        """Token usage should be in report."""
-        stats = make_stats(prompt_tokens=12345, total_tokens=23456)
+        """V37.9.303 (审计 F2): token 从 producer 真实 key 读出 (last_*/max_*_today)."""
+        stats = make_stats(last_prompt_tokens=12345, last_total_tokens=23456,
+                           max_prompt_tokens_today=34567)
         report = build_report(stats, make_config())
-        self.assertEqual(report["tokens"]["prompt_tokens"], 12345)
-        self.assertEqual(report["tokens"]["total_tokens"], 23456)
+        self.assertEqual(report["tokens"]["last_prompt_tokens"], 12345)
+        self.assertEqual(report["tokens"]["last_total_tokens"], 23456)
+        self.assertEqual(report["tokens"]["max_prompt_tokens_today"], 34567)
 
 
 class TestObservingThreshold(unittest.TestCase):
@@ -351,11 +364,20 @@ class TestFormatMarkdown(unittest.TestCase):
         self.assertIn("OBSERVING", md)
         self.assertIn("≥200", md)  # min samples 门槛展示
 
-    def test_avg_tokens_per_request(self):
-        """Avg tokens/request should be computed when requests > 0."""
-        report = build_report(make_stats(total=10, total_tokens=10000), make_config())
+    def test_token_section_renders_real_keys(self):
+        """V37.9.303 (审计 F2): Token 段渲染 producer 真值 + 诚实标签;
+        旧 'Avg Tokens/Request' (= last_total/total_requests, 语义无意义) 已退役,
+        旧 '(today)' 误导标签 (last_* 是最后一次请求非日累计) 已退役."""
+        report = build_report(make_stats(last_prompt_tokens=11111,
+                                         max_prompt_tokens_today=22222), make_config())
         md = format_markdown(report)
-        self.assertIn("1,000", md)
+        self.assertIn("Last Request Prompt Tokens | 11,111", md)
+        self.assertIn("Max Prompt Tokens (today) | 22,222", md)
+        self.assertNotIn("Avg Tokens/Request", md)
+        # 旧误导标签精确匹配 (带前导 "| ", 避免被新行 "| Max Prompt Tokens (today)" 的
+        # 子串误咬 — V37.9.178 守卫被自己内容咬家族)
+        self.assertNotIn("| Prompt Tokens (today) |", md)
+        self.assertNotIn("| Total Tokens (today) |", md)
 
 
 class TestReadStats(unittest.TestCase):
@@ -380,6 +402,77 @@ class TestReadStats(unittest.TestCase):
             result = read_stats(f.name)
         os.unlink(f.name)
         self.assertIsNone(result)
+
+
+class TestV379303ReadSideHonesty(unittest.TestCase):
+    """V37.9.303 SLO 读侧口径审计守卫 (F2 token key 漂移 / F3 recovery 样本单位 / F4 staleness)."""
+
+    def test_fixture_is_producer_faithful_no_legacy_token_keys(self):
+        """守卫的守卫: fixture 不得回退到 producer 从不写的顶层 prompt_tokens/total_tokens
+        (V37.9.299 fake-faithful 教训 — fake 偏离生产 schema 会让整套测试对 key 漂移失明)."""
+        stats = make_stats()
+        self.assertNotIn("prompt_tokens", stats)
+        self.assertNotIn("total_tokens", stats)
+        self.assertIn("last_prompt_tokens", stats)
+        self.assertIn("max_prompt_tokens_today", stats)
+        self.assertIn("updated", stats)
+
+    def test_recovery_blood_case_three_streaks_zero_recovery_fails(self):
+        """审计 F3 血案回归: 3 个 failure streak 0 恢复 = 真违规必须 FAIL —
+        旧代码用请求域 min_samples=200 比较 streak 数 → FAIL 结构性不可达
+        (单日 200 个 streak ≈ 600+ 连续错误), 真违规永远被 OBSERVING 吸收."""
+        stats = make_stats(recovery=0, streaks=3)
+        report = build_report(stats, make_config())
+        self.assertEqual(report["recovery"]["verdict"], "FAIL")
+        self.assertEqual(report["overall_verdict"], "VIOLATIONS DETECTED")
+
+    def test_recovery_zero_streaks_is_na(self):
+        """streaks==0 → N_A_NO_FAILURE_STREAKS (无失败可恢复 = 好消息, ≠ 样本不足),
+        不参与汇总判定 (镜像 N_A_NO_TOOL_CALLS V37.9.143)."""
+        stats = make_stats(recovery=0, streaks=0)
+        report = build_report(stats, make_config())
+        self.assertEqual(report["recovery"]["verdict"], "N_A_NO_FAILURE_STREAKS")
+        self.assertNotIn("VIOLATIONS", report["overall_verdict"])
+        self.assertGreaterEqual(report["na_count"], 1)
+
+    def test_recovery_below_streak_floor_observing(self):
+        """0 < streaks < min_streak_count(默认 3) → OBSERVING (streak 域小样本诚实)."""
+        stats = make_stats(recovery=0, streaks=2)
+        report = build_report(stats, make_config())
+        self.assertEqual(report["recovery"]["verdict"], "OBSERVING")
+
+    def test_recovery_streak_floor_config_plumbing(self):
+        """min_streak_count 走 config slo 段 (V32 阈值中心化), 非硬编码."""
+        cfg = make_config()
+        cfg["slo"]["min_streak_count"] = 5
+        stats = make_stats(recovery=0, streaks=4)
+        report = build_report(stats, cfg)
+        self.assertEqual(report["recovery"]["verdict"], "OBSERVING")
+
+    def test_stale_stats_override_verdict(self):
+        """审计 F4: producer updated 超龄 (> watchdog.stats_stale_hours 默认 4h) →
+        overall=STALE_DATA + 报告头 STALE 标注, 冻结数据不渲染 ALL PASS."""
+        old = (datetime.now() - timedelta(hours=6)).strftime("%Y-%m-%d %H:%M:%S")
+        stats = make_stats(updated=old)
+        report = build_report(stats, make_config())
+        self.assertTrue(report["stats_stale"])
+        self.assertIn("STALE_DATA", report["overall_verdict"])
+        md = format_markdown(report)
+        self.assertIn("STALE", md)
+
+    def test_fresh_stats_not_stale(self):
+        """新鲜 updated (fixture 默认 now) → 不判 stale, 正常判定."""
+        report = build_report(make_stats(), make_config())
+        self.assertFalse(report["stats_stale"])
+        self.assertIsNotNone(report["data_age_min"])
+
+    def test_missing_updated_fail_open(self):
+        """updated 缺失 (旧 schema/损坏) → 不判 stale (FAIL-OPEN), 不崩."""
+        stats = make_stats()
+        del stats["updated"]
+        report = build_report(stats, make_config())
+        self.assertFalse(report["stats_stale"])
+        self.assertIsNone(report["data_age_min"])
 
 
 if __name__ == "__main__":

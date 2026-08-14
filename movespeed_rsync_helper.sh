@@ -8,10 +8,18 @@
 #   Phase 2 retry 3 次 10s/20s 指数退避 (transient EPERM 通常 30s 内自愈)
 #   Phase 3 全部失败才调 movespeed_incident_capture.sh 取证 + 推 WARN: SSD
 #
-# Usage: bash $HOME/movespeed_rsync_helper.sh <caller_path> -- <rsync args...>
+# Usage: bash $HOME/movespeed_rsync_helper.sh [--strict-exit] <caller_path> -- <rsync args...>
 # Example:
 #   bash "$HOME/movespeed_rsync_helper.sh" "$0" -- -a "$KB_BASE/dreams/" \
 #        "/Volumes/MOVESPEED/KB/dreams/"
+#
+# --strict-exit (V37.9.304, 对抗审计 C1): opt-in 真实退出码 — 仅供把本 helper 的
+#   rc 当成败信号的调用方 (movespeed_daily_sync.sh)。默认 fail-open exit 0 契约
+#   对 20 个 set -eo pipefail 内容 job 调用方保持逐字节不变。
+#   strict 模式退出码: 0=rsync 成功 / 1=全部重试失败 / 3=TM 备份进行中跳过。
+#   血案: daily_sync 曾用 RC=$? 判成败, 而 helper 恒 exit 0 → status:"failed"
+#   分支死代码, rsync 三连败仍写 status:ok + "OK: synced" (MOVESPEED 60 天
+#   潜伏血案同形复活 — V37.9.287 watchdog catch-all 结构上永不触发)。
 #
 # Replaces existing pattern at 20 sites (V37.9.4 INV-BACKUP-001 + V37.9.14
 # INV-BACKUP-001 check 4):
@@ -28,6 +36,8 @@
 #   0    rsync succeeded (possibly after retry) OR all retries failed
 #        (V37.9.31: fail-open — see "set -e contract" below)
 #   2    usage error (missing args / no -- separator)
+#   With --strict-exit (V37.9.304, opt-in only):
+#   0    rsync succeeded / 1  all retries failed / 3  skipped (TM backup running)
 #
 # set -e contract (V37.9.31 — restored V37.9.4-V37.9.26 invariant):
 #   Helper ALWAYS exits 0 even when rsync fails. fail-loud is achieved via:
@@ -52,8 +62,14 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd 2>/dev/null)" || SCRIPT_DIR="$HOME"
 CAPTURE_HELPER="$SCRIPT_DIR/movespeed_incident_capture.sh"
 
 # ── Argument parsing ──────────────────────────────────────────────────────
+# V37.9.304: --strict-exit 可选前置 flag (真实退出码, 仅 status-writer 调用方用)
+STRICT_EXIT=0
+if [ "${1:-}" = "--strict-exit" ]; then
+    STRICT_EXIT=1
+    shift
+fi
 if [ $# -lt 2 ]; then
-    echo "usage: $(basename "$0") <caller_path> -- <rsync args...>" >&2
+    echo "usage: $(basename "$0") [--strict-exit] <caller_path> -- <rsync args...>" >&2
     echo "  caller_path: typically \"\$0\" from invoking script" >&2
     echo "  --: separator before rsync args" >&2
     exit 2
@@ -79,6 +95,11 @@ if [ "${MOVESPEED_RSYNC_SKIP_TMUTIL_CHECK:-0}" != "1" ] && command -v tmutil >/d
     TM_STATUS="$(tmutil status 2>/dev/null || true)"
     if echo "$TM_STATUS" | grep -q 'Running = 1'; then
         echo "[$(basename "$CALLER")] movespeed_rsync_helper: Time Machine 备份进行中, 跳过 rsync 避 SSD I/O 争用 EOF (下次 cron 重试, 不算 incident) — V37.9.106" >&2
+        # V37.9.304: strict 模式用 exit 3 告知"跳过未同步" — 对每日仅跑一次的
+        # daily_sync, TM 跳过 = 整天不备份, 必须在状态文件可见 (非 fail-open 吞掉)
+        if [ "$STRICT_EXIT" = "1" ]; then
+            exit 3
+        fi
         exit 0
     fi
 fi
@@ -144,6 +165,12 @@ if [ -x "$CAPTURE_HELPER" ]; then
     "$CAPTURE_HELPER" "$EXIT_CODE" "$CALLER" || true
 elif [ -f "$CAPTURE_HELPER" ]; then
     bash "$CAPTURE_HELPER" "$EXIT_CODE" "$CALLER" || true
+fi
+
+# V37.9.304 (对抗审计 C1): --strict-exit 调用方 (movespeed_daily_sync) 需要真实
+# 成败信号写状态文件 — 仅 opt-in 时返回 1, 默认契约不变。
+if [ "$STRICT_EXIT" = "1" ]; then
+    exit 1
 fi
 
 # V37.9.31: fail-open exit 0 — preserves caller's set -e liveness.

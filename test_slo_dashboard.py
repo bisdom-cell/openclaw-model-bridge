@@ -19,13 +19,20 @@ from slo_dashboard import (
 
 
 def _make_stats(total=100, errors=2, p50=200, p95=500, p99=1500,
-                fallback=1, tool_total=50, tool_success=48):
-    """Helper to create a proxy_stats-like dict."""
+                fallback=1, tool_total=50, tool_success=48, updated=None):
+    """Helper to create a proxy_stats-like dict.
+
+    V37.9.303: fixture 忠实于 producer schema (proxy_filters._write_stats) —
+    token 键是 last_prompt_tokens/max_prompt_tokens_today + updated 时间戳;
+    顶层 prompt_tokens/total_tokens 从不被 producer 写出 (V37.9.299 fake-faithful 教训)。
+    """
     return {
+        "updated": updated if updated is not None else time.strftime("%Y-%m-%d %H:%M:%S"),
         "total_requests": total,
         "total_errors": errors,
-        "prompt_tokens": 50000,
-        "total_tokens": 80000,
+        "last_prompt_tokens": 50000,
+        "last_total_tokens": 80000,
+        "max_prompt_tokens_today": 60000,
         "slo": {
             "latency": {"p50": p50, "p95": p95, "p99": p99, "max": 3000, "count": total},
             "errors_by_type": {"timeout": 1, "backend": 1, "context_overflow": 0, "other": 0},
@@ -150,13 +157,16 @@ class TestFilterHistory(unittest.TestCase):
 
 class TestComputeTrends(unittest.TestCase):
     def test_basic(self):
+        """V37.9.303 (审计 F1): requests/errors 是日累计 gauge, 窗口总量 = 相邻快照增量和
+        (50→60 = 10 新请求), 不是 sum(快照) = 110 (旧口径把同一请求重复计数 ~12×/天)."""
         entries = [
             {"ts": "2026-04-05T10:00:00", "requests": 50, "errors": 1, "p95_ms": 400, "success_pct": 98, "degradation_pct": 1},
             {"ts": "2026-04-05T11:00:00", "requests": 60, "errors": 2, "p95_ms": 600, "success_pct": 96.7, "degradation_pct": 2},
         ]
         trend = compute_trends(entries)
         self.assertEqual(trend["period_snapshots"], 2)
-        self.assertEqual(trend["total_requests"], 110)
+        self.assertEqual(trend["total_requests"], 10)
+        self.assertEqual(trend["total_errors"], 1)
         self.assertAlmostEqual(trend["avg_p95_ms"], 500.0)
         self.assertIn("p95_sparkline", trend)
 
@@ -287,6 +297,111 @@ class TestTrimHistory(unittest.TestCase):
             self.assertEqual(entries[0]["ts"], "T5")  # oldest kept
         finally:
             os.unlink(path)
+
+
+class TestV379303DashboardHonesty(unittest.TestCase):
+    """V37.9.303 SLO 读侧口径审计守卫 (F1 计数器增量 / F2 token key / F4 幽灵行+staleness / F5 零数据 N/A)."""
+
+    def test_fixture_is_producer_faithful(self):
+        """守卫的守卫: fixture 不得回退到 producer 从不写的顶层 prompt_tokens/total_tokens."""
+        stats = _make_stats()
+        self.assertNotIn("prompt_tokens", stats)
+        self.assertNotIn("total_tokens", stats)
+        self.assertIn("last_prompt_tokens", stats)
+        self.assertIn("updated", stats)
+
+    def test_snapshot_carries_real_token_keys_and_stats_updated(self):
+        """审计 F2/F4: 快照读 producer 真实 token key + 携带数据时刻 stats_updated."""
+        snap = extract_snapshot(_make_stats(updated="2026-08-14 10:00:00"))
+        self.assertEqual(snap["last_prompt_tokens"], 50000)
+        self.assertEqual(snap["max_prompt_tokens_today"], 60000)
+        self.assertEqual(snap["stats_updated"], "2026-08-14 10:00:00")
+        self.assertNotIn("prompt_tokens", snap)
+        self.assertNotIn("total_tokens", snap)
+
+    def test_counter_delta_across_daily_reset(self):
+        """审计 F1: 跨日重置 (cur < prev) → 计 cur (重置后新增量), 不产生负数/虚报.
+        24(昨日累计) → 3(今晨重置后) → 8: 窗口增量 = 3 + 5 = 8."""
+        entries = [
+            {"ts": "2026-08-13T23:00:00", "requests": 24, "errors": 2, "p95_ms": 400, "success_pct": 98, "degradation_pct": 0},
+            {"ts": "2026-08-14T00:05:00", "requests": 3, "errors": 0, "p95_ms": 400, "success_pct": 100, "degradation_pct": 0},
+            {"ts": "2026-08-14T01:05:00", "requests": 8, "errors": 1, "p95_ms": 400, "success_pct": 95, "degradation_pct": 0},
+        ]
+        trend = compute_trends(entries)
+        self.assertEqual(trend["total_requests"], 8)
+        self.assertEqual(trend["total_errors"], 1)
+
+    def test_counter_delta_single_entry_is_baseline_only(self):
+        """单条快照仅作 baseline (增量不可观测) → 0, 诚实欠计优于 12× 虚报."""
+        entries = [{"ts": "2026-08-14T10:00:00", "requests": 50, "errors": 5, "p95_ms": 300, "success_pct": 90, "degradation_pct": 0}]
+        trend = compute_trends(entries)
+        self.assertEqual(trend["total_requests"], 0)
+        self.assertEqual(trend["total_errors"], 0)
+
+    def test_degradation_avg_excludes_zero_traffic_snapshots(self):
+        """审计 F1 次级: 零流量快照 (degradation 恒 0) 不稀释降级率均值."""
+        entries = [
+            {"ts": "2026-08-14T10:00:00", "requests": 10, "errors": 0, "p95_ms": 300, "success_pct": 100, "degradation_pct": 8.0},
+            {"ts": "2026-08-14T11:00:00", "requests": 0, "errors": 0, "p95_ms": 0, "success_pct": 0, "degradation_pct": 0.0},
+        ]
+        trend = compute_trends(entries)
+        self.assertAlmostEqual(trend["avg_degradation_pct"], 8.0)
+
+    def test_ghost_snapshot_dedup(self):
+        """审计 F4: producer updated 未变 (proxy 挂/零流量) → 不追加幽灵快照行."""
+        import slo_dashboard
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump(_make_stats(updated="2026-08-14 09:00:00"), f)
+            stats_path = f.name
+        with tempfile.TemporaryDirectory() as tmpdir:
+            history_path = os.path.join(tmpdir, "history.jsonl")
+            orig = slo_dashboard._history_path
+            slo_dashboard._history_path = lambda: history_path
+            try:
+                snap1 = take_snapshot(stats_path)
+                self.assertIsNotNone(snap1)
+                snap2 = take_snapshot(stats_path)  # 同一 updated → 幽灵行, 应跳过
+                self.assertIsNone(snap2)
+                self.assertEqual(len(load_history(history_path)), 1)
+            finally:
+                slo_dashboard._history_path = orig
+                os.unlink(stats_path)
+
+    def test_zero_data_verdicts_na_not_all_pass(self):
+        """审计 F5: 空 stats (p95==0/requests==0) → verdicts N/A + overall N/A,
+        零信息不再渲染 ALL PASS (V37.9.288 B-F2 '[] 双关语义' 家族)."""
+        dashboard = build_dashboard(stats={"total_requests": 0, "total_errors": 0, "slo": {}},
+                                    history=[], config={})
+        v = dashboard["verdicts"]
+        self.assertEqual(v["latency"], "N/A")
+        self.assertEqual(v["success"], "N/A")
+        self.assertEqual(v["degradation"], "N/A")
+        self.assertEqual(dashboard["overall"], "N/A")
+
+    def test_stale_stats_override_overall(self):
+        """审计 F4: updated 超龄 (> watchdog.stats_stale_hours 默认 4h) → overall=STALE_DATA
+        + md 渲染陈旧警示, 冻结数据不当当前健康."""
+        from datetime import datetime, timedelta
+        old = (datetime.now() - timedelta(hours=6)).strftime("%Y-%m-%d %H:%M:%S")
+        dashboard = build_dashboard(stats=_make_stats(updated=old), history=[], config={})
+        self.assertTrue(dashboard["stats_stale"])
+        self.assertEqual(dashboard["overall"], "STALE_DATA")
+        md = format_dashboard_md(dashboard)
+        self.assertIn("数据陈旧", md)
+
+    def test_fresh_stats_normal_verdict(self):
+        """新鲜 updated → 正常判定不受 staleness 影响."""
+        dashboard = build_dashboard(stats=_make_stats(), history=[], config={})
+        self.assertFalse(dashboard["stats_stale"])
+        self.assertNotEqual(dashboard["overall"], "STALE_DATA")
+
+    def test_missing_updated_fail_open(self):
+        """updated 缺失 (旧 schema) → 不判 stale (FAIL-OPEN)."""
+        stats = _make_stats()
+        del stats["updated"]
+        dashboard = build_dashboard(stats=stats, history=[], config={})
+        self.assertFalse(dashboard["stats_stale"])
+        self.assertIsNone(dashboard["data_age_min"])
 
 
 if __name__ == "__main__":

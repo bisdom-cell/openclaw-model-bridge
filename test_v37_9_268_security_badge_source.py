@@ -22,6 +22,7 @@ import unittest
 REPO = os.path.dirname(os.path.abspath(__file__))
 FULL_REG = os.path.join(REPO, "full_regression.sh")
 GEN_BADGES = os.path.join(REPO, "gen_readme_badges.py")
+KB_STATUS_REFRESH = os.path.join(REPO, "kb_status_refresh.sh")
 
 
 def _read(path):
@@ -80,6 +81,66 @@ class TestSecurityBadgeSourceDecoupling(unittest.TestCase):
         # 根因关键词: Git 协议子项 / 徽章源 / 发布态
         self.assertIn("徽章源", self.fr, "应保留徽章源根因注释")
         self.assertIn("发布态", self.fr, "应保留 quality 作稳定发布态徽章源的说明")
+
+
+class TestV379303AllWritersConverged(unittest.TestCase):
+    """V37.9.303 (SLO 读侧审计 F6): 冻结徽章源的写者全量收敛 (原则 #31)。
+
+    V37.9.268 只 pin 了 full_regression 一个写者; kb_status_refresh.sh 4b 段每小时
+    cron 仍在 `--set quality.security_score <环境实时值>` = 漏网第二写者, 冻结不变式
+    被每小时静默打破 (当前实时分恰==98 徽章值 → 零可见症状, 这正是它存活的原因)。
+    本类把守卫扩到全仓: 除手动操作外, 任何脚本不得写 quality.security_score。
+    """
+
+    def setUp(self):
+        self.ksr = _read(KB_STATUS_REFRESH)
+
+    def test_kb_status_refresh_no_quality_security_score_command(self):
+        """kb_status_refresh 不得再用 `--set quality.security_score` 覆盖冻结徽章源。"""
+        cmd = re.search(r"--set\s+quality\.security_score\b", self.ksr)
+        self.assertIsNone(
+            cmd,
+            "kb_status_refresh.sh 不应写 quality.security_score (V37.9.268 冻结徽章源仅手动 --set; "
+            "本文件曾是漏网第二写者, 每小时用环境实时值覆盖)",
+        )
+
+    def test_kb_status_refresh_records_health_security(self):
+        """诊断值归 health.security_score (与 full_regression V37.9.268 同向)。"""
+        cmd = re.search(r"--set\s+health\.security_score\b", self.ksr)
+        self.assertIsNotNone(cmd, "kb_status_refresh.sh 应把实时 security 记进 health.security_score")
+
+    def test_no_other_script_writes_quality_security_score(self):
+        """全仓扫描: 运行时 .sh/.py 中不存在其他 `--set quality.security_score` 写者
+        (防未来第三写者重演原则 #31 漏同步; 文档/注释/测试提及不算)。"""
+        offenders = []
+        for root, dirs, files in os.walk(REPO):
+            dirs[:] = [d for d in dirs if d not in (".git", "docs", "__pycache__", "node_modules")]
+            for fn in files:
+                if not (fn.endswith(".sh") or fn.endswith(".py")) or fn.startswith("test_"):
+                    continue
+                # status_update.py 自身豁免: 其 CLI 帮助文档以 docstring 示范
+                # `--set quality.security_score 92` = 被 V37.9.268 认可的手动操作入口,
+                # 不是自动写者 (它是被调用的 helper, 不主动发起写)。
+                if fn == "status_update.py":
+                    continue
+                path = os.path.join(root, fn)
+                try:
+                    content = _read(path)
+                except (OSError, UnicodeDecodeError):
+                    continue
+                for m in re.finditer(r"--set\s+quality\.security_score\b", content):
+                    line_start = content.rfind("\n", 0, m.start()) + 1
+                    line = content[line_start:content.find("\n", m.start())]
+                    if line.lstrip().startswith("#"):
+                        continue  # 注释提及 (如修复说明) 合法
+                    offenders.append(os.path.relpath(path, REPO))
+        self.assertEqual(
+            offenders, [],
+            f"发现新的 quality.security_score 脚本写者 (冻结徽章源仅手动 --set): {offenders}")
+
+    def test_v37_9_303_marker(self):
+        """kb_status_refresh 带 V37.9.303 修复注释 (根因可追溯)。"""
+        self.assertIn("V37.9.303", self.ksr)
 
 
 class TestBehaviorQualityStable(unittest.TestCase):
