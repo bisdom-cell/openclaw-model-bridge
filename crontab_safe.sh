@@ -120,8 +120,13 @@ cmd_remove() {
     fi
 
     # 计算匹配行数 (grep -c 已输出 0 当无匹配, || true 仅安抚 pipefail 不再额外 echo)
+    # V37.9.304 (对抗审计 C2): 只数活跃行 (剥注释/空行, 与 count_entries 同口径) —
+    # 旧版对全部行计数, pattern 命中任一注释行时 expected=(active_before - 全行匹配数)
+    # 必与 count_after 不等 → 正确的删除被误回滚 (fail-closed 但让唯一安全删除工具
+    # 对带注释 crontab 不可用)。注释行仍会被下方 grep -vF 一并删除 (顺带清理), 但
+    # 不参与活跃条目数验证。
     local matched_count
-    matched_count=$(crontab -l 2>/dev/null | grep -cF -- "$pattern" || true)
+    matched_count=$(crontab -l 2>/dev/null | grep -v '^#' | grep -v '^$' | grep -cF -- "$pattern" || true)
     matched_count=$(echo "$matched_count" | tr -d ' \n')
 
     if [ "$matched_count" -eq 0 ]; then
@@ -214,7 +219,14 @@ cmd_restore() {
     restore_count=$(grep -v '^#' "$restore_file" | grep -v '^$' | wc -l | tr -d ' ')
 
     echo "[crontab_safe] 从 $restore_file 恢复（$restore_count 条活跃条目）"
-    crontab "$restore_file"
+    # V37.9.304 (对抗审计 C2): 恢复退出码检查 — cmd_restore 是 add/remove 验证失败
+    # 的自动回滚路径, cron spool 写入失败时曾无条件打 ✅ 已恢复 = 防清空血案的唯一
+    # 恢复动作静默未发生, 用户看到 "自动回滚！✅" 便不再检查, crontab 停留在坏状态
+    if ! crontab "$restore_file"; then
+        echo "❌ 恢复失败: crontab 安装返回非零 (cron spool 写入失败/daemon 异常?)"
+        echo "   crontab 可能停留在坏状态 — 请手动验证: crontab -l | head; 备份在 $restore_file"
+        exit 1
+    fi
     echo "✅ 已恢复"
 }
 

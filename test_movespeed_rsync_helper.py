@@ -642,11 +642,22 @@ class TestTmutilSourceGuards(unittest.TestCase):
             "必须检测 tmutil status 的 Running = 1")
 
     def test_skip_is_fail_open_exit_0(self):
-        """TM 备份中跳过分支必须 exit 0 (fail-open, 不算 incident)."""
+        """TM 备份中跳过分支默认必须 exit 0 (fail-open, 不算 incident)。
+
+        V37.9.304 演进: 分支内先有 strict opt-in 的 `exit 3` (daily_sync 需要
+        "跳过未同步"可见, 对每日一次的 job TM 跳过=整天不备份), 默认路径仍以
+        exit 0 结尾 — 窗口放宽到 600 字符并断言两种语义共存且顺序正确
+        (strict exit 3 在前受 STRICT_EXIT 门控, 默认 exit 0 兜底)。
+        """
         idx = self.src.find("Time Machine 备份进行中")
         self.assertGreater(idx, 0)
-        after = self.src[idx:idx + 200]
-        self.assertIn("exit 0", after, "跳过分支必须 exit 0")
+        after = self.src[idx:idx + 600]
+        self.assertIn("exit 0", after, "跳过分支默认路径必须 exit 0")
+        self.assertIn("exit 3", after, "strict 模式跳过必须 exit 3 (V37.9.304)")
+        self.assertIn('"$STRICT_EXIT" = "1"', after,
+                      "exit 3 必须受 STRICT_EXIT 门控 (默认契约不变)")
+        self.assertLess(after.find("exit 3"), after.find("exit 0"),
+                        "strict exit 3 门控在前, 默认 exit 0 兜底在后")
 
 
 class TestV37_9_110_IncidentFileIsolation(unittest.TestCase):

@@ -16,8 +16,13 @@ log "=== movespeed_daily_sync start ===" >> "$LOG"
 SRC="$HOME/.kb/"
 DST="/Volumes/MOVESPEED/KB/"
 
-if [ ! -d "/Volumes/MOVESPEED" ]; then
-    log "WARN: SSD not mounted, skip sync" >> "$LOG"
+# V37.9.304 (对抗审计 C7): 挂载检测查 mount 表而非仅 -d — 不洁弹出/卸载竞态可在
+# /Volumes/MOVESPEED 留下本地幽灵目录, -d 永真后全量 KB rsync 会写进启动盘
+# (真 SSD 再插入被挂到 "/Volumes/MOVESPEED 1"), rc 0/status ok 全绿零 incident。
+# 精确匹配 " on /Volumes/MOVESPEED (" 防幽灵目录场景下松匹配误认 "MOVESPEED 1"。
+# 非 macOS (dev, 无 mount 表该挂载) 自然落 skip 分支 — 本 job 仅 Mac Mini 运行。
+if [ ! -d "/Volumes/MOVESPEED" ] || ! mount | grep -q " on /Volumes/MOVESPEED ("; then
+    log "WARN: SSD not mounted (dir or mount-table check failed), skip sync" >> "$LOG"
     # V37.9.287: 时间键 ts→time — watchdog/kb_status_refresh/observer 全部读 time,
     # ts 键即使登记也解析不出 (状态文件格式异常)。与全部 last_run 写者对齐。
     printf '{"status":"skipped_no_ssd","time":"%s"}\n' "$TIMESTAMP" > "$STATUS_FILE" 2>/dev/null
@@ -26,13 +31,17 @@ fi
 
 mkdir -p "$DST" 2>/dev/null
 
+# V37.9.304 (对抗审计 C1): helper 的默认契约是 fail-open 恒 exit 0 (20 个 set -e
+# 内容 job 依赖, V37.9.31) — 本脚本曾用裸 RC=$? 判成败 → status:"failed" 分支死代码,
+# rsync 三连败仍写 status:ok + "OK: synced $SIZE" (SIZE 是 du 陈旧 DST, 数字看着
+# 完全合理) = MOVESPEED 60 天潜伏血案同形。改用 --strict-exit opt-in 真实退出码
+# (0=成功 / 1=重试后失败 / 3=TM 备份进行中跳过), RC 捕获走 || 惯例 (set -e 安全)。
 HELPER="$HOME/movespeed_rsync_helper.sh"
+RC=0
 if [ -f "$HELPER" ]; then
-    bash "$HELPER" "$0" -- -av --delete "$SRC" "$DST" >> "$LOG" 2>&1
-    RC=$?
+    bash "$HELPER" --strict-exit "$0" -- -av --delete "$SRC" "$DST" >> "$LOG" 2>&1 || RC=$?
 else
-    rsync -av --delete "$SRC" "$DST" >> "$LOG" 2>&1
-    RC=$?
+    rsync -av --delete "$SRC" "$DST" >> "$LOG" 2>&1 || RC=$?
     if [ "$RC" -ne 0 ]; then
         log "WARN: SSD rsync failed (exit=$RC), helper not found" >> "$LOG"
     fi
@@ -42,6 +51,11 @@ if [ "$RC" -eq 0 ]; then
     SIZE=$(du -sh "$DST" 2>/dev/null | cut -f1)
     log "OK: synced $SRC → $DST ($SIZE)" >> "$LOG"
     printf '{"status":"ok","time":"%s","size":"%s"}\n' "$TIMESTAMP" "$SIZE" > "$STATUS_FILE" 2>/dev/null
+elif [ "$RC" -eq 3 ]; then
+    # TM 备份进行中跳过 = 本日未同步, 必须可见 (watchdog catch-all 告警非 ok 状态 —
+    # 与 skipped_no_ssd 同语义: "备份不发生本身就该可见", V37.9.287)
+    log "WARN: sync skipped (Time Machine backup running) — 本日未同步" >> "$LOG"
+    printf '{"status":"skipped_tm_backup","time":"%s"}\n' "$TIMESTAMP" > "$STATUS_FILE" 2>/dev/null
 else
     log "WARN: sync failed (exit=$RC)" >> "$LOG"
     printf '{"status":"failed","time":"%s","exit_code":%d}\n' "$TIMESTAMP" "$RC" > "$STATUS_FILE" 2>/dev/null

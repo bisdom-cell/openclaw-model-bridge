@@ -676,7 +676,13 @@ else
 fi
 
 # 5b. Crontab 条目数检查（V30 事故防护：crontab 被意外清空）
-CRON_COUNT=$(crontab -l 2>/dev/null | grep -cvE "^#|^$" || echo "0")
+# V37.9.304 (对抗审计 C3): 退役 `|| echo "0"` — grep -c 无匹配时自己已输出 "0" 且
+# rc=1, || echo 再补一行 → CRON_COUNT="0\n0" → [ -lt 10 ] "integer expression
+# expected" 判假 → 落 else 分支 STATS_PASS = 清空告警在目标状态自我中和 (dev 实测
+# 复现: 空 crontab 得 SILENT_PASS)。grep 输出已完备, || true 仅安抚 rc (镜像
+# crontab_safe.sh matched_count 同款注释契约)。
+CRON_COUNT=$(crontab -l 2>/dev/null | grep -cvE "^#|^$" || true)
+CRON_COUNT=$(echo "$CRON_COUNT" | tr -d ' \n')
 if [ "$CRON_COUNT" -lt 10 ]; then
     ALERTS+=("⚠️ Crontab 仅 $CRON_COUNT 条有效条目（应≥15，可能被意外清空！）")
 elif [ "$CRON_COUNT" -lt 15 ]; then
@@ -726,12 +732,23 @@ try:
             pass
 
     # 请求吞吐量检查（total_requests 为 0 → proxy 可能从未成功处理请求）
+    # V37.9.304 (对抗审计 B-F7): 阈值改读 config alerts.error_rate_alert_pct —
+    # 该 key 自 V32 声明以来零消费者 (孤儿键), 此处硬编码 20 是唯一实现, 运维改
+    # config 收紧阈值会静默无效 (阈值中心化漂移通道)。FAIL-OPEN fallback 20。
     total = s.get('total_requests', 0)
     errors = s.get('total_errors', 0)
     if total > 0 and errors > 0:
         error_rate = errors / total * 100
-        if error_rate > 20:
-            alerts.append(f'Proxy 错误率 {error_rate:.1f}%（{errors}/{total}）')
+        try:
+            import sys as _s, os as _o
+            _s.path.insert(0, _o.path.expanduser('~'))
+            _s.path.insert(0, _o.path.join(_o.path.expanduser('~'), 'openclaw-model-bridge'))
+            from config_loader import load_config as _lc
+            _thr = float(_lc().get('alerts', {}).get('error_rate_alert_pct', 20))
+        except Exception:
+            _thr = 20.0
+        if error_rate > _thr:
+            alerts.append(f'Proxy 错误率 {error_rate:.1f}%（{errors}/{total}, 阈值 {_thr:g}%）')
 
     print('\\n'.join(alerts))
 except Exception as e:

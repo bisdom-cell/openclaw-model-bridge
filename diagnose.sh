@@ -100,7 +100,10 @@ echo ""
 echo "【4/7】Proxy 监控状态"
 STATS_FILE="$HOME/proxy_stats.json"
 if [ -f "$STATS_FILE" ]; then
-    python3 << 'PYEOF'
+    # V37.9.304 (对抗审计 C8): || 守卫 — set -eo pipefail 下 proxy_stats.json 损坏
+    # (非原子写读到半截) 曾让排障脚本在 4/7 段自杀, 第 5-7 段与汇总全部不输出,
+    # 操作者以为检查只有 4 项且"没报 🔴" = 排障工具自身 fail-plausible
+    python3 << 'PYEOF' || echo "  🔴 proxy_stats.json 解析失败（文件损坏/写入中断？）— 继续后续检查"
 import json, time
 from datetime import datetime, timedelta
 
