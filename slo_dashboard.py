@@ -73,6 +73,10 @@ def extract_snapshot(stats):
 
     return {
         "ts": time.strftime("%Y-%m-%dT%H:%M:%S"),
+        # V37.9.303 (审计 F4): 携带 producer 数据时刻 (proxy_filters._write_stats "updated"),
+        # 供 take_snapshot 幽灵行去重 + 渲染层 staleness 判定 (此前零消费: proxy 死后每小时
+        # 把冻结数字盖上新鲜 ts 追加进历史, 7d 趋势被幽灵行主导)
+        "stats_updated": stats.get("updated", ""),
         "requests": total,
         "errors": errors,
         "success_pct": round((total - errors) / total * 100, 2) if total > 0 else 0,
@@ -84,8 +88,10 @@ def extract_snapshot(stats):
         "tool_success_pct": slo.get("tool_success_rate_pct", 100),
         "tool_calls_total": slo.get("tool_calls_total", 0),  # V37.9.79: 让 verdict 能区分"0 工具调用"(N/A) vs "调用了但失败" (FAIL)
         "timeout_pct": slo.get("timeout_rate_pct", 0),
-        "prompt_tokens": stats.get("prompt_tokens", 0),
-        "total_tokens": stats.get("total_tokens", 0),
+        # V37.9.303 (审计 F2): producer 只写 last_prompt_tokens/max_prompt_tokens_today
+        # (proxy_filters._write_stats); 旧 key prompt_tokens/total_tokens 从不存在 → 恒 0 死数据
+        "last_prompt_tokens": stats.get("last_prompt_tokens", 0),
+        "max_prompt_tokens_today": stats.get("max_prompt_tokens_today", 0),
     }
 
 
@@ -101,6 +107,15 @@ def take_snapshot(stats_path=None):
 
     history_path = _history_path()
     os.makedirs(os.path.dirname(history_path), exist_ok=True)
+
+    # V37.9.303 (审计 F4): 幽灵行去重 — producer 的 updated 未变 (proxy 挂了或零流量,
+    # 数据没动) 时不追加快照: 冻结的 success/p95 会被盖上新鲜 ts 逐小时灌进历史,
+    # 7d 趋势的 avg_* 被 168 条相同幽灵行主导。stats_updated 为空 (旧 schema) 不去重。
+    su = snapshot.get("stats_updated", "")
+    if su:
+        prev = load_history(history_path)
+        if prev and prev[-1].get("stats_updated", "") == su:
+            return None
 
     # Append to JSONL
     with open(history_path, "a") as f:
@@ -153,6 +168,25 @@ def filter_history(entries, hours=24):
     return [e for e in entries if e.get("ts", "") >= cutoff]
 
 
+def _sum_counter_deltas(entries, key):
+    """V37.9.303 (审计 F1): 对「日累计计数器」快照序列求窗口增量和。
+
+    producer 的 total_requests/total_errors 是日累计 gauge (proxy_filters._check_day_reset
+    每日清零、每请求 +=1), 旧实现 sum(逐小时快照) 把同一请求重复计数 ~12× (24 快照/天 ×
+    日内累计值)。正确口径 = 相邻快照差值: cur >= prev → cur-prev; cur < prev = 日重置
+    → 计 cur (重置后新增量)。窗口首条快照仅作 baseline (其快照间隔内的增量不可观测,
+    诚实欠计 ≤1 快照间隔, 远优于 12× 虚报)。
+    """
+    total = 0
+    prev = None
+    for e in entries:
+        cur = e.get(key, 0)
+        if prev is not None:
+            total += (cur - prev) if cur >= prev else cur
+        prev = cur
+    return total
+
+
 def compute_trends(entries):
     """Compute trend metrics from a list of snapshots."""
     if not entries:
@@ -160,10 +194,12 @@ def compute_trends(entries):
 
     p95_values = [e["p95_ms"] for e in entries if e.get("p95_ms", 0) > 0]
     success_values = [e["success_pct"] for e in entries if e.get("requests", 0) > 0]
-    degradation_values = [e["degradation_pct"] for e in entries]
+    # V37.9.303 (审计 F1 次级): 零流量快照的 degradation_pct 恒 0, 参与平均会稀释真实
+    # 降级率 — 与 success_values 同款 requests>0 过滤对齐
+    degradation_values = [e.get("degradation_pct", 0) for e in entries if e.get("requests", 0) > 0]
 
-    total_requests = sum(e.get("requests", 0) for e in entries)
-    total_errors = sum(e.get("errors", 0) for e in entries)
+    total_requests = _sum_counter_deltas(entries, "requests")
+    total_errors = _sum_counter_deltas(entries, "errors")
 
     trend = {
         "period_snapshots": len(entries),
@@ -254,11 +290,17 @@ def build_dashboard(stats=None, history=None, config=None):
         else:
             tools_verdict = "FAIL"
 
+        # V37.9.303 (审计 F5): 零数据 → N/A 而非 PASS — p95==0 = 无延迟样本 /
+        # requests==0 = 无流量, 与 tools 三档 (V37.9.79) 同语义。空文件/新建/旧 schema
+        # 的 stats 不再渲染 ALL PASS (V37.9.288 B-F2 "[] 双关语义" 家族: 零信息 ≠ 全达标)。
         dashboard["verdicts"] = {
-            "latency": "PASS" if current["p95_ms"] <= slo_cfg.get("latency_p95_ms", 30000) or current["p95_ms"] == 0 else "FAIL",
-            "success": "PASS" if current["success_pct"] >= (100 - slo_cfg.get("timeout_rate_pct", 3.0)) or current["requests"] == 0 else "FAIL",
+            "latency": "N/A" if current["p95_ms"] == 0 else (
+                "PASS" if current["p95_ms"] <= slo_cfg.get("latency_p95_ms", 30000) else "FAIL"),
+            "success": "N/A" if current["requests"] == 0 else (
+                "PASS" if current["success_pct"] >= (100 - slo_cfg.get("timeout_rate_pct", 3.0)) else "FAIL"),
             "tools": tools_verdict,
-            "degradation": "PASS" if current["degradation_pct"] <= slo_cfg.get("degradation_rate_pct", 5.0) else "FAIL",
+            "degradation": "N/A" if current["requests"] == 0 else (
+                "PASS" if current["degradation_pct"] <= slo_cfg.get("degradation_rate_pct", 5.0) else "FAIL"),
         }
         verdicts = dashboard["verdicts"]
         # V37.9.79: overall 计算时 N/A 不算 FAIL (跳过), 所有非 N/A 都 PASS 才 ALL PASS
@@ -272,6 +314,22 @@ def build_dashboard(stats=None, history=None, config=None):
     else:
         dashboard["verdicts"] = {}
         dashboard["overall"] = "NO DATA"
+
+    # V37.9.303 (审计 F4): 数据时效 — producer updated 超龄 (复用 watchdog.stats_stale_hours,
+    # MR-8 单一源) 时 overall 覆盖为 STALE_DATA: 渲染层不把冻结数据当当前健康
+    # (watchdog 4h 告警是独立通道, 这里管报告自身不撒谎)。updated 缺失 → 不判 (FAIL-OPEN)。
+    stale_hours = config.get("watchdog", {}).get("stats_stale_hours", 4)
+    data_age_min = None
+    if stats and stats.get("updated"):
+        try:
+            _dt = datetime.strptime(stats["updated"], "%Y-%m-%d %H:%M:%S")
+            data_age_min = int((datetime.now() - _dt).total_seconds() // 60)
+        except (ValueError, TypeError):
+            pass
+    dashboard["data_age_min"] = data_age_min
+    dashboard["stats_stale"] = bool(data_age_min is not None and data_age_min > stale_hours * 60)
+    if dashboard["stats_stale"] and dashboard["overall"] != "NO DATA":
+        dashboard["overall"] = "STALE_DATA"
 
     return dashboard
 
@@ -290,6 +348,9 @@ def format_dashboard_md(dashboard):
     lines.append("# SLO Dashboard")
     lines.append(f"\n> Generated: {dashboard['generated_at']} | Version: {dashboard['version']}")
     lines.append(f"> Status: **{dashboard['overall']}** | History: {dashboard['history_entries']} snapshots")
+    # V37.9.303 (审计 F4): stale 时读者能看出下方数字是冻结值而非当前状态
+    if dashboard.get("stats_stale"):
+        lines.append(f"> ⚠️ **数据陈旧**: proxy_stats 已 {dashboard.get('data_age_min')} 分钟未更新 — 以下为最后已知值, 非当前状态")
     lines.append("")
 
     cur = dashboard.get("current")

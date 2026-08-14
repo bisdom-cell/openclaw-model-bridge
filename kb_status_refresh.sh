@@ -168,11 +168,15 @@ python3 "$STATUS_UPDATE" --set health.stale_jobs "${STALE_JOBS:-unknown}" --by c
 python3 "$STATUS_UPDATE" --set health.last_refresh "$TS" --by cron 2>/dev/null || true
 
 # ── 4b. security_score 自动刷新 + 时间戳（V36.2: 防止陈旧数周）───
+# V37.9.303 (SLO 读侧审计 F6): 改写 health.* — quality.security_score 是冻结徽章源
+# (gen_readme_badges 读, V37.9.268 定义为"仅手动 --set"), 本脚本曾是 V37.9.268 漏改的
+# 第二写者 (原则 #31 跨消费者未全量同步): 每小时用环境实时值覆盖冻结徽章源。
+# 环境敏感诊断值归 health.security_score (与 full_regression V37.9.268 同向)。
 if [ -f "$HOME/openclaw-model-bridge/security_score.py" ]; then
     SEC_SCORE=$(python3 "$HOME/openclaw-model-bridge/security_score.py" --json 2>/dev/null | python3 -c "import json,sys; print(json.load(sys.stdin).get('total',0))" 2>/dev/null || echo "")
     if [ -n "$SEC_SCORE" ] && [ "$SEC_SCORE" != "0" ]; then
-        python3 "$STATUS_UPDATE" --set quality.security_score "$SEC_SCORE" --by cron 2>/dev/null || true
-        python3 "$STATUS_UPDATE" --set quality.security_score_time "$TS" --by cron 2>/dev/null || true
+        python3 "$STATUS_UPDATE" --set health.security_score "$SEC_SCORE" --by cron 2>/dev/null || true
+        python3 "$STATUS_UPDATE" --set health.security_score_time "$TS" --by cron 2>/dev/null || true
     fi
 fi
 

@@ -25,6 +25,11 @@ slo:
   # (观察中, 不判定 PASS), 防止低流量/demo trace samples=1 误标 ALL PASS. 默认 200
   # (= 延迟 rolling buffer 满). 低流量个人系统可调低 (如 30) 让报告能判定 PASS.
   min_sample_count: 200
+  # V37.9.303 (SLO 读侧审计 F3): recovery verdict 的样本域是 failure_streaks (每日个位数),
+  # 不能用请求域 min_sample_count 比较 — 200 streaks/日结构性不可达 → recovery 永远
+  # OBSERVING, 真违规 (streak 全未恢复) 不显形。streaks==0 → N_A_NO_FAILURE_STREAKS
+  # (无失败可恢复, 区别于"样本不足"); 0 < streaks < 此值 → OBSERVING; ≥ 此值 → 判定。
+  min_streak_count: 3
 
 # ---------------------------------------------------------------------------
 # Proxy 请求限制
