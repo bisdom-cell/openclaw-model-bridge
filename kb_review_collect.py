@@ -403,7 +403,7 @@ def _compose_http_reason(http_error):
     return f"{reason} | upstream: {upstream}"
 
 
-def call_llm(prompt, timeout=LLM_TIMEOUT, url=PROXY_URL, model=LLM_MODEL):
+def call_llm(prompt, timeout=LLM_TIMEOUT, url=PROXY_URL, model=LLM_MODEL, retries=0):
     """调用本地 Proxy:5002 做 LLM 推理。
 
     Returns:
@@ -412,7 +412,25 @@ def call_llm(prompt, timeout=LLM_TIMEOUT, url=PROXY_URL, model=LLM_MODEL):
         失败：(False, "", error_reason)
 
     失败路径**不降级**——调用方必须 fail-fast，不能伪装成成功。
+
+    V37.9.306 (2026-08-14 kb_evening llm_failed 告警): retries 可选重试。
+    默认 0 = 既有调用方 (kb_review 周报) 逐字节行为不变。重试语义镜像
+    kb_harvest_chat._llm_call_with_retry (MR-8 一物一形, 不新造第三种形态):
+    整体失败即重试, 耗尽后仍返回诚实 (False, "", reason) 不伪装成功。
     """
+    last = (False, "", "no attempt made")
+    for attempt in range(retries + 1):
+        last = _call_llm_once(prompt, timeout=timeout, url=url, model=model)
+        if last[0]:
+            return last
+        if attempt < retries:
+            print(f"[kb_collect] WARN: LLM attempt {attempt + 1}/{retries + 1} "
+                  f"failed ({last[2]}), retrying...", file=sys.stderr)
+    return last
+
+
+def _call_llm_once(prompt, timeout=LLM_TIMEOUT, url=PROXY_URL, model=LLM_MODEL):
+    """单次 LLM 调用 (V37.9.306 从 call_llm 抽出, 行为逐字节不变)。"""
     payload = json.dumps(
         {
             "model": model,

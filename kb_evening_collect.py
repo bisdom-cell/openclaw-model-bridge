@@ -430,6 +430,31 @@ MAX_SOURCE_CHARS = 2500  # per source file
 PROMPT_TRUNCATE_NOTES = 3000
 PROMPT_TRUNCATE_SOURCES = 4000
 
+# V37.9.306 (2026-08-14 12:30 watchdog CORE 告警: kb_evening llm_failed,
+# 08-13 22:00 "TimeoutError: timed out"):
+#   (a) 超时 120s → 300s — rc.LLM_TIMEOUT=120 比**服务端预算还紧**
+#       (config proxy.backend_timeout_seconds=300 / adapter timeout_ms=300000),
+#       客户端先放弃时后端仍在推理 → 白等 120s 且整日晚间摘要全丢。
+#       与 V37.9.129/130 同一课: doubao 时代大请求给足时间不降 max_tokens
+#       (harvest REDUCE_TIMEOUT 已 120→300, evening 当时漏改)。
+#   (b) 重试 0 → 1 — 同族每日 job kb_harvest_chat 有 LLM_RETRY=1, 而 evening
+#       裸调单次 (告警里 rss_blogs/s2 都带 "attempt 1/3" 自愈, evening 独无),
+#       单次瞬态 = 当日摘要永久丢失 (次日窗口已换日期, 内容不可补)。
+#       历史: 2026-04-14/15 连续两天 22:00 告警 (见 rc.call_llm 血案注释) +
+#       V37.9.213 F3 evening 07-01 缺失。
+# 最坏耗时 2×300s=10min, 22:00 夜间 job 无人等待, 00:00 dream Map 前完成。
+EVENING_LLM_TIMEOUT = 300
+EVENING_LLM_RETRY = 1
+
+
+def _default_llm_caller(prompt):
+    """默认 LLM 调用方: 复用 rc.call_llm (MR-8 一物一形, evening 不自定义
+    call_llm — test_kb_evening.test_does_not_redefine_call_llm 守卫), 只是
+    带上 evening 自己的超时/重试预算。保持 caller(prompt) 单参数契约不变
+    (llm_caller 注入点是 lambda p: (...))。"""
+    return rc.call_llm(prompt, timeout=EVENING_LLM_TIMEOUT,
+                       retries=EVENING_LLM_RETRY)
+
 
 def run(kb_dir, days, registry_path, today=None, llm_caller=None):
     """Orchestrate evening collect → call → build pipeline.
@@ -476,8 +501,10 @@ def run(kb_dir, days, registry_path, today=None, llm_caller=None):
         job_failures_block=job_failures_block,
     )
 
-    # Call LLM — 复用 rc.call_llm（同一个 proxy URL/timeout/min-length 契约）
-    caller = llm_caller if llm_caller is not None else rc.call_llm
+    # Call LLM — 复用 rc.call_llm（同一个 proxy URL/min-length 契约）
+    # V37.9.306: 默认走 _default_llm_caller (evening 超时 300s + 重试 1),
+    # 注入的 llm_caller 保持原样 (测试契约不变)
+    caller = llm_caller if llm_caller is not None else _default_llm_caller
     ok, llm_content, reason = caller(prompt)
 
     if not ok:
