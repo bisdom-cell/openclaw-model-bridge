@@ -1,6 +1,6 @@
 {
-  "updated": "2026-08-14 06:13:48",
-  "updated_by": "full_regression",
+  "updated": "2026-08-14 06:52:30",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -79,6 +79,16 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-08-14",
+      "what": "ISSRE 拒稿 → QA4AGENTS workshop 论文重写初稿完成 (8/19 截止)。重心改为 taxonomy+22例逐条语料表+可跑 bench, 逐条回应三审 10 项批评; 文风机械验证平均句长 35.9→15.2 词、>40词长句 49→4、格言体清零。诚实更正 user-view 70%→13/22=59% (语料为准), bench doc 同步。待用户终审+确认页数限制。",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-08-14",
+      "what": "ISSRE 2026 Industry Track 结果: REJECT (Submission 395, 三审 1/1/2)。共识: 选题时效性获全体认可 + R3 明确 fail-plausible 概念 genuinely useful/meaningfully extends gray-failure lineage; 被否于三点 — (1) 文风 AI 腔三审全票指出妨碍阅读 (2) 22 事故无逐条细节表+taxonomy A/B 类重叠+无显式 RQ (3) n=1 个人系统 → industry relevance 弱, Runeson-Höst 辩护未被接受(R2 反把该句当不可读范例)。chairs 提供替代路径: workshop (QA4AGENTS/ReSaise, 8/19 截止, 进 ISSRE Supplemental Proceedings + IEEE Xplore) 或 industry talk (8/23, 不进 proceedings)。",
+      "by": "claude_code"
+    },
     {
       "date": "2026-08-14",
       "what": "V37.9.306 12:30 watchdog 告警 triage → kb_evening LLM 韧性: 7 条告警中 6 条为已知外部/带重试自愈, 唯一 CORE kb_evening llm_failed (08-13 22:00 TimeoutError)。从告警自身对照读出结构性不对称 (同批 rss_blogs/s2 带 attempt 1/3 而 evening 裸单次) + 客户端 120s 紧于服务端 300s 预算。修: 共享 call_llm 加 retries 参数(默认 0 零回归) + evening 300s/retry=1 经闭包接线保持单参数注入契约。守卫 12 tests, sabotage 三连 1/1/2。VERSION 0.37.9.139",
@@ -211,7 +221,7 @@
     "unfinished": [
       "【2026-07-02 多镜头审计 · 9 findings 全部处置完毕 (V37.9.226-239: 8 修复闭环 + I half-open 登记为可接受设计 tradeoff) · 剩纯 Mac Mini 被动验证】同步+重启 proxy/adapter 后观察: (A) 真 fallback 时 proxy 日志 DEGRADED 行 + proxy_stats.json slo.fallback_count 变真值 (V37.9.229) (C) ls ~/.kb/status.json.lock ~/.kb/audit.jsonl.lock 伴生锁文件出现 (V37.9.238) (E) client 断开时 adapter.log 记 CLIENT GONE 单行非 traceback (V37.9.231/242) (B) streaming 请求撞 parse 异常时 Gateway 收 SSE 而非 content-type 错配 (V37.9.239) (G) last_run_self_critique.json time 本地格式 + watchdog 4h 覆盖 observer (V37.9.230)。完整分诊记录见 CLAUDE.md V37.9.226-239 changelog, 无 dev 剩余动作。",
       "【V37.9.211/212 Qwen3 端点刷新 · adapter ✅ + V37.9.212 ✅ 已并入 main(PR#774, 2026-07-02 dev 核实) · 剩用户 env 动作】剩余非紧急: (A) .env_shared 设新 REMOTE_API_KEY+REMOTE_BASE_URL(cron 直连脚本 health_check 每周报 CURRENT_MODEL/diagnose 用) (C) 🔴 明文 key 建议用完轮换。教训钉死: adapter/proxy 是 launchd job, env 改必须进 plist EnvironmentVariables + bootout/bootstrap(不是 shell export + kickstart)。",
-      "【ISSRE Industry Track 已投递(Submission 395, 2026-06-28) · in-review · 通知延期】原通知日 2026-08-12; track chairs (Sigrid Eldh & Jinyang Liu) 8-12 邮件: 投稿量过大讨论未结, 目标本周末前(≈8-15/16)出结果 → 等邮件/EasyChair, 无需任何动作。结果联动论文 #2 venue 决策(mechanizing_the_eye DECISIONS #3)。6 页 IEEEtran PDF 已上传; IEEE Software (SW-2026-06-0312) 独立并行 in-review。",
+      "【ISSRE Industry Track REJECTED (8/14) → 已转 QA4AGENTS workshop · 初稿完成待用户终审】Submission 395 三审 1/1/2: 概念存活(R3 称 fail-plausible genuinely useful/extends gray-failure lineage), 被否于 (1) 文风 AI 腔三审全票 (2) 22 事故无逐条表+A/B 类重叠+无显式 RQ+headline 统计被读作可泛化 (3) n=1 产业相关性弱。用户决策: 投 QA4AGENTS (8/19, 进 ISSRE Supplemental Proceedings + IEEE Xplore), 我执笔重写+用户终审。✅ 初稿 docs/paper/silent_failures_taxonomy/submissions/qa4agents_workshop_paper.md: 重心改为 taxonomy + 22 例逐条语料表 + 可跑 bench(直接回应可迁移性批评); 显式 RQ1-3; A/B 操作性判别器; 统计全带分母; 预印本标注; repo 链接进正文; 加 Statement of Differences。文风机械验证: 平均句长 35.9→15.2 词, >40 词长句 49→4, 格言体清零。篇幅 ~4.5K 词 ≈ 6.5 页(限内)。🔴 待用户: (a) 终审文风与内容 (b) 确认 QA4AGENTS 页数限制/截止/投稿入口 (dev 出站被挡 github.io 取不到) (c) 决定是否另投 industry talk (8/23, 不进 proceedings) (d) 终审后我做 IEEEtran LaTeX 排版。⚠️ 诚实更正: 语料标注给出 user-view 13/22=59%, 而 arXiv 版写 ~70%/tests≈0% — 新论文用语料数字并在 Threats 段明述更正; fail_plausible_bench.md 同句已同步修正(加 counting note)。arXiv 已发表版保留原数字不改。",
       "【IEEE Software 重投完成 · SW-2026-06-0312 · in-review 追踪】2026-07-01 desk-return(长稿超 4200 词)已解决: 改投合规经验报告版(ieee_software_manuscript 4 页, 正文 3510 counted<4200 + 摘要 144<150 + 作者简介), IEEE Author Portal 交互式重投成功('processed and submitted to the journal')。待: 编辑部收稿确认邮件 → 初筛 → 2-3 referee 同行评审 → 决定(修改/录用/拒)。在 'My Submissions' 查状态。ISSRE Submission 395 独立并行 in-review。",
       "【4.27 推送链路回归追踪 · 中优】真因=4.27 openclaw CLI 冷调用回归 (V37.9.145). 丢失面评估已闭合 (push_path_loss_surface_audit_2026_06_15.md). ✅(c) 上游修复已定位 (V37.9.225, eval doc §16.2): 2026.6.11 含 #93356 plugin-setup-registry CPU storm + #93919 manifest-scan cache + #89628 help startup, 全部 6.10→6.11 窗口合并, 构造上不在 4.27 → 根治随未来升级 ≥6.11 获得 (升级评估收益侧新筹码), 现状 notify.sh 重试+队列可接受. 剩 Mac Mini 数据: (a) openclaw message send --help timeout 旋钮探测 (b) ls ~/.openclaw/plugin-runtime-deps/ 多 hash dir 查 staging 间歇复发. 硬化候选 (deferred 需 E2E): 论文类 job 直推双通道迁 notify.sh --topic (MR-8).",
       "V37.9.159 test_health_check 真 bug Mac Mini 生产验证 (dev 不可执行): scanner 抓 test_health_check 跑 health_check.sh 漏 push 隔离 → 治理 07:00 audit 是否真在发日报型 health 周报 (V37.9.159 已修, marker 时序依赖). Mac Mini 同步后观察 07:00 是否还收到 health 周报 + 确认 weekly 09:00 周报正常.",
