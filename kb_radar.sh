@@ -105,13 +105,24 @@ if [ ! -f "$COLLECTOR" ]; then
 fi
 
 # ── 1. 运行 collector ──
-OUT=$(KB_DIR="$KB_DIR" python3 "$COLLECTOR" --json 2>&1) || {
+# V37.9.305 (对抗审计 A-F5): stderr 与 JSON 捕获分离 — 旧 `2>&1` 把 collector/
+# picker 的 per-line FAIL-OPEN WARN (MR-11 特意走 stderr 保命令替换干净) 混进
+# $OUT → json.load 解析 "WARN行\n{...}" 失败 → 设计上被容忍的单行损坏升级成整
+# job parse_error + 误告警 [SYSTEM_ALERT]。stderr 落临时文件, 转发进 log 可观测。
+_RADAR_ERR=$(mktemp 2>/dev/null) || _RADAR_ERR=/tmp/kb_radar_err_$$
+OUT=$(KB_DIR="$KB_DIR" python3 "$COLLECTOR" --json 2>"$_RADAR_ERR") || {
     EC=$?
     log "FATAL: collector exited $EC"
-    send_alert "collector exited $EC: $(echo "$OUT" | head -3 | tr '\n' ' ')"
+    send_alert "collector exited $EC: $(head -3 "$_RADAR_ERR" 2>/dev/null | tr '\n' ' ')"
     write_status "collector_failed" 0 0 0 0
+    rm -f "$_RADAR_ERR"
     exit 1
 }
+# collector 的 WARN/诊断转发进 log (可观测不丢失), 不污染 JSON
+if [ -s "$_RADAR_ERR" ]; then
+    while IFS= read -r _el; do log "collector-stderr: $_el"; done < "$_RADAR_ERR"
+fi
+rm -f "$_RADAR_ERR"
 
 STATUS=$(echo "$OUT" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("status","parse_error"))' 2>/dev/null || echo "parse_error")
 if [ "$STATUS" = "parse_error" ] || [ "$STATUS" = "collector_failed" ]; then
