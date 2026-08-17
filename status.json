@@ -1,5 +1,5 @@
 {
-  "updated": "2026-08-17 01:00:57",
+  "updated": "2026-08-17 01:05:59",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-08-14",
+      "what": "V37.9.307 ISSRE 拒稿→按三审重写→venue 策略确立(期刊优先/会议不投)。文风机械验证句长 35.9→15.2、>40词 49→4;IEEEtran 本地真编译 7页0error;诚实更正 user-view 70%→13/22=59% 并同步 bench doc;QA4AGENTS 取消并三处留痕防误执行。VERSION 0.37.9.139 不变。",
+      "by": "claude_code"
+    },
     {
       "date": "2026-08-14",
       "what": "发表策略确立: 期刊优先会议不投。QA4AGENTS 投稿取消(+industry talk 放弃) — IEEE 会议需付费注册+本人到场才进 Xplore, 不适合作者。第一筛选条件写入: 选 venue 前先确认注册/到场要求。重写稿件(优于 arXiv v1)转作 arXiv v2 + IEEE Software 修订 + 期刊改投底稿。",
@@ -348,7 +353,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-08-14: 三镜头对抗审计 V37.9.303-305 (17 修复/68 守卫/11 轮 sabotage) + V37.9.306 告警 triage (kb_evening LLM 韧性结构性不对称)。🔴 剩: 三批+306 合并同步 → 今晚 22:00 evening 验证 + slo_benchmark 重生成 + 明晨 03:00 dream Radar #1 首扫昨日全天; 论文#2 三决策等 ISSRE (≈8-15/16)。",
+  "focus": "2026-08-14 收工: 三镜头对抗审计 17 修复(V37.9.303-305) + 告警 triage kb_evening LLM 韧性(V37.9.306) + ISSRE 拒稿转期刊轨(V37.9.307)。🔴 待用户: 合并分支 → Mac Mini 同步 → 今晚 22:00 验证 kb_evening 修复; 论文去向决定(建议 arXiv v2)。",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
