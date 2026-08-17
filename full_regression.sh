@@ -179,6 +179,9 @@ fi
 if [ -f test_restart_launchd.py ]; then
     run_suite "restart_launchd (V37.9.13 restart.sh 单一 manager 契约)" "python3 test_restart_launchd.py"
 fi
+if [ -f test_v37_9_309_ssd_mount_diagnostics.py ]; then
+    run_suite "v37_9_309_ssd_mount_diagnostics (V37.9.309 SSD 挂载检测可诊断性 + mount 模式对真实 macOS 格式的判定钉死)" "python3 test_v37_9_309_ssd_mount_diagnostics.py"
+fi
 if [ -f test_v37_9_308_restart_exit_code.py ]; then
     run_suite "v37_9_308_restart_exit_code (V37.9.308 对抗审计 C4 — restart.sh 诚实退出码 + Gateway bootstrap 守卫 + auto_deploy quiet_alert)" "python3 test_v37_9_308_restart_exit_code.py"
 fi

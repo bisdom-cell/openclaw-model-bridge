@@ -1,5 +1,5 @@
 {
-  "updated": "2026-08-17 02:17:34",
+  "updated": "2026-08-17 02:33:52",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -81,6 +81,11 @@
   "recent_changes": [
     {
       "date": "2026-08-17",
+      "what": "V37.9.309 SSD 备份告警 triage: git -L 用告警文案本身锁定 V37.9.304(8-14) 为变更点。同批 6 条 WARN 逐条分诊后仅此一条 actionable(其余外部限流/503/带 attempt 1/3 已自愈)。两假设(盲区解除 vs 我引入误判)dev 不可判定, 已给用户单条 mount 判据; dev 侧模拟真实 macOS 格式验证模式判定正确 → 倾向 H1 但不定论。本版修的是不依赖根因的部分: V37.9.304 把两个失败条件合并成一条消息致日志分不清哪个失败, 现拆分 + dump mount 表实况。守卫 12 单测(含模式对 exfat/APFS/HFS+ 行为钉死 + watchdog err_pattern 契约), sabotage 退回合并条件 → 3 FAIL。VERSION 0.37.9.140→0.37.9.141。",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-08-17",
       "what": "V37.9.308 对抗审计登记项 [43] 兑现: (C4 MED) restart.sh 诚实退出码 —— rc=1 此前被调用方只看 -eq 2 静默丢弃致恒 exit 0, 使 auto_deploy 失败分支成死代码(V37.9.304「RC 死代码」家族第二例, 且这个守的是「部署后服务还活着吗」); 最脏窗口是漂移修复路径(NEED_RESTART 第二个置位点)连 preflight 兜底都不跑。修: RESTART_FAILED 累加器(bash 3.2 安全字符串非数组) + Gateway bootstrap 加守卫(退役 bootout 成功後裸 bootstrap 在 set -e 下自杀留 booted-out 态) + auto_deploy 收编既有 quiet_alert。刻意不加重试(launchd KeepAlive 已在管)。中途被 V37.8.13 pin 纠正: Gateway 故障按可恢复性二分, 慢启动不判失败; 并修好该 pin 自身的贪婪正则空转。(B-F8 LOW) slo_checker --update 收编 status_lock+save_status。守卫 30 单测(行为级 fakebin PATH 注入), sabotage 五连 S1→7/S2→2/S3→1/S4→3/S5→3 全部精确开火; 其中 S3 首轮通过当场抓出我自己两层空转守卫(前向扫描撞块外 + 被块内注释咬)。VERSION 0.37.9.139→0.37.9.140。",
       "by": "claude_code"
     },
@@ -133,11 +138,6 @@
       "date": "2026-08-13",
       "what": "V37.9.301 🔴 告警疲劳同族第二例根治: 07:00 治理告警 grep ❌/💥 | head -5 对 governance_checker 输出是「抓明细丢标题」——一个 check 多的不变式吃掉 5 配额中的 4 → 排在后面的整条失败不变式静默消失 + 顶层计数行(排最末)永远第一个被丢 + V37.9.214 的 💥 被截断打败 + 无截断提示(正文读起来像完整的)。真渲染器 4-失败场景 dev 实证。修: 按缩进分层(^ {0,3} 顶层 / ^ {4,} 明细) + 顶层优先 + 显式截断留痕 + 并存 ⚠️ 附进已触发告警(新增推送量 0, 刻意不为 warn-only 干净轮新开推送)。同族全量扫描另有两项诚实剔除(4 个 collector head -3 实测证伪 FAIL-OPEN 单行 JSON / SLO warn 依赖 Mac-Mini-only 脚本 dev 不可验证)。守卫 24 单测(真渲染器样本+源码抽模式+反向证据), sabotage 三连精确开火。VERSION 0.37.9.135。",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-08-12",
-      "what": "V37.9.300 🔴 告警疲劳机械成因根治: auto_deploy `grep \"❌\"` 抓走 6 空格缩进明细行却丢掉它们的 ⚠️ 标题 → 明细孤悬在无关失败下被误读, 而「向量索引已 106h 未更新」作为 warn 行从未进过告警 = V37.9.299 核心 job 死 4 天「无人知」的真相(告警一直在发, 呈现形态误导)。修: grep -E '^ {0,3}(❌|⚠️)' 按缩进精确分层。守卫 7 单测(真实血案样本+源码抓取真实模式), sabotage 5 项开火。VERSION 0.37.9.134。元教训: 修告警正文比劝人多看一眼有效。",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -186,7 +186,7 @@
     "security_score": "98/100 (98.0%)",
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB",
     "slo": {
-      "checked_at": "2026-08-17 02:15:10",
+      "checked_at": "2026-08-17 02:32:04",
       "all_ok": true,
       "summary": {
         "latency_p95": {
@@ -265,22 +265,23 @@
       "【2026-08-14 三镜头对抗审计 V37.9.303-305 · dev 全闭环 · 剩 Mac Mini 被动验证】三批合并+git fetch+reset 同步后: (303) python3 slo_benchmark.py --save 重生成报告 — token 段首次出真值 + 趋势窗口 Requests 大幅下降 = 口径修正非流量下降勿惊; dashboard/周报 proxy 死时应显 STALE_DATA 非 ALL PASS (304) daily_sync 的 rsync 真失败/TM 跳过首次变 watchdog 可见 (告警=盲区解除非新 bug); 空 crontab 场景 watchdog 会真告警 (305) 次日 03:00 dream Radar #1 扫昨日全天 (daily_signals_{昨日}.json 应现非空 signals 若真有共振) + 06:00 kb_radar 读同一份 + ban-list 空时 kb_dream.log 出 WARN。另: [36] 元规则 19/23 尾注已核对闭合 (绿 audit 同 19/23 = dev 常态: 3 advisory ⚠️ + 1 需 Mac Mini runtime)",
       "【2026-08-14 审计登记 follow-up · V37.9.308 已修 (a)C4 + (c)B-F8 · 余项未修】✅(a) C4 MED 已修: restart.sh rc=1 不再被吞 (RESTART_FAILED 累加器 + exit 1 + 不报 Done!) + Gateway bootstrap 加 if! 守卫 (退役 booted-out 自杀路径) + auto_deploy 失败分支收编 quiet_alert (此前只写 auto_deploy.log 而该日志不在 watchdog HOME_LOGS 错误扫描名单 = 零告警)。**刻意不加重启重试** (launchd KeepAlive 已在管进程, 原则 #8) —— 审计原写「需与 auto_deploy 重试语义联动设计」, 正解是它不该有重试语义, 守卫 test_no_retry_machinery_added 钉死。**中途被 V37.8.13 pin 纠正并采纳**: Gateway 故障按可恢复性二分 —— bootstrap 失败(launchd 没接管, KeepAlive 无从重试)计入 exit 1 / 慢启动 15s 未健康仅 ⚠️ 不判失败(V37.8.13 原判断保留, 由 wa_keepalive+watchdog 兜底)。顺带修好该 pin 自身的贪婪正则空转(它一直在检查别处的块)。 ✅(c) B-F8 已修: slo_checker --update 收编 status_lock+save_status (退役自建 RMW 写路径), 顺带闭合 dev 脚枪(裸写会凭空造 ~/.kb/status.json 劫持此后所有写者路径解析)。 ⏳ 未修余项: (b) C5 LOW-MED upgrade_openclaw.sh 裸后台起 Gateway 违 V37.9.13 单一管理者 + HEALTH 变量抓了从不参与判定 (季度级手动 SOP) / (d) A-F6 dream REDUCE_DATA 30K 尾部截断优先吃掉 Radar 三件套注入 + REDUCE_PROMPT 死代码 + REDUCE_CHARS 虚标 / (e) A-F7 top_alignment_picker 🎚️ 末位字段吸收尾随 ⭐ 行 / (f) A-F8 TZ python-side system-local 家族 / (g) crontab_safe 并发 RMW 无锁 / (h) openclaw_backup 纯 age-based 保留无最少份数下限 + 产物零校验 / (i) min_sample_count=200 vs ~25-40 req/day → benchmark 永久 OBSERVING (config 注释已明示可调 30, 用户决策)。",
       "【V37.9.306 kb_evening LLM 韧性 · dev 闭环 · 剩今晚 22:00 验证】同步后今晚 22:00 kb_evening 首次带 300s 超时+retry=1 运行 → 预期 cat ~/.kb/last_run_evening.json 显 status=ok。若仍 llm_failed 且 reason=TimeoutError (300s 也不够) = 后端持续性慢非瞬态, 贴日志走 provider 侧排查 (非本修复失效)。另诚实登记不改: kb_review 周报同走共享 call_llm 仍 retries=0 — 能力已就位(传参即可)但无失败证据不预防性改(原则 #8/#34), 待其真失败再 wire。",
-      "【V37.9.308 · dev 全闭环 · 剩 Mac Mini 被动验证】合并 + git fetch+reset 同步后 (restart.sh / auto_deploy.sh / slo_checker.py 走 FILE_MAP, 零重启): (a) 若某次部署后 adapter/proxy 未恢复健康或 Gateway bootstrap 失败 → auto_deploy.log 出现「❌ restart.sh 失败」**且 Discord/WhatsApp 收到告警**(此前完全静默, 尤其漂移修复路径连 preflight 兜底都不跑) (b) 🔴 **首次出现该告警 = 盲区解除暴露存量真实故障, working as intended 非新 bug** (c) 手动 `bash restart.sh; echo $?` — 全健康则 0, 有服务未起来则 1 (d) Gateway 慢启动(15s 未健康但 launchd 已接管)仍只 ⚠️ 不判失败, 属预期不必贴我 (e) slo_checker --update 若被手动调用, 写入应保留他人并发字段且出现伴生 status.json.lock。"
+      "【V37.9.308 · dev 全闭环 · 剩 Mac Mini 被动验证】合并 + git fetch+reset 同步后 (restart.sh / auto_deploy.sh / slo_checker.py 走 FILE_MAP, 零重启): (a) 若某次部署后 adapter/proxy 未恢复健康或 Gateway bootstrap 失败 → auto_deploy.log 出现「❌ restart.sh 失败」**且 Discord/WhatsApp 收到告警**(此前完全静默, 尤其漂移修复路径连 preflight 兜底都不跑) (b) 🔴 **首次出现该告警 = 盲区解除暴露存量真实故障, working as intended 非新 bug** (c) 手动 `bash restart.sh; echo $?` — 全健康则 0, 有服务未起来则 1 (d) Gateway 慢启动(15s 未健康但 launchd 已接管)仍只 ⚠️ 不判失败, 属预期不必贴我 (e) slo_checker --update 若被手动调用, 写入应保留他人并发字段且出现伴生 status.json.lock。",
+      "【🔴 2026-08-15 起 SSD 备份连续告警 · V37.9.309 已修可诊断性 · 根因待用户 mount 实况定性】告警: KB-SSD每日备份 skipped_no_ssd + openclaw_backup 'ERROR: SSD not mounted'。git -L 证实该消息文本是 V37.9.304(8-14) 新文案 → Mac Mini 已同步该版, 失败始于同步后第一次备份。V37.9.304 C7 把挂载检测由 -d 改为 -d 且 mount 表精确匹配。**两假设 dev 不可判定**: H1 改动按设计工作(SSD 真未挂载, 幽灵目录使旧 -d 永真 → 此前备份实际写进启动盘, 离线副本不存在) / H2 我引入回归(挂载正常但模式对不上真实 mount 输出 → 堵住备份)。dev 侧已验证该模式对 exfat/APFS/HFS+ 真实格式均判已挂载、对幽灵 'MOVESPEED 1' 正确拒绝 → **证据倾向 H1 但不据此定论**。🔴 待用户单条命令定性: `mount | grep -i movespeed` —— 有正常挂载行=H2(我立即按真实格式修模式) / 无输出或带后缀=H1(需物理重挂 SSD)。**无论哪种备份已 3 天未发生**(保留 7 天, 尚未数据丢失但在倒计时)。V37.9.309 已做: 两条件拆分 + 幽灵分支 dump mount 表实况, 下次告警可自证是哪一种故障。"
     ],
     "open_prs": [],
     "blocked_on": "",
-    "focus": "2026-08-17 收工: V37.9.308 对抗审计 [43] 兑现 (C4 restart.sh 诚实退出码 + Gateway bootstrap 守卫 + B-F8 slo_checker 收编锁)。回归 173 通过/0 失败/5917 tests, 治理 91/91 EXIT=0, 安全 98/100。🔴 待用户: 合并分支 → Mac Mini git fetch+reset 同步 → 之后部署失败首次变为可见告警(盲区解除非新 bug)。"
+    "focus": "2026-08-17 收工: V37.9.308(restart.sh 诚实退出码/C4+B-F8) + V37.9.309(SSD 挂载检测可诊断性)。回归 174 通过/0 失败/5929 tests, 治理 91/91, 安全 98/100。🔴 待用户: (1) `mount | grep -i movespeed` 定性 SSD 告警根因(备份已 3 天未发生) (2) 合并分支 + Mac Mini 同步。"
   },
   "quality": {
     "security_score": 98,
-    "test_count": 5917,
-    "last_regression": "2026-08-17 02:16 pass",
+    "test_count": 5929,
+    "last_regression": "2026-08-17 02:33 pass",
     "coverage_pct": 0,
     "security_score_time": "2026-07-20 01:07",
-    "test_suites": 174,
+    "test_suites": 175,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
-    "version": "0.37.9.140",
+    "version": "0.37.9.141",
     "observer": {}
   },
   "incidents": [
@@ -345,7 +346,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-08-17 收工: V37.9.308 对抗审计 [43] 兑现 (C4 restart.sh 诚实退出码 + Gateway bootstrap 守卫 + B-F8 slo_checker 收编锁)。回归 173 通过/0 失败/5917 tests, 治理 91/91 EXIT=0, 安全 98/100。🔴 待用户: 合并分支 → Mac Mini git fetch+reset 同步 → 之后部署失败首次变为可见告警(盲区解除非新 bug)。",
+  "focus": "2026-08-17 收工: V37.9.308(restart.sh 诚实退出码/C4+B-F8) + V37.9.309(SSD 挂载检测可诊断性)。回归 174 通过/0 失败/5929 tests, 治理 91/91, 安全 98/100。🔴 待用户: (1) `mount | grep -i movespeed` 定性 SSD 告警根因(备份已 3 天未发生) (2) 合并分支 + Mac Mini 同步。",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
