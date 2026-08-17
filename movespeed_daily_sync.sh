@@ -3,7 +3,11 @@
 # V37.9.86: 从 inline crontab 升级为标准 job (消除 convergence 盲区)
 # 依赖: movespeed_rsync_helper.sh (V37.9.27 jitter+retry+fail-loud)
 set -uo pipefail
-export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin"
+# V37.9.310 (🔴 2026-08-15~17 备份中断根因): PATH 必须含 /sbin —— macOS 的 mount 在
+# /sbin/mount, 旧 PATH 不含 /sbin → 脚本内 `mount` command-not-found → 管道失败 →
+# V37.9.304 的挂载检测恒判"未挂载" → 备份连续静默跳过 3 天。
+# dev(Linux) 的 mount 在 /usr/bin, 落在旧 PATH 内 → dev 测试全绿 = dev-production 接缝。
+export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/sbin:/usr/sbin"
 
 LOG="$HOME/movespeed_daily_sync.log"
 STATUS_FILE="$HOME/.kb/cache/last_run_movespeed_sync.json"
@@ -26,6 +30,9 @@ DST="/Volumes/MOVESPEED/KB/"
 SSD_SKIP_REASON=""
 if [ ! -d "/Volumes/MOVESPEED" ]; then
     SSD_SKIP_REASON="目录 /Volumes/MOVESPEED 不存在 — SSD 未插入或已干净卸载"
+elif ! command -v mount >/dev/null 2>&1; then
+    # V37.9.310: 工具缺失必须与"没挂载"可区分 —— 正是 8-15~17 中断难定性的原因。
+    SSD_SKIP_REASON="mount 命令不可用 (PATH=$PATH) — 无法验证挂载"
 elif ! mount | grep -q " on /Volumes/MOVESPEED ("; then
     MOUNT_LINES=$(mount | grep -i movespeed | tr '\n' ';' || true)
     if [ -z "$MOUNT_LINES" ]; then

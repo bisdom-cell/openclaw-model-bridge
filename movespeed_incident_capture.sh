@@ -57,6 +57,15 @@ PYEOF
     exit 0
 fi
 
+# V37.9.310: 本脚本无自己的 PATH export, 继承调用方(job 脚本的受限 PATH)。macOS 的
+# mount/diskutil 在 /sbin 与 /usr/sbin, 旧调用方 PATH 不含二者 → 取证快照的 mount /
+# diskutil 字段在 Mac Mini 上长期为空("best-effort 缺工具=空字段"把找不到工具伪装成
+# 无数据)。这里就地补全, 不依赖每个调用方都记得带 /sbin。
+case ":$PATH:" in
+    *":/sbin:"*) ;;
+    *) export PATH="$PATH:/sbin:/usr/sbin" ;;
+esac
+
 # --- Diagnostics (each best-effort; missing tool = empty field) ---
 
 # Filesystem mount state

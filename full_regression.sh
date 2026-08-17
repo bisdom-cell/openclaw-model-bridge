@@ -179,6 +179,9 @@ fi
 if [ -f test_restart_launchd.py ]; then
     run_suite "restart_launchd (V37.9.13 restart.sh 单一 manager 契约)" "python3 test_restart_launchd.py"
 fi
+if [ -f test_v37_9_310_sbin_path.py ]; then
+    run_suite "v37_9_310_sbin_path (V37.9.310 PATH 缺 /sbin 致 macOS 工具找不到 — 备份中断真因回归)" "python3 test_v37_9_310_sbin_path.py"
+fi
 if [ -f test_v37_9_309_ssd_mount_diagnostics.py ]; then
     run_suite "v37_9_309_ssd_mount_diagnostics (V37.9.309 SSD 挂载检测可诊断性 + mount 模式对真实 macOS 格式的判定钉死)" "python3 test_v37_9_309_ssd_mount_diagnostics.py"
 fi
