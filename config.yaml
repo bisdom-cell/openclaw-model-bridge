@@ -22,9 +22,11 @@ slo:
   auto_recovery_rate_pct: 90.0 # 连续错误后自动恢复率 > 90%
   evaluation_window_minutes: 60  # SLO 评估滑动窗口
   # V37.9.99 (外部评审 P0): slo_benchmark.py 样本门槛 — 样本 < 此值时 verdict=OBSERVING
-  # (观察中, 不判定 PASS), 防止低流量/demo trace samples=1 误标 ALL PASS. 默认 200
-  # (= 延迟 rolling buffer 满). 低流量个人系统可调低 (如 30) 让报告能判定 PASS.
-  min_sample_count: 200
+  # (观察中, 不判定 PASS), 防止低流量/demo trace samples=1 误标 ALL PASS. 出厂默认 200
+  # (= 延迟 rolling buffer 满). V37.9.315 (2026-08-17 用户决策): 实际流量 ~25-40 请求/天,
+  # 200 结构性不可达 → benchmark 永久 OBSERVING 不判定 → 按本注释预留的低流量档调至 30.
+  # 仍防 demo trace samples=1 假 PASS (30 > 单次 demo 量级)。
+  min_sample_count: 30
   # V37.9.303 (SLO 读侧审计 F3): recovery verdict 的样本域是 failure_streaks (每日个位数),
   # 不能用请求域 min_sample_count 比较 — 200 streaks/日结构性不可达 → recovery 永远
   # OBSERVING, 真违规 (streak 全未恢复) 不显形。streaks==0 → N_A_NO_FAILURE_STREAKS
