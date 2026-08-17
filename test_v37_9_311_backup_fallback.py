@@ -103,6 +103,17 @@ class TestArchivesNeverEnterGit(unittest.TestCase):
     def test_canonical_name_ignored(self):
         self.assertTrue(self._ignored(_CANONICAL_NAME), "规范命名未被 gitignore")
 
+    def test_job_runtime_cache_ignored(self):
+        """V37.9.312: job 运行时状态 (last_run/seen_ids/raw) 不得进 git 视野。
+
+        2026-08-17 在 Mac Mini 仓库工作树发现 jobs/chaspark/cache/ 裸露为 untracked。
+        seen_ids.txt 是去重状态 —— 只忽略, 不要删除 (删了 chaspark 会重推旧文章)。
+        """
+        for rel in ("jobs/chaspark/cache/last_run.json",
+                    "jobs/chaspark/cache/seen_ids.txt"):
+            with self.subTest(path=rel):
+                self.assertTrue(self._ignored(rel), f"{rel} 未被 gitignore")
+
     def test_gitignore_documents_reason(self):
         gi = _read(".gitignore")
         self.assertIn("V37.9.311", gi)

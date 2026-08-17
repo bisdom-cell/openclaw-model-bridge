@@ -46,3 +46,8 @@ status.json.lock
 # 脚本侧已修 (改在 SSD 的 BACKUP_DIR 内生成), 这里是纵深防御。
 *-openclaw-backup.tar.gz
 openclaw-backup-*.tar.gz
+
+# V37.9.312: job 运行时状态不入库 —— jobs/<name>/cache/ 存 last_run.json / seen_ids.txt /
+# raw/api_*.json 等运行期数据。它们随 job 就地生成, 混进 git 视野会污染 status 且有被
+# `git add -A` 误提交的风险。注意: seen_ids.txt 是去重状态, 只忽略不要删除(删了会重推旧内容)。
+jobs/*/cache/
