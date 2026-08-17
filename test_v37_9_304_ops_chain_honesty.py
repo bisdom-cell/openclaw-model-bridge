@@ -219,10 +219,24 @@ class TestBackupGuards(unittest.TestCase):
     def test_mount_table_check(self):
         self.assertIn(' on /Volumes/MOVESPEED (', self.src)
 
-    def test_fallback_cp_rc_checked(self):
-        """fallback cp 失败 → ERROR + exit (曾无条件 "OK (copied)")。"""
-        self.assertRegex(self.src, r'if ! cp "\$LATEST"')
-        self.assertIn('ERROR: cp to SSD failed', self.src)
+    def test_fallback_move_rc_checked(self):
+        """fallback 落盘操作失败 → ERROR + exit (曾无条件 "OK (copied)")。
+
+        V37.9.311 演进: 动词由 cp 改为 mv —— fallback 现在让 CLI 直接在 SSD 的
+        BACKUP_DIR 内生成 (原先写到 CWD=仓库目录, 留下含凭据的 1GB 孤儿档), 因此
+        改名是同盘操作, mv 秒级完成且不占双份空间 (1GB × 2 会挤盘)。
+        **本守卫的意图不变**: 落盘操作必须检查退出码, 失败必须 ERROR + 非零退出,
+        绝不无条件打成功。故断言放宽到 cp|mv 二选一, 但仍要求 `if !` 检查 + ERROR + exit。
+        """
+        self.assertRegex(
+            self.src, r'if ! (?:cp|mv) "\$LATEST" "\$BACKUP_FILE"',
+            "fallback 落盘操作必须检查退出码",
+        )
+        self.assertRegex(
+            self.src,
+            r'if ! (?:cp|mv) "\$LATEST" "\$BACKUP_FILE"; then\n\s*echo[^\n]*ERROR[^\n]*\n\s*exit \d',
+            "失败分支必须 ERROR + 非零退出",
+        )
 
     def test_status_cp_rc_checked(self):
         """status.json cp 失败 → ERROR 行 (匹配 watchdog err_pattern, 断档可见)。"""

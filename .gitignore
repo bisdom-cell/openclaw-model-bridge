@@ -40,3 +40,9 @@ docs/paper/silent_failures_taxonomy/latex/*.synctex.gz
 
 # V37.9.238: status_lock() 伴生锁文件（dev 侧 STATUS_FILE 回退 repo 根时产生；Mac Mini 在 ~/.kb）
 status.json.lock
+
+# V37.9.311: 备份归档绝不入库 —— 4.27 的 `openclaw backup create` 无 --output 时写到 CWD,
+# cron 的 CWD 是仓库目录, 曾留下 1GB 孤儿档且内含 ~/.openclaw 凭据 (误提交=凭据泄漏)。
+# 脚本侧已修 (改在 SSD 的 BACKUP_DIR 内生成), 这里是纵深防御。
+*-openclaw-backup.tar.gz
+openclaw-backup-*.tar.gz

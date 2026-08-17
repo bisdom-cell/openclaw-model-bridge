@@ -179,6 +179,9 @@ fi
 if [ -f test_restart_launchd.py ]; then
     run_suite "restart_launchd (V37.9.13 restart.sh 单一 manager 契约)" "python3 test_restart_launchd.py"
 fi
+if [ -f test_v37_9_311_backup_fallback.py ]; then
+    run_suite "v37_9_311_backup_fallback (V37.9.311 备份 fallback 落盘路径 — 4.27 写 CWD 非 ~/.openclaw/backups + 归档不入库)" "python3 test_v37_9_311_backup_fallback.py"
+fi
 if [ -f test_v37_9_310_sbin_path.py ]; then
     run_suite "v37_9_310_sbin_path (V37.9.310 PATH 缺 /sbin 致 macOS 工具找不到 — 备份中断真因回归)" "python3 test_v37_9_310_sbin_path.py"
 fi

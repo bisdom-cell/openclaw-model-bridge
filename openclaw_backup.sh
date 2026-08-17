@@ -52,22 +52,32 @@ if openclaw backup create --no-include-workspace --output "$BACKUP_FILE" >> "$LO
     SIZE=$(du -h "$BACKUP_FILE" 2>/dev/null | cut -f1)
     echo "[$TIMESTAMP] OK: $BACKUP_FILE ($SIZE)" >> "$LOG"
 else
-    # fallback: 如果 --output 不支持，用默认位置再拷贝
+    # fallback: --output 失败时改用默认落盘位置
+    # V37.9.311 (2026-08-17 Mac Mini 实证): 4.27 的 `openclaw backup create` 不带
+    # --output 时写到**当前工作目录**, 文件名 `<ISO8601>-openclaw-backup.tar.gz` ——
+    # 不是旧代码假设的 ~/.openclaw/backups/。该错误假设造成两个真实后果:
+    #   (1) fallback 永远落到 "backup created but file not found" + exit 2 = 假失败告警,
+    #       而备份其实已经生成了;
+    #   (2) 文件落在 cron 的 CWD (= 仓库目录), 留下 1GB 未被 gitignore 的孤儿档, 且内含
+    #       ~/.openclaw 凭据 → 误提交即凭据泄漏。
+    # 修法: 让 CLI 直接在 SSD 的 BACKUP_DIR 里生成 (subshell cd, 不影响主流程), 再 mv
+    # 成规范名 —— 同盘 mv 是秒级改名, 不占双份空间, 且永不污染 CWD。
+    # glob 用 `*-openclaw-backup.tar.gz` 精确匹配 CLI 的时间戳命名, 不会撞上规范名
+    # `openclaw-backup-<date>.tar.gz` (后者结尾是 -<date>.tar.gz)。
     echo "[$TIMESTAMP] WARN: --output failed, trying default location" >> "$LOG"
-    if openclaw backup create --no-include-workspace >> "$LOG" 2>&1; then
-        # 找到最新的备份文件并移动到 SSD
-        LATEST=$(ls -t ~/.openclaw/backups/*.tar.gz 2>/dev/null | head -1)
+    if (cd "$BACKUP_DIR" && openclaw backup create --no-include-workspace) >> "$LOG" 2>&1; then
+        LATEST=$(ls -t "$BACKUP_DIR"/*-openclaw-backup.tar.gz 2>/dev/null | head -1)
         if [ -n "$LATEST" ]; then
-            # V37.9.304 (对抗审计 C6): cp 退出码检查 — SSD 满/IO 错误时曾无条件打
-            # "OK (copied)" (SIZE 为空照样 OK), 备份静默未发生日志说发生了
-            if ! cp "$LATEST" "$BACKUP_FILE"; then
-                echo "[$TIMESTAMP] ERROR: cp to SSD failed (disk full/IO error?)" >> "$LOG"
+            # V37.9.304 (对抗审计 C6): 退出码检查 — 失败时曾无条件打 "OK (copied)"
+            # (SIZE 为空照样 OK), 备份静默未发生而日志说发生了
+            if ! mv "$LATEST" "$BACKUP_FILE"; then
+                echo "[$TIMESTAMP] ERROR: mv to canonical name failed (disk full/IO error?)" >> "$LOG"
                 exit 2
             fi
             SIZE=$(du -h "$BACKUP_FILE" 2>/dev/null | cut -f1)
-            echo "[$TIMESTAMP] OK (copied): $BACKUP_FILE ($SIZE)" >> "$LOG"
+            echo "[$TIMESTAMP] OK (fallback): $BACKUP_FILE ($SIZE)" >> "$LOG"
         else
-            echo "[$TIMESTAMP] ERROR: backup created but file not found" >> "$LOG"
+            echo "[$TIMESTAMP] ERROR: backup created but file not found in $BACKUP_DIR" >> "$LOG"
             exit 2
         fi
     else
