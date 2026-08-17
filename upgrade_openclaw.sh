@@ -48,9 +48,14 @@ fi
 
 # 4. 重启 Gateway
 echo ""
-echo "[5/6] 重启 Gateway..."
-$OPENCLAW gateway --verbose &
-sleep 5
+echo "[5/6] 重启全部服务 (restart.sh, launchd 单一管理者)..."
+# V37.9.314 (审计余项 b): 原裸 `$OPENCLAW gateway --verbose &` 违反 V37.9.13 单一管理者
+# 不变式 —— launchd plist 带 KeepAlive, 手动后台进程与 launchd 抢 :18789 → 双管理
+# crash-loop (V37.9.12.1 血案同型)。收编 restart.sh (launchctl bootstrap + 健康验证 +
+# V37.9.308 诚实退出码), 不自建第二套启动路径。
+if ! bash "$HOME/restart.sh"; then
+    echo "⚠️ restart.sh 报告有服务未恢复健康 (详见其输出), 继续验证段确认具体状态"
+fi
 
 # 5. 验证
 echo ""
@@ -65,7 +70,9 @@ echo "  Adapter(5001):  $AD"
 echo "  Proxy(5002):    $PX"
 echo "  Health:         $HEALTH"
 
-if [ "$GW" = "UP" ]; then
+# V37.9.314 (审计余项 b): HEALTH 此前只展示从不参与判定 —— proxy /health 无响应时
+# 照样打 ✅ 升级成功。现在参与: Gateway UP 且 proxy /health 有响应才算成功。
+if [ "$GW" = "UP" ] && [ "$HEALTH" != "无响应" ]; then
     echo ""
     echo "✅ 升级成功: $OLD_VER → $NEW_VER"
     # 推送通知 (V37.9.173 PathB-3: 走 notify → 微信 + Discord #alerts + 重试/队列)

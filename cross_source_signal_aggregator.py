@@ -39,6 +39,16 @@ import hashlib
 from datetime import datetime
 from collections import Counter
 
+# V37.9.314 (审计余项 f, A-F8 TZ 家族): 本模块的 datetime.now() 承载**日历天语义**
+# (今日笔记扫描窗口 daily_signals_{date}.json — 系统 TZ 漂移时日期边界错位)。与 shell 侧 `TZ=${SYSTEM_TZ:-Asia/Hong_Kong}`
+# (V37.9.250 D3, 87 处) 同语义: SYSTEM_TZ env 可覆盖, 默认 HKT。Mac Mini 系统 TZ=HKT
+# 时为 no-op。tzset 仅影响本进程。
+import time as _time
+os.environ["TZ"] = os.environ.get("SYSTEM_TZ", "Asia/Hong_Kong")
+if hasattr(_time, "tzset"):
+    _time.tzset()
+
+
 # V37.9.46 marker (governance source-level guard 字面量)
 _V37_9_46_MARKER = "V37.9.46 Opportunity Radar Stage 1"
 

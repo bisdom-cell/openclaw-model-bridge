@@ -179,6 +179,9 @@ fi
 if [ -f test_restart_launchd.py ]; then
     run_suite "restart_launchd (V37.9.13 restart.sh 单一 manager 契约)" "python3 test_restart_launchd.py"
 fi
+if [ -f test_v37_9_314_audit_leftovers.py ]; then
+    run_suite "v37_9_314_audit_leftovers (V37.9.314 审计余项六连 — backup MIN_KEEP+verify / crontab_safe 锁 / upgrade 单一管理者 / TZ pin / dream radar preamble / picker 字段吸收)" "python3 test_v37_9_314_audit_leftovers.py"
+fi
 if [ -f test_v37_9_311_backup_fallback.py ]; then
     run_suite "v37_9_311_backup_fallback (V37.9.311 备份 fallback 落盘路径 — 4.27 写 CWD 非 ~/.openclaw/backups + 归档不入库)" "python3 test_v37_9_311_backup_fallback.py"
 fi

@@ -1094,7 +1094,13 @@ $NOTES_SIGNALS
 fi
 
 # 加上状态、趋势、历史梦境
-REDUCE_DATA+="
+# V37.9.314 (审计余项 d, A-F6): 状态/趋势/Radar 三件套改为 **前插 preamble** ——
+# 此前追加在 REDUCE_DATA 尾部, 而真正进 LLM 的 REDUCE_MULTI_MATERIAL 是
+# utf8_truncate 30000 **保头截尾**, 素材几乎每晚 >30K → 尾部的三件套从未进过
+# LLM = V37.9.46-56 建的雷达管道对 dream 是结构性哑炮。小块前插后截断吃的是
+# 大块素材的尾部 (可承受), 且指令性小块前置注意力更高 (V37.8.3 同款判断)。
+REDUCE_PREAMBLE=""
+REDUCE_PREAMBLE+="
 # 项目状态
 $STATUS_CONTEXT
 
@@ -1106,7 +1112,7 @@ $TREND_CONTEXT
 # 注入跨 source 雷达 (#1) + 近期高对齐 Top 5 (#2, V37.9.305 标签诚实化) + 趋势加速度 (#3)
 # 让 Reduce LLM 在跨域关联中识别"早期机会点"
 if [ -n "$RADAR_SIGNALS_BLOCK" ]; then
-    REDUCE_DATA+="
+    REDUCE_PREAMBLE+="
 
 ═══ Opportunity Radar #1 (跨 source 共振信号) ═══
 $RADAR_SIGNALS_BLOCK
@@ -1118,7 +1124,7 @@ if [ -n "$TOP_ALIGNMENT_BLOCK" ]; then
     # "今日"身份进 prompt 与 LEVEL_5/6 guard 的"跨多天累积"声明自相矛盾。镜像
     # kb_evening_collect V37.9.56-hotfix3 血案修复的同款措辞 (evening 当时改了,
     # dream 侧漏改)。
-    REDUCE_DATA+="
+    REDUCE_PREAMBLE+="
 
 ═══ Opportunity Radar #2 (近期高对齐参考阅读 Top 5, ⭐≥4, 跨多天累积非仅今日) ═══
 $TOP_ALIGNMENT_BLOCK
@@ -1128,7 +1134,7 @@ $TOP_ALIGNMENT_BLOCK
 "
 fi
 if [ -n "$TREND_SIGNALS_BLOCK" ]; then
-    REDUCE_DATA+="
+    REDUCE_PREAMBLE+="
 
 ═══ Opportunity Radar #3 (本周趋势加速度) ═══
 $TREND_SIGNALS_BLOCK
@@ -1138,11 +1144,11 @@ $TREND_SIGNALS_BLOCK
 "
 fi
 
-# 截断 Reduce 素材到 80K chars（直接调 Adapter，无 Proxy 200KB 限制）
-# Qwen3-235B 262K context，80K chars ≈ 25-30K tokens，留足空间给 prompt + 8K output
-REDUCE_MATERIAL=$(echo "$REDUCE_DATA" | utf8_truncate 80000)
-REDUCE_CHARS=$(echo "$REDUCE_MATERIAL" | wc -c | tr -d ' ')
-log "Reduce 素材: ${REDUCE_CHARS} bytes (截断前 $(echo "$REDUCE_DATA" | wc -c | tr -d ' ') bytes)"
+# V37.9.314 (d): 小块 preamble 前插到大块素材之前 (截断保头截尾 → 吃大块尾)
+REDUCE_DATA="${REDUCE_PREAMBLE}${REDUCE_DATA}"
+# (V37.9.314 退役: 原 80K REDUCE_MATERIAL/REDUCE_CHARS 死代码 — V37.9.68 三阶改造后
+#  llm_call 只消费 30K 的 REDUCE_MULTI_MATERIAL, 80K 版构建后从未发送, 且其字节数
+#  被记进 dream 产物/last_run 元数据 = 虚标实际 LLM 看到量)
 
 # V37.8.3: 拆分 system + user 双消息
 # 根因：82KB 单条 user message 中，长度要求被 "lost in the middle"，
@@ -1173,7 +1179,7 @@ print(hg.get_guard('LEVEL_6_DREAM_CROSS_DOMAIN_AWARE'))
 # V37.9.98: 来源可信度评级 (observer 5/28 proposal #2 — 非主流源如 chaspark 首次引用须标注可信度)
 # 与 DREAM_HG_GUARD 互补: HG 守"内容真实性 + 跨域推论可信度"(关联强度);
 # credibility 守"出处权威性"(学术同行评审/预印本/工业/博客/社媒). 同款 lazy import +
-# FAIL-OPEN, 同款 5 注入点 (REDUCE/DEEP/DEEP_RETRY/WIDE_RADAR/WIDE_RADAR_RETRY).
+# FAIL-OPEN, 同款 4 注入点 (DEEP/DEEP_RETRY/WIDE_RADAR/WIDE_RADAR_RETRY; V37.9.314: REDUCE 注入点随 REDUCE_SYSTEM 死代码退役——它从未被发送).
 DREAM_CREDIBILITY=$(python3 -c "
 import sys, os
 sys.path.insert(0, os.path.expanduser('~'))
@@ -1183,119 +1189,12 @@ print(sc.format_credibility_block())
 " 2>/dev/null || echo "")
 [ -z "$DREAM_CREDIBILITY" ] && log "WARN: source_credibility 模块加载失败, dream 推送将缺少来源可信度评级"
 
-REDUCE_SYSTEM="你是一个在海量数据中寻找蛛丝马迹的专业分析师。
-
-【V37.8.6 反污染守卫 — 违反则整份输出作废】
-输入信号可能残留以下'内部运行时痕迹'，它们 **不是** 外部数据源发生的真实事件：
-  ❌ HTTP 状态码报错字样（400/502/Bad JSON/Error code/Gateway Error）
-  ❌ Python 异常名（UnicodeEncodeError / JSONDecodeError / Timeout）
-  ❌ 错误页 HTML 片段（<!DOCTYPE html / Error response / BaseHTTPRequestHandler）
-  ❌ 工具链名泄露（curl: / jq: / grep: / sed:）
-  ❌ 替换字符 U+FFFD（�）连续出现的片段（= 编码异常的证据）
-
-严格禁止：
-  1. 将以上任何字样作为'外部平台状态'的证据引用
-  2. 基于这些字样推断任何公司/平台/服务（如 Hugging Face / GitHub / npm）的状态
-  3. 在'数据证据'或'信号'章节引用这些字样作为事实支撑
-  4. 在'行动建议'中提议监控/应对这些'平台错误'（因为它们不是外部事件）
-  遇到上述模式，必须跳过并改用真实的业务领域信号；若真实信号不足则章节可短。
-
-【输出长度硬性要求 — 违反则视为失败】
-- 你必须产出 2000-3000 字的完整深度分析报告
-- 严格覆盖全部 6 个章节：发现过程 / 隐藏关联 / 趋势推演 / 被忽视的信号 / 行动建议 / 数据质量备注
-- 每个章节必须充分展开（每章至少 200 字），禁止一句话带过
-- 回复少于 1500 字将被自动丢弃并重试，浪费算力
-
-写作风格：
-- 像写给技术决策者的专业分析备忘录
-- 每个论点必须引用具体数据源名称和日期，不允许空泛断言
-- 不要客套话和铺垫，直接进入核心发现
-- 行动建议必须具体到可以立即执行
-- Markdown 格式输出${DREAM_HG_GUARD}${DREAM_CREDIBILITY}"
-
-# V37.8.3: pre-compute conditional sections outside double-quoted strings (bash 3.2 compat)
-_REDUCE_PREV_SECTION=""
-if [ -n "$PREV_THEMES" ]; then
-    _REDUCE_PREV_SECTION="### 最近梦境主题（仅供参考，如果同一热点有新角度可以继续深挖）
-$PREV_THEMES
-
-"
-fi
-
-REDUCE_PROMPT="$REDUCE_INTRO
-
----
-$REDUCE_MATERIAL
----
-
-这些数据是花费大量算力（14 个数据源逐一深度分析）的结果。不要浪费在浅尝辄止的多主题分析上。
-
-**核心要求：每天只深挖一个主题，但用全部分析维度去钻透它。**
-
-第一步：从所有信号中选出今天最有价值的一个发现。选题标准：
-1. 有扎实的多源证据链（至少 3 个不同数据源互相印证）
-2. 对我们的项目或技术方向有直接可操作的启示
-3. 反直觉、容易被忽视、但有数据支撑的信号
-4. 如果与最近梦境同一主题，必须有新角度或新证据，不要简单重复
-
-${_REDUCE_PREV_SECTION}第二步：围绕这一个主题，严格按以下结构深度展开：
-
-## 🌙 今日深度发现：[一句话主题]
-
-### 发现过程
-像侦探一样描述：哪些数据源的哪些条目最先引起注意？信号是如何从不同数据源中逐步浮现并互相印证的？
-
-### 🔗 隐藏关联
-围绕这个主题，列出 3-5 个隐藏的关联：
-- 每个关联需标注证据链：A事实([数据源, 日期]) → B事实([数据源, 日期]) → 因此C
-- 关联可以是同一领域内的深层联系，也可以是跨领域的意外连接
-- 如果有矛盾的证据，也要列出并分析为什么矛盾
-
-### 🔮 趋势推演
-基于这个主题的证据，推演 2-3 个未来走向：
-- **趋势名**
-- **数据证据**（具体引用源、日期、数字）
-- **推演逻辑**（为什么这些数据暗示了这个方向）
-- **时间窗口**（萌芽期/加速期/拐点？6 个月/1 年/3 年后会怎样？）
-- **如果成真的影响**
-
-### 💎 被忽视的信号
-围绕这个主题，找出 2-3 个藏在数据中容易被忽略的信号：
-- **是什么**（具体数字、事件、异常）
-- **在哪发现的**（数据源、日期）
-- **为什么被忽视**（人们通常怎么忽略它）
-- **为什么值得关注**（它暗示了什么更深层的变化）
-
-### 🎯 行动建议（按优先级排列）
-基于以上全部分析，给出 3-5 个具体可执行的建议：
-- **做什么**（具体到这周可以直接执行的操作）
-- **为什么现在做**（时间窗口/机会成本）
-- **怎么验证**（怎么知道做对了）
-- **预期产出**（做完后能得到什么具体的东西）
-
-### 📊 数据质量备注
-哪些数据源为这个主题贡献了关键证据？哪些数据源信息密度低或更新滞后？本次分析存在哪些信息盲区，需要补充什么新的数据源？"
-
-PROMPT_BYTES=$(echo "$REDUCE_PROMPT" | wc -c | tr -d ' ')
-SYSTEM_BYTES=$(echo "$REDUCE_SYSTEM" | wc -c | tr -d ' ')
-log "Reduce prompt: ${PROMPT_BYTES} bytes (user) + ${SYSTEM_BYTES} bytes (system) → 发送 LLM..."
-
-# 安全检查：prompt 超过 500KB 则截断（Qwen3 262K context 可处理 130KB prompt）
-if [ "$PROMPT_BYTES" -gt 500000 ]; then
-    log "WARN: Reduce prompt 过大 (${PROMPT_BYTES}B > 500KB)，回退到 40K 素材"
-    REDUCE_MATERIAL=$(echo "$REDUCE_DATA" | utf8_truncate 40000)
-    # 重新构建 prompt（用简化版，避免递归展开；system message 保持不变）
-    REDUCE_PROMPT="$REDUCE_INTRO
-
----
-$REDUCE_MATERIAL
----
-
-从所有信号中选出最有价值的一个发现，深度分析：证据全景（多源互证）→ 深层分析（本质+阶段+推演）→ 对我们的启示 → 2-3 个这周可执行的行动步骤。
-每个论点必须引用具体数据源名称和日期。"
-    PROMPT_BYTES=$(echo "$REDUCE_PROMPT" | wc -c | tr -d ' ')
-    log "回退后 prompt: ${PROMPT_BYTES} bytes"
-fi
+# ── V37.9.314 (审计余项 d) 死代码退役 ──
+# 原此处 ~150 行: REDUCE_SYSTEM + REDUCE_PROMPT 构建 + PROMPT_BYTES 500KB 检查 +
+# 40K 回退 —— V37.9.68 三阶改造 (DEEP + WIDE_RADAR 两次 llm_call, 消费 30K 的
+# REDUCE_MULTI_MATERIAL) 后全部无消费者, 构建后从未发送。V37.8.6 反污染守卫与
+# LEVEL_6/credibility 注入在 DEEP_SYSTEM / WIDE_RADAR_SYSTEM 各有独立副本, 无损。
+# (grep 证据: llm_call 消费点仅 DEEP_PROMPT/DEEP_RETRY/WIDE_RADAR/RADAR_RETRY 四处)
 
 # V37.9.68: 三阶推送（DEEP + WIDE + RADAR + Overview）— 替代 V37.8.3 chunked 单主题深挖
 # 用户视角原则 #13 兑现（2026-05-14）：用户反馈"连续几周 Qwen-BIM 重复推送"
@@ -1322,6 +1221,9 @@ fi
 
 REDUCE_MULTI_MATERIAL=$(echo "$REDUCE_DATA" | utf8_truncate 30000)
 REDUCE_MULTI_CHARS=$(echo "$REDUCE_MULTI_MATERIAL" | wc -c | tr -d ' ')
+# V37.9.314 (d): REDUCE_CHARS 曾取 80K 死路径的字节数, 而 LLM 实际看 30K 版 →
+# dream 产物/overview/last_run 三处元数据虚标。现在 = 真实发送量。
+REDUCE_CHARS="$REDUCE_MULTI_CHARS"
 log "V37.9.68 三阶推送: 素材 ${REDUCE_MULTI_CHARS} bytes, 2 次 LLM 调用 + 1 规则提取"
 
 # ─── LLM 调用 1: DEEP（单主题深挖，14 天 ban-list 硬规则）───
@@ -1339,7 +1241,7 @@ DEEP_SYSTEM="/no_think
 - 每章节 ≥ 400 字，全段 ≥ 1400 字
 - Markdown 格式，引用具体数据源名称和日期
 
-【V37.8.6 反污染】禁止把 HTTP 错误码 / Python 异常 / 错误页 HTML / U+FFFD(�) 当外部信号
+【V37.8.6 反污染 — 违反整份输出作废】输入可能残留内部运行时痕迹: HTTP 状态码(400/502/Bad JSON)/Python 异常名(UnicodeEncodeError/JSONDecodeError)/错误页 HTML/工具链名(curl:/jq:)/U+FFFD(�) 连续片段。它们**不是外部事件**: 禁止引用为证据/信号; 禁止据此推断任何公司或平台(如 Hugging Face/GitHub/npm)的状态; 禁止在行动建议中提议监控应对这些'平台错误'
 【V37.9.235 信号时效标注】引用日期距今超过 14 天的信号作印证时，必须紧跟标注「(长期背景, 非近期新增)」；发现过程/隐藏关联优先选用近 14 天信号，远期信号只作背景铺垫不得呈现为当日新增
 ${DREAM_HG_GUARD}${DREAM_CREDIBILITY}"
 
@@ -1405,7 +1307,7 @@ if [ -n "${DEEP_RESULT// }" ] && [ "$DEEP_CHARS" -lt "$MIN_DEEP_CHARS" ]; then
 - 14 天 ban-list 中的主题（关键词集合）不得作为选题
 - 即使数据中相同主题信号最强, 也必须选**完全不同维度的新主题**
 
-【V37.8.6 反污染】禁止把 HTTP 错误码 / Python 异常 / 错误页 HTML / U+FFFD(�) 当外部信号
+【V37.8.6 反污染 — 违反整份输出作废】输入可能残留内部运行时痕迹: HTTP 状态码(400/502/Bad JSON)/Python 异常名(UnicodeEncodeError/JSONDecodeError)/错误页 HTML/工具链名(curl:/jq:)/U+FFFD(�) 连续片段。它们**不是外部事件**: 禁止引用为证据/信号; 禁止据此推断任何公司或平台(如 Hugging Face/GitHub/npm)的状态; 禁止在行动建议中提议监控应对这些'平台错误'
 ${DREAM_HG_GUARD}${DREAM_CREDIBILITY}"
 
     DEEP_RETRY_PROMPT="上一次 DEEP LLM 调用产出过短 (${DEEP_CHARS} 字, 远低于 1200 字最低要求)。
@@ -1503,7 +1405,7 @@ WIDE_RADAR_SYSTEM="/no_think
 - WIDE 与 RADAR 不重复
 - Markdown 格式，每条引用具体数据源名称和日期
 
-【V37.8.6 反污染】禁止把 HTTP 错误码 / Python 异常 / 错误页 HTML / U+FFFD(�) 当外部信号
+【V37.8.6 反污染 — 违反整份输出作废】输入可能残留内部运行时痕迹: HTTP 状态码(400/502/Bad JSON)/Python 异常名(UnicodeEncodeError/JSONDecodeError)/错误页 HTML/工具链名(curl:/jq:)/U+FFFD(�) 连续片段。它们**不是外部事件**: 禁止引用为证据/信号; 禁止据此推断任何公司或平台(如 Hugging Face/GitHub/npm)的状态; 禁止在行动建议中提议监控应对这些'平台错误'
 【V37.9.235 信号时效标注】引用日期距今超过 14 天的信号必须紧跟标注「(长期背景, 非近期新增)」，不得呈现为当日新增
 ${DREAM_HG_GUARD}${DREAM_CREDIBILITY}"
 
@@ -1614,7 +1516,7 @@ if [ "$RADAR_STATUS" = "degraded" ] && [ "$WIDE_STATUS" = "ok" ]; then
 - 总长 ≥ 1500 字
 - 必须**排除主题**: ${DEEP_THEME} (DEEP 已用) + WIDE 已覆盖主题
 
-【V37.8.6 反污染】严禁把 HTTP 错误码 / Python 异常 / 错误页 HTML 当外部信号
+【V37.8.6 反污染 — 违反整份输出作废】输入可能残留内部运行时痕迹: HTTP 状态码(400/502/Bad JSON)/Python 异常名(UnicodeEncodeError/JSONDecodeError)/错误页 HTML/工具链名(curl:/jq:)/U+FFFD(�) 连续片段。它们**不是外部事件**: 禁止引用为证据/信号; 禁止据此推断任何公司或平台(如 Hugging Face/GitHub/npm)的状态; 禁止在行动建议中提议监控应对这些'平台错误'
 ${DREAM_HG_GUARD}${DREAM_CREDIBILITY}"
 
     RADAR_RETRY_PROMPT="上一次 WIDE+RADAR LLM 调用只产了 WIDE 段, 漏了 RADAR 段。

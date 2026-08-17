@@ -744,20 +744,27 @@ class TestBash32Compat(unittest.TestCase):
                 "bash 3.2 on Mac Mini. Use pre-computed helper variables.",
             )
 
-    def test_reduce_prompt_no_dollar_paren(self):
-        """REDUCE_PROMPT must not contain $() inline (bash 3.2 compat)."""
+    def test_live_prompts_no_dollar_paren(self):
+        """Live LLM prompts must not contain $([ -n ... ]) inline (bash 3.2 compat).
+
+        V37.9.314 演进: 原目标 REDUCE_PROMPT 已随死代码退役 (V37.9.68 三阶改造后
+        llm_call 只消费 DEEP_PROMPT/WIDE_RADAR_PROMPT, REDUCE_PROMPT 构建后从未
+        发送)。守卫意图不变 —— 检查对象换成真正发给 LLM 的两个 prompt。
+        """
         src = _read_kb_dream()
-        # Find REDUCE_PROMPT= (the main one, not the safety fallback)
-        idx = src.find('\nREDUCE_PROMPT="$REDUCE_INTRO')
-        self.assertNotEqual(idx, -1, "REDUCE_PROMPT not found")
-        # Check a reasonable block for $()
-        block = src[idx:idx + 3000]
-        self.assertNotIn(
-            "$([ -n",
-            block,
-            "REDUCE_PROMPT still contains $([ -n ... ]) inline — "
-            "use _REDUCE_PREV_SECTION pre-computed variable.",
-        )
+        for name in ('DEEP_PROMPT="$REDUCE_INTRO', 'WIDE_RADAR_PROMPT="$REDUCE_INTRO'):
+            idx = src.find("\n" + name)
+            self.assertNotEqual(idx, -1, f"{name.split('=')[0]} not found")
+            block = src[idx:idx + 3000]
+            self.assertNotIn(
+                "$([ -n",
+                block,
+                f"{name.split('=')[0]} contains $([ -n ... ]) inline — "
+                "breaks bash 3.2 on Mac Mini; use pre-computed helper variables.",
+            )
+        # 死代码不得回归
+        self.assertNotIn('\nREDUCE_PROMPT="$REDUCE_INTRO', src,
+                         "REDUCE_PROMPT 死代码已退役 (V37.9.314), 不得回归")
 
     @unittest.skip("V37.9.68 architecture migration: V37.8.3 CHUNK_PROMPT replaced by DEEP_PROMPT + WIDE_RADAR_PROMPT")
     def test_precomputed_helpers_exist(self):

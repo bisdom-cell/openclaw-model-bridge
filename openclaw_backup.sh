@@ -13,6 +13,48 @@ LOG="$HOME/openclaw_backup.log"
 DATE=$(date '+%Y-%m-%d')
 TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
 KEEP_DAYS=7
+# V37.9.314 (审计余项 h): 保留策略加最少份数下限 —— 纯 age-based 的隐患在 2026-08-15~17
+# 中断事件里现形: 清理只在成功备份后运行, 若中断 8 天, 恢复当晚会一次性删光所有 >7 天
+# 的档, 只剩当天 1 份 (中断越久剩得越少, 恰好反了)。无论多旧, 最新 MIN_KEEP 份永不删。
+MIN_KEEP=3
+# V37.9.314 (审计余项 h): 产物校验阈值 —— `openclaw backup create` rc=0 不代表产物完好
+# (2026-08-17 实证 rc=0 但产物在别的目录; 同理 0 字节/截断档也会 rc=0 混进备份集)。
+# 正常档 ~1.0G, 阈值取 1MB 只挡"明显坏档", 不误伤配置缩水。
+MIN_ARCHIVE_BYTES=1048576
+
+# 产物校验: 存在 + 尺寸下限 + gzip/tar 结构可读。失败打 ERROR (匹配 watchdog
+# err_pattern) 并让调用方 exit 4 —— 坏档必须当天可见, 不能计入备份集充数。
+verify_archive() {
+    local f="$1" sz
+    if [ ! -f "$f" ]; then
+        echo "[$TIMESTAMP] ERROR: verify failed — 产物不存在: $f" >> "$LOG"
+        return 1
+    fi
+    sz=$(wc -c < "$f" | tr -d ' ')
+    if [ -z "$sz" ] || [ "$sz" -lt "$MIN_ARCHIVE_BYTES" ]; then
+        echo "[$TIMESTAMP] ERROR: verify failed — 产物过小 (${sz:-0} bytes < $MIN_ARCHIVE_BYTES): $f" >> "$LOG"
+        return 1
+    fi
+    if ! tar -tzf "$f" >/dev/null 2>&1; then
+        echo "[$TIMESTAMP] ERROR: verify failed — gzip/tar 结构损坏: $f" >> "$LOG"
+        return 1
+    fi
+    return 0
+}
+
+# 保留清理: 最新 MIN_KEEP 份无条件保留, 其余按 KEEP_DAYS 天龄删除。stdout 输出删除数。
+prune_old_backups() {
+    local dir="$1" deleted=0 f
+    while IFS= read -r f; do
+        [ -z "$f" ] && continue
+        if [ -n "$(find "$f" -mtime +"$KEEP_DAYS" 2>/dev/null)" ]; then
+            rm -f "$f" && deleted=$((deleted + 1))
+        fi
+    done <<PRUNE_EOF
+$(ls -t "$dir"/openclaw-backup-*.tar.gz 2>/dev/null | tail -n +$((MIN_KEEP + 1)))
+PRUNE_EOF
+    echo "$deleted"
+}
 
 echo "[$TIMESTAMP] === Backup start ===" >> "$LOG"
 
@@ -49,6 +91,10 @@ mkdir -p "$BACKUP_DIR"
 # 执行 openclaw backup create
 BACKUP_FILE="$BACKUP_DIR/openclaw-backup-${DATE}.tar.gz"
 if openclaw backup create --no-include-workspace --output "$BACKUP_FILE" >> "$LOG" 2>&1; then
+    # V37.9.314 (h): rc=0 ≠ 产物完好, 校验后才打 OK
+    if ! verify_archive "$BACKUP_FILE"; then
+        exit 4
+    fi
     SIZE=$(du -h "$BACKUP_FILE" 2>/dev/null | cut -f1)
     echo "[$TIMESTAMP] OK: $BACKUP_FILE ($SIZE)" >> "$LOG"
 else
@@ -74,6 +120,10 @@ else
                 echo "[$TIMESTAMP] ERROR: mv to canonical name failed (disk full/IO error?)" >> "$LOG"
                 exit 2
             fi
+            # V37.9.314 (h): fallback 产物同样校验
+            if ! verify_archive "$BACKUP_FILE"; then
+                exit 4
+            fi
             SIZE=$(du -h "$BACKUP_FILE" 2>/dev/null | cut -f1)
             echo "[$TIMESTAMP] OK (fallback): $BACKUP_FILE ($SIZE)" >> "$LOG"
         else
@@ -86,8 +136,8 @@ else
     fi
 fi
 
-# 清理过期备份（保留最近 N 天）
-DELETED=$(find "$BACKUP_DIR" -name "openclaw-backup-*.tar.gz" -mtime +${KEEP_DAYS} -delete -print 2>/dev/null | wc -l | tr -d ' ')
+# 清理过期备份（保留最近 N 天, 且最新 MIN_KEEP 份永不删 — V37.9.314 h）
+DELETED=$(prune_old_backups "$BACKUP_DIR")
 if [ "$DELETED" -gt 0 ]; then
     echo "[$TIMESTAMP] Cleaned $DELETED old backup(s)" >> "$LOG"
 fi

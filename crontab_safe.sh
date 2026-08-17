@@ -251,18 +251,46 @@ cmd_verify() {
     fi
 }
 
+# ── 写操作互斥锁 (V37.9.314 审计余项 g) ─────────────────────────────
+# 血案面: cmd_add/cmd_remove 是 crontab -l → 编辑 → crontab file 的 RMW, 无锁时
+# 两个并发 add (如 cron 触发的自动注册与人工操作同分钟) 互相覆盖 → 静默丢行 ——
+# 这正是本工具要防的事故类。mkdir 原子锁 (macOS 无 flock 命令, 项目惯例同
+# auto_deploy lockdir); stale 锁 (持有者被 kill) 按 age>120s 回收; 10s 拿不到
+# 则 abort —— 无锁继续等于放弃本工具的存在意义。
+LOCKDIR="/tmp/crontab_safe.lockdir"
+acquire_lock() {
+    local waited=0
+    while ! mkdir "$LOCKDIR" 2>/dev/null; do
+        if [ -d "$LOCKDIR" ] && [ -n "$(find "$LOCKDIR" -maxdepth 0 -mmin +2 2>/dev/null)" ]; then
+            echo "⚠️  回收 stale 锁 (>120s, 持有者疑似已死)"
+            rmdir "$LOCKDIR" 2>/dev/null || true
+            continue
+        fi
+        if [ "$waited" -ge 10 ]; then
+            echo "❌ 10s 内未拿到锁 ($LOCKDIR 被占用) — 另一个 crontab_safe 写操作正在进行, 稍后重试"
+            exit 1
+        fi
+        sleep 1
+        waited=$((waited + 1))
+    done
+    trap 'rmdir "$LOCKDIR" 2>/dev/null || true' EXIT
+}
+
 # ── 主入口 ───────────────────────────────────────────────────────
 case "${1:-help}" in
     add)
+        acquire_lock
         cmd_add "${2:-}"
         ;;
     remove)
+        acquire_lock
         cmd_remove "${2:-}"
         ;;
     backup)
         cmd_backup
         ;;
     restore)
+        acquire_lock
         cmd_restore "${2:-}"
         ;;
     verify)
