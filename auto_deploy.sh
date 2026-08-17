@@ -564,6 +564,12 @@ if $NEED_RESTART; then
     echo "$(date) 核心服务文件变更，执行 restart..." >> "$LOG"
     bash "$HOME/restart.sh" >> "$LOG" 2>&1 || {
         echo "$(date) ❌ restart.sh 失败" >> "$LOG"
+        # V37.9.308 (对抗审计 C4): 此前只写 auto_deploy.log —— 而该日志在 job_watchdog
+        # 里只有 LOG_FRESHNESS (4200s mtime) 检查, 不在 HOME_LOGS 错误扫描名单 →
+        # 重启失败零告警。走既有 quiet_alert (Discord/WhatsApp + 重试队列), 不新建通道。
+        # 配合 restart.sh V37.9.308 诚实退出码, 本分支从死代码变为真实可达。
+        quiet_alert "auto_deploy: restart.sh 失败 — adapter/proxy/gateway 可能未恢复健康
+分支: $BRANCH | 排查: tail -40 $LOG"
         exit 1
     }
     echo "$(date) ✅ 服务重启完成" >> "$LOG"

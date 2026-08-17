@@ -86,6 +86,22 @@ restart_via_launchd() {
     return 1
 }
 
+# V37.9.308 (对抗审计 C4): 重启失败汇总 — 让 restart.sh 诚实退出非零。
+# 血案: restart_via_launchd 的 rc=1 (bootstrap 失败 / 10s 内未健康) 此前只被
+# `-eq 2` 分支看一眼就丢掉 → 脚本恒 exit 0 → auto_deploy 的
+# `bash restart.sh || { ❌ restart.sh 失败 }` 是死代码 → 一次把 adapter/proxy
+# 留在崩溃循环里的部署会被记成 "✅ 服务重启完成"。
+# 更窄的窗口: 漂移修复路径 (auto_deploy DRIFT_REASON, HAS_NEW_COMMITS=false)
+# 也会置 NEED_RESTART=true, 但其后的 preflight 兜底只在 HAS_NEW_COMMITS 时运行
+# → 该路径下服务死掉零告警 (auto_deploy.log 在 job_watchdog 里只有 LOG_FRESHNESS,
+#   不在 HOME_LOGS 错误扫描名单)。
+# 刻意不加重试: launchd KeepAlive 已经在重试进程本身 (原则 #8 谁已经在管这件事),
+# auto_deploy 侧再加一层重试 = 与 launchd 抢管理权的新机器 (日落法 #34)。
+# 本修复只做一件事: 让既有的失败信号读到真值并抵达既有告警通道。
+# bash 3.2 安全 (Mac Mini): 用字符串累加器而非数组 —— 空数组 ${arr[@]} 在
+# `set -u` + bash 3.2 下报 unbound variable。
+RESTART_FAILED=""
+
 echo "[restart] Stopping Gateway..."
 # Stop Gateway via launchctl (preserves plist registration knowledge for restart)
 launchctl bootout "gui/$(id -u)/ai.openclaw.gateway" 2>/dev/null || true
@@ -106,6 +122,9 @@ if [ "$_ad_rc" -eq 2 ]; then
     nohup python3 "$SCRIPT_DIR/adapter.py" > ~/adapter.log 2>&1 &
     disown
     sleep 1
+elif [ "$_ad_rc" -ne 0 ]; then
+    # V37.9.308: rc=1 = launchd 失败或 10s 内未健康 —— 此前静默丢弃
+    RESTART_FAILED="${RESTART_FAILED}Adapter(:5001) "
 fi
 
 # ── Tool Proxy (:5002) ───────────────────────────────────────────────
@@ -120,6 +139,9 @@ if [ "$_px_rc" -eq 2 ]; then
     nohup python3 "$SCRIPT_DIR/tool_proxy.py" > ~/tool_proxy.log 2>&1 &
     disown
     sleep 1
+elif [ "$_px_rc" -ne 0 ]; then
+    # V37.9.308: 同 Adapter —— rc=1 不再静默
+    RESTART_FAILED="${RESTART_FAILED}ToolProxy(:5002) "
 fi
 
 # ── Gateway (:18789) ─────────────────────────────────────────────────
@@ -132,26 +154,44 @@ if [ -f "$GATEWAY_PLIST" ]; then
     # bootout first (ignore error if not loaded)
     launchctl bootout "gui/$(id -u)/ai.openclaw.gateway" 2>/dev/null || true
     sleep 1
-    launchctl bootstrap "gui/$(id -u)" "$GATEWAY_PLIST"
-    echo "[restart] Gateway loaded via launchd (KeepAlive enabled)"
 
     # V37.8.13: Post-bootstrap health verification (2026-04-16 血案：Gateway bootstrap
     # 成功但 21 秒内崩溃，restart.sh 报 "Done!" 却 Gateway 已死。现在主动等待并验证)
     GATEWAY_HEALTHY=false
-    for _gw_attempt in 1 2 3 4 5; do
-        sleep 3
-        _gw_http=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 2 --max-time 3 http://localhost:18789 2>/dev/null || echo "000")
-        if [ "$_gw_http" -ge 200 ] 2>/dev/null && [ "$_gw_http" -lt 400 ] 2>/dev/null; then
-            echo "[restart] Gateway health verified (HTTP $_gw_http after ${_gw_attempt}×3s)"
-            GATEWAY_HEALTHY=true
-            break
-        fi
-        echo "[restart] Gateway not yet healthy (attempt $_gw_attempt/5, HTTP $_gw_http)..."
-    done
+    # V37.9.308 (对抗审计 C4): bootstrap 加守卫 —— 此前是裸调用, 在 `set -e` 下失败
+    # 即刻杀掉脚本, 而上一行刚 bootout 成功 → Gateway 被留在 booted-out 态 (launchd
+    # 不再认识该 label, KeepAlive 拉不起来), 且健康验证/⚠️ 日志/失败汇总全部不执行。
+    # 守卫后脚本走完流程、留下可读日志、并经 RESTART_FAILED 退出非零。
+    if ! launchctl bootstrap "gui/$(id -u)" "$GATEWAY_PLIST"; then
+        echo "[restart] ⚠️ Gateway bootstrap 失败 (plist=$GATEWAY_PLIST) — 服务当前处于 booted-out 态"
+        # V37.9.308: 只有 **bootstrap 失败** 才计入失败汇总, "15s 内没健康" 不计 ——
+        # 二者不是同一种故障, V37.8.13 的决定只针对后者:
+        #   · bootstrap 失败 = launchd 根本没接管这个 job → KeepAlive 无从重试 →
+        #     永久 down 到人工介入 → 必须让调用方看见 (本行)。
+        #   · bootstrap 成功但 15s 未健康 = launchd 已接管且正在重试, 多半是慢启动;
+        #     此时 Adapter/Proxy 已正常, 让整个部署失败得不偿失 → 仅 ⚠️ 告警
+        #     (V37.8.13 的原判断, 本次保留)。持续不健康由 wa_keepalive (每 30min
+        #     真实发送验证) + job_watchdog 兜底, 不靠 restart.sh 的退出码。
+        RESTART_FAILED="${RESTART_FAILED}Gateway(:18789,bootstrap失败) "
+    else
+        echo "[restart] Gateway loaded via launchd (KeepAlive enabled)"
+        for _gw_attempt in 1 2 3 4 5; do
+            sleep 3
+            _gw_http=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 2 --max-time 3 http://localhost:18789 2>/dev/null || echo "000")
+            if [ "$_gw_http" -ge 200 ] 2>/dev/null && [ "$_gw_http" -lt 400 ] 2>/dev/null; then
+                echo "[restart] Gateway health verified (HTTP $_gw_http after ${_gw_attempt}×3s)"
+                GATEWAY_HEALTHY=true
+                break
+            fi
+            echo "[restart] Gateway not yet healthy (attempt $_gw_attempt/5, HTTP $_gw_http)..."
+        done
+    fi
 
     if ! $GATEWAY_HEALTHY; then
         echo "[restart] ⚠️ Gateway failed to become healthy within 15s — needs manual investigation"
         echo "[restart] ⚠️ Check: launchctl list | grep gateway ; tail ~/.openclaw/logs/gateway.err.log"
+        # V37.8.13 决定保留: 此处刻意 **不** 计入 RESTART_FAILED —— Adapter/Proxy 已正常,
+        # 且 launchd 仍在 KeepAlive 重试, 不因慢启动让整个部署判失败。
     fi
 else
     echo "[restart] WARNING: launchd plist not found, falling back to nohup (no auto-restart)"
@@ -159,4 +199,11 @@ else
     disown
 fi
 sleep 3
+
+# V37.9.308 (对抗审计 C4): 诚实退出码 —— 有服务没恢复健康就不报 Done!。
+# 消费方 auto_deploy.sh 的失败分支据此被激活 (此前是死代码)。
+if [ -n "$RESTART_FAILED" ]; then
+    echo "[restart] ❌ 未恢复健康: ${RESTART_FAILED}— 详见上方日志"
+    exit 1
+fi
 echo "[restart] Done!"

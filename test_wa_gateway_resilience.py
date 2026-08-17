@@ -209,20 +209,37 @@ class TestRestartGatewayVerification(unittest.TestCase):
         self.assertIn("V37.8.13", self.src)
 
     def test_does_not_exit_on_gateway_failure(self):
-        """Gateway 验证失败不应 exit 1（Proxy 和 Adapter 已经正常运行）"""
-        # 找到 GATEWAY_HEALTHY 检查后的代码块
+        """Gateway 健康验证失败不应 exit 1（Proxy 和 Adapter 已经正常运行）。
+
+        V37.9.308 收紧正则: 原 `if.*GATEWAY_HEALTHY.*then(.*?)fi` 的前缀 `.*` 是贪婪的,
+        会一路吃到**文件最后一个** `then`, 于是捕获到的其实是别处的块 —— 该测试因此
+        并不真的在检查 Gateway 块（V37.9.308 新增结尾退出块时当场暴露）。
+        现锚定到真正的 `if ! $GATEWAY_HEALTHY; then ... fi` 块。
+
+        本断言的**意图不变且仍然成立**: bootstrap 成功但 15s 未健康 = launchd 已接管
+        且 KeepAlive 在重试, 不因慢启动让整个部署判失败。V37.9.308 只把**另一种**故障
+        （bootstrap 本身失败 = launchd 根本没接管, KeepAlive 无从重试）计入退出码,
+        那是 else 分支的事, 不在本块内。
+        """
         match = re.search(
-            r"if.*GATEWAY_HEALTHY.*then(.*?)fi",
+            r"if ! \$GATEWAY_HEALTHY; then\n(.*?)\n    fi",
             self.src,
             re.DOTALL,
         )
-        if match:
-            block = match.group(1)
-            self.assertNotIn(
-                "exit 1",
-                block,
-                "Gateway 验证失败不应 exit 1（Proxy/Adapter 正常）",
-            )
+        self.assertIsNotNone(match, "未找到 `if ! $GATEWAY_HEALTHY; then` 块（正则需更新）")
+        block = match.group(1)
+        # 防空转: 切片必须真含该块的告警行
+        self.assertIn("Gateway failed to become healthy", block, "切片没命中目标块")
+        self.assertNotIn(
+            "exit 1",
+            block,
+            "Gateway 健康验证失败不应 exit 1（Proxy/Adapter 正常, launchd 仍在重试）",
+        )
+        self.assertNotIn(
+            "RESTART_FAILED=",
+            block,
+            "慢启动不得计入 V37.9.308 失败汇总（那会经 exit 1 间接判整体失败）",
+        )
 
 
 # ═══════════════════════════════════════════════════════

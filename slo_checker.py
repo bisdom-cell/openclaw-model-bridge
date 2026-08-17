@@ -170,26 +170,34 @@ def main():
         return 0
 
     if "--update" in sys.argv:
-        # 写入 status.json
+        # V37.9.308 (对抗审计 B-F8, MR-9 state-writes-go-through-helper):
+        # 此前是裸 read-modify-write —— 写本身原子 (tmp + os.replace), 但 **RMW 窗口
+        # 无锁**: 读(load) 与 replace 之间任何并发写者 (kb_status_refresh 每小时 /
+        # full_regression 证据回写 / status_update CLI) 的改动会被整份覆盖静默丢失
+        # (V37.9.238 审计 finding C lost-update 家族)。且固定 tmp 名 `.tmp` 在两个
+        # slo_checker 并发时互相踩 (V37.9.237 已为此改 pid 后缀)。
+        # 日落法 #34 一物一形: 不自建第二套写路径, 收编既有 status_lock + save_status
+        # (二者本就是为 "load → mutate → save" 循环设计的)。
+        # 顺带闭合一个 dev 脚枪: 本模块的 STATUS_JSON 恒指 ~/.kb/status.json, 而
+        # status_update.STATUS_FILE 是 "~/.kb 存在则用之, 否则用仓库副本" —— dev 上
+        # 裸写会凭空造出 ~/.kb/status.json, 反过来劫持此后所有写者的路径解析。
+        # 生产 (Mac Mini, ~/.kb/status.json 存在) 两者逐字同路径, 零行为变化。
         try:
-            if os.path.exists(STATUS_JSON):
-                with open(STATUS_JSON) as f:
-                    status = json.load(f)
-            else:
-                status = {}
-            if "health" not in status:
-                status["health"] = {}
-            status["health"]["slo"] = {
-                "checked_at": output["checked_at"],
-                "all_ok": all_ok,
-                "summary": {r["name"]: {"value": r["value"], "target": r["target"], "ok": r["ok"]} for r in results},
-            }
-            tmp = STATUS_JSON + ".tmp"
-            with open(tmp, "w") as f:
-                json.dump(status, f, indent=2, ensure_ascii=False)
-            os.replace(tmp, STATUS_JSON)
-            print(f"SLO status written to {STATUS_JSON}")
-        except OSError as e:
+            import status_update
+
+            with status_update.status_lock():
+                status = status_update.load_status()
+                status.setdefault("health", {})["slo"] = {
+                    "checked_at": output["checked_at"],
+                    "all_ok": all_ok,
+                    "summary": {
+                        r["name"]: {"value": r["value"], "target": r["target"], "ok": r["ok"]}
+                        for r in results
+                    },
+                }
+                status_update.save_status(status, updated_by="slo_checker")
+            print(f"SLO status written to {status_update.STATUS_FILE}")
+        except (OSError, ImportError) as e:
             print(f"Failed to update status.json: {e}", file=sys.stderr)
 
     print(json.dumps(output, indent=2, ensure_ascii=False))

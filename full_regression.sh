@@ -179,6 +179,9 @@ fi
 if [ -f test_restart_launchd.py ]; then
     run_suite "restart_launchd (V37.9.13 restart.sh 单一 manager 契约)" "python3 test_restart_launchd.py"
 fi
+if [ -f test_v37_9_308_restart_exit_code.py ]; then
+    run_suite "v37_9_308_restart_exit_code (V37.9.308 对抗审计 C4 — restart.sh 诚实退出码 + Gateway bootstrap 守卫 + auto_deploy quiet_alert)" "python3 test_v37_9_308_restart_exit_code.py"
+fi
 if [ -f test_movespeed_incident_capture.py ]; then
     run_suite "movespeed_incident_capture (V37.9.14 SSD rsync 事故取证 helper + INV-BACKUP-001 check 4)" "python3 test_movespeed_incident_capture.py"
 fi
