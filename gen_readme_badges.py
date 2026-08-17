@@ -324,7 +324,11 @@ def _doc_header_specs(facts):
         ("tests",        r"\*\*[0-9]+ tests",        f"**{tc} tests"),
         ("invariants",   r"[0-9]+ invariants",       f"{inv} invariants"),
         ("meta rules",   r"[0-9]+ meta rules",       f"{mr} meta rules"),
-        ("VERSION semver", r"VERSION [0-9.]+ 不变",   f"VERSION {semver} 不变"),
+        # V37.9.308: " 不变" 改为可选 —— 原模式把该词写死, 于是**只要某次发布真的 bump 了
+        # 版本**, config.md 头部照实写 "VERSION x.y.z"（不能谎称不变）就匹配不上, token
+        # 静默变成 TOKEN_NOT_FOUND 不再被管理。规范化为不带该词的形式（是否 bump 看
+        # changelog, 不靠头部这个词承载）。
+        ("VERSION semver", r"VERSION [0-9.]+(?: 不变)?",   f"VERSION {semver}"),
     ]
     if ts is not None:
         config_tokens.append(("suites", r"[0-9]+ suites", f"{ts} suites"))

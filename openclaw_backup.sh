@@ -2,7 +2,11 @@
 # openclaw_backup.sh — 每日自动备份 OpenClaw state 到外挂 SSD
 # 备份内容：config, credentials, sessions, memory（不含 workspace）
 # 保留最近 7 天的备份，自动清理过期文件
-export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin"
+# V37.9.310 (🔴 2026-08-15~17 备份中断根因): PATH 必须含 /sbin —— macOS 的 mount 在
+# /sbin/mount, 旧 PATH 不含 /sbin → 脚本内 `mount` command-not-found → 管道失败 →
+# V37.9.304 的挂载检测恒判"未挂载" → 备份连续静默跳过 3 天。
+# dev(Linux) 的 mount 在 /usr/bin, 落在旧 PATH 内 → dev 测试全绿 = dev-production 接缝。
+export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/sbin:/usr/sbin"
 
 BACKUP_DIR="/Volumes/MOVESPEED/openclaw_backup"
 LOG="$HOME/openclaw_backup.log"
@@ -16,8 +20,26 @@ echo "[$TIMESTAMP] === Backup start ===" >> "$LOG"
 # V37.9.304 (对抗审计 C7): 查 mount 表而非仅 -d — 不洁弹出可留本地幽灵目录,
 # -d 永真后备份写进启动盘 (真 SSD 再插入被挂 "/Volumes/MOVESPEED 1"), 离线备份
 # 实际不在离线介质上且全绿。精确匹配 " on /Volumes/MOVESPEED (" 防松匹配误认。
-if [ ! -d "/Volumes/MOVESPEED" ] || ! mount | grep -q " on /Volumes/MOVESPEED ("; then
-    echo "[$TIMESTAMP] ERROR: SSD not mounted (dir or mount-table check failed), skip backup" >> "$LOG"
+# V37.9.309: 两个条件拆开报 —— V37.9.304 合并成一条 "(dir or mount-table check failed)",
+# 看日志根本分不清是「SSD 没插」还是「有幽灵目录但没真挂载」, 2026-08-15 起连续告警时
+# 只能让人手动去 Mac Mini 敲 mount 命令才能定性。诊断信息属于告警本身的一部分。
+if [ ! -d "/Volumes/MOVESPEED" ]; then
+    echo "[$TIMESTAMP] ERROR: SSD not mounted (目录 /Volumes/MOVESPEED 不存在 — SSD 未插入或已干净卸载), skip backup" >> "$LOG"
+    exit 1
+fi
+# V37.9.310: 工具缺失必须与"没挂载"可区分 —— 这正是 8-15~17 中断难定性的原因:
+# mount 找不到时管道失败, 读起来和"SSD 未挂载"一模一样 (同 V37.9.288「搜索坏了 ≠ 没搜到」)。
+if ! command -v mount >/dev/null 2>&1; then
+    echo "[$TIMESTAMP] ERROR: mount 命令不可用 (PATH=$PATH) — 无法验证挂载, skip backup" >> "$LOG"
+    exit 1
+fi
+if ! mount | grep -q " on /Volumes/MOVESPEED ("; then
+    MOUNT_LINES=$(mount | grep -i movespeed | tr '\n' ';' || true)
+    if [ -z "$MOUNT_LINES" ]; then
+        MOUNT_LINES="(mount 表中无任何 MOVESPEED 行)"
+    fi
+    echo "[$TIMESTAMP] ERROR: SSD not mounted (目录存在但不在 mount 表 — 幽灵目录/不洁弹出), skip backup" >> "$LOG"
+    echo "[$TIMESTAMP] ERROR: mount 表实况: $MOUNT_LINES" >> "$LOG"
     exit 1
 fi
 

@@ -1,6 +1,6 @@
 {
-  "updated": "2026-08-17 01:18:36",
-  "updated_by": "full_regression",
+  "updated": "2026-08-17 02:54:21",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -80,6 +80,21 @@
   ],
   "recent_changes": [
     {
+      "date": "2026-08-17",
+      "what": "V37.9.310 备份中断定性=我的 bug 并修复: 用户实测证明 SSD 挂载正常 → 推翻我 V37.9.309 的'倾向 H1'判断。真因 = 脚本 PATH 缺 /sbin, macOS 的 mount 在 /sbin/mount → command-not-found → 管道失败 → 恒判未挂载; dev(Linux) mount 在 /usr/bin 落在旧 PATH 内故测试全绿 = dev-production 接缝。修三处 PATH + 加 command -v mount 可用性检查(缺工具不再与'没挂载'同形)。守卫 11 单测; sabotage 连抓我三个空转守卫, 最险的是 PATH 用子串判断被 /opt/homebrew/sbin 满足致完全没守。VERSION 0.37.9.141→0.37.9.142。",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-08-17",
+      "what": "V37.9.309 SSD 备份告警 triage: git -L 用告警文案本身锁定 V37.9.304(8-14) 为变更点。同批 6 条 WARN 逐条分诊后仅此一条 actionable(其余外部限流/503/带 attempt 1/3 已自愈)。两假设(盲区解除 vs 我引入误判)dev 不可判定, 已给用户单条 mount 判据; dev 侧模拟真实 macOS 格式验证模式判定正确 → 倾向 H1 但不定论。本版修的是不依赖根因的部分: V37.9.304 把两个失败条件合并成一条消息致日志分不清哪个失败, 现拆分 + dump mount 表实况。守卫 12 单测(含模式对 exfat/APFS/HFS+ 行为钉死 + watchdog err_pattern 契约), sabotage 退回合并条件 → 3 FAIL。VERSION 0.37.9.140→0.37.9.141。",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-08-17",
+      "what": "V37.9.308 对抗审计登记项 [43] 兑现: (C4 MED) restart.sh 诚实退出码 —— rc=1 此前被调用方只看 -eq 2 静默丢弃致恒 exit 0, 使 auto_deploy 失败分支成死代码(V37.9.304「RC 死代码」家族第二例, 且这个守的是「部署后服务还活着吗」); 最脏窗口是漂移修复路径(NEED_RESTART 第二个置位点)连 preflight 兜底都不跑。修: RESTART_FAILED 累加器(bash 3.2 安全字符串非数组) + Gateway bootstrap 加守卫(退役 bootout 成功後裸 bootstrap 在 set -e 下自杀留 booted-out 态) + auto_deploy 收编既有 quiet_alert。刻意不加重试(launchd KeepAlive 已在管)。中途被 V37.8.13 pin 纠正: Gateway 故障按可恢复性二分, 慢启动不判失败; 并修好该 pin 自身的贪婪正则空转。(B-F8 LOW) slo_checker --update 收编 status_lock+save_status。守卫 30 单测(行为级 fakebin PATH 注入), sabotage 五连 S1→7/S2→2/S3→1/S4→3/S5→3 全部精确开火; 其中 S3 首轮通过当场抓出我自己两层空转守卫(前向扫描撞块外 + 被块内注释咬)。VERSION 0.37.9.139→0.37.9.140。",
+      "by": "claude_code"
+    },
+    {
       "date": "2026-08-14",
       "what": "V37.9.307 ISSRE 拒稿→按三审重写→venue 策略确立(期刊优先/会议不投)。文风机械验证句长 35.9→15.2、>40词 49→4;IEEEtran 本地真编译 7页0error;诚实更正 user-view 70%→13/22=59% 并同步 bench doc;QA4AGENTS 取消并三处留痕防误执行。VERSION 0.37.9.139 不变。",
       "by": "claude_code"
@@ -122,61 +137,6 @@
     {
       "date": "2026-08-13",
       "what": "V37.9.302 🔴 守卫之守卫度量 bug: 混沌审计 catch 判据求和→逐信号。症状=full_regression 尾部近乎每次 9/10 且每次失败场景都不同, standalone 必 10/10。受控加载实验决定性复现: fail 0→1 真被抓到, 但同轮无关 MRD 计数器掉 2 → 求和 delta -1 → 报 BLIND SPOT。隔离连跑 6 次 governance 计数器完全稳定证噪声来自负载。修 catch_signals() 逐信号比较(检出力不降反升, 真盲区仍 FAIL); 预注册的重试/inconclusive 层按日落法不建。负载下验证 10/10 全抓。守卫 16 单测(真实计数逐字回放+防空转), sabotage 2 项开火。VERSION 不变(测试基础设施)。",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-08-13",
-      "what": "V37.9.301 🔴 告警疲劳同族第二例根治: 07:00 治理告警 grep ❌/💥 | head -5 对 governance_checker 输出是「抓明细丢标题」——一个 check 多的不变式吃掉 5 配额中的 4 → 排在后面的整条失败不变式静默消失 + 顶层计数行(排最末)永远第一个被丢 + V37.9.214 的 💥 被截断打败 + 无截断提示(正文读起来像完整的)。真渲染器 4-失败场景 dev 实证。修: 按缩进分层(^ {0,3} 顶层 / ^ {4,} 明细) + 顶层优先 + 显式截断留痕 + 并存 ⚠️ 附进已触发告警(新增推送量 0, 刻意不为 warn-only 干净轮新开推送)。同族全量扫描另有两项诚实剔除(4 个 collector head -3 实测证伪 FAIL-OPEN 单行 JSON / SLO warn 依赖 Mac-Mini-only 脚本 dev 不可验证)。守卫 24 单测(真渲染器样本+源码抽模式+反向证据), sabotage 三连精确开火。VERSION 0.37.9.135。",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-08-12",
-      "what": "V37.9.300 🔴 告警疲劳机械成因根治: auto_deploy `grep \"❌\"` 抓走 6 空格缩进明细行却丢掉它们的 ⚠️ 标题 → 明细孤悬在无关失败下被误读, 而「向量索引已 106h 未更新」作为 warn 行从未进过告警 = V37.9.299 核心 job 死 4 天「无人知」的真相(告警一直在发, 呈现形态误导)。修: grep -E '^ {0,3}(❌|⚠️)' 按缩进精确分层。守卫 7 单测(真实血案样本+源码抓取真实模式), sabotage 5 项开火。VERSION 0.37.9.134。元教训: 修告警正文比劝人多看一眼有效。",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-08-12",
-      "what": "V37.9.299 修复 Mac Mini 实证生效: 手动补跑 kb_embed 完成 56187 chunks 新增 + 幽灵剪除 6 + 35 文件权威重建, 覆盖率 98%→**100% (2627/2627)**, 零失败, PA 语义检索恢复。附带教训: 合并后首次补跑因运行时副本(~/kb_embed.py)未经 auto_deploy 同步而重演旧 Traceback → 原则 #14 补充「仓库副本 vs 运行时副本」验证式已登记。",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-08-12",
-      "what": "V37.9.299 🔴 V37.9.293 回归根治: kb_embed `if vectors:` 对 numpy ndarray 抛 ValueError → 每晚跑完 118s 嵌入 54690 chunks 后崩在写入前一行, KB 向量索引静默停更 4 天(95 笔记未索引, PA 语义检索失明)。preflight warning 驱动发现(非任何测试)。修复两层: len() 判定 + **测试 fake 升级 ndarray-faithful**(__bool__ 多元素抛 ValueError) 让既有 21 行为级测试全成该 bug 类探测器。sabotage 验证 dev 复现生产逐字同款 ValueError。同族扫描仅此一处。VERSION 0.37.9.133。",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-08-12",
-      "what": "Volcengine 退役 ep- 接入点清理完成(用户控制台执行): 删除 doubao 2.0 旧 Ark 接入点(= 08-08 泄漏进 changelog 的那串, curl 验证 404 = 泄漏面彻底归零, git 历史残留值现指向不存在的接入点) + GLM-5.2 旧 Ark 接入点; doubao_21 primary 接入点验证存活(curl 200)。删除前经代码侧 grep 确认两者零运行时消费者(V37.9.290 平台迁移后)且治理不再要求相关 plist env。key 轮换用户决定暂缓。",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-08-12",
-      "what": "论文#2 §2.3 新颖性主张检索加固: 主动收窄 'no prior report' → 'uncommon rather than unprecedented' + 接上两条当场核验引用 (Ernst & Baldassarre 2023 SE 注册报告=发表侧传统 MSR 2020 起; Rebedea et al. 2023 NeMo Guardrails=runtime-guard 规定 enforce 什么但不规定何时授权 enforcement), 引用 9→11。data_inventory + DECISIONS #7 同步。",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-08-12",
-      "what": "V37.9.295 expert 降级 E2E Mac Mini 三项全过(Plan B 路径): 同轮基础模式接管+开头声明 / proxy 日志 EXPERT_DEGRADED followup (9 msgs→763 chars) / 正常路径 🧠 回归+真值还原。SOUL 规则 12 结构性兑现完成态。附带发现: (1) 轮换未达成—现装 key 即 08-08 暴露串仍 200, 已重登记待华坤重发 (2) 10:25 轮 PA 因上下文 bounce 合理跳过工具(非 bug) (3) SOUL 规则 12 'Qwen3' 字样过时低优登记。",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-08-12",
-      "what": "V37.9.298 07:00 治理告警 triage: INV-ROUTER-001 ❌ 根因 = V37.9.290 迁移遗留测试隔离缺口(FAIL-OPEN 测试只 pop 旧名 ARK_API_KEY, 生产 .env_shared 配上 DOUBAO_API_KEY 后前提失效; dev 模拟生产 env 一击复现 'doubao'!='qwen')。原则 #31 扫 13 套件再抓 2 潜伏缺口(218 _chain key 泄漏 + 76 ROUTER_ENFORCE 未隔离), 三点修复 + V37.9.232 判别器 env 模型追平 2026-08 形态(+DOUBAO/GLM5/ROUTER_ENFORCE, 4→7 tests)。生产 router 行为全程正确。VERSION 不变(测试基础设施)。",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-08-12",
-      "what": "V37.9.297 论文 #2 第一稿(宪法级 #1): docs/paper/mechanizing_the_eye/ 三件套 — draft v0.1(~750 行英文, 两层管道 S1-S5+逐字 grounding / ground truth in-scope 3-5-16 诚实划界 / scorecard 6-6·0-4·4-4+sabotage / §6 预注册部署研究含三次规则压制便利 / §7 O1-O8 observer 自身事故账本=judge-inherits-taxonomy 实证 / §9 era-mismatch 自 confound) + data_inventory 逐数字溯源 + DECISIONS_NEEDED 7 决策(🔴 #1 投稿时机)。数据冻结 cutoff 2026-08-09(§9.2 协议逐字执行, 安静窗不叙述为成功)。VERSION 0.37.9.132 不变(纯研究文档)。",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-08-10",
-      "what": "V37.9.296 后记: score_history 08-08/09 缺行根因经用户核查确认=Mac Mini 关机(良性停机非 cron/observer 故障) → 运维核查项关闭, design doc §9.2.7 脚注②根因落定(停机期 watchdog 同机不在运行=单机固有观察边界非软件盲区)。A2/A4 主表 12/14 天定稿不变",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-08-10",
-      "what": "V37.9.296 宪法级#1: A2 精度台账关窗 + A4-Q4 论文#2 数据落表(用户交回 Mac Mini 数据, §9.2 冻结口径机械执行): on 期 12 观测日 fired=0 → H1 precision 0-分母未定义(不给数字)/H2 保持构造性主张/H3 零显化 FN+两轮审计预防通道分开报告, §9.2.5 安静期路径逐字执行不叙述为检测成功。规则先于数据三兑现: 07-26 边界行剔除/标签错位不改判/fixture 规则命中 0 行。§9.2.2 路径笔误更正。论文#2 草案不再 gated。顺带发现 daily_observer 08-09/10 两晨疑似未跑已登记核查。VERSION 不变",
       "by": "claude_code"
     }
   ],
@@ -224,7 +184,38 @@
     "stale_jobs": "all_ok",
     "last_refresh": "2026-04-08 13:00",
     "security_score": "98/100 (98.0%)",
-    "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB"
+    "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB",
+    "slo": {
+      "checked_at": "2026-08-17 02:52:19",
+      "all_ok": true,
+      "summary": {
+        "latency_p95": {
+          "value": 0,
+          "target": 50000,
+          "ok": true
+        },
+        "tool_success_rate": {
+          "value": 100.0,
+          "target": 95.0,
+          "ok": true
+        },
+        "degradation_rate": {
+          "value": 0.0,
+          "target": 5.0,
+          "ok": true
+        },
+        "timeout_rate": {
+          "value": 0.0,
+          "target": 3.0,
+          "ok": true
+        },
+        "auto_recovery_rate": {
+          "value": 100.0,
+          "target": 90.0,
+          "ok": true
+        }
+      }
+    }
   },
   "session_context": {
     "last_session": "2026-08-12",
@@ -272,23 +263,25 @@
       "【原则 #14 补充教训（2026-08-12 两次踩同一坑）】`git reset` 只同步**仓库副本**(~/openclaw-model-bridge/X)，cron 跑的是 auto_deploy 按 FILE_MAP 同步出的**运行时副本**(~/X)，两者有最多 2 分钟延迟。合并后立刻手跑运行时脚本 = 跑旧代码(今日 kb_embed 补跑第一次即因此重演同款 Traceback)。**验证式**: `grep -c '<修复特征>' ~/openclaw-model-bridge/X ~/X` 两行都为 1 再执行；急用可 `cp` 手动同步。下次触碰 CLAUDE.md 原则区时把这条写进 #14 正文。",
       "【V37.9.301 治理告警正文分层 ✅ dev 全闭环 · 剩 Mac Mini 被动验证】合并+git fetch+reset 同步后(governance_audit_cron.sh 走 FILE_MAP, 零重启, 明晨 07:00 自动生效): 下次治理审计失败时告警正文应 (a) 先列**全部**失败不变式 + 顶层计数行「N 个不变式被违反, M 个检查执行出错」(此前多失败时后面的整条会消失、计数行永远被丢) (b) 明细单列成「失败明细」段且超预算时带「还有 N 行未显示」提示 (c) 末尾附「并存警告」段(MRD 元发现 + convergence 漂移如 jobs_to_crontab missing=N —— 此前只进本地日志从不送达)。若正文仍只见明细不见不变式索引, 贴我。",
       "【2026-08-14 三镜头对抗审计 V37.9.303-305 · dev 全闭环 · 剩 Mac Mini 被动验证】三批合并+git fetch+reset 同步后: (303) python3 slo_benchmark.py --save 重生成报告 — token 段首次出真值 + 趋势窗口 Requests 大幅下降 = 口径修正非流量下降勿惊; dashboard/周报 proxy 死时应显 STALE_DATA 非 ALL PASS (304) daily_sync 的 rsync 真失败/TM 跳过首次变 watchdog 可见 (告警=盲区解除非新 bug); 空 crontab 场景 watchdog 会真告警 (305) 次日 03:00 dream Radar #1 扫昨日全天 (daily_signals_{昨日}.json 应现非空 signals 若真有共振) + 06:00 kb_radar 读同一份 + ban-list 空时 kb_dream.log 出 WARN。另: [36] 元规则 19/23 尾注已核对闭合 (绿 audit 同 19/23 = dev 常态: 3 advisory ⚠️ + 1 需 Mac Mini runtime)",
-      "【2026-08-14 审计登记 follow-up (下 session 候选, 未修)】(a) C4 MED: restart.sh restart_via_launchd rc=1 (bootstrap 失败/10s 未健康) 被调用方吞掉仍 exit 0 → auto_deploy 的 restart 失败防线形同虚设 + Gateway 段 bootstrap 在 set -e 下无守卫 (bootout 后 bootstrap 失败 → 脚本死于 booted-out 态) — 修复需与 auto_deploy 重试语义联动设计 (b) C5 LOW-MED: upgrade_openclaw.sh 裸后台起 Gateway (违 V37.9.13 单一管理者, launchd KeepAlive 双管理风险) + HEALTH 变量抓了 /health 从未参与成功判定 — 手动 SOP 脚本季度级使用 (c) B-F8 LOW: slo_checker.py --update 裸 RMW 直写 status.json 绕过 status_lock (MR-9 家族, 零 cron 调用者休眠脚枪) (d) A-F6 LOW: dream REDUCE_DATA 30K 尾部截断优先吃掉 Radar 三件套注入 (小块在尾) + REDUCE_PROMPT 80K 版死代码 (grep 证实无 llm_call 消费) + REDUCE_CHARS 元数据虚标实际 LLM 看到量 (e) A-F7 LOW: top_alignment_picker 🎚️ 末位字段吸收尾随 ⭐ 行 (LLM 字段乱序时评级 5 星覆盖对齐 3 星, plausible-needs-runtime) (f) A-F8 LOW: TZ python-side system-local 家族 (kb_write.sh TS/aggregator now()/helpers now() vs shell 侧 SYSTEM_TZ pin, 系统 TZ=HKT 时 no-op) (g) crontab_safe 并发 RMW 无锁 (两 cmd_add 并发丢行, 低频) (h) openclaw_backup 纯 age-based 保留无最少份数下限 + create rc=0 产物零校验 (连续 8 天坏档可清掉最后好备份) (i) min_sample_count=200 与 ~25-40 req/day 现实 → benchmark 永久 OBSERVING (config 注释已明示可调 30, 用户决策, 建议评估调低)",
-      "【V37.9.306 kb_evening LLM 韧性 · dev 闭环 · 剩今晚 22:00 验证】同步后今晚 22:00 kb_evening 首次带 300s 超时+retry=1 运行 → 预期 cat ~/.kb/last_run_evening.json 显 status=ok。若仍 llm_failed 且 reason=TimeoutError (300s 也不够) = 后端持续性慢非瞬态, 贴日志走 provider 侧排查 (非本修复失效)。另诚实登记不改: kb_review 周报同走共享 call_llm 仍 retries=0 — 能力已就位(传参即可)但无失败证据不预防性改(原则 #8/#34), 待其真失败再 wire。"
+      "【2026-08-14 审计登记 follow-up · V37.9.308 已修 (a)C4 + (c)B-F8 · 余项未修】✅(a) C4 MED 已修: restart.sh rc=1 不再被吞 (RESTART_FAILED 累加器 + exit 1 + 不报 Done!) + Gateway bootstrap 加 if! 守卫 (退役 booted-out 自杀路径) + auto_deploy 失败分支收编 quiet_alert (此前只写 auto_deploy.log 而该日志不在 watchdog HOME_LOGS 错误扫描名单 = 零告警)。**刻意不加重启重试** (launchd KeepAlive 已在管进程, 原则 #8) —— 审计原写「需与 auto_deploy 重试语义联动设计」, 正解是它不该有重试语义, 守卫 test_no_retry_machinery_added 钉死。**中途被 V37.8.13 pin 纠正并采纳**: Gateway 故障按可恢复性二分 —— bootstrap 失败(launchd 没接管, KeepAlive 无从重试)计入 exit 1 / 慢启动 15s 未健康仅 ⚠️ 不判失败(V37.8.13 原判断保留, 由 wa_keepalive+watchdog 兜底)。顺带修好该 pin 自身的贪婪正则空转(它一直在检查别处的块)。 ✅(c) B-F8 已修: slo_checker --update 收编 status_lock+save_status (退役自建 RMW 写路径), 顺带闭合 dev 脚枪(裸写会凭空造 ~/.kb/status.json 劫持此后所有写者路径解析)。 ⏳ 未修余项: (b) C5 LOW-MED upgrade_openclaw.sh 裸后台起 Gateway 违 V37.9.13 单一管理者 + HEALTH 变量抓了从不参与判定 (季度级手动 SOP) / (d) A-F6 dream REDUCE_DATA 30K 尾部截断优先吃掉 Radar 三件套注入 + REDUCE_PROMPT 死代码 + REDUCE_CHARS 虚标 / (e) A-F7 top_alignment_picker 🎚️ 末位字段吸收尾随 ⭐ 行 / (f) A-F8 TZ python-side system-local 家族 / (g) crontab_safe 并发 RMW 无锁 / (h) openclaw_backup 纯 age-based 保留无最少份数下限 + 产物零校验 / (i) min_sample_count=200 vs ~25-40 req/day → benchmark 永久 OBSERVING (config 注释已明示可调 30, 用户决策)。",
+      "【V37.9.306 kb_evening LLM 韧性 · dev 闭环 · 剩今晚 22:00 验证】同步后今晚 22:00 kb_evening 首次带 300s 超时+retry=1 运行 → 预期 cat ~/.kb/last_run_evening.json 显 status=ok。若仍 llm_failed 且 reason=TimeoutError (300s 也不够) = 后端持续性慢非瞬态, 贴日志走 provider 侧排查 (非本修复失效)。另诚实登记不改: kb_review 周报同走共享 call_llm 仍 retries=0 — 能力已就位(传参即可)但无失败证据不预防性改(原则 #8/#34), 待其真失败再 wire。",
+      "【V37.9.308 · dev 全闭环 · 剩 Mac Mini 被动验证】合并 + git fetch+reset 同步后 (restart.sh / auto_deploy.sh / slo_checker.py 走 FILE_MAP, 零重启): (a) 若某次部署后 adapter/proxy 未恢复健康或 Gateway bootstrap 失败 → auto_deploy.log 出现「❌ restart.sh 失败」**且 Discord/WhatsApp 收到告警**(此前完全静默, 尤其漂移修复路径连 preflight 兜底都不跑) (b) 🔴 **首次出现该告警 = 盲区解除暴露存量真实故障, working as intended 非新 bug** (c) 手动 `bash restart.sh; echo $?` — 全健康则 0, 有服务未起来则 1 (d) Gateway 慢启动(15s 未健康但 launchd 已接管)仍只 ⚠️ 不判失败, 属预期不必贴我 (e) slo_checker --update 若被手动调用, 写入应保留他人并发字段且出现伴生 status.json.lock。",
+      "【✅ 2026-08-15~17 备份中断已定性并修复 (V37.9.310) · 剩 Mac Mini 补跑验证】定性 = **H2, 我的 bug**: 用户实测 mount 显示 /dev/disk5s1 on /Volumes/MOVESPEED (apfs) 挂载完全正常。真因不在匹配模式 (那行 apfs 格式我模拟测过且通过), 而在 PATH —— macOS 的 mount 在 /sbin/mount, 而两 job 脚本 export 的 PATH 不含 /sbin → 脚本内 mount command-not-found → 管道失败 → 恒判未挂载。手敲能通是因为交互 shell 默认 PATH 含 /sbin。dev 没测出来是因为 Linux 的 mount 在 /usr/bin (在旧 PATH 内) = dev-production 接缝。修: 三处脚本 PATH 补 /sbin:/usr/sbin (含 incident_capture 就地补全, 顺带修好其取证快照 mount/diskutil 字段长期为空) + 两脚本加 command -v mount 可用性前置检查(缺工具不再与'没挂载'同形)。守卫 11 单测含全仓扫描 + 行为级 macOS 布局模拟。🔴 待用户: 同步后**手动补跑一次** `bash ~/openclaw_backup.sh` 确认恢复 (备份已停 3 天, 保留策略 7 天); 注意跑的是运行时副本 ~/openclaw_backup.sh, 与仓库副本最多差 2 分钟 auto_deploy 同步延迟。"
     ],
     "open_prs": [],
     "blocked_on": "",
-    "focus": "2026-08-10: 同日五交付 V37.9.292-296——[31]-[34] 对抗审计登记项四连修复 + 宪法级 #1 A2 精度台账关窗 & A4-Q4 论文 #2 数据落表（on 期 12 观测日 fired=0，论文 #2 草案不再 gated）。observer 两晨缺行根因已确认=Mac Mini 关机（良性，核查项关闭）。已推送 claude/todays-work-bybj6o 待合并。🔴 剩: 合并后 Mac Mini 同步 + 重启 proxy（291/294/295 需要）/ V37.9.295 E2E 三步 / ISSRE 通知 8-12。"
+    "focus": "2026-08-17 收工: V37.9.308(restart 诚实退出码) + V37.9.309(SSD 检测可诊断性) + V37.9.310(🔴 备份中断真因=PATH 缺 /sbin, 我的 bug)。回归 175 通过/0 失败/5940 tests, 治理 91/91, 安全 98/100。🔴 待用户: 合并 → Mac Mini 同步 → **手动补跑 bash ~/openclaw_backup.sh** (备份已停 3 天/保留 7 天)。"
   },
   "quality": {
     "security_score": 98,
-    "test_count": 5887,
-    "last_regression": "2026-08-17 01:18 pass",
+    "test_count": 5940,
+    "last_regression": "2026-08-17 02:53 pass",
     "coverage_pct": 0,
     "security_score_time": "2026-07-20 01:07",
-    "test_suites": 173,
+    "test_suites": 176,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
-    "version": "0.37.9.139",
+    "version": "0.37.9.142",
     "observer": {}
   },
   "incidents": [
@@ -353,7 +346,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-08-14 收工: 三镜头对抗审计 17 修复(V37.9.303-305) + 告警 triage kb_evening LLM 韧性(V37.9.306) + ISSRE 拒稿转期刊轨(V37.9.307)。🔴 待用户: 合并分支 → Mac Mini 同步 → 今晚 22:00 验证 kb_evening 修复; 论文去向决定(建议 arXiv v2)。",
+  "focus": "2026-08-17 收工: V37.9.308(restart 诚实退出码) + V37.9.309(SSD 检测可诊断性) + V37.9.310(🔴 备份中断真因=PATH 缺 /sbin, 我的 bug)。回归 175 通过/0 失败/5940 tests, 治理 91/91, 安全 98/100。🔴 待用户: 合并 → Mac Mini 同步 → **手动补跑 bash ~/openclaw_backup.sh** (备份已停 3 天/保留 7 天)。",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
