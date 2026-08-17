@@ -1,5 +1,5 @@
 {
-  "updated": "2026-08-17 03:06:28",
+  "updated": "2026-08-17 03:41:55",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -81,6 +81,21 @@
   "recent_changes": [
     {
       "date": "2026-08-17",
+      "what": "Mac Mini 工作树清理闭环: 两嵌套仓库副本(93M)经 HEAD-in-main + 零本地改动取证后安全删除, 两空碎片文件删除, git status 只剩 chaspark cache 行(合并+同步后由 gitignore 消化)。扫描器嵌套仓库风险随删除消失, 按日落法不加排除机制。",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-08-17",
+      "what": "V37.9.312(并入 311 分支): 孤儿档删除后 git status 露出 5 个 untracked → jobs/*/cache/ 运行时状态补 gitignore(+守卫+sabotage 验证; seen_ids 去重表明确标注只忽略勿删), 其余 4 个(嵌套仓库副本×2 + 碎片文件×2)登记待用户取证处置, 嵌套仓库风险=递归扫描器不排除它们会扫进陈旧代码。",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-08-17",
+      "what": "V37.9.311 备份 fallback 落盘路径修复(Mac Mini 日志实证驱动): 4.27 写 CWD 非 ~/.openclaw/backups/ → 假失败告警 + 仓库内 1GB 含凭据孤儿档(gitignore 未挡)。修: CLI 改在 SSD BACKUP_DIR 内生成 + mv 规范名 + gitignore 双规则。守卫 14 单测(含真跑 git check-ignore + ERROR 行须匹配 watchdog err_pattern), sabotage 双连 4/2 精确开火。V37.9.304 cp→mv 守卫按意图演进(移除 rc 检查仍开火)。备份集核实健康 5 份 ×1.0G。VERSION →0.37.9.143。",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-08-17",
       "what": "V37.9.310 Mac Mini 实证闭环: 备份恢复 (rc=0, 1.0G 归档写入 SSD, 11:04:15 完整成功), 3 天中断结束。同时从日志抓到潜伏缺陷: fallback 分支假设 ~/.openclaw/backups/ 落盘位置与 4.27 实际不符 —— 10:59 那次主路径冷调用超时 → fallback 返回成功却找不到文件 → 假失败告警。已登记待办(需 Mac Mini 侧确认默认路径)。",
       "by": "claude_code"
     },
@@ -122,21 +137,6 @@
     {
       "date": "2026-08-14",
       "what": "V37.9.306 12:30 watchdog 告警 triage → kb_evening LLM 韧性: 7 条告警中 6 条为已知外部/带重试自愈, 唯一 CORE kb_evening llm_failed (08-13 22:00 TimeoutError)。从告警自身对照读出结构性不对称 (同批 rss_blogs/s2 带 attempt 1/3 而 evening 裸单次) + 客户端 120s 紧于服务端 300s 预算。修: 共享 call_llm 加 retries 参数(默认 0 零回归) + evening 300s/retry=1 经闭包接线保持单参数注入契约。守卫 12 tests, sabotage 三连 1/1/2。VERSION 0.37.9.139",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-08-14",
-      "what": "V37.9.305 dream/radar 夜间管道诚实 (A 镜头 5): Radar #1 日期窗口结构性恒空复活 (03:00 扫今天=00-03 残窗 → --date 昨天全天, 与 06:00 collector 契约对齐) / Top5 标签今日→近期累积 (镜像 evening hotfix3) / ban-list 空值 WARN / notes 信号缓存回填 / kb_radar stderr 分离防误告警。新套件 14 tests, sabotage 三连。VERSION 0.37.9.138",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-08-14",
-      "what": "V37.9.304 备份/运维链诚实 (C 镜头 6+B-F7): movespeed helper --strict-exit opt-in (daily_sync failed 分支死代码复活, MOVESPEED 60 天血案同形) / watchdog CRON_COUNT 清空告警自我中和修复 (dev 复现) / crontab_safe 误回滚+restore rc / backup cp rc x2 / mount 表检测 x2 / diagnose 段4守卫 / error_rate 孤儿键闭合。新套件 27 tests (fakebin 行为级), sabotage 四连。VERSION 0.37.9.137",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-08-14",
-      "what": "V37.9.303 SLO 读侧口径诚实 (对抗审计 B 镜头 6 findings): 趋势 12x 虚报改增量口径 / token key 漂移恒 0 改读真实 key / recovery 单位错配 min_streak_count / 读侧 staleness+幽灵快照去重 / 零数据 N_A / kb_status_refresh 徽章源漏网第二写者改 health.*。fixture 忠实化 x2 (V37.9.299 教训), sabotage 四连 2/2/3/3。VERSION 0.37.9.136",
       "by": "claude_code"
     }
   ],
@@ -186,7 +186,7 @@
     "security_score": "98/100 (98.0%)",
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB",
     "slo": {
-      "checked_at": "2026-08-17 02:52:19",
+      "checked_at": "2026-08-17 03:34:01",
       "all_ok": true,
       "summary": {
         "latency_p95": {
@@ -267,22 +267,23 @@
       "【V37.9.306 kb_evening LLM 韧性 · dev 闭环 · 剩今晚 22:00 验证】同步后今晚 22:00 kb_evening 首次带 300s 超时+retry=1 运行 → 预期 cat ~/.kb/last_run_evening.json 显 status=ok。若仍 llm_failed 且 reason=TimeoutError (300s 也不够) = 后端持续性慢非瞬态, 贴日志走 provider 侧排查 (非本修复失效)。另诚实登记不改: kb_review 周报同走共享 call_llm 仍 retries=0 — 能力已就位(传参即可)但无失败证据不预防性改(原则 #8/#34), 待其真失败再 wire。",
       "【V37.9.308 · dev 全闭环 · 剩 Mac Mini 被动验证】合并 + git fetch+reset 同步后 (restart.sh / auto_deploy.sh / slo_checker.py 走 FILE_MAP, 零重启): (a) 若某次部署后 adapter/proxy 未恢复健康或 Gateway bootstrap 失败 → auto_deploy.log 出现「❌ restart.sh 失败」**且 Discord/WhatsApp 收到告警**(此前完全静默, 尤其漂移修复路径连 preflight 兜底都不跑) (b) 🔴 **首次出现该告警 = 盲区解除暴露存量真实故障, working as intended 非新 bug** (c) 手动 `bash restart.sh; echo $?` — 全健康则 0, 有服务未起来则 1 (d) Gateway 慢启动(15s 未健康但 launchd 已接管)仍只 ⚠️ 不判失败, 属预期不必贴我 (e) slo_checker --update 若被手动调用, 写入应保留他人并发字段且出现伴生 status.json.lock。",
       "【✅ 2026-08-15~17 备份中断已闭环 (V37.9.310) · Mac Mini 实证恢复】定性=H2 我的 bug: macOS 的 mount 在 /sbin/mount, 而 job 脚本 PATH 不含 /sbin → command-not-found → 管道失败 → 恒判未挂载。dev(Linux) mount 在 /usr/bin 落在旧 PATH 内故测试全绿 = dev-production 接缝。修: 三处脚本 PATH 补 /sbin:/usr/sbin + 两处加 command -v mount 可用性前置检查。**2026-08-17 11:04 Mac Mini 实测恢复**: rc=0, 1.0G 归档真实写入 SSD, status_history + 保留清理 + KB 指纹全部跑完。",
-      "【潜伏: openclaw_backup fallback 分支路径假设与 4.27 实际落盘位置不符 · 中低优 · Mac-Mini-gated】2026-08-17 10:59 实证: 主路径 `openclaw backup create --output` 失败(特征符合已登记的 4.27 CLI 冷调用瞬态, 5 分钟后同脚本完全成功) → fallback `openclaw backup create`(无 --output) **返回成功** → 但 `ls -t ~/.openclaw/backups/*.tar.gz` 找不到文件 → 'ERROR: backup created but file not found' + exit 2。即: 备份很可能已生成在别处, 而脚本判为失败并告警。后果 = 每次主路径撞冷调用超时, fallback 必然假失败。修复前置(dev 不可知): 4.27 的 `openclaw backup create` 默认落盘路径 —— 查 `grep -B2 -A6 'WARN: --output failed' ~/openclaw_backup.log` 该次 fallback 的 CLI 输出行(含 'Backup archive:' 路径)即可确定。关联 unfinished [43](h): openclaw_backup 纯 age-based 保留无最少份数下限 + create rc=0 产物零校验。"
+      "【✅ V37.9.311 已修 fallback 落盘路径 · 剩用户删仓库孤儿档】2026-08-17 日志实证: 4.27 的 `openclaw backup create`(无 --output) 写到**当前工作目录**, 名 `<ISO8601>-openclaw-backup.tar.gz` —— 旧代码去 ~/.openclaw/backups/ 找必然找不到 → 假失败 exit 2, 且因 cron 的 CWD 是仓库目录, 留下 1.0GB 未 gitignore 的孤儿档(内含 ~/.openclaw 凭据)。主路径那次失败真因是 `ENOENT .openclaw-runtime-deps.lock`(4.27 按需 staging 家族), 非冷调用超时(口头判断已更正)。修: fallback 改 subshell `(cd $BACKUP_DIR && openclaw backup create)` 就地在 SSD 生成 + mv 成规范名(同盘秒改名不占双份空间) + .gitignore 加两条规则挡两种命名。守卫 14 单测 + V37.9.304 cp→mv 守卫演进(意图不变, sabotage 验证仍 load-bearing)。🔴 **待用户: `rm -f ~/openclaw-model-bridge/*-openclaw-backup.tar.gz`** —— git reset --hard 不删 untracked, 那 1GB 含凭据的档还在。",
+      "【✅ Mac Mini 工作树 5 个 untracked 已全部处置 (2026-08-17) · 剩合并+同步后 chaspark cache 行消失】(a) 两碎片文件 (`=` 空文件 + `1的）` 0 字节 5月6日粘贴事故) 已删。(b) 两嵌套仓库副本 (50M+43M 陈旧 git clone) 经取证确认 HEAD 均在 main 历史且零本地改动后已删 —— 递归扫描器扫进陈旧代码的潜在风险随之消失, **不需要**给扫描器加嵌套仓库排除机制 (日落法 #8: 条件已不存在不预防性加机器)。(c) `jobs/chaspark/cache/` 保留未删 (seen_ids 去重表), 合并 PR + git fetch+reset 同步后由 V37.9.312 gitignore 规则消化, 届时 `git status --short` 应完全干净。"
     ],
     "open_prs": [],
     "blocked_on": "",
-    "focus": "2026-08-17 收工: V37.9.308(restart 诚实退出码) + V37.9.309(SSD 检测可诊断性) + V37.9.310(🔴 备份中断真因=PATH 缺 /sbin, 我的 bug)。回归 175 通过/0 失败/5940 tests, 治理 91/91, 安全 98/100。🔴 待用户: 合并 → Mac Mini 同步 → **手动补跑 bash ~/openclaw_backup.sh** (备份已停 3 天/保留 7 天)。"
+    "focus": "2026-08-17 收工(四交付+清理闭环): V37.9.308 restart 诚实退出码 / V37.9.309 SSD 检测可诊断性 / V37.9.310 备份中断真因=PATH 缺 /sbin(已实证恢复) / V37.9.311-312 fallback 落盘+凭据孤儿档+工作树清理(全部实证闭环)。回归 176 通过/0 失败/5955 tests。🔴 待用户: 合并 PR → Mac Mini git fetch+reset 同步(此后 git status 完全干净 + 全部修复进 cron 生效); 明晨 03:00/04:00 备份双 job 首次全自动验证。"
   },
   "quality": {
     "security_score": 98,
-    "test_count": 5940,
-    "last_regression": "2026-08-17 02:53 pass",
+    "test_count": 5955,
+    "last_regression": "2026-08-17 03:34 pass",
     "coverage_pct": 0,
     "security_score_time": "2026-07-20 01:07",
-    "test_suites": 176,
+    "test_suites": 177,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
-    "version": "0.37.9.142",
+    "version": "0.37.9.143",
     "observer": {}
   },
   "incidents": [
@@ -347,7 +348,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-08-17 收工: V37.9.308(restart 诚实退出码) + V37.9.309(SSD 检测可诊断性) + V37.9.310(🔴 备份中断真因=PATH 缺 /sbin, 我的 bug)。回归 175 通过/0 失败/5940 tests, 治理 91/91, 安全 98/100。🔴 待用户: 合并 → Mac Mini 同步 → **手动补跑 bash ~/openclaw_backup.sh** (备份已停 3 天/保留 7 天)。",
+  "focus": "2026-08-17 收工(四交付+清理闭环): V37.9.308 restart 诚实退出码 / V37.9.309 SSD 检测可诊断性 / V37.9.310 备份中断真因=PATH 缺 /sbin(已实证恢复) / V37.9.311-312 fallback 落盘+凭据孤儿档+工作树清理(全部实证闭环)。回归 176 通过/0 失败/5955 tests。🔴 待用户: 合并 PR → Mac Mini git fetch+reset 同步(此后 git status 完全干净 + 全部修复进 cron 生效); 明晨 03:00/04:00 备份双 job 首次全自动验证。",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
