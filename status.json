@@ -1,5 +1,5 @@
 {
-  "updated": "2026-08-17 03:35:54",
+  "updated": "2026-08-17 03:41:55",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -81,6 +81,11 @@
   "recent_changes": [
     {
       "date": "2026-08-17",
+      "what": "Mac Mini 工作树清理闭环: 两嵌套仓库副本(93M)经 HEAD-in-main + 零本地改动取证后安全删除, 两空碎片文件删除, git status 只剩 chaspark cache 行(合并+同步后由 gitignore 消化)。扫描器嵌套仓库风险随删除消失, 按日落法不加排除机制。",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-08-17",
       "what": "V37.9.312(并入 311 分支): 孤儿档删除后 git status 露出 5 个 untracked → jobs/*/cache/ 运行时状态补 gitignore(+守卫+sabotage 验证; seen_ids 去重表明确标注只忽略勿删), 其余 4 个(嵌套仓库副本×2 + 碎片文件×2)登记待用户取证处置, 嵌套仓库风险=递归扫描器不排除它们会扫进陈旧代码。",
       "by": "claude_code"
     },
@@ -132,11 +137,6 @@
     {
       "date": "2026-08-14",
       "what": "V37.9.306 12:30 watchdog 告警 triage → kb_evening LLM 韧性: 7 条告警中 6 条为已知外部/带重试自愈, 唯一 CORE kb_evening llm_failed (08-13 22:00 TimeoutError)。从告警自身对照读出结构性不对称 (同批 rss_blogs/s2 带 attempt 1/3 而 evening 裸单次) + 客户端 120s 紧于服务端 300s 预算。修: 共享 call_llm 加 retries 参数(默认 0 零回归) + evening 300s/retry=1 经闭包接线保持单参数注入契约。守卫 12 tests, sabotage 三连 1/1/2。VERSION 0.37.9.139",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-08-14",
-      "what": "V37.9.305 dream/radar 夜间管道诚实 (A 镜头 5): Radar #1 日期窗口结构性恒空复活 (03:00 扫今天=00-03 残窗 → --date 昨天全天, 与 06:00 collector 契约对齐) / Top5 标签今日→近期累积 (镜像 evening hotfix3) / ban-list 空值 WARN / notes 信号缓存回填 / kb_radar stderr 分离防误告警。新套件 14 tests, sabotage 三连。VERSION 0.37.9.138",
       "by": "claude_code"
     }
   ],
@@ -268,11 +268,11 @@
       "【V37.9.308 · dev 全闭环 · 剩 Mac Mini 被动验证】合并 + git fetch+reset 同步后 (restart.sh / auto_deploy.sh / slo_checker.py 走 FILE_MAP, 零重启): (a) 若某次部署后 adapter/proxy 未恢复健康或 Gateway bootstrap 失败 → auto_deploy.log 出现「❌ restart.sh 失败」**且 Discord/WhatsApp 收到告警**(此前完全静默, 尤其漂移修复路径连 preflight 兜底都不跑) (b) 🔴 **首次出现该告警 = 盲区解除暴露存量真实故障, working as intended 非新 bug** (c) 手动 `bash restart.sh; echo $?` — 全健康则 0, 有服务未起来则 1 (d) Gateway 慢启动(15s 未健康但 launchd 已接管)仍只 ⚠️ 不判失败, 属预期不必贴我 (e) slo_checker --update 若被手动调用, 写入应保留他人并发字段且出现伴生 status.json.lock。",
       "【✅ 2026-08-15~17 备份中断已闭环 (V37.9.310) · Mac Mini 实证恢复】定性=H2 我的 bug: macOS 的 mount 在 /sbin/mount, 而 job 脚本 PATH 不含 /sbin → command-not-found → 管道失败 → 恒判未挂载。dev(Linux) mount 在 /usr/bin 落在旧 PATH 内故测试全绿 = dev-production 接缝。修: 三处脚本 PATH 补 /sbin:/usr/sbin + 两处加 command -v mount 可用性前置检查。**2026-08-17 11:04 Mac Mini 实测恢复**: rc=0, 1.0G 归档真实写入 SSD, status_history + 保留清理 + KB 指纹全部跑完。",
       "【✅ V37.9.311 已修 fallback 落盘路径 · 剩用户删仓库孤儿档】2026-08-17 日志实证: 4.27 的 `openclaw backup create`(无 --output) 写到**当前工作目录**, 名 `<ISO8601>-openclaw-backup.tar.gz` —— 旧代码去 ~/.openclaw/backups/ 找必然找不到 → 假失败 exit 2, 且因 cron 的 CWD 是仓库目录, 留下 1.0GB 未 gitignore 的孤儿档(内含 ~/.openclaw 凭据)。主路径那次失败真因是 `ENOENT .openclaw-runtime-deps.lock`(4.27 按需 staging 家族), 非冷调用超时(口头判断已更正)。修: fallback 改 subshell `(cd $BACKUP_DIR && openclaw backup create)` 就地在 SSD 生成 + mv 成规范名(同盘秒改名不占双份空间) + .gitignore 加两条规则挡两种命名。守卫 14 单测 + V37.9.304 cp→mv 守卫演进(意图不变, sabotage 验证仍 load-bearing)。🔴 **待用户: `rm -f ~/openclaw-model-bridge/*-openclaw-backup.tar.gz`** —— git reset --hard 不删 untracked, 那 1GB 含凭据的档还在。",
-      "【🔴 Mac Mini 仓库工作树 5 个 untracked 待用户逐项处置 (2026-08-17 git status 发现, 勿盲删)】(a) `jobs/chaspark/cache/` = 运行时状态, **已 gitignore (V37.9.312 规则 jobs/*/cache/) 同步后消失, 千万别删** —— seen_ids.txt 是去重表, 删了 chaspark 会重推全部旧文章。(b) 🔴 `openclaw-model-bridge/` 与 `openclaw-model-bridge-1/` = 仓库目录**内**的嵌套目录, 来历不明需取证: `du -sh ~/openclaw-model-bridge/openclaw-model-bridge*` + `ls ~/openclaw-model-bridge/openclaw-model-bridge/ | head` —— 若是完整仓库拷贝(疑似某次 git clone 时 CWD 错误), 是陈旧代码副本: 递归扫描器(cross_os_quirk/heredoc_import 等只排除 .git/venv, 不排除嵌套仓库)会走进去扫旧代码 → 潜在假 violation; 确认无独有内容后可删。(c) `=` 与 `1的）` 两个碎片文件 = 疑似历史命令重定向失误产物: `cat ~/openclaw-model-bridge/=` 看一眼(通常是某次 `cmd > =` 或粘贴事故), 无内容即删。处置后 `git status --short` 应干净(chaspark cache 由 gitignore 消化)。"
+      "【✅ Mac Mini 工作树 5 个 untracked 已全部处置 (2026-08-17) · 剩合并+同步后 chaspark cache 行消失】(a) 两碎片文件 (`=` 空文件 + `1的）` 0 字节 5月6日粘贴事故) 已删。(b) 两嵌套仓库副本 (50M+43M 陈旧 git clone) 经取证确认 HEAD 均在 main 历史且零本地改动后已删 —— 递归扫描器扫进陈旧代码的潜在风险随之消失, **不需要**给扫描器加嵌套仓库排除机制 (日落法 #8: 条件已不存在不预防性加机器)。(c) `jobs/chaspark/cache/` 保留未删 (seen_ids 去重表), 合并 PR + git fetch+reset 同步后由 V37.9.312 gitignore 规则消化, 届时 `git status --short` 应完全干净。"
     ],
     "open_prs": [],
     "blocked_on": "",
-    "focus": "2026-08-17 收工(四交付): V37.9.308 restart 诚实退出码 / V37.9.309 SSD 检测可诊断性 / V37.9.310 🔴 备份中断真因=PATH 缺 /sbin(我的 bug, 已实证恢复 1.0G 归档) / V37.9.311 fallback 落盘路径+凭据孤儿档。回归 176 通过/0 失败/5954 tests, 治理 91/91, 安全 98/100。🔴 待用户: 合并+同步; **立即 rm -f ~/openclaw-model-bridge/*-openclaw-backup.tar.gz**(1GB 含凭据, untracked 不会被 reset 删掉)。"
+    "focus": "2026-08-17 收工(四交付+清理闭环): V37.9.308 restart 诚实退出码 / V37.9.309 SSD 检测可诊断性 / V37.9.310 备份中断真因=PATH 缺 /sbin(已实证恢复) / V37.9.311-312 fallback 落盘+凭据孤儿档+工作树清理(全部实证闭环)。回归 176 通过/0 失败/5955 tests。🔴 待用户: 合并 PR → Mac Mini git fetch+reset 同步(此后 git status 完全干净 + 全部修复进 cron 生效); 明晨 03:00/04:00 备份双 job 首次全自动验证。"
   },
   "quality": {
     "security_score": 98,
@@ -348,7 +348,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-08-17 收工(四交付): V37.9.308 restart 诚实退出码 / V37.9.309 SSD 检测可诊断性 / V37.9.310 🔴 备份中断真因=PATH 缺 /sbin(我的 bug, 已实证恢复 1.0G 归档) / V37.9.311 fallback 落盘路径+凭据孤儿档。回归 176 通过/0 失败/5954 tests, 治理 91/91, 安全 98/100。🔴 待用户: 合并+同步; **立即 rm -f ~/openclaw-model-bridge/*-openclaw-backup.tar.gz**(1GB 含凭据, untracked 不会被 reset 删掉)。",
+  "focus": "2026-08-17 收工(四交付+清理闭环): V37.9.308 restart 诚实退出码 / V37.9.309 SSD 检测可诊断性 / V37.9.310 备份中断真因=PATH 缺 /sbin(已实证恢复) / V37.9.311-312 fallback 落盘+凭据孤儿档+工作树清理(全部实证闭环)。回归 176 通过/0 失败/5955 tests。🔴 待用户: 合并 PR → Mac Mini git fetch+reset 同步(此后 git status 完全干净 + 全部修复进 cron 生效); 明晨 03:00/04:00 备份双 job 首次全自动验证。",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
