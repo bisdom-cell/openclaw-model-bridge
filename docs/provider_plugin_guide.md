@@ -18,7 +18,7 @@ Two formats are supported:
 
 ### Option A: YAML (Recommended)
 
-Create `providers.d/deepseek.yaml`:
+Create `providers.d/myprovider.yaml`:
 
 ```yaml
 name: deepseek
@@ -144,7 +144,7 @@ Run `python3 providers.py --validate` to check all providers.
 
 | Pattern | Behavior |
 |---------|----------|
-| `providers.d/deepseek.yaml` | Auto-discovered and loaded |
+| `providers.d/myprovider.yaml` | Auto-discovered and loaded |
 | `providers.d/custom.py` | Auto-discovered and loaded |
 | `providers.d/_example.yaml` | Skipped (starts with `_`) |
 | `providers.d/.hidden.yaml` | Skipped (starts with `.`) |
@@ -176,7 +176,7 @@ After adding a plugin, set it as the active provider:
 
 ```bash
 # As primary provider
-export PROVIDER_NAME=deepseek
+export PROVIDER=deepseek
 export DEEPSEEK_API_KEY="sk-..."
 
 # As fallback provider

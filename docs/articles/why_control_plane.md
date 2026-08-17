@@ -1,5 +1,7 @@
 # Why Agent Systems Need a Control Plane
 
+> **快照注（2026-08-17）**：本文写于 v0.36.0（2026-04），文中数字（7 providers / 610 tests / 93 分 / Qwen3 primary / Gemini fallback 等）为当时快照，作为已发表文章保留原貌。当前状态（12 providers / 5900+ tests / 98 分 / doubao_21 primary / FALLBACK_ORDER 四级链）见 README 与 docs/compatibility_matrix.md。
+
 > From Model Bridge to Runtime Governance — Lessons from Building an Agent Runtime with 7 Providers, 610 Tests, and 36 Versions
 
 ---

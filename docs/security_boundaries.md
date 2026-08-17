@@ -1,6 +1,6 @@
 # Security Boundaries
 
-> Version: V36 (2026-04-05) | Security Score: 93/100
+> Version: V36 (2026-04-05) → refreshed 2026-08-17 (v37.9.312) | Security Score: 98/100
 
 ## Architecture Security Model
 
@@ -8,7 +8,7 @@
 Internet
     │
     ▼
-WhatsApp Cloud API ──────► OpenClaw Gateway (:18789)
+WhatsApp / Discord APIs ─► OpenClaw Gateway (:18789)
                               │  [launchd managed]
                               │  [no direct internet exposure]
                               ▼
@@ -22,7 +22,7 @@ WhatsApp Cloud API ──────► OpenClaw Gateway (:18789)
                               │  [circuit breaker]
                               ▼
                          LLM Providers (HTTPS)
-                         [8 providers, all TLS]
+                         [12 providers, all TLS]
 ```
 
 **All inter-service communication is localhost-only.** No port is exposed to the network.
@@ -42,7 +42,7 @@ WhatsApp Cloud API ──────► OpenClaw Gateway (:18789)
 
 | Provider | Auth Header | Format |
 |----------|-------------|--------|
-| Qwen, OpenAI, Gemini, Kimi, MiniMax, GLM | `Authorization` | `Bearer <key>` |
+| Qwen, OpenAI, Gemini, Kimi, MiniMax, GLM + plugins (doubao_21@Ark, doubao/deepseek_full/glm5_coding@ai-tokenhub, deepseek self-host) | `Authorization` | `Bearer <key>`（各插件独立 env key；Gemini 已退役出 fallback 链） |
 | Claude (Anthropic) | `x-api-key` | Raw key + `anthropic-version` header |
 
 ### What Is NOT Authenticated
@@ -88,7 +88,7 @@ Both `adapter.py` and `tool_proxy.py` implement `_safe_urlopen()` which rejects 
 The proxy enforces a strict tool whitelist. LLM-requested tools not on the list are silently dropped.
 
 ```
-Allowed (14): web_search, web_fetch, read, write, edit, exec,
+Allowed (16): web_search, web_fetch, read, write, edit, exec,
               memory_search, memory_get, sessions_spawn, sessions_send,
               sessions_history, agents_list, cron, message, tts, image
 Prefix-match: browser_*
@@ -197,14 +197,14 @@ Claude Code → claude/* branch → GitHub PR → main → auto_deploy.sh → Ma
 - `auto_deploy.sh` polls every 2 minutes
 - Runs unit tests on proxy_filters changes before deploying
 - MD5 drift detection compares deployed vs repo files hourly
-- `preflight_check.sh --full` runs 16+ checks after each deploy
+- `preflight_check.sh --full` runs its full check body after each deploy
 
 ### Monitoring & Alerting
 
 | Monitor | Interval | Alert Channel |
 |---------|----------|---------------|
 | `wa_keepalive.sh` | 30 min | Log (WhatsApp session health) |
-| `job_watchdog.sh` | 4 hours | WhatsApp + Discord |
+| `job_watchdog.sh` | hourly (:30) | notify (default Discord) |
 | `cron_canary.sh` | 10 min | Heartbeat file |
 | `proxy_stats` | Real-time | In-process (threshold alerts) |
 | Health endpoints | On-demand | HTTP 200/502 |
@@ -229,7 +229,7 @@ After a 2026-03-25 incident where `echo | crontab -` wiped all cron jobs:
 | Transport Security | 15 | 15 |
 | Audit Trail | 15 | 10 |
 | Availability | 10 | 10 |
-| **Total** | **100** | **93** |
+| **Total** | **100** | **98** (2026-08-17 实测) |
 
 Run: `python3 security_score.py`
 

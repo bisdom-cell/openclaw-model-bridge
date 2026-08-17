@@ -1,6 +1,6 @@
 {
-  "updated": "2026-08-17 03:48:16",
-  "updated_by": "claude_code",
+  "updated": "2026-08-17 04:24:16",
+  "updated_by": "full_regression",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -81,6 +81,11 @@
   "recent_changes": [
     {
       "date": "2026-08-17",
+      "what": "V37.9.313 GitHub 全面数据刷新(用户指令): 15 文件 ~90 处现状陈旧收敛 — Qwen3-主力残留(V37.9.222 flip 后最大陈旧族)/通道默认(WhatsApp→notify Discord ~25 处)/平台迁移标注(ai-tokenhub)/计数漂移(FILE_MAP 31→116, 治理 17→91, cases 25→28 等)/roadmap 假待办(P3+Phase5 实际已交付)/ISSRE 状态/SOUL 身份措辞+快照模板化。退役 2 份注定漂移手工副本(config.md crontab 快照+health_check v1.0 嵌入源码)。3 并行扫描 agent + 逐条 grounded, 剔除 4 类误报(qwen-local 路由标签/gemini embedding/suites 177/expert backend)。1 个 badges pin 自身陈旧按意图演进。回归 176/0/5955, 治理绿, VERSION 0.37.9.143 不变。",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-08-17",
       "what": "2026-08-17 全链收工确认: PR#877 合并+同步后 Mac Mini 四步复测全绿(运行时副本同步/工作树干净/备份 rc=0/KB同步 rc=0 471M)。V37.9.308-312 五个版本 + 工作树清理全部实证闭环, 备份中断事件(8-15~17)完整解决。",
       "by": "claude_code"
     },
@@ -133,11 +138,6 @@
       "date": "2026-08-14",
       "what": "ISSRE 拒稿 → QA4AGENTS workshop 论文重写初稿完成 (8/19 截止)。重心改为 taxonomy+22例逐条语料表+可跑 bench, 逐条回应三审 10 项批评; 文风机械验证平均句长 35.9→15.2 词、>40词长句 49→4、格言体清零。诚实更正 user-view 70%→13/22=59% (语料为准), bench doc 同步。待用户终审+确认页数限制。",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-08-14",
-      "what": "ISSRE 2026 Industry Track 结果: REJECT (Submission 395, 三审 1/1/2)。共识: 选题时效性获全体认可 + R3 明确 fail-plausible 概念 genuinely useful/meaningfully extends gray-failure lineage; 被否于三点 — (1) 文风 AI 腔三审全票指出妨碍阅读 (2) 22 事故无逐条细节表+taxonomy A/B 类重叠+无显式 RQ (3) n=1 个人系统 → industry relevance 弱, Runeson-Höst 辩护未被接受(R2 反把该句当不可读范例)。chairs 提供替代路径: workshop (QA4AGENTS/ReSaise, 8/19 截止, 进 ISSRE Supplemental Proceedings + IEEE Xplore) 或 industry talk (8/23, 不进 proceedings)。",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -179,14 +179,14 @@
     "last_preflight": "pass",
     "last_preflight_time": "2026-04-07 04:00",
     "last_trend_report": "2026-04-04",
-    "model_id": "Qwen3-235B-A22B-Instruct-2507-W8A8",
+    "model_id": "primary=PROVIDER env (doubao_21 = Doubao Seed 2.1 Pro, V37.9.222 flip); repo snapshot — runtime value refreshed hourly by kb_status_refresh",
     "kb_stats": "240 notes, 16 today, 1805KB sources",
     "stale_jobs": "all_ok",
     "last_refresh": "2026-04-08 13:00",
     "security_score": "98/100 (98.0%)",
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB",
     "slo": {
-      "checked_at": "2026-08-17 03:34:01",
+      "checked_at": "2026-08-17 04:22:56",
       "all_ok": true,
       "summary": {
         "latency_p95": {
@@ -257,7 +257,7 @@
       "【tokenhub 双 key 真轮换 · 用户已暂缓（2026-08-12 决定搁置，随时可捡起）】现状: plist 现装两把 sk- key = 08-08 聊天明文暴露的那两把, curl /v1/models 实测 200 仍有效(华坤 8-12 上午吊销的不是它们)。恢复步骤: 华坤签发全新两把 → 4 条 PlistBuddy 换入(adapter+proxy × DOUBAO_API_KEY/GLM5_API_KEY) + .env_shared → bash restart.sh → curl /v1/models 新 key 200 验证。**注意**: 相关的 Volcengine 退役 ep- 接入点删除已于2026-08-12 单独完成(见下), 与本项解耦。",
       "【✅ 已根治 V37.9.302 · 原低优观察项关闭】混沌 Category A 负载假报家族 (C1 2026-08-10 / C6+C8 2026-08-13) 根因已定位并修复: run_scenario 把四个异质计数器加总以「总和上升」判 caught → 真 catch (fail 0→1) 被同轮无关 MRD 噪声下降 2 抵消 → 报 BLIND SPOT。受控加载实验决定性复现 + 隔离连跑 6 次 governance 计数器完全稳定(证噪声来自负载非 governance)。修为 catch_signals() 逐信号比较; 预注册的重试/inconclusive 机器按日落法**不建**(根因修好后不需要)。负载下验证 10/10。无 Mac Mini 动作。",
       "【V37.9.298 · 07:00 INV-ROUTER-001 告警已根治 · 剩 Mac Mini 被动验证】合并+同步后明晨 07:00 governance audit 应回绿(测试文件随 git 同步零重启); 可选即时验证 python3 test_v37_9_77_enforcement.py 真实 env 下 27/27。若明晨仍红贴新告警。另: 今晨告警「元规则 19/23」行待绿 audit 对照口径(如恒 19/23 属 --full 正常显示即忽略, 不预诊断)",
-      "【SOUL 规则 12 'Qwen3' 字样过时 · 低优】2026-08-12 降级 E2E 中 PA 自称 'Qwen3 基础模式', 实际 primary=doubao_21(V37.9.222 flip) — 出处是 SOUL 规则 12 旧文案。不专门触发 SOUL 重部署仪式, 下次动 SOUL 时顺手改为 '基础模型' 措辞(去 provider 名硬编码, whiplash-resistant)。",
+      "【✅ SOUL 'Qwen3' 措辞已修 (V37.9.313 全面文档刷新时顺带兑现) · 剩 WhatsApp 实测确认】SOUL.md 身份措辞 3 处（L105 自称/L115 规则12 降级话术/L120 规则24 理由）Qwen3 → 基础模型（whiplash-resistant 去 provider 硬编码）+ 快照段模板化刷新。经 FILE_MAP 自动同步到 workspace 两路径。按原则 #13: 下次 WhatsApp 实测时顺带确认 PA 降级场景不再自称 'Qwen3 基础模式'。",
       "【低优 · 顺手清理，非必须】Volcengine 退役 ep- 已删除后的残留 env 清理（治理已不要求，留着无害）: adapter+proxy plist 的 ARK_ENDPOINT_ID / ARK_API_KEY（doubao 2.0 旧 Ark 时代，V37.9.290 后零消费者）+ ~/.env_shared 的 GLM5_ENDPOINT_ID 行。🔴 ARK_21_API_KEY 与 ARK_21_ENDPOINT_ID 必须保留（doubao_21 = 生产 primary）。下次动 plist 时顺手做。",
       "【V37.9.299/300 全闭环 ✅（2026-08-12 实证）· 剩 Mac Mini 被动验证】(a) KB 索引已恢复 100%（2627/2627, 113634 chunks, 零失败, PA search_kb 恢复至今日）(b) 「4 天无人知」定性 = **告警疲劳非监控盲区**（用户确认 Discord+WhatsApp 双通道均收到），机械成因已根治 V37.9.300（告警正文丢 ⚠️ 顶层警告却抓 6 空格明细行 → 致命信号呈现为 doc-sync 唠叨）。剩: 同步后观察下次 preflight 失败告警是否含 ⚠️ 行且无孤悬明细。诚实更正: V37.9.293 预告的「首晚大 🪦」被证伪（实际仅 6 个幽灵 chunk）。",
       "【原则 #14 补充教训（2026-08-12 两次踩同一坑）】`git reset` 只同步**仓库副本**(~/openclaw-model-bridge/X)，cron 跑的是 auto_deploy 按 FILE_MAP 同步出的**运行时副本**(~/X)，两者有最多 2 分钟延迟。合并后立刻手跑运行时脚本 = 跑旧代码(今日 kb_embed 补跑第一次即因此重演同款 Traceback)。**验证式**: `grep -c '<修复特征>' ~/openclaw-model-bridge/X ~/X` 两行都为 1 再执行；急用可 `cp` 手动同步。下次触碰 CLAUDE.md 原则区时把这条写进 #14 正文。",
@@ -269,12 +269,12 @@
     ],
     "open_prs": [],
     "blocked_on": "",
-    "focus": "2026-08-17 全链闭环: V37.9.308-312 已合并同步且 Mac Mini 四步复测全绿(备份/KB同步/工作树/gitignore)。备份中断事件(8-15~17, 根因=PATH 缺 /sbin)完整解决。无待用户动作; 明晨 03:00/04:00 cron 为最终被动确认(无消息=好消息)。"
+    "focus": "2026-08-17 收工: V37.9.308-313 — 备份中断事件闭环(308-312) + GitHub 全面数据刷新(313, 15 文件 ~90 处陈旧收敛)。回归 176/0/5955 全绿。🔴 待用户: 合并 PR → Mac Mini git fetch+reset 同步(全 doc 零重启; SOUL 措辞变更下次 WhatsApp 实测顺带确认)。"
   },
   "quality": {
     "security_score": 98,
     "test_count": 5955,
-    "last_regression": "2026-08-17 03:34 pass",
+    "last_regression": "2026-08-17 04:23 pass",
     "coverage_pct": 0,
     "security_score_time": "2026-07-20 01:07",
     "test_suites": 177,
@@ -345,7 +345,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-08-17 全链闭环: V37.9.308-312 已合并同步且 Mac Mini 四步复测全绿(备份/KB同步/工作树/gitignore)。备份中断事件(8-15~17, 根因=PATH 缺 /sbin)完整解决。无待用户动作; 明晨 03:00/04:00 cron 为最终被动确认(无消息=好消息)。",
+  "focus": "2026-08-17 收工: V37.9.308-313 — 备份中断事件闭环(308-312) + GitHub 全面数据刷新(313, 15 文件 ~90 处陈旧收敛)。回归 176/0/5955 全绿。🔴 待用户: 合并 PR → Mac Mini git fetch+reset 同步(全 doc 零重启; SOUL 措辞变更下次 WhatsApp 实测顺带确认)。",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",

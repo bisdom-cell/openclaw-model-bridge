@@ -1,10 +1,10 @@
 # OpenClaw Model Bridge — 系统特性一览表
 
-> v37.9.312 (2026-08-17) | **5955 tests** / 177 suites / 0 fail | **12 providers** (含 Doubao Seed 2.0 Pro) | **40 active jobs** | 5 SLO metrics | 19 preflight checks | WhatsApp + Discord dual-channel | **91 governance invariants / 23 meta-rules / 839 checks / 14 MRD scanners** | security 98/100 | 28 blood-lesson case docs
+> v37.9.313 (2026-08-17) | **5955 tests** / 177 suites / 0 fail | **12 providers** (primary doubao_21) | **40 active jobs** | 5 SLO metrics | preflight full checks | notify 推送（默认 Discord）| **91 governance invariants / 23 meta-rules / 839 checks / 14 MRD scanners** | security 98/100 | 28 blood-lesson case docs
 
 | 分类 | 特性 | 说明 | 核心文件 |
 |------|------|------|----------|
-| **核心服务** | Gateway | WhatsApp 接入、媒体存储、工具执行、会话管理 | npm 全局 (:18789) |
+| **核心服务** | Gateway | WhatsApp+Discord 接入、媒体存储、工具执行、会话管理 | npm 全局 (:18789) |
 | | Tool Proxy | 工具过滤(24→12)、自定义工具拦截、图片 base64 注入、SSE 转换、SLO 采集 | `tool_proxy.py` + `proxy_filters.py` (:5002) |
 | | Adapter | 多 Provider 转发、认证、能力感知多模态路由、Fallback 降级 | `adapter.py` (:5001) |
 | **LLM Provider (12)** | Doubao Seed 2.1 Pro (主力) | 文本+视觉单模型多模态 + reasoning，Volcengine Ark 旗舰 (primary 由 PROVIDER env 配置，V37.9.222 flip) | `providers.d/doubao_seed_21_provider.py` |
@@ -14,9 +14,9 @@
 | | Kimi K2.5 (Moonshot) | 1T MoE 视觉+256K | MOONSHOT_API_KEY |
 | | MiniMax M2.7 | 视觉+200K+131K输出 | MINIMAX_API_KEY |
 | | GLM-5 (Zhipu) | 744B MoE + GLM-5V-Turbo | GLM_API_KEY |
-| | **Doubao Seed 2.0 Pro** | Volcengine Ark，reasoning model，V37.9.52 plugin 接入 | `providers.d/doubao_provider.py` (ARK_API_KEY) |
-| | **DeepSeek-V4-Pro** | 满血版(ai-tokenhub, R1 reasoning, Qwen3 迁移候选) + 量化版(self-host, PENDING)，V37.9.201/204 plugin 接入 | `providers.d/deepseek*_provider.py` |
-| | **GLM-5.2 coding** | Volcengine Ark 托管，coding 场景按需调用(`?provider=glm5_coding`)，feature_verified text/streaming/tool_calling，V37.9.254 plugin 接入 | `providers.d/glm5_coding_provider.py` (GLM5_API_KEY) |
+| | **Doubao Seed 2.0 Pro** | ai-tokenhub（V37.9.290 自 Volcengine Ark 迁移），reasoning model，V37.9.52 plugin 接入 | `providers.d/doubao_provider.py` (ARK_API_KEY) |
+| | **DeepSeek-V4-Pro** | 满血版(ai-tokenhub, R1 reasoning, **现 fallback 链首**) + 量化版(self-host, feature_verified, w4a8 偶发乱码注记)，V37.9.201/204 plugin 接入 | `providers.d/deepseek*_provider.py` |
+| | **GLM-5.2 coding** | ai-tokenhub（V37.9.290 迁移），Volcengine Ark 托管，coding 场景按需调用(`?provider=glm5_coding`)，feature_verified text/streaming/tool_calling，V37.9.254 plugin 接入 | `providers.d/glm5_coding_provider.py` (GLM5_API_KEY) |
 | **自定义工具** | search_kb | 混合检索：语义搜索(embedding) + 关键词补充 + source/时间过滤 → followup LLM 解读 | `proxy_filters.py` 注入 |
 | | data_clean | 数据清洗：7 种操作(dedup/trim/fix_dates 等)、5 种格式(CSV/JSON/Excel 等) | `data_clean.py` |
 | **本地 AI** | KB RAG 语义搜索 | sentence-transformers 384 维 50+ 语言，零 API 调用 | `local_embed.py` + `kb_embed.py` + `kb_rag.py` |
@@ -24,7 +24,7 @@
 | **信息采集 (15 内容源)** | 论文矩阵 (5 源) | ArXiv(3h) + HF Papers + Semantic Scholar + DBLP + ACL Anthology，6 字段 LLM 分析 + 🎚️ 项目对齐度评分 | `jobs/` 目录 |
 | | HackerNews | 每 3h 热帖抓取 | `jobs/hn_watcher/run_hn_fixed.sh` |
 | | 货代 Watcher | 每天 14:00 ImportYeti 数据 + 三层 LLM 分析（经济晴雨表/运营信号/商机） | `jobs/freight_watcher/` |
-| | 财经新闻 | 每天 07:30 全球财经/政策（8 RSS + X Syndication，冻结≠死亡僵尸检测） | `jobs/finance_news/` |
+| | 财经新闻 | 每天 07:30 全球财经/政策（14 RSS + 10 X 账号，冻结≠死亡僵尸检测） | `jobs/finance_news/` |
 | | AI 大神观点 | 博客长文(13:30) + Bluesky 实时短帖(17:00)，contrarian 为主 | `jobs/ai_leaders_blogs/` + `jobs/ai_leaders_bsky/` |
 | | Ontology 信息源 | 每天 ×2 W3C/JWS/DKE/KBS 本体论 RSS | `jobs/ontology_sources/` |
 | | GitHub Trending / RSS 博客 / 茶思屋 | ML/AI 热门仓库 + 技术博客 + 华为茶思屋科技 | `jobs/github_trending/` 等 |
@@ -40,8 +40,8 @@
 | | 超时率 < 3% | 错误自动分类(timeout/context/backend) | record_error() 分类 |
 | | 自动恢复率 > 90% | 连续错误→恢复转换追踪 | recovery tracking |
 | **阈值中心化** | config.yaml | 70+ 参数 9 分区 (SLO/proxy/tokens/alerts/routing/truncation/watchdog/incidents/jobs) | `config.yaml` + `config_loader.py` |
-| **通知推送** | 双通道统一推送 | WhatsApp + Discord 同时推送，6 个 topic 频道(papers/freight/alerts/daily/tech/DM) | `notify.sh` |
-| **监控运维** | Job Watchdog | 8 维元监控(job/日志/服务/锁/心跳/stats/磁盘/KB) → WhatsApp+Discord 告警 | `job_watchdog.sh` |
+| **通知推送** | 统一推送 notify.sh | 默认 Discord（重试×3+失败队列；WhatsApp 恢复后双通道），6 个 topic 频道(papers/freight/alerts/daily/tech/DM) | `notify.sh` |
+| **监控运维** | Job Watchdog | 8 维元监控(job/日志/服务/锁/心跳/stats/磁盘/KB) → notify 告警（默认 Discord） | `job_watchdog.sh` |
 | | WhatsApp 保活 | 每 30min Gateway HTTP 探测 | `wa_keepalive.sh` |
 | | 故障快照 | 连续 3 次错误→自动采集三层日志+stats+服务状态 → ~/.kb/incidents/ | `incident_snapshot.py` |
 | | Cron 心跳 | 每 10min 金丝雀写入，watchdog 检测 | `cron_canary.sh` |

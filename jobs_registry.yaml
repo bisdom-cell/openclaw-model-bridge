@@ -14,7 +14,7 @@ jobs:
     needs_api_key: true
     enabled: true
     tier: auxiliary                  # 周报，非实时关键
-    description: 每周健康周报，推送到 WhatsApp
+    description: 每周健康周报，经 notify.sh 推送（默认 Discord，WhatsApp 恢复后双通道）
 
   - id: kb_save_arxiv
     scheduler: system
@@ -79,7 +79,7 @@ jobs:
     tier: auxiliary                   # 补充源
     kb_source_file: dblp_daily.md
     kb_source_label: 📚 DBLP CS论文
-    description: DBLP CS全领域论文索引监控（多关键词搜索+LLM翻译+WhatsApp推送）
+    description: DBLP CS全领域论文索引监控（多关键词搜索+LLM翻译+notify推送）
 
   - id: acl_anthology
     scheduler: system
@@ -137,7 +137,7 @@ jobs:
     tier: auxiliary                    # V37.9.108 验证期保守，feed 全 Mac Mini 验证后可升 core
     kb_source_file: ai_leaders_blogs.md
     kb_source_label: 🧠 AI 大神观点
-    description: "AI 大神长文观点（博客/Substack RSS）— ai_leaders 从 X 转向非 X 渠道（V37.9.108，X Syndication 429+冻结退化解法）。Marcus on AI/AI Snake Oil/Import AI/Ahead of AI/Interconnects/Eugene Yan/Karpathy/The Gradient/fast.ai/HF/Anthropic。复用 rss_blogs 管道 + 🎚️ 项目对齐评分。feed 待 Mac Mini 首跑验证"
+    description: "AI 大神长文观点（博客/Substack RSS）— ai_leaders 从 X 转向非 X 渠道（V37.9.108，X Syndication 429+冻结退化解法）。Marcus on AI/AI Snake Oil/Import AI/Ahead of AI/Interconnects/Eugene Yan/Karpathy/The Gradient/fast.ai/HF/Anthropic。复用 rss_blogs 管道 + 🎚️ 项目对齐评分。V37.9.108-hotfix 首跑已验证（9/11 feed 活，45 篇全解析）"
 
   - id: ai_leaders_bsky
     scheduler: system
@@ -149,7 +149,7 @@ jobs:
     tier: auxiliary                    # V37.9.111 验证期保守，handle 全 Mac Mini 验证后可升 core
     kb_source_file: ai_leaders_bsky.md
     kb_source_label: 🦋 AI 大神实时观点
-    description: "AI 大神 Bluesky 实时短观点（V37.9.111）— ai_leaders 加实时短观点维度，补足 blogs 长文（V37.9.108）+ ai_leaders_x（X 429+冻结退化产~0）。Bluesky 公开 AppView getAuthorFeed 无需认证，30 万学者 2023-2025 已迁入（arXiv 2505.24801）。10 大神：LeCun/Chollet/Melanie Mitchell/Kambhampati/Narayanan/Gebru/Margaret Mitchell/Jeremy Howard + Gary Marcus/Emily Bender 候选，偏重 contrarian/不同意见。复用 blogs 管道（LLM 6 字段 + 🎚️ 项目对齐评分）。handle 待 Mac Mini 首跑验证"
+    description: "AI 大神 Bluesky 实时短观点（V37.9.111）— ai_leaders 加实时短观点维度，补足 blogs 长文（V37.9.108）+ ai_leaders_x（X 429+冻结退化产~0）。Bluesky 公开 AppView getAuthorFeed 无需认证，30 万学者 2023-2025 已迁入（arXiv 2505.24801）。10 大神：LeCun/Chollet/Melanie Mitchell/Kambhampati/Narayanan/Gebru/Margaret Mitchell/Jeremy Howard + Gary Marcus/Emily Bender 候选，偏重 contrarian/不同意见。复用 blogs 管道（LLM 6 字段 + 🎚️ 项目对齐评分）。V37.9.111-hotfix 首跑已验证（9 handle 活，17 帖全解析）"
 
   - id: karpathy_x
     scheduler: system
@@ -191,7 +191,7 @@ jobs:
     needs_api_key: false
     enabled: true
     tier: core                       # 每日摘要注入，影响 PA 知识
-    description: 每日 KB 摘要生成 + WhatsApp 推送精华摘要，供 LLM 对话时 read 查阅
+    description: 每日 KB 摘要生成 + notify 推送精华摘要，供 LLM 对话时 read 查阅
 
   # ---- openclaw cron 任务（经过 LLM 链路） ----
 
@@ -229,7 +229,7 @@ jobs:
     needs_api_key: true
     enabled: true
     tier: auxiliary                   # 周度回顾
-    description: "KB 跨笔记回顾（V29: LLM深度分析+WhatsApp推送）"
+    description: "KB 跨笔记回顾（V29: LLM深度分析+notify推送）"
 
   - id: kb_deep_dive
     scheduler: system
@@ -239,7 +239,7 @@ jobs:
     needs_api_key: true
     enabled: true
     tier: auxiliary                   # 每日深度分析（V37.9.16）
-    description: "每日深度分析（V37.9.16: 挑选今日⭐≥4 论文/文章 + 一档 PDF/二档 HTML 抓取 + 论证链分析 + WhatsApp简版 + Discord #daily 完整版 + ~/.kb/deep_dives/ 归档）"
+    description: "每日深度分析（V37.9.16: 挑选今日⭐≥4 论文/文章 + 一档 PDF/二档 HTML 抓取 + 论证链分析 + notify 简版 + Discord #daily 完整版 + ~/.kb/deep_dives/ 归档）"
 
   - id: kb_radar
     scheduler: system
@@ -285,7 +285,7 @@ jobs:
     needs_api_key: false
     enabled: true
     tier: core                       # 元监控，系统基石
-    description: 元监控 — 检查所有定时任务是否按时执行，超时则 WhatsApp 告警
+    description: 元监控 — 检查所有定时任务是否按时执行，超时则 notify 告警（默认 Discord）
 
   - id: gateway_watchdog
     scheduler: system
@@ -396,7 +396,7 @@ jobs:
     needs_api_key: false             # 通过 proxy:5002 调 LLM，不需要独立 key
     enabled: true
     tier: auxiliary                   # 周度报告
-    description: KB 周趋势报告 — 本周 vs 上周关键词频率变化 + LLM 趋势分析 + WhatsApp 推送
+    description: KB 周趋势报告 — 本周 vs 上周关键词频率变化 + LLM 趋势分析 + notify 推送
 
   - id: cron_canary
     scheduler: system
@@ -442,7 +442,7 @@ jobs:
     needs_api_key: false
     enabled: true
     tier: core                       # ontology 治理基石
-    description: 每日 ontology 治理审计 — governance_checker.py --full（17不变式+6元发现）+ engine.py --check（81规则），失败推送 alerts
+    description: 每日 ontology 治理审计 — governance_checker.py --full（91不变式+23元规则+14 MRD扫描器）+ engine.py --check，失败推送 alerts
 
   - id: ontology_sources
     scheduler: system
@@ -478,7 +478,7 @@ jobs:
     tier: auxiliary                     # 财经信息积累
     kb_source_file: finance_daily.md
     kb_source_label: 📊 全球财经/政策
-    description: 全球财经/政策每日汇总 — 15+ 国内外权威 RSS 源（美联储/路透社/新华财经/央行等），LLM 结构化分析（来源标注+价值评级+国内外对比+投资建议），Discord #daily + WhatsApp 推送
+    description: 全球财经/政策每日汇总 — 14 国内外权威 RSS 源 + 10 X 财经账号（美联储/路透社/新华财经/央行等），LLM 结构化分析（来源标注+价值评级+国内外对比+投资建议），notify 推送（Discord #daily）
 
   - id: preference_learner
     scheduler: system

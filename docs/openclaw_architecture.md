@@ -2,6 +2,7 @@
 
 > 基于 OpenClaw 开源仓库（github.com/openclaw/openclaw）整理
 > 最后更新：2026-03-24 | 适用版本：v2026.3.23
+> ⚠️ **现状注（2026-08-17）**：本文写于 v2026.3.x 时代作 OpenClaw 上游架构参考。Gateway 已于 2026-06-11 升级 **v2026.4.27**（升级评估与 hold 决策见 `docs/gateway_upgrade_eval_v2026.4.md`）；本文中「当前版本/暂不升级」等措辞均为当时快照。primary LLM 现由 adapter `PROVIDER` env 决定（doubao_21，V37.9.222）。
 
 ---
 
@@ -169,7 +170,7 @@ Gateway 使用 **lane-aware FIFO 队列** 管理所有消息处理。每个 lane
 
 ### 5.3 工具数量限制（与本项目相关）
 
-我们的 Tool Proxy (`tool_proxy.py`) 将 Gateway 发来的工具从 ~24 个过滤到 **≤12 个**，因为 Qwen3 对大量工具定义容易混乱。这是中间件层面的限制，与 Gateway 的 `tools.allow/deny` 配合使用。
+我们的 Tool Proxy (`tool_proxy.py`) 将 Gateway 发来的工具从 ~24 个过滤到 **≤12 个**，因为 基础模型 对大量工具定义容易混乱。这是中间件层面的限制，与 Gateway 的 `tools.allow/deny` 配合使用。
 
 ## 六、Agent 配置
 
@@ -367,7 +368,7 @@ Gateway 日志输出到 stdout，可通过 launchd/systemd 重定向到文件。
 ```
 WhatsApp → Gateway (:18789) → Tool Proxy (:5002) → Adapter (:5001) → 远程GPU
            [OpenClaw开源]      [本项目]              [本项目]          [Qwen3-235B]
-           maxConcurrent=4     ThreadingMixIn        ThreadingMixIn    vLLM batch
+           maxConcurrent=4     ThreadingMixIn        ThreadingMixIn    云端 API / vLLM
            lane-aware FIFO     工具过滤12个           多Provider转发
            session管理          截断200KB              认证+/health
            cron调度             SSE转换
@@ -381,7 +382,7 @@ WhatsApp → Gateway (:18789) → Tool Proxy (:5002) → Adapter (:5001) → 远
 | Gateway (main lane) | 4 并发 | 可配置 `maxConcurrent` |
 | Tool Proxy | 无限制（per-thread） | Python ThreadingMixIn |
 | Adapter | 无限制（per-thread） | Python ThreadingMixIn |
-| 远程 GPU | 1-4 并发 | 取决于 vLLM batch 配置 |
+| 远程 GPU | 1-4 并发 | 取决于 云端 API / vLLM 配置 |
 | **端到端实际并发** | **~4** | 受限于 GPU 推理速度 |
 
 ### 10.2 关键配置文件位置（Mac Mini）
@@ -442,7 +443,7 @@ Health & 监控:
 - Telegram pinned-IP SSRF 防护
 - Nostr inbound DM policy 在 decrypt 前强制执行
 
-**v2026.3.23-2（最新，⚠️ 暂不升级）**:
+**v2026.3.23-2（当时最新；后续升级评估见 gateway_upgrade_eval_v2026.4.md）**:
 - **WhatsApp sidecar 重新打包**: v2026.3.22 regression 修复，bundled runtime sidecar 恢复到 npm tarball（`dist/extensions/`），全局安装不再缺失 WhatsApp 运行时
 - **基建**: 保留已发布 bundled plugins、release 检查缺失 plugin 时失败
 - **Browser/CDP**: 修复 existing-session attach 超时、慢速 headless Linux 复用已运行浏览器
@@ -455,7 +456,7 @@ Health & 监控:
 - **launchd**: 锁冲突导致 crash-loop 修复（与我们部署相关）
 - ⚠️ **不升级原因**：WhatsApp sidecar 虽重新打包，但 `@openclaw/whatsapp` 独立包在 npm 仍 404；ClawHub 上仍为 0.0.5-Alpha（社区残缺包）；ClawHub 429 限流仍未修复（#54446，2026-03-25 新报）。Plugin 架构过渡未完成，生产风险不可接受。等 `@openclaw/whatsapp` 正式发布到 npm 或 ClawHub >= 1.0.0 再升级
 
-**v2026.3.13-1（⭐ 当前部署版本）**:
+**v2026.3.13-1（历史部署版本，2026-03→06；现已升级 v2026.4.27，见头部注）**:
 - **安全**: 配对码改为短效 bootstrap tokens、禁用 workspace 插件自动加载、防止 Docker token 泄露
 - **模型**: Kimi Coding 恢复原生 Anthropic tool calls、Replay 丢弃 thinking blocks、Vertex model-ID 标准化
 - **Session**: compaction token count 校验修复、reset/compaction 保留 persona/language
@@ -479,7 +480,7 @@ Health & 监控:
 | Issue | 状态 | 影响 |
 |-------|------|------|
 | ~~#48703~~ | **✅ Fixed (v2026.3.22)** | ~~WhatsApp listener Map 被 bundler code-splitting 拆成多实例~~ → `globalThis` singleton 修复 |
-| **WhatsApp plugin unbundled** | **🔴 Blocker — 暂不升级** | v2026.3.22 起 WhatsApp plugin 从 Gateway 拆出，需从 ClawHub 单独安装。**两个阻断因素**：① ClawHub 限流（429），安装不稳定；② ClawHub 上 WhatsApp plugin 仅 **0.0.5-Alpha**（预发布），生产风险不可接受。v2026.3.23 的 "Keep previously released bundled plugins" 修复**不确定**是否重新 bundle WhatsApp。**决策：维持 v2026.3.13-1，等 WhatsApp plugin >= 1.0.0 稳定版再升级** |
+| **WhatsApp plugin unbundled** | **🔴 Blocker — 暂不升级** | v2026.3.22 起 WhatsApp plugin 从 Gateway 拆出，需从 ClawHub 单独安装。**两个阻断因素**：① ClawHub 限流（429），安装不稳定；② ClawHub 上 WhatsApp plugin 仅 **0.0.5-Alpha**（预发布），生产风险不可接受。v2026.3.23 的 "Keep previously released bundled plugins" 修复**不确定**是否重新 bundle WhatsApp。~~决策：维持 v2026.3.13-1~~（已结案：2026-06-11 升级 v2026.4.27，WhatsApp plugin manifest-first 自动加载 + auth 保留，E2E 全过） |
 | #24749 | Open | Hook session 独立 lane（防止饿死用户消息） |
 | #16055 | Open | 多 agent 共享 main lane cap |
 | #27407 | Open | restart 后 drainLane 卡住 |

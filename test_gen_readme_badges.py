@@ -208,11 +208,16 @@ class TestReadmeBodyLineSubs(unittest.TestCase):
                         "README testing 行必须保持 sub 可管理的形式")
 
     def test_real_readme_provider_table_has_doubao_row(self):
-        # 表行内容不是机器管理的统计 token — 内容守卫防 V37.9.52 类"加 provider 漏表行"复发
+        # 表行内容不是机器管理的统计 token — 内容守卫防 V37.9.52 类"加 provider 漏表行"复发。
+        # V37.9.313 演进: 原字面量 pin "**Doubao** (Volcengine Ark, plugin)" 自身陈旧
+        # (V37.9.290 平台已迁 ai-tokenhub, 2026-08-17 全面刷新时该 pin 反过来咬住修正)。
+        # 意图不变: providers 表必须列出 Doubao plugin 行 (2.0 与 2.1 各一行)。
         with open(os.path.join(_REPO, "README.md"), encoding="utf-8") as f:
             readme = f.read()
-        self.assertIn("| **Doubao** (Volcengine Ark, plugin) |", readme,
-                      "provider 表必须含 Doubao 行 (V37.9.144 补齐)")
+        self.assertRegex(readme, r"\| \*\*Doubao Seed 2\.0 Pro\*\* \([^)]*plugin[^)]*\) \|",
+                         "provider 表必须含 Doubao 2.0 plugin 行")
+        self.assertRegex(readme, r"\| \*\*Doubao Seed 2\.1 Pro\*\* \([^)]*plugin[^)]*\) \|",
+                         "provider 表必须含 Doubao 2.1 (primary) plugin 行")
         self.assertRegex(readme, r"## Supported Providers \(\d+\)",
                         "providers 段头必须保持 sub 可管理的形式")
 
