@@ -1,5 +1,5 @@
 {
-  "updated": "2026-08-17 06:49:17",
+  "updated": "2026-08-17 07:07:00",
   "updated_by": "full_regression",
   "priorities": [
     {
@@ -143,6 +143,11 @@
       "date": "2026-08-17",
       "what": "V37.9.315: SLO min_sample_count 200→30 (用户决策, config.yaml 单点, benchmark 脱离永久 OBSERVING)",
       "by": "claude_code"
+    },
+    {
+      "date": "2026-08-17",
+      "what": "V37.9.315 生产 E2E 验证: slo_benchmark ALL PASS (60 样本 p95=22789ms, min≥30) — benchmark 首次真判定; [43] 审计 9 项全收口",
+      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -191,7 +196,7 @@
     "security_score": "98/100 (98.0%)",
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB",
     "slo": {
-      "checked_at": "2026-08-17 06:47:47",
+      "checked_at": "2026-08-17 07:05:30",
       "all_ok": true,
       "summary": {
         "latency_p95": {
@@ -268,10 +273,11 @@
       "【原则 #14 补充教训（2026-08-12 两次踩同一坑）】`git reset` 只同步**仓库副本**(~/openclaw-model-bridge/X)，cron 跑的是 auto_deploy 按 FILE_MAP 同步出的**运行时副本**(~/X)，两者有最多 2 分钟延迟。合并后立刻手跑运行时脚本 = 跑旧代码(今日 kb_embed 补跑第一次即因此重演同款 Traceback)。**验证式**: `grep -c '<修复特征>' ~/openclaw-model-bridge/X ~/X` 两行都为 1 再执行；急用可 `cp` 手动同步。下次触碰 CLAUDE.md 原则区时把这条写进 #14 正文。",
       "【V37.9.301 治理告警正文分层 ✅ dev 全闭环 · 剩 Mac Mini 被动验证】合并+git fetch+reset 同步后(governance_audit_cron.sh 走 FILE_MAP, 零重启, 明晨 07:00 自动生效): 下次治理审计失败时告警正文应 (a) 先列**全部**失败不变式 + 顶层计数行「N 个不变式被违反, M 个检查执行出错」(此前多失败时后面的整条会消失、计数行永远被丢) (b) 明细单列成「失败明细」段且超预算时带「还有 N 行未显示」提示 (c) 末尾附「并存警告」段(MRD 元发现 + convergence 漂移如 jobs_to_crontab missing=N —— 此前只进本地日志从不送达)。若正文仍只见明细不见不变式索引, 贴我。",
       "【2026-08-14 三镜头对抗审计 V37.9.303-305 · dev 全闭环 · 剩 Mac Mini 被动验证】三批合并+git fetch+reset 同步后: (303) python3 slo_benchmark.py --save 重生成报告 — token 段首次出真值 + 趋势窗口 Requests 大幅下降 = 口径修正非流量下降勿惊; dashboard/周报 proxy 死时应显 STALE_DATA 非 ALL PASS (304) daily_sync 的 rsync 真失败/TM 跳过首次变 watchdog 可见 (告警=盲区解除非新 bug); 空 crontab 场景 watchdog 会真告警 (305) 次日 03:00 dream Radar #1 扫昨日全天 (daily_signals_{昨日}.json 应现非空 signals 若真有共振) + 06:00 kb_radar 读同一份 + ban-list 空时 kb_dream.log 出 WARN。另: [36] 元规则 19/23 尾注已核对闭合 (绿 audit 同 19/23 = dev 常态: 3 advisory ⚠️ + 1 需 Mac Mini runtime)",
-      "【✅ 2026-08-14 审计登记 [43] 全部收口 (V37.9.308 a+c / V37.9.314 b+d+e+f+g+h) · (i) 已决策执行 V37.9.315, 剩 Mac Mini 被动验证】V37.9.314 六连: (h) backup MIN_KEEP=3 下限 + verify_archive 产物校验(存在/≥1MB/tar 结构, 失败 exit 4) (g) crontab_safe 写操作 mkdir 互斥锁(stale>120s 回收, 拿不到 abort) (b) upgrade_openclaw 收编 restart.sh(退役裸后台 gateway 双管理) + HEALTH 参与判定 (f) TZ python-side pin(kb_dream_helpers/aggregator + kb_write TS, SYSTEM_TZ 默认 HKT, Mac Mini no-op) (d) 🔴 dream Radar 三件套结构性哑炮修复: 三件套曾在 30K 截断尾部**从未进过 LLM**(V37.9.46-56 管道被 V37.9.68 静默掐断), 现前插 preamble + 退役 ~114 行 REDUCE_SYSTEM/REDUCE_PROMPT 死代码 + REDUCE_CHARS 记真值; 顺带发现三层守卫(surrogate/credibility/INV-DREAM-003)自 V37.9.68 起被死代码喂饱 vacuous, 完整反污染条款(Bad JSON/平台状态禁令/Hugging Face 示例)补进 4 个活 system prompt + 守卫演进钉活文本 (e) picker 评级污染对齐修复(字段头区分器 + 首行抽星双层)。守卫 28 单测 + sabotage 五连全开火。(i) ✅ V37.9.315 (2026-08-17 用户拍板): config.yaml slo.min_sample_count 200→30 (单一消费点 slo_benchmark.py:103, 零 pin 零治理引用), 行为实证 25 样本仍 OBSERVING 防 demo 假 PASS / 33 样本开始真判定; Mac Mini 同步后 python3 slo_benchmark.py --save 重生成报告应首次出现 PASS/FAIL 真 verdict。[43] 至此完全收口。",
+      "【✅ 2026-08-14 审计登记 [43] 全部收口 (V37.9.308 a+c / V37.9.314 b+d+e+f+g+h) · (i) 已决策执行 V37.9.315, 剩 Mac Mini 被动验证】V37.9.314 六连: (h) backup MIN_KEEP=3 下限 + verify_archive 产物校验(存在/≥1MB/tar 结构, 失败 exit 4) (g) crontab_safe 写操作 mkdir 互斥锁(stale>120s 回收, 拿不到 abort) (b) upgrade_openclaw 收编 restart.sh(退役裸后台 gateway 双管理) + HEALTH 参与判定 (f) TZ python-side pin(kb_dream_helpers/aggregator + kb_write TS, SYSTEM_TZ 默认 HKT, Mac Mini no-op) (d) 🔴 dream Radar 三件套结构性哑炮修复: 三件套曾在 30K 截断尾部**从未进过 LLM**(V37.9.46-56 管道被 V37.9.68 静默掐断), 现前插 preamble + 退役 ~114 行 REDUCE_SYSTEM/REDUCE_PROMPT 死代码 + REDUCE_CHARS 记真值; 顺带发现三层守卫(surrogate/credibility/INV-DREAM-003)自 V37.9.68 起被死代码喂饱 vacuous, 完整反污染条款(Bad JSON/平台状态禁令/Hugging Face 示例)补进 4 个活 system prompt + 守卫演进钉活文本 (e) picker 评级污染对齐修复(字段头区分器 + 首行抽星双层)。守卫 28 单测 + sabotage 五连全开火。(i) ✅ V37.9.315 (2026-08-17 用户拍板): config.yaml slo.min_sample_count 200→30 (单一消费点 slo_benchmark.py:103, 零 pin 零治理引用), 行为实证 25 样本仍 OBSERVING 防 demo 假 PASS / 33 样本开始真判定; ✅ 2026-08-17 14:54 Mac Mini E2E 验证通过: Verdict=ALL PASS (3/5 passed, 0 observing, 2 n/a; min samples ≥30), 60 样本 p95=22789ms ≤50000 零错误 = 该 benchmark 自 V37.9.99 建立三态判定以来首次真判定。运行时副本滞后实录: 首跑仍读 200 (config_loader 优先 ~/config.yaml, FILE_MAP 2min 轮询), 同步后重跑即 PASS。[43] 9 个 sub-finding 全部收口结案。",
       "【V37.9.306 kb_evening LLM 韧性 · dev 闭环 · 剩今晚 22:00 验证】同步后今晚 22:00 kb_evening 首次带 300s 超时+retry=1 运行 → 预期 cat ~/.kb/last_run_evening.json 显 status=ok。若仍 llm_failed 且 reason=TimeoutError (300s 也不够) = 后端持续性慢非瞬态, 贴日志走 provider 侧排查 (非本修复失效)。另诚实登记不改: kb_review 周报同走共享 call_llm 仍 retries=0 — 能力已就位(传参即可)但无失败证据不预防性改(原则 #8/#34), 待其真失败再 wire。",
       "【✅ 2026-08-17 全链闭环实证 (V37.9.308-312, PR#875/876/877 已合并+同步+复测) · 剩两项纯被动观察】合并同步后 Mac Mini 四步复测全绿: 运行时副本含 V37.9.311 marker / git status 完全干净(嵌套仓库93M+碎片已删, chaspark cache 被 gitignore 消化) / openclaw_backup rc=0 Backup done / movespeed_daily_sync rc=0 status:ok 471M。脚本 PATH 是整行覆盖式 export → 手动运行与 cron 环境等价, 复测代表性充分。剩余被动观察: (a) 明晨 03:00/04:00 双 cron 首次全自动跑(预期 watchdog 不再报 skipped_no_ssd, 无消息=确认) (b) V37.9.311 fallback 分支活体验证 = 下次 4.27 staging 锁文件瞬态自然出现时日志应为 'OK (fallback):' 而非假失败 (c) V37.9.308: 未来某次部署 restart 失败时应收到 quiet_alert(首次出现=盲区解除非新 bug)。",
-      "【V37.9.314 · 六项 dev 闭环 · 剩 Mac Mini 被动验证】同步后观察: (a) 次日 03:00 dream 日志出现 preamble 路径, **梦境输出首次可能真正引用 Radar 三件套信号**(此前结构性缺席); system prompt 换完整反污染条款后输出质量不应劣化 (b) 03:00 备份 Cleaned 行语义=MIN_KEEP 生效(无感); 产物损坏首现 exit 4 verify failed 告警=盲区解除非新 bug (c) crontab_safe 写操作带锁, 并发时后到者等待≤10s 或 abort(日志可见) (d) picker: 高对齐 Top 5 中低对齐条目冒充现象应消失(乱序输出不再被评级星数覆盖)。"
+      "【V37.9.314 · 六项 dev 闭环 · 剩 Mac Mini 被动验证】同步后观察: (a) 次日 03:00 dream 日志出现 preamble 路径, **梦境输出首次可能真正引用 Radar 三件套信号**(此前结构性缺席); system prompt 换完整反污染条款后输出质量不应劣化 (b) 03:00 备份 Cleaned 行语义=MIN_KEEP 生效(无感); 产物损坏首现 exit 4 verify failed 告警=盲区解除非新 bug (c) crontab_safe 写操作带锁, 并发时后到者等待≤10s 或 abort(日志可见) (d) picker: 高对齐 Top 5 中低对齐条目冒充现象应消失(乱序输出不再被评级星数覆盖)。",
+      "【docs/slo_benchmark_report.md 入库副本陈旧 · Mac-Mini-gated 证据刷新 · 低优】仓库版仍是 V37.9.303 时代快照 (Verdict=OBSERVING / samples 25 / min samples ≥200), V37.9.315 门槛调 30 后该 artifact 与 config.yaml 现实双重不一致。真实生产版已在 Mac Mini 生成 (2026-08-17 14:54, ALL PASS / 60 样本 / p95 22789ms)。**dev 不可自行重生成** (需 live proxy_stats.json, 仅 Mac Mini 有) 且不得手写正文 (原则 #23 禁编造)。刷新路径: 用户 Mac Mini 执行 cat ~/openclaw-model-bridge/docs/slo_benchmark_report.md 贴回 → session 原样入库提交。价值 = 原则 #18 证据密度 (首份 ALL PASS 生产 SLO 证据, 对外可引用), 非阻塞项。"
     ],
     "open_prs": [],
     "blocked_on": "",
@@ -280,7 +286,7 @@
   "quality": {
     "security_score": 98,
     "test_count": 5984,
-    "last_regression": "2026-08-17 06:48 pass",
+    "last_regression": "2026-08-17 07:06 pass",
     "coverage_pct": 0,
     "security_score_time": "2026-07-20 01:07",
     "test_suites": 178,
@@ -351,7 +357,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-08-17 收工(七交付): V37.9.308-312 备份中断闭环 + V37.9.313 GitHub 全面刷新 + V37.9.314 审计余项六连收口。回归 177/0/5984 全绿, 治理 EXIT=0。unfinished [43] 审计登记项全部清零(仅剩 SLO 样本门槛用户决策)。🔴 待用户: 合并 PR → Mac Mini git fetch+reset 同步(全走 FILE_MAP 零重启) → 次日 03:00 dream 首次可能真正引用 Radar 信号。",
+  "focus": "2026-08-17 收工态: 当日五交付全部合入 main (V37.9.311 备份 fallback / V37.9.312 gitignore hygiene / V37.9.313 GitHub 全面刷新 15 文件~90 处 / V37.9.314 审计余项六连收口 / V37.9.315 SLO 门槛 200→30 生产 ALL PASS)。[43] 三镜头审计 9 个 sub-finding 全部收口。下一 session 优先: (1) 被动观察 V37.9.314(d) 雷达三件套是否首次出现在 03:00 dream 输出 (结构性哑炮修复的关键验证信号) (2) 可选取回 Mac Mini 的 ALL PASS 报告入库存档 (证据密度) (3) 宪法级 #1 论文 #2 投稿三决策仍待用户 (DECISIONS_NEEDED #1-#3)。",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
