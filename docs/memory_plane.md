@@ -1,10 +1,10 @@
 # Memory Plane v1 Architecture
 
-> Version: V36 (2026-04-05) | Status: Production
+> Version: V36 (2026-04-05) → v2 features live (dedup/confidence/conflict, V36 后半) | Status: Production | 刷新 2026-08-17
 
 ## Overview
 
-The Memory Plane unifies 5 independent memory components into a single queryable interface.
+The Memory Plane unifies 4 independent memory layers into a single queryable interface.
 Before v1, these were scattered scripts with no shared API. Now `memory_plane.py` provides
 one entry point for all memory operations.
 
@@ -122,11 +122,11 @@ Merge + Sort by score (descending)
 ## Testing
 
 ```bash
-python3 -m unittest test_memory_plane -v     # 45 unit tests
+python3 -m unittest test_memory_plane -v     # 64 unit tests
 python3 memory_plane.py layers               # Smoke test
 ```
 
 ## Relation to V2/V3 Roadmap
 
-- **V2**: This v1 provides the unified interface. Next: conflict resolution, confidence scoring, cross-layer deduplication.
+- **V2**: ✅ shipped — conflict resolution (`resolve_conflicts`), confidence scoring (`apply_confidence`), cross-layer deduplication (`deduplicate`) all live in `memory_plane.py` (V36 v2, 64 tests).
 - **V3**: Plugin interface — custom memory layers can register via `LAYERS` dict pattern.

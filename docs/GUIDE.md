@@ -18,7 +18,7 @@
 - [Knowledge Base System / 知识库系统](#knowledge-base-system--知识库系统v29)
 - [Local AI / 本地 AI](#local-ai--本地-aiv293)
 - [Monitoring / 监控](#monitoring--监控)
-- [27 Hard-Won Lessons / 27条踩坑经验](#26-hard-won-lessons--26条踩坑经验)
+- [27 Hard-Won Lessons / 27条踩坑经验](#27-hard-won-lessons--27条踩坑经验)
 
 ---
 
@@ -33,7 +33,7 @@ Tool Proxy        :5002    tool_proxy.py   ← This repo
    ↕
 Adapter           :5001    adapter.py      ← This repo
    ↕
-Remote GPU API              e.g. Qwen3-235B
+LLM Providers (12)          primary via PROVIDER env (now doubao_21)
 ```
 
 **Why two layers? / 为什么要两层？**
@@ -145,6 +145,8 @@ Incoming request from OpenClaw
 ### Allowed Tools / 允许的工具列表
 
 ```python
+# NOTE (V37.8.14): with ONTOLOGY_MODE=on (production default) the whitelist is
+# loaded from tool_ontology.yaml — the Python constant below is the fallback copy.
 ALLOWED_TOOLS = {
     "web_search", "web_fetch",          # Web
     "read", "write", "edit",            # File operations
@@ -191,10 +193,10 @@ The proxy automatically remaps common model hallucinations:
 
 1. **Auth injection** — Adds `Authorization: Bearer $REMOTE_API_KEY` header
 2. **Model ID override** — Forces the correct model ID regardless of what OpenClaw sends
-3. **Multimodal stripping** — Converts list-format content (image + text) to plain text, since Qwen3 vision is not enabled
+3. **Multimodal routing** — Capability-aware: image content routes to a vision-capable provider (the current primary doubao_21 is natively multimodal; list-content is stripped to plain text only for text-only providers)
 4. **Parameter filtering** — Only forwards parameters the remote API actually supports
 5. **User-Agent spoofing** — Sets `User-Agent: curl/8.0` to avoid bot-blocking
-6. **Fallback degradation (V29.1)** — Auto-switches to Gemini 2.5 Flash when primary provider fails
+6. **Fallback degradation** — Auto-switches down the `FALLBACK_ORDER` chain (deepseek_full → doubao → deepseek → qwen) when the primary provider fails (V37.9.218; Gemini retired from the chain, HK geo-block)
 7. **Local health endpoint** — `/health` responds locally without forwarding to remote GPU
 
 ---
@@ -204,7 +206,7 @@ The proxy automatically remaps common model hallucinations:
 3. **多模态内容剥离** — 将列表格式的 content（含图片）转换为纯文本
 4. **参数过滤** — 仅转发远端 API 支持的参数
 5. **User-Agent 伪装** — 设置为 `curl/8.0` 避免被反爬拦截
-6. **Fallback 降级（V29.1）** — 主 Provider 失败时自动切换到 Gemini 2.5 Flash
+6. **Fallback 降级** — 主 Provider 失败时沿 `FALLBACK_ORDER` 链自动降级（deepseek_full → doubao → deepseek → qwen，V37.9.218；Gemini 已 geo-block 退役出链）
 7. **本地健康端点** — `/health` 本地响应，不转发到远程 GPU
 
 ### Allowed Parameters / 允许的参数
@@ -236,7 +238,7 @@ export REMOTE_API_KEY="your-api-key-here"
 
 | Location | Format |
 |----------|--------|
-| `adapter.py` | Bare ID, e.g. `Qwen3-235B-A22B-Instruct-2507-W8A8` |
+| `adapter.py` | Bare ID (primary resolved via `PROVIDER` env; e.g. `doubao-seed-2-1-pro-260628`) |
 | `tool_proxy.py` | Bare ID (same as above) |
 | `openclaw.json` `agents.defaults.model.primary` | **Must include `qwen-local/` prefix** |
 | `jobs.json` cron tasks | **Do not specify** — inherit default |
@@ -256,7 +258,7 @@ export REMOTE_API_KEY="your-api-key-here"
 ### 1. Install dependencies / 安装依赖
 
 ```bash
-pip3 install flask requests
+python3 --version
 pip3 install sentence-transformers          # For local KB embedding (V29.3)
 pip3 install google-genai numpy             # For multimodal memory (V29.1, optional)
 ```
@@ -267,9 +269,9 @@ pip3 install google-genai numpy             # For multimodal memory (V29.1, opti
 # Required: remote LLM API key
 export REMOTE_API_KEY="your-remote-api-key"
 
-# Optional: fallback provider (V29.1)
-export FALLBACK_PROVIDER="gemini"
-export GEMINI_API_KEY="your-gemini-key"
+# Optional: explicit ordered fallback chain (V37.9.218; the old single-slot
+# FALLBACK_PROVIDER env is deprecated and ignored with a WARN)
+export FALLBACK_ORDER="deepseek_full,doubao,deepseek,qwen"
 
 # Edit adapter.py: verify REAL_MODEL_ID matches your backend
 # Edit tool_proxy.py: adjust ALLOWED_TOOLS if needed
@@ -278,8 +280,7 @@ export GEMINI_API_KEY="your-gemini-key"
 ### 3. Start services / 启动服务
 
 ```bash
-nohup python3 adapter.py > adapter.log 2>&1 &
-nohup python3 tool_proxy.py > tool_proxy.log 2>&1 &
+bash restart.sh
 ```
 
 ### 4. Point OpenClaw to the proxy / 配置 OpenClaw 指向代理
@@ -345,7 +346,7 @@ tail -f ~/adapter.log       # API forwarding, auth, parameter filtering
 
 ### End-to-end test via WhatsApp / 端到端测试
 
-Send to your WhatsApp number: `你好` — model should reply directly without onboarding prompts.
+Send `你好` to your WhatsApp number (or the Discord DM channel — both inbound channels work; outbound push currently defaults to Discord, V37.9.179) — model should reply directly without onboarding prompts.
 
 发送"你好"到 WhatsApp，模型应直接回复，不应出现 onboarding 欢迎语。
 
@@ -365,7 +366,7 @@ export FALLBACK_ORDER="doubao_21,deepseek_full,doubao,deepseek,qwen"
 | Provider | Role | Env var |
 |----------|------|---------|
 | Doubao Seed 2.1 Pro (Volcengine Ark) | Primary (`PROVIDER=doubao_21`, V37.9.222 起) | `ARK_21_API_KEY` + `ARK_21_ENDPOINT_ID` |
-| DeepSeek-V4-Pro 满血版 → Doubao 2.0 → Qwen3-235B | Fallback chain (`FALLBACK_ORDER`) | `DEEPSEEK_FULL_API_KEY` / `ARK_API_KEY` / `REMOTE_API_KEY` |
+| DeepSeek-V4-Pro 满血版 → Doubao 2.0 → DeepSeek 量化版 → Qwen3-235B | Fallback chain (`FALLBACK_ORDER`) | `DEEPSEEK_FULL_API_KEY` / `DOUBAO_API_KEY` / `DEEPSEEK_API_KEY` / `REMOTE_API_KEY` |
 
 ---
 
@@ -455,13 +456,13 @@ curl http://localhost:18789/health  # Gateway
 |--------|----------|--------|
 | Conversation quality | 08:15 | Response time, success rate, tool distribution |
 | Token usage | 08:20 | Daily consumption, hourly distribution, trends |
-| Health report | Mon 09:00 | System health + WhatsApp push |
+| Health report | Mon 09:00 | System health + notify push (default Discord) |
 
 ### Automated Alerts
 
 | Monitor | Interval | Alert condition |
 |---------|----------|----------------|
-| Job watchdog | Every 4 hours | Job timeout or push failure in logs |
+| Job watchdog | Hourly (:30) | 8-dimension meta-monitor (job/logs/services/locks/heartbeat/stats/disk/KB) |
 | WhatsApp keepalive | 30 min | Gateway HTTP probe failure |
 | Proxy stats | Real-time | Token threshold or consecutive errors |
 | Drift detection | Hourly | md5 mismatch between repo and runtime |

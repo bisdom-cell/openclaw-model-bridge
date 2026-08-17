@@ -111,8 +111,10 @@ incidents:
 fallback:
   # 远程 GPU（主 LLM）
   remote_gpu:
-    primary: qwen               # Qwen3-235B
-    fallback: doubao            # V37.9.129: doubao 是真实第一 fallback（gemini 已退役，见 exclude_providers）
+    # ⚠️ 参考注记（无代码消费者）: 真理源 = adapter 的 PROVIDER / FALLBACK_ORDER env。
+    # V37.9.222 flip: primary=doubao_21 (Doubao Seed 2.1 Pro)，链 deepseek_full→doubao→deepseek→qwen。
+    primary: doubao_21          # 由 PROVIDER env 决定（此处仅为参考快照）
+    fallback: deepseek_full     # 链首（FALLBACK_ORDER env 权威，V37.9.218）
     timeout_ms: 300000          # 5 分钟
     fallback_timeout_ms: 300000 # V37.9.129: 60000→300000（= primary，给 doubao 大请求(DEEP 5000 token)足够时间，不降 max_tokens；旧 60s 让 DEEP 在慢后端上 read timeout）
     # V37.9.129: 永久排除地理封锁/不可达 provider 出 fallback 链（gemini 香港 400 "User location is not supported"，一直是死链）。

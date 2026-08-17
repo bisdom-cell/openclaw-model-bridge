@@ -11,7 +11,7 @@
 
 | Step | Control-plane primitive | What you see |
 |------|------------------------|--------------|
-| 1 | **Provider registry + capability routing** | 8 providers (7 built-in + auto-discovered plugin), capability-sorted fallback chain for `qwen`, `find_best_provider(text, prefer reasoning)` → `doubao` |
+| 1 | **Provider registry + capability routing** | 12 providers (7 built-in + 5 auto-discovered plugins), capability-sorted fallback chain, `find_best_provider(text, prefer reasoning)` → `doubao_21` |
 | 2 | **Tool governance** | 24 tools in → **12 out**: 12 whitelist-rejected, schema-cleaned, 3 custom tools injected, hard cap ≤12 truncates the overflow — with the three drop/add categories reported separately |
 | 3 | **Declarative policy** (optional Layer 2) | `evaluate_policy("max-tools-per-agent")` → `limit=12` from `policy_ontology.yaml`. Skips gracefully with an install hint if PyYAML is absent — a live demo of the dependency boundary |
 | 4 | **SLO mini-stats** | per-step timings + ok count (the habit, not the dashboard) |

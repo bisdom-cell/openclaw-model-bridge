@@ -1,6 +1,6 @@
 # Provider Compatibility Matrix
 
-> 数据真理源：`providers.py`（`python3 providers.py` 人读 / `--json` 机读 / `--capability-matrix` 能力矩阵直出 / `--tier-matrix` 验证档位直出）| 最后刷新：2026-06-13（v37.9.146）
+> 数据真理源：`providers.py`（`python3 providers.py` 人读 / `--json` 机读 / `--capability-matrix` 能力矩阵直出 / `--tier-matrix` 验证档位直出）| 最后刷新：2026-08-17（v37.9.312）
 > **12 Providers**（7 built-in + 5 plugins：Doubao×2 + DeepSeek×2 + GLM-5.2 coding）。**漂移防护已接入（V37.9.143 → V37.9.146）**：本文档的三张机器表（"支持的 Provider" + "验证档位" + "能力矩阵"）由 `gen_compat_matrix.py --check` 在 full_regression doc-drift 层守卫，漂移时 CI 失败；`--fix` 一键重写。人工段落（Fallback 路径 / 添加新 Provider / 工具模式验证）不参与机器比对。
 
 ---
@@ -61,21 +61,22 @@
 | Doubao Seed 2.1 Pro (Volcengine Ark) | Yes | Yes | — | — | Yes | Yes | Yes | Yes | 262K |
 | GLM-5.2 Coding (ai-tokenhub) | Yes | — | — | — | Yes | Yes | — | Yes | 131K |
 
-> Reasoning 维度 V37.9.53 新增（doubao seed reasoning model 实证驱动）。cap_score: doubao 16 > Qwen3 14（framework 视角 doubao 是 registry 最强 provider，V37.9.55）。
+> Reasoning 维度 V37.9.53 新增（doubao seed reasoning model 实证驱动）。cap_score: doubao_21 16 登顶 registry（V37.9.290 后 doubao 2.0 迁 ai-tokenhub 复测为 10；Qwen3 14；framework 视角 doubao_21 是 registry 最强 provider）。
 
-## Fallback 降级路径（V37.9.129 现状）
+## Fallback 降级路径（V37.9.222 现状）
 
 ```
-Qwen3-235B (Primary, 300s timeout)
+Doubao Seed 2.1 Pro (Primary = PROVIDER env, 300s timeout)
     ↓ 失败 / 超时 / 电路断路 (连续 5 次失败 open, 300s 后 half-open)
-Doubao Seed 2.0 Pro (Fallback, 300s timeout — V37.9.129: 60s→300s 给大请求足够时间)
-    ↓ 也失败
+DeepSeek-V4-Pro 满血 → Doubao 2.0 → DeepSeek 量化 → Qwen3-235B
+    (FALLBACK_ORDER env 显式有序链, V37.9.218; 逐级降, image 请求自动跳过纯文本 provider)
+    ↓ 全链失败
 502 Error (完整 upstream 错误链一起返回, V37.8.10 compose_backend_error_str)
 ```
 
 - **Gemini 不在链中**：V37.9.129 实证香港 geo-block 后经 `fallback.exclude_providers` 永久排除（key 保留, 地理不可达）。`available`（有 key）≠ `working`（地理可达）。
 - 电路断路器参数中心化于 `config.yaml`：`circuit_breaker_threshold: 5` / `circuit_breaker_reset_seconds: 300`。
-- fallback 链由 `ProviderRegistry.build_fallback_chain(require_available=True)` 按 cap_score 自动推导（V37 capability routing），非硬编码。
+- fallback 链权威 = `FALLBACK_ORDER` env（显式有序，V37.9.218；primary 自动排除 + 无 key/geo-block 跳过）；`build_fallback_chain()` cap_score 自动推导仅作 env 未设时的兜底。
 
 ## 添加新 Provider
 
@@ -109,14 +110,14 @@ bash restart.sh
 
 ## 工具模式验证
 
-| 模式 | Qwen | Doubao | Gemini | OpenAI | Claude | Kimi | MiniMax | GLM |
-|------|------|--------|--------|--------|--------|------|---------|-----|
-| 单工具调用 | :white_check_mark: | :white_check_mark: (V37.9.55) | — | — | — | — | — | — |
+| 模式 | Qwen | doubao_21 | Doubao 2.0 | DeepSeek 满血 | DeepSeek 量化 | GLM-5.2 coding | Gemini | 其余 built-in |
+|------|------|-----------|-----------|--------------|--------------|----------------|--------|--------------|
+| 单工具调用 | :white_check_mark: | :white_check_mark: (V37.9.217) | :white_check_mark: (V37.9.55, Ark 时代) | :white_check_mark: (V37.9.205) | :white_check_mark: (V37.9.202) | :white_check_mark: (V37.9.258) | ~~退役~~ | — |
 | 多工具并行 | :white_check_mark: | — | — | — | — | — | — | — |
-| 自定义工具拦截 | :white_check_mark: | — | — | — | — | — | — | — |
-| Schema 简化 | :white_check_mark: | — | — | — | — | — | — | — |
-| 参数修复/别名映射 | :white_check_mark: | — | — | — | — | — | — | — |
+| 自定义工具拦截 | :white_check_mark: | :white_check_mark: (生产 primary) | — | — | — | — | — | — |
+| Schema 简化 | :white_check_mark: | :white_check_mark: (生产 primary) | — | — | — | — | — | — |
+| 参数修复/别名映射 | :white_check_mark: | :white_check_mark: (生产 primary) | — | — | — | — | — | — |
 
 ---
 
-*此文档由 `providers.py` 的能力声明驱动，`python3 providers.py --json` 可获取机器可读版本。三张机器表（支持的 Provider / 验证档位 / 能力矩阵）由 `gen_compat_matrix.py --check` 守卫；人工段落（Fallback 路径 / 工具模式验证）的事实锚点：config.yaml + V37.9.129/V37.9.55 changelog。*
+*此文档由 `providers.py` 的能力声明驱动，`python3 providers.py --json` 可获取机器可读版本。三张机器表（支持的 Provider / 验证档位 / 能力矩阵）由 `gen_compat_matrix.py --check` 守卫；人工段落（Fallback 路径 / 工具模式验证）的事实锚点：`FALLBACK_ORDER`/`PROVIDER` env（V37.9.218/222）+ 各 provider E2E changelog（V37.9.202/205/217/258）。*

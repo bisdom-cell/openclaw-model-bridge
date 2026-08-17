@@ -13,8 +13,8 @@
 [![Fail-Fast](https://img.shields.io/badge/LLM%20cron%20fail--fast-17%2F21%20aligned-brightgreen.svg)]()
 [![Notifications](https://img.shields.io/badge/notifications-WhatsApp%20%2B%20Discord-informational.svg)]()
 
-> **Current version:** `v37.9.312` / `0.37.9.143` (2026-08-17) — see [`CLAUDE.md`](CLAUDE.md) for full changelog.
-> **Latest milestone:** 📄 **ArXiv paper published** — [**arXiv:2606.14589**](https://arxiv.org/abs/2606.14589) (2026-06-15, cs.SE): the *fail-plausible* concept + a 5-class taxonomy of silent failures from 22 production incident postmortems (also submitted to IEEE Software + ISSRE). **Constitutional priority now: LLM-Observer (机械化人眼)** — an automated user-perspective observer that catches *fail-plausible* silent failures **before the user does** (the paper's headline open problem: ~70% of silent failures were caught by looking at the product, while tests/governance caught ≈0%). Stages 0-6 built: design doc → 22-incident labelled ground-truth → 2-layer detector (deterministic S1-S5 pre-filter + LLM-judge) → sabotage self-validation harness → community-runnable [fail-plausible bench](docs/fail_plausible_bench.md). Guiding principle: **日落法 (Sunset Law) — reduce complexity before adding features** (原则 #34 + MR-22/MR-23).
+> **Current version:** `v37.9.313` / `0.37.9.143` (2026-08-17) — see [`CLAUDE.md`](CLAUDE.md) for full changelog.
+> **Latest milestone:** 📄 **ArXiv paper published** — [**arXiv:2606.14589**](https://arxiv.org/abs/2606.14589) (2026-06-15, cs.SE): the *fail-plausible* concept + a 5-class taxonomy of silent failures from 22 production incident postmortems (IEEE Software in review; ISSRE rejected 2026-08-14, conference track closed — journal-first strategy V37.9.307). **Constitutional priority now: LLM-Observer (机械化人眼)** — an automated user-perspective observer that catches *fail-plausible* silent failures **before the user does** (the paper's headline open problem: ~70% of silent failures were caught by looking at the product, while tests/governance caught ≈0%). Stages 0-6 built: design doc → 22-incident labelled ground-truth → 2-layer detector (deterministic S1-S5 pre-filter + LLM-judge) → sabotage self-validation harness → community-runnable [fail-plausible bench](docs/fail_plausible_bench.md). Guiding principle: **日落法 (Sunset Law) — reduce complexity before adding features** (原则 #34 + MR-22/MR-23).
 
 ## Product Layers: What's Core vs. What's the Author's PA Instance
 
@@ -33,12 +33,12 @@ Layer 3 is not product clutter — it is the **production evidence** for layers 
 - **Governance engine as a consumer**: [`examples/minimal_consumer/`](examples/minimal_consumer/) — WeatherBot demo with its own YAML, zero coupling to this repo's PA
 - **Out-of-repo dogfood**: [`examples/external_dogfood/`](examples/external_dogfood/) — builds the wheel, installs it into an isolated venv (no monorepo on path), and runs a fresh LibraryBot project against `import ontology_engine` — proving the published engine is consumable by a third party
 
-## V37.9.x Series Highlights (2026-05 → 07)
+## V37.9.x Series Highlights (2026-05 → 08)
 
 | Theme | Versions | What it means |
 |-------|----------|---------------|
-| **ArXiv paper published + submitted to IEEE Software / ISSRE** ⭐ | V37.9.139 → **V37.9.191** | *When Errors Become Narratives: A Longitudinal Taxonomy of Silent Failures in a Production LLM Agent Runtime* — [arXiv:2606.14589](https://arxiv.org/abs/2606.14589) (2026-06-15, cs.SE). The **fail-plausible** concept (LLM narrates internal errors into fluent, credible false output — the silent failure tests can't see) + 5-class taxonomy from 22 incident postmortems + Defense Framework. Also submitted to IEEE Software (SW-2026-06-0312) + ISSRE Industry Track (Submission 395). Stage 2→3 话语权: from system builder to cite-able methodology author. |
-| **LLM-Observer (机械化人眼) — constitutional research #1** ⭐ | V37.9.192 → **V37.9.200** | Attacking the paper's headline open problem: ~70% of silent failures found by *looking at the product*, tests/governance ≈0%. Building an automated **user-perspective observer** to catch *fail-plausible* failures before the user. Stages 0-6: design doc → 22-incident labelled ground-truth (`docs/llm_observer_ground_truth.yaml`) → 2-layer detector `llm_observer.py` (deterministic S1-S5 pre-filter reusing source_credibility/hallucination_guards + LLM-judge with anti-hallucination grounding) → sabotage self-validation (`llm_observer_selfcheck.py`, defense 100% / FP 0% / honest held-out FN) → community-runnable [`docs/fail_plausible_bench.md`](docs/fail_plausible_bench.md). Wired into daily_observer in **shadow mode** (V37.9.198). |
+| **ArXiv paper published + submitted to IEEE Software / ISSRE** ⭐ | V37.9.139 → **V37.9.191** | *When Errors Become Narratives: A Longitudinal Taxonomy of Silent Failures in a Production LLM Agent Runtime* — [arXiv:2606.14589](https://arxiv.org/abs/2606.14589) (2026-06-15, cs.SE). The **fail-plausible** concept (LLM narrates internal errors into fluent, credible false output — the silent failure tests can't see) + 5-class taxonomy from 22 incident postmortems + Defense Framework. IEEE Software in review (SW-2026-06-0312); ISSRE rejected (2026-08-14, concept endorsed by R3) → conference track closed, journal-first (V37.9.307). Stage 2→3 话语权: from system builder to cite-able methodology author. |
+| **LLM-Observer (机械化人眼) — constitutional research #1** ⭐ | V37.9.192 → **V37.9.200** | Attacking the paper's headline open problem: ~70% of silent failures found by *looking at the product*, tests/governance ≈0%. Building an automated **user-perspective observer** to catch *fail-plausible* failures before the user. Stages 0-6: design doc → 22-incident labelled ground-truth (`docs/llm_observer_ground_truth.yaml`) → 2-layer detector `llm_observer.py` (deterministic S1-S5 pre-filter reusing source_credibility/hallucination_guards + LLM-judge with anti-hallucination grounding) → sabotage self-validation (`llm_observer_selfcheck.py`, defense 100% / FP 0% / honest held-out FN) → community-runnable [`docs/fail_plausible_bench.md`](docs/fail_plausible_bench.md). Wired into daily_observer (V37.9.198); **flipped to `on` in production 2026-07-25** (V37.9.276, pre-registered §9.1 rules); paper #2 draft complete (V37.9.297). |
 | **11 providers — DeepSeek-V4-Pro + Doubao Seed 2.1 Pro** | V37.9.201 → **V37.9.216** | Provider plugin framework's 3rd/4th real consumers: DeepSeek-V4-Pro w4a8 quantized (`deepseek_provider.py`) + full 满血版 (`deepseek_full_provider.py`, ai-tokenhub) + **Doubao Seed 2.1 Pro flagship** (`doubao_seed_21_provider.py`, V37.9.216). Secrets via env (bare-IP / ARK keys never committed, public-repo safety). Progressive verification: declared → per-feature E2E → feature_verified (DeepSeek full has R1 reasoning channel → Qwen3 migration candidate; Doubao 2.1 starts declared, Mac Mini E2E pending). Capability router re-routes reasoning tasks accordingly. |
 | **Data-driven root-fix arc (zero blind-patching)** | V37.9.130 → **V37.9.214** | kb_harvest hierarchical Reduce (fixes大对话日 timeout, zero data loss) · deep_dive OA full-text resolution (DOI/S2/HF → arxiv/OA PDF, roots 77% abstract-level gap) · daily_observer self-critique F1 degrade-reason aggregation + F2 dream head-sampling false-positive fix · governance audit intermittent-fail root cause (INV-REVIEW-001 load timeout + B1 alert-blindness + B2 bash-3.2 errtrace landmine, 日落法 root-fix ending 3× whack-a-mole). Every fix: understand-before-fix (原则 #28), grounded reproduction, honest gating. |
 | **MOVESPEED EPERM 60-day blood case CLOSED** ⭐ | V37.9.4 → **V37.9.81** | After 60 days + 6 falsified hypotheses, V37.9.80 (5/18) identified the true root cause via `log show --predicate` — **macOS TCC Sandbox denies cron-derived processes accessing external volumes**. Fix = add `/usr/sbin/cron` to FDA. V37.9.81 (5/19) 24h data regression铁证 (12h window = 0 incidents / FDA 后 ~19h = 0 / kernel sandbox deny 0条) + INV-MOVESPEED-TCC-001 hard governance guard (auto-detect 24h ≤ 2 every day) + capture.sh stderr distinction fix (V37.9.30 取证盲区根因修复, 4-layer defense). |
@@ -74,8 +74,8 @@ Layer 3 is not product clutter — it is the **production evidence** for layers 
                   media files → Gemini Embedding 2 → semantic search (mm_search.py)
 ③ Scheduled jobs  40 active / 46 registered — 5-source paper radar (ArXiv/HF/S2/DBLP/ACL) · HN ·
                   KB digest / dream / deep-dive · freight · health & SLO watchdogs
-                  → WhatsApp + Discord (dual-channel, 6 topic channels)
-④ Control plane   config.yaml (70+ thresholds, 9 sections) · SLO (5 metrics) · preflight (19 checks)
+                  → notify.sh (default Discord, 6 topic channels; dual-channel when WhatsApp restored)
+④ Control plane   config.yaml (70+ thresholds, 9 sections) · SLO (5 metrics) · preflight full-body checks
                   · auto_deploy (Git→runtime, drift detection) · incident snapshots · GitHub Actions CI
 ⑤ Ontology plane  engine ↔ tool/domain/policy/governance YAML · governance v3.56
                   (91 invariants / 839 checks / 23 meta-rules / 14 MRD scanners) · Phase 4
@@ -87,27 +87,33 @@ Layer 3 is not product clutter — it is the **production evidence** for layers 
 
 | Component | Port | Files | Role |
 |-----------|------|-------|------|
-| OpenClaw Gateway | 18789 | npm global | WhatsApp integration, media storage, tool execution, session management |
+| OpenClaw Gateway | 18789 | npm global | WhatsApp + Discord channel integration, media storage, tool execution, session management |
 | Tool Proxy | 5002 | `tool_proxy.py` + `proxy_filters.py` | Tool filtering (24→12), **custom tools** (data_clean + search_kb hybrid search), **image base64 injection**, SSE conversion, truncation, token monitoring, **SLO metrics collection**, **incident snapshots** |
 | Adapter | 5001 | `adapter.py` + `providers.py` | **12-provider** forwarding, auth, **capability-aware multimodal routing**, fallback degradation |
 | Config Center | — | `config.yaml` + `config_loader.py` | Centralized thresholds (70+ params, 9 sections: SLO/proxy/tokens/alerts/routing/truncation/watchdog/incidents/jobs) |
 | SLO Benchmark | — | `slo_benchmark.py` | SLO compliance — 5 metrics, real production data reports (p95=459ms, 5/5 PASS) |
-| Notifications | — | `notify.sh` | **Dual-channel push**: WhatsApp + Discord (6 topic channels: papers/freight/alerts/daily/tech/DM) |
+| Notifications | — | `notify.sh` | Unified push w/ retry + failure queue — **default Discord** (6 topic channels); WhatsApp rejoins as dual-channel when its 408 rate-limit era ends (V37.9.179) |
 | Local Embedding | — | `local_embed.py` | sentence-transformers (384-dim, 50+ languages), zero API calls |
-| Remote LLM | — | 12 providers | Qwen3-235B / GPT-4o / Gemini 2.5 / Claude Sonnet / Kimi K2.5 / MiniMax M2.7 / GLM-5 / **Doubao Seed 2.0 Pro** + **2.1 Pro** (Volcengine Ark) / **DeepSeek-V4-Pro** (w4a8 + 满血版 ai-tokenhub, V37.9.201/204/216) / **GLM-5.2 coding** (Volcengine Ark, on-demand, V37.9.254/255) |
+| Remote LLM | — | 12 providers | Qwen3-235B / GPT-4o / Gemini 2.5 / Claude Sonnet / Kimi K2.5 / MiniMax M2.7 / GLM-5 / **Doubao Seed 2.1 Pro** (Volcengine Ark, primary) + **2.0 Pro** (ai-tokenhub) / **DeepSeek-V4-Pro** (w4a8 + 满血版 ai-tokenhub, V37.9.201/204/216) / **GLM-5.2 coding** (ai-tokenhub, on-demand, V37.9.254→290 平台迁移) |
 
 ## Supported Providers (12)
 
-| Provider | Default Model | Context | Vision | Auth | Verified |
-|----------|--------------|---------|--------|------|----------|
-| **Qwen** (Remote GPU) | Qwen3-235B | 262K | Qwen2.5-VL-72B | Bearer | 5/5 (production) |
-| **OpenAI** | GPT-4o | 128K | built-in | Bearer | available |
-| **Google Gemini** | Gemini 2.5 Flash | 1M | built-in | Bearer | 2/5 (fallback) |
-| **Anthropic Claude** | Claude Sonnet 4.6 | 200K | built-in | x-api-key | available |
-| **Kimi** (Moonshot AI) | Kimi K2.5 (1T MoE) | 256K | built-in | Bearer | available |
-| **MiniMax** | MiniMax M2.7 | 200K | built-in | Bearer | available |
-| **GLM** (Zhipu AI) | GLM-5 (744B MoE) | 200K | GLM-5V-Turbo | Bearer | available |
-| **Doubao** (Volcengine Ark, plugin) | Doubao Seed 2.0 Pro | 262K | built-in | Bearer | 5/6 (production) |
+| Provider | Default Model | Role today | Tier |
+|----------|--------------|-----------|------|
+| **Doubao Seed 2.1 Pro** (Volcengine Ark, plugin) | doubao-seed-2-1-pro-260628 | **Primary** (PROVIDER env, V37.9.222 flip) | production_observed |
+| **DeepSeek-V4-Pro 满血** (ai-tokenhub, plugin) | deepseek-v4-pro-huakun | Fallback #1 (R1 reasoning) | feature_verified |
+| **Doubao Seed 2.0 Pro** (ai-tokenhub, plugin, V37.9.290 迁移) | doubao-seed-2.0-pro-huakun | Fallback #2 | feature_verified |
+| **DeepSeek-V4-Pro 量化** (self-host, plugin) | DeepSeek-V4-Pro-w4a8-mtp | Fallback #3 | feature_verified |
+| **Qwen** (Remote GPU) | Qwen3-235B + Qwen2.5-VL-72B | Fallback #4 兜底（前主力 V27→V37.9.222；唯一非-Ark vision fallback） | production_observed |
+| **GLM-5.2 coding** (ai-tokenhub, plugin, V37.9.290 迁移) | glm-5.2-huakun | On-demand coding (`?provider=glm5_coding` / chat 前缀 `glm `) | feature_verified |
+| **OpenAI** | GPT-4o | available | declared |
+| **Google Gemini** | Gemini 2.5 Flash | ~~retired from fallback~~ (HK geo-block, V37.9.129; embedding API 仍用于 mm_index) | smoke_tested |
+| **Anthropic Claude** | Claude Sonnet 4.6 | available | declared |
+| **Kimi** (Moonshot AI) | Kimi K2.5 (1T MoE) | available | declared |
+| **MiniMax** | MiniMax M2.7 | available | declared |
+| **GLM** (Zhipu AI) | GLM-5 (744B MoE) | available | declared |
+
+> 机器权威源 = `python3 providers.py` 直出三张表（[docs/compatibility_matrix.md](docs/compatibility_matrix.md)，`gen_compat_matrix.py --check` 防漂移）。
 
 All providers use **OpenAI-compatible API** format. Adding a new provider: see [docs/compatibility_matrix.md](docs/compatibility_matrix.md).
 
@@ -251,7 +257,7 @@ This is a deliberate architecture decision: **every dependency you remove is one
 | `incident_snapshot.py` | **V32** Fault snapshot — auto-collects proxy/adapter/gateway logs + stats + service status → `~/.kb/incidents/` |
 | `conv_quality.py` | Daily conversation quality report — response time, success rate, tool distribution, token usage |
 | `token_report.py` | Daily token usage report — consumption, hourly distribution, context pressure, multi-day trends |
-| `job_watchdog.sh` | Meta-monitor — checks all job status + log scanning → WhatsApp alerts on timeout/failure |
+| `job_watchdog.sh` | Meta-monitor — checks all job status + log scanning → notify alerts (default Discord) on timeout/failure |
 | `wa_keepalive.sh` | WhatsApp session keepalive — Gateway HTTP probe every 30 min |
 
 ### Operations
@@ -280,7 +286,9 @@ All jobs registered in `jobs_registry.yaml`. Validate: `python3 check_registry.p
 | `jobs/acl_anthology/run_acl_anthology.sh` | Daily 09:30 | **V30.5** ACL Anthology NLP top-venue papers + KB + dual-channel |
 | `jobs/finance_news/run_finance_news.sh` | Daily 07:30 | **V37.8.2** Global finance/policy news — 15 RSS + 14 X accounts + LLM analysis + zombie detection |
 | `jobs/chaspark/run_chaspark.sh` | Daily 09:00 | **V37.8.14** 茶思屋科技(Chaspark) — HTML API deep analysis + KB + dual-channel |
-| `jobs/ai_leaders_x/run_ai_leaders_x.sh` | Daily 21:00 | **V34** AI Leaders X — 15 AI researchers/founders technical insights |
+| `jobs/ai_leaders_x/run_ai_leaders_x.sh` | Daily 09:00 | **V34→V37.9.103** AI Leaders X — degraded (X Syndication 429 + frozen snapshots, ~0 output); superseded by blogs + bsky below |
+| `jobs/ai_leaders_blogs/run_ai_leaders_blogs.sh` | Daily 13:30 | **V37.9.108** AI leaders long-form via blog/Substack RSS (11 curated contrarian-leaning feeds) |
+| `jobs/ai_leaders_bsky/run_ai_leaders_bsky.sh` | Daily 17:00 | **V37.9.111** AI leaders real-time posts via Bluesky getAuthorFeed (9 handles) |
 | `jobs/ontology_sources/run_ontology_sources.sh` | 10:00/20:00 | **V37.1** Ontology academic RSS (W3C/JWS/DKE/KBS) + LLM summary |
 | `run_hn_fixed.sh` | Every 3h:45 | HackerNews hot posts scraper |
 | `jobs/freight_watcher/run_freight.sh` | 08/14/20:00 | Freight intelligence — scraping + LLM analysis |
@@ -362,7 +370,7 @@ All jobs registered in `jobs_registry.yaml`. Validate: `python3 check_registry.p
 | `ontology/diff.py` | **V36.2** Consistency checker — engine vs proxy_filters (81/81 = 100%) |
 | `ontology/CONSTITUTION.md` | **V36.2** Ontology Constitution — 6 articles + Supreme Article (project isolation) |
 | `ontology/tests/` | Engine + governance tests — `test_engine_phase4.py` (V37.9.13), `test_governance_*`, `test_dream_cache_stability`, `test_audit_perf_dimensions` |
-| `ontology/docs/cases/` | **V37.3→V37.9.121** 25 blood lesson case studies (MR-4 silent failure × ~28 appearances, including HEARTBEAT.md self-silencing → MR-15, Dream Map budget chain, kb_evening fallback quota chain, MOVESPEED 60-day silent backup, V37.9.68 Qwen-BIM 涌现行为防御, V37.9.92 observer path silent failure) |
+| `ontology/docs/cases/` | **V37.3 起累积** 28 blood lesson case studies (MR-4 silent failure × ~28 appearances, including HEARTBEAT.md self-silencing → MR-15, Dream Map budget chain, kb_evening fallback quota chain, MOVESPEED 60-day silent backup, V37.9.68 Qwen-BIM 涌现行为防御, V37.9.92 observer path silent failure) |
 | `ontology/docs/architecture/` | Industrial AI paradigm, target architecture (Phase 3-5 roadmap) |
 
 ### Documentation
@@ -373,7 +381,7 @@ All jobs registered in `jobs_registry.yaml`. Validate: `python3 check_registry.p
 | `docs/slo_benchmark_report.md` | **V35** SLO Benchmark production report — 5/5 PASS, p95=459ms |
 | `docs/golden_trace.json` | **V35** Golden Test Trace — real request/response through full stack (521ms, reproducible) |
 | `docs/strategic_review_20260403.md` | **V34** Strategic review — Stage2 positioning, V1-V3 roadmap, methodology |
-| `docs/GUIDE.md` | Complete bilingual (CN/EN) integration guide with 26 lessons learned |
+| `docs/GUIDE.md` | Complete bilingual (CN/EN) integration guide with 27 lessons learned |
 | `docs/config.md` | Full system configuration + historical changelog |
 | `docs/openclaw_architecture.md` | OpenClaw upstream architecture reference (Gateway upgraded to v2026.4.27, V37.9.138) |
 | `docs/INDEX.md` | **V37.8.13** Documentation navigation tree — what to read when |
@@ -416,8 +424,8 @@ All jobs registered in `jobs_registry.yaml`. Validate: `python3 check_registry.p
 | Phase 3 — `ONTOLOGY_MODE=on` | ✅ V37.8.14 | Declarative engine replaces hardcoded logic |
 | Phase 4 P1 — 3 engine APIs + 1st policy switch | ✅ V37.9.12 | `load_domain_ontology` / `find_by_domain` / `evaluate_policy` |
 | **Phase 4 P2** — Context evaluator + 2nd policy switch | **✅ V37.9.13** | **6 matchers (hour_of_day / has_alert / has_image / task_match) + `max-tool-calls-per-task` wired** |
-| Phase 4 P3 — 3-gate enforcement | ⏳ Next | `pre-check → runtime-gate → post-verify` across the proxy request pipeline |
-| Phase 5 — Engine packaging | 🎯 Goal | `pip install ontology-engine` — any Agent Runtime inherits governance |
+| Phase 4 P3 — 3-gate shadow wiring | ✅ live since V37.9.15 | `pre-check → runtime-gate → post-verify` across the proxy request pipeline (shadow mode; enforcement 待需求驱动) |
+| Phase 5 — Engine packaging | ✅ shipped (V37.9.137) | **pip install openclaw-ontology-engine** — PyPI 已发布 + 仓库外 wheel dogfood CI (V37.9.148) |
 
 ### SLO Benchmark Results (real production data)
 
@@ -438,7 +446,7 @@ python3 slo_benchmark.py --save   # Regenerate from live data → docs/slo_bench
 ```
 Primary (e.g. Doubao Seed 2.1 Pro, 5min timeout)
     ↓ failure / timeout / circuit break (5 consecutive failures)
-Fallback (e.g. DeepSeek-V4-Pro, 1min timeout)
+Fallback (e.g. DeepSeek-V4-Pro, 300s timeout)
     ↓ also failed
 502 Error (both error messages returned)
     ↓ 300s later: half-open, attempt recovery
@@ -446,13 +454,13 @@ Fallback (e.g. DeepSeek-V4-Pro, 1min timeout)
 
 ### Notification Channels
 
-All job outputs push to **both WhatsApp and Discord** simultaneously via `notify.sh`:
+All job outputs push through `notify.sh` (retry ×3 + failure queue). **Current default = Discord only** (V37.9.179: WhatsApp disabled during its 408 rate-limit era; set `NOTIFY_CHANNELS="whatsapp,discord"` to restore dual-channel):
 
 ```bash
 source notify.sh
-notify "New papers found"              # WhatsApp + Discord DM
-notify "ArXiv digest" --topic papers   # WhatsApp + Discord #papers channel
-notify "Deploy alert" --topic alerts   # WhatsApp + Discord #alerts channel
+notify "New papers found"              # default Discord (dual-channel when WhatsApp restored)
+notify "ArXiv digest" --topic papers   # → Discord #papers channel
+notify "Deploy alert" --topic alerts   # → Discord #alerts channel
 ```
 
 | Discord Channel | Content |
@@ -513,7 +521,7 @@ Claude Code → claude/branch → PR → main → auto_deploy (2 min) → Mac Mi
                                preflight_check.sh --full (19 checks)
 ```
 
-The `auto_deploy.sh` script maps 84 repo files to runtime locations (V37.9.43-hotfix added wa_e2e_test.sh) and only restarts services when core files change. Hourly drift detection via md5 checksums with WhatsApp + Discord alerts. Status.json exempt from drift (legitimate divergence between Claude Code snapshots and cron-refreshed runtime).
+The `auto_deploy.sh` script maps ~116 repo files to runtime locations (FILE_MAP) and only restarts services when core files change. Hourly drift detection via md5 checksums with notify alerts (default Discord). Status.json exempt from drift (legitimate divergence between Claude Code snapshots and cron-refreshed runtime).
 
 ## Testing
 
@@ -602,7 +610,7 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 
 ## Full Guide
 
-See [docs/GUIDE.md](docs/GUIDE.md) for the complete bilingual walkthrough including 26 hard-won production lessons.
+See [docs/GUIDE.md](docs/GUIDE.md) for the complete bilingual walkthrough including 27 hard-won production lessons.
 
 ## License
 
