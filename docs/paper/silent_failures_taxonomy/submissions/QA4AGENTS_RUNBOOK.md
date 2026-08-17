@@ -101,13 +101,13 @@ Three measurements over this corpus: a human reading the product discovered 13 o
 We release the labelled corpus and a runnable benchmark for fail-plausible detectors. A deterministic reference detector flags 6 of 6 regression cases with 0 false positives on 4 clean cases, and misses 4 of 4 held-out cases. That last number is the point: pattern-based detection is a regression engine, not a prediction engine. The benchmark exists so other teams can measure that gap on their own systems.
 ```
 
-**Abstract — 短版（149 词，若表单限 150 词用这个）**
+**Abstract — 短版（142 词，若表单限 150 词用这个；留 8 词余量，因不同系统分词规则略有差异）**
 ```
 Conversational agent runtimes fail in a way classical monitoring misses. When an internal error reaches a language model's context, the model does not stop; it writes a fluent, plausible, wrong message to the user. We call this a fail-plausible failure.
 
-We report an eight-week study of one production personal-assistant runtime with about 40 scheduled jobs and 8 LLM providers. We documented 22 silent-failure incidents and labelled each with a failure mechanism, a silence span, and a discovery channel. A human reading the product discovered 13 of 22 incidents; automated checks discovered 3. Silence spans ranged from 36 minutes to 60 days. The corpus yields a five-class mechanism taxonomy. One class, chained hallucination, has no counterpart in the gray-failure literature.
+We report an eight-week study of one production personal-assistant runtime with about 40 scheduled jobs and 8 LLM providers. We documented 22 silent-failure incidents and labelled each with a mechanism, a silence span, and a discovery channel. A human reading the product discovered 13 of 22; automated checks discovered 3. Silence spans ranged from 36 minutes to 60 days. The corpus yields a five-class taxonomy whose chained-hallucination class has no counterpart in the gray-failure literature.
 
-We release the labelled corpus and a runnable benchmark for fail-plausible detectors. A deterministic reference detector flags 6 of 6 regression cases, 0 of 4 clean controls, and misses 4 of 4 held-out cases.
+We release the corpus and a runnable benchmark. A deterministic reference detector flags 6 of 6 regression cases, 0 of 4 clean controls, and misses 4 of 4 held-out cases.
 ```
 
 4. **上传 PDF**：`docs/paper/silent_failures_taxonomy/latex/qa4agents_workshop.pdf`
