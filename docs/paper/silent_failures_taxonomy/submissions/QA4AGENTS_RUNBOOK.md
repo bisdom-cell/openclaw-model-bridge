@@ -1,5 +1,24 @@
 # QA4AGENTS 2026 投稿 Runbook（作者操作手册）
 
+> # 🔴 本次投稿已取消 —— 2026-08-14 作者决定，请勿执行本文档
+>
+> **取消原因**：§0 的先决条件不成立。IEEE 会议/workshop 论文进入 proceedings 与 Xplore 需要
+> **付费注册 + 本人到场报告**，这不适合作者当前情况。同理，ISSRE **industry talk（8/23）也一并放弃**
+> ——它同样要求到场。
+>
+> **结论性教训（写给未来的 session）**：为本项目选择发表 venue 时，**"是否需要付费注册 + 本人到场"
+> 是第一筛选条件，必须在推荐 venue 之前确认，而不是在准备投稿时才提出。**
+> 由此得出的策略：**期刊优先，会议不投**——期刊（IEEE Software / EMSE / JSS / TSE 等）发表
+> 不需要注册费、不需要差旅；会议则两者皆需。
+>
+> **论文本身没有浪费**：本轮重写产出的稿件在实质上优于已发表的 arXiv v1（22 例逐条语料表、
+> 显式 RQ、13/22 计数更正、benchmark 章、文风重写）。它的去向见
+> `qa4agents_workshop_paper.md` 顶部说明与 status.json。
+>
+> 以下内容作为**流程参考**保留（EasyChair 操作、IEEE 录用后链路、摘要块等对未来期刊/会议仍有用），
+> 但 §1–§3 的动作**不要执行**。
+
+
 > 论文：*Silent Failures in a Production LLM Agent Runtime: A Labelled Incident Corpus and a Detection Benchmark*
 > 正文源：`qa4agents_workshop_paper.md` ｜ 排版源：`../latex/qa4agents_workshop.tex`
 > 已编译：**7 页 / 0 error / 0 overfull hbox / 0 undefined ref**（US Letter, IEEEtran conference）

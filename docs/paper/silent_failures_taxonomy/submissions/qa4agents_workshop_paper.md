@@ -1,6 +1,19 @@
 # Silent Failures in a Production LLM Agent Runtime: A Labelled Incident Corpus and a Detection Benchmark
 
-> **Target venue:** QA4AGENTS 2026 — International Workshop on Quality Assurance of Conversational
+> # 🔴 QA4AGENTS 投稿已取消（2026-08-14）— 本稿改作他用，勿按 workshop 流程投递
+>
+> **取消原因**：IEEE 会议/workshop 录用后需付费注册 + 本人到场才进 proceedings/Xplore，不适合作者情况。
+> **由此确立的 venue 策略：期刊优先，会议不投**（期刊无注册费、无差旅要求）。ISSRE industry talk 同因放弃。
+>
+> **本稿的价值不受影响**，且实质优于已发表的 arXiv v1：22 例逐条语料表、显式 RQ1-3、A/B 操作性判别器、
+> 13/22 计数更正、benchmark 章、文风重写（平均句长 35.9→15.2 词）。
+> **计划去向**：① arXiv:2606.14589 的 v2 更新（无外部门槛，随时可做）② 若 IEEE Software
+> SW-2026-06-0312 要求修订，本轮改进可直接喂入 ③ 若该刊被拒，作为期刊改投的底稿。
+> 下方"Target venue"等 workshop 相关字段保留为历史记录。
+>
+> ---
+>
+> **Target venue (superseded):** QA4AGENTS 2026 — International Workshop on Quality Assurance of Conversational
 > Agentic Systems, co-located with ISSRE 2026 (Limassol, Cyprus). Submission deadline 2026-08-19.
 > Accepted workshop papers appear in the ISSRE Supplemental Proceedings and are submitted to IEEE Xplore.
 > **Format:** IEEE Computer Society two-column. **Confirm the page limit on the workshop site before
