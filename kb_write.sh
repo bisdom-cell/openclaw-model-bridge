@@ -16,7 +16,7 @@ else
     TAGS=$(python3 "$SCRIPT_DIR/kb_autotag.py" "$CONTENT" 2>/dev/null || echo "技术/AI")
 fi
 DATE=$(date +%Y%m%d)
-TS=$(date +%Y%m%d%H%M%S)
+TS=$(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date +%Y%m%d%H%M%S)  # V37.9.314 (f): 补 D3 漏网 — TS 进笔记文件名, 日历天语义
 
 FILEPATH="$KB_BASE/notes/${TS}.md"
 mkdir -p "$KB_BASE/notes" "$KB_BASE/topics"

@@ -241,8 +241,15 @@ def parse_alignment_from_content(content: str) -> dict[str, Any]:
             if m and m.group(1).strip():
                 field_buffer["alignment"].append(m.group(1).strip())
             continue
-        # ⭐ 评级 (current_field != alignment 才进入, 否则被 alignment 段吸收)
-        if stripped.startswith("⭐") and current_field != "alignment":
+        # ⭐ 评级字段头。V37.9.314 (审计余项 e, A-F7): 原条件 `current_field != alignment`
+        # 让 LLM 字段乱序 (🎚️ 在 ⭐ 之前) 时, "⭐ 评级: ⭐⭐⭐⭐⭐" 整行被吸进 alignment
+        # 文本 → _extract_stars 取全文最长 ⭐ 段 → 评级 5 星覆盖对齐 3 星, 低对齐条目
+        # 冒充高对齐进 Top 5。区分器: 带 "评级/评分" 标签的 ⭐ 行是字段头 (无论当前在
+        # 哪个字段), 裸 ⭐ 串行仍按原语义归当前字段 (alignment 的多行值格式)。
+        if stripped.startswith("⭐") and (
+            current_field != "alignment"
+            or re.match(r"⭐+\s*(评级|评分)\s*[:：]", stripped)
+        ):
             current_field = "rating"
             field_buffer["rating"].append(stripped)
             continue
@@ -259,7 +266,11 @@ def parse_alignment_from_content(content: str) -> dict[str, Any]:
     # 不 clamp, _fallback_extract_star_count 已 clamp, 这里统一兜底确保偶发 LLM
     # 输出 6+ ⭐ 不破坏下游 display layer 假设).
     if alignment_text:
-        result["alignment_stars"] = min(max(_extract_stars(alignment_text), 0), 5)
+        # V37.9.314 (e) 第二层防御: 星数只从 alignment 的**首个含 ⭐ 的行**抽取 ——
+        # 即使未来某种格式让尾随 ⭐ 行漏进来, 也不会覆盖首行的对齐星数
+        # (全文最长段语义是评级污染对齐的放大器)。
+        _star_line = next((ln for ln in alignment_text.split("\n") if "⭐" in ln), alignment_text)
+        result["alignment_stars"] = min(max(_extract_stars(_star_line), 0), 5)
         # Reason = alignment text 去掉 ⭐ 段后剩下的描述, 取第一行非空
         reason_candidates = re.split(r"⭐+\s*[/／]?\s*", alignment_text, maxsplit=1)
         if len(reason_candidates) > 1:

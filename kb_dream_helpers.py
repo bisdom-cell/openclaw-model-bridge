@@ -35,6 +35,15 @@ import re
 import sys
 from datetime import datetime, timedelta
 
+# V37.9.314 (审计余项 f, A-F8 TZ 家族): extract_recent_themes 的 `today = datetime.now()`
+# 承载**日历天语义** (14 天 ban-list 窗口, V37.9.260 midnight-floor 的基准) — 系统 TZ
+# 漂移时日期边界错位。与 shell 侧 `TZ=${SYSTEM_TZ:-Asia/Hong_Kong}` (V37.9.250 D3)
+# 同语义: SYSTEM_TZ env 可覆盖, 默认 HKT。Mac Mini 系统 TZ=HKT 时为 no-op。
+import time as _time
+os.environ["TZ"] = os.environ.get("SYSTEM_TZ", "Asia/Hong_Kong")
+if hasattr(_time, "tzset"):
+    _time.tzset()
+
 
 # ─────────────────────────────────────────────────────────────────────
 # 主题归一化

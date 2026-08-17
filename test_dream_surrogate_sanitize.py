@@ -201,31 +201,39 @@ class TestAntiPollutionSystemPrompt(unittest.TestCase):
     def setUp(self):
         self.src = _load_source()
 
-    def test_reduce_system_forbids_http_error_as_signal(self):
-        """REDUCE_SYSTEM 必须明示禁止把 HTTP 错误码当外部信号"""
-        # REDUCE_SYSTEM 区块（从 REDUCE_SYSTEM=" 开始，匹配到下一个 "）
-        match = re.search(r'REDUCE_SYSTEM="(.+?)"', self.src, re.DOTALL)
-        self.assertIsNotNone(match)
-        block = match.group(1)
-        self.assertIn("反污染", block, "REDUCE_SYSTEM 必须含反污染守卫")
-        # 关键字：HTTP 状态码、Bad JSON、异常、错误页 HTML 必须被明示禁止
-        forbid_patterns = ["400", "Bad JSON", "U+FFFD", "UnicodeEncodeError"]
-        for pattern in forbid_patterns:
-            self.assertIn(pattern, block,
-                         f"REDUCE_SYSTEM 必须列出 {pattern} 为禁止引用的污染模式")
+    # V37.9.314 演进: 原两测试钉 REDUCE_SYSTEM —— 但 V37.9.68 三阶改造后 llm_call
+    # 不消费它 (死代码), 守卫被死代码满足 = vacuous since V37.9.68; 完整反污染条款
+    # (Bad JSON / 平台状态推断禁令 / Hugging Face 示例) 只活在死文本里, 真正发给 LLM
+    # 的 4 个 system prompt 只有精简版。V37.9.314 把完整条款补进全部活 prompt 并把
+    # 守卫改钉它们; REDUCE_SYSTEM 死代码退役不得回归。
+    _LIVE_SYSTEMS = ("DEEP_SYSTEM", "DEEP_RETRY_SYSTEM", "WIDE_RADAR_SYSTEM", "RADAR_RETRY_SYSTEM")
 
-    def test_reduce_system_forbids_fabricating_platform_status(self):
-        """REDUCE_SYSTEM 必须禁止基于错误字样推断平台状态"""
-        match = re.search(r'REDUCE_SYSTEM="(.+?)"', self.src, re.DOTALL)
-        block = match.group(1)
-        # 关键禁令：不得推断 Hugging Face / GitHub / 平台 状态
-        self.assertTrue(
-            "平台" in block and "状态" in block,
-            "必须明示禁止基于污染推断'平台状态'"
-        )
-        # 举例 Hugging Face / GitHub 以锚定语义
-        self.assertIn("Hugging Face", block,
-                     "必须至少举例 Hugging Face 作为禁止编造的对象")
+    def _system_block(self, name):
+        match = re.search(name + r'="(.+?)\$\{DREAM_HG_GUARD\}', self.src, re.DOTALL)
+        self.assertIsNotNone(match, f"{name} 未找到 (须以 DREAM_HG_GUARD 注入结尾)")
+        return match.group(1)
+
+    def test_live_systems_forbid_http_error_as_signal(self):
+        """全部活 system prompt 必须明示禁止把污染模式当外部信号 (V37.8.6 完整版)。"""
+        for name in self._LIVE_SYSTEMS:
+            block = self._system_block(name)
+            self.assertIn("反污染", block, f"{name} 必须含反污染守卫")
+            for pattern in ("400", "Bad JSON", "U+FFFD", "UnicodeEncodeError"):
+                self.assertIn(pattern, block,
+                              f"{name} 必须列出 {pattern} 为禁止引用的污染模式")
+
+    def test_live_systems_forbid_fabricating_platform_status(self):
+        """全部活 system prompt 必须禁止基于错误字样推断平台状态 (V37.8.6 血案核心禁令)。"""
+        for name in self._LIVE_SYSTEMS:
+            block = self._system_block(name)
+            self.assertTrue("平台" in block and "状态" in block,
+                            f"{name} 必须明示禁止推断'平台状态'")
+            self.assertIn("Hugging Face", block,
+                          f"{name} 必须举例 Hugging Face 锚定语义 (V37.8.6 编造危机血案)")
+
+    def test_reduce_system_dead_code_not_back(self):
+        """REDUCE_SYSTEM 死代码已退役 (V37.9.314), 不得回归。"""
+        self.assertNotIn('REDUCE_SYSTEM="', self.src)
 
     def test_chunk_systems_all_have_anti_pollution(self):
         """V37.9.68 架构迁移: CHUNK1/2/3_SYSTEM (V37.8.3) → DEEP_SYSTEM + WIDE_RADAR_SYSTEM (V37.9.68)

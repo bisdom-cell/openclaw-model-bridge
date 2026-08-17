@@ -3457,18 +3457,20 @@ invariants:
         check_type: file_contains
         file: kb_dream.sh
         pattern: "encoding='utf-8'"
-      - name: "kb_dream.sh REDUCE_SYSTEM 含 V37.8.6 反污染守卫"
+      # V37.9.314: 原三条钉 REDUCE_SYSTEM —— 它自 V37.9.68 起是死代码 (llm_call 不消费),
+      # 守卫被死文本满足 = vacuous。完整条款已补进 4 个活 system prompt, 检查改钉活文本。
+      - name: "kb_dream.sh 活 system prompt 含 V37.8.6 反污染 (完整版, V37.9.314)"
         check_type: file_contains
         file: kb_dream.sh
-        pattern: 'V37.8.6 反污染守卫'
-      - name: "kb_dream.sh REDUCE_SYSTEM 禁止引用 Bad JSON 作为外部信号"
+        pattern: 'V37.8.6 反污染 — 违反整份输出作废'
+      - name: "kb_dream.sh 活 prompt 禁止引用 Bad JSON 作为外部信号"
         check_type: file_contains
         file: kb_dream.sh
-        pattern: 'Bad JSON/Error code'
-      - name: "kb_dream.sh REDUCE_SYSTEM 点名 Hugging Face 作为禁止编造对象示例"
+        pattern: '400/502/Bad JSON'
+      - name: "kb_dream.sh 活 prompt 点名 Hugging Face 作为禁止编造对象示例"
         check_type: file_contains
         file: kb_dream.sh
-        pattern: 'Hugging Face.*GitHub.*npm'
+        pattern: 'Hugging Face/GitHub/npm'
       # V37.9.68 升级: CHUNK1/2/3 三段 chunked 设计已替换为 DEEP + WIDE+RADAR 两段
       # V37.8.6 反污染语义保留, 位置从 CHUNK1/2/3 搬到 DEEP_SYSTEM 和 WIDE_RADAR_SYSTEM
       - name: "kb_dream.sh DEEP_SYSTEM 含反污染条款 (V37.9.68 替代 CHUNK1)"
@@ -9385,14 +9387,15 @@ invariants:
         check_type: file_contains
         file: source_credibility.py
         pattern: 'observer proposal #2'
-      - name: "kb_dream.sh 5 注入点 + import source_credibility (python_assert)"
+      - name: "kb_dream.sh 4 注入点 + import source_credibility (python_assert)"
         check_type: python_assert
         code: |
           src = open("kb_dream.sh", encoding="utf-8").read()
           n = src.count("${DREAM_HG_GUARD}${DREAM_CREDIBILITY}")
-          assert n == 5, (
-              f"INV-SOURCE-CREDIBILITY-001: DREAM_CREDIBILITY 须注入 5 处 dream "
-              f"system prompt (REDUCE/DEEP/WIDE_RADAR), 实际 {n}"
+          # V37.9.314: 5→4 — REDUCE 注入点随 REDUCE_SYSTEM 死代码退役 (从未被发送)
+          assert n == 4, (
+              f"INV-SOURCE-CREDIBILITY-001: DREAM_CREDIBILITY 须注入 4 处活 dream "
+              f"system prompt (DEEP/DEEP_RETRY/WIDE_RADAR/RADAR_RETRY), 实际 {n}"
           )
           assert "import source_credibility as sc" in src, (
               "INV-SOURCE-CREDIBILITY-001: kb_dream.sh 须 import source_credibility"

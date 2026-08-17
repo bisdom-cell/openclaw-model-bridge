@@ -281,10 +281,12 @@ class TestDreamWiring(unittest.TestCase):
     def test_dream_credibility_var_defined(self):
         self.assertRegex(self.src, r"DREAM_CREDIBILITY=\$\(python3")
 
-    def test_five_injection_points(self):
-        # 与 DREAM_HG_GUARD 同款 5 注入点
+    def test_four_injection_points(self):
+        # 与 DREAM_HG_GUARD 同款注入点。V37.9.314: 5→4 — REDUCE 注入点随
+        # REDUCE_SYSTEM 死代码退役 (V37.9.68 起 llm_call 不消费它, 注入了也从未发送)。
         count = self.src.count("${DREAM_HG_GUARD}${DREAM_CREDIBILITY}\"")
-        self.assertEqual(count, 5, f"期望 5 个注入点, 实际 {count}")
+        self.assertEqual(count, 4, f"期望 4 个活注入点, 实际 {count}")
+        self.assertNotIn('REDUCE_SYSTEM="', self.src, "REDUCE_SYSTEM 死代码不得回归")
 
     def test_fail_open_warn(self):
         self.assertIn("source_credibility 模块加载失败", self.src)
