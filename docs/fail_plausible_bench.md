@@ -9,7 +9,13 @@
 
 ## Why this bench exists
 
-The paper's headline finding (also its biggest open problem): **~70% of silent failures in this runtime were found by a human looking at the product — tests, governance audits, and health checks caught ≈0%.** Thousands of green tests and hundreds of governance checks could not see them, because the failures were **semantic**: an LLM narrated an internal error into a fluent, plausible-looking output and pushed it to the user.
+The headline finding (also the biggest open problem): **a human reading the product found 13 of the 22 incidents (59%); automated checks found 3 (14%).** Thousands of green tests and hundreds of governance checks could not see them, because the failures were **semantic**: an LLM narrated an internal error into a fluent, plausible-looking output and pushed it to the user.
+
+> **Counting note (2026-08-14).** These shares are recomputed from the labelled corpus
+> (`docs/llm_observer_ground_truth.yaml`, `discovery_channel` field over the 22 paper-canonical cases):
+> user-view 13 / log-forensics 4 / check 3 / self-observation 2. An earlier informal tally reported
+> "~70% user-view, tests ≈0%"; the labelled corpus is the later and more careful pass and supersedes it.
+> arXiv:2606.14589 carries the earlier figure.
 
 We call this class **fail-plausible** — the observer is not just blind, it is *persuaded by the failure itself*. This bench measures whether an automated **user-viewpoint observer** can mechanize the human eye and catch fail-plausible artifacts *before* a person reads the product.
 
