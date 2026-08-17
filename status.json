@@ -1,5 +1,5 @@
 {
-  "updated": "2026-08-17 02:54:21",
+  "updated": "2026-08-17 03:06:28",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -81,6 +81,11 @@
   "recent_changes": [
     {
       "date": "2026-08-17",
+      "what": "V37.9.310 Mac Mini 实证闭环: 备份恢复 (rc=0, 1.0G 归档写入 SSD, 11:04:15 完整成功), 3 天中断结束。同时从日志抓到潜伏缺陷: fallback 分支假设 ~/.openclaw/backups/ 落盘位置与 4.27 实际不符 —— 10:59 那次主路径冷调用超时 → fallback 返回成功却找不到文件 → 假失败告警。已登记待办(需 Mac Mini 侧确认默认路径)。",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-08-17",
       "what": "V37.9.310 备份中断定性=我的 bug 并修复: 用户实测证明 SSD 挂载正常 → 推翻我 V37.9.309 的'倾向 H1'判断。真因 = 脚本 PATH 缺 /sbin, macOS 的 mount 在 /sbin/mount → command-not-found → 管道失败 → 恒判未挂载; dev(Linux) mount 在 /usr/bin 落在旧 PATH 内故测试全绿 = dev-production 接缝。修三处 PATH + 加 command -v mount 可用性检查(缺工具不再与'没挂载'同形)。守卫 11 单测; sabotage 连抓我三个空转守卫, 最险的是 PATH 用子串判断被 /opt/homebrew/sbin 满足致完全没守。VERSION 0.37.9.141→0.37.9.142。",
       "by": "claude_code"
     },
@@ -132,11 +137,6 @@
     {
       "date": "2026-08-14",
       "what": "V37.9.303 SLO 读侧口径诚实 (对抗审计 B 镜头 6 findings): 趋势 12x 虚报改增量口径 / token key 漂移恒 0 改读真实 key / recovery 单位错配 min_streak_count / 读侧 staleness+幽灵快照去重 / 零数据 N_A / kb_status_refresh 徽章源漏网第二写者改 health.*。fixture 忠实化 x2 (V37.9.299 教训), sabotage 四连 2/2/3/3。VERSION 0.37.9.136",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-08-13",
-      "what": "V37.9.302 🔴 守卫之守卫度量 bug: 混沌审计 catch 判据求和→逐信号。症状=full_regression 尾部近乎每次 9/10 且每次失败场景都不同, standalone 必 10/10。受控加载实验决定性复现: fail 0→1 真被抓到, 但同轮无关 MRD 计数器掉 2 → 求和 delta -1 → 报 BLIND SPOT。隔离连跑 6 次 governance 计数器完全稳定证噪声来自负载。修 catch_signals() 逐信号比较(检出力不降反升, 真盲区仍 FAIL); 预注册的重试/inconclusive 层按日落法不建。负载下验证 10/10 全抓。守卫 16 单测(真实计数逐字回放+防空转), sabotage 2 项开火。VERSION 不变(测试基础设施)。",
       "by": "claude_code"
     }
   ],
@@ -266,7 +266,8 @@
       "【2026-08-14 审计登记 follow-up · V37.9.308 已修 (a)C4 + (c)B-F8 · 余项未修】✅(a) C4 MED 已修: restart.sh rc=1 不再被吞 (RESTART_FAILED 累加器 + exit 1 + 不报 Done!) + Gateway bootstrap 加 if! 守卫 (退役 booted-out 自杀路径) + auto_deploy 失败分支收编 quiet_alert (此前只写 auto_deploy.log 而该日志不在 watchdog HOME_LOGS 错误扫描名单 = 零告警)。**刻意不加重启重试** (launchd KeepAlive 已在管进程, 原则 #8) —— 审计原写「需与 auto_deploy 重试语义联动设计」, 正解是它不该有重试语义, 守卫 test_no_retry_machinery_added 钉死。**中途被 V37.8.13 pin 纠正并采纳**: Gateway 故障按可恢复性二分 —— bootstrap 失败(launchd 没接管, KeepAlive 无从重试)计入 exit 1 / 慢启动 15s 未健康仅 ⚠️ 不判失败(V37.8.13 原判断保留, 由 wa_keepalive+watchdog 兜底)。顺带修好该 pin 自身的贪婪正则空转(它一直在检查别处的块)。 ✅(c) B-F8 已修: slo_checker --update 收编 status_lock+save_status (退役自建 RMW 写路径), 顺带闭合 dev 脚枪(裸写会凭空造 ~/.kb/status.json 劫持此后所有写者路径解析)。 ⏳ 未修余项: (b) C5 LOW-MED upgrade_openclaw.sh 裸后台起 Gateway 违 V37.9.13 单一管理者 + HEALTH 变量抓了从不参与判定 (季度级手动 SOP) / (d) A-F6 dream REDUCE_DATA 30K 尾部截断优先吃掉 Radar 三件套注入 + REDUCE_PROMPT 死代码 + REDUCE_CHARS 虚标 / (e) A-F7 top_alignment_picker 🎚️ 末位字段吸收尾随 ⭐ 行 / (f) A-F8 TZ python-side system-local 家族 / (g) crontab_safe 并发 RMW 无锁 / (h) openclaw_backup 纯 age-based 保留无最少份数下限 + 产物零校验 / (i) min_sample_count=200 vs ~25-40 req/day → benchmark 永久 OBSERVING (config 注释已明示可调 30, 用户决策)。",
       "【V37.9.306 kb_evening LLM 韧性 · dev 闭环 · 剩今晚 22:00 验证】同步后今晚 22:00 kb_evening 首次带 300s 超时+retry=1 运行 → 预期 cat ~/.kb/last_run_evening.json 显 status=ok。若仍 llm_failed 且 reason=TimeoutError (300s 也不够) = 后端持续性慢非瞬态, 贴日志走 provider 侧排查 (非本修复失效)。另诚实登记不改: kb_review 周报同走共享 call_llm 仍 retries=0 — 能力已就位(传参即可)但无失败证据不预防性改(原则 #8/#34), 待其真失败再 wire。",
       "【V37.9.308 · dev 全闭环 · 剩 Mac Mini 被动验证】合并 + git fetch+reset 同步后 (restart.sh / auto_deploy.sh / slo_checker.py 走 FILE_MAP, 零重启): (a) 若某次部署后 adapter/proxy 未恢复健康或 Gateway bootstrap 失败 → auto_deploy.log 出现「❌ restart.sh 失败」**且 Discord/WhatsApp 收到告警**(此前完全静默, 尤其漂移修复路径连 preflight 兜底都不跑) (b) 🔴 **首次出现该告警 = 盲区解除暴露存量真实故障, working as intended 非新 bug** (c) 手动 `bash restart.sh; echo $?` — 全健康则 0, 有服务未起来则 1 (d) Gateway 慢启动(15s 未健康但 launchd 已接管)仍只 ⚠️ 不判失败, 属预期不必贴我 (e) slo_checker --update 若被手动调用, 写入应保留他人并发字段且出现伴生 status.json.lock。",
-      "【✅ 2026-08-15~17 备份中断已定性并修复 (V37.9.310) · 剩 Mac Mini 补跑验证】定性 = **H2, 我的 bug**: 用户实测 mount 显示 /dev/disk5s1 on /Volumes/MOVESPEED (apfs) 挂载完全正常。真因不在匹配模式 (那行 apfs 格式我模拟测过且通过), 而在 PATH —— macOS 的 mount 在 /sbin/mount, 而两 job 脚本 export 的 PATH 不含 /sbin → 脚本内 mount command-not-found → 管道失败 → 恒判未挂载。手敲能通是因为交互 shell 默认 PATH 含 /sbin。dev 没测出来是因为 Linux 的 mount 在 /usr/bin (在旧 PATH 内) = dev-production 接缝。修: 三处脚本 PATH 补 /sbin:/usr/sbin (含 incident_capture 就地补全, 顺带修好其取证快照 mount/diskutil 字段长期为空) + 两脚本加 command -v mount 可用性前置检查(缺工具不再与'没挂载'同形)。守卫 11 单测含全仓扫描 + 行为级 macOS 布局模拟。🔴 待用户: 同步后**手动补跑一次** `bash ~/openclaw_backup.sh` 确认恢复 (备份已停 3 天, 保留策略 7 天); 注意跑的是运行时副本 ~/openclaw_backup.sh, 与仓库副本最多差 2 分钟 auto_deploy 同步延迟。"
+      "【✅ 2026-08-15~17 备份中断已闭环 (V37.9.310) · Mac Mini 实证恢复】定性=H2 我的 bug: macOS 的 mount 在 /sbin/mount, 而 job 脚本 PATH 不含 /sbin → command-not-found → 管道失败 → 恒判未挂载。dev(Linux) mount 在 /usr/bin 落在旧 PATH 内故测试全绿 = dev-production 接缝。修: 三处脚本 PATH 补 /sbin:/usr/sbin + 两处加 command -v mount 可用性前置检查。**2026-08-17 11:04 Mac Mini 实测恢复**: rc=0, 1.0G 归档真实写入 SSD, status_history + 保留清理 + KB 指纹全部跑完。",
+      "【潜伏: openclaw_backup fallback 分支路径假设与 4.27 实际落盘位置不符 · 中低优 · Mac-Mini-gated】2026-08-17 10:59 实证: 主路径 `openclaw backup create --output` 失败(特征符合已登记的 4.27 CLI 冷调用瞬态, 5 分钟后同脚本完全成功) → fallback `openclaw backup create`(无 --output) **返回成功** → 但 `ls -t ~/.openclaw/backups/*.tar.gz` 找不到文件 → 'ERROR: backup created but file not found' + exit 2。即: 备份很可能已生成在别处, 而脚本判为失败并告警。后果 = 每次主路径撞冷调用超时, fallback 必然假失败。修复前置(dev 不可知): 4.27 的 `openclaw backup create` 默认落盘路径 —— 查 `grep -B2 -A6 'WARN: --output failed' ~/openclaw_backup.log` 该次 fallback 的 CLI 输出行(含 'Backup archive:' 路径)即可确定。关联 unfinished [43](h): openclaw_backup 纯 age-based 保留无最少份数下限 + create rc=0 产物零校验。"
     ],
     "open_prs": [],
     "blocked_on": "",
