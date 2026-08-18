@@ -1,6 +1,6 @@
 # OpenClaw Model Bridge — 系统特性一览表
 
-> v37.9.319 (2026-08-18) | **6024 tests** / 179 suites / 0 fail | **12 providers** (primary doubao_21) | **40 active jobs** | 5 SLO metrics | preflight full checks | notify 推送（默认 Discord）| **91 governance invariants / 23 meta-rules / 839 checks / 14 MRD scanners** | security 98/100 | 28 blood-lesson case docs
+> v37.9.320 (2026-08-18) | **6042 tests** / 180 suites / 0 fail | **12 providers** (primary doubao_21) | **40 active jobs** | 5 SLO metrics | preflight full checks | notify 推送（默认 Discord）| **91 governance invariants / 23 meta-rules / 839 checks / 14 MRD scanners** | security 98/100 | 28 blood-lesson case docs
 
 | 分类 | 特性 | 说明 | 核心文件 |
 |------|------|------|----------|
@@ -55,7 +55,7 @@
 | | Preflight 体检 | 19 项检查(单测/注册表/语法/部署/安全/E2E/SLO) | `preflight_check.sh` |
 | | GitHub Actions CI | 9 套单测 + 注册表 + config 校验 + 安全扫描 + bandit | `.github/workflows/ci.yml` |
 | | pre-commit hook | API key/手机号泄漏 + Python 语法检查 | `.githooks/pre-commit` |
-| **安全** | 审计日志 | 链式 SHA256 哈希，篡改/删除可检测 | `audit_log.py` |
+| **安全** | 审计日志 | 链式 SHA256 哈希；篡改与**中间**删除可检测，尾部截断不可检测（本地链固有，V37.9.320 实测登记） | `audit_log.py` |
 | | 安全评分 | 7 维度 100 分 | `security_score.py` |
 | | 安全扫描 | push 前强制 API key + 手机号扫描 | CI + pre-commit |
 | **三方共享状态** | status.json | 优先级/反馈/事件/健康/SLO/偏好 — Claude Code + PA + Cron 实时同步 | `status_update.py` |
@@ -66,6 +66,6 @@
 | | SLO Benchmark | 真实生产数据报告 (5/5 PASS, p95=459ms) | `slo_benchmark.py` |
 | | GameDay 故障演练 | 5 场景故障注入 (GPU 超时/断路器/快照/SLO/Watchdog) | `gameday.sh` |
 | | 兼容性矩阵 | Provider 能力声明 + 验证状态 | `providers.py` + `docs/compatibility_matrix.md` |
-| **测试** | 179 套单测 | 6024 用例全部通过 | `test_*.py` |
+| **测试** | 180 套单测 | 6042 用例全部通过 | `test_*.py` |
 | | 全量回归 | full_regression.sh (单测+注册表+安全+代码质量) | `full_regression.sh` |
 | | E2E Smoke | 基础对话 / 工具注入 / KB 搜索 端到端验证 | `wa_e2e_test.sh` |

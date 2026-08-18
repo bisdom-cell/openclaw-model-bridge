@@ -181,6 +181,17 @@ def verify_chain() -> dict:
     """
     校验审计日志链式哈希完整性。
 
+    🔴 检测能力的诚实边界 (V37.9.320 对抗审计实测):
+      ✅ 内容篡改  —— 改任一字段 → 重算 hash 不符 (可检测)
+      ✅ 中间删除  —— 删第 N 行 → 第 N+1 行 prev 指针不符 (实测 1 error)
+      ❌ **尾部截断** —— 删最后 K 行后剩余链完全自洽, 实测 6 条删成 4 条仍
+         ok=True/errors=0。这是**本地追加式哈希链的固有属性**: 没有外部锚点
+         (已发布的 last-hash / 计数) 就无法证明"后面还应该有内容"。
+      ❌ **整体重写** —— 知道算法即可从创世重算整条链。
+    故 CLAUDE.md 曾写的"篡改/删除可检测"是过度声称, 已同步更正。按日落法不为
+    尾部截断新建锚点机制 (需要外部可信存储, 而攻击者同样能删锚点文件, 只是抬高
+    门槛不是关闭洞), 而是如实记录能力边界。
+
     V37.7: 当某行 JSON 解析失败时，`prev_hash` 标记为 None（chain broken
     from here），后续有效行跳过 prev 指针检查（我们无法知道该是什么），
     但仍然独立验证 entry 自身 hash。这避免了单个 parse error 引发 cascade
@@ -189,8 +200,12 @@ def verify_chain() -> dict:
     Returns:
         {"ok": bool, "total": int, "errors": [{"line": int, "expected": str, "actual": str}]}
     """
+    # V37.9.320 (对抗审计 AL-2): 日志不存在时返回 ok=True 会让**销毁全部证据**
+    # 得到最令人安心的输出 (full_regression 打 "✅ (0 records)")。ok 语义刻意不改
+    # (改成 False 会让 dev CI 立刻挂 —— dev 本就没有 audit.jsonl), 而是加 exists
+    # 字段让消费方能诚实区分"无可校验"与"已校验通过"。
     if not os.path.exists(AUDIT_FILE):
-        return {"ok": True, "total": 0, "errors": []}
+        return {"ok": True, "total": 0, "errors": [], "exists": False}
 
     errors = []
     total = 0
@@ -233,7 +248,7 @@ def verify_chain() -> dict:
             # 只要本行 hash 有效就可以把链续上（即使上游断过）
             prev_hash = stored_hash
 
-    return {"ok": len(errors) == 0, "total": total, "errors": errors}
+    return {"ok": len(errors) == 0, "total": total, "errors": errors, "exists": True}
 
 
 def tail(n: int = 20) -> list:
