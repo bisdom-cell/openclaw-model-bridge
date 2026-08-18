@@ -1190,7 +1190,25 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                 unfixable = step.get("unfixable") or []
                 if unfixable:
                     detail += f"（⚠️ {len(unfixable)} 个值无法解析未改动）"
-                step_lines.append(f"  ✓ {op} {detail}")
+                # V37.9.316 (对抗审计 DC-3/DC-1/DC-4): 生产端新增的可审计证据必须
+                # 真的到达用户, 否则又是 V37.9.293 那种「消费端建好了生产端没喂」
+                # 的镜像反面（建了却没人渲染）。
+                prefix = "✓"
+                missing_cols = step.get("missing_columns") or []
+                if missing_cols:
+                    prefix = "⚠️"
+                    issues += 1
+                    detail += ("（列不存在: "
+                               + ", ".join(str(c) for c in missing_cols[:6]) + "）")
+                hits = step.get("keyword_hits") or {}
+                if hits:
+                    detail += ("（命中关键词: "
+                               + ", ".join(f"{k}×{v}" for k, v in sorted(hits.items()))
+                               + "）")
+                id_col = step.get("id_column")
+                if id_col:
+                    detail += f"（假定 ID 列: {id_col}）"
+                step_lines.append(f"  {prefix} {op} {detail}")
             if issues:
                 lines = [f"⚠️ 数据清洗完成（{issues} 个操作未执行/失败，见明细）: {data.get('input', '?')}"]
             else:
