@@ -659,6 +659,93 @@ class TestStage3SourceLevelGuards(unittest.TestCase):
         self.assertIn("call_llm_critique", src)
 
 
+class TestS6CredibilityMarkerContract(unittest.TestCase):
+    """S6 (V37.9.318): 合成文档里显式档位标注违反 source_credibility 契约。
+
+    2026-08-18 梦境实录 —— 两条真缺陷都推到了用户面前且无检查器拦截:
+      A 发明档位: DEEP 段四次写「[可信度: 🏠 华为茶思屋科技，需独立验证]」,
+        🏠 不在五档 (🥇🥈🥉📝💬) 内; 同一份梦境 [2/4] 对同一条 chaspark 信号
+        写「📝 博客」= 正确 → 同一输出内同源两种档位。
+      B 档位错配: ai_leaders_bsky (canonical 💬 社媒 rank5) 被标「🥉 工业实践」
+        = 升两档。档位守的是**出处权威性**, 不是内容像什么。
+    S2 结构上够不着这类文档 (要求 source_id, 合成文档为 None → FAIL-OPEN;
+    且 S2 查措辞不查标注本身)。
+    """
+
+    BLOOD = ("- 茶思屋 2026-04-17 提到中文 AI 推理速度比英文高 40%"
+             "[可信度: 🏠 华为茶思屋科技，需独立验证]\n"
+             "- chaspark 2026-04-17数据显示中文AI推理速度比英文高40%[可信度: 📝 博客，需独立验证]\n"
+             "- ai_leaders_bsky 2026-01-29记录nbdev v3迁移 pyproject.toml[可信度: 🥉 工业实践]\n"
+             "- acl_anthology 2026-04-01收录 MCQA 空格研究[可信度: 🥇 学术同行评审]\n")
+
+    def test_blood_case_invented_tier_flagged(self):
+        sigs = obs.detect_credibility_marker_violation(self.BLOOD)
+        invented = [s for s in sigs if s["signal"] == "S6_credibility_marker_invented"]
+        self.assertEqual(len(invented), 1, f"🏠 发明档位未被抓: {sigs}")
+        self.assertEqual(invented[0]["severity"], "HIGH")
+        self.assertIn("🏠", invented[0]["snippet"])
+
+    def test_blood_case_tier_mismatch_flagged(self):
+        sigs = obs.detect_credibility_marker_violation(self.BLOOD)
+        mism = [s for s in sigs if s["signal"] == "S6_credibility_marker_mismatch"]
+        self.assertEqual(len(mism), 1, f"bsky 升两档未被抓: {sigs}")
+        self.assertIn("ai_leaders_bsky", mism[0]["snippet"])
+        self.assertEqual(mism[0]["severity"], "MED")
+
+    def test_correct_markers_no_false_positive(self):
+        """FP 纪律: canonical 一致的标注一条都不报。"""
+        clean = ("- chaspark 报道[可信度: 📝 博客]\n"
+                 "- acl_anthology 收录[可信度: 🥇 学术同行评审]\n"
+                 "- ai_leaders_x 推文[可信度: 💬 社媒]\n")
+        self.assertEqual(obs.detect_credibility_marker_violation(clean), [])
+
+    def test_no_markers_no_signal(self):
+        self.assertEqual(
+            obs.detect_credibility_marker_violation("普通正文, 无任何档位标注"), [])
+
+    def test_unknown_source_in_line_skipped(self):
+        """行内 source 不在 SOURCE_CREDIBILITY (如 openclaw_official) → B 跳过不误报。"""
+        t = "- openclaw_official 2026-03-03 记录社区付费服务[可信度: 🥉 工业实践]\n"
+        mism = [s for s in obs.detect_credibility_marker_violation(t)
+                if s["signal"] == "S6_credibility_marker_mismatch"]
+        self.assertEqual(mism, [])
+
+    def test_invented_tier_caught_without_source_id_in_line(self):
+        """A 类不依赖行内 source_id (这正是它比 S2 强的地方)。"""
+        t = "某处报道称如此[可信度: 🏠 自创档位]\n"
+        sigs = obs.detect_credibility_marker_violation(t)
+        self.assertEqual([s["signal"] for s in sigs], ["S6_credibility_marker_invented"])
+
+    def test_non_string_input_safe(self):
+        for bad in (None, 123, [], {}):
+            self.assertEqual(obs.detect_credibility_marker_violation(bad), [])
+
+    def test_report_cap(self):
+        """同类违规上限 _S6_MAX_REPORT (证据够用即可, 防刷屏)。"""
+        t = "".join(f"行{i} [可信度: 🏠 自创]\n" for i in range(20))
+        sigs = obs.detect_credibility_marker_violation(t)
+        self.assertEqual(len(sigs), obs._S6_MAX_REPORT)
+
+    def test_s6_runs_without_source_id_in_prefilter(self):
+        """S6 与 S2 分工: run_prefilter 不传 source_id 时 S2 静默而 S6 仍生效。"""
+        r = obs.run_prefilter(self.BLOOD)   # 无 source_id
+        self.assertIn("S6_credibility_marker_invented", r["fired"])
+        self.assertNotIn("S2_credibility_mismatch", r["fired"])
+
+    def test_signal_to_category_covers_s6(self):
+        """MR-8 drift guard: 新信号必须有 category 映射, 否则 anomaly 落 fail_plausible 兜底。"""
+        for sig in ("S6_credibility_marker_invented", "S6_credibility_marker_mismatch"):
+            self.assertIn(sig, obs._SIGNAL_TO_CATEGORY)
+
+    def test_valid_emoji_set_non_vacuous(self):
+        """防空转: 档位 emoji 集合必须真的从 source_credibility 反查出五档。"""
+        import source_credibility
+        emojis = {source_credibility.get_credibility(s)["emoji"]
+                  for s in source_credibility.list_sources()}
+        self.assertEqual(emojis, {"🥇", "🥈", "🥉", "📝", "💬"})
+        self.assertNotIn("🏠", emojis)
+
+
 class TestSourceLevelGuards(unittest.TestCase):
     def test_stage2_marker(self):
         with open(os.path.join(_REPO, "llm_observer.py"), encoding="utf-8") as f:

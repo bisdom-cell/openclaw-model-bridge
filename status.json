@@ -1,5 +1,5 @@
 {
-  "updated": "2026-08-18 02:45:07",
+  "updated": "2026-08-18 03:02:05",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -201,7 +201,7 @@
     "security_score": "98/100 (98.0%)",
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB",
     "slo": {
-      "checked_at": "2026-08-18 01:48:32",
+      "checked_at": "2026-08-18 02:58:48",
       "all_ok": true,
       "summary": {
         "latency_p95": {
@@ -283,7 +283,8 @@
       "【✅ 2026-08-17 全链闭环实证 (V37.9.308-312, PR#875/876/877 已合并+同步+复测) · 剩两项纯被动观察】合并同步后 Mac Mini 四步复测全绿: 运行时副本含 V37.9.311 marker / git status 完全干净(嵌套仓库93M+碎片已删, chaspark cache 被 gitignore 消化) / openclaw_backup rc=0 Backup done / movespeed_daily_sync rc=0 status:ok 471M。脚本 PATH 是整行覆盖式 export → 手动运行与 cron 环境等价, 复测代表性充分。剩余被动观察: (a) 明晨 03:00/04:00 双 cron 首次全自动跑(预期 watchdog 不再报 skipped_no_ssd, 无消息=确认) (b) V37.9.311 fallback 分支活体验证 = 下次 4.27 staging 锁文件瞬态自然出现时日志应为 'OK (fallback):' 而非假失败 (c) V37.9.308: 未来某次部署 restart 失败时应收到 quiet_alert(首次出现=盲区解除非新 bug)。",
       "【✅ V37.9.314(d) 雷达哑炮修复 · 生产验证完全闭环 (2026-08-18) · 本条关闭】证据链三段: (1) before/after 测量 —— grep -c 'Opportunity Radar' ~/.kb/dreams/*.md: 07-28~08-17 全 0, 08-18 = 3 (2) 内容可追溯 —— DEEP 段逐字引用「Radar #3 semeval 2.369x / insight 2.025x」, 三位小数与 kb_trend_acceleration.py:213 round(accel_1w,3) 吻合; [4/4] RADAR 段同含该数 = 素材同时进 DEEP 与 WIDE_RADAR (3) 三件套全达 —— kb_dream.log 08-17/08-18 两晚 #1/#2/#3 均打「采集完成」, 且 preamble 注入序为 #1→#2→#3 + 截断保头截尾 ⟹ #3 到达即证明 #1/#2 必然到达 (纯演绎, 无需再测)。LLM 只引用 #3 属合规选择 (#2 块明写「不是今日发生的事件…只有当日笔记支持才能展开」)。🚫 **刻意不做的事**: 先前假设的「Phase 1.5 只报成功不报失败 = 坏了≠没结果」隐患经数据证伪(管道健康), 按日落法 #34/原则 #8 不加日志机器 —— 留痕以防未来 session 重新'顺手加强'。残留低优 (属 V37.9.305 而非本项): Radar #1 是否真产出非空共振信号仍未测 (「采集完成」不区分有信号 vs 「(昨日全天无跨 source 共振信号)」文本), 判据 = python3 -c \"import json;d=json.load(open('$HOME/.kb/radar/daily_signals_20260817.json'));print(len(d.get('signals',[])))\"。",
       "【docs/slo_benchmark_report.md 入库副本陈旧 · Mac-Mini-gated 证据刷新 · 低优】仓库版仍是 V37.9.303 时代快照 (Verdict=OBSERVING / samples 25 / min samples ≥200), V37.9.315 门槛调 30 后该 artifact 与 config.yaml 现实双重不一致。真实生产版已在 Mac Mini 生成 (2026-08-17 14:54, ALL PASS / 60 样本 / p95 22789ms)。**dev 不可自行重生成** (需 live proxy_stats.json, 仅 Mac Mini 有) 且不得手写正文 (原则 #23 禁编造)。刷新路径: 用户 Mac Mini 执行 cat ~/openclaw-model-bridge/docs/slo_benchmark_report.md 贴回 → session 原样入库提交。价值 = 原则 #18 证据密度 (首份 ALL PASS 生产 SLO 证据, 对外可引用), 非阻塞项。",
-      "【V37.9.316 对抗审计 data_clean 五连修 · dev 全闭环 · 剩 Mac Mini 被动验证】合并 + git fetch+reset 同步（data_clean.py/tool_proxy.py 走 FILE_MAP）+ **重启 proxy** 后: (a) DC-1 血案闭合信号 —— 对含 BARCELONA/Latest/TEMPE 类真实词的表跑 remove_test 不再误删, 结果带「命中关键词: kw×N」明细（关键词表固有歧义如 bar=压力单位/地名前缀仍可能命中, 靠此明细 + 版本快照可审计回滚, 诚实边界）(b) DC-3: 列名写错时 PA 回复出现「⚠️ fix_case ...（列不存在: X）」而非绿 ✓ (c) DC-4: dedup_near 结果显示「假定 ID 列: <首列名>」—— 若用户数据首列不是 ID, 这是发现误删的信号 (d) DC-2/DC-5: report.md 里 unfixable 行号不再重复, 且前序删行时带「本步输入」标注。无消息 = 确认正常（本修复只在真跑 data_clean 时可见, 非常驻 cron）。"
+      "【V37.9.316 对抗审计 data_clean 五连修 · dev 全闭环 · 剩 Mac Mini 被动验证】合并 + git fetch+reset 同步（data_clean.py/tool_proxy.py 走 FILE_MAP）+ **重启 proxy** 后: (a) DC-1 血案闭合信号 —— 对含 BARCELONA/Latest/TEMPE 类真实词的表跑 remove_test 不再误删, 结果带「命中关键词: kw×N」明细（关键词表固有歧义如 bar=压力单位/地名前缀仍可能命中, 靠此明细 + 版本快照可审计回滚, 诚实边界）(b) DC-3: 列名写错时 PA 回复出现「⚠️ fix_case ...（列不存在: X）」而非绿 ✓ (c) DC-4: dedup_near 结果显示「假定 ID 列: <首列名>」—— 若用户数据首列不是 ID, 这是发现误删的信号 (d) DC-2/DC-5: report.md 里 unfixable 行号不再重复, 且前序删行时带「本步输入」标注。无消息 = 确认正常（本修复只在真跑 data_clean 时可见, 非常驻 cron）。",
+      "【V37.9.318 S6 档位契约检测器 · dev 闭环 · 剩 2 条 grounding 待 Mac Mini grep + 被动验证】(1) 🔴 待 grep 定性 —— 08-18 梦境 [3/4] item5「OpenClaw社区出现技能定制付费服务…特惠价100元」+「276篇中文文档/20+国产大模型配置模板/Agent-Blind凭证安全架构」是否真有据: grep -rl '技能定制\\|Agent-Blind\\|276篇' ~/.kb/sources/ ~/.kb/notes/ | head。有据=好笔记(高特异性正常); 无据=V37.9.56-hotfix3 血案家族复发(编造 OpenClaw 社区动态), 且 LEVEL_4 blocked_phrases 有「OpenClaw 社区发布」但此处「OpenClaw社区出现」无空格+异动词字面不匹配 → 届时才值得补 blocklist。**证实前不改 blocklist**(否则可能'修'掉正确输出)。(2) 🔴 待 grep —— [2/4] item5 用 [强证据] 断言「WSDM2026 论文直接引用检索-生成脱节作为研究动机」, 引用图/动机是 KB 笔记(标题+摘要)通常不含的信息, 疑似把推断包装成强证据; 判据: grep -rn 'WSDM' ~/.kb/sources/dblp*/ | head 看笔记是否真含 motivation 陈述。与 [1/4] 自称「未发现满足论文显式陈述 A 导致 B 的强证据链」张力明显。(3) 被动验证 —— 同步后次日 06:30 observer 若梦境再现 🏠 类发明档位或档位错配, 报告应出现 S6_credibility_marker_invented(HIGH)/S6_credibility_marker_mismatch(MED) 而非静默放过。"
     ],
     "open_prs": [],
     "blocked_on": "",
@@ -291,14 +292,14 @@
   },
   "quality": {
     "security_score": 98,
-    "test_count": 6010,
-    "last_regression": "2026-08-18 01:49 pass",
+    "test_count": 6021,
+    "last_regression": "2026-08-18 03:00 pass",
     "coverage_pct": 0,
     "security_score_time": "2026-07-20 01:07",
     "test_suites": 179,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
-    "version": "0.37.9.147",
+    "version": "0.37.9.148",
     "observer": {}
   },
   "incidents": [
