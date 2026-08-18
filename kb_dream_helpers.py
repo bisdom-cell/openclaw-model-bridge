@@ -416,7 +416,9 @@ def build_overview_block(
         if kb_kb:
             bits.append(f"{kb_kb}KB KB")
         if reduce_chars:
-            bits.append(f"{reduce_chars} chars 素材")
+            # V37.9.317: 单位标签修正 —— 该值是 wc -c 字节数, 非字符数
+            # (utf8_truncate 上限 30000 是字符), 旧标签会误导读者以为截断未生效。
+            bits.append(f"{reduce_chars} bytes 素材")
         if bits:
             lines.append(f"- 📊 **数据规模**: {' / '.join(bits)}")
     # 明日关注（规则模板）

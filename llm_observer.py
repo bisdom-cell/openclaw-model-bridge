@@ -15,6 +15,7 @@ Layer 1 在前 (design §3.2) = 成本 + 可解释 (引用具体证据 locus/sni
 五确定性信号 (docs/llm_observer_ground_truth.yaml signals 字典):
   S1 pollution_signal      错误码/HTTP/工具名/'Bad JSON'/告警 artifact 出现在用户内容 (D1/D2 指纹)
   S2 credibility_mismatch  低档来源被高档措辞包装 (复用 source_credibility)
+  S6 credibility_marker    合成文档里显式档位标注违反契约 (发明档位/档位错配, V37.9.318)
   S3 fabrication_phrase    hallucination_guards.get_blocked_phrases() 血案精确字眼 (D4 指纹)
   S4 provenance_gap        牵强等价/跨域因果断言无 [强证据]/[弱关联] 标注 (复用 LEVEL_6 契约)
   S5 coherence_structural  boilerplate 重复 / 全标题无正文 / 字段=分隔符 (D1/D3 指纹)
@@ -104,6 +105,18 @@ _S5_HEADING_MIN_COUNT = 3           # >= 3 个 markdown 标题
 _S5_HEADING_BODY_MAX_CHARS = 40     # 每标题对应正文 < 40 字 = 全标题无正文 (kb_review)
 _S5_SEPARATOR_VALUES = {"---", "===", "───", "—", "...", "···", "n/a", "N/A", "—"}
 
+# ── S6 常量 (V37.9.318) ───────────────────────────────────────────────────────
+# 2026-08-18 梦境实录: DEEP 段四次写「[可信度: 🏠 华为茶思屋科技，需独立验证]」——
+# 🏠 **不在 source_credibility 契约的五档内** (🥇🥈🥉📝💬), 是 LLM 发明的档位;
+# 同一份梦境 [2/4] 对同一条 chaspark 信号写的是「📝 博客」= 正确, 即同一输出内
+# 同源两种档位。另一处 ai_leaders_bsky (canonical 💬 社媒 rank5) 被标「🥉 工业实践」
+# = 升两档 —— 档位守的是**出处权威性**不是内容像什么。
+# 两处都推到了用户面前且无任何检查器拦截: S2 要求传入 source_id (为单一来源的输出段
+# 设计), 而 dream/evening 是**合成文档** (source_id=None → S2 直接 FAIL-OPEN),
+# 且 S2 查的是措辞不是标注本身。S6 补的正是这个缺口。
+_S6_MARKER_RE = re.compile(r"\[可信度[:：]\s*([^\]]{0,80})\]")
+_S6_MAX_REPORT = 5   # 同类违规最多报 5 条 (证据够用即可, 防刷屏)
+
 # severity 映射 (对齐 daily_observer HIGH/MED/LOW)
 _SEV_HIGH = "HIGH"
 _SEV_MED = "MED"
@@ -117,6 +130,13 @@ def log(msg):
 def _line_of(text, idx):
     """返回字符偏移 idx 所在的 1-based 行号 (locus)。"""
     return text.count("\n", 0, idx) + 1
+
+
+def _enclosing_line(text, idx):
+    """返回 idx 所在的整行 (S6 用于在标注同行内找 source_id)。"""
+    start = text.rfind("\n", 0, idx) + 1
+    end = text.find("\n", idx)
+    return text[start:] if end < 0 else text[start:end]
 
 
 def _descriptive_char_count(s):
@@ -282,8 +302,72 @@ def detect_coherence_structural(text):
 
 
 # ── orchestrator ──────────────────────────────────────────────────────────────
+# ── S6: credibility-marker-contract (V37.9.318) ───────────────────────────────
+def detect_credibility_marker_violation(text):
+    """S6: 合成文档 (dream/evening) 里**显式写出**的 [可信度: X] 标注违反契约。
+
+    与 S2 的分工 (刻意不合并, 二者判据不同):
+      S2 需要 source_id, 判"低档来源用了高档**措辞**" (单一来源的输出段)。
+      S6 不需要 source_id, 判"标注**本身**是否合法" (合成文档, 多来源混排)。
+
+    两类违规:
+      A 发明档位 —— emoji 不在 source_credibility 的五档内 (HIGH: 契约破坏,
+        任何按档位做机器解析/降权的下游都会漏掉它)
+      B 档位错配 —— 标注所在行出现已知 source_id, 但其 canonical 档位 ≠ 标注档位
+        (MED: 升档比降档危险, 但两向都报, 由人判)
+
+    FAIL-OPEN: source_credibility 不可用 / 无标注 / 行内无已知 source_id → 跳过。
+    """
+    if not isinstance(text, str) or not text:
+        return []
+    try:
+        import source_credibility
+        # list_tiers() 返回 tier 名称 list (非 dict) → emoji 从各 source 的
+        # get_credibility 反查, 这样 emoji 集合始终跟着 source_credibility 走 (MR-8)。
+        src_ids = [x for x in source_credibility.list_sources() if isinstance(x, str)]
+        valid_emojis = set()
+        for sid in src_ids:
+            e = source_credibility.get_credibility(sid).get("emoji")
+            if e:
+                valid_emojis.add(e)
+    except Exception as e:   # FAIL-OPEN (具体: ImportError / schema 变化)
+        log(f"S6 FAIL-OPEN (source_credibility unavailable): {e}")
+        return []
+    if not valid_emojis:
+        return []
+    # 长 id 优先, 防短 id 抢先匹配 (如 'dblp' vs 'dblp_daily' 类前缀重叠)
+    src_ids = sorted([i for i in src_ids if isinstance(i, str) and i], key=len, reverse=True)
+
+    out = []
+    seen_a, seen_b = 0, 0
+    for m in _S6_MARKER_RE.finditer(text):
+        marker = m.group(1)
+        locus = _line_of(text, m.start())
+        line = _enclosing_line(text, m.start())
+        marked = next((e for e in valid_emojis if e in marker), None)
+        if marked is None:
+            if seen_a < _S6_MAX_REPORT:
+                seen_a += 1
+                out.append(_sig("S6_credibility_marker_invented", _SEV_HIGH, locus,
+                                f"档位标注不在五档内: [可信度: {marker}]"))
+            continue
+        # B: 同行出现已知 source_id 时比对 canonical 档位
+        sid = next((i for i in src_ids if i in line), None)
+        if not sid:
+            continue
+        try:
+            canon = source_credibility.get_credibility(sid).get("emoji")
+        except Exception:
+            continue
+        if canon and canon != marked and seen_b < _S6_MAX_REPORT:
+            seen_b += 1
+            out.append(_sig("S6_credibility_marker_mismatch", _SEV_MED, locus,
+                            f"{sid} canonical={canon} 但标注={marked}"))
+    return out
+
+
 def run_prefilter(text, source_id=None):
-    """跑全部 S1-S5, 聚合 (Layer 1 only)。
+    """跑全部 S1-S6, 聚合 (Layer 1 only)。
 
     返回 dict: {verdict: 'clean'|'flagged', fired: [signal names 去重排序],
                 signals: [信号 dict], n: 信号数}。
@@ -295,6 +379,7 @@ def run_prefilter(text, source_id=None):
     signals += detect_fabrication_phrase(text)
     signals += detect_provenance_gap(text)
     signals += detect_coherence_structural(text)
+    signals += detect_credibility_marker_violation(text)   # V37.9.318 S6 (无需 source_id)
     fired = sorted({s["signal"] for s in signals})
     return {
         "verdict": "flagged" if signals else "clean",
@@ -333,6 +418,8 @@ _SIGNAL_TO_CATEGORY = {
     "S3_fabrication_phrase": "fabricated_success",
     "S4_provenance_gap": "unsupported_claim",
     "S5_coherence_structural": "fabricated_success",
+    "S6_credibility_marker_invented": "credibility_mismatch",
+    "S6_credibility_marker_mismatch": "credibility_mismatch",
 }
 _SEV_ORDER = {_SEV_HIGH: 3, _SEV_MED: 2, "LOW": 1}
 

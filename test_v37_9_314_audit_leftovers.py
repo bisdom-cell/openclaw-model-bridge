@@ -302,6 +302,19 @@ echo "$OLD" | utf8_truncate 30000 | grep -q RADAR_MARKER_XYZ || echo OLD_LOST
         """REDUCE_CHARS (dream 产物/last_run 元数据) 必须等于真实发送量。"""
         self.assertIn('REDUCE_CHARS="$REDUCE_MULTI_CHARS"', self.src)
 
+    def test_v37_9_317_reduce_chars_unit_label_is_bytes(self):
+        """V37.9.317: REDUCE_CHARS 来自 wc -c = 字节, 而 utf8_truncate 上限 30000 是
+        **字符** (text[:30000])。旧标签写 "chars" → 2026-08-18 梦境总览显示
+        "59204 chars 素材", 读者对照 30000 上限会误判"截断没生效"(恰恰相反,
+        59204 是截断后的字节数, 59204/30000≈1.97 正是中英混排字节比)。
+        同一数字不得同时被标成两种单位 (一物一形)。"""
+        self.assertNotRegex(
+            self.src, r'Reduce 素材: \$\{REDUCE_CHARS\} chars',
+            "退役: REDUCE_CHARS 标 chars (实为字节)")
+        self.assertIn("Reduce 素材: ${REDUCE_CHARS} bytes", self.src)
+        # 防空转: 日志行早已正确标 bytes, 两处必须同单位
+        self.assertIn("素材 ${REDUCE_MULTI_CHARS} bytes", self.src)
+
     def test_shared_guards_survive(self):
         """DREAM_HG_GUARD / DREAM_CREDIBILITY 是 DEEP/WIDE 复用的公共注入, 不得被误删。"""
         self.assertIn("DREAM_HG_GUARD=$(python3 -c", self.src)

@@ -378,6 +378,11 @@ class TestBuildOverviewBlock(unittest.TestCase):
         self.assertIn("14 sources", block)
         self.assertIn("290 notes", block)
         self.assertIn("明日关注", block)
+        # V37.9.317: 单位标签 —— reduce_chars 实为 wc -c 字节数, 而 utf8_truncate
+        # 上限 30000 是字符; 旧标签 "chars" 让 2026-08-18 梦境总览的 "59204 chars"
+        # 与 30000 上限对照后读作"截断没生效"(实为截断后的字节数)。
+        self.assertIn("80000 bytes 素材", block)
+        self.assertNotIn("80000 chars 素材", block)
 
     def test_no_radar_themes(self):
         block = build_overview_block(

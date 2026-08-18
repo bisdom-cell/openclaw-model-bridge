@@ -1658,7 +1658,11 @@ MODE_DESC="MapReduce 全量（$MAP_COUNT 源 × 独立信号提取 → 跨域关
     echo ""
     echo "> 模式: $MODE_DESC"
     echo "> 覆盖: $SRC_COUNT sources ($((TOTAL_KB_BYTES / 1024))KB) + $NOTE_COUNT notes"
-    echo "> Reduce 素材: ${REDUCE_CHARS} chars"
+    # V37.9.317: 单位标签修正 —— REDUCE_CHARS 来自 wc -c = **字节**, 而 utf8_truncate
+    # 的 30000 上限是 **字符** (text[:30000])。旧标签 "chars" 让读者看到 "59204 chars"
+    # 会以为超过了 30000 上限 = 截断没生效 (恰恰相反, 那是截断后的字节数)。
+    # 同一数字在 :1227 日志里已正确标 bytes —— 一物一形收敛到 bytes。
+    echo "> Reduce 素材: ${REDUCE_CHARS} bytes"
     echo "> 生成时间: $(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date '+%Y-%m-%d %H:%M:%S')"
     echo ""
     echo "$DREAM_RESULT"
