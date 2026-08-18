@@ -521,6 +521,30 @@ class DoubaoTransport:
         return True, text, usage, ""
 
 
+def audit_log_writable(audit_log_path):
+    """V37.9.320: 审计日志是否可追加写。
+
+    配额的执行**完全依赖**审计记录能落盘 —— check_daily_quota 数的是日志里今天的
+    行数, 而 write_audit_record 是 FAIL-OPEN (写失败只打 stderr WARN 就继续)。
+    两者叠加 = 审计写不进去时配额静默变成**无限**: 实测 50 次调用全部放行
+    (上限 30), 唯一信号是 50 条没人看的 stderr WARN, 而每次调用都真实付费。
+    故在**花钱之前**先确认能记账 —— 记不了账就不花钱 (FAIL-CLOSED)。
+
+    返回 (ok, reason)。不写入任何内容, 只验证父目录可建 + 文件可 append 打开。
+    """
+    if not audit_log_path:
+        return False, "audit_log_path 未配置"
+    try:
+        parent = os.path.dirname(audit_log_path)
+        if parent:
+            os.makedirs(parent, exist_ok=True)
+        with open(audit_log_path, "a", encoding="utf-8"):
+            pass
+        return True, ""
+    except OSError as e:
+        return False, str(e)
+
+
 def parse_response_json(text):
     """Extract JSON object from response text.
 
@@ -563,8 +587,8 @@ def escalate(
     """One-shot expert escalation (V37.9.90-r1 Doubao backend).
 
     Returns dict:
-        status: "ok" | "quota_exceeded" | "no_context" | "api_unavailable"
-              | "parse_failed" | "read_only_violation" | "dry_run"
+        status: "ok" | "quota_exceeded" | "audit_unavailable" | "no_context"
+              | "api_unavailable" | "parse_failed" | "read_only_violation" | "dry_run"
               | "claude_pending" | "unknown_backend"
         backend, proposal, rationale, confidence, refs, usage,
         violations (only on read_only_violation), error (on failure).
@@ -608,6 +632,19 @@ def escalate(
         check_daily_quota(audit_log_path, max_daily, today=today_for_test)
     except QuotaExceededError as e:
         return {"status": "quota_exceeded", "backend": backend, "error": str(e)}
+
+    # V37.9.320 (对抗审计 EE-2): 配额只有在审计能落盘时才成立 —— 见
+    # audit_log_writable() docstring。花钱前先确认能记账, FAIL-CLOSED。
+    _audit_ok, _audit_reason = audit_log_writable(audit_log_path)
+    if not _audit_ok:
+        return {
+            "status": "audit_unavailable",
+            "backend": backend,
+            "error": (
+                "审计日志不可写, 每日配额无法执行 → 拒绝调用 (防静默无限计费): "
+                + _audit_reason
+            ),
+        }
 
     # Load context
     status_data = load_status(kb_dir)

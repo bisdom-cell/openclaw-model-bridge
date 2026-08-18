@@ -164,6 +164,7 @@ run_suite "ai_leaders_bsky (V37.9.111 ai_leaders 加 Bluesky 实时短观点维�
 run_suite "v37_9_18_cron_strict_checks (V37.9.18 preflight 双 warning + crontab_safe 退出码)" "python3 test_v37_9_18_cron_strict_checks.py"
 run_suite "convergence (V37.9.19 Phase 4 Layer 5 — declared→runtime convergence framework + jobs_to_crontab spec)" "python3 test_convergence.py"
 run_suite "audit_log (审计日志/链式哈希)" "python3 test_audit_log.py"
+run_suite "v37_9_320_audit_surfaces (V37.9.320 对抗审计三面 — audit 链检测边界/日志不存在≠已校验/security_score 静态姿态诚实/expert 配额记不了账不花钱)" "python3 test_v37_9_320_audit_surfaces.py"
 run_suite "reliability_bench (故障场景评测)" "python3 test_reliability_bench.py"
 run_suite "memory_plane (统一记忆平面)" "python3 test_memory_plane.py"
 run_suite "slo_dashboard (SLO仪表盘)" "python3 test_slo_dashboard.py"
@@ -434,8 +435,16 @@ fi
 
 echo -n "  🔒 审计日志完整性 ... "
 if python3 audit_log.py --verify --json 2>/dev/null | python3 -c "import sys,json; sys.exit(0 if json.load(sys.stdin).get('ok') else 1)" 2>/dev/null; then
-    AUDIT_COUNT=$(python3 audit_log.py --verify --json 2>/dev/null | python3 -c "import sys,json; print(json.load(sys.stdin).get('total',0))" 2>/dev/null || echo 0)
-    echo "✅ ($AUDIT_COUNT records)"
+    # V37.9.320 (对抗审计 AL-2): 区分「日志不存在」与「已校验通过」——
+    # 原文案对 0 条记录打 ✅, 于是**销毁全部审计证据**会得到最令人安心的输出。
+    AUDIT_JSON=$(python3 audit_log.py --verify --json 2>/dev/null || echo '{}')
+    AUDIT_COUNT=$(echo "$AUDIT_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin).get('total',0))" 2>/dev/null || echo 0)
+    AUDIT_EXISTS=$(echo "$AUDIT_JSON" | python3 -c "import sys,json; print('1' if json.load(sys.stdin).get('exists') else '0')" 2>/dev/null || echo 0)
+    if [ "$AUDIT_EXISTS" = "1" ]; then
+        echo "✅ ($AUDIT_COUNT records)"
+    else
+        echo "⚠️ 审计日志不存在（无可校验，非「已验证通过」）"
+    fi
     PASS=$((PASS + 1))
 else
     echo "❌ 链式哈希校验失败"

@@ -263,7 +263,18 @@ def check_transport_security():
 
 
 def check_audit_trail():
-    """审计追踪：15分"""
+    """审计追踪：15分（**静态姿态**：审计相关代码是否在位，不校验审计是否在工作）
+
+    🔴 V37.9.320 对抗审计实测: 本维度**从不调用 audit_log.verify_chain()**, 也不检查
+    审计日志是否存在 —— 15 分全部来自在源码里 grep 字符串。实测: 审计日志完全不存在时
+    仍得 15/15 并打三个绿 ✅。而 98/100 这个分数被推到 README 徽章 / status.json /
+    健康周报, 读者会读成"审计在工作", 实际测的是"审计代码写了没"。
+
+    **刻意不加运行时探测**(日落法 + V37.9.268): 加了会让本分数重新变成环境敏感
+    (dev 无 audit.jsonl / 生产有), 正是 V37.9.268 刚解耦掉的假 doc-drift 根因。
+    审计**是否在工作**由 full_regression 的 `audit_log.py --verify` 负责(V37.9.320
+    已让它区分「不存在」与「已校验」), 职责分离。此处只把措辞改成如实描述所测之物。
+    """
     score = 0
     details = []
 
@@ -273,10 +284,10 @@ def check_audit_trail():
             content = f.read()
         if "chain" in content.lower() or "prev" in content:
             score += 5
-            details.append("✅ 链式哈希审计日志")
+            details.append("✅ 源码声明链式哈希审计（未校验实际日志完整性）")
         else:
             score += 3
-            details.append("⚠️ 审计日志存在但无链式校验")
+            details.append("⚠️ 审计日志源码无链式校验声明")
     else:
         details.append("❌ 无审计日志")
 
@@ -286,9 +297,9 @@ def check_audit_trail():
             content = f.read()
         if "audit" in content:
             score += 5
-            details.append("✅ 状态变更自动记录审计")
+            details.append("✅ status_update 源码含审计调用")
         else:
-            details.append("⚠️ 状态变更无审计记录")
+            details.append("⚠️ status_update 源码无审计调用")
 
     # 审计验证在 full_regression 中（5分）
     if os.path.exists("full_regression.sh"):
@@ -296,9 +307,9 @@ def check_audit_trail():
             content = f.read()
         if "审计" in content and "完整性" in content:
             score += 5
-            details.append("✅ 审计完整性自动校验")
+            details.append("✅ full_regression 源码含审计完整性检查")
         else:
-            details.append("⚠️ 审计完整性未纳入自动校验")
+            details.append("⚠️ full_regression 源码无审计完整性检查")
 
     return score, 15, details
 
@@ -381,8 +392,14 @@ def compute_score():
 
 def format_report(data):
     """人类可读报告。"""
+    # V37.9.320 (对抗审计 SS-1): 七个维度**全部是源码静态检查**(唯一运行时探测是
+    # 传输安全里的 git remote)。不加范围声明时, 这个数字会被读成"系统有多安全",
+    # 实际是"安全相关代码写了多少" —— 实测审计日志完全不存在仍得审计维度 15/15。
+    # 范围写在数字旁边, 是最便宜的诚实 (不改评分逻辑, 不引入环境敏感)。
     lines = [
         f"🔐 安全评分：{data['total']}/{data['max']}（{data['percentage']}%）",
+        "   范围：静态姿态（安全机制的代码是否在位）；运行时是否真在工作由 "
+        "full_regression / preflight / job_watchdog 负责",
         "",
     ]
     for dim in data["dimensions"]:

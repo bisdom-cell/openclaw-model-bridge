@@ -1,5 +1,5 @@
 {
-  "updated": "2026-08-18 03:48:40",
+  "updated": "2026-08-18 04:15:20",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-08-18",
+      "what": "V37.9.320 对抗审计三个从未覆盖的面 (expert_escalation/audit_log/security_score): 审计日志被整个删除 → verify 报 ok=True + full_regression 打绿✅ / 「删除可检测」只对中间删除成立(尾部截断实测检测不到, 且考古发现 V30.2 原始表述精确, 限定词是摘要时丢的) / security_score 审计维度 15 分全来自 grep 源码字符串, 日志不存在仍满分(七维度全静态) / expert 配额执行依赖 FAIL-OPEN 审计写入, 不可写时实测 50 次调用全放行(上限30)每次真付费。修: exists 字段+诚实呈现 / 能力边界如实登记(不建锚点) / 措辞如实化+范围声明(不加运行时探测) / FAIL-CLOSED 记账探针(记不了账不花钱)。18 守卫 + sabotage 三连。两次探针自身出错被抓(root 下 chmod 无效 / 守卫被自己 docstring 咬)。",
+      "by": "claude_code"
+    },
     {
       "date": "2026-08-18",
       "what": "V37.9.316-319 四交付 + V37.9.314(d) 验证闭环。主线=fail-plausible 在运维观测面: data_clean 把 BARCELONA 当测试数据删却报绿✓ / REDUCE_CHARS 单位标签让截断看似没生效 / 梦境发明 🏠 档位且 bsky 升两档(→新增 Observer S6 确定性检测器) / KB 覆盖率四舍五入把 19 个不可见文件说成 100%。四条全靠看产品发现。另: 给用户的 grep 命令自身 glob 失败被识别为『工具坏了≠没找到』未误读。",
@@ -206,7 +211,7 @@
     "security_score": "98/100 (98.0%)",
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB",
     "slo": {
-      "checked_at": "2026-08-18 03:26:51",
+      "checked_at": "2026-08-18 04:11:49",
       "all_ok": true,
       "summary": {
         "latency_p95": {
@@ -290,22 +295,23 @@
       "【docs/slo_benchmark_report.md 入库副本陈旧 · Mac-Mini-gated 证据刷新 · 低优】仓库版仍是 V37.9.303 时代快照 (Verdict=OBSERVING / samples 25 / min samples ≥200), V37.9.315 门槛调 30 后该 artifact 与 config.yaml 现实双重不一致。真实生产版已在 Mac Mini 生成 (2026-08-17 14:54, ALL PASS / 60 样本 / p95 22789ms)。**dev 不可自行重生成** (需 live proxy_stats.json, 仅 Mac Mini 有) 且不得手写正文 (原则 #23 禁编造)。刷新路径: 用户 Mac Mini 执行 cat ~/openclaw-model-bridge/docs/slo_benchmark_report.md 贴回 → session 原样入库提交。价值 = 原则 #18 证据密度 (首份 ALL PASS 生产 SLO 证据, 对外可引用), 非阻塞项。",
       "【V37.9.316 对抗审计 data_clean 五连修 · dev 全闭环 · 剩 Mac Mini 被动验证】合并 + git fetch+reset 同步（data_clean.py/tool_proxy.py 走 FILE_MAP）+ **重启 proxy** 后: (a) DC-1 血案闭合信号 —— 对含 BARCELONA/Latest/TEMPE 类真实词的表跑 remove_test 不再误删, 结果带「命中关键词: kw×N」明细（关键词表固有歧义如 bar=压力单位/地名前缀仍可能命中, 靠此明细 + 版本快照可审计回滚, 诚实边界）(b) DC-3: 列名写错时 PA 回复出现「⚠️ fix_case ...（列不存在: X）」而非绿 ✓ (c) DC-4: dedup_near 结果显示「假定 ID 列: <首列名>」—— 若用户数据首列不是 ID, 这是发现误删的信号 (d) DC-2/DC-5: report.md 里 unfixable 行号不再重复, 且前序删行时带「本步输入」标注。无消息 = 确认正常（本修复只在真跑 data_clean 时可见, 非常驻 cron）。",
       "【✅ V37.9.318 S6 档位契约检测器 · 两条 grounding 全部定性完毕 · 本条关闭】(a) ✅ **有据** —— OpenClaw 社区付费服务条目命中 ~/.kb/sources/openclaw_official.md, 真实笔记非编造, V37.9.56-hotfix3 血案未复发, blocklist 一字未动 (兑现「证实前不改」)。(b) ❌ **[强证据] 标签结构上不可能有据（已定性）** —— KB 笔记形态是书目表格行 `Hwanjun Song 等 | WSDM | 2026`; jobs/dblp/run_dblp.sh 用 dblp.org/search/publ/api **只取 title+venue**, **DBLP API 不返回摘要/正文/参考文献**, 笔记里的 6 字段中文摘要是 LLM **仅凭标题**生成。故梦境「WSDM2026 论文**直接引用**检索-生成脱节这一工业观察**作为研究动机**」是**两级外推**(笔记已是从标题外推 → 梦境再断言论文引用图), 却贴了系统最强的 [强证据] 标签; 同份梦境 DEEP 段还写着「未发现满足论文显式陈述 A 导致 B 的强证据链」= 两段自相矛盾。🚫 **刻意不建检测器**(留痕防未来 session 重辩): ① 无脆的确定性契约 —— S6 能建是因为五档 emoji 是封闭集合, 而「证据够不够强」须读源材料 = **Layer 2 的活不是 Layer 1 的** ② 为一个来源一个实例新建「来源→证据能力」映射表违反日落法 ③ Layer 2 的 grounding 维度定义就是「事实断言能否在源材料找到支撑」, 本就该抓它。**二阶收益登记**: Layer 2 只在 Layer 1 命中时跑(cheap-path), 今天这份梦境若 S6 已上线, 🏠 会构成 Layer 1 命中 → **Layer 2 被叫起来看这份文档** → [强证据] 才有被语义判定的机会。**S6 的价值不止抓档位错误, 还是把这类文档送进 Layer 2 的门票**。若未来 [强证据] 误用**再现 ≥2 次**才重新评估是否值得建确定性规则 (预注册判据, 镜像 V37.9.214→247 模式)。",
-      "【V37.9.319 KB 覆盖率四舍五入 ✅ dev 闭环 · 剩被动验证】同步后下次 preflight --full 的 KB 索引段: 未全覆盖时不再显示「100%」而是真实值 (如 99.5%), 且不再与「N 个待索引」自相矛盾; 真全覆盖时才出现 100.0%。若出现「覆盖不足 fail」而实际覆盖 >90% = COV_PCT 小数提取回归, 贴我。"
+      "【V37.9.319 KB 覆盖率四舍五入 ✅ dev 闭环 · 剩被动验证】同步后下次 preflight --full 的 KB 索引段: 未全覆盖时不再显示「100%」而是真实值 (如 99.5%), 且不再与「N 个待索引」自相矛盾; 真全覆盖时才出现 100.0%。若出现「覆盖不足 fail」而实际覆盖 >90% = COV_PCT 小数提取回归, 贴我。",
+      "【V37.9.320 对抗审计三面 ✅ dev 全闭环 · 剩 Mac Mini 被动验证 + 1 项运维观察】同步后: (a) full_regression 的「审计日志完整性」行在生产应显示 ✅ (N records); **若某天显示「⚠️ 审计日志不存在」= 盲区解除暴露真事故**（~/.kb/audit.jsonl 被删或从未创建）, 贴我 (b) security_score 报告头多一行范围声明「静态姿态…」, 分数仍 98/100 不变（纯措辞, 未改评分逻辑） (c) expert_escalate 若某次返回新状态 `audit_unavailable` = 审计路径不可写, 说明磁盘/权限问题, **这是设计行为（记不了账就不花钱）非 bug**, 但需修盘。🚫 **刻意未建**: 尾部截断外部锚点机制（AL-1）—— 攻击者同样能删锚点文件, 只抬高门槛不关闭洞, 按日落法如实登记能力边界即可; 若未来审计日志成为对外合规证据（而非内部自查）再重新评估。🚫 **刻意未加**: security_score 运行时探测 —— 会重新引入 V37.9.268 解耦掉的环境敏感, 且「审计是否在工作」职责在 full_regression/preflight/watchdog。留痕防未来 session 重辩。"
     ],
     "open_prs": [],
     "blocked_on": "",
-    "focus": "2026-08-18 收工态: 五交付全部合入或已推 (V37.9.316 data_clean 五连修 / V37.9.317 REDUCE_CHARS 单位标签 / V37.9.318 Observer S6 档位契约检测器 / V37.9.319 KB 覆盖率四舍五入 + 两条 grounding 定性)。V37.9.314(d) 雷达哑炮修复 before/after 硬证据闭环 (20 天全 0 → 修复后首晚 3 次)。当日主线 = fail-plausible 在运维观测面的日常形态: 四个交付形状一致 —— 一个读起来令人安心、几乎正确的数字或标签掩盖真实差距, 四条全部靠**看产品**发现, 无一条被测试或治理抓到 (印证论文头条: ~70% 靠人眼 / 测试治理 ≈0%)。下一 session 优先: (1) 定性 WSDM [强证据] 是否有据 (判据命令已更正) (2) 宪法级 #1 论文 #2 投稿三决策仍待用户 (3) 门控收敛日可继续对抗审计未覆盖面。"
+    "focus": "2026-08-18 收工态: 五交付 (V37.9.316 data_clean 五连修 / 317 单位标签 / 318 Observer S6 档位契约检测器 / 319 KB 覆盖率四舍五入 / 320 对抗审计三面)。当日主线两层: **输出层 fail-plausible**(316-319: 假成功报告/误导单位/发明档位/虚高覆盖率) + **证据与防护机制自身的 fail-plausible**(320: 审计链在日志被删时报 ok / 安全评分在审计不存在时给满分 / 成本配额在记不了账时无限放行)。九条缺陷**全部靠看产品发现, 无一被 6042 测试或 839 治理检查抓到**, 唯一机械化的是 S6。V37.9.314(d) 雷达哑炮修复 before/after 硬证据闭环 (20 天全 0 → 修复后首晚 3 次)。下一 session 优先: (1) 宪法级 #1 论文 #2 投稿三决策仍待用户 (2) 继续对抗审计未覆盖面 (3) 把 316/317/319 三类输出层 fail-plausible 机械化的可行性评估 (S6 之外的 S 规则)。"
   },
   "quality": {
     "security_score": 98,
-    "test_count": 6024,
-    "last_regression": "2026-08-18 03:28 pass",
+    "test_count": 6042,
+    "last_regression": "2026-08-18 04:13 pass",
     "coverage_pct": 0,
     "security_score_time": "2026-07-20 01:07",
-    "test_suites": 179,
+    "test_suites": 180,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
-    "version": "0.37.9.149",
+    "version": "0.37.9.150",
     "observer": {}
   },
   "incidents": [
@@ -370,7 +376,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-08-18 收工态: 五交付全部合入或已推 (V37.9.316 data_clean 五连修 / V37.9.317 REDUCE_CHARS 单位标签 / V37.9.318 Observer S6 档位契约检测器 / V37.9.319 KB 覆盖率四舍五入 + 两条 grounding 定性)。V37.9.314(d) 雷达哑炮修复 before/after 硬证据闭环 (20 天全 0 → 修复后首晚 3 次)。当日主线 = fail-plausible 在运维观测面的日常形态: 四个交付形状一致 —— 一个读起来令人安心、几乎正确的数字或标签掩盖真实差距, 四条全部靠**看产品**发现, 无一条被测试或治理抓到 (印证论文头条: ~70% 靠人眼 / 测试治理 ≈0%)。下一 session 优先: (1) 定性 WSDM [强证据] 是否有据 (判据命令已更正) (2) 宪法级 #1 论文 #2 投稿三决策仍待用户 (3) 门控收敛日可继续对抗审计未覆盖面。",
+  "focus": "2026-08-18 收工态: 五交付 (V37.9.316 data_clean 五连修 / 317 单位标签 / 318 Observer S6 档位契约检测器 / 319 KB 覆盖率四舍五入 / 320 对抗审计三面)。当日主线两层: **输出层 fail-plausible**(316-319: 假成功报告/误导单位/发明档位/虚高覆盖率) + **证据与防护机制自身的 fail-plausible**(320: 审计链在日志被删时报 ok / 安全评分在审计不存在时给满分 / 成本配额在记不了账时无限放行)。九条缺陷**全部靠看产品发现, 无一被 6042 测试或 839 治理检查抓到**, 唯一机械化的是 S6。V37.9.314(d) 雷达哑炮修复 before/after 硬证据闭环 (20 天全 0 → 修复后首晚 3 次)。下一 session 优先: (1) 宪法级 #1 论文 #2 投稿三决策仍待用户 (2) 继续对抗审计未覆盖面 (3) 把 316/317/319 三类输出层 fail-plausible 机械化的可行性评估 (S6 之外的 S 规则)。",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
