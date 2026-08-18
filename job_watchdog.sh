@@ -370,10 +370,20 @@ scan_logs() {
     # 行内含错误关键字的本身就是错误日志（包括 ERROR/FAIL/Traceback/HTTP 4xx/5xx）
     local cutoff_epoch=$(( NOW_EPOCH - 86400 ))
     local cutoff_date  # YYYY-MM-DD 形式的截止日期（含），用于 grep 过滤
+    # V37.9.321 (2026-08-18 告警 triage): 原先只比对**日期字符串** —— 08-18 08:30 时
+    # cutoff_date="2026-08-17" 会把**整个 08-17 全天**纳入窗口(含 03:00), 于是注释写的
+    # 「最近 24h」实际是「从昨天 00:00 起, 最长 48h」。watchdog 每小时跑一次 → 同一条
+    # 错误被重复报约 48 次而非 24 次, 且**已修复的昨日故障今天继续告警**(本次实例:
+    # 三条全是 08-17 的, 而 08-18 03:00 备份已成功)。改用**完整时间戳**比对到真 24h。
+    # 仍用字符串比较(不解析时间): "YYYY-MM-DD HH:MM:SS" 定长零填充, 字典序 == 时序,
+    # 避开 BSD/GNU date 分歧。检出力不减 —— 每小时跑, 24h 内该错误已被报过 ~24 次。
+    local cutoff_full
     if [ "$(uname)" = "Darwin" ]; then
         cutoff_date=$(date -r "$cutoff_epoch" '+%Y-%m-%d')
+        cutoff_full=$(date -r "$cutoff_epoch" '+%Y-%m-%d %H:%M:%S')
     else
         cutoff_date=$(date -d "@$cutoff_epoch" '+%Y-%m-%d')
+        cutoff_full=$(date -d "@$cutoff_epoch" '+%Y-%m-%d %H:%M:%S')
     fi
     local today_date
     if [ "$(uname)" = "Darwin" ]; then
@@ -391,11 +401,19 @@ scan_logs() {
     #   每次 cron 触发都因某 log 含无效 UTF-8 字节 awk 崩溃 → set -e abort → 7 天 silent
     #   failure 累积 (用户 5/12 视角发现). 详 ontology/docs/cases/watchdog_silent_abort_case.md.
     local recent_window
-    recent_window=$(tail -200 "$logfile" 2>/dev/null | LC_ALL=C awk -v cutoff="$cutoff_date" -v today="$today_date" '
+    recent_window=$(tail -200 "$logfile" 2>/dev/null | LC_ALL=C awk -v cutoff="$cutoff_date" -v today="$today_date" -v cutoff_full="$cutoff_full" '
         /\[([0-9]{4}-[0-9]{2}-[0-9]{2})/ {
             if (match($0, /[0-9]{4}-[0-9]{2}-[0-9]{2}/)) {
                 ts_date = substr($0, RSTART, RLENGTH)
-                if (ts_date >= cutoff && ts_date <= today) {
+                # V37.9.321: 优先用完整时间戳比对(真 24h); 行内只有日期没有时刻时
+                # 退回日期比对(保守保留, 宁可多报不可漏报)
+                keep = (ts_date >= cutoff && ts_date <= today)
+                if (keep && match($0, /[0-9]{4}-[0-9]{2}-[0-9]{2}[T ][0-9]{2}:[0-9]{2}:[0-9]{2}/)) {
+                    ts_full = substr($0, RSTART, RLENGTH)
+                    sub(/T/, " ", ts_full)
+                    keep = (ts_full >= cutoff_full)
+                }
+                if (keep) {
                     print
                     in_recent = 1
                 } else {

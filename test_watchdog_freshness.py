@@ -70,6 +70,12 @@ def _run_awk_filter(log_content, today_str=None, cutoff_str=None):
     return proc.stdout.strip()
 
 
+def _read_watchdog():
+    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                           "job_watchdog.sh"), encoding="utf-8") as f:
+        return f.read()
+
+
 class TestTimestampFilter(unittest.TestCase):
     """V37.9.6: line-level timestamp filtering core semantics."""
 
@@ -155,6 +161,88 @@ class TestTimestampFilter(unittest.TestCase):
         self.assertNotIn("stale continuation", result,
                          "Old continuation must be filtered")
         self.assertNotIn("ERROR: stale", result)
+
+
+class TestV37_9_321_TrueTwentyFourHourWindow(unittest.TestCase):
+    """V37.9.321: 窗口从「日期字符串比对」收紧为真 24h（完整时间戳比对）。
+
+    2026-08-18 08:30 告警 triage 实录: 三条告警**全部是 08-17 的**, 且备份那条
+    在 08-18 03:00 已成功。根因 —— 原逻辑比对的是**日期字符串**:
+        cutoff_date = date(now - 86400) = "2026-08-17"
+        keep if ts_date >= cutoff_date
+    → 08-18 08:30 时**整个 08-17 全天**入窗(含 03:00 = 29.5h 前), 于是注释写的
+    「只报最近 24h」实际是「从昨天 00:00 起最长 48h」。watchdog 每小时跑,
+    同一条错误被重复报 ~48 次而非 ~24 次, 且已修复的昨日故障今天继续告警。
+
+    检出力不减: 每小时跑 → 真错误在 24h 内已被报过 ~24 次。
+    """
+
+    # 从 job_watchdog.sh 源码抽真实 awk 程序, 不 hardcode（防守卫-实现漂移）
+    def _awk_program(self):
+        src = _read_watchdog()
+        i = src.index("recent_window=$(tail -200")
+        j = src.index("' 2>/dev/null || true)", i)
+        blk = src[i:j]
+        k = blk.index("awk -v")
+        prog = blk[blk.index("'", k) + 1:]
+        self.assertIn("cutoff_full", prog, "awk 程序未收到完整时间戳截止值")
+        return prog
+
+    def _run(self, log_text, now="2026-08-18 08:30:00"):
+        import subprocess
+        from datetime import datetime, timedelta
+        # 刻意用 Python 算 cutoff 而非 `date -d "<ts> -1 day"` —— 首写本守卫时
+        # 后者被 GNU date 解析成**时区偏移 -01:00** 返回 2026-08-19 09:30:00
+        # (cutoff 跑到未来 → 全部排除 → 输出空 → assertNotIn 型断言假通过)。
+        cutoff = (datetime.strptime(now, "%Y-%m-%d %H:%M:%S")
+                  - timedelta(days=1)).strftime("%Y-%m-%d %H:%M:%S")
+        cutoff_date = cutoff.split()[0]
+        today = now.split()[0]
+        r = subprocess.run(
+            ["awk", "-v", "cutoff=" + cutoff_date, "-v", "today=" + today,
+             "-v", "cutoff_full=" + cutoff, self._awk_program()],
+            input=log_text, capture_output=True, text=True,
+            env={"LC_ALL": "C", "PATH": os.environ.get("PATH", "")})
+        return r.stdout
+
+    LOG = (
+        "[2026-08-17 03:00:01] ERROR: 29.5 小时前的陈旧错误\n"
+        "[2026-08-17 10:59:15] WARN: --output failed\n"
+        "Error: Refusing to overwrite existing backup archive: /x.tar.gz\n"
+        "[2026-08-17 23:00:00] ERROR: 9.5 小时前的真错误\n"
+        "[2026-08-18 03:00:05] OK: backup done\n"
+    )
+
+    def test_stale_beyond_24h_excluded(self):
+        """血案回归: 昨天 03:00 (29.5h 前) 不得再进窗口。"""
+        out = self._run(self.LOG)
+        # 防空转: 输出为空时 assertNotIn 会假通过 (首写本守卫时正因 cutoff 算错
+        # 导致全空而"通过") —— 先断言窗口确实产出了内容
+        self.assertTrue(out.strip(), "awk 输出为空 = 守卫空转, 判据无效")
+        self.assertNotIn("29.5 小时前的陈旧错误", out)
+
+    def test_genuinely_recent_still_included(self):
+        """检出力守卫: 昨天 23:00 (9.5h 前) 必须保留。"""
+        self.assertIn("9.5 小时前的真错误", self._run(self.LOG))
+
+    def test_untimestamped_line_still_inherits(self):
+        """无时间戳行(CLI 直写/Traceback 多行)仍跟随上一行状态, 不得被误丢。"""
+        self.assertIn("Refusing to overwrite", self._run(self.LOG))
+
+    def test_today_lines_kept(self):
+        self.assertIn("OK: backup done", self._run(self.LOG))
+
+    def test_date_only_line_falls_back_to_date_compare(self):
+        """只有日期没有时刻的行: 保守保留(宁可多报不可漏报)。"""
+        out = self._run("[2026-08-17] ERROR: 只有日期的行\n")
+        self.assertIn("只有日期的行", out)
+
+    def test_source_retires_date_only_comparison(self):
+        src = _read_watchdog()
+        self.assertIn("cutoff_full", src)
+        self.assertIn("V37.9.321", src)
+        # 防空转: 完整时间戳正则必须真的在 awk 里
+        self.assertIn("[0-9]{2}:[0-9]{2}:[0-9]{2}", src)
 
 
 class TestWatchdogShellInvariants(unittest.TestCase):
