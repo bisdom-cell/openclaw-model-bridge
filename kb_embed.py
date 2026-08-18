@@ -419,10 +419,20 @@ def verify_coverage():
     # 报告
     coverage_pct = indexed_count / max(total_files, 1) * 100
     char_pct = total_indexed_chars / max(total_source_chars, 1) * 100
+    # V37.9.319: 100% 只能在真的全覆盖时出现 —— `.0f` 会把 ≥99.5% 四舍五入成
+    # "100%"。2026-08-18 实录: preflight --full 打出「KB 索引覆盖 100%（19 个待索引）」
+    # 同句自相矛盾, 而 19 个文件(含一个 11808 字符笔记)确实不在索引里、PA 搜不到,
+    # 要等次日 03:30 cron。操作者读到 100% 的结论是"无事可做"= 四舍五入制造的
+    # 假安心 (同 V37.9.288「坏了≠没结果」/ V37.9.317 单位标签 同族)。
+    # preflight 正是拿这个数字判 KB 健康 (≥90 → warn 而非 fail), 不能让它虚高。
+    if indexed_count < total_files:
+        coverage_pct = min(coverage_pct, 99.9)
+    if total_indexed_chars < total_source_chars:
+        char_pct = min(char_pct, 99.9)
 
     print(f"🔍 KB 索引覆盖率验证")
-    print(f"   文件覆盖: {indexed_count}/{total_files} ({coverage_pct:.0f}%)")
-    print(f"   字符覆盖: {total_indexed_chars:,}/{total_source_chars:,} ({char_pct:.0f}%)")
+    print(f"   文件覆盖: {indexed_count}/{total_files} ({coverage_pct:.1f}%)")
+    print(f"   字符覆盖: {total_indexed_chars:,}/{total_source_chars:,} ({char_pct:.1f}%)")
     print(f"   过期索引: {stale_count}")
     print(f"   向量一致: {'✅' if vec_ok else '❌'}")
     print(f"   总 chunks: {len(chunks)}")

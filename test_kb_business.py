@@ -18,6 +18,63 @@ import hashlib
 class TestKbEmbedLogic(unittest.TestCase):
     """kb_embed.py 核心逻辑"""
 
+    def test_v37_9_319_coverage_never_rounds_up_to_100(self):
+        """V37.9.319: 100% 只能在真的全覆盖时出现。
+
+        2026-08-18 preflight --full 实录: 「KB 索引覆盖 100%（19 个待索引）」同句
+        自相矛盾 —— `{pct:.0f}` 把 ≥99.5% 四舍五入成 100%, 而那 19 个文件(含一个
+        11808 字符笔记)确实不在索引里、PA 搜不到, 要等次日 03:30 cron。操作者读到
+        100% 的结论是"无事可做" = 四舍五入制造的假安心。preflight 正是拿这个数字
+        判 KB 健康 (≥90 → warn 而非 fail), 不能让它虚高。
+        """
+        with open("kb_embed.py", encoding="utf-8") as f:
+            src = f.read()
+        # 未全覆盖时必须钳位, 不得让 .0f 进位到 100
+        self.assertIn("if indexed_count < total_files:", src)
+        self.assertIn("coverage_pct = min(coverage_pct, 99.9)", src)
+        self.assertIn("if total_indexed_chars < total_source_chars:", src)
+        self.assertIn("char_pct = min(char_pct, 99.9)", src)
+        # 退役 .0f (一位小数才能让 99.9 与 100.0 可区分)
+        self.assertNotIn("({coverage_pct:.0f}%)", src)
+        self.assertNotIn("({char_pct:.0f}%)", src)
+        self.assertIn("({coverage_pct:.1f}%)", src)
+
+    def test_v37_9_319_clamp_arithmetic(self):
+        """行为级: 复现钳位算术 (源码是 verify() 内联, 此处验证不变式本身)。"""
+        def clamp(indexed, total):
+            pct = indexed / max(total, 1) * 100
+            if indexed < total:
+                pct = min(pct, 99.9)
+            return f"{pct:.1f}"
+        # 两个机制各管一段, 分别断言:
+        # (1) .1f 管 99.5~99.94 —— 血案场景 3800 文件 19 未索引 = 99.5%,
+        #     旧 `.0f` 进位成 "100%" (2026-08-18 实录), 现忠实显示 99.5
+        self.assertEqual(clamp(3781, 3800), "99.5")
+        self.assertEqual(f"{3781/3800*100:.0f}", "100")   # 反向: 证旧格式确会进位
+        # (2) 钳位管 >99.94 —— 仅 1 个未索引时 .1f 仍会进位到 100.0, 钳到 99.9
+        self.assertEqual(clamp(3999, 4000), "99.9")
+        self.assertEqual(f"{3999/4000*100:.1f}", "100.0")  # 反向: 证不钳位会进位
+        # 真全覆盖才允许 100.0
+        self.assertEqual(clamp(3800, 3800), "100.0")
+        # 低覆盖不受影响
+        self.assertEqual(clamp(2000, 3800), "52.6")
+
+    def test_v37_9_319_preflight_extracts_decimal_pct(self):
+        """preflight 的 COV_PCT 提取必须容忍一位小数 (否则 99.9% 抽出空 → 落 0 → 误 fail)。"""
+        import re
+        with open("preflight_check.sh", encoding="utf-8") as f:
+            pf = f.read()
+        self.assertIn(r"[0-9]+(\.[0-9]+)?%", pf)
+        self.assertNotIn("KB 索引 100% 覆盖", pf)   # 退役硬编码 100% 文案
+        # 行为: 用脚本里的同款模式抽整数部分
+        pat = re.compile(r"[0-9]+(?:\.[0-9]+)?%")
+        for text, want in (("文件覆盖: 3781/3800 (99.9%)", "99"),
+                           ("文件覆盖: 3800/3800 (100.0%)", "100"),
+                           ("文件覆盖: 2000/3800 (52.6%)", "52")):
+            m = pat.search(text)
+            self.assertIsNotNone(m, text)
+            self.assertEqual(re.match(r"^[0-9]+", m.group(0)).group(0), want)
+
     def test_python_syntax(self):
         result = subprocess.run(
             [sys.executable, "-c", "import ast; ast.parse(open('kb_embed.py').read())"],

@@ -899,13 +899,17 @@ if $FULL_MODE; then
         STALE=$(echo "$VERIFY_OUT" | grep -o '过期索引.*' | head -1 || true)
 
         if [ $VERIFY_RC -eq 0 ]; then
-            pass "KB 索引 100% 覆盖 ($FILE_COV, $CHUNKS)"
+            # V37.9.319: 原文案硬编码 "100%" 而不用实测值 —— 与 kb_embed 的
+            # 四舍五入问题同源 (声称的数字 ≠ 测到的数字)。改用 $FILE_COV 实测。
+            pass "KB 索引全覆盖 ($FILE_COV, $CHUNKS)"
         else
             ISSUE_COUNT=$(echo "$VERIFY_OUT" | grep -c "❌\|⚠️" 2>/dev/null || echo "0")
             # V37.8.1: 用覆盖率百分比判断——kb_embed 每天 03:30 跑一次，
             # 33 个 cron job 白天持续产出，到晚上 23:00 自然累积 ~36 个未索引文件
             # （约 90% 覆盖率），这是正常节奏。<90% 才说明 cron 可能故障。
-            COV_PCT=$(echo "$FILE_COV" | grep -oE '[0-9]+%' | grep -oE '[0-9]+')
+            # V37.9.319: 覆盖率现为一位小数 (99.9%), 提取需容忍小数点;
+            # 取整数部分供 -ge 比较 (shell 无浮点比较)。
+            COV_PCT=$(echo "$FILE_COV" | grep -oE '[0-9]+(\.[0-9]+)?%' | grep -oE '^[0-9]+')
             COV_PCT=${COV_PCT:-0}
             if [ "$COV_PCT" -ge 90 ]; then
                 warn "KB 索引覆盖 ${COV_PCT}%（${ISSUE_COUNT} 个待索引，下次 kb_embed cron 自动补齐）"
