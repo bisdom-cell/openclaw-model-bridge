@@ -47,6 +47,20 @@ DATE_PATTERNS = [
 
 PLACEHOLDER_VALUES = {"n/a", "na", "null", "none", "undefined", "tbd", "-", "--", ""}
 
+# V37.9.316（对抗审计 DC-1 血案）: 测试数据关键词。原实现把关键词当子串匹配整行
+# 拼接文本 → BARCELONA(bar) / Latest(test) / Protest(test) / TEMPE(temp) 一类真实
+# 业务行被当测试数据删除（实测 7 行样本删掉 6 行），而渲染层只报
+# 「✓ remove_test（删除 6 行）」= fail-plausible 静默数据丢失。
+# ASCII 关键词改词边界匹配；CJK 无词边界概念保持子串。
+# 词边界用显式字符类 lookaround 而非 \b —— \b 依赖 \w，而 Python 的 \w 含 CJK，
+# "订单bar" 用 \b 反而不成立（两侧都是 \w）。
+_TEST_KEYWORDS_ASCII = ("test", "debug", "tmp", "temp", "foo", "bar")
+_TEST_KEYWORDS_CJK = ("测试", "请忽略")
+_TEST_KEYWORD_RE = {
+    kw: re.compile(r"(?<![a-z0-9])" + kw + r"(?![a-z0-9])")
+    for kw in _TEST_KEYWORDS_ASCII
+}
+
 # 支持的文件格式
 SUPPORTED_FORMATS = {"csv", "tsv", "json", "jsonl", "xlsx"}
 
@@ -722,6 +736,10 @@ def op_dedup_near(headers, rows, args):
         "rows_before": original_count,
         "rows_after": len(deduped),
         "rows_removed": removed,
+        # V37.9.316（DC-4）: 首列被当 ID 却从不披露 —— 首列是日期的表会把
+        # 「同客户同金额不同日期」的第二笔真实订单删掉而用户看不出键了哪列。
+        # find_duplicates 早已披露 matching_fields, 此处补齐（一物一形）。
+        "id_column": headers[0],
     }
 
 
@@ -743,14 +761,21 @@ def op_fix_dates(headers, rows, args):
         col for col in headers
         if detect_column_type([r[col] for r in rows]) == "datetime"
     ]
+    # V37.9.316（DC-3）: 请求的列不存在时原实现静默 continue → 结果是
+    # dates_fixed=0 且无任何错误标记, 渲染成「✓ fix_dates」。LLM 猜错列名
+    # （大小写/近似名）时用户以为清洗成功。生产端补上 skipped/missing_columns,
+    # V37.9.288 已建好的消费端渲染才有东西可渲染。
+    missing_cols = [c for c in target_cols if c not in headers]
+    applied_cols = [c for c in target_cols if c in headers]
 
     total_fixed = 0
     unfixable = []
 
-    for col in target_cols:
-        if col not in headers:
-            continue
-        for r in rows:
+    for col in applied_cols:
+        # V37.9.316（DC-2）: 原用 rows.index(r) 定位坏行 —— dict 相等比较让
+        # 内容相同的重复行返回首个下标（同一行号报两次、真坏行永不出现）,
+        # 且嵌套循环内 O(n²)。改 enumerate。
+        for idx, r in enumerate(rows):
             val = r[col].strip()
             if not val or val.lower() in PLACEHOLDER_VALUES:
                 continue
@@ -777,14 +802,19 @@ def op_fix_dates(headers, rows, args):
                 r[col] = parsed.strftime("%Y-%m-%d")
                 total_fixed += 1
             else:
-                unfixable.append({"row": rows.index(r) + 2, "column": col, "value": val})
+                unfixable.append({"row": idx + 2, "column": col, "value": val})
 
-    return rows, {
+    result = {
         "operation": "fix_dates",
-        "columns": target_cols,
+        "columns": applied_cols,
         "dates_fixed": total_fixed,
         "unfixable": unfixable[:10],
     }
+    if missing_cols:
+        result["missing_columns"] = missing_cols
+        if not applied_cols:
+            result["skipped"] = "指定的列都不存在: " + ", ".join(missing_cols)
+    return rows, result
 
 
 def op_fix_case(headers, rows, args):
@@ -793,17 +823,25 @@ def op_fix_case(headers, rows, args):
     if not target_cols:
         return rows, {"operation": "fix_case", "skipped": "未指定目标列"}
 
+    # V37.9.316（DC-3）: 同 op_fix_dates —— 列不存在曾静默 0 改动伪装成功。
+    missing_cols = [c for c in target_cols if c not in headers]
+    applied_cols = [c for c in target_cols if c in headers]
+
     changes = 0
-    for col in target_cols:
-        if col not in headers:
-            continue
+    for col in applied_cols:
         for r in rows:
             lower = r[col].strip().lower()
             if lower != r[col]:
                 r[col] = lower
                 changes += 1
 
-    return rows, {"operation": "fix_case", "columns": target_cols, "cells_changed": changes}
+    result = {"operation": "fix_case", "columns": applied_cols,
+              "cells_changed": changes}
+    if missing_cols:
+        result["missing_columns"] = missing_cols
+        if not applied_cols:
+            result["skipped"] = "指定的列都不存在: " + ", ".join(missing_cols)
+    return rows, result
 
 
 def op_fill_missing(headers, rows, args):
@@ -821,16 +859,37 @@ def op_fill_missing(headers, rows, args):
     return rows, {"operation": "fill_missing", "marker": marker, "cells_marked": changes}
 
 
+def _match_test_keyword(row, headers):
+    """返回 (关键词, 命中列) 或 (None, None)。V37.9.316: 词边界匹配, 见常量段血案注释."""
+    for h in headers:
+        cell = str(row.get(h, "")).lower()
+        if not cell:
+            continue
+        for kw in _TEST_KEYWORDS_CJK:
+            if kw in cell:
+                return kw, h
+        for kw, rx in _TEST_KEYWORD_RE.items():
+            if rx.search(cell):
+                return kw, h
+    return None, None
+
+
 def op_remove_test(headers, rows, args):
-    """移除疑似测试数据行"""
-    test_keywords = {"test", "测试", "请忽略", "debug", "tmp", "temp", "foo", "bar"}
+    """移除疑似测试数据行（词边界匹配 + 命中明细可审计, V37.9.316）"""
     original_count = len(rows)
     cleaned = []
     removed_rows = []
+    removed_details = []
+    keyword_hits = {}
     for i, r in enumerate(rows):
-        row_text = " ".join(r.values()).lower()
-        if any(kw in row_text for kw in test_keywords):
+        kw, col = _match_test_keyword(r, headers)
+        if kw:
             removed_rows.append(i + 2)
+            keyword_hits[kw] = keyword_hits.get(kw, 0) + 1
+            # 删行必须可审计: 关键词表天然有歧义（"bar" 既是 foobar 占位符也是
+            # 压力单位/地名前缀）, 披露命中词与列让用户能发现误删并按版本快照回滚。
+            if len(removed_details) < 10:
+                removed_details.append({"row": i + 2, "column": col, "keyword": kw})
         else:
             cleaned.append(r)
 
@@ -839,6 +898,8 @@ def op_remove_test(headers, rows, args):
         "rows_before": original_count,
         "rows_after": len(cleaned),
         "removed_rows": removed_rows,
+        "removed_details": removed_details,
+        "keyword_hits": keyword_hits,
     }
 
 
@@ -850,7 +911,10 @@ OPERATIONS = {
     "fix_dates": {"fn": op_fix_dates, "desc": "统一日期格式为 YYYY-MM-DD", "risk": "medium"},
     "fix_case": {"fn": op_fix_case, "desc": "统一大小写", "risk": "low"},
     "fill_missing": {"fn": op_fill_missing, "desc": "标记缺失值", "risk": "low"},
-    "remove_test": {"fn": op_remove_test, "desc": "移除测试数据", "risk": "medium"},
+    "remove_test": {"fn": op_remove_test,
+                    "desc": "移除疑似测试数据（词边界匹配 "
+                            "test/debug/tmp/temp/foo/bar/测试/请忽略，结果含命中明细）",
+                    "risk": "medium"},
 }
 
 
@@ -892,6 +956,16 @@ def cmd_execute(filepath, operations, op_args=None):
         step = len(results) + 1
         version_file = save_version(filepath, headers, current_rows, f"v{step}_{op_name}")
         op_result["version_file"] = os.path.basename(version_file)
+
+        # V37.9.316（DC-5）: 前序操作删行后, 本步报的行号是「本步输入」的位置,
+        # 与原文件行号不同（默认链 trim,dedup,fix_dates 即触发: 坏日期在原文件
+        # 第 4 行, 报告写第 3 行 —— 那是一条已被删掉的干净重复行）。精确回映射
+        # 需逐行身份追踪 = 新机制, 按日落法只做诚实标注不建机制。
+        if rows_before != len(rows) and (
+                op_result.get("unfixable") or op_result.get("removed_rows")):
+            op_result["row_numbers_relative_to"] = (
+                "本步输入（前序操作已删除 %d 行，与原文件行号不同）"
+                % (len(rows) - rows_before))
 
         results.append(op_result)
 
