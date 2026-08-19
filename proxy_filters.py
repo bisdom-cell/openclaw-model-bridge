@@ -1456,24 +1456,19 @@ class ProxyStats:
             "count": n,
         }
 
-    def get_slo_status(self) -> dict:
-        """评估当前 SLO 达标情况。"""
-        with self._lock:
-            lp = self.get_latency_percentiles()
-            total = self.total_requests or 1
-            tool_total = self.tool_calls_total or 1
-            streaks = self._failure_streaks or 1
-
-            return {
-                "latency_p95_ms": lp["p95"],
-                "latency_p95_ok": lp["p95"] <= _CFG_CONTEXT_LIMIT,  # placeholder, use SLO
-                "tool_success_rate_pct": round(self.tool_calls_success * 100 / tool_total, 1),
-                "degradation_rate_pct": round(self.fallback_count * 100 / total, 1),
-                "timeout_rate_pct": round(self.errors_by_type["timeout"] * 100 / total, 1),
-                "auto_recovery_rate_pct": round(self._recovery_total * 100 / streaks, 1) if self._failure_streaks > 0 else 100.0,
-                "errors_by_type": dict(self.errors_by_type),
-                "latency_percentiles": lp,
-            }
+    # V37.9.322 (对抗审计 F2, 日落法 #34): `get_slo_status()` 已退役。
+    # 三条理由:
+    #   (1) 零生产消费者 —— 全仓 grep 只命中它自己的定义与一个单测 (该单测已演进到
+    #       活路径 get_stats_dict()["slo"], 覆盖不减)。
+    #   (2) 它是 SLO 计算的**第三份拷贝** (活写点是 _write_stats 与 get_stats_dict),
+    #       且已与二者漂移 —— 缺 V37.9.229 补的原始计数字段
+    #       (tool_calls_success/fallback_count/recovery_total/failure_streaks)。
+    #       MR-8 copy-paste-is-a-bug-class。
+    #   (3) 它内含一个错单位的健康布尔: `latency_p95_ok = lp["p95"] <= CONTEXT_LIMIT`
+    #       —— 拿**毫秒**比**上下文 token 上限**, 注释自称 "placeholder, use SLO" 但
+    #       从未被替换。inert (无消费者) 却是一个等着被接线的 fail-plausible:
+    #       任何人日后 wire 它, 拿到的是一个读起来像健康标志的无意义比较。
+    # 退役而非修 placeholder = 日落法默认动作 (加之前先问能否退役)。
 
     def pop_alerts(self) -> list:
         """取出并清空待发送告警。"""

@@ -313,16 +313,26 @@ class TestProxyStatsSLO(unittest.TestCase):
         self.assertEqual(ps._recovery_total, 1)
         self.assertEqual(ps.consecutive_errors, 0)
 
-    def test_get_slo_status(self):
+    def test_slo_fields_on_live_producer_path(self):
+        """V37.9.322: 原 test_get_slo_status 测的是零消费者的死方法。
+
+        演进到**活 producer 路径** get_stats_dict()["slo"] —— 即 /stats 端点与
+        _write_stats 真正落盘给 slo_checker / slo_benchmark / slo_dashboard 读的
+        那份数据。覆盖不减反增 (多断言 V37.9.229 的原始计数字段, 死方法从来没有)。
+        """
         ps = self._make_stats()
         ps.record_success({"prompt_tokens": 1000}, latency_ms=500)
         ps.record_tool_call(success=True)
-        status = ps.get_slo_status()
-        self.assertIn("latency_p95_ms", status)
-        self.assertIn("tool_success_rate_pct", status)
-        self.assertIn("timeout_rate_pct", status)
-        self.assertIn("auto_recovery_rate_pct", status)
-        self.assertEqual(status["tool_success_rate_pct"], 100.0)
+        slo = ps.get_stats_dict()["slo"]
+        self.assertIn("latency", slo)
+        self.assertIn("p95", slo["latency"])
+        self.assertIn("tool_success_rate_pct", slo)
+        self.assertIn("timeout_rate_pct", slo)
+        self.assertIn("auto_recovery_rate_pct", slo)
+        self.assertEqual(slo["tool_success_rate_pct"], 100.0)
+        # V37.9.229 原始计数 (消费方判 n/a 的样本域来源, 死方法缺这一组)
+        for k in ("tool_calls_success", "fallback_count", "recovery_total", "failure_streaks"):
+            self.assertIn(k, slo, f"{k} 缺失 → slo_checker/benchmark 无法判样本域")
 
     def test_day_reset_clears_slo(self):
         ps = self._make_stats()

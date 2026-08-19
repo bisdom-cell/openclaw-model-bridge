@@ -14,7 +14,11 @@ from __future__ import annotations
 
 import os
 import sys
+import re
 import unittest
+
+# V37.9.322: _metric 调用必须带显式 direction ('<' 或 '>')
+_METRIC_CALL_RE = r'_metric\(\s*\n?\s*"(\w+)", .*?, "(<|>)", '
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _HERE)
@@ -171,11 +175,28 @@ class TestSourceLevelGuards(unittest.TestCase):
                       "format_alert must read v['direction'] field")
 
     def test_each_metric_declares_direction(self):
-        """check_slo 中每个 results.append 必须包含 'direction':."""
+        """check_slo 中每个 metric 必须显式声明 direction。
+
+        V37.9.322 pin 演进 (V37.9.131 alternation 惯例): dict 构造收进 `_metric()`
+        后 `"direction":` 字面量不再出现在 check_slo 里, 但**意图不变** —— 每个
+        metric 仍逐个显式传 direction (位置参数), 绝不由 format_alert 推断
+        (V37.9.28 F4 血案: 纠缠 if-else 让 3/5 metric 方向显示反了)。
+        故断言演进为: 5 次 _metric 调用 + 每次都带显式 "<" 或 ">"。
+        """
         check_slo_block = self.source[self.source.find("def check_slo"):]
         check_slo_block = check_slo_block[:check_slo_block.find("\ndef ")]
-        self.assertEqual(check_slo_block.count('"direction":'), 5,
-                         "All 5 metrics must declare 'direction' explicitly in check_slo")
+        calls = re.findall(_METRIC_CALL_RE, check_slo_block, re.S)
+        self.assertEqual(len(calls), 5,
+                         f"All 5 metrics must call _metric with explicit direction, got {calls}")
+        names = [c[0] for c in calls]
+        self.assertEqual(sorted(names), sorted([
+            "latency_p95", "tool_success_rate", "degradation_rate",
+            "timeout_rate", "auto_recovery_rate"]))
+        # direction 仍由 _metric 写进结果 dict (format_alert 读的那个字段)
+        metric_block = self.source[self.source.find("def _metric"):]
+        metric_block = metric_block[:metric_block.find("\ndef ")]
+        self.assertIn('"direction": direction', metric_block,
+                      "_metric must persist the explicitly-passed direction")
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 {
-  "updated": "2026-08-18 06:30:02",
-  "updated_by": "claude_code",
+  "updated": "2026-08-19 01:14:46",
+  "updated_by": "full_regression",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-08-19",
+      "what": "V37.9.322 对抗审计 preflight 三条『该报警时打绿』: slo_checker 把从未测量过的指标(0 工具调用/0 失败恢复)当满分计入「SLO 全部达标」——同一份 stats slo_benchmark 报 3/5+2 n/a 而它报 5/5(V37.9.303 修了两个渲染器漏了判定器) / 退役 get_slo_status 死代码(内含毫秒比上下文 token 上限的错单位健康布尔) / preflight 安全扫描 git grep 跑不动时打绿(非 git 目录+目录里真有 sk- key 仍 ✅)。ok 语义与退出码不变=watchdog 噪声零增量。诚实剔除 3 项。33 守卫+sabotage 五连。既有 cross_os_quirk 扫描器抓到我新写的 quirk。VERSION 0.37.9.151→0.37.9.152",
+      "by": "claude_code"
+    },
     {
       "date": "2026-08-18",
       "what": "V37.9.321 watchdog 告警窗口从「最长 48h」收紧为真 24h: 原比对日期字符串 → cutoff_date=昨天 会把整个昨天全天纳入窗口, 注释写「最近 24h」实际最长 48h; watchdog 每小时跑 → 同一错误重复报 ~48 次而非 ~24 次, 已修复的昨日故障今天继续告警。改用完整时间戳字符串比对(定长零填充字典序==时序, 避开 BSD/GNU date 分歧), 只有日期的行退回保守保留。6 守卫从源码抽真实 awk 跑 + 双轮 sabotage(含语义-only 轮证明行为判据 load-bearing)。守卫 helper 自身曾因 `date -d '<ts> -1 day'` 被解析成时区偏移而全空假通过, 已改 Python timedelta + 补防空转。",
@@ -216,8 +221,10 @@
     "security_score": "98/100 (98.0%)",
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB",
     "slo": {
-      "checked_at": "2026-08-18 06:26:31",
+      "checked_at": "2026-08-19 01:12:56",
       "all_ok": true,
+      "judged_count": 1,
+      "na_count": 4,
       "summary": {
         "latency_p95": {
           "value": 0,
@@ -302,7 +309,8 @@
       "【✅ V37.9.318 S6 档位契约检测器 · 两条 grounding 全部定性完毕 · 本条关闭】(a) ✅ **有据** —— OpenClaw 社区付费服务条目命中 ~/.kb/sources/openclaw_official.md, 真实笔记非编造, V37.9.56-hotfix3 血案未复发, blocklist 一字未动 (兑现「证实前不改」)。(b) ❌ **[强证据] 标签结构上不可能有据（已定性）** —— KB 笔记形态是书目表格行 `Hwanjun Song 等 | WSDM | 2026`; jobs/dblp/run_dblp.sh 用 dblp.org/search/publ/api **只取 title+venue**, **DBLP API 不返回摘要/正文/参考文献**, 笔记里的 6 字段中文摘要是 LLM **仅凭标题**生成。故梦境「WSDM2026 论文**直接引用**检索-生成脱节这一工业观察**作为研究动机**」是**两级外推**(笔记已是从标题外推 → 梦境再断言论文引用图), 却贴了系统最强的 [强证据] 标签; 同份梦境 DEEP 段还写着「未发现满足论文显式陈述 A 导致 B 的强证据链」= 两段自相矛盾。🚫 **刻意不建检测器**(留痕防未来 session 重辩): ① 无脆的确定性契约 —— S6 能建是因为五档 emoji 是封闭集合, 而「证据够不够强」须读源材料 = **Layer 2 的活不是 Layer 1 的** ② 为一个来源一个实例新建「来源→证据能力」映射表违反日落法 ③ Layer 2 的 grounding 维度定义就是「事实断言能否在源材料找到支撑」, 本就该抓它。**二阶收益登记**: Layer 2 只在 Layer 1 命中时跑(cheap-path), 今天这份梦境若 S6 已上线, 🏠 会构成 Layer 1 命中 → **Layer 2 被叫起来看这份文档** → [强证据] 才有被语义判定的机会。**S6 的价值不止抓档位错误, 还是把这类文档送进 Layer 2 的门票**。若未来 [强证据] 误用**再现 ≥2 次**才重新评估是否值得建确定性规则 (预注册判据, 镜像 V37.9.214→247 模式)。",
       "【V37.9.319 KB 覆盖率四舍五入 ✅ dev 闭环 · 剩被动验证】同步后下次 preflight --full 的 KB 索引段: 未全覆盖时不再显示「100%」而是真实值 (如 99.5%), 且不再与「N 个待索引」自相矛盾; 真全覆盖时才出现 100.0%。若出现「覆盖不足 fail」而实际覆盖 >90% = COV_PCT 小数提取回归, 贴我。",
       "【V37.9.320 对抗审计三面 ✅ dev 全闭环 · 剩 Mac Mini 被动验证 + 1 项运维观察】同步后: (a) full_regression 的「审计日志完整性」行在生产应显示 ✅ (N records); **若某天显示「⚠️ 审计日志不存在」= 盲区解除暴露真事故**（~/.kb/audit.jsonl 被删或从未创建）, 贴我 (b) security_score 报告头多一行范围声明「静态姿态…」, 分数仍 98/100 不变（纯措辞, 未改评分逻辑） (c) expert_escalate 若某次返回新状态 `audit_unavailable` = 审计路径不可写, 说明磁盘/权限问题, **这是设计行为（记不了账就不花钱）非 bug**, 但需修盘。🚫 **刻意未建**: 尾部截断外部锚点机制（AL-1）—— 攻击者同样能删锚点文件, 只抬高门槛不关闭洞, 按日落法如实登记能力边界即可; 若未来审计日志成为对外合规证据（而非内部自查）再重新评估。🚫 **刻意未加**: security_score 运行时探测 —— 会重新引入 V37.9.268 解耦掉的环境敏感, 且「审计是否在工作」职责在 full_regression/preflight/watchdog。留痕防未来 session 重辩。",
-      "【V37.9.321 watchdog 24h 窗口 ✅ dev 闭环 · 剩被动验证 + 1 项登记不修】(a) 同步后观察: 已修复的昨日故障不应在次日 08:30 继续告警 (本次实例: 08-18 08:30 报的三条全是 08-17 的, 其中备份那条 08-18 03:00 已成功)。真错误 (24h 内) 仍照常告警, 检出力不减 (watchdog 每小时跑, 24h 内已报 ~24 次)。(b) 🚫 **登记不修**: openclaw_backup 同一天重跑时主路径 `--output` 撞 CLI「Refusing to overwrite existing backup archive」→ 落 `Error:` 进日志 → 匹配 err_pattern 告警; 但 **fallback 会成功生成并 mv 成规范名, 备份其实成功** = 「成功伪装成失败」。彻底修法 = 主路径也走「临时名 + mv」(与 fallback 统一, 一物一形), 但动的是备份关键路径且 **dev 无 openclaw CLI 无法端到端验证**; 24h 窗口收紧已把噪声减半。**待真实重复发生 (≥2 次同一天重跑告警) 再做**, 预注册判据镜像 V37.9.214→247 模式。"
+      "【V37.9.321 watchdog 24h 窗口 ✅ dev 闭环 · 剩被动验证 + 1 项登记不修】(a) 同步后观察: 已修复的昨日故障不应在次日 08:30 继续告警 (本次实例: 08-18 08:30 报的三条全是 08-17 的, 其中备份那条 08-18 03:00 已成功)。真错误 (24h 内) 仍照常告警, 检出力不减 (watchdog 每小时跑, 24h 内已报 ~24 次)。(b) 🚫 **登记不修**: openclaw_backup 同一天重跑时主路径 `--output` 撞 CLI「Refusing to overwrite existing backup archive」→ 落 `Error:` 进日志 → 匹配 err_pattern 告警; 但 **fallback 会成功生成并 mv 成规范名, 备份其实成功** = 「成功伪装成失败」。彻底修法 = 主路径也走「临时名 + mv」(与 fallback 统一, 一物一形), 但动的是备份关键路径且 **dev 无 openclaw CLI 无法端到端验证**; 24h 窗口收紧已把噪声减半。**待真实重复发生 (≥2 次同一天重跑告警) 再做**, 预注册判据镜像 V37.9.214→247 模式。",
+      "【V37.9.322 对抗审计 preflight 三条『该报警时打绿』· dev 全闭环 · 剩 Mac Mini 被动验证】合并 + git fetch+reset 同步（slo_checker.py/preflight_check.sh/proxy_filters.py 走 FILE_MAP + 重启 proxy 让 F2 退役生效，虽无行为变化）后观察: (a) bash preflight_check.sh --full 的 19/19 行显示**实测**摘要而非硬编码「SLO 全部达标」——若显示「3/5 达标, 2 项无数据不可判」= 口径修正非退步（生产常态是 0 工具调用 + 0 失败 streak，与 V37.9.315 那次 slo_benchmark 报 2 n/a 一致）(b) 刚重启 proxy 后跑 preflight 会看到 ⚠️「SLO 无数据可判: 0/5 指标有样本」= 盲区解除非新 bug (c) job_watchdog 告警行为**逐字不变**（退出码 0/2 语义未动，n/a 仍 ok=True → 噪声零增量）；若 watchdog 开始对「今天没有工具调用」告警 = 回归，贴我 (d) preflight 9/19 安全扫描若出现「安全扫描无法执行（git grep rc=…）」= 说明 SCRIPT_DIR 没落在仓库里（~/openclaw-model-bridge 缺失/改名），此前这种情况会静默打绿"
     ],
     "open_prs": [],
     "blocked_on": "",
@@ -310,14 +318,14 @@
   },
   "quality": {
     "security_score": 98,
-    "test_count": 6048,
-    "last_regression": "2026-08-18 06:27 pass",
+    "test_count": 6081,
+    "last_regression": "2026-08-19 01:14 pass",
     "coverage_pct": 0,
     "security_score_time": "2026-07-20 01:07",
-    "test_suites": 180,
+    "test_suites": 181,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
-    "version": "0.37.9.151",
+    "version": "0.37.9.152",
     "observer": {}
   },
   "incidents": [
@@ -382,7 +390,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-08-18 收工态: 六交付 (V37.9.316 data_clean 五连修 / 317 单位标签 / 318 Observer S6 档位契约检测器 / 319 KB 覆盖率四舍五入 / 320 对抗审计三面(expert/audit_log/security_score) / 321 watchdog 24h 窗口)。**当日主线三层 fail-plausible**: 输出层(316-319) → 证据与防护机制自身(320: 审计链在日志被删时报 ok / 安全评分在审计不存在时给满分 / 配额在记不了账时无限放行) → 告警呈现层(321: 已修复的昨日故障重复告警到第 48 小时)。**十条缺陷全部靠看产品发现, 无一被 6048 测试或 839 治理检查抓到**, 唯一机械化的是 S6。**当日探针自伤三连**(grep glob 失败 / root 下 chmod 无效 / date -d 时区歧义) —— 探针本身也要验证, 已各自留痕。下一 session 优先: (1) 宪法级 #1 论文 #2 投稿三决策仍待用户 (2) 把输出层 fail-plausible 机械化的可行性评估 (S6 之外的 S 规则) (3) 继续对抗审计未覆盖面。",
+  "focus": "2026-08-19 收工态: V37.9.322 对抗审计 preflight「操作者的眼睛」三条『该报警时打绿』缺陷。F1 slo_checker 不区分「达标」与「无数据可判」(0 次工具调用/0 次失败恢复被当满分通过; 同一份 stats slo_benchmark 报 3/5+2 n/a 而它报 5/5 全部达标 = V37.9.303 修了两个渲染器漏了判定器, 原则 #31) / F2 退役 get_slo_status 死代码(错单位健康布尔: 毫秒比上下文 token 上限) / F3 preflight 安全扫描 git grep 跑不动读作无泄漏(非 git 目录+真 key 仍打 ✅, push 前闸门)。诚实剔除 3 项(staleness 已被 watchdog 覆盖/producer schema 无漂移/E2E 证伪)。33 守卫 + sabotage 五连全开火。下一 session 优先: (1) 论文 #2 投稿三决策仍待用户 (2) 继续对抗审计未覆盖面 (3) 输出层 fail-plausible 机械化可行性评估(S6 之外的 S 规则)",
   "notes": "",
   "preferences": [
     "[auto] 活跃时段 00:00-21:00（2天数据）",
