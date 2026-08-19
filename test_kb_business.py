@@ -64,8 +64,16 @@ class TestKbEmbedLogic(unittest.TestCase):
         import re
         with open("preflight_check.sh", encoding="utf-8") as f:
             pf = f.read()
-        self.assertIn(r"[0-9]+(\.[0-9]+)?%", pf)
-        self.assertNotIn("KB 索引 100% 覆盖", pf)   # 退役硬编码 100% 文案
+        # V37.9.322: 退役断言只看**可执行行** —— 守卫的意图是「preflight 不得再
+        # **打印**这句硬编码断言」, 注释里解释退役历史是合法文档。此前不剥注释,
+        # 于是 V37.9.322 在同文件写「…与 V37.9.319 硬编码「KB 索引 100% 覆盖」
+        # 同一 bug 类」时当场把这条守卫咬红 (V37.9.178 家族)。
+        pf_exec = "".join(l for l in pf.splitlines(keepends=True)
+                          if not l.lstrip().startswith("#"))
+        self.assertIn(r"[0-9]+(\.[0-9]+)?%", pf_exec)
+        self.assertNotIn("KB 索引 100% 覆盖", pf_exec)   # 退役硬编码 100% 文案
+        # 防空转: 剥注释后仍是 preflight 本体
+        self.assertIn("COV_PCT", pf_exec)
         # 行为: 用脚本里的同款模式抽整数部分
         pat = re.compile(r"[0-9]+(?:\.[0-9]+)?%")
         for text, want in (("文件覆盖: 3781/3800 (99.9%)", "99"),

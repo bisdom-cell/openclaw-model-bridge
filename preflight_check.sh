@@ -427,11 +427,40 @@ fi
 echo ""
 echo "📋 9/19 安全扫描"
 
-# API Key 泄漏检查（只扫描 git 跟踪的文件，忽略 .gitignore 排除的本地配置）
-LEAK_SK=$(git grep -n "sk-[A-Za-z0-9]\{15,\}" -- "*.py" "*.sh" "*.md" 2>/dev/null | grep -v "sk-REPLACE-ME" | grep -v "sk-xxxx" || true)
-LEAK_BSA=$(git grep -n "BSA[A-Za-z0-9]\{15,\}" -- "*.py" "*.sh" "*.md" 2>/dev/null | grep -v "BSAxxx" || true)
+# V37.9.322 (对抗审计 F3): 「扫描器跑不动」与「没有匹配」此前不可区分 ——
+# 旧写法 `git grep ... 2>/dev/null | grep -v ... || true` 把 rc=1 (无匹配) 和
+# rc>=2 (不是 git 仓库 / git 缺失 / index 损坏) 一并压成空字符串, 而空字符串被
+# 读作「无泄漏」→ 打绿 ✅。实测: 在非 git 目录跑同一条语句, 目录里明摆着一把
+# sk- key, 仍打印「✅ 无 API Key 泄漏」。这是 push 前的安全闸门, 扫描器失效必须响。
+# 真实触发路径: SCRIPT_DIR 落在 $HOME 且 ~/openclaw-model-bridge 不存在/改名时
+# (脚本顶部 V37.8.3 分支不成立) → cd $HOME → git grep rc=128。
+# 与 V37.9.310「缺工具伪装成否定结果」同族 (那次是 macOS PATH 缺 /sbin 让 mount
+# 找不到, 恒判「未挂载」)。
+# git grep 退出码契约: 0=有匹配 / 1=无匹配 / >=2=执行错误。
+# 三处扫描 (sk / BSA / 手机号) 收编同一 helper = MR-8 copy-paste-is-a-bug-class:
+# 判据只有一处, 未来加第四种扫描自动继承「跑不动要响」。
+# 刻意仍用 git grep 而非 grep -r: 只扫 git 跟踪的文件是**设计选择**
+# (忽略 .gitignore 排除的本地配置, 避免误报), bug 不在选 git grep, 在没区分 rc。
+GG_RC=0
+GG_OUT=""
+git_grep_scan() {
+    GG_OUT=""
+    GG_RC=0
+    GG_OUT=$(git grep -n "$1" -- "*.py" "*.sh" "*.md" 2>/dev/null) || GG_RC=$?
+}
+SCAN_BROKEN=""
 
-if [ -z "$LEAK_SK" ] && [ -z "$LEAK_BSA" ]; then
+# API Key 泄漏检查（只扫描 git 跟踪的文件，忽略 .gitignore 排除的本地配置）
+git_grep_scan "sk-[A-Za-z0-9]\{15,\}"
+if [ "$GG_RC" -ge 2 ]; then SCAN_BROKEN="sk-* 扫描 rc=$GG_RC"; fi
+LEAK_SK=$(echo "$GG_OUT" | grep -v "sk-REPLACE-ME" | grep -v "sk-xxxx" || true)
+git_grep_scan "BSA[A-Za-z0-9]\{15,\}"
+if [ "$GG_RC" -ge 2 ] && [ -z "$SCAN_BROKEN" ]; then SCAN_BROKEN="BSA* 扫描 rc=$GG_RC"; fi
+LEAK_BSA=$(echo "$GG_OUT" | grep -v "BSAxxx" || true)
+
+if [ -n "$SCAN_BROKEN" ]; then
+    fail "安全扫描无法执行（${SCAN_BROKEN}）—— 扫描器失效不等于无泄漏；确认在 git 仓库根目录运行且 git 可用"
+elif [ -z "$LEAK_SK" ] && [ -z "$LEAK_BSA" ]; then
     pass "无 API Key 泄漏"
 else
     fail "检测到可能的 API Key 泄漏！"
@@ -441,8 +470,11 @@ fi
 
 # 真实手机号检查（排除占位号，只扫描 git 跟踪的文件）
 # V37.9.85: +85200000001 是 governance_ontology.yaml 内嵌单测 fixture (非泄漏)
-LEAK_PHONE=$(git grep -n "+852[0-9]\{8\}" -- "*.py" "*.sh" "*.md" 2>/dev/null | grep -v "+85200000000\|+85200000001" || true)
-if [ -z "$LEAK_PHONE" ]; then
+git_grep_scan "+852[0-9]\{8\}"
+LEAK_PHONE=$(echo "$GG_OUT" | grep -v "+85200000000\|+85200000001" || true)
+if [ "$GG_RC" -ge 2 ]; then
+    fail "手机号扫描无法执行（git grep rc=${GG_RC}）—— 扫描器失效不等于无泄漏"
+elif [ -z "$LEAK_PHONE" ]; then
     pass "无真实手机号泄漏"
 else
     fail "检测到真实手机号！"
@@ -988,9 +1020,17 @@ if $FULL_MODE; then
         # V37.9.67: cmd_and_or_chain → if-then-else (INV-CROSS-OS-001)
         if SLO_OUT=$(python3 "$SLO_SCRIPT" --alert 2>&1); then SLO_RC=0; else SLO_RC=$?; fi
         if [ $SLO_RC -eq 0 ]; then
-            pass "SLO 全部达标"
+            # V37.9.322 (对抗审计 F1): 打印 slo_checker 的**实测**摘要, 不再硬编码
+            # 「SLO 全部达标」—— 同文件 V37.9.319 硬编码「KB 索引 100% 覆盖」同一
+            # bug 类 (声称的数字 ≠ 测到的数字)。摘要形如
+            # 「SLO 3/5 达标, 2 项无数据不可判 (tool_success_rate=无工具调用, ...)」。
+            pass "${SLO_OUT:-SLO 全部达标}"
         elif [ $SLO_RC -eq 2 ]; then
             warn "SLO 有违规: $(echo "$SLO_OUT" | head -5)"
+        elif [ $SLO_RC -eq 3 ]; then
+            # V37.9.322: 无数据可判 ≠ 达标 (镜像 V37.9.320 审计日志
+            # 「⚠️ 无可校验, 非『已验证通过』」)。刚重启的 proxy 会落在这里。
+            warn "$SLO_OUT"
         else
             warn "SLO 检查异常: $SLO_OUT"
         fi
