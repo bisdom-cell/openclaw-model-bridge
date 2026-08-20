@@ -6,10 +6,18 @@ preference_learner.py — 用户偏好自动学习器（V30.4）
 不依赖 LLM，不读取用户消息内容（隐私安全）。
 
 数据源：
-  1. proxy log → 活跃时段、互动频率、响应时间敏感度
+  1. proxy log → 活跃时段（最小连续窗口）
   2. proxy log → 工具使用模式（常用/从不用）
   3. KB notes/tags → 关注领域
-  4. status.json feedback → 反馈倾向
+
+V37.9.323 对抗审计（本模块此前零单测、从未被审，却每天 07:30 写进 PA 宪法级 prompt）：
+  退役 analyze_feedback  —— 它把 feedback[0]（数组是 append 序 = 最老的一条）标成"最新"，
+    并 json.dumps(...)[:50] 硬截断 → 产出不闭合的 JSON 残片进 SOUL.md；且"提交了几条反馈"
+    是状态事实不是偏好（status.json 自己的 feedback 段已展示）。
+  退役 analyze_interaction_style —— 它统计的 `TEXT: N chars` 是 **assistant 自己回复**的
+    长度（tool_proxy.py 从后端 assistant message 记的），却据此断言"用户偏好简洁回复"并
+    写进"必须遵守"清单 → 模型照自己过去的输出给自己下指令 = 自我强化回路，且全程没有
+    测量过用户的任何东西。
 
 用法：
   python3 preference_learner.py              # 分析并展示（不写入）
@@ -21,6 +29,8 @@ preference_learner.py — 用户偏好自动学习器（V30.4）
   - 只分析行为数据，不分析消息内容（隐私）
   - 自动偏好标记 [auto]，显式偏好标记 [user]，互不覆盖
   - 置信度阈值：只写入有足够数据支撑的偏好
+  - **诚实边界**：本模块产出的是【系统观察】不是【用户指令】。kb_status_refresh.sh 把
+    [auto] 条目渲染在"系统观察（供参考）"段，只有用户显式偏好进"必须遵守"段。
 """
 import argparse
 import json
@@ -38,9 +48,15 @@ KB_SOURCES_DIR = os.path.expanduser("~/.kb/sources")
 KB_INDEX = os.path.expanduser("~/.kb/index.json")
 
 # 偏好生成的最小数据量阈值
-MIN_REQUESTS = 10       # 至少 10 次请求才分析互动模式
+MIN_REQUESTS = 10       # 至少 10 次请求才分析活跃时段（INV-JOB-PREFLEARN-001 的实际兑现点）
 MIN_TOOL_CALLS = 5      # 至少 5 次工具调用才分析工具偏好
 MIN_KB_NOTES = 10       # 至少 10 条笔记才分析领域偏好
+
+# 活跃时段可报告的最大跨度：窗口超过半天等于"全天都活跃"= 零信息，宁可不报
+# （V37.9.323：旧实现取"高频小时集合的 min..max"而非连续窗口，00 点和 20 点两簇流量
+#   会被报成"活跃时段 00:00-21:00"—— 生产 status.json 里就是这一条）
+MAX_ACTIVE_SPAN_HOURS = 12
+ACTIVE_COVERAGE = 0.8   # 连续窗口需覆盖的请求占比
 
 
 def parse_proxy_log(log_path, days=7):
@@ -71,9 +87,39 @@ def parse_proxy_log(log_path, days=7):
     return entries
 
 
+def smallest_active_window(hour_counts, coverage=ACTIVE_COVERAGE):
+    """覆盖 >= coverage 比例请求的【最小连续小时窗口】(环形, 跨午夜合法)。
+
+    返回 (start_hour, span_hours) 或 None。纯函数, 可单测。
+
+    V37.9.323 血案: 旧实现按频次降序取小时【集合】再报 min..max, 集合不必连续 ——
+    00 点与 20 点两簇流量被报成 "活跃时段 00:00-21:00"(21 小时跨度, 其中 19 小时零请求),
+    而这句话是以"用户偏好"的身份进 PA 宪法 prompt 的。
+    """
+    total = sum(hour_counts.values())
+    if total <= 0:
+        return None
+    need = total * coverage
+    best = None
+    for start in range(24):
+        running = 0
+        for span in range(1, 25):
+            running += hour_counts.get((start + span - 1) % 24, 0)
+            if running >= need:
+                if best is None or span < best[1]:
+                    best = (start, span)
+                break
+    return best
+
+
 def analyze_activity(entries):
-    """分析活跃时段。"""
+    """分析活跃时段（最小连续窗口；样本不足或窗口退化为"几乎全天"时不报）。"""
     if not entries:
+        return None
+
+    # INV-JOB-PREFLEARN-001 的实际兑现点: 旧代码 MIN_REQUESTS 只守 analyze_interaction_style,
+    # 而最显眼的活跃时段【完全无样本门】—— 治理的 file_contains 检查照样过 (V37.9.320 家族)。
+    if len(entries) < MIN_REQUESTS:
         return None
 
     hours = Counter()
@@ -85,49 +131,16 @@ def analyze_activity(entries):
     if len(days_seen) < 2:
         return None
 
-    # 找活跃区间（占 80% 请求的最小连续小时区间）
-    total = sum(hours.values())
-    sorted_hours = sorted(hours.items(), key=lambda x: -x[1])
-    active_hours = []
-    running = 0
-    for h, c in sorted_hours:
-        active_hours.append(h)
-        running += c
-        if running >= total * 0.8:
-            break
+    win = smallest_active_window(hours)
+    if win is None:
+        return None
+    start, span = win
+    if span > MAX_ACTIVE_SPAN_HOURS:
+        # "活跃时段 00:00-21:00" 这类零信息断言不进 PA 上下文
+        return None
 
-    active_hours.sort()
-    if active_hours:
-        start = active_hours[0]
-        end = active_hours[-1]
-        return f"活跃时段 {start:02d}:00-{end + 1:02d}:00（{len(days_seen)}天数据）"
-    return None
-
-
-def analyze_interaction_style(entries):
-    """分析互动风格（通过响应特征推断）。"""
-    text_sizes = []
-    token_counts = []
-
-    for e in entries:
-        # TEXT: 419 chars
-        m = re.match(r'TEXT:\s+(\d+)\s+chars', e["line"])
-        if m:
-            text_sizes.append(int(m.group(1)))
-        # TOKENS: prompt=10226 total=10457
-        m = re.match(r'TOKENS:\s+prompt=([0-9,]+)\s+total=([0-9,]+)', e["line"])
-        if m:
-            token_counts.append(int(m.group(1).replace(",", "")))
-
-    prefs = []
-    if len(text_sizes) >= MIN_REQUESTS:
-        avg_text = sum(text_sizes) / len(text_sizes)
-        if avg_text < 200:
-            prefs.append("用户偏好简洁回复（平均响应 <200 字）")
-        elif avg_text > 800:
-            prefs.append("用户偏好详细回复（平均响应 >800 字）")
-
-    return prefs
+    end = (start + span) % 24
+    return f"活跃时段 {start:02d}:00-{end:02d}:00（{len(days_seen)}天数据）"
 
 
 def analyze_tool_usage(entries):
@@ -167,7 +180,10 @@ def analyze_kb_interests(notes_dir, index_path, days=7):
                     if ts < cutoff:
                         continue
                 except (ValueError, TypeError):
-                    pass
+                    # V37.9.323: 旧代码 `pass` 会让【无 date / date 格式不符】的条目
+                    # 绕过窗口过滤照样计入 —— 400 天前的条目能被报成"最近 7 天关注领域"。
+                    # 不能从没有日期的条目推断"最近的关注", 排除。
+                    continue
                 for tag in entry.get("tags", []):
                     tags[tag] += 1
         except (json.JSONDecodeError, OSError):
@@ -198,21 +214,6 @@ def analyze_kb_interests(notes_dir, index_path, days=7):
     return []
 
 
-def analyze_feedback(status_path):
-    """分析 status.json 中的反馈倾向。"""
-    try:
-        with open(status_path) as f:
-            data = json.load(f)
-    except (OSError, json.JSONDecodeError):
-        return []
-
-    feedback = data.get("feedback", [])
-    if not feedback:
-        return []
-
-    return [f"用户已提交 {len(feedback)} 条反馈，最新: {feedback[0] if isinstance(feedback[0], str) else json.dumps(feedback[0], ensure_ascii=False)[:50]}"]
-
-
 def run_analysis(days=7):
     """运行全部分析，返回自动发现的偏好列表。"""
     entries = parse_proxy_log(PROXY_LOG, days)
@@ -224,19 +225,13 @@ def run_analysis(days=7):
     if activity:
         preferences.append(activity)
 
-    # 2. 互动风格
-    preferences.extend(analyze_interaction_style(entries))
-
-    # 3. 工具使用
+    # 2. 工具使用
     preferences.extend(analyze_tool_usage(entries))
 
-    # 4. KB 关注领域
+    # 3. KB 关注领域
     preferences.extend(analyze_kb_interests(KB_NOTES_DIR, KB_INDEX, days))
 
-    # 5. 反馈倾向
-    from status_update import STATUS_FILE
-    preferences.extend(analyze_feedback(STATUS_FILE))
-
+    # V37.9.323 退役: 互动风格(循环推断) + 反馈倾向(截断 JSON + 最老当最新), 见头部注释
     return preferences
 
 

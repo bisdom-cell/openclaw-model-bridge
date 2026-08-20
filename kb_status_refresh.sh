@@ -230,9 +230,19 @@ except Exception:
 lines = []
 
 prefs = s.get("preferences", [])
-if prefs:
+# V37.9.323: [auto] 是 preference_learner 的【系统观察】, 不是用户下达的指令。
+# 旧渲染把两者一起塞进"必须遵守"清单 → PA 被要求"遵守"诸如"常用工具：read(10次)"
+# 这类统计事实, 而其中一条(互动风格)还是从 PA 自己的回复长度反推出来的(已退役)。
+user_prefs = [p for p in prefs if not str(p).startswith("[auto] ")]
+auto_obs = [p for p in prefs if str(p).startswith("[auto] ")]
+if user_prefs:
     lines.append("**用户偏好（必须遵守）：**")
-    for p in prefs:
+    for p in user_prefs:
+        lines.append(f"- {p}")
+    lines.append("")
+if auto_obs:
+    lines.append("**系统观察（供参考，非用户指令）：**")
+    for p in auto_obs:
         lines.append(f"- {p}")
     lines.append("")
 

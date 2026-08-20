@@ -1,6 +1,6 @@
 {
-  "updated": "2026-08-19 01:14:46",
-  "updated_by": "full_regression",
+  "updated": "2026-08-20 04:56:49",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -221,7 +221,7 @@
     "security_score": "98/100 (98.0%)",
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB",
     "slo": {
-      "checked_at": "2026-08-19 01:12:56",
+      "checked_at": "2026-08-20 00:15:50",
       "all_ok": true,
       "judged_count": 1,
       "na_count": 4,
@@ -319,7 +319,7 @@
   "quality": {
     "security_score": 98,
     "test_count": 6081,
-    "last_regression": "2026-08-19 01:14 pass",
+    "last_regression": "2026-08-20 00:24 pass",
     "coverage_pct": 0,
     "security_score_time": "2026-07-20 01:07",
     "test_suites": 181,
@@ -393,10 +393,8 @@
   "focus": "2026-08-19 收工态: V37.9.322 对抗审计 preflight「操作者的眼睛」三条『该报警时打绿』缺陷。F1 slo_checker 不区分「达标」与「无数据可判」(0 次工具调用/0 次失败恢复被当满分通过; 同一份 stats slo_benchmark 报 3/5+2 n/a 而它报 5/5 全部达标 = V37.9.303 修了两个渲染器漏了判定器, 原则 #31) / F2 退役 get_slo_status 死代码(错单位健康布尔: 毫秒比上下文 token 上限) / F3 preflight 安全扫描 git grep 跑不动读作无泄漏(非 git 目录+真 key 仍打 ✅, push 前闸门)。诚实剔除 3 项(staleness 已被 watchdog 覆盖/producer schema 无漂移/E2E 证伪)。33 守卫 + sabotage 五连全开火。下一 session 优先: (1) 论文 #2 投稿三决策仍待用户 (2) 继续对抗审计未覆盖面 (3) 输出层 fail-plausible 机械化可行性评估(S6 之外的 S 规则)",
   "notes": "",
   "preferences": [
-    "[auto] 活跃时段 00:00-21:00（2天数据）",
     "[auto] 常用工具：read(10次)、sessions_spawn(8次)、sessions_history(8次)",
-    "[auto] 关注领域：技术/AI、学术/论文、arxiv-ai-models、技术/编程、rss-blogs",
-    "[auto] 用户已提交 1 条反馈，最新: {\"date\": \"2026-04-03\", \"from\": \"mentor\", \"what\": \""
+    "[auto] 关注领域：技术/AI、学术/论文、arxiv-ai-models、技术/编程、rss-blogs"
   ],
   "_meta": {
     "last_updated_by": "claude_code"
