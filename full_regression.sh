@@ -166,6 +166,7 @@ run_suite "convergence (V37.9.19 Phase 4 Layer 5 — declared→runtime converge
 run_suite "audit_log (审计日志/链式哈希)" "python3 test_audit_log.py"
 run_suite "v37_9_320_audit_surfaces (V37.9.320 对抗审计三面 — audit 链检测边界/日志不存在≠已校验/security_score 静态姿态诚实/expert 配额记不了账不花钱)" "python3 test_v37_9_320_audit_surfaces.py"
 run_suite "v37_9_322_slo_verdict_honesty (V37.9.322 对抗审计 — slo_checker 无数据可判≠达标/死方法错单位健康布尔退役/安全扫描跑不动必须响)" "python3 test_v37_9_322_slo_verdict_honesty.py"
+run_suite "v37_9_323_preference_learner (V37.9.323 对抗审计 — 机器观察冒充「必须遵守」的用户指令: 截断 JSON 残片/最老当最新/自我强化回路/退化活跃窗口/无日期条目当近期)" "python3 test_v37_9_323_preference_learner.py"
 run_suite "reliability_bench (故障场景评测)" "python3 test_reliability_bench.py"
 run_suite "memory_plane (统一记忆平面)" "python3 test_memory_plane.py"
 run_suite "slo_dashboard (SLO仪表盘)" "python3 test_slo_dashboard.py"
