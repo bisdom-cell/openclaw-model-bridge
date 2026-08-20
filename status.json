@@ -1,5 +1,5 @@
 {
-  "updated": "2026-08-20 04:56:49",
+  "updated": "2026-08-20 07:03:16",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-08-20",
+      "what": "V37.9.323 对抗审计 — 机器统计冒充「必须遵守的用户指令」进 PA 宪法级 prompt: preference_learner.py(每天07:30 cron, 零单测/不在 full_regression/20+轮审计从没碰过) 写 status.json.preferences[] → kb_status_refresh 渲染进 SOUL.md「用户偏好（必须遵守）」+ memory_plane Preferences 层。退役 analyze_feedback(feedback[0] 是 append 序最老的却标「最新」+ json.dumps[:50] 硬截断 → 不闭合 JSON 残片, 生产 status.json 实录) / 退役 analyze_interaction_style(统计的 TEXT chars 是 assistant 自己回复的长度, 却断言「用户偏好简洁回复」= 模型照自己输出给自己下指令)。修 analyze_activity(注释说最小连续区间, 代码取高频小时集合 min..max → 探针逐字复现生产「活跃时段 00:00-21:00」; 新增 smallest_active_window 真环形最小窗口 → 同数据得 20:00-01:00, + 退化窗口拒报 + 补 MIN_REQUESTS 门, 顺带让 INV-JOB-PREFLEARN-001 从 file_contains 能 grep 到变成真守着最显眼输出) / 修 analyze_kb_interests(日期解析失败 pass→continue, 此前 400 天前 ISO-T 条目被报成「最近 7 天关注领域」)。渲染层按 [auto] 前缀分段: 显式偏好留「必须遵守」, 机器观察进「系统观察（供参考，非用户指令）」+ SOUL.md 静态语义对齐(退役「所有偏好我都必须遵守」)。28 守卫 + sabotage 五连全开火。VERSION 0.37.9.152→0.37.9.153",
+      "by": "claude_code"
+    },
     {
       "date": "2026-08-19",
       "what": "V37.9.322 对抗审计 preflight 三条『该报警时打绿』: slo_checker 把从未测量过的指标(0 工具调用/0 失败恢复)当满分计入「SLO 全部达标」——同一份 stats slo_benchmark 报 3/5+2 n/a 而它报 5/5(V37.9.303 修了两个渲染器漏了判定器) / 退役 get_slo_status 死代码(内含毫秒比上下文 token 上限的错单位健康布尔) / preflight 安全扫描 git grep 跑不动时打绿(非 git 目录+目录里真有 sk- key 仍 ✅)。ok 语义与退出码不变=watchdog 噪声零增量。诚实剔除 3 项。33 守卫+sabotage 五连。既有 cross_os_quirk 扫描器抓到我新写的 quirk。VERSION 0.37.9.151→0.37.9.152",
@@ -221,7 +226,7 @@
     "security_score": "98/100 (98.0%)",
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB",
     "slo": {
-      "checked_at": "2026-08-20 00:15:50",
+      "checked_at": "2026-08-20 05:04:55",
       "all_ok": true,
       "judged_count": 1,
       "na_count": 4,
@@ -318,11 +323,11 @@
   },
   "quality": {
     "security_score": 98,
-    "test_count": 6081,
+    "test_count": 6109,
     "last_regression": "2026-08-20 00:24 pass",
     "coverage_pct": 0,
     "security_score_time": "2026-07-20 01:07",
-    "test_suites": 181,
+    "test_suites": 182,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
     "version": "0.37.9.152",
@@ -390,7 +395,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-08-19 收工态: V37.9.322 对抗审计 preflight「操作者的眼睛」三条『该报警时打绿』缺陷。F1 slo_checker 不区分「达标」与「无数据可判」(0 次工具调用/0 次失败恢复被当满分通过; 同一份 stats slo_benchmark 报 3/5+2 n/a 而它报 5/5 全部达标 = V37.9.303 修了两个渲染器漏了判定器, 原则 #31) / F2 退役 get_slo_status 死代码(错单位健康布尔: 毫秒比上下文 token 上限) / F3 preflight 安全扫描 git grep 跑不动读作无泄漏(非 git 目录+真 key 仍打 ✅, push 前闸门)。诚实剔除 3 项(staleness 已被 watchdog 覆盖/producer schema 无漂移/E2E 证伪)。33 守卫 + sabotage 五连全开火。下一 session 优先: (1) 论文 #2 投稿三决策仍待用户 (2) 继续对抗审计未覆盖面 (3) 输出层 fail-plausible 机械化可行性评估(S6 之外的 S 规则)",
+  "focus": "2026-08-20 收工态: V37.9.323 对抗审计 preference_learner(首次被审: 零单测+不在 full_regression+每天写 PA 宪法级 prompt)。四条 grounded 缺陷全部有确定性复现: 截断 JSON 残片当用户偏好 / 最老反馈冒充最新 / 从模型自己回复长度反推「用户偏好简洁回复」的自我强化回路 / 高频小时集合 min..max 报成 21 小时「活跃时段」/ 无日期条目绕过窗口当「最近关注」。核心修复是渲染层分段: 机器观察不再冒充用户指令。🔴 需 WhatsApp 实测(去掉了一条 PA 一直被要求遵守的「简洁回复」指令)。下一 session 优先: (1) 论文 #2 投稿三决策仍待用户 (2) 继续对抗审计未覆盖面(kb_inject/kb_integrity/local_embed 等仍未审) (3) 输出层 fail-plausible 机械化可行性评估",
   "notes": "",
   "preferences": [
     "[auto] 常用工具：read(10次)、sessions_spawn(8次)、sessions_history(8次)",
