@@ -1,5 +1,5 @@
 {
-  "updated": "2026-08-20 07:03:16",
+  "updated": "2026-08-20 07:15:17",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -226,7 +226,7 @@
     "security_score": "98/100 (98.0%)",
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB",
     "slo": {
-      "checked_at": "2026-08-20 05:04:55",
+      "checked_at": "2026-08-20 07:05:02",
       "all_ok": true,
       "judged_count": 1,
       "na_count": 4,
@@ -315,7 +315,8 @@
       "【V37.9.319 KB 覆盖率四舍五入 ✅ dev 闭环 · 剩被动验证】同步后下次 preflight --full 的 KB 索引段: 未全覆盖时不再显示「100%」而是真实值 (如 99.5%), 且不再与「N 个待索引」自相矛盾; 真全覆盖时才出现 100.0%。若出现「覆盖不足 fail」而实际覆盖 >90% = COV_PCT 小数提取回归, 贴我。",
       "【V37.9.320 对抗审计三面 ✅ dev 全闭环 · 剩 Mac Mini 被动验证 + 1 项运维观察】同步后: (a) full_regression 的「审计日志完整性」行在生产应显示 ✅ (N records); **若某天显示「⚠️ 审计日志不存在」= 盲区解除暴露真事故**（~/.kb/audit.jsonl 被删或从未创建）, 贴我 (b) security_score 报告头多一行范围声明「静态姿态…」, 分数仍 98/100 不变（纯措辞, 未改评分逻辑） (c) expert_escalate 若某次返回新状态 `audit_unavailable` = 审计路径不可写, 说明磁盘/权限问题, **这是设计行为（记不了账就不花钱）非 bug**, 但需修盘。🚫 **刻意未建**: 尾部截断外部锚点机制（AL-1）—— 攻击者同样能删锚点文件, 只抬高门槛不关闭洞, 按日落法如实登记能力边界即可; 若未来审计日志成为对外合规证据（而非内部自查）再重新评估。🚫 **刻意未加**: security_score 运行时探测 —— 会重新引入 V37.9.268 解耦掉的环境敏感, 且「审计是否在工作」职责在 full_regression/preflight/watchdog。留痕防未来 session 重辩。",
       "【V37.9.321 watchdog 24h 窗口 ✅ dev 闭环 · 剩被动验证 + 1 项登记不修】(a) 同步后观察: 已修复的昨日故障不应在次日 08:30 继续告警 (本次实例: 08-18 08:30 报的三条全是 08-17 的, 其中备份那条 08-18 03:00 已成功)。真错误 (24h 内) 仍照常告警, 检出力不减 (watchdog 每小时跑, 24h 内已报 ~24 次)。(b) 🚫 **登记不修**: openclaw_backup 同一天重跑时主路径 `--output` 撞 CLI「Refusing to overwrite existing backup archive」→ 落 `Error:` 进日志 → 匹配 err_pattern 告警; 但 **fallback 会成功生成并 mv 成规范名, 备份其实成功** = 「成功伪装成失败」。彻底修法 = 主路径也走「临时名 + mv」(与 fallback 统一, 一物一形), 但动的是备份关键路径且 **dev 无 openclaw CLI 无法端到端验证**; 24h 窗口收紧已把噪声减半。**待真实重复发生 (≥2 次同一天重跑告警) 再做**, 预注册判据镜像 V37.9.214→247 模式。",
-      "【V37.9.322 对抗审计 preflight 三条『该报警时打绿』· dev 全闭环 · 剩 Mac Mini 被动验证】合并 + git fetch+reset 同步（slo_checker.py/preflight_check.sh/proxy_filters.py 走 FILE_MAP + 重启 proxy 让 F2 退役生效，虽无行为变化）后观察: (a) bash preflight_check.sh --full 的 19/19 行显示**实测**摘要而非硬编码「SLO 全部达标」——若显示「3/5 达标, 2 项无数据不可判」= 口径修正非退步（生产常态是 0 工具调用 + 0 失败 streak，与 V37.9.315 那次 slo_benchmark 报 2 n/a 一致）(b) 刚重启 proxy 后跑 preflight 会看到 ⚠️「SLO 无数据可判: 0/5 指标有样本」= 盲区解除非新 bug (c) job_watchdog 告警行为**逐字不变**（退出码 0/2 语义未动，n/a 仍 ok=True → 噪声零增量）；若 watchdog 开始对「今天没有工具调用」告警 = 回归，贴我 (d) preflight 9/19 安全扫描若出现「安全扫描无法执行（git grep rc=…）」= 说明 SCRIPT_DIR 没落在仓库里（~/openclaw-model-bridge 缺失/改名），此前这种情况会静默打绿"
+      "【V37.9.322 对抗审计 preflight 三条『该报警时打绿』· dev 全闭环 · 剩 Mac Mini 被动验证】合并 + git fetch+reset 同步（slo_checker.py/preflight_check.sh/proxy_filters.py 走 FILE_MAP + 重启 proxy 让 F2 退役生效，虽无行为变化）后观察: (a) bash preflight_check.sh --full 的 19/19 行显示**实测**摘要而非硬编码「SLO 全部达标」——若显示「3/5 达标, 2 项无数据不可判」= 口径修正非退步（生产常态是 0 工具调用 + 0 失败 streak，与 V37.9.315 那次 slo_benchmark 报 2 n/a 一致）(b) 刚重启 proxy 后跑 preflight 会看到 ⚠️「SLO 无数据可判: 0/5 指标有样本」= 盲区解除非新 bug (c) job_watchdog 告警行为**逐字不变**（退出码 0/2 语义未动，n/a 仍 ok=True → 噪声零增量）；若 watchdog 开始对「今天没有工具调用」告警 = 回归，贴我 (d) preflight 9/19 安全扫描若出现「安全扫描无法执行（git grep rc=…）」= 说明 SCRIPT_DIR 没落在仓库里（~/openclaw-model-bridge 缺失/改名），此前这种情况会静默打绿",
+      "【V37.9.323 preference_learner 对抗审计 · dev 全闭环 · 剩 Mac Mini 被动验证 + 1 项 WhatsApp 实测】合并 + git fetch+reset 同步(preference_learner.py / kb_status_refresh.sh / SOUL.md 均走 FILE_MAP, 零重启)后观察: (a) 次日 07:30 preference_learner 跑完, `python3 status_update.py --read --human` 的偏好列表不再出现截断 JSON 那条(【auto】用户已提交 N 条反馈，最新: {\"date\"...) 也不再出现退化的「活跃时段 00:00-21:00」; 若活跃时段整条消失 = 真实流量确实铺满全天(退化窗口拒报), 属正确行为非丢失 (b) 下一个整点 kb_status_refresh 跑完后 ~/.openclaw/workspace/SOUL.md 出现「系统观察（供参考，非用户指令）」段, 且「用户偏好（必须遵守）」段只剩用户显式偏好 —— 若你从没显式说过偏好, 该段整段消失 = 正确 (c) 🔴 **按原则 #13 需 WhatsApp 实测**: 这是 PA 行为变更(移除了一条它一直被要求遵守的「简洁回复」指令, 而那条其实是从 PA 自己回复长度反推的)。建议清 session + 重启 Gateway 后问一个开放问题, 确认回复长度没有异常到影响可用; 若明显变啰嗦, 把观感发我 —— 正确做法是把「简洁回复」作为**用户显式偏好**加回(`status_update.py --add preferences \"回复保持简洁\" --by user`), 那样它才名副其实。"
     ],
     "open_prs": [],
     "blocked_on": "",
@@ -324,13 +325,13 @@
   "quality": {
     "security_score": 98,
     "test_count": 6109,
-    "last_regression": "2026-08-20 00:24 pass",
+    "last_regression": "2026-08-20 07:14 pass",
     "coverage_pct": 0,
     "security_score_time": "2026-07-20 01:07",
     "test_suites": 182,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
-    "version": "0.37.9.152",
+    "version": "0.37.9.153",
     "observer": {}
   },
   "incidents": [
