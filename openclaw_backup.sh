@@ -158,8 +158,22 @@ if [ -f "$STATUS_SRC" ]; then
     find "$STATUS_BACKUP_DIR" -name "status_*.json" -mtime +30 -delete 2>/dev/null || true
 fi
 
-# ── KB 完整性指纹更新（每日备份后自动刷新基线）──
+# ── KB 完整性校验 + 指纹更新（V37.9.324 对抗审计）────────────────────
+# 🔴 顺序是 load-bearing: 先 verify（比对昨天的基线）再 --update（重设基线）。
+# 血案: 生产唯一的调用一直只有 --update —— 检测那一半从未运行过，而每日重设基线
+# 会把灾难静默吸收进新基线。探针实证 notes/ 2627 → 0 的当晚跑完 --update 后，
+# 次日 verify 报「✅ 所有关键文件完好」exit 0。7 个既有单测全绿，因为它们断言的
+# 是「源码里有『已消失』字样」而不是「这段代码会被执行」(V37.9.320 SS-1 家族)。
+# 可见性: verify 自身输出（含 ❌/🚨 明细）刻意不匹配 watchdog err_pattern，避免每日
+# 「📝 已变更」正常行误报；只有 rc≠0 时显式打一行 ERROR: 让 openclaw_backup.log 的
+# 既有错误扫描接住（零新机器，镜像 V37.9.292 per-file 不匹配 / run 级匹配的契约）。
+# 备份自身的退出码不受影响 —— 备份成功与 KB 有完整性告警是两件事、两种处置。
 if [ -f "$HOME/kb_integrity.py" ]; then
+    KBI_RC=0
+    python3 "$HOME/kb_integrity.py" >> "$LOG" 2>&1 || KBI_RC=$?
+    if [ "$KBI_RC" -ne 0 ]; then
+        echo "[$TIMESTAMP] ERROR: KB 完整性校验告警 (rc=$KBI_RC) — 详见上方校验段" >> "$LOG"
+    fi
     python3 "$HOME/kb_integrity.py" --update >> "$LOG" 2>&1 || true
 fi
 
