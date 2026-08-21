@@ -89,30 +89,55 @@ def scan_permissions():
         mode = oct(st.st_mode)[-3:]
         # 目录应该是 700 或 750（不允许 other 读写）
         if int(mode[2]) > 0:
-            issues.append(f"~/.kb/ 权限 {mode}：other 有访问权限（应为 700 或 750）")
+            issues.append(f"~/.kb/ 权限 {mode}：other 有访问权限（应为 700 或 750）"
+                          f" — 修复: chmod 700 {KB_DIR}")
     except OSError:
         issues.append("~/.kb/ 不存在或无法访问")
 
     # 检查 status.json 权限
+    # V37.9.324: 去掉 isfile 预检直接 stat 并接住 OSError —— 真正可达的失败不是
+    # 「文件消失」(status_update.py 走 os.replace 原子写, 路径从不空缺; 且 isfile
+    # 会正确返回 False 根本不走 stat), 而是 **~/.kb 权限被改坏时对子文件 stat 抛
+    # PermissionError** —— 即权限检查器恰好在它要报告的那种损坏上崩掉, 而调用方的
+    # `|| true` 会把崩溃吞成静默 = 正在治的病。文件不存在由 checksums 分支负责报告。
     status_path = os.path.join(KB_DIR, "status.json")
-    if os.path.isfile(status_path):
+    try:
         st = os.stat(status_path)
+    except FileNotFoundError:
+        st = None
+    except OSError as e:
+        issues.append(f"status.json 权限无法读取: {e}")
+        st = None
+    if st is not None:
         mode = oct(st.st_mode)[-3:]
         if int(mode[2]) > 0:
-            issues.append(f"status.json 权限 {mode}：other 有访问权限")
+            issues.append(f"status.json 权限 {mode}：other 有访问权限"
+                          f" — 修复: chmod 600 {status_path}")
 
     return issues
 
 
+# V37.9.324: 指纹库「读不动」的哨兵值 —— 与「不存在」是两回事。
+CORRUPT_BASELINE = object()
+
+
 def load_checksums():
-    """加载上次的指纹记录"""
+    """加载上次的指纹记录。
+
+    返回 dict / None（不存在）/ CORRUPT_BASELINE（存在但读不动）。
+
+    V37.9.324（对抗审计）: 此前两种情况都返回 None，于是指纹库被写坏会被报成
+    「指纹库不存在，请先 --init」= 把校验器自身失效说成从未初始化，读者据此
+    去跑 --init 反而把损坏的基线换成当下状态（同时抹掉可比对的历史）。
+    与 V37.9.320 AL-2 同族: 跑不动 ≠ 没问题。
+    """
     if not os.path.isfile(CHECKSUMS_FILE):
         return None
     try:
         with open(CHECKSUMS_FILE) as f:
             return json.load(f)
     except (json.JSONDecodeError, OSError):
-        return None
+        return CORRUPT_BASELINE
 
 
 def save_checksums(data):
@@ -128,10 +153,21 @@ def save_checksums(data):
 def verify(json_output=False):
     """校验当前状态 vs 上次记录"""
     prev = load_checksums()
+    if prev is CORRUPT_BASELINE:
+        # V37.9.324: 校验未能执行 ≠ 无异常（不要建议 --init，那会抹掉可比对的历史）
+        msg = (f"指纹库存在但无法读取（损坏或权限）: {CHECKSUMS_FILE}"
+               " — 本次校验未能执行，不等于无异常")
+        if json_output:
+            print(json.dumps({"status": "corrupt_baseline", "message": msg},
+                             ensure_ascii=False))
+        else:
+            print(f"🚨 {msg}")
+        return 1
     if prev is None:
         msg = "指纹库不存在，请先运行 python3 kb_integrity.py --init"
         if json_output:
-            print(json.dumps({"status": "no_baseline", "message": msg}))
+            print(json.dumps({"status": "no_baseline", "message": msg},
+                             ensure_ascii=False))
         else:
             print(f"⚠️  {msg}")
         return 1
@@ -235,9 +271,12 @@ def init_or_update():
         "checksums": checksums,
         "dir_counts": dir_counts,
     }
+    # V37.9.324: 存在性必须在 save 之前判 —— 旧写法在写完之后再问 isfile，
+    # 于是首次初始化也永远打印「已更新」(说的不是刚发生的事)。
+    existed = os.path.isfile(CHECKSUMS_FILE)
     save_checksums(data)
 
-    print(f"✅ 指纹库已{'更新' if os.path.isfile(CHECKSUMS_FILE) else '初始化'}")
+    print(f"✅ 指纹库已{'更新' if existed else '初始化'}")
     print(f"   关键文件: {len(checksums)} 个")
     for name, h in checksums.items():
         print(f"     {name}: {h[:16]}...")
