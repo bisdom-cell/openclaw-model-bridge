@@ -1,5 +1,5 @@
 {
-  "updated": "2026-08-23 17:29:09",
+  "updated": "2026-08-23 18:05:13",
   "updated_by": "full_regression",
   "priorities": [
     {
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-08-23",
+      "what": "V37.9.326 Dream 素材「4月钉死」血案修（用户报告驱动: 梦境结论几乎只引用 2026-04 观点/数据）: 三层叠加偏置 grounded 确认 — (1) sources Map 输入取归档头 15K, 而归档是 append-to-end 编年体 → 头 15K = 永远的建库初期(4月)条目且每晚 cache miss 重复对同一头部烧 14 次 LLM (2) Reduce cache-load 按文件名升序遍历笔记 → 信号块最老在前 (3) 全局 30K 保头截断 → 5-8 月内容全部在窗口外。佐证: 降级采样分支自己写着[起源/历史/最新]三段采样 = 写降级分支的人知道要时间多样性, 每晚真跑的主路径反而没有; V37.9.68 Qwen-BIM 数周重复血案与窗口钉死结构一致(ban-list 治症状, 本版治病)。修: sources 改尾部窗口 utf8_tail_truncate + prompt_hash v4 / 笔记改 month_round_robin 月份轮转序(FAIL-OPEN 回退原序) / 每部分预算 sources≤14K notes≤13K + 降级分支对称 17K。22 守卫 + sabotage 六连全开火(含探针自纠: 首版 FAIL-OPEN 探针没隔离 cwd 致 import 恒成功=空转)。VERSION 0.37.9.155→0.37.9.156",
+      "by": "claude_code"
+    },
     {
       "date": "2026-08-23",
       "what": "V37.9.325 补验: 提交后在干净树上单独复跑对抗性混沌审计 Category A → 10/10 全抓, sabotage 全部还原树干净。三次收工回归中混沌层均因编辑期脏树被 V37.9.140 #27 护栏条件跳过(按设计工作), 故补这一轮拿到改动之后的真实防御率证据, 而非只依赖开工基线。",
@@ -173,11 +178,6 @@
       "date": "2026-08-17",
       "what": "V37.9.308 对抗审计登记项 [43] 兑现: (C4 MED) restart.sh 诚实退出码 —— rc=1 此前被调用方只看 -eq 2 静默丢弃致恒 exit 0, 使 auto_deploy 失败分支成死代码(V37.9.304「RC 死代码」家族第二例, 且这个守的是「部署后服务还活着吗」); 最脏窗口是漂移修复路径(NEED_RESTART 第二个置位点)连 preflight 兜底都不跑。修: RESTART_FAILED 累加器(bash 3.2 安全字符串非数组) + Gateway bootstrap 加守卫(退役 bootout 成功後裸 bootstrap 在 set -e 下自杀留 booted-out 态) + auto_deploy 收编既有 quiet_alert。刻意不加重试(launchd KeepAlive 已在管)。中途被 V37.8.13 pin 纠正: Gateway 故障按可恢复性二分, 慢启动不判失败; 并修好该 pin 自身的贪婪正则空转。(B-F8 LOW) slo_checker --update 收编 status_lock+save_status。守卫 30 单测(行为级 fakebin PATH 注入), sabotage 五连 S1→7/S2→2/S3→1/S4→3/S5→3 全部精确开火; 其中 S3 首轮通过当场抓出我自己两层空转守卫(前向扫描撞块外 + 被块内注释咬)。VERSION 0.37.9.139→0.37.9.140。",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-08-14",
-      "what": "V37.9.307 ISSRE 拒稿→按三审重写→venue 策略确立(期刊优先/会议不投)。文风机械验证句长 35.9→15.2、>40词 49→4;IEEEtran 本地真编译 7页0error;诚实更正 user-view 70%→13/22=59% 并同步 bench doc;QA4AGENTS 取消并三处留痕防误执行。VERSION 0.37.9.139 不变。",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -226,7 +226,7 @@
     "security_score": "98/100 (98.0%)",
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB",
     "slo": {
-      "checked_at": "2026-08-23 17:27:15",
+      "checked_at": "2026-08-23 18:03:16",
       "all_ok": true,
       "judged_count": 1,
       "na_count": 4,
@@ -318,7 +318,8 @@
       "【V37.9.322 对抗审计 preflight 三条『该报警时打绿』· dev 全闭环 · 剩 Mac Mini 被动验证】合并 + git fetch+reset 同步（slo_checker.py/preflight_check.sh/proxy_filters.py 走 FILE_MAP + 重启 proxy 让 F2 退役生效，虽无行为变化）后观察: (a) bash preflight_check.sh --full 的 19/19 行显示**实测**摘要而非硬编码「SLO 全部达标」——若显示「3/5 达标, 2 项无数据不可判」= 口径修正非退步（生产常态是 0 工具调用 + 0 失败 streak，与 V37.9.315 那次 slo_benchmark 报 2 n/a 一致）(b) 刚重启 proxy 后跑 preflight 会看到 ⚠️「SLO 无数据可判: 0/5 指标有样本」= 盲区解除非新 bug (c) job_watchdog 告警行为**逐字不变**（退出码 0/2 语义未动，n/a 仍 ok=True → 噪声零增量）；若 watchdog 开始对「今天没有工具调用」告警 = 回归，贴我 (d) preflight 9/19 安全扫描若出现「安全扫描无法执行（git grep rc=…）」= 说明 SCRIPT_DIR 没落在仓库里（~/openclaw-model-bridge 缺失/改名），此前这种情况会静默打绿",
       "【V37.9.323 preference_learner 对抗审计 · dev 全闭环 · 剩 Mac Mini 被动验证 + 1 项 WhatsApp 实测】合并 + git fetch+reset 同步(preference_learner.py / kb_status_refresh.sh / SOUL.md 均走 FILE_MAP, 零重启)后观察: (a) 次日 07:30 preference_learner 跑完, `python3 status_update.py --read --human` 的偏好列表不再出现截断 JSON 那条(【auto】用户已提交 N 条反馈，最新: {\"date\"...) 也不再出现退化的「活跃时段 00:00-21:00」; 若活跃时段整条消失 = 真实流量确实铺满全天(退化窗口拒报), 属正确行为非丢失 (b) 下一个整点 kb_status_refresh 跑完后 ~/.openclaw/workspace/SOUL.md 出现「系统观察（供参考，非用户指令）」段, 且「用户偏好（必须遵守）」段只剩用户显式偏好 —— 若你从没显式说过偏好, 该段整段消失 = 正确 (c) 🔴 **按原则 #13 需 WhatsApp 实测**: 这是 PA 行为变更(移除了一条它一直被要求遵守的「简洁回复」指令, 而那条其实是从 PA 自己回复长度反推的)。建议清 session + 重启 Gateway 后问一个开放问题, 确认回复长度没有异常到影响可用; 若明显变啰嗦, 把观感发我 —— 正确做法是把「简洁回复」作为**用户显式偏好**加回(`status_update.py --add preferences \"回复保持简洁\" --by user`), 那样它才名副其实。",
       "【V37.9.324 KB 完整性校验接线 · dev 全闭环 · 剩 Mac Mini 被动验证 + 1 项待你决定】合并 + git fetch+reset 同步(kb_integrity.py / openclaw_backup.sh 均走 FILE_MAP, 零重启, 次日 03:00 备份自动生效)后观察: (a) ~/openclaw_backup.log 出现「🔍 KB 完整性校验」段 = 检测那一半第一次真的在跑 (b) ⚠️ 首次可能出现一条权限告警 = 盲区解除暴露存量真实状态非新 bug: 若 ~/.kb 是 macOS 默认 755 会每日报「other 有访问权限」并附 chmod 700 ~/.kb (KB 含对话精华+业务数据, 值得修)。🔴 若你判断 755 是刻意的, 告诉我我把该项从 alert 降为 info —— 不预先替你决定, 也不让它变成长期噪声 (V37.9.300/321 告警疲劳教训) (c) 若某天 watchdog 报 openclaw_backup 的 ERROR: KB 完整性校验告警 → 去 log 看上方 🚨 段的具体 alert(文件消失/目录清空/骤降/status.json 结构损坏), 7 天备份集内可回滚",
-      "【V37.9.325 故障证据守卫 · dev 全闭环 · 剩 Mac Mini 被动验证 + 1 项 WhatsApp 实测】合并 + git fetch+reset 同步（incident_snapshot.py / kb_inject.sh / tool_proxy.py 均走 FILE_MAP）+ **重启 proxy**（让快照子进程 25s 超时生效；kb_inject 次日 07:00 自动生效）后观察: (a) 下次真故障时 ~/.kb/incidents/<ts>.json 的 logs.gateway 应有内容, logs_meta.gateway.resolved 指出用了哪条路径（此前恒为 file not found）——若 resolved 仍为 null 且 candidates_tried 四条都不存在, 把该 meta 段贴我, 说明 Mac Mini 的 gateway 日志在第五个位置 (b) 挂起态故障下快照不再被 tool_proxy 杀掉（服务探测 15.0s→6.0s, 超预算的服务标 skipped_budget 而非静默缺失）(c) 次日 07:00 后 `grep -A4 \"## 系统架构\" ~/.openclaw/workspace/.openclaw/CLAUDE.md` 不应再出现 Qwen3-235B, 而是「primary 由 PROVIDER env 配置…见三方共享意识快照」(d) 🔴 **顺带做 unfinished [37] 的 WhatsApp 实测**: 本次修的正是 PA 仍自称 Qwen3 最可能的来源（SOUL.md 措辞 V37.9.313 已修但每天注入的手册仍在说 Qwen3-235B）→ 清 session + 重启 Gateway 后问一个会触发降级话术的问题, 确认 PA 不再自称 Qwen3; 若仍自称, 把原话贴我继续查第三个来源。"
+      "【V37.9.325 故障证据守卫 · dev 全闭环 · 剩 Mac Mini 被动验证 + 1 项 WhatsApp 实测】合并 + git fetch+reset 同步（incident_snapshot.py / kb_inject.sh / tool_proxy.py 均走 FILE_MAP）+ **重启 proxy**（让快照子进程 25s 超时生效；kb_inject 次日 07:00 自动生效）后观察: (a) 下次真故障时 ~/.kb/incidents/<ts>.json 的 logs.gateway 应有内容, logs_meta.gateway.resolved 指出用了哪条路径（此前恒为 file not found）——若 resolved 仍为 null 且 candidates_tried 四条都不存在, 把该 meta 段贴我, 说明 Mac Mini 的 gateway 日志在第五个位置 (b) 挂起态故障下快照不再被 tool_proxy 杀掉（服务探测 15.0s→6.0s, 超预算的服务标 skipped_budget 而非静默缺失）(c) 次日 07:00 后 `grep -A4 \"## 系统架构\" ~/.openclaw/workspace/.openclaw/CLAUDE.md` 不应再出现 Qwen3-235B, 而是「primary 由 PROVIDER env 配置…见三方共享意识快照」(d) 🔴 **顺带做 unfinished [37] 的 WhatsApp 实测**: 本次修的正是 PA 仍自称 Qwen3 最可能的来源（SOUL.md 措辞 V37.9.313 已修但每天注入的手册仍在说 Qwen3-235B）→ 清 session + 重启 Gateway 后问一个会触发降级话术的问题, 确认 PA 不再自称 Qwen3; 若仍自称, 把原话贴我继续查第三个来源。",
+      "【V37.9.326 Dream 时间多样性 · dev 全闭环 · 剩 Mac Mini 被动验证 + 1 项登记观察】合并 + git fetch+reset 同步（kb_dream.sh / kb_dream_helpers.py 走 FILE_MAP, 零重启, 当晚 00:00/00:25/03:00 cron 自动生效）后: (a) 首晚 sources Map 全量重提取 = v4 缓存失效的一次性预期开销, 非故障 (b) 次日起验收: grep -oE \"2026-0[1-9]\" ~/.kb/dreams/$(date +%F).md | sort | uniq -c — 月份分布应从 4 月一家独大变为多月混合且近月为主; 连续几晚观察 DEEP 主题脱离 4 月话题圈 (c) kb_dream.log 应出现月份轮转生效痕迹(总览 header 含「按月份轮转排列」), 若出现 WARN: month_round_robin = FAIL-OPEN 降级(素材不丢但退回原序), 贴我 (d) 🚫 登记不改: notes cache key 的 ${DAY}_ 前缀与 V37.3 fix C 注释「第二天增量」矛盾(实际每天全量重 Map ~88 批 = 成本问题非正确性问题), 改缓存 TTL 语义是独立手术, 待独立评估"
     ],
     "open_prs": [],
     "blocked_on": "",
@@ -326,14 +327,14 @@
   },
   "quality": {
     "security_score": 98,
-    "test_count": 6146,
-    "last_regression": "2026-08-23 17:28 pass",
+    "test_count": 6168,
+    "last_regression": "2026-08-23 18:04 pass",
     "coverage_pct": 0,
     "security_score_time": "2026-07-20 01:07",
-    "test_suites": 185,
+    "test_suites": 186,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
-    "version": "0.37.9.155",
+    "version": "0.37.9.156",
     "observer": {}
   },
   "incidents": [
