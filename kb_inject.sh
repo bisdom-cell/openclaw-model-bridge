@@ -389,6 +389,16 @@ WORKSPACE_MD="$WORKSPACE_DIR/CLAUDE.md"
 mkdir -p "$WORKSPACE_DIR"
 
 # 静态 PA 指引 + 运维知识精华 + 动态 KB 摘要（原子写入）
+#
+# V37.9.325 血案（对抗审计）：本 heredoc 是 PA 每个 session 自动加载的操作手册，
+# 却曾把「文本→Qwen3-235B / 图片→Qwen2.5-VL-72B」硬编码进架构段 —— 自 V37.9.222
+# (2026-07-02) flip 到 doubao_21 起陈旧 52 天。V37.9.243 做过 primary prose 全量收敛
+# (CLAUDE/README/FEATURES/GUIDE/compat)，唯独漏了这里：三个 doc-drift 机器检查
+# (gen_readme_badges / gen_jobs_doc / gen_compat_matrix) 只看 .md，没人看 .sh 里的
+# heredoc。更刺眼的是同一份生成文件里「三方共享意识」快照的「模型」行是**活的**
+# (kb_status_refresh 每小时刷新) → 同一事实一活一死、死的那个还更靠前 = 一物一形违反。
+# 修法按日落法 #34：退役硬编码事实指向已有的活快照，不新建 checker。
+# 同理去掉「26 条生产踩坑」的硬编码计数（GUIDE 现为 27，计数必然随增补漂移）。
 WORKSPACE_TMP="$WORKSPACE_MD.tmp"
 cat > "$WORKSPACE_TMP" << 'MDEOF'
 # Wei — 操作手册
@@ -398,8 +408,9 @@ cat > "$WORKSPACE_TMP" << 'MDEOF'
 ## 系统架构
 - **Gateway** (:18789) — WhatsApp 接入、媒体存储、工具执行
 - **Tool Proxy** (:5002) — 工具过滤、图片 base64 注入、SSE 转换、token 监控
-- **Adapter** (:5001) — 认证、多模态路由（文本→Qwen3-235B，图片→Qwen2.5-VL-72B）、Fallback 降级
-- **远程 GPU** — Qwen3-235B（文本，262K context）+ Qwen2.5-VL-72B（视觉理解）
+- **Adapter** (:5001) — 认证、多模态路由（按 provider 能力声明分流文本/图片）、Fallback 降级
+- **LLM Provider** — primary 由 `PROVIDER` env 配置，fallback 链由 `FALLBACK_ORDER` 配置；
+  当前生效的模型见下方「三方共享意识」快照的「模型」行（每小时刷新），本文件不硬编码
 
 ## 运维命令
 ```
@@ -431,7 +442,7 @@ bash ~/kb_write.sh "用户的反馈内容" "feedback" "feedback"
 ## 深度文档（按需查阅）
 遇到架构/配置/故障排查问题时，用 read 工具查阅：
 - `~/.kb/docs/config.md` — 完整系统配置、环境变量、cron 任务、历史变更
-- `~/.kb/docs/GUIDE.md` — 集成指南 + 26 条生产踩坑经验（中英双语）
+- `~/.kb/docs/GUIDE.md` — 集成指南 + 生产踩坑经验（中英双语）
 - `~/.kb/docs/CLAUDE.md` — 项目全貌、版本历史、工作原则、待办清单
 
 MDEOF

@@ -1,6 +1,6 @@
 {
-  "updated": "2026-08-21 01:50:42",
-  "updated_by": "security_score",
+  "updated": "2026-08-23 16:56:44",
+  "updated_by": "full_regression",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-08-23",
+      "what": "V37.9.325 对抗审计 — 故障时收集到的证据不存在 + 每天注入 PA 的手册说的已不是真的 (incident_snapshot.py / kb_inject.sh 首次被审): (A) kb_inject 每日 07:00 生成的 PA 操作手册 heredoc 硬编码「文本→Qwen3-235B/图片→Qwen2.5-VL-72B」, 自 V37.9.222 flip 到 doubao_21 起陈旧 52 天 —— V37.9.243 做过 prose 全量收敛却漏了它, 因为三个 doc-drift 检查只看 .md 没人看 .sh 里的 heredoc; 同一份生成文件里「三方共享意识」快照的模型行是活的 = 一物一形违反 (很可能是 unfinished [37] PA 自称 Qwen3 的真正来源)。按日落法改为只描述机制+指向活快照, 不新建 checker。(B) incident_snapshot gateway 日志路径 ~/openclaw-gateway.log 在仓库里没有任何写入方 (plist 写 openclaw_gateway.log / restart.sh 写 gateway.log / Gateway 自身写 /tmp/openclaw/openclaw-<date>.log) → 快照的 gateway 段恒为 file not found, 而快照只在故障时创建、gateway 静默死正是有案可查的故障类 → 改候选列表解析 + logs_meta 记录找过哪些。(C) _service_status 的 curl 无 --max-time, 3 个挂起服务实测 15.0s > 调用方 timeout=10 → 快照进程被杀且已采集日志一并丢弃 (探测是写盘前最后一步) → --max-time 2 + 总预算 6s + skipped_budget 显式标注, 实测 15.0s→6.0s。16 守卫 + sabotage 六连全开火; 🔴 S3/S4 首轮没开火当场抓出我自己两个空转守卫 (--max-time 断言被 docstring 满足 / 10>9 也满足「超时大于最坏耗时」), 另有测试自身空转 (accept 不持有连接被 GC 秒关, 挂起态退化成秒断)。VERSION 0.37.9.154→0.37.9.155",
+      "by": "claude_code"
+    },
     {
       "date": "2026-08-21",
       "what": "V37.9.324 对抗审计 — KB 完整性校验器的检测那一半在生产从未运行过: kb_integrity.py 唯一自动调用是 openclaw_backup.sh 的 --update(每日重设基线), verify() 从未被调用。探针逐字复现生产循环: notes/ 2627→0 当晚跑完 --update → 基线吸收灾难 → 次日 verify 报 exit 0/status ok/alerts []。7 个既有单测全绿因为断言的是「源码里有『已消失』字样」而非「这段代码会被执行」(V37.9.320 SS-1 家族极端版)。修: verify → rc≠0 打 ERROR 行 → --update, 顺序 load-bearing; 可见性走既有 HOME_LOGS 扫描(实测 verify 正常输出 0 条撞 err_pattern, 显式 ERROR 行 1 条匹配 = 镜像 V37.9.292 契约); 另修 load_checksums 区分不存在/读不动 + scan_permissions 不得在它要报的权限损坏上崩 + init 措辞。19 守卫 + sabotage 五连全开火。🔴 S4 首轮没开火当场抓出我自己的空转守卫(删文件不走 stat), 改测真实可达路径且刻意不用 chmod 探针(root 无视权限位)。VERSION 0.37.9.153→0.37.9.154",
@@ -173,11 +178,6 @@
       "date": "2026-08-14",
       "what": "发表策略确立: 期刊优先会议不投。QA4AGENTS 投稿取消(+industry talk 放弃) — IEEE 会议需付费注册+本人到场才进 Xplore, 不适合作者。第一筛选条件写入: 选 venue 前先确认注册/到场要求。重写稿件(优于 arXiv v1)转作 arXiv v2 + IEEE Software 修订 + 期刊改投底稿。",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-08-17",
-      "what": "V37.9.315: SLO min_sample_count 200→30 (用户决策, config.yaml 单点, benchmark 脱离永久 OBSERVING)",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -226,7 +226,7 @@
     "security_score": "98/100 (98.0%)",
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB",
     "slo": {
-      "checked_at": "2026-08-21 01:48:47",
+      "checked_at": "2026-08-23 16:54:50",
       "all_ok": true,
       "judged_count": 1,
       "na_count": 4,
@@ -317,7 +317,8 @@
       "【V37.9.321 watchdog 24h 窗口 ✅ dev 闭环 · 剩被动验证 + 1 项登记不修】(a) 同步后观察: 已修复的昨日故障不应在次日 08:30 继续告警 (本次实例: 08-18 08:30 报的三条全是 08-17 的, 其中备份那条 08-18 03:00 已成功)。真错误 (24h 内) 仍照常告警, 检出力不减 (watchdog 每小时跑, 24h 内已报 ~24 次)。(b) 🚫 **登记不修**: openclaw_backup 同一天重跑时主路径 `--output` 撞 CLI「Refusing to overwrite existing backup archive」→ 落 `Error:` 进日志 → 匹配 err_pattern 告警; 但 **fallback 会成功生成并 mv 成规范名, 备份其实成功** = 「成功伪装成失败」。彻底修法 = 主路径也走「临时名 + mv」(与 fallback 统一, 一物一形), 但动的是备份关键路径且 **dev 无 openclaw CLI 无法端到端验证**; 24h 窗口收紧已把噪声减半。**待真实重复发生 (≥2 次同一天重跑告警) 再做**, 预注册判据镜像 V37.9.214→247 模式。",
       "【V37.9.322 对抗审计 preflight 三条『该报警时打绿』· dev 全闭环 · 剩 Mac Mini 被动验证】合并 + git fetch+reset 同步（slo_checker.py/preflight_check.sh/proxy_filters.py 走 FILE_MAP + 重启 proxy 让 F2 退役生效，虽无行为变化）后观察: (a) bash preflight_check.sh --full 的 19/19 行显示**实测**摘要而非硬编码「SLO 全部达标」——若显示「3/5 达标, 2 项无数据不可判」= 口径修正非退步（生产常态是 0 工具调用 + 0 失败 streak，与 V37.9.315 那次 slo_benchmark 报 2 n/a 一致）(b) 刚重启 proxy 后跑 preflight 会看到 ⚠️「SLO 无数据可判: 0/5 指标有样本」= 盲区解除非新 bug (c) job_watchdog 告警行为**逐字不变**（退出码 0/2 语义未动，n/a 仍 ok=True → 噪声零增量）；若 watchdog 开始对「今天没有工具调用」告警 = 回归，贴我 (d) preflight 9/19 安全扫描若出现「安全扫描无法执行（git grep rc=…）」= 说明 SCRIPT_DIR 没落在仓库里（~/openclaw-model-bridge 缺失/改名），此前这种情况会静默打绿",
       "【V37.9.323 preference_learner 对抗审计 · dev 全闭环 · 剩 Mac Mini 被动验证 + 1 项 WhatsApp 实测】合并 + git fetch+reset 同步(preference_learner.py / kb_status_refresh.sh / SOUL.md 均走 FILE_MAP, 零重启)后观察: (a) 次日 07:30 preference_learner 跑完, `python3 status_update.py --read --human` 的偏好列表不再出现截断 JSON 那条(【auto】用户已提交 N 条反馈，最新: {\"date\"...) 也不再出现退化的「活跃时段 00:00-21:00」; 若活跃时段整条消失 = 真实流量确实铺满全天(退化窗口拒报), 属正确行为非丢失 (b) 下一个整点 kb_status_refresh 跑完后 ~/.openclaw/workspace/SOUL.md 出现「系统观察（供参考，非用户指令）」段, 且「用户偏好（必须遵守）」段只剩用户显式偏好 —— 若你从没显式说过偏好, 该段整段消失 = 正确 (c) 🔴 **按原则 #13 需 WhatsApp 实测**: 这是 PA 行为变更(移除了一条它一直被要求遵守的「简洁回复」指令, 而那条其实是从 PA 自己回复长度反推的)。建议清 session + 重启 Gateway 后问一个开放问题, 确认回复长度没有异常到影响可用; 若明显变啰嗦, 把观感发我 —— 正确做法是把「简洁回复」作为**用户显式偏好**加回(`status_update.py --add preferences \"回复保持简洁\" --by user`), 那样它才名副其实。",
-      "【V37.9.324 KB 完整性校验接线 · dev 全闭环 · 剩 Mac Mini 被动验证 + 1 项待你决定】合并 + git fetch+reset 同步(kb_integrity.py / openclaw_backup.sh 均走 FILE_MAP, 零重启, 次日 03:00 备份自动生效)后观察: (a) ~/openclaw_backup.log 出现「🔍 KB 完整性校验」段 = 检测那一半第一次真的在跑 (b) ⚠️ 首次可能出现一条权限告警 = 盲区解除暴露存量真实状态非新 bug: 若 ~/.kb 是 macOS 默认 755 会每日报「other 有访问权限」并附 chmod 700 ~/.kb (KB 含对话精华+业务数据, 值得修)。🔴 若你判断 755 是刻意的, 告诉我我把该项从 alert 降为 info —— 不预先替你决定, 也不让它变成长期噪声 (V37.9.300/321 告警疲劳教训) (c) 若某天 watchdog 报 openclaw_backup 的 ERROR: KB 完整性校验告警 → 去 log 看上方 🚨 段的具体 alert(文件消失/目录清空/骤降/status.json 结构损坏), 7 天备份集内可回滚"
+      "【V37.9.324 KB 完整性校验接线 · dev 全闭环 · 剩 Mac Mini 被动验证 + 1 项待你决定】合并 + git fetch+reset 同步(kb_integrity.py / openclaw_backup.sh 均走 FILE_MAP, 零重启, 次日 03:00 备份自动生效)后观察: (a) ~/openclaw_backup.log 出现「🔍 KB 完整性校验」段 = 检测那一半第一次真的在跑 (b) ⚠️ 首次可能出现一条权限告警 = 盲区解除暴露存量真实状态非新 bug: 若 ~/.kb 是 macOS 默认 755 会每日报「other 有访问权限」并附 chmod 700 ~/.kb (KB 含对话精华+业务数据, 值得修)。🔴 若你判断 755 是刻意的, 告诉我我把该项从 alert 降为 info —— 不预先替你决定, 也不让它变成长期噪声 (V37.9.300/321 告警疲劳教训) (c) 若某天 watchdog 报 openclaw_backup 的 ERROR: KB 完整性校验告警 → 去 log 看上方 🚨 段的具体 alert(文件消失/目录清空/骤降/status.json 结构损坏), 7 天备份集内可回滚",
+      "【V37.9.325 故障证据守卫 · dev 全闭环 · 剩 Mac Mini 被动验证 + 1 项 WhatsApp 实测】合并 + git fetch+reset 同步（incident_snapshot.py / kb_inject.sh / tool_proxy.py 均走 FILE_MAP）+ **重启 proxy**（让快照子进程 25s 超时生效；kb_inject 次日 07:00 自动生效）后观察: (a) 下次真故障时 ~/.kb/incidents/<ts>.json 的 logs.gateway 应有内容, logs_meta.gateway.resolved 指出用了哪条路径（此前恒为 file not found）——若 resolved 仍为 null 且 candidates_tried 四条都不存在, 把该 meta 段贴我, 说明 Mac Mini 的 gateway 日志在第五个位置 (b) 挂起态故障下快照不再被 tool_proxy 杀掉（服务探测 15.0s→6.0s, 超预算的服务标 skipped_budget 而非静默缺失）(c) 次日 07:00 后 `grep -A4 \"## 系统架构\" ~/.openclaw/workspace/.openclaw/CLAUDE.md` 不应再出现 Qwen3-235B, 而是「primary 由 PROVIDER env 配置…见三方共享意识快照」(d) 🔴 **顺带做 unfinished [37] 的 WhatsApp 实测**: 本次修的正是 PA 仍自称 Qwen3 最可能的来源（SOUL.md 措辞 V37.9.313 已修但每天注入的手册仍在说 Qwen3-235B）→ 清 session + 重启 Gateway 后问一个会触发降级话术的问题, 确认 PA 不再自称 Qwen3; 若仍自称, 把原话贴我继续查第三个来源。"
     ],
     "open_prs": [],
     "blocked_on": "",
@@ -325,14 +326,14 @@
   },
   "quality": {
     "security_score": 98,
-    "test_count": 6128,
-    "last_regression": "2026-08-21 01:49 pass",
+    "test_count": 6144,
+    "last_regression": "2026-08-23 16:56 pass",
     "coverage_pct": 0,
     "security_score_time": "2026-07-20 01:07",
-    "test_suites": 183,
+    "test_suites": 184,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
-    "version": "0.37.9.154",
+    "version": "0.37.9.155",
     "observer": {}
   },
   "incidents": [
@@ -397,7 +398,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-08-21 收工态: V37.9.324 对抗审计 kb_integrity(首次被审) — 抓到迄今形状最极端的一条 fail-plausible: 检测器接了线、每天被 cron 跑、跑的却是唯一一个什么都发现不了的模式(--update), 而那个模式会主动把证据抹掉(重设基线吸收灾难)。修复是接线不是新建(verify→ERROR→update, 复用既有 verify/日志/watchdog 扫描, 零新 cron/状态文件/通道)。🔴 首次同步后可能出现一条 ~/.kb 权限告警(755) = 盲区解除, 若你判断是刻意的我降为 info。下一 session 优先: (1) 论文 #2 投稿三决策仍待用户 (2) 继续对抗审计未覆盖面(kb_inject/local_embed/incident_snapshot 仍未审; 本轮的镜头「工具跑的是哪个模式」可复用) (3) 输出层 fail-plausible 机械化可行性评估",
+  "focus": "2026-08-23 收工态: V37.9.325 对抗审计 incident_snapshot + kb_inject 首次被审 — 两条 finding 同一形状的两面: 一份只在故障时创建的证据文件, 缺的恰是故障组件(gateway)的日志(路径无写入方); 一份每天重新生成的 PA 手册, 说的恰是 52 天前的事实(V37.9.222 flip 前的 Qwen3)。两者都不让任何测试变红——183 套件/848 治理检查/3 个 doc-drift 检查器全绿, 因为没有任何检查问过「这个路径有人写吗」和「这段 heredoc 说的还对吗」。修法都是日落法: 让被检查的事实本身消失(手册只说机制指向活快照)而非新建 heredoc checker。下一 session 优先: (1) 论文 #2 投稿三决策仍待用户 (2) 继续对抗审计未覆盖面 — 本轮镜头「声称采集的东西真的采集到了吗」可复用到 conv_quality/token_report(解析 proxy 日志的报表)与 movespeed_incident_capture; 仍未审: cron_doctor / gameday / kb_autotag (3) 输出层 fail-plausible 机械化可行性评估",
   "notes": "",
   "preferences": [
     "[auto] 常用工具：read(10次)、sessions_spawn(8次)、sessions_history(8次)",
