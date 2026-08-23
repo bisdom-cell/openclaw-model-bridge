@@ -246,9 +246,13 @@ def _create_incident_snapshot(description):
         if not os.path.exists(snapshot_script):
             snapshot_script = os.path.expanduser("~/incident_snapshot.py")
         if os.path.exists(snapshot_script):
+            # V37.9.325: 25s 而非 10s —— 本函数跑在 daemon 线程里不阻塞请求处理，而快照
+            # 自身最坏耗时 = SERVICE_CHECK_BUDGET_SEC + SERVICE_CHECK_TIMEOUT_SEC (9s)
+            # 加日志尾读；旧的 10s 在服务挂起时（实测 15.0s）会先把快照进程杀掉，
+            # 连已采集的日志一起丢 —— 快照恰在它存在的那个场景里失效。
             subprocess.run(
                 [sys.executable, snapshot_script, "--auto", description],
-                timeout=10, capture_output=True,
+                timeout=25, capture_output=True,
             )
             log(f"Incident snapshot created: {description}")
     except Exception as e:

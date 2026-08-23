@@ -33,14 +33,60 @@ SNAPSHOT_DIR = os.path.expanduser(inc_cfg.get("snapshot_dir", "~/.kb/incidents")
 LOG_LINES = inc_cfg.get("snapshot_log_lines", 100)
 MAX_SNAPSHOTS = inc_cfg.get("max_snapshots", 50)
 
-# 日志文件位置（Mac Mini 运行时路径）
-LOG_FILES = {
-    "proxy": os.path.expanduser("~/tool_proxy.log"),
-    "adapter": os.path.expanduser("~/adapter.log"),
-    "gateway": os.path.expanduser("~/openclaw-gateway.log"),
+# 日志文件位置（Mac Mini 运行时路径）—— 每个组件一个候选列表，取第一个真实存在的。
+#
+# V37.9.325 血案（对抗审计）：gateway 此前写死单条 ~/openclaw-gateway.log，而本仓库
+# **没有任何写入方**产出该路径 —— launchd plist 写 $HOME/openclaw_gateway.log
+# (deploy/install_openclaw_macmini.sh) / restart.sh 的 nohup fallback 写 ~/gateway.log /
+# Gateway 自身 verbose 日志在 /tmp/openclaw/openclaw-<date>.log (diagnose.sh 同源)。
+# 于是每一份故障快照的 gateway 段恒为「[file not found]」，而快照恰恰只在故障时创建，
+# gateway 静默死正是有案可查的故障类（踩坑 #96 / V37.8.13 宕 9h）。读者会把
+# 「file not found」读成「gateway 没记日志」——对一个死掉的 gateway 而言，这个错误
+# 结论比正确结论更可信 = fail-plausible。
+# Gateway 自己写死的日志目录。豁免 B108 的理由：这不是我们创建的临时文件，而是**只读**
+# 一个由 Gateway 写在固定路径的日志（diagnose.sh 读同一路径）。B108 的威胁模型是「可预测
+# 路径下创建临时文件 → 符号链接攻击」，只读不创建不适用；且**不能**改用
+# tempfile.gettempdir() —— 它在 macOS 上返回 $TMPDIR 的每用户私有目录 (/var/folders/...)，
+# 会让这条候选永远解析不到真实文件，那是用规避扫描器的写法换来一个不工作的路径。
+_GATEWAY_TMP_LOG_DIR = "/tmp/openclaw"  # nosec B108
+
+LOG_FILE_CANDIDATES = {
+    "proxy": [os.path.expanduser("~/tool_proxy.log")],
+    "adapter": [os.path.expanduser("~/adapter.log")],
+    "gateway": [
+        # Gateway 自身 verbose 日志（信息量最大，按日期滚动）
+        os.path.join(_GATEWAY_TMP_LOG_DIR, "openclaw-" + time.strftime("%Y-%m-%d") + ".log"),
+        # launchd StandardOutPath
+        os.path.expanduser("~/openclaw_gateway.log"),
+        # restart.sh 在 plist 缺失时的 nohup fallback
+        os.path.expanduser("~/gateway.log"),
+        # 历史路径：本仓库无写入方产出它，仅作兜底保留（dev 无法验证 Mac Mini 文件系统，
+        # 删掉的代价是可能丢证据，留着的代价是一个字符串 → 留）
+        os.path.expanduser("~/openclaw-gateway.log"),
+    ],
 }
 
+# 三层服务健康探测（可被测试替换）
+SERVICE_PORTS = [("adapter", 5001), ("proxy", 5002), ("gateway", 18789)]
+
+# V37.9.325 血案：curl 只给了 --connect-timeout（只管建连），对「接受连接但不响应」的
+# 挂起态服务无界，单服务靠 subprocess timeout=5 兜底 → 三个挂起服务实测 15.0s，
+# 而 tool_proxy 侧 subprocess timeout=10 会先把整个快照进程杀掉；又因服务探测是
+# 写文件前的最后一步，**已采集的日志一并丢弃** → 快照机制恰在它存在的那个场景里失效。
+SERVICE_CHECK_TIMEOUT_SEC = 3   # 单服务硬上限（curl --max-time 2 + subprocess 3 兜底）
+SERVICE_CHECK_BUDGET_SEC = 6    # 三服务总预算，超出的显式标 skipped_budget
+
 STATS_FILE = os.path.expanduser("~/proxy_stats.json")
+
+
+def _resolve_log_path(candidates):
+    """按顺序取第一个真实存在的候选；返回 (路径 or None, 试过的候选列表)。"""
+    tried = []
+    for path in candidates:
+        tried.append(path)
+        if os.path.exists(path):
+            return path, tried
+    return None, tried
 
 
 def _tail_file(path, lines=100):
@@ -74,14 +120,20 @@ def _read_json_file(path):
 
 
 def _service_status():
-    """检查三层服务状态"""
+    """检查三层服务状态（V37.9.325: 单服务 --max-time + 总预算，超预算显式标注）。"""
     services = {}
-    for name, port in [("adapter", 5001), ("proxy", 5002), ("gateway", 18789)]:
+    deadline = time.monotonic() + SERVICE_CHECK_BUDGET_SEC
+    for name, port in SERVICE_PORTS:
+        if time.monotonic() >= deadline:
+            # 诚实标注而非静默缺失：读者要能区分「探测过但没响应」与「没来得及探测」
+            services[name] = {"port": port, "http_code": "skipped_budget"}
+            continue
         try:
             result = subprocess.run(
                 ["curl", "-s", "-o", "/dev/null", "-w", "%{http_code}",
-                 "--connect-timeout", "3", f"http://localhost:{port}/health"],
-                capture_output=True, text=True, timeout=5,
+                 "--connect-timeout", "1", "--max-time", "2",
+                 f"http://localhost:{port}/health"],
+                capture_output=True, text=True, timeout=SERVICE_CHECK_TIMEOUT_SEC,
             )
             services[name] = {"port": port, "http_code": result.stdout.strip()}
         except (subprocess.TimeoutExpired, OSError):
@@ -99,13 +151,20 @@ def create_snapshot(trigger, description=""):
         "trigger": trigger,
         "description": description,
         "logs": {},
+        "logs_meta": {},
         "proxy_stats": None,
         "services": {},
     }
 
-    # 收集日志尾部
-    for name, path in LOG_FILES.items():
-        snapshot["logs"][name] = _tail_file(path, LOG_LINES)
+    # 收集日志尾部（V37.9.325: 候选解析 + 记录找过哪些，解析不到时不再只报一个错路径）
+    for name, candidates in LOG_FILE_CANDIDATES.items():
+        path, tried = _resolve_log_path(candidates)
+        if path is None:
+            snapshot["logs"][name] = f"[no log file found; tried: {', '.join(tried)}]"
+            snapshot["logs_meta"][name] = {"resolved": None, "candidates_tried": tried}
+        else:
+            snapshot["logs"][name] = _tail_file(path, LOG_LINES)
+            snapshot["logs_meta"][name] = {"resolved": path, "candidates_tried": tried}
 
     # 收集 proxy_stats
     snapshot["proxy_stats"] = _read_json_file(STATS_FILE)

@@ -168,6 +168,7 @@ run_suite "v37_9_320_audit_surfaces (V37.9.320 对抗审计三面 — audit 链�
 run_suite "v37_9_322_slo_verdict_honesty (V37.9.322 对抗审计 — slo_checker 无数据可判≠达标/死方法错单位健康布尔退役/安全扫描跑不动必须响)" "python3 test_v37_9_322_slo_verdict_honesty.py"
 run_suite "v37_9_323_preference_learner (V37.9.323 对抗审计 — 机器观察冒充「必须遵守」的用户指令: 截断 JSON 残片/最老当最新/自我强化回路/退化活跃窗口/无日期条目当近期)" "python3 test_v37_9_323_preference_learner.py"
 run_suite "v37_9_324_kb_integrity_verify (V37.9.324 对抗审计 — KB 完整性校验器的检测那一半从不运行: 生产唯一调用是 --update, 每日重设基线把灾难吸收进基线)" "python3 test_v37_9_324_kb_integrity_verify.py"
+run_suite "v37_9_325_incident_evidence (V37.9.325 对抗审计 — 故障时收集到的证据不存在: gateway 日志路径无写入方/服务探测无硬上限被调用方杀掉/PA 手册硬编码陈旧 52 天的模型)" "python3 test_v37_9_325_incident_evidence.py"
 run_suite "reliability_bench (故障场景评测)" "python3 test_reliability_bench.py"
 run_suite "memory_plane (统一记忆平面)" "python3 test_memory_plane.py"
 run_suite "slo_dashboard (SLO仪表盘)" "python3 test_slo_dashboard.py"
@@ -575,18 +576,28 @@ fi
 
 # Bandit 安全扫描
 echo -n "  🛡️  bandit 静态安全分析 ... "
+# V37.9.325 血案：本地这段曾与 CI 双重漂移 —— (1) 只扫 5 个文件而 CI 扫 8 个
+# （多 config_loader/slo_checker/incident_snapshot）→ 即使本地装了 bandit 也扫不到
+# incident_snapshot.py (2) 有问题只记 ⚠️ 不计失败，而 CI 拿退出码当阻塞门
+# → 本地「✅ 可以安全推送」而 PR 上 All checks have failed。现与 CI 同清单同口径
+# （文件清单一致性由 test_v37_9_325_incident_evidence.py 的跨文件契约守卫钉死）。
+BANDIT_TARGETS="proxy_filters.py adapter.py tool_proxy.py status_update.py audit_log.py config_loader.py slo_checker.py incident_snapshot.py"
 if command -v bandit &>/dev/null; then
-    BANDIT_OUT=$(bandit -r proxy_filters.py adapter.py tool_proxy.py status_update.py audit_log.py -q -ll 2>&1 || true)
-    BANDIT_ISSUES=$(echo "$BANDIT_OUT" | grep -c "Issue:" 2>/dev/null || echo "0")
-    if [ "$BANDIT_ISSUES" -eq 0 ] || [ -z "$BANDIT_OUT" ]; then
+    BANDIT_OUT=$(bandit -r $BANDIT_TARGETS -q -ll 2>&1)
+    BANDIT_RC=$?
+    if [ "$BANDIT_RC" -eq 0 ]; then
         echo "✅ 无中高危漏洞"
         PASS=$((PASS + 1))
     else
-        echo "⚠️ $BANDIT_ISSUES 个问题（详见下方）"
+        # 与 CI 同口径：bandit 非零退出 = 阻塞，不再降级成 ⚠️ 参考项
+        echo "❌ 发现中高危问题（CI 会以此阻塞合并）"
         echo "$BANDIT_OUT" | head -20
+        FAIL=$((FAIL + 1))
+        FAILED_SUITES+=("bandit 静态安全分析")
     fi
 else
-    echo "⚠️ bandit 未安装（pip3 install bandit）"
+    # 跑不动 ≠ 没问题（V37.9.320 AL-2）：明说 CI 拿它当阻塞门，别把本地绿读成 CI 绿
+    echo "⚠️ bandit 未安装，本地未校验 — CI 会以它为阻塞门（pip3 install bandit）"
 fi
 echo ""
 
