@@ -547,6 +547,65 @@ def split_dream_into_chunks(text: str, max_chunk: int = 4000) -> list[str]:
 
 
 # ─────────────────────────────────────────────────────────────────────
+# 9. 月份轮转排序（V37.9.326 — Dream 素材"4 月钉死"血案）
+# ─────────────────────────────────────────────────────────────────────
+
+def month_round_robin(paths: list[str]) -> list[str]:
+    """把笔记路径列表重排为「月份轮转」序（V37.9.326）。
+
+    血案背景：kb_dream.sh 的 Reduce cache-load 按 `find | sort`
+    （文件名=时间戳升序 = 最老在前）遍历笔记 → 信号块最老在前进入
+    NOTES_SIGNALS，与 REDUCE_MULTI_MATERIAL 的保头截尾 30K 窗口叠加，
+    进 LLM 的笔记信号几乎全是建库初期（2026-04）的块 → 梦境结论
+    "总在引用 4 月的观点和数据"，且窗口永不移动（语料只在尾部生长）。
+
+    排序规则：
+      1. 按文件名前 6 位数字（YYYYMM）分桶；月份 01-12 校验。
+      2. 桶按月份降序（最新月先），桶内按文件名降序（月内最新先）。
+      3. 轮转取件：每月各取第 1 件，再各取第 2 件……直到取空 —— 于是
+         截断窗口的头部横跨全部月份，而非钉死在单一时段。
+      4. 文件名无法解析出合法 YYYYMM 的保守落尾（不丢失，MR-4）。
+
+    纯函数：不读文件系统，只看路径字符串；输入输出条目一一对应（无丢失/重复）。
+    """
+    import os as _os
+    import re as _re
+
+    buckets: dict = {}
+    invalid: list = []
+    for p in paths:
+        name = _os.path.basename(str(p))
+        m = _re.match(r"(\d{6})", name)
+        month_ok = False
+        if m:
+            mm = int(m.group(1)[4:6])
+            month_ok = 1 <= mm <= 12
+        if month_ok:
+            buckets.setdefault(m.group(1), []).append(p)
+        else:
+            invalid.append(p)
+
+    ordered_months = sorted(buckets, reverse=True)  # 最新月在前
+    for mo in ordered_months:
+        buckets[mo].sort(reverse=True)              # 月内最新在前
+
+    out: list = []
+    idx = 0
+    while True:
+        emitted = False
+        for mo in ordered_months:
+            b = buckets[mo]
+            if idx < len(b):
+                out.append(b[idx])
+                emitted = True
+        if not emitted:
+            break
+        idx += 1
+    out.extend(invalid)
+    return out
+
+
+# ─────────────────────────────────────────────────────────────────────
 # CLI（运维查询用）
 # ─────────────────────────────────────────────────────────────────────
 

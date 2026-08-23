@@ -169,6 +169,7 @@ run_suite "v37_9_322_slo_verdict_honesty (V37.9.322 对抗审计 — slo_checker
 run_suite "v37_9_323_preference_learner (V37.9.323 对抗审计 — 机器观察冒充「必须遵守」的用户指令: 截断 JSON 残片/最老当最新/自我强化回路/退化活跃窗口/无日期条目当近期)" "python3 test_v37_9_323_preference_learner.py"
 run_suite "v37_9_324_kb_integrity_verify (V37.9.324 对抗审计 — KB 完整性校验器的检测那一半从不运行: 生产唯一调用是 --update, 每日重设基线把灾难吸收进基线)" "python3 test_v37_9_324_kb_integrity_verify.py"
 run_suite "v37_9_325_incident_evidence (V37.9.325 对抗审计 — 故障时收集到的证据不存在: gateway 日志路径无写入方/服务探测无硬上限被调用方杀掉/PA 手册硬编码陈旧 52 天的模型)" "python3 test_v37_9_325_incident_evidence.py"
+run_suite "v37_9_326_dream_time_diversity (V37.9.326 Dream 素材 4 月钉死血案 — sources 头15K窗口/笔记升序/30K保头三层叠加: 尾部窗口+月份轮转+每部分预算)" "python3 test_v37_9_326_dream_time_diversity.py"
 run_suite "reliability_bench (故障场景评测)" "python3 test_reliability_bench.py"
 run_suite "memory_plane (统一记忆平面)" "python3 test_memory_plane.py"
 run_suite "slo_dashboard (SLO仪表盘)" "python3 test_slo_dashboard.py"

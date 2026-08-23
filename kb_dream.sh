@@ -170,6 +170,22 @@ print(text)
 "
 }
 
+# V37.9.326: 尾部保留版（成对镜像 utf8_truncate）—— 用于 append-to-end 编年体归档的
+# "最近内容"窗口。头部版 text[:N] 对只在尾部生长的文件意味着窗口永远钉死在最早内容。
+utf8_tail_truncate() {
+    local max_chars="${1:-20000}"
+    python3 -c "
+import sys
+text = sys.stdin.read()
+if len(text) > $max_chars:
+    text = text[-$max_chars:]
+    first_nl = text.find('\n')
+    if 0 <= first_nl < int($max_chars * 0.1):
+        text = text[first_nl+1:]
+print(text)
+"
+}
+
 # LLM 调用封装（含智能退避重试和错误诊断）
 # V37.1: 用 Python 构造 JSON + 临时文件传递，彻底避免 shell/jq 对大型 KB 数据的编码问题
 # 旧方式 `jq --arg p "$prompt"` 在 KB 含特殊字符时会损坏请求体导致 LLM 空响应
@@ -469,7 +485,7 @@ if [ "$FAST_MODE" = false ] && [ "$MAP_ONLY" = false ] && [ -d "$MAP_DIR" ]; the
             [ -f "$src" ] || continue
             name=$(basename "$src" .md)
             file_size=$(wc -c < "$src" 2>/dev/null | tr -d ' ')
-            prompt_hash="v3"
+            prompt_hash="v4"  # V37.9.326: 输入窗口语义变更(头15K→尾15K), bump 使旧缓存失效
             cache_key="${name}_${file_size}_${prompt_hash}"
             cache_file="$MAP_DIR/${DAY}_${cache_key}.txt"
             if [ -f "$cache_file" ]; then
@@ -492,6 +508,22 @@ $signals
     seen_signal_hashes=""
     declare -a UNIQ_NOTE_SIG_BLOCKS=()
     if [ -n "$ALL_NOTES" ]; then
+        # V37.9.326 血案: 此前按 $ALL_NOTES (find|sort = 文件名时间戳升序 = 最老在前)
+        # 遍历 → 信号块最老在前进入 NOTES_SIGNALS, 与保头截尾的 30K 窗口叠加 = 进 LLM
+        # 的笔记信号几乎全是建库初期(4月)的块。改为月份轮转序(近月先、各月混合), 让
+        # 截断窗口横跨全部月份。FAIL-OPEN: helper 失败 → 回退原序 + stderr WARN。
+        DIVERSE_NOTES=$(echo "$ALL_NOTES" | python3 -c "
+import sys, os
+sys.path.insert(0, os.path.expanduser('~'))
+sys.path.insert(0, '$SCRIPT_DIR')
+try:
+    from kb_dream_helpers import month_round_robin
+    paths = [l for l in sys.stdin.read().splitlines() if l.strip()]
+    print('\n'.join(month_round_robin(paths)))
+except Exception as e:
+    sys.stderr.write(f'WARN: month_round_robin 失败, 回退原序: {e}\n')
+")
+        [ -z "${DIVERSE_NOTES// }" ] && DIVERSE_NOTES="$ALL_NOTES"
         while IFS= read -r note; do
             [ -z "$note" ] && continue
             [ -f "$note" ] || continue
@@ -517,7 +549,7 @@ $signals
                 esac
                 NOTES_MAP_COUNT=$((NOTES_MAP_COUNT + 1))
             fi
-        done <<< "$ALL_NOTES"
+        done <<< "$DIVERSE_NOTES"
 
         # V37.4.2: 带结构 header 一次性 flush — 编号 + 总数 + 覆盖笔记数
         UNIQ_BLOCK_COUNT=${#UNIQ_NOTE_SIG_BLOCKS[@]}
@@ -526,6 +558,7 @@ $signals
 ## 用户笔记信号总览
 > 覆盖 $NOTES_MAP_COUNT 条用户笔记，提取出 $UNIQ_BLOCK_COUNT 个独立信号簇
 > 每个信号簇由一个 Map 批次独立生成，代表一组主题相关的观察点
+> 信号簇已按月份轮转排列（近月在前、各月混合），横跨知识库全时间跨度而非单一时段 (V37.9.326)
 "
             for i in "${!UNIQ_NOTE_SIG_BLOCKS[@]}"; do
                 idx=$((i + 1))
@@ -566,7 +599,7 @@ if [ "$SKIP_MAP_LOOPS" = false ] && [ "$FAST_MODE" = false ] && [ "$SRC_COUNT" -
         # 检查 map 缓存（同一天同一文件大小不重复提取）
         file_size=$(wc -c < "$src" 2>/dev/null | tr -d ' ')
         # 缓存 key 含 prompt 版本哈希，prompt 变化时自动重新提取
-        prompt_hash="v3"  # bump when prompt template changes to invalidate cache
+        prompt_hash="v4"  # bump when prompt/input-window changes to invalidate cache (V37.9.326: 头15K→尾15K)
         cache_key="${name}_${file_size}_${prompt_hash}"
         cache_file="$MAP_DIR/${DAY}_${cache_key}.txt"
 
@@ -575,9 +608,13 @@ if [ "$SKIP_MAP_LOOPS" = false ] && [ "$FAST_MODE" = false ] && [ "$SRC_COUNT" -
             signals=$(cat "$cache_file")
             MAP_CONSECUTIVE_FAILS=0  # 缓存命中视为成功，重置计数（V37.2 fix: 防止假熔断）
         else
-            # 读取文件全文，用 UTF-8 安全截断到 15000 字符
-            # 15K chars ≈ 4-5K tokens，Qwen3 262K context 轻松容纳
-            full_content=$(cat "$src" 2>/dev/null | utf8_truncate 15000)
+            # V37.9.326 血案: 此前取头部 15K —— 而 sources 归档是 kb_append_source.sh
+            # append-to-end 的编年体文件, 头 15K = 建库最早(2026-04)的条目, 且归档只在
+            # 尾部生长 → 该窗口永远钉死在 4 月; file_size 天天变 → cache 天天 miss →
+            # 每晚重新对一模一样的 4 月头部烧 14 次 LLM 提取。这是梦境结论"总在引用
+            # 4 月观点和数据"的最大直接来源。改为尾部窗口: 最近条目, 随归档生长每日
+            # 自动前移。15K chars ≈ 4-5K tokens。
+            full_content=$(cat "$src" 2>/dev/null | utf8_tail_truncate 15000)
 
             # 用 Python 安全拼接 prompt（避免 printf 对 KB 内容中 % 字符的格式化注入）
             prompt=$(python3 -c "
@@ -1064,6 +1101,10 @@ if [ "$FAST_MODE" = true ] || [ -z "${MAP_SIGNALS// }" ]; then
         done <<< "$ALL_SOURCES"
     fi
 
+    # V37.9.326: 采样分支同 bug class 对称修 —— 14 个 source × ~4.5K 采样 ≈ 60K+,
+    # notes 追加在尾部会被全局保头 30K 截断整体挤出。sources 采样部分先预算到 17K。
+    REDUCE_DATA=$(echo "$REDUCE_DATA" | utf8_truncate 17000)
+
     # Notes 全量
     # V37.9.305 (对抗审计 A-F4): Reduce 路径 (SKIP_MAP_LOOPS=true) NOTES_MATERIAL
     # 恒空 — sources 缓存 all-miss 落入本采样分支时, 已成功缓存的 NOTES_SIGNALS
@@ -1084,12 +1125,18 @@ else
     REDUCE_INTRO="以下是系统知识库的 **全量深度分析结果**。Phase 1 已对 $MAP_COUNT 个数据源和 $NOTES_MAP_COUNT 条用户笔记逐一进行了信号提取（覆盖全部 ${TOTAL_KB_BYTES} 字节数据）。
 
 **重要：用户笔记中的信号同样重要。** 这些笔记是用户主动保存的重要信息、决策和发现，反映了用户的关注方向和判断。分析时必须同时考虑外部数据源信号和用户笔记信号。"
+    # V37.9.326: 每部分独立预算 —— 全局 30K 截断是保头截尾, 此前 sources 信号
+    # (~15-20K) 排在前会把 notes 信号挤出窗口, 幸存的 notes 块只剩最前面(最老)几个。
+    # 现 sources ≤14K / notes ≤13K (+preamble ≈ 30K), 两类信号都稳定在场; notes 段
+    # 配合月份轮转序 → 幸存块横跨各月。全局 30K 截断仍保留作安全网。
+    MAP_SIGNALS_BUDGETED=$(echo "$MAP_SIGNALS" | utf8_truncate 14000)
+    NOTES_SIGNALS_BUDGETED=$(echo "$NOTES_SIGNALS" | utf8_truncate 13000)
     REDUCE_DATA="
 # Phase 1a: 外部数据源信号
-$MAP_SIGNALS
+$MAP_SIGNALS_BUDGETED
 
 # Phase 1b: 用户笔记/交互记录信号（用户主动保存的重要信息）
-$NOTES_SIGNALS
+$NOTES_SIGNALS_BUDGETED
 "
 fi
 
