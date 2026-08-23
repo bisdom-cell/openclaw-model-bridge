@@ -1,5 +1,5 @@
 {
-  "updated": "2026-08-23 16:56:44",
+  "updated": "2026-08-23 17:14:29",
   "updated_by": "full_regression",
   "priorities": [
     {
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-08-23",
+      "what": "V37.9.325 补验: 提交后在干净树上单独复跑对抗性混沌审计 Category A → 10/10 全抓, sabotage 全部还原树干净。三次收工回归中混沌层均因编辑期脏树被 V37.9.140 #27 护栏条件跳过(按设计工作), 故补这一轮拿到改动之后的真实防御率证据, 而非只依赖开工基线。",
+      "by": "claude_code"
+    },
     {
       "date": "2026-08-23",
       "what": "V37.9.325 对抗审计 — 故障时收集到的证据不存在 + 每天注入 PA 的手册说的已不是真的 (incident_snapshot.py / kb_inject.sh 首次被审): (A) kb_inject 每日 07:00 生成的 PA 操作手册 heredoc 硬编码「文本→Qwen3-235B/图片→Qwen2.5-VL-72B」, 自 V37.9.222 flip 到 doubao_21 起陈旧 52 天 —— V37.9.243 做过 prose 全量收敛却漏了它, 因为三个 doc-drift 检查只看 .md 没人看 .sh 里的 heredoc; 同一份生成文件里「三方共享意识」快照的模型行是活的 = 一物一形违反 (很可能是 unfinished [37] PA 自称 Qwen3 的真正来源)。按日落法改为只描述机制+指向活快照, 不新建 checker。(B) incident_snapshot gateway 日志路径 ~/openclaw-gateway.log 在仓库里没有任何写入方 (plist 写 openclaw_gateway.log / restart.sh 写 gateway.log / Gateway 自身写 /tmp/openclaw/openclaw-<date>.log) → 快照的 gateway 段恒为 file not found, 而快照只在故障时创建、gateway 静默死正是有案可查的故障类 → 改候选列表解析 + logs_meta 记录找过哪些。(C) _service_status 的 curl 无 --max-time, 3 个挂起服务实测 15.0s > 调用方 timeout=10 → 快照进程被杀且已采集日志一并丢弃 (探测是写盘前最后一步) → --max-time 2 + 总预算 6s + skipped_budget 显式标注, 实测 15.0s→6.0s。16 守卫 + sabotage 六连全开火; 🔴 S3/S4 首轮没开火当场抓出我自己两个空转守卫 (--max-time 断言被 docstring 满足 / 10>9 也满足「超时大于最坏耗时」), 另有测试自身空转 (accept 不持有连接被 GC 秒关, 挂起态退化成秒断)。VERSION 0.37.9.154→0.37.9.155",
@@ -173,11 +178,6 @@
       "date": "2026-08-14",
       "what": "V37.9.307 ISSRE 拒稿→按三审重写→venue 策略确立(期刊优先/会议不投)。文风机械验证句长 35.9→15.2、>40词 49→4;IEEEtran 本地真编译 7页0error;诚实更正 user-view 70%→13/22=59% 并同步 bench doc;QA4AGENTS 取消并三处留痕防误执行。VERSION 0.37.9.139 不变。",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-08-14",
-      "what": "发表策略确立: 期刊优先会议不投。QA4AGENTS 投稿取消(+industry talk 放弃) — IEEE 会议需付费注册+本人到场才进 Xplore, 不适合作者。第一筛选条件写入: 选 venue 前先确认注册/到场要求。重写稿件(优于 arXiv v1)转作 arXiv v2 + IEEE Software 修订 + 期刊改投底稿。",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -226,7 +226,7 @@
     "security_score": "98/100 (98.0%)",
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB",
     "slo": {
-      "checked_at": "2026-08-23 16:54:50",
+      "checked_at": "2026-08-23 17:12:37",
       "all_ok": true,
       "judged_count": 1,
       "na_count": 4,
@@ -327,7 +327,7 @@
   "quality": {
     "security_score": 98,
     "test_count": 6144,
-    "last_regression": "2026-08-23 16:56 pass",
+    "last_regression": "2026-08-23 17:13 pass",
     "coverage_pct": 0,
     "security_score_time": "2026-07-20 01:07",
     "test_suites": 184,
