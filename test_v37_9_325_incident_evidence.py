@@ -340,6 +340,43 @@ class TestCallerTimeoutExceedsSnapshotBudget(unittest.TestCase):
         )
 
 
+class TestBanditParityWithCI(unittest.TestCase):
+    """本地 bandit 与 CI 必须同清单同口径。
+
+    V37.9.325 血案：本地 full_regression 只扫 5 个文件、且把发现的问题记成 ⚠️
+    不计失败，而 .github/workflows/ci.yml 扫 8 个文件并拿退出码阻塞合并 →
+    本地打印「✅ 全量回归测试通过，可以安全推送」而 PR 上 All checks have failed。
+    本次新增的 incident_snapshot.py 恰在 CI 扫、本地不扫的那三个文件里。
+    """
+
+    @staticmethod
+    def _targets(text):
+        m = re.search(r"bandit -r ([^\n]*?) -q -ll", text)
+        return m.group(1).strip() if m else None
+
+    def test_file_lists_identical(self):
+        ci = self._targets(_read(os.path.join(".github", "workflows", "ci.yml")))
+        self.assertIsNotNone(ci, "防空转：未能从 ci.yml 抽出 bandit 目标清单")
+        local_src = _read("full_regression.sh")
+        m = re.search(r'BANDIT_TARGETS="([^"]+)"', local_src)
+        self.assertIsNotNone(m, "防空转：未能从 full_regression.sh 抽出 BANDIT_TARGETS")
+        self.assertEqual(
+            sorted(m.group(1).split()), sorted(ci.split()),
+            "本地与 CI 的 bandit 扫描清单漂移 —— 本地绿不代表 CI 绿",
+        )
+        self.assertIn("incident_snapshot.py", ci, "防空转：血案文件应在清单内")
+
+    def test_local_treats_findings_as_failure(self):
+        """有问题必须计入 FAIL，不得再降级成 ⚠️ 参考项（与 CI 阻塞口径一致）。"""
+        src = _read("full_regression.sh")
+        m = re.search(r"if command -v bandit.*?\nfi", src, re.S)
+        self.assertIsNotNone(m, "防空转：未能抽出 bandit 分支")
+        blk = m.group(0)
+        self.assertIn("BANDIT_RC", blk, "应按退出码判定而非数 Issue: 行")
+        self.assertIn("FAIL=$((FAIL + 1))", blk, "bandit 发现问题必须计入失败")
+        self.assertIn("CI 会以它为阻塞门", blk, "缺 bandit 时须明说 CI 拿它当阻塞门")
+
+
 class TestSourceGuards(unittest.TestCase):
     def test_markers(self):
         for name in ("incident_snapshot.py", "kb_inject.sh"):

@@ -43,12 +43,19 @@ MAX_SNAPSHOTS = inc_cfg.get("max_snapshots", 50)
 # gateway 静默死正是有案可查的故障类（踩坑 #96 / V37.8.13 宕 9h）。读者会把
 # 「file not found」读成「gateway 没记日志」——对一个死掉的 gateway 而言，这个错误
 # 结论比正确结论更可信 = fail-plausible。
+# Gateway 自己写死的日志目录。豁免 B108 的理由：这不是我们创建的临时文件，而是**只读**
+# 一个由 Gateway 写在固定路径的日志（diagnose.sh 读同一路径）。B108 的威胁模型是「可预测
+# 路径下创建临时文件 → 符号链接攻击」，只读不创建不适用；且**不能**改用
+# tempfile.gettempdir() —— 它在 macOS 上返回 $TMPDIR 的每用户私有目录 (/var/folders/...)，
+# 会让这条候选永远解析不到真实文件，那是用规避扫描器的写法换来一个不工作的路径。
+_GATEWAY_TMP_LOG_DIR = "/tmp/openclaw"  # nosec B108
+
 LOG_FILE_CANDIDATES = {
     "proxy": [os.path.expanduser("~/tool_proxy.log")],
     "adapter": [os.path.expanduser("~/adapter.log")],
     "gateway": [
         # Gateway 自身 verbose 日志（信息量最大，按日期滚动）
-        "/tmp/openclaw/openclaw-" + time.strftime("%Y-%m-%d") + ".log",
+        os.path.join(_GATEWAY_TMP_LOG_DIR, "openclaw-" + time.strftime("%Y-%m-%d") + ".log"),
         # launchd StandardOutPath
         os.path.expanduser("~/openclaw_gateway.log"),
         # restart.sh 在 plist 缺失时的 nohup fallback
