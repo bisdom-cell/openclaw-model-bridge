@@ -292,6 +292,12 @@ def save_status(data, updated_by="unknown", audit_action="", audit_target="", au
     try:
         with open(tmp, "w") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
+        # V37.9.327: replace 前先收紧 tmp 权限 —— open() 按 umask 产 644，os.replace 会把
+        # 644 带给 status.json，覆盖 kb_inject 每日 07:00 的 chmod（每小时 refresh 重写一次
+        # = 一天内 23 小时都是 644）→ kb_integrity verify（V37.9.324 接线）每天 03:02 告警
+        # 「other 有访问权限」成为永久日噪声（V37.9.300/321 告警疲劳家族）。在唯一写出口
+        # （MR-9 全部写者经 save_status）修一次，替代在 N 个消费方追补 chmod。
+        os.chmod(tmp, 0o600)
         os.replace(tmp, STATUS_FILE)
     finally:
         # os.replace 成功后 tmp 已被重命名不存在；写入异常时清理未发布的 tmp，防 orphan 累积。

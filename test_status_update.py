@@ -453,5 +453,35 @@ class TestCLIInterface(unittest.TestCase):
         self.assertEqual(result.returncode, 0)
 
 
+class TestSaveStatusPermsV327(unittest.TestCase):
+    """V37.9.327: save_status 产出的 status.json 不得给 group/other 任何权限。
+
+    血案：open(tmp) 按 umask 产 644 → os.replace 带给 status.json → kb_integrity
+    verify（V37.9.324 首次开火, 2026-08-24 03:02 生产实录）每天告警「other 有访问
+    权限」；单纯 chmod 治不好——每小时 kb_status_refresh 重写会把 644 带回来。
+    """
+
+    def test_written_file_mode_is_0600(self):
+        import status_update as su
+        with tempfile.TemporaryDirectory() as td:
+            old = su.STATUS_FILE
+            try:
+                su.STATUS_FILE = os.path.join(td, "status.json")
+                su.save_status({"quality": {}}, updated_by="test")
+                mode = os.stat(su.STATUS_FILE).st_mode & 0o777
+                self.assertEqual(mode & 0o077, 0,
+                                 f"status.json 权限 {oct(mode)} 给了 group/other 访问位")
+            finally:
+                su.STATUS_FILE = old
+
+    def test_chmod_happens_before_replace(self):
+        """收紧必须发生在 publish 之前（连瞬时 644 暴露窗口都不留）。"""
+        with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "status_update.py")) as f:
+            src = f.read()
+        i_chmod = src.index("os.chmod(tmp, 0o600)")
+        i_replace = src.index("os.replace(tmp, STATUS_FILE)")
+        self.assertLess(i_chmod, i_replace, "chmod 必须先于 os.replace")
+
+
 if __name__ == "__main__":
     unittest.main()
