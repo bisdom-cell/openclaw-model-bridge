@@ -136,18 +136,33 @@ class TestSourcesMapWindow(unittest.TestCase):
     def setUp(self):
         self.code = _code_lines(_read("kb_dream.sh"))
 
-    def test_map_input_is_tail_window(self):
-        self.assertIn('full_content=$(cat "$src" 2>/dev/null | utf8_tail_truncate 15000)',
-                      self.code, "sources Map 输入必须是尾部窗口")
-        self.assertNotIn('full_content=$(cat "$src" 2>/dev/null | utf8_truncate 15000)',
-                         self.code, "头部窗口形态已退役（append-to-end 归档头 15K = 永远的 4 月）")
+    def test_map_input_is_not_positional_window(self):
+        """V37.9.329 pin 演进：原断言「必须是尾部窗口」——而尾部窗口正是被修掉的东西。
 
-    def test_prompt_hash_v4_both_sites_consistent(self):
-        """MR-8：cache key 版本存在于 Map 写 + Reduce 读两站点，必须同为 v4。"""
+        意图升级而非削弱：本测试原本守的是「不得是保头窗口」（头 15K = 永远的 4 月），
+        现在守更强的性质——**两种位置性窗口都不用**（用户 2026-08-25 看产品发现尾部
+        窗口把梦境钉死在 8 月），Map 输入必须走内容感知的月份分层取样。
+        分层取样本身的行为由 test_v37_9_329_dream_material_coverage.py 覆盖。
+        """
+        self.assertNotIn('full_content=$(cat "$src" 2>/dev/null | utf8_truncate 15000)',
+                         self.code, "头部窗口形态已退役（归档头 15K = 永远的 4 月）")
+        self.assertNotIn('full_content=$(cat "$src" 2>/dev/null | utf8_tail_truncate 15000)',
+                         self.code, "尾部窗口形态已退役（归档尾 = 永远的最近几天）")
+        self.assertIn("month_stratified_sections", self.code,
+                      "sources Map 输入必须走月份分层取样")
+
+    def test_prompt_hash_both_sites_consistent(self):
+        """MR-8：cache key 版本存在于 Map 写 + Reduce 读两站点，必须一致。
+
+        V37.9.329 pin 演进：原断言硬编码 {"v4"}，而窗口语义每变一次就要 bump 一次
+        （v3→v4→v5），值 pin 会让每次正当 bump 都撞红。本测试收敛为守**一致性**
+        （两站点不同 = 缓存永远 miss 或读到错版本）；「必须 bump 到 v5」由
+        test_v37_9_329_dream_material_coverage.py 精确 pin。
+        """
         hashes = re.findall(r'prompt_hash="(v\d+)"', self.code)
         self.assertEqual(len(hashes), 2, "防空转：prompt_hash 应恰有 2 处（写/读）")
-        self.assertEqual(set(hashes), {"v4"},
-                         "输入窗口语义变更（头→尾）必须 bump 缓存版本，且两站点一致")
+        self.assertEqual(len(set(hashes)), 1,
+                         f"两站点 prompt_hash 不一致（缓存写/读会错版本）: {hashes}")
 
 
 # ════════════════════════════════════════════════════════════════════
@@ -170,9 +185,13 @@ class TestReduceAssembly(unittest.TestCase):
         self.assertIn('done <<< "$SORTED_NOTES"', self.code)
 
     def test_per_part_budgets(self):
-        self.assertIn('MAP_SIGNALS_BUDGETED=$(echo "$MAP_SIGNALS" | utf8_truncate 14000)',
-                      self.code)
-        self.assertIn('NOTES_SIGNALS_BUDGETED=$(echo "$NOTES_SIGNALS" | utf8_truncate 13000)',
+        # V37.9.329 pin 演进：sources 侧退役 utf8_truncate（保头×字母序 = 静默丢源，
+        # 2026-08-25 实测丢 4 个源），改 max-min 公平分配；预算 2x。意图「两类信号
+        # 各有独立预算、都稳定在场」逐字保留且更强。
+        self.assertNotIn('MAP_SIGNALS_BUDGETED=$(echo "$MAP_SIGNALS" | utf8_truncate 14000)',
+                         self.code, "字母序保头截断已退役")
+        self.assertIn("budget_source_blocks", self.code, "sources 侧必须走公平分配")
+        self.assertIn('NOTES_SIGNALS_BUDGETED=$(echo "$NOTES_SIGNALS" | utf8_truncate 28000)',
                       self.code)
         m = re.search(r'REDUCE_DATA="\n# Phase 1a: 外部数据源信号\n(.*?)\n"\nfi', self.src, re.S)
         self.assertIsNotNone(m, "防空转：未抽到主分支 REDUCE_DATA")
@@ -180,14 +199,18 @@ class TestReduceAssembly(unittest.TestCase):
         self.assertIn("$NOTES_SIGNALS_BUDGETED", m.group(1), "主分支必须用预算后的 notes 信号")
 
     def test_global_truncate_safety_net_retained(self):
-        self.assertIn('utf8_truncate 30000', self.code, "全局 30K 安全网不得被移除")
+        # V37.9.329: 30000 → 60000（上下文只用 ~10%，真实约束是单次调用延迟）。
+        # 意图「全局安全网不得被移除」逐字保留。
+        self.assertIn('REDUCE_MULTI_MATERIAL=$(echo "$REDUCE_DATA" | utf8_truncate 60000)',
+                      self.code, "全局安全网不得被移除")
 
     def test_overview_header_declares_time_span(self):
         self.assertIn("月份轮转排列", self.src, "总览 header 必须向 LLM 声明素材的时间结构（原则 #12）")
 
     def test_sampling_branch_budget_symmetric_fix(self):
         """降级采样分支：sources 采样先预算 17K，防 notes 被全局保头截断整体挤出。"""
-        self.assertIn('REDUCE_DATA=$(echo "$REDUCE_DATA" | utf8_truncate 17000)', self.code)
+        # V37.9.329: 17000 → 34000，与主路径同比放大。
+        self.assertIn('REDUCE_DATA=$(echo "$REDUCE_DATA" | utf8_truncate 34000)', self.code)
 
     def test_sampling_branch_time_diversity_intact(self):
         """既有降级分支的 起源/最新 结构是本次诊断的佐证——不得被顺手破坏。"""
