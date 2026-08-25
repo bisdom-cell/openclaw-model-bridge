@@ -1,6 +1,6 @@
 {
-  "updated": "2026-08-25 03:49:22",
-  "updated_by": "unknown",
+  "updated": "2026-08-25 04:28:26",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-08-25",
+      "what": "V37.9.330 原则 #36「修复的自我对抗」确立（用户指令: 记录关键结论避免再犯）: 五条纪律固化当日双血案反思 — (1) 守卫先断言用户可见结果再断言机制 (2) 位置性/容量性假设修类不修实例(同一数据流逐处枚举) (3) 验收数据能被解释成「设计预期」时=最该怀疑的时刻, 对自己刚交付的修复第一姿态是攻击不是辩护 (4) 输出里每个自豪的数字必须有测试对账实际发生的量(「声称与事实无人对账」= 本系统最顽固错误类, 328/324/322/319 同构家族) (5) 容量 fixture 必须用生产实测量级。纯 doc 零机器, VERSION 0.37.9.159 不变",
+      "by": "claude_code"
+    },
     {
       "date": "2026-08-25",
       "what": "V37.9.329 Dream 素材覆盖面根治（用户看产品二连击驱动: 「都是 4 月」→V37.9.326 修→「都是 8 月」= 位置性窗口换方向没换性质）: (1) sources 每源窗口退役头/尾两种位置性形态 → month_stratified_sections 按 ## YYYY-MM-DD 分月桶轮转取样(24K, FAIL-OPEN 回退尾窗, prompt_hash v5) (2) 同日发现 V37.9.326 漏修的第二钉死点——跨源预算字母序保头截断, 生产实测 17078>14000 → openreview_top/pwc_daily/rss_blogs/semantic_scholar_daily 四源整块从未进 LLM 而页脚照写 19 deep-analyzed(同日 V37.9.328 同款 fail-plausible) → budget_source_blocks max-min 公平分配每源必在场; 两死源归档用户已 mv .retired 退役 (3) 增长维度(用户架构约束): 日序轮转偏移 ROTATION_OFFSET=date +%j 经 env 传递——语料翻倍→覆盖一轮周期翻倍而非覆盖率减半, 3 夜×前5=15/15 全覆盖实证 (4) 预算 2x(sources 28K/notes 28K/全局 60K)+超时同步(Map 150s/DEEP·WIDE 420s), 依据=上下文仅用 ~10% 而 Map 90s 已实录 curl(28) (5) DEEP/WIDE 跨时间对照硬规则+诚实逃生口+RADAR 慢烧标注。39 守卫 sabotage 六连全开火; 7 处既有 pin 演进; 守卫当场抓出我自己的源码插值洞(offset= 空值 SyntaxError→sources 拿空内容喂 LLM)改走 env。VERSION 0.37.9.158→0.37.9.159",
@@ -172,11 +177,6 @@
     {
       "date": "2026-08-17",
       "what": "V37.9.311 备份 fallback 落盘路径修复(Mac Mini 日志实证驱动): 4.27 写 CWD 非 ~/.openclaw/backups/ → 假失败告警 + 仓库内 1GB 含凭据孤儿档(gitignore 未挡)。修: CLI 改在 SSD BACKUP_DIR 内生成 + mv 规范名 + gitignore 双规则。守卫 14 单测(含真跑 git check-ignore + ERROR 行须匹配 watchdog err_pattern), sabotage 双连 4/2 精确开火。V37.9.304 cp→mv 守卫按意图演进(移除 rc 检查仍开火)。备份集核实健康 5 份 ×1.0G。VERSION →0.37.9.143。",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-08-17",
-      "what": "V37.9.310 Mac Mini 实证闭环: 备份恢复 (rc=0, 1.0G 归档写入 SSD, 11:04:15 完整成功), 3 天中断结束。同时从日志抓到潜伏缺陷: fallback 分支假设 ~/.openclaw/backups/ 落盘位置与 4.27 实际不符 —— 10:59 那次主路径冷调用超时 → fallback 返回成功却找不到文件 → 假失败告警。已登记待办(需 Mac Mini 侧确认默认路径)。",
       "by": "claude_code"
     }
   ],
@@ -323,7 +323,8 @@
       "【2026-08-24 收工遗留 · 明晨五项验收 + dream 产物三观察（全部 Mac Mini 侧, 无 dev 动作）】(A) 明晨验收五项: ① dream 推送 ~03:10 到达 ② kb_dream.log 无新「使用直接采样模式」行 ③ dream 页脚 sources deep-analyzed = 19（昨晚降级夜为 0）④ 月份分布继续多月混合 grep -oE \"2026-0[1-9]\" ~/.kb/dreams/$(date +%F).md | sort | uniq -c ⑤ 03:02 backup verify 无 status.json 权限告警（V37.9.327 修复生效判据: stat -f %Lp ~/.kb/status.json = 600）。全绿 = V37.9.324-327 四版生产闭环; 任一不符贴给 session。(B) dream 产物三观察（08-24 重推版人眼 check 发现, 登记不立案）: ① 降级采样分支 header 硬编码「直接采样（80K chars）」= V37.9.314/317 漏网残留标签（真实素材 64046 bytes 在下一行）, 仅降级夜显示, 下次触碰 kb_dream 顺手清 ② RADAR 段「今日数据中仅出现1次」引用的是 07-31/06-30 笔记 = 轻度时效措辞混淆, 持续出现再在 WIDE_RADAR prompt 补一句 ③ 用户粘贴里 [可信度: ] 为空 — 待用户瞄 Discord 原文: 若原文也是空档位（无 emoji 无文字）则是 V37.9.318 S6 未覆盖的新形态（空标注）, 值得补检测; 若原文有 emoji 则只是复制丢字, 关闭。(C) 背景: pmset -a sleep 0 已设（睡眠隐患排除）; 昨晚 7h 延迟 = LLM 后端瞬时 curl-52 + 混合部署夜, 已自愈非代码 bug",
       "【V37.9.328 日志扫描字符串契约 · dev 全闭环 · 剩 Mac Mini 被动验证】合并 + git fetch+reset 同步（job_watchdog.sh / conv_quality.py / token_report.py / cron_doctor.sh 均走 FILE_MAP，零重启；watchdog 下个整点、运维日报次日 08:15 自动生效）后观察: (a) 真出现 primary+全链 fallback 失败时，watchdog 会第一次真的报「Adapter: N 次主备双失败（LLM 完全不可用）」—— 修复前该告警结构上不可能开火 (b) 运维日报 fallback 段在真降级日出现非 0 的「失败 N」 (c) 🔴 首次出现这两条 = 盲区解除暴露存量真实故障，不是新 bug，贴给 session 分诊 (d) token 日报若 history 有缺口，环比行显示「上次记录 YYYY-MM-DD，N 天前」不再谎称「昨日」 (e) 反向确认不误报: 单次 fallback 尝试失败但最终降级成功的日子，watchdog 不得报「主备双失败」",
       "【低优观察 · 登记不修】README 徽章的 suites 数字随运行条件漂移: full_regression 把「条件跳过的套件」也计入 test_suites（2026-08-24 收工那轮混沌层因脏树被跳过却计数 → 186；2026-08-25 干净树跑出 185）→ 每次 dirty/clean 切换都会触发一次徽章漂移硬门禁。非回归（dark-test 对账守卫绿 = 无套件静默缺失），成因是「suites」这个指标的定义（注册数 vs 实跑数 vs 含跳过数）没定死。若未来重复制造推送阻塞再评估收敛为单一定义；今天按日落法不为它加机制。",
-      "【V37.9.329 Dream 覆盖面 · ✅ 已合并(PR#898=1129aea)+Mac Mini 已同步(2026-08-25 仓库+运行时副本 grep 3/3 确认) · 剩今晚 cron 首跑 + 明晨验收（判据修正版, 吸取「grep 日期串测不到 notes 侧」教训）】合并+git fetch+reset 同步(kb_dream.sh/kb_dream_helpers.py 走 FILE_MAP 零重启, 当晚 00:00/00:25/03:00 生效)后: (a) 首晚 sources Map 全量重提取 = v5 缓存失效一次性预期开销, 每源 Map 调用变慢(窗口 24K)属预期非故障 (b) 次日 grep -oE \"2026-0[1-9]\" ~/.kb/dreams/$(date +%F).md | sort | uniq -c 应出现 ≥3 个月份(sources 分层生效) (c) 梦境「隐藏关联」段应现跨月证据链或显式「未发现跨月印证」(B 生效, 出现编造跨月关联=贴给 session) (d) grep -cE \"month_stratified_sections 失败|budget_source_blocks 失败\" ~/kb_dream.log 均应 0 (e) 连续几晚 DEEP 主题月份倾向应彼此不同(轮转偏移生效) (f) DEEP/WIDE 调用变慢(素材 30K→60K)但总时长应仍 <30min。⑤ 已顺带完成: openreview_top/pwc_daily 死归档已 .retired(pwc 文件名尾多个 ~ 无害可整理)"
+      "【V37.9.329 Dream 覆盖面 · ✅ 已合并(PR#898=1129aea)+Mac Mini 已同步(2026-08-25 仓库+运行时副本 grep 3/3 确认) · 剩今晚 cron 首跑 + 明晨验收（判据修正版, 吸取「grep 日期串测不到 notes 侧」教训）】合并+git fetch+reset 同步(kb_dream.sh/kb_dream_helpers.py 走 FILE_MAP 零重启, 当晚 00:00/00:25/03:00 生效)后: (a) 首晚 sources Map 全量重提取 = v5 缓存失效一次性预期开销, 每源 Map 调用变慢(窗口 24K)属预期非故障 (b) 次日 grep -oE \"2026-0[1-9]\" ~/.kb/dreams/$(date +%F).md | sort | uniq -c 应出现 ≥3 个月份(sources 分层生效) (c) 梦境「隐藏关联」段应现跨月证据链或显式「未发现跨月印证」(B 生效, 出现编造跨月关联=贴给 session) (d) grep -cE \"month_stratified_sections 失败|budget_source_blocks 失败\" ~/kb_dream.log 均应 0 (e) 连续几晚 DEEP 主题月份倾向应彼此不同(轮转偏移生效) (f) DEEP/WIDE 调用变慢(素材 30K→60K)但总时长应仍 <30min。⑤ 已顺带完成: openreview_top/pwc_daily 死归档已 .retired(pwc 文件名尾多个 ~ 无害可整理)",
+      "【observer 检测器候选 · gated 于明晨 v5 首跑数据 · 刻意不现建（日落法: 不在反思情绪里加机器）】「素材月份分布」检测器: daily_observer 对 dream 产物加确定性检查(月份计数 <3 或单月占比 >80% → MED 告警), 让「只引用一个月」下次不需要用户眼睛(镜像 V37.9.318 S6 档位检测器的人眼→机器路径)。决策判据: 明晨 2026-08-26 dream 若月份 ≥3 且跨月关联真实 → V37.9.329 修复生效, 检测器作为回归守卫建(防位置性窗口第三次复活); 若仍单月钉死 → 先修再说不建。附: 原则 #36 五条纪律已固化 CLAUDE.md(V37.9.330), 纪律(3) 自我辩护倾向无法机器化, 靠行为纪律+独立信道"
     ],
     "open_prs": [],
     "blocked_on": "",
