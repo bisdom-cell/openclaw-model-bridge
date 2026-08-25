@@ -62,8 +62,27 @@ RE_PRIMARY_FAIL = re.compile(
 RE_FALLBACK_OK = re.compile(
     r"\[adapter:\w+\] (\d{4}-\d{2}-\d{2}) \S+ \[(\w+)\] FALLBACK OK"
 )
+# [adapter:doubao_21] ... [abc12345] ALL 4 FALLBACKS FAILED
+# V37.9.328 血案: 原判据是一个 adapter.py 全历史从未写过的字符串, 于是全链宕机的日报
+# 永远渲染成「触发 N 次 / 成功 0 / 失败 0」= 读作无事发生 (fail-plausible)。
+# 用 run 级串: 每请求一条, 与 triggered/success 同为 per-request 口径;
+# per-attempt 的 "FALLBACK <name> FAILED" 一个请求可出现多条, 不能用作 failed 计数。
 RE_FALLBACK_FAIL = re.compile(
-    r"\[adapter:\w+\] (\d{4}-\d{2}-\d{2}) \S+ \[(\w+)\] FALLBACK ALSO FAILED"
+    r"\[adapter:\w+\] (\d{4}-\d{2}-\d{2}) \S+ \[(\w+)\] ALL \d+ FALLBACKS FAILED"
+)
+# [adapter:doubao_21] ... [abc12345] CIRCUIT BREAKER OPEN: skipping primary, ...
+# V37.9.328: 断路器开时 primary 被直接跳过 → 没有 PRIMARY FAILED 行, 但这同样是一次
+# 降级请求。不计入 triggered 会让 success > triggered = 自相矛盾的算术。
+RE_CIRCUIT_BREAKER = re.compile(
+    r"\[adapter:\w+\] (\d{4}-\d{2}-\d{2}) \S+ \[(\w+)\] CIRCUIT BREAKER OPEN"
+)
+# [adapter:...] ... [rid] NO FALLBACK CHAIN configured, returning 502
+# V37.9.328: 同一个洞的第二种形态 —— fallback 链为空时 primary 失败直接 502,
+# 既没有 ALL...FALLBACKS FAILED 也没有 FALLBACK OK, failed 会再次恒 0。
+# 生产当前配了 4 个 fallback 不触发; H1-C 第二实例(PUSH-only)可能不配链。
+# 归入 failed = 统一定义「这次请求最终没有任何 provider 服务成功」。
+RE_NO_FALLBACK_CHAIN = re.compile(
+    r"\[adapter:\w+\] (\d{4}-\d{2}-\d{2}) \S+ \[(\w+)\] NO FALLBACK CHAIN configured"
 )
 
 
@@ -165,9 +184,13 @@ def parse_logs(target_date):
             for line in f:
                 if RE_PRIMARY_FAIL.search(line) and date_str in line:
                     fallback_triggered += 1
+                elif RE_CIRCUIT_BREAKER.search(line) and date_str in line:
+                    fallback_triggered += 1
                 elif RE_FALLBACK_OK.search(line) and date_str in line:
                     fallback_success += 1
                 elif RE_FALLBACK_FAIL.search(line) and date_str in line:
+                    fallback_failed += 1
+                elif RE_NO_FALLBACK_CHAIN.search(line) and date_str in line:
                     fallback_failed += 1
 
     # --- Compute metrics ---

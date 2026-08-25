@@ -560,10 +560,16 @@ for entry in "${LOG_FRESHNESS_JOBS[@]}"; do
         ALERTS+=("$job_id: log_freshness check 内部异常 (V37.9.59)")
 done
 
-# Adapter 日志特殊扫描（FALLBACK ALSO FAILED = 双路径全挂）
+# Adapter 日志特殊扫描（run 级「全部 fallback 失败」= LLM 完全不可用）
+# V37.9.328 血案: 原判据 grep 的字符串在 adapter.py 的全部 git 历史里从未存在过
+# (git log -S 该串 -- adapter.py 为空), 这条 CRITICAL 告警自诞生起结构上不可能开火。
+# 探针: primary + 4 个 fallback 全部失败的真实日志 → adapter_critical = 0, 不告警。
+# 真串见 adapter.py: run 级 "ALL <N> FALLBACKS FAILED"（每请求一条, 全链耗尽时打）。
+# per-attempt 的 "FALLBACK <name> FAILED" 刻意不匹配 —— 单次尝试失败后仍可能降级成功,
+# 匹配它会把「已恢复」误报成「完全不可用」(镜像 V37.9.292 per-file 不匹配/run 级匹配)。
 ADAPTER_LOG="$HOME/adapter.log"
 if [ -f "$ADAPTER_LOG" ]; then
-    adapter_critical=$(tail -100 "$ADAPTER_LOG" 2>/dev/null | grep -c "FALLBACK ALSO FAILED" || true)
+    adapter_critical=$(tail -100 "$ADAPTER_LOG" 2>/dev/null | grep -cE "ALL [0-9]+ FALLBACKS FAILED" || true)
     if [ "$adapter_critical" -gt 0 ]; then
         ALERTS+=("Adapter: 最近 ${adapter_critical} 次主备双失败（LLM 完全不可用）")
     fi

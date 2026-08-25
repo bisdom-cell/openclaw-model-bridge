@@ -33,14 +33,23 @@ RE_TOKENS = re.compile(
     r"\[proxy\] (\d{4}-\d{2}-\d{2}) (\d{2}):\d{2}:\d{2} \[(\w+)\] "
     r"TOKENS: prompt=([\d,]+) total=([\d,]+)"
 )
-# [proxy] 2026-03-24 10:05:30 [abc12345] Backend: 200 1500b 350ms
-RE_BACKEND = re.compile(
-    r"\[proxy\] (\d{4}-\d{2}-\d{2}) \S+ \[(\w+)\] Backend: 200"
-)
+# V37.9.328 日落法: 此处曾有 RE_BACKEND + parse_tokens 里的 success_rids 统计段
+# —— 完整多扫一遍全日志、收集的集合从未被任何地方读取（死代码 + 每次运行一遍多余
+# 的全文件 IO）。已退役。
 
 
 def parse_int(s):
     return int(s.replace(",", ""))
+
+
+def _day_gap(earlier, later):
+    """两个 YYYY-MM-DD 之间的日历天数差；无法解析返回 None（FAIL-OPEN）。"""
+    try:
+        d0 = datetime.strptime(earlier, "%Y-%m-%d")
+        d1 = datetime.strptime(later, "%Y-%m-%d")
+    except (TypeError, ValueError):
+        return None
+    return (d1 - d0).days
 
 
 def parse_tokens(target_date):
@@ -54,14 +63,6 @@ def parse_tokens(target_date):
 
     if not os.path.exists(PROXY_LOG):
         return None
-
-    # Count total successful requests for the date
-    success_rids = set()
-    with open(PROXY_LOG, "r", errors="replace") as f:
-        for line in f:
-            m = RE_BACKEND.search(line)
-            if m and m.group(1) == target_date:
-                success_rids.add(m.group(2))
 
     with open(PROXY_LOG, "r", errors="replace") as f:
         for line in f:
@@ -187,12 +188,24 @@ def format_report(data, prev_day):
     lines.append(f"   Prompt: {tp:,}  Completion: {tc:,}")
 
     # Day-over-day comparison
+    # V37.9.328 血案: prev_day 取的是 history 里的「上一条记录」而非「上一个日历日」
+    # —— job 停跑/当日无 token 数据的日子不进 history, 于是 4 天前的数字被逐字标成
+    # 「昨日」(探针: 08-21 的 1,000,000 渲染成「日环比 -70.0%（昨日 1,000,000）」,
+    # 读者会以为一夜之间用量掉了 70%)。同族: V37.9.323 把 feedback[0] 标成「最新」。
+    # 只有真的相差 1 天才说「昨日」, 否则如实披露对比日期与间隔。
     if prev_day:
         prev_tt = prev_day.get("total_tokens", 0)
         if prev_tt > 0:
             change_pct = round((tt - prev_tt) / prev_tt * 100, 1)
             arrow = "📈" if change_pct > 0 else "📉" if change_pct < 0 else "➡️"
-            lines.append(f"   {arrow} 日环比：{change_pct:+.1f}%（昨日 {prev_tt:,}）")
+            gap = _day_gap(prev_day.get("date"), data["date"])
+            if gap == 1:
+                lines.append(f"   {arrow} 日环比：{change_pct:+.1f}%（昨日 {prev_tt:,}）")
+            elif gap is None:
+                lines.append(f"   {arrow} 环比：{change_pct:+.1f}%（上次记录 {prev_tt:,}）")
+            else:
+                lines.append(f"   {arrow} 环比：{change_pct:+.1f}%"
+                             f"（上次记录 {prev_day['date']}，{gap} 天前 {prev_tt:,}）")
 
     # Per-request stats
     lines.append("")

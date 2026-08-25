@@ -132,12 +132,18 @@ class TestParseAdapterLog(unittest.TestCase):
 
     def test_fallback_events(self):
         write_proxy_log([])  # empty proxy log
+        # V37.9.328 fixture 忠实化: 原来这里手写的 "FALLBACK ALSO FAILED" 是一个
+        # adapter.py 全部 git 历史里从未产出过的字符串 —— 这个测试于是常年绿着,
+        # 守护着一个在生产里恒为 0 的指标 (V37.9.299 fake-not-faithful 家族)。
+        # 下面全部改为 adapter.py 的真实输出形态; 跨文件契约不再靠手写字面量,
+        # 由 test_v37_9_328_fallback_alert_contract.py 从 adapter.py 源码 AST 抽模板守护。
         write_adapter_log([
             f"[adapter:qwen] {DATE} 10:00:00 [rid00001] PRIMARY FAILED (5000ms): timeout",
             f"[adapter:qwen] {DATE} 10:00:05 [rid00001] FALLBACK -> gemini (gemini-2.5-flash)",
-            f"[adapter:qwen] {DATE} 10:00:08 [rid00001] FALLBACK OK: 200 (3000 bytes) 8000ms",
+            f"[adapter:qwen] {DATE} 10:00:08 [rid00001] FALLBACK OK: 200 (3000 bytes) 8000ms via gemini",
             f"[adapter:qwen] {DATE} 10:01:00 [rid00002] PRIMARY FAILED (5000ms): 502",
-            f"[adapter:qwen] {DATE} 10:01:05 [rid00002] FALLBACK ALSO FAILED (10000ms): 503",
+            f"[adapter:qwen] {DATE} 10:01:05 [rid00002] FALLBACK gemini FAILED (10000ms): 503",
+            f"[adapter:qwen] {DATE} 10:01:05 [rid00002] ALL 1 FALLBACKS FAILED",
         ])
         data = conv_quality.parse_logs(DATE)
         self.assertEqual(data["fallback"]["triggered"], 2)

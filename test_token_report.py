@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """test_token_report.py — token_report.py 单测"""
 import unittest, tempfile, os, json
+from datetime import datetime, timedelta
 
 _tmpdir = tempfile.mkdtemp()
 _proxy_log = os.path.join(_tmpdir, "tool_proxy.log")
@@ -154,15 +155,35 @@ class TestFormatReport(unittest.TestCase):
         self.assertIn("Token 日报完毕", report)
 
     def test_day_over_day(self):
+        """V37.9.328 pin 演进: 原 fixture 的 prev 没有 date 字段却断言渲染成「昨日」
+
+        —— 那正是被修掉的行为（prev_day 是 history 的上一条记录, 不必是上一个日历日）。
+        意图「相邻两日的对比要渲染出环比与前值」逐字保留, fixture 补上真实的前一日日期。
+        缺 date 的旧 history 条目走诚实降级, 由下面 test_prev_without_date 覆盖。
+        """
         write_log([
             f"[proxy] {DATE} 10:00:00 [r001] Backend: 200 100b 300ms stream=False",
             f"[proxy] {DATE} 10:00:00 [r001] TOKENS: prompt=50,000 total=52,000 (19% of 260K)",
         ])
         data = token_report.parse_tokens(DATE)
-        prev = {"total_tokens": 40000}
+        prev_date = (datetime.strptime(DATE, "%Y-%m-%d")
+                     - timedelta(days=1)).strftime("%Y-%m-%d")
+        prev = {"date": prev_date, "total_tokens": 40000}
         report = token_report.format_report(data, prev)
         self.assertIn("+30.0%", report)
         self.assertIn("昨日 40,000", report)
+
+    def test_prev_without_date_degrades_honestly(self):
+        """旧 history 条目缺 date → 仍给环比数字, 但不得谎称「昨日」。"""
+        write_log([
+            f"[proxy] {DATE} 10:00:00 [r001] Backend: 200 100b 300ms stream=False",
+            f"[proxy] {DATE} 10:00:00 [r001] TOKENS: prompt=50,000 total=52,000 (19% of 260K)",
+        ])
+        data = token_report.parse_tokens(DATE)
+        report = token_report.format_report(data, {"total_tokens": 40000})
+        self.assertIn("+30.0%", report)
+        self.assertNotIn("昨日", report)
+        self.assertIn("上次记录", report)
 
 
 if __name__ == "__main__":
