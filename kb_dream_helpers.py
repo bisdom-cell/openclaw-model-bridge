@@ -550,7 +550,7 @@ def split_dream_into_chunks(text: str, max_chunk: int = 4000) -> list[str]:
 # 9. 月份轮转排序（V37.9.326 — Dream 素材"4 月钉死"血案）
 # ─────────────────────────────────────────────────────────────────────
 
-def month_round_robin(paths: list[str]) -> list[str]:
+def month_round_robin(paths: list[str], offset: int = 0) -> list[str]:
     """把笔记路径列表重排为「月份轮转」序（V37.9.326）。
 
     血案背景：kb_dream.sh 的 Reduce cache-load 按 `find | sort`
@@ -565,6 +565,12 @@ def month_round_robin(paths: list[str]) -> list[str]:
       3. 轮转取件：每月各取第 1 件，再各取第 2 件……直到取空 —— 于是
          截断窗口的头部横跨全部月份，而非钉死在单一时段。
       4. 文件名无法解析出合法 YYYYMM 的保守落尾（不丢失，MR-4）。
+
+    V37.9.329（增长维度）：`offset` 把桶内起点左旋 offset%len —— 语料无界增长
+    而 Reduce 预算固定（13000 chars ≈ 274 个信号块里的 ~40 个）时，仅靠层内
+    多样性会让覆盖率单调趋近 0。日序偏移让不同夜看到不同切片：语料翻倍时
+    **覆盖率不降，只是完整覆盖一轮的周期翻倍**。旋转是置换，零丢失零重复不变。
+    offset=0 时输出与 V37.9.326 逐字节相同。
 
     纯函数：不读文件系统，只看路径字符串；输入输出条目一一对应（无丢失/重复）。
     """
@@ -586,8 +592,15 @@ def month_round_robin(paths: list[str]) -> list[str]:
             invalid.append(p)
 
     ordered_months = sorted(buckets, reverse=True)  # 最新月在前
+    try:
+        off = int(offset)
+    except (TypeError, ValueError):
+        off = 0
     for mo in ordered_months:
         buckets[mo].sort(reverse=True)              # 月内最新在前
+        if off and buckets[mo]:
+            k = off % len(buckets[mo])
+            buckets[mo] = buckets[mo][k:] + buckets[mo][:k]
 
     out: list = []
     idx = 0
@@ -603,6 +616,195 @@ def month_round_robin(paths: list[str]) -> list[str]:
         idx += 1
     out.extend(invalid)
     return out
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 10. sources 归档月份分层取样（V37.9.329 — "8 月钉死" = "4 月钉死"的反面）
+# ─────────────────────────────────────────────────────────────────────
+
+_SECTION_RE = None
+
+
+def month_stratified_sections(text: str, max_chars: int, offset: int = 0) -> str:
+    """从 sources 归档里按月份分层取样，填满 max_chars（V37.9.329）。
+
+    血案谱系：sources 归档是 kb_append_source.sh append-to-end 的编年体文件，
+    每天追加一个 `## YYYY-MM-DD` 段（该脚本的幂等契约保证了这个结构）。
+      - V37.9.326 之前：取**头** 15K → 永远是建库最早的 4 月 → 梦境只引用 4 月
+      - V37.9.326：改取**尾** 15K → 永远是最近几天 → 梦境只引用 8 月
+    两者是同一个病：**位置性窗口**（头/尾）对一个"全量 KB 探索引擎"必然把
+    探索面钉死在语料的某个角落，只是钉死的角落不同。
+
+    本函数换成**内容感知**取样：按 H2 日期分月桶 → 月份降序（近月先）→
+    桶内日期降序 → 轮转整段取件直到预算耗尽。于是窗口横跨归档全时间跨度。
+
+    增长维度（用户 2026-08-25 提出的架构约束）：语料无界增长而预算固定时，
+    月份分层只修"哪一片"不修"这一片会越来越小"。`offset` 把桶内起点左旋，
+    让不同夜取到不同段 —— 语料翻倍 → 覆盖一轮的周期翻倍，而非覆盖率减半。
+
+    FAIL-OPEN：解析不出任何 `## YYYY-MM-DD` 段（格式漂移 / 非编年体源）
+    → 回退 V37.9.326 的尾部窗口行为，绝不返回空。
+
+    纯函数：不读文件系统，不调网络。
+    """
+    import re as _re
+
+    global _SECTION_RE
+    if _SECTION_RE is None:
+        _SECTION_RE = _re.compile(r"^## (\d{4})-(\d{2})-(\d{2})", _re.MULTILINE)
+
+    try:
+        budget = int(max_chars)
+    except (TypeError, ValueError):
+        budget = 15000
+    if budget <= 0:
+        return ""
+    if not isinstance(text, str) or not text:
+        return ""
+
+    def _tail(t: str) -> str:
+        """V37.9.326 尾部窗口行为（FAIL-OPEN 回退用），首行对齐。"""
+        if len(t) <= budget:
+            return t
+        cut = t[-budget:]
+        nl = cut.find("\n")
+        if nl != -1 and nl < int(budget * 0.1):
+            cut = cut[nl + 1:]
+        return cut
+
+    matches = list(_SECTION_RE.finditer(text))
+    if not matches:
+        return _tail(text)
+
+    # 切段：每段 = [本 H2 行起, 下一个 H2 行前)；H2 之前的前言刻意丢弃
+    # （Map prompt 已单独拿到 source 名 TPL_NAME，前言通常只是文件标题）
+    buckets: dict = {}
+    for i, m in enumerate(matches):
+        start = m.start()
+        end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
+        month = f"{m.group(1)}-{m.group(2)}"
+        buckets.setdefault(month, []).append((m.group(0), text[start:end]))
+
+    try:
+        off = int(offset)
+    except (TypeError, ValueError):
+        off = 0
+
+    ordered_months = sorted(buckets, reverse=True)          # 近月先
+    for mo in ordered_months:
+        buckets[mo].sort(key=lambda kv: kv[0], reverse=True)  # 月内新的先
+        if off and buckets[mo]:
+            k = off % len(buckets[mo])
+            buckets[mo] = buckets[mo][k:] + buckets[mo][:k]
+
+    picked: list = []
+    used = 0
+    idx = 0
+    while True:
+        emitted = False
+        for mo in ordered_months:
+            b = buckets[mo]
+            if idx >= len(b):
+                continue
+            emitted = True
+            body = b[idx][1]
+            if used + len(body) > budget:
+                continue          # 这段放不下，试同轮其他月份的更短段
+            picked.append(body)
+            used += len(body)
+        if not emitted:
+            break
+        idx += 1
+
+    if not picked:
+        # 单段就超预算：取最新月最新段的头部，绝不返回空（MR-4）
+        return buckets[ordered_months[0]][0][1][:budget]
+
+    return "".join(picked)
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 11. 跨源预算公平分配（V37.9.329 — "字母序决定谁被思考"）
+# ─────────────────────────────────────────────────────────────────────
+
+
+def budget_source_blocks(text: str, max_chars: int) -> str:
+    """把 `## <源名>` 分块的信号文本按 max-min 公平分配裁到 max_chars（V37.9.329）。
+
+    血案：kb_dream.sh 把 19 个 source 的 Map 信号按 `find | sort`（**字母序**）
+    拼成 MAP_SIGNALS，再 `utf8_truncate 14000`（保头）。2026-08-25 实测
+    16756 chars > 14000 → **字母表末尾的源整块从未进过 Reduce 的推理材料**，
+    而梦境页脚照样写「19 sources deep-analyzed」（Map 确实跑了 19 个）。
+    决定谁被思考的是文件名首字母，且这个丢弃完全静默 = fail-plausible。
+
+    改为 max-min 公平分配：按块长升序发放配额，短块全留、长块只裁到当轮均分
+    额度，省下的额度回流给还没分配的块。性质：
+      - **每个源必然在场**（至少保留 `## 名字` 头 + 一段正文）
+      - 总量不超预算；总量本就不超时逐字返回（零改动）
+      - 裁剪落在最长的块上，而不是按字母序整块丢弃
+      - 源数量增长时配额均匀变小，仍然人人在场（增长友好）
+
+    预算契约：`max_chars` ≥ 各源表头总长时严格不超预算；若 `max_chars` 小到
+    连表头都放不下（生产不可能：19 源表头 ≈ 321 chars vs 预算 14000+），
+    则优先保证"每源在场"而超出预算 —— 静默丢源比略超预算更糟。
+
+    纯函数。
+    """
+    try:
+        budget = int(max_chars)
+    except (TypeError, ValueError):
+        return text if isinstance(text, str) else ""
+    if not isinstance(text, str) or not text:
+        return ""
+    if len(text) <= budget:
+        return text
+    if budget <= 0:
+        return ""
+
+    lines = text.split("\n")
+    blocks: list = []          # [(header_line_or_None, [body lines])]
+    cur_head = None
+    cur_body: list = []
+    for ln in lines:
+        if ln.startswith("## "):
+            blocks.append((cur_head, cur_body))
+            cur_head, cur_body = ln, []
+        else:
+            cur_body.append(ln)
+    blocks.append((cur_head, cur_body))
+    # 首个 (None, ...) 是任何 `## ` 之前的前言
+    blocks = [b for b in blocks if b[0] is not None or "".join(b[1]).strip()]
+    if not blocks:
+        return text[:budget]
+
+    rendered = []
+    for head, body in blocks:
+        txt = ("" if head is None else head + "\n") + "\n".join(body)
+        rendered.append([head, txt])
+
+    order = sorted(range(len(rendered)), key=lambda i: len(rendered[i][1]))
+    # 重新 join 时块间要插 (n-1) 个换行, 必须先从预算里扣掉,
+    # 否则输出会比 max_chars 多出 n-1 个字符（探针实测 14018 > 14000）
+    remaining_budget = max(0, budget - max(0, len(rendered) - 1))
+    remaining_count = len(rendered)
+    out_parts: dict = {}
+    for i in order:
+        head, txt = rendered[i]
+        share = remaining_budget // remaining_count if remaining_count else 0
+        if len(txt) <= share:
+            out_parts[i] = txt
+            remaining_budget -= len(txt)
+        else:
+            keep = txt[:share] if share > 0 else ""
+            if head is not None and len(keep) < len(head):
+                keep = head          # 头必须活下来: 这个源"在场"的证据
+            out_parts[i] = keep
+            remaining_budget -= len(keep)
+        remaining_count -= 1
+        if remaining_budget < 0:
+            remaining_budget = 0
+
+    return "\n".join(out_parts[i] for i in range(len(rendered)))
 
 
 # ─────────────────────────────────────────────────────────────────────

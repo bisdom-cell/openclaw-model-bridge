@@ -269,7 +269,8 @@ class TestDreamRadarPreamble(unittest.TestCase):
         self.assertIn(prepend, self.src)
         self.assertLess(
             self.src.index(prepend),
-            self.src.index("REDUCE_MULTI_MATERIAL=$(echo \"$REDUCE_DATA\" | utf8_truncate 30000)"),
+            # V37.9.329 pin 演进: 安全网 30000 → 60000, 「前插先于全局截断」意图不变
+            self.src.index("REDUCE_MULTI_MATERIAL=$(echo \"$REDUCE_DATA\" | utf8_truncate 60000)"),
             "前插必须发生在 30K 截断之前",
         )
 

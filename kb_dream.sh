@@ -104,6 +104,17 @@ STATUS_FILE="$DREAM_DIR/.last_run.json"        # Reduce 阶段状态
 MAP_STATUS_FILE="$DREAM_DIR/.last_map.json"    # Map 阶段状态（独立，不被 Reduce 覆盖）
 MAP_DONE_FLAG="$DREAM_DIR/.map_cache/${DAY}_MAP_DONE"  # Map 完成标记（Reduce 可感知）
 MAP_DIR="$DREAM_DIR/.map_cache"
+# V37.9.329 日序轮转偏移：Reduce 预算固定而语料无界增长 → 只靠层内多样性会让
+# 覆盖率单调趋近 0（实测: notes 274 个信号块里预算只放得下 ~40 个 = 15%）。
+# 偏移让不同夜取到不同切片：语料翻倍 → 覆盖一轮的周期翻倍，而非覆盖率减半。
+# 用 day-of-year 保证同一天内 00:00 Map 与 03:00 Reduce 取到相同窗口（缓存一致）。
+# 10# 强制十进制：date +%j 的 "093" 直接进 python 源码会被当非法八进制字面量。
+ROTATION_OFFSET=$((10#$(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date +%j)))
+ROTATION_OFFSET=${ROTATION_OFFSET:-0}
+export ROTATION_OFFSET
+# 🔴 偏移一律经 env 读取, 绝不做 python 源码插值 —— 插值时变量为空会渲染成
+# `offset=)` = SyntaxError, 整个 python 编译失败: notes 侧有 [ -z ] 兜底,
+# sources 侧则会拿到空 full_content 去喂 LLM。env 读取语法上不可能被空值破坏。
 mkdir -p "$DREAM_DIR" "$MAP_DIR"
 
 log() { echo "[$(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date '+%Y-%m-%d %H:%M:%S')] dream: $1" >&2; }
@@ -485,7 +496,7 @@ if [ "$FAST_MODE" = false ] && [ "$MAP_ONLY" = false ] && [ -d "$MAP_DIR" ]; the
             [ -f "$src" ] || continue
             name=$(basename "$src" .md)
             file_size=$(wc -c < "$src" 2>/dev/null | tr -d ' ')
-            prompt_hash="v4"  # V37.9.326: 输入窗口语义变更(头15K→尾15K), bump 使旧缓存失效
+            prompt_hash="v5"  # V37.9.329: 输入窗口语义再变(尾15K→月份分层24K+日序偏移), bump 使旧缓存失效
             cache_key="${name}_${file_size}_${prompt_hash}"
             cache_file="$MAP_DIR/${DAY}_${cache_key}.txt"
             if [ -f "$cache_file" ]; then
@@ -519,7 +530,7 @@ sys.path.insert(0, '$SCRIPT_DIR')
 try:
     from kb_dream_helpers import month_round_robin
     paths = [l for l in sys.stdin.read().splitlines() if l.strip()]
-    print('\n'.join(month_round_robin(paths)))
+    print('\n'.join(month_round_robin(paths, offset=int(os.environ.get('ROTATION_OFFSET') or 0))))
 except Exception as e:
     sys.stderr.write(f'WARN: month_round_robin 失败, 回退原序: {e}\n')
 ")
@@ -559,6 +570,7 @@ except Exception as e:
 > 覆盖 $NOTES_MAP_COUNT 条用户笔记，提取出 $UNIQ_BLOCK_COUNT 个独立信号簇
 > 每个信号簇由一个 Map 批次独立生成，代表一组主题相关的观察点
 > 信号簇已按月份轮转排列（近月在前、各月混合），横跨知识库全时间跨度而非单一时段 (V37.9.326)
+> 起点按日序轮转，不同夜取到不同切片——语料增长时覆盖率不降，只是覆盖一轮的周期变长 (V37.9.329)
 "
             for i in "${!UNIQ_NOTE_SIG_BLOCKS[@]}"; do
                 idx=$((i + 1))
@@ -599,7 +611,7 @@ if [ "$SKIP_MAP_LOOPS" = false ] && [ "$FAST_MODE" = false ] && [ "$SRC_COUNT" -
         # 检查 map 缓存（同一天同一文件大小不重复提取）
         file_size=$(wc -c < "$src" 2>/dev/null | tr -d ' ')
         # 缓存 key 含 prompt 版本哈希，prompt 变化时自动重新提取
-        prompt_hash="v4"  # bump when prompt/input-window changes to invalidate cache (V37.9.326: 头15K→尾15K)
+        prompt_hash="v5"  # bump when prompt/input-window changes to invalidate cache (V37.9.329: 尾15K→月份分层24K+日序偏移)
         cache_key="${name}_${file_size}_${prompt_hash}"
         cache_file="$MAP_DIR/${DAY}_${cache_key}.txt"
 
@@ -608,13 +620,29 @@ if [ "$SKIP_MAP_LOOPS" = false ] && [ "$FAST_MODE" = false ] && [ "$SRC_COUNT" -
             signals=$(cat "$cache_file")
             MAP_CONSECUTIVE_FAILS=0  # 缓存命中视为成功，重置计数（V37.2 fix: 防止假熔断）
         else
-            # V37.9.326 血案: 此前取头部 15K —— 而 sources 归档是 kb_append_source.sh
-            # append-to-end 的编年体文件, 头 15K = 建库最早(2026-04)的条目, 且归档只在
-            # 尾部生长 → 该窗口永远钉死在 4 月; file_size 天天变 → cache 天天 miss →
-            # 每晚重新对一模一样的 4 月头部烧 14 次 LLM 提取。这是梦境结论"总在引用
-            # 4 月观点和数据"的最大直接来源。改为尾部窗口: 最近条目, 随归档生长每日
-            # 自动前移。15K chars ≈ 4-5K tokens。
-            full_content=$(cat "$src" 2>/dev/null | utf8_tail_truncate 15000)
+            # V37.9.329 血案谱系: 头 15K 钉死在建库最早的 4 月 (V37.9.326 之前) →
+            # 改尾 15K 又钉死在最近几天 (用户 2026-08-25 看产品发现"几乎全是 8 月")。
+            # 两者是同一个病: **位置性窗口**对一个"全量 KB 探索引擎"必然把探索面钉死
+            # 在语料的某个角落, 只是角落不同。改为内容感知取样: 按 kb_append_source.sh
+            # 保证的 `## YYYY-MM-DD` 段分月桶轮转, 窗口横跨归档全时间跨度; 日序偏移让
+            # 不同夜取到不同段 (增长维度)。FAIL-OPEN: 解析不出日期段 → 回退尾部窗口。
+            full_content=$(cat "$src" 2>/dev/null | python3 -c "
+import sys, os
+sys.path.insert(0, os.path.expanduser('~'))
+sys.path.insert(0, '$SCRIPT_DIR')
+text = sys.stdin.read()
+try:
+    from kb_dream_helpers import month_stratified_sections
+    sys.stdout.write(month_stratified_sections(text, 24000, offset=int(os.environ.get('ROTATION_OFFSET') or 0)))
+except Exception as e:
+    sys.stderr.write(f'WARN: month_stratified_sections 失败, 回退尾部窗口: {e}\n')
+    sys.stdout.write(text[-24000:])
+")
+            # python 整体失败(编译错/解释器缺失) → full_content 空 → 绝不拿空内容喂 LLM
+            if [ -z "${full_content// }" ]; then
+                log "  WARN [$name]: 取样产出为空, 回退尾部窗口"
+                full_content=$(cat "$src" 2>/dev/null | utf8_tail_truncate 24000)
+            fi
 
             # 用 Python 安全拼接 prompt（避免 printf 对 KB 内容中 % 字符的格式化注入）
             prompt=$(python3 -c "
@@ -648,7 +676,7 @@ PROMPT_EOF
 )
 
             log "  Map [$name]: ${total_lines}行, ${file_size}B → 提取信号..."
-            signals=$(llm_call "$prompt" 1200 0.5 90 || true)
+            signals=$(llm_call "$prompt" 1200 0.5 150 || true)  # V37.9.329: 90→150, 窗口 15K→24K 且 90s 已实录 curl(28) 超时
 
             if [ -n "${signals// }" ]; then
                 echo "$signals" > "$cache_file"
@@ -750,7 +778,7 @@ TPL_CONTENT
 PROMPT_EOF
 )
         log "  Map Notes [批次$BATCH_NUM]: ${PENDING_COUNT}条, ${PENDING_SIZE}B → 提取信号..."
-        signals=$(llm_call "$prompt" 1200 0.5 90 || true)
+        signals=$(llm_call "$prompt" 1200 0.5 150 || true)  # V37.9.329: 同上
 
         if [ -n "${signals// }" ]; then
             # 把 signals 写入本批所有 note 的 cache 文件（同内容多副本，换取 cache key 稳定性）
@@ -1103,7 +1131,7 @@ if [ "$FAST_MODE" = true ] || [ -z "${MAP_SIGNALS// }" ]; then
 
     # V37.9.326: 采样分支同 bug class 对称修 —— 14 个 source × ~4.5K 采样 ≈ 60K+,
     # notes 追加在尾部会被全局保头 30K 截断整体挤出。sources 采样部分先预算到 17K。
-    REDUCE_DATA=$(echo "$REDUCE_DATA" | utf8_truncate 17000)
+    REDUCE_DATA=$(echo "$REDUCE_DATA" | utf8_truncate 34000)  # V37.9.329: 与主路径同比放大
 
     # Notes 全量
     # V37.9.305 (对抗审计 A-F4): Reduce 路径 (SKIP_MAP_LOOPS=true) NOTES_MATERIAL
@@ -1125,14 +1153,35 @@ else
     REDUCE_INTRO="以下是系统知识库的 **全量深度分析结果**。Phase 1 已对 $MAP_COUNT 个数据源和 $NOTES_MAP_COUNT 条用户笔记逐一进行了信号提取（覆盖全部 ${TOTAL_KB_BYTES} 字节数据）。
 
 **重要：用户笔记中的信号同样重要。** 这些笔记是用户主动保存的重要信息、决策和发现，反映了用户的关注方向和判断。分析时必须同时考虑外部数据源信号和用户笔记信号。"
-    # V37.9.326: 每部分独立预算 —— 全局 30K 截断是保头截尾, 此前 sources 信号
-    # (~15-20K) 排在前会把 notes 信号挤出窗口, 幸存的 notes 块只剩最前面(最老)几个。
-    # 现 sources ≤14K / notes ≤13K (+preamble ≈ 30K), 两类信号都稳定在场; notes 段
-    # 配合月份轮转序 → 幸存块横跨各月。全局 30K 截断仍保留作安全网。
-    MAP_SIGNALS_BUDGETED=$(echo "$MAP_SIGNALS" | utf8_truncate 14000)
-    NOTES_SIGNALS_BUDGETED=$(echo "$NOTES_SIGNALS" | utf8_truncate 13000)
+    # V37.9.326: 每部分独立预算 —— 全局截断是保头截尾, 此前 sources 信号排在前会把
+    # notes 信号挤出窗口。V37.9.329 两处升级:
+    #  (a) 预算 2x (14K/13K → 28K/28K): 实测约束不是上下文(doubao_21 262144 tokens,
+    #      30K chars 只用 ~10%)也不是全局超时(3600s 实际跑 10min), 而是单次调用延迟。
+    #  (b) sources 侧退役 `utf8_truncate`(保头) —— MAP_SIGNALS 按 find|sort = **字母序**
+    #      拼接, 保头截断 = 按文件名首字母决定谁进得了 Reduce 的推理材料。2026-08-25
+    #      实测 17078 chars > 14000 → openreview_top/pwc_daily/rss_blogs/
+    #      semantic_scholar_daily 四个源整块从未进过 LLM 视野, 而页脚照写
+    #      "19 sources deep-analyzed" = fail-plausible。改 max-min 公平分配: 每源必然
+    #      在场, 裁剪落在最长的块上。notes 侧保留保头截断 —— 它的输入已是月份轮转序,
+    #      保头恰好保留跨月多样性（内容感知排序让位置性截断无害）。
+    MAP_SIGNALS_BUDGETED=$(echo "$MAP_SIGNALS" | python3 -c "
+import sys, os
+sys.path.insert(0, os.path.expanduser('~'))
+sys.path.insert(0, '$SCRIPT_DIR')
+text = sys.stdin.read()
+try:
+    from kb_dream_helpers import budget_source_blocks
+    sys.stdout.write(budget_source_blocks(text, 28000))
+except Exception as e:
+    sys.stderr.write(f'WARN: budget_source_blocks 失败, 回退保头截断: {e}\n')
+    sys.stdout.write(text[:28000])
+")
+    NOTES_SIGNALS_BUDGETED=$(echo "$NOTES_SIGNALS" | utf8_truncate 28000)
     REDUCE_DATA="
 # Phase 1a: 外部数据源信号
+> 每个源的原文窗口已按 ## YYYY-MM-DD 段做月份分层取样（近月在前、各月混合），
+> 并按日序轮转起点；信号自带 [日期]，同一段落里的不同月份**不是**同期事件 (V37.9.329)
+> 预算按 max-min 公平分配到每个源，全部源都在场（此前按字母序保头截断会静默丢源）
 $MAP_SIGNALS_BUDGETED
 
 # Phase 1b: 用户笔记/交互记录信号（用户主动保存的重要信息）
@@ -1266,7 +1315,9 @@ print(sc.format_credibility_block())
 #
 # 推送多窗口（4 段独立 ## header → V37.9.21 多窗口分片机制 split by `\n## ` 自然切 4 窗口）
 
-REDUCE_MULTI_MATERIAL=$(echo "$REDUCE_DATA" | utf8_truncate 30000)
+# V37.9.329: 30000 → 60000。上下文用量 ~10% → ~20% (doubao_21 262144 tokens),
+# 仍然很空; 真实约束是 DEEP/WIDE 单次调用延迟, 故同步把它们的 timeout 300→420s。
+REDUCE_MULTI_MATERIAL=$(echo "$REDUCE_DATA" | utf8_truncate 60000)
 REDUCE_MULTI_CHARS=$(echo "$REDUCE_MULTI_MATERIAL" | wc -c | tr -d ' ')
 # V37.9.314 (d): REDUCE_CHARS 曾取 80K 死路径的字节数, 而 LLM 实际看 30K 版 →
 # dream 产物/overview/last_run 三处元数据虚标。现在 = 真实发送量。
@@ -1290,6 +1341,7 @@ DEEP_SYSTEM="/no_think
 
 【V37.8.6 反污染 — 违反整份输出作废】输入可能残留内部运行时痕迹: HTTP 状态码(400/502/Bad JSON)/Python 异常名(UnicodeEncodeError/JSONDecodeError)/错误页 HTML/工具链名(curl:/jq:)/U+FFFD(�) 连续片段。它们**不是外部事件**: 禁止引用为证据/信号; 禁止据此推断任何公司或平台(如 Hugging Face/GitHub/npm)的状态; 禁止在行动建议中提议监控应对这些'平台错误'
 【V37.9.235 信号时效标注】引用日期距今超过 14 天的信号作印证时，必须紧跟标注「(长期背景, 非近期新增)」；发现过程/隐藏关联优先选用近 14 天信号，远期信号只作背景铺垫不得呈现为当日新增
+【V37.9.329 跨时间对照】素材已按月份分层取样，横跨知识库全时间跨度（信号自带 [日期]）。「🔗 隐藏关联」中至少 1 条必须是**跨时间**关联：早前月份的论点/预测，在更晚的数据里被印证、被推翻、或发生了表述演化——写清楚「X 月说 A → Y 月数据显示 B → 因此 C」。若素材里确实找不到这样的跨月证据链，必须显式写一句「本轮素材未发现跨月印证/反转链」，**禁止把不同月份的信号当作同期事件并列**来伪造跨时间关联
 ${DREAM_HG_GUARD}${DREAM_CREDIBILITY}"
 
 DEEP_PROMPT="$REDUCE_INTRO
@@ -1318,7 +1370,7 @@ ${BANNED_THEMES_BLOCK}
 【硬性要求：合计 ≥ 1400 字。少于 1200 字视为失败 (fail-fast exit 1)。主题如与 ban-list 任一关键词重叠 ≥2 视为失败。】"
 
 log "LLM 调用 1/2 (DEEP): 单主题深挖 + 14 天 ban-list → 发送..."
-DEEP_RESULT=$(llm_call "$DEEP_PROMPT" 5000 0.85 300 "$DEEP_SYSTEM" || true)
+DEEP_RESULT=$(llm_call "$DEEP_PROMPT" 5000 0.85 420 "$DEEP_SYSTEM" || true)
 DEEP_CHARS=$(echo "$DEEP_RESULT" | wc -c | tr -d ' ')
 DEEP_HEAD=$(echo "$DEEP_RESULT" | head -c 120 | LC_ALL=C tr '\n' ' ')
 log "DEEP 完成: ${DEEP_CHARS} chars, head: ${DEEP_HEAD}"
@@ -1390,7 +1442,7 @@ ${BANNED_THEMES_BLOCK}
 
 【硬性要求：合计 ≥ 1400 字。少于 1200 字或缺 \"## 🌙 今日深度\" header 视为 retry 失败 (走 V37.9.68 fail-fast exit 1)。】"
 
-    DEEP_RETRY_RESULT=$(llm_call "$DEEP_RETRY_PROMPT" 5000 0.85 300 "$DEEP_RETRY_SYSTEM" || true)
+    DEEP_RETRY_RESULT=$(llm_call "$DEEP_RETRY_PROMPT" 5000 0.85 420 "$DEEP_RETRY_SYSTEM" || true)
     DEEP_RETRY_CHARS=$(echo "$DEEP_RETRY_RESULT" | wc -c | tr -d ' ')
     DEEP_RETRY_HAS_HEADER=false
     echo "$DEEP_RETRY_RESULT" | grep -q '## 🌙 今日深度' && DEEP_RETRY_HAS_HEADER=true
@@ -1454,6 +1506,10 @@ WIDE_RADAR_SYSTEM="/no_think
 
 【V37.8.6 反污染 — 违反整份输出作废】输入可能残留内部运行时痕迹: HTTP 状态码(400/502/Bad JSON)/Python 异常名(UnicodeEncodeError/JSONDecodeError)/错误页 HTML/工具链名(curl:/jq:)/U+FFFD(�) 连续片段。它们**不是外部事件**: 禁止引用为证据/信号; 禁止据此推断任何公司或平台(如 Hugging Face/GitHub/npm)的状态; 禁止在行动建议中提议监控应对这些'平台错误'
 【V37.9.235 信号时效标注】引用日期距今超过 14 天的信号必须紧跟标注「(长期背景, 非近期新增)」，不得呈现为当日新增
+【V37.9.329 跨时间维度】素材已按月份分层取样，横跨知识库全时间跨度（信号自带 [日期]）：
+- WIDE 优先选**证据横跨不同月份**的信号——同一现象在多个时间点被不同源提到，比单日噪声更能证明"被埋没"
+- RADAR 必须区分两类并分别标注：「(新出现)」= 仅近期单点证据；「(慢烧: X 月起反复出现)」= 跨月反复出现却一直没成主流
+- **禁止把不同月份的信号当作同期事件并列**来制造虚假的"多源印证"
 ${DREAM_HG_GUARD}${DREAM_CREDIBILITY}"
 
 WIDE_RADAR_PROMPT="$REDUCE_INTRO
@@ -1502,7 +1558,7 @@ $REDUCE_MULTI_MATERIAL
 【硬性要求：WIDE 段 ≈1000 字 (5×200), RADAR 段 ≈1500 字 (5×300), 合计 ≥ 2200 字。少于 1800 字或缺任一段视为不合格（V37.9.74 会自动 retry RADAR 一次, retry 仍失败则该段独立降级）。】"
 
 log "LLM 调用 2/2 (WIDE+RADAR): 跨领域 5 + 准期 5 → 发送..."
-WIDE_RADAR_RESULT=$(llm_call "$WIDE_RADAR_PROMPT" 6000 0.8 300 "$WIDE_RADAR_SYSTEM" || true)
+WIDE_RADAR_RESULT=$(llm_call "$WIDE_RADAR_PROMPT" 6000 0.8 420 "$WIDE_RADAR_SYSTEM" || true)
 WIDE_RADAR_CHARS=$(echo "$WIDE_RADAR_RESULT" | wc -c | tr -d ' ')
 WIDE_RADAR_HEAD=$(echo "$WIDE_RADAR_RESULT" | head -c 120 | LC_ALL=C tr '\n' ' ')
 log "WIDE+RADAR 完成: ${WIDE_RADAR_CHARS} chars, head: ${WIDE_RADAR_HEAD}"
@@ -1613,7 +1669,7 @@ ${WIDE_BLOCK}
     else
         log "V37.9.76 router (shadow): chosen=${ROUTER_CHOICE:-unknown} (decision logged, not enforced — adapter PROVIDER_NAME 真实路由不变)"
     fi
-    RADAR_RETRY_RESULT=$(llm_call "$RADAR_RETRY_PROMPT" 3000 0.8 200 "$RADAR_RETRY_SYSTEM" "$EFFECTIVE_PROVIDER" || true)
+    RADAR_RETRY_RESULT=$(llm_call "$RADAR_RETRY_PROMPT" 3000 0.8 300 "$RADAR_RETRY_SYSTEM" "$EFFECTIVE_PROVIDER" || true)  # V37.9.329: 200→300
     RADAR_RETRY_CHARS=$(echo "$RADAR_RETRY_RESULT" | wc -c | tr -d ' ')
     RADAR_RETRY_HAS_HEADER=false
     echo "$RADAR_RETRY_RESULT" | grep -q '## 📡' && RADAR_RETRY_HAS_HEADER=true

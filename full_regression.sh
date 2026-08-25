@@ -331,6 +331,11 @@ if [ -f test_mrd_config_injection.py ]; then
     run_suite "mrd_config_injection (V37.9.126 chunk 3b: MRD 扫描文件名模式 config-injection + byte-identical + demo 端到端 + 反向 sabotage)" "python3 test_mrd_config_injection.py"
 fi
 
+# V37.9.329: Dream 素材覆盖面 — 位置性窗口 → 内容感知取样 + 跨夜轮转（增长维度）
+if [ -f test_v37_9_329_dream_material_coverage.py ]; then
+    run_suite "v37_9_329_dream_material_coverage (V37.9.329: sources 月份分层取样替换尾部窗口 + max-min 公平预算修字母序丢源 + 日序轮转让覆盖率与语料规模无关 + 跨时间对照 prompt)" "python3 test_v37_9_329_dream_material_coverage.py"
+fi
+
 # V37.9.328: 日志扫描消费者 vs 生产者字符串契约（watchdog 死告警 + 日报死指标血案）
 if [ -f test_v37_9_328_fallback_alert_contract.py ]; then
     run_suite "v37_9_328_fallback_alert_contract (V37.9.328: adapter.py AST 抽 log 模板 → watchdog 真 grep + conv_quality 真 parser 跨文件契约 + token_report「昨日」标签)" "python3 test_v37_9_328_fallback_alert_contract.py"
