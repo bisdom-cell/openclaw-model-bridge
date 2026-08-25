@@ -168,7 +168,12 @@ if [ "$(uname)" = "Darwin" ]; then
     fi
 else
     # Linux: 检查 cron/crond 进程
-    if pgrep -x "cron\|crond" >/dev/null 2>&1; then
+    # V37.9.328: pgrep 的 pattern 是 ERE, `\|` 在 ERE 里是**字面量竖线**不是或。
+    # 原写法 `pgrep -x "cron\|crond"` 找的是一个名字逐字等于 `cron|crond` 的进程
+    # → 永不匹配 → Linux 上 cron 正常运行也恒报「Cron daemon 未运行！」。
+    # 探针: 6 个 bash 进程在跑时 `pgrep -x "bash\|sh"` rc=1, `pgrep -x "bash|sh"` 匹配。
+    # macOS 生产走上面的 launchctl 分支不受影响; 这条影响 dev 与 H1-C 第二实例(Linux)。
+    if pgrep -x "cron|crond" >/dev/null 2>&1; then
         pass "Cron daemon 进程存活"
     else
         fail "Cron daemon 未运行！"
