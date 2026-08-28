@@ -176,7 +176,7 @@ def classify_acl_anomaly(acl_str: str) -> str:
       - xattr lines like '\tcom.apple.quarantine     38'
       - just regular `ls -l` rows when no ACL/xattr present
     Returns one of: "acl_deny" / "acl_present" / "xattr_only" / "normal" / "empty" /
-                    "sandbox_denied" / "tool_unavailable".
+                    "sandbox_denied" / "tool_unavailable" / "target_missing".
 
     V37.9.81 B: detect [sandbox_denied] / [tool_unavailable] marker prefix
     written by capture.sh read_file_with_stderr. V37.9.30 had a 6-week blind
@@ -193,6 +193,12 @@ def classify_acl_anomaly(acl_str: str) -> str:
         return "sandbox_denied"
     if stripped.startswith("[tool_unavailable]"):
         return "tool_unavailable"
+    # V37.9.331: capture.sh marks path-style stderr (No such file or directory)
+    # as [target_missing] — the volume/dir was absent at probe time. 修复前这类
+    # stderr 被生产端标成 [tool_unavailable], 最强的事故证据（卷不在了）被埋进
+    # 「采集器缺工具」桶。
+    if stripped.startswith("[target_missing]"):
+        return "target_missing"
     lower = acl_str.lower()
     # ACL deny rule = strongest EPERM signal (chown does NOT clear these)
     if " deny " in lower or "\tdeny" in lower or ": group:" in lower or ": user:" in lower:
@@ -213,7 +219,7 @@ def classify_handle_holders(lsof_str: str) -> str:
     """V37.9.30: classify lsof field as handle-holder pattern.
 
     Returns one of: "daemon_dominated" / "user_only" / "mixed" / "empty" /
-                    "sandbox_denied" / "tool_unavailable".
+                    "sandbox_denied" / "tool_unavailable" / "target_missing".
 
     daemon_dominated = ≥1 daemon keyword found AND no clearly non-daemon
                        process cmd lines (cmd like rsync/python/etc.)
@@ -235,6 +241,10 @@ def classify_handle_holders(lsof_str: str) -> str:
         return "sandbox_denied"
     if stripped.startswith("[tool_unavailable]"):
         return "tool_unavailable"
+    # V37.9.331: lsof on an absent volume says "No such file or directory" →
+    # capture.sh marks [target_missing] (卷不在了 = 事故证据, 非采集器问题)
+    if stripped.startswith("[target_missing]"):
+        return "target_missing"
     lines = [l for l in lsof_str.splitlines() if l.strip() and not l.startswith("COMMAND")]
     if not lines:
         return "empty"
@@ -266,7 +276,7 @@ def classify_snapshot_count(snap_str: str) -> str:
     """V37.9.30: classify TM snapshot count as bucket.
 
     Returns one of: "snap_0" / "snap_1_5" / "snap_6_plus" / "empty" /
-                    "sandbox_denied" / "tool_unavailable".
+                    "sandbox_denied" / "tool_unavailable" / "target_missing".
 
     Each snapshot line on macOS has format:
       'com.apple.TimeMachine.YYYY-MM-DD-HHMMSS.local'
@@ -284,6 +294,11 @@ def classify_snapshot_count(snap_str: str) -> str:
         return "sandbox_denied"
     if stripped.startswith("[tool_unavailable]"):
         return "tool_unavailable"
+    # V37.9.331: symmetric with acl/lsof classifiers (tmutil targets "/" so
+    # this marker is unlikely here, but the marker set must stay in lockstep
+    # with capture.sh — MR-8)
+    if stripped.startswith("[target_missing]"):
+        return "target_missing"
     lines = snap_str.splitlines()
     snap_lines = [l for l in lines if "com.apple.TimeMachine" in l]
     n = len(snap_lines)
@@ -389,6 +404,7 @@ def analyze(records: list[dict[str, Any]], top_n: int = 5) -> dict[str, Any]:
         # tool_unavailable 比 empty 更高 (已知工具问题, 不是"没采到").
         priority = {
             "sandbox_denied": 6,   # V37.9.81 B: direct EPERM evidence
+            "target_missing": 5,   # V37.9.331: volume absent at probe = incident state itself
             "acl_deny": 4,
             "acl_present": 3,
             "xattr_only": 2,
@@ -499,6 +515,7 @@ def format_text_report(analysis: dict[str, Any], window_label: str) -> str:
         lines.append("\n🛡️ ACL/xattr 异常分布 (V37.9.30 — chown 不能清的强阻塞模式):")
         acl_explain = {
             "sandbox_denied": "🚨 采集器自身被 TCC sandbox 拒绝 (V37.9.81 B — 这是 V37.9.80 TCC 真因的直接证据)",
+            "target_missing": "🔌 探测时卷/目录不存在 (V37.9.331 — /Volumes/MOVESPEED 缺失: SSD 未挂载/不洁弹出, 事故状态本身)",
             "acl_deny": "ACL deny 规则 (chown 改 owner 但 ACL 留下, 强 EPERM 信号)",
             "acl_present": "ACL 存在 (非 deny, 可能仍阻塞特定操作)",
             "xattr_only": "仅 xattr (com.apple.quarantine 等, 弱信号)",
@@ -516,6 +533,7 @@ def format_text_report(analysis: dict[str, Any], window_label: str) -> str:
         lines.append("\n📂 句柄持有者模式 (V37.9.30 — 谁在持有 SSD I/O):")
         handle_explain = {
             "sandbox_denied": "🚨 lsof 自身被 TCC sandbox 拒绝 (V37.9.81 B — 之前 V37.9.30 6 周误判 empty 为正常)",
+            "target_missing": "🔌 探测时卷不存在 (V37.9.331 — SSD 未挂载/不洁弹出, 事故状态本身)",
             "daemon_dominated": "macOS daemon 主导 (mds_stores/backupd/etc), 强 daemon contention 信号",
             "user_only": "仅用户进程 (rsync/python), 真因不在 daemon",
             "mixed": "daemon + 用户混合, 部分 daemon 持有句柄",
@@ -532,6 +550,7 @@ def format_text_report(analysis: dict[str, Any], window_label: str) -> str:
         lines.append("\n📸 TM Snapshot 分布 (V37.9.30 — 本地快照锁 metadata 候选):")
         snap_explain = {
             "sandbox_denied": "🚨 tmutil 自身被 TCC sandbox 拒绝 (V37.9.81 B)",
+            "target_missing": "🔌 探测目标不存在 (V37.9.331 — 与 capture.sh marker 集合对齐)",
             "snap_0": "0 个本地快照 (TM exclude 完全生效)",
             "snap_1_5": "1-5 个 (轻度积累)",
             "snap_6_plus": "6+ 个 (强信号: snapshot 锁 metadata 候选)",

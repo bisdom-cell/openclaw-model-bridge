@@ -1,6 +1,6 @@
 {
-  "updated": "2026-08-25 04:28:26",
-  "updated_by": "claude_code",
+  "updated": "2026-08-28 01:03:36",
+  "updated_by": "cli",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-08-28",
+      "what": "V37.9.331 对抗审计 — 演练/取证/打标工具的诚实(gameday/movespeed_incident_capture/kb_autotag 首次被审, 此前零测试覆盖): gameday 三修(slo rc=3 被判 checker 异常=V37.9.322 漏 sweep 消费方/快照日志假计数 4/4 缺失数成有内容=V37.9.325 漏 sweep/断路器 dict 假设致验证自 V33 结构性空转) + movespeed capture/analyzer 新增 [target_missing] 桶(卷未挂载≠采集器缺工具, V37.9.281 同族) + kb_autotag 词边界血案修复(ai/rag/api/git/rest 子串命中 maintain/storage/rapid/digit/interest → 财经笔记标签全错, kb_write.sh 生产写入路径, V37.9.316 DC-1 同族) + retag --apply 写入成败对账。38 守卫 sabotage 六连全开火。VERSION 0.37.9.159→0.37.9.160",
+      "by": "claude_code"
+    },
     {
       "date": "2026-08-25",
       "what": "V37.9.330 原则 #36「修复的自我对抗」确立（用户指令: 记录关键结论避免再犯）: 五条纪律固化当日双血案反思 — (1) 守卫先断言用户可见结果再断言机制 (2) 位置性/容量性假设修类不修实例(同一数据流逐处枚举) (3) 验收数据能被解释成「设计预期」时=最该怀疑的时刻, 对自己刚交付的修复第一姿态是攻击不是辩护 (4) 输出里每个自豪的数字必须有测试对账实际发生的量(「声称与事实无人对账」= 本系统最顽固错误类, 328/324/322/319 同构家族) (5) 容量 fixture 必须用生产实测量级。纯 doc 零机器, VERSION 0.37.9.159 不变",
@@ -173,11 +178,6 @@
       "date": "2026-08-17",
       "what": "V37.9.312(并入 311 分支): 孤儿档删除后 git status 露出 5 个 untracked → jobs/*/cache/ 运行时状态补 gitignore(+守卫+sabotage 验证; seen_ids 去重表明确标注只忽略勿删), 其余 4 个(嵌套仓库副本×2 + 碎片文件×2)登记待用户取证处置, 嵌套仓库风险=递归扫描器不排除它们会扫进陈旧代码。",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-08-17",
-      "what": "V37.9.311 备份 fallback 落盘路径修复(Mac Mini 日志实证驱动): 4.27 写 CWD 非 ~/.openclaw/backups/ → 假失败告警 + 仓库内 1GB 含凭据孤儿档(gitignore 未挡)。修: CLI 改在 SSD BACKUP_DIR 内生成 + mv 规范名 + gitignore 双规则。守卫 14 单测(含真跑 git check-ignore + ERROR 行须匹配 watchdog err_pattern), sabotage 双连 4/2 精确开火。V37.9.304 cp→mv 守卫按意图演进(移除 rc 检查仍开火)。备份集核实健康 5 份 ×1.0G。VERSION →0.37.9.143。",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -226,7 +226,7 @@
     "security_score": "98/100 (98.0%)",
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB",
     "slo": {
-      "checked_at": "2026-08-25 03:34:34",
+      "checked_at": "2026-08-28 01:01:21",
       "all_ok": true,
       "judged_count": 1,
       "na_count": 4,
@@ -260,7 +260,7 @@
     }
   },
   "session_context": {
-    "last_session": "2026-08-18",
+    "last_session": "2026-08-28",
     "unfinished": [
       "【2026-07-02 多镜头审计 · 9 findings 全部处置完毕 (V37.9.226-239: 8 修复闭环 + I half-open 登记为可接受设计 tradeoff) · 剩纯 Mac Mini 被动验证】同步+重启 proxy/adapter 后观察: (A) 真 fallback 时 proxy 日志 DEGRADED 行 + proxy_stats.json slo.fallback_count 变真值 (V37.9.229) (C) ls ~/.kb/status.json.lock ~/.kb/audit.jsonl.lock 伴生锁文件出现 (V37.9.238) (E) client 断开时 adapter.log 记 CLIENT GONE 单行非 traceback (V37.9.231/242) (B) streaming 请求撞 parse 异常时 Gateway 收 SSE 而非 content-type 错配 (V37.9.239) (G) last_run_self_critique.json time 本地格式 + watchdog 4h 覆盖 observer (V37.9.230)。完整分诊记录见 CLAUDE.md V37.9.226-239 changelog, 无 dev 剩余动作。",
       "【V37.9.211/212 Qwen3 端点刷新 · adapter ✅ + V37.9.212 ✅ 已并入 main(PR#774, 2026-07-02 dev 核实) · 剩用户 env 动作】剩余非紧急: (A) .env_shared 设新 REMOTE_API_KEY+REMOTE_BASE_URL(cron 直连脚本 health_check 每周报 CURRENT_MODEL/diagnose 用) (C) 🔴 明文 key 建议用完轮换。教训钉死: adapter/proxy 是 launchd job, env 改必须进 plist EnvironmentVariables + bootout/bootstrap(不是 shell export + kickstart)。",
@@ -324,22 +324,23 @@
       "【V37.9.328 日志扫描字符串契约 · dev 全闭环 · 剩 Mac Mini 被动验证】合并 + git fetch+reset 同步（job_watchdog.sh / conv_quality.py / token_report.py / cron_doctor.sh 均走 FILE_MAP，零重启；watchdog 下个整点、运维日报次日 08:15 自动生效）后观察: (a) 真出现 primary+全链 fallback 失败时，watchdog 会第一次真的报「Adapter: N 次主备双失败（LLM 完全不可用）」—— 修复前该告警结构上不可能开火 (b) 运维日报 fallback 段在真降级日出现非 0 的「失败 N」 (c) 🔴 首次出现这两条 = 盲区解除暴露存量真实故障，不是新 bug，贴给 session 分诊 (d) token 日报若 history 有缺口，环比行显示「上次记录 YYYY-MM-DD，N 天前」不再谎称「昨日」 (e) 反向确认不误报: 单次 fallback 尝试失败但最终降级成功的日子，watchdog 不得报「主备双失败」",
       "【低优观察 · 登记不修】README 徽章的 suites 数字随运行条件漂移: full_regression 把「条件跳过的套件」也计入 test_suites（2026-08-24 收工那轮混沌层因脏树被跳过却计数 → 186；2026-08-25 干净树跑出 185）→ 每次 dirty/clean 切换都会触发一次徽章漂移硬门禁。非回归（dark-test 对账守卫绿 = 无套件静默缺失），成因是「suites」这个指标的定义（注册数 vs 实跑数 vs 含跳过数）没定死。若未来重复制造推送阻塞再评估收敛为单一定义；今天按日落法不为它加机制。",
       "【V37.9.329 Dream 覆盖面 · ✅ 已合并(PR#898=1129aea)+Mac Mini 已同步(2026-08-25 仓库+运行时副本 grep 3/3 确认) · 剩今晚 cron 首跑 + 明晨验收（判据修正版, 吸取「grep 日期串测不到 notes 侧」教训）】合并+git fetch+reset 同步(kb_dream.sh/kb_dream_helpers.py 走 FILE_MAP 零重启, 当晚 00:00/00:25/03:00 生效)后: (a) 首晚 sources Map 全量重提取 = v5 缓存失效一次性预期开销, 每源 Map 调用变慢(窗口 24K)属预期非故障 (b) 次日 grep -oE \"2026-0[1-9]\" ~/.kb/dreams/$(date +%F).md | sort | uniq -c 应出现 ≥3 个月份(sources 分层生效) (c) 梦境「隐藏关联」段应现跨月证据链或显式「未发现跨月印证」(B 生效, 出现编造跨月关联=贴给 session) (d) grep -cE \"month_stratified_sections 失败|budget_source_blocks 失败\" ~/kb_dream.log 均应 0 (e) 连续几晚 DEEP 主题月份倾向应彼此不同(轮转偏移生效) (f) DEEP/WIDE 调用变慢(素材 30K→60K)但总时长应仍 <30min。⑤ 已顺带完成: openreview_top/pwc_daily 死归档已 .retired(pwc 文件名尾多个 ~ 无害可整理)",
-      "【observer 检测器候选 · gated 于明晨 v5 首跑数据 · 刻意不现建（日落法: 不在反思情绪里加机器）】「素材月份分布」检测器: daily_observer 对 dream 产物加确定性检查(月份计数 <3 或单月占比 >80% → MED 告警), 让「只引用一个月」下次不需要用户眼睛(镜像 V37.9.318 S6 档位检测器的人眼→机器路径)。决策判据: 明晨 2026-08-26 dream 若月份 ≥3 且跨月关联真实 → V37.9.329 修复生效, 检测器作为回归守卫建(防位置性窗口第三次复活); 若仍单月钉死 → 先修再说不建。附: 原则 #36 五条纪律已固化 CLAUDE.md(V37.9.330), 纪律(3) 自我辩护倾向无法机器化, 靠行为纪律+独立信道"
+      "【observer 检测器候选 · gated 于明晨 v5 首跑数据 · 刻意不现建（日落法: 不在反思情绪里加机器）】「素材月份分布」检测器: daily_observer 对 dream 产物加确定性检查(月份计数 <3 或单月占比 >80% → MED 告警), 让「只引用一个月」下次不需要用户眼睛(镜像 V37.9.318 S6 档位检测器的人眼→机器路径)。决策判据: 明晨 2026-08-26 dream 若月份 ≥3 且跨月关联真实 → V37.9.329 修复生效, 检测器作为回归守卫建(防位置性窗口第三次复活); 若仍单月钉死 → 先修再说不建。附: 原则 #36 五条纪律已固化 CLAUDE.md(V37.9.330), 纪律(3) 自我辩护倾向无法机器化, 靠行为纪律+独立信道",
+      "【V37.9.331 演练/取证/打标诚实 · dev 全闭环 · 剩 Mac Mini 被动验证】合并 + git fetch+reset 同步(gameday.sh/movespeed_incident_capture.sh/movespeed_incident_analyzer.py/kb_autotag.py 全走 FILE_MAP 零重启)后: (a) bash gameday.sh --all 零流量日不再因 slo rc=3 假失败(场景 4 改报 skip 无数据可判), 断路器状态第一次真被验证(closed→pass; 若报 open = 真告警非新 bug, 贴我) (b) 场景 3 报「快照日志段: N 个真实日志文件被捕获」且 N 与实际存在的日志一致(此前缺失也计入) (c) 未来 SSD 未挂载的 rsync 失败快照, movespeed_incidents.jsonl 的 acl/lsof 字段应标 [target_missing] 而非 [tool_unavailable] (d) 新写 KB note 自动标签不再有「财经→技术/AI」类子串污染; 可选 python3 kb_autotag.py --retag 预览历史 notes 标签修正量(预期变更量可观=历史污染面, 先看 diff 再决定 --apply)"
     ],
     "open_prs": [],
     "blocked_on": "",
-    "focus": "2026-08-25 收工态: 双交付日 — V37.9.328(对抗审计: watchdog「LLM 完全不可用」CRITICAL 告警 grep 的字符串在 adapter.py 全历史从未存在=死告警, 同款死串致日报恒「失败 0」且被伪造 fixture 的绿测试守着; 守卫改从 adapter 源码 AST 抽 log 模板喂真 grep+真 parser) + V37.9.329(Dream 素材覆盖面: 用户看产品二连击「都是4月」→「都是8月」= 位置性窗口一类设计错误, 退役为月份分层取样+max-min 公平预算+日序轮转偏移, 覆盖率与语料规模解耦; 生产实测字母序保头曾静默丢 4 源而页脚照写 19 deep-analyzed)。两版同一主题: 元数据宣称的事没有发生。V37.9.324-327 五项验收全绿(四版生产闭环)。下一 session: (1) 明晨 dream 按 329 判据验收 (2) 论文 #2 投稿三决策待用户 (3) 对抗审计未覆盖面(kb_autotag/gameday/movespeed_incident_capture/quickstart)"
+    "focus": "2026-08-28 收工态: V37.9.331 对抗审计(gameday/movespeed_incident_capture/kb_autotag 首次被审, 5 findings 全修 + 38 守卫 sabotage 六连全开火)已推 claude/todays-work-fcjlcj 待用户合并。下一 session 优先: (1) 用户交回 dream 验收数据(unfinished [58]/[61] 五项+月份分布) → 处置 [62] observer 月份分布检测器 gated 决策 (2) 论文 #2 投稿三决策仍待用户(DECISIONS_NEEDED #1-#3) (3) 对抗审计未覆盖面继续(候选: daily_ops_report/diagnose/wa_keepalive/ops_health 等未审运维 .sh; 本次镜头「验证者自身无人验证」可复用)"
   },
   "quality": {
     "security_score": 98,
-    "test_count": 6239,
-    "last_regression": "2026-08-25 03:35 pass",
+    "test_count": 6277,
+    "last_regression": "2026-08-28 01:02 pass",
     "coverage_pct": 0,
     "security_score_time": "2026-07-20 01:07",
-    "test_suites": 187,
+    "test_suites": 188,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
-    "version": "0.37.9.159",
+    "version": "0.37.9.160",
     "observer": {}
   },
   "incidents": [
