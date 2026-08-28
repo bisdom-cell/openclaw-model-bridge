@@ -3494,5 +3494,145 @@ class TestV37_9_287FailureEnumConvergence(unittest.TestCase):
         self.assertIn("ai_leaders_bsky", obs.JOBS_SUBDIRS)
 
 
+class TestDreamMonthDistributionV332(unittest.TestCase):
+    """V37.9.332 (unfinished [62] 预注册决策兑现): dream 素材月份分布确定性检查。
+
+    血案谱系: V37.9.326「梦境几乎都是 4 月」→ 修头部窗口 → V37.9.329「都是
+    8 月」(位置性窗口换方向没换性质) → 根治后 2026-08-28 用户人眼验收多月混合。
+    两次都靠用户看产品发现 (39 个 dream 守卫零个问月份分布 = 原则 #36-1 实录),
+    本检测器把人眼判据机械化 (镜像 V37.9.318 S6 人眼→机器路径), 防第三次复活。
+    """
+
+    def _dream_file(self, td, text):
+        path = os.path.join(td, "dream.md")
+        with open(path, "w", encoding="utf-8") as fp:
+            fp.write(text)
+        return path
+
+    def _push_with(self, md):
+        entry = {"content": "x", "length": 100, "found": True, "path": "x"}
+        return {
+            "evening": dict(entry),
+            "deep_dive": dict(entry),
+            "dream": dict(entry, month_distribution=md),
+        }
+
+    def _pin_anomalies(self, md):
+        anomalies = obs.detect_anomalies([], self._push_with(md),
+                                         {"found": True, "sections": {}})
+        return [a for a in anomalies if a["category"] == "dream_month_pin"]
+
+    # 2026-08-28 真实梦境的月份形状 (04/05/06/07/08 五个月, 8 月主导但 <80%)
+    _HEALTHY = (
+        "🌙 Agent Dream — 2026-08-28\n生成时间: 2026-08-28 03:07:36\n"
+        "[2026-08-11] [2026-08-12] [2026-08-13] [2026-08-21] [2026-08-22] "
+        "[2026-08-25] [2026-08-26] [2026-08-27] [20260812对话精华] "
+        "[2026-07-20] [2026-07-31] [20260716对话] [20260714对话] "
+        "[2026-06-18] [2026-06-24] [2026-06-14] [2026-06-15] "
+        "[2026-05-11] [2026-05-10] [20260511] 2026年5月起反复出现 "
+        "[2026-04至2026-08 ontology_sources]\n"
+    )
+
+    # V37.9.329 修复前的血案形状 (「都是 8 月」— 全部引用钉死单月)
+    _PINNED = (
+        "🌙 Agent Dream — 2026-08-22\n"
+        "[2026-08-11] [2026-08-12] [2026-08-13] [2026-08-15] [2026-08-18] "
+        "[2026-08-19] [2026-08-20] [2026-08-21] [20260812] [20260815] "
+        "2026年8月的讨论\n"
+    )
+
+    def test_healthy_multimonth_dream_no_anomaly(self):
+        """验收回归: 08-28 真实形状 (5 个月混合) 必须零告警 (原则 #32 零噪声)。"""
+        with tempfile.TemporaryDirectory() as td:
+            md = obs.scan_dream_month_distribution(self._dream_file(td, self._HEALTHY))
+        self.assertTrue(md["checked"])
+        self.assertGreaterEqual(md["distinct"], 4)
+        self.assertLessEqual(md["top_share"], obs.DREAM_MONTH_MAX_SHARE)
+        self.assertEqual(self._pin_anomalies(md), [])
+
+    def test_blood_single_month_fires(self):
+        """血案回归: 单月钉死 (V37.9.326/329 形状) 必须 MED 开火。"""
+        with tempfile.TemporaryDirectory() as td:
+            md = obs.scan_dream_month_distribution(self._dream_file(td, self._PINNED))
+        self.assertTrue(md["checked"])
+        self.assertEqual(md["distinct"], 1)
+        hits = self._pin_anomalies(md)
+        self.assertEqual(len(hits), 1)
+        self.assertEqual(hits[0]["severity"], "MED")
+        self.assertIn("V37.9.326/329", hits[0]["message"])
+        self.assertIn("2026-08", hits[0]["message"])
+
+    def test_two_months_fires_on_distinct(self):
+        text = "[2026-08-01] [2026-08-02] [2026-08-03] [2026-07-01] [2026-07-02]\n"
+        with tempfile.TemporaryDirectory() as td:
+            md = obs.scan_dream_month_distribution(self._dream_file(td, text))
+        self.assertTrue(md["checked"])
+        self.assertEqual(md["distinct"], 2)
+        self.assertEqual(len(self._pin_anomalies(md)), 1)
+
+    def test_share_over_threshold_fires_despite_three_months(self):
+        """3 个月在场但单月 >80% 仍算钉死 (覆盖率的另一半是均衡度)。"""
+        text = ("[2026-06-01] [2026-07-01] "
+                + " ".join(f"[2026-08-{d:02d}]" for d in range(1, 12)) + "\n")
+        with tempfile.TemporaryDirectory() as td:
+            md = obs.scan_dream_month_distribution(self._dream_file(td, text))
+        self.assertTrue(md["checked"])
+        self.assertEqual(md["distinct"], 3)
+        self.assertGreater(md["top_share"], obs.DREAM_MONTH_MAX_SHARE)
+        self.assertEqual(len(self._pin_anomalies(md)), 1)
+
+    def test_small_sample_fail_open(self):
+        """token < MIN 不判 (FAIL-OPEN 防小样本假告警 = V37.9.300 告警疲劳预防)。"""
+        text = "[2026-08-11] [2026-08-12]\n"
+        with tempfile.TemporaryDirectory() as td:
+            md = obs.scan_dream_month_distribution(self._dream_file(td, text))
+        self.assertFalse(md["checked"])
+        self.assertEqual(self._pin_anomalies(md), [])
+
+    def test_missing_file_fail_open(self):
+        md = obs.scan_dream_month_distribution("/nonexistent/v332/dream.md")
+        self.assertFalse(md["checked"])
+        self.assertEqual(self._pin_anomalies(md), [])
+
+    def test_cjk_adjacent_tokens_counted(self):
+        """V37.9.316/331 词边界家族: \\b 对 CJK 紧邻失效, 须用数字 lookaround。
+        三种形态在 2026-08-28 真实梦境全部在场, 漏计会让分布统计失真。"""
+        text = ("信号来自2026年8月11日的热帖 [20260812对话精华] "
+                "记录于2026-08-11与2026年7月的观察 [20260716对话]\n")
+        with tempfile.TemporaryDirectory() as td:
+            md = obs.scan_dream_month_distribution(self._dream_file(td, text))
+        self.assertEqual(md["months"].get("2026-08"), 3)
+        self.assertEqual(md["months"].get("2026-07"), 2)
+
+    def test_wired_into_scan_push_outputs(self):
+        """接线守卫: scan_push_outputs 的 dream 条目必须携带 month_distribution
+        (防检测器成为无人调用的死代码 = V37.9.324 verify-never-runs 家族)。"""
+        with tempfile.TemporaryDirectory() as td:
+            dreams = os.path.join(td, "dreams")
+            os.makedirs(dreams)
+            with open(os.path.join(dreams, "2026-08-28.md"), "w",
+                      encoding="utf-8") as fp:
+                fp.write(self._HEALTHY)
+            outputs = obs.scan_push_outputs(td, datetime(2026, 8, 28))
+        md = outputs["dream"].get("month_distribution")
+        self.assertIsNotNone(md)
+        self.assertTrue(md["checked"])
+
+    def test_detect_backward_compat_without_key(self):
+        """旧 push_outputs 形状 (无 month_distribution) 不崩不告警。"""
+        entry = {"content": "x", "length": 100, "found": True, "path": "x"}
+        push = {"evening": dict(entry), "deep_dive": dict(entry),
+                "dream": dict(entry)}
+        anomalies = obs.detect_anomalies([], push, {"found": True, "sections": {}})
+        self.assertEqual(
+            [a for a in anomalies if a["category"] == "dream_month_pin"], [])
+
+    def test_thresholds_pinned_to_preregistration(self):
+        """[62] 预注册判据锁定: 月份 <3 或单月 >80% → MED; 小样本门槛在场。"""
+        self.assertEqual(obs.DREAM_MONTH_MIN_DISTINCT, 3)
+        self.assertEqual(obs.DREAM_MONTH_MAX_SHARE, 0.80)
+        self.assertEqual(obs.DREAM_MONTH_MIN_TOKENS, 5)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -435,6 +435,8 @@ def scan_push_outputs(kb_dir, target_date):
     content, length = _read_file_sample(dream_path)
     outputs["dream"] = {"content": content, "length": length,
                         "found": length > 0, "path": dream_path}
+    # V37.9.332: 月份分布确定性检查（读完整文件绕开采样，见函数 docstring）
+    outputs["dream"]["month_distribution"] = scan_dream_month_distribution(dream_path)
 
     dd_path = os.path.join(kb_dir, "deep_dives", f"{date_dash}.md")
     content, length = _read_file_sample(dd_path)
@@ -554,6 +556,63 @@ _BAN_LIST_BOUNDARY_FIX = datetime.strptime("2026-07-08", "%Y-%m-%d").date()
 # 契约 = kb_deep_dive.build_deep_dive_markdown 写入的 frontmatter `link: <url>`
 # 行（跨文件 MR-8 契约由测试守卫绑定，防上游改格式后本检测静默失效）。
 _DD_LINK_RE = re.compile(r"^link: (.+)$", re.MULTILINE)
+
+# V37.9.332（unfinished [62] 预注册决策兑现）: dream 素材月份分布确定性检查 —
+# 位置性窗口钉死血案的回归守卫。背景: V37.9.326「梦境几乎都是 4 月」→ 修头部
+# 窗口 → V37.9.329「都是 8 月」（换方向没换性质）→ 内容感知取样 + 轮转根治，
+# 2026-08-28 用户人眼验收多月混合（04/05/06/07/08 五个月）。两次都靠**用户看
+# 产品**才发现（22/39 个 dream 守卫没有一个问过月份分布 = 原则 #36-1 实录）。
+# 本检测器把该人眼判据机械化（镜像 V37.9.318 S6 档位检测器的人眼→机器路径）：
+# 引用月份 <3 或单月 token 占比 >80% → MED（防第三次复活时再等用户眼睛）。
+# 阈值假设语料横跨 ≥3 个月（2026-06 起恒真）；全新实例（H1-C 第二实例）语料
+# 不足 3 个月时需调低 —— token 总数 < MIN_TOKENS 时不判（FAIL-OPEN 防小样本
+# 误报 = V37.9.300 告警疲劳家族的预防）。
+DREAM_MONTH_MIN_DISTINCT = 3
+DREAM_MONTH_MAX_SHARE = 0.80
+DREAM_MONTH_MIN_TOKENS = 5
+# 日期 token 三种形态（今日真实梦境全部在场）: ISO 2026-08-11 / 紧凑 20260812
+# / 中文 2026年8月。边界用**数字 lookaround 而非 \b** —— Python \w 含 CJK，
+# 「20260812对话精华」「记录于2026-08-11」类 CJK 紧邻场景 \b 两侧都算 word
+# char 反而不成立（V37.9.316/331 词边界家族同款理由）。
+_DREAM_MONTH_RES = [
+    re.compile(r"(?<!\d)(20\d{2})-(0[1-9]|1[0-2])(?!\d)"),
+    re.compile(r"(?<!\d)(20\d{2})(0[1-9]|1[0-2])\d{2}(?!\d)"),
+    re.compile(r"(20\d{2})年(0?[1-9]|1[0-2])月"),
+]
+
+
+def scan_dream_month_distribution(dream_path):
+    """V37.9.332: 统计 dream 产物引用的月份分布（确定性，零 LLM）。
+
+    读**完整文件**而非 push_outputs 里的采样内容 —— _read_file_sample 的
+    head+tail 采样会丢中段月份 token，让分布统计在长梦境上失真（采样偏置
+    会把健康梦境误报成单月钉死 = 假告警）。dream 文件 ~10-50KB，全读廉价。
+
+    Returns:
+        dict: {checked, months{YYYY-MM: count}, distinct, top_share, tokens}
+        checked=False = 不可判（文件缺失/token 太少），调用方不得据此告警。
+    """
+    result = {"checked": False, "months": {}, "distinct": 0,
+              "top_share": 0.0, "tokens": 0}
+    try:
+        with open(dream_path, encoding="utf-8", errors="replace") as fp:
+            text = fp.read()
+    except OSError:
+        return result  # dream 缺失另有 push_outputs.found=False 通道，不重复报
+    counts = {}
+    for rx in _DREAM_MONTH_RES:
+        for m in rx.finditer(text):
+            key = "{}-{:02d}".format(m.group(1), int(m.group(2)))
+            counts[key] = counts.get(key, 0) + 1
+    total = sum(counts.values())
+    result["months"] = counts
+    result["tokens"] = total
+    if total < DREAM_MONTH_MIN_TOKENS:
+        return result
+    result["checked"] = True
+    result["distinct"] = len(counts)
+    result["top_share"] = round(max(counts.values()) / total, 3)
+    return result
 
 
 def _classify_deep_dive_mode(content):
@@ -904,6 +963,27 @@ def detect_anomalies(job_statuses, push_outputs, source_sections,
                     f"{DEEP_DIVE_REPEAT_WINDOW_DAYS} 天内被重复分析"
                     f"（ban-list 应已阻止 → 疑似静默失效）: "
                     f"{sample['link']} @ {','.join(sample['dates'][:3])}"),
+            })
+
+    # V37.9.332: dream 素材月份分布 — 位置性窗口钉死回归守卫（V37.9.326「都是
+    # 4 月」/ V37.9.329「都是 8 月」两连血案，此前只能靠用户看产品发现）。
+    # checked=False（文件缺失/token<MIN）不判 = FAIL-OPEN 防小样本假告警。
+    md = (push_outputs or {}).get("dream", {}).get("month_distribution") or {}
+    if md.get("checked"):
+        pinned_share = md["top_share"] > DREAM_MONTH_MAX_SHARE
+        too_few = md["distinct"] < DREAM_MONTH_MIN_DISTINCT
+        if pinned_share or too_few:
+            dist = ", ".join(
+                f"{k}×{v}" for k, v in
+                sorted(md["months"].items(), key=lambda kv: -kv[1])[:6])
+            anomalies.append({
+                "severity": "MED",
+                "category": "dream_month_pin",
+                "message": (
+                    f"dream 素材月份分布疑似钉死（引用月份 {md['distinct']} 个, "
+                    f"最高单月占比 {round(md['top_share'] * 100)}%, "
+                    f"分布: {dist}）— 位置性窗口血案家族 "
+                    f"(V37.9.326/329) 疑似复发, 检查 kb_dream 取样管道"),
             })
 
     return anomalies
