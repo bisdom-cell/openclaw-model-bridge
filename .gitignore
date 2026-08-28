@@ -32,11 +32,12 @@ build/
 *.egg-info/
 
 # LaTeX build artifacts — paper PDFs/aux are reproducible from the .tex source
-docs/paper/silent_failures_taxonomy/latex/*.pdf
-docs/paper/silent_failures_taxonomy/latex/*.aux
-docs/paper/silent_failures_taxonomy/latex/*.log
-docs/paper/silent_failures_taxonomy/latex/*.out
-docs/paper/silent_failures_taxonomy/latex/*.synctex.gz
+# V37.9.333: 泛化到全部 docs/paper/*/latex/（一物一形，原 silent_failures_taxonomy 专用行的超集）
+docs/paper/*/latex/*.pdf
+docs/paper/*/latex/*.aux
+docs/paper/*/latex/*.log
+docs/paper/*/latex/*.out
+docs/paper/*/latex/*.synctex.gz
 
 # V37.9.238: status_lock() 伴生锁文件（dev 侧 STATUS_FILE 回退 repo 根时产生；Mac Mini 在 ~/.kb）
 status.json.lock
