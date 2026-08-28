@@ -170,7 +170,9 @@ def read_file_with_stderr(name, stderr_name, limit=2000):
 
     Returns stdout content with a prefix marker when stderr indicates failure:
       - sandbox denied (V37.9.80 TCC main case)    → "[sandbox_denied] " prefix
-      - tool unavailable (Linux / missing binary)  → "[tool_unavailable] " prefix
+      - tool unavailable (missing binary)          → "[tool_unavailable] " prefix
+      - target path missing (V37.9.331: volume /
+        dir gone at probe time — SSD unplugged)    → "[target_missing] " prefix
       - empty/unrecognized stderr                  → no prefix (legacy behavior)
 
     Backward compat: if stderr_name doesn't exist (very old paths or first run
@@ -195,9 +197,23 @@ def read_file_with_stderr(name, stderr_name, limit=2000):
             or "sandbox" in err_lower):
         return "[sandbox_denied] " + stdout_content
     # Tool unavailability (Linux / dev environment / missing binary).
-    if ("command not found" in err_lower
-            or "no such file or directory" in err_lower
-            or "not found" in err_lower):
+    # V37.9.331: narrowed to bash's actual missing-binary message. Every
+    # command in this script is invoked by bare name, so a missing binary
+    # manifests as "command not found" — never as the path-style message.
+    if "command not found" in err_lower:
+        return "[tool_unavailable] " + stdout_content
+    # V37.9.331: target path missing = the volume/dir was ABSENT at probe
+    # time (SSD unplugged / unclean eject) — that is incident evidence, not a
+    # collector-environment problem. Before this fix the path-style stderr
+    # was swept into [tool_unavailable] ("采集器缺工具"), burying the
+    # strongest forensic signal (卷不在了) in the wrong bucket — exactly the
+    # V37.9.281 NOT-F2 family (bare not-found classifier without target
+    # context). Analyzer side has the matching "target_missing" bucket.
+    if "no such file or directory" in err_lower:
+        return "[target_missing] " + stdout_content
+    # Residual bare "not found" (unknown tool-specific messages) stays in the
+    # tool bucket for backward compat.
+    if "not found" in err_lower:
         return "[tool_unavailable] " + stdout_content
     return stdout_content
 

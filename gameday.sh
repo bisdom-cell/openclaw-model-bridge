@@ -123,10 +123,17 @@ run_scenario() {
             fail "意外响应 (HTTP $HTTP_CODE)"
         fi
 
-        # 验证 proxy_stats 记录了该请求
+        # V37.9.331: 只声称验证过的事 — 这里能验证的是 stats 文件可读与当前计数,
+        # 不是「本次请求已被记录」(记录发生在 backend 响应返回后, 可能晚于此刻数秒
+        # 到数十秒)。旧文案「记录正常」是无对账的声称 (原则 #36-4); 且 TOTAL 为空
+        # (文件损坏/半截写) 时旧代码照样 pass = 该报警时打绿 (V37.9.322 家族)。
         if [ -f "$HOME/proxy_stats.json" ]; then
             TOTAL=$(python3 -c "import json; print(json.load(open('$HOME/proxy_stats.json')).get('total_requests',0))" 2>/dev/null)
-            pass "proxy_stats 记录正常（total_requests=${TOTAL}）"
+            if [ -n "$TOTAL" ]; then
+                pass "proxy_stats 可读（total_requests=${TOTAL}）"
+            else
+                fail "proxy_stats.json 存在但不可解析（损坏/半截写）"
+            fi
         else
             fail "proxy_stats.json 不存在"
         fi
@@ -143,26 +150,33 @@ run_scenario() {
         fi
 
         # 读取 /health 中的断路器状态
+        # V37.9.331: adapter /health 的 circuit_breaker 是**裸字符串** (CircuitBreaker
+        # .state() 返回 closed/open/half-open), 且仅在配置了 fallback 链时存在。
+        # 修复前这里按 dict 解析 (对字符串调 .get → AttributeError → 输出恒空) →
+        # 永远走 skip 分支还把锅甩给「adapter 可能版本较旧」= 声称的断路器验证
+        # 在现行 adapter 上从未发生过 (本场景自 V33 起结构性空转)。
         CB_STATE=$(curl -s --max-time 5 "$ADAPTER_URL/health" | python3 -c "
 import sys, json
 d = json.load(sys.stdin)
-cb = d.get('circuit_breaker', {})
-print(f'{cb.get(\"state\",\"unknown\")}|{cb.get(\"consecutive_failures\",0)}|{cb.get(\"threshold\",5)}')
+cb = d.get('circuit_breaker')
+if isinstance(cb, dict):
+    print(cb.get('state', 'unknown'))
+elif isinstance(cb, str) and cb:
+    print(cb)
+else:
+    print('absent')
 " 2>/dev/null)
 
-        if [ -n "$CB_STATE" ]; then
-            IFS='|' read -r STATE FAILURES THRESHOLD <<< "$CB_STATE"
-            pass "断路器状态: $STATE (failures=$FAILURES, threshold=$THRESHOLD)"
-
-            if [ "$STATE" = "closed" ]; then
-                pass "断路器正常闭合（无连续失败）"
-            elif [ "$STATE" = "open" ]; then
-                fail "断路器已打开！主路径被跳过，所有请求走 fallback"
-            elif [ "$STATE" = "half-open" ]; then
-                pass "断路器半开放（正在尝试恢复）"
-            fi
+        if [ "$CB_STATE" = "closed" ]; then
+            pass "断路器正常闭合 (state=closed)"
+        elif [ "$CB_STATE" = "half-open" ]; then
+            pass "断路器半开放（正在尝试恢复）"
+        elif [ "$CB_STATE" = "open" ]; then
+            fail "断路器已打开！主路径被跳过，所有请求走 fallback"
+        elif [ "$CB_STATE" = "absent" ]; then
+            skip "未配置 fallback 链（/health 无断路器字段）"
         else
-            skip "无法读取断路器状态（adapter 可能版本较旧）"
+            skip "无法读取断路器状态 (got=${CB_STATE:-empty})"
         fi
         ;;
 
@@ -177,14 +191,23 @@ print(f'{cb.get(\"state\",\"unknown\")}|{cb.get(\"consecutive_failures\",0)}|{cb
             pass "快照创建成功: $(basename "$FILE")"
 
             # 验证快照内容
+            # V37.9.331: 改读 V37.9.325 的 logs_meta.resolved (生产端自己的账),
+            # 退役按缺失文案子串计数的旧法 — V37.9.325 把缺失日志文案改成
+            # 「[no log file found; tried: ...]」后, 旧子串判据不再命中 → 缺失
+            # 日志被数成「有内容」(dev 实测: 4/4 全缺失仍报 4)。快照由本场景
+            # 现场用当前 incident_snapshot.py 生成, logs_meta 必然在场。
             HAS_LOGS=$(python3 -c "
-import json
-d = json.load(open('$FILE'))
-logs = d.get('logs', {})
-has = sum(1 for v in logs.values() if 'file not found' not in v)
+import json, sys
+d = json.load(open(sys.argv[1]))
+meta = d.get('logs_meta') or {}
+has = sum(1 for m in meta.values() if isinstance(m, dict) and m.get('resolved'))
 print(has)
-" 2>/dev/null)
-            pass "快照包含 $HAS_LOGS 个日志文件内容"
+" "$FILE" 2>/dev/null)
+            if [ -n "$HAS_LOGS" ]; then
+                pass "快照日志段: $HAS_LOGS 个真实日志文件被捕获 (logs_meta 对账)"
+            else
+                fail "快照日志段不可解析（无 logs_meta — incident_snapshot 版本过旧？）"
+            fi
 
             HAS_SERVICES=$(python3 -c "
 import json
@@ -248,6 +271,13 @@ try:
         print(f'      {icon} {r[\"name\"]}: {r[\"value\"]}{r[\"unit\"]} (目标: {r[\"target\"]}{r[\"unit\"]})')
 except: pass
 " 2>/dev/null
+        elif [ $SLO_RC -eq 3 ]; then
+            # V37.9.331: rc=3 = V37.9.322 新增「无数据可判」(全部指标样本域为空,
+            # 如 proxy 刚重启/当日零流量) — 是 checker 的**诚实结果**非异常。
+            # 修复前落 else 分支报 ❌「SLO 检查异常 (rc=3)」= 把设计行为误报成
+            # checker 损坏; preflight 已在 V37.9.322 同步 (exit 3 → warn),
+            # gameday 这个消费方漏网 = 原则 #31 跨消费者同步缺口。
+            skip "SLO 无数据可判（零流量/刚重启, rc=3 为诚实结果非 checker 异常）"
         elif [ $SLO_RC -eq 2 ]; then
             fail "SLO 有违规项"
         else
@@ -256,8 +286,9 @@ except: pass
 
         # 验证 --alert 模式
         # V37.9.67: cmd_and_or_chain → if-then-else (INV-CROSS-OS-001)
+        # V37.9.331: rc=3 (无数据可判) 与 0/2 同为合法退出码
         if ALERT_OUT=$(python3 "$HOME/slo_checker.py" --alert 2>&1); then ALERT_RC=0; else ALERT_RC=$?; fi
-        if [ $ALERT_RC -eq 0 ] || [ $ALERT_RC -eq 2 ]; then
+        if [ $ALERT_RC -eq 0 ] || [ $ALERT_RC -eq 2 ] || [ $ALERT_RC -eq 3 ]; then
             pass "SLO --alert 模式正常 (rc=$ALERT_RC)"
         else
             fail "SLO --alert 模式异常"

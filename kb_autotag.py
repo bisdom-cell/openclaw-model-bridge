@@ -82,6 +82,35 @@ TAG_RULES = [
 # Fallback tag when no rules match
 DEFAULT_TAG = "其他/未分类"
 
+# ---------------------------------------------------------------------------
+# V37.9.331: 词边界关键词匹配（V37.9.316 DC-1 同族修复）
+# 修复前是裸子串匹配 —— "ai" 命中 maintain/email/raised、"rag" 命中 storage、
+# "api" 命中 rapid、"git" 命中 digit、"rest" 命中 interest、"cif" 命中 specific
+# → 几乎所有英文内容都拿到 技术/AI 假命中；2026-08-28 探针实录：财经笔记
+# （interest rates / inflation）两个标签全错（技术/AI + 技术/编程），真正的
+# 财经/金融 反而缺席。本模块在 kb_write.sh 生产写入路径上（无显式标签时
+# 每条 KB note 都经它自动打标），标签污染面 = 全部自动打标笔记。
+# 词边界用显式字符类 lookaround 而非 \b —— Python \w 含 CJK，「订单ai」类
+# CJK 邻接场景 \b 两侧都算 word char 反而不成立（V37.9.316 同款理由）。
+# CJK 关键词保持子串（中文无词边界）；ASCII 关键词允许可选复数 s
+# （tokens/LLMs/apis 仍命中，不牺牲召回）。
+# ---------------------------------------------------------------------------
+_CJK_RE = re.compile("[一-鿿]")
+_KW_PATTERNS = {}
+
+
+def _kw_hit(kw, text_lower):
+    """True if keyword hits text under word-boundary semantics (ASCII) or
+    substring semantics (CJK). text_lower must already be lowercased."""
+    kw_l = kw.lower()
+    if _CJK_RE.search(kw_l):
+        return kw_l in text_lower
+    pat = _KW_PATTERNS.get(kw_l)
+    if pat is None:
+        pat = re.compile(r"(?<![a-z0-9])" + re.escape(kw_l) + r"s?(?![a-z0-9])")
+        _KW_PATTERNS[kw_l] = pat
+    return pat.search(text_lower) is not None
+
 
 def infer_tags(content, max_tags=2):
     """Infer tags from content text. Returns list of tag strings.
@@ -96,7 +125,7 @@ def infer_tags(content, max_tags=2):
 
     scores = []
     for tag, keywords in TAG_RULES:
-        hits = sum(1 for kw in keywords if kw.lower() in text_lower)
+        hits = sum(1 for kw in keywords if _kw_hit(kw, text_lower))
         if hits > 0:
             scores.append((tag, hits))
 
@@ -182,18 +211,24 @@ def retag_all(apply=False):
         new_tags_str = ", ".join(new_tags)
 
         if set(new_tags) != set(old_tags):
-            changes.append({
+            change = {
                 "file": entry.get("file", ""),
                 "old": old_tags,
                 "new": new_tags,
                 "summary": entry.get("summary", "")[:50],
-            })
+            }
 
             if apply:
-                # Update note file frontmatter
-                update_note_tags(filepath, new_tags_str)
-                # Update index entry
-                entry["tags"] = new_tags
+                # V37.9.331: 只有 frontmatter 真写成功才同步 index（否则 index 与
+                # note 文件对同一标签出现两种说法 = 一物一形违反），并把成败记进
+                # change 让汇总行「已更新 N 个」有对账（原则 #36-4：此前无论写入
+                # 是否失败都报全量 N）。
+                if update_note_tags(filepath, new_tags_str):
+                    entry["tags"] = new_tags
+                    change["applied"] = True
+                else:
+                    change["applied"] = False
+            changes.append(change)
 
     if apply and changes:
         save_index(index)
@@ -272,7 +307,15 @@ def main():
         if not apply:
             print(f"\n运行 `python3 kb_autotag.py --retag --apply` 执行变更")
         else:
-            print(f"[kb_autotag] 已更新 {len(changes)} 个 notes 的标签")
+            # V37.9.331: 按实际写入成败对账（原则 #36-4），frontmatter 写失败的
+            # 条目单独点名而不是被「已更新 N 个」的总数吞掉。
+            applied = sum(1 for c in changes if c.get("applied"))
+            failed = len(changes) - applied
+            if failed:
+                print(f"[kb_autotag] 已更新 {applied}/{len(changes)} 个 notes 的标签"
+                      f"（{failed} 个 frontmatter 写入失败，index 未动保持一致）")
+            else:
+                print(f"[kb_autotag] 已更新 {applied} 个 notes 的标签")
         return
 
     # Single content tagging (for kb_write.sh integration)
