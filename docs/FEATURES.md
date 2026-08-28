@@ -1,6 +1,6 @@
 # OpenClaw Model Bridge — 系统特性一览表
 
-> v37.9.332 (2026-08-28) | **6287 tests** / 188 suites / 0 fail | **12 providers** (primary doubao_21) | **40 active jobs** | 5 SLO metrics | preflight full checks | notify 推送（默认 Discord）| **91 governance invariants / 23 meta-rules / 839 checks / 14 MRD scanners** | security 98/100 | 28 blood-lesson case docs
+> v37.9.333 (2026-08-28) | **6287 tests** / 188 suites / 0 fail | **12 providers** (primary doubao_21) | **40 active jobs** | 5 SLO metrics | preflight full checks | notify 推送（默认 Discord）| **91 governance invariants / 23 meta-rules / 839 checks / 14 MRD scanners** | security 98/100 | 28 blood-lesson case docs
 
 | 分类 | 特性 | 说明 | 核心文件 |
 |------|------|------|----------|

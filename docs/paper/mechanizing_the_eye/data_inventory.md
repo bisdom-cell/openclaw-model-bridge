@@ -105,3 +105,24 @@
 | Ernst & Baldassarre. *Registered Reports in Software Engineering.* EMSE 28(2), 2023; doi:10.1007/s10664-022-10277-5; arXiv:2302.03649 | ✅ 2026-08-12 检索核验（Springer EMSE + arXiv 一致）。用途 = §2.3 把「操作性预注册」定位于 SE 已有的**发表侧**注册报告传统之旁（MSR 2020 起设 track），并据此**收窄新颖性主张**（"uncommon rather than unprecedented"，不宣称 unprecedented） |
 | Rebedea, Dinu, Sreedhar, Parisien, Cohen. *NeMo Guardrails.* EMNLP 2023 System Demos; arXiv:2310.10501 | ✅ 2026-08-12 检索核验（ACL Anthology 2023.emnlp-demo.40 + arXiv 一致）。用途 = §2.3 对照：既有 runtime-guard 框架规定 guard **enforce 什么**，不规定团队如何**事先**决定 guard 何时获得 enforcement 授权 |
 | 其余 7 条 | 复用论文 #1 已终核引用（arXiv API 作者列表 100% 一致，见论文 #1 data_inventory References 段） |
+
+## 2026-08-28 投稿前重对表（v1.0 定稿轮，append 不改写）
+
+| 项 | 结果 |
+|---|---|
+| scorecard 三指标 | ✅ dev 实测 `llm_observer_selfcheck.py --json`: defense 6/6 (1.0) / FP 0/4 (0.0) / held-out FN 4/4 (1.0)，与正文逐字一致 |
+| ground truth summary | ✅ `grep -A12 summary docs/llm_observer_ground_truth.yaml`: 24 labeled / 22 canonical / 3 non-failure / fp yes 4 partial 4 / in-scope yes 3 partial 5（no = 16 派生）/ golden 5 |
+| case 文件总数 | ✅ `ls ontology/docs/cases/*.md \| wc -l` = 28 |
+| 生产窗口数字 | 冻结值不重拉（§9.2 协议；重拉须新 cutoff 机械重跑并 append 本表） |
+| 引用 arXiv abs 终核 | ⚠️ dev 容器 egress 代理屏蔽 arxiv.org（本容器网络策略，非引用问题）→ 移交投稿 runbook：用户浏览器点开 refs 中 6 个 arXiv 链接肉眼比对标题（1 分钟）。11 条引用均有 08-12 publisher 页 / 论文 #1 API 终核记录在案 |
+
+## Postscript（2026-08-28 新增段）数字溯源
+
+| 论文数字 | 值 | 仓库来源 |
+|---|---|---|
+| S6 诞生日 + 两条人眼缺陷（发明档位 🏠 / bsky 升档） | 2026-08-18 | changelog V37.9.318 + `llm_observer.py detect_credibility_marker_violation` + test_llm_observer 97 |
+| S6 对真实梦境恰抓两条 + 干净对照零误报 + sabotage 三连 | dev 实测 | changelog V37.9.318 ④⑤ |
+| Layer 1 现为 6 信号 | `grep -c "^def detect_" llm_observer.py` = 7（6 信号 + orchestrator detect_fail_plausible） | 2026-08-28 实测 |
+| 月份钉死两次人眼捕获 | 2026-08-23（「都是4月」）/ 2026-08-25（「都是8月」） | changelog V37.9.326 / V37.9.329 |
+| 第一次修复 22 个绿守卫零个问月份分布 | 22 | changelog V37.9.330 纪律(1) 实录（test_v37_9_326 22 单测） |
+| 验收数据（五月混合）+ 检测器同日机械化 | 2026-08-28，distinct=5 / top_share=0.638；阈值 <3 月或 >80% | changelog V37.9.332 + `daily_observer.py scan_dream_month_distribution` + test_daily_observer 278 |

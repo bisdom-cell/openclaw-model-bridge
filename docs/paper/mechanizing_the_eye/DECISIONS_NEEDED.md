@@ -1,5 +1,18 @@
 # 待用户决策项 — Observer 论文（论文 #2）
 
+> **✅ 全部决策已定（2026-08-28，用户一次性定夺，镜像论文 #1 的 2026-06-11 先例）：**
+> 1. **投稿时机 = (a) 现在投**（安静窗版本，"方法 + 工具 + 预注册负结果"定位；正文以 study cutoff 2026-08-09 冻结数字为准，cutoff 后进展以明确标注的 Postscript 呈现）
+> 2. **标题 = 选项 1**（Mechanizing the User's Eye: Pre-Registered Deployment of a Sabotage-Validated Fail-Plausible Observer in a Production LLM Agent Runtime）
+> 3. **venue = arXiv 直发**（Primary cs.SE + cross-list cs.AI；期刊路线是后续独立步骤，按 V37.9.307 确立的"期刊优先、会议不投"策略）
+> 4. **署名 = 沿用论文 #1**（用户实名单一作者 + 标题页脚注 AI disclosure + Contributions 分工）
+> 5. **内容取舍 = 全保留 + 加后记**（O1-O8 全表保留 / §6.6 自指语气保留 / 新增 Postscript 覆盖 cutoff 后的 S6 检测器与 dream 月份分布检测器，明确标注不进冻结窗口）
+> 6. **中文 artifact = 保持中文 + 论文内英文转述**（design doc §9.1/§9.2 不出英文对照版）
+>
+> 执行产物：`draft.md` v1.0（2026-08-28）+ `latex/main.tex`（本地 pdflatex 真编译 18 页 / 0 error / 0 overfull / 4 TikZ figures）+ `ARXIV_SUBMISSION_GUIDE.md`（用户投稿 runbook）。
+> 以下原文保留作决策上下文存档（point-in-time，不再更新）。
+
+---
+
 > 第一稿（`draft.md` v0.1, 2026-08-12）已完成。以下决策不阻塞正文打磨，但**阻塞投稿**。
 > 镜像论文 #1 `DECISIONS_NEEDED.md` 流程（7 项决策 → 用户 2026-06-11 一次性定夺的先例）。
 > 论文 #1 已有先例的项目默认沿用，仅需确认；真正的新决策是 **#1 时机**。

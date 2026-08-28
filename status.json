@@ -1,6 +1,6 @@
 {
-  "updated": "2026-08-28 01:47:52",
-  "updated_by": "security_score",
+  "updated": "2026-08-28 07:30:50",
+  "updated_by": "full_regression",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -178,6 +178,11 @@
       "date": "2026-08-17",
       "what": "Mac Mini 工作树清理闭环: 两嵌套仓库副本(93M)经 HEAD-in-main + 零本地改动取证后安全删除, 两空碎片文件删除, git status 只剩 chaspark cache 行(合并+同步后由 gitignore 消化)。扫描器嵌套仓库风险随删除消失, 按日落法不加排除机制。",
       "by": "claude_code"
+    },
+    {
+      "date": "2026-08-28",
+      "what": "V37.9.333 论文 #2 投稿包完成: 用户四决策一次性定夺(现在投/标题1/arXiv cs.SE+cs.AI/全保留+Postscript) + draft v1.0(data_inventory 重对表 + cutoff 后 Postscript, #36-3 自查抓一处数字错位) + latex/main.tex 本地真编译 18 页 0 error/0 overfull(4 TikZ 图逐页核对, 修 Fig.3 刻度碰撞/text-mode >/Fig.4 图例压框) + ARXIV_SUBMISSION_GUIDE.md 4 步 runbook + .gitignore latex 规则泛化。纯研究文档 VERSION 0.37.9.161 不变。球在用户走 guide 提交。",
+      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -226,7 +231,7 @@
     "security_score": "98/100 (98.0%)",
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB",
     "slo": {
-      "checked_at": "2026-08-28 01:45:39",
+      "checked_at": "2026-08-28 07:29:35",
       "all_ok": true,
       "judged_count": 1,
       "na_count": 4,
@@ -288,7 +293,7 @@
       "deep_dive OA 全文解析 follow-up (V37.9.183/184) — (1) ✅ 已闭合(V37.9.261/263): Mac Mini grep 实证降级主体=结构性付费墙(no PDF URL derivable, ACM/Elsevier 无 OA 版)非 fetch-path bug, ban-list(V37.9.260)是真杠杆; V37.9.262 OpenAlex 第二源 Mac Mini 实测 0/7 恢复且净负→V37.9.263 回退; 降级率下降 thesis 被证伪, 残余=接受现实(不爬付费墙). (2) 历史 KB 条目仍 PII link(仅新论文受益, V37.9.132 局限, 不补). (3) ✅ V37.9.186: pwc 死路径退役 + TIER↔registry drift 守卫.",
       "【H1-C / C2 (Q4, gated) · C1 选型已完成 V37.9.253】第二实例最小闭环真跑 = 非 Mac Linux host 上 E2E 绿: minimal_runtime + governance cron + 1-2 内容 job(arxiv/dblp) 真抓取→LLM→Discord + cron+nohup 重启存活。选型=PUSH-only 纯推送(绕 Gateway/WhatsApp/sessions), 见 docs/second_instance_poc_selection_20260707.md §5 验收标准。C2 前置(§3, 均可枚举无未知): 持久 Linux host(VPS/容器) + 可达 LLM 端点(REMOTE_BASE_URL) + Discord bot token/channel(DISCORD_CH_*) + 唯一真需新建=Linux bootstrap 脚本(装 py 依赖+起 adapter/proxy nohup+写 crontab, 并行 install_openclaw_macmini.sh)。C3=portability report EN/ZH 证据型文章(对两次评审可迁移性批评终局回答)。",
       "【V37.9.274 · SF1/SF2 已修 · SF3 对抗验证 accept-by-design】(SF1 ✅ 修) ontology_sources/finance_news fetch_failed 守卫 parse-盲已修: parse-fail sys.exit(2) 信号回 shell + 根元素校验(well-formed 反爬 HTML root=html 拦截, 实测证伪初版 catch-ParseError) + PARSE_RC!=0→FETCH_ERRORS++。(SF2 ✅ 修) daily_observer --dry-run 持久化污染已修: append_score_history+_write_observer_to_status 由 if not dry_run 守卫。(SF3 ⏹ 不改) kb_harvest any(ok)→ok 是 V37.9.130 刻意设计(status 枚举供 watchdog 契约, 降级走 map_failed 独立字段), 改成 any(error)→error 会过度告警瞬态混合窗口 → 对抗验证 accept-by-design(镜像 V37.9.273 F2 纪律)。守卫 test_v37_9_274(11 单测)+sabotage。",
-      "【🔴 LLM-Observer 研究攻关 #1 · 论文 #2 第一稿 ✅ V37.9.297 · 待用户三决策】draft v0.1 + data_inventory + DECISIONS_NEEDED 已入库 docs/paper/mechanizing_the_eye/（§9.2.7 冻结数据→论文叙事, 安静窗按 §9.2.5 报 0-分母 precision 未定义, O1-O8 observer 自身事故账本, 9 引用含 2 条新核验）。球在用户: DECISIONS_NEEDED #1 投稿时机(安静窗现投 vs 预注册延长, 推荐现投) + #2 标题三选 + #3 venue(建议联动 ISSRE 8-12 通知; 若 #1 论文录用会议版策略联动)。决策后 = LaTeX 转换 + figures + 投稿前 data_inventory 重对表 + §2.3 'no prior report' 主张检索加固。",
+      "【🔴 LLM-Observer 论文 #2 投稿包 ✅ V37.9.333 · 球在用户走 guide 提交】四决策已定(2026-08-28: 现在投安静窗版 / 标题选项1 / arXiv 直发 cs.SE+cross-list cs.AI / O1-O8 全保留+Postscript; 署名与中文 artifact 沿用论文 #1 先例)。交付: draft.md v1.0(+cutoff 后 Postscript 明确标注) + latex/main.tex(本地 pdflatex 18 页 0 error/0 overfull, 4 TikZ figures 逐页目视核对) + ARXIV_SUBMISSION_GUIDE.md(4 步 runbook)。待用户: (1) 引用终核 curl 7 arXiv ID 输出贴回(dev egress 不可达 arxiv.org, 只能用户侧做) (2) Overleaf 编译验证 (3) arXiv 表单提交(字段已备好可复制: Title/纯文本 Abstract/Comments/License CC BY 4.0/cs.SE+cs.AI) (4) 上线后回报 arXiv ID → Claude 做发布配套(README/status/design doc Stage 表收敛 + data_inventory 终版归档 + 可选中文科普版)。期刊路线为后续独立步骤(V37.9.307 期刊优先策略)。",
       "【2026-07-26 对抗审计 JOB-F1 ✅ V37.9.282 已铺开 · 剩 Mac Mini 被动验证】8 脚本 200-but-unparseable 守卫全部落地 (四类结构分别适配): A. rss_blogs/ai_leaders_blogs XML 全款 (exit 2+根白名单+PARSE_RC→FETCH_ERRORS) / B. bsky JSON 根形状 feed 键校验 / C. dblp+s2 全结果文件解析失败→exit 2→既有 parse_failed 分支 / D. hn/chaspark/freight 单源 fail-loud (parse_failed/fetch_failed 不落 \"无新内容\" ok)。守卫 test_v37_9_282_parse_guard_rollout.py 15 单测 (含 heredoc compile+非空断言) + bsky 既有 pin 演进 (corrupt JSON exit 0→2, FAIL-OPEN 上移 shell 级)。Mac Mini 验证: 同步后各 job 正常日照常 ok; 若未来某源被反爬, watchdog 应出 fetch_failed/parse_failed 告警而非静默 new:0 ok。",
       "【2026-07-26 对抗审计 2 登记项 ✅ V37.9.283 已修 · 剩 Mac Mini 被动验证】(a) NOT-F3 quiet_alert 静默期已收编 notify --channel discord --topic alerts（重试+队列，队列条目 channel=discord 重放不违静默期；V37.8.13 四 pin 零破坏）。(b) NOT-F5 ProxyStats per-key 告警冷却（token_warn/token_critical/consecutive_errors，ALERT_COOLDOWN_SEC=1800 config.yaml 中心化；首报零延迟/窗口内抑制/状态恢复重武装/升级穿透）。Mac Mini 验证: 同步+重启 proxy 后，长 session 过 195K 时告警至多 1 条/30min 非每 turn；静默期 deploy 告警失败应入 notify 队列稍后重放（~/.notify_queue/）而非静默丢失。守卫 test_v37_9_283_alert_cooldown.py 23 单测 + sabotage 双向验证。",
       "【V37.9.279-281 Mac Mini 被动验证】合并+同步后: (a) 279: 次日 06:30 observer 报告若有 fp verdict, LLM critique 段应可见异常块引用 fail-plausible (on 模式评分真集成); score_history 新行有 fp_mode:\"on\" 字段; confidence 只在 L2 grounded 支持时非 1.0 (b) 280: evening \"今日笔记\" 不再含昨日条目; 论文源 parse_failed 日 evening 出\"今日任务异常\"块; harvest 部分 Map 失败日 last_run status=error 且次日重试 (c) 281: notify 队列重放无重复投递; chaspark LLM 失败日次日正常重抓 (seen 不再提前提交); wa_keepalive 日志出现 ESCALATE_FAILED 时 ~/.openclaw_alerts.log 有兜底行。",
@@ -328,12 +333,12 @@
     ],
     "open_prs": [],
     "blocked_on": "",
-    "focus": "2026-08-28 收工态: 双交付日 — V37.9.331 对抗审计(gameday/movespeed_incident_capture/kb_autotag 首次被审, 5 findings+38 守卫) + V37.9.332 验收全绿闭环(V37.9.324-329 六版链生产收口)+[62]兑现建 dream 月份分布检测器(+10 守卫)。两版同在 claude/todays-work-fcjlcj 待用户合并。下一 session 优先: (1) 论文 #2 投稿三决策仍待用户(DECISIONS_NEEDED #1-#3) (2) 对抗审计未覆盖面继续(候选: daily_ops_report/diagnose/wa_keepalive/ops_health 等未审运维 .sh; 镜头「验证者自身无人验证」可复用) (3) V37.9.331/332 Mac Mini 被动验证项"
+    "focus": "2026-08-28 收工态: 三交付日 — V37.9.331(对抗审计五连修: gameday rc=3/logs_meta/断路器 schema + movespeed target_missing + kb_autotag 词边界, 38 守卫 sabotage 六连全开火) → V37.9.332(V37.9.329 验收全绿收口 + [62] 兑现: observer dream 月份分布检测器, 278 observer 测试) → V37.9.333(论文 #2 投稿包: 四决策+draft v1.0+LaTeX 18 页真编译+arXiv runbook)。全部推 claude/todays-work-fcjlcj 待合并。下一 session 优先: (1) 用户合并后 Mac Mini 同步 (2) 论文 #2 用户走 ARXIV_SUBMISSION_GUIDE 4 步提交, 引用终核输出贴回即处理 (3) V37.9.331/332 Mac Mini 被动验证(明晨 06:30 observer 无 dream_month_pin 新噪声 + gameday --all 三场景不再假 fail)。"
   },
   "quality": {
     "security_score": 98,
     "test_count": 6287,
-    "last_regression": "2026-08-28 01:46 pass",
+    "last_regression": "2026-08-28 07:30 pass",
     "coverage_pct": 0,
     "security_score_time": "2026-07-20 01:07",
     "test_suites": 188,
@@ -404,7 +409,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-08-24 收工态: 四版全链闭环日 — V37.9.324(KB verify 接线, 首次真实开火即分诊) → 325(故障证据三连修 + CI bandit 双重漂移) → 326(Dream 4月钉死血案: 尾部窗口+月份轮转+每部分预算, 首夜月份分布已实证多月混合) → 327(status.json 644 永久日噪声在唯一写出口根治)。全部已合并+Mac Mini 同步+重推 08-24 梦境 5/5 送达。明晨五项验收见 unfinished; 全绿则四版生产闭环。下一 session 优先: (1) 明晨验收结果处置 (2) 论文 #2 投稿三决策仍待用户 (3) 继续对抗审计未覆盖面（conv_quality/token_report/movespeed_incident_capture/cron_doctor/gameday/kb_autotag; 镜头「声称采集/跑过的东西真的发生了吗」可复用）",
+  "focus": "2026-08-28 收工态: 三交付日 — V37.9.331(对抗审计五连修: gameday rc=3/logs_meta/断路器 schema + movespeed target_missing + kb_autotag 词边界, 38 守卫 sabotage 六连全开火) → V37.9.332(V37.9.329 验收全绿收口 + [62] 兑现: observer dream 月份分布检测器, 278 observer 测试) → V37.9.333(论文 #2 投稿包: 四决策+draft v1.0+LaTeX 18 页真编译+arXiv runbook)。全部推 claude/todays-work-fcjlcj 待合并。下一 session 优先: (1) 用户合并后 Mac Mini 同步 (2) 论文 #2 用户走 ARXIV_SUBMISSION_GUIDE 4 步提交, 引用终核输出贴回即处理 (3) V37.9.331/332 Mac Mini 被动验证(明晨 06:30 observer 无 dream_month_pin 新噪声 + gameday --all 三场景不再假 fail)。",
   "notes": "",
   "preferences": [
     "[auto] 常用工具：read(10次)、sessions_spawn(8次)、sessions_history(8次)",

@@ -1,24 +1,19 @@
 # Mechanizing the User's Eye: Pre-Registered Deployment of a Sabotage-Validated Fail-Plausible Observer in a Production LLM Agent Runtime
 
-> **DRAFT v0.1 — 2026-08-12 (V37.9.297 session, first pass)**
-> Working paper — follow-up to *When Errors Become Narratives*
-> ([arXiv:2606.14589](https://arxiv.org/abs/2606.14589)); target category: cs.SE,
-> cross-list cs.AI / cs.SE experience-report venues TBD (`DECISIONS_NEEDED.md`).
+> **v1.0 — 2026-08-28 (submission version; v0.1 first pass 2026-08-12)**
+> Follow-up to *When Errors Become Narratives*
+> ([arXiv:2606.14589](https://arxiv.org/abs/2606.14589)). Venue (user decisions,
+> 2026-08-28): **arXiv direct submission, cs.SE primary + cross-list cs.AI**;
+> quiet-window version submitted now per the §9.2.5 negative-results commitment;
+> journal targeting is a separate later step. Title = option 1 (decided).
 > All production numbers frozen at the pre-registered study cutoff **2026-08-09 23:59 HKT**
 > per the analysis protocol registered 2026-07-31 (`docs/llm_observer_design.md` §9.2),
 > *before* the window data was read. Repository traceability in `data_inventory.md`.
-> User-facing decisions pending: see `DECISIONS_NEEDED.md`.
-
-**Alternative titles (user to choose):**
-
-1. *Mechanizing the User's Eye: Pre-Registered Deployment of a Sabotage-Validated
-   Fail-Plausible Observer in a Production LLM Agent Runtime* (current)
-2. *From Description to Prediction: Building, Auditing, and Honestly Reporting an
-   LLM Observer for Silent Failures*
-3. *The Judge Inherits the Taxonomy: A Fail-Plausible Observer and Its Own Incident Log*
+> Post-cutoff developments appear only in the clearly-labeled Postscript.
 
 **Authors:** Wei Wu (Independent researcher), with AI engineering collaborator
-disclosure mirroring paper #1 (title-page footnote + Acknowledgments; user decision).
+disclosure mirroring paper #1 (title-page footnote + Acknowledgments; confirmed
+2026-08-28, paper #1 precedent applied unchanged).
 
 ---
 
@@ -737,6 +732,56 @@ watching — by method, not by hope.
 
 ---
 
+## Postscript: The Loop, After the Freeze (added 2026-08-28)
+
+This section postdates the registered study cutoff (2026-08-09) and enters none of
+the frozen tables above. We add it because the paper's central loop — a human catches
+a semantic defect the automation missed, and the catch is mechanized into a
+deterministic detector within a day — executed twice more between the freeze and
+submission. Both instances are repository-verifiable in the same way as everything
+else in this paper; neither changes any frozen number.
+
+**A sixth deterministic signal (2026-08-18).** Reviewing a routine nightly synthesis,
+the human operator noticed two credibility-marker defects the automation had not:
+the synthesis had *invented* a provenance tier — an emoji marker outside the
+five-tier contract, wrapped in responsible-sounding hedging — and had *upgraded* a
+social-media source to an industrial-practice tier. Both are textbook fail-plausible:
+plausible-looking annotations, wrong by contract. Neither S1–S5 nor the existing
+credibility-mismatch rule could see them: S2 checks wording against a known
+single-source identity, while these were defects in the explicit markers of a
+multi-source synthesis document. The same day, the catch became S6 — a deterministic
+marker-contract checker that derives the legal tier set from the runtime's provenance
+module (one source of truth, so a contract change updates the detector) and flags
+out-of-contract or contract-inconsistent markers. Against the same real artifact, S6
+flags exactly the two human-caught defects and nothing else on the in-contract
+markers; sabotage confirms every branch load-bearing. Layer 1 is now six signals;
+the frozen sections above describe the five that existed inside the study window.
+
+**A distribution detector born from an acceptance test (2026-08-28).** A
+material-coverage regression family — the nightly cross-domain synthesis silently
+sourcing nearly all of its citations from a single calendar month, because a fixed
+positional sampling window was pinned to one end of an append-only archive — was
+caught twice by the human eye in quick succession (the first fix relocated the bias
+to the archive's other end rather than removing it; only the second redesign made the
+sampling content-aware). The first fix shipped with twenty-two green guard tests —
+mechanism checks, all of them; not one asked what the user would see. When the
+redesign's acceptance
+data arrived — a healthy five-month citation mix, judged by the human eye — the
+acceptance criterion itself was mechanized the same day: the daily observer now
+extracts date tokens from the synthesis deterministically and raises an anomaly when
+the cited months collapse (fewer than three distinct months, or one month above 80%
+of tokens). Against the accepted real artifact it stays silent; against the
+historical single-month shape it fires.
+
+Neither event is evidence about the quiet window; both are evidence about the method.
+The human-to-machine conversion path this paper describes is not a one-off — it ran
+twice more while the paper was being prepared, each time within a day of the human
+catch, and each new detector entered production under the same read-only, zero-cost,
+sabotage-validated discipline as the pipeline it joined. The enforcing-mode ledger
+remains append-only under the registered protocol.
+
+---
+
 ## Artifact Availability
 
 The labeled ground-truth corpus, two-layer detector, self-validation harness,
@@ -751,8 +796,11 @@ mode flag, and the score-history data schema are in the same repository.
 
 ## References
 
-*(entries 1–7 verified for the prior paper and reused; entries 8–9 verified against
-publisher pages on 2026-08-12; final pass against arXiv abs pages before submission)*
+*(entries 1–7 verified for the prior paper via the arXiv API with 100% author-list
+agreement and reused; entries 8–11 verified against publisher pages on 2026-08-12;
+2026-08-28 note: the submission-day visual pass over the six arXiv abs links is a
+one-minute step in the submission runbook — the drafting environment's egress proxy
+blocks arxiv.org, so it is delegated to the submitting author's browser)*
 
 1. W. Wu. **When Errors Become Narratives: A Longitudinal Taxonomy of Silent Failures
    in a Production LLM Agent Runtime.** arXiv:2606.14589, 2026.
