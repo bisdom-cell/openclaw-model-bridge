@@ -18,7 +18,7 @@
 | `kb\` | `~/.kb/` | KB 全量（notes/sources/dreams/deep_dives/索引/status.json/audit.jsonl…） |
 | `home\` | `~` 顶层 `*.log` + `proxy_stats.json` + `.cron_canary` + `.crontab_backups\` | 运行日志与状态 |
 | `openclaw\logs\` `jobs\` `media\` | `~/.openclaw/` 对应子目录 | 部署日志 / job 缓存 / WhatsApp 媒体 |
-| `movespeed_backup\` | `/Volumes/MOVESPEED/openclaw_backup/` | Gateway 全量备份 tar.gz，**每周日只拉最新一份**（中继带宽策略），本地保留最近 3 份（⚠️ 含凭据，E 盘访问控制自行负责） |
+| `movespeed_backup\` | `/Volumes/MOVESPEED/openclaw_backup/` | Gateway 全量备份 tar.gz，**每周日只拉最新一份**（中继带宽策略），**全部历史档长期保留**（⚠️ 含凭据，E 盘访问控制自行负责） |
 | `_sync\` | — | 同步日志 `sync.log` + `last_sync.json` + `upstream\`（脚本更新通道） |
 
 刻意不拉：代码仓库（家在 GitHub）/ `/Volumes/MOVESPEED/KB/`（`~/.kb` 的副本，拉原件不拉复制品）/ `~/.openclaw` 顶层凭据活文件（已在备份 tar.gz 内）/ `~/.notify_queue`（瞬态）。
@@ -125,5 +125,5 @@ wsl -e tail -5 /mnt/e/openclaw-model-bridge/_sync/sync.log
 1. **Windows 05:00 需处于开机状态**（锁屏可以，关机不行；睡眠依赖唤醒策略——`-StartWhenAvailable` 让错过的任务在下次开机/唤醒后尽快补跑）
 2. 任务默认只在**当前用户已登录**（含锁屏）时运行；若习惯注销/重启后不登录，需换 S4U 方案（找 Claude 加）
 3. 备份 tar.gz 含 Gateway 凭据（WhatsApp auth 等）——E 盘落盘后访问控制/加密（如 BitLocker）由所有者决定
-4. E 盘 `movespeed_backup\` 为每周日拉取的最新一份，本地保留最近 3 份（~3 周深度）；Mac 端 SSD 上仍是每日 7 天轮转。周日拉取按中继带宽约需数小时（后台运行，单实例锁保证不与次日任务互踩）
+4. E 盘 `movespeed_backup\` 为每周日拉取的最新一份，**全部历史档长期保留不删除**（用户决策 2026-08-30；每周 +1GB ≈ +52GB/年，E 盘空间由所有者规划）；Mac 端 SSD 上仍是每日 7 天轮转。周日拉取按中继带宽约需数小时（后台运行，单实例锁保证不与次日任务互踩）
 5. 脚本更新通道：每次同步会把仓库 `windows/` 最新版拉到 `_sync\upstream\`；**活跃副本是 `_sync\sync_from_macmini.sh`**，upstream 出新版本时手动覆盖一次（`cp /mnt/e/openclaw-model-bridge/_sync/upstream/sync_from_macmini.sh /mnt/e/openclaw-model-bridge/_sync/`），次日生效

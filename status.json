@@ -1,5 +1,5 @@
 {
-  "updated": "2026-08-30 15:04:14",
+  "updated": "2026-08-30 15:10:24",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-08-30",
+      "what": "V37.9.335 保留策略按用户决策改全量长期保留: movespeed_backup 剪枝退役(每周+1GB≈+52GB/年由所有者接受), 守卫改为禁剪枝断言+sabotage 验证",
+      "by": "claude_code"
+    },
     {
       "date": "2026-08-30",
       "what": "V37.9.335 Windows 侧安装收官: 新版脚本落地重跑 + 05:00 任务注册成功(12h 时限, README 3h 修正); 剩首轮全量收尾观察",
@@ -172,11 +177,6 @@
     {
       "date": "2026-08-18",
       "what": "V37.9.320 对抗审计三个从未覆盖的面 (expert_escalation/audit_log/security_score): 审计日志被整个删除 → verify 报 ok=True + full_regression 打绿✅ / 「删除可检测」只对中间删除成立(尾部截断实测检测不到, 且考古发现 V30.2 原始表述精确, 限定词是摘要时丢的) / security_score 审计维度 15 分全来自 grep 源码字符串, 日志不存在仍满分(七维度全静态) / expert 配额执行依赖 FAIL-OPEN 审计写入, 不可写时实测 50 次调用全放行(上限30)每次真付费。修: exists 字段+诚实呈现 / 能力边界如实登记(不建锚点) / 措辞如实化+范围声明(不加运行时探测) / FAIL-CLOSED 记账探针(记不了账不花钱)。18 守卫 + sabotage 三连。两次探针自身出错被抓(root 下 chmod 无效 / 守卫被自己 docstring 咬)。",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-08-18",
-      "what": "V37.9.316-319 四交付 + V37.9.314(d) 验证闭环。主线=fail-plausible 在运维观测面: data_clean 把 BARCELONA 当测试数据删却报绿✓ / REDUCE_CHARS 单位标签让截断看似没生效 / 梦境发明 🏠 档位且 bsky 升两档(→新增 Observer S6 确定性检测器) / KB 覆盖率四舍五入把 19 个不可见文件说成 100%。四条全靠看产品发现。另: 给用户的 grep 命令自身 glob 失败被识别为『工具坏了≠没找到』未误读。",
       "by": "claude_code"
     }
   ],
