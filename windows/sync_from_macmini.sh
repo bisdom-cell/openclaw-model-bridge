@@ -113,7 +113,13 @@ run_rsync() {
     MODULE_RESULTS="$MODULE_RESULTS\"$name\":$rc,"
 }
 
-run_rsync kb            300 '.kb/'                               kb
+# V37.9.335-churn: .kb 内三个**机器衍生物**排除出镜像（首个 05:00 定时运行实证）——
+# dreams/.map_cache 是 dream Map 的日期前缀缓存（每晚为 ~2400 笔记各写一个 + mtime+3 自动删
+# = 每天生灭 ~2400 文件，kb_dream.sh:1880），镜像它会让 kb 每天撞 300 删除保险丝；
+# text_index/ 与 mm_index/ 是 kb_embed/mm_index 的向量索引（每晚重写 ~100MB，中继+drvfs
+# 下 rsync 校验易翻车且可 --reindex 完全再生）。三者零归档价值 = 拉原件不拉衍生物。
+run_rsync kb            300 '.kb/'                               kb \
+    --exclude='/dreams/.map_cache/' --exclude='/text_index/' --exclude='/mm_index/'
 run_rsync home_state    100 './'                                 home \
     --include='*.log' --include='proxy_stats.json' --include='.cron_canary' \
     --include='.crontab_backups/***' --exclude='*'

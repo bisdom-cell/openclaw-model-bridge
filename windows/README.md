@@ -15,13 +15,13 @@
 
 | E 盘子目录 | Mac 源 | 说明 |
 |---|---|---|
-| `kb\` | `~/.kb/` | KB 全量（notes/sources/dreams/deep_dives/索引/status.json/audit.jsonl…） |
+| `kb\` | `~/.kb/` | KB 全量（notes/sources/dreams/deep_dives/status.json/audit.jsonl…；排除三个机器衍生物见下） |
 | `home\` | `~` 顶层 `*.log` + `proxy_stats.json` + `.cron_canary` + `.crontab_backups\` | 运行日志与状态 |
 | `openclaw\logs\` `jobs\` `media\` | `~/.openclaw/` 对应子目录 | 部署日志 / job 缓存 / WhatsApp 媒体 |
 | `movespeed_backup\` | `/Volumes/MOVESPEED/openclaw_backup/` | Gateway 全量备份 tar.gz，**每周日只拉最新一份**（中继带宽策略），**全部历史档长期保留**（⚠️ 含凭据，E 盘访问控制自行负责） |
 | `_sync\` | — | 同步日志 `sync.log` + `last_sync.json` + `upstream\`（脚本更新通道） |
 
-刻意不拉：代码仓库（家在 GitHub）/ `/Volumes/MOVESPEED/KB/`（`~/.kb` 的副本，拉原件不拉复制品）/ `~/.openclaw` 顶层凭据活文件（已在备份 tar.gz 内）/ `~/.notify_queue`（瞬态）。
+刻意不拉：代码仓库（家在 GitHub）/ `/Volumes/MOVESPEED/KB/`（`~/.kb` 的副本，拉原件不拉复制品）/ `~/.openclaw` 顶层凭据活文件（已在备份 tar.gz 内）/ `~/.notify_queue`（瞬态）/ **`.kb` 内三个机器衍生物**：`dreams/.map_cache/`（dream Map 日期前缀缓存，每天生灭 ~2400 文件——镜像它会让 kb 每天撞删除保险丝，2026-08-31 首个 05:00 运行实证 2144 待删除）+ `text_index/`、`mm_index/`（向量索引，每晚重写 ~100MB 且 `--reindex` 可完全再生，中继+drvfs 下 rsync 校验易翻车）——三者零归档价值，灾难恢复时在还原的 notes/sources/media 上重跑 kb_embed / mm_index 即可重建。
 
 ## 一次性安装（Windows 上执行）
 
