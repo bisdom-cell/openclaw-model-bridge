@@ -124,6 +124,19 @@ class TestDisasterMirrorFuse(unittest.TestCase):
         for name, maxdel, _ in calls:
             self.assertGreater(maxdel, 0, f"[{name}] 保险丝必须为正整数")
 
+    def test_drvfs_compatible_rsync_flags(self):
+        """V37.9.335-hotfix 血案 pin: E 盘 drvfs 不接受 Unix 权限位/mkstemp(0600)——
+        首跑实证 -a 模式所有文件 EPERM 写不进（rc=23 且 du=0）。必须保持 Windows 盘
+        兼容标志: --inplace 绕 mkstemp + --no-perms/--no-owner/--no-group/--omit-dir-times，
+        且 -t 文件时间戳必须保留（增量判定依据，丢了每天全量重拷）。"""
+        rsync_lines = [ln for ln in self.code.splitlines() if "rsync -" in ln and "--" in ln]
+        self.assertTrue(rsync_lines, "防空转: 未找到 rsync 调用行")
+        joined = " ".join(rsync_lines)
+        for flag in ("--inplace", "--no-perms", "--no-owner", "--no-group", "--omit-dir-times"):
+            self.assertIn(flag, joined, f"drvfs 兼容标志 {flag} 缺失（回退会重演首跑全量 EPERM）")
+        self.assertIn("rsync -rtz", joined, "-rtz 必须保留（-t = 增量判定依据）")
+        self.assertNotIn("rsync -az", joined, "-a 含权限/属主/符号链接语义, drvfs 上必炸")
+
     def test_rc24_tolerated_rc25_alerts(self):
         """rc=24 活文件消失容忍; rc=25 保险丝触发必须显式告警且计入 FAILED。"""
         self.assertIn('"$rc" -eq 24', self.code)

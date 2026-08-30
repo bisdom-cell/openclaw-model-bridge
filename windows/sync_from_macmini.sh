@@ -79,7 +79,13 @@ run_rsync() {
     local dst="$DEST/$sub"
     mkdir -p "$dst"
     log "── [$name] $HOST:$src → $sub/"
-    rsync -az --partial --timeout="$RSYNC_TIMEOUT" \
+    # V37.9.335-hotfix: E 盘经 WSL drvfs 挂载不接受 Unix 权限位/属主/目录时间戳——
+    # 首跑实证 rsync -a 的 mkstemp(0600) 全部 EPERM → 每个文件都写不进（rc=23 且 du=0）。
+    # 改 Windows 盘兼容模式: -rtz 保留递归/文件时间戳(增量判定依据)/压缩，--inplace 直写
+    # 目标文件绕开 mkstemp 临时文件，--no-perms/--no-owner/--no-group/--omit-dir-times
+    # 跳过 NTFS/exFAT 上无意义且报 EPERM 的属性操作。
+    rsync -rtz --inplace --no-perms --no-owner --no-group --omit-dir-times \
+          --partial --timeout="$RSYNC_TIMEOUT" \
           --delete --max-delete="$maxdel" \
           -e "ssh $SSH_OPTS" "$@" \
           "$HOST:$src" "$dst/" >> "$LOG" 2>&1
