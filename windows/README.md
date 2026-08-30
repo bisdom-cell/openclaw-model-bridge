@@ -87,12 +87,12 @@ bash /mnt/e/openclaw-model-bridge/_sync/sync_from_macmini.sh
 
 ### 第 4 步：注册每天 05:00 任务
 
-PowerShell（当前用户身份即可）：
+PowerShell（当前用户身份即可）。时限设 12 小时：周日拉 1GB 备份档在 TCP 中继带宽下约需 8 小时，设 3 小时会被 Windows 中途掐掉：
 
 ```powershell
 $action = New-ScheduledTaskAction -Execute "wsl.exe" -Argument "-e bash /mnt/e/openclaw-model-bridge/_sync/sync_from_macmini.sh"
 $trigger = New-ScheduledTaskTrigger -Daily -At 05:00
-$settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Hours 3)
+$settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Hours 12)
 Register-ScheduledTask -TaskName "OpenClaw-MacMini-Sync" -Action $action -Trigger $trigger -Settings $settings
 ```
 
