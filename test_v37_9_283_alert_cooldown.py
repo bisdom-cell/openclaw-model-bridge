@@ -226,8 +226,11 @@ class TestProxyFiltersSourceGuards(unittest.TestCase):
         self.assertIn('self._alert_last_sent.pop("consecutive_errors", None)', self.src)
 
     def test_no_ungated_token_alert_append(self):
-        """token 告警 append 必须在 _should_alert 门控之内（正则: append 紧邻前文有门控）。"""
-        idx = self.src.find("Qwen context 临界")
+        """token 告警 append 必须在 _should_alert 门控之内（正则: append 紧邻前文有门控）。
+
+        V37.9.334 锚点演进: 'Qwen context 临界' → '模型 context 临界'（告警文案去 provider
+        硬编码, 守卫意图不变 = 冷却门控必须在 append 之前）。"""
+        idx = self.src.find("模型 context 临界")
         self.assertGreater(idx, 0)
         window = self.src[max(0, idx - 400):idx]
         self.assertIn('_should_alert("token_critical")', window,

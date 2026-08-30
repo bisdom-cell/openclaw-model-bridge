@@ -171,6 +171,7 @@ run_suite "v37_9_324_kb_integrity_verify (V37.9.324 对抗审计 — KB 完整�
 run_suite "v37_9_325_incident_evidence (V37.9.325 对抗审计 — 故障时收集到的证据不存在: gateway 日志路径无写入方/服务探测无硬上限被调用方杀掉/PA 手册硬编码陈旧 52 天的模型)" "python3 test_v37_9_325_incident_evidence.py"
 run_suite "v37_9_326_dream_time_diversity (V37.9.326 Dream 素材 4 月钉死血案 — sources 头15K窗口/笔记升序/30K保头三层叠加: 尾部窗口+月份轮转+每部分预算)" "python3 test_v37_9_326_dream_time_diversity.py"
 run_suite "v37_9_331_drill_forensics_honesty (V37.9.331 对抗审计 — gameday rc=3 误报/快照日志假计数/断路器验证空转 + movespeed target_missing 桶 + kb_autotag 词边界血案)" "python3 test_v37_9_331_drill_forensics_honesty.py"
+run_suite "v37_9_334_check_upgrade_tripwire (V37.9.334 对抗审计 — 升级 tripwire 零接线死告警/字典序 2026.10.x 漏计/网络失败假绿/EOL 关键词陈旧 + context 告警品牌中性化)" "python3 test_v37_9_334_check_upgrade_tripwire.py"
 run_suite "reliability_bench (故障场景评测)" "python3 test_reliability_bench.py"
 run_suite "memory_plane (统一记忆平面)" "python3 test_memory_plane.py"
 run_suite "slo_dashboard (SLO仪表盘)" "python3 test_slo_dashboard.py"

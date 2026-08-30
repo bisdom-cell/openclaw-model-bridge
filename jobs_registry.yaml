@@ -16,6 +16,16 @@ jobs:
     tier: auxiliary                  # 周报，非实时关键
     description: 每周健康周报，经 notify.sh 推送（默认 Discord，WhatsApp 恢复后双通道）
 
+  - id: check_upgrade
+    scheduler: system
+    entry: check_upgrade.sh
+    interval: "10 9 * * 1"           # 每周一 09:10（错开 health_check 09:00）
+    log: ~/check_upgrade.log
+    needs_api_key: false
+    enabled: true
+    tier: auxiliary                  # 升级 tripwire 监控，advisory 非实时关键
+    description: OpenClaw 升级 tripwire 监控（V37.9.22 立/V37.9.334 补登记——此前每份评估都声称"每周一 cron 自动监控"却从未登记 registry/FILE_MAP/watchdog；触发时 notify --topic alerts）
+
   - id: kb_save_arxiv
     scheduler: system
     entry: kb_save_arxiv.sh

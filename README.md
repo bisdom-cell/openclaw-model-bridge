@@ -5,7 +5,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-6287%20passed-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-6310%20passed-brightgreen.svg)]()
 [![Providers](https://img.shields.io/badge/providers-12%20supported-orange.svg)]()
 [![Governance](https://img.shields.io/badge/invariants-91%2F91%20%2B%2023%20MR-blueviolet.svg)]()
 [![Security](https://img.shields.io/badge/security-95%2F100-green.svg)]()
@@ -13,7 +13,7 @@
 [![Fail-Fast](https://img.shields.io/badge/LLM%20cron%20fail--fast-17%2F21%20aligned-brightgreen.svg)]()
 [![Notifications](https://img.shields.io/badge/notifications-WhatsApp%20%2B%20Discord-informational.svg)]()
 
-> **Current version:** `v37.9.333` / `0.37.9.161` (2026-08-28) — see [`CLAUDE.md`](CLAUDE.md) for full changelog.
+> **Current version:** `v37.9.334` / `0.37.9.162` (2026-08-30) — see [`CLAUDE.md`](CLAUDE.md) for full changelog.
 > **Latest milestone:** 📄 **ArXiv paper published** — [**arXiv:2606.14589**](https://arxiv.org/abs/2606.14589) (2026-06-15, cs.SE): the *fail-plausible* concept + a 5-class taxonomy of silent failures from 22 production incident postmortems (IEEE Software in review; ISSRE rejected 2026-08-14, conference track closed — journal-first strategy V37.9.307). **Constitutional priority now: LLM-Observer (机械化人眼)** — an automated user-perspective observer that catches *fail-plausible* silent failures **before the user does** (the paper's headline open problem: ~70% of silent failures were caught by looking at the product, while tests/governance caught ≈0%). Stages 0-6 built: design doc → 22-incident labelled ground-truth → 2-layer detector (deterministic S1-S5 pre-filter + LLM-judge) → sabotage self-validation harness → community-runnable [fail-plausible bench](docs/fail_plausible_bench.md). Guiding principle: **日落法 (Sunset Law) — reduce complexity before adding features** (原则 #34 + MR-22/MR-23).
 
 ## Product Layers: What's Core vs. What's the Author's PA Instance
@@ -72,7 +72,7 @@ Layer 3 is not product clutter — it is the **production evidence** for layers 
 
 ② Memory plane    KB notes/sources → local embedding (384-dim, 0 API call) → RAG (kb_rag.py)
                   media files → Gemini Embedding 2 → semantic search (mm_search.py)
-③ Scheduled jobs  40 active / 46 registered — 5-source paper radar (ArXiv/HF/S2/DBLP/ACL) · HN ·
+③ Scheduled jobs  41 active / 47 registered — 5-source paper radar (ArXiv/HF/S2/DBLP/ACL) · HN ·
                   KB digest / dream / deep-dive · freight · health & SLO watchdogs
                   → notify.sh (default Discord, 6 topic channels; dual-channel when WhatsApp restored)
 ④ Control plane   config.yaml (70+ thresholds, 9 sections) · SLO (5 metrics) · preflight full-body checks
@@ -526,7 +526,7 @@ The `auto_deploy.sh` script maps ~116 repo files to runtime locations (FILE_MAP)
 ## Testing
 
 ```bash
-# Full regression (188 suites / 6287 tests / 0 fail; must ALL pass before push)
+# Full regression (189 suites / 6310 tests / 0 fail; must ALL pass before push)
 bash full_regression.sh
 
 # Individual test suites (run full_regression.sh for totals)
