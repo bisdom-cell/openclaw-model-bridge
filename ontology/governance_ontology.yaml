@@ -4962,6 +4962,13 @@ invariants:
                   # OWN file shouldn't be checked as a "site" — exempt.
                   if fn == "movespeed_rsync_helper.sh":
                       continue
+                  # V37.9.335: Windows 侧 WSL 拉取脚本经 ssh 从 SSD 读取（远端源
+                  # 路径字符串含 MOVESPEED），跑在 Windows 上结构上不可能调 Mac
+                  # 本地 capture/rsync helper；其失败处理自成体系（--max-delete
+                  # 保险丝 + last_sync.json + 诚实退出码，test_v37_9_335 守护）。
+                  # 类别 = 远程读取方非 Mac 端备份写入方，同 job_watchdog 豁免逻辑。
+                  if fn == "sync_from_macmini.sh":
+                      continue
                   p = os.path.join(root, fn)
                   try:
                       with open(p, "r", encoding="utf-8") as f:
@@ -5037,6 +5044,13 @@ invariants:
                       continue
                   # V37.9.27: helper itself doesn't need this check
                   if fn == "movespeed_rsync_helper.sh":
+                      continue
+                  # V37.9.335: Windows 侧 WSL 拉取脚本经 ssh 从 SSD 读取（远端源
+                  # 路径字符串含 MOVESPEED），跑在 Windows 上结构上不可能调 Mac
+                  # 本地 capture/rsync helper；其失败处理自成体系（--max-delete
+                  # 保险丝 + last_sync.json + 诚实退出码，test_v37_9_335 守护）。
+                  # 类别 = 远程读取方非 Mac 端备份写入方，同 job_watchdog 豁免逻辑。
+                  if fn == "sync_from_macmini.sh":
                       continue
                   p = os.path.join(root, fn)
                   try:

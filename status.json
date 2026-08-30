@@ -1,6 +1,6 @@
 {
-  "updated": "2026-08-30 08:54:41",
-  "updated_by": "full_regression",
+  "updated": "2026-08-30 09:23:59",
+  "updated_by": "slo_checker",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -79,6 +79,16 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-08-30",
+      "what": "V37.9.335 Windows E 盘每日镜像交付: Mac Mini 项目生成数据全量 → E:\\openclaw-model-bridge 每天 05:00 增量刷新。架构=Windows 侧 WSL+rsync 拉取（Mac 零改动，05:00=Mac 夜间任务干净窗口）；7 模块清单路径全 grounded 自生产源码；每 --delete 配 --max-delete 防灾难镜像保险丝（V37.9.324 教训镜像版）；MR-8 跨文件契约守卫 15 单测 sabotage 四连全开火；quirk scanner 抓到自己的全角邻接 quirk 即修。待用户 Windows 4 步安装（windows/README.md）",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-08-30",
+      "what": "V37.9.334 Mac Mini 当日生产闭环: crontab 核对空输出 = 「每周一自动监控」自 V37.9.22 起从未存在的生产实证 → cron 首次真实添加（41→42 条与 registry 一致）+ auto_deploy 2min 同步运行时副本（双副本 marker 9/9）+ 手动首跑 0/6 触发且 [3/6][4/6] 真网络 ✅（NA 路径仅 dev egress 触发=按设计）+ preflight --full 87/0/1（唯一警告=KB 99% 当日新 note 今晚 cron 自动补齐）。剩下周一 09:10 首次自动运行被动观察",
+      "by": "claude_code"
+    },
     {
       "date": "2026-08-30",
       "what": "V37.9.334 对抗审计 — 升级决策安全网自身的诚实: check_upgrade.sh 首次被审（零测试引用扫描恰余 4 文件中唯一 live-cron 声称者）。CU-F1 零登记零接线（不在 registry/FILE_MAP/watchdog，零 notify 调用——每份评估声称的「每周一 cron 自动监控+触发推送告警」没有任何机制支撑，V37.9.328 死告警家族）→ registry 47 jobs + FILE_MAP + watchdog LOG_FRESHNESS 14d + notify --topic alerts 全接线；CU-F2 版本差距字典序悬崖（2026.10.1<2026.4.27，2026-10-01 起漏计，悬崖前 5 周修复）→ vkey 数值元组；CU-F3 网络失败读作全绿（dev 实证 GitHub API 不可达时历次评估显示假 ✅）→ NA 三态显式不可判；CU-F4 EOL 关键词从 CURRENT 派生退役 v2026.3 硬编码。rider: proxy_filters+job_watchdog 「Qwen context」告警品牌→「模型 context」。23 守卫 sabotage 九连全开火。VERSION 0.37.9.161→0.37.9.162",
@@ -168,16 +178,6 @@
       "date": "2026-08-17",
       "what": "V37.9.314 审计余项六连收口(用户「全部开始执行」): backup MIN_KEEP+产物校验 / crontab_safe 写锁 / upgrade 单一管理者+HEALTH 判定 / TZ python-side pin / dream Radar 三件套结构性哑炮修复(三件套曾在 30K 截断尾部从未进过 LLM; 退役 114 行死代码; 三层守卫被死代码喂饱 vacuous 一并演进, 完整反污染条款补进 4 个活 prompt) / picker 评级污染对齐双层修复。守卫 28 单测+sabotage 五连全开火。回归 177/0/5984。VERSION 0.37.9.143→0.37.9.144。",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-08-17",
-      "what": "V37.9.313 GitHub 全面数据刷新(用户指令): 15 文件 ~90 处现状陈旧收敛 — Qwen3-主力残留(V37.9.222 flip 后最大陈旧族)/通道默认(WhatsApp→notify Discord ~25 处)/平台迁移标注(ai-tokenhub)/计数漂移(FILE_MAP 31→116, 治理 17→91, cases 25→28 等)/roadmap 假待办(P3+Phase5 实际已交付)/ISSRE 状态/SOUL 身份措辞+快照模板化。退役 2 份注定漂移手工副本(config.md crontab 快照+health_check v1.0 嵌入源码)。3 并行扫描 agent + 逐条 grounded, 剔除 4 类误报(qwen-local 路由标签/gemini embedding/suites 177/expert backend)。1 个 badges pin 自身陈旧按意图演进。回归 176/0/5955, 治理绿, VERSION 0.37.9.143 不变。",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-08-17",
-      "what": "2026-08-17 全链收工确认: PR#877 合并+同步后 Mac Mini 四步复测全绿(运行时副本同步/工作树干净/备份 rc=0/KB同步 rc=0 471M)。V37.9.308-312 五个版本 + 工作树清理全部实证闭环, 备份中断事件(8-15~17)完整解决。",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -226,7 +226,7 @@
     "security_score": "98/100 (98.0%)",
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB",
     "slo": {
-      "checked_at": "2026-08-30 08:53:14",
+      "checked_at": "2026-08-30 09:23:59",
       "all_ok": true,
       "judged_count": 1,
       "na_count": 4,
@@ -325,11 +325,12 @@
       "【低优观察 · 登记不修】README 徽章的 suites 数字随运行条件漂移: full_regression 把「条件跳过的套件」也计入 test_suites（2026-08-24 收工那轮混沌层因脏树被跳过却计数 → 186；2026-08-25 干净树跑出 185）→ 每次 dirty/clean 切换都会触发一次徽章漂移硬门禁。非回归（dark-test 对账守卫绿 = 无套件静默缺失），成因是「suites」这个指标的定义（注册数 vs 实跑数 vs 含跳过数）没定死。若未来重复制造推送阻塞再评估收敛为单一定义；今天按日落法不为它加机制。",
       "【V37.9.331 演练/取证/打标诚实 · dev 全闭环 · 剩 Mac Mini 被动验证】合并 + git fetch+reset 同步(gameday.sh/movespeed_incident_capture.sh/movespeed_incident_analyzer.py/kb_autotag.py 全走 FILE_MAP 零重启)后: (a) bash gameday.sh --all 零流量日不再因 slo rc=3 假失败(场景 4 改报 skip 无数据可判), 断路器状态第一次真被验证(closed→pass; 若报 open = 真告警非新 bug, 贴我) (b) 场景 3 报「快照日志段: N 个真实日志文件被捕获」且 N 与实际存在的日志一致(此前缺失也计入) (c) 未来 SSD 未挂载的 rsync 失败快照, movespeed_incidents.jsonl 的 acl/lsof 字段应标 [target_missing] 而非 [tool_unavailable] (d) 新写 KB note 自动标签不再有「财经→技术/AI」类子串污染; 可选 python3 kb_autotag.py --retag 预览历史 notes 标签修正量(预期变更量可观=历史污染面, 先看 diff 再决定 --apply)",
       "【V37.9.332 dream 月份分布检测器 ([62] 预注册决策兑现·已建) · 剩 Mac Mini 被动验证】合并+git fetch+reset 同步 (daily_observer.py 走 FILE_MAP, 明晨 06:30 自动生效) 后: 健康日 observer 报告无新增行 (零噪声); 若某日梦境月份钉死复发 (引用月份 <3 或单月 >80%), 06:30 报 MED dream_month_pin 点名分布与 V37.9.326/329 家族 — 首次开火请贴给 session 分诊 kb_dream 取样管道",
-      "【V37.9.334 升级 tripwire 接线 · dev 全闭环 · 剩 Mac Mini 三步生效】合并 + git fetch+reset 同步（check_upgrade.sh 首次进 FILE_MAP 自动同步到 ~/）后: (a) 🔴 核对既有 cron: crontab -l | grep -i check_upgrade —— 若有输出把该行发给 session（对齐 registry 形状后再决定去留）；若无输出 = 「每周一自动监控」从 V37.9.22 起从未运行过，执行: bash crontab_safe.sh add \"10 9 * * 1 /bin/bash $HOME/check_upgrade.sh >> $HOME/check_upgrade.log 2>&1\" (b) 验证: bash job_smoke_test.sh 里 check_upgrade 6 维度绿 + 下周一 09:10 后 ~/check_upgrade.log 出现 tripwire 报告（Mac Mini 网络正常时 [3/6]/[4/6] 应 ✅ 而非 dev 的 ⚠️ 不可判；若也 ⚠️ = GitHub API 不可达需核查网络）(c) 此后 tripwire 真触发时 Discord 收 [SYSTEM_ALERT] 升级告警（此前结构上不可能）。登记不修: CU-F5 readiness 的 plugins install 副作用（脚本内注释登记）；20 个 job 脚本请求体 model 字段硬编码 Qwen3 经 adapter.py:639 重建证实 inert 不 churn（日落法）；quickstart/ops_health/activate_openclaw_features 零覆盖但 demo/薄包装/一次性工具不造测试。"
+      "【✅ V37.9.334 升级 tripwire 接线 · 当日生产闭环 (2026-08-30) · 剩下周一被动观察】三步验证全绿: (1) crontab 核对空输出 = 「每周一自动监控」自 V37.9.22 起从未存在的生产实证 → crontab_safe.sh add 41→42 条（与 registry 10 9 * * 1 一致）(2) 双副本 marker 9/9（auto_deploy 2min 内同步新 FILE_MAP 条目）+ 手动首跑 0/6 触发且 [3/6][4/6] 真网络 ✅ 未检出（NA 路径仅 dev egress 触发 = 按设计; 版本差距 28/50 数值序与 dev 一致）(3) preflight --full 87 通过/0 失败/1 警告（唯一警告 = KB 99% 当日新 note 待 03:30 cron 自动补齐, 正常）。剩余: (a) 下周一 09:10 首次自动 cron 运行后 ~/check_upgrade.log 出现 tripwire 报告（此后 watchdog LOG_FRESHNESS 14d 接管新鲜度）(b) 未来 tripwire 真触发时 Discord 收 [SYSTEM_ALERT] 升级告警。登记不修不变: CU-F5 plugins install 副作用（脚本注释）/ 20 个 job model 字段 inert / quickstart+ops_health+activate 不造测试（日落法）。",
+      "【V37.9.335 Windows E 盘每日镜像 · dev 全闭环 · 待用户 Windows 4 步安装】runbook = windows/README.md（命令块零注释可直接粘贴）: (1) wsl --status 确认（无则 wsl --install + 重启）(2) WSL 内 rsync + ssh-keygen + ssh-copy-id bisdom@10.102.0.23（一次 Mac 密码）(3) 取脚本 + 首跑 bash /mnt/e/openclaw-model-bridge/_sync/sync_from_macmini.sh（首次全量 ~10GB 级, 预期结尾「全部模块 OK」，E 盘出现 kb/home/openclaw/movespeed_backup）(4) PowerShell 注册 OpenClaw-MacMini-Sync 05:00 任务 + Start-ScheduledTask 手动触发验证 LastTaskResult=0。把首跑输出贴回 = E2E 确认（dev 无 Windows 环境不预 claim, 原则 #33）。⚠️ movespeed_backup 的 tar.gz 含 Gateway 凭据, E 盘访问控制/BitLocker 归用户。登记候选不现建: Mac watchdog 盯 ~/.kb/last_windows_sync.json 新鲜度（marker 数据已回写, 未来一条 LOG_FRESHNESS 类条目即可）; E 盘备份保留期>7 天策略。"
     ],
     "open_prs": [],
     "blocked_on": "",
-    "focus": "2026-08-30 收工态: V37.9.334 升级 tripwire 审计四修+首次接线（推 claude/todays-work-1lbsj9 待合并）。下一 session 优先: (1) 用户合并后 Mac Mini 同步 (2) 🔴 用户核对 crontab -l | grep -i check_upgrade——有旧行发回对齐，无旧行执行 crontab_safe.sh add（命令见 unfinished）(3) 论文 #2 用户走 ARXIV_SUBMISSION_GUIDE 4 步提交仍待执行 (4) 下周一 09:10 check_upgrade 首跑观察 ~/check_upgrade.log"
+    "focus": "2026-08-30 收工态: 双交付 — V37.9.334 升级 tripwire 审计四修+首次接线（已合并 PR#904 + Mac Mini 当日生产闭环: cron 首次真实存在 41→42 条/首跑 0/6 全绿/preflight 87-0-1）→ V37.9.335 Windows E 盘每日镜像（WSL+rsync 拉取脚本+05:00 任务计划 runbook+15 守卫, 推 claude/todays-work-1lbsj9 = PR#905）。下一 session 优先: (1) 用户合并 PR#905 + Mac Mini 同步 (2) 🔴 用户 Windows 4 步安装（windows/README.md, 首跑输出贴回=E2E 确认）(3) 论文 #2 用户走 ARXIV_SUBMISSION_GUIDE 提交 (4) 下周一 09:10 check_upgrade 首次自动运行观察"
   },
   "quality": {
     "security_score": 98,
@@ -405,7 +406,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-08-30 收工态: V37.9.334 升级 tripwire 审计四修+首次接线（推 claude/todays-work-1lbsj9 待合并）。下一 session 优先: (1) 用户合并后 Mac Mini 同步 (2) 🔴 用户核对 crontab -l | grep -i check_upgrade——有旧行发回对齐，无旧行执行 crontab_safe.sh add（命令见 unfinished）(3) 论文 #2 用户走 ARXIV_SUBMISSION_GUIDE 4 步提交仍待执行 (4) 下周一 09:10 check_upgrade 首跑观察 ~/check_upgrade.log",
+  "focus": "2026-08-30 收工态: 双交付 — V37.9.334 升级 tripwire 审计四修+首次接线（已合并 PR#904 + Mac Mini 当日生产闭环: cron 首次真实存在 41→42 条/首跑 0/6 全绿/preflight 87-0-1）→ V37.9.335 Windows E 盘每日镜像（WSL+rsync 拉取脚本+05:00 任务计划 runbook+15 守卫, 推 claude/todays-work-1lbsj9 = PR#905）。下一 session 优先: (1) 用户合并 PR#905 + Mac Mini 同步 (2) 🔴 用户 Windows 4 步安装（windows/README.md, 首跑输出贴回=E2E 确认）(3) 论文 #2 用户走 ARXIV_SUBMISSION_GUIDE 提交 (4) 下周一 09:10 check_upgrade 首次自动运行观察",
   "notes": "",
   "preferences": [
     "[auto] 常用工具：read(10次)、sessions_spawn(8次)、sessions_history(8次)",
