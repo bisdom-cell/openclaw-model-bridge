@@ -20,6 +20,10 @@
   7. 归档全量保留（用户决策 2026-08-30）— E 盘 movespeed_backup 不做任何本地剪枝/删除，
      全部历史档长期保留；单文件拉取形态即保留的结构保证（整目录 --delete 镜像会把
      超出 Mac 7 天轮转窗口的历史档删掉）。
+  8. 衍生物排除（V37.9.335-churn，首个 05:00 定时运行实证）— dreams/.map_cache 日期
+     前缀缓存每天生灭 ~2400 文件 + text_index/mm_index 每晚重写的向量索引，均可再生
+     零归档价值；不排除则 kb 每天撞删除保险丝（2144 待删除实录）。路径从生产者源码
+     提取（MR-8）。
 """
 
 import json
@@ -111,6 +115,27 @@ class TestCrossFilePathContracts(unittest.TestCase):
                                 "不得拉整个代码仓库（代码的家在 GitHub）")
             self.assertNotEqual(path.rstrip("/"), "/Volumes/MOVESPEED/KB",
                                 "不得拉 KB 的 SSD 副本（拉原件 ~/.kb 不拉复制品）")
+
+    def test_kb_excludes_derived_churn_dirs(self):
+        """V37.9.335-churn（首个 05:00 定时运行实证）: .kb 内机器衍生物必须排除——
+        dreams/.map_cache 日期前缀缓存每天生灭 ~2400 文件（不排除则 kb 每天撞删除保险丝）；
+        text_index/mm_index 向量索引每晚重写且可 --reindex 再生（中继+drvfs 下校验易翻车）。
+        三个路径均从生产者源码提取（MR-8: 生产端改缓存/索引位置时本守卫先红）。"""
+        dream_src = _read("kb_dream.sh")
+        m_dir = re.search(r'^MAP_DIR="\$DREAM_DIR/([^"]+)"', dream_src, re.MULTILINE)
+        m_dream = re.search(r'^DREAM_DIR="\$KB_BASE/([^"]+)"', dream_src, re.MULTILINE)
+        self.assertIsNotNone(m_dir, "kb_dream.sh MAP_DIR 未找到")
+        self.assertIsNotNone(m_dream, "kb_dream.sh DREAM_DIR 未找到")
+        map_cache_rel = f"{m_dream.group(1)}/{m_dir.group(1)}"
+        m_ti = re.search(r'INDEX_DIR = os\.path\.join\(KB_DIR, "([^"]+)"\)',
+                         _read("kb_embed.py"))
+        self.assertIsNotNone(m_ti, "kb_embed.py INDEX_DIR 未找到")
+        m_mm = re.search(r'INDEX_DIR = os\.path\.expanduser\("~/\.kb/([^"]+)"\)',
+                         _read("mm_index.py"))
+        self.assertIsNotNone(m_mm, "mm_index.py INDEX_DIR 未找到")
+        for rel in (map_cache_rel, m_ti.group(1), m_mm.group(1)):
+            self.assertIn(f"--exclude='/{rel.rstrip('/')}/'", self.src,
+                          f"kb 模块缺少衍生物排除 /{rel}/（会重演 2144 待删除撞保险丝血案）")
 
 
 class TestDisasterMirrorFuse(unittest.TestCase):
