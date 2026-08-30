@@ -232,6 +232,12 @@ LOG_FRESHNESS_JOBS=(
     "kb_trend|$HOME/kb_trend.log|1209600|KB周趋势|auxiliary"
     # health_check: 每周一09:00 → 最多静默 14d
     "health_check|$HOME/health_check.log|1209600|健康周报|auxiliary"
+    # check_upgrade: 每周一09:10 → 最多静默 14d（V37.9.334 CU-F1: 升级 tripwire 监控
+    # 此前零 watchdog 覆盖——它若死掉没有任何机制会发现, 而它是升级决策的安全网。
+    # 阈值与 health_check/kb_trend 周任务惯例一致 1209600s=14d。刻意不进 HOME_LOGS
+    # 错误扫描（镜像 health_check: 触发告警由脚本内 notify --topic alerts 承担, 🚨 行
+    # 进错误扫描会双重告警）。）
+    "check_upgrade|$HOME/check_upgrade.log|1209600|升级tripwire监控|auxiliary"
 )
 
 CORE_ALERTS=()
@@ -737,10 +743,13 @@ try:
     # Context 用量检查
     pct = s.get('context_usage_pct', 0)
     pt = s.get('last_prompt_tokens', 0)
+    # V37.9.334: 'Qwen context' → '模型 context' — primary 已 V37.9.222 flip doubao_21,
+    # 该告警按 prompt_tokens 阈值触发与具体 provider 无关（whiplash-resistant 措辞,
+    # V37.9.243 机制优先写法; proxy_filters ProxyStats 同款文案同步改 = 一物一形）
     if pct >= 90:
-        alerts.append(f'Qwen context 临界: {pt:,} tokens ({pct}% of 260K)')
+        alerts.append(f'模型 context 临界: {pt:,} tokens ({pct}% of 260K)')
     elif pct >= 75:
-        alerts.append(f'Qwen context 预警: {pt:,} tokens ({pct}% of 260K)')
+        alerts.append(f'模型 context 预警: {pt:,} tokens ({pct}% of 260K)')
 
     # stats 文件本身过期（proxy 可能挂了）
     updated = s.get('updated', '')

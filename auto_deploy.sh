@@ -197,6 +197,7 @@ declare -a FILE_MAP=(
     # 运维脚本
     "restart.sh|$HOME/restart.sh"
     "health_check.sh|$HOME/health_check.sh"
+    "check_upgrade.sh|$HOME/check_upgrade.sh"  # V37.9.334 CU-F1: 每周一升级 tripwire 此前不在 FILE_MAP = 运行时副本无人同步
     "kb_write.sh|$HOME/kb_write.sh"
     "kb_append_source.sh|$HOME/kb_append_source.sh"
     "kb_review.sh|$HOME/kb_review.sh"

@@ -1360,19 +1360,21 @@ class ProxyStats:
 
             # Token 阈值告警（V37.9.283 NOT-F5: 冷却门控 — 此前阈值持续满足时
             # 每请求 append → 每 turn 一条 Discord [SYSTEM_ALERT] + 一个 notify 子进程风暴）
+            # V37.9.334: 告警文案 'Qwen context' → '模型 context'（primary V37.9.222 起
+            # doubao_21, 告警按 token 阈值触发与 provider 无关; job_watchdog 同款同步改 = 一物一形）
             if prompt_tokens >= TOKEN_CRITICAL_THRESHOLD:
                 if self._should_alert("token_critical"):
                     # critical 已告知高位 → 同步盖 warn 时间戳，防降回 warn 带时紧跟重复叫
                     self._alert_last_sent["token_warn"] = self._alert_last_sent["token_critical"]
                     self.alerts.append(
-                        f"🔴 Qwen context 临界！prompt_tokens={prompt_tokens:,} "
+                        f"🔴 模型 context 临界！prompt_tokens={prompt_tokens:,} "
                         f"(limit={CONTEXT_LIMIT:,}, 已用{prompt_tokens*100//CONTEXT_LIMIT}%)"
                         f"\n下一次请求大概率触发 403/502，建议立即重置 session"
                     )
             elif prompt_tokens >= TOKEN_WARN_THRESHOLD:
                 if self._should_alert("token_warn"):
                     self.alerts.append(
-                        f"🟡 Qwen context 预警：prompt_tokens={prompt_tokens:,} "
+                        f"🟡 模型 context 预警：prompt_tokens={prompt_tokens:,} "
                         f"(limit={CONTEXT_LIMIT:,}, 已用{prompt_tokens*100//CONTEXT_LIMIT}%)"
                     )
             else:

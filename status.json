@@ -1,5 +1,5 @@
 {
-  "updated": "2026-08-28 07:30:50",
+  "updated": "2026-08-30 08:54:41",
   "updated_by": "full_regression",
   "priorities": [
     {
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-08-30",
+      "what": "V37.9.334 对抗审计 — 升级决策安全网自身的诚实: check_upgrade.sh 首次被审（零测试引用扫描恰余 4 文件中唯一 live-cron 声称者）。CU-F1 零登记零接线（不在 registry/FILE_MAP/watchdog，零 notify 调用——每份评估声称的「每周一 cron 自动监控+触发推送告警」没有任何机制支撑，V37.9.328 死告警家族）→ registry 47 jobs + FILE_MAP + watchdog LOG_FRESHNESS 14d + notify --topic alerts 全接线；CU-F2 版本差距字典序悬崖（2026.10.1<2026.4.27，2026-10-01 起漏计，悬崖前 5 周修复）→ vkey 数值元组；CU-F3 网络失败读作全绿（dev 实证 GitHub API 不可达时历次评估显示假 ✅）→ NA 三态显式不可判；CU-F4 EOL 关键词从 CURRENT 派生退役 v2026.3 硬编码。rider: proxy_filters+job_watchdog 「Qwen context」告警品牌→「模型 context」。23 守卫 sabotage 九连全开火。VERSION 0.37.9.161→0.37.9.162",
+      "by": "claude_code"
+    },
     {
       "date": "2026-08-28",
       "what": "V37.9.332 验收全绿+[62]兑现: 用户交回 08-28 真实梦境 → V37.9.329 验收逐项对账通过(17 sources=退役死源后正确基准/月份 04-08 五月混合/跨月证据链+诚实逃生口+慢烧标注全部可见, 位置性窗口血案正式收口) → 按预注册判据建 observer dream 月份分布确定性检测器(MED dream_month_pin: 月份<3 或单月>80%, FAIL-OPEN 小样本不判, CJK 紧邻 lookaround token 统计, 读完整文件绕采样)。+10 守卫 sabotage 双连开火。VERSION 0.37.9.160→0.37.9.161",
@@ -173,16 +178,6 @@
       "date": "2026-08-17",
       "what": "2026-08-17 全链收工确认: PR#877 合并+同步后 Mac Mini 四步复测全绿(运行时副本同步/工作树干净/备份 rc=0/KB同步 rc=0 471M)。V37.9.308-312 五个版本 + 工作树清理全部实证闭环, 备份中断事件(8-15~17)完整解决。",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-08-17",
-      "what": "Mac Mini 工作树清理闭环: 两嵌套仓库副本(93M)经 HEAD-in-main + 零本地改动取证后安全删除, 两空碎片文件删除, git status 只剩 chaspark cache 行(合并+同步后由 gitignore 消化)。扫描器嵌套仓库风险随删除消失, 按日落法不加排除机制。",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-08-28",
-      "what": "V37.9.333 论文 #2 投稿包完成: 用户四决策一次性定夺(现在投/标题1/arXiv cs.SE+cs.AI/全保留+Postscript) + draft v1.0(data_inventory 重对表 + cutoff 后 Postscript, #36-3 自查抓一处数字错位) + latex/main.tex 本地真编译 18 页 0 error/0 overfull(4 TikZ 图逐页核对, 修 Fig.3 刻度碰撞/text-mode >/Fig.4 图例压框) + ARXIV_SUBMISSION_GUIDE.md 4 步 runbook + .gitignore latex 规则泛化。纯研究文档 VERSION 0.37.9.161 不变。球在用户走 guide 提交。",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -231,7 +226,7 @@
     "security_score": "98/100 (98.0%)",
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB",
     "slo": {
-      "checked_at": "2026-08-28 07:29:35",
+      "checked_at": "2026-08-30 08:53:14",
       "all_ok": true,
       "judged_count": 1,
       "na_count": 4,
@@ -329,22 +324,23 @@
       "【V37.9.328 日志扫描字符串契约 · dev 全闭环 · 剩 Mac Mini 被动验证】合并 + git fetch+reset 同步（job_watchdog.sh / conv_quality.py / token_report.py / cron_doctor.sh 均走 FILE_MAP，零重启；watchdog 下个整点、运维日报次日 08:15 自动生效）后观察: (a) 真出现 primary+全链 fallback 失败时，watchdog 会第一次真的报「Adapter: N 次主备双失败（LLM 完全不可用）」—— 修复前该告警结构上不可能开火 (b) 运维日报 fallback 段在真降级日出现非 0 的「失败 N」 (c) 🔴 首次出现这两条 = 盲区解除暴露存量真实故障，不是新 bug，贴给 session 分诊 (d) token 日报若 history 有缺口，环比行显示「上次记录 YYYY-MM-DD，N 天前」不再谎称「昨日」 (e) 反向确认不误报: 单次 fallback 尝试失败但最终降级成功的日子，watchdog 不得报「主备双失败」",
       "【低优观察 · 登记不修】README 徽章的 suites 数字随运行条件漂移: full_regression 把「条件跳过的套件」也计入 test_suites（2026-08-24 收工那轮混沌层因脏树被跳过却计数 → 186；2026-08-25 干净树跑出 185）→ 每次 dirty/clean 切换都会触发一次徽章漂移硬门禁。非回归（dark-test 对账守卫绿 = 无套件静默缺失），成因是「suites」这个指标的定义（注册数 vs 实跑数 vs 含跳过数）没定死。若未来重复制造推送阻塞再评估收敛为单一定义；今天按日落法不为它加机制。",
       "【V37.9.331 演练/取证/打标诚实 · dev 全闭环 · 剩 Mac Mini 被动验证】合并 + git fetch+reset 同步(gameday.sh/movespeed_incident_capture.sh/movespeed_incident_analyzer.py/kb_autotag.py 全走 FILE_MAP 零重启)后: (a) bash gameday.sh --all 零流量日不再因 slo rc=3 假失败(场景 4 改报 skip 无数据可判), 断路器状态第一次真被验证(closed→pass; 若报 open = 真告警非新 bug, 贴我) (b) 场景 3 报「快照日志段: N 个真实日志文件被捕获」且 N 与实际存在的日志一致(此前缺失也计入) (c) 未来 SSD 未挂载的 rsync 失败快照, movespeed_incidents.jsonl 的 acl/lsof 字段应标 [target_missing] 而非 [tool_unavailable] (d) 新写 KB note 自动标签不再有「财经→技术/AI」类子串污染; 可选 python3 kb_autotag.py --retag 预览历史 notes 标签修正量(预期变更量可观=历史污染面, 先看 diff 再决定 --apply)",
-      "【V37.9.332 dream 月份分布检测器 ([62] 预注册决策兑现·已建) · 剩 Mac Mini 被动验证】合并+git fetch+reset 同步 (daily_observer.py 走 FILE_MAP, 明晨 06:30 自动生效) 后: 健康日 observer 报告无新增行 (零噪声); 若某日梦境月份钉死复发 (引用月份 <3 或单月 >80%), 06:30 报 MED dream_month_pin 点名分布与 V37.9.326/329 家族 — 首次开火请贴给 session 分诊 kb_dream 取样管道"
+      "【V37.9.332 dream 月份分布检测器 ([62] 预注册决策兑现·已建) · 剩 Mac Mini 被动验证】合并+git fetch+reset 同步 (daily_observer.py 走 FILE_MAP, 明晨 06:30 自动生效) 后: 健康日 observer 报告无新增行 (零噪声); 若某日梦境月份钉死复发 (引用月份 <3 或单月 >80%), 06:30 报 MED dream_month_pin 点名分布与 V37.9.326/329 家族 — 首次开火请贴给 session 分诊 kb_dream 取样管道",
+      "【V37.9.334 升级 tripwire 接线 · dev 全闭环 · 剩 Mac Mini 三步生效】合并 + git fetch+reset 同步（check_upgrade.sh 首次进 FILE_MAP 自动同步到 ~/）后: (a) 🔴 核对既有 cron: crontab -l | grep -i check_upgrade —— 若有输出把该行发给 session（对齐 registry 形状后再决定去留）；若无输出 = 「每周一自动监控」从 V37.9.22 起从未运行过，执行: bash crontab_safe.sh add \"10 9 * * 1 /bin/bash $HOME/check_upgrade.sh >> $HOME/check_upgrade.log 2>&1\" (b) 验证: bash job_smoke_test.sh 里 check_upgrade 6 维度绿 + 下周一 09:10 后 ~/check_upgrade.log 出现 tripwire 报告（Mac Mini 网络正常时 [3/6]/[4/6] 应 ✅ 而非 dev 的 ⚠️ 不可判；若也 ⚠️ = GitHub API 不可达需核查网络）(c) 此后 tripwire 真触发时 Discord 收 [SYSTEM_ALERT] 升级告警（此前结构上不可能）。登记不修: CU-F5 readiness 的 plugins install 副作用（脚本内注释登记）；20 个 job 脚本请求体 model 字段硬编码 Qwen3 经 adapter.py:639 重建证实 inert 不 churn（日落法）；quickstart/ops_health/activate_openclaw_features 零覆盖但 demo/薄包装/一次性工具不造测试。"
     ],
     "open_prs": [],
     "blocked_on": "",
-    "focus": "2026-08-28 收工态: 三交付日 — V37.9.331(对抗审计五连修: gameday rc=3/logs_meta/断路器 schema + movespeed target_missing + kb_autotag 词边界, 38 守卫 sabotage 六连全开火) → V37.9.332(V37.9.329 验收全绿收口 + [62] 兑现: observer dream 月份分布检测器, 278 observer 测试) → V37.9.333(论文 #2 投稿包: 四决策+draft v1.0+LaTeX 18 页真编译+arXiv runbook)。全部推 claude/todays-work-fcjlcj 待合并。下一 session 优先: (1) 用户合并后 Mac Mini 同步 (2) 论文 #2 用户走 ARXIV_SUBMISSION_GUIDE 4 步提交, 引用终核输出贴回即处理 (3) V37.9.331/332 Mac Mini 被动验证(明晨 06:30 observer 无 dream_month_pin 新噪声 + gameday --all 三场景不再假 fail)。"
+    "focus": "2026-08-30 收工态: V37.9.334 升级 tripwire 审计四修+首次接线（推 claude/todays-work-1lbsj9 待合并）。下一 session 优先: (1) 用户合并后 Mac Mini 同步 (2) 🔴 用户核对 crontab -l | grep -i check_upgrade——有旧行发回对齐，无旧行执行 crontab_safe.sh add（命令见 unfinished）(3) 论文 #2 用户走 ARXIV_SUBMISSION_GUIDE 4 步提交仍待执行 (4) 下周一 09:10 check_upgrade 首跑观察 ~/check_upgrade.log"
   },
   "quality": {
     "security_score": 98,
-    "test_count": 6287,
-    "last_regression": "2026-08-28 07:30 pass",
+    "test_count": 6310,
+    "last_regression": "2026-08-30 08:54 pass",
     "coverage_pct": 0,
     "security_score_time": "2026-07-20 01:07",
-    "test_suites": 188,
+    "test_suites": 189,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
-    "version": "0.37.9.161",
+    "version": "0.37.9.162",
     "observer": {}
   },
   "incidents": [
@@ -409,7 +405,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-08-28 收工态: 三交付日 — V37.9.331(对抗审计五连修: gameday rc=3/logs_meta/断路器 schema + movespeed target_missing + kb_autotag 词边界, 38 守卫 sabotage 六连全开火) → V37.9.332(V37.9.329 验收全绿收口 + [62] 兑现: observer dream 月份分布检测器, 278 observer 测试) → V37.9.333(论文 #2 投稿包: 四决策+draft v1.0+LaTeX 18 页真编译+arXiv runbook)。全部推 claude/todays-work-fcjlcj 待合并。下一 session 优先: (1) 用户合并后 Mac Mini 同步 (2) 论文 #2 用户走 ARXIV_SUBMISSION_GUIDE 4 步提交, 引用终核输出贴回即处理 (3) V37.9.331/332 Mac Mini 被动验证(明晨 06:30 observer 无 dream_month_pin 新噪声 + gameday --all 三场景不再假 fail)。",
+  "focus": "2026-08-30 收工态: V37.9.334 升级 tripwire 审计四修+首次接线（推 claude/todays-work-1lbsj9 待合并）。下一 session 优先: (1) 用户合并后 Mac Mini 同步 (2) 🔴 用户核对 crontab -l | grep -i check_upgrade——有旧行发回对齐，无旧行执行 crontab_safe.sh add（命令见 unfinished）(3) 论文 #2 用户走 ARXIV_SUBMISSION_GUIDE 4 步提交仍待执行 (4) 下周一 09:10 check_upgrade 首跑观察 ~/check_upgrade.log",
   "notes": "",
   "preferences": [
     "[auto] 常用工具：read(10次)、sessions_spawn(8次)、sessions_history(8次)",
