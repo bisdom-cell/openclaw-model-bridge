@@ -14,6 +14,9 @@
   4. 刻意不拉清单 — 代码仓库 / MOVESPEED KB 副本（一物一形: 拉原件不拉复制品）。
   5. 行为级 — 无可达 host 时诚实失败（exit 4 + last_sync.json ok:false），
      不产生半截成功假象。
+  6. 中继带宽适配（V37.9.335-relay）— 办公室封对外 UDP → ZeroTier 仅 TCP 中继 ~36KB/s，
+     ssd_backup 每日 1GB 新档结构性不可行 → 每周日拉最新一份 + 本地保留 3 份 +
+     /tmp 单实例锁（周日长跑与 05:00 定时重叠护栏）。
 """
 
 import json
@@ -54,14 +57,19 @@ class TestCrossFilePathContracts(unittest.TestCase):
         assert len(cls.calls) >= 6, f"防空转: run_rsync 调用提取异常 ({len(cls.calls)})"
 
     def test_backup_path_matches_openclaw_backup(self):
-        """ssd_backup 源路径 == openclaw_backup.sh 的 BACKUP_DIR（生产端改路径守卫红）。"""
+        """ssd_backup 最新归档探测路径 == openclaw_backup.sh 的 BACKUP_DIR（生产端改路径守卫红）。
+
+        V37.9.335-relay 演进: 中继带宽下 ssd_backup 从 run_rsync 整目录字面调用改为
+        `ssh ls -t <dir>/*.tar.gz` 探测最新一份 → 契约锚点随之移到探测行，意图不变。"""
         m = re.search(r'^BACKUP_DIR="([^"]+)"', _read("openclaw_backup.sh"), re.MULTILINE)
         self.assertIsNotNone(m, "openclaw_backup.sh BACKUP_DIR 未找到")
         prod = m.group(1)
-        srcs = {name: path for name, _, path in self.calls}
-        self.assertIn("ssd_backup", srcs)
-        self.assertEqual(srcs["ssd_backup"].rstrip("/"), prod.rstrip("/"),
+        mm = re.search(r"ls -t (/[^\s']+)/\*\.tar\.gz", self.src)
+        self.assertIsNotNone(mm, "ssd_backup 最新归档探测行（ls -t <绝对路径>/*.tar.gz）未找到")
+        self.assertEqual(mm.group(1).rstrip("/"), prod.rstrip("/"),
                          "备份归档源路径与生产 BACKUP_DIR 漂移")
+        self.assertIn('run_rsync ssd_backup 10 "$LATEST_BACKUP"', self.src,
+                      "ssd_backup 必须经 run_rsync 拉取探测到的最新归档")
 
     def test_media_path_covers_proxy_media_dir(self):
         """media 源路径必须覆盖 proxy_filters.MEDIA_DIR（图片注入的存储目录）。"""
@@ -144,6 +152,38 @@ class TestDisasterMirrorFuse(unittest.TestCase):
         m25 = re.search(r'-eq 25.*?fi', self.code, re.DOTALL)
         self.assertIsNotNone(m25)
         self.assertIn("FAILED=", m25.group(0), "rc=25 必须计入失败聚合（不得静默）")
+
+
+class TestRelayBandwidthAdaptation(unittest.TestCase):
+    """V37.9.335-relay: 办公室封对外 UDP → ZeroTier 仅 TCP 中继 ~36KB/s 的带宽适配。"""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.src = _read("windows/sync_from_macmini.sh")
+        cls.code = _executable_lines(cls.src)
+
+    def test_ssd_backup_weekly_gate_with_force_override(self):
+        """备份模块必须有周日门控 + FORCE 强制开关，且不得回退为每日整目录拉取。"""
+        gate = re.search(
+            r'OPENCLAW_SYNC_FORCE_BACKUP[^\n]*\|\|[^\n]*date \+%u[^\n]*"7"', self.code)
+        self.assertIsNotNone(gate, "ssd_backup 周日门控（含 OPENCLAW_SYNC_FORCE_BACKUP 开关）缺失")
+        self.assertNotIn("run_rsync ssd_backup     10 '/Volumes", self.code,
+                         "ssd_backup 不得回退为每日整目录拉取"
+                         "（每日 1GB 新 tar.gz 在 TCP 中继下 ~8h/天结构性不可行）")
+
+    def test_ssd_backup_local_prune_keeps_three(self):
+        """本地保留最近 3 份归档（周拉节奏下 ~3 周深度），防 E 盘无限累积。"""
+        self.assertRegex(self.code, r"tail -n \+4 \| xargs -r rm -f",
+                         "本地保留 3 份的剪枝缺失")
+        prune = re.search(r'ls -t "\$DEST/movespeed_backup/"', self.code)
+        self.assertIsNotNone(prune, "剪枝必须只作用于本地 movespeed_backup 目录")
+
+    def test_single_instance_lock_in_wsl_native_tmp(self):
+        """单实例锁: 周日 1GB 中继长跑（数小时）与 05:00 定时任务不得重叠互踩。
+        锁必须在 WSL 原生 /tmp —— drvfs (/mnt/e) 上 flock 语义不可靠。"""
+        self.assertIn("flock -n 9", self.code)
+        self.assertRegex(self.code, r"exec 9>/tmp/\S*lock",
+                         "锁文件必须放 WSL 原生 /tmp 而非 drvfs")
 
 
 class TestScriptBehaviorAndShape(unittest.TestCase):

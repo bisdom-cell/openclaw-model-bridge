@@ -12,7 +12,7 @@
 #   openclaw_logs  ~/.openclaw/logs/                   → ...\openclaw\logs\
 #   job_caches     ~/.openclaw/jobs/                   → ...\openclaw\jobs\
 #   media          ~/.openclaw/media/                  → ...\openclaw\media\
-#   ssd_backup     /Volumes/MOVESPEED/openclaw_backup/ → ...\movespeed_backup\
+#   ssd_backup     /Volumes/MOVESPEED/openclaw_backup/ → ...\movespeed_backup\（每周日最新一份）
 #   sync_tool      ~/openclaw-model-bridge/windows/    → ...\_sync\upstream\（脚本自身更新通道）
 #
 # 刻意不拉:
@@ -47,6 +47,14 @@ fi
 if ! command -v rsync >/dev/null 2>&1; then
     log "FATAL: WSL 内无 rsync — 执行: sudo apt-get update && sudo apt-get install -y rsync"
     exit 3
+fi
+
+# 单实例锁: 中继带宽下周日备份拉取可达数小时，防手动运行与 05:00 定时任务重叠互踩。
+# 锁放 WSL 原生 /tmp（drvfs /mnt/e 上 flock 语义不可靠）；同一台机器单实例语义足够。
+exec 9>/tmp/openclaw_sync.lock
+if ! flock -n 9; then
+    log "另一次同步仍在运行（/tmp/openclaw_sync.lock 被占用），本次退出"
+    exit 0
 fi
 
 write_status() {
@@ -112,7 +120,23 @@ run_rsync home_state    100 './'                                 home \
 run_rsync openclaw_logs 100 '.openclaw/logs/'                    openclaw/logs
 run_rsync job_caches    300 '.openclaw/jobs/'                    openclaw/jobs
 run_rsync media         500 '.openclaw/media/'                   openclaw/media
-run_rsync ssd_backup     10 '/Volumes/MOVESPEED/openclaw_backup/' movespeed_backup
+
+# V37.9.335-relay: 办公室网络封锁对外 UDP（dig@223.5.5.5 超时 + zerotier-cli TUNNELED
+# + tcpFallbackActive:true 三重实证）→ ZeroTier 只能走 TCP 中继，实测 ~36KB/s 天花板。
+# 每日备份档是全新 1GB tar.gz（文件名含日期，rsync 无法增量）= 中继下 ~8h/天结构性不可行。
+# 改每周日只拉最新一份 + 本地保留 3 份（kb 等其余模块每日增量几十 MB，中继速度够，保持每日）。
+if [ "${OPENCLAW_SYNC_FORCE_BACKUP:-0}" = "1" ] || [ "$(date +%u)" = "7" ]; then
+    LATEST_BACKUP=$(ssh $SSH_OPTS "$HOST" 'ls -t /Volumes/MOVESPEED/openclaw_backup/*.tar.gz 2>/dev/null | head -1' 2>/dev/null)
+    if [ -n "$LATEST_BACKUP" ]; then
+        run_rsync ssd_backup 10 "$LATEST_BACKUP" movespeed_backup
+        ls -t "$DEST/movespeed_backup/"*.tar.gz 2>/dev/null | tail -n +4 | xargs -r rm -f
+    else
+        log "── [ssd_backup] 跳过: Mac 端未找到备份归档（/Volumes/MOVESPEED 可能未挂载）"
+    fi
+else
+    log "── [ssd_backup] 跳过（每周日拉最新一份; OPENCLAW_SYNC_FORCE_BACKUP=1 可强制）"
+fi
+
 run_rsync sync_tool      20 'openclaw-model-bridge/windows/'     _sync/upstream
 
 if [ -z "$FAILED" ]; then
