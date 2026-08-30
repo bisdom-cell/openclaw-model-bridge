@@ -12,7 +12,7 @@
 #   openclaw_logs  ~/.openclaw/logs/                   → ...\openclaw\logs\
 #   job_caches     ~/.openclaw/jobs/                   → ...\openclaw\jobs\
 #   media          ~/.openclaw/media/                  → ...\openclaw\media\
-#   ssd_backup     /Volumes/MOVESPEED/openclaw_backup/ → ...\movespeed_backup\（每周日最新一份）
+#   ssd_backup     /Volumes/MOVESPEED/openclaw_backup/ → ...\movespeed_backup\（每周日最新一份，全部长期保留）
 #   sync_tool      ~/openclaw-model-bridge/windows/    → ...\_sync\upstream\（脚本自身更新通道）
 #
 # 刻意不拉:
@@ -124,12 +124,14 @@ run_rsync media         500 '.openclaw/media/'                   openclaw/media
 # V37.9.335-relay: 办公室网络封锁对外 UDP（dig@223.5.5.5 超时 + zerotier-cli TUNNELED
 # + tcpFallbackActive:true 三重实证）→ ZeroTier 只能走 TCP 中继，实测 ~36KB/s 天花板。
 # 每日备份档是全新 1GB tar.gz（文件名含日期，rsync 无法增量）= 中继下 ~8h/天结构性不可行。
-# 改每周日只拉最新一份 + 本地保留 3 份（kb 等其余模块每日增量几十 MB，中继速度够，保持每日）。
+# 改每周日只拉最新一份（kb 等其余模块每日增量几十 MB，中继速度够，保持每日）。
+# 保留策略（用户决策 2026-08-30）: E 盘归档**全部长期保留**，不做本地剪枝（~+52GB/年由
+# 所有者接受）。单文件拉取形态同时是保留的结构保证——绝不对 movespeed_backup 目录跑
+# --delete 整目录镜像，否则超出 Mac 端 7 天轮转窗口的历史档会被删掉。
 if [ "${OPENCLAW_SYNC_FORCE_BACKUP:-0}" = "1" ] || [ "$(date +%u)" = "7" ]; then
     LATEST_BACKUP=$(ssh $SSH_OPTS "$HOST" 'ls -t /Volumes/MOVESPEED/openclaw_backup/*.tar.gz 2>/dev/null | head -1' 2>/dev/null)
     if [ -n "$LATEST_BACKUP" ]; then
         run_rsync ssd_backup 10 "$LATEST_BACKUP" movespeed_backup
-        ls -t "$DEST/movespeed_backup/"*.tar.gz 2>/dev/null | tail -n +4 | xargs -r rm -f
     else
         log "── [ssd_backup] 跳过: Mac 端未找到备份归档（/Volumes/MOVESPEED 可能未挂载）"
     fi

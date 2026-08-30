@@ -15,8 +15,11 @@
   5. 行为级 — 无可达 host 时诚实失败（exit 4 + last_sync.json ok:false），
      不产生半截成功假象。
   6. 中继带宽适配（V37.9.335-relay）— 办公室封对外 UDP → ZeroTier 仅 TCP 中继 ~36KB/s，
-     ssd_backup 每日 1GB 新档结构性不可行 → 每周日拉最新一份 + 本地保留 3 份 +
+     ssd_backup 每日 1GB 新档结构性不可行 → 每周日拉最新一份 +
      /tmp 单实例锁（周日长跑与 05:00 定时重叠护栏）。
+  7. 归档全量保留（用户决策 2026-08-30）— E 盘 movespeed_backup 不做任何本地剪枝/删除，
+     全部历史档长期保留；单文件拉取形态即保留的结构保证（整目录 --delete 镜像会把
+     超出 Mac 7 天轮转窗口的历史档删掉）。
 """
 
 import json
@@ -171,12 +174,14 @@ class TestRelayBandwidthAdaptation(unittest.TestCase):
                          "ssd_backup 不得回退为每日整目录拉取"
                          "（每日 1GB 新 tar.gz 在 TCP 中继下 ~8h/天结构性不可行）")
 
-    def test_ssd_backup_local_prune_keeps_three(self):
-        """本地保留最近 3 份归档（周拉节奏下 ~3 周深度），防 E 盘无限累积。"""
-        self.assertRegex(self.code, r"tail -n \+4 \| xargs -r rm -f",
-                         "本地保留 3 份的剪枝缺失")
-        prune = re.search(r'ls -t "\$DEST/movespeed_backup/"', self.code)
-        self.assertIsNotNone(prune, "剪枝必须只作用于本地 movespeed_backup 目录")
+    def test_ssd_backup_retains_all_archives_no_prune(self):
+        """归档全量保留（用户决策 2026-08-30）: 不得对 E 盘 movespeed_backup 做任何
+        本地剪枝/删除——首版的保留 3 份剪枝已按所有者要求退役（~+52GB/年由其接受）。"""
+        for ln in self.code.splitlines():
+            if "movespeed_backup" in ln:
+                self.assertNotRegex(ln, r"\brm\b|xargs|tail -n \+",
+                                    f"movespeed_backup 出现删除/剪枝形态: {ln.strip()}")
+        self.assertNotIn("tail -n +4", self.code, "保留 3 份剪枝不得回归（全量保留契约）")
 
     def test_single_instance_lock_in_wsl_native_tmp(self):
         """单实例锁: 周日 1GB 中继长跑（数小时）与 05:00 定时任务不得重叠互踩。
