@@ -408,6 +408,13 @@ class TestInvariantCoverage(unittest.TestCase):
                 # text, never invoke rsync. Don't conflate with production sites.
                 if rel == "job_watchdog.sh":
                     continue
+                # V37.9.335: Windows 侧 WSL 拉取脚本经 ssh 从 SSD 读取（远端源路径
+                # 字符串含 MOVESPEED），跑在 Windows 上结构上不可能调 Mac 本地
+                # capture/rsync helper；失败处理自成体系（--max-delete 保险丝 +
+                # last_sync.json + 诚实退出码, test_v37_9_335_windows_sync 守护）。
+                # 类别 = 远程读取方非 Mac 端备份写入方, 同 job_watchdog 豁免逻辑。
+                if rel == "windows/sync_from_macmini.sh":
+                    continue
                 # V37.9.27: rsync helper itself wraps rsync calls, but it's the
                 # single source of truth — exempt from "site" detection
                 # (sites that USE the helper are already in EXPECTED_RSYNC_SITES).
