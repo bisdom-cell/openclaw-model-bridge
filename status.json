@@ -1,6 +1,6 @@
 {
-  "updated": "2026-08-30 09:23:59",
-  "updated_by": "slo_checker",
+  "updated": "2026-08-30 14:52:04",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-08-30",
+      "what": "V37.9.335 首跑落地三修: drvfs EPERM hotfix(-rtz --inplace) + ZeroTier 中继破案(办公室封对外 UDP,dig 超时+TUNNELED 实证,36KB/s 天花板) + ssd_backup 周日最新一份重构+3份剪枝+FORCE 开关+/tmp flock 单实例锁; 守卫 16→19 + sabotage 双连精确开火",
+      "by": "claude_code"
+    },
     {
       "date": "2026-08-30",
       "what": "V37.9.335 Windows E 盘每日镜像交付: Mac Mini 项目生成数据全量 → E:\\openclaw-model-bridge 每天 05:00 增量刷新。架构=Windows 侧 WSL+rsync 拉取（Mac 零改动，05:00=Mac 夜间任务干净窗口）；7 模块清单路径全 grounded 自生产源码；每 --delete 配 --max-delete 防灾难镜像保险丝（V37.9.324 教训镜像版）；MR-8 跨文件契约守卫 15 单测 sabotage 四连全开火；quirk scanner 抓到自己的全角邻接 quirk 即修。待用户 Windows 4 步安装（windows/README.md）",
@@ -173,11 +178,6 @@
       "date": "2026-08-18",
       "what": "V37.9.316 对抗审计 data_clean 清洗操作诚实性五连修: remove_test 子串→词边界(显式字符类 lookaround 非 \\b, 因 Python \\w 含 CJK)+命中明细可审计 / fix_dates 退役 rows.index 改 enumerate / fix_case+fix_dates 列不存在补 missing_columns+skipped(补上 V37.9.288 消费端缺的生产端) / dedup_near 披露 id_column / cmd_execute 标注跨步骤行号语义漂移(只标注不建身份追踪机制)。渲染层同步补齐使新证据真到达用户。25 单测 + sabotage 五连精确开火, 毗邻 4 套件零破坏。同版兑现 CLAUDE.md 原则 #14 补充教训登记项。VERSION 0.37.9.145→0.37.9.146。",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-08-17",
-      "what": "V37.9.314 审计余项六连收口(用户「全部开始执行」): backup MIN_KEEP+产物校验 / crontab_safe 写锁 / upgrade 单一管理者+HEALTH 判定 / TZ python-side pin / dream Radar 三件套结构性哑炮修复(三件套曾在 30K 截断尾部从未进过 LLM; 退役 114 行死代码; 三层守卫被死代码喂饱 vacuous 一并演进, 完整反污染条款补进 4 个活 prompt) / picker 评级污染对齐双层修复。守卫 28 单测+sabotage 五连全开火。回归 177/0/5984。VERSION 0.37.9.143→0.37.9.144。",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -226,7 +226,7 @@
     "security_score": "98/100 (98.0%)",
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB",
     "slo": {
-      "checked_at": "2026-08-30 09:23:59",
+      "checked_at": "2026-08-30 09:29:26",
       "all_ok": true,
       "judged_count": 1,
       "na_count": 4,
@@ -326,7 +326,7 @@
       "【V37.9.331 演练/取证/打标诚实 · dev 全闭环 · 剩 Mac Mini 被动验证】合并 + git fetch+reset 同步(gameday.sh/movespeed_incident_capture.sh/movespeed_incident_analyzer.py/kb_autotag.py 全走 FILE_MAP 零重启)后: (a) bash gameday.sh --all 零流量日不再因 slo rc=3 假失败(场景 4 改报 skip 无数据可判), 断路器状态第一次真被验证(closed→pass; 若报 open = 真告警非新 bug, 贴我) (b) 场景 3 报「快照日志段: N 个真实日志文件被捕获」且 N 与实际存在的日志一致(此前缺失也计入) (c) 未来 SSD 未挂载的 rsync 失败快照, movespeed_incidents.jsonl 的 acl/lsof 字段应标 [target_missing] 而非 [tool_unavailable] (d) 新写 KB note 自动标签不再有「财经→技术/AI」类子串污染; 可选 python3 kb_autotag.py --retag 预览历史 notes 标签修正量(预期变更量可观=历史污染面, 先看 diff 再决定 --apply)",
       "【V37.9.332 dream 月份分布检测器 ([62] 预注册决策兑现·已建) · 剩 Mac Mini 被动验证】合并+git fetch+reset 同步 (daily_observer.py 走 FILE_MAP, 明晨 06:30 自动生效) 后: 健康日 observer 报告无新增行 (零噪声); 若某日梦境月份钉死复发 (引用月份 <3 或单月 >80%), 06:30 报 MED dream_month_pin 点名分布与 V37.9.326/329 家族 — 首次开火请贴给 session 分诊 kb_dream 取样管道",
       "【✅ V37.9.334 升级 tripwire 接线 · 当日生产闭环 (2026-08-30) · 剩下周一被动观察】三步验证全绿: (1) crontab 核对空输出 = 「每周一自动监控」自 V37.9.22 起从未存在的生产实证 → crontab_safe.sh add 41→42 条（与 registry 10 9 * * 1 一致）(2) 双副本 marker 9/9（auto_deploy 2min 内同步新 FILE_MAP 条目）+ 手动首跑 0/6 触发且 [3/6][4/6] 真网络 ✅ 未检出（NA 路径仅 dev egress 触发 = 按设计; 版本差距 28/50 数值序与 dev 一致）(3) preflight --full 87 通过/0 失败/1 警告（唯一警告 = KB 99% 当日新 note 待 03:30 cron 自动补齐, 正常）。剩余: (a) 下周一 09:10 首次自动 cron 运行后 ~/check_upgrade.log 出现 tripwire 报告（此后 watchdog LOG_FRESHNESS 14d 接管新鲜度）(b) 未来 tripwire 真触发时 Discord 收 [SYSTEM_ALERT] 升级告警。登记不修不变: CU-F5 plugins install 副作用（脚本注释）/ 20 个 job model 字段 inert / quickstart+ops_health+activate 不造测试（日落法）。",
-      "【V37.9.335 Windows E 盘每日镜像 · dev 全闭环 · 待用户 Windows 4 步安装】runbook = windows/README.md（命令块零注释可直接粘贴）: (1) wsl --status 确认（无则 wsl --install + 重启）(2) WSL 内 rsync + ssh-keygen + ssh-copy-id bisdom@10.102.0.23（一次 Mac 密码）(3) 取脚本 + 首跑 bash /mnt/e/openclaw-model-bridge/_sync/sync_from_macmini.sh（首次全量 ~10GB 级, 预期结尾「全部模块 OK」，E 盘出现 kb/home/openclaw/movespeed_backup）(4) PowerShell 注册 OpenClaw-MacMini-Sync 05:00 任务 + Start-ScheduledTask 手动触发验证 LastTaskResult=0。把首跑输出贴回 = E2E 确认（dev 无 Windows 环境不预 claim, 原则 #33）。⚠️ movespeed_backup 的 tar.gz 含 Gateway 凭据, E 盘访问控制/BitLocker 归用户。登记候选不现建: Mac watchdog 盯 ~/.kb/last_windows_sync.json 新鲜度（marker 数据已回写, 未来一条 LOG_FRESHNESS 类条目即可）; E 盘备份保留期>7 天策略。"
+      "【V37.9.335 Windows E 盘每日镜像 · 安装进行中 · 剩 4 步】已完成: WSL 装好(2.7.12)+rsync+key+免密(ZeroTier 10.120.230.23)+drvfs EPERM hotfix(-rtz --inplace 等)后数据已流动; 已定性: 办公室封对外 UDP(dig 超时+ZT TUNNELED+tcpFallbackActive)→TCP 中继 ~36KB/s 天花板家庭侧无解 → ssd_backup 改每周日拉最新一份+保留3份+FORCE 开关+/tmp flock(已入库,守卫19/19+sabotage 双连)。剩余: (1) 合并 PR#906 → Mac `git fetch origin main && git reset --hard origin/main` (2) WSL 停掉旧同步(pkill -f sync_from_macmini)后 scp bisdom@10.120.230.23:openclaw-model-bridge/windows/sync_from_macmini.sh /mnt/e/openclaw-model-bridge/_sync/ 覆盖活跃副本 (3) 重跑首轮全量(增量续传,窗口保持开;中继下 media 体量决定可能磨到次日) (4) 首轮 OK 后 PowerShell Register-ScheduledTask 05:00(README 第4步)。可选升级: Tailscale DERP 香港 TCP443 提速一个量级(HOSTS 加 IP 即用,暂不动)。"
     ],
     "open_prs": [],
     "blocked_on": "",
@@ -334,11 +334,11 @@
   },
   "quality": {
     "security_score": 98,
-    "test_count": 6310,
-    "last_regression": "2026-08-30 08:54 pass",
+    "test_count": 6325,
+    "last_regression": "2026-08-30 09:38 pass",
     "coverage_pct": 0,
     "security_score_time": "2026-07-20 01:07",
-    "test_suites": 189,
+    "test_suites": 190,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
     "version": "0.37.9.162",

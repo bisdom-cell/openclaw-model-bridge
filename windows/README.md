@@ -9,6 +9,7 @@
 - **增量 = rsync**：备份归档 7×1GB 级，全量每日拷不现实；rsync 只传变化部分
 - **05:00 = Mac 端干净窗口**：03:00 备份 / 03:30 kb_embed / 04:00 SSD 同步已收尾，06:00 radar 未开始
 - **防灾难镜像**：每个 `--delete` 配 `--max-delete` 保险丝——Mac 端事故性清空不会被镜像到 E 盘（rc=25 中止并告警，V37.9.324 血案教训）
+- **带宽现实（2026-08-30 实测定性）**：办公室网络封锁对外 UDP（dig@223.5.5.5 超时 + Mac 端 `zerotier-cli info` = TUNNELED + tcpFallbackActive:true 三重实证）→ 家↔办公室的 ZeroTier 只能走 TCP 中继，实测 ~36KB/s，家庭侧无解。因此 ssd_backup（每日全新 1GB tar.gz，文件名含日期 rsync 无法增量）改**每周日只拉最新一份**；其余模块每日增量几十 MB，中继速度够用，保持每日。若未来想提速可选 Tailscale（DERP 香港 TCP 443 中继，通常快一个量级；装好后把其 IP 加进 `OPENCLAW_SYNC_HOSTS` 即可，架构不变）
 
 ## 数据清单
 
@@ -17,7 +18,7 @@
 | `kb\` | `~/.kb/` | KB 全量（notes/sources/dreams/deep_dives/索引/status.json/audit.jsonl…） |
 | `home\` | `~` 顶层 `*.log` + `proxy_stats.json` + `.cron_canary` + `.crontab_backups\` | 运行日志与状态 |
 | `openclaw\logs\` `jobs\` `media\` | `~/.openclaw/` 对应子目录 | 部署日志 / job 缓存 / WhatsApp 媒体 |
-| `movespeed_backup\` | `/Volumes/MOVESPEED/openclaw_backup/` | 每日 Gateway 全量备份 tar.gz（⚠️ 含凭据，E 盘访问控制自行负责） |
+| `movespeed_backup\` | `/Volumes/MOVESPEED/openclaw_backup/` | Gateway 全量备份 tar.gz，**每周日只拉最新一份**（中继带宽策略），本地保留最近 3 份（⚠️ 含凭据，E 盘访问控制自行负责） |
 | `_sync\` | — | 同步日志 `sync.log` + `last_sync.json` + `upstream\`（脚本更新通道） |
 
 刻意不拉：代码仓库（家在 GitHub）/ `/Volumes/MOVESPEED/KB/`（`~/.kb` 的副本，拉原件不拉复制品）/ `~/.openclaw` 顶层凭据活文件（已在备份 tar.gz 内）/ `~/.notify_queue`（瞬态）。
@@ -76,7 +77,7 @@ mkdir -p /mnt/e/openclaw-model-bridge/_sync
 scp bisdom@10.102.0.23:openclaw-model-bridge/windows/sync_from_macmini.sh /mnt/e/openclaw-model-bridge/_sync/
 ```
 
-首跑（首次全量，内网预计几分钟到十几分钟；ZeroTier 外网视带宽可能更久）：
+首跑（首次全量；同一内网几分钟到十几分钟；家↔办公室走 ZeroTier TCP 中继时 ~36KB/s，视 kb/media 体量可能磨数小时到一天以上，保持该 WSL 窗口开着别关，之后每天只有增量就快了）：
 
 ```bash
 bash /mnt/e/openclaw-model-bridge/_sync/sync_from_macmini.sh
@@ -116,11 +117,13 @@ wsl -e tail -5 /mnt/e/openclaw-model-bridge/_sync/sync.log
 - 每次运行追加 `E:\openclaw-model-bridge\_sync\sync.log`；机器可读结果在 `last_sync.json`（`"ok":true/false` + 每模块 rc）
 - 成功时会回写 Mac `~/.kb/last_windows_sync.json` 时间戳（best-effort，供未来 Mac 端监控拉取死活）
 - rc=24 = 活系统文件传输中消失，良性；rc=25 = 删除保险丝触发，**先人工核实 Mac 端是否真的合法删了大量文件**再处理
+- 单实例锁：`/tmp/openclaw_sync.lock`——上一次同步还没跑完时新触发会直接退出（日志有说明行），不会互踩
+- 想在非周日立即拉一份最新备份档：`OPENCLAW_SYNC_FORCE_BACKUP=1 bash /mnt/e/openclaw-model-bridge/_sync/sync_from_macmini.sh`（其余模块增量很快，备份档按当前带宽约数小时）
 
 ## 已知边界（诚实登记）
 
 1. **Windows 05:00 需处于开机状态**（锁屏可以，关机不行；睡眠依赖唤醒策略——`-StartWhenAvailable` 让错过的任务在下次开机/唤醒后尽快补跑）
 2. 任务默认只在**当前用户已登录**（含锁屏）时运行；若习惯注销/重启后不登录，需换 S4U 方案（找 Claude 加）
 3. 备份 tar.gz 含 Gateway 凭据（WhatsApp auth 等）——E 盘落盘后访问控制/加密（如 BitLocker）由所有者决定
-4. E 盘 `movespeed_backup\` 跟随 Mac 端 7 天轮转镜像（始终 ~7 份）；若想在 E 盘保留更长历史，找 Claude 加保留策略
+4. E 盘 `movespeed_backup\` 为每周日拉取的最新一份，本地保留最近 3 份（~3 周深度）；Mac 端 SSD 上仍是每日 7 天轮转。周日拉取按中继带宽约需数小时（后台运行，单实例锁保证不与次日任务互踩）
 5. 脚本更新通道：每次同步会把仓库 `windows/` 最新版拉到 `_sync\upstream\`；**活跃副本是 `_sync\sync_from_macmini.sh`**，upstream 出新版本时手动覆盖一次（`cp /mnt/e/openclaw-model-bridge/_sync/upstream/sync_from_macmini.sh /mnt/e/openclaw-model-bridge/_sync/`），次日生效
