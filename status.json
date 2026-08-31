@@ -1,5 +1,5 @@
 {
-  "updated": "2026-08-30 22:32:41",
+  "updated": "2026-08-31 12:16:18",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-08-31",
+      "what": "V37.9.335 收官: 用户合并 main + 新脚本验证轮全模块 OK, 首份备份档落地(22min 实测, 8h 预估修正), Windows 镜像进入无人值守稳态; 剩明日 05:00 形式验收+周日 9/6 首次自动备份观察",
+      "by": "claude_code"
+    },
     {
       "date": "2026-08-31",
       "what": "V37.9.335 首个 05:00 定时运行实证+kb 保险丝破案: dreams/.map_cache 日缓存每天生灭~2400文件 → kb 排除三衍生物(map_cache/text_index/mm_index)+MR-8 生产者源码路径守卫; 定时通道打通, 首份备份档 FORCE 拉取中",
@@ -172,11 +177,6 @@
     {
       "date": "2026-08-19",
       "what": "V37.9.322 对抗审计 preflight 三条『该报警时打绿』: slo_checker 把从未测量过的指标(0 工具调用/0 失败恢复)当满分计入「SLO 全部达标」——同一份 stats slo_benchmark 报 3/5+2 n/a 而它报 5/5(V37.9.303 修了两个渲染器漏了判定器) / 退役 get_slo_status 死代码(内含毫秒比上下文 token 上限的错单位健康布尔) / preflight 安全扫描 git grep 跑不动时打绿(非 git 目录+目录里真有 sk- key 仍 ✅)。ok 语义与退出码不变=watchdog 噪声零增量。诚实剔除 3 项。33 守卫+sabotage 五连。既有 cross_os_quirk 扫描器抓到我新写的 quirk。VERSION 0.37.9.151→0.37.9.152",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-08-18",
-      "what": "V37.9.321 watchdog 告警窗口从「最长 48h」收紧为真 24h: 原比对日期字符串 → cutoff_date=昨天 会把整个昨天全天纳入窗口, 注释写「最近 24h」实际最长 48h; watchdog 每小时跑 → 同一错误重复报 ~48 次而非 ~24 次, 已修复的昨日故障今天继续告警。改用完整时间戳字符串比对(定长零填充字典序==时序, 避开 BSD/GNU date 分歧), 只有日期的行退回保守保留。6 守卫从源码抽真实 awk 跑 + 双轮 sabotage(含语义-only 轮证明行为判据 load-bearing)。守卫 helper 自身曾因 `date -d '<ts> -1 day'` 被解析成时区偏移而全空假通过, 已改 Python timedelta + 补防空转。",
       "by": "claude_code"
     }
   ],
@@ -326,7 +326,7 @@
       "【V37.9.331 演练/取证/打标诚实 · dev 全闭环 · 剩 Mac Mini 被动验证】合并 + git fetch+reset 同步(gameday.sh/movespeed_incident_capture.sh/movespeed_incident_analyzer.py/kb_autotag.py 全走 FILE_MAP 零重启)后: (a) bash gameday.sh --all 零流量日不再因 slo rc=3 假失败(场景 4 改报 skip 无数据可判), 断路器状态第一次真被验证(closed→pass; 若报 open = 真告警非新 bug, 贴我) (b) 场景 3 报「快照日志段: N 个真实日志文件被捕获」且 N 与实际存在的日志一致(此前缺失也计入) (c) 未来 SSD 未挂载的 rsync 失败快照, movespeed_incidents.jsonl 的 acl/lsof 字段应标 [target_missing] 而非 [tool_unavailable] (d) 新写 KB note 自动标签不再有「财经→技术/AI」类子串污染; 可选 python3 kb_autotag.py --retag 预览历史 notes 标签修正量(预期变更量可观=历史污染面, 先看 diff 再决定 --apply)",
       "【V37.9.332 dream 月份分布检测器 ([62] 预注册决策兑现·已建) · 剩 Mac Mini 被动验证】合并+git fetch+reset 同步 (daily_observer.py 走 FILE_MAP, 明晨 06:30 自动生效) 后: 健康日 observer 报告无新增行 (零噪声); 若某日梦境月份钉死复发 (引用月份 <3 或单月 >80%), 06:30 报 MED dream_month_pin 点名分布与 V37.9.326/329 家族 — 首次开火请贴给 session 分诊 kb_dream 取样管道",
       "【✅ V37.9.334 升级 tripwire 接线 · 当日生产闭环 (2026-08-30) · 剩下周一被动观察】三步验证全绿: (1) crontab 核对空输出 = 「每周一自动监控」自 V37.9.22 起从未存在的生产实证 → crontab_safe.sh add 41→42 条（与 registry 10 9 * * 1 一致）(2) 双副本 marker 9/9（auto_deploy 2min 内同步新 FILE_MAP 条目）+ 手动首跑 0/6 触发且 [3/6][4/6] 真网络 ✅ 未检出（NA 路径仅 dev egress 触发 = 按设计; 版本差距 28/50 数值序与 dev 一致）(3) preflight --full 87 通过/0 失败/1 警告（唯一警告 = KB 99% 当日新 note 待 03:30 cron 自动补齐, 正常）。剩余: (a) 下周一 09:10 首次自动 cron 运行后 ~/check_upgrade.log 出现 tripwire 报告（此后 watchdog LOG_FRESHNESS 14d 接管新鲜度）(b) 未来 tripwire 真触发时 Discord 收 [SYSTEM_ALERT] 升级告警。登记不修不变: CU-F5 plugins install 副作用（脚本注释）/ 20 个 job model 字段 inert / quickstart+ops_health+activate 不造测试（日落法）。",
-      "【V37.9.335 Windows E 盘每日镜像 · 首轮+定时通道均已跑通 · 剩最后一轮合并+清理】已完成: 首轮全量 02:09 全模块 OK + 成功标记回写 Mac; 05:00 定时任务自动运行实证(定时通道打通); kb 撞删除保险丝破案=dreams/.map_cache 日期缓存每天生灭~2400文件(kb_dream.sh:1880 mtime+3 自动删) → kb 模块排除三衍生物(.map_cache/text_index/mm_index, MR-8 守卫从生产者源码提取路径, 守卫20/20+sabotage S4); 06:24 用户 FORCE 运行拉首份 1GB 备份档(~14:10 完成, 该轮 kb ABORT rc=25 属旧脚本预期)。剩余: (1) 等 FORCE 轮结束(日志出 ════ 同步完成) (2) 合并 PR#907(全量保留+12h时限+衍生物排除三合一) (3) WSL: Mac git reset + scp 刷新活跃副本 + rm -rf E 盘三个衍生物残留目录(kb/dreams/.map_cache, kb/text_index, kb/mm_index) (4) 明日 05:00 定时运行应全绿=最终验收。日历注: 8/31=周一, 下个自动备份拉取=周日 9/6。"
+      "【V37.9.335 Windows E 盘每日镜像 · 安装全链闭环 · 仅剩被动观察】2026-08-31 收官: 首轮全量 OK + 05:00 定时通道实证 + kb 撞保险丝破案(dreams/.map_cache 日缓存每天生灭~2400文件)→排除三衍生物(map_cache/text_index/mm_index, MR-8 守卫 20/20) + 全量保留(用户决策,剪枝退役) + 首份备份档 openclaw-backup-2026-08-31.tar.gz 已落 E 盘(FORCE 实测 22min≈790KB/s, 8h 预估修正) + 20:12 新脚本验证轮全模块 OK = 无人值守稳态。被动观察: (1) 明日 05:00 定时运行应全绿(用户可贴 tail 确认, 非必须) (2) 周日 9/6 05:00 首次自动备份拉取 (3) Mac 端 ~/.kb/last_windows_sync.json 每日刷新(未来可选 watchdog 条目盯拉取死活, 已登记候选不现建)。可选升级: Tailscale DERP 提速(HOSTS 加 IP 即用) / 备份改每日拉(+365GB/年, 所有者决策)。"
     ],
     "open_prs": [],
     "blocked_on": "",
