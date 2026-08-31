@@ -14,9 +14,10 @@
   4. 刻意不拉清单 — 代码仓库 / MOVESPEED KB 副本（一物一形: 拉原件不拉复制品）。
   5. 行为级 — 无可达 host 时诚实失败（exit 4 + last_sync.json ok:false），
      不产生半截成功假象。
-  6. 中继带宽适配（V37.9.335-relay）— 办公室封对外 UDP → ZeroTier 仅 TCP 中继 ~36KB/s，
-     ssd_backup 每日 1GB 新档结构性不可行 → 每周日拉最新一份 +
-     /tmp 单实例锁（周日长跑与 05:00 定时重叠护栏）。
+  6. 中继带宽适配（V37.9.335-relay/daily）— 办公室封对外 UDP → ZeroTier 仅 TCP 中继；
+     ssd_backup 每日只拉**最新一份**（单大文件实测 ~22min/1GB，2026-08-31 用户决策
+     恢复每日；周日门控与 FORCE 开关退役）+ /tmp 单实例锁（备份拉取数十分钟，
+     防与 05:00 定时重叠）。
   7. 归档全量保留（用户决策 2026-08-30）— E 盘 movespeed_backup 不做任何本地剪枝/删除，
      全部历史档长期保留；单文件拉取形态即保留的结构保证（整目录 --delete 镜像会把
      超出 Mac 7 天轮转窗口的历史档删掉）。
@@ -190,14 +191,18 @@ class TestRelayBandwidthAdaptation(unittest.TestCase):
         cls.src = _read("windows/sync_from_macmini.sh")
         cls.code = _executable_lines(cls.src)
 
-    def test_ssd_backup_weekly_gate_with_force_override(self):
-        """备份模块必须有周日门控 + FORCE 强制开关，且不得回退为每日整目录拉取。"""
-        gate = re.search(
-            r'OPENCLAW_SYNC_FORCE_BACKUP[^\n]*\|\|[^\n]*date \+%u[^\n]*"7"', self.code)
-        self.assertIsNotNone(gate, "ssd_backup 周日门控（含 OPENCLAW_SYNC_FORCE_BACKUP 开关）缺失")
+    def test_ssd_backup_daily_latest_only(self):
+        """备份模块 = 每日拉最新一份（用户决策 2026-08-31，22min/1GB 实测支撑）。
+        双向禁止回退: (a) 不得恢复周日门控/FORCE 开关（备份 RPO 退回 7 天）
+        (b) 不得回退为整目录镜像（--delete 会删掉超出 Mac 7 天轮转的历史档 =
+        违背全量保留契约）。"""
+        self.assertNotIn("date +%u", self.code, "周日门控已退役（每日拉取），不得回归")
+        self.assertNotIn("OPENCLAW_SYNC_FORCE_BACKUP", self.code,
+                         "FORCE 开关随每日化退役，不得回归")
+        self.assertIn("LATEST_BACKUP", self.code, "最新归档探测必须保留")
         self.assertNotIn("run_rsync ssd_backup     10 '/Volumes", self.code,
-                         "ssd_backup 不得回退为每日整目录拉取"
-                         "（每日 1GB 新 tar.gz 在 TCP 中继下 ~8h/天结构性不可行）")
+                         "ssd_backup 不得回退为整目录拉取"
+                         "（--delete 删历史档，违背全量保留）")
 
     def test_ssd_backup_retains_all_archives_no_prune(self):
         """归档全量保留（用户决策 2026-08-30）: 不得对 E 盘 movespeed_backup 做任何
@@ -209,8 +214,8 @@ class TestRelayBandwidthAdaptation(unittest.TestCase):
         self.assertNotIn("tail -n +4", self.code, "保留 3 份剪枝不得回归（全量保留契约）")
 
     def test_single_instance_lock_in_wsl_native_tmp(self):
-        """单实例锁: 周日 1GB 中继长跑（数小时）与 05:00 定时任务不得重叠互踩。
-        锁必须在 WSL 原生 /tmp —— drvfs (/mnt/e) 上 flock 语义不可靠。"""
+        """单实例锁: 每日备份拉取数十分钟（网络差时更久），手动运行与 05:00 定时
+        任务不得重叠互踩。锁必须在 WSL 原生 /tmp —— drvfs (/mnt/e) 上 flock 语义不可靠。"""
         self.assertIn("flock -n 9", self.code)
         self.assertRegex(self.code, r"exec 9>/tmp/\S*lock",
                          "锁文件必须放 WSL 原生 /tmp 而非 drvfs")
