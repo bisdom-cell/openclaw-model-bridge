@@ -12,7 +12,7 @@
 #   openclaw_logs  ~/.openclaw/logs/                   → ...\openclaw\logs\
 #   job_caches     ~/.openclaw/jobs/                   → ...\openclaw\jobs\
 #   media          ~/.openclaw/media/                  → ...\openclaw\media\
-#   ssd_backup     /Volumes/MOVESPEED/openclaw_backup/ → ...\movespeed_backup\（每周日最新一份，全部长期保留）
+#   ssd_backup     /Volumes/MOVESPEED/openclaw_backup/ → ...\movespeed_backup\（每日最新一份，全部长期保留）
 #   sync_tool      ~/openclaw-model-bridge/windows/    → ...\_sync\upstream\（脚本自身更新通道）
 #
 # 刻意不拉:
@@ -49,8 +49,8 @@ if ! command -v rsync >/dev/null 2>&1; then
     exit 3
 fi
 
-# 单实例锁: 中继带宽下周日备份拉取可达数小时，防手动运行与 05:00 定时任务重叠互踩。
-# 锁放 WSL 原生 /tmp（drvfs /mnt/e 上 flock 语义不可靠）；同一台机器单实例语义足够。
+# 单实例锁: 中继带宽下每日备份拉取约数十分钟（网络差时更久），防手动运行与
+# 05:00 定时任务重叠互踩。锁放 WSL 原生 /tmp（drvfs /mnt/e 上 flock 语义不可靠）。
 exec 9>/tmp/openclaw_sync.lock
 if ! flock -n 9; then
     log "另一次同步仍在运行（/tmp/openclaw_sync.lock 被占用），本次退出"
@@ -127,22 +127,17 @@ run_rsync openclaw_logs 100 '.openclaw/logs/'                    openclaw/logs
 run_rsync job_caches    300 '.openclaw/jobs/'                    openclaw/jobs
 run_rsync media         500 '.openclaw/media/'                   openclaw/media
 
-# V37.9.335-relay: 办公室网络封锁对外 UDP（dig@223.5.5.5 超时 + zerotier-cli TUNNELED
-# + tcpFallbackActive:true 三重实证）→ ZeroTier 只能走 TCP 中继，实测 ~36KB/s 天花板。
-# 每日备份档是全新 1GB tar.gz（文件名含日期，rsync 无法增量）= 中继下 ~8h/天结构性不可行。
-# 改每周日只拉最新一份（kb 等其余模块每日增量几十 MB，中继速度够，保持每日）。
-# 保留策略（用户决策 2026-08-30）: E 盘归档**全部长期保留**，不做本地剪枝（~+52GB/年由
-# 所有者接受）。单文件拉取形态同时是保留的结构保证——绝不对 movespeed_backup 目录跑
-# --delete 整目录镜像，否则超出 Mac 端 7 天轮转窗口的历史档会被删掉。
-if [ "${OPENCLAW_SYNC_FORCE_BACKUP:-0}" = "1" ] || [ "$(date +%u)" = "7" ]; then
-    LATEST_BACKUP=$(ssh $SSH_OPTS "$HOST" 'ls -t /Volumes/MOVESPEED/openclaw_backup/*.tar.gz 2>/dev/null | head -1' 2>/dev/null)
-    if [ -n "$LATEST_BACKUP" ]; then
-        run_rsync ssd_backup 10 "$LATEST_BACKUP" movespeed_backup
-    else
-        log "── [ssd_backup] 跳过: Mac 端未找到备份归档（/Volumes/MOVESPEED 可能未挂载）"
-    fi
+# V37.9.335-relay/daily: 办公室封对外 UDP → ZeroTier 仅 TCP 中继；单大文件实测 ~22min/1GB
+# （清晨管道空闲，"8h"旧预估已被 2026-08-31 FORCE 实测证伪）→ 每日拉取可行，用户决策
+# 2026-08-31 恢复每日（+365GB/年由所有者接受；周日门控与 FORCE 开关随之退役）。
+# 只拉最新一份而非整目录镜像 = 全量保留（用户决策 2026-08-30）的结构保证——
+# 整目录 --delete 会删掉超出 Mac 端 7 天轮转窗口的历史档；每日恰好新增一份新档，
+# rsync 对 tar.gz 无法增量，单文件形态也是传输量的下界。
+LATEST_BACKUP=$(ssh $SSH_OPTS "$HOST" 'ls -t /Volumes/MOVESPEED/openclaw_backup/*.tar.gz 2>/dev/null | head -1' 2>/dev/null)
+if [ -n "$LATEST_BACKUP" ]; then
+    run_rsync ssd_backup 10 "$LATEST_BACKUP" movespeed_backup
 else
-    log "── [ssd_backup] 跳过（每周日拉最新一份; OPENCLAW_SYNC_FORCE_BACKUP=1 可强制）"
+    log "── [ssd_backup] 跳过: Mac 端未找到备份归档（/Volumes/MOVESPEED 可能未挂载）"
 fi
 
 run_rsync sync_tool      20 'openclaw-model-bridge/windows/'     _sync/upstream

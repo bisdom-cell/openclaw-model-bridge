@@ -1,5 +1,5 @@
 {
-  "updated": "2026-08-31 12:16:18",
+  "updated": "2026-08-31 12:19:38",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-08-31",
+      "what": "V37.9.335 用户二次决策恢复每日备份拉取(22min 实测支撑): 周日门控+FORCE 开关退役, ssd_backup=每日最新一份+全量保留(+365GB/年), 守卫 daily-latest-only 双向禁回退",
+      "by": "claude_code"
+    },
     {
       "date": "2026-08-31",
       "what": "V37.9.335 收官: 用户合并 main + 新脚本验证轮全模块 OK, 首份备份档落地(22min 实测, 8h 预估修正), Windows 镜像进入无人值守稳态; 剩明日 05:00 形式验收+周日 9/6 首次自动备份观察",
@@ -172,11 +177,6 @@
     {
       "date": "2026-08-20",
       "what": "V37.9.323 对抗审计 — 机器统计冒充「必须遵守的用户指令」进 PA 宪法级 prompt: preference_learner.py(每天07:30 cron, 零单测/不在 full_regression/20+轮审计从没碰过) 写 status.json.preferences[] → kb_status_refresh 渲染进 SOUL.md「用户偏好（必须遵守）」+ memory_plane Preferences 层。退役 analyze_feedback(feedback[0] 是 append 序最老的却标「最新」+ json.dumps[:50] 硬截断 → 不闭合 JSON 残片, 生产 status.json 实录) / 退役 analyze_interaction_style(统计的 TEXT chars 是 assistant 自己回复的长度, 却断言「用户偏好简洁回复」= 模型照自己输出给自己下指令)。修 analyze_activity(注释说最小连续区间, 代码取高频小时集合 min..max → 探针逐字复现生产「活跃时段 00:00-21:00」; 新增 smallest_active_window 真环形最小窗口 → 同数据得 20:00-01:00, + 退化窗口拒报 + 补 MIN_REQUESTS 门, 顺带让 INV-JOB-PREFLEARN-001 从 file_contains 能 grep 到变成真守着最显眼输出) / 修 analyze_kb_interests(日期解析失败 pass→continue, 此前 400 天前 ISO-T 条目被报成「最近 7 天关注领域」)。渲染层按 [auto] 前缀分段: 显式偏好留「必须遵守」, 机器观察进「系统观察（供参考，非用户指令）」+ SOUL.md 静态语义对齐(退役「所有偏好我都必须遵守」)。28 守卫 + sabotage 五连全开火。VERSION 0.37.9.152→0.37.9.153",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-08-19",
-      "what": "V37.9.322 对抗审计 preflight 三条『该报警时打绿』: slo_checker 把从未测量过的指标(0 工具调用/0 失败恢复)当满分计入「SLO 全部达标」——同一份 stats slo_benchmark 报 3/5+2 n/a 而它报 5/5(V37.9.303 修了两个渲染器漏了判定器) / 退役 get_slo_status 死代码(内含毫秒比上下文 token 上限的错单位健康布尔) / preflight 安全扫描 git grep 跑不动时打绿(非 git 目录+目录里真有 sk- key 仍 ✅)。ok 语义与退出码不变=watchdog 噪声零增量。诚实剔除 3 项。33 守卫+sabotage 五连。既有 cross_os_quirk 扫描器抓到我新写的 quirk。VERSION 0.37.9.151→0.37.9.152",
       "by": "claude_code"
     }
   ],
@@ -326,7 +326,7 @@
       "【V37.9.331 演练/取证/打标诚实 · dev 全闭环 · 剩 Mac Mini 被动验证】合并 + git fetch+reset 同步(gameday.sh/movespeed_incident_capture.sh/movespeed_incident_analyzer.py/kb_autotag.py 全走 FILE_MAP 零重启)后: (a) bash gameday.sh --all 零流量日不再因 slo rc=3 假失败(场景 4 改报 skip 无数据可判), 断路器状态第一次真被验证(closed→pass; 若报 open = 真告警非新 bug, 贴我) (b) 场景 3 报「快照日志段: N 个真实日志文件被捕获」且 N 与实际存在的日志一致(此前缺失也计入) (c) 未来 SSD 未挂载的 rsync 失败快照, movespeed_incidents.jsonl 的 acl/lsof 字段应标 [target_missing] 而非 [tool_unavailable] (d) 新写 KB note 自动标签不再有「财经→技术/AI」类子串污染; 可选 python3 kb_autotag.py --retag 预览历史 notes 标签修正量(预期变更量可观=历史污染面, 先看 diff 再决定 --apply)",
       "【V37.9.332 dream 月份分布检测器 ([62] 预注册决策兑现·已建) · 剩 Mac Mini 被动验证】合并+git fetch+reset 同步 (daily_observer.py 走 FILE_MAP, 明晨 06:30 自动生效) 后: 健康日 observer 报告无新增行 (零噪声); 若某日梦境月份钉死复发 (引用月份 <3 或单月 >80%), 06:30 报 MED dream_month_pin 点名分布与 V37.9.326/329 家族 — 首次开火请贴给 session 分诊 kb_dream 取样管道",
       "【✅ V37.9.334 升级 tripwire 接线 · 当日生产闭环 (2026-08-30) · 剩下周一被动观察】三步验证全绿: (1) crontab 核对空输出 = 「每周一自动监控」自 V37.9.22 起从未存在的生产实证 → crontab_safe.sh add 41→42 条（与 registry 10 9 * * 1 一致）(2) 双副本 marker 9/9（auto_deploy 2min 内同步新 FILE_MAP 条目）+ 手动首跑 0/6 触发且 [3/6][4/6] 真网络 ✅ 未检出（NA 路径仅 dev egress 触发 = 按设计; 版本差距 28/50 数值序与 dev 一致）(3) preflight --full 87 通过/0 失败/1 警告（唯一警告 = KB 99% 当日新 note 待 03:30 cron 自动补齐, 正常）。剩余: (a) 下周一 09:10 首次自动 cron 运行后 ~/check_upgrade.log 出现 tripwire 报告（此后 watchdog LOG_FRESHNESS 14d 接管新鲜度）(b) 未来 tripwire 真触发时 Discord 收 [SYSTEM_ALERT] 升级告警。登记不修不变: CU-F5 plugins install 副作用（脚本注释）/ 20 个 job model 字段 inert / quickstart+ops_health+activate 不造测试（日落法）。",
-      "【V37.9.335 Windows E 盘每日镜像 · 安装全链闭环 · 仅剩被动观察】2026-08-31 收官: 首轮全量 OK + 05:00 定时通道实证 + kb 撞保险丝破案(dreams/.map_cache 日缓存每天生灭~2400文件)→排除三衍生物(map_cache/text_index/mm_index, MR-8 守卫 20/20) + 全量保留(用户决策,剪枝退役) + 首份备份档 openclaw-backup-2026-08-31.tar.gz 已落 E 盘(FORCE 实测 22min≈790KB/s, 8h 预估修正) + 20:12 新脚本验证轮全模块 OK = 无人值守稳态。被动观察: (1) 明日 05:00 定时运行应全绿(用户可贴 tail 确认, 非必须) (2) 周日 9/6 05:00 首次自动备份拉取 (3) Mac 端 ~/.kb/last_windows_sync.json 每日刷新(未来可选 watchdog 条目盯拉取死活, 已登记候选不现建)。可选升级: Tailscale DERP 提速(HOSTS 加 IP 即用) / 备份改每日拉(+365GB/年, 所有者决策)。"
+      "【V37.9.335 Windows E 盘每日镜像 · 全链闭环+每日备份化 · 剩最后一次合并+scp】2026-08-31 收官: 首轮全量 OK + 05:00 定时通道实证 + kb 排除三衍生物(map_cache/text_index/mm_index) + 全量保留 + 首份备份档落地(22min 实测,8h 预估修正) + 20:12 新脚本验证轮全模块 OK。用户二次决策: 依 22min 实测恢复**每日**备份拉取(+365GB/年接受) → 周日门控+FORCE 开关退役(守卫 daily-latest-only 双向禁回退, 20/20+sabotage)。剩余: (1) 用户合并新 PR + WSL: Mac git reset + scp 刷新活跃副本(每日化生效) (2) 明日 05:00 定时运行=最终验收(首次含每日备份拉取, 预期全绿+movespeed_backup 新增 9/1 档) (3) Mac ~/.kb/last_windows_sync.json 每日刷新(watchdog 候选已登记不现建)。可选: Tailscale 提速(HOSTS 加 IP 即用)。"
     ],
     "open_prs": [],
     "blocked_on": "",
