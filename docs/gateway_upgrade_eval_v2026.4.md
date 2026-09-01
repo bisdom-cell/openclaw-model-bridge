@@ -1110,7 +1110,8 @@ Gateway 升级从此耦合。这是第六次评估 M2「SQLite 单向门」风�
   在扩面而非收尾。**含义**：一旦 ① 满足（连续 2 个 stable 干净），升级窗口即可开——届时不再有其他判据阻挡，
   只需走 7.0 的三项前置（A node 区间重核 / B 插件锁步 / C 默认行为审计）。
 - **下次跟踪点（更新）**：
-  1. **2026.9.1 stable 发布时核对判据 ①**（beta.1 已于 08-28 发布）。若 9.1 的 changelog **无** SQLite/session
+  1. **2026.9.1 stable 发布时核对判据 ①**（beta.1 已于 08-28 发布）。**核对必须走 19.8 的协议**（自带防空转
+     门槛），不要裸 grep——beta.1 的提前读数已证明裸 grep 会给出假绿。若 9.1 的 changelog **无** SQLite/session
      迁移类 PR，则「连续 2 stable 干净」计数从 9.1 起步为 1，**仍需再一个干净 stable** 才满足。
   2. **判据 ③ 已绿，无需再跟踪**（2026-07-24 node 26.5.0 落在 `>=25.9.0`）。仅在真正开升级窗口时，
      按**当时** stable 的 `engines.node` 重核一次（7.0 前置 A）——上游有加区间黑名单的先例。
@@ -1123,6 +1124,72 @@ Gateway 升级从此耦合。这是第六次评估 M2「SQLite 单向门」风�
   开始后台 LLM 消费与自动技能应用。
 
 **LAST_EVAL_DATE 更新至 2026-09-01**（第八次评估完成，重置时间 tripwire）。下次触发 = 任一 tripwire 跳红，
-或 2026.9.1 stable 发布时的判据 ① 跟踪。
+或 2026.9.1 stable 发布时的判据 ① 跟踪（走 19.8 协议）。
+
+### 19.8 判据 ① 提前读数（2026.9.1-beta.1）与核对协议
+
+> 同日追加。既然判据 ① 是唯一卡点，先对已发布的 `2026.9.1-beta.1`（08-28）做一次提前读数——
+> **结论是「不可判」，不是「干净」**，而得出这个结论的过程本身暴露了核对方法的一个假绿陷阱，
+> 故一并把方法固化成带防空转门槛的协议。
+
+**读数结果：`VERDICT=N/A_NO_CONTENT`（判据 ① 在 beta.1 上不可判）**
+
+`sqlite` / `migrat` / `session store` 在 9.1-beta.1 的 changelog 里计数**全为 0**——但这不是干净，
+是**内容还没写**：该 changelog 自述「2 in-range PRs + 1,518 retained seed-only PRs」，
+其 `### Complete contribution record` 段的 1,520 条目**全是无描述的裸 PR 行**，叙述段只有 17 条。
+三个版本对照：
+
+| 版本 | 有语义条目 | sqlite | migrat | 判定 |
+|------|-----------|--------|--------|------|
+| 2026.7.1 stable | **1719**（叙述 183 + 带描述 PR 1536） | 12 | 15 | 可判 → ❌ 不干净 |
+| 2026.8.1 stable | **506**（叙述 506 + 带描述 PR 0） | 13 | 19 | 可判 → ❌ 不干净 |
+| **2026.9.1-beta.1** | **17**（叙述 17 + 带描述 PR **0**，裸 PR 行 1520） | 0 | 0 | ⚠️ **不可判** |
+
+**这是一次典型的假绿**：一个返回 0 的 grep 读起来像「上游终于收敛了」，实际含义是「还没有数据」。
+与 V37.9.288「搜索坏了 ≠ 没搜到」/ V37.9.310「缺工具伪装成否定结果」/ V37.9.322「跑不动 ≠ 没问题」
+同族；而这里的误判方向是**最贵的那一个**——假绿会让判据 ① 计数错误 +1，进而提前开升级窗口。
+
+**方法学修正（设计协议时第二次自我证伪）**：最初想用「只数叙述段（Highlights/Changes/Fixes）」作内容
+门槛与扫描范围，实测被 7.1 否决——7.1 的 session-accessor 证据（#101178 "add debt ratchet to the
+session-accessor boundary guard" / #101179 "route new session store bypasses through the accessor"）
+恰恰住在 **Complete contribution record 段且带描述**（叙述段只有 sqlite=2/migrat=3，全文 12/15）。
+故协议固定为两条：**扫描范围 = 整份 changelog**；**内容门槛 = 叙述条目 + 带描述 PR 条目**
+（裸 PR 行与仅 Thanks/Related/Fixes/Closes 的条目不计入）。
+
+**判据 ① 核对协议（下次 stable 发布时照此执行，替换目标版本号）**
+
+```bash
+WORK=$(mktemp -d) && cd "$WORK" && npm pack openclaw@2026.9.1 >/dev/null 2>&1 && python3 - <<'PYCHK'
+import re, sys, tarfile, glob
+cl = tarfile.open(sorted(glob.glob("openclaw-*.tgz"))[-1]).extractfile("package/CHANGELOG.md").read().decode("utf-8", "replace")
+i = cl.find("### Complete contribution record")
+narrative = len([l for l in (cl[:i] if i > 0 else cl).splitlines() if l.startswith("- **")])
+pr = [l for l in cl.splitlines() if l.startswith("- **PR #")]
+described = len([l for l in pr if re.match(r"^- \*\*PR #\d+\*\*\s+(?!Thanks\b|Related\b|Fixes\b|Closes\b)\S", l)])
+semantic = narrative + described
+print(f"semantic_entries={semantic} narrative={narrative} described_pr={described} bare_pr={len(pr)-described}")
+if semantic < 100:
+    print("VERDICT=N/A_NO_CONTENT  judgement-1 not decidable: changelog semantic content too thin")
+    sys.exit(3)
+hits = re.findall(r"(?im)^.*(?:sqlite|migrat|session store|session accessor|legacy state).*$", cl)
+print(f"migration_hits={len(hits)}")
+for h in hits[:25]:
+    print("  " + h.strip()[:160])
+print("VERDICT=" + ("CLEAN" if not hits else "DIRTY"))
+sys.exit(0 if not hits else 2)
+PYCHK
+```
+
+退出码：`0` = CLEAN（判据①连续计数 +1）/ `2` = DIRTY（计数归零）/ `3` = 不可判
+（**不得计入任何一侧**，等内容填充后重跑）。
+
+**门槛 `100` 的依据与诚实边界**：三个实测点——真 stable 的语义条目是 **506**（8.1）与 **1719**（7.1），
+beta 骨架是 **17**；100 在两者之间有 5× 以上余量。只有 3 个数据点，故取**保守方向**：宁可多判一次
+「不可判」再等 stable，也绝不接受假绿开窗。若未来某个真 stable 的语义条目低于 100 而内容确实完整，
+按实测数据下调门槛并在此登记，不要为了让它通过而绕过门槛。
+
+**刻意不把这段做成仓库脚本**（日落法）：核对每 6–8 周一次、由 session 手动执行，一个自带门槛的可复制
+命令块已足够；做成常驻脚本要付出新文件 + FILE_MAP + 部署 + 自身守卫的代价，而它退役不了任何东西。
+守卫改为钉住本协议的两个要害（整份扫描 + 防空转门槛），防止未来有人把它简化回裸 grep。
 
 ---
