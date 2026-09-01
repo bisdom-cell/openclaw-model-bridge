@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-01 14:14:17",
+  "updated": "2026-09-01 15:22:37",
   "updated_by": "full_regression",
   "priorities": [
     {
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-09-01",
+      "what": "V37.9.337 20:30 告警 triage: 时序排除本次改动是治理 fail 自变量(PR 合并 21:45/22:44 vs 告警 20:30) + finance_news LLM 失败可定性根治(curl 退出码不再被吞/三层分类对齐 10 个兄弟 job/短内容不谎称调用失败/status 带 llm_fail_reason), 17 单测 sabotage 五连开火",
+      "by": "claude_code"
+    },
     {
       "date": "2026-09-01",
       "what": "V37.9.336 追加 19.8: 判据①对 2026.9.1-beta.1 提前读数=不可判(N/A)非干净(0 计数是内容未写: 1520 裸 PR 行 vs 8.1=506/7.1=1719 语义条目) + 核对协议固化(整份扫描+内容门槛 rc=3 不可判, 防最贵方向假绿) + 守卫 19→28 sabotage 四连开火",
@@ -173,11 +178,6 @@
       "date": "2026-08-24",
       "what": "V37.9.327 status.json 权限日噪声根治: V37.9.324 verify 首次真实开火(03:02 生产实录) 分诊 — notes 无异常丢失(基线2370→2385正常增长), 唯一告警=status.json 644。结构性发现: save_status 的 open(tmp) 按 umask 产 644 + os.replace 每小时把它带回来 → kb_inject 每日 chmod 只活到下个整点 → verify 每天 03:02 必告警=永久日噪声(告警疲劳家族)。修: save_status 在 replace 前 chmod tmp 0o600(唯一写出口 MR-9 单点修复)。+2 守卫 sabotage 验证。另: 昨晚 dream 7h 延迟已破案=LLM 后端瞬时不稳(curl-52 @01:32-02:09)+混合部署夜降级采样, 最终 10:02 sent:true 5/5 自愈; 用户已设 pmset sleep 0, 今晚为全链新代码干净实验",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-08-23",
-      "what": "V37.9.326 Dream 素材「4月钉死」血案修（用户报告驱动: 梦境结论几乎只引用 2026-04 观点/数据）: 三层叠加偏置 grounded 确认 — (1) sources Map 输入取归档头 15K, 而归档是 append-to-end 编年体 → 头 15K = 永远的建库初期(4月)条目且每晚 cache miss 重复对同一头部烧 14 次 LLM (2) Reduce cache-load 按文件名升序遍历笔记 → 信号块最老在前 (3) 全局 30K 保头截断 → 5-8 月内容全部在窗口外。佐证: 降级采样分支自己写着[起源/历史/最新]三段采样 = 写降级分支的人知道要时间多样性, 每晚真跑的主路径反而没有; V37.9.68 Qwen-BIM 数周重复血案与窗口钉死结构一致(ban-list 治症状, 本版治病)。修: sources 改尾部窗口 utf8_tail_truncate + prompt_hash v4 / 笔记改 month_round_robin 月份轮转序(FAIL-OPEN 回退原序) / 每部分预算 sources≤14K notes≤13K + 降级分支对称 17K。22 守卫 + sabotage 六连全开火(含探针自纠: 首版 FAIL-OPEN 探针没隔离 cwd 致 import 恒成功=空转)。VERSION 0.37.9.155→0.37.9.156",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -226,7 +226,7 @@
     "security_score": "98/100 (98.0%)",
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB",
     "slo": {
-      "checked_at": "2026-09-01 14:12:11",
+      "checked_at": "2026-09-01 15:20:34",
       "all_ok": true,
       "judged_count": 1,
       "na_count": 4,
@@ -325,7 +325,8 @@
       "【低优观察 · 登记不修】README 徽章的 suites 数字随运行条件漂移: full_regression 把「条件跳过的套件」也计入 test_suites（2026-08-24 收工那轮混沌层因脏树被跳过却计数 → 186；2026-08-25 干净树跑出 185）→ 每次 dirty/clean 切换都会触发一次徽章漂移硬门禁。非回归（dark-test 对账守卫绿 = 无套件静默缺失），成因是「suites」这个指标的定义（注册数 vs 实跑数 vs 含跳过数）没定死。若未来重复制造推送阻塞再评估收敛为单一定义；今天按日落法不为它加机制。",
       "【V37.9.331 演练/取证/打标诚实 · dev 全闭环 · 剩 Mac Mini 被动验证】合并 + git fetch+reset 同步(gameday.sh/movespeed_incident_capture.sh/movespeed_incident_analyzer.py/kb_autotag.py 全走 FILE_MAP 零重启)后: (a) bash gameday.sh --all 零流量日不再因 slo rc=3 假失败(场景 4 改报 skip 无数据可判), 断路器状态第一次真被验证(closed→pass; 若报 open = 真告警非新 bug, 贴我) (b) 场景 3 报「快照日志段: N 个真实日志文件被捕获」且 N 与实际存在的日志一致(此前缺失也计入) (c) 未来 SSD 未挂载的 rsync 失败快照, movespeed_incidents.jsonl 的 acl/lsof 字段应标 [target_missing] 而非 [tool_unavailable] (d) 新写 KB note 自动标签不再有「财经→技术/AI」类子串污染; 可选 python3 kb_autotag.py --retag 预览历史 notes 标签修正量(预期变更量可观=历史污染面, 先看 diff 再决定 --apply)",
       "【V37.9.332 dream 月份分布检测器 ([62] 预注册决策兑现·已建) · 剩 Mac Mini 被动验证】合并+git fetch+reset 同步 (daily_observer.py 走 FILE_MAP, 明晨 06:30 自动生效) 后: 健康日 observer 报告无新增行 (零噪声); 若某日梦境月份钉死复发 (引用月份 <3 或单月 >80%), 06:30 报 MED dream_month_pin 点名分布与 V37.9.326/329 家族 — 首次开火请贴给 session 分诊 kb_dream 取样管道",
-      "【V37.9.335 Windows E 盘每日镜像 · 全链闭环+每日备份化 · 剩最后一次合并+scp】2026-08-31 收官: 首轮全量 OK + 05:00 定时通道实证 + kb 排除三衍生物(map_cache/text_index/mm_index) + 全量保留 + 首份备份档落地(22min 实测,8h 预估修正) + 20:12 新脚本验证轮全模块 OK。用户二次决策: 依 22min 实测恢复**每日**备份拉取(+365GB/年接受) → 周日门控+FORCE 开关退役(守卫 daily-latest-only 双向禁回退, 20/20+sabotage)。剩余: (1) 用户合并新 PR + WSL: Mac git reset + scp 刷新活跃副本(每日化生效) (2) 明日 05:00 定时运行=最终验收(首次含每日备份拉取, 预期全绿+movespeed_backup 新增 9/1 档) (3) Mac ~/.kb/last_windows_sync.json 每日刷新(watchdog 候选已登记不现建)。可选: Tailscale 提速(HOSTS 加 IP 即用)。"
+      "【V37.9.335 Windows E 盘每日镜像 · 全链闭环+每日备份化 · 剩最后一次合并+scp】2026-08-31 收官: 首轮全量 OK + 05:00 定时通道实证 + kb 排除三衍生物(map_cache/text_index/mm_index) + 全量保留 + 首份备份档落地(22min 实测,8h 预估修正) + 20:12 新脚本验证轮全模块 OK。用户二次决策: 依 22min 实测恢复**每日**备份拉取(+365GB/年接受) → 周日门控+FORCE 开关退役(守卫 daily-latest-only 双向禁回退, 20/20+sabotage)。剩余: (1) 用户合并新 PR + WSL: Mac git reset + scp 刷新活跃副本(每日化生效) (2) 明日 05:00 定时运行=最终验收(首次含每日备份拉取, 预期全绿+movespeed_backup 新增 9/1 档) (3) Mac ~/.kb/last_windows_sync.json 每日刷新(watchdog 候选已登记不现建)。可选: Tailscale 提速(HOSTS 加 IP 即用)。",
+      "【2026-09-01 20:30 watchdog 告警 triage · V37.9.337】(a) 🔴 **治理审计 fail 需 Mac Mini 取证**: 时序已排除本次改动 (PR#912/913 合并于 21:45/22:44 HKT, 告警 20:30, 治理 cron 07:00) + dev 全量治理 EXIT=0 + 我改的文件在治理里零 check 覆盖。失败的是哪条不变式须用户取证 (cat ~/.kb/last_run_governance*.json 或 grep 07:00 governance log; 若有 07:00 [SYSTEM_ALERT] 治理告警请转发——V37.9.301 起它会列出全部失败不变式+顶层计数)。**另需确认: 07:00 那条详细治理告警是否真的发了** (若没发 = V37.9.301 的告警路径有问题, 比死掉的不变式更要紧)。(b) finance_news LLM 可定性已修 (V37.9.337): 同步后若再失败, 日志与 last_run.json 直接给 curl_timeout/http_error/short_content 等原因。(c) 🟡 **待定项**: finance_news `--max-time 180` 紧于服务端 300s (V37.9.306 kb_evening 同族不对称), 且 V37.9.220 实录 reasoning 延迟可达 7-9 分钟; 但 B1 快路本应缓解 → **拿到 (b) 的定性数据再决定是否调**, 不盲改 (原则 #28/#8)。(d) ai_leaders_x 9×429 = 已知限流非 actionable。"
     ],
     "open_prs": [],
     "blocked_on": "",
@@ -333,14 +334,14 @@
   },
   "quality": {
     "security_score": 98,
-    "test_count": 6358,
-    "last_regression": "2026-09-01 14:13 pass",
+    "test_count": 6375,
+    "last_regression": "2026-09-01 15:22 pass",
     "coverage_pct": 0,
     "security_score_time": "2026-07-20 01:07",
-    "test_suites": 191,
+    "test_suites": 192,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
-    "version": "0.37.9.162",
+    "version": "0.37.9.163",
     "observer": {}
   },
   "incidents": [

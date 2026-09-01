@@ -174,6 +174,7 @@ run_suite "v37_9_331_drill_forensics_honesty (V37.9.331 对抗审计 — gameday
 run_suite "v37_9_334_check_upgrade_tripwire (V37.9.334 对抗审计 — 升级 tripwire 零接线死告警/字典序 2026.10.x 漏计/网络失败假绿/EOL 关键词陈旧 + context 告警品牌中性化)" "python3 test_v37_9_334_check_upgrade_tripwire.py"
 run_suite "v37_9_335_windows_sync (V37.9.335 Windows E 盘每日镜像 — MR-8 生产路径跨文件契约 + --max-delete 防灾难镜像保险丝 + 无可达 host 诚实失败)" "python3 test_v37_9_335_windows_sync.py"
 run_suite "v37_9_336_upgrade_sop_currency (V37.9.336 第八次评估 — SOP 硬编码回滚版本血案 + 30 秒无损承诺退役 + 评估↔SOP 跨节前置契约 + 原则 #35 命令块无注释)" "python3 test_v37_9_336_upgrade_sop_currency.py"
+run_suite "v37_9_337_finance_llm_diagnosability (V37.9.337 finance_news LLM 失败可定性 — curl 退出码不再被 || true 吞掉 + 三层分类对齐兄弟 job + 短内容不谎称调用失败)" "python3 test_v37_9_337_finance_llm_diagnosability.py"
 run_suite "reliability_bench (故障场景评测)" "python3 test_reliability_bench.py"
 run_suite "memory_plane (统一记忆平面)" "python3 test_memory_plane.py"
 run_suite "slo_dashboard (SLO仪表盘)" "python3 test_slo_dashboard.py"
