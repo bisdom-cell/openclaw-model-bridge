@@ -1436,6 +1436,48 @@ def format_result_for_log(result):
 
 # ── CLI for ad-hoc inspection ─────────────────────────────────────────────
 
+def _cli_cron_lines(args):
+    """V37.9.338: 打印 canonical crontab 行（--cron-line / --cron-lines）。
+
+    权威来源是 _format_cron_line —— 与 machine_sync 和 INV-CRON-003 期望的形态
+    同一个生成器（MR-8 单一真理源），因此不会再出现手写行与治理判据不一致。
+    """
+    import sys
+
+    try:
+        data = _load_yaml(_PROJECT_ROOT / "jobs_registry.yaml")
+    except Exception as e:
+        print(f"failed to load jobs_registry.yaml: {e}", file=sys.stderr)
+        return 2
+
+    jobs = [j for j in (data.get("jobs") or [])
+            if j.get("enabled") and j.get("scheduler") == "system"]
+
+    if args.cron_line:
+        match = [j for j in jobs if j.get("id") == args.cron_line]
+        if not match:
+            known = ", ".join(sorted(j.get("id", "?") for j in jobs))
+            print(f"no enabled system job with id {args.cron_line!r}", file=sys.stderr)
+            print(f"known: {known}", file=sys.stderr)
+            return 2
+        try:
+            print(_format_cron_line(match[0]))
+        except ValueError as e:
+            print(f"cannot format cron line for {args.cron_line!r}: {e}", file=sys.stderr)
+            return 2
+        return 0
+
+    bad = 0
+    for j in sorted(jobs, key=lambda x: x.get("id", "")):
+        try:
+            print(_format_cron_line(j))
+        except ValueError as e:
+            print(f"{j.get('id', '?')}: {e}", file=sys.stderr)
+            bad += 1
+    return 2 if bad else 0
+
+
+
 def _cli():
     import argparse
     import json
@@ -1446,7 +1488,19 @@ def _cli():
     ap.add_argument("--all", action="store_true", help="Verify all enabled specs")
     ap.add_argument("--json", action="store_true", help="JSON output")
     ap.add_argument("--path", help="Override default spec yaml path")
+    # V37.9.338: 让 canonical cron 行有出口。生成器 (_format_cron_line) 自 V37.9.23
+    # 就存在，但只被 machine_sync 内部消费——每次新登记 system job，交接给用户的那行
+    # 都是手写的。2026-08-30 V37.9.334 登记 check_upgrade 时手写成
+    # `/bin/bash $HOME/... >> $HOME/...`（无 bash -lc）→ 脚本跑在 cron 空环境里，
+    # 且治理 INV-CRON-003 连报两天 (08-31/09-01 759/760)。
+    ap.add_argument("--cron-line", metavar="JOB_ID",
+                    help="打印该 job 的 canonical crontab 行（新登记 system job 时用，勿手写）")
+    ap.add_argument("--cron-lines", action="store_true",
+                    help="打印全部 enabled system job 的 canonical crontab 行")
     args = ap.parse_args()
+
+    if args.cron_line or args.cron_lines:
+        sys.exit(_cli_cron_lines(args))
 
     try:
         specs = load_specs(args.path)

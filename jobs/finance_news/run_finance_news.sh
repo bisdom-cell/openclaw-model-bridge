@@ -785,35 +785,67 @@ with open('$CACHE/llm_payload.json', 'w') as f:
     }, f, ensure_ascii=False)
 "
 
+# V37.9.337: 失败原因可定性。此前 curl 退出码被 `|| true` 完全吞掉 + 解析失败
+# 与内容过短合并成一句 "LLM 调用失败"，2026-09-01 07:30 的 llm_failed 因此
+# 无法在运维面判断是超时 / 连接拒绝 / HTTP 错误 / 内容过短（只能上机手查）。
+# 分类沿用兄弟 job 的 V37.9.36 三层（bad_json / http_error / no_choices），
+# 额外补 curl 退出码——它是唯一能把「超时」与「空响应」区分开的信号。
+LLM_MAX_TIME=180
+LLM_MIN_CONTENT=200
 LLM_OK=false
+LAST_LLM_FAIL_REASON=""
 for attempt in 1 2 3; do
-    LLM_RESP=$(curl -s --max-time 180 \
+    CURL_RC=0
+    LLM_RESP=$(curl -s --max-time "$LLM_MAX_TIME" \
         -H "Content-Type: application/json" \
-        -H "Authorization: Bearer $(echo $REMOTE_API_KEY)" \
+        -H "Authorization: Bearer $REMOTE_API_KEY" \
         -d "@$CACHE/llm_payload.json" \
-        http://127.0.0.1:5001/v1/chat/completions 2>"$CACHE/llm.stderr" || true)
+        http://127.0.0.1:5001/v1/chat/completions 2>"$CACHE/llm.stderr") || CURL_RC=$?
 
     echo "$LLM_RESP" > "$LLM_RAW"
 
-    LLM_CONTENT=$($PYTHON3 -c "
+    if [ "$CURL_RC" -ne 0 ]; then
+        case "$CURL_RC" in
+            28) LAST_LLM_FAIL_REASON="curl_timeout_${LLM_MAX_TIME}s(rc=28)" ;;
+            7)  LAST_LLM_FAIL_REASON="curl_connect_refused(rc=7)" ;;
+            52) LAST_LLM_FAIL_REASON="curl_empty_reply(rc=52)" ;;
+            *)  LAST_LLM_FAIL_REASON="curl_error(rc=${CURL_RC})" ;;
+        esac
+    else
+        LLM_PARSE_ERR="$CACHE/llm_parse.err"
+        : > "$LLM_PARSE_ERR"
+        LLM_CONTENT=$($PYTHON3 -c "
 import json, sys
+raw = open('$LLM_RAW', encoding='utf-8', errors='replace').read()
+if not raw.strip():
+    print('empty_response', file=sys.stderr); sys.exit(0)
 try:
-    r = json.loads(open('$LLM_RAW').read())
-    c = r.get('choices',[{}])[0].get('message',{}).get('content','')
-    if len(c) > 200:
-        print(c)
-    else:
-        sys.exit(1)
-except:
-    sys.exit(1)
-" 2>/dev/null) && LLM_OK=true && break
+    d = json.loads(raw)
+except Exception as e:
+    print(f'bad_json:{type(e).__name__}', file=sys.stderr); sys.exit(0)
+if isinstance(d, dict) and 'error' in d:
+    print('http_error:' + str(d['error'])[:200].replace(chr(10), ' '), file=sys.stderr); sys.exit(0)
+try:
+    c = d['choices'][0]['message']['content']
+except (KeyError, IndexError, TypeError) as e:
+    print(f'no_choices:{type(e).__name__}', file=sys.stderr); sys.exit(0)
+if len(c) <= $LLM_MIN_CONTENT:
+    print(f'short_content:{len(c)}<={$LLM_MIN_CONTENT}', file=sys.stderr); sys.exit(0)
+print(c)
+" 2>"$LLM_PARSE_ERR") || true
+        LAST_LLM_FAIL_REASON="$(head -c 200 "$LLM_PARSE_ERR" 2>/dev/null | LC_ALL=C tr '\n' ' ')"
+        if [ -z "$LAST_LLM_FAIL_REASON" ] && [ -n "${LLM_CONTENT:-}" ]; then
+            LLM_OK=true
+            break
+        fi
+    fi
 
-    log "WARN: LLM 调用失败 (attempt ${attempt})"
-    sleep "$((attempt * 10))"
+    log "WARN: LLM attempt ${attempt}/3 失败: ${LAST_LLM_FAIL_REASON:-unknown}"
+    if [ "$attempt" -lt 3 ]; then sleep "$((attempt * 10))"; fi
 done
 
 if [ "$LLM_OK" != "true" ]; then
-    log "ERROR: LLM 3次调用全部失败，推送原始标题"
+    log "ERROR: LLM 3次调用全部失败 (最后原因: ${LAST_LLM_FAIL_REASON:-unknown})，推送原始标题"
     # Fallback: 只推送标题列表
     LLM_CONTENT=$($PYTHON3 -c "
 import json
@@ -875,7 +907,9 @@ if [ "$LLM_OK" != "true" ]; then
 else
     RUN_STATUS="ok"
 fi
-printf '{"time":"%s","status":"%s","new":%d,"intl":%d,"cn":%d,"errors":%d}\n' \
-    "$TS" "$RUN_STATUS" "$TOTAL_NEW" "$INTL_COUNT" "$CN_COUNT" "$FETCH_ERRORS" > "$STATUS_FILE"
+# V37.9.337: llm_failed 时把定性原因写进 status，运维面无需上机查日志
+printf '{"time":"%s","status":"%s","new":%d,"intl":%d,"cn":%d,"errors":%d,"llm_fail_reason":"%s"}\n' \
+    "$TS" "$RUN_STATUS" "$TOTAL_NEW" "$INTL_COUNT" "$CN_COUNT" "$FETCH_ERRORS" \
+    "$(printf '%s' "${LAST_LLM_FAIL_REASON:-}" | LC_ALL=C tr -d '"\\' | head -c 120)" > "$STATUS_FILE"
 
 log "完成: ${TOTAL_NEW} 篇 → LLM 分析(${RUN_STATUS}) → 推送"
