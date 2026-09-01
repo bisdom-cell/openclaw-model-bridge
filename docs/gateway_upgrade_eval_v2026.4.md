@@ -4,17 +4,26 @@
 > 二次评估：2026-04-10（上游已到 v2026.4.9，#59265 仍 OPEN）
 > 三次评估：2026-04-29（实证查明：#59265 已 closed but no fix evidence + 发现 v2026.4.26 新硬阻塞 #73358 + 引入 tripwire 决策框架）
 > 四次评估：2026-05-05（#73358 已 v2026.4.27 修复，战略路径已开，推荐方案 C 等 5.x 沉淀，第十三节）
-> 五次评估：2026-06-08（当前数据实证：上游 v2026.6.1，6.x 加 SQLite/plugin breaking，#59265 仍无 fix，用户决策继续 hold 到 6/20 时间表，目标 v2026.4.27，第十四节）
+> 五次评估：2026-06-08（上游 v2026.6.1，6.x 加 SQLite/plugin breaking，#59265 仍无 fix，用户决策 hold 到 6/20 时间表，目标 v2026.4.27，第十四节）
+> **升级执行：2026-06-11 完成 3.13-1 → v2026.4.27**（前置验证当日 GO，实录见第十五节）
+> 六次评估：2026-07-04（深评「4.27 能否无损继续升级」→ 继续 hold；三结构性迁移 M1/M2/M3 + 回滚退化为有损单向门；设三条收敛判据，第十七节）
+> 七次评估：2026-07-20（2026.7.1 stable 触发判据跟踪 → 继续 hold，判据全未满足；Node 门槛升为区间黑名单，第十八节）
+> 八次评估：2026-09-01（2026.8.1 stable 触发判据跟踪 → 继续 hold；判据 ② 首次满足、① 仍未满足、③ 待我方确认；新增「默认自主行为扩张」风险与可量化持有成本，第十九节）
 > 评估者：Claude Code
-> 状态：**继续 hold — 用户决策守 6/20 时间表 | 目标 v2026.4.27（避开全部 4.29/5.x/6.x breaking）| 版本差距 tripwire likely 触发**
+>
+> 🔴 **当前态（本行为单一真理源，其余章节均为各自时点快照）**
+> 部署版本 **v2026.4.27**（2026-06-11 起）| 上游 latest **2026.8.1**（2026-08-31）|
+> 决策 **继续 hold**（第八次评估，2026-09-01）| 判据与下次跟踪点见 **第十九节 19.7**
 
 ---
 
 ## 一、版本概览
 
-| 项目 | 值 |
+> ⚠️ **2026-04 初次评估时点快照**（勿作当前判断依据）。当前部署版本与上游 latest 见文档头部「当前态」行。
+
+| 项目 | 值（初次评估时） |
 |------|------|
-| 当前部署版本 | v2026.3.13-1 |
+| 当时部署版本 | v2026.3.13-1（已于 2026-06-11 升级到 v2026.4.27） |
 | 原 hold 条件 | 等 @openclaw/whatsapp 正式发布 + ClawHub 429 修复 |
 | 最新稳定版 | **v2026.4.9**（2026-04-10 确认，npm 可用） |
 | 上次评估最新版 | v2026.4.2（2026-04-03） |
@@ -141,99 +150,154 @@
 ## 七、升级 SOP（如决定升级）
 
 ### 7.0 前置条件
-- [ ] 确认目标版本：建议 **v2026.4.2**（修复 #59265 需确认）
-- [ ] 时间窗口：工作日白天，确保能快速回滚
-- [ ] 在 Mac Mini 上 SSH 直连执行（**禁止通过 WhatsApp 触发**）
+
+> **目标版本不在本节硬编码**——由**最近一次评估的结论**决定（评估节按时间倒序：第十九节 = 最新）。
+> 截至第八次评估（2026-09-01）结论为**继续 hold，无目标版本**；本 SOP 仅在用户明确决定升级后启用。
+
+- [ ] **目标版本**：读最新评估节的结论确定（当前第十九节 19.7）。**禁止沿用本文档任何历史节里的版本号**——它们是当时的时点判断。
+- [ ] **时间窗口**：工作日白天，确保能快速处置（注意：回滚不再是无损的，见 7.5）
+- [ ] **在 Mac Mini 上 SSH 直连执行**（禁止通过 WhatsApp 触发）
+- [ ] **前置 A · Node 版本区间**（第七次评估 18.4 起）：确认 `node -v` 落在目标版本 `engines.node` 声明的区间内。7.1/8.1 的区间是 `>=22.22.3 <23 || >=24.15.0 <25 || >=25.9.0`（**区间黑名单**，排除 node 23.x 全部与 24.0–24.14），根因是 SQLite WAL 数据损坏安全。**不能只确认「够新」**。
+- [ ] **前置 B · 外部插件锁步**（第八次评估 19.5）：M1 插件外部化后，`@openclaw/whatsapp` / `@openclaw/discord` 与 core **同版本发布**且声明 `peerDependencies: { openclaw: '>=<同版本>' }`。确认目标版本对应的 channel 插件存在；同时确认第三方插件（如 `@tencent-weixin/openclaw-weixin`）的 `peerDependencies.openclaw` 与目标版本相容。
+- [ ] **前置 C · 默认行为审计**（第八次评估 19.4，**须在首次启动前完成**）：目标 ≥8.1 时，以下 **7 项默认变更**（6 项自主行为 + 1 项并发假设）默认为开/生效，其中 3 项踩我们已立案的血案机制，逐项决定关闭或显式接受：
+  - [ ] Grounded dreaming（后台 LLM 记忆整合，#114819）→ 对应 `dream_quota_blast_radius_case`
+  - [ ] Owner-directed ambient heartbeat（#121988）→ 对应 `heartbeat_md_pa_self_silencing_case`
+  - [ ] Session reset default 变更（无 reset policy 时跨闲置/跨天保留会话，#111140）→ 对应 `pa_alert_contamination_case`
+  - [ ] Personal conversation recall（Active Memory 开启时默认召回同 agent 私聊上下文，#110597）→ 同上下文污染家族
+  - [ ] Automatic self-learning 自动应用技能（#115576）
+  - [ ] Skill Workshop 无额外批准提示（#107690，`skills.workshop.approvalPolicy: "pending"` 可找回审批门）
+  - [ ] CPU-scaled foreground concurrency 8–16（#114047）→ 与我方 12 工具 / 200KB / 单 adapter 链路假设的负载核对
 
 ### 7.1 升级前备份（5 分钟）
+
+先记录当前版本（**7.5 回滚依赖这个文件，不要跳过**），再做配置与全量状态备份。目标 ≥6.x 时
+SQLite 迁移含 cleanup，**必须有全量 `~/.openclaw` 快照**，仅备份 json 不足以回滚。
+
 ```bash
-# 1. 备份配置
+openclaw --version > ~/upgrade_before_version.txt
+cat ~/upgrade_before_version.txt
+```
+
+```bash
 cp ~/.openclaw/openclaw.json ~/.openclaw/openclaw.json.bak-$(date +%Y%m%d)
 cp ~/.openclaw/cron/jobs.json ~/.openclaw/cron/jobs.json.bak-$(date +%Y%m%d)
-
-# 2. 备份 workspace state
 cp -r ~/.openclaw/workspace/.openclaw/ ~/openclaw_workspace_backup_$(date +%Y%m%d)/
-
-# 3. 记录当前版本
-openclaw --version > ~/upgrade_before_version.txt
 ```
+
+```bash
+tar -czf ~/openclaw_full_snapshot_$(date +%Y%m%d).tar.gz -C ~ .openclaw
+ls -lh ~/openclaw_full_snapshot_$(date +%Y%m%d).tar.gz
+```
+
+目标 ≥8.1 时另有官方 SQLite 快照（`openclaw backup sqlite`，#105718，create/list/verify/restore）——
+它属于**新版能力**，升级前的旧版没有，因此上面的 tar 全量快照仍是回滚的唯一依据。
 
 ### 7.2 升级前检查（3 分钟）
+
 ```bash
-# 4. 运行升级就绪检查
 bash ~/openclaw-model-bridge/check_upgrade.sh
-
-# 5. 确认所有服务正常
 bash ~/openclaw-model-bridge/preflight_check.sh --full
-
-# 6. 检查 legacy config
-openclaw doctor  # 查看有无 warning/error
+openclaw doctor
 ```
 
-### 7.3 执行升级（5 分钟）
 ```bash
-# 7. 停止 Gateway
+node -v
+npm view openclaw@<目标版本> engines.node
+```
+
+`node -v` 必须落在 `engines.node` 输出的区间内（前置 A）。
+
+### 7.3 执行升级（5 分钟）
+
+```bash
 openclaw gateway stop 2>/dev/null || true
 lsof -ti :18789 2>/dev/null | xargs kill 2>/dev/null || true
-sleep 2
+```
 
-# 8. npm 升级（建议锁定版本）
-npm install -g openclaw@2026.4.2
+```bash
+npm install -g openclaw@<目标版本>
+openclaw --version
+```
 
-# 9. 修复配置（如有 legacy key）
+```bash
 openclaw doctor --fix
+```
 
-# 10. 重启 Gateway
+`doctor --fix` 会做 legacy config 迁移 + 外部 channel 插件安装（M1 后 WhatsApp/Discord 不在核心包内，
+需网络安装，ClawHub 限流史见第二节条件 2）+ 目标 ≥8.1 时的 OpenProse 移除与 OpenAI route 迁移。
+
+```bash
 bash ~/restart.sh
-sleep 5
 ```
 
 ### 7.4 升级后验证（10 分钟）
+
 ```bash
-# 11. 基础健康检查
-openclaw --version  # 确认新版本
+openclaw --version
 curl -s http://localhost:18789/health
 curl -s http://localhost:5002/health
 curl -s http://localhost:5001/v1/models
+```
 
-# 12. 消息通道验证（双通道）
-openclaw message send --channel whatsapp -t "$OPENCLAW_PHONE" -m "升级验证 $(openclaw --version)"
+```bash
 openclaw message send --channel discord -t "user:$DISCORD_TARGET" -m "升级验证 $(openclaw --version)"
+openclaw message send --channel whatsapp -t "$OPENCLAW_PHONE" -m "升级验证 $(openclaw --version)"
+```
 
-# 13. 全面体检
+```bash
 bash ~/openclaw-model-bridge/preflight_check.sh --full
 bash ~/openclaw-model-bridge/job_smoke_test.sh
-
-# 14. WhatsApp 业务验证
-# → 手动在 WhatsApp 发消息，确认 PA 正常回复
-# → 发送一张图片，确认多模态路由正常
-# → 触发 search_kb，确认混合检索正常
-
-# 15. 通道状态
 openclaw channels status --probe
 ```
 
-### 7.5 回滚方案（如升级失败，30 秒）
+手动业务验证（原则 #13，单测不能替代）：WhatsApp 发消息确认 PA 正常回复 → 发图片确认多模态路由 →
+触发 search_kb 确认混合检索。目标 ≥8.1 时另需复核前置 C 的 6 项默认开关是否按决定生效。
+
+### 7.5 回滚（视目标版本，**可能有损**）
+
+> 🔴 **「30 秒无损回滚」自 6.x 起不再成立**（第六次评估 17.4）。SQLite 状态迁移含 cleanup：
+> 回滚到旧版后，旧版读不回已迁移的 cron/auth 状态，凭据丢失会让 WhatsApp 重新链接撞设备限流（408）。
+> 目标 ≥6.x 时回滚 = **恢复 7.1 的全量快照 + 丢弃升级窗口内产生的新状态**，不是无损操作。
+> 8.1 侧的 newer-database-state fence（#132916/#133081）保护方向是**向前**（新版遇到更新 schema 不 restart-loop），
+> 回滚方向不受它保护。
+
+回滚版本从 7.1 记录的文件读回，**不硬编码**：
+
 ```bash
-# 停止 Gateway
 openclaw gateway stop 2>/dev/null || true
 lsof -ti :18789 2>/dev/null | xargs kill 2>/dev/null || true
+```
 
-# 降级回原版本
-npm install -g openclaw@2026.3.13-1
+```bash
+PREV=$(tr -d ' \t\n' < ~/upgrade_before_version.txt)
+echo "$PREV"
+npm install -g "openclaw@$PREV"
+```
 
-# 恢复配置
+若 `~/upgrade_before_version.txt` 不存在或内容不是版本号，**停下人工确认**，不要猜测版本。
+
+```bash
 cp ~/.openclaw/openclaw.json.bak-$(date +%Y%m%d) ~/.openclaw/openclaw.json
+```
 
-# 重启
+目标 ≥6.x 时改为恢复全量快照（先把当前目录挪走保留取证）：
+
+```bash
+mv ~/.openclaw ~/.openclaw.failed-$(date +%Y%m%d%H%M)
+tar -xzf ~/openclaw_full_snapshot_$(date +%Y%m%d).tar.gz -C ~
+```
+
+```bash
 bash ~/restart.sh
-
-# 验证
 curl -s http://localhost:5002/health
-openclaw message send --channel whatsapp -t "$OPENCLAW_PHONE" -m "回滚完成"
+openclaw message send --channel discord -t "user:$DISCORD_TARGET" -m "回滚完成 $(openclaw --version)"
 ```
 
 ## 八、综合评估
+
+> ⚠️ **2026-04 时点快照，勿作当前判断依据**。本节的收益/风险/建议（含选项 A/B/C = hold / 升 4.2 / 升 4.1）
+> 是首次评估时的判断；此后 4.27 已于 2026-06-11 升级完成，且第六/七/八次评估的方案 A/B/C 是**另一套语义**
+> （A=hold / B=中间版本 / C=现升最新）。**当前判断以最新评估节（第十九节）为准**，本节仅作历史留档。
 
 ### 升级收益
 1. **WhatsApp 稳定性提升**：bundled sidecar + crash fix + timestamp
@@ -946,3 +1010,119 @@ Gateway 升级从此耦合。这是第六次评估 M2「SQLite 单向门」风�
 ---
 
 *本文档为评估报告，不执行任何升级操作。升级决策由用户做出。*
+
+## 第十九节：第八次评估（2026-09-01，2026.8.1 stable 发布触发判据跟踪）
+
+> 触发：第七次评估（18.6）预设的跟踪点是「2026.7.2 stable 发布时核对判据 1」。**2026.7.2 从未 stable**
+> ——它走完 beta.1→beta.7（07-15 → 08-02）后被放弃，上游直接跳到 **2026.8.1**（2026-08-31 stable，
+> 自 07-13 的 7.1 以来唯一新 minor stable）。按原则 #1「有新版本对比决策条件是否变化」，到期核对三条
+> 收敛判据。方法沿用 V37.9.225/244/267「代码即事实」：`npm pack openclaw@2026.8.1` → 全量 CHANGELOG
+> grep + tarball 目录实证 + engines 跨版本对比 + **npm 元数据实证外部插件 peer floor**（本次新增维度）。
+> Tripwire 机械状态 0/6（时间 43/180 天，版本差距 29/50——字典序粗略计数；精确 minor stable 见 19.2）。
+
+### 19.1 一句话结论
+
+**继续 hold，但卡点首次收敛到单一判据。② 发版节奏首次满足；③ Node 区间**已于 2026-07-24 满足**
+（用户 `brew upgrade node` 25.6.1 → **26.5.0**，落在 8.1 接受区间 `>=25.9.0`（无上界），且 4.27-on-node26
+兼容已受控验证）；**唯一未满足的是判据 ①**——session-accessor refactor 子弧线确已在 8.1 收尾，但 SQLite
+状态迁移弧线不仅未收敛反而**扩面**（8.1 把团队凭据这类新状态搬进 SQLite）。同时本次新增两项此前评估没有的判断依据：🔴 **第四类风险「默认自主
+行为扩张」**（8.1 把 6 项自主行为设为默认开，其中 3 项直接踩我们已立案的血案机制）+ 🔴 **持有成本首次可量化**
+（外部插件生态已把 4.27 钉在旧版本上，weixin 插件落后 4 版 / 71 天）。**
+
+### 19.2 上游现状（2026-09-01 实证）
+
+- dist-tags：latest = **2026.8.1**（08-31）/ beta = 2026.9.1-beta.1（08-28）/ extended-stable = 2026.6.34（08-04）/ alpha = 2026.5.19-alpha.1。
+- **2026.7.2 从未发布 stable**：beta.1→beta.7 跑了 18 天（07-15 → 08-02）后被放弃，变更并入 8.1。第七次评估把它设为跟踪点，实际由 8.1 承接。
+- 4.27 → 8.1 **精确 26 个 minor stable**（其中 6.33/6.34 属 extended-stable 维护线，主线 minor = 24）；check_upgrade.sh 字典序粗略计数报 29/50，两口径均远低于 50 tripwire。
+- **4.27 仍未被 deprecate**（`npm view openclaw@2026.4.27 deprecated` 空），可安全停留；发布于 2026-04-29，至今 125 天。
+- engines.node：**8.1 与 7.1 逐字相同** = `>=22.22.3 <23 || >=24.15.0 <25 || >=25.9.0`（未再收紧）。
+
+### 19.3 三条收敛判据逐一核对
+
+| 判据 | 第七次（07-20）状态 | 第八次（09-01）实证 | 判定 |
+|------|-------------------|-------------------|------|
+| **① SQLite/session 弧线收敛**（连续 2 stable 无 session-store/SQLite 迁移 PR） | 7.1 密集 session-accessor refactor（#101178/#101179/#101180/#101688）+ SQLite state + legacy-state 迁移 = 未收敛 | **局部改善**：accessor refactor 家族在 8.1 changelog **完全消失**（该子弧线看似收尾）。**但主弧线扩面**：① 新状态入 SQLite——shared credential store 把团队 secret/env 搬进 SQLite（#121559/#121724/#126088）② session 历史迁移 #127241/#131527/#131276（"migrate long histories without exhausting the heap"）③ schema 迁移校验 #105583（"accepting supported additive-migration layouts"）④ WAL 数据损坏修复两条 #132844（split-brain cleanup 损坏 DB）/ #120597（virtiofs·9p 上 WAL 损坏）⑤ 启动期 doctor 迁移 #132135 ⑥ SQLite terminal session recovery（transcript mtime 入 agent DB + doctor import 保留 legacy mtime）⑦ restart sentinel 报 SQLite 读写与 legacy-file cleanup 失败 #106385。另有**两条新 breaking 迁移**：OpenProse 插件移除 #128494 + OpenAI route migration（codex/* → openai/*，**明文 touches stored sessions**） | ❌ **未满足**，「连续 2 stable 干净」计数仍为 0 |
+| **② 发版节奏 ≤1/周** | 6.11→7.1 间隔 13 天放缓，但同日两 patch = 混合信号，边界未稳定 | **首次明确满足**：7.1（07-13）→ 8.1（08-31）间隔 **49 天**，期间主线仅 2 个 patch（7.1-1/7.1-2，07-18）+ 维护线 2 个（6.33/6.34）。4 周窗口（08-04→08-31）= 2 stable ≈ **0.5/周**；7 周窗口（07-13→08-31）= 5 stable ≈ **0.71/周**。对比 6 月 7 stable ≈ 周更。且 7.2 攒进 8.1 而非小步 stable = 节奏收敛的结构性证据 | ✅ **满足**（首次） |
+| **③ Mac Mini node 落在接受区间** | 7.1 收紧为区间黑名单（根因 SQLite WAL 安全 #106065） | 两侧都已到位：**上游侧** 8.1 门槛未再收紧（engines 与 7.1 逐字相同）；**我方侧已于 2026-07-24 满足**——用户 `brew upgrade node` 25.6.1 → **26.5.0**，落在第三区间 `>=25.9.0`（无上界），同日 restart.sh 二次验证 4.27-on-node26 三服务健康 + gateway 200 | ✅ **满足**（升级窗口开时仍须按当时 stable 的 engines 重核一次，见 7.0 前置 A——上游有加区间黑名单先例） |
+
+### 19.4 🔴 新增第四类风险：默认自主行为扩张（前三次评估均不存在的维度）
+
+第六/七次评估聚焦「状态迁移 / breaking / node 门槛」三类。8.1 引入一个**性质不同的新风险**：它不只改变状态
+存储，还**改变 agent 的默认自主程度**——而其中 3 项恰好踩在我们已立案的血案机制上：
+
+| 8.1 默认变更 | 机制 | 对应我方血案 / 约束 |
+|---|---|---|
+| **Grounded dreaming 默认开**（#114819，model-backed 后台记忆整合 + Dream Diary） | 后台自发 LLM 调用，经 proxy→adapter→provider 链 | 🔴 `dream_quota_blast_radius_case.md`（V37.2：30+ LLM 调用 × 后端宕机 → Gemini 配额耗尽 → 跨 job 垃圾推送）。Gateway 一起来就开始后台消费，配额/成本非零 |
+| **Owner-directed ambient heartbeat 默认开**（#121988，ambient heartbeat 告警发 owner DM） | heartbeat 机制默认投递 | 🔴 `heartbeat_md_pa_self_silencing_case.md`（V37.8.16：HEARTBEAT.md 触发 heartbeat 机制 → PA 对所有消息回 HEARTBEAT_OK → 13h 完全静默） |
+| **Session reset default 变更**（#111140，无 reset policy 时跨闲置/跨天保留会话） | 会话生命周期假设变化 | 🔴 `pa_alert_contamination_case.md`（V37.4.3 告警经 sessions.json 污染对话上下文）+ 我方硬纪律「PA 行为变更后必须清空 session + 重启 Gateway + WhatsApp 实测」 |
+| **Automatic self-learning 默认开**（#115576，自动应用 scanner-approved 技能） | 自主变更自身能力面 | 与纲领反目标「enforcement 永久 human-approval」相悖，需显式关闭 |
+| **Skill Workshop approvals 默认无额外批准提示**（#107690，agent 自发 apply/reject/quarantine） | 同上 | 同上（`skills.workshop.approvalPolicy: "pending"` 可 opt-in 找回审批门） |
+| **Personal conversation recall 默认开**（#110597，Active Memory 开启时默认召回同 agent 私聊上下文） | 上下文注入面扩大 | 同 `pa_alert_contamination_case` 家族（上下文污染） |
+| **CPU-scaled foreground concurrency 8–16**（#114047） | 默认并发按 CPU 核数放大 | 我方链路假设：12 工具上限 / 200KB 请求体 / 单 adapter 单 proxy；Mac Mini 上默认 8–16 并发是新负载假设 |
+
+**性质与缓解**：每项都有显式 disable/opt-out，因此不是「不可升」，而是**升级 SOP 必须新增一个环节**——
+「默认行为审计与显式关闭清单」（7 项，见 7.0 前置 C），且必须在**首次启动前**完成（否则 Gateway 起来即开始后台 LLM 消费 +
+自动应用技能）。这条对我们的意义大于对普通用户：我们三个血案案例正好覆盖其中三项机制，等于上游把我们
+花了三次事故才关掉的东西默认打开了。
+
+### 19.5 🔴 持有成本首次可量化：外部插件生态版本锁
+
+前七次评估的持有成本一直是定性的（"版本差距复利"）。本次首次拿到**机器可验证的量化证据**：
+
+- **weixin 插件已把我们钉死**：`@tencent-weixin/openclaw-weixin` 的 `peerDependencies.openclaw` 在
+  **2.4.5（2026-06-22）** 从 `>=2026.3.22` 抬到 **`>=2026.5.12`**。我们的 4.27 < 5.12 → 可用上限停在
+  **2.4.4（2026-05-22）**。而 **2.4.8 于 2026-09-01（今天）发布** = 插件在活跃维护，我们**落后 4 个版本 / 71 天**，
+  且此后所有 weixin 修复都拿不到。诚实边界：peerDependencies 是声明不是硬阻断（npm 可 `--force`），
+  但维护者已声明与 <5.12 不兼容，强装属无支持路径。
+- **官方 channel 插件与 core 锁步**：`@openclaw/whatsapp@2026.8.1` 与 `@openclaw/discord@2026.8.1` 均声明
+  `peerDependencies: { openclaw: '>=2026.8.1' }`，且版本序列自 `2026.5.1-beta.1` 起**逐 core 版本发布**
+  （112 个版本）。含义两条：(a) M1 外部化之后 core 与 channel 插件必须**同版本移动**，不能单独 pin
+  → **方案 B（升到中间版本）比第六次评估时更不可取**；(b) 升级时 channel 插件版本由 core 版本决定，
+  升级失败回滚也要把插件一起回退。
+- tarball 目录实证 M1 仍成立：8.1 包内 whatsapp 相关文件仅剩 `dist/config-doctor/whatsapp.js`、
+  `control-ui/plugin-art/whatsapp.webp`、`doctor-whatsapp-responsiveness-*.js` 与 2 份 docs——**无插件实现**
+  （对比 4.27 的 77 个 whatsapp 文件），R1「升级须经 doctor/update 网络安装外部插件」的风险不变。
+
+### 19.6 收益侧新增（诚实登记，不改变结论）
+
+8.1 有几条对我们**直接**有利，登记以累积未来开窗时的收益侧：
+
+- 🔴 **`OPENCLAW_SUPERVISOR_MODE=external`**（#109162/#119846/#121069）：让外部 supervisor 拥有 Gateway
+  重启、服务生命周期与更新，**不与原生服务管理竞争**。这正对我们 launchd 单一管理者不变式
+  （V37.9.12.1 双管理血案 → V37.9.13 restart.sh 收编 `launchctl kickstart`）——上游首次提供官方的
+  「我不管进程，你管」开关。这是本次收益侧最有价值的一条。
+- **`openclaw backup sqlite`**（#105718）：create / list / verify / restore 紧凑的全局与 per-agent 数据库快照。
+  第六次评估登记过「`backup create` 对 SQLite 的覆盖语义未实证」——8.1 给了专门的快照+校验+恢复 CLI，
+  **升级前快照这一缓解手段实质增强**（但见下条的方向性限制）。
+- **Newer database state fence**（#132916/#133081）：安装版 Gateway 遇到**更新的 schema** 时停止 restart loop、
+  拒绝竞争性 shared-state schema 变更、用 unhealthy readiness 围栏隔离不兼容缓存状态。**部分缓解 M2**，
+  但**保护方向向前不向后**——回滚到 4.27 时，4.27 里没有这套 fence，所以「升级后回滚」的单向门性质不变。
+- **HTTP API failures**（#133275）：agent 失败与整体超时在 Chat Completions/Responses 里报 error，**包括已发出
+  部分内容的流**。与我们 fail-plausible 关切同源（部分流之后的失败不再被吞成成功）。
+- **Session settings 并发安全**（#124471）：不同进程并发写 settings 不再互相覆盖；读缺失 settings 无文件系统副作用。
+- WhatsApp：未匹配附件保留（#131672）、QR 登录与改账号动作限制在 owning operator（#129381）。
+- **诚实边界**：这些收益仍**不抵**判据 ① 未满足 + 19.4 新增的默认自主行为风险 + 19.5 的 M1 锁步约束。
+
+### 19.7 结论与建议：**继续 hold（判据 ② 首次满足，① 未满足，③ 待我方确认）**
+
+- **方案 A（推荐，不变）**：hold 4.27。判据核对 **❌✅✅** —— ②③ 均已满足，**卡点首次收敛到判据 ① 一条**。
+  但 ① 恰是三条里权重最高的（它直接决定回滚单向门的严重程度），且 8.1 **新增状态入 SQLite** 说明迁移弧线
+  在扩面而非收尾。**含义**：一旦 ① 满足（连续 2 个 stable 干净），升级窗口即可开——届时不再有其他判据阻挡，
+  只需走 7.0 的三项前置（A node 区间重核 / B 插件锁步 / C 默认行为审计）。
+- **下次跟踪点（更新）**：
+  1. **2026.9.1 stable 发布时核对判据 ①**（beta.1 已于 08-28 发布）。若 9.1 的 changelog **无** SQLite/session
+     迁移类 PR，则「连续 2 stable 干净」计数从 9.1 起步为 1，**仍需再一个干净 stable** 才满足。
+  2. **判据 ③ 已绿，无需再跟踪**（2026-07-24 node 26.5.0 落在 `>=25.9.0`）。仅在真正开升级窗口时，
+     按**当时** stable 的 `engines.node` 重核一次（7.0 前置 A）——上游有加区间黑名单的先例。
+  3. **新增跟踪项**：19.5 的持有成本是**单调递增**的——每次评估重新测一次 weixin 插件落后版本数/天数，
+     作为「继续 hold 的代价」的量化输入（本次基线：落后 4 版 / 71 天）。
+- **方案 B（中间版本）：本次证据下更不可取**——19.5 证明 core 与 channel 插件锁步发布，停在中间版本等于
+  同时锁死 core 与两个 channel 插件的版本，收益不全拿而成本全担。
+- **方案 C（若用户决定现升）**：在第六次评估 17.6 前置清单 + 第七次 node 区间确认之上，**新增第三项前置**——
+  **19.4 的默认行为审计清单**（7 项默认变更须在首次启动前显式关闭或确认可接受，落地为 7.0 前置 C），否则 Gateway 起来即
+  开始后台 LLM 消费与自动技能应用。
+
+**LAST_EVAL_DATE 更新至 2026-09-01**（第八次评估完成，重置时间 tripwire）。下次触发 = 任一 tripwire 跳红，
+或 2026.9.1 stable 发布时的判据 ① 跟踪。
+
+---

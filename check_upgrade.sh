@@ -27,11 +27,13 @@ else
 fi
 
 # ── 配置（升级后须更新 LAST_EVAL_DATE）──
-# 2026-07-20 第七次评估 (2026.7.1 stable 发布触发判据跟踪): 继续 hold, 判据全未满足——
-# ① SQLite/session 弧线 ❌ 未收敛 (7.1 仍 4+ session-accessor refactor) ② 节奏 🟡 部分改善
-# ③ Node 门槛 🔴 升为区间黑名单 (SQLite WAL 安全 #106065). 详见 eval doc 第十八节.
-# 背景 (第六次 2026-07-04): 4.27→6.11 三结构性迁移 M1 插件外部化/M2 SQLite 迁移/M3 Proxyline + 回滚单向门.
-LAST_EVAL_DATE="${OPENCLAW_LAST_EVAL_DATE:-2026-07-20}"  # V37.9.267: 第七次评估 (eval doc 第十八节)
+# 2026-09-01 第八次评估 (2026.8.1 stable 发布触发判据跟踪; 7.2 从未 stable 被 8.1 承接): 继续 hold——
+# ① SQLite/session 弧线 ❌ 仍未满足 (accessor refactor 子弧线收尾, 但新状态入 SQLite: shared credential
+#    store #121559 + session 历史迁移 #127241 + 两条新 breaking 迁移) ② 节奏 ✅ 首次满足 (49 天 1 minor)
+# ③ Node 门槛未再收紧 (与 7.1 逐字同) 但 Mac Mini 侧仍未确认. 新增两维: 默认自主行为扩张 (6 项默认开,
+#    3 项踩已立案血案) + 持有成本量化 (weixin 插件 peer floor 已钉死 4.27, 落后 4 版/71 天).
+# 详见 eval doc 第十九节. 背景 (第六次): 三结构性迁移 M1/M2/M3 + 回滚单向门.
+LAST_EVAL_DATE="${OPENCLAW_LAST_EVAL_DATE:-2026-09-01}"  # V37.9.336: 第八次评估 (eval doc 第十九节)
 TIME_TRIPWIRE_DAYS="${OPENCLAW_TIME_TRIPWIRE_DAYS:-180}"
 VERSION_GAP_TRIPWIRE="${OPENCLAW_VERSION_GAP_TRIPWIRE:-50}"
 CVE_FILE="${OPENCLAW_CVE_ALERT_FILE:-$HOME/.openclaw_cve_alert}"
