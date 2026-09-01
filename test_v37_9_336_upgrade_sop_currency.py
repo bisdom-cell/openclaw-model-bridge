@@ -223,6 +223,92 @@ class TestDocHeadSingleSourceOfTruth(unittest.TestCase):
         self.assertIn("第十九节", s8, "第八节须指向最新评估结论")
 
 
+class TestCriterion1CheckProtocol(unittest.TestCase):
+    """19.8 判据 ① 核对协议守卫（同日追加）。
+
+    血案：对 2026.9.1-beta.1 做提前读数时，`sqlite`/`migrat` 计数全为 0——
+    读起来像「上游终于收敛了」，实际是 changelog 内容还没写
+    （1,520 条无描述的裸 PR 行 + 仅 17 条叙述；对比 8.1 = 506、7.1 = 1719）。
+    这个假绿的误判方向是最贵的那个：会让判据 ① 连续计数错误 +1 → 提前开升级窗口。
+    同族 V37.9.288「搜索坏了 ≠ 没搜到」/ V37.9.310 / V37.9.322。
+
+    设计协议时还有第二次自我证伪：最初想「只扫叙述段」，被 7.1 否决——
+    它的 session-accessor 证据（#101178/#101179）住在 Complete contribution record
+    段且带描述（叙述段只有 sqlite=2/migrat=3，全文 12/15）。故协议固定两条：
+    整份扫描 + 内容门槛按「叙述条目 + 带描述 PR 条目」计。
+
+    本守卫钉住这两条，防止未来有人把协议简化回裸 grep。
+    """
+
+    def setUp(self):
+        self.doc = _read()
+        self.sec = _slice(self.doc, "### 19.8", "\n---\n")
+        blocks = _bash_blocks(self.sec)
+        self.assertEqual(1, len(blocks), "19.8 应恰有 1 个协议命令块")
+        self.block = blocks[0]
+
+    def test_section_exists_and_records_na_not_clean(self):
+        """beta.1 读数必须记为『不可判』，绝不能被记成『干净』。"""
+        self.assertIn("N/A_NO_CONTENT", self.sec)
+        self.assertIn("不可判", self.sec)
+        self.assertNotIn("beta.1 干净", self.sec)
+
+    def test_protocol_python_compiles(self):
+        """协议里的内嵌 python 必须真能编译（防转义在入文档时被破坏）。"""
+        m = re.search(r"<<'PYCHK'\n(.*?)\nPYCHK", self.block, re.S)
+        self.assertIsNotNone(m, "协议块未找到 PYCHK heredoc")
+        compile(m.group(1), "<protocol>", "exec")
+
+    def test_anti_vacuous_gate_present(self):
+        """防空转门槛：内容不足必须判不可判并以退出码 3 区分。"""
+        self.assertIn("semantic < 100", self.block,
+                      "协议缺内容门槛——0 计数会被误读为干净")
+        self.assertIn("N/A_NO_CONTENT", self.block)
+        self.assertIn("sys.exit(3)", self.block,
+                      "不可判必须有独立退出码，不能与 CLEAN(0)/DIRTY(2) 混同")
+
+    def test_scan_is_whole_file_not_narrative_only(self):
+        """扫描范围必须是整份 changelog（7.1 的证据在 contribution record 段）。"""
+        line = [l for l in self.block.splitlines() if l.startswith("hits = re.findall(")]
+        self.assertEqual(1, len(line), "协议未找到迁移关键词扫描行")
+        m = re.search(r",\s*(\w+)\)\s*$", line[0])
+        self.assertIsNotNone(m, f"扫描行末尾解析失败: {line[0][-60:]}")
+        self.assertEqual("cl", m.group(1),
+                         "迁移关键词必须扫整份 changelog(cl)，只扫叙述段会漏掉 "
+                         "7.1 的 session-accessor 证据")
+
+    def test_described_pr_excludes_bare_entries(self):
+        """裸 PR 行与仅 Thanks/Related 的条目不得计入内容量。"""
+        for kw in ("Thanks", "Related", "Fixes", "Closes"):
+            self.assertIn(kw, self.block,
+                          f"内容量统计须排除仅 {kw} 的无语义条目")
+        self.assertIn("bare_pr", self.block, "协议须显式报出裸 PR 行数供人核对")
+
+    def test_threshold_backed_by_three_measurements(self):
+        """门槛 100 必须有实测数据支撑（原则 #36-4：数字要对账）。"""
+        for n in ("506", "1719", "17"):
+            self.assertIn(n, self.sec,
+                          f"19.8 缺实测数据点 {n}（7.1/8.1/beta.1 三点）")
+        self.assertIn("诚实边界", self.sec, "门槛只有 3 个数据点，须登记不确定性")
+
+    def test_npm_noise_suppressed(self):
+        """协议是贴给人跑的：npm notice 走 stderr，须一并抑制。"""
+        self.assertIn("npm pack", self.block)
+        self.assertRegex(self.block, r"npm pack [^\n]*>/dev/null 2>&1",
+                         "npm pack 需 2>&1，否则 11k 行 notice 淹没结论")
+
+    def test_protocol_block_has_no_comment_lines(self):
+        """原则 #35 同样适用于 19.8 的可执行块。"""
+        offenders = [l.strip()[:60] for l in self.block.splitlines()
+                     if l.lstrip().startswith("#")]
+        self.assertEqual([], offenders, f"19.8 命令块含注释行：{offenders}")
+
+    def test_tracking_point_routes_through_protocol(self):
+        """19.7 的下次跟踪点必须指向本协议，而不是裸 grep。"""
+        s197 = _slice(self.doc, "### 19.7", "### 19.8")
+        self.assertIn("19.8", s197, "跟踪点未指向核对协议")
+
+
 class TestEighthEvaluationPresent(unittest.TestCase):
     """第八次评估自身的落地守卫。"""
 

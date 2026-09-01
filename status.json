@@ -1,6 +1,6 @@
 {
-  "updated": "2026-09-01 06:48:16",
-  "updated_by": "security_score",
+  "updated": "2026-09-01 14:14:17",
+  "updated_by": "full_regression",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-09-01",
+      "what": "V37.9.336 追加 19.8: 判据①对 2026.9.1-beta.1 提前读数=不可判(N/A)非干净(0 计数是内容未写: 1520 裸 PR 行 vs 8.1=506/7.1=1719 语义条目) + 核对协议固化(整份扫描+内容门槛 rc=3 不可判, 防最贵方向假绿) + 守卫 19→28 sabotage 四连开火",
+      "by": "claude_code"
+    },
     {
       "date": "2026-09-01",
       "what": "V37.9.336 同版修真接缝: 升级 SOP 第七节是 2026-04 时点快照(目标版本 4.2/回滚硬编码 3.13-1/「30 秒无损」承诺/缺三项累积前置/命令块违反原则#35) → 收敛为现时清单 + 7.5 改为消费 7.1 既有产出 + 19 单测跨节契约守卫(sabotage 六连开火)",
@@ -173,11 +178,6 @@
       "date": "2026-08-23",
       "what": "V37.9.326 Dream 素材「4月钉死」血案修（用户报告驱动: 梦境结论几乎只引用 2026-04 观点/数据）: 三层叠加偏置 grounded 确认 — (1) sources Map 输入取归档头 15K, 而归档是 append-to-end 编年体 → 头 15K = 永远的建库初期(4月)条目且每晚 cache miss 重复对同一头部烧 14 次 LLM (2) Reduce cache-load 按文件名升序遍历笔记 → 信号块最老在前 (3) 全局 30K 保头截断 → 5-8 月内容全部在窗口外。佐证: 降级采样分支自己写着[起源/历史/最新]三段采样 = 写降级分支的人知道要时间多样性, 每晚真跑的主路径反而没有; V37.9.68 Qwen-BIM 数周重复血案与窗口钉死结构一致(ban-list 治症状, 本版治病)。修: sources 改尾部窗口 utf8_tail_truncate + prompt_hash v4 / 笔记改 month_round_robin 月份轮转序(FAIL-OPEN 回退原序) / 每部分预算 sources≤14K notes≤13K + 降级分支对称 17K。22 守卫 + sabotage 六连全开火(含探针自纠: 首版 FAIL-OPEN 探针没隔离 cwd 致 import 恒成功=空转)。VERSION 0.37.9.155→0.37.9.156",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-08-23",
-      "what": "V37.9.325 补验: 提交后在干净树上单独复跑对抗性混沌审计 Category A → 10/10 全抓, sabotage 全部还原树干净。三次收工回归中混沌层均因编辑期脏树被 V37.9.140 #27 护栏条件跳过(按设计工作), 故补这一轮拿到改动之后的真实防御率证据, 而非只依赖开工基线。",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -226,7 +226,7 @@
     "security_score": "98/100 (98.0%)",
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB",
     "slo": {
-      "checked_at": "2026-09-01 06:40:26",
+      "checked_at": "2026-09-01 14:12:11",
       "all_ok": true,
       "judged_count": 1,
       "na_count": 4,
@@ -283,7 +283,7 @@
       "低优观察 (登记不修, 日落法 #8): auto_deploy FILE_MAP 同步用 cp 非原子写 → 脚本在同步窗口内被并发执行会读半截文件 (2026-07-02 11:41 governance_audit_cron.sh 同步 #781 时被手动跑 → line 85 $() 截断 = 'syntax error near governance' 瞬态, 重跑即好 bash -n 过+diff 同步)。极低频(同步写×并发执行精确重叠)+自愈+非代码 bug。若未来 07:00 cron 与 auto_deploy 同步真撞上(复现) 才值得让 auto_deploy 改原子写 temp+mv。当前不投机加复杂度。",
       "【2026-07-03 observer/治理/watchdog triage · findings 全部闭环 (V37.9.232-235/240) · 剩被动观察】(a) ✅ V37.9.247 兑现: 07-05 07:00 第二次再现 (07-03见/07-04干净/07-05再现=间歇负载) → 按预注册 V37.9.214 模式硬化两 runtime check (timeout 120→240 + TimeoutExpired→inconclusive+门控)。剩 Mac Mini 被动观察: 下次 07:00 不再 💥 + watchdog 治理 CORE 告警消失 (b) freight last_run 应已 07-03 14:00 自愈转 ok (仍 llm_failed=新问题贴我) (c) 修复生效信号: dblp 推送无「推测采用XX模型」类字眼 (V37.9.234) / last_run_deep_dive.json 见 banned_recent + 一周后 full-text 比例回升 (V37.9.233) / observer 报告 arxiv 截断 finding 消失 (V37.9.235) + dream 远期信号带「长期背景」标注 (V37.9.235) / observer deep_dive_repeat 告警仅违规时出现 (V37.9.240)。",
       "V37.9.236 follow-up: (a) Mac Mini 观察 alerts.log 不再新增 FATAL line=101 (下次告警推送撞冷调用即验证) (b) scanner 第8 pattern 候选诚实登记不现建 — sourced-lib $() 设计性可失败命令需跨文件 source-graph 分析=新机器, 11个 targeted 守卫已封死唯一日常失败站点(日落法); 若未来再有 sourced-lib 假 FATAL 实例再评估",
-      "【OpenClaw 升级判据跟踪 · 第八次评估 (2026-09-01, V37.9.336) · 结论=继续 hold · 🔴 卡点首次收敛到判据 ① 一条】判据核对 ❌✅✅: ① SQLite/session 弧线 ❌ 仍未满足 — session-accessor refactor 子弧线在 8.1 已收尾, 但主弧线扩面 (新状态入 SQLite: shared credential store #121559/#121724/#126088; session 历史迁移 #127241/#131527/#131276; schema 迁移校验 #105583; WAL 损坏修复 #132844/#120597; 启动期 doctor 迁移 #132135) + 两条新 breaking 迁移 (OpenProse 移除 #128494 / OpenAI route migration 明文 touches stored sessions) → 「连续 2 stable 干净」计数仍为 0。② 发版节奏 ✅ 首次满足 (7.1→8.1 间隔 49 天仅 1 minor; 4 周窗口 ≈0.5/周, 对比 6 月 7 stable 周更; 7.2 走完 beta.1→beta.7 后被放弃并入 8.1)。③ Node 区间 ✅ 已满足 (2026-07-24 node 25.6.1→26.5.0 落在 >=25.9.0 无上界; 上游 8.1 engines 与 7.1 逐字相同未再收紧)。🔴 新增两维: (a) 第四类风险「默认自主行为扩张」— 8.1 有 7 项默认变更, 其中 3 项踩已立案血案 (Grounded dreaming #114819→dream_quota / ambient heartbeat #121988→heartbeat_self_silencing / session reset default #111140→pa_alert_contamination), 已落地为 SOP 7.0 前置 C 可勾选清单, 须在首次启动前完成 (b) 持有成本首次可量化 — weixin 插件 peer floor 2.4.5(06-22) 抬到 >=2026.5.12, 4.27 被钉死在 2.4.4, 而 2.4.8 于 09-01 发布 = 落后 4 版/71 天; 官方 channel 插件与 core 锁步 (peer >=同版本, 逐 core 版本发布) → 方案 B 中间版本更不可取。收益侧新增: OPENCLAW_SUPERVISOR_MODE=external #109162 (正对 launchd 单一管理者不变式) / openclaw backup sqlite #105718 / newer-db-state fence #132916 (部分缓解 M2 但保护方向向前不向后) / HTTP API 部分流后失败诚实报 error #133275。🔴 下次跟踪 = 2026.9.1 stable (beta.1 已 08-28) 判据 ① 核对; ① 一满足即可开窗, 届时只需走 SOP 7.0 三项前置 (A node 区间按当时 engines 重核 / B 插件锁步 / C 7 项默认行为审计)。LAST_EVAL_DATE=2026-09-01。详见 eval doc 第十九节 + 第七节 SOP (V37.9.336 已从 2026-04 时点快照收敛为现时清单)。",
+      "【OpenClaw 升级判据跟踪 · 第八次评估 (2026-09-01, V37.9.336) · 结论=继续 hold · 🔴 卡点首次收敛到判据 ① 一条】判据核对 ❌✅✅: ① SQLite/session 弧线 ❌ 仍未满足 — session-accessor refactor 子弧线在 8.1 已收尾, 但主弧线扩面 (新状态入 SQLite: shared credential store #121559/#121724/#126088; session 历史迁移 #127241/#131527/#131276; schema 迁移校验 #105583; WAL 损坏修复 #132844/#120597; 启动期 doctor 迁移 #132135) + 两条新 breaking 迁移 (OpenProse 移除 #128494 / OpenAI route migration 明文 touches stored sessions) → 「连续 2 stable 干净」计数仍为 0。② 发版节奏 ✅ 首次满足 (7.1→8.1 间隔 49 天仅 1 minor; 4 周窗口 ≈0.5/周, 对比 6 月 7 stable 周更; 7.2 走完 beta.1→beta.7 后被放弃并入 8.1)。③ Node 区间 ✅ 已满足 (2026-07-24 node 25.6.1→26.5.0 落在 >=25.9.0 无上界; 上游 8.1 engines 与 7.1 逐字相同未再收紧)。🔴 新增两维: (a) 第四类风险「默认自主行为扩张」— 8.1 有 7 项默认变更, 其中 3 项踩已立案血案 (Grounded dreaming #114819→dream_quota / ambient heartbeat #121988→heartbeat_self_silencing / session reset default #111140→pa_alert_contamination), 已落地为 SOP 7.0 前置 C 可勾选清单, 须在首次启动前完成 (b) 持有成本首次可量化 — weixin 插件 peer floor 2.4.5(06-22) 抬到 >=2026.5.12, 4.27 被钉死在 2.4.4, 而 2.4.8 于 09-01 发布 = 落后 4 版/71 天; 官方 channel 插件与 core 锁步 (peer >=同版本, 逐 core 版本发布) → 方案 B 中间版本更不可取。收益侧新增: OPENCLAW_SUPERVISOR_MODE=external #109162 (正对 launchd 单一管理者不变式) / openclaw backup sqlite #105718 / newer-db-state fence #132916 (部分缓解 M2 但保护方向向前不向后) / HTTP API 部分流后失败诚实报 error #133275。🔴 提前读数已做 (V37.9.336 同日, eval doc 19.8): 2026.9.1-beta.1 = **不可判(N/A) 非干净** — sqlite/migrat 计数 0 是内容未写 (1520 条无描述裸 PR 行 + 仅 17 条叙述; 对比 8.1=506 / 7.1=1719 语义条目), 典型假绿且误判方向最贵。核对协议已固化在 19.8 (整份扫描 + 内容门槛 <100 判 rc=3 不可判; 实测 8.1→rc=2 DIRTY / beta.1→rc=3), **下次 9.1 stable 出来必须走该协议不要裸 grep**;  ① 一满足即可开窗, 届时只需走 SOP 7.0 三项前置 (A node 区间按当时 engines 重核 / B 插件锁步 / C 7 项默认行为审计)。LAST_EVAL_DATE=2026-09-01。详见 eval doc 第十九节 + 第七节 SOP (V37.9.336 已从 2026-04 时点快照收敛为现时清单)。",
       "【2026-07-08 长 session Mac Mini 被动验证】同步后观察: (a) V37.9.260 ban-list 边界: 次日 deep_dive/dream 恰-14-天前论文/主题正确被 ban + observer deep_dive_repeat 恰-14-天误报消失 (b) V37.9.261 observer 降级桶: 次日 06:30 报告降级段自区分「无 OA 全文(结构性)」vs「PDF 抓取错误(HTTP/超时)」 (c) V37.9.263 OpenAlex 已回退 S2-only, deep_dive 闭源论文降级 abstract_only 正确。deep_dive 降级结论=接受现实(残余=真闭源 ACM/Elsevier 无 OA + 发布方反爬 MDPI/ScienceDirect 403, OA 解析器打不穿, 实测 0/7)。一周后可选复核 grep 抓取降级原因确认 ban-list 去重复后降级率下降(非 OpenAlex)。",
       "deep_dive OA 全文解析 follow-up (V37.9.183/184) — (1) ✅ 已闭合(V37.9.261/263): Mac Mini grep 实证降级主体=结构性付费墙(no PDF URL derivable, ACM/Elsevier 无 OA 版)非 fetch-path bug, ban-list(V37.9.260)是真杠杆; V37.9.262 OpenAlex 第二源 Mac Mini 实测 0/7 恢复且净负→V37.9.263 回退; 降级率下降 thesis 被证伪, 残余=接受现实(不爬付费墙). (2) 历史 KB 条目仍 PII link(仅新论文受益, V37.9.132 局限, 不补). (3) ✅ V37.9.186: pwc 死路径退役 + TIER↔registry drift 守卫.",
       "【H1-C / C2 (Q4, gated) · C1 选型已完成 V37.9.253】第二实例最小闭环真跑 = 非 Mac Linux host 上 E2E 绿: minimal_runtime + governance cron + 1-2 内容 job(arxiv/dblp) 真抓取→LLM→Discord + cron+nohup 重启存活。选型=PUSH-only 纯推送(绕 Gateway/WhatsApp/sessions), 见 docs/second_instance_poc_selection_20260707.md §5 验收标准。C2 前置(§3, 均可枚举无未知): 持久 Linux host(VPS/容器) + 可达 LLM 端点(REMOTE_BASE_URL) + Discord bot token/channel(DISCORD_CH_*) + 唯一真需新建=Linux bootstrap 脚本(装 py 依赖+起 adapter/proxy nohup+写 crontab, 并行 install_openclaw_macmini.sh)。C3=portability report EN/ZH 证据型文章(对两次评审可迁移性批评终局回答)。",
@@ -329,12 +329,12 @@
     ],
     "open_prs": [],
     "blocked_on": "",
-    "focus": "2026-09-01 收工: V37.9.336 OpenClaw 第八次升级评估(2026.8.1 stable 触发判据跟踪; 原跟踪点 7.2 从未 stable 被 8.1 承接) = 继续 hold 但卡点首次收敛到判据①一条(②发版节奏首次满足 / ③node 区间 2026-07-24 已满足); 新增两维=默认自主行为扩张风险(7 项, 3 项踩已立案血案) + 持有成本可量化(weixin 落后 4 版/71 天)。同版修真接缝: 升级 SOP 第七节 2026-04 时点快照(硬编码回滚到 3.13-1/「30 秒无损」/缺三项前置/命令块违反#35) → 现时清单 + 跨节契约守卫 19 单测。本版无需 Mac Mini 动作(纯 doc+监控日期, 零重启)。下次跟踪=2026.9.1 stable 判据①核对。"
+    "focus": "2026-09-01 收工(二): V37.9.336 第八次评估 + SOP 时点快照修复 + 19.8 判据①提前读数与核对协议。判据 ❌✅✅ 卡点只剩①; 对 9.1-beta.1 提前读数=不可判(N/A)非干净——0 计数是 changelog 内容未写(1520 裸 PR 行 vs 8.1=506/7.1=1719), 是最贵方向的假绿(误判会让①计数错误+1 提前开窗)。协议已固化 eval doc 19.8(整份扫描+内容门槛<100 判 rc=3; 设计中被 7.1 二次证伪: session-accessor 证据住在 contribution record 段带描述, 只扫叙述段会漏)。守卫 28 单测, sabotage 十连全开火。本版无需 Mac Mini 动作。下次 9.1 stable 走 19.8 协议核对。"
   },
   "quality": {
     "security_score": 98,
-    "test_count": 6349,
-    "last_regression": "2026-09-01 06:41 pass",
+    "test_count": 6358,
+    "last_regression": "2026-09-01 14:13 pass",
     "coverage_pct": 0,
     "security_score_time": "2026-07-20 01:07",
     "test_suites": 191,
