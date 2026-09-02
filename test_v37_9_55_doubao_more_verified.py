@@ -90,8 +90,8 @@ class TestVerifiedFeaturesV9_55Complete(unittest.TestCase):
         # → V37.9.341 doubao-2.1 空集 → V37.9.342 ai-tokenhub E2E tool_calling+reasoning
         features = self.d.capabilities.verified_features()
         self.assertEqual(
-            set(features), {"tool_calling", "reasoning"},
-            f"V37.9.342 应为 tool_calling+reasoning, got {features}",
+            set(features), {"text", "tool_calling", "reasoning"},
+            f"V37.9.343 应为 text+tool_calling+reasoning, got {features}",
         )
 
 
@@ -111,8 +111,8 @@ class TestCapScoreV9_55(unittest.TestCase):
         # 史: V37.9.55 曾 16 → V37.9.290 重置 6 → V37.9.291 10 → V37.9.339 Kimi 3 →
         # V37.9.341 doubao-2.1 声明 6 → V37.9.342 E2E flip 2 项 = 10
         self.assertEqual(
-            score, 10,
-            f"V37.9.342 doubao-2.1 半升档 cap_score 锁定 10, got {score}",
+            score, 12,
+            f"V37.9.343 doubao-2.1 三项 verified cap_score 锁定 12, got {score}",
         )
 
     def test_doubao_cap_score_below_qwen_after_reset_v290(self):

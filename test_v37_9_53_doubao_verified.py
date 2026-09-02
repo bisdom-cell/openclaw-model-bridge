@@ -82,12 +82,13 @@ class TestDoubaoVerifiedFlagsV9_53(unittest.TestCase):
         self.providers = _reload_providers()
         self.d = self.providers.get_registry().get("doubao")
 
-    def test_verified_text_reset_v339(self):
-        """史: V37.9.53 Ark 实测 → V37.9.290 平台切换重置 → V37.9.291 tokenhub 复测 True
-        → V37.9.339 槽位换模型 Kimi K3 (不同厂商), 证据不迁移 → 重置 False 待复测."""
-        self.assertFalse(
+    def test_verified_text_reverified_v343(self):
+        """史: V37.9.53 Ark 实测 → V37.9.290 重置 → V37.9.291 复测 → V37.9.339 换 Kimi 重置
+        → V37.9.341 更正 doubao-2.1 → V37.9.343 纯文本探针 (content 4 字符 + finish_reason=stop)
+        → flip True。🔴 V37.9.342 那轮带 tools 的探针不算 text 验证 (content 为空)。"""
+        self.assertTrue(
             self.d.capabilities.verified_text,
-            "V37.9.339 换模型后 verified_text 必须重置 False 待 Kimi K3 复测",
+            "V37.9.343 纯文本探针已达标 (有 content + finish_reason=stop)",
         )
 
     def test_reasoning_is_true(self):
@@ -149,8 +150,8 @@ class TestDoubaoCapScoreRanking(unittest.TestCase):
         # V37.9.341 更正 doubao-2.1 声明 6 → V37.9.342 E2E flip tool_calling+reasoning
         # (6 base + 2 verified*2) = 10
         self.assertEqual(
-            score, 10,
-            f"V37.9.342 doubao-2.1 半升档 cap_score 锁定 10, got {score}",
+            score, 12,
+            f"V37.9.343 doubao-2.1 三项 verified cap_score 锁定 12, got {score}",
         )
 
     def test_gemini_cap_score_unchanged(self):
@@ -172,9 +173,9 @@ class TestVerifiedFeaturesIncludesReasoning(unittest.TestCase):
         d = self.providers.get_provider("doubao")
         features = d.capabilities.verified_features()
         self.assertIn("reasoning", features, "V37.9.342 ai-tokenhub E2E 已测 reasoning")
-        # 🔴 text 仍不在: 该轮探针带 tools → content 空 + finish_reason=tool_calls,
-        # 够不着本项目 verified_text 的证据标准 (原则 #23, 待纯文本探针补齐)
-        self.assertNotIn("text", features, "带 tools 的探针不构成 text 验证")
+        # V37.9.343: 纯文本探针补齐 text (V37.9.342 那轮带 tools → content 空不算数,
+        # 本项目标准是「有 content + finish_reason=stop」— durable lesson 见 plugin docstring)
+        self.assertIn("text", features, "V37.9.343 纯文本探针已补齐 text")
 
     def test_doubao_verified_features_exact_v342(self):
         d = self.providers.get_provider("doubao")
@@ -182,8 +183,8 @@ class TestVerifiedFeaturesIncludesReasoning(unittest.TestCase):
         # 史: V37.9.55 五项 (Ark) → V37.9.290 重置空集 → V37.9.291 半升档 → V37.9.339 换模型空集
         # → V37.9.341 doubao-2.1 空集 → V37.9.342 ai-tokenhub E2E tool_calling+reasoning
         self.assertEqual(
-            set(features), {"tool_calling", "reasoning"},
-            f"V37.9.342 应为 tool_calling+reasoning, got {features}",
+            set(features), {"text", "tool_calling", "reasoning"},
+            f"V37.9.343 应为 text+tool_calling+reasoning, got {features}",
         )
 
     def test_other_providers_no_reasoning_in_verified(self):
@@ -273,14 +274,14 @@ class TestSourceLevelGuardsV9_53(unittest.TestCase):
         body = match.group(0)
         self.assertIn('features.append("reasoning")', body)
 
-    def test_doubao_plugin_verified_text_reset_v339(self):
-        """V37.9.290 重置 → V37.9.291 复测 True → V37.9.339 槽位换 Kimi K3 重置 False."""
+    def test_doubao_plugin_verified_text_true_v343(self):
+        """V37.9.339 换模型重置 → V37.9.341 更正 → V37.9.343 纯文本探针达标 flip True."""
         self.assertRegex(
             self.plugin_src,
-            r"verified_text\s*=\s*False",
-            "V37.9.339 doubao_provider.py 必须 verified_text=False (换模型待复测)",
+            r"verified_text\s*=\s*True",
+            "V37.9.343 doubao_provider.py 必须 verified_text=True (纯文本探针达标)",
         )
-        self.assertIn("V37.9.339", self.plugin_src)
+        self.assertIn("V37.9.343", self.plugin_src)
 
     def test_doubao_plugin_reasoning_true(self):
         # 史: V37.9.53 reasoning=True → V37.9.339 Kimi K3 不声明 → V37.9.341 更正回 True
