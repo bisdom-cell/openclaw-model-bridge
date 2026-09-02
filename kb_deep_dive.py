@@ -95,9 +95,18 @@ TOPIC_WEIGHTS = {
     "mixture of experts": 5, "moe": 4, "speculative decoding": 6,
     # RAG / memory
     "rag": 5, "retrieval augmented": 6, "long context": 5, "memory": 4,
-    # governance / eval / reliability
-    "governance": 8, "evaluation": 5, "benchmark": 4, "reliability": 6,
+    # governance / eval / reliability (V37.9.348: 纲领 T2/T8 + 宪法级 #1 加权)
+    "governance": 8, "evaluation": 7, "benchmark": 4, "reliability": 9,
     "safety": 4, "alignment": 4,
+    "llm-as-a-judge": 9, "llm as a judge": 9, "llm judge": 8,
+    "observability": 8, "silent failure": 10, "fail-plausible": 10,
+    "hallucination": 7, "agent evaluation": 8, "evals": 6, "guardrail": 7,
+    "prompt injection": 6,
+    # tool protocol / reasoning control (V37.9.348: 纲领 T3/T5)
+    "model context protocol": 8, "mcp": 6, "reasoning model": 6,
+    "thinking budget": 7, "test-time": 5,
+    # agent memory / context (V37.9.348: 纲领 T6 + 原则 #12)
+    "agent memory": 7, "context engineering": 7,
     # control plane / orchestration（本项目核心叙事）
     "control plane": 10, "orchestration": 5,
 }

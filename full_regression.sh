@@ -156,6 +156,7 @@ run_suite "gen_readme_badges (V37.9.99 README 徽章自动生成/漂移守卫 �
 run_suite "gen_compat_matrix (V37.9.143 compatibility_matrix 漂移防护 — 外部评审2 P0)" "python3 test_gen_compat_matrix.py"
 run_suite "v37_9_52_doubao_provider (V37.9.52 第 8 个 provider 槽位 — V37.9.345 起 doubao_21_tokenhub = Doubao 2.1 @ ai-tokenhub + module 重入 bug fix)" "python3 test_v37_9_52_doubao_provider.py"
 run_suite "v37_9_345_kimi_k3_and_rename (V37.9.345 第 13 个 provider Kimi K3 + doubao 槽位改名退役命名债 + api_key_env 厂商一致性扫描)" "python3 test_v37_9_345_kimi_k3_and_rename.py"
+run_suite "v37_9_348_source_refresh (V37.9.348 信息源刷新 — 对齐本体/论文关键词/arxiv 查询/github 主题/深读权重/rss feed 对齐纲领 T2-T8 + 宪法级 #1, 零新 job)" "python3 test_v37_9_348_source_refresh.py"
 run_suite "v37_9_53_doubao_verified (V37.9.53 flip verified_text + reasoning capability + fallback chain 排名前移)" "python3 test_v37_9_53_doubao_verified.py"
 run_suite "v37_9_54_abc (V37.9.54 ABC: restart.sh marker-based plist reload + verified_vision + INV-PLIST-ENV-001)" "python3 test_v37_9_54_abc.py"
 run_suite "v37_9_55_doubao_more_verified (V37.9.55 flip verified_tool_calling + verified_streaming, cap_score 12→16 超 Qwen3 14)" "python3 test_v37_9_55_doubao_more_verified.py"

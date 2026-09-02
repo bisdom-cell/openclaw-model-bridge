@@ -135,7 +135,7 @@ jobs:
     tier: auxiliary                   # 补充信息源
     kb_source_file: rss_blogs.md
     kb_source_label: 📖 RSS 技术博客
-    description: RSS 博客订阅监控（科学空间等，高质量中文技术博客）
+    description: RSS 博客订阅监控（科学空间/Lil'Log/Simon Willison/Latent Space + V37.9.348 MCP 官方博客/Hamel Husain/Chip Huyen，中英高质量技术博客）
 
   - id: ai_leaders_blogs
     scheduler: system

@@ -54,7 +54,11 @@ LLM_RAW="$CACHE/llm_raw_last.txt"
 MAX_PAPERS=10
 MAX_AGE_DAYS=14
 
-ARXIV_URL="https://export.arxiv.org/api/query?search_query=ti:LLM+OR+ti:%22Large+Language+Model%22+OR+ti:%22AI+Agent%22+OR+ti:RAG+OR+ti:RLHF+OR+ti:Multimodal+OR+ti:DeepSeek+OR+ti:Gemini+OR+ti:ChatGPT+OR+ti:GPT-4+OR+ti:GPT-5+OR+ti:Claude+OR+ti:Llama+OR+ti:Mistral+OR+ti:Qwen+OR+ti:Ontology+OR+ti:%22Knowledge+Graph%22+OR+ti:%22Neuro-Symbolic%22+OR+ti:%22Knowledge+Representation%22+OR+ti:%22Symbolic+AI%22&sortBy=submittedDate&sortOrder=descending&max_results=50"
+# V37.9.348 信息源刷新: 退役陈旧品牌词 (ChatGPT/GPT-4, 两代前), 加纲领 T2/T3/T5/T6/T8 +
+# 宪法级 #1 方法词 (Agentic/Tool Use/Function Calling/LLM-as-a-Judge/Hallucination/Guardrail/
+# Model Context Protocol/Agent Memory/Prompt Injection/Test-Time Scaling); ontology 族原样保留。
+# 候选池 50→80 (OR 面变宽后最新 50 条覆盖不到半天; 分析仍由 MAX_PAPERS=10 封顶, 只涨 XML 体积)。
+ARXIV_URL="https://export.arxiv.org/api/query?search_query=ti:LLM+OR+ti:%22Large+Language+Model%22+OR+ti:%22AI+Agent%22+OR+ti:%22LLM+Agent%22+OR+ti:Agentic+OR+ti:%22Tool+Use%22+OR+ti:%22Tool+Learning%22+OR+ti:%22Function+Calling%22+OR+ti:%22LLM-as-a-Judge%22+OR+ti:Hallucination+OR+ti:Guardrail+OR+ti:%22Model+Context+Protocol%22+OR+ti:%22Agent+Memory%22+OR+ti:%22Prompt+Injection%22+OR+ti:%22Test-Time+Scaling%22+OR+ti:%22Test-Time+Compute%22+OR+ti:RAG+OR+ti:RLHF+OR+ti:Multimodal+OR+ti:DeepSeek+OR+ti:Gemini+OR+ti:GPT-5+OR+ti:Claude+OR+ti:Llama+OR+ti:Mistral+OR+ti:Qwen+OR+ti:Kimi+OR+ti:Ontology+OR+ti:%22Knowledge+Graph%22+OR+ti:%22Neuro-Symbolic%22+OR+ti:%22Knowledge+Representation%22+OR+ti:%22Symbolic+AI%22&sortBy=submittedDate&sortOrder=descending&max_results=80"
 
 TS="$(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date '+%Y-%m-%d %H:%M:%S')"
 STATUS_FILE="$CACHE/last_run.json"

@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-02 07:38:54",
+  "updated": "2026-09-02 09:01:19",
   "updated_by": "full_regression",
   "priorities": [
     {
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-09-02",
+      "what": "V37.9.348 信息源刷新：project_concepts.yaml 4 个月未更新补宪法级 #1 llm_observer 方向 + 纲领 T2/T3/T5/T6/T8 关键词；arxiv 标题查询退役 ChatGPT/GPT-4 加 Agentic/Tool Use/LLM-as-a-Judge/MCP/Agent Memory 等 + 候选池 50→80；S2/DBLP 关键词 12→16 可靠性族；github_trending 退役 diffusion 加 agentic/mcp-server/llm-evaluation；kb_deep_dive 权重补 observer/MCP/memory 族；rss_blogs +MCP 官方博客(dev 验证) +Hamel/Chip Huyen(Mac Mini 首跑验证)。零新 job（日落法）",
+      "by": "claude_code"
+    },
     {
       "date": "2026-09-02",
       "what": "V37.9.347 Kimi K3 能力画像定档（vision 探针 HTTP 400 坐实 False / json_mode 探针纯 JSON 可解析翻案 True）+ ARK 2.0 时代两个无消费方 env 清理（三重核实后执行，ARK_21_* 保留）+ 修治理层一条 check 名↔体不对账",
@@ -173,11 +178,6 @@
       "date": "2026-08-30",
       "what": "V37.9.334 Mac Mini 当日生产闭环: crontab 核对空输出 = 「每周一自动监控」自 V37.9.22 起从未存在的生产实证 → cron 首次真实添加（41→42 条与 registry 一致）+ auto_deploy 2min 同步运行时副本（双副本 marker 9/9）+ 手动首跑 0/6 触发且 [3/6][4/6] 真网络 ✅（NA 路径仅 dev egress 触发=按设计）+ preflight --full 87/0/1（唯一警告=KB 99% 当日新 note 今晚 cron 自动补齐）。剩下周一 09:10 首次自动运行被动观察",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-08-30",
-      "what": "V37.9.334 对抗审计 — 升级决策安全网自身的诚实: check_upgrade.sh 首次被审（零测试引用扫描恰余 4 文件中唯一 live-cron 声称者）。CU-F1 零登记零接线（不在 registry/FILE_MAP/watchdog，零 notify 调用——每份评估声称的「每周一 cron 自动监控+触发推送告警」没有任何机制支撑，V37.9.328 死告警家族）→ registry 47 jobs + FILE_MAP + watchdog LOG_FRESHNESS 14d + notify --topic alerts 全接线；CU-F2 版本差距字典序悬崖（2026.10.1<2026.4.27，2026-10-01 起漏计，悬崖前 5 周修复）→ vkey 数值元组；CU-F3 网络失败读作全绿（dev 实证 GitHub API 不可达时历次评估显示假 ✅）→ NA 三态显式不可判；CU-F4 EOL 关键词从 CURRENT 派生退役 v2026.3 硬编码。rider: proxy_filters+job_watchdog 「Qwen context」告警品牌→「模型 context」。23 守卫 sabotage 九连全开火。VERSION 0.37.9.161→0.37.9.162",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -226,7 +226,7 @@
     "security_score": "98/100 (98.0%)",
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB",
     "slo": {
-      "checked_at": "2026-09-02 07:37:18",
+      "checked_at": "2026-09-02 08:59:57",
       "all_ok": true,
       "judged_count": 1,
       "na_count": 4,
@@ -335,6 +335,14 @@
       {
         "item": "🔴 五把 sk- key 已在对话出现过（deepseek GA / kimi K3 / glm-5.3 / doubao 2.1 / 历史 tokenhub），建议全部轮换",
         "added": "2026-09-02"
+      },
+      {
+        "item": "【V37.9.348 信息源刷新 · Mac Mini 首跑验证】(a) rss_blogs 18:00 首跑后 grep \"WARN.*RSS 抓取失败\" ~/.openclaw/logs/jobs/rss_blogs.log — hamel.dev/index.xml 与 huyenchip.com/feed.xml 是 dev 出口代理拦截无法预验的候选，死链即剪枝（V37.9.108-hotfix 惯例）；MCP 官方博客 feed dev 已验证 (b) arxiv 08:00/20:00 首跑看 new 计数是否因 OR 面变宽显著上升（候选池 80，分析仍封顶 10）(c) dblp 12:00 / s2 11:00 多 4 关键词后是否新增 503/429（per-keyword FAIL-OPEN，全失败才 fetch_failed）(d) 一周后 kb_radar 06:00 Top 5 高对齐段应开始出现 observer/eval/MCP 类条目 = 对齐本体生效的用户可见信号",
+        "added": "2026-09-02"
+      },
+      {
+        "item": "【ai_leaders_x 去留 · 需 Mac Mini 数据非印象】该 job 自 V37.9.108 起被 blogs/bsky 替代、每日 9-17×429 WARN 进 watchdog（告警噪声面），但产出是否真为零未实测。判据命令: for f in ~/.openclaw/jobs/ai_leaders_x/cache/last_run.json; do cat $f; done; grep -c \"new\\\":[1-9]\" ~/.openclaw/logs/jobs/ai_leaders_x.log 近 7 天 —— 若 7 天 new 总和 ≤3 → 下版 enabled:false + watchdog JOBS 摘除 + crontab_safe.sh remove（代码保留备 revert，openclaw_run/pwc 先例）；若仍有稳定产出则保留并把 tier core→auxiliary",
+        "added": "2026-09-02"
       }
     ],
     "open_prs": [],
@@ -343,14 +351,14 @@
   },
   "quality": {
     "security_score": 98,
-    "test_count": 6415,
-    "last_regression": "2026-09-02 07:38 pass",
+    "test_count": 6436,
+    "last_regression": "2026-09-02 09:00 pass",
     "coverage_pct": 0,
     "security_score_time": "2026-07-20 01:07",
-    "test_suites": 194,
+    "test_suites": 195,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
-    "version": "0.37.9.171",
+    "version": "0.37.9.172",
     "observer": {}
   },
   "incidents": [

@@ -39,6 +39,10 @@ _RSS_BLOGS_DOMAINS = [
     "lilianweng.github.io",
     "simonwillison.net",
     "latent.space",
+    # V37.9.348 rss_blogs +3 (MCP 官方博客 / Hamel / Chip Huyen), no-overlap 契约同步
+    "modelcontextprotocol.io",
+    "hamel.dev",
+    "huyenchip.com",
 ]
 
 

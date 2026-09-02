@@ -9,12 +9,12 @@
 #   - V37.9.46 Stage 2 完整: 加 project_alignment_scorer.py rule_check 验证层 + 9 个对齐脚本同步加第 6 字段
 #   - V37.9.49 Stage 5: kb_radar.sh 06:00 早晨"高对齐 Top 5"段消费
 
-version: "0.1-poc"  # V37.9.45 PoC. 升级到 0.2 时 Stage 2 启用全量加 6 字段
-last_updated: "2026-05-09"
+version: "0.2"  # V37.9.348: Stage 2 rule_check 自 V37.9.47 起全量启用; 本次同步纲领 T2/T5/T6/T8 + 宪法级 #1 方向
+last_updated: "2026-09-02"
 
 project:
   name: openclaw-model-bridge
-  current_version: 0.37.9.44
+  current_version: 0.37.9.172
   strategic_position: Agent Runtime Control Plane
 
 # ── 核心三平面 (V35-V36 战略复盘确立) ───────────────────────────────────
@@ -24,19 +24,27 @@ core_planes:
     keywords: [governance, audit, fail-fast, slo, circuit breaker, fallback,
                rate limiting, observability, ontology, policy engine,
                control plane, agent runtime, convergence framework,
-               drift detection, machine sync, declared state]
+               drift detection, machine sync, declared state,
+               silent failure, AI reliability, SRE for AI, runtime monitoring,
+               agent governance, audit trail, guardrail, LLM observability,
+               agent gateway]
     weight: 5  # 最高优先级
   capability_plane:
     desc: "模型路由 / 工具编排 / 多模态"
     keywords: [provider abstraction, tool calling, multimodal routing,
                function calling, agent orchestration, tool plugin,
-               capability based routing, fallback chain]
+               capability based routing, fallback chain,
+               reasoning budget, thinking budget, workload routing,
+               model context protocol, MCP, tool protocol, capability router,
+               cost-aware routing, reasoning model]
     weight: 4
   memory_plane:
     desc: "知识沉淀 / 冲突消解 / 可信度评分"
     keywords: [vector index, RAG, semantic search, embedding,
                knowledge graph, KB harvest, dedup, memory plane,
-               long term memory, conflict resolution]
+               long term memory, conflict resolution,
+               agent memory, memory consolidation, context engineering,
+               memory governance]
     weight: 5
 
 # ── 当前活跃研究方向 (V37.9.x) ─────────────────────────────────────────
@@ -47,11 +55,22 @@ active_research_directions:
                domain ontology, governance checker, BFO, DOLCE, UFO,
                ontology engine, three gate, policy ontology]
     weight: 5
+  llm_observer:
+    desc: "宪法级 #1 (2026-06-28): 机械化人眼 LLM-Observer — fail-plausible 检测 / 预注册部署 / 论文 #2"
+    keywords: [fail-plausible, silent failure, LLM-as-a-judge, LLM judge,
+               runtime observer, hallucination detection, evidence grounding,
+               pre-registration, sabotage validation, audit-as-regression,
+               seams, detection latency, false positive, taxonomy of failures,
+               postmortem, semantic failure]
+    weight: 5
   agent_reliability:
-    desc: "V2 Agent Reliability Bench"
+    desc: "V2 Agent Reliability Bench + 纲领 T2 SRE-for-AI"
     keywords: [scenario testing, failure injection, gameday, recovery time,
                resilience, chaos engineering, blood lesson,
-               silent failure, fault injection]
+               silent failure, fault injection,
+               agent evaluation, evals, observability, tracing, AgentOps,
+               quality monitoring, production monitoring, agent security,
+               prompt injection, agent benchmark]
     weight: 4
   data_compounding:
     desc: "数据复利与机会点雷达"
@@ -72,10 +91,15 @@ excluded_topics:
     keywords: [CUDA kernel, GPU sharding, hardware specific optimization,
                NVLink, tensor core programming]
     weight: -2
+  generative_media:
+    desc: "生成式媒体 (图像/视频/音频生成, 与 agent runtime/治理无关; V37.9.348 github_trending 同步退役 diffusion-model 词)"
+    keywords: [diffusion model, text-to-image, video generation, image synthesis,
+               text-to-video, music generation]
+    weight: -2
 
 # ── 评分指南 (供 LLM 在 prompt 中读取) ─────────────────────────────────
 scoring_guide:
-  star_5: "与 control plane / agent runtime / ontology 等核心方向直接相关 (作者明确提到 governance / drift / agent orchestration / declarative policy 等)"
+  star_5: "与 control plane / agent runtime / ontology / LLM-Observer 等核心方向直接相关 (作者明确提到 governance / drift / agent orchestration / declarative policy / silent failure / LLM-as-a-judge 运行时监控 / agent 可靠性等)"
   star_4: "间接相关 (如 tool plugin / memory plane / multimodal routing 演进, 与已有方向呼应)"
   star_3: "一般 AI/ML 趋势 (可借鉴但非核心, 如新模型架构 / 训练技巧 / benchmark)"
   star_2: "无明显关联 (但可能未来有用, 比如纯 NLP 任务)"
