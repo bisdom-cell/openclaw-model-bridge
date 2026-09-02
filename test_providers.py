@@ -123,9 +123,9 @@ class TestVerificationTier(unittest.TestCase):
         self.assertTrue(any("unknown verification_tier" in v for v in violations))
 
     # --- 真 provider 档位 ---
-    def test_qwen_production_observed_doubao_slot_declared_v339(self):
-        # 史: V37.9.290 重置 declared → V37.9.291 tokenhub E2E 升 feature_verified
-        # → V37.9.339 槽位换模型 Kimi K3 (不同厂商) 证据不迁移 → declared。qwen 不受影响。
+    def test_qwen_production_observed_doubao_slot_declared_v341(self):
+        # 史: V37.9.290 declared → V37.9.291 feature_verified → V37.9.339 Kimi K3 → V37.9.341
+        # 更正 doubao-2.1 @ ai-tokenhub (平台不同, doubao_21 的 Ark 证据不迁移) → declared。
         from providers import _default_registry, TIER_PRODUCTION_OBSERVED, TIER_DECLARED
         self.assertEqual(
             _default_registry.get("qwen").capabilities.verification_tier,
@@ -1950,12 +1950,16 @@ class TestReasoningOffBodyB1(unittest.TestCase):
         from providers import get_provider
         self.assertIsNone(get_provider("qwen").reasoning_off_body)
 
-    def test_doubao_slot_no_reasoning_off_after_kimi_swap_v339(self):
-        # 史: V37.9.223 doubao 2.0 同 Ark 家族推断声明 → V37.9.339 槽位换 Kimi K3 (不同厂商):
-        # `thinking` 片段未在 Kimi 实测, V37.9.224 登记未测参数可能 400 打断 fallback →
-        # 不声明 (None) = 不注入, Kimi 以默认行为服务 batch fallback (宁慢勿断)。
+    def test_doubao_slot_declares_reasoning_off_v341(self):
+        # 史: V37.9.223 doubao 2.0 同 Ark 家族推断声明 → V37.9.339 槽位换 Kimi K3 撤回声明
+        # → V37.9.341 更正为 doubao-seed-2-1-pro-260628 @ ai-tokenhub, 两侧证据交汇归队:
+        # 模型侧 doubao_21 在 Ark 实测 thinking:disabled (V37.9.222 reasoning_tokens 0 + 17.7s),
+        # 网关侧 deepseek_full 在同一 ai-tokenhub Bifrost 网关实测该片段生效 (V37.9.222 B1)。
         from providers import get_provider
-        self.assertIsNone(get_provider("doubao").reasoning_off_body)
+        self.assertEqual(get_provider("doubao").reasoning_off_body, self._OFF)
+        self.assertEqual(get_provider("doubao").reasoning_off_body,
+                         get_provider("doubao_21").reasoning_off_body,
+                         "同模型两平台的 thinking-off 片段必须一致")
 
     def test_deepseek_quantized_declares_reasoning_off(self):
         # V37.9.223: deepseek 量化版声明 (镜像 deepseek_full); ⚠️ 非-reasoning + self-host 网关未测,
@@ -1973,20 +1977,18 @@ class TestReasoningOffBodyB1(unittest.TestCase):
         # B1 依赖 adapter 从 PROVIDERS dict 读 reasoning_off_body → to_legacy_dict 必须暴露
         from providers import get_provider
         self.assertEqual(get_provider("doubao_21").to_legacy_dict().get("reasoning_off_body"), self._OFF)
-        # V37.9.339: doubao 槽位换 Kimi K3 不声明 → legacy dict 不带 key (镜像 qwen)
-        self.assertNotIn("reasoning_off_body", get_provider("doubao").to_legacy_dict())
+        # V37.9.341: doubao 槽位更正为 doubao-2.1 @ ai-tokenhub → 恢复声明 (模型侧 Ark 实测
+        # + 网关侧 deepseek_full 同网关实测, 两侧证据交汇)
+        self.assertEqual(get_provider("doubao").to_legacy_dict().get("reasoning_off_body"), self._OFF)
         self.assertNotIn("reasoning_off_body", get_provider("qwen").to_legacy_dict())
 
     def test_all_doubao_deepseek_same_body(self):
         # V37.9.223: 全部 doubao + deepseek 同一片段 = 一份声明四家复用 (任何切换独立成 primary)。
-        # V37.9.339: doubao 槽位换 Kimi K3 (非 Ark/DeepSeek 家族) 退出该集合 — thinking 片段
-        # 未在 Kimi 实测, 不注入 (V37.9.224 未测参数 400 风险)。
+        # V37.9.339 doubao 槽位曾换 Kimi K3 短暂退出 → V37.9.341 更正为 doubao-2.1 归队。
         from providers import get_provider
-        for name in ("doubao_21", "deepseek_full", "deepseek"):
+        for name in ("doubao_21", "doubao", "deepseek_full", "deepseek"):
             self.assertEqual(get_provider(name).reasoning_off_body, self._OFF,
                              f"{name} 应声明 reasoning_off_body (V37.9.223 全家族同款)")
-        self.assertIsNone(get_provider("doubao").reasoning_off_body,
-                          "V37.9.339 doubao 槽位 = Kimi K3, 不得沿用 Ark 家族 thinking 片段")
 
 
 if __name__ == "__main__":

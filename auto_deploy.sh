@@ -184,7 +184,7 @@ declare -a FILE_MAP=(
     "tool_proxy.py|$HOME/tool_proxy.py"
     "adapter.py|$HOME/adapter.py"
     "providers.py|$HOME/providers.py"
-    "providers.d/doubao_provider.py|$HOME/providers.d/doubao_provider.py"  # V37.9.52 — doubao 槽位 plugin (V37.9.339 起 Kimi K3; auto-discovered by providers.py)
+    "providers.d/doubao_provider.py|$HOME/providers.d/doubao_provider.py"  # V37.9.52 — doubao 槽位 plugin (V37.9.341 起 Doubao 2.1 @ ai-tokenhub = 跨平台冗余; auto-discovered)
     "providers.d/deepseek_provider.py|$HOME/providers.d/deepseek_provider.py"  # V37.9.201 — DeepSeek-V4-Pro w4a8-mtp 量化版 plugin (PENDING, 需 DEEPSEEK_API_KEY+DEEPSEEK_BASE_URL env)
     "providers.d/deepseek_full_provider.py|$HOME/providers.d/deepseek_full_provider.py"  # V37.9.204/205 — DeepSeek-V4-Pro 满血版 (ai-tokenhub, feature_verified, fallback 候选; 需 DEEPSEEK_FULL_API_KEY env)
     "providers.d/doubao_seed_21_provider.py|$HOME/providers.d/doubao_seed_21_provider.py"  # V37.9.216 — Doubao Seed 2.1 Pro 旗舰 plugin (declared, 需 ARK_21_API_KEY+ARK_21_ENDPOINT_ID env)

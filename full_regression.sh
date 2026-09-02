@@ -154,7 +154,7 @@ run_suite "v37_9_51_sub_stage_4b_batch (V37.9.51 Sub-Stage 4b 6 脚本批量 6�
 run_suite "v37_9_98_s2_api_key (V37.9.98 Semantic Scholar API key 认证 header 集成 + FAIL-OPEN)" "python3 test_v37_9_98_s2_api_key.py"
 run_suite "gen_readme_badges (V37.9.99 README 徽章自动生成/漂移守卫 — 外部评审 P0)" "python3 test_gen_readme_badges.py"
 run_suite "gen_compat_matrix (V37.9.143 compatibility_matrix 漂移防护 — 外部评审2 P0)" "python3 test_gen_compat_matrix.py"
-run_suite "v37_9_52_doubao_provider (V37.9.52 第 8 个 provider 槽位 doubao — V37.9.339 起 Kimi K3 + module 重入 bug fix)" "python3 test_v37_9_52_doubao_provider.py"
+run_suite "v37_9_52_doubao_provider (V37.9.52 第 8 个 provider 槽位 doubao — V37.9.341 起 Doubao 2.1 @ ai-tokenhub + module 重入 bug fix)" "python3 test_v37_9_52_doubao_provider.py"
 run_suite "v37_9_53_doubao_verified (V37.9.53 flip verified_text + reasoning capability + fallback chain 排名前移)" "python3 test_v37_9_53_doubao_verified.py"
 run_suite "v37_9_54_abc (V37.9.54 ABC: restart.sh marker-based plist reload + verified_vision + INV-PLIST-ENV-001)" "python3 test_v37_9_54_abc.py"
 run_suite "v37_9_55_doubao_more_verified (V37.9.55 flip verified_tool_calling + verified_streaming, cap_score 12→16 超 Qwen3 14)" "python3 test_v37_9_55_doubao_more_verified.py"

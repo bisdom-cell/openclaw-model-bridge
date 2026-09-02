@@ -84,13 +84,13 @@ class TestVerifiedFeaturesV9_55Complete(unittest.TestCase):
         self.providers = _reload_providers()
         self.d = self.providers.get_provider("doubao")
 
-    def test_doubao_slot_verified_features_empty_v339(self):
-        # 史: Ark 5 项 → V37.9.290 重置 → V37.9.291 tokenhub text+reasoning
-        # → V37.9.339 槽位换 Kimi K3 证据不迁移 → 空集
+    def test_doubao_slot_verified_features_empty_v341(self):
+        # 史: Ark 5 项 → V37.9.290 重置 → V37.9.291 text+reasoning → V37.9.339 Kimi K3
+        # → V37.9.341 更正 doubao-2.1 @ ai-tokenhub, 平台维度零实证 → 空集
         features = self.d.capabilities.verified_features()
         self.assertEqual(
             set(features), set(),
-            f"V37.9.339 换模型后应为空集, got {features}",
+            f"V37.9.341 平台维度未实测, 应为空集, got {features}",
         )
 
 
@@ -107,11 +107,11 @@ class TestCapScoreV9_55(unittest.TestCase):
         + 5 verified*2 (text/vision/tool_calling/streaming/reasoning) = 16."""
         doubao = self.reg.get("doubao")
         score = self.reg._capability_score(doubao)
-        # 史: V37.9.55 曾 16 → V37.9.290 重置 6 → V37.9.291 半升档 10
-        # → V37.9.339 槽位换 Kimi K3 保守声明 3
+        # 史: V37.9.55 曾 16 → V37.9.290 重置 6 → V37.9.291 半升档 10 → V37.9.339 Kimi K3 = 3
+        # → V37.9.341 更正 doubao-2.1 全能力声明 (6 base) + 0 verified = 6
         self.assertEqual(
-            score, 3,
-            f"V37.9.339 Kimi K3 保守声明 cap_score 锁定 3, got {score}",
+            score, 6,
+            f"V37.9.341 doubao-2.1 声明 cap_score 锁定 6, got {score}",
         )
 
     def test_doubao_cap_score_below_qwen_after_reset_v290(self):

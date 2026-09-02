@@ -150,13 +150,13 @@ class TestDoubaoVerifiedVision(unittest.TestCase):
         self.assertNotIn("vision", features,
                          "V37.9.290 重置后 features 不应含 vision")
 
-    def test_verified_features_empty_v339(self):
+    def test_verified_features_empty_v341(self):
         """史: Ark 五项 → V37.9.290 重置空集 → V37.9.291 tokenhub text+reasoning
-        → V37.9.339 槽位换模型 Kimi K3 证据不迁移 → 空集."""
+        → V37.9.339 换 Kimi K3 → V37.9.341 更正 doubao-2.1 @ ai-tokenhub, 平台证据不迁移 → 空集."""
         features = self.d.capabilities.verified_features()
         self.assertEqual(
             set(features), set(),
-            f"V37.9.339 换模型后 verified_features 应为空集, got {features}",
+            f"V37.9.341 平台维度未实测, verified_features 应为空集, got {features}",
         )
 
     def test_unverified_flags_still_false(self):
@@ -188,11 +188,11 @@ class TestDoubaoCapScoreUpRanking(unittest.TestCase):
         V37.9.290 平台切换 verified 全重置 → 6 (6 base + 0 verified)."""
         doubao = self.reg.get("doubao")
         score = self.reg._capability_score(doubao)
-        # 史: 12 → 16 → V37.9.290 重置 6 → V37.9.291 半升档 10 → V37.9.339 槽位换
-        # Kimi K3 保守声明 (text/tool_calling/streaming 3 base + 0 verified) = 3
+        # 史: 12 → 16 → V37.9.290 重置 6 → V37.9.291 半升档 10 → V37.9.339 Kimi K3 保守 3
+        # → V37.9.341 更正 doubao-2.1 全能力声明 (6 base) + 0 verified = 6
         self.assertEqual(
-            score, 3,
-            f"V37.9.339 Kimi K3 保守声明 cap_score 锁定 3, got {score}",
+            score, 6,
+            f"V37.9.341 doubao-2.1 声明 cap_score 锁定 6, got {score}",
         )
 
     def test_doubao_21_leads_fallback_chain_v290(self):

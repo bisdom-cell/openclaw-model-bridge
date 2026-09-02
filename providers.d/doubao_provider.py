@@ -1,78 +1,86 @@
 """V37.9.52/53/54/55 — Doubao Seed 2.0 Pro Provider → V37.9.290 平台切换 ai-tokenhub
-   → V37.9.339 🔴 槽位换模型: doubao-seed-2.0-pro-huakun → kimi-k3-260716 (Kimi K3)
+   → V37.9.339 槽位曾换 Kimi K3 (kimi-k3-260716)
+   → V37.9.341 🔴 更正: 该 key 的 scope 实为 doubao-seed-2-1-pro-260628, 不含 kimi-k3
+                 → 槽位改指向 key 真能服务的模型 = Doubao Seed 2.1 Pro @ ai-tokenhub
+
+🔴 为什么本槽位与 doubao_21 是同一个模型 (刻意的, 不是重复 — 未来 session 勿"去重"):
+  `doubao_21` = doubao-seed-2-1-pro-260628 @ **Volcengine Ark** (生产 primary, ARK_21_API_KEY)
+  `doubao`    = doubao-seed-2-1-pro-260628 @ **ai-tokenhub**    (fallback #2, DOUBAO_API_KEY)
+  同模型 × 两个独立 serving 平台 = **平台冗余**: Ark 侧故障 (网关/计费/区域) 时同一模型仍可
+  经 ai-tokenhub 达到。这是链上唯一的平台维度冗余 (其余 fallback 都是换模型)。
+  代价诚实登记: 模型**本身**的问题 (能力边界/幻觉/该模型下线) 不会被本槽位兜住 —— 兜那种
+  故障的是链上的 deepseek/qwen。
 
 🔴 命名债 (诚实登记, 一物一形 #34 规则 2 的已知例外):
-  registry name `doubao` / env `DOUBAO_API_KEY` / 类名 DoubaoSeedProvider 是**历史槽位名**,
-  V37.9.339 起该槽位实际服务 **Kimi K3 (kimi-k3-260716 via ai-tokenhub)**。
-  保留旧名的理由 = 零 blast radius: 生产 plist 的 FALLBACK_ORDER=deepseek_full,doubao,...
-  不用改、env 名不用改 (只换值)、expert_escalation 的 DOUBAO_* 常量族 + 治理
-  INV-PLIST-ENV-001/INV-PROXY-PLIST-ENV-001 的 DOUBAO_API_KEY 集合不用动。
-  代价 = adapter.log 里 "FALLBACK doubao OK" 实为 Kimi。若用户决定改名 (kimi_k3 /
-  KIMI_K3_API_KEY), 那是独立的一次 rename (镜像 V37.9.290 规模 ~45 测试 + 用户 plist
-  FALLBACK_ORDER 一处编辑), 本版刻意不做。
-
-接入第 8 个 provider 槽位, 当前模型 kimi-k3-260716 (Moonshot Kimi K3, ai-tokenhub 托管)。
-区别于第 5 个 built-in `kimi` (Moonshot 官方 api.moonshot.ai, MOONSHOT_API_KEY, kimi-k2.5)。
+  registry name `doubao` / env `DOUBAO_API_KEY` / 类名 DoubaoSeedProvider 是**历史槽位名**
+  (V37.9.52 接入 Doubao Seed 2.0 Pro 时命名)。现服务 Doubao Seed **2.1** Pro —— 厂商对了,
+  版本号不精确, 且与 `doubao_21` 名字易混。保留旧名 = 零 blast radius (生产 plist 的
+  FALLBACK_ORDER=deepseek_full,doubao,… 不改、env 名不改只换值、expert_escalation 的
+  DOUBAO_* 常量族 + 治理 INV-PLIST-ENV-001/INV-PROXY-PLIST-ENV-001 的 DOUBAO_API_KEY
+  集合不动)。若用户要改名 (如 doubao_21_tokenhub), 是独立一次 rename。
 
 设计契约:
-- API key 严格走 env DOUBAO_API_KEY (历史 env 名; V37.9.339 起**值**换成 Kimi K3 专属
-  key — 不可硬编码, 即便用户豁免也守公开 repo 安全底线)
+- API key 严格走 env DOUBAO_API_KEY (不可硬编码, 即便用户豁免也守公开 repo 安全底线)
 - base_url = https://ai-tokenhub.com/api/v1 (公开域名可入库, 与 deepseek_full/glm5_coding 同网关)
 - dev 环境无 env → ProviderRegistry.available() 因缺 DOUBAO_API_KEY 自动排除
 - ai-tokenhub 无 endpoint-ID 间接层 (ARK_ENDPOINT_ID 自 V37.9.290 起不再消费), model 名直接进请求体
+  ⚠️ 与 doubao_21 的关键差异: 后者的 model 字段收 Ark 接入点 ID (ep-...), 本槽位收 model 名。
 
-版本史: V37.9.52 接入 / V37.9.53 text+reasoning E2E / V37.9.54 vision E2E (image_url content
-block) / V37.9.55 tool_calling+streaming E2E (finish_reason=tool_calls / SSE chunks) / V37.9.289 更名 / V37.9.290 平台切换 ai-tokenhub /
-V37.9.291 tokenhub E2E text+reasoning / **V37.9.339 换模型 Kimi K3**。
+版本史: V37.9.52 接入 2.0 Pro / V37.9.53 text+reasoning E2E / V37.9.54 vision E2E (image_url
+content block) / V37.9.55 tool_calling+streaming E2E (finish_reason=tool_calls / SSE chunks) /
+V37.9.289 更名 -huakun / V37.9.290 平台切换 ai-tokenhub / V37.9.291 tokenhub E2E text+reasoning /
+V37.9.339 换 Kimi K3 / **V37.9.341 更正为 doubao-seed-2-1-pro-260628 (key scope 实证)**。
 
 诚实语义 (原则 #23 — 只声明实测过的能力):
-- **verification_tier = declared** (V37.9.339 重置) — Kimi K3 是完全不同的模型 (不同厂商),
-  Doubao Seed 2.0 Pro 时代的全部证据 (Ark 5/5 + tokenhub 2/2 + production_observed) **不迁移**。
-- capability 声明**保守**: 无 Kimi K3 一手文档 → 只声明 OpenAI /v1 基线 (text/tool_calling/
-  streaming); vision/json_mode/reasoning 未声明 (未声明 ≠ 不支持, 探针实测后翻案 —
-  镜像 glm5_coding V37.9.258→291 reasoning 翻案先例)。**vision 刻意不声明**: V37.9.218
-  capability-aware vision fallback 会把 image 请求路由到声明 vision 的 fallback, 未实测
-  的 image_url 透传若 400 会打断多模态降级链 (under-declare 是安全方向)。
-- reasoning_off_body **不声明** (None): `thinking` 片段是 Ark/DeepSeek 家族参数, Kimi 未
-  实测; V37.9.224 已登记未测参数可能 400 打断 fallback 的风险 → 不注入 = Kimi 以默认
-  行为服务 batch fallback (宁慢勿断)。
-- context_window=262144: Kimi 家族基线 (built-in kimi-k2.5 同值), K3 待实测。
+- **verification_tier = declared** — 能力**声明**镜像 doubao_21 (同一个模型, 模型本体能力
+  由 V37.9.217 Ark E2E 5/5 实证); **verified_* 全 False** 因为**平台不同** (ai-tokenhub Bifrost
+  网关 vs Volcengine Ark 原生 = 不同 serving 栈, 证据不跨平台迁移 — V37.9.290/339 同款纪律)。
+- Mac Mini E2E 复测通过后逐项 flip。特别待测: vision (image_url 经 Bifrost 网关透传) /
+  tool_calling / streaming。
+- reasoning_off_body 声明: 模型侧 Ark 实测 thinking:disabled 生效 (V37.9.222, reasoning_tokens
+  0 + 17.7s vs 166s); 网关侧 deepseek_full 在**同一个 ai-tokenhub Bifrost 网关**实测该片段生效
+  (V37.9.222 B1)。两侧证据交汇 → 声明; 若 E2E 探针发现 400 则退役本声明。
 """
 from providers import BaseProvider, ModelInfo, ProviderCapabilities
 
 
 class DoubaoSeedProvider(BaseProvider):
-    # 🔴 name/api_key_env 是历史槽位名 (见模块 docstring "命名债"), 当前模型 = Kimi K3
+    # 🔴 name/api_key_env 是历史槽位名 (见模块 docstring "命名债"), 当前模型 = Doubao Seed 2.1 Pro
     name = "doubao"
-    display_name = "Kimi K3 (ai-tokenhub)"
+    display_name = "Doubao Seed 2.1 Pro (ai-tokenhub)"   # 区别于 doubao_21 的 "(Volcengine Ark)"
     base_url = "https://ai-tokenhub.com/api/v1"
     api_key_env = "DOUBAO_API_KEY"
     auth_style = "bearer"
-    # V37.9.339: 不声明 reasoning_off_body — Kimi 未实测 thinking 参数 (见 docstring)。
-    reasoning_off_body = None
+    # 模型侧 Ark 实测 + 网关侧 deepseek_full 在同网关实测, 两侧证据交汇 (见 docstring)
+    reasoning_off_body = {"thinking": {"type": "disabled"}}
     models = [
         ModelInfo(
-            # V37.9.339 (2026-09-02 用户变更): doubao-seed-2.0-pro-huakun → kimi-k3-260716
-            model_id="kimi-k3-260716",
-            display_name="kimi-k3-260716 (Kimi K3)",
-            modalities=["text"],
-            context_window=262144,     # Kimi 家族基线, K3 待实测
-            max_output_tokens=16384,   # 保守占位, 待实测
+            # V37.9.341 (2026-09-02): key scope 实证 → doubao-seed-2-1-pro-260628
+            # (V37.9.339 曾写 kimi-k3-260716, 但该 key 的 /v1/models scope 不含它 →
+            #  InsufficientScope; scope 里唯一的模型就是本行)
+            model_id="doubao-seed-2-1-pro-260628",
+            display_name="doubao-seed-2-1-pro-260628 (ai-tokenhub 路径)",
+            modalities=["text", "vision"],
+            context_window=262144,
+            max_output_tokens=16384,
             is_default=True,
+            is_vision=True,
         ),
     ]
+    # 能力声明 = 模型本体能力 (与 doubao_21 同模型, 由其 V37.9.217 Ark E2E 5/5 实证);
+    # verified_* = **本平台 (ai-tokenhub)** 的实证 → 全 False 待探针 (平台证据不迁移)。
     capabilities = ProviderCapabilities(
         text=True,
-        vision=False,          # 未实测不声明 (探针后翻案; 见 docstring vision 说明)
+        vision=True,           # 模型多模态; Bifrost 网关 image_url 透传待实测
         audio=False,
         video=False,
-        tool_calling=True,     # OpenAI /v1 基线 (Kimi 家族支持 tool calling)
-        streaming=True,        # OpenAI /v1 基线
-        json_mode=False,       # 未实测不声明 (V37.9.254 over-declare 教训)
-        reasoning=False,       # 未实测不声明 (K3 若有 reasoning 通道, 探针后翻案)
+        tool_calling=True,
+        streaming=True,
+        json_mode=True,
+        reasoning=True,        # Doubao Seed Pro 是推理模型 (Ark 实测 reasoning_content 通道)
         context_window=262144,
         max_output_tokens=16384,
-        # V37.9.339 换模型重置: 全部 verified_* False
+        # V37.9.341 平台维度重置: ai-tokenhub 路径零实证, E2E 复测后逐项 flip
         verified_text=False,
         verified_vision=False,
         verified_tool_calling=False,
@@ -80,5 +88,5 @@ class DoubaoSeedProvider(BaseProvider):
         verified_reasoning=False,
         verified_fallback=False,
         verification_tier="declared",
-        tier_note="2026-09-02 槽位换模型 Kimi K3 (V37.9.339), Doubao 时代证据不迁移, ai-tokenhub E2E 待 Mac Mini",
+        tier_note="2026-09-02 槽位更正为 doubao-seed-2-1-pro-260628 @ ai-tokenhub (V37.9.341, key scope 实证), 平台维度零实证待 Mac Mini E2E",
     )

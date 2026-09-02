@@ -443,7 +443,7 @@ class TestDoubaoTransport(unittest.TestCase):
         # V37.9.290: ai-tokenhub 直接用公开 model 名, ARK_ENDPOINT_ID env 间接层退役
         t = ee.DoubaoTransport(api_key="key")
         self.assertEqual(t.endpoint_id, ee.DOUBAO_DEFAULT_MODEL_ID)
-        self.assertEqual(t.endpoint_id, "kimi-k3-260716")   # V37.9.339 expert 后端随槽位同迁
+        self.assertEqual(t.endpoint_id, "doubao-seed-2-1-pro-260628")   # V37.9.341 expert 后端随槽位同迁
 
     def test_model_id_param_injection_still_works(self):
         # 参数注入点保留 (测试/未来覆盖用), 但 env 不再被消费
