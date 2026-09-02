@@ -2,6 +2,7 @@
 
 > V37.9.83 Direction 2 (AI Partnership Framework) — 重设计 2026-05-29
 > Backend: Doubao Seed 2.0 Pro (已运行) / Claude pending future-flip
+> **现状注（V37.9.339, 2026-09-02）**：expert 后端槽位模型已换为 Kimi K3（`kimi-k3-260716` @ ai-tokenhub，`expert_escalation.py` 的 `DOUBAO_DEFAULT_MODEL_ID`）；本文的 Doubao Seed 2.0 Pro / Volcengine Ark 定价等为设计时（2026-05）快照，不逐行改写。
 > 主交付：`expert_escalation.py` + `test_expert_escalation.py` + SOUL.md 规则 12
 
 ---

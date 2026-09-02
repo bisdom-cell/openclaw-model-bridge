@@ -397,7 +397,9 @@ CUSTOM_TOOLS = [
         }
     },
     # V37.9.91 Expert Escalation (V37.9.90-r1 Direction 2 兑现, AI Partnership Framework Stage 3)
-    # 当问题超出 PA (Qwen3-235B) 置信范围时, 路由到 Doubao Seed 2.0 Pro 做深度判断.
+    # 当问题超出 PA 置信范围时, 路由到系统配置的 expert 后端 (expert_escalation.py
+    # DOUBAO_DEFAULT_MODEL_ID 槽位, V37.9.339 起 Kimi K3) 做深度判断. description 刻意
+    # 不写具体模型名 (V37.9.243 whiplash-resistant: 槽位换模型不改 LLM 面文案).
     # SOUL.md 规则 12 列出触发词清单 (让 Claude 看看 / 深度判断 / 拿不准 / 帮我决定 等).
     # Backend: doubao (默认, 已运行 V37.9.55 verified) / claude_pending (future-flip stub).
     # 返回 read-only proposal (proposal/rationale/confidence/refs), shell-fence + 命令替换 FAIL-CLOSE.
@@ -405,7 +407,7 @@ CUSTOM_TOOLS = [
         "type": "function",
         "function": {
             "name": "expert_escalate",
-            "description": "当问题超出 PA 置信范围时，调用 expert 模型 (Doubao Seed 2.0 Pro) 做深度判断。"
+            "description": "当问题超出 PA 置信范围时，调用 expert 模型（系统配置的 reasoning 后端）做深度判断。"
                            "触发场景：① 用户说\"让 Claude 看看\"/\"深度判断\"/\"帮我决定\"/\"哪个方案好\"/\"拿不准\"/\"帮我反过来想\"等；"
                            "② 复杂取舍 / 跨案例推理 / 批判性反问。"
                            "工具喂入 status.json + 14 天 CLAUDE.md changelog + 相关 case docs，"

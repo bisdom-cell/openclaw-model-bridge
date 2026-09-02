@@ -113,9 +113,11 @@ class TestVisionCapableEntries(unittest.TestCase):
         by_name = {fb["name"]: fb for fb in
                    _chain("doubao_21,doubao,deepseek_full,deepseek,qwen", primary="openai",
                           keys={**_ALL_KEYS, "OPENAI_API_KEY": "k"})}
-        # doubao/doubao_21 单模型多模态 → vl_model_id 非空
+        # doubao_21 单模型多模态 → vl_model_id 非空
         self.assertTrue(by_name["doubao_21"]["vl_model_id"])
-        self.assertTrue(by_name["doubao"]["vl_model_id"])
+        # V37.9.339: doubao 槽位换 Kimi K3, vision 未实测不声明 → vl_model_id 空 → image 请求跳过它
+        # (under-declare 安全: 未实测的 image_url 透传若 400 会打断多模态降级链)
+        self.assertEqual(by_name["doubao"]["vl_model_id"], "")
 
     def test_text_only_providers_have_empty_vl_model_id(self):
         by_name = {fb["name"]: fb for fb in

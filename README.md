@@ -1,7 +1,7 @@
 # openclaw-model-bridge
 
-> **Agent Runtime Control Plane** — Connect any LLM to [OpenClaw](https://github.com/openclaw/openclaw) with one command. Zero dependencies, **12 providers** (含豆包 + DeepSeek-V4-Pro 量化/满血双端点 + GLM-5.2 coding), multimodal support, reasoning capability.
-> 将任意大模型（Qwen / OpenAI / Gemini / Claude / Kimi / MiniMax / GLM / Doubao Seed 2.0 / **DeepSeek-V4-Pro**）一键接入 OpenClaw — 零第三方依赖、支持多模态、10 分钟跑通。
+> **Agent Runtime Control Plane** — Connect any LLM to [OpenClaw](https://github.com/openclaw/openclaw) with one command. Zero dependencies, **12 providers** (含豆包 + DeepSeek-V4-Pro 量化/满血双端点 + GLM-5.3 coding), multimodal support, reasoning capability.
+> 将任意大模型（Qwen / OpenAI / Gemini / Claude / Kimi / MiniMax / GLM / Kimi K3 / **DeepSeek-V4-Pro**）一键接入 OpenClaw — 零第三方依赖、支持多模态、10 分钟跑通。
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
@@ -13,7 +13,7 @@
 [![Fail-Fast](https://img.shields.io/badge/LLM%20cron%20fail--fast-17%2F21%20aligned-brightgreen.svg)]()
 [![Notifications](https://img.shields.io/badge/notifications-WhatsApp%20%2B%20Discord-informational.svg)]()
 
-> **Current version:** `v37.9.338` / `0.37.9.163` (2026-09-01) — see [`CLAUDE.md`](CLAUDE.md) for full changelog.
+> **Current version:** `v37.9.339` / `0.37.9.164` (2026-09-02) — see [`CLAUDE.md`](CLAUDE.md) for full changelog.
 > **Latest milestone:** 📄 **ArXiv paper published** — [**arXiv:2606.14589**](https://arxiv.org/abs/2606.14589) (2026-06-15, cs.SE): the *fail-plausible* concept + a 5-class taxonomy of silent failures from 22 production incident postmortems (IEEE Software in review; ISSRE rejected 2026-08-14, conference track closed — journal-first strategy V37.9.307). **Constitutional priority now: LLM-Observer (机械化人眼)** — an automated user-perspective observer that catches *fail-plausible* silent failures **before the user does** (the paper's headline open problem: ~70% of silent failures were caught by looking at the product, while tests/governance caught ≈0%). Stages 0-6 built: design doc → 22-incident labelled ground-truth → 2-layer detector (deterministic S1-S5 pre-filter + LLM-judge) → sabotage self-validation harness → community-runnable [fail-plausible bench](docs/fail_plausible_bench.md). Guiding principle: **日落法 (Sunset Law) — reduce complexity before adding features** (原则 #34 + MR-22/MR-23).
 
 ## Product Layers: What's Core vs. What's the Author's PA Instance
@@ -68,7 +68,7 @@ Layer 3 is not product clutter — it is the **production evidence** for layers 
                          · image base64 inject · SLO metrics · incident snapshots]
      → Adapter :5001    [12-provider routing · capability-aware multimodal (text + vision)
                          · circuit breaker + fallback]
-     → LLM: Doubao Seed 2.1 Pro primary (PROVIDER env) → DeepSeek-V4-Pro / Doubao 2.0 / Qwen3-235B fallback (12 providers, all OpenAI-compatible; GLM-5.2 coding on-demand via ?provider=glm5_coding)
+     → LLM: Doubao Seed 2.1 Pro primary (PROVIDER env) → DeepSeek-V4-Pro GA / Kimi K3 / Qwen3-235B fallback (12 providers, all OpenAI-compatible; GLM-5.3 coding on-demand via ?provider=glm5_coding)
 
 ② Memory plane    KB notes/sources → local embedding (384-dim, 0 API call) → RAG (kb_rag.py)
                   media files → Gemini Embedding 2 → semantic search (mm_search.py)
@@ -94,18 +94,18 @@ Layer 3 is not product clutter — it is the **production evidence** for layers 
 | SLO Benchmark | — | `slo_benchmark.py` | SLO compliance — 5 metrics, real production data reports (p95=459ms, 5/5 PASS) |
 | Notifications | — | `notify.sh` | Unified push w/ retry + failure queue — **default Discord** (6 topic channels); WhatsApp rejoins as dual-channel when its 408 rate-limit era ends (V37.9.179) |
 | Local Embedding | — | `local_embed.py` | sentence-transformers (384-dim, 50+ languages), zero API calls |
-| Remote LLM | — | 12 providers | Qwen3-235B / GPT-4o / Gemini 2.5 / Claude Sonnet / Kimi K2.5 / MiniMax M2.7 / GLM-5 / **Doubao Seed 2.1 Pro** (Volcengine Ark, primary) + **2.0 Pro** (ai-tokenhub) / **DeepSeek-V4-Pro** (w4a8 + 满血版 ai-tokenhub, V37.9.201/204/216) / **GLM-5.2 coding** (ai-tokenhub, on-demand, V37.9.254→290 平台迁移) |
+| Remote LLM | — | 12 providers | Qwen3-235B / GPT-4o / Gemini 2.5 / Claude Sonnet / Kimi K2.5 / MiniMax M2.7 / GLM-5 / **Doubao Seed 2.1 Pro** (Volcengine Ark, primary) + **Kimi K3** (ai-tokenhub, `doubao` 槽位 V37.9.339 换模型) / **DeepSeek-V4-Pro** (w4a8 + 满血版 ai-tokenhub, V37.9.201/204/216) / **GLM-5.3 coding** (ai-tokenhub, on-demand, V37.9.254→290→339) |
 
 ## Supported Providers (12)
 
 | Provider | Default Model | Role today | Tier |
 |----------|--------------|-----------|------|
 | **Doubao Seed 2.1 Pro** (Volcengine Ark, plugin) | doubao-seed-2-1-pro-260628 | **Primary** (PROVIDER env, V37.9.222 flip) | production_observed |
-| **DeepSeek-V4-Pro 满血** (ai-tokenhub, plugin) | deepseek-v4-pro-huakun | Fallback #1 (R1 reasoning) | feature_verified |
-| **Doubao Seed 2.0 Pro** (ai-tokenhub, plugin, V37.9.290 迁移) | doubao-seed-2.0-pro-huakun | Fallback #2 | feature_verified |
+| **DeepSeek-V4-Pro 满血** (ai-tokenhub, plugin) | deepseek-v4-pro-ga-260813 | Fallback #1 (R1 reasoning) | declared（V37.9.339 换 GA 模型，待复测） |
+| **Kimi K3** (ai-tokenhub, plugin, `doubao` 槽位 V37.9.339 换模型) | kimi-k3-260716 | Fallback #2 | declared（待复测） |
 | **DeepSeek-V4-Pro 量化** (self-host, plugin) | DeepSeek-V4-Pro-w4a8-mtp | Fallback #3 | feature_verified |
 | **Qwen** (Remote GPU) | Qwen3-235B + Qwen2.5-VL-72B | Fallback #4 兜底（前主力 V27→V37.9.222；唯一非-Ark vision fallback） | production_observed |
-| **GLM-5.2 coding** (ai-tokenhub, plugin, V37.9.290 迁移) | glm-5.2-huakun | On-demand coding (`?provider=glm5_coding` / chat 前缀 `glm `) | feature_verified |
+| **GLM-5.3 coding** (ai-tokenhub, plugin, V37.9.339 换版本) | glm-5-3-260814 | On-demand coding (`?provider=glm5_coding` / chat 前缀 `glm `) | declared（待复测） |
 | **OpenAI** | GPT-4o | available | declared |
 | **Google Gemini** | Gemini 2.5 Flash | ~~retired from fallback~~ (HK geo-block, V37.9.129; embedding API 仍用于 mm_index) | smoke_tested |
 | **Anthropic Claude** | Claude Sonnet 4.6 | available | declared |
@@ -219,7 +219,7 @@ This is a deliberate architecture decision: **every dependency you remove is one
 | `tool_proxy.py` | HTTP layer — request/response routing, **custom tool execution** (data_clean + search_kb), **media injection**, followup LLM calls, logging, health cascade |
 | `proxy_filters.py` | Policy layer — tool filtering, **custom tool injection** (data_clean + search_kb), **image base64 injection** (`<media:image>` → `image_url`), param fixing, truncation, SSE conversion |
 | `adapter.py` | API adapter — **12-provider** forwarding, auth, **capability-aware multimodal routing**, fallback degradation |
-| `providers.py` | **V34** Provider Compatibility Layer — BaseProvider abstraction, 12 concrete providers (7 built-in + Doubao×2 + DeepSeek×2 + GLM-5.2 coding plugins), ProviderRegistry, capability declaration, CLI matrix |
+| `providers.py` | **V34** Provider Compatibility Layer — BaseProvider abstraction, 12 concrete providers (7 built-in + Doubao 2.1 + Kimi K3 + DeepSeek×2 + GLM-5.3 coding plugins), ProviderRegistry, capability declaration, CLI matrix |
 | `slo_benchmark.py` | **V35** SLO Benchmark report generator — reads proxy_stats.json → Markdown/JSON report (latency p50/p95/p99, success rate, degradation) |
 | `quickstart.sh` | **V35** One-click Quick Start — 4 phases (prerequisites → services → health → golden test), provider auto-detection |
 | `notify.sh` | **V33** Unified notification — WhatsApp + Discord dual-channel push, 6 topic channels |

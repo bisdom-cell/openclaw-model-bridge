@@ -1,33 +1,36 @@
 """V37.9.204 — DeepSeek-V4-Pro 满血版 Provider (ai-tokenhub 托管, 非量化候选)
-   V37.9.205 — Mac Mini E2E 实测: text/tool_calling/reasoning 3/3 → feature_verified;
-               🌟 有 R1 reasoning_content 通道 (量化版无) + 无乱码 token (量化版有);
-               vision 确认不支持; json_mode 返回围栏 (非严格 response_format, 保持 False)。
+   V37.9.205 — Mac Mini E2E 实测: text/tool_calling/reasoning 3/3 → feature_verified
+   V37.9.289 — 更名 deepseek-v4-pro-260425 → deepseek-v4-pro-huakun (同端点同 key, tier 保留)
+   V37.9.339 — 🔴 槽位换模型 (2026-09-02 用户指令, 后台 LLM Provider 刷新):
+               deepseek-v4-pro-huakun → deepseek-v4-pro-ga-260813 (GA 版), 同网关新 key。
+               **不是更名, 是换模型** → 旧证据不迁移, tier 诚实回 declared, E2E 复测后逐项升档。
 
-接入第 10 个 provider: deepseek-v4-pro-huakun (满血版, via ai-tokenhub API hub;
-V37.9.289 更名, 原 deepseek-v4-pro-260425).
-定位 = Qwen3 迁移的【新候选】, 替代被 pending 的量化版 deepseek (w4a8-mtp 偶发乱码)。
+接入第 10 个 provider: deepseek-v4-pro-ga-260813 (满血版 GA, via ai-tokenhub API hub)。
+定位 = 生产 fallback 链首 (FALLBACK_ORDER=deepseek_full,doubao,deepseek,qwen, V37.9.218)。
 
 ⚠️ 运维注意: 满血版是推理模型, 先生成 reasoning 再生成 content (reasoning 占 token 预算)。
 生成任务须给足 max_tokens, 否则 content 可能空/截断 (E2E 实测 600 tokens 被 reasoning 吃掉)。
 
 🔴 安全契约 (镜像 doubao/deepseek V37.9.52 公开 repo 安全底线):
 - **API key 严格走 env `DEEPSEEK_FULL_API_KEY`** — 绝不硬编码。用户在对话里贴的明文 key
-  (sk-...) 不入库, 即便用户豁免也守公开 repo 安全底线。
+  (sk-...) 不入库, 即便用户豁免也守公开 repo 安全底线。V37.9.339 起该 env 的**值**换成
+  GA 模型专属的新 key (Mac Mini plist + .env_shared 替换值, env 名不变)。
 - **base_url = `https://ai-tokenhub.com/api/v1`** — 公开域名 (非裸 IP/路径 token, 不含机密),
   可入库 (与 openai/claude/doubao 等公开 base_url 同理)。无 key 时 available() 自动排除。
 
 诚实语义 (原则 #23 — 只声明实测过的能力):
-- **verification_tier = feature_verified** (V37.9.205) — 分项 E2E 实测通过但未真生产流量。
-- **Mac Mini E2E 实测 2026-06-30 (verified True)**:
-    text         ✅ 干净中文 content + finish_reason=stop
-    tool_calling ✅ finish_reason=tool_calls + tool_calls[].function.arguments
-    reasoning    ✅ 🌟 R1 reasoning_content 通道 + reasoning_tokens=55 (量化版无此通道)
-- **确认不支持 / 未暴露 / 未单测 → False**:
-    vision       ❌ 400 Bad Request — DeepSeek V 系无视觉 (实测得知, 非未知)
-    json_mode    ⚠️ response_format 返回 markdown 围栏 (非严格) → 不声明
-    streaming    declared True (OpenAI /v1 基线), 本探针未单测 → verified_streaming=False
-    fallback     未真生产接管 → verified_fallback=False
-- context_window = 1M (V37.9.207 端点规格确认); max_output_tokens=8192 保守占位待实测。
+- **verification_tier = declared** (V37.9.339 重置) — GA 是不同的模型构建, -huakun 别名
+  时代的 E2E 证据 (V37.9.205 3/3 通过 / V37.9.291 tokenhub 复测) **不迁移**。
+- capability 声明保持 DeepSeek V4 Pro 家族画像 (text/tool_calling/streaming/reasoning True;
+  vision False 家族无视觉; json_mode False 围栏非严格), 与 verified_* 解耦。
+- verified_* 全 False, Mac Mini E2E 复测通过后按探针结果逐项 flip。
+- context_window = 1M (V37.9.207 端点规格, 假定 GA 沿用; 待实测); max_output_tokens=8192 保守占位。
+
+历史证据 (供复测对照, 不作当前档位依据):
+- V37.9.205 (deepseek-v4-pro-260425): text/tool_calling/reasoning 3/3, 无乱码 token,
+  R1 reasoning 通道 reasoning_tokens=55; vision 400; json_mode 围栏非严格。
+- V37.9.222/291 (ai-tokenhub Bifrost 网关): thinking:disabled 生效 / reasoning 字段名
+  为 `reasoning` (非 Ark 的 reasoning_content)。
 
 OpenAI 兼容: base_url 以 /v1 结尾 + `Authorization: Bearer` (auth_style=bearer 默认)。
 """
@@ -42,46 +45,40 @@ class DeepSeekFullProvider(BaseProvider):
     auth_style = "bearer"
     # V37.9.222 B1: ai-tokenhub 用 Bifrost 网关归一化 thinking 参数 (2026-07-02 实测
     # thinking:disabled → completion_tokens_details 空 + content 完整; enable_thinking:false
-    # 被忽略)。与 doubao_21 同一片段, 批量 workload 注入走快路。
+    # 被忽略)。V37.9.339 保留: 同网关 + 同 DeepSeek V4 Pro 家族 (网关层归一化, 与具体
+    # 构建无关), GA 模型上待复测; 若 GA 对该片段 400 则退役本声明。
     reasoning_off_body = {"thinking": {"type": "disabled"}}
     models = [
         ModelInfo(
-            # V37.9.289 (2026-08-07 用户变更): deepseek-v4-pro-260425 → deepseek-v4-pro-huakun
-            # (其他参数不变; ai-tokenhub 无 endpoint-ID 间接层, 本 model 名直接进请求体)。
-            model_id="deepseek-v4-pro-huakun",
-            display_name="deepseek-v4-pro-huakun (满血版)",
+            # V37.9.339 (2026-09-02 用户变更): deepseek-v4-pro-huakun → deepseek-v4-pro-ga-260813
+            # (同网关 ai-tokenhub, 新 key; ai-tokenhub 无 endpoint-ID 间接层, 本 model 名直接进请求体)。
+            model_id="deepseek-v4-pro-ga-260813",
+            display_name="deepseek-v4-pro-ga-260813 (满血版 GA)",
             modalities=["text"],
-            context_window=1048576,    # V37.9.207 端点规格 1M (1024K, 用户/端点确认; 原 65536 是未实测占位)
+            context_window=1048576,    # V37.9.207 端点规格 1M (假定 GA 沿用, 待实测)
             max_output_tokens=8192,    # 保守占位, 待实测
             is_default=True,
         ),
     ]
-    # 🔴 能力声明 (原则 #23 — 只声明实测过的): V37.9.205 Mac Mini E2E 探针实测。
-    # text/tool_calling/reasoning ✅ verified; vision 确认不支持; json_mode 围栏非严格 → False。
+    # 🔴 能力声明 = DeepSeek V4 Pro 家族画像 (原则 #23: 声明与 verified_* 解耦)。
     capabilities = ProviderCapabilities(
         text=True,
-        vision=False,          # V37.9.205 实测: 400 Bad Request (DeepSeek V 系无视觉)
+        vision=False,          # DeepSeek V 系无视觉 (V37.9.205 实测 400, 家族性质)
         audio=False,
         video=False,
-        tool_calling=True,     # V37.9.205 E2E: finish_reason=tool_calls + get_weather arguments
-        streaming=True,        # OpenAI /v1 标准基线 (本探针未单测 streaming, verified 留 False)
-        json_mode=False,       # V37.9.205 实测: response_format 返回 ```json 围栏 (非严格), 不声明
-        reasoning=True,        # 🌟 V37.9.205 E2E: reasoning 字段填充 + reasoning_tokens=55 (R1 通道)
-        context_window=1048576,  # V37.9.207 端点规格 1M (1024K, 用户/端点确认; 原 65536 是未实测占位)
+        tool_calling=True,     # 家族支持 (V37.9.205 -huakun 时代实测过)
+        streaming=True,        # OpenAI /v1 标准基线
+        json_mode=False,       # 家族 response_format 返回围栏非严格 → 不声明
+        reasoning=True,        # 满血版 R1 reasoning 通道 (家族性质, V37.9.205/291 实测过)
+        context_window=1048576,
         max_output_tokens=8192,
-        # verified_* (6 维跟踪); 仅实测通过的 3 项 flip True
-        verified_text=True,        # E2E: 干净中文 content + finish_reason=stop
-        verified_vision=False,     # 确认不支持
-        verified_tool_calling=True,  # E2E: tools → tool_calls[].function.arguments
-        verified_streaming=False,  # 本探针未单测 streaming (declared True, 待补测)
-        verified_fallback=False,   # 未真生产 fallback 接管
-        verified_reasoning=True,   # E2E: reasoning_content 通道 + reasoning_tokens>0
-        # feature_verified: 分项 E2E 实测通过但未真生产流量 (tier_evidence 必须显式引用证据)
-        verification_tier="feature_verified",
-        tier_evidence="Mac Mini E2E 实测 2026-06-30 (时为 model=deepseek-v4-pro-260425): "
-                      "text/tool_calling/reasoning 3/3 通过 "
-                      "(干净中文+finish_reason / finish_reason=tool_calls+arguments / "
-                      "reasoning 字段填充+reasoning_tokens=55 R1 通道)；无乱码 token (优于量化版 w4a8)；"
-                      "vision 实测不支持 (400) / json_mode 围栏非严格 / streaming 未单测 / 未真生产 fallback。"
-                      "2026-08-07 model ID 更名 deepseek-v4-pro-huakun (V37.9.289, 同端点同 key), 更名后 E2E 待 Mac Mini 复测",
+        # V37.9.339 换模型重置: 全部 verified_* False, GA 模型 E2E 复测后逐项 flip
+        verified_text=False,
+        verified_vision=False,
+        verified_tool_calling=False,
+        verified_streaming=False,
+        verified_fallback=False,
+        verified_reasoning=False,
+        verification_tier="declared",
+        tier_note="2026-09-02 槽位换模型 GA (V37.9.339), -huakun 时代 E2E 证据不迁移, ai-tokenhub 复测待 Mac Mini",
     )

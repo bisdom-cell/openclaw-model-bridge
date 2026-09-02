@@ -211,11 +211,13 @@ class TestReadmeBodyLineSubs(unittest.TestCase):
         # 表行内容不是机器管理的统计 token — 内容守卫防 V37.9.52 类"加 provider 漏表行"复发。
         # V37.9.313 演进: 原字面量 pin "**Doubao** (Volcengine Ark, plugin)" 自身陈旧
         # (V37.9.290 平台已迁 ai-tokenhub, 2026-08-17 全面刷新时该 pin 反过来咬住修正)。
-        # 意图不变: providers 表必须列出 Doubao plugin 行 (2.0 与 2.1 各一行)。
+        # 意图不变: providers 表必须列出 doubao 槽位 plugin 行 + 2.1 行各一行。
+        # V37.9.339 演进: doubao 槽位换模型 Kimi K3 (registry 名 `doubao` 是历史槽位名),
+        # 表行按「`doubao` 槽位」标记锚定而非模型名 (槽位再换模型不再咬住修正)。
         with open(os.path.join(_REPO, "README.md"), encoding="utf-8") as f:
             readme = f.read()
-        self.assertRegex(readme, r"\| \*\*Doubao Seed 2\.0 Pro\*\* \([^)]*plugin[^)]*\) \|",
-                         "provider 表必须含 Doubao 2.0 plugin 行")
+        self.assertRegex(readme, r"\| \*\*[^*]+\*\* \([^)]*plugin[^)]*`doubao` 槽位[^)]*\) \|",
+                         "provider 表必须含 doubao 槽位 plugin 行 (V37.9.339 起 Kimi K3)")
         self.assertRegex(readme, r"\| \*\*Doubao Seed 2\.1 Pro\*\* \([^)]*plugin[^)]*\) \|",
                          "provider 表必须含 Doubao 2.1 (primary) plugin 行")
         self.assertRegex(readme, r"## Supported Providers \(\d+\)",

@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
-# code_assist.sh — GLM-5.2 Coding 编程助手 (V37.9.254/255/290 provider glm5_coding 的直连消费方)
+# code_assist.sh — GLM-5.3 Coding 编程助手 (V37.9.254/255/290/339 provider glm5_coding 的直连消费方)
 #
-# 直连 ai-tokenhub GLM-5.2 端点做纯代码生成/重构/解释 (原则 #94: 纯推理绕开 Gateway,
+# 直连 ai-tokenhub GLM-5.3 端点做纯代码生成/重构/解释 (原则 #94: 纯推理绕开 Gateway,
 # 完全控制 max_tokens/temperature, 无工具注入/无 200KB proxy 截断/无 12 工具上限)。
-# V37.9.290 平台切换: Volcengine Ark → ai-tokenhub (glm-5.2-huakun 别名家族在该网关;
-# ep- 接入点间接层退役, GLM5_ENDPOINT_ID 不再消费, model 名直接进请求体)。
+# V37.9.290 平台切换: Volcengine Ark → ai-tokenhub (ep- 接入点间接层退役,
+# GLM5_ENDPOINT_ID 不再消费, model 名直接进请求体)。
+# V37.9.339 (2026-09-02 用户指令): 模型 glm-5.2-huakun → glm-5-3-260814, 同网关新 key。
 #
-# 🔴 安全: API key 只从 env GLM5_API_KEY 读 (V37.9.290 起为 ai-tokenhub sk-... key), 绝不硬编码/落盘。
+# 🔴 安全: API key 只从 env GLM5_API_KEY 读 (ai-tokenhub sk-... key, V37.9.339 起为 GLM-5.3 专属新 key), 绝不硬编码/落盘。
 #
 # 用法:
 #   export GLM5_API_KEY='sk-...'
@@ -18,7 +19,7 @@
 #   ./code_assist.sh --temp 0 --max-tokens 4096 "..."
 set -euo pipefail
 
-MODEL="${GLM5_MODEL:-glm-5.2-huakun}"
+MODEL="${GLM5_MODEL:-glm-5-3-260814}"
 BASE_URL="${GLM5_BASE_URL:-https://ai-tokenhub.com/api/v1}"
 MAX_TOKENS=8192
 TEMP=0.2

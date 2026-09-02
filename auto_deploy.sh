@@ -184,11 +184,11 @@ declare -a FILE_MAP=(
     "tool_proxy.py|$HOME/tool_proxy.py"
     "adapter.py|$HOME/adapter.py"
     "providers.py|$HOME/providers.py"
-    "providers.d/doubao_provider.py|$HOME/providers.d/doubao_provider.py"  # V37.9.52 — Doubao Seed 2.0 Pro plugin (auto-discovered by providers.py)
+    "providers.d/doubao_provider.py|$HOME/providers.d/doubao_provider.py"  # V37.9.52 — doubao 槽位 plugin (V37.9.339 起 Kimi K3; auto-discovered by providers.py)
     "providers.d/deepseek_provider.py|$HOME/providers.d/deepseek_provider.py"  # V37.9.201 — DeepSeek-V4-Pro w4a8-mtp 量化版 plugin (PENDING, 需 DEEPSEEK_API_KEY+DEEPSEEK_BASE_URL env)
     "providers.d/deepseek_full_provider.py|$HOME/providers.d/deepseek_full_provider.py"  # V37.9.204/205 — DeepSeek-V4-Pro 满血版 (ai-tokenhub, feature_verified, fallback 候选; 需 DEEPSEEK_FULL_API_KEY env)
     "providers.d/doubao_seed_21_provider.py|$HOME/providers.d/doubao_seed_21_provider.py"  # V37.9.216 — Doubao Seed 2.1 Pro 旗舰 plugin (declared, 需 ARK_21_API_KEY+ARK_21_ENDPOINT_ID env)
-    "providers.d/glm5_coding_provider.py|$HOME/providers.d/glm5_coding_provider.py"  # V37.9.254 — GLM-5.2 Coding plugin (ai-tokenhub, declared, coding 按需调用; 需 GLM5_API_KEY env)
+    "providers.d/glm5_coding_provider.py|$HOME/providers.d/glm5_coding_provider.py"  # V37.9.254 — GLM coding 槽位 plugin (V37.9.339 起 GLM-5.3; ai-tokenhub, coding 按需调用; 需 GLM5_API_KEY env)
     "router_decide.py|$HOME/router_decide.py"  # V37.9.76 — Capability Router shadow mode decision logger
     "memory_plane.py|$HOME/memory_plane.py"
     "VERSION|$HOME/VERSION"
@@ -207,7 +207,7 @@ declare -a FILE_MAP=(
     "kb_save_arxiv.sh|$HOME/kb_save_arxiv.sh"
     "kb_search.sh|$HOME/kb_search.sh"
     "kb_inject.sh|$HOME/kb_inject.sh"
-    "code_assist.sh|$HOME/code_assist.sh"  # V37.9.254 — GLM-5.2 coding 助手 (直连 glm5_coding, 需 GLM5_API_KEY env)
+    "code_assist.sh|$HOME/code_assist.sh"  # V37.9.254 — GLM coding 助手 (直连 glm5_coding, V37.9.339 起 GLM-5.3; 需 GLM5_API_KEY env)
     "job_watchdog.sh|$HOME/job_watchdog.sh"
     "wa_keepalive.sh|$HOME/wa_keepalive.sh"
     # V37.9.162: wa_channel_status.py — wa_keepalive 解析 channels status 的 WhatsApp 频道链接状态
