@@ -1,6 +1,6 @@
 {
-  "updated": "2026-09-02 12:51:48",
-  "updated_by": "full_regression",
+  "updated": "2026-09-02 13:22:34",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-09-02",
+      "what": "V37.9.349-hotfix: Mac Mini 首跑 S2 http_429 → influence_metrics 429 重试恰一次 + :anon/:key 后缀; health_check.sh 补 source .bash_profile‖.env_shared 标准行(手跑=cron env). PyPI 周下载 2 / ⭐10 fork 1 首次实测入眼",
+      "by": "claude_code"
+    },
     {
       "date": "2026-09-02",
       "what": "V37.9.349 影响力指标机械化: 纲领 §5 R1 三条手工采集命令(S2 引用/PyPI 下载/GitHub star)折进 health_check 每周一周报第 10 段「📣 影响力」(influence_metrics.py, 每源 FAIL-OPEN 不写 0, 历史落 status.json quality.influence 经锁, 零新 job/cron/状态文件); 38 单测 + watchdog err_pattern 契约",
@@ -172,11 +177,6 @@
     {
       "date": "2026-08-30",
       "what": "V37.9.335 首跑落地三修: drvfs EPERM hotfix(-rtz --inplace) + ZeroTier 中继破案(办公室封对外 UDP,dig 超时+TUNNELED 实证,36KB/s 天花板) + ssd_backup 周日最新一份重构+3份剪枝+FORCE 开关+/tmp flock 单实例锁; 守卫 16→19 + sabotage 双连精确开火",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-08-30",
-      "what": "V37.9.335 Windows E 盘每日镜像交付: Mac Mini 项目生成数据全量 → E:\\openclaw-model-bridge 每天 05:00 增量刷新。架构=Windows 侧 WSL+rsync 拉取（Mac 零改动，05:00=Mac 夜间任务干净窗口）；7 模块清单路径全 grounded 自生产源码；每 --delete 配 --max-delete 防灾难镜像保险丝（V37.9.324 教训镜像版）；MR-8 跨文件契约守卫 15 单测 sabotage 四连全开火；quirk scanner 抓到自己的全角邻接 quirk 即修。待用户 Windows 4 步安装（windows/README.md）",
       "by": "claude_code"
     }
   ],
@@ -344,7 +344,7 @@
         "item": "【ai_leaders_x 去留 · 需 Mac Mini 数据非印象】该 job 自 V37.9.108 起被 blogs/bsky 替代、每日 9-17×429 WARN 进 watchdog（告警噪声面），但产出是否真为零未实测。判据命令: for f in ~/.openclaw/jobs/ai_leaders_x/cache/last_run.json; do cat $f; done; grep -c \"new\\\":[1-9]\" ~/.openclaw/logs/jobs/ai_leaders_x.log 近 7 天 —— 若 7 天 new 总和 ≤3 → 下版 enabled:false + watchdog JOBS 摘除 + crontab_safe.sh remove（代码保留备 revert，openclaw_run/pwc 先例）；若仍有稳定产出则保留并把 tier core→auxiliary",
         "added": "2026-09-02"
       },
-      "[2026-09-02 V37.9.349] Mac Mini 被动验证 (health_check.sh 走 FILE_MAP; influence_metrics.py 经 $REPO_DIR 调仓库副本刻意不进 FILE_MAP): 下周一 09-07 09:00 health_check 周报应出现「📣 影响力: 引用 N (首次) | PyPI 周下载 N (首次) | ⭐ N (首次) fork N」— 若某源显示 ⚠️不可达(原因码) 把原因码发我(http_429=限流可加 S2_API_KEY/GITHUB_TOKEN 到 .env_shared; connect_failed=网络); 验证 `python3 status_update.py --read | python3 -c \"import json,sys;print(json.load(sys.stdin)[\\\"quality\\\"].get(\\\"influence\\\",{}).get(\\\"latest\\\"))\"` 非 None. 三源均不可达 → 本周不记录(诚实)而非 0"
+      "[2026-09-02 V37.9.349 → hotfix] Mac Mini 首跑(交互 zsh 手跑=匿名 S2): 引用 ⚠️不可达(http_429) | PyPI 周下载 2 (首次) | ⭐ 10 fork 1 — 两源真值已到, S2 走匿名池 429. hotfix 后被动验证: (a) 合并同步后 `bash -lc 'python3 ~/openclaw-model-bridge/influence_metrics.py'` 应显示引用 N (首次) 或 http_429:key(=key 也被限流, 与 11:00 semantic_scholar job 错开的周一 09:00 cron 应无此问题); (b) 周一 09-07 09:00 周报第 10 段三源真值 + `python3 status_update.py --read | python3 -c \"import json,sys;print(json.load(sys.stdin)['quality'].get('influence',{}).get('latest'))\"` 非 None; 原因码 :anon = 没带 key(env 未装载) / :key = key 限流"
     ],
     "open_prs": [],
     "blocked_on": "",

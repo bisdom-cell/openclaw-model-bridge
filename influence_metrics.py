@@ -34,6 +34,7 @@ import datetime as _dt
 import json
 import os
 import sys
+import time
 import urllib.error
 import urllib.request
 
@@ -50,6 +51,7 @@ PYPI_URL = "https://pypistats.org/api/packages/{package}/recent"
 GITHUB_URL = "https://api.github.com/repos/{repo}"
 
 HTTP_TIMEOUT_SEC = 8          # 三源串行最坏 24s < health_check safe_call 的 30s 上限
+RETRY_429_SLEEP_SEC = 2       # 429 是秒回的限流应答（非超时），单次重试不动预算：最坏 +2s
 HISTORY_MAX = 60              # 周粒度 ≈ 14 个月，够两季度对比 + 一点余量
 FLAT_STREAK_WARN_WEEKS = 13   # 一个季度零增长即在周报里显式标出（纲领 §6-B1 反思触发点是两季度）
 USER_AGENT = "openclaw-model-bridge-health-check (+https://github.com/%s)" % GITHUB_REPO
@@ -66,21 +68,36 @@ def _warn(msg):
 # ---------------------------------------------------------------------------
 # HTTP（可注入 getter，测试零网络）
 # ---------------------------------------------------------------------------
-def _get_json(url, headers=None, timeout=HTTP_TIMEOUT_SEC):
-    """返回 (obj, None) 或 (None, reason_code)。reason_code 刻意不匹配 watchdog err_pattern。"""
-    req = urllib.request.Request(url, headers=dict(headers or {}))
-    req.add_header("User-Agent", USER_AGENT)
-    req.add_header("Accept", "application/json")
-    try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            raw = resp.read()
-    except urllib.error.HTTPError as e:
-        return None, "http_%s" % e.code
-    except urllib.error.URLError as e:
-        reason = str(getattr(e, "reason", e)).replace(" ", "_")[:24]
-        return None, "connect_failed:%s" % reason
-    except (OSError, ValueError) as e:  # socket.timeout 是 OSError 子类
-        return None, "connect_failed:%s" % type(e).__name__
+def _get_json(url, headers=None, timeout=HTTP_TIMEOUT_SEC, _sleep=None):
+    """返回 (obj, None) 或 (None, reason_code)。reason_code 刻意不匹配 watchdog err_pattern。
+
+    V37.9.349-hotfix（Mac Mini 首跑 S2 http_429）：429 重试恰一次。S2 匿名池是共享 1 RPS，
+    偶发 429 是它的常态（V37.8.13 / V37.9.98 血案），而 429 是秒回应答不是超时，重试一次只花
+    RETRY_429_SLEEP_SEC。其他 HTTP 错误 / 超时 / 连接失败不重试（预算守 safe_call 30s）。
+    原因码带 `:anon` / `:key` 后缀 —— 429 时一眼分清是「没带 key」还是「key 也被限流」
+    （V37.9.309 教训：告警要能自证是哪一种故障）。
+    """
+    sleep = _sleep or time.sleep
+    headers = dict(headers or {})
+    auth = "key" if any(k.lower() in ("x-api-key", "authorization") for k in headers) else "anon"
+    for attempt in (0, 1):
+        req = urllib.request.Request(url, headers=headers)
+        req.add_header("User-Agent", USER_AGENT)
+        req.add_header("Accept", "application/json")
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                raw = resp.read()
+            break
+        except urllib.error.HTTPError as e:
+            if e.code == 429 and attempt == 0:
+                sleep(RETRY_429_SLEEP_SEC)
+                continue
+            return None, "http_%s%s" % (e.code, ":" + auth if e.code == 429 else "")
+        except urllib.error.URLError as e:
+            reason = str(getattr(e, "reason", e)).replace(" ", "_")[:24]
+            return None, "connect_failed:%s" % reason
+        except (OSError, ValueError) as e:  # socket.timeout 是 OSError 子类
+            return None, "connect_failed:%s" % type(e).__name__
     try:
         return json.loads(raw.decode("utf-8", errors="replace")), None
     except ValueError:

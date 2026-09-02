@@ -20,6 +20,10 @@
 #
 # cron 环境 PATH 极简，必须显式声明（规则 #13）
 export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
+# V37.9.349-hotfix: 与 kb_dream/kb_evening/daily_observer 同款标准行 —— cron 走 bash -lc 本就有
+# .bash_profile, 但用户交互 zsh 手跑时没有 → 第 10 段 S2 匿名池 429 (Mac Mini 首跑实录), 而
+# .env_shared 里的 S2_API_KEY 一直在。手跑与 cron 看到同一份 env = 一物一形。
+source "$HOME/.bash_profile" 2>/dev/null || source "$HOME/.env_shared" 2>/dev/null || true
 
 # 配置：优先读取环境变量
 PHONE="${OPENCLAW_PHONE:-+85200000000}"
