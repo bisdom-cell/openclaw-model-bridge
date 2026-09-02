@@ -366,7 +366,7 @@ export FALLBACK_ORDER="doubao_21,deepseek_full,doubao,deepseek,qwen"
 | Provider | Role | Env var |
 |----------|------|---------|
 | Doubao Seed 2.1 Pro (Volcengine Ark) | Primary (`PROVIDER=doubao_21`, V37.9.222 起) | `ARK_21_API_KEY` + `ARK_21_ENDPOINT_ID` |
-| DeepSeek-V4-Pro 满血版 → Doubao 2.0 → DeepSeek 量化版 → Qwen3-235B | Fallback chain (`FALLBACK_ORDER`) | `DEEPSEEK_FULL_API_KEY` / `DOUBAO_API_KEY` / `DEEPSEEK_API_KEY` / `REMOTE_API_KEY` |
+| DeepSeek-V4-Pro 满血版 GA → Kimi K3（`doubao` 槽位）→ DeepSeek 量化版 → Qwen3-235B | Fallback chain (`FALLBACK_ORDER`) | `DEEPSEEK_FULL_API_KEY` / `DOUBAO_API_KEY` / `DEEPSEEK_API_KEY` / `REMOTE_API_KEY` |
 
 ---
 

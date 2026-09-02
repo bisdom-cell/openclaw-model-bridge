@@ -2,7 +2,8 @@
 expert_escalation.py — V37.9.90-r1 Expert Escalation Capability
 
 V37.9.83 Direction 2 (AI Partnership Framework) — redesigned 2026-05-29 to
-route via Doubao Seed 2.0 Pro (already running in production, V37.9.55) instead
+route via the expert backend slot (historically Doubao Seed 2.0 Pro V37.9.55;
+V37.9.339 起槽位模型 = Kimi K3 via ai-tokenhub, 见 DOUBAO_DEFAULT_MODEL_ID) instead
 of Anthropic SDK (Claude pending future-flip when API key + integration ready).
 
 Why Doubao first:
@@ -12,8 +13,8 @@ Why Doubao first:
 - 10-30x cheaper than Claude Opus 4.7 (~$0.01-0.02/call vs ~$0.47 首调)
 - Volcengine Context Cache: automatic prompt caching for prefix ≥ 1024 tokens
   (no manual cache_control needed; we keep stable prefix structure to benefit)
-- Reasoning model: doubao-seed-2.0-pro-huakun (V37.9.289 更名) returns `reasoning_content` field
-  (similar surface to Claude adaptive thinking)
+- Reasoning model: expert 后端 = 该槽位当前模型 (V37.9.339 起 kimi-k3-260716 via ai-tokenhub;
+  史: doubao-seed-2.0-pro → -huakun V37.9.289); reasoning 字段读 `reasoning`/`reasoning_content` 双兼容 (V37.9.291)
 - Zero new dependency: uses stdlib urllib (no openai / anthropic / requests)
 
 Architecture (unchanged from v1):
@@ -64,10 +65,14 @@ DEFAULT_BACKEND = BACKEND_DOUBAO
 # Volcengine Ark → ai-tokenhub (V37.9.289 更名后 Ark 不认 -huakun 名, 别名家族
 # 在 ai-tokenhub, 用户提供 doubao 专属 key)。ep- endpoint-ID 间接层随之退役
 # (ai-tokenhub 的 model 字段直接接收 model 名, ARK_ENDPOINT_ID 不再消费)。
+# V37.9.339 (2026-09-02 用户指令, 后台 LLM Provider 刷新): 该槽位模型
+# doubao-seed-2.0-pro-huakun → kimi-k3-260716 (Kimi K3), expert 后端随槽位同迁
+# (镜像 V37.9.290 "expert 后端同模型随迁")。🔴 DOUBAO_* 常量族是历史槽位名
+# (与 providers.d/doubao_provider.py 的命名债同源), 当前实际模型见 DOUBAO_DEFAULT_MODEL_ID。
 DOUBAO_BASE_URL = "https://ai-tokenhub.com/api/v1"
 DOUBAO_ENDPOINT_URL = DOUBAO_BASE_URL + "/chat/completions"
 DOUBAO_API_KEY_ENV = "DOUBAO_API_KEY"
-DOUBAO_DEFAULT_MODEL_ID = "doubao-seed-2.0-pro-huakun"
+DOUBAO_DEFAULT_MODEL_ID = "kimi-k3-260716"
 DOUBAO_REQUEST_TIMEOUT_SEC = 60
 
 DEFAULT_MAX_TOKENS = 4000          # response cap; per-call cost ceiling
@@ -674,7 +679,7 @@ def escalate(
             "proposal": "[DRY RUN] No API call made. Question recorded for review.",
             "rationale": (
                 "Dry-run mode: synthetic response. In production this would route via "
-                "Doubao Seed 2.0 Pro on Volcengine Ark with automatic context cache."
+                "the configured expert backend (" + DOUBAO_DEFAULT_MODEL_ID + " @ ai-tokenhub)."
             ),
             "confidence": "low",
             "refs": [],

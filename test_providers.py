@@ -123,16 +123,16 @@ class TestVerificationTier(unittest.TestCase):
         self.assertTrue(any("unknown verification_tier" in v for v in violations))
 
     # --- 真 provider 档位 ---
-    def test_qwen_production_observed_doubao_feature_verified_v291(self):
-        # V37.9.290 平台切换重置 declared → V37.9.291 tokenhub E2E 探针升
-        # feature_verified (text+reasoning 2/2)。qwen 不受影响。
-        from providers import _default_registry, TIER_PRODUCTION_OBSERVED, TIER_FEATURE_VERIFIED
+    def test_qwen_production_observed_doubao_slot_declared_v339(self):
+        # 史: V37.9.290 重置 declared → V37.9.291 tokenhub E2E 升 feature_verified
+        # → V37.9.339 槽位换模型 Kimi K3 (不同厂商) 证据不迁移 → declared。qwen 不受影响。
+        from providers import _default_registry, TIER_PRODUCTION_OBSERVED, TIER_DECLARED
         self.assertEqual(
             _default_registry.get("qwen").capabilities.verification_tier,
             TIER_PRODUCTION_OBSERVED)
         self.assertEqual(
             _default_registry.get("doubao").capabilities.verification_tier,
-            TIER_FEATURE_VERIFIED)
+            TIER_DECLARED)
         self.assertIn("ai-tokenhub",
                       _default_registry.get("doubao").capabilities.tier_note)
 
@@ -1671,25 +1671,27 @@ class TestDeepSeekFullProvider(unittest.TestCase):
         p = get_provider("deepseek_full")
         self.assertIsNotNone(p)
         self.assertEqual(p.name, "deepseek_full")
-        self.assertEqual(p.model_id, "deepseek-v4-pro-huakun")
+        self.assertEqual(p.model_id, "deepseek-v4-pro-ga-260813")   # V37.9.339 槽位换 GA 模型
         self.assertEqual(p.api_key_env, "DEEPSEEK_FULL_API_KEY")
         self.assertEqual(p.base_url, "https://ai-tokenhub.com/api/v1")
         self.assertEqual(p.auth_style, "bearer")
 
-    def test_tier_feature_verified_after_e2e(self):
-        # V37.9.205: Mac Mini E2E 实测 text/tool_calling/reasoning 3/3 → feature_verified
-        # 🌟 满血版有 R1 reasoning_content 通道 (量化版无) + 无乱码 token (原则 #23 只声明实测过)
+    def test_tier_declared_after_ga_model_swap_v339(self):
+        # 史: V37.9.205 -260425 E2E 3/3 → feature_verified → V37.9.289 更名 -huakun 保留
+        # → V37.9.339 槽位换 GA 模型 (不是更名, 是换构建) → 证据不迁移 → declared。
+        # capability 声明保持家族画像 (reasoning True / vision False / json_mode False)。
         from providers import get_provider
         caps = get_provider("deepseek_full").capabilities
-        self.assertEqual(caps.verification_tier, "feature_verified")
-        self.assertTrue(caps.verified_text)
-        self.assertTrue(caps.verified_tool_calling)
-        self.assertTrue(caps.reasoning, "满血版有 R1 reasoning_content 通道")
-        self.assertTrue(caps.verified_reasoning)
-        # 实测得知不支持/非严格 → False
-        self.assertFalse(caps.vision, "V37.9.205 实测 400 非多模态")
-        self.assertFalse(caps.json_mode, "response_format 返回围栏非严格")
-        self.assertIn("E2E", caps.tier_evidence)
+        self.assertEqual(caps.verification_tier, "declared")
+        self.assertFalse(caps.verified_text)
+        self.assertFalse(caps.verified_tool_calling)
+        self.assertFalse(caps.verified_reasoning)
+        self.assertTrue(caps.reasoning, "满血版家族有 R1 reasoning 通道 (家族声明)")
+        self.assertFalse(caps.vision, "DeepSeek V 系无视觉 (家族性质)")
+        self.assertFalse(caps.json_mode, "家族 response_format 返回围栏非严格")
+        self.assertEqual(caps.tier_evidence, "", "declared 走派生 evidence")
+        self.assertIn("V37.9.339", caps.tier_note)
+        self.assertEqual(caps.tier_consistency_violations(), [])
 
     def test_excluded_from_available_without_key(self):
         from providers import get_registry
@@ -1796,7 +1798,7 @@ class TestGlm5CodingProvider(unittest.TestCase):
     def test_model_id_fallback_public_name_without_env(self):
         # V37.9.290: ep- 间接层退役, model_id = 类级静态公开名 (ai-tokenhub 直接收 model 名)
         from providers import get_provider
-        self.assertEqual(get_provider("glm5_coding").model_id, "glm-5.2-huakun")
+        self.assertEqual(get_provider("glm5_coding").model_id, "glm-5-3-260814")   # V37.9.339 槽位换 5.3
 
     def test_distinct_from_builtin_glm(self):
         # 区别于第 7 built-in glm (Zhipu open.bigmodel.cn) — 独立 endpoint + 独立 key
@@ -1805,22 +1807,17 @@ class TestGlm5CodingProvider(unittest.TestCase):
         self.assertNotEqual(builtin.base_url, get_provider("glm5_coding").base_url)
         self.assertNotEqual(builtin.api_key_env, "GLM5_API_KEY")
 
-    def test_feature_verified_after_tokenhub_probe_v291(self):
-        # V37.9.290 平台切回 ai-tokenhub 重置 declared → V37.9.291 tokenhub E2E
-        # 探针 flip text+reasoning (reasoning 为 tokenhub 新发现: Ark ep- 时代
-        # reasoning_tokens=0, Bifrost 网关暴露 reasoning 字段真实推理链)。
-        # tool_calling/streaming 未经 tokenhub 实测保持 False。
+    def test_declared_after_v339_model_swap(self):
+        # 史: V37.9.290 重置 declared → V37.9.291 tokenhub E2E 升 feature_verified
+        # (text+reasoning) → V37.9.339 槽位换版本 glm-5-3-260814 → 5.2 证据不迁移 → declared。
         from providers import get_provider
         caps = get_provider("glm5_coding").capabilities
-        self.assertEqual(caps.verification_tier, "feature_verified")
-        self.assertTrue(caps.verified_text)
-        self.assertTrue(caps.verified_reasoning)
-        self.assertFalse(caps.verified_streaming)
-        self.assertFalse(caps.verified_tool_calling)
-        self.assertFalse(caps.verified_vision)
-        self.assertFalse(caps.verified_fallback)
-        self.assertIn("ai-tokenhub", caps.tier_note)
-        self.assertIn("E2E", caps.tier_evidence)
+        self.assertEqual(caps.verification_tier, "declared")
+        for f in ("verified_text", "verified_reasoning", "verified_streaming",
+                  "verified_tool_calling", "verified_vision", "verified_fallback"):
+            self.assertFalse(getattr(caps, f), f"{f} 必须在 V37.9.339 换模型后重置 False")
+        self.assertIn("V37.9.339", caps.tier_note)
+        self.assertEqual(caps.tier_evidence, "", "declared 走派生 evidence")
         self.assertEqual(caps.tier_consistency_violations(), [])
 
     def test_coding_capabilities(self):
@@ -1833,7 +1830,7 @@ class TestGlm5CodingProvider(unittest.TestCase):
         self.assertTrue(caps.streaming)
         self.assertFalse(caps.json_mode)   # Ark E2E 400; tokenhub 未复测保守沿用
         self.assertFalse(caps.vision)      # GLM-5V 是独立模型
-        self.assertTrue(caps.reasoning)    # V37.9.291 tokenhub E2E: reasoning 字段真实推理链
+        self.assertTrue(caps.reasoning)    # GLM-5 系 tokenhub 家族性质 (5.2 V37.9.291 实测; 5.3 待复测)
         # reasoning_off_body 仍不声明: thinking 参数未在本模型实测 + glm5 不进
         # batch/auto-fallback 消费路径 (原则 #23 不投机 declare)
         self.assertIsNone(get_provider("glm5_coding").reasoning_off_body)
@@ -1884,7 +1881,7 @@ class TestCodeAssistScript(unittest.TestCase):
                           "code_assist.sh 不得含 ark- key 字面量 — 走 GLM5_API_KEY env")
         self.assertIn("GLM5_API_KEY", src)
         # 目标 provider 身份 (glm5_coding ai-tokenhub 端点 + model, V37.9.290)
-        self.assertIn("glm-5.2-huakun", src)
+        self.assertIn("glm-5-3-260814", src)   # V37.9.339
         self.assertIn("ai-tokenhub.com/api/v1", src)
 
     def test_nonstream_parses_response_via_mock(self):
@@ -1898,7 +1895,7 @@ class TestCodeAssistScript(unittest.TestCase):
 
         payload = (b'{"choices":[{"finish_reason":"stop","message":'
                    b'{"content":"def f(): return 42","role":"assistant"}}],'
-                   b'"model":"glm-5.2-huakun","usage":{"prompt_tokens":5,"completion_tokens":6}}')
+                   b'"model":"glm-5-3-260814","usage":{"prompt_tokens":5,"completion_tokens":6}}')
 
         class _H(BaseHTTPRequestHandler):
             def do_POST(self):
@@ -1950,11 +1947,12 @@ class TestReasoningOffBodyB1(unittest.TestCase):
         from providers import get_provider
         self.assertIsNone(get_provider("qwen").reasoning_off_body)
 
-    def test_doubao2_declares_reasoning_off(self):
-        # V37.9.223: doubao 2.0 同 Ark 家族 (family-inferred, 未在此 endpoint 单独实测) → 声明,
-        # 作 primary 前须探针 (原则 #23 docstring 已标 untested)
+    def test_doubao_slot_no_reasoning_off_after_kimi_swap_v339(self):
+        # 史: V37.9.223 doubao 2.0 同 Ark 家族推断声明 → V37.9.339 槽位换 Kimi K3 (不同厂商):
+        # `thinking` 片段未在 Kimi 实测, V37.9.224 登记未测参数可能 400 打断 fallback →
+        # 不声明 (None) = 不注入, Kimi 以默认行为服务 batch fallback (宁慢勿断)。
         from providers import get_provider
-        self.assertEqual(get_provider("doubao").reasoning_off_body, self._OFF)
+        self.assertIsNone(get_provider("doubao").reasoning_off_body)
 
     def test_deepseek_quantized_declares_reasoning_off(self):
         # V37.9.223: deepseek 量化版声明 (镜像 deepseek_full); ⚠️ 非-reasoning + self-host 网关未测,
@@ -1972,15 +1970,20 @@ class TestReasoningOffBodyB1(unittest.TestCase):
         # B1 依赖 adapter 从 PROVIDERS dict 读 reasoning_off_body → to_legacy_dict 必须暴露
         from providers import get_provider
         self.assertEqual(get_provider("doubao_21").to_legacy_dict().get("reasoning_off_body"), self._OFF)
-        self.assertEqual(get_provider("doubao").to_legacy_dict().get("reasoning_off_body"), self._OFF)
+        # V37.9.339: doubao 槽位换 Kimi K3 不声明 → legacy dict 不带 key (镜像 qwen)
+        self.assertNotIn("reasoning_off_body", get_provider("doubao").to_legacy_dict())
         self.assertNotIn("reasoning_off_body", get_provider("qwen").to_legacy_dict())
 
     def test_all_doubao_deepseek_same_body(self):
-        # V37.9.223: 全部 doubao + deepseek 同一片段 = 一份声明四家复用 (任何切换独立成 primary)
+        # V37.9.223: 全部 doubao + deepseek 同一片段 = 一份声明四家复用 (任何切换独立成 primary)。
+        # V37.9.339: doubao 槽位换 Kimi K3 (非 Ark/DeepSeek 家族) 退出该集合 — thinking 片段
+        # 未在 Kimi 实测, 不注入 (V37.9.224 未测参数 400 风险)。
         from providers import get_provider
-        for name in ("doubao_21", "doubao", "deepseek_full", "deepseek"):
+        for name in ("doubao_21", "deepseek_full", "deepseek"):
             self.assertEqual(get_provider(name).reasoning_off_body, self._OFF,
                              f"{name} 应声明 reasoning_off_body (V37.9.223 全家族同款)")
+        self.assertIsNone(get_provider("doubao").reasoning_off_body,
+                          "V37.9.339 doubao 槽位 = Kimi K3, 不得沿用 Ark 家族 thinking 片段")
 
 
 if __name__ == "__main__":

@@ -90,14 +90,19 @@ class TestProxyFiltersWiring(unittest.TestCase):
         self.assertIn("expert_escalate", TOOL_PARAMS)
         self.assertEqual(TOOL_PARAMS["expert_escalate"], {"question", "backend"})
 
-    def test_description_mentions_doubao_and_trigger_words(self):
-        """tool description 必须提到 Doubao + 关键触发词, 让 LLM 知道何时调."""
+    def test_description_model_neutral_and_trigger_words(self):
+        """tool description 必须提到 expert 模型 + 关键触发词, 让 LLM 知道何时调;
+        V37.9.339 起**不写具体模型名** (槽位会换模型: Doubao 2.0 → Kimi K3, 写死会让 PA
+        向用户误报来源 = fail-plausible 归因; whiplash-resistant 镜像 V37.9.243)."""
         from proxy_filters import CUSTOM_TOOLS
         expert = next(
             t for t in CUSTOM_TOOLS if t["function"]["name"] == "expert_escalate"
         )
         desc = expert["function"]["description"]
-        self.assertIn("Doubao", desc, "description 必须提到 Doubao backend")
+        self.assertIn("expert 模型", desc, "description 必须提到 expert 模型")
+        for hardcoded in ("Doubao", "豆包", "Kimi", "DeepSeek", "GLM"):
+            self.assertNotIn(hardcoded, desc,
+                             f"description 不得写死模型名 {hardcoded} (V37.9.339)")
         self.assertIn("PA", desc, "description 必须提到 PA caller")
         # 至少几个 SOUL 规则 12 关键触发词
         trigger_keywords = ["让 Claude 看看", "深度判断", "帮我决定"]

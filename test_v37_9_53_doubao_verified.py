@@ -82,26 +82,28 @@ class TestDoubaoVerifiedFlagsV9_53(unittest.TestCase):
         self.providers = _reload_providers()
         self.d = self.providers.get_registry().get("doubao")
 
-    def test_verified_text_reverified_v291(self):
-        """V37.9.53 Ark 实测 → V37.9.290 平台切换重置 → V37.9.291 tokenhub E2E
-        探针复测通过重新 flip True (200+正确content+finish_reason=stop)."""
-        self.assertTrue(
+    def test_verified_text_reset_v339(self):
+        """史: V37.9.53 Ark 实测 → V37.9.290 平台切换重置 → V37.9.291 tokenhub 复测 True
+        → V37.9.339 槽位换模型 Kimi K3 (不同厂商), 证据不迁移 → 重置 False 待复测."""
+        self.assertFalse(
             self.d.capabilities.verified_text,
-            "V37.9.291 tokenhub E2E 已复测, verified_text 应为 True",
+            "V37.9.339 换模型后 verified_text 必须重置 False 待 Kimi K3 复测",
         )
 
-    def test_reasoning_is_true(self):
-        """V37.9.53: doubao seed 2.0 是 reasoning model (响应含 reasoning_content)."""
-        self.assertTrue(
+    def test_reasoning_not_declared_v339(self):
+        """史: V37.9.53 doubao seed 2.0 reasoning=True (响应含 reasoning_content)。
+        V37.9.339 槽位换 Kimi K3: 无一手文档 → 不声明 (未声明 ≠ 不支持, 探针后翻案,
+        镜像 glm5 V37.9.258→291 先例)。"""
+        self.assertFalse(
             self.d.capabilities.reasoning,
-            "V37.9.53 reasoning 必须 True (响应含 reasoning_content 字段)",
+            "V37.9.339 Kimi K3 reasoning 未实测不声明 (原则 #23)",
         )
 
-    def test_verified_reasoning_reverified_v291(self):
-        """V37.9.291 tokenhub E2E: reasoning 字段完整 + reasoning_tokens=263."""
-        self.assertTrue(
+    def test_verified_reasoning_reset_v339(self):
+        """史: V37.9.291 tokenhub E2E reasoning_tokens=263 → V37.9.339 换模型重置."""
+        self.assertFalse(
             self.d.capabilities.verified_reasoning,
-            "V37.9.291 tokenhub E2E 已复测, verified_reasoning 应为 True",
+            "V37.9.339 换模型后 verified_reasoning 必须重置 False",
         )
 
     def test_unverified_flags_still_false(self):
@@ -121,26 +123,27 @@ class TestDoubaoCapScoreRanking(unittest.TestCase):
         self.providers = _reload_providers()
         self.reg = self.providers.get_registry()
 
-    def test_doubao_cap_score_above_gemini_after_reverify_v291(self):
+    def test_doubao_slot_cap_score_below_gemini_after_v339_reset(self):
         doubao = self.reg.get("doubao")
         gemini = self.reg.get("gemini")
         doubao_score = self.reg._capability_score(doubao)
         gemini_score = self.reg._capability_score(gemini)
-        # V37.9.290 重置曾 6<9; V37.9.291 tokenhub E2E flip text+reasoning →
-        # 10 (6 base + 2 verified*2) > gemini 9, 回到 gemini 之上。
-        self.assertGreater(
+        # 史: V37.9.290 重置 6<9 → V37.9.291 半升档 10>9 → V37.9.339 槽位换 Kimi K3
+        # 保守声明 (3 base + 0 verified = 3) < gemini 9。生产不受影响: FALLBACK_ORDER
+        # env 权威 (V37.9.218), cap_score 只管无 env 时的自动排序。
+        self.assertLess(
             doubao_score, gemini_score,
-            f"V37.9.291 半升档后 doubao ({doubao_score}) 应 > gemini ({gemini_score})",
+            f"V37.9.339 重置后 doubao 槽位 ({doubao_score}) 应 < gemini ({gemini_score})",
         )
 
     def test_doubao_cap_score_specific_value(self):
         doubao = self.reg.get("doubao")
         score = self.reg._capability_score(doubao)
-        # 史: Ark 时代 10→12→16 → V37.9.290 平台切换重置 6 → V37.9.291 tokenhub
-        # E2E flip text+reasoning → 10 (6 base + 2 verified*2)
+        # 史: Ark 10→12→16 → V37.9.290 重置 6 → V37.9.291 半升档 10 → V37.9.339 槽位
+        # 换 Kimi K3 保守声明 (text/tool_calling/streaming 3 base + 0 verified) = 3
         self.assertEqual(
-            score, 10,
-            f"V37.9.291 半升档后 doubao cap_score 锁定 10, got {score}",
+            score, 3,
+            f"V37.9.339 Kimi K3 保守声明 cap_score 锁定 3, got {score}",
         )
 
     def test_gemini_cap_score_unchanged(self):
@@ -158,19 +161,19 @@ class TestVerifiedFeaturesIncludesReasoning(unittest.TestCase):
         os.environ.pop("ARK_ENDPOINT_ID", None)
         self.providers = _reload_providers()
 
-    def test_doubao_verified_features_after_reverify_v291(self):
+    def test_doubao_slot_verified_features_empty_v339(self):
         d = self.providers.get_provider("doubao")
         features = d.capabilities.verified_features()
-        self.assertIn("text", features, "V37.9.291 tokenhub E2E 后应含 text")
-        self.assertIn("reasoning", features, "V37.9.291 tokenhub E2E 后应含 reasoning")
+        self.assertNotIn("text", features, "V37.9.339 换模型后 text 证据不迁移")
+        self.assertNotIn("reasoning", features, "V37.9.339 换模型后 reasoning 证据不迁移")
 
     def test_doubao_verified_features_exact_v291(self):
         d = self.providers.get_provider("doubao")
         features = d.capabilities.verified_features()
-        # 史: V37.9.55 五项 (Ark) → V37.9.290 重置空集 → V37.9.291 tokenhub 半升档
+        # 史: V37.9.55 五项 (Ark) → V37.9.290 重置空集 → V37.9.291 半升档 → V37.9.339 换模型空集
         self.assertEqual(
-            set(features), {"text", "reasoning"},
-            f"V37.9.291 doubao verified_features 锁定 text+reasoning, got {features}",
+            set(features), set(),
+            f"V37.9.339 换模型后 verified_features 应为空集, got {features}",
         )
 
     def test_other_providers_no_reasoning_in_verified(self):
@@ -209,10 +212,13 @@ class TestFallbackChainDoubaoFirst(unittest.TestCase):
         # (保留原意, 去脆弱位置字面量)。
         chain = self.reg.build_fallback_chain("qwen")
         names = [p.name for p in chain]
-        # V37.9.291: doubao(2.0) tokenhub 半升档 (10 > 9) 回到 gemini 之前;
-        # doubao_21 (16) 仍领跑。
-        self.assertLess(names.index("doubao"), names.index("gemini"),
-                        f"V37.9.291 半升档后 doubao(2.0) 应排 gemini 之前, got {names}")
+        # V37.9.291: doubao(2.0) 半升档回到 gemini 之前; V37.9.339 槽位换 Kimi K3 (declared 3 < 9)
+        # 落到 gemini 之后 — 原意 "verified doubao 排 gemini 之前" 由 doubao_21 (16) 承担。
+        # 生产不受影响: FALLBACK_ORDER env 权威 (V37.9.218)。
+        self.assertLess(names.index("doubao_21"), names.index("gemini"),
+                        f"verified doubao_21 应排 gemini 之前, got {names}")
+        self.assertGreater(names.index("doubao"), names.index("gemini"),
+                           f"V37.9.339 declared 的 doubao 槽位应排 gemini 之后, got {names}")
         self.assertLess(names.index("doubao_21"), names.index("gemini"),
                         f"doubao_21 (5 verified) 应排在 gemini 之前, got {names}")
 
@@ -259,26 +265,28 @@ class TestSourceLevelGuardsV9_53(unittest.TestCase):
         body = match.group(0)
         self.assertIn('features.append("reasoning")', body)
 
-    def test_doubao_plugin_verified_text_reverified_v291(self):
-        """V37.9.290 重置 → V37.9.291 tokenhub E2E 复测通过 flip 回 True."""
+    def test_doubao_plugin_verified_text_reset_v339(self):
+        """V37.9.290 重置 → V37.9.291 复测 True → V37.9.339 槽位换 Kimi K3 重置 False."""
         self.assertRegex(
             self.plugin_src,
-            r"verified_text\s*=\s*True",
-            "V37.9.291 doubao_provider.py 必须 verified_text=True (tokenhub E2E)",
+            r"verified_text\s*=\s*False",
+            "V37.9.339 doubao_provider.py 必须 verified_text=False (换模型待复测)",
+        )
+        self.assertIn("V37.9.339", self.plugin_src)
+
+    def test_doubao_plugin_reasoning_not_declared_v339(self):
+        # 史: V37.9.53 reasoning=True (Doubao 2.0) → V37.9.339 Kimi K3 未实测不声明
+        self.assertRegex(
+            self.plugin_src,
+            r"(?<!verified_)reasoning\s*=\s*False",
+            "V37.9.339 Kimi K3 槽位 reasoning 未实测不声明 (原则 #23)",
         )
 
-    def test_doubao_plugin_reasoning_true(self):
+    def test_doubao_plugin_verified_reasoning_reset_v339(self):
         self.assertRegex(
             self.plugin_src,
-            r"reasoning\s*=\s*True",
-            "V37.9.53 doubao 必须声明 reasoning=True",
-        )
-
-    def test_doubao_plugin_verified_reasoning_reverified_v291(self):
-        self.assertRegex(
-            self.plugin_src,
-            r"verified_reasoning\s*=\s*True",
-            "V37.9.291 doubao 必须 verified_reasoning=True (tokenhub E2E)",
+            r"verified_reasoning\s*=\s*False",
+            "V37.9.339 doubao 槽位 verified_reasoning 必须重置 False",
         )
 
     def test_doubao_plugin_has_v9_53_marker(self):
