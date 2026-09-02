@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-02 01:58:08",
+  "updated": "2026-09-02 02:35:33",
   "updated_by": "full_regression",
   "priorities": [
     {
@@ -183,6 +183,11 @@
       "date": "2026-09-02",
       "what": "V37.9.339: ai-tokenhub 三槽位换模型 deepseek_full→deepseek-v4-pro-ga-260813 / doubao 槽位→kimi-k3-260716 / glm5_coding→glm-5-3-260814（tier 三家回 declared, expert 后端随迁, expert description+SOUL 去模型名, tool_ontology.yaml 同步）; 三把新 key 零入库, Mac Mini 需换 plist/.env_shared 值 + E2E 复测",
       "by": "claude_code"
+    },
+    {
+      "date": "2026-09-02",
+      "what": "V37.9.340: Mac Mini E2E 复测 deepseek-v4-pro-ga-260813 + glm-5-3-260814 text+reasoning 2/2 → 双双 feature_verified; kimi-k3-260716 探针 InsufficientScope (key 无 scope, 待 /v1/models 定性), doubao 槽位保持 declared",
+      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -231,7 +236,7 @@
     "security_score": "98/100 (98.0%)",
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB",
     "slo": {
-      "checked_at": "2026-09-02 01:56:13",
+      "checked_at": "2026-09-02 02:33:34",
       "all_ok": true,
       "judged_count": 1,
       "na_count": 4,
@@ -332,22 +337,22 @@
       "【V37.9.332 dream 月份分布检测器 ([62] 预注册决策兑现·已建) · 剩 Mac Mini 被动验证】合并+git fetch+reset 同步 (daily_observer.py 走 FILE_MAP, 明晨 06:30 自动生效) 后: 健康日 observer 报告无新增行 (零噪声); 若某日梦境月份钉死复发 (引用月份 <3 或单月 >80%), 06:30 报 MED dream_month_pin 点名分布与 V37.9.326/329 家族 — 首次开火请贴给 session 分诊 kb_dream 取样管道",
       "【V37.9.335 Windows E 盘每日镜像 · 全链闭环+每日备份化 · 剩最后一次合并+scp】2026-08-31 收官: 首轮全量 OK + 05:00 定时通道实证 + kb 排除三衍生物(map_cache/text_index/mm_index) + 全量保留 + 首份备份档落地(22min 实测,8h 预估修正) + 20:12 新脚本验证轮全模块 OK。用户二次决策: 依 22min 实测恢复**每日**备份拉取(+365GB/年接受) → 周日门控+FORCE 开关退役(守卫 daily-latest-only 双向禁回退, 20/20+sabotage)。剩余: (1) 用户合并新 PR + WSL: Mac git reset + scp 刷新活跃副本(每日化生效) (2) 明日 05:00 定时运行=最终验收(首次含每日备份拉取, 预期全绿+movespeed_backup 新增 9/1 档) (3) Mac ~/.kb/last_windows_sync.json 每日刷新(watchdog 候选已登记不现建)。可选: Tailscale 提速(HOSTS 加 IP 即用)。",
       "【✅ 2026-09-01 20:30 watchdog 告警 triage · 全链闭环 (V37.9.337/338)】(a) ✅ **治理 CORE 已定性+修复+生产验证**: 真凶 = V37.9.334 手写的 crontab 行 `/bin/bash $HOME/check_upgrade.sh` 缺 bash -lc → cron 空环境 (INV-CRON-003, 08-31/09-01 连报两天)。根因 = canonical 行生成器 convergence._format_cron_line 自 V37.9.23 存在却无 CLI 出口, 每次新登记 system job 都手写。修 = --cron-line/--cron-lines 出口 + 治理判据抽出前移 dev CI (血案行反向证据) + 操作规则入宪禁手写。**Mac Mini 生产验证: --cron-line 输出与已装 crontab 行逐字一致; governance_checker --full = EXIT=0 / 760/760 checks / ✅ 所有不变式成立**。(b) ✅ finance_news LLM 可定性已修 (V37.9.337): 同步后若再失败, 日志与 last_run.json 直接给 curl_timeout/connect_refused/http_error/bad_json/no_choices/short_content 六类原因之一。(c) 🟡 **仅剩待定项**: finance_news `--max-time 180` 紧于服务端 300s (V37.9.306 kb_evening 同族不对称), V37.9.220 实录 reasoning 延迟可达 7-9 分钟但 B1 快路本应缓解 → **等 (b) 的定性数据再决定是否调, 不盲改** (原则 #28/#8)。(d) ai_leaders_x 9×429 = 已知 X Syndication 限流, per-account FAIL-OPEN 按设计工作, 非 actionable。",
-      "[V37.9.339 Mac Mini 待验证] 三槽位换模型生效前置: (a) adapter+proxy plist 与 .env_shared 的 DEEPSEEK_FULL_API_KEY/DOUBAO_API_KEY/GLM5_API_KEY 换值 (交接 python 块 read -s 校验 ^sk-[0-9a-f]{32}$) + bootout/bootstrap (b) 合并同步 + 重启 proxy + 清 session 重启 Gateway (SOUL 规则 12 去模型名 = PA 行为变更, 原则 #13 WhatsApp 实测) (c) E2E: deepseek-v4-pro-ga-260813 text+reasoning / kimi-k3-260716 text+tool_calls(+可选 vision/json_mode/reasoning 探针翻案) / glm-5-3-260814 text+code_assist.sh → 结果回传逐项 flip verified_* 升 tier (三家现 declared). 另: doubao 槽位命名债 (registry `doubao`/DOUBAO_API_KEY 实为 Kimi K3) 待用户决定是否独立 rename (V37.9.290 规模 ~45 测试 + plist FALLBACK_ORDER 一处). expert 成本边界 (SOUL 规则 12) 换 Kimi 后待重估。"
+      "[V37.9.340 Mac Mini 待验证] 三槽位换模型剩余: (a) Kimi K3 探针 InsufficientScope → 跑 /v1/models scope 诊断 (scope_parse.py 交接块) 定性 key 错位 vs 华坤未开 scope → 修后重跑 kimi tool_calls 探针 → flip doubao 槽位 verified_*/tier (b) 可选补探针: deepseek GA tool_calling/streaming、GLM-5.3 tool_calling/streaming/json_mode (c) WhatsApp 触发 expert 一次确认 PA 标注「来自 expert 模型」(SOUL 规则 12 去模型名, 原则 #13) (d) 三把 sk- key 在对话出现过建议轮换 (e) doubao 槽位命名债 (registry `doubao`/DOUBAO_API_KEY 实为 Kimi K3) 待用户决定是否独立 rename (f) expert 成本边界换 Kimi 后待重估。已完成: 换 key 三把 + bootstrap 双服务 /health 0.37.9.164 + deepseek GA/GLM-5.3 E2E 2/2 升 feature_verified。"
     ],
     "open_prs": [],
     "blocked_on": "",
-    "focus": "V37.9.339 三槽位换模型已交付待 Mac Mini 换 key + E2E 复测; 判据① 跟踪点 2026.9.1 stable"
+    "focus": "V37.9.340 deepseek GA/GLM-5.3 已 feature_verified; Kimi K3 待 key scope 定性; 判据① 跟踪点 2026.9.1 stable"
   },
   "quality": {
     "security_score": 98,
     "test_count": 6384,
-    "last_regression": "2026-09-02 01:57 pass",
+    "last_regression": "2026-09-02 02:35 pass",
     "coverage_pct": 0,
     "security_score_time": "2026-07-20 01:07",
     "test_suites": 193,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
-    "version": "0.37.9.164",
+    "version": "0.37.9.165",
     "observer": {}
   },
   "incidents": [

@@ -174,9 +174,10 @@ class TestTierTableLines(unittest.TestCase):
         """5 declared provider 各自一行, 走派生默认依据 (单一真理源, 退役合并行)。"""
         lines = _default_registry.tier_table_lines()
         declared = [l for l in lines if "**declared**" in l]
-        # 史: V37.9.217 后 5 → V37.9.290 +2 → V37.9.291 回到 5 → V37.9.339 三槽位
-        # 换模型 (deepseek_full/doubao/glm5_coding) 全部重置 declared → 8
-        self.assertEqual(len(declared), 8)
+        # 史: V37.9.217 后 5 → V37.9.290 +2 → V37.9.291 回到 5 → V37.9.339 三槽位换模型
+        # 全部重置 declared → 8 → V37.9.340 deepseek_full/glm5 E2E 升 feature_verified → 6
+        # (doubao 槽位 Kimi K3 探针 InsufficientScope 仍 declared)
+        self.assertEqual(len(declared), 6)
         for l in declared:
             self.assertIn("能力声明完整 + 合约校验通过，0/N 生产验证（无 API key 配置）", l)
 

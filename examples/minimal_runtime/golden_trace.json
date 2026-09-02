@@ -50,9 +50,9 @@
   "non_deterministic": {
     "provider_count": 12,
     "step_timings_ms": {
-      "provider_registry": 26,
-      "tool_governance": 57,
-      "policy_ontology": 15
+      "provider_registry": 29,
+      "tool_governance": 87,
+      "policy_ontology": 16
     }
   }
 }

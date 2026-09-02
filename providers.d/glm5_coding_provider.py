@@ -8,6 +8,7 @@
 - V37.9.290 切回 ai-tokenhub (用户提供 GLM 专属 sk- key) → V37.9.291 tokenhub E2E text+reasoning
 - **V37.9.339 (2026-09-02 用户指令, 后台 LLM Provider 刷新)**: 模型 glm-5.2-huakun →
   glm-5-3-260814, 同网关新 key。**不是更名, 是换版本** → 5.2 证据不迁移, tier 回 declared。
+- **V37.9.340 Mac Mini E2E 2026-09-02**: text+reasoning 2/2 通过 → feature_verified (半升档)。
 
 定位 = **coding 场景专用**——按需显式调用 (`?provider=glm5_coding` / chat `glm ` 前缀
 V37.9.271 / code_assist.sh), 不是 primary 也不默认进 auto-fallback 链。
@@ -20,7 +21,8 @@ V37.9.271 / code_assist.sh), 不是 primary 也不默认进 auto-fallback 链。
 - base_url = https://ai-tokenhub.com/api/v1 (公开域名可入库, 与 deepseek_full/doubao 同网关)
 - dev 环境无 env → ProviderRegistry.available() 因缺 GLM5_API_KEY 自动排除
 
-🔴 诚实语义: tier declared (V37.9.339 重置), verified_* 全 False, Mac Mini E2E 复测后逐项升档。
+🔴 诚实语义: V37.9.339 重置 declared → V37.9.340 E2E 实测 text+reasoning 2/2 → feature_verified;
+tool_calling/streaming/json_mode 未在 5.3 探针, verified_* 保持 False 待补测。
 capability 声明保持 GLM-5 系 coding 家族画像 (text/tool_calling/streaming True;
 json_mode False — 5.2 在 Ark 实测 400 不支持, 5.3 未知保守沿用待翻案;
 reasoning True — 5.2 在 tokenhub Bifrost 网关实测暴露 reasoning 字段, 视为网关+家族性质;
@@ -59,13 +61,17 @@ class Glm5CodingProvider(BaseProvider):
         reasoning=True,        # 5.2 tokenhub Bifrost 网关实测暴露 reasoning 字段 (V37.9.291)
         context_window=131072,
         max_output_tokens=8192,
-        # V37.9.339 换版本重置: 全部 verified_* False, 5.3 E2E 复测后逐项 flip
-        verified_text=False,
+        # V37.9.339 换版本重置 → V37.9.340 Mac Mini E2E 逐项 flip (text+reasoning)
+        verified_text=True,          # V37.9.340 E2E 2026-09-02: 200 + finish_reason=stop + 250 字符 is_prime 代码
         verified_vision=False,
-        verified_tool_calling=False,
-        verified_streaming=False,
+        verified_tool_calling=False, # 5.3 未探针
+        verified_streaming=False,    # 5.3 未探针
         verified_fallback=False,
-        verified_reasoning=False,
-        verification_tier="declared",
-        tier_note="2026-09-02 槽位换版本 GLM-5.3 (V37.9.339), 5.2 时代 E2E 证据不迁移, ai-tokenhub 复测待 Mac Mini",
+        verified_reasoning=True,     # V37.9.340 E2E: reasoning 字段填充 (Bifrost 网关归一化, 5.2 同款)
+        verification_tier="feature_verified",
+        tier_note="2026-09-02 槽位换版本 GLM-5.3 (V37.9.339) 后 E2E 半升档 (text+reasoning, V37.9.340)",
+        tier_evidence="ai-tokenhub E2E 探针 2026-09-02 (V37.9.340, model=glm-5-3-260814): "
+                      "text+reasoning 2/2 通过 (200 + finish_reason=stop + 250 字符 is_prime 代码 + reasoning "
+                      "字段填充, usage 25/326, 响应 model 回显 5.3 名 = 路由正确)；"
+                      "tool_calling/streaming/json_mode 未在 5.3 探针保持 False; 5.2 时代史见 docstring",
     )

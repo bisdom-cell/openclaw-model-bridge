@@ -1676,21 +1676,23 @@ class TestDeepSeekFullProvider(unittest.TestCase):
         self.assertEqual(p.base_url, "https://ai-tokenhub.com/api/v1")
         self.assertEqual(p.auth_style, "bearer")
 
-    def test_tier_declared_after_ga_model_swap_v339(self):
-        # 史: V37.9.205 -260425 E2E 3/3 → feature_verified → V37.9.289 更名 -huakun 保留
-        # → V37.9.339 槽位换 GA 模型 (不是更名, 是换构建) → 证据不迁移 → declared。
-        # capability 声明保持家族画像 (reasoning True / vision False / json_mode False)。
+    def test_tier_feature_verified_after_ga_e2e_v340(self):
+        # 史: V37.9.205 E2E 3/3 → feature_verified → V37.9.289 更名保留 → V37.9.339 槽位换 GA
+        # 模型证据不迁移 declared → V37.9.340 Mac Mini E2E text+reasoning 2/2 → feature_verified。
+        # tool_calling/streaming 未在 GA 探针保持 False (原则 #23 只 flip 实测项)。
         from providers import get_provider
         caps = get_provider("deepseek_full").capabilities
-        self.assertEqual(caps.verification_tier, "declared")
-        self.assertFalse(caps.verified_text)
+        self.assertEqual(caps.verification_tier, "feature_verified")
+        self.assertTrue(caps.verified_text)
+        self.assertTrue(caps.verified_reasoning)
         self.assertFalse(caps.verified_tool_calling)
-        self.assertFalse(caps.verified_reasoning)
-        self.assertTrue(caps.reasoning, "满血版家族有 R1 reasoning 通道 (家族声明)")
+        self.assertFalse(caps.verified_streaming)
+        self.assertTrue(caps.reasoning, "满血版家族有 R1 reasoning 通道")
         self.assertFalse(caps.vision, "DeepSeek V 系无视觉 (家族性质)")
         self.assertFalse(caps.json_mode, "家族 response_format 返回围栏非严格")
-        self.assertEqual(caps.tier_evidence, "", "declared 走派生 evidence")
-        self.assertIn("V37.9.339", caps.tier_note)
+        self.assertIn("E2E", caps.tier_evidence)
+        self.assertIn("deepseek-v4-pro-ga-260813", caps.tier_evidence, "证据必须锚定 GA 模型名 (非 -huakun 时代)")
+        self.assertIn("V37.9.340", caps.tier_note)
         self.assertEqual(caps.tier_consistency_violations(), [])
 
     def test_excluded_from_available_without_key(self):
@@ -1807,17 +1809,18 @@ class TestGlm5CodingProvider(unittest.TestCase):
         self.assertNotEqual(builtin.base_url, get_provider("glm5_coding").base_url)
         self.assertNotEqual(builtin.api_key_env, "GLM5_API_KEY")
 
-    def test_declared_after_v339_model_swap(self):
-        # 史: V37.9.290 重置 declared → V37.9.291 tokenhub E2E 升 feature_verified
-        # (text+reasoning) → V37.9.339 槽位换版本 glm-5-3-260814 → 5.2 证据不迁移 → declared。
+    def test_feature_verified_after_v340_e2e(self):
+        # 史: V37.9.290 declared → V37.9.291 feature_verified → V37.9.339 槽位换版本 5.3
+        # 证据不迁移 declared → V37.9.340 Mac Mini E2E text+reasoning 2/2 → feature_verified。
         from providers import get_provider
         caps = get_provider("glm5_coding").capabilities
-        self.assertEqual(caps.verification_tier, "declared")
-        for f in ("verified_text", "verified_reasoning", "verified_streaming",
-                  "verified_tool_calling", "verified_vision", "verified_fallback"):
-            self.assertFalse(getattr(caps, f), f"{f} 必须在 V37.9.339 换模型后重置 False")
-        self.assertIn("V37.9.339", caps.tier_note)
-        self.assertEqual(caps.tier_evidence, "", "declared 走派生 evidence")
+        self.assertEqual(caps.verification_tier, "feature_verified")
+        self.assertTrue(caps.verified_text)
+        self.assertTrue(caps.verified_reasoning)
+        for f in ("verified_streaming", "verified_tool_calling", "verified_vision", "verified_fallback"):
+            self.assertFalse(getattr(caps, f), f"{f} 未在 5.3 探针, 必须保持 False")
+        self.assertIn("V37.9.340", caps.tier_note)
+        self.assertIn("glm-5-3-260814", caps.tier_evidence, "证据必须锚定 5.3 模型名")
         self.assertEqual(caps.tier_consistency_violations(), [])
 
     def test_coding_capabilities(self):
