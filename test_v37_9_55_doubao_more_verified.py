@@ -28,7 +28,7 @@ import unittest
 
 
 REPO_ROOT = os.path.dirname(os.path.abspath(__file__))
-DOUBAO_PLUGIN = os.path.join(REPO_ROOT, "providers.d", "doubao_provider.py")
+DOUBAO_PLUGIN = os.path.join(REPO_ROOT, "providers.d", "doubao_21_tokenhub_provider.py")
 
 
 def _reload_providers():
@@ -43,7 +43,7 @@ class TestVerifiedToolCallingFlagsV9_55(unittest.TestCase):
     def setUp(self):
         os.environ.pop("ARK_ENDPOINT_ID", None)
         self.providers = _reload_providers()
-        self.d = self.providers.get_provider("doubao")
+        self.d = self.providers.get_provider("doubao_21_tokenhub")
 
     def test_verified_tool_calling_reverified_v342(self):
         # 史: V37.9.55 True (Ark) → V37.9.290 平台切换重置 → V37.9.342 ai-tokenhub E2E
@@ -64,7 +64,7 @@ class TestVerifiedStreamingFlagsV9_55(unittest.TestCase):
     def setUp(self):
         os.environ.pop("ARK_ENDPOINT_ID", None)
         self.providers = _reload_providers()
-        self.d = self.providers.get_provider("doubao")
+        self.d = self.providers.get_provider("doubao_21_tokenhub")
 
     def test_verified_streaming_reset_v290(self):
         self.assertFalse(
@@ -83,7 +83,7 @@ class TestVerifiedFeaturesV9_55Complete(unittest.TestCase):
     def setUp(self):
         os.environ.pop("ARK_ENDPOINT_ID", None)
         self.providers = _reload_providers()
-        self.d = self.providers.get_provider("doubao")
+        self.d = self.providers.get_provider("doubao_21_tokenhub")
 
     def test_doubao_slot_verified_features_v342(self):
         # 史: Ark 5 项 → V37.9.290 重置 → V37.9.291 text+reasoning → V37.9.339 Kimi
@@ -106,7 +106,7 @@ class TestCapScoreV9_55(unittest.TestCase):
     def test_doubao_cap_score_is_16(self):
         """V37.9.55: 6 base (text/vision/tool_calling/streaming/json_mode/reasoning)
         + 5 verified*2 (text/vision/tool_calling/streaming/reasoning) = 16."""
-        doubao = self.reg.get("doubao")
+        doubao = self.reg.get("doubao_21_tokenhub")
         score = self.reg._capability_score(doubao)
         # 史: V37.9.55 曾 16 → V37.9.290 重置 6 → V37.9.291 10 → V37.9.339 Kimi 3 →
         # V37.9.341 doubao-2.1 声明 6 → V37.9.342 E2E flip 2 项 = 10
@@ -119,7 +119,7 @@ class TestCapScoreV9_55(unittest.TestCase):
         """史: V37.9.55 doubao(16) 曾超越 qwen(14) 成 registry 最强;
         V37.9.290 平台切换重置 → doubao 6 < qwen 14。E2E 复测 flip 后再评估。
         (registry 最强现为 doubao_21=16, 生产 primary 即它 V37.9.222。)"""
-        doubao = self.reg.get("doubao")
+        doubao = self.reg.get("doubao_21_tokenhub")
         qwen = self.reg.get("qwen")
         doubao_score = self.reg._capability_score(doubao)
         qwen_score = self.reg._capability_score(qwen)
@@ -135,7 +135,7 @@ class TestRemainingUnverified(unittest.TestCase):
     def setUp(self):
         os.environ.pop("ARK_ENDPOINT_ID", None)
         self.providers = _reload_providers()
-        self.d = self.providers.get_provider("doubao")
+        self.d = self.providers.get_provider("doubao_21_tokenhub")
 
     def test_verified_fallback_still_false(self):
         """verified_fallback 必须 False 直到生产中作为 fallback 真被调用过.

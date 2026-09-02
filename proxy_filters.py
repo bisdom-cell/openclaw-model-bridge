@@ -423,8 +423,10 @@ CUSTOM_TOOLS = [
                     },
                     "backend": {
                         "type": "string",
-                        "enum": ["doubao", "claude_pending"],
-                        "description": "backend 选择。默认 doubao (V37.9.55 verified production)。claude_pending 是 future-flip stub，未配齐 ANTHROPIC_API_KEY 前返回 stub status。"
+                        # V37.9.345: 值中性化 (LLM 面不写厂商名, 槽位会换模型);
+                        # "doubao" 保留为 legacy alias 让未清 session 的 PA 不撞 unknown_backend
+                        "enum": ["default", "claude_pending"],
+                        "description": "backend 选择。默认 default（系统配置的 reasoning 后端）。claude_pending 是 future-flip stub，未配齐 ANTHROPIC_API_KEY 前返回 stub status。旧值 doubao 仍作兼容别名接受。"
                     },
                 },
                 "required": ["question"],

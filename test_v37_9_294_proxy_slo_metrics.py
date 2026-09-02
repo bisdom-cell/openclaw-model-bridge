@@ -68,7 +68,7 @@ class TestClassifyToolResultOk(unittest.TestCase):
 
     def test_expert_api_unavailable_is_failure(self):
         self.assertFalse(classify_tool_result_ok(
-            '{"status": "api_unavailable", "message": "DOUBAO_API_KEY not set"}'))
+            '{"status": "api_unavailable", "message": "DOUBAO_21_TOKENHUB_API_KEY not set"}'))
 
     def test_expert_quota_is_failure(self):
         self.assertFalse(classify_tool_result_ok('{"status": "quota_exceeded"}'))

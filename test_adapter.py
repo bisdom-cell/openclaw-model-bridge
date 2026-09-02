@@ -874,19 +874,19 @@ class TestHotReloadFunctional(unittest.TestCase):
     def test_v37_9_129_auto_chain_excludes_geo_blocked(self):
         """V37.9.129: auto-discover 路径排除 _FALLBACK_EXCLUDE（gemini geo-block）→ 链只剩 doubao"""
         chain = self._exec_build(
-            get_registry=self._mock_registry(["doubao", "gemini"]),
-            env_overrides={"DOUBAO_KEY": "k1", "GEMINI_KEY": "k2"},
+            get_registry=self._mock_registry(["doubao_21_tokenhub", "gemini"]),
+            env_overrides={"DOUBAO_21_TOKENHUB_KEY": "k1", "GEMINI_KEY": "k2"},
             exclude=["gemini"],
         )
         names = [c["name"] for c in chain]
-        self.assertIn("doubao", names)
+        self.assertIn("doubao_21_tokenhub", names)
         self.assertNotIn("gemini", names)
 
     def test_v37_9_129_no_exclude_keeps_provider(self):
         """V37.9.129 反向: 不排除时 gemini 仍在链（证明排除才是移除它的原因，非别的）"""
         chain = self._exec_build(
-            get_registry=self._mock_registry(["doubao", "gemini"]),
-            env_overrides={"DOUBAO_KEY": "k1", "GEMINI_KEY": "k2"},
+            get_registry=self._mock_registry(["doubao_21_tokenhub", "gemini"]),
+            env_overrides={"DOUBAO_21_TOKENHUB_KEY": "k1", "GEMINI_KEY": "k2"},
             exclude=[],
         )
         names = [c["name"] for c in chain]

@@ -6,9 +6,9 @@ Coverage:
   TestBuildContextBlock — unchanged from v1
 - TestValidateReadOnly — 4 violation classes
 - TestCheckDailyQuota / TestAuditRecord / TestParseResponseJson — unchanged
-- TestDoubaoTransport — HTTP transport contract (mock _post)
-- TestEscalateOrchestratorDoubao — end-to-end with FakeDoubaoTransport
-- TestBackendSelector — backend="doubao" default, "claude_pending" stub
+- TestExpertTransport — HTTP transport contract (mock _post)
+- TestEscalateOrchestratorDoubao — end-to-end with FakeExpertTransport
+- TestBackendSelector — backend="default" default, "claude_pending" stub
 - TestCliInterface — subprocess --dry-run + --backend claude_pending
 - TestV37990R1SourceGuards — V37.9.90-r1 marker + Doubao path + no anthropic
 """
@@ -33,7 +33,7 @@ import expert_escalation as ee  # noqa: E402
 # ══════════════════════════════════════════════════════════════════════
 
 
-class FakeDoubaoTransport(ee.DoubaoTransport):
+class FakeExpertTransport(ee.ExpertTransport):
     """Override _post to return canned responses. Captures all payloads."""
 
     def __init__(self, responses=None, api_key="fake-key-for-test",
@@ -45,7 +45,7 @@ class FakeDoubaoTransport(ee.DoubaoTransport):
     def _post(self, payload):
         self.posted_payloads.append(payload)
         if not self.responses:
-            return False, {}, "FakeDoubaoTransport exhausted"
+            return False, {}, "FakeExpertTransport exhausted"
         nxt = self.responses.pop(0)
         if isinstance(nxt, Exception):
             return False, {}, type(nxt).__name__ + ": " + str(nxt)
@@ -419,30 +419,30 @@ class TestParseResponseJson(unittest.TestCase):
 
 
 # ══════════════════════════════════════════════════════════════════════
-# 9. TestDoubaoTransport
+# 9. TestExpertTransport
 # ══════════════════════════════════════════════════════════════════════
 
 
-class TestDoubaoTransport(unittest.TestCase):
+class TestExpertTransport(unittest.TestCase):
 
     def test_is_configured_when_api_key_set(self):
-        t = ee.DoubaoTransport(api_key="real-key")
+        t = ee.ExpertTransport(api_key="real-key")
         self.assertTrue(t.is_configured())
 
     def test_is_not_configured_without_api_key(self):
         # Force-clear env to truly test "no key" case
-        old = os.environ.pop(ee.DOUBAO_API_KEY_ENV, None)
+        old = os.environ.pop(ee.EXPERT_API_KEY_ENV, None)
         try:
-            t = ee.DoubaoTransport(api_key="")
+            t = ee.ExpertTransport(api_key="")
             self.assertFalse(t.is_configured())
         finally:
             if old is not None:
-                os.environ[ee.DOUBAO_API_KEY_ENV] = old
+                os.environ[ee.EXPERT_API_KEY_ENV] = old
 
     def test_model_id_defaults_to_public_name(self):
         # V37.9.290: ai-tokenhub 直接用公开 model 名, ARK_ENDPOINT_ID env 间接层退役
-        t = ee.DoubaoTransport(api_key="key")
-        self.assertEqual(t.endpoint_id, ee.DOUBAO_DEFAULT_MODEL_ID)
+        t = ee.ExpertTransport(api_key="key")
+        self.assertEqual(t.endpoint_id, ee.EXPERT_DEFAULT_MODEL_ID)
         self.assertEqual(t.endpoint_id, "doubao-seed-2-1-pro-260628")   # V37.9.341 expert 后端随槽位同迁
 
     def test_model_id_param_injection_still_works(self):
@@ -450,10 +450,10 @@ class TestDoubaoTransport(unittest.TestCase):
         old = os.environ.get("ARK_ENDPOINT_ID")
         os.environ["ARK_ENDPOINT_ID"] = "ep-should-be-ignored"
         try:
-            t = ee.DoubaoTransport(api_key="key")
-            self.assertEqual(t.endpoint_id, ee.DOUBAO_DEFAULT_MODEL_ID,
+            t = ee.ExpertTransport(api_key="key")
+            self.assertEqual(t.endpoint_id, ee.EXPERT_DEFAULT_MODEL_ID,
                              "V37.9.290: ARK_ENDPOINT_ID 不得再被消费 (会把 ep- 发给 ai-tokenhub)")
-            t2 = ee.DoubaoTransport(api_key="key", endpoint_id="custom-model")
+            t2 = ee.ExpertTransport(api_key="key", endpoint_id="custom-model")
             self.assertEqual(t2.endpoint_id, "custom-model")
         finally:
             if old is None:
@@ -463,23 +463,23 @@ class TestDoubaoTransport(unittest.TestCase):
 
     def test_endpoint_url_is_ai_tokenhub(self):
         # V37.9.290 平台切换 Ark → ai-tokenhub
-        t = ee.DoubaoTransport(api_key="key")
+        t = ee.ExpertTransport(api_key="key")
         self.assertIn("ai-tokenhub.com/api/v1", t.endpoint_url)
         self.assertTrue(t.endpoint_url.endswith("/chat/completions"))
 
     def test_call_returns_failure_when_not_configured(self):
-        old = os.environ.pop(ee.DOUBAO_API_KEY_ENV, None)
+        old = os.environ.pop(ee.EXPERT_API_KEY_ENV, None)
         try:
-            t = ee.DoubaoTransport(api_key="")
+            t = ee.ExpertTransport(api_key="")
             ok, text, usage, err = t.call("sys", "ctx", "msg", 1000)
             self.assertFalse(ok)
-            self.assertIn("DOUBAO_API_KEY", err)
+            self.assertIn("DOUBAO_21_TOKENHUB_API_KEY", err)
         finally:
             if old is not None:
-                os.environ[ee.DOUBAO_API_KEY_ENV] = old
+                os.environ[ee.EXPERT_API_KEY_ENV] = old
 
     def test_call_constructs_openai_compatible_payload(self):
-        t = FakeDoubaoTransport(responses=[_good_doubao_response()])
+        t = FakeExpertTransport(responses=[_good_doubao_response()])
         ok, text, usage, err = t.call("system_text", "context_text", "user_q", 2500)
         self.assertTrue(ok)
         payload = t.posted_payloads[0]
@@ -494,7 +494,7 @@ class TestDoubaoTransport(unittest.TestCase):
         self.assertIn("context_text", payload["messages"][0]["content"])
 
     def test_call_extracts_usage_with_cached_tokens(self):
-        t = FakeDoubaoTransport(responses=[
+        t = FakeExpertTransport(responses=[
             _good_doubao_response(cached_tokens=4500),
         ])
         ok, text, usage, err = t.call("sys", "ctx", "msg", 1000)
@@ -504,7 +504,7 @@ class TestDoubaoTransport(unittest.TestCase):
         self.assertEqual(usage["cache_read_input_tokens"], 4500)
 
     def test_call_captures_reasoning_chars(self):
-        t = FakeDoubaoTransport(responses=[
+        t = FakeExpertTransport(responses=[
             _good_doubao_response(reasoning_content="thinking step 1"),
         ])
         ok, text, usage, err = t.call("sys", "ctx", "msg", 1000)
@@ -512,13 +512,13 @@ class TestDoubaoTransport(unittest.TestCase):
         self.assertEqual(usage["reasoning_chars"], len("thinking step 1"))
 
     def test_call_handles_empty_choices(self):
-        t = FakeDoubaoTransport(responses=[{"choices": [], "usage": {}}])
+        t = FakeExpertTransport(responses=[{"choices": [], "usage": {}}])
         ok, text, usage, err = t.call("sys", "ctx", "msg", 1000)
         self.assertFalse(ok)
         self.assertIn("no choices", err)
 
     def test_call_propagates_error(self):
-        t = FakeDoubaoTransport(responses=[RuntimeError("network down")])
+        t = FakeExpertTransport(responses=[RuntimeError("network down")])
         ok, text, usage, err = t.call("sys", "ctx", "msg", 1000)
         self.assertFalse(ok)
         self.assertIn("network down", err)
@@ -584,17 +584,17 @@ class TestEscalateOrchestratorDoubao(unittest.TestCase):
                 audit_log_path=audit, dry_run=True,
             )
             self.assertEqual(result["status"], "dry_run")
-            self.assertEqual(result["backend"], "doubao")
+            self.assertEqual(result["backend"], "default")
             self.assertIn("DRY RUN", result["proposal"])
             with open(audit) as f:
-                self.assertEqual(json.loads(f.readline())["backend"], "doubao")
+                self.assertEqual(json.loads(f.readline())["backend"], "default")
 
     def test_ok_path_with_mock_transport(self):
         with tempfile.TemporaryDirectory() as td:
             cmd, cdir = self._make_env(td, status={"focus": "PoC-r1"},
                                        with_changelog=True, with_cases=True)
             audit = os.path.join(td, "audit.jsonl")
-            transport = FakeDoubaoTransport(responses=[
+            transport = FakeExpertTransport(responses=[
                 _good_doubao_response(
                     proposal="Review case docs.",
                     confidence="medium",
@@ -608,7 +608,7 @@ class TestEscalateOrchestratorDoubao(unittest.TestCase):
                 audit_log_path=audit, transport=transport,
             )
             self.assertEqual(result["status"], "ok")
-            self.assertEqual(result["backend"], "doubao")
+            self.assertEqual(result["backend"], "default")
             self.assertEqual(result["confidence"], "medium")
             self.assertEqual(result["usage"]["cache_read_input_tokens"], 4000)
             self.assertEqual(len(transport.posted_payloads), 1)
@@ -617,7 +617,7 @@ class TestEscalateOrchestratorDoubao(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             cmd, cdir = self._make_env(td, status={"x": 1})
             audit = os.path.join(td, "audit.jsonl")
-            transport = FakeDoubaoTransport(responses=[RuntimeError("503")])
+            transport = FakeExpertTransport(responses=[RuntimeError("503")])
             result = ee.escalate(
                 "Q", kb_dir=td, claude_md_path=cmd, cases_dir=cdir,
                 audit_log_path=audit, transport=transport,
@@ -626,11 +626,11 @@ class TestEscalateOrchestratorDoubao(unittest.TestCase):
             self.assertIn("503", result["error"])
 
     def test_no_api_key_returns_api_unavailable(self):
-        old = os.environ.pop(ee.DOUBAO_API_KEY_ENV, None)
+        old = os.environ.pop(ee.EXPERT_API_KEY_ENV, None)
         try:
             with tempfile.TemporaryDirectory() as td:
                 cmd, cdir = self._make_env(td, status={"x": 1})
-                transport = ee.DoubaoTransport(api_key="")
+                transport = ee.ExpertTransport(api_key="")
                 result = ee.escalate(
                     "Q",
                     kb_dir=td, claude_md_path=cmd, cases_dir=cdir,
@@ -638,10 +638,10 @@ class TestEscalateOrchestratorDoubao(unittest.TestCase):
                     transport=transport,
                 )
                 self.assertEqual(result["status"], "api_unavailable")
-                self.assertIn("DOUBAO_API_KEY", result["error"])
+                self.assertIn("DOUBAO_21_TOKENHUB_API_KEY", result["error"])
         finally:
             if old is not None:
-                os.environ[ee.DOUBAO_API_KEY_ENV] = old
+                os.environ[ee.EXPERT_API_KEY_ENV] = old
 
     def test_read_only_violation_fail_close(self):
         with tempfile.TemporaryDirectory() as td:
@@ -662,7 +662,7 @@ class TestEscalateOrchestratorDoubao(unittest.TestCase):
                 }],
                 "usage": {"prompt_tokens": 100, "completion_tokens": 50},
             }
-            transport = FakeDoubaoTransport(responses=[evil])
+            transport = FakeExpertTransport(responses=[evil])
             result = ee.escalate(
                 "Q", kb_dir=td, claude_md_path=cmd, cases_dir=cdir,
                 audit_log_path=audit, transport=transport,
@@ -682,7 +682,7 @@ class TestEscalateOrchestratorDoubao(unittest.TestCase):
                 "choices": [{"message": {"content": "no json"}, "finish_reason": "stop"}],
                 "usage": {},
             }
-            transport = FakeDoubaoTransport(responses=[bad])
+            transport = FakeExpertTransport(responses=[bad])
             result = ee.escalate(
                 "Q", kb_dir=td, claude_md_path=cmd, cases_dir=cdir,
                 audit_log_path=audit, transport=transport,
@@ -698,7 +698,7 @@ class TestEscalateOrchestratorDoubao(unittest.TestCase):
                     f.write(json.dumps({
                         "timestamp_iso": "2026-05-29T08:00:00Z",
                     }) + "\n")
-            transport = FakeDoubaoTransport(responses=[_good_doubao_response()])
+            transport = FakeExpertTransport(responses=[_good_doubao_response()])
             result = ee.escalate(
                 "Q", kb_dir=td, claude_md_path=cmd, cases_dir=cdir,
                 audit_log_path=audit, transport=transport,
@@ -711,14 +711,14 @@ class TestEscalateOrchestratorDoubao(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             cmd, cdir = self._make_env(td, status={"x": 1})
             audit = os.path.join(td, "audit.jsonl")
-            transport = FakeDoubaoTransport(responses=[_good_doubao_response()])
+            transport = FakeExpertTransport(responses=[_good_doubao_response()])
             ee.escalate(
                 "Q", kb_dir=td, claude_md_path=cmd, cases_dir=cdir,
                 audit_log_path=audit, transport=transport,
             )
             with open(audit) as f:
                 rec = json.loads(f.readline())
-            self.assertEqual(rec["backend"], "doubao")
+            self.assertEqual(rec["backend"], "default")
             self.assertEqual(rec["status"], "ok")
 
 
@@ -729,15 +729,19 @@ class TestEscalateOrchestratorDoubao(unittest.TestCase):
 
 class TestBackendSelector(unittest.TestCase):
 
-    def test_default_backend_is_doubao(self):
-        self.assertEqual(ee.DEFAULT_BACKEND, "doubao")
+    def test_default_backend_is_default(self):
+        self.assertEqual(ee.DEFAULT_BACKEND, "default")
 
     def test_claude_pending_returns_stub(self):
         result = ee.escalate("Q", backend="claude_pending")
         self.assertEqual(result["status"], "claude_pending")
         self.assertEqual(result["backend"], "claude_pending")
         self.assertIn("V37.9.91", result["error"])
-        self.assertIn("Doubao", result["error"])
+        # V37.9.345: 文案去厂商名 (槽位换过 3 次模型, 写死厂商名 = fail-plausible 归因源)
+        self.assertIn("default expert backend", result["error"])
+        for vendor in ("Doubao", "Kimi", "DeepSeek", "GLM"):
+            self.assertNotIn(vendor, result["error"],
+                             f"claude_pending 文案不得写死厂商名 {vendor}")
 
     def test_unknown_backend_rejected(self):
         result = ee.escalate("Q", backend="gpt5")
@@ -778,7 +782,7 @@ class TestCliInterface(unittest.TestCase):
         self.assertEqual(result.returncode, 0)
         parsed = json.loads(result.stdout)
         self.assertEqual(parsed["status"], "dry_run")
-        self.assertEqual(parsed["backend"], "doubao")
+        self.assertEqual(parsed["backend"], "default")
 
     def test_help(self):
         result = subprocess.run(
@@ -826,13 +830,13 @@ class TestV37990R1SourceGuards(unittest.TestCase):
     def test_v37_9_55_doubao_reference(self):
         self.assertIn("V37.9.55", self.src)
 
-    def test_doubao_backend_constants(self):
-        self.assertEqual(ee.BACKEND_DOUBAO, "doubao")
+    def test_expert_backend_constants(self):
+        self.assertEqual(ee.BACKEND_DEFAULT, "default")
         self.assertEqual(ee.BACKEND_CLAUDE_PENDING, "claude_pending")
-        self.assertEqual(ee.DEFAULT_BACKEND, "doubao")
+        self.assertEqual(ee.DEFAULT_BACKEND, "default")
 
     def test_ai_tokenhub_endpoint_url_v290(self):
-        self.assertIn("ai-tokenhub.com/api/v1", ee.DOUBAO_BASE_URL)
+        self.assertIn("ai-tokenhub.com/api/v1", ee.EXPERT_BASE_URL)
 
     def test_no_anthropic_import(self):
         self.assertNotIn("import anthropic", self.src)
@@ -850,7 +854,7 @@ class TestV37990R1SourceGuards(unittest.TestCase):
 
     def test_doubao_api_key_env_v290(self):
         # V37.9.290: 平台切换后独立 env (原 ARK_API_KEY 是 Volcengine key 不再消费)
-        self.assertEqual(ee.DOUBAO_API_KEY_ENV, "DOUBAO_API_KEY")
+        self.assertEqual(ee.EXPERT_API_KEY_ENV, "DOUBAO_21_TOKENHUB_API_KEY")
 
     def test_ark_endpoint_id_env_retired_v290(self):
         # ep- 间接层退役: 常量不存在 + 源码不再读 ARK_ENDPOINT_ID env
@@ -891,9 +895,9 @@ class TestV37990R1SourceGuards(unittest.TestCase):
         self.assertIn("sudo", self.src)
 
     def test_doubao_transport_class_defined(self):
-        self.assertTrue(hasattr(ee, "DoubaoTransport"))
-        self.assertTrue(hasattr(ee.DoubaoTransport, "call"))
-        self.assertTrue(hasattr(ee.DoubaoTransport, "is_configured"))
+        self.assertTrue(hasattr(ee, "ExpertTransport"))
+        self.assertTrue(hasattr(ee.ExpertTransport, "call"))
+        self.assertTrue(hasattr(ee.ExpertTransport, "is_configured"))
 
 
 if __name__ == "__main__":

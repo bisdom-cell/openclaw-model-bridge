@@ -4102,10 +4102,10 @@ invariants:
         check_type: file_contains
         file: providers.py
         pattern: 'api_key_env'
-      - name: "doubao plugin 声明 DOUBAO_API_KEY (V37.9.290 平台切换 ai-tokenhub)"
+      - name: "doubao_21_tokenhub plugin 声明 DOUBAO_21_TOKENHUB_API_KEY (V37.9.345 改名)"
         check_type: file_contains
-        file: providers.d/doubao_provider.py
-        pattern: 'api_key_env = "DOUBAO_API_KEY"'
+        file: providers.d/doubao_21_tokenhub_provider.py
+        pattern: 'api_key_env = "DOUBAO_21_TOKENHUB_API_KEY"'
       - name: "INV-PLIST-ENV-001 V37.9.54 marker 存在"
         check_type: file_contains
         file: ontology/governance_ontology.yaml
@@ -4129,10 +4129,10 @@ invariants:
                   for m in re.finditer(r'api_key_env\s*=\s*"(\w+)"', src):
                       declared.add(m.group(1))
           # 已知应有的 env (V37.9.54 baseline; V37.9.290 doubao 平台切换
-          # Ark→ai-tokenhub: ARK_API_KEY → DOUBAO_API_KEY)
+          # Ark→ai-tokenhub: ARK_API_KEY → DOUBAO_API_KEY; V37.9.345 改名 → DOUBAO_21_TOKENHUB_API_KEY)
           required = {"REMOTE_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY",
                       "ANTHROPIC_API_KEY", "MOONSHOT_API_KEY", "MINIMAX_API_KEY",
-                      "GLM_API_KEY", "DOUBAO_API_KEY"}
+                      "GLM_API_KEY", "DOUBAO_21_TOKENHUB_API_KEY"}
           assert required.issubset(declared), \
               f"V37.9.54 baseline: declared {declared} 必须 ⊇ {required}, missing: {required - declared}"
       - name: "V37.9.54 runtime: --full mode adapter plist EnvironmentVariables 与 declared api_key_env 比对"
@@ -4162,8 +4162,8 @@ invariants:
                       for m in re.finditer(r'api_key_env\s*=\s*"(\w+)"', src):
                           declared.add(m.group(1))
               # V37.9.54 baseline: 核心 env 必须在 plist (V37.9.290: doubao 平台
-              # 切换后 critical 由 ARK_API_KEY → DOUBAO_API_KEY)
-              critical = {"REMOTE_API_KEY", "GEMINI_API_KEY", "DOUBAO_API_KEY"} & declared
+              # 切换后 critical 由 ARK_API_KEY → DOUBAO_API_KEY; V37.9.345 改名)
+              critical = {"REMOTE_API_KEY", "GEMINI_API_KEY", "DOUBAO_21_TOKENHUB_API_KEY"} & declared
               critical_missing = critical - plist_envs
               assert not critical_missing, \
                   f"V37.9.54 critical missing in plist: {critical_missing} (V37.9.53 doubao 类 silent failure 风险)"
@@ -4171,8 +4171,9 @@ invariants:
   # --- V37.9.96 新增：proxy plist ARK env 守卫 (INV-PLIST-ENV-001 sibling, MR-4) ---
   # 触发: V37.9.91 Doubao expert_escalate 真生产闭环. tool_proxy.py 的 expert_escalate
   # 自定义工具分支 (V37.9.91 wiring) lazy-import expert_escalation.py, 后者经 Volcengine
-  # Ark 调 Doubao Seed 2.0 Pro 用 ARK_API_KEY (DOUBAO_API_KEY_ENV) + ARK_ENDPOINT_ID
-  # (DOUBAO_ENDPOINT_ID_ENV). proxy daemon (com.openclaw.proxy.plist) 跑 tool_proxy.py,
+  # Ark 调 Doubao Seed 2.0 Pro 用 ARK_API_KEY (原 DOUBAO_API_KEY_ENV) + ARK_ENDPOINT_ID
+  # (DOUBAO_ENDPOINT_ID_ENV). V37.9.345 常量族改名 EXPERT_*, env 改名 DOUBAO_21_TOKENHUB_API_KEY。
+  # proxy daemon (com.openclaw.proxy.plist) 跑 tool_proxy.py,
   # 必须从 plist EnvironmentVariables 拿到这两个 env. V37.9.91 实测: proxy plist 当时
   # 无 ARK env, 手动从 adapter plist 复制 + bootout/bootstrap 才生效. 但 V37.9.54
   # INV-PLIST-ENV-001 只守 adapter plist, 不守 proxy plist → 若 Mac Mini 重装 /
@@ -4190,9 +4191,9 @@ invariants:
       expert_escalation.py 调 Doubao Seed 2.0 Pro 作 PA 复杂判断的 expert backend
       (V37.9.290 平台切换: Volcengine Ark → ai-tokenhub, ep- 间接层退役).
       proxy daemon 通过 launchd (com.openclaw.proxy.plist) 启动, 仅能拿到 plist
-      EnvironmentVariables 声明的 env. expert_escalation.py 读 DOUBAO_API_KEY
-      (DOUBAO_API_KEY_ENV; 原 ARK_API_KEY+ARK_ENDPOINT_ID 是 Ark 时代契约).
-      若 proxy plist 缺此 env, expert_escalate 返回 "DOUBAO_API_KEY not set"
+      EnvironmentVariables 声明的 env. expert_escalation.py 读 DOUBAO_21_TOKENHUB_API_KEY
+      (EXPERT_API_KEY_ENV; 原 ARK_API_KEY+ARK_ENDPOINT_ID 是 Ark 时代契约, V37.9.345 改名).
+      若 proxy plist 缺此 env, expert_escalate 返回 "DOUBAO_21_TOKENHUB_API_KEY not set"
       → PA 复杂判断时无可用 expert backend → silent failure (用户感知不到 PA 没真调 Doubao).
     design_decision: |
       V37.9.91 Doubao 真生产闭环时实测: proxy plist 当时无 ARK env (V37.9.54
@@ -4213,10 +4214,10 @@ invariants:
         check_type: file_contains
         file: tool_proxy.py
         pattern: 'name == "expert_escalate"'
-      - name: "expert_escalation.py 把 DOUBAO_API_KEY 绑定到 DOUBAO_API_KEY_ENV (V37.9.290)"
+      - name: "expert_escalation.py 把 DOUBAO_21_TOKENHUB_API_KEY 绑定到 EXPERT_API_KEY_ENV (V37.9.345)"
         check_type: file_contains
         file: expert_escalation.py
-        pattern: 'DOUBAO_API_KEY_ENV = "DOUBAO_API_KEY"'
+        pattern: 'EXPERT_API_KEY_ENV = "DOUBAO_21_TOKENHUB_API_KEY"'
       - name: "expert_escalation.py 不再读 ARK_ENDPOINT_ID (V37.9.290 ep- 间接层退役)"
         check_type: python_assert
         code: |
@@ -4242,8 +4243,8 @@ invariants:
           assert "expert_escalation" in tp, \
               "expert_escalate 分支必须 lazy-import expert_escalation"
           ee = open("expert_escalation.py").read()
-          assert 'DOUBAO_API_KEY_ENV = "DOUBAO_API_KEY"' in ee, \
-              "V37.9.290: expert_escalation 必须把 DOUBAO_API_KEY 绑定到 DOUBAO_API_KEY_ENV"
+          assert 'EXPERT_API_KEY_ENV = "DOUBAO_21_TOKENHUB_API_KEY"' in ee, \
+              "V37.9.345: expert_escalation 必须把 DOUBAO_21_TOKENHUB_API_KEY 绑定到 EXPERT_API_KEY_ENV"
           assert 'os.environ.get("ARK_ENDPOINT_ID"' not in ee, \
               "V37.9.290: ep- 间接层已退役, 不得再读 ARK_ENDPOINT_ID env"
       - name: "V37.9.96 runtime: --full mode proxy plist EnvironmentVariables 必含 ARK_API_KEY + ARK_ENDPOINT_ID"
@@ -4258,8 +4259,8 @@ invariants:
               with open(plist_path, "rb") as f:
                   plist_data = plistlib.load(f)
               proxy_envs = set(plist_data.get("EnvironmentVariables", {}).keys())
-              # V37.9.290: 平台切换后 expert 只需 DOUBAO_API_KEY (ep- 间接层退役)
-              required = {"DOUBAO_API_KEY"}
+              # V37.9.290 平台切换后 expert 只需一个 key env (ep- 间接层退役); V37.9.345 改名
+              required = {"DOUBAO_21_TOKENHUB_API_KEY"}
               missing = required - proxy_envs
               assert not missing, \
                   f"V37.9.96/290 proxy plist 缺 {missing} → expert_escalate silent failure 风险 (V37.9.91 实测案例)"

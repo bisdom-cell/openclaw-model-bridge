@@ -3,7 +3,7 @@ expert_escalation.py — V37.9.90-r1 Expert Escalation Capability
 
 V37.9.83 Direction 2 (AI Partnership Framework) — redesigned 2026-05-29 to
 route via the expert backend slot (historically Doubao Seed 2.0 Pro V37.9.55;
-V37.9.341 起槽位模型 = Doubao Seed 2.1 Pro via ai-tokenhub, 见 DOUBAO_DEFAULT_MODEL_ID) instead
+V37.9.341 起槽位模型 = Doubao Seed 2.1 Pro via ai-tokenhub, 见 EXPERT_DEFAULT_MODEL_ID) instead
 of Anthropic SDK (Claude pending future-flip when API key + integration ready).
 
 Why Doubao first:
@@ -27,7 +27,7 @@ Architecture (unchanged from v1):
 - Audit logged per call; daily quota guards cost
 
 Backend selector:
-- backend="doubao"  → primary (this PR, V37.9.90-r1)
+- backend="default" (V37.9.345 中性化; legacy alias "doubao" 仍接受) → primary
 - backend="claude_pending" → returns status=claude_pending error (future flip)
 
 V37.9.83 alignment:
@@ -55,9 +55,14 @@ from datetime import datetime, timezone, timedelta
 
 # Backend selection — V37.9.90-r1 routes to Doubao (already running).
 # Claude path stubbed as future-flip when ANTHROPIC_API_KEY + integration ready.
-BACKEND_DOUBAO = "doubao"
+# V37.9.345: backend 值中性化 (LLM 面不写厂商名 — 槽位会换模型, 见 V37.9.339/341 whiplash)。
+# 🔴 旧值 "doubao" 保留为 legacy alias: PA 的 session 可能仍带旧 schema, 改名必须向后兼容,
+# 否则未清 session 的 PA 发 backend="doubao" 会撞 unknown_backend (LLM-facing 值改名纪律)。
+BACKEND_DEFAULT = "default"
+BACKEND_DOUBAO_LEGACY = "doubao"   # 兼容别名, 等价于 BACKEND_DEFAULT
+BACKEND_ALIASES = {BACKEND_DEFAULT, BACKEND_DOUBAO_LEGACY}
 BACKEND_CLAUDE_PENDING = "claude_pending"
-DEFAULT_BACKEND = BACKEND_DOUBAO
+DEFAULT_BACKEND = BACKEND_DEFAULT
 
 # Volcengine Ark — V37.9.52 plugin registered, V37.9.55 verified.
 # OpenAI Chat Completions compatible — no custom client needed.
@@ -71,12 +76,12 @@ DEFAULT_BACKEND = BACKEND_DOUBAO
 # kimi-k3 → InsufficientScope), 槽位改指向 key 真能服务的模型 → expert 后端同步升到
 # Doubao Seed 2.1 Pro 旗舰 (2.0 → 2.1, 经 ai-tokenhub 而非 Ark)
 # (镜像 V37.9.290 "expert 后端同模型随迁")。🔴 DOUBAO_* 常量族是历史槽位名
-# (与 providers.d/doubao_provider.py 的命名债同源), 当前实际模型见 DOUBAO_DEFAULT_MODEL_ID。
-DOUBAO_BASE_URL = "https://ai-tokenhub.com/api/v1"
-DOUBAO_ENDPOINT_URL = DOUBAO_BASE_URL + "/chat/completions"
-DOUBAO_API_KEY_ENV = "DOUBAO_API_KEY"
-DOUBAO_DEFAULT_MODEL_ID = "doubao-seed-2-1-pro-260628"
-DOUBAO_REQUEST_TIMEOUT_SEC = 60
+# (与 providers.d/doubao_provider.py 的命名债同源), 当前实际模型见 EXPERT_DEFAULT_MODEL_ID。
+EXPERT_BASE_URL = "https://ai-tokenhub.com/api/v1"
+EXPERT_ENDPOINT_URL = EXPERT_BASE_URL + "/chat/completions"
+EXPERT_API_KEY_ENV = "DOUBAO_21_TOKENHUB_API_KEY"
+EXPERT_DEFAULT_MODEL_ID = "doubao-seed-2-1-pro-260628"
+EXPERT_REQUEST_TIMEOUT_SEC = 60
 
 DEFAULT_MAX_TOKENS = 4000          # response cap; per-call cost ceiling
 DEFAULT_CHANGELOG_DAYS = 14         # CLAUDE.md window
@@ -411,19 +416,19 @@ def write_audit_record(audit_log_path, record):
 # ══════════════════════════════════════════════════════════════════════
 
 
-class DoubaoTransport:
+class ExpertTransport:
     """Doubao HTTP transport (V37.9.290: ai-tokenhub; 原 Volcengine Ark) using stdlib urllib (zero new deps).
 
     OpenAI Chat Completions compatible API. Mockable: subclass override _post()
     in tests to inject responses, or pass to escalate() directly.
     """
 
-    def __init__(self, api_key=None, endpoint_id=None, base_url=DOUBAO_BASE_URL,
-                 timeout=DOUBAO_REQUEST_TIMEOUT_SEC):
-        self.api_key = api_key or os.environ.get(DOUBAO_API_KEY_ENV, "")
+    def __init__(self, api_key=None, endpoint_id=None, base_url=EXPERT_BASE_URL,
+                 timeout=EXPERT_REQUEST_TIMEOUT_SEC):
+        self.api_key = api_key or os.environ.get(EXPERT_API_KEY_ENV, "")
         # V37.9.290: ai-tokenhub 直接用公开 model 名, ep- env 间接层已退役。
         # 参数名 endpoint_id 保留 (历史名, 现语义 = model 标识符, 测试注入点不变)。
-        self.endpoint_id = endpoint_id or DOUBAO_DEFAULT_MODEL_ID
+        self.endpoint_id = endpoint_id or EXPERT_DEFAULT_MODEL_ID
         self.base_url = base_url
         self.endpoint_url = base_url + "/chat/completions"
         self.timeout = timeout
@@ -476,7 +481,7 @@ class DoubaoTransport:
         """
         if not self.is_configured():
             return False, "", {}, (
-                DOUBAO_API_KEY_ENV
+                EXPERT_API_KEY_ENV
                 + " not set (configure in plist EnvironmentVariables on Mac Mini)"
             )
 
@@ -614,14 +619,14 @@ def escalate(
             "backend": BACKEND_CLAUDE_PENDING,
             "error": (
                 "Claude backend deferred to V37.9.91+ (awaiting ANTHROPIC_API_KEY "
-                "+ Mac Mini integration). Currently routing via Doubao."
+                "+ Mac Mini integration). Currently routing via the default expert backend."
             ),
         }
-    if backend != BACKEND_DOUBAO:
+    if backend not in BACKEND_ALIASES:
         return {
             "status": "unknown_backend",
             "error": "unknown backend: " + repr(backend)
-                     + " (supported: doubao, claude_pending)",
+                     + " (supported: default, claude_pending; legacy alias: doubao)",
         }
 
     # Resolve paths
@@ -682,7 +687,7 @@ def escalate(
             "proposal": "[DRY RUN] No API call made. Question recorded for review.",
             "rationale": (
                 "Dry-run mode: synthetic response. In production this would route via "
-                "the configured expert backend (" + DOUBAO_DEFAULT_MODEL_ID + " @ ai-tokenhub)."
+                "the configured expert backend (" + EXPERT_DEFAULT_MODEL_ID + " @ ai-tokenhub)."
             ),
             "confidence": "low",
             "refs": [],
@@ -707,14 +712,14 @@ def escalate(
 
     # Acquire transport (Doubao). Mockable via subclass.
     if transport is None:
-        transport = DoubaoTransport()
+        transport = ExpertTransport()
 
     if not transport.is_configured():
         return {
             "status": "api_unavailable",
             "backend": backend,
             "error": (
-                DOUBAO_API_KEY_ENV + " not set. Configure in Mac Mini plist "
+                EXPERT_API_KEY_ENV + " not set. Configure in Mac Mini plist "
                 "EnvironmentVariables (V37.9.55 same path as adapter). "
                 "Use --dry-run for dev validation."
             ),
@@ -821,12 +826,13 @@ def main():
     parser.add_argument("--question", required=True, help="Question for the expert")
     parser.add_argument("--kb-dir", help="KB directory (default ~/.kb)")
     parser.add_argument("--backend", default=DEFAULT_BACKEND,
-                        choices=[BACKEND_DOUBAO, BACKEND_CLAUDE_PENDING],
-                        help="Backend (default: doubao; claude_pending returns stub)")
+                        choices=[BACKEND_DEFAULT, BACKEND_DOUBAO_LEGACY, BACKEND_CLAUDE_PENDING],
+                        help="Backend (default: 'default'; 'doubao' = legacy alias; "
+                             "claude_pending returns stub)")
     parser.add_argument("--max-tokens", type=int, default=DEFAULT_MAX_TOKENS)
     parser.add_argument("--max-daily", type=int, default=DEFAULT_DAILY_QUOTA)
     parser.add_argument("--dry-run", action="store_true",
-                        help="Skip API call (dev mode without " + DOUBAO_API_KEY_ENV + ")")
+                        help="Skip API call (dev mode without " + EXPERT_API_KEY_ENV + ")")
     parser.add_argument("--json", action="store_true", help="JSON output")
     args = parser.parse_args()
 

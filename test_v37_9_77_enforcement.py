@@ -49,10 +49,10 @@ class TestAdapterResolvePrimaryProvider(unittest.TestCase):
         for k in ("FALLBACK_ORDER", "FALLBACK_PROVIDER", "FAST_PROVIDER",
                   "MODEL_ID", "VL_MODEL_ID", "ROUTER_ENFORCE",
                   # V37.9.298: doubao 两代 key env (V37.9.290 迁移 ARK→DOUBAO)。
-                  # 生产 .env_shared 配上 DOUBAO_API_KEY 后, FAIL-OPEN 测试的
+                  # 生产 .env_shared 配上 DOUBAO_21_TOKENHUB_API_KEY 后, FAIL-OPEN 测试的
                   # "key 未配" 前提失效 → 2026-08-12 07:00 INV-ROUTER-001 ❌
                   # (V37.9.232 同族第 3 例: dev 无此 env 永远绿)。
-                  "ARK_API_KEY", "DOUBAO_API_KEY"):
+                  "ARK_API_KEY", "DOUBAO_21_TOKENHUB_API_KEY"):
             os.environ.pop(k, None)
         # Don't actually import adapter (it would start HTTP server in __main__)
         # Instead, test the _resolve_primary_provider method by importing without running
@@ -78,36 +78,36 @@ class TestAdapterResolvePrimaryProvider(unittest.TestCase):
     def test_router_enforce_off_ignores_override(self):
         """ROUTER_ENFORCE=off (默认) → 即使有 ?provider= 也走默认 (PoC 安全网).
 
-        必须配 DOUBAO_API_KEY 隔离测试 (V37.9.290 平台切换后 doubao 的 key env) — 否则第二层 API key 检查会同时阻止,
+        必须配 DOUBAO_21_TOKENHUB_API_KEY 隔离测试 (V37.9.290 平台切换后 doubao 的 key env) — 否则第二层 API key 检查会同时阻止,
         让测试无法分辨是哪个 guard 起作用 (反向 sabotage 守卫失效).
         """
-        with patch.dict(os.environ, {"DOUBAO_API_KEY": "test-doubao-key-v37977-isolation"}):
-            result = self._make_handler_stub("/v1/chat/completions?provider=doubao", enforce="off")
+        with patch.dict(os.environ, {"DOUBAO_21_TOKENHUB_API_KEY": "test-doubao-key-v37977-isolation"}):
+            result = self._make_handler_stub("/v1/chat/completions?provider=doubao_21_tokenhub", enforce="off")
             _, _, _, _, name = result
             self.assertEqual(name, "qwen",
                              "V37.9.77: ROUTER_ENFORCE=off 时忽略 ?provider= 强制走默认 "
-                             "(即使 DOUBAO_API_KEY 配置存在)")
+                             "(即使 DOUBAO_21_TOKENHUB_API_KEY 配置存在)")
 
     def test_router_enforce_on_with_valid_override(self):
-        """ROUTER_ENFORCE=on + ?provider=doubao + DOUBAO_API_KEY 配置 → 用 doubao (V37.9.290)."""
-        with patch.dict(os.environ, {"DOUBAO_API_KEY": "test-doubao-key-v37977"}):
-            result = self._make_handler_stub("/v1/chat/completions?provider=doubao", enforce="on")
+        """ROUTER_ENFORCE=on + ?provider=doubao_21_tokenhub + DOUBAO_21_TOKENHUB_API_KEY 配置 → 用 doubao (V37.9.290)."""
+        with patch.dict(os.environ, {"DOUBAO_21_TOKENHUB_API_KEY": "test-doubao-key-v37977"}):
+            result = self._make_handler_stub("/v1/chat/completions?provider=doubao_21_tokenhub", enforce="on")
             base, model, auth, key, name = result
-            self.assertEqual(name, "doubao",
-                             "V37.9.77: ROUTER_ENFORCE=on + 有效 ?provider=doubao → 用 doubao")
+            self.assertEqual(name, "doubao_21_tokenhub",
+                             "V37.9.77: ROUTER_ENFORCE=on + 有效 ?provider=doubao_21_tokenhub → 用该 provider")
             self.assertIn("ai-tokenhub.com", base.lower(),
                           "V37.9.290: doubao base_url 已平台切换 ai-tokenhub")
             self.assertEqual(key, "test-doubao-key-v37977",
-                             "V37.9.290: doubao 应用 DOUBAO_API_KEY")
+                             "V37.9.290: doubao 应用 DOUBAO_21_TOKENHUB_API_KEY")
 
     def test_router_enforce_on_missing_api_key_falls_back(self):
-        """ROUTER_ENFORCE=on + ?provider=doubao 但 DOUBAO_API_KEY 未配 → fallback default (FAIL-OPEN)."""
+        """ROUTER_ENFORCE=on + ?provider=doubao_21_tokenhub 但 DOUBAO_21_TOKENHUB_API_KEY 未配 → fallback default (FAIL-OPEN)."""
         with patch.dict(os.environ, {}, clear=False):
-            # 清掉 doubao 两代 key env (V37.9.290: ARK_API_KEY → DOUBAO_API_KEY)。
+            # 清掉 doubao 两代 key env (V37.9.290: ARK_API_KEY → DOUBAO_21_TOKENHUB_API_KEY)。
             # setUp 已 pop; 此处保留显式声明 — 本测试的语义前提就是 "key 未配"。
             os.environ.pop("ARK_API_KEY", None)
-            os.environ.pop("DOUBAO_API_KEY", None)
-            result = self._make_handler_stub("/v1/chat/completions?provider=doubao", enforce="on")
+            os.environ.pop("DOUBAO_21_TOKENHUB_API_KEY", None)
+            result = self._make_handler_stub("/v1/chat/completions?provider=doubao_21_tokenhub", enforce="on")
             _, _, _, _, name = result
             self.assertEqual(name, "qwen",
                              "V37.9.77 FAIL-OPEN: 选了未配 API key 的 provider 应回 default")

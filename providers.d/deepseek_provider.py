@@ -11,7 +11,7 @@
 错误响应路径泄露)。⚠️ 质量观察: 推理类响应偶发乱码 token 注入 (w4a8-mtp 量化产物,
 如 "dollars35367"/"only12") — 答案正确但夹杂无关 token, 替换 Qwen3 (fp) 时须权衡。
 
-🔴 设计契约 (镜像 doubao_provider.py V37.9.52 公开 repo 安全底线):
+🔴 设计契约 (镜像 doubao_21_tokenhub_provider.py — 原 doubao_provider.py, V37.9.345 改名 — 的公开 repo 安全底线):
 - **API key 严格走 env `DEEPSEEK_API_KEY`** — 绝不硬编码。用户在对话里贴的明文 key
   (sk-...) 不入库, 即便用户豁免也守公开 repo 安全底线。
 - **base_url 走 env `DEEPSEEK_BASE_URL`** — 用户端点是【裸 IP + 路径 token】= 类机密,

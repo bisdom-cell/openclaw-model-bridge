@@ -46,8 +46,8 @@ class TestExpectedDstForSrc(unittest.TestCase):
         """providers.d/ 子目录但不在 jobs/ → $HOME/ 直接."""
         from path_consistency_scanner import expected_dst_for_src
         self.assertEqual(
-            expected_dst_for_src("providers.d/doubao_provider.py"),
-            "$HOME/providers.d/doubao_provider.py",
+            expected_dst_for_src("providers.d/doubao_21_tokenhub_provider.py"),
+            "$HOME/providers.d/doubao_21_tokenhub_provider.py",
         )
 
     def test_empty_string_edge_case(self):

@@ -270,7 +270,7 @@ tools:
       executor: "expert_escalation.py"
       parameters:
         question: {type: string, required: true, description: "用户的原始问题。PA 必须传用户原话，不要自己加工 / 概括 / 翻译。"}
-        backend: {type: string, required: false, enum: [doubao, claude_pending], description: "backend 选择。默认 doubao (V37.9.55 verified production)。claude_pending 是 future-flip stub，未配齐 ANTHROPIC_API_KEY 前返回 stub status。"}
+        backend: {type: string, required: false, enum: [default, claude_pending], description: "backend 选择。默认 default（系统配置的 reasoning 后端）。claude_pending 是 future-flip stub，未配齐 ANTHROPIC_API_KEY 前返回 stub status。旧值 doubao 仍作兼容别名接受。"}
 
 # ═══════════════════════════════════════════════════════════════════════
 # 3. 行为策略（Policies）— 运行时治理规则
