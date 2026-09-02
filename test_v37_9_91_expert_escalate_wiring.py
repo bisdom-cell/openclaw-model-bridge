@@ -1,7 +1,7 @@
 """V37.9.91 Expert Escalation wiring guards (V37.9.90-r1 Direction 2 落地).
 
 V37.9.83 Direction 2 (AI Partnership Framework) Stage 3 兑现 — 把 V37.9.90-r1 已实
-现的 expert_escalation.py + DoubaoTransport + 89 单测从"代码就绪"推到"真生产可用".
+现的 expert_escalation.py + ExpertTransport + 89 单测从"代码就绪"推到"真生产可用".
 
 V37.9.91 三处 wiring 守卫:
   1. proxy_filters.py: CUSTOM_TOOLS 第 3 个 entry + TOOL_PARAMS args 集合
@@ -76,13 +76,13 @@ class TestProxyFiltersWiring(unittest.TestCase):
         # additionalProperties: False
         self.assertFalse(params.get("additionalProperties", True))
 
-    def test_backend_enum_has_doubao_and_claude_pending(self):
+    def test_backend_enum_is_model_neutral(self):
         from proxy_filters import CUSTOM_TOOLS
         expert = next(
             t for t in CUSTOM_TOOLS if t["function"]["name"] == "expert_escalate"
         )
         backend_enum = expert["function"]["parameters"]["properties"]["backend"]["enum"]
-        self.assertIn("doubao", backend_enum)
+        self.assertIn("default", backend_enum)
         self.assertIn("claude_pending", backend_enum)
 
     def test_tool_params_contains_expert_escalate(self):
@@ -185,7 +185,7 @@ class TestToolProxyBranchGuards(unittest.TestCase):
         )
         # 必须显式检查 backend in {doubao, claude_pending}
         self.assertIn(
-            "doubao", branch_section,
+            "default", branch_section,
         )
         self.assertIn(
             "claude_pending", branch_section,
@@ -377,7 +377,7 @@ print(json.dumps(result, ensure_ascii=False))
 """.format(
             repo=REPO_DIR,
             question=arguments_json.get("question", ""),
-            backend=arguments_json.get("backend", "doubao"),
+            backend=arguments_json.get("backend", "default"),
             audit=audit_path,
         )
 
@@ -396,7 +396,7 @@ print(json.dumps(result, ensure_ascii=False))
 
     def test_dry_run_question_returns_ok_with_proposal(self):
         result, _audit = self._invoke_via_subprocess(
-            {"question": "should we adopt Doubao for production?", "backend": "doubao"},
+            {"question": "should we adopt Doubao for production?", "backend": "default"},
         )
         self.assertEqual(
             result.returncode, 0,
@@ -411,11 +411,11 @@ print(json.dumps(result, ensure_ascii=False))
                          "dry_run 模式必须返回 status=dry_run")
         self.assertIn("proposal", data)
         self.assertIn("[DRY RUN]", data["proposal"])
-        self.assertEqual(data["backend"], "doubao")
+        self.assertEqual(data["backend"], "default")
 
     def test_dry_run_audit_record_written(self):
         result, audit_path = self._invoke_via_subprocess(
-            {"question": "audit record test", "backend": "doubao"},
+            {"question": "audit record test", "backend": "default"},
         )
         self.assertEqual(result.returncode, 0,
                          f"dry_run 调用应成功:\n{result.stderr}")
@@ -429,7 +429,7 @@ print(json.dumps(result, ensure_ascii=False))
         self.assertGreaterEqual(len(lines), 1, "至少 1 条 audit record")
         rec = json.loads(lines[-1])
         self.assertEqual(rec["status"], "dry_run")
-        self.assertEqual(rec["backend"], "doubao")
+        self.assertEqual(rec["backend"], "default")
 
     def test_claude_pending_backend_returns_stub(self):
         """backend=claude_pending → 立即返回 stub status, 不真调 Doubao."""

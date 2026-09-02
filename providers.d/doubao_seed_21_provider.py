@@ -1,9 +1,10 @@
 """V37.9.216 — Doubao Seed 2.1 Pro Provider (Volcengine Ark, 旗舰版)
 
 接入第 11 个 provider: doubao-seed-2-1-pro (火山引擎 Ark, 新旗舰, 多模态 + reasoning),
-区别于第 8 个 doubao_provider.py (Doubao Seed 2.0 Pro)。
+区别于第 8 个槽位 doubao_21_tokenhub_provider.py (V37.9.345 改名; 该槽位现服务同一个
+2.1 模型但经 ai-tokenhub = 刻意的平台冗余, 见其 docstring)。
 
-设计契约 (镜像 doubao_provider.py V37.9.52 安全模式):
+设计契约 (镜像 doubao_21_tokenhub_provider.py V37.9.52 安全模式):
 - 🔴 API key 严格走 env ARK_21_API_KEY (不可硬编码, 即便用户豁免也守公开 repo 安全底线;
   push 前 sk-/ark- 泄漏扫描会拦截)。用独立 env (非复用 doubao 2.0 的 ARK_API_KEY),
   让 2.1 旗舰与 2.0 各自持 key/endpoint 独立配置。

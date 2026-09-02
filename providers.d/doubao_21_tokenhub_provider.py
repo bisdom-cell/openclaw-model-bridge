@@ -5,27 +5,30 @@
    → V37.9.342 Mac Mini E2E (ai-tokenhub 路径): tool_calling + reasoning 2 项实测 →
                  feature_verified; verified_text 当时刻意仍 False (探针带 tools → content 空)
    → V37.9.343 补跑**不带 tools** 的纯文本探针 → verified_text 达标 flip True (3/6 verified)
+   → V37.9.345 🔴 **改名**: registry `doubao` → `doubao_21_tokenhub`, env `DOUBAO_API_KEY` →
+                 `DOUBAO_21_TOKENHUB_API_KEY`, 文件/类名同步 —— 命名债退役 (见下方)
 
 🔴 为什么本槽位与 doubao_21 是同一个模型 (刻意的, 不是重复 — 未来 session 勿"去重"):
-  `doubao_21` = doubao-seed-2-1-pro-260628 @ **Volcengine Ark** (生产 primary, ARK_21_API_KEY)
-  `doubao`    = doubao-seed-2-1-pro-260628 @ **ai-tokenhub**    (fallback #2, DOUBAO_API_KEY)
+  `doubao_21`          = doubao-seed-2-1-pro-260628 @ **Volcengine Ark** (生产 primary, ARK_21_API_KEY)
+  `doubao_21_tokenhub` = doubao-seed-2-1-pro-260628 @ **ai-tokenhub**    (fallback #2, DOUBAO_21_TOKENHUB_API_KEY)
   同模型 × 两个独立 serving 平台 = **平台冗余**: Ark 侧故障 (网关/计费/区域) 时同一模型仍可
   经 ai-tokenhub 达到。这是链上唯一的平台维度冗余 (其余 fallback 都是换模型)。
   代价诚实登记: 模型**本身**的问题 (能力边界/幻觉/该模型下线) 不会被本槽位兜住 —— 兜那种
   故障的是链上的 deepseek/qwen。
 
-🔴 命名债 (诚实登记, 一物一形 #34 规则 2 的已知例外):
-  registry name `doubao` / env `DOUBAO_API_KEY` / 类名 DoubaoSeedProvider 是**历史槽位名**
-  (V37.9.52 接入 Doubao Seed 2.0 Pro 时命名)。现服务 Doubao Seed **2.1** Pro —— 厂商对了,
-  版本号不精确, 且与 `doubao_21` 名字易混。保留旧名 = 零 blast radius (生产 plist 的
-  FALLBACK_ORDER=deepseek_full,doubao,… 不改、env 名不改只换值、expert_escalation 的
-  DOUBAO_* 常量族 + 治理 INV-PLIST-ENV-001/INV-PROXY-PLIST-ENV-001 的 DOUBAO_API_KEY
-  集合不动)。若用户要改名 (如 doubao_21_tokenhub), 是独立一次 rename。
+✅ 命名债已退役 (V37.9.345, 用户决策):
+  史: V37.9.52 接入 Doubao Seed 2.0 Pro 时命名 `doubao`/`DOUBAO_API_KEY`; V37.9.339 槽位
+  改指 Kimi K3 却保留旧名, 当时写下「保留旧名 = 零 blast radius」—— **当天即被证伪**:
+  让用户把 Kimi 的 key 填进一个叫 DOUBAO 的变量, 用户自然填了 doubao 的 key →
+  InsufficientScope → 连锁三版错误归因 (V37.9.341/342/343), 直到 V37.9.344 keymap 实测
+  才定性。**命名债的代价不是抽象的, 它在写下当天兑现。**
+  现名 `doubao_21_tokenhub` / `DOUBAO_21_TOKENHUB_API_KEY` 自带两个消歧维度 (版本 2.1 +
+  平台 tokenhub), 与 `doubao_21` (Ark) 一眼可分。
 
 设计契约:
-- API key 严格走 env DOUBAO_API_KEY (不可硬编码, 即便用户豁免也守公开 repo 安全底线)
+- API key 严格走 env DOUBAO_21_TOKENHUB_API_KEY (不可硬编码, 即便用户豁免也守公开 repo 安全底线)
 - base_url = https://ai-tokenhub.com/api/v1 (公开域名可入库, 与 deepseek_full/glm5_coding 同网关)
-- dev 环境无 env → ProviderRegistry.available() 因缺 DOUBAO_API_KEY 自动排除
+- dev 环境无 env → ProviderRegistry.available() 因缺 DOUBAO_21_TOKENHUB_API_KEY 自动排除
 - ai-tokenhub 无 endpoint-ID 间接层 (ARK_ENDPOINT_ID 自 V37.9.290 起不再消费), model 名直接进请求体
   ⚠️ 与 doubao_21 的关键差异: 后者的 model 字段收 Ark 接入点 ID (ep-...), 本槽位收 model 名。
 
@@ -56,12 +59,12 @@ V37.9.339 换 Kimi K3 / **V37.9.341 更正为 doubao-seed-2-1-pro-260628 (key sc
 from providers import BaseProvider, ModelInfo, ProviderCapabilities
 
 
-class DoubaoSeedProvider(BaseProvider):
-    # 🔴 name/api_key_env 是历史槽位名 (见模块 docstring "命名债"), 当前模型 = Doubao Seed 2.1 Pro
-    name = "doubao"
+class Doubao21TokenhubProvider(BaseProvider):
+    # V37.9.345: 名字自带版本 (2.1) + 平台 (tokenhub) 两个消歧维度, 与 doubao_21 (Ark) 一眼可分
+    name = "doubao_21_tokenhub"
     display_name = "Doubao Seed 2.1 Pro (ai-tokenhub)"   # 区别于 doubao_21 的 "(Volcengine Ark)"
     base_url = "https://ai-tokenhub.com/api/v1"
-    api_key_env = "DOUBAO_API_KEY"
+    api_key_env = "DOUBAO_21_TOKENHUB_API_KEY"
     auth_style = "bearer"
     # 模型侧 Ark 实测 + 网关侧 deepseek_full 在同网关实测, 两侧证据交汇 (见 docstring)
     reasoning_off_body = {"thinking": {"type": "disabled"}}

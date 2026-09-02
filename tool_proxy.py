@@ -842,11 +842,13 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                 }, ensure_ascii=False)
             question = question.strip()
 
-            backend = args.get("backend", "doubao")
-            if backend not in ("doubao", "claude_pending"):
+            # V37.9.345: 默认值与 enum 中性化; "doubao" 作 legacy alias 接受
+            # (LLM-facing 值改名纪律: 未清 session 的 PA 可能仍带旧 schema)
+            backend = args.get("backend", "default")
+            if backend not in ("default", "doubao", "claude_pending"):
                 return json.dumps({
                     "status": "unknown_backend",
-                    "error": f"backend 必须为 doubao 或 claude_pending, 收到: {backend!r}",
+                    "error": f"backend 必须为 default 或 claude_pending (doubao 为兼容别名), 收到: {backend!r}",
                 }, ensure_ascii=False)
 
             # Lazy import expert_escalation (脚本目录 → $HOME fallback)

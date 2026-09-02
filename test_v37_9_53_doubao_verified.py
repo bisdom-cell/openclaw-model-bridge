@@ -31,7 +31,7 @@ import unittest
 
 
 REPO_ROOT = os.path.dirname(os.path.abspath(__file__))
-DOUBAO_PLUGIN = os.path.join(REPO_ROOT, "providers.d", "doubao_provider.py")
+DOUBAO_PLUGIN = os.path.join(REPO_ROOT, "providers.d", "doubao_21_tokenhub_provider.py")
 PROVIDERS_PY = os.path.join(REPO_ROOT, "providers.py")
 
 
@@ -80,7 +80,7 @@ class TestDoubaoVerifiedFlagsV9_53(unittest.TestCase):
     def setUp(self):
         os.environ.pop("ARK_ENDPOINT_ID", None)
         self.providers = _reload_providers()
-        self.d = self.providers.get_registry().get("doubao")
+        self.d = self.providers.get_registry().get("doubao_21_tokenhub")
 
     def test_verified_text_reverified_v343(self):
         """史: V37.9.53 Ark 实测 → V37.9.290 重置 → V37.9.291 复测 → V37.9.339 换 Kimi 重置
@@ -131,7 +131,7 @@ class TestDoubaoCapScoreRanking(unittest.TestCase):
         self.reg = self.providers.get_registry()
 
     def test_doubao_slot_cap_score_above_gemini_after_v342_e2e(self):
-        doubao = self.reg.get("doubao")
+        doubao = self.reg.get("doubao_21_tokenhub")
         gemini = self.reg.get("gemini")
         doubao_score = self.reg._capability_score(doubao)
         gemini_score = self.reg._capability_score(gemini)
@@ -144,7 +144,7 @@ class TestDoubaoCapScoreRanking(unittest.TestCase):
         )
 
     def test_doubao_cap_score_specific_value(self):
-        doubao = self.reg.get("doubao")
+        doubao = self.reg.get("doubao_21_tokenhub")
         score = self.reg._capability_score(doubao)
         # 史: Ark 16 → V37.9.290 重置 6 → V37.9.291 半升档 10 → V37.9.339 Kimi 3 →
         # V37.9.341 更正 doubao-2.1 声明 6 → V37.9.342 E2E flip tool_calling+reasoning
@@ -170,7 +170,7 @@ class TestVerifiedFeaturesIncludesReasoning(unittest.TestCase):
         self.providers = _reload_providers()
 
     def test_doubao_slot_verified_features_v342(self):
-        d = self.providers.get_provider("doubao")
+        d = self.providers.get_provider("doubao_21_tokenhub")
         features = d.capabilities.verified_features()
         self.assertIn("reasoning", features, "V37.9.342 ai-tokenhub E2E 已测 reasoning")
         # V37.9.343: 纯文本探针补齐 text (V37.9.342 那轮带 tools → content 空不算数,
@@ -178,7 +178,7 @@ class TestVerifiedFeaturesIncludesReasoning(unittest.TestCase):
         self.assertIn("text", features, "V37.9.343 纯文本探针已补齐 text")
 
     def test_doubao_verified_features_exact_v342(self):
-        d = self.providers.get_provider("doubao")
+        d = self.providers.get_provider("doubao_21_tokenhub")
         features = d.capabilities.verified_features()
         # 史: V37.9.55 五项 (Ark) → V37.9.290 重置空集 → V37.9.291 半升档 → V37.9.339 换模型空集
         # → V37.9.341 doubao-2.1 空集 → V37.9.342 ai-tokenhub E2E tool_calling+reasoning
@@ -214,7 +214,7 @@ class TestFallbackChainDoubaoFirst(unittest.TestCase):
             names[0], "doubao_21",
             f"doubao_21 (16, 5 verified) 应排 chain 第 1 位, got {names}",
         )
-        self.assertNotEqual(names[0], "doubao")
+        self.assertNotEqual(names[0], "doubao_21_tokenhub")
 
     def test_gemini_below_verified_doubao_in_qwen_fallback_chain(self):
         # V37.9.53 原意: doubao(2.0) verified reasoning → 排在 gemini 之前 (把 gemini 挤下去)。
@@ -226,7 +226,7 @@ class TestFallbackChainDoubaoFirst(unittest.TestCase):
         # 原意 (V37.9.53): verified doubao 排在 gemini 之前, 把 gemini 挤下去。
         # 史: V37.9.339/341 槽位 declared 时曾落到 gemini 之后 → V37.9.342 ai-tokenhub
         # E2E flip tool_calling+reasoning (10 > 9) 回到 gemini 之前, 原意恢复。
-        self.assertLess(names.index("doubao"), names.index("gemini"),
+        self.assertLess(names.index("doubao_21_tokenhub"), names.index("gemini"),
                         f"V37.9.342 半升档后 doubao 槽位应排 gemini 之前, got {names}")
         self.assertLess(names.index("doubao_21"), names.index("gemini"),
                         f"doubao_21 (5 verified) 应排在 gemini 之前, got {names}")
@@ -279,7 +279,7 @@ class TestSourceLevelGuardsV9_53(unittest.TestCase):
         self.assertRegex(
             self.plugin_src,
             r"verified_text\s*=\s*True",
-            "V37.9.343 doubao_provider.py 必须 verified_text=True (纯文本探针达标)",
+            "V37.9.343 doubao_21_tokenhub plugin 必须 verified_text=True (纯文本探针达标)",
         )
         self.assertIn("V37.9.343", self.plugin_src)
 

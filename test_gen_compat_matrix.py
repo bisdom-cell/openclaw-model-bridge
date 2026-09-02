@@ -26,12 +26,13 @@ from providers import _default_registry, ProviderCapabilities
 class TestProvidersTableLines(unittest.TestCase):
     """providers.py 主矩阵表直出纯函数。"""
 
-    def test_matrix_table_has_header_and_8_providers(self):
+    def test_matrix_table_has_header_and_13_providers(self):
         lines = _default_registry.matrix_table_lines()
         self.assertTrue(lines[0].startswith("| Provider | Models |"))
         self.assertTrue(lines[1].startswith("|---"))
-        # 12 providers (7 built-in + doubao + doubao_21 + deepseek + deepseek_full + glm5_coding plugins)
-        self.assertEqual(len(lines), 2 + 12)
+        # 13 providers (7 built-in + doubao_21_tokenhub + doubao_21 + deepseek
+        #                + deepseek_full + glm5_coding + kimi_k3 plugins)
+        self.assertEqual(len(lines), 2 + 13)
 
     def test_matrix_table_contains_qwen_and_doubao(self):
         text = "\n".join(_default_registry.matrix_table_lines())
@@ -70,7 +71,7 @@ class TestCapabilityTableLines(unittest.TestCase):
         # | '' | Provider | Text | Vision | Audio | Video | Tool | Stream | JSON | Reasoning | Ctx | '' |
         # V37.9.339: 原意 = 机器表与 plugin 声明一致 (V37.9.142 手写漂移血案), 不锁死 Yes/—
         # 字面量 (槽位换模型后声明会变); 直接对照 registry 声明。
-        caps = _default_registry.get("doubao").capabilities
+        caps = _default_registry.get("doubao_21_tokenhub").capabilities
         self.assertEqual(cells[8], "Yes" if caps.json_mode else "—", "doubao 槽位 JSON Mode 须与 plugin 声明一致")
         self.assertEqual(cells[9], "Yes" if caps.reasoning else "—", "doubao 槽位 Reasoning 须与 plugin 声明一致")
         # 防空转: V37.9.341 doubao-2.1 声明下两格都应是 Yes
@@ -104,7 +105,7 @@ class TestVerifiableFeaturesDenominator(unittest.TestCase):
     def test_doubao_slot_verifiable_is_6_after_v341(self):
         # 史: Doubao 2.0 声明 6 维 → V37.9.339 Kimi K3 保守 4 维 → V37.9.341 更正 doubao-2.1
         # 恢复 6 维 (text/vision/tool_calling/streaming/reasoning + 恒在的 fallback, V37.9.146 语义)
-        doubao = _default_registry.get("doubao")
+        doubao = _default_registry.get("doubao_21_tokenhub")
         caps = doubao.capabilities
         feats = caps.verifiable_features()
         expected = {"fallback"} | {f for f in ("text", "vision", "tool_calling", "streaming", "reasoning")
@@ -119,7 +120,7 @@ class TestVerifiableFeaturesDenominator(unittest.TestCase):
         self.assertIn("fallback", caps.verifiable_features())
 
     def test_numerator_never_exceeds_denominator(self):
-        """分子 ≤ 分母（修 "5/4" 超界）— 对全部 12 providers 断言。"""
+        """分子 ≤ 分母（修 "5/4" 超界）— 对全部 13 providers 断言。"""
         for p in _default_registry.all():
             verified = p.capabilities.verified_features()
             verifiable = p.capabilities.verifiable_features()
@@ -151,11 +152,11 @@ class TestVerifiableFeaturesDenominator(unittest.TestCase):
 class TestTierTableLines(unittest.TestCase):
     """providers.py 验证档位表直出纯函数（V37.9.146 字段化）。"""
 
-    def test_header_and_8_rows(self):
+    def test_header_and_13_rows(self):
         lines = _default_registry.tier_table_lines()
         self.assertEqual(lines[0], "| Provider | 档位 | 依据 |")
         self.assertTrue(lines[1].startswith("|---"))
-        self.assertEqual(len(lines), 2 + 12)  # header + sep + 12 providers
+        self.assertEqual(len(lines), 2 + 13)  # header + sep + 13 providers
 
     def test_qwen_production_observed_doubao_slot_feature_verified_v342(self):
         # 史: V37.9.290 declared → V37.9.291 feature_verified → V37.9.339 Kimi K3 →
@@ -173,13 +174,14 @@ class TestTierTableLines(unittest.TestCase):
         self.assertIn("**production_observed**（已退役出 fallback 链）", gemini)
 
     def test_declared_providers_use_derived_evidence(self):
-        """5 declared provider 各自一行, 走派生默认依据 (单一真理源, 退役合并行)。"""
+        """6 declared provider 各自一行, 走派生默认依据 (单一真理源, 退役合并行)。"""
         lines = _default_registry.tier_table_lines()
         declared = [l for l in lines if "**declared**" in l]
         # 史: V37.9.217 后 5 → V37.9.290 +2 → V37.9.291 回到 5 → V37.9.339 三槽位换模型
         # 全部重置 declared → 8 → V37.9.340 deepseek_full/glm5 E2E 升档 → 6 →
         # V37.9.342 doubao 槽位 ai-tokenhub E2E 升档 → 5 (回到 V37.9.217 的 5 个纯 declared)
-        self.assertEqual(len(declared), 5)
+        # → V37.9.345 新增第 13 个 provider kimi_k3 (declared, 未 E2E) → 6
+        self.assertEqual(len(declared), 6)
         for l in declared:
             self.assertIn("能力声明完整 + 合约校验通过，0/N 生产验证（无 API key 配置）", l)
 

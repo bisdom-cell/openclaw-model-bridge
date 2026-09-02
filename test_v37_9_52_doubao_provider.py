@@ -24,7 +24,7 @@ import unittest
 
 
 REPO_ROOT = os.path.dirname(os.path.abspath(__file__))
-DOUBAO_PLUGIN = os.path.join(REPO_ROOT, "providers.d", "doubao_provider.py")
+DOUBAO_PLUGIN = os.path.join(REPO_ROOT, "providers.d", "doubao_21_tokenhub_provider.py")
 PROVIDERS_PY = os.path.join(REPO_ROOT, "providers.py")
 
 
@@ -50,26 +50,26 @@ class TestDoubaoProviderRegistration(unittest.TestCase):
 
     def test_doubao_in_default_registry(self):
         names = self.providers.get_registry().list_names()
-        self.assertIn("doubao", names, f"doubao must be registered, got {names}")
+        self.assertIn("doubao_21_tokenhub", names, f"doubao must be registered, got {names}")
 
-    def test_total_provider_count_is_8(self):
+    def test_total_provider_count_is_13(self):
         names = self.providers.get_registry().list_names()
         self.assertEqual(
-            len(names), 12,
-            f"V37.9.254 must have 7 built-in + 5 plugins = 12 providers, "
+            len(names), 13,
+            f"V37.9.345 must have 7 built-in + 6 plugins = 13 providers, "
             f"got {len(names)}: {names}",
         )
 
     def test_no_plugin_load_errors(self):
         errors = self.providers.get_registry().plugin_errors
-        relevant = [e for e in errors if "doubao" in e]
+        relevant = [e for e in errors if "doubao_21_tokenhub" in e]
         self.assertEqual(
             relevant, [],
             f"doubao plugin must load without errors, got: {relevant}",
         )
 
     def test_doubao_contract_validates(self):
-        d = self.providers.get_registry().get("doubao")
+        d = self.providers.get_registry().get("doubao_21_tokenhub")
         self.assertIsNotNone(d)
         violations = self.providers.ProviderContract.validate(d)
         self.assertEqual(
@@ -78,9 +78,9 @@ class TestDoubaoProviderRegistration(unittest.TestCase):
         )
 
     def test_doubao_provider_metadata(self):
-        d = self.providers.get_registry().get("doubao")
-        self.assertEqual(d.name, "doubao")
-        self.assertEqual(d.api_key_env, "DOUBAO_API_KEY")
+        d = self.providers.get_registry().get("doubao_21_tokenhub")
+        self.assertEqual(d.name, "doubao_21_tokenhub")
+        self.assertEqual(d.api_key_env, "DOUBAO_21_TOKENHUB_API_KEY")
         self.assertEqual(d.base_url, "https://ai-tokenhub.com/api/v1")
         self.assertEqual(d.auth_style, "bearer")
         # V37.9.341: 槽位服务 doubao-seed-2-1-pro-260628 @ ai-tokenhub。display_name 必须
@@ -107,7 +107,7 @@ class TestDoubaoEndpointIdHandling(unittest.TestCase):
         """缺 env → 用公开模型号 doubao-seed-2-1-pro-260628 (V37.9.341 槽位更正)."""
         os.environ.pop("ARK_ENDPOINT_ID", None)
         providers = _reload_providers()
-        d = providers.get_registry().get("doubao")
+        d = providers.get_registry().get("doubao_21_tokenhub")
         self.assertEqual(d.model_id, "doubao-seed-2-1-pro-260628")
 
     def test_env_endpoint_id_ignored_v290(self):
@@ -115,21 +115,21 @@ class TestDoubaoEndpointIdHandling(unittest.TestCase):
         (否则 ep- ID 会被发给 ai-tokenhub → 400)."""
         os.environ["ARK_ENDPOINT_ID"] = "ep-20260101000000-dummy0"
         providers = _reload_providers()
-        d = providers.get_registry().get("doubao")
+        d = providers.get_registry().get("doubao_21_tokenhub")
         self.assertEqual(d.model_id, "doubao-seed-2-1-pro-260628")
 
     def test_empty_endpoint_id_uses_fallback(self):
         """空字符串 → fallback (不能让空 model_id 进合约)."""
         os.environ["ARK_ENDPOINT_ID"] = ""
         providers = _reload_providers()
-        d = providers.get_registry().get("doubao")
+        d = providers.get_registry().get("doubao_21_tokenhub")
         self.assertEqual(d.model_id, "doubao-seed-2-1-pro-260628")
 
     def test_whitespace_endpoint_id_uses_fallback(self):
         """空白字符串 → fallback (防 env 配置失误)."""
         os.environ["ARK_ENDPOINT_ID"] = "   "
         providers = _reload_providers()
-        d = providers.get_registry().get("doubao")
+        d = providers.get_registry().get("doubao_21_tokenhub")
         self.assertEqual(d.model_id, "doubao-seed-2-1-pro-260628")
 
 
@@ -139,7 +139,7 @@ class TestDoubaoCapabilities(unittest.TestCase):
     def setUp(self):
         os.environ.pop("ARK_ENDPOINT_ID", None)
         self.providers = _reload_providers()
-        self.d = self.providers.get_registry().get("doubao")
+        self.d = self.providers.get_registry().get("doubao_21_tokenhub")
 
     def test_text_capability(self):
         self.assertTrue(self.d.capabilities.text)
@@ -198,12 +198,12 @@ class TestDoubaoInFallbackChain(unittest.TestCase):
     def test_doubao_appears_in_qwen_fallback_chain(self):
         chain = self.providers.get_registry().build_fallback_chain("qwen")
         names = [p.name for p in chain]
-        self.assertIn("doubao", names, f"doubao must appear in qwen fallback chain, got {names}")
+        self.assertIn("doubao_21_tokenhub", names, f"doubao must appear in qwen fallback chain, got {names}")
 
     def test_doubao_excluded_from_self_fallback_chain(self):
-        chain = self.providers.get_registry().build_fallback_chain("doubao")
+        chain = self.providers.get_registry().build_fallback_chain("doubao_21_tokenhub")
         names = [p.name for p in chain]
-        self.assertNotIn("doubao", names, "fallback chain must exclude primary itself")
+        self.assertNotIn("doubao_21_tokenhub", names, "fallback chain must exclude primary itself")
 
 
 class TestModuleReentryGuard(unittest.TestCase):
@@ -228,14 +228,14 @@ class TestModuleReentryGuard(unittest.TestCase):
         self.assertNotIn("No BaseProvider subclass found", result.stdout)
         self.assertNotIn("No BaseProvider subclass found", result.stderr)
 
-    def test_direct_execution_lists_8_providers(self):
+    def test_direct_execution_lists_13_providers(self):
         result = subprocess.run(
             [sys.executable, PROVIDERS_PY],
             capture_output=True, text=True, timeout=30, cwd=REPO_ROOT,
         )
         self.assertEqual(result.returncode, 0)
-        self.assertIn("12 providers", result.stdout)  # V37.9.254: +glm5_coding
-        self.assertIn("doubao", result.stdout)
+        self.assertIn("13 providers", result.stdout)  # V37.9.345: +kimi_k3
+        self.assertIn("doubao_21_tokenhub", result.stdout)
         self.assertIn("deepseek", result.stdout)
 
     def test_providers_py_has_sys_modules_alias_fix(self):
@@ -265,7 +265,7 @@ class TestSourceLevelGuards(unittest.TestCase):
 
     def test_correct_api_key_env_var(self):
         # V37.9.290: 独立 env (原 ARK_API_KEY 是 Volcengine key, 不再消费)
-        self.assertIn('api_key_env = "DOUBAO_API_KEY"', self.plugin_src)
+        self.assertIn('api_key_env = "DOUBAO_21_TOKENHUB_API_KEY"', self.plugin_src)
 
     def test_endpoint_id_env_not_consumed_v290(self):
         # ep- 间接层退役: 源码不得再读 ARK_ENDPOINT_ID env

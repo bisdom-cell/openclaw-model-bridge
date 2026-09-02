@@ -251,7 +251,7 @@ class TestExpertEscalateRendering(unittest.TestCase):
                        json.dumps(payload, ensure_ascii=False))
 
     def test_ok_renders_proposal_not_raw_json(self):
-        r = self._fmt({"status": "ok", "backend": "doubao",
+        r = self._fmt({"status": "ok", "backend": "doubao_21_tokenhub",
                        "proposal": "建议采用方案A", "rationale": "因为X",
                        "confidence": "high", "refs": ["case1.md"],
                        "usage": {"prompt_tokens": 999}})

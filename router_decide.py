@@ -36,7 +36,7 @@ JSONL schema (~/.kb/router_decisions.jsonl):
       "prefer": ["reasoning"],
       "cost_tier": "low",
       "exclude": [],
-      "chosen": "doubao",
+      "chosen": "doubao_21",
       "chosen_cap_score": 16,
       "alternatives": ["qwen", "gemini", "claude"],
       "mode": "shadow",

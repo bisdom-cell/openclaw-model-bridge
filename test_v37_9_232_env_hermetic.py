@@ -33,10 +33,10 @@ REPO = os.path.dirname(os.path.abspath(__file__))
 # key 全用假值 — 测试永不真调任何 provider, 只让 available()/import 路径走生产形态）
 # ⚠️ 维护契约: 生产 env 形态演进（新 provider key / 新路由开关进 .env_shared/plist）
 # 时本 dict 必须同步 — 否则判别器对新 env 盲（V37.9.298 血案: V37.9.290 迁出
-# DOUBAO_API_KEY + V37.9.271 ROUTER_ENFORCE=on 未入模型 → 2026-08-12 07:00
+# DOUBAO_21_TOKENHUB_API_KEY + V37.9.271 ROUTER_ENFORCE=on 未入模型 → 2026-08-12 07:00
 # INV-ROUTER-001 ❌ 才暴露, 本守卫全程绿 = 守卫自身的 stale-model 盲区）。
 _PROD_LIKE_ENV = {
-    "FALLBACK_ORDER": "doubao_21,deepseek_full,doubao,deepseek,qwen",
+    "FALLBACK_ORDER": "doubao_21,deepseek_full,doubao_21_tokenhub,deepseek,qwen",
     "PROVIDER": "doubao_21",
     "FALLBACK_PROVIDER": "deepseek_full",
     "ARK_21_API_KEY": "test-fake-key",
@@ -45,8 +45,11 @@ _PROD_LIKE_ENV = {
     "DEEPSEEK_API_KEY": "test-fake-key",
     "REMOTE_API_KEY": "test-fake-key",
     # V37.9.298: 2026-08 生产 env 形态（V37.9.290 平台迁移 + V37.9.271/272 GLM 路由）
-    "DOUBAO_API_KEY": "test-fake-key",
+    "DOUBAO_21_TOKENHUB_API_KEY": "test-fake-key",
     "GLM5_API_KEY": "test-fake-key",
+    # V37.9.345: doubao 槽位改名 (DOUBAO_API_KEY → DOUBAO_21_TOKENHUB_API_KEY)
+    # + 第 13 个 provider kimi_k3 独立 env
+    "KIMI_K3_API_KEY": "test-fake-key",
     "ROUTER_ENFORCE": "on",
 }
 
@@ -77,7 +80,7 @@ class TestGovernanceTestsHermeticUnderProdEnv(unittest.TestCase):
 
     def test_inv_router_suite_passes_with_prod_env(self):
         """INV-ROUTER-001 runtime 的 V37.9.77 全套件 — 血案 ② 复现命令
-        (V37.9.298: _PROD_LIKE_ENV 补 DOUBAO_API_KEY 后本测试兼任 2026-08-12
+        (V37.9.298: _PROD_LIKE_ENV 补 DOUBAO_21_TOKENHUB_API_KEY 后本测试兼任 2026-08-12
         07:00 INV-ROUTER-001 ❌ 的回归判别器 — FAIL-OPEN 测试的 pop 若回退到
         只清旧名 ARK_API_KEY, 此处立即红灯)"""
         proc = _run_with_prod_env(["test_v37_9_77_enforcement.py"])
@@ -134,8 +137,8 @@ class TestSourceGuards(unittest.TestCase):
         self.assertIn('"FALLBACK_ORDER"', region)
         # V37.9.298: doubao 两代 key env 必须在 setUp pop 名单
         # (2026-08-12 07:00 INV-ROUTER-001 ❌ 血案: 只 pop 旧名 ARK_API_KEY)
-        self.assertIn('"DOUBAO_API_KEY"', region,
-                      "setUp pop 名单必须含 DOUBAO_API_KEY (V37.9.290 迁移后 doubao 的 key env)")
+        self.assertIn('"DOUBAO_21_TOKENHUB_API_KEY"', region,
+                      "setUp pop 名单必须含 DOUBAO_21_TOKENHUB_API_KEY (V37.9.290 迁移后 doubao 的 key env)")
         self.assertNotIn('os.environ.setdefault("PROVIDER"', region,
                          "回退到 setdefault = 生产 PROVIDER=doubao_21 重新泄漏")
 

@@ -69,11 +69,11 @@ class TestFindBestProvider(unittest.TestCase):
         """exclude 排除指定 provider 名."""
         chosen = self.registry.find_best_provider(
             required={"text": True},
-            exclude=["doubao"],
+            exclude=["doubao_21_tokenhub"],
             require_available=False,
         )
         self.assertIsNotNone(chosen)
-        self.assertNotEqual(chosen.name, "doubao",
+        self.assertNotEqual(chosen.name, "doubao_21_tokenhub",
                             "V37.9.76: exclude=[doubao] → 不可选 doubao")
 
     def test_prefer_adds_score_boost(self):
@@ -96,7 +96,7 @@ class TestFindBestProvider(unittest.TestCase):
         # (doubao_21 5 verified > deepseek_full 3 verified, 同 prefer=reasoning +10 下前者胜)。
         chosen_reasoning_path = self.registry.find_best_provider(
             required={"text": True}, prefer=["reasoning"],
-            exclude=["doubao"], require_available=False
+            exclude=["doubao_21_tokenhub"], require_available=False
         )
         self.assertEqual(chosen_reasoning_path.name, "doubao_21",
                          "V37.9.217: exclude doubao + prefer reasoning → doubao_21 (5 verified 含 reasoning)")
@@ -172,7 +172,7 @@ class TestRouterDecideModule(unittest.TestCase):
         self.router_decide = router_decide
 
     def test_decide_known_job_returns_chosen(self):
-        """decide(kb_dream) 应返回含 chosen=doubao 的 record (registry 已声明 profile)."""
+        """decide(kb_dream) 应返回含 chosen 的 record (registry 已声明 profile)."""
         record = self.router_decide.decide(
             job_id="kb_dream", task="radar_retry", require_available=False
         )
@@ -204,9 +204,9 @@ class TestRouterDecideModule(unittest.TestCase):
     def test_decide_with_exclude_filters_alternatives(self):
         """decide(kb_dream, exclude=[doubao]) → 不选 doubao."""
         record = self.router_decide.decide(
-            job_id="kb_dream", exclude=["doubao"], require_available=False
+            job_id="kb_dream", exclude=["doubao_21_tokenhub"], require_available=False
         )
-        self.assertNotEqual(record["chosen"], "doubao",
+        self.assertNotEqual(record["chosen"], "doubao_21_tokenhub",
                             "V37.9.76: exclude doubao → chosen != doubao")
         # V37.9.217: kb_dream prefer reasoning → doubao_21 (5 verified 含 reasoning) 是 next pick
         # (旗舰 cap_score 高于 deepseek_full 3 verified; router shadow 模式, 观察非生产路由)
@@ -244,7 +244,7 @@ class TestRouterDecideModule(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, "subdir", "router_decisions.jsonl")
             record1 = {"v37_9_76": True, "chosen": "qwen", "ts": "2026-05-18T10:00:00+08:00"}
-            record2 = {"v37_9_76": True, "chosen": "doubao", "ts": "2026-05-18T10:01:00+08:00"}
+            record2 = {"v37_9_76": True, "chosen": "doubao_21_tokenhub", "ts": "2026-05-18T10:01:00+08:00"}
             ok1 = self.router_decide.append_jsonl(record1, path=path)
             ok2 = self.router_decide.append_jsonl(record2, path=path)
             self.assertTrue(ok1 and ok2)
@@ -253,7 +253,7 @@ class TestRouterDecideModule(unittest.TestCase):
                 lines = f.readlines()
             self.assertEqual(len(lines), 2, "V37.9.76: append-only 必须 2 行")
             self.assertEqual(json.loads(lines[0])["chosen"], "qwen")
-            self.assertEqual(json.loads(lines[1])["chosen"], "doubao")
+            self.assertEqual(json.loads(lines[1])["chosen"], "doubao_21_tokenhub")
 
     def test_append_jsonl_fail_open_on_readonly_path(self):
         """append_jsonl FAIL-OPEN: 写权限失败返回 False 而非抛异常."""
@@ -355,7 +355,7 @@ class TestRouterDecideCli(unittest.TestCase):
             capture_output=True, text=True, timeout=15,
             env={**os.environ, "PYTHONPATH": _REPO_ROOT},
         )
-        # stdout 应只有 "doubao" + 换行 — 没有 "[router_decide]" 字样
+        # stdout 应只有 "doubao_21_tokenhub" + 换行 — 没有 "[router_decide]" 字样
         self.assertNotIn("[router_decide]", result.stdout,
                          "V37.9.76 MR-11: log 不应污染 stdout (caller $() 命令替换会拿到)")
         # stderr 应有诊断
@@ -366,7 +366,7 @@ class TestRouterDecideCli(unittest.TestCase):
         """CLI --exclude doubao → chosen=doubao_21 (V37.9.217: 旗舰 5 verified 含 reasoning)。"""
         result = subprocess.run(
             ["python3", os.path.join(_REPO_ROOT, "router_decide.py"),
-             "--job-id", "kb_dream", "--exclude", "doubao", "--no-log"],
+             "--job-id", "kb_dream", "--exclude", "doubao_21_tokenhub", "--no-log"],
             capture_output=True, text=True, timeout=15,
             env={**os.environ, "PYTHONPATH": _REPO_ROOT},
         )

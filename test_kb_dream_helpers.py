@@ -1167,6 +1167,8 @@ class TestV37974RadarRetryAndPromptHardening(unittest.TestCase):
         """V37.9.74 注释必须登记 V37.9.75 候选 B (doubao 试水) — 防止候选丢失."""
         self.assertIn("V37.9.75+ 候选 B", self.src,
                       "V37.9.74 注释必须显式登记 V37.9.75 doubao 试水候选")
+        # V37.9.345: 该注释是 V37.9.74 时代的 point-in-time 记录, 说的就是当时的槽位名
+        # "doubao" (V37.9.345 改名 doubao_21_tokenhub 不改写历史注释, V37.9.153 纪律)
         self.assertIn("doubao", self.src,
                       "V37.9.74 注释必须提到 doubao (V37.9.55 试水承诺路径)")
 

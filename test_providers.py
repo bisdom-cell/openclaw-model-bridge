@@ -131,10 +131,10 @@ class TestVerificationTier(unittest.TestCase):
             _default_registry.get("qwen").capabilities.verification_tier,
             TIER_PRODUCTION_OBSERVED)
         self.assertEqual(
-            _default_registry.get("doubao").capabilities.verification_tier,
+            _default_registry.get("doubao_21_tokenhub").capabilities.verification_tier,
             TIER_FEATURE_VERIFIED)
         self.assertIn("ai-tokenhub",
-                      _default_registry.get("doubao").capabilities.tier_note)
+                      _default_registry.get("doubao_21_tokenhub").capabilities.tier_note)
 
     def test_declared_providers(self):
         from providers import _default_registry, TIER_DECLARED
@@ -181,7 +181,7 @@ class TestVerificationTier(unittest.TestCase):
         from providers import _default_registry
         lines = _default_registry.tier_table_lines()
         self.assertEqual(lines[0], "| Provider | 档位 | 依据 |")
-        self.assertEqual(len(lines), 2 + 12)  # header + sep + 12 providers
+        self.assertEqual(len(lines), 2 + 13)  # header + sep + 13 providers (V37.9.345 +kimi_k3)
 
     def test_tier_table_declared_uses_derived_evidence(self):
         from providers import _default_registry, _DECLARED_TIER_EVIDENCE
@@ -370,7 +370,7 @@ class TestProviderRegistry(unittest.TestCase):
         # V37.9.204: doubao + deepseek + deepseek_full → 总数 10 (7 built-in + 3 真插件)
         from providers import get_registry
         reg = get_registry()
-        self.assertEqual(len(reg.list_names()), 12)
+        self.assertEqual(len(reg.list_names()), 13)
 
     def test_get_existing_provider(self):
         from providers import get_registry
@@ -409,7 +409,7 @@ class TestProviderRegistry(unittest.TestCase):
         # V37.9.201: 9 行 (7 built-in + doubao + deepseek plugins)
         from providers import get_registry
         matrix = get_registry().compatibility_matrix()
-        self.assertEqual(len(matrix), 12)
+        self.assertEqual(len(matrix), 13)
         for row in matrix:
             self.assertIn("provider", row)
             self.assertIn("models", row)
@@ -455,7 +455,7 @@ class TestBackwardCompatibility(unittest.TestCase):
         # V37.9.201: legacy PROVIDERS dict 含 9 entries (7 built-in + doubao + deepseek plugins)
         from providers import PROVIDERS
         self.assertIsInstance(PROVIDERS, dict)
-        self.assertEqual(len(PROVIDERS), 12)
+        self.assertEqual(len(PROVIDERS), 13)
 
     def test_providers_dict_matches_old_format(self):
         """PROVIDERS dict 的格式与旧版 adapter.py 完全一致"""
@@ -577,7 +577,7 @@ class TestCLIOutput(unittest.TestCase):
         data = json.loads(result.stdout)
         self.assertIsInstance(data, list)
         # V37.9.201: 9 行 (7 built-in + doubao + deepseek plugins)
-        self.assertEqual(len(data), 12)
+        self.assertEqual(len(data), 13)
 
 
 class TestChineseProviders(unittest.TestCase):
@@ -1519,8 +1519,8 @@ class TestDefaultRegistryPluginDir(unittest.TestCase):
         # V37.9.201: 不再用 "deepseek" 当 canary — deepseek 已是真插件 (providers.d/deepseek_provider.py)
         self.assertNotIn("custom", names)
         # V37.9.204: 7 built-in + 3 真插件 (doubao + deepseek + deepseek_full) = 10 (_example.* 仍被跳过)
-        self.assertEqual(len(names), 12)
-        self.assertIn("doubao", names, "doubao 真插件必须加载 (与 _example 被跳过形成对照)")
+        self.assertEqual(len(names), 13)
+        self.assertIn("doubao_21_tokenhub", names, "doubao 真插件必须加载 (与 _example 被跳过形成对照)")
         self.assertIn("deepseek", names, "V37.9.201 deepseek 真插件必须加载 (providers.d/deepseek_provider.py)")
 
     def test_providers_d_exists(self):
@@ -1956,8 +1956,8 @@ class TestReasoningOffBodyB1(unittest.TestCase):
         # 模型侧 doubao_21 在 Ark 实测 thinking:disabled (V37.9.222 reasoning_tokens 0 + 17.7s),
         # 网关侧 deepseek_full 在同一 ai-tokenhub Bifrost 网关实测该片段生效 (V37.9.222 B1)。
         from providers import get_provider
-        self.assertEqual(get_provider("doubao").reasoning_off_body, self._OFF)
-        self.assertEqual(get_provider("doubao").reasoning_off_body,
+        self.assertEqual(get_provider("doubao_21_tokenhub").reasoning_off_body, self._OFF)
+        self.assertEqual(get_provider("doubao_21_tokenhub").reasoning_off_body,
                          get_provider("doubao_21").reasoning_off_body,
                          "同模型两平台的 thinking-off 片段必须一致")
 
@@ -1979,14 +1979,14 @@ class TestReasoningOffBodyB1(unittest.TestCase):
         self.assertEqual(get_provider("doubao_21").to_legacy_dict().get("reasoning_off_body"), self._OFF)
         # V37.9.341: doubao 槽位更正为 doubao-2.1 @ ai-tokenhub → 恢复声明 (模型侧 Ark 实测
         # + 网关侧 deepseek_full 同网关实测, 两侧证据交汇)
-        self.assertEqual(get_provider("doubao").to_legacy_dict().get("reasoning_off_body"), self._OFF)
+        self.assertEqual(get_provider("doubao_21_tokenhub").to_legacy_dict().get("reasoning_off_body"), self._OFF)
         self.assertNotIn("reasoning_off_body", get_provider("qwen").to_legacy_dict())
 
     def test_all_doubao_deepseek_same_body(self):
         # V37.9.223: 全部 doubao + deepseek 同一片段 = 一份声明四家复用 (任何切换独立成 primary)。
         # V37.9.339 doubao 槽位曾换 Kimi K3 短暂退出 → V37.9.341 更正为 doubao-2.1 归队。
         from providers import get_provider
-        for name in ("doubao_21", "doubao", "deepseek_full", "deepseek"):
+        for name in ("doubao_21", "doubao_21_tokenhub", "deepseek_full", "deepseek"):
             self.assertEqual(get_provider(name).reasoning_off_body, self._OFF,
                              f"{name} 应声明 reasoning_off_body (V37.9.223 全家族同款)")
 

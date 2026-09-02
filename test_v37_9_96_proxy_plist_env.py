@@ -156,30 +156,30 @@ class TestProxyPlistEnvRuntimeBehavior(unittest.TestCase):
             plistlib.dump({"EnvironmentVariables": env_dict}, f)
 
     def test_old_ark_envs_alone_fail_loud_v290(self):
-        """V37.9.290: 只有旧 Ark env (无 DOUBAO_API_KEY) → 必须 fail-loud
-        (平台切换后 expert 读 DOUBAO_API_KEY, 旧 env 不再够用)."""
+        """V37.9.290: 只有旧 Ark env (无 DOUBAO_21_TOKENHUB_API_KEY) → 必须 fail-loud
+        (平台切换后 expert 读 DOUBAO_21_TOKENHUB_API_KEY, 旧 env 不再够用)."""
         with tempfile.TemporaryDirectory() as td:
             self._make_proxy_plist(td, {"ARK_API_KEY": "x", "ARK_ENDPOINT_ID": "ep-xxx",
                                         "REMOTE_API_KEY": "y"})
             err = self._run_with_home(td)
             self.assertIsNotNone(err, "只有旧 Ark env 应抛 AssertionError")
-            self.assertIn("DOUBAO_API_KEY", str(err))
+            self.assertIn("DOUBAO_21_TOKENHUB_API_KEY", str(err))
 
     def test_missing_doubao_key_fails_loud_v290(self):
         """完全无 doubao env → fail-loud."""
         with tempfile.TemporaryDirectory() as td:
             self._make_proxy_plist(td, {"REMOTE_API_KEY": "y"})
             err = self._run_with_home(td)
-            self.assertIsNotNone(err, "无 DOUBAO_API_KEY 应抛 AssertionError")
-            self.assertIn("DOUBAO_API_KEY", str(err))
+            self.assertIsNotNone(err, "无 DOUBAO_21_TOKENHUB_API_KEY 应抛 AssertionError")
+            self.assertIn("DOUBAO_21_TOKENHUB_API_KEY", str(err))
 
     def test_complete_doubao_env_passes_v290(self):
-        """DOUBAO_API_KEY 在 → 通过不抛 (ep- 间接层已退役, 不再要求 ARK_ENDPOINT_ID)."""
+        """DOUBAO_21_TOKENHUB_API_KEY 在 → 通过不抛 (ep- 间接层已退役, 不再要求 ARK_ENDPOINT_ID)."""
         with tempfile.TemporaryDirectory() as td:
             self._make_proxy_plist(td, {
-                "DOUBAO_API_KEY": "x", "REMOTE_API_KEY": "y"})
+                "DOUBAO_21_TOKENHUB_API_KEY": "x", "REMOTE_API_KEY": "y"})
             err = self._run_with_home(td)
-            self.assertIsNone(err, f"DOUBAO_API_KEY 在不该抛: {err}")
+            self.assertIsNone(err, f"DOUBAO_21_TOKENHUB_API_KEY 在不该抛: {err}")
 
     def test_no_plist_silent_pass_dev_safe(self):
         """plist 不存在 (dev 环境) → silent pass 不抛."""
@@ -236,9 +236,9 @@ class TestProxyPlistEnvDependencyChain(unittest.TestCase):
                       "expert_escalate 分支必须 lazy-import expert_escalation")
 
     def test_expert_escalation_binds_doubao_api_key_v290(self):
-        # V37.9.290 平台切换: ARK_API_KEY (Volcengine) → DOUBAO_API_KEY (ai-tokenhub)
-        self.assertIn('DOUBAO_API_KEY_ENV = "DOUBAO_API_KEY"', self.ee,
-                      "expert_escalation 必须把 DOUBAO_API_KEY 绑定到 DOUBAO_API_KEY_ENV")
+        # V37.9.290 平台切换: ARK_API_KEY (Volcengine) → DOUBAO_21_TOKENHUB_API_KEY (ai-tokenhub)
+        self.assertIn('EXPERT_API_KEY_ENV = "DOUBAO_21_TOKENHUB_API_KEY"', self.ee,
+                      "expert_escalation 必须把 DOUBAO_21_TOKENHUB_API_KEY 绑定到 EXPERT_API_KEY_ENV")
 
     def test_expert_escalation_endpoint_id_retired_v290(self):
         # ep- 间接层退役: 读 ARK_ENDPOINT_ID 会把 ep- 发给 ai-tokenhub → 400

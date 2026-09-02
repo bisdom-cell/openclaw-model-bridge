@@ -30,7 +30,7 @@
     ],
     "fallback_chain": [
       "doubao_21",
-      "doubao",
+      "doubao_21_tokenhub",
       "gemini",
       "openai",
       "kimi",
@@ -39,7 +39,8 @@
       "claude",
       "deepseek",
       "deepseek_full",
-      "glm5_coding"
+      "glm5_coding",
+      "kimi_k3"
     ],
     "best_for_text_prefer_reasoning": "doubao_21",
     "policy": {
@@ -48,11 +49,11 @@
     }
   },
   "non_deterministic": {
-    "provider_count": 12,
+    "provider_count": 13,
     "step_timings_ms": {
       "provider_registry": 23,
-      "tool_governance": 292,
-      "policy_ontology": 105
+      "tool_governance": 58,
+      "policy_ontology": 12
     }
   }
 }

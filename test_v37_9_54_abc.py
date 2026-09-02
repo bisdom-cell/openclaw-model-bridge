@@ -30,7 +30,7 @@ import unittest
 
 REPO_ROOT = os.path.dirname(os.path.abspath(__file__))
 RESTART_SH = os.path.join(REPO_ROOT, "restart.sh")
-DOUBAO_PLUGIN = os.path.join(REPO_ROOT, "providers.d", "doubao_provider.py")
+DOUBAO_PLUGIN = os.path.join(REPO_ROOT, "providers.d", "doubao_21_tokenhub_provider.py")
 GOVERNANCE_YAML = os.path.join(REPO_ROOT, "ontology", "governance_ontology.yaml")
 
 
@@ -136,7 +136,7 @@ class TestDoubaoVerifiedVision(unittest.TestCase):
     def setUp(self):
         os.environ.pop("ARK_ENDPOINT_ID", None)
         self.providers = _reload_providers()
-        self.d = self.providers.get_provider("doubao")
+        self.d = self.providers.get_provider("doubao_21_tokenhub")
 
     def test_verified_vision_reset_v290(self):
         # V37.9.54 曾 True (Ark image_url 实测) → V37.9.290 平台切换重置 False
@@ -192,7 +192,7 @@ class TestDoubaoCapScoreUpRanking(unittest.TestCase):
     def test_doubao_cap_score_v37_9_54(self):
         """史: V37.9.54=12 → V37.9.55=16 (Ark E2E 逐项 flip);
         V37.9.290 平台切换 verified 全重置 → 6 (6 base + 0 verified)."""
-        doubao = self.reg.get("doubao")
+        doubao = self.reg.get("doubao_21_tokenhub")
         score = self.reg._capability_score(doubao)
         # 史: 16 → V37.9.290 重置 6 → V37.9.291 半升档 10 → V37.9.339 Kimi 3 → V37.9.341
         # doubao-2.1 声明 6 → V37.9.342 E2E flip tool_calling+reasoning = 10

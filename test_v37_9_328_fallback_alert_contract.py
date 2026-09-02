@@ -133,7 +133,7 @@ def _total_outage_lines():
     return [
         _adapter_line(_render(t_primary, tag, 30000, "HTTP Error 502")),
         _adapter_line(_render(t_attempt, tag, "deepseek_full", 60000, "timeout")),
-        _adapter_line(_render(t_attempt, tag, "doubao", 90000, "timeout")),
+        _adapter_line(_render(t_attempt, tag, "doubao_21_tokenhub", 90000, "timeout")),
         _adapter_line(_render(t_all, tag, 4)),
     ]
 
@@ -147,7 +147,7 @@ def _fallback_recovered_lines():
     return [
         _adapter_line(_render(t_primary, tag, 30000, "HTTP Error 502")),
         _adapter_line(_render(t_attempt, tag, "deepseek_full", 60000, "timeout")),
-        _adapter_line(_render(t_ok, tag, 200, 3000, 65000, "doubao")),
+        _adapter_line(_render(t_ok, tag, 200, 3000, 65000, "doubao_21_tokenhub")),
     ]
 
 
@@ -275,7 +275,7 @@ class TestConvQualityFallbackMetrics(unittest.TestCase):
         tag = "[ccc33333] "
         self._write_adapter([
             _adapter_line(_render(t_cb, tag, 4)),
-            _adapter_line(_render(t_ok, tag, 200, 3000, 5000, "doubao")),
+            _adapter_line(_render(t_ok, tag, 200, 3000, 5000, "doubao_21_tokenhub")),
         ])
         fb = self.cq.parse_logs(DATE)["fallback"]
         self.assertEqual(fb["success"], 1)
