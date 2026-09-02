@@ -45,16 +45,17 @@ class TestVerifiedToolCallingFlagsV9_55(unittest.TestCase):
         self.providers = _reload_providers()
         self.d = self.providers.get_provider("doubao")
 
-    def test_verified_tool_calling_reset_v290(self):
-        # V37.9.55 曾 True (Ark tools 实测) → V37.9.290 平台切换重置 False 待复测
-        self.assertFalse(
+    def test_verified_tool_calling_reverified_v342(self):
+        # 史: V37.9.55 True (Ark) → V37.9.290 平台切换重置 → V37.9.342 ai-tokenhub E2E
+        # 复测通过 (finish_reason=tool_calls + tool_calls 长度 1) → flip 回 True
+        self.assertTrue(
             self.d.capabilities.verified_tool_calling,
-            "V37.9.290 平台切换后 verified_tool_calling 必须重置 False",
+            "V37.9.342 ai-tokenhub E2E 已复测 tool_calling",
         )
 
-    def test_verified_features_excludes_tool_calling_v290(self):
+    def test_verified_features_includes_tool_calling_v342(self):
         features = self.d.capabilities.verified_features()
-        self.assertNotIn("tool_calling", features)
+        self.assertIn("tool_calling", features)
 
 
 class TestVerifiedStreamingFlagsV9_55(unittest.TestCase):
@@ -84,13 +85,13 @@ class TestVerifiedFeaturesV9_55Complete(unittest.TestCase):
         self.providers = _reload_providers()
         self.d = self.providers.get_provider("doubao")
 
-    def test_doubao_slot_verified_features_empty_v341(self):
-        # 史: Ark 5 项 → V37.9.290 重置 → V37.9.291 text+reasoning → V37.9.339 Kimi K3
-        # → V37.9.341 更正 doubao-2.1 @ ai-tokenhub, 平台维度零实证 → 空集
+    def test_doubao_slot_verified_features_v342(self):
+        # 史: Ark 5 项 → V37.9.290 重置 → V37.9.291 text+reasoning → V37.9.339 Kimi
+        # → V37.9.341 doubao-2.1 空集 → V37.9.342 ai-tokenhub E2E tool_calling+reasoning
         features = self.d.capabilities.verified_features()
         self.assertEqual(
-            set(features), set(),
-            f"V37.9.341 平台维度未实测, 应为空集, got {features}",
+            set(features), {"tool_calling", "reasoning"},
+            f"V37.9.342 应为 tool_calling+reasoning, got {features}",
         )
 
 
@@ -107,11 +108,11 @@ class TestCapScoreV9_55(unittest.TestCase):
         + 5 verified*2 (text/vision/tool_calling/streaming/reasoning) = 16."""
         doubao = self.reg.get("doubao")
         score = self.reg._capability_score(doubao)
-        # 史: V37.9.55 曾 16 → V37.9.290 重置 6 → V37.9.291 半升档 10 → V37.9.339 Kimi K3 = 3
-        # → V37.9.341 更正 doubao-2.1 全能力声明 (6 base) + 0 verified = 6
+        # 史: V37.9.55 曾 16 → V37.9.290 重置 6 → V37.9.291 10 → V37.9.339 Kimi 3 →
+        # V37.9.341 doubao-2.1 声明 6 → V37.9.342 E2E flip 2 项 = 10
         self.assertEqual(
-            score, 6,
-            f"V37.9.341 doubao-2.1 声明 cap_score 锁定 6, got {score}",
+            score, 10,
+            f"V37.9.342 doubao-2.1 半升档 cap_score 锁定 10, got {score}",
         )
 
     def test_doubao_cap_score_below_qwen_after_reset_v290(self):
@@ -160,11 +161,12 @@ class TestPluginSourceV9_55(unittest.TestCase):
         with open(DOUBAO_PLUGIN, encoding="utf-8") as f:
             cls.src = f.read()
 
-    def test_plugin_verified_tool_calling_reset_v290(self):
+    def test_plugin_verified_tool_calling_true_v342(self):
+        # 史: V37.9.290 平台切换重置 False → V37.9.342 ai-tokenhub E2E 复测通过 flip True
         self.assertRegex(
             self.src,
-            r"verified_tool_calling\s*=\s*False",
-            "V37.9.290 plugin 必须 verified_tool_calling=False (平台切换重置)",
+            r"verified_tool_calling\s*=\s*True",
+            "V37.9.342 plugin 必须 verified_tool_calling=True (ai-tokenhub E2E)",
         )
 
     def test_plugin_verified_streaming_reset_v290(self):

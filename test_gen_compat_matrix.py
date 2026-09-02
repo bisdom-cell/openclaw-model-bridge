@@ -157,12 +157,12 @@ class TestTierTableLines(unittest.TestCase):
         self.assertTrue(lines[1].startswith("|---"))
         self.assertEqual(len(lines), 2 + 12)  # header + sep + 12 providers
 
-    def test_qwen_production_observed_doubao_slot_declared_v341(self):
-        # 史: V37.9.290 declared → V37.9.291 feature_verified → V37.9.339 Kimi K3
-        # → V37.9.341 更正 doubao-2.1 @ ai-tokenhub (平台维度零实证) → declared
+    def test_qwen_production_observed_doubao_slot_feature_verified_v342(self):
+        # 史: V37.9.290 declared → V37.9.291 feature_verified → V37.9.339 Kimi K3 →
+        # V37.9.341 doubao-2.1 declared → V37.9.342 ai-tokenhub E2E 实测 2 项升档
         text = "\n".join(_default_registry.tier_table_lines())
         self.assertIn("Qwen (Remote GPU) | **production_observed**", text)
-        self.assertIn("Doubao Seed 2.1 Pro (ai-tokenhub) | **declared**", text)
+        self.assertIn("Doubao Seed 2.1 Pro (ai-tokenhub) | **feature_verified**", text)
         # V37.9.341 平台冗余: 同模型两平台各一行, 档位不同 (Ark 侧 production_observed)
         self.assertIn("Doubao Seed 2.1 Pro (Volcengine Ark) | **production_observed**", text)
 
@@ -177,9 +177,9 @@ class TestTierTableLines(unittest.TestCase):
         lines = _default_registry.tier_table_lines()
         declared = [l for l in lines if "**declared**" in l]
         # 史: V37.9.217 后 5 → V37.9.290 +2 → V37.9.291 回到 5 → V37.9.339 三槽位换模型
-        # 全部重置 declared → 8 → V37.9.340 deepseek_full/glm5 E2E 升 feature_verified → 6
-        # (doubao 槽位 V37.9.341 更正为 doubao-2.1 @ ai-tokenhub, 平台维度零实证仍 declared)
-        self.assertEqual(len(declared), 6)
+        # 全部重置 declared → 8 → V37.9.340 deepseek_full/glm5 E2E 升档 → 6 →
+        # V37.9.342 doubao 槽位 ai-tokenhub E2E 升档 → 5 (回到 V37.9.217 的 5 个纯 declared)
+        self.assertEqual(len(declared), 5)
         for l in declared:
             self.assertIn("能力声明完整 + 合约校验通过，0/N 生产验证（无 API key 配置）", l)
 

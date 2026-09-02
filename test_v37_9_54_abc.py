@@ -150,14 +150,17 @@ class TestDoubaoVerifiedVision(unittest.TestCase):
         self.assertNotIn("vision", features,
                          "V37.9.290 重置后 features 不应含 vision")
 
-    def test_verified_features_empty_v341(self):
-        """史: Ark 五项 → V37.9.290 重置空集 → V37.9.291 tokenhub text+reasoning
-        → V37.9.339 换 Kimi K3 → V37.9.341 更正 doubao-2.1 @ ai-tokenhub, 平台证据不迁移 → 空集."""
+    def test_verified_features_v342_set(self):
+        """史: Ark 五项 → V37.9.290 重置空集 → V37.9.291 text+reasoning → V37.9.339 Kimi
+        → V37.9.341 更正 doubao-2.1 空集 → V37.9.342 ai-tokenhub E2E 实测 2 项。
+        🔴 text 不在集合内: 该轮探针带 tools, content 为空 + finish_reason=tool_calls,
+        够不着本项目 verified_text 的证据标准 (有 content + finish_reason=stop)。"""
         features = self.d.capabilities.verified_features()
         self.assertEqual(
-            set(features), set(),
-            f"V37.9.341 平台维度未实测, verified_features 应为空集, got {features}",
+            set(features), {"tool_calling", "reasoning"},
+            f"V37.9.342 应为 tool_calling+reasoning, got {features}",
         )
+        self.assertNotIn("text", features, "带 tools 的探针不构成 text 验证 (原则 #23)")
 
     def test_unverified_flags_still_false(self):
         """V37.9.55 仅 verified_fallback 守 False (剩生产真 fire 后再 flip).
@@ -188,11 +191,11 @@ class TestDoubaoCapScoreUpRanking(unittest.TestCase):
         V37.9.290 平台切换 verified 全重置 → 6 (6 base + 0 verified)."""
         doubao = self.reg.get("doubao")
         score = self.reg._capability_score(doubao)
-        # 史: 12 → 16 → V37.9.290 重置 6 → V37.9.291 半升档 10 → V37.9.339 Kimi K3 保守 3
-        # → V37.9.341 更正 doubao-2.1 全能力声明 (6 base) + 0 verified = 6
+        # 史: 16 → V37.9.290 重置 6 → V37.9.291 半升档 10 → V37.9.339 Kimi 3 → V37.9.341
+        # doubao-2.1 声明 6 → V37.9.342 E2E flip tool_calling+reasoning = 10
         self.assertEqual(
-            score, 6,
-            f"V37.9.341 doubao-2.1 声明 cap_score 锁定 6, got {score}",
+            score, 10,
+            f"V37.9.342 doubao-2.1 半升档 cap_score 锁定 10, got {score}",
         )
 
     def test_doubao_21_leads_fallback_chain_v290(self):
