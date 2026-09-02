@@ -123,16 +123,16 @@ class TestVerificationTier(unittest.TestCase):
         self.assertTrue(any("unknown verification_tier" in v for v in violations))
 
     # --- 真 provider 档位 ---
-    def test_qwen_production_observed_doubao_slot_declared_v341(self):
+    def test_qwen_production_observed_doubao_slot_feature_verified_v342(self):
         # 史: V37.9.290 declared → V37.9.291 feature_verified → V37.9.339 Kimi K3 → V37.9.341
-        # 更正 doubao-2.1 @ ai-tokenhub (平台不同, doubao_21 的 Ark 证据不迁移) → declared。
-        from providers import _default_registry, TIER_PRODUCTION_OBSERVED, TIER_DECLARED
+        # 更正 doubao-2.1 declared → V37.9.342 ai-tokenhub E2E 实测 2 项升 feature_verified。
+        from providers import _default_registry, TIER_PRODUCTION_OBSERVED, TIER_FEATURE_VERIFIED
         self.assertEqual(
             _default_registry.get("qwen").capabilities.verification_tier,
             TIER_PRODUCTION_OBSERVED)
         self.assertEqual(
             _default_registry.get("doubao").capabilities.verification_tier,
-            TIER_DECLARED)
+            TIER_FEATURE_VERIFIED)
         self.assertIn("ai-tokenhub",
                       _default_registry.get("doubao").capabilities.tier_note)
 

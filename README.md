@@ -13,7 +13,7 @@
 [![Fail-Fast](https://img.shields.io/badge/LLM%20cron%20fail--fast-17%2F21%20aligned-brightgreen.svg)]()
 [![Notifications](https://img.shields.io/badge/notifications-WhatsApp%20%2B%20Discord-informational.svg)]()
 
-> **Current version:** `v37.9.341` / `0.37.9.166` (2026-09-02) — see [`CLAUDE.md`](CLAUDE.md) for full changelog.
+> **Current version:** `v37.9.343` / `0.37.9.168` (2026-09-02) — see [`CLAUDE.md`](CLAUDE.md) for full changelog.
 > **Latest milestone:** 📄 **ArXiv paper published** — [**arXiv:2606.14589**](https://arxiv.org/abs/2606.14589) (2026-06-15, cs.SE): the *fail-plausible* concept + a 5-class taxonomy of silent failures from 22 production incident postmortems (IEEE Software in review; ISSRE rejected 2026-08-14, conference track closed — journal-first strategy V37.9.307). **Constitutional priority now: LLM-Observer (机械化人眼)** — an automated user-perspective observer that catches *fail-plausible* silent failures **before the user does** (the paper's headline open problem: ~70% of silent failures were caught by looking at the product, while tests/governance caught ≈0%). Stages 0-6 built: design doc → 22-incident labelled ground-truth → 2-layer detector (deterministic S1-S5 pre-filter + LLM-judge) → sabotage self-validation harness → community-runnable [fail-plausible bench](docs/fail_plausible_bench.md). Guiding principle: **日落法 (Sunset Law) — reduce complexity before adding features** (原则 #34 + MR-22/MR-23).
 
 ## Product Layers: What's Core vs. What's the Author's PA Instance
@@ -102,7 +102,7 @@ Layer 3 is not product clutter — it is the **production evidence** for layers 
 |----------|--------------|-----------|------|
 | **Doubao Seed 2.1 Pro** (Volcengine Ark, plugin) | doubao-seed-2-1-pro-260628 | **Primary** (PROVIDER env, V37.9.222 flip) | production_observed |
 | **DeepSeek-V4-Pro 满血** (ai-tokenhub, plugin) | deepseek-v4-pro-ga-260813 | Fallback #1 (R1 reasoning) | feature_verified（V37.9.340 E2E text+reasoning） |
-| **Doubao Seed 2.1 Pro** (ai-tokenhub, plugin, `doubao` 槽位 V37.9.341) | doubao-seed-2-1-pro-260628 | Fallback #2（与 primary 同模型，跨平台冗余） | declared（平台维度待复测） |
+| **Doubao Seed 2.1 Pro** (ai-tokenhub, plugin, `doubao` 槽位 V37.9.341) | doubao-seed-2-1-pro-260628 | Fallback #2（与 primary 同模型，跨平台冗余） | feature_verified（V37.9.342/343 E2E text+tool_calling+reasoning 3/6） |
 | **DeepSeek-V4-Pro 量化** (self-host, plugin) | DeepSeek-V4-Pro-w4a8-mtp | Fallback #3 | feature_verified |
 | **Qwen** (Remote GPU) | Qwen3-235B + Qwen2.5-VL-72B | Fallback #4 兜底（前主力 V27→V37.9.222；唯一非-Ark vision fallback） | production_observed |
 | **GLM-5.3 coding** (ai-tokenhub, plugin, V37.9.339 换版本) | glm-5-3-260814 | On-demand coding (`?provider=glm5_coding` / chat 前缀 `glm `) | feature_verified（V37.9.340 E2E text+reasoning） |

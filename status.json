@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-02 02:51:37",
+  "updated": "2026-09-02 04:05:15",
   "updated_by": "full_regression",
   "priorities": [
     {
@@ -193,6 +193,21 @@
       "date": "2026-09-02",
       "what": "V37.9.341: /v1/models scope 实证 DOUBAO_API_KEY 只能服务 doubao-seed-2-1-pro-260628 (非 kimi-k3) → 用户决策改指向该模型 → doubao 槽位与 primary doubao_21 同模型不同平台 = 链上唯一跨平台冗余 (Ark vs ai-tokenhub); 能力声明镜像 doubao_21 但 verified_* 全 False (平台证据不迁移), expert 后端同迁至 2.1; 修 V37.9.339 遗留的 sabotage 空转 (替换串在表中已不存在)",
       "by": "claude_code"
+    },
+    {
+      "date": "2026-09-02",
+      "what": "V37.9.342: doubao 槽位 ai-tokenhub E2E → tool_calling+reasoning 升 feature_verified; verified_text 刻意不翻 (探针带 tools → content 空, 够不着「有 content + finish_reason=stop」的既定标准); 登记供应商 key↔模型标注与实测矛盾 (sk-d5b2 被标 Kimi 实测服务 doubao-2.1, 两把 key 同称 doubao-2.1, Kimi K3 无 key 可服务)",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-09-02",
+      "what": "V37.9.343: 纯文本探针补齐 doubao 槽位 verified_text (content 4 字符 + finish_reason=stop) → 3/6 verified cap_score 12; 登记 key↔模型映射第二个互斥事实 (同一把 sk-d5b2 两次 scope 查询给出 doubao-2.1 / kimi-k3 不同答案), 交接 keymap.py 一次定死; Kimi K3 现有可用 key, 是否接入第 13 个 provider 待用户决定",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-09-02",
+      "what": "V37.9.344 自我更正: keymap 实测四把 key 的供应商标注与 scope 逐条一致 — 华坤没错。DOUBAO_API_KEY 装的是 sk-dbaa…052829 (doubao 专用第四把) 而非被标 Kimi 的 sk-d5b2…1bb7ad → V37.9.341/342/343 三版归因全部建立在「用户把我指定的 key 填进我指定的变量」这个从未核实的假设上。真根因 = 我在 V37.9.339 保留 DOUBAO_API_KEY 却让它服务 Kimi (自称零 blast radius, 当天证伪)。代码零改动, 部署状态实测正确",
+      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -241,7 +256,7 @@
     "security_score": "98/100 (98.0%)",
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB",
     "slo": {
-      "checked_at": "2026-09-02 02:49:45",
+      "checked_at": "2026-09-02 04:03:40",
       "all_ok": true,
       "judged_count": 1,
       "na_count": 4,
@@ -342,22 +357,22 @@
       "【V37.9.332 dream 月份分布检测器 ([62] 预注册决策兑现·已建) · 剩 Mac Mini 被动验证】合并+git fetch+reset 同步 (daily_observer.py 走 FILE_MAP, 明晨 06:30 自动生效) 后: 健康日 observer 报告无新增行 (零噪声); 若某日梦境月份钉死复发 (引用月份 <3 或单月 >80%), 06:30 报 MED dream_month_pin 点名分布与 V37.9.326/329 家族 — 首次开火请贴给 session 分诊 kb_dream 取样管道",
       "【V37.9.335 Windows E 盘每日镜像 · 全链闭环+每日备份化 · 剩最后一次合并+scp】2026-08-31 收官: 首轮全量 OK + 05:00 定时通道实证 + kb 排除三衍生物(map_cache/text_index/mm_index) + 全量保留 + 首份备份档落地(22min 实测,8h 预估修正) + 20:12 新脚本验证轮全模块 OK。用户二次决策: 依 22min 实测恢复**每日**备份拉取(+365GB/年接受) → 周日门控+FORCE 开关退役(守卫 daily-latest-only 双向禁回退, 20/20+sabotage)。剩余: (1) 用户合并新 PR + WSL: Mac git reset + scp 刷新活跃副本(每日化生效) (2) 明日 05:00 定时运行=最终验收(首次含每日备份拉取, 预期全绿+movespeed_backup 新增 9/1 档) (3) Mac ~/.kb/last_windows_sync.json 每日刷新(watchdog 候选已登记不现建)。可选: Tailscale 提速(HOSTS 加 IP 即用)。",
       "【✅ 2026-09-01 20:30 watchdog 告警 triage · 全链闭环 (V37.9.337/338)】(a) ✅ **治理 CORE 已定性+修复+生产验证**: 真凶 = V37.9.334 手写的 crontab 行 `/bin/bash $HOME/check_upgrade.sh` 缺 bash -lc → cron 空环境 (INV-CRON-003, 08-31/09-01 连报两天)。根因 = canonical 行生成器 convergence._format_cron_line 自 V37.9.23 存在却无 CLI 出口, 每次新登记 system job 都手写。修 = --cron-line/--cron-lines 出口 + 治理判据抽出前移 dev CI (血案行反向证据) + 操作规则入宪禁手写。**Mac Mini 生产验证: --cron-line 输出与已装 crontab 行逐字一致; governance_checker --full = EXIT=0 / 760/760 checks / ✅ 所有不变式成立**。(b) ✅ finance_news LLM 可定性已修 (V37.9.337): 同步后若再失败, 日志与 last_run.json 直接给 curl_timeout/connect_refused/http_error/bad_json/no_choices/short_content 六类原因之一。(c) 🟡 **仅剩待定项**: finance_news `--max-time 180` 紧于服务端 300s (V37.9.306 kb_evening 同族不对称), V37.9.220 实录 reasoning 延迟可达 7-9 分钟但 B1 快路本应缓解 → **等 (b) 的定性数据再决定是否调, 不盲改** (原则 #28/#8)。(d) ai_leaders_x 9×429 = 已知 X Syndication 限流, per-account FAIL-OPEN 按设计工作, 非 actionable。",
-      "[V37.9.341 Mac Mini 待验证] provider 刷新收尾: (a) 合并 + 同步 + 重启 adapter/proxy (doubao 槽位 model ID 变更) (b) E2E 探针 doubao-seed-2-1-pro-260628 经 **ai-tokenhub** (不是 Ark, 两条路径必须分别验证) text/vision/tool_calling/streaming/reasoning → 结果回传逐项 flip verified_* 升 tier (现 declared) (c) Kimi K3 若仍想要须找华坤单独要正确 key (已不占 doubao 槽位) (d) 可选补探针: deepseek GA tool_calling/streaming、GLM-5.3 tool_calling/streaming/json_mode (e) WhatsApp 触发 expert 一次确认 PA 标注「来自 expert 模型」(SOUL 规则 12 去模型名, 原则 #13) (f) 三把 sk- key 在对话出现过建议轮换 (g) doubao 槽位命名债: registry `doubao`/DOUBAO_API_KEY 服务的是 Doubao 2.1 (厂商对版本号不精确, 且与 doubao_21 易混), 待用户决定是否 rename (h) expert 成本边界 (SOUL 规则 12) 换 2.1 + ai-tokenhub 后待重估。已完成: 换 key 三把 + bootstrap 双服务 + deepseek GA/GLM-5.3 E2E 2/2 升 feature_verified + doubao 槽位按 key scope 更正。"
+      "[V37.9.344 待用户决策/验证] provider 刷新收尾: (a) 🔴 **Kimi K3 是否接入第 13 个 provider** — sk-d5b2…1bb7ad 实测服务 kimi-k3-260716 且未部署在任何槽位; 用户最初指令本含「doubao 槽位换 Kimi K3」, V37.9.341 改指 doubao-2.1 是在错误信息下的决策, 需在正确信息下重新征询。若接入 = 独立 registry 名 + 独立 env KIMI_K3_API_KEY (不占 doubao 槽位), 属新增接缝 (b) doubao 槽位命名债 (registry `doubao`/DOUBAO_API_KEY 服务 Doubao 2.1) — V37.9.344 证明其代价非抽象 (当天造成 key 错配), 待用户决定是否 rename (c) 可选补探针: doubao 槽位 vision(Bifrost image_url 透传)/streaming/json_mode; deepseek GA tool_calling/streaming; GLM-5.3 tool_calling/streaming/json_mode (d) WhatsApp 触发 expert 一次确认 PA 标注「来自 expert 模型」(SOUL 规则 12 去模型名, 原则 #13) (e) 🔴 五把 sk- key 已在对话出现过, 强烈建议全部轮换 (f) expert 成本边界 (SOUL 规则 12) 换 2.1 + ai-tokenhub 后待重估。已完成: 三槽位换模型 + 换 key + bootstrap + 三家 E2E 升档 (deepseek GA/GLM-5.3 text+reasoning; doubao 槽位 text+tool_calling+reasoning 3/6) + key↔模型映射实测定死。"
     ],
     "open_prs": [],
     "blocked_on": "",
-    "focus": "V37.9.341 doubao 槽位更正为 doubao-2.1 @ ai-tokenhub (跨平台冗余); 待 Mac Mini E2E 升档; 判据① 跟踪点 2026.9.1 stable"
+    "focus": "V37.9.344 记录已更正 (华坤无错, 真根因是命名债); Kimi K3 接入待用户决策; 判据① 跟踪点 2026.9.1 stable"
   },
   "quality": {
     "security_score": 98,
     "test_count": 6384,
-    "last_regression": "2026-09-02 02:51 pass",
+    "last_regression": "2026-09-02 04:04 pass",
     "coverage_pct": 0,
     "security_score_time": "2026-07-20 01:07",
     "test_suites": 193,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
-    "version": "0.37.9.166",
+    "version": "0.37.9.168",
     "observer": {}
   },
   "incidents": [

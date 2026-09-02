@@ -2,6 +2,9 @@
    → V37.9.339 槽位曾换 Kimi K3 (kimi-k3-260716)
    → V37.9.341 🔴 更正: 该 key 的 scope 实为 doubao-seed-2-1-pro-260628, 不含 kimi-k3
                  → 槽位改指向 key 真能服务的模型 = Doubao Seed 2.1 Pro @ ai-tokenhub
+   → V37.9.342 Mac Mini E2E (ai-tokenhub 路径): tool_calling + reasoning 2 项实测 →
+                 feature_verified; verified_text 当时刻意仍 False (探针带 tools → content 空)
+   → V37.9.343 补跑**不带 tools** 的纯文本探针 → verified_text 达标 flip True (3/6 verified)
 
 🔴 为什么本槽位与 doubao_21 是同一个模型 (刻意的, 不是重复 — 未来 session 勿"去重"):
   `doubao_21` = doubao-seed-2-1-pro-260628 @ **Volcengine Ark** (生产 primary, ARK_21_API_KEY)
@@ -32,11 +35,20 @@ V37.9.289 更名 -huakun / V37.9.290 平台切换 ai-tokenhub / V37.9.291 tokenh
 V37.9.339 换 Kimi K3 / **V37.9.341 更正为 doubao-seed-2-1-pro-260628 (key scope 实证)**。
 
 诚实语义 (原则 #23 — 只声明实测过的能力):
-- **verification_tier = declared** — 能力**声明**镜像 doubao_21 (同一个模型, 模型本体能力
-  由 V37.9.217 Ark E2E 5/5 实证); **verified_* 全 False** 因为**平台不同** (ai-tokenhub Bifrost
-  网关 vs Volcengine Ark 原生 = 不同 serving 栈, 证据不跨平台迁移 — V37.9.290/339 同款纪律)。
-- Mac Mini E2E 复测通过后逐项 flip。特别待测: vision (image_url 经 Bifrost 网关透传) /
-  tool_calling / streaming。
+- **verification_tier = feature_verified** (V37.9.342) — 能力**声明**镜像 doubao_21 (同一个模型,
+  模型本体能力由 V37.9.217 Ark E2E 5/5 实证); **verified_\* 按本平台 (ai-tokenhub) 实测逐项 flip**,
+  Ark 侧证据不跨 serving 栈迁移 (V37.9.290/339/341 同款纪律)。
+- **V37.9.342 Mac Mini E2E 实测 (verified True)**: tool_calling (finish_reason=tool_calls +
+  tool_calls[] 长度 1) / reasoning (reasoning 字段填充; 注意 tokenhub 字段名是 `reasoning`,
+  非 Ark 的 `reasoning_content` — V37.9.291 同款观察)。usage 466/94, 响应 model 回显本 model id。
+- **V37.9.343 text 补齐**: 不带 tools 的纯文本探针 → content 4 字符 (bat-ball 答案) +
+  finish_reason=stop + reasoning 字段, usage 76/247 → **verified_text flip True**。
+  🔴 **为什么要单独跑这一针 (durable lesson, 勿删)**: V37.9.342 那轮探针带 tools, 模型选择
+  调工具而非作答 → content 为空 + finish_reason=tool_calls。本项目对 verified_text 的既定
+  证据标准是「有 content + finish_reason=stop」(doubao_21 V37.9.217 / deepseek_full+glm5
+  V37.9.340 皆如此)。**一次成功的 tool_calls 响应证明的是 tool_calling, 不是 text** ——
+  把「模型工作正常」笼统当成「每一维都验证过」正是 verified_* 四档机制要防的事 (原则 #23)。
+- 仍待测: vision (image_url 经 Bifrost 网关透传) / streaming / json_mode。
 - reasoning_off_body 声明: 模型侧 Ark 实测 thinking:disabled 生效 (V37.9.222, reasoning_tokens
   0 + 17.7s vs 166s); 网关侧 deepseek_full 在**同一个 ai-tokenhub Bifrost 网关**实测该片段生效
   (V37.9.222 B1)。两侧证据交汇 → 声明; 若 E2E 探针发现 400 则退役本声明。
@@ -80,13 +92,21 @@ class DoubaoSeedProvider(BaseProvider):
         reasoning=True,        # Doubao Seed Pro 是推理模型 (Ark 实测 reasoning_content 通道)
         context_window=262144,
         max_output_tokens=16384,
-        # V37.9.341 平台维度重置: ai-tokenhub 路径零实证, E2E 复测后逐项 flip
-        verified_text=False,
-        verified_vision=False,
-        verified_tool_calling=False,
-        verified_streaming=False,
-        verified_reasoning=False,
-        verified_fallback=False,
-        verification_tier="declared",
-        tier_note="2026-09-02 槽位更正为 doubao-seed-2-1-pro-260628 @ ai-tokenhub (V37.9.341, key scope 实证), 平台维度零实证待 Mac Mini E2E",
+        # V37.9.341 平台维度重置 → V37.9.342 ai-tokenhub 路径 E2E 逐项 flip
+        verified_text=True,          # V37.9.343 纯文本探针: content 4 字符 + finish_reason=stop
+                                     #   (V37.9.342 那轮带 tools 故 content 空, 见 docstring 说明)
+        verified_vision=False,       # Bifrost 网关 image_url 透传未测
+        verified_tool_calling=True,  # V37.9.342 E2E: finish_reason=tool_calls + tool_calls 长度 1
+        verified_streaming=False,    # 本平台未单测
+        verified_reasoning=True,     # V37.9.342 E2E: reasoning 字段填充 (tokenhub 字段名 reasoning)
+        verified_fallback=False,     # 未真生产 fallback 接管 (本平台)
+        verification_tier="feature_verified",
+        tier_note="2026-09-02 槽位更正 doubao-2.1 @ ai-tokenhub (V37.9.341) 后 E2E 升档 (V37.9.342 tool_calling+reasoning, V37.9.343 补 text)",
+        tier_evidence="ai-tokenhub E2E 探针 2026-09-02 (V37.9.342, model=doubao-seed-2-1-pro-260628): "
+                      "tool_calling+reasoning 2/2 通过 (finish_reason=tool_calls + tool_calls 长度 1 + "
+                      "reasoning 字段填充, usage 466/94, 响应 model 回显本 model id = ai-tokenhub 路由正确)；"
+                      "V37.9.343 补跑不带 tools 的纯文本探针: content 4 字符 + finish_reason=stop + "
+                      "reasoning 字段, usage 76/247 → verified_text 达标 flip True "
+                      "(V37.9.342 那轮带 tools 故 content 为空, 够不着「有 content + finish_reason=stop」标准)；"
+                      "vision/streaming/json_mode 本平台未测; Ark 侧 doubao_21 的 5/5 证据不跨平台迁移",
     )
