@@ -1,6 +1,6 @@
 {
-  "updated": "2026-09-01 16:26:33",
-  "updated_by": "full_regression",
+  "updated": "2026-09-02 00:34:50",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-09-01",
+      "what": "V37.9.338 Mac Mini 生产验证闭环: --cron-line 输出与已装 crontab 行逐字一致 + governance --full EXIT=0/760/760/所有不变式成立 (08-31 起连报两天的 INV-CRON-003 归零)",
+      "by": "claude_code"
+    },
     {
       "date": "2026-09-01",
       "what": "原则 #35 补充: 给用户的验证命令必须先在 dev 跑一遍确认真能显出结论 (当日三犯实录: wc -l 口径/tail -5 切错段/grep 假阳性); 与 #36-4 同源但对象是交接物",
@@ -172,11 +177,6 @@
     {
       "date": "2026-08-25",
       "what": "V37.9.330 原则 #36「修复的自我对抗」确立（用户指令: 记录关键结论避免再犯）: 五条纪律固化当日双血案反思 — (1) 守卫先断言用户可见结果再断言机制 (2) 位置性/容量性假设修类不修实例(同一数据流逐处枚举) (3) 验收数据能被解释成「设计预期」时=最该怀疑的时刻, 对自己刚交付的修复第一姿态是攻击不是辩护 (4) 输出里每个自豪的数字必须有测试对账实际发生的量(「声称与事实无人对账」= 本系统最顽固错误类, 328/324/322/319 同构家族) (5) 容量 fixture 必须用生产实测量级。纯 doc 零机器, VERSION 0.37.9.159 不变",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-08-25",
-      "what": "V37.9.329 Dream 素材覆盖面根治（用户看产品二连击驱动: 「都是 4 月」→V37.9.326 修→「都是 8 月」= 位置性窗口换方向没换性质）: (1) sources 每源窗口退役头/尾两种位置性形态 → month_stratified_sections 按 ## YYYY-MM-DD 分月桶轮转取样(24K, FAIL-OPEN 回退尾窗, prompt_hash v5) (2) 同日发现 V37.9.326 漏修的第二钉死点——跨源预算字母序保头截断, 生产实测 17078>14000 → openreview_top/pwc_daily/rss_blogs/semantic_scholar_daily 四源整块从未进 LLM 而页脚照写 19 deep-analyzed(同日 V37.9.328 同款 fail-plausible) → budget_source_blocks max-min 公平分配每源必在场; 两死源归档用户已 mv .retired 退役 (3) 增长维度(用户架构约束): 日序轮转偏移 ROTATION_OFFSET=date +%j 经 env 传递——语料翻倍→覆盖一轮周期翻倍而非覆盖率减半, 3 夜×前5=15/15 全覆盖实证 (4) 预算 2x(sources 28K/notes 28K/全局 60K)+超时同步(Map 150s/DEEP·WIDE 420s), 依据=上下文仅用 ~10% 而 Map 90s 已实录 curl(28) (5) DEEP/WIDE 跨时间对照硬规则+诚实逃生口+RADAR 慢烧标注。39 守卫 sabotage 六连全开火; 7 处既有 pin 演进; 守卫当场抓出我自己的源码插值洞(offset= 空值 SyntaxError→sources 拿空内容喂 LLM)改走 env。VERSION 0.37.9.158→0.37.9.159",
       "by": "claude_code"
     }
   ],
@@ -326,11 +326,11 @@
       "【V37.9.331 演练/取证/打标诚实 · dev 全闭环 · 剩 Mac Mini 被动验证】合并 + git fetch+reset 同步(gameday.sh/movespeed_incident_capture.sh/movespeed_incident_analyzer.py/kb_autotag.py 全走 FILE_MAP 零重启)后: (a) bash gameday.sh --all 零流量日不再因 slo rc=3 假失败(场景 4 改报 skip 无数据可判), 断路器状态第一次真被验证(closed→pass; 若报 open = 真告警非新 bug, 贴我) (b) 场景 3 报「快照日志段: N 个真实日志文件被捕获」且 N 与实际存在的日志一致(此前缺失也计入) (c) 未来 SSD 未挂载的 rsync 失败快照, movespeed_incidents.jsonl 的 acl/lsof 字段应标 [target_missing] 而非 [tool_unavailable] (d) 新写 KB note 自动标签不再有「财经→技术/AI」类子串污染; 可选 python3 kb_autotag.py --retag 预览历史 notes 标签修正量(预期变更量可观=历史污染面, 先看 diff 再决定 --apply)",
       "【V37.9.332 dream 月份分布检测器 ([62] 预注册决策兑现·已建) · 剩 Mac Mini 被动验证】合并+git fetch+reset 同步 (daily_observer.py 走 FILE_MAP, 明晨 06:30 自动生效) 后: 健康日 observer 报告无新增行 (零噪声); 若某日梦境月份钉死复发 (引用月份 <3 或单月 >80%), 06:30 报 MED dream_month_pin 点名分布与 V37.9.326/329 家族 — 首次开火请贴给 session 分诊 kb_dream 取样管道",
       "【V37.9.335 Windows E 盘每日镜像 · 全链闭环+每日备份化 · 剩最后一次合并+scp】2026-08-31 收官: 首轮全量 OK + 05:00 定时通道实证 + kb 排除三衍生物(map_cache/text_index/mm_index) + 全量保留 + 首份备份档落地(22min 实测,8h 预估修正) + 20:12 新脚本验证轮全模块 OK。用户二次决策: 依 22min 实测恢复**每日**备份拉取(+365GB/年接受) → 周日门控+FORCE 开关退役(守卫 daily-latest-only 双向禁回退, 20/20+sabotage)。剩余: (1) 用户合并新 PR + WSL: Mac git reset + scp 刷新活跃副本(每日化生效) (2) 明日 05:00 定时运行=最终验收(首次含每日备份拉取, 预期全绿+movespeed_backup 新增 9/1 档) (3) Mac ~/.kb/last_windows_sync.json 每日刷新(watchdog 候选已登记不现建)。可选: Tailscale 提速(HOSTS 加 IP 即用)。",
-      "【2026-09-01 20:30 watchdog 告警 triage · V37.9.337】(a) ✅ **治理审计 fail 已定性并修复 (V37.9.338)**: 用户取证 = `❌ INV-CRON-003 bash-lc-enforcement`, 真凶是 V37.9.334 手写的 crontab 行 `/bin/bash $HOME/check_upgrade.sh` 缺 bash -lc → cron 空环境。用户已换 canonical 行; 根因(生成器无 CLI 出口)已修 + 治理判据前移 dev CI。剩: 同步后跑 governance_checker --full 确认回到 760/760 (不必等 07:00)。原分诊记录: 时序已排除本次改动 (PR#912/913 合并于 21:45/22:44 HKT, 告警 20:30, 治理 cron 07:00) + dev 全量治理 EXIT=0 + 我改的文件在治理里零 check 覆盖。失败的是哪条不变式须用户取证 (cat ~/.kb/last_run_governance*.json 或 grep 07:00 governance log; 若有 07:00 [SYSTEM_ALERT] 治理告警请转发——V37.9.301 起它会列出全部失败不变式+顶层计数)。**另需确认: 07:00 那条详细治理告警是否真的发了** (若没发 = V37.9.301 的告警路径有问题, 比死掉的不变式更要紧)。(b) finance_news LLM 可定性已修 (V37.9.337): 同步后若再失败, 日志与 last_run.json 直接给 curl_timeout/http_error/short_content 等原因。(c) 🟡 **待定项**: finance_news `--max-time 180` 紧于服务端 300s (V37.9.306 kb_evening 同族不对称), 且 V37.9.220 实录 reasoning 延迟可达 7-9 分钟; 但 B1 快路本应缓解 → **拿到 (b) 的定性数据再决定是否调**, 不盲改 (原则 #28/#8)。(d) ai_leaders_x 9×429 = 已知限流非 actionable。"
+      "【✅ 2026-09-01 20:30 watchdog 告警 triage · 全链闭环 (V37.9.337/338)】(a) ✅ **治理 CORE 已定性+修复+生产验证**: 真凶 = V37.9.334 手写的 crontab 行 `/bin/bash $HOME/check_upgrade.sh` 缺 bash -lc → cron 空环境 (INV-CRON-003, 08-31/09-01 连报两天)。根因 = canonical 行生成器 convergence._format_cron_line 自 V37.9.23 存在却无 CLI 出口, 每次新登记 system job 都手写。修 = --cron-line/--cron-lines 出口 + 治理判据抽出前移 dev CI (血案行反向证据) + 操作规则入宪禁手写。**Mac Mini 生产验证: --cron-line 输出与已装 crontab 行逐字一致; governance_checker --full = EXIT=0 / 760/760 checks / ✅ 所有不变式成立**。(b) ✅ finance_news LLM 可定性已修 (V37.9.337): 同步后若再失败, 日志与 last_run.json 直接给 curl_timeout/connect_refused/http_error/bad_json/no_choices/short_content 六类原因之一。(c) 🟡 **仅剩待定项**: finance_news `--max-time 180` 紧于服务端 300s (V37.9.306 kb_evening 同族不对称), V37.9.220 实录 reasoning 延迟可达 7-9 分钟但 B1 快路本应缓解 → **等 (b) 的定性数据再决定是否调, 不盲改** (原则 #28/#8)。(d) ai_leaders_x 9×429 = 已知 X Syndication 限流, per-account FAIL-OPEN 按设计工作, 非 actionable。"
     ],
     "open_prs": [],
     "blocked_on": "",
-    "focus": "2026-09-01 收工(二): V37.9.336 第八次评估 + SOP 时点快照修复 + 19.8 判据①提前读数与核对协议。判据 ❌✅✅ 卡点只剩①; 对 9.1-beta.1 提前读数=不可判(N/A)非干净——0 计数是 changelog 内容未写(1520 裸 PR 行 vs 8.1=506/7.1=1719), 是最贵方向的假绿(误判会让①计数错误+1 提前开窗)。协议已固化 eval doc 19.8(整份扫描+内容门槛<100 判 rc=3; 设计中被 7.1 二次证伪: session-accessor 证据住在 contribution record 段带描述, 只扫叙述段会漏)。守卫 28 单测, sabotage 十连全开火。本版无需 Mac Mini 动作。下次 9.1 stable 走 19.8 协议核对。"
+    "focus": "2026-09-01 收工: 四交付 — V37.9.336 第八次升级评估(判据 ❌✅✅ 卡点收敛到①)+SOP 时点快照修复; V37.9.336-19.8 判据①提前读数(不可判非干净)+核对协议; V37.9.337 finance_news LLM 失败可定性(七类分类, 20:30 告警 triage); V37.9.338 canonical crontab 行无出口根治+治理判据前移 dev CI(生产已验 760/760 EXIT=0); 原则 #35 补充验证命令须先在 dev 跑通。剩: 119d30d 待合并 + finance_news --max-time 180 等定性数据再决定。"
   },
   "quality": {
     "security_score": 98,
