@@ -92,7 +92,8 @@ test -f "$KB_SRC" || echo "# Semantic Scholar AI论文" > "$KB_SRC"
 # V37.8.13 砍掉的 6 个 ontology/KR 方向关键词 (与 jobs/dblp/run_dblp.sh 同源
 # 12 关键词集对齐, V30.5 同期上线 + V37.1 同时加 ontology 方向).
 # 认证模式 12 关键词 × 2s = 24s; 无 key FAIL-OPEN 30s 间隔 × 12 = 6min (老版本同款).
-KEYWORDS=("large language model" "LLM agent" "RAG retrieval augmented" "multimodal AI" "RLHF alignment" "ontology knowledge graph" "neuro-symbolic reasoning" "enterprise ontology" "formal ontology information systems" "description logic OWL" "semantic web linked data" "knowledge representation reasoning")
+# V37.9.348: 12→16, 补纲领 T2/T5/T6/T8 + 宪法级 #1 可靠性族 (与 dblp 同族, 措辞按各自 API 调整)
+KEYWORDS=("large language model" "LLM agent" "RAG retrieval augmented" "multimodal AI" "RLHF alignment" "ontology knowledge graph" "neuro-symbolic reasoning" "enterprise ontology" "formal ontology information systems" "description logic OWL" "semantic web linked data" "knowledge representation reasoning" "LLM-as-a-judge evaluation" "tool learning function calling agent" "hallucination detection LLM reliability" "agent long-term memory")
 RAW_DIR="$CACHE/raw"
 mkdir -p "$RAW_DIR"
 

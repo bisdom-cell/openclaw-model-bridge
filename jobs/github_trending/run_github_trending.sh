@@ -101,7 +101,9 @@ HEADER_FILE="$CACHE/curl_headers.txt"
 # 搜索策略：多个 topic 关键词，按 stars 排序
 # GitHub Search API：免费未认证 10次/分钟，认证 30次/分钟
 # GitHub Search API 限制最多 5 个 AND/OR/NOT 操作符
-TOPICS="machine-learning+OR+deep-learning+OR+llm+OR+ai-agent+OR+diffusion-model"
+# V37.9.348: 退役 diffusion-model (生成式媒体, 与 agent runtime/治理无关, 对齐 project_concepts excluded);
+# 加 agentic/mcp-server/llm-evaluation (纲领 T1/T5/T8)。GitHub search 上限 5 个 OR → 恰 6 词。
+TOPICS="llm+OR+ai-agent+OR+agentic+OR+mcp-server+OR+llm-evaluation+OR+machine-learning"
 SEARCH_URL="https://api.github.com/search/repositories?q=${TOPICS}+created:%3E${WEEK_AGO}&sort=stars&order=desc&per_page=50"
 
 FETCH_OK=false

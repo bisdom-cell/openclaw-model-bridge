@@ -140,10 +140,21 @@ class TestV379135KeywordRestore(unittest.TestCase):
         self.assertIsNotNone(m, "KEYWORDS 数组必须存在")
         return re.findall(r'"([^"]+)"', m.group(1))
 
-    def test_twelve_keywords_restored(self):
+    def test_sixteen_keywords_after_v348(self):
+        # 史: V37.8.13 12→6 (匿名池 429) → V37.9.135 恢复 12 → V37.9.348 +4 可靠性族 = 16
         kws = self._keywords(self.src)
-        self.assertEqual(len(kws), 12,
-                         f"V37.9.135 恢复 12 关键词, 实际 {len(kws)}: {kws}")
+        self.assertEqual(len(kws), 16,
+                         f"V37.9.348: 12 + 4 可靠性族 = 16 关键词, 实际 {len(kws)}: {kws}")
+
+    def test_v348_reliability_family_in_both_sources(self):
+        """V37.9.348: 纲领 T2/T5/T6/T8 可靠性族在 S2 与 DBLP 同族存在 (措辞按各自 API, 不逐字)。"""
+        dblp = os.path.join(_REPO, "jobs", "dblp", "run_dblp.sh")
+        with open(dblp, encoding="utf-8") as f:
+            dblp_kws = " | ".join(self._keywords(f.read())).lower()
+        s2_kws = " | ".join(self._keywords(self.src)).lower()
+        for token in ("judge", "tool learning", "hallucination", "memory"):
+            self.assertIn(token, s2_kws, f"S2 可靠性族缺 '{token}'")
+            self.assertIn(token, dblp_kws, f"DBLP 可靠性族缺 '{token}'")
 
     def test_original_six_preserved(self):
         """V37.8.13 保留的 6 个核心关键词不得丢失 (向后兼容)"""

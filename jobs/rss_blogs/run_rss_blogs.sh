@@ -82,6 +82,13 @@ RSS_FEEDS=(
     "Lil'Log|https://lilianweng.github.io/index.xml|Lilian Weng/OpenAI(LLM/Agent综述)"
     "Simon Willison|https://simonwillison.net/atom/everything/|Simon Willison(LLM工具/实践)"
     "Latent Space|https://www.latent.space/feed|Swyx&Alessio(AI工程/Agent架构)"
+    # V37.9.348 信息源刷新 (纲领 T2/T5/T8):
+    # MCP 官方博客 = 协议规范/路线图一手源 (判据门控 G7 的观察口), dev WebFetch 验证有效 feed (2026-08-22 最新)
+    "MCP Blog|https://blog.modelcontextprotocol.io/index.xml|Model Context Protocol 官方博客(规范/路线图/生态)"
+    # ⚠️ 下两条 dev 出口代理拦截无法预验 (标准 Quarto index.xml / Jekyll feed.xml 模式), Mac Mini 首跑验证:
+    # 死链会 log "WARN: X RSS 抓取失败，跳过" (FAIL-OPEN), 之后剪枝 (镜像 V37.9.108-hotfix)。
+    "Hamel Husain|https://hamel.dev/index.xml|Hamel Husain(LLM evals 实践/评估方法论)"
+    "Chip Huyen|https://huyenchip.com/feed.xml|Chip Huyen(AI 工程/系统设计/agent 评估)"
     # V37.9.6 移除: LangChain 博客 RSS 持续 9 次 HTTP 404 (4/20 18:00 watchdog 仍报),
     # 上游 feed 已死链。移除止噪音, 如未来恢复或迁移路径再加回。
     # "LangChain|https://blog.langchain.dev/feed/|LangChain(Agent/RAG实战)"
