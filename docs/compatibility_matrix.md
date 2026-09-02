@@ -1,7 +1,7 @@
 # Provider Compatibility Matrix
 
 > 数据真理源：`providers.py`（`python3 providers.py` 人读 / `--json` 机读 / `--capability-matrix` 能力矩阵直出 / `--tier-matrix` 验证档位直出）| 最后刷新：2026-08-17（v37.9.312）
-> **12 Providers**（7 built-in + 5 plugins：Doubao 2.1 + Kimi K3（`doubao` 槽位）+ DeepSeek×2 + GLM-5.3 coding）。**漂移防护已接入（V37.9.143 → V37.9.146）**：本文档的三张机器表（"支持的 Provider" + "验证档位" + "能力矩阵"）由 `gen_compat_matrix.py --check` 在 full_regression doc-drift 层守卫，漂移时 CI 失败；`--fix` 一键重写。人工段落（Fallback 路径 / 添加新 Provider / 工具模式验证）不参与机器比对。
+> **12 Providers**（7 built-in + 5 plugins：Doubao Seed 2.1 Pro ×2 平台（Ark primary + ai-tokenhub 冗余）+ DeepSeek×2 + GLM-5.3 coding）。**漂移防护已接入（V37.9.143 → V37.9.146）**：本文档的三张机器表（"支持的 Provider" + "验证档位" + "能力矩阵"）由 `gen_compat_matrix.py --check` 在 full_regression doc-drift 层守卫，漂移时 CI 失败；`--fix` 一键重写。人工段落（Fallback 路径 / 添加新 Provider / 工具模式验证）不参与机器比对。
 
 ---
 
@@ -16,11 +16,11 @@
 | Kimi (Moonshot AI) | kimi-k2.5 | text, vision | Yes | Yes | 262K | none |
 | MiniMax | MiniMax-M2.7 | text, vision | Yes | Yes | 204K | none |
 | GLM (Zhipu AI) | glm-5, glm-5v-turbo | text, vision | Yes | Yes | 202K | none |
-| DeepSeek-V4-Pro 满血版 (ai-tokenhub) | deepseek-v4-pro-ga-260813 | text | Yes | Yes | 1048K | none |
+| DeepSeek-V4-Pro 满血版 (ai-tokenhub) | deepseek-v4-pro-ga-260813 | text | Yes | Yes | 1048K | text, reasoning |
 | DeepSeek-V4-Pro | DeepSeek-V4-Pro | text | Yes | Yes | 65K | text, tool_calling, streaming |
-| Kimi K3 (ai-tokenhub) | kimi-k3-260716 | text | Yes | Yes | 262K | none |
+| Doubao Seed 2.1 Pro (ai-tokenhub) | doubao-seed-2-1-pro-260628 | text, vision | Yes | Yes | 262K | none |
 | Doubao Seed 2.1 Pro (Volcengine Ark) | doubao-seed-2-1-pro-260628 | text, vision | Yes | Yes | 262K | text, vision, tool_calling, streaming, reasoning |
-| GLM-5.3 Coding (ai-tokenhub) | glm-5-3-260814 | text | Yes | Yes | 131K | none |
+| GLM-5.3 Coding (ai-tokenhub) | glm-5-3-260814 | text | Yes | Yes | 131K | text, reasoning |
 
 插件接入：Doubao 经 `providers.d/doubao_provider.py`（V37 Provider Plugin Interface，V37.9.52 接入）。
 
@@ -38,11 +38,11 @@
 | Kimi (Moonshot AI) | **declared** | 能力声明完整 + 合约校验通过，0/N 生产验证（无 API key 配置） |
 | MiniMax | **declared** | 能力声明完整 + 合约校验通过，0/N 生产验证（无 API key 配置） |
 | GLM (Zhipu AI) | **declared** | 能力声明完整 + 合约校验通过，0/N 生产验证（无 API key 配置） |
-| DeepSeek-V4-Pro 满血版 (ai-tokenhub) | **declared**（2026-09-02 槽位换模型 GA (V37.9.339), -huakun 时代 E2E 证据不迁移, ai-tokenhub 复测待 Mac Mini） | 能力声明完整 + 合约校验通过，0/N 生产验证（无 API key 配置） |
+| DeepSeek-V4-Pro 满血版 (ai-tokenhub) | **feature_verified**（2026-09-02 槽位换 GA 模型 (V37.9.339) 后 E2E 半升档 (text+reasoning, V37.9.340)） | ai-tokenhub E2E 探针 2026-09-02 (V37.9.340, model=deepseek-v4-pro-ga-260813): text+reasoning 2/2 通过 (200 + finish_reason=stop + bat-ball 题 4 字符答案 + reasoning 字段填充, usage 113/145, 响应 model 回显 GA 名 = 路由正确)；tool_calling/streaming 未在 GA 模型探针保持 False; -huakun 时代史见 docstring |
 | DeepSeek-V4-Pro | **feature_verified** | Mac Mini E2E 实测 2026-06-30: text/streaming/tool_calling/json_mode 4/4 通过 (content+finish_reason / SSE chunk+[DONE] / finish_reason=tool_calls+arguments / response_format=json_object 干净 JSON)；vision 实测不支持 (400 非多模态) / reasoning 无 R1 reasoning_content 通道 / 未真生产 fallback 接管。部署=w4a8-mtp 量化, 推理响应偶发乱码 token |
-| Kimi K3 (ai-tokenhub) | **declared**（2026-09-02 槽位换模型 Kimi K3 (V37.9.339), Doubao 时代证据不迁移, ai-tokenhub E2E 待 Mac Mini） | 能力声明完整 + 合约校验通过，0/N 生产验证（无 API key 配置） |
+| Doubao Seed 2.1 Pro (ai-tokenhub) | **declared**（2026-09-02 槽位更正为 doubao-seed-2-1-pro-260628 @ ai-tokenhub (V37.9.341, key scope 实证), 平台维度零实证待 Mac Mini E2E） | 能力声明完整 + 合约校验通过，0/N 生产验证（无 API key 配置） |
 | Doubao Seed 2.1 Pro (Volcengine Ark) | **production_observed** | 唯一 primary 承载全部生产流量 2026-07-02 起 (V37.9.222 B1 flip, 22+ 天 cron 周期零 provider 事故); B1 批量 thinking-off 注入实测大规模开火 (adapter.log 7654 次 @2026-07-24, dream curl 超时 0 复发); E2E 2026-07-02: text/vision/tool_calling/streaming/reasoning 5/5 (bat-ball 0.05 / vision 全命中 / tool_calls / chunk+[DONE] / reasoning_tokens=255) 无乱码；json_mode 声明未单测 / 未真生产 fallback 接管 |
-| GLM-5.3 Coding (ai-tokenhub) | **declared**（2026-09-02 槽位换版本 GLM-5.3 (V37.9.339), 5.2 时代 E2E 证据不迁移, ai-tokenhub 复测待 Mac Mini） | 能力声明完整 + 合约校验通过，0/N 生产验证（无 API key 配置） |
+| GLM-5.3 Coding (ai-tokenhub) | **feature_verified**（2026-09-02 槽位换版本 GLM-5.3 (V37.9.339) 后 E2E 半升档 (text+reasoning, V37.9.340)） | ai-tokenhub E2E 探针 2026-09-02 (V37.9.340, model=glm-5-3-260814): text+reasoning 2/2 通过 (200 + finish_reason=stop + 250 字符 is_prime 代码 + reasoning 字段填充, usage 25/326, 响应 model 回显 5.3 名 = 路由正确)；tool_calling/streaming/json_mode 未在 5.3 探针保持 False; 5.2 时代史见 docstring |
 
 ## 能力矩阵
 
@@ -57,7 +57,7 @@
 | GLM (Zhipu AI) | Yes | Yes | — | — | Yes | Yes | Yes | — | 202K |
 | DeepSeek-V4-Pro 满血版 (ai-tokenhub) | Yes | — | — | — | Yes | Yes | — | Yes | 1048K |
 | DeepSeek-V4-Pro | Yes | — | — | — | Yes | Yes | Yes | — | 65K |
-| Kimi K3 (ai-tokenhub) | Yes | — | — | — | Yes | Yes | — | — | 262K |
+| Doubao Seed 2.1 Pro (ai-tokenhub) | Yes | Yes | — | — | Yes | Yes | Yes | Yes | 262K |
 | Doubao Seed 2.1 Pro (Volcengine Ark) | Yes | Yes | — | — | Yes | Yes | Yes | Yes | 262K |
 | GLM-5.3 Coding (ai-tokenhub) | Yes | — | — | — | Yes | Yes | — | Yes | 131K |
 
@@ -110,7 +110,7 @@ bash restart.sh
 
 ## 工具模式验证
 
-| 模式 | Qwen | doubao_21 | Kimi K3 (doubao 槽位) | DeepSeek 满血 | DeepSeek 量化 | GLM-5.3 coding | Gemini | 其余 built-in |
+| 模式 | Qwen | doubao_21 (Ark) | doubao 槽位 (同模型 @ ai-tokenhub) | DeepSeek 满血 | DeepSeek 量化 | GLM-5.3 coding | Gemini | 其余 built-in |
 |------|------|-----------|-----------|--------------|--------------|----------------|--------|--------------|
 | 单工具调用 | :white_check_mark: | :white_check_mark: (V37.9.217) | :white_check_mark: (V37.9.55, Ark 时代) | :white_check_mark: (V37.9.205) | :white_check_mark: (V37.9.202) | :white_check_mark: (V37.9.258) | ~~退役~~ | — |
 | 多工具并行 | :white_check_mark: | — | — | — | — | — | — | — |

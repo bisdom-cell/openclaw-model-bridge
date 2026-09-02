@@ -4,6 +4,7 @@
    V37.9.339 — 🔴 槽位换模型 (2026-09-02 用户指令, 后台 LLM Provider 刷新):
                deepseek-v4-pro-huakun → deepseek-v4-pro-ga-260813 (GA 版), 同网关新 key。
                **不是更名, 是换模型** → 旧证据不迁移, tier 诚实回 declared, E2E 复测后逐项升档。
+   V37.9.340 — Mac Mini E2E 2026-09-02: text+reasoning 2/2 通过 → feature_verified (半升档)。
 
 接入第 10 个 provider: deepseek-v4-pro-ga-260813 (满血版 GA, via ai-tokenhub API hub)。
 定位 = 生产 fallback 链首 (FALLBACK_ORDER=deepseek_full,doubao,deepseek,qwen, V37.9.218)。
@@ -19,8 +20,9 @@
   可入库 (与 openai/claude/doubao 等公开 base_url 同理)。无 key 时 available() 自动排除。
 
 诚实语义 (原则 #23 — 只声明实测过的能力):
-- **verification_tier = declared** (V37.9.339 重置) — GA 是不同的模型构建, -huakun 别名
-  时代的 E2E 证据 (V37.9.205 3/3 通过 / V37.9.291 tokenhub 复测) **不迁移**。
+- **verification_tier = feature_verified** (V37.9.340 半升档) — GA 是不同的模型构建, -huakun
+  别名时代的证据 (V37.9.205 3/3 / V37.9.291) **不迁移**; V37.9.339 重置 declared 后经 Mac Mini
+  E2E 2026-09-02 实测 text+reasoning 2/2 重新挣得 (tool_calling/streaming 未探针保持 False)。
 - capability 声明保持 DeepSeek V4 Pro 家族画像 (text/tool_calling/streaming/reasoning True;
   vision False 家族无视觉; json_mode False 围栏非严格), 与 verified_* 解耦。
 - verified_* 全 False, Mac Mini E2E 复测通过后按探针结果逐项 flip。
@@ -72,13 +74,17 @@ class DeepSeekFullProvider(BaseProvider):
         reasoning=True,        # 满血版 R1 reasoning 通道 (家族性质, V37.9.205/291 实测过)
         context_window=1048576,
         max_output_tokens=8192,
-        # V37.9.339 换模型重置: 全部 verified_* False, GA 模型 E2E 复测后逐项 flip
-        verified_text=False,
-        verified_vision=False,
-        verified_tool_calling=False,
-        verified_streaming=False,
-        verified_fallback=False,
-        verified_reasoning=False,
-        verification_tier="declared",
-        tier_note="2026-09-02 槽位换模型 GA (V37.9.339), -huakun 时代 E2E 证据不迁移, ai-tokenhub 复测待 Mac Mini",
+        # V37.9.339 换模型重置 → V37.9.340 Mac Mini E2E 逐项 flip (text+reasoning)
+        verified_text=True,          # V37.9.340 E2E 2026-09-02: 200 + finish_reason=stop + 正确 content
+        verified_vision=False,       # 家族无视觉
+        verified_tool_calling=False, # GA 模型未探针
+        verified_streaming=False,    # GA 模型未探针
+        verified_fallback=False,     # 未真生产 fallback 接管 (GA 时代)
+        verified_reasoning=True,     # V37.9.340 E2E: reasoning 字段填充 (145 completion tokens 含推理)
+        verification_tier="feature_verified",
+        tier_note="2026-09-02 槽位换 GA 模型 (V37.9.339) 后 E2E 半升档 (text+reasoning, V37.9.340)",
+        tier_evidence="ai-tokenhub E2E 探针 2026-09-02 (V37.9.340, model=deepseek-v4-pro-ga-260813): "
+                      "text+reasoning 2/2 通过 (200 + finish_reason=stop + bat-ball 题 4 字符答案 + reasoning "
+                      "字段填充, usage 113/145, 响应 model 回显 GA 名 = 路由正确)；"
+                      "tool_calling/streaming 未在 GA 模型探针保持 False; -huakun 时代史见 docstring",
     )

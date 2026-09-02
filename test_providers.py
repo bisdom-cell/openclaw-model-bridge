@@ -123,9 +123,9 @@ class TestVerificationTier(unittest.TestCase):
         self.assertTrue(any("unknown verification_tier" in v for v in violations))
 
     # --- 真 provider 档位 ---
-    def test_qwen_production_observed_doubao_slot_declared_v339(self):
-        # 史: V37.9.290 重置 declared → V37.9.291 tokenhub E2E 升 feature_verified
-        # → V37.9.339 槽位换模型 Kimi K3 (不同厂商) 证据不迁移 → declared。qwen 不受影响。
+    def test_qwen_production_observed_doubao_slot_declared_v341(self):
+        # 史: V37.9.290 declared → V37.9.291 feature_verified → V37.9.339 Kimi K3 → V37.9.341
+        # 更正 doubao-2.1 @ ai-tokenhub (平台不同, doubao_21 的 Ark 证据不迁移) → declared。
         from providers import _default_registry, TIER_PRODUCTION_OBSERVED, TIER_DECLARED
         self.assertEqual(
             _default_registry.get("qwen").capabilities.verification_tier,
@@ -1676,21 +1676,23 @@ class TestDeepSeekFullProvider(unittest.TestCase):
         self.assertEqual(p.base_url, "https://ai-tokenhub.com/api/v1")
         self.assertEqual(p.auth_style, "bearer")
 
-    def test_tier_declared_after_ga_model_swap_v339(self):
-        # 史: V37.9.205 -260425 E2E 3/3 → feature_verified → V37.9.289 更名 -huakun 保留
-        # → V37.9.339 槽位换 GA 模型 (不是更名, 是换构建) → 证据不迁移 → declared。
-        # capability 声明保持家族画像 (reasoning True / vision False / json_mode False)。
+    def test_tier_feature_verified_after_ga_e2e_v340(self):
+        # 史: V37.9.205 E2E 3/3 → feature_verified → V37.9.289 更名保留 → V37.9.339 槽位换 GA
+        # 模型证据不迁移 declared → V37.9.340 Mac Mini E2E text+reasoning 2/2 → feature_verified。
+        # tool_calling/streaming 未在 GA 探针保持 False (原则 #23 只 flip 实测项)。
         from providers import get_provider
         caps = get_provider("deepseek_full").capabilities
-        self.assertEqual(caps.verification_tier, "declared")
-        self.assertFalse(caps.verified_text)
+        self.assertEqual(caps.verification_tier, "feature_verified")
+        self.assertTrue(caps.verified_text)
+        self.assertTrue(caps.verified_reasoning)
         self.assertFalse(caps.verified_tool_calling)
-        self.assertFalse(caps.verified_reasoning)
-        self.assertTrue(caps.reasoning, "满血版家族有 R1 reasoning 通道 (家族声明)")
+        self.assertFalse(caps.verified_streaming)
+        self.assertTrue(caps.reasoning, "满血版家族有 R1 reasoning 通道")
         self.assertFalse(caps.vision, "DeepSeek V 系无视觉 (家族性质)")
         self.assertFalse(caps.json_mode, "家族 response_format 返回围栏非严格")
-        self.assertEqual(caps.tier_evidence, "", "declared 走派生 evidence")
-        self.assertIn("V37.9.339", caps.tier_note)
+        self.assertIn("E2E", caps.tier_evidence)
+        self.assertIn("deepseek-v4-pro-ga-260813", caps.tier_evidence, "证据必须锚定 GA 模型名 (非 -huakun 时代)")
+        self.assertIn("V37.9.340", caps.tier_note)
         self.assertEqual(caps.tier_consistency_violations(), [])
 
     def test_excluded_from_available_without_key(self):
@@ -1807,17 +1809,18 @@ class TestGlm5CodingProvider(unittest.TestCase):
         self.assertNotEqual(builtin.base_url, get_provider("glm5_coding").base_url)
         self.assertNotEqual(builtin.api_key_env, "GLM5_API_KEY")
 
-    def test_declared_after_v339_model_swap(self):
-        # 史: V37.9.290 重置 declared → V37.9.291 tokenhub E2E 升 feature_verified
-        # (text+reasoning) → V37.9.339 槽位换版本 glm-5-3-260814 → 5.2 证据不迁移 → declared。
+    def test_feature_verified_after_v340_e2e(self):
+        # 史: V37.9.290 declared → V37.9.291 feature_verified → V37.9.339 槽位换版本 5.3
+        # 证据不迁移 declared → V37.9.340 Mac Mini E2E text+reasoning 2/2 → feature_verified。
         from providers import get_provider
         caps = get_provider("glm5_coding").capabilities
-        self.assertEqual(caps.verification_tier, "declared")
-        for f in ("verified_text", "verified_reasoning", "verified_streaming",
-                  "verified_tool_calling", "verified_vision", "verified_fallback"):
-            self.assertFalse(getattr(caps, f), f"{f} 必须在 V37.9.339 换模型后重置 False")
-        self.assertIn("V37.9.339", caps.tier_note)
-        self.assertEqual(caps.tier_evidence, "", "declared 走派生 evidence")
+        self.assertEqual(caps.verification_tier, "feature_verified")
+        self.assertTrue(caps.verified_text)
+        self.assertTrue(caps.verified_reasoning)
+        for f in ("verified_streaming", "verified_tool_calling", "verified_vision", "verified_fallback"):
+            self.assertFalse(getattr(caps, f), f"{f} 未在 5.3 探针, 必须保持 False")
+        self.assertIn("V37.9.340", caps.tier_note)
+        self.assertIn("glm-5-3-260814", caps.tier_evidence, "证据必须锚定 5.3 模型名")
         self.assertEqual(caps.tier_consistency_violations(), [])
 
     def test_coding_capabilities(self):
@@ -1947,12 +1950,16 @@ class TestReasoningOffBodyB1(unittest.TestCase):
         from providers import get_provider
         self.assertIsNone(get_provider("qwen").reasoning_off_body)
 
-    def test_doubao_slot_no_reasoning_off_after_kimi_swap_v339(self):
-        # 史: V37.9.223 doubao 2.0 同 Ark 家族推断声明 → V37.9.339 槽位换 Kimi K3 (不同厂商):
-        # `thinking` 片段未在 Kimi 实测, V37.9.224 登记未测参数可能 400 打断 fallback →
-        # 不声明 (None) = 不注入, Kimi 以默认行为服务 batch fallback (宁慢勿断)。
+    def test_doubao_slot_declares_reasoning_off_v341(self):
+        # 史: V37.9.223 doubao 2.0 同 Ark 家族推断声明 → V37.9.339 槽位换 Kimi K3 撤回声明
+        # → V37.9.341 更正为 doubao-seed-2-1-pro-260628 @ ai-tokenhub, 两侧证据交汇归队:
+        # 模型侧 doubao_21 在 Ark 实测 thinking:disabled (V37.9.222 reasoning_tokens 0 + 17.7s),
+        # 网关侧 deepseek_full 在同一 ai-tokenhub Bifrost 网关实测该片段生效 (V37.9.222 B1)。
         from providers import get_provider
-        self.assertIsNone(get_provider("doubao").reasoning_off_body)
+        self.assertEqual(get_provider("doubao").reasoning_off_body, self._OFF)
+        self.assertEqual(get_provider("doubao").reasoning_off_body,
+                         get_provider("doubao_21").reasoning_off_body,
+                         "同模型两平台的 thinking-off 片段必须一致")
 
     def test_deepseek_quantized_declares_reasoning_off(self):
         # V37.9.223: deepseek 量化版声明 (镜像 deepseek_full); ⚠️ 非-reasoning + self-host 网关未测,
@@ -1970,20 +1977,18 @@ class TestReasoningOffBodyB1(unittest.TestCase):
         # B1 依赖 adapter 从 PROVIDERS dict 读 reasoning_off_body → to_legacy_dict 必须暴露
         from providers import get_provider
         self.assertEqual(get_provider("doubao_21").to_legacy_dict().get("reasoning_off_body"), self._OFF)
-        # V37.9.339: doubao 槽位换 Kimi K3 不声明 → legacy dict 不带 key (镜像 qwen)
-        self.assertNotIn("reasoning_off_body", get_provider("doubao").to_legacy_dict())
+        # V37.9.341: doubao 槽位更正为 doubao-2.1 @ ai-tokenhub → 恢复声明 (模型侧 Ark 实测
+        # + 网关侧 deepseek_full 同网关实测, 两侧证据交汇)
+        self.assertEqual(get_provider("doubao").to_legacy_dict().get("reasoning_off_body"), self._OFF)
         self.assertNotIn("reasoning_off_body", get_provider("qwen").to_legacy_dict())
 
     def test_all_doubao_deepseek_same_body(self):
         # V37.9.223: 全部 doubao + deepseek 同一片段 = 一份声明四家复用 (任何切换独立成 primary)。
-        # V37.9.339: doubao 槽位换 Kimi K3 (非 Ark/DeepSeek 家族) 退出该集合 — thinking 片段
-        # 未在 Kimi 实测, 不注入 (V37.9.224 未测参数 400 风险)。
+        # V37.9.339 doubao 槽位曾换 Kimi K3 短暂退出 → V37.9.341 更正为 doubao-2.1 归队。
         from providers import get_provider
-        for name in ("doubao_21", "deepseek_full", "deepseek"):
+        for name in ("doubao_21", "doubao", "deepseek_full", "deepseek"):
             self.assertEqual(get_provider(name).reasoning_off_body, self._OFF,
                              f"{name} 应声明 reasoning_off_body (V37.9.223 全家族同款)")
-        self.assertIsNone(get_provider("doubao").reasoning_off_body,
-                          "V37.9.339 doubao 槽位 = Kimi K3, 不得沿用 Ark 家族 thinking 片段")
 
 
 if __name__ == "__main__":

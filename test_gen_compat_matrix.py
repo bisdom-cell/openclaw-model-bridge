@@ -36,7 +36,7 @@ class TestProvidersTableLines(unittest.TestCase):
     def test_matrix_table_contains_qwen_and_doubao(self):
         text = "\n".join(_default_registry.matrix_table_lines())
         self.assertIn("Qwen (Remote GPU)", text)
-        self.assertIn("Kimi K3", text)   # V37.9.339 doubao 槽位换模型
+        self.assertIn("Doubao Seed 2.1 Pro (ai-tokenhub)", text)   # V37.9.341 doubao 槽位
 
     def test_print_matrix_delegates_to_table_lines(self):
         """print_matrix 必须经 matrix_table_lines（单一真理源, 防两处漂移）。"""
@@ -63,8 +63,8 @@ class TestCapabilityTableLines(unittest.TestCase):
         本测试锁定机器直出与 plugin 声明一致 (json_mode=Yes + reasoning=Yes)。
         """
         lines = _default_registry.capability_table_lines()
-        # V37.9.216: 特指 doubao 槽位 (2.1 Pro 是另一行); V37.9.339 槽位换 Kimi K3
-        doubao = [l for l in lines if "Kimi K3 (ai-tokenhub)" in l]
+        # V37.9.341: doubao 槽位与 doubao_21 同模型不同平台 → 用平台后缀精确选行
+        doubao = [l for l in lines if "Doubao Seed 2.1 Pro (ai-tokenhub)" in l]
         self.assertEqual(len(doubao), 1)
         cells = [c.strip() for c in doubao[0].split("|")]
         # | '' | Provider | Text | Vision | Audio | Video | Tool | Stream | JSON | Reasoning | Ctx | '' |
@@ -73,8 +73,8 @@ class TestCapabilityTableLines(unittest.TestCase):
         caps = _default_registry.get("doubao").capabilities
         self.assertEqual(cells[8], "Yes" if caps.json_mode else "—", "doubao 槽位 JSON Mode 须与 plugin 声明一致")
         self.assertEqual(cells[9], "Yes" if caps.reasoning else "—", "doubao 槽位 Reasoning 须与 plugin 声明一致")
-        # 防空转: V37.9.339 Kimi K3 保守声明下两格都应是 —
-        self.assertEqual((cells[8], cells[9]), ("—", "—"))
+        # 防空转: V37.9.341 doubao-2.1 声明下两格都应是 Yes
+        self.assertEqual((cells[8], cells[9]), ("Yes", "Yes"))
 
     def test_qwen_audio_dash(self):
         lines = _default_registry.capability_table_lines()
@@ -101,18 +101,17 @@ class TestVerifiableFeaturesDenominator(unittest.TestCase):
         self.assertEqual(
             set(feats), {"text", "vision", "tool_calling", "streaming", "fallback"})
 
-    def test_doubao_slot_verifiable_is_4_after_v339(self):
-        # 史: Doubao 2.0 声明 6 维 (text/vision/tool_calling/streaming/reasoning + fallback)
-        # → V37.9.339 槽位换 Kimi K3 保守声明 → 4 维 (text/tool_calling/streaming + fallback);
-        # 分母 = 声明维度 + 恒在的 fallback (V37.9.146 语义)
+    def test_doubao_slot_verifiable_is_6_after_v341(self):
+        # 史: Doubao 2.0 声明 6 维 → V37.9.339 Kimi K3 保守 4 维 → V37.9.341 更正 doubao-2.1
+        # 恢复 6 维 (text/vision/tool_calling/streaming/reasoning + 恒在的 fallback, V37.9.146 语义)
         doubao = _default_registry.get("doubao")
         caps = doubao.capabilities
         feats = caps.verifiable_features()
         expected = {"fallback"} | {f for f in ("text", "vision", "tool_calling", "streaming", "reasoning")
                                    if getattr(caps, f)}
         self.assertEqual(set(feats), expected)
-        self.assertNotIn("reasoning", feats, "V37.9.339 Kimi K3 reasoning 未声明")
-        self.assertEqual(len(feats), 4)
+        self.assertIn("reasoning", feats, "V37.9.341 doubao-2.1 声明 reasoning")
+        self.assertEqual(len(feats), 6)
 
     def test_fallback_always_verifiable(self):
         """fallback 维度恒可验证（不依赖能力声明）。"""
@@ -158,11 +157,14 @@ class TestTierTableLines(unittest.TestCase):
         self.assertTrue(lines[1].startswith("|---"))
         self.assertEqual(len(lines), 2 + 12)  # header + sep + 12 providers
 
-    def test_qwen_production_observed_doubao_slot_declared_v339(self):
-        # 史: V37.9.290 declared → V37.9.291 feature_verified → V37.9.339 槽位换 Kimi K3 → declared
+    def test_qwen_production_observed_doubao_slot_declared_v341(self):
+        # 史: V37.9.290 declared → V37.9.291 feature_verified → V37.9.339 Kimi K3
+        # → V37.9.341 更正 doubao-2.1 @ ai-tokenhub (平台维度零实证) → declared
         text = "\n".join(_default_registry.tier_table_lines())
         self.assertIn("Qwen (Remote GPU) | **production_observed**", text)
-        self.assertIn("Kimi K3 (ai-tokenhub) | **declared**", text)
+        self.assertIn("Doubao Seed 2.1 Pro (ai-tokenhub) | **declared**", text)
+        # V37.9.341 平台冗余: 同模型两平台各一行, 档位不同 (Ark 侧 production_observed)
+        self.assertIn("Doubao Seed 2.1 Pro (Volcengine Ark) | **production_observed**", text)
 
     def test_gemini_retirement_note_rendered(self):
         """tier_note 渲染进档位列（gemini 退役）。"""
@@ -174,17 +176,18 @@ class TestTierTableLines(unittest.TestCase):
         """5 declared provider 各自一行, 走派生默认依据 (单一真理源, 退役合并行)。"""
         lines = _default_registry.tier_table_lines()
         declared = [l for l in lines if "**declared**" in l]
-        # 史: V37.9.217 后 5 → V37.9.290 +2 → V37.9.291 回到 5 → V37.9.339 三槽位
-        # 换模型 (deepseek_full/doubao/glm5_coding) 全部重置 declared → 8
-        self.assertEqual(len(declared), 8)
+        # 史: V37.9.217 后 5 → V37.9.290 +2 → V37.9.291 回到 5 → V37.9.339 三槽位换模型
+        # 全部重置 declared → 8 → V37.9.340 deepseek_full/glm5 E2E 升 feature_verified → 6
+        # (doubao 槽位 V37.9.341 更正为 doubao-2.1 @ ai-tokenhub, 平台维度零实证仍 declared)
+        self.assertEqual(len(declared), 6)
         for l in declared:
             self.assertIn("能力声明完整 + 合约校验通过，0/N 生产验证（无 API key 配置）", l)
 
     def test_tier_table_normalizes_doubao_full_display_name(self):
-        """机器表用全 display_name (一致性收敛: 手写表曾用简称 'Doubao Seed 2.0 Pro';
-        V37.9.339 槽位换 Kimi K3 后 display_name 同步)。"""
+        """机器表用全 display_name (一致性收敛: 手写表曾用简称 'Doubao Seed 2.0 Pro')。
+        V37.9.341: 同模型两平台靠 display_name 的平台后缀区分, 全名不可省。"""
         text = "\n".join(_default_registry.tier_table_lines())
-        self.assertIn("Kimi K3 (ai-tokenhub)", text)
+        self.assertIn("Doubao Seed 2.1 Pro (ai-tokenhub)", text)
 
     def test_tier_matrix_cli(self):
         r = subprocess.run(
@@ -275,7 +278,7 @@ class TestCheckAndFixDrift(unittest.TestCase):
 
     def test_drift_detected_on_modified_row(self):
         """反向验证: sabotage 表内一行 → check 必抓。"""
-        text = _make_doc(self.tables).replace("Kimi K3", "Kimi SABOTAGED")
+        text = _make_doc(self.tables).replace("Doubao Seed 2.1 Pro (ai-tokenhub)", "Doubao SABOTAGED")
         self._write(text)
         drifts = gcm.check_drift(self.doc_path)
         self.assertTrue(drifts, "sabotage 行未被检测到 — 守卫无效")
@@ -301,7 +304,7 @@ class TestCheckAndFixDrift(unittest.TestCase):
         self.assertTrue(drifts)
 
     def test_fix_repairs_drift_and_is_idempotent(self):
-        text = _make_doc(self.tables).replace("Kimi K3", "Kimi SABOTAGED")
+        text = _make_doc(self.tables).replace("Doubao Seed 2.1 Pro (ai-tokenhub)", "Doubao SABOTAGED")
         self._write(text)
         changed = gcm.fix_drift(self.doc_path)
         self.assertTrue(changed)
@@ -311,7 +314,7 @@ class TestCheckAndFixDrift(unittest.TestCase):
 
     def test_fix_preserves_manual_sections(self):
         """--fix 绝不触碰人工段落（Fallback 路径 / blockquote, V37.9.146 验证档位已机器化）。"""
-        text = _make_doc(self.tables).replace("Kimi K3", "Kimi SABOTAGED")
+        text = _make_doc(self.tables).replace("Doubao Seed 2.1 Pro (ai-tokenhub)", "Doubao SABOTAGED")
         self._write(text)
         gcm.fix_drift(self.doc_path)
         with open(self.doc_path, encoding="utf-8") as f:

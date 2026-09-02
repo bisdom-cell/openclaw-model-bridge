@@ -32,14 +32,14 @@
       "doubao_21",
       "gemini",
       "openai",
+      "doubao",
       "kimi",
       "minimax",
       "glm",
       "claude",
       "deepseek",
       "deepseek_full",
-      "glm5_coding",
-      "doubao"
+      "glm5_coding"
     ],
     "best_for_text_prefer_reasoning": "doubao_21",
     "policy": {
@@ -50,8 +50,8 @@
   "non_deterministic": {
     "provider_count": 12,
     "step_timings_ms": {
-      "provider_registry": 26,
-      "tool_governance": 57,
+      "provider_registry": 29,
+      "tool_governance": 62,
       "policy_ontology": 15
     }
   }

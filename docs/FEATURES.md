@@ -1,6 +1,6 @@
 # OpenClaw Model Bridge — 系统特性一览表
 
-> v37.9.339 (2026-09-02) | **6384 tests** / 193 suites / 0 fail | **12 providers** (primary doubao_21) | **41 active jobs** | 5 SLO metrics | preflight full checks | notify 推送（默认 Discord）| **91 governance invariants / 23 meta-rules / 839 checks / 14 MRD scanners** | security 98/100 | 28 blood-lesson case docs
+> v37.9.341 (2026-09-02) | **6384 tests** / 193 suites / 0 fail | **12 providers** (primary doubao_21) | **41 active jobs** | 5 SLO metrics | preflight full checks | notify 推送（默认 Discord）| **91 governance invariants / 23 meta-rules / 839 checks / 14 MRD scanners** | security 98/100 | 28 blood-lesson case docs
 
 | 分类 | 特性 | 说明 | 核心文件 |
 |------|------|------|----------|
@@ -14,9 +14,9 @@
 | | Kimi K2.5 (Moonshot) | 1T MoE 视觉+256K | MOONSHOT_API_KEY |
 | | MiniMax M2.7 | 视觉+200K+131K输出 | MINIMAX_API_KEY |
 | | GLM-5 (Zhipu) | 744B MoE + GLM-5V-Turbo | GLM_API_KEY |
-| | **Kimi K3**（`doubao` 槽位） | ai-tokenhub，V37.9.339 槽位换模型 kimi-k3-260716（史：Doubao Seed 2.0 Pro V37.9.52 接入 → V37.9.290 迁 ai-tokenhub），declared 待复测 | `providers.d/doubao_provider.py` (DOUBAO_API_KEY，历史 env 名) |
-| | **DeepSeek-V4-Pro** | 满血版 GA(ai-tokenhub, R1 reasoning, **现 fallback 链首**, V37.9.339 换 GA 模型 declared 待复测) + 量化版(self-host, feature_verified, w4a8 偶发乱码注记)，V37.9.201/204 plugin 接入 | `providers.d/deepseek*_provider.py` |
-| | **GLM-5.3 coding** | ai-tokenhub（V37.9.290 迁移 → V37.9.339 换版本 glm-5-3-260814），coding 场景按需调用(`?provider=glm5_coding`)，declared 待复测，V37.9.254 plugin 接入 | `providers.d/glm5_coding_provider.py` (GLM5_API_KEY) |
+| | **Doubao Seed 2.1 Pro @ ai-tokenhub**（`doubao` 槽位） | V37.9.341：与 primary `doubao_21` **同模型不同平台** = 链上唯一的平台冗余（Ark 故障时同模型仍可达）；史：2.0 Pro V37.9.52 接入 → V37.9.290 迁 ai-tokenhub → V37.9.339 曾换 Kimi K3 → V37.9.341 按 key scope 实证更正。平台维度 declared 待复测 | `providers.d/doubao_provider.py` (DOUBAO_API_KEY，历史 env 名) |
+| | **DeepSeek-V4-Pro** | 满血版 GA(ai-tokenhub, R1 reasoning, **现 fallback 链首**, V37.9.340 E2E text+reasoning feature_verified) + 量化版(self-host, feature_verified, w4a8 偶发乱码注记)，V37.9.201/204 plugin 接入 | `providers.d/deepseek*_provider.py` |
+| | **GLM-5.3 coding** | ai-tokenhub（V37.9.290 迁移 → V37.9.339 换版本 glm-5-3-260814），coding 场景按需调用(`?provider=glm5_coding`)，V37.9.340 E2E text+reasoning feature_verified，V37.9.254 plugin 接入 | `providers.d/glm5_coding_provider.py` (GLM5_API_KEY) |
 | **自定义工具** | search_kb | 混合检索：语义搜索(embedding) + 关键词补充 + source/时间过滤 → followup LLM 解读 | `proxy_filters.py` 注入 |
 | | data_clean | 数据清洗：7 种操作(dedup/trim/fix_dates 等)、5 种格式(CSV/JSON/Excel 等) | `data_clean.py` |
 | **本地 AI** | KB RAG 语义搜索 | sentence-transformers 384 维 50+ 语言，零 API 调用 | `local_embed.py` + `kb_embed.py` + `kb_rag.py` |

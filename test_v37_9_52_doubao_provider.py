@@ -83,10 +83,15 @@ class TestDoubaoProviderRegistration(unittest.TestCase):
         self.assertEqual(d.api_key_env, "DOUBAO_API_KEY")
         self.assertEqual(d.base_url, "https://ai-tokenhub.com/api/v1")
         self.assertEqual(d.auth_style, "bearer")
-        # V37.9.339: registry name `doubao` 是历史槽位名, display_name 必须如实说当前模型 (Kimi K3)
-        self.assertIn("Kimi K3", d.display_name)
-        self.assertNotIn("Doubao", d.display_name, "V37.9.339 槽位已换 Kimi K3, display 不得再说 Doubao")
+        # V37.9.341: 槽位服务 doubao-seed-2-1-pro-260628 @ ai-tokenhub。display_name 必须
+        # 同时说清版本 (2.1 非 2.0) 与平台 (ai-tokenhub 非 Ark) — 与 doubao_21 同模型不同平台,
+        # 两行在兼容性矩阵里必须能被人区分开 (V37.9.341 平台冗余设计)。
+        self.assertIn("2.1", d.display_name, "必须标明是 2.1 (V37.9.341 更正, 非历史 2.0)")
         self.assertIn("ai-tokenhub", d.display_name)
+        d21 = self.providers.get_registry().get("doubao_21")
+        self.assertEqual(d.model_id, d21.model_id, "V37.9.341 刻意同模型 (平台冗余), 见 plugin docstring")
+        self.assertNotEqual(d.display_name, d21.display_name, "同模型两平台的 display 必须可区分")
+        self.assertNotEqual(d.base_url, d21.base_url, "平台冗余的前提 = base_url 不同")
 
 
 class TestDoubaoEndpointIdHandling(unittest.TestCase):
@@ -99,11 +104,11 @@ class TestDoubaoEndpointIdHandling(unittest.TestCase):
         os.environ.pop("ARK_ENDPOINT_ID", None)
 
     def test_dev_env_no_endpoint_id_uses_fallback(self):
-        """缺 env → 用公开模型号 kimi-k3-260716 (V37.9.339 槽位换模型 Kimi K3)."""
+        """缺 env → 用公开模型号 doubao-seed-2-1-pro-260628 (V37.9.341 槽位更正)."""
         os.environ.pop("ARK_ENDPOINT_ID", None)
         providers = _reload_providers()
         d = providers.get_registry().get("doubao")
-        self.assertEqual(d.model_id, "kimi-k3-260716")
+        self.assertEqual(d.model_id, "doubao-seed-2-1-pro-260628")
 
     def test_env_endpoint_id_ignored_v290(self):
         """V37.9.290: 平台切换 ai-tokenhub 后 ep- 间接层退役 — env 必须被忽略
@@ -111,21 +116,21 @@ class TestDoubaoEndpointIdHandling(unittest.TestCase):
         os.environ["ARK_ENDPOINT_ID"] = "ep-20260101000000-dummy0"
         providers = _reload_providers()
         d = providers.get_registry().get("doubao")
-        self.assertEqual(d.model_id, "kimi-k3-260716")
+        self.assertEqual(d.model_id, "doubao-seed-2-1-pro-260628")
 
     def test_empty_endpoint_id_uses_fallback(self):
         """空字符串 → fallback (不能让空 model_id 进合约)."""
         os.environ["ARK_ENDPOINT_ID"] = ""
         providers = _reload_providers()
         d = providers.get_registry().get("doubao")
-        self.assertEqual(d.model_id, "kimi-k3-260716")
+        self.assertEqual(d.model_id, "doubao-seed-2-1-pro-260628")
 
     def test_whitespace_endpoint_id_uses_fallback(self):
         """空白字符串 → fallback (防 env 配置失误)."""
         os.environ["ARK_ENDPOINT_ID"] = "   "
         providers = _reload_providers()
         d = providers.get_registry().get("doubao")
-        self.assertEqual(d.model_id, "kimi-k3-260716")
+        self.assertEqual(d.model_id, "doubao-seed-2-1-pro-260628")
 
 
 class TestDoubaoCapabilities(unittest.TestCase):
@@ -139,10 +144,11 @@ class TestDoubaoCapabilities(unittest.TestCase):
     def test_text_capability(self):
         self.assertTrue(self.d.capabilities.text)
 
-    def test_vision_not_declared_v339(self):
-        # 史: Doubao 2.0 多模态 True → V37.9.339 槽位换 Kimi K3, image_url 透传未实测不声明
-        # (V37.9.218 vision fallback 会把 image 请求路由到声明 vision 的 fallback, under-declare 安全)
-        self.assertFalse(self.d.capabilities.vision)
+    def test_vision_capability(self):
+        # V37.9.341: 同 doubao_21 模型 (Ark 侧 V37.9.217 E2E vision 实证) → 声明 vision;
+        # 本平台 (ai-tokenhub Bifrost) 的 image_url 透传未实测 → verified_vision 保持 False
+        self.assertTrue(self.d.capabilities.vision)
+        self.assertFalse(self.d.capabilities.verified_vision, "平台维度未实测")
 
     def test_tool_calling_capability(self):
         self.assertTrue(self.d.capabilities.tool_calling)
@@ -150,9 +156,9 @@ class TestDoubaoCapabilities(unittest.TestCase):
     def test_streaming_capability(self):
         self.assertTrue(self.d.capabilities.streaming)
 
-    def test_json_mode_not_declared_v339(self):
-        # 史: Doubao 2.0 json_mode True → V37.9.339 Kimi K3 未实测不声明 (V37.9.254 over-declare 教训)
-        self.assertFalse(self.d.capabilities.json_mode)
+    def test_json_mode_capability(self):
+        # V37.9.341: 同 doubao_21 模型声明 (模型本体能力)
+        self.assertTrue(self.d.capabilities.json_mode)
 
     def test_no_audio_no_video(self):
         self.assertFalse(self.d.capabilities.audio)
@@ -170,13 +176,16 @@ class TestDoubaoCapabilities(unittest.TestCase):
         # 仅 verified_fallback 仍未实测 (V37.9.56+ 生产真 fire 后 flip)
         self.assertFalse(c.verified_fallback, "verified_fallback 未在生产 fire (待 V37.9.56+)")
 
-    def test_default_model_text_only_v339(self):
-        """史: doubao seed 2.0 多模态 (text+vision) → V37.9.339 槽位换 Kimi K3 保守只声明 text."""
+    def test_default_model_is_vision_capable(self):
+        """V37.9.341: 槽位模型 = Doubao Seed 2.1 Pro 单模型多模态, 默认 model 同时承担 text + vision
+        (→ vl_model_id 非空 → V37.9.218 capability-aware vision fallback 可用本槽位)."""
         dm = self.d.default_model()
         self.assertIsNotNone(dm)
-        self.assertEqual(dm.modalities, ["text"])
+        self.assertIn("text", dm.modalities)
+        self.assertIn("vision", dm.modalities)
         self.assertTrue(dm.is_default)
-        self.assertFalse(dm.is_vision)
+        self.assertTrue(dm.is_vision)
+        self.assertTrue(self.d.vl_model_id, "vision fallback 依赖 vl_model_id 非空")
 
 
 class TestDoubaoInFallbackChain(unittest.TestCase):
@@ -264,8 +273,8 @@ class TestSourceLevelGuards(unittest.TestCase):
 
     def test_fallback_model_id_is_public_identifier(self):
         """fallback model_id 必须是公开 model 标识符, 不得是用户专属 endpoint ID."""
-        # 公开标识符 kimi-k3-260716 可以入代码 (V37.9.339 槽位换模型)
-        self.assertIn("kimi-k3-260716", self.plugin_src)
+        # 公开标识符 doubao-seed-2-1-pro-260628 可以入代码 (V37.9.341 槽位更正)
+        self.assertIn("doubao-seed-2-1-pro-260628", self.plugin_src)
         # 用户专属 endpoint ID 不得入代码 (即便用户豁免也守 public repo 安全底线)
         self.assertNotIn(
             "ep-20260101000000-dummy0", self.plugin_src,

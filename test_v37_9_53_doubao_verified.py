@@ -90,13 +90,18 @@ class TestDoubaoVerifiedFlagsV9_53(unittest.TestCase):
             "V37.9.339 换模型后 verified_text 必须重置 False 待 Kimi K3 复测",
         )
 
-    def test_reasoning_not_declared_v339(self):
-        """史: V37.9.53 doubao seed 2.0 reasoning=True (响应含 reasoning_content)。
-        V37.9.339 槽位换 Kimi K3: 无一手文档 → 不声明 (未声明 ≠ 不支持, 探针后翻案,
-        镜像 glm5 V37.9.258→291 先例)。"""
-        self.assertFalse(
+    def test_reasoning_is_true(self):
+        """V37.9.53 doubao seed 2.0 reasoning=True (响应含 reasoning_content)。
+        V37.9.339 曾换 Kimi K3 不声明 → V37.9.341 更正为 doubao-seed-2-1-pro-260628
+        (与 doubao_21 同模型, Ark 侧 V37.9.217 E2E reasoning_tokens=255 实证) → 恢复声明;
+        verified_reasoning 仍 False (ai-tokenhub 平台维度未实测)。"""
+        self.assertTrue(
             self.d.capabilities.reasoning,
-            "V37.9.339 Kimi K3 reasoning 未实测不声明 (原则 #23)",
+            "V37.9.341 槽位模型是推理模型, reasoning 必须 True",
+        )
+        self.assertFalse(
+            self.d.capabilities.verified_reasoning,
+            "平台维度 (ai-tokenhub) 未实测, verified 保持 False",
         )
 
     def test_verified_reasoning_reset_v339(self):
@@ -139,11 +144,11 @@ class TestDoubaoCapScoreRanking(unittest.TestCase):
     def test_doubao_cap_score_specific_value(self):
         doubao = self.reg.get("doubao")
         score = self.reg._capability_score(doubao)
-        # 史: Ark 10→12→16 → V37.9.290 重置 6 → V37.9.291 半升档 10 → V37.9.339 槽位
-        # 换 Kimi K3 保守声明 (text/tool_calling/streaming 3 base + 0 verified) = 3
+        # 史: Ark 10→12→16 → V37.9.290 重置 6 → V37.9.291 半升档 10 → V37.9.339 Kimi K3
+        # 保守声明 3 → V37.9.341 更正为 doubao-2.1 全能力声明 (6 base) + 0 verified = 6
         self.assertEqual(
-            score, 3,
-            f"V37.9.339 Kimi K3 保守声明 cap_score 锁定 3, got {score}",
+            score, 6,
+            f"V37.9.341 doubao-2.1 声明 + 0 verified, cap_score 锁定 6, got {score}",
         )
 
     def test_gemini_cap_score_unchanged(self):
@@ -212,9 +217,9 @@ class TestFallbackChainDoubaoFirst(unittest.TestCase):
         # (保留原意, 去脆弱位置字面量)。
         chain = self.reg.build_fallback_chain("qwen")
         names = [p.name for p in chain]
-        # V37.9.291: doubao(2.0) 半升档回到 gemini 之前; V37.9.339 槽位换 Kimi K3 (declared 3 < 9)
-        # 落到 gemini 之后 — 原意 "verified doubao 排 gemini 之前" 由 doubao_21 (16) 承担。
-        # 生产不受影响: FALLBACK_ORDER env 权威 (V37.9.218)。
+        # V37.9.291: doubao(2.0) 半升档回到 gemini 之前; V37.9.339/341 槽位 declared
+        # (cap_score 6 < gemini 9) 落到 gemini 之后 — 原意 "verified doubao 排 gemini 之前"
+        # 由 doubao_21 (16) 承担。生产不受影响: FALLBACK_ORDER env 权威 (V37.9.218)。
         self.assertLess(names.index("doubao_21"), names.index("gemini"),
                         f"verified doubao_21 应排 gemini 之前, got {names}")
         self.assertGreater(names.index("doubao"), names.index("gemini"),
@@ -274,12 +279,12 @@ class TestSourceLevelGuardsV9_53(unittest.TestCase):
         )
         self.assertIn("V37.9.339", self.plugin_src)
 
-    def test_doubao_plugin_reasoning_not_declared_v339(self):
-        # 史: V37.9.53 reasoning=True (Doubao 2.0) → V37.9.339 Kimi K3 未实测不声明
+    def test_doubao_plugin_reasoning_true(self):
+        # 史: V37.9.53 reasoning=True → V37.9.339 Kimi K3 不声明 → V37.9.341 更正回 True
         self.assertRegex(
             self.plugin_src,
-            r"(?<!verified_)reasoning\s*=\s*False",
-            "V37.9.339 Kimi K3 槽位 reasoning 未实测不声明 (原则 #23)",
+            r"(?<!verified_)reasoning\s*=\s*True",
+            "V37.9.341 doubao-2.1 槽位必须声明 reasoning=True",
         )
 
     def test_doubao_plugin_verified_reasoning_reset_v339(self):
