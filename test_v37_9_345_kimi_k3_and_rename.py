@@ -94,18 +94,24 @@ class TestKimiK3Registration(unittest.TestCase):
                          {"text", "tool_calling", "streaming", "reasoning"})
         self.assertIn("V37.9.346", c.tier_evidence)
 
-    def test_unprobed_features_stay_false_v346(self):
-        """🔴 「探针通过了」≠「全绿」: vision/json_mode 从未探测过, 必须仍是 False。
+    def test_vision_stays_false_probe_confirmed_v347(self):
+        """vision 保守声明经 V37.9.347 探针坐实: image_url → HTTP 400 InvalidParameter。
 
-        V37.9.342 忍住不翻 verified_text 的同款纪律 —— 证据标准要在证据看起来
-        很好的时候才真正起作用。
+        V37.9.218 capability-aware vision fallback 会把 image 请求路由到声明
+        vision 的 provider —— 声明错了会打断多模态降级链, 所以这一格必须留 False。
         """
         c = self.reg.get("kimi_k3").capabilities
-        feats = c.verified_features()
-        self.assertNotIn("vision", feats)
-        self.assertNotIn("fallback", feats, "未真在生产 fallback 链接管过")
-        self.assertFalse(c.json_mode, "json_mode 未探测不得声明")
-        self.assertFalse(c.vision, "vision 未探测不得声明")
+        self.assertFalse(c.vision, "V37.9.347 探针 400 坐实: K3 不接受 image_url")
+        self.assertNotIn("vision", c.verified_features())
+        self.assertEqual([m for m in self.reg.get("kimi_k3").models if m.is_vision], [])
+        self.assertNotIn("fallback", c.verified_features(), "未真在生产 fallback 链接管过")
+
+    def test_json_mode_flipped_by_probe_v347(self):
+        """json_mode 第二次翻案: 保守 False → 探针实测纯 JSON 可解析 → True。"""
+        c = self.reg.get("kimi_k3").capabilities
+        self.assertTrue(c.json_mode,
+                        "V37.9.347 实测 response_format=json_object 返回纯 JSON")
+        self.assertIn("V37.9.347", c.tier_evidence)
 
     def test_capability_declaration_matches_probe_evidence(self):
         """声明必须与探针证据一致 (V37.9.254 over-declare / V37.9.346 reasoning 翻案)。"""
@@ -113,8 +119,9 @@ class TestKimiK3Registration(unittest.TestCase):
         self.assertTrue(c.text and c.tool_calling and c.streaming, "OpenAI /v1 基线")
         self.assertTrue(c.reasoning,
                         "V37.9.346 实测 reasoning_tokens=190 → 保守 False 已翻案")
-        for attr in ("vision", "json_mode"):
-            self.assertFalse(getattr(c, attr), f"{attr} 未实测不得声明")
+        self.assertTrue(c.json_mode,
+                        "V37.9.347 实测纯 JSON 可解析 → 保守 False 已翻案")
+        self.assertFalse(c.vision, "V37.9.347 实测 HTTP 400 → 保守 False 坐实")
 
     def test_vision_off_means_no_vl_routing(self):
         """V37.9.218 capability-aware vision fallback: 不声明 vision → vl_model_id 空,
