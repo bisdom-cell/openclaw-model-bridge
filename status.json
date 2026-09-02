@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-02 13:43:31",
+  "updated": "2026-09-02 14:40:45",
   "updated_by": "full_regression",
   "priorities": [
     {
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-09-02",
+      "what": "V37.9.349-hotfix2: bash -lc 复测 S2 走 key 得引用 0(真实测量) / PyPI TLS EOF 断连(交互 shell 上一轮通) → tls_failed 单独归类 + 原因截 48 + 传输层失败 WARN 附 python/OpenSSL 版本; 根因(PATH→不同 python3/SSL 库 vs 瞬态)待 Mac Mini 两条对照命令定性, 刻意不加重试",
+      "by": "claude_code"
+    },
     {
       "date": "2026-09-02",
       "what": "V37.9.349-hotfix: Mac Mini 首跑 S2 http_429 → influence_metrics 429 重试恰一次 + :anon/:key 后缀; health_check.sh 补 source .bash_profile‖.env_shared 标准行(手跑=cron env). PyPI 周下载 2 / ⭐10 fork 1 首次实测入眼",
@@ -173,11 +178,6 @@
       "date": "2026-08-30",
       "what": "V37.9.335 Windows 侧安装收官: 新版脚本落地重跑 + 05:00 任务注册成功(12h 时限, README 3h 修正); 剩首轮全量收尾观察",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-08-30",
-      "what": "V37.9.335 首跑落地三修: drvfs EPERM hotfix(-rtz --inplace) + ZeroTier 中继破案(办公室封对外 UDP,dig 超时+TUNNELED 实证,36KB/s 天花板) + ssd_backup 周日最新一份重构+3份剪枝+FORCE 开关+/tmp flock 单实例锁; 守卫 16→19 + sabotage 双连精确开火",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -226,7 +226,7 @@
     "security_score": "98/100 (98.0%)",
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB",
     "slo": {
-      "checked_at": "2026-09-02 13:27:43",
+      "checked_at": "2026-09-02 14:22:25",
       "all_ok": true,
       "judged_count": 1,
       "na_count": 4,
@@ -344,7 +344,7 @@
         "item": "【ai_leaders_x 去留 · 需 Mac Mini 数据非印象】该 job 自 V37.9.108 起被 blogs/bsky 替代、每日 9-17×429 WARN 进 watchdog（告警噪声面），但产出是否真为零未实测。判据命令: for f in ~/.openclaw/jobs/ai_leaders_x/cache/last_run.json; do cat $f; done; grep -c \"new\\\":[1-9]\" ~/.openclaw/logs/jobs/ai_leaders_x.log 近 7 天 —— 若 7 天 new 总和 ≤3 → 下版 enabled:false + watchdog JOBS 摘除 + crontab_safe.sh remove（代码保留备 revert，openclaw_run/pwc 先例）；若仍有稳定产出则保留并把 tier core→auxiliary",
         "added": "2026-09-02"
       },
-      "[2026-09-02 V37.9.349 → hotfix] Mac Mini 首跑(交互 zsh 手跑=匿名 S2): 引用 ⚠️不可达(http_429) | PyPI 周下载 2 (首次) | ⭐ 10 fork 1 — 两源真值已到, S2 走匿名池 429. hotfix 后被动验证: (a) 合并同步后 `bash -lc 'python3 ~/openclaw-model-bridge/influence_metrics.py'` 应显示引用 N (首次) 或 http_429:key(=key 也被限流, 与 11:00 semantic_scholar job 错开的周一 09:00 cron 应无此问题); (b) 周一 09-07 09:00 周报第 10 段三源真值 + `python3 status_update.py --read | python3 -c \"import json,sys;print(json.load(sys.stdin)['quality'].get('influence',{}).get('latest'))\"` 非 None; 原因码 :anon = 没带 key(env 未装载) / :key = key 限流"
+      "[2026-09-02 V37.9.349 → hotfix2] Mac Mini 两轮实录: 交互 zsh 手跑 PyPI 周下载 2/⭐10 fork 1 但 S2 匿名 429; `bash -lc` 复测 S2 走 key 得引用 0(真实测量值) 但 PyPI TLS EOF 断连. 待用户定性 PyPI: (1) 对照两条 shell 路径 python/OpenSSL 是否相同: `bash -lc 'command -v python3; python3 -c \"import ssl,sys;print(sys.executable, ssl.OPENSSL_VERSION)\"'` vs 交互 shell 同一句; (2) `bash -lc 'python3 ~/openclaw-model-bridge/influence_metrics.py'` 看 PyPI 是否复现(hotfix2 后 stderr WARN 会带 python=/OpenSSL hint). 若两路径 python 不同且 bash -lc 是系统 LibreSSL → health_check 显式用 Homebrew python3(镜像 mm_index MM_PYTHON); 若相同且不复现 = 瞬态登记观察不加机器. 周一 09-07 09:00 周报第 10 段为最终验收."
     ],
     "open_prs": [],
     "blocked_on": "",
@@ -352,14 +352,14 @@
   },
   "quality": {
     "security_score": 98,
-    "test_count": 6480,
-    "last_regression": "2026-09-02 13:42 pass",
+    "test_count": 6484,
+    "last_regression": "2026-09-02 14:40 pass",
     "coverage_pct": 0,
     "security_score_time": "2026-07-20 01:07",
     "test_suites": 196,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
-    "version": "0.37.9.174",
+    "version": "0.37.9.175",
     "observer": {}
   },
   "incidents": [
