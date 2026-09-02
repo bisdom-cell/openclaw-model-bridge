@@ -342,7 +342,8 @@ class TestWatchdogContract(unittest.TestCase):
         pat = _watchdog_err_pattern()
         self.assertIsNotNone(pat.search("HTTP 403 something"), "反向证据: 判据本身必须能抓 HTTP 4xx")
         self.assertIsNotNone(pat.search("ERROR: x"))
-        codes = ["http_403", "http_429", "http_503", "connect_failed:Tunnel_connection_failed",
+        codes = ["http_403", "http_429", "http_429:anon", "http_429:key", "http_503",
+                 "connect_failed:Tunnel_connection_failed",
                  "bad_json", "schema_drift:citationCount", "connect_failed:timeout"]
         for c in codes:
             self.assertIsNone(pat.search(c), f"原因码 {c!r} 不得匹配 watchdog err_pattern")
@@ -393,6 +394,99 @@ class TestWatchdogContract(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
+# 4b. V37.9.349-hotfix: 429 重试恰一次 + anon/key 可诊断后缀 (Mac Mini 首跑 S2 http_429 实录)
+# ---------------------------------------------------------------------------
+class _Resp:
+    def __init__(self, body):
+        self.body = body
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+    def read(self):
+        return self.body
+
+
+def _patched_urlopen(script):
+    """script: list of exception-or-bytes per attempt; returns (restore_fn, calls_list)."""
+    import urllib.request
+    calls = []
+    orig = urllib.request.urlopen
+
+    def fake(req, timeout=8):
+        item = script[len(calls)]
+        calls.append(req)
+        if isinstance(item, Exception):
+            raise item
+        return _Resp(item)
+    urllib.request.urlopen = fake
+    return (lambda: setattr(urllib.request, "urlopen", orig)), calls
+
+
+def _http(code):
+    import urllib.error
+    return urllib.error.HTTPError("u", code, "x", {}, None)
+
+
+class TestRetry429Hotfix(unittest.TestCase):
+
+    def test_429_then_ok_recovers_with_one_sleep(self):
+        restore, calls = _patched_urlopen([_http(429), b'{"citationCount": 4, "influentialCitationCount": 2}'])
+        slept = []
+        try:
+            obj, err = im._get_json("https://api.semanticscholar.org/x", _sleep=slept.append)
+        finally:
+            restore()
+        self.assertIsNone(err)
+        self.assertEqual(obj["citationCount"], 4)
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(slept, [im.RETRY_429_SLEEP_SEC])
+
+    def test_429_twice_gives_anon_suffix_and_stops(self):
+        restore, calls = _patched_urlopen([_http(429), _http(429), _http(429)])
+        try:
+            obj, err = im._get_json("https://x/", _sleep=lambda s: None)
+        finally:
+            restore()
+        self.assertIsNone(obj)
+        self.assertEqual(err, "http_429:anon")
+        self.assertEqual(len(calls), 2, "恰一次重试, 不得无限重试")
+
+    def test_429_with_key_says_key(self):
+        restore, _ = _patched_urlopen([_http(429), _http(429)])
+        try:
+            _, err = im._get_json("https://x/", headers={"x-api-key": "k"}, _sleep=lambda s: None)
+        finally:
+            restore()
+        self.assertEqual(err, "http_429:key")
+        restore, _ = _patched_urlopen([_http(429), _http(429)])
+        try:
+            _, err = im._get_json("https://x/", headers={"Authorization": "Bearer t"}, _sleep=lambda s: None)
+        finally:
+            restore()
+        self.assertEqual(err, "http_429:key")
+
+    def test_non_429_errors_not_retried(self):
+        for code in (403, 500, 503):
+            restore, calls = _patched_urlopen([_http(code), b"{}"])
+            slept = []
+            try:
+                _, err = im._get_json("https://x/", _sleep=slept.append)
+            finally:
+                restore()
+            self.assertEqual(err, "http_%d" % code)
+            self.assertEqual(len(calls), 1, f"{code} 不得重试 (预算)")
+            self.assertEqual(slept, [])
+
+    def test_retry_budget_fits_safe_call(self):
+        """最坏: 三源各一次 429 秒回 + 重试超时 ≈ 3×(2+8)=30s 上限边缘; 常态 (仅 S2 429) ≈ 2+8+8+8=26s."""
+        self.assertLessEqual(im.RETRY_429_SLEEP_SEC + im.HTTP_TIMEOUT_SEC * 3, 30)
+
+
+# ---------------------------------------------------------------------------
 # 5. 接线 + 日落法
 # ---------------------------------------------------------------------------
 class TestHealthCheckWiring(unittest.TestCase):
@@ -415,6 +509,16 @@ class TestHealthCheckWiring(unittest.TestCase):
         rep = self.src[self.src.find('REPORT="📊'):self.src.find('✅ 周报完毕')]
         self.assertIn("${INFLUENCE_BLOCK}", rep)
         self.assertLess(rep.find("💾 外挂 SSD"), rep.find("${INFLUENCE_BLOCK}"))
+
+    def test_health_check_sources_env_like_siblings(self):
+        """V37.9.349-hotfix: 手跑与 cron 看到同一份 env (S2_API_KEY 在 .env_shared) — 标准行与
+        daily_observer/kb_dream/kb_evening 逐字相同 (MR-8)."""
+        std = 'source "$HOME/.bash_profile" 2>/dev/null || source "$HOME/.env_shared" 2>/dev/null || true'
+        self.assertIn(std, self.code)
+        for sib in ("daily_observer.sh", "kb_dream.sh", "kb_evening.sh"):
+            self.assertIn(std, _exec_lines(_read(os.path.join(REPO, sib))), sib)
+        # 必须在第 10 段之前 (env 先于消费)
+        self.assertLess(self.code.find(std), self.code.find("influence_metrics.py"))
 
     def test_header_documents_tenth_segment(self):
         self.assertIn("V37.9.349", self.src[:3000])
