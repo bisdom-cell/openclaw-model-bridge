@@ -25,16 +25,22 @@
 `FALLBACK_ORDER` env 控制 (V37.9.218 权威), 或 `?provider=kimi_k3` 显式调用。
 
 诚实语义 (原则 #23 — 只声明实测过的能力):
-- **verification_tier = declared**, verified_* 全 False —— 只有 key scope 被实测
-  (V37.9.344: `/v1/models` 返回 kimi-k3-260716), **模型本身一次都没被调用过**。
-- capability **保守**只声明 OpenAI /v1 基线 (text / tool_calling / streaming):
-  无 Kimi K3 一手文档 → 未声明 ≠ 不支持, 探针实测后翻案 (镜像 glm5_coding
-  V37.9.258→291 reasoning 翻案先例)。
+- **V37.9.346 Mac Mini E2E 实测 3/3 通过 → declared 升 feature_verified**:
+  text (finish_reason=stop + content "$0.05" 正确) / tool_calling (finish_reason=tool_calls
+  + get_weather{"city":"Tokyo"}) / streaming (478 SSE 行)。
+- 🔴 **reasoning 翻案**: V37.9.345 保守声明 `reasoning=False` (无一手文档), 但 text 探针
+  实测返回 `reasoning` 字段 + `reasoning_tokens=190` → **K3 有独立 reasoning 通道**,
+  声明改 True + verified_reasoning=True。这正是「未声明 ≠ 不支持, 探针实测后翻案」的
+  兑现 (镜像 glm5_coding V37.9.258→291 同款先例)。
+- **vision / json_mode 未探测 → 保持 False** (「探针通过了」不等于「全绿」,
+  V37.9.342 忍住不翻 verified_text 的同款纪律; 守卫用 assertNotIn 钉死)。
 - **vision 刻意不声明**: V37.9.218 capability-aware vision fallback 会把 image 请求路由到
   声明 vision 的 fallback; 未实测的 image_url 透传若 400 会打断多模态降级链 —— under-declare
   是安全方向 (V37.9.339 同款判断)。
-- **reasoning_off_body 不声明 (None)**: `thinking` 片段是 Ark/DeepSeek 家族参数, Kimi 未实测;
-  V37.9.224 已登记「未测参数可能 400 打断 fallback」的风险 → 不注入 = Kimi 以默认行为服务。
+- **reasoning_off_body 仍不声明 (None)**: 即便 V37.9.346 证实 K3 有 reasoning 通道, `thinking`
+  片段是 Ark/DeepSeek 家族的**关-reasoning 请求体参数**, 与「有没有 reasoning」是两件事 ——
+  未在 Kimi 实测, V37.9.224 已登记「未测参数可能 400 打断 fallback」→ 不注入。
+  (kimi_k3 不在生产 FALLBACK_ORDER 内, 无批量路径会撞上 reasoning 延迟。)
 - context_window=262144: Kimi 家族基线 (built-in kimi-k2.5 同值), K3 待实测。
 """
 from providers import BaseProvider, ModelInfo, ProviderCapabilities
@@ -66,16 +72,16 @@ class KimiK3Provider(BaseProvider):
         tool_calling=True,     # OpenAI /v1 基线
         streaming=True,        # OpenAI /v1 基线
         json_mode=False,       # 未实测不声明 (V37.9.254 over-declare 教训)
-        reasoning=False,       # 未实测不声明 (K3 若有 reasoning 通道, 探针后翻案)
+        reasoning=True,        # V37.9.346 实测翻案: reasoning 字段 + reasoning_tokens=190
         context_window=262144,
         max_output_tokens=16384,
-        # 🔴 全 False: 只有 key scope 被实测, 模型一次都没被调用过 (原则 #23)
-        verified_text=False,
+        # V37.9.346 Mac Mini E2E: 只 flip 实测过的四项; vision/json_mode 未探测保持 False
+        verified_text=True,
         verified_vision=False,
-        verified_tool_calling=False,
-        verified_streaming=False,
-        verified_reasoning=False,
-        verified_fallback=False,
-        verification_tier="declared",
-        tier_note="2026-09-02 接入 (V37.9.345); 仅 key scope 实测 (/v1/models 含 kimi-k3-260716), 模型 E2E 待 Mac Mini",
+        verified_tool_calling=True,
+        verified_streaming=True,
+        verified_reasoning=True,
+        verified_fallback=False,   # 未真在生产 fallback 链中接管过
+        verification_tier="feature_verified",
+        tier_evidence="V37.9.346 Mac Mini E2E 3/3: text(stop + content '$0.05') / tool_calling(finish_reason=tool_calls + get_weather Tokyo) / streaming(478 SSE 行); reasoning 字段 + reasoning_tokens=190 证 reasoning 通道 (V37.9.345 保守 False 经实测翻案). vision/json_mode 未探测保持 False",
     )

@@ -174,14 +174,15 @@ class TestTierTableLines(unittest.TestCase):
         self.assertIn("**production_observed**（已退役出 fallback 链）", gemini)
 
     def test_declared_providers_use_derived_evidence(self):
-        """6 declared provider 各自一行, 走派生默认依据 (单一真理源, 退役合并行)。"""
+        """5 declared provider 各自一行, 走派生默认依据 (单一真理源, 退役合并行)。"""
         lines = _default_registry.tier_table_lines()
         declared = [l for l in lines if "**declared**" in l]
         # 史: V37.9.217 后 5 → V37.9.290 +2 → V37.9.291 回到 5 → V37.9.339 三槽位换模型
         # 全部重置 declared → 8 → V37.9.340 deepseek_full/glm5 E2E 升档 → 6 →
         # V37.9.342 doubao 槽位 ai-tokenhub E2E 升档 → 5 (回到 V37.9.217 的 5 个纯 declared)
         # → V37.9.345 新增第 13 个 provider kimi_k3 (declared, 未 E2E) → 6
-        self.assertEqual(len(declared), 6)
+        # → V37.9.346 kimi_k3 E2E 3/3 升 feature_verified → 5
+        self.assertEqual(len(declared), 5)
         for l in declared:
             self.assertIn("能力声明完整 + 合约校验通过，0/N 生产验证（无 API key 配置）", l)
 

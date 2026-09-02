@@ -21,7 +21,7 @@
 | Doubao Seed 2.1 Pro (ai-tokenhub) | doubao-seed-2-1-pro-260628 | text, vision | Yes | Yes | 262K | text, tool_calling, reasoning |
 | Doubao Seed 2.1 Pro (Volcengine Ark) | doubao-seed-2-1-pro-260628 | text, vision | Yes | Yes | 262K | text, vision, tool_calling, streaming, reasoning |
 | GLM-5.3 Coding (ai-tokenhub) | glm-5-3-260814 | text | Yes | Yes | 131K | text, reasoning |
-| Kimi K3 (ai-tokenhub) | kimi-k3-260716 | text | Yes | Yes | 262K | none |
+| Kimi K3 (ai-tokenhub) | kimi-k3-260716 | text | Yes | Yes | 262K | text, tool_calling, streaming, reasoning |
 
 插件接入：Doubao 经 `providers.d/doubao_provider.py`（V37 Provider Plugin Interface，V37.9.52 接入）。
 
@@ -44,7 +44,7 @@
 | Doubao Seed 2.1 Pro (ai-tokenhub) | **feature_verified**（2026-09-02 槽位更正 doubao-2.1 @ ai-tokenhub (V37.9.341) 后 E2E 升档 (V37.9.342 tool_calling+reasoning, V37.9.343 补 text)） | ai-tokenhub E2E 探针 2026-09-02 (V37.9.342, model=doubao-seed-2-1-pro-260628): tool_calling+reasoning 2/2 通过 (finish_reason=tool_calls + tool_calls 长度 1 + reasoning 字段填充, usage 466/94, 响应 model 回显本 model id = ai-tokenhub 路由正确)；V37.9.343 补跑不带 tools 的纯文本探针: content 4 字符 + finish_reason=stop + reasoning 字段, usage 76/247 → verified_text 达标 flip True (V37.9.342 那轮带 tools 故 content 为空, 够不着「有 content + finish_reason=stop」标准)；vision/streaming/json_mode 本平台未测; Ark 侧 doubao_21 的 5/5 证据不跨平台迁移 |
 | Doubao Seed 2.1 Pro (Volcengine Ark) | **production_observed** | 唯一 primary 承载全部生产流量 2026-07-02 起 (V37.9.222 B1 flip, 22+ 天 cron 周期零 provider 事故); B1 批量 thinking-off 注入实测大规模开火 (adapter.log 7654 次 @2026-07-24, dream curl 超时 0 复发); E2E 2026-07-02: text/vision/tool_calling/streaming/reasoning 5/5 (bat-ball 0.05 / vision 全命中 / tool_calls / chunk+[DONE] / reasoning_tokens=255) 无乱码；json_mode 声明未单测 / 未真生产 fallback 接管 |
 | GLM-5.3 Coding (ai-tokenhub) | **feature_verified**（2026-09-02 槽位换版本 GLM-5.3 (V37.9.339) 后 E2E 半升档 (text+reasoning, V37.9.340)） | ai-tokenhub E2E 探针 2026-09-02 (V37.9.340, model=glm-5-3-260814): text+reasoning 2/2 通过 (200 + finish_reason=stop + 250 字符 is_prime 代码 + reasoning 字段填充, usage 25/326, 响应 model 回显 5.3 名 = 路由正确)；tool_calling/streaming/json_mode 未在 5.3 探针保持 False; 5.2 时代史见 docstring |
-| Kimi K3 (ai-tokenhub) | **declared**（2026-09-02 接入 (V37.9.345); 仅 key scope 实测 (/v1/models 含 kimi-k3-260716), 模型 E2E 待 Mac Mini） | 能力声明完整 + 合约校验通过，0/N 生产验证（无 API key 配置） |
+| Kimi K3 (ai-tokenhub) | **feature_verified** | V37.9.346 Mac Mini E2E 3/3: text(stop + content '$0.05') / tool_calling(finish_reason=tool_calls + get_weather Tokyo) / streaming(478 SSE 行); reasoning 字段 + reasoning_tokens=190 证 reasoning 通道 (V37.9.345 保守 False 经实测翻案). vision/json_mode 未探测保持 False |
 
 ## 能力矩阵
 
@@ -62,7 +62,7 @@
 | Doubao Seed 2.1 Pro (ai-tokenhub) | Yes | Yes | — | — | Yes | Yes | Yes | Yes | 262K |
 | Doubao Seed 2.1 Pro (Volcengine Ark) | Yes | Yes | — | — | Yes | Yes | Yes | Yes | 262K |
 | GLM-5.3 Coding (ai-tokenhub) | Yes | — | — | — | Yes | Yes | — | Yes | 131K |
-| Kimi K3 (ai-tokenhub) | Yes | — | — | — | Yes | Yes | — | — | 262K |
+| Kimi K3 (ai-tokenhub) | Yes | — | — | — | Yes | Yes | — | Yes | 262K |
 
 > Reasoning 维度 V37.9.53 新增（doubao seed reasoning model 实证驱动）。cap_score: doubao_21 16 登顶 registry（V37.9.290 后 doubao 2.0 迁 ai-tokenhub 复测为 10；Qwen3 14；framework 视角 doubao_21 是 registry 最强 provider）。
 

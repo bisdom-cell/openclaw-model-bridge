@@ -86,18 +86,34 @@ class TestKimiK3Registration(unittest.TestCase):
         self.assertNotEqual(k3.api_key_env, builtin.api_key_env)
         self.assertNotEqual(k3.default_model().model_id, builtin.default_model().model_id)
 
-    def test_declared_tier_nothing_verified(self):
-        """原则 #23: 只有 key scope 被实测, 模型一次都没被调用过。"""
+    def test_feature_verified_after_e2e_v346(self):
+        """V37.9.346 Mac Mini E2E 3/3 → declared 升 feature_verified (只 flip 实测项)。"""
         c = self.reg.get("kimi_k3").capabilities
-        self.assertEqual(c.verification_tier, "declared")
-        self.assertEqual(c.verified_features(), [],
-                         "模型未 E2E → verified_* 必须全 False")
+        self.assertEqual(c.verification_tier, "feature_verified")
+        self.assertEqual(set(c.verified_features()),
+                         {"text", "tool_calling", "streaming", "reasoning"})
+        self.assertIn("V37.9.346", c.tier_evidence)
 
-    def test_conservative_capability_declaration(self):
-        """未实测能力不声明 (V37.9.254 over-declare 教训)。"""
+    def test_unprobed_features_stay_false_v346(self):
+        """🔴 「探针通过了」≠「全绿」: vision/json_mode 从未探测过, 必须仍是 False。
+
+        V37.9.342 忍住不翻 verified_text 的同款纪律 —— 证据标准要在证据看起来
+        很好的时候才真正起作用。
+        """
+        c = self.reg.get("kimi_k3").capabilities
+        feats = c.verified_features()
+        self.assertNotIn("vision", feats)
+        self.assertNotIn("fallback", feats, "未真在生产 fallback 链接管过")
+        self.assertFalse(c.json_mode, "json_mode 未探测不得声明")
+        self.assertFalse(c.vision, "vision 未探测不得声明")
+
+    def test_capability_declaration_matches_probe_evidence(self):
+        """声明必须与探针证据一致 (V37.9.254 over-declare / V37.9.346 reasoning 翻案)。"""
         c = self.reg.get("kimi_k3").capabilities
         self.assertTrue(c.text and c.tool_calling and c.streaming, "OpenAI /v1 基线")
-        for attr in ("vision", "json_mode", "reasoning"):
+        self.assertTrue(c.reasoning,
+                        "V37.9.346 实测 reasoning_tokens=190 → 保守 False 已翻案")
+        for attr in ("vision", "json_mode"):
             self.assertFalse(getattr(c, attr), f"{attr} 未实测不得声明")
 
     def test_vision_off_means_no_vl_routing(self):
@@ -108,7 +124,11 @@ class TestKimiK3Registration(unittest.TestCase):
         self.assertEqual(vl, [], "kimi_k3 不得提供 vision 模型")
 
     def test_no_reasoning_off_body(self):
-        """V37.9.224: thinking 片段是 Ark/DeepSeek 家族参数, 未测参数可能 400 打断 fallback。"""
+        """V37.9.224: thinking 片段是 Ark/DeepSeek 家族参数, 未测参数可能 400 打断 fallback。
+
+        🔴 V37.9.346 证实 K3 有 reasoning 通道后仍不声明 —— 「有没有 reasoning」与
+        「接不接受关-reasoning 的请求体参数」是两件事, 后者从未实测。
+        """
         self.assertIsNone(self.reg.get("kimi_k3").reasoning_off_body)
 
     def test_tier_consistency(self):
