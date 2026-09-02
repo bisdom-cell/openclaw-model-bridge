@@ -4247,7 +4247,7 @@ invariants:
               "V37.9.345: expert_escalation 必须把 DOUBAO_21_TOKENHUB_API_KEY 绑定到 EXPERT_API_KEY_ENV"
           assert 'os.environ.get("ARK_ENDPOINT_ID"' not in ee, \
               "V37.9.290: ep- 间接层已退役, 不得再读 ARK_ENDPOINT_ID env"
-      - name: "V37.9.96 runtime: --full mode proxy plist EnvironmentVariables 必含 ARK_API_KEY + ARK_ENDPOINT_ID"
+      - name: "V37.9.96 runtime: --full mode proxy plist EnvironmentVariables 必含 expert backend key (V37.9.290 Ark→ai-tokenhub 后由 ARK_API_KEY+ARK_ENDPOINT_ID 收敛为单一 DOUBAO_21_TOKENHUB_API_KEY, V37.9.345 改名)"
         check_type: python_assert
         code: |
           import plistlib
