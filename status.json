@@ -1,6 +1,6 @@
 {
-  "updated": "2026-09-02 09:01:19",
-  "updated_by": "full_regression",
+  "updated": "2026-09-02 12:39:32",
+  "updated_by": "slo_checker",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-09-02",
+      "what": "V37.9.349 影响力指标机械化: 纲领 §5 R1 三条手工采集命令(S2 引用/PyPI 下载/GitHub star)折进 health_check 每周一周报第 10 段「📣 影响力」(influence_metrics.py, 每源 FAIL-OPEN 不写 0, 历史落 status.json quality.influence 经锁, 零新 job/cron/状态文件); 38 单测 + watchdog err_pattern 契约",
+      "by": "claude_code"
+    },
     {
       "date": "2026-09-02",
       "what": "V37.9.348 信息源刷新：project_concepts.yaml 4 个月未更新补宪法级 #1 llm_observer 方向 + 纲领 T2/T3/T5/T6/T8 关键词；arxiv 标题查询退役 ChatGPT/GPT-4 加 Agentic/Tool Use/LLM-as-a-Judge/MCP/Agent Memory 等 + 候选池 50→80；S2/DBLP 关键词 12→16 可靠性族；github_trending 退役 diffusion 加 agentic/mcp-server/llm-evaluation；kb_deep_dive 权重补 observer/MCP/memory 族；rss_blogs +MCP 官方博客(dev 验证) +Hamel/Chip Huyen(Mac Mini 首跑验证)。零新 job（日落法）",
@@ -173,11 +178,6 @@
       "date": "2026-08-30",
       "what": "V37.9.335 Windows E 盘每日镜像交付: Mac Mini 项目生成数据全量 → E:\\openclaw-model-bridge 每天 05:00 增量刷新。架构=Windows 侧 WSL+rsync 拉取（Mac 零改动，05:00=Mac 夜间任务干净窗口）；7 模块清单路径全 grounded 自生产源码；每 --delete 配 --max-delete 防灾难镜像保险丝（V37.9.324 教训镜像版）；MR-8 跨文件契约守卫 15 单测 sabotage 四连全开火；quirk scanner 抓到自己的全角邻接 quirk 即修。待用户 Windows 4 步安装（windows/README.md）",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-08-30",
-      "what": "V37.9.334 Mac Mini 当日生产闭环: crontab 核对空输出 = 「每周一自动监控」自 V37.9.22 起从未存在的生产实证 → cron 首次真实添加（41→42 条与 registry 一致）+ auto_deploy 2min 同步运行时副本（双副本 marker 9/9）+ 手动首跑 0/6 触发且 [3/6][4/6] 真网络 ✅（NA 路径仅 dev egress 触发=按设计）+ preflight --full 87/0/1（唯一警告=KB 99% 当日新 note 今晚 cron 自动补齐）。剩下周一 09:10 首次自动运行被动观察",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -226,7 +226,7 @@
     "security_score": "98/100 (98.0%)",
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB",
     "slo": {
-      "checked_at": "2026-09-02 08:59:57",
+      "checked_at": "2026-09-02 12:39:32",
       "all_ok": true,
       "judged_count": 1,
       "na_count": 4,
@@ -343,7 +343,8 @@
       {
         "item": "【ai_leaders_x 去留 · 需 Mac Mini 数据非印象】该 job 自 V37.9.108 起被 blogs/bsky 替代、每日 9-17×429 WARN 进 watchdog（告警噪声面），但产出是否真为零未实测。判据命令: for f in ~/.openclaw/jobs/ai_leaders_x/cache/last_run.json; do cat $f; done; grep -c \"new\\\":[1-9]\" ~/.openclaw/logs/jobs/ai_leaders_x.log 近 7 天 —— 若 7 天 new 总和 ≤3 → 下版 enabled:false + watchdog JOBS 摘除 + crontab_safe.sh remove（代码保留备 revert，openclaw_run/pwc 先例）；若仍有稳定产出则保留并把 tier core→auxiliary",
         "added": "2026-09-02"
-      }
+      },
+      "[2026-09-02 V37.9.349] Mac Mini 被动验证 (health_check.sh 走 FILE_MAP; influence_metrics.py 经 $REPO_DIR 调仓库副本刻意不进 FILE_MAP): 下周一 09-07 09:00 health_check 周报应出现「📣 影响力: 引用 N (首次) | PyPI 周下载 N (首次) | ⭐ N (首次) fork N」— 若某源显示 ⚠️不可达(原因码) 把原因码发我(http_429=限流可加 S2_API_KEY/GITHUB_TOKEN 到 .env_shared; connect_failed=网络); 验证 `python3 status_update.py --read | python3 -c \"import json,sys;print(json.load(sys.stdin)[\\\"quality\\\"].get(\\\"influence\\\",{}).get(\\\"latest\\\"))\"` 非 None. 三源均不可达 → 本周不记录(诚实)而非 0"
     ],
     "open_prs": [],
     "blocked_on": "",

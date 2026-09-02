@@ -7853,7 +7853,7 @@ invariants:
       文件级 / D3 真调 openclaw 文件级, 精确区分"执行生产脚本" vs "python 扫描/bash -n 语法检查/数据引用").
       FAIL-CLOSE: 任一 violation exit 1. 复用 MR-23 不立新 MR (日落法 MR-22 sunset-over-accretion).
 
-      **首跑即抓真 bug**: test_health_check_v37_9_78 的 test_dev_env_emits_all_9_sections 跑
+      **首跑即抓真 bug**: test_health_check_v37_9_78 的 test_dev_env_emits_all_sections (V37.9.349 前名 test_dev_env_emits_all_9_sections) 跑
       bash health_check.sh 时只隔离了 HEALTH_JSON_PATH **漏了 push 路径** (无 HEALTH_PUSH 隔离 + 无
       OPENCLAW stub) → 治理 07:00 audit 在 Mac Mini 跑此测试会真发周报 + touch 真 ~/.kb marker
       (与 V37.9.110 test_movespeed 漏 incident 隔离同款 dev-passes/Mac-Mini-pollutes). 已修

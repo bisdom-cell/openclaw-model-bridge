@@ -9,11 +9,16 @@ V37.9.78 把 health_check.sh 从 v1.1 单薄状态汇报升级为"系统证据�
   - safe_call helper 函数统一封装外部工具调用
 
 测试设计:
-  - TestSourceGuards: declaration 层字面量守卫 (V37.9.78 marker / 9 段 emoji / 关键字段名)
+  - TestSourceGuards: declaration 层字面量守卫 (V37.9.78 marker / 10 段 emoji (V37.9.349) / 关键字段名)
   - TestSafeCallHelper: helper 函数行为契约 (timeout / 缺失 / fallback)
   - TestRuntimeBehavior: subprocess 真跑 v2.0 验证 8 段 + FAIL-OPEN 降级
   - TestReverseValidation: 反向 sabotage 验证守卫真有效
   - TestGovernanceLineage: 引用关键工具的版本血脉
+
+V37.9.349: 第 10 段「📣 影响力」(纲领 R1 机械化) — 9 段 pin 演进为 10 段; 隔离 env 补
+  HEALTH_INFLUENCE_RECORD=0 (影响力历史写 status.json, 治理 runtime 在 Mac Mini 跑本文件
+  时不得污染真 ~/.kb/status.json = V37.9.159 MR-9 家族第 N 实例)。行为/契约细节见
+  test_v37_9_349_influence_metrics.py。
 """
 import os
 import re
@@ -32,7 +37,7 @@ def _read_script():
 
 
 class TestSourceGuards(unittest.TestCase):
-    """声明层: V37.9.78 标记 + 9 段 emoji marker + 关键字段名."""
+    """声明层: V37.9.78 标记 + 10 段 emoji marker (V37.9.349 +📣) + 关键字段名."""
 
     def setUp(self):
         self.src = _read_script()
@@ -50,8 +55,8 @@ class TestSourceGuards(unittest.TestCase):
         self.assertIn("timeout 30", self.src,
                       "safe_call 必须含 timeout 30 防挂")
 
-    def test_nine_section_emoji_markers(self):
-        """9 段证据 emoji marker 必须都在 REPORT 拼装中出现."""
+    def test_ten_section_emoji_markers(self):
+        """10 段证据 emoji marker 必须都在 REPORT 拼装中出现 (V37.9.349: 9→10, +📣 影响力)."""
         required_markers = [
             ("🖥 服务",      "服务健康"),
             ("🤖 模型",      "模型 ID"),
@@ -62,6 +67,7 @@ class TestSourceGuards(unittest.TestCase):
             ("🐦 X 监控",    "X 监控质量"),
             ("📚 知识库",    "知识库"),
             ("💾 外挂 SSD",  "外挂 SSD"),
+            ("📣 影响力",     "影响力 (V37.9.349 纲领 R1 机械化)"),
         ]
         for marker, label in required_markers:
             self.assertIn(marker, self.src,
@@ -306,7 +312,7 @@ def _read_script_safe_call_only():
 
 
 class TestRuntimeBehavior(unittest.TestCase):
-    """subprocess 真跑 v2.0 验证 8 段都出现 + FAIL-OPEN 降级."""
+    """subprocess 真跑 v2.0 验证 10 段都出现 + FAIL-OPEN 降级."""
 
     def _isolated_health_env(self, repo_dir):
         """V37.9.159 (INV-GOV-RUNTIME-ISOLATION-001): 跑 health_check.sh 的隔离 env.
@@ -331,10 +337,13 @@ class TestRuntimeBehavior(unittest.TestCase):
         env["HEALTH_PUSH_MIN_INTERVAL_SEC"] = "999999999"  # push 恒不允许
         env["OPENCLAW_BIN"] = "/usr/bin/true"  # stub (notify.sh 路径) + D3 隔离信号
         env["OPENCLAW"] = "/usr/bin/true"
+        # V37.9.349: 第 10 段影响力默认 --record 写 status.json quality.influence (经 status_update
+        # 锁, Mac Mini 上 = 真 ~/.kb/status.json) → 测试必须只渲染不落盘 (MR-9)
+        env["HEALTH_INFLUENCE_RECORD"] = "0"
         return env, cleanup
 
-    def test_dev_env_emits_all_9_sections(self):
-        """dev 环境跑 health_check.sh 输出必须含 9 段 emoji marker."""
+    def test_dev_env_emits_all_sections(self):
+        """dev 环境跑 health_check.sh 输出必须含全部 10 段 emoji marker (V37.9.349: 9→10)."""
         env, cleanup = self._isolated_health_env(REPO_ROOT)
         json_path = env["HEALTH_JSON_PATH"]
         try:
@@ -347,7 +356,7 @@ class TestRuntimeBehavior(unittest.TestCase):
             stdout = proc.stdout
             for marker in ["🖥 服务", "🤖 模型", "📊 SLO", "🛡 安全评分",
                            "🏛 治理审计", "🛟 MOVESPEED", "🐦 X 监控",
-                           "📚 知识库", "💾 外挂 SSD"]:
+                           "📚 知识库", "💾 外挂 SSD", "📣 影响力"]:
                 self.assertIn(marker, stdout,
                               f"dev 环境 stdout 必须含 {marker} 段 (FAIL-OPEN 降级显示)")
             # ✅ 周报完毕 标记必须出现
@@ -385,6 +394,7 @@ class TestRuntimeBehavior(unittest.TestCase):
         """health_status.json 必须有 V37.9.78 schema (version/services/model/kb/ssd)."""
         env = os.environ.copy()
         env["OPENCLAW_REPO_DIR"] = REPO_ROOT
+        env["HEALTH_INFLUENCE_RECORD"] = "0"  # V37.9.349 MR-9: 不落盘 status.json
         with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as tf:
             env["HEALTH_JSON_PATH"] = tf.name
             json_path = tf.name
@@ -439,13 +449,13 @@ class TestReverseValidation(unittest.TestCase):
             tc.test_v37_9_78_marker_in_header()
 
     def test_sabotage_remove_slo_section_caught(self):
-        """sabotage 移除 SLO 段 emoji → 9 段守卫立即失败."""
+        """sabotage 移除 SLO 段 emoji → 10 段守卫立即失败 (V37.9.349 起 10 段)."""
         sabotaged = self.backup.replace("📊 SLO", "DISABLED_SLO")
         self._write_sabotaged(sabotaged)
         tc = TestSourceGuards()
         tc.setUp()
         with self.assertRaises(AssertionError):
-            tc.test_nine_section_emoji_markers()
+            tc.test_ten_section_emoji_markers()
 
     def test_sabotage_revert_to_v1_1_field_names_caught(self):
         """sabotage 退回 v1.1 错配字段名 (current → current_metrics) → 字段守卫立即失败."""

@@ -13,6 +13,11 @@
 #   - 保留 health_status.json 机器可读契约 (HEALTH_JSON_PATH)
 #   - 保留双通道推送契约 (WhatsApp + Discord #日报), 优先 notify.sh 带重试+队列
 #
+# V37.9.349: 第 10 段「📣 影响力」— 纲领 §5 R1 三条手工采集命令（S2 引用 / PyPI 下载 /
+#   GitHub star）机械化进本周报（零新 job/零新 cron），采集+渲染+历史全在 influence_metrics.py，
+#   历史写既有 status.json quality.influence（MR-9 经 status_update 锁）。每源独立 FAIL-OPEN，
+#   不可达显式「⚠️不可达」绝不写 0；HEALTH_INFLUENCE_RECORD=0 只渲染不落盘（隔离测试用）。
+#
 # cron 环境 PATH 极简，必须显式声明（规则 #13）
 export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
 
@@ -188,6 +193,17 @@ else
   ssd_status="🟡 未挂载"
 fi
 
+# === 9. 影响力 (V37.9.349 纲领 R1 机械化: S2 引用 / PyPI 下载 / GitHub star) ===
+# 采集/渲染/历史全部在 influence_metrics.py (MR-8 不在此内嵌); 默认 --record 落 status.json
+# quality.influence, HEALTH_INFLUENCE_RECORD=0 时只渲染 (test_health_check 隔离 env 用, 防
+# 治理 runtime 在 Mac Mini 跑测试时污染真 ~/.kb/status.json = V37.9.159 MR-9 家族).
+INFL_ARGS="--record"
+if [ "${HEALTH_INFLUENCE_RECORD:-1}" = "0" ]; then
+  INFL_ARGS="--no-record"
+fi
+INFLUENCE_BLOCK=$(safe_call "python3 '$REPO_DIR/influence_metrics.py' $INFL_ARGS" \
+  "📣 影响力: 工具不可用 (influence_metrics.py 缺失)")
+
 # === 组装报告 ===
 DATE=$(date '+%Y-%m-%d')
 REPORT="📊 OpenClaw 系统证据周报 ${DATE}
@@ -205,6 +221,7 @@ ${ZOMBIE_BLOCK}
 
 📚 知识库: 本周 +${KB_WEEK} / 共 ${KB_TOTAL} 条
 💾 外挂 SSD: ${ssd_status}
+${INFLUENCE_BLOCK}
 
 ✅ 周报完毕 (V37.9.78)"
 

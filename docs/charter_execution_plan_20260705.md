@@ -174,20 +174,20 @@ H1-E 年度复盘 (E1, Q4) ←── 四季度 R2 数据汇总
 
 **目的**：量化 B1 影响力漏斗（论文被引→bench 被跑→引擎被装→inbound）的季度增长；诚实复盘。
 
-**数据源与命令**（值填入 status.json，作下季度增长率分母）：
+**数据源与命令**（V37.9.349 起三条外部指标**每周自动采集**：`health_check.sh` 每周一 09:00 作第 10 段「📣 影响力」调 `influence_metrics.py --record`，历史落既有 `status.json` 的 `quality.influence.history`（周粒度封顶 60 行）。季度复核**不再手工跑 curl**，改读历史——退役的是「每季度手工跑三条命令」这个动作，零新 job/零新状态文件）：
 
 ```
-pip install --quiet pypistats
-pypistats recent openclaw-ontology-engine --json
-curl -s "https://api.semanticscholar.org/graph/v1/paper/arXiv:2606.14589?fields=citationCount,influentialCitationCount"
-curl -s "https://api.github.com/repos/bisdom-cell/openclaw-model-bridge" | python3 -c "import json,sys;d=json.load(sys.stdin);print('stars',d.get('stargazers_count'),'issues',d.get('open_issues_count'))"
+python3 influence_metrics.py --json
+python3 status_update.py --read | python3 -c "import json,sys;d=json.load(sys.stdin);i=d['quality'].get('influence',{});print(json.dumps({'updated':i.get('updated'),'latest':i.get('latest'),'weeks':len(i.get('history',[]))},ensure_ascii=False))"
 ```
+
+第一条只渲染不落盘（在 Mac Mini 跑才有网络；dev 出口代理拦截会显示「三源均不可达」= 环境限制非零值）。第二条读周报累积的历史；季度 delta = 本季末最后一行 vs 上季末最后一行。不可达来源在历史行里是 `null` 不是 0（V37.9.322 F3 家族：跑不动 ≠ 没有）。
 
 - **bench 外部贡献 case**：`git log --oneline -- docs/fail_plausible_bench.md 'ontology/tests/adversarial_chaos_audit.py'` 查非本人作者的 case 合并（或 GitHub PR 列表）。
 - **文章阅读 / inbound 询问**：用户手动（知乎/dev.to 后台 + 邮件/私信），本人在 Mac Mini 侧填。
 - **GitHub 外部 star/issue/PR**：本会话可用 GitHub MCP（`get_file_contents`/`list_issues`/`search_issues`）或上方 curl。
 
-**🔴 采集环境说明（2026-07-05 dev 探测实证）**：这些命令**须在有真实访问的环境跑**——dev 容器出站探测证实 S2/PyPI 端点从此处不可达、GitHub 直连 API 被拦（需连接 GitHub App）。正确采集处 = Mac Mini（有网络/凭据）或本人账号后台；本会话内可用 GitHub MCP 工具（`search_repositories`/`list_issues`/`list_pull_requests`）取 GitHub 侧。诚实边界：值在采集前一律标"待采集"，绝不用估计值占位（原则 #23）。
+**🔴 采集环境说明（2026-07-05 dev 探测实证；V37.9.349 起由 Mac Mini 周报 cron 自动满足）**：这些命令**须在有真实访问的环境跑**——dev 容器出站探测证实 S2/PyPI 端点从此处不可达、GitHub 直连 API 被拦（需连接 GitHub App）。正确采集处 = Mac Mini（有网络/凭据）或本人账号后台；本会话内可用 GitHub MCP 工具（`search_repositories`/`list_issues`/`list_pull_requests`）取 GitHub 侧。诚实边界：值在采集前一律标"待采集"，绝不用估计值占位（原则 #23）。
 
 **记录位置**：`status_update.py --add recent_changes '{"date":"...","type":"quarterly_impact","what":"引用 N / 下载 N / star N / 外部PR N / inbound N"}'`
 
