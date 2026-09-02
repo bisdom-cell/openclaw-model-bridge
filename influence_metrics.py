@@ -33,6 +33,8 @@ import argparse
 import datetime as _dt
 import json
 import os
+import re
+import ssl
 import sys
 import time
 import urllib.error
@@ -65,6 +67,23 @@ def _warn(msg):
     print("[influence] WARN: %s" % msg, file=sys.stderr)
 
 
+def _runtime_hint():
+    """连接/TLS 失败时附带「哪个 python + 哪个 OpenSSL」——V37.9.349-hotfix2 实录：同一台 Mac Mini
+    交互 zsh 手跑 PyPI 通、`bash -lc`（cron 同款 env）下 TLS EOF；两条路径 PATH 不同可能解析到
+    不同的 python3/SSL 库，原因码里不带这个就只能再让用户上机查。"""
+    return "python=%s %s" % (sys.executable, ssl.OPENSSL_VERSION)
+
+
+def _short_reason(exc, limit=48):
+    """URLError.reason → 紧凑原因串：去掉 `[Errno N]`/`[SSL: X]` 前缀与 `(_ssl.c:NNN)` 尾巴，
+    空格转下划线（不匹配 watchdog err_pattern），截到 limit（首版 24 字符把
+    'EOF occurred in violation of protocol' 切成了 'EOF_occurred_in_violatio'）。"""
+    text = str(exc)
+    text = re.sub(r"^\[[^\]]*\]\s*", "", text)
+    text = re.sub(r"\s*\(_ssl\.c:\d+\)\s*$", "", text)
+    return text.strip().replace(" ", "_")[:limit] or type(exc).__name__
+
+
 # ---------------------------------------------------------------------------
 # HTTP（可注入 getter，测试零网络）
 # ---------------------------------------------------------------------------
@@ -94,8 +113,11 @@ def _get_json(url, headers=None, timeout=HTTP_TIMEOUT_SEC, _sleep=None):
                 continue
             return None, "http_%s%s" % (e.code, ":" + auth if e.code == 429 else "")
         except urllib.error.URLError as e:
-            reason = str(getattr(e, "reason", e)).replace(" ", "_")[:24]
-            return None, "connect_failed:%s" % reason
+            inner = getattr(e, "reason", e)
+            kind = "tls_failed" if isinstance(inner, ssl.SSLError) else "connect_failed"
+            return None, "%s:%s" % (kind, _short_reason(inner))
+        except ssl.SSLError as e:  # 极少数路径 SSL 异常不经 URLError 包装
+            return None, "tls_failed:%s" % _short_reason(e)
         except (OSError, ValueError) as e:  # socket.timeout 是 OSError 子类
             return None, "connect_failed:%s" % type(e).__name__
     try:
@@ -173,7 +195,9 @@ def collect(getter=_get_json, env=None, today=None):
     gh = fetch_github(token=env.get("GITHUB_TOKEN") or None, getter=getter)
     for name, src in (("S2", s2), ("PyPI", pypi), ("GitHub", gh)):
         if not src["ok"]:
-            _warn("%s 不可达 (%s)" % (name, src["error"]))
+            err = src["error"] or ""
+            hint = (" [%s]" % _runtime_hint()) if err.startswith(("connect_failed", "tls_failed")) else ""
+            _warn("%s 不可达 (%s)%s" % (name, err, hint))
     return {"date": date, "s2": s2, "pypi": pypi, "github": gh}
 
 

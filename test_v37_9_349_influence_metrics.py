@@ -343,7 +343,8 @@ class TestWatchdogContract(unittest.TestCase):
         self.assertIsNotNone(pat.search("HTTP 403 something"), "反向证据: 判据本身必须能抓 HTTP 4xx")
         self.assertIsNotNone(pat.search("ERROR: x"))
         codes = ["http_403", "http_429", "http_429:anon", "http_429:key", "http_503",
-                 "connect_failed:Tunnel_connection_failed",
+                 "connect_failed:Tunnel_connection_failed", "connect_failed:Connection_refused",
+                 "tls_failed:EOF_occurred_in_violation_of_protocol",
                  "bad_json", "schema_drift:citationCount", "connect_failed:timeout"]
         for c in codes:
             self.assertIsNone(pat.search(c), f"原因码 {c!r} 不得匹配 watchdog err_pattern")
@@ -484,6 +485,69 @@ class TestRetry429Hotfix(unittest.TestCase):
     def test_retry_budget_fits_safe_call(self):
         """最坏: 三源各一次 429 秒回 + 重试超时 ≈ 3×(2+8)=30s 上限边缘; 常态 (仅 S2 429) ≈ 2+8+8+8=26s."""
         self.assertLessEqual(im.RETRY_429_SLEEP_SEC + im.HTTP_TIMEOUT_SEC * 3, 30)
+
+
+# ---------------------------------------------------------------------------
+# 4c. V37.9.349-hotfix2: TLS 失败单独归类 + 原因不截断 + 报出 python/OpenSSL（Mac Mini 实录:
+#     交互 zsh 手跑 PyPI 通, `bash -lc` 下 'EOF occurred in violation of protocol'）
+# ---------------------------------------------------------------------------
+class TestTlsDiagnosabilityHotfix2(unittest.TestCase):
+
+    def _url_error(self, inner):
+        import urllib.error
+        return urllib.error.URLError(inner)
+
+    def test_ssl_eof_classified_as_tls_failed_full_reason(self):
+        import ssl
+        inner = ssl.SSLEOFError(8, "EOF occurred in violation of protocol (_ssl.c:1000)")
+        restore, calls = _patched_urlopen([self._url_error(inner)])
+        try:
+            obj, err = im._get_json("https://pypistats.org/x", _sleep=lambda s: None)
+        finally:
+            restore()
+        self.assertIsNone(obj)
+        self.assertEqual(err, "tls_failed:EOF_occurred_in_violation_of_protocol",
+                         "血案回归: 首版截成 connect_failed:EOF_occurred_in_violatio")
+        self.assertEqual(len(calls), 1, "TLS 失败不重试 (预算)")
+
+    def test_plain_connect_error_stays_connect_failed(self):
+        restore, _ = _patched_urlopen([self._url_error(OSError(61, "Connection refused"))])
+        try:
+            _, err = im._get_json("https://x/", _sleep=lambda s: None)
+        finally:
+            restore()
+        self.assertTrue(err.startswith("connect_failed:"), err)
+        self.assertNotIn("tls_failed", err)
+
+    def test_short_reason_strips_noise_and_caps(self):
+        self.assertEqual(im._short_reason(OSError("[Errno 61] Connection refused")), "Connection_refused")
+        self.assertEqual(im._short_reason(ValueError("x (_ssl.c:99)")), "x")
+        long = im._short_reason(ValueError("a" * 200))
+        self.assertEqual(len(long), 48)
+        self.assertEqual(im._short_reason(ValueError("")), "ValueError")
+
+    def test_warn_carries_runtime_hint_only_for_transport_failures(self):
+        import io
+        import contextlib
+
+        def mixed(url, headers=None, timeout=8):
+            if "pypistats" in url:
+                return None, "tls_failed:EOF_occurred_in_violation_of_protocol"
+            if "semanticscholar" in url:
+                return None, "http_429:anon"
+            return _ok_getter(url, headers, timeout)
+        buf = io.StringIO()
+        with contextlib.redirect_stderr(buf):
+            im.collect(getter=mixed, env={})
+        lines = buf.getvalue().splitlines()
+        pypi = [l for l in lines if "PyPI" in l][0]
+        s2 = [l for l in lines if "S2" in l][0]
+        self.assertIn("python=", pypi)
+        self.assertIn("OpenSSL", pypi)
+        self.assertNotIn("python=", s2, "HTTP 层错误与运行时无关, 不附 hint")
+        pat = _watchdog_err_pattern()
+        for l in lines:
+            self.assertIsNone(pat.search(l), l)
 
 
 # ---------------------------------------------------------------------------
