@@ -1,6 +1,6 @@
 {
-  "updated": "2026-09-02 06:07:44",
-  "updated_by": "claude_code",
+  "updated": "2026-09-02 06:52:07",
+  "updated_by": "full_regression",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-09-02",
+      "what": "V37.9.346 Kimi K3 Mac Mini E2E 3/3 (text/tool_calling/streaming) → declared 升 feature_verified；reasoning 保守 False 经 reasoning_tokens=190 实测翻案；vision/json_mode 未探测保持 False。部署途中撞原则 #14 运行时副本滞后致 fallback 掉一跳，已定性修复",
+      "by": "claude_code"
+    },
     {
       "date": "2026-09-02",
       "what": "V37.9.345 Kimi K3 接入为第 13 个 provider + doubao 槽位改名 doubao_21_tokenhub 退役命名债（V37.9.344 血案的结构性修复）；expert backend 常量族中性化 + legacy alias；新增 api_key_env 厂商一致性 CI 扫描（V37.9.339 形态会被当场抓住）",
@@ -173,11 +178,6 @@
       "date": "2026-08-28",
       "what": "V37.9.332 验收全绿+[62]兑现: 用户交回 08-28 真实梦境 → V37.9.329 验收逐项对账通过(17 sources=退役死源后正确基准/月份 04-08 五月混合/跨月证据链+诚实逃生口+慢烧标注全部可见, 位置性窗口血案正式收口) → 按预注册判据建 observer dream 月份分布确定性检测器(MED dream_month_pin: 月份<3 或单月>80%, FAIL-OPEN 小样本不判, CJK 紧邻 lookaround token 统计, 读完整文件绕采样)。+10 守卫 sabotage 双连开火。VERSION 0.37.9.160→0.37.9.161",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-08-28",
-      "what": "V37.9.331 对抗审计 — 演练/取证/打标工具的诚实(gameday/movespeed_incident_capture/kb_autotag 首次被审, 此前零测试覆盖): gameday 三修(slo rc=3 被判 checker 异常=V37.9.322 漏 sweep 消费方/快照日志假计数 4/4 缺失数成有内容=V37.9.325 漏 sweep/断路器 dict 假设致验证自 V33 结构性空转) + movespeed capture/analyzer 新增 [target_missing] 桶(卷未挂载≠采集器缺工具, V37.9.281 同族) + kb_autotag 词边界血案修复(ai/rag/api/git/rest 子串命中 maintain/storage/rapid/digit/interest → 财经笔记标签全错, kb_write.sh 生产写入路径, V37.9.316 DC-1 同族) + retag --apply 写入成败对账。38 守卫 sabotage 六连全开火。VERSION 0.37.9.159→0.37.9.160",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -226,7 +226,7 @@
     "security_score": "98/100 (98.0%)",
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB",
     "slo": {
-      "checked_at": "2026-09-02 06:05:23",
+      "checked_at": "2026-09-02 06:50:32",
       "all_ok": true,
       "judged_count": 1,
       "na_count": 4,
@@ -339,18 +339,18 @@
     ],
     "open_prs": [],
     "blocked_on": "",
-    "focus": "V37.9.345 已推送待合并：Kimi K3 第 13 个 provider + doubao 槽位改名。🔴 Mac Mini 前置：两 plist + .env_shared 把 DOUBAO_API_KEY 改名 DOUBAO_21_TOKENHUB_API_KEY（值不变）+ 新增 KIMI_K3_API_KEY + FALLBACK_ORDER 里 doubao→doubao_21_tokenhub → bootout/bootstrap → 清 session 重启 Gateway"
+    "focus": "V37.9.346 待合并：Kimi K3 E2E 升 feature_verified + reasoning 翻案。Mac Mini 生产已全绿（/health 四跳 fallback + preflight 失败 0）。剩余可选：Kimi vision/json_mode 探针 + 清理无消费方的 ARK_API_KEY/ARK_ENDPOINT_ID + 五把 sk- key 轮换"
   },
   "quality": {
     "security_score": 98,
-    "test_count": 6413,
-    "last_regression": "2026-09-02 06:06 pass",
+    "test_count": 6414,
+    "last_regression": "2026-09-02 06:51 pass",
     "coverage_pct": 0,
     "security_score_time": "2026-07-20 01:07",
     "test_suites": 194,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
-    "version": "0.37.9.169",
+    "version": "0.37.9.170",
     "observer": {}
   },
   "incidents": [
