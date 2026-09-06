@@ -1,6 +1,6 @@
 {
-  "updated": "2026-09-06 10:52:30",
-  "updated_by": "security_score",
+  "updated": "2026-09-06 11:56:21",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-09-06",
+      "what": "V37.9.350 后记: Mac Mini 合并 #927 同步 + preflight --full 87/0/2; check_upgrade.sh 仓库模式 100644→100755 (preflight 4/19 警告根因, cron 经 bash 调用不受影响); KB 覆盖 99% 由 03:30 kb_embed 自愈",
+      "by": "claude_code"
+    },
     {
       "date": "2026-09-02",
       "what": "V37.9.349-hotfix2: bash -lc 复测 S2 走 key 得引用 0(真实测量) / PyPI TLS EOF 断连(交互 shell 上一轮通) → tls_failed 单独归类 + 原因截 48 + 传输层失败 WARN 附 python/OpenSSL 版本; 根因(PATH→不同 python3/SSL 库 vs 瞬态)待 Mac Mini 两条对照命令定性, 刻意不加重试",
@@ -172,11 +177,6 @@
     {
       "date": "2026-08-30",
       "what": "V37.9.335 保留策略按用户决策改全量长期保留: movespeed_backup 剪枝退役(每周+1GB≈+52GB/年由所有者接受), 守卫改为禁剪枝断言+sabotage 验证",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-08-30",
-      "what": "V37.9.335 Windows 侧安装收官: 新版脚本落地重跑 + 05:00 任务注册成功(12h 时限, README 3h 修正); 剩首轮全量收尾观察",
       "by": "claude_code"
     }
   ],
