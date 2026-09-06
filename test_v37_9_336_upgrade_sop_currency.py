@@ -207,7 +207,7 @@ class TestDocHeadSingleSourceOfTruth(unittest.TestCase):
                       "头部当前态必须写真实部署版本")
 
     def test_head_lists_all_evaluations(self):
-        for kw in ("六次评估", "七次评估", "八次评估"):
+        for kw in ("六次评估", "七次评估", "八次评估", "九次评估"):
             self.assertIn(kw, self.head, f"头部评估列表缺 {kw}")
 
     def test_overview_table_marked_point_in_time(self):
@@ -220,7 +220,9 @@ class TestDocHeadSingleSourceOfTruth(unittest.TestCase):
     def test_section8_marked_point_in_time(self):
         s8 = _slice(self.doc, "## 八、综合评估", "## 九")
         self.assertIn("时点快照", s8)
-        self.assertIn("第十九节", s8, "第八节须指向最新评估结论")
+        latest_token = _latest_eval(self.doc)[0]
+        self.assertIn(latest_token, s8,
+                      f"第八节须指向最新评估结论（{latest_token}）——V37.9.350 起从 doc 标题动态派生，评估节新增不必再改本 pin")
 
 
 class TestCriterion1CheckProtocol(unittest.TestCase):
@@ -321,16 +323,195 @@ class TestEighthEvaluationPresent(unittest.TestCase):
             self.assertIn(sub, self.doc, f"第十九节缺 {sub}")
 
     def test_last_eval_date_synced(self):
-        """check_upgrade.sh 的 LAST_EVAL_DATE 必须与第八次评估日期一致。"""
+        """check_upgrade.sh 的 LAST_EVAL_DATE 必须与最新评估节的日期一致（V37.9.350 起动态派生）。"""
         path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                             "check_upgrade.sh")
         with open(path, encoding="utf-8") as f:
             src = f.read()
         m = re.search(r'LAST_EVAL_DATE="\$\{OPENCLAW_LAST_EVAL_DATE:-([\d-]+)\}"', src)
         self.assertIsNotNone(m, "check_upgrade.sh 未找到 LAST_EVAL_DATE 默认值")
-        self.assertEqual("2026-09-01", m.group(1),
-                         "第八次评估完成后 LAST_EVAL_DATE 必须重置")
-        self.assertIn("第十九节", src, "注释须指向最新评估节")
+        token, ordinal, day = _latest_eval(_read())
+        self.assertEqual(day, m.group(1),
+                         f"第{ordinal}次评估完成后 LAST_EVAL_DATE 必须重置为 {day}")
+        self.assertIn(token, src, f"注释须指向最新评估节（{token}）")
+
+
+_EVAL_HEADING = re.compile(
+    r"^## (第[一二三四五六七八九十]+节)：第([一二三四五六七八九十]+)次评估（(\d{4}-\d{2}-\d{2})", re.M)
+
+
+def _latest_eval(doc):
+    """从 doc 标题派生最新评估节（token, 序数, 日期）——V37.9.350 起不再逐次改字面量 pin。"""
+    ms = list(_EVAL_HEADING.finditer(doc))
+    assert len(ms) >= 4, f"防空转：应至少抽到第六~九次评估标题，实际 {len(ms)}"
+    m = ms[-1]
+    return m.group(1), m.group(2), m.group(3)
+
+
+class TestNinthEvaluationPresent(unittest.TestCase):
+    """第九次评估（V37.9.350，2026-09-06）自身的落地守卫。
+
+    三个新 stable（8.2/9.1/9.2）触发判据跟踪 → 第二十节；上游 changelog 换格式暴露
+    19.8 协议的计量单位失效 → 协议就地重标定；9.2 再加 3 项默认自主行为 → 7.0 前置 C 追加。
+    """
+
+    def setUp(self):
+        self.doc = _read()
+        self.sec20 = _slice(self.doc, "## 第二十节", "\n---\n")
+        self.prereq = _slice(_slice(self.doc, "## 七、升级 SOP", "## 八、综合评估"),
+                             "### 7.0", "### 7.1")
+
+    def test_section20_exists_with_all_subsections(self):
+        for sub in ("### 20.1", "### 20.2", "### 20.3", "### 20.4", "### 20.5", "### 20.6"):
+            self.assertIn(sub, self.sec20, f"第二十节缺 {sub}")
+
+    def test_ninth_eval_heading_present(self):
+        """第九次评估标题存在且日期正确——用成员断言而非「== 最新」，第十次评估只需新增类不改本 pin。"""
+        found = [(m.group(1), m.group(2), m.group(3)) for m in _EVAL_HEADING.finditer(self.doc)]
+        self.assertIn(("第二十节", "九", "2026-09-06"), found, found)
+
+    def test_new_default_behavior_prs_in_prereq_c(self):
+        """20.5 表里的 3 项新默认变更 PR 号都必须进 7.0 前置 C（跨节契约，镜像 19.4 守卫）。"""
+        s205 = _slice(self.sec20, "### 20.5", "### 20.6")
+        tbl = _slice(s205, "| 版本 · 默认变更", "**持有成本复测")
+        prs = sorted(set(re.findall(r"#(\d{6})", tbl)))
+        self.assertGreaterEqual(len(prs), 3, f"防空转：20.5 表应含 ≥3 个 PR 号，实际 {prs}")
+        missing = [p for p in prs if f"#{p}" not in self.prereq]
+        self.assertEqual([], missing, f"20.5 的默认行为 PR {missing} 未进 7.0 前置 C")
+        self.assertGreaterEqual(self.prereq.count("- [ ]"), 16,
+                                "前置 C 追加 3 项后 7.0 清单应 ≥16 个勾选项（3 基础 + A + B + C 头 + 10 子项）")
+
+    def test_criterion1_verdicts_recorded_dirty_not_clean(self):
+        """三个新 stable 的判定必须记为 DIRTY；计数 0；绝不能出现「9.1 干净」类误记。"""
+        s203 = _slice(self.sec20, "### 20.3", "### 20.4")
+        for v in ("8.2", "9.1", "9.2"):
+            self.assertIn(v, s203)
+        self.assertIn("DIRTY", s203)
+        self.assertIn("计数 0", s203)
+        for bad in ("9.1 干净", "9.2 干净", "8.2 干净", "计数 1"):
+            self.assertNotIn(bad, self.sec20, f"不得出现误记「{bad}」")
+
+    def test_protocol_recalibration_documented_with_six_points(self):
+        """20.4 必须给出六点实测表（原则 #36-4：数字要对账）。"""
+        s204 = _slice(self.sec20, "### 20.4", "### 20.5")
+        for n in ("924", "143", "802", "419", "291", "| 10 |", "1719", "506"):
+            self.assertIn(n, s204.replace("**10**", "| 10 |") if n == "| 10 |" else s204,
+                          f"20.4 缺实测数据点 {n}")
+        self.assertIn("inline_pr", s204)
+
+    def test_tracking_point_routes_through_amended_protocol(self):
+        s206 = _slice(self.sec20, "### 20.6", "**LAST_EVAL_DATE")
+        self.assertIn("19.8", s206, "下次跟踪点须指向 19.8 协议")
+        self.assertIn("修订", s206)
+
+
+class TestCriterion1ProtocolAmendment(unittest.TestCase):
+    """19.8 协议重标定守卫：行内 PR 引用量是 load-bearing 的第二把尺子。"""
+
+    def setUp(self):
+        self.doc = _read()
+        self.sec = _slice(self.doc, "### 19.8", "\n---\n")
+        self.block = _bash_blocks(self.sec)[0]
+
+    def test_inline_pr_gate_present(self):
+        self.assertIn("inline_pr", self.block, "协议缺行内 PR 引用量（新格式下会永久不可判）")
+        self.assertRegex(self.block, r"if semantic < 100 and inline_pr < 50:",
+                         "不可判条件必须是两把尺子同时低")
+        self.assertIn("inline_pr_refs=", self.block, "协议须显式报出行内引用数供人核对")
+
+    def test_amendment_recorded_with_data(self):
+        self.assertIn("修订（2026-09-06", self.sec)
+        for n in ("924", "143", "77", "69"):
+            self.assertIn(n, self.sec, f"19.8 修订段缺实测数据点 {n}")
+        self.assertIn("计量单位错了", self.sec)
+
+
+class TestCriterion1ProtocolBehavior(unittest.TestCase):
+    """从 19.8 抽出协议 python 真跑（V37.9.336 手动做过一次，本版机器化）。
+
+    骨架（beta.1 形态）→ rc 3；新格式带迁移 → rc 2；新格式干净 → rc 0；
+    旧格式 described-PR 带迁移 → rc 2（整份扫描）；骨架即使含关键词也 rc 3（不可判优先，防假计数）。
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        doc = _read()
+        block = _bash_blocks(_slice(doc, "### 19.8", "\n---\n"))[0]
+        m = re.search(r"<<'PYCHK'\n(.*?)\nPYCHK", block, re.S)
+        assert m, "协议块未找到 PYCHK heredoc"
+        cls.code = m.group(1)
+
+    def _run(self, changelog):
+        import subprocess
+        import sys
+        import tarfile
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            md = os.path.join(tmp, "CHANGELOG.md")
+            with open(md, "w", encoding="utf-8") as f:
+                f.write(changelog)
+            with tarfile.open(os.path.join(tmp, "openclaw-0.0.0.tgz"), "w:gz") as tf:
+                tf.add(md, arcname="package/CHANGELOG.md")
+            p = subprocess.run([sys.executable, "-c", self.code], cwd=tmp,
+                               capture_output=True, text=True, timeout=60)
+            return p.returncode, p.stdout
+
+    @staticmethod
+    def _skeleton(with_keyword=False):
+        bullets = [f"- **Topic {i}:** minor wording polish number {i}." for i in range(17)]
+        if with_keyword:
+            bullets[0] = "- **Topic 0:** SQLite wording polish."
+        bare = [f"- **PR #{140000 + i}**" for i in range(1520)]
+        return "# Changelog\n\n## 0.0.0\n\n### Highlights\n\n" + "\n".join(bullets) + \
+            "\n\n### Complete contribution record\n\n#### Pull requests\n\n" + "\n".join(bare) + "\n"
+
+    @staticmethod
+    def _new_format(dirty):
+        bullets = []
+        for i in range(70):
+            a, b = 150000 + 2 * i, 150001 + 2 * i
+            bullets.append(f"- **Topic {i}:** consolidated paragraph covering two changes. (#{a}, #{b})")
+        if dirty:
+            bullets[3] = "- **Upgrade data safety:** identical session event replays migrate cleanly. (#150999)"
+        bare = [f"- **PR #{160000 + i}**" for i in range(1000)]
+        return "# Changelog\n\n## 0.0.0\n\n### Changes\n\n" + "\n".join(bullets) + \
+            "\n\n### Complete contribution record\n\n#### Pull requests\n\n" + "\n".join(bare) + "\n"
+
+    @staticmethod
+    def _old_format(dirty):
+        lines = [f"- **PR #{170000 + i}** [fix(ui): polish item {i}](https://x/{i})" for i in range(120)]
+        if dirty:
+            lines[7] = "- **PR #170007** [perf(state): streamline SQLite schema comparison](https://x/7)"
+        return "# Changelog\n\n## 0.0.0\n\n### Fixes\n\n- **Only:** one narrative line.\n\n" + \
+            "### Complete contribution record\n\n#### Pull requests\n\n" + "\n".join(lines) + "\n"
+
+    def test_skeleton_is_not_decidable(self):
+        rc, out = self._run(self._skeleton())
+        self.assertEqual(3, rc, out)
+        self.assertIn("N/A_NO_CONTENT", out)
+
+    def test_skeleton_with_keyword_still_not_decidable(self):
+        """不可判优先于命中：骨架里的关键词不得让计数归零或 +1（两侧都不计）。"""
+        rc, out = self._run(self._skeleton(with_keyword=True))
+        self.assertEqual(3, rc, out)
+
+    def test_new_format_dirty_is_decidable_dirty(self):
+        rc, out = self._run(self._new_format(dirty=True))
+        self.assertEqual(2, rc, out)
+        self.assertIn("VERDICT=DIRTY", out)
+
+    def test_new_format_clean_is_decidable_clean(self):
+        """行内引用量 ≥50 让新格式可判——这是修订前做不到的（旧尺子给 70 < 100）。"""
+        rc, out = self._run(self._new_format(dirty=False))
+        self.assertEqual(0, rc, out)
+        self.assertIn("VERDICT=CLEAN", out)
+        self.assertRegex(out, r"semantic_entries=70 ")
+
+    def test_old_format_scans_whole_file(self):
+        rc, out = self._run(self._old_format(dirty=True))
+        self.assertEqual(2, rc, out)
+        rc0, out0 = self._run(self._old_format(dirty=False))
+        self.assertEqual(0, rc0, out0)
 
 
 if __name__ == "__main__":

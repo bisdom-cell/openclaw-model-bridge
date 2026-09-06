@@ -27,13 +27,13 @@ else
 fi
 
 # ── 配置（升级后须更新 LAST_EVAL_DATE）──
-# 2026-09-01 第八次评估 (2026.8.1 stable 发布触发判据跟踪; 7.2 从未 stable 被 8.1 承接): 继续 hold——
-# ① SQLite/session 弧线 ❌ 仍未满足 (accessor refactor 子弧线收尾, 但新状态入 SQLite: shared credential
-#    store #121559 + session 历史迁移 #127241 + 两条新 breaking 迁移) ② 节奏 ✅ 首次满足 (49 天 1 minor)
-# ③ Node 门槛未再收紧 (与 7.1 逐字同) 但 Mac Mini 侧仍未确认. 新增两维: 默认自主行为扩张 (6 项默认开,
-#    3 项踩已立案血案) + 持有成本量化 (weixin 插件 peer floor 已钉死 4.27, 落后 4 版/71 天).
-# 详见 eval doc 第十九节. 背景 (第六次): 三结构性迁移 M1/M2/M3 + 回滚单向门.
-LAST_EVAL_DATE="${OPENCLAW_LAST_EVAL_DATE:-2026-09-01}"  # V37.9.336: 第八次评估 (eval doc 第十九节)
+# 2026-09-06 第九次评估 (2026.8.2/9.1/9.2 三 stable 6 天内发布触发判据跟踪): 继续 hold——
+# ① SQLite/session 弧线 ❌ 仍未满足 (8.2/9.1/9.2 逐一 DIRTY: session 迁移安全 / schema-17 session
+#    repair / shared credential migration / malformed SQLite DB 诊断; session store 已入 SQLite 至 schema 17)
+# ② 节奏 🔴 由 ✅ 退回 (6 天 4 个 stable, 冲刷假设待下一 stable 间隔定性) ③ Node 区间 ✅ (9.1/9.2 与 8.1 逐字同).
+# 上游 changelog 换格式 → 19.8 协议加行内 PR 引用量重标定; 默认自主行为再增 3 项 (会话可见性/跨 agent 访问/Swarm)
+# → 7.0 前置 C 7→10 项. 详见 eval doc 第二十节 (第八次见第十九节). 背景 (第六次): 三结构性迁移 M1/M2/M3 + 回滚单向门.
+LAST_EVAL_DATE="${OPENCLAW_LAST_EVAL_DATE:-2026-09-06}"  # V37.9.350: 第九次评估 (eval doc 第二十节; 第八次=第十九节)
 TIME_TRIPWIRE_DAYS="${OPENCLAW_TIME_TRIPWIRE_DAYS:-180}"
 VERSION_GAP_TRIPWIRE="${OPENCLAW_VERSION_GAP_TRIPWIRE:-50}"
 CVE_FILE="${OPENCLAW_CVE_ALERT_FILE:-$HOME/.openclaw_cve_alert}"
