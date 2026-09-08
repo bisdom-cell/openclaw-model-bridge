@@ -1,6 +1,6 @@
 {
-  "updated": "2026-09-06 11:56:21",
-  "updated_by": "claude_code",
+  "updated": "2026-09-08 14:36:36",
+  "updated_by": "full_regression",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-09-08",
+      "what": "V37.9.351 CLAUDE.md changelog 第四轮归档: 每-session 必读 833KB→530KB, 内联 106→38 行 (V37.9.307→240 共 68 版移入 docs/changelog.md 301→369), 行数守恒断言 + 11 引用套件/治理/三 doc-drift 全绿; 触发判据升级为字节+行数双判据(>450KB 或 ≥60 行)写进头注; VERSION 0.37.9.175 不变",
+      "by": "claude_code"
+    },
     {
       "date": "2026-09-06",
       "what": "V37.9.350 后记: Mac Mini 合并 #927 同步 + preflight --full 87/0/2; check_upgrade.sh 仓库模式 100644→100755 (preflight 4/19 警告根因, cron 经 bash 调用不受影响); KB 覆盖 99% 由 03:30 kb_embed 自愈",
@@ -173,11 +178,6 @@
       "date": "2026-08-31",
       "what": "V37.9.335 首个 05:00 定时运行实证+kb 保险丝破案: dreams/.map_cache 日缓存每天生灭~2400文件 → kb 排除三衍生物(map_cache/text_index/mm_index)+MR-8 生产者源码路径守卫; 定时通道打通, 首份备份档 FORCE 拉取中",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-08-30",
-      "what": "V37.9.335 保留策略按用户决策改全量长期保留: movespeed_backup 剪枝退役(每周+1GB≈+52GB/年由所有者接受), 守卫改为禁剪枝断言+sabotage 验证",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -226,7 +226,7 @@
     "security_score": "98/100 (98.0%)",
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB",
     "slo": {
-      "checked_at": "2026-09-06 10:50:08",
+      "checked_at": "2026-09-08 14:25:59",
       "all_ok": true,
       "judged_count": 1,
       "na_count": 4,
@@ -260,7 +260,7 @@
     }
   },
   "session_context": {
-    "last_session": "2026-09-06",
+    "last_session": "2026-09-08",
     "unfinished": [
       "【2026-07-02 多镜头审计 · 9 findings 全部处置完毕 (V37.9.226-239: 8 修复闭环 + I half-open 登记为可接受设计 tradeoff) · 剩纯 Mac Mini 被动验证】同步+重启 proxy/adapter 后观察: (A) 真 fallback 时 proxy 日志 DEGRADED 行 + proxy_stats.json slo.fallback_count 变真值 (V37.9.229) (C) ls ~/.kb/status.json.lock ~/.kb/audit.jsonl.lock 伴生锁文件出现 (V37.9.238) (E) client 断开时 adapter.log 记 CLIENT GONE 单行非 traceback (V37.9.231/242) (B) streaming 请求撞 parse 异常时 Gateway 收 SSE 而非 content-type 错配 (V37.9.239) (G) last_run_self_critique.json time 本地格式 + watchdog 4h 覆盖 observer (V37.9.230)。完整分诊记录见 CLAUDE.md V37.9.226-239 changelog, 无 dev 剩余动作。",
       "【V37.9.211/212 Qwen3 端点刷新 · adapter ✅ + V37.9.212 ✅ 已并入 main(PR#774, 2026-07-02 dev 核实) · 剩用户 env 动作】剩余非紧急: (A) .env_shared 设新 REMOTE_API_KEY+REMOTE_BASE_URL(cron 直连脚本 health_check 每周报 CURRENT_MODEL/diagnose 用) (C) 🔴 明文 key 建议用完轮换。教训钉死: adapter/proxy 是 launchd job, env 改必须进 plist EnvironmentVariables + bootout/bootstrap(不是 shell export + kickstart)。",
@@ -349,7 +349,7 @@
   "quality": {
     "security_score": 98,
     "test_count": 6497,
-    "last_regression": "2026-09-06 10:51 pass",
+    "last_regression": "2026-09-08 14:36 pass",
     "coverage_pct": 0,
     "security_score_time": "2026-07-20 01:07",
     "test_suites": 196,
@@ -420,7 +420,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-09-06 收工: V37.9.350 OpenClaw 第九次升级评估——上游 5 天 3 个 stable, 判据 ①❌(三版全 DIRTY, session store 已入 SQLite schema 17)/②🔴(6 天 4 stable 由 ✅ 退回)/③✅ → 继续 hold; changelog 换格式暴露 19.8 协议计量单位失效 → 加行内 PR 引用量重标定(六点实测); 第四类风险再增 3 项默认自主行为 → SOP 前置 C 10 项. 剩被动观察: 明日周一 09:00 周报影响力段首跑 + 下一 stable 间隔定性节奏判据 ②.",
+  "focus": "2026-09-08 收工: V37.9.351 CLAUDE.md changelog 第四轮归档 (833KB→530KB, 68 版移出热路径, 触发判据升级为字节+行数双判据). 门控收敛日: 上游 latest 仍 2026.9.2 沿用第九次 hold, 判据 ② 下一 stable 间隔计时中 (9.2 起); 70 项 unfinished 全 gated. 剩被动观察: 周一 09:00 周报影响力段首跑结果 / 09:10 check_upgrade 首次 LAST_EVAL_DATE=09-06 运行 / 五把 sk- key 轮换 / PyPI TLS 定性 / ai_leaders_x 7 天数据 / 论文 #2 arXiv 提交.",
   "notes": "",
   "preferences": [
     "[auto] 常用工具：read(10次)、sessions_spawn(8次)、sessions_history(8次)",
