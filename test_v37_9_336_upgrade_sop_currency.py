@@ -514,5 +514,76 @@ class TestCriterion1ProtocolBehavior(unittest.TestCase):
         self.assertEqual(0, rc0, out0)
 
 
+
+class TestTenthEvaluationPresent(unittest.TestCase):
+    """第十次评估（V37.9.351，2026-09-09）自身的落地守卫。
+
+    2026.9.3（09-08）= 第九次评估 20.6 预设的「下一个 stable」到期 → 第二十一节；
+    判据 ② 的「积压冲刷」假设被 3 天间隔证伪；engines 首次在 8.x/9.x 线内收紧；
+    9.3 再加 2 项默认自主行为 → 7.0 前置 C 追加（10 → 12）。
+    """
+
+    def setUp(self):
+        self.doc = _read()
+        self.sec21 = _slice(self.doc, "## 第二十一节", "\n---\n")
+        self.sop = _slice(self.doc, "## 七、升级 SOP", "## 八、综合评估")
+        self.prereq = _slice(self.sop, "### 7.0", "### 7.1")
+
+    def test_section21_exists_with_all_subsections(self):
+        for sub in ("### 21.1", "### 21.2", "### 21.3", "### 21.4", "### 21.5"):
+            self.assertIn(sub, self.sec21, f"第二十一节缺 {sub}")
+
+    def test_tenth_eval_heading_present(self):
+        found = [(m.group(1), m.group(2), m.group(3)) for m in _EVAL_HEADING.finditer(self.doc)]
+        self.assertIn(("第二十一节", "十", "2026-09-09"), found, found)
+
+    def test_new_default_behavior_prs_in_prereq_c(self):
+        """21.4 表里的 2 项新默认变更 PR 号都必须进 7.0 前置 C（跨节契约，镜像 19.4/20.5 守卫）。"""
+        s214 = _slice(self.sec21, "### 21.4", "### 21.5")
+        tbl = _slice(s214, "| 版本 · 默认变更", "**持有成本复测")
+        rows = "\n".join(l for l in tbl.splitlines() if l.startswith("|"))
+        prs = sorted(set(re.findall(r"#(\d{6})", rows)))
+        self.assertGreaterEqual(len(prs), 2, f"防空转：21.4 表应含 ≥2 个 PR 号，实际 {prs}")
+        excluded = sorted(set(re.findall(r"#(\d{6})", tbl)) - set(prs))
+        self.assertTrue(excluded, "防空转：21.4 表后应有「登记但不入前置 C」的散文 PR，证明只取表行的切片真在起作用")
+        for p in excluded:
+            self.assertNotIn(f"#{p}", self.prereq, f"非自主 LLM 行为 #{p} 不该进前置 C（21.4 明写登记但不入）")
+        missing = [p for p in prs if f"#{p}" not in self.prereq]
+        self.assertEqual([], missing, f"21.4 的默认行为 PR {missing} 未进 7.0 前置 C")
+        self.assertGreaterEqual(self.prereq.count("- [ ]"), 18,
+                                "前置 C 追加 2 项后 7.0 清单应 ≥18 个勾选项（3 基础 + A + B + C 头 + 12 子项）")
+
+    def test_criterion1_verdict_dirty_and_interval_recorded(self):
+        """9.3 必须记 DIRTY 且计数 0；② 的 3 天间隔必须落在「持续未满足」而非「回 ✅」；不得误记「9.3 干净」。"""
+        s213 = _slice(self.sec21, "### 21.3", "### 21.4")
+        self.assertIn("9.3", s213)
+        self.assertIn("DIRTY", s213)
+        self.assertIn("计数仍 0", s213)
+        self.assertIn("3 天", s213)
+        self.assertIn("持续未满足", s213)
+        for bad in ("9.3 干净", "计数 1", "② 回 ✅", "冲刷」假设成立"):
+            self.assertNotIn(bad, self.sec21, f"不得出现误记「{bad}」")
+
+    def test_node_range_9_3_present_in_sop_prereq_a(self):
+        """9.3 收紧后的 engines 区间必须逐字进 SOP 前置 A（镜像第七次评估 node 区间跨节契约）。"""
+        s213 = _slice(self.sec21, "### 21.3", "### 21.4")
+        m = re.search(r">=24\.16\.0 <25 \\?\|\\?\| >=26\.1\.0", s213)
+        self.assertIsNotNone(m, "防空转：21.3 应含 9.3 的 node 区间字面量")
+        norm = lambda t: t.replace("\\|", "|").replace(" ", "")
+        self.assertIn(norm(m.group(0)), norm(self.prereq),
+                      "7.0 前置 A 未携带 9.3 收紧后的 node 接受区间")
+
+    def test_protocol_seventh_point_recorded(self):
+        """21.4 必须给出 9.3 的协议实测读数（叙述 203 / 行内 859），原则 #36-4 数字对账。"""
+        s214 = _slice(self.sec21, "### 21.4", "### 21.5")
+        for n in ("203", "859", "1843"):
+            self.assertIn(n, s214, f"21.4 缺 9.3 协议实测数据点 {n}")
+
+    def test_tracking_point_routes_through_amended_protocol(self):
+        s215 = _slice(self.sec21, "### 21.5", "**LAST_EVAL_DATE")
+        self.assertIn("19.8", s215, "下次跟踪点须指向 19.8 协议")
+        self.assertIn("修订", s215)
+        self.assertIn("engines.node", s215, "③ 须进入每次 stable 的常规复核")
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

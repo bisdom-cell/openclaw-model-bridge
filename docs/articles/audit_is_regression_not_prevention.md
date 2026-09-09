@@ -1,6 +1,7 @@
 # Your Audit System Is Not a Prevention Tool — It's a Regression Engine
 
 > 2026-04-20 | Stage 2 实证交付 | V37.9 audit 防御率 16/16
+> 快照注（2026-09-09）：文中治理计数（53/55 不变式 + 15 元规则）为 2026-04 快照；当前 91 不变式 / 23 元规则 / 14 MRD / 839 checks 见 `ontology/governance_ontology.yaml`，混沌审计已改为 Category A 10/10 逐信号判定（V37.9.302）。
 
 ## TL;DR
 

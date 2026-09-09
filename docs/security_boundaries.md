@@ -22,7 +22,7 @@ WhatsApp / Discord APIs ─► OpenClaw Gateway (:18789)
                               │  [circuit breaker]
                               ▼
                          LLM Providers (HTTPS)
-                         [12 providers, all TLS]
+                         [13 providers, all TLS]
 ```
 
 **All inter-service communication is localhost-only.** No port is exposed to the network.
@@ -42,7 +42,7 @@ WhatsApp / Discord APIs ─► OpenClaw Gateway (:18789)
 
 | Provider | Auth Header | Format |
 |----------|-------------|--------|
-| Qwen, OpenAI, Gemini, Kimi, MiniMax, GLM + plugins (doubao_21@Ark, doubao/deepseek_full/glm5_coding@ai-tokenhub, deepseek self-host) | `Authorization` | `Bearer <key>`（各插件独立 env key；Gemini 已退役出 fallback 链） |
+| Qwen, OpenAI, Gemini, Kimi, MiniMax, GLM + plugins (doubao_21@Ark, doubao_21_tokenhub/deepseek_full/glm5_coding/kimi_k3@ai-tokenhub, deepseek self-host) | `Authorization` | `Bearer <key>`（各插件独立 env key；Gemini 已退役出 fallback 链） |
 | Claude (Anthropic) | `x-api-key` | Raw key + `anthropic-version` header |
 
 ### What Is NOT Authenticated
@@ -168,7 +168,7 @@ This prevents corruption from crashes or concurrent writes.
 
 - **Max tool calls per task**: 2 (config.yaml)
 - **Timeout per tool**: 60s for search_kb, 60s for data_clean
-- **Circuit breaker**: 5 consecutive failures → skip primary, direct fallback
+- **Circuit breaker**: 5 consecutive failures → skip primary, direct fallback (protects the default primary only; `?provider=` override requests neither read nor write it, V37.9.273)
 
 ### What We Do NOT Defend Against
 
@@ -204,7 +204,7 @@ Claude Code → claude/* branch → GitHub PR → main → auto_deploy.sh → Ma
 | Monitor | Interval | Alert Channel |
 |---------|----------|---------------|
 | `wa_keepalive.sh` | 30 min | Log (WhatsApp session health) |
-| `job_watchdog.sh` | hourly (:30) | notify (default Discord) |
+| `job_watchdog.sh` | 4×/day (08/12/16/20 :30) | notify (default Discord) |
 | `cron_canary.sh` | 10 min | Heartbeat file |
 | `proxy_stats` | Real-time | In-process (threshold alerts) |
 | Health endpoints | On-demand | HTTP 200/502 |

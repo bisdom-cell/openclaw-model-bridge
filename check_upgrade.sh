@@ -27,13 +27,17 @@ else
 fi
 
 # ── 配置（升级后须更新 LAST_EVAL_DATE）──
+# 2026-09-09 第十次评估 (2026.9.3 stable, 20.6 预设跟踪点到期): 继续 hold—— ① 9.3 DIRTY 16 (Node 强升防 SQLite 文本截断 /
+#    schema 版本延迟发布 / 无扩展 SQLite 构建 / 迁移阻塞重启循环) 计数仍 0 ② 🔴 9.2→9.3 间隔 3 天, 「积压冲刷」假设证伪
+#    ③ ✅ 但 engines 收紧 >=24.16.0 <25 || >=26.1.0 (Mac Mini 26.5.0 仍在). 默认自主行为再增 2 项 (递归委派/更新自动推理修复)
+#    → 7.0 前置 C 10→12. 详见 eval doc 第二十一节 (第九次见第二十节).
 # 2026-09-06 第九次评估 (2026.8.2/9.1/9.2 三 stable 6 天内发布触发判据跟踪): 继续 hold——
 # ① SQLite/session 弧线 ❌ 仍未满足 (8.2/9.1/9.2 逐一 DIRTY: session 迁移安全 / schema-17 session
 #    repair / shared credential migration / malformed SQLite DB 诊断; session store 已入 SQLite 至 schema 17)
 # ② 节奏 🔴 由 ✅ 退回 (6 天 4 个 stable, 冲刷假设待下一 stable 间隔定性) ③ Node 区间 ✅ (9.1/9.2 与 8.1 逐字同).
 # 上游 changelog 换格式 → 19.8 协议加行内 PR 引用量重标定; 默认自主行为再增 3 项 (会话可见性/跨 agent 访问/Swarm)
 # → 7.0 前置 C 7→10 项. 详见 eval doc 第二十节 (第八次见第十九节). 背景 (第六次): 三结构性迁移 M1/M2/M3 + 回滚单向门.
-LAST_EVAL_DATE="${OPENCLAW_LAST_EVAL_DATE:-2026-09-06}"  # V37.9.350: 第九次评估 (eval doc 第二十节; 第八次=第十九节)
+LAST_EVAL_DATE="${OPENCLAW_LAST_EVAL_DATE:-2026-09-09}"  # V37.9.351: 第十次评估 (eval doc 第二十一节; 第九次=第二十节)
 TIME_TRIPWIRE_DAYS="${OPENCLAW_TIME_TRIPWIRE_DAYS:-180}"
 VERSION_GAP_TRIPWIRE="${OPENCLAW_VERSION_GAP_TRIPWIRE:-50}"
 CVE_FILE="${OPENCLAW_CVE_ALERT_FILE:-$HOME/.openclaw_cve_alert}"

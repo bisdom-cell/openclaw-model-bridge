@@ -3,6 +3,7 @@
 > 来源：资深前辈对 openclaw-model-bridge 三个月进展的系统性评审
 > 记录时间：2026-04-03
 > 核心结论：**项目已跨过关键门槛，从学习型项目升级为系统型代表作雏形**
+> 2026-09-09 现状注：本文为 2026-04-03 时点记录；§六 P0/P1 待办（Provider Compatibility Layer / Reliability Bench / Memory Plane v1 / 兼容矩阵+SLO / golden trace / 首篇架构文章）已全部交付，V1/V2 路标完成；现行方向以 `docs/technical_charter_20260705.md` 为准。
 
 ---
 

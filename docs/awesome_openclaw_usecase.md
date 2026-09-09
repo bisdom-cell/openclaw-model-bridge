@@ -1,5 +1,7 @@
 # Enterprise-Grade AI Middleware on a Mac Mini
 
+> **Snapshot note (2026-09-09)**: this is the awesome-openclaw submission text as of V37.8.13 (2026-04-16); every number and model name below is that snapshot and is kept verbatim. Current state: 13 providers with Doubao Seed 2.1 Pro as primary (`PROVIDER` env) and a 4-hop `FALLBACK_ORDER` chain (Gemini retired), 6504 tests / 196 suites, 91 governance invariants / 839 checks, security 98/100 — see README badges and `docs/FEATURES.md`.
+
 > A production WhatsApp + Discord AI assistant powered by OpenClaw + Qwen3-235B, running on a single Mac Mini with **1093 automated tests**, **42 governance invariants / 14 meta-rules** and a **93/100 security score** (V37.8.13, 2026-04-16).
 
 ## What It Does

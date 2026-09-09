@@ -1,5 +1,7 @@
 # 为什么 Agent 系统首先需要一个控制平面
 
+> **快照注（2026-09-09）**：本文写于 v0.36.0（2026-04），文中数字（7 Provider / 610 测试 / Qwen3 主力 / Gemini 降级等）为当时快照，作为已发表文章保留原貌。当前状态（13 providers / 6504 tests / doubao_21 primary / FALLBACK_ORDER 四级链）见 README 徽章与 docs/compatibility_matrix.md。
+
 > 从模型桥接器到运行时治理 —— 构建一个 7 Provider、610 测试、36 个版本的 Agent Runtime 的经验
 
 ---

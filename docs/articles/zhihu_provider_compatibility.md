@@ -1,5 +1,7 @@
 # 我用一台 Mac Mini 搭了一个 7 Provider 通用 Agent Runtime，任何人 10 分钟跑通
 
+> **快照注（2026-09-09）**：本文为 V35（2026-04）时点的知乎稿，文中 7 Provider / 605 tests 等数字保留原貌。当前 13 providers / 6504 tests，primary 由 `PROVIDER` env 配置（现 doubao_21），见 README 徽章。
+
 > 从"能用"到"别人也能用"——一个 Agent 中间件的可用性工程实践
 
 ---

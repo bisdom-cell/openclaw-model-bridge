@@ -25,7 +25,7 @@
 ## Architecture / 架构设计
 
 ```
-WhatsApp
+WhatsApp / Discord
    ↕
 OpenClaw Gateway  :18789   (npm global install)
    ↕
@@ -33,7 +33,7 @@ Tool Proxy        :5002    tool_proxy.py   ← This repo
    ↕
 Adapter           :5001    adapter.py      ← This repo
    ↕
-LLM Providers (12)          primary via PROVIDER env (now doubao_21)
+LLM Providers (13)          primary via PROVIDER env (now doubao_21)
 ```
 
 **Why two layers? / 为什么要两层？**
@@ -147,12 +147,14 @@ Incoming request from OpenClaw
 ```python
 # NOTE (V37.8.14): with ONTOLOGY_MODE=on (production default) the whitelist is
 # loaded from tool_ontology.yaml — the Python constant below is the fallback copy.
-ALLOWED_TOOLS = {
+ALLOWED_TOOLS = {                        # 16 tools (single source of truth: ontology/tool_ontology.yaml, ONTOLOGY_MODE=on)
     "web_search", "web_fetch",          # Web
     "read", "write", "edit",            # File operations
     "exec",                             # Shell execution
     "memory_search", "memory_get",      # Memory
-    "cron", "message", "tts",           # Scheduling & messaging
+    "cron", "message", "tts", "image",  # Scheduling, messaging, media
+    "sessions_spawn", "sessions_send",  # Sub-agent delegation
+    "sessions_history", "agents_list",
 }
 ALLOWED_PREFIXES = ["browser"]          # Prefix match for browser_* tools
 ```
@@ -196,7 +198,7 @@ The proxy automatically remaps common model hallucinations:
 3. **Multimodal routing** — Capability-aware: image content routes to a vision-capable provider (the current primary doubao_21 is natively multimodal; list-content is stripped to plain text only for text-only providers)
 4. **Parameter filtering** — Only forwards parameters the remote API actually supports
 5. **User-Agent spoofing** — Sets `User-Agent: curl/8.0` to avoid bot-blocking
-6. **Fallback degradation** — Auto-switches down the `FALLBACK_ORDER` chain (deepseek_full → doubao → deepseek → qwen) when the primary provider fails (V37.9.218; Gemini retired from the chain, HK geo-block)
+6. **Fallback degradation** — Auto-switches down the `FALLBACK_ORDER` chain (deepseek_full → doubao_21_tokenhub → deepseek → qwen) when the primary provider fails (V37.9.218; Gemini retired from the chain, HK geo-block)
 7. **Local health endpoint** — `/health` responds locally without forwarding to remote GPU
 
 ---
@@ -206,7 +208,7 @@ The proxy automatically remaps common model hallucinations:
 3. **多模态内容剥离** — 将列表格式的 content（含图片）转换为纯文本
 4. **参数过滤** — 仅转发远端 API 支持的参数
 5. **User-Agent 伪装** — 设置为 `curl/8.0` 避免被反爬拦截
-6. **Fallback 降级** — 主 Provider 失败时沿 `FALLBACK_ORDER` 链自动降级（deepseek_full → doubao → deepseek → qwen，V37.9.218；Gemini 已 geo-block 退役出链）
+6. **Fallback 降级** — 主 Provider 失败时沿 `FALLBACK_ORDER` 链自动降级（deepseek_full → doubao_21_tokenhub → deepseek → qwen，V37.9.218；Gemini 已 geo-block 退役出链）
 7. **本地健康端点** — `/health` 本地响应，不转发到远程 GPU
 
 ### Allowed Parameters / 允许的参数
@@ -269,9 +271,10 @@ pip3 install google-genai numpy             # For multimodal memory (V29.1, opti
 # Required: remote LLM API key
 export REMOTE_API_KEY="your-remote-api-key"
 
-# Optional: explicit ordered fallback chain (V37.9.218; the old single-slot
-# FALLBACK_PROVIDER env is deprecated and ignored with a WARN)
-export FALLBACK_ORDER="deepseek_full,doubao,deepseek,qwen"
+# Optional: explicit ordered fallback chain (V37.9.218). The old single-slot
+# FALLBACK_PROVIDER env is legacy: it only applies when FALLBACK_ORDER is unset;
+# if both are set, FALLBACK_ORDER wins and a WARN is logged.
+export FALLBACK_ORDER="deepseek_full,doubao_21_tokenhub,deepseek,qwen"
 
 # Edit adapter.py: verify REAL_MODEL_ID matches your backend
 # Edit tool_proxy.py: adjust ALLOWED_TOOLS if needed
@@ -360,13 +363,13 @@ Adapter 支持 primary→fallback 自动降级链。链由 `FALLBACK_ORDER` 显�
 
 ```bash
 export PROVIDER="doubao_21"
-export FALLBACK_ORDER="doubao_21,deepseek_full,doubao,deepseek,qwen"
+export FALLBACK_ORDER="doubao_21,deepseek_full,doubao_21_tokenhub,deepseek,qwen"
 ```
 
 | Provider | Role | Env var |
 |----------|------|---------|
 | Doubao Seed 2.1 Pro (Volcengine Ark) | Primary (`PROVIDER=doubao_21`, V37.9.222 起) | `ARK_21_API_KEY` + `ARK_21_ENDPOINT_ID` |
-| DeepSeek-V4-Pro 满血版 GA → Doubao 2.1 @ ai-tokenhub（`doubao` 槽位，跨平台冗余）→ DeepSeek 量化版 → Qwen3-235B | Fallback chain (`FALLBACK_ORDER`) | `DEEPSEEK_FULL_API_KEY` / `DOUBAO_API_KEY` / `DEEPSEEK_API_KEY` / `REMOTE_API_KEY` |
+| DeepSeek-V4-Pro 满血版 GA → Doubao 2.1 @ ai-tokenhub（`doubao_21_tokenhub` 槽位，跨平台冗余）→ DeepSeek 量化版 → Qwen3-235B | Fallback chain (`FALLBACK_ORDER`) | `DEEPSEEK_FULL_API_KEY` / `DOUBAO_21_TOKENHUB_API_KEY` / `DEEPSEEK_API_KEY` / `REMOTE_API_KEY` |
 
 ---
 
@@ -462,7 +465,7 @@ curl http://localhost:18789/health  # Gateway
 
 | Monitor | Interval | Alert condition |
 |---------|----------|----------------|
-| Job watchdog | Hourly (:30) | 8-dimension meta-monitor (job/logs/services/locks/heartbeat/stats/disk/KB) |
+| Job watchdog | 4×/day (08/12/16/20 :30) | 8-dimension meta-monitor (job/logs/services/locks/heartbeat/stats/disk/KB) |
 | WhatsApp keepalive | 30 min | Gateway HTTP probe failure |
 | Proxy stats | Real-time | Token threshold or consecutive errors |
 | Drift detection | Hourly | md5 mismatch between repo and runtime |

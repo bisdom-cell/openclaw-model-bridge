@@ -1,37 +1,38 @@
 # OpenClaw Model Bridge — 系统特性一览表
 
-> v37.9.350 (2026-09-06) | **6497 tests** / 196 suites / 0 fail | **13 providers** (primary doubao_21) | **41 active jobs** | 5 SLO metrics | preflight full checks | notify 推送（默认 Discord）| **91 governance invariants / 23 meta-rules / 839 checks / 14 MRD scanners** | security 98/100 | 28 blood-lesson case docs
+> v37.9.352 (2026-09-09) | **6504 tests** / 196 suites / 0 fail | **13 providers** (primary doubao_21) | **41 active jobs** | 5 SLO metrics | preflight full checks | notify 推送（默认 Discord）| **91 governance invariants / 23 meta-rules / 839 checks / 14 MRD scanners** | security 98/100 | 28 blood-lesson case docs
 
 | 分类 | 特性 | 说明 | 核心文件 |
 |------|------|------|----------|
 | **核心服务** | Gateway | WhatsApp+Discord 接入、媒体存储、工具执行、会话管理 | npm 全局 (:18789) |
 | | Tool Proxy | 工具过滤(24→12)、自定义工具拦截、图片 base64 注入、SSE 转换、SLO 采集 | `tool_proxy.py` + `proxy_filters.py` (:5002) |
 | | Adapter | 多 Provider 转发、认证、能力感知多模态路由、Fallback 降级 | `adapter.py` (:5001) |
-| **LLM Provider (12)** | Doubao Seed 2.1 Pro (主力) | 文本+视觉单模型多模态 + reasoning，Volcengine Ark 旗舰 (primary 由 PROVIDER env 配置，V37.9.222 flip) | `providers.d/doubao_seed_21_provider.py` |
+| **LLM Provider (13)** | Doubao Seed 2.1 Pro (主力) | 文本+视觉单模型多模态 + reasoning，Volcengine Ark 旗舰 (primary 由 PROVIDER env 配置，V37.9.222 flip) | `providers.d/doubao_seed_21_provider.py` |
 | | Qwen3-235B + Qwen2.5-VL-72B | 文本 262K / 图片理解，能力感知路由 (fallback 兜底) | `providers.py` + `adapter.py` |
 | | Gemini 2.5 (已退役出链) | geo-block，保留注册未在 fallback 链 (V37.9.129) | GEMINI_API_KEY |
 | | OpenAI / Claude | 手动切换备选 | 环境变量 PROVIDER= |
 | | Kimi K2.5 (Moonshot) | 1T MoE 视觉+256K | MOONSHOT_API_KEY |
 | | MiniMax M2.7 | 视觉+200K+131K输出 | MINIMAX_API_KEY |
 | | GLM-5 (Zhipu) | 744B MoE + GLM-5V-Turbo | GLM_API_KEY |
-| | **Doubao Seed 2.1 Pro @ ai-tokenhub**（`doubao` 槽位） | V37.9.341：与 primary `doubao_21` **同模型不同平台** = 链上唯一的平台冗余（Ark 故障时同模型仍可达）；史：2.0 Pro V37.9.52 接入 → V37.9.290 迁 ai-tokenhub → V37.9.339 曾换 Kimi K3 → V37.9.341 按 key scope 实证更正。平台维度 V37.9.342/343 E2E text+tool_calling+reasoning feature_verified（vision/streaming/json_mode 待测） | `providers.d/doubao_provider.py` (DOUBAO_API_KEY，历史 env 名) |
+| | **Doubao Seed 2.1 Pro @ ai-tokenhub**（`doubao_21_tokenhub` 槽位，V37.9.345 由 `doubao` 改名） | V37.9.341：与 primary `doubao_21` **同模型不同平台** = 链上唯一的平台冗余（Ark 故障时同模型仍可达）；史：2.0 Pro V37.9.52 接入 → V37.9.290 迁 ai-tokenhub → V37.9.339 曾换 Kimi K3 → V37.9.341 按 key scope 实证更正 → V37.9.345 改名退役命名债。平台维度 V37.9.342/343 E2E text+tool_calling+reasoning feature_verified | `providers.d/doubao_21_tokenhub_provider.py` (DOUBAO_21_TOKENHUB_API_KEY) |
+| | **Kimi K3 @ ai-tokenhub** | V37.9.345 第 13 个 provider（独立 env，V37.9.344 命名债血案的结构性修复）；V37.9.346/347 E2E text/tool_calling/streaming/reasoning/json_mode 全过，vision 实测 400 坐实 False → feature_verified | `providers.d/kimi_k3_provider.py` (KIMI_K3_API_KEY) |
 | | **DeepSeek-V4-Pro** | 满血版 GA(ai-tokenhub, R1 reasoning, **现 fallback 链首**, V37.9.340 E2E text+reasoning feature_verified) + 量化版(self-host, feature_verified, w4a8 偶发乱码注记)，V37.9.201/204 plugin 接入 | `providers.d/deepseek*_provider.py` |
 | | **GLM-5.3 coding** | ai-tokenhub（V37.9.290 迁移 → V37.9.339 换版本 glm-5-3-260814），coding 场景按需调用(`?provider=glm5_coding`)，V37.9.340 E2E text+reasoning feature_verified，V37.9.254 plugin 接入 | `providers.d/glm5_coding_provider.py` (GLM5_API_KEY) |
 | **自定义工具** | search_kb | 混合检索：语义搜索(embedding) + 关键词补充 + source/时间过滤 → followup LLM 解读 | `proxy_filters.py` 注入 |
 | | data_clean | 数据清洗：7 种操作(dedup/trim/fix_dates 等)、5 种格式(CSV/JSON/Excel 等) | `data_clean.py` |
 | **本地 AI** | KB RAG 语义搜索 | sentence-transformers 384 维 50+ 语言，零 API 调用 | `local_embed.py` + `kb_embed.py` + `kb_rag.py` |
 | | 多媒体语义搜索 | Gemini Embedding 2 (768 维) 图片/音频/视频/PDF | `mm_index.py` + `mm_search.py` |
-| **信息采集 (15 内容源)** | 论文矩阵 (5 源) | ArXiv(3h) + HF Papers + Semantic Scholar + DBLP + ACL Anthology，6 字段 LLM 分析 + 🎚️ 项目对齐度评分 | `jobs/` 目录 |
-| | HackerNews | 每 3h 热帖抓取 | `jobs/hn_watcher/run_hn_fixed.sh` |
+| **信息采集 (16 内容源，见 `source_credibility.py`)** | 论文矩阵 (5 源) | ArXiv(08:00/20:00) + HF Papers + Semantic Scholar + DBLP + ACL Anthology，6 字段 LLM 分析 + 🎚️ 项目对齐度评分 | `jobs/` 目录 |
+| | HackerNews | 每日 3 次 (08:45/14:45/20:45) 热帖抓取 | `jobs/hn_watcher/run_hn_fixed.sh` |
 | | 货代 Watcher | 每天 14:00 ImportYeti 数据 + 三层 LLM 分析（经济晴雨表/运营信号/商机） | `jobs/freight_watcher/` |
 | | 财经新闻 | 每天 07:30 全球财经/政策（14 RSS + 10 X 账号，冻结≠死亡僵尸检测） | `jobs/finance_news/` |
 | | AI 大神观点 | 博客长文(13:30) + Bluesky 实时短帖(17:00)，contrarian 为主 | `jobs/ai_leaders_blogs/` + `jobs/ai_leaders_bsky/` |
 | | Ontology 信息源 | 每天 ×2 W3C/JWS/DKE/KBS 本体论 RSS | `jobs/ontology_sources/` |
 | | GitHub Trending / RSS 博客 / 茶思屋 | ML/AI 热门仓库 + 技术博客 + 华为茶思屋科技 | `jobs/github_trending/` 等 |
 | **知识处理** | KB 每日摘要 | 每天 07:00 生成 daily_digest.md | `kb_inject.sh` |
-| | KB 向量索引 | 每 4h 增量索引 (本地 embedding) | `kb_embed.py` |
+| | KB 向量索引 | 每天 03:30 增量索引 (本地 embedding，V37.9.293 幽灵 chunk 剪除) | `kb_embed.py` |
 | | KB 晚间整理 | 每天 22:00 | `kb_evening.sh` |
-| | KB 智能去重 | 每天 23:00 (dry-run) | `kb_dedup.py` |
+| | KB 智能去重 | 由 kb_evening 22:00 调用 (非独立 registry job) | `kb_dedup.py` |
 | | KB 深度回顾 | 每周五 LLM 跨笔记分析 | `kb_review.sh` |
 | | KB 周趋势报告 | 每周六 关键词频率 + LLM 分析 | `kb_trend.py` |
 | **SLO 监控 (5 指标)** | 延迟 p95 < 50s | 实时延迟百分位追踪 (V37.9.79 阈值 30s→50s, Mac Mini 实测 baseline) | `proxy_filters.py` ProxyStats |
@@ -66,6 +67,6 @@
 | | SLO Benchmark | 真实生产数据报告 (5/5 PASS, p95=459ms) | `slo_benchmark.py` |
 | | GameDay 故障演练 | 5 场景故障注入 (GPU 超时/断路器/快照/SLO/Watchdog) | `gameday.sh` |
 | | 兼容性矩阵 | Provider 能力声明 + 验证状态 | `providers.py` + `docs/compatibility_matrix.md` |
-| **测试** | 196 套单测 | 6497 用例全部通过 | `test_*.py` |
+| **测试** | 196 套单测 | 6504 用例全部通过 | `test_*.py` |
 | | 全量回归 | full_regression.sh (单测+注册表+安全+代码质量) | `full_regression.sh` |
 | | E2E Smoke | 基础对话 / 工具注入 / KB 搜索 端到端验证 | `wa_e2e_test.sh` |

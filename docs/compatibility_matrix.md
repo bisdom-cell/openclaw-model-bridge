@@ -1,6 +1,6 @@
 # Provider Compatibility Matrix
 
-> 数据真理源：`providers.py`（`python3 providers.py` 人读 / `--json` 机读 / `--capability-matrix` 能力矩阵直出 / `--tier-matrix` 验证档位直出）| 最后刷新：2026-08-17（v37.9.312）
+> 数据真理源：`providers.py`（`python3 providers.py` 人读 / `--json` 机读 / `--capability-matrix` 能力矩阵直出 / `--tier-matrix` 验证档位直出）| 最后刷新：2026-09-09（v37.9.352）
 > **13 Providers**（7 built-in + 6 plugins：Doubao Seed 2.1 Pro ×2 平台（Ark primary + ai-tokenhub 冗余）+ DeepSeek×2 + GLM-5.3 coding + Kimi K3）。**漂移防护已接入（V37.9.143 → V37.9.146）**：本文档的三张机器表（"支持的 Provider" + "验证档位" + "能力矩阵"）由 `gen_compat_matrix.py --check` 在 full_regression doc-drift 层守卫，漂移时 CI 失败；`--fix` 一键重写。人工段落（Fallback 路径 / 添加新 Provider / 工具模式验证）不参与机器比对。
 
 ---
@@ -23,7 +23,7 @@
 | GLM-5.3 Coding (ai-tokenhub) | glm-5-3-260814 | text | Yes | Yes | 131K | text, reasoning |
 | Kimi K3 (ai-tokenhub) | kimi-k3-260716 | text | Yes | Yes | 262K | text, tool_calling, streaming, reasoning |
 
-插件接入：Doubao 经 `providers.d/doubao_provider.py`（V37 Provider Plugin Interface，V37.9.52 接入）。
+插件接入：Doubao 经 `providers.d/doubao_seed_21_provider.py`（primary，Ark）与 `providers.d/doubao_21_tokenhub_provider.py`（同模型 @ ai-tokenhub，原 `doubao_provider.py` V37.9.52 接入 → V37.9.345 改名）（V37 Provider Plugin Interface）。
 
 ## 验证档位
 
@@ -64,14 +64,14 @@
 | GLM-5.3 Coding (ai-tokenhub) | Yes | — | — | — | Yes | Yes | — | Yes | 131K |
 | Kimi K3 (ai-tokenhub) | Yes | — | — | — | Yes | Yes | Yes | Yes | 262K |
 
-> Reasoning 维度 V37.9.53 新增（doubao seed reasoning model 实证驱动）。cap_score: doubao_21 16 登顶 registry（V37.9.290 后 doubao 2.0 迁 ai-tokenhub 复测为 10；Qwen3 14；framework 视角 doubao_21 是 registry 最强 provider）。
+> Reasoning 维度 V37.9.53 新增（doubao seed reasoning model 实证驱动）。cap_score: doubao_21 16 登顶 registry（`doubao_21_tokenhub`——同模型 @ ai-tokenhub——V37.9.341-343 复测为 12；Qwen3 14；framework 视角 doubao_21 是 registry 最强 provider）。
 
 ## Fallback 降级路径（V37.9.222 现状）
 
 ```
 Doubao Seed 2.1 Pro (Primary = PROVIDER env, 300s timeout)
     ↓ 失败 / 超时 / 电路断路 (连续 5 次失败 open, 300s 后 half-open)
-DeepSeek-V4-Pro 满血 → Doubao 2.0 → DeepSeek 量化 → Qwen3-235B
+DeepSeek-V4-Pro 满血 GA → Doubao 2.1 @ ai-tokenhub (`doubao_21_tokenhub`) → DeepSeek 量化 → Qwen3-235B
     (FALLBACK_ORDER env 显式有序链, V37.9.218; 逐级降, image 请求自动跳过纯文本 provider)
     ↓ 全链失败
 502 Error (完整 upstream 错误链一起返回, V37.8.10 compose_backend_error_str)
@@ -83,7 +83,7 @@ DeepSeek-V4-Pro 满血 → Doubao 2.0 → DeepSeek 量化 → Qwen3-235B
 
 ## 添加新 Provider
 
-**首选：插件方式（V37 Provider Plugin Interface，零核心代码改动）** — 在 `providers.d/` 放 YAML 或 Python 文件即自动发现，详见 `docs/provider_plugin_guide.md`（60 秒接入）。真实样例：`providers.d/doubao_provider.py` 与 `providers.d/deepseek_full_provider.py`（均经此路径接入）。
+**首选：插件方式（V37 Provider Plugin Interface，零核心代码改动）** — 在 `providers.d/` 放 YAML 或 Python 文件即自动发现，详见 `docs/provider_plugin_guide.md`（60 秒接入）。真实样例：`providers.d/kimi_k3_provider.py`（V37.9.345 最新接入）与 `providers.d/deepseek_full_provider.py`（均经此路径接入）。
 
 ```yaml
 # providers.d/my_provider.yaml
@@ -113,13 +113,13 @@ bash restart.sh
 
 ## 工具模式验证
 
-| 模式 | Qwen | doubao_21 (Ark) | doubao 槽位 (同模型 @ ai-tokenhub) | DeepSeek 满血 | DeepSeek 量化 | GLM-5.3 coding | Gemini | 其余 built-in |
-|------|------|-----------|-----------|--------------|--------------|----------------|--------|--------------|
-| 单工具调用 | :white_check_mark: | :white_check_mark: (V37.9.217) | :white_check_mark: (V37.9.55, Ark 时代) | :white_check_mark: (V37.9.205) | :white_check_mark: (V37.9.202) | :white_check_mark: (V37.9.258) | ~~退役~~ | — |
-| 多工具并行 | :white_check_mark: | — | — | — | — | — | — | — |
-| 自定义工具拦截 | :white_check_mark: | :white_check_mark: (生产 primary) | — | — | — | — | — | — |
-| Schema 简化 | :white_check_mark: | :white_check_mark: (生产 primary) | — | — | — | — | — | — |
-| 参数修复/别名映射 | :white_check_mark: | :white_check_mark: (生产 primary) | — | — | — | — | — | — |
+| 模式 | Qwen | doubao_21 (Ark) | doubao_21_tokenhub (同模型 @ ai-tokenhub) | DeepSeek 满血 | DeepSeek 量化 | GLM-5.3 coding | Kimi K3 | Gemini | 其余 built-in |
+|------|------|-----------|-----------|--------------|--------------|----------------|---------|--------|--------------|
+| 单工具调用 | :white_check_mark: | :white_check_mark: (V37.9.217) | :white_check_mark: (V37.9.55, Ark 时代) | :white_check_mark: (V37.9.205) | :white_check_mark: (V37.9.202) | :white_check_mark: (V37.9.258) | :white_check_mark: (V37.9.346) | ~~退役~~ | — |
+| 多工具并行 | :white_check_mark: | — | — | — | — | — | — | — | — |
+| 自定义工具拦截 | :white_check_mark: | :white_check_mark: (生产 primary) | — | — | — | — | — | — | — |
+| Schema 简化 | :white_check_mark: | :white_check_mark: (生产 primary) | — | — | — | — | — | — | — |
+| 参数修复/别名映射 | :white_check_mark: | :white_check_mark: (生产 primary) | — | — | — | — | — | — | — |
 
 ---
 

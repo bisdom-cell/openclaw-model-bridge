@@ -2,6 +2,7 @@
 
 > **单一权威版 (canonical) · V37.9.99 / 2026-06-02**
 > 22 案例 · MR-4 silent-failure ~28 次演出 · 5 类失败**机制** · governance v3.52 (85 不变式 + 21 元规则 + 14 MRD scanners + 790 checks)
+> 2026-09-09 注：以上计数为 2026-06-02 快照；现 governance v3.56（91 不变式 + 23 元规则 + 14 MRD + 839 checks），cases/ 28 篇。
 >
 > **本文件是唯一权威版。** 历史 `docs/failure_modes_catalog.md`（V37.9.86 机制分类版）+
 > `ontology/docs/failure_modes_catalog.md`（V37.9.81 位置索引版）两份分叉副本已**合并入本文件并删除冗余副本**

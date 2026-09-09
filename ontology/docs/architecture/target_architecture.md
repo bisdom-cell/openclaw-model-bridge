@@ -8,7 +8,9 @@
 
 ## 一、现状定位
 
-当前处于**方法论验证阶段**（Phase 2 Shadow Mode）：
+> 2026-09-09 现状注：本节为 2026-04-09 快照。现已 `ONTOLOGY_MODE=on` 生产运行（V37.8.14），Governance Ontology v3.56 = 91 不变式 + 23 元规则 + 839 检查，Phase 4 P1-P3 部分兑现，引擎已发 PyPI。
+
+当时处于**方法论验证阶段**（Phase 2 Shadow Mode）：
 
 - Tool Ontology Engine：81 条声明式规则，与硬编码 100% 等价（Phase 1 证明完成）
 - Governance Ontology：17 不变式 + 6 元规则 + 35 可执行检查，每日 07:00 自动审计
@@ -298,7 +300,7 @@ Governance Ontology v_final
 
 ## 五、关键架构转变对照
 
-| 维度 | 当前（Shadow） | 终态（Semantic Control Plane） |
+| 维度 | 当时（Shadow，2026-04） | 终态（Semantic Control Plane） |
 |------|---------------|-------------------------------|
 | 数据源 | 硬编码 `proxy_filters.py` + YAML 旁路 | YAML 唯一事实源，Python 只做引擎 |
 | 策略执行 | if/else 枚举 | `evaluate_policy()` 推理 |
@@ -316,7 +318,7 @@ Governance Ontology v_final
 ## 六、迁移路径
 
 ```
-Phase 2 (当前)        Phase 3              Phase 4              Phase 5
+Phase 2 (2026-04)     Phase 3 ✅           Phase 4 (部分)       Phase 5 ✅ PyPI
 Shadow 观察          渐进替换             完全推理              对外输出
 ─────────────────→──────────────────→──────────────────→──────────────
 shadow mode          ONTOLOGY_MODE=on     策略引擎接管          Plugin SDK
@@ -328,7 +330,7 @@ drift 日志           alias 用引擎         pre/post check       memory_polic
 
 ### Phase 3: 渐进替换（近期目标）
 
-1. **ONTOLOGY_MODE=on** — 引擎数据替代硬编码（等价已证明，风险为零）
+1. **ONTOLOGY_MODE=on** ✅ V37.8.14 — 引擎数据替代硬编码（等价已证明，风险为零）
 2. **filter_tools()** 内部改用 `ontology.query_tools()`
 3. **fix_tool_args()** 改用 `ontology.resolve_alias()`
 4. **夜间阻止** 从枚举改为 `infer("side_effects==true")`

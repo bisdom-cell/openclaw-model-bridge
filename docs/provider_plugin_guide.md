@@ -21,9 +21,9 @@ Two formats are supported:
 Create `providers.d/myprovider.yaml`:
 
 ```yaml
-name: deepseek
-display_name: DeepSeek
-base_url: https://api.deepseek.com/v1
+name: myprovider            # must not collide with an existing registry name (13 in use, see `python3 providers.py`)
+display_name: MyProvider
+base_url: https://api.myprovider.example/v1
 api_key_env: DEEPSEEK_API_KEY
 auth_style: bearer
 
@@ -179,8 +179,9 @@ After adding a plugin, set it as the active provider:
 export PROVIDER=deepseek
 export DEEPSEEK_API_KEY="sk-..."
 
-# As fallback provider
-export FALLBACK_PROVIDER=deepseek
+# As a fallback provider: FALLBACK_ORDER is the authoritative ordered chain (V37.9.218);
+# the single-slot FALLBACK_PROVIDER is legacy and only honoured when FALLBACK_ORDER is unset
+export FALLBACK_ORDER=deepseek,doubao_21_tokenhub,qwen
 export DEEPSEEK_API_KEY="sk-..."
 ```
 

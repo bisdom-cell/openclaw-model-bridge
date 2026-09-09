@@ -10,11 +10,12 @@
 > 七次评估：2026-07-20（2026.7.1 stable 触发判据跟踪 → 继续 hold，判据全未满足；Node 门槛升为区间黑名单，第十八节）
 > 八次评估：2026-09-01（2026.8.1 stable 触发判据跟踪 → 继续 hold；判据 ② 首次满足、① 仍未满足、③ 待我方确认；新增「默认自主行为扩张」风险与可量化持有成本，第十九节）
 > 九次评估：2026-09-06（2026.8.2 / 9.1 / 9.2 三个 stable 5 天内发布触发判据跟踪 → 继续 hold；判据 ① ❌ 三版全 DIRTY、② 🔴 由 ✅ 退回（6 天 4 个 stable）、③ ✅；上游 changelog 换格式 → 19.8 协议按其自带重标定分支加行内 PR 引用量；默认自主行为再增 3 项进 7.0 前置 C，第二十节）
+> 十次评估：2026-09-09（2026.9.3 stable 触发——20.6 预设跟踪点到期 → 继续 hold；判据 ① ❌ 9.3 DIRTY 16 计数仍 0、② 🔴 9.2→9.3 间隔 3 天「积压冲刷」假设证伪、③ ✅ 但 engines 首次在 8.x/9.x 线内收紧为 `>=24.16.0 <25 || >=26.1.0`（SQLite 文本截断驱动，Node↔SQLite 耦合二次收紧）；默认自主行为再增 2 项进 7.0 前置 C（10→12），第二十一节）
 > 评估者：Claude Code
 >
 > 🔴 **当前态（本行为单一真理源，其余章节均为各自时点快照）**
-> 部署版本 **v2026.4.27**（2026-06-11 起）| 上游 latest **2026.9.2**（2026-09-05）|
-> 决策 **继续 hold**（第九次评估，2026-09-06）| 判据与下次跟踪点见 **第二十节 20.6**
+> 部署版本 **v2026.4.27**（2026-06-11 起）| 上游 latest **2026.9.3**（2026-09-08）|
+> 决策 **继续 hold**（第十次评估，2026-09-09）| 判据与下次跟踪点见 **第二十一节 21.5**
 
 ---
 
@@ -152,15 +153,15 @@
 
 ### 7.0 前置条件
 
-> **目标版本不在本节硬编码**——由**最近一次评估的结论**决定（评估节按时间倒序：第二十节 = 最新）。
-> 截至第九次评估（2026-09-06）结论为**继续 hold，无目标版本**；本 SOP 仅在用户明确决定升级后启用。
+> **目标版本不在本节硬编码**——由**最近一次评估的结论**决定（评估节按时间倒序：第二十一节 = 最新）。
+> 截至第十次评估（2026-09-09）结论为**继续 hold，无目标版本**；本 SOP 仅在用户明确决定升级后启用。
 
-- [ ] **目标版本**：读最新评估节的结论确定（当前第二十节 20.6）。**禁止沿用本文档任何历史节里的版本号**——它们是当时的时点判断。
+- [ ] **目标版本**：读最新评估节的结论确定（当前第二十一节 21.5）。**禁止沿用本文档任何历史节里的版本号**——它们是当时的时点判断。
 - [ ] **时间窗口**：工作日白天，确保能快速处置（注意：回滚不再是无损的，见 7.5）
 - [ ] **在 Mac Mini 上 SSH 直连执行**（禁止通过 WhatsApp 触发）
-- [ ] **前置 A · Node 版本区间**（第七次评估 18.4 起）：确认 `node -v` 落在目标版本 `engines.node` 声明的区间内。7.1/8.1/9.1/9.2 的区间是 `>=22.22.3 <23 || >=24.15.0 <25 || >=25.9.0`（9.1/9.2 与 8.1 逐字相同，第九次评估 20.2）（**区间黑名单**，排除 node 23.x 全部与 24.0–24.14），根因是 SQLite WAL 数据损坏安全。**不能只确认「够新」**。
+- [ ] **前置 A · Node 版本区间**（第七次评估 18.4 起）：确认 `node -v` 落在目标版本 `engines.node` 声明的区间内。7.1/8.1/8.2/9.1/9.2 的区间是 `>=22.22.3 <23 || >=24.15.0 <25 || >=25.9.0`（**区间黑名单**，排除 node 23.x 全部与 24.0–24.14），根因是 SQLite WAL 数据损坏安全；**9.3 起收紧为 `>=24.16.0 <25 || >=26.1.0`**（Node 22.x / 25.x 全部退出，根因是 SQLite 文本截断，第十次评估 21.3）——区间会随 stable 变动，**每次以目标版本 `npm view openclaw@<目标> engines.node` 实测为准，不能只确认「够新」**。
 - [ ] **前置 B · 外部插件锁步**（第八次评估 19.5）：M1 插件外部化后，`@openclaw/whatsapp` / `@openclaw/discord` 与 core **同版本发布**且声明 `peerDependencies: { openclaw: '>=<同版本>' }`。确认目标版本对应的 channel 插件存在；同时确认第三方插件（如 `@tencent-weixin/openclaw-weixin`）的 `peerDependencies.openclaw` 与目标版本相容。
-- [ ] **前置 C · 默认行为审计**（第八次评估 19.4，**须在首次启动前完成**）：目标 ≥8.1 时，以下 **10 项默认变更**（8.1 的 7 项 = 6 项自主行为 + 1 项并发假设；8.2/9.2 追加 3 项会话可见性 / 跨 agent 访问 / 并发编排，第九次评估 20.5）默认为开/生效，其中 6 项直接踩我们已立案的血案机制，逐项决定关闭或显式接受：
+- [ ] **前置 C · 默认行为审计**（第八次评估 19.4，**须在首次启动前完成**）：目标 ≥8.1 时，以下 **12 项默认变更**（8.1 的 7 项 = 6 项自主行为 + 1 项并发假设；8.2/9.2 追加 3 项会话可见性 / 跨 agent 访问 / 并发编排，第九次评估 20.5；9.3 追加 2 项递归委派 / 更新自动推理修复，第十次评估 21.4）默认为开/生效，其中 8 项直接踩我们已立案的血案机制，逐项决定关闭或显式接受：
   - [ ] Grounded dreaming（后台 LLM 记忆整合，#114819）→ 对应 `dream_quota_blast_radius_case`
   - [ ] Owner-directed ambient heartbeat（#121988）→ 对应 `heartbeat_md_pa_self_silencing_case`
   - [ ] Session reset default 变更（无 reset policy 时跨闲置/跨天保留会话，#111140）→ 对应 `pa_alert_contamination_case`
@@ -171,6 +172,8 @@
   - [ ] **（第九次评估 20.5 追加）** Session visibility default（8.2，#133469，Related #133456：同 agent 非沙箱会话默认互见，含 retained cron sessions；`tools.sessions.visibility: tree|self` 收窄）→ 对应 `pa_alert_contamination_case` 家族（cron 会话与 PA main 会话默认互见）
   - [ ] **（第九次评估 20.5 追加）** Cross-agent session access（9.2，#136755：session tools 默认 all-session visibility + agent-to-agent 访问默认开；`tools.sessions.visibility: agent|self` 收窄）→ 同上 + WhatsApp 入站跨 agent 路由边界（unfinished [9]）
   - [ ] **（第九次评估 20.5 追加）** Swarm 并发 sub-agent 编排默认开（9.2，#136514/#138056，Related #136472）→ 对应 `dream_quota_blast_radius_case`（并发 LLM 消费经 proxy→adapter 链）+ 与 #114047 并发假设叠加
+  - [ ] **（第十次评估 21.4 追加）** Recursive delegation（9.3，#138059：bounded 递归子会话生成默认开，保留 depth/concurrency 上限）→ 对应 `dream_quota_blast_radius_case`（子 agent 再生子 agent，并发树状放大）+ 与 Swarm #136514 / #114047 三层叠加
+  - [ ] **（第十次评估 21.4 追加）** Bounded update repair（9.3，#139495：候选验证失败时用已配置推理自动进入修复阶段）→ 同成本放大面（update 路径无人值守 LLM 调用经 adapter 计费；升级时段恰是 provider 链最不稳时段，V37.9.220 同型）
 
 ### 7.1 升级前备份（5 分钟）
 
@@ -301,7 +304,7 @@ openclaw message send --channel discord -t "user:$DISCORD_TARGET" -m "回滚完�
 
 > ⚠️ **2026-04 时点快照，勿作当前判断依据**。本节的收益/风险/建议（含选项 A/B/C = hold / 升 4.2 / 升 4.1）
 > 是首次评估时的判断；此后 4.27 已于 2026-06-11 升级完成，且第六/七/八次评估的方案 A/B/C 是**另一套语义**
-> （A=hold / B=中间版本 / C=现升最新）。**当前判断以最新评估节（第二十节；第八次见第十九节）为准**，本节仅作历史留档。
+> （A=hold / B=中间版本 / C=现升最新）。**当前判断以最新评估节（第二十一节；第九次见第二十节）为准**，本节仅作历史留档。
 
 ### 升级收益
 1. **WhatsApp 稳定性提升**：bundled sidecar + crash fix + timestamp
@@ -1163,7 +1166,7 @@ session-accessor boundary guard" / #101179 "route new session store bypasses thr
 **判据 ① 核对协议（下次 stable 发布时照此执行，替换目标版本号）**
 
 ```bash
-WORK=$(mktemp -d) && cd "$WORK" && npm pack openclaw@2026.9.2 >/dev/null 2>&1 && python3 - <<'PYCHK'
+WORK=$(mktemp -d) && cd "$WORK" && npm pack openclaw@2026.9.3 >/dev/null 2>&1 && python3 - <<'PYCHK'
 import re, sys, tarfile, glob
 cl = tarfile.open(sorted(glob.glob("openclaw-*.tgz"))[-1]).extractfile("package/CHANGELOG.md").read().decode("utf-8", "replace")
 i = cl.find("### Complete contribution record")
@@ -1260,6 +1263,7 @@ beta 骨架是 **17**；100 在两者之间有 5× 以上余量。只有 3 个�
 | 2026.9.1-beta.1 | 17 | 0 | 1520 | 17 | **10** | 不可判 | 不可判（骨架，两量皆低） |
 | 2026.9.1 | 77 | 0 | 1195 | **77** | **924** | ⚠️ 不可判 | 可判 → ❌ DIRTY(11) |
 | 2026.9.2 | 69 | 0 | 1247 | **69** | **143** | ⚠️ 不可判 | 可判 → ❌ DIRTY(4) |
+| **2026.9.3**（第十次评估追加） | 203 | 0 | 1843 | 203 | 859 | 可判 | 可判 → ❌ DIRTY(16) |
 
 9.1 的叙述段行内引用 924 个唯一 PR，**多于 8.1 的 802**——内容完整，只是粒度从 bullet 变成段落。原协议对它判
 「不可判」是**计量单位错了 ≠ 内容不够**：与 V37.9.288「搜索坏了 ≠ 没搜到」同族，只是这次坏的是尺子。若不重标定，
@@ -1312,5 +1316,89 @@ beta 骨架是 **17**；100 在两者之间有 5× 以上余量。只有 3 个�
 
 **LAST_EVAL_DATE 更新至 2026-09-06**（第九次评估完成，重置时间 tripwire）。下次触发 = 任一 tripwire 跳红，
 或下一个 stable 发布时的判据 ①/② 跟踪（① 走 19.8 修订后协议）。
+
+---
+
+## 第二十一节：第十次评估（2026-09-09，2026.9.3 stable 触发判据跟踪——第九次评估 20.6 预设的「下一个 stable」到期）
+
+> 触发：第九次评估（20.6）预设的跟踪点是「下一个 stable（9.3 或 10.1）发布时：走 19.8 修订后协议核对 ①，
+> 并以其与 9.2 的发布间隔定性 ②」。上游于 **2026-09-08 发布 2026.9.3**，与 9.2（09-05）间隔 **3 天** → 到期。
+> 方法沿用「代码即事实」：`npm pack` 9.2 / 9.3 → 19.8 修订后协议 + PR 号集合对账 + engines 跨版本对比 +
+> npm 元数据复测插件 peer floor。Tripwire 机械状态 0/6（dev 跑：时间 3/180 天，版本差距 33/50 字典序粗略计数；
+> 精确 minor stable 见 21.2；[3/6][4/6] 在 dev 因 GitHub API 不可达为 NA，周一 09:10 Mac Mini cron 为 ✅）。
+
+### 21.1 一句话结论
+
+**继续 hold。判据 ❌🔴✅ 与第九次相同，且三条各自都有新证据：① 9.3 可判 → DIRTY 16，连续干净计数仍为 0；
+② 9.2→9.3 间隔 3 天，落在 20.6 预注册的「< 7 天 = 持续未满足」分支，「积压冲刷」假设被证伪；③ 9.3 把
+`engines.node` 收紧为 `>=24.16.0 <25 || >=26.1.0`（退出 Node 22 / 25 全部与 24.0–24.15 / 26.0），理由是
+「防止 SQLite 文本截断」——Mac Mini node 26.5.0 仍在区间，但这是 Node↔SQLite 耦合第二次收紧（第一次 = 7.1 的 WAL 黑名单）。**
+第四类风险再增 2 项默认自主行为（递归子会话默认开 + 更新失败自动用推理修复），已追加进 7.0 前置 C（10 → 12 项）。
+
+### 21.2 上游现状（2026-09-09 实证）
+
+- dist-tags：latest = **2026.9.3**（09-08 13:06Z）/ beta = 2026.9.1（未动）/ extended-stable = 2026.6.34（08-04）。
+- 发布序列：8.1（08-31）→ 8.2（09-01）→ 9.1（09-03）→ 9.2（09-05）→ **9.3（09-08）**。**9 天 5 个 stable**。
+- **9.3 是真新工作，不是 9.2 的重切**：叙述段行内引用 **859** 个唯一 PR，与 9.2 的 143 个**零重叠**，其中 634 个编号高于
+  9.2 的最高引用（#139136）；最高引用推进到 #141654。上游 PR 编号 09-05 → 09-08 推进 ≈ 2,500，≈ 830/天。
+- 4.27 → 9.3 精确 **30 个 minor stable**（含 6.33/6.34 维护线；主线 28）；tripwire 字典序粗略计数 33/50。
+- **4.27 仍未被 deprecate**（`npm view openclaw@2026.4.27 deprecated` 空）；发布于 2026-04-29，至今 133 天。
+- engines.node：**9.3 = `>=24.16.0 <25 || >=26.1.0`**（8.1/8.2/9.1/9.2 均为 `>=22.22.3 <23 || >=24.15.0 <25 || >=25.9.0`，9.3 首次变更）。
+
+### 21.3 三条收敛判据逐一核对
+
+| 判据 | 第九次（09-06）状态 | 第十次（09-09）实证 | 判定 |
+|------|-------------------|-------------------|------|
+| **① SQLite/session 弧线收敛**（连续 2 stable 无 session-store/SQLite 迁移 PR） | ❌ 8.2/9.1/9.2 逐一 DIRTY，计数 0 | **9.3（修订协议可判：语义量 203 / 行内 859）→ DIRTY 16 命中**：「Breaking — Node runtime … Upgrade Node before OpenClaw to prevent **SQLite text truncation**」(#140672) / 「Upgrade continuity: support 2026.9.2-driven shared-state-only upgrades by **deferring publication of the new schema version**」/ 「Portable state: open agent state on **SQLite builds without extension support**」(#139415/#139487) / 「Gateway maintenance and restart: stop restart loops when **migration** or required maintenance blocks startup」/ 「Setup recovery: **migrate legacy workspace setup**」/ 「Long conversations: release prepared **SQLite** statements with their database」/ 「Memory search: cancellable batched scan when **SQLite extensions are unavailable**」/ 「Safer updates: support eligible 2026.9.2 **migrations**」(#138839/#141109…)。弧线在 9.3 从「schema 加固」延伸到「运行时本身必须换代才能保住 SQLite 数据完整性」 | ❌ **未满足**（计数仍 0） |
+| **② 发版节奏 ≤1/周** | 🔴 6 天 4 个 stable，「积压冲刷」假设待下一间隔定性 | 9.2（09-05）→ 9.3（09-08）**间隔 3 天**，且 9.3 携 859 个新 PR 不是补丁。20.6 预注册分支：「< 7 天 → 持续未满足，节奏回到第六次评估时的状态」——命中。4 周窗口（08-12 → 09-09）= 5 个 stable = **1.25/周**。**「7.2 弃 beta → 8.1 滑月末 → 积压冲刷」假设证伪**：冲刷后仍 3 天一版 | 🔴 **持续未满足** |
+| **③ Mac Mini node 落在接受区间** | ✅ 26.5.0 ∈ `>=25.9.0` | 9.3 engines 收紧为 `>=24.16.0 <25 \|\| >=26.1.0`：**Node 22.x / 25.x 全部退出**，24.x 须 ≥24.16、26.x 须 ≥26.1。26.5.0 ∈ `>=26.1.0` 仍满足。**语义变化**：第七次评估记录的「区间黑名单」是为 WAL 损坏；本次是为「SQLite 文本截断」再收一次——Node 版本与 Gateway 版本的耦合由 SQLite 状态层驱动，已是第二次。若未来 Mac Mini 升 Node 到 27.x，需先核 engines 是否接受 | ✅ **满足**（开窗时按当时 stable 重核，7.0 前置 A 已同步 9.3 区间） |
+
+### 21.4 判据 ① 协议七点实测 + 第四类风险续增 + 持有成本复测 + 收益侧
+
+**19.8 修订后协议对 9.3 的读数**（补进 20.4 六点表作第七点）：
+
+| 版本 | 叙述条目 | 带描述 PR | 裸 PR | 协议语义量 | 叙述段行内唯一 PR 引用 | 判定 |
+|------|---------|----------|-------|-----------|---------------------|------|
+| **2026.9.3** | 203 | 0 | 1843 | **203** | **859** | 可判（两量皆过门槛）→ ❌ DIRTY(16) |
+
+9.3 changelog 回到「叙述条目 ≥ 100」一侧（203），说明 9.1/9.2 的 77/69 并非新常态而是两次较薄的 stable；
+修订后协议在两种粒度下都可判，门槛不动。**9.3 的 changelog 文件只含 9.3 自身一节**（2073 行，无历史段），与 9.2 同形。
+
+**默认自主行为扩张（19.4 家族）新增 2 项**，已落成 7.0 前置 C 第 11–12 项：
+
+| 版本 · 默认变更 | 机制 | 对应我方血案 / 约束 |
+|---|---|---|
+| **9.3 Recursive delegation**（#138059）：bounded 递归子会话生成**默认开**（保留 depth / concurrency 上限与沙箱限制） | 子 agent 可再生子 agent，并发 LLM 消费树状放大 | 🔴 `dream_quota_blast_radius_case.md` 家族，与 9.2 Swarm（#136514）+ 19.4 CPU-scaled concurrency（#114047）三层叠加；我方 sessions_spawn 委派 V35 起 deferred，12 工具 / 200KB / 单 adapter 链假设未按树状并发核过 |
+| **9.3 Bounded update repair**（#139495）：候选验证失败时**用已配置的推理**在一次性 rehearsal 状态里自动进入修复阶段（独立验证通过才激活；需改配置的项报给操作者） | `openclaw update` 路径上无人值守的 LLM 调用（经我方 adapter → provider 计费） | 🔴 同 `dream_quota_blast_radius_case` 成本放大面；且升级时段正是 provider 链最可能不稳的时段（V37.9.220 reasoning-primary 事故同型） |
+
+另有两项默认面变更**登记但不入前置 C**（非自主 LLM 行为）：CLI agents 默认出现在新会话模型选择器（#139459，`gateway.cliAgents.enabled: false` 可关）；
+Gateway secret 设置默认生成本地 token（#141511/#141514）。
+
+**持有成本复测（19.7 跟踪项 3）**：weixin 插件最新已发布 2.4.8（09-01）+ 2.4.9-beta.0，peer `>=2026.5.12` 不变；4.27 可用上限仍 2.4.4。
+落后 **3 个已发布版本 / 79 天**（自 2.4.5 于 06-22）。官方 channel 插件锁步再证：`@openclaw/whatsapp@2026.9.3` peer `>=2026.9.3`。
+**Plugin SDK 继续拆**：9.3 一版携 **4 条 Breaking SDK 变更**（execution-policy / approval / SDK aliases / 目录与搜索结果回调）+ context aliases 移除窗口
+**2026-09-08 已到**（本版仍导出，下版即可移除）——第三方 weixin 插件对未来目标版本的兼容风险再升，7.0 前置 B 权重继续上升。
+
+**收益侧新增（诚实登记，不改变结论）**：
+- **Safer updates**（#138839/#141109/#141175/#141562）：core 与插件变更先在隔离 candidate 状态 rehearse 再激活；abandoned update 记录可恢复且不停健康 Gateway——与 9.1 的失败态回滚（#135462）合起来，**升级失败面**的保护已比较完整；升级**成功后**回滚仍是单向门（M2 性质不变）。
+- **Gateway maintenance and restart**：普通失败重启前台可恢复，迁移/维护阻塞时**停止 restart loop**（与我方 launchd KeepAlive 单一管理者语义相容，V37.9.13）。
+- **Memory search**：可选 embedding 起不来时保留关键词检索（与我方 search_kb 混合检索 V30.5 / V37.9.288「检索坏了 ≠ 没搜到」同源关切）。
+- **Runtime diagnostics**：数据库写入失败原因与阶段（integrity / index-validation）有界脱敏上报；**Prometheus runtime identity**（#139280）可核验部署所服务的构建——对我方 V37.9.325「快照抓错日志路径」类问题是上游侧的可观测补强。
+- 模型面：无与我方直接相关变更（模型接入走 adapter）。
+- **诚实边界**：以上仍不抵 ① 连续第四个 DIRTY + ② 冲刷假设证伪 + ③ 耦合二次收紧 + 2 项新默认自主行为；上游发布密度 9 天 5 版仍在加速。
+
+### 21.5 结论与建议：**继续 hold（判据 ❌🔴✅）**
+
+- **方案 A（推荐，不变）**：hold 4.27。与第九次相比结论未变但证据更硬：② 的「积压冲刷」假设是上次唯一给节奏留的乐观口子，本次被 3 天间隔关掉；③ 首次在 8.x/9.x 线内变动，方向是收紧。
+- **下次跟踪点**：
+  1. **下一个 stable 发布时**：(a) 走 19.8 **修订后**协议核对 ①（9.3 已证两种 changelog 粒度均可判）；(b) 记与 9.3（09-08）的间隔判 ②——本次不再预设「冲刷」类解释，只看数字：≥ 14 天 → ✅，< 7 天 → 🔴，之间 → 🟡 待再一个点。
+  2. **判据 ③** 每次 stable 复核 `engines.node` 是否再变（9.3 已证「不变」不可假设）；Mac Mini 若升 Node 先核当时 stable 区间。
+  3. **19.5 持有成本**每次复测（本次 3 版 / 79 天；weixin 2.4.9 若转 stable 且抬 peer floor，记录）。
+  4. 21.4 的 2 项默认行为已入 7.0 前置 C（现 12 项）；context aliases 若在下版真移除，前置 B 加一条「weixin 插件是否已迁移 `MsgContext.Channel*` 路径」的核对。
+- **方案 B（中间版本）**：仍不可取（锁步未变；9.3 的 4 条 Breaking SDK 变更让「停在 9.2」也要承担插件 SDK 的分叉）。
+- **方案 C（若用户决定现升）**：在 7.0 三项前置之上，前置 A 用 9.3 区间、前置 C 现为 12 项，须在首次启动前逐项关闭或显式接受。
+
+**LAST_EVAL_DATE 更新至 2026-09-09**（第十次评估完成，重置时间 tripwire）。下次触发 = 任一 tripwire 跳红，
+或下一个 stable 发布时的判据 ①/②/③ 跟踪（① 走 19.8 修订后协议）。
 
 ---

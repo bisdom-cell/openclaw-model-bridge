@@ -44,7 +44,7 @@ Industrial AI systems require three distinct control surfaces, each with its own
 │  Capability Plane (能力平面)                           │
 │  What: Model routing, multimodal, tool execution      │
 │  Why: The actual intelligence layer                    │
-│  Evidence: 7 providers, fallback chain, benchmark      │
+│  Evidence: 13 providers, fallback chain, benchmark     │
 ├──────────────────────────────────────────────────────┤
 │  Memory Plane (记忆平面)                               │
 │  What: KB-RAG, multimedia, preferences, state          │
@@ -117,7 +117,7 @@ After (ontological):
       rationale: "Internet search, no side effects"
 ```
 
-Our implementation: 81 declarative rules in `tool_ontology.yaml`, shadow mode validation against hardcoded rules, semantic classification via `classify_tool_call()`.
+Our implementation: declarative rules in `tool_ontology.yaml` (16 builtin + 3 custom tools + 11 policies), engine-fed since V37.8.14 (`ONTOLOGY_MODE=on`) after a shadow-mode equivalence period, semantic classification via `classify_tool_call()`.
 
 ## Comparison with Existing Paradigms
 
@@ -146,12 +146,12 @@ This paradigm is not theoretical. Our system (`openclaw-model-bridge`) implement
 
 | Claim | Evidence |
 |-------|---------|
-| Multi-provider fallback | 7 providers, capability-based chain, circuit breaker |
-| Tool governance | 81 ontology rules, 15 governance invariants, shadow mode |
-| Memory plane | 4-layer unified interface, 240+ KB notes, semantic search |
-| Reliability | 7-scenario fault injection bench, 47/47 checks pass |
+| Multi-provider fallback | 13 providers (7 built-in + 6 plugins), `FALLBACK_ORDER` capability-aware chain, circuit breaker |
+| Tool governance | ontology-fed tool policy (`ONTOLOGY_MODE=on`), 91 governance invariants / 839 checks / 23 meta-rules |
+| Memory plane | 4-layer unified interface, ~2200+ KB notes, semantic search |
+| Reliability | 17-scenario fault injection bench, 103/103 checks pass |
 | SLO monitoring | p95=459ms, 5/5 SLO targets pass |
-| Audit trail | Chain-hash log, adversarial audit, 692+ tests |
+| Audit trail | Chain-hash log, adversarial chaos audit (Category A 10/10), 6504 tests |
 | One-click reproducibility | `quickstart.sh` 4-stage, golden test trace |
 
 ## Open Questions

@@ -144,7 +144,7 @@ jobs:
     log: ~/.openclaw/logs/jobs/ai_leaders_blogs.log
     needs_api_key: false               # 走本地 proxy :5002（同 rss_blogs，key 在 proxy 注入）
     enabled: true
-    tier: auxiliary                    # V37.9.108 验证期保守，feed 全 Mac Mini 验证后可升 core
+    tier: auxiliary                    # V37.9.108 接入；首跑已验证 9/11 feed 活，tier 维持 auxiliary（非 PA 核心链路）
     kb_source_file: ai_leaders_blogs.md
     kb_source_label: 🧠 AI 大神观点
     description: "AI 大神长文观点（博客/Substack RSS）— ai_leaders 从 X 转向非 X 渠道（V37.9.108，X Syndication 429+冻结退化解法）。Marcus on AI/AI Snake Oil/Import AI/Ahead of AI/Interconnects/Eugene Yan/Karpathy/The Gradient/fast.ai/HF/Anthropic。复用 rss_blogs 管道 + 🎚️ 项目对齐评分。V37.9.108-hotfix 首跑已验证（9/11 feed 活，45 篇全解析）"
@@ -156,7 +156,7 @@ jobs:
     log: ~/.openclaw/logs/jobs/ai_leaders_bsky.log
     needs_api_key: false               # Bluesky 公开 AppView API 无需认证；LLM 走本地 proxy :5002
     enabled: true
-    tier: auxiliary                    # V37.9.111 验证期保守，handle 全 Mac Mini 验证后可升 core
+    tier: auxiliary                    # V37.9.111 接入；首跑已验证 9 handle 活，tier 维持 auxiliary（非 PA 核心链路）
     kb_source_file: ai_leaders_bsky.md
     kb_source_label: 🦋 AI 大神实时观点
     description: "AI 大神 Bluesky 实时短观点（V37.9.111）— ai_leaders 加实时短观点维度，补足 blogs 长文（V37.9.108）+ ai_leaders_x（X 429+冻结退化产~0）。Bluesky 公开 AppView getAuthorFeed 无需认证，30 万学者 2023-2025 已迁入（arXiv 2505.24801）。10 大神：LeCun/Chollet/Melanie Mitchell/Kambhampati/Narayanan/Gebru/Margaret Mitchell/Jeremy Howard + Gary Marcus/Emily Bender 候选，偏重 contrarian/不同意见。复用 blogs 管道（LLM 6 字段 + 🎚️ 项目对齐评分）。V37.9.111-hotfix 首跑已验证（9 handle 活，17 帖全解析）"
@@ -531,7 +531,7 @@ jobs:
     description: "Agent 做梦引擎 — Map 缓存命中后 Reduce 跨域关联 + 推送梦境（00:00 已预热缓存，03:00 仅需 ~3.5min）"
     # V37.9.76 Capability Router PoC — shadow 模式声明（决策可见但不强制）
     # Dream 三阶 LLM 调用（DEEP / WIDE+RADAR / RADAR retry）都是中长 reasoning 任务,
-    # 偏好 reasoning model (Qwen3 thinking / doubao reasoning_content) 提升输出质量.
+    # 偏好 reasoning 模型 (当前 primary 的 reasoning 通道; primary 由 PROVIDER env 决定) 提升输出质量.
     # cost_tier: low — 每日 1-2 次调用, 单次 LLM 调用成本不敏感.
     required_capabilities: [text]
     prefer: [reasoning]
@@ -547,24 +547,24 @@ jobs:
     tier: core                        # 用户对话是最高质量数据源
     description: "对话精华提炼 — 从 proxy 捕获的每日对话中 LLM 提取关键点（决策/偏好/洞察/结论），写入 KB notes"
 
-  # ── 凌晨 Qwen3 算力专属窗口（00:00-06:00）─────────────────────
-  # 策略：00:00-06:00 禁止其他 Qwen3 任务，全部算力留给 Dream + 未来重度分析
+  # ── 凌晨 LLM 算力专属窗口（00:00-06:00；primary 由 PROVIDER env 决定，现 doubao_21，Qwen3 仅 fallback）──
+  # 策略：00:00-06:00 禁止其他重度 LLM 任务，全部算力留给 Dream + 未来重度分析
   #       零推送通知（用户睡眠），仅允许静默运维任务
   #
-  # 静默运维（不占 Qwen3）：
+  # 静默运维（不占 LLM）：
   #   */10   cron_canary（心跳写文件）
   #   */30   wa_keepalive（HTTP 探测）
   #   */2    auto_deploy（git fetch，告警被 quiet_alert 静默）
   #   0 *    kb_status_refresh（status.json 刷新）
-  #   0 */2  mm_index（Gemini Embedding，不占 Qwen3）
+  #   0 */2  mm_index（Gemini Embedding，不占 LLM primary）
   #   0 3    openclaw_backup（rsync 备份）
   #   30 3   kb_embed（本地 CPU 向量索引）
   #
-  # Qwen3 算力专属（Map-Reduce 三阶段分离调度）：
+  # LLM 算力专属（Map-Reduce 三阶段分离调度）：
   #   0 0    kb_dream --map-sources（Sources Map：15源×LLM，~10-15min）
   #   40 0   kb_dream --map-notes（Notes Map：~16批×LLM，~10-15min）
-  #   0 3    kb_dream（Reduce：两层缓存命中 ~15s → 1次 Qwen3 深度关联 ~3min → 推送）
-  #   [预留] 未来重度 Qwen3 任务（Ontology 专题分析等）
+  #   0 3    kb_dream（Reduce：两层缓存命中 → DEEP + WIDE/RADAR 两次 LLM 调用 → 4 段推送）
+  #   [预留] 未来重度 LLM 任务（Ontology 专题分析等）
   #
-  # 06:00  ── Qwen3 共享恢复（kb_harvest_chat 对话提炼）──
+  # 06:00  ── LLM 共享恢复（kb_harvest_chat 对话提炼 / kb_radar）──
   # 07:00  ── 日间调度开始（kb_inject 摘要推送）──

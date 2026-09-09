@@ -180,9 +180,9 @@ proxy_filters.py 已经在做参数验证和工具过滤，将这些规则本体
 
 ## 实现路径：从 OpenClaw 现状到 Neuro-Symbolic
 
-### 阶段 0：当前（已实现）
+### 阶段 0：起点（2026-04 快照；V37.8.14 起工具规则已由 ontology 引擎供数 `ONTOLOGY_MODE=on`）
 ```
-proxy_filters.py — 硬编码规则过滤
+proxy_filters.py — 硬编码规则过滤（现由 tool_ontology.yaml 供数）
 search_kb         — 关键词 + 向量 RAG
 Memory Plane      — 4层分离但无本体约束
 ```

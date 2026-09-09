@@ -38,7 +38,7 @@ grounding 发现 LLM 调用点是 **24 个异构站点**（19 shell curl 硬编�
 ## 4. no-op-until-flip（安全属性）
 
 `FAST_ROUTE` 仅在 `FAST_PROVIDER != PROVIDER`（adapter.py:261）时非空。故：
-- **当前 PROVIDER=qwen + FAST_PROVIDER=qwen → FAST_ROUTE=None → 路由完全 no-op**（helper 首个 guard 返回 None）
+- **flip 前（2026-07-02 之前）PROVIDER=qwen + FAST_PROVIDER=qwen → FAST_ROUTE=None → 路由完全 no-op**（helper 首个 guard 返回 None）
 - 只有 flip `PROVIDER=doubao_21`（FAST_PROVIDER 仍 qwen，二者不等）→ FAST_ROUTE 激活 → 批量 no-tools → qwen，PA 有 tools → doubao_21
 
 代码合并部署后**不改变任何当前行为**，是 flip 的前置基础设施。（注：A2 用 FAST_ROUTE，**不需要** `ROUTER_ENFORCE`——那是 `?provider=` override 的开关。）
@@ -75,7 +75,7 @@ git fetch+reset 同步 → auto_deploy 把 adapter.py rsync 到运行时 → ada
 
 ## 8. 状态
 
-A2 代码 V37.9.221 实现 → 2026-07-02 A2 flip（doubao_21 primary + FAST_PROVIDER=qwen）E2E 通过 → **同日 B1 flip 上线（V37.9.222：撤 FAST_PROVIDER，doubao_21 单模型通吃——批量 thinking-off / PA reasoning，且实测批量比 qwen 分流更快）**。V37.9.223 全四家 doubao/deepseek 声明 `reasoning_off_body`（任一家可独立成 primary）。**V37.9.224 fallback 传播补全**（批量 fallback 按 fb 自己的声明重算注入，见 §6/§10）。当前态：PROVIDER=doubao_21 无 FAST_PROVIDER，qwen 仅 fallback 兜底，观察 N 天 → production_observed。
+A2 代码 V37.9.221 实现 → 2026-07-02 A2 flip（doubao_21 primary + FAST_PROVIDER=qwen）E2E 通过 → **同日 B1 flip 上线（V37.9.222：撤 FAST_PROVIDER，doubao_21 单模型通吃——批量 thinking-off / PA reasoning，且实测批量比 qwen 分流更快）**。V37.9.223 全四家 doubao/deepseek 声明 `reasoning_off_body`（任一家可独立成 primary）。**V37.9.224 fallback 传播补全**（批量 fallback 按 fb 自己的声明重算注入，见 §6/§10）。当前态：PROVIDER=doubao_21 无 FAST_PROVIDER，qwen 仅 fallback 兜底，观察期已结束 → V37.9.277 production_observed（2026-07-24）。
 
 ## 9. 终局：reasoning-only 未来（qwen 完全退役后）— B1 已实测确认
 

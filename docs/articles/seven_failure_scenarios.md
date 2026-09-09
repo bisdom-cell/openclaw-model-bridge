@@ -1,5 +1,7 @@
 # 7 Failure Scenarios Every Agent System Should Survive
 
+> **Snapshot note (2026-09-09)**: written at V37.8.13 (2026-04); the 7 providers / 729 tests / 26 suites figures are that snapshot and are kept verbatim. Current state: 13 providers, 6504 tests / 196 suites, 17-scenario reliability bench — see README badges.
+
 > We broke our own system 47 different ways. Here's what we learned.
 
 ---

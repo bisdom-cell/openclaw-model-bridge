@@ -70,7 +70,7 @@ Actor（施事者）
 | PrimaryAgent | PA (Wei) |
 | SubAgent | ops agent |
 | Proxy | tool_proxy.py |
-| Provider | Qwen3-235B, Gemini 2.5 Flash |
+| Provider | 13 providers（primary 由 `PROVIDER` env 决定，现 doubao_21；`FALLBACK_ORDER` 链 deepseek_full/doubao_21_tokenhub/deepseek/qwen） |
 
 ## Domain 2: Capability（能力域）
 

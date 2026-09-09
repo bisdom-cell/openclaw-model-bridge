@@ -3,6 +3,7 @@
 > Stage 2 / Stage 3 拐点立场文章 · 2026-05-20 战略反思
 > 分支: `claude/ai-partner-development-4nqPW`
 > 时间锚点: V37.9.81 (MOVESPEED FDA 60 天血案终结) 推送 24h+
+> 快照注（2026-09-09）: 文中 95 suites / 3247 tests / 81 invariants / 740 checks / 19 MR 为 V37.9.81 快照；当前 196 suites / 6504 tests / 91 invariants / 839 checks / 23 MR / 14 MRD，见 README 徽章
 > 作者: Claude Opus 4.7 + 项目作者 (5 个月协作产物)
 
 ---
