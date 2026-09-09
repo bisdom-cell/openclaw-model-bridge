@@ -20,6 +20,8 @@
 
 ### 1.1 阶段判定
 
+> 2026-09-09 注：§1 全节为 2026-07-05 快照（含 11 provider / IEEE·ISSRE in-review / Observer shadow 周中）；最新事实以 README 徽章 + status.json 为准（13 provider / ISSRE 已拒稿转期刊优先 / Observer on）。
+
 | 阶段 | 定义 | 状态 | 证据 |
 |------|------|------|------|
 | Stage 1 系统构建者 | 系统能跑、有工程纪律 | ✅ 完成（2026-04 导师确认） | 全栈生产运行 8+ 月 |
@@ -231,7 +233,7 @@
 
 | 门 | 决策 | 判据（全满足才触发） | 状态 |
 |----|------|----------------------|------|
-| G1 | Observer shadow→on flip | design doc §9.1 预注册三判据（C1 零系统性 FP / C2 ≥1 TP 或干净周 / C3 成本可持续） | shadow 周中，~7/7 决策 |
+| G1 | Observer shadow→on flip | design doc §9.1 预注册三判据（C1 零系统性 FP / C2 ≥1 TP 或干净周 / C3 成本可持续） | ✅ 已 flip on（V37.9.276，2026-07-25 生产；A2 精度窗 V37.9.296 关闭；论文 #2 投稿包 V37.9.333） |
 | G2 | 第二实例 PoC 启动 | H1-B 首批 config 化合并 + cross_os_quirk_scanner 持续 0 violations + minimal_runtime golden 跨机 MATCH | ✅ 前置满足·Linux 实证（V37.9.253，2026-07-07：三前置 + external_dogfood 在 Linux x86_64 全绿，C1 选型记录已出，C2 真跑待 Q4 host） |
 | G3 | observer-engine 抽包 | ≥1 真实外部需求信号（issue/邮件/合作询问明确要"装到我的系统"） | 未触发 |
 | G4 | 商业化评估启动 | ≥3 独立组织主动 inbound | 未触发 |

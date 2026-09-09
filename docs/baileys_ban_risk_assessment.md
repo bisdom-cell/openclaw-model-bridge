@@ -174,7 +174,7 @@ cp ~/.openclaw/openclaw.json.bak ~/.openclaw/openclaw.json && bash ~/restart.sh
 **A + C 组合（近期），B 作为升级路径（条件触发）**：
 
 1. **立即（C，已完成）**：V37.9.162 检测已上线，故障 1h 可见。
-2. **近期（A，可配性已确认）**：`web.reconnect.maxAttempts` 0 → 有限值（5-8）= 全局熔断,这是性价比最高的预防（低成本配置、保留便利模型、显著降风险，OpenClaw 文档 + issue #16270 都推荐）。先 Mac Mini 核实当前值（预期 0）再改，重启 Gateway 生效。与 V37.9.162 检测协同（停止后 1h 告警）。
+2. **近期（A，可配性已确认）** ⚠️ *已被文首 2026-06-18 实测覆盖：A 在 4.27 无法落地（strict schema 拒绝），数值以 ready-to-apply 包 12 为准；本条保留作推理记录*：`web.reconnect.maxAttempts` 0 → 有限值（5-8）= 全局熔断,这是性价比最高的预防（低成本配置、保留便利模型、显著降风险，OpenClaw 文档 + issue #16270 都推荐）。先 Mac Mini 核实当前值（预期 0）再改，重启 Gateway 生效。与 V37.9.162 检测协同（停止后 1h 告警）。
 3. **升级触发（B）**：若**封禁复发**（尤其升级为长期/永久）**或**你愿意接受"PA 用专用号、与个人 WhatsApp 分离"的交互模型 → 才值得迁官方 Cloud API。对个人 PA 而言，B 的交互模型摩擦通常 > 封禁风险（只要 A 能把风险降到可接受），故默认不迁。
 
 **理由**：个人 PA 的核心价值是"用你自己的 WhatsApp 号、零摩擦"。官方 API 消除封禁但破坏这个核心（专用号/牺牲个人使用）。所以**先用 A 把风险降下来 + C 兜底可见性**，把 B 留给"A 不够 / 风险不可接受"的情况。
@@ -182,10 +182,12 @@ cp ~/.openclaw/openclaw.json.bak ~/.openclaw/openclaw.json && bash ~/restart.sh
 ## 五、决策点（需要你定）
 
 1. **是否同意 A+C 为主、B 条件触发的方向?**（还是你更倾向直接评估 B 迁官方 API?）
-2. **走 A（已确认可配）**：WhatsApp 恢复后（不急），在 Mac Mini 跑一次**纯查询**核实当前 `openclaw.json` 的 `web.reconnect.maxAttempts` 实际值（预期是 0/无限 = 根因）+ `web.whatsapp` 超时段。确认后把 `maxAttempts` 0 → 有限值（5-8）+ 重启 Gateway。核实命令见下方"附：Mac Mini 核实命令"。**注意（血案 #98）**：4.27 的实际 key 路径/schema 可能与文档示例略有出入，所以**先查实际 openclaw.json 再改**，不照搬文档示例盲改。
+2. **走 A（已确认可配）** ✅ *核实已于 2026-06-18 执行，结果见文首 🔴 块（4.27 不接受该配置）*：WhatsApp 恢复后（不急），在 Mac Mini 跑一次**纯查询**核实当前 `openclaw.json` 的 `web.reconnect.maxAttempts` 实际值（预期是 0/无限 = 根因）+ `web.whatsapp` 超时段。确认后把 `maxAttempts` 0 → 有限值（5-8）+ 重启 Gateway。核实命令见下方"附：Mac Mini 核实命令"。**注意（血案 #98）**：4.27 的实际 key 路径/schema 可能与文档示例略有出入，所以**先查实际 openclaw.json 再改**，不照搬文档示例盲改。
 3. **若考虑 B**：你能接受"为 PA 用一个专用号、与个人 WhatsApp 分开"吗?（这是 B 可行性的前提。）
 
 ## 附：Mac Mini 核实命令（纯查询、不改、无 secrets）
+
+> ✅ 已于 2026-06-18 执行，结论见文首 🔴 块；以下保留作命令记录。
 
 WhatsApp 恢复后（不急）跑这条，看当前 `web.reconnect` / `web.whatsapp` 实际值与嵌套路径（matched keys 全是数字配置/段名，不含密钥；带行号便于追问上下文）：
 

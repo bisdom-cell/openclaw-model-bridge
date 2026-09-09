@@ -520,6 +520,8 @@ TREND_FILE="$HOME/.kb/radar/weekly_trends_current.json"
 
 ### 7.1 渐进交付
 
+> 2026-09-09 状态：Stage 1-5 已全部上线（V37.9.46/47/48/56/99，`cross_source_signal_aggregator.py` / `project_alignment_scorer.py` / `kb_trend_acceleration.py` / `top_alignment_picker.py` / `kb_radar.sh` 06:00 cron）；Stage 6（kb_concept_map + INV-RADAR-001）未做，按日落法待需求驱动。实施细节以 CLAUDE.md / docs/changelog.md 对应版本为准。
+
 | Stage | 版本 | 交付物 | 估算 |
 |-------|------|-------|------|
 | **Stage 1** | V37.9.45 | #1 PoC: cross_source_signal_aggregator.py + 33 单测 + dev 验证 + Mac Mini 验证（不集成 kb_dream） | 1 session 4-6h |
@@ -611,7 +613,7 @@ TREND_FILE="$HOME/.kb/radar/weekly_trends_current.json"
 ### 10.2 Mac Mini 依赖
 
 - sentence-transformers ✓ 已装（V29.3）
-- scikit-learn (DBSCAN) — 待装：`pip3 install scikit-learn`
+- scikit-learn (DBSCAN) — 可选依赖（lazy import，未装时 FAIL-OPEN 降级）：`pip3 install scikit-learn`
 - jieba (中文分词，#3 复用 kb_trend.py 已装) ✓
 
 ### 10.3 cron 注册
@@ -689,10 +691,9 @@ bash ~/crontab_safe.sh add '0 6 * * * bash -lc "bash ~/kb_radar.sh >> ~/.opencla
 | 版本 | 日期 | 变更 |
 |------|------|------|
 | v0.1 | 2026-05-09 | 初始版本（V37.9.44 后立项）|
-| v0.2 | TBD | Stage 1 PoC 完成后回填实施细节 |
-| v0.3 | TBD | Stage 2-3 完成后回填集成数据 |
+| v0.2 | 2026-09-09 | 未逐 Stage 回填；Stage 1-5 实施细节见 changelog V37.9.46-56/99，本文 §7.1 加状态注 |
 
-下次 session 实施时，直接对照本文档逐 Stage 推进。如发现设计与实际不符，更新本文档版本（v0.X+1）保持单一真理源。
+Stage 1-5 已按本文档实施完毕；Stage 6 若启动，对照本文档推进。如发现设计与实际不符，更新本文档版本（v0.X+1）保持单一真理源。
 
 ---
 

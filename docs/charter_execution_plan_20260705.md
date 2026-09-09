@@ -48,12 +48,12 @@
 
 | 门 | 决策 | 当前态 |
 |----|------|--------|
-| G1 | Observer shadow→on flip | shadow 周中，~7/7 按 §9.1 判 |
-| G2 | 第二实例 PoC 启动 | 前置进行中（H1-B 首批 config 化 + scanner 0 violations） |
+| G1 | Observer shadow→on flip | ✅ 已 flip on（V37.9.276，2026-07-25；A2 精度窗 V37.9.296 关闭） |
+| G2 | 第二实例 PoC 启动 | ✅ 前置满足（V37.9.253 Linux 实证）；C2 真跑待 Q4 持久 host |
 | G3 | observer-engine 抽包 | 未触发（需外部需求信号） |
 | G4 | 商业化评估 | 未触发（需 ≥3 独立 inbound） |
 | G5 | 团队/资金/托管 | 未触发 |
-| G6 | OpenClaw 升级 | 跟踪中（eval doc §17 三收敛判据；第六次评估 hold） |
+| G6 | OpenClaw 升级 | 跟踪中（eval doc 三收敛判据；第十次评估 2026-09-09 继续 hold，最新结论以 eval doc 末节为准） |
 | G7 | MCP/协议兼容层 | 未触发 |
 | G8 | engine 1.0 semver | 未触发 |
 

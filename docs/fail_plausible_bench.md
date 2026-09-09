@@ -33,7 +33,7 @@ The runner ([`llm_observer_selfcheck.py`](../llm_observer_selfcheck.py)) evaluat
 | **false-positive rate** | 0% | 0/4 | →0% | Clean outputs falsely flagged (noise is itself a problem) |
 | **false-negative rate (Category B)** | 100% | 4/4 | honest report, not a gate | Held-out/novel cases missed (the open problem — see below) |
 | detection latency | N/A | — | paper #2 | Hours the observer beats the human eye (production-only) |
-| confidence calibration | N/A | — | Stage 5/6 | Layer 2 LLM-judge calibration (live-LLM only) |
+| confidence calibration | N/A | — | production (FP_MODE=on since 2026-07-25) / paper #2 | Layer 2 LLM-judge calibration (live-LLM only; quiet window so far) |
 
 The **Category B false-negative rate is high by design and is reported honestly, not gated**: Layer 1 is a *regression engine*, not a *prediction engine*. It catches the fail-plausible patterns it was built for and is systematically blind to novel ones — exactly the [audit-as-regression](articles/audit_is_regression_not_prevention.md) logic applied to the observer itself. Novel detection has to come from somewhere else (Layer 2 semantic grounding, the human eye, or new detection rules). The bench does not pretend otherwise.
 

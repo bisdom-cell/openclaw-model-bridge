@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-09 15:11:07",
+  "updated": "2026-09-09 15:44:43",
   "updated_by": "full_regression",
   "priorities": [
     {
@@ -183,6 +183,11 @@
       "date": "2026-09-09",
       "what": "V37.9.351 OpenClaw 第十次升级评估: 2026.9.3 (09-08) 到期触发 V37.9.350 预设跟踪点 → 继续 hold ❌🔴✅ (① 9.3 DIRTY 16 计数 0 / ② 9.2→9.3 间隔 3 天冲刷假设证伪 / ③ engines 收紧 >=24.16.0 <25 || >=26.1.0 仍在区间但 Node↔SQLite 耦合二次收紧); 7.0 前置 A 同步 9.3 区间 + 前置 C +2 (#138059 递归委派/#139495 更新自动推理修复); check_upgrade LAST_EVAL_DATE 09-09; 守卫 +7 (41→48). 纯评估零 runtime VERSION 不变",
       "by": "claude_code"
+    },
+    {
+      "date": "2026-09-09",
+      "what": "V37.9.352 GitHub 全面数据刷新第二轮: 4 并行扫描 agent 160 条发现逐条代码核实 → 42 文件 ~150 处现态漂移收敛 (provider 12→13/doubao 槽位三件套/job 排程与 registry 脱钩/推送默认 Discord/30 秒回滚退役/硬编码徽章数字/Observer 状态) + INDEX.md·ROLLBACK.md 重写 + 9 篇文章时点头注; 纯 doc 零 runtime VERSION 不变",
+      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -231,7 +236,7 @@
     "security_score": "98/100 (98.0%)",
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB",
     "slo": {
-      "checked_at": "2026-09-09 15:09:35",
+      "checked_at": "2026-09-09 15:43:14",
       "all_ok": true,
       "judged_count": 1,
       "na_count": 4,
@@ -345,16 +350,20 @@
         "item": "【ai_leaders_x 去留 · 需 Mac Mini 数据非印象】该 job 自 V37.9.108 起被 blogs/bsky 替代、每日 9-17×429 WARN 进 watchdog（告警噪声面），但产出是否真为零未实测。判据命令: for f in ~/.openclaw/jobs/ai_leaders_x/cache/last_run.json; do cat $f; done; grep -c \"new\\\":[1-9]\" ~/.openclaw/logs/jobs/ai_leaders_x.log 近 7 天 —— 若 7 天 new 总和 ≤3 → 下版 enabled:false + watchdog JOBS 摘除 + crontab_safe.sh remove（代码保留备 revert，openclaw_run/pwc 先例）；若仍有稳定产出则保留并把 tier core→auxiliary",
         "added": "2026-09-02"
       },
-      "[2026-09-02 V37.9.349 → hotfix2] Mac Mini 两轮实录: 交互 zsh 手跑 PyPI 周下载 2/⭐10 fork 1 但 S2 匿名 429; `bash -lc` 复测 S2 走 key 得引用 0(真实测量值) 但 PyPI TLS EOF 断连. 待用户定性 PyPI: (1) 对照两条 shell 路径 python/OpenSSL 是否相同: `bash -lc 'command -v python3; python3 -c \"import ssl,sys;print(sys.executable, ssl.OPENSSL_VERSION)\"'` vs 交互 shell 同一句; (2) `bash -lc 'python3 ~/openclaw-model-bridge/influence_metrics.py'` 看 PyPI 是否复现(hotfix2 后 stderr WARN 会带 python=/OpenSSL hint). 若两路径 python 不同且 bash -lc 是系统 LibreSSL → health_check 显式用 Homebrew python3(镜像 mm_index MM_PYTHON); 若相同且不复现 = 瞬态登记观察不加机器. 周一 09-07 09:00 周报第 10 段为最终验收."
+      "[2026-09-02 V37.9.349 → hotfix2] Mac Mini 两轮实录: 交互 zsh 手跑 PyPI 周下载 2/⭐10 fork 1 但 S2 匿名 429; `bash -lc` 复测 S2 走 key 得引用 0(真实测量值) 但 PyPI TLS EOF 断连. 待用户定性 PyPI: (1) 对照两条 shell 路径 python/OpenSSL 是否相同: `bash -lc 'command -v python3; python3 -c \"import ssl,sys;print(sys.executable, ssl.OPENSSL_VERSION)\"'` vs 交互 shell 同一句; (2) `bash -lc 'python3 ~/openclaw-model-bridge/influence_metrics.py'` 看 PyPI 是否复现(hotfix2 后 stderr WARN 会带 python=/OpenSSL hint). 若两路径 python 不同且 bash -lc 是系统 LibreSSL → health_check 显式用 Homebrew python3(镜像 mm_index MM_PYTHON); 若相同且不复现 = 瞬态登记观察不加机器. 周一 09-07 09:00 周报第 10 段为最终验收.",
+      {
+        "item": "【GitHub 仓库 About 描述 + topics 陈旧 · 用户在 GitHub 网页设置】现描述「Connect any LLM to OpenClaw — production-tested middleware for Qwen3-235B and beyond」+ topic qwen3, 与现态 (13-provider control plane, primary doubao_21, Qwen3 仅 fallback) 不符; 仓库内无法改, 建议文案见 V37.9.352 收工报告. 改完告知即闭合.",
+        "added": "2026-09-09"
+      }
     ],
     "open_prs": [],
     "blocked_on": "",
-    "focus": "V37.9.351 待合并: OpenClaw 第十次升级评估 (2026.9.3 到期触发 20.6 跟踪点 → 继续 hold ❌🔴✅; ② 冲刷假设被 3 天间隔证伪; ③ engines 首次线内收紧; 前置 C 10→12) + 守卫 +7. 被动观察: 下周一 09:10 check_upgrade LAST_EVAL_DATE=09-09 首跑; 09-07 周报第 10 段影响力首跑结果待用户转发."
+    "focus": "V37.9.351+352 待合并: 第十次升级评估 (继续 hold) + GitHub 全面文档刷新 (~150 处). 用户待办: GitHub About 描述/topics 手动刷新 (Qwen3 措辞陈旧); 合并后 git fetch+reset 同步."
   },
   "quality": {
     "security_score": 98,
     "test_count": 6504,
-    "last_regression": "2026-09-09 15:10 pass",
+    "last_regression": "2026-09-09 15:44 pass",
     "coverage_pct": 0,
     "security_score_time": "2026-07-20 01:07",
     "test_suites": 196,

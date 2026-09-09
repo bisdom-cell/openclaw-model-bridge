@@ -214,10 +214,13 @@ class TestReadmeBodyLineSubs(unittest.TestCase):
         # 意图不变: providers 表必须列出 doubao 槽位 plugin 行 + 2.1 行各一行。
         # V37.9.339 演进: doubao 槽位换模型 Kimi K3 (registry 名 `doubao` 是历史槽位名),
         # 表行按「`doubao` 槽位」标记锚定而非模型名 (槽位再换模型不再咬住修正)。
+        # V37.9.352 演进: 槽位已于 V37.9.345 改名 `doubao_21_tokenhub` (命名债退役), 2026-09-09
+        # 文档刷新把 README 行改成新名时本 pin 反过来咬住修正 —— 意图不变 (该槽位 plugin 行必须在表),
+        # 锚定放宽为「`doubao` 或 `doubao_21_tokenhub` 槽位」。
         with open(os.path.join(_REPO, "README.md"), encoding="utf-8") as f:
             readme = f.read()
-        self.assertRegex(readme, r"\| \*\*[^*]+\*\* \([^)]*plugin[^)]*`doubao` 槽位[^)]*\) \|",
-                         "provider 表必须含 doubao 槽位 plugin 行 (V37.9.339 起 Kimi K3)")
+        self.assertRegex(readme, r"\| \*\*[^*]+\*\* \([^)]*plugin[^)]*`doubao(?:_21_tokenhub)?` 槽位[^)]*\) \|",
+                         "provider 表必须含 doubao_21_tokenhub (原 doubao) 槽位 plugin 行")
         self.assertRegex(readme, r"\| \*\*Doubao Seed 2\.1 Pro\*\* \([^)]*plugin[^)]*\) \|",
                          "provider 表必须含 Doubao 2.1 (primary) plugin 行")
         self.assertRegex(readme, r"## Supported Providers \(\d+\)",

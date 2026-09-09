@@ -366,9 +366,9 @@ Gateway 日志输出到 stdout，可通过 launchd/systemd 重定向到文件。
 ## 十、与本项目的集成架构
 
 ```
-WhatsApp → Gateway (:18789) → Tool Proxy (:5002) → Adapter (:5001) → 远程GPU
-           [OpenClaw开源]      [本项目]              [本项目]          [Qwen3-235B]
-           maxConcurrent=4     ThreadingMixIn        ThreadingMixIn    云端 API / vLLM
+WhatsApp/Discord → Gateway (:18789) → Tool Proxy (:5002) → Adapter (:5001) → LLM Providers (13)
+           [OpenClaw开源]      [本项目]              [本项目]          [primary=PROVIDER env, 现 doubao_21 @Ark]
+           maxConcurrent=4     ThreadingMixIn        ThreadingMixIn    [FALLBACK_ORDER 4 跳; Qwen3 仅兜底]
            lane-aware FIFO     工具过滤12个           多Provider转发
            session管理          截断200KB              认证+/health
            cron调度             SSE转换
@@ -382,8 +382,8 @@ WhatsApp → Gateway (:18789) → Tool Proxy (:5002) → Adapter (:5001) → 远
 | Gateway (main lane) | 4 并发 | 可配置 `maxConcurrent` |
 | Tool Proxy | 无限制（per-thread） | Python ThreadingMixIn |
 | Adapter | 无限制（per-thread） | Python ThreadingMixIn |
-| 远程 GPU | 1-4 并发 | 取决于 云端 API / vLLM 配置 |
-| **端到端实际并发** | **~4** | 受限于 GPU 推理速度 |
+| LLM Provider | 取决于 provider 配额 | primary 为 Ark 托管 API（非自建 GPU）；Qwen3 自建端点仅 fallback |
+| **端到端实际并发** | **~4** | 受限于 Gateway main lane `maxConcurrent=4` |
 
 ### 10.2 关键配置文件位置（Mac Mini）
 

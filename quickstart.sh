@@ -112,6 +112,8 @@ check_prerequisites() {
         echo "    export MINIMAX_API_KEY='...'           # MiniMax"
         echo "    export GLM_API_KEY='...'               # GLM (Zhipu AI)"
         echo "    export REMOTE_API_KEY='...'            # Custom Qwen endpoint"
+        echo "    (plugin providers: ARK_21_API_KEY+ARK_21_ENDPOINT_ID / DOUBAO_21_TOKENHUB_API_KEY /"
+        echo "     DEEPSEEK_FULL_API_KEY / DEEPSEEK_API_KEY / GLM5_API_KEY / KIMI_K3_API_KEY — see docs/provider_plugin_guide.md)"
     fi
 
     # config.yaml
@@ -242,7 +244,7 @@ verify_health() {
     echo ""
     info "Running unit tests..."
     TEST_OUTPUT=$(python3 -m unittest discover -s "$SCRIPT_DIR" -p "test_*.py" -q 2>&1) || true
-    # Extract the result line (e.g. "Ran 595 tests in 1.3s" + "OK (skipped=5)")
+    # Extract the result line (e.g. "Ran 6504 tests in ..." + "OK (skipped=N)")
     # Use grep instead of tail -1 because test output may include non-result lines
     TEST_RESULT=$(echo "$TEST_OUTPUT" | grep -E "^OK|^FAILED" | head -1)
     TEST_COUNT=$(echo "$TEST_OUTPUT" | grep -oE 'Ran [0-9]+' | grep -oE '[0-9]+' || echo "?")
@@ -356,7 +358,7 @@ try:
         'timestamp': time.strftime('%Y-%m-%d %H:%M:%S'),
         'latency_ms': $ELAPSED,
         'request': {
-            'model': 'qwen-local/auto',
+            'model': '${DEMO_PROVIDER}-local/auto',
             'prompt': 'What is 2+2? Reply in one word.',
             'max_tokens': 50,
         },
@@ -365,7 +367,7 @@ try:
             'tokens': r.get('usage', {}),
             'model': r.get('model', ''),
         },
-        'path': 'Proxy(:5002) → Adapter(:5001) → Remote GPU → Response',
+        'path': 'Proxy(:5002) → Adapter(:5001) → LLM Provider(${DEMO_PROVIDER}) → Response',
     }
     with open('$TRACE_FILE', 'w') as f:
         json.dump(trace, f, indent=2, ensure_ascii=False)

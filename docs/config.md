@@ -1,6 +1,6 @@
 # OpenClaw 完整配置文档
 > 系统：Mac Mini (macOS) | 用户：bisdom
-> 版本：**v37.9.351（2026-09-09）**（**6504 tests / 196 suites / 0 fail / 839 governance checks / 91 invariants / 23 meta rules / 14 MRD scanners / 13 providers / 安全 98/100 / VERSION 0.37.9.175**）。**V37.9.143（2026-06-12）外部评审2 P0 双兑现**：compatibility_matrix 漂移防护机器化（`gen_compat_matrix.py --check/--fix` 接入 full_regression doc-drift 层，首跑即抓 V37.9.142 手动刷新遗漏的 doubao json_mode 漂移 + 修 "5/4 verified" 分母超界 bug）+ slo_benchmark 四态 verdict（N_A_NO_TOOL_CALLS）/24h/7d 双窗口/Threshold Rationale 正文段（Mac Mini `python3 slo_benchmark.py --save` 重生成报告待用户执行）。完整 changelog 见 `CLAUDE.md`。**近期主线（V37.9.117 起）= 日落法北极星（原则 #34 + MR-22 sunset-over-accretion）**：系统演进默认动作从"加功能"转向"退役/合并复杂度"——意外频发真因是"组合"（简单正确部件交互面积超线性增长超过测试覆盖）非"复杂"，事故住在接缝里。日落法退役实操：V37.9.118（governance check repo_root abspath+ternary → os.getcwd() 单一源）/ V37.9.119（engine.py abspath→realpath）/ V37.9.120（auto_deploy 双副本一物多形根治）/ V37.9.122（FILE_MAP 豁免 RUNS_FROM_REPO_CLONE 单一真理源 + 修 check_registry 漏同步潜伏 bug）/ V37.9.123（status.json 内容漂移 CONTENT_DRIFT_EXEMPT 单一源 bash 收敛）/ V37.9.124（INV-OBSERVER-001 runtime check 收窄到契约核心类，缩 dev-production env-dependency 接缝）。**OpenClaw 升级第五次评估（2026-06-08）**：当前上游 v2026.6.1，#73358 dealbreaker 已 v2026.4.27 修复但 #59265 仍无 fix + 6.x 加 SQLite/plugin breaking → 用户决策继续 hold 到 6/20 时间表，目标 v2026.4.27（避开全部 4.29/5.x/6.x breaking），详见 `gateway_upgrade_eval_v2026.4.md` 第十四节。**治理体系**：governance_ontology.yaml v3.56，Ontology Plane Phase 4 P3（three_gate shadow wiring）+ Convergence Framework 5 specs（3 machine_sync）。**机会点雷达三件套**：跨源共振 + 项目对齐度 + 趋势加速 → 每日 06:00 红/黄/蓝机会点。**反幻觉双轴**：hallucination_guards（内容真实性 5 档）+ source_credibility（出处权威性 5 tier）。
+> 版本：**v37.9.352（2026-09-09）**（**6504 tests / 196 suites / 0 fail / 839 governance checks / 91 invariants / 23 meta rules / 14 MRD scanners / 13 providers / 安全 98/100 / VERSION 0.37.9.175**）。**V37.9.143（2026-06-12）外部评审2 P0 双兑现**：compatibility_matrix 漂移防护机器化（`gen_compat_matrix.py --check/--fix` 接入 full_regression doc-drift 层，首跑即抓 V37.9.142 手动刷新遗漏的 doubao json_mode 漂移 + 修 "5/4 verified" 分母超界 bug）+ slo_benchmark 四态 verdict（N_A_NO_TOOL_CALLS）/24h/7d 双窗口/Threshold Rationale 正文段（Mac Mini `python3 slo_benchmark.py --save` 重生成报告待用户执行）。完整 changelog 见 `CLAUDE.md`。**近期主线（V37.9.117 起）= 日落法北极星（原则 #34 + MR-22 sunset-over-accretion）**：系统演进默认动作从"加功能"转向"退役/合并复杂度"——意外频发真因是"组合"（简单正确部件交互面积超线性增长超过测试覆盖）非"复杂"，事故住在接缝里。日落法退役实操：V37.9.118（governance check repo_root abspath+ternary → os.getcwd() 单一源）/ V37.9.119（engine.py abspath→realpath）/ V37.9.120（auto_deploy 双副本一物多形根治）/ V37.9.122（FILE_MAP 豁免 RUNS_FROM_REPO_CLONE 单一真理源 + 修 check_registry 漏同步潜伏 bug）/ V37.9.123（status.json 内容漂移 CONTENT_DRIFT_EXEMPT 单一源 bash 收敛）/ V37.9.124（INV-OBSERVER-001 runtime check 收窄到契约核心类，缩 dev-production env-dependency 接缝）。**OpenClaw 升级第五次评估（2026-06-08）**：当前上游 v2026.6.1，#73358 dealbreaker 已 v2026.4.27 修复但 #59265 仍无 fix + 6.x 加 SQLite/plugin breaking → 用户决策继续 hold 到 6/20 时间表，目标 v2026.4.27（避开全部 4.29/5.x/6.x breaking），详见 `gateway_upgrade_eval_v2026.4.md` 第十四节。**治理体系**：governance_ontology.yaml v3.56，Ontology Plane Phase 4 P3（three_gate shadow wiring）+ Convergence Framework 5 specs（3 machine_sync）。**机会点雷达三件套**：跨源共振 + 项目对齐度 + 趋势加速 → 每日 06:00 红/黄/蓝机会点。**反幻觉双轴**：hallucination_guards（内容真实性 5 档）+ source_credibility（出处权威性 5 tier）。
 > OpenClaw Gateway：**v2026.4.27（2026-06-11 已升级）**。三个月 hold（2026.3.13-1，五次评估）后于 6/11 完成升级——前置验证当日 GO（tripwire 0/6 + #59265 仍无 fix → 按 G2 决策树目标 4.27 + 4.27 未 deprecated 43 天稳定 + notes 确认含 #73358 fix），用户决策提前于原 6/20 窗口执行（原第七节 SOP 前置条件即"工作日白天快速回滚"）。**升级实录**：备份 → npm install -g openclaw@2026.4.27 → doctor --fix（legacy config 迁移 + 12 个 bundled plugin deps 自动安装 + sessions canonicalize + 71/116 plugins indexed, 0 errors）→ restart.sh → 验证全过：WhatsApp plugin manifest-first 自动加载（linked+connected, auth 保留）/ 双通道推送 ✓（WhatsApp 首次 send 撞 plugin 按需 staging 窗口 timeout, 10s 后重试即通——4.27 按需安装 baileys+jimp 机制）/ **真人 E2E：PA 回复完整可见, #59265 未复现** / preflight 85/0 + SLO 全部达标（p95 警告随窗口冲刷自愈, V37.9.126/131 预测兑现）。已知观察项：Discord groupPolicy allowlist 警告（我们不收群组入站, 无影响）/ #48703 hotfix 在 4.27 已冗余（上游 3.23 修复; **移除已于 V37.9.140 同日兑现** — restart.sh 补丁段退役, preflight 12/19 上游回归监控保留）。详见 `docs/gateway_upgrade_eval_v2026.4.md` 第十五节。**第六次评估（2026-07-04，V37.9.244，用户要求深评「4.27 能否无损稳定继续升级」）：继续 hold**——4.27→6.11（23 stable/2 个月）含三个结构性迁移（M1 WhatsApp/Discord 插件外部化 5.2 起核心包移除 / M2 状态 SQLite 渐进迁移 **6.11 仍进行中**（cron+auth 已迁含 cleanup、session store 未迁、session accessors 正在 refactor）/ M3 Gateway HTTP 栈换 Proxyline 5.12 正式 Breaking），且 **回滚从「30 秒无损」退化为「有损单向门」**（SQLite 迁移 cleanup 后 4.27 读不回 cron/auth 状态，凭据丢失 → WhatsApp 重链撞 408 限流史）+ Node 门槛升 ≥22.19。收益侧（冷调用根治 #93356 / WhatsApp 可靠性 / socket-timing 透传）诚实登记但不抵结构性风险。**三条收敛判据开窗**（数据驱动非日历）：① 连续 2 个 stable 无 session/SQLite 迁移 PR ② 周稳定版 ≤1 ③ Mac Mini node ≥22.19 就位。LAST_EVAL_DATE=2026-07-04（时间 tripwire 重置）。详见 eval doc **第十七节**。**第七次评估（2026-07-20，V37.9.267，2026.7.1 stable 发布触发判据跟踪）：继续 hold，判据全未满足**——① SQLite/session 弧线 ❌ 未收敛（7.1 仍 4+ session-accessor refactor PR #101178/101179/101180/101688 + SQLite state 处理）② 发版节奏 🟡 部分改善（6.11→7.1 间隔 13 天放缓，但同日两 patch）③ Node 门槛 🔴 再升级为**区间黑名单** `>=22.22.3 <23 ‖ >=24.15 <25 ‖ >=25.9`（根因 = PR #106065 SQLite WAL 数据损坏安全，7.1 拒绝有 WAL 漏洞的 node 运行时 = M2 单向门风险加深）。收益侧新增登记（launchd EX_CONFIG 停 flapping / SSE 解析健壮化 #96503 / WhatsApp 重连 rate-limit 缓解）但不抵结构性风险。下次跟踪 = 2026.7.2 stable 判据 1 核对。LAST_EVAL_DATE=2026-07-20。详见 eval doc **第十八节**。**第八次评估（2026-09-01，V37.9.336，2026.8.1 stable 发布触发判据跟踪；原跟踪点 2026.7.2 从未 stable，beta.1→beta.7 后被放弃并入 8.1）：继续 hold，判据首次分化 ❌✅⚠️**——① SQLite/session 弧线 ❌ **仍未满足**：session-accessor refactor 子弧线确已在 8.1 收尾，但主弧线**扩面**（新状态入 SQLite：shared credential store #121559/#121724/#126088 把团队 secret/env 搬进 SQLite；session 历史迁移 #127241/#131527/#131276；schema 迁移校验 #105583；WAL 损坏修复 #132844/#120597；启动期 doctor 迁移 #132135）+ 两条新 breaking 迁移（OpenProse 移除 #128494 / OpenAI route migration 明文 touches stored sessions）② 发版节奏 ✅ **首次满足**（7.1→8.1 间隔 49 天仅 1 minor，4 周窗口 ≈0.5/周，对比 6 月 7 stable 周更；7.2 攒进 8.1 而非小步 stable = 结构性收敛证据）③ Node 区间 ✅ **已满足**（上游 8.1 门槛未再收紧 + 我方 2026-07-24 已 `brew upgrade node` 25.6.1→**26.5.0** 落在 `>=25.9.0` 无上界区间，4.27-on-node26 兼容受控验证过）→ **卡点首次收敛到判据 ① 一条**，① 一满足即可开窗（届时只需走 SOP 7.0 三项前置）。🔴 **本次新增两个此前评估没有的判断维度**：(1) **第四类风险「默认自主行为扩张」**——8.1 把 7 项默认变更（6 项自主行为 + 1 项并发假设）设为默认生效，其中 3 项直接踩我们已立案的血案机制（Grounded dreaming 默认开 → dream_quota_blast_radius / ambient heartbeat 默认开 → heartbeat_md_pa_self_silencing / session reset default 变更 → pa_alert_contamination），故升级 SOP 7.0 新增前置 C「默认行为审计与显式关闭」（7 项）且须在首次启动前完成；(2) **持有成本首次可量化**——weixin 插件 peer floor 于 2.4.5（06-22）抬到 `>=2026.5.12`，4.27 被钉死在 2.4.4，而 2.4.8 今日发布 = 落后 4 版 / 71 天；官方 channel 插件（@openclaw/whatsapp / discord）与 core **锁步版本**（peer `>=2026.8.1`，逐 core 版本发布）→ **方案 B 中间版本更不可取**。收益侧新增登记：`OPENCLAW_SUPERVISOR_MODE=external`（#109162，外部 supervisor 拥有 Gateway 生命周期 = 正对我们 launchd 单一管理者不变式）/ `openclaw backup sqlite` 快照+校验+恢复（#105718，升级前快照缓解手段实质增强）/ newer-database-state fence（#132916/#133081，部分缓解 M2 但保护方向向前不向后）/ HTTP API 部分流后失败诚实报 error（#133275，与 fail-plausible 关切同源）。4.27 仍未 deprecate（发布 125 天）。下次跟踪 = 2026.9.1 stable 判据 ① 核对（beta.1 已 08-28 发布）。**同日追加 19.8 判据 ① 提前读数 + 核对协议**：对 2026.9.1-beta.1 的提前读数 = **不可判（N/A）非干净**——`sqlite`/`migrat` 计数全为 0 是**内容还没写**（1,520 条无描述裸 PR 行 + 仅 17 条叙述，对比 8.1=506 / 7.1=1719），典型假绿且误判方向最贵（会让判据 ① 计数错误 +1 提前开窗）。设计协议时第二次自我证伪：「只扫叙述段」被 7.1 否决（其 session-accessor 证据 #101178/#101179 住在 contribution record 段且带描述）→ 协议固定「整份扫描 + 内容门槛按叙述条目+带描述 PR 条目计，<100 判不可判(rc=3)」，实测 8.1→rc=2 DIRTY 24 hits / beta.1→rc=3。**刻意不做成仓库脚本**（每 6–8 周一次手动执行，可复制命令块足够；日落法：常驻脚本退役不了任何东西），守卫改钉协议要害防简化回裸 grep。LAST_EVAL_DATE=2026-09-01。详见 eval doc **第十九节**。**第九次评估（2026-09-06，V37.9.350，2026.8.2/9.1/9.2 三个 stable 5 天内发布触发判据跟踪）：继续 hold，判据 ❌🔴✅**——① 8.2 DIRTY 36 命中（stop incomplete session migrations #134025 / SQLite schema comparison #133627 / cron SQLite migration #133858）；9.1/9.2 changelog 换格式（合并叙事段落 + 行内 (#PR) 引用 + 无标题裸 PR 行）致原 19.8 协议按叙述条目计 77/69 判「不可判」→ **尺子坏了非内容不够**（9.1 行内引用 924 个唯一 PR > 8.1 的 802），按协议自带重标定分支加 `inline_pr_refs`（骨架 beta.1=10，门槛 50）→ 9.1 DIRTY 11（schema-17 session repair atomic / shared credential migration / SQLite writer lifecycle）、9.2 DIRTY 4（malformed SQLite DB 诊断）→ 连续干净计数仍 0；**session store 已入 SQLite 至 schema 17 = M2「未迁」已成「已迁在加固」，回滚单向门覆盖 sessions** ② 🔴 由 ✅ 退回：6 天 4 个 stable（8.1/8.2/9.1/9.2；9.1 与 8.x 引用零重叠 = 真新工作非重切），积压冲刷假设待下一 stable 间隔定性（≥14 天回 ✅ / <7 天持续未满足）③ ✅ engines 9.1/9.2 与 8.1 逐字同。**第四类风险续增 3 项**（8.2 同 agent 会话默认互见含 retained cron sessions #133469 / 9.2 跨 agent 会话访问默认开 #136755 / 9.2 Swarm 并发 sub-agent 默认开 #136514）→ 7.0 前置 C 7→10 项。持有成本：weixin 落后 3 个已发布版本 / 76 天（更正第八次「4 版」：2.4.7 从未发布）；channel 插件锁步 9.2 再证（peer ≥2026.9.2）；Plugin SDK 5 条 import 路径退役 09-01 落地 + context aliases 09-08 起可移除。收益侧新增：update 失败自动回滚 npm candidate + 保留配置/secret refs（#135462，升级失败态回滚，成功后仍单向门）/ 启动韧性 legacy cron 隔离 + migration warnings 降级不拒启（#135773）/ `cron.skipMissedJobs`（#135071）/ `channels.<id>.enabled:false` 不加载插件（#136211）/ settings 免重启（#138112）/ 备份拒收损坏归档头（#137718）。LAST_EVAL_DATE=2026-09-06。详见 eval doc **第二十节**。**第十次评估（2026-09-09，V37.9.351）**：2026.9.3（09-08）= 20.6 预设「下一 stable」到期 → **继续 hold（❌🔴✅ 同上但证据更硬）**：① 9.3 修订协议可判（叙述 203 / 行内 859，与 9.2 零重叠 = 真新工作）→ DIRTY 16（Node 强制升级防 SQLite 文本截断 #140672 / schema 版本延迟发布 / 无扩展 SQLite 构建 #139415 / 迁移阻塞停 restart loop）计数仍 0 ② 9.2→9.3 间隔 **3 天**（9 天 5 stable，4 周窗 1.25/周）→ 20.6 预注册「<7 天持续未满足」分支命中，「积压冲刷」假设证伪 ③ engines **首次在 8.x/9.x 线内收紧** `>=24.16.0 <25 || >=26.1.0`（Node 22/25 全退出），26.5.0 仍在区间；Node↔SQLite 耦合二次收紧。第四类风险 +2（9.3 递归子会话默认开 #138059 / 更新失败自动用推理修复 #139495）→ 7.0 前置 C 10→12；持有成本 weixin 落后 3 版 / 79 天 + 9.3 携 4 条 Breaking SDK + context aliases 移除窗口 09-08 已到；收益侧 Safer updates 隔离 candidate rehearse（升级失败面保护更完整，成功后仍单向门）。LAST_EVAL_DATE=2026-09-09。详见 eval doc **第二十一节**。
 ---
 ## 一、系统架构（V28.1 四层架构）
@@ -15,7 +15,7 @@
 │  ① 核心数据通路（实时对话 + 多模态）                                  │
 │                                                                     │
 │  WhatsApp ←→ Gateway (:18789) ←→ Tool Proxy (:5002) ←→ Adapter (:5001) ←→ LLM Providers  │
-│  Discord     [launchd管理]        [策略过滤+监控]       [认证+能力路由]   [12 个: primary=  │
+│  Discord     [launchd管理]        [策略过滤+监控]       [认证+能力路由]   [13 个: primary=  │
 │              [媒体存储]           [图片base64注入]      [Fallback降级]     PROVIDER env,   │
 │                                                                          现 doubao_21]   │
 │                  │                    │                    │                               │
@@ -49,7 +49,7 @@
 │  ③ 监控层（多级自动告警）                                                            │
 │                                                                                     │
 │  每30min  wa_keepalive ──→ 真实发送零宽字符 ──→ 失败则记录日志                         │
-│  每4小时  job_watchdog ──→ 检查所有job状态文件 + 日志扫描 ──→ 超时/失败→notify告警(默认Discord)   │
+│  日间4次  job_watchdog(08/12/16/20:30) ──→ job状态+日志扫描(24h窗) ──→ 失败→notify告警(默认Discord)│
 │  实时     proxy_stats ──→ token用量 + 连续错误计数 ──→ 阈值告警                       │
 │  /health  三层健康端点：Gateway(:18789) → Proxy(:5002) → Adapter(:5001)              │
 └─────────────────────────────────────────────────────────────────────────────────────┘
@@ -60,7 +60,7 @@
 │  GitHub (main) ──→ auto_deploy.sh (每2min轮询)                                      │
 │                     ├─ git fetch + pull                                              │
 │                     ├─ 单测验证（proxy_filters变更时）                                 │
-│                     ├─ 文件同步（仓库→运行时，FILE_MAP ~116 个映射）                            │
+│                     ├─ 文件同步（仓库→运行时，FILE_MAP ~118 个映射）                            │
 │                     ├─ 每小时漂移检测（md5全量比对）                                   │
 │                     ├─ 按需restart（核心服务文件变更时）                                │
 │                     └─ preflight_check.sh --full（部署后自动体检）                │
@@ -106,7 +106,7 @@
 | OpenClaw Gateway | 18789 | 全局安装 (npm) | WhatsApp接入、**媒体存储**、工具执行、会话管理 | launchd (KeepAlive) |
 | Tool Proxy | 5002 | ~/tool_proxy.py + ~/proxy_filters.py | HTTP层 + 策略层：工具过滤、**图片base64注入**、**自定义工具注入+拦截**（data_clean+search_kb）、Schema简化、参数修复、SSE转换、截断、token监控 | launchd plist |
 | Adapter | 5001 | ~/adapter.py | 多Provider转发、认证、**能力感知多模态路由**、Fallback降级 | launchd plist |
-| LLM Providers | - | providers.py + providers.d/ | **12 个 provider**；primary 由 `PROVIDER` env 决定（现 doubao_21 = Doubao Seed 2.1 Pro @Volcengine Ark，V37.9.222 flip）；fallback 链 `FALLBACK_ORDER`（deepseek_full→doubao→deepseek→qwen）；Qwen3 端点走 `REMOTE_BASE_URL` env | 外部服务 |
+| LLM Providers | - | providers.py + providers.d/ | **13 个 provider（7 built-in + 6 plugins）**；primary 由 `PROVIDER` env 决定（现 doubao_21 = Doubao Seed 2.1 Pro @Volcengine Ark，V37.9.222 flip）；fallback 链 `FALLBACK_ORDER`（deepseek_full→doubao_21_tokenhub→deepseek→qwen）；Qwen3 端点走 `REMOTE_BASE_URL` env | 外部服务 |
 ---
 ## 二、关键文件清单
 | 文件 | 路径 | 用途 |
@@ -119,9 +119,9 @@
 | 工具代理（策略层） | ~/proxy_filters.py | **V27新增** 过滤/修复/截断/SSE转换，纯函数无网络依赖 |
 | 任务注册表 | ~/openclaw-model-bridge/jobs_registry.yaml | **V27新增** 统一登记system+openclaw双cron任务 |
 | 注册表校验器 | ~/openclaw-model-bridge/check_registry.py | **V27新增** 校验ID唯一/路径存在/字段完整 |
-| 回滚指南 | ~/openclaw-model-bridge/ROLLBACK.md | **V27新增** 30秒恢复到V26 |
+| 回滚指南 | ~/openclaw-model-bridge/ROLLBACK.md | **V27新增→2026-09-09 重写** 代码回滚 = git revert 单 commit + auto_deploy 同步 + restart.sh（v26-snapshot tag 已不存在；Gateway 回滚见升级评估 7.5） |
 | KB写入脚本 | ~/kb_write.sh | KB记录执行脚本（v18已加目录锁+原子写） |
-| KB回顾脚本 | ~/kb_review.sh | **V29升级：LLM深度分析+WhatsApp推送** |
+| KB回顾脚本 | ~/kb_review.sh | **V29升级→V37.5 重写：LLM深度分析 + notify 推送（默认 Discord）** |
 | **KB搜索工具** | **~/kb_search.sh** | **V29新增：按需查询（关键词/标签/来源/统计概览）** |
 | **KB每日摘要** | **~/kb_inject.sh** | **V29新增：每日07:00生成~/.kb/daily_digest.md，供LLM对话查阅** |
 | **运维日报** | **~/daily_ops_report.sh** | **V36.2新增：合并对话质量+Token用量为一条推送（conv_quality.py+token_report.py --no-push）** |
@@ -148,7 +148,7 @@
 | Adapter日志 | ~/adapter.log | API转发日志 |
 | Gateway日志 | /tmp/openclaw/openclaw-YYYY-MM-DD.log | Gateway运行日志 |
 | 知识库索引 | ~/.kb/index.json | 知识库主索引（PA日常KB） |
-| **Releases Watcher** | **~/.openclaw/jobs/openclaw_official/run.sh** | **GitHub Releases监控+WhatsApp推送（v19新增）** |
+| **Releases Watcher** | **~/.openclaw/jobs/openclaw_official/run.sh** | **GitHub Releases监控 + notify 推送（v19新增；job `openclaw_run` 现 enabled=false）** |
 | **Watcher日志** | **~/.openclaw/logs/jobs/openclaw_official.log** | **Releases cron日志（v19新增）** |
 | **Issues Watcher** | **~/.openclaw/jobs/openclaw_official/run_discussions.sh** | **GitHub Issues 监控+LLM富摘要+中文推送（v21新增，v28.1改用REST API监控Issues）** |
 | **Issues日志** | **~/.openclaw/logs/jobs/openclaw_discussions.log** | **Issues cron日志（v21新增）** |
@@ -157,9 +157,9 @@
 | **自动部署+漂移检测+体检** | **~/openclaw-model-bridge/auto_deploy.sh** | **V27.1新增：仓库→部署自动同步 + 每小时md5全量比对 + WhatsApp漂移告警；V28.1：部署后自动运行preflight_check** |
 | **收工全面体检** | **~/openclaw-model-bridge/preflight_check.sh** | **V28.1新增→V30.3升级→现 19项自动化检查（单测+注册表+语法+部署一致性+环境变量+连通性+安全扫描+数据流+货代监控+crontab路径+推送E2E），auto_deploy部署后自动触发** |
 | **WhatsApp保活** | **~/wa_keepalive.sh** | **V28.1新增：每30分钟真实发送零宽字符验证WhatsApp通道可用性** |
-| **元监控** | **~/job_watchdog.sh** | **V28新增：检查所有job状态文件 + 日志推送失败扫描 + proxy_stats + WhatsApp告警** |
+| **元监控** | **~/job_watchdog.sh** | **V28新增：检查所有job状态文件 + 日志错误扫描（24h 窗）+ proxy_stats + notify 告警（默认 Discord）** |
 | **端到端smoke test** | **~/openclaw-model-bridge/smoke_test.sh** | **V28新增：单测+注册表+文档漂移+连通性快速验证** |
-| **注册表单测** | **~/openclaw-model-bridge/test_check_registry.py** | **V28新增：18个用例覆盖YAML解析+validate+FILE_MAP** |
+| **注册表单测** | **~/openclaw-model-bridge/test_check_registry.py** | **V28新增→现 27 个用例覆盖 YAML 解析+validate+FILE_MAP+providers.d 覆盖** |
 | **文档自动生成** | **~/openclaw-model-bridge/gen_jobs_doc.py** | **V28新增：从registry生成任务表格 + --check漂移检测** |
 | **GitHub仓库** | **git@github.com:bisdom-cell/openclaw-model-bridge.git** | **源码托管；remote已改为SSH（v25修复HTTPS认证失败）** |
 ---
@@ -172,7 +172,7 @@
 | Endpoint | 走 env `REMOTE_BASE_URL`（V37.9.211 服务器重装后为裸 IP，不入库；公开 fallback base = hkagentx.hkopenlab.com） |
 | API Key | 通过环境变量 `$REMOTE_API_KEY` 读取 |
 | 文本模型 | Qwen3-235B-A22B-Instruct-2507-W8A8（235B, W8A8量化, 262K context） |
-| **视觉模型** | **Qwen2.5-VL-72B-Instruct（72B, 同endpoint同API Key；qwen 是唯一非-Ark vision fallback）** |
+| **视觉模型** | **Qwen2.5-VL-72B-Instruct（72B, 同endpoint同API Key；image 请求由 adapter 按 provider 能力路由——primary doubao_21 原生多模态，qwen VL 为 fallback 端的 vision 候选之一）** |
 | 请求体限制 | ~280KB |
 | **多模态路由** | **Adapter 能力感知路由：image_url → vision-capable provider（现 primary doubao_21 自身多模态）；纯文本 → primary** |
 ### ⚠️ 模型ID使用规则
@@ -224,11 +224,12 @@ launchctl load ~/Library/LaunchAgents/com.openclaw.proxy.plist
 
 # LLM 路由（V37.9.218/222）
 export PROVIDER="doubao_21"                       # primary provider（V37.9.222 flip）
-export FALLBACK_ORDER="deepseek_full,doubao,deepseek,qwen"   # 显式有序 fallback 链（primary 自动排除）
+export FALLBACK_ORDER="deepseek_full,doubao_21_tokenhub,deepseek,qwen"   # 显式有序 fallback 链（primary 自动排除）
 export ARK_21_API_KEY="ark-xxxx"                  # doubao_21（Volcengine Ark）
 export ARK_21_ENDPOINT_ID="ep-xxxx"
 export DOUBAO_21_TOKENHUB_API_KEY="sk-xxxx"       # doubao_21_tokenhub 槽位（V37.9.345 改名，与 primary 同模型跨平台冗余）
 export GLM5_API_KEY="sk-xxxx"                     # GLM-5.3 coding（ai-tokenhub，V37.9.339）
+export KIMI_K3_API_KEY="sk-xxxx"                  # Kimi K3（ai-tokenhub，V37.9.345 第 13 个 provider）
 export DEEPSEEK_FULL_API_KEY="sk-xxxx"            # DeepSeek 满血版 GA（ai-tokenhub，V37.9.339）
 export DEEPSEEK_API_KEY="sk-xxxx"                 # DeepSeek 量化版（self-host）
 export REMOTE_API_KEY="sk-xxxx"                   # Qwen3 fallback 端点
@@ -271,7 +272,7 @@ agents_list / cron / message / tts / image
 |------|------|------|
 | data_clean | 数据清洗（profile/execute/validate，7 种操作） | V30.3 |
 | search_kb | KB 混合检索（语义+关键词） | V30.5 |
-| expert_escalate | 专家升级（Doubao 后端深度判断，read-only） | V37.9.90 |
+| expert_escalate | 专家升级（`default` 后端 = 系统配置的 reasoning 模型，read-only；文案不写厂商名，V37.9.339/345） | V37.9.90 |
 ---
 ## 七、定时任务（V29.1：所有openclaw内建cron已废弃/移除，统一为系统crontab）
 | 任务名 | 触发时间 | Job ID | 状态 |
@@ -291,7 +292,7 @@ agents_list / cron / message / tts / image
 | hn-watcher | 每3小时:45分 | `run_hn_fixed.sh` | `~/.openclaw/logs/jobs/hn_watcher.log` | ✅ |
 | freight-watcher | 每天08:00/14:00/20:00 | `~/.openclaw/jobs/freight_watcher/run_freight.sh` | `~/.openclaw/logs/jobs/freight_watcher.log` | ✅ v26验证成功 |
 | arxiv-monitor | 每3小时整点 | `~/.openclaw/jobs/arxiv_monitor/run_arxiv.sh` | `~/.openclaw/logs/jobs/arxiv_monitor.log` | ✅ V28新增（替代 monitor-arxiv-ai-models + kb-save-arxiv） |
-| job-watchdog | 每4小时:30分 | `~/openclaw-model-bridge/job_watchdog.sh` | `~/job_watchdog.log` | ✅ V28新增→V32改频：元监控，检查各job是否按时执行（从每小时→每4小时，减少告警噪音） |
+| job-watchdog | 每天 08/12/16/20 :30（日间 4 次） | `~/openclaw-model-bridge/job_watchdog.sh` | `~/job_watchdog.log` | ✅ V28新增→V32改频（每小时→日间 4 次，跳过凌晨算力窗口，减少告警噪音）→V37.9.321 24h 时间戳窗口 |
 | kb-evening | 每天22:00 | `kb_evening.sh` | `~/kb_evening.log` | ✅ 晚间 KB 整理 |
 | kb-deep-dive | 每天22:30 HKT | `kb_deep_dive.sh` | `~/kb_deep_dive.log` | ✅ V37.9.16新增：每日深度分析（⭐≥4 论文/文章 + 一档 PDF/二档 HTML 抓取 + 论证链分析 + WhatsApp简版 + Discord #daily 完整版 + ~/.kb/deep_dives/ 归档） |
 | daily-observer | 每天06:30 HKT | `daily_observer.sh` | `~/daily_observer.log` | ✅ V37.9.84新增：每日自审 LLM-as-judge（扫前日推送输出+评分+read-only 改进提案，推 Discord #daily only，永不直接改代码） |
@@ -328,6 +329,9 @@ agents_list / cron / message / tts / image
 | finance_news | 每天07:30 | `~/.openclaw/jobs/finance_news/run_finance_news.sh` | `~/.openclaw/logs/jobs/finance_news.log` | ✅ V37.8.1新增→V37.9.266 NBER 剔除：全球财经/政策每日汇总 — 14 RSS + 10 X 财经账号，LLM结构化分析（中文标题+价值评级+国内外对比+投资建议），notify 推送（Discord #daily） |
 | chaspark | 每天11:00 | `~/.openclaw/jobs/chaspark/run_chaspark.sh` | `~/.openclaw/logs/jobs/chaspark.log` | ✅ V37.8.14新增：黄大年茶思屋科技网站 — Chaspark API 直连 + Top 5 深度分析 + KB 归档 + 双通道推送 |
 | gateway-watchdog | ~~每30分钟~~ | `~/restart.sh` | `~/.openclaw/logs/gateway_watchdog.log` | ❌ **已移除**（#95：与launchd KeepAlive双主控冲突，导致误杀gateway） |
+| ai_leaders_blogs | 30 13 * * * | `jobs/ai_leaders_blogs/run_ai_leaders_blogs.sh` | `~/.openclaw/logs/jobs/ai_leaders_blogs.log` | ✅ 自动添加 | 
+| ai_leaders_bsky | 0 17 * * * | `jobs/ai_leaders_bsky/run_ai_leaders_bsky.sh` | `~/.openclaw/logs/jobs/ai_leaders_bsky.log` | ✅ 自动添加 | 
+| check_upgrade | 10 9 * * 1 | `check_upgrade.sh` | `~/check_upgrade.log` | ✅ 自动添加 | 
 
 `crontab -l` 实况（V37.9.312 起不再在本文档维护手工副本 —— 快照副本注定漂移，
 2026-08-17 刷新时抓到其中含 2 条已停用条目 + watchdog 频率与正文自相矛盾。一物一形）：
@@ -614,7 +618,7 @@ cd ~/openclaw-model-bridge && git fetch origin main && git reset --hard origin/m
 
 **Model Fallback 降级链**
 - adapter.py 主请求失败时自动 fallback 到降级链
-- **V37.9.218 `FALLBACK_ORDER`（显式有序 fallback 链，推荐）**：逗号分隔 provider 名，权威覆盖 cap_score 自动排序 + 旧单槽 `FALLBACK_PROVIDER`（一物一形）。primary 自动排除（可传完整偏好顺序，切换 primary 无需改）；无 key/未知/geo-block 的 provider 跳过 + 去重保序。例：`FALLBACK_ORDER="deepseek_full,doubao,deepseek,qwen"`（当前生产值；PROVIDER=doubao_21 已自动排除 → 链 deepseek_full>doubao>deepseek>qwen）。**capability-aware vision fallback**：image 请求跳过纯文本 provider（deepseek/deepseek_full），只在 vision-capable（doubao_21/doubao/qwen）里排。
+- **V37.9.218 `FALLBACK_ORDER`（显式有序 fallback 链，推荐）**：逗号分隔 provider 名，权威覆盖 cap_score 自动排序 + 旧单槽 `FALLBACK_PROVIDER`（一物一形）。primary 自动排除（可传完整偏好顺序，切换 primary 无需改）；无 key/未知/geo-block 的 provider 跳过 + 去重保序。例：`FALLBACK_ORDER="deepseek_full,doubao_21_tokenhub,deepseek,qwen"`（当前生产值；PROVIDER=doubao_21 已自动排除 → 链 deepseek_full>doubao_21_tokenhub>deepseek>qwen）。**capability-aware vision fallback**：image 请求跳过纯文本 provider（deepseek/deepseek_full），只在 vision-capable（doubao_21/doubao_21_tokenhub/qwen）里排。
 - **`FALLBACK_PROVIDER`（旧单槽，向后兼容）**：仅 1 个显式首槽 + cap_score 自动填充其余。FALLBACK_ORDER 未设时生效；两者同设 → FALLBACK_ORDER 优先（WARN）。
 - /health 端点 `"fallback_chain"` 显示实际链、`"fallback"` 显示链首（向后兼容）
 
@@ -762,8 +766,8 @@ tail -30 ~/.kb/sources/freight_daily.md
 ### 31.2 强制实施模式
 | 层级 | 检查点 | 行动 |
 |------|--------|------|
-| **L1 调用层** | returncode != 0 或 stdout 为空 | WhatsApp推送⚠️，exit 1，不推送业务内容 |
-| **L2 解析层** | 解析成功率 < 50% | WhatsApp推送⚠️，exit 2，不推送业务内容 |
+| **L1 调用层** | returncode != 0 或 stdout 为空 | notify 推送 ⚠️（默认 Discord），exit 1，不推送业务内容 |
+| **L2 解析层** | 解析成功率 < 50% | notify 推送 ⚠️（默认 Discord），exit 2，不推送业务内容 |
 | **L3 业务层** | 推送条数为0 | 写入日志，静默退出（正常情况） |
 
 ### 31.3 各脚本实施状态（v26完成）
@@ -819,7 +823,7 @@ echo "=== 扫描完成，全部为空才允许push ==="
 ### 33.2 文件
 | 文件 | 路径 | 用途 |
 |------|------|------|
-| jobs_registry.yaml | ~/openclaw-model-bridge/jobs_registry.yaml | 统一注册表（46 注册 / 40 启用, system + openclaw 双 cron） |
+| jobs_registry.yaml | ~/openclaw-model-bridge/jobs_registry.yaml | 统一注册表（47 注册 / 41 启用, system + openclaw 双 cron） |
 | check_registry.py | ~/openclaw-model-bridge/check_registry.py | 校验脚本 |
 
 ### 33.3 字段说明
@@ -848,15 +852,18 @@ python3 check_registry.py     # 必须返回 OK
 git tag v26-snapshot    # V27变更前的完整快照
 ```
 
-### 34.2 快速回滚（30秒）
+### 34.2 代码回滚（2026-09-09 重写；「30 秒回滚到 V26」已退役——v26-snapshot tag 不存在，且 adapter/proxy 退回 V26 会丢掉 13-provider 装载与 FALLBACK_ORDER）
+找到引入故障的 commit，在 Mac Mini 上把仓库退回上一个健康 main 提交，auto_deploy 每 2 分钟按 FILE_MAP 同步运行时副本后重启：
 ```bash
-pkill -f tool_proxy.py && pkill -f adapter.py
-cd ~/openclaw-model-bridge
-git checkout v26-snapshot -- tool_proxy.py adapter.py health_check.sh
-cp tool_proxy.py ~/tool_proxy.py
-nohup python3 ~/tool_proxy.py > ~/tool_proxy.log 2>&1 &
-nohup python3 ~/adapter.py > ~/adapter.log 2>&1 &
+cd ~/openclaw-model-bridge && git log --oneline -5
 ```
+```bash
+cd ~/openclaw-model-bridge && git fetch origin main && git reset --hard <健康 commit>
+```
+```bash
+bash ~/openclaw-model-bridge/auto_deploy.sh && bash ~/restart.sh && bash ~/openclaw-model-bridge/preflight_check.sh --full
+```
+仓库侧再用 `git revert <坏 commit>` 走 PR 正式回退，避免 Mac Mini 与 main 长期分叉。Gateway 版本回滚见 `docs/gateway_upgrade_eval_v2026.4.md` 7.5（有损单向门，非无损）。
 详见 `ROLLBACK.md`。
 
 ---
@@ -926,10 +933,7 @@ nohup python3 ~/adapter.py > ~/adapter.log 2>&1 &
 | ✅ | V29 KB回顾升级为LLM深度分析（kb_review.sh） | 完成 |
 | ✅ | V29 KB每日摘要生成（kb_inject.sh） | 完成 |
 | ✅ | V29 WhatsApp LLM自动查KB（workspace CLAUDE.md指引） | 完成 |
-| ai_leaders_blogs | 30 13 * * * | `jobs/ai_leaders_blogs/run_ai_leaders_blogs.sh` | `~/.openclaw/logs/jobs/ai_leaders_blogs.log` | ✅ 自动添加 | 
-| ai_leaders_bsky | 0 17 * * * | `jobs/ai_leaders_bsky/run_ai_leaders_bsky.sh` | `~/.openclaw/logs/jobs/ai_leaders_bsky.log` | ✅ 自动添加 | 
 | 低 | 探索Claude/GPT-4o替换Qwen3 | ✅ 已由 doubao_21 flip 超额完成（V37.9.222，primary=Doubao Seed 2.1 Pro） |
-| check_upgrade | 10 9 * * 1 | `check_upgrade.sh` | `~/check_upgrade.log` | ✅ 自动添加 | 
 ---
 ## 十九、工作原则（工作宪法）
 ### 🔴 宪法级原则（永远不变，优先级最高）
@@ -962,7 +966,7 @@ nohup python3 ~/adapter.py > ~/adapter.log 2>&1 &
 23. **【cron脚本agent调用必加isolated】** 所有在cron脚本中调用`openclaw agent`时，必须加`--session-id`参数。
 24. **【`--thinking`参数规则】** openclaw agent的`--thinking`参数合法值为：`off, minimal, low, medium, high, adaptive`。禁止使用`--thinking none`。← v26新增
 25. **【任务先登记】** 新增定时任务必须先写入 `jobs_registry.yaml` 并运行 `python3 check_registry.py` 通过，才能注册cron。← v27新增
-26. **【回滚优先】** 线上故障 → 先 `git checkout v26-snapshot` 恢复服务，再排查根因。← v27新增
+26. **【回滚优先】** 线上故障 → 先把仓库退回上一个健康 main 提交（`git reset --hard <sha>` + auto_deploy 同步 + `restart.sh`，见 34.2）恢复服务，再排查根因。← v27新增，2026-09-09 更新（v26-snapshot 已不存在）
 27. **【纯推理任务绕过Gateway】** 不需要工具调用的LLM任务（如文本生成、画像生成），必须直接curl调`proxy:5002/v1/chat/completions`（不含tools字段），禁止用`openclaw agent`（Gateway会注入工具导致模型失控循环调用）。← #94修复经验
 28. **【收工强制指令】** 每次 vibe coding 交互结束时，用户输入"今天工作结束"，系统必须：① 扫描仓库内全部文档（CLAUDE.md、docs/*.md、README.md、IMPROVEMENTS.md 等），将当日所有变更同步到相关文档；② 确保文档间信息一致（工作原则、踩坑经验、检查清单、待办状态）；③ 安全扫描 → 提交 → 推送。无例外。
 29. **【禁用交互式编辑器 + crontab安全】** 禁止触发 vim/nano 等交互式编辑器。git merge 用 `--no-edit`，commit 用 `-m`，rebase 禁用 `-i`。**crontab 操作必须使用 `bash crontab_safe.sh add '<行>'`**（自动备份+条目数验证+回滚保护）。**严禁 `echo ... | crontab -`**（会清空所有条目，2026-03-25事故根因）。← v28新增，v30修正
