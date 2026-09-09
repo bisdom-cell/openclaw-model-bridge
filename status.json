@@ -1,6 +1,6 @@
 {
-  "updated": "2026-09-06 11:56:21",
-  "updated_by": "claude_code",
+  "updated": "2026-09-09 15:11:07",
+  "updated_by": "full_regression",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -178,6 +178,11 @@
       "date": "2026-08-30",
       "what": "V37.9.335 保留策略按用户决策改全量长期保留: movespeed_backup 剪枝退役(每周+1GB≈+52GB/年由所有者接受), 守卫改为禁剪枝断言+sabotage 验证",
       "by": "claude_code"
+    },
+    {
+      "date": "2026-09-09",
+      "what": "V37.9.351 OpenClaw 第十次升级评估: 2026.9.3 (09-08) 到期触发 V37.9.350 预设跟踪点 → 继续 hold ❌🔴✅ (① 9.3 DIRTY 16 计数 0 / ② 9.2→9.3 间隔 3 天冲刷假设证伪 / ③ engines 收紧 >=24.16.0 <25 || >=26.1.0 仍在区间但 Node↔SQLite 耦合二次收紧); 7.0 前置 A 同步 9.3 区间 + 前置 C +2 (#138059 递归委派/#139495 更新自动推理修复); check_upgrade LAST_EVAL_DATE 09-09; 守卫 +7 (41→48). 纯评估零 runtime VERSION 不变",
+      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -226,7 +231,7 @@
     "security_score": "98/100 (98.0%)",
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB",
     "slo": {
-      "checked_at": "2026-09-06 10:50:08",
+      "checked_at": "2026-09-09 15:09:35",
       "all_ok": true,
       "judged_count": 1,
       "na_count": 4,
@@ -260,7 +265,7 @@
     }
   },
   "session_context": {
-    "last_session": "2026-09-06",
+    "last_session": "2026-09-09",
     "unfinished": [
       "【2026-07-02 多镜头审计 · 9 findings 全部处置完毕 (V37.9.226-239: 8 修复闭环 + I half-open 登记为可接受设计 tradeoff) · 剩纯 Mac Mini 被动验证】同步+重启 proxy/adapter 后观察: (A) 真 fallback 时 proxy 日志 DEGRADED 行 + proxy_stats.json slo.fallback_count 变真值 (V37.9.229) (C) ls ~/.kb/status.json.lock ~/.kb/audit.jsonl.lock 伴生锁文件出现 (V37.9.238) (E) client 断开时 adapter.log 记 CLIENT GONE 单行非 traceback (V37.9.231/242) (B) streaming 请求撞 parse 异常时 Gateway 收 SSE 而非 content-type 错配 (V37.9.239) (G) last_run_self_critique.json time 本地格式 + watchdog 4h 覆盖 observer (V37.9.230)。完整分诊记录见 CLAUDE.md V37.9.226-239 changelog, 无 dev 剩余动作。",
       "【V37.9.211/212 Qwen3 端点刷新 · adapter ✅ + V37.9.212 ✅ 已并入 main(PR#774, 2026-07-02 dev 核实) · 剩用户 env 动作】剩余非紧急: (A) .env_shared 设新 REMOTE_API_KEY+REMOTE_BASE_URL(cron 直连脚本 health_check 每周报 CURRENT_MODEL/diagnose 用) (C) 🔴 明文 key 建议用完轮换。教训钉死: adapter/proxy 是 launchd job, env 改必须进 plist EnvironmentVariables + bootout/bootstrap(不是 shell export + kickstart)。",
@@ -283,7 +288,7 @@
       "低优观察 (登记不修, 日落法 #8): auto_deploy FILE_MAP 同步用 cp 非原子写 → 脚本在同步窗口内被并发执行会读半截文件 (2026-07-02 11:41 governance_audit_cron.sh 同步 #781 时被手动跑 → line 85 $() 截断 = 'syntax error near governance' 瞬态, 重跑即好 bash -n 过+diff 同步)。极低频(同步写×并发执行精确重叠)+自愈+非代码 bug。若未来 07:00 cron 与 auto_deploy 同步真撞上(复现) 才值得让 auto_deploy 改原子写 temp+mv。当前不投机加复杂度。",
       "【2026-07-03 observer/治理/watchdog triage · findings 全部闭环 (V37.9.232-235/240) · 剩被动观察】(a) ✅ V37.9.247 兑现: 07-05 07:00 第二次再现 (07-03见/07-04干净/07-05再现=间歇负载) → 按预注册 V37.9.214 模式硬化两 runtime check (timeout 120→240 + TimeoutExpired→inconclusive+门控)。剩 Mac Mini 被动观察: 下次 07:00 不再 💥 + watchdog 治理 CORE 告警消失 (b) freight last_run 应已 07-03 14:00 自愈转 ok (仍 llm_failed=新问题贴我) (c) 修复生效信号: dblp 推送无「推测采用XX模型」类字眼 (V37.9.234) / last_run_deep_dive.json 见 banned_recent + 一周后 full-text 比例回升 (V37.9.233) / observer 报告 arxiv 截断 finding 消失 (V37.9.235) + dream 远期信号带「长期背景」标注 (V37.9.235) / observer deep_dive_repeat 告警仅违规时出现 (V37.9.240)。",
       "V37.9.236 follow-up: (a) Mac Mini 观察 alerts.log 不再新增 FATAL line=101 (下次告警推送撞冷调用即验证) (b) scanner 第8 pattern 候选诚实登记不现建 — sourced-lib $() 设计性可失败命令需跨文件 source-graph 分析=新机器, 11个 targeted 守卫已封死唯一日常失败站点(日落法); 若未来再有 sourced-lib 假 FATAL 实例再评估",
-      "【OpenClaw 升级判据跟踪 · 第九次评估 (2026-09-06, V37.9.350) · 结论=继续 hold · 判据 ❌🔴✅】8.2/9.1/9.2 三 stable 6 天内发布触发。① SQLite/session 弧线 ❌ 计数 0 — 8.2 DIRTY 36 命中 (stop incomplete session migrations / SQLite schema comparison / cron SQLite migration); 9.1/9.2 changelog 换格式(合并叙事段落+裸 PR 行)致原 19.8 协议按叙述条目计 77/69 判不可判 → 按协议自带重标定分支加「叙述段行内唯一 PR 引用数」(9.1=924>8.1=802 内容完整只是格式合并; 骨架 beta.1=10; 门槛 50) → 9.1 DIRTY 11 (schema-17 session repair atomic / shared credential migration / SQLite writer lifecycle) / 9.2 DIRTY 4 (malformed SQLite DB 诊断) → session store 已入 SQLite 至 schema 17 = M2「未迁」已成「已迁在加固」, 回滚单向门覆盖 sessions. ② 节奏 🔴 由 ✅ 退回: 6 天 4 个 stable (9.1 行内 924 PR 零重叠=真新工作非重切); 冲刷假设待下一 stable 间隔定性 (≥14 天回 ✅ / <7 天持续未满足). ③ ✅ engines 9.1/9.2 逐字同 8.1. 第四类风险续增 3 项 (8.2 同 agent 会话默认互见 #133469 / 9.2 跨 agent 会话访问默认开 #136755 / 9.2 Swarm 默认开 #136514) → 7.0 前置 C 7→10. 持有成本: weixin 落后 3 个已发布版本/76 天 (更正第八次「4 版」: 2.4.7 未发布); channel 插件锁步 9.2 再证; Plugin SDK 路径退役 09-01 落地. 下次跟踪 = 下一 stable (9.3/10.1) 发布时走 19.8 修订后协议核对 ① + 记间隔判 ②. LAST_EVAL_DATE=2026-09-06. 详见 eval doc 第二十节.",
+      "【OpenClaw 升级判据跟踪 · 第十次评估 (2026-09-09, V37.9.351) · 结论=继续 hold · 判据 ❌🔴✅】2026.9.3 (09-08) = 20.6 预设「下一 stable」到期触发. ① 9.3 修订协议可判 (叙述 203/行内 859, 与 9.2 零重叠=真新工作) → DIRTY 16 (Node 强升防 SQLite 文本截断 #140672 / schema 版本延迟发布 / 无扩展 SQLite 构建 #139415 / 迁移阻塞停 restart loop) 计数仍 0. ② 🔴 持续未满足: 9.2→9.3 间隔 3 天 (9 天 5 stable, 4 周窗 1.25/周), 「积压冲刷」假设证伪. ③ ✅ 但 engines 首次在 8.x/9.x 线内收紧 >=24.16.0 <25 || >=26.1.0 (Node 22/25 全退出; Mac Mini 26.5.0 仍在) = Node↔SQLite 耦合二次收紧 → 21.5 把 ③ 升为每次 stable 常规复核. 第四类风险 +2 (9.3 递归子会话默认开 #138059 / 更新失败自动推理修复 #139495) → 7.0 前置 C 10→12. 持有成本 weixin 落后 3 版/79 天; 9.3 携 4 条 Breaking SDK + context aliases 移除窗口 09-08 已到. 下次跟踪 = 下一 stable 发布时: 19.8 修订协议核对 ① + 记与 9.3 (09-08) 间隔判 ② (≥14 天 ✅ / <7 天 🔴 / 之间 🟡 待再一点, 不再预设冲刷类解释) + engines 复核 ③. LAST_EVAL_DATE=2026-09-09. 详见 eval doc 第二十一节. Mac Mini: 合并同步后下周一 09:10 check_upgrade 以 09-09 运行 (时间 tripwire 归零, 版本差距 33/50), 无需任何升级动作.",
       "【2026-07-08 长 session Mac Mini 被动验证】同步后观察: (a) V37.9.260 ban-list 边界: 次日 deep_dive/dream 恰-14-天前论文/主题正确被 ban + observer deep_dive_repeat 恰-14-天误报消失 (b) V37.9.261 observer 降级桶: 次日 06:30 报告降级段自区分「无 OA 全文(结构性)」vs「PDF 抓取错误(HTTP/超时)」 (c) V37.9.263 OpenAlex 已回退 S2-only, deep_dive 闭源论文降级 abstract_only 正确。deep_dive 降级结论=接受现实(残余=真闭源 ACM/Elsevier 无 OA + 发布方反爬 MDPI/ScienceDirect 403, OA 解析器打不穿, 实测 0/7)。一周后可选复核 grep 抓取降级原因确认 ban-list 去重复后降级率下降(非 OpenAlex)。",
       "deep_dive OA 全文解析 follow-up (V37.9.183/184) — (1) ✅ 已闭合(V37.9.261/263): Mac Mini grep 实证降级主体=结构性付费墙(no PDF URL derivable, ACM/Elsevier 无 OA 版)非 fetch-path bug, ban-list(V37.9.260)是真杠杆; V37.9.262 OpenAlex 第二源 Mac Mini 实测 0/7 恢复且净负→V37.9.263 回退; 降级率下降 thesis 被证伪, 残余=接受现实(不爬付费墙). (2) 历史 KB 条目仍 PII link(仅新论文受益, V37.9.132 局限, 不补). (3) ✅ V37.9.186: pwc 死路径退役 + TIER↔registry drift 守卫.",
       "【H1-C / C2 (Q4, gated) · C1 选型已完成 V37.9.253】第二实例最小闭环真跑 = 非 Mac Linux host 上 E2E 绿: minimal_runtime + governance cron + 1-2 内容 job(arxiv/dblp) 真抓取→LLM→Discord + cron+nohup 重启存活。选型=PUSH-only 纯推送(绕 Gateway/WhatsApp/sessions), 见 docs/second_instance_poc_selection_20260707.md §5 验收标准。C2 前置(§3, 均可枚举无未知): 持久 Linux host(VPS/容器) + 可达 LLM 端点(REMOTE_BASE_URL) + Discord bot token/channel(DISCORD_CH_*) + 唯一真需新建=Linux bootstrap 脚本(装 py 依赖+起 adapter/proxy nohup+写 crontab, 并行 install_openclaw_macmini.sh)。C3=portability report EN/ZH 证据型文章(对两次评审可迁移性批评终局回答)。",
@@ -344,12 +349,12 @@
     ],
     "open_prs": [],
     "blocked_on": "",
-    "focus": "V37.9.350 待合并: OpenClaw 第九次升级评估 (8.2/9.1/9.2 三 stable → 继续 hold ❌🔴✅) + 19.8 协议按新 changelog 格式重标定 (行内 PR 引用量) + 7.0 前置 C 追加 3 项默认行为 + 守卫演进(最新评估节动态派生 + 协议行为级真跑). 明日 09-07 周一 09:00 周报第 10 段影响力首跑验收 + 09:10 check_upgrade 首次带 LAST_EVAL_DATE=09-06 运行."
+    "focus": "V37.9.351 待合并: OpenClaw 第十次升级评估 (2026.9.3 到期触发 20.6 跟踪点 → 继续 hold ❌🔴✅; ② 冲刷假设被 3 天间隔证伪; ③ engines 首次线内收紧; 前置 C 10→12) + 守卫 +7. 被动观察: 下周一 09:10 check_upgrade LAST_EVAL_DATE=09-09 首跑; 09-07 周报第 10 段影响力首跑结果待用户转发."
   },
   "quality": {
     "security_score": 98,
-    "test_count": 6497,
-    "last_regression": "2026-09-06 10:51 pass",
+    "test_count": 6504,
+    "last_regression": "2026-09-09 15:10 pass",
     "coverage_pct": 0,
     "security_score_time": "2026-07-20 01:07",
     "test_suites": 196,
