@@ -585,5 +585,105 @@ class TestTenthEvaluationPresent(unittest.TestCase):
         self.assertIn("修订", s215)
         self.assertIn("engines.node", s215, "③ 须进入每次 stable 的常规复核")
 
+
+class TestEleventhEvaluationPresent(unittest.TestCase):
+    """第十一次评估（V37.9.353，2026-09-13）自身的落地守卫。
+
+    2026.9.4（09-11）= 第十次评估 21.5 预设的「下一个 stable」到期 → 第二十二节；
+    判据 ② 连续两个 3 天间隔 → 本节预注册评估节奏的日落规则（三项全同只追加读数不新开节）；
+    第四类风险经 dist 源码核实零新增（两项候选均为门控/opt-in，登记不入前置 C）；
+    前置 C 第 12 项被 9.4 部分缓解 → 原位加注不撤项。
+    """
+
+    def setUp(self):
+        self.doc = _read()
+        self.head = self.doc[:self.doc.index("## 一、版本概览")]
+        self.sec22 = _slice(self.doc, "## 第二十二节", "\n---\n")
+        self.sop = _slice(self.doc, "## 七、升级 SOP", "## 八、综合评估")
+        self.prereq = _slice(self.sop, "### 7.0", "### 7.1")
+
+    def test_section22_exists_with_all_subsections(self):
+        for sub in ("### 22.1", "### 22.2", "### 22.3", "### 22.4", "### 22.5"):
+            self.assertIn(sub, self.sec22, f"第二十二节缺 {sub}")
+
+    def test_eleventh_eval_heading_present_and_listed_in_head(self):
+        found = [(m.group(1), m.group(2), m.group(3)) for m in _EVAL_HEADING.finditer(self.doc)]
+        self.assertIn(("第二十二节", "十一", "2026-09-13"), found, found)
+        for kw in ("十次评估", "十一次评估"):
+            self.assertIn(kw, self.head, f"头部评估列表缺 {kw}")
+        self.assertIn("2026.9.4", self.head, "头部当前态行须写上游 latest 2026.9.4")
+
+    def test_candidates_registered_but_not_added_to_prereq_c(self):
+        """22.4 明写零新增：候选表里的 PR 号一个都不得进 7.0 前置 C，且清单勾选项数不变（18）。"""
+        s224 = _slice(self.sec22, "### 22.4", "### 22.5")
+        self.assertIn("零新增", s224)
+        tbl = _slice(s224, "| 9.4 候选", "**前置 C 第 12 项")
+        rows = "\n".join(l for l in tbl.splitlines() if l.startswith("|"))
+        prs = sorted(set(re.findall(r"#(\d{6})", rows)))
+        self.assertGreaterEqual(len(prs), 2, f"防空转：22.4 候选表应含 ≥2 个 PR 号，实际 {prs}")
+        for p in prs:
+            self.assertNotIn(f"#{p}", self.prereq, f"9.4 候选 #{p} 已核实为门控/opt-in，不得进前置 C（22.4 明写登记不入）")
+        self.assertEqual(self.prereq.count("- [ ]"), 18,
+                         "9.4 零新增 → 7.0 清单应恰 18 个勾选项（3 基础 + A + B + C 头 + 12 子项）；若真需新增请同步演进本 pin")
+
+    def test_prereq_c_item12_carries_9_4_mitigation_without_removal(self):
+        """#139495（9.3 更新自动推理修复）仍在前置 C，且同一行带 9.4 的缓解注记（#143767 家族）。"""
+        line = next((l for l in self.prereq.splitlines() if "#139495" in l), None)
+        self.assertIsNotNone(line, "前置 C 第 12 项 #139495 不得因 9.4 部分缓解而撤项")
+        self.assertIn("#143767", line, "第 12 项须原位注记 9.4 的缓解（auto triage 启动 coding agent 前需确认）")
+        s224 = _slice(self.sec22, "### 22.4", "### 22.5")
+        self.assertIn("#143767", s224)
+        self.assertIn("不撤项", s224)
+
+    def test_criterion1_verdict_dirty_and_interval_recorded(self):
+        """9.4 必须记 DIRTY 且计数 0；② 连续两个 3 天间隔必须落「持续未满足」；不得误记「9.4 干净」。"""
+        s223 = _slice(self.sec22, "### 22.3", "### 22.4")
+        self.assertIn("9.4", s223)
+        self.assertIn("DIRTY", s223)
+        self.assertIn("计数仍 0", s223)
+        self.assertIn("3 天", s223)
+        self.assertIn("持续未满足", s223)
+        self.assertIn("单向门", s223, "上游在 9.4 changelog 自述 schema 变更阻断自动回滚 = 17.4 单向门被追认，须记录")
+        for bad in ("9.4 干净", "计数 1", "② 回 ✅", "假设成立"):
+            self.assertNotIn(bad, self.sec22, f"不得出现误记「{bad}」")
+
+    def test_node_range_unchanged_and_prereq_a_has_service_runtime_check(self):
+        """9.4 engines 与 9.3 逐字同须记录；前置 A 须新增「升级后核实服务 Node 未被 updater 替换」。"""
+        s223 = _slice(self.sec22, "### 22.3", "### 22.4")
+        m = re.search(r">=24\.16\.0 <25 \\?\|\\?\| >=26\.1\.0", s223)
+        self.assertIsNotNone(m, "防空转：22.3 应含 9.4 的 node 区间字面量")
+        self.assertIn("逐字相同", s223)
+        pre_a = _slice(self.prereq, "前置 A", "前置 B")
+        self.assertIn("9.4", pre_a, "前置 A 须登记 9.4 区间未变")
+        # 钉可行动的核对短语本身——首版只钉 "updater"/"替换" 两个词，被前置 A 里描述 9.4 行为的
+        # 陈述句同时满足，删掉核对句照样绿（sabotage S7 首轮没开火，V37.9.325「守卫被描述句满足」家族）。
+        self.assertIn("升级后核实", pre_a, "前置 A 须含可行动核对：升级后核实服务 Node 运行时")
+        self.assertIn("未被 updater 替换", pre_a, "前置 A 的核对句须明写「未被 updater 替换」")
+
+    def test_prereq_b_carries_sdk_deprecation_notes(self):
+        pre_b = _slice(self.prereq, "前置 B", "前置 C")
+        self.assertIn("#143238", pre_b, "前置 B 须登记 credential-prompt 字符串签名弃用（2026-11-30 到期）")
+        self.assertIn("removal-pending", pre_b, "前置 B 须记录 context aliases 到期未移除的现状")
+
+    def test_protocol_eighth_point_recorded_in_both_sections(self):
+        """22.4 给出 9.4 协议实测读数（叙述 59 / 行内 331 / 裸 1174），且 20.4 表同步追加第八行（跨节对账）。"""
+        s224 = _slice(self.sec22, "### 22.4", "### 22.5")
+        for n in ("59", "331", "1174"):
+            self.assertIn(n, s224, f"22.4 缺 9.4 协议实测数据点 {n}")
+        s204 = _slice(self.doc, "### 20.4", "### 20.5")
+        row = next((l for l in s204.splitlines() if l.startswith("|") and "2026.9.4" in l), None)
+        self.assertIsNotNone(row, "20.4 表须追加 2026.9.4 一行（六点表 → 八点）")
+        self.assertIn("331", row)
+        self.assertIn("DIRTY", row)
+
+    def test_tracking_point_routes_through_protocol_and_sunset_rule(self):
+        s225 = _slice(self.sec22, "### 22.5", "**LAST_EVAL_DATE")
+        self.assertIn("19.8", s225, "下次跟踪点须指向 19.8 协议")
+        self.assertIn("修订", s225)
+        self.assertIn("engines.node", s225, "③ 须进入每次 stable 的常规复核")
+        self.assertIn("不新开评估节", s225, "须预注册评估节奏日落规则：三项全同只追加读数")
+        self.assertIn("不重置 LAST_EVAL_DATE", s225, "追加读数不重置正式评估日期（否则 _latest_eval 守卫与 tripwire 语义漂移）")
+        self.assertIn("裸 grep", s225, "追加读数仍须走协议，不得简化为裸 grep")
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
