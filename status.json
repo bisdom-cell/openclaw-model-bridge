@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-22 08:21:35",
+  "updated": "2026-09-22 09:31:36",
   "updated_by": "full_regression",
   "priorities": [
     {
@@ -178,6 +178,11 @@
       "date": "2026-08-31",
       "what": "V37.9.335 用户二次决策恢复每日备份拉取(22min 实测支撑): 周日门控+FORCE 开关退役, ssd_backup=每日最新一份+全量保留(+365GB/年), 守卫 daily-latest-only 双向禁回退",
       "by": "claude_code"
+    },
+    {
+      "date": "2026-09-22",
+      "what": "V37.9.357 freight 日志取证连锁: 5 个 job 脚本 python3 -c 内 $(cd \\\"$(dirname \\\"$0\\\")\\\") 转义 bug 根治 (每次运行 cd 必失败, 自 V37.9.57 潜伏 4 个月, 对齐 13 个兄弟正确形态) + 守卫 +4 (行为级血案) + V37.9.356 误判定量 1/40 runs + 「09-21 没跑」推断被数据推翻",
+      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -226,7 +231,7 @@
     "security_score": "98/100 (98.0%)",
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB",
     "slo": {
-      "checked_at": "2026-09-22 08:10:17",
+      "checked_at": "2026-09-22 09:20:04",
       "all_ok": true,
       "judged_count": 1,
       "na_count": 4,
@@ -346,17 +351,18 @@
         "added": "2026-09-09"
       },
       "V37.9.355 Mac Mini 首跑验证 (用户被动观察, 合并同步后): (a) 18:00 rss_blogs: grep \"RSS 抓取失败\" ~/.openclaw/logs/jobs/rss_blogs.log — deepmind.google / spectrum.ieee.org 死链即剪枝 (dev EGRESS_BLOCKED 未预验, FAIL-OPEN) (b) 08:00/20:00 arxiv 推送出现世界模型/VLA/人形标题 (c) 11:00 S2 / 12:00 DBLP 18 词后无新增 429/503 (d) 14:00 github_trending 出现 robotics/world-model 仓库 (e) 一周后 06:00 kb_radar Top 5 与 22:30 deep_dive 出现 world model/VLA 条目 = 对齐本体生效的用户可见信号 (f) 机器人相关 KB note 自动标签出现 技术/机器人",
-      "V37.9.356 货代 L2 判据重定义 Mac Mini 被动验证 (合并同步后, 明日 14:00 起): (a) 低信号日 Discord 应收到货代报告 (可含「本期无显著…」段) 而非只收「LLM 输出格式异常」告警; (b) preflight --full 11/19 文案变为「LLM 输出三层格式异常」分支 (仅真格式异常时出现); (c) 可选看历史误判下限: grep -c '解析成功率低' ~/.openclaw/logs/jobs/freight_watcher.log。取证已坐实分支 (i): 09-22 健康 run 8/15 评级仅多 1 条过旧阈值 7, ASCII 冒号 0 (分支 ii 排除), 三层 header 齐。"
+      "V37.9.356 货代 L2 判据重定义 Mac Mini 被动验证 (已同步, 两副本标记 1/1, 明日 09-23 14:00 首次真实运行): (a) 低信号日 Discord 应收到货代报告 (可含「本期无显著…」段) 而非只收「LLM 输出格式异常」告警; (b) preflight --full 11/19 文案变为「LLM 输出三层格式异常」分支 (仅真格式异常时出现)。取证已定量 (09-22): 日志窗口 08-14→09-22 共 40 运行日全跑, parse_low 仅 1 次 = 09-21 5/15 (2.5%), 09-22 健康 run 8/15 仅多 1 条过旧阈值 7, ASCII 冒号 0, 三层 header 齐; 「09-21 没跑」推断已被告警行日期推翻 (parse_low 路径 exit 于任何 bash log() 之前故无时间戳行)。两条低优观察不动手: freight 日志起点被截断于 08-14 一次运行中段 (仓库无轮转 job, 原因在仓库外); chinadaily bizchina_rss.xml 404 (per-source FAIL-OPEN, 持续约一周再按 NBER 先例评估剔除)。",
+      "V37.9.357 5 个 job 脚本 $(cd \\\"…\\\") 转义 bug 修复 Mac Mini 被动验证 (合并同步后, 零重启): 次日 ~/.openclaw/logs/jobs/{freight_watcher,hn_watcher,finance_news,ontology_sources}.log 不再出现 `cd: \"\"/Users/…: No such file or directory` 行 (grep -c 'cd: \"\"' 各日志应停在历史计数不再增长)。"
     ],
     "open_prs": [],
     "blocked_on": "",
-    "focus": "V37.9.356 货代 L2 判据重定义已交付（三层格式而非比值），待 Mac Mini 合并同步 + 明日 14:00 被动验证；V37.9.355 六项被动观察仍在进行。",
+    "focus": "V37.9.357 5 脚本命令替换转义 bug 修复 + V37.9.356 误判定量已交付，待合并同步；V37.9.356 明日 14:00 首次真实运行；V37.9.355 六项被动观察仍在进行。",
     "recent_changes": []
   },
   "quality": {
     "security_score": 98,
-    "test_count": 6571,
-    "last_regression": "2026-09-22 08:21 pass",
+    "test_count": 6575,
+    "last_regression": "2026-09-22 09:31 pass",
     "coverage_pct": 0,
     "security_score_time": "2026-07-20 01:07",
     "test_suites": 198,
