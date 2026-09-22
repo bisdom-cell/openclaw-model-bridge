@@ -43,6 +43,9 @@ _RSS_BLOGS_DOMAINS = [
     "modelcontextprotocol.io",
     "hamel.dev",
     "huyenchip.com",
+    # V37.9.355 rss_blogs +2 (DeepMind 官方博客 / IEEE Spectrum Robotics: World Model / 具身机器人), no-overlap 契约同步
+    "deepmind.google",
+    "spectrum.ieee.org",
 ]
 
 

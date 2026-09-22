@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-22 01:27:41",
+  "updated": "2026-09-22 03:09:40",
   "updated_by": "full_regression",
   "priorities": [
     {
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-09-22",
+      "what": "V37.9.355 信息平台扩域: World Model + 具身机器人 两个跟踪领域接入既有 16 源平台 (零新 job): project_concepts +2 方向 weight 4 + 退役 generative_media 的 video generation 词 / kb_deep_dive +18 词封顶 9 / arxiv ti: 32→43 池 100 / S2+DBLP 16→18 / github_trending 换出 machine-learning+agentic 加 robotics+world-model / rss_blogs +DeepMind 官方博客 +IEEE Spectrum Robotics (dev EGRESS_BLOCKED 待 Mac Mini 首跑) / kb_autotag +技术/机器人; 守卫 28 单测 sabotage 八连开火; VERSION 0.37.9.176",
+      "by": "claude_code"
+    },
     {
       "date": "2026-09-06",
       "what": "V37.9.350 后记: Mac Mini 合并 #927 同步 + preflight --full 87/0/2; check_upgrade.sh 仓库模式 100644→100755 (preflight 4/19 警告根因, cron 经 bash 调用不受影响); KB 覆盖 99% 由 03:30 kb_embed 自愈",
@@ -173,31 +178,6 @@
       "date": "2026-08-31",
       "what": "V37.9.335 首个 05:00 定时运行实证+kb 保险丝破案: dreams/.map_cache 日缓存每天生灭~2400文件 → kb 排除三衍生物(map_cache/text_index/mm_index)+MR-8 生产者源码路径守卫; 定时通道打通, 首份备份档 FORCE 拉取中",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-08-30",
-      "what": "V37.9.335 保留策略按用户决策改全量长期保留: movespeed_backup 剪枝退役(每周+1GB≈+52GB/年由所有者接受), 守卫改为禁剪枝断言+sabotage 验证",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-09-09",
-      "what": "V37.9.351 OpenClaw 第十次升级评估: 2026.9.3 (09-08) 到期触发 V37.9.350 预设跟踪点 → 继续 hold ❌🔴✅ (① 9.3 DIRTY 16 计数 0 / ② 9.2→9.3 间隔 3 天冲刷假设证伪 / ③ engines 收紧 >=24.16.0 <25 || >=26.1.0 仍在区间但 Node↔SQLite 耦合二次收紧); 7.0 前置 A 同步 9.3 区间 + 前置 C +2 (#138059 递归委派/#139495 更新自动推理修复); check_upgrade LAST_EVAL_DATE 09-09; 守卫 +7 (41→48). 纯评估零 runtime VERSION 不变",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-09-09",
-      "what": "V37.9.352 GitHub 全面数据刷新第二轮: 4 并行扫描 agent 160 条发现逐条代码核实 → 42 文件 ~150 处现态漂移收敛 (provider 12→13/doubao 槽位三件套/job 排程与 registry 脱钩/推送默认 Discord/30 秒回滚退役/硬编码徽章数字/Observer 状态) + INDEX.md·ROLLBACK.md 重写 + 9 篇文章时点头注; 纯 doc 零 runtime VERSION 不变",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-09-13",
-      "what": "V37.9.353 OpenClaw 第十一次升级评估: 2026.9.4 (09-11) 到期触发 21.5 跟踪点 → 继续 hold ❌🔴✅ (① 9.4 DIRTY 9 计数 0 + 上游 changelog 自述 schema 变更阻断自动回滚=17.4 单向门被追认 / ② 9.3→9.4 又 3 天节奏稳态化 → 预注册评估节奏日落规则「三项全同只追加读数不新开节」/ ③ engines 逐字同); 第四类风险零新增 (两候选 dist 源码核实门控); 前置 A/B/C 加注; check_upgrade LAST_EVAL_DATE 09-13; 守卫 +9 (48→57), sabotage S7 首轮没开火抓出自己的空转守卫后收紧. 纯评估零 runtime VERSION 不变",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-09-22",
-      "what": "V37.9.354 OpenClaw 第十二次升级评估: 2026.9.5 (09-19) 到期触发 22.5 跟踪点, 9.4→9.5 间隔 7.94 天使判据 ② 🔴→🟡 = 日落规则「状态变化」新开第二十三节 → 继续 hold ❌🟡✅; ① 9.5 DIRTY 2 计数仍 0 (连续第六个); 第四类风险 +1 (tools.message.crossContext.allowAcrossProviders 默认 false→true #149875, message 在 PA 白名单内 → 前置 C 12→13) + 并发上限 cpus×4 第 7 项原位加注 + Daybreak 登记不入 (dist 核实 OpenAI 错误码门控); 预注册 tripwire [2/6] 39/50 约 4 周内触发日处置; 守卫 +11 (68 单测 13 类) sabotage 七连开火; VERSION 不变",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -246,7 +226,7 @@
     "security_score": "98/100 (98.0%)",
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB",
     "slo": {
-      "checked_at": "2026-09-22 01:16:52",
+      "checked_at": "2026-09-22 02:59:05",
       "all_ok": true,
       "judged_count": 1,
       "na_count": 4,
@@ -364,22 +344,23 @@
       {
         "item": "【GitHub 仓库 About 描述 + topics 陈旧 · 用户在 GitHub 网页设置】现描述「Connect any LLM to OpenClaw — production-tested middleware for Qwen3-235B and beyond」+ topic qwen3, 与现态 (13-provider control plane, primary doubao_21, Qwen3 仅 fallback) 不符; 仓库内无法改, 建议文案见 V37.9.352 收工报告. 改完告知即闭合.",
         "added": "2026-09-09"
-      }
+      },
+      "V37.9.355 Mac Mini 首跑验证 (用户被动观察, 合并同步后): (a) 18:00 rss_blogs: grep \"RSS 抓取失败\" ~/.openclaw/logs/jobs/rss_blogs.log — deepmind.google / spectrum.ieee.org 死链即剪枝 (dev EGRESS_BLOCKED 未预验, FAIL-OPEN) (b) 08:00/20:00 arxiv 推送出现世界模型/VLA/人形标题 (c) 11:00 S2 / 12:00 DBLP 18 词后无新增 429/503 (d) 14:00 github_trending 出现 robotics/world-model 仓库 (e) 一周后 06:00 kb_radar Top 5 与 22:30 deep_dive 出现 world model/VLA 条目 = 对齐本体生效的用户可见信号 (f) 机器人相关 KB note 自动标签出现 技术/机器人"
     ],
     "open_prs": [],
     "blocked_on": "",
-    "focus": "V37.9.353 待合并: 第十一次升级评估 (继续 hold; 上游 9.4 追认单向门; 评估节奏日落规则预注册). 合并后 git fetch+reset 同步 (check_upgrade.sh 走 FILE_MAP 零重启), 周一 09:10 tripwire 以 09-13 运行. 用户待办: GitHub About 描述/topics 手动刷新 (V37.9.352 登记)."
+    "focus": "2026-09-22 收工: V37.9.355 信息平台扩域 (World Model + 具身机器人 两个跟踪领域, 七处既有 job 配置面, 零新 job, VERSION 0.37.9.176) 待合并; 合并后 git fetch+reset 同步 (全走 FILE_MAP 零重启), 被动观察 rss 两新 feed 首跑 + 一周后 radar/deep_dive 出现 world model/VLA 条目. 同日 V37.9.354 第十二次升级评估已并入 (tripwire [2/6] 约 4 周内触发, 处置已预注册 23.5)."
   },
   "quality": {
     "security_score": 98,
-    "test_count": 6524,
-    "last_regression": "2026-09-22 01:27 pass",
+    "test_count": 6552,
+    "last_regression": "2026-09-22 03:09 pass",
     "coverage_pct": 0,
     "security_score_time": "2026-07-20 01:07",
-    "test_suites": 196,
+    "test_suites": 197,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
-    "version": "0.37.9.175",
+    "version": "0.37.9.176",
     "observer": {}
   },
   "incidents": [

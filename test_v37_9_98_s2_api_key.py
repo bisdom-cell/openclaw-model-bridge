@@ -140,11 +140,12 @@ class TestV379135KeywordRestore(unittest.TestCase):
         self.assertIsNotNone(m, "KEYWORDS 数组必须存在")
         return re.findall(r'"([^"]+)"', m.group(1))
 
-    def test_sixteen_keywords_after_v348(self):
+    def test_eighteen_keywords_after_v355(self):
         # 史: V37.8.13 12→6 (匿名池 429) → V37.9.135 恢复 12 → V37.9.348 +4 可靠性族 = 16
+        #     → V37.9.355 +2 (World Model / 具身机器人 两个新跟踪领域) = 18
         kws = self._keywords(self.src)
-        self.assertEqual(len(kws), 16,
-                         f"V37.9.348: 12 + 4 可靠性族 = 16 关键词, 实际 {len(kws)}: {kws}")
+        self.assertEqual(len(kws), 18,
+                         f"V37.9.355: 16 + 2 新跟踪领域 = 18 关键词, 实际 {len(kws)}: {kws}")
 
     def test_v348_reliability_family_in_both_sources(self):
         """V37.9.348: 纲领 T2/T5/T6/T8 可靠性族在 S2 与 DBLP 同族存在 (措辞按各自 API, 不逐字)。"""

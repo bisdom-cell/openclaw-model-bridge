@@ -36,6 +36,14 @@ TAG_RULES = [
         "reinforcement learning", "强化学习", "自然语言处理", "nlp",
         "computer vision", "cv", "计算机视觉",
     ]),
+    # Robotics / Embodied / World Model (V37.9.355: 两个新跟踪领域; 放在 技术/AI 之后 = 同分时 AI 优先。
+    # 刻意不放 manipulation/policy 等通用词 —— 词边界也挡不住 "market manipulation" 类假命中, V37.9.331 血案家族)
+    ("技术/机器人", [
+        "robot", "robotic", "robotics", "humanoid", "embodied", "embodiment",
+        "具身", "机器人", "人形机器人", "world model", "世界模型",
+        "vision-language-action", "vla", "sim-to-real", "teleoperation",
+        "locomotion",
+    ]),
     # Academic / Papers
     ("学术/论文", [
         "arxiv", "paper", "论文", "研究", "research", "abstract",

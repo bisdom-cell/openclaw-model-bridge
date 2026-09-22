@@ -93,7 +93,8 @@ test -f "$KB_SRC" || echo "# Semantic Scholar AI论文" > "$KB_SRC"
 # 12 关键词集对齐, V30.5 同期上线 + V37.1 同时加 ontology 方向).
 # 认证模式 12 关键词 × 2s = 24s; 无 key FAIL-OPEN 30s 间隔 × 12 = 6min (老版本同款).
 # V37.9.348: 12→16, 补纲领 T2/T5/T6/T8 + 宪法级 #1 可靠性族 (与 dblp 同族, 措辞按各自 API 调整)
-KEYWORDS=("large language model" "LLM agent" "RAG retrieval augmented" "multimodal AI" "RLHF alignment" "ontology knowledge graph" "neuro-symbolic reasoning" "enterprise ontology" "formal ontology information systems" "description logic OWL" "semantic web linked data" "knowledge representation reasoning" "LLM-as-a-judge evaluation" "tool learning function calling agent" "hallucination detection LLM reliability" "agent long-term memory")
+# V37.9.355: 16→18, +World Model / 具身机器人 两个新跟踪领域 (S2 语义查询用长短语; 认证模式 18×2s=36s 仍远低于 job 预算)
+KEYWORDS=("large language model" "LLM agent" "RAG retrieval augmented" "multimodal AI" "RLHF alignment" "ontology knowledge graph" "neuro-symbolic reasoning" "enterprise ontology" "formal ontology information systems" "description logic OWL" "semantic web linked data" "knowledge representation reasoning" "LLM-as-a-judge evaluation" "tool learning function calling agent" "hallucination detection LLM reliability" "agent long-term memory" "world model learning planning" "embodied AI vision-language-action robot learning")
 RAW_DIR="$CACHE/raw"
 mkdir -p "$RAW_DIR"
 

@@ -83,7 +83,8 @@ test -f "$KB_SRC" || echo "# DBLP CS论文索引" > "$KB_SRC"
 
 # ── 1. 多关键词搜索 ─────────────────────────────────────────────────
 # V37.9.348: 12→16, 补可靠性族 (dblp 是标题 token 前缀 AND 匹配, 用短词: "LLM judge" 可命中 LLM-as-a-Judge 标题)
-KEYWORDS=("large language model" "LLM agent" "multimodal foundation model" "retrieval augmented generation" "RLHF alignment" "ontology knowledge graph" "neuro-symbolic reasoning" "enterprise ontology" "formal ontology information systems" "description logic OWL" "semantic web linked data" "knowledge representation reasoning" "LLM judge" "tool learning" "hallucination detection" "agent memory")
+# V37.9.355: 16→18, +World Model / 具身机器人 ("world model" 前缀命中 World Models; "vision language action" 三 token AND 命中 Vision-Language-Action 标题, VLA 是具身领域主范式词)
+KEYWORDS=("large language model" "LLM agent" "multimodal foundation model" "retrieval augmented generation" "RLHF alignment" "ontology knowledge graph" "neuro-symbolic reasoning" "enterprise ontology" "formal ontology information systems" "description logic OWL" "semantic web linked data" "knowledge representation reasoning" "LLM judge" "tool learning" "hallucination detection" "agent memory" "world model" "vision language action")
 RAW_DIR="$CACHE/raw"
 mkdir -p "$RAW_DIR"
 
