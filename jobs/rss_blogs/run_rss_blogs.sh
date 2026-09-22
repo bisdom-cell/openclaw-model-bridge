@@ -89,6 +89,12 @@ RSS_FEEDS=(
     # 死链会 log "WARN: X RSS 抓取失败，跳过" (FAIL-OPEN), 之后剪枝 (镜像 V37.9.108-hotfix)。
     "Hamel Husain|https://hamel.dev/index.xml|Hamel Husain(LLM evals 实践/评估方法论)"
     "Chip Huyen|https://huyenchip.com/feed.xml|Chip Huyen(AI 工程/系统设计/agent 评估)"
+    # V37.9.355 (2026-09-22) 两个新跟踪领域 World Model / 具身机器人 的一手博客源 (信息获取面扩域, 零新 job):
+    # DeepMind 官方博客 = Genie 世界模型 / Gemini Robotics 具身一手发布; IEEE Spectrum Robotics = 机器人产业与研究权威报道。
+    # ⚠️ 两条 dev 出口代理 EGRESS_BLOCKED 无法预验 (V37.9.348 hamel/huyenchip 同款), Mac Mini 首跑验证:
+    # 死链会 log "WARN: X RSS 抓取失败，跳过" (FAIL-OPEN), 之后剪枝 (镜像 V37.9.108-hotfix)。
+    "DeepMind Blog|https://deepmind.google/blog/rss.xml|Google DeepMind 官方博客(Genie 世界模型/Gemini Robotics 具身)"
+    "IEEE Spectrum Robotics|https://spectrum.ieee.org/feeds/topic/robotics.rss|IEEE Spectrum 机器人频道(人形/具身/产业权威报道)"
     # V37.9.6 移除: LangChain 博客 RSS 持续 9 次 HTTP 404 (4/20 18:00 watchdog 仍报),
     # 上游 feed 已死链。移除止噪音, 如未来恢复或迁移路径再加回。
     # "LangChain|https://blog.langchain.dev/feed/|LangChain(Agent/RAG实战)"

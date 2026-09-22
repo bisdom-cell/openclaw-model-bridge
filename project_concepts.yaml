@@ -9,12 +9,12 @@
 #   - V37.9.46 Stage 2 完整: 加 project_alignment_scorer.py rule_check 验证层 + 9 个对齐脚本同步加第 6 字段
 #   - V37.9.49 Stage 5: kb_radar.sh 06:00 早晨"高对齐 Top 5"段消费
 
-version: "0.2"  # V37.9.348: Stage 2 rule_check 自 V37.9.47 起全量启用; 本次同步纲领 T2/T5/T6/T8 + 宪法级 #1 方向
-last_updated: "2026-09-02"
+version: "0.3"  # V37.9.355: +world_model / +embodied_robotics 两个跟踪领域 (用户 2026-09-22 指令); V37.9.348: 纲领 T2/T5/T6/T8 + 宪法级 #1
+last_updated: "2026-09-22"
 
 project:
   name: openclaw-model-bridge
-  current_version: 0.37.9.172
+  current_version: 0.37.9.176
   strategic_position: Agent Runtime Control Plane
 
 # ── 核心三平面 (V35-V36 战略复盘确立) ───────────────────────────────────
@@ -78,6 +78,25 @@ active_research_directions:
                trend acceleration, opportunity radar, cross source resonance,
                project alignment, opportunity mining]
     weight: 5
+  # ── V37.9.355 (2026-09-22) 两个新跟踪领域 (用户指令: 基于既有信息获取/分析/总结平台再加最具潜力的两个领域) ──
+  # 定位 = 跟踪领域 (weight 4), 非本项目工程核心 (control plane 仍 5): 信息面扩域, 不改变项目叙事。
+  # 关键词只用领域通用术语, 不放厂商/产品名 (Genie/Cosmos/GR00T 等进 arxiv ti: 查询而非对齐本体, 防子串误命中)。
+  world_model:
+    desc: "World Model 世界模型 — 从像素/token 预测转向潜空间预测与可交互世界模拟 (JEPA 家族 / 交互式世界模型 / 世界行动模型 / model-based RL)"
+    keywords: [world model, world models, 世界模型, JEPA, joint embedding predictive,
+               latent world model, latent dynamics, dynamics model, learned simulator,
+               world simulator, interactive world model, world action model,
+               model-based reinforcement learning, model-based RL, physical reasoning,
+               video prediction, predictive architecture, world foundation model]
+    weight: 4
+  embodied_robotics:
+    desc: "具身机器人 — VLA 视觉-语言-动作模型 / 机器人基础模型 / 人形机器人 / sim-to-real / 遥操作数据"
+    keywords: [embodied AI, embodied agent, embodied intelligence, 具身智能, 具身机器人,
+               机器人, robot, robot learning, robot foundation model, humanoid,
+               vision-language-action, VLA model, robot manipulation, dexterous manipulation,
+               bimanual, locomotion, sim-to-real, sim2real, teleoperation, imitation learning,
+               cross-embodiment, robot policy, physical world interaction]
+    weight: 4
 
 # ── 明确不感兴趣的主题 (即使关键词命中也降权) ──────────────────────────
 excluded_topics:
@@ -92,15 +111,15 @@ excluded_topics:
                NVLink, tensor core programming]
     weight: -2
   generative_media:
-    desc: "生成式媒体 (图像/视频/音频生成, 与 agent runtime/治理无关; V37.9.348 github_trending 同步退役 diffusion-model 词)"
-    keywords: [diffusion model, text-to-image, video generation, image synthesis,
+    desc: "生成式媒体 (图像/视频/音频生成, 与 agent runtime/治理无关; V37.9.348 github_trending 同步退役 diffusion-model 词; V37.9.355 退役 'video generation' 一词 —— 世界模型/世界行动模型论文常以该措辞描述自身, 保留会把新跟踪领域误降权, 纯生成媒体仍由 text-to-video/text-to-image/image synthesis 兜住)"
+    keywords: [diffusion model, text-to-image, image synthesis,
                text-to-video, music generation]
     weight: -2
 
 # ── 评分指南 (供 LLM 在 prompt 中读取) ─────────────────────────────────
 scoring_guide:
   star_5: "与 control plane / agent runtime / ontology / LLM-Observer 等核心方向直接相关 (作者明确提到 governance / drift / agent orchestration / declarative policy / silent failure / LLM-as-a-judge 运行时监控 / agent 可靠性等)"
-  star_4: "间接相关 (如 tool plugin / memory plane / multimodal routing 演进, 与已有方向呼应)"
+  star_4: "间接相关 (如 tool plugin / memory plane / multimodal routing 演进, 与已有方向呼应); V37.9.355 起 World Model (JEPA/潜空间世界模型/世界行动模型) 与具身机器人 (VLA/机器人基础模型/人形/sim-to-real) 两个跟踪领域直接相关亦为 ⭐4 —— 若同时触及 runtime 可靠性/运行时校验 (如 VLA rollout 运行时验证) 则升 ⭐5"
   star_3: "一般 AI/ML 趋势 (可借鉴但非核心, 如新模型架构 / 训练技巧 / benchmark)"
   star_2: "无明显关联 (但可能未来有用, 比如纯 NLP 任务)"
   star_1: "完全无关 (噪声, 比如硬件细节 / 单纯学术 paper 无工程价值)"
@@ -111,3 +130,4 @@ meta_rules:
   - "excluded_topics 是显式黑名单, 命中关键词即使其他维度高也降权"
   - "weight 字段是相对排序权重 (5 最高), 不是绝对加分"
   - "V37.9.46 Stage 2 时 project_alignment_scorer.py 用 rule_check 验证 LLM 评分与关键词命中率一致性"
+  - "V37.9.355: world_model / embodied_robotics 是跟踪领域 (weight 4) 非工程核心; 加新领域时同步检查 excluded_topics 是否有会误伤该领域自述措辞的词 (本次退役 'video generation')"

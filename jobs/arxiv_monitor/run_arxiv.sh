@@ -58,7 +58,11 @@ MAX_AGE_DAYS=14
 # 宪法级 #1 方法词 (Agentic/Tool Use/Function Calling/LLM-as-a-Judge/Hallucination/Guardrail/
 # Model Context Protocol/Agent Memory/Prompt Injection/Test-Time Scaling); ontology 族原样保留。
 # 候选池 50→80 (OR 面变宽后最新 50 条覆盖不到半天; 分析仍由 MAX_PAPERS=10 封顶, 只涨 XML 体积)。
-ARXIV_URL="https://export.arxiv.org/api/query?search_query=ti:LLM+OR+ti:%22Large+Language+Model%22+OR+ti:%22AI+Agent%22+OR+ti:%22LLM+Agent%22+OR+ti:Agentic+OR+ti:%22Tool+Use%22+OR+ti:%22Tool+Learning%22+OR+ti:%22Function+Calling%22+OR+ti:%22LLM-as-a-Judge%22+OR+ti:Hallucination+OR+ti:Guardrail+OR+ti:%22Model+Context+Protocol%22+OR+ti:%22Agent+Memory%22+OR+ti:%22Prompt+Injection%22+OR+ti:%22Test-Time+Scaling%22+OR+ti:%22Test-Time+Compute%22+OR+ti:RAG+OR+ti:RLHF+OR+ti:Multimodal+OR+ti:DeepSeek+OR+ti:Gemini+OR+ti:GPT-5+OR+ti:Claude+OR+ti:Llama+OR+ti:Mistral+OR+ti:Qwen+OR+ti:Kimi+OR+ti:Ontology+OR+ti:%22Knowledge+Graph%22+OR+ti:%22Neuro-Symbolic%22+OR+ti:%22Knowledge+Representation%22+OR+ti:%22Symbolic+AI%22&sortBy=submittedDate&sortOrder=descending&max_results=80"
+# V37.9.355 (2026-09-22) 两个新跟踪领域 World Model / 具身机器人: +11 ti: 词 (World Model(s)/JEPA/Embodied/Humanoid/
+# Vision-Language-Action/VLA/Robot Learning/Robot Manipulation/Sim-to-Real/Robot Foundation Model); 候选池 80→100
+# (机器人是大领域, 12h 窗口匹配量上升; 仍只涨 XML). 分析上限 MAX_PAPERS=10 不动 = LLM 成本不变; 代价 = 10 席位按
+# 时间先到先得, 机器人论文会分走一部分席位 (诚实登记: 本 job 不按主题配额, 主题优先级由 deep_dive picker 承担)。
+ARXIV_URL="https://export.arxiv.org/api/query?search_query=ti:LLM+OR+ti:%22Large+Language+Model%22+OR+ti:%22AI+Agent%22+OR+ti:%22LLM+Agent%22+OR+ti:Agentic+OR+ti:%22Tool+Use%22+OR+ti:%22Tool+Learning%22+OR+ti:%22Function+Calling%22+OR+ti:%22LLM-as-a-Judge%22+OR+ti:Hallucination+OR+ti:Guardrail+OR+ti:%22Model+Context+Protocol%22+OR+ti:%22Agent+Memory%22+OR+ti:%22Prompt+Injection%22+OR+ti:%22Test-Time+Scaling%22+OR+ti:%22Test-Time+Compute%22+OR+ti:RAG+OR+ti:RLHF+OR+ti:Multimodal+OR+ti:DeepSeek+OR+ti:Gemini+OR+ti:GPT-5+OR+ti:Claude+OR+ti:Llama+OR+ti:Mistral+OR+ti:Qwen+OR+ti:Kimi+OR+ti:%22World+Model%22+OR+ti:%22World+Models%22+OR+ti:JEPA+OR+ti:Embodied+OR+ti:Humanoid+OR+ti:%22Vision-Language-Action%22+OR+ti:VLA+OR+ti:%22Robot+Learning%22+OR+ti:%22Robot+Manipulation%22+OR+ti:%22Sim-to-Real%22+OR+ti:%22Robot+Foundation+Model%22+OR+ti:Ontology+OR+ti:%22Knowledge+Graph%22+OR+ti:%22Neuro-Symbolic%22+OR+ti:%22Knowledge+Representation%22+OR+ti:%22Symbolic+AI%22&sortBy=submittedDate&sortOrder=descending&max_results=100"
 
 TS="$(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date '+%Y-%m-%d %H:%M:%S')"
 STATUS_FILE="$CACHE/last_run.json"

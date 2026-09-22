@@ -158,6 +158,7 @@ run_suite "v37_9_52_doubao_provider (V37.9.52 第 8 个 provider 槽位 — V37.
 run_suite "v37_9_345_kimi_k3_and_rename (V37.9.345 第 13 个 provider Kimi K3 + doubao 槽位改名退役命名债 + api_key_env 厂商一致性扫描)" "python3 test_v37_9_345_kimi_k3_and_rename.py"
 run_suite "v37_9_348_source_refresh (V37.9.348 信息源刷新 — 对齐本体/论文关键词/arxiv 查询/github 主题/深读权重/rss feed 对齐纲领 T2-T8 + 宪法级 #1, 零新 job)" "python3 test_v37_9_348_source_refresh.py"
 run_suite "v37_9_349_influence_metrics (V37.9.349 影响力指标机械化 — 纲领 R1 三命令折进 health_check 第 10 段, 每源 FAIL-OPEN 不写 0 / status.json quality.influence MR-9 / watchdog err_pattern 契约 / 零新 job)" "python3 test_v37_9_349_influence_metrics.py"
+run_suite "v37_9_355_world_model_embodied (V37.9.355 World Model / 具身机器人 两个新跟踪领域接入既有信息平台 — 对齐本体 +2 方向/深读权重/arxiv ti:/S2+DBLP 18/github 主题/rss +2 feed/autotag 机器人分类, 行为级 + 零新 job)" "python3 test_v37_9_355_world_model_embodied.py"
 run_suite "v37_9_53_doubao_verified (V37.9.53 flip verified_text + reasoning capability + fallback chain 排名前移)" "python3 test_v37_9_53_doubao_verified.py"
 run_suite "v37_9_54_abc (V37.9.54 ABC: restart.sh marker-based plist reload + verified_vision + INV-PLIST-ENV-001)" "python3 test_v37_9_54_abc.py"
 run_suite "v37_9_55_doubao_more_verified (V37.9.55 flip verified_tool_calling + verified_streaming, cap_score 12→16 超 Qwen3 14)" "python3 test_v37_9_55_doubao_more_verified.py"

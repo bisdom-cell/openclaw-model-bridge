@@ -103,7 +103,10 @@ HEADER_FILE="$CACHE/curl_headers.txt"
 # GitHub Search API 限制最多 5 个 AND/OR/NOT 操作符
 # V37.9.348: 退役 diffusion-model (生成式媒体, 与 agent runtime/治理无关, 对齐 project_concepts excluded);
 # 加 agentic/mcp-server/llm-evaluation (纲领 T1/T5/T8)。GitHub search 上限 5 个 OR → 恰 6 词。
-TOPICS="llm+OR+ai-agent+OR+agentic+OR+mcp-server+OR+llm-evaluation+OR+machine-learning"
+# V37.9.355 (2026-09-22): +robotics / +world-model 两个新跟踪领域 (World Model / 具身机器人)。6 词硬上限 → 必须换出 2 词:
+#   退役 machine-learning (最泛, 几乎所有命中 llm/ai-agent 的仓库都同时命中它 = 零增量信号, 与 V37.9.348 退役 deep-learning 同理)
+#   退役 agentic (与 ai-agent 目标仓库高度重叠, 二选一保留 ai-agent)。llm/ai-agent/mcp-server/llm-evaluation 保留。
+TOPICS="llm+OR+ai-agent+OR+mcp-server+OR+llm-evaluation+OR+robotics+OR+world-model"
 SEARCH_URL="https://api.github.com/search/repositories?q=${TOPICS}+created:%3E${WEEK_AGO}&sort=stars&order=desc&per_page=50"
 
 FETCH_OK=false

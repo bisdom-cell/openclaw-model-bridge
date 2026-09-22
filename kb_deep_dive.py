@@ -109,6 +109,13 @@ TOPIC_WEIGHTS = {
     "agent memory": 7, "context engineering": 7,
     # control plane / orchestration（本项目核心叙事）
     "control plane": 10, "orchestration": 5,
+    # world model / 具身机器人 (V37.9.355: 两个新跟踪领域; 权重封顶 9 = 低于本项目核心叙事 10,
+    # 让"agent runtime/ontology/control plane"同星级时仍优先深读)
+    "world model": 9, "世界模型": 9, "jepa": 7, "latent dynamics": 6,
+    "model-based rl": 6, "world simulator": 6, "world action model": 8,
+    "embodied": 9, "具身": 9, "humanoid": 7, "vision-language-action": 8,
+    "robot": 6, "机器人": 6, "sim-to-real": 7, "imitation learning": 6,
+    "dexterous": 5, "locomotion": 5, "teleoperation": 5,
 }
 
 MIN_STARS = 4     # 门槛：⭐≥4 才算合格候选

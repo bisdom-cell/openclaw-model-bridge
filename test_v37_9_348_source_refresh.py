@@ -158,11 +158,13 @@ class TestPaperKeywordFamilies(unittest.TestCase):
                  "formal ontology information systems", "description logic OWL",
                  "semantic web linked data", "knowledge representation reasoning")
 
-    def test_s2_and_dblp_have_16_with_reliability_family(self):
+    def test_s2_and_dblp_have_18_with_reliability_family(self):
+        # V37.9.348 定 16 (12 + 4 可靠性族) → V37.9.355 +2 (World Model / 具身机器人) = 18; 意图不变:
+        # 两源关键词数对齐 + 旧族/ontology 族/可靠性族逐字或同族保留 (计数由 test_v37_9_355 精确 pin 18)
         s2 = _bash_array(_read("jobs/semantic_scholar/run_semantic_scholar.sh"), "KEYWORDS")
         dblp = _bash_array(_read("jobs/dblp/run_dblp.sh"), "KEYWORDS")
-        self.assertEqual(len(s2), 16, s2)
-        self.assertEqual(len(dblp), 16, dblp)
+        self.assertEqual(len(s2), 18, s2)
+        self.assertEqual(len(dblp), 18, dblp)
         for kw in self.LEGACY_S2:
             self.assertIn(kw, s2, "旧族不得误删")
         for kw in self.ONTOLOGY6:
