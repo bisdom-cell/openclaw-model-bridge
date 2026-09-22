@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-22 04:13:20",
+  "updated": "2026-09-22 08:21:35",
   "updated_by": "full_regression",
   "priorities": [
     {
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-09-22",
+      "what": "V37.9.356 货代 L2「解析率」判据重定义：三层格式（📊/🏢/🚢 标记齐 + 正文非空）替代评级数/新闻数比值——Mac Mini 取证坐实 15 条新闻仅评 8 条的正确输出差 1 条即被判解析失败并丢弃整份报告；status 加 layers_ok、告警带诊断、preflight 文案演进、V37.9.31 pin 1:1 演进；守卫 17 单测 + sabotage 4 连；VERSION 0.37.9.177",
+      "by": "claude_code"
+    },
     {
       "date": "2026-09-22",
       "what": "V37.9.355 后记: Mac Mini preflight 报 finance_news 缺执行位 (V37.9.352 文档刷新时 100755→100644 潜伏 13 天, cron bash -lc 不受影响) → git update-index --chmod=+x + test_check_registry +2 exec-bit 守卫前移 dev CI (sabotage 开火)",
@@ -173,11 +178,6 @@
       "date": "2026-08-31",
       "what": "V37.9.335 用户二次决策恢复每日备份拉取(22min 实测支撑): 周日门控+FORCE 开关退役, ssd_backup=每日最新一份+全量保留(+365GB/年), 守卫 daily-latest-only 双向禁回退",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-08-31",
-      "what": "V37.9.335 收官: 用户合并 main + 新脚本验证轮全模块 OK, 首份备份档落地(22min 实测, 8h 预估修正), Windows 镜像进入无人值守稳态; 剩明日 05:00 形式验收+周日 9/6 首次自动备份观察",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -226,7 +226,7 @@
     "security_score": "98/100 (98.0%)",
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB",
     "slo": {
-      "checked_at": "2026-09-22 04:02:59",
+      "checked_at": "2026-09-22 08:10:17",
       "all_ok": true,
       "judged_count": 1,
       "na_count": 4,
@@ -346,22 +346,23 @@
         "added": "2026-09-09"
       },
       "V37.9.355 Mac Mini 首跑验证 (用户被动观察, 合并同步后): (a) 18:00 rss_blogs: grep \"RSS 抓取失败\" ~/.openclaw/logs/jobs/rss_blogs.log — deepmind.google / spectrum.ieee.org 死链即剪枝 (dev EGRESS_BLOCKED 未预验, FAIL-OPEN) (b) 08:00/20:00 arxiv 推送出现世界模型/VLA/人形标题 (c) 11:00 S2 / 12:00 DBLP 18 词后无新增 429/503 (d) 14:00 github_trending 出现 robotics/world-model 仓库 (e) 一周后 06:00 kb_radar Top 5 与 22:30 deep_dive 出现 world model/VLA 条目 = 对齐本体生效的用户可见信号 (f) 机器人相关 KB note 自动标签出现 技术/机器人",
-      "【货代 L2「解析率」判定与 V37.9.33 三层格式结构性错配 · 候选 · gated 于 Mac Mini 取证】2026-09-22 preflight 报「货代 deep_dive 合法跳过（LLM 解析率 < 50%）」= run_freight.sh L2 检查 (评级： 行数 < NEW_COUNT/2, NEW_COUNT ≤15 → 阈值 ≤7) 触发 parse_low + exit 2 → 整份分析在 step 4 推送前被丢弃 (用户当天零货代报告, 只收告警). 该检查是 V25 时代「一条新闻一个评级」的解析率代理; V37.9.33 (2026-05-07) 改为三层分类、每层 ≤5 条且允许「本期无显著…」空层后, 分子变成「LLM 认为值得评级的信号数」而分母仍是新闻数 → 诚实的低信号日 (如 15 条新闻只评出 6 条) 会被判「解析失败」并丢掉有效报告 (fail-plausible 反向: 正确输出被当故障). V37.9.33 changelog 未提及 L2 阈值 = 未复核的接缝. 与 V37.9.355 无关 (freight 脚本最后触碰 2026-08-17, 今日 diff 未动 adapter/proxy/notify/freight). 取证三分支预注册: (i) llm_raw 三层格式完整 + parse_ok 在 3-6 → 结构性错配坐实 → 修法 = L2 改判「三层 header 齐 + 每层有评级或空层哨兵」而非计数比 (只改判据不加机器); (ii) 评级: ASCII 冒号占多数 → doubao_21 冒号风格 → grep 兼容双冒号一行修; (iii) 输出被截断/空层全无 header → max_tokens/模型侧, 另议. 另: parse_low 会让 watchdog catch-all 在次日 14:00 成功前每轮报「货代Watcher: 异常状态 (parse_low)」= 同一事件 4 次, 按设计 (V37.9.321 家族) 非新 bug."
+      "V37.9.356 货代 L2 判据重定义 Mac Mini 被动验证 (合并同步后, 明日 14:00 起): (a) 低信号日 Discord 应收到货代报告 (可含「本期无显著…」段) 而非只收「LLM 输出格式异常」告警; (b) preflight --full 11/19 文案变为「LLM 输出三层格式异常」分支 (仅真格式异常时出现); (c) 可选看历史误判下限: grep -c '解析成功率低' ~/.openclaw/logs/jobs/freight_watcher.log。取证已坐实分支 (i): 09-22 健康 run 8/15 评级仅多 1 条过旧阈值 7, ASCII 冒号 0 (分支 ii 排除), 三层 header 齐。"
     ],
     "open_prs": [],
     "blocked_on": "",
-    "focus": "2026-09-22 收工: V37.9.355 信息平台扩域 (World Model + 具身机器人 两个跟踪领域, 七处既有 job 配置面, 零新 job, VERSION 0.37.9.176) 待合并; 合并后 git fetch+reset 同步 (全走 FILE_MAP 零重启), 被动观察 rss 两新 feed 首跑 + 一周后 radar/deep_dive 出现 world model/VLA 条目. 同日 V37.9.354 第十二次升级评估已并入 (tripwire [2/6] 约 4 周内触发, 处置已预注册 23.5)."
+    "focus": "V37.9.356 货代 L2 判据重定义已交付（三层格式而非比值），待 Mac Mini 合并同步 + 明日 14:00 被动验证；V37.9.355 六项被动观察仍在进行。",
+    "recent_changes": []
   },
   "quality": {
     "security_score": 98,
-    "test_count": 6554,
-    "last_regression": "2026-09-22 04:12 pass",
+    "test_count": 6571,
+    "last_regression": "2026-09-22 08:21 pass",
     "coverage_pct": 0,
     "security_score_time": "2026-07-20 01:07",
-    "test_suites": 197,
+    "test_suites": 198,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
-    "version": "0.37.9.176",
+    "version": "0.37.9.177",
     "observer": {}
   },
   "incidents": [

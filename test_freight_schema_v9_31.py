@@ -12,7 +12,7 @@ V37.9.31 双层修复:
   2. run_freight.sh 在所有 exit path 都写 deep_dive 字段:
      - NEW_COUNT=0 → deep_dive=skipped_no_news
      - LLM 失败 → deep_dive=skipped_llm_failed
-     - LLM 解析率 < 50% → deep_dive=skipped_parse_low
+     - LLM 输出三层格式异常 → deep_dive=skipped_parse_low（V37.9.356 起；原「解析率 < 50%」比值判据已退役）
      - Step 5 (推送成功) → deep_dive=pending (Step 9 覆盖为 ok/no_data/skipped_no_high_star)
      - Step 9 完成 → deep_dive=ok / no_data / skipped_no_high_star (覆盖 pending; V37.9.43-hotfix
        把 generic 'skipped' 重命名为 'skipped_no_high_star' 让 preflight 识别为合法跳过)
@@ -70,9 +70,9 @@ class TestFreightStatusFileSchemaV9_31(unittest.TestCase):
         )
 
     def test_parse_low_path_writes_deep_dive_field(self):
-        """LLM 解析率 < 50% exit 2 必须写 deep_dive=skipped_parse_low."""
+        """LLM 输出格式异常 exit 2 必须写 deep_dive=skipped_parse_low（V37.9.356 锚点演进）."""
         m = re.search(
-            r'L2.+?解析成功率.+?exit 2',
+            r'L2.+?格式异常.+?exit 2',
             self.script,
             flags=re.DOTALL,
         )

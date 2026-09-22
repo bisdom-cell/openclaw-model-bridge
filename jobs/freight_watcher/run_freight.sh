@@ -327,14 +327,29 @@ if [ -z "${LLM_OUT// }" ]; then
     exit 1
 fi
 
-# L2检查：解析成功率 < 50%
+# L2检查：LLM 输出三层格式是否可解析（V37.9.356 重定义判据）
+# 旧判据「评级：行数 < NEW_COUNT/2」是 V25「一条新闻一个评级」时代的解析率代理；
+# V37.9.33 把输出改成三层分类（每层 ≤5 条、允许空层「本期无显著…」）后，评级数
+# 只反映 LLM 认为值得评级的信号数，不再对应新闻数——2026-09-22 实录：一份格式
+# 完全正确的输出对 15 条新闻只评出 8 条（阈值 7，仅多 1 条），前一日同款输出
+# 被判「解析率低」→ exit 2 → 整份有效报告在推送前被丢弃，用户只收到告警。
+# 新判据对齐 Step 4 的真实解析契约（按行首 📊/🏢/🚢 切三段）：三段标记齐全，
+# 且正文非空（有评级行，或三层都显式声明「本期无显著」）。信号稀薄不再算解析失败。
 PARSE_OK="$(echo "$LLM_OUT" | grep -c '评级：' || true)"
-if [ "$PARSE_OK" -lt $(( NEW_COUNT / 2 )) ] && [ "$NEW_COUNT" -gt 2 ]; then
-    WARN_MSG="⚠️ 货代Watcher解析成功率低 ${PARSE_OK}/${NEW_COUNT}（${DAY}），请查 $LLM_RAW"
+SENTINELS="$(echo "$LLM_OUT" | grep -c '本期无显著' || true)"
+LAYERS_OK=0
+for _mk in 📊 🏢 🚢; do
+    _n="$(echo "$LLM_OUT" | grep -c "^${_mk}" || true)"
+    if [ "$_n" -gt 0 ]; then
+        LAYERS_OK=$((LAYERS_OK + 1))
+    fi
+done
+if [ "$NEW_COUNT" -gt 2 ] && { [ "$LAYERS_OK" -lt 3 ] || { [ "$PARSE_OK" -eq 0 ] && [ "$SENTINELS" -lt 3 ]; }; }; then
+    WARN_MSG="⚠️ 货代Watcher LLM 输出格式异常（${DAY}）：三层段落 ${LAYERS_OK}/3，评级 ${PARSE_OK} 行，空层声明 ${SENTINELS}/3，请查 $LLM_RAW"
     echo "$WARN_MSG"
     notify "$WARN_MSG" --topic alerts >/dev/null 2>&1 || true  # V37.9.171 PathB-2: 微信 + Discord #alerts
     # V37.9.31: deep_dive=skipped_parse_low so preflight reports legitimate skip
-    printf '{"time":"%s","status":"parse_low","new":%d,"parse_ok":%d,"deep_dive":"skipped_parse_low"}\n' "$TS" "$NEW_COUNT" "$PARSE_OK" > "$STATUS_FILE"
+    printf '{"time":"%s","status":"parse_low","new":%d,"parse_ok":%d,"layers_ok":%d,"deep_dive":"skipped_parse_low"}\n' "$TS" "$NEW_COUNT" "$PARSE_OK" "$LAYERS_OK" > "$STATUS_FILE"
     exit 2
 fi
 
