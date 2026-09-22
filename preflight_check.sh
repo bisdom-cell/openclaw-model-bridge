@@ -576,7 +576,7 @@ except Exception:
                 warn "货代 deep_dive 合法跳过（LLM 失败，已发告警 — 检查 llm_raw_last.txt）"
                 ;;
             skipped_parse_low)
-                warn "货代 deep_dive 合法跳过（LLM 解析率 < 50%，已发告警）"
+                warn "货代 deep_dive 合法跳过（LLM 输出三层格式异常，已发告警 — V37.9.356 起不再按评级数/新闻数比判定）"
                 ;;
             pending)
                 # V37.9.31: pending = Step 5 写了但 Step 9 未到达 (set -e 杀 / OOM / 崩溃)
