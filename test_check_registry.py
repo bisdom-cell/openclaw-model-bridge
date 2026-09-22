@@ -554,5 +554,62 @@ class TestRealRegistry(unittest.TestCase):
         self.assertEqual(errors, [], f"Real registry has errors: {errors}")
 
 
+# ---------------------------------------------------------------------------
+# V37.9.355 后记 (2026-09-22): registry 管理的 .sh 脚本在 git 索引里必须带执行位
+# ---------------------------------------------------------------------------
+class TestRegistryEntryExecBit(unittest.TestCase):
+    """registry 管理的 .sh 脚本在 git 索引里必须是 100755。
+
+    preflight 4/19 只在 Mac Mini --full 模式才 warn「缺少可执行权限」, dev 永远看不到; 而用 tmp+rename
+    方式重写文件的脚本会静默丢执行位——V37.9.334 新建 check_upgrade.sh 漏 +x (V37.9.350 后记抓到),
+    V37.9.352 文档刷新重写 finance_news 头注时 100755→100644 (2026-09-22 Mac Mini preflight 抓到)
+    = 同一 bug 类三周两次演出 → 把判据前移到 dev CI (镜像 V37.9.338 把 INV-CRON-003 判据前移)。
+    检查对象 = git 索引模式 (Mac Mini 同步/preflight 看到的就是它), 不看工作树 (umask/Windows 环境不可靠)。
+    cron 本身走 bash -lc 'bash ~/x.sh' 不受执行位影响, 这里守的是 preflight 噪声面与部署一致性。
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        import subprocess
+        repo = os.path.dirname(os.path.abspath(__file__))
+        try:
+            out = subprocess.run(["git", "ls-files", "-s"], capture_output=True, text=True,
+                                 cwd=repo, timeout=30)
+        except (OSError, subprocess.TimeoutExpired):
+            raise unittest.SkipTest("git 不可用")
+        if out.returncode != 0:
+            raise unittest.SkipTest("非 git 仓库")
+        cls.modes = {}
+        for line in out.stdout.splitlines():
+            parts = line.split("\t", 1)
+            if len(parts) == 2:
+                cls.modes[parts[1]] = parts[0].split()[0]
+        cls.registry = load_yaml(os.path.join(repo, "jobs_registry.yaml"))
+
+    def _sh_entries(self):
+        jobs = self.registry.get("jobs", self.registry)
+        entries = []
+        for j in jobs:
+            if not isinstance(j, dict):
+                continue
+            e = str(j.get("entry", ""))
+            if e.endswith(".sh") and e in self.modes:
+                entries.append(e)
+        return entries
+
+    def test_every_registry_shell_entry_is_executable_in_index(self):
+        entries = self._sh_entries()
+        self.assertGreaterEqual(len(entries), 30, "防空转: registry .sh entry 应 ≥30 个且都在 git 索引里")
+        bad = [e for e in entries if self.modes[e] != "100755"]
+        self.assertEqual(bad, [],
+                         "缺执行位 (修: git update-index --chmod=+x <path>): " + ", ".join(bad))
+
+    def test_blood_case_files_covered(self):
+        """两次血案文件必须在本守卫的检查集合里 (否则守卫对它们空转)。"""
+        entries = self._sh_entries()
+        self.assertIn("jobs/finance_news/run_finance_news.sh", entries)
+        self.assertIn("check_upgrade.sh", entries)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
