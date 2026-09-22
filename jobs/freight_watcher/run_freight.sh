@@ -13,7 +13,7 @@ set -eo pipefail
 HG_GUARD_TEXT=$(python3 -c "
 import sys, os
 sys.path.insert(0, os.path.expanduser('~'))
-sys.path.insert(0, '$(cd \"$(dirname \"$0\")\" && pwd)')
+sys.path.insert(0, '$(cd "$(dirname "$0")" && pwd)')
 try:
     import hallucination_guards as hg
     print(hg.get_guard('LEVEL_2_STANDARD'))
