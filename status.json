@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-22 03:09:40",
+  "updated": "2026-09-22 03:29:38",
   "updated_by": "full_regression",
   "priorities": [
     {
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-09-22",
+      "what": "V37.9.355 后记: Mac Mini preflight 报 finance_news 缺执行位 (V37.9.352 文档刷新时 100755→100644 潜伏 13 天, cron bash -lc 不受影响) → git update-index --chmod=+x + test_check_registry +2 exec-bit 守卫前移 dev CI (sabotage 开火)",
+      "by": "claude_code"
+    },
     {
       "date": "2026-09-22",
       "what": "V37.9.355 信息平台扩域: World Model + 具身机器人 两个跟踪领域接入既有 16 源平台 (零新 job): project_concepts +2 方向 weight 4 + 退役 generative_media 的 video generation 词 / kb_deep_dive +18 词封顶 9 / arxiv ti: 32→43 池 100 / S2+DBLP 16→18 / github_trending 换出 machine-learning+agentic 加 robotics+world-model / rss_blogs +DeepMind 官方博客 +IEEE Spectrum Robotics (dev EGRESS_BLOCKED 待 Mac Mini 首跑) / kb_autotag +技术/机器人; 守卫 28 单测 sabotage 八连开火; VERSION 0.37.9.176",
@@ -173,11 +178,6 @@
       "date": "2026-08-31",
       "what": "V37.9.335 收官: 用户合并 main + 新脚本验证轮全模块 OK, 首份备份档落地(22min 实测, 8h 预估修正), Windows 镜像进入无人值守稳态; 剩明日 05:00 形式验收+周日 9/6 首次自动备份观察",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-08-31",
-      "what": "V37.9.335 首个 05:00 定时运行实证+kb 保险丝破案: dreams/.map_cache 日缓存每天生灭~2400文件 → kb 排除三衍生物(map_cache/text_index/mm_index)+MR-8 生产者源码路径守卫; 定时通道打通, 首份备份档 FORCE 拉取中",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -226,7 +226,7 @@
     "security_score": "98/100 (98.0%)",
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB",
     "slo": {
-      "checked_at": "2026-09-22 02:59:05",
+      "checked_at": "2026-09-22 03:19:24",
       "all_ok": true,
       "judged_count": 1,
       "na_count": 4,
@@ -353,8 +353,8 @@
   },
   "quality": {
     "security_score": 98,
-    "test_count": 6552,
-    "last_regression": "2026-09-22 03:09 pass",
+    "test_count": 6554,
+    "last_regression": "2026-09-22 03:29 pass",
     "coverage_pct": 0,
     "security_score_time": "2026-07-20 01:07",
     "test_suites": 197,
