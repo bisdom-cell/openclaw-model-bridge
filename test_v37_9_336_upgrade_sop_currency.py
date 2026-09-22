@@ -623,8 +623,10 @@ class TestEleventhEvaluationPresent(unittest.TestCase):
         self.assertGreaterEqual(len(prs), 2, f"防空转：22.4 候选表应含 ≥2 个 PR 号，实际 {prs}")
         for p in prs:
             self.assertNotIn(f"#{p}", self.prereq, f"9.4 候选 #{p} 已核实为门控/opt-in，不得进前置 C（22.4 明写登记不入）")
-        self.assertEqual(self.prereq.count("- [ ]"), 18,
-                         "9.4 零新增 → 7.0 清单应恰 18 个勾选项（3 基础 + A + B + C 头 + 12 子项）；若真需新增请同步演进本 pin")
+        # V37.9.354 演进（V37.9.131 alternation）：9.5 真新增第 13 项（#149875），18 → 19；
+        # 本断言的意图不变——9.4 的两项候选没有以「悄悄多一项」的形式混进清单。
+        self.assertEqual(self.prereq.count("- [ ]"), 19,
+                         "7.0 清单应恰 19 个勾选项（3 基础 + A + B + C 头 + 13 子项：12 + V37.9.354 第 13 项）；若真需新增请同步演进本 pin")
 
     def test_prereq_c_item12_carries_9_4_mitigation_without_removal(self):
         """#139495（9.3 更新自动推理修复）仍在前置 C，且同一行带 9.4 的缓解注记（#143767 家族）。"""
@@ -684,6 +686,134 @@ class TestEleventhEvaluationPresent(unittest.TestCase):
         self.assertIn("不新开评估节", s225, "须预注册评估节奏日落规则：三项全同只追加读数")
         self.assertIn("不重置 LAST_EVAL_DATE", s225, "追加读数不重置正式评估日期（否则 _latest_eval 守卫与 tripwire 语义漂移）")
         self.assertIn("裸 grep", s225, "追加读数仍须走协议，不得简化为裸 grep")
+
+class TestTwelfthEvaluationPresent(unittest.TestCase):
+    """第十二次评估（V37.9.354，2026-09-22）自身的落地守卫。
+
+    2026.9.5（09-19）= 第十一次评估 22.5 预设的「下一个 stable」到期；判据 ② 由 🔴 变 🟡
+    （9.4→9.5 间隔 7.94 天）= 日落规则「任一判据状态变化」→ 新开第二十三节而非追加读数；
+    第四类风险 +1（跨 provider 消息默认开 #149875 入前置 C 第 13 项）；并发上限 `cpus × 4`
+    原位加注第 7 项（#147423，同一旋钮不新增项）；Daybreak cyberFailover 经 dist 核实登记不入；
+    预注册 tripwire [2/6] 版本差距触发日的处置。
+    """
+
+    def setUp(self):
+        self.doc = _read()
+        self.head = self.doc[:self.doc.index("## 一、版本概览")]
+        self.sec23 = _slice(self.doc, "## 第二十三节", "\n---\n")
+        self.sop = _slice(self.doc, "## 七、升级 SOP", "## 八、综合评估")
+        self.prereq = _slice(self.sop, "### 7.0", "### 7.1")
+
+    def test_section23_exists_with_all_subsections(self):
+        for sub in ("### 23.1", "### 23.2", "### 23.3", "### 23.4", "### 23.5"):
+            self.assertIn(sub, self.sec23, f"第二十三节缺 {sub}")
+
+    def test_twelfth_eval_heading_present_and_listed_in_head(self):
+        found = [(m.group(1), m.group(2), m.group(3)) for m in _EVAL_HEADING.finditer(self.doc)]
+        self.assertIn(("第二十三节", "十二", "2026-09-22"), found, found)
+        for kw in ("十一次评估", "十二次评估"):
+            self.assertIn(kw, self.head, f"头部评估列表缺 {kw}")
+        self.assertIn("2026.9.5", self.head, "头部当前态行须写上游 latest 2026.9.5")
+
+    def test_new_section_justified_by_criterion_change_not_appended(self):
+        """22.5 日落规则：三项全同才追加读数；本次 ② 变 🟡 = 状态变化，必须以新开节的形式落地并写明理由。"""
+        self.assertIn("日落规则", self.sec23)
+        self.assertIn("新开", self.sec23, "须写明为何新开节而非追加读数")
+        self.assertNotIn("### 22.6", self.doc, "判据状态变化时不得走「22.6 追加读数」路径")
+
+    def test_prereq_c_gains_cross_provider_item_13(self):
+        """#149875 默认翻转（dist 实证 9.4 `=== true` → 9.5 `!== false`）必须成为前置 C 第 13 项，且清单恰 19 项。"""
+        self.assertIn("#149875", self.prereq, "9.5 跨 provider 消息默认开未进 7.0 前置 C")
+        line = next((l for l in self.prereq.splitlines() if "#149875" in l), None)
+        self.assertIsNotNone(line)
+        self.assertIn("allowAcrossProviders", line, "第 13 项须写出可行动的配置键")
+        self.assertIn("首次启动前", line, "第 13 项须写明在首次启动前显式关闭")
+        self.assertEqual(self.prereq.count("- [ ]"), 19)
+        s234 = _slice(self.sec23, "### 23.4", "### 23.5")
+        self.assertIn("第 13 项", s234)
+
+    def test_candidate_table_verdicts_match_prereq_c(self):
+        """23.4 候选表：标「登记不入」的 PR 一个都不得进前置 C；标「入前置 C」/「原位加注」的 PR 必须都在。"""
+        s234 = _slice(self.sec23, "### 23.4", "### 23.5")
+        tbl = _slice(s234, "| 9.5 候选", "另三项按同一尺子核过不入")
+        rows = [l for l in tbl.splitlines() if l.startswith("| **")]
+        self.assertGreaterEqual(len(rows), 3, f"防空转：候选表应含 ≥3 行，实际 {len(rows)}")
+        seen_exclude = seen_include = 0
+        for row in rows:
+            prs = sorted(set(re.findall(r"#(\d{6})", row)))
+            self.assertTrue(prs, f"防空转：候选行无 PR 号：{row[:60]}")
+            if "登记不入" in row:
+                seen_exclude += 1
+                for p in prs:
+                    self.assertNotIn(f"#{p}", self.prereq, f"候选 #{p} 已核实登记不入，不得进前置 C")
+            elif "入前置 C" in row or "原位加注" in row:
+                seen_include += 1
+                for p in prs:
+                    self.assertIn(f"#{p}", self.prereq, f"候选 #{p} 结论为入/加注，前置 C 却没有")
+            else:
+                self.fail(f"候选行缺明确结论（登记不入 / 入前置 C / 原位加注）：{row[:80]}")
+        self.assertGreaterEqual(seen_exclude, 1, "防空转：应至少有一项登记不入（Daybreak）")
+        self.assertGreaterEqual(seen_include, 2, "防空转：应至少有两项进清单（#149875 新增 + #147423 原位加注）")
+
+    def test_prereq_c_item7_carries_9_5_amplification_in_place(self):
+        """#114047（并发假设）同一行带 9.5 的 `cpus × 4` 注记（#147423），且没有被拆成第二个并发项。"""
+        line = next((l for l in self.prereq.splitlines() if "#114047" in l), None)
+        self.assertIsNotNone(line, "前置 C 第 7 项 #114047 不得被撤")
+        self.assertIn("#147423", line, "第 7 项须原位注记 9.5 放大（同一旋钮 defaultAgentMaxConcurrent）")
+        self.assertIn("cpus × 4", line)
+        self.assertEqual(sum(1 for l in self.prereq.splitlines() if "#147423" in l), 1,
+                         "#147423 只应出现在第 7 项那一行（原位加注不新增项）")
+
+    def test_criterion1_dirty_and_interval_yellow_recorded_honestly(self):
+        """9.5 必须记 DIRTY 且计数 0；② 必须记 🟡 并带 7.94 天与滚动速率；不得误记「9.5 干净」或把 🟡 写成 ✅。"""
+        s233 = _slice(self.sec23, "### 23.3", "### 23.4")
+        self.assertIn("9.5", s233)
+        self.assertIn("DIRTY", s233)
+        self.assertIn("计数仍 0", s233)
+        self.assertIn("7.94", s233, "② 须记精确间隔 7.94 天")
+        self.assertIn("🟡", s233)
+        self.assertIn("1.75/周", s233, "② 须同时记 4 周窗滚动速率（单点间隔与滚动速率相反读数）")
+        for bad in ("9.5 干净", "计数 1", "② ✅", "② 回 ✅", "节奏已收敛"):
+            self.assertNotIn(bad, self.sec23, f"不得出现误记「{bad}」")
+
+    def test_node_range_unchanged_and_prereq_a_mentions_9_5(self):
+        s233 = _slice(self.sec23, "### 23.3", "### 23.4")
+        m = re.search(r">=24\.16\.0 <25 \\?\|\\?\| >=26\.1\.0", s233)
+        self.assertIsNotNone(m, "防空转：23.3 应含 9.5 的 node 区间字面量")
+        self.assertIn("逐字相同", s233)
+        pre_a = _slice(self.prereq, "前置 A", "前置 B")
+        self.assertIn("9.5", pre_a, "前置 A 须登记 9.5 区间未变")
+
+    def test_prereq_b_carries_weixin_stable_and_gateway_v2_notes(self):
+        pre_b = _slice(self.prereq, "前置 B", "前置 C")
+        self.assertIn("2.4.9", pre_b, "前置 B 须登记 weixin 2.4.9 已转 stable 而 peer floor 未变")
+        self.assertIn("Gateway V2", pre_b, "前置 B 须登记 9.5 Plugin SDK Gateway V2 传输迁移")
+        self.assertIn("node.client.webSocket", pre_b)
+
+    def test_protocol_ninth_point_recorded_in_both_sections(self):
+        """23.4 给出 9.5 协议实测读数（叙述 54 / 行内 217 / 裸 4245），且 20.4 表同步追加第九行（跨节对账）。"""
+        s234 = _slice(self.sec23, "### 23.4", "### 23.5")
+        for n in ("54", "217", "4245"):
+            self.assertIn(n, s234, f"23.4 缺 9.5 协议实测数据点 {n}")
+        s204 = _slice(self.doc, "### 20.4", "### 20.5")
+        row = next((l for l in s204.splitlines() if l.startswith("|") and "2026.9.5" in l), None)
+        self.assertIsNotNone(row, "20.4 表须追加 2026.9.5 一行（八点表 → 九点）")
+        self.assertIn("217", row)
+        self.assertIn("DIRTY", row)
+
+    def test_tracking_point_preregisters_version_gap_tripwire(self):
+        """23.5 须指向 19.8 协议 + 日落规则三要素，并预注册 tripwire [2/6] 触发日的处置（不预先改机器）。"""
+        s235 = _slice(self.sec23, "### 23.5", "**LAST_EVAL_DATE")
+        self.assertIn("19.8", s235)
+        self.assertIn("engines.node", s235)
+        self.assertIn("不新开评估节", s235)
+        self.assertIn("不重置 LAST_EVAL_DATE", s235)
+        self.assertIn("裸 grep", s235)
+        self.assertIn("[2/6]", s235, "须预注册版本差距 tripwire 触发日处置")
+        self.assertIn("不预先改机器", s235, "预注册须明确本节不改 tripwire 机器（日落法）")
+        for opt in ("改口径", "调阈值", "接受每周告警"):
+            self.assertIn(opt, s235, f"触发日三选一须写明选项「{opt}」及代价")
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
