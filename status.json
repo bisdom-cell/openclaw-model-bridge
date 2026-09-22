@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-13 13:00:37",
+  "updated": "2026-09-22 01:27:41",
   "updated_by": "full_regression",
   "priorities": [
     {
@@ -193,6 +193,11 @@
       "date": "2026-09-13",
       "what": "V37.9.353 OpenClaw 第十一次升级评估: 2026.9.4 (09-11) 到期触发 21.5 跟踪点 → 继续 hold ❌🔴✅ (① 9.4 DIRTY 9 计数 0 + 上游 changelog 自述 schema 变更阻断自动回滚=17.4 单向门被追认 / ② 9.3→9.4 又 3 天节奏稳态化 → 预注册评估节奏日落规则「三项全同只追加读数不新开节」/ ③ engines 逐字同); 第四类风险零新增 (两候选 dist 源码核实门控); 前置 A/B/C 加注; check_upgrade LAST_EVAL_DATE 09-13; 守卫 +9 (48→57), sabotage S7 首轮没开火抓出自己的空转守卫后收紧. 纯评估零 runtime VERSION 不变",
       "by": "claude_code"
+    },
+    {
+      "date": "2026-09-22",
+      "what": "V37.9.354 OpenClaw 第十二次升级评估: 2026.9.5 (09-19) 到期触发 22.5 跟踪点, 9.4→9.5 间隔 7.94 天使判据 ② 🔴→🟡 = 日落规则「状态变化」新开第二十三节 → 继续 hold ❌🟡✅; ① 9.5 DIRTY 2 计数仍 0 (连续第六个); 第四类风险 +1 (tools.message.crossContext.allowAcrossProviders 默认 false→true #149875, message 在 PA 白名单内 → 前置 C 12→13) + 并发上限 cpus×4 第 7 项原位加注 + Daybreak 登记不入 (dist 核实 OpenAI 错误码门控); 预注册 tripwire [2/6] 39/50 约 4 周内触发日处置; 守卫 +11 (68 单测 13 类) sabotage 七连开火; VERSION 不变",
+      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -241,7 +246,7 @@
     "security_score": "98/100 (98.0%)",
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB",
     "slo": {
-      "checked_at": "2026-09-13 12:59:00",
+      "checked_at": "2026-09-22 01:16:52",
       "all_ok": true,
       "judged_count": 1,
       "na_count": 4,
@@ -275,7 +280,7 @@
     }
   },
   "session_context": {
-    "last_session": "2026-09-13",
+    "last_session": "2026-09-22",
     "unfinished": [
       "【2026-07-02 多镜头审计 · 9 findings 全部处置完毕 (V37.9.226-239: 8 修复闭环 + I half-open 登记为可接受设计 tradeoff) · 剩纯 Mac Mini 被动验证】同步+重启 proxy/adapter 后观察: (A) 真 fallback 时 proxy 日志 DEGRADED 行 + proxy_stats.json slo.fallback_count 变真值 (V37.9.229) (C) ls ~/.kb/status.json.lock ~/.kb/audit.jsonl.lock 伴生锁文件出现 (V37.9.238) (E) client 断开时 adapter.log 记 CLIENT GONE 单行非 traceback (V37.9.231/242) (B) streaming 请求撞 parse 异常时 Gateway 收 SSE 而非 content-type 错配 (V37.9.239) (G) last_run_self_critique.json time 本地格式 + watchdog 4h 覆盖 observer (V37.9.230)。完整分诊记录见 CLAUDE.md V37.9.226-239 changelog, 无 dev 剩余动作。",
       "【V37.9.211/212 Qwen3 端点刷新 · adapter ✅ + V37.9.212 ✅ 已并入 main(PR#774, 2026-07-02 dev 核实) · 剩用户 env 动作】剩余非紧急: (A) .env_shared 设新 REMOTE_API_KEY+REMOTE_BASE_URL(cron 直连脚本 health_check 每周报 CURRENT_MODEL/diagnose 用) (C) 🔴 明文 key 建议用完轮换。教训钉死: adapter/proxy 是 launchd job, env 改必须进 plist EnvironmentVariables + bootout/bootstrap(不是 shell export + kickstart)。",
@@ -298,7 +303,7 @@
       "低优观察 (登记不修, 日落法 #8): auto_deploy FILE_MAP 同步用 cp 非原子写 → 脚本在同步窗口内被并发执行会读半截文件 (2026-07-02 11:41 governance_audit_cron.sh 同步 #781 时被手动跑 → line 85 $() 截断 = 'syntax error near governance' 瞬态, 重跑即好 bash -n 过+diff 同步)。极低频(同步写×并发执行精确重叠)+自愈+非代码 bug。若未来 07:00 cron 与 auto_deploy 同步真撞上(复现) 才值得让 auto_deploy 改原子写 temp+mv。当前不投机加复杂度。",
       "【2026-07-03 observer/治理/watchdog triage · findings 全部闭环 (V37.9.232-235/240) · 剩被动观察】(a) ✅ V37.9.247 兑现: 07-05 07:00 第二次再现 (07-03见/07-04干净/07-05再现=间歇负载) → 按预注册 V37.9.214 模式硬化两 runtime check (timeout 120→240 + TimeoutExpired→inconclusive+门控)。剩 Mac Mini 被动观察: 下次 07:00 不再 💥 + watchdog 治理 CORE 告警消失 (b) freight last_run 应已 07-03 14:00 自愈转 ok (仍 llm_failed=新问题贴我) (c) 修复生效信号: dblp 推送无「推测采用XX模型」类字眼 (V37.9.234) / last_run_deep_dive.json 见 banned_recent + 一周后 full-text 比例回升 (V37.9.233) / observer 报告 arxiv 截断 finding 消失 (V37.9.235) + dream 远期信号带「长期背景」标注 (V37.9.235) / observer deep_dive_repeat 告警仅违规时出现 (V37.9.240)。",
       "V37.9.236 follow-up: (a) Mac Mini 观察 alerts.log 不再新增 FATAL line=101 (下次告警推送撞冷调用即验证) (b) scanner 第8 pattern 候选诚实登记不现建 — sourced-lib $() 设计性可失败命令需跨文件 source-graph 分析=新机器, 11个 targeted 守卫已封死唯一日常失败站点(日落法); 若未来再有 sourced-lib 假 FATAL 实例再评估",
-      "【OpenClaw 升级判据跟踪 · 第十一次评估 (2026-09-13, V37.9.353) · 结论=继续 hold · 判据 ❌🔴✅】2026.9.4 (09-11 02:44Z) = 21.5 预设「下一 stable」到期触发. ① 9.4 修订协议可判 (叙述 59/行内 331, 仅靠行内引用分支过门槛=修订协议第三次救场; 与 9.3 零重叠=真新工作) → DIRTY 9 (schema 变更阻断自动回滚 #140339 / session SQLite import / auth profile 迁移 / SQLite sidecar) 计数仍 0; 🔴 上游 changelog 自述「Changed database schemas … block automatic rollback … Use a verified backup before migration-bearing upgrades」= 第六次评估 17.4 单向门被上游文档追认, 4.27→9.x 必 migration-bearing → 自动回滚不适用, 7.1 全量快照仍唯一依据. ② 🔴 持续未满足: 9.3→9.4 间隔又 3 天 (12 天 6 stable, 4 周窗 1.5/周, beta 指针=latest 无预热) = 节奏稳态化 → 22.5 预注册评估节奏日落规则: 下一 stable 若 ①DIRTY+②<7 天+③区间不变 (三项全同) 只在第二十二节末追加「22.6 追加读数」+ 同步文档头 latest, 不新开评估节、不重置 LAST_EVAL_DATE; 任一判据变化或新默认自主行为才新开节; 追加仍走 19.8 协议. ③ ✅ engines 与 9.3 逐字同 >=24.16.0 <25 || >=26.1.0 (26.5.0 仍在); 前置 A 加「升级后核实服务 Node 未被 updater 替换」(9.4 replace unsupported service Node runtimes #142195…). 第四类风险零新增 (Cloud ready workers 目标值仅在已配置云 provider 时非零 / Command review 的 ExecAutoReviewer 9.2 已在且门控 mode=auto, 均登记不入前置 C, 仍 12 项; 第 12 项 #139495 被 9.4 auto-triage 需确认部分缓解, 原位加注不撤项). 持有成本 weixin 落后 3 版/83 天; context aliases 到期未移除仍 removal-pending (#142708); 新弃用 credential-prompt 字符串签名至 2026-11-30 (#143238, 前置 B 加注). 下次跟踪 = 下一 stable 发布时: 19.8 修订协议核对 ① + 记与 9.4 (09-11) 间隔判 ② (≥14 天 ✅ / <7 天 🔴 / 之间 🟡) + engines 复核 ③ → 按日落规则决定追加段 vs 新开节. LAST_EVAL_DATE=2026-09-13. 详见 eval doc 第二十二节. Mac Mini: 合并同步后周一 09:10 check_upgrade 以 09-13 运行 (时间 tripwire 归零, 版本差距 35/50), 无需任何升级动作.",
+      "【OpenClaw 升级判据跟踪 · 第十二次评估 (2026-09-22, V37.9.354) · 结论=继续 hold · 判据 ❌🟡✅】2026.9.5 (09-19 01:14Z) = 22.5 预设「下一 stable」到期; 9.4→9.5 间隔 7.94 天使判据 ② 由 🔴 变 🟡 = 日落规则「任一判据状态变化」→ 新开第二十三节 (非追加读数). ① 9.5 修订协议可判 (叙述 54/行内 217, 修订协议第四次救场; 与 9.4 零重叠=真新工作, 贡献记录 4,245 in-range PRs) → DIRTY 2 (shared WAL after refused restore / shared-state repair for July upgrades #149918/#149753/#149653 + Plugin SDK Gateway V2 迁移) 计数仍 0 = 连续第六个 DIRTY; Highlights 首条即「Doctor preserves session history」= M2 弧线仍活跃. ② 🟡: 7.94 天是 7.1→8.1 以来首个 ≥7 天间隔, 但 4 周窗 (08-25→09-22) 主线 7 stable = 1.75/周 + 维护线自 6.35 跳到 7.x (7.33/7.34/7.35 四天三版) → 🟡≠✅, 下次跟踪同时记滚动速率. ③ ✅ engines 三版逐字同 >=24.16.0 <25 || >=26.1.0 (26.5.0 仍在). 🔴 第四类风险 +1 → 前置 C 12→13: tools.message.crossContext.allowAcrossProviders 默认 false→true (#149875, dist 9.4 `=== true` → 9.5 `!== false`, 内置 docs「Upgrades adopt this default when the setting is omitted」), message 在 PA 白名单 16 工具内 = 首个直接落在 PA 白名单工具上的默认翻转, 首次启动前须显式 false; 并发上限 cpus×4 且 16 上限退役 (#147423) 第 7 项原位加注 (同一旋钮 defaultAgentMaxConcurrent); Daybreak cyberFailover (mode 默认 auto) 只对 OPENAI_CYBER_POLICY_REFUSAL 触发登记不入. 持有成本 weixin 2.4.9 已转 stable (09-17) peer 仍 >=2026.5.12 → 落后 4 版/92 天; channel 插件 9.5 锁步; Gateway V2 传输迁移进前置 B; 4.27 未 deprecate 146 天. 🔴 预注册 (23.5): tripwire [2/6] 版本差距 39/50 (剩 11, 4 周窗 11 tag) 约 4 周内触发 → 触发日按 23.3 判据走正式评估 + 决定计数口径 (改口径/调阈值/接受每周告警 三选一, 本次不改机器); 若下周一 09-28 09:10 cron 已显 ≥50 = 触发 + Discord 告警, 按预注册处置非新事故. 下次跟踪 = 下一 stable 发布时: 19.8 修订协议核对 ① + 记与 9.5 (09-19 01:14Z) 间隔判 ② (≥14 天 ✅ / <7 天 🔴 / 之间 🟡, 同时记 4 周窗滚动速率) + engines 复核 ③ → 按日落规则决定追加段 (23.6) vs 新开节. LAST_EVAL_DATE=2026-09-22. 详见 eval doc 第二十三节. Mac Mini: 合并同步后 (check_upgrade.sh 走 FILE_MAP 零重启) 无需任何升级动作.",
       "【2026-07-08 长 session Mac Mini 被动验证】同步后观察: (a) V37.9.260 ban-list 边界: 次日 deep_dive/dream 恰-14-天前论文/主题正确被 ban + observer deep_dive_repeat 恰-14-天误报消失 (b) V37.9.261 observer 降级桶: 次日 06:30 报告降级段自区分「无 OA 全文(结构性)」vs「PDF 抓取错误(HTTP/超时)」 (c) V37.9.263 OpenAlex 已回退 S2-only, deep_dive 闭源论文降级 abstract_only 正确。deep_dive 降级结论=接受现实(残余=真闭源 ACM/Elsevier 无 OA + 发布方反爬 MDPI/ScienceDirect 403, OA 解析器打不穿, 实测 0/7)。一周后可选复核 grep 抓取降级原因确认 ban-list 去重复后降级率下降(非 OpenAlex)。",
       "deep_dive OA 全文解析 follow-up (V37.9.183/184) — (1) ✅ 已闭合(V37.9.261/263): Mac Mini grep 实证降级主体=结构性付费墙(no PDF URL derivable, ACM/Elsevier 无 OA 版)非 fetch-path bug, ban-list(V37.9.260)是真杠杆; V37.9.262 OpenAlex 第二源 Mac Mini 实测 0/7 恢复且净负→V37.9.263 回退; 降级率下降 thesis 被证伪, 残余=接受现实(不爬付费墙). (2) 历史 KB 条目仍 PII link(仅新论文受益, V37.9.132 局限, 不补). (3) ✅ V37.9.186: pwc 死路径退役 + TIER↔registry drift 守卫.",
       "【H1-C / C2 (Q4, gated) · C1 选型已完成 V37.9.253】第二实例最小闭环真跑 = 非 Mac Linux host 上 E2E 绿: minimal_runtime + governance cron + 1-2 内容 job(arxiv/dblp) 真抓取→LLM→Discord + cron+nohup 重启存活。选型=PUSH-only 纯推送(绕 Gateway/WhatsApp/sessions), 见 docs/second_instance_poc_selection_20260707.md §5 验收标准。C2 前置(§3, 均可枚举无未知): 持久 Linux host(VPS/容器) + 可达 LLM 端点(REMOTE_BASE_URL) + Discord bot token/channel(DISCORD_CH_*) + 唯一真需新建=Linux bootstrap 脚本(装 py 依赖+起 adapter/proxy nohup+写 crontab, 并行 install_openclaw_macmini.sh)。C3=portability report EN/ZH 证据型文章(对两次评审可迁移性批评终局回答)。",
@@ -367,8 +372,8 @@
   },
   "quality": {
     "security_score": 98,
-    "test_count": 6513,
-    "last_regression": "2026-09-13 13:00 pass",
+    "test_count": 6524,
+    "last_regression": "2026-09-22 01:27 pass",
     "coverage_pct": 0,
     "security_score_time": "2026-07-20 01:07",
     "test_suites": 196,
@@ -439,7 +444,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-09-06 收工: V37.9.350 OpenClaw 第九次升级评估——上游 5 天 3 个 stable, 判据 ①❌(三版全 DIRTY, session store 已入 SQLite schema 17)/②🔴(6 天 4 stable 由 ✅ 退回)/③✅ → 继续 hold; changelog 换格式暴露 19.8 协议计量单位失效 → 加行内 PR 引用量重标定(六点实测); 第四类风险再增 3 项默认自主行为 → SOP 前置 C 10 项. 剩被动观察: 明日周一 09:00 周报影响力段首跑 + 下一 stable 间隔定性节奏判据 ②.",
+  "focus": "2026-09-22 收工: V37.9.354 OpenClaw 第十二次升级评估——2026.9.5 触发 22.5 跟踪点, 判据 ② 由 🔴 变 🟡 (9.4→9.5 间隔 7.94 天) 按日落规则新开第二十三节 → 继续 hold ❌🟡✅; ① DIRTY 2 连续第六个; 第四类风险 +1 (跨 provider 消息默认开 #149875, message 在 PA 白名单内 → 前置 C 13 项) + 并发上限 cpus×4 原位加注; 🔴 tripwire [2/6] 版本差距 39/50 约 4 周内触发, 处置已预注册 (23.5). 剩被动观察: 下一 stable 判据跟踪 + 下周一 09:10 cron 读数.",
   "notes": "",
   "preferences": [
     "[auto] 常用工具：read(10次)、sessions_spawn(8次)、sessions_history(8次)",

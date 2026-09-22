@@ -27,6 +27,13 @@ else
 fi
 
 # ── 配置（升级后须更新 LAST_EVAL_DATE）──
+# 2026-09-22 第十二次评估 (2026.9.5 stable, 22.5 预设跟踪点到期; 判据 ② 由 🔴 变 🟡 = 日落规则「任一判据状态变化」新开节): 继续 hold——
+#    ① 9.5 修订协议可判 (叙述 54/行内 217) → DIRTY 2 (shared WAL after refused restore / shared-state repair for July upgrades
+#    / Plugin SDK Gateway V2 迁移) 计数仍 0 = 连续第六个 DIRTY ② 🟡 9.4→9.5 间隔 7.94 天 (7.1→8.1 以来首个 ≥7 天, 但 4 周窗主线
+#    1.75/周 + 维护线 7.33-7.35 四天三版, 🟡≠✅) ③ ✅ engines 三版逐字同 (26.5.0 仍在). 第四类风险 +1: tools.message.crossContext
+#    .allowAcrossProviders 默认 false→true (#149875, message 在 PA 白名单内) → 前置 C 12→13; 并发上限 cpus×4 且 16 上限退役
+#    (#147423) 第 7 项原位加注; Daybreak cyberFailover 只对 OpenAI 原生错误码触发登记不入. 预注册: tripwire [2/6] 版本差距 39/50
+#    约 4 周内触发, 触发日按 23.5 处置 (评估 + 计数口径/阈值/接受告警三选一). 详见 eval doc 第二十三节 (第十一次见第二十二节).
 # 2026-09-13 第十一次评估 (2026.9.4 stable, 21.5 预设跟踪点到期): 继续 hold—— ① 9.4 修订协议可判 (叙述 59/行内 331) → DIRTY 9
 #    (schema 变更阻断自动回滚=上游文档追认单向门 / session SQLite import / auth profile 迁移 / SQLite sidecar) 计数仍 0
 #    ② 🔴 9.3→9.4 间隔又 3 天 (12 天 6 stable, 4 周窗 1.5/周) 节奏稳态化 → 预注册日落规则: 三项全同只追加读数不新开节
@@ -42,7 +49,7 @@ fi
 # ② 节奏 🔴 由 ✅ 退回 (6 天 4 个 stable, 冲刷假设待下一 stable 间隔定性) ③ Node 区间 ✅ (9.1/9.2 与 8.1 逐字同).
 # 上游 changelog 换格式 → 19.8 协议加行内 PR 引用量重标定; 默认自主行为再增 3 项 (会话可见性/跨 agent 访问/Swarm)
 # → 7.0 前置 C 7→10 项. 详见 eval doc 第二十节 (第八次见第十九节). 背景 (第六次): 三结构性迁移 M1/M2/M3 + 回滚单向门.
-LAST_EVAL_DATE="${OPENCLAW_LAST_EVAL_DATE:-2026-09-13}"  # V37.9.353: 第十一次评估 (eval doc 第二十二节; 第十次=第二十一节)
+LAST_EVAL_DATE="${OPENCLAW_LAST_EVAL_DATE:-2026-09-22}"  # V37.9.354: 第十二次评估 (eval doc 第二十三节; 第十一次=第二十二节)
 TIME_TRIPWIRE_DAYS="${OPENCLAW_TIME_TRIPWIRE_DAYS:-180}"
 VERSION_GAP_TRIPWIRE="${OPENCLAW_VERSION_GAP_TRIPWIRE:-50}"
 CVE_FILE="${OPENCLAW_CVE_ALERT_FILE:-$HOME/.openclaw_cve_alert}"

@@ -12,11 +12,12 @@
 > 九次评估：2026-09-06（2026.8.2 / 9.1 / 9.2 三个 stable 5 天内发布触发判据跟踪 → 继续 hold；判据 ① ❌ 三版全 DIRTY、② 🔴 由 ✅ 退回（6 天 4 个 stable）、③ ✅；上游 changelog 换格式 → 19.8 协议按其自带重标定分支加行内 PR 引用量；默认自主行为再增 3 项进 7.0 前置 C，第二十节）
 > 十次评估：2026-09-09（2026.9.3 stable 触发——20.6 预设跟踪点到期 → 继续 hold；判据 ① ❌ 9.3 DIRTY 16 计数仍 0、② 🔴 9.2→9.3 间隔 3 天「积压冲刷」假设证伪、③ ✅ 但 engines 首次在 8.x/9.x 线内收紧为 `>=24.16.0 <25 || >=26.1.0`（SQLite 文本截断驱动，Node↔SQLite 耦合二次收紧）；默认自主行为再增 2 项进 7.0 前置 C（10→12），第二十一节）
 > 十一次评估：2026-09-13（2026.9.4 stable 触发——21.5 预设跟踪点到期 → 继续 hold；判据 ① ❌ 9.4 DIRTY 9 计数仍 0 且**上游 changelog 自述 schema 变更阻断自动回滚 = 17.4 单向门被上游文档追认**、② 🔴 9.3→9.4 间隔又 3 天（连续两个 3 天间隔，节奏稳态化）→ 预注册评估节奏日落规则「三项全同只追加读数不新开节」、③ ✅ engines 与 9.3 逐字同；第四类风险经 dist 源码核实零新增（Cloud ready workers 需云后端配置 / Command review 门控 mode=auto），前置 C 保持 12 项，第二十二节）
+> 十二次评估：2026-09-22（2026.9.5 stable 触发——22.5 预设跟踪点到期，且判据 ② 由 🔴 变 🟡 = 日落规则「任一判据状态变化」→ 新开节而非追加读数 → 继续 hold；判据 ① ❌ 9.5 DIRTY 2 计数仍 0（连续第六个 DIRTY，Highlights 首条即 session 历史保留/修复）、② 🟡 9.4→9.5 间隔 7.94 天（7.1→8.1 以来首个 ≥7 天，但 4 周窗主线 1.75/周 + 维护线 7.33–7.35 四天三版，🟡 ≠ ✅）、③ ✅ engines 三版逐字同；第四类风险 **+1**：`tools.message.crossContext.allowAcrossProviders` 默认 false→true（#149875，dist 9.4 `=== true` → 9.5 `!== false`），`message` 在 PA 白名单内 → 前置 C 12→13；并发上限 `cpus × 4` 且 16 上限退役（#147423）第 7 项原位加注；Daybreak cyberFailover 经 dist 核实只对 OpenAI 原生错误码触发登记不入；预注册 tripwire [2/6] 版本差距 39/50 约 4 周内触发时的处置，第二十三节）
 > 评估者：Claude Code
 >
 > 🔴 **当前态（本行为单一真理源，其余章节均为各自时点快照）**
-> 部署版本 **v2026.4.27**（2026-06-11 起）| 上游 latest **2026.9.4**（2026-09-11）|
-> 决策 **继续 hold**（第十一次评估，2026-09-13）| 判据与下次跟踪点见 **第二十二节 22.5**
+> 部署版本 **v2026.4.27**（2026-06-11 起）| 上游 latest **2026.9.5**（2026-09-19）|
+> 决策 **继续 hold**（第十二次评估，2026-09-22）| 判据与下次跟踪点见 **第二十三节 23.5**
 
 ---
 
@@ -154,27 +155,28 @@
 
 ### 7.0 前置条件
 
-> **目标版本不在本节硬编码**——由**最近一次评估的结论**决定（评估节按时间倒序：第二十二节 = 最新）。
-> 截至第十一次评估（2026-09-13）结论为**继续 hold，无目标版本**；本 SOP 仅在用户明确决定升级后启用。
+> **目标版本不在本节硬编码**——由**最近一次评估的结论**决定（评估节按时间倒序：第二十三节 = 最新）。
+> 截至第十二次评估（2026-09-22）结论为**继续 hold，无目标版本**；本 SOP 仅在用户明确决定升级后启用。
 
-- [ ] **目标版本**：读最新评估节的结论确定（当前第二十二节 22.5）。**禁止沿用本文档任何历史节里的版本号**——它们是当时的时点判断。
+- [ ] **目标版本**：读最新评估节的结论确定（当前第二十三节 23.5）。**禁止沿用本文档任何历史节里的版本号**——它们是当时的时点判断。
 - [ ] **时间窗口**：工作日白天，确保能快速处置（注意：回滚不再是无损的，见 7.5）
 - [ ] **在 Mac Mini 上 SSH 直连执行**（禁止通过 WhatsApp 触发）
-- [ ] **前置 A · Node 版本区间**（第七次评估 18.4 起）：确认 `node -v` 落在目标版本 `engines.node` 声明的区间内。7.1/8.1/8.2/9.1/9.2 的区间是 `>=22.22.3 <23 || >=24.15.0 <25 || >=25.9.0`（**区间黑名单**，排除 node 23.x 全部与 24.0–24.14），根因是 SQLite WAL 数据损坏安全；**9.3 起收紧为 `>=24.16.0 <25 || >=26.1.0`**（Node 22.x / 25.x 全部退出，根因是 SQLite 文本截断，第十次评估 21.3）——区间会随 stable 变动，**每次以目标版本 `npm view openclaw@<目标> engines.node` 实测为准，不能只确认「够新」**。**9.4 与 9.3 逐字相同**（第十一次评估 22.3）。**9.4 起升级路径自身会动 Node**：updater 会在服务 Node 运行时不受支持时替换 launchd 托管服务的运行时（「replace unsupported service Node runtimes」#142195…#144031）+ CLI 在可用的受支持 Node 下重执行（#143464）+ 不兼容时主动提议 Node.js 更新（#142742/#143344）——**升级后核实 plist/服务实际执行的 node 未被 updater 替换**（V37.9.13 单一管理者语义；Mac Mini 26.5.0 在区间时不应触发，触发即异常）。
-- [ ] **前置 B · 外部插件锁步**（第八次评估 19.5）：M1 插件外部化后，`@openclaw/whatsapp` / `@openclaw/discord` 与 core **同版本发布**且声明 `peerDependencies: { openclaw: '>=<同版本>' }`。确认目标版本对应的 channel 插件存在；同时确认第三方插件（如 `@tencent-weixin/openclaw-weixin`）的 `peerDependencies.openclaw` 与目标版本相容。**第十一次评估 22.4 追加**：`sdk-untrusted-context-identifier-aliases` 到期日（09-08）已过但 9.4 仍 `removal-pending`（#142708，等插件 reader 迁移验证 + 显式 breaking 接受，真移除时本项加 `MsgContext.Channel*` 核对）；`agent-harness-credential-prompt-string-argument` 09-09 起弃用、旧字符串签名支持至 **2026-11-30**（#143238）——第三方插件（weixin）若调用 `buildCredentialSafetyPrompt` 须已迁移到 `{ controlToolsAvailable }`。
-- [ ] **前置 C · 默认行为审计**（第八次评估 19.4，**须在首次启动前完成**）：目标 ≥8.1 时，以下 **12 项默认变更**（8.1 的 7 项 = 6 项自主行为 + 1 项并发假设；8.2/9.2 追加 3 项会话可见性 / 跨 agent 访问 / 并发编排，第九次评估 20.5；9.3 追加 2 项递归委派 / 更新自动推理修复，第十次评估 21.4；**9.4 零新增**，两项候选经 dist 源码核实为门控/opt-in 登记不入，第十一次评估 22.4）默认为开/生效，其中 8 项直接踩我们已立案的血案机制，逐项决定关闭或显式接受：
+- [ ] **前置 A · Node 版本区间**（第七次评估 18.4 起）：确认 `node -v` 落在目标版本 `engines.node` 声明的区间内。7.1/8.1/8.2/9.1/9.2 的区间是 `>=22.22.3 <23 || >=24.15.0 <25 || >=25.9.0`（**区间黑名单**，排除 node 23.x 全部与 24.0–24.14），根因是 SQLite WAL 数据损坏安全；**9.3 起收紧为 `>=24.16.0 <25 || >=26.1.0`**（Node 22.x / 25.x 全部退出，根因是 SQLite 文本截断，第十次评估 21.3）——区间会随 stable 变动，**每次以目标版本 `npm view openclaw@<目标> engines.node` 实测为准，不能只确认「够新」**。**9.4 与 9.3 逐字相同**（第十一次评估 22.3）。**9.5 与 9.4 / 9.3 逐字相同**（第十二次评估 23.3，三版未变）。**9.4 起升级路径自身会动 Node**：updater 会在服务 Node 运行时不受支持时替换 launchd 托管服务的运行时（「replace unsupported service Node runtimes」#142195…#144031）+ CLI 在可用的受支持 Node 下重执行（#143464）+ 不兼容时主动提议 Node.js 更新（#142742/#143344）——**升级后核实 plist/服务实际执行的 node 未被 updater 替换**（V37.9.13 单一管理者语义；Mac Mini 26.5.0 在区间时不应触发，触发即异常）。
+- [ ] **前置 B · 外部插件锁步**（第八次评估 19.5）：M1 插件外部化后，`@openclaw/whatsapp` / `@openclaw/discord` 与 core **同版本发布**且声明 `peerDependencies: { openclaw: '>=<同版本>' }`。确认目标版本对应的 channel 插件存在；同时确认第三方插件（如 `@tencent-weixin/openclaw-weixin`）的 `peerDependencies.openclaw` 与目标版本相容。**第十一次评估 22.4 追加**：`sdk-untrusted-context-identifier-aliases` 到期日（09-08）已过但 9.4 仍 `removal-pending`（#142708，等插件 reader 迁移验证 + 显式 breaking 接受，真移除时本项加 `MsgContext.Channel*` 核对）；`agent-harness-credential-prompt-string-argument` 09-09 起弃用、旧字符串签名支持至 **2026-11-30**（#143238）——第三方插件（weixin）若调用 `buildCredentialSafetyPrompt` 须已迁移到 `{ controlToolsAvailable }`。**第十二次评估 23.4 追加**：weixin **2.4.9 已转 stable**（09-17）但 peer 仍 `>=2026.5.12`（4.27 上限 2.4.4，落后 4 版 / 92 天）；9.5 新增 **Gateway V2 传输迁移**（Gateway handler / node-session imports 如实暴露 WebSocket / framed / HTTP polling 三种能力，WebSocket-only 操作前须 narrow `node.client.webSocket`，framed 操作 narrow `node.client.socket`，node wire protocol 不变，`/plugins/sdk-migration/compatibility-policy#gateway-node-transport-sdk-v2`）——第三方插件若直接消费这些 imports 须已迁移。
+- [ ] **前置 C · 默认行为审计**（第八次评估 19.4，**须在首次启动前完成**）：目标 ≥8.1 时，以下 **13 项默认变更**（8.1 的 7 项 = 6 项自主行为 + 1 项并发假设；8.2/9.2 追加 3 项会话可见性 / 跨 agent 访问 / 并发编排，第九次评估 20.5；9.3 追加 2 项递归委派 / 更新自动推理修复，第十次评估 21.4；**9.4 零新增**，两项候选经 dist 源码核实为门控/opt-in 登记不入，第十一次评估 22.4；**9.5 追加 1 项跨 provider 消息默认开**（`message` 在 PA 白名单内）+ 第 7 项并发假设原位加注 `cpus × 4`，第十二次评估 23.4）默认为开/生效，其中 9 项直接踩我们已立案的血案机制，逐项决定关闭或显式接受：
   - [ ] Grounded dreaming（后台 LLM 记忆整合，#114819）→ 对应 `dream_quota_blast_radius_case`
   - [ ] Owner-directed ambient heartbeat（#121988）→ 对应 `heartbeat_md_pa_self_silencing_case`
   - [ ] Session reset default 变更（无 reset policy 时跨闲置/跨天保留会话，#111140）→ 对应 `pa_alert_contamination_case`
   - [ ] Personal conversation recall（Active Memory 开启时默认召回同 agent 私聊上下文，#110597）→ 同上下文污染家族
   - [ ] Automatic self-learning 自动应用技能（#115576）
   - [ ] Skill Workshop 无额外批准提示（#107690，`skills.workshop.approvalPolicy: "pending"` 可找回审批门）
-  - [ ] CPU-scaled foreground concurrency 8–16（#114047）→ 与我方 12 工具 / 200KB / 单 adapter 链路假设的负载核对
+  - [ ] CPU-scaled foreground concurrency 8–16（#114047）→ 与我方 12 工具 / 200KB / 单 adapter 链路假设的负载核对（**9.5 放大，#147423**：`defaultAgentMaxConcurrent` 由 `min(16, max(8, cpus))` 改为 `max(8, cpus × 4)`，16 上限退役，Mac Mini 10 核 → 40；同一旋钮原位加注不新增项，第十二次评估 23.4）
   - [ ] **（第九次评估 20.5 追加）** Session visibility default（8.2，#133469，Related #133456：同 agent 非沙箱会话默认互见，含 retained cron sessions；`tools.sessions.visibility: tree|self` 收窄）→ 对应 `pa_alert_contamination_case` 家族（cron 会话与 PA main 会话默认互见）
   - [ ] **（第九次评估 20.5 追加）** Cross-agent session access（9.2，#136755：session tools 默认 all-session visibility + agent-to-agent 访问默认开；`tools.sessions.visibility: agent|self` 收窄）→ 同上 + WhatsApp 入站跨 agent 路由边界（unfinished [9]）
   - [ ] **（第九次评估 20.5 追加）** Swarm 并发 sub-agent 编排默认开（9.2，#136514/#138056，Related #136472）→ 对应 `dream_quota_blast_radius_case`（并发 LLM 消费经 proxy→adapter 链）+ 与 #114047 并发假设叠加
   - [ ] **（第十次评估 21.4 追加）** Recursive delegation（9.3，#138059：bounded 递归子会话生成默认开，保留 depth/concurrency 上限）→ 对应 `dream_quota_blast_radius_case`（子 agent 再生子 agent，并发树状放大）+ 与 Swarm #136514 / #114047 三层叠加
   - [ ] **（第十次评估 21.4 追加）** Bounded update repair（9.3，#139495：候选验证失败时用已配置推理自动进入修复阶段）→ 同成本放大面（update 路径无人值守 LLM 调用经 adapter 计费；升级时段恰是 provider 链最不稳时段，V37.9.220 同型）（**9.4 部分缓解，不撤项**：auto triage 启动 coding agent 前需操作者确认 + verified rollback follow-up 保持 opt-in，#143767 家族 Related #139714，第十一次评估 22.4；候选验证失败后「用已配置推理进入修复阶段」本身仍在）
+  - [ ] **（第十二次评估 23.4 追加）** Cross-provider messaging default（9.5，#149875：`tools.message.crossContext.allowAcrossProviders` 默认 false → true，9.5 内置 docs「Upgrades adopt this default when the setting is omitted」；`message` 在 PA 白名单 16 工具内）→ 首次启动前显式 `tools.message.crossContext.allowAcrossProviders: false`（可同时 `allowWithinProvider: false` 限定当前绑定会话）→ 对应 `pa_alert_contamination_case` 跨通道家族 + MR-14 通道边界（WhatsApp 告警走 Discord 是我方设计的单向路由，不是让 PA 自由跨通道投递）
 
 ### 7.1 升级前备份（5 分钟）
 
@@ -305,7 +307,7 @@ openclaw message send --channel discord -t "user:$DISCORD_TARGET" -m "回滚完�
 
 > ⚠️ **2026-04 时点快照，勿作当前判断依据**。本节的收益/风险/建议（含选项 A/B/C = hold / 升 4.2 / 升 4.1）
 > 是首次评估时的判断；此后 4.27 已于 2026-06-11 升级完成，且第六/七/八次评估的方案 A/B/C 是**另一套语义**
-> （A=hold / B=中间版本 / C=现升最新）。**当前判断以最新评估节（第二十二节；第十次见第二十一节）为准**，本节仅作历史留档。
+> （A=hold / B=中间版本 / C=现升最新）。**当前判断以最新评估节（第二十三节；第十一次见第二十二节）为准**，本节仅作历史留档。
 
 ### 升级收益
 1. **WhatsApp 稳定性提升**：bundled sidecar + crash fix + timestamp
@@ -1266,6 +1268,7 @@ beta 骨架是 **17**；100 在两者之间有 5× 以上余量。只有 3 个�
 | 2026.9.2 | 69 | 0 | 1247 | **69** | **143** | ⚠️ 不可判 | 可判 → ❌ DIRTY(4) |
 | **2026.9.3**（第十次评估追加） | 203 | 0 | 1843 | 203 | 859 | 可判 | 可判 → ❌ DIRTY(16) |
 | **2026.9.4**（第十一次评估追加） | 59 | 0 | 1174 | **59** | **331** | ⚠️ 不可判 | 可判（仅行内引用过门槛）→ ❌ DIRTY(9) |
+| **2026.9.5**（第十二次评估追加） | 54 | 0 | 4245 | **54** | **217** | ⚠️ 不可判 | 可判（仅行内引用过门槛）→ ❌ DIRTY(2) |
 
 9.1 的叙述段行内引用 924 个唯一 PR，**多于 8.1 的 802**——内容完整，只是粒度从 bullet 变成段落。原协议对它判
 「不可判」是**计量单位错了 ≠ 内容不够**：与 V37.9.288「搜索坏了 ≠ 没搜到」同族，只是这次坏的是尺子。若不重标定，
@@ -1518,5 +1521,132 @@ triage launches a coding agent; verified rollback follow-up actions remain **opt
 
 **LAST_EVAL_DATE 更新至 2026-09-13**（第十一次评估完成，重置时间 tripwire）。下次触发 = 任一 tripwire 跳红，
 或下一个 stable 发布时的判据 ①/②/③ 跟踪（① 走 19.8 修订后协议；三项全同则按日落规则追加读数不新开节）。
+
+---
+
+## 第二十三节：第十二次评估（2026-09-22，2026.9.5 stable 触发判据跟踪——第十一次评估 22.5 预设的「下一个 stable」到期，且判据 ② 状态变化 → 按日落规则新开节而非追加读数）
+
+> 触发：第十一次评估（22.5）预设的跟踪点是「下一个 stable 发布时：走 19.8 修订后协议核对 ①，记与 9.4（09-11 02:44Z）的
+> 间隔判 ②（≥14 天 → ✅ / <7 天 → 🔴 / 之间 → 🟡），复核 `engines.node` ③，再按日落规则决定追加段还是新开节」。上游于
+> **2026-09-19 01:14Z 发布 2026.9.5**，与 9.4 间隔 **7 天 22 小时 30 分（7.94 天）** → 落在预注册的「之间 → 🟡」带，
+> 判据 ② 由 🔴 变 🟡 = **「任一判据状态变化」条件命中，按 22.5 日落规则新开本节**（非追加读数）；同时 9.5 带来一项
+> **新默认自主行为**（跨 provider 消息默认开，见 23.4），两个新开条件同时满足。周二开工按原则 #1 触发。
+> 方法沿用「代码即事实」：`npm pack` 9.4（复测基线）/ 9.5 → 19.8 修订后协议 + PR 号集合对账 + engines 跨版本对比 +
+> **dist 源码逐项核实三项候选默认行为的门控**（9.4 与 9.5 两份 dist 对照，看默认值是否真的翻转）+ 9.5 内置 docs 复核 +
+> npm 元数据复测插件 peer floor。Tripwire 机械状态 0/6（dev 跑：时间 9/180 天，**版本差距 39/50**，[3/6][4/6] 在 dev
+> 因 GitHub API 不可达为 NA，周一 09:10 Mac Mini cron 为 ✅）。
+
+### 23.1 一句话结论
+
+**继续 hold。判据 ❌🟡✅：① 9.5 可判 → DIRTY 2，连续干净计数仍为 0（连续第六个 DIRTY），且 Highlights 首条就是
+「Doctor preserves session history and repeated-repair state, finishes upgrades with invalid retained histories」= session
+历史仍在迁移/修复弧线内；② 9.4→9.5 间隔 7.94 天，是 7.1→8.1（49 天）以来第一个 ≥7 天的间隔，按预注册规则记 🟡——但
+🟡 不是 ✅：4 周滚动窗（08-25 → 09-22）主线 7 个 stable = 1.75/周（第十一次为 1.5/周），外加维护线 4 个 tag，滚动节奏
+仍远高于「≤1/周」；③ 9.5 的 `engines.node` 与 9.4/9.3 逐字相同，26.5.0 仍在区间。** 第四类风险本次 **+1 项**（前置 C
+12 → 13）：`tools.message.crossContext.allowAcrossProviders` 默认由 false 翻为 true（#149875），而 `message` 在 PA 的
+16 工具白名单内——这是第四类风险登记以来**第一个直接落在 PA 白名单工具上的默认翻转**；并发假设放大（前置 C 第 7 项原位
+加注，`cpus × 4` 且 16 上限退役，#147423）；一项候选（Daybreak cyberFailover）经 dist 核实只对 OpenAI 原生错误码触发，
+登记不入。另预注册：tripwire [2/6] 版本差距 39/50 按当前节奏约 4 周内触发（23.5）。
+
+### 23.2 上游现状（2026-09-22 实证）
+
+- dist-tags：latest = **2026.9.5**（09-19 01:14Z）/ **beta = 2026.9.5**（仍与 latest 重合，无预发布可预读）/
+  extended-stable = **2026.7.35**（09-21）——**维护线自 6.35（09-10）后跳到 7.x**：7.33（09-18）/ 7.34（09-20）/ 7.35（09-21）
+  四天三版，6.x 线自 6.35 起再无发布 = 上游把 extended-stable 指针整体上移了一条 minor 线。
+- 发布序列：9.4（09-11）→ **9.5（09-19）**，间隔 **7 天 22 小时 30 分（7.94 天）**。4 周窗（08-25 → 09-22）主线 **7 个 stable**
+  （8.1 / 8.2 / 9.1 / 9.2 / 9.3 / 9.4 / 9.5）= **1.75/周**（第十一次 4 周窗 1.5/周），另有维护线 4 个 tag（6.35 / 7.33 / 7.34 / 7.35）。
+- **9.5 是真新工作，不是 9.4 的重切**：叙述段行内引用 **217** 个唯一 PR，与 9.4 的 331 个**零重叠**，其中 181 个编号高于
+  9.4 的最高引用（#144402）；最高引用推进到 **#151977**（8 天推进约 7,500 个 PR 号）。全文 PR 引用 9.5 = 4918 / 9.4 = 1391，
+  交集 22（Related 交叉引用）。贡献记录段自述「**4,245 in-range PRs**」（9.4 为 1,174）= 单版本 PR 量约 3.6×。
+- 4.27 → 9.5 精确 **36 个 minor stable**（含维护线 6.33/6.34/6.35/7.33/7.34/7.35，主线 30）；tripwire 版本差距计数 **39/50**
+  （含 -N patch 与维护线 tag，剩 11）。
+- **4.27 仍未被 deprecate**（`npm view openclaw@2026.4.27 deprecated` 空）；发布于 2026-04-29，至今 146 天。
+- engines.node：**9.5 = `>=24.16.0 <25 || >=26.1.0`，与 9.4 / 9.3 逐字相同**。
+
+### 23.3 三条收敛判据逐一核对
+
+| 判据 | 第十一次（09-13）状态 | 第十二次（09-22）实证 | 判定 |
+|------|-------------------|-------------------|------|
+| **① SQLite/session 弧线收敛**（连续 2 stable 无 session-store/SQLite 迁移 PR） | ❌ 9.4 DIRTY 9，计数 0 | **9.5（修订协议可判：语义量 54 / 行内 217，仅靠行内引用过门槛）→ DIRTY 2 命中**：「**Update and Doctor recovery:** preserve shared **WAL** after a refused restore, unblock **shared-state repair** for July upgrades, and avoid false pending **migrations** for bundled runtimes」(#149918/#149753/#149653) = SQLite/状态迁移家族真命中；「**Plugin SDK migration — Gateway V2**」= SDK 层 API 迁移（node-session imports 的传输能力收窄）而非状态迁移，但协议是预注册的「任一命中即 DIRTY」，**不做事后区分**（那正是 19.8 要防的 motivated reasoning）。**弧线新事实**：Highlights 首条「Safer upgrades and retained history: Doctor **preserves session history and repeated-repair state**, finishes upgrades with **invalid retained histories**」(#149741…#149760) 不匹配协议关键词但同属 M2——session 历史在升级/修复路径上仍是活跃工作面 | ❌ **仍未满足**（计数仍 0，连续第六个 DIRTY） |
+| **② 发版节奏 ≤1/周** | 🔴 9.3→9.4 间隔 3 天，连续两个 3 天间隔 | 9.4（09-11 02:44Z）→ 9.5（09-19 01:14Z）**间隔 7.94 天**，22.5 预注册分支「7–14 天之间 → 🟡」命中——是 7.1→8.1（49 天）以来第一个 ≥7 天间隔，且 9.5 携 217 个新 PR 不是补丁。**但滚动窗口没跟上**：4 周窗主线 7 个 stable = **1.75/周**（比第十一次的 1.5/周还高，因 8.1/8.2 进窗），外加维护线 4 个 tag 四天三版；beta 指针仍与 latest 重合。单点间隔与滚动速率给出相反读数——**按预注册规则记 🟡**（规则先于数据），但明确 🟡 ≠ ✅ | 🟡 **部分改善，未满足**（状态由 🔴 变 🟡 = 本节新开的触发条件之一） |
+| **③ Mac Mini node 落在接受区间** | ✅ 26.5.0 ∈ `>=26.1.0`（9.4 = 9.3 区间） | 9.5 engines **与 9.4 / 9.3 逐字相同** `>=24.16.0 <25 \|\| >=26.1.0`，26.5.0 仍满足。前置 A 的「升级后核实服务 Node 未被 updater 替换」核对面在 9.5 有新证据：「Legacy updater handoffs: keep the Node runner resolver independent of candidate runtime imports」+「Managed-service updates: fix service environment refresh failures when upgrading from 2026.9.4 to 2026.9.5 with `openclaw update`」(#151977) = updater 仍在动服务运行时/环境 | ✅ **满足**（区间三版未变；前置 A 只加 9.5 逐字同注记） |
+
+### 23.4 判据 ① 协议第九点实测 + 第四类风险核实（+1 项）+ 持有成本复测 + 收益侧
+
+**19.8 修订后协议对 9.5 的读数**（补进 20.4 表作第九点）：
+
+| 版本 | 叙述条目 | 带描述 PR | 裸 PR | 协议语义量 | 叙述段行内唯一 PR 引用 | 判定 |
+|------|---------|----------|-------|-----------|---------------------|------|
+| **2026.9.5** | 54 | 0 | **4245** | **54** | **217** | 可判（叙述 54 < 100，**仅靠行内引用 217 ≥ 50 过门槛**）→ ❌ DIRTY(2) |
+
+9.5 的叙述条目 54 是九个数据点里最薄的真 stable（9.4 为 59），裸 PR 行却是最厚的 4245（9.4 为 1174）——上游把 8 天的工作
+压进 54 条合并叙事段落。**修订协议第四次救场**（9.1 / 9.2 / 9.4 / 9.5）；行内引用 217 对门槛 50 的余量 4.3×（9.4 为 6.6×，
+仍远高于骨架 beta.1 的 10），门槛**不动**。9.4 复测读数与第十一次记录逐字一致（59 / 0 / 1174 / 59 / 331 → DIRTY 9），协议自身无漂移。
+
+**第四类风险（19.4 家族）：9.5 新增 1 项默认自主行为（前置 C 12 → 13），1 项并发假设放大（第 7 项原位加注），1 项候选登记不入。**
+三项候选按 9.4 与 9.5 两份 dist 对照核实（看默认值是否真的翻转，而不是看 changelog 措辞）：
+
+| 9.5 候选 | dist 实证（9.4 → 9.5） | 结论 |
+|---|---|---|
+| **Cross-provider messaging by default**（#149875，「allow cross-provider messaging by default」） | 9.4：`allowAcrossProviders = messageConfig?.crossContext?.allowAcrossProviders === true`（帮助文案「default: false」）→ 9.5：`!== false`（「Allow sends across different providers (default: true). Set false to block cross-provider messaging.」）。9.5 内置 docs 明写「**Upgrades adopt this default when the setting is omitted**」——我方 `openclaw.json` 从未设过该键 = 升级即翻转。`message` 工具在 PA 白名单 16 工具内（`proxy_filters.ALLOWED_TOOLS` / `tool_ontology.yaml` 一致）→ 升级后 PA 的 `message` 动作默认可跨 provider（WhatsApp ↔ Discord）投递 | **入前置 C 第 13 项**：首次启动前显式 `tools.message.crossContext.allowAcrossProviders: false`（可同时 `allowWithinProvider: false` 把 guarded message 动作限定在当前绑定会话）→ 对应 `pa_alert_contamination_case` 跨通道家族 + MR-14（告警链/通道边界：WhatsApp 的告警走 Discord 是**我方**设计的单向路由，不是让 PA 自由跨通道） |
+| **Agent 并发上限 cpus × 4**（#147423，「default parallel-session capacity to four runs per available CPU」） | 9.4：`defaultAgentMaxConcurrent = Math.min(MAX_AGENT_MAX_CONCURRENT=16, Math.max(MIN_AGENT_MAX_CONCURRENT=8, availableParallelism))` = 8–16；9.5：`Math.max(8, availableParallelism * AGENT_RUNS_PER_CPU=4)`，**16 上限退役**（Mac Mini 10 核 → 40） | 与前置 C 第 7 项（#114047）是**同一个旋钮**（`defaultAgentMaxConcurrent`）→ **原位加注不新增项**（一物一形）；与 12 工具 / 200KB / 单 adapter 链假设的负载核对权重上升，且与 Swarm #136514 / 递归委派 #138059 叠加为四层 |
+| **Daybreak cyberFailover**（#143761/#145291/#147146，「retry supported cyber-refused turns on Daybreak」） | `agents.defaults.embeddedAgent.cyberFailover.mode` 默认 `auto`（「Enable automatic escalation ("auto", default) or keep provider refusals terminal ("off")」），**但触发条件是** `acceptedClassification.code === "OPENAI_CYBER_POLICY_REFUSAL"`（来自 OpenAI Codex/Responses 的 `cyber_policy` 错误码） | 我方模型全部经 adapter（自建 OpenAI 兼容端点 + 13 provider），不产生该错误码 → 结构上不触发 → **登记不入**（若未来接 OpenAI 原生 provider 再评估；届时它是一次跨模型自动重试 = 成本 + 语义漂移面） |
+
+另三项按同一尺子核过不入：Live plugin management（#145484…，免重启安装/重载插件）与 Hot policy changes（#146100…）是能力非默认自主行为；
+Subagent continuation「resume tasks after output-limited tool calls」的 `resumeSubagentRun` 在 9.4 dist 已存在，非 9.5 新默认。
+
+**持有成本复测（19.7 跟踪项 3）**：weixin 插件 **2.4.9 已于 09-17 转 stable**（第十一次时仍是 2.4.9-beta.0），peer `>=2026.5.12` 不变；
+4.27 可用上限仍 2.4.4，落后 **4 个已发布版本（2.4.5 / 2.4.6 / 2.4.8 / 2.4.9）/ 92 天**（自 2.4.5 于 06-22；2.4.7 从未发布）。官方 channel
+插件锁步再证：`@openclaw/whatsapp@2026.9.5` 与 `@openclaw/discord@2026.9.5` peer 均 `>=2026.9.5`。**Plugin SDK**：9.5 新增
+**Gateway V2 传输迁移**——Gateway handler / node-session imports 改为如实暴露 WebSocket / framed / HTTP polling 三种能力，WebSocket-only
+操作前须 narrow `node.client.webSocket`（framed 操作 narrow `node.client.socket`），node wire protocol 不变 → 前置 B 加注：第三方插件
+（weixin）若直接消费 Gateway handler / node-session imports 须已按 `/plugins/sdk-migration/compatibility-policy#gateway-node-transport-sdk-v2`
+迁移；context aliases 仍 `removal-pending`（9.5 未提移除）；credential-prompt 弃用 11-30 到期不变。
+
+**收益侧新增（诚实登记，不改变结论）**：
+- **Safer upgrades and retained history**（#149741 / #149956 / #148901 / #149308 / #149823 / #149760）：Doctor 保留 session 历史与重复修复状态、
+  带无效保留历史也能完成升级、**不再反复 stall/stop 一个仍在启动中的 Gateway**——最后一条与 V37.8.13 宕 9h / V37.9.308 bootstrap 守卫同源。
+- **Service upgrades**（#149686）：「preserve Gateway authentication when reinstalling legacy services」——**直接对准第六次评估 R1**
+  （WhatsApp auth 穿越升级）；但它说的是 Gateway 自身认证非 WhatsApp 设备链接凭据，R1 的 M1 安装步 × Baileys 跳变 × M2 auth 迁移三重叠加不变。
+- **Update and Doctor recovery**（#149753）：「unblock shared-state repair for **July** upgrades」= 从 7.x 起跳的多跳升级修复路径——说明多跳
+  升级的状态修复正在按起跳版本逐段补，4.27 起跳是否在覆盖范围内**未证**（方案 C 的 R5 多跳 doctor 迁移风险不变）。
+- **Managed-service updates**（#151977）：「fix service environment refresh failures when upgrading from 2026.9.4 to 2026.9.5 with `openclaw update`」
+  = **连续两个 stable 之间的 update 路径缺陷再次在下一版才修**（第十一次已记 9.2/9.3 → 9.4 同款）→ 方案 B 中间版本第三次再证不可取。
+- **Identity and authorization**（#138579）：「stop inferring forwarded sender identity from message text」——与 V37.4.3 回声/上下文污染家族同源的
+  上游侧修复（消息正文不再被当身份来源）。
+- **Large-history responsiveness**（#149749 / #149853 / #149901 / #149754 / #149704）：大会话读取不阻塞 Gateway、记忆索引发布不阻塞——与
+  V37.9.325「挂起服务」关切同源。
+- **Live plugin management**：M1 插件外部化后的安装/重载可免重启——缩小升级窗口内插件安装步的操作面（但 4.27→9.5 首次安装仍走 doctor/update）。
+- **诚实边界**：以上仍不抵 ① 连续第六个 DIRTY + 第四类风险首次直接落在 PA 白名单工具上 + 4 周窗 1.75/周；持有成本继续累积
+  （weixin 落后 4 版、插件 SDK 又多一层迁移）。
+
+### 23.5 结论与建议：**继续 hold（判据 ❌🟡✅）+ 预注册 tripwire [2/6] 触发日的处置**
+
+- **方案 A（推荐，不变）**：hold 4.27。判据 ② 由 🔴 变 🟡 是本节新开的原因（22.5 日落规则「任一判据状态变化」），不是结论变化的
+  原因——🟡 是单点间隔读数，滚动窗仍 1.75/周；① 连续第六个 DIRTY；第四类风险 +1 且首次直接命中 PA 白名单工具。
+- **🔴 预注册：tripwire [2/6] 版本差距将在约 4 周内触发**（39/50，剩 11；4 周窗主线 7 + 维护线 4 = 11 个 tag，-N patch 另计）。
+  触发日的处置**现在写死**，避免届时在告警压力下临场决定：(a) 触发 = 持有成本的已知维度越线（19.7 已量化），**不是**判据 ①/②/③ 的新信息；
+  当日按本节判据走一次正式评估（新开节或追加读数按 22.5 日落规则）。(b) 若仍 hold，当日须决定版本差距计数的口径——当前计数含 -N patch
+  与维护线 tag（39），而本文档自己的精确口径是主线 minor stable（30）；两种口径对「落后多少」的读数差 30%。**留触发日按当时数据决定**
+  是改口径、调阈值（`OPENCLAW_VERSION_GAP_TRIPWIRE` env）还是接受每周告警作持有成本的可见性——本节不预先改机器（日落法 #34），
+  只把三个选项与各自代价写在这里：改口径 = 让 tripwire 与文档一物一形；调阈值 = 静音一条真信号（V37.9.300 告警疲劳家族的反面）；
+  接受每周告警 = 用噪声换可见性。
+- **下次跟踪点**：
+  1. **下一个 stable 发布时**：(a) 走 19.8 **修订后**协议核对 ①（9.5 再证叙述薄形态下行内引用分支是唯一可判路径）；
+     (b) 记与 9.5（09-19 01:14Z）的间隔判 ②——≥ 14 天 → ✅，< 7 天 → 🔴，之间 → 🟡；**同时记 4 周窗滚动速率**（单点间隔与滚动速率
+     相反时以预注册规则记状态、以滚动速率写结论）；(c) `engines.node` 复核 ③；(d) 按 22.5 日落规则决定「追加段」还是「新开节」
+     （三项全同 = ① 仍 DIRTY 且 ② 仍 🟡 且 ③ 区间不变 → 只在本节末追加「23.6 追加读数」，不新开评估节、不重置 LAST_EVAL_DATE；
+     追加读数仍走 19.8 协议，不得简化为裸 grep）。
+  2. **判据 ③ 核对面**：升级路径动 Node/服务环境的证据在 9.5 又添一条（#151977）；真开窗时按前置 A 升级后核实服务 Node 与 plist 环境未被 updater 替换。
+  3. **19.5 持有成本**每次复测（本次 4 版 / 92 天；weixin peer floor 若上调记录；Gateway V2 传输迁移对 weixin 插件的影响待其发版说明；
+     credential-prompt 弃用 11-30 到期后记录）。
+  4. 前置 C 现为 13 项（第 13 项 #149875 跨 provider 消息默认开；第 7 项 #114047 已加 9.5 `cpus × 4` 注记）。
+- **方案 B（中间版本）**：仍不可取（锁步 9.5 再证；9.4→9.5 的 update 路径缺陷在 9.5 才修，第三次同款）。
+- **方案 C（若用户决定现升）**：在 7.0 三项前置之上，前置 A 用 9.5 区间（= 9.4 = 9.3）+ 升级后 Node/服务环境核对、前置 B 加 Gateway V2
+  传输迁移核对、前置 C 现为 13 项（第 13 项须在首次启动前显式关闭，否则 PA 的 `message` 工具升级即可跨通道投递）；升级为 migration-bearing，
+  **自动回滚不适用，7.1 全量快照必做**。
+
+**LAST_EVAL_DATE 更新至 2026-09-22**（第十二次评估完成，重置时间 tripwire）。下次触发 = 任一 tripwire 跳红（[2/6] 预计约 4 周内，
+处置已在本节预注册），或下一个 stable 发布时的判据 ①/②/③ 跟踪（① 走 19.8 修订后协议；三项全同则按日落规则追加读数不新开节）。
 
 ---
