@@ -19,23 +19,6 @@ REPO_DIR="$HOME/openclaw-model-bridge"
 LOG="$HOME/.openclaw/logs/auto_deploy.log"
 mkdir -p "$(dirname "$LOG")"
 
-# V37.9.358: 部署复制必须原子替换（同目录临时文件 + mv），禁止就地 cp。
-# 血案 2026-09-22 11:12:07: V37.9.355 改了 run_semantic_scholar.sh，auto_deploy 在
-# 11:00 那轮 S2 仍在 429 退避循环里时就地 cp 覆盖了同一个 inode；bash 是边读边执行脚本
-# 文件的，内存里的旧循环跑完后从被改写的文件读下一条命令，读到错位字节 →
-# "line 153: syntax error near unexpected token `)'"，状态文件没写成。任何运行超过
-# 一轮 auto_deploy 间隔的 job（S2/kb_dream/rss_blogs 的 LLM 循环）撞上改到自己的部署都会中招。
-# mv 是 rename(2)：目录项换成新 inode，运行中的进程继续持有旧 inode 读完旧内容。
-deploy_copy() {
-    local _src="$1" _dst="$2"
-    local _tmp="${_dst}.deploy.$$"
-    if cp "$_src" "$_tmp" && mv -f "$_tmp" "$_dst"; then
-        return 0
-    fi
-    rm -f "$_tmp"
-    return 1
-}
-
 # V37.9.173 PathB-3: source notify.sh（FAIL-OPEN，早期 stage 未同步时 quiet_alert 走直发兜底）
 for _ns in "$HOME/openclaw-model-bridge/notify.sh" "$HOME/notify.sh"; do
     [ -f "$_ns" ] && { source "$_ns" 2>/dev/null || true; break; }
@@ -99,6 +82,23 @@ $msg" ;;
         openclaw message send --channel whatsapp --target "${OPENCLAW_PHONE:-+85200000000}" --message "$msg" --json >/dev/null 2>&1 || true
         openclaw message send --channel discord --target "${DISCORD_CH_ALERTS:-}" --message "$msg" --json >/dev/null 2>&1 || true
     fi
+}
+
+# V37.9.358: 部署复制必须原子替换（同目录临时文件 + mv），禁止就地 cp。
+# 血案 2026-09-22 11:12:07: V37.9.355 改了 run_semantic_scholar.sh，auto_deploy 在
+# 11:00 那轮 S2 仍在 429 退避循环里时就地 cp 覆盖了同一个 inode；bash 是边读边执行脚本
+# 文件的，内存里的旧循环跑完后从被改写的文件读下一条命令，读到错位字节 →
+# "line 153: syntax error near unexpected token `)'"，状态文件没写成。任何运行超过
+# 一轮 auto_deploy 间隔的 job（S2/kb_dream/rss_blogs 的 LLM 循环）撞上改到自己的部署都会中招。
+# mv 是 rename(2)：目录项换成新 inode，运行中的进程继续持有旧 inode 读完旧内容。
+deploy_copy() {
+    local _src="$1" _dst="$2"
+    local _tmp="${_dst}.deploy.$$"
+    if cp "$_src" "$_tmp" && mv -f "$_tmp" "$_dst"; then
+        return 0
+    fi
+    rm -f "$_tmp"
+    return 1
 }
 
 cd "$REPO_DIR" || { echo "$(date) ERROR: cannot cd to $REPO_DIR" >> "$LOG"; exit 1; }
