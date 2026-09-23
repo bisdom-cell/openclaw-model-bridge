@@ -1,6 +1,6 @@
 {
-  "updated": "2026-09-22 09:31:36",
-  "updated_by": "full_regression",
+  "updated": "2026-09-23 01:21:31",
+  "updated_by": "unknown",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -183,6 +183,11 @@
       "date": "2026-09-22",
       "what": "V37.9.357 freight 日志取证连锁: 5 个 job 脚本 python3 -c 内 $(cd \\\"$(dirname \\\"$0\\\")\\\") 转义 bug 根治 (每次运行 cd 必失败, 自 V37.9.57 潜伏 4 个月, 对齐 13 个兄弟正确形态) + 守卫 +4 (行为级血案) + V37.9.356 误判定量 1/40 runs + 「09-21 没跑」推断被数据推翻",
       "by": "claude_code"
+    },
+    {
+      "date": "2026-09-23",
+      "what": "V37.9.358: auto_deploy 就地 cp → deploy_copy 原子复制 (S2 09-22 11:12 syntax error 血案根治: bash 边读边执行脚本文件, 部署覆盖运行中 job 同 inode 致读错位字节) + 昨日改动生产验证 3/4 闭环 + WhatsApp 428 掉线定性/恢复 + DBLP Anubis 反爬闸定性 + notify rc 语义 finding 登记",
+      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -231,7 +236,7 @@
     "security_score": "98/100 (98.0%)",
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB",
     "slo": {
-      "checked_at": "2026-09-22 09:20:04",
+      "checked_at": "2026-09-23 01:19:16",
       "all_ok": true,
       "judged_count": 1,
       "na_count": 4,
@@ -351,12 +356,17 @@
         "added": "2026-09-09"
       },
       "V37.9.355 Mac Mini 首跑验证 (用户被动观察, 合并同步后): (a) 18:00 rss_blogs: grep \"RSS 抓取失败\" ~/.openclaw/logs/jobs/rss_blogs.log — deepmind.google / spectrum.ieee.org 死链即剪枝 (dev EGRESS_BLOCKED 未预验, FAIL-OPEN) (b) 08:00/20:00 arxiv 推送出现世界模型/VLA/人形标题 (c) 11:00 S2 / 12:00 DBLP 18 词后无新增 429/503 (d) 14:00 github_trending 出现 robotics/world-model 仓库 (e) 一周后 06:00 kb_radar Top 5 与 22:30 deep_dive 出现 world model/VLA 条目 = 对齐本体生效的用户可见信号 (f) 机器人相关 KB note 自动标签出现 技术/机器人",
-      "V37.9.356 货代 L2 判据重定义 Mac Mini 被动验证 (已同步, 两副本标记 1/1, 明日 09-23 14:00 首次真实运行): (a) 低信号日 Discord 应收到货代报告 (可含「本期无显著…」段) 而非只收「LLM 输出格式异常」告警; (b) preflight --full 11/19 文案变为「LLM 输出三层格式异常」分支 (仅真格式异常时出现)。取证已定量 (09-22): 日志窗口 08-14→09-22 共 40 运行日全跑, parse_low 仅 1 次 = 09-21 5/15 (2.5%), 09-22 健康 run 8/15 仅多 1 条过旧阈值 7, ASCII 冒号 0, 三层 header 齐; 「09-21 没跑」推断已被告警行日期推翻 (parse_low 路径 exit 于任何 bash log() 之前故无时间戳行)。两条低优观察不动手: freight 日志起点被截断于 08-14 一次运行中段 (仓库无轮转 job, 原因在仓库外); chinadaily bizchina_rss.xml 404 (per-source FAIL-OPEN, 持续约一周再按 NBER 先例评估剔除)。",
-      "V37.9.357 5 个 job 脚本 $(cd \\\"…\\\") 转义 bug 修复 Mac Mini 被动验证 (合并同步后, 零重启): 次日 ~/.openclaw/logs/jobs/{freight_watcher,hn_watcher,finance_news,ontology_sources}.log 不再出现 `cd: \"\"/Users/…: No such file or directory` 行 (grep -c 'cd: \"\"' 各日志应停在历史计数不再增长)。"
+      "V37.9.356 货代 L2 判据重定义 Mac Mini 被动验证 (已同步, 两副本标记 1/1, 09-23 14:00 首次真实运行, 14:05 后 cat ~/.openclaw/jobs/freight_watcher/cache/last_run.json 应 status ok + sent true): (a) 低信号日 Discord 应收到货代报告 (可含「本期无显著…」段) 而非只收「LLM 输出格式异常」告警; (b) preflight --full 11/19 文案变为「LLM 输出三层格式异常」分支 (仅真格式异常时出现)。取证已定量 (09-22): 日志窗口 08-14→09-22 共 40 运行日全跑, parse_low 仅 1 次 = 09-21 5/15 (2.5%), 09-22 健康 run 8/15 仅多 1 条过旧阈值 7, ASCII 冒号 0, 三层 header 齐; 「09-21 没跑」推断已被告警行日期推翻 (parse_low 路径 exit 于任何 bash log() 之前故无时间戳行)。两条低优观察不动手: freight 日志起点被截断于 08-14 一次运行中段 (仓库无轮转 job, 原因在仓库外); chinadaily bizchina_rss.xml 404 (per-source FAIL-OPEN, 持续约一周再按 NBER 先例评估剔除)。",
+      "V37.9.357 5 脚本转义 bug 修复 Mac Mini 验证 3/4 已闭环 (09-23 实测: finance_news 07:30 / ontology_sources 09-22 20:00 / hn_watcher 09-22 20:45+09-23 08:45 均为修复后干净运行, 运行时副本 5/5 grep -cF 'cd \\\"'=0): 剩 freight 09-23 14:00 后 ~/.openclaw/logs/jobs/freight_watcher.log 的 cd 错误计数应停在 39 不再增长",
+      "V37.9.358 auto_deploy 原子复制 Mac Mini 被动验证 (合并同步后零重启, 本次同步是旧就地 cp 的最后一次执行): (a) ls ~/.openclaw/jobs/*/*.deploy.* 2>/dev/null 应恒空 (b) 下次改到长 job 脚本 (S2/kb_dream/rss_blogs) 的部署与其运行重叠时, 该 job 日志不再出现 'syntax error near unexpected token' 且状态文件正常写入 (c) 09-23 11:05 后 cat ~/.openclaw/jobs/semantic_scholar/cache/last_run.json 应为 09-23 时间戳 (修复后首轮 + V37.9.355 18 词首轮)",
+      "🔴 notify 返回值语义 finding (V37.9.358 定性, 未修): notify() 只要任一通道失败即 return 1 (sent>=1 仍 rc=1), 而 preflight 16/19 pass 文案写「发出≥1」/ fail 文案写「全通道未发出」= 措辞失真; 连带: 单通道掉线日每个 job 自记 send_failed (watchdog 出 CORE 假告警) + arxiv 不标 seen 次轮重推重复. 09-23 WhatsApp 428 掉线实录: Discord 全程正常但 18 条 job 状态全标失败. 候选修: notify 语义改为「已投递或已入队即 0」(队列 at-least-once 已保证最终投递) + preflight 文案对齐; 需评估 watchdog『推送失败写本地告警文件』分支与 arxiv seen 语义, 带数据决定",
+      "🔴 DBLP 自 ~09-19 起 100% 失败 = dblp.org 上 Anubis 反爬闸 (raw 文件为 'Making sure you're not a bot' 挑战页, 本 job 非浏览器 UA 也被挑战; V37.9.282 parse_failed 守卫正确开火, 与 V37.9.355 关键词无关): 待用户 12:00 前对 dblp.uni-trier.de / dblp.dagstuhl.de 镜像同 UA 探针 → 镜像返回 JSON 则换 DBLP_API 到镜像; 同闸则评估退役 dblp job (日落法; S2/arxiv/acl 覆盖学术面)",
+      "OpenClaw 4.27 WhatsApp 428 Precondition Required「Connection Terminated」(2026-09-22T15:28Z) 后通道 stopped 不自动重连, 需 restart.sh 才恢复 (凭据未丢, 不需扫码) → 下次升级评估收益侧 B2「WhatsApp 重连改进仅 ≥6.x」的本地实证数据点; 另: 6 月 408 血案教训再确认——状态 stopped≠logged out 时绝不扫码",
+      "arxiv 09-23 08:00 因 notify rc=1 记 send_failed 未标 seen → 20:00 会重推同 10 篇 (Discord 重复); 已交接一次性 new_ids.txt >> seen_ids.txt 去重命令, 用户执行与否均可 (LLM 成本 10 次调用级)"
     ],
     "open_prs": [],
     "blocked_on": "",
-    "focus": "V37.9.357 5 脚本命令替换转义 bug 修复 + V37.9.356 误判定量已交付，待合并同步；V37.9.356 明日 14:00 首次真实运行；V37.9.355 六项被动观察仍在进行。",
+    "focus": "V37.9.358 auto_deploy 原子复制已交付待合并；昨日 V37.9.354-357 生产验证 3/4 闭环（freight 14:00 收口）；WhatsApp 428 掉线已 restart 恢复 + 18 条队列重放；DBLP Anubis 反爬闸待镜像探针决定换源/退役；notify rc 语义 finding 登记待数据决策",
     "recent_changes": []
   },
   "quality": {
