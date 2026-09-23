@@ -337,8 +337,18 @@ $msg" ;;
         fi
     fi
 
+    # V37.9.359 返回码语义: 「≥1 通道送达即 0」（preflight V37.9.174 注释早已声明此契约,
+    # 实现却是任一通道失败即 1）。失败通道已入队, 由 _notify_drain_queue at-least-once 重放,
+    # 所以对调用方而言消息「已送达用户」—— 40+ 调用方全部把 rc=0 读作「已发出 → 记 sent / 标 seen」。
+    # 血案 2026-09-23: WhatsApp 428 掉线 8h, Discord 全程送达, 但每个 job 自记 send_failed +
+    # watchdog 给 arxiv 发 CORE 假告警 + arxiv 未标 seen 准备重推 = 成功被说成失败。
+    # 部分失败不静默: 下面这行 PARTIAL: 是稳定信号（preflight 据此给 warn）,
+    # 通道本身掉线由 wa_keepalive 升级告警负责（原则 #8 谁已经在管）。
     [ "$sent" -eq 0 ] && return 1
-    return $rc
+    if [ "$rc" -ne 0 ]; then
+        echo "[notify] PARTIAL: ${sent} 个通道已送达, 失败通道已入队待重放（返回 0 = 用户已收到）" >&2
+    fi
+    return 0
 }
 
 # notify_file "filepath" [--channel whatsapp|discord] [--topic ...]

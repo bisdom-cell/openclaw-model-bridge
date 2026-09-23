@@ -230,6 +230,7 @@ if [ -f test_freight_v9_33.py ]; then
 fi
 run_suite "v37_9_356_freight_l2_format (V37.9.356 货代 L2 判据重定义 — 三层格式而非评级数/新闻数比值，诚实低信号日不再被丢弃)" "python3 test_v37_9_356_freight_l2_format.py"
 run_suite "v37_9_358_atomic_deploy_copy (V37.9.358 auto_deploy 原子复制 — 就地 cp 覆盖运行中 job 脚本致 bash 读错位字节，血案: S2 09-22 11:12 syntax error)" "python3 test_v37_9_358_atomic_deploy_copy.py"
+run_suite "v37_9_359_notify_partial_delivery (V37.9.359 notify 返回码「≥1 通道送达即 0」— 部分失败入队+PARTIAL 信号, 血案: 09-23 WhatsApp 428 掉线 Discord 已送达却全 job 记 send_failed + arxiv 假 CORE)" "python3 test_v37_9_359_notify_partial_delivery.py"
 if [ -f test_movespeed_incident_analyzer.py ]; then
     run_suite "movespeed_incident_analyzer (V37.9.28 F2 — 数据驱动诊断分析工具)" "python3 test_movespeed_incident_analyzer.py"
 fi
