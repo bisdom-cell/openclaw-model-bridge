@@ -897,9 +897,15 @@ if $FULL_MODE; then
             [ -f "$_ns" ] && { source "$_ns" 2>/dev/null || true; break; }
         done
         if command -v notify >/dev/null 2>&1; then
+            # V37.9.359: notify rc=0 = ≥1 通道送达; 部分通道失败靠 PARTIAL: 信号区分 → warn
+            # (不 stamp 小时缓存, 下次 preflight 重测)。旧版把部分失败报成「全通道未发出」fail。
             if notify "🔧 preflight push test $(date '+%H:%M')" --topic alerts >"$PUSH_ERR" 2>&1; then
-                pass "推送通道正常（notify → 微信 + Discord，发出≥1）"
-                date +%s > "$PUSH_TEST_LAST"
+                if grep -q "PARTIAL:" "$PUSH_ERR" 2>/dev/null; then
+                    warn "推送部分通道失败（已送达≥1, 失败通道已入队重放）: $(grep -m1 'FAIL:' "$PUSH_ERR" 2>/dev/null || true)"
+                else
+                    pass "推送通道正常（notify 全部配置通道送达）"
+                    date +%s > "$PUSH_TEST_LAST"
+                fi
             else
                 fail "推送通道失败（notify 全通道未发出）: $(cat "$PUSH_ERR" 2>/dev/null | head -2)"
             fi
