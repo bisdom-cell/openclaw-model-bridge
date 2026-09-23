@@ -525,7 +525,7 @@ The `auto_deploy.sh` script maps ~118 repo files to runtime locations (FILE_MAP)
 ## Testing
 
 ```bash
-# Full regression (199 suites / 6599 tests / 0 fail; must ALL pass before push)
+# Full regression (200 suites / 6599 tests / 0 fail; must ALL pass before push)
 bash full_regression.sh
 
 # Individual test suites (run full_regression.sh for totals)
