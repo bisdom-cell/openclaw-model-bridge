@@ -1,6 +1,6 @@
 {
-  "updated": "2026-09-23 01:42:04",
-  "updated_by": "full_regression",
+  "updated": "2026-09-23 01:43:29",
+  "updated_by": "unknown",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -359,7 +359,7 @@
       "V37.9.356 货代 L2 判据重定义 Mac Mini 被动验证 (已同步, 两副本标记 1/1, 09-23 14:00 首次真实运行, 14:05 后 cat ~/.openclaw/jobs/freight_watcher/cache/last_run.json 应 status ok + sent true): (a) 低信号日 Discord 应收到货代报告 (可含「本期无显著…」段) 而非只收「LLM 输出格式异常」告警; (b) preflight --full 11/19 文案变为「LLM 输出三层格式异常」分支 (仅真格式异常时出现)。取证已定量 (09-22): 日志窗口 08-14→09-22 共 40 运行日全跑, parse_low 仅 1 次 = 09-21 5/15 (2.5%), 09-22 健康 run 8/15 仅多 1 条过旧阈值 7, ASCII 冒号 0, 三层 header 齐; 「09-21 没跑」推断已被告警行日期推翻 (parse_low 路径 exit 于任何 bash log() 之前故无时间戳行)。两条低优观察不动手: freight 日志起点被截断于 08-14 一次运行中段 (仓库无轮转 job, 原因在仓库外); chinadaily bizchina_rss.xml 404 (per-source FAIL-OPEN, 持续约一周再按 NBER 先例评估剔除)。",
       "V37.9.357 5 脚本转义 bug 修复 Mac Mini 验证 3/4 已闭环 (09-23 实测: finance_news 07:30 / ontology_sources 09-22 20:00 / hn_watcher 09-22 20:45+09-23 08:45 均为修复后干净运行, 运行时副本 5/5 grep -cF 'cd \\\"'=0): 剩 freight 09-23 14:00 后 ~/.openclaw/logs/jobs/freight_watcher.log 的 cd 错误计数应停在 39 不再增长",
       "V37.9.358 auto_deploy 原子复制 Mac Mini 被动验证 (合并同步后零重启, 本次同步是旧就地 cp 的最后一次执行): (a) ls ~/.openclaw/jobs/*/*.deploy.* 2>/dev/null 应恒空 (b) 下次改到长 job 脚本 (S2/kb_dream/rss_blogs) 的部署与其运行重叠时, 该 job 日志不再出现 'syntax error near unexpected token' 且状态文件正常写入 (c) 09-23 11:05 后 cat ~/.openclaw/jobs/semantic_scholar/cache/last_run.json 应为 09-23 时间戳 (修复后首轮 + V37.9.355 18 词首轮)",
-      "🔴 notify 返回值语义 finding (V37.9.358 定性, 未修): notify() 只要任一通道失败即 return 1 (sent>=1 仍 rc=1), 而 preflight 16/19 pass 文案写「发出≥1」/ fail 文案写「全通道未发出」= 措辞失真; 连带: 单通道掉线日每个 job 自记 send_failed (watchdog 出 CORE 假告警) + arxiv 不标 seen 次轮重推重复. 09-23 WhatsApp 428 掉线实录: Discord 全程正常但 18 条 job 状态全标失败. 候选修: notify 语义改为「已投递或已入队即 0」(队列 at-least-once 已保证最终投递) + preflight 文案对齐; 需评估 watchdog『推送失败写本地告警文件』分支与 arxiv seen 语义, 带数据决定",
+      "🔴 notify 返回值语义 finding (V37.9.358 定性, 未修; 09-23 用户确认 Discord 全程送达 → 严重度=假告警+重复推送, 非丢消息): notify() 只要任一通道失败即 return 1 (sent>=1 仍 rc=1), preflight 16/19 pass 文案「发出≥1」/ fail 文案「全通道未发出」= 措辞失真; 09-23 WhatsApp 428 掉线实录: Discord 正常送达但每个 job 自记 send_failed + watchdog 给 arxiv 发 CORE 假告警 + arxiv 未标 seen 准备重推 = 成功被说成失败 (fail-plausible 反向形态, V37.9.328/322 家族). 候选修: notify 语义改为「已投递或已入队即 0」(队列 at-least-once 保证最终投递) + preflight 文案对齐; 需评估 watchdog『推送失败写本地告警文件』分支与 arxiv seen 语义, 独立版本带数据决定",
       "🔴 DBLP 自 ~09-19 起 100% 失败 = dblp.org 上 Anubis 反爬闸 (raw 文件为 'Making sure you're not a bot' 挑战页, 本 job 非浏览器 UA 也被挑战; V37.9.282 parse_failed 守卫正确开火, 与 V37.9.355 关键词无关): 待用户 12:00 前对 dblp.uni-trier.de / dblp.dagstuhl.de 镜像同 UA 探针 → 镜像返回 JSON 则换 DBLP_API 到镜像; 同闸则评估退役 dblp job (日落法; S2/arxiv/acl 覆盖学术面)",
       "OpenClaw 4.27 WhatsApp 428 Precondition Required「Connection Terminated」(2026-09-22T15:28Z) 后通道 stopped 不自动重连, 需 restart.sh 才恢复 (凭据未丢, 不需扫码) → 下次升级评估收益侧 B2「WhatsApp 重连改进仅 ≥6.x」的本地实证数据点; 另: 6 月 408 血案教训再确认——状态 stopped≠logged out 时绝不扫码",
       "arxiv 09-23 08:00 因 notify rc=1 记 send_failed 未标 seen → 20:00 会重推同 10 篇 (Discord 重复); 已交接一次性 new_ids.txt >> seen_ids.txt 去重命令, 用户执行与否均可 (LLM 成本 10 次调用级)"
