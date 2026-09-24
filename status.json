@@ -1,6 +1,6 @@
 {
-  "updated": "2026-09-23 05:31:16",
-  "updated_by": "full_regression",
+  "updated": "2026-09-24 15:47:09",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-09-24",
+      "what": "V37.9.360 OpenClaw 第十三次评估: 2026.9.6 触发, ② 🟡→🔴 (4.91 天, 4 周窗 2.0/周) 按日落规则新开第二十四节 → 继续 hold (❌🔴✅); Tool Search 默认开 dist 核实对我方自定义 provider 不触发但与上游文档不一致 → 前置 C 第 14 项预防性 tools.toolSearch:false; LAST_EVAL_DATE 09-24; 守卫 +9 (77) sabotage 三连开火; 20:30 告警 triage: finance short_content:13 x3 待 Mac Mini 读 llm_raw_last.json 定性",
+      "by": "claude_code"
+    },
     {
       "date": "2026-09-22",
       "what": "V37.9.356 货代 L2「解析率」判据重定义：三层格式（📊/🏢/🚢 标记齐 + 正文非空）替代评级数/新闻数比值——Mac Mini 取证坐实 15 条新闻仅评 8 条的正确输出差 1 条即被判解析失败并丢弃整份报告；status 加 layers_ok、告警带诊断、preflight 文案演进、V37.9.31 pin 1:1 演进；守卫 17 单测 + sabotage 4 连；VERSION 0.37.9.177",
@@ -173,26 +178,6 @@
       "date": "2026-08-31",
       "what": "V37.9.334 闭环: check_upgrade 首次自动周一 cron 09:10 运行成功(0/6 tripwire, [3/6][4/6] 真网络非 NA) — 自 V37.9.22 起只存在于文档的每周一自动监控首次真运行",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-08-31",
-      "what": "V37.9.335 用户二次决策恢复每日备份拉取(22min 实测支撑): 周日门控+FORCE 开关退役, ssd_backup=每日最新一份+全量保留(+365GB/年), 守卫 daily-latest-only 双向禁回退",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-09-22",
-      "what": "V37.9.357 freight 日志取证连锁: 5 个 job 脚本 python3 -c 内 $(cd \\\"$(dirname \\\"$0\\\")\\\") 转义 bug 根治 (每次运行 cd 必失败, 自 V37.9.57 潜伏 4 个月, 对齐 13 个兄弟正确形态) + 守卫 +4 (行为级血案) + V37.9.356 误判定量 1/40 runs + 「09-21 没跑」推断被数据推翻",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-09-23",
-      "what": "V37.9.358: auto_deploy 就地 cp → deploy_copy 原子复制 (S2 09-22 11:12 syntax error 血案根治: bash 边读边执行脚本文件, 部署覆盖运行中 job 同 inode 致读错位字节) + 昨日改动生产验证 3/4 闭环 + WhatsApp 428 掉线定性/恢复 + DBLP Anubis 反爬闸定性 + notify rc 语义 finding 登记",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-09-23",
-      "what": "V37.9.359 notify 返回码「≥1 通道送达即 0」: 部分失败入队+stderr PARTIAL 信号+rc 0 (全失败仍 1), preflight 部分→warn 不 stamp; 修 09-22 WhatsApp 428 掉线期全 job 假 send_failed + arxiv 假 CORE + 未标 seen 重推; 守卫 13 单测 + 外科 sabotage 3/1 精确开火; VERSION 0.37.9.179",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -241,7 +226,7 @@
     "security_score": "98/100 (98.0%)",
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB",
     "slo": {
-      "checked_at": "2026-09-23 05:17:14",
+      "checked_at": "2026-09-24 15:32:03",
       "all_ok": true,
       "judged_count": 1,
       "na_count": 4,
@@ -367,7 +352,8 @@
       "【✅ V37.9.359 已修 · 剩 Mac Mini 被动验证】notify 返回码对齐 V37.9.174 声明契约「≥1 通道送达即 0」: 部分失败→失败通道入队 + stderr [notify] PARTIAL: 信号 + rc 0; 全失败/--channel 单发失败仍 rc 1; preflight 16/19 部分失败→warn(不 stamp 小时缓存)。同步后下次任一通道掉线观察: job 记 sent 非 send_failed / watchdog 无 arxiv CORE 假告警 / arxiv 正常标 seen 不重推 / preflight 显 ⚠️ 推送部分通道失败。",
       "🔴 DBLP 自 ~09-19 起 100% 失败 = dblp.org 上 Anubis 反爬闸 (raw 文件为 'Making sure you're not a bot' 挑战页, 本 job 非浏览器 UA 也被挑战; V37.9.282 parse_failed 守卫正确开火, 与 V37.9.355 关键词无关): 待用户 12:00 前对 dblp.uni-trier.de / dblp.dagstuhl.de 镜像同 UA 探针 → 镜像返回 JSON 则换 DBLP_API 到镜像; 同闸则评估退役 dblp job (日落法; S2/arxiv/acl 覆盖学术面)",
       "OpenClaw 4.27 WhatsApp 428 Precondition Required「Connection Terminated」(2026-09-22T15:28Z) 后通道 stopped 不自动重连, 需 restart.sh 才恢复 (凭据未丢, 不需扫码) → 下次升级评估收益侧 B2「WhatsApp 重连改进仅 ≥6.x」的本地实证数据点; 另: 6 月 408 血案教训再确认——状态 stopped≠logged out 时绝不扫码",
-      "arxiv 09-23 08:00 因 notify rc=1 记 send_failed 未标 seen → 20:00 会重推同 10 篇 (Discord 重复); 已交接一次性 new_ids.txt >> seen_ids.txt 去重命令, 用户执行与否均可 (LLM 成本 10 次调用级)"
+      "arxiv 09-23 08:00 因 notify rc=1 记 send_failed 未标 seen → 20:00 会重推同 10 篇 (Discord 重复); 已交接一次性 new_ids.txt >> seen_ids.txt 去重命令, 用户执行与否均可 (LLM 成本 10 次调用级)",
+      "【finance_news short_content:13 ×3 · 2026-09-24 07:30 · 待 Mac Mini 定性】V37.9.337 可定性化首次真实兑现: 排除超时/连接/HTTP 错误, 模型 3/3 确定性回 13 字符 = 结构性非瞬态。候选: Ark 内容安全拒答(政治/财经新闻) / 截断 / 空壳格式——读 ~/.openclaw/jobs/finance_news/cache/llm_raw_last.json 的 finish_reason+content+usage 后再定修法 (原则 #33 不在 dev 下结论)。若次日 07:30 复现即确认结构性。"
     ],
     "open_prs": [],
     "blocked_on": "",
@@ -377,7 +363,7 @@
   "quality": {
     "security_score": 98,
     "test_count": 6599,
-    "last_regression": "2026-09-23 05:30 pass",
+    "last_regression": "2026-09-24 15:41 pass",
     "coverage_pct": 0,
     "security_score_time": "2026-07-20 01:07",
     "test_suites": 200,
@@ -448,7 +434,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-09-23: V37.9.359 notify 返回码语义对齐声明契约「≥1 通道送达即 0」(unfinished [75] 兑现) — 09-22 WhatsApp 428 掉线期 Discord 已送达却全 job 记 send_failed + arxiv 假 CORE + 未标 seen 重推 = 成功被说成失败; 部分失败入队 + PARTIAL 信号 + preflight warn; 守卫 13 单测 sabotage 精确开火; VERSION 0.37.9.179. 其余待办全部 Mac Mini 被动验证 / 用户动作 (DBLP 镜像探针 [76] 等).",
+  "focus": "2026-09-24: V37.9.360 OpenClaw 第十三次评估 (2026.9.6, 继续 hold, 前置 C +1 预防性 Tool Search 关闭); 20:30 告警 finance_news short_content:13 待 Mac Mini 取证定性; DBLP Anubis [76] 待镜像探针.",
   "notes": "",
   "preferences": [
     "[auto] 常用工具：read(10次)、sessions_spawn(8次)、sessions_history(8次)",
