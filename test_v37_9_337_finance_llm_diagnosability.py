@@ -101,16 +101,20 @@ class _Server:
         self.httpd.server_close()
 
 
-def _run_block(port, max_time=180):
-    """把真源码抽出的 LLM 块跑起来，返回 (LLM_OK, reason, content_len, log)。"""
+def _run_block(port, max_time=180, cache_root=None):
+    """把真源码抽出的 LLM 块跑起来，返回 (LLM_OK, reason, content_len, log)。
+
+    cache_root（V37.9.361）：传入则复用该目录的 cache/，用于跨运行断言失败证据留存。
+    """
     block = _llm_block()
     block = block.replace("LLM_MAX_TIME=180", f"LLM_MAX_TIME={max_time}")
     block = block.replace("http://127.0.0.1:5001/v1/chat/completions",
                           f"http://127.0.0.1:{port}/v1/chat/completions")
     block = block.replace('sleep "$((attempt * 10))"', "sleep 0")
-    with tempfile.TemporaryDirectory() as d:
+    with tempfile.TemporaryDirectory() as tmpd:
+        d = cache_root or tmpd
         cache = os.path.join(d, "cache")
-        os.makedirs(cache)
+        os.makedirs(cache, exist_ok=True)
         with open(os.path.join(cache, "llm_payload.json"), "w") as f:
             json.dump({"model": "default",
                        "messages": [{"role": "user", "content": "hi"}]}, f)
@@ -253,6 +257,83 @@ class TestSourceGuards(unittest.TestCase):
 
     def test_marker(self):
         self.assertIn("V37.9.337", self.src)
+
+
+class TestFailureEvidencePreserved(unittest.TestCase):
+    """V37.9.361：失败运行的原始响应必须独立留存，且不被之后的成功运行覆盖。
+
+    血案：2026-09-24 07:30 finance_news 三次 short_content:13，次日用户取证读
+    llm_raw_last.json 时拿到的是一份成功运行的 992 token 完整分析——失败证据已被覆盖，
+    「那 13 个字符是什么」永久不可知。
+    """
+
+    def _evidence(self, root):
+        path = os.path.join(root, "cache", "llm_raw_failed.json")
+        if not os.path.exists(path):
+            return None
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+
+    def test_failed_run_records_every_attempt_with_raw(self):
+        with tempfile.TemporaryDirectory() as root:
+            with _Server("short") as s:
+                ok, _, _, _ = _run_block(s.port, cache_root=root)
+            self.assertFalse(ok)
+            ev = self._evidence(root)
+            self.assertIsNotNone(ev, "失败运行必须写出 llm_raw_failed.json")
+            self.assertEqual([1, 2, 3], [a["attempt"] for a in ev["attempts"]])
+            for a in ev["attempts"]:
+                self.assertIn("short_content", a["reason"])
+                self.assertEqual("太短", a["content"], "证据须含解码后的响应内容（这正是血案里丢掉的东西）")
+                self.assertIn("\\u592a", a["raw"], "raw 须逐字保留线上字节（不做再编码）")
+                self.assertEqual(0, a["curl_rc"])
+
+    def test_success_after_failure_keeps_evidence(self):
+        """🔴 血案回归：失败运行之后的成功运行不得覆盖失败证据。"""
+        with tempfile.TemporaryDirectory() as root:
+            with _Server("short") as s:
+                _run_block(s.port, cache_root=root)
+            with _Server("ok") as s:
+                ok, _, _, _ = _run_block(s.port, cache_root=root)
+            self.assertTrue(ok)
+            ev = self._evidence(root)
+            self.assertIsNotNone(ev, "成功运行把失败证据删了")
+            self.assertEqual("太短", ev["attempts"][0]["content"])
+            with open(os.path.join(root, "cache", "raw.json"), encoding="utf-8") as f:
+                self.assertIn("A" * 500, f.read(), "防空转：last 文件确实已被成功运行覆盖")
+
+    def test_success_run_writes_no_evidence(self):
+        with tempfile.TemporaryDirectory() as root:
+            with _Server("ok") as s:
+                _run_block(s.port, cache_root=root)
+            self.assertIsNone(self._evidence(root), "成功运行不应产出失败证据")
+
+    def test_new_failed_run_replaces_previous_failed_run(self):
+        """证据只保留最近一次失败运行（attempt 1 新建），不无限增长。"""
+        with tempfile.TemporaryDirectory() as root:
+            with _Server("short") as s:
+                _run_block(s.port, cache_root=root)
+            with _Server("httperr") as s:
+                _run_block(s.port, cache_root=root)
+            ev = self._evidence(root)
+            self.assertEqual(3, len(ev["attempts"]))
+            for a in ev["attempts"]:
+                self.assertIn("http_error", a["reason"])
+
+    def test_curl_failure_also_recorded(self):
+        port = _free_port()
+        with tempfile.TemporaryDirectory() as root:
+            _run_block(port, max_time=5, cache_root=root)
+            ev = self._evidence(root)
+            self.assertIsNotNone(ev)
+            self.assertEqual(7, ev["attempts"][0]["curl_rc"])
+
+    def test_evidence_write_cannot_kill_script(self):
+        """证据写入是旁路：失败时只打 WARN，不得在 set -e 下终止（否则降级推送不会发生）。"""
+        block = _llm_block()
+        i = block.index("llm_raw_failed.json")
+        tail = block[i:block.index('log "WARN: LLM attempt', i)]
+        self.assertIn('|| log "WARN: LLM 失败证据写入失败', tail)
 
 
 if __name__ == "__main__":
