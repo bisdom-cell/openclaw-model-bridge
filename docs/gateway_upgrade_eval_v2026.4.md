@@ -13,11 +13,12 @@
 > 十次评估：2026-09-09（2026.9.3 stable 触发——20.6 预设跟踪点到期 → 继续 hold；判据 ① ❌ 9.3 DIRTY 16 计数仍 0、② 🔴 9.2→9.3 间隔 3 天「积压冲刷」假设证伪、③ ✅ 但 engines 首次在 8.x/9.x 线内收紧为 `>=24.16.0 <25 || >=26.1.0`（SQLite 文本截断驱动，Node↔SQLite 耦合二次收紧）；默认自主行为再增 2 项进 7.0 前置 C（10→12），第二十一节）
 > 十一次评估：2026-09-13（2026.9.4 stable 触发——21.5 预设跟踪点到期 → 继续 hold；判据 ① ❌ 9.4 DIRTY 9 计数仍 0 且**上游 changelog 自述 schema 变更阻断自动回滚 = 17.4 单向门被上游文档追认**、② 🔴 9.3→9.4 间隔又 3 天（连续两个 3 天间隔，节奏稳态化）→ 预注册评估节奏日落规则「三项全同只追加读数不新开节」、③ ✅ engines 与 9.3 逐字同；第四类风险经 dist 源码核实零新增（Cloud ready workers 需云后端配置 / Command review 门控 mode=auto），前置 C 保持 12 项，第二十二节）
 > 十二次评估：2026-09-22（2026.9.5 stable 触发——22.5 预设跟踪点到期，且判据 ② 由 🔴 变 🟡 = 日落规则「任一判据状态变化」→ 新开节而非追加读数 → 继续 hold；判据 ① ❌ 9.5 DIRTY 2 计数仍 0（连续第六个 DIRTY，Highlights 首条即 session 历史保留/修复）、② 🟡 9.4→9.5 间隔 7.94 天（7.1→8.1 以来首个 ≥7 天，但 4 周窗主线 1.75/周 + 维护线 7.33–7.35 四天三版，🟡 ≠ ✅）、③ ✅ engines 三版逐字同；第四类风险 **+1**：`tools.message.crossContext.allowAcrossProviders` 默认 false→true（#149875，dist 9.4 `=== true` → 9.5 `!== false`），`message` 在 PA 白名单内 → 前置 C 12→13；并发上限 `cpus × 4` 且 16 上限退役（#147423）第 7 项原位加注；Daybreak cyberFailover 经 dist 核实只对 OpenAI 原生错误码触发登记不入；预注册 tripwire [2/6] 版本差距 39/50 约 4 周内触发时的处置，第二十三节）
+> 十三次评估：2026-09-24（2026.9.6 stable 触发——23.5 预设跟踪点到期，判据 ② 由 🟡 回到 🔴（9.5→9.6 间隔 4.91 天）= 日落规则「任一判据状态变化」→ 新开节 → 继续 hold；判据 ① ❌ 9.6 DIRTY 7 计数仍 0（连续第七个 DIRTY，「complete schema migrations when updating from 2026.9.2」#153657 = 多跳升级状态修复第四次按起跳版本补）、② 🔴 4 周窗主线 8 个 stable = 2.0/周（历次最高）、③ ✅ engines 四版逐字同；19.8 协议第十点：叙述段 bullet 形态再换（`- Xxx:` 非 `- **`）叙述条目读数归 0，仅行内引用 651 过门槛可判；第四类风险候选 3 项：Tool Search 默认开（#154068）**dist 核实门控仅对 Ollama/LM Studio/`localService` 路由生效、我方自定义 provider 不触发，但 changelog/docs 宣称「embedded runs 未设即开」与代码不一致 → 前置 C 第 14 项作预防性显式关闭**（若触发，proxy 白名单会剥掉 `tool_search`/`tool_call` = PA 静默失能），Desktop sharing / Telegram 批处理登记不入；tripwire [2/6] 40/50 剩 10，第二十四节）
 > 评估者：Claude Code
 >
 > 🔴 **当前态（本行为单一真理源，其余章节均为各自时点快照）**
-> 部署版本 **v2026.4.27**（2026-06-11 起）| 上游 latest **2026.9.5**（2026-09-19）|
-> 决策 **继续 hold**（第十二次评估，2026-09-22）| 判据与下次跟踪点见 **第二十三节 23.5**
+> 部署版本 **v2026.4.27**（2026-06-11 起）| 上游 latest **2026.9.6**（2026-09-23）|
+> 决策 **继续 hold**（第十三次评估，2026-09-24）| 判据与下次跟踪点见 **第二十四节 24.5**
 
 ---
 
@@ -155,15 +156,15 @@
 
 ### 7.0 前置条件
 
-> **目标版本不在本节硬编码**——由**最近一次评估的结论**决定（评估节按时间倒序：第二十三节 = 最新）。
-> 截至第十二次评估（2026-09-22）结论为**继续 hold，无目标版本**；本 SOP 仅在用户明确决定升级后启用。
+> **目标版本不在本节硬编码**——由**最近一次评估的结论**决定（评估节按时间倒序：第二十四节 = 最新）。
+> 截至第十三次评估（2026-09-24）结论为**继续 hold，无目标版本**；本 SOP 仅在用户明确决定升级后启用。
 
-- [ ] **目标版本**：读最新评估节的结论确定（当前第二十三节 23.5）。**禁止沿用本文档任何历史节里的版本号**——它们是当时的时点判断。
+- [ ] **目标版本**：读最新评估节的结论确定（当前第二十四节 24.5）。**禁止沿用本文档任何历史节里的版本号**——它们是当时的时点判断。
 - [ ] **时间窗口**：工作日白天，确保能快速处置（注意：回滚不再是无损的，见 7.5）
 - [ ] **在 Mac Mini 上 SSH 直连执行**（禁止通过 WhatsApp 触发）
-- [ ] **前置 A · Node 版本区间**（第七次评估 18.4 起）：确认 `node -v` 落在目标版本 `engines.node` 声明的区间内。7.1/8.1/8.2/9.1/9.2 的区间是 `>=22.22.3 <23 || >=24.15.0 <25 || >=25.9.0`（**区间黑名单**，排除 node 23.x 全部与 24.0–24.14），根因是 SQLite WAL 数据损坏安全；**9.3 起收紧为 `>=24.16.0 <25 || >=26.1.0`**（Node 22.x / 25.x 全部退出，根因是 SQLite 文本截断，第十次评估 21.3）——区间会随 stable 变动，**每次以目标版本 `npm view openclaw@<目标> engines.node` 实测为准，不能只确认「够新」**。**9.4 与 9.3 逐字相同**（第十一次评估 22.3）。**9.5 与 9.4 / 9.3 逐字相同**（第十二次评估 23.3，三版未变）。**9.4 起升级路径自身会动 Node**：updater 会在服务 Node 运行时不受支持时替换 launchd 托管服务的运行时（「replace unsupported service Node runtimes」#142195…#144031）+ CLI 在可用的受支持 Node 下重执行（#143464）+ 不兼容时主动提议 Node.js 更新（#142742/#143344）——**升级后核实 plist/服务实际执行的 node 未被 updater 替换**（V37.9.13 单一管理者语义；Mac Mini 26.5.0 在区间时不应触发，触发即异常）。
+- [ ] **前置 A · Node 版本区间**（第七次评估 18.4 起）：确认 `node -v` 落在目标版本 `engines.node` 声明的区间内。7.1/8.1/8.2/9.1/9.2 的区间是 `>=22.22.3 <23 || >=24.15.0 <25 || >=25.9.0`（**区间黑名单**，排除 node 23.x 全部与 24.0–24.14），根因是 SQLite WAL 数据损坏安全；**9.3 起收紧为 `>=24.16.0 <25 || >=26.1.0`**（Node 22.x / 25.x 全部退出，根因是 SQLite 文本截断，第十次评估 21.3）——区间会随 stable 变动，**每次以目标版本 `npm view openclaw@<目标> engines.node` 实测为准，不能只确认「够新」**。**9.4 与 9.3 逐字相同**（第十一次评估 22.3）。**9.5 与 9.4 / 9.3 逐字相同**（第十二次评估 23.3，三版未变）。**9.6 与 9.5 / 9.4 / 9.3 逐字相同**（第十三次评估 24.3，四版未变）；9.6 继续修 updater 的 Node 路径（「complete managed Gateway upgrades after Node.js installation paths change」#145335 等）= 升级后 Node/服务环境核对仍必要。**9.4 起升级路径自身会动 Node**：updater 会在服务 Node 运行时不受支持时替换 launchd 托管服务的运行时（「replace unsupported service Node runtimes」#142195…#144031）+ CLI 在可用的受支持 Node 下重执行（#143464）+ 不兼容时主动提议 Node.js 更新（#142742/#143344）——**升级后核实 plist/服务实际执行的 node 未被 updater 替换**（V37.9.13 单一管理者语义；Mac Mini 26.5.0 在区间时不应触发，触发即异常）。
 - [ ] **前置 B · 外部插件锁步**（第八次评估 19.5）：M1 插件外部化后，`@openclaw/whatsapp` / `@openclaw/discord` 与 core **同版本发布**且声明 `peerDependencies: { openclaw: '>=<同版本>' }`。确认目标版本对应的 channel 插件存在；同时确认第三方插件（如 `@tencent-weixin/openclaw-weixin`）的 `peerDependencies.openclaw` 与目标版本相容。**第十一次评估 22.4 追加**：`sdk-untrusted-context-identifier-aliases` 到期日（09-08）已过但 9.4 仍 `removal-pending`（#142708，等插件 reader 迁移验证 + 显式 breaking 接受，真移除时本项加 `MsgContext.Channel*` 核对）；`agent-harness-credential-prompt-string-argument` 09-09 起弃用、旧字符串签名支持至 **2026-11-30**（#143238）——第三方插件（weixin）若调用 `buildCredentialSafetyPrompt` 须已迁移到 `{ controlToolsAvailable }`。**第十二次评估 23.4 追加**：weixin **2.4.9 已转 stable**（09-17）但 peer 仍 `>=2026.5.12`（4.27 上限 2.4.4，落后 4 版 / 92 天）；9.5 新增 **Gateway V2 传输迁移**（Gateway handler / node-session imports 如实暴露 WebSocket / framed / HTTP polling 三种能力，WebSocket-only 操作前须 narrow `node.client.webSocket`，framed 操作 narrow `node.client.socket`，node wire protocol 不变，`/plugins/sdk-migration/compatibility-policy#gateway-node-transport-sdk-v2`）——第三方插件若直接消费这些 imports 须已迁移。
-- [ ] **前置 C · 默认行为审计**（第八次评估 19.4，**须在首次启动前完成**）：目标 ≥8.1 时，以下 **13 项默认变更**（8.1 的 7 项 = 6 项自主行为 + 1 项并发假设；8.2/9.2 追加 3 项会话可见性 / 跨 agent 访问 / 并发编排，第九次评估 20.5；9.3 追加 2 项递归委派 / 更新自动推理修复，第十次评估 21.4；**9.4 零新增**，两项候选经 dist 源码核实为门控/opt-in 登记不入，第十一次评估 22.4；**9.5 追加 1 项跨 provider 消息默认开**（`message` 在 PA 白名单内）+ 第 7 项并发假设原位加注 `cpus × 4`，第十二次评估 23.4）默认为开/生效，其中 9 项直接踩我们已立案的血案机制，逐项决定关闭或显式接受：
+- [ ] **前置 C · 默认行为审计**（第八次评估 19.4，**须在首次启动前完成**）：目标 ≥8.1 时，以下 **14 项默认变更**（8.1 的 7 项 = 6 项自主行为 + 1 项并发假设；8.2/9.2 追加 3 项会话可见性 / 跨 agent 访问 / 并发编排，第九次评估 20.5；9.3 追加 2 项递归委派 / 更新自动推理修复，第十次评估 21.4；**9.4 零新增**，两项候选经 dist 源码核实为门控/opt-in 登记不入，第十一次评估 22.4；**9.5 追加 1 项跨 provider 消息默认开**（`message` 在 PA 白名单内）+ 第 7 项并发假设原位加注 `cpus × 4`，第十二次评估 23.4；**9.6 追加 1 项 Tool Search 默认开**（预防性：dist 门控显示我方路由不触发，但上游文档宣称更宽默认，第十三次评估 24.4）默认为开/生效，其中 9 项直接踩我们已立案的血案机制，逐项决定关闭或显式接受：
   - [ ] Grounded dreaming（后台 LLM 记忆整合，#114819）→ 对应 `dream_quota_blast_radius_case`
   - [ ] Owner-directed ambient heartbeat（#121988）→ 对应 `heartbeat_md_pa_self_silencing_case`
   - [ ] Session reset default 变更（无 reset policy 时跨闲置/跨天保留会话，#111140）→ 对应 `pa_alert_contamination_case`
@@ -177,6 +178,7 @@
   - [ ] **（第十次评估 21.4 追加）** Recursive delegation（9.3，#138059：bounded 递归子会话生成默认开，保留 depth/concurrency 上限）→ 对应 `dream_quota_blast_radius_case`（子 agent 再生子 agent，并发树状放大）+ 与 Swarm #136514 / #114047 三层叠加
   - [ ] **（第十次评估 21.4 追加）** Bounded update repair（9.3，#139495：候选验证失败时用已配置推理自动进入修复阶段）→ 同成本放大面（update 路径无人值守 LLM 调用经 adapter 计费；升级时段恰是 provider 链最不稳时段，V37.9.220 同型）（**9.4 部分缓解，不撤项**：auto triage 启动 coding agent 前需操作者确认 + verified rollback follow-up 保持 opt-in，#143767 家族 Related #139714，第十一次评估 22.4；候选验证失败后「用已配置推理进入修复阶段」本身仍在）
   - [ ] **（第十二次评估 23.4 追加）** Cross-provider messaging default（9.5，#149875：`tools.message.crossContext.allowAcrossProviders` 默认 false → true，9.5 内置 docs「Upgrades adopt this default when the setting is omitted」；`message` 在 PA 白名单 16 工具内）→ 首次启动前显式 `tools.message.crossContext.allowAcrossProviders: false`（可同时 `allowWithinProvider: false` 限定当前绑定会话）→ 对应 `pa_alert_contamination_case` 跨通道家族 + MR-14 通道边界（WhatsApp 告警走 Discord 是我方设计的单向路由，不是让 PA 自由跨通道投递）
+  - [ ] **（第十三次评估 24.4 追加·预防性）** Tool Search default（9.6，#154068/#154005：changelog「enable structured Tool Search by default for embedded and Copilot runs when unset」+ 内置 docs「structured `tools` surface is on by default for OpenClaw runs」；但 dist `resolveAgentToolSearchRuntimeConfig` 只在 `model.toolSearchMode === "tools"` 时注入，而该值仅由 Ollama/LM Studio provider policy 或 provider 配置 `localService` 设出，我方 `qwen-local` 自定义 provider 两者皆无 = 代码层面不触发）→ 首次启动前显式 `tools.toolSearch: false`（文档与代码不一致时按代价不对称取安全方向：若触发，Gateway 会把 schema 换成 `tool_search`/`tool_describe`/`tool_call`，而 `proxy_filters.ALLOWED_TOOLS` 16 项白名单不含这三个名字 → 被剥离 → PA 工具静默失能 = fail-plausible；显式 false 在不触发时是 no-op）
 
 ### 7.1 升级前备份（5 分钟）
 
@@ -307,7 +309,7 @@ openclaw message send --channel discord -t "user:$DISCORD_TARGET" -m "回滚完�
 
 > ⚠️ **2026-04 时点快照，勿作当前判断依据**。本节的收益/风险/建议（含选项 A/B/C = hold / 升 4.2 / 升 4.1）
 > 是首次评估时的判断；此后 4.27 已于 2026-06-11 升级完成，且第六/七/八次评估的方案 A/B/C 是**另一套语义**
-> （A=hold / B=中间版本 / C=现升最新）。**当前判断以最新评估节（第二十三节；第十一次见第二十二节）为准**，本节仅作历史留档。
+> （A=hold / B=中间版本 / C=现升最新）。**当前判断以最新评估节（第二十四节；第十二次见第二十三节）为准**，本节仅作历史留档。
 
 ### 升级收益
 1. **WhatsApp 稳定性提升**：bundled sidecar + crash fix + timestamp
@@ -1269,6 +1271,7 @@ beta 骨架是 **17**；100 在两者之间有 5× 以上余量。只有 3 个�
 | **2026.9.3**（第十次评估追加） | 203 | 0 | 1843 | 203 | 859 | 可判 | 可判 → ❌ DIRTY(16) |
 | **2026.9.4**（第十一次评估追加） | 59 | 0 | 1174 | **59** | **331** | ⚠️ 不可判 | 可判（仅行内引用过门槛）→ ❌ DIRTY(9) |
 | **2026.9.5**（第十二次评估追加） | 54 | 0 | 4245 | **54** | **217** | ⚠️ 不可判 | 可判（仅行内引用过门槛）→ ❌ DIRTY(2) |
+| **2026.9.6**（第十三次评估追加） | **0** | 0 | 2674 | **0** | **651** | ⚠️ 不可判 | 可判（仅行内引用过门槛；叙述 bullet 形态再换）→ ❌ DIRTY(7) |
 
 9.1 的叙述段行内引用 924 个唯一 PR，**多于 8.1 的 802**——内容完整，只是粒度从 bullet 变成段落。原协议对它判
 「不可判」是**计量单位错了 ≠ 内容不够**：与 V37.9.288「搜索坏了 ≠ 没搜到」同族，只是这次坏的是尺子。若不重标定，
@@ -1650,3 +1653,88 @@ Subagent continuation「resume tasks after output-limited tool calls」的 `resu
 处置已在本节预注册），或下一个 stable 发布时的判据 ①/②/③ 跟踪（① 走 19.8 修订后协议；三项全同则按日落规则追加读数不新开节）。
 
 ---
+
+---
+
+## 第二十四节：第十三次评估（2026-09-24，2026.9.6 stable 触发判据跟踪——第十二次评估 23.5 预设的「下一个 stable」到期，且判据 ② 状态变化 → 按日落规则新开节而非追加读数）
+
+> 触发：23.5 预设的跟踪点是「下一个 stable 发布时：走 19.8 修订后协议核对 ①，记与 9.5（09-19 01:14Z）的间隔判 ②，
+> 同时记 4 周窗滚动速率，复核 `engines.node` ③，再按日落规则决定追加段还是新开节」。上游于 **2026-09-23 23:07Z 发布
+> 2026.9.6**，与 9.5 间隔 **4 天 21 小时 52 分（4.91 天）** → 落在预注册的「< 7 天 → 🔴」带，判据 ② 由 🟡 回到 🔴 =
+> **「任一判据状态变化」条件命中，按 22.5 日落规则新开本节**（23.5 写明的追加条件是「② 仍 🟡」，本次不满足）。周四开工按原则 #1 触发。
+> 方法：`npm pack` 9.5（对照）/ 9.6 → 19.8 修订后协议 + engines 跨版本对比 + **dist 源码对照两份核实 Tool Search 默认的门控**
+> + 9.6 内置 docs 复核 + npm 元数据复测插件 peer floor + dev 跑 check_upgrade.sh（tripwire 0/6：时间 2/180，**版本差距 40/50**，
+> [3/6][4/6] 在 dev 因 GitHub API 不可达为 NA）。
+
+### 24.1 一句话结论
+
+**继续 hold。判据 ❌🔴✅：① 9.6 可判 → DIRTY 7，连续干净计数仍为 0（连续第七个 DIRTY）；② 9.5→9.6 间隔 4.91 天，按预注册规则由 🟡
+回到 🔴，且 4 周窗主线 8 个 stable = 2.0/周（历次最高）——第十二次的 🟡 是单点读数，本次证实滚动节奏没有放缓；③ `engines.node` 与
+9.5 / 9.4 / 9.3 逐字相同。** 第四类风险候选 3 项，**1 项作预防性进前置 C（13 → 14）**：Tool Search 默认开（#154068）——changelog 与内置 docs
+宣称「embedded runs 未设即开」，但 dist 门控显示它只对 Ollama / LM Studio / `localService` 路由生效，我方自定义 provider 不触发；
+**文档与代码不一致时按代价不对称取安全方向**（若真触发，proxy 白名单会剥掉 `tool_search`/`tool_call` → PA 静默失能），显式关闭在不触发时是 no-op。
+另 2 项（Desktop sharing / Telegram 批处理）与我方部署面无关，登记不入。
+
+### 24.2 上游现状（2026-09-24 实证）
+
+- dist-tags：latest = **2026.9.6**（09-23 23:07Z）/ beta = **2026.9.6**（仍与 latest 重合）/ extended-stable = **2026.7.35**（未动）。
+- 发布序列：9.5（09-19）→ **9.6（09-23）**，间隔 **4.91 天**。4 周窗（08-27 → 09-24）主线 **8 个 stable**
+  （8.1 / 8.2 / 9.1 / 9.2 / 9.3 / 9.4 / 9.5 / 9.6）= **2.0/周**（第十二次 1.75/周），另有维护线 4 个 tag（6.35 / 7.33 / 7.34 / 7.35）。
+- 贡献记录段自述「**2,674 in-range PRs**」（9.5 为 4,245）；叙述段行内唯一 PR 引用 **651**。
+- 4.27 → 9.6 精确 **37 个 minor stable**（含维护线 6 个，主线 31）；tripwire 版本差距计数 **40/50**（剩 10）。
+- **4.27 仍未被 deprecate**；发布于 2026-04-29，至今 148 天。
+- engines.node：**9.6 = `>=24.16.0 <25 || >=26.1.0`，与 9.5 / 9.4 / 9.3 逐字相同**。
+
+### 24.3 三条收敛判据逐一核对
+
+| 判据 | 第十二次（09-22）状态 | 第十三次（09-24）实证 | 判定 |
+|------|------------------|-----------------|------|
+| **① SQLite/session 弧线收敛** | ❌ 9.5 DIRTY 2 | 9.6 协议可判（仅行内引用 651 过门槛）→ **DIRTY 7**：「Older-state upgrades: complete schema migrations when updating from 2026.9.2」(#153657) / 「Migration recovery: let verified session migrations finish despite pending plugins」/ 「Update completion: preserve successful results during concurrent SQLite writes」/ 「Updates: finish updates after shared state migrations, keep the canonical handoff database path」/ Doctor 的 session SQLite recovery 与 orphaned SQLite history 保留（#155752）。**多跳升级的状态修复继续按起跳版本逐段补**（本次补 9.2 起跳）——4.27 起跳是否被覆盖仍无证据 | ❌ **计数仍 0**（连续第七个 DIRTY） |
+| **② 发版节奏 ≤1/周** | 🟡 9.4→9.5 间隔 7.94 天 | 9.5→9.6 间隔 **4.91 天**；4 周窗主线 **2.0/周**，历次最高 | 🔴 **由 🟡 回到 🔴**（本节新开的触发条件） |
+| **③ Node 区间确认** | ✅ | 9.6 engines 与 9.5 / 9.4 / 9.3 **逐字相同**，Mac Mini 26.5.0 仍在区间；9.6 继续修 updater 的 Node 安装路径（#145335/#152973）= 升级后 Node/服务环境核对仍必要 | ✅ |
+
+### 24.4 判据 ① 协议第十点 + 第四类风险核实（+1 项预防性）+ 持有成本 + 收益侧
+
+**19.8 协议第十点**：叙述段 bullet 形态再次变化——9.6 的 Highlights/Changes/Fixes 条目写成 `- Updates: …` 而非 `- **…`，
+协议的「叙述条目」计数归 **0**，贡献记录段 2,674 行全为裸 PR；**仅靠行内引用 651 过门槛**可判（第五次由行内引用分支救场：
+9.1 / 9.2 / 9.4 / 9.5 / 9.6）。门槛不动；行已追加进 20.4 表。**诚实登记**：「叙述条目」这把尺子在 9.x 线上已连续失效，
+协议可判性现在实际完全依赖行内引用分支——若上游再去掉行内 `(#PR)`，协议会整体判「不可判」，届时按 19.8 自带的重标定分支处理，不绕过门槛。
+
+**第四类风险候选（dist 核实门控后判定）**：
+
+| 候选 | 上游声明 | dist 实证 | 结论 |
+|------|---------|----------|------|
+| Tool Search 默认开（#154068/#154005） | changelog「enable structured Tool Search by default for embedded and Copilot runs when unset」；docs/tools/tool-search.md「structured `tools` surface is on by default for OpenClaw runs」 | `resolveAgentToolSearchRuntimeConfig` 仅在 `model.toolSearchMode === "tools"`（或 local-model lean）时注入 `{enabled:true, mode:"tools"}`；`toolSearchMode` 仅由 provider policy hook（dist 中实现者只有 ollama / lmstudio，且 ollama 对 hosted 路由返回 false）或 provider 配置 `localService` 设出。我方 `qwen-local` 为自定义 OpenAI 兼容 provider，两者皆无 → **不触发**。9.5 同函数门控逻辑相同（仅去掉 `!runtimeConfig` 短路） | **入前置 C 第 14 项（预防性）**：文档与代码不一致，且一旦触发代价是 PA 静默失能（`tool_search`/`tool_describe`/`tool_call` 不在 `proxy_filters.ALLOWED_TOOLS`）；显式 `tools.toolSearch: false` 不触发时 no-op |
+| Desktop sharing 默认开（#153359） | Mac/Tauri 桌面 app 设置 | 仅桌面 app；我方不运行桌面 app | 登记不入 |
+| Telegram 突发文本 300 ms 批处理默认（#155842） | Telegram 通道 | 我方无 Telegram 通道 | 登记不入 |
+
+**持有成本复测**：weixin 最新仍 **2.4.9**（09-17），peer 仍 `>=2026.5.12` → 4.27 上限 2.4.4，落后 **4 个已发布版本 / 94 天**；
+`@openclaw/whatsapp@2026.9.6` + `@openclaw/discord@2026.9.6` peer `>=2026.9.6` 锁步再证；4.27 仍未 deprecate。
+
+**收益侧（诚实登记，不改结论）**：Restart recovery 恢复滞留会话 + Node 重启时保留进行中工作（#153243 等，与 V37.8.13 宕机恢复同源）/
+Update completion 在并发 SQLite 写入下保留成功结果 / Gateway responsiveness 继续把 session-list、transcript 工作移出主线程 /
+Update 拒绝时点名被占用的安装目标（#155692）。**「complete schema migrations when updating from 2026.9.2」= 9.2 起跳的升级链自身有缺陷、
+9.6 才补 → 方案 B（中间版本）第四次再证不可取。**
+
+### 24.5 结论与建议：**继续 hold（判据 ❌🔴✅）+ 前置 C 第 14 项预防性加入**
+
+- **方案 A（推荐，不变）**：hold 4.27。判据 ② 由 🟡 回到 🔴 是本节新开的原因，不是结论变化的原因——第十二次的 🟡 已注明是单点读数，
+  本次滚动速率 2.0/周直接证实节奏未收敛。
+- **tripwire [2/6]**：40/50，剩 10；按 4 周窗主线 8 + 维护线 4 的节奏约 3 周内触发。**触发日处置沿用 23.5 预注册**（改口径 / 调阈值 /
+  接受每周告警三选一，当日按数据决定），本节不重写、不预先改机器。
+- **下次跟踪点**：
+  1. **下一个 stable 发布时**：(a) 走 19.8 **修订后**协议核对 ①（行内引用分支现为唯一可判路径，见 24.4 诚实登记）；
+     (b) 记与 9.6（09-23 23:07Z）的间隔判 ②——≥ 14 天 → ✅，< 7 天 → 🔴，之间 → 🟡，**同时记 4 周窗滚动速率**；
+     (c) `engines.node` 复核 ③；(d) 按 22.5 日落规则决定「追加段」还是「新开节」
+     （三项全同 = ① 仍 DIRTY 且 ② 仍 🔴 且 ③ 区间不变，且无新默认自主行为 → 只在本节末追加「24.6 追加读数」，不新开评估节、
+     不重置 LAST_EVAL_DATE；追加读数仍走 19.8 协议，不得简化为裸 grep）。
+  2. **Tool Search 门控复核**：下一个 stable 复查 `resolveAgentToolSearchRuntimeConfig` 与 `toolSearchMode` 来源——若门控放宽到
+     自定义 provider，前置 C 第 14 项由「预防性」升为「必须」，并在 changelog 登记实际触发条件。
+  3. **19.5 持有成本**每次复测（本次 4 版 / 94 天；credential-prompt 弃用 11-30 到期后记录 weixin 兼容性）。
+  4. 前置 C 现为 14 项。
+- **方案 B（中间版本）**：仍不可取（锁步 9.6 再证；9.2 起跳的 schema 迁移缺陷在 9.6 才补）。
+- **方案 C（若用户决定现升）**：在 7.0 三项前置之上，前置 A 用 9.6 区间（= 9.5 = 9.4 = 9.3）+ 升级后 Node/服务环境核对、前置 C 现为 14 项
+  （第 13 项跨 provider 消息与第 14 项 Tool Search 须在首次启动前显式关闭）；升级为 migration-bearing，**自动回滚不适用，7.1 全量快照必做**。
+
+**LAST_EVAL_DATE 更新至 2026-09-24**（第十三次评估完成，重置时间 tripwire）。下次触发 = 任一 tripwire 跳红（[2/6] 预计约 3 周内，
+处置沿用 23.5 预注册），或下一个 stable 发布时的判据 ①/②/③ 跟踪（① 走 19.8 修订后协议；三项全同则按日落规则追加读数不新开节）。

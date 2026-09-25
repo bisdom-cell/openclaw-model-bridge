@@ -625,8 +625,9 @@ class TestEleventhEvaluationPresent(unittest.TestCase):
             self.assertNotIn(f"#{p}", self.prereq, f"9.4 候选 #{p} 已核实为门控/opt-in，不得进前置 C（22.4 明写登记不入）")
         # V37.9.354 演进（V37.9.131 alternation）：9.5 真新增第 13 项（#149875），18 → 19；
         # 本断言的意图不变——9.4 的两项候选没有以「悄悄多一项」的形式混进清单。
-        self.assertEqual(self.prereq.count("- [ ]"), 19,
-                         "7.0 清单应恰 19 个勾选项（3 基础 + A + B + C 头 + 13 子项：12 + V37.9.354 第 13 项）；若真需新增请同步演进本 pin")
+        # V37.9.360 演进（V37.9.131 alternation）：9.6 预防性新增第 14 项（Tool Search），19 → 20；意图不变——9.4 候选没有混进清单。
+        self.assertEqual(self.prereq.count("- [ ]"), 20,
+                         "7.0 清单应恰 20 个勾选项（3 基础 + A + B + C 头 + 14 子项：12 + V37.9.354 第 13 项 + V37.9.360 第 14 项）；若真需新增请同步演进本 pin")
 
     def test_prereq_c_item12_carries_9_4_mitigation_without_removal(self):
         """#139495（9.3 更新自动推理修复）仍在前置 C，且同一行带 9.4 的缓解注记（#143767 家族）。"""
@@ -728,7 +729,8 @@ class TestTwelfthEvaluationPresent(unittest.TestCase):
         self.assertIsNotNone(line)
         self.assertIn("allowAcrossProviders", line, "第 13 项须写出可行动的配置键")
         self.assertIn("首次启动前", line, "第 13 项须写明在首次启动前显式关闭")
-        self.assertEqual(self.prereq.count("- [ ]"), 19)
+        # V37.9.360 演进：第 14 项（Tool Search 预防性）加入后 19 → 20，第 13 项本身不变。
+        self.assertEqual(self.prereq.count("- [ ]"), 20)
         s234 = _slice(self.sec23, "### 23.4", "### 23.5")
         self.assertIn("第 13 项", s234)
 
@@ -813,6 +815,87 @@ class TestTwelfthEvaluationPresent(unittest.TestCase):
         self.assertIn("不预先改机器", s235, "预注册须明确本节不改 tripwire 机器（日落法）")
         for opt in ("改口径", "调阈值", "接受每周告警"):
             self.assertIn(opt, s235, f"触发日三选一须写明选项「{opt}」及代价")
+
+
+class TestThirteenthEvaluationPresent(unittest.TestCase):
+    """第十三次评估（V37.9.360，2026-09-24）自身的落地守卫。
+
+    2026.9.6（09-23）= 23.5 预设的「下一个 stable」到期；判据 ② 由 🟡 回到 🔴（4.91 天）→ 日落规则新开第二十四节；
+    Tool Search 默认开（#154068）经 dist 核实门控不触发我方自定义 provider，但与上游文档不一致 → 前置 C 第 14 项作预防性关闭。
+    """
+
+    def setUp(self):
+        self.doc = _read()
+        self.head = self.doc[:self.doc.index("## 一、版本概览")]
+        self.sec24 = self.doc[self.doc.index("## 第二十四节"):]
+        self.sop = _slice(self.doc, "## 七、升级 SOP", "## 八、综合评估")
+        self.prereq = _slice(self.sop, "### 7.0", "### 7.1")
+
+    def test_section24_exists_with_all_subsections(self):
+        for sub in ("### 24.1", "### 24.2", "### 24.3", "### 24.4", "### 24.5"):
+            self.assertIn(sub, self.sec24, f"第二十四节缺 {sub}")
+
+    def test_thirteenth_eval_heading_present_and_listed_in_head(self):
+        found = [(m.group(1), m.group(2), m.group(3)) for m in _EVAL_HEADING.finditer(self.doc)]
+        self.assertIn(("第二十四节", "十三", "2026-09-24"), found, found)
+        self.assertIn("十三次评估", self.head)
+        self.assertIn("2026.9.6", self.head, "头部当前态行须写上游 latest 2026.9.6")
+        self.assertIn("第二十四节 24.5", self.head)
+
+    def test_new_section_justified_not_appended(self):
+        """23.5 追加条件写的是「② 仍 🟡」；本次 ② 回到 🔴 = 状态变化，须以新开节落地，不得出现 23.6 追加段。"""
+        self.assertIn("日落规则", self.sec24)
+        self.assertIn("新开", self.sec24)
+        self.assertNotIn("### 23.6", self.doc)
+
+    def test_criterion2_red_with_interval_and_rolling_rate(self):
+        s243 = _slice(self.sec24, "### 24.3", "### 24.4")
+        self.assertIn("4.91", s243)
+        self.assertIn("2.0/周", s243)
+        self.assertIn("🔴", s243)
+        self.assertIn("DIRTY", s243)
+        self.assertIn("计数仍 0", s243)
+        for bad in ("9.6 干净", "计数 1", "② ✅", "节奏已收敛"):
+            self.assertNotIn(bad, self.sec24, f"不得出现误记「{bad}」")
+
+    def test_prereq_c_item14_tool_search_actionable(self):
+        line = next((l for l in self.prereq.splitlines() if "#154068" in l), None)
+        self.assertIsNotNone(line, "9.6 Tool Search 默认开未进 7.0 前置 C")
+        self.assertIn("tools.toolSearch: false", line, "第 14 项须写出可行动的配置键")
+        self.assertIn("首次启动前", line)
+        self.assertIn("预防性", line, "第 14 项须诚实标注为预防性（dist 门控显示不触发）")
+        self.assertEqual(self.prereq.count("- [ ]"), 20)
+
+    def test_item14_rationale_matches_proxy_whitelist(self):
+        """MR-8 跨文件契约：第 14 项的理由是「tool_search 系列名字不在 proxy 白名单 → 被剥离」。
+        若未来白名单加入这三个名字，理由失效——本守卫先红，提醒复核第 14 项措辞。"""
+        import proxy_filters
+        for name in ("tool_search", "tool_describe", "tool_call"):
+            self.assertNotIn(name, proxy_filters.ALLOWED_TOOLS, f"{name} 已进白名单，复核前置 C 第 14 项理由")
+        self.assertIn("ALLOWED_TOOLS", self.prereq)
+
+    def test_candidate_table_verdicts_match_prereq_c(self):
+        s244 = _slice(self.sec24, "### 24.4", "### 24.5")
+        self.assertIn("#154068", s244)
+        for pr in ("#153359", "#155842"):
+            self.assertIn(pr, s244, f"候选表缺 {pr}")
+            self.assertNotIn(pr, self.prereq, f"登记不入的 {pr} 不得进前置 C")
+        self.assertIn("登记不入", s244)
+
+    def test_protocol_tenth_point_recorded_in_both_sections(self):
+        s244 = _slice(self.sec24, "### 24.4", "### 24.5")
+        for n in ("651", "2,674"):
+            self.assertIn(n, s244, f"24.4 缺 9.6 协议实测数据点 {n}")
+        s204 = _slice(self.doc, "### 20.4", "### 20.5")
+        row = next((l for l in s204.splitlines() if l.startswith("|") and "2026.9.6" in l), None)
+        self.assertIsNotNone(row, "20.4 表须追加 2026.9.6 一行")
+        self.assertIn("651", row)
+        self.assertIn("DIRTY", row)
+
+    def test_tracking_point_routes_through_protocol_and_sunset_rule(self):
+        s245 = _slice(self.sec24, "### 24.5", "**LAST_EVAL_DATE")
+        for kw in ("19.8", "engines.node", "不新开评估节", "不重置 LAST_EVAL_DATE", "裸 grep", "[2/6]", "23.5"):
+            self.assertIn(kw, s245, f"24.5 缺 {kw}")
 
 
 if __name__ == "__main__":

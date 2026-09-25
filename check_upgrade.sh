@@ -27,6 +27,12 @@ else
 fi
 
 # ── 配置（升级后须更新 LAST_EVAL_DATE）──
+# 2026-09-24 第十三次评估 (2026.9.6 stable, 23.5 预设跟踪点到期; 判据 ② 由 🟡 回到 🔴 = 日落规则「任一判据状态变化」新开节): 继续 hold——
+#    ① 9.6 修订协议可判 (叙述 0/行内 651, bullet 形态再换仅行内分支可判) → DIRTY 7 (complete schema migrations from 9.2 /
+#    verified session migrations / concurrent SQLite writes) 计数仍 0 = 连续第七个 DIRTY ② 🔴 9.5→9.6 间隔 4.91 天, 4 周窗主线
+#    2.0/周 (历次最高) ③ ✅ engines 四版逐字同. 第四类风险候选 3: Tool Search 默认开 (#154068) dist 门控仅 ollama/lmstudio/
+#    localService 触发, 我方自定义 provider 不触发但与上游文档不一致 → 前置 C 第 14 项预防性 tools.toolSearch:false (13→14);
+#    Desktop sharing / Telegram 批处理登记不入. tripwire [2/6] 40/50 剩 10, 触发日沿用 23.5 预注册处置. 详见 eval doc 第二十四节.
 # 2026-09-22 第十二次评估 (2026.9.5 stable, 22.5 预设跟踪点到期; 判据 ② 由 🔴 变 🟡 = 日落规则「任一判据状态变化」新开节): 继续 hold——
 #    ① 9.5 修订协议可判 (叙述 54/行内 217) → DIRTY 2 (shared WAL after refused restore / shared-state repair for July upgrades
 #    / Plugin SDK Gateway V2 迁移) 计数仍 0 = 连续第六个 DIRTY ② 🟡 9.4→9.5 间隔 7.94 天 (7.1→8.1 以来首个 ≥7 天, 但 4 周窗主线
@@ -49,7 +55,7 @@ fi
 # ② 节奏 🔴 由 ✅ 退回 (6 天 4 个 stable, 冲刷假设待下一 stable 间隔定性) ③ Node 区间 ✅ (9.1/9.2 与 8.1 逐字同).
 # 上游 changelog 换格式 → 19.8 协议加行内 PR 引用量重标定; 默认自主行为再增 3 项 (会话可见性/跨 agent 访问/Swarm)
 # → 7.0 前置 C 7→10 项. 详见 eval doc 第二十节 (第八次见第十九节). 背景 (第六次): 三结构性迁移 M1/M2/M3 + 回滚单向门.
-LAST_EVAL_DATE="${OPENCLAW_LAST_EVAL_DATE:-2026-09-22}"  # V37.9.354: 第十二次评估 (eval doc 第二十三节; 第十一次=第二十二节)
+LAST_EVAL_DATE="${OPENCLAW_LAST_EVAL_DATE:-2026-09-24}"  # V37.9.360: 第十三次评估 (eval doc 第二十四节; 第十二次=第二十三节)
 TIME_TRIPWIRE_DAYS="${OPENCLAW_TIME_TRIPWIRE_DAYS:-180}"
 VERSION_GAP_TRIPWIRE="${OPENCLAW_VERSION_GAP_TRIPWIRE:-50}"
 CVE_FILE="${OPENCLAW_CVE_ALERT_FILE:-$HOME/.openclaw_cve_alert}"
