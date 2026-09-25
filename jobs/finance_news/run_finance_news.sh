@@ -840,6 +840,39 @@ print(c)
         fi
     fi
 
+    # V37.9.361: 失败证据独立留存。llm_raw_last.json 每次尝试、每次运行都被覆盖——
+    # 2026-09-24 07:30 三次 short_content:13 的原始响应在次日成功运行后已被覆盖，
+    # 原因分类知道「是什么类」却拿不到「那 13 个字符是什么」。本文件只在失败时写
+    # （首次尝试新建、后续尝试追加），成功运行绝不触碰 → 保留最近一次失败运行的全部尝试。
+    ATTEMPT="$attempt" FAIL_REASON="${LAST_LLM_FAIL_REASON:-unknown}" CURL_EXIT="$CURL_RC" \
+    RAW_PATH="$LLM_RAW" EVIDENCE_PATH="$CACHE/llm_raw_failed.json" $PYTHON3 -c "
+import json, os, time
+env = os.environ
+raw_path, out = env['RAW_PATH'], env['EVIDENCE_PATH']
+raw = open(raw_path, encoding='utf-8', errors='replace').read() if os.path.exists(raw_path) else ''
+rec = {'time': time.strftime('%Y-%m-%d %H:%M:%S'), 'attempt': int(env['ATTEMPT']),
+       'reason': env['FAIL_REASON'], 'curl_rc': int(env['CURL_EXIT']), 'raw': raw[:20000]}
+try:
+    d = json.loads(raw)
+    c = d['choices'][0]
+    rec['finish_reason'] = c.get('finish_reason')
+    rec['content'] = (c.get('message') or {}).get('content')
+    rec['usage'] = d.get('usage')
+    rec['model'] = d.get('model')
+except Exception:
+    pass
+doc = {'attempts': []}
+if rec['attempt'] > 1 and os.path.exists(out):
+    try:
+        doc = json.load(open(out, encoding='utf-8'))
+    except Exception:
+        doc = {'attempts': []}
+doc['attempts'].append(rec)
+tmp = out + '.tmp'
+json.dump(doc, open(tmp, 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
+os.replace(tmp, out)
+" 2>/dev/null || log "WARN: LLM 失败证据写入失败（不影响本次运行）"
+
     log "WARN: LLM attempt ${attempt}/3 失败: ${LAST_LLM_FAIL_REASON:-unknown}"
     if [ "$attempt" -lt 3 ]; then sleep "$((attempt * 10))"; fi
 done
