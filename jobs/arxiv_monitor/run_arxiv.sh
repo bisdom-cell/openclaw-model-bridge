@@ -797,12 +797,18 @@ ${SUMMARY}"
 fi
 
 # ── 8. 永久归档到 sources ───────────────────────────────────────────────
-# V37.6: idempotent H2-dedup append — 同一天多次运行不会产生重复 section
+# V37.6: idempotent H2-dedup append。
+# V37.9.362: cron 08:00/20:00 一天两次，标记带 HH:MM 区分班次（镜像
+# ontology_sources V37.6 同款）。此前用 "## ${DAY}"，20:00 那次的新论文被
+# kb_append_source 当成"同一天重复"静默跳过——永久归档只剩早班，晚间整理 /
+# 深度分析 / 周回顾 / Dream 都看不到晚班论文。同一 slot 的重复触发才幂等跳过。
+SLOT_TAG="$(TZ=${SYSTEM_TZ:-Asia/Hong_Kong} date '+%H:%M')"
+SECTION_MARKER="## ${DAY} ${SLOT_TAG}"
 {
     echo ""
-    echo "## ${DAY}"
+    echo "${SECTION_MARKER}"
     cat "$MSG_FILE"
-} | bash "$HOME/kb_append_source.sh" "$KB_SRC" "## ${DAY}"
+} | bash "$HOME/kb_append_source.sh" "$KB_SRC" "${SECTION_MARKER}"
 
 # ── 9. 清理seen缓存（保留最近500条，防无限增长）────────────────────────
 if [ "$(wc -l < "$SEEN_FILE" | tr -d ' ')" -gt 500 ]; then

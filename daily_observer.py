@@ -469,16 +469,21 @@ def scan_source_sections(kb_dir, target_date, max_sources=5, max_chars_per=500):
         except OSError:
             continue
 
+        # V37.9.362: 同一天可以有多个段（arxiv 08:00/20:00、ontology_sources
+        # 10:00/20:00 用 "## DATE HH:MM" 区分班次）。原实现每遇到一个当日 H2 就
+        # 重置 section_lines、遇到其他 H2 就 break → 只保留当天最后一段，早班
+        # 内容对观察者不可见。改为累积全部当日段，其他 H2 只结束当前段不终止扫描。
         in_section = False
         section_lines = []
         for line in lines:
             if h2_pattern.match(line):
                 in_section = True
-                section_lines = [line]
+                section_lines.append(line)
                 continue
             if in_section:
-                if line.startswith("## ") and not h2_pattern.match(line):
-                    break
+                if line.startswith("## "):
+                    in_section = False
+                    continue
                 section_lines.append(line)
 
         if section_lines:
