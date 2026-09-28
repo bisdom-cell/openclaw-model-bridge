@@ -65,7 +65,15 @@ fi
     if command -v flock >/dev/null 2>&1; then
         flock -w 30 200
     fi
-    cat >> "$KB_SRC"
+    # V37.9.362: H2 只留给段标记。stdin 里除标记行本身以外的 "## " 行降为
+    # "### "——否则一个内层二级标题会把当日段切开：按 H2 切段的读取方拿到
+    # 「只有日期标题、正文为空」的段（finance_news 的 LLM 模板有 4 个内层
+    # "## 📰 今日要闻" 类标题；任何 LLM 也可能自发输出）。标记经 ENVIRON 传入，
+    # 避开 awk -v 的反斜杠转义；逐字节比较，BSD awk 兼容。
+    H2_MARKER="$H2_MARKER" awk '
+        substr($0, 1, 3) == "## " && $0 != ENVIRON["H2_MARKER"] { print "#" $0; next }
+        { print }
+    ' >> "$KB_SRC"
 ) 200>"${KB_SRC}.lock"
 
 # 不清理 .lock 文件（cron 下次复用），避免并发竞争

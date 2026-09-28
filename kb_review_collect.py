@@ -112,6 +112,29 @@ def _date_patterns_for_window(days, today=None):
     return patterns
 
 
+# V37.9.362: extract_recent_sections 的预算与无 H2 回退参数
+_MAX_SECTIONS = 10
+_SECTION_FLOOR = 400
+_TRUNC_MARK = "\n...[truncated]"
+_ANY_DATE_RE = re.compile(r"\d{4}-\d{2}-\d{2}")
+
+
+def _fair_cap(lengths, budget):
+    """max-min 公平份额：返回每段长度上限 c，使 sum(min(len, c)) <= budget。"""
+    if budget <= 0 or not lengths:
+        return 0
+    ls = sorted(lengths)
+    remaining = budget
+    n = len(ls)
+    for i, length in enumerate(ls):
+        share = remaining // (n - i)
+        if length <= share:
+            remaining -= length
+        else:
+            return share
+    return ls[-1]
+
+
 def extract_recent_sections(content, days, max_chars, today=None):
     """按 H2 (`^## `) 章节拆分 markdown，返回最近 N 天的章节合并文本。
 
@@ -152,11 +175,22 @@ def extract_recent_sections(content, days, max_chars, today=None):
     if current_header is not None:
         sections.append((current_header, current_body))
 
-    # No H2 structure — fallback to last 50 non-empty lines
+    # No H2 structure.
+    # V37.9.362: 行内带日期的文件（hn_daily.md 每行 "| YYYY-MM-DD |"）按窗口日期
+    # 过滤行——原「最后 50 行」不看日期，源停跑多日时旧条目被当成窗口内内容
+    # （茶思屋 / HN 冒充「今日覆盖源」）。只有全文件找不到任何日期的真·无日期
+    # 文件才保留尾部兜底（避免完全空白）。预算截尾取最新，不取最旧。
     if not sections:
-        fallback_lines = [l for l in lines if l.strip()][-50:]
-        text = "\n".join(fallback_lines)
-        return text[:max_chars] if len(text) > max_chars else text
+        nonempty = [l for l in lines if l.strip()]
+        if any(_ANY_DATE_RE.search(l) for l in nonempty):
+            nonempty = [l for l in nonempty if any(p in l for p in patterns)]
+        text = "\n".join(nonempty[-50:])
+        if len(text) > max_chars:
+            text = text[-max_chars:]
+            nl = text.find("\n")
+            if 0 <= nl < len(text) - 1:
+                text = text[nl + 1:]
+        return text
 
     # Filter sections whose header or first 5 body lines mention a window date
     recent = []
@@ -165,26 +199,37 @@ def extract_recent_sections(content, days, max_chars, today=None):
         if any(p in probe for p in patterns):
             recent.append((header, body))
 
-    # Budget-aware concatenation (section boundaries only)
     if not recent:
         return ""
 
-    out_chunks = []
-    total = 0
-    for header, body in recent[:10]:  # at most 10 sections per source
-        block = header + "\n" + "\n".join(body).rstrip()
-        block_len = len(block) + 2  # for separator
-        if total + block_len > max_chars:
-            remaining = max_chars - total
-            if remaining > 400:  # only truncate if meaningfully large
-                # Truncate at next newline to avoid mid-line cut
-                cut = block[:remaining].rfind("\n")
-                if cut > 0:
-                    out_chunks.append(block[:cut] + "\n...[truncated]")
-            break
-        out_chunks.append(block)
-        total += block_len
+    # V37.9.362: 预算按段公平分配（max-min），不再「最旧段先吃满预算」。
+    # 原实现按文件顺序（= 最旧在前）逐段累加、超预算即停，且只取前 10 段：
+    #   - 周回顾（7 天 × 3000 字/源）对日均 >3000 字的源只看得到一周前那一天；
+    #   - 晚间整理（2500 字）对 arxiv 只看得到早班，晚班永远被挤掉。
+    # 现在：保留最新 _MAX_SECTIONS 段 → 放得下就全放 → 放不下则每段拿公平份额，
+    # 份额低于 _SECTION_FLOOR 时从最旧段开始舍弃；输出仍按时间顺序。
+    blocks = [(header + "\n" + "\n".join(body)).rstrip()
+              for header, body in recent][-_MAX_SECTIONS:]
+    sep = 2
+    if sum(len(b) for b in blocks) + sep * (len(blocks) - 1) <= max_chars:
+        return "\n\n".join(blocks)
 
+    def _cap(bs):
+        avail = max_chars - sep * (len(bs) - 1) - len(_TRUNC_MARK) * len(bs)
+        return _fair_cap([len(b) for b in bs], avail)
+
+    cap = _cap(blocks)
+    while cap < _SECTION_FLOOR and len(blocks) > 1:
+        blocks = blocks[1:]
+        cap = _cap(blocks)
+
+    out_chunks = []
+    for b in blocks:
+        if len(b) <= cap:
+            out_chunks.append(b)
+            continue
+        cut = b[:cap].rfind("\n")
+        out_chunks.append((b[:cut] if cut > 0 else b[:cap]) + _TRUNC_MARK)
     return "\n\n".join(out_chunks)
 
 

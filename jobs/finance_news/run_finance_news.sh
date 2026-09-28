@@ -903,9 +903,18 @@ ${LLM_CONTENT}"
 WA_MSG="${FULL_MSG:0:3800}"
 
 # ── KB 归档 ──────────────────────────────────────────────────────────
-KB_APPEND_SCRIPT="${HOME}/openclaw-model-bridge/kb_append_source.sh"
+# V37.9.362: 标记必须是写进文件的那一行 "## ${DAY}"。此前传裸 "$DAY" 且内容
+# 不带日期标题 → 归档里从没有 "## YYYY-MM-DD" 段（只有 LLM 模板的 "## 📰 今日要闻"
+# 等无日期标题）→ 按日期窗口读的晚间整理/周回顾/观察者永远找不到当日财经
+# （晚间报「今日无更新」），且幂等标记永不命中（同日重跑整段重复）。
+# helper 取运行时副本，与其余 16 个归档调用点同形。
+KB_APPEND_SCRIPT="$HOME/kb_append_source.sh"
 if [ -f "$KB_APPEND_SCRIPT" ]; then
-    echo "$LLM_CONTENT" | bash "$KB_APPEND_SCRIPT" "$KB_SRC" "$DAY" "finance_news"
+    {
+        echo ""
+        echo "## ${DAY}"
+        printf '%s\n' "$LLM_CONTENT"
+    } | bash "$KB_APPEND_SCRIPT" "$KB_SRC" "## ${DAY}"
 else
     # fallback: 直接 append
     printf '\n## %s\n\n%s\n' "$DAY" "$LLM_CONTENT" >> "$KB_SRC"

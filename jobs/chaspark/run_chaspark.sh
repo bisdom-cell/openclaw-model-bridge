@@ -766,9 +766,15 @@ if [ -x "$KB_WRITE_SCRIPT" ] || [ -f "$KB_WRITE_SCRIPT" ]; then
     log "KB 写入完成"
 fi
 
+# V37.9.362: 标记必须是写进文件的那一行 "## ${DAY}"。此前传裸 "11:00" 且内容
+# 只有 H1 标题 → 归档没有任何 H2 段 → 按日期窗口读的消费方退回「取最后 50 行」，
+# 茶思屋停跑多日时仍把旧文章当「今日覆盖源」；且幂等标记永不命中。
 if [ -f "$KB_APPEND_SCRIPT" ]; then
-    SLOT_TAG="11:00"
-    echo "$KB_CONTENT" | bash "$KB_APPEND_SCRIPT" "$KB_SRC" "$SLOT_TAG"
+    {
+        echo ""
+        echo "## ${DAY}"
+        printf '%s\n' "$KB_CONTENT"
+    } | bash "$KB_APPEND_SCRIPT" "$KB_SRC" "## ${DAY}"
 fi
 
 # ── 推送 (WhatsApp + Discord 双通道) ─────────────────────────────────
