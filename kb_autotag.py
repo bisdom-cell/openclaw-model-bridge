@@ -3,6 +3,12 @@
 kb_autotag.py — KB 标签自动化
 根据内容关键词自动推断标签，替代硬编码的 "技术/AI"。
 
+作用范围（V37.9.363 核实后写明）：kb_write.sh 只在**没有传入标签**时调用本模块。
+生产里所有定时任务写笔记都显式带标签（arxiv-ai-models / rss-blogs / finance-news
+等），所以本模块在生产中基本不会被触发——V37.9.355 当时声称「新写的机器人笔记会
+自动打上 技术/机器人」不成立（生产实测 0 条）。分类规则只对未带标签的写入和手动
+--retag 生效。
+
 用法：
   python3 kb_autotag.py "some content about machine learning"  # 输出标签
   python3 kb_autotag.py --retag                                # 批量重新标记已有 notes

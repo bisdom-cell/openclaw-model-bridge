@@ -921,8 +921,14 @@ else
 fi
 
 # ── KB notes 写入 ────────────────────────────────────────────────────
+# V37.9.363: kb_write.sh 只收位置参数 (内容 标签 类型)，从不读 stdin、不解析选项。
+# 此前这里用 --title/--tags 选项 + 管道传正文 → 正文被丢弃，每天写入一条内容为
+# "--title" 的垃圾笔记 + 一个 "topics/财经简报 <日期>.md" 垃圾文件。对齐兄弟 job 写法。
 if [ -f "$KB_WRITE_SCRIPT" ]; then
-    echo "$LLM_CONTENT" | bash "$KB_WRITE_SCRIPT" --title "财经简报 ${DAY}" --tags "finance,policy,daily" --source "finance_news"
+    KB_NOTE="# 财经简报 ${DAY}
+
+${LLM_CONTENT}"
+    bash "$KB_WRITE_SCRIPT" "$KB_NOTE" "finance-news" "note" 2>/dev/null || true
 fi
 
 # ── 推送（WhatsApp + Discord）────────────────────────────────────────

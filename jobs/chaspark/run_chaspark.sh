@@ -761,8 +761,11 @@ $(cat "$MSG_FILE")
 采集时间: ${TS}
 版本: V37.9.62 (per-article 6 字段 + Phase B 跨域分析混合设计)"
 
+# V37.9.363: kb_write.sh 只收位置参数 (内容 标签 类型)，从不读 stdin、不解析选项。
+# 此前这里用 --title/--tags 选项 + 管道传正文 → 正文被丢弃，每天写入一条内容为
+# "--title" 的垃圾笔记 + 一个 "topics/茶思屋深度分析 <日期>.md" 垃圾文件。对齐兄弟 job 写法。
 if [ -x "$KB_WRITE_SCRIPT" ] || [ -f "$KB_WRITE_SCRIPT" ]; then
-    echo "$KB_CONTENT" | bash "$KB_WRITE_SCRIPT" --title "茶思屋深度分析 $DAY" --tags "chaspark,华为,科技前沿"
+    bash "$KB_WRITE_SCRIPT" "$KB_CONTENT" "chaspark" "note" 2>/dev/null || true
     log "KB 写入完成"
 fi
 
