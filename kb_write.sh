@@ -1,6 +1,19 @@
 #!/bin/bash
-# 使用 mkdir 原子锁（macOS 兼容），进程退出后 trap 自动释放
 KB_BASE="${KB_BASE:-$HOME/.kb}"
+# V37.9.363: 只接受位置参数 (内容 标签 类型)。本脚本从不解析 --title/--tags 这类
+# 选项，也不读 stdin：finance_news 与 chaspark 曾按选项写法调用，结果 "--title"
+# 被当成正文、日期被当成标签、stdin 里的真实内容被丢弃，每天各产出一条垃圾笔记
+# 和一个垃圾 topics 文件（生产累计 327 + 287）。误用时直接报错退出，不再静默写入。
+for _arg in "$1" "$2" "$3"; do
+    case "$_arg" in
+        --[A-Za-z]*)
+            echo "[kb_write] ERROR: 不支持选项参数 ${_arg%%[[:space:]]*}；用法: kb_write.sh \"内容\" \"标签\" \"类型\"" >&2
+            exit 2
+            ;;
+    esac
+done
+
+# 使用 mkdir 原子锁（macOS 兼容），进程退出后 trap 自动释放
 LOCKDIR="$KB_BASE/.write.lockdir"
 while ! mkdir "$LOCKDIR" 2>/dev/null; do sleep 0.1; done
 trap 'rmdir "$LOCKDIR" 2>/dev/null' EXIT

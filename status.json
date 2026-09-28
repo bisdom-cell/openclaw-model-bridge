@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-28 04:22:49",
+  "updated": "2026-09-28 06:33:13",
   "updated_by": "full_regression",
   "priorities": [
     {
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-09-28",
+      "what": "V37.9.363 kb_write.sh 调用契约: finance_news/chaspark 按 --title/--tags 选项+管道调用 kb_write.sh (它只收位置参数不读 stdin) → 正文丢弃, 每天写入 \"--title\" 垃圾笔记 + 垃圾 topics 文件 (生产累计 327+287); 修两个调用点为位置参数 + kb_write 遇 --选项 rc=2 不写入 + 守卫 16 单测 sabotage 三连; 顺带更正 V37.9.355 技术/机器人 自动标签说法 (kb_autotag 只在未传标签时运行, 生产定时任务全带标签). VERSION 0.37.9.182",
+      "by": "claude_code"
+    },
     {
       "date": "2026-09-25",
       "what": "V37.9.361 finance_news 失败证据独立留存: 用户取证发现 llm_raw_last.json 已被次日成功运行覆盖 (09-24 的 13 字符永久不可知, 不做推测性修复) → 失败分支写 cache/llm_raw_failed.json (最近一次失败运行全部尝试, 成功不触碰, 含解码 content/finish_reason/usage); 守卫 +6 sabotage 双连开火; VERSION 0.37.9.180",
@@ -173,16 +178,6 @@
       "date": "2026-09-01",
       "what": "V37.9.336 同版修真接缝: 升级 SOP 第七节是 2026-04 时点快照(目标版本 4.2/回滚硬编码 3.13-1/「30 秒无损」承诺/缺三项累积前置/命令块违反原则#35) → 收敛为现时清单 + 7.5 改为消费 7.1 既有产出 + 19 单测跨节契约守卫(sabotage 六连开火)",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-09-01",
-      "what": "V37.9.336 OpenClaw 第八次升级评估(2026.8.1 stable 触发): 继续 hold, 判据 ❌✅✅ 卡点首次收敛到判据①一条; 新增第四类风险「默认自主行为扩张」(7 项默认变更 3 项踩已立案血案) + 持有成本首次可量化(weixin 插件落后 4 版/71 天)",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-09-28",
-      "what": "V37.9.362 sources 归档段契约: arxiv 08/20 两班次标记不带班次→晚班被当同日重复丢弃 / finance 裸 DAY 标记+无日期标题→当日财经对窗口读取方不可见 / chaspark 裸 11:00+仅 H1→旧文冒充今日; helper 内层 H2 降级; observer 同日多段累积; extract_recent_sections 预算公平分配(周回顾此前只看得到一周前那一天)+无 H2 行内日期过滤(HN); 守卫 26 单测 sabotage 七连; 顺带归账关闭 7 项已闭环 unfinished (18 被 V37.9.358 取代; 35/40/46/49/58/64 早已标 ✅); VERSION 0.37.9.181",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -231,7 +226,7 @@
     "security_score": "98/100 (98.0%)",
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB",
     "slo": {
-      "checked_at": "2026-09-28 04:07:43",
+      "checked_at": "2026-09-28 06:17:58",
       "all_ok": true,
       "judged_count": 1,
       "na_count": 4,
@@ -352,7 +347,9 @@
       "OpenClaw 4.27 WhatsApp 428 Precondition Required「Connection Terminated」(2026-09-22T15:28Z) 后通道 stopped 不自动重连, 需 restart.sh 才恢复 (凭据未丢, 不需扫码) → 下次升级评估收益侧 B2「WhatsApp 重连改进仅 ≥6.x」的本地实证数据点; 另: 6 月 408 血案教训再确认——状态 stopped≠logged out 时绝不扫码",
       "arxiv 09-23 08:00 因 notify rc=1 记 send_failed 未标 seen → 20:00 会重推同 10 篇 (Discord 重复); 已交接一次性 new_ids.txt >> seen_ids.txt 去重命令, 用户执行与否均可 (LLM 成本 10 次调用级)",
       "【finance_news short_content:13 · 2026-09-24 · 已处置 V37.9.361】用户取证: llm_raw_last.json 已被次日成功运行覆盖(992 token 正常分析) → 09-24 那 13 字符永久不可知, 次日已恢复, 不做推测性修复。V37.9.361 起失败时写 cache/llm_raw_failed.json(成功不触碰)。剩被动观察: 若再现, 读该文件的 content/finish_reason 定性。",
-      "【V37.9.362 sources 归档段契约 · Mac Mini 被动验证】合并 + git fetch+reset 同步（6 文件走 FILE_MAP 零重启）后: (a) 今晚 20:00 arxiv 若有新论文写 `## 2026-09-28 20:00` 段（今早 08:00 旧格式 `## 2026-09-28` 并存正常）(b) 明晚后三源计数 arxiv 应 2 / finance 应 1 / chaspark 当日运行则 1 (c) 明晚晚间整理「今日覆盖源」应出现财经、茶思屋停跑日应列为今日无更新 (d) 下周五 21:00 周回顾素材应横跨 7 天。可选: 茶思屋历史 H1 块补 `## 日期` 标题（幂等+备份，命令见 V37.9.362 交接）。"
+      "【V37.9.362 sources 归档段契约 · Mac Mini 被动验证】合并 + git fetch+reset 同步（6 文件走 FILE_MAP 零重启）后: (a) 今晚 20:00 arxiv 若有新论文写 `## 2026-09-28 20:00` 段（今早 08:00 旧格式 `## 2026-09-28` 并存正常）(b) 明晚后三源计数 arxiv 应 2 / finance 应 1 / chaspark 当日运行则 1 (c) 明晚晚间整理「今日覆盖源」应出现财经、茶思屋停跑日应列为今日无更新 (d) 下周五 21:00 周回顾素材应横跨 7 天。可选: 茶思屋历史 H1 块补 `## 日期` 标题（幂等+备份，命令见 V37.9.362 交接）。",
+      "[V37.9.363 待用户] 合并同步并确认运行副本后, 用 ~/kb_cleanup_363.py 预览再 --apply 清理 327 条垃圾笔记 + 287 个垃圾 topics 文件 (备份落 ~/kb_write_garbage_backup_*.tar.gz); 次日复核 grep -l \"^# --title$\" ~/.kb/notes/*.md 为 0; 清理后 Windows E 盘镜像 kb 模块预计连续 2 个早上报 rc=25 (删除保险丝 300, 614 个文件分两天删完后自愈, 属正常)",
+      "[低优观察 V37.9.363] kb_write.sh 笔记文件名只精确到秒: 同一秒两次写入后者覆盖前者且 index 留两条 (dev 清理测试撞到); 生产各 job 写入相隔数分钟风险低, 若出现 index 条目 summary 与文件正文不符再处理"
     ],
     "open_prs": [],
     "blocked_on": "",
@@ -361,14 +358,14 @@
   },
   "quality": {
     "security_score": 98,
-    "test_count": 6640,
-    "last_regression": "2026-09-28 04:22 pass",
+    "test_count": 6656,
+    "last_regression": "2026-09-28 06:32 pass",
     "coverage_pct": 0,
     "security_score_time": "2026-07-20 01:07",
-    "test_suites": 201,
+    "test_suites": 202,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
-    "version": "0.37.9.181",
+    "version": "0.37.9.182",
     "observer": {}
   },
   "incidents": [
