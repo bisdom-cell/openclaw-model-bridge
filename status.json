@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-29 07:49:44",
+  "updated": "2026-09-29 08:06:33",
   "updated_by": "unknown",
   "priorities": [
     {
@@ -364,7 +364,7 @@
       "【finance_news short_content:13 · 2026-09-24 · 已处置 V37.9.361】用户取证: llm_raw_last.json 已被次日成功运行覆盖(992 token 正常分析) → 09-24 那 13 字符永久不可知, 次日已恢复, 不做推测性修复。V37.9.361 起失败时写 cache/llm_raw_failed.json(成功不触碰)。剩被动观察: 若再现, 读该文件的 content/finish_reason 定性。",
       "【V37.9.362 sources 归档段契约 · Mac Mini 被动验证】合并 + git fetch+reset 同步（6 文件走 FILE_MAP 零重启）后: (a) 今晚 20:00 arxiv 若有新论文写 `## 2026-09-28 20:00` 段（今早 08:00 旧格式 `## 2026-09-28` 并存正常）(b) 三源计数: finance 1 ✅ / chaspark 1 ✅ (09-29 实测) / arxiv 两班次待核 (c) 明晚晚间整理「今日覆盖源」应出现财经、茶思屋停跑日应列为今日无更新 (d) 下周五 21:00 周回顾素材应横跨 7 天。茶思屋历史补标题 ✅ 已执行（2026-09-28 12:37:06，逐块核对 121/121 日报块前均紧跟同日期标题、缺 0；备份 ~/.kb/sources/chaspark.md.bak.v37_9_362 含 121 块 0 日期段 = 今日 11:00 仍是旧代码运行，与财经 07:30 无日期段一致）。注: 该补标题命令判「已有标题」看前 3 行任意 `## `，上一块短于 3 行时会漏补本块（dev 复核时发现，真实日报块均 ≥6 行未触发，实测 0 缺）。",
       "[低优观察 V37.9.363] kb_write.sh 笔记文件名只精确到秒: 同一秒两次写入后者覆盖前者且 index 留两条 (dev 清理测试撞到); 生产各 job 写入相隔数分钟风险低, 若出现 index 条目 summary 与文件正文不符再处理",
-      "[V37.9.362/363/364 生产验证全部通过 ✅ 2026-09-29] 财经 07:30: 笔记 1 条 7632 字节、topics/finance-news.md 首次出现、finance_daily.md 日期段 0→1。茶思屋: 11:00:01 与 13:08:32 两次 HTTP 418 (华为云 CloudWAF) → V37.9.364 加 418 重试 → 合并同步后 15:23 手动补跑 status ok / new 8 / sent true, 笔记 1 条 (tags chaspark)、topics/chaspark.md 当日 1 条、chaspark.md 日期段 121→122、当日段正文 154 行。剩: (a) grep 'WAF 拦截' ~/.openclaw/logs/jobs/chaspark.log 随日积累对账重试是否救回 (b) 确认无误后可删 ~/kb_write_garbage_backup_20260928145321_27788.tar.gz 与 ~/.kb/sources/chaspark.md.bak.v37_9_362 (c) Windows kb 模块 rc=25 09-29/09-30 两早属预期, 10-01 回 rc=0。"
+      "[V37.9.362/363/364 生产验证全部通过 ✅ 2026-09-29] 财经 07:30: 笔记 1 条 7632 字节、topics/finance-news.md 首次出现、finance_daily.md 日期段 0→1。茶思屋: 11:00:01 与 13:08:32 两次 HTTP 418 (华为云 CloudWAF) → V37.9.364 加 418 重试 → 合并同步后 15:23 手动补跑 status ok / new 8 / sent true, 笔记 1 条 (tags chaspark)、topics/chaspark.md 当日 1 条、chaspark.md 日期段 121→122、当日段正文 154 行。两个备份文件已删 ✅ (09-29)。剩: (a) grep 'WAF 拦截' ~/.openclaw/logs/jobs/chaspark.log 09-29 为 0 行 = 15:23 那次首请求即 200、重试尚未真实触发过; 之后出现「被 WAF 拦截」+「重试结果: 状态码 200」即重试救回, 状态码 418 即重试无效需另议 (b) Windows kb 模块 rc=25 09-29/09-30 两早属预期, 10-01 回 rc=0。"
     ],
     "open_prs": [],
     "blocked_on": "",
