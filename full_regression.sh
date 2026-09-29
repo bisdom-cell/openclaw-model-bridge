@@ -233,6 +233,7 @@ run_suite "v37_9_358_atomic_deploy_copy (V37.9.358 auto_deploy 原子复制 — 
 run_suite "v37_9_359_notify_partial_delivery (V37.9.359 notify 返回码「≥1 通道送达即 0」— 部分失败入队+PARTIAL 信号, 血案: 09-23 WhatsApp 428 掉线 Discord 已送达却全 job 记 send_failed + arxiv 假 CORE)" "python3 test_v37_9_359_notify_partial_delivery.py"
 run_suite "v37_9_362_archive_section_contract (V37.9.362 sources 永久归档段契约 — 全部 kb_append_source 调用点从源码发现逐一守 H2 标记/标记写进文件/一天多跑带班次 + helper 内层 H2 降级 + 观察者同日多段累积, 血案: arxiv 20:00 班次被当同日重复静默丢弃 / 财经无日期段晚间报今日无更新 / 茶思屋旧文冒充今日)" "python3 test_v37_9_362_archive_section_contract.py"
 run_suite "v37_9_363_kb_write_callers (V37.9.363 kb_write.sh 调用契约 — 全部调用点从源码发现逐一守 只收位置参数/不读 stdin + kb_write 遇 --选项 响亮失败不写入 + finance/chaspark 真源码块接真 kb_write 跑, 血案: 选项写法让正文被丢弃 每天写入 \"--title\" 垃圾笔记与垃圾 topics 文件 生产累计 327+287)" "python3 test_v37_9_363_kb_write_callers.py"
+run_suite "v37_9_364_chaspark_waf_retry (V37.9.364 茶思屋 API 被华为云 WAF 间歇拦截 HTTP 418 时等待后重试一次 — 真源码抓取块接假 curl/假 sleep 跑: 418→200 继续且日志不被 watchdog 当错误 / 两次 418 仍 error 且可被扫到 / 200·500·curl 失败不重试 / 失败码是 000 不是 000000 / 默认等 120 秒)" "python3 test_v37_9_364_chaspark_waf_retry.py"
 if [ -f test_movespeed_incident_analyzer.py ]; then
     run_suite "movespeed_incident_analyzer (V37.9.28 F2 — 数据驱动诊断分析工具)" "python3 test_movespeed_incident_analyzer.py"
 fi
