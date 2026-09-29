@@ -89,12 +89,35 @@ API_BASE="https://www.chaspark.com/chasiwu/v1"
 SLOTS="homeBanner1,homeGeneralBanner,homelive,homeActivity"
 RAW_JSON="$CACHE/raw/api_${DAY}.json"
 
+# V37.9.364: 站点前置华为云 WAF (CloudWAF)，会间歇性返回 418「访问被拦截」。
+# 2026-09-29 对照实测：与本任务逐字相同的请求（同一个 /usr/bin/curl、同 UA、
+# 带与不带 _t 各测、交互 shell 与 bash -lc 两种环境）8 次全部 200；而本任务当天
+# 11:00:01 与 13:08:32 各被拦一次，后一次紧跟在一次手动 200 之后。拦截与请求
+# 形态无关，时有时无；日志累计 6/76 次，被拦当天整份摘要缺席。
+# 只对 418 等一段时间后重试一次；其他错误码照旧直接失败，不扩大范围。
+# 首次被拦的日志行刻意不写 "HTTP 418" 字样：重试成功的日子不应被 watchdog
+# 日志扫描当成错误；两次都被拦时，下方的失败行仍然匹配并告警。
+# 重试是否真的有效，可按 grep 'WAF 拦截' chaspark.log 对账。
+WAF_RETRY_SEC="${CHASPARK_WAF_RETRY_SEC:-120}"
+
+fetch_api() {
+    local code
+    code=$($CURL -sS --max-time 30 -w '%{http_code}' \
+        -H "User-Agent: $UA" \
+        -o "$RAW_JSON" \
+        "${API_BASE}/content/recommend/slot?slot=${SLOTS}&size=20&current=1&lang=zh&_t=$(date +%s)" \
+        2>/dev/null) || code="000"
+    echo "$code"
+}
+
 log "抓取 Chaspark API: $SLOTS"
-HTTP_CODE=$($CURL -sS --max-time 30 -w '%{http_code}' \
-    -H "User-Agent: $UA" \
-    -o "$RAW_JSON" \
-    "${API_BASE}/content/recommend/slot?slot=${SLOTS}&size=20&current=1&lang=zh&_t=$(date +%s)" \
-    2>/dev/null) || HTTP_CODE="000"
+HTTP_CODE=$(fetch_api)
+if [ "$HTTP_CODE" = "418" ]; then
+    log "被 WAF 拦截 (状态码 418)，${WAF_RETRY_SEC}s 后重试一次"
+    sleep "$WAF_RETRY_SEC"
+    HTTP_CODE=$(fetch_api)
+    log "WAF 拦截后重试结果: 状态码 $HTTP_CODE"
+fi
 
 if [ "$HTTP_CODE" != "200" ] || [ ! -s "$RAW_JSON" ]; then
     log "API 抓取失败 (HTTP $HTTP_CODE)"
