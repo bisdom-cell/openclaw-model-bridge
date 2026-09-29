@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-29 08:06:33",
+  "updated": "2026-09-29 08:22:12",
   "updated_by": "unknown",
   "priorities": [
     {
@@ -275,7 +275,7 @@
     }
   },
   "session_context": {
-    "last_session": "2026-09-28",
+    "last_session": "2026-09-29",
     "unfinished": [
       "【2026-07-02 多镜头审计 · 9 findings 全部处置完毕 (V37.9.226-239: 8 修复闭环 + I half-open 登记为可接受设计 tradeoff) · 剩纯 Mac Mini 被动验证】同步+重启 proxy/adapter 后观察: (A) 真 fallback 时 proxy 日志 DEGRADED 行 + proxy_stats.json slo.fallback_count 变真值 (V37.9.229) (C) ls ~/.kb/status.json.lock ~/.kb/audit.jsonl.lock 伴生锁文件出现 (V37.9.238) (E) client 断开时 adapter.log 记 CLIENT GONE 单行非 traceback (V37.9.231/242) (B) streaming 请求撞 parse 异常时 Gateway 收 SSE 而非 content-type 错配 (V37.9.239) (G) last_run_self_critique.json time 本地格式 + watchdog 4h 覆盖 observer (V37.9.230)。完整分诊记录见 CLAUDE.md V37.9.226-239 changelog, 无 dev 剩余动作。",
       "【V37.9.211/212 Qwen3 端点刷新 · adapter ✅ + V37.9.212 ✅ 已并入 main(PR#774, 2026-07-02 dev 核实) · 剩用户 env 动作】剩余非紧急: (A) .env_shared 设新 REMOTE_API_KEY+REMOTE_BASE_URL(cron 直连脚本 health_check 每周报 CURRENT_MODEL/diagnose 用) (C) 🔴 明文 key 建议用完轮换。教训钉死: adapter/proxy 是 launchd job, env 改必须进 plist EnvironmentVariables + bootout/bootstrap(不是 shell export + kickstart)。",
@@ -368,7 +368,7 @@
     ],
     "open_prs": [],
     "blocked_on": "",
-    "focus": "V37.9.362 sources 永久归档段契约修复已提交待合并 (arxiv 晚班 / 财经日期段 / 茶思屋 HN 旧文冒充今日 / 周回顾窗口公平); 合并后 Mac Mini 同步零重启, 明晚后三源计数验证; DBLP Anubis 仍待镜像探针.",
+    "focus": "2026-09-29: V37.9.362/363/364 全链生产验证通过 (财经 07:30 + 茶思屋 15:23 补跑: 笔记 1 条 / topics 1 条 / 日期段 121→122); WAF 418 重试已部署但尚未真实触发; DBLP Anubis [76] 仍待镜像探针.",
     "recent_changes": []
   },
   "quality": {
@@ -445,7 +445,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-09-29: V37.9.364 茶思屋 WAF 418 重试已交付待同步; 财经侧 V37.9.362+363 生产验证通过, 茶思屋写入验证顺延到下一次 200 运行; DBLP Anubis [76] 仍待镜像探针.",
+  "focus": "2026-09-29: V37.9.362/363/364 全链生产验证通过 (财经 07:30 + 茶思屋 15:23 补跑: 笔记 1 条 / topics 1 条 / 日期段 121→122); WAF 418 重试已部署但尚未真实触发; DBLP Anubis [76] 仍待镜像探针.",
   "notes": "",
   "preferences": [
     "[auto] 常用工具：read(10次)、sessions_spawn(8次)、sessions_history(8次)",
