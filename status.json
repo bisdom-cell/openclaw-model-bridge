@@ -1,6 +1,6 @@
 {
-  "updated": "2026-09-29 06:23:56",
-  "updated_by": "full_regression",
+  "updated": "2026-09-29 08:37:44",
+  "updated_by": "security_score",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -188,6 +188,11 @@
       "date": "2026-09-29",
       "what": "V37.9.364 茶思屋 API 被华为云 WAF 间歇拦截 (HTTP 418) 时等 120s 重试一次: 对照探针 8/8 全 200 推翻整点反爬与请求形态差异猜测, 按预注册分支落地; 14 单测 + sabotage 四连; 财经侧 V37.9.362+363 首日生产验证通过",
       "by": "claude_code"
+    },
+    {
+      "date": "2026-09-29",
+      "what": "V37.9.363/364 茶思屋生产验证通过: 15:23 补跑 ok/new 8/sent, 笔记 1 条 + topics 1 条 + chaspark.md 日期段 121→122 (正文 154 行); 核对命令先在 dev 假 HOME 正反两向验证 (写入 1/1/3/8, 未写 0/0/2/0)",
+      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -236,7 +241,7 @@
     "security_score": "98/100 (98.0%)",
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB",
     "slo": {
-      "checked_at": "2026-09-29 06:10:45",
+      "checked_at": "2026-09-29 08:24:45",
       "all_ok": true,
       "judged_count": 1,
       "na_count": 4,
@@ -270,7 +275,7 @@
     }
   },
   "session_context": {
-    "last_session": "2026-09-28",
+    "last_session": "2026-09-29",
     "unfinished": [
       "【2026-07-02 多镜头审计 · 9 findings 全部处置完毕 (V37.9.226-239: 8 修复闭环 + I half-open 登记为可接受设计 tradeoff) · 剩纯 Mac Mini 被动验证】同步+重启 proxy/adapter 后观察: (A) 真 fallback 时 proxy 日志 DEGRADED 行 + proxy_stats.json slo.fallback_count 变真值 (V37.9.229) (C) ls ~/.kb/status.json.lock ~/.kb/audit.jsonl.lock 伴生锁文件出现 (V37.9.238) (E) client 断开时 adapter.log 记 CLIENT GONE 单行非 traceback (V37.9.231/242) (B) streaming 请求撞 parse 异常时 Gateway 收 SSE 而非 content-type 错配 (V37.9.239) (G) last_run_self_critique.json time 本地格式 + watchdog 4h 覆盖 observer (V37.9.230)。完整分诊记录见 CLAUDE.md V37.9.226-239 changelog, 无 dev 剩余动作。",
       "【V37.9.211/212 Qwen3 端点刷新 · adapter ✅ + V37.9.212 ✅ 已并入 main(PR#774, 2026-07-02 dev 核实) · 剩用户 env 动作】剩余非紧急: (A) .env_shared 设新 REMOTE_API_KEY+REMOTE_BASE_URL(cron 直连脚本 health_check 每周报 CURRENT_MODEL/diagnose 用) (C) 🔴 明文 key 建议用完轮换。教训钉死: adapter/proxy 是 launchd job, env 改必须进 plist EnvironmentVariables + bootout/bootstrap(不是 shell export + kickstart)。",
@@ -357,19 +362,19 @@
       "OpenClaw 4.27 WhatsApp 428 Precondition Required「Connection Terminated」(2026-09-22T15:28Z) 后通道 stopped 不自动重连, 需 restart.sh 才恢复 (凭据未丢, 不需扫码) → 下次升级评估收益侧 B2「WhatsApp 重连改进仅 ≥6.x」的本地实证数据点; 另: 6 月 408 血案教训再确认——状态 stopped≠logged out 时绝不扫码",
       "arxiv 09-23 08:00 因 notify rc=1 记 send_failed 未标 seen → 20:00 会重推同 10 篇 (Discord 重复); 已交接一次性 new_ids.txt >> seen_ids.txt 去重命令, 用户执行与否均可 (LLM 成本 10 次调用级)",
       "【finance_news short_content:13 · 2026-09-24 · 已处置 V37.9.361】用户取证: llm_raw_last.json 已被次日成功运行覆盖(992 token 正常分析) → 09-24 那 13 字符永久不可知, 次日已恢复, 不做推测性修复。V37.9.361 起失败时写 cache/llm_raw_failed.json(成功不触碰)。剩被动观察: 若再现, 读该文件的 content/finish_reason 定性。",
-      "【V37.9.362 sources 归档段契约 · Mac Mini 被动验证】合并 + git fetch+reset 同步（6 文件走 FILE_MAP 零重启）后: (a) 今晚 20:00 arxiv 若有新论文写 `## 2026-09-28 20:00` 段（今早 08:00 旧格式 `## 2026-09-28` 并存正常）(b) 明晚后三源计数 arxiv 应 2 / finance 应 1 / chaspark 当日运行则 1 (c) 明晚晚间整理「今日覆盖源」应出现财经、茶思屋停跑日应列为今日无更新 (d) 下周五 21:00 周回顾素材应横跨 7 天。茶思屋历史补标题 ✅ 已执行（2026-09-28 12:37:06，逐块核对 121/121 日报块前均紧跟同日期标题、缺 0；备份 ~/.kb/sources/chaspark.md.bak.v37_9_362 含 121 块 0 日期段 = 今日 11:00 仍是旧代码运行，与财经 07:30 无日期段一致）。注: 该补标题命令判「已有标题」看前 3 行任意 `## `，上一块短于 3 行时会漏补本块（dev 复核时发现，真实日报块均 ≥6 行未触发，实测 0 缺）。",
+      "【V37.9.362 sources 归档段契约 · Mac Mini 被动验证】合并 + git fetch+reset 同步（6 文件走 FILE_MAP 零重启）后: (a) 今晚 20:00 arxiv 若有新论文写 `## 2026-09-28 20:00` 段（今早 08:00 旧格式 `## 2026-09-28` 并存正常）(b) 三源计数: finance 1 ✅ / chaspark 1 ✅ (09-29 实测) / arxiv 两班次待核 (c) 明晚晚间整理「今日覆盖源」应出现财经、茶思屋停跑日应列为今日无更新 (d) 下周五 21:00 周回顾素材应横跨 7 天。茶思屋历史补标题 ✅ 已执行（2026-09-28 12:37:06，逐块核对 121/121 日报块前均紧跟同日期标题、缺 0；备份 ~/.kb/sources/chaspark.md.bak.v37_9_362 含 121 块 0 日期段 = 今日 11:00 仍是旧代码运行，与财经 07:30 无日期段一致）。注: 该补标题命令判「已有标题」看前 3 行任意 `## `，上一块短于 3 行时会漏补本块（dev 复核时发现，真实日报块均 ≥6 行未触发，实测 0 缺）。",
       "[低优观察 V37.9.363] kb_write.sh 笔记文件名只精确到秒: 同一秒两次写入后者覆盖前者且 index 留两条 (dev 清理测试撞到); 生产各 job 写入相隔数分钟风险低, 若出现 index 条目 summary 与文件正文不符再处理",
-      "[V37.9.363 清理已执行 ✅ 2026-09-28 14:53 · 财经首日写入已验证 ✅ 2026-09-29 · 茶思屋待下次 200 运行] 清理: 删除 327 笔记 + 287 topics + 327 index 条目, 备份 ~/kb_write_garbage_backup_20260928145321_27788.tar.gz (确认后可删)。09-29 实测: finance-news 07:30 笔记 1 条 7632 字节、标题 \"# # 财经简报 2026-09-29\"、topics/finance-news.md 首次出现、finance_daily.md 日期段 0→1 = V37.9.362+363 在财经侧生产验证通过。茶思屋 09-29 11:00:01 与 13:08:32 补跑均 HTTP 418 (华为云 CloudWAF 拦截, 在写知识库前退出) → V37.9.364 加 418 等待 120s 重试一次; 剩: 下一次拿到 200 的茶思屋运行后用同两条命令查 (应笔记 1 条 / chaspark.md 日期段 122), 并 grep \"WAF 拦截\" ~/.openclaw/logs/jobs/chaspark.log 对账重试是否有效。Windows kb 模块 rc=25 09-29/09-30 两早属预期, 10-01 应回 rc=0; 03:30 kb_embed 剪幽灵向量一次性重建。"
+      "[V37.9.362/363/364 生产验证全部通过 ✅ 2026-09-29] 财经 07:30: 笔记 1 条 7632 字节、topics/finance-news.md 首次出现、finance_daily.md 日期段 0→1。茶思屋: 11:00:01 与 13:08:32 两次 HTTP 418 (华为云 CloudWAF) → V37.9.364 加 418 重试 → 合并同步后 15:23 手动补跑 status ok / new 8 / sent true, 笔记 1 条 (tags chaspark)、topics/chaspark.md 当日 1 条、chaspark.md 日期段 121→122、当日段正文 154 行。两个备份文件已删 ✅ (09-29)。剩: (a) grep 'WAF 拦截' ~/.openclaw/logs/jobs/chaspark.log 09-29 为 0 行 = 15:23 那次首请求即 200、重试尚未真实触发过; 之后出现「被 WAF 拦截」+「重试结果: 状态码 200」即重试救回, 状态码 418 即重试无效需另议 (b) Windows kb 模块 rc=25 09-29/09-30 两早属预期, 10-01 回 rc=0。"
     ],
     "open_prs": [],
     "blocked_on": "",
-    "focus": "V37.9.362 sources 永久归档段契约修复已提交待合并 (arxiv 晚班 / 财经日期段 / 茶思屋 HN 旧文冒充今日 / 周回顾窗口公平); 合并后 Mac Mini 同步零重启, 明晚后三源计数验证; DBLP Anubis 仍待镜像探针.",
+    "focus": "2026-09-29: V37.9.362/363/364 全链生产验证通过 (财经 07:30 + 茶思屋 15:23 补跑: 笔记 1 条 / topics 1 条 / 日期段 121→122); WAF 418 重试已部署但尚未真实触发; DBLP Anubis [76] 仍待镜像探针.",
     "recent_changes": []
   },
   "quality": {
     "security_score": 98,
     "test_count": 6670,
-    "last_regression": "2026-09-29 06:23 pass",
+    "last_regression": "2026-09-29 08:37 pass",
     "coverage_pct": 0,
     "security_score_time": "2026-07-20 01:07",
     "test_suites": 203,
@@ -440,7 +445,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-09-29: V37.9.364 茶思屋 WAF 418 重试已交付待同步; 财经侧 V37.9.362+363 生产验证通过, 茶思屋写入验证顺延到下一次 200 运行; DBLP Anubis [76] 仍待镜像探针.",
+  "focus": "2026-09-29: V37.9.362/363/364 全链生产验证通过 (财经 07:30 + 茶思屋 15:23 补跑: 笔记 1 条 / topics 1 条 / 日期段 121→122); WAF 418 重试已部署但尚未真实触发; DBLP Anubis [76] 仍待镜像探针.",
   "notes": "",
   "preferences": [
     "[auto] 常用工具：read(10次)、sessions_spawn(8次)、sessions_history(8次)",
