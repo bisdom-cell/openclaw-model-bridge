@@ -8605,8 +8605,11 @@ invariants:
           openclaw 直推保留 (双通道独立, V37.8.13 教训告警链不依赖
           失效主体自身).
       (5) **health_status.json 机器可读契约保留** (HEALTH_JSON_PATH env,
-          version 字段 v37.9.78, 含 services/model/kb/ssd 五字段),
-          供 watchdog / status_refresh 消费.
+          version 字段 v37.9.78, 含 services/model/kb/ssd 五字段).
+          V37.9.365 更正: 原文称「供 watchdog / status_refresh 消费」, 全仓 grep
+          无任何运行时消费者（两者都直接读 adapter /health）, 契约保留供调试;
+          model 字段由 remote/local/match（Qwen3 远端 vs qwen-local 标签）改为
+          primary/fallback_chain/circuit_breaker/reachable（读 adapter /health）.
 
       v1.1 → v2.0 迁移 (V37.9.78): 移除 2 段冗余 (任务统计与 daily_ops_report
       重叠 / Session 历史大小低价值), 新增 5 段证据 = 信息密度从近 0

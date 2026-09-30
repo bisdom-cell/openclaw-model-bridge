@@ -1,6 +1,6 @@
 {
-  "updated": "2026-09-29 08:37:44",
-  "updated_by": "security_score",
+  "updated": "2026-09-30 01:04:29",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-09-30",
+      "what": "V37.9.365 周报/诊断「模型」检查改测主力路由（adapter /health: 主力+fallback链+断路器），退役 Qwen3 远端比对（自 V37.9.222 起测的是 fallback 末位）；diagnose/cron_doctor 错误 launchd 标签收编 restart.sh；新守卫 test_v37_9_365 24 单测；VERSION 0.37.9.184",
+      "by": "claude_code"
+    },
     {
       "date": "2026-09-28",
       "what": "V37.9.363 同日后记: 用户在 Mac Mini 完成垃圾笔记清理 (327 笔记 / 287 topics / 327 index, 14:53, 已备份), 与预测逐一吻合; 残留检查与次日复核命令在 dev 假知识库上验证后交付; unfinished 由待执行转为被动验证",
@@ -173,26 +178,6 @@
       "date": "2026-09-01",
       "what": "V37.9.337 20:30 告警 triage: 时序排除本次改动是治理 fail 自变量(PR 合并 21:45/22:44 vs 告警 20:30) + finance_news LLM 失败可定性根治(curl 退出码不再被吞/三层分类对齐 10 个兄弟 job/短内容不谎称调用失败/status 带 llm_fail_reason), 17 单测 sabotage 五连开火",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-09-01",
-      "what": "V37.9.336 追加 19.8: 判据①对 2026.9.1-beta.1 提前读数=不可判(N/A)非干净(0 计数是内容未写: 1520 裸 PR 行 vs 8.1=506/7.1=1719 语义条目) + 核对协议固化(整份扫描+内容门槛 rc=3 不可判, 防最贵方向假绿) + 守卫 19→28 sabotage 四连开火",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-09-28",
-      "what": "茶思屋历史补日期标题实测完成: 备份 12:37:06 创建, 121 个日报块全部紧跟同日期 ## 标题 (逐块核对 0 缺); 顺带登记该一次性命令在短块(<3 行)下会漏补的缺陷(真实数据未触发)",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-09-29",
-      "what": "V37.9.364 茶思屋 API 被华为云 WAF 间歇拦截 (HTTP 418) 时等 120s 重试一次: 对照探针 8/8 全 200 推翻整点反爬与请求形态差异猜测, 按预注册分支落地; 14 单测 + sabotage 四连; 财经侧 V37.9.362+363 首日生产验证通过",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-09-29",
-      "what": "V37.9.363/364 茶思屋生产验证通过: 15:23 补跑 ok/new 8/sent, 笔记 1 条 + topics 1 条 + chaspark.md 日期段 121→122 (正文 154 行); 核对命令先在 dev 假 HOME 正反两向验证 (写入 1/1/3/8, 未写 0/0/2/0)",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -241,7 +226,7 @@
     "security_score": "98/100 (98.0%)",
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB",
     "slo": {
-      "checked_at": "2026-09-29 08:24:45",
+      "checked_at": "2026-09-30 00:59:48",
       "all_ok": true,
       "judged_count": 1,
       "na_count": 4,
@@ -364,23 +349,24 @@
       "【finance_news short_content:13 · 2026-09-24 · 已处置 V37.9.361】用户取证: llm_raw_last.json 已被次日成功运行覆盖(992 token 正常分析) → 09-24 那 13 字符永久不可知, 次日已恢复, 不做推测性修复。V37.9.361 起失败时写 cache/llm_raw_failed.json(成功不触碰)。剩被动观察: 若再现, 读该文件的 content/finish_reason 定性。",
       "【V37.9.362 sources 归档段契约 · Mac Mini 被动验证】合并 + git fetch+reset 同步（6 文件走 FILE_MAP 零重启）后: (a) 今晚 20:00 arxiv 若有新论文写 `## 2026-09-28 20:00` 段（今早 08:00 旧格式 `## 2026-09-28` 并存正常）(b) 三源计数: finance 1 ✅ / chaspark 1 ✅ (09-29 实测) / arxiv 两班次待核 (c) 明晚晚间整理「今日覆盖源」应出现财经、茶思屋停跑日应列为今日无更新 (d) 下周五 21:00 周回顾素材应横跨 7 天。茶思屋历史补标题 ✅ 已执行（2026-09-28 12:37:06，逐块核对 121/121 日报块前均紧跟同日期标题、缺 0；备份 ~/.kb/sources/chaspark.md.bak.v37_9_362 含 121 块 0 日期段 = 今日 11:00 仍是旧代码运行，与财经 07:30 无日期段一致）。注: 该补标题命令判「已有标题」看前 3 行任意 `## `，上一块短于 3 行时会漏补本块（dev 复核时发现，真实日报块均 ≥6 行未触发，实测 0 缺）。",
       "[低优观察 V37.9.363] kb_write.sh 笔记文件名只精确到秒: 同一秒两次写入后者覆盖前者且 index 留两条 (dev 清理测试撞到); 生产各 job 写入相隔数分钟风险低, 若出现 index 条目 summary 与文件正文不符再处理",
-      "[V37.9.362/363/364 生产验证全部通过 ✅ 2026-09-29] 财经 07:30: 笔记 1 条 7632 字节、topics/finance-news.md 首次出现、finance_daily.md 日期段 0→1。茶思屋: 11:00:01 与 13:08:32 两次 HTTP 418 (华为云 CloudWAF) → V37.9.364 加 418 重试 → 合并同步后 15:23 手动补跑 status ok / new 8 / sent true, 笔记 1 条 (tags chaspark)、topics/chaspark.md 当日 1 条、chaspark.md 日期段 121→122、当日段正文 154 行。两个备份文件已删 ✅ (09-29)。剩: (a) grep 'WAF 拦截' ~/.openclaw/logs/jobs/chaspark.log 09-29 为 0 行 = 15:23 那次首请求即 200、重试尚未真实触发过; 之后出现「被 WAF 拦截」+「重试结果: 状态码 200」即重试救回, 状态码 418 即重试无效需另议 (b) Windows kb 模块 rc=25 09-29/09-30 两早属预期, 10-01 回 rc=0。"
+      "[V37.9.362/363/364 生产验证全部通过 ✅ 2026-09-29] 财经 07:30: 笔记 1 条 7632 字节、topics/finance-news.md 首次出现、finance_daily.md 日期段 0→1。茶思屋: 11:00:01 与 13:08:32 两次 HTTP 418 (华为云 CloudWAF) → V37.9.364 加 418 重试 → 合并同步后 15:23 手动补跑 status ok / new 8 / sent true, 笔记 1 条 (tags chaspark)、topics/chaspark.md 当日 1 条、chaspark.md 日期段 121→122、当日段正文 154 行。两个备份文件已删 ✅ (09-29)。剩: (a) grep 'WAF 拦截' ~/.openclaw/logs/jobs/chaspark.log 09-29 为 0 行 = 15:23 那次首请求即 200、重试尚未真实触发过; 之后出现「被 WAF 拦截」+「重试结果: 状态码 200」即重试救回, 状态码 418 即重试无效需另议 (b) Windows kb 模块 rc=25 09-29/09-30 两早属预期, 10-01 回 rc=0。",
+      "[V37.9.365 Mac Mini 被动验证] 同步后 bash diagnose.sh 的【3/7】应显主力 doubao_21 + fallback 4 跳 + 断路器 closed（且不出现 ep- 接入点 ID）；10-05 周一 09:00 周报「🤖 模型」行应形如「🟢 主力 doubao_21 | fallback 4 跳 (…) | 断路器 closed」；~/.kb/health_status.json 的 model 键为 primary/fallback_chain/circuit_breaker/reachable"
     ],
     "open_prs": [],
     "blocked_on": "",
-    "focus": "2026-09-29: V37.9.362/363/364 全链生产验证通过 (财经 07:30 + 茶思屋 15:23 补跑: 笔记 1 条 / topics 1 条 / 日期段 121→122); WAF 418 重试已部署但尚未真实触发; DBLP Anubis [76] 仍待镜像探针.",
+    "focus": "V37.9.365 周报/诊断模型检查改测主力路由 — 待 Mac Mini 同步 + diagnose 【3/7】实测 + 10-05 周报验收",
     "recent_changes": []
   },
   "quality": {
     "security_score": 98,
-    "test_count": 6670,
-    "last_regression": "2026-09-29 08:37 pass",
+    "test_count": 6694,
+    "last_regression": "2026-09-30 01:01 pass",
     "coverage_pct": 0,
     "security_score_time": "2026-07-20 01:07",
-    "test_suites": 203,
+    "test_suites": 204,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
-    "version": "0.37.9.183",
+    "version": "0.37.9.184",
     "observer": {}
   },
   "incidents": [

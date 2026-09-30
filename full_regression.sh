@@ -234,6 +234,7 @@ run_suite "v37_9_359_notify_partial_delivery (V37.9.359 notify 返回码「≥1 
 run_suite "v37_9_362_archive_section_contract (V37.9.362 sources 永久归档段契约 — 全部 kb_append_source 调用点从源码发现逐一守 H2 标记/标记写进文件/一天多跑带班次 + helper 内层 H2 降级 + 观察者同日多段累积, 血案: arxiv 20:00 班次被当同日重复静默丢弃 / 财经无日期段晚间报今日无更新 / 茶思屋旧文冒充今日)" "python3 test_v37_9_362_archive_section_contract.py"
 run_suite "v37_9_363_kb_write_callers (V37.9.363 kb_write.sh 调用契约 — 全部调用点从源码发现逐一守 只收位置参数/不读 stdin + kb_write 遇 --选项 响亮失败不写入 + finance/chaspark 真源码块接真 kb_write 跑, 血案: 选项写法让正文被丢弃 每天写入 \"--title\" 垃圾笔记与垃圾 topics 文件 生产累计 327+287)" "python3 test_v37_9_363_kb_write_callers.py"
 run_suite "v37_9_364_chaspark_waf_retry (V37.9.364 茶思屋 API 被华为云 WAF 间歇拦截 HTTP 418 时等待后重试一次 — 真源码抓取块接假 curl/假 sleep 跑: 418→200 继续且日志不被 watchdog 当错误 / 两次 418 仍 error 且可被扫到 / 200·500·curl 失败不重试 / 失败码是 000 不是 000000 / 默认等 120 秒)" "python3 test_v37_9_364_chaspark_waf_retry.py"
+run_suite "v37_9_365_model_route_truth (V37.9.365 周报/诊断「模型」检查测主力不测 fallback 末位 — 真源码抽块接假 curl 喂 adapter /health: 报主力+fallback 链+断路器, OPEN 变红/diagnose 判失败, 接入点 ID 不进输出 / 旧 Qwen3 远端比对退役 / 四个读者同一真理源 / launchd 标签须在 services_registry 登记)" "python3 test_v37_9_365_model_route_truth.py"
 if [ -f test_movespeed_incident_analyzer.py ]; then
     run_suite "movespeed_incident_analyzer (V37.9.28 F2 — 数据驱动诊断分析工具)" "python3 test_movespeed_incident_analyzer.py"
 fi

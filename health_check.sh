@@ -18,6 +18,9 @@
 #   历史写既有 status.json quality.influence（MR-9 经 status_update 锁）。每源独立 FAIL-OPEN，
 #   不可达显式「⚠️不可达」绝不写 0；HEALTH_INFLUENCE_RECORD=0 只渲染不落盘（隔离测试用）。
 #
+# V37.9.365: 「🤖 模型」段改读 adapter /health（主力 provider + fallback 链 + 断路器），退役 V27 的
+#   Qwen3 远端 /models ↔ openclaw.json qwen-local 标签比对（V37.9.222 起那测的是 fallback 末位）。
+#
 # cron 环境 PATH 极简，必须显式声明（规则 #13）
 export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
 # V37.9.349-hotfix: 与 kb_dream/kb_evening/daily_observer 同款标准行 —— cron 走 bash -lc 本就有
@@ -59,34 +62,58 @@ gw=$(lsof -ti :18789 >/dev/null 2>&1 && echo "🟢" || echo "🔴")
 ad=$(lsof -ti :5001 >/dev/null 2>&1 && echo "🟢" || echo "🔴")
 px=$(lsof -ti :5002 >/dev/null 2>&1 && echo "🟢" || echo "🔴")
 
-# 模型 ID 检查（V27 现有逻辑，加 try/except 健壮性）
-CURRENT_MODEL=$(curl -s --max-time 10 "${REMOTE_BASE_URL:-https://hkagentx.hkopenlab.com/v1}/models" \
-  -H "Authorization: Bearer ${REMOTE_API_KEY}" 2>/dev/null \
-  | python3 -c "
-import json,sys
-try:
-  d=json.load(sys.stdin)
-  models=[m['id'] for m in d['data'] if 'Qwen3' in m['id']]
-  print(models[0][:30] if models else '')
-except Exception:
-  pass
-" 2>/dev/null)
-
-LOCAL_MODEL=$(python3 -c "
+# === 1b. 主力模型路由 ===
+# V37.9.365: 读 adapter /health（与 kb_status_refresh / preflight 同一真理源）。
+# 旧逻辑（V27）比对 Qwen3 远端 /models 与 openclaw.json 的 qwen-local 标签：V37.9.222 起主力是
+# doubao_21, Qwen3 只是 fallback 链末位, 而 qwen-local/ 只是 Gateway 路由标签（adapter 重建请求体
+# 时整体覆盖 model）→ 周报三个月来每周一报的是第 4 跳 fallback 端点, 主力宕了这一行也不会变。
+# 刻意不打印 /health 的 model 字段: doubao_21 的 model 是 Volcengine 接入点 ID（V37.9.216 类机密,
+# 不进推送正文）; provider 名 + fallback 链 + 断路器状态才是读者需要的。
+ADAPTER_HEALTH=$(curl -s --max-time 5 http://localhost:5001/health 2>/dev/null || true)
+MODEL_FIELDS=$(ADAPTER_HEALTH="$ADAPTER_HEALTH" python3 -c '
 import json, os
+raw = os.environ.get("ADAPTER_HEALTH", "")
 try:
-  with open(os.path.expanduser('~/.openclaw/openclaw.json')) as f: d=json.load(f)
-  print(d['models']['providers']['qwen-local']['models'][0]['id'][:30])
+    d = json.loads(raw)
 except Exception:
-  pass
-" 2>/dev/null)
-
-if [ -z "$CURRENT_MODEL" ] || [ -z "$LOCAL_MODEL" ]; then
-  model_line="🤖 模型: ❓ (检查不可用)"
-elif [ "$CURRENT_MODEL" = "$LOCAL_MODEL" ]; then
-  model_line="🤖 模型: 🟢 ${CURRENT_MODEL}"
-else
-  model_line="🤖 模型: 🔴 远端 ${CURRENT_MODEL} ≠ 本地 ${LOCAL_MODEL}"
+    d = None
+if not isinstance(d, dict) or not d.get("ok"):
+    print("🤖 模型: 🔴 adapter /health 无响应 (主力模型路由未知)")
+    print("")
+    print("")
+    print("")
+    print("0")
+else:
+    prov = str(d.get("provider") or "?")
+    chain = [str(x) for x in (d.get("fallback_chain") or [])]
+    cb = str(d.get("circuit_breaker") or "")
+    icon = "🟢"
+    parts = ["主力 " + prov]
+    if chain:
+        parts.append("fallback %d 跳 (%s)" % (len(chain), " → ".join(chain)))
+    else:
+        parts.append("无 fallback 链")
+    if cb == "open":
+        icon = "🔴"
+        parts.append("断路器 OPEN: 主力连续失败, 当前走 fallback")
+    elif cb == "half-open":
+        icon = "🟡"
+        parts.append("断路器 half-open: 主力恢复探测中")
+    elif cb == "closed":
+        parts.append("断路器 closed")
+    print("🤖 模型: " + icon + " " + " | ".join(parts))
+    print(prov)
+    print(",".join(chain))
+    print(cb)
+    print("1")
+' 2>/dev/null || true)
+model_line=$(printf '%s\n' "$MODEL_FIELDS" | sed -n 1p)
+MODEL_PRIMARY=$(printf '%s\n' "$MODEL_FIELDS" | sed -n 2p)
+MODEL_CHAIN=$(printf '%s\n' "$MODEL_FIELDS" | sed -n 3p)
+MODEL_CB=$(printf '%s\n' "$MODEL_FIELDS" | sed -n 4p)
+MODEL_REACHABLE=$(printf '%s\n' "$MODEL_FIELDS" | sed -n 5p)
+if [ -z "$model_line" ]; then
+  model_line="🤖 模型: ❓ (路由状态解析失败)"
 fi
 
 # === 2. SLO 趋势 (V36 slo_dashboard.py) ===
@@ -244,9 +271,10 @@ data = {
     "proxy":    {"port": 5002,  "status": "ok" if "$px" == "🟢" else "down"},
   },
   "model": {
-    "remote": "$CURRENT_MODEL",
-    "local": "$LOCAL_MODEL",
-    "match": "$CURRENT_MODEL" == "$LOCAL_MODEL",
+    "primary": "$MODEL_PRIMARY",
+    "fallback_chain": [x for x in "$MODEL_CHAIN".split(",") if x],
+    "circuit_breaker": "$MODEL_CB",
+    "reachable": "$MODEL_REACHABLE" == "1",
   },
   "kb": {"new_this_week": int("$KB_WEEK" or "0"), "total": int("$KB_TOTAL" or "0")},
   "ssd": "$ssd_status",
