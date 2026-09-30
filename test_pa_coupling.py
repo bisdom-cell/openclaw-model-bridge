@@ -125,8 +125,12 @@ class TestDiagnosePathPortable(unittest.TestCase):
             "/Users/bisdom/.openclaw", content,
             "diagnose.sh: openclaw home 不得硬编码 /Users/bisdom（应为 $HOME/.openclaw）",
         )
-        self.assertIn("$HOME/.openclaw/openclaw.json", content,
-                      "diagnose.sh: openclaw.json 路径应用 $HOME/.openclaw")
+        # V37.9.365: diagnose【3/7】不再读 openclaw.json（qwen-local 路由标签 ≠ 主力模型, 改读
+        # adapter /health）→ 原「必须含 $HOME/.openclaw/openclaw.json」正向 pin 的对象已退役。
+        # 意图（openclaw home 不得写死个人路径）不变: 凡出现 .openclaw/ 路径, 必须以 $HOME 开头。
+        for m in re.finditer(r"(\S*)/\.openclaw/", content):
+            self.assertIn(m.group(1), ("$HOME", "~"),
+                          f"diagnose.sh: .openclaw 路径前缀应为 $HOME, 实为 {m.group(1)!r}")
 
 
 class TestNoPersonalPathHardcode(unittest.TestCase):

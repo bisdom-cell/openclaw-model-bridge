@@ -30,7 +30,7 @@ services:
     label: com.openclaw.adapter
     port: 5001
     plist: com.openclaw.adapter.plist
-    description: Adapter (Python, Qwen3 + Gemini fallback chain, /health on 5001)
+    description: Adapter (Python, primary=PROVIDER env + FALLBACK_ORDER chain, /health on 5001)
 
   - id: proxy
     label: com.openclaw.proxy

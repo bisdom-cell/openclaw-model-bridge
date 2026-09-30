@@ -57,42 +57,45 @@ else
 fi
 echo ""
 
-# ── 3. 远端模型ID检查（多任务同时失败的第一反应） ──────────────────
-echo "【3/7】远端模型ID检查"
-REMOTE_MODEL=$(curl -s --max-time 10 "${REMOTE_BASE_URL:-https://hkagentx.hkopenlab.com/v1}/models" \
-    -H "Authorization: Bearer ${REMOTE_API_KEY}" 2>/dev/null \
-    | python3 -c "
-import json,sys
+# ── 3. 主力模型路由检查（多任务同时失败的第一反应） ─────────────────
+# V37.9.365: 读 adapter /health（与 kb_status_refresh / preflight / health_check 同一真理源）。
+# 旧【3/7】比对 Qwen3 远端 /models 与 openclaw.json qwen-local 标签——V37.9.222 起主力是 doubao_21,
+# 那一步测的是 fallback 链末位端点: 主力宕了它照样 ✅, Qwen3 端点宕了它却判 FAIL = 两个方向都错。
+# 断路器 OPEN 才是「主力连续失败、正在走 fallback」的直接信号。不打印 model 字段（doubao_21 的 model
+# 是 Volcengine 接入点 ID, 排障输出常被整段贴进聊天, 不该带出去）。
+echo "【3/7】主力模型路由检查"
+ADAPTER_HEALTH=$(curl -s --max-time 5 http://localhost:5001/health 2>/dev/null || true)
+ROUTE_REPORT=$(ADAPTER_HEALTH="$ADAPTER_HEALTH" python3 -c '
+import json, os
+raw = os.environ.get("ADAPTER_HEALTH", "")
 try:
-    d=json.load(sys.stdin)
-    models=[m['id'] for m in d['data'] if 'Qwen3' in m['id']]
-    print(models[0] if models else 'NOT_FOUND')
-except Exception as e:
-    print(f'ERROR: {e}')
-" 2>/dev/null || echo "NETWORK_ERROR")
-
-LOCAL_MODEL=$(python3 -c "
-import json
-try:
-    with open('$HOME/.openclaw/openclaw.json') as f: d=json.load(f)
-    print(d['models']['providers']['qwen-local']['models'][0]['id'])
-except Exception as e:
-    print(f'ERROR: {e}')
-" 2>/dev/null || echo "READ_ERROR")
-
-echo "  远端: $REMOTE_MODEL"
-echo "  本地: $LOCAL_MODEL"
-if [ "$REMOTE_MODEL" = "$LOCAL_MODEL" ]; then
-    echo "  ✅ 模型ID一致"
-elif [[ "$REMOTE_MODEL" == ERROR* ]] || [[ "$REMOTE_MODEL" == "NETWORK_ERROR" ]]; then
-    echo "  🔴 无法连接远端API！（网络故障或API Key失效）"
-    FAIL=1
-elif [ "$REMOTE_MODEL" = "NOT_FOUND" ]; then
-    echo "  🔴 远端已无 Qwen3 模型！可能已下线或更换"
+    d = json.loads(raw)
+except Exception:
+    d = None
+if not isinstance(d, dict) or not d.get("ok"):
+    print("FAIL")
+    print("  🔴 adapter /health 无响应 — 主力模型路由未知")
+else:
+    chain = [str(x) for x in (d.get("fallback_chain") or [])]
+    cb = str(d.get("circuit_breaker") or "")
+    print("FAIL" if cb == "open" else "OK")
+    print("  主力: " + str(d.get("provider") or "?"))
+    print("  fallback 链: " + (" → ".join(chain) if chain else "(未配置)"))
+    if cb == "open":
+        print("  🔴 断路器 OPEN — 主力连续失败, 当前请求走 fallback")
+    elif cb == "half-open":
+        print("  🟡 断路器 half-open — 主力恢复探测中")
+    elif cb == "closed":
+        print("  ✅ 断路器 closed — 主力正常服务")
+' 2>/dev/null || true)
+if [ -z "$ROUTE_REPORT" ]; then
+    echo "  🔴 路由状态解析失败"
     FAIL=1
 else
-    echo "  🔴 模型ID不匹配！需要更新本地配置"
-    FAIL=1
+    printf '%s\n' "$ROUTE_REPORT" | sed -n '2,$p'
+    if [ "$(printf '%s\n' "$ROUTE_REPORT" | sed -n 1p)" = "FAIL" ]; then
+        FAIL=1
+    fi
 fi
 echo ""
 
@@ -213,13 +216,13 @@ if [ "$FAIL" -eq 0 ]; then
     echo "如果仍无法收到 WhatsApp 消息，进一步检查："
     echo "  1. WhatsApp Web 是否已断开（手机打开 WhatsApp → Linked Devices）"
     echo "  2. Gateway 日志中是否有 'session' 或 'auth' 错误"
-    echo "  3. 尝试重启 Gateway: launchctl unload/load com.openclaw.gateway.plist"
+    echo "  3. 尝试重启 Gateway: bash ~/openclaw-model-bridge/restart.sh（launchd 标签 ai.openclaw.gateway）"
 else
     echo "🔴 发现问题！建议操作："
     echo ""
     echo "  [服务未运行] → bash ~/openclaw-model-bridge/restart.sh"
-    echo "  [模型ID不匹配] → 参考 docs/config.md 模型ID变更应急流程"
-    echo "  [远端API不可达] → 检查网络/VPN，或等待远端恢复"
+    echo "  [断路器 OPEN] → tail -50 ~/adapter.log 看主力失败原因（key/端点/配额），fallback 链在兜底"
+    echo "  [adapter /health 无响应] → bash ~/openclaw-model-bridge/restart.sh"
     echo "  [连续错误] → 查看 adapter.log 最近错误详情"
     echo "  [crontab被清空] → 从 docs/config.md 恢复 crontab 条目"
 fi

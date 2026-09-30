@@ -203,7 +203,7 @@ if [ "$GW_CODE" -ge 200 ] 2>/dev/null && [ "$GW_CODE" -lt 400 ] 2>/dev/null; the
     pass "Gateway :18789 (HTTP $GW_CODE)"
 else
     fail "Gateway :18789 不可达 (HTTP $GW_CODE)"
-    info "修复：sudo launchctl kickstart -k system/com.openclaw.gateway"
+    info "修复：bash ~/openclaw-model-bridge/restart.sh（launchd 标签 ai.openclaw.gateway，用户域非 system 域）"
 fi
 
 # Proxy :5002
