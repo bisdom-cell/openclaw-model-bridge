@@ -43,6 +43,13 @@ def _slice(text, start_marker, end_marker):
     return text[i:j]
 
 
+# 7.0 清单勾选项总数的单一真理源（V37.9.366 起）：3 基础 + A + B + C 头 + 15 子项。
+# 此前 Eleventh / Twelfth / Thirteenth 三个类各自写死 20 —— 同一事实三份字面量 pin，每加一项要改三处。
+# 历史：18（第十一次）→ 19（第十二次 +#149875）→ 20（第十三次 +#154068）→ 21（第十四次 +#157091）。
+# 每个评估类仍各自断言「本次新增项在清单里」，计数 pin 只负责「没有悄悄多出未登记的项」。
+PREREQ_CHECKBOXES = 21
+
+
 def _bash_blocks(text):
     return re.findall(r"```bash\n(.*?)```", text, re.S)
 
@@ -216,6 +223,18 @@ class TestDocHeadSingleSourceOfTruth(unittest.TestCase):
                       "版本概览表是 2026-04 快照，必须显式标注")
         self.assertNotIn("| 当前部署版本 |", tbl,
                          "概览表不得再声称『当前部署版本』（陈旧 4 个月）")
+
+    def test_head_and_prereq_point_to_latest_tracking_point(self):
+        """头部当前态行与 7.0「目标版本」行必须指向最新评估节的 .5 结论小节（V37.9.366 起从 doc 标题动态派生，
+        替代每个评估类各写一次字面量 pin）。"""
+        token = _latest_eval(self.doc)[0]
+        sec = self.doc[self.doc.index("## " + token):]
+        m = re.search(r"^### (\d+)\.1 ", sec, re.M)
+        self.assertIsNotNone(m, f"防空转：{token} 应含 ### NN.1 小节")
+        ref = f"{token} {m.group(1)}.5"
+        self.assertIn(ref, self.head, f"头部当前态须指向 {ref}")
+        prereq = _slice(_slice(self.doc, "## 七、升级 SOP", "## 八、综合评估"), "### 7.0", "### 7.1")
+        self.assertIn(ref, prereq, f"7.0 目标版本行须指向 {ref}")
 
     def test_section8_marked_point_in_time(self):
         s8 = _slice(self.doc, "## 八、综合评估", "## 九")
@@ -626,8 +645,8 @@ class TestEleventhEvaluationPresent(unittest.TestCase):
         # V37.9.354 演进（V37.9.131 alternation）：9.5 真新增第 13 项（#149875），18 → 19；
         # 本断言的意图不变——9.4 的两项候选没有以「悄悄多一项」的形式混进清单。
         # V37.9.360 演进（V37.9.131 alternation）：9.6 预防性新增第 14 项（Tool Search），19 → 20；意图不变——9.4 候选没有混进清单。
-        self.assertEqual(self.prereq.count("- [ ]"), 20,
-                         "7.0 清单应恰 20 个勾选项（3 基础 + A + B + C 头 + 14 子项：12 + V37.9.354 第 13 项 + V37.9.360 第 14 项）；若真需新增请同步演进本 pin")
+        self.assertEqual(self.prereq.count("- [ ]"), PREREQ_CHECKBOXES,
+                         "7.0 清单勾选项数须等于 PREREQ_CHECKBOXES；若真需新增请同步演进该常量")
 
     def test_prereq_c_item12_carries_9_4_mitigation_without_removal(self):
         """#139495（9.3 更新自动推理修复）仍在前置 C，且同一行带 9.4 的缓解注记（#143767 家族）。"""
@@ -730,7 +749,7 @@ class TestTwelfthEvaluationPresent(unittest.TestCase):
         self.assertIn("allowAcrossProviders", line, "第 13 项须写出可行动的配置键")
         self.assertIn("首次启动前", line, "第 13 项须写明在首次启动前显式关闭")
         # V37.9.360 演进：第 14 项（Tool Search 预防性）加入后 19 → 20，第 13 项本身不变。
-        self.assertEqual(self.prereq.count("- [ ]"), 20)
+        self.assertEqual(self.prereq.count("- [ ]"), PREREQ_CHECKBOXES)
         s234 = _slice(self.sec23, "### 23.4", "### 23.5")
         self.assertIn("第 13 项", s234)
 
@@ -827,7 +846,7 @@ class TestThirteenthEvaluationPresent(unittest.TestCase):
     def setUp(self):
         self.doc = _read()
         self.head = self.doc[:self.doc.index("## 一、版本概览")]
-        self.sec24 = self.doc[self.doc.index("## 第二十四节"):]
+        self.sec24 = _slice(self.doc, "## 第二十四节", "\n---\n")
         self.sop = _slice(self.doc, "## 七、升级 SOP", "## 八、综合评估")
         self.prereq = _slice(self.sop, "### 7.0", "### 7.1")
 
@@ -839,8 +858,9 @@ class TestThirteenthEvaluationPresent(unittest.TestCase):
         found = [(m.group(1), m.group(2), m.group(3)) for m in _EVAL_HEADING.finditer(self.doc)]
         self.assertIn(("第二十四节", "十三", "2026-09-24"), found, found)
         self.assertIn("十三次评估", self.head)
-        self.assertIn("2026.9.6", self.head, "头部当前态行须写上游 latest 2026.9.6")
-        self.assertIn("第二十四节 24.5", self.head)
+        self.assertIn("2026.9.6", self.head, "头部评估列表须记上游 2026.9.6")
+        # 「头部指向最新跟踪点」由 TestDocHeadSingleSourceOfTruth.test_head_and_prereq_point_to_latest_tracking_point
+        # 动态派生守护（V37.9.366 起），本类不再写死 "第二十四节 24.5"——否则每次新评估都要改这里。
 
     def test_new_section_justified_not_appended(self):
         """23.5 追加条件写的是「② 仍 🟡」；本次 ② 回到 🔴 = 状态变化，须以新开节落地，不得出现 23.6 追加段。"""
@@ -864,7 +884,7 @@ class TestThirteenthEvaluationPresent(unittest.TestCase):
         self.assertIn("tools.toolSearch: false", line, "第 14 项须写出可行动的配置键")
         self.assertIn("首次启动前", line)
         self.assertIn("预防性", line, "第 14 项须诚实标注为预防性（dist 门控显示不触发）")
-        self.assertEqual(self.prereq.count("- [ ]"), 20)
+        self.assertEqual(self.prereq.count("- [ ]"), PREREQ_CHECKBOXES)
 
     def test_item14_rationale_matches_proxy_whitelist(self):
         """MR-8 跨文件契约：第 14 项的理由是「tool_search 系列名字不在 proxy 白名单 → 被剥离」。
@@ -896,6 +916,112 @@ class TestThirteenthEvaluationPresent(unittest.TestCase):
         s245 = _slice(self.sec24, "### 24.5", "**LAST_EVAL_DATE")
         for kw in ("19.8", "engines.node", "不新开评估节", "不重置 LAST_EVAL_DATE", "裸 grep", "[2/6]", "23.5"):
             self.assertIn(kw, s245, f"24.5 缺 {kw}")
+
+
+class TestFourteenthEvaluationPresent(unittest.TestCase):
+    """第十四次评估（V37.9.366，2026-10-02）自身的落地守卫。
+
+    2026.9.7（09-30）= 24.5 预设的「下一个 stable」到期；三条判据与第十三次逐项相同（❌🔴✅），
+    按 24.5 字面规则本应追加读数，但追加条件「且无新默认自主行为」不满足：Discord `allowBots` 省略时由丢弃变接收
+    （#157091，dist `=== true` → `?? true`）→ 新开第二十五节，前置 C 14 → 15（预防性）；weixin 2.4.9 仍引用三个
+    removal-pending SDK 子路径 → 前置 B 加核对；预注册「新默认自主行为」判定口径（代码级翻转 × 落在我方面上）。
+    """
+
+    def setUp(self):
+        self.doc = _read()
+        self.head = self.doc[:self.doc.index("## 一、版本概览")]
+        self.sec25 = self.doc[self.doc.index("## 第二十五节"):]
+        self.sop = _slice(self.doc, "## 七、升级 SOP", "## 八、综合评估")
+        self.prereq = _slice(self.sop, "### 7.0", "### 7.1")
+        self.verify = _slice(self.sop, "### 7.4", "### 7.5")
+
+    def test_section25_exists_with_all_subsections(self):
+        for sub in ("### 25.1", "### 25.2", "### 25.3", "### 25.4", "### 25.5"):
+            self.assertIn(sub, self.sec25, f"第二十五节缺 {sub}")
+
+    def test_fourteenth_eval_heading_present_and_listed_in_head(self):
+        found = [(m.group(1), m.group(2), m.group(3)) for m in _EVAL_HEADING.finditer(self.doc)]
+        self.assertIn(("第二十五节", "十四", "2026-10-02"), found, found)
+        self.assertIn("十四次评估", self.head)
+        self.assertIn("2026.9.7", self.head, "头部须记上游 2026.9.7")
+        self.assertIn("2026-10-02", self.head)
+
+    def test_new_section_justified_by_default_flip_not_criteria(self):
+        """三项判据全同时，新开节只能由「新默认自主行为」证成——须写明理由，且不得出现 24.6 追加段。"""
+        head = self.sec25[:self.sec25.index("### 25.1")]
+        for kw in ("日落规则", "且无新默认自主行为", "#157091", "新开本节"):
+            self.assertIn(kw, head, f"节首触发说明缺「{kw}」")
+        self.assertNotIn("### 24.6", self.doc)
+
+    def test_criteria_unchanged_recorded_honestly(self):
+        s253 = _slice(self.sec25, "### 25.3", "### 25.4")
+        for kw in ("6.19", "1.5/周", "🔴", "DIRTY", "计数仍 0", "单点读数"):
+            self.assertIn(kw, s253, f"25.3 缺「{kw}」")
+        for bad in ("9.7 干净", "计数 1", "② ✅", "② 回 🟡", "节奏已收敛"):
+            self.assertNotIn(bad, self.sec25, f"不得出现误记「{bad}」")
+
+    def test_prereq_c_item15_discord_allowbots_actionable(self):
+        line = next((l for l in self.prereq.splitlines() if "#157091" in l and l.lstrip().startswith("- [ ]")), None)
+        self.assertIsNotNone(line, "9.7 Discord allowBots 默认翻转未进 7.0 前置 C")
+        self.assertIn("channels.discord.allowBots: false", line, "第 15 项须写出可行动的配置键")
+        self.assertIn("首次启动前", line)
+        self.assertIn("预防性", line, "第 15 项须诚实标注为预防性（当前配置下不触发）")
+        self.assertIn("运营配置", line, "须写明保护来自运营配置状态而非代码门控（这是入项理由）")
+        self.assertIn("15 项默认变更", self.prereq)
+        self.assertEqual(self.prereq.count("- [ ]"), PREREQ_CHECKBOXES)
+
+    def test_prereq_b_weixin_removal_pending_subpaths(self):
+        line = next((l for l in self.prereq.splitlines() if "前置 B" in l), "")
+        for sub in ("config-runtime", "channel-message", "infra-runtime", "removal pending", "2.4.9"):
+            self.assertIn(sub, line, f"前置 B 缺 weixin SDK 子路径核对要素「{sub}」")
+
+    def test_candidate_table_verdicts_match_prereq_c(self):
+        s254 = _slice(self.sec25, "### 25.4", "### 25.5")
+        for pr in ("#158120", "#159548", "#160790"):
+            self.assertIn(pr, s254, f"候选表缺 {pr}")
+            self.assertNotIn(pr, self.prereq, f"登记不入的 {pr} 不得进前置 C")
+        self.assertIn("登记不入", s254)
+        self.assertIn("#157091", s254)
+
+    def test_max_tokens_clamp_flows_into_post_upgrade_verification(self):
+        """MR-8 跨节契约：25.4 登记的集成面变更（#85889）必须流进 7.4 升级后验证，而不是只活在评估节
+        （V37.9.336 血案：评估结论从未回流到 SOP 清单）。"""
+        self.assertIn("#85889", _slice(self.sec25, "### 25.4", "### 25.5"))
+        self.assertIn("#85889", self.verify)
+        self.assertIn("max_tokens", self.verify)
+
+    def test_post_upgrade_verification_has_no_stale_item_count(self):
+        """7.4 原写「复核前置 C 的 6 项默认开关」——前置 C 早已是 14 项；计数不得再硬编码在 7.4。"""
+        self.assertNotRegex(self.verify, r"前置 C 的 \d+ 项")
+        self.assertIn("以 7.0 清单为准", self.verify)
+
+    def test_max_tokens_rationale_matches_adapter_passthrough(self):
+        """25.4 对 #85889 的判断依据是「adapter 原样透传 Gateway 的 max_tokens」——
+        若 adapter 未来改为固定 max_tokens，此登记的风险面随之改变，本守卫先红提醒复核措辞。"""
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "adapter.py")
+        with open(path, encoding="utf-8") as f:
+            src = f.read()
+        self.assertRegex(src, r'if "max_tokens" in body:\s*\n\s*clean\["max_tokens"\] = body\["max_tokens"\]')
+
+    def test_protocol_eleventh_point_recorded_in_both_sections(self):
+        s254 = _slice(self.sec25, "### 25.4", "### 25.5")
+        for n in ("1,675", "2,923"):
+            self.assertIn(n, s254, f"25.4 缺 9.7 协议实测数据点 {n}")
+        s204 = _slice(self.doc, "### 20.4", "### 20.5")
+        row = next((l for l in s204.splitlines() if l.startswith("|") and "2026.9.7" in l), None)
+        self.assertIsNotNone(row, "20.4 表须追加 2026.9.7 一行")
+        self.assertIn("1675", row)
+        self.assertIn("DIRTY", row)
+
+    def test_sunset_rule_trigger_definition_preregistered(self):
+        s255 = _slice(self.sec25, "### 25.5", "**LAST_EVAL_DATE")
+        for kw in ("判定口径", "代码级默认翻转", "落在我方实际使用的面", "登记不入、不触发新开节"):
+            self.assertIn(kw, s255, f"25.5 预注册口径缺「{kw}」")
+
+    def test_tracking_point_routes_through_protocol_and_sunset_rule(self):
+        s255 = _slice(self.sec25, "### 25.5", "**LAST_EVAL_DATE")
+        for kw in ("19.8", "engines.node", "不新开评估节", "不重置 LAST_EVAL_DATE", "裸 grep", "[2/6]", "23.5", "25.6"):
+            self.assertIn(kw, s255, f"25.5 缺 {kw}")
 
 
 if __name__ == "__main__":

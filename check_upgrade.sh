@@ -27,35 +27,11 @@ else
 fi
 
 # ── 配置（升级后须更新 LAST_EVAL_DATE）──
-# 2026-09-24 第十三次评估 (2026.9.6 stable, 23.5 预设跟踪点到期; 判据 ② 由 🟡 回到 🔴 = 日落规则「任一判据状态变化」新开节): 继续 hold——
-#    ① 9.6 修订协议可判 (叙述 0/行内 651, bullet 形态再换仅行内分支可判) → DIRTY 7 (complete schema migrations from 9.2 /
-#    verified session migrations / concurrent SQLite writes) 计数仍 0 = 连续第七个 DIRTY ② 🔴 9.5→9.6 间隔 4.91 天, 4 周窗主线
-#    2.0/周 (历次最高) ③ ✅ engines 四版逐字同. 第四类风险候选 3: Tool Search 默认开 (#154068) dist 门控仅 ollama/lmstudio/
-#    localService 触发, 我方自定义 provider 不触发但与上游文档不一致 → 前置 C 第 14 项预防性 tools.toolSearch:false (13→14);
-#    Desktop sharing / Telegram 批处理登记不入. tripwire [2/6] 40/50 剩 10, 触发日沿用 23.5 预注册处置. 详见 eval doc 第二十四节.
-# 2026-09-22 第十二次评估 (2026.9.5 stable, 22.5 预设跟踪点到期; 判据 ② 由 🔴 变 🟡 = 日落规则「任一判据状态变化」新开节): 继续 hold——
-#    ① 9.5 修订协议可判 (叙述 54/行内 217) → DIRTY 2 (shared WAL after refused restore / shared-state repair for July upgrades
-#    / Plugin SDK Gateway V2 迁移) 计数仍 0 = 连续第六个 DIRTY ② 🟡 9.4→9.5 间隔 7.94 天 (7.1→8.1 以来首个 ≥7 天, 但 4 周窗主线
-#    1.75/周 + 维护线 7.33-7.35 四天三版, 🟡≠✅) ③ ✅ engines 三版逐字同 (26.5.0 仍在). 第四类风险 +1: tools.message.crossContext
-#    .allowAcrossProviders 默认 false→true (#149875, message 在 PA 白名单内) → 前置 C 12→13; 并发上限 cpus×4 且 16 上限退役
-#    (#147423) 第 7 项原位加注; Daybreak cyberFailover 只对 OpenAI 原生错误码触发登记不入. 预注册: tripwire [2/6] 版本差距 39/50
-#    约 4 周内触发, 触发日按 23.5 处置 (评估 + 计数口径/阈值/接受告警三选一). 详见 eval doc 第二十三节 (第十一次见第二十二节).
-# 2026-09-13 第十一次评估 (2026.9.4 stable, 21.5 预设跟踪点到期): 继续 hold—— ① 9.4 修订协议可判 (叙述 59/行内 331) → DIRTY 9
-#    (schema 变更阻断自动回滚=上游文档追认单向门 / session SQLite import / auth profile 迁移 / SQLite sidecar) 计数仍 0
-#    ② 🔴 9.3→9.4 间隔又 3 天 (12 天 6 stable, 4 周窗 1.5/周) 节奏稳态化 → 预注册日落规则: 三项全同只追加读数不新开节
-#    ③ ✅ engines 与 9.3 逐字同 (26.5.0 仍在); 前置 A 加「升级后核实服务 Node 未被 updater 替换」. 第四类风险零新增
-#    (Cloud ready workers 需云后端配置 / Command review 门控 mode=auto 均不入前置 C, 仍 12 项). 详见 eval doc 第二十二节 (第十次见第二十一节).
-# 2026-09-09 第十次评估 (2026.9.3 stable, 20.6 预设跟踪点到期): 继续 hold—— ① 9.3 DIRTY 16 (Node 强升防 SQLite 文本截断 /
-#    schema 版本延迟发布 / 无扩展 SQLite 构建 / 迁移阻塞重启循环) 计数仍 0 ② 🔴 9.2→9.3 间隔 3 天, 「积压冲刷」假设证伪
-#    ③ ✅ 但 engines 收紧 >=24.16.0 <25 || >=26.1.0 (Mac Mini 26.5.0 仍在). 默认自主行为再增 2 项 (递归委派/更新自动推理修复)
-#    → 7.0 前置 C 10→12. 详见 eval doc 第二十一节 (第九次见第二十节).
-# 2026-09-06 第九次评估 (2026.8.2/9.1/9.2 三 stable 6 天内发布触发判据跟踪): 继续 hold——
-# ① SQLite/session 弧线 ❌ 仍未满足 (8.2/9.1/9.2 逐一 DIRTY: session 迁移安全 / schema-17 session
-#    repair / shared credential migration / malformed SQLite DB 诊断; session store 已入 SQLite 至 schema 17)
-# ② 节奏 🔴 由 ✅ 退回 (6 天 4 个 stable, 冲刷假设待下一 stable 间隔定性) ③ Node 区间 ✅ (9.1/9.2 与 8.1 逐字同).
-# 上游 changelog 换格式 → 19.8 协议加行内 PR 引用量重标定; 默认自主行为再增 3 项 (会话可见性/跨 agent 访问/Swarm)
-# → 7.0 前置 C 7→10 项. 详见 eval doc 第二十节 (第八次见第十九节). 背景 (第六次): 三结构性迁移 M1/M2/M3 + 回滚单向门.
-LAST_EVAL_DATE="${OPENCLAW_LAST_EVAL_DATE:-2026-09-24}"  # V37.9.360: 第十三次评估 (eval doc 第二十四节; 第十二次=第二十三节)
+# 最近一次正式评估: 2026-10-02 第十四次评估 (2026.9.7 stable, 24.5 预设跟踪点到期): 继续 hold —— 判据与第十三次逐项相同
+#    (❌ 9.7 DIRTY 20 计数仍 0 / 🔴 9.6→9.7 间隔 6.19 天 / ✅ engines 五版逐字同), 因 Discord allowBots 默认翻转 (#157091,
+#    代码级 + 我方推送主通道) 按日落规则新开节; 前置 C 14→15 (预防性); tripwire [2/6] 43/50. 详见 eval doc 第二十五节.
+# 历次评估摘要只在 eval doc 头部评估列表维护 (V37.9.366 起: 一物一形, 退役本处逐次复制的摘要——它与 eval doc 是同一事实的两份手写副本).
+LAST_EVAL_DATE="${OPENCLAW_LAST_EVAL_DATE:-2026-10-02}"  # V37.9.366: 第十四次评估 (eval doc 第二十五节; 第十三次=第二十四节)
 TIME_TRIPWIRE_DAYS="${OPENCLAW_TIME_TRIPWIRE_DAYS:-180}"
 VERSION_GAP_TRIPWIRE="${OPENCLAW_VERSION_GAP_TRIPWIRE:-50}"
 CVE_FILE="${OPENCLAW_CVE_ALERT_FILE:-$HOME/.openclaw_cve_alert}"
