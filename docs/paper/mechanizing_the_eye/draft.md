@@ -880,11 +880,13 @@ append-only.
 
 **P6. The registered window, at revision time.** Enforcing mode has run continuously
 since 2026-07-26. The append-only adjudication ledger holds no fired-verdict rows
-beyond the window-close entry: no verdict has been forwarded for adjudication as of
-this revision. We have not re-tabulated §6 — the registered protocol requires a new
-cutoff to be declared before the data is read, and we decline to declare one in a
-revision made on the eve of submission; the quiet window stands as registered, and the
-next tabulation will append to the data inventory under its own cutoff. What has
+beyond the window-close entry, and a count check against the production score history
+on 2026-10-05 agrees: 56 enforcing-mode rows after the cutoff, none with a fired
+verdict. We have not re-tabulated §6 (a count check is not a tabulation): the
+registered protocol requires a new cutoff to be declared before the data is read, and
+we decline to declare one in a revision made on the eve of submission; the quiet window
+stands as registered, and the next tabulation will append to the data inventory under
+its own cutoff. What has
 moved in eight weeks is the detector count (five to six), the observer's own log
 (eight to ten inside the window, eleven overall), the disciplines that bind fixes
 (P2), and the evidence that the deployment era's silent failures, like two-thirds of

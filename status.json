@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-05 07:32:20",
+  "updated": "2026-10-05 07:44:31",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-10-05",
+      "what": "V37.9.367 后记: 用户 Mac Mini 跑 runbook 第 0 步 → on 期 56 行 / fired 0, 写进论文 P6; 六篇引用 Claude WebSearch 独立核对一致; runbook curl 改 -sL https (旧 http 版因跳转返回空); Table 5 版式修正 (首列 0.55cm + 行距 1.5pt) 重编译 20 页 0 警告. 待用户: 合并后同步 Mac Mini → 重新 zip main.tex → Overleaf → arXiv",
+      "by": "claude_code"
+    },
     {
       "date": "2026-10-05",
       "what": "V37.9.368 OpenClaw 2026.9.8 到期读数: 三判据与第十四次逐项相同 (① hotfix 规模 stable 按 19.8 本日修订分支内容直判 DIRTY 2 计数仍 0 / ② 2.94 天 🔴 / ③ engines 六版逐字同) 且按 25.5 口径无新默认自主行为 (Tool Search 门控函数 9.7↔9.8 逐字节相同, discord allowBots 不变) → 日落规则首次走追加读数分支: eval doc 25.6 + 19.8 hotfix 修订 + 20.4 行, 不新开节、LAST_EVAL_DATE 保持 10-02, check_upgrade 零改动; tripwire [2/6] 45/50 剩 5. VERSION 不变",
@@ -172,11 +177,6 @@
     {
       "date": "2026-09-02",
       "what": "V37.9.345 Kimi K3 接入为第 13 个 provider + doubao 槽位改名 doubao_21_tokenhub 退役命名债（V37.9.344 血案的结构性修复）；expert backend 常量族中性化 + legacy alias；新增 api_key_env 厂商一致性 CI 扫描（V37.9.339 形态会被当场抓住）",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-09-01",
-      "what": "V37.9.338 Mac Mini 生产验证闭环: --cron-line 输出与已装 crontab 行逐字一致 + governance --full EXIT=0/760/760/所有不变式成立 (08-31 起连报两天的 INV-CRON-003 归零)",
       "by": "claude_code"
     }
   ],

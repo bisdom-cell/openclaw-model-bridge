@@ -17,6 +17,8 @@ python3 -c "import json,sys; rows=[json.loads(l) for l in open('/Users/bisdom/.k
 
 `fired_rows 0` = P6 原文成立，直接进第 1 步。`fired_rows` 大于 0 = 把整段输出贴给 Claude，Claude 先按 design doc §9.2.4 把这些 verdict 登进 §9.2.6 台账并改写 P6，再投。
 
+✅ **2026-10-05 已执行**：Mac Mini 输出 `on_rows_after_0808 56` / `fired_rows 0` → P6 成立，且这个一手计数已写进论文 P6（「56 enforcing-mode rows after the cutoff, none with a fired verdict」）。本步无需再跑。
+
 ---
 
 ## 第 1 步：引用终核（Mac Mini 终端 + 浏览器，3 分钟）
@@ -26,21 +28,23 @@ python3 -c "import json,sys; rows=[json.loads(l) for l in open('/Users/bisdom/.k
 Mac Mini 终端粘贴执行：
 
 ```
-curl -s "http://export.arxiv.org/api/query?id_list=2606.14589,2503.13657,2306.05685,2311.05232,2404.13076,2302.03649,2310.10501" | grep -E "<title>|<name>"
+curl -sL "https://export.arxiv.org/api/query?id_list=2606.14589,2503.13657,2306.05685,2311.05232,2404.13076,2302.03649,2310.10501" | grep -E "<title>|<name>"
 ```
 
 输出会是 7 组「`<title>` 论文标题 + 一串 `<name>` 作者名」。**把完整输出复制贴给 Claude**，由 Claude 对照 `latex/main.tex` 文末 References（[1] 是论文 #1 自引，其余 6 条带 arXiv ID），不一致就改。您不需要自己对照。
 
-如果 curl 无输出（网络波动），浏览器逐条打开也行，每条只看标题和作者是否与 PDF References 一致：
+（2026-10-05 实录：旧命令用 `http://` 且无 `-L`，arXiv API 已改为 https 跳转，`curl -s` 不跟随跳转故输出为空——已改为上面的 `-sL https://` 形态。）
 
-```
-https://arxiv.org/abs/2503.13657
-https://arxiv.org/abs/2306.05685
-https://arxiv.org/abs/2311.05232
-https://arxiv.org/abs/2404.13076
-https://arxiv.org/abs/2302.03649
-https://arxiv.org/abs/2310.10501
-```
+如果 curl 仍无输出，用浏览器逐条打开下面的链接（**这是网址不是命令，不要粘贴进终端**），每条只看标题和作者是否与 PDF References 一致：
+
+- https://arxiv.org/abs/2503.13657
+- https://arxiv.org/abs/2306.05685
+- https://arxiv.org/abs/2311.05232
+- https://arxiv.org/abs/2404.13076
+- https://arxiv.org/abs/2302.03649
+- https://arxiv.org/abs/2310.10501
+
+✅ **2026-10-05 Claude 侧已独立核对**：六篇均经 WebSearch 对照 arXiv / NeurIPS / ACL Anthology / EMSE 页面，标题与作者列表与 `main.tex` References 逐条一致（Cemri et al. / Zheng, Chiang, Sheng et al. / Huang, Yu, Ma et al. / Panickssery, Bowman, Feng / Ernst & Baldassarre / Rebedea, Dinu, Sreedhar, Parisien, Cohen）。本步可视为已完成，浏览器核对为可选。
 
 ---
 
