@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-05 07:44:31",
+  "updated": "2026-10-05 08:36:32",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -178,6 +178,11 @@
       "date": "2026-09-02",
       "what": "V37.9.345 Kimi K3 接入为第 13 个 provider + doubao 槽位改名 doubao_21_tokenhub 退役命名债（V37.9.344 血案的结构性修复）；expert backend 常量族中性化 + legacy alias；新增 api_key_env 厂商一致性 CI 扫描（V37.9.339 形态会被当场抓住）",
       "by": "claude_code"
+    },
+    {
+      "date": "2026-10-05",
+      "what": "论文 #2 v1.1 arXiv 提交完成 submit/8180312（submitted）；runbook 4.5 摘要压缩为 1,889 字符元数据版（字段上限 1,920 实录）+ 两处交接物缺陷登记（grep 字面量跨 LaTeX 换行 / 摘要未对字段上限，原则 #35 补充家族）+ .gitignore 补 latex/*.zip",
+      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -287,7 +292,7 @@
       "deep_dive OA 全文解析 follow-up (V37.9.183/184) — (1) ✅ 已闭合(V37.9.261/263): Mac Mini grep 实证降级主体=结构性付费墙(no PDF URL derivable, ACM/Elsevier 无 OA 版)非 fetch-path bug, ban-list(V37.9.260)是真杠杆; V37.9.262 OpenAlex 第二源 Mac Mini 实测 0/7 恢复且净负→V37.9.263 回退; 降级率下降 thesis 被证伪, 残余=接受现实(不爬付费墙). (2) 历史 KB 条目仍 PII link(仅新论文受益, V37.9.132 局限, 不补). (3) ✅ V37.9.186: pwc 死路径退役 + TIER↔registry drift 守卫.",
       "【H1-C / C2 (Q4, gated) · C1 选型已完成 V37.9.253】第二实例最小闭环真跑 = 非 Mac Linux host 上 E2E 绿: minimal_runtime + governance cron + 1-2 内容 job(arxiv/dblp) 真抓取→LLM→Discord + cron+nohup 重启存活。选型=PUSH-only 纯推送(绕 Gateway/WhatsApp/sessions), 见 docs/second_instance_poc_selection_20260707.md §5 验收标准。C2 前置(§3, 均可枚举无未知): 持久 Linux host(VPS/容器) + 可达 LLM 端点(REMOTE_BASE_URL) + Discord bot token/channel(DISCORD_CH_*) + 唯一真需新建=Linux bootstrap 脚本(装 py 依赖+起 adapter/proxy nohup+写 crontab, 并行 install_openclaw_macmini.sh)。C3=portability report EN/ZH 证据型文章(对两次评审可迁移性批评终局回答)。",
       "【V37.9.274 · SF1/SF2 已修 · SF3 对抗验证 accept-by-design】(SF1 ✅ 修) ontology_sources/finance_news fetch_failed 守卫 parse-盲已修: parse-fail sys.exit(2) 信号回 shell + 根元素校验(well-formed 反爬 HTML root=html 拦截, 实测证伪初版 catch-ParseError) + PARSE_RC!=0→FETCH_ERRORS++。(SF2 ✅ 修) daily_observer --dry-run 持久化污染已修: append_score_history+_write_observer_to_status 由 if not dry_run 守卫。(SF3 ⏹ 不改) kb_harvest any(ok)→ok 是 V37.9.130 刻意设计(status 枚举供 watchdog 契约, 降级走 map_failed 独立字段), 改成 any(error)→error 会过度告警瞬态混合窗口 → 对抗验证 accept-by-design(镜像 V37.9.273 F2 纪律)。守卫 test_v37_9_274(11 单测)+sabotage。",
-      "【🔴 LLM-Observer 论文 #2 v1.1 刷新 ✅ V37.9.367（2026-10-05）· 本周投 arXiv · 球在用户走 guide 第 0-4 步】v1.0 投稿包（V37.9.333，四决策已定）于 10-05 按「结合最新进展刷新」指令升 v1.1：Postscript 扩为冻结后八周记录 P1-P6（新检测器 / 原则 #36 五纪律 / 观测面自身 fail-plausible 家族 / 反向形态与 327 条假成功笔记 / O11 / 注册窗现状）；§7 台账对账 O1-O8→O1-O10（窗内漏计 O9 V37.9.252/264、O10 V37.9.287，正文披露；Claude 判断，用户可否决，git 一行可还原）；冻结窗 §6 数字零改动；本地 texlive 真编译 20 页 0 error，Fig.4/Table 5/Postscript 逐页目视核对。待用户: (0) 🆕 Mac Mini 一条命令核 score_history 08-08 后 on 期 fired 行数（guide 第 0 步，为 0 则 P6 成立；>0 贴输出给 Claude 先补 §9.2.6 台账改 P6 再投） (1) 引用终核 curl 7 arXiv ID 输出贴回（dev egress 10-05 仍 EGRESS_BLOCKED） (2) Overleaf 编译核对 20 页 (3) arXiv 表单提交（Title/Abstract/Comments 已同步 ten failures + 20 pages） (4) 上线回报 arXiv ID → Claude 做发布配套（README/status/design doc Stage 表收敛 + data_inventory 终版归档 + 可选中文科普版）。",
+      "【🔴 LLM-Observer 论文 #2 v1.1 刷新 ✅ V37.9.367（2026-10-05）· ✅ 2026-10-05 已提交 arXiv submit/8180312 · 待 announcement 回报 ID】v1.0 投稿包（V37.9.333，四决策已定）于 10-05 按「结合最新进展刷新」指令升 v1.1：Postscript 扩为冻结后八周记录 P1-P6（新检测器 / 原则 #36 五纪律 / 观测面自身 fail-plausible 家族 / 反向形态与 327 条假成功笔记 / O11 / 注册窗现状）；§7 台账对账 O1-O8→O1-O10（窗内漏计 O9 V37.9.252/264、O10 V37.9.287，正文披露；Claude 判断，用户可否决，git 一行可还原）；冻结窗 §6 数字零改动；本地 texlive 真编译 20 页 0 error，Fig.4/Table 5/Postscript 逐页目视核对。✅ 2026-10-05 步骤 0-4 全部完成：fired 56/0 → 引用六篇一致 → Overleaf OK → arXiv 表单提交 **submit/8180312（submitted，cs.SE / CC BY 4.0）**；表单当场拒收 2,631 字符全文摘要（字段上限 1,920）→ 现场压缩为 1,889 字符元数据版（已写回 runbook 4.5）。待: (a) 次日 announcement 后用户回报 arXiv ID → Claude 做发布配套（README/status/CLAUDE 链接 + design doc Stage 表收敛 + data_inventory 终版归档 + 可选中文科普版）(b) Preview 页若漏加 cs.AI cross-list，announcement 后用 Cross list 动作补 (c) 邮件若 on hold = 分类人工复核 1–2 工作日无需动作。",
       "【2026-07-26 对抗审计 JOB-F1 ✅ V37.9.282 已铺开 · 剩 Mac Mini 被动验证】8 脚本 200-but-unparseable 守卫全部落地 (四类结构分别适配): A. rss_blogs/ai_leaders_blogs XML 全款 (exit 2+根白名单+PARSE_RC→FETCH_ERRORS) / B. bsky JSON 根形状 feed 键校验 / C. dblp+s2 全结果文件解析失败→exit 2→既有 parse_failed 分支 / D. hn/chaspark/freight 单源 fail-loud (parse_failed/fetch_failed 不落 \"无新内容\" ok)。守卫 test_v37_9_282_parse_guard_rollout.py 15 单测 (含 heredoc compile+非空断言) + bsky 既有 pin 演进 (corrupt JSON exit 0→2, FAIL-OPEN 上移 shell 级)。Mac Mini 验证: 同步后各 job 正常日照常 ok; 若未来某源被反爬, watchdog 应出 fetch_failed/parse_failed 告警而非静默 new:0 ok。",
       "【2026-07-26 对抗审计 2 登记项 ✅ V37.9.283 已修 · 剩 Mac Mini 被动验证】(a) NOT-F3 quiet_alert 静默期已收编 notify --channel discord --topic alerts（重试+队列，队列条目 channel=discord 重放不违静默期；V37.8.13 四 pin 零破坏）。(b) NOT-F5 ProxyStats per-key 告警冷却（token_warn/token_critical/consecutive_errors，ALERT_COOLDOWN_SEC=1800 config.yaml 中心化；首报零延迟/窗口内抑制/状态恢复重武装/升级穿透）。Mac Mini 验证: 同步+重启 proxy 后，长 session 过 195K 时告警至多 1 条/30min 非每 turn；静默期 deploy 告警失败应入 notify 队列稍后重放（~/.notify_queue/）而非静默丢失。守卫 test_v37_9_283_alert_cooldown.py 23 单测 + sabotage 双向验证。",
       "【V37.9.279-281 Mac Mini 被动验证】合并+同步后: (a) 279: 次日 06:30 observer 报告若有 fp verdict, LLM critique 段应可见异常块引用 fail-plausible (on 模式评分真集成); score_history 新行有 fp_mode:\"on\" 字段; confidence 只在 L2 grounded 支持时非 1.0 (b) 280: evening \"今日笔记\" 不再含昨日条目; 论文源 parse_failed 日 evening 出\"今日任务异常\"块; harvest 部分 Map 失败日 last_run status=error 且次日重试 (c) 281: notify 队列重放无重复投递; chaspark LLM 失败日次日正常重抓 (seen 不再提前提交); wa_keepalive 日志出现 ESCALATE_FAILED 时 ~/.openclaw_alerts.log 有兜底行。",
@@ -352,9 +357,11 @@
       "[V37.9.362/363/364 生产验证全部通过 ✅ 2026-09-29] 财经 07:30: 笔记 1 条 7632 字节、topics/finance-news.md 首次出现、finance_daily.md 日期段 0→1。茶思屋: 11:00:01 与 13:08:32 两次 HTTP 418 (华为云 CloudWAF) → V37.9.364 加 418 重试 → 合并同步后 15:23 手动补跑 status ok / new 8 / sent true, 笔记 1 条 (tags chaspark)、topics/chaspark.md 当日 1 条、chaspark.md 日期段 121→122、当日段正文 154 行。两个备份文件已删 ✅ (09-29)。剩: (a) grep 'WAF 拦截' ~/.openclaw/logs/jobs/chaspark.log 09-29 为 0 行 = 15:23 那次首请求即 200、重试尚未真实触发过; 之后出现「被 WAF 拦截」+「重试结果: 状态码 200」即重试救回, 状态码 418 即重试无效需另议 (b) Windows kb 模块 rc=25 09-29/09-30 两早属预期, 10-01 回 rc=0。",
       "[V37.9.365 Mac Mini 被动验证] 同步后 bash diagnose.sh 的【3/7】应显主力 doubao_21 + fallback 4 跳 + 断路器 closed（且不出现 ep- 接入点 ID）；10-05 周一 09:00 周报「🤖 模型」行应形如「🟢 主力 doubao_21 | fallback 4 跳 (…) | 断路器 closed」；~/.kb/health_status.json 的 model 键为 primary/fallback_chain/circuit_breaker/reachable"
     ],
-    "open_prs": [],
+    "open_prs": [
+      "claude/sleepy-dijkstra-c86f8l（fdacd4a .gitignore zip + 本次投稿记录，待合并）"
+    ],
     "blocked_on": "",
-    "focus": "2026-10-05: V37.9.367 论文 #2 v1.1 刷新完成（Postscript P1-P6 + §7 台账 O1-O10 + 20 页真编译），本周投 arXiv：用户走 guide 第 0-4 步。V37.9.368 OpenClaw 2026.9.8 到期读数：日落规则首次走追加分支（25.6），继续 hold，LAST_EVAL_DATE 保持 10-02；tripwire [2/6] 45/50 预计 10-12 或 10-19 触发（按 23.5 预注册处置）。被动验证: V37.9.365 周报模型行（10-05 09:00 首跑）/ check_upgrade 10-05 09:10 首次以 LAST_EVAL_DATE=10-02 运行。",
+    "focus": "2026-10-05: V37.9.367 论文 #2 v1.1 刷新完成（Postscript P1-P6 + §7 台账 O1-O10 + 20 页真编译），✅ 10-05 下午已提交 arXiv submit/8180312（submitted），待次日 announcement 回报 ID 做发布配套。V37.9.368 OpenClaw 2026.9.8 到期读数：日落规则首次走追加分支（25.6），继续 hold，LAST_EVAL_DATE 保持 10-02；tripwire [2/6] 45/50 预计 10-12 或 10-19 触发（按 23.5 预注册处置）。被动验证: V37.9.365 周报模型行（10-05 09:00 首跑）/ check_upgrade 10-05 09:10 首次以 LAST_EVAL_DATE=10-02 运行。",
     "recent_changes": []
   },
   "quality": {
