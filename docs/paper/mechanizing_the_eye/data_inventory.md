@@ -5,6 +5,7 @@
 > 快照基准：**study cutoff 2026-08-09 23:59 HKT**（§9.2.3 预注册冻结规则，2026-08-10 V37.9.296 落表）；
 > 草稿撰写日 2026-08-12，`VERSION 0.37.9.132` / CLAUDE.md v37.9.296。
 > 维护契约：仅投稿前重新对表；若观察窗延长后重新落表，须按 §9.2 协议以新 cutoff 机械重跑，本表登记新版本（append，不改写）。
+> **2026-10-05 v1.1 刷新轮**：见文末「2026-10-05 投稿前重对表」段（冻结窗数字不动；Postscript 扩为冻结后八周记录；§7 台账在窗内由 8 更正为 10）。
 
 ## 生产窗口数据（§6 全部数字的单一真理源 = design doc §9.2.7）
 
@@ -56,7 +57,7 @@
 | 逐字 grounding 降级规则 | ungrounded evidence drop → 无 grounded 证据降级 clean | `llm_observer.py` `_evidence_grounded()`（V37.9.196） | test_llm_observer TestEvidenceGrounding |
 | cheap-path | 干净日零 Layer 2 调用 | design doc §3.2 + §9.2.7 C3 | — |
 
-## Observer 自身事故（§7 表，O1-O8）
+## Observer 自身事故（§7 表，O1-O10；v1.1 由对账补 O9/O10）
 
 | # | 论文描述 | 仓库来源 |
 |---|---|---|
@@ -68,6 +69,9 @@
 | O6 | on 模式评分集成 inert（fp 在 critique prompt 之后 extend；报告标「已集成」而分数逐字节同 shadow） | changelog V37.9.279 OBS-F1 |
 | O7 | confidence 校准腐蚀（L2 clean 置信度贴到 L1-only verdict） | changelog V37.9.279 OBS-F2 |
 | O8 | wrapper 报告写失败吞错 + status ok（fabricated success in shell） | changelog V37.9.279 OBS-F5 |
+| O9 | deep_dive_repeat 探测器两轮假阳性：06-14/06-26 对（均早于 ban-list 07-03 部署）被报「ban-list 疑似失效」→ 加 `_BAN_LIST_ACTIVE_SINCE`；三天后 06-20/07-04 对（真逃逸但 ban-list off-by-one 已于 07-08 修）再报 → 加 `_BAN_LIST_BOUNDARY_FIX`；两轮之间同探测器抓到 ban-list off-by-one 真 bug（V37.9.260）| changelog V37.9.252（2026-07-06）/ V37.9.264（2026-07-09）；`daily_observer.py` 两常量 |
+| O10 | 失败状态枚举漂移：observer `failed_jobs` 硬编码 (llm_failed/fetch_failed/send_failed) 与 writer 实际写的 parse_failed（9 源）/ parse_low / no_volumes 脱节 → 解析全线崩塌日 detect_anomalies 零 HIGH、报告 🔘、score_history 记成无异常日，与 watchdog 同日告警矛盾 | changelog V37.9.287 A-F1（2026-08-07，窗内）；`JOB_FAILURE_STATUSES` + test_daily_observer 跨模块等值守卫 |
+| O11（窗外，仅 Postscript P5） | `scan_source_sections` 同日多 H2 只留最后一段（每遇当日 H2 重置）→ 一天跑两次的源（ontology_sources 自 V37.6）observer 只读到最后一班 | changelog V37.9.362 ③（2026-09-28） |
 
 ## 审计轮（§6.5 H3 预防通道）
 
@@ -126,3 +130,41 @@
 | 月份钉死两次人眼捕获 | 2026-08-23（「都是4月」）/ 2026-08-25（「都是8月」） | changelog V37.9.326 / V37.9.329 |
 | 第一次修复 22 个绿守卫零个问月份分布 | 22 | changelog V37.9.330 纪律(1) 实录（test_v37_9_326 22 单测） |
 | 验收数据（五月混合）+ 检测器同日机械化 | 2026-08-28，distinct=5 / top_share=0.638；阈值 <3 月或 >80% | changelog V37.9.332 + `daily_observer.py scan_dream_month_distribution` + test_daily_observer 278 |
+
+## 2026-10-05 投稿前重对表（v1.1 刷新轮，append 不改写）
+
+| 项 | 结果 |
+|---|---|
+| scorecard 三指标 | ✅ dev 实测 `llm_observer_selfcheck.py --json`: defense 6/6 (1.0) / FP 0/4 (0.0) / held-out FN 4/4 (1.0)，与 08-28 逐字一致 |
+| ground truth summary | ✅ `last_updated: 2026-06-29` / total_labeled 24 不变（无新标注） |
+| case 文件总数 | ✅ `ls ontology/docs/cases/*.md \| wc -l` = 28；`git log --since=2026-08-12 -- ontology/docs/cases/` 仅 V37.9.352 文档刷新触碰，无新 postmortem |
+| Layer 1 信号数 | ✅ `grep -c "^def detect_" llm_observer.py` = 7（6 信号 + orchestrator） |
+| 生产窗口数字 | 冻结值不重拉（§9.2 协议：新 cutoff 须先于读数声明，本轮不声明） |
+| §9.2.6 台账 | ✅ 仅「关窗 2026-08-10」行，无 fired-verdict 行 = Postscript P6「no verdict forwarded for adjudication」的仓库侧依据；**Mac Mini 侧 fired 计数由投稿 runbook 第 0 步让用户一条命令核对**（若 >0 须先补 P6 再投） |
+| 引用 arXiv abs 终核 | ⚠️ dev 容器 egress 仍屏蔽 export.arxiv.org（2026-10-05 WebFetch 实测 EGRESS_BLOCKED）→ 保持 runbook 第 1 步交用户 |
+| pdflatex | ✅ dev 本地真编译（texlive 2026-10-05 装）**20 页 / 0 error / 0 undefined ref / 0 Overfull / 无 Float too large**；Fig.1 p.6 / Fig.2 p.10 / Fig.3 p.11 / Fig.4 p.13（O9 落 D 列第四格、O10 落 B 列第二格，图例未压框）/ Table 5 p.14 单页 / Postscript p.17-19 |
+| §7 台账 8→10 更正 | 对账方法 = 把 v1.0 的 O1-O8 与 changelog 中 observer 自身缺陷逐条对照（原则 #36-4「每个数字必须有对账」自我应用）；窗内漏计 2 条（O9 V37.9.252/264、O10 V37.9.287）→ 补进 Table 5 并在 §7 正文披露漏计（不静默重编号）；abstract/§1/§7/§10/Fig.4 caption 同步 eight→ten；「四类之四」不变（A 仅 flavor） |
+
+### Postscript v1.1（P2-P6）数字溯源
+
+| 论文数字 | 值 | 仓库来源 |
+|---|---|---|
+| P2 五条纪律确立日 | 2026-08-25 | CLAUDE.md 原则 #36（V37.9.330） |
+| P2 (1) 22 个绿守卫 | 22 | test_v37_9_326 22 单测（V37.9.330 纪律(1)） |
+| P2 (2) 字母序截断丢 4 源 | 4（openreview_top / pwc_daily / rss_blogs / semantic_scholar_daily）| V37.9.329 ②（生产实测 17078 > 14000） |
+| P2 (3) 「都是 8 月 = 尾窗设计预期」辩护实录 | — | V37.9.329 ①（用户纠正） |
+| P2 (4) 页脚 19 sources deep-analyzed vs 4 源未进 LLM | 19 / 4 | V37.9.329 ② + V37.9.317 ③ |
+| P2 (5) fixture 9709 < 14000 假对照两版 | — | V37.9.329 ⑧ |
+| P3 audit log 整删 → ok=True | 2026-08-18 | V37.9.320 AL-2 |
+| P3 integrity verify 从未运行 / `--update` 吸收灾难 | 2026-08-21 | V37.9.324 |
+| P3 SLO 两个从未测量指标算达标（哨兵值） | 2026-08-19 | V37.9.322 F1 |
+| P3 安全扫描「跑不动 = 无泄漏」 | 2026-08-19 | V37.9.322 F3 |
+| P3 故障快照 gateway 路径无写入方 + 挂起场景被调用方超时杀掉 | 2026-08-23 | V37.9.325 B/C（实测 15.0s→6.0s） |
+| P3 CRITICAL 告警 grep 从未被写过的串 + 伪造 fixture 绿单测 | 2026-08-25 | V37.9.328 F1/F2（`git log -S "FALLBACK ALSO FAILED"` 空） |
+| P3 升级监控声称四个月无 cron/无部署/无告警 | 2026-08-30 | V37.9.334 CU-F1 + 后记（Mac Mini `crontab -l` 空输出实证） |
+| P3 周报模型行三个月测 fallback 末位 | 2026-09-30 | V37.9.365（V37.9.222 flip 07-02 起） |
+| P4 freight L2 比值判据 4 个月失配 | 2026-09-22（V37.9.33 2026-05-07 起） | V37.9.356（8/15 健康运行实录） |
+| P4 notify 部分失败记全失败（WhatsApp 428 ~8h） | 2026-09-23 | V37.9.359 + V37.9.358 ② |
+| P4 kb_write 垃圾笔记 327 条 / 约五个月 / 「已记录」rc=0 | 2026-09-28 | V37.9.363（V37.8.2 2026-04 起；后记 Mac Mini 清理 327/287/327 逐一吻合） |
+| P5 O11 | 2026-09-28 | V37.9.362 ③ |
+| P6 enforcing 连续运行起点 | 2026-07-26 | §9.1.1 + V37.9.276 |

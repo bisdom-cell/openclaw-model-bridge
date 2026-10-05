@@ -1,9 +1,21 @@
 # arXiv 提交手把手指南 — Mechanizing the User's Eye（论文 #2）
 
-> 2026-08-28 V37.9.333。四步流程 + arXiv 表单字段可复制版，镜像论文 #1 的 `ARXIV_SUBMISSION_GUIDE.md`（2026-06-11 已走通一遍的同款流程）。
+> 2026-08-28 V37.9.333；**2026-10-05 V37.9.367 刷新为论文 v1.1（20 页，Postscript 扩为冻结后八周记录，§7 台账 O1-O10）**，本指南的页码、摘要、Comments 已同步。四步流程 + arXiv 表单字段可复制版，镜像论文 #1 的 `ARXIV_SUBMISSION_GUIDE.md`（2026-06-11 已走通一遍的同款流程）。
 > 遇到任何报错/卡点：把屏幕上的错误文字复制贴给 Claude。
 >
 > 决策依据（2026-08-28 用户定夺，详见 `DECISIONS_NEEDED.md` 头部）：现在投安静窗版本 / 标题选项 1 / arXiv 直发 cs.SE + cross-list cs.AI / 署名沿用论文 #1。
+
+---
+
+## 第 0 步：核对 Postscript P6 的一句话（Mac Mini 终端，30 秒，v1.1 新增）
+
+论文 Postscript P6 写的是「enforcing 模式自 07-26 连续运行，至本次修订无 fired verdict 被转发判定」。仓库侧台账为空是事实，但 Mac Mini 上的 score_history 才是一手数据。粘贴执行：
+
+```
+python3 -c "import json,sys; rows=[json.loads(l) for l in open('/Users/bisdom/.kb/self_critique/score_history.jsonl') if l.strip()]; on=[r for r in rows if r.get('date','')>'2026-08-08' and r.get('fp_mode')=='on']; fired=[r for r in on if (r.get('fp_high') or 0)+(r.get('fp_med') or 0)>0]; print('on_rows_after_0808', len(on)); print('fired_rows', len(fired)); [print(r.get('date'), r.get('fp_high'), r.get('fp_med')) for r in fired]"
+```
+
+`fired_rows 0` = P6 原文成立，直接进第 1 步。`fired_rows` 大于 0 = 把整段输出贴给 Claude，Claude 先按 design doc §9.2.4 把这些 verdict 登进 §9.2.6 台账并改写 P6，再投。
 
 ---
 
@@ -40,7 +52,7 @@ https://arxiv.org/abs/2310.10501
 
 ## 第 3 步：Overleaf 编译验证（10 分钟）
 
-本地 pdflatex 已真编译通过（18 页 / 0 error / 0 undefined ref / 0 overfull box），这一步是投稿前在您可控环境里再确认一遍。
+本地 pdflatex 已真编译通过（v1.1：20 页 / 0 error / 0 undefined ref / 0 overfull box，2026-10-05），这一步是投稿前在您可控环境里再确认一遍。
 
 **3.1** Mac Mini 终端打包（本论文只有一个 .tex 文件）：
 
@@ -62,10 +74,10 @@ zip paper2_latex.zip main.tex
 
 **3.6** 检查 PDF（对照下面清单）：
 
-- 共 18 页；4 张图渲染正常：Fig.1 两层管道（p.6）/ Fig.2 预注册三次冻结链（p.10）/ Fig.3 部署时间线（p.11，刻度标签上下两行错开、不重叠）/ Fig.4 O1-O8 taxonomy 映射（p.13，图例在整图正下方、不压 O8 框）
-- Table 1-6 不超页边（Table 1 信号表和 Table 5 O1-O8 表是小字号，正常）
-- 引用编号 [1]-[11] 正常；标题页脚注（AI disclosure）完整
-- 末尾 Postscript 段在 Artifact Availability 之前，标注 "added 2026-08-28"
+- 共 20 页；4 张图渲染正常：Fig.1 两层管道（p.6）/ Fig.2 预注册三次冻结链（p.10）/ Fig.3 部署时间线（p.11，刻度标签上下两行错开、不重叠）/ Fig.4 O1-O10 taxonomy 映射（p.13：D 列四格 O2/O6/O8/O9，B 列两格 O1/O10，图例在整图正下方、不压框）
+- Table 1-6 不超页边（Table 1 信号表和 Table 5 O1-O10 表是小字号；Table 5 独占第 14 页，正常）
+- 引用编号 [1]-[11] 正常；标题页脚注（AI disclosure）完整；首页日期行 "October 2026 · v1.1"
+- 末尾 Postscript 段在 Artifact Availability 之前，标题含 "added 2026-08-28; revised 2026-10-05"，P1-P6 六段落在 p.17-19
 
 **3.7** 有红色报错 → 复制完整错误文字贴给 Claude。编译成功 → Menu → Download → Source 下载最终 zip（第 4 步上传用这份）。
 
@@ -92,12 +104,12 @@ Authors: 您的姓名（arXiv 格式 First Last，与论文 #1 一致）。
 
 Abstract（已去 LaTeX 化的纯文本版）:
 ```
-In a previous longitudinal study of silent failures in a production LLM agent runtime (When Errors Become Narratives, arXiv:2606.14589) we reported an uncomfortable finding: roughly 70% of silent failures were ultimately discovered by a human looking at the product as a user, while thousands of unit tests and hundreds of governance checks stayed green -- and we posed mechanizing even part of what the human eye does as an open problem. This paper reports our attempt. We built an automated user-viewpoint observer targeting the taxonomy's most dangerous class, fail-plausible failure, in which the system transforms an internal error into fluent, plausible output delivered to the user. The observer is a two-layer pipeline: five deterministic signals distilled from incident postmortems escalate to an LLM judge whose verdicts must cite verbatim evidence from the artifact or be discarded. Ground truth comes from 24 labeled production postmortems, with explicit honesty boundaries -- 16 of 24 incidents are structurally invisible to any content-reading observer, and we say so rather than claim them. Offline, the deterministic layer achieves 6/6 regression detection with 0/4 false positives, every detector proven load-bearing by sabotage; held-out recall on novel patterns is 0/4. The observer is, so far, a regression engine, and the scorecard reports that without spin. Deployment followed a protocol borrowed from experimental science: pre-registration. Shadow mode caught and retired one systematic false positive on its first production run, after which the registered 26-day shadow window ran clean; flip criteria were registered before the shadow data was read; the analysis protocol -- regime rules, exclusion rules, a negative-results commitment -- was frozen before the enforcing-mode window opened. That window (12 observed days) fired zero verdicts: per the pre-registered path we report live precision as undefined (zero denominator) rather than narrating quiet as success. Meanwhile the observer produced eight silent failures of its own during its development -- including polluting its own evidence file and an enforcing-mode integration that was silently inert -- empirically confirming the prior paper's warning that the judge inherits the taxonomy it judges. We release the labeled corpus, detector, and scorecard as a community-runnable bench, and argue that what mechanization buys today is retiring the human's regression scanning so the human eye can specialize in novelty -- prediction remains open, but it is now measurable, under rules already frozen.
+In a previous longitudinal study of silent failures in a production LLM agent runtime (When Errors Become Narratives, arXiv:2606.14589) we reported an uncomfortable finding: roughly 70% of silent failures were ultimately discovered by a human looking at the product as a user, while thousands of unit tests and hundreds of governance checks stayed green -- and we posed mechanizing even part of what the human eye does as an open problem. This paper reports our attempt. We built an automated user-viewpoint observer targeting the taxonomy's most dangerous class, fail-plausible failure, in which the system transforms an internal error into fluent, plausible output delivered to the user. The observer is a two-layer pipeline: five deterministic signals distilled from incident postmortems escalate to an LLM judge whose verdicts must cite verbatim evidence from the artifact or be discarded. Ground truth comes from 24 labeled production postmortems, with explicit honesty boundaries -- 16 of 24 incidents are structurally invisible to any content-reading observer, and we say so rather than claim them. Offline, the deterministic layer achieves 6/6 regression detection with 0/4 false positives, every detector proven load-bearing by sabotage; held-out recall on novel patterns is 0/4. The observer is, so far, a regression engine, and the scorecard reports that without spin. Deployment followed a protocol borrowed from experimental science: pre-registration. Shadow mode caught and retired one systematic false positive on its first production run, after which the registered 26-day shadow window ran clean; flip criteria were registered before the shadow data was read; the analysis protocol -- regime rules, exclusion rules, a negative-results commitment -- was frozen before the enforcing-mode window opened. That window (12 observed days) fired zero verdicts: per the pre-registered path we report live precision as undefined (zero denominator) rather than narrating quiet as success. Meanwhile the observer produced ten silent failures of its own during its development -- including polluting its own evidence file, an enforcing-mode integration that was silently inert, and twice accusing a working mechanism of failure -- empirically confirming the prior paper's warning that the judge inherits the taxonomy it judges. We release the labeled corpus, detector, and scorecard as a community-runnable bench, and argue that what mechanization buys today is retiring the human's regression scanning so the human eye can specialize in novelty -- prediction remains open, but it is now measurable, under rules already frozen.
 ```
 
 Comments（建议填）:
 ```
-Follow-up to arXiv:2606.14589. 18 pages, 4 figures. Labeled incident corpus, detector source, sabotage-validation harness, and pre-registration texts publicly available at https://github.com/bisdom-cell/openclaw-model-bridge
+Follow-up to arXiv:2606.14589. 20 pages, 4 figures. Labeled incident corpus, detector source, sabotage-validation harness, and pre-registration texts publicly available at https://github.com/bisdom-cell/openclaw-model-bridge
 ```
 
 **4.6 提交**：Preview 确认 → Submit。工作日 14:00 (ET) 前提交通常次日 announcement。

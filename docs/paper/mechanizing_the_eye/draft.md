@@ -1,6 +1,6 @@
 # Mechanizing the User's Eye: Pre-Registered Deployment of a Sabotage-Validated Fail-Plausible Observer in a Production LLM Agent Runtime
 
-> **v1.0 — 2026-08-28 (submission version; v0.1 first pass 2026-08-12)**
+> **v1.1 — 2026-10-05 (submission version, refreshed eight weeks after the freeze; v1.0 2026-08-28; v0.1 first pass 2026-08-12)**
 > Follow-up to *When Errors Become Narratives*
 > ([arXiv:2606.14589](https://arxiv.org/abs/2606.14589)). Venue (user decisions,
 > 2026-08-28): **arXiv direct submission, cs.SE primary + cross-list cs.AI**;
@@ -9,7 +9,11 @@
 > All production numbers frozen at the pre-registered study cutoff **2026-08-09 23:59 HKT**
 > per the analysis protocol registered 2026-07-31 (`docs/llm_observer_design.md` §9.2),
 > *before* the window data was read. Repository traceability in `data_inventory.md`.
-> Post-cutoff developments appear only in the clearly-labeled Postscript.
+> Post-cutoff developments appear only in the clearly-labeled Postscript (revised
+> 2026-10-05 to cover eight weeks after the freeze). v1.1 also carries one in-window
+> correction: a pre-submission reconciliation of the draft against the repository
+> changelog recovered two observer-side incidents (O9, O10) that the v1.0 ledger had
+> undercounted; the ledger is now O1–O10 and the undercount is disclosed in §7.
 
 **Authors:** Wei Wu (Independent researcher), with AI engineering collaborator
 disclosure mirroring paper #1 (title-page footnote + Acknowledgments; confirmed
@@ -45,9 +49,10 @@ protocol — regime rules, exclusion rules, a negative-results commitment — wa
 before the enforcing-mode window opened. That window (12 observed days) fired zero
 verdicts: per the pre-registered path we report live precision as **undefined** (zero
 denominator) rather than narrating quiet as success. Meanwhile the observer produced
-**eight silent failures of its own** during its development — including polluting its own
-evidence file and an enforcing-mode integration that was silently inert — empirically
-confirming the prior paper's warning that the judge inherits the taxonomy it judges. We
+**ten silent failures of its own** during its development — including polluting its own
+evidence file, an enforcing-mode integration that was silently inert, and twice accusing
+a working mechanism of failure — empirically confirming the prior paper's warning that
+the judge inherits the taxonomy it judges. We
 release the labeled corpus, detector, and scorecard as a community-runnable bench, and
 argue that what mechanization buys today is retiring the human's *regression scanning*
 so the human eye can specialize in novelty — prediction remains open, but it is now
@@ -130,9 +135,10 @@ The results are deliberately mixed, and we believe the mixture is the contributi
    window then ran clean), registered flip criteria, a frozen analysis protocol, and a
    12-day enforcing-mode window that fired zero verdicts — reported as an
    *undefined-precision quiet window* per the registered path, not as success.
-5. **The observer's own incident log** (§7): eight silent failures the observer itself
-   produced during development — including contaminating its own evidence file and an
-   enforcing-mode integration that was silently inert — which we offer as the strongest
+5. **The observer's own incident log** (§7): ten silent failures the observer itself
+   produced during development — including contaminating its own evidence file, an
+   enforcing-mode integration that was silently inert, and two confident false
+   accusations against a mechanism it guards — which we offer as the strongest
    empirical support yet for the prior paper's claim that an LLM judge inherits every
    failure class of the system it judges.
 
@@ -576,8 +582,12 @@ registration time — which is the entire point.
 The prior paper warned that an LLM judge "inherits every class in this taxonomy" and
 therefore "needs the same governance, provenance hygiene, and sabotage validation as
 the components it judges." During this study the warning stopped being theoretical:
-the observer produced **eight documented silent failures of its own** between its first
-deployment and the end of the study window. We report them as first-class data — to our
+the observer produced **ten documented silent failures of its own** between its first
+deployment and the end of the study window. Eight were carried in the first draft; a
+pre-submission reconciliation of the draft against the repository changelog recovered
+two more from inside the window (O9, O10), and we report the undercount rather than
+renumber silently — an observer's incident log is itself a count that must reconcile
+against what happened (Postscript, P2). We report them as first-class data — to our
 knowledge the first incident log *of* an observability component for LLM systems,
 kept to the same postmortem standard as the system it watches.
 
@@ -591,17 +601,24 @@ kept to the same postmortem standard as the system it watches.
 | O6 | Inert enforcing mode: on flip day, fail-plausible verdicts were appended to the anomaly list *after* the scoring prompt had been built — enforcing-mode reports carried the label "integrated · affects scoring" while scores remained byte-identical to shadow | D (fail-plausible — the deployment itself) | 1 day | Adversarial audit on the first enforcing-mode day |
 | O7 | Calibration corruption: when the judge rejected an escalation (verdict clean), its confidence-in-clean was attached to the surviving Layer-1 verdict — a 90% confidence *of rejection* displayed as 90% confidence *of accusation*; calibration data would have been corrupted from flip day | C (semantic dilution) | caught pre-data | Same audit |
 | O8 | Swallowed report failure: if writing the daily report failed, the wrapper discarded the error stream, skipped the push silently, and recorded `status: ok` — the observer would report success on the day its output was lost | D3 shape (fabricated success, in shell) | latent | Same audit family |
+| O9 | Deployment-date-blind regression detector, two rounds: a deterministic detector built to catch a de-duplication list silently failing (the same link analyzed twice within 14 days) first accused the list on a pair of dates that both *preceded* the list's deployment — a confident, plausible, false accusation that would have recurred daily; three days after that fix it accused again, on a real escape that the list's own off-by-one bug had allowed and that had *already been fixed*, reporting repaired history as an ongoing failure (between the two false rounds the same detector made one true catch: that off-by-one) | D (fail-plausible — by the observer), twice | would have recurred daily | A human reading the observer's own daily self-report critically rather than trusting it, twice (2026-07-06, 07-09) |
+| O10 | Failure-status enumeration drift: the observer's hard-coded set of job-failure statuses (three values) had drifted from the statuses the jobs actually write (nine sources can emit a parse-failure status; others emit low-parse and no-volume statuses) — on a day of total parse collapse the observer would record zero high-severity anomalies, display a neutral icon, and write the day into its score history as anomaly-free while the independent watchdog alerted: two observation instruments contradicting each other, the written record being the wrong one | B (assumption mismatch) / C flavor | latent since the statuses were introduced | Three-lens adversarial code audit (2026-08-07); fixed with a cross-module equality guard between the writer and reader sets |
 
 Three readings. First, the distribution: the observer's own failures span four of the
-five taxonomy classes, including two genuine fail-plausibles (O2: it fabricated a
-defect; O6: its deployment fabricated its own integration). The inheritance claim is
-not rhetorical. Second, the discovery channels: not one of the eight was caught by the
-observer's own operation in the ordinary sense — they were caught by human forensics,
-adversarial audits, and the grounding discipline imposed by pre-registration (O4 and
-O5 specifically fell out of refusing to flip a switch without verifying the switch was
-connected). The observer watches the system; the *method* watches the observer. Third,
-the repairs held: the contamination-exclusion rule matching zero rows at analysis time
-(§6.4) is the audit trail that O4's two-sided fix actually worked.
+five taxonomy classes, including three genuine fail-plausibles (O2: it fabricated a
+defect; O6: its deployment fabricated its own integration; O9: it twice accused a
+working mechanism). The inheritance claim is not rhetorical. Second, the discovery
+channels: not one of the ten was caught by the observer's own operation in the ordinary
+sense — they were caught by human forensics, adversarial audits, the grounding
+discipline imposed by pre-registration (O4 and O5 specifically fell out of refusing to
+flip a switch without verifying the switch was connected), and, for O1 and O9, by a
+human reading the observer's own output critically instead of trusting it. The observer
+watches the system; the *method* watches the observer. Third, the repairs held: the
+contamination-exclusion rule matching zero rows at analysis time (§6.4) is the audit
+trail that O4's two-sided fix actually worked. A fourth reading was added at
+reconciliation: the log itself had been undercounted, and the same discipline that
+catches a synthesis footer overstating its sources (Postscript, P2) caught this paper
+understating its own.
 
 We commend this practice — an incident log for the observability component, kept to
 the same standard as the system's — as a concrete, checkable form of the "same
@@ -723,62 +740,157 @@ its own schedule under rules we froze in advance.
 What we can already recommend without qualification is the deployment method. Shadow
 first; register the flip criteria before reading the shadow data; freeze the analysis
 protocol before the window opens; ground the flip mechanism before flipping (two of our
-eight observer-side incidents were caught by exactly that step); publish the quiet
+ten observer-side incidents were caught by exactly that step); publish the quiet
 window because you promised to. And keep an incident log for the observer itself — ours
-produced eight entries spanning four taxonomy classes, including one hallucinated
-defect and one silently inert deployment, and we built it *knowing* the judge inherits
-the taxonomy. The eye can be partially mechanized. The mechanized eye then needs
+produced ten entries spanning four taxonomy classes, including one hallucinated
+defect, two false accusations, and one silently inert deployment, and we built it
+*knowing* the judge inherits the taxonomy. The eye can be partially mechanized. The mechanized eye then needs
 watching — by method, not by hope.
 
 ---
 
-## Postscript: The Loop, After the Freeze (added 2026-08-28)
+## Postscript: Eight Weeks After the Freeze (added 2026-08-28; revised 2026-10-05)
 
 This section postdates the registered study cutoff (2026-08-09) and enters none of
-the frozen tables above. We add it because the paper's central loop — a human catches
-a semantic defect the automation missed, and the catch is mechanized into a
-deterministic detector within a day — executed twice more between the freeze and
-submission. Both instances are repository-verifiable in the same way as everything
-else in this paper; neither changes any frozen number.
+the frozen tables above. Its first version (2026-08-28) recorded that the paper's
+central loop — a human catches a semantic defect the automation missed, and the catch
+is mechanized into a deterministic detector within a day — had executed twice more
+between the freeze and the submission package. This revision extends the record to
+eight weeks after the freeze. Everything below is repository-verifiable in the same way
+as everything else in this paper; nothing below changes a frozen number.
 
-**A sixth deterministic signal (2026-08-18).** Reviewing a routine nightly synthesis,
-the human operator noticed two credibility-marker defects the automation had not:
-the synthesis had *invented* a provenance tier — an emoji marker outside the
-five-tier contract, wrapped in responsible-sounding hedging — and had *upgraded* a
-social-media source to an industrial-practice tier. Both are textbook fail-plausible:
-plausible-looking annotations, wrong by contract. Neither S1–S5 nor the existing
-credibility-mismatch rule could see them: S2 checks wording against a known
-single-source identity, while these were defects in the explicit markers of a
-multi-source synthesis document. The same day, the catch became S6 — a deterministic
-marker-contract checker that derives the legal tier set from the runtime's provenance
-module (one source of truth, so a contract change updates the detector) and flags
-out-of-contract or contract-inconsistent markers. Against the same real artifact, S6
-flags exactly the two human-caught defects and nothing else on the in-contract
-markers; sabotage confirms every branch load-bearing. Layer 1 is now six signals;
-the frozen sections above describe the five that existed inside the study window.
-
-**A distribution detector born from an acceptance test (2026-08-28).** A
+**P1. The loop ran twice more.** *A sixth deterministic signal (2026-08-18).*
+Reviewing a routine nightly synthesis, the human operator noticed two
+credibility-marker defects the automation had not: the synthesis had *invented* a
+provenance tier — an emoji marker outside the five-tier contract, wrapped in
+responsible-sounding hedging — and had *upgraded* a social-media source to an
+industrial-practice tier. Both are textbook fail-plausible: plausible-looking
+annotations, wrong by contract. Neither S1–S5 nor the existing credibility-mismatch
+rule could see them: S2 checks wording against a known single-source identity, while
+these were defects in the explicit markers of a multi-source synthesis document. The
+same day, the catch became S6 — a deterministic marker-contract checker that derives
+the legal tier set from the runtime's provenance module (one source of truth, so a
+contract change updates the detector) and flags out-of-contract or
+contract-inconsistent markers. Against the same real artifact, S6 flags exactly the
+two human-caught defects and nothing else on the in-contract markers; sabotage
+confirms every branch load-bearing. Layer 1 is now six signals; the frozen sections
+above describe the five that existed inside the study window.
+*A distribution detector born from an acceptance test (2026-08-28).* A
 material-coverage regression family — the nightly cross-domain synthesis silently
 sourcing nearly all of its citations from a single calendar month, because a fixed
 positional sampling window was pinned to one end of an append-only archive — was
-caught twice by the human eye in quick succession (the first fix relocated the bias
-to the archive's other end rather than removing it; only the second redesign made the
-sampling content-aware). The first fix shipped with twenty-two green guard tests —
-mechanism checks, all of them; not one asked what the user would see. When the
-redesign's acceptance
-data arrived — a healthy five-month citation mix, judged by the human eye — the
-acceptance criterion itself was mechanized the same day: the daily observer now
-extracts date tokens from the synthesis deterministically and raises an anomaly when
-the cited months collapse (fewer than three distinct months, or one month above 80%
-of tokens). Against the accepted real artifact it stays silent; against the
-historical single-month shape it fires.
+caught twice by the human eye in quick succession (the first fix relocated the bias to
+the archive's other end rather than removing it; only the second redesign made the
+sampling content-aware). When the redesign's acceptance data arrived — a healthy
+five-month citation mix, judged by the human eye — the acceptance criterion itself was
+mechanized the same day: the daily observer now extracts date tokens from the
+synthesis deterministically and raises an anomaly when the cited months collapse
+(fewer than three distinct months, or one month above 80% of tokens). Against the
+accepted real artifact it stays silent; against the historical single-month shape it
+fires.
 
-Neither event is evidence about the quiet window; both are evidence about the method.
-The human-to-machine conversion path this paper describes is not a one-off — it ran
-twice more while the paper was being prepared, each time within a day of the human
-catch, and each new detector entered production under the same read-only, zero-cost,
-sabotage-validated discipline as the pipeline it joined. The enforcing-mode ledger
-remains append-only under the registered protocol.
+**P2. What the second catch imposed on the fix itself.** Section 6.6 reported the
+three times the frozen rules bound the *analysis*. The month-distribution episode
+showed that the *fix* needs binding too — the first repair had passed every test it
+shipped with and had still only moved the defect — and the operators codified five
+disciplines as a standing rule the same week. (1) A guard must assert what the user
+will see before it asserts that the mechanism works: the first fix shipped with
+twenty-two green guard tests, all of them mechanism checks, none asking what month mix
+the user would see. (2) A positional or capacity assumption is fixed as a class, not
+as an instance: the same pipeline carried a second positional window — an
+alphabetical truncation that had been silently dropping four sources from the
+synthesis for an unknown period while the footer counted them as analyzed — which the
+first fix never looked for. (3) The moment acceptance data can be narrated as "the
+design's expected behavior" is the moment to attack one's own fix: the all-August
+citation distribution had been rationalized, by the same pair that wrote §6.6, as the
+tail window working as designed, until the human looked at the product again. (4)
+Every reported count needs a test that reconciles it against what actually happened:
+the synthesis footer announced nineteen sources deep-analyzed while four had never
+reached the model's context. (5) Capacity fixtures must be at production magnitude:
+the first guard's fixture sat below the threshold it guarded and exercised the "fits,
+return unchanged" branch — a fake control that passed twice. Discipline (4) recurs
+throughout the rest of this postscript, and it is the discipline that found the
+undercount in this paper's own Table 5 (§7).
+
+**P3. The observation plane fails plausibly too.** The honesty split (§4.2)
+quantified the prior paper's qualitative claim that most silent failure lives in seams
+and operations, not in content. The deployment era bore this out in a specific form.
+Between 2026-08-18 and 2026-09-30, a series of adversarial code audits — a human
+reading the runtime's own *evidence mechanisms* with one lens question, "what would
+this say if the thing it verifies had already failed?" — found a family of verifiers
+whose most reassuring output is produced precisely by their own failure. An audit log
+whose chain verifier returned `ok` when the whole log had been deleted. An integrity
+verifier whose only production call site ran its baseline-reset mode and never its
+verify mode, so that an emptied knowledge base would have been absorbed into the next
+baseline and reported intact the following morning. An SLO judge that scored two
+never-measured metrics as passing, because a sentinel value stood where a measurement
+should have been. A push-time secret scan whose "no leaks" line was indistinguishable
+from "the scanner could not run". A failure-snapshot tool whose gateway-log path had
+no writer anywhere in the repository, and which its caller's timeout killed in exactly
+the hung-service scenario it existed for, discarding the logs it had already
+collected. A critical "LLM completely unavailable" alert whose search string had
+never, in the monitored program's entire history, been written — and which had a
+green unit test, because the test had fabricated the string. A claimed weekly
+upstream-upgrade monitor that for four months had no cron entry, no deployment, and no
+alert path; the monitoring existed only in documents. And a weekly health line, green
+every week for three months, that had been testing the fallback chain's last hop as
+if it were the primary model: correctly answering a question that had expired.
+
+We report this family for two reasons. First, it is the evidence-plane counterpart of
+fail-plausible — not an output that narrates an error as content, but a verifier that
+narrates its own failure as verification. Second, none of it was caught by the content
+observer, and none of it could have been: every item is in the §4.2 "no" bucket, with
+no user-facing semantic artifact, and the honesty split exists precisely so that such
+incidents are reported as out of scope rather than quietly counted either for or
+against the instrument. The discovery channel for this class in the deployment era is
+adversarial code reading, upstream of manifestation, consistent with §6.5 (H3). The
+balance has not shifted from the human to the machine; it has shifted from one human
+practice (looking at the product) to another (interrogating the verifiers).
+
+**P4. The inverse shape, and one that ran for five months.** Three further
+post-freeze incidents are recorded because they extend the definition rather than fit
+it. In the first (2026-09-22), a job-level quality gate judged a correctly formatted
+analysis to be a parse failure — its "parse rate" compared rated items to input items,
+a ratio that had stopped meaning anything when the output format changed four months
+earlier — and discarded the report, so the user received only an alert: a healthy run
+narrated as a failure. In the second (2026-09-23), a delivery layer reported total
+failure whenever any one channel failed; eight hours of one channel being down
+produced false critical alerts, duplicate pushes, and every job recording its delivery
+as failed while the other channel had delivered everything. Success narrated as
+failure is the inverse of fail-plausible and shares its mechanism: a name — "parse
+rate", "sent" — that no longer measured what it said. The third (found 2026-09-28) is
+the D3 shape in its purest form: for about five months, two ingestion jobs had called
+the knowledge-base writer with flags it does not parse; the writer discarded the
+content, wrote a note whose entire body was the first flag, printed "recorded", and
+returned success — 327 such notes, entering the semantic index, the weekly review, and
+the nightly synthesis. It was found because the operator asked an unrelated
+verification question and a count that should have been positive was zero. None of
+the three lies in the observer's scanned set; under the registered race rule (H3) they
+are charged to the human channel and, by the §4.2 rule, to the out-of-scope bucket.
+They are the deployment era's analogue of the corpus's sixteen.
+
+**P5. The observer's own log did not stop at ten.** An eleventh entry, outside the
+window (2026-09-28): the observer's source-section scanner kept only the *last*
+same-day section of any source that runs more than once a day, so for every such
+source it had been reading a fraction of the artifact it reported on — silently, since
+the multi-run archive format predates the observer. Class B, caught by the same
+adversarial audit that found the archive-contract defects it had been reading past. It
+is not in Table 5 because it postdates the window; it is here because the log is
+append-only.
+
+**P6. The registered window, at revision time.** Enforcing mode has run continuously
+since 2026-07-26. The append-only adjudication ledger holds no fired-verdict rows
+beyond the window-close entry: no verdict has been forwarded for adjudication as of
+this revision. We have not re-tabulated §6 — the registered protocol requires a new
+cutoff to be declared before the data is read, and we decline to declare one in a
+revision made on the eve of submission; the quiet window stands as registered, and the
+next tabulation will append to the data inventory under its own cutoff. What has
+moved in eight weeks is the detector count (five to six), the observer's own log
+(eight to ten inside the window, eleven overall), the disciplines that bind fixes
+(P2), and the evidence that the deployment era's silent failures, like two-thirds of
+the corpus, lived where no content observer looks. The loop keeps running, and so does
+the paper's standing conclusion: the mechanized eye needs watching — by method, not by
+hope.
 
 ---
 

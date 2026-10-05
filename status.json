@@ -1,6 +1,6 @@
 {
-  "updated": "2026-10-02 03:41:15",
-  "updated_by": "security_score",
+  "updated": "2026-10-05 07:32:20",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -79,6 +79,16 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-10-05",
+      "what": "V37.9.368 OpenClaw 2026.9.8 到期读数: 三判据与第十四次逐项相同 (① hotfix 规模 stable 按 19.8 本日修订分支内容直判 DIRTY 2 计数仍 0 / ② 2.94 天 🔴 / ③ engines 六版逐字同) 且按 25.5 口径无新默认自主行为 (Tool Search 门控函数 9.7↔9.8 逐字节相同, discord allowBots 不变) → 日落规则首次走追加读数分支: eval doc 25.6 + 19.8 hotfix 修订 + 20.4 行, 不新开节、LAST_EVAL_DATE 保持 10-02, check_upgrade 零改动; tripwire [2/6] 45/50 剩 5. VERSION 不变",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-10-05",
+      "what": "V37.9.367 论文 #2 v1.1 刷新: Postscript 扩为冻结后八周记录 P1-P6 (原则#36 五纪律 / 观测面自身 fail-plausible 家族 / 反向形态与 327 条假成功笔记 / O11 / 注册窗现状) + §7 observer 自身事故台账对账 O1-O8→O1-O10 (窗内漏计 O9 V37.9.252/264, O10 V37.9.287, 正文披露) + 本地 texlive 真编译 20 页 0 error + runbook 新增第 0 步 (Mac Mini 核 fired 计数); 冻结窗数字零改动; VERSION 0.37.9.184 不变; 登记上游 2026.9.8 到期读数",
+      "by": "claude_code"
+    },
     {
       "date": "2026-10-02",
       "what": "V37.9.366 OpenClaw 第十四次评估: 2026.9.7 判据 ❌🔴✅ 与上次相同, 但 Discord allowBots 默认翻转 (#157091, dist 代码级 + 我方推送主通道) 按日落规则新开第二十五节 → 继续 hold; 前置 C 14→15 (预防性) / 前置 B weixin removal-pending 子路径 / 7.4 max_tokens 核对; 预注册「新默认自主行为」判定口径; check_upgrade LAST_EVAL_DATE 10-02 + 注释块退役逐次摘要; 守卫 +14 (91) sabotage 八连开火; 两处字面量 pin 改动态/单常量. VERSION 0.37.9.184 不变",
@@ -168,21 +178,6 @@
       "date": "2026-09-01",
       "what": "V37.9.338 Mac Mini 生产验证闭环: --cron-line 输出与已装 crontab 行逐字一致 + governance --full EXIT=0/760/760/所有不变式成立 (08-31 起连报两天的 INV-CRON-003 归零)",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-09-01",
-      "what": "原则 #35 补充: 给用户的验证命令必须先在 dev 跑一遍确认真能显出结论 (当日三犯实录: wc -l 口径/tail -5 切错段/grep 假阳性); 与 #36-4 同源但对象是交接物",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-09-01",
-      "what": "V37.9.338 治理 CORE 定性闭环: INV-CRON-003 真凶=V37.9.334 手写 crontab 行缺 bash -lc(cron 空环境). 根因=canonical 行生成器自 V37.9.23 存在却无 CLI 出口 → 加 convergence --cron-line/--cron-lines + 把治理判据抽出前移 dev CI(血案行反向证据) + 操作规则入宪禁手写",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-09-01",
-      "what": "V37.9.337 20:30 告警 triage: 时序排除本次改动是治理 fail 自变量(PR 合并 21:45/22:44 vs 告警 20:30) + finance_news LLM 失败可定性根治(curl 退出码不再被吞/三层分类对齐 10 个兄弟 job/短内容不谎称调用失败/status 带 llm_fail_reason), 17 单测 sabotage 五连开火",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -231,7 +226,7 @@
     "security_score": "98/100 (98.0%)",
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB",
     "slo": {
-      "checked_at": "2026-10-02 03:21:53",
+      "checked_at": "2026-10-05 07:20:52",
       "all_ok": true,
       "judged_count": 1,
       "na_count": 4,
@@ -292,7 +287,7 @@
       "deep_dive OA 全文解析 follow-up (V37.9.183/184) — (1) ✅ 已闭合(V37.9.261/263): Mac Mini grep 实证降级主体=结构性付费墙(no PDF URL derivable, ACM/Elsevier 无 OA 版)非 fetch-path bug, ban-list(V37.9.260)是真杠杆; V37.9.262 OpenAlex 第二源 Mac Mini 实测 0/7 恢复且净负→V37.9.263 回退; 降级率下降 thesis 被证伪, 残余=接受现实(不爬付费墙). (2) 历史 KB 条目仍 PII link(仅新论文受益, V37.9.132 局限, 不补). (3) ✅ V37.9.186: pwc 死路径退役 + TIER↔registry drift 守卫.",
       "【H1-C / C2 (Q4, gated) · C1 选型已完成 V37.9.253】第二实例最小闭环真跑 = 非 Mac Linux host 上 E2E 绿: minimal_runtime + governance cron + 1-2 内容 job(arxiv/dblp) 真抓取→LLM→Discord + cron+nohup 重启存活。选型=PUSH-only 纯推送(绕 Gateway/WhatsApp/sessions), 见 docs/second_instance_poc_selection_20260707.md §5 验收标准。C2 前置(§3, 均可枚举无未知): 持久 Linux host(VPS/容器) + 可达 LLM 端点(REMOTE_BASE_URL) + Discord bot token/channel(DISCORD_CH_*) + 唯一真需新建=Linux bootstrap 脚本(装 py 依赖+起 adapter/proxy nohup+写 crontab, 并行 install_openclaw_macmini.sh)。C3=portability report EN/ZH 证据型文章(对两次评审可迁移性批评终局回答)。",
       "【V37.9.274 · SF1/SF2 已修 · SF3 对抗验证 accept-by-design】(SF1 ✅ 修) ontology_sources/finance_news fetch_failed 守卫 parse-盲已修: parse-fail sys.exit(2) 信号回 shell + 根元素校验(well-formed 反爬 HTML root=html 拦截, 实测证伪初版 catch-ParseError) + PARSE_RC!=0→FETCH_ERRORS++。(SF2 ✅ 修) daily_observer --dry-run 持久化污染已修: append_score_history+_write_observer_to_status 由 if not dry_run 守卫。(SF3 ⏹ 不改) kb_harvest any(ok)→ok 是 V37.9.130 刻意设计(status 枚举供 watchdog 契约, 降级走 map_failed 独立字段), 改成 any(error)→error 会过度告警瞬态混合窗口 → 对抗验证 accept-by-design(镜像 V37.9.273 F2 纪律)。守卫 test_v37_9_274(11 单测)+sabotage。",
-      "【🔴 LLM-Observer 论文 #2 投稿包 ✅ V37.9.333 · 球在用户走 guide 提交】四决策已定(2026-08-28: 现在投安静窗版 / 标题选项1 / arXiv 直发 cs.SE+cross-list cs.AI / O1-O8 全保留+Postscript; 署名与中文 artifact 沿用论文 #1 先例)。交付: draft.md v1.0(+cutoff 后 Postscript 明确标注) + latex/main.tex(本地 pdflatex 18 页 0 error/0 overfull, 4 TikZ figures 逐页目视核对) + ARXIV_SUBMISSION_GUIDE.md(4 步 runbook)。待用户: (1) 引用终核 curl 7 arXiv ID 输出贴回(dev egress 不可达 arxiv.org, 只能用户侧做) (2) Overleaf 编译验证 (3) arXiv 表单提交(字段已备好可复制: Title/纯文本 Abstract/Comments/License CC BY 4.0/cs.SE+cs.AI) (4) 上线后回报 arXiv ID → Claude 做发布配套(README/status/design doc Stage 表收敛 + data_inventory 终版归档 + 可选中文科普版)。期刊路线为后续独立步骤(V37.9.307 期刊优先策略)。",
+      "【🔴 LLM-Observer 论文 #2 v1.1 刷新 ✅ V37.9.367（2026-10-05）· 本周投 arXiv · 球在用户走 guide 第 0-4 步】v1.0 投稿包（V37.9.333，四决策已定）于 10-05 按「结合最新进展刷新」指令升 v1.1：Postscript 扩为冻结后八周记录 P1-P6（新检测器 / 原则 #36 五纪律 / 观测面自身 fail-plausible 家族 / 反向形态与 327 条假成功笔记 / O11 / 注册窗现状）；§7 台账对账 O1-O8→O1-O10（窗内漏计 O9 V37.9.252/264、O10 V37.9.287，正文披露；Claude 判断，用户可否决，git 一行可还原）；冻结窗 §6 数字零改动；本地 texlive 真编译 20 页 0 error，Fig.4/Table 5/Postscript 逐页目视核对。待用户: (0) 🆕 Mac Mini 一条命令核 score_history 08-08 后 on 期 fired 行数（guide 第 0 步，为 0 则 P6 成立；>0 贴输出给 Claude 先补 §9.2.6 台账改 P6 再投） (1) 引用终核 curl 7 arXiv ID 输出贴回（dev egress 10-05 仍 EGRESS_BLOCKED） (2) Overleaf 编译核对 20 页 (3) arXiv 表单提交（Title/Abstract/Comments 已同步 ten failures + 20 pages） (4) 上线回报 arXiv ID → Claude 做发布配套（README/status/design doc Stage 表收敛 + data_inventory 终版归档 + 可选中文科普版）。",
       "【2026-07-26 对抗审计 JOB-F1 ✅ V37.9.282 已铺开 · 剩 Mac Mini 被动验证】8 脚本 200-but-unparseable 守卫全部落地 (四类结构分别适配): A. rss_blogs/ai_leaders_blogs XML 全款 (exit 2+根白名单+PARSE_RC→FETCH_ERRORS) / B. bsky JSON 根形状 feed 键校验 / C. dblp+s2 全结果文件解析失败→exit 2→既有 parse_failed 分支 / D. hn/chaspark/freight 单源 fail-loud (parse_failed/fetch_failed 不落 \"无新内容\" ok)。守卫 test_v37_9_282_parse_guard_rollout.py 15 单测 (含 heredoc compile+非空断言) + bsky 既有 pin 演进 (corrupt JSON exit 0→2, FAIL-OPEN 上移 shell 级)。Mac Mini 验证: 同步后各 job 正常日照常 ok; 若未来某源被反爬, watchdog 应出 fetch_failed/parse_failed 告警而非静默 new:0 ok。",
       "【2026-07-26 对抗审计 2 登记项 ✅ V37.9.283 已修 · 剩 Mac Mini 被动验证】(a) NOT-F3 quiet_alert 静默期已收编 notify --channel discord --topic alerts（重试+队列，队列条目 channel=discord 重放不违静默期；V37.8.13 四 pin 零破坏）。(b) NOT-F5 ProxyStats per-key 告警冷却（token_warn/token_critical/consecutive_errors，ALERT_COOLDOWN_SEC=1800 config.yaml 中心化；首报零延迟/窗口内抑制/状态恢复重武装/升级穿透）。Mac Mini 验证: 同步+重启 proxy 后，长 session 过 195K 时告警至多 1 条/30min 非每 turn；静默期 deploy 告警失败应入 notify 队列稍后重放（~/.notify_queue/）而非静默丢失。守卫 test_v37_9_283_alert_cooldown.py 23 单测 + sabotage 双向验证。",
       "【V37.9.279-281 Mac Mini 被动验证】合并+同步后: (a) 279: 次日 06:30 observer 报告若有 fp verdict, LLM critique 段应可见异常块引用 fail-plausible (on 模式评分真集成); score_history 新行有 fp_mode:\"on\" 字段; confidence 只在 L2 grounded 支持时非 1.0 (b) 280: evening \"今日笔记\" 不再含昨日条目; 论文源 parse_failed 日 evening 出\"今日任务异常\"块; harvest 部分 Map 失败日 last_run status=error 且次日重试 (c) 281: notify 队列重放无重复投递; chaspark LLM 失败日次日正常重抓 (seen 不再提前提交); wa_keepalive 日志出现 ESCALATE_FAILED 时 ~/.openclaw_alerts.log 有兜底行。",
@@ -359,13 +354,13 @@
     ],
     "open_prs": [],
     "blocked_on": "",
-    "focus": "V37.9.366 OpenClaw 第十四次评估 (2026.9.7) 继续 hold — 待 Mac Mini 同步 (check_upgrade LAST_EVAL_DATE 10-02) + 10-05 09:00 周报模型行 (V37.9.365) / 09:10 check_upgrade 验收",
+    "focus": "2026-10-05: V37.9.367 论文 #2 v1.1 刷新完成（Postscript P1-P6 + §7 台账 O1-O10 + 20 页真编译），本周投 arXiv：用户走 guide 第 0-4 步。V37.9.368 OpenClaw 2026.9.8 到期读数：日落规则首次走追加分支（25.6），继续 hold，LAST_EVAL_DATE 保持 10-02；tripwire [2/6] 45/50 预计 10-12 或 10-19 触发（按 23.5 预注册处置）。被动验证: V37.9.365 周报模型行（10-05 09:00 首跑）/ check_upgrade 10-05 09:10 首次以 LAST_EVAL_DATE=10-02 运行。",
     "recent_changes": []
   },
   "quality": {
     "security_score": 98,
     "test_count": 6708,
-    "last_regression": "2026-10-02 03:33 pass",
+    "last_regression": "2026-10-05 07:31 pass",
     "coverage_pct": 0,
     "security_score_time": "2026-07-20 01:07",
     "test_suites": 204,
