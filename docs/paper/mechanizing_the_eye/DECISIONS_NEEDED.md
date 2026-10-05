@@ -9,6 +9,8 @@
 > 6. **中文 artifact = 保持中文 + 论文内英文转述**（design doc §9.1/§9.2 不出英文对照版）
 >
 > 执行产物：`draft.md` v1.0（2026-08-28）+ `latex/main.tex`（本地 pdflatex 真编译 18 页 / 0 error / 0 overfull / 4 TikZ figures）+ `ARXIV_SUBMISSION_GUIDE.md`（用户投稿 runbook）。
+>
+> **2026-10-05 v1.1 刷新（用户指令：结合最新进展刷新内容，本周投 arXiv）**：六项决策不变。(a) Postscript 由两段扩为冻结后八周记录 P1-P6（新检测器 / 原则 #36 五条纪律 / 观测面自身的 fail-plausible 家族 / 反向形态与五个月假成功 / O11 / 注册窗现状）；冻结窗数字零改动。(b) **一处窗内更正（Claude 判断，用户可否决）**：投稿前对账发现 v1.0 台账漏计两条窗内 observer 自身缺陷（O9 deep_dive_repeat 两轮假阳性 V37.9.252/264；O10 失败状态枚举漂移 V37.9.287），按原则 #36-4 补进 Table 5 并在 §7 正文披露漏计，abstract/§1/§10/Fig.4 的「eight」同步为「ten」——这是对决策 #5「全保留」的同向延伸（不是裁剪），若不同意，`git show` v1.0 文本一行可还原。(c) 20 页 / 0 error 本地真编译，runbook 页码与 Comments 同步。
 > 以下原文保留作决策上下文存档（point-in-time，不再更新）。
 
 ---
