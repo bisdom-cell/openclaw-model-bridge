@@ -15,10 +15,11 @@
 > 十二次评估：2026-09-22（2026.9.5 stable 触发——22.5 预设跟踪点到期，且判据 ② 由 🔴 变 🟡 = 日落规则「任一判据状态变化」→ 新开节而非追加读数 → 继续 hold；判据 ① ❌ 9.5 DIRTY 2 计数仍 0（连续第六个 DIRTY，Highlights 首条即 session 历史保留/修复）、② 🟡 9.4→9.5 间隔 7.94 天（7.1→8.1 以来首个 ≥7 天，但 4 周窗主线 1.75/周 + 维护线 7.33–7.35 四天三版，🟡 ≠ ✅）、③ ✅ engines 三版逐字同；第四类风险 **+1**：`tools.message.crossContext.allowAcrossProviders` 默认 false→true（#149875，dist 9.4 `=== true` → 9.5 `!== false`），`message` 在 PA 白名单内 → 前置 C 12→13；并发上限 `cpus × 4` 且 16 上限退役（#147423）第 7 项原位加注；Daybreak cyberFailover 经 dist 核实只对 OpenAI 原生错误码触发登记不入；预注册 tripwire [2/6] 版本差距 39/50 约 4 周内触发时的处置，第二十三节）
 > 十三次评估：2026-09-24（2026.9.6 stable 触发——23.5 预设跟踪点到期，判据 ② 由 🟡 回到 🔴（9.5→9.6 间隔 4.91 天）= 日落规则「任一判据状态变化」→ 新开节 → 继续 hold；判据 ① ❌ 9.6 DIRTY 7 计数仍 0（连续第七个 DIRTY，「complete schema migrations when updating from 2026.9.2」#153657 = 多跳升级状态修复第四次按起跳版本补）、② 🔴 4 周窗主线 8 个 stable = 2.0/周（历次最高）、③ ✅ engines 四版逐字同；19.8 协议第十点：叙述段 bullet 形态再换（`- Xxx:` 非 `- **`）叙述条目读数归 0，仅行内引用 651 过门槛可判；第四类风险候选 3 项：Tool Search 默认开（#154068）**dist 核实门控仅对 Ollama/LM Studio/`localService` 路由生效、我方自定义 provider 不触发，但 changelog/docs 宣称「embedded runs 未设即开」与代码不一致 → 前置 C 第 14 项作预防性显式关闭**（若触发，proxy 白名单会剥掉 `tool_search`/`tool_call` = PA 静默失能），Desktop sharing / Telegram 批处理登记不入；tripwire [2/6] 40/50 剩 10，第二十四节）
 > 十四次评估：2026-10-02（2026.9.7 stable 触发——24.5 预设跟踪点到期，三条判据与第十三次逐项相同（❌🔴✅：① 9.7 DIRTY 20 计数仍 0，连续第八个 DIRTY，Highlights 头两条都是迁移安全；② 9.6→9.7 间隔 6.19 天仍 🔴，4 周窗主线回落到 1.5/周属单点读数；③ engines 五版逐字同），但 Discord `allowBots` 省略时由丢弃变接收（#157091，dist `=== true` → `?? true`）= 代码级新默认自主行为 → 按日落规则新开节；前置 C 14 → 15（预防性：当前 `groupPolicy` 空白名单下不触发，保护来自运营配置而非代码门控）；前置 B 加 weixin 2.4.9 仍引用三个 removal-pending SDK 子路径的核对；预注册「新默认自主行为」判定口径；tripwire [2/6] 43/50，第二十五节）
+> **2026.9.8 追加读数：2026-10-05**（2026.9.8 stable 10-03 发布——25.5 预设跟踪点到期；三条判据与第十四次逐项相同 ❌🔴✅，且按 25.5 预注册口径无新默认自主行为（9.8 自述「No intentional capability changes」hotfix；Tool Search 门控函数 9.7↔9.8 逐字节相同；discord `allowBots ?? true` 不变）→ 按日落规则只在第二十五节追加 **25.6**，不新开节、不重置 LAST_EVAL_DATE。① 9.8 协议六点读数 12/0/35/12/16 按门槛不可判，按 19.8 本日修订的「hotfix 规模 stable」分支内容直判 → DIRTY 2（SQLite contention / Windows 9.4 schema transitions），连续干净计数仍 0；② 9.7→9.8 间隔 2.94 天 🔴；③ engines 六版逐字同 ✅；tripwire [2/6] 45/50 剩 5，预计 10-12 或 10-19 触发）
 > 评估者：Claude Code
 >
 > 🔴 **当前态（本行为单一真理源，其余章节均为各自时点快照）**
-> 部署版本 **v2026.4.27**（2026-06-11 起）| 上游 latest **2026.9.7**（2026-09-30）|
+> 部署版本 **v2026.4.27**（2026-06-11 起）| 上游 latest **2026.9.8**（2026-10-03，hotfix 规模；追加读数见 25.6，上一 stable 2026.9.7 见第二十五节）|
 > 决策 **继续 hold**（第十四次评估，2026-10-02）| 判据与下次跟踪点见 **第二十五节 25.5**
 
 ---
@@ -1218,6 +1219,15 @@ beta 骨架是 **17**；100 在两者之间有 5× 以上余量。只有 3 个�
 **刻意不把这段做成仓库脚本**（日落法）：核对每 6–8 周一次、由 session 手动执行，一个自带门槛的可复制
 命令块已足够；做成常驻脚本要付出新文件 + FILE_MAP + 部署 + 自身守卫的代价，而它退役不了任何东西。
 守卫改为钉住本协议的两个要害（整份扫描 + 防空转门槛），防止未来有人把它简化回裸 grep。
+
+**修订（2026-10-05，2026.9.8 追加读数——兑现「低于门槛而内容完整」预留分支的第二种形态）**：9.8 是一个 **35 PR 的 hotfix 规模 stable**
+（changelog 自述「35 in-range PRs + 0 retained seed-only PRs」+「No intentional capability changes; this release is a focused reliability and
+recovery hotfix」），协议六点读数 = 叙述 12 / 带描述 PR 0 / 裸 PR 35 / 语义量 12 / 行内引用 16 → 按现门槛 **rc=3 不可判**。但它既不是 beta 骨架
+（内容已完整），也不是格式变更（尺子没坏），而是协议未预见的第三种形态：**完整但很小**。不能靠再降门槛解决——降到能容纳 12/16 就无法与 beta
+骨架（17/10）区分。修订为显式分支：**changelog 自述 in-range PR < 100 且 retained seed-only = 0 且自述无 capability 变更 → 判为 hotfix 规模
+stable，判据 ① 改按内容直判**：迁移关键词命中 → DIRTY，连续干净计数归零（本次命中 2：「tolerate transient SQLite contention」「refuse unsafe
+Windows 2026.9.4 schema transitions」→ ❌）；**无命中 → 记 N/A_HOTFIX，不计入连续干净计数**（一个不含迁移 PR 的 hotfix 不能证明弧线收尾，
+样本不够；误判方向仍取最贵的那侧保守）。协议代码块本身不改（守卫钉住的两个要害不动），本分支由执行者按 changelog 自述数字手工判定并在 20.4 表登记。
 ---
 
 ## 第二十节：第九次评估（2026-09-06，2026.8.2 / 9.1 / 9.2 三个 stable 触发判据跟踪）
@@ -1275,6 +1285,7 @@ beta 骨架是 **17**；100 在两者之间有 5× 以上余量。只有 3 个�
 | **2026.9.5**（第十二次评估追加） | 54 | 0 | 4245 | **54** | **217** | ⚠️ 不可判 | 可判（仅行内引用过门槛）→ ❌ DIRTY(2) |
 | **2026.9.6**（第十三次评估追加） | **0** | 0 | 2674 | **0** | **651** | ⚠️ 不可判 | 可判（仅行内引用过门槛；叙述 bullet 形态再换）→ ❌ DIRTY(7) |
 | **2026.9.7**（第十四次评估追加） | **9** | 0 | 2923 | **9** | **1675** | ⚠️ 不可判 | 可判（仅行内引用过门槛；`- **` 只在弃用段出现）→ ❌ DIRTY(20) |
+| **2026.9.8**（2026-10-05 追加读数） | **12** | 0 | 35 | **12** | **16** | ⚠️ 不可判 | hotfix 规模 stable（自述 35 in-range + 0 seed-only + 无 capability 变更）→ 19.8 本日修订分支内容直判 → ❌ DIRTY(2) |
 
 9.1 的叙述段行内引用 924 个唯一 PR，**多于 8.1 的 802**——内容完整，只是粒度从 bullet 变成段落。原协议对它判
 「不可判」是**计量单位错了 ≠ 内容不够**：与 V37.9.288「搜索坏了 ≠ 没搜到」同族，只是这次坏的是尺子。若不重标定，
@@ -1851,3 +1862,28 @@ weixin 是否已发迁移版本。
 
 **LAST_EVAL_DATE 更新至 2026-10-02**（第十四次评估完成，重置时间 tripwire）。下次触发 = 任一 tripwire 跳红（[2/6] 预计约 2–3 周内，
 处置沿用 23.5 预注册），或下一个 stable 发布时的判据 ①/②/③ 跟踪（① 走 19.8 修订后协议；三项全同且按本节口径无新默认自主行为则追加读数不新开节）。
+
+### 25.6 追加读数（2026-10-05，2026.9.8 stable——25.5 预设「下一个 stable」到期；三项判据全同且无新默认自主行为 → 按日落规则追加、不新开节、不重置 LAST_EVAL_DATE）
+
+> 触发：2026.9.8 于 2026-10-03 02:08Z 发布为 latest（beta 指针同步 9.8；extended-stable 由 8.34 上移 8.35）。按 25.5 跟踪点 1 的 (a)–(d) 执行；
+> 方法沿用「代码即事实」：`npm pack` 9.7 / 9.8 + `@openclaw/discord@2026.9.8` → 19.8 协议 + dist 函数体对照 + engines + npm 元数据。
+
+- **(a) 判据 ①**：走 19.8 修订后协议——六点读数 叙述 12 / 带描述 PR 0 / 裸 PR 35 / 语义量 12 / 行内引用 16 → 按门槛不可判；按 19.8 本日追加的
+  「hotfix 规模 stable」分支（自述「35 in-range PRs + 0 retained seed-only」+「No intentional capability changes」）内容直判 → **DIRTY 2**
+  （「tolerate transient SQLite contention」/「refuse unsafe Windows 2026.9.4 schema transitions」= Update/Doctor 弧线仍在加固）→ ❌，连续干净
+  计数仍 0（连续第九个不干净的 stable）。
+- **(b) 判据 ②**：9.7（09-30 03:38Z）→ 9.8（10-03 02:08Z）间隔 **2.94 天** → 🔴 状态不变；4 周窗（09-07 → 10-05）主线 6 个 stable（9.3–9.8）
+  = 1.5/周，维护线 7 个 tag（6.35 / 7.33 / 7.34 / 7.35 / 8.33 / 8.34 / 8.35），合计 13 个 tag / 4 周 ≈ 3.25/周（第十四次为 12 个）。
+- **(c) 判据 ③**：9.8 `engines.node` = `>=24.16.0 <25 || >=26.1.0`，与 9.7 / 9.6 / 9.5 / 9.4 / 9.3 **逐字相同（六版未变）**，Mac Mini 26.5.0 仍在区间 → ✅。
+- **(d) 新默认自主行为（按 25.5 预注册口径 (a)×(b)）**：9.8 自述「No intentional capability changes; this release is a focused reliability and
+  recovery hotfix」；dist 核实 `resolveAgentToolSearchRuntimeConfig` 函数体 9.7 ↔ 9.8 **逐字节相同（564 字符）**，`@openclaw/discord@2026.9.8` 仍
+  `allowBots ?? true`（第 15 项继续成立，无新翻转）；Highlights 六条全部落在 Update/Doctor 恢复、容器内 Gateway 单实例、Anthropic 后台命令 turn、
+  Codex、Windows、Telegram/Sandbox——无一项是落在我方面上的代码级默认翻转 → **无新默认自主行为** → 日落规则四条件全满足 → 本节追加读数。
+- **weixin SDK 子路径（跟踪点 2）**：9.8 `package.json` `exports` 仍导出 `./plugin-sdk/config-runtime` / `./plugin-sdk/channel-message` /
+  `./plugin-sdk/infra-runtime`（三个 removal-pending 子路径均未真移除）；weixin 最新仍 2.4.9（09-17），peer `>=2026.5.12` 不变 → 前置 B 核对项状态不变。
+- **持有成本 / tripwire**：4.27 → 9.8 精确 **42 个 minor stable**（主线 9.x 8 个）；check_upgrade dev 实跑 **[2/6] 45/50（剩 5）**，按 4 周窗 13 tag 的
+  节奏预计 **10-12 或 10-19 周一 09:10 的运行触发**（较 25.5 估计的「2–3 周」略提前），处置沿用 23.5 预注册、不预先改机器；4.27 仍未 deprecate（发布 159 天）。
+- **收益侧登记（不改结论）**：9.8 修的是 9.x 更新链/Doctor 自身（维护租约在瞬态 SQLite 争用下保留、Windows 9.4 schema 迁移拒绝不安全转换、Telegram
+  退役绑定只归档已核实为空的、容器内防止重复 Gateway）= 方案 B 第六次再证：中间版本的更新链仍在被后一版修。
+- **结论**：继续 hold（❌🔴✅ 与第十四次相同）；**LAST_EVAL_DATE 保持 2026-10-02**；下次跟踪点同 25.5（下一个 stable 发布时核对 ①②③ + 口径；
+  hotfix 规模 stable 按 19.8 本日修订分支判 ①；tripwire [2/6] 触发日按 23.5 处置）。

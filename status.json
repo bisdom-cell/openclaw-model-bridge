@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-05 07:16:53",
+  "updated": "2026-10-05 07:32:20",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-10-05",
+      "what": "V37.9.368 OpenClaw 2026.9.8 到期读数: 三判据与第十四次逐项相同 (① hotfix 规模 stable 按 19.8 本日修订分支内容直判 DIRTY 2 计数仍 0 / ② 2.94 天 🔴 / ③ engines 六版逐字同) 且按 25.5 口径无新默认自主行为 (Tool Search 门控函数 9.7↔9.8 逐字节相同, discord allowBots 不变) → 日落规则首次走追加读数分支: eval doc 25.6 + 19.8 hotfix 修订 + 20.4 行, 不新开节、LAST_EVAL_DATE 保持 10-02, check_upgrade 零改动; tripwire [2/6] 45/50 剩 5. VERSION 不变",
+      "by": "claude_code"
+    },
     {
       "date": "2026-10-05",
       "what": "V37.9.367 论文 #2 v1.1 刷新: Postscript 扩为冻结后八周记录 P1-P6 (原则#36 五纪律 / 观测面自身 fail-plausible 家族 / 反向形态与 327 条假成功笔记 / O11 / 注册窗现状) + §7 observer 自身事故台账对账 O1-O8→O1-O10 (窗内漏计 O9 V37.9.252/264, O10 V37.9.287, 正文披露) + 本地 texlive 真编译 20 页 0 error + runbook 新增第 0 步 (Mac Mini 核 fired 计数); 冻结窗数字零改动; VERSION 0.37.9.184 不变; 登记上游 2026.9.8 到期读数",
@@ -173,11 +178,6 @@
       "date": "2026-09-01",
       "what": "V37.9.338 Mac Mini 生产验证闭环: --cron-line 输出与已装 crontab 行逐字一致 + governance --full EXIT=0/760/760/所有不变式成立 (08-31 起连报两天的 INV-CRON-003 归零)",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-09-01",
-      "what": "原则 #35 补充: 给用户的验证命令必须先在 dev 跑一遍确认真能显出结论 (当日三犯实录: wc -l 口径/tail -5 切错段/grep 假阳性); 与 #36-4 同源但对象是交接物",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -226,7 +226,7 @@
     "security_score": "98/100 (98.0%)",
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB",
     "slo": {
-      "checked_at": "2026-10-02 03:21:53",
+      "checked_at": "2026-10-05 07:20:52",
       "all_ok": true,
       "judged_count": 1,
       "na_count": 4,
@@ -350,18 +350,17 @@
       "【V37.9.362 sources 归档段契约 · Mac Mini 被动验证】合并 + git fetch+reset 同步（6 文件走 FILE_MAP 零重启）后: (a) 今晚 20:00 arxiv 若有新论文写 `## 2026-09-28 20:00` 段（今早 08:00 旧格式 `## 2026-09-28` 并存正常）(b) 三源计数: finance 1 ✅ / chaspark 1 ✅ (09-29 实测) / arxiv 两班次待核 (c) 明晚晚间整理「今日覆盖源」应出现财经、茶思屋停跑日应列为今日无更新 (d) 下周五 21:00 周回顾素材应横跨 7 天。茶思屋历史补标题 ✅ 已执行（2026-09-28 12:37:06，逐块核对 121/121 日报块前均紧跟同日期标题、缺 0；备份 ~/.kb/sources/chaspark.md.bak.v37_9_362 含 121 块 0 日期段 = 今日 11:00 仍是旧代码运行，与财经 07:30 无日期段一致）。注: 该补标题命令判「已有标题」看前 3 行任意 `## `，上一块短于 3 行时会漏补本块（dev 复核时发现，真实日报块均 ≥6 行未触发，实测 0 缺）。",
       "[低优观察 V37.9.363] kb_write.sh 笔记文件名只精确到秒: 同一秒两次写入后者覆盖前者且 index 留两条 (dev 清理测试撞到); 生产各 job 写入相隔数分钟风险低, 若出现 index 条目 summary 与文件正文不符再处理",
       "[V37.9.362/363/364 生产验证全部通过 ✅ 2026-09-29] 财经 07:30: 笔记 1 条 7632 字节、topics/finance-news.md 首次出现、finance_daily.md 日期段 0→1。茶思屋: 11:00:01 与 13:08:32 两次 HTTP 418 (华为云 CloudWAF) → V37.9.364 加 418 重试 → 合并同步后 15:23 手动补跑 status ok / new 8 / sent true, 笔记 1 条 (tags chaspark)、topics/chaspark.md 当日 1 条、chaspark.md 日期段 121→122、当日段正文 154 行。两个备份文件已删 ✅ (09-29)。剩: (a) grep 'WAF 拦截' ~/.openclaw/logs/jobs/chaspark.log 09-29 为 0 行 = 15:23 那次首请求即 200、重试尚未真实触发过; 之后出现「被 WAF 拦截」+「重试结果: 状态码 200」即重试救回, 状态码 418 即重试无效需另议 (b) Windows kb 模块 rc=25 09-29/09-30 两早属预期, 10-01 回 rc=0。",
-      "[V37.9.365 Mac Mini 被动验证] 同步后 bash diagnose.sh 的【3/7】应显主力 doubao_21 + fallback 4 跳 + 断路器 closed（且不出现 ep- 接入点 ID）；10-05 周一 09:00 周报「🤖 模型」行应形如「🟢 主力 doubao_21 | fallback 4 跳 (…) | 断路器 closed」；~/.kb/health_status.json 的 model 键为 primary/fallback_chain/circuit_breaker/reachable",
-      "【OpenClaw 2026.9.8 stable（10-03 02:08Z）到期读数 · 第十四次评估 25.5 预设跟踪点 · 待 19.8 协议执行】按日落规则（V37.9.353 22.5）：若 ①②③ 与第十四次逐项相同且无新默认自主行为（V37.9.366 25.5 预注册口径：dist 代码级翻转 × 落在我方面上）→ 只在 eval doc 第二十五节追加「25.6 追加读数」+ 文档头 latest 同步，不新开节、不重置 LAST_EVAL_DATE；任一变化才新开第二十六节。步骤: npm pack openclaw@2026.9.8 → 19.8 修订协议（inline_pr_refs 门槛 50）→ 9.7→9.8 间隔 2.9 天（🔴 不变）→ engines 对比 → changelog 默认行为扫描 + 可疑项 dist 核实。另 extended-stable 已上移 2026.8.35。10-05 论文优先未执行，登记。"
+      "[V37.9.365 Mac Mini 被动验证] 同步后 bash diagnose.sh 的【3/7】应显主力 doubao_21 + fallback 4 跳 + 断路器 closed（且不出现 ep- 接入点 ID）；10-05 周一 09:00 周报「🤖 模型」行应形如「🟢 主力 doubao_21 | fallback 4 跳 (…) | 断路器 closed」；~/.kb/health_status.json 的 model 键为 primary/fallback_chain/circuit_breaker/reachable"
     ],
     "open_prs": [],
     "blocked_on": "",
-    "focus": "2026-10-05: V37.9.367 论文 #2 v1.1 刷新完成（Postscript P1-P6 + §7 台账 O1-O10 + 20 页真编译），本周投 arXiv：用户走 guide 第 0-4 步。顺带登记: 上游 2026.9.8 stable（10-03）到期读数待 19.8 协议执行（日落规则追加读数）。被动验证: V37.9.365 周报模型行（10-05 09:00 首跑）/ check_upgrade 10-05 09:10 首次以 LAST_EVAL_DATE=10-02 运行。",
+    "focus": "2026-10-05: V37.9.367 论文 #2 v1.1 刷新完成（Postscript P1-P6 + §7 台账 O1-O10 + 20 页真编译），本周投 arXiv：用户走 guide 第 0-4 步。V37.9.368 OpenClaw 2026.9.8 到期读数：日落规则首次走追加分支（25.6），继续 hold，LAST_EVAL_DATE 保持 10-02；tripwire [2/6] 45/50 预计 10-12 或 10-19 触发（按 23.5 预注册处置）。被动验证: V37.9.365 周报模型行（10-05 09:00 首跑）/ check_upgrade 10-05 09:10 首次以 LAST_EVAL_DATE=10-02 运行。",
     "recent_changes": []
   },
   "quality": {
     "security_score": 98,
     "test_count": 6708,
-    "last_regression": "2026-10-02 03:33 pass",
+    "last_regression": "2026-10-05 07:31 pass",
     "coverage_pct": 0,
     "security_score_time": "2026-07-20 01:07",
     "test_suites": 204,
