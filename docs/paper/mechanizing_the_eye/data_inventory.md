@@ -168,3 +168,5 @@
 | P4 kb_write 垃圾笔记 327 条 / 约五个月 / 「已记录」rc=0 | 2026-09-28 | V37.9.363（V37.8.2 2026-04 起；后记 Mac Mini 清理 327/287/327 逐一吻合） |
 | P5 O11 | 2026-09-28 | V37.9.362 ③ |
 | P6 enforcing 连续运行起点 | 2026-07-26 | §9.1.1 + V37.9.276 |
+| P6 生产侧计数核对 | on 期 56 行（date > 08-08 且 fp_mode==on）/ fired 0 | 用户 2026-10-05 Mac Mini 实跑 guide 第 0 步（`~/.kb/self_critique/score_history.jsonl`），对话实录；count check 非 §9.2 re-tabulation |
+| 引用 arXiv 终核 | 六篇标题/作者与 References 一致 | 2026-10-05 Claude WebSearch 独立核对（用户侧 http 版 curl 因 API https 跳转返回空，runbook 已改 `-sL https://`） |

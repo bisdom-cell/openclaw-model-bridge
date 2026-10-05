@@ -1030,7 +1030,7 @@ standard as the system it watches
 
 \begin{table}[p]
 \centering\scriptsize
-\begin{tabular}{@{}p{0.4cm}p{7.6cm}p{1.9cm}p{1.4cm}p{3.3cm}@{}}
+\begin{tabular}{@{}p{0.55cm}p{7.45cm}p{1.9cm}p{1.4cm}p{3.3cm}@{}}
 \toprule
 \textbf{\#} & \textbf{Incident} & \textbf{Class} & \textbf{Silence} &
 \textbf{How it was caught} \\
@@ -1042,18 +1042,18 @@ anchor'' design promise was unimplemented for 5 days while daily runs
 logged \checkmark & B (assumption mismatch) & 5 days & Partially by
 itself: its own LLM critique mentioned a stale warning, prompting the
 human to trace the data path \\
-\addlinespace
+\addlinespace[1.5pt]
 O2 & Sampling hallucination: the observer sampled the first 2{,}000
 chars of a healthy artifact, saw its own sample end mid-word, and
 confidently reported the artifact ``truncated'' & D (fail-plausible ---
 by the observer) & 1 report cycle & Human forensics: the artifact was
 intact; the cut was the observer's own sampling boundary \\
-\addlinespace
+\addlinespace[1.5pt]
 O3 & Dry-run self-pollution: preview runs (\texttt{--dry-run})
 persisted scores and status --- operator previews contaminating the
 production record & C/E flavor & until audited & Adversarial audit of
 the observer's pipeline \\
-\addlinespace
+\addlinespace[1.5pt]
 O4 & Evidence contamination by its own test suite: CI tests ran the
 observer's CLI without home-directory isolation on the production host,
 appending fabricated failure rows (a fixture date, ${\sim}3\times$/day)
@@ -1062,34 +1062,34 @@ shadow-phase evidence was polluted by its own tests & E (operational
 seam) & ${\sim}2$ months & Discovered during the flip-decision data
 pull; excluded by the registered contamination rule; write paths sealed
 on both sides \\
-\addlinespace
+\addlinespace[1.5pt]
 O5 & The dead flip switch: the observer's launcher was the one job in
 its family that never loaded the environment file carrying the mode
 flag --- \texttt{on} would have silently remained shadow forever
 (shadow ``worked'' only because it was the code default) & E (omission)
 / A flavor & latent since wiring & Caught by grounding the flip
 mechanism before flipping \\
-\addlinespace
+\addlinespace[1.5pt]
 O6 & Inert enforcing mode: on flip day, fail-plausible verdicts were
 appended to the anomaly list \emph{after} the scoring prompt had been
 built --- enforcing-mode reports carried the label ``integrated
 $\cdot$ affects scoring'' while scores remained byte-identical to
 shadow & D (fail-plausible --- the deployment itself) & 1 day &
 Adversarial audit on the first enforcing-mode day \\
-\addlinespace
+\addlinespace[1.5pt]
 O7 & Calibration corruption: when the judge rejected an escalation
 (verdict clean), its confidence-in-clean was attached to the surviving
 Layer-1 verdict --- a 90\% confidence \emph{of rejection} displayed as
 90\% confidence \emph{of accusation}; calibration data would have been
 corrupted from flip day & C (semantic dilution) & caught pre-data &
 Same audit \\
-\addlinespace
+\addlinespace[1.5pt]
 O8 & Swallowed report failure: if writing the daily report failed, the
 wrapper discarded the error stream, skipped the push silently, and
 recorded \texttt{status: ok} --- the observer would report success on
 the day its output was lost & D3 shape (fabricated success, in shell) &
 latent & Same audit family \\
-\addlinespace
+\addlinespace[1.5pt]
 O9 & Deployment-date-blind regression detector, two rounds: a
 deterministic detector built to catch a de-duplication list silently
 failing (the same link analyzed twice within 14 days) first accused the
@@ -1103,7 +1103,7 @@ off-by-one) & D (fail-plausible --- by the observer), twice & would
 have recurred daily & A human reading the observer's own daily
 self-report critically rather than trusting it, twice (2026-07-06,
 07-09) \\
-\addlinespace
+\addlinespace[1.5pt]
 O10 & Failure-status enumeration drift: the observer's hard-coded set
 of job-failure statuses (three values) had drifted from the statuses
 the jobs actually write (nine sources can emit a parse-failure status;
@@ -1498,13 +1498,15 @@ postdates the window; it is here because the log is append-only.
 
 \textbf{P6. The registered window, at revision time.} Enforcing mode has
 run continuously since 2026-07-26. The append-only adjudication ledger
-holds no fired-verdict rows beyond the window-close entry: no verdict
-has been forwarded for adjudication as of this revision. We have not
-re-tabulated \S\ref{sec:deployment} --- the registered protocol requires
-a new cutoff to be declared before the data is read, and we decline to
-declare one in a revision made on the eve of submission; the quiet
-window stands as registered, and the next tabulation will append to the
-data inventory under its own cutoff. What has moved in eight weeks is
+holds no fired-verdict rows beyond the window-close entry, and a count
+check against the production score history on 2026-10-05 agrees: 56
+enforcing-mode rows after the cutoff, none with a fired verdict. We have
+not re-tabulated \S\ref{sec:deployment} (a count check is not a
+tabulation): the registered protocol requires a new cutoff to be
+declared before the data is read, and we decline to declare one in a
+revision made on the eve of submission; the quiet window stands as
+registered, and the next tabulation will append to the data inventory
+under its own cutoff. What has moved in eight weeks is
 the detector count (five to six), the observer's own log (eight to ten
 inside the window, eleven overall), the disciplines that bind fixes
 (P2), and the evidence that the deployment era's silent failures, like
