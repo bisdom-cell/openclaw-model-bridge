@@ -1,6 +1,6 @@
 {
-  "updated": "2026-10-05 08:36:32",
-  "updated_by": "claude_code",
+  "updated": "2026-10-05 12:08:58",
+  "updated_by": "unknown",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -79,6 +79,16 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-10-05",
+      "what": "论文 #2 中文科普版 docs/articles/mechanizing_the_eye_zh.md（镜像 V37.9.155 先例）+ Chromium 无头渲染 A4 15 页 PDF 交付本窗口（PDF 不入库，.gitignore docs/articles/*.pdf）；README 发表物表 + INDEX 登记；冻结数字与 draft v1.1 一致",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-10-05",
+      "what": "论文 #2 v1.1 arXiv 提交完成 submit/8180312（submitted）；runbook 4.5 摘要压缩为 1,889 字符元数据版（字段上限 1,920 实录）+ 两处交接物缺陷登记（grep 字面量跨 LaTeX 换行 / 摘要未对字段上限，原则 #35 补充家族）+ .gitignore 补 latex/*.zip",
+      "by": "claude_code"
+    },
     {
       "date": "2026-10-05",
       "what": "V37.9.367 后记: 用户 Mac Mini 跑 runbook 第 0 步 → on 期 56 行 / fired 0, 写进论文 P6; 六篇引用 Claude WebSearch 独立核对一致; runbook curl 改 -sL https (旧 http 版因跳转返回空); Table 5 版式修正 (首列 0.55cm + 行距 1.5pt) 重编译 20 页 0 警告. 待用户: 合并后同步 Mac Mini → 重新 zip main.tex → Overleaf → arXiv",
@@ -167,21 +177,6 @@
     {
       "date": "2026-09-02",
       "what": "V37.9.347 Kimi K3 能力画像定档（vision 探针 HTTP 400 坐实 False / json_mode 探针纯 JSON 可解析翻案 True）+ ARK 2.0 时代两个无消费方 env 清理（三重核实后执行，ARK_21_* 保留）+ 修治理层一条 check 名↔体不对账",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-09-02",
-      "what": "V37.9.346 Kimi K3 Mac Mini E2E 3/3 (text/tool_calling/streaming) → declared 升 feature_verified；reasoning 保守 False 经 reasoning_tokens=190 实测翻案；vision/json_mode 未探测保持 False。部署途中撞原则 #14 运行时副本滞后致 fallback 掉一跳，已定性修复",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-09-02",
-      "what": "V37.9.345 Kimi K3 接入为第 13 个 provider + doubao 槽位改名 doubao_21_tokenhub 退役命名债（V37.9.344 血案的结构性修复）；expert backend 常量族中性化 + legacy alias；新增 api_key_env 厂商一致性 CI 扫描（V37.9.339 形态会被当场抓住）",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-10-05",
-      "what": "论文 #2 v1.1 arXiv 提交完成 submit/8180312（submitted）；runbook 4.5 摘要压缩为 1,889 字符元数据版（字段上限 1,920 实录）+ 两处交接物缺陷登记（grep 字面量跨 LaTeX 换行 / 摘要未对字段上限，原则 #35 补充家族）+ .gitignore 补 latex/*.zip",
       "by": "claude_code"
     }
   ],
