@@ -120,7 +120,9 @@ Follow-up to arXiv:2606.14589. 20 pages, 4 figures. Labeled incident corpus, det
 
 ✅ **2026-10-05 已提交：`submit/8180312`，状态 submitted**（cs.SE 主分类 / CC BY 4.0 / Comments "20 pages, 4 figures"）。Preview 页若漏加 cs.AI cross-list，announcement 后在「Articles You Own」用 Cross list 动作补即可。邮件若提示 on hold = 分类人工复核，通常 1–2 个工作日，无需动作。
 
-**4.7 上线后回来告诉 Claude arXiv ID**，Claude 做发布配套：README/status.json/CLAUDE.md 链接更新 + design doc Stage 表收敛 + data_inventory 终版对表归档 +（可选）中文科普版。
+✅ **2026-10-06 已公告：永久编号 [arXiv:2610.05981](https://arxiv.org/abs/2610.05981)**。发布配套已同日落地（README / CLAUDE.md / status.json / design doc Stage 表 / data_inventory 终版归档 / 中文科普版头尾链接 / draft.md「Published as」注记）。**公告邮件里的 paper password 按 arXiv 要求由作者自行保管，不要写进仓库任何文件或提交信息。** cs.AI cross-list 若 Preview 时未勾选，可在「Articles You Own」用 Cross list 动作补。
+
+**4.7 上线后回来告诉 Claude arXiv ID**（✅ 2026-10-06 完成），Claude 做发布配套：README/status.json/CLAUDE.md 链接更新 + design doc Stage 表收敛 + data_inventory 终版对表归档 +（可选）中文科普版。
 
 ---
 

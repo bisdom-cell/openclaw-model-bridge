@@ -170,3 +170,16 @@
 | P6 enforcing 连续运行起点 | 2026-07-26 | §9.1.1 + V37.9.276 |
 | P6 生产侧计数核对 | on 期 56 行（date > 08-08 且 fp_mode==on）/ fired 0 | 用户 2026-10-05 Mac Mini 实跑 guide 第 0 步（`~/.kb/self_critique/score_history.jsonl`），对话实录；count check 非 §9.2 re-tabulation |
 | 引用 arXiv 终核 | 六篇标题/作者与 References 一致 | 2026-10-05 Claude WebSearch 独立核对（用户侧 http 版 curl 因 API https 跳转返回空，runbook 已改 `-sL https://`） |
+
+### 终版归档（2026-10-06，arXiv 公告后）
+
+| 项 | 值 | 来源 |
+|---|---|---|
+| arXiv 永久编号 | **[arXiv:2610.05981](https://arxiv.org/abs/2610.05981)** | 2026-10-06 arXiv 公告邮件（submit/8180312 → 2610.05981） |
+| 提交 / 公告日期 | 2026-10-05 / 2026-10-06 | 同上 |
+| 分类 / 许可 / 篇幅 | cs.SE 主分类 / CC BY 4.0 / 20 pages, 4 figures | 投稿表单实录（ARXIV_SUBMISSION_GUIDE 4.1–4.6） |
+| 发表版本 | v1.1（`draft.md` 2026-10-05；`latex/main.tex` 本地 pdflatex 20 页 0 error） | 本文件上方 10-05 对表段 |
+| 冻结窗数字 | 与 §9.2.7 冻结表逐字一致，发表后不再改动 | design doc §9.2.3 |
+| 后续 | 期刊路线为独立步骤（V37.9.307 期刊优先）；影响力指标是否纳入本篇（`influence_metrics.py` 现只追踪 2606.14589）待首次有可比引用数据再评估 | CLAUDE.md 宪法级 #1 块 |
+
+> 本文件自此为终版归档（point-in-time）。若日后提交 arXiv v2，另起对表段追加，不改写上方记录。

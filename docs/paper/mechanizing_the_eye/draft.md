@@ -1,5 +1,7 @@
 # Mechanizing the User's Eye: Pre-Registered Deployment of a Sabotage-Validated Fail-Plausible Observer in a Production LLM Agent Runtime
 
+> **📄 Published as [arXiv:2610.05981](https://arxiv.org/abs/2610.05981) (submitted 2026-10-05, announced 2026-10-06, cs.SE primary; CC BY 4.0; 20 pages, 4 figures).** This Markdown is the working draft; the canonical published version (LaTeX) lives in [`latex/`](latex/) and on arXiv. Frozen-window numbers (§6, study cutoff 2026-08-09) are unchanged by publication; post-cutoff material lives only in the Postscript.
+
 > **v1.1 — 2026-10-05 (submission version, refreshed eight weeks after the freeze; v1.0 2026-08-28; v0.1 first pass 2026-08-12)**
 > Follow-up to *When Errors Become Narratives*
 > ([arXiv:2606.14589](https://arxiv.org/abs/2606.14589)). Venue (user decisions,
