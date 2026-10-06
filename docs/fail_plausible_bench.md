@@ -1,7 +1,7 @@
 # 🔬 Fail-Plausible Detection Bench
 
 > A community-runnable benchmark for **silent-failure / fail-plausible** detection in production LLM agent runtimes.
-> Companion to the paper [*When Errors Become Narratives* (arXiv:2606.14589)](https://arxiv.org/abs/2606.14589) and a sibling of the fault-injection [`reliability_bench`](reliability_bench_report.md).
+> Companion to the paper [*When Errors Become Narratives* (arXiv:2606.14589)](https://arxiv.org/abs/2606.14589) and a sibling of the fault-injection [`reliability_bench`](reliability_bench_report.md). The observer validated on this bench and its pre-registered shadow→on deployment are reported in paper #2, [*Mechanizing the User's Eye* (arXiv:2610.05981)](https://arxiv.org/abs/2610.05981) (2026-10-06).
 
 **bench_id**: `fail-plausible-detection-bench` · **bench_version**: `0.1` (dataset + metric contract, independent of project VERSION)
 

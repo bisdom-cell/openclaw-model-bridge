@@ -1,7 +1,7 @@
 # 机械化人眼：我们造了一个专盯 AI 胡话的观察者，它自己先胡说了十次
 
 > 论文《Mechanizing the User's Eye: Pre-Registered Deployment of a Sabotage-Validated Fail-Plausible Observer in a Production LLM Agent Runtime》（机械化用户之眼：生产级 LLM Agent Runtime 中一个经破坏验证的 fail-plausible 观察者的预注册部署）的中文科普版。
-> 这是前作《当错误变成叙事》（[arXiv:2606.14589](https://arxiv.org/abs/2606.14589)）的续篇。**本篇已于 2026-10-05 提交 arXiv**（cs.SE 主分类，submit/8180312，CC BY 4.0），arXiv 编号待公告后补入。标注语料、检测器、记分卡、预注册协议文档与全部事故复盘均已公开。
+> 这是前作《当错误变成叙事》（[arXiv:2606.14589](https://arxiv.org/abs/2606.14589)）的续篇。**本篇已发表：[arXiv:2610.05981](https://arxiv.org/abs/2610.05981)**（cs.SE 主分类，CC BY 4.0，2026-10-05 提交、10-06 公告）。标注语料、检测器、记分卡、预注册协议文档与全部事故复盘均已公开。
 > 这篇是面向工程读者的传播版——去掉学术体例，留下故事、数字和结论。文中全部生产数字以预注册的研究截稿快照（**2026-08-09 23:59 HKT**）为准；截稿之后发生的事只出现在最后一节"后记"里，一个都不混进冻结的表格。
 
 ---
@@ -264,6 +264,6 @@ on 窗口按协议关闭（研究截稿 2026-08-09 23:59 HKT）。regime 账目�
 
 ---
 
-*全文（含两层检测器设计、24 份标注复盘、预注册协议、O1–O10 完整账本、引用）见已提交的论文（arXiv 编号待公告后补入；前作 [**arXiv:2606.14589**](https://arxiv.org/abs/2606.14589)）。标注语料、检测器、自验证评测、记分卡、字节稳定的 bench 清单、以及预注册协议文档（flip 判据、冻结的分析规则、决策记录、只追加的判定账本）与 28 份事故复盘、治理框架一起公开在仓库 `openclaw-model-bridge`。离线 bench 只需要 Python 标准库。*
+*全文（含两层检测器设计、24 份标注复盘、预注册协议、O1–O10 完整账本、引用）见论文正文 [**arXiv:2610.05981**](https://arxiv.org/abs/2610.05981)（前作 [**arXiv:2606.14589**](https://arxiv.org/abs/2606.14589)）。标注语料、检测器、自验证评测、记分卡、字节稳定的 bench 清单、以及预注册协议文档（flip 判据、冻结的分析规则、决策记录、只追加的判定账本）与 28 份事故复盘、治理框架一起公开在仓库 `openclaw-model-bridge`。离线 bench 只需要 Python 标准库。*
 
 *相关中文文章：[当错误变成叙事](when_errors_become_narratives_zh.md)（前作科普版：五类静默故障与 fail-plausible 的由来）· [为什么 Agent 系统首先需要一个控制平面](why_control_plane_zh.md)（三平面模型）· [为什么 Agent Runtime 需要的是控制平面，而不是又一个 wrapper](why_runtime_not_wrapper_zh.md)（接缝与可抽离性）。*

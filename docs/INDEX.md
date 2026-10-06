@@ -61,7 +61,7 @@
 
 ### 我是 **研究者（论文 / bench）**
 - [docs/paper/silent_failures_taxonomy/](paper/silent_failures_taxonomy/) — 论文 #1（arXiv:2606.14589 已发表；IEEE Software in-review；ISSRE 已拒稿 → 期刊优先）
-- [docs/paper/mechanizing_the_eye/](paper/mechanizing_the_eye/) — 论文 #2 LLM-Observer（投稿包完成，arXiv 提交待作者）
+- [docs/paper/mechanizing_the_eye/](paper/mechanizing_the_eye/) — 论文 #2 LLM-Observer（已发表 [arXiv:2610.05981](https://arxiv.org/abs/2610.05981)，2026-10-06）
 - [docs/llm_observer_design.md](llm_observer_design.md) — 机械化人眼设计文档（Stage 0-6 + §9.1 flip 预注册 + §9.2 数据口径预注册）
 - [docs/llm_observer_ground_truth.yaml](llm_observer_ground_truth.yaml) — 24 incident 带标注验证集
 - [docs/fail_plausible_bench.md](fail_plausible_bench.md) / [docs/llm_observer_scorecard.md](llm_observer_scorecard.md) — 社区可跑 bench + scorecard
@@ -103,7 +103,7 @@
 - [docs/articles/audit_is_regression_not_prevention.md](articles/audit_is_regression_not_prevention.md) — 审计是回归引擎不是预防工具
 - [docs/articles/seven_failure_scenarios.md](articles/seven_failure_scenarios.md) — 七个失败场景剖析
 - [docs/articles/when_errors_become_narratives_zh.md](articles/when_errors_become_narratives_zh.md) — 论文 #1 中文解读
-- [docs/articles/mechanizing_the_eye_zh.md](articles/mechanizing_the_eye_zh.md) — 论文 #2 中文科普版（机械化人眼；2026-10-05 投稿同日交付）
+- [docs/articles/mechanizing_the_eye_zh.md](articles/mechanizing_the_eye_zh.md) — 论文 #2 中文科普版（机械化人眼；配套 arXiv:2610.05981，2026-10-05 投稿同日交付）
 - [docs/articles/ai_partnership_first_principles_zh.md](articles/ai_partnership_first_principles_zh.md) — AI 协作第一性原理
 - [docs/articles/expert_escalation_design.md](articles/expert_escalation_design.md) — expert_escalate 设计
 - [docs/articles/zhihu_provider_compatibility.md](articles/zhihu_provider_compatibility.md) — Provider 兼容性话题（知乎）
