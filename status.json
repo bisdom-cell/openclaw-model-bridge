@@ -1,6 +1,6 @@
 {
-  "updated": "2026-10-06 03:40:02",
-  "updated_by": "unknown",
+  "updated": "2026-10-06 04:01:13",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-10-06",
+      "what": "论文 #2 中文科普版知乎发布：https://zhuanlan.zhihu.com/p/2090772315231539352（用户发布）；README 发表物表 / CLAUDE 话语权行「知乎（待发布）」改为链接 + status unfinished (a) 闭环；知乎发表版 HTML/MD 为渲染产物不入库（结尾相对链接换成三篇已发表知乎文章与 GitHub 绝对链接），仓库原文不动；zh md 权限 0600→0644 归一",
+      "by": "claude_code"
+    },
     {
       "date": "2026-10-06",
       "what": "论文 #2 arXiv 公告：submit/8180312 → 永久编号 arXiv:2610.05981（cs.SE 主分类，CC BY 4.0，20 页 4 图）。发布配套镜像 V37.9.154 先例同日落地：README Latest milestone/Highlights/发表物表 + CLAUDE 宪法级 #1 块/话语权表/文件表/V37.9.367 后记 + design doc 头部与 Stage 6 + data_inventory 终版归档段 + DECISIONS_NEEDED 闭环注 + ARXIV_SUBMISSION_GUIDE 4.7 完成注 + docs/INDEX + 中文科普版头尾链接 + draft.md「Published as」注记 + fail_plausible_bench 配套句；占位符清零；论文密码不入库。VERSION 0.37.9.184 不变（纯 doc）",
@@ -172,11 +177,6 @@
     {
       "date": "2026-09-02",
       "what": "V37.9.349 影响力指标机械化: 纲领 §5 R1 三条手工采集命令(S2 引用/PyPI 下载/GitHub star)折进 health_check 每周一周报第 10 段「📣 影响力」(influence_metrics.py, 每源 FAIL-OPEN 不写 0, 历史落 status.json quality.influence 经锁, 零新 job/cron/状态文件); 38 单测 + watchdog err_pattern 契约",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-09-02",
-      "what": "V37.9.348 信息源刷新：project_concepts.yaml 4 个月未更新补宪法级 #1 llm_observer 方向 + 纲领 T2/T3/T5/T6/T8 关键词；arxiv 标题查询退役 ChatGPT/GPT-4 加 Agentic/Tool Use/LLM-as-a-Judge/MCP/Agent Memory 等 + 候选池 50→80；S2/DBLP 关键词 12→16 可靠性族；github_trending 退役 diffusion 加 agentic/mcp-server/llm-evaluation；kb_deep_dive 权重补 observer/MCP/memory 族；rss_blogs +MCP 官方博客(dev 验证) +Hamel/Chip Huyen(Mac Mini 首跑验证)。零新 job（日落法）",
       "by": "claude_code"
     }
   ],
@@ -287,7 +287,7 @@
       "deep_dive OA 全文解析 follow-up (V37.9.183/184) — (1) ✅ 已闭合(V37.9.261/263): Mac Mini grep 实证降级主体=结构性付费墙(no PDF URL derivable, ACM/Elsevier 无 OA 版)非 fetch-path bug, ban-list(V37.9.260)是真杠杆; V37.9.262 OpenAlex 第二源 Mac Mini 实测 0/7 恢复且净负→V37.9.263 回退; 降级率下降 thesis 被证伪, 残余=接受现实(不爬付费墙). (2) 历史 KB 条目仍 PII link(仅新论文受益, V37.9.132 局限, 不补). (3) ✅ V37.9.186: pwc 死路径退役 + TIER↔registry drift 守卫.",
       "【H1-C / C2 (Q4, gated) · C1 选型已完成 V37.9.253】第二实例最小闭环真跑 = 非 Mac Linux host 上 E2E 绿: minimal_runtime + governance cron + 1-2 内容 job(arxiv/dblp) 真抓取→LLM→Discord + cron+nohup 重启存活。选型=PUSH-only 纯推送(绕 Gateway/WhatsApp/sessions), 见 docs/second_instance_poc_selection_20260707.md §5 验收标准。C2 前置(§3, 均可枚举无未知): 持久 Linux host(VPS/容器) + 可达 LLM 端点(REMOTE_BASE_URL) + Discord bot token/channel(DISCORD_CH_*) + 唯一真需新建=Linux bootstrap 脚本(装 py 依赖+起 adapter/proxy nohup+写 crontab, 并行 install_openclaw_macmini.sh)。C3=portability report EN/ZH 证据型文章(对两次评审可迁移性批评终局回答)。",
       "【V37.9.274 · SF1/SF2 已修 · SF3 对抗验证 accept-by-design】(SF1 ✅ 修) ontology_sources/finance_news fetch_failed 守卫 parse-盲已修: parse-fail sys.exit(2) 信号回 shell + 根元素校验(well-formed 反爬 HTML root=html 拦截, 实测证伪初版 catch-ParseError) + PARSE_RC!=0→FETCH_ERRORS++。(SF2 ✅ 修) daily_observer --dry-run 持久化污染已修: append_score_history+_write_observer_to_status 由 if not dry_run 守卫。(SF3 ⏹ 不改) kb_harvest any(ok)→ok 是 V37.9.130 刻意设计(status 枚举供 watchdog 契约, 降级走 map_failed 独立字段), 改成 any(error)→error 会过度告警瞬态混合窗口 → 对抗验证 accept-by-design(镜像 V37.9.273 F2 纪律)。守卫 test_v37_9_274(11 单测)+sabotage。",
-      "【🔴 LLM-Observer 论文 #2 ✅ 已发表 arXiv:2610.05981（2026-10-05 提交 submit/8180312 → 10-06 公告，cs.SE 主分类，CC BY 4.0，20 页 4 图）· 发布配套 ✅ 10-06 落地】链路：V37.9.297 第一稿 → V37.9.333 四决策+v1.0 投稿包 → V37.9.367 v1.1（Postscript P1-P6 + §7 台账 O1-O10，冻结窗 §6 数字零改动）→ 10-05 runbook 第 0-4 步（fired 56/0 → 引用六篇一致 → Overleaf OK → 表单提交，摘要压缩 1,889 字符元数据版）→ 10-06 公告。发布配套已落地：README / CLAUDE / design doc Stage 6 / data_inventory 终版归档 / DECISIONS_NEEDED 闭环 / INDEX / 中文科普版链接 / draft.md Published-as 注记。剩余（全部用户动作或后续独立步骤）: (a) 中文科普版 docs/articles/mechanizing_the_eye_zh.md 知乎发布 → 回报 URL 后 README 发表物表「知乎（待发布）」改链接 (b) cs.AI cross-list 若 Preview 未勾选，在 arXiv「Articles You Own」用 Cross list 动作补 (c) 期刊路线为独立步骤（V37.9.307 期刊优先）(d) influence_metrics.py 现只追踪 2606.14589，是否纳入论文 #2 待首次有可比引用数据再评估（日落法）(e) 论文密码仅作者持有，不入库。",
+      "【🔴 LLM-Observer 论文 #2 ✅ 已发表 arXiv:2610.05981（2026-10-05 提交 submit/8180312 → 10-06 公告，cs.SE 主分类，CC BY 4.0，20 页 4 图）· 发布配套 ✅ 10-06 落地】链路：V37.9.297 第一稿 → V37.9.333 四决策+v1.0 投稿包 → V37.9.367 v1.1（Postscript P1-P6 + §7 台账 O1-O10，冻结窗 §6 数字零改动）→ 10-05 runbook 第 0-4 步（fired 56/0 → 引用六篇一致 → Overleaf OK → 表单提交，摘要压缩 1,889 字符元数据版）→ 10-06 公告。发布配套已落地：README / CLAUDE / design doc Stage 6 / data_inventory 终版归档 / DECISIONS_NEEDED 闭环 / INDEX / 中文科普版链接 / draft.md Published-as 注记。剩余（全部用户动作或后续独立步骤）: (a) ✅ 中文科普版已于 2026-10-06 发布知乎 https://zhuanlan.zhihu.com/p/2090772315231539352（README 发表物表 / CLAUDE 话语权行已改链接） (b) cs.AI cross-list 若 Preview 未勾选，在 arXiv「Articles You Own」用 Cross list 动作补 (c) 期刊路线为独立步骤（V37.9.307 期刊优先）(d) influence_metrics.py 现只追踪 2606.14589，是否纳入论文 #2 待首次有可比引用数据再评估（日落法）(e) 论文密码仅作者持有，不入库。",
       "【2026-07-26 对抗审计 JOB-F1 ✅ V37.9.282 已铺开 · 剩 Mac Mini 被动验证】8 脚本 200-but-unparseable 守卫全部落地 (四类结构分别适配): A. rss_blogs/ai_leaders_blogs XML 全款 (exit 2+根白名单+PARSE_RC→FETCH_ERRORS) / B. bsky JSON 根形状 feed 键校验 / C. dblp+s2 全结果文件解析失败→exit 2→既有 parse_failed 分支 / D. hn/chaspark/freight 单源 fail-loud (parse_failed/fetch_failed 不落 \"无新内容\" ok)。守卫 test_v37_9_282_parse_guard_rollout.py 15 单测 (含 heredoc compile+非空断言) + bsky 既有 pin 演进 (corrupt JSON exit 0→2, FAIL-OPEN 上移 shell 级)。Mac Mini 验证: 同步后各 job 正常日照常 ok; 若未来某源被反爬, watchdog 应出 fetch_failed/parse_failed 告警而非静默 new:0 ok。",
       "【2026-07-26 对抗审计 2 登记项 ✅ V37.9.283 已修 · 剩 Mac Mini 被动验证】(a) NOT-F3 quiet_alert 静默期已收编 notify --channel discord --topic alerts（重试+队列，队列条目 channel=discord 重放不违静默期；V37.8.13 四 pin 零破坏）。(b) NOT-F5 ProxyStats per-key 告警冷却（token_warn/token_critical/consecutive_errors，ALERT_COOLDOWN_SEC=1800 config.yaml 中心化；首报零延迟/窗口内抑制/状态恢复重武装/升级穿透）。Mac Mini 验证: 同步+重启 proxy 后，长 session 过 195K 时告警至多 1 条/30min 非每 turn；静默期 deploy 告警失败应入 notify 队列稍后重放（~/.notify_queue/）而非静默丢失。守卫 test_v37_9_283_alert_cooldown.py 23 单测 + sabotage 双向验证。",
       "【V37.9.279-281 Mac Mini 被动验证】合并+同步后: (a) 279: 次日 06:30 observer 报告若有 fp verdict, LLM critique 段应可见异常块引用 fail-plausible (on 模式评分真集成); score_history 新行有 fp_mode:\"on\" 字段; confidence 只在 L2 grounded 支持时非 1.0 (b) 280: evening \"今日笔记\" 不再含昨日条目; 论文源 parse_failed 日 evening 出\"今日任务异常\"块; harvest 部分 Map 失败日 last_run status=error 且次日重试 (c) 281: notify 队列重放无重复投递; chaspark LLM 失败日次日正常重抓 (seen 不再提前提交); wa_keepalive 日志出现 ESCALATE_FAILED 时 ~/.openclaw_alerts.log 有兜底行。",
@@ -433,7 +433,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-10-02: V37.9.366 OpenClaw 第十四次评估 (2026.9.7) 继续 hold; tripwire [2/6] 43/50 约 2-3 周内触发 (处置按 23.5 预注册). 被动验证: V37.9.365 周报模型行 (10-05 09:00) / WAF 418 重试首次真实触发 / DBLP Anubis [76] 镜像探针.",
+  "focus": "2026-10-06: 论文 #2 arXiv:2610.05981 已发表 + 中文科普版知乎已发布 (https://zhuanlan.zhihu.com/p/2090772315231539352). 剩余: cs.AI cross-list (若未勾选) / 期刊路线独立步骤 / influence_metrics 纳入待首次可比引用. 被动验证: V37.9.366 tripwire [2/6] 43/50 约 2-3 周内触发 (处置按 23.5 预注册) / V37.9.365 周报模型行 / WAF 418 重试 / DBLP [76].",
   "notes": "",
   "preferences": [
     "[auto] 常用工具：read(10次)、sessions_spawn(8次)、sessions_history(8次)",

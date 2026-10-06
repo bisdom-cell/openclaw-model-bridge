@@ -607,7 +607,7 @@ grep -r "BSA[A-Za-z0-9]\{15,\}" . --include="*.py" --include="*.sh" --include="*
 | [When Errors Become Narratives: A Longitudinal Taxonomy of Silent Failures in a Production LLM Agent Runtime](docs/paper/silent_failures_taxonomy/draft.md) | English | [**arXiv:2606.14589**](https://arxiv.org/abs/2606.14589) | **Academic paper** (published 2026-06-15, cs.SE) — fail-plausible concept + 5-class taxonomy from 22 incident postmortems; LaTeX source in [`docs/paper/silent_failures_taxonomy/latex/`](docs/paper/silent_failures_taxonomy/latex/) |
 | [当错误变成叙事（中文科普版）](docs/articles/when_errors_become_narratives_zh.md) | 中文 | [知乎](https://zhuanlan.zhihu.com/p/2049816723541463125) | Popular-science companion to arXiv:2606.14589 — fail-plausible + 五类静默故障 (V37.9.155) |
 | [Mechanizing the User's Eye: Pre-Registered Deployment of a Sabotage-Validated Fail-Plausible Observer in a Production LLM Agent Runtime](docs/paper/mechanizing_the_eye/draft.md) | English | [**arXiv:2610.05981**](https://arxiv.org/abs/2610.05981) | **Academic paper #2** (published 2026-10-06, cs.SE; submitted 2026-10-05) — pre-registered shadow→on deployment of a fail-plausible observer + observer's own incident log O1–O10; LaTeX source in [`docs/paper/mechanizing_the_eye/latex/`](docs/paper/mechanizing_the_eye/latex/) |
-| [机械化人眼（中文科普版）](docs/articles/mechanizing_the_eye_zh.md) | 中文 | 知乎（待发布） | Popular-science companion to paper #2 — 两层观察者 + 预注册部署 + 观察者自身事故账本 O1–O10 |
+| [机械化人眼（中文科普版）](docs/articles/mechanizing_the_eye_zh.md) | 中文 | [知乎](https://zhuanlan.zhihu.com/p/2090772315231539352) | Popular-science companion to paper #2 — 两层观察者 + 预注册部署 + 观察者自身事故账本 O1–O10 |
 
 ## Full Guide
 
