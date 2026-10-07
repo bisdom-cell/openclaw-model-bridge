@@ -46,9 +46,15 @@ def get_embedder():
 
     try:
         from sentence_transformers import SentenceTransformer
-    except ImportError:
-        print("ERROR: 请安装 sentence-transformers: pip3 install sentence-transformers")
-        sys.exit(1)
+    except ImportError as e:
+        # V37.9.370: 库路径不得 print 到 stdout + sys.exit —— 此前 SystemExit 穿透
+        # cross_source_signal_aggregator 的 `except ImportError` FAIL-OPEN（「有 numpy
+        # 无 sentence-transformers」的环境: 2026-10-03 起 dev 镜像即如此），进程 rc=1
+        # 且 --json 的 stdout 被 "ERROR: …" 行污染（MR-11）。库抛 ImportError，由各
+        # 消费方按自己的契约处理；本文件 CLI 入口负责友好提示（见文件末尾）。
+        raise ImportError(
+            "sentence-transformers not installed: pip3 install sentence-transformers"
+        ) from e
 
     _model = SentenceTransformer(MODEL_NAME, cache_folder=CACHE_DIR)
     EMBED_DIM = _model.get_sentence_embedding_dimension()
@@ -122,4 +128,9 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except ImportError as e:
+        # CLI 入口的友好提示走 stderr（库路径自 V37.9.370 起只 raise 不 exit）
+        print(f"ERROR: {e}", file=sys.stderr)
+        sys.exit(1)

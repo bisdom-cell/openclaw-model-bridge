@@ -18,6 +18,8 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import types
+import urllib.error
 from datetime import datetime
 from unittest.mock import patch, MagicMock
 
@@ -342,14 +344,26 @@ class TestOaResolutionV183(unittest.TestCase):
 
     # --- fetch_pdf_text 集成（OA 解析 wire 进 fetch）---
     def test_fetch_pdf_text_uses_oa_resolution_when_direct_fails(self):
-        # DOI URL 直接派生失败 → 调 resolve → 拿到 PDF url → 进 pdfplumber（dev 无库）
-        with patch.object(m, "resolve_oa_pdf_url", return_value="https://x.org/p.pdf") as mk:
+        # DOI URL 直接派生失败 → 调 resolve → 拿到 PDF url → 进入抓取阶段。
+        # V37.9.370: 原断言 "pdfplumber not installed" 把 dev「无 pdfplumber」的环境
+        # 状态写死进了判据 —— 2026-10-03 起 dev 镜像装上 pdfplumber 后测试走到真网络
+        # (代理 403)。改为 hermetic: stub pdfplumber 让 lazy import 在任何环境都成功，
+        # 再把 _urlopen 换成必失败的假网络，断言失败原因里带着 OA 解析出的那个 url。
+        fake_pdfplumber = types.ModuleType("pdfplumber")
+
+        def _boom(url, *args, **kwargs):
+            raise urllib.error.URLError("simulated network failure")
+
+        with patch.dict(sys.modules, {"pdfplumber": fake_pdfplumber}), \
+             patch.object(m, "_urlopen", side_effect=_boom), \
+             patch.object(m, "resolve_oa_pdf_url", return_value="https://x.org/p.pdf") as mk:
             ok, text, reason = m.fetch_pdf_text("https://doi.org/10.1145/3774904.3792985")
         mk.assert_called_once()
         self.assertFalse(ok)
         # 关键：不是 "no PDF URL derivable" — 证明 OA url 被采用并进入抓取
         self.assertNotIn("no PDF URL derivable", reason)
-        self.assertIn("pdfplumber not installed", reason)
+        self.assertIn("https://x.org/p.pdf", reason)
+        self.assertIn("simulated network failure", reason)
 
     def test_fetch_pdf_text_oa_lookup_failed_degrades(self):
         with patch.object(m, "resolve_oa_pdf_url", return_value=None):

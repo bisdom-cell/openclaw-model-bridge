@@ -468,7 +468,13 @@ def main():
     # 预加载模型
     log(f"加载模型: {MODEL_NAME}")
     t0 = time.time()
-    get_embedder()
+    try:
+        get_embedder()
+    except ImportError as e:
+        # V37.9.370: local_embed 库路径改为 raise（不再自行 print+exit）；cron 日志
+        # 仍要一行 ERROR:（匹配 job_watchdog err_pattern）而非整段 Traceback
+        log(f"ERROR: {e}")
+        sys.exit(1)
     # 重新导入更新后的 EMBED_DIM
     from local_embed import EMBED_DIM as dim
     log(f"模型就绪 ({time.time() - t0:.1f}s)，维度: {dim}")
