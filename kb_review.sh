@@ -129,14 +129,30 @@ fi
 
 # ── 2. 调用 Python collector ──
 log "开始 LLM 深度分析（${DAYS} 天回顾，from registry）..."
-COLLECTOR_OUTPUT=$(KB_DIR="$KB_DIR" DAYS="$DAYS" REGISTRY="$REGISTRY" python3 "$COLLECTOR" 2>&1) || {
-    EXIT_CODE=$?
-    log "ERROR: collector exited $EXIT_CODE"
+# V37.9.371: stdout 是数据契约（JSON），stderr 是诊断 —— 分开捕获。
+# 此前 `2>&1` 把 collector 的任何一行 stderr（LLM 重试 WARN / pdfminer 字体
+# 警告 / bs4 XMLParsedAsHTMLWarning）混进 JSON → 下方 json.load 失败 → 一次
+# 成功的运行被记成 parse_error，当日产物整份丢弃（2026-10-07 watchdog CORE
+# 告警实录）。stderr 照常进本日志（最后 20 行），失败时进告警正文。
+_COLLECTOR_ERR_FILE=$(mktemp)
+COLLECTOR_RC=0
+COLLECTOR_OUTPUT=$(KB_DIR="$KB_DIR" DAYS="$DAYS" REGISTRY="$REGISTRY" python3 "$COLLECTOR" 2>"$_COLLECTOR_ERR_FILE") || COLLECTOR_RC=$?
+COLLECTOR_STDERR_LINES=$(wc -l < "$_COLLECTOR_ERR_FILE" | tr -d ' ')
+COLLECTOR_STDERR=$(tail -n 20 "$_COLLECTOR_ERR_FILE")
+rm -f "$_COLLECTOR_ERR_FILE"
+if [ -n "$COLLECTOR_STDERR" ]; then
+    log "collector stderr: ${COLLECTOR_STDERR_LINES} 行（以下最多 20 行，诊断信息，不是 JSON 的一部分）"
+    while IFS= read -r _stderr_line; do
+        log "collector stderr: $_stderr_line"
+    done <<< "$COLLECTOR_STDERR"
+fi
+if [ "$COLLECTOR_RC" -ne 0 ]; then
+    log "ERROR: collector exited $COLLECTOR_RC"
     log "Output: $(echo "$COLLECTOR_OUTPUT" | head -5)"
-    send_alert "collector exited $EXIT_CODE: $(echo "$COLLECTOR_OUTPUT" | head -3 | tr '\n' ' ')"
-    write_status "collector_failed" "unknown" "exit $EXIT_CODE"
+    send_alert "collector exited $COLLECTOR_RC: $(echo "$COLLECTOR_OUTPUT" | head -3 | tr '\n' ' ')$(echo "$COLLECTOR_STDERR" | tail -n 3 | tr '\n' ' ')"
+    write_status "collector_failed" "unknown" "exit $COLLECTOR_RC"
     exit 1
-}
+fi
 
 # ── 3. 解析 JSON 结果 ──
 STATUS=$(echo "$COLLECTOR_OUTPUT" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("status","unknown"))' 2>/dev/null || echo "parse_error")

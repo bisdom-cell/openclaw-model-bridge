@@ -236,6 +236,7 @@ run_suite "v37_9_363_kb_write_callers (V37.9.363 kb_write.sh 调用契约 — �
 run_suite "v37_9_364_chaspark_waf_retry (V37.9.364 茶思屋 API 被华为云 WAF 间歇拦截 HTTP 418 时等待后重试一次 — 真源码抓取块接假 curl/假 sleep 跑: 418→200 继续且日志不被 watchdog 当错误 / 两次 418 仍 error 且可被扫到 / 200·500·curl 失败不重试 / 失败码是 000 不是 000000 / 默认等 120 秒)" "python3 test_v37_9_364_chaspark_waf_retry.py"
 run_suite "v37_9_365_model_route_truth (V37.9.365 周报/诊断「模型」检查测主力不测 fallback 末位 — 真源码抽块接假 curl 喂 adapter /health: 报主力+fallback 链+断路器, OPEN 变红/diagnose 判失败, 接入点 ID 不进输出 / 旧 Qwen3 远端比对退役 / 四个读者同一真理源 / launchd 标签须在 services_registry 登记)" "python3 test_v37_9_365_model_route_truth.py"
 run_suite "v37_9_370_dev_env_hermetic (V37.9.370 dev 镜像装上 numpy/pdfplumber 后三套件变红的根治 — local_embed 库路径只 raise 不 print+exit（aggregator --json FAIL-OPEN 契约在部分依赖缺失时仍纯 JSON+rc 0）/ memory_plane kb 层可导入≠可用（镜像 mm 层查索引 meta）/ kb_deep_dive 测试 hermetic 化；全部不依赖 dev 装了什么)" "python3 test_v37_9_370_dev_env_hermetic.py"
+run_suite "v37_9_371_collector_stderr_contract (V37.9.371 collector stdout=JSON 数据契约 / stderr=诊断 分开捕获 — kb_deep_dive/kb_evening/kb_review 三包装脚本 2>&1 合并致任一行 stderr（LLM 重试 WARN/pdfminer/bs4 警告）把成功运行记成 parse_error 并丢弃当日产物；真源码抽块跑真 bash + 反向证据 + 重试 WARN 不匹配 watchdog err_pattern + 全仓同类扫描)" "python3 test_v37_9_371_collector_stderr_contract.py"
 if [ -f test_movespeed_incident_analyzer.py ]; then
     run_suite "movespeed_incident_analyzer (V37.9.28 F2 — 数据驱动诊断分析工具)" "python3 test_movespeed_incident_analyzer.py"
 fi

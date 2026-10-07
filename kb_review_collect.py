@@ -470,8 +470,26 @@ def call_llm(prompt, timeout=LLM_TIMEOUT, url=PROXY_URL, model=LLM_MODEL, retrie
             return last
         if attempt < retries:
             print(f"[kb_collect] WARN: LLM attempt {attempt + 1}/{retries + 1} "
-                  f"failed ({last[2]}), retrying...", file=sys.stderr)
+                  f"failed ({_attempt_reason_code(last[2])}), retrying...",
+                  file=sys.stderr)
     return last
+
+
+def _attempt_reason_code(reason):
+    """单次尝试失败的原因码，只用于上面那行重试 WARN（V37.9.371）。
+
+    这行 WARN 经包装脚本进入 kb_evening.log / kb_review.log，而这两个日志在
+    job_watchdog 的错误扫描里。重试救回的单次失败不是事故，所以 WARN 用
+    小写下划线形态（http_502 / urlerror / timeouterror），刻意不匹配
+    err_pattern；整轮失败时返回值里的完整原因照旧进 run 级 ERROR 行与告警
+    正文（与 V37.9.292 / V37.9.349 per-attempt 不匹配、run 级匹配的契约一致）。
+    """
+    m = re.match(r"HTTP (\d{3})", reason or "")
+    if m:
+        return f"http_{m.group(1)}"
+    head = (reason or "").split(":", 1)[0]
+    code = re.sub(r"[^a-z0-9]+", "_", head.lower()).strip("_")
+    return code[:40] or "unknown"
 
 
 def _call_llm_once(prompt, timeout=LLM_TIMEOUT, url=PROXY_URL, model=LLM_MODEL):

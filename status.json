@@ -1,6 +1,6 @@
 {
-  "updated": "2026-10-07 01:04:33",
-  "updated_by": "claude_code",
+  "updated": "2026-10-07 09:50:43",
+  "updated_by": "security_score",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-10-07",
+      "what": "V37.9.371 16:30 watchdog CORE「KB每日深度 parse_error」triage → kb_deep_dive/kb_evening/kb_review 三包装脚本 2>&1 把 collector stderr 混进 JSON，任一行 stderr（LLM 重试 WARN / pdfminer / bs4 警告）都让成功运行判 parse_error 并丢弃当日产物；V37.9.306 evening 重试的成功路径因此在生产从未到达用户。修：stdout/stderr 分开捕获（stderr 末 20 行进日志、崩溃告警带 stderr 末尾、临时文件即删）+ 重试 WARN 改原因码不匹配 watchdog err_pattern；新守卫 test_v37_9_371 19 单测含真 bash 抽块 + 反向证据 + 全仓同类扫描，sabotage 四连开火；VERSION 0.37.9.185→0.37.9.186。其余四条告警定性：DBLP Anubis 已登记 / ai_leaders_x 429 已知 / Yahoo Finance 404 观察一周",
+      "by": "claude_code"
+    },
     {
       "date": "2026-10-07",
       "what": "V37.9.370 dev 镜像 10-03 装上 numpy/pdfplumber/bs4 后干净 main 三套件变红（305/kb_deep_dive/memory_plane）根治：local_embed 库路径只 raise 不 print+exit（aggregator --json FAIL-OPEN 契约在部分依赖缺失时第一次真成立，此前 rc=1 + stdout 污染=真生产代码 bug）+ kb_embed 预加载 ERROR: 行守卫 + memory_plane kb 层可导入≠可用镜像 mm 层查索引 meta + kb_deep_dive 测试 hermetic 化；新守卫 test_v37_9_370 14 单测 sabotage 四连开火；VERSION 0.37.9.184→0.37.9.185",
@@ -173,11 +178,6 @@
       "date": "2026-09-06",
       "what": "V37.9.350 后记: Mac Mini 合并 #927 同步 + preflight --full 87/0/2; check_upgrade.sh 仓库模式 100644→100755 (preflight 4/19 警告根因, cron 经 bash 调用不受影响); KB 覆盖 99% 由 03:30 kb_embed 自愈",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-09-02",
-      "what": "V37.9.349-hotfix2: bash -lc 复测 S2 走 key 得引用 0(真实测量) / PyPI TLS EOF 断连(交互 shell 上一轮通) → tls_failed 单独归类 + 原因截 48 + 传输层失败 WARN 附 python/OpenSSL 版本; 根因(PATH→不同 python3/SSL 库 vs 瞬态)待 Mac Mini 两条对照命令定性, 刻意不加重试",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -226,7 +226,7 @@
     "security_score": "98/100 (98.0%)",
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB",
     "slo": {
-      "checked_at": "2026-10-07 00:53:17",
+      "checked_at": "2026-10-07 09:37:52",
       "all_ok": true,
       "judged_count": 1,
       "na_count": 4,
@@ -352,23 +352,24 @@
       "[V37.9.362/363/364 生产验证全部通过 ✅ 2026-09-29] 财经 07:30: 笔记 1 条 7632 字节、topics/finance-news.md 首次出现、finance_daily.md 日期段 0→1。茶思屋: 11:00:01 与 13:08:32 两次 HTTP 418 (华为云 CloudWAF) → V37.9.364 加 418 重试 → 合并同步后 15:23 手动补跑 status ok / new 8 / sent true, 笔记 1 条 (tags chaspark)、topics/chaspark.md 当日 1 条、chaspark.md 日期段 121→122、当日段正文 154 行。两个备份文件已删 ✅ (09-29)。剩: (a) grep 'WAF 拦截' ~/.openclaw/logs/jobs/chaspark.log 09-29 为 0 行 = 15:23 那次首请求即 200、重试尚未真实触发过; 之后出现「被 WAF 拦截」+「重试结果: 状态码 200」即重试救回, 状态码 418 即重试无效需另议 (b) Windows kb 模块 rc=25 09-29/09-30 两早属预期, 10-01 回 rc=0。",
       "[V37.9.365 Mac Mini 被动验证] 同步后 bash diagnose.sh 的【3/7】应显主力 doubao_21 + fallback 4 跳 + 断路器 closed（且不出现 ep- 接入点 ID）；10-05 周一 09:00 周报「🤖 模型」行应形如「🟢 主力 doubao_21 | fallback 4 跳 (…) | 断路器 closed」；~/.kb/health_status.json 的 model 键为 primary/fallback_chain/circuit_breaker/reachable",
       "【V37.9.370 Mac Mini 被动验证】合并 + git fetch+reset 同步（local_embed.py / kb_embed.py / memory_plane.py 走 FILE_MAP）+ 重启 proxy（memory_plane 新判据加载）后：sentence-transformers 在场故零行为变化——03:30 kb_embed 照常；`python3 ~/memory_plane.py stats` 的 kb 层仍 [OK] 且带 total_chunks；若某日 kb 层显示 UNAVAIL reason=text_index/meta.json not found = 索引真丢了（盲区解除非新 bug）。",
-      "【低优登记 · 不改机器】CLAUDE.md changelog 归档触发判据：按行数（~70-80 行）对「行变大」不敏感（V37.9.369 实录：70 行时已 ~600KB，124 行 979KB 才轮到第四轮）。下轮归档建议按字节（内联段 >400KB）触发；届时只需改边界值 + 搬行（V37.9.278 头注去数字化设计仍成立）。"
+      "【低优登记 · 不改机器】CLAUDE.md changelog 归档触发判据：按行数（~70-80 行）对「行变大」不敏感（V37.9.369 实录：70 行时已 ~600KB，124 行 979KB 才轮到第四轮）。下轮归档建议按字节（内联段 >400KB）触发；届时只需改边界值 + 搬行（V37.9.278 头注去数字化设计仍成立）。",
+      "【V37.9.371 Mac Mini 取证 + 被动验证】合并同步后：(a) Discord #alerts 找 10-06 22:30 之后那条「kb_deep_dive 失败 / 原因: collector 输出非法 JSON: …」正文 = 当晚混进 JSON 的 stderr 行（预期 pdfminer 字体警告类）(b) grep -c 三个日志「collector 输出非法 JSON」= 历史丢产物天数下限 (c) 今晚 22:00 evening / 22:30 deep_dive 后 last_run 应为 ok；日志若有「collector stderr: N 行」而状态仍 ok = 修复生效。另 finance_news Yahoo Finance 404（10-07 首见）观察一周，持续则按 V37.9.266 NBER 先例剔除。"
     ],
     "open_prs": [],
     "blocked_on": "",
-    "focus": "2026-10-07: V37.9.369 第四轮 changelog 归档（979KB→559KB）+ V37.9.370 dev 镜像装 numpy 后三套件变红根治（local_embed 库路径 raise / memory_plane kb 层可用性 / deep_dive 测试 hermetic）。待用户: 合并 PR → git fetch+reset 同步 + 重启 proxy。被动验证: V37.9.366 tripwire [2/6] 45/50 预计 10-12 或 10-19 触发（按 23.5 预注册处置）/ V37.9.365 周报模型行 / WAF 418 重试 / DBLP [69]。论文 #2 剩余: cs.AI cross-list（若未勾选）/ 期刊路线 / influence_metrics 纳入待首次可比引用。",
+    "focus": "2026-10-07: V37.9.369 第四轮 changelog 归档 + V37.9.370 dev 镜像三套件根治（PR#955 已合并）+ V37.9.371 collector stdout/stderr 分离（三包装脚本 parse_error 假失败根治）。待用户: 合并新 PR → git fetch+reset 同步 + 重启 proxy（V37.9.370 memory_plane）→ Discord #alerts 取证 10-06 deep_dive 那条告警正文。被动验证: tripwire [2/6] 45/50 预计 10-12 或 10-19 触发（按 23.5 预注册处置）/ WAF 418 重试 / DBLP [69] / Yahoo Finance 404 观察一周。",
     "recent_changes": []
   },
   "quality": {
     "security_score": 98,
-    "test_count": 6713,
-    "last_regression": "2026-10-07 01:03 pass",
+    "test_count": 6732,
+    "last_regression": "2026-10-07 09:49 pass",
     "coverage_pct": 0,
     "security_score_time": "2026-07-20 01:07",
-    "test_suites": 205,
+    "test_suites": 206,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
-    "version": "0.37.9.185",
+    "version": "0.37.9.186",
     "observer": {}
   },
   "incidents": [
