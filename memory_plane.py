@@ -65,9 +65,19 @@ class LayerStatus:
 # Layer: KB Semantic Search
 # ---------------------------------------------------------------------------
 def _kb_available():
-    """Check if KB RAG layer is available."""
+    """Check if KB RAG layer is available.
+
+    V37.9.370: 镜像 _mm_available —— 「可导入」≠「可用」。此前只检查 kb_rag 可导入；
+    dev 镜像装上 numpy（2026-10-03）后本层报 available，而 _kb_stats 因
+    text_index/meta.json 不存在把异常吞成 {} → `memory_plane.py stats` 显示
+    「[OK] kb」却零字段（坏了与没结果同形，V37.9.288 B-F2 家族）。索引 meta 不在
+    即诚实报不可用（与 mm 层同一判据）；query() 随之跳过本层，不再走到 kb_rag 的
+    sys.exit 路径。生产（Mac Mini 索引常在）行为不变。
+    """
     try:
-        from kb_rag import search as _search, show_stats
+        from kb_rag import search as _search, show_stats, META_FILE
+        if not os.path.exists(META_FILE):
+            return False, "text_index/meta.json not found"
         return True, ""
     except ImportError as e:
         return False, str(e)

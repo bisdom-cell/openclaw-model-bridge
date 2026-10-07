@@ -13,7 +13,7 @@
 1. **[README.md](../README.md)** — 项目入口，5 分钟了解全貌（四平面架构、13-provider 矩阵、quickstart）
 2. **[docs/FEATURES.md](FEATURES.md)** — 系统特性一览表（一张表看完所有能力）
 3. **[docs/GUIDE.md](GUIDE.md)** — 完整双语集成指南 + 27 条生产教训
-4. **[CLAUDE.md](../CLAUDE.md)** — 项目背景 + 第 0 号宪法 + 36 条工作原则 + 近期 changelog（**最长但最重要**，AI 协作必读；V37.9.239 及更早 changelog 见 `docs/changelog.md`）
+4. **[CLAUDE.md](../CLAUDE.md)** — 项目背景 + 第 0 号宪法 + 36 条工作原则 + 近期 changelog（**最长但最重要**，AI 协作必读；V37.9.325 及更早 changelog 见 `docs/changelog.md`）
 
 ---
 
@@ -114,7 +114,7 @@
 
 不再维护但保留作为历史档案（内容为写作当时快照）：
 
-- [docs/changelog.md](changelog.md) — V27 ~ V37.9.239 完整 changelog（301 版，三轮归档）
+- [docs/changelog.md](changelog.md) — V27 ~ V37.9.325 完整 changelog（387 版，四轮归档）
 - [docs/archive/](archive/) — 早期知乎文章历史版本、数据清洗 PoC Phase 0
 - [docs/awesome_openclaw_usecase.md](awesome_openclaw_usecase.md) — awesome-openclaw 投稿稿（V37.8.13 快照）
 - [docs/ai_leaders_source_alternatives.md](ai_leaders_source_alternatives.md) — ai_leaders 信息源调研（V37.9.102）

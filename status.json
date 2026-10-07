@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-06 04:01:13",
+  "updated": "2026-10-07 01:04:33",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -79,6 +79,16 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-10-07",
+      "what": "V37.9.370 dev 镜像 10-03 装上 numpy/pdfplumber/bs4 后干净 main 三套件变红（305/kb_deep_dive/memory_plane）根治：local_embed 库路径只 raise 不 print+exit（aggregator --json FAIL-OPEN 契约在部分依赖缺失时第一次真成立，此前 rc=1 + stdout 污染=真生产代码 bug）+ kb_embed 预加载 ERROR: 行守卫 + memory_plane kb 层可导入≠可用镜像 mm 层查索引 meta + kb_deep_dive 测试 hermetic 化；新守卫 test_v37_9_370 14 单测 sabotage 四连开火；VERSION 0.37.9.184→0.37.9.185",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-10-07",
+      "what": "V37.9.369 CLAUDE.md changelog 第四轮归档：内联 124→38 行（V37.9.325→240 共 86 行迁 docs/changelog.md，301→387 版，守恒 425），979KB→559KB；头注/尾指针/INDEX 边界同步四轮口径；归档前治理与 11 个引用测试只读预检；纯 doc VERSION 不变",
+      "by": "claude_code"
+    },
     {
       "date": "2026-10-06",
       "what": "论文 #2 中文科普版知乎发布：https://zhuanlan.zhihu.com/p/2090772315231539352（用户发布）；README 发表物表 / CLAUDE 话语权行「知乎（待发布）」改为链接 + status unfinished (a) 闭环；知乎发表版 HTML/MD 为渲染产物不入库（结尾相对链接换成三篇已发表知乎文章与 GitHub 绝对链接），仓库原文不动；zh md 权限 0600→0644 归一",
@@ -168,16 +178,6 @@
       "date": "2026-09-02",
       "what": "V37.9.349-hotfix2: bash -lc 复测 S2 走 key 得引用 0(真实测量) / PyPI TLS EOF 断连(交互 shell 上一轮通) → tls_failed 单独归类 + 原因截 48 + 传输层失败 WARN 附 python/OpenSSL 版本; 根因(PATH→不同 python3/SSL 库 vs 瞬态)待 Mac Mini 两条对照命令定性, 刻意不加重试",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-09-02",
-      "what": "V37.9.349-hotfix: Mac Mini 首跑 S2 http_429 → influence_metrics 429 重试恰一次 + :anon/:key 后缀; health_check.sh 补 source .bash_profile‖.env_shared 标准行(手跑=cron env). PyPI 周下载 2 / ⭐10 fork 1 首次实测入眼",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-09-02",
-      "what": "V37.9.349 影响力指标机械化: 纲领 §5 R1 三条手工采集命令(S2 引用/PyPI 下载/GitHub star)折进 health_check 每周一周报第 10 段「📣 影响力」(influence_metrics.py, 每源 FAIL-OPEN 不写 0, 历史落 status.json quality.influence 经锁, 零新 job/cron/状态文件); 38 单测 + watchdog err_pattern 契约",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -226,7 +226,7 @@
     "security_score": "98/100 (98.0%)",
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB",
     "slo": {
-      "checked_at": "2026-10-05 07:20:52",
+      "checked_at": "2026-10-07 00:53:17",
       "all_ok": true,
       "judged_count": 1,
       "na_count": 4,
@@ -260,7 +260,7 @@
     }
   },
   "session_context": {
-    "last_session": "2026-10-02",
+    "last_session": "2026-10-07",
     "unfinished": [
       "【2026-07-02 多镜头审计 · 9 findings 全部处置完毕 (V37.9.226-239: 8 修复闭环 + I half-open 登记为可接受设计 tradeoff) · 剩纯 Mac Mini 被动验证】同步+重启 proxy/adapter 后观察: (A) 真 fallback 时 proxy 日志 DEGRADED 行 + proxy_stats.json slo.fallback_count 变真值 (V37.9.229) (C) ls ~/.kb/status.json.lock ~/.kb/audit.jsonl.lock 伴生锁文件出现 (V37.9.238) (E) client 断开时 adapter.log 记 CLIENT GONE 单行非 traceback (V37.9.231/242) (B) streaming 请求撞 parse 异常时 Gateway 收 SSE 而非 content-type 错配 (V37.9.239) (G) last_run_self_critique.json time 本地格式 + watchdog 4h 覆盖 observer (V37.9.230)。完整分诊记录见 CLAUDE.md V37.9.226-239 changelog, 无 dev 剩余动作。",
       "【V37.9.211/212 Qwen3 端点刷新 · adapter ✅ + V37.9.212 ✅ 已并入 main(PR#774, 2026-07-02 dev 核实) · 剩用户 env 动作】剩余非紧急: (A) .env_shared 设新 REMOTE_API_KEY+REMOTE_BASE_URL(cron 直连脚本 health_check 每周报 CURRENT_MODEL/diagnose 用) (C) 🔴 明文 key 建议用完轮换。教训钉死: adapter/proxy 是 launchd job, env 改必须进 plist EnvironmentVariables + bootout/bootstrap(不是 shell export + kickstart)。",
@@ -350,25 +350,25 @@
       "【V37.9.362 sources 归档段契约 · Mac Mini 被动验证】合并 + git fetch+reset 同步（6 文件走 FILE_MAP 零重启）后: (a) 今晚 20:00 arxiv 若有新论文写 `## 2026-09-28 20:00` 段（今早 08:00 旧格式 `## 2026-09-28` 并存正常）(b) 三源计数: finance 1 ✅ / chaspark 1 ✅ (09-29 实测) / arxiv 两班次待核 (c) 明晚晚间整理「今日覆盖源」应出现财经、茶思屋停跑日应列为今日无更新 (d) 下周五 21:00 周回顾素材应横跨 7 天。茶思屋历史补标题 ✅ 已执行（2026-09-28 12:37:06，逐块核对 121/121 日报块前均紧跟同日期标题、缺 0；备份 ~/.kb/sources/chaspark.md.bak.v37_9_362 含 121 块 0 日期段 = 今日 11:00 仍是旧代码运行，与财经 07:30 无日期段一致）。注: 该补标题命令判「已有标题」看前 3 行任意 `## `，上一块短于 3 行时会漏补本块（dev 复核时发现，真实日报块均 ≥6 行未触发，实测 0 缺）。",
       "[低优观察 V37.9.363] kb_write.sh 笔记文件名只精确到秒: 同一秒两次写入后者覆盖前者且 index 留两条 (dev 清理测试撞到); 生产各 job 写入相隔数分钟风险低, 若出现 index 条目 summary 与文件正文不符再处理",
       "[V37.9.362/363/364 生产验证全部通过 ✅ 2026-09-29] 财经 07:30: 笔记 1 条 7632 字节、topics/finance-news.md 首次出现、finance_daily.md 日期段 0→1。茶思屋: 11:00:01 与 13:08:32 两次 HTTP 418 (华为云 CloudWAF) → V37.9.364 加 418 重试 → 合并同步后 15:23 手动补跑 status ok / new 8 / sent true, 笔记 1 条 (tags chaspark)、topics/chaspark.md 当日 1 条、chaspark.md 日期段 121→122、当日段正文 154 行。两个备份文件已删 ✅ (09-29)。剩: (a) grep 'WAF 拦截' ~/.openclaw/logs/jobs/chaspark.log 09-29 为 0 行 = 15:23 那次首请求即 200、重试尚未真实触发过; 之后出现「被 WAF 拦截」+「重试结果: 状态码 200」即重试救回, 状态码 418 即重试无效需另议 (b) Windows kb 模块 rc=25 09-29/09-30 两早属预期, 10-01 回 rc=0。",
-      "[V37.9.365 Mac Mini 被动验证] 同步后 bash diagnose.sh 的【3/7】应显主力 doubao_21 + fallback 4 跳 + 断路器 closed（且不出现 ep- 接入点 ID）；10-05 周一 09:00 周报「🤖 模型」行应形如「🟢 主力 doubao_21 | fallback 4 跳 (…) | 断路器 closed」；~/.kb/health_status.json 的 model 键为 primary/fallback_chain/circuit_breaker/reachable"
+      "[V37.9.365 Mac Mini 被动验证] 同步后 bash diagnose.sh 的【3/7】应显主力 doubao_21 + fallback 4 跳 + 断路器 closed（且不出现 ep- 接入点 ID）；10-05 周一 09:00 周报「🤖 模型」行应形如「🟢 主力 doubao_21 | fallback 4 跳 (…) | 断路器 closed」；~/.kb/health_status.json 的 model 键为 primary/fallback_chain/circuit_breaker/reachable",
+      "【V37.9.370 Mac Mini 被动验证】合并 + git fetch+reset 同步（local_embed.py / kb_embed.py / memory_plane.py 走 FILE_MAP）+ 重启 proxy（memory_plane 新判据加载）后：sentence-transformers 在场故零行为变化——03:30 kb_embed 照常；`python3 ~/memory_plane.py stats` 的 kb 层仍 [OK] 且带 total_chunks；若某日 kb 层显示 UNAVAIL reason=text_index/meta.json not found = 索引真丢了（盲区解除非新 bug）。",
+      "【低优登记 · 不改机器】CLAUDE.md changelog 归档触发判据：按行数（~70-80 行）对「行变大」不敏感（V37.9.369 实录：70 行时已 ~600KB，124 行 979KB 才轮到第四轮）。下轮归档建议按字节（内联段 >400KB）触发；届时只需改边界值 + 搬行（V37.9.278 头注去数字化设计仍成立）。"
     ],
-    "open_prs": [
-      "claude/sleepy-dijkstra-c86f8l（203255d 论文 #2 中文科普版 + 2026-10-06 arXiv:2610.05981 发布配套，待用户开 PR 合并；fdacd4a/b890d79 已随 PR#952 并入 main）"
-    ],
+    "open_prs": [],
     "blocked_on": "",
-    "focus": "2026-10-06: 论文 #2 arXiv 公告 → 永久编号 arXiv:2610.05981（cs.SE / CC BY 4.0 / 20 页 4 图），发布配套已同日落地（README/CLAUDE/design doc/data_inventory/INDEX/中文科普版/status），占位符清零，VERSION 0.37.9.184 不变。V37.9.368 OpenClaw 2026.9.8 到期读数：日落规则首次走追加分支（25.6），继续 hold，LAST_EVAL_DATE 保持 10-02；tripwire [2/6] 45/50 预计 10-12 或 10-19 触发（按 23.5 预注册处置）。被动验证: V37.9.365 周报模型行（10-05 09:00 首跑）/ check_upgrade 10-05 09:10 首次以 LAST_EVAL_DATE=10-02 运行。待用户: 合并分支 claude/sleepy-dijkstra-c86f8l（203255d 中文科普版 + 本次发布配套）后 Mac Mini git fetch+reset 同步（纯 doc 零重启）。",
+    "focus": "2026-10-07: V37.9.369 第四轮 changelog 归档（979KB→559KB）+ V37.9.370 dev 镜像装 numpy 后三套件变红根治（local_embed 库路径 raise / memory_plane kb 层可用性 / deep_dive 测试 hermetic）。待用户: 合并 PR → git fetch+reset 同步 + 重启 proxy。被动验证: V37.9.366 tripwire [2/6] 45/50 预计 10-12 或 10-19 触发（按 23.5 预注册处置）/ V37.9.365 周报模型行 / WAF 418 重试 / DBLP [69]。论文 #2 剩余: cs.AI cross-list（若未勾选）/ 期刊路线 / influence_metrics 纳入待首次可比引用。",
     "recent_changes": []
   },
   "quality": {
     "security_score": 98,
-    "test_count": 6708,
-    "last_regression": "2026-10-05 07:31 pass",
+    "test_count": 6713,
+    "last_regression": "2026-10-07 01:03 pass",
     "coverage_pct": 0,
     "security_score_time": "2026-07-20 01:07",
-    "test_suites": 204,
+    "test_suites": 205,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
-    "version": "0.37.9.184",
+    "version": "0.37.9.185",
     "observer": {}
   },
   "incidents": [
