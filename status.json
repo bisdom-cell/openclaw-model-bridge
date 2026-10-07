@@ -1,6 +1,6 @@
 {
-  "updated": "2026-10-07 09:50:43",
-  "updated_by": "security_score",
+  "updated": "2026-10-07 09:56:05",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -353,7 +353,7 @@
       "[V37.9.365 Mac Mini 被动验证] 同步后 bash diagnose.sh 的【3/7】应显主力 doubao_21 + fallback 4 跳 + 断路器 closed（且不出现 ep- 接入点 ID）；10-05 周一 09:00 周报「🤖 模型」行应形如「🟢 主力 doubao_21 | fallback 4 跳 (…) | 断路器 closed」；~/.kb/health_status.json 的 model 键为 primary/fallback_chain/circuit_breaker/reachable",
       "【V37.9.370 Mac Mini 被动验证】合并 + git fetch+reset 同步（local_embed.py / kb_embed.py / memory_plane.py 走 FILE_MAP）+ 重启 proxy（memory_plane 新判据加载）后：sentence-transformers 在场故零行为变化——03:30 kb_embed 照常；`python3 ~/memory_plane.py stats` 的 kb 层仍 [OK] 且带 total_chunks；若某日 kb 层显示 UNAVAIL reason=text_index/meta.json not found = 索引真丢了（盲区解除非新 bug）。",
       "【低优登记 · 不改机器】CLAUDE.md changelog 归档触发判据：按行数（~70-80 行）对「行变大」不敏感（V37.9.369 实录：70 行时已 ~600KB，124 行 979KB 才轮到第四轮）。下轮归档建议按字节（内联段 >400KB）触发；届时只需改边界值 + 搬行（V37.9.278 头注去数字化设计仍成立）。",
-      "【V37.9.371 Mac Mini 取证 + 被动验证】合并同步后：(a) Discord #alerts 找 10-06 22:30 之后那条「kb_deep_dive 失败 / 原因: collector 输出非法 JSON: …」正文 = 当晚混进 JSON 的 stderr 行（预期 pdfminer 字体警告类）(b) grep -c 三个日志「collector 输出非法 JSON」= 历史丢产物天数下限 (c) 今晚 22:00 evening / 22:30 deep_dive 后 last_run 应为 ok；日志若有「collector stderr: N 行」而状态仍 ok = 修复生效。另 finance_news Yahoo Finance 404（10-07 首见）观察一周，持续则按 V37.9.266 NBER 先例剔除。"
+      "【V37.9.371 Mac Mini 被动验证】取证已对账（10-07）: last_run_deep_dive.json=10-06 parse_error；「collector 输出非法 JSON」deep_dive 2 次（05-01、10-06）/ evening 0 / review 0 → 306 重试救回场景生产未发生，实际损失=深度分析 2 天。剩余: (a) 可选 Discord #alerts 查 10-06 那条告警正文看是哪行 stderr (b) 合并同步后今晚 22:00 evening / 22:30 deep_dive 的 last_run 应为 ok，日志若出现「collector stderr: N 行」而状态仍 ok = 修复生效。另 finance_news Yahoo Finance 404（10-07 首见）观察一周，持续则按 V37.9.266 NBER 先例剔除。"
     ],
     "open_prs": [],
     "blocked_on": "",
